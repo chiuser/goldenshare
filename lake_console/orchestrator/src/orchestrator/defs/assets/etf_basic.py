@@ -12,6 +12,7 @@ import dagster as dg
 import duckdb
 
 from orchestrator.defs.duckdb_sql import (
+    copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
     read_parquet,
@@ -23,6 +24,7 @@ from orchestrator.defs.paths import (
     etf_basic_staging_path,
     lake_path_template,
     raw_etf_basic_snapshot_path,
+    silver_etf_basic_snapshot_path,
 )
 from orchestrator.defs.resources import (
     DuckDBResource,
@@ -31,6 +33,7 @@ from orchestrator.defs.resources import (
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_ETF_BASIC_SCHEMA,
+    SILVER_ETF_BASIC_SCHEMA,
 )
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
@@ -45,6 +48,9 @@ from orchestrator.defs.run_contracts.etf_basic import (
     ETF_BASIC_SILVER_SUFFIXES,
     ETF_BASIC_SOURCE_API,
     ETF_BASIC_SOURCE_COLUMNS,
+    EtfBasicRawSnapshotReference,
+    EtfBasicSilverConfig,
+    compute_etf_basic_silver_content_hash,
     compute_etf_basic_snapshot_hash,
 )
 from orchestrator.defs.run_contracts.metadata import (
@@ -58,11 +64,19 @@ from orchestrator.utils.dg_log_helper import DgStdoutLogger
 ETF_BASIC_RAW_COLUMN_TYPES = {
     column.name: column.type for column in RAW_TUSHARE_ETF_BASIC_SCHEMA
 }
+ETF_BASIC_SILVER_COLUMN_TYPES = {
+    column.name: column.type for column in SILVER_ETF_BASIC_SCHEMA
+}
 ETF_BASIC_RAW_DESCRIPTION = (
     "从 Tushare 保存无业务过滤的 ETF 基础信息完整快照，包含沪深场内和源端其它后缀/状态；"
     "供同版 Silver 和后续分钟范围校验追溯。"
 )
-LOGGER = DgStdoutLogger("etf_basic.raw")
+ETF_BASIC_SILVER_DESCRIPTION = (
+    "把指定 Raw 快照标准化为 `.SH/.SZ` 全状态 ETF 基础信息，不按上市状态或日期再筛选；"
+    "供 ETF 分钟任务冻结当次请求范围。"
+)
+RAW_LOGGER = DgStdoutLogger("etf_basic.raw")
+SILVER_LOGGER = DgStdoutLogger("etf_basic.silver")
 
 
 class EtfBasicSnapshotValidationError(RuntimeError):
@@ -107,6 +121,49 @@ class EtfBasicRawSnapshotWriteResult:
     status_counts: dict[str, int]
     suffix_counts: dict[str, int]
     list_date_null_counts: dict[str, object]
+    write_mode: str
+
+
+@dataclass(frozen=True)
+class EtfBasicSilverSnapshotAudit:
+    path: Path
+    raw_path: Path | None
+    observed_columns: tuple[str, ...]
+    observed_types: tuple[str, ...]
+    row_count: int
+    rows: tuple[dict[str, object], ...]
+    source_filter_failures: tuple[str, ...]
+    key_domain_failures: tuple[str, ...]
+    content_hash_failures: tuple[str, ...]
+    silver_content_hash: str | None
+    filtered_out_count: int
+    status_counts: dict[str, int]
+    suffix_counts: dict[str, int]
+    failure_counts: dict[str, int]
+    failure_samples: tuple[dict[str, object], ...]
+
+    @property
+    def passed(self) -> bool:
+        return not (
+            self.source_filter_failures
+            or self.key_domain_failures
+            or self.content_hash_failures
+        )
+
+
+@dataclass(frozen=True)
+class EtfBasicSilverSnapshotWriteResult:
+    target_path: Path
+    staging_path: Path
+    raw_path: Path
+    raw_snapshot_hash: str
+    raw_observed_at: str
+    observed_at: str
+    row_count: int
+    silver_content_hash: str
+    filtered_out_count: int
+    status_counts: dict[str, int]
+    suffix_counts: dict[str, int]
     write_mode: str
 
 
@@ -387,6 +444,7 @@ def _prepare_atomic_paths(
     lake_root_path: Path,
     staging_root_path: Path,
     staging_path: Path,
+    formal_dataset_root: Path,
 ) -> None:
     if not lake_root_path.is_dir():
         raise EtfBasicSnapshotValidationError(
@@ -401,7 +459,6 @@ def _prepare_atomic_paths(
             "etf_basic_staging_filesystem_mismatch: staging and formal Lake must "
             "share one filesystem for atomic os.replace."
         )
-    formal_dataset_root = lake_root_path / "raw" / "tushare" / "etf_basic"
     formal_dataset_root.mkdir(parents=True, exist_ok=True)
     staging_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -422,6 +479,7 @@ def write_etf_basic_raw_snapshot(
         lake_root_path=lake_root_path,
         staging_root_path=staging_root_path,
         staging_path=staging_path,
+        formal_dataset_root=lake_root_path / "raw" / "tushare" / "etf_basic",
     )
 
     fetch_metadata = fetch_tushare_full_file_to_raw(
@@ -530,6 +588,384 @@ def build_etf_basic_raw_materialization_metadata(
     )
 
 
+def _etf_basic_silver_select_sql(raw_path: Path) -> str:
+    return f"""
+SELECT
+  ts_code,
+  csname,
+  extname,
+  cname,
+  index_code,
+  index_name,
+  try_strptime(setup_date, '%Y%m%d')::DATE AS setup_date,
+  try_strptime(list_date, '%Y%m%d')::DATE AS list_date,
+  list_status,
+  exchange,
+  mgr_name,
+  custod_name,
+  CAST(mgt_fee AS DECIMAL(12, 6)) AS mgt_fee,
+  etf_type
+FROM {read_parquet(raw_path, hive_partitioning=False)}
+WHERE ends_with(ts_code, '.SH') OR ends_with(ts_code, '.SZ')
+ORDER BY ts_code
+"""
+
+
+def _read_silver_snapshot_rows(
+    *,
+    path: Path,
+    duckdb_resource: DuckDBResource,
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[dict[str, object], ...], int]:
+    with duckdb_resource.connect() as connection:
+        description = connection.execute(
+            describe_parquet_query(path, hive_partitioning=False)
+        ).fetchall()
+        observed_columns = tuple(str(row[0]) for row in description)
+        observed_types = tuple(str(row[1]).upper() for row in description)
+        row_count = int(
+            connection.execute(
+                count_parquet_query(path, hive_partitioning=False)
+            ).fetchone()[0]
+        )
+        if observed_columns != ETF_BASIC_SOURCE_COLUMNS:
+            return observed_columns, observed_types, (), row_count
+        selected_rows = connection.execute(
+            "SELECT "
+            + ", ".join(ETF_BASIC_SOURCE_COLUMNS)
+            + f" FROM {read_parquet(path, hive_partitioning=False)}"
+        ).fetchall()
+    rows = tuple(
+        dict(zip(ETF_BASIC_SOURCE_COLUMNS, row, strict=True)) for row in selected_rows
+    )
+    return observed_columns, observed_types, rows, row_count
+
+
+def _silver_reconciliation_counts(
+    *,
+    raw_path: Path,
+    silver_path: Path,
+    duckdb_resource: DuckDBResource,
+) -> tuple[int, int, int, int, tuple[str, ...]]:
+    expected_sql = _etf_basic_silver_select_sql(raw_path)
+    silver_relation = read_parquet(silver_path, hive_partitioning=False)
+    columns = ", ".join(ETF_BASIC_SOURCE_COLUMNS)
+    with duckdb_resource.connect() as connection:
+        filtered_out_count = int(
+            connection.execute(
+                "SELECT count(*) FROM "
+                f"{read_parquet(raw_path, hive_partitioning=False)} "
+                "WHERE NOT (ends_with(ts_code, '.SH') OR ends_with(ts_code, '.SZ'))"
+            ).fetchone()[0]
+        )
+        missing_codes = tuple(
+            str(row[0])
+            for row in connection.execute(
+                f"SELECT ts_code FROM ({expected_sql}) "
+                f"EXCEPT SELECT ts_code FROM {silver_relation} ORDER BY ts_code"
+            ).fetchall()
+        )
+        extra_codes = tuple(
+            str(row[0])
+            for row in connection.execute(
+                f"SELECT ts_code FROM {silver_relation} "
+                f"EXCEPT SELECT ts_code FROM ({expected_sql}) ORDER BY ts_code"
+            ).fetchall()
+        )
+        raw_minus_silver = int(
+            connection.execute(
+                "SELECT count(*) FROM ("
+                f"SELECT {columns} FROM ({expected_sql}) "
+                f"EXCEPT ALL SELECT {columns} FROM {silver_relation}"
+                ") AS differences"
+            ).fetchone()[0]
+        )
+        silver_minus_raw = int(
+            connection.execute(
+                "SELECT count(*) FROM ("
+                f"SELECT {columns} FROM {silver_relation} "
+                f"EXCEPT ALL SELECT {columns} FROM ({expected_sql})"
+                ") AS differences"
+            ).fetchone()[0]
+        )
+    return (
+        filtered_out_count,
+        raw_minus_silver,
+        silver_minus_raw,
+        len(missing_codes) + len(extra_codes),
+        (*missing_codes, *extra_codes),
+    )
+
+
+def audit_etf_basic_silver_snapshot(
+    *,
+    path: Path,
+    duckdb_resource: DuckDBResource,
+    raw_path: Path | None = None,
+    expected_raw_snapshot_hash: str | None = None,
+    expected_silver_content_hash: str | None = None,
+    expected_row_count: int | None = None,
+    expected_filtered_out_count: int | None = None,
+) -> EtfBasicSilverSnapshotAudit:
+    """Audit one Silver file and, when supplied, its exact frozen Raw version."""
+
+    expected_types = tuple(
+        ETF_BASIC_SILVER_COLUMN_TYPES[column] for column in ETF_BASIC_SOURCE_COLUMNS
+    )
+    source_failures: list[str] = []
+    key_failures: list[str] = []
+    content_failures: list[str] = []
+    failure_counts: Counter[str] = Counter()
+    samples: list[dict[str, object]] = []
+    filtered_out_count = 0
+
+    if not path.is_file():
+        return EtfBasicSilverSnapshotAudit(
+            path=path,
+            raw_path=raw_path,
+            observed_columns=(),
+            observed_types=(),
+            row_count=0,
+            rows=(),
+            source_filter_failures=("file_unreadable",),
+            key_domain_failures=(),
+            content_hash_failures=("source_filter_required",),
+            silver_content_hash=None,
+            filtered_out_count=0,
+            status_counts={},
+            suffix_counts={},
+            failure_counts={"file_unreadable": 1, "source_filter_required": 1},
+            failure_samples=(),
+        )
+
+    try:
+        observed_columns, observed_types, rows, row_count = _read_silver_snapshot_rows(
+            path=path,
+            duckdb_resource=duckdb_resource,
+        )
+    except (OSError, duckdb.Error) as error:
+        return EtfBasicSilverSnapshotAudit(
+            path=path,
+            raw_path=raw_path,
+            observed_columns=(),
+            observed_types=(),
+            row_count=0,
+            rows=(),
+            source_filter_failures=("file_unreadable",),
+            key_domain_failures=(),
+            content_hash_failures=("source_filter_required",),
+            silver_content_hash=None,
+            filtered_out_count=0,
+            status_counts={},
+            suffix_counts={},
+            failure_counts={"file_unreadable": 1, "source_filter_required": 1},
+            failure_samples=(
+                {"reason_code": "file_unreadable", "error_type": type(error).__name__},
+            ),
+        )
+
+    if observed_columns != ETF_BASIC_SOURCE_COLUMNS:
+        source_failures.append("column_contract_mismatch")
+        failure_counts["column_contract_mismatch"] = 1
+    if observed_types != expected_types:
+        source_failures.append("type_contract_mismatch")
+        failure_counts["type_contract_mismatch"] = 1
+        samples.append(
+            {
+                "reason_code": "type_contract_mismatch",
+                "observed_types": list(observed_types),
+            }
+        )
+    if row_count <= 0:
+        source_failures.append("empty_snapshot")
+        failure_counts["empty_snapshot"] = 1
+    if expected_row_count is not None and row_count != expected_row_count:
+        source_failures.append("materialized_row_count_mismatch")
+        failure_counts["materialized_row_count_mismatch"] = abs(
+            expected_row_count - row_count
+        )
+
+    status_counts: Counter[str] = Counter()
+    suffix_counts: Counter[str] = Counter()
+    code_counts: Counter[object] = Counter()
+    if not source_failures:
+        for row in rows:
+            ts_code = row["ts_code"]
+            suffix = _code_suffix(ts_code)
+            list_status = row["list_status"]
+            status_counts[str(list_status)] += 1
+            suffix_counts[suffix or "<INVALID>"] += 1
+            code_counts[ts_code] += 1
+            row_reasons: list[str] = []
+            if not isinstance(ts_code, str) or not ts_code:
+                row_reasons.append("ts_code_empty")
+            if suffix not in ETF_BASIC_SILVER_SUFFIXES:
+                row_reasons.append("silver_code_suffix_invalid")
+            if list_status not in ETF_BASIC_LIST_STATUSES:
+                row_reasons.append("list_status_unknown")
+            if suffix in ETF_BASIC_SILVER_SUFFIXES and row["exchange"] != suffix:
+                row_reasons.append("exchange_suffix_mismatch")
+            for reason in row_reasons:
+                failure_counts[reason] += 1
+                if reason not in key_failures:
+                    key_failures.append(reason)
+            if row_reasons:
+                samples.append(
+                    {
+                        "reason_code": ",".join(row_reasons),
+                        "ts_code": ts_code,
+                        "list_status": list_status,
+                        "exchange": row["exchange"],
+                    }
+                )
+        duplicate_codes = sorted(
+            (str(code), count) for code, count in code_counts.items() if count > 1
+        )
+        if duplicate_codes:
+            key_failures.append("ts_code_duplicate")
+            failure_counts["ts_code_duplicate"] = sum(
+                count - 1 for _, count in duplicate_codes
+            )
+            samples.extend(
+                {
+                    "reason_code": "ts_code_duplicate",
+                    "ts_code": code,
+                    "row_count": count,
+                }
+                for code, count in duplicate_codes
+            )
+
+    if raw_path is not None:
+        raw_audit = audit_etf_basic_raw_snapshot(
+            path=raw_path,
+            duckdb_resource=duckdb_resource,
+            expected_snapshot_hash=expected_raw_snapshot_hash,
+        )
+        if not raw_audit.passed:
+            source_failures.append("raw_snapshot_invalid")
+            failure_counts["raw_snapshot_invalid"] = 1
+            samples.extend(raw_audit.failure_samples)
+        elif not source_failures:
+            try:
+                (
+                    filtered_out_count,
+                    raw_minus_silver,
+                    silver_minus_raw,
+                    code_difference_count,
+                    code_samples,
+                ) = _silver_reconciliation_counts(
+                    raw_path=raw_path,
+                    silver_path=path,
+                    duckdb_resource=duckdb_resource,
+                )
+            except duckdb.Error as error:
+                source_failures.append("raw_silver_reconciliation_unavailable")
+                failure_counts["raw_silver_reconciliation_unavailable"] = 1
+                samples.append(
+                    {
+                        "reason_code": "raw_silver_reconciliation_unavailable",
+                        "error_type": type(error).__name__,
+                    }
+                )
+            else:
+                if code_difference_count:
+                    source_failures.append("source_filter_code_set_mismatch")
+                    failure_counts["source_filter_code_set_mismatch"] = (
+                        code_difference_count
+                    )
+                    samples.extend(
+                        {
+                            "reason_code": "source_filter_code_set_mismatch",
+                            "ts_code": code,
+                        }
+                        for code in code_samples
+                    )
+                if raw_minus_silver or silver_minus_raw:
+                    source_failures.append("raw_silver_values_mismatch")
+                    failure_counts["raw_silver_values_mismatch"] = (
+                        raw_minus_silver + silver_minus_raw
+                    )
+                    samples.append(
+                        {
+                            "reason_code": "raw_silver_values_mismatch",
+                            "raw_minus_silver": raw_minus_silver,
+                            "silver_minus_raw": silver_minus_raw,
+                        }
+                    )
+                if (
+                    expected_filtered_out_count is not None
+                    and filtered_out_count != expected_filtered_out_count
+                ):
+                    source_failures.append("filtered_out_count_mismatch")
+                    failure_counts["filtered_out_count_mismatch"] = abs(
+                        expected_filtered_out_count - filtered_out_count
+                    )
+                    samples.append(
+                        {
+                            "reason_code": "filtered_out_count_mismatch",
+                            "expected": expected_filtered_out_count,
+                            "observed": filtered_out_count,
+                        }
+                    )
+
+    silver_content_hash: str | None = None
+    if source_failures:
+        content_failures.append("source_filter_required")
+        failure_counts["source_filter_required"] = 1
+    elif key_failures:
+        content_failures.append("key_domain_required")
+        failure_counts["key_domain_required"] = 1
+    else:
+        try:
+            silver_content_hash = compute_etf_basic_silver_content_hash(rows)
+        except ValueError as error:
+            content_failures.append("content_hash_unavailable")
+            failure_counts["content_hash_unavailable"] = 1
+            samples.append(
+                {"reason_code": "content_hash_unavailable", "error": str(error)}
+            )
+        if (
+            silver_content_hash is not None
+            and expected_silver_content_hash is not None
+            and silver_content_hash != expected_silver_content_hash
+        ):
+            content_failures.append("content_hash_mismatch")
+            failure_counts["content_hash_mismatch"] = 1
+
+    return EtfBasicSilverSnapshotAudit(
+        path=path,
+        raw_path=raw_path,
+        observed_columns=observed_columns,
+        observed_types=observed_types,
+        row_count=row_count,
+        rows=rows,
+        source_filter_failures=tuple(source_failures),
+        key_domain_failures=tuple(key_failures),
+        content_hash_failures=tuple(content_failures),
+        silver_content_hash=silver_content_hash,
+        filtered_out_count=filtered_out_count,
+        status_counts=dict(sorted(status_counts.items())),
+        suffix_counts=dict(sorted(suffix_counts.items())),
+        failure_counts=dict(sorted(failure_counts.items())),
+        failure_samples=_bounded_samples(samples),
+    )
+
+
+def _require_passed_silver_audit(
+    audit: EtfBasicSilverSnapshotAudit,
+    *,
+    reason_code: str,
+) -> None:
+    if audit.passed:
+        return
+    raise EtfBasicSnapshotValidationError(
+        f"{reason_code}: path={audit.path}, "
+        f"source_filter_failures={audit.source_filter_failures}, "
+        f"key_domain_failures={audit.key_domain_failures}, "
+        f"content_hash_failures={audit.content_hash_failures}, "
+        f"failure_samples={audit.failure_samples}."
+    )
+
+
 @dg.asset(
     name="raw_tushare_etf_basic",
     group_name="etf_basic",
@@ -563,7 +999,7 @@ def raw_tushare_etf_basic(
         context.run_id,
         "raw",
     )
-    LOGGER.stdout(
+    RAW_LOGGER.stdout(
         "etf_basic_source_fetch_started",
         api_name=ETF_BASIC_SOURCE_API,
         staging_path=str(staging_path),
@@ -576,21 +1012,231 @@ def raw_tushare_etf_basic(
         run_id=context.run_id,
         observed_at=observed_at,
     )
-    LOGGER.stdout(
+    RAW_LOGGER.stdout(
         "etf_basic_source_page_completed",
         page_count=result.page_count,
         source_row_count=result.source_row_count,
     )
-    LOGGER.stdout(
+    RAW_LOGGER.stdout(
         "etf_basic_candidate_validated",
         row_count=result.row_count,
         raw_snapshot_hash=result.raw_snapshot_hash,
     )
-    LOGGER.stdout(
+    RAW_LOGGER.stdout(
         "etf_basic_snapshot_promoted",
         write_mode=result.write_mode,
         raw_snapshot_hash=result.raw_snapshot_hash,
     )
     return dg.MaterializeResult(
         metadata=build_etf_basic_raw_materialization_metadata(result)
+    )
+
+
+def write_etf_basic_silver_snapshot(
+    *,
+    raw_snapshot_reference: EtfBasicRawSnapshotReference,
+    duckdb_resource: DuckDBResource,
+    lake_root_path: Path,
+    staging_root_path: Path,
+    run_id: str,
+    observed_at: str,
+) -> EtfBasicSilverSnapshotWriteResult:
+    """Standardize and atomically publish one exact frozen Raw snapshot."""
+
+    reference = raw_snapshot_reference.validate_contract()
+    raw_path = Path(reference.raw_uri)
+    expected_raw_path = raw_etf_basic_snapshot_path(
+        lake_root_path,
+        reference.raw_snapshot_hash,
+    )
+    if raw_path != expected_raw_path:
+        raise EtfBasicSnapshotValidationError(
+            "etf_basic_raw_reference_path_mismatch: "
+            f"expected={expected_raw_path}, observed={raw_path}."
+        )
+    raw_audit = audit_etf_basic_raw_snapshot(
+        path=raw_path,
+        duckdb_resource=duckdb_resource,
+        expected_snapshot_hash=reference.raw_snapshot_hash,
+    )
+    _require_passed_audit(
+        raw_audit,
+        reason_code="etf_basic_raw_reference_invalid",
+    )
+
+    staging_path = etf_basic_staging_path(staging_root_path, run_id, "silver")
+    _prepare_atomic_paths(
+        lake_root_path=lake_root_path,
+        staging_root_path=staging_root_path,
+        staging_path=staging_path,
+        formal_dataset_root=lake_root_path / "silver" / "basic" / "etf_basic",
+    )
+    with duckdb_resource.connect() as connection:
+        invalid_dates = connection.execute(
+            "SELECT ts_code, setup_date, list_date FROM "
+            f"{read_parquet(raw_path, hive_partitioning=False)} WHERE "
+            "(setup_date IS NOT NULL AND try_strptime(setup_date, '%Y%m%d') IS NULL) "
+            "OR (list_date IS NOT NULL AND try_strptime(list_date, '%Y%m%d') IS NULL) "
+            "ORDER BY ts_code LIMIT ?",
+            [ETF_BASIC_DIAGNOSTIC_SAMPLE_LIMIT],
+        ).fetchall()
+        if invalid_dates:
+            raise EtfBasicSnapshotValidationError(
+                f"etf_basic_silver_date_normalization_failed: samples={invalid_dates}."
+            )
+        try:
+            connection.execute(
+                copy_query_to_parquet(
+                    _etf_basic_silver_select_sql(raw_path),
+                    staging_path,
+                )
+            )
+        except duckdb.Error as error:
+            raise EtfBasicSnapshotValidationError(
+                "etf_basic_silver_normalization_failed: date or numeric conversion "
+                "did not satisfy the Silver contract."
+            ) from error
+
+    candidate_audit = audit_etf_basic_silver_snapshot(
+        path=staging_path,
+        duckdb_resource=duckdb_resource,
+        raw_path=raw_path,
+        expected_raw_snapshot_hash=reference.raw_snapshot_hash,
+    )
+    _require_passed_silver_audit(
+        candidate_audit,
+        reason_code="etf_basic_silver_candidate_invalid",
+    )
+    silver_content_hash = candidate_audit.silver_content_hash
+    if silver_content_hash is None:
+        raise EtfBasicSnapshotValidationError(
+            "etf_basic_silver_candidate_hash_missing: validated candidate has no hash."
+        )
+    readback_audit = audit_etf_basic_silver_snapshot(
+        path=staging_path,
+        duckdb_resource=duckdb_resource,
+        raw_path=raw_path,
+        expected_raw_snapshot_hash=reference.raw_snapshot_hash,
+        expected_silver_content_hash=silver_content_hash,
+    )
+    _require_passed_silver_audit(
+        readback_audit,
+        reason_code="etf_basic_silver_candidate_readback_mismatch",
+    )
+
+    target_path = silver_etf_basic_snapshot_path(
+        lake_root_path,
+        reference.raw_snapshot_hash,
+    )
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    if target_path.parent.stat().st_dev != staging_path.parent.stat().st_dev:
+        raise EtfBasicSnapshotValidationError(
+            "etf_basic_staging_filesystem_mismatch: candidate and immutable target "
+            "must share one filesystem for atomic os.replace."
+        )
+    if target_path.exists():
+        existing_audit = audit_etf_basic_silver_snapshot(
+            path=target_path,
+            duckdb_resource=duckdb_resource,
+            raw_path=raw_path,
+            expected_raw_snapshot_hash=reference.raw_snapshot_hash,
+            expected_silver_content_hash=silver_content_hash,
+        )
+        _require_passed_silver_audit(
+            existing_audit,
+            reason_code="etf_basic_silver_snapshot_conflict",
+        )
+        staging_path.unlink()
+        write_mode = "reuse_existing"
+    else:
+        os.replace(staging_path, target_path)
+        write_mode = "write_new"
+
+    return EtfBasicSilverSnapshotWriteResult(
+        target_path=target_path,
+        staging_path=staging_path,
+        raw_path=raw_path,
+        raw_snapshot_hash=reference.raw_snapshot_hash,
+        raw_observed_at=reference.raw_observed_at,
+        observed_at=observed_at,
+        row_count=candidate_audit.row_count,
+        silver_content_hash=silver_content_hash,
+        filtered_out_count=candidate_audit.filtered_out_count,
+        status_counts=candidate_audit.status_counts,
+        suffix_counts=candidate_audit.suffix_counts,
+        write_mode=write_mode,
+    )
+
+
+def build_etf_basic_silver_materialization_metadata(
+    result: EtfBasicSilverSnapshotWriteResult,
+) -> dict[str, object]:
+    return build_materialization_metadata(
+        uri=result.target_path,
+        row_count=result.row_count,
+        observed_columns=ETF_BASIC_SOURCE_COLUMNS,
+        extra_metadata={
+            "raw_uri": str(result.raw_path),
+            "raw_snapshot_hash": result.raw_snapshot_hash,
+            "silver_content_hash": result.silver_content_hash,
+            "raw_observed_at": result.raw_observed_at,
+            "observed_at": result.observed_at,
+            "filtered_out_count": result.filtered_out_count,
+            "status_counts": result.status_counts,
+            "suffix_counts": result.suffix_counts,
+            "write_mode": result.write_mode,
+        },
+    )
+
+
+@dg.asset(
+    name="silver_etf_basic",
+    group_name="etf_basic",
+    deps=[raw_tushare_etf_basic],
+    tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.BASIC_DATA),
+    metadata=build_asset_definition_metadata(
+        dataset_id="etf_basic",
+        source_system=SourceSystem.DERIVED,
+        data_contract="sh_sz_full_status_etf_basic",
+        column_schema=SILVER_ETF_BASIC_SCHEMA,
+        path_template=lake_path_template(
+            silver_etf_basic_snapshot_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_SNAPSHOT_ID,
+            )
+        ),
+    ),
+    description=ETF_BASIC_SILVER_DESCRIPTION,
+)
+def silver_etf_basic(
+    context: dg.AssetExecutionContext,
+    config: EtfBasicSilverConfig,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.MaterializeResult:
+    lake_root.ensure_available_for_run()
+    observed_at = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+    result = write_etf_basic_silver_snapshot(
+        raw_snapshot_reference=config.raw_snapshot_reference,
+        duckdb_resource=duckdb,
+        lake_root_path=lake_root.root(),
+        staging_root_path=Path(DEFAULT_LAKE_STAGING_ROOT),
+        run_id=context.run_id,
+        observed_at=observed_at,
+    )
+    SILVER_LOGGER.stdout(
+        "etf_basic_candidate_validated",
+        operation="silver_candidate",
+        row_count=result.row_count,
+        filtered_out_count=result.filtered_out_count,
+        silver_content_hash=result.silver_content_hash,
+    )
+    SILVER_LOGGER.stdout(
+        "etf_basic_snapshot_promoted",
+        operation="silver",
+        write_mode=result.write_mode,
+        raw_snapshot_hash=result.raw_snapshot_hash,
+    )
+    return dg.MaterializeResult(
+        metadata=build_etf_basic_silver_materialization_metadata(result)
     )

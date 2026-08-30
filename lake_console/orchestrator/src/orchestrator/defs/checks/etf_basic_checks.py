@@ -8,10 +8,16 @@ import dagster as dg
 
 from orchestrator.defs.assets.etf_basic import (
     EtfBasicRawSnapshotAudit,
+    EtfBasicSilverSnapshotAudit,
     audit_etf_basic_raw_snapshot,
+    audit_etf_basic_silver_snapshot,
     raw_tushare_etf_basic,
+    silver_etf_basic,
 )
-from orchestrator.defs.paths import raw_etf_basic_snapshot_path
+from orchestrator.defs.paths import (
+    raw_etf_basic_snapshot_path,
+    silver_etf_basic_snapshot_path,
+)
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.etf_basic import (
     ETF_BASIC_PAGE_LIMIT,
@@ -32,6 +38,18 @@ CONTENT_HASH_DESCRIPTION = (
     "确认最新 ETF Basic Raw 的内容 hash 可从正式 Parquet 重新计算，并与 materialization 和路径一致；"
     "失败后查看数量、样本和下一步。"
 )
+SILVER_SOURCE_FILTER_DESCRIPTION = (
+    "确认最新 ETF Basic Silver 精确保留 Raw 中的 `.SH/.SZ` 全状态记录并只过滤其它后缀；"
+    "失败后查看数量、样本和下一步。"
+)
+SILVER_KEY_DOMAIN_DESCRIPTION = (
+    "确认最新 ETF Basic Silver 的标准化主键、日期、状态、后缀和 exchange 值域合法；"
+    "失败后查看数量、样本和下一步。"
+)
+SILVER_CONTENT_HASH_DESCRIPTION = (
+    "确认最新 ETF Basic Silver 的同版内容 hash 可从正式 Parquet 复算并与 metadata 对齐；"
+    "失败后查看数量、样本和下一步。"
+)
 
 
 @dataclass(frozen=True)
@@ -43,14 +61,27 @@ class EtfBasicRawMaterializationReference:
     metadata_samples: tuple[dict[str, object], ...]
 
 
+@dataclass(frozen=True)
+class EtfBasicSilverMaterializationReference:
+    path: Path | None
+    raw_path: Path | None
+    row_count: int | None
+    raw_snapshot_hash: str | None
+    silver_content_hash: str | None
+    filtered_out_count: int | None
+    metadata_failures: tuple[str, ...]
+    metadata_samples: tuple[dict[str, object], ...]
+
+
 def _metadata_scalar(value: Any) -> Any:
     return getattr(value, "value", value)
 
 
 def _latest_materialization_metadata(
     context: dg.AssetCheckExecutionContext,
+    asset_key: dg.AssetKey,
 ) -> dict[str, Any] | None:
-    event = context.instance.get_latest_materialization_event(raw_tushare_etf_basic.key)
+    event = context.instance.get_latest_materialization_event(asset_key)
     if event is None or event.dagster_event is None:
         return None
     materialization = event.dagster_event.event_specific_data.materialization
@@ -172,6 +203,126 @@ def build_etf_basic_raw_materialization_reference(
     )
 
 
+def build_etf_basic_silver_materialization_reference(
+    *,
+    metadata: dict[str, Any] | None,
+    lake_root_path: Path,
+) -> EtfBasicSilverMaterializationReference:
+    failures: list[str] = []
+    samples: list[dict[str, object]] = []
+    if metadata is None:
+        return EtfBasicSilverMaterializationReference(
+            path=None,
+            raw_path=None,
+            row_count=None,
+            raw_snapshot_hash=None,
+            silver_content_hash=None,
+            filtered_out_count=None,
+            metadata_failures=("materialization_missing",),
+            metadata_samples=(),
+        )
+
+    uri = metadata.get("dagster/uri")
+    row_count = metadata.get("dagster/row_count")
+    observed_columns = metadata.get("goldenshare/observed_columns")
+    raw_uri = metadata.get("goldenshare/raw_uri")
+    raw_snapshot_hash = metadata.get("goldenshare/raw_snapshot_hash")
+    silver_content_hash = metadata.get("goldenshare/silver_content_hash")
+    raw_observed_at = metadata.get("goldenshare/raw_observed_at")
+    observed_at = metadata.get("goldenshare/observed_at")
+    filtered_out_count = metadata.get("goldenshare/filtered_out_count")
+    status_counts = metadata.get("goldenshare/status_counts")
+    suffix_counts = metadata.get("goldenshare/suffix_counts")
+    write_mode = metadata.get("goldenshare/write_mode")
+
+    if not isinstance(uri, str) or not uri:
+        failures.append("uri_missing")
+    if not isinstance(raw_uri, str) or not raw_uri:
+        failures.append("raw_uri_missing")
+    if not isinstance(row_count, int) or isinstance(row_count, bool) or row_count <= 0:
+        failures.append("row_count_invalid")
+    if tuple(observed_columns or ()) != ETF_BASIC_SOURCE_COLUMNS:
+        failures.append("observed_columns_mismatch")
+    if not isinstance(raw_snapshot_hash, str) or not raw_snapshot_hash:
+        failures.append("raw_snapshot_hash_missing")
+    if not isinstance(silver_content_hash, str) or not silver_content_hash:
+        failures.append("silver_content_hash_missing")
+    if not isinstance(raw_observed_at, str) or not raw_observed_at:
+        failures.append("raw_observed_at_missing")
+    if not isinstance(observed_at, str) or not observed_at:
+        failures.append("observed_at_missing")
+    if (
+        not isinstance(filtered_out_count, int)
+        or isinstance(filtered_out_count, bool)
+        or filtered_out_count < 0
+    ):
+        failures.append("filtered_out_count_invalid")
+    if not isinstance(status_counts, dict):
+        failures.append("status_counts_missing")
+    if not isinstance(suffix_counts, dict):
+        failures.append("suffix_counts_missing")
+    if write_mode not in {"write_new", "reuse_existing"}:
+        failures.append("write_mode_invalid")
+
+    path = Path(uri) if isinstance(uri, str) and uri else None
+    raw_path = Path(raw_uri) if isinstance(raw_uri, str) and raw_uri else None
+    if isinstance(raw_snapshot_hash, str) and raw_snapshot_hash:
+        try:
+            expected_silver_path = silver_etf_basic_snapshot_path(
+                lake_root_path,
+                raw_snapshot_hash,
+            )
+            expected_raw_path = raw_etf_basic_snapshot_path(
+                lake_root_path,
+                raw_snapshot_hash,
+            )
+        except ValueError:
+            failures.append("raw_snapshot_hash_invalid")
+        else:
+            if path != expected_silver_path:
+                failures.append("silver_uri_hash_path_mismatch")
+                samples.append(
+                    {
+                        "reason_code": "silver_uri_hash_path_mismatch",
+                        "expected": str(expected_silver_path),
+                        "observed": str(path),
+                    }
+                )
+            if raw_path != expected_raw_path:
+                failures.append("raw_uri_hash_path_mismatch")
+                samples.append(
+                    {
+                        "reason_code": "raw_uri_hash_path_mismatch",
+                        "expected": str(expected_raw_path),
+                        "observed": str(raw_path),
+                    }
+                )
+
+    return EtfBasicSilverMaterializationReference(
+        path=path,
+        raw_path=raw_path,
+        row_count=(
+            row_count
+            if isinstance(row_count, int) and not isinstance(row_count, bool)
+            else None
+        ),
+        raw_snapshot_hash=(
+            raw_snapshot_hash if isinstance(raw_snapshot_hash, str) else None
+        ),
+        silver_content_hash=(
+            silver_content_hash if isinstance(silver_content_hash, str) else None
+        ),
+        filtered_out_count=(
+            filtered_out_count
+            if isinstance(filtered_out_count, int)
+            and not isinstance(filtered_out_count, bool)
+            else None
+        ),
+        metadata_failures=tuple(failures),
+        metadata_samples=tuple(samples),
+    )
+
+
 def _audit_reference(
     *,
     reference: EtfBasicRawMaterializationReference,
@@ -245,7 +396,7 @@ def raw_tushare_etf_basic_source_contract_check(
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     reference = build_etf_basic_raw_materialization_reference(
-        metadata=_latest_materialization_metadata(context),
+        metadata=_latest_materialization_metadata(context, raw_tushare_etf_basic.key),
         lake_root_path=lake_root.root(),
     )
     audit = _audit_reference(
@@ -288,7 +439,7 @@ def raw_tushare_etf_basic_key_domain_check(
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     reference = build_etf_basic_raw_materialization_reference(
-        metadata=_latest_materialization_metadata(context),
+        metadata=_latest_materialization_metadata(context, raw_tushare_etf_basic.key),
         lake_root_path=lake_root.root(),
     )
     audit = _audit_reference(
@@ -335,7 +486,7 @@ def raw_tushare_etf_basic_content_hash_check(
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     reference = build_etf_basic_raw_materialization_reference(
-        metadata=_latest_materialization_metadata(context),
+        metadata=_latest_materialization_metadata(context, raw_tushare_etf_basic.key),
         lake_root_path=lake_root.root(),
     )
     audit = _audit_reference(
@@ -359,6 +510,205 @@ def raw_tushare_etf_basic_content_hash_check(
         ),
         next_action=(
             "无需处理，该 Raw 版本可进入后续 Silver。"
+            if not reason_codes
+            else "保留旧正式版本，查看 reason_codes 后修复候选或 metadata 并重跑。"
+        ),
+        reason_codes=reason_codes,
+        reference=reference,
+        audit=audit,
+    )
+
+
+def _audit_silver_reference(
+    *,
+    reference: EtfBasicSilverMaterializationReference,
+    duckdb_resource: DuckDBResource,
+    verify_expected_hash: bool,
+) -> EtfBasicSilverSnapshotAudit | None:
+    if reference.path is None:
+        return None
+    return audit_etf_basic_silver_snapshot(
+        path=reference.path,
+        duckdb_resource=duckdb_resource,
+        raw_path=reference.raw_path,
+        expected_raw_snapshot_hash=reference.raw_snapshot_hash,
+        expected_silver_content_hash=(
+            reference.silver_content_hash if verify_expected_hash else None
+        ),
+        expected_row_count=reference.row_count,
+        expected_filtered_out_count=reference.filtered_out_count,
+    )
+
+
+def _silver_result(
+    *,
+    passed: bool,
+    check_scope: CheckScope,
+    summary: str,
+    next_action: str,
+    reason_codes: tuple[str, ...],
+    reference: EtfBasicSilverMaterializationReference,
+    audit: EtfBasicSilverSnapshotAudit | None,
+) -> dg.AssetCheckResult:
+    samples = list(reference.metadata_samples)
+    if audit is not None:
+        samples.extend(audit.failure_samples)
+    failure_counts = {
+        reason_code: (
+            audit.failure_counts.get(reason_code, 1) if audit is not None else 1
+        )
+        for reason_code in reason_codes
+    }
+    return dg.AssetCheckResult(
+        passed=passed,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            checked_row_count=(audit.row_count if audit is not None else None),
+            failed_row_count=sum(failure_counts.values()),
+            file_path=reference.path,
+            input_file_paths=(
+                [reference.raw_path] if reference.raw_path is not None else None
+            ),
+            extra_metadata={
+                "summary": summary,
+                "next_action": next_action,
+                "reason_code": "ok" if not reason_codes else ",".join(reason_codes),
+                "reason_codes": list(reason_codes),
+                "failure_counts": failure_counts,
+                "failure_samples": samples[:20],
+                "filtered_out_count": (
+                    audit.filtered_out_count if audit is not None else None
+                ),
+                "status_counts": audit.status_counts if audit is not None else {},
+                "suffix_counts": audit.suffix_counts if audit is not None else {},
+            },
+        ),
+    )
+
+
+@dg.asset_check(
+    asset=silver_etf_basic,
+    name="silver_etf_basic_source_filter_check",
+    blocking=True,
+    description=SILVER_SOURCE_FILTER_DESCRIPTION,
+)
+def silver_etf_basic_source_filter_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    reference = build_etf_basic_silver_materialization_reference(
+        metadata=_latest_materialization_metadata(context, silver_etf_basic.key),
+        lake_root_path=lake_root.root(),
+    )
+    audit = _audit_silver_reference(
+        reference=reference,
+        duckdb_resource=duckdb,
+        verify_expected_hash=False,
+    )
+    reason_codes = (
+        *reference.metadata_failures,
+        *(audit.source_filter_failures if audit is not None else ()),
+    )
+    return _silver_result(
+        passed=not reason_codes,
+        check_scope=CheckScope.RECONCILIATION,
+        summary=(
+            "ETF Basic Silver 已精确保留 Raw 的 `.SH/.SZ` 全状态记录并过滤其它后缀。"
+            if not reason_codes
+            else "ETF Basic Silver 与冻结 Raw 的后缀筛选或逐行对账失败。"
+        ),
+        next_action=(
+            "无需处理，继续执行标准化键域检查。"
+            if not reason_codes
+            else "查看 reason_codes 和有界样本，修复 Silver 转换或绑定的 Raw 引用后重跑。"
+        ),
+        reason_codes=reason_codes,
+        reference=reference,
+        audit=audit,
+    )
+
+
+@dg.asset_check(
+    asset=silver_etf_basic,
+    name="silver_etf_basic_key_domain_check",
+    blocking=True,
+    description=SILVER_KEY_DOMAIN_DESCRIPTION,
+)
+def silver_etf_basic_key_domain_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    reference = build_etf_basic_silver_materialization_reference(
+        metadata=_latest_materialization_metadata(context, silver_etf_basic.key),
+        lake_root_path=lake_root.root(),
+    )
+    audit = _audit_silver_reference(
+        reference=reference,
+        duckdb_resource=duckdb,
+        verify_expected_hash=False,
+    )
+    reason_codes = (
+        *reference.metadata_failures,
+        *(audit.source_filter_failures if audit is not None else ()),
+        *(audit.key_domain_failures if audit is not None else ()),
+    )
+    return _silver_result(
+        passed=not reason_codes,
+        check_scope=CheckScope.KEY_UNIQUENESS,
+        summary=(
+            "ETF Basic Silver 主键、标准化类型、状态、后缀和 exchange 值域通过。"
+            if not reason_codes
+            else "ETF Basic Silver 标准化键域失败。"
+        ),
+        next_action=(
+            "无需处理，继续执行同版内容 hash 检查。"
+            if not reason_codes
+            else "查看 reason_codes 和有界样本，修复标准化结果后重跑 Silver。"
+        ),
+        reason_codes=reason_codes,
+        reference=reference,
+        audit=audit,
+    )
+
+
+@dg.asset_check(
+    asset=silver_etf_basic,
+    name="silver_etf_basic_content_hash_check",
+    blocking=True,
+    description=SILVER_CONTENT_HASH_DESCRIPTION,
+)
+def silver_etf_basic_content_hash_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    reference = build_etf_basic_silver_materialization_reference(
+        metadata=_latest_materialization_metadata(context, silver_etf_basic.key),
+        lake_root_path=lake_root.root(),
+    )
+    audit = _audit_silver_reference(
+        reference=reference,
+        duckdb_resource=duckdb,
+        verify_expected_hash=True,
+    )
+    reason_codes = (
+        *reference.metadata_failures,
+        *(audit.source_filter_failures if audit is not None else ()),
+        *(audit.key_domain_failures if audit is not None else ()),
+        *(audit.content_hash_failures if audit is not None else ()),
+    )
+    return _silver_result(
+        passed=not reason_codes,
+        check_scope=CheckScope.RECONCILIATION,
+        summary=(
+            "ETF Basic Silver 内容 hash 已从正式 Parquet 复算并与同版 metadata 对齐。"
+            if not reason_codes
+            else "ETF Basic Silver 内容 hash 无法复算或与同版 metadata 不一致。"
+        ),
+        next_action=(
+            "无需处理，该 Silver 版本可进入 latest-only 冻结。"
             if not reason_codes
             else "保留旧正式版本，查看 reason_codes 后修复候选或 metadata 并重跑。"
         ),

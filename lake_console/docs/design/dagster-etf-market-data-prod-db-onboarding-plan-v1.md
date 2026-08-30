@@ -1,6 +1,6 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：架构口径已收敛；P0-P2 已完成；P3 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
+状态：架构口径已收敛；P0-P3 已完成；P4 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
 创建日期：2026-08-27
 最近更新：2026-08-30
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
@@ -616,9 +616,13 @@ tushare_request_count / page_count / quota_impact
 
 2026-08-30 又用实际 `TushareResource` 在 `/private/tmp` 完成一次完整闭环：源端 1,829 行、Raw 1,829 行、14 字段一致、主键和值域通过、内容 hash 回读一致，分布仍为 `L=1658/P=44/D=127` 和 `SH=1033/SZ=793/OF=3`；没有写正式 Lake、正式 Dagster instance 或 Prod DB。正式 Definitions 已通过加载校验，Sensor 仍未实现。
 
-### P3：ETF Basic Silver 与 latest-only selector
+### P3：ETF Basic Silver 与 latest-only selector（已完成）
 
 实现 `.SH/.SZ` 精确筛选、不可变 Silver、checks、freshness 和冻结 reference。
+
+已落地 `silver_etf_basic`、三项非分区 blocking checks、`silver_etf_basic_update_job`、Raw/Silver 两类小引用、Silver run config builder，以及只检查两层各自最新 materialization 的 fail-closed selector。Silver 只消费冻结 Raw URI/hash/fingerprint，以 DuckDB 完成日期和数值标准化、双向 `EXCEPT ALL` 对账、回读 hash 与不可变提升；目标只允许新增或等价复用，冲突立即停止。selector 对 Raw/Silver 各读取一条最新 materialization、每项 check 只读取一条最新终态记录并精确绑定当前 materialization；两层任一不新鲜、check 失败、hash/路径漂移或版本未对齐都停止，不向前搜索旧成功版本。Sensor 仍留在 P10。
+
+2026-08-30 使用实际 Tushare 快照在 `/private/tmp` 完成 Raw→Silver 临时闭环：Raw 1,829 行，Silver 1,826 行，精确过滤 3 条 `.OF`；Silver 后缀为 `SH=1033/SZ=793`，状态为 `D=127/L=1657/P=42`，Raw hash 为 `1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44`，Silver hash 为 `256ad66925266b54c25234c66acde45c9ffbf9e83ebc539a632c1625a52d9166`，两者均可从 Parquet 回读复算。临时目录已清理；没有写正式 Lake、正式 Dagster instance 或 Prod DB。正式 Definitions 加载通过，orchestrator 全量回归为 2,357 passed、833 subtests passed。
 
 ### P4：Prod Raw 物理覆盖、SQL 和稳定 Raw validator
 
@@ -692,7 +696,7 @@ tushare_request_count / page_count / quota_impact
 
 ### 16.2 后续阶段仍需管理员拍板
 
-当前没有需要立即补充拍板的架构口径。P0-P2 已经获准并完成；P3 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
+当前没有需要立即补充拍板的架构口径。P0-P3 已经获准并完成；P4 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |

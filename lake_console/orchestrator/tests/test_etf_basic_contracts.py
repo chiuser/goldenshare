@@ -24,6 +24,11 @@ from orchestrator.defs.run_contracts.etf_basic import (
     ETF_BASIC_SILVER_SUFFIXES,
     ETF_BASIC_SOURCE_API,
     ETF_BASIC_SOURCE_COLUMNS,
+    EtfBasicRawSnapshotReference,
+    EtfBasicSilverSnapshotReference,
+    build_etf_basic_raw_snapshot_reference,
+    build_etf_basic_silver_run_config,
+    build_etf_basic_silver_snapshot_reference,
     classify_etf_basic_requestability,
     compute_etf_basic_silver_content_hash,
     compute_etf_basic_snapshot_hash,
@@ -158,7 +163,9 @@ def test_raw_snapshot_hash_is_stable_after_parquet_round_trip(tmp_path) -> None:
             [str(target)],
         )
         columns = tuple(item[0] for item in cursor.description)
-        round_tripped = [dict(zip(columns, values, strict=True)) for values in cursor.fetchall()]
+        round_tripped = [
+            dict(zip(columns, values, strict=True)) for values in cursor.fetchall()
+        ]
 
     assert compute_etf_basic_snapshot_hash(round_tripped) == (
         compute_etf_basic_snapshot_hash(rows)
@@ -199,12 +206,13 @@ def test_requestability_matches_prod_serving_rules() -> None:
     eligible = _silver_rows()[0]
     as_of = date(2026, 5, 3)
 
-    assert (
-        classify_etf_basic_requestability(eligible, eligibility_as_of=as_of) is None
-    )
+    assert classify_etf_basic_requestability(eligible, eligibility_as_of=as_of) is None
 
     cases = (
-        ({**eligible, "ts_code": "159001.OF"}, ETF_BASIC_REQUESTABILITY_NON_EXCHANGE_SUFFIX),
+        (
+            {**eligible, "ts_code": "159001.OF"},
+            ETF_BASIC_REQUESTABILITY_NON_EXCHANGE_SUFFIX,
+        ),
         ({**eligible, "exchange": "SZ"}, ETF_BASIC_REQUESTABILITY_EXCHANGE_MISMATCH),
         ({**eligible, "list_status": "D"}, ETF_BASIC_REQUESTABILITY_STATUS_NOT_LISTED),
         ({**eligible, "list_date": None}, ETF_BASIC_REQUESTABILITY_LIST_DATE_NULL),
@@ -214,10 +222,13 @@ def test_requestability_matches_prod_serving_rules() -> None:
         ),
     )
     for row, expected_reason in cases:
-        assert classify_etf_basic_requestability(
-            row,
-            eligibility_as_of=as_of,
-        ) == expected_reason
+        assert (
+            classify_etf_basic_requestability(
+                row,
+                eligibility_as_of=as_of,
+            )
+            == expected_reason
+        )
 
 
 def test_requestable_target_hash_matches_the_prod_payload_contract() -> None:
@@ -228,9 +239,7 @@ def test_requestable_target_hash_matches_the_prod_payload_contract() -> None:
 
     expected_hash = "4bf87c51d3679d43d74fd5e277602ff09b0c313b95390ce529b5c2721eecff35"
     assert compute_etf_requestable_target_hash(targets) == expected_hash
-    assert compute_etf_requestable_target_hash(reversed(targets)) == (
-        expected_hash
-    )
+    assert compute_etf_requestable_target_hash(reversed(targets)) == (expected_hash)
 
 
 def test_raw_normalization_rejects_contract_drift_and_identity_pollution() -> None:
@@ -261,3 +270,78 @@ def test_raw_normalization_rejects_contract_drift_and_identity_pollution() -> No
     for invalid_rows in bad_rows:
         with pytest.raises(ValueError):
             normalize_etf_basic_snapshot_rows(invalid_rows)
+
+
+def test_basic_references_are_immutable_fingerprinted_and_small() -> None:
+    raw = build_etf_basic_raw_snapshot_reference(
+        raw_snapshot_hash="a" * 64,
+        raw_uri="/data_lake/raw/tushare/etf_basic/snapshot_id="
+        + "a" * 64
+        + "/part-000.parquet",
+        raw_observed_at="2026-08-30T09:00:00+08:00",
+    )
+    silver = build_etf_basic_silver_snapshot_reference(
+        raw_snapshot_hash=raw.raw_snapshot_hash,
+        silver_content_hash="b" * 64,
+        raw_uri=raw.raw_uri,
+        silver_uri="/data_lake/silver/basic/etf_basic/snapshot_id="
+        + "a" * 64
+        + "/part-000.parquet",
+        raw_observed_at=raw.raw_observed_at,
+        silver_observed_at="2026-08-30T09:05:00+08:00",
+        eligibility_as_of=date(2026, 8, 30),
+        requestable_code_count=1,
+        requestable_code_hash="c" * 64,
+    )
+
+    assert set(raw.model_dump()) == {
+        "raw_snapshot_hash",
+        "raw_uri",
+        "raw_observed_at",
+        "reference_fingerprint",
+    }
+    assert set(silver.model_dump()) == {
+        "raw_snapshot_hash",
+        "silver_content_hash",
+        "raw_uri",
+        "silver_uri",
+        "raw_observed_at",
+        "silver_observed_at",
+        "eligibility_as_of",
+        "requestable_code_count",
+        "requestable_code_hash",
+        "reference_fingerprint",
+    }
+    assert "storage_id" not in raw.model_dump_json()
+    assert "storage_id" not in silver.model_dump_json()
+    assert build_etf_basic_silver_run_config(raw_snapshot_reference=raw) == {
+        "ops": {
+            "silver_etf_basic": {"config": {"raw_snapshot_reference": raw.model_dump()}}
+        }
+    }
+    with pytest.raises(Exception, match="frozen"):
+        raw.raw_uri = "/changed"  # type: ignore[misc]
+
+
+def test_basic_reference_rejects_a_changed_fingerprint() -> None:
+    with pytest.raises(ValueError, match="reference_fingerprint"):
+        EtfBasicRawSnapshotReference(
+            raw_snapshot_hash="a" * 64,
+            raw_uri="/raw.parquet",
+            raw_observed_at="2026-08-30T09:00:00+08:00",
+            reference_fingerprint="f" * 64,
+        ).validate_contract()
+
+    with pytest.raises(ValueError, match="reference_fingerprint"):
+        EtfBasicSilverSnapshotReference(
+            raw_snapshot_hash="a" * 64,
+            silver_content_hash="b" * 64,
+            raw_uri="/raw.parquet",
+            silver_uri="/silver.parquet",
+            raw_observed_at="2026-08-30T09:00:00+08:00",
+            silver_observed_at="2026-08-30T09:05:00+08:00",
+            eligibility_as_of="2026-08-30",
+            requestable_code_count=1,
+            requestable_code_hash="c" * 64,
+            reference_fingerprint="f" * 64,
+        ).validate_contract()

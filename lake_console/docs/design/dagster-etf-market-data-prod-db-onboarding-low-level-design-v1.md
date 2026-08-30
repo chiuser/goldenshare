@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P2 已完成；P3 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P3 已完成；P4 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。P0-P2 已经获准并完成；P3 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。P0-P3 已经获准并完成；P4 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -1881,13 +1881,19 @@ tests/test_etf_mins_pre2026_protection.py
 
 执行结果：已实现 `raw_tushare_etf_basic`、`raw_tushare_etf_basic_source_contract_check`、`raw_tushare_etf_basic_key_domain_check`、`raw_tushare_etf_basic_content_hash_check` 和 `raw_etf_basic_update_job`。Raw 没有业务 config，固定以 `{}` 和显式 14 字段调用未修改的 `fetch_tushare_full_file_to_raw`；候选按 Raw schema 两次回读复算 hash 后，只允许 `write_new/reuse_existing`，同 hash 路径内容冲突使用 `etf_basic_snapshot_conflict` 停止。测试已覆盖正常短页、5,000 行边界、第二页失败、空结果、列漂移、跨页重复、状态/后缀/exchange 错误、`.OF` 保留、hash 回读、等价复用、新版本和冲突停止；三项 checks 均为非分区 `blocking=True`，Raw job 只选择该资产和三项 checks。正式 Definitions 已通过 `dg check defs`。
 
-真实临时验收：2026-08-30 在 `/private/tmp` 通过实际 `TushareResource` 拉取 1,829 行，写入 Raw 仍为 1,829 行、字段顺序精确为 14 列，状态 `D=127/L=1658/P=44`、后缀 `OF=3/SH=1033/SZ=793`，内容 hash `1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44` 可从 Parquet 回读复算。临时目录随验证结束清理；未写正式 Lake、正式 Dagster instance、Prod DB，也未实现 P3 或 P10。
+真实临时验收：2026-08-30 在 `/private/tmp` 通过实际 `TushareResource` 拉取 1,829 行，写入 Raw 仍为 1,829 行、字段顺序精确为 14 列，状态 `D=127/L=1658/P=44`、后缀 `OF=3/SH=1033/SZ=793`，内容 hash `1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44` 可从 Parquet 回读复算。该 P2 验收未写正式 Lake、正式 Dagster instance 或 Prod DB；P3 的真实临时验收见下一节。
 
-### P3：ETF Basic Silver 与 latest-only selector
+### P3：ETF Basic Silver 与 latest-only selector（已完成）
 
 实现 Silver SQL、不可变版本、三个 Silver checks、Silver job 和冻结 reference；Sensor 统一留到 P10。
 
 完成条件：`.OF` 精确过滤、D/P 保留、日期/数值标准化、Raw/Silver hash 和两层同日 freshness 全部有正反测试；最新失败、不新鲜或旧 Raw + 新 Silver 均不回退。
+
+执行结果：已实现 `silver_etf_basic`、`silver_etf_basic_source_filter_check`、`silver_etf_basic_key_domain_check`、`silver_etf_basic_content_hash_check`、`silver_etf_basic_update_job`、`EtfBasicRawSnapshotReference`、`EtfBasicSilverSnapshotReference`、Silver run config builder，以及 `select_latest_etf_basic_raw_snapshot_reference` / `select_latest_etf_basic_snapshot_reference`。Silver asset 只接收冻结 Raw 引用，不接收上市状态、日期筛选或 `eligibility_as_of`；日期或 `DECIMAL(12,6)` 转换失败整版停止，候选通过双向 `EXCEPT ALL`、code set、过滤数和 hash 回读后才允许新增或等价复用。三项 Silver checks 均为非分区 `blocking=True`，Silver job 只选择 Silver asset 和这三项 checks。
+
+latest-only selector 对 Raw/Silver 各有界读取一条最新 materialization，每项 blocking check 只读取一条最新终态记录并要求精确绑定当前 materialization；内部 storage id 不进入 reference、run config 或 metadata。两层各自 `observed_at` 必须与 `eligibility_as_of` 同属上海自然日，Silver 必须绑定最新 Raw hash，两个文件的路径和内容 hash 必须回读复算；任一失败都 fail-closed，不按目录、mtime 或旧成功记录回退。测试覆盖 Raw/Silver 任一不新鲜、任一层最新 check 失败、最新 Raw 已变化但 Silver 未跟上，以及 `required_freshness_date != eligibility_as_of`。
+
+真实临时验收：2026-08-30 使用实际 Tushare 快照在 `/private/tmp` 完成 Raw→Silver 闭环，Raw 1,829 行、Silver 1,826 行、精确过滤 3 条 `.OF`；Silver 后缀 `SH=1033/SZ=793`，状态 `D=127/L=1657/P=42`。Raw hash `1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44` 与 Silver hash `256ad66925266b54c25234c66acde45c9ffbf9e83ebc539a632c1625a52d9166` 均已从 Parquet 回读复算。临时目录已清理；未写正式 Lake、正式 Dagster instance 或 Prod DB，未实现 P4 或 P10。正式 Definitions 加载通过，orchestrator 全量回归为 2,357 passed、833 subtests passed。
 
 ### P4：Prod Raw 物理覆盖、SQL 和稳定 Raw validator
 

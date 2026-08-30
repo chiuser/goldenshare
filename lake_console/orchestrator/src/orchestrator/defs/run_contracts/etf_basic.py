@@ -9,6 +9,9 @@ from collections.abc import Iterable, Mapping
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
+import dagster as dg
+from pydantic import ConfigDict, Field
+
 ETF_BASIC_SOURCE_API = "etf_basic"
 ETF_BASIC_PAGE_LIMIT = 5_000
 ETF_BASIC_DIAGNOSTIC_SAMPLE_LIMIT = 20
@@ -53,6 +56,155 @@ ETF_BASIC_REQUESTABILITY_LIST_DATE_AFTER_AS_OF = "LIST_DATE_AFTER_AS_OF"
 _ETF_BASIC_STRING_COLUMNS = tuple(
     column for column in ETF_BASIC_SOURCE_COLUMNS if column != "mgt_fee"
 )
+
+
+class EtfBasicRawSnapshotReference(dg.Config):
+    """Immutable Raw snapshot identity frozen into one Silver run config."""
+
+    model_config = ConfigDict(frozen=True)
+
+    raw_snapshot_hash: str = Field(description="DG Raw 快照内容 SHA-256。")
+    raw_uri: str = Field(description="冻结 Raw Parquet 的绝对路径。")
+    raw_observed_at: str = Field(description="Raw 源请求的带时区观测时间。")
+    reference_fingerprint: str = Field(description="本引用稳定内容的 SHA-256。")
+
+    def validate_contract(self) -> EtfBasicRawSnapshotReference:
+        raw_snapshot_hash = _normalize_sha256(
+            self.raw_snapshot_hash,
+            field_name="raw_snapshot_hash",
+        )
+        raw_uri = _normalize_non_empty_string(self.raw_uri, field_name="raw_uri")
+        raw_observed_at = _normalize_timezone_datetime(
+            self.raw_observed_at,
+            field_name="raw_observed_at",
+        )
+        reference_fingerprint = _normalize_sha256(
+            self.reference_fingerprint,
+            field_name="reference_fingerprint",
+        )
+        expected = _etf_basic_reference_fingerprint(
+            {
+                "raw_snapshot_hash": raw_snapshot_hash,
+                "raw_uri": raw_uri,
+                "raw_observed_at": raw_observed_at,
+            }
+        )
+        if reference_fingerprint != expected:
+            raise ValueError("ETF Basic Raw reference_fingerprint is invalid.")
+        return self
+
+
+class EtfBasicSilverSnapshotReference(dg.Config):
+    """Immutable latest-only Basic identity frozen into minute work."""
+
+    model_config = ConfigDict(frozen=True)
+
+    raw_snapshot_hash: str
+    silver_content_hash: str
+    raw_uri: str
+    silver_uri: str
+    raw_observed_at: str
+    silver_observed_at: str
+    eligibility_as_of: str
+    requestable_code_count: int
+    requestable_code_hash: str
+    reference_fingerprint: str
+
+    def validate_contract(self) -> EtfBasicSilverSnapshotReference:
+        payload = _normalize_etf_basic_silver_reference_payload(
+            raw_snapshot_hash=self.raw_snapshot_hash,
+            silver_content_hash=self.silver_content_hash,
+            raw_uri=self.raw_uri,
+            silver_uri=self.silver_uri,
+            raw_observed_at=self.raw_observed_at,
+            silver_observed_at=self.silver_observed_at,
+            eligibility_as_of=self.eligibility_as_of,
+            requestable_code_count=self.requestable_code_count,
+            requestable_code_hash=self.requestable_code_hash,
+        )
+        reference_fingerprint = _normalize_sha256(
+            self.reference_fingerprint,
+            field_name="reference_fingerprint",
+        )
+        if reference_fingerprint != _etf_basic_reference_fingerprint(payload):
+            raise ValueError("ETF Basic Silver reference_fingerprint is invalid.")
+        return self
+
+
+class EtfBasicSilverConfig(dg.Config):
+    """Only the frozen Raw identity is configurable for Basic Silver."""
+
+    raw_snapshot_reference: EtfBasicRawSnapshotReference
+
+
+def build_etf_basic_raw_snapshot_reference(
+    *,
+    raw_snapshot_hash: str,
+    raw_uri: str,
+    raw_observed_at: str,
+) -> EtfBasicRawSnapshotReference:
+    payload = {
+        "raw_snapshot_hash": _normalize_sha256(
+            raw_snapshot_hash,
+            field_name="raw_snapshot_hash",
+        ),
+        "raw_uri": _normalize_non_empty_string(raw_uri, field_name="raw_uri"),
+        "raw_observed_at": _normalize_timezone_datetime(
+            raw_observed_at,
+            field_name="raw_observed_at",
+        ),
+    }
+    return EtfBasicRawSnapshotReference(
+        **payload,
+        reference_fingerprint=_etf_basic_reference_fingerprint(payload),
+    ).validate_contract()
+
+
+def build_etf_basic_silver_snapshot_reference(
+    *,
+    raw_snapshot_hash: str,
+    silver_content_hash: str,
+    raw_uri: str,
+    silver_uri: str,
+    raw_observed_at: str,
+    silver_observed_at: str,
+    eligibility_as_of: date | str,
+    requestable_code_count: int,
+    requestable_code_hash: str,
+) -> EtfBasicSilverSnapshotReference:
+    payload = _normalize_etf_basic_silver_reference_payload(
+        raw_snapshot_hash=raw_snapshot_hash,
+        silver_content_hash=silver_content_hash,
+        raw_uri=raw_uri,
+        silver_uri=silver_uri,
+        raw_observed_at=raw_observed_at,
+        silver_observed_at=silver_observed_at,
+        eligibility_as_of=eligibility_as_of,
+        requestable_code_count=requestable_code_count,
+        requestable_code_hash=requestable_code_hash,
+    )
+    return EtfBasicSilverSnapshotReference(
+        **payload,
+        reference_fingerprint=_etf_basic_reference_fingerprint(payload),
+    ).validate_contract()
+
+
+def build_etf_basic_silver_run_config(
+    *,
+    raw_snapshot_reference: EtfBasicRawSnapshotReference,
+) -> dict[str, object]:
+    """Serialize the one approved Basic Silver runtime input."""
+
+    reference = raw_snapshot_reference.validate_contract()
+    return {
+        "ops": {
+            "silver_etf_basic": {
+                "config": {
+                    "raw_snapshot_reference": reference.model_dump(),
+                }
+            }
+        }
+    }
 
 
 def normalize_etf_basic_snapshot_rows(
@@ -208,6 +360,104 @@ def compute_etf_requestable_target_hash(
     return _sha256_json(targets, sort_keys=True)
 
 
+def _normalize_etf_basic_silver_reference_payload(
+    *,
+    raw_snapshot_hash: str,
+    silver_content_hash: str,
+    raw_uri: str,
+    silver_uri: str,
+    raw_observed_at: str,
+    silver_observed_at: str,
+    eligibility_as_of: date | str,
+    requestable_code_count: int,
+    requestable_code_hash: str,
+) -> dict[str, object]:
+    if (
+        isinstance(requestable_code_count, bool)
+        or not isinstance(requestable_code_count, int)
+        or requestable_code_count < 0
+    ):
+        raise ValueError("requestable_code_count must be a non-negative integer.")
+    return {
+        "raw_snapshot_hash": _normalize_sha256(
+            raw_snapshot_hash,
+            field_name="raw_snapshot_hash",
+        ),
+        "silver_content_hash": _normalize_sha256(
+            silver_content_hash,
+            field_name="silver_content_hash",
+        ),
+        "raw_uri": _normalize_non_empty_string(raw_uri, field_name="raw_uri"),
+        "silver_uri": _normalize_non_empty_string(
+            silver_uri,
+            field_name="silver_uri",
+        ),
+        "raw_observed_at": _normalize_timezone_datetime(
+            raw_observed_at,
+            field_name="raw_observed_at",
+        ),
+        "silver_observed_at": _normalize_timezone_datetime(
+            silver_observed_at,
+            field_name="silver_observed_at",
+        ),
+        "eligibility_as_of": _normalize_iso_date(
+            eligibility_as_of,
+            field_name="eligibility_as_of",
+        ),
+        "requestable_code_count": requestable_code_count,
+        "requestable_code_hash": _normalize_sha256(
+            requestable_code_hash,
+            field_name="requestable_code_hash",
+        ),
+    }
+
+
+def _normalize_non_empty_string(value: object, *, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string.")
+    return value
+
+
+def _normalize_sha256(value: object, *, field_name: str) -> str:
+    normalized = _normalize_non_empty_string(value, field_name=field_name)
+    if len(normalized) != 64 or any(
+        character not in "0123456789abcdef" for character in normalized
+    ):
+        raise ValueError(f"{field_name} must be lowercase SHA-256.")
+    return normalized
+
+
+def _normalize_timezone_datetime(value: object, *, field_name: str) -> str:
+    normalized = _normalize_non_empty_string(value, field_name=field_name)
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as error:
+        raise ValueError(f"{field_name} must be ISO-8601.") from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{field_name} must include a timezone offset.")
+    return parsed.isoformat()
+
+
+def _normalize_iso_date(value: date | str, *, field_name: str) -> str:
+    if isinstance(value, datetime):
+        raise TypeError(f"{field_name} must be a date, not datetime.")
+    if isinstance(value, date):
+        return value.isoformat()
+    if not isinstance(value, str):
+        raise TypeError(f"{field_name} must use YYYY-MM-DD format.")
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as error:
+        raise ValueError(f"{field_name} must use YYYY-MM-DD format.") from error
+    if parsed.isoformat() != value:
+        raise ValueError(f"{field_name} must use YYYY-MM-DD format.")
+    return value
+
+
+def _etf_basic_reference_fingerprint(payload: Mapping[str, object]) -> str:
+    return _sha256_json(dict(payload), sort_keys=True)
+
+
 def _normalize_etf_basic_silver_rows(
     rows: Iterable[Mapping[str, object]],
 ) -> tuple[dict[str, object], ...]:
@@ -235,9 +485,7 @@ def _normalize_etf_basic_silver_rows(
                 continue
             value = normalized_row[column]
             if value is not None and not isinstance(value, str):
-                raise ValueError(
-                    f"ETF Basic Silver {column} must be VARCHAR or null."
-                )
+                raise ValueError(f"ETF Basic Silver {column} must be VARCHAR or null.")
         for column in ("setup_date", "list_date"):
             value = normalized_row[column]
             if value is not None and (
@@ -327,6 +575,12 @@ __all__ = [
     "ETF_BASIC_SOURCE_COLUMNS",
     "RAW_ETF_BASIC_CHECKS",
     "SILVER_ETF_BASIC_CHECKS",
+    "EtfBasicRawSnapshotReference",
+    "EtfBasicSilverConfig",
+    "EtfBasicSilverSnapshotReference",
+    "build_etf_basic_raw_snapshot_reference",
+    "build_etf_basic_silver_run_config",
+    "build_etf_basic_silver_snapshot_reference",
     "classify_etf_basic_requestability",
     "compute_etf_basic_silver_content_hash",
     "compute_etf_basic_snapshot_hash",
