@@ -47,20 +47,17 @@ describe("DualMomentumWorkspace", () => {
     expect(screen.getByRole("tab", { name: "动量排名" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("keeps the remaining unavailable method as a zero-side-effect toast", async () => {
+  it("navigates to the released price-volume method with only its shared trade date", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", buildDualReadyFetch(urls));
     window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH}?tradeDate=2026-08-27`);
     render(<AuthProvider><WealthRouter /></AuthProvider>);
     await screen.findByRole("table", { name: "双动量行业完整结果" });
-    const businessRequests = urls.filter((url) => url.includes("sector-analysis")).length;
-    const path = `${window.location.pathname}${window.location.search}`;
-    const chartCount = document.querySelectorAll(".dual-scatter-svg").length;
     fireEvent.click(screen.getByRole("tab", { name: "量价分布" }));
-    expect(screen.getByText("待建设", { selector: "#toast" })).toBeInTheDocument();
-    expect(`${window.location.pathname}${window.location.search}`).toBe(path);
-    expect(urls.filter((url) => url.includes("sector-analysis"))).toHaveLength(businessRequests);
-    expect(document.querySelectorAll(".dual-scatter-svg")).toHaveLength(chartCount);
+    await waitFor(() => expect(window.location.pathname).toBe("/wealth/exploration/sector-analysis/price-volume"));
+    expect(window.location.search).toBe("?tradeDate=2026-08-27");
+    expect(screen.getByRole("tab", { name: "量价分布" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelectorAll(".dual-scatter-svg")).toHaveLength(0);
   });
 
   it("keeps result view, selection, sorting and enlarge local with zero requests", async () => {

@@ -14,6 +14,7 @@ export const WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH = EXPLORATION_SECTOR_MOMENT
 export const WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH = EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH;
 export const WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH = EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH;
 export const WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH = "/wealth/exploration/sector-analysis/member-breadth";
+export const WEALTH_EXPLORATION_SECTOR_PRICE_VOLUME_PATH = "/wealth/exploration/sector-analysis/price-volume";
 
 const ROUTE_CHANGE_EVENT = "wealth-route-change";
 const WEALTH_NAVIGATION_STATE_KEY = "__goldenshareWealthNavigation";
@@ -88,6 +89,7 @@ export type WealthExplorationRoute =
   | { kind: "sector-analysis-dual-momentum" }
   | { kind: "sector-analysis-relative-rotation" }
   | { kind: "sector-analysis-member-breadth" }
+  | { kind: "sector-analysis-price-volume" }
   | { kind: "not-exploration" };
 
 type RouteSearch = URLSearchParams | string | undefined;
@@ -120,6 +122,10 @@ export function buildSectorAnalysisMemberBreadthPath(search?: RouteSearch): stri
   return appendSearch(WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH, search);
 }
 
+export function buildSectorAnalysisPriceVolumePath(search?: RouteSearch): string {
+  return appendSearch(WEALTH_EXPLORATION_SECTOR_PRICE_VOLUME_PATH, search);
+}
+
 export function resolveWealthExplorationRoute(pathname: string): WealthExplorationRoute {
   if (pathname === WEALTH_EXPLORATION_PATH) return { kind: "landing" };
   if (pathname === WEALTH_EXPLORATION_TURNOVER_PATH) return { kind: "turnover-insight" };
@@ -128,6 +134,7 @@ export function resolveWealthExplorationRoute(pathname: string): WealthExplorati
   if (pathname === WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH) return { kind: "sector-analysis-dual-momentum" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH) return { kind: "sector-analysis-relative-rotation" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH) return { kind: "sector-analysis-member-breadth" };
+  if (pathname === WEALTH_EXPLORATION_SECTOR_PRICE_VOLUME_PATH) return { kind: "sector-analysis-price-volume" };
   return { kind: "not-exploration" };
 }
 

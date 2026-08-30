@@ -1,0 +1,176 @@
+.price-volume-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  min-height: 1006px;
+}
+
+.price-volume-toolbar {
+  background: var(--cs-color-surface-card);
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: var(--cs-radius-card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 128px;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.price-volume-toolbar-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-height: 40px;
+  min-width: 0;
+}
+
+.price-volume-toolbar-secondary {
+  border-top: 1px solid var(--cs-color-border-subtle);
+  min-height: 51px;
+  padding-top: 8px;
+}
+
+.price-volume-toolbar-spacer { flex: 1; }
+.price-volume-control-group, .price-volume-select { align-items: center; display: flex; gap: 8px; min-width: 0; }
+.price-volume-control-group > span, .price-volume-select > span { color: var(--cs-color-text-muted); flex: 0 0 auto; font-size: 12px; white-space: nowrap; }
+.price-volume-segmented { align-items: center; background: var(--cs-color-bg-panel-soft); border: 1px solid var(--cs-color-border-subtle); border-radius: 9px; display: flex; gap: 2px; height: 32px; padding: 2px; }
+.price-volume-segmented button, .price-volume-history-ranges button {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--cs-color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  height: 28px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+.price-volume-segmented button:hover, .price-volume-history-ranges button:hover { background: var(--cs-color-surface-card-hover); color: var(--cs-color-text-primary); }
+.price-volume-segmented button.active, .price-volume-history-ranges button.active { background: var(--cs-color-brand-weak); border-color: var(--cs-color-border-strong); color: var(--cs-color-brand); }
+.price-volume-segmented button:focus-visible, .price-volume-history-ranges button:focus-visible, .price-volume-list-header button:focus-visible, .price-volume-row-select:focus-visible, .price-volume-drill:focus-visible { outline: 2px solid var(--cs-color-brand); outline-offset: -2px; }
+
+.price-volume-select { margin-left: auto; }
+.price-volume-select + .price-volume-select { margin-left: 0; }
+.price-volume-select select { background: var(--cs-color-bg-panel-soft); border: 1px solid var(--cs-color-border-subtle); border-radius: 8px; color: var(--cs-color-text-secondary); font: inherit; font-size: 12px; height: 30px; min-width: 146px; padding: 0 30px 0 10px; }
+.price-volume-date-select { margin-left: auto; }
+.price-volume-date-select select { min-width: 180px; }
+.price-volume-data-status { align-items: center; color: var(--cs-color-text-secondary); display: flex; font-size: 11px; gap: 8px; white-space: nowrap; }
+.price-volume-data-status i { background: var(--cs-color-market-down); border-radius: 50%; height: 6px; width: 6px; }
+.price-volume-data-status.delayed { color: var(--cs-color-brand); }
+.price-volume-data-status.delayed i { background: var(--cs-color-brand); }
+.price-volume-data-status.error { color: var(--cs-color-market-up); }
+.price-volume-data-status.error i { background: var(--cs-color-market-up); }
+
+.price-volume-toolbar-skeleton { display: grid; grid-template-columns: 28% 18% 1fr 19%; }
+.price-volume-toolbar-skeleton i { animation: price-volume-pulse 1.4s ease-in-out infinite; background: var(--cs-color-bg-panel-soft); border-radius: 8px; height: 30px; }
+
+.price-volume-ready-grid, .price-volume-loading-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(520px, 600fr) minmax(760px, 952fr);
+  height: 866px;
+  min-width: 0;
+}
+
+.price-volume-industry-list, .price-volume-right-column > section, .price-volume-loading-grid > section {
+  background: var(--cs-color-surface-card);
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: var(--cs-radius-card);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.price-volume-industry-list { display: flex; flex-direction: column; height: 866px; }
+.price-volume-industry-list > header { align-items: center; display: flex; height: 58px; justify-content: space-between; padding: 0 14px; }
+.price-volume-industry-list > header strong { color: var(--cs-color-text-primary); font-size: 16px; }
+.price-volume-industry-list > header span { color: var(--cs-color-text-muted); font-size: 11px; }
+.price-volume-list-grid { display: grid; grid-template-columns: minmax(54px, .58fr) minmax(144px, 1.8fr) minmax(92px, 1fr) minmax(92px, 1fr) minmax(120px, 1.3fr) 28px; min-width: 0; }
+.price-volume-list-header { align-items: center; background: var(--cs-color-bg-panel-soft); color: var(--cs-color-text-muted); flex: 0 0 40px; font-size: 11px; padding: 0 12px; }
+.price-volume-list-header > span, .price-volume-list-header > button { min-width: 0; }
+.price-volume-list-header > button { appearance: none; background: none; border: 0; color: inherit; cursor: pointer; font: inherit; padding: 0; text-align: left; }
+.price-volume-list-header > button.active { color: var(--cs-color-brand); }
+.price-volume-list-viewport { flex: 1; min-height: 0; overflow-y: auto; scrollbar-color: var(--cs-color-border-strong) transparent; }
+.price-volume-list-row { align-items: stretch; border-bottom: 1px solid var(--cs-color-border-subtle); height: 62px; position: relative; }
+.price-volume-list-row::before { background: transparent; content: ""; left: 0; position: absolute; top: 0; bottom: 0; width: 2px; }
+.price-volume-list-row.selected { background: var(--cs-color-brand-weak); }
+.price-volume-list-row.selected::before { background: var(--cs-color-brand); }
+.price-volume-row-select { appearance: none; background: transparent; border: 0; color: inherit; cursor: pointer; display: grid; grid-column: 1 / 6; grid-template-columns: subgrid; padding: 0; text-align: left; }
+.price-volume-row-select > span { align-items: center; display: flex; min-width: 0; padding: 0 8px; }
+.price-volume-row-identity { align-items: flex-start !important; flex-direction: column; justify-content: center; }
+.price-volume-row-identity strong, .price-volume-row-identity small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.price-volume-row-identity strong { color: var(--cs-color-text-primary); font-size: 13px; }
+.price-volume-row-identity small { color: var(--cs-color-text-muted); font-size: 10px; margin-top: 3px; }
+.price-volume-rank { color: var(--cs-color-text-secondary); font-size: 11px; }
+.price-volume-row-select .num { justify-content: flex-end; white-space: nowrap; }
+.price-volume-drill { appearance: none; background: transparent; border: 0; color: var(--cs-color-brand); cursor: pointer; font-size: 22px; }
+.price-volume-status-chip { align-items: center; border: 1px solid var(--cs-color-border-subtle); border-radius: 8px; color: var(--cs-color-text-secondary); display: inline-flex; font-size: 10px; gap: 6px; justify-content: center; min-height: 24px; padding: 3px 8px; white-space: nowrap; }
+.price-volume-status-chip i { background: currentColor; border-radius: 50%; height: 6px; width: 6px; }
+.price-volume-status-chip.joint { background: var(--cs-color-brand-weak); border-color: var(--cs-color-border-strong); color: var(--cs-color-brand); }
+.price-volume-status-chip.price-only { background: var(--cs-color-market-up-weak); color: var(--cs-color-market-up); }
+.price-volume-status-chip.amount-only { color: var(--cs-color-info); }
+.price-volume-status-chip.neutral, .price-volume-status-chip.missing { color: var(--cs-color-text-muted); }
+.price-volume-filter-empty { align-items: center; color: var(--cs-color-text-secondary); display: flex; flex-direction: column; gap: 6px; justify-content: center; min-height: 180px; }
+.price-volume-filter-empty span { color: var(--cs-color-text-muted); font-size: 11px; }
+
+.price-volume-right-column { display: grid; gap: 12px; grid-template-rows: 100px 430px 312px; min-width: 0; }
+.price-volume-selected-summary { display: grid; grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(120px, 1fr)) minmax(170px, 1.25fr); height: 100px; }
+.price-volume-selected-summary > div { border-right: 1px solid var(--cs-color-border-subtle); display: flex; flex-direction: column; gap: 7px; justify-content: center; min-width: 0; padding: 0 16px; }
+.price-volume-selected-summary > div:last-child { border-right: 0; }
+.price-volume-summary-identity strong, .price-volume-summary-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.price-volume-summary-identity strong { color: var(--cs-color-text-primary); font-size: 18px; }
+.price-volume-summary-identity small, .price-volume-summary-metric span, .price-volume-summary-status > span { color: var(--cs-color-text-muted); font-size: 11px; }
+.price-volume-summary-metric strong { color: var(--cs-color-text-primary); font-size: 16px; }
+.price-volume-summary-status strong { align-self: flex-start; min-width: 128px; }
+.price-volume-selected-empty { align-items: center; color: var(--cs-color-text-muted); display: flex; justify-content: center; }
+
+.price-volume-scatter-card { height: 430px; }
+.price-volume-scatter-card > header, .price-volume-history-card > header { align-items: center; display: flex; height: 44px; justify-content: space-between; padding: 0 14px; }
+.price-volume-scatter-card > header strong, .price-volume-history-card > header strong { color: var(--cs-color-text-primary); font-size: 15px; }
+.price-volume-scatter-card > header span, .price-volume-history-card > header span { color: var(--cs-color-text-muted); font-size: 11px; }
+.price-volume-scatter-wrap { height: 386px; padding: 0 14px 14px; position: relative; }
+.price-volume-scatter-wrap svg { display: block; height: 100%; width: 100%; }
+.grid-line { stroke: var(--cs-color-chart-grid-primary); stroke-width: 1; }
+.zero-line { stroke: var(--cs-color-chart-zero-line); stroke-width: 1.5; }
+.quadrant { font-size: 10px; font-weight: 500; }
+.quadrant.joint { fill: var(--cs-color-brand); }.quadrant.price { fill: var(--cs-color-market-up); }.quadrant.amount { fill: var(--cs-color-info); }.quadrant.neutral { fill: var(--cs-color-text-secondary); }
+.axis-label, .history-date-label { fill: var(--cs-color-chart-axis-label); font-family: var(--cs-font-family-mono, ui-monospace); font-size: 9px; }
+.axis-title { fill: var(--cs-color-chart-axis-label); font-size: 10px; }
+.price-volume-point { cursor: pointer; outline: none; stroke-width: 1.5; transition: opacity .15s ease, r .15s ease; }
+.price-volume-point.joint { fill: var(--cs-color-brand); stroke: var(--cs-color-brand); }.price-volume-point.price-only { fill: var(--cs-color-market-up); stroke: var(--cs-color-market-up); }.price-volume-point.amount-only { fill: var(--cs-color-info); stroke: var(--cs-color-info); }.price-volume-point.neutral { fill: var(--cs-color-text-secondary); stroke: var(--cs-color-text-secondary); }
+.price-volume-point.dimmed { opacity: .2; }.price-volume-point.selected { fill: var(--cs-color-brand); stroke: var(--cs-color-text-primary); stroke-width: 2.5; }.price-volume-point:focus-visible { stroke: var(--cs-color-text-primary); stroke-width: 3; }
+.selected-label { fill: var(--cs-color-brand); font-size: 11px; font-weight: 600; }
+.price-volume-scatter-tooltip, .price-volume-history-tooltip { background: var(--cs-color-chart-tooltip-bg); border: 1px solid var(--cs-color-chart-tooltip-border); border-radius: 8px; color: var(--cs-color-text-secondary); display: flex; flex-direction: column; font-size: 11px; gap: 5px; padding: 10px 12px; pointer-events: none; position: absolute; z-index: 3; }
+.price-volume-scatter-tooltip { left: 54%; max-width: 230px; top: 38%; }.price-volume-scatter-tooltip strong, .price-volume-history-tooltip strong { color: var(--cs-color-text-primary); }.price-volume-scatter-tooltip > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.price-volume-history-card { height: 312px; }
+.price-volume-history-card > header > div:first-child { align-items: center; display: flex; gap: 8px; }
+.price-volume-history-ranges { background: var(--cs-color-bg-panel-soft); border: 1px solid var(--cs-color-border-subtle); border-radius: 9px; display: flex; gap: 2px; padding: 2px; }
+.price-volume-history-plots { height: 268px; position: relative; }
+.price-volume-history-svg { display: block; height: 126px; width: 100%; }
+.history-label { fill: var(--cs-color-text-secondary); font-size: 10px; font-weight: 500; }
+.history-crosshair { stroke: var(--cs-color-chart-crosshair-line); stroke-width: 1; }.history-hover-point { stroke: var(--cs-color-text-primary); stroke-width: 1; }
+.price-volume-history-tooltip { right: 22px; top: 40px; width: 190px; }.price-volume-history-tooltip.left { left: 22px; right: auto; }.price-volume-history-tooltip span { display: flex; justify-content: space-between; }
+.price-volume-history-local-state { align-items: center; color: var(--cs-color-text-secondary); display: flex; flex-direction: column; gap: 7px; height: 268px; justify-content: center; }
+.price-volume-history-local-state span { color: var(--cs-color-text-muted); font-size: 11px; }.price-volume-history-local-state button, .price-volume-state-surface button { background: var(--cs-color-brand-weak); border: 1px solid var(--cs-color-border-strong); border-radius: 8px; color: var(--cs-color-brand); cursor: pointer; height: 30px; padding: 0 14px; }
+
+.price-volume-loading-grid > section { padding: 16px; }
+.price-volume-loading-grid strong { color: var(--cs-color-text-primary); display: block; margin-bottom: 14px; }
+.price-volume-loading-grid i { animation: price-volume-pulse 1.4s ease-in-out infinite; background: var(--cs-color-bg-panel-soft); border-radius: 8px; display: block; height: 54px; margin-bottom: 12px; }
+.price-volume-loading-grid > section:last-child i:first-of-type { height: 88px; }.price-volume-loading-grid > section:last-child i:nth-of-type(2) { height: 402px; }.price-volume-loading-grid > section:last-child i:last-child { height: 270px; }
+.price-volume-state-surface { align-items: center; background: var(--cs-color-surface-card); border: 1px solid var(--cs-color-border-subtle); border-radius: var(--cs-radius-card); display: flex; height: 866px; justify-content: center; }
+.price-volume-state-surface > div { align-items: center; border: 1px solid var(--cs-color-border-subtle); border-radius: 12px; display: flex; flex-direction: column; gap: 8px; max-width: 440px; padding: 30px 36px; text-align: center; }
+.price-volume-state-surface strong { color: var(--cs-color-text-primary); }.price-volume-state-surface span { color: var(--cs-color-text-secondary); font-size: 12px; }.price-volume-state-surface.error strong { color: var(--cs-color-market-up); }
+
+.amount-value { color: var(--cs-color-info) !important; }.up { color: var(--cs-color-market-up) !important; }.down { color: var(--cs-color-market-down) !important; }.flat { color: var(--cs-color-market-flat) !important; }.muted { color: var(--cs-color-text-muted) !important; }
+
+@keyframes price-volume-pulse { 0%, 100% { opacity: .42; } 50% { opacity: .78; } }
+
+@media (max-width: 1550px) {
+  .price-volume-segmented button { padding: 0 9px; }
+  .price-volume-ready-grid, .price-volume-loading-grid { grid-template-columns: minmax(520px, 600fr) minmax(760px, 952fr); }
+  .price-volume-list-grid { grid-template-columns: minmax(48px, .52fr) minmax(132px, 1.65fr) minmax(86px, .95fr) minmax(86px, .95fr) minmax(112px, 1.2fr) 26px; }
+}

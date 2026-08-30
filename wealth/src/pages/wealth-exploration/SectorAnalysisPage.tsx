@@ -4,6 +4,7 @@ import {
   buildSectorAnalysisDualMomentumPath,
   buildSectorAnalysisMomentumPath,
   buildSectorAnalysisMemberBreadthPath,
+  buildSectorAnalysisPriceVolumePath,
   buildSectorAnalysisRelativeRotationPath,
   navigateWealth,
 } from "../../app/routes/routerState";
@@ -20,6 +21,9 @@ import { RelativeRotationWorkspace } from "../../features/wealth-exploration/sec
 import { useMomentumRankingController } from "../../features/wealth-exploration/sector-analysis/momentum-ranking/model/useMomentumRankingController";
 import { MomentumRankingWorkspace } from "../../features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumRankingWorkspace";
 import { MomentumStateSurface } from "../../features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumStateSurface";
+import { useSectorPriceVolumeController } from "../../features/wealth-exploration/sector-analysis/price-volume/model/useSectorPriceVolumeController";
+import { PriceVolumeStateSurface } from "../../features/wealth-exploration/sector-analysis/price-volume/ui/PriceVolumeStateSurface";
+import { PriceVolumeWorkspace } from "../../features/wealth-exploration/sector-analysis/price-volume/ui/PriceVolumeWorkspace";
 import { WealthExplorationShell } from "./layout/WealthExplorationShell";
 import type { WealthExplorationShellRenderProps } from "./layout/WealthExplorationShell";
 import "./wealth-exploration-page.css";
@@ -51,7 +55,9 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
         ? buildSectorAnalysisDualMomentumPath(sharedSearch)
         : nextMethod === "relative-rotation"
           ? buildSectorAnalysisRelativeRotationPath(sharedSearch)
-          : buildSectorAnalysisMemberBreadthPath(buildMemberBreadthSharedSearch(routeSearch));
+          : nextMethod === "member-breadth"
+            ? buildSectorAnalysisMemberBreadthPath(buildMemberBreadthSharedSearch(routeSearch))
+            : buildSectorAnalysisPriceVolumePath(buildPriceVolumeSharedSearch(routeSearch));
     navigateWealth(path);
   }, [method, routeSearch]);
 
@@ -60,14 +66,27 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
       <SectorAnalysisMethodBar
         activeMethod={method}
         onSelect={handleMethodSelect}
-        onUnavailable={() => shell.showToast("待建设")}
       />
       {method === "momentum-ranking" ? <MomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
       {method === "dual-momentum" ? <DualMomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
       {method === "relative-rotation" ? <RelativeRotationMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
       {method === "member-breadth" ? <MemberBreadthMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
+      {method === "price-volume" ? <PriceVolumeMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
     </>
   );
+}
+
+function PriceVolumeMethodContent({ contextMatchesRoute, routeSearch, shell }: { contextMatchesRoute: boolean; routeSearch: string; shell: WealthExplorationShellRenderProps }) {
+  const handleNavigateSearch = useCallback((nextSearch: string, options?: { replace?: boolean }) => {
+    navigateWealth(buildSectorAnalysisPriceVolumePath(nextSearch), options);
+  }, []);
+  const controller = useSectorPriceVolumeController({
+    enabled: shell.model.contextState === "ready" && contextMatchesRoute,
+    search: routeSearch,
+    onNavigateSearch: handleNavigateSearch,
+  });
+  if (shell.model.contextState === "error") return <div className="price-volume-workspace"><PriceVolumeStateSurface kind="error" message={shell.contextErrorMessage ?? "页面时间上下文加载失败。"} onRetry={shell.model.retryContext} retryable /></div>;
+  return <PriceVolumeWorkspace controller={controller} />;
 }
 
 function MemberBreadthMethodContent({ contextMatchesRoute, routeSearch, shell }: { contextMatchesRoute: boolean; routeSearch: string; shell: WealthExplorationShellRenderProps }) {
@@ -148,6 +167,15 @@ function buildMemberBreadthSharedSearch(search: string): string {
   const market = source.get("market");
   const tradeDate = source.get("tradeDate");
   if (market === "CN_A") target.set("market", market);
+  if (tradeDate) target.set("tradeDate", tradeDate);
+  const query = target.toString();
+  return query ? `?${query}` : "";
+}
+
+function buildPriceVolumeSharedSearch(search: string): string {
+  const source = new URLSearchParams(search);
+  const target = new URLSearchParams();
+  const tradeDate = source.get("tradeDate");
   if (tradeDate) target.set("tradeDate", tradeDate);
   const query = target.toString();
   return query ? `?${query}` : "";

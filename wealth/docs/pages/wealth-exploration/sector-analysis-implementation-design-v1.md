@@ -1,10 +1,10 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.55；横截面动量排名 M0～M3A、双动量 M5～M8、相对轮动 M9～M12R 与成员广度 M13～M16R2 均已按各自结论收口。量价分布 M18 后端已按冻结合同完成：三只 strict 只读 API、专属合同／查询／计算／服务／schema、`3/5/5` SQL、最大119日、完整337行、payload、日期职责及正反例均通过本地自动化；未修改前端、数据库、迁移、配置、依赖或部署。下一步固定为M19前端。
+> - 当前状态：v1.56；横截面动量排名 M0～M3A、双动量 M5～M8、相对轮动 M9～M12R 与成员广度 M13～M16R2 均已按各自结论收口。量价分布 M18 后端和 M19 前端已按冻结合同完成本地开发与自动化验收：三只 strict 只读 API、第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13种状态已经落地；数据库、迁移、配置、依赖和部署未变。下一步固定为 M20 部署联调与交付验收。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
-> - 基线日期：2026-08-30。
+> - 基线日期：2026-08-31。
 
 ---
 
@@ -17,7 +17,7 @@
 3. 在三级行业可被选中的两个工作区中，左栏保持总高度不变并拆成上下两个独立滚动区：上部继续展示三级行业榜单，下部展示当前所选三级行业的成分股名称、代码、目标日收盘价和所选统计周期区间涨跌幅。该能力是动量排名的事实明细，不是“成员广度”方法，也不产生新的评分或预测。
 4. 相对轮动作为第三个独立方法，使用“当前同组强度百分位 + 5个交易日百分位变化”形成四象限快照，并只为当前选中行业展示 `20/30/60` 日轨迹；它不实现传统 RRG、不读取宽基指数，也不解释为预测。
 5. 成员广度作为第四个独立方法，使用同日来源成分关系、股票日行情和复权因子，分别计算成分股数量、成交额参与和均线位置三项客观广度；不合成为综合分、不解释为预测。其正式交互、数据合同和分期方案由第 12C 节冻结；M14、M15、M16R、M16I 和 M16R2 已完成本轮收口，页面及30日口径可用，较重的60日口径仍存在超过15秒客户端等待的已知限制。当前不继续放宽超时，持久化／预计算作为后续独立需求。
-6. 量价分布作为第五个独立方法，使用同一行业体系的区间涨跌幅和两段等长窗口成交额均值变化，形成当前横截面散点、完整列表和所选行业双历史趋势；不生成预测、信号、综合分或交易建议。第 12D 节冻结其三只只读 API、独立路由／controller、最大119个交易日窗口、状态、性能和验收边界；M18 已完成三只后端 API 及自动化门禁，现有按钮仍保持“待建设”，下一步固定为M19前端。
+6. 量价分布作为第五个独立方法，使用同一行业体系的区间涨跌幅和两段等长窗口成交额均值变化，形成当前横截面散点、完整列表和所选行业双历史趋势；不生成预测、信号、综合分或交易建议。第 12D 节冻结其三只只读 API、独立路由／controller、最大119个交易日窗口、状态、性能和验收边界；M18 已完成后端，M19 已完成第五条前端路由与正式工作区，下一步固定为 M20 部署联调与交付验收。
 
 既有动量排名直接读取 Prod 已有正式事实：
 
@@ -273,14 +273,14 @@ M1 已关闭原先三项页面差异：
 7. 前端 `useMomentumRankingController` 继续只包含 meta、ranking、history 和独立 member state；双动量已建立独立 Meta／Results controller，两个方法由精确路由按需挂载，没有向既有 controller 追加模式分支。
 8. `MomentumRankingWorkspace` 已完成两类三级 scope 的上下双滚动左栏和右侧双趋势详情；双动量使用独立列表＋散点工作区，不复用或改写该 DOM。
 9. 首页 `SectorMemberQuery` 的 CodeGraph 消费者仍是 `MarketSectorOverviewQueryService`，语义仍为 Top5 与单日涨跌幅；板块分析完整多周期成员合同没有反向污染首页，本增量继续保持零修改。
-10. `test_wealth_sector_analysis_guardrails.py` 已把来源精确冻结为 `TradeCalendar/WealthSectorHierarchy/DcDaily/DcMember/EquityDailyBar/EquityAdjFactor`；`EquityAdjFactor` 仅允许成员广度链路读取，其他三个方法仍禁止成员／因子，并继续禁止资金、Heat、DG/Lake 与 QTF 依赖。
-11. 2026-08-30 本轮 CodeGraph 当前索引为 2,902 个文件、51,889 个节点、129,128 条边；量价分布的直接影响面集中在 Biz 板块分析聚合路由、行业事实查询／计算、Wealth route resolver、`SectorAnalysisPage`、方法栏、新 feature 和对应测试。`TopMarketBar`、首页板块速览、Foundation 模型、Ops、QTF、DG/Lake 和既有四个方法的公开合同不应被修改。
+10. `test_wealth_sector_analysis_guardrails.py` 已把来源精确冻结为 `TradeCalendar/WealthSectorHierarchy/DcDaily/DcMember/EquityDailyBar/EquityAdjFactor`；`EquityAdjFactor` 仅允许成员广度链路读取，动量、双动量、相对轮动和量价分布仍禁止成员／因子，并继续禁止资金、Heat、DG/Lake 与 QTF 依赖。
+11. 2026-08-31 M19 开工前 CodeGraph 索引为 2,918 个文件、52,414 个节点、130,769 条边；量价分布前端影响面集中在 Wealth route resolver、`SectorAnalysisPage`、方法栏、新 feature 和对应测试。M19 没有修改 Biz 后端、`TopMarketBar`、首页板块速览、Foundation 模型、Ops、QTF、DG/Lake 和既有四个方法的公开合同。
 
 ### 2.5 双动量 M6／M7 实现现状与复用边界
 
 本轮再次对当前代码、消费者和测试进行 CodeGraph 影响面核验，得到以下约束：
 
-1. 前端路由已分别识别动量排名、双动量、相对轮动和成员广度四个精确方法；`SectorAnalysisPage` 按显式方法只挂载一个 controller，方法栏只将量价分布保留为“待建设”。四个已完成方法分别使用独立 API、adapter、URL、controller 和工作区，没有在既有 controller 中增加模式分支。
+1. 前端路由已分别识别动量排名、双动量、相对轮动、成员广度和量价分布五个精确方法；`SectorAnalysisPage` 按显式方法只挂载一个 controller。五个方法分别使用独立 API、adapter、URL、controller 和工作区，没有在既有 controller 中增加模式分支。
 2. 后端 `SectorMomentumCalculator` 已经实现区间累计涨跌幅、同组平均并列排名和百分位，是双动量需要复用的客观事实算法。双动量不得复制这些公式，也不得改变其版本和现有动量排名结果。
 3. `SectorMomentumQueryService.build_rankings()` 已改为消费页面无关的不可变单日动量事实快照，只负责方向排序、`listPosition` 和旧 DTO；`SectorDualMomentumQueryService` 直接消费同一快照，不调用旧页面 DTO、私有方法或第二次读取事实。
 4. 公共 Meta 已收敛为日期、层级和覆盖事实；既有动量 Meta 继续返回 1 日周期、方向和历史范围，双动量 Meta 使用独立 strict DTO，周期只允许 `5/10/20/30`。
@@ -297,7 +297,7 @@ M1 已关闭原先三项页面差异：
 3. `SectorMomentumQuery.load_open_dates()` 当前最多允许90个交易日。相对轮动最大需要 `60轨迹 + 5改善 + 30强度 = 95` 个交易日；M10 只能把该通用上限精确扩至95并增加 `96` 拒绝反例，不能解除边界或引入无限历史查询。
 4. 相对轮动一次 Results 计算必须批量读取最多95个开市日、当前比较池全部行业的日行情；随后在内存中一次生成最多65个目标日期（60个轨迹日期及其5日比较前沿）的收益和同组排名。禁止按行业或按日期循环查询数据库。
 5. M10 已新增相对轮动方法专属 `meta/results`、DTO、公式合同和查询服务，且没有改变既有六只 endpoint。
-6. M11 完成时，`WealthExplorationRoute`、`SectorAnalysisMethod` 和 `SectorAnalysisPage` 已识别相对轮动第三条精确 route，并使用独立 feature/controller；当时成员广度和量价分布仍走“待建设” toast。该句仅记录 M11 历史边界；M15 已使成员广度成为第四条正式 route，当前只有量价分布继续走“待建设” toast。
+6. M11 完成时，`WealthExplorationRoute`、`SectorAnalysisMethod` 和 `SectorAnalysisPage` 已识别相对轮动第三条精确 route，并使用独立 feature/controller；当时成员广度和量价分布仍走“待建设” toast。该句仅记录 M11 历史边界；M15 已使成员广度成为第四条正式 route，M19 已使量价分布成为第五条正式 route。
 7. 双动量的 strict adapter、请求竞态保护、URL 恢复、响应式 SVG、放大 dialog 和长行业名测量可以作为工程模式参考，但相对轮动的 DTO、状态标签、图表几何和 CSS 必须留在自己的 feature 内，不得通过条件分支改写双动量组件。
 8. CodeGraph 影响面显示，共享快照服务的直接业务消费者是动量排名和双动量。相对轮动若修改其准备阶段或开市日上限，必须回归这两个消费者、四个既有动量 endpoint、两个双动量 endpoint 及架构护栏；首页板块速览、成员明细、QTF、Ops 和 Foundation 写链路不应被触碰。
 
@@ -315,11 +315,11 @@ M1 已关闭原先三项页面差异：
 
 ### 2.8 量价分布当前代码事实与复用边界
 
-2026-08-30 已结合 CodeGraph、当前代码和正式 Figma 完成实现前审计：
+2026-08-30 已结合 CodeGraph、当时代码和正式 Figma 完成实现前审计；M18/M19 已按审计边界落地：
 
-1. `SectorAnalysisMethodBar` 的可用方法联合当前只有 `momentum-ranking/dual-momentum/relative-rotation/member-breadth`，量价分布仍位于不可用按钮清单；`SectorAnalysisPage` 没有量价分布 controller、隐藏 DOM 或 Mock 工作区。
-2. `routerState.ts` 只登记到成员广度路由；量价分布必须新增独立精确路由，不能以 query 模式塞入现有四个方法，也不能修改板块分析根地址默认跳转动量排名的行为。
-3. 后端聚合文件已有十一只板块分析 endpoint，均由 `require_quote_access` 保护并使用 strict query shape；量价分布不得给现有 DTO 加字段，而应建立自己的 Meta／Snapshot／Details schema、query、calculator 和 QueryService。
+1. M17 审计时方法联合只有前四项；M19 已将量价分布加入可用方法联合，`SectorAnalysisPage` 使用独立 controller 且没有隐藏挂载或 Mock 兜底。
+2. M17 审计时 `routerState.ts` 只登记到成员广度；M19 已新增独立精确路由，没有把量价分布塞入既有方法 query，也没有改变板块分析根地址默认跳转动量排名的行为。
+3. M17 审计时后端聚合文件已有十一只板块分析 endpoint；M18 已按结论追加量价专属 Meta／Snapshot／Details schema、query、calculator 和 QueryService，没有给既有 DTO 增加字段。
 4. `SectorHierarchyQuery`、公共 `MarketPageContextQuery`、五类 `resolve_scope_pool()` 和现有区间收益算法可以复用；价格动量必须调用或等价复用当前 `SectorMomentumCalculator` 的冻结语义，不能在量价分布内出现第二套首尾价格公式。
 5. 现有 `SectorDailyFact` 只有 `close/pct_change`，`SectorMomentumQuery.load_facts()` 也不读取 `amount`。禁止为了量价分布给该共享事实强加可空成交额字段；应新增量价分布专属日事实和查询投影，避免改变动量、双动量和相对轮动消费者。
 6. `core_serving.dc_daily` 已有 `amount` 数值列，业务键为 `ts_code + trade_date + category`；新查询只读取 `category='行业板块'` 的 `ts_code/trade_date/close/pct_change/amount`，不需要 Foundation 模型变更。
@@ -341,9 +341,9 @@ M1 已关闭原先三项页面差异：
 | 双动量 | `/wealth/exploration/sector-analysis/dual-momentum` | M8 已完成并关闭；冷启动性能按用户决定接受现状 |
 | 相对轮动 | `/wealth/exploration/sector-analysis/relative-rotation` | M12/M12R 已完成并关闭 |
 | 成员广度 | `/wealth/exploration/sector-analysis/member-breadth` | 本轮已带已接受性能限制关闭；事实、载荷和等价合同通过，30日口径现场可返回，较重的60日口径在15秒客户端等待下仍超时；持久化／预计算另列后续 TODO |
-| 量价分布 | `/wealth/exploration/sector-analysis/price-volume` | 技术方案已冻结；M19 前保持“待建设”，M19 通过后切换为正式路由 |
+| 量价分布 | `/wealth/exploration/sector-analysis/price-volume` | M19 已切换为第五条正式路由；M20 待部署联调与交付验收 |
 
-`momentum-ranking`、`dual-momentum`、`relative-rotation` 与 `member-breadth` 现在是四个可用且互相独立的方法路由。`price-volume` 是已冻结的第五条目标路由，但只有 M19 前端门禁通过后才能加入可用方法联合；在此之前继续只显示“待建设”，不得提前创建隐藏 controller 或 Mock 页面。
+`momentum-ranking`、`dual-momentum`、`relative-rotation`、`member-breadth` 与 `price-volume` 现在是五个可用且互相独立的方法路由。M19 已将 `price-volume` 加入可用方法联合并使用独立 controller；未选中的其他方法仍不得隐藏挂载或提前请求。
 
 ### 3.2 面包屑
 
@@ -371,7 +371,7 @@ flowchart TD
 2. 成交额子页面只请求现有成交额洞察接口。
 3. 板块分析只请求当前路由方法的数据；五个方法不得同时挂载 controller、图表或隐藏 DOM。
 4. 未选方法不创建 controller、图表实例、网络请求或隐藏 DOM。
-5. 成员广度已由 M15 接入精确路由并按第12C节请求数据；M16I 已补齐趋势图本地查看增量，不能退回“待建设” toast，也不能接入第二套趋势交互。量价分布在 M19 前只触发 toast；M19 通过后由独立 route/controller 替换，不修改其他方法状态。
+5. 成员广度已由 M15 接入精确路由并按第12C节请求数据；M16I 已补齐趋势图本地查看增量，不能退回“待建设” toast，也不能接入第二套趋势交互。量价分布已由 M19 使用独立 route/controller 替换 toast，不修改其他方法状态。
 
 ## 4. 前端目标架构
 
@@ -3120,12 +3120,14 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 
 ### M19：量价分布前端
 
-状态：`NOT STARTED`。
+状态：`PASS (2026-08-31)`。
 
 1. 新增第五条精确route、独立strict adapter／URL／controller／workspace，并从方法栏移除量价分布“待建设”行为。
 2. 严格实现Figma工具栏、完整滚动列表、摘要、响应式散点、双历史趋势和13种状态；不接Mock兜底。
 3. 落实未选零请求、Meta→Snapshot→Details、局部详情状态、本地筛选／排序／Hover零请求、竞态丢弃和一次409重载。
 4. 完成四档宽度、typecheck、production build、全量前端回归和既有四个方法零视觉／行为漂移后停止。
+
+实现证据：新增第五条精确 route、独立 API 类型与 strict adapter、十项 URL reducer、Meta→Snapshot→Details controller、完整滚动列表、摘要、响应式散点、共享悬停日期的双历史趋势和稳定状态骨架；未选方法零挂载，筛选／排序／Hover 只在本地发生。量价 feature 正反例、路由和既有方法回归纳入前端全量，`76` 个测试文件、`537` 项测试、typecheck 与 production build 均通过；未修改后端、数据库、迁移、配置、依赖或部署。
 
 ### M20：量价分布联调与交付验收
 
@@ -3205,7 +3207,7 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) 已补齐量价分布的代码级文件、合同、SQL、DTO、前端状态机、SVG和测试方案。M18后端已经按该合同实现并通过本地自动化，下一步固定为M19前端；部署态真实事实与P95仍严格留在M20，不得以本地测试冒充。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) 已补齐量价分布的代码级文件、合同、SQL、前端状态机、SVG和测试方案。M18后端与M19前端已经按该合同实现并通过本地自动化，下一步固定为M20部署联调与交付验收；部署态真实事实与P95仍严格留在M20，不得以本地测试冒充。
 
 M17～M20 若发现当前数据字段、消费者、真实性能或 Figma 与本文冲突，必须停止并回到方案层修正，禁止边编码边改口径。量价分布任何新增索引、迁移、缓存、结果表、第三方依赖、后台任务、持久化或范围扩张都不在本方案授权内；不能用数据截断、采样、缩窗、补零或旧事实回退换取性能。
 
@@ -3213,6 +3215,7 @@ M17～M20 若发现当前数据字段、消费者、真实性能或 Figma 与本
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.56 | 2026-08-31 | 完成量价分布M19前端：启用第五条精确route，新增独立strict adapter、十项URL、Meta→Snapshot→Details controller、完整滚动列表、摘要、响应式散点、双历史趋势、局部Details错误和13态；落实筛选／排序／Hover零请求、5秒等待、401、一次409重载、竞态丢弃及按需挂载。前端76个测试文件／537项测试、typecheck与production build通过；下一步固定M20部署联调与交付验收 | Codex |
 | v1.55 | 2026-08-30 | 完成量价分布M18后端：新增专属contract/calculator/query/QueryService/strict schema和Meta/Snapshot/Details三只只读API；落实五scope、五周期、三历史范围、四状态、价格公式组合复用、成交额前缀计算、独立缺失、Meta唯一回退、显式日期不回退、3/5/5 SQL、最大337行与119日、payload、401/409和架构边界。LLD冻结后端矩阵402项通过；未进入前端、部署或生产验收，下一步固定M19 | Codex |
 | v1.54 | 2026-08-30 | 用户依据完整337×60实测批准仅将量价分布Snapshot P95门禁由1秒调整为2秒；Meta/Details仍1秒，5 SQL、完整337行×60日、256KB、前端5秒和数据体验不变。实测Snapshot P95 1,521.863ms通过现行门禁，M17关闭，下一步固定M18 | Codex |
 | v1.53 | 2026-08-30 | 执行量价分布M17：登记409异常码并增加三表只读预门禁；Prod只读20次预检中Meta/Details P95为249.546/193.725ms且payload通过，最大337×60 Snapshot完整20,220行总链路P95为1,521.863ms，超过一秒门禁。M17结论为NOT PASS并停止，未实现业务代码、修改Figma、写生产或进入M18 | Codex |

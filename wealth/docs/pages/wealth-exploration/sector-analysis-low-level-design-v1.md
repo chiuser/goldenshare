@@ -2,17 +2,17 @@
 
 ## 0. 文档状态
 
-- 状态：v1.46；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14～M16R2 已完成本轮收口。量价分布 M18 后端已按冻结合同完成，三只 strict API、`3/5/5` SQL、最大337行与119日、日期职责、payload、异常和正反例通过本地自动化；M19前端与M20部署验收尚未开始。
-- 编写日期：2026-08-30。
+- 状态：v1.47；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14～M16R2 已完成本轮收口。量价分布 M18 后端与 M19 前端已按冻结合同完成本地开发与自动化验收；M20部署联调与交付验收尚未开始。
+- 编写日期：2026-08-31。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
 - 技术依据：[财势探查｜板块分析技术实施方案 v1](./sector-analysis-implementation-design-v1.md)。
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
-- 目标路由：前四条精确路由已经实现；M19 将新增 `/wealth/exploration/sector-analysis/price-volume`，M19 通过前量价分布按钮继续保持“待建设”且零请求。
+- 目标路由：五条精确路由已经实现；量价分布为 `/wealth/exploration/sector-analysis/price-volume`，只挂载当前方法 controller。
 - 目标 API：既有十一只板块分析 API 保持不变；M18 已新增 `/price-volume/meta|snapshot|details` 三只 strict 只读 API。
-- 待验收项：下一步固定为M19前端；量价分布后端已完成本地代码验收，但尚无前端页面和M20部署态真实API／P95结论，不得把M18自动化写成最终交付完成。
+- 待验收项：下一步固定为M20；量价分布前后端已完成本地代码验收，但尚无部署态真实API／P95与用户页面结论，不得把M18/M19自动化写成最终交付完成。
 
-本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”“成员广度”，以及第五个独立方法“量价分布”的代码级方案。量价分布只描述行业区间涨跌幅、成交额活跃变化、当前二维分布和所选行业历史变化，不做综合分、预测、信号或发布。M18后端已完成，M19前端和M20部署验收仍未开始。M3A成分股明细只是已选三级行业的事实下钻，不属于“成员广度”或“量价分布”。
+本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”“成员广度”，以及第五个独立方法“量价分布”的代码级方案。量价分布只描述行业区间涨跌幅、成交额活跃变化、当前二维分布和所选行业历史变化，不做综合分、预测、信号或发布。M18后端与M19前端已完成，M20部署验收仍未开始。M3A成分股明细只是已选三级行业的事实下钻，不属于“成员广度”或“量价分布”。
 
 ---
 
@@ -50,7 +50,7 @@
 | 成员广度复权均线 | `close × adj_factor` + 完整 N 日窗口 | 5/10/15/20/30/60；缺任一日只使该股票均线不可计算；现有 M3A 不读取因子 |
 | 自动日期与历史日期分离 | Meta `dateContext` + URL 是否存在 `tradeDate` | 同一日期在自动回退时显示 Delayed，用户显式选择时不显示自动回退提示 |
 | 成员广度性能分层 | Meta／非MA60 1秒，MA60 2秒 | Rankings 只算所选指标；MA60 放宽不得扩散到其他请求 |
-| 未建设方法零副作用 | `SectorAnalysisMethodBar` | M19 前量价分布只 toast、零路由和零请求；M19 完成后才启用第五条精确路由 |
+| 方法按需挂载 | `SectorAnalysisMethodBar` + `SectorAnalysisPage` | M19 已启用第五条精确路由；五种方法始终只挂载当前 controller，其他方法零请求、零隐藏 DOM |
 | 不新增持久化能力 | 复用既有 ORM；无迁移、表、缓存服务 | Alembic head 不变；无新 ORM model、Redis 或后台任务 |
 | 量价分布独立公式与状态 | `sector_price_volume_contract.py` + calculator | `1/5/10/20/30`、两段等长成交额窗口、四种客观状态；不生成综合分或预测 |
 | 量价分布完整日口径 | 专属 Meta 覆盖查询 | 当前发布全部行业同日 `close/pct_change/amount` 有效才是 COMPLETE；自动模式可回退，显式日期绝不回退 |
@@ -246,7 +246,7 @@ M9 最大窗口使用现有 Web 只读连接做了有界核验：只读当前发
 
 2026-08-30 使用仓库根 CodeGraph 当前索引和源码完成 M17 影响面复核，覆盖聚合 API router、现有 momentum Query／Calculator、五类 scope helper、前端 route／方法栏／页面挂载、现有四个 controller、测试和首页板块速览消费者。结论如下：
 
-1. 当前没有量价分布 API、schema、query、calculator、service、精确路由、controller 或运行工作区；方法栏中的“量价分布”仍是本地待建设行为。M17 不得把文档完成误写成运行能力已存在。
+1. M17 开工时没有量价分布 API、schema、query、calculator、service、精确路由、controller 或运行工作区；方法栏中的“量价分布”仍是本地待建设行为。该条只记录 M17 的实现前事实，M18/M19 已按后文里程碑证据完成对应前后端能力。
 2. `DcDaily` 已提供 `ts_code/trade_date/category/close/pct_change/amount`；业务键为 `(ts_code, trade_date, category)`。量价分布无需修改 Foundation ORM、DatasetDefinition、同步、索引或迁移。
 3. 既有 `SectorDailyFact` 只有价格事实；给它增加 `amount` 会改变动量、双动量和相对轮动消费者。量价分布必须新增专属 `SectorPriceVolumeDailyFact`，既有事实合同零变化。
 4. 既有 `SectorMomentumCalculator` 已冻结价格区间公式和完整 `N+1` 开市日语义。新 calculator 通过组合该纯计算器的公开批量入口获得价格结果，不复制第二套价格公式；成交额只在量价专属 calculator 中计算。
@@ -3233,7 +3233,7 @@ SVG 使用固定的 `776×365` 内部坐标系，但由浏览器按实际容器�
 type SectorAnalysisMethod = "momentum-ranking" | "dual-momentum";
 ```
 
-该段记录 M7 完成时的双动量装配基线：页面只根据路由判别值创建一个 controller 和一个工作区，不得用 CSS 隐藏其他方法。M11 已在第 8.16 节既定联合类型上增加相对轮动第三分支；当时三个已完成方法分别导航到自己的 path，并只保留跨方法共享的 `market/debug/tradeDate`，成员广度和量价分布仍 toast“待建设”。该句只记录 M11 历史状态；M15 已增加成员广度第四分支，当前仅量价分布继续保持零 URL、controller、请求和图表副作用的“待建设”状态。板块分析根地址仍 replace 到动量排名。
+该段记录 M7 完成时的双动量装配基线：页面只根据路由判别值创建一个 controller 和一个工作区，不得用 CSS 隐藏其他方法。M11 已在第 8.16 节既定联合类型上增加相对轮动第三分支；当时三个已完成方法分别导航到自己的 path，并只保留跨方法共享的 `market/debug/tradeDate`，成员广度和量价分布仍 toast“待建设”。该句只记录 M11 历史状态；M15 已增加成员广度第四分支，M19 已增加量价分布第五分支。板块分析根地址仍 replace 到动量排名，五个方法始终只挂载当前 controller。
 
 ### 8.11 双动量 URL 状态
 
@@ -4522,12 +4522,20 @@ M17预检不重新审计数据覆盖，只做有界只读可行性验证：
 
 ### M19：量价分布前端
 
-状态：`NOT STARTED`。
+状态：`PASS (2026-08-31)`。
 
 1. 按第5.11和8.27～9.8实现第五条精确route、strict adapter、十项URL、controller、工作区和局部SVG。
 2. 量价按钮由toast切为正式路由；只挂载当前controller，前四方法零变化。
 3. 完成第11.6节前端矩阵、13张Figma、四档宽度、typecheck、build和全量回归。
 4. 完成后停止，不自动部署或进入M20。
+
+实现与验收证据：
+
+1. `routerState`、`WealthRouter`、方法栏和页面组合根已增加第五条精确分支；量价按钮不再 toast，前四方法与板块分析根地址行为保持不变。
+2. 新增量价独立 wire/view 类型、strict adapter、十项 URL、controller、几何 helper、工具栏、完整列表、摘要、响应式散点、双历史趋势、状态骨架与局部 CSS；未引入第三方图表依赖或业务公式重算。
+3. controller 严格执行 Meta→Snapshot→Details，选择变化只重取 Details；筛选、排序、Hover 零请求；具备 Abort、request identity、5秒等待、401、一次409重载、竞态丢弃及局部详情失败保护。
+4. 自动化覆盖合同正反例、未知／重复 URL、五 scope、显式 PARTIAL/MISSING、Delayed、Error、坐标缺失、局部 Details 失败、散点和历史几何；前端全量 `76` 个测试文件、`537` 项测试、typecheck 与 production build 通过。
+5. 未修改后端、数据库、迁移、配置、依赖、部署、Figma、Foundation、Ops、QTF、DG/Lake 或首页板块速览；M19完成后停止，M20仍待用户部署与真实联调。
 
 ### M20：量价分布联调与交付验收
 
@@ -4648,8 +4656,8 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G50 量价异常与架构门禁 | 新409码已登记；只读三张Prod表；无成员／股票／因子／资金／Heat／QTF／DG/Lake／迁移／配置 | PASS (M17 registry/architecture test) |
 | G51 量价性能预检 | 最大60日Snapshot、119日Details、3/5/5 SQL、payload和分段预算可行 | PASS (M17 Prod只读)：Meta／Snapshot／Details P95 `249.546/1,521.863/193.725ms`，通过现行`1,000/2,000/1,000ms`门禁 |
 | G52 量价后端 | 三只strict API、价格复用、成交前缀计算、完整日、四状态、119日和正反例 | PASS (M18 code/tests)：402项冻结后端矩阵通过 |
-| G53 量价前端 | 第五route、十项URL、controller、strict adapter、完整列表、散点、双趋势和13态 | OPEN；等待M19 |
-| G54 量价日期职责 | Meta唯一自动回退；Snapshot／Details精确日期不回退；显式PARTIAL/MISSING透明 | BACKEND PASS (M18)；等待M19前端代码证据 |
+| G53 量价前端 | 第五route、十项URL、controller、strict adapter、完整列表、散点、双趋势和13态 | PASS (M19 code/tests)：76个测试文件／537项、typecheck与production build通过 |
+| G54 量价日期职责 | Meta唯一自动回退；Snapshot／Details精确日期不回退；显式PARTIAL/MISSING透明 | PASS (M18 backend + M19 frontend) |
 | G55 量价交付 | 真实事实、3/5/5 SQL、payload、Meta／Snapshot／Details分别1秒／2秒／1秒P95、13态、四档宽度和用户验收 | OPEN；等待M20 |
 
 ### 15.1 例外白名单
@@ -4805,12 +4813,13 @@ M16R/M16I 已部署到提交 `0211c13c11e878af7169c37d8a379af219b6bd65`。部署
 
 M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日成员计数，第四条 SQL 在数据库内部使用全部逐日成员和股票日期格生成60个日期聚合与625个目标成员投影，应用层继续用Decimal完成百分比、资格、原因、贡献、MA距离和最终DTO。本地100项定向与架构回归、4 SQL、685行、公开schema和载荷均通过，625成员、60槽和全部参与事实均未减少。现场30日口径可返回、较重的60日口径仍超过15秒客户端等待；用户接受该限制并结束本轮，G47/G47A以非PASS的已接受限制状态关闭。持久化／预计算成为后续独立TODO，不授权当前继续实施。
 
-量价分布 M18 后端现已完成：它建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；Meta／Snapshot／Details三只strict API、Meta唯一自动回退、完整列表事实、四状态、两项排名、3/5/5 SQL和完整正反例均已落地。M17既有Prod预检继续作为编码可行性证据，部署态真实HTTP仍留在M20。当前没有量价前端页面；下一步固定为M19。
+量价分布 M18 后端与 M19 前端现已完成：后端建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；前端建立第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13态。Meta唯一自动回退、显式日期精确显示、局部缺失透明和按需挂载均已有自动化证据。部署态真实HTTP、P95、四档页面和用户验收仍留在M20；下一步固定为M20。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.47 | 2026-08-31 | 完成量价分布M19前端：新增第五条精确route、独立strict adapter、十项URL、Meta→Snapshot→Details controller、完整滚动列表、摘要、响应式散点、双历史趋势、局部Details错误和13态；落实零请求本地筛选／排序／Hover、5秒等待、401、一次409重载、竞态丢弃与按需挂载。前端76个测试文件／537项测试、typecheck与production build通过，G53/G54 PASS；下一步固定M20部署联调与交付验收 |
 | v1.46 | 2026-08-30 | 完成量价分布M18后端：新增专属contract/calculator/query/QueryService/strict schema和三只只读API；落实价格组合复用、成交前缀和、五scope/period、三historyRange、四状态、独立缺失、Meta唯一回退、精确日期不回退、3/5/5 SQL、最大337行与119日、payload、401/409和安全异常。冻结后端矩阵402项通过，G52 PASS、G54后端PASS；未进入M19、部署或生产验收 |
 | v1.45 | 2026-08-30 | 用户依据完整337×60实测批准仅将量价分布Snapshot P95门禁调整为2秒；Meta/Details仍1秒，5 SQL、完整337×60、256KB、前端5秒和数据体验不变。实测三接口P95 249.546/1,521.863/193.725ms均通过现行门禁，G51和M17关闭，下一步M18 |
 | v1.44 | 2026-08-30 | 执行量价分布M17：登记`SA_PRICE_VOLUME_FACT_MISMATCH`，增加M18指定文件三表只读预门禁；Prod只读20次预检中Meta/Details总链路P95为249.546/193.725ms，最大337×60 Snapshot完整20,220行总链路P95为1,521.863ms，超过一秒门禁。G50 PASS、G51 NOT PASS，M17按失败条件停止且不进入M18 |

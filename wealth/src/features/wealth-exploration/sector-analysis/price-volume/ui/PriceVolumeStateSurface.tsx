@@ -1,0 +1,4 @@
+export function PriceVolumeStateSurface({ kind, message, onRetry, retryable }: { kind: "loading" | "empty" | "error"; message?: string; onRetry?: () => void; retryable?: boolean }) {
+  if (kind === "loading") return <div className="price-volume-loading-grid" aria-label="量价分布加载中"><section><strong>行业列表</strong>{Array.from({ length: 7 }, (_, index) => <i key={index} />)}</section><section><strong>量价分布正在加载</strong><i /><i /><i /></section></div>;
+  return <div className={`price-volume-state-surface ${kind}`} role={kind === "error" ? "alert" : "status"}><div><strong>{kind === "empty" ? "当前范围暂无完整量价坐标" : "量价分布加载失败"}</strong><span>{message ?? (kind === "empty" ? "行业仍保留在结果中，缺失指标显示 --。" : "请求失败，未展示旧结果或伪造坐标。")}</span>{kind === "error" && retryable ? <button type="button" onClick={onRetry}>重新加载</button> : null}</div></div>;
+}

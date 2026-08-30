@@ -6,6 +6,7 @@ import {
   WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH,
   WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH,
   WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH,
+  WEALTH_EXPLORATION_SECTOR_PRICE_VOLUME_PATH,
   WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH,
   WEALTH_EXPLORATION_SECTOR_PATH,
   WEALTH_EXPLORATION_TURNOVER_PATH,
@@ -13,6 +14,7 @@ import {
   buildSectorAnalysisDualMomentumPath,
   buildSectorAnalysisMomentumPath,
   buildSectorAnalysisMemberBreadthPath,
+  buildSectorAnalysisPriceVolumePath,
   buildSectorAnalysisRelativeRotationPath,
   buildSectorAnalysisPath,
   buildStockDetailPath,
@@ -74,9 +76,12 @@ describe("wealth exploration route", () => {
     expect(buildSectorAnalysisMemberBreadthPath("?market=CN_A&tradeDate=2026-08-21")).toBe(
       "/wealth/exploration/sector-analysis/member-breadth?market=CN_A&tradeDate=2026-08-21",
     );
+    expect(buildSectorAnalysisPriceVolumePath("?market=CN_A&tradeDate=2026-08-21")).toBe(
+      "/wealth/exploration/sector-analysis/price-volume?market=CN_A&tradeDate=2026-08-21",
+    );
   });
 
-  it("resolves only the six frozen exploration paths", () => {
+  it("resolves only the eight released exploration paths", () => {
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_PATH)).toEqual({ kind: "landing" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_TURNOVER_PATH)).toEqual({ kind: "turnover-insight" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_PATH)).toEqual({ kind: "sector-analysis-redirect" });
@@ -84,6 +89,7 @@ describe("wealth exploration route", () => {
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH)).toEqual({ kind: "sector-analysis-dual-momentum" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH)).toEqual({ kind: "sector-analysis-relative-rotation" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH)).toEqual({ kind: "sector-analysis-member-breadth" });
+    expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_PRICE_VOLUME_PATH)).toEqual({ kind: "sector-analysis-price-volume" });
     expect(resolveWealthExplorationRoute("/wealth/exploration/extra")).toEqual({ kind: "not-exploration" });
     expect(resolveWealthExplorationRoute("/wealth/exploration/sector-analysis/unknown")).toEqual({ kind: "not-exploration" });
   });

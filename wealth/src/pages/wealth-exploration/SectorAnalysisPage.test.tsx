@@ -395,25 +395,6 @@ describe("SectorAnalysisPage", () => {
     expect(requestCount(urls, "/momentum/history")).toBe(1);
   });
 
-  it("keeps URL, requests, active method, and charts unchanged when the remaining unavailable method is selected", async () => {
-    const urls: string[] = [];
-    vi.stubGlobal("fetch", buildReadyFetch(urls));
-    window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH}?tradeDate=2026-08-21`);
-    render(<SectorAnalysisPage method="momentum-ranking" search="?tradeDate=2026-08-21" />);
-
-    await screen.findByRole("table", { name: "行业动量完整排名" });
-    const sectorRequestCount = urls.filter((url) => url.includes("sector-analysis")).length;
-    const chartCount = screen.getAllByRole("img").length;
-
-    fireEvent.click(screen.getByRole("tab", { name: "量价分布" }));
-    expect(screen.getByText("待建设", { selector: "#toast" })).toBeInTheDocument();
-    expect(urls.filter((url) => url.includes("sector-analysis"))).toHaveLength(sectorRequestCount);
-    expect(screen.getAllByRole("img")).toHaveLength(chartCount);
-    expect(window.location.pathname).toBe(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH);
-    expect(window.location.search).toBe("?tradeDate=2026-08-21");
-    expect(screen.getByRole("tab", { name: "动量排名" })).toHaveAttribute("aria-pressed", "true");
-  });
-
   it("replaces the sector root with the momentum route and preserves its query", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ message: "unused" }, 500)));
     window.localStorage.setItem("wealth.auth.access-token", "mock-token");
