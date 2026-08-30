@@ -23,7 +23,8 @@ import type {
   SectorMemberBreadthViewState,
 } from "./sectorMemberBreadthTypes";
 
-const FETCH_TIMEOUT_MS = 5000;
+const META_FETCH_TIMEOUT_MS = 5000;
+const RANKINGS_FETCH_TIMEOUT_MS = 15_000;
 const DETAILS_FETCH_TIMEOUT_MS = 10_000;
 type NavigateSearch = (search: string, options?: { replace?: boolean }) => void;
 interface Input { enabled: boolean; search: string; onNavigateSearch: NavigateSearch; }
@@ -47,7 +48,7 @@ export function useSectorMemberBreadthController({ enabled, search, onNavigateSe
   useEffect(() => {
     if (!enabled || !urlState) { invalidateAll(); setMetaState({ kind: "idle" }); setRankingsState({ kind: "idle" }); setDetailsState({ kind: "idle" }); return; }
     const key = metaKey; const requestId = ++metaId.current; const abort = new AbortController(); let timedOut = false;
-    const timer = window.setTimeout(() => { timedOut = true; abort.abort(); }, FETCH_TIMEOUT_MS);
+    const timer = window.setTimeout(() => { timedOut = true; abort.abort(); }, META_FETCH_TIMEOUT_MS);
     setMetaState({ kind: "loading" }); acceptedRankingsKey.current = ""; acceptedDetailsKey.current = ""; setRankingsState({ kind: "idle" }); setDetailsState({ kind: "idle" });
     fetchSectorMemberBreadthMeta(urlState.market, { signal: abort.signal }).then((payload) => {
       if (metaId.current !== requestId || activeMetaKey.current !== key) return;
@@ -78,7 +79,7 @@ export function useSectorMemberBreadthController({ enabled, search, onNavigateSe
     if (!enabled || !rankingsRequest || !resolved || resolved.error) { rankingsId.current += 1; if (resolved && !resolved.actualDate) setRankingsState({ kind: "idle" }); return; }
     if (acceptedRankingsKey.current === rankingsKey) return;
     const request = rankingsRequest; const key = rankingsKey; const requestId = ++rankingsId.current; const abort = new AbortController(); let timedOut = false;
-    const timer = window.setTimeout(() => { timedOut = true; abort.abort(); }, FETCH_TIMEOUT_MS); setRankingsState({ kind: "loading" });
+    const timer = window.setTimeout(() => { timedOut = true; abort.abort(); }, RANKINGS_FETCH_TIMEOUT_MS); setRankingsState({ kind: "loading" });
     fetchSectorMemberBreadthRankings(request, { signal: abort.signal }).then((payload) => {
       if (rankingsId.current !== requestId || activeRankingsKey.current !== key) return;
       const adapted = buildSectorMemberBreadthRankingsViewModel(payload, request);

@@ -192,7 +192,7 @@ describe("MemberBreadthWorkspace", () => {
     expect(count(urls, "/member-breadth/rankings")).toBe(2);
   });
 
-  it("turns the frozen five-second timeout into a retryable safe error", async () => {
+  it("keeps the Meta five-second timeout as a retryable safe error", async () => {
     vi.useFakeTimers();
     const urls: string[] = [];
     const ready = buildReadyFetch(urls);
@@ -206,6 +206,29 @@ describe("MemberBreadthWorkspace", () => {
     render(<AuthProvider><WealthRouter /></AuthProvider>);
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     await act(async () => { vi.advanceTimersByTime(5000); await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByText("请求超时，请稍后重试。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新加载" })).toBeInTheDocument();
+  });
+
+  it("keeps Rankings pending before fifteen seconds and then exposes a retryable main error", async () => {
+    vi.useFakeTimers();
+    const urls: string[] = [];
+    const ready = buildReadyFetch(urls);
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const raw = String(input);
+      if (!raw.includes("/member-breadth/rankings")) return ready(input);
+      urls.push(raw);
+      return new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true }));
+    }));
+    window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH}?tradeDate=2026-08-27&sectorCode=BK1001.DC&metric=ma-position&maPeriod=60`);
+    render(<AuthProvider><WealthRouter /></AuthProvider>);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    expect(count(urls, "/member-breadth/rankings")).toBe(1);
+
+    await act(async () => { vi.advanceTimersByTime(14_999); await Promise.resolve(); });
+    expect(screen.queryByText("请求超时，请稍后重试。")).not.toBeInTheDocument();
+
+    await act(async () => { vi.advanceTimersByTime(1); await Promise.resolve(); await Promise.resolve(); });
     expect(screen.getByText("请求超时，请稍后重试。")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重新加载" })).toBeInTheDocument();
   });
