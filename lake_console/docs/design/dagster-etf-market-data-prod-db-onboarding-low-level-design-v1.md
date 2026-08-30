@@ -1,10 +1,10 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P5 已完成；P6 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P6 代码与临时湖验收已完成；正式 Bootstrap 尚未执行；P7A 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
-最近更新：2026-08-30
+最近更新：2026-08-31
 
 对应技术方案：[ETF 市场数据 DG 接入技术方案 v1](./dagster-etf-market-data-prod-db-onboarding-plan-v1.md)
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。P0-P5 已经获准并完成；P6 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。P0-P6 代码与临时湖验收已经完成；P6 正式 frozen plan 和 Raw apply 仍未执行，执行前须另行批准完整 plan fingerprint 和 Raw 写入；P7A 及以后也须逐阶段授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -1367,6 +1367,8 @@ events        物理对账后单独补 materialization/check event，不写 Lake
 
 七个 subcommands 共用 `etf_mins_bootstrap.py` 的计划、校验、checkpoint 和报告类型，以及 `etf_mins_bootstrap_cli.py` 的参数解析；它们仍是七个单独授权阶段，不是一次命令自动跑完全链。禁止把写开关藏在只读入口。`raw-apply`、`silver-apply`、`partitions`、`events` 分别要求 `--confirm-raw-lake-write`、`--confirm-silver-lake-write`、`--confirm-partition-write`、`--confirm-event-write`。本 LLD 只设计入口，不授权执行。
 
+P6 当前实现只把已经进入本阶段开发范围的 `plan/raw-apply` 注册到 CLI；`raw-observe/raw-decide/silver-apply/partitions/events` 会在各自阶段实现时再加入，不提前提供会被误认为可执行的空壳。最终目标仍是本节列出的一个 CLI、七个受控 subcommands，这不改变各阶段必须单独授权的边界。
+
 对应调用形状固定为：
 
 ```text
@@ -1924,6 +1926,14 @@ P5 同时保留了已确认的两种调用语义：日常调用必须携带全�
 先实现只读 frozen plan、目标冲突/空间/查询预算和 protection mode 合同；首次 2026 范围显式不启用零变化保护，P11 才生成 2026 保护清单。单独授权后按频率/20 日批次写 staging、执行稳定门禁、提升 Raw 并逐文件 checkpoint。
 
 完成条件：每个 20 日单频批次只有一次明细查询，source/staging/Raw 行数、范围、hash 和文件集合闭合，每个 frozen 日期/频率都有普通或显式零行 Raw；全部目标完成后才生成 `finalized_raw_manifest.parquet/raw_final_report.json`；N4 截止日确定，protection mode 与范围匹配，若为 P11 模式则 2026 保护清单零变化；不写 Silver，不补事件，不宣称 Raw ready。
+
+执行结果：已新增 `defs/bootstrap/etf_mins_bootstrap.py` 与 `etf_mins_bootstrap_cli.py`，当前 CLI 只开放 P6 的 `plan/raw-apply`。plan 固定 latest-only Basic 双 hash/双观测时间、请求集合、动态水位、交易日、五频、目标结构预检、查询/文件/空间预算和 protection mode；水位只执行一次最多 10 个 SSE 开市日的五频 coverage，不读取 TaskRun。plan 只把既有目标分为 `missing/present_structurally_valid_uncompared/present_invalid`，不会在没有明细来源时提前声称可复用或冲突；正确 schema 的零行文件属于结构有效，逐文件缺列或类型漂移属于 invalid。
+
+raw-apply 只消费冻结 plan，不重算水位或 coverage。它按频率和最多 20 日串行执行一条 Prod 明细查询，在 DuckDB relation 内完成范围分配，再按冻结日期 COPY 普通或显式零行 candidate；随后复用 P5 的 Basic relations、稳定 validator 和 11 字段双向 `EXCEPT ALL`，逐文件执行 `added/reused/conflict-stop`。每个文件完成后原子写 checkpoint；尚未完成批次保留 source Parquet 供续跑，整批完成后先验证 source receipt，再把该批目录原子移到 cleanup 名称并只删除本操作生成的两个临时文件，避免 staging 留下第二份全量历史。进程在查询前、批内、整批完成后或最终报告前中断都可续跑；checkpoint/receipt/hash、已完成正式文件和 Basic reference 任一漂移都会停止。
+
+每批 checkpoint 直接保存 source/staging/Raw 行数、source scope/hash/时间范围、added/reused/zero-row、查询次数、导出耗时和临时空间峰值；finalized manifest 使用固定列序和逻辑行 hash，不依赖 checkpoint JSON 的键顺序；final report 只保存 operation 内相对 manifest 路径，并补充正式 Raw 实际空间增量。只有全部目标和批次汇总闭合、实际明细查询数精确等于 `5 × ceil(D/20)`、正式 Raw 文件 hash 未变且适用的 2026 保护清单前后一致时，才生成不可变完成报告。
+
+验收：临时湖 + fake/read-only source 覆盖一次 bounded coverage、21 日十批查询预算、中断续跑且不重复查询、查询前失败留下空目录后的续跑、整批临时 source 清理、最终报告前失败后的 checkpoint 收尾、显式零行、逐文件 schema 漂移、Basic 跨批漂移、等价复用、内容冲突、完成后正式文件漂移、绝对 staging 路径不进入报告身份、10,000 文件上限，以及 2025 年及以前模式对 2026 文件的 hash 保护。ETF Basic + 分钟专项与治理回归为 233 passed；orchestrator 全量回归为 2,408 passed、833 subtests passed；Ruff、格式和文档完整性检查通过。没有访问 Prod、正式 Lake 或正式 Dagster instance，没有执行 Bootstrap CLI、Dagster job、动态分区或事件写入；因此本阶段完成的是代码和隔离验收，不是正式数据搬运。
 
 ### P7A：本地 Raw N3 observation/profile
 

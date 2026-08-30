@@ -102,10 +102,12 @@ def write_raw_etf_mins_partition_from_prod_db(
     normalized_freq = normalize_etf_mins_source_freq(source_freq)
     normalized_partition = normalize_etf_mins_trade_date(partition_key)
     _assert_lake_and_staging_roots(lake_root=lake_root, staging_root=staging_root)
-    normalized_basic_reference, requestable_targets = _revalidate_basic_reference(
-        duckdb=duckdb,
-        lake_root=lake_root,
-        basic_reference=basic_reference,
+    normalized_basic_reference, requestable_targets = (
+        revalidate_etf_mins_basic_reference(
+            duckdb=duckdb,
+            lake_root=lake_root,
+            basic_reference=basic_reference,
+        )
     )
     if prod_coverage_reference is not None:
         normalized_coverage_reference = validate_etf_mins_prod_coverage_reference(
@@ -151,9 +153,7 @@ def write_raw_etf_mins_partition_from_prod_db(
             postgres_connection_string=prod_postgres.duckdb_connection_string(),
         )
         try:
-            connection.execute(
-                f"CREATE TEMP TABLE {_SOURCE_RELATION} AS {source_sql}"
-            )
+            connection.execute(f"CREATE TEMP TABLE {_SOURCE_RELATION} AS {source_sql}")
         except duckdb_module.Error:
             raise EtfMinsRawWriteError(
                 "etf_mins_source_detail_query_failed: the single bounded Prod "
@@ -181,7 +181,7 @@ def write_raw_etf_mins_partition_from_prod_db(
                 "etf_mins_staging_readback_failed: the run-scoped candidate is not "
                 f"a readable Parquet file: {candidate_path}."
             ) from None
-        _create_frozen_basic_relations(
+        create_etf_mins_frozen_basic_relations(
             connection,
             basic_reference=normalized_basic_reference,
         )
@@ -222,7 +222,7 @@ def write_raw_etf_mins_partition_from_prod_db(
                 target_path=target_path,
             )
         if existing_relation is not None:
-            if not _relations_are_semantically_equal(
+            if not etf_mins_relations_are_semantically_equal(
                 connection,
                 left_relation=_CANDIDATE_RELATION,
                 right_relation=existing_relation,
@@ -321,7 +321,7 @@ def build_etf_mins_raw_materialization_metadata(
     )
 
 
-def _revalidate_basic_reference(
+def revalidate_etf_mins_basic_reference(
     *,
     duckdb: DuckDBResource,
     lake_root: Path,
@@ -404,7 +404,7 @@ def _assert_lake_and_staging_roots(*, lake_root: Path, staging_root: Path) -> No
         )
 
 
-def _create_frozen_basic_relations(
+def create_etf_mins_frozen_basic_relations(
     connection,
     *,
     basic_reference: EtfBasicSilverSnapshotReference,
@@ -444,13 +444,10 @@ def _create_existing_target_relation(connection, *, target_path: Path) -> str | 
 
 def _ordered_etf_mins_source_sql() -> str:
     columns = ", ".join(ETF_MINS_SOURCE_COLUMNS)
-    return (
-        f"SELECT {columns} FROM {_SOURCE_RELATION} "
-        "ORDER BY ts_code, trade_time"
-    )
+    return f"SELECT {columns} FROM {_SOURCE_RELATION} ORDER BY ts_code, trade_time"
 
 
-def _relations_are_semantically_equal(
+def etf_mins_relations_are_semantically_equal(
     connection,
     *,
     left_relation: str,
@@ -538,5 +535,8 @@ __all__ = [
     "EtfMinsRawWriteError",
     "EtfMinsRawWriteResult",
     "build_etf_mins_raw_materialization_metadata",
+    "create_etf_mins_frozen_basic_relations",
+    "etf_mins_relations_are_semantically_equal",
+    "revalidate_etf_mins_basic_reference",
     "write_raw_etf_mins_partition_from_prod_db",
 ]
