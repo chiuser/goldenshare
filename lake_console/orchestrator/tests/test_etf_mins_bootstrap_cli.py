@@ -13,7 +13,7 @@ from orchestrator.defs.bootstrap.etf_mins_bootstrap import (
 )
 
 
-def test_cli_exposes_only_the_two_authorized_stages_and_requires_write_flag() -> None:
+def test_cli_exposes_only_the_three_authorized_stages_and_requires_write_flag() -> None:
     parser = cli._build_parser()
     plan_args = parser.parse_args(
         [
@@ -42,13 +42,17 @@ def test_cli_exposes_only_the_two_authorized_stages_and_requires_write_flag() ->
                 "/tmp/raw_final_report.json",
             ]
         )
-    for future_stage in (
-        "raw-observe",
-        "raw-decide",
-        "silver-apply",
-        "partitions",
-        "events",
-    ):
+    raw_observe_args = parser.parse_args(
+        [
+            "raw-observe",
+            "--raw-final-report-path",
+            "/tmp/operation/raw_final_report.json",
+            "--output-dir",
+            "/tmp/operation/raw-observe",
+        ]
+    )
+    assert raw_observe_args.command == "raw-observe"
+    for future_stage in ("raw-decide", "silver-apply", "partitions", "events"):
         with pytest.raises(SystemExit):
             parser.parse_args([future_stage])
 
@@ -180,3 +184,67 @@ def test_cli_reports_frozen_basic_drift_as_a_controlled_failure(
     )
     assert result == 2
     assert capsys.readouterr().err.strip() == "etf_mins_basic_reference_invalid"
+
+
+def test_raw_observe_cli_is_local_only_and_passes_one_completed_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lake_root = tmp_path / "data_lake"
+    staging_root = tmp_path / "data_lake_staging"
+    lake_root.mkdir()
+    staging_root.mkdir()
+    operation_root = staging_root / "etf_mins" / "operation_id=observe"
+    report_path = operation_root / "raw_final_report.json"
+    output_dir = operation_root / "raw-observe"
+    captured: dict[str, object] = {}
+
+    def fake_observe(**kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return SimpleNamespace(
+            operation_id="observe",
+            output_dir=output_dir,
+            raw_observation_summary_path=output_dir / "raw_observation_summary.json",
+            proposed_policy_path=output_dir / "proposed_policy.json",
+            input_manifest_hash="a" * 64,
+            observation_summary_hash="b" * 64,
+            proposed_policy_hash="c" * 64,
+            scanned_file_count=5,
+            scanned_row_count=5,
+            scanned_byte_count=1_024,
+            issue_row_count=0,
+            raw_scan_query_count=2,
+            analysis_sql_statement_count=12,
+            peak_temp_dir_size_bytes=0,
+            elapsed_seconds=0.1,
+        )
+
+    def prod_resource_must_not_be_created():  # type: ignore[no-untyped-def]
+        raise AssertionError("raw-observe must not construct a Prod resource")
+
+    monkeypatch.setattr(cli, "DEFAULT_LAKE_ROOT", str(lake_root))
+    monkeypatch.setattr(cli, "DEFAULT_LAKE_STAGING_ROOT", str(staging_root))
+    monkeypatch.setattr(cli, "observe_etf_mins_raw", fake_observe)
+    monkeypatch.setattr(cli, "ProdPostgresResource", prod_resource_must_not_be_created)
+    assert (
+        cli.main(
+            [
+                "raw-observe",
+                "--raw-final-report-path",
+                str(report_path),
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 0
+    )
+    assert captured == {
+        "lake_root": lake_root,
+        "duckdb": captured["duckdb"],
+        "raw_bootstrap_report_path": report_path,
+        "output_dir": output_dir,
+    }
+    output = capsys.readouterr().out
+    assert "raw_observation_summary.json" in output
+    assert '"raw_scan_query_count": 2' in output

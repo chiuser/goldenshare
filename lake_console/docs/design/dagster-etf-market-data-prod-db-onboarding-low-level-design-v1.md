@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P6 代码与临时湖验收已完成；正式 Bootstrap 尚未执行；P7A 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P7A 代码与临时湖验收已完成；正式 Bootstrap 与正式 P7A 观察尚未执行；P7B 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。P0-P6 代码与临时湖验收已经完成；P6 正式 frozen plan 和 Raw apply 仍未执行，执行前须另行批准完整 plan fingerprint 和 Raw 写入；P7A 及以后也须逐阶段授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。P0-P7A 代码与临时湖验收已经完成；P6 正式 frozen plan、Raw apply 和随后正式 P7A 观察仍未执行，执行前分别需要批准完整 plan fingerprint、Raw 写入和本地全量 Raw 观察；P7B 及以后也须逐阶段授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -1367,7 +1367,7 @@ events        物理对账后单独补 materialization/check event，不写 Lake
 
 七个 subcommands 共用 `etf_mins_bootstrap.py` 的计划、校验、checkpoint 和报告类型，以及 `etf_mins_bootstrap_cli.py` 的参数解析；它们仍是七个单独授权阶段，不是一次命令自动跑完全链。禁止把写开关藏在只读入口。`raw-apply`、`silver-apply`、`partitions`、`events` 分别要求 `--confirm-raw-lake-write`、`--confirm-silver-lake-write`、`--confirm-partition-write`、`--confirm-event-write`。本 LLD 只设计入口，不授权执行。
 
-P6 当前实现只把已经进入本阶段开发范围的 `plan/raw-apply` 注册到 CLI；`raw-observe/raw-decide/silver-apply/partitions/events` 会在各自阶段实现时再加入，不提前提供会被误认为可执行的空壳。最终目标仍是本节列出的一个 CLI、七个受控 subcommands，这不改变各阶段必须单独授权的边界。
+当前实现只把已经进入开发范围的 `plan/raw-apply/raw-observe` 注册到 CLI；`raw-decide/silver-apply/partitions/events` 会在各自阶段实现时再加入，不提前提供会被误认为可执行的空壳。最终目标仍是本节列出的一个 CLI、七个受控 subcommands，这不改变各阶段必须单独授权的边界。
 
 对应调用形状固定为：
 
@@ -1384,7 +1384,7 @@ python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli raw-apply \
 
 python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli raw-observe \
   --raw-final-report-path <explicit-json-path> \
-  --output-dir <explicit-operation-dir>
+  --output-dir <explicit-operation-dir>/raw-observe
 
 python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli raw-decide \
   --observation-summary-path <explicit-json-path> \
@@ -1523,6 +1523,37 @@ raw-observe 必须从 `raw_final_report.json` 中解析同 operation 的 frozen 
 主扫描使用列投影：覆盖/网格阶段只读 `ts_code/freq/trade_time/exchange/vol`；数值域阶段再读取 OHLC、amount、vwap。允许按频率/年份或受控日期批次建立临时聚合，但不得逐文件重复深扫。
 
 raw-observe 只输出 profile、issue、`raw_observation_summary` 和 `proposed_policy`。异常需要源端确认时只输出有界 Prod 回查清单，raw-observe 自身不得访问 Prod。它不得生成 decision manifest、不得给出 `silver_eligible=true`。
+
+当前代码合同落在 `defs/bootstrap/etf_mins_raw_observation.py`。执行入口严格固定为：
+
+1. `load_etf_mins_bootstrap_raw_evidence(...)` 从唯一输入完成报告解析同 operation 的 plan/checkpoint/manifest 路径，复算 JSON 自身 hash、checkpoint hash、manifest 逻辑 hash、Basic Raw/Silver hash、交易日历范围和每个正式 Raw 文件 hash；文件集合、行数汇总、`added/reused`、显式零行、`unclassified/false` 任一不闭合立即停止。
+2. `output_dir` 必须精确等于输入 operation 下的 `raw-observe/`。先写同目录候选，8 件产物全部生成、预算通过并纳入 hash 后再原子提升；既有完整目录只允许等价复用，内容漂移不覆盖。
+3. 一个 DuckDB connection 内对分钟 Raw 只做两次深扫描。第一次以 `trade_date + freq + ts_code` 和 `trade_date + freq` 两级 grouping sets 生成 code-day/数值域聚合，同时计算相邻 bar gap candidate；第二次只投影 `ts_code/freq/trade_time`，生成 `freq + clock_time` 覆盖。file/domain/issue/partition 产物都从 finalized manifest、冻结 Basic 和这两份聚合派生，不逐文件、逐代码或逐缺失 bar 展开 Python 明细。
+4. Basic 集合在本地重新计算 expected/present/missing/known-non-required/nonbasic，并与 finalized manifest 对账；`retained_legacy/unexplained_new` 的拆分继续使用 P6 已绑定“执行前目标是否存在”的证据。两者合计与本地 nonbasic 不一致时停止。
+5. DuckDB JSON profiling 记录两次深扫描各自的 `system_peak_temp_dir_size`，summary 同时记录 scanned file/row/byte、两次 Raw scan、分析 SQL 条数和总 elapsed。这里的隔离测试只验证指标字段和计数链；正式性能数字只能来自正式 Raw 上另行授权的运行。
+
+P7A 的 observation reason code 登记为下列 16 类；这些只是稳定的问题命名，不是 P7B 批准后的阻断/WARN 映射：
+
+```text
+all_frequencies_empty
+partial_frequency_empty
+expected_code_missing
+internal_grid_gap_candidate
+boundary_time_variant_candidate
+zero_volume_bar_observed
+price_domain_anomaly
+volume_amount_domain_anomaly
+vwap_domain_anomaly
+off_session_time_observed
+known_non_required_code_present
+retained_legacy_code_present
+unexplained_new_code_observed
+key_contract_anomaly
+partition_contract_anomaly
+exchange_identity_anomaly
+```
+
+边界点比较只比较跨日期可比的 clock time，不比较带日期的完整 timestamp；各频率以实测最常见的 `min_clock_time + max_clock_time` 为观察基线，出现率只进入 profile/proposal。`internal_grid_gap_candidate` 继续沿用相邻时间差大于源频率分钟数的客观候选，因此可能包含午间休市等正常结构；P7A 绝不能把它直接解释成缺失 bar 或阻断结论。
 
 ### 20.6 N3B policy freeze 与 Raw decision
 
@@ -1927,7 +1958,7 @@ P5 同时保留了已确认的两种调用语义：日常调用必须携带全�
 
 完成条件：每个 20 日单频批次只有一次明细查询，source/staging/Raw 行数、范围、hash 和文件集合闭合，每个 frozen 日期/频率都有普通或显式零行 Raw；全部目标完成后才生成 `finalized_raw_manifest.parquet/raw_final_report.json`；N4 截止日确定，protection mode 与范围匹配，若为 P11 模式则 2026 保护清单零变化；不写 Silver，不补事件，不宣称 Raw ready。
 
-执行结果：已新增 `defs/bootstrap/etf_mins_bootstrap.py` 与 `etf_mins_bootstrap_cli.py`，当前 CLI 只开放 P6 的 `plan/raw-apply`。plan 固定 latest-only Basic 双 hash/双观测时间、请求集合、动态水位、交易日、五频、目标结构预检、查询/文件/空间预算和 protection mode；水位只执行一次最多 10 个 SSE 开市日的五频 coverage，不读取 TaskRun。plan 只把既有目标分为 `missing/present_structurally_valid_uncompared/present_invalid`，不会在没有明细来源时提前声称可复用或冲突；正确 schema 的零行文件属于结构有效，逐文件缺列或类型漂移属于 invalid。P7A 开工审计补齐了报告证据链：Raw 完成报告现在同时保存 operation 内 plan/checkpoint 相对路径并纳入自身 hash，复用完成报告时要求它们与本次显式输入精确一致；不改变 plan fingerprint、动态水位或 `plan -> 审阅 -> raw-apply` 两次授权边界。
+执行结果：已新增 `defs/bootstrap/etf_mins_bootstrap.py` 与 `etf_mins_bootstrap_cli.py`；P6 完成时 CLI 只开放本阶段的 `plan/raw-apply`，P7A 完成后才按阶段增加 `raw-observe`。plan 固定 latest-only Basic 双 hash/双观测时间、请求集合、动态水位、交易日、五频、目标结构预检、查询/文件/空间预算和 protection mode；水位只执行一次最多 10 个 SSE 开市日的五频 coverage，不读取 TaskRun。plan 只把既有目标分为 `missing/present_structurally_valid_uncompared/present_invalid`，不会在没有明细来源时提前声称可复用或冲突；正确 schema 的零行文件属于结构有效，逐文件缺列或类型漂移属于 invalid。P7A 开工审计补齐了报告证据链：Raw 完成报告现在同时保存 operation 内 plan/checkpoint 相对路径并纳入自身 hash，复用完成报告时要求它们与本次显式输入精确一致；不改变 plan fingerprint、动态水位或 `plan -> 审阅 -> raw-apply` 两次授权边界。
 
 raw-apply 只消费冻结 plan，不重算水位或 coverage。它按频率和最多 20 日串行执行一条 Prod 明细查询，在 DuckDB relation 内完成范围分配，再按冻结日期 COPY 普通或显式零行 candidate；随后复用 P5 的 Basic relations、稳定 validator 和 11 字段双向 `EXCEPT ALL`，逐文件执行 `added/reused/conflict-stop`。每个文件完成后原子写 checkpoint；尚未完成批次保留 source Parquet 供续跑，整批完成后先验证 source receipt，再把该批目录原子移到 cleanup 名称并只删除本操作生成的两个临时文件，避免 staging 留下第二份全量历史。进程在查询前、批内、整批完成后或最终报告前中断都可续跑；checkpoint/receipt/hash、已完成正式文件和 Basic reference 任一漂移都会停止。
 
@@ -1940,6 +1971,10 @@ raw-apply 只消费冻结 plan，不重算水位或 coverage。它按频率和�
 实现第 14.4/20.5 节的 profile、issue、observation summary 和 proposed policy。只读正式 Raw/Basic/交易日历，不访问 Prod；异常回查清单另行执行。
 
 完成条件：全部 Raw 目标都被 observation manifest 覆盖；扫描文件/行/字节、SQL 数、spill 和耗时有真实报告；没有 decision、`silver_eligible` 或生效 policy。
+
+执行结果：已新增 `defs/bootstrap/etf_mins_raw_observation.py`，并只在既有 Bootstrap CLI 中增加 `raw-observe --raw-final-report-path ... --output-dir .../raw-observe`。入口不接 Prod、Dagster instance、写湖确认或 policy 参数；CLI 的 raw-observe 分支也不构造 `ProdPostgresResource`。它先复用 P6 完成报告证据链，验证 plan/checkpoint/manifest/Raw/Basic/交易日历，再用一个 DuckDB connection 和两次分钟 Raw 深扫描生成 6 个 Parquet、observation summary 与 proposed policy；其它聚合只读小型 manifest/profile。issue 明细固定为 16 类 observation reason code、每类最多 20 个稳定样本，总行数同时受 `target_file_count × 16`、200,000 行和 256 MiB 限制，超限停止而非截断。
+
+所有 Parquet 都带 `schema_version/input_manifest_hash`；summary 和 proposal 都带输入 hash 与自身内容 hash。partition observation 只写 `policy_state=unclassified`，不含 decision/`silver_eligible`；proposal 明确 `effective=false/requires_admin_approval=true`。输出使用同 operation 候选目录和目录级原子提升，既有完整结果按 hash 复用，冲突不覆盖。隔离验收只使用最多 2 个日期、5 个频率和极小合成 Parquet，覆盖普通行、五频显式零行、跨日期 clock boundary、数值域/网格事实、hash 漂移、路径边界和幂等；专项 CLI/观察测试为 10 passed，orchestrator 全量回归为 2,414 passed、833 subtests passed，Ruff、Definitions 加载和文档完整性检查通过。没有执行正式 plan/raw-apply/raw-observe，没有同步全量数据，也没有访问 Prod、正式 Lake 或正式 Dagster instance。因此 P7A 的代码门禁已完成，但“真实报告”完成条件仍需等正式 Raw 存在后单独授权运行才能关闭，P7B 继续被阻断。
 
 ### P7B：N3 policy freeze 与 decision manifest
 

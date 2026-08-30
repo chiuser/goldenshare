@@ -220,6 +220,16 @@ class EtfMinsBootstrapRawApplyReport:
     report_hash: str
 
 
+@dataclass(frozen=True, slots=True)
+class EtfMinsBootstrapRawEvidence:
+    """Validated local evidence consumed by post-Raw Bootstrap stages."""
+
+    plan: EtfMinsBootstrapPlan
+    raw_apply_report: EtfMinsBootstrapRawApplyReport
+    basic_reference: EtfBasicSilverSnapshotReference
+    finalized_raw_manifest: tuple[Mapping[str, object], ...]
+
+
 def compute_etf_mins_bootstrap_payload_hash(
     payload: Mapping[str, object],
     *,
@@ -655,6 +665,103 @@ def load_etf_mins_bootstrap_trade_dates(
             "be read with the required SSE/open contract."
         ) from None
     return _normalize_trade_dates(tuple(str(row[0]) for row in rows))
+
+
+def load_etf_mins_bootstrap_raw_evidence(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    raw_final_report_path: Path,
+) -> EtfMinsBootstrapRawEvidence:
+    """Load one completed Raw operation without guessing sibling artifact names."""
+
+    if not raw_final_report_path.is_absolute():
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_raw_report_not_absolute: an explicit absolute path "
+            "is required."
+        )
+    operation_root = raw_final_report_path.parent.resolve(strict=False)
+    if (
+        raw_final_report_path.name != "raw_final_report.json"
+        or not operation_root.name.startswith("operation_id=")
+        or operation_root.parent.name != "etf_mins"
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_raw_report_path_invalid: expected an operation-root "
+            "raw_final_report.json."
+        )
+    staging_root = operation_root.parent.parent
+    _, path_operation_id = validate_etf_mins_bootstrap_operation_path(
+        raw_final_report_path,
+        staging_root=staging_root,
+    )
+    payload = _load_json(raw_final_report_path, label="ETF minute Raw final report")
+    if payload.get("bootstrap_kind") != ETF_MINS_BOOTSTRAP_KIND:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_kind_invalid.")
+    if int(payload.get("schema_version", 0)) != ETF_MINS_BOOTSTRAP_SCHEMA_VERSION:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_schema_invalid.")
+    if str(payload.get("operation_id") or "") != path_operation_id:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_operation_mismatch.")
+    if (
+        payload.get("policy_state") != "unclassified"
+        or payload.get("silver_eligible") is not False
+    ):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_policy_invalid.")
+
+    provisional_report = _raw_apply_report_from_payload(
+        payload,
+        raw_final_report_path,
+    )
+    plan = load_etf_mins_bootstrap_plan(
+        provisional_report.plan_path,
+        staging_root=staging_root,
+    )
+    if plan.operation_id != path_operation_id:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_plan_mismatch.")
+    basic_reference = _basic_reference_from_plan(plan, lake_root=lake_root)
+    basic_reference, _ = revalidate_etf_mins_basic_reference(
+        duckdb=duckdb,
+        lake_root=lake_root,
+        basic_reference=basic_reference,
+    )
+    _assert_protected_manifest_unchanged(plan=plan, lake_root=lake_root)
+    raw_apply_report = _load_completed_raw_apply_report(
+        plan=plan,
+        plan_path=provisional_report.plan_path,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        finalized_manifest_path=provisional_report.finalized_raw_manifest_path,
+        raw_final_report_path=raw_final_report_path,
+        checkpoint_path=provisional_report.checkpoint_path,
+    )
+    manifest_rows = _load_finalized_raw_manifest(
+        path=raw_apply_report.finalized_raw_manifest_path,
+        duckdb=duckdb,
+    )
+    _assert_finalized_raw_evidence_closed(
+        plan=plan,
+        report=raw_apply_report,
+        manifest_rows=manifest_rows,
+    )
+    calendar_trade_dates = set(
+        load_etf_mins_bootstrap_trade_dates(lake_root=lake_root, duckdb=duckdb)
+    )
+    missing_calendar_dates = tuple(
+        trade_date
+        for trade_date in plan.expected_trade_dates
+        if trade_date not in calendar_trade_dates
+    )
+    if missing_calendar_dates:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_calendar_scope_changed: frozen dates are no longer "
+            "SSE open dates."
+        )
+    return EtfMinsBootstrapRawEvidence(
+        plan=plan,
+        raw_apply_report=raw_apply_report,
+        basic_reference=basic_reference,
+        finalized_raw_manifest=manifest_rows,
+    )
 
 
 def audit_etf_mins_bootstrap_targets(
@@ -1761,8 +1868,27 @@ def _load_completed_raw_apply_report(
     checkpoint_path: Path,
 ) -> EtfMinsBootstrapRawApplyReport:
     payload = _load_json(raw_final_report_path, label="ETF minute Raw final report")
+    if payload.get("bootstrap_kind") != ETF_MINS_BOOTSTRAP_KIND:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_kind_invalid.")
+    if int(payload.get("schema_version", 0)) != ETF_MINS_BOOTSTRAP_SCHEMA_VERSION:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_schema_invalid.")
+    if payload.get("operation_id") != plan.operation_id:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_operation_mismatch.")
     if payload.get("plan_fingerprint") != plan.plan_fingerprint:
         raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_plan_mismatch.")
+    if payload.get("historical_protection_mode") != plan.historical_protection_mode:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_raw_report_protection_mode_mismatch."
+        )
+    if (
+        payload.get("protected_file_manifest_hash_before")
+        != plan.protected_file_manifest_hash
+        or payload.get("protected_file_manifest_hash_after")
+        != plan.protected_file_manifest_hash
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_raw_report_protection_hash_mismatch."
+        )
     if payload.get("report_hash") != compute_etf_mins_bootstrap_payload_hash(
         payload,
         self_hash_field="report_hash",
@@ -1840,6 +1966,100 @@ def _assert_finalized_raw_files(
             )
     if observed_keys != expected_keys:
         raise EtfMinsBootstrapError("etf_mins_bootstrap_finalized_raw_scope_mismatch.")
+
+
+def _assert_finalized_raw_evidence_closed(
+    *,
+    plan: EtfMinsBootstrapPlan,
+    report: EtfMinsBootstrapRawApplyReport,
+    manifest_rows: Sequence[Mapping[str, object]],
+) -> None:
+    if len(manifest_rows) != plan.target_file_count:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_finalized_raw_file_count_mismatch."
+        )
+    for row in manifest_rows:
+        if (
+            row.get("operation_id") != plan.operation_id
+            or row.get("plan_fingerprint") != plan.plan_fingerprint
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_finalized_raw_identity_mismatch."
+            )
+        if row.get("disposition") not in {"added", "reused"}:
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_finalized_raw_disposition_invalid."
+            )
+        if (
+            row.get("policy_state") != "unclassified"
+            or row.get("silver_eligible") is not False
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_finalized_raw_policy_invalid."
+            )
+        numeric_fields = (
+            "source_row_count",
+            "source_code_count",
+            "staging_row_count",
+            "staging_size_bytes",
+            "formal_raw_row_count",
+            "formal_raw_size_bytes",
+            "expected_count",
+            "present_count",
+            "missing_count",
+            "known_non_required_present_count",
+            "retained_legacy_count",
+            "unexplained_new_count",
+            "grid_gap_candidate_count",
+        )
+        if any(int(row[field]) < 0 for field in numeric_fields):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_finalized_raw_count_invalid."
+            )
+        if not (
+            int(row["source_row_count"])
+            == int(row["staging_row_count"])
+            == int(row["formal_raw_row_count"])
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_finalized_raw_row_count_mismatch."
+            )
+        if int(row["source_code_count"]) != int(row["present_count"]):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_finalized_raw_code_count_mismatch."
+            )
+        if bool(row["zero_row"]) != (int(row["formal_raw_row_count"]) == 0):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_finalized_raw_zero_row_invalid."
+            )
+        if int(row["missing_count"]) > int(row["expected_count"]):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_finalized_raw_coverage_invalid."
+            )
+    if (
+        report.source_row_count
+        != sum(int(row["source_row_count"]) for row in manifest_rows)
+        or report.staging_row_count
+        != sum(int(row["staging_row_count"]) for row in manifest_rows)
+        or report.formal_raw_row_count
+        != sum(int(row["formal_raw_row_count"]) for row in manifest_rows)
+    ):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_row_count_mismatch.")
+    if (
+        report.added_file_count
+        != sum(row["disposition"] == "added" for row in manifest_rows)
+        or report.reused_file_count
+        != sum(row["disposition"] == "reused" for row in manifest_rows)
+        or report.zero_row_file_count
+        != sum(bool(row["zero_row"]) for row in manifest_rows)
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_raw_report_file_count_mismatch."
+        )
+    if report.actual_remote_query_count != plan.raw_detail_query_count:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_raw_report_query_count_mismatch."
+        )
 
 
 def _raw_apply_report_from_payload(
@@ -2632,12 +2852,14 @@ __all__ = [
     "EtfMinsBootstrapError",
     "EtfMinsBootstrapPlan",
     "EtfMinsBootstrapRawApplyReport",
+    "EtfMinsBootstrapRawEvidence",
     "apply_etf_mins_bootstrap_raw",
     "audit_etf_mins_bootstrap_targets",
     "build_etf_mins_bootstrap_plan",
     "compute_etf_mins_bootstrap_manifest_hash",
     "compute_etf_mins_bootstrap_payload_hash",
     "load_etf_mins_bootstrap_plan",
+    "load_etf_mins_bootstrap_raw_evidence",
     "load_etf_mins_bootstrap_trade_dates",
     "operation_root_for_etf_mins_bootstrap",
     "run_etf_mins_bootstrap_plan",

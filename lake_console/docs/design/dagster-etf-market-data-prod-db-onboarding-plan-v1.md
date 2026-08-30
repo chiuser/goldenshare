@@ -1,6 +1,6 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：架构口径已收敛；P0-P6 代码与临时湖验收已完成；正式 Bootstrap 尚未执行；P7A 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权补事件或启用 Sensor
+状态：架构口径已收敛；P0-P7A 代码与临时湖验收已完成；正式 Bootstrap 与正式 P7A 观察尚未执行；P7B 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权补事件或启用 Sensor
 创建日期：2026-08-27
 最近更新：2026-08-31
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
@@ -642,7 +642,7 @@ tushare_request_count / page_count / quota_impact
 
 按 N4 动态冻结截止水位，先 dry-run、样本和预算，再经单独授权按频率/20 日批次写 Raw；全部目标闭合后生成完整 `finalized_raw_manifest.parquet` 和 `raw_final_report.json`，不写 Silver，不补事件。
 
-已完成 P6 代码与临时湖验收：新增一个 Bootstrap 实现模块和一个 CLI，当前只开放本阶段已经授权开发的 `plan/raw-apply`，后续五个 subcommand 不提前放空壳。plan 只做一次最多 10 个 SSE 开市日的五频 coverage 查询，冻结动态水位、latest-only Basic、目标状态、查询/文件/磁盘预算和 protection mode；不会读取 TaskRun，也不会在 apply 重查 coverage。raw-apply 按单频最多 20 日串行读取，每批只有一次明细查询，逐日生成普通或显式零行候选，复用 P5 稳定 validator，只允许新增或语义等价复用，内容冲突立即停止。
+已完成 P6 代码与临时湖验收：新增一个 Bootstrap 实现模块和一个 CLI；P6 完成时只开放本阶段已经授权开发的 `plan/raw-apply`，P7A 完成后才按阶段增加 `raw-observe`，其余四个 subcommand 仍不提前放空壳。plan 只做一次最多 10 个 SSE 开市日的五频 coverage 查询，冻结动态水位、latest-only Basic、目标状态、查询/文件/磁盘预算和 protection mode；不会读取 TaskRun，也不会在 apply 重查 coverage。raw-apply 按单频最多 20 日串行读取，每批只有一次明细查询，逐日生成普通或显式零行候选，复用 P5 稳定 validator，只允许新增或语义等价复用，内容冲突立即停止。
 
 断点续跑只保留尚未完成批次的 source Parquet；整批逐文件验收并写入 checkpoint 后，原子关闭并清理该批自己生成的临时 source 文件，避免 staging 长期保留一份完整历史副本。checkpoint 直接记录每批 source/staging/Raw 行数、added/reused/zero-row、查询耗时和临时空间峰值；最终报告补充正式 Raw 实际空间增量，并记录同一 operation 内 frozen plan/checkpoint 的相对路径。完成报告只有在全部目标、批次汇总、查询预算、Basic reference、正式文件 hash 和适用的 2026 保护清单都闭合后才生成；后续 P7A 从报告精确回溯输入，不猜固定文件名。该补充不改变 plan fingerprint、动态水位或 `plan` 与 `raw-apply` 分开授权的流程。
 
@@ -651,6 +651,12 @@ tushare_request_count / page_count / quota_impact
 ### P7A：本地 Raw N3 observation/profile
 
 只读正式 Raw、冻结 Basic 和交易日历，输出客观 coverage/grid/domain observation、issue 和性能报告；不生成 `silver_eligible`。
+
+已完成 P7A 代码与临时湖验收：新增独立的本地观察模块，并把 `raw-observe` 加入同一个 Bootstrap CLI。入口只接收一份 `raw_final_report.json` 和同 operation 下固定的 `raw-observe` 输出目录；它先沿完成报告中记录的相对路径验证 plan、checkpoint、finalized Raw manifest、Basic 双 hash、交易日历范围和全部正式 Raw 文件 hash，再开始观察，不要求操作者重新拼 plan/checkpoint，也不创建 Prod 资源。
+
+分钟明细固定只做两次集合化深扫描：第一次生成 code-day 与日期/频率数值域聚合，并重新核对 Basic expected/present/missing/known-non-required/nonbasic 集合；第二次生成各频率 clock-time 的 code-day 覆盖率。其它 file/domain/issue/partition 产物都从 manifest 和上述聚合派生，不在 Python 中逐行或逐代码计算。输出目录先写同 operation 的候选目录，8 件产物全部闭合后一次原子提升；既有完整结果按 hash 等价复用，内容或证据漂移立即停止，不覆盖。
+
+观察层登记的 reason code 只是问题分类，不是生效 policy。`proposed_policy.json` 只给出候选建议并明确 `effective=false/requires_admin_approval=true`；所有分区仍为 `unclassified`，所有 Parquet 都不含 decision 或 `silver_eligible`。临时湖使用最多 2 个日期、5 个频率和极小合成行验证了普通数据、五频显式零行、跨日期相同 clock boundary、价格/成交/vwap 异常、网格候选、证据 hash 漂移、输出路径边界和幂等复用；没有同步全量数据，没有访问 Prod、正式 Lake、正式 Dagster instance，也没有写 Silver、分区或事件。专项 CLI/观察测试为 10 passed；orchestrator 全量回归为 2,414 passed、833 subtests passed，Ruff、Definitions 加载和文档完整性检查通过。正式扫描文件/行/字节、SQL 数、DuckDB spill 峰值和耗时要等 P6 正式 Raw 完成后，单独授权运行 `raw-observe` 才会形成真实报告。
 
 ### P7B：N3 policy freeze 与 decision manifest
 
@@ -708,7 +714,7 @@ tushare_request_count / page_count / quota_impact
 
 ### 16.2 后续阶段仍需管理员拍板
 
-当前没有需要立即补充拍板的架构口径。P0-P6 代码与临时湖验收已经完成，但 P6 正式 frozen plan 和 Raw apply 仍需另行执行授权；P7A 及以后也须逐阶段授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
+当前没有需要立即补充拍板的架构口径。P0-P7A 代码与临时湖验收已经完成，但 P6 正式 frozen plan、Raw apply 和随后正式 P7A 观察仍需分别授权执行；P7B 及以后也须逐阶段授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |
