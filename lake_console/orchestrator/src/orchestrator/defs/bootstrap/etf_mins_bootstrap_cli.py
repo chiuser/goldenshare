@@ -88,6 +88,8 @@ def main(argv: list[str] | None = None) -> int:
             payload = {
                 "operation_id": report.operation_id,
                 "plan_fingerprint": report.plan_fingerprint,
+                "plan_path": str(report.plan_path),
+                "checkpoint_path": str(report.checkpoint_path),
                 "finalized_raw_manifest_path": str(report.finalized_raw_manifest_path),
                 "finalized_raw_manifest_hash": report.finalized_raw_manifest_hash,
                 "raw_final_report_path": str(report.raw_final_report_path),

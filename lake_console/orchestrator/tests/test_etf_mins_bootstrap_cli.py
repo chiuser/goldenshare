@@ -103,6 +103,8 @@ def test_raw_apply_cli_passes_only_frozen_paths_and_explicit_confirmation(
         return SimpleNamespace(
             operation_id="approved-raw",
             plan_fingerprint="a" * 64,
+            plan_path=plan_path,
+            checkpoint_path=checkpoint_path,
             finalized_raw_manifest_path=operation_root
             / "finalized_raw_manifest.parquet",
             finalized_raw_manifest_hash="b" * 64,
@@ -140,7 +142,10 @@ def test_raw_apply_cli_passes_only_frozen_paths_and_explicit_confirmation(
     assert captured["checkpoint_path"] == checkpoint_path
     assert captured["raw_final_report_path"] == report_path
     assert captured["confirm_raw_lake_write"] is True
-    assert "approved-raw" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "approved-raw" in output
+    assert str(plan_path) in output
+    assert str(checkpoint_path) in output
 
 
 def test_cli_reports_frozen_basic_drift_as_a_controlled_failure(

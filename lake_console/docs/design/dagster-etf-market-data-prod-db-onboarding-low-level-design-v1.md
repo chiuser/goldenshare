@@ -1514,11 +1514,11 @@ stop current batch at first stable-gate failure
 
 每个 `frequency + date_batch` 恰好一条 Prod 明细查询；不把整个历史范围装入 Python，不按 ETF 查询，不并行写相同目标文件。每个 frozen `trade_date + freq` 必须有一个物理结果，包括源端零行时的显式零行 Parquet。`missing`、部分频率缺失、零行和网格异常写入 metadata，不能在此阶段伪装成 N3 结论；`unexplained_new`、源行未分配、传输不一致或合同损坏仍立即停止。目标缺失时 disposition=`added`；结构有效既有目标经 11 字段双向 `EXCEPT ALL` 为零时 disposition=`reused`；否则 disposition=`conflict-stop` 并立即停止，绝不覆盖。失败后通过 checkpoint 从已验收文件后继续；重跑仍会重新验证正式文件，再做等价复用或冲突停止。
 
-Raw apply 只有在 frozen plan 的全部目标都已通过稳定门禁并明确为 `added|reused` 后，才输出覆盖全部目标的 `finalized_raw_manifest.parquet` 和不可变 `raw_final_report.json`。报告至少绑定 `operation_id`、`plan_fingerprint`、finalized manifest hash、source/staging/Raw 汇总行数、added/reused/zero-row 数量、实际远程查询数、checkpoint hash 和自身内容 hash；未完成、冲突或任一批次失败时不得生成完成报告。Raw apply 不生成 Silver、不补 Dagster event，也不宣称 Raw ready。历史全量验收在后续由 N3 decision manifest 和三项 blocking 语义完成，不以是否存在历史 check event 为唯一依据。
+Raw apply 只有在 frozen plan 的全部目标都已通过稳定门禁并明确为 `added|reused` 后，才输出覆盖全部目标的 `finalized_raw_manifest.parquet` 和不可变 `raw_final_report.json`。报告至少绑定 `operation_id`、`plan_fingerprint`、operation 内的 frozen plan/checkpoint 相对路径、finalized manifest hash、source/staging/Raw 汇总行数、added/reused/zero-row 数量、实际远程查询数、checkpoint hash 和自身内容 hash；相对路径必须解析回同一个 operation 目录，后续 P7A 不得靠约定文件名猜输入。未完成、冲突或任一批次失败时不得生成完成报告。Raw apply 不生成 Silver、不补 Dagster event，也不宣称 Raw ready。历史全量验收在后续由 N3 decision manifest 和三项 blocking 语义完成，不以是否存在历史 check event 为唯一依据。
 
 ### 20.5 N3A Raw observation/profile
 
-raw-observe 必须先验证 frozen plan、`raw_final_report.json`、`finalized_raw_manifest.parquet` 和正式 Raw 文件集合/hash 一致，然后在一个或少量 DuckDB connection 中完成第 14.4 节的本地批量观察。
+raw-observe 必须从 `raw_final_report.json` 中解析同 operation 的 frozen plan/checkpoint 相对路径，验证 plan、checkpoint、`raw_final_report.json`、`finalized_raw_manifest.parquet` 和正式 Raw 文件集合/hash 一致，然后在一个或少量 DuckDB connection 中完成第 14.4 节的本地批量观察。CLI 仍只接收 Raw 完成报告，不额外要求人再次拼接 plan/checkpoint 路径。
 
 主扫描使用列投影：覆盖/网格阶段只读 `ts_code/freq/trade_time/exchange/vol`；数值域阶段再读取 OHLC、amount、vwap。允许按频率/年份或受控日期批次建立临时聚合，但不得逐文件重复深扫。
 
@@ -1927,7 +1927,7 @@ P5 同时保留了已确认的两种调用语义：日常调用必须携带全�
 
 完成条件：每个 20 日单频批次只有一次明细查询，source/staging/Raw 行数、范围、hash 和文件集合闭合，每个 frozen 日期/频率都有普通或显式零行 Raw；全部目标完成后才生成 `finalized_raw_manifest.parquet/raw_final_report.json`；N4 截止日确定，protection mode 与范围匹配，若为 P11 模式则 2026 保护清单零变化；不写 Silver，不补事件，不宣称 Raw ready。
 
-执行结果：已新增 `defs/bootstrap/etf_mins_bootstrap.py` 与 `etf_mins_bootstrap_cli.py`，当前 CLI 只开放 P6 的 `plan/raw-apply`。plan 固定 latest-only Basic 双 hash/双观测时间、请求集合、动态水位、交易日、五频、目标结构预检、查询/文件/空间预算和 protection mode；水位只执行一次最多 10 个 SSE 开市日的五频 coverage，不读取 TaskRun。plan 只把既有目标分为 `missing/present_structurally_valid_uncompared/present_invalid`，不会在没有明细来源时提前声称可复用或冲突；正确 schema 的零行文件属于结构有效，逐文件缺列或类型漂移属于 invalid。
+执行结果：已新增 `defs/bootstrap/etf_mins_bootstrap.py` 与 `etf_mins_bootstrap_cli.py`，当前 CLI 只开放 P6 的 `plan/raw-apply`。plan 固定 latest-only Basic 双 hash/双观测时间、请求集合、动态水位、交易日、五频、目标结构预检、查询/文件/空间预算和 protection mode；水位只执行一次最多 10 个 SSE 开市日的五频 coverage，不读取 TaskRun。plan 只把既有目标分为 `missing/present_structurally_valid_uncompared/present_invalid`，不会在没有明细来源时提前声称可复用或冲突；正确 schema 的零行文件属于结构有效，逐文件缺列或类型漂移属于 invalid。P7A 开工审计补齐了报告证据链：Raw 完成报告现在同时保存 operation 内 plan/checkpoint 相对路径并纳入自身 hash，复用完成报告时要求它们与本次显式输入精确一致；不改变 plan fingerprint、动态水位或 `plan -> 审阅 -> raw-apply` 两次授权边界。
 
 raw-apply 只消费冻结 plan，不重算水位或 coverage。它按频率和最多 20 日串行执行一条 Prod 明细查询，在 DuckDB relation 内完成范围分配，再按冻结日期 COPY 普通或显式零行 candidate；随后复用 P5 的 Basic relations、稳定 validator 和 11 字段双向 `EXCEPT ALL`，逐文件执行 `added/reused/conflict-stop`。每个文件完成后原子写 checkpoint；尚未完成批次保留 source Parquet 供续跑，整批完成后先验证 source receipt，再把该批目录原子移到 cleanup 名称并只删除本操作生成的两个临时文件，避免 staging 留下第二份全量历史。进程在查询前、批内、整批完成后或最终报告前中断都可续跑；checkpoint/receipt/hash、已完成正式文件和 Basic reference 任一漂移都会停止。
 

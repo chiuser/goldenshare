@@ -638,11 +638,48 @@ def test_raw_apply_reuses_equivalent_targets_and_final_report_is_relocatable(
     assert report.reused_file_count == 5
     assert report.final_space_increment_bytes == 0
     payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload["plan_relative_path"] == "plan.json"
+    assert payload["checkpoint_relative_path"] == "raw_checkpoint.json"
     assert payload["finalized_raw_manifest_relative_path"] == (
         "finalized_raw_manifest.parquet"
     )
+    assert report.plan_path == plan_path
+    assert report.checkpoint_path == checkpoint_path
     assert "finalized_raw_manifest_path" not in payload
     assert str(staging_root) not in report_path.read_text(encoding="utf-8")
+
+    for field_name, wrong_value, expected_error in (
+        ("plan_relative_path", "different-plan.json", "plan_path_mismatch"),
+        (
+            "checkpoint_relative_path",
+            "different-checkpoint.json",
+            "checkpoint_path_mismatch",
+        ),
+    ):
+        tampered_payload = {**payload, field_name: wrong_value}
+        tampered_payload["report_hash"] = compute_etf_mins_bootstrap_payload_hash(
+            tampered_payload,
+            self_hash_field="report_hash",
+        )
+        report_path.write_text(
+            json.dumps(tampered_payload, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+        with pytest.raises(EtfMinsBootstrapError, match=expected_error):
+            apply_etf_mins_bootstrap_raw(
+                lake_root=lake_root,
+                staging_root=staging_root,
+                duckdb=TestDuckDBResource(),  # type: ignore[arg-type]
+                prod_postgres=FakeProdPostgres(),  # type: ignore[arg-type]
+                plan_path=plan_path,
+                checkpoint_path=checkpoint_path,
+                raw_final_report_path=report_path,
+                confirm_raw_lake_write=True,
+            )
+    report_path.write_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True),
+        encoding="utf-8",
+    )
 
     changed_path = raw_etf_mins_path(lake_root, "1min", trade_date)
     write_minute_file(

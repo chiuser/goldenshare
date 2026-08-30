@@ -202,6 +202,8 @@ class EtfMinsBootstrapPlan:
 class EtfMinsBootstrapRawApplyReport:
     operation_id: str
     plan_fingerprint: str
+    plan_path: Path
+    checkpoint_path: Path
     finalized_raw_manifest_path: Path
     finalized_raw_manifest_hash: str
     raw_final_report_path: Path
@@ -892,6 +894,7 @@ def apply_etf_mins_bootstrap_raw(
     if raw_final_report_path.exists():
         return _load_completed_raw_apply_report(
             plan=plan,
+            plan_path=plan_path,
             lake_root=lake_root,
             duckdb=duckdb,
             finalized_manifest_path=finalized_manifest_path,
@@ -1057,6 +1060,12 @@ def apply_etf_mins_bootstrap_raw(
         "schema_version": ETF_MINS_BOOTSTRAP_SCHEMA_VERSION,
         "operation_id": plan.operation_id,
         "plan_fingerprint": plan.plan_fingerprint,
+        "plan_relative_path": plan_path.resolve(strict=False)
+        .relative_to(operation_root)
+        .as_posix(),
+        "checkpoint_relative_path": checkpoint_path.resolve(strict=False)
+        .relative_to(operation_root)
+        .as_posix(),
         "finalized_raw_manifest_relative_path": (
             finalized_manifest_path.relative_to(operation_root).as_posix()
         ),
@@ -1744,6 +1753,7 @@ def _load_finalized_raw_manifest(
 def _load_completed_raw_apply_report(
     *,
     plan: EtfMinsBootstrapPlan,
+    plan_path: Path,
     lake_root: Path,
     duckdb: DuckDBResource,
     finalized_manifest_path: Path,
@@ -1758,6 +1768,19 @@ def _load_completed_raw_apply_report(
         self_hash_field="report_hash",
     ):
         raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_hash_invalid.")
+    operation_root = raw_final_report_path.parent.resolve(strict=False)
+    expected_plan_relative_path = (
+        plan_path.resolve(strict=False).relative_to(operation_root).as_posix()
+    )
+    if payload.get("plan_relative_path") != expected_plan_relative_path:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_raw_report_plan_path_mismatch.")
+    expected_checkpoint_relative_path = (
+        checkpoint_path.resolve(strict=False).relative_to(operation_root).as_posix()
+    )
+    if payload.get("checkpoint_relative_path") != expected_checkpoint_relative_path:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_raw_report_checkpoint_path_mismatch."
+        )
     if payload.get("finalized_raw_manifest_relative_path") != (
         finalized_manifest_path.name
     ):
@@ -1823,12 +1846,24 @@ def _raw_apply_report_from_payload(
     payload: Mapping[str, object],
     raw_final_report_path: Path,
 ) -> EtfMinsBootstrapRawApplyReport:
+    operation_root = raw_final_report_path.parent.resolve(strict=False)
     return EtfMinsBootstrapRawApplyReport(
         operation_id=str(payload["operation_id"]),
         plan_fingerprint=str(payload["plan_fingerprint"]),
-        finalized_raw_manifest_path=(
-            raw_final_report_path.parent
-            / str(payload["finalized_raw_manifest_relative_path"])
+        plan_path=_resolve_operation_report_artifact(
+            operation_root=operation_root,
+            relative_path=payload["plan_relative_path"],
+            field_name="plan_relative_path",
+        ),
+        checkpoint_path=_resolve_operation_report_artifact(
+            operation_root=operation_root,
+            relative_path=payload["checkpoint_relative_path"],
+            field_name="checkpoint_relative_path",
+        ),
+        finalized_raw_manifest_path=_resolve_operation_report_artifact(
+            operation_root=operation_root,
+            relative_path=payload["finalized_raw_manifest_relative_path"],
+            field_name="finalized_raw_manifest_relative_path",
         ),
         finalized_raw_manifest_hash=str(payload["finalized_raw_manifest_hash"]),
         raw_final_report_path=raw_final_report_path,
@@ -1844,6 +1879,27 @@ def _raw_apply_report_from_payload(
         checkpoint_hash=str(payload["checkpoint_hash"]),
         report_hash=str(payload["report_hash"]),
     )
+
+
+def _resolve_operation_report_artifact(
+    *,
+    operation_root: Path,
+    relative_path: object,
+    field_name: str,
+) -> Path:
+    candidate_relative_path = Path(str(relative_path))
+    if candidate_relative_path.is_absolute():
+        raise EtfMinsBootstrapError(
+            f"etf_mins_bootstrap_raw_report_{field_name}_invalid."
+        )
+    candidate_path = (operation_root / candidate_relative_path).resolve(strict=False)
+    if candidate_path == operation_root or not candidate_path.is_relative_to(
+        operation_root
+    ):
+        raise EtfMinsBootstrapError(
+            f"etf_mins_bootstrap_raw_report_{field_name}_invalid."
+        )
+    return candidate_path
 
 
 def _plan_from_payload(payload: Mapping[str, object]) -> EtfMinsBootstrapPlan:
