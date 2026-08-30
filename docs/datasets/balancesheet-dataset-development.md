@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入技术方案 v1
 
-状态：**共享 `end_type` 规范化代码与 migration `20260830_000167` 已实现；待运营部署迁移并重跑验收**
+状态：**Prod 验收完成，数据集开发关闭**
 编写日期：2026-08-29
 适用范围：Tushare `balancesheet_vip` 接入 Goldenshare Prod
 
@@ -185,4 +185,15 @@ raw 额外保存 `source_content_hash`、`api_name='balancesheet_vip'`、`fetche
 | M4 | 定向测试、架构/Definition/docs 检查 |
 | M5 | 运营部署、迁移、历史范围同步和页面验收 |
 
-初始历史范围是唯一后续运营决策，不阻塞 LLD。
+## 11. Prod 验收结论
+
+2026-08-30 已完成 `2025-01-01 ~ 2026-08-31` 初始范围验收：
+
+1. TaskRun `10215`、`10218` 均成功，合计完成 `7,296/7,296` 个 unit，写入 `115,177` 行，拒绝和失败 unit 均为 0；任务写入量与 `raw_tushare.balancesheet` 实际总行数完全一致。
+2. raw 覆盖 6,334 个证券代码；身份空值、`end_type` 空值、非季度末、`end_type` 与 `end_date` 矛盾、非法内容指纹均为 0。
+3. 全部 12 类报表均完成请求；源站实际返回类型为 `1/4/5/6/9/10/11/12`，其他类型为空结果，符合已确认的 empty-result 契约。
+4. `core_serving.equity_balancesheet` 与 raw 的既定最新报表排序结果双向差集均为 0，每个 `(ts_code, end_date)` 唯一。
+5. 源站返回已退市证券 `000583.SZ`（S*ST托普(退)）的资产负债表事实，而利润表无该代码；raw 按职责保留，不视为同步遗漏。
+6. migration 已到 `20260830_000167`，表、主键及索引继续位于 `gs_raw_cold_hdd`；页面验收由运营确认通过。
+
+本数据集开发完成，不再保留待开发或待验收事项。

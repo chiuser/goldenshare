@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入 LLD v1
 
-状态：**共享 `end_type` 规范化代码与 migration `20260830_000167` 已按本 LLD 实现；待运营部署迁移并重跑验收**
+状态：**已按本 LLD 实现并通过 Prod 验收，开发关闭**
 编写日期：2026-08-30
 上位方案：[A 股资产负债表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)
 
@@ -328,4 +328,4 @@ cd /Users/congming/github/goldenshare && python3 scripts/check_docs_integrity.py
 
 ## 14. 交付状态定义
 
-开发完成后文档只能更新为“代码已实现，待运营部署与验收”。初始历史范围、生产 migration、数据同步和页面验收由运营后续执行；不得在开发阶段自行运行生产写操作。
+开发完成阶段文档只能更新为“代码已实现，待运营部署与验收”，不得在开发阶段自行运行生产写操作。2026-08-30 运营已完成部署、migration、`2025-01-01 ~ 2026-08-31` 初始范围同步与页面验收；TaskRun、raw 质量、serving 唯一选择和 HDD 存储均通过，详细证据见上位技术方案第 11 节，本 LLD 关闭。

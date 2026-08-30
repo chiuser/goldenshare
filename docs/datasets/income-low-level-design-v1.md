@@ -1,6 +1,6 @@
 # A 股利润表（`income`）数据集接入 LLD v1
 
-状态：**`end_type` 规范化代码与 migration `20260830_000167` 已按本 LLD 实现；待运营部署迁移并重跑验收**
+状态：**已按本 LLD 实现并通过 Prod 验收，开发关闭**
 编写日期：2026-08-30
 上位方案：[A 股利润表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md)
 
@@ -527,7 +527,7 @@ cd /Users/congming/github/goldenshare && python3 scripts/check_docs_integrity.py
 
 ## 14. 验收口径
 
-代码完成只能说明“可交付运营部署”，不能直接把数据集标为生产验收完成。开发验收必须证明：
+代码完成阶段只能说明“可交付运营部署”，不能直接把数据集标为生产验收完成。开发验收必须证明：
 
 1. Definition、计划、请求、字段、身份、HDD 和 view 口径全部与上位方案一致。
 2. 默认 12 类型与任意子集均能生成准确 unit 数和源参数。
@@ -535,4 +535,4 @@ cd /Users/congming/github/goldenshare && python3 scripts/check_docs_integrity.py
 4. raw 只存一份物理事实，serving view 每公司每报告期唯一。
 5. 手动与自动页面只消费后端参数契约，不自行推断事实。
 
-初始历史维护范围仍由运营后续决定，不阻塞开发。
+2026-08-30 运营已完成部署、migration、`2025-01-01 ~ 2026-08-31` 初始范围同步与页面验收。TaskRun、raw 质量、serving 唯一选择和 HDD 存储均通过，上述验收口径已闭环；详细证据见上位技术方案第 12 节。
