@@ -294,8 +294,12 @@ def _financial_statement_row_transform(
         for key, value in row.items()
     }
     transformed["ts_code"] = str(transformed.get("ts_code") or "").strip().upper()
-    for field_name in ("report_type", "comp_type", "end_type", "update_flag"):
+    for field_name in ("report_type", "comp_type", "update_flag"):
         transformed[field_name] = str(transformed.get(field_name) or "").strip()
+    raw_end_type = transformed.get("end_type")
+    transformed["end_type"] = (
+        str(raw_end_type).strip() if raw_end_type not in (None, "") else None
+    )
 
     if not transformed["ts_code"]:
         raise RowTransformReject("normalize.empty_not_allowed:ts_code", "字段 ts_code 不允许为空")
@@ -312,8 +316,6 @@ def _financial_statement_row_transform(
         )
     if not transformed["comp_type"]:
         raise RowTransformReject("normalize.empty_not_allowed:comp_type", "字段 comp_type 不允许为空")
-    if not transformed["end_type"]:
-        raise RowTransformReject("normalize.empty_not_allowed:end_type", "字段 end_type 不允许为空")
     if transformed["update_flag"] not in {"0", "1"}:
         raise RowTransformReject(
             "normalize.invalid_enum:update_flag",

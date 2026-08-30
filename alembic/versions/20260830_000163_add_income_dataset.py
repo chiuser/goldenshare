@@ -10,7 +10,6 @@ from __future__ import annotations
 from alembic import op
 import sqlalchemy as sa
 
-from src.foundation.datasets.financial_statement_contracts import FINANCIAL_STATEMENT_IDENTITY_FIELDS
 from src.foundation.datasets.income_contracts import INCOME_DECIMAL_FIELDS, INCOME_SOURCE_FIELDS
 
 
@@ -22,6 +21,16 @@ depends_on = None
 _TABLESPACE = "gs_raw_cold_hdd"
 _DECIMAL_FIELDS = INCOME_DECIMAL_FIELDS
 _VIEW_COLUMNS = (*INCOME_SOURCE_FIELDS, "source_content_hash", "api_name", "fetched_at")
+_ORIGINAL_IDENTITY_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "f_ann_date",
+    "end_date",
+    "report_type",
+    "comp_type",
+    "end_type",
+    "update_flag",
+)
 
 
 def _assert_postgresql() -> None:
@@ -57,7 +66,7 @@ def upgrade() -> None:
         sa.Column("source_content_hash", sa.String(length=64), nullable=False),
         sa.Column("api_name", sa.String(length=32), nullable=False, server_default=sa.text("'income_vip'")),
         sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.PrimaryKeyConstraint(*FINANCIAL_STATEMENT_IDENTITY_FIELDS, name="pk_raw_tushare_income"),
+        sa.PrimaryKeyConstraint(*_ORIGINAL_IDENTITY_FIELDS, name="pk_raw_tushare_income"),
         schema="raw_tushare",
         postgresql_tablespace=_TABLESPACE,
     )

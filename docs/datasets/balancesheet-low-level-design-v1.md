@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入 LLD v1
 
-状态：**代码已实现，待运营部署、迁移、同步与页面验收**
+状态：**代码已实现；共享 `end_type` 可空修正待运营部署 migration `20260830_000166` 后验收**
 编写日期：2026-08-30
 上位方案：[A 股资产负债表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)
 
@@ -67,7 +67,7 @@ BALANCESHEET_DATE_FIELDS = ("ann_date", "f_ann_date", "end_date")
 2. 前七字段必须是 `ts_code, ann_date, f_ann_date, end_date, report_type, comp_type, end_type`。
 3. 最后一字段必须是 `update_flag`。
 4. `len(BALANCESHEET_DECIMAL_FIELDS) == 150`。
-5. 八字段身份必须直接复用 `FINANCIAL_STATEMENT_IDENTITY_FIELDS`，不得单独抄一份后漂移。
+5. 七字段身份必须直接复用 `FINANCIAL_STATEMENT_IDENTITY_FIELDS`，不得单独抄一份后漂移；`end_type` 是可空源字段，不进入身份。
 
 完整字段只以 [0036 源文档](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0036_资产负债表.md) 和该 contract tuple 为代码事实。默认响应只有 152 字段，因此 source fields 不能由样本动态生成。
 
@@ -159,7 +159,7 @@ schedule time policy 为 `since_last_success_day_range`；不声明 probe/workfl
 3. `ann_date/f_ann_date/end_date` 必须为 `date`。
 4. `report_type` 只允许 `1..12`。
 5. `update_flag` 只允许 `0/1`。
-6. `comp_type/end_type` 要求非空，但不建立封闭枚举；`comp_type=7` 必须通过。
+6. `comp_type` 要求非空但不建立封闭枚举；`end_type` 允许 `NULL` 或非空源值；`comp_type=7` 必须通过。
 7. 使用 158 个 `BALANCESHEET_SOURCE_FIELDS` 计算 `source_content_hash`。
 
 数值列全部 nullable `Decimal`。不得把不适用银行/保险/证券的科目写成 0。
@@ -178,7 +178,7 @@ schedule time policy 为 `since_last_success_day_range`；不声明 probe/workfl
 
 新增 `src/foundation/models/raw/raw_balancesheet.py`：
 
-- 八个身份字段显式声明且 `nullable=False`。
+- 七个身份字段显式声明且 `nullable=False`；`end_type` 显式声明为 nullable 源字段。
 - 150 个数值列由 `BALANCESHEET_DECIMAL_FIELDS` 动态生成 `Numeric(nullable=True)`。
 - 元数据：`source_content_hash(64)`、`api_name='balancesheet_vip'`、`fetched_at timestamptz`。
 - `__table_args__` 声明主键和两个逻辑索引，与 migration 名称完全一致。
@@ -206,11 +206,13 @@ income migration -> balancesheet migration -> cashflow migration
 
 ```text
 PK (ts_code, ann_date, f_ann_date, end_date,
-    report_type, comp_type, end_type, update_flag)
+    report_type, comp_type, update_flag)
 IDX (ann_date, report_type, ts_code)
 IDX (report_type, ts_code, end_date,
      update_flag DESC, f_ann_date DESC, ann_date DESC)
 ```
+
+初始 migration `20260830_000164` 保留其部署时八字段主键历史；前向 migration `20260830_000166` 在七字段无冲突检查通过后，统一重建三表主键并放开 `end_type` 空值，不删除任何业务数据。
 
 ## 8. Serving View
 

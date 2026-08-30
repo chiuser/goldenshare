@@ -25,7 +25,6 @@ FINANCIAL_STATEMENT_IDENTITY_FIELDS = (
     "end_date",
     "report_type",
     "comp_type",
-    "end_type",
     "update_flag",
 )
 

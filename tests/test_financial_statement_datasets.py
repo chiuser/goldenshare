@@ -40,6 +40,16 @@ from src.ops.catalog.dataset_catalog_views import OPS_DATASET_DEFAULT_VIEW
 
 
 ROOT = Path(__file__).resolve().parents[1]
+ORIGINAL_FINANCIAL_STATEMENT_IDENTITY_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "f_ann_date",
+    "end_date",
+    "report_type",
+    "comp_type",
+    "end_type",
+    "update_flag",
+)
 
 CASES = (
     (
@@ -311,13 +321,20 @@ def test_financial_statement_normalizer_preserves_versions_and_rejects_identity_
 
     batch = normalize(
         [
-            _row(source_fields, decimal_fields, ts_code="\x00 000001.sz ", update_flag="0"),
+            _row(
+                source_fields,
+                decimal_fields,
+                ts_code="\x00 000001.sz ",
+                end_type=None,
+                update_flag="0",
+            ),
             _row(source_fields, decimal_fields, update_flag="1"),
         ]
     )
     assert len(batch.rows_normalized) == 2
     assert batch.rows_normalized[0]["ts_code"] == "000001.SZ"
     assert batch.rows_normalized[0]["comp_type"] == "7"
+    assert batch.rows_normalized[0]["end_type"] is None
     assert all(isinstance(batch.rows_normalized[0][field], Decimal) for field in decimal_fields)
     assert {row["update_flag"] for row in batch.rows_normalized} == {"0", "1"}
     assert all(len(str(row["source_content_hash"])) == 64 for row in batch.rows_normalized)
@@ -398,6 +415,7 @@ def test_financial_statement_writer_model_dao_and_migration_contract(
         "fetched_at",
     }
     assert list(model.__table__.primary_key.columns.keys()) == list(FINANCIAL_STATEMENT_IDENTITY_FIELDS)
+    assert model.__table__.columns.end_type.nullable is True
     assert all(isinstance(model.__table__.columns[field].type, Numeric) for field in decimal_fields)
     factory = DAOFactory(SimpleNamespace())
     dao = getattr(factory, dao_name)
@@ -408,6 +426,7 @@ def test_financial_statement_writer_model_dao_and_migration_contract(
     migration = _load_migration(migration_path, dataset_key)
     assert migration.revision == revision
     assert migration.down_revision == down_revision
+    assert migration._ORIGINAL_IDENTITY_FIELDS == ORIGINAL_FINANCIAL_STATEMENT_IDENTITY_FIELDS
     migration_text = migration_path.read_text(encoding="utf-8")
     assert migration_text.index("_assert_hdd_tablespace()") < migration_text.index(
         'op.execute("CREATE SCHEMA IF NOT EXISTS raw_tushare")'
@@ -438,6 +457,52 @@ def test_financial_statement_writer_model_dao_and_migration_contract(
     with pytest.raises(RuntimeError, match="禁止回退到默认 SSD"):
         migration.upgrade()
     assert relation_calls == []
+    with pytest.raises(RuntimeError, match="不支持自动 downgrade"):
+        migration.downgrade()
+
+
+def test_financial_statement_nullable_end_type_migration_contract(monkeypatch) -> None:
+    migration_path = (
+        ROOT / "alembic/versions/20260830_000166_allow_financial_statement_end_type_null.py"
+    )
+    migration = _load_migration(migration_path, "financial_statement_nullable_end_type")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration.revision == "20260830_000166"
+    assert migration.down_revision == "20260830_000165"
+    assert migration._IDENTITY_FIELDS == FINANCIAL_STATEMENT_IDENTITY_FIELDS
+    assert migration._TABLES == ("income", "balancesheet", "cashflow")
+    assert "ALTER COLUMN end_type DROP NOT NULL" in migration_text
+    assert "PRIMARY KEY USING INDEX" in migration_text
+    assert "TABLESPACE {_TABLESPACE}" in migration_text
+    assert "op.drop_table" not in migration_text
+
+    class ScalarResult:
+        def __init__(self, value: object) -> None:
+            self.value = value
+
+        def scalar(self) -> object:
+            return self.value
+
+    class ConflictBind:
+        dialect = SimpleNamespace(name="postgresql")
+
+        @staticmethod
+        def execute(statement, *_args, **_kwargs):  # type: ignore[no-untyped-def]
+            sql = str(statement)
+            if "pg_tablespace" in sql or "to_regclass" in sql:
+                return ScalarResult(1)
+            if "HAVING count(*) > 1" in sql:
+                return ScalarResult(1)
+            raise AssertionError(f"unexpected migration query: {sql}")
+
+    ddl_calls: list[str] = []
+    monkeypatch.setattr(migration.op, "get_bind", lambda: ConflictBind())
+    monkeypatch.setattr(migration.op, "execute", lambda statement: ddl_calls.append(str(statement)))
+    with pytest.raises(RuntimeError, match="七字段身份冲突"):
+        migration.upgrade()
+    assert ddl_calls == []
+
     with pytest.raises(RuntimeError, match="不支持自动 downgrade"):
         migration.downgrade()
 

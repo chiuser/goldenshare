@@ -1,6 +1,6 @@
 # A 股利润表（`income`）数据集接入技术方案 v1
 
-状态：**代码已实现，待运营部署、迁移、同步与页面验收**
+状态：**代码已实现；`end_type` 可空修正待运营部署 migration `20260830_000166` 后重跑验收**
 编写日期：2026-08-29
 适用范围：Tushare `income_vip` 接入 Goldenshare Prod
 
@@ -45,7 +45,7 @@ Ops 手动任务 / 普通自动任务
 1. 普通 `income` 以单只股票历史查询为主；全市场维护应使用 `income_vip`。
 2. 项目 connector 对 2026 半年报范围实测分页为 `5000 + 5000 + 409 = 10409` 行，说明必须使用 `limit/offset` 拉到短页结束。
 3. 源文档共列出 94 个输出字段；默认响应只有 84 个，实施必须显式请求完整 94 字段。
-4. `2026-08-28` 身份字段实测返回 1,442 行，`ts_code/ann_date/f_ann_date/end_date/report_type/comp_type/end_type/update_flag` 均无空值。
+4. `2026-08-28` 返回 1,442 行，八个前置字段均无空值；但 `2026-01-09` 的真实源站响应中，`601112.SH / 2024-09-30 / report_type=1` 的 `end_type` 为 `NULL`。因此 `end_type` 是可空源字段，不属于 raw 身份，也不得伪造默认值。
 5. 同日实测 `comp_type` 出现 `1/2/3/4/7`；值 `7` 的样本为 `002961.SZ 瑞达期货`。本地源文档仅说明 `1..4`，因此不得把 `comp_type` 建成封闭枚举。
 6. 对 `600000.SH, period=20260630` 显式请求各报表类型时，`1/2/6/7` 有数据，其他类型可以为空。所选类型空结果是合法源端事实，不能使 unit 失败。
 7. `update_flag=0/1` 都真实存在；只请求或只保存其中一个都会漏源站版本。
@@ -163,14 +163,14 @@ raw 逐列保存全部源字段，数值字段使用 nullable `NUMERIC`，日期
 
 ```text
 (ts_code, ann_date, f_ann_date, end_date,
- report_type, comp_type, end_type, update_flag)
+ report_type, comp_type, update_flag)
 ```
 
 规则：
 
-1. 身份不同即保留为不同源站版本。
-2. 同一完整身份、同一内容指纹是幂等重复，只保留一行。
-3. 同一完整身份、内容指纹变化表示源端修正，upsert 覆盖该身份全部业务字段，不保留错误旧内容。
+1. 七字段身份不同即保留为不同源站版本；`end_type` 作为可空业务字段原样保存。
+2. 同一七字段身份、同一内容指纹是幂等重复，只保留一行。
+3. 同一七字段身份、内容指纹变化表示源端修正，upsert 覆盖该身份全部业务字段，包括 `end_type`，不保留错误旧内容。
 4. 同一批次出现同身份不同内容时整个 unit 失败，禁止依赖输入顺序决定结果。
 5. `update_flag` 只接受源文档定义的 `0/1`；缺失或其他值使 unit 失败，不造默认值。
 6. 不因某次源响应缺少旧身份而删除 raw 既有行。
@@ -179,11 +179,11 @@ raw 逐列保存全部源字段，数值字段使用 nullable `NUMERIC`，日期
 
 首版索引：
 
-1. 上述八字段主键。
+1. 上述七字段主键。
 2. `(ann_date, report_type, ts_code)`，服务 unit 对账与公告日查询。
 3. `(report_type, ts_code, end_date, update_flag DESC, f_ann_date DESC, ann_date DESC)`，服务 serving 选择和单公司报告期查询。
 
-table heap、主键与两个二级索引全部显式放入 `gs_raw_cold_hdd`。migration 必须先验证 tablespace 存在，不存在则在创建任何 relation 前失败，禁止回退 SSD。已实现 migration 为 `20260830_000163`，接实施时真实 head `20260830_000162`。
+table heap、主键与两个二级索引全部显式放入 `gs_raw_cold_hdd`。初始建表 migration 为 `20260830_000163`；已部署环境通过前向 migration `20260830_000166` 将三张财务报表的主键统一收敛为七字段并允许 `end_type IS NULL`。迁移先检查七字段无冲突，禁止清表、伪造值或回退 SSD。
 
 ## 7. Serving 唯一报表规则
 
@@ -222,7 +222,7 @@ table heap、主键与两个二级索引全部显式放入 `gs_raw_cold_hdd`。m
 | --- | --- |
 | DatasetDefinition / resolver | 新增 Definition；日期与报表类型全部由 resolver 展开 |
 | request builder / source client | 只传 `ann_date + report_type`；显式 94 fields；分页到短页 |
-| normalizer / writer / DAO | 八字段身份、内容指纹、raw-only、HDD |
+| normalizer / writer / DAO | 七字段身份、可空 `end_type`、内容指纹、raw-only、HDD |
 | manual/catalog/schedule | 新增必填多选；默认真实 `1..12` |
 | frontend | 通用“全部”交互，不按 dataset key 写分支 |
 | freshness/cards/snapshot | 直接读取 Definition 的 `event_run_trace` 与 raw/view 事实 |
@@ -236,7 +236,7 @@ table heap、主键与两个二级索引全部显式放入 `gs_raw_cold_hdd`。m
 3. 默认 12 类型、任意子集、多选去重、空选择拒绝、非法类型拒绝、禁止 `ALL/__ALL__`。
 4. 某个类型空结果合法；分页短页闭合；不能返回半页集合后标成功。
 5. `comp_type=7` 可保存，非适用财务字段可为空。
-6. raw 八字段身份、同身份同指纹幂等、同身份修订覆盖、批次冲突失败。
+6. raw 七字段身份、`end_type=NULL` 正常落库、同身份同指纹幂等、同身份修订覆盖、批次冲突失败。
 7. serving 对 `report_type/update_flag/f_ann_date` 的选择顺序。
 8. migration tablespace fail-closed 与全部索引 HDD 位置。
 9. 手动/自动可见，workflow/probe/date completeness 不出现。

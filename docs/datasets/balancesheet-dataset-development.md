@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入技术方案 v1
 
-状态：**代码已实现，待运营部署、迁移、同步与页面验收**
+状态：**代码已实现；共享 `end_type` 可空修正待运营部署 migration `20260830_000166` 后验收**
 编写日期：2026-08-29
 适用范围：Tushare `balancesheet_vip` 接入 Goldenshare Prod
 
@@ -40,7 +40,7 @@ DatasetActionRequest
 1. 全市场使用 `balancesheet_vip`，不得按股票池调用普通接口。
 2. 2026 半年报范围项目 connector 分页为 `5000 + 5000 + 980 = 10980` 行。
 3. 源文档列出 158 个输出字段；默认只返回 152 个，必须显式请求完整 158 字段。
-4. `2026-08-28` 返回 1,457 行，八个身份字段均无空值，`comp_type` 包含 `1/2/3/4/7`。
+4. `2026-08-28` 返回 1,457 行，八个前置字段均无空值，`comp_type` 包含 `1/2/3/4/7`。三张财务报表共用同一身份契约；利润表已实测存在 `end_type=NULL`，所以本表也按源字段可空、身份不含 `end_type` 收口，避免共享模型漂移。
 5. 实测同一 `002604.SZ + ann_date=20260820 + end_date=20260630 + report_type=1 + comp_type=1 + end_type=2 + update_flag=1` 出现两个不同 `f_ann_date`：`20260820` 和 `20260827`。因此 `f_ann_date` 必须进入 raw 身份；否则会覆盖掉源站两个版本。
 6. 对 `600000.SH, period=20260630`，`report_type=1/6` 有数据，其他类型可为空。空类型不能判失败。
 
@@ -115,7 +115,7 @@ raw 额外保存 `source_content_hash`、`api_name='balancesheet_vip'`、`fetche
 
 ```text
 (ts_code, ann_date, f_ann_date, end_date,
- report_type, comp_type, end_type, update_flag)
+ report_type, comp_type, update_flag)
 ```
 
 1. 不同完整身份全部保留。
@@ -127,11 +127,11 @@ raw 额外保存 `source_content_hash`、`api_name='balancesheet_vip'`、`fetche
 
 ### 6.3 索引
 
-1. 八字段主键。
+1. 七字段主键；`end_type` 可空且不参与身份。
 2. `(ann_date, report_type, ts_code)`。
 3. `(report_type, ts_code, end_date, update_flag DESC, f_ann_date DESC, ann_date DESC)`。
 
-全部物理 relation 位于 `gs_raw_cold_hdd`。migration 在建表前验证 tablespace，禁止静默回退 SSD。已实现 migration 为 `20260830_000164`，接利润表 migration `20260830_000163`。
+全部物理 relation 位于 `gs_raw_cold_hdd`。初始建表 migration 为 `20260830_000164`；前向 migration `20260830_000166` 统一修正三表七字段主键和 `end_type` 可空约束，执行前检查现有数据无七字段冲突，禁止静默回退 SSD。
 
 ## 7. Serving 规则
 
@@ -170,7 +170,7 @@ raw 额外保存 `source_content_hash`、`api_name='balancesheet_vip'`、`fetche
 2. point/range 自然日、默认 12 类型、子集、空选择和非法值。
 3. 每种类型独立分页；空类型合法；半页和分页错误不能标成功。
 4. `comp_type=7`、大量 nullable 行与 Decimal 宽表归一化。
-5. 八字段身份，尤其验证两个不同 `f_ann_date` 都能保留。
+5. 七字段身份与可空 `end_type`，尤其验证两个不同 `f_ann_date` 都能保留。
 6. serving 选择规则与稳定排序。
 7. raw-only writer、HDD migration fail-closed、手动/自动可见、workflow/probe/audit 排除。
 

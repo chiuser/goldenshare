@@ -1,6 +1,6 @@
 # A 股利润表（`income`）数据集接入 LLD v1
 
-状态：**代码已实现，待运营部署、迁移、同步与页面验收**
+状态：**代码已实现；`end_type` 可空修正待运营部署 migration `20260830_000166` 后重跑验收**
 编写日期：2026-08-30
 上位方案：[A 股利润表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md)
 
@@ -100,9 +100,11 @@ FINANCIAL_STATEMENT_REPORT_TYPE_LABELS = {
 
 FINANCIAL_STATEMENT_IDENTITY_FIELDS = (
     "ts_code", "ann_date", "f_ann_date", "end_date",
-    "report_type", "comp_type", "end_type", "update_flag",
+    "report_type", "comp_type", "update_flag",
 )
 ```
+
+`end_type` 仍属于完整源字段，但不属于身份。生产任务 `10189` 证明源站会返回 `end_type=NULL`；raw 必须原样保留该空值，不能伪造成某个报告期类型。
 
 `income_contracts.py` 定义：
 
@@ -302,7 +304,7 @@ return {"ann_date": anchor_date.strftime("%Y%m%d"), "report_type": report_type}
 2. 验证三个日期已被标准 normalizer 转成 `date`。
 3. 验证 `report_type in 1..12`。
 4. 验证 `update_flag in {"0", "1"}`。
-5. `comp_type/end_type` 只要求非空字符串；允许 `comp_type="7"` 和未来合法值。
+5. `comp_type` 要求非空字符串；`end_type` 允许 `NULL` 或非空源值；允许 `comp_type="7"` 和未来合法值。
 6. 按 `INCOME_SOURCE_FIELDS` 计算并写入 `source_content_hash`。
 
 现有 normalizer 的执行顺序可直接满足修订语义：
@@ -333,11 +335,11 @@ src/foundation/dao/factory.py
 tests/test_foundation_table_model_registry.py
 ```
 
-`RawIncome` 使用动态 mapped columns 生成 86 个 nullable `Numeric()` 字段；八个身份字段和三个元数据字段显式声明。DAO 使用现有 `GenericDAO`，不新增专用 DAO，因为 normalizer 已在 DML 前完成批次冲突门禁。
+`RawIncome` 使用动态 mapped columns 生成 86 个 nullable `Numeric()` 字段；七个身份字段非空，`end_type` 作为 nullable 源字段显式声明，三个元数据字段显式声明。DAO 使用现有 `GenericDAO`，不新增专用 DAO，因为 normalizer 已在 DML 前完成批次冲突门禁。
 
 ### 8.2 Migration
 
-实施时已重新执行 `alembic heads`；利润表 migration 为 `20260830_000163`，接当时真实 head `20260830_000162`。
+实施时已重新执行 `alembic heads`；利润表初始建表 migration 为 `20260830_000163`。源站空值问题通过前向 migration `20260830_000166` 修正三张表，不改写已部署 migration 的历史语义。
 
 upgrade 顺序：
 
@@ -353,11 +355,13 @@ upgrade 顺序：
 
 ```text
 PK (ts_code, ann_date, f_ann_date, end_date,
-    report_type, comp_type, end_type, update_flag)
+    report_type, comp_type, update_flag)
 IDX (ann_date, report_type, ts_code)
 IDX (report_type, ts_code, end_date,
      update_flag DESC, f_ann_date DESC, ann_date DESC)
 ```
+
+`20260830_000166` 在任何 DDL 前检查 PostgreSQL、`gs_raw_cold_hdd`、三张表存在且七字段身份无冲突；随后只重建三张表主键并执行 `end_type DROP NOT NULL`，不清表、不删业务行。
 
 view SQL 核心：
 

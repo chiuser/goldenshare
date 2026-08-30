@@ -1,6 +1,6 @@
 # A 股现金流量表（`cashflow`）数据集接入 LLD v1
 
-状态：**代码已实现，待运营部署、迁移、同步与页面验收**
+状态：**代码已实现；共享 `end_type` 可空修正待运营部署 migration `20260830_000166` 后验收**
 编写日期：2026-08-30
 上位方案：[A 股现金流量表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/cashflow-dataset-development.md)
 
@@ -36,7 +36,7 @@ DatasetActionRequest(cashflow.maintain)
 1. 全市场维护必须使用 `cashflow_vip`，不按股票代码池逐只请求普通接口。
 2. 2026 半年报范围实际分页为 `5000 + 5000 + 379 = 10379` 行，必须使用 `limit/offset` 拉到短页结束。
 3. 源文档定义 97 个输出字段；Definition 必须显式传递完整字段列表，不能依赖源端默认列。
-4. 八个身份字段 `ts_code/ann_date/f_ann_date/end_date/report_type/comp_type/end_type/update_flag` 在已测公告日均非空。
+4. 已测现金流公告日的八个前置字段均非空；但利润表真实源站数据已证明共享字段 `end_type` 可以为 `NULL`。三表统一按七字段身份建模，`end_type` 作为可空源字段保留。
 5. `comp_type` 已观测到 `1/2/3/4/7`；它不能被建模为只允许 `1..4` 的封闭枚举。
 6. 同一股票与报告期仅部分 `report_type` 有数据。被选择类型返回空集合是合法源端结果，不是同步失败。
 7. `is_calc=1` 的已测样本为空，默认或 `0` 有数据。V1 不传 `is_calc`，避免把可选源参数变成静默漏数条件。
@@ -100,7 +100,6 @@ FINANCIAL_STATEMENT_IDENTITY_FIELDS = (
     "end_date",
     "report_type",
     "comp_type",
-    "end_type",
     "update_flag",
 )
 ```
@@ -129,7 +128,7 @@ CASHFLOW_DATE_FIELDS = ("ann_date", "f_ann_date", "end_date")
 2. 前七字段必须依次为 `ts_code, ann_date, f_ann_date, end_date, report_type, comp_type, end_type`。
 3. 最后一字段必须是 `update_flag`。
 4. `len(CASHFLOW_DECIMAL_FIELDS) == 89`。
-5. 八字段身份必须引用 `FINANCIAL_STATEMENT_IDENTITY_FIELDS`，不得在本文件重新抄写。
+5. 七字段身份必须引用 `FINANCIAL_STATEMENT_IDENTITY_FIELDS`，不得在本文件重新抄写；`end_type` 不进入身份。
 6. 97 字段只能依据 0044 源文档逐列冻结，不能从一次默认响应动态推导。
 
 完整源字段已经逐列入表，因此不再重复保存整行 `raw_payload`。额外只增加：
@@ -301,7 +300,7 @@ unit 样例：
 3. `ann_date/f_ann_date/end_date` 转为 `date`，缺失或非法拒绝。
 4. `report_type` 只接受 `1..12`。
 5. `update_flag` 只接受 `0/1`，禁止默认填补。
-6. `comp_type/end_type` 必须非空，但不限制为封闭枚举；`comp_type=7` 必须通过。
+6. `comp_type` 必须非空但不限制为封闭枚举；`end_type` 允许 `NULL` 或非空源值；`comp_type=7` 必须通过。
 7. 对 `CASHFLOW_SOURCE_FIELDS` 的规范化值按固定顺序生成 `source_content_hash`。
 
 89 个数值字段由标准 normalizer 转为 nullable `Decimal`。银行、保险、证券或一般企业不适用的现金流科目保持 `NULL`，不能补 0。
@@ -313,7 +312,7 @@ unit 样例：
   -> deduplicate_identical
   -> 只保留一行
 
-同一八字段身份、不同业务内容
+同一七字段身份、不同业务内容
   -> batch_unique_key_conflicting
   -> 整个 unit 失败，不写部分数据
 
@@ -337,7 +336,7 @@ src/foundation/models/raw/raw_cashflow.py
 模型要求：
 
 1. `__tablename__ = "cashflow"`，schema 为 `raw_tushare`。
-2. 八个身份字段组成复合主键。
+2. 七个身份字段组成复合主键；`end_type` 是 nullable 源字段。
 3. 89 个源数值字段使用 nullable `Numeric`。
 4. 字符串字段按源语义使用 `String`，日期字段使用 `Date`。
 5. `source_content_hash` 非空；`api_name` 默认 `cashflow_vip`；`fetched_at` 非空。
@@ -441,7 +440,7 @@ Definition 自动投影出：
 
 | 文件 | 改动 |
 | --- | --- |
-| `src/foundation/datasets/financial_statement_contracts.py` | 12 类报表、中文标签、八字段身份。 |
+| `src/foundation/datasets/financial_statement_contracts.py` | 12 类报表、中文标签、七字段身份。 |
 | `src/foundation/datasets/models.py` | `DatasetInputField` 增加标签和虚拟全选元数据。 |
 | `src/foundation/ingestion/validator.py` | 缺失 filter 读取 fanout 默认；显式空仍拒绝。 |
 | `src/foundation/ingestion/unit_planner.py` | 新增并注册财务报表共享 builder。 |
@@ -476,7 +475,7 @@ Definition 自动投影出：
 
 | 层级 | 必测内容 |
 | --- | --- |
-| contract | 97/89 数量、固定首尾字段、共享八字段身份。 |
+| contract | 97/89 数量、固定首尾字段、共享七字段身份、可空 `end_type`。 |
 | Definition | API、fields、日期模型、no_pool、分页、raw/view、freshness、audit。 |
 | input | 默认全类型、任意子集、空数组、非法值、`ALL/__ALL__` 拒绝。 |
 | planner | point=类型数；range=自然日数×类型数；周末保留；不查交易日历/股票池。 |

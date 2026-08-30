@@ -14,7 +14,6 @@ from src.foundation.datasets.balancesheet_contracts import (
     BALANCESHEET_DECIMAL_FIELDS,
     BALANCESHEET_SOURCE_FIELDS,
 )
-from src.foundation.datasets.financial_statement_contracts import FINANCIAL_STATEMENT_IDENTITY_FIELDS
 
 
 revision = "20260830_000164"
@@ -25,6 +24,16 @@ depends_on = None
 _TABLESPACE = "gs_raw_cold_hdd"
 _DECIMAL_FIELDS = BALANCESHEET_DECIMAL_FIELDS
 _VIEW_COLUMNS = (*BALANCESHEET_SOURCE_FIELDS, "source_content_hash", "api_name", "fetched_at")
+_ORIGINAL_IDENTITY_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "f_ann_date",
+    "end_date",
+    "report_type",
+    "comp_type",
+    "end_type",
+    "update_flag",
+)
 
 
 def _assert_postgresql() -> None:
@@ -66,7 +75,7 @@ def upgrade() -> None:
         ),
         sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
         sa.PrimaryKeyConstraint(
-            *FINANCIAL_STATEMENT_IDENTITY_FIELDS,
+            *_ORIGINAL_IDENTITY_FIELDS,
             name="pk_raw_tushare_balancesheet",
         ),
         schema="raw_tushare",
