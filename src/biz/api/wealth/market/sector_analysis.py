@@ -29,6 +29,9 @@ from src.biz.queries.wealth.market.sector_analysis.sector_member_detail_query_se
 from src.biz.queries.wealth.market.sector_analysis.sector_member_breadth_query_service import (
     SectorMemberBreadthQueryService,
 )
+from src.biz.queries.wealth.market.sector_analysis.sector_price_volume_query_service import (
+    SectorPriceVolumeQueryService,
+)
 from src.biz.schemas.wealth.market.sector_analysis import (
     SectorAnalysisMetaResponseDto,
     SectorMemberDetailResponseDto,
@@ -47,6 +50,11 @@ from src.biz.schemas.wealth.market.sector_member_breadth import (
     SectorMemberBreadthDetailsResponseDto,
     SectorMemberBreadthMetaResponseDto,
     SectorMemberBreadthRankingsResponseDto,
+)
+from src.biz.schemas.wealth.market.sector_price_volume import (
+    SectorPriceVolumeDetailsResponseDto,
+    SectorPriceVolumeMetaResponseDto,
+    SectorPriceVolumeSnapshotResponseDto,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contract import (
     SectorMomentumFactVersionMismatchError,
@@ -78,6 +86,11 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
 from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_contract import (
     parse_relative_rotation_period,
     parse_relative_rotation_trail_length,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract import (
+    SectorPriceVolumeFactMismatchError,
+    parse_price_volume_history_range,
+    parse_price_volume_period,
 )
 from src.foundation.config.settings import get_settings
 
@@ -555,6 +568,200 @@ def get_sector_member_breadth_details(
             status_code=409,
             code="SA_BREADTH_FACT_MISMATCH",
             message="行业分类已更新，正在重新加载成员广度数据。",
+        ) from exc
+    except SectorSelectionInvalidError as exc:
+        _raise_selection_error(exc)
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/price-volume/meta",
+    response_model=SectorPriceVolumeMetaResponseDto,
+)
+def get_sector_price_volume_meta(
+    request: Request,
+    market: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorPriceVolumeMetaResponseDto:
+    try:
+        _validate_query_shape(request, allowed={"market"})
+        return SectorPriceVolumeQueryService().build_meta(
+            session,
+            market=_parse_market(market),
+        )
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    except SectorHierarchyUnavailableError as exc:
+        raise WebAppError(
+            status_code=500,
+            code="SA_HIERARCHY_UNAVAILABLE",
+            message="行业分类暂不可用，请稍后重试。",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise WebAppError(
+            status_code=500,
+            code="SA_QUERY_FAILED",
+            message="量价分布数据读取失败，请稍后重试。",
+        ) from exc
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/price-volume/snapshot",
+    response_model=SectorPriceVolumeSnapshotResponseDto,
+)
+def get_sector_price_volume_snapshot(
+    request: Request,
+    market: str | None = Query(default=None),
+    trade_date: str | None = Query(default=None, alias="tradeDate"),
+    scope: str | None = Query(default=None),
+    level1_code: str | None = Query(default=None, alias="level1Code"),
+    level2_code: str | None = Query(default=None, alias="level2Code"),
+    period: str | None = Query(default=None),
+    hierarchy_version: str | None = Query(default=None, alias="hierarchyVersion"),
+    debug: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorPriceVolumeSnapshotResponseDto:
+    try:
+        _validate_query_shape(
+            request,
+            allowed={
+                "market",
+                "tradeDate",
+                "scope",
+                "level1Code",
+                "level2Code",
+                "period",
+                "hierarchyVersion",
+                "debug",
+            },
+        )
+        parsed_date = _parse_dual_trade_date(trade_date)
+        if parsed_date is None:
+            raise SectorSelectionInvalidError("tradeDate 为必填参数")
+        if scope is None:
+            raise SectorScopeInvalidError("scope 为必填参数")
+        if period is None:
+            raise SectorScopeInvalidError("period 为必填参数")
+        return SectorPriceVolumeQueryService().build_snapshot(
+            session,
+            market=_parse_required_market(market),
+            trade_date=parsed_date,
+            scope=parse_scope(scope),
+            level1_code=_parse_optional_sector_code(
+                level1_code, field_name="level1Code"
+            ),
+            level2_code=_parse_optional_sector_code(
+                level2_code, field_name="level2Code"
+            ),
+            period=parse_price_volume_period(
+                _parse_choice_int(period, default=0, field_name="period")
+            ),
+            hierarchy_version=_parse_required_text(
+                hierarchy_version,
+                field_name="hierarchyVersion",
+                max_length=128,
+            ),
+            debug=_parse_debug(debug),
+        )
+    except SectorPriceVolumeFactMismatchError as exc:
+        raise WebAppError(
+            status_code=409,
+            code="SA_PRICE_VOLUME_FACT_MISMATCH",
+            message="行业分类已更新，正在重新加载量价分布数据。",
+        ) from exc
+    except SectorSelectionInvalidError as exc:
+        _raise_selection_error(exc)
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/price-volume/details",
+    response_model=SectorPriceVolumeDetailsResponseDto,
+)
+def get_sector_price_volume_details(
+    request: Request,
+    market: str | None = Query(default=None),
+    trade_date: str | None = Query(default=None, alias="tradeDate"),
+    scope: str | None = Query(default=None),
+    level1_code: str | None = Query(default=None, alias="level1Code"),
+    level2_code: str | None = Query(default=None, alias="level2Code"),
+    period: str | None = Query(default=None),
+    history_range: str | None = Query(default=None, alias="historyRange"),
+    sector_code: str | None = Query(default=None, alias="sectorCode"),
+    hierarchy_version: str | None = Query(default=None, alias="hierarchyVersion"),
+    debug: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorPriceVolumeDetailsResponseDto:
+    try:
+        _validate_query_shape(
+            request,
+            allowed={
+                "market",
+                "tradeDate",
+                "scope",
+                "level1Code",
+                "level2Code",
+                "period",
+                "historyRange",
+                "sectorCode",
+                "hierarchyVersion",
+                "debug",
+            },
+        )
+        parsed_date = _parse_dual_trade_date(trade_date)
+        if parsed_date is None:
+            raise SectorSelectionInvalidError("tradeDate 为必填参数")
+        if scope is None:
+            raise SectorScopeInvalidError("scope 为必填参数")
+        if period is None:
+            raise SectorScopeInvalidError("period 为必填参数")
+        if history_range is None:
+            raise SectorScopeInvalidError("historyRange 为必填参数")
+        return SectorPriceVolumeQueryService().build_details(
+            session,
+            market=_parse_required_market(market),
+            trade_date=parsed_date,
+            scope=parse_scope(scope),
+            level1_code=_parse_optional_sector_code(
+                level1_code, field_name="level1Code"
+            ),
+            level2_code=_parse_optional_sector_code(
+                level2_code, field_name="level2Code"
+            ),
+            period=parse_price_volume_period(
+                _parse_choice_int(period, default=0, field_name="period")
+            ),
+            history_range=parse_price_volume_history_range(
+                _parse_choice_int(
+                    history_range,
+                    default=0,
+                    field_name="historyRange",
+                )
+            ),
+            sector_code=_parse_required_sector_code(
+                sector_code,
+                field_name="sectorCode",
+            ),
+            hierarchy_version=_parse_required_text(
+                hierarchy_version,
+                field_name="hierarchyVersion",
+                max_length=128,
+            ),
+            debug=_parse_debug(debug),
+        )
+    except SectorPriceVolumeFactMismatchError as exc:
+        raise WebAppError(
+            status_code=409,
+            code="SA_PRICE_VOLUME_FACT_MISMATCH",
+            message="行业分类已更新，正在重新加载量价分布数据。",
         ) from exc
     except SectorSelectionInvalidError as exc:
         _raise_selection_error(exc)

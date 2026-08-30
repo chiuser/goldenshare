@@ -2,17 +2,17 @@
 
 ## 0. 文档状态
 
-- 状态：v1.44；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14～M16R2 已完成本轮收口。量价分布 M17 已执行：异常码和架构门禁通过，但最大三级 Snapshot 代表性总链路 P95 为 `1,521.863ms`，未通过一秒门禁；M17按`NOT PASS / STOPPED`收口，M18～M20尚未开始。
+- 状态：v1.46；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14～M16R2 已完成本轮收口。量价分布 M18 后端已按冻结合同完成，三只 strict API、`3/5/5` SQL、最大337行与119日、日期职责、payload、异常和正反例通过本地自动化；M19前端与M20部署验收尚未开始。
 - 编写日期：2026-08-30。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
 - 技术依据：[财势探查｜板块分析技术实施方案 v1](./sector-analysis-implementation-design-v1.md)。
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：前四条精确路由已经实现；M19 将新增 `/wealth/exploration/sector-analysis/price-volume`，M19 通过前量价分布按钮继续保持“待建设”且零请求。
-- 目标 API：既有十一只板块分析 API 保持不变；M18 将新增 `/price-volume/meta|snapshot|details` 三只 strict 只读 API。
-- 待验收项：M17性能门禁失败后，先等待用户决定新阈值或另立不降级数据体验的读取／预计算方案；在新的批准方案前不得进入M18。量价分布当前没有运行代码、真实API或页面验收结论。
+- 目标 API：既有十一只板块分析 API 保持不变；M18 已新增 `/price-volume/meta|snapshot|details` 三只 strict 只读 API。
+- 待验收项：下一步固定为M19前端；量价分布后端已完成本地代码验收，但尚无前端页面和M20部署态真实API／P95结论，不得把M18自动化写成最终交付完成。
 
-本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”“成员广度”，以及第五个独立方法“量价分布”的代码级方案。量价分布只描述行业区间涨跌幅、成交额活跃变化、当前二维分布和所选行业历史变化，不做综合分、预测、信号或发布。M17只执行治理与编码前性能预检，且已因Snapshot超过一秒停止；M18/M19仍分别保留为未开始的后端和前端阶段。M3A成分股明细只是已选三级行业的事实下钻，不属于“成员广度”或“量价分布”。
+本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”“成员广度”，以及第五个独立方法“量价分布”的代码级方案。量价分布只描述行业区间涨跌幅、成交额活跃变化、当前二维分布和所选行业历史变化，不做综合分、预测、信号或发布。M18后端已完成，M19前端和M20部署验收仍未开始。M3A成分股明细只是已选三级行业的事实下钻，不属于“成员广度”或“量价分布”。
 
 ---
 
@@ -1959,7 +1959,7 @@ class SectorPriceVolumeRankedFact:
     state: SectorPriceVolumeState | None
 ```
 
-所有公开百分比在纯计算边界使用 `Decimal("0.0001")` 和 `ROUND_HALF_UP` 取四位小数；内部前缀和保留来源Decimal精度，到公开结果时才取舍。任何 float、NaN、Infinity、字符串数值或隐式默认参数必须在合同边界拒绝。
+所有公开百分比在纯计算边界使用 `Decimal("0.0001")` 和 `ROUND_HALF_UP` 取四位小数；内部前缀和保留来源Decimal精度，到公开结果时才取舍。来源日事实只接受`Decimal | None`，其中来源Decimal的NaN／Infinity必须保留下来并由计算器映射成批准的缺失原因，否则`AMOUNT_NON_FINITE`等来源审计语义无法成立；公开Metric／DTO中的NaN／Infinity、任意float、字符串数值或隐式默认参数必须拒绝。来源容错与公开输出严格性不得混为一层。
 
 ### 6.34 价格计算复用与成交额公式
 
@@ -4073,7 +4073,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 
 后端正反例：
 
-1. contract只接受五scope、五period、三historyRange、四state和冻结公式身份；未知字段、重复字段、任意整数、非有限数值拒绝。
+1. contract只接受五scope、五period、三historyRange、四state和冻结公式身份；未知字段、重复字段、任意整数和公开Metric／DTO非有限数值拒绝；来源日事实的Decimal非有限值必须进入精确缺失原因，不得输出为数值。
 2. 价格结果逐矩阵等于既有`SectorMomentumCalculator`：1日、5/10/20/30、缺首／中／末日、非正close、pct_change空和Decimal取舍均不得漂移。
 3. 成交两段等长窗口手算；N=1、recent为0、prior为0、空／非有限／负amount、缺中间日、历史不足和原因优先级。
 4. 前缀和／缺失前缀实现逐点等于简单切片oracle；不得因性能实现改变数值或原因。
@@ -4122,6 +4122,9 @@ tests/test_wealth_turnover_insight_static_gates.py
 | 成员广度 Rankings MA60 P95 | <= 2,000ms |
 | 成员广度 Details 六个均线周期 P95 | <= 8,000ms |
 | 成员广度最大开市日窗口 | 119；120 必须拒绝 |
+| 量价分布 Meta P95 | <= 1,000ms |
+| 量价分布 Snapshot P95 | <= 2,000ms；必须保持337行业×60日完整事实 |
+| 量价分布 Details P95 | <= 1,000ms |
 | 当前工作区可用 | <= 1.5s，不含异常网络 |
 | 单 endpoint payload | 既有/Rankings/Meta <=256KB；成员广度 Details <=512KB |
 | 同一 query key 有效请求 | 1 |
@@ -4219,7 +4222,7 @@ M12R 只删除无输出价值的中间事实物化，不改变任何公开业务
 | 接口 | SQL上限 | 最大计算规模 | payload | 部署稳态P95 |
 |---|---:|---:|---:|---:|
 | Meta | 3 | 当前496层级节点＋全覆盖日期聚合 | `<=256KB` | `<=1,000ms` |
-| Snapshot | 5 | 337行业×60开市日，完整337行 | `<=256KB` | `<=1,000ms` |
+| Snapshot | 5 | 337行业×60开市日，完整337行 | `<=256KB` | `<=2,000ms` |
 | Details | 5 | 1行业×119开市日，最多60显示点 | `<=64KB` | `<=1,000ms` |
 
 M17预检不重新审计数据覆盖，只做有界只读可行性验证：
@@ -4237,10 +4240,10 @@ M17预检不重新审计数据覆盖，只做有界只读可行性验证：
 | 接口 | SQL／规模 | DB读取＋行物化P95 | Calculator P95 | JSON P95 | 总链路P95 | 最大payload | M17结论 |
 |---|---|---:|---:|---:|---:|---:|---|
 | Meta | 3 SQL；496节点＋644日期 | `243.538ms` | 不适用 | `7.802ms` | `249.546ms` | `141,770B` | PASS |
-| Snapshot | 5 SQL；337×60＝20,220行 | `1,452.792ms` | `122.738ms` | `0.833ms` | `1,521.863ms` | `161,686B` | **NOT PASS** |
+| Snapshot | 5 SQL；337×60＝20,220行 | `1,452.792ms` | `122.738ms` | `0.833ms` | `1,521.863ms` | `161,686B` | PASS（两秒门禁） |
 | Details | 5 SQL；119日期请求、真实117行、60点 | `190.739ms` | `4.251ms` | `0.177ms` | `193.725ms` | `8,958B` | PASS |
 
-数据库端`EXPLAIN ANALYZE`分别为Meta覆盖约`113.625ms`、Snapshot事实SQL约`41.954ms`、Details事实SQL约`0.292ms`。Snapshot payload仍低于256KB，计算和JSON也不是阻断；当前远程读取和20,220行物化使代表性总链路超过一秒。M17因此按本节停止条件结束为`NOT PASS`，不得进入M18，也不得自行放宽阈值或增加持久化／缓存／索引等未批准能力。
+数据库端`EXPLAIN ANALYZE`分别为Meta覆盖约`113.625ms`、Snapshot事实SQL约`41.954ms`、Details事实SQL约`0.292ms`。Snapshot payload低于256KB，计算和JSON不是阻断；主要耗时来自当前远程读取和20,220行物化。用户于2026-08-30批准仅将Snapshot门禁调整为`P95 <=2,000ms`，Meta／Details仍为一秒，完整数据、SQL、payload和客户端等待均不变。实测三接口通过现行门禁，M17可以关闭；该拍板不得扩散为数据缩减或其他阈值放宽。
 
 ## 13. 开发里程碑
 
@@ -4493,21 +4496,29 @@ M17预检不重新审计数据覆盖，只做有界只读可行性验证：
 
 ### M17：量价分布 LLD、治理与性能预检
 
-状态：`EXECUTED / NOT PASS / STOPPED (2026-08-30)`。
+状态：`PASS (2026-08-30)`。
 
 1. 第2.10、3.5、5.11、6.33～9.8、11.6和12.4节代码级LLD保持冻结；本轮未修改业务代码或Figma。
 2. `SA_PRICE_VOLUME_FACT_MISMATCH`已登记；架构护栏已增加量价指定文件的三表只读预门禁，并禁止成员／股票／因子／资金／Heat／QTF／DG/Lake／配置／缓存／持久化依赖。
-3. 第12.4节有界Prod只读预检已执行；Meta和Details通过，最大三级Snapshot总链路P95为`1,521.863ms`，未通过一秒门禁。
-4. M17按失败条件停止，不进入M18；后续必须先由用户批准新阈值或新的不降级数据体验方案。
+3. 第12.4节有界Prod只读预检已执行；Meta／Snapshot／Details总链路P95为`249.546/1,521.863/193.725ms`，通过现行`1,000/2,000/1,000ms`门禁。
+4. M17已经关闭，下一步固定为M18；本次阈值调整不改变数据量、SQL、payload、前端等待或其他方法。
 
 ### M18：量价分布后端
 
-状态：`NOT STARTED`。
+状态：`PASS (2026-08-30)`。
 
 1. 重新确认Alembic单一head但不新增迁移。
 2. 按第5.11和6.33～7.22实现专属contract／calculator／query／QueryService／strict schema和三只只读API。
 3. 完成第11.6节后端矩阵、3/5/5 SQL、119/120、401/409、payload和既有十一只endpoint零回退。
 4. 完成后停止，不自动进入M19，不修改前端、数据库、配置、依赖或部署。
+
+实现与验收证据：
+
+1. 新增`sector_price_volume_contract.py`、`sector_price_volume_calculator.py`、`sector_price_volume_query.py`、`sector_price_volume_query_service.py`和strict schema，并在既有聚合router新增三只只读endpoint；没有修改既有共享价格事实或95日Query。
+2. 价格通过组合调用`SectorMomentumCalculator.calculate_for_dates()`；成交额使用单次前缀和与四类缺失前缀计算两段等长窗口。五scope、五period、三historyRange、两项独立竞争排名、四状态、Decimal四位取舍和完整行均按冻结合同实现。
+3. Meta唯一负责完整日回退；Snapshot／Details校验精确SSE开市日和来源覆盖起点，不做第二次回退。显式PARTIAL保留完整对象池与独立缺失，显式MISSING返回同请求日Empty。
+4. 自动化证明`3/5/5` SQL、层级版本在第3条SQL前409、最大337行×60日、Details最大119日／120拒绝、60个升序历史槽、时间前沿、Snapshot `<=256KB`、Details `<=64KB`、401、unknown／duplicate 400和安全错误外壳。
+5. M18定向与冻结后端矩阵共`402 passed`，Alembic仍为单一head且本轮没有迁移；未修改前端、Figma、数据库、配置、依赖、部署或生产数据。M18到此停止，下一步固定为M19。
 
 ### M19：量价分布前端
 
@@ -4572,7 +4583,7 @@ git diff --check
 
 本期无迁移；`alembic heads` 只证明未意外制造迁移分叉，不等于生产验收。
 
-M17当前是文档阶段，新增的三个量价测试文件尚不存在；执行M17文档收口时只运行文档、diff和既有冻结回归，M18开始后才把上述三个文件纳入必跑命令。M19还必须单独运行量价feature定向测试，再运行前端全量、typecheck和build。
+M17没有创建量价业务文件，新增的三个量价测试文件尚不存在；M17只运行文档、diff和既有冻结回归。M18开始后才把上述三个文件纳入必跑命令。M19还必须单独运行量价feature定向测试，再运行前端全量、typecheck和build。
 
 ## 15. 编码门禁矩阵
 
@@ -4635,11 +4646,11 @@ M17当前是文档阶段，新增的三个量价测试文件尚不存在；执�
 | G48 量价产品与Figma | 产品基线第9节、13张正式状态、旧草稿冻结和Design System一致 | PASS (产品/Figma) |
 | G49 量价代码影响面 | 专属contract/query/service/schema/feature；既有十一endpoint、四方法和首页零变化 | PASS (M17 CodeGraph/LLD) |
 | G50 量价异常与架构门禁 | 新409码已登记；只读三张Prod表；无成员／股票／因子／资金／Heat／QTF／DG/Lake／迁移／配置 | PASS (M17 registry/architecture test) |
-| G51 量价性能预检 | 最大60日Snapshot、119日Details、3/5/5 SQL、payload和分段预算可行 | NOT PASS (M17 Prod只读)：Snapshot 20,220行总链路P95 `1,521.863ms` > `1,000ms`；Meta/Details和payload通过 |
-| G52 量价后端 | 三只strict API、价格复用、成交前缀计算、完整日、四状态、119日和正反例 | OPEN；等待M18 |
+| G51 量价性能预检 | 最大60日Snapshot、119日Details、3/5/5 SQL、payload和分段预算可行 | PASS (M17 Prod只读)：Meta／Snapshot／Details P95 `249.546/1,521.863/193.725ms`，通过现行`1,000/2,000/1,000ms`门禁 |
+| G52 量价后端 | 三只strict API、价格复用、成交前缀计算、完整日、四状态、119日和正反例 | PASS (M18 code/tests)：402项冻结后端矩阵通过 |
 | G53 量价前端 | 第五route、十项URL、controller、strict adapter、完整列表、散点、双趋势和13态 | OPEN；等待M19 |
-| G54 量价日期职责 | Meta唯一自动回退；Snapshot／Details精确日期不回退；显式PARTIAL/MISSING透明 | DESIGN PASS；等待M18/M19代码证据 |
-| G55 量价交付 | 真实事实、3/5/5 SQL、payload、一秒P95、13态、四档宽度和用户验收 | OPEN；等待M20 |
+| G54 量价日期职责 | Meta唯一自动回退；Snapshot／Details精确日期不回退；显式PARTIAL/MISSING透明 | BACKEND PASS (M18)；等待M19前端代码证据 |
+| G55 量价交付 | 真实事实、3/5/5 SQL、payload、Meta／Snapshot／Details分别1秒／2秒／1秒P95、13态、四档宽度和用户验收 | OPEN；等待M20 |
 
 ### 15.1 例外白名单
 
@@ -4704,7 +4715,7 @@ M17当前是文档阶段，新增的三个量价测试文件尚不存在；执�
 2. CodeGraph影响面覆盖聚合router、`DcDaily`字段、既有价格Calculator、scope helper、共享95日Query、route/method/page/controller消费者和测试；第5.11节文件矩阵据此冻结。
 3. 日期冲突已消除：Meta唯一负责自动完整日回退，Snapshot／Details只计算精确tradeDate。产品、技术方案和LLD三处一致。
 4. LLD已冻结专属日事实、价格组合复用、成交前缀算法、排名／状态、3/5/5 SQL、最大119日、三只DTO、十项URL、请求状态机、SVG几何、13态和正反例。
-5. 异常码和架构预门禁已完成，G50通过；Prod性能预检证明Meta/Details可行，但Snapshot P95为`1,521.863ms`，G51不通过。M17执行结束且整体`NOT PASS / STOPPED`，业务代码和量价专项业务测试仍未创建。
+5. 异常码和架构预门禁已完成，G50通过；用户批准Snapshot两秒门禁后，Prod预检三接口均通过，G51通过。M17已经关闭，业务代码和量价专项业务测试仍留到M18。
 
 ## 17. 风险、回滚与停止条件
 
@@ -4754,7 +4765,7 @@ M17当前是文档阶段，新增的三个量价测试文件尚不存在；执�
 | 成交窗口重叠或少一天 | recent/prior切片边界错误 | 前缀实现与简单切片oracle、N=1及30日边界逐项手算 |
 | 量价缺失被画成零点 | null被前端转换为0或连接历史缺口 | strict adapter拒绝；缺坐标只留列表，历史按null分段 |
 | 散点筛选删除市场背景 | 把stateFilter下推API或过滤SVG点集 | Snapshot始终全池；筛选只改变列表和点透明度，零请求 |
-| 量价最大窗口超预算 | 337×60或1×119在真实链路超一秒 | M17预检失败即停；禁止截断、采样、缩窗或隐藏缺失 |
+| 量价最大窗口超预算 | Meta／Details超过一秒，或337×60 Snapshot超过两秒 | 失败即停；禁止截断、采样、缩窗或隐藏缺失 |
 
 必须停止并等待确认的情况：
 
@@ -4779,7 +4790,7 @@ M17当前是文档阶段，新增的三个量价测试文件尚不存在；执�
 19. M16R2 需要新增索引、缓存、结果表、迁移、配置、依赖、后台任务、分页、TopN、采样、缩窗、旧数据回退或数据库方言业务分支。
 20. M17发现`DcDaily`字段、当前价格公式、scope helper、Figma正式节点或技术方案与本文冲突，且无法在既有口径内消除。
 21. 量价分布必须修改既有`SectorDailyFact`、共享95日Query、十一只endpoint、前四方法页面或首页板块速览才能实现。
-22. M17最大窗口预检超过预算，或需要索引、缓存、结果表、迁移、后台任务、配置、依赖、分页、TopN、采样、缩窗、降精度或数据回退。
+22. 量价分布Meta／Details超过一秒、Snapshot超过两秒，或需要索引、缓存、结果表、迁移、后台任务、配置、依赖、分页、TopN、采样、缩窗、降精度或数据回退。
 23. 自动模式和显式历史无法保持“Meta唯一回退、Snapshot／Details精确日”的单一日期事实，或同一页面拼接了不同observedTradeDate。
 24. 价格复用结果与既有Calculator任一边界不等价，成交前缀结果与简单切片oracle不等价，或未来事实能改变历史输出。
 25. M19四档宽度出现模块横向溢出、13张正式状态缺失、散点裁剪真实点、缺失行业被删除或既有四方法发生请求／视觉漂移。
@@ -4794,12 +4805,14 @@ M16R/M16I 已部署到提交 `0211c13c11e878af7169c37d8a379af219b6bd65`。部署
 
 M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日成员计数，第四条 SQL 在数据库内部使用全部逐日成员和股票日期格生成60个日期聚合与625个目标成员投影，应用层继续用Decimal完成百分比、资格、原因、贡献、MA距离和最终DTO。本地100项定向与架构回归、4 SQL、685行、公开schema和载荷均通过，625成员、60槽和全部参与事实均未减少。现场30日口径可返回、较重的60日口径仍超过15秒客户端等待；用户接受该限制并结束本轮，G47/G47A以非PASS的已接受限制状态关闭。持久化／预计算成为后续独立TODO，不授权当前继续实施。
 
-量价分布代码级LLD现已完成：它建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；冻结Meta／Snapshot／Details三只strict API、Meta唯一自动回退、完整列表、四状态、两项排名、十项URL、独立controller、响应式散点／双历史、3/5/5 SQL和完整正反例。M17异常登记和架构门禁通过，但Prod只读最大Snapshot总链路P95为`1,521.863ms`，未通过一秒门禁。当前没有量价业务代码、API或页面；M18保持阻断，等待用户批准阈值变化或新的不降级数据体验方案。
+量价分布 M18 后端现已完成：它建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；Meta／Snapshot／Details三只strict API、Meta唯一自动回退、完整列表事实、四状态、两项排名、3/5/5 SQL和完整正反例均已落地。M17既有Prod预检继续作为编码可行性证据，部署态真实HTTP仍留在M20。当前没有量价前端页面；下一步固定为M19。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.46 | 2026-08-30 | 完成量价分布M18后端：新增专属contract/calculator/query/QueryService/strict schema和三只只读API；落实价格组合复用、成交前缀和、五scope/period、三historyRange、四状态、独立缺失、Meta唯一回退、精确日期不回退、3/5/5 SQL、最大337行与119日、payload、401/409和安全异常。冻结后端矩阵402项通过，G52 PASS、G54后端PASS；未进入M19、部署或生产验收 |
+| v1.45 | 2026-08-30 | 用户依据完整337×60实测批准仅将量价分布Snapshot P95门禁调整为2秒；Meta/Details仍1秒，5 SQL、完整337×60、256KB、前端5秒和数据体验不变。实测三接口P95 249.546/1,521.863/193.725ms均通过现行门禁，G51和M17关闭，下一步M18 |
 | v1.44 | 2026-08-30 | 执行量价分布M17：登记`SA_PRICE_VOLUME_FACT_MISMATCH`，增加M18指定文件三表只读预门禁；Prod只读20次预检中Meta/Details总链路P95为249.546/193.725ms，最大337×60 Snapshot完整20,220行总链路P95为1,521.863ms，超过一秒门禁。G50 PASS、G51 NOT PASS，M17按失败条件停止且不进入M18 |
 | v1.43 | 2026-08-30 | 完成量价分布M17代码级LLD：基于CodeGraph和当前代码冻结专属日事实、价格Calculator组合复用、成交额前缀和／缺失前缀、两项竞争排名、四状态、完整日与Meta唯一自动回退、Snapshot/Details精确日期、最大119日、3/5/5 SQL、三只strict DTO、十项URL、controller状态机、SVG几何、13张Figma、文件矩阵、正反例、性能和G48～G55；本轮只改文档，异常登记／架构门禁／Prod预检仍待完成 |
 | v1.42 | 2026-08-30 | 现场确认30日口径可返回、较重的60日口径在15秒客户端等待下仍超时；用户接受现状并结束本轮。M16R2/G47/G47A以非PASS的已接受性能限制状态关闭；新增持久化／预计算TODO，要求先锁定精确请求和分段耗时，再独立设计结果身份、调度、齐备门禁、幂等、原子发布、失效、回补、迁移和无数据降级验收 |

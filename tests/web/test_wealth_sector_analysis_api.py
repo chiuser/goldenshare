@@ -920,9 +920,251 @@ def test_quote_auth_requirement_is_reused(app_client, monkeypatch) -> None:
             "/api/v1/wealth/market/sector-analysis/member-breadth/details"
         )
         assert breadth_details_response.status_code == 401
+        price_volume_meta = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/meta"
+        )
+        assert price_volume_meta.status_code == 401
+        price_volume_snapshot = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/snapshot"
+        )
+        assert price_volume_snapshot.status_code == 401
+        price_volume_details = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/details"
+        )
+        assert price_volume_details.status_code == 401
     finally:
         monkeypatch.setenv("QUOTE_API_AUTH_REQUIRED", "false")
         get_settings.cache_clear()
+
+
+def _price_volume_snapshot_params(**overrides):
+    params = {
+        "market": "CN_A",
+        "tradeDate": TARGET_DATE.isoformat(),
+        "scope": "LEVEL_3",
+        "period": 1,
+        "hierarchyVersion": "2026-04-30-v1",
+        "debug": 1,
+    }
+    params.update(overrides)
+    return params
+
+
+def _price_volume_details_params(**overrides):
+    params = {
+        **_price_volume_snapshot_params(),
+        "historyRange": 60,
+        "sectorCode": "BK1201.DC",
+    }
+    params.update(overrides)
+    return params
+
+
+def test_price_volume_meta_snapshot_and_details_follow_three_five_five_sql(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    meta_sql, meta_response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/meta",
+            params={"market": "CN_A"},
+        ),
+    )
+    snapshot_sql, snapshot_response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
+            params=_price_volume_snapshot_params(),
+        ),
+    )
+    details_sql, details_response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/details",
+            params=_price_volume_details_params(),
+        ),
+    )
+
+    assert meta_response.status_code == 200
+    assert snapshot_response.status_code == 200
+    assert details_response.status_code == 200
+    assert (meta_sql, snapshot_sql, details_sql) == (3, 5, 5)
+
+    meta = meta_response.json()
+    assert meta["formulaKey"] == "sector-price-volume-distribution"
+    assert meta["formulaVersion"] == 1
+    assert meta["periods"] == [1, 5, 10, 20, 30]
+    assert meta["historyRanges"] == [20, 30, 60]
+    assert meta["dateContext"] == {
+        "expectedTradeDate": TARGET_DATE.isoformat(),
+        "defaultTradeDate": TARGET_DATE.isoformat(),
+        "defaultStatus": "READY",
+        "displayText": f"{TARGET_DATE.isoformat()} 盘后数据",
+    }
+    assert len(meta["hierarchy"]["nodes"]) == 7
+    assert len(meta["tradeDates"]) == 65
+
+    snapshot = snapshot_response.json()
+    assert snapshot["status"] == "READY"
+    assert snapshot["snapshot"]["totalCount"] == 2
+    assert snapshot["snapshot"]["coordinateCount"] == 2
+    assert snapshot["snapshot"]["missingCoordinateCount"] == 0
+    assert all(item["state"] == "PRICE_ONLY" for item in snapshot["snapshot"]["rows"])
+    assert snapshot["debugInfo"]["requestedOpenDateCount"] == 2
+    assert len(snapshot_response.content) < 256 * 1024
+
+    details = details_response.json()
+    assert details["status"] == "READY"
+    assert details["details"]["selected"]["sectorCode"] == "BK1201.DC"
+    assert len(details["details"]["history"]) == 60
+    assert details["details"]["history"][-1]["tradeDate"] == TARGET_DATE.isoformat()
+    assert len(details_response.content) < 64 * 1024
+
+
+def test_price_volume_partial_and_missing_dates_keep_exact_requested_day(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    partial = db_session.scalar(
+        select(DcDaily).where(
+            DcDaily.ts_code == "BK1002.DC",
+            DcDaily.trade_date == TARGET_DATE,
+            DcDaily.category == "行业板块",
+        )
+    )
+    partial.amount = None
+    db_session.commit()
+
+    partial_response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
+        params=_price_volume_snapshot_params(scope="LEVEL_1"),
+    )
+    assert partial_response.status_code == 200
+    partial_payload = partial_response.json()
+    assert partial_payload["status"] == "READY"
+    assert partial_payload["snapshot"]["observedTradeDate"] == TARGET_DATE.isoformat()
+    assert partial_payload["snapshot"]["availability"] == "PARTIAL"
+    assert partial_payload["snapshot"]["totalCount"] == 2
+    assert partial_payload["snapshot"]["coordinateCount"] == 1
+    missing_row = next(
+        item
+        for item in partial_payload["snapshot"]["rows"]
+        if item["sectorCode"] == "BK1002.DC"
+    )
+    assert missing_row["priceMomentumPct"] is not None
+    assert missing_row["amountActivityPct"] is None
+    assert missing_row["amountMissingReason"] == "AMOUNT_MISSING"
+    assert missing_row["state"] is None
+
+    for row in db_session.scalars(
+        select(DcDaily).where(
+            DcDaily.trade_date == TARGET_DATE,
+            DcDaily.category == "行业板块",
+        )
+    ).all():
+        db_session.delete(row)
+    db_session.commit()
+
+    missing_response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
+        params=_price_volume_snapshot_params(scope="LEVEL_1"),
+    )
+    assert missing_response.status_code == 200
+    missing_payload = missing_response.json()
+    assert missing_payload["status"] == "EMPTY"
+    assert missing_payload["snapshot"]["observedTradeDate"] == TARGET_DATE.isoformat()
+    assert missing_payload["snapshot"]["availability"] == "MISSING"
+    assert missing_payload["snapshot"]["totalCount"] == 2
+    assert missing_payload["snapshot"]["coordinateCount"] == 0
+
+
+def test_price_volume_rejects_open_day_before_source_coverage(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    earlier = OPEN_DATES[0] - timedelta(days=1)
+    db_session.add(
+        TradeCalendar(
+            exchange="SSE",
+            trade_date=earlier,
+            is_open=True,
+            pretrade_date=None,
+        )
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
+        params=_price_volume_snapshot_params(tradeDate=earlier.isoformat()),
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "SA_SELECTION_INVALID"
+
+
+def test_price_volume_version_mismatch_stops_after_two_sql(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
+            params=_price_volume_snapshot_params(hierarchyVersion="stale"),
+        ),
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "SA_PRICE_VOLUME_FACT_MISMATCH"
+    assert sql_count == 2
+
+
+def test_price_volume_rejects_unknown_duplicate_invalid_scope_selection_and_date(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    unknown = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/meta?unknown=1"
+    )
+    duplicate = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/snapshot"
+        "?market=CN_A&tradeDate=2026-04-30&scope=LEVEL_3&period=1&period=5"
+        "&hierarchyVersion=2026-04-30-v1"
+    )
+    bad_closure = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
+        params=_price_volume_snapshot_params(
+            scope="LEVEL_2_CHILDREN",
+            level1Code="BK1002.DC",
+            level2Code="BK1101.DC",
+        ),
+    )
+    bad_selection = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/details",
+        params=_price_volume_details_params(sectorCode="BK1001.DC"),
+    )
+    bad_date = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
+        params=_price_volume_snapshot_params(tradeDate="2026-02-30"),
+    )
+
+    assert unknown.status_code == 400
+    assert duplicate.status_code == 400
+    assert bad_closure.status_code == 400
+    assert bad_selection.status_code == 400
+    assert bad_date.status_code == 400
+    assert unknown.json()["code"] == "SA_SCOPE_INVALID"
+    assert duplicate.json()["code"] == "SA_SCOPE_INVALID"
+    assert bad_closure.json()["code"] == "SA_SCOPE_INVALID"
+    assert bad_selection.json()["code"] == "SA_SELECTION_INVALID"
+    assert bad_date.json()["code"] == "SA_SELECTION_INVALID"
 
 
 def _dual_results_params(**overrides):
