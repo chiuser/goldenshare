@@ -1,6 +1,6 @@
 # A 股利润表（`income`）数据集接入 LLD v1
 
-状态：**代码已实现；`end_type` 可空修正待运营部署 migration `20260830_000166` 后重跑验收**
+状态：**`end_type` 规范化 LLD 已按 Prod 现状对齐；`20260830_000166` 已部署，代码与 migration `20260830_000167` 待实现**
 编写日期：2026-08-30
 上位方案：[A 股利润表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md)
 
@@ -104,7 +104,7 @@ FINANCIAL_STATEMENT_IDENTITY_FIELDS = (
 )
 ```
 
-`end_type` 仍属于完整源字段，但不属于身份。生产任务 `10189` 证明源站会返回 `end_type=NULL`；raw 必须原样保留该空值，不能伪造成某个报告期类型。
+`end_type` 仍属于完整源字段，但不属于身份。生产任务 `10189` 证明源站会返回 `end_type=NULL`；Tushare 交叉实测又确认它可由 `end_date` 唯一推导：`03-31→1`、`06-30→2`、`09-30→3`、`12-31→4`。因此 raw 保存规范化后的 `1..4`，不是源站缺陷空值；身份保持七字段，避免把 `end_date` 及其派生标签重复放入主键。
 
 `income_contracts.py` 定义：
 
@@ -174,7 +174,7 @@ planner 配置：
 
 ```python
 "reject_policy": "fail_unit_on_any_rejection",
-"required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "source_content_hash"),
+"required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "end_type", "source_content_hash"),
 "unit_date_field": "ann_date",
 "duplicate_key_policy": "allow",
 "batch_unique_key_fields": FINANCIAL_STATEMENT_IDENTITY_FIELDS,
@@ -304,18 +304,23 @@ return {"ann_date": anchor_date.strftime("%Y%m%d"), "report_type": report_type}
 2. 验证三个日期已被标准 normalizer 转成 `date`。
 3. 验证 `report_type in 1..12`。
 4. 验证 `update_flag in {"0", "1"}`。
-5. `comp_type` 要求非空字符串；`end_type` 允许 `NULL` 或非空源值；允许 `comp_type="7"` 和未来合法值。
-6. 按 `INCOME_SOURCE_FIELDS` 计算并写入 `source_content_hash`。
+5. `comp_type` 要求非空字符串；允许 `comp_type="7"` 和未来合法值。
+6. 从 `end_date` 的月日推导期望 `end_type`：`0331/0630/0930/1231` 分别对应 `1/2/3/4`；其他报告期日期以 `normalize.financial_statement_end_date_invalid` 拒绝。
+7. 源站 `end_type` 为空时写入期望值；非空值必须属于 `1..4` 且等于期望值，否则分别以 `normalize.invalid_enum:end_type` 或 `normalize.end_type_mismatch` 拒绝，禁止静默覆盖矛盾值。
+8. 完成上述规范化后，按 `INCOME_SOURCE_FIELDS` 计算并写入 `source_content_hash`。
 
 现有 normalizer 的执行顺序可直接满足修订语义：
 
 ```text
-coerce -> hidden full-source hash -> row transform
-       -> identical source row dedupe
+coerce -> row transform / end_type canonicalization
+       -> canonical source hash
+       -> identical canonical row dedupe
        -> batch unique identity validation
 ```
 
-因此：同身份同内容会在写入前去重；同身份不同内容会抛 `normalize.batch_unique_key_conflicting`，整 unit 不写；跨任务同身份内容变化则由 PostgreSQL upsert 覆盖旧字段。
+当前 `DatasetNormalizer` 的隐藏去重指纹早于 row transform 计算。实现阶段必须让 `_apply_source_multiplicity_policy()` 和 `_validate_batch_unique_keys()` 在行已经提供 `source_content_hash` 时优先使用该规范化指纹，仅在没有显式指纹时回退隐藏原始指纹。该共享调整必须回归 `fina_indicator`，不得改变未提供规范化指纹的数据集。
+
+因此：源站 `NULL` 与源站后续正确值 `3` 会得到同一规范化行和同一指纹；同一批次同时出现两者时会去重，不会误判冲突；同身份其他内容不同仍抛 `normalize.batch_unique_key_conflicting`；跨任务修订由 PostgreSQL upsert 覆盖。
 
 ## 8. ORM、DAO 与 Migration
 
@@ -335,11 +340,11 @@ src/foundation/dao/factory.py
 tests/test_foundation_table_model_registry.py
 ```
 
-`RawIncome` 使用动态 mapped columns 生成 86 个 nullable `Numeric()` 字段；七个身份字段非空，`end_type` 作为 nullable 源字段显式声明，三个元数据字段显式声明。DAO 使用现有 `GenericDAO`，不新增专用 DAO，因为 normalizer 已在 DML 前完成批次冲突门禁。
+`RawIncome` 使用动态 mapped columns 生成 86 个 nullable `Numeric()` 字段；七个身份字段与规范化后的 `end_type` 均非空，三个元数据字段显式声明。DAO 使用现有 `GenericDAO`，不新增专用 DAO，因为 normalizer 已在 DML 前完成批次冲突门禁。
 
 ### 8.2 Migration
 
-实施时已重新执行 `alembic heads`；利润表初始建表 migration 为 `20260830_000163`。源站空值问题通过前向 migration `20260830_000166` 修正三张表，不改写已部署 migration 的历史语义。
+利润表初始建表 migration 为 `20260830_000163`。Prod 已执行 `20260830_000166`，当前真实状态是：三表主键均已收敛为七字段，`end_type` 均已放开为 nullable。该 revision 是已部署的历史事实，不得再改写文件语义；最终约束通过新 migration `20260830_000167` 前向收口。
 
 upgrade 顺序：
 
@@ -361,7 +366,15 @@ IDX (report_type, ts_code, end_date,
      update_flag DESC, f_ann_date DESC, ann_date DESC)
 ```
 
-`20260830_000166` 在任何 DDL 前检查 PostgreSQL、`gs_raw_cold_hdd`、三张表存在且七字段身份无冲突；随后只重建三张表主键并执行 `end_type DROP NOT NULL`，不清表、不删业务行。
+`20260830_000167` 的 `upgrade()` 顺序固定为：
+
+1. 确认 PostgreSQL、三张 raw 表和 `20260830_000166` 七字段主键现状。
+2. 按表统计非季度末 `end_date`、非法非空 `end_type`、以及与推导值不一致的行；任一计数非零立即失败，禁止带着矛盾数据继续 DDL。
+3. 使用确定性 `CASE` 仅补齐 `end_type IS NULL` 行：`0331/0630/0930/1231` 对应 `1/2/3/4`。
+4. 再次断言三表无空值、无矛盾，然后逐表执行 `ALTER COLUMN end_type SET NOT NULL`。
+5. 不重建主键和索引，不移动 heap/tablespace，不删除、清空或重建业务表。`downgrade()` 禁止自动放宽约束。
+
+部署时必须先确认没有 `income/balancesheet/cashflow` 任务在运行，停止相关 worker 写入竞态后再执行 migration，完成后启动新代码。
 
 view SQL 核心：
 
@@ -393,7 +406,34 @@ ORDER BY
 
 ## 10. 文件级改动清单
 
-### 新增
+### 10.1 本次 `end_type` 规范化收口
+
+新增：
+
+```text
+alembic/versions/20260830_000167_enforce_financial_statement_end_type.py
+```
+
+修改：
+
+```text
+src/foundation/datasets/financial_statement_contracts.py
+src/foundation/datasets/definitions/low_frequency.py
+src/foundation/ingestion/row_transforms.py
+src/foundation/ingestion/normalizer.py
+src/foundation/ingestion/codebook.py
+src/foundation/models/raw/raw_income.py
+src/foundation/models/raw/raw_balancesheet.py
+src/foundation/models/raw/raw_cashflow.py
+tests/test_financial_statement_datasets.py
+tests/architecture/test_dataset_codebook_guardrails.py
+```
+
+不修改 `20260830_000166`、request builder、planner、writer、DAO、serving view、Ops API 或前端。共享 normalizer 指纹优先级改动必须回归 `fina_indicator` 和其他使用 `deduplicate_identical` 的数据集。
+
+### 10.2 初次数据集接入的历史清单
+
+#### 新增
 
 ```text
 docs/datasets/income-low-level-design-v1.md
@@ -406,7 +446,7 @@ frontend/src/shared/ui/ops-enum-multi-select.test.tsx
 tests/test_financial_statement_datasets.py
 ```
 
-### 修改
+#### 修改
 
 ```text
 src/foundation/datasets/models.py                              # 共享契约，只改一次
@@ -449,30 +489,29 @@ frontend/src/pages/ops-v21-task-auto-tab.test.tsx
 | planner | point=12 units；2 天 range=24 units；包含周末 | 不读交易日历；缺日期失败 |
 | request | 仅 `ann_date + report_type` | 不泄漏 `period/comp_type/range/pagination` |
 | source | 5000 满页继续，短页结束，所有页合并 | 中间页错误不能发布半套数据 |
-| normalizer | `comp_type=7`、nullable 科目、同内容去重 | 缺身份、非法 flag/type、同身份异内容失败 |
+| normalizer | `comp_type=7`、nullable 科目、四类报告期映射、缺失 `end_type` 补齐、`NULL` 与正确值指纹一致 | 非季度末、非法或矛盾 `end_type`、缺身份、非法 flag/type、同身份异内容失败 |
 | writer | 同身份跨任务修订覆盖；只写 raw | 不调用 serving DAO；任一 reject 阻断 unit |
-| migration | heap/PK/两索引均 HDD；view 唯一选择正确 | 无 tablespace 在建表前失败；downgrade 拒绝 |
+| migration | `000167` 对空值确定性补齐并恢复 `NOT NULL`；不改主键/索引/tablespace | 非季度末、非法值、矛盾值、非七字段主键现状均在 DDL 前失败；downgrade 拒绝 |
 | Ops/API | 中文标签、默认全选、手动/自动可见 | 空选择/非法值 422，无 probe/workflow |
 | frontend | 全选、取消全选、子集选择、payload 真实数组 | payload 不出现虚拟 all，两个页面行为一致 |
 
-## 12. 开发顺序与停止条件
+## 12. 本次规范化开发顺序与停止条件
 
-建议里程碑：
+实施顺序：
 
-1. `I0`：冻结 94 字段 contract 与 migration head。
-2. `I1`：落共享 enum contract、validator、unit builder 及测试。
-3. `I2`：落 ORM/DAO/migration/view。
-4. `I3`：落 Definition/request/normalizer/writer 注册。
-5. `I4`：落 Ops 与前端共享全选控件。
-6. `I5`：完整回归与文档收口。
+1. `N0`：核对 Prod `alembic_version=20260830_000166`、七字段主键、nullable 列与存量值分布。
+2. `N1`：在共享 contract 定义四类季度末映射；row transform 完成缺失补齐和一致性拒绝。
+3. `N2`：normalizer 的完全重复去重与批次冲突判定优先使用 row transform 生成的规范化 `source_content_hash`。
+4. `N3`：三表 ORM/Definition 恢复 `end_type` 必填；增加 reason codebook 条目。
+5. `N4`：新增 `000167`，只执行存量校验、空值补齐和 `SET NOT NULL`。
+6. `N5`：运行三表定向测试、`fina_indicator` 共享回归、codebook 护栏、架构护栏和文档检查。
 
 出现以下任一情况必须停止，不能用临时分支绕过：
 
-1. 实际 connector 显式 94 字段与源文档不一致。
-2. 一个 `ann_date + report_type` 分页出现同身份不同内容。
-3. migration 无法证明所有物理 relation 在 HDD。
-4. serving 选择规则无法在 SQL 中确定性复现。
-5. 页面或 API 仍需按 `dataset_key=income` 私自拼接标签/全选状态。
+1. Prod 不是 `20260830_000166` 或三表不是七字段主键。
+2. 任一存量行的 `end_date` 非季度末，或非空 `end_type` 非法/矛盾且尚未完成业务口径确认。
+3. 规范化指纹优先级调整导致 `fina_indicator` 或其他共享数据集语义回归。
+4. `000167` 需要重建主键、删行、清表或移动 tablespace 才能执行。
 
 ## 13. 验证命令
 

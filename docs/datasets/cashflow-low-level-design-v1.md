@@ -1,6 +1,6 @@
 # A 股现金流量表（`cashflow`）数据集接入 LLD v1
 
-状态：**代码已实现；共享 `end_type` 可空修正待运营部署 migration `20260830_000166` 后验收**
+状态：**共享 `end_type` 规范化 LLD 已按 Prod 现状对齐；`20260830_000166` 已部署，代码与 migration `20260830_000167` 待实现**
 编写日期：2026-08-30
 上位方案：[A 股现金流量表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/cashflow-dataset-development.md)
 
@@ -36,7 +36,7 @@ DatasetActionRequest(cashflow.maintain)
 1. 全市场维护必须使用 `cashflow_vip`，不按股票代码池逐只请求普通接口。
 2. 2026 半年报范围实际分页为 `5000 + 5000 + 379 = 10379` 行，必须使用 `limit/offset` 拉到短页结束。
 3. 源文档定义 97 个输出字段；Definition 必须显式传递完整字段列表，不能依赖源端默认列。
-4. 已测现金流公告日的八个前置字段均非空；但利润表真实源站数据已证明共享字段 `end_type` 可以为 `NULL`。三表统一按七字段身份建模，`end_type` 作为可空源字段保留。
+4. 已测现金流公告日的八个前置字段均非空；利润表真实源站数据证明共享字段 `end_type` 可能为 `NULL`，交叉验证确认它可由 `end_date` 唯一推导。三表统一按七字段身份建模，`end_type` 规范化为非空 `1..4` 后保存。
 5. `comp_type` 已观测到 `1/2/3/4/7`；它不能被建模为只允许 `1..4` 的封闭枚举。
 6. 同一股票与报告期仅部分 `report_type` 有数据。被选择类型返回空集合是合法源端结果，不是同步失败。
 7. `is_calc=1` 的已测样本为空，默认或 `0` 有数据。V1 不传 `is_calc`，避免把可选源参数变成静默漏数条件。
@@ -128,7 +128,7 @@ CASHFLOW_DATE_FIELDS = ("ann_date", "f_ann_date", "end_date")
 2. 前七字段必须依次为 `ts_code, ann_date, f_ann_date, end_date, report_type, comp_type, end_type`。
 3. 最后一字段必须是 `update_flag`。
 4. `len(CASHFLOW_DECIMAL_FIELDS) == 89`。
-5. 七字段身份必须引用 `FINANCIAL_STATEMENT_IDENTITY_FIELDS`，不得在本文件重新抄写；`end_type` 不进入身份。
+5. 七字段身份必须引用 `FINANCIAL_STATEMENT_IDENTITY_FIELDS`，不得在本文件重新抄写；`end_type` 由 `end_date` 唯一推导，不重复进入身份。
 6. 97 字段只能依据 0044 源文档逐列冻结，不能从一次默认响应动态推导。
 
 完整源字段已经逐列入表，因此不再重复保存整行 `raw_payload`。额外只增加：
@@ -182,7 +182,7 @@ filter 与 fanout 固定为：
 质量与事务配置：
 
 ```python
-"required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "source_content_hash"),
+"required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "end_type", "source_content_hash"),
 "unit_date_field": "ann_date",
 "batch_unique_key_fields": FINANCIAL_STATEMENT_IDENTITY_FIELDS,
 "source_multiplicity_policy": "deduplicate_identical",
@@ -300,8 +300,9 @@ unit 样例：
 3. `ann_date/f_ann_date/end_date` 转为 `date`，缺失或非法拒绝。
 4. `report_type` 只接受 `1..12`。
 5. `update_flag` 只接受 `0/1`，禁止默认填补。
-6. `comp_type` 必须非空但不限制为封闭枚举；`end_type` 允许 `NULL` 或非空源值；`comp_type=7` 必须通过。
-7. 对 `CASHFLOW_SOURCE_FIELDS` 的规范化值按固定顺序生成 `source_content_hash`。
+6. `comp_type` 必须非空但不限制为封闭枚举；`comp_type=7` 必须通过。
+7. 共享 helper 按 `end_date` 推导 `end_type=1..4`：缺失补齐，非法或与日期矛盾时拒绝。
+8. 对 `CASHFLOW_SOURCE_FIELDS` 的规范化值按固定顺序生成 `source_content_hash`；批次去重与冲突比较优先使用该规范化指纹。
 
 89 个数值字段由标准 normalizer 转为 nullable `Decimal`。银行、保险、证券或一般企业不适用的现金流科目保持 `NULL`，不能补 0。
 
@@ -336,7 +337,7 @@ src/foundation/models/raw/raw_cashflow.py
 模型要求：
 
 1. `__tablename__ = "cashflow"`，schema 为 `raw_tushare`。
-2. 七个身份字段组成复合主键；`end_type` 是 nullable 源字段。
+2. 七个身份字段组成复合主键；规范化后的 `end_type` 非空但不参与主键。
 3. 89 个源数值字段使用 nullable `Numeric`。
 4. 字符串字段按源语义使用 `String`，日期字段使用 `Date`。
 5. `source_content_hash` 非空；`api_name` 默认 `cashflow_vip`；`fetched_at` 非空。
@@ -355,7 +356,7 @@ src/foundation/models/raw/raw_cashflow.py
 
 ### 9.3 Alembic
 
-开发时先执行 `uv run alembic heads`，新 revision 的 `down_revision` 只能接当时真实 head。若三张表同批开发，迁移顺序固定为 `income -> balancesheet -> cashflow`；不得猜测后两张 revision。
+初始三表迁移顺序为 `income -> balancesheet -> cashflow`。Prod 已执行 `20260830_000166`，当前三表主键均为七字段，`end_type` 均为 nullable；不改写该已部署 migration。新增 `20260830_000167`（`down_revision=20260830_000166`）：先检查表和七字段主键现状，再拒绝非季度末、非法非空值和与 `end_date` 矛盾的行，仅对空值执行确定性补齐，最后恢复 `end_type NOT NULL`。该 migration 不重建主键/索引，不移动 tablespace，不删除任何业务数据。
 
 upgrade 顺序：
 
@@ -471,20 +472,24 @@ Definition 自动投影出：
 | `tests/test_financial_statement_datasets.py` | 三张财务报表共享契约与数据集主测试。 |
 | 架构/runtime/Ops 测试 | 更新事实集合和负向护栏。 |
 
+### 12.3 本次 `end_type` 规范化收口
+
+本表不建立独立规范化实现，直接复用 [利润表 LLD 第 10.1 节](/Users/congming/github/goldenshare/docs/datasets/income-low-level-design-v1.md)的共享 contract、row transform、normalizer、codebook 和 `000167`。本表专属改动只有 `RawCashflow.end_type nullable=False`、Definition 必填字段断言与共享测试 fixture。
+
 ## 13. 测试矩阵
 
 | 层级 | 必测内容 |
 | --- | --- |
-| contract | 97/89 数量、固定首尾字段、共享七字段身份、可空 `end_type`。 |
+| contract | 97/89 数量、固定首尾字段、共享七字段身份、规范化非空 `end_type`。 |
 | Definition | API、fields、日期模型、no_pool、分页、raw/view、freshness、audit。 |
 | input | 默认全类型、任意子集、空数组、非法值、`ALL/__ALL__` 拒绝。 |
 | planner | point=类型数；range=自然日数×类型数；周末保留；不查交易日历/股票池。 |
 | request | 只传 `ann_date/report_type`，不得泄漏 `is_calc/comp_type/period/start/end/pagination`。 |
 | source | `5000+5000+379` 分页，短页停止，空第一页为合法空 unit。 |
-| normalize | NUL、日期、Decimal、`comp_type=7`、nullable 科目、hash 稳定。 |
+| normalize | NUL、日期、Decimal、`comp_type=7`、nullable 科目、`end_type` 推导/一致性校验、规范化 hash 稳定。 |
 | conflict | 相同源行去重；批内同身份不同内容失败；跨任务修订覆盖。 |
 | writer | 只调 raw DAO；一个 unit 全部分页后一次事务提交。 |
-| migration | 真实 head、HDD fail-closed、heap/PK/两索引全 HDD、view 列一致。 |
+| migration | `000167` 仅校验/补齐 `end_type` 并恢复 `NOT NULL`；不改主键、索引、tablespace 或 view。 |
 | serving | `report_type=1`、更新标志、实际公告日、稳定并列排序。 |
 | Ops/API | 中文标签、虚拟全选、真实数组、显式空拒绝、manual/schedule 可见。 |
 | exclusions | 不进 workflow/probe/date completeness，无 Biz 专用 API。 |
@@ -493,16 +498,19 @@ Definition 自动投影出：
 
 ## 14. 开发步骤
 
-1. `C0`：重读根与逐级 AGENTS、上位方案和本 LLD；重新核验 Alembic head。
-2. `C1`：冻结 97 字段 contract；落地或复用共享财务报表 contract。
-3. `C2`：落地共享参数投影、默认值、显式空拒绝和前端全选组件。
-4. `C3`：实现共享 unit builder、cashflow request builder 与 row transform。
-5. `C4`：实现 raw ORM、DAO、HDD migration 和 serving view。
-6. `C5`：注册 Definition、freshness、Ops catalog 和 runtime guardrail。
-7. `C6`：完成定向、负向、架构和前端测试。
-8. `C7`：逐条对账上位方案，更新文档状态为“代码已实现，待运营部署与验收”。
+1. 复用利润表 LLD 的 `N0-N5` 共享收口顺序，不另建 cashflow 分支。
+2. 证明空值、正确值、非法值、矛盾值、非季度末和批次规范化去重在 cashflow Definition 上行为一致。
+3. 证明 `000167` 对空 cashflow 表仍可完成约束恢复，且不生成任何删除或主键 DDL。
+4. 运行定向、codebook、架构、Definition lint 和 docs 检查，再更新文档为“代码已实现，待运营部署 migration `000167` 与验收”。
 
-停止条件：
+停止条件（本次规范化收口）：
+
+- Prod 不是 `000166`/七字段主键现状。
+- 存量值非法或矛盾，且无明确业务口径可处理。
+- 共享 normalizer 指纹优先级调整导致其他数据集回归。
+- `000167` 需要扩大到主键、tablespace、view 或删除操作。
+
+初次数据集接入的历史停止条件：
 
 - 97 字段或分页闭合与源端证据不一致。
 - 同一完整身份在单次响应中出现无法解释的不同内容。

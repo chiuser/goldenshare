@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入 LLD v1
 
-状态：**代码已实现；共享 `end_type` 可空修正待运营部署 migration `20260830_000166` 后验收**
+状态：**共享 `end_type` 规范化 LLD 已按 Prod 现状对齐；`20260830_000166` 已部署，代码与 migration `20260830_000167` 待实现**
 编写日期：2026-08-30
 上位方案：[A 股资产负债表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)
 
@@ -67,7 +67,7 @@ BALANCESHEET_DATE_FIELDS = ("ann_date", "f_ann_date", "end_date")
 2. 前七字段必须是 `ts_code, ann_date, f_ann_date, end_date, report_type, comp_type, end_type`。
 3. 最后一字段必须是 `update_flag`。
 4. `len(BALANCESHEET_DECIMAL_FIELDS) == 150`。
-5. 七字段身份必须直接复用 `FINANCIAL_STATEMENT_IDENTITY_FIELDS`，不得单独抄一份后漂移；`end_type` 是可空源字段，不进入身份。
+5. 七字段身份必须直接复用 `FINANCIAL_STATEMENT_IDENTITY_FIELDS`，不得单独抄一份后漂移；`end_type` 由 `end_date` 唯一推导、落库后非空，但不重复进入身份。
 
 完整字段只以 [0036 源文档](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0036_资产负债表.md) 和该 contract tuple 为代码事实。默认响应只有 152 字段，因此 source fields 不能由样本动态生成。
 
@@ -111,7 +111,7 @@ filter 与 planning 固定为：
 质量与事务：
 
 ```python
-"required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "source_content_hash"),
+"required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "end_type", "source_content_hash"),
 "unit_date_field": "ann_date",
 "batch_unique_key_fields": FINANCIAL_STATEMENT_IDENTITY_FIELDS,
 "source_multiplicity_policy": "deduplicate_identical",
@@ -159,8 +159,9 @@ schedule time policy 为 `since_last_success_day_range`；不声明 probe/workfl
 3. `ann_date/f_ann_date/end_date` 必须为 `date`。
 4. `report_type` 只允许 `1..12`。
 5. `update_flag` 只允许 `0/1`。
-6. `comp_type` 要求非空但不建立封闭枚举；`end_type` 允许 `NULL` 或非空源值；`comp_type=7` 必须通过。
-7. 使用 158 个 `BALANCESHEET_SOURCE_FIELDS` 计算 `source_content_hash`。
+6. `comp_type` 要求非空但不建立封闭枚举；`comp_type=7` 必须通过。
+7. 共享 helper 按 `end_date` 推导 `end_type=1..4`：缺失补齐，非法或与日期矛盾时拒绝。
+8. 完成规范化后使用 158 个 `BALANCESHEET_SOURCE_FIELDS` 计算 `source_content_hash`；批次去重与冲突比较优先使用该规范化指纹。
 
 数值列全部 nullable `Decimal`。不得把不适用银行/保险/证券的科目写成 0。
 
@@ -178,7 +179,7 @@ schedule time policy 为 `since_last_success_day_range`；不声明 probe/workfl
 
 新增 `src/foundation/models/raw/raw_balancesheet.py`：
 
-- 七个身份字段显式声明且 `nullable=False`；`end_type` 显式声明为 nullable 源字段。
+- 七个身份字段与规范化后的 `end_type` 显式声明为 `nullable=False`。
 - 150 个数值列由 `BALANCESHEET_DECIMAL_FIELDS` 动态生成 `Numeric(nullable=True)`。
 - 元数据：`source_content_hash(64)`、`api_name='balancesheet_vip'`、`fetched_at timestamptz`。
 - `__table_args__` 声明主键和两个逻辑索引，与 migration 名称完全一致。
@@ -212,7 +213,7 @@ IDX (report_type, ts_code, end_date,
      update_flag DESC, f_ann_date DESC, ann_date DESC)
 ```
 
-初始 migration `20260830_000164` 保留其部署时八字段主键历史；前向 migration `20260830_000166` 在七字段无冲突检查通过后，统一重建三表主键并放开 `end_type` 空值，不删除任何业务数据。
+初始 migration `20260830_000164` 保留其部署时八字段主键历史。Prod 已执行 `20260830_000166`，当前三表主键均为七字段，`end_type` 均为 nullable；不改写该已部署 migration。新增 `20260830_000167`（`down_revision=20260830_000166`）：先检查表和七字段主键现状，再拒绝非季度末、非法非空值和与 `end_date` 矛盾的行，仅对空值执行确定性补齐，最后恢复 `end_type NOT NULL`。该 migration 不重建主键/索引，不移动 tablespace，不删除任何业务数据。
 
 ## 8. Serving View
 
@@ -251,7 +252,13 @@ ORDER BY
 
 ## 10. 文件改动
 
-### 新增
+### 10.1 本次 `end_type` 规范化收口
+
+本表不建立独立规范化实现，直接复用 [利润表 LLD 第 10.1 节](/Users/congming/github/goldenshare/docs/datasets/income-low-level-design-v1.md)的共享 contract、row transform、normalizer、codebook 和 `000167`。本表专属改动只有 `RawBalancesheet.end_type nullable=False`、Definition 必填字段断言与共享测试 fixture。
+
+### 10.2 初次数据集接入的历史清单
+
+#### 新增
 
 ```text
 docs/datasets/balancesheet-low-level-design-v1.md
@@ -261,7 +268,7 @@ alembic/versions/<next>_add_balancesheet_dataset.py
 tests/test_financial_statement_datasets.py
 ```
 
-### 修改
+#### 修改
 
 ```text
 src/foundation/datasets/definitions/low_frequency.py
@@ -291,23 +298,21 @@ tests/web/test_ops_schedule_api.py
 | planner | 1 日默认 12 units；2 日 24 units；周末不被过滤；子集数量准确 |
 | request | 只有 `ann_date/report_type`；158 fields；pagination 不在 builder |
 | source | `5000 + 5000 + 980` 类满页链可闭合；短页结束 |
-| normalizer | nullable 科目、`comp_type=7`、同内容去重、同身份冲突失败 |
+| normalizer | nullable 科目、`comp_type=7`、`end_type` 推导/校验、规范化指纹去重、同身份冲突失败 |
 | writer | raw-only；跨任务同身份修订覆盖；空 unit 成功 |
 | serving | report_type、update_flag、f_ann_date 与稳定 tie-break 顺序 |
-| migration | heap/PK/两索引全部 HDD；缺 tablespace 在 DDL 前失败 |
+| migration | `000167` 仅校验/补齐 `end_type` 并恢复 `NOT NULL`；不改主键、索引或 tablespace |
 | Ops/UI | 中文标签、虚拟全选、真实数组、显式空拒绝 |
 | 边界 | 无 workflow/probe/date completeness/Biz API 新增 |
 
 ## 12. 开发步骤
 
-1. `B0`：冻结 158 字段 contract，重读 migration head。
-2. `B1`：确认或落地共享 report-type contract 与 unit builder。
-3. `B2`：实现 ORM/DAO/migration/view。
-4. `B3`：实现 Definition/request/transform/registry。
-5. `B4`：接 Ops/UI 通用参数能力并补负向测试。
-6. `B5`：运行定向、架构、Definition lint 和 docs 检查。
+1. 复用利润表 LLD 的 `N0-N5` 共享收口顺序，不另建 balancesheet 分支。
+2. 证明空值、正确值、非法值、矛盾值、非季度末和批次规范化去重在 balancesheet Definition 上行为一致。
+3. 证明 `000167` 对空 balancesheet 表仍可完成约束恢复，且不生成任何删除或主键 DDL。
+4. 运行定向、codebook、架构、Definition lint 和 docs 检查。
 
-停止条件：字段数或分页闭合不符、同身份冲突无法解释、任一物理对象落到 SSD、serving 排序不能确定复现、页面仍需私有分支。
+停止条件：Prod 不是 `000166`/七字段主键现状、存量值非法或矛盾、共享 normalizer 回归、或 `000167` 需要扩大到主键/tablespace/删除操作。
 
 ## 13. 验证命令
 

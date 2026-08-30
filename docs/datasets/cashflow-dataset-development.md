@@ -1,6 +1,6 @@
 # A 股现金流量表（`cashflow`）数据集接入技术方案 v1
 
-状态：**代码已实现；共享 `end_type` 可空修正待运营部署 migration `20260830_000166` 后验收**
+状态：**共享 `end_type` 规范化方案已按 Prod 现状对齐；`20260830_000166` 已部署，规范化代码与 migration `20260830_000167` 待实现**
 编写日期：2026-08-29
 适用范围：Tushare `cashflow_vip` 接入 Goldenshare Prod
 
@@ -40,7 +40,7 @@
 1. 全市场使用 `cashflow_vip`，不按股票池调用普通接口。
 2. 2026 半年报项目 connector 分页为 `5000 + 5000 + 379 = 10379` 行。
 3. 源文档列出 97 个字段；当前默认响应已包含 97 个，但 Definition 仍必须显式请求完整字段，避免源端默认列未来变化。
-4. `2026-08-28` 返回 1,426 行，八个前置字段均无空值；`comp_type` 出现 `1/2/3/4/7`。三张财务报表共用同一身份契约；利润表已实测存在 `end_type=NULL`，因此本表同样将其建模为可空源字段而非身份字段。
+4. `2026-08-28` 返回 1,426 行，八个前置字段均无空值；`comp_type` 出现 `1/2/3/4/7`。三张财务报表共用同一规范化契约：`end_type` 按 `end_date` 推导为 `1..4` 并校验一致性，但不进入七字段身份。
 5. `600000.SH, period=20260630` 的 `report_type=1/2/6/7` 有数据，其他类型为空。空报表类型是合法结果。
 6. `is_calc=1` 的已测样本为空，默认/`0` 有数据。V1 不暴露或传 `is_calc`，避免把可选源参数变成漏数入口。
 
@@ -118,20 +118,22 @@ raw 额外保存 `source_content_hash`、`api_name='cashflow_vip'`、`fetched_at
  report_type, comp_type, update_flag)
 ```
 
-1. 不同身份全部保留。
-2. 同身份同指纹幂等去重。
-3. 同身份不同指纹表示该版本字段被源端修正，覆盖旧内容。
-4. 同批次同身份冲突使整个 unit 失败。
+1. 不同七字段身份全部保留；`end_type` 由 `end_date` 唯一推导，不进入身份。
+2. 缺失 `end_type` 补齐，非空但与报告期不一致时拒绝。
+3. 规范化后再计算内容指纹；同身份同指纹幂等去重。
+4. 同身份不同规范化指纹表示该版本字段被源端修正，覆盖旧内容；同批次冲突使整个 unit 失败。
 5. `update_flag` 必须是 `0/1`，不能默认填补。
 6. 响应缺少旧行时不自动删除 raw 历史事实。
 
 ### 6.3 索引与 migration
 
-1. 七字段主键；`end_type` 可空且不参与身份。
+1. 七字段主键；`end_type NOT NULL` 且不参与身份。
 2. `(ann_date, report_type, ts_code)`。
 3. `(report_type, ts_code, end_date, update_flag DESC, f_ann_date DESC, ann_date DESC)`。
 
-表和全部索引必须位于 `gs_raw_cold_hdd`。初始建表 migration 为 `20260830_000165`；前向 migration `20260830_000166` 统一修正三表七字段主键和 `end_type` 可空约束，并在 DDL 前检查冲突与 HDD tablespace。
+表和全部索引必须位于 `gs_raw_cold_hdd`。初始建表 migration 为 `20260830_000165`。Prod 已执行 `20260830_000166`，三表已是七字段主键，`end_type` 已放开为 nullable；该 migration 作为已部署历史保留，不得改写。新增 `20260830_000167` 先 fail-closed 检查季度末、非法值和矛盾值，再仅补齐空值并恢复 `end_type NOT NULL`；不重建主键、不移动 tablespace、不删除业务行。
+
+2026-08-30 Prod 只读审计时，`cashflow` 为空表；本结论只证明当时无存量数据需补齐，不替代 `000167` 对执行时真实数据的再检查。
 
 ## 7. Serving 唯一报表
 
@@ -170,7 +172,7 @@ Ops：
 2. point/range、周末、默认 12 类型、子集、空/非法选择、sentinel 拒绝。
 3. 空类型合法、分页短页闭合、源错误不产生部分成功假象。
 4. `comp_type=7` 与行业专属 nullable 字段。
-5. 七字段身份、可空 `end_type`、指纹、修订覆盖和批次冲突。
+5. 七字段身份、`end_type` 推导与一致性校验、规范化指纹、修订覆盖和批次冲突。
 6. serving 唯一选择顺序。
 7. raw-only、HDD fail-closed、Ops 可见与 workflow/probe/audit 排除。
 
