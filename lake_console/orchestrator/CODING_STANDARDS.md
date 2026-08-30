@@ -118,6 +118,27 @@ MACD/KDJ 连续性已落地规则：
 
 已确认例外：`silver_stock_daily` 写入前必须调用 `assert_silver_stock_basic_fresh_for_stock_daily(...)`。这是生产前置 freshness 门禁，用来防止人工 Launchpad、CLI 或补录绕过 `stock_daily_sensor` 后，在基础股票池未完成当日更新时静默生产；它不等同于把普通质量 check 混入 asset 写入逻辑。当前 `silver_stock_daily` 已退出 current-listed-only 股票全集过滤，长期生命周期过滤事实源已收敛到 `silver_stock_lifecycle`；`raw_stock_basic` 只作为 `silver_stock_lifecycle` 的上游输入，`silver_stock_basic` 只保留 current-listed 快照和 freshness guard 角色。
 
+### Candidate 原子提升完整性校验
+
+当已批准的数据集方案明确采用 `staging candidate -> validate -> os.replace`，允许在正式目标写入前执行 candidate atomic-promotion integrity validator。它不是普通业务质量 guard，只用于防止把无法安全覆盖的坏候选提升成正式不可变文件。
+
+允许范围：
+
+1. 文件可读、稳定 schema/物理类型、主键非空/唯一、路径与分区一致。
+2. 同一次 source relation、staging 与候选文件的传输行数/分配范围对账。
+3. 已批准的身份/上游 reference 可复算，候选没有无法解释的新身份。
+4. 已存在正式目标的结构预检，以及 apply 阶段的语义等价复用或冲突停止。
+5. Silver 写前只重新验证已经由正式 check/evaluator 生成的 admission reference、当前上游 hash 和 policy version，防止人工 Launchpad/CLI 绕过准入。
+
+禁止范围：
+
+1. 在 writer 内自行定义价格、成交、公式、分钟网格、内部空洞等业务质量结论。
+2. 以 validator 取代正式 asset checks、check metadata、readiness 或 N3 observation/policy。
+3. 通过删行、修值、填空、静默去重或覆盖冲突文件让候选通过。
+4. 为每个数据集维护一套与正式 check 不同的 SQL/分类合同。
+
+validator 与正式 checks 的稳定规则必须由同一纯 helper 派生；候选通过后仍要发出并绑定正式 checks。ETF 分钟 Raw 是本类别第一个批准适用的数据集：Raw validator 只负责文件/传输/身份，`bar_domain` 由 Raw 后 N3 admission check 决定；ETF 分钟 Silver 写前只重新验证该 admission reference，不重算或改写 policy。
+
 ### 禁止阶段编号进入正式代码
 
 阶段编号只允许出现在设计文档、开发计划和提交说明中，不允许进入正式代码主概念。
