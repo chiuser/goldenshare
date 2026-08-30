@@ -27,14 +27,14 @@ DG 接入 LLD：[ETF Basic 与历史分钟 DG 接入低层设计 v1](./dagster-e
 2. ETF Basic 由 DG 通过现有 Tushare Resource 直接请求 `etf_basic`；不读取 Prod DB 的 raw 或 serving 表。
 3. Basic Raw 保存源端无业务过滤的 14 字段完整快照，包括 `.SH/.SZ/.OF` 和 `L/P/D`。
 4. Basic Silver 只复刻 Prod `core_serving.etf_basic` 已落地的发布筛选：保留 `.SH/.SZ`，不按状态或上市日继续裁剪。
-5. Basic Raw/Silver 都保留不可变版本。分钟任务只检查启动时最新一条 Silver materialization；该版本 checks 失败或不新鲜时立即 fail-closed，不回退更早版本。检查通过后整次任务固定这一版本，避免运行期间口径漂移。
+5. Basic Raw/Silver 都保留不可变版本。分钟任务同时检查启动时最新 Raw 与最新 Silver materialization，两者内容 hash 必须对齐、checks 必须通过且两层观测时间都必须满足当天 freshness；任一不满足立即 fail-closed，不回退更早版本。检查通过后整次任务固定这一版本，避免运行期间口径漂移。
 6. ETF 分钟仍从 `raw_tushare.etf_minute_bar` 按日期和频率一次性批量读取，不按 ETF 逐只查询，也不在 Prod SQL 中用 Basic 静默过滤；读取结果先进入 run-scoped staging。
 7. staging 候选先通过导出完整性、字段/分区合同和最新 Basic Silver 代码身份校验，再原子提升为正式 Raw。Raw 保存 Prod 当时的物理事实；应覆盖缺口、五频覆盖和日内网格由 Raw 落地后的本地 DuckDB N3 审计判断，不再为了 N3 反复扫描 Prod。
 8. 历史补录不寻找历史日期对应的 Basic 快照。无论补哪一段历史，都只以本次任务启动时最新的 Basic Silver 为基线，并按其中的 `list_date` 裁每只 ETF 的可请求起点。
 9. 已退市、从最新 Basic 消失或后来不再可请求的 ETF，不要求继续补拉；它已经进入正式 Lake 的历史分钟数据永久保留，不删除、不回收，也不因最新 Basic 变化而重写。
-10. 2026 年指定区间的 Prod 对齐已经完成首尾覆盖，但现有 Preview 明确没有审计区间内部空洞。因此分钟 Raw Bootstrap 完成后，必须在本地对正式 Raw 做一次新的 N3 物理审计；审计通过并冻结 blocking/WARN 后才能进入 Silver。日常链由同一份已冻结 policy 生成五频共享 admission 结果，不为五个频率重复扫描。
+10. 2026 年指定区间的 Prod 对齐已经完成首尾覆盖，但现有 Preview 明确没有审计区间内部空洞。因此分钟 Raw Bootstrap 完成后，必须在本地对正式 Raw 做一次新的 N3 物理审计；审计通过并冻结 blocking/WARN 后才能进入 Silver。日常链由同一份已冻结 policy 生成五频共享 `bar_domain` blocking checks，不为五个频率重复扫描。
 11. ETF DG 不读取 `ops.task_run` 或任何其它 Prod `ops.*` 状态表。当前 `stk_mins` 的确同时使用“成功 TaskRun + 五频代码物理覆盖”双门禁，并在每个 Raw asset 内重查本频覆盖；ETF 不复制这些执行状态和重复重查，只在日常 Sensor 启动前做一次五频代码覆盖，Raw asset 只重新验证冻结的 Basic reference，再通过本次实际导出候选完成本地范围校验。
-12. 分钟 Raw 前只阻断文件/字段不可读、主键空或重复、日期/频率错位、Basic 身份污染和无法解释的新代码。价格空值、负成交量、OHLC 关系、分钟网格和内部空洞进入 Raw 后由 N3 观察和分类；它们不阻断 Raw 文件保存和后续 Raw 日期推进，但必须阻断不合格分区进入 Silver。Silver 只接收 N3 判定可准入的分区，且不修值、不删行。
+12. 分钟 Raw 前只阻断文件/字段不可读、主键空或重复、日期/频率错位、Basic 身份污染和无法解释的新代码。价格空值、负成交量、OHLC 关系、分钟网格和内部空洞进入 Raw 后由 N3 观察和分类；它们不回滚已经安全保存的 Raw 文件。N3B 冻结后，这些规则落成 Raw 的正式 `bar_domain` blocking check；失败分区阻断日常 Raw 连续性和 Silver，Silver 不修值、不删行。
 
 一句话概括：**分钟数据从 Prod 受控批量搬到 Raw，导出和代码身份先校验；内部空洞与分钟网格统一在本地 Raw 上用 DuckDB 审计，只有通过 Silver 准入口径的数据才能进入 Silver。补历史不回溯历史 Basic，已有的退市 ETF 历史数据也永不因 Basic 变化而删除。**
 
@@ -125,6 +125,8 @@ ts_code 后缀与 exchange 一致，且属于 .SH/.SZ
 ```text
 basic_raw_snapshot_hash
 basic_silver_content_hash
+basic_raw_observed_at
+basic_silver_observed_at
 eligibility_as_of
 requestable_code_count
 requestable_code_hash
@@ -197,7 +199,7 @@ flowchart LR
 | Raw | `raw_tushare_etf_basic` | Tushare `etf_basic` 14 字段无业务过滤完整快照 |
 | Silver | `silver_etf_basic` | 同版 Raw 中 `.SH/.SZ` 的全状态主数据，筛选语义与 Prod Core Serving 一致 |
 
-Silver 不裁成当前可请求集合，也不只保留 `L`。分钟正式 Raw 对 `silver_etf_basic` 建立真实的只读校验依赖：分钟 Job 不负责重跑 Basic，但必须确认最新 Silver 已 materialize、blocking checks 通过且满足本次 freshness，随后读取该版本计算请求范围。
+Silver 不裁成当前可请求集合，也不只保留 `L`。分钟正式 Raw 对 `silver_etf_basic` 建立真实的只读校验依赖：分钟 Job 不负责重跑 Basic，但 latest-only selector 必须确认最新 Raw 与最新 Silver 的内容 hash 对齐、各自 blocking checks 通过且两层观测时间都满足本次 freshness，随后读取该 Silver 版本计算请求范围。
 
 Dagster 建模时使用 `deps=["silver_etf_basic"]` 表达 lineage 和调度依赖；分钟资产自己按已冻结的路径/hash 读取 Basic 文件，不通过 IOManager 把整份快照传入内存。run-scoped staging 只是写入过程中的候选区，不注册为正式资产。
 
@@ -229,7 +231,7 @@ silver_etf_mins_60m
 
 ## 6. ETF Basic 快照如何保存
 
-Tushare Basic 只返回当前快照，因此 DG 需要保存不可变的源观测版本。这个版本能力一方面用于追踪 Basic 自身如何变化，另一方面让每次分钟任务能固定“启动时最新且已验收的 Silver 版本”，保证整次范围校验可复算。
+Tushare Basic 只返回当前快照，因此 DG 需要保存不可变的源观测版本。这个版本能力一方面用于追踪 Basic 自身如何变化，另一方面让每次分钟任务能按 latest-only 合同冻结“启动时最新 Raw/Silver reference”，再从其中的 Silver 计算范围，保证整次校验可复算且不会回退旧版本。
 
 ### 6.1 推荐路径
 
@@ -248,13 +250,13 @@ Tushare Basic 只返回当前快照，因此 DG 需要保存不可变的源观�
 1. 相同内容复用同一个 `snapshot_id` 和文件，不重复制造副本。
 2. 内容变化产生新的 hash 和新目录；已验收版本不可覆盖。
 3. 不创建 `current` 文件、不创建选择池 manifest，也不持久化第二份 requestable-code Parquet；本次可请求集合从已冻结的 Silver 快照即时、集合化计算。
-4. “最新可用版本”只从任务启动前最新一条 Silver Dagster materialization 开始检查：Silver checks 必须精确绑定该版本，它引用的 Raw materialization/checks 也必须精确绑定并全部通过，且 Silver `observed_at` 必须与本次 `eligibility_as_of` 同属一个上海自然日；任一条件不满足立即 fail-closed，绝不回退更早版本。长任务跨日后仍使用启动时冻结的版本，不在中途切换。
+4. “最新可用版本”同时从任务启动前最新一条 Raw 和最新一条 Silver Dagster materialization 开始检查：两者 blocking checks 必须分别精确绑定并全部通过，Silver 记录的 `raw_snapshot_hash` 必须等于最新 Raw 的 `raw_snapshot_hash`，且 Raw/Silver 各自的 `observed_at` 都必须与本次 `eligibility_as_of` 同属一个上海自然日。最新 Raw 已变化而 Silver 尚未跟上、任一 checks 失败或任一层不新鲜时立即 fail-closed，绝不回退更早版本。相同 Raw 内容产生新的 materialization 时，内容 hash 相同仍视为同一快照，但不能省略当天 Raw 的实际源请求和 materialization。长任务跨日后继续使用启动时冻结的版本。
 5. Raw/Silver Materialization 和审计报告记录：
 
 ```text
 raw_snapshot_hash
 silver_content_hash
-observed_at
+raw_observed_at / silver_observed_at
 api_name = etf_basic
 business_params = {}
 fields = 14 个显式字段
@@ -263,7 +265,7 @@ raw_row_count / silver_row_count / filtered_out_row_count
 status_counts / suffix_counts
 ```
 
-Basic 是 no-time snapshot，自身没有业务 config；`observed_at` 与上海观测日来自运行时钟。Basic 自身的 materialization 不预先写 `eligibility_as_of` 或分钟 `request_target_hash`。分钟任务在启动时才冻结 `eligibility_as_of`，读取最新已验收 Silver，计算并记录自己的 `requestable_code_count/requestable_code_hash`；这既保留可复算证据，也避免恢复一套独立激活池。
+Basic 是 no-time snapshot，自身没有业务 config；Raw/Silver 各自 materialization 的 `goldenshare/observed_at` 与上海观测日来自运行时钟。Basic 自身的 materialization 不预先写 `eligibility_as_of` 或分钟 `request_target_hash`。分钟任务在启动时才冻结 `eligibility_as_of`，读取 latest-only Raw/Silver reference，计算并记录自己的 `requestable_code_count/requestable_code_hash`；这既保留可复算证据，也避免恢复一套独立激活池。
 
 ---
 
@@ -284,7 +286,7 @@ Basic 是 no-time snapshot，自身没有业务 config；`observed_at` 与上海
 3. `trade_date` 由 `trade_time` 推导，只作为路径分区，不增加到 Raw 业务字段。
 4. 导出 SQL 只按批准日期范围和频率裁剪，不按 Basic 代码集合过滤；结果先写 `/Volumes/datasource/data_lake_staging` 下的 run-scoped 候选文件。
 5. 候选文件必须与本次冻结的最新 Basic Silver 做集合校验。校验通过后才通过同文件系统 `os.replace()` 原子提升到本节正式 Raw 路径。
-6. 非 `.SH/.SZ`、交易所冲突、无法由最新 Basic 或既有正式 Lake 事实解释的新代码必须进入审计并阻断提升；不能先在 SQL 中静默丢掉，也不能通过删行让检查变绿。
+6. 非 `.SH/.SZ`、交易所冲突、无法由最新 Basic 或本次执行前同一目标正式文件解释的新代码必须进入审计并阻断提升；不能先在 SQL 中静默丢掉，也不能通过删行让检查变绿。
 7. 已存在于正式 Lake、后来退市或从最新 Basic 消失的历史代码不参加本次应覆盖集合，但其已有文件和行永久保留。
 
 ### 7.2 分钟 Silver
@@ -300,7 +302,7 @@ Silver 的第一版定位是“Raw 通过完整性和入库标准检查后的准
 1. 仍保留同样的 11 个字段。
 2. 只做合同允许的稳定类型表达，不改变有效数值。
 3. Raw/Silver 行数、主键集合和 11 字段值逐项一致。
-4. Raw 的文件/身份 blocking checks 失败，或 N3 admission check 没有绑定当前 Raw materialization、policy 版本过期、结果为 `blocked`，整个日期/频率分区都不准入 Silver。
+4. Raw 的 `file_contract/request_scope/bar_domain` 任一 blocking check 失败，整个日期/频率分区都不准入 Silver。
 5. 真正需要修复的数据回到 Prod 或走以后单独批准的 Raw repair，不在 Silver 静默处理。
 
 ---
@@ -326,14 +328,14 @@ Silver：
 4. Silver 行数、主键集合、字段值与同版 Raw 的筛选结果一致。
 5. `silver_content_hash` 可从文件独立复算，且 Silver 能追溯到唯一 `raw_snapshot_hash`。
 
-### 8.2 分钟 Raw 存储门禁与 Silver admission 候选
+### 8.2 分钟 Raw blocking checks 与 Silver 准入候选
 
-以下口径可以先写进 LLD 和审计脚本候选，但最终哪些阻断 Silver，必须以第 9 节对本地 Raw 的 N3 审计结果为准。除稳定的导出/身份门禁外，这些候选不阻断首次 Raw 物理 Bootstrap：
+以下口径可以先写进 LLD 和审计脚本候选，但最终哪些判为 blocked、哪些只 WARN，必须以第 9 节对本地 Raw 的 N3 审计结果为准。除稳定的导出/身份门禁外，这些候选不阻断首次 Raw 物理 Bootstrap：
 
-1. 本次使用的 Basic Silver 已 materialize、其 blocking checks 全绿且 freshness 满足要求；任务记录的两个 Basic hash 可独立复算。
+1. 本次使用的最新 Basic Raw/Silver 已 materialize、两层各自 blocking checks 全绿、内容 hash 对齐且两层 freshness 都满足要求；任务记录的两个 Basic hash 可独立复算。
 2. 从该 Silver 计算当前可请求集合：`list_status='L'`、`list_date` 非空且不晚于 `eligibility_as_of`，结果的代码数量和 hash 与任务记录一致。
 3. 对历史交易日 `D`，应覆盖代码为当前可请求集合中 `list_date <= D` 的代码；不按 `D` 回找历史 Basic。
-4. 每个日期、频率都输出 `expected/present/missing/known_non_required/retained_legacy/unexplained_new` 集合计数和有界样本。`unexplained_new` 属于稳定身份污染门禁，阻断候选提升；当前应请求代码缺失、部分频率缺失和分钟网格问题允许原样进入 Raw，但在第 9 节审计冻结可接受分类前一律不得进入 Silver。
+4. 每个日期、频率都输出 `expected/present/missing/known_non_required/retained_legacy/unexplained_new` 集合计数和有界样本。`retained_legacy` 只认本次执行前同一目标正式文件里已经存在的代码，不为判断新候选扫描全部历史 Lake。`unexplained_new` 属于稳定身份污染门禁，阻断候选提升；当前应请求代码缺失、部分频率缺失和分钟网格问题允许原样进入历史 Raw，但在第 9 节审计冻结可接受分类前一律不得进入 Silver。
 5. 候选 schema 精确为 11 个字段，字段类型可稳定读取。
 6. 文件频率、路径日期与行内 `freq/trade_time` 一致。
 7. `(ts_code, trade_time)` 在单频文件内唯一且非空。
@@ -344,12 +346,9 @@ Silver：
 12. 同一 ETF 交易日若某频率存在而其他原生频率缺失，进入 N3 单独分类，不能直接视为停牌。
 13. 候选与正式 Raw、Raw 与 Silver 的行数、主键和 11 字段值完全一致。
 
-Raw 前门禁与 Raw 后 N3 的边界固定为：前者只处理“这批文件能否安全、可解释地保存为 Prod 物理事实”，后者回答“这个物理事实分区能否进入 Silver”。不得把尚未观察真实 ETF 分布的价格、成交或网格规则提前塞回 Raw writer。为避免一个 N3 问题把此后的 Raw 日期全部堵死，系统必须区分两个状态：
+Raw 前门禁与 Raw 后 N3 的边界固定为：前者只处理“这批文件能否安全、可解释地保存为 Prod 物理事实”，后者回答“这个物理事实分区能否成为 ready 并进入 Silver”。不得把尚未观察真实 ETF 分布的价格、成交或网格规则提前塞回 Raw writer。
 
-1. `raw_storage_ready`：当前 Raw materialization 的文件合同和请求范围两类 blocking checks 已通过；它只决定 Raw 连续性可以继续。
-2. `silver_admission_ready`：同日五频都已 `raw_storage_ready`，且五频共享 N3 评估已经按当前 policy 完成，五个 admission check 都绑定当前 Raw materialization 并通过；它只决定 Silver 能否生产。
-
-`bar_domain` 是强制的 Silver admission check，但相对 Raw asset 必须是 `blocking=False`。这里的非 blocking 只表示“不阻断 Raw 保存和下一日 Raw”，绝不表示 Silver 可以忽略它。Silver Sensor 和 Silver asset 都必须 fail-closed 地重新验证 admission reference，人工 Launchpad/CLI 也不能绕过。
+N3B 冻结后，每个 Raw 资产只有一套正式 readiness：当前 materialization 的 `file_contract`、`request_scope`、`bar_domain` 三项 blocking checks 全部通过。`bar_domain` 失败不删除、不回滚 Raw 文件，但该分区不 ready，日常连续性停在最早失败日，Silver 也不能越过。Silver 正式 Job 选择五个 Raw checks 与五个 Silver assets/checks；它会重新执行同一套 Raw check 合同，但不会重跑 Raw writer，因此不需要第二套准入引用、状态或写前 guard。
 
 代码集合按下面四类处理，不能简单把“实际存在但当前不再可请求”全部当成脏数据：
 
@@ -357,8 +356,8 @@ Raw 前门禁与 Raw 后 N3 的边界固定为：前者只处理“这批文件�
 | --- | --- | --- |
 | `expected` | 最新 Silver 中当前为 `L`，且历史交易日不早于 `list_date` | 必须进入覆盖检查；缺失或少频进入 Raw N3，默认阻断 Silver、不阻断 Raw 物理保存 |
 | `known_non_required` | 最新 Silver 中已经是 `D/P`，或目标历史日早于 `list_date` | 不要求本次补到；已有历史事实保留，新出现的候选行单独分类，不静默删除 |
-| `retained_legacy` | 代码已经从最新 Silver 消失，但正式 Lake 在本次任务前已有其历史事实 | 只保留，不参加本次应覆盖集合，不因 Basic 变化重写 |
-| `unexplained_new` | 最新 Silver 无法识别，正式 Lake 此前也没有的新代码 | 视为可能的 Prod 脏数据，阻断提升并要求人工解释 |
+| `retained_legacy` | 代码已经从最新 Silver 消失，但本次执行前同一目标正式文件已经有该代码 | 只允许等价复用该目标文件，不参加本次应覆盖集合，不因 Basic 变化重写 |
+| `unexplained_new` | 最新 Silver 无法识别，且同一目标正式文件此前没有该代码 | 视为可能的 Prod 脏数据，阻断提升并要求人工解释 |
 
 ### 8.3 只告警、不自动删除的候选
 
@@ -369,7 +368,7 @@ Raw 前门禁与 Raw 后 N3 的边界固定为：前者只处理“这批文件�
 
 这些类别必须在审计报告中保留代码、日期、频率、数量和有界样本。没有解释清楚前，不得靠删行让 Silver 变绿。
 
-Basic 的作用是定义“本次还应该拉谁”，不是定义“Lake 里历史上只允许存在谁”。因此，最新 Basic 中已不再可请求的代码不会被判成必须删除；但候选中出现既无法由最新 Basic 识别、也不是既有正式 Lake 历史事实的新代码，必须阻断并人工解释，防止 Prod 脏数据进入 DG Raw。
+Basic 的作用是定义“本次还应该拉谁”，不是定义“Lake 里历史上只允许存在谁”。因此，最新 Basic 中已不再可请求的代码不会被判成必须删除；但候选中出现既无法由最新 Basic 识别、又不在本次执行前同一目标正式文件中的代码，必须阻断并人工解释，防止 Prod 脏数据进入 DG Raw。
 
 ---
 
@@ -390,7 +389,7 @@ Prod 上游已经完成的证据包括：
 2. 按 `list_status='L' + list_date` 复刻出的本次请求范围，并证明历史日期只按 `list_date` 裁起点，没有回溯历史 Basic。
 3. Raw 分钟总行数、实际代码集合、最早/最晚日期、按月/频率行数，以及 Bootstrap 导出报告中的 source/staging/Raw 行数对账。
 4. 按 `ts_code + trade_date + freq` 的行数与时间点网格分布。
-5. `expected/present/missing/known_non_required/retained_legacy/unexplained_new` 集合差异，以及“整日五频全空”“部分频率空”“频率存在但日内断点”三个不同类别。
+5. `expected/present/missing/known_non_required/retained_legacy/unexplained_new` 集合差异，以及“整日五频全空”“部分频率空”“频率存在但日内断点”三个不同类别；其中 `retained_legacy` 只以同一目标文件的既有内容为依据。
 6. 已退市或不再出现在最新 Basic 的代码在正式 Lake 中已有历史数据的保留情况；审计不得提出删除或重写这些事实。
 7. 主键重复、交换所冲突、数值域异常和有界样本。
 8. Bootstrap 每个冻结的 `trade_date + freq` 是否都有一个 schema 正确的 Raw 文件，包括源端零行时生成的显式零行文件；同时对账单次源查询、staging 和 Raw 的行数、日期、频率、代码范围与文件 hash。
@@ -406,7 +405,7 @@ N3 固定拆成两步：
 
 这里的“blocking/WARN policy 尚未确认”具体指 N3A 报告已经完成、但管理员还没有完成 N3B 评审的时间段。只有 N3B 关闭后，才能进入 Silver。
 
-Raw 文件存在、`raw_storage_ready` 和 `silver_admission_ready` 必须分开：Bootstrap 可以先形成正式 Raw 物理文件；文件/身份 checks 通过后它可以推进后续 Raw 日期，但在 N3 完成、五频 admission checks 通过和事件补录完成前，不能把它当成可供 Silver 消费的分区。
+Bootstrap 的物理写入与日常 readiness 必须分开理解：Bootstrap 可以先完成全部批准范围的正式 Raw 文件，再做 N3；这不表示这些历史分区已经 ready。N3B 冻结后，日常和历史验收都使用同一套 `file_contract/request_scope/bar_domain` blocking 语义。事件补录只是 UI/历史索引，不是全历史 readiness 的事实源。
 
 ---
 
@@ -431,19 +430,19 @@ Raw 文件存在、`raw_storage_ready` 和 `silver_admission_ready` 必须分开
 | --- | --- | --- | --- |
 | `prod-raw-db` | `raw_tushare.etf_minute_bar` | ETF 分钟事实 | 上述 11 个业务字段 |
 
-ETF Basic 不访问 Prod DB，因此不需要新增 `prod-core-db` 白名单。ETF 分钟也不读取 `ops.task_run`、`ops.task_run_node` 或其它 `ops.*` 表，不修改 `lake_console/AGENTS.md` 的远程状态表例外。日常启动只由最新 Basic Silver 和 Sensor 的一次 Prod Raw 五频代码覆盖决定；写入是否可信由单次明细导出、staging 回读、本地范围校验和 Raw 后 N3 证明，不再为同一批次增加覆盖重查或导出前后 fingerprint 查询。
+ETF Basic 不访问 Prod DB，因此不需要新增 `prod-core-db` 白名单。ETF 分钟也不读取 `ops.task_run`、`ops.task_run_node` 或其它 `ops.*` 表，不修改 `lake_console/AGENTS.md` 的远程状态表例外。日常启动只由 latest-only Basic reference 和 Sensor 的一次 Prod Raw 五频代码覆盖决定；写入是否可信由单次明细导出、staging 回读、本地范围校验和 Raw 后 N3 证明，不再为同一批次增加覆盖重查或导出前后 fingerprint 查询。
 
 ### 10.3 查询边界
 
 1. Tushare Basic 无业务过滤，分页只用于完整拉取；任一页失败则整次不发布。
 2. Prod coverage/watermark 查询使用 `ProdPostgresResource.connect_readonly_transaction()`、绑定参数和最终 rollback；分钟明细由 DuckDB 以 `TYPE POSTGRES, READ_ONLY` attach 后执行经过白名单和字面量校验的 `postgres_query`。两类查询共享只读、超时和不泄露连接信息的安全合同，但不能混写成同一种参数绑定方式。
 3. Prod DB 禁止 `SELECT *`，禁止系统字段，禁止访问未列出的 schema/table。
-4. 日常 Sensor 对目标日执行一次五频代码 coverage；Raw Job 不重查 coverage，每个频率最多一条目标日明细查询，合计最多五条。
-5. Bootstrap plan 只对请求上界向前最多 10 个 SSE 开市日执行一条五频 coverage 来冻结水位；Raw apply 每批最多 20 个交易日、一次只处理一个频率且只执行一条明细查询，由 DuckDB set-based SQL 按日写 Parquet。单份计划的远程查询预算固定为 `1 + 5 × ceil(冻结交易日数 / 20)`，apply 不重新做水位 coverage。
+4. 日常 Sensor 使用同一套批量 coverage evaluator 的单日期模式，对目标日执行一次五频代码 coverage；Raw Job 不重查 coverage，每个频率最多一条目标日明细查询，合计最多五条。
+5. Bootstrap plan 使用同一套 evaluator 的多日期模式，只对请求上界向前最多 10 个 SSE 开市日执行一条五频 coverage 来冻结水位；查询必须在一个 set-based SQL 中按各日 `expected(D)` 分组，不能在实现里展开成“日期 × 频率”循环。Raw apply 每批最多 20 个交易日、一次只处理一个频率且只执行一条明细查询，由 DuckDB set-based SQL 按日写 Parquet。单份计划的远程查询预算固定为 `1 + 5 × ceil(冻结交易日数 / 20)`，apply 不重新做水位 coverage。
 6. 日常分钟明细过滤固定为 `freq + [D 00:00:00, D+1 个自然日 00:00:00)`，不按 ETF 逐只查询，也不带本地 Basic 代码条件；明细先进入 staging，避免在读取阶段把异常行静默过滤掉。Bootstrap 的多日批次用首日到末日后一个自然日的半开范围，并在本地拒绝任何不属于 frozen trade dates 的行。
 7. 最新 Basic Silver 与分钟候选的集合校验在本地用 DuckDB set-based join 完成，不产生 ETF × 日期 × 频率的 Python/SQL N+1。
 8. N3 全量汇总审计只扫描本地 Raw Parquet，并按频率、年份或受控日期批次聚合；Prod 只承担 Bootstrap 明细导出和异常小范围回查。
-9. `statement_timeout` 在 P0 真实小样本后冻结为代码常量：coverage 事务用绑定参数设置本地超时，DuckDB attach 的 PostgreSQL conninfo 由专用纯 helper 注入同一超时；不得写日志、metadata、run config 或新增环境变量。单批行数、磁盘峰值、Basic freshness 或候选范围异常任一超预算时 fail-closed。
+9. P0 用真实小样本记录 coverage 和明细导出耗时，先复用 `ProdPostgresResource.connect_readonly_transaction()` 与 `duckdb_connection_string()` 的现有只读行为，不为 ETF 单独改写 conninfo 或新增 timeout 常量。只有实测证明现有资源级行为不足时，才另立共享资源配置审计和评审；单批行数、磁盘峰值、Basic freshness 或候选范围异常任一超预算时 fail-closed。
 10. Raw asset 开始时只重新验证冻结的 Basic reference；明细导出后在本地对账 source relation、staging 和正式候选的行数、字段、主键、日期、频率、代码集合与 exchange 身份。不得为了“再确认一次”重复查询同一批次的 coverage 或明细。
 
 ---
@@ -454,10 +453,10 @@ ETF Basic 不访问 Prod DB，因此不需要新增 `prod-core-db` 白名单。E
 
 ### 11.1 先冻结输入
 
-1. ETF Basic 先通过自己的正式 Job 完成一次 Tushare Raw/Silver materialization 和对账；Bootstrap 启动时固定最新已验收 Silver 的 hash、`eligibility_as_of` 和请求代码 hash。
+1. ETF Basic 先通过自己的正式 Job 完成一次 Tushare Raw/Silver materialization 和对账；Bootstrap 启动时按 latest-only 规则固定两层最新 materialization 的 hash、`observed_at`、`eligibility_as_of` 和请求代码 hash。两层都必须各自通过 checks、当天新鲜且内容对齐，不回退旧版本。
 2. 按 N4 在执行前动态冻结本次分钟起止日期、五个频率和 Prod 物理统计水位；不得把文档日期写成运行常量。
 3. 对经批准的小范围样本完成 Prod 五频 coverage 和单批明细导出 profiling，冻结查询数、行数、耗时和空间预算；不读取任务状态表，不增加导出前后重复扫描。
-4. 用已冻结的最新 Basic Silver 重算本次应请求集合，作为 staging/Raw 的身份和后续 N3 覆盖基线；不在 Prod 先跑逐日、逐频率、逐时间点的全量审计，不沿用 2026-08-29 的旧行数或代码数量，也不寻找历史 Basic。
+4. 用已冻结 reference 指向的 Basic Silver 重算本次应请求集合，作为 staging/Raw 的身份和后续 N3 覆盖基线；不在 Prod 先跑逐日、逐频率、逐时间点的全量审计，不沿用 2026-08-29 的旧行数或代码数量，也不寻找历史 Basic。
 5. dry-run 输出 SQL 数、预计读取行数、文件数、正式盘增量、staging 峰值和批次数。
 
 ### 11.2 写入顺序
@@ -470,9 +469,11 @@ P0 小日期探索样本写 /private/tmp
 -> 对源端零行的冻结日期生成 schema 正确的显式零行 Raw 文件
 -> 同文件系统 os.replace 原子提升
 -> 每个文件 checkpoint
+-> 全部 Raw 目标闭合后生成 finalized_raw_manifest.parquet 和 raw_final_report.json
 -> DuckDB 批量审计正式 Raw
--> 冻结 blocking/WARN 和 green partition manifest
+-> 冻结 blocking/WARN 和 partition decision manifest
 -> 另行授权生成 Silver
+-> 生成并验收只绑定本次 operation 的 physical_final_report.json
 -> 注册 2026-01-01 到动态水位之间的 SSE 开市日分区
 -> 另行授权补 Dagster materialization/check events
 ```
@@ -481,9 +482,9 @@ P0 小日期探索样本写 /private/tmp
 
 1. 已存在且 11 个业务字段双向 `EXCEPT ALL` 等价的正式文件复用；文件字节 hash 只用于记录和保护清单，不替代语义比较。
 2. 已存在但内容不同的文件 fail-closed；Bootstrap 不自动覆盖。
-3. 候选必须先通过 schema、日期/频率、Parquet 回读、source/staging 行数一致、Basic hash 和 `unexplained_new=0` 等稳定门禁；应覆盖缺口和网格异常可以原样进入 Raw，但不因此获得 `silver_admission_ready`。
+3. 候选必须先通过 schema、日期/频率、Parquet 回读、source/staging 行数一致、Basic hash 和 `unexplained_new=0` 等稳定门禁；应覆盖缺口和网格异常可以原样进入 Raw，但在 N3B 判定前不视为 ready，也不能进入 Silver。
 4. Raw 完成后只在本地做 N3 全量审计。每个批次只读取一次 Prod 明细，依靠 frozen plan、候选回读以及 source/staging/Raw 行数和集合对账保证传输完整；只有异常定位才做小范围 Prod 回查，不重复全量扫描。
-5. 首次 Direct Lake Bootstrap 在日常 Sensor 启用前串行执行，一个 `operation_id` 只允许一个进程按频率和日期批次推进；它不与后续日常链并行，因此不建立跨路径 concurrency pool 或外部锁。Raw 物理写入、N3 审计、Silver 写入、动态分区注册、Dagster materialization/check 事件补录和 Sensor 启用分别授权。
+5. 首次 Direct Lake Bootstrap 在日常 Sensor 启用前串行执行；同一 `operation_id` 的 `raw-apply` 只允许一个进程按频率和日期批次推进，各阶段也必须按顺序单独调用和授权。它不与后续日常链并行，因此不建立跨路径 concurrency pool 或外部锁。Raw 物理写入、N3 审计、Silver 写入、动态分区注册、Dagster materialization/check 事件补录和 Sensor 启用分别授权。
 6. 正式 plan 只能先把既有目标标成 `missing`、`present_structurally_valid_uncompared` 或 `present_invalid`。`present_invalid` 立即停止；只有 Raw apply 用本批唯一一次明细 relation 做双向 `EXCEPT ALL` 后，才能把结构有效的既有目标判成 `reused` 或 `conflict-stop`。plan 不得在没有明细查询的情况下声称目标已经等价可复用。
 
 ---
@@ -504,12 +505,12 @@ requested_end_date <= 2025-12-31
 4. DG 按批准日期和频率把 Prod 已存在的全部分钟物理行批量读到 staging，不在 Prod SQL 中用 Basic 过滤。随后用第 3 条的集合检查应有代码、实际代码和频率覆盖。
 5. 在本次最新 Basic Silver 中已退市或待上市的 ETF，以及已经从最新 Silver 消失的 ETF，都不进入应覆盖集合。它们没有被本次补到历史数据属于正常结果，不能据此判定补录不完整。
 6. 某只 ETF 在早先任务中仍可请求、后来退市或从 Basic 消失时，已经进入正式 Lake 的历史数据继续保留。后续任务不再要求它出现，也绝不删除、回收或重写它的旧数据。
-7. 候选中出现无法由最新 Basic 识别、也不是既有正式 Lake 历史事实的新代码时，必须停下人工解释；Raw 不能靠静默丢行通过校验。
+7. 候选中出现无法由最新 Basic 识别、且本次执行前同一目标正式文件也没有的新代码时，必须停下人工解释；Raw 不能靠静默丢行通过校验，也不能为了分类去扫描全部历史 Lake。
 8. 历史 writer 在代码层拒绝任何 `trade_date >= 2026-01-01` 的候选路径。
 9. 执行前生成 2026 正式文件保护清单，至少包含路径、行数、文件大小和 SHA-256；执行后复算，必须零变化。
 10. 历史目标文件不存在时才允许新增；存在且 11 字段语义等价则复用，存在但不同则停止，不能自动覆盖。
-11. Silver 只消费本轮 `actual_changed_raw_manifest`，不能扫描并重写 2026。
-12. 2025 年及以前的动态分区只注册本次已批准 frozen plan 中的 SSE 开市日，且必须在对应 Runless Event 之前完成；Runless Event 也只补本次实际新增且通过验收的历史分区。
+11. Raw apply 输出包含 `added/reused` 的完整 finalized manifest。Silver work manifest 取“`silver_eligible=true` 且 Silver 缺失或需要等价核验”的批准范围：缺失则新增，已存在且等价则复用，冲突则停止；不得因为 Raw 已复用就漏掉缺失的 Silver，也不能扫描并重写 2026。
+12. 2025 年及以前的动态分区只注册本次已批准 frozen plan 中的 SSE 开市日，且必须在对应 Runless Event 之前完成；Runless Event 消费最终验收的 `added/reused` 文件范围并幂等补缺失事件，不重复写已有等价事件。
 13. 单份 frozen plan 最多包含 10,000 个 Raw 目标文件；更长历史按连续、互不重叠的日期段拆成多份计划，分别审批并串行完成。全部完成后对日期并集做总审计，并再次证明 2026 保护清单零变化。
 
 这样做的实际效果是：补 2025 或更早的数据，只会新增对应历史目录；2026 年既不进入候选清单，也不进入写入函数。
@@ -526,21 +527,21 @@ requested_end_date <= 2025-12-31
 2. Raw blocking checks 通过后，Silver Job 从冻结的同版 Raw 生成 `.SH/.SZ` 全状态快照。
 3. 同内容重复运行复用已有版本；源端内容变化才新增版本。
 4. Basic 仍由自己的唯一正式 Job 写入，不被分钟 Job 顺手重跑。
-5. 分钟任务启动前只读检查最新 Silver materialization、它自身与所引用 Raw 的 blocking checks 和 freshness；任一不满足，分钟候选可以不读取，或即使已读入 staging 也不得提升为正式 Raw。
+5. 分钟任务启动前只读检查最新 Raw 与最新 Silver materialization、两层各自的 blocking checks、内容 hash 对齐和两层 freshness；任一不满足，分钟候选可以不读取，或即使已读入 staging 也不得提升为正式 Raw。
 
 ### 13.2 分钟 Raw 日常链
 
-目标交易日的 `raw_storage_ready` 只由前四项决定；`silver_admission_ready` 还必须满足第 5 项。两个状态不得共用一个模糊的 `ready`：
+目标交易日只有一套 Raw readiness，三项 Raw blocking checks 缺一不可：
 
-1. 最新 `silver_etf_basic` 已 materialize、blocking checks 全绿且 freshness 满足当日要求，本次 hash 和 `eligibility_as_of` 已冻结。
+1. latest-only Basic selector 已确认最新 Raw/Silver 各自 materialize、blocking checks 全绿、内容 hash 对齐且两层 freshness 满足当日要求，本次两个 hash、两个 `observed_at` 和 `eligibility_as_of` 已冻结。
 2. 从最新 Basic Silver 复刻出的目标日应请求代码，在 Prod Raw 五个频率中通过有界代码覆盖 probe；日常 Sensor 遇到 expected code/frequency 缺失时直接 skip，避免把明显仍在写入的日常分区固化成不可覆盖的 Raw。
 3. Raw asset 重新验证冻结的 Basic reference 后，每频只做一次明细导出；source relation、staging 和候选文件的行数、代码数、主键、字段、日期和频率在本地完全对账。`unexplained_new` 阻断 Raw 提升；日常候选若与已冻结且全绿的 coverage reference 矛盾，出现零行或 expected 缺失，也直接停止，不增加第二次 Prod 查询。历史 Bootstrap 不套用这条日常一致性门禁，缺失和零行进入 N3。
 4. 目标 Lake 文件尚不存在，或存在且与候选完全等价；内容冲突停止，不自动覆盖。
-5. 五频 Raw 完成后，由一次共享 DuckDB 评估按当前 N3 policy 生成同日 admission reference 和五个 `bar_domain` check 结果。`blocked` 不回滚 Raw，也不阻断下一日 Raw；Silver Sensor 停在最早未准入日，Silver asset 重新验证同一 reference 后才能写入，不能靠手工启动绕过。
+5. 五频 Raw 完成后，由一次共享 DuckDB 评估按当前 N3 policy 生成五个 `bar_domain blocking=True` 结果。任一失败不回滚 Raw 文件，但 Raw readiness 失败，Raw 与 Silver Sensor 都停在最早失败日。Silver 正式 Job 会重新选择并执行五个 Raw checks；失败时 Dagster 在同一 run 内阻断 Silver assets，不需要额外准入引用。
 
-TaskRun 成功与否不进入 ETF DG 判断。日常自动链使用轻量五频代码覆盖避免过早落 Raw；内部分钟空洞、价格和成交域不在 Prod 热路径深扫，仍由落湖后的本地 N3 判断。首次历史 Bootstrap 是经审批的离线路径，允许把 missing/少频观察原样保存到 Raw 后再做 N3，但不得因此宣称 `silver_admission_ready`。Raw 存储门禁不满足时 Raw Sensor 跳过；N3 admission 不满足时只阻断 Silver，并给出可读原因。
+TaskRun 成功与否不进入 ETF DG 判断。日常自动链使用轻量五频代码覆盖避免过早落 Raw；内部分钟空洞、价格和成交域不在 Prod 热路径深扫，仍由落湖后的本地 N3 判断。首次历史 Bootstrap 是经审批的离线路径，允许先把 missing/少频观察原样保存到 Raw，再统一做 N3；在三项 Raw checks 全部通过前不得宣称 ready。任一 Raw blocking check 失败时 Sensor 停在该日并给出可读原因。
 
-分钟 Sensor 只读消费已经准备好的 `silver_etf_basic`，不得把 Basic Raw/Silver 加进分钟 Job 的 selection 里顺手更新。这样既保证 Basic 是真实前置依赖，也保持共享基础资产只有自己的唯一写入入口。
+分钟 Sensor 只读冻结 latest-only Basic Raw/Silver reference，并从其中的 `silver_etf_basic` 计算范围；不得把 Basic Raw/Silver 加进分钟 Job 的 selection 里顺手更新。这样既保证 Basic 是真实前置依赖，也保持共享基础资产只有自己的唯一写入入口。
 
 ### 13.3 Job 和 Sensor
 
@@ -560,7 +561,7 @@ raw_etf_mins_update_job_sensor
 silver_etf_mins_update_job_sensor
 ```
 
-`etf_mins_trade_day_sensor` 只负责从正式交易日历向专属 `cn_a_etf_mins_trade_days` 注册交易日，不请求源、不写 Parquet。所有 Sensor 上线默认 `STOPPED`。Raw Sensor 按 `raw_storage_ready` 每次推进最早一个可执行交易日；Silver Sensor 按 `silver_admission_ready` 停在最早未准入日，不越过它生产后续 Silver。两者都沿用 10 个交易日的追赶窗口；超出窗口的历史缺口交给受控 Bootstrap，不让 Sensor 无限追历史。
+`etf_mins_trade_day_sensor` 只负责从正式交易日历向专属 `cn_a_etf_mins_trade_days` 注册交易日，不请求源、不写 Parquet。所有 Sensor 上线默认 `STOPPED`。Raw 与 Silver Sensor 都使用同一个 `batch_etf_mins_raw_lake_readiness(...)` 复刻三项 Raw checks，并停在最早未 ready 日；Silver Sensor 另外批量检查 Silver 自身 readiness。两者都沿用 10 个交易日的追赶窗口；超出窗口的历史缺口交给受控 Bootstrap，不让 Sensor 无限追历史。
 
 ---
 
@@ -582,14 +583,14 @@ source_row_count
 estimated_file_count
 query_count
 max_rows_per_batch
-statement_timeout
+sample_query_elapsed_seconds
 temporary_space_peak
 final_space_increment
 sample_elapsed_seconds
 tushare_request_count / page_count / quota_impact
 ```
 
-2026-08-29 文档里的 1,826、1,647、67,870,940 等数量只能用于估算量级，不是代码常量或发布阈值。
+2026-08-29 的 1,829、约 1,647、约 6,787 万等观测数量只能用于估算量级，不是代码常量或发布阈值。
 
 ---
 
@@ -599,7 +600,7 @@ tushare_request_count / page_count / quota_impact
 
 ### P0：治理、源合同和性能基线
 
-冻结 Tushare Basic、Prod Raw 物理查询、Raw/N3 边界和性能测量方案。ETF 不申请任何 Prod `ops.*` 白名单。P0 必须先完成实际 Tushare 分页边界、`.SH/.SZ` 分钟 exchange 样本和受控 Prod 明细 profiling；证据未关闭时不得进入 P1。
+冻结 Tushare Basic、Prod Raw 物理查询、Raw/N3 边界和性能测量方案。ETF 不申请任何 Prod `ops.*` 白名单。P0 必须先完成实际 Tushare 分页边界、`.SH/.SZ` 分钟 exchange 样本、单日/最多 10 日共用 batch coverage evaluator 的查询形状和受控 Prod 明细 profiling；证据未关闭时不得进入 P1。
 
 ### P1：Catalog、schema、path、partition 基础合同
 
@@ -607,9 +608,9 @@ tushare_request_count / page_count / quota_impact
 
 ### P2：ETF Basic Raw
 
-实现无业务过滤分页、staging、内容 hash、不可变提升和 Raw checks。
+复用通用 full-file helper，并以默认关闭的可选分页/行数熔断保持现有调用行为；ETF 显式启用 4 页/20,000 行边界，再实现无业务过滤分页、staging、内容 hash、不可变提升和 Raw checks，不复制第二套分页循环。
 
-### P3：ETF Basic Silver 与 latest-ready selector
+### P3：ETF Basic Silver 与 latest-only selector
 
 实现 `.SH/.SZ` 精确筛选、不可变 Silver、checks、freshness 和冻结 reference。
 
@@ -623,7 +624,7 @@ tushare_request_count / page_count / quota_impact
 
 ### P6：Bootstrap plan 与 Raw apply
 
-按 N4 动态冻结截止水位，先 dry-run、样本和预算，再经单独授权按频率/20 日批次写 Raw；不写 Silver，不补事件。
+按 N4 动态冻结截止水位，先 dry-run、样本和预算，再经单独授权按频率/20 日批次写 Raw；全部目标闭合后生成完整 `finalized_raw_manifest.parquet` 和 `raw_final_report.json`，不写 Silver，不补事件。
 
 ### P7A：本地 Raw N3 observation/profile
 
@@ -635,15 +636,15 @@ tushare_request_count / page_count / quota_impact
 
 ### P8：分钟 Raw/Silver assets/checks/jobs 与 Bootstrap Silver apply
 
-把已经冻结的 Raw 和 N3 policy 接入正式 Definitions；日常同日五频只扫描一次并生成 admission reference，Raw 只由文件/身份 checks 定义存储连续性，Silver 必须验证 N3 admission；历史 Silver 只从 `silver_eligible=true` 的 Raw 原样生成。
+把已经冻结的 Raw 和 N3 policy 接入正式 Definitions；日常同日五频只扫描一次并生成五个 Raw `bar_domain` blocking checks。Silver 正式 Job 选择 Raw checks 与 Silver assets/checks，Raw check 失败时不执行 Silver；历史 Silver 从完整 finalized Raw manifest 中筛选 `silver_eligible=true` 且需要新增或等价核验的分区，物理集合对账通过后由 `silver-apply` 生成 `physical_final_report.json`。
 
 ### P9：历史动态分区与 Runless events
 
-物理验收后先按单独授权注册 `2026-01-01..execution_watermark_date` 内的 SSE 开市日分区，再按另一份授权补 materialization 和最近 20 个交易日的正式 check events（Raw 2 blocking + 1 admission，Silver 2 blocking）。历史日期只在以后对应 frozen plan 获批后增量注册。
+只消费 P8 已生成并验收、绑定本次 operation/fingerprint 的 `physical_final_report.json`。随后按单独授权注册 `2026-01-01..execution_watermark_date` 内的 SSE 开市日分区，再按另一份授权补 materialization 和最近 20 个交易日的正式 check events（Raw 3 blocking，Silver 2 blocking）。两个入口遇到 operation/hash 漂移时停止。历史日期只在以后对应 frozen plan 获批后增量注册；更早分区的完整验收以文件、N3 decision manifest 和 Raw/Silver 对账报告为准，不从缺少历史 check event 推断失败。
 
 ### P10：分区与更新 Sensors
 
-默认 `STOPPED` 发布。分钟 Raw 日常 readiness 只用 Basic 和 Sensor 一次 Prod Raw 五频代码覆盖；Raw 写入靠单次明细导出后的本地候选校验，不读取 TaskRun，也不重复扫描 Prod。启用时间按 N6 另行确认。
+默认 `STOPPED` 发布。分钟 Raw Sensor 先用 Lake/DuckDB 批量复刻三项 Raw checks 确认连续性，再用 Basic 和一次 Prod Raw 五频代码覆盖决定最早缺失日能否启动；Raw 写入靠单次明细导出后的本地候选校验，不读取 TaskRun，也不重复扫描 Prod。启用时间按 N6 另行确认。
 
 ### P11：2026 年以前独立补录
 
@@ -661,7 +662,7 @@ tushare_request_count / page_count / quota_impact
 | C2 | ETF Basic 由 DG 直接请求 Tushare `etf_basic`，不读取 Prod DB。 |
 | C3 | Basic Raw 无业务过滤保留 14 字段源端全集，包括 `.SH/.SZ/.OF` 和 `L/P/D`。 |
 | C4 | Basic Silver 精确保留同版 Raw 的 `.SH/.SZ` 行，不按状态或上市日继续筛选。 |
-| C5 | Basic Raw/Silver 保留不可变版本，不生成独立 requestable pool；分钟任务只读依赖启动时最新已验收 Silver，并即时复刻 Prod 请求范围。 |
+| C5 | Basic Raw/Silver 保留不可变版本，不生成独立 requestable pool；分钟任务按 latest-only 合同冻结最新 Raw/Silver reference，再从其中的 Silver 即时复刻 Prod 请求范围。 |
 | C6 | 分钟候选从 `raw_tushare.etf_minute_bar` 批量读取 11 字段和五个原生频率，不在 Prod SQL 中按 Basic 过滤；候选通过 Basic 范围校验后才成为正式 Raw。 |
 | C7 | 分钟 Silver 是完整性审计后的准入层，不清洗成另一套数值事实。 |
 | C8 | 首次历史搬运使用 Direct Lake Bootstrap，事件和 Sensor 分开授权。 |
@@ -673,14 +674,14 @@ tushare_request_count / page_count / quota_impact
 | C14 | N5 已确认：正式分钟文件只允许新增或内容等价复用；内容冲突立即停止，绝不自动覆盖。 |
 | C15 | Raw 前只阻断文件/字段/主键/分区/Basic 身份等稳定错误；价格、成交、OHLC、网格和内部空洞进入 Raw 后由 N3 分类。 |
 | C16 | 分钟 exchange 原始值原样保存；启用校验前先用有界样本确认 `.SH/.SZ` 到实际分钟 exchange 值的比较映射。 |
-| C17 | N1 已确认：Basic Raw/Silver 使用 `snapshot_id=<Raw内容hash>/part-000.parquet` 的 content-addressed 不可变快照，不建立 `current` 文件；只从 Dagster 最新一条 Silver materialization 开始检查，并同时验证其引用的 Raw checks，任一失败或不新鲜立即 fail-closed，绝不回退旧版本。 |
+| C17 | N1 已确认：Basic Raw/Silver 使用 `snapshot_id=<Raw内容hash>/part-000.parquet` 的 content-addressed 不可变快照，不建立 `current` 文件；同时检查 Dagster 最新 Raw 与最新 Silver materialization、各自 checks、内容 hash 对齐和两层当天 freshness，任一失败或不新鲜立即 fail-closed，绝不回退旧版本。 |
 | C18 | Basic `raw_snapshot_hash` 是 DG Raw 文件自己的可复算内容身份，不要求与 Prod 业务 hash 一致；跨系统兼容 hash 如有需要只在专项审计中计算。 |
 | C19 | 日常 Sensor 只做一次五频代码 coverage；Raw asset 不重查 coverage、不做导出前后 Prod fingerprint，只重新验证冻结 Basic，并用单次明细导出的本地候选完成范围和传输对账。 |
 | C20 | 每个 frozen `trade_date + freq` 都有 schema 正确的 Raw Parquet；历史源端零行时写显式零行文件进入 N3，日常链仍由 Sensor coverage 在启动前阻断明显未完成日期。 |
 | C21 | 首次只注册 `2026-01-01..execution_watermark_date` 内的 SSE 开市日动态分区；更早日期随以后获批的历史 frozen plan 增量注册，且分区写入先于 Runless Event。 |
-| C22 | 首次 Direct Lake Bootstrap 在日常 Sensor 启用前单进程、串行执行，不与日常链并发，不引入跨路径 pool 或外部锁。 |
+| C22 | 首次 Direct Lake Bootstrap 在日常 Sensor 启用前按七个受控阶段串行执行；每个写入 subcommand 单进程，同一 `raw-apply` 在进程内按频率/日期批次串行，不与日常链并发，不引入跨路径 pool 或外部锁。 |
 | C23 | Bootstrap plan 在请求上界前最多 10 个 SSE 开市日用一条 coverage 冻结水位；apply 不重查。单 plan 最多 10,000 个 Raw 文件，更长历史拆成互不重叠的串行计划。 |
-| C24 | Raw 连续性与 Silver 准入分开：`file_contract/request_scope` 是 Raw blocking checks；`bar_domain` 是 `blocking=False` 的强制 Silver admission check。N3 blocked 不回滚 Raw、不堵后续 Raw，但 Silver Sensor/asset 都必须 fail-closed。 |
+| C24 | 分钟 Raw 只有一套正式 readiness：`file_contract/request_scope/bar_domain` 全部是 `blocking=True`。失败不回滚 Raw 文件，但阻断日常连续性和 Silver；Silver 正式 Job 通过选择 Raw checks 在同一 run 内 fail-closed，不新增第二套准入引用或 writer guard。 |
 | C25 | 正式 Bootstrap plan 不预判既有目标可复用；它只标记缺失、结构有效但未比较、结构无效。等价复用或内容冲突只在 apply 的唯一一次明细导出后判定。 |
 
 ### 16.2 后续阶段仍需管理员拍板
@@ -689,7 +690,7 @@ tushare_request_count / page_count / quota_impact
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |
-| N3B | 根据 P7A 真实 observation 确认 blocking/WARN、阈值、例外和 `gap_policy_version` | 只阻断 P7B decision、Silver、green event 和分钟自动化，不阻断 Raw Bootstrap 与 P7A |
+| N3B | 根据 P7A 真实 observation 确认 blocking/WARN、阈值、例外和 `gap_policy_version` | 阻断 P7B decision、正式 `bar_domain` check、Silver、green event 和分钟自动化；不阻断 Raw Bootstrap 与 P7A |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口 | 只阻断 P10 Sensor 启用；全部 Sensor 仍先以 `STOPPED` 发布 |
 
 ---
@@ -708,10 +709,10 @@ tushare_request_count / page_count / quota_impact
 只有同时满足以下条件，ETF 分钟 DG 接入才算完成：
 
 1. ETF Basic 能从 Tushare 无业务过滤生成和复算 Raw/Silver 不可变版本，Silver 与 Prod Core Serving 的 `.SH/.SZ` 筛选结果一致，且没有激活池资产。
-2. 五个分钟 Raw/Silver 资产、路径、专属分区、四个更新 Job、一个交易日注册 Sensor、四个更新 Sensor 和 Check 与 LLD 一致；Raw 存储 readiness 与 Silver admission readiness 没有混成一个状态。
-3. 每次分钟任务都能冻结最新 Basic Silver 版本，复刻当前请求范围，并在 staging 提升前完成第 8.2 节六项代码集合统计与四类处理对账。
+2. 五个分钟 Raw/Silver 资产、路径、专属分区、四个更新 Job、一个交易日注册 Sensor、四个更新 Sensor 和 Check 与 LLD 一致；Raw readiness 只有三项 blocking checks 这一套正式合同。
+3. 每次分钟任务都能 latest-only 检查并冻结内容对齐、checks 通过且两层当天新鲜的最新 Basic Raw/Silver 版本，复刻当前请求范围，并在 staging 提升前完成第 8.2 节六项代码集合统计与四类处理对账。
 4. Prod 单次导出 relation、staging、Raw、Silver 在批准范围内完成行数、主键、字段值和覆盖分类对账；Raw asset 没有重复 coverage 或导出后 Prod 扫描，ETF 链也未读取任何 Prod `ops.*` 状态表。
-5. Silver blocking/WARN 已由本地 Raw DuckDB N3 审计冻结，不靠猜测，也不依赖 Prod 全量深扫；日常同日五频只做一次 N3 评估，五个 admission checks 绑定各自当前 Raw materialization，Silver asset 无法被手工绕过。
+5. blocking/WARN 已由本地 Raw DuckDB N3 审计冻结，不靠猜测，也不依赖 Prod 全量深扫；日常同日五频只做一次 N3 评估，五个 `bar_domain` blocking checks 绑定各自当前 Raw materialization，正式 Silver Job 在同一 run 内先执行这些 Raw checks。
 6. Bootstrap 可幂等续跑，冲突 fail-closed，不覆盖未授权正式文件。
 7. 2026 年以前补录演练证明 2026 文件路径、行数、大小和 SHA-256 全部零变化。
 8. 历史物理文件验收后，先注册批准范围内的动态分区，再补事件；Sensor 默认 `STOPPED`，自然运行通过后才启用。

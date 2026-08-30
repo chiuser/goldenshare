@@ -128,7 +128,6 @@ MACD/KDJ 连续性已落地规则：
 2. 同一次 source relation、staging 与候选文件的传输行数/分配范围对账。
 3. 已批准的身份/上游 reference 可复算，候选没有无法解释的新身份。
 4. 已存在正式目标的结构预检，以及 apply 阶段的语义等价复用或冲突停止。
-5. Silver 写前只重新验证已经由正式 check/evaluator 生成的 admission reference、当前上游 hash 和 policy version，防止人工 Launchpad/CLI 绕过准入。
 
 禁止范围：
 
@@ -137,7 +136,7 @@ MACD/KDJ 连续性已落地规则：
 3. 通过删行、修值、填空、静默去重或覆盖冲突文件让候选通过。
 4. 为每个数据集维护一套与正式 check 不同的 SQL/分类合同。
 
-validator 与正式 checks 的稳定规则必须由同一纯 helper 派生；候选通过后仍要发出并绑定正式 checks。ETF 分钟 Raw 是本类别第一个批准适用的数据集：Raw validator 只负责文件/传输/身份，`bar_domain` 由 Raw 后 N3 admission check 决定；ETF 分钟 Silver 写前只重新验证该 admission reference，不重算或改写 policy。
+validator 与正式 checks 的稳定规则必须由同一纯 helper 派生；候选通过后仍要发出并绑定正式 checks。ETF 分钟 Raw 是本类别第一个批准适用的数据集：Raw validator 只负责文件/传输/身份；N3B 冻结后，`bar_domain` 作为 Raw 的正式 blocking check，并由 Lake batch readiness 复刻同一语义。正式 Silver job 选择 Raw checks 来阻断下游，不在 Silver writer 内建立第二套准入引用或质量 guard。
 
 ### 禁止阶段编号进入正式代码
 
