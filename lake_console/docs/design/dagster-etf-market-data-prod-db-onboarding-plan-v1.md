@@ -1,6 +1,6 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：架构口径已收敛；只允许在另行授权后从 P0 开始，P1 及以后必须等待 P0 的真实源合同与性能证据；N3B 与 N6 仍按后续阶段评审；尚未授权开发、Bootstrap、补事件或启用 Sensor
+状态：架构口径已收敛；P0 真实源合同与性能基线已完成；P1 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
 创建日期：2026-08-27
 最近更新：2026-08-30
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
@@ -77,7 +77,7 @@ DG Basic 的正式源是 Tushare `etf_basic`：
 | 后缀 | 当前已核验为 `.SH/.SZ/.OF` |
 | 业务字段 | 14 个 |
 | 时间模型 | no-time snapshot；源接口不提供历史版本 |
-| 分页 | Tushare 源文档与当前 SDK 主链支持 `limit/offset`，单页上限 5,000；当前 `tushareMcp` 包装未暴露这两个参数，真实 offset 边界仍是开发前门禁 |
+| 分页 | Tushare 源文档与当前 SDK 主链支持 `limit/offset`，单页上限 5,000；当前 `tushareMcp` 包装未暴露这两个参数，P0 已通过实际 `TushareResource` 关闭真实 offset 边界 |
 
 14 个业务字段固定为：
 
@@ -89,7 +89,7 @@ mgr_name, custod_name, mgt_fee, etf_type
 
 Raw 中 `setup_date/list_date` 保持源端 `YYYYMMDD` 字符串，`mgt_fee` 保持源端数值；不加入任何 Goldenshare 系统字段。
 
-本轮 `tushareMcp` 已验证：无业务参数默认字段请求与显式 14 字段请求都返回 1,829 行；状态分布为 `L=1658/P=44/D=127`，后缀分布为 `SH=1033/SZ=793/OF=3`。这些只是 2026-08-29 的源端观测，不是永久阈值。由于当前 MCP 包装未暴露 `limit/offset`，LLD 要求 P0 通过实际 `TushareResource` 补一次受控分页边界验证。
+本轮 `tushareMcp` 已验证：无业务参数默认字段请求与显式 14 字段请求都返回 1,829 行；状态分布为 `L=1658/P=44/D=127`，后缀分布为 `SH=1033/SZ=793/OF=3`。这些只是 2026-08-29 的源端观测，不是永久阈值。2026-08-30 的 P0 又通过实际 `TushareResource` 验证：`limit=5000, offset=0` 返回 1,829 行，`offset=5000` 返回 0 行，字段顺序一致且没有重复 `ts_code`，因此真实分页边界已经关闭。
 
 ### 3.2 Basic Silver：复刻 Core Serving 的发布筛选
 
@@ -422,7 +422,7 @@ Bootstrap 的物理写入与日常 readiness 必须分开理解：Bootstrap 可�
 | 空结果 | fail-closed，不覆盖已有版本 |
 | 写入 | 全部分页成功、集合校验通过后才写不可变 Raw 版本 |
 
-第一版复用现有 `TushareResource` 和 full-file 分页能力，不新增第二套 Tushare client，也不把源端可选参数暴露成运营输入。配置继续使用既有 Tushare token/限流合同；LLD 必须完成配置消费者审计和一次真实分页边界验证。
+第一版复用现有 `TushareResource` 和 full-file 分页能力，不新增第二套 Tushare client，也不把源端可选参数暴露成运营输入。配置继续使用既有 Tushare token/限流合同；P0 已完成配置消费者审计和一次真实分页边界验证。
 
 ### 10.2 Prod DB 分钟只读合同
 
@@ -569,7 +569,7 @@ silver_etf_mins_update_job_sensor
 
 | 场景 | 查询形状 | 不可接受行为 |
 | --- | --- | --- |
-| Basic | Tushare 无业务过滤完整快照；每页 5,000、最多发 4 次请求；第 4 页仍满 5,000 行时因无法证明完整性而停止，所以可接受总行数为 `1..19,999` | 按代码扇出、带业务过滤覆盖正式版本、写第二份选择池或把第 4 个满页当成完整结果 |
+| Basic | Tushare 无业务过滤完整快照；每页 5,000，沿用现有 full-file helper 按 `limit/offset` 请求直到短页 | 按代码扇出、带业务过滤覆盖正式版本、写第二份选择池或复制第二套分页循环 |
 | 分钟日常 | Sensor 1 条五频 coverage；Raw 每频率 1 条目标日明细，整个 Raw run 最多 6 条 Prod 查询 | Asset 内重复 coverage、导出后重复扫描或 ETF × 频率 N+1 查询 |
 | 分钟 Bootstrap | plan 对上界前最多 10 个 SSE 开市日做 1 条五频 coverage；apply 每批最多 20 日、一次 1 个频率且 1 条明细查询 | apply 重查 coverage、每批重复查询、全历史一次装入 Python 内存 |
 | Basic 范围校验 | 每批将一个冻结的 Silver 快照与分钟候选做 DuckDB set-based join | ETF × 日期 × 频率逐个查询，或在 Prod SQL 中先删掉不匹配行 |
@@ -598,9 +598,9 @@ tushare_request_count / page_count / quota_impact
 
 以下编号与 LLD 第 25 节完全一致；两份文档不再各自定义另一套 `P*`。
 
-### P0：治理、源合同和性能基线
+### P0：治理、源合同和性能基线（已完成）
 
-冻结 Tushare Basic、Prod Raw 物理查询、Raw/N3 边界和性能测量方案。ETF 不申请任何 Prod `ops.*` 白名单。P0 必须先完成实际 Tushare 分页边界、`.SH/.SZ` 分钟 exchange 样本、单日/最多 10 日共用 batch coverage evaluator 的查询形状和受控 Prod 明细 profiling；证据未关闭时不得进入 P1。
+冻结 Tushare Basic、Prod Raw 物理查询、Raw/N3 边界和性能测量方案。ETF 不申请任何 Prod `ops.*` 白名单。P0 只用实际 `TushareResource`、只读 Prod 探索 SQL 和 `/private/tmp` 样本确认真实分页边界、`.SH/.SZ` 分钟 exchange、单日/最多 10 日 coverage 查询形状以及受控 Prod 明细性能；不实现生产分页新能力，不实现 coverage evaluator，也不提前编写 P2/P4 的行为测试。
 
 ### P1：Catalog、schema、path、partition 基础合同
 
@@ -608,7 +608,7 @@ tushare_request_count / page_count / quota_impact
 
 ### P2：ETF Basic Raw
 
-复用通用 full-file helper，并以默认关闭的可选分页/行数熔断保持现有调用行为；ETF 显式启用 4 页/20,000 行边界，再实现无业务过滤分页、staging、内容 hash、不可变提升和 Raw checks，不复制第二套分页循环。
+原样复用通用 full-file helper 的 `limit/offset` 短页分页，实现无业务过滤拉取、staging、内容 hash、不可变提升和 Raw checks，不增加 ETF 专属页数/行数熔断，也不复制第二套分页循环。分页、跨页重复、列漂移和请求失败随本阶段实现一起测试。
 
 ### P3：ETF Basic Silver 与 latest-only selector
 
@@ -616,11 +616,11 @@ tushare_request_count / page_count / quota_impact
 
 ### P4：Prod Raw 物理覆盖、SQL 和稳定 Raw validator
 
-实现只读显式列 SQL、六类 Basic 集合、五频代码 coverage/reference 纯合同、单次批量明细 relation 的本地传输对账和 Raw 前稳定 validator；不实现 Sensor，不读取 TaskRun，不在 Raw asset 重查 coverage，不做导出前后 fingerprint，也不在 Prod 做分钟网格深审计。
+实现 P0 已验证查询形状对应的单日/最多 10 日共用 batch coverage evaluator、只读显式列 SQL、六类 Basic 集合、五频代码 coverage/reference 纯合同、单次批量明细 relation 的本地传输对账和 Raw 前稳定 validator，并在本阶段用 fake 正反样本验证 `list_date`、五频缺失、有界样本、10 日上限和单次 coverage SQL 调用；不实现 Raw asset 或 Sensor，不读取 TaskRun，不做导出前后 fingerprint，也不在 Prod 做分钟网格深审计。
 
 ### P5：分钟 Raw writer 与稳定 validator 集成
 
-把 P4 的 validator 集成进五频共享 writer，实现 staging、候选回读、新增/等价复用/冲突停止和 metadata；不启用 Sensor，不写正式 Lake。
+把 P4 的 validator 集成进五频共享 writer，实现 staging、候选回读、新增/等价复用/冲突停止和 metadata；本阶段测试每个 Raw writer 只执行一次明细查询、不重查 coverage/fingerprint，五频合计最多五条明细查询；不启用 Sensor，不写正式 Lake。
 
 ### P6：Bootstrap plan 与 Raw apply
 
@@ -644,7 +644,7 @@ tushare_request_count / page_count / quota_impact
 
 ### P10：分区与更新 Sensors
 
-默认 `STOPPED` 发布。分钟 Raw Sensor 先用 Lake/DuckDB 批量复刻三项 Raw checks 确认连续性，再用 Basic 和一次 Prod Raw 五频代码覆盖决定最早缺失日能否启动；Raw 写入靠单次明细导出后的本地候选校验，不读取 TaskRun，也不重复扫描 Prod。启用时间按 N6 另行确认。
+默认 `STOPPED` 发布。分钟 Raw Sensor 先用 Lake/DuckDB 批量复刻三项 Raw checks 确认连续性，再用 Basic 和一次 Prod Raw 五频代码覆盖决定最早缺失日能否启动；本阶段测试 Sensor 每个目标日只执行一次 coverage，并与 P5 已验证的五条明细查询共同满足日常最多六条 Prod SQL。Raw 写入靠单次明细导出后的本地候选校验，不读取 TaskRun，也不重复扫描 Prod。启用时间按 N6 另行确认。
 
 ### P11：2026 年以前独立补录
 
@@ -686,7 +686,7 @@ tushare_request_count / page_count / quota_impact
 
 ### 16.2 后续阶段仍需管理员拍板
 
-当前没有需要立即补充拍板的架构口径；这不等于已经授权开发。获准后只能先做 P0，P1 必须等待 P0 的真实源合同与性能证据关闭。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
+当前没有需要立即补充拍板的架构口径。P0 已经获准并完成真实源合同与性能基线；P1 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |

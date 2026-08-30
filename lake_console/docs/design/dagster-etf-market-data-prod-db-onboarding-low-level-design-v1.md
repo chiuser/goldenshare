@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；只允许在另行授权后从 P0 开始，P1 及以后必须等待 P0 的真实源合同与性能证据；N3B 与 N6 按后续阶段评审；尚未授权开发、Bootstrap、事件补录或 Sensor 启用
+状态：架构口径已收敛；P0 真实源合同与性能基线已完成；P1 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径，但这不等于授权开发。获准后只能先做 P0；真实 Tushare 分页、分钟 exchange 映射和 Prod 小批 profiling 未关闭前不得进入 P1。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。P0 已经获准并完成真实 Tushare 分页、分钟 exchange 映射和 Prod 小批 profiling；P1 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -89,7 +89,7 @@ ProdPostgresResource(read-only)
 | 当前实现 | 可复用 | 不能照搬 |
 | --- | --- | --- |
 | `defs/resources.py` | `TushareResource`、`DuckDBResource`、`ProdPostgresResource.connect_readonly_transaction()`、只读 DuckDB attach 连接串 | 不新增第二套 Tushare/Postgres client，不用 write resource |
-| `defs/tushare_api_io.py` | 显式字段、`limit/offset` 短页分页、空结果阻断、小快照写 Parquet；在不改变现有调用默认行为的前提下增加可选分页上限/源行熔断 | 普通 full-file helper 不能直接覆盖一个固定正式文件；ETF Basic 要把 helper 目标指向 staging，再按回读内容 hash 定位正式版本；不得在 ETF asset 里另写一套分页循环 |
+| `defs/tushare_api_io.py` | 显式字段、`limit/offset` 短页分页、空结果阻断、小快照写 Parquet；ETF 原样复用现有分页行为 | 普通 full-file helper 不能直接覆盖一个固定正式文件；ETF Basic 要把 helper 目标指向 staging，再按回读内容 hash 定位正式版本；不得增加 ETF 专属页数/行数熔断，也不得在 ETF asset 里另写一套分页循环 |
 | `defs/assets/stock_basic.py` | full snapshot asset、中文 metadata、Raw→Silver 分层 | 股票 Basic 是单 current file，ETF Basic 是不可变版本；股票 Silver 筛选也不同 |
 | `defs/prod_db/stk_mins.py`、`defs/asset_guards/stk_mins_prod_readiness.py` 与 `defs/assets/stk_mins.py` | 显式列、只读 attach、`postgres_query`、Sensor 五频代码物理覆盖和单次明细导出后的本地范围校验 | 当前股票链还叠加 TaskRun，并在五个 Raw asset 内各重查本频 coverage；ETF 明确不复制这两层重复门禁。股票 writer 在 Prod SQL 带代码集合，ETF 明细 SQL 也禁止带 Basic 代码条件 |
 | `defs/assets/index_mins*.py` | 单日单频 staging、DuckDB set-based validation、原子提升、目标冲突停止 | 指数 active pool、fallback、90/120 分钟派生都不进入 ETF 链 |
@@ -264,8 +264,6 @@ Raw builder 为五个 op 生成同一 Basic reference 和同一次 Sensor 五频
 ```python
 ETF_BASIC_SOURCE_API = "etf_basic"
 ETF_BASIC_PAGE_LIMIT = 5_000
-ETF_BASIC_MAX_PAGES = 4
-ETF_BASIC_SOURCE_ROW_CIRCUIT_BREAKER = 20_000  # exclusive
 ETF_BASIC_DIAGNOSTIC_SAMPLE_LIMIT = 20
 ETF_BASIC_LIST_STATUSES = ("D", "L", "P")
 ETF_BASIC_CODE_SUFFIXES = ("OF", "SH", "SZ")
@@ -319,7 +317,7 @@ ETF_MINS_SOURCE_COLUMNS = (
 | --- | --- | --- | --- | --- |
 | Tushare token/限流 | 复用现有 `TushareResource` 环境配置；本方案不复制、不新增 | 仅 Basic Raw | 由现有 resource 注入；不进 run config/metadata | 缺失时 Basic fail-closed；静态测试证明无第二套 client/config |
 | Basic Raw 业务 config | 不存在 | `raw_tushare_etf_basic` | no-time snapshot；参数恒为 `{}`，观测日来自运行时钟 | Launchpad 无过滤项；测试拒绝 `eligibility_as_of/ts_code/list_status` 等输入 |
-| `ETF_BASIC_PAGE_LIMIT=5_000`、`ETF_BASIC_MAX_PAGES=4`、`ETF_BASIC_SOURCE_ROW_CIRCUIT_BREAKER=20_000` | `run_contracts/etf_basic.py` 代码常量；行熔断为 exclusive | Basic Raw 与通用 full-file helper 的本次调用 | helper 原有 `limit` 默认行为不变，新增 `max_pages/source_row_circuit_breaker` 默认 `None`；ETF 显式传 `5_000/4/20_000` | 第 4 个满页或累计达到 20,000 行时停止；现有调用默认行为必须有回归测试 |
+| `ETF_BASIC_PAGE_LIMIT=5_000` | `run_contracts/etf_basic.py` 代码常量 | Basic Raw 调用现有通用 full-file helper | 使用现有 `limit/offset`，直到短页；不增加 ETF 专属页数或源行数熔断 | 请求参数、短页结束、跨页重复、列漂移和请求失败在 P2 随实现测试 |
 | `EtfBasicRawSnapshotReference` | latest-only Raw selector 从最新 Raw materialization 和 checks 生成；由手工/测试 builder 及后续 Sensor 共用，只随单次 run config 持久化 | Basic Silver | 精确绑定当前 Raw URI/hash/fingerprint | UI 可见短 fingerprint；禁止 storage id，漂移立即失败 |
 | `EtfBasicSilverSnapshotReference` | latest-only selector 从最新 Raw、最新 Silver materialization、两层 checks 和文件复算生成；只随单次分钟/Bootstrap 计划持久化 | 分钟 Raw、Bootstrap plan/apply | 两层内容 hash 必须对齐；Raw/Silver 观测时间都必须与 `eligibility_as_of` 同属上海自然日；最新失败/不新鲜不回退 | metadata/报告显示两个 hash、两个观测时间、日期和 requestable count/hash；禁止完整代码集合 |
 | `EtfMinsProdCoverageReference` | Raw Sensor 一次 coverage probe 生成；只随日常 Raw run config 持久化 | 五个分钟 Raw assets | 必须绑定同一 Basic reference/日期；asset 只复核不重查 | UI 显示五频计数、短 fingerprint；测试证明合计只有 1 次 coverage |
@@ -495,7 +493,7 @@ offset = 0, 5_000, ...
 
 当前只读实测（2026-08-29）：无业务参数默认字段和显式 14 字段均返回 1,829 行；状态分布 `L=1658/P=44/D=127`，后缀 `SH=1033/SZ=793/OF=3`。这些只是本次观测，不是代码阈值。
 
-本地源文档声明单页上限 5,000 且支持 `limit/offset`；当前 `tushareMcp` 包装没有暴露这两个参数，因此 P0 必须用实际 `TushareResource` 做一次受控 `limit=5000, offset=0/5000` 边界验证。实现只扩展现有 full-file helper：增加可选的 `max_pages` 与 `source_row_circuit_breaker`，默认值均为 `None`，保证其它数据集调用行为不变；ETF Basic 传入 `4/20_000`。不得在 ETF asset 中复制 `_fetch_all_pages`。单元测试先用 fake client 覆盖默认无限短页终止、ETF 整页、短页、第二页失败、跨页重复和列漂移。
+本地源文档声明单页上限 5,000 且支持 `limit/offset`；当前 `tushareMcp` 包装没有暴露这两个参数，因此 P0 已用实际 `TushareResource` 完成受控 `limit=5000, offset=0/5000` 边界验证：第一页返回 1,829 行，第二个 offset 返回 0 行，字段顺序一致且没有重复 `ts_code`。ETF Basic 原样复用现有 full-file helper，按短页结束，不修改 helper，不增加 ETF 专属页数/行数熔断，也不得在 ETF asset 中复制 `_fetch_all_pages`。正常分页、第二页请求失败、跨页重复和列漂移在 P2 随 Basic Raw 实现测试。
 
 ### 9.2 Writer 顺序
 
@@ -511,7 +509,7 @@ validate lake/staging roots are same filesystem
 -> emit materialization metadata
 ```
 
-Basic 最多发 4 次请求、每次最多 5,000 行。第 4 页若仍返回恰好 5,000 行，说明可能还有第 5 页，但合同不允许继续请求，因此必须在发布前以 `etf_basic_source_row_circuit_breaker_reached` fail-closed；可接受总行数严格为 `1..19,999`。当前 1,829 行远低于该边界，因此允许 Python 保存这份有明确上界的小型 API 返回和构造参数。正式 Parquet 写入仍使用现有 DuckDB helper。任一页失败、空结果、重复 `ts_code`、未知状态/后缀或行数不一致都不能发布新版本，也不能触碰既有版本。源端规模一旦达到 20,000 行，先重新评估性能和分页行为，再调整合同，不能把第 4 个满页静默当成完整快照。
+Basic 每页最多 5,000 行，使用现有 helper 继续请求直到遇到短页。当前真实规模为 1,829 行，因此允许 Python 保存这份小型 API 返回和构造参数；正式 Parquet 写入仍使用现有 DuckDB helper。任一页失败、空结果、重复 `ts_code`、未知状态/后缀或行数不一致都不能发布新版本，也不能触碰既有版本。不设置没有现实依据的 ETF 专属最大页数或最大源行数。
 
 ### 9.3 Raw materialization metadata
 
@@ -1643,6 +1641,9 @@ sha256
 | --- | --- | --- |
 | 2026-08-29 | Tushare `etf_basic` 无过滤/显式字段均为 1,829 行 | Basic 当前一页、小内存处理合理 |
 | 2026-08-29 技术方案基线 | 当前可请求量级约 1,647 个，Prod 分钟约 6,787 万行 | 只用于预估；说明不能 Python 明细循环或对 Prod 做 N3 全量审计，不是代码常量 |
+| 2026-08-30 P0 | 实际 `TushareResource` 的 `offset=0/5000` 分别返回 1,829/0 行，字段一致且无重复代码 | 关闭真实分页边界，不引入新的分页机制或人工行数上限 |
+| 2026-08-30 P0 | `.SH/.SZ` 在五频分钟中分别只对应 `XSHG/XSHE`；单日五频 coverage 1 条 SQL 为 4.538 秒，10 个交易日 1 条 SQL 为 14.573 秒 | 冻结 exchange 比较映射，并证明 P4 可按同一查询形状实现单日/最多 10 日 evaluator |
+| 2026-08-30 P0 | 20 个交易日按频率聚合约 1,046 万行，最大单频为 `1min` 的 7,854,190 行，聚合耗时 19.916 秒；单日 `1min` 导出并回读 396,927 行、4.44 MB、29.750 秒，DuckDB temp 增量为 0 | 冻结 P6 单频 20 日批次的真实行数量级和明细导出基线；不是正式 Lake 写入 |
 
 所有数字都会变化。Bootstrap 前必须重新测量；Prod 侧只做经批准的小样本导出或有界状态探测，N3 的全量 profiling 在本地 Raw 上完成。
 
@@ -1650,7 +1651,7 @@ sha256
 
 | 入口 | 读取/请求模型 | 写入模型 | 固定上限/拒绝策略 |
 | --- | --- | --- | --- |
-| Basic Raw asset | `ceil(source_rows/5000)` 次 Tushare 请求；当前 1 页 | 1 staging + 0/1 新 Raw version | 最多 4 次请求；第 4 页满 5,000 行时停，可接受总行数 `1..19,999` |
+| Basic Raw asset | `ceil(source_rows/5000)` 次 Tushare 请求，直到短页；当前 1 页 | 1 staging + 0/1 新 Raw version | 不增加 ETF 专属页数/行数熔断；任一页失败、字段漂移、空结果或重复主键时整次不发布 |
 | Basic Silver asset | 读 1 个冻结 Raw 文件，1 次 DuckDB set-based COPY | 1 staging + 0/1 新 Silver version | 禁止扫描所有历史 snapshot |
 | 分钟 Raw 日常 | Sensor 对最早候选日 1 条五频 coverage SQL；5 个 Raw asset 各 1 条单日单频明细 SQL，Raw 内不重查 coverage/fingerprint；随后五频 `bar_domain` 共用 1 个 DuckDB connection | 最多 5 个 Raw 文件 + 5 个 blocking check evaluations | 每个自然日最多 6 条 Prod SQL；不允许 ETF×频率 N+1；五个 bar_domain 不得五次重扫 |
 | 分钟 Silver 日常 | 正式 job 先执行同日五频 Raw checks，其中 `bar_domain` 必须共用 1 个 DuckDB connection/一次 evaluator；随后各读 1 个 Raw 文件做 COPY/对账 | 最多 5 个 Silver 文件 | 不访问 Prod，不跨日期扫描，不重跑 Raw writer，不使用额外 run config/reference；不得把五频 `bar_domain` 拆成五次深扫 |
@@ -1723,14 +1724,13 @@ tests/test_etf_basic_sensors.py
 
 - 显式 14 字段、业务参数 `{}`、5000/offset 短页终止。
 - 刚好 5000 行会请求第二页；第二页失败不写。
-- 第 4 页短页且总行数不超过 19,999 可以完成；第 4 页仍满 5,000 行时必须 fail-closed，不发布前 20,000 行。
 - 空结果、列漂移、跨页重复、未知状态/后缀、SH/SZ exchange 冲突失败。
 - `.OF` 进入 Raw、被 Silver 精确过滤；D/P 仍进入 Silver。
 - 日期标准化失败整版失败。
 - DG Raw/Silver hash 固定 fixture；Parquet 回读可复算；测试不得依赖或断言与 Prod hash 算法一致。
 - 同 hash 复用，不同内容生成新版本，已有 hash 路径冲突停止。
 - latest-only selector 分别检查最新 Raw 与最新 Silver materialization 及各自绑定的 checks，要求两层各自 `observed_at` 都与 `eligibility_as_of` 同属上海自然日，并要求 Silver 的 `raw_snapshot_hash` 等于最新 Raw hash；旧 Raw + 当天新 Silver、最新 Raw 已变化而 Silver 未跟上、任一层失败或不新鲜时都 fail-closed，不回退旧成功版本，不按目录/mtime 选版本。
-- 通用 full-file helper 的分页上限和源行熔断参数默认都为 `None`，现有调用行为不变；ETF Basic 显式传 `max_pages=4/source_row_circuit_breaker=20000`，且不得在 asset 内复制分页循环。
+- ETF Basic 原样复用通用 full-file helper 的 `limit/offset` 短页分页，不增加专属页数/行数熔断，且不得在 asset 内复制分页循环。
 - 正式 run config、Basic reference、plan identity 和 metadata 中不出现 Dagster `storage_id`。
 - Sensor cursor 小、checks failed 不自动重跑。
 
@@ -1749,7 +1749,7 @@ tests/test_etf_mins_prod_readiness.py
 - coverage 使用现有只读事务、psycopg 绑定参数和 rollback；明细远端 SQL 使用验证后的 literals + `postgres_query`，禁止保留 `%s` 占位符。DuckDB attach 复用现有 resource conninfo 且测试不泄露凭据；静态测试禁止 ETF 专用 conninfo/timeout helper。
 - 同一个 batch coverage evaluator 同时覆盖单日期和最多 10 日期两种输入；每个日期都按自己的 `list_date <= trade_date` 形成 expected 集合，一条索引友好 SQL 按 `trade_date + freq` 返回 expected/present/missing 和有界样本，禁止日期×频率查询循环。
 - 单日五频缺一或 expected code 缺一都不 ready；它不检查 OHLC、分钟网格和内部空洞。
-- Sensor 对目标日恰好执行 1 条五频 coverage SQL；随后五个 Raw assets 合计恰好执行 5 条单频明细 SQL。每个 Raw asset 只校验携带的 coverage reference 和冻结 Basic，不再发 coverage、汇总 fingerprint 或第二次明细查询。
+- P5 测试五个 Raw writers 合计恰好执行 5 条单频明细 SQL，且每个 writer 只校验携带的 coverage reference 和冻结 Basic，不再发 coverage、汇总 fingerprint 或第二次明细查询；P10 再测试 Sensor 对目标日恰好执行 1 条五频 coverage SQL，最终组成日常最多 6 条 Prod SQL 的完整预算。
 - `.SH/.SZ` 有界样本冻结实际源 `exchange` 比较映射，反例会阻断身份校验，同时 Raw 原值不被改写。
 - 只允许读取 `raw_tushare.etf_minute_bar`；测试扫描 SQL/模块，证明没有任何 `ops.*`、Serving 或其它 Prod 表。
 
@@ -1858,11 +1858,11 @@ tests/test_etf_mins_pre2026_protection.py
 
 每个切片单独 review、单独验收；不得一次性全做。
 
-### P0：治理、源合同和性能基线
+### P0：治理、源合同和性能基线（已完成）
 
-改动：技术方案/LLD、纯 contract、fake 分页、真实 Basic 受控验证、`.SH/.SZ` 分钟 exchange 有界样本，以及经批准的小批次 Prod Raw 只读导出 profiling。不得修改 Prod `ops.*` allowlist。
+改动：技术方案/LLD、真实 Basic 受控验证、`.SH/.SZ` 分钟 exchange 有界样本、单日/最多 10 日 coverage 只读查询原型，以及经批准的小批次 Prod Raw 只读导出 profiling。不得修改生产代码、Prod `ops.*` allowlist、正式 Lake 或 Dagster instance。
 
-完成条件：N1/N2/N4/N5 已按本文冻结；N6 只保留为 P10 启用门禁；N3A 输入输出与 N3B 拍板边界已确认；Tushare 第 4 满页 fail-closed 行为、exchange 比较映射、单日/最多 10 日共用 batch coverage evaluator、两类 Prod 查询策略、样本耗时和 batch 行数都有 fake + 有界真实样本证据。P0 未完成不得进入 P1。
+完成条件：N1/N2/N4/N5 已按本文冻结；N6 只保留为 P10 启用门禁；N3A 输入输出与 N3B 拍板边界已确认；实际 `TushareResource` 的 `offset=0/5000`、exchange 比较映射、单日/最多 10 日共用 coverage 查询形状、两类 Prod 只读查询策略、样本耗时和 batch 行数都有有界真实证据。P0 不实现分页或 coverage 生产代码，不提前要求 P2/P4 的 fake 测试。
 
 ### P1：Catalog、schema、path、partition 基础合同
 
@@ -1872,7 +1872,7 @@ tests/test_etf_mins_pre2026_protection.py
 
 ### P2：ETF Basic Raw
 
-在通用 full-file helper 上增加默认关闭的可选分页/源行熔断参数，保持所有现有调用行为不变；ETF Basic 显式启用 4 页/20,000 行边界，并实现 Tushare staging、全页校验、Raw hash、不可变提升、三个 Raw checks 和 Raw job。不得在 ETF asset 复制分页循环；Sensor 统一留到 P10。
+原样复用通用 full-file helper 的 `limit/offset` 短页分页，实现 Tushare staging、全页校验、Raw hash、不可变提升、三个 Raw checks 和 Raw job。不增加 ETF 专属页数/行数熔断，不修改通用 helper，也不得在 ETF asset 复制分页循环；Sensor 统一留到 P10。
 
 完成条件：临时目录 fixture 和经批准的最小真实 Tushare 快照完成 source/raw 行数、字段、主键、hash 对账；不写正式 Lake，除非另行授权。
 
@@ -1884,15 +1884,15 @@ tests/test_etf_mins_pre2026_protection.py
 
 ### P4：Prod Raw 物理覆盖、SQL 和稳定 Raw validator
 
-实现只读单表 allowlist、纯 SQL builder、供 Sensor 使用的单次五频代码 coverage/reference、单次明细 relation 的本地传输对账、六类集合 SQL，以及只阻断传输/合同/身份污染的 Raw validator。网格只生成诊断，不在本切片先写 blocking 结论；Sensor 本身仍到 P10 才实现。
+实现 P0 已验证查询形状对应的单日/最多 10 日共用 batch coverage evaluator、只读单表 allowlist、纯 SQL builder、供 Sensor 使用的单次五频代码 coverage/reference、单次明细 relation 的本地传输对账、六类集合 SQL，以及只阻断传输/合同/身份污染的 Raw validator。网格只生成诊断，不在本切片先写 blocking 结论；Sensor 本身仍到 P10 才实现。
 
-完成条件：测试证明无 Basic 代码过滤、无 N+1、无任何 `ops.*`；日常每次最多 1 条 coverage + 5 条明细，Raw asset 不重查 coverage/fingerprint；`unexplained_new` 阻断，`missing/grid` 可落历史 Raw 但不能进入 Silver；日常 coverage evaluator 在缺失时返回 not-ready，Sensor 到 P10 才实现。
+完成条件：fake 正反样本证明同一 evaluator 同时支持单日和最多 10 日、逐日按 `list_date` 计算 expected、五频缺失返回 not-ready、缺失样本有界、输入超过 10 日拒绝且整个调用只执行 1 条 coverage SQL；其余测试证明 SQL 无 Basic 代码过滤、无日期×频率 N+1、无任何 `ops.*`，validator 对 `unexplained_new` 阻断，对 `missing/grid` 只记录历史 Raw 诊断且不准入 Silver。Raw asset 到 P5、Sensor 到 P10 才实现。
 
 ### P5：分钟 Raw writer 与稳定 validator 集成
 
 实现五频共享 writer、staging、稳定候选 validator、冲突停止和元数据 helper，暂不把未知网格口径注册成正式 blocking check，也不启用日常 Definitions。
 
-完成条件：临时湖 + fake/read-only source 样本通过；`missing/grid` 被记录但不阻断 Raw，`unexplained_new` 和传输/合同错误阻断；未启用 Sensor，未写正式 Lake。
+完成条件：临时湖 + fake/read-only source 样本通过；每个 Raw writer 只执行一次明细查询、不执行 coverage/fingerprint 查询，五频调用合计最多五条明细 SQL；`missing/grid` 被记录但不阻断 Raw，`unexplained_new` 和传输/合同错误阻断；未启用 Sensor，未写正式 Lake。
 
 ### P6：Bootstrap plan 与 Raw apply
 
@@ -1926,7 +1926,7 @@ tests/test_etf_mins_pre2026_protection.py
 
 实现 true-batch readiness、五个默认 STOPPED Sensors，完成本地静态/隔离测试。
 
-启用仍需另一次授权，并按 Basic Raw→Basic Silver→分钟 Raw→分钟 Silver 顺序各观察至少一个自然生产日；任一层异常时不启用下游。
+完成条件：分钟 Raw Sensor 每个目标日只执行一次五频 coverage，结合 P5 已验证的五条单频明细 SQL，日常链最多六条 Prod SQL；Raw/Silver continuity 都只读最近 10 个交易日并停在最早 not-ready 日。启用仍需另一次授权，并按 Basic Raw→Basic Silver→分钟 Raw→分钟 Silver 顺序各观察至少一个自然生产日；任一层异常时不启用下游。
 
 ### P11：2026 年以前独立补录
 
