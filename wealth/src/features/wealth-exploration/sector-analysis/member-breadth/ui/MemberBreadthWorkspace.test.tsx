@@ -210,6 +210,29 @@ describe("MemberBreadthWorkspace", () => {
     expect(screen.getByRole("button", { name: "重新加载" })).toBeInTheDocument();
   });
 
+  it("keeps Details pending before ten seconds and then exposes a local retry", async () => {
+    vi.useFakeTimers();
+    const urls: string[] = [];
+    const ready = buildReadyFetch(urls);
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const raw = String(input);
+      if (!raw.includes("/member-breadth/details")) return ready(input);
+      urls.push(raw);
+      return new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true }));
+    }));
+    window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH}?tradeDate=2026-08-27&sectorCode=BK1001.DC`);
+    render(<AuthProvider><WealthRouter /></AuthProvider>);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    expect(count(urls, "/member-breadth/details")).toBe(1);
+
+    await act(async () => { vi.advanceTimersByTime(9999); await Promise.resolve(); });
+    expect(screen.queryByText("请求超时，请稍后重试。")).not.toBeInTheDocument();
+
+    await act(async () => { vi.advanceTimersByTime(1); await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByText("请求超时，请稍后重试。")).toBeInTheDocument();
+    expect(within(screen.getByRole("alert")).getByRole("button", { name: "重新加载" })).toBeInTheDocument();
+  });
+
   it("keeps the existing authentication boundary on a 401 response", async () => {
     const urls: string[] = [];
     const ready = buildReadyFetch(urls);

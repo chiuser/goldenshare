@@ -322,23 +322,18 @@ class SectorMemberBreadthQueryService:
                 requested_trade_date=None,
             )
             open_date_count = request.history_range + request.ma_period - 1
-            window = self._query.load_window_relations(
+            window = self._query.load_details_window(
                 session,
                 target_date=request.trade_date,
                 coverage_end_date=context.trade_date,
                 hierarchy_sector_codes=tuple(
                     item.sector_code for item in hierarchy.nodes
                 ),
-                relation_sector_codes=(request.sector_code,),
+                sector_code=request.sector_code,
                 open_date_count=open_date_count,
                 relation_date_count=request.history_range,
             )
-            target_relations = tuple(
-                item
-                for item in window.relations
-                if item.trade_date == request.trade_date
-            )
-            if not target_relations:
+            if window.target_source_count == 0:
                 exception = self._exceptions.build("SA_BREADTH_SOURCE_EMPTY")
                 return self._empty_details(
                     request=request,
@@ -346,23 +341,20 @@ class SectorMemberBreadthQueryService:
                     exception_code=exception.code,
                     message=exception.message,
                 )
-            stock_codes = tuple(sorted({row.stock_code for row in window.relations}))
-            market_facts = self._query.load_market_facts(
+            projection = self._query.load_details_projection(
                 session,
-                stock_codes=stock_codes,
-                start_date=window.open_dates[0],
-                end_date=window.open_dates[-1],
-                include_adj_factor=True,
+                sector_code=request.sector_code,
+                target_date=request.trade_date,
+                open_dates=window.open_dates,
+                relation_dates=window.relation_dates,
+                ma_period=request.ma_period,
             )
             details = self._calculator.build_details(
-                sector_code=request.sector_code,
                 target_date=request.trade_date,
                 direction=request.direction,
                 ma_period=request.ma_period,
-                open_dates=window.open_dates,
-                relation_dates=window.relation_dates,
-                relations=window.relations,
-                market_facts=market_facts,
+                window=window,
+                projection=projection,
             )
             return SectorMemberBreadthDetailsResponseDto(
                 status="READY",

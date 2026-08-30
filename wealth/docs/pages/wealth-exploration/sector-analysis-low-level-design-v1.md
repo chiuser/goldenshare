@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.35；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14 后端、M15 前端、M16R 等价计算内核纠偏及 M16I 趋势查看均已完成本地代码与自动化收口。成员广度仍须部署 M16R+M16I 同一版本并完整重跑 M16，尚未交付。
+- 状态：v1.39；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14、M15、M16R 和 M16I 已部署，用户页面验收无明显问题。M16R2 已完成本地等价实现和 Prod 只读 MA20/MA60 最大样本复测；用户已将 Details 最终部署稳态 P95 临时调整为8秒。当前代码完成，待提交、部署和两轮真实 HTTP 验收，尚未关闭 G47/G47A。
 - 编写日期：2026-08-30。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -10,9 +10,9 @@
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：`/wealth/exploration/sector-analysis/momentum-ranking`、`/wealth/exploration/sector-analysis/dual-momentum`、`/wealth/exploration/sector-analysis/relative-rotation`、`/wealth/exploration/sector-analysis/member-breadth` 四条精确路由均已实现。
 - 目标 API：既有八只板块分析 API 保持不变；M14 新增 `/member-breadth/meta|rankings|details` 三只只读 API。
-- 待拍板项：无。成员广度的日期检查、三指标独立缺失、复权因子边界、自动／历史日期语义和 MA60 两秒门禁均已确认；M14 不得自行扩大范围。
+- 待验收项：M16R2 的产品口径、日期、三指标独立缺失、复权因子和完整成员／趋势合同均不变。当前只待同一提交的部署 localhost HTTP 两轮验收；Details 门禁为8秒，Meta／Rankings 继续使用原一秒／两秒门禁。提前计算属于后续独立性能方案，不进入 M16R2。
 
-本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”和第四个独立方法“成员广度”的代码级方案。成员广度只描述成分股数量、成交额和均线位置三项客观参与度，不做综合分、预测、信号或发布。M14 已完成后端与三只只读 API，M15 已完成精确前端路由、controller 和正式工作区；M16 已验证生产事实与 payload，但真实性能失败并停止，M16R 已完成本地等价计算纠偏，M16I 已完成本地代码、自动化和浏览器验收。最终部署性能与页面验收仍未执行。量价分布继续不在本需求。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
+本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”和第四个独立方法“成员广度”的代码级方案。成员广度只描述成分股数量、成交额和均线位置三项客观参与度，不做综合分、预测、信号或发布。M14 已完成后端与三只只读 API，M15 已完成精确前端路由、controller 和正式工作区；M16R/M16I 已部署，Rankings 性能和用户页面验收通过。M16R2 的公开事实等价实现、本地门禁和 Prod 只读最大样本复测已完成；用户已批准 Details 临时8秒 P95 门禁，现在等待提交、部署和最终 HTTP 验收。量价分布继续不在本需求。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
 
 ---
 
@@ -228,7 +228,7 @@ M9 最大窗口使用现有 Web 只读连接做了有界核验：只读当前发
 5. URL 中是否存在 `tradeDate` 是自动日期与显式历史的唯一判别。Meta 根据公共行业日期覆盖返回 `expectedTradeDate/defaultTradeDate/defaultStatus`；Rankings／Details 只计算显式传入的实际日期，不根据相同日期值猜用户意图。
 6. Meta 若按410个历史交易日逐日检查496个行业成员，数据库阶段约8.95秒；即使改成逐键探测也约3.11秒。该设计已否决。Meta 只能执行公共日期、层级和 `dc_daily` 覆盖三条 SQL，零成员／行情／因子历史扫描。
 7. 目标日496行业成员覆盖检查约6ms；真正计算时做所选日期和有界窗口检查不会增加无意义的全表预扫。成员数和成交额只需要目标日；MA 需要成员股票的 N 日价格和因子。
-8. 最新三级全榜5,641只成员的 MA60 原始窗口约331,327股票日行；数据库 join 约3.99秒，按目标投影聚合约1.54秒。用户已接受 MA60 部署稳态 P95 `<=2,000ms`；Meta、非MA60 Rankings／Details 仍为 `<=1,000ms`。
+8. 最新三级全榜5,641只成员的 MA60 原始窗口约331,327股票日行；数据库 join 约3.99秒，按目标投影聚合约1.54秒。M13 当时冻结 MA60 `<=2,000ms`、其他请求 `<=1,000ms`；M16R2 后该历史门禁仅对 Details 被第6.32.5节新8秒最终门禁覆盖，Meta/Rankings仍保持原值。
 9. Rankings 必须只计算请求中的一个指标，不能为了“顺便返回三项可用性”让数量榜或成交额榜等待均线。Details 的正式交互同时展示三项组成与趋势，因此按所选 `maPeriod` 计算三项事实，MA60 使用两秒门禁。
 10. 最大来源成员 Details 为625只；119日价格／因子窗口查询约366ms，具备按请求集合计算可行性。M14 不新增索引、缓存、结果表、分页、截断、迁移或后台任务。
 
@@ -670,7 +670,7 @@ M15 前端只允许下列增量：
 | 修改 | `wealth/src/app/routes/WealthRouter.tsx` | 第四个精确分支向同一页面传 `method="member-breadth"` |
 | 修改 | `wealth/src/pages/wealth-exploration/SectorAnalysisPage.tsx` | 第四个独立 content 分支；只挂载当前 controller，公共 Shell/context 不变 |
 | 修改 | `wealth/src/features/wealth-exploration/sector-analysis/navigation/SectorAnalysisMethodBar.tsx` | `SectorAnalysisMethod` 增加成员广度；量价分布继续 toast |
-| 新增 | `.../member-breadth/api/sectorMemberBreadthApi.ts` | 三只 GET、5秒请求超时、Abort 和安全错误边界 |
+| 新增 | `.../member-breadth/api/sectorMemberBreadthApi.ts` | 三只 GET、Abort signal 和安全错误边界；超时由controller按Meta/Rankings 5秒、Details 10秒精确控制 |
 | 新增 | `.../member-breadth/api/sectorMemberBreadthAdapter.ts` | strict 枚举、日期模式、数量、组成和、百分比、资格、排名、趋势槽和请求事实校验；不重算业务公式 |
 | 新增 | `.../member-breadth/model/sectorMemberBreadthTypes.ts` | 独立 wire/view/url/controller 类型和五态／局部状态 |
 | 新增 | `.../member-breadth/model/sectorMemberBreadthUrlState.ts` | `market/tradeDate/scope/level1Code/level2Code/direction/metric/maPeriod/historyRange/sectorCode`；URL 有日期即显式历史 |
@@ -697,6 +697,23 @@ M16I 只允许下列前端增量：
 | 修改 | `.../member-breadth/ui/MemberBreadthWorkspace.test.tsx` | 只补工作区切换行业／日期／方向／MA／历史范围时清除交互，以及切换排名指标不误清除、不新增请求的集成断言 |
 
 上表中的 `...` 固定展开为 `wealth/src/features/wealth-exploration/sector-analysis`。M16I 不修改 API、DTO、adapter、URL、controller、后端、数据库、迁移、Figma 页面骨架、其他分析方法或量价分布；若实现需要扩大范围，立即停止并回到方案层。
+
+M16R2 只允许下列后端、前端超时和定向测试增量；它不是新的产品功能，不改变任何数据事实或视觉交互：
+
+| 操作 | 文件 | 精确要求 |
+|---|---|---|
+| 修改 | `src/biz/services/wealth/market/sector_analysis/sector_member_breadth_contract.py` | 新增 Details 专属窗口、日期聚合和目标成员投影值对象；保留公开枚举、公式版本、原因码和 Rankings 使用的 `MemberRelationFact/MemberMarketFact` |
+| 修改 | `src/biz/queries/wealth/market/sector_analysis/sector_member_breadth_query.py` | Rankings 两个既有集合读取保持不变；新增 `load_details_window()` 与 `load_details_projection()`，使用一条有界日期查询和一条可移植 CTE／窗口／聚合查询，返回紧凑事实而非8.6万行领域对象 |
+| 修改 | `src/biz/services/wealth/market/sector_analysis/sector_member_breadth_calculator.py` | `build_details()` 改为消费紧凑投影；百分比、资格、原因码、贡献、MA距离和排序继续使用 Decimal 在内存生成；复用目标日日期投影，删除 Details 旧的逐成员逐日期均线重复主链 |
+| 修改 | `src/biz/queries/wealth/market/sector_analysis/sector_member_breadth_query_service.py` | Details 改用两只新 Query 方法并保持4 SQL、Empty/Error/409及 DTO 完全不变；Meta、Rankings 不改 |
+| 修改 | `tests/test_wealth_sector_member_breadth_calculator.py` | 增加测试专用旧实现 oracle、新旧36组主矩阵、缺失／边界／未来扰动逐字段等价及685行投影现实规模门禁；生产代码不得保留双路径 |
+| 修改 | `tests/test_wealth_sector_member_breadth_query_service.py` | 更新 Details stub 合同，证明目标日空成员仍3 SQL、Ready仍4 SQL、完整槽位／成员／原因和 DTO 零变化；Rankings 用例零变化 |
+| 修改 | `tests/web/test_wealth_sector_analysis_api.py` | 真实 SQLite API 继续证明4 SQL、完整 JSON、625规模构造态、未知／重复／日期／空源反例；新 SQL 禁止按方言切业务分支 |
+| 修改 | `tests/architecture/test_wealth_sector_analysis_guardrails.py` | 增加 M16R2 零缓存／结果表／分页／TopN／迁移／新来源及公开 contract 零变化静态反例 |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/member-breadth/model/useSectorMemberBreadthController.ts` | Meta/Rankings 保持5秒 Abort；仅 Details 改用10秒 Abort，为8秒服务门禁保留边界余量；requestId、request key、409和局部重试不变 |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthWorkspace.test.tsx` | 证明 Details 在10秒前不误报超时、10秒到达后进入可重试局部 Error；Meta/Rankings的5秒合同另保持不变 |
+
+明确禁止修改：`src/biz/api/**`、`src/biz/schemas/**`、除上表两个精确文件外的 `wealth/src/**`、Figma、Foundation 模型、Alembic、配置、依赖、部署脚本、其他三个板块分析方法和量价分布。`load_window_relations()/load_market_facts()` 与 `_calculate_ma_member()` 仍被 Rankings 正式主链消费，不能把它们误当兼容代码删除；只删除已经失去生产消费者的 Details 旧组装分支。
 
 ## 6. 后端合同与纯计算设计
 
@@ -1513,7 +1530,7 @@ eligible = calculableCount >= 5 and coveragePct >= 80
 
 ### 6.30 Query 集合边界与 SQL
 
-`SectorMemberBreadthQuery` 只暴露集合读取，不返回 ORM 实例。日期窗口与成员关系必须由同一条 SQL 返回，避免在增加公共页面日期查询后突破4条上限：
+`SectorMemberBreadthQuery` 只暴露集合读取或紧凑投影，不返回 ORM 实例。下列两个既有方法继续专供 Rankings；M16R2 的 Details 专属方法见第6.32节：
 
 ```python
 load_window_relations(
@@ -1534,20 +1551,20 @@ load_market_facts(session, *, stock_codes, start_date, end_date) -> tuple[Member
 1. 只用当前 hierarchy 全部代码和有效 `dc_daily(category='行业板块')` 事实计算公共 `coverageStartDate`，不返回全历史覆盖序列。
 2. 验证 `coverageStartDate <= targetDate <= coverageEndDate` 且目标日是 SSE 开市日；范围或休市日非法时抛出 `SectorSelectionInvalidError`。
 3. 返回截至目标日升序的最多 `open_date_count` 个 SSE 开市日；上限119，120必须在 SQL 前拒绝。
-4. 只为最后 `relation_date_count` 个显示日期读取 `relation_sector_codes` 的来源成员；Rankings 固定1个关系日，Details 最多60个关系日。
-5. 即使某个显示日期没有成员，也保留该日期槽；不得用成员表内连接删除交易日。
+4. 只为最后 `relation_date_count` 个显示日期读取 `relation_sector_codes` 的来源成员；该既有方法在 M16R2 后仅服务 Rankings，因此固定1个关系日。
+5. Rankings 的目标日即使没有成员，也必须保留已验证的交易日事实并由现有业务状态处理；不得用成员表内连接删除交易日。
 6. 对 `(trade_date, sector_code, stock_code)` 做唯一性校验；不得静默去重。
 
 SQL 边界：
 
 1. Meta 固定复用 `SectorAnalysisMetaQueryService.load()` 的三条 SQL：公共业务日、层级、当前行业 `dc_daily` 日期覆盖。不得调用 `load_window_relations/load_market_facts`。
 2. Rankings 最多四条：层级1条、既有 `MarketPageContextQuery.resolve_context(requested_trade_date=None)` 1条、目标窗口／公共覆盖起点／当前比较池成员合并查询1条、去重股票的日行情与复权因子批量读取1条。`metric=MEMBER_COUNT/TURNOVER` 时窗口收缩到1日且不投影复权列；`MA_POSITION` 使用 `maPeriod` 日。
-3. Details 最多四条：层级1条、既有公共页面日期1条、最多 `historyRange + maPeriod - 1`（上限119）个开市日／公共覆盖起点／当前行业逐日成员合并查询1条、去重股票的行情与因子批量读取1条。
+3. Details 最多四条：层级1条、既有公共页面日期1条、最多 `historyRange + maPeriod - 1`（上限119）个开市日／公共覆盖起点／目标日成员计数1条、当前行业逐日成员／去重股票行情与因子紧凑投影1条。第四条在数据库内部处理全部有界事实，跨边界只返回日期聚合与目标日完整成员。
 4. `hierarchyVersion` 必须在成员和股票事实查询前核验；不一致立即抛出版本冲突。
-5. 成员业务键 `(trade_date, sector_code, stock_code)`、行情／因子键 `(stock_code, trade_date)` 必须唯一；重复行属于合同失败，不得静默去重。
+5. 成员业务键 `(trade_date, sector_code, stock_code)`、行情／因子键 `(stock_code, trade_date)` 继续由现有联合主键保证；Query 对返回的日期和目标成员投影键再次显式查重，重复属于合同失败，不得静默去重。
 6. Query 不判断资格、不生成页面状态、不拼 DTO；Calculator 不访问 Session。禁止按行业、趋势日或股票循环查询。
 7. 现有 `SectorMemberDetailQuery/Service/Calculator` 零修改；不得复用其30日上限或 `pct_chg` 连乘返回值。
-8. 禁止在新 Query 中复制 `MarketPageContextQuery` 的20:00算法；`coverage_end_date` 只能来自该公共查询。禁止为保持旧方法签名而额外执行分离的 `load_open_dates/load_relations` 两条 SQL。
+8. 禁止在新 Query 中复制 `MarketPageContextQuery` 的20:00算法；`coverage_end_date` 只能来自该公共查询。禁止为保持旧方法签名增加第5条 SQL，也禁止用方言分支、缓存、结果表、分页或截断规避投影设计。
 
 ### 6.31 Meta、Rankings、Details 编排
 
@@ -1585,23 +1602,202 @@ class SectorMemberBreadthQueryService:
         context = context_query.resolve_context(
             session, market=request.market, requested_trade_date=None
         )
-        window = query.load_window_relations(
+        window = query.load_details_window(
             ...,
             target_date=request.trade_date,
             coverage_end_date=context.trade_date,
             hierarchy_sector_codes=all_current_hierarchy_codes,
-            relation_sector_codes=(request.sector_code,),
+            sector_code=request.sector_code,
             open_date_count=request.history_range + request.ma_period - 1,
             relation_date_count=request.history_range,
         )
-        market = query.load_market_facts(..., full bounded window)
-        facts = calculator.build_details(...)
+        if window.target_source_count == 0:
+            return existing_empty_details(...)
+        projection = query.load_details_projection(
+            ...,
+            sector_code=request.sector_code,
+            target_date=request.trade_date,
+            open_dates=window.open_dates,
+            relation_dates=window.relation_dates,
+            ma_period=request.ma_period,
+        )
+        facts = calculator.build_details(window=window, projection=projection, ...)
         return details_dto(...)
 ```
 
-Meta 在内存中从公共 `tradeDates` 找默认日期，不增加第四条 SQL。`defaultTradeDate=None` 时默认模式为 Empty。Rankings／Details 的 `tradeDate` 都是实际计算日期且必填；它们不接受 `isDelayed/dateMode`，也不从日期值反推用户意图。计算接口通过公共页面日期获得覆盖上界，通过合并窗口／成员 SQL 获得当前层级覆盖起点和 SSE 开市日校验，因此既不信任前端 Meta 结果，也不重复 Meta 的完整日期覆盖扫描。
+Meta 在内存中从公共 `tradeDates` 找默认日期，不增加第四条 SQL。`defaultTradeDate=None` 时默认模式为 Empty。Rankings／Details 的 `tradeDate` 都是实际计算日期且必填；它们不接受 `isDelayed/dateMode`，也不从日期值反推用户意图。计算接口通过公共页面日期获得覆盖上界，通过窗口查询获得当前层级覆盖起点和 SSE 开市日校验，因此既不信任前端 Meta 结果，也不重复 Meta 的完整日期覆盖扫描。M16R2 只替换 Details 内部中间表示，Rankings 伪代码和公开 DTO 不变。
 
-M14 完成后停止：只允许后端、测试、异常注册表及两份设计文档状态对账；不启用前端按钮、不注册前端 route、不修改 Figma、不部署、不进入 M15。
+M16R2 只替换 Details 的内部编排；文档评审已经通过，编码严格限定在第5节文件矩阵列出的 Details 内部后端和测试。当前本地等价已通过、Prod只读性能预门禁失败并停止，不自动提交、部署或重跑 M16。
+
+### 6.32 M16R2 Details 紧凑投影代码合同
+
+#### 6.32.1 已验证瓶颈与方案选择
+
+生产同拓扑只读分段剖析使用 `BK1205.DC + tradeDate=2026-08-28 + historyRange=60 + maPeriod=20`。实际输入为79个开市日、60个成员日期、37,201条成员关系、48,833条行情／因子事实和625只目标日成员。三次直接服务调用为 `2,854.797～3,139.112ms`；中位分段如下：
+
+| 阶段 | 中位耗时／占比 | 结论 |
+|---|---:|---|
+| 数据库真正执行4条 SQL | 约`366.919ms / 12.4%` | 现有主键和查询计划生效，单独补索引不是主解 |
+| 结果读取、SQLAlchemy行物化、去重和领域对象构造 | 约`1,053.6ms / 35.6%` | 37,201+48,833条跨边界中间行本身已经超过一秒 |
+| Calculator | `1,518.188ms / 51.3%` | 38,451次单股MA判断和约198万次日期筛选是最大CPU热点 |
+| DTO+JSON | `<21ms / <1%` | 不得删字段或缩payload换性能 |
+
+因此 M16R2 不选择“只补索引”“只改 Python 循环”或“只调门禁”。选择把同一有界原始事实留在数据库内完成机械投影，只跨边界返回日期聚合与目标日成员；应用层继续执行全部业务百分比、资格、原因和输出组装。该选择改变中间表示，不改变输入事实、公式或公开结果。
+
+#### 6.32.2 新增内部值对象
+
+只在 `sector_member_breadth_contract.py` 增加下列 Details 内部事实；它们不是公开 DTO，也不改变 formulaVersion：
+
+```python
+@dataclass(frozen=True, slots=True)
+class MemberBreadthDetailsWindowFact:
+    coverage_start_date: date
+    coverage_end_date: date
+    open_dates: tuple[date, ...]
+    relation_dates: tuple[date, ...]
+    target_source_count: int
+
+@dataclass(frozen=True, slots=True)
+class MemberBreadthDailyProjectionFact:
+    trade_date: date
+    source_count: int
+    member_calculable_count: int
+    member_up_count: int
+    member_flat_count: int
+    member_down_count: int
+    turnover_calculable_count: int
+    turnover_up_count: int
+    turnover_flat_count: int
+    turnover_down_count: int
+    turnover_up_amount: Decimal
+    turnover_flat_amount: Decimal
+    turnover_down_amount: Decimal
+    ma_calculable_count: int
+    ma_above_count: int
+    ma_equal_count: int
+    ma_below_count: int
+    member_source_reasons: tuple[SectorMemberBreadthReason, ...]
+    turnover_source_reasons: tuple[SectorMemberBreadthReason, ...]
+    ma_source_reasons: tuple[SectorMemberBreadthReason, ...]
+
+@dataclass(frozen=True, slots=True)
+class MemberBreadthMemberProjectionFact:
+    trade_date: date
+    stock_code: str
+    stock_name: str | None
+    daily_pct_change: Decimal | None
+    amount_thousand_yuan: Decimal | None
+    current_adjusted_basis: Decimal | None
+    rolling_adjusted_sum: Decimal | None
+    rolling_slot_count: int
+    rolling_valid_count: int
+    source_reasons: tuple[SectorMemberBreadthReason, ...]
+
+@dataclass(frozen=True, slots=True)
+class MemberBreadthDetailsProjectionFact:
+    daily: tuple[MemberBreadthDailyProjectionFact, ...]
+    members: tuple[MemberBreadthMemberProjectionFact, ...]
+```
+
+`MINIMUM_COUNT_NOT_MET/COVERAGE_NOT_MET` 不从 SQL 返回，仍由 Calculator 按 `5 + 80%` 产生。SQL 只返回能够从来源行直接观察到的缺失标志；Query 解析器必须使用 `ordered_member_breadth_reasons()` 固定顺序。
+
+三项 `turnover_*_count` 是内部等价投影必需字段：公开成交额组成既返回金额占比，也返回上涨／平盘／下跌的可计算股票数。它们只补齐原LLD值对象漏列，不新增公开字段或业务口径。
+
+#### 6.32.3 两条 Details 专属 Query
+
+Rankings 继续消费现有 `load_window_relations()/load_market_facts()`，禁止受本次改动影响。Details 改为：
+
+```python
+load_details_window(
+    session,
+    *,
+    target_date,
+    coverage_end_date,
+    hierarchy_sector_codes,
+    sector_code,
+    open_date_count,
+    relation_date_count,
+) -> MemberBreadthDetailsWindowFact
+
+load_details_projection(
+    session,
+    *,
+    sector_code,
+    target_date,
+    open_dates,
+    relation_dates,
+    ma_period,
+) -> MemberBreadthDetailsProjectionFact
+```
+
+`load_details_window()` 是第三条 SQL：
+
+1. 复用现有 `dc_daily(category='行业板块')` 有效条件计算当前层级覆盖起点。
+2. 返回截至目标日升序的 `historyRange + maPeriod - 1` 个 SSE 开市日，并从尾部确定20/30/60个关系日期。
+3. 同一 SQL 用标量聚合返回目标日所选行业 `dc_member` 数量；为0时服务保持现有3 SQL Empty，禁止为了确认空源再发第四条 SQL。
+4. 保持119允许、120 SQL前拒绝、目标日晚于公共日／早于覆盖起点／非SSE开市日拒绝。
+5. 结果行数只随开市日数增长，最大119；不得返回历史成员明细。
+
+`load_details_projection()` 是第四条 SQL，使用一条有界、无方言业务分支的 CTE 链：
+
+```text
+open_dates
+  -> relation_members                    # 所选行业、仅relation_dates
+  -> stock_pool                          # 全历史关系涉及股票去重
+  -> stock_pool CROSS JOIN open_dates    # 每只股票保留每个SSE日期槽
+  -> LEFT JOIN equity_daily_bar/equity_adj_factor
+  -> market_flags                        # 当前行有效性与 adjustedBasis
+  -> rolling_market                      # 每股票固定N日 ROWS 窗口
+  -> member_day                          # 精确回连该日 dc_member
+  -> daily_projection                    # 每日一行原始计数/金额/原因标志
+  -> target_member_projection            # 目标日每来源成员一行
+  -> UNION ALL with rowKind
+```
+
+硬规则：
+
+1. `stock_pool × open_dates` 的内部格子全部参与窗口判断；缺市场行保留空槽，不能因内连接消失。
+2. `adjustedBasis` 只有 `close` 有限且大于0、`adj_factor` 有限且大于0时有效；窗口同时累计槽数、有效数、精确 `SUM(close×adj_factor)` 和各类缺失标志。原因码必须逐项复刻当前实现：行情行不存在、`close` 缺失／非有限／非正继续归入既有 `MARKET_ROW_MISSING + MA_HISTORY_INSUFFICIENT`，复权因子缺失／非有限继续归入 `ADJ_FACTOR_MISSING + MA_HISTORY_INSUFFICIENT`，复权因子非正继续归入 `ADJ_FACTOR_NON_POSITIVE + MA_HISTORY_INSUFFICIENT`；不得借内部投影新增或改名公开原因码。
+3. MA 可计算必须同时满足：窗口槽数恰为N、有效数恰为N、目标日有效。MA方向使用 `currentAdjustedBasis × N` 与 `rollingAdjustedSum` 比较；SQL 禁止先除法或转 float。
+4. `daily_projection` 只生成整数计数、Decimal 金额合计和来源原因标志；不生成百分比、覆盖率、资格、页面状态或 DTO。
+5. `target_member_projection` 返回625只来源成员的目标日原始行情、滚动合计和原因；不得按方向、资格或数据完整性过滤成员。
+6. 查询返回固定判别列 `rowKind=DAY|MEMBER`。Query 解析后必须证明 DAY 日期集合严格等于 `relation_dates`、MEMBER 全部等于目标日、日期和股票键无重复。
+7. 最大跨边界结果行数为 `historyRange + targetSourceCount`，当前最大样本为 `60 + 625 = 685`；该门禁只约束中间行，不约束数据库内部参与计算的事实数量。
+8. 只使用 PostgreSQL 与当前 SQLite 测试库都支持的 SQLAlchemy CTE、`CASE/SUM/COUNT`、窗口 `ROWS` 和 `UNION ALL`；禁止生产／测试两套算法、原生 SQL 字符串或按 dialect 分支业务语义。
+
+#### 6.32.4 Calculator 等价组装
+
+`SectorMemberBreadthCalculator.build_details()` 改为接收 `window + projection`，执行顺序固定为：
+
+1. 校验 daily 日期严格等于 relationDates、目标日为最后日期、目标日 `sourceCount == targetSourceCount == len(members)`，所有成员代码唯一。
+2. 每个 `MemberBreadthDailyProjectionFact` 分别调用现有 `_coverage()` 生成三项独立覆盖与资格；`sourceCount=0`、成交额总和为0及来源原因继续保持旧语义。
+3. 用投影的方向计数构造成分股／MA组成，用三个方向金额合计构造成交额组成；全部百分比继续以 Python Decimal 计算。
+4. 目标日的三项 composition 直接复用对应 daily 投影；60日 trend 的最后一点与当前摘要来自同一个事实，不再二次计算。
+5. 每只目标成员只计算一次 `maDistancePct = (currentAdjustedBasis / (rollingAdjustedSum / N) - 1) × 100`；MA关系必须与 `currentAdjustedBasis × N` 对 rolling sum 的比较一致。
+6. `amountContributionPct` 继续使用同日 `C_amount` 的统一总额；不在 `C_amount` 中的来源成员保留且贡献为null。
+7. 继续使用现有 `_member_sort_key()`、`_coverage()`、`_count_composition()` 和 DTO 映射；不得引入 float 决定关系、资格或排名。
+
+安全删除边界：
+
+1. 删除 `build_details()` 中 `relations_by_date/market_index` 的旧主链和60次三指标循环。
+2. 删除只为旧 Details 服务、且无其他调用方的 `_build_members()` 原始行情版本。
+3. `load_window_relations()/load_market_facts()`、`calculate_composition()`、`rank_requested_metric()`、`_ma_composition()`、`_calculate_ma_member()` 仍被 Rankings 正式消费，必须保留；禁止为了“清理”破坏已通过的一秒 Rankings。
+4. 生产代码不得同时保留 legacy/new 两条 Details 选择分支。旧实现只允许作为测试文件内 oracle，等价通过后主链唯一指向投影实现。
+
+#### 6.32.5 等价、性能与停止门禁
+
+编码顺序固定，任何一步失败立即停止：
+
+1. 先在测试中冻结当前 Details oracle，覆盖2方向 × 6均线 × 3历史范围共36组正常矩阵；再增加成员随日期变化、缺首／中／末行情、pct/amount/close/因子缺失或非法、平盘、等于均线、零成交额、历史不足、未来扰动和同值排序。
+2. 新 Query 与 Calculator 对每组输入必须逐字段等于 oracle：三项 composition、60日槽、每项原因顺序、625成员、Decimal 数值、null、成员顺序及最终 JSON；不允许只比较四舍五入后的显示值。
+3. 真实 SQLite API 继续断言 Ready为4 SQL、目标日空成员为3 SQL、payload不超过512KB、公开 schema无新增／删除字段；PostgreSQL编译快照证明没有方言分支和N+1。
+4. 625成员、119开市日、60趋势槽的投影后 Calculator+DTO+JSON 预制事实20次 P95目标为 `<=200ms`；最大中间返回行严格 `<=685`。该内核预算不是最终HTTP证明。
+5. 代码收口后做 Prod 只读 `EXPLAIN (ANALYZE, BUFFERS)` 和20次完整 service 调用，用来证明数据形状、主要成本和候选是否具备部署资格。MA20 必须保畐37,201条关系和50,086个股票日期格；MA60 必须保畐37,201条关系和75,446个股票日期格。临时磁盘溢写继续记录为后续预计算／数据库优化证据，不再单独否决本次等价候选；任何事实减少仍立即失败。
+6. 候选的同拓扑直接 service 20次 P95 必须 `<=7,000ms`，为最终8秒 HTTP 门禁保留服务壳、认证和JSON余量。当前 MA20/MA60 只读完整 service P95 为`1,645.836/5,502.148ms`，通过该预门禁。
+7. 最终只认同一提交的 localhost 认证 HTTP：以默认 MA20 和最重 MA60 两类最大 Details 请求作为代表，各预热后执行两轮、每轮20次，每轮均必须 `<=8,000ms`；同时核对4 SQL、625成员、60趋势槽、三项组成和payload。其他四个均线周期由全矩阵自动化和 MA60 最坏窗口覆盖，不重复执行无信息增量的全量HTTP性能轮次。Meta/Rankings 不属于该放宽，继续按既有一秒／两秒门禁验收。
+8. 任一等价差异、成员／日期减少、SQL超过4条、公开合同变化、直接 service P95 超过7秒或最终 HTTP P95 超过8秒，结论均为NOT PASS并停止。不得再自动放宽门禁、增加缓存／索引／结果表／迁移、分页／TopN／采样、缩短历史、使用旧数据或自动进入量价分布。
+
+M16R2 文档评审、等价代码、自动化和 Prod 只读直接 service 预门禁已通过；该预门禁基于用户新批准的8秒 Details 最终门禁。当前允许提交并由用户部署，但在两轮真实 HTTP 验收前不关闭 G47/G47A。
 
 ## 7. API 与 DTO 冻结
 
@@ -3195,15 +3391,20 @@ tests/test_wealth_turnover_insight_static_gates.py
 8. Details 三项同时返回；趋势20/30/60升序槽、null断线；最大119日允许、120拒绝。
 9. 成员表完整无分页；方向排序、成交额贡献统一分母、MA距离、null末尾、同值稳定。
 10. strict API 的 unknown/duplicate、非法日期／枚举／code、401、409、局部 Empty/Error、安全异常和敏感信息反例。
-11. SQL 固定 Meta/Rankings/Details `3/4/4`；计算接口四段固定为层级、公共页面日期、窗口覆盖成员合并查询、行情因子；1个／496个行业、1个／625个成员、5／60／119日不出现 N+1，源码不得保留分离的窗口／成员查询主链。
-12. 性能分别验收非MA60一秒、MA60两秒，不能用平均值掩盖 P95；既有八只 endpoint 响应、SQL和来源白名单零回退。
+11. SQL 固定 Meta/Rankings/Details `3/4/4`；Rankings 四段保持层级、公共页面日期、窗口覆盖成员合并查询、行情因子，M16R2 Details 四段为层级、公共页面日期、窗口覆盖与目标日成员计数、逐日成员／行情／因子紧凑投影；1个／496个行业、1个／625个成员、5／60／119日不出现 N+1。
+12. 性能分别验收 Meta／非MA60 Rankings一秒、MA60 Rankings两秒、Details六均线周期八秒，不能用平均值掩盖 P95；既有八只 endpoint 响应、SQL和来源白名单零回退。
+13. M16R2 后 Rankings 仍使用原始集合事实；Details 第三条 SQL 只返回最多119个日期和目标日成员计数，第四条只返回 `historyRange + targetSourceCount` 个紧凑投影行。生产最大样本必须证明数据库内部仍处理37,201条逐日关系和完整股票日期格，禁止把“返回行减少”实现成“参与计算的数据减少”。
+14. M16R2 的36组主矩阵与缺失边界逐字段等于测试专用旧 oracle；组成、覆盖、资格、原因顺序、趋势槽、成员行、Decimal、null、排序和最终JSON任一差异均失败。
+15. `close×adj_factor` 滚动合计使用Decimal，方向比较固定为 `currentAdjustedBasis×N` 对 `rollingAdjustedSum`；不得在SQL中先除法、转float或量化后再判断 ABOVE/EQUAL/BELOW。
+16. M16R2 Ready仍4 SQL、目标日空成员仍3 SQL；新查询在PostgreSQL和SQLite使用同一SQLAlchemy表达式，无方言业务分支、原生SQL字符串、缓存、索引、结果表、迁移、分页、TopN或采样。
+17. 现实规模先过Calculator+DTO+JSON `P95<=200ms`、中间行`<=685`，再过只读EXPLAIN和部署同拓扑预门禁，最后才执行两轮认证HTTP；任一步失败停止，不得用后一步结果覆盖前一步等价失败。
 
 前端正反例：
 
 1. 第四条精确 route、方法栏、前进／后退；未进入成员广度时三请求和图表实例为0。
 2. URL 无 tradeDate 保持自动模式且不把 defaultTradeDate 写回；用户选历史才写入，清除后恢复自动模式。
 3. 同一日期在自动回退时显示 Delayed，显式历史时不显示自动回退；页面不得根据日期相等自行判断。
-4. Meta→实际日期后，有合法 sectorCode 时 Rankings/Details 并发且允许局部先完成；无合法 sectorCode 时必须由 Rankings 解析 `defaultSelectedSectorCode ?? rows[0]` 后再发 Details。两条路径均覆盖5秒超时、Abort、request key、409一次重载和旧响应丢弃，并证明没有猜测行业或无效 Details 预请求。
+4. Meta→实际日期后，有合法 sectorCode 时 Rankings/Details 并发且允许局部先完成；无合法 sectorCode 时必须由 Rankings 解析 `defaultSelectedSectorCode ?? rows[0]` 后再发 Details。两条路径均覆盖Abort、request key、409一次重载和旧响应丢弃；Meta/Rankings保持5秒超时，Details使用10秒超时，并证明没有猜测行业或无效 Details 预请求。
 5. 五 scope、父级级联、两方向、三指标、六均线、三历史范围、选择保持和默认第一资格行业。
 6. metric 变化只请求 Rankings；historyRange/sectorCode 只请求 Details；maPeriod/scope/父级/日期刷新二者。
 7. 复权因子缺失只使 MA 内容 `--`；成员／成交额卡、榜单和趋势仍显示真实 DTO。
@@ -3231,8 +3432,9 @@ tests/test_wealth_turnover_insight_static_gates.py
 | 相对轮动 Results P95 | <= 1,000ms |
 | 相对轮动 Results 最大开市日窗口 | 95；96 必须拒绝 |
 | 成员广度 Meta P95 | <= 1,000ms；零成员／行情／因子历史扫描 |
-| 成员广度 Rankings/Details 非MA60 P95 | <= 1,000ms |
-| 成员广度 Rankings/Details MA60 P95 | <= 2,000ms |
+| 成员广度 Rankings 非MA60 P95 | <= 1,000ms |
+| 成员广度 Rankings MA60 P95 | <= 2,000ms |
+| 成员广度 Details 六个均线周期 P95 | <= 8,000ms |
 | 成员广度最大开市日窗口 | 119；120 必须拒绝 |
 | 当前工作区可用 | <= 1.5s，不含异常网络 |
 | 单 endpoint payload | 既有/Rankings/Meta <=256KB；成员广度 Details <=512KB |
@@ -3244,6 +3446,8 @@ M2 Prod 只读验收已经证明现有索引满足既有三接口查询：最重
 M9 使用现有 Web 只读连接对当前发布337个三级行业和最近95个 SSE 开市日做了有界审计：行情事实实际返回31,614行，理论上限32,015行；不导出来源行、不保存快照。跨网络完整链路20次 P95 为 `2343.531ms`，只用于识别网络环境差异；数据库端5条 SQL 的执行时间合计 `91.868ms`，其中行情事实查询 `45.847ms`，纯计算、DTO 与 JSON 50次 P95 为 `107.363ms`。按同部署拓扑核心链路估算 P95 为 `199.231ms`，当时据此关闭 M10 的可行性门禁。M12/M12R 已用真实部署 HTTP 覆盖最终验收效力；M12R 两轮 P95 为 `848.025/847.416ms`，均通过用户最终确认的 `1,000ms` 门禁。M9 分段结果不得替代部署验收，也不能作为增加缓存、索引、结果表或删减返回事实的理由。
 
 M13 的 Prod 只读 EXPLAIN 证明：成员广度 Meta 若做全历史完整性聚合约8.95秒，逐键探测约3.11秒，已从运行合同删除；目标日496行业成员检查约6ms，可随实际计算完成。三级全榜 MA60 约331,327股票日原始行，聚合投影数据库阶段约1.54秒，因此 MA60 单独使用2秒门禁；MA20聚合约557ms，其他请求继续保持1秒。最大625成员、119日 Details 的行情+因子读取约366ms。以上只关闭 M14 编码可行性，不冒充部署 HTTP P95；M16 必须分别复测 Meta、非MA60和MA60。
+
+M16R2 前的部署剖析进一步证明：最大 MA20 Details 的 SQL 执行仅约367ms，但37,201条关系和48,833条行情／因子结果的读取／物化约1.05秒，Calculator约1.52秒，DTO/JSON小于21ms。因此原“行情+因子数据库阶段约366ms”不能再被解释为完整 Details 可在一秒内完成。M16R2 已把跨边界中间行收敛为最多685行并复用滚动均线；所有原始关系和股票日期格仍在数据库内部参与计算。完整 service 的 MA20/MA60 P95 为`1,645.836/5,502.148ms`，用户据此将 Details 最终部署门禁临时调整为8秒；Meta/Rankings门禁不变。
 
 前端不引入新第三方依赖。图表用 SVG/CSS，列表先使用原生滚动。首次实现禁止为了预期性能增加虚拟列表、服务端缓存或结果表。
 
@@ -3501,7 +3705,7 @@ M12R 只删除无输出价值的中间事实物化，不改变任何公开业务
 2. 已否决 Meta 全历史成员／行情／因子完整性扫描；Meta 固定3条公共 SQL，实际缺口跟随 Rankings／Details 计算并按三指标独立返回。
 3. 已确认 M3A 成员明细不使用 adj_factor，成员广度 MA 使用 `core.equity_adj_factor`；因子缺失只影响 MA。
 4. 已冻结自动／显式日期、Rankings 单指标计算、Details 三项详情、3/4/4 SQL、119日、5+80%、异常码和正反例；M14 开工审计已将计算接口4条 SQL 修正为层级、公共页面日期、窗口覆盖成员合并查询、行情因子，消除服务端日期范围无法验证的问题。
-5. 已以 Prod 只读 EXPLAIN 冻结性能门禁：Meta／非MA60一秒，MA60两秒；不新增索引、缓存、结果表、分页、迁移或后台任务。
+5. M13 已以 Prod 只读 EXPLAIN 冻结当时的一秒／两秒门禁；M16R2 完成后，Details 临时改按八秒验收，Meta/Rankings不变。本轮不新增索引、缓存、结果表、分页、迁移或后台任务。
 6. M13 只修改技术方案与 LLD，没有修改运行代码、测试、异常注册表、Figma、生产或部署状态。
 
 ### M14：成员广度后端
@@ -3520,41 +3724,51 @@ M12R 只删除无输出价值的中间事实物化，不改变任何公开业务
 
 1. 已按第5.10、8.23～9.7节新增第四 route、独立 API／strict adapter／九字段 URL／controller 和正式工作区；成员广度只在精确路由挂载，量价分布继续待建设。
 2. 已落实两条请求顺序：合法 `sectorCode` 在 Meta 后并发 Rankings/Details；没有合法选择时先 Rankings，再按 `defaultSelectedSectorCode ?? rows[0]` 请求 Details，禁止猜测行业或无效预请求。
-3. 已覆盖自动／历史日期、三项独立缺失、主 Empty/Error、局部 Details 状态、5秒超时、401、409一次重载、旧响应丢弃、固定表头独立滚动、趋势断点和四档宽度。
+3. M15 已覆盖自动／历史日期、三项独立缺失、主 Empty/Error、局部 Details 状态、5秒超时、401、409一次重载、旧响应丢弃、固定表头独立滚动、趋势断点和四档宽度；M16R2 只将 Details 超时增至10秒，Meta/Rankings的5秒反例继续有效。
 4. 前端全量 `501 passed`，新增成员广度工作区 `16 passed`，typecheck、production build及冻结后端317项通过；1600/1512/1460/1366四档受控 fixture 浏览器验收通过。真实认证 API、496行业、最大 Details、SQL、payload和P95没有在 M15 冒充完成，继续属于 M16。
 5. 没有修改既有三个方法、后端 API、数据库、迁移、Foundation、Ops、QTF、配置、依赖或部署；M15 在此停止。
 
 ### M16：成员广度联调与交付验收
 
-状态：`NOT PASS / STOPPED (2026-08-29)`。
+状态：`NOT PASS / STOPPED (2026-08-30 DEPLOYMENT RETEST)`。
 
-1. 已在生产部署提交 `dc1911358dd71b42ddae924f6b5c68f666e9024b` 上使用认证 localhost HTTP 完成事实与载荷对账：公共业务日 `2026-08-28`、496行业（31/128/337）、五 scope、两方向、三指标、六均线、三历史范围均符合合同；最大行业 `BK1205.DC` 返回625只成员、60个趋势槽和三项组成，Meta／Rankings／Details payload 均在门禁内。
-2. Meta 两轮20次 P95 为 `211.896ms/209.411ms`，通过一秒门禁。三级 MA20 Rankings 的已完成请求约为 `19.926～22.471s`；三级 MA60 Rankings 单次服务端日志耗时 `64.580s`，明确超过两秒门禁。最大 Rankings 失败后停止其余性能采样，不用不完整样本伪造 P95。
-3. 全部请求结束后，Web 实时线程采样为0% CPU、健康检查正常，无需重启。M13 的生产查询计划已给出 MA60 数据库阶段约1.54秒，而完整 HTTP 达64.58秒；虽然当前没有逐阶段运行时计时、不能编造各阶段占比，但代码已确认 `rank_requested_metric()` 对337个行业逐一调用 `calculate_composition()`，而后者每次都对同一批行情重建 `market_index`；`build_details()` 又对当前三项和每个趋势日三项重复扫描关系并重建行情索引。现有成员广度 HTTP 性能测试只有2个行业、每个5只成员，只证明了小样本合同与 SQL 数，没有覆盖生产337行业和约16,923条目标日关系。这是必须先补齐的测试缺口和必须删除的重复计算；纠偏后仍需分段计时确认是否存在第二瓶颈。
-4. 因真实性能失败，13张正式 Figma、真实页面交互和四档宽度验收没有继续执行；M15 fixture 证据仍有效但不能代替 M16，G47 保持失败开放，成员广度不得关闭。
-5. 严格触发第17节停止条件：不得自行放宽门禁，不得新增缓存、索引、结果表、分页或截断，不得自动进入量价分布。该问题已由 M16R 完成本地等价纠偏，M16I 也已完成本地收口；完整 M16 仍须部署二者的同一版本后从头执行。
+1. 首轮验收已核对生产日期、496行业、五类范围、三级门槛分布、最大625成员、六均线、三趋势范围和 payload；事实与载荷通过，但旧 Rankings 实现不满足性能门禁。
+2. M16R/M16I 已部署到提交 `0211c13c11e878af7169c37d8a379af219b6bd65`。复测中 Meta 两轮20次 P95 为 `223.944ms/199.428ms`；三级总榜、上涨方向、成员数量、MA20 Rankings 两轮20次 P95 为 `756.329ms/618.890ms`，均通过一秒门禁。
+3. 最大行业 `BK1205.DC`、60日趋势、MA20 Details 返回625只成员、60个趋势槽、三项组成和 `157,840 bytes`，但预热为 `3,100.867ms`，第一轮20次 P95 为 `4,592.429ms`，明确超过一秒门禁。
+4. 按停止条件，没有继续 Details 第二轮和 MA60 Rankings/Details；服务压力后仍为 active，健康检查正常。用户已确认部署页面大体验收无明显问题，但页面通过不能覆盖性能失败。
+5. G47 保持失败开放，成员广度不得关闭。Details 分段剖析和 M16R2 等价纠偏方案已经完成并获准实施；当前实现又因Prod只读分段门禁失败而停止。下一步仅允许重新评审内部结果表达，不得自行放宽门禁或增加缓存、索引、结果表、分页、截断，更不得自动进入量价分布。
 
 #### M16R：等价计算内核纠偏
 
-状态：`CODE PASS / DEPLOYMENT PENDING (2026-08-30)`。
+状态：`DEPLOYED / RANKINGS GATE PASS / DETAILS GATE NOT PASS (2026-08-30)`。
 
 1. API、DTO、公式版本、三项分母、5+80%、逐日来源成员、4 SQL、完整列表与缺失语义全部保持不变；不修改前端、Figma、数据库、查询字段或产品门禁。
 2. `rank_requested_metric()` 已在单次请求中只构建一次 `market_index`，并把目标日成员关系按 `sector_code` 一次分组；337个行业只消费自己的关系桶，不再每个行业重建同一全量索引或扫描全部关系。空行业池继续直接返回空结果，保持旧语义。
 3. `build_details()` 已在单次请求中只构建一次 `market_index`，并把成员关系按 `trade_date` 一次分组；当前组成、60个趋势点和成员明细共享该只读索引，不再为每个日期、每项指标重复处理整批行情。
 4. 已增加旧／新结果全矩阵等价 oracle，覆盖成员数量／成交额／均线位置、上涨／下跌及5/10/15/20/30/60均线；已增加337行业、16,923目标日关系、60日行情，以及625成员、119日行情、60个趋势槽的现实规模生成数据门禁。两类请求均断言完整行情索引只构建一次，本地纯计算分别约 `1.16s` 和 `1.03s`。
-5. 纠偏通过后重新部署，从 Meta、非MA60 Rankings/Details、MA60 Rankings/Details 两轮20次开始完整重跑 M16，再执行13状态、五scope、两方向、三指标、六均线、三趋势范围和四档页面验收。未通过原一秒／两秒门禁时再次停止，不得继续叠加方案。
+5. 部署后 Meta 与三级普通 Rankings 已通过原门禁，最大 Details 未通过并再次停止；不能因 Rankings 改善而提前关闭 M16R 或 G47。
 
-实现仅修改 `sector_member_breadth_calculator.py` 与对应计算器测试；冻结后端回归 `347 passed`，未新增迁移、依赖、配置、缓存、持久化表或跨子系统依赖。本地现实规模时间只用于证明重复工作已被删除，不能代替部署后的完整 HTTP 门禁。M16R 完成后停在本地代码收口，不自动部署、不提前关闭 G47。
+实现仅修改 `sector_member_breadth_calculator.py` 与对应计算器测试；冻结后端回归 `347 passed`，未新增迁移、依赖、配置、缓存、持久化表或跨子系统依赖。本地现实规模时间只用于证明重复工作已被删除，部署复测已进一步证明 Rankings 改善，但 Details 仍有未定位的生产链路成本，G47 继续开放。
 
 #### M16I：成员广度趋势图十字线交互增量
 
-状态：`LOCAL CODE + AUTOMATION + BROWSER PASS / DEPLOYMENT PENDING (2026-08-30)`。
+状态：`DEPLOYED / CODE + AUTOMATION + USER PAGE ACCEPTANCE PASS (2026-08-30)`。
 
 1. 产品口径和正式 Figma Active 状态 `1190:15904` 已完成；按第5.10和8.25.1节，只修改 Workspace 局部状态、趋势图组件、局部样式、组件测试和最小工作区集成测试。
 2. 实现 `IDLE/ACTIVE`：单击plot进入、最近交易日吸附、日期纵线、百分比横线、x/y浮标、三条有效交点和同日Tooltip；null不造点，Tooltip显示 `--`。
 3. pointerleave保留最后读数；SVG内plot外空白／坐标轴区域再次单击或Escape退出。Details身份／状态变化清除，排名metric变化不清除。
 4. 全部交互必须零请求、零URL变化、零controller变化；不得修改API/DTO/adapter、后端、数据库、迁移、Figma页面骨架、其他方法或量价分布。
-5. 第11.5节新增正反例、定向23项、前端全量508项、typecheck、build和四档浏览器验收均已通过；已停止在本地验收，不自动提交、部署或关闭G47。下一步是部署M16R+M16I并完整重跑M16。
+5. 第11.5节新增正反例、定向23项、前端全量508项、typecheck、build和四档浏览器验收均已通过；M16I 已部署，用户确认页面大体验收无明显问题。该纯前端交互不改变 Details 性能结论，不能据此关闭 G47。
+
+#### M16R2：成员广度 Details 紧凑投影性能纠偏
+
+状态：`CODE COMPLETE / 8S GATE APPROVED / DEPLOYMENT ACCEPTANCE PENDING (2026-08-30)`。
+
+1. 本轮依据第6.32节，只修改 Details 内部窗口查询、事实投影、Calculator组装、QueryService编排和对应后端测试；Rankings既有集合查询和计算主链保持不变。
+2. 公开 API、schema、formula/version、异常、成员／趋势完整性和3/4/4 SQL全部冻结；Details 六个均线周期的最终 P95 由用户临时调整为8秒，前端仅 Details 等待改为10秒。不修改Figma、数据库、索引、迁移、缓存、结果表、配置、依赖或部署脚本。
+3. 先写测试专用旧 oracle，再完成36组主矩阵和缺失边界逐字段等价；等价通过后生产代码只保留新的 Details 投影主链，不保留运行时双路径。
+4. 最大投影跨边界只允许60个日期行+625个目标成员行，但数据库内部必须继续处理全部逐日成员和股票日期格；这是一种中间表示优化，不是数据缩减。
+5. 本地代码门禁已通过；Prod只读 MA20/MA60 完整 service P95 为`1,645.836/5,502.148ms`，同时保持625成员、60趋势槽、3项组成和4 SQL，通过新8秒门禁下的7秒直接 service 预门禁。一次仅压缩滚动字段的有界实验仍约`1,092.641ms`并继续溢写，已撤销；当前候选可提交和部署，G47/G47A等待两轮最终 HTTP 验收。
 
 每个里程碑完成后停止，不自动进入下一阶段，不自动提交、推送、迁移或部署。
 
@@ -3655,7 +3869,8 @@ git diff --check
 | G45 成员广度后端 | contract/calculator/query/service/schema/API与正反例 | PASS (M14 code/tests) |
 | G46 成员广度前端 | 第四route、URL/controller、13态、响应式和按需挂载 | PASS (M15 code/tests/browser fixture) |
 | G46A 成员广度趋势图交互 | 单击进入、日期吸附、十字轴、三交点、同日Tooltip、null、避让、保留／退出、身份清除和零请求 | PASS (M16I code/tests/browser)：定向23项、前端508项、typecheck/build和四档浏览器验收通过 |
-| G47 成员广度交付 | 真实事实、payload、非MA60一秒、MA60两秒、四档宽度和用户验收 | OPEN：事实与payload通过；M16R与M16I本地收口通过，等待部署后性能／页面验收 |
+| G47 成员广度交付 | 真实事实、payload、Rankings一秒／两秒、Details八秒、四档宽度和用户验收 | PENDING / OPEN：页面验收、事实、payload及普通Rankings通过；M16R2只读MA20/MA60直接service P95为`1,645.836/5,502.148ms`，已低于新8秒Details门禁，待部署两轮HTTP验收 |
+| G47A M16R2等价纠偏合同 | 全事实参与、最多685中间行、36组及缺失边界逐字段等价、3/4/4 SQL、零数据体验降级、七秒直接service预门禁与八秒最终HTTP门禁 | PENDING / OPEN：等价、4 SQL、625成员、60槽、685行和直接service预门禁通过；临时磁盘溢写作为后续预计算／数据库优化证据保留，待部署两轮HTTP验收 |
 
 ### 15.1 例外白名单
 
@@ -3699,9 +3914,12 @@ git diff --check
 32. M13 CodeGraph 影响面确认成员广度只能新增独立 Biz／Wealth 链；现有 M3A 只读 close/pct_chg 且不读复权因子，禁止复用或改写。
 33. M13 性能审计已否决 Meta 全历史成员完整性扫描，冻结公共3 SQL；实际缺口随计算返回。三级 MA60 数据库聚合约1.54秒，用户确认该路径两秒门禁，其他请求保持一秒。
 34. 自动日期／显式历史、复权因子只影响MA、Rankings只算所选指标、Details三项独立事实、3/4/4 SQL、119日和 M14～M16 停止点均已落档；M15 按合法选择是否存在分别采用“并发 Rankings/Details”和“先 Rankings 后 Details”，没有猜测默认行业。M15 没有修改后端、异常注册表、Figma或生产状态。
-35. M16 生产事实、范围和 payload 已通过，Meta 稳态 P95 通过；MA20 Rankings 约19.9～22.5秒、MA60 Rankings 单次64.58秒，代码已确认同一请求内存在重复构建整批行情索引和重复扫描成员关系。第17节停止条件已触发，G47 保持开放。
-36. M16R 已删除上述重复工作：Rankings 每请求只建一次行情索引并按行业分组，Details 按日期分组且组成／趋势／成员共享索引；旧／新全矩阵等价、两类现实规模及冻结后端347项通过。部署后完整 M16 复测仍是关闭 G47 的必要条件。
-37. M16I 已按最新批准交互实现为纯前端零请求增量：Workspace 局部状态跨排名指标刷新保留，TrendChart 完成单击后十字线查看、交易日吸附、三线交点、同日Tooltip、离开保留及空白单击／Escape退出；非等比例容器按固定 viewBox 精确映射。定向23项、前端508项、typecheck/build和四档浏览器验收通过，G46A关闭。
+35. M16 首轮生产事实、范围和 payload 已通过，旧实现的 MA20／MA60 Rankings 性能失败并触发 M16R。
+36. M16R 已删除旧的重复工作：Rankings 每请求只建一次行情索引并按行业分组，Details 按日期分组且组成／趋势／成员共享索引；旧／新全矩阵等价、两类现实规模及冻结后端347项通过。
+37. M16I 已按最新批准交互实现为纯前端零请求增量：Workspace 局部状态跨排名指标刷新保留，TrendChart 完成单击后十字线查看、交易日吸附、三线交点、同日Tooltip、离开保留及空白单击／Escape退出；非等比例容器按固定 viewBox 精确映射。定向23项、前端508项、typecheck/build和四档浏览器验收通过，部署后用户页面验收无明显问题，G46A关闭。
+38. 提交 `0211c13c` 的 M16 部署复测证明 Meta 与三级普通 Rankings 已通过一秒门禁；最大 `BK1205.DC`、60日趋势、MA20 Details 第一轮 P95 为 `4,592.429ms`，仍不通过。按停止条件未继续第二轮和 MA60，G47 继续开放。
+39. M16R2 分段剖析确认 SQL执行约12%、8.6万行读取／物化约36%、38,451次MA判断约51%，JSON小于1%；第6.32节据此冻结日期／覆盖紧凑查询、全事实数据库投影、应用层Decimal组装、最多685中间行、逐字段等价和分段停止门禁。方案不减少参与计算的数据；当时等待评审后方可编码，之后已获准实施并由第40项记录结果。
+40. M16R2 本地等价候选通过100项定向与架构回归、4 SQL、625成员、60趋势槽、3项组成、157,840 bytes和685行门禁；Prod只读EXPLAIN证明37,201条关系和50,086个股票日期格完整参与，当时因第四条SQL约1,365.600ms且临时磁盘溢写按旧合同停止。一次有界字段压缩实验仍约1,092.641ms并已撤销。后续 MA20/MA60 完整 service P95 为`1,645.836/5,502.148ms`，用户据此批准 Details 临时8秒门禁；直接service预门禁已通过，G47/G47A仅等待部署HTTP验收。
 
 ### 16.2 已接受的非阻断项与历史记录
 
@@ -3750,7 +3968,10 @@ git diff --check
 | 复权缺口连坐全部指标 | 因 MA 缺因子而回退或清空成员数量／成交额 | 三项独立 coverage/eligibility；因子原因只进入 MA |
 | 普通榜单等待 MA60 | Rankings 为了三项可用性计算全部指标 | Rankings 只计算请求 metric；数量／成交额路径不得调用 MA |
 | 自动回退被历史复盘误报 | 仅比较 tradeDate 是否等于默认回退日 | URL 是否存在 tradeDate 是唯一模式判别；默认日不自动写 URL |
-| MA60 超时被无限放宽 | 把2秒门禁扩散到其他周期和接口 | 只有 MA60 Rankings/Details 为2秒；Meta和其他请求仍1秒 |
+| Details 超时被无限放宽 | 把临时8秒门禁扩散到Meta、Rankings或其他方法 | 仅成员广度Details六周期为8秒；Meta/非MA60 Rankings仍1秒，MA60 Rankings仍2秒；再超过8秒必须停止 |
+| M16R2把投影误写成数据缩减 | 只返回聚合行时漏掉缺失成员、历史成员或股票日期格 | 数据库内部完整构造`stock_pool×open_dates`并左连来源；成员数、日期槽、原因和旧oracle逐字段对账，任一减少立即停止 |
+| SQL聚合改变Decimal边界 | 数据库除法／float让EQUAL或MA距离漂移 | SQL只返回精确滚动合计并用`current×N`比较；距离与百分比继续由Python Decimal生成 |
+| 为通过性能保留双主链或方言分支 | 生产／测试走不同算法，或旧新结果随环境变化 | 同一SQLAlchemy表达式覆盖PostgreSQL/SQLite；旧实现只在测试oracle，生产旧Details主链在等价后删除 |
 
 必须停止并等待确认的情况：
 
@@ -3769,8 +3990,10 @@ git diff --check
 13. M12R 稀疏计算部署后任一20次稳态轮次 P95 仍超过1,000ms；必须停下并等待新的查询投影方案批准。
 14. M14 需要让 Meta 读取成员／股票／因子历史，或需要修改既有 `SectorTradeDateAvailabilityDto` 的公开语义。
 15. M14 需要新增索引、缓存、结果表、分页、截断、迁移、后台任务、配置或依赖才能达到门禁。
-16. 非MA60 任一成员广度 endpoint 部署 P95 超过1秒，或 MA60 超过2秒；必须先分段剖析并等待方案确认，不能自行放宽。
+16. 成员广度 Meta／非MA60 Rankings 部署 P95 超过1秒，MA60 Rankings 超过2秒，或任一 Details 均线周期超过8秒；必须停止并等待方案确认，不能自行再放宽。
 17. 成员广度实现无法保持三项缺失独立、Rankings 单指标计算、Details 119日上限或既有八只 endpoint 零变化。
+18. M16R2 无法使新旧 compositions、trend、members、原因顺序、Decimal、null、排序和最终JSON逐字段相等，或必须减少成员／日期／来源事实才能达到性能。
+19. M16R2 需要新增索引、缓存、结果表、迁移、配置、依赖、后台任务、分页、TopN、采样、缩窗、旧数据回退或数据库方言业务分支。
 
 ## 18. 结论
 
@@ -3778,12 +4001,18 @@ git diff --check
 
 成员广度 M15 前端已经完成：已消费冻结的三只 API 合同，建立第四条独立路由、strict adapter、URL/controller、正式状态工作区和四档响应式布局，并通过前端全量、类型、构建、冻结后端和受控 fixture 浏览器验收。
 
-M16 已使用部署后的真实认证 API 核对生产日期、496行业、资格分布、最大625成员 Details 和 payload，事实部分通过；但 MA20／MA60 Rankings 性能明确失败。M16R 已完成本地等价计算内核纠偏：完整行情索引在每个请求内只构建一次，关系按行业或日期一次分组，旧／新全矩阵结果一致，现实规模测试和347项冻结后端回归通过。M16I 趋势查看已完成产品、Figma、代码、自动化与四档浏览器验收。成员广度当前仍不能关闭，下一步固定为部署 M16R+M16I 并完整重跑 M16 性能与页面验收。
+M16R/M16I 已部署到提交 `0211c13c11e878af7169c37d8a379af219b6bd65`。部署复测证明 Meta 与三级普通 Rankings 已恢复到一秒门禁内，用户也确认页面大体验收无明显问题；但最大625成员、60日趋势的 MA20 Details 第一轮 P95 为 `4,592.429ms`，仍未通过一秒门禁。M16 已按停止条件中止，成员广度当前不能关闭。
+
+M16R2 已完成等价投影候选：第三条 SQL 只返回日期／覆盖／目标日成员计数，第四条 SQL 在数据库内部使用全部逐日成员和股票日期格生成60个日期聚合与625个目标成员投影，应用层继续用Decimal完成百分比、资格、原因、贡献、MA距离和最终DTO。本地100项定向与架构回归、4 SQL、685行、公开schema和载荷均通过；Prod只读 MA20/MA60 完整 service P95 为`1,645.836/5,502.148ms`，625成员、60槽和全部参与事实均未减少。用户已批准 Details 临时8秒门禁，当前候选可提交和部署；G47/G47A在同一提交的两轮 localhost HTTP P95 通过前保持开放。提前计算作为后续独立优化方向，不影响本轮收口。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.39 | 2026-08-30 | 用户基于当前机器和完整数据规模，将成员广度Details六个均线周期的最终部署稳态P95临时统一调整为8秒，Meta/非MA60 Rankings仍1秒、MA60 Rankings仍2秒。追加MA20/MA60 Prod只读完整service P95 `1,645.836/5,502.148ms`，两者均保持625成员、60趋势槽、3项组成和完整数据参与。冻结7秒直接service预门禁、8秒最终HTTP门禁、Details前端10秒超时与精确文件／测试增量；M16R2代码完成，待提交部署和两轮HTTP验收，预计算另立后续方案 | Codex |
+| v1.38 | 2026-08-30 | 执行M16R2并按失败门禁停止：新增Details专属window/projection合同、单一投影主链、36组旧oracle及缺失边界、PostgreSQL/SQLite、3/4/4 SQL和零降级架构反例；本地100项通过，最大输出625成员+60槽+3组成+157,840 bytes和685行。Prod只读EXPLAIN证明37,201条关系、50,086格完整参与，但第四条SQL约1,365.600ms且临时磁盘溢写；一次字段压缩实验仍约1,092.641ms并已撤销。G47A为NOT PASS，禁止部署并等待重新评审 | Codex |
+| v1.37 | 2026-08-30 | 完成M16R2代码级方案：分段剖析确认SQL约12%、8.6万行读取／物化约36%、38,451次MA判断约51%，排除JSON、单纯索引和单纯Python修复；冻结Details专属window/projection值对象、可移植CTE+窗口+聚合SQL、最多685中间行、应用层Decimal业务组装、旧主链安全删除、36组及缺失边界逐字段oracle、3/4/4 SQL、分段预门禁和最终两轮HTTP。明确全部来源事实仍参与计算，禁止缓存、结果表、分页、TopN、采样、缩窗、旧数据回退或方言业务分支；等待评审后编码 |
+| v1.36 | 2026-08-30 | 记录M16R/M16I部署后真实复测：提交`0211c13c`上Meta两轮P95为223.944/199.428ms，三级成员数量MA20 Rankings为756.329/618.890ms，均通过一秒门禁；最大BK1205.DC、60日趋势、MA20 Details第一轮P95为4,592.429ms，未通过一秒门禁并按约定停止第二轮及MA60。用户页面验收无明显问题，但G47与成员广度仍不关闭，下一步只允许先做Details分段剖析方案 |
 | v1.35 | 2026-08-30 | 完成M16I本地收口：Workspace持有纯局部查看状态并跨排名指标刷新保留，TrendChart实现单击进入、交易日吸附、横纵十字线、三系列交点、同日Tooltip、null、左右避让、离开保留、空白单击／Escape退出和身份变化清除；显式`preserveAspectRatio="none"`保证非等比例容器与固定viewBox一致。定向23项、前端508项、typecheck/build和四档浏览器验收通过，G46A关闭；G47等待部署后完整M16 |
 | v1.34 | 2026-08-30 | 校准M16I产品、Figma和代码阶段：默认IDLE引用`1186:11797`，Active视觉引用`1190:15904`；明确Active只是静态视觉基线，运行时继续以真实容器映射既有`920×244` viewBox，不复制Figma绝对坐标；G40更新设计证据，G46A改为DESIGN PASS/CODE OPEN，代码与验收仍未执行 |
 | v1.33 | 2026-08-30 | 按用户确认增加M16I编码方案：当前静态成员广度趋势图新增IDLE/ACTIVE状态、真实容器到viewBox映射、最近交易日吸附、横纵十字线与浮动轴标签、三线有效交点、同日三值Tooltip、null语义、62%左右避让、离开保留、plot外空白单击或Escape退出，以及Details身份变化清除；限定四个前端文件、零请求、零URL/controller/API/DTO/后端/数据层变化，G46A保持OPEN等待实现 |

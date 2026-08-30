@@ -8,8 +8,12 @@ from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contra
     MEMBER_BREADTH_MINIMUM_CALCULABLE_COUNT,
     MEMBER_BREADTH_MINIMUM_COVERAGE_PCT,
     MemberBreadthCompositionFact,
+    MemberBreadthDailyProjectionFact,
     MemberBreadthDetailsFact,
+    MemberBreadthDetailsProjectionFact,
+    MemberBreadthDetailsWindowFact,
     MemberBreadthMemberFact,
+    MemberBreadthMemberProjectionFact,
     MemberBreadthRankFact,
     MemberBreadthTrendPointFact,
     MemberMarketFact,
@@ -180,90 +184,199 @@ class SectorMemberBreadthCalculator:
     def build_details(
         self,
         *,
-        sector_code: str,
         target_date: date,
         direction: SectorMemberBreadthDirection,
         ma_period: SectorMemberBreadthMaPeriod,
-        open_dates: tuple[date, ...],
-        relation_dates: tuple[date, ...],
-        relations: Iterable[MemberRelationFact],
-        market_facts: Iterable[MemberMarketFact],
+        window: MemberBreadthDetailsWindowFact,
+        projection: MemberBreadthDetailsProjectionFact,
     ) -> MemberBreadthDetailsFact:
-        requested_dates = set(relation_dates)
-        requested_dates.add(target_date)
-        relations_by_date: dict[date, list[MemberRelationFact]] = {
-            item: [] for item in requested_dates
+        if not window.relation_dates or window.relation_dates[-1] != target_date:
+            raise ValueError("member breadth target date mismatch")
+        if tuple(item.trade_date for item in projection.daily) != window.relation_dates:
+            raise ValueError("member breadth daily projection dates mismatch")
+        if any(item.trade_date != target_date for item in projection.members):
+            raise ValueError("member breadth target projection date mismatch")
+        member_codes = tuple(item.stock_code for item in projection.members)
+        if len(set(member_codes)) != len(member_codes):
+            raise ValueError("duplicate member breadth target projection")
+        target_projection = projection.daily[-1]
+        if (
+            target_projection.source_count != window.target_source_count
+            or window.target_source_count != len(projection.members)
+        ):
+            raise ValueError("member breadth target source count mismatch")
+
+        compositions_by_date = {
+            item.trade_date: self._projected_compositions(item)
+            for item in projection.daily
         }
-        for relation in relations:
-            if relation.sector_code != sector_code:
-                continue
-            bucket = relations_by_date.get(relation.trade_date)
-            if bucket is not None:
-                bucket.append(relation)
-        sorted_relations_by_date = {
-            item: tuple(sorted(rows, key=lambda row: (row.stock_code, row.sector_code)))
-            for item, rows in relations_by_date.items()
-        }
-        market_index = self.index_market_facts(market_facts)
-        target_relations = sorted_relations_by_date[target_date]
-        compositions = tuple(
-            self._calculate_composition_from_index(
-                metric=metric,
-                target_date=target_date,
-                relations=target_relations,
-                market_index=market_index,
-                open_dates=open_dates,
-                ma_period=ma_period,
+        compositions = compositions_by_date[target_date]
+        trend = tuple(
+            MemberBreadthTrendPointFact(
+                trade_date=item.trade_date,
+                member_pct=self.selected_pct(
+                    compositions_by_date[item.trade_date][0], direction=direction
+                ),
+                turnover_pct=self.selected_pct(
+                    compositions_by_date[item.trade_date][1], direction=direction
+                ),
+                ma_position_pct=self.selected_pct(
+                    compositions_by_date[item.trade_date][2], direction=direction
+                ),
+                member_reason_codes=compositions_by_date[item.trade_date][
+                    0
+                ].coverage.reason_codes,
+                turnover_reason_codes=compositions_by_date[item.trade_date][
+                    1
+                ].coverage.reason_codes,
+                ma_position_reason_codes=compositions_by_date[item.trade_date][
+                    2
+                ].coverage.reason_codes,
             )
-            for metric in ("MEMBER_COUNT", "TURNOVER", "MA_POSITION")
+            for item in projection.daily
         )
-
-        trend: list[MemberBreadthTrendPointFact] = []
-        for trend_date in relation_dates:
-            point_compositions = tuple(
-                self._calculate_composition_from_index(
-                    metric=metric,
-                    target_date=trend_date,
-                    relations=sorted_relations_by_date[trend_date],
-                    market_index=market_index,
-                    open_dates=tuple(item for item in open_dates if item <= trend_date),
-                    ma_period=ma_period,
-                )
-                for metric in ("MEMBER_COUNT", "TURNOVER", "MA_POSITION")
-            )
-            trend.append(
-                MemberBreadthTrendPointFact(
-                    trade_date=trend_date,
-                    member_pct=self.selected_pct(
-                        point_compositions[0], direction=direction
-                    ),
-                    turnover_pct=self.selected_pct(
-                        point_compositions[1], direction=direction
-                    ),
-                    ma_position_pct=self.selected_pct(
-                        point_compositions[2], direction=direction
-                    ),
-                    member_reason_codes=point_compositions[0].coverage.reason_codes,
-                    turnover_reason_codes=point_compositions[1].coverage.reason_codes,
-                    ma_position_reason_codes=point_compositions[
-                        2
-                    ].coverage.reason_codes,
-                )
-            )
-
-        members = self._build_members(
-            target_date=target_date,
+        members = self._project_members(
+            rows=projection.members,
             direction=direction,
             ma_period=ma_period,
-            open_dates=open_dates,
-            relations=target_relations,
-            market_index=market_index,
         )
         return MemberBreadthDetailsFact(
             compositions=compositions,
-            trend=tuple(trend),
+            trend=trend,
             members=members,
         )
+
+    def _projected_compositions(
+        self,
+        row: MemberBreadthDailyProjectionFact,
+    ) -> tuple[
+        MemberBreadthCompositionFact,
+        MemberBreadthCompositionFact,
+        MemberBreadthCompositionFact,
+    ]:
+        member_coverage = self._coverage(
+            source_count=row.source_count,
+            calculable_count=row.member_calculable_count,
+            reasons=set(row.member_source_reasons),
+            metric_available=row.member_calculable_count > 0,
+        )
+        member = self._count_composition_from_counts(
+            metric="MEMBER_COUNT",
+            counts=(row.member_up_count, row.member_flat_count, row.member_down_count),
+            coverage=member_coverage,
+        )
+
+        turnover_reasons = set(row.turnover_source_reasons)
+        turnover_total = (
+            row.turnover_up_amount
+            + row.turnover_flat_amount
+            + row.turnover_down_amount
+        )
+        turnover_available = (
+            row.turnover_calculable_count > 0 and turnover_total > 0
+        )
+        if row.turnover_calculable_count > 0 and turnover_total <= 0:
+            turnover_reasons.add("AMOUNT_NON_POSITIVE")
+        turnover_coverage = self._coverage(
+            source_count=row.source_count,
+            calculable_count=row.turnover_calculable_count,
+            reasons=turnover_reasons,
+            metric_available=turnover_available,
+        )
+        turnover_percentages: tuple[
+            Decimal | None,
+            Decimal | None,
+            Decimal | None,
+        ]
+        if turnover_available:
+            turnover_percentages = (
+                row.turnover_up_amount / turnover_total * _HUNDRED,
+                row.turnover_flat_amount / turnover_total * _HUNDRED,
+                row.turnover_down_amount / turnover_total * _HUNDRED,
+            )
+        else:
+            turnover_percentages = (None, None, None)
+        turnover = MemberBreadthCompositionFact(
+            metric="TURNOVER",
+            up_count=row.turnover_up_count,
+            flat_count=row.turnover_flat_count,
+            down_count=row.turnover_down_count,
+            up_pct=turnover_percentages[0],
+            flat_pct=turnover_percentages[1],
+            down_pct=turnover_percentages[2],
+            coverage=turnover_coverage,
+        )
+
+        ma_coverage = self._coverage(
+            source_count=row.source_count,
+            calculable_count=row.ma_calculable_count,
+            reasons=set(row.ma_source_reasons),
+            metric_available=row.ma_calculable_count > 0,
+        )
+        ma = self._count_composition_from_counts(
+            metric="MA_POSITION",
+            counts=(row.ma_above_count, row.ma_equal_count, row.ma_below_count),
+            coverage=ma_coverage,
+        )
+        return member, turnover, ma
+
+    def _project_members(
+        self,
+        *,
+        rows: tuple[MemberBreadthMemberProjectionFact, ...],
+        direction: SectorMemberBreadthDirection,
+        ma_period: SectorMemberBreadthMaPeriod,
+    ) -> tuple[MemberBreadthMemberFact, ...]:
+        contribution_amounts = {
+            row.stock_code: row.amount_thousand_yuan
+            for row in rows
+            if row.daily_pct_change is not None
+            and row.amount_thousand_yuan is not None
+        }
+        total_amount = sum(contribution_amounts.values(), Decimal(0))
+        members: list[MemberBreadthMemberFact] = []
+        for row in rows:
+            reasons = set(row.source_reasons)
+            ma_relation: SectorMemberMaRelation | None = None
+            ma_distance: Decimal | None = None
+            if (
+                row.rolling_slot_count == ma_period
+                and row.rolling_valid_count == ma_period
+                and row.current_adjusted_basis is not None
+                and row.rolling_adjusted_sum is not None
+            ):
+                comparison_basis = row.current_adjusted_basis * Decimal(ma_period)
+                if comparison_basis > row.rolling_adjusted_sum:
+                    ma_relation = "ABOVE"
+                elif comparison_basis < row.rolling_adjusted_sum:
+                    ma_relation = "BELOW"
+                else:
+                    ma_relation = "EQUAL"
+                moving_average = row.rolling_adjusted_sum / Decimal(ma_period)
+                ma_distance = (
+                    row.current_adjusted_basis / moving_average - Decimal(1)
+                ) * _HUNDRED
+            else:
+                reasons.add("MA_HISTORY_INSUFFICIENT")
+            contribution = (
+                contribution_amounts[row.stock_code] / total_amount * _HUNDRED
+                if row.stock_code in contribution_amounts and total_amount > 0
+                else None
+            )
+            members.append(
+                MemberBreadthMemberFact(
+                    stock_code=row.stock_code,
+                    stock_name=row.stock_name,
+                    daily_pct_change=row.daily_pct_change,
+                    amount_thousand_yuan=row.amount_thousand_yuan,
+                    amount_contribution_pct=contribution,
+                    ma_relation=ma_relation,
+                    ma_distance_pct=ma_distance,
+                    reason_codes=ordered_member_breadth_reasons(reasons),
+                )
+            )
+        members.sort(key=lambda item: _member_sort_key(item, direction=direction))
+        return tuple(members)
 
     @staticmethod
     def index_market_facts(
@@ -414,78 +527,6 @@ class SectorMemberBreadthCalculator:
             coverage=coverage,
         )
 
-    def _build_members(
-        self,
-        *,
-        target_date: date,
-        direction: SectorMemberBreadthDirection,
-        ma_period: SectorMemberBreadthMaPeriod,
-        open_dates: tuple[date, ...],
-        relations: tuple[MemberRelationFact, ...],
-        market_index: dict[tuple[str, date], MemberMarketFact],
-    ) -> tuple[MemberBreadthMemberFact, ...]:
-        amount_rows: dict[str, Decimal] = {}
-        for relation in relations:
-            market = market_index.get((relation.stock_code, target_date))
-            if (
-                market is not None
-                and _is_finite(market.pct_change)
-                and _is_finite(market.amount_thousand_yuan)
-                and market.amount_thousand_yuan >= 0
-            ):
-                amount_rows[relation.stock_code] = market.amount_thousand_yuan
-        total_amount = sum(amount_rows.values(), Decimal(0))
-
-        members: list[MemberBreadthMemberFact] = []
-        for relation in relations:
-            reasons: set[SectorMemberBreadthReason] = set()
-            market = market_index.get((relation.stock_code, target_date))
-            if market is None:
-                reasons.add("MARKET_ROW_MISSING")
-                daily_pct = None
-                amount = None
-            else:
-                daily_pct = market.pct_change if _is_finite(market.pct_change) else None
-                amount = (
-                    market.amount_thousand_yuan
-                    if _is_finite(market.amount_thousand_yuan)
-                    and market.amount_thousand_yuan >= 0
-                    else None
-                )
-                if daily_pct is None:
-                    reasons.add("PCT_CHANGE_MISSING")
-                if not _is_finite(market.amount_thousand_yuan):
-                    reasons.add("AMOUNT_MISSING")
-                elif market.amount_thousand_yuan < 0:
-                    reasons.add("AMOUNT_NON_POSITIVE")
-            contribution = (
-                amount_rows[relation.stock_code] / total_amount * _HUNDRED
-                if relation.stock_code in amount_rows and total_amount > 0
-                else None
-            )
-            ma_relation, ma_distance, ma_reasons = self._calculate_ma_member(
-                stock_code=relation.stock_code,
-                target_date=target_date,
-                market_index=market_index,
-                open_dates=open_dates,
-                ma_period=ma_period,
-            )
-            reasons.update(ma_reasons)
-            members.append(
-                MemberBreadthMemberFact(
-                    stock_code=relation.stock_code,
-                    stock_name=relation.stock_name,
-                    daily_pct_change=daily_pct,
-                    amount_thousand_yuan=amount,
-                    amount_contribution_pct=contribution,
-                    ma_relation=ma_relation,
-                    ma_distance_pct=ma_distance,
-                    reason_codes=ordered_member_breadth_reasons(reasons),
-                )
-            )
-        members.sort(key=lambda row: _member_sort_key(row, direction=direction))
-        return tuple(members)
-
     @staticmethod
     def _coverage(
         *,
@@ -524,8 +565,21 @@ class SectorMemberBreadthCalculator:
         coverage: MetricCoverageFact,
     ) -> MemberBreadthCompositionFact:
         value_rows = tuple(values)
-        up_count, flat_count, down_count = _direction_counts(value_rows)
-        denominator = len(value_rows)
+        return SectorMemberBreadthCalculator._count_composition_from_counts(
+            metric=metric,
+            counts=_direction_counts(value_rows),
+            coverage=coverage,
+        )
+
+    @staticmethod
+    def _count_composition_from_counts(
+        *,
+        metric: SectorMemberBreadthMetric,
+        counts: tuple[int, int, int],
+        coverage: MetricCoverageFact,
+    ) -> MemberBreadthCompositionFact:
+        up_count, flat_count, down_count = counts
+        denominator = up_count + flat_count + down_count
         percentages: tuple[Decimal | None, Decimal | None, Decimal | None]
         if denominator == 0:
             percentages = (None, None, None)

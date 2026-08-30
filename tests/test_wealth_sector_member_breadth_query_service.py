@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
     SectorHierarchyNode,
@@ -23,6 +24,10 @@ from src.biz.queries.wealth.market.sector_analysis.sector_member_breadth_query i
     SectorMemberBreadthQuery,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contract import (
+    MemberBreadthDailyProjectionFact,
+    MemberBreadthDetailsProjectionFact,
+    MemberBreadthDetailsWindowFact,
+    MemberBreadthMemberProjectionFact,
     MemberBreadthWindowRelationsFact,
     MemberMarketFact,
     MemberRelationFact,
@@ -178,6 +183,8 @@ class _FactQuery:
         self.fail = fail
         self.window_calls: list[dict] = []
         self.market_calls: list[dict] = []
+        self.details_window_calls: list[dict] = []
+        self.details_projection_calls: list[dict] = []
 
     def load_window_relations(self, _session, **kwargs):
         if self.fail:
@@ -230,6 +237,79 @@ class _FactQuery:
             for item in dates
             for stock_code in kwargs["stock_codes"]
         )
+
+    def load_details_window(self, _session, **kwargs):
+        if self.fail:
+            raise RuntimeError("sensitive sql details")
+        self.details_window_calls.append(kwargs)
+        open_dates = tuple(
+            kwargs["target_date"]
+            - timedelta(days=kwargs["open_date_count"] - index - 1)
+            for index in range(kwargs["open_date_count"])
+        )
+        relation_dates = open_dates[-kwargs["relation_date_count"] :]
+        return MemberBreadthDetailsWindowFact(
+            coverage_start_date=TARGET_DATE - timedelta(days=200),
+            coverage_end_date=kwargs["coverage_end_date"],
+            open_dates=open_dates,
+            relation_dates=relation_dates,
+            target_source_count=0 if self.empty_relations else 5,
+        )
+
+    def load_details_projection(self, _session, **kwargs):
+        if self.fail:
+            raise RuntimeError("sensitive sql details")
+        self.details_projection_calls.append(kwargs)
+        daily = tuple(
+            MemberBreadthDailyProjectionFact(
+                trade_date=item,
+                source_count=5,
+                member_calculable_count=5,
+                member_up_count=5,
+                member_flat_count=0,
+                member_down_count=0,
+                turnover_calculable_count=5,
+                turnover_up_count=5,
+                turnover_flat_count=0,
+                turnover_down_count=0,
+                turnover_up_amount=Decimal("500"),
+                turnover_flat_amount=Decimal(0),
+                turnover_down_amount=Decimal(0),
+                ma_calculable_count=5,
+                ma_above_count=0,
+                ma_equal_count=5,
+                ma_below_count=0,
+                member_source_reasons=(),
+                turnover_source_reasons=(),
+                ma_source_reasons=(),
+            )
+            for item in kwargs["relation_dates"]
+        )
+        members = tuple(
+            MemberBreadthMemberProjectionFact(
+                trade_date=kwargs["target_date"],
+                stock_code=f"01{index:04d}.SZ",
+                stock_name=f"股票{index}",
+                daily_pct_change=Decimal(1),
+                amount_thousand_yuan=Decimal(100),
+                current_adjusted_basis=Decimal(10),
+                rolling_adjusted_sum=Decimal(10) * kwargs["ma_period"],
+                rolling_slot_count=kwargs["ma_period"],
+                rolling_valid_count=kwargs["ma_period"],
+                source_reasons=(),
+            )
+            for index in range(1, 6)
+        )
+        return MemberBreadthDetailsProjectionFact(daily=daily, members=members)
+
+
+class _CaptureProjectionStatementSession:
+    def __init__(self) -> None:
+        self.sql: str | None = None
+
+    def execute(self, statement):
+        self.sql = str(statement.compile(dialect=postgresql.dialect()))
+        raise RuntimeError("statement captured")
 
 
 @pytest.mark.parametrize(
@@ -352,8 +432,9 @@ def test_details_use_119_day_window_and_keep_three_independent_compositions() ->
     )
 
     assert response.status == "READY"
-    assert fact_query.window_calls[0]["open_date_count"] == 119
-    assert fact_query.window_calls[0]["relation_date_count"] == 60
+    assert fact_query.details_window_calls[0]["open_date_count"] == 119
+    assert fact_query.details_window_calls[0]["relation_date_count"] == 60
+    assert fact_query.details_projection_calls[0]["ma_period"] == 60
     assert [item.metric for item in response.compositions] == [
         "MEMBER_COUNT",
         "TURNOVER",
@@ -373,6 +454,42 @@ def test_query_rejects_a_120_day_open_window_before_sql() -> None:
             open_date_count=120,
             relation_date_count=60,
         )
+
+    with pytest.raises(SectorSelectionInvalidError, match="1 到 119"):
+        SectorMemberBreadthQuery.load_details_window(
+            object(),  # type: ignore[arg-type]
+            target_date=TARGET_DATE,
+            coverage_end_date=TARGET_DATE,
+            hierarchy_sector_codes=("BK1001.DC",),
+            sector_code="BK1001.DC",
+            open_date_count=120,
+            relation_date_count=60,
+        )
+
+
+def test_details_projection_compiles_for_postgresql_without_a_dialect_branch() -> None:
+    session = _CaptureProjectionStatementSession()
+
+    with pytest.raises(RuntimeError, match="statement captured"):
+        SectorMemberBreadthQuery.load_details_projection(
+            session,  # type: ignore[arg-type]
+            sector_code="BK1001.DC",
+            target_date=TARGET_DATE,
+            open_dates=tuple(
+                TARGET_DATE - timedelta(days=19 - index) for index in range(20)
+            ),
+            relation_dates=tuple(
+                TARGET_DATE - timedelta(days=19 - index) for index in range(20)
+            ),
+            ma_period=20,
+        )
+
+    assert session.sql is not None
+    lowered = session.sql.lower()
+    assert "with" in lowered
+    assert "rows between" in lowered
+    assert "union all" in lowered
+    assert "sqlite" not in lowered
 
 
 def test_details_source_empty_and_query_failure_use_safe_local_shells() -> None:

@@ -1862,6 +1862,95 @@ def test_member_breadth_details_return_three_metrics_trend_and_members_in_four_s
     assert all(row["maRelation"] == "ABOVE" for row in payload["members"])
 
 
+def test_member_breadth_details_projection_preserves_independent_missing_reasons(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_member_breadth(db_session)
+    first = db_session.get(
+        EquityDailyBar,
+        {"ts_code": "060001.SZ", "trade_date": TARGET_DATE},
+    )
+    second = db_session.get(
+        EquityDailyBar,
+        {"ts_code": "060002.SZ", "trade_date": TARGET_DATE},
+    )
+    missing_market = db_session.get(
+        EquityDailyBar,
+        {"ts_code": "060003.SZ", "trade_date": TARGET_DATE},
+    )
+    negative_amount = db_session.get(
+        EquityDailyBar,
+        {"ts_code": "060005.SZ", "trade_date": TARGET_DATE},
+    )
+    missing_factor = db_session.get(
+        EquityAdjFactor,
+        {"ts_code": "060004.SZ", "trade_date": OPEN_DATES[-5]},
+    )
+    assert all(
+        item is not None
+        for item in (first, second, missing_market, negative_amount, missing_factor)
+    )
+    first.pct_chg = None
+    second.amount = None
+    negative_amount.amount = Decimal("-1")
+    db_session.delete(missing_market)
+    db_session.delete(missing_factor)
+    db_session.commit()
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/details",
+            params=_member_breadth_details_params(),
+        ),
+    )
+
+    assert response.status_code == 200
+    assert sql_count == 4
+    payload = response.json()
+    assert payload["status"] == "READY"
+    compositions = {item["metric"]: item for item in payload["compositions"]}
+    assert compositions["MEMBER_COUNT"]["calculableCount"] == 3
+    assert compositions["TURNOVER"]["calculableCount"] == 1
+    assert compositions["MA_POSITION"]["calculableCount"] == 3
+    assert compositions["MEMBER_COUNT"]["reasonCodes"] == [
+        "MARKET_ROW_MISSING",
+        "PCT_CHANGE_MISSING",
+        "MINIMUM_COUNT_NOT_MET",
+        "COVERAGE_NOT_MET",
+    ]
+    assert compositions["TURNOVER"]["reasonCodes"] == [
+        "MARKET_ROW_MISSING",
+        "PCT_CHANGE_MISSING",
+        "AMOUNT_MISSING",
+        "AMOUNT_NON_POSITIVE",
+        "MINIMUM_COUNT_NOT_MET",
+        "COVERAGE_NOT_MET",
+    ]
+    assert compositions["MA_POSITION"]["reasonCodes"] == [
+        "MARKET_ROW_MISSING",
+        "ADJ_FACTOR_MISSING",
+        "MA_HISTORY_INSUFFICIENT",
+        "MINIMUM_COUNT_NOT_MET",
+        "COVERAGE_NOT_MET",
+    ]
+    members = {item["stockCode"]: item for item in payload["members"]}
+    assert members["060001.SZ"]["dailyPctChg"] is None
+    assert members["060001.SZ"]["amountThousandYuan"] == 100.0
+    assert members["060002.SZ"]["amountThousandYuan"] is None
+    assert members["060003.SZ"]["reasonCodes"] == [
+        "MARKET_ROW_MISSING",
+        "MA_HISTORY_INSUFFICIENT",
+    ]
+    assert members["060004.SZ"]["reasonCodes"] == [
+        "ADJ_FACTOR_MISSING",
+        "MA_HISTORY_INSUFFICIENT",
+    ]
+    assert members["060005.SZ"]["reasonCodes"] == ["AMOUNT_NON_POSITIVE"]
+
+
 def test_member_breadth_version_mismatch_stops_after_hierarchy_read(
     app_client,
     db_session,

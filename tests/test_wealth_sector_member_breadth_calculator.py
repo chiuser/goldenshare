@@ -12,6 +12,11 @@ from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_calcul
 )
 from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contract import (
     MemberBreadthDetailsFact,
+    MemberBreadthDailyProjectionFact,
+    MemberBreadthDetailsProjectionFact,
+    MemberBreadthDetailsWindowFact,
+    MemberBreadthMemberFact,
+    MemberBreadthMemberProjectionFact,
     MemberBreadthRankFact,
     MemberBreadthTrendPointFact,
     MemberMarketFact,
@@ -213,7 +218,8 @@ def _legacy_build_details(
     target_relations = tuple(
         row for row in relation_rows if row.trade_date == target_date
     )
-    members = calculator._build_members(
+    members = _legacy_build_members(
+        calculator,
         target_date=target_date,
         direction=direction,
         ma_period=ma_period,
@@ -228,13 +234,243 @@ def _legacy_build_details(
     )
 
 
+def _legacy_build_members(
+    calculator: SectorMemberBreadthCalculator,
+    *,
+    target_date: date,
+    direction: SectorMemberBreadthDirection,
+    ma_period: SectorMemberBreadthMaPeriod,
+    open_dates: tuple[date, ...],
+    relations: tuple[MemberRelationFact, ...],
+    market_index: dict[tuple[str, date], MemberMarketFact],
+) -> tuple[MemberBreadthMemberFact, ...]:
+    amount_rows = {
+        relation.stock_code: market.amount_thousand_yuan
+        for relation in relations
+        if (market := market_index.get((relation.stock_code, target_date))) is not None
+        and _finite(market.pct_change)
+        and _finite(market.amount_thousand_yuan)
+        and market.amount_thousand_yuan >= 0
+    }
+    total_amount = sum(amount_rows.values(), Decimal(0))
+    members: list[MemberBreadthMemberFact] = []
+    for relation in relations:
+        market = market_index.get((relation.stock_code, target_date))
+        reasons = set()
+        if market is None:
+            reasons.add("MARKET_ROW_MISSING")
+            daily_pct = None
+            amount = None
+        else:
+            daily_pct = market.pct_change if _finite(market.pct_change) else None
+            amount = (
+                market.amount_thousand_yuan
+                if _finite(market.amount_thousand_yuan)
+                and market.amount_thousand_yuan >= 0
+                else None
+            )
+            if daily_pct is None:
+                reasons.add("PCT_CHANGE_MISSING")
+            if not _finite(market.amount_thousand_yuan):
+                reasons.add("AMOUNT_MISSING")
+            elif market.amount_thousand_yuan < 0:
+                reasons.add("AMOUNT_NON_POSITIVE")
+        contribution = (
+            amount_rows[relation.stock_code] / total_amount * Decimal(100)
+            if relation.stock_code in amount_rows and total_amount > 0
+            else None
+        )
+        ma_relation, ma_distance, ma_reasons = calculator._calculate_ma_member(
+            stock_code=relation.stock_code,
+            target_date=target_date,
+            market_index=market_index,
+            open_dates=open_dates,
+            ma_period=ma_period,
+        )
+        reasons.update(ma_reasons)
+        members.append(
+            MemberBreadthMemberFact(
+                stock_code=relation.stock_code,
+                stock_name=relation.stock_name,
+                daily_pct_change=daily_pct,
+                amount_thousand_yuan=amount,
+                amount_contribution_pct=contribution,
+                ma_relation=ma_relation,
+                ma_distance_pct=ma_distance,
+                reason_codes=tuple(
+                    reason
+                    for reason in (
+                        "SOURCE_MEMBER_EMPTY",
+                        "MARKET_ROW_MISSING",
+                        "PCT_CHANGE_MISSING",
+                        "AMOUNT_MISSING",
+                        "AMOUNT_NON_POSITIVE",
+                        "ADJ_FACTOR_MISSING",
+                        "ADJ_FACTOR_NON_POSITIVE",
+                        "MA_HISTORY_INSUFFICIENT",
+                        "MINIMUM_COUNT_NOT_MET",
+                        "COVERAGE_NOT_MET",
+                    )
+                    if reason in reasons
+                ),
+            )
+        )
+    members.sort(
+        key=lambda row: (
+            row.daily_pct_change is None,
+            Decimal(0)
+            if row.daily_pct_change is None
+            else -row.daily_pct_change
+            if direction == "UP"
+            else row.daily_pct_change,
+            row.amount_thousand_yuan is None,
+            Decimal(0)
+            if row.amount_thousand_yuan is None
+            else -row.amount_thousand_yuan,
+            row.stock_code,
+        )
+    )
+    return tuple(members)
+
+
+def _project_details_inputs(
+    calculator: SectorMemberBreadthCalculator,
+    *,
+    target_date: date,
+    ma_period: SectorMemberBreadthMaPeriod,
+    open_dates: tuple[date, ...],
+    relation_dates: tuple[date, ...],
+    relations: tuple[MemberRelationFact, ...],
+    market_facts: tuple[MemberMarketFact, ...],
+    expected: MemberBreadthDetailsFact,
+) -> tuple[MemberBreadthDetailsWindowFact, MemberBreadthDetailsProjectionFact]:
+    market_index = calculator.index_market_facts(market_facts)
+    relations_by_date = {
+        item: tuple(row for row in relations if row.trade_date == item)
+        for item in relation_dates
+    }
+    daily: list[MemberBreadthDailyProjectionFact] = []
+    for item, trend_point in zip(relation_dates, expected.trend, strict=True):
+        compositions = tuple(
+            calculator.calculate_composition(
+                metric=metric,
+                target_date=item,
+                relations=relations_by_date[item],
+                market_facts=market_facts,
+                open_dates=tuple(day for day in open_dates if day <= item),
+                ma_period=ma_period,
+            )
+            for metric in ("MEMBER_COUNT", "TURNOVER", "MA_POSITION")
+        )
+        amount_sums = [Decimal(0), Decimal(0), Decimal(0)]
+        for relation in relations_by_date[item]:
+            market = market_index.get((relation.stock_code, item))
+            if (
+                market is None
+                or not _finite(market.pct_change)
+                or not _finite(market.amount_thousand_yuan)
+                or market.amount_thousand_yuan < 0
+            ):
+                continue
+            bucket = 0 if market.pct_change > 0 else 2 if market.pct_change < 0 else 1
+            amount_sums[bucket] += market.amount_thousand_yuan
+        daily.append(
+            MemberBreadthDailyProjectionFact(
+                trade_date=item,
+                source_count=compositions[0].coverage.source_count,
+                member_calculable_count=compositions[0].coverage.calculable_count,
+                member_up_count=compositions[0].up_count,
+                member_flat_count=compositions[0].flat_count,
+                member_down_count=compositions[0].down_count,
+                turnover_calculable_count=compositions[1].coverage.calculable_count,
+                turnover_up_count=compositions[1].up_count,
+                turnover_flat_count=compositions[1].flat_count,
+                turnover_down_count=compositions[1].down_count,
+                turnover_up_amount=amount_sums[0],
+                turnover_flat_amount=amount_sums[1],
+                turnover_down_amount=amount_sums[2],
+                ma_calculable_count=compositions[2].coverage.calculable_count,
+                ma_above_count=compositions[2].up_count,
+                ma_equal_count=compositions[2].flat_count,
+                ma_below_count=compositions[2].down_count,
+                member_source_reasons=trend_point.member_reason_codes,
+                turnover_source_reasons=trend_point.turnover_reason_codes,
+                ma_source_reasons=trend_point.ma_position_reason_codes,
+            )
+        )
+    expected_members = {item.stock_code: item for item in expected.members}
+    members: list[MemberBreadthMemberProjectionFact] = []
+    target_relations = relations_by_date[target_date]
+    for relation in target_relations:
+        market = market_index.get((relation.stock_code, target_date))
+        window_dates = tuple(item for item in open_dates if item <= target_date)[
+            -ma_period:
+        ]
+        adjusted_values = []
+        for item in window_dates:
+            row = market_index.get((relation.stock_code, item))
+            if (
+                row is not None
+                and _finite(row.close)
+                and row.close > 0
+                and _finite(row.adj_factor)
+                and row.adj_factor > 0
+            ):
+                adjusted_values.append(row.close * row.adj_factor)
+        members.append(
+            MemberBreadthMemberProjectionFact(
+                trade_date=target_date,
+                stock_code=relation.stock_code,
+                stock_name=relation.stock_name,
+                daily_pct_change=(
+                    market.pct_change
+                    if market is not None and _finite(market.pct_change)
+                    else None
+                ),
+                amount_thousand_yuan=(
+                    market.amount_thousand_yuan
+                    if market is not None
+                    and _finite(market.amount_thousand_yuan)
+                    and market.amount_thousand_yuan >= 0
+                    else None
+                ),
+                current_adjusted_basis=(
+                    adjusted_values[-1]
+                    if len(adjusted_values) == ma_period
+                    else None
+                ),
+                rolling_adjusted_sum=(
+                    sum(adjusted_values, Decimal(0)) if adjusted_values else None
+                ),
+                rolling_slot_count=len(window_dates),
+                rolling_valid_count=len(adjusted_values),
+                source_reasons=expected_members[relation.stock_code].reason_codes,
+            )
+        )
+    window = MemberBreadthDetailsWindowFact(
+        coverage_start_date=open_dates[0],
+        coverage_end_date=target_date,
+        open_dates=open_dates,
+        relation_dates=relation_dates,
+        target_source_count=len(target_relations),
+    )
+    return window, MemberBreadthDetailsProjectionFact(
+        daily=tuple(daily),
+        members=tuple(members),
+    )
+
+
+def _finite(value: Decimal | None) -> bool:
+    return value is not None and value.is_finite()
+
+
 def _equivalence_facts() -> tuple[
     tuple[str, ...],
     tuple[date, ...],
     tuple[MemberRelationFact, ...],
     tuple[MemberMarketFact, ...],
 ]:
-    open_dates = _open_dates(60)
+    open_dates = _open_dates(119)
     sector_codes = tuple(f"BK2{index:03d}.DC" for index in range(1, 5))
     relations = tuple(
         MemberRelationFact(
@@ -244,7 +480,7 @@ def _equivalence_facts() -> tuple[
             stock_name=f"股票{sector_index}-{member_index}",
         )
         for sector_index, sector_code in enumerate(sector_codes, start=1)
-        for trade_date in open_dates[-20:]
+        for trade_date in open_dates[-60:]
         for member_index in range(1, 7)
     )
     market_facts = tuple(
@@ -521,7 +757,8 @@ def test_details_sort_members_and_use_one_turnover_denominator() -> None:
         for item in dates
     )
 
-    details = calculator.build_details(
+    expected = _legacy_build_details(
+        calculator,
         sector_code="BK1001.DC",
         target_date=TARGET_DATE,
         direction="UP",
@@ -530,6 +767,23 @@ def test_details_sort_members_and_use_one_turnover_denominator() -> None:
         relation_dates=(TARGET_DATE,),
         relations=relations,
         market_facts=facts,
+    )
+    window, projection = _project_details_inputs(
+        calculator,
+        target_date=TARGET_DATE,
+        ma_period=5,
+        open_dates=dates,
+        relation_dates=(TARGET_DATE,),
+        relations=relations,
+        market_facts=facts,
+        expected=expected,
+    )
+    details = calculator.build_details(
+        target_date=TARGET_DATE,
+        direction="UP",
+        ma_period=5,
+        window=window,
+        projection=projection,
     )
 
     assert [row.stock_code for row in details.members] == [
@@ -558,7 +812,8 @@ def test_future_market_and_members_do_not_change_past_details() -> None:
         for relation in relations
         for index, item in enumerate(dates)
     )
-    baseline = calculator.build_details(
+    baseline_expected = _legacy_build_details(
+        calculator,
         sector_code="BK1001.DC",
         target_date=TARGET_DATE,
         direction="UP",
@@ -568,31 +823,66 @@ def test_future_market_and_members_do_not_change_past_details() -> None:
         relations=relations,
         market_facts=facts,
     )
+    baseline_window, baseline_projection = _project_details_inputs(
+        calculator,
+        target_date=TARGET_DATE,
+        ma_period=5,
+        open_dates=dates,
+        relation_dates=(TARGET_DATE,),
+        relations=relations,
+        market_facts=facts,
+        expected=baseline_expected,
+    )
+    baseline = calculator.build_details(
+        target_date=TARGET_DATE,
+        direction="UP",
+        ma_period=5,
+        window=baseline_window,
+        projection=baseline_projection,
+    )
     future_date = TARGET_DATE + timedelta(days=1)
-    perturbed = calculator.build_details(
+    perturbed_relations = relations + (
+        MemberRelationFact(
+            sector_code="BK1001.DC",
+            trade_date=future_date,
+            stock_code="999999.SZ",
+            stock_name="未来股票",
+        ),
+    )
+    perturbed_facts = facts + (
+        _market(
+            stock_code="999999.SZ",
+            trade_date=future_date,
+            close="9999",
+        ),
+    )
+    perturbed_expected = _legacy_build_details(
+        calculator,
         sector_code="BK1001.DC",
         target_date=TARGET_DATE,
         direction="UP",
         ma_period=5,
         open_dates=dates,
         relation_dates=(TARGET_DATE,),
-        relations=relations
-        + (
-            MemberRelationFact(
-                sector_code="BK1001.DC",
-                trade_date=future_date,
-                stock_code="999999.SZ",
-                stock_name="未来股票",
-            ),
-        ),
-        market_facts=facts
-        + (
-            _market(
-                stock_code="999999.SZ",
-                trade_date=future_date,
-                close="9999",
-            ),
-        ),
+        relations=perturbed_relations,
+        market_facts=perturbed_facts,
+    )
+    perturbed_window, perturbed_projection = _project_details_inputs(
+        calculator,
+        target_date=TARGET_DATE,
+        ma_period=5,
+        open_dates=dates,
+        relation_dates=(TARGET_DATE,),
+        relations=perturbed_relations,
+        market_facts=perturbed_facts,
+        expected=perturbed_expected,
+    )
+    perturbed = calculator.build_details(
+        target_date=TARGET_DATE,
+        direction="UP",
+        ma_period=5,
+        window=perturbed_window,
+        projection=perturbed_projection,
     )
 
     assert perturbed == baseline
@@ -642,13 +932,15 @@ def test_rankings_match_legacy_oracle_for_the_full_metric_matrix(
 
 @pytest.mark.parametrize("direction", ["UP", "DOWN"])
 @pytest.mark.parametrize("ma_period", [5, 10, 15, 20, 30, 60])
+@pytest.mark.parametrize("history_range", [20, 30, 60])
 def test_details_match_legacy_oracle_for_every_direction_and_ma_period(
     direction: SectorMemberBreadthDirection,
     ma_period: SectorMemberBreadthMaPeriod,
+    history_range: int,
 ) -> None:
     sector_codes, open_dates, relations, market_facts = _equivalence_facts()
     calculator = SectorMemberBreadthCalculator()
-    relation_dates = open_dates[-20:]
+    relation_dates = open_dates[-history_range:]
 
     expected = _legacy_build_details(
         calculator,
@@ -661,15 +953,24 @@ def test_details_match_legacy_oracle_for_every_direction_and_ma_period(
         relations=relations,
         market_facts=market_facts,
     )
-    actual = calculator.build_details(
-        sector_code=sector_codes[0],
+    window, projection = _project_details_inputs(
+        calculator,
         target_date=TARGET_DATE,
-        direction=direction,
         ma_period=ma_period,
         open_dates=open_dates,
         relation_dates=relation_dates,
-        relations=relations,
+        relations=tuple(
+            row for row in relations if row.sector_code == sector_codes[0]
+        ),
         market_facts=market_facts,
+        expected=expected,
+    )
+    actual = calculator.build_details(
+        target_date=TARGET_DATE,
+        direction=direction,
+        ma_period=ma_period,
+        window=window,
+        projection=projection,
     )
 
     assert actual == expected
@@ -725,48 +1026,79 @@ def test_realistic_level3_ma60_rankings_build_one_market_index() -> None:
     assert elapsed_seconds < 2
 
 
-def test_realistic_largest_details_build_one_market_index() -> None:
-    calculator = _IndexCountingCalculator()
+def test_realistic_largest_details_projection_stays_under_internal_budget() -> None:
+    calculator = SectorMemberBreadthCalculator()
     open_dates = _open_dates(119)
     relation_dates = open_dates[-60:]
     stock_codes = tuple(f"L{index:06d}.SZ" for index in range(625))
-    relations = tuple(
-        MemberRelationFact(
-            sector_code="BK1205.DC",
+    daily = tuple(
+        MemberBreadthDailyProjectionFact(
             trade_date=trade_date,
-            stock_code=stock_code,
-            stock_name=None,
+            source_count=625,
+            member_calculable_count=625,
+            member_up_count=625,
+            member_flat_count=0,
+            member_down_count=0,
+            turnover_calculable_count=625,
+            turnover_up_count=625,
+            turnover_flat_count=0,
+            turnover_down_count=0,
+            turnover_up_amount=Decimal("62500"),
+            turnover_flat_amount=Decimal(0),
+            turnover_down_amount=Decimal(0),
+            ma_calculable_count=625,
+            ma_above_count=0,
+            ma_equal_count=625,
+            ma_below_count=0,
+            member_source_reasons=(),
+            turnover_source_reasons=(),
+            ma_source_reasons=(),
         )
         for trade_date in relation_dates
-        for stock_code in stock_codes
     )
-    market_facts = tuple(
-        _market(
+    members = tuple(
+        MemberBreadthMemberProjectionFact(
+            trade_date=TARGET_DATE,
             stock_code=stock_code,
-            trade_date=trade_date,
-            close=str(10 + day_index),
+            stock_name=None,
+            daily_pct_change=Decimal(1),
+            amount_thousand_yuan=Decimal(100),
+            current_adjusted_basis=Decimal(10),
+            rolling_adjusted_sum=Decimal(600),
+            rolling_slot_count=60,
+            rolling_valid_count=60,
+            source_reasons=(),
         )
         for stock_code in stock_codes
-        for day_index, trade_date in enumerate(open_dates)
     )
-
-    started_at = perf_counter()
-    details = calculator.build_details(
-        sector_code="BK1205.DC",
-        target_date=TARGET_DATE,
-        direction="UP",
-        ma_period=60,
+    window = MemberBreadthDetailsWindowFact(
+        coverage_start_date=open_dates[0],
+        coverage_end_date=TARGET_DATE,
         open_dates=open_dates,
         relation_dates=relation_dates,
-        relations=relations,
-        market_facts=market_facts,
+        target_source_count=625,
     )
-    elapsed_seconds = perf_counter() - started_at
+    projection = MemberBreadthDetailsProjectionFact(daily=daily, members=members)
 
+    elapsed_samples = []
+    details = None
+    for _ in range(20):
+        started_at = perf_counter()
+        details = calculator.build_details(
+            target_date=TARGET_DATE,
+            direction="UP",
+            ma_period=60,
+            window=window,
+            projection=projection,
+        )
+        elapsed_samples.append(perf_counter() - started_at)
+    p95_seconds = sorted(elapsed_samples)[18]
+
+    assert details is not None
     assert len(details.members) == 625
     assert len(details.trend) == 60
-    assert calculator.market_index_build_count == 1
-    assert elapsed_seconds < 2
+    assert len(projection.daily) + len(projection.members) == 685
+    assert p95_seconds < 0.2
 
 
 def test_member_breadth_parsers_reject_unapproved_values() -> None:

@@ -24,6 +24,7 @@ import type {
 } from "./sectorMemberBreadthTypes";
 
 const FETCH_TIMEOUT_MS = 5000;
+const DETAILS_FETCH_TIMEOUT_MS = 10_000;
 type NavigateSearch = (search: string, options?: { replace?: boolean }) => void;
 interface Input { enabled: boolean; search: string; onNavigateSearch: NavigateSearch; }
 type MetaState = { kind: "idle" | "loading" } | { kind: "ready"; key: string; data: SectorMemberBreadthMetaViewModel } | { kind: "error"; message: string; retryable: boolean };
@@ -111,7 +112,7 @@ export function useSectorMemberBreadthController({ enabled, search, onNavigateSe
     if (!enabled || !detailsRequest) { detailsId.current += 1; if (!selectedCode) setDetailsState({ kind: "idle" }); return; }
     if (acceptedDetailsKey.current === detailsKey) return;
     const request = detailsRequest; const key = detailsKey; const requestId = ++detailsId.current; const abort = new AbortController(); let timedOut = false;
-    const timer = window.setTimeout(() => { timedOut = true; abort.abort(); }, FETCH_TIMEOUT_MS);
+    const timer = window.setTimeout(() => { timedOut = true; abort.abort(); }, DETAILS_FETCH_TIMEOUT_MS);
     setDetailsState((current) => current.kind === "ready" ? { ...current, pending: true } : { kind: "loading" });
     fetchSectorMemberBreadthDetails(request, { signal: abort.signal }).then((payload) => {
       if (detailsId.current !== requestId || activeDetailsKey.current !== key) return;

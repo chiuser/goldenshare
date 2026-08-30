@@ -136,6 +136,59 @@ class MemberBreadthWindowRelationsFact:
 
 
 @dataclass(frozen=True, slots=True)
+class MemberBreadthDetailsWindowFact:
+    coverage_start_date: date
+    coverage_end_date: date
+    open_dates: tuple[date, ...]
+    relation_dates: tuple[date, ...]
+    target_source_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class MemberBreadthDailyProjectionFact:
+    trade_date: date
+    source_count: int
+    member_calculable_count: int
+    member_up_count: int
+    member_flat_count: int
+    member_down_count: int
+    turnover_calculable_count: int
+    turnover_up_count: int
+    turnover_flat_count: int
+    turnover_down_count: int
+    turnover_up_amount: Decimal
+    turnover_flat_amount: Decimal
+    turnover_down_amount: Decimal
+    ma_calculable_count: int
+    ma_above_count: int
+    ma_equal_count: int
+    ma_below_count: int
+    member_source_reasons: tuple[SectorMemberBreadthReason, ...]
+    turnover_source_reasons: tuple[SectorMemberBreadthReason, ...]
+    ma_source_reasons: tuple[SectorMemberBreadthReason, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MemberBreadthMemberProjectionFact:
+    trade_date: date
+    stock_code: str
+    stock_name: str | None
+    daily_pct_change: Decimal | None
+    amount_thousand_yuan: Decimal | None
+    current_adjusted_basis: Decimal | None
+    rolling_adjusted_sum: Decimal | None
+    rolling_slot_count: int
+    rolling_valid_count: int
+    source_reasons: tuple[SectorMemberBreadthReason, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MemberBreadthDetailsProjectionFact:
+    daily: tuple[MemberBreadthDailyProjectionFact, ...]
+    members: tuple[MemberBreadthMemberProjectionFact, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class MetricCoverageFact:
     source_count: int
     calculable_count: int

@@ -453,3 +453,31 @@ def test_member_breadth_adds_only_the_three_frozen_read_only_routes() -> None:
     assert '"/member-breadth/rankings"' in api_source
     assert '"/member-breadth/details"' in api_source
     assert '@router.post(\n    "/member-breadth/' not in api_source
+
+
+def test_member_breadth_details_uses_one_projection_path_without_degradation() -> None:
+    query_source = MEMBER_BREADTH_BACKEND_PATHS[0].read_text(encoding="utf-8")
+    service_source = MEMBER_BREADTH_BACKEND_PATHS[1].read_text(encoding="utf-8")
+    calculator_source = MEMBER_BREADTH_BACKEND_PATHS[3].read_text(encoding="utf-8")
+
+    assert "def load_details_window(" in query_source
+    assert "def load_details_projection(" in query_source
+    assert "union_all(daily_rows, member_rows)" in query_source
+    assert 'literal("DAY")' in query_source
+    assert 'literal("MEMBER")' in query_source
+    assert "session.bind.dialect" not in query_source
+    assert "from_statement(" not in query_source
+    assert "def _build_members(" not in calculator_source
+    assert "load_details_projection(" in service_source
+
+    forbidden_degradation_tokens = (
+        ".limit(625)",
+        "top_n",
+        "sample(",
+        "history_range = 20",
+        "redis",
+    )
+    assert not any(
+        token in (query_source + service_source + calculator_source).lower()
+        for token in forbidden_degradation_tokens
+    )
