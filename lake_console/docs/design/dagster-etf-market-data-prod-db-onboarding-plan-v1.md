@@ -1,6 +1,6 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：架构口径已收敛；P0-P3 已完成；P4 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
+状态：架构口径已收敛；P0-P4 已完成；P5 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
 创建日期：2026-08-27
 最近更新：2026-08-30
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
@@ -628,6 +628,8 @@ tushare_request_count / page_count / quota_impact
 
 实现 P0 已验证查询形状对应的单日/最多 10 日共用 batch coverage evaluator、只读显式列 SQL、六类 Basic 集合、五频代码 coverage/reference 纯合同、单次批量明细 relation 的本地传输对账和 Raw 前稳定 validator，并在本阶段用 fake 正反样本验证 `list_date`、五频缺失、有界样本、10 日上限和单次 coverage SQL 调用；不实现 Raw asset 或 Sensor，不读取 TaskRun，不做导出前后 fingerprint，也不在 Prod 做分钟网格深审计。
 
+已完成：已落地 Prod 单表显式 11 字段明细 SQL、只读 DuckDB attach、1-10 日共用的单次参数化 coverage evaluator、五频全绿小引用、冻结 Basic/coverage 的无 Prod 重查复核，以及 source/candidate 传输、稳定合同和六类 Basic 集合的本地 DuckDB validator。fake 证明单日和 10 日都只执行一条 coverage SQL，逐日 expected 会随 `list_date` 变化，五频缺失会 fail-closed，缺失样本最多 20 个，超过 10 日在连接 Prod 前拒绝。validator 只阻断传输、字段/主键/日期/频率/exchange 和 `unexplained_new`；`missing`、数值域和 grid gap 只作为 N3 诊断，全部继续保持 `unclassified`、不得进入 Silver。P4 没有新增 Asset、Job、Sensor 或写入口，也没有访问 Prod、正式 Lake 或正式 Dagster instance。
+
 ### P5：分钟 Raw writer 与稳定 validator 集成
 
 把 P4 的 validator 集成进五频共享 writer，实现 staging、候选回读、新增/等价复用/冲突停止和 metadata；本阶段测试每个 Raw writer 只执行一次明细查询、不重查 coverage/fingerprint，五频合计最多五条明细查询；不启用 Sensor，不写正式 Lake。
@@ -696,7 +698,7 @@ tushare_request_count / page_count / quota_impact
 
 ### 16.2 后续阶段仍需管理员拍板
 
-当前没有需要立即补充拍板的架构口径。P0-P3 已经获准并完成；P4 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
+当前没有需要立即补充拍板的架构口径。P0-P4 已经获准并完成；P5 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |

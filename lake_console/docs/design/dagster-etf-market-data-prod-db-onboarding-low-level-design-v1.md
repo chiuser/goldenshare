@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P3 已完成；P4 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P4 已完成；P5 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。P0-P3 已经获准并完成；P4 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。P0-P4 已经获准并完成；P5 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -1893,13 +1893,19 @@ tests/test_etf_mins_pre2026_protection.py
 
 latest-only selector 对 Raw/Silver 各有界读取一条最新 materialization，每项 blocking check 只读取一条最新终态记录并要求精确绑定当前 materialization；内部 storage id 不进入 reference、run config 或 metadata。两层各自 `observed_at` 必须与 `eligibility_as_of` 同属上海自然日，Silver 必须绑定最新 Raw hash，两个文件的路径和内容 hash 必须回读复算；任一失败都 fail-closed，不按目录、mtime 或旧成功记录回退。测试覆盖 Raw/Silver 任一不新鲜、任一层最新 check 失败、最新 Raw 已变化但 Silver 未跟上，以及 `required_freshness_date != eligibility_as_of`。
 
-真实临时验收：2026-08-30 使用实际 Tushare 快照在 `/private/tmp` 完成 Raw→Silver 闭环，Raw 1,829 行、Silver 1,826 行、精确过滤 3 条 `.OF`；Silver 后缀 `SH=1033/SZ=793`，状态 `D=127/L=1657/P=42`。Raw hash `1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44` 与 Silver hash `256ad66925266b54c25234c66acde45c9ffbf9e83ebc539a632c1625a52d9166` 均已从 Parquet 回读复算。临时目录已清理；未写正式 Lake、正式 Dagster instance 或 Prod DB，未实现 P4 或 P10。正式 Definitions 加载通过，orchestrator 全量回归为 2,357 passed、833 subtests passed。
+真实临时验收：2026-08-30 使用实际 Tushare 快照在 `/private/tmp` 完成 Raw→Silver 闭环，Raw 1,829 行、Silver 1,826 行、精确过滤 3 条 `.OF`；Silver 后缀 `SH=1033/SZ=793`，状态 `D=127/L=1657/P=42`。Raw hash `1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44` 与 Silver hash `256ad66925266b54c25234c66acde45c9ffbf9e83ebc539a632c1625a52d9166` 均已从 Parquet 回读复算。临时目录已清理；该次 P3 验收未写正式 Lake、正式 Dagster instance 或 Prod DB，P4 的实现结果见下一节，P10 仍未实现。正式 Definitions 加载通过，orchestrator 全量回归为 2,357 passed、833 subtests passed。
 
 ### P4：Prod Raw 物理覆盖、SQL 和稳定 Raw validator
 
 实现 P0 已验证查询形状对应的单日/最多 10 日共用 batch coverage evaluator、只读单表 allowlist、纯 SQL builder、供 Sensor 使用的单次五频代码 coverage/reference、单次明细 relation 的本地传输对账、六类集合 SQL，以及只阻断传输/合同/身份污染的 Raw validator。网格只生成诊断，不在本切片先写 blocking 结论；Sensor 本身仍到 P10 才实现。
 
 完成条件：fake 正反样本证明同一 evaluator 同时支持单日和最多 10 日、逐日按 `list_date` 计算 expected、五频缺失返回 not-ready、缺失样本有界、输入超过 10 日拒绝且整个调用只执行 1 条 coverage SQL；其余测试证明 SQL 无 Basic 代码过滤、无日期×频率 N+1、无任何 `ops.*`，validator 对 `unexplained_new` 阻断，对 `missing/grid` 只记录历史 Raw 诊断且不准入 Silver。Raw asset 到 P5、Sensor 到 P10 才实现。
+
+执行结果：已新增 `defs/prod_db/etf_mins.py`、`defs/asset_guards/etf_mins_prod_readiness.py` 和 `defs/asset_guards/etf_mins_lake_readiness.py`，并扩展 `run_contracts/etf_mins.py`。Prod 明细 SQL 只投影 `raw_tushare.etf_minute_bar` 的 11 个字段，按单频和半开时间区间读取，不带 Basic 代码过滤；DuckDB attach 固定 `TYPE POSTGRES, READ_ONLY`。同一 coverage evaluator 接收 1-10 个日期，使用一次参数化 SQL 返回最多 50 个 `trade_date + freq` 结果，逐日按 `list_date <= trade_date` 计算 expected，缺失样本固定最多 20 个；超过 10 日在打开 Prod 连接前拒绝。
+
+五频全绿后生成的小型 `EtfMinsProdCoverageReference` 只绑定日期、Basic fingerprint、expected count/hash、五频计数、观测时间和自身 fingerprint，不携带代码全集、SQL 或 storage id；Raw 侧只做纯本地复核，不重新查询 Prod。稳定 Raw validator 在同一个 DuckDB connection 中对 source/candidate 做 11 字段 schema、双向 `EXCEPT ALL`、行数、主键、日期、频率、exchange 和六类 Basic 集合对账；`unexplained_new`、传输或稳定合同错误阻断，`missing`、价格/成交量、宽边界时间和相邻 bar gap 只记录为 N3 诊断。所有结果继续保持 `policy_state=unclassified`、`silver_eligible=false`，没有提前冻结 N3B。
+
+验收：P4 与相关 ETF/治理/股票分钟复用回归共 188 passed、585 subtests passed；orchestrator 全量回归为 2,380 passed、833 subtests passed；Ruff 和 `git diff --check` 通过。没有访问 Prod、正式 Lake 或正式 Dagster instance，没有新增 Asset、Job、Sensor、Bootstrap CLI，也没有执行任何正式 Dagster 命令。
 
 ### P5：分钟 Raw writer 与稳定 validator 集成
 
