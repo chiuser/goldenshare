@@ -89,6 +89,17 @@ def test_frequency_date_and_exchange_contracts_are_centralized() -> None:
         expected_etf_mins_source_exchange("920001.BJ")
 
 
+def test_raw_validator_consumes_the_single_exchange_mapping() -> None:
+    validator_source = (
+        Path(__file__).parents[1]
+        / "src/orchestrator/defs/asset_guards/etf_mins_lake_readiness.py"
+    ).read_text()
+
+    assert "ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX" in validator_source
+    assert "'XSHG'" not in validator_source
+    assert "'XSHE'" not in validator_source
+
+
 def test_operational_constants_match_the_approved_lld() -> None:
     assert ETF_MINS_SENSOR_WINDOW_LIMIT == 10
     assert ETF_MINS_BOOTSTRAP_BATCH_TRADE_DAY_LIMIT == 20

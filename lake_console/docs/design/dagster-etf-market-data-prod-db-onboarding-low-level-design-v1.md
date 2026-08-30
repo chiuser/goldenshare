@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P4 已完成；P5 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P5 已完成；P6 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。P0-P4 已经获准并完成；P5 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。P0-P5 已经获准并完成；P6 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -1912,6 +1912,12 @@ latest-only selector 对 Raw/Silver 各有界读取一条最新 materialization�
 实现五频共享 writer、staging、稳定候选 validator、冲突停止和元数据 helper，暂不把未知网格口径注册成正式 blocking check，也不启用日常 Definitions。
 
 完成条件：临时湖 + fake/read-only source 样本通过；每个 Raw writer 只执行一次明细查询、不执行 coverage/fingerprint 查询，五频调用合计最多五条明细 SQL；`missing/grid` 被记录但不阻断 Raw，`unexplained_new` 和传输/合同错误阻断；未启用 Sensor，未写正式 Lake。
+
+执行结果：已新增尚未注册到 Definitions 的 `defs/assets/etf_mins.py`，提供 `write_raw_etf_mins_partition_from_prod_db(...)`、`EtfMinsRawWriteResult` 和 `build_etf_mins_raw_materialization_metadata(...)`。writer 先按 content-addressed 路径回读冻结 Basic Raw/Silver，复算两层 hash、请求集合 count/hash，并在存在日常 coverage reference 时只做本地引用复核；随后复用 P4 的显式列 SQL、只读 attach 和稳定 validator，在一个 DuckDB connection 中完成一条单频明细查询、staging Parquet、`hive_partitioning=false` 回读、source/candidate 双向 `EXCEPT ALL`、六类集合和目标内容比较。正式目标不存在时只允许 `os.replace()` 新增，语义相同只复用，任何内容冲突停止且保留候选；成功后记录正式文件 SHA-256，失败不会触碰已有正式文件。
+
+P5 同时保留了已确认的两种调用语义：日常调用必须携带全绿 coverage reference，若单次明细结果为零或仍缺 expected code，则以 reference/candidate 自相矛盾停止且不重查 Prod；历史调用不带该引用，`missing`、grid gap、数值域诊断和 schema 正确的显式零行文件均可落 Raw，但结果固定为 `policy_state=unclassified`、`silver_eligible=false`。P5 开工时还修正了 P4 validator 手写第二份 `XSHG/XSHE` 的偏差；validator 现只消费集中映射，并有静态测试阻止重复映射回流。
+
+验收：临时湖 + fake/read-only source 证明五频合计恰好 5 条明细 SQL、每个 writer `query_count=1`，没有 coverage/fingerprint 第二次查询；正反样本覆盖 Basic 文件漂移在查询前停止、staging 回读损坏、传输/身份阻断、`unexplained_new`、等价复用、冲突停止、历史 `missing/grid` 和显式零行 Raw。专项与治理回归为 229 passed、432 subtests passed；orchestrator 全量回归为 2,388 passed、833 subtests passed；Ruff 通过。没有新增 active Asset/Check/Job/Sensor/Bootstrap CLI 或配置项，没有访问 Prod、正式 Lake 或正式 Dagster instance，也没有执行任何 Dagster 命令。
 
 ### P6：Bootstrap plan 与 Raw apply
 

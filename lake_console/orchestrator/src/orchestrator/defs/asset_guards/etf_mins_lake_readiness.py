@@ -6,9 +6,11 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.run_contracts.asset_column_schemas import RAW_ETF_MINS_SCHEMA
 from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT,
+    ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX,
     asset_freq_for_etf_mins_source_freq,
     normalize_etf_mins_source_freq,
     normalize_etf_mins_trade_date,
@@ -198,6 +200,11 @@ def _build_etf_mins_raw_candidate_summary_sql(
     columns = ", ".join(column.name for column in RAW_ETF_MINS_SCHEMA)
     asset_freq = asset_freq_for_etf_mins_source_freq(source_freq)
     sample_limit = ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT
+    exchange_identity_predicate = " OR\n      ".join(
+        "(right(upper(trim(ts_code)), 3) = "
+        f"{duckdb_string(f'.{suffix}')} AND exchange = {duckdb_string(exchange)})"
+        for suffix, exchange in ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX.items()
+    )
     return f"""
 WITH source_rows AS (
   SELECT {columns} FROM {source_relation}
@@ -297,8 +304,7 @@ SELECT
     WHERE freq IS NOT NULL AND freq <> '{source_freq}') AS freq_mismatch_count,
   (SELECT count(*) FROM candidate_rows
     WHERE ts_code IS NOT NULL AND NOT (
-      (right(upper(trim(ts_code)), 3) = '.SH' AND exchange = 'XSHG') OR
-      (right(upper(trim(ts_code)), 3) = '.SZ' AND exchange = 'XSHE')
+      {exchange_identity_predicate}
     )) AS exchange_mismatch_count,
   (SELECT count(*) FROM candidate_rows
     WHERE open IS NULL OR close IS NULL OR high IS NULL OR low IS NULL
