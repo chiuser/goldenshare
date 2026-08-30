@@ -13,6 +13,15 @@ from orchestrator.defs.bootstrap.stk_mins_event_history_retention import (
     STK_MINS_RETENTION_PROTECTED_CHECK_NAMES,
 )
 from orchestrator.defs.catalog import list_lake_asset_catalog_entries
+from orchestrator.defs.run_contracts.etf_basic import (
+    RAW_ETF_BASIC_CHECKS,
+    SILVER_ETF_BASIC_CHECKS,
+)
+from orchestrator.defs.run_contracts.etf_mins import (
+    ETF_MINS_ASSET_FREQS,
+    raw_etf_mins_check_names,
+    silver_etf_mins_check_names,
+)
 from orchestrator.defs.run_contracts.idx_factor_pro import (
     IDX_FACTOR_PRO_RAW_CHECKS,
     IDX_FACTOR_PRO_SILVER_CHECKS,
@@ -395,6 +404,10 @@ PROD_CH_DC_DAILY_TECHNICAL_CHECKS = (
 )
 
 PLANNED_CATALOG_ASSET_KEYS = {
+    "raw_tushare_etf_basic",
+    "silver_etf_basic",
+    *(f"raw_etf_mins_{freq}m" for freq in ETF_MINS_ASSET_FREQS),
+    *(f"silver_etf_mins_{freq}m" for freq in ETF_MINS_ASSET_FREQS),
     *(
         major_index_mins_technical_asset_key(freq)
         for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
@@ -404,6 +417,43 @@ PLANNED_CATALOG_ASSET_KEYS = {
         for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     ),
 }
+
+
+def _planned_etf_asset_rules() -> dict[
+    str, dict[str, AssetCheckGovernanceRule]
+]:
+    rules = {
+        "raw_tushare_etf_basic": _rules(
+            RAW_ETF_BASIC_CHECKS,
+            category=KEEP_BLOCKING_DAGSTER,
+            phase="ETF_BASIC_RAW",
+            readiness=False,
+            retention_allowed=True,
+        ),
+        "silver_etf_basic": _rules(
+            SILVER_ETF_BASIC_CHECKS,
+            category=KEEP_BLOCKING_DAGSTER,
+            phase="ETF_BASIC_SILVER",
+            readiness=False,
+            retention_allowed=True,
+        ),
+    }
+    for freq in ETF_MINS_ASSET_FREQS:
+        rules[f"raw_etf_mins_{freq}m"] = _rules(
+            raw_etf_mins_check_names(freq),
+            category=KEEP_BLOCKING_DAGSTER,
+            phase="ETF_MINS_RAW",
+            readiness=False,
+            retention_allowed=True,
+        )
+        rules[f"silver_etf_mins_{freq}m"] = _rules(
+            silver_etf_mins_check_names(freq),
+            category=KEEP_BLOCKING_DAGSTER,
+            phase="ETF_MINS_SILVER",
+            readiness=False,
+            retention_allowed=True,
+        )
+    return rules
 
 
 def _planned_index_technical_asset_rules() -> dict[
@@ -661,6 +711,7 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         readiness=False,
         retention_allowed=True,
     ),
+    **_planned_etf_asset_rules(),
     **_planned_index_technical_asset_rules(),
     "gold_major_index_daily_nineturn": _rules(
         GOLD_MAJOR_INDEX_DAILY_NINETURN_CHECKS,

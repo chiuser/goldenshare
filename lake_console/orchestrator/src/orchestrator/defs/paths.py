@@ -1,5 +1,9 @@
 from pathlib import Path
 
+from orchestrator.defs.run_contracts.etf_mins import (
+    normalize_etf_mins_path_freq,
+    normalize_etf_mins_trade_date,
+)
 from orchestrator.defs.run_contracts.idx_factor_pro import (
     normalize_idx_factor_pro_trade_date,
 )
@@ -30,6 +34,7 @@ DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
 DEFAULT_LAKE_STAGING_ROOT = "/Volumes/datasource/data_lake_staging"
 PATH_TEMPLATE_LAKE_ROOT = Path("data_lake")
 PATH_TEMPLATE_PARTITION_KEY = "{partition_key}"
+PATH_TEMPLATE_SNAPSHOT_ID = "{snapshot_id}"
 PATH_TEMPLATE_TS_CODE = "{ts_code}"
 PATH_TEMPLATE_YEAR = "{year}"
 
@@ -78,6 +83,38 @@ def raw_stock_basic_path(root: Path) -> Path:
 
 def silver_stock_basic_path(root: Path) -> Path:
     return lake_path(root, SILVER, "basic", "stock_basic", "full", "part-000.parquet")
+
+
+def raw_etf_basic_snapshot_path(root: Path, snapshot_id: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "etf_basic",
+        f"snapshot_id={_normalize_etf_basic_snapshot_id(snapshot_id)}",
+        "part-000.parquet",
+    )
+
+
+def silver_etf_basic_snapshot_path(root: Path, snapshot_id: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "basic",
+        "etf_basic",
+        f"snapshot_id={_normalize_etf_basic_snapshot_id(snapshot_id)}",
+        "part-000.parquet",
+    )
+
+
+def etf_basic_staging_path(staging_root: Path, run_id: str, layer: str) -> Path:
+    return (
+        staging_root
+        / "etf_basic"
+        / f"run_id={_normalize_etf_staging_id(run_id, name='run_id')}"
+        / _normalize_etf_staging_layer(layer)
+        / "part-000.parquet"
+    )
 
 
 def silver_stock_lifecycle_path(root: Path) -> Path:
@@ -158,6 +195,84 @@ def silver_stk_mins_path(root: Path, freq: int | str, partition_key: str) -> Pat
         f"trade_date={partition_key}",
         "part-000.parquet",
     )
+
+
+def raw_etf_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "etf_mins",
+        f"freq={normalize_etf_mins_path_freq(freq)}",
+        f"trade_date={_normalize_etf_mins_partition_key(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def silver_etf_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "etf_mins",
+        f"freq={normalize_etf_mins_path_freq(freq)}",
+        f"trade_date={_normalize_etf_mins_partition_key(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def etf_mins_staging_path(
+    staging_root: Path,
+    operation_id: str,
+    layer: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return (
+        staging_root
+        / "etf_mins"
+        / f"operation_id={_normalize_etf_staging_id(operation_id, name='operation_id')}"
+        / _normalize_etf_staging_layer(layer)
+        / f"freq={normalize_etf_mins_path_freq(freq)}"
+        / f"trade_date={_normalize_etf_mins_partition_key(partition_key)}"
+        / "part-000.parquet"
+    )
+
+
+def _normalize_etf_basic_snapshot_id(value: str) -> str:
+    if value == PATH_TEMPLATE_SNAPSHOT_ID:
+        return value
+    normalized = str(value).strip()
+    if len(normalized) != 64 or any(
+        character not in "0123456789abcdef" for character in normalized
+    ):
+        raise ValueError("ETF Basic snapshot_id must be 64 lowercase SHA-256 hex digits.")
+    return normalized
+
+
+def _normalize_etf_mins_partition_key(value: str) -> str:
+    if value == PATH_TEMPLATE_PARTITION_KEY:
+        return value
+    return normalize_etf_mins_trade_date(value)
+
+
+def _normalize_etf_staging_id(value: str, *, name: str) -> str:
+    normalized = str(value).strip()
+    if (
+        not normalized
+        or normalized in {".", ".."}
+        or "/" in normalized
+        or "\\" in normalized
+    ):
+        raise ValueError(f"ETF staging {name} must be a safe non-empty path component.")
+    return normalized
+
+
+def _normalize_etf_staging_layer(value: str) -> str:
+    normalized = str(value).strip().lower()
+    if normalized not in {RAW, SILVER}:
+        raise ValueError("ETF staging layer must be raw or silver.")
+    return normalized
 
 
 def _gold_stk_mins_qfq_ts_code_part(ts_code: str) -> str:

@@ -161,6 +161,56 @@ RAW_TUSHARE_INDEX_BASIC_SCHEMA = (
     ColumnContract("exp_date", "VARCHAR", "终止日期，YYYYMMDD 字符串或空"),
 )
 
+RAW_TUSHARE_ETF_BASIC_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "ETF 代码，Raw 允许 .SH、.SZ 和 .OF"),
+    ColumnContract("csname", "VARCHAR", "ETF 中文简称，可为空"),
+    ColumnContract("extname", "VARCHAR", "ETF 扩位简称，可为空"),
+    ColumnContract("cname", "VARCHAR", "ETF 中文全称，可为空"),
+    ColumnContract("index_code", "VARCHAR", "跟踪指数代码，可为空"),
+    ColumnContract("index_name", "VARCHAR", "跟踪指数名称，可为空"),
+    ColumnContract("setup_date", "VARCHAR", "源端设立日期，YYYYMMDD 字符串或空"),
+    ColumnContract("list_date", "VARCHAR", "源端上市日期，YYYYMMDD 字符串或空"),
+    ColumnContract("list_status", "VARCHAR", "源端上市状态，只允许 L、P、D"),
+    ColumnContract("exchange", "VARCHAR", "源端交易所值，可为空"),
+    ColumnContract("mgr_name", "VARCHAR", "管理人简称，可为空"),
+    ColumnContract("custod_name", "VARCHAR", "托管人名称，可为空"),
+    ColumnContract("mgt_fee", "DOUBLE", "源端管理费率数值，不在 Raw 舍入，可为空"),
+    ColumnContract("etf_type", "VARCHAR", "ETF 类型，可为空"),
+)
+
+SILVER_ETF_BASIC_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "沪深场内 ETF 代码，后缀为 .SH 或 .SZ"),
+    ColumnContract("csname", "VARCHAR", "ETF 中文简称，可为空"),
+    ColumnContract("extname", "VARCHAR", "ETF 扩位简称，可为空"),
+    ColumnContract("cname", "VARCHAR", "ETF 中文全称，可为空"),
+    ColumnContract("index_code", "VARCHAR", "跟踪指数代码，可为空"),
+    ColumnContract("index_name", "VARCHAR", "跟踪指数名称，可为空"),
+    ColumnContract("setup_date", "DATE", "标准化设立日期，可为空"),
+    ColumnContract("list_date", "DATE", "标准化上市日期，可为空"),
+    ColumnContract("list_status", "VARCHAR", "上市状态，完整保留 L、P、D"),
+    ColumnContract("exchange", "VARCHAR", "沪深交易所代码 SH 或 SZ"),
+    ColumnContract("mgr_name", "VARCHAR", "管理人简称，可为空"),
+    ColumnContract("custod_name", "VARCHAR", "托管人名称，可为空"),
+    ColumnContract("mgt_fee", "DECIMAL(12,6)", "标准化管理费率，可为空"),
+    ColumnContract("etf_type", "VARCHAR", "ETF 类型，可为空"),
+)
+
+RAW_ETF_MINS_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "沪深 ETF 代码，非空"),
+    ColumnContract("freq", "VARCHAR", "源端分钟频率，固定为当前资产频率"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间，属于路径交易日"),
+    ColumnContract("open", "DOUBLE", "源端开盘价，可为空；质量由 N3 审计"),
+    ColumnContract("close", "DOUBLE", "源端收盘价，可为空；质量由 N3 审计"),
+    ColumnContract("high", "DOUBLE", "源端最高价，可为空；质量由 N3 审计"),
+    ColumnContract("low", "DOUBLE", "源端最低价，可为空；质量由 N3 审计"),
+    ColumnContract("vol", "BIGINT", "源端成交量，可为空；质量由 N3 审计"),
+    ColumnContract("amount", "DOUBLE", "源端成交额，可为空；质量由 N3 审计"),
+    ColumnContract("vwap", "DOUBLE", "源端成交均价，可为空；质量由 N3 审计"),
+    ColumnContract("exchange", "VARCHAR", "源分钟交易所原始值，不做改写"),
+)
+
+SILVER_ETF_MINS_SCHEMA = tuple(RAW_ETF_MINS_SCHEMA)
+
 RAW_INDEX_DAILY_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "指数代码"),
     ColumnContract("trade_date", "VARCHAR", "指数日线 raw 交易日，YYYYMMDD 字符串"),

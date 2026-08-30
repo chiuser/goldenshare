@@ -24,6 +24,8 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "index_basic": "指数基本信息",
         "index_daily": "指数日线行情",
         "index_mins": "指数历史分钟行情",
+        "etf_basic": "ETF 基础信息",
+        "etf_mins": "ETF 历史分钟行情",
         "major_index_mins": "主要指数分钟线",
         "major_index_daily_nineturn": "主要指数日线九转",
         "major_index_mins_nineturn": "主要指数分钟九转",

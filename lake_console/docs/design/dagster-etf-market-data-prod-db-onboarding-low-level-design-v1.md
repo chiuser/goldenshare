@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0 真实源合同与性能基线已完成；P1 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
+状态：架构口径已收敛；P0、P1 已完成；P2 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。P0 已经获准并完成真实 Tushare 分页、分钟 exchange 映射和 Prod 小批 profiling；P1 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。P0、P1 已经获准并完成；P2 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -1864,11 +1864,13 @@ tests/test_etf_mins_pre2026_protection.py
 
 完成条件：N1/N2/N4/N5 已按本文冻结；N6 只保留为 P10 启用门禁；N3A 输入输出与 N3B 拍板边界已确认；实际 `TushareResource` 的 `offset=0/5000`、exchange 比较映射、单日/最多 10 日共用 coverage 查询形状、两类 Prod 只读查询策略、样本耗时和 batch 行数都有有界真实证据。P0 不实现分页或 coverage 生产代码，不提前要求 P2/P4 的 fake 测试。
 
-### P1：Catalog、schema、path、partition 基础合同
+### P1：Catalog、schema、path、partition 基础合同（已完成）
 
 先更新 registry、schema、path helper、频率/日期/hash 纯函数和专属 dynamic partition，不写 assets。
 
 完成条件：catalog/static/path/schema/hash tests 全绿，定义中还没有可写新 asset。
+
+执行结果：已登记 12 条 contract-only Catalog entries 和 4 个 partition models；已落地 4 份字段 schema、6 个正式/候选路径 helper、ETF Basic 内容/请求范围 hash、分钟频率/日期/exchange 比较纯合同，以及专属 `cn_a_etf_mins_trade_days`。现有 registry-first 治理测试明确把这些条目标记为 planned，`readiness=False`；本阶段没有新增 asset/check/job/sensor，也没有加载或访问正式 Dagster instance、Prod DB、Tushare 或正式 Lake。
 
 ### P2：ETF Basic Raw
 

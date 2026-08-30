@@ -7,6 +7,7 @@ from orchestrator.defs.catalog.name_mapping import get_dataset_chinese_name
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
+    PATH_TEMPLATE_SNAPSHOT_ID,
     PATH_TEMPLATE_TS_CODE,
     PATH_TEMPLATE_YEAR,
     gold_dc_daily_technical_path,
@@ -31,6 +32,8 @@ from orchestrator.defs.paths import (
     raw_dc_daily_path,
     raw_dc_index_path,
     raw_dc_member_path,
+    raw_etf_basic_snapshot_path,
+    raw_etf_mins_path,
     raw_idx_factor_pro_path,
     raw_index_basic_path,
     raw_index_daily_path,
@@ -49,6 +52,8 @@ from orchestrator.defs.paths import (
     silver_dc_index_path,
     silver_dc_industry_hierarchy_path,
     silver_dc_member_path,
+    silver_etf_basic_snapshot_path,
+    silver_etf_mins_path,
     silver_index_basic_path,
     silver_index_daily_path,
     silver_index_factor_pro_path,
@@ -88,6 +93,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     PROD_CORE_INDEX_DAILY_NINETURN_SCHEMA,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
     PROD_CORE_WEALTH_SECTOR_HIERARCHY_SCHEMA,
+    RAW_ETF_MINS_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
     RAW_INDEX_GLOBAL_SCHEMA,
     RAW_INDEX_MINS_SCHEMA,
@@ -97,6 +103,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_DAILY_SCHEMA,
     RAW_TUSHARE_DC_INDEX_SCHEMA,
     RAW_TUSHARE_DC_MEMBER_SCHEMA,
+    RAW_TUSHARE_ETF_BASIC_SCHEMA,
     RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
@@ -110,6 +117,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_DC_INDEX_SCHEMA,
     SILVER_DC_INDUSTRY_HIERARCHY_SCHEMA,
     SILVER_DC_MEMBER_SCHEMA,
+    SILVER_ETF_BASIC_SCHEMA,
+    SILVER_ETF_MINS_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_INDEX_FACTOR_PRO_SCHEMA,
@@ -145,6 +154,15 @@ from orchestrator.defs.run_contracts.dc_daily_technical import (
 from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
     CH_DC_DAILY_TECHNICAL_CHECKS,
     PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
+)
+from orchestrator.defs.run_contracts.etf_basic import (
+    RAW_ETF_BASIC_CHECKS,
+    SILVER_ETF_BASIC_CHECKS,
+)
+from orchestrator.defs.run_contracts.etf_mins import (
+    ETF_MINS_ASSET_FREQS,
+    raw_etf_mins_check_names,
+    silver_etf_mins_check_names,
 )
 from orchestrator.defs.run_contracts.idx_factor_pro import (
     IDX_FACTOR_PRO_RAW_CHECKS,
@@ -210,6 +228,8 @@ class PartitionModel(str, Enum):
     FULL_FILE_SILVER_DC_INDUSTRY_HIERARCHY = "full_file_silver_dc_industry_hierarchy"
     FULL_FILE_RAW_INDEX_BASIC = "full_file_raw_index_basic"
     FULL_FILE_SILVER_INDEX_BASIC = "full_file_silver_index_basic"
+    FULL_FILE_RAW_ETF_BASIC_VERSIONED = "full_file_raw_etf_basic_versioned"
+    FULL_FILE_SILVER_ETF_BASIC_VERSIONED = "full_file_silver_etf_basic_versioned"
 
     TRADE_DATE_PARTITION_RAW_STOCK_DAILY = "trade_date_partition_raw_stock_daily"
     TRADE_DATE_PARTITION_SILVER_STOCK_DAILY = "trade_date_partition_silver_stock_daily"
@@ -243,6 +263,8 @@ class PartitionModel(str, Enum):
     )
     TRADE_DATE_PARTITION_RAW_INDEX_MINS = "trade_date_partition_raw_index_mins"
     TRADE_DATE_PARTITION_SILVER_INDEX_MINS = "trade_date_partition_silver_index_mins"
+    TRADE_DATE_PARTITION_RAW_ETF_MINS = "trade_date_partition_raw_etf_mins"
+    TRADE_DATE_PARTITION_SILVER_ETF_MINS = "trade_date_partition_silver_etf_mins"
     TRADE_DATE_PARTITION_GOLD_INDEX_MINS = "trade_date_partition_gold_index_mins"
     TRADE_DATE_PARTITION_RAW_MAJOR_INDEX_MINS = (
         "trade_date_partition_raw_major_index_mins"
@@ -695,6 +717,24 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionPhysicalLayout.SINGLE_FILE,
     ),
     _model(
+        PartitionModel.FULL_FILE_RAW_ETF_BASIC_VERSIONED,
+        PartitionModelFamily.FULL_FILE,
+        AssetLayer.RAW,
+        "etf_basic",
+        None,
+        PartitionPhysicalLayout.SINGLE_FILE,
+        notes="每次 materialization 指向一个 content-addressed 不可变单文件版本。",
+    ),
+    _model(
+        PartitionModel.FULL_FILE_SILVER_ETF_BASIC_VERSIONED,
+        PartitionModelFamily.FULL_FILE,
+        AssetLayer.SILVER,
+        "etf_basic",
+        None,
+        PartitionPhysicalLayout.SINGLE_FILE,
+        notes="每次 materialization 指向与 Raw snapshot_id 对齐的不可变单文件版本。",
+    ),
+    _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_STOCK_DAILY,
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.RAW,
@@ -841,6 +881,24 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
         notes="指数分钟线 Silver 原生及派生频率共用专属交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_ETF_MINS,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "etf_mins",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="ETF 分钟 Raw 五个源频率共用专属交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_ETF_MINS,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "etf_mins",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="ETF 分钟 Silver 五个源频率共用专属交易日分区。",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_GOLD_INDEX_MINS,
@@ -2846,6 +2904,133 @@ LAKE_ASSET_CATALOG += (
         )
         for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     ),
+)
+
+
+LAKE_ASSET_CATALOG += (
+    _tushare_raw_entry(
+        asset_key="raw_tushare_etf_basic",
+        dataset_id="etf_basic",
+        group_name="etf_basic",
+        data_domain=DataDomain.BASIC_DATA,
+        data_contract="source_mirror_versioned",
+        column_schema=RAW_TUSHARE_ETF_BASIC_SCHEMA,
+        path_template=lake_path_template(
+            raw_etf_basic_snapshot_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_SNAPSHOT_ID,
+            )
+        ),
+        partition_model=PartitionModel.FULL_FILE_RAW_ETF_BASIC_VERSIONED,
+        source_api="etf_basic",
+        source_doc="docs/sources/tushare/ETF专题/0385_ETF基础信息.md",
+        blocking_check_names=RAW_ETF_BASIC_CHECKS,
+        batch_grain="single_file",
+        source_request_policy="tushare_full_snapshot_limit_offset_until_short_page",
+        performance_notes=(
+            "One no-filter full snapshot; a new content hash creates a new immutable "
+            "file, while an existing equal hash is reused and a conflict stops."
+        ),
+    ),
+    _derived_entry(
+        asset_key="silver_etf_basic",
+        dataset_id="etf_basic",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.BASIC_DATA,
+        group_name="etf_basic",
+        data_contract="sh_sz_full_status_etf_basic",
+        column_schema=SILVER_ETF_BASIC_SCHEMA,
+        path_template=lake_path_template(
+            silver_etf_basic_snapshot_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_SNAPSHOT_ID,
+            )
+        ),
+        partition_model=PartitionModel.FULL_FILE_SILVER_ETF_BASIC_VERSIONED,
+        blocking_check_names=SILVER_ETF_BASIC_CHECKS,
+        batch_grain="single_file",
+        write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+        notes=(
+            "Reads exactly one frozen Raw snapshot; an existing equal version is "
+            "reused and a content conflict stops without overwriting."
+        ),
+    ),
+)
+
+LAKE_ASSET_CATALOG += tuple(
+    _entry(
+        asset_key=f"raw_etf_mins_{freq}m",
+        dataset_id="etf_mins",
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="source_mirror",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_ETF_MINS_SCHEMA,
+        path_template=lake_path_template(
+            raw_etf_mins_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                freq,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_ETF_MINS,
+        source_api="etf_mins",
+        source_doc="docs/sources/tushare/ETF专题/0387_ETF历史分钟行情.md",
+        ingestion_sources=(IngestionSource.PROD_DB_READONLY,),
+        default_daily_ingestion_source=IngestionSource.PROD_DB_READONLY,
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        blocking_check_names=raw_etf_mins_check_names(freq),
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="freq/trade_date",
+            compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="prod_raw_db_batch_query_per_freq_trade_date",
+            notes=(
+                "Reads prod-raw-db.raw_tushare.etf_minute_bar without Basic SQL "
+                "filtering; targets are add/reuse/conflict-stop only. Three blocking "
+                "checks jointly define Raw readiness."
+            ),
+        ),
+        notes=(
+            "Physical transport reads prod-raw-db.raw_tushare.etf_minute_bar; "
+            "existing targets are reused only when equivalent and conflicts never "
+            "auto-overwrite."
+        ),
+    )
+    for freq in ETF_MINS_ASSET_FREQS
+)
+
+LAKE_ASSET_CATALOG += tuple(
+    _derived_entry(
+        asset_key=f"silver_etf_mins_{freq}m",
+        dataset_id="etf_mins",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="audited_exact_copy",
+        column_schema=SILVER_ETF_MINS_SCHEMA,
+        path_template=lake_path_template(
+            silver_etf_mins_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                freq,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_ETF_MINS,
+        blocking_check_names=silver_etf_mins_check_names(freq),
+        batch_grain="freq/trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes=(
+            "Copies only N3-approved Raw partitions without row repair or deletion; "
+            "existing targets are add/reuse/conflict-stop only."
+        ),
+    )
+    for freq in ETF_MINS_ASSET_FREQS
 )
 
 

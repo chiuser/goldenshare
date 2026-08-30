@@ -325,6 +325,18 @@ def _asset_specs_and_definitions_by_key():
 ACTIVE_ASSET_SPECS_BY_KEY, ACTIVE_ASSETS_BY_KEY = _asset_specs_and_definitions_by_key()
 ASSETS_WITHOUT_COLUMN_SCHEMA = {"lake_root_health"}
 CONTRACT_ONLY_CATALOG_ASSET_KEYS = {
+    "raw_tushare_etf_basic",
+    "silver_etf_basic",
+    "raw_etf_mins_1m",
+    "raw_etf_mins_5m",
+    "raw_etf_mins_15m",
+    "raw_etf_mins_30m",
+    "raw_etf_mins_60m",
+    "silver_etf_mins_1m",
+    "silver_etf_mins_5m",
+    "silver_etf_mins_15m",
+    "silver_etf_mins_30m",
+    "silver_etf_mins_60m",
     "raw_tushare_dc_index",
     "raw_tushare_dc_member",
     "raw_tushare_dc_daily",

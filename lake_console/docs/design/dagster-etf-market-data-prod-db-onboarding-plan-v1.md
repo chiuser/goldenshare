@@ -1,6 +1,6 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：架构口径已收敛；P0 真实源合同与性能基线已完成；P1 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
+状态：架构口径已收敛；P0、P1 已完成；P2 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
 创建日期：2026-08-27
 最近更新：2026-08-30
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
@@ -602,9 +602,11 @@ tushare_request_count / page_count / quota_impact
 
 冻结 Tushare Basic、Prod Raw 物理查询、Raw/N3 边界和性能测量方案。ETF 不申请任何 Prod `ops.*` 白名单。P0 只用实际 `TushareResource`、只读 Prod 探索 SQL 和 `/private/tmp` 样本确认真实分页边界、`.SH/.SZ` 分钟 exchange、单日/最多 10 日 coverage 查询形状以及受控 Prod 明细性能；不实现生产分页新能力，不实现 coverage evaluator，也不提前编写 P2/P4 的行为测试。
 
-### P1：Catalog、schema、path、partition 基础合同
+### P1：Catalog、schema、path、partition 基础合同（已完成）
 
 先完成 registry、字段合同、路径、频率/日期/hash 纯函数和专属动态分区，不注册可写资产。
+
+已落地 12 条 contract-only Catalog entries、4 个 partition models、4 份字段 schema、6 个正式/候选路径 helper、ETF Basic/分钟纯合同和专属 `cn_a_etf_mins_trade_days`。ETF asset、check、job、sensor 和正式运行入口仍不存在；验证只运行隔离单元/静态测试，没有读取正式 Dagster instance、Prod DB 或正式 Lake。
 
 ### P2：ETF Basic Raw
 
@@ -686,7 +688,7 @@ tushare_request_count / page_count / quota_impact
 
 ### 16.2 后续阶段仍需管理员拍板
 
-当前没有需要立即补充拍板的架构口径。P0 已经获准并完成真实源合同与性能基线；P1 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
+当前没有需要立即补充拍板的架构口径。P0、P1 已经获准并完成；P2 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |
