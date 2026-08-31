@@ -17,7 +17,11 @@ from time import perf_counter
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import dagster as dg
 import duckdb as duckdb_module
+from dagster._core.definitions.asset_checks.asset_check_evaluation import (
+    AssetCheckEvaluationTargetMaterializationData,
+)
 
 from orchestrator.defs.asset_guards.etf_basic_readiness import (
     select_latest_etf_basic_snapshot_reference,
@@ -27,6 +31,8 @@ from orchestrator.defs.asset_guards.etf_mins_lake_readiness import (
     evaluate_etf_mins_raw_candidate,
 )
 from orchestrator.defs.assets.etf_mins import (
+    RAW_ETF_MINS_ASSETS,
+    SILVER_ETF_MINS_ASSETS,
     build_etf_mins_silver_copy_sql,
     create_etf_mins_frozen_basic_relations,
     etf_mins_relations_are_semantically_equal,
@@ -37,6 +43,7 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
 from orchestrator.defs.paths import (
     etf_mins_staging_path,
     raw_etf_basic_snapshot_path,
@@ -64,6 +71,7 @@ from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER,
     ETF_MINS_BOOTSTRAP_MAX_TARGET_FILES,
     ETF_MINS_HISTORICAL_PROTECTION_CUTOFF,
+    ETF_MINS_RAW_OBSERVATION_REASON_CODES,
     ETF_MINS_SENSOR_WINDOW_LIMIT,
     ETF_MINS_SOURCE_COLUMNS,
     ETF_MINS_SOURCE_FREQS,
@@ -71,6 +79,13 @@ from orchestrator.defs.run_contracts.etf_mins import (
     get_etf_mins_raw_decision_policy,
     normalize_etf_mins_source_freq,
     normalize_etf_mins_trade_date,
+    raw_etf_mins_check_names,
+    silver_etf_mins_check_names,
+)
+from orchestrator.defs.run_contracts.metadata import (
+    CheckScope,
+    build_check_metadata,
+    build_materialization_metadata,
 )
 
 ETF_MINS_BOOTSTRAP_SCHEMA_VERSION = 1
@@ -101,6 +116,9 @@ _SILVER_WORK_MANIFEST_FILENAME = "silver_work_manifest.parquet"
 _FINALIZED_SILVER_MANIFEST_FILENAME = "finalized_silver_manifest.parquet"
 _PHYSICAL_FINAL_REPORT_FILENAME = "physical_final_report.json"
 _SILVER_CHECKPOINT_FILENAME = "silver_checkpoint.json"
+_ETF_MINS_EVENT_CHECK_WINDOW = 20
+_ETF_MINS_MAX_CHECK_EVENT_COUNT = 500
+_ETF_MINS_PARTITION_SET_NAME = cn_a_etf_mins_trade_days.name
 
 _SILVER_WORK_MANIFEST_COLUMNS = (
     "operation_id",
@@ -294,6 +312,134 @@ class EtfMinsBootstrapSilverApplyReport:
     warn_partition_count: int
     checkpoint_hash: str
     report_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class EtfMinsBootstrapPartitionReport:
+    mode: str
+    operation_id: str
+    plan_fingerprint: str
+    physical_final_report_hash: str
+    partition_set_name: str
+    planned_partition_count: int
+    existing_planned_partition_count: int
+    missing_partition_count: int
+    added_partition_count: int
+    planned_trade_dates: tuple[str, ...]
+    missing_trade_dates: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "mode": self.mode,
+            "operation_id": self.operation_id,
+            "plan_fingerprint": self.plan_fingerprint,
+            "physical_final_report_hash": self.physical_final_report_hash,
+            "partition_set_name": self.partition_set_name,
+            "planned_partition_count": self.planned_partition_count,
+            "existing_planned_partition_count": (self.existing_planned_partition_count),
+            "missing_partition_count": self.missing_partition_count,
+            "added_partition_count": self.added_partition_count,
+            "planned_trade_dates": list(self.planned_trade_dates),
+            "missing_trade_dates": list(self.missing_trade_dates),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class EtfMinsBootstrapEventReport:
+    mode: str
+    operation_id: str
+    plan_fingerprint: str
+    physical_final_report_hash: str
+    partition_set_name: str
+    registered_partition_count: int
+    raw_materialization_count: int
+    silver_materialization_count: int
+    existing_equivalent_materialization_count: int
+    pending_materialization_count: int
+    reported_materialization_count: int
+    recent_check_trade_dates: tuple[str, ...]
+    planned_check_event_count: int
+    existing_equivalent_check_event_count: int
+    pending_check_event_count: int
+    reported_check_event_count: int
+    materialization_query_count: int
+    check_history_query_count: int
+    verified_file_count: int
+    verified_file_bytes: int
+    sample_trade_dates: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "mode": self.mode,
+            "operation_id": self.operation_id,
+            "plan_fingerprint": self.plan_fingerprint,
+            "physical_final_report_hash": self.physical_final_report_hash,
+            "partition_set_name": self.partition_set_name,
+            "registered_partition_count": self.registered_partition_count,
+            "raw_materialization_count": self.raw_materialization_count,
+            "silver_materialization_count": self.silver_materialization_count,
+            "existing_equivalent_materialization_count": (
+                self.existing_equivalent_materialization_count
+            ),
+            "pending_materialization_count": self.pending_materialization_count,
+            "reported_materialization_count": self.reported_materialization_count,
+            "recent_check_trade_dates": list(self.recent_check_trade_dates),
+            "planned_check_event_count": self.planned_check_event_count,
+            "existing_equivalent_check_event_count": (
+                self.existing_equivalent_check_event_count
+            ),
+            "pending_check_event_count": self.pending_check_event_count,
+            "reported_check_event_count": self.reported_check_event_count,
+            "materialization_query_count": self.materialization_query_count,
+            "check_history_query_count": self.check_history_query_count,
+            "verified_file_count": self.verified_file_count,
+            "verified_file_bytes": self.verified_file_bytes,
+            "sample_trade_dates": list(self.sample_trade_dates),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class _EtfMinsBootstrapPhysicalEvidence:
+    report: EtfMinsBootstrapSilverApplyReport
+    report_payload: Mapping[str, object]
+    raw_evidence: EtfMinsBootstrapRawEvidence
+    decision_rows: tuple[Mapping[str, object], ...]
+    finalized_silver_rows: tuple[Mapping[str, object], ...]
+    verified_file_count: int
+    verified_file_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class _EtfMinsMaterializationEventSpec:
+    asset_key: dg.AssetKey
+    partition_key: str
+    source_freq: str
+    layer: str
+    metadata: Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class _EtfMinsCheckEventSpec:
+    asset_key: dg.AssetKey
+    partition_key: str
+    check_name: str
+    passed: bool
+    metadata: Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class _EtfMinsBootstrapEventContext:
+    evidence: _EtfMinsBootstrapPhysicalEvidence
+    planned_trade_dates: tuple[str, ...]
+    registered_trade_dates: tuple[str, ...]
+    materialization_specs: tuple[_EtfMinsMaterializationEventSpec, ...]
+    check_specs: tuple[_EtfMinsCheckEventSpec, ...]
+    materializations_by_key: Mapping[tuple[str, str], object]
+    checks_by_key: Mapping[tuple[str, str, str], object]
+    pending_materialization_specs: tuple[_EtfMinsMaterializationEventSpec, ...]
+    pending_check_specs: tuple[_EtfMinsCheckEventSpec, ...]
+    materialization_query_count: int
+    check_history_query_count: int
 
 
 def compute_etf_mins_bootstrap_payload_hash(
@@ -3895,18 +4041,1231 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def plan_etf_mins_bootstrap_partitions(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    final_report_path: Path,
+) -> EtfMinsBootstrapPartitionReport:
+    """Dry-run the exact dynamic-partition delta for one closed operation."""
+
+    evidence = _load_etf_mins_bootstrap_physical_evidence(
+        lake_root=lake_root,
+        staging_root=staging_root,
+        duckdb=duckdb,
+        final_report_path=final_report_path,
+    )
+    planned = evidence.raw_evidence.plan.expected_trade_dates
+    registered = {
+        normalize_etf_mins_trade_date(value)
+        for value in instance.get_dynamic_partitions(_ETF_MINS_PARTITION_SET_NAME)
+    }
+    missing = tuple(value for value in planned if value not in registered)
+    return _partition_report(
+        mode="dry-run",
+        evidence=evidence,
+        planned=planned,
+        missing=missing,
+        added_count=0,
+    )
+
+
+def register_etf_mins_bootstrap_partitions(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    final_report_path: Path,
+    confirm_partition_write: bool,
+) -> EtfMinsBootstrapPartitionReport:
+    """Add only the frozen operation's missing ETF-minute partition keys."""
+
+    if not confirm_partition_write:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_partition_confirmation_required."
+        )
+    evidence = _load_etf_mins_bootstrap_physical_evidence(
+        lake_root=lake_root,
+        staging_root=staging_root,
+        duckdb=duckdb,
+        final_report_path=final_report_path,
+    )
+    planned = evidence.raw_evidence.plan.expected_trade_dates
+    registered_before = {
+        normalize_etf_mins_trade_date(value)
+        for value in instance.get_dynamic_partitions(_ETF_MINS_PARTITION_SET_NAME)
+    }
+    missing = tuple(value for value in planned if value not in registered_before)
+    if missing:
+        instance.add_dynamic_partitions(_ETF_MINS_PARTITION_SET_NAME, list(missing))
+    registered_after = {
+        normalize_etf_mins_trade_date(value)
+        for value in instance.get_dynamic_partitions(_ETF_MINS_PARTITION_SET_NAME)
+    }
+    still_missing = tuple(value for value in planned if value not in registered_after)
+    if still_missing:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_partition_registration_incomplete."
+        )
+    return _partition_report(
+        mode="apply",
+        evidence=evidence,
+        planned=planned,
+        missing=(),
+        added_count=len(missing),
+    )
+
+
+def plan_etf_mins_bootstrap_events(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    final_report_path: Path,
+) -> EtfMinsBootstrapEventReport:
+    """Build a bounded, read-only materialization/check event delta."""
+
+    context = _build_etf_mins_bootstrap_event_context(
+        instance=instance,
+        lake_root=lake_root,
+        staging_root=staging_root,
+        duckdb=duckdb,
+        final_report_path=final_report_path,
+    )
+    return _event_report(
+        mode="dry-run",
+        context=context,
+        reported_materializations=0,
+        reported_checks=0,
+    )
+
+
+def apply_etf_mins_bootstrap_events(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    final_report_path: Path,
+    confirm_event_write: bool,
+) -> EtfMinsBootstrapEventReport:
+    """Append only missing equivalent runless facts; never replace event facts."""
+
+    if not confirm_event_write:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_event_confirmation_required.")
+    context = _build_etf_mins_bootstrap_event_context(
+        instance=instance,
+        lake_root=lake_root,
+        staging_root=staging_root,
+        duckdb=duckdb,
+        final_report_path=final_report_path,
+    )
+    for spec in context.pending_materialization_specs:
+        instance.report_runless_asset_event(
+            dg.AssetMaterialization(
+                asset_key=spec.asset_key,
+                partition=spec.partition_key,
+                metadata=spec.metadata,
+            )
+        )
+    materializations, _ = _load_latest_etf_mins_materializations(
+        instance=instance,
+        specs=context.materialization_specs,
+    )
+    for spec in context.materialization_specs:
+        record = materializations.get(_materialization_spec_key(spec))
+        if record is None or not _materialization_record_matches(record, spec):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_materialization_post_write_mismatch."
+            )
+
+    reported_checks = 0
+    for spec in context.pending_check_specs:
+        materialization = materializations[_check_materialization_key(spec)]
+        target = AssetCheckEvaluationTargetMaterializationData(
+            storage_id=int(materialization.storage_id),
+            run_id=materialization.run_id,
+            timestamp=materialization.timestamp,
+        )
+        instance.report_runless_asset_event(
+            dg.AssetCheckEvaluation(
+                asset_key=spec.asset_key,
+                check_name=spec.check_name,
+                passed=spec.passed,
+                blocking=True,
+                partition=spec.partition_key,
+                target_materialization_data=target,
+                metadata=spec.metadata,
+            )
+        )
+        reported_checks += 1
+    return _event_report(
+        mode="apply",
+        context=context,
+        reported_materializations=len(context.pending_materialization_specs),
+        reported_checks=reported_checks,
+    )
+
+
+def audit_etf_mins_bootstrap_events(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    final_report_path: Path,
+) -> EtfMinsBootstrapEventReport:
+    """Post-audit aggregate event closure plus three bounded recent samples."""
+
+    context = _build_etf_mins_bootstrap_event_context(
+        instance=instance,
+        lake_root=lake_root,
+        staging_root=staging_root,
+        duckdb=duckdb,
+        final_report_path=final_report_path,
+    )
+    if context.pending_materialization_specs or context.pending_check_specs:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_event_post_audit_incomplete.")
+    recent = _recent_etf_mins_check_trade_dates(context.planned_trade_dates)
+    sample_dates = _sample_etf_mins_trade_dates(recent)
+    return _event_report(
+        mode="post-audit",
+        context=context,
+        reported_materializations=0,
+        reported_checks=0,
+        sample_dates=sample_dates,
+    )
+
+
+def _partition_report(
+    *,
+    mode: str,
+    evidence: _EtfMinsBootstrapPhysicalEvidence,
+    planned: tuple[str, ...],
+    missing: tuple[str, ...],
+    added_count: int,
+) -> EtfMinsBootstrapPartitionReport:
+    return EtfMinsBootstrapPartitionReport(
+        mode=mode,
+        operation_id=evidence.report.operation_id,
+        plan_fingerprint=evidence.report.plan_fingerprint,
+        physical_final_report_hash=evidence.report.report_hash,
+        partition_set_name=_ETF_MINS_PARTITION_SET_NAME,
+        planned_partition_count=len(planned),
+        existing_planned_partition_count=len(planned) - len(missing),
+        missing_partition_count=len(missing),
+        added_partition_count=added_count,
+        planned_trade_dates=planned,
+        missing_trade_dates=missing,
+    )
+
+
+def _event_report(
+    *,
+    mode: str,
+    context: _EtfMinsBootstrapEventContext,
+    reported_materializations: int,
+    reported_checks: int,
+    sample_dates: tuple[str, ...] = (),
+) -> EtfMinsBootstrapEventReport:
+    raw_count = sum(spec.layer == "raw" for spec in context.materialization_specs)
+    silver_count = sum(spec.layer == "silver" for spec in context.materialization_specs)
+    remaining_materializations = (
+        len(context.pending_materialization_specs) - reported_materializations
+    )
+    remaining_checks = len(context.pending_check_specs) - reported_checks
+    return EtfMinsBootstrapEventReport(
+        mode=mode,
+        operation_id=context.evidence.report.operation_id,
+        plan_fingerprint=context.evidence.report.plan_fingerprint,
+        physical_final_report_hash=context.evidence.report.report_hash,
+        partition_set_name=_ETF_MINS_PARTITION_SET_NAME,
+        registered_partition_count=len(context.registered_trade_dates),
+        raw_materialization_count=raw_count,
+        silver_materialization_count=silver_count,
+        existing_equivalent_materialization_count=(
+            len(context.materialization_specs) - remaining_materializations
+        ),
+        pending_materialization_count=remaining_materializations,
+        reported_materialization_count=reported_materializations,
+        recent_check_trade_dates=_recent_etf_mins_check_trade_dates(
+            context.planned_trade_dates
+        ),
+        planned_check_event_count=len(context.check_specs),
+        existing_equivalent_check_event_count=(
+            len(context.check_specs) - remaining_checks
+        ),
+        pending_check_event_count=remaining_checks,
+        reported_check_event_count=reported_checks,
+        materialization_query_count=context.materialization_query_count,
+        check_history_query_count=context.check_history_query_count,
+        verified_file_count=context.evidence.verified_file_count,
+        verified_file_bytes=context.evidence.verified_file_bytes,
+        sample_trade_dates=sample_dates,
+    )
+
+
+def _load_etf_mins_bootstrap_physical_evidence(
+    *,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    final_report_path: Path,
+) -> _EtfMinsBootstrapPhysicalEvidence:
+    operation_root, operation_id = validate_etf_mins_bootstrap_operation_path(
+        final_report_path,
+        staging_root=staging_root,
+    )
+    if (
+        final_report_path.parent.resolve(strict=False) != operation_root
+        or final_report_path.name != _PHYSICAL_FINAL_REPORT_FILENAME
+    ):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_physical_report_path_invalid.")
+    report_payload = _load_json(
+        final_report_path,
+        label="ETF minute physical final report",
+    )
+    if (
+        report_payload.get("bootstrap_kind") != ETF_MINS_BOOTSTRAP_KIND
+        or int(report_payload.get("schema_version", 0))
+        != ETF_MINS_BOOTSTRAP_SCHEMA_VERSION
+        or report_payload.get("operation_id") != operation_id
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_physical_report_identity_invalid."
+        )
+    report = _silver_apply_report_from_payload(report_payload, final_report_path)
+    raw_evidence = load_etf_mins_bootstrap_raw_evidence(
+        lake_root=lake_root,
+        duckdb=duckdb,
+        raw_final_report_path=operation_root / "raw_final_report.json",
+    )
+    decision_summary_path = operation_root / "raw_decision_summary.json"
+    decision_manifest_path = operation_root / "raw_partition_decision_manifest.parquet"
+    decision_summary, selected_decision_rows, observation_hash = (
+        _load_etf_mins_silver_decision_evidence(
+            operation_root=operation_root,
+            operation_id=operation_id,
+            raw_evidence=raw_evidence,
+            decision_summary_path=decision_summary_path,
+            decision_manifest_path=decision_manifest_path,
+            duckdb=duckdb,
+        )
+    )
+    policy = get_etf_mins_raw_decision_policy(
+        str(decision_summary["approved_policy_version"])
+    )
+    raw_rows_by_key = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"])): row
+        for row in raw_evidence.finalized_raw_manifest
+    }
+    selected_decision_by_key = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"])): row
+        for row in selected_decision_rows
+    }
+    _assert_etf_mins_silver_decision_scope(
+        raw_rows_by_key=raw_rows_by_key,
+        decision_rows_by_key=selected_decision_by_key,
+        raw_evidence=raw_evidence,
+        policy=policy,
+    )
+    decision_rows = _load_etf_mins_full_decision_rows(
+        duckdb=duckdb,
+        path=decision_manifest_path,
+    )
+    if {
+        _target_key(str(row["source_freq"]), str(row["trade_date"]))
+        for row in decision_rows
+    } != set(selected_decision_by_key):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_event_decision_scope_invalid.")
+
+    work_manifest_path = operation_root / _SILVER_WORK_MANIFEST_FILENAME
+    finalized_silver_path = operation_root / _FINALIZED_SILVER_MANIFEST_FILENAME
+    checkpoint_path = operation_root / _SILVER_CHECKPOINT_FILENAME
+    if (
+        report.silver_work_manifest_path != work_manifest_path
+        or report.finalized_silver_manifest_path != finalized_silver_path
+        or report.checkpoint_path != checkpoint_path
+        or report.final_report_path != final_report_path
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_physical_report_artifact_path_invalid."
+        )
+    work_rows = _load_etf_mins_typed_manifest(
+        path=work_manifest_path,
+        columns=_SILVER_WORK_MANIFEST_COLUMNS,
+        duckdb=duckdb,
+    )
+    finalized_silver_rows = _load_etf_mins_typed_manifest(
+        path=finalized_silver_path,
+        columns=_FINALIZED_SILVER_MANIFEST_COLUMNS,
+        duckdb=duckdb,
+    )
+    work_hash = compute_etf_mins_bootstrap_manifest_hash(
+        work_rows,
+        key_fields=("source_freq", "trade_date"),
+    )
+    finalized_silver_hash = compute_etf_mins_bootstrap_manifest_hash(
+        finalized_silver_rows,
+        key_fields=("source_freq", "trade_date"),
+    )
+    checkpoint = _load_json(checkpoint_path, label="ETF minute Silver checkpoint")
+    checkpoint_hash = _validate_etf_mins_silver_checkpoint(
+        checkpoint,
+        raw_evidence=raw_evidence,
+        decision_summary=decision_summary,
+        work_manifest_hash=work_hash,
+    )
+    required_report_values = {
+        "plan_fingerprint": raw_evidence.plan.plan_fingerprint,
+        "raw_final_report_hash": raw_evidence.raw_apply_report.report_hash,
+        "raw_observation_summary_hash": observation_hash,
+        "raw_decision_summary_hash": decision_summary["raw_decision_summary_hash"],
+        "raw_partition_decision_manifest_hash": decision_summary[
+            "raw_partition_decision_manifest"
+        ]["sha256"],
+        "finalized_raw_manifest_hash": (
+            raw_evidence.raw_apply_report.finalized_raw_manifest_hash
+        ),
+        "silver_work_manifest_hash": work_hash,
+        "finalized_silver_manifest_hash": finalized_silver_hash,
+        "checkpoint_hash": checkpoint_hash,
+        "basic_raw_snapshot_hash": raw_evidence.plan.basic_raw_snapshot_hash,
+        "basic_silver_content_hash": raw_evidence.plan.basic_silver_content_hash,
+        "gap_policy_version": policy.version,
+        "gap_policy_hash": policy.policy_hash,
+    }
+    if any(
+        report_payload.get(field) != expected
+        for field, expected in required_report_values.items()
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_physical_report_evidence_drift."
+        )
+    _assert_protected_manifest_unchanged(
+        plan=raw_evidence.plan,
+        lake_root=lake_root,
+    )
+
+    eligible_keys = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"]))
+        for row in selected_decision_rows
+        if bool(row["silver_eligible"])
+    }
+    finalized_silver_by_key = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"])): row
+        for row in finalized_silver_rows
+    }
+    if set(finalized_silver_by_key) != eligible_keys:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_event_silver_scope_invalid.")
+    silver_bytes = 0
+    for key, row in finalized_silver_by_key.items():
+        raw_row = raw_rows_by_key[key]
+        source_freq = str(row["source_freq"])
+        trade_date = str(row["trade_date"])
+        silver_path = silver_etf_mins_path(lake_root, source_freq, trade_date)
+        if (
+            row.get("operation_id") != operation_id
+            or row.get("plan_fingerprint") != raw_evidence.plan.plan_fingerprint
+            or row.get("formal_raw_sha256") != raw_row["formal_raw_sha256"]
+            or int(row["formal_raw_row_count"]) != int(raw_row["formal_raw_row_count"])
+            or row.get("formal_silver_relative_path")
+            != silver_path.relative_to(lake_root).as_posix()
+            or row.get("disposition") not in {"added", "reused"}
+            or not silver_path.is_file()
+            or int(row["formal_silver_size_bytes"]) != silver_path.stat().st_size
+            or row.get("formal_silver_sha256") != _sha256_file(silver_path)
+        ):
+            raise EtfMinsBootstrapError("etf_mins_bootstrap_event_silver_file_changed.")
+        silver_bytes += int(row["formal_silver_size_bytes"])
+    raw_bytes = sum(
+        int(row["formal_raw_size_bytes"]) for row in raw_evidence.finalized_raw_manifest
+    )
+    if (
+        report.raw_file_count != len(raw_evidence.finalized_raw_manifest)
+        or report.silver_file_count != len(finalized_silver_rows)
+        or report.raw_row_count
+        != sum(
+            int(row["formal_raw_row_count"])
+            for row in raw_evidence.finalized_raw_manifest
+        )
+        or report.silver_row_count
+        != sum(int(row["formal_silver_row_count"]) for row in finalized_silver_rows)
+    ):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_physical_report_count_drift.")
+    return _EtfMinsBootstrapPhysicalEvidence(
+        report=report,
+        report_payload=report_payload,
+        raw_evidence=raw_evidence,
+        decision_rows=decision_rows,
+        finalized_silver_rows=finalized_silver_rows,
+        verified_file_count=(
+            len(raw_evidence.finalized_raw_manifest) + len(finalized_silver_rows)
+        ),
+        verified_file_bytes=raw_bytes + silver_bytes,
+    )
+
+
+def _load_etf_mins_full_decision_rows(
+    *,
+    duckdb: DuckDBResource,
+    path: Path,
+) -> tuple[Mapping[str, object], ...]:
+    try:
+        with duckdb.connect() as connection:
+            cursor = connection.execute(
+                f"SELECT * FROM {read_parquet(path, hive_partitioning=False)} "
+                "ORDER BY source_freq, trade_date"
+            )
+            columns = tuple(str(item[0]) for item in cursor.description)
+            return tuple(
+                dict(zip(columns, row, strict=True)) for row in cursor.fetchall()
+            )
+    except Exception:  # noqa: BLE001 - normalize immutable evidence failures.
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_event_decision_manifest_unreadable."
+        ) from None
+
+
+def _build_etf_mins_bootstrap_event_context(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    final_report_path: Path,
+) -> _EtfMinsBootstrapEventContext:
+    evidence = _load_etf_mins_bootstrap_physical_evidence(
+        lake_root=lake_root,
+        staging_root=staging_root,
+        duckdb=duckdb,
+        final_report_path=final_report_path,
+    )
+    planned = evidence.raw_evidence.plan.expected_trade_dates
+    registered = tuple(
+        sorted(
+            {
+                normalize_etf_mins_trade_date(value)
+                for value in instance.get_dynamic_partitions(
+                    _ETF_MINS_PARTITION_SET_NAME
+                )
+            }
+        )
+    )
+    missing_registered = tuple(value for value in planned if value not in registered)
+    if missing_registered:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_event_partitions_not_registered."
+        )
+    materialization_specs, check_specs = _build_etf_mins_event_specs(
+        evidence=evidence,
+        lake_root=lake_root,
+    )
+    if len(materialization_specs) > 2 * evidence.report.raw_file_count:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_materialization_event_budget_exceeded."
+        )
+    if len(check_specs) > _ETF_MINS_MAX_CHECK_EVENT_COUNT:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_check_event_budget_exceeded.")
+    materializations, materialization_query_count = (
+        _load_latest_etf_mins_materializations(
+            instance=instance,
+            specs=materialization_specs,
+        )
+    )
+    pending_materializations: list[_EtfMinsMaterializationEventSpec] = []
+    for spec in materialization_specs:
+        record = materializations.get(_materialization_spec_key(spec))
+        if record is None:
+            pending_materializations.append(spec)
+        elif not _materialization_record_matches(record, spec):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_materialization_event_conflict."
+            )
+    checks, check_history_query_count = _load_latest_etf_mins_checks(
+        instance=instance,
+        specs=check_specs,
+    )
+    pending_checks: list[_EtfMinsCheckEventSpec] = []
+    for spec in check_specs:
+        check_key = _check_spec_key(spec)
+        record = checks.get(check_key)
+        materialization = materializations.get(_check_materialization_key(spec))
+        if record is None:
+            pending_checks.append(spec)
+            continue
+        if materialization is None or not _check_record_matches(
+            record,
+            spec,
+            target_storage_id=int(materialization.storage_id),
+        ):
+            raise EtfMinsBootstrapError("etf_mins_bootstrap_check_event_conflict.")
+    return _EtfMinsBootstrapEventContext(
+        evidence=evidence,
+        planned_trade_dates=planned,
+        registered_trade_dates=registered,
+        materialization_specs=materialization_specs,
+        check_specs=check_specs,
+        materializations_by_key=materializations,
+        checks_by_key=checks,
+        pending_materialization_specs=tuple(pending_materializations),
+        pending_check_specs=tuple(pending_checks),
+        materialization_query_count=materialization_query_count,
+        check_history_query_count=check_history_query_count,
+    )
+
+
+def _build_etf_mins_event_specs(
+    *,
+    evidence: _EtfMinsBootstrapPhysicalEvidence,
+    lake_root: Path,
+) -> tuple[
+    tuple[_EtfMinsMaterializationEventSpec, ...],
+    tuple[_EtfMinsCheckEventSpec, ...],
+]:
+    raw_rows = evidence.raw_evidence.finalized_raw_manifest
+    decision_by_key = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"])): row
+        for row in evidence.decision_rows
+    }
+    silver_by_key = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"])): row
+        for row in evidence.finalized_silver_rows
+    }
+    raw_asset_by_freq = {
+        source_freq: asset
+        for source_freq, asset in zip(
+            ETF_MINS_SOURCE_FREQS,
+            RAW_ETF_MINS_ASSETS,
+            strict=True,
+        )
+    }
+    silver_asset_by_freq = {
+        source_freq: asset
+        for source_freq, asset in zip(
+            ETF_MINS_SOURCE_FREQS,
+            SILVER_ETF_MINS_ASSETS,
+            strict=True,
+        )
+    }
+    recent_dates = set(
+        _recent_etf_mins_check_trade_dates(
+            evidence.raw_evidence.plan.expected_trade_dates
+        )
+    )
+    materializations: list[_EtfMinsMaterializationEventSpec] = []
+    checks: list[_EtfMinsCheckEventSpec] = []
+    for raw_row in raw_rows:
+        source_freq = str(raw_row["source_freq"])
+        trade_date = str(raw_row["trade_date"])
+        key = _target_key(source_freq, trade_date)
+        decision_row = decision_by_key[key]
+        raw_spec = _raw_etf_mins_materialization_spec(
+            evidence=evidence,
+            lake_root=lake_root,
+            asset_key=raw_asset_by_freq[source_freq].key,
+            raw_row=raw_row,
+        )
+        materializations.append(raw_spec)
+        silver_row = silver_by_key.get(key)
+        if silver_row is not None:
+            materializations.append(
+                _silver_etf_mins_materialization_spec(
+                    evidence=evidence,
+                    lake_root=lake_root,
+                    asset_key=silver_asset_by_freq[source_freq].key,
+                    raw_row=raw_row,
+                    decision_row=decision_row,
+                    silver_row=silver_row,
+                )
+            )
+        if trade_date not in recent_dates:
+            continue
+        checks.extend(
+            _raw_etf_mins_check_specs(
+                evidence=evidence,
+                lake_root=lake_root,
+                asset_key=raw_asset_by_freq[source_freq].key,
+                raw_row=raw_row,
+                decision_row=decision_row,
+            )
+        )
+        if silver_row is not None:
+            checks.extend(
+                _silver_etf_mins_check_specs(
+                    evidence=evidence,
+                    lake_root=lake_root,
+                    asset_key=silver_asset_by_freq[source_freq].key,
+                    raw_row=raw_row,
+                    silver_row=silver_row,
+                )
+            )
+    return tuple(materializations), tuple(checks)
+
+
+def _raw_etf_mins_materialization_spec(
+    *,
+    evidence: _EtfMinsBootstrapPhysicalEvidence,
+    lake_root: Path,
+    asset_key: dg.AssetKey,
+    raw_row: Mapping[str, object],
+) -> _EtfMinsMaterializationEventSpec:
+    plan = evidence.raw_evidence.plan
+    reference = evidence.raw_evidence.basic_reference
+    source_freq = str(raw_row["source_freq"])
+    trade_date = str(raw_row["trade_date"])
+    path = raw_etf_mins_path(lake_root, source_freq, trade_date)
+    identity = {
+        "event_kind": "etf_mins_bootstrap_materialization",
+        "operation_id": plan.operation_id,
+        "plan_fingerprint": plan.plan_fingerprint,
+        "physical_final_report_hash": evidence.report.report_hash,
+        "asset_key": asset_key.to_user_string(),
+        "partition_key": trade_date,
+        "source_freq": source_freq,
+        "layer": "raw",
+        "file_sha256": raw_row["formal_raw_sha256"],
+        "row_count": int(raw_row["formal_raw_row_count"]),
+        "basic_raw_snapshot_hash": plan.basic_raw_snapshot_hash,
+        "basic_silver_content_hash": plan.basic_silver_content_hash,
+    }
+    metadata = build_materialization_metadata(
+        uri=path,
+        row_count=int(raw_row["formal_raw_row_count"]),
+        observed_columns=ETF_MINS_SOURCE_COLUMNS,
+        extra_metadata={
+            "partition_key": trade_date,
+            "source_freq": source_freq,
+            "source_method": "prod_db_readonly",
+            "source_row_count": int(raw_row["source_row_count"]),
+            "code_count": int(raw_row["source_code_count"]),
+            "query_count": 1,
+            "elapsed_ms": 0,
+            "basic_raw_snapshot_hash": plan.basic_raw_snapshot_hash,
+            "basic_silver_content_hash": plan.basic_silver_content_hash,
+            "basic_raw_observed_at": plan.basic_raw_observed_at,
+            "basic_silver_observed_at": plan.basic_silver_observed_at,
+            "basic_reference_fingerprint": reference.reference_fingerprint,
+            "eligibility_as_of": plan.eligibility_as_of,
+            "requestable_code_count": plan.requestable_code_count,
+            "requestable_code_hash": plan.requestable_code_hash,
+            "expected_count": int(raw_row["expected_count"]),
+            "present_count": int(raw_row["present_count"]),
+            "missing_count": int(raw_row["missing_count"]),
+            "known_non_required_present_count": int(
+                raw_row["known_non_required_present_count"]
+            ),
+            "retained_legacy_count": int(raw_row["retained_legacy_count"]),
+            "unexplained_new_count": int(raw_row["unexplained_new_count"]),
+            "file_sha256": raw_row["formal_raw_sha256"],
+            "write_disposition": raw_row["disposition"],
+            "policy_state": "unclassified",
+            "silver_eligible": False,
+            "bootstrap_event_backfill": True,
+            "bootstrap_operation_id": plan.operation_id,
+            "plan_fingerprint": plan.plan_fingerprint,
+            "physical_final_report_hash": evidence.report.report_hash,
+            "event_identity_hash": compute_etf_mins_bootstrap_payload_hash(identity),
+        },
+    )
+    return _EtfMinsMaterializationEventSpec(
+        asset_key=asset_key,
+        partition_key=trade_date,
+        source_freq=source_freq,
+        layer="raw",
+        metadata=metadata,
+    )
+
+
+def _silver_etf_mins_materialization_spec(
+    *,
+    evidence: _EtfMinsBootstrapPhysicalEvidence,
+    lake_root: Path,
+    asset_key: dg.AssetKey,
+    raw_row: Mapping[str, object],
+    decision_row: Mapping[str, object],
+    silver_row: Mapping[str, object],
+) -> _EtfMinsMaterializationEventSpec:
+    plan = evidence.raw_evidence.plan
+    reference = evidence.raw_evidence.basic_reference
+    source_freq = str(raw_row["source_freq"])
+    trade_date = str(raw_row["trade_date"])
+    raw_path = raw_etf_mins_path(lake_root, source_freq, trade_date)
+    silver_path = silver_etf_mins_path(lake_root, source_freq, trade_date)
+    reason_codes = _decision_reason_codes(decision_row)
+    identity = {
+        "event_kind": "etf_mins_bootstrap_materialization",
+        "operation_id": plan.operation_id,
+        "plan_fingerprint": plan.plan_fingerprint,
+        "physical_final_report_hash": evidence.report.report_hash,
+        "asset_key": asset_key.to_user_string(),
+        "partition_key": trade_date,
+        "source_freq": source_freq,
+        "layer": "silver",
+        "raw_sha256": raw_row["formal_raw_sha256"],
+        "silver_sha256": silver_row["formal_silver_sha256"],
+        "row_count": int(silver_row["formal_silver_row_count"]),
+        "decision": decision_row["decision"],
+        "decision_reason_codes": reason_codes,
+    }
+    metadata = build_materialization_metadata(
+        uri=silver_path,
+        row_count=int(silver_row["formal_silver_row_count"]),
+        observed_columns=ETF_MINS_SOURCE_COLUMNS,
+        extra_metadata={
+            "partition_key": trade_date,
+            "source_freq": source_freq,
+            "source_method": "direct_lake_bootstrap_exact_copy",
+            "code_count": int(raw_row["source_code_count"]),
+            "raw_uri": str(raw_path),
+            "raw_sha256": raw_row["formal_raw_sha256"],
+            "silver_sha256": silver_row["formal_silver_sha256"],
+            "write_disposition": silver_row["disposition"],
+            "basic_raw_snapshot_hash": plan.basic_raw_snapshot_hash,
+            "basic_silver_content_hash": plan.basic_silver_content_hash,
+            "basic_raw_observed_at": plan.basic_raw_observed_at,
+            "basic_silver_observed_at": plan.basic_silver_observed_at,
+            "basic_reference_fingerprint": reference.reference_fingerprint,
+            "eligibility_as_of": plan.eligibility_as_of,
+            "requestable_code_hash": plan.requestable_code_hash,
+            "gap_policy_version": evidence.report_payload["gap_policy_version"],
+            "bar_domain_decision": decision_row["decision"],
+            "bar_domain_reason_codes": list(reason_codes),
+            "bootstrap_event_backfill": True,
+            "bootstrap_operation_id": plan.operation_id,
+            "plan_fingerprint": plan.plan_fingerprint,
+            "physical_final_report_hash": evidence.report.report_hash,
+            "event_identity_hash": compute_etf_mins_bootstrap_payload_hash(identity),
+        },
+    )
+    return _EtfMinsMaterializationEventSpec(
+        asset_key=asset_key,
+        partition_key=trade_date,
+        source_freq=source_freq,
+        layer="silver",
+        metadata=metadata,
+    )
+
+
+def _raw_etf_mins_check_specs(
+    *,
+    evidence: _EtfMinsBootstrapPhysicalEvidence,
+    lake_root: Path,
+    asset_key: dg.AssetKey,
+    raw_row: Mapping[str, object],
+    decision_row: Mapping[str, object],
+) -> tuple[_EtfMinsCheckEventSpec, ...]:
+    source_freq = str(raw_row["source_freq"])
+    trade_date = str(raw_row["trade_date"])
+    minutes = int(source_freq.removesuffix("min"))
+    path = raw_etf_mins_path(lake_root, source_freq, trade_date)
+    common = {
+        "source_method": "direct_lake_bootstrap",
+        "bootstrap_event_backfill": True,
+        "bootstrap_operation_id": evidence.report.operation_id,
+        "plan_fingerprint": evidence.report.plan_fingerprint,
+        "physical_final_report_hash": evidence.report.report_hash,
+        "partition_key": trade_date,
+        "source_freq": source_freq,
+    }
+    file_evidence = {
+        "raw_sha256": raw_row["formal_raw_sha256"],
+        "reason_code": "ok",
+        "reason_codes": [],
+        "summary": "ETF 分钟 Raw 文件合同已由 Bootstrap 稳定校验验收。",
+        "next_action": "无需处理。",
+    }
+    scope_evidence = {
+        "raw_sha256": raw_row["formal_raw_sha256"],
+        "basic_reference_fingerprint": (
+            evidence.raw_evidence.basic_reference.reference_fingerprint
+        ),
+        "expected_count": int(raw_row["expected_count"]),
+        "present_count": int(raw_row["present_count"]),
+        "missing_count": int(raw_row["missing_count"]),
+        "known_non_required_present_count": int(
+            raw_row["known_non_required_present_count"]
+        ),
+        "retained_legacy_count": int(raw_row["retained_legacy_count"]),
+        "unexplained_new_count": int(raw_row["unexplained_new_count"]),
+        "reason_code": "ok",
+        "reason_codes": [],
+        "summary": "ETF 分钟 Raw 冻结 Basic 请求范围已由 Bootstrap 验收。",
+        "next_action": "无需处理。",
+    }
+    reasons = _decision_reason_codes(decision_row)
+    issue_counts = _decision_issue_counts(decision_row)
+    blocking_failure_count = sum(
+        issue_counts.get(reason, 0)
+        for reason in get_etf_mins_raw_decision_policy(
+            str(decision_row["approved_policy_version"])
+        ).blocking_reason_codes
+    )
+    bar_evidence = {
+        "raw_sha256": raw_row["formal_raw_sha256"],
+        "gap_policy_version": decision_row["approved_policy_version"],
+        "gap_policy_hash": decision_row["approved_policy_hash"],
+        "bar_domain_decision": decision_row["decision"],
+        "bar_domain_reason_codes": list(reasons),
+        "issue_counts": issue_counts,
+        "reason_code": "ok" if not reasons else ",".join(reasons),
+        "reason_codes": list(reasons),
+        "summary": (
+            "ETF 分钟 N3 已按批准 policy 准入。"
+            if bool(decision_row["silver_eligible"])
+            else "ETF 分钟 N3 判定 blocked，禁止进入 Silver。"
+        ),
+        "next_action": (
+            "无需处理；WARN 原因已记录。"
+            if bool(decision_row["silver_eligible"])
+            else "查看 decision manifest 后处理数据事实。"
+        ),
+    }
+    check_names = raw_etf_mins_check_names(minutes)
+    return (
+        _make_etf_mins_check_spec(
+            evidence=evidence,
+            asset_key=asset_key,
+            partition_key=trade_date,
+            check_name=check_names[0],
+            passed=True,
+            scope=CheckScope.SCHEMA,
+            checked_row_count=int(raw_row["formal_raw_row_count"]),
+            failed_row_count=0,
+            file_path=path,
+            extra_metadata={**common, **file_evidence},
+        ),
+        _make_etf_mins_check_spec(
+            evidence=evidence,
+            asset_key=asset_key,
+            partition_key=trade_date,
+            check_name=check_names[1],
+            passed=True,
+            scope=CheckScope.REFERENTIAL_INTEGRITY,
+            checked_row_count=int(raw_row["formal_raw_row_count"]),
+            failed_row_count=0,
+            file_path=path,
+            extra_metadata={**common, **scope_evidence},
+        ),
+        _make_etf_mins_check_spec(
+            evidence=evidence,
+            asset_key=asset_key,
+            partition_key=trade_date,
+            check_name=check_names[2],
+            passed=bool(decision_row["silver_eligible"]),
+            scope=CheckScope.VALUE_SANITY,
+            checked_row_count=int(raw_row["formal_raw_row_count"]),
+            failed_row_count=blocking_failure_count,
+            file_path=path,
+            extra_metadata={**common, **bar_evidence},
+        ),
+    )
+
+
+def _silver_etf_mins_check_specs(
+    *,
+    evidence: _EtfMinsBootstrapPhysicalEvidence,
+    lake_root: Path,
+    asset_key: dg.AssetKey,
+    raw_row: Mapping[str, object],
+    silver_row: Mapping[str, object],
+) -> tuple[_EtfMinsCheckEventSpec, ...]:
+    source_freq = str(raw_row["source_freq"])
+    trade_date = str(raw_row["trade_date"])
+    minutes = int(source_freq.removesuffix("min"))
+    raw_path = raw_etf_mins_path(lake_root, source_freq, trade_date)
+    silver_path = silver_etf_mins_path(lake_root, source_freq, trade_date)
+    common = {
+        "source_method": "direct_lake_bootstrap",
+        "bootstrap_event_backfill": True,
+        "bootstrap_operation_id": evidence.report.operation_id,
+        "plan_fingerprint": evidence.report.plan_fingerprint,
+        "physical_final_report_hash": evidence.report.report_hash,
+        "partition_key": trade_date,
+        "source_freq": source_freq,
+        "reason_code": "ok",
+        "reason_codes": [],
+        "next_action": "无需处理。",
+    }
+    check_names = silver_etf_mins_check_names(minutes)
+    return (
+        _make_etf_mins_check_spec(
+            evidence=evidence,
+            asset_key=asset_key,
+            partition_key=trade_date,
+            check_name=check_names[0],
+            passed=True,
+            scope=CheckScope.SCHEMA,
+            checked_row_count=int(silver_row["formal_silver_row_count"]),
+            failed_row_count=0,
+            file_path=silver_path,
+            extra_metadata={
+                **common,
+                "silver_sha256": silver_row["formal_silver_sha256"],
+                "summary": "ETF 分钟 Silver 文件合同已由 Bootstrap 验收。",
+            },
+        ),
+        _make_etf_mins_check_spec(
+            evidence=evidence,
+            asset_key=asset_key,
+            partition_key=trade_date,
+            check_name=check_names[1],
+            passed=True,
+            scope=CheckScope.RECONCILIATION,
+            checked_row_count=int(silver_row["formal_silver_row_count"]),
+            failed_row_count=0,
+            file_path=silver_path,
+            extra_metadata={
+                **common,
+                "raw_uri": str(raw_path),
+                "raw_sha256": raw_row["formal_raw_sha256"],
+                "silver_sha256": silver_row["formal_silver_sha256"],
+                "summary": "ETF 分钟 Silver 与 Raw 双向等价已由 Bootstrap 验收。",
+            },
+        ),
+    )
+
+
+def _make_etf_mins_check_spec(
+    *,
+    evidence: _EtfMinsBootstrapPhysicalEvidence,
+    asset_key: dg.AssetKey,
+    partition_key: str,
+    check_name: str,
+    passed: bool,
+    scope: CheckScope,
+    checked_row_count: int,
+    failed_row_count: int,
+    file_path: Path,
+    extra_metadata: Mapping[str, object],
+) -> _EtfMinsCheckEventSpec:
+    identity = {
+        "event_kind": "etf_mins_bootstrap_check",
+        "operation_id": evidence.report.operation_id,
+        "plan_fingerprint": evidence.report.plan_fingerprint,
+        "physical_final_report_hash": evidence.report.report_hash,
+        "asset_key": asset_key.to_user_string(),
+        "partition_key": partition_key,
+        "check_name": check_name,
+        "passed": passed,
+        "scope": scope.value,
+        "checked_row_count": checked_row_count,
+        "failed_row_count": failed_row_count,
+        "evidence": dict(extra_metadata),
+    }
+    metadata = build_check_metadata(
+        check_scope=scope,
+        checked_row_count=checked_row_count,
+        failed_row_count=failed_row_count,
+        file_path=file_path,
+        extra_metadata={
+            **dict(extra_metadata),
+            "event_identity_hash": compute_etf_mins_bootstrap_payload_hash(identity),
+        },
+    )
+    return _EtfMinsCheckEventSpec(
+        asset_key=asset_key,
+        partition_key=partition_key,
+        check_name=check_name,
+        passed=passed,
+        metadata=metadata,
+    )
+
+
+def _decision_reason_codes(row: Mapping[str, object]) -> tuple[str, ...]:
+    try:
+        value = json.loads(str(row["decision_reason_codes_json"]))
+    except (KeyError, TypeError, json.JSONDecodeError) as error:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_event_decision_reasons_invalid."
+        ) from error
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_event_decision_reasons_invalid."
+        )
+    return tuple(value)
+
+
+def _decision_issue_counts(row: Mapping[str, object]) -> dict[str, int]:
+    reason_codes = (
+        *ETF_MINS_RAW_OBSERVATION_REASON_CODES,
+        "full_zero_volume_etf_day_observed",
+        "minute_grid_contract_anomaly",
+    )
+    return {
+        reason_code: int(row.get(f"{reason_code}_count", 0))
+        for reason_code in reason_codes
+        if int(row.get(f"{reason_code}_count", 0)) > 0
+    }
+
+
+def _load_latest_etf_mins_materializations(
+    *,
+    instance: dg.DagsterInstance,
+    specs: Sequence[_EtfMinsMaterializationEventSpec],
+) -> tuple[dict[tuple[str, str], object], int]:
+    by_asset: dict[str, tuple[dg.AssetKey, set[str]]] = {}
+    for spec in specs:
+        name = spec.asset_key.to_user_string()
+        if name not in by_asset:
+            by_asset[name] = (spec.asset_key, set())
+        by_asset[name][1].add(spec.partition_key)
+    result: dict[tuple[str, str], object] = {}
+    for asset_name, (asset_key, partitions) in by_asset.items():
+        limit = max(1_000, len(partitions) * 4)
+        records = instance.fetch_materializations(
+            dg.AssetRecordsFilter(
+                asset_key=asset_key,
+                asset_partitions=sorted(partitions),
+            ),
+            limit=limit,
+        ).records
+        for record in records:
+            partition = str(getattr(record, "partition_key", "") or "")
+            if partition in partitions:
+                result.setdefault((asset_name, partition), record)
+        if len(records) == limit and any(
+            (asset_name, partition) not in result for partition in partitions
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_materialization_history_truncated."
+            )
+    return result, len(by_asset)
+
+
+def _load_latest_etf_mins_checks(
+    *,
+    instance: dg.DagsterInstance,
+    specs: Sequence[_EtfMinsCheckEventSpec],
+) -> tuple[dict[tuple[str, str, str], object], int]:
+    grouped: dict[tuple[str, str], tuple[dg.AssetKey, set[str]]] = {}
+    for spec in specs:
+        key = (spec.asset_key.to_user_string(), spec.check_name)
+        if key not in grouped:
+            grouped[key] = (spec.asset_key, set())
+        grouped[key][1].add(spec.partition_key)
+    result: dict[tuple[str, str, str], object] = {}
+    for (asset_name, check_name), (asset_key, partitions) in grouped.items():
+        limit = max(500, len(partitions) * 10)
+        records = instance.event_log_storage.get_asset_check_execution_history(
+            dg.AssetCheckKey(asset_key, check_name),
+            limit=limit,
+        )
+        for record in records:
+            partition = str(getattr(record, "partition", "") or "")
+            if partition in partitions:
+                result.setdefault((asset_name, check_name, partition), record)
+        if len(records) == limit and any(
+            (asset_name, check_name, partition) not in result
+            for partition in partitions
+        ):
+            raise EtfMinsBootstrapError("etf_mins_bootstrap_check_history_truncated.")
+    return result, len(grouped)
+
+
+def _materialization_spec_key(
+    spec: _EtfMinsMaterializationEventSpec,
+) -> tuple[str, str]:
+    return spec.asset_key.to_user_string(), spec.partition_key
+
+
+def _check_materialization_key(spec: _EtfMinsCheckEventSpec) -> tuple[str, str]:
+    return spec.asset_key.to_user_string(), spec.partition_key
+
+
+def _check_spec_key(spec: _EtfMinsCheckEventSpec) -> tuple[str, str, str]:
+    return spec.asset_key.to_user_string(), spec.check_name, spec.partition_key
+
+
+def _materialization_record_matches(
+    record: object,
+    spec: _EtfMinsMaterializationEventSpec,
+) -> bool:
+    materialization = getattr(record, "asset_materialization", None)
+    if materialization is None:
+        return False
+    return _metadata_contains(materialization.metadata, spec.metadata)
+
+
+def _check_record_matches(
+    record: object,
+    spec: _EtfMinsCheckEventSpec,
+    *,
+    target_storage_id: int,
+) -> bool:
+    event = getattr(record, "event", None)
+    dagster_event = getattr(event, "dagster_event", None) if event else None
+    evaluation = (
+        getattr(dagster_event, "event_specific_data", None)
+        if dagster_event is not None
+        else None
+    )
+    target = getattr(evaluation, "target_materialization_data", None)
+    return bool(
+        evaluation is not None
+        and bool(getattr(evaluation, "passed", False)) is spec.passed
+        and bool(getattr(evaluation, "blocking", False))
+        and target is not None
+        and int(target.storage_id) == target_storage_id
+        and _metadata_contains(getattr(evaluation, "metadata", {}), spec.metadata)
+    )
+
+
+def _metadata_contains(
+    actual: Mapping[str, object],
+    expected: Mapping[str, object],
+) -> bool:
+    return all(
+        _metadata_scalar(actual.get(key)) == _metadata_scalar(value)
+        for key, value in expected.items()
+    )
+
+
+def _metadata_scalar(value: object) -> object:
+    scalar = getattr(value, "value", value)
+    if isinstance(scalar, Mapping):
+        return {
+            str(key): _metadata_scalar(item)
+            for key, item in sorted(scalar.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(scalar, (list, tuple)):
+        return tuple(_metadata_scalar(item) for item in scalar)
+    return scalar
+
+
+def _recent_etf_mins_check_trade_dates(
+    trade_dates: Sequence[str],
+) -> tuple[str, ...]:
+    return tuple(trade_dates[-_ETF_MINS_EVENT_CHECK_WINDOW:])
+
+
+def _sample_etf_mins_trade_dates(trade_dates: Sequence[str]) -> tuple[str, ...]:
+    if not trade_dates:
+        return ()
+    indices = (0, len(trade_dates) // 2, len(trade_dates) - 1)
+    return tuple(dict.fromkeys(trade_dates[index] for index in indices))
+
+
 __all__ = [
     "ETF_MINS_BOOTSTRAP_KIND",
     "ETF_MINS_BOOTSTRAP_PROTECTION_2026",
     "ETF_MINS_BOOTSTRAP_PROTECTION_NOT_APPLICABLE",
     "ETF_MINS_BOOTSTRAP_SCHEMA_VERSION",
     "EtfMinsBootstrapError",
+    "EtfMinsBootstrapEventReport",
+    "EtfMinsBootstrapPartitionReport",
     "EtfMinsBootstrapPlan",
     "EtfMinsBootstrapRawApplyReport",
     "EtfMinsBootstrapRawEvidence",
     "EtfMinsBootstrapSilverApplyReport",
+    "apply_etf_mins_bootstrap_events",
     "apply_etf_mins_bootstrap_raw",
     "apply_etf_mins_bootstrap_silver",
+    "audit_etf_mins_bootstrap_events",
     "audit_etf_mins_bootstrap_targets",
     "build_etf_mins_bootstrap_plan",
     "compute_etf_mins_bootstrap_manifest_hash",
@@ -3915,6 +5274,9 @@ __all__ = [
     "load_etf_mins_bootstrap_raw_evidence",
     "load_etf_mins_bootstrap_trade_dates",
     "operation_root_for_etf_mins_bootstrap",
+    "plan_etf_mins_bootstrap_events",
+    "plan_etf_mins_bootstrap_partitions",
+    "register_etf_mins_bootstrap_partitions",
     "run_etf_mins_bootstrap_plan",
     "validate_etf_mins_bootstrap_operation_path",
     "write_etf_mins_bootstrap_plan",

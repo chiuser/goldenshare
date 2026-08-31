@@ -12,8 +12,13 @@ import dagster as dg
 from orchestrator.defs.assets.etf_mins import EtfMinsRawWriteError
 from orchestrator.defs.bootstrap.etf_mins_bootstrap import (
     EtfMinsBootstrapError,
+    apply_etf_mins_bootstrap_events,
     apply_etf_mins_bootstrap_raw,
     apply_etf_mins_bootstrap_silver,
+    audit_etf_mins_bootstrap_events,
+    plan_etf_mins_bootstrap_events,
+    plan_etf_mins_bootstrap_partitions,
+    register_etf_mins_bootstrap_partitions,
     run_etf_mins_bootstrap_plan,
     validate_etf_mins_bootstrap_operation_path,
 )
@@ -31,7 +36,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "ETF 分钟 Direct Lake Bootstrap"
-            "（当前开放 plan/raw-apply/raw-observe/raw-decide/silver-apply）"
+            "（plan/raw-apply/raw-observe/raw-decide/silver-apply/partitions/events）"
         )
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -122,6 +127,31 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         action="store_true",
     )
+    partitions_parser = subcommands.add_parser(
+        "partitions",
+        help="只读计划或显式确认注册已验收范围的动态分区",
+    )
+    partitions_parser.add_argument(
+        "--final-report-path",
+        required=True,
+        type=Path,
+    )
+    partitions_parser.add_argument(
+        "--confirm-partition-write",
+        action="store_true",
+    )
+    events_parser = subcommands.add_parser(
+        "events",
+        help="只读计划、显式补录或 post-audit 已验收的 Runless events",
+    )
+    events_parser.add_argument(
+        "--final-report-path",
+        required=True,
+        type=Path,
+    )
+    events_mode = events_parser.add_mutually_exclusive_group()
+    events_mode.add_argument("--confirm-event-write", action="store_true")
+    events_mode.add_argument("--post-audit", action="store_true")
     return parser
 
 
@@ -292,6 +322,54 @@ def main(argv: list[str] | None = None) -> int:
                 "warn_partition_count": report.warn_partition_count,
                 "report_hash": report.report_hash,
             }
+        elif args.command == "partitions":
+            with dg.DagsterInstance.get() as instance:
+                if args.confirm_partition_write:
+                    partition_report = register_etf_mins_bootstrap_partitions(
+                        instance=instance,
+                        lake_root=lake_root,
+                        staging_root=staging_root,
+                        duckdb=duckdb,
+                        final_report_path=args.final_report_path,
+                        confirm_partition_write=True,
+                    )
+                else:
+                    partition_report = plan_etf_mins_bootstrap_partitions(
+                        instance=instance,
+                        lake_root=lake_root,
+                        staging_root=staging_root,
+                        duckdb=duckdb,
+                        final_report_path=args.final_report_path,
+                    )
+            payload = partition_report.to_dict()
+        elif args.command == "events":
+            with dg.DagsterInstance.get() as instance:
+                if args.post_audit:
+                    event_report = audit_etf_mins_bootstrap_events(
+                        instance=instance,
+                        lake_root=lake_root,
+                        staging_root=staging_root,
+                        duckdb=duckdb,
+                        final_report_path=args.final_report_path,
+                    )
+                elif args.confirm_event_write:
+                    event_report = apply_etf_mins_bootstrap_events(
+                        instance=instance,
+                        lake_root=lake_root,
+                        staging_root=staging_root,
+                        duckdb=duckdb,
+                        final_report_path=args.final_report_path,
+                        confirm_event_write=True,
+                    )
+                else:
+                    event_report = plan_etf_mins_bootstrap_events(
+                        instance=instance,
+                        lake_root=lake_root,
+                        staging_root=staging_root,
+                        duckdb=duckdb,
+                        final_report_path=args.final_report_path,
+                    )
+            payload = event_report.to_dict()
         else:  # pragma: no cover - argparse rejects unknown commands.
             raise AssertionError(f"Unsupported command: {args.command}")
     except (EtfMinsBootstrapError, EtfMinsRawWriteError) as error:

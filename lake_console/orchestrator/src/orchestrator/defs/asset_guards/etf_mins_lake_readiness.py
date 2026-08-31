@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import dagster as dg
@@ -15,6 +17,10 @@ from dagster._core.storage.asset_check_execution_record import (
     AssetCheckExecutionRecordStatus,
 )
 
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityBatchReadiness,
+    ContinuityDateReadiness,
+)
 from orchestrator.defs.assets.etf_basic import audit_etf_basic_silver_snapshot
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.paths import (
@@ -35,6 +41,7 @@ from orchestrator.defs.run_contracts.etf_basic import (
 from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT,
     ETF_MINS_RAW_APPROVED_POLICY_VERSION,
+    ETF_MINS_SENSOR_WINDOW_LIMIT,
     ETF_MINS_SOURCE_COLUMNS,
     ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX,
     ETF_MINS_SOURCE_FREQS,
@@ -44,12 +51,14 @@ from orchestrator.defs.run_contracts.etf_mins import (
     normalize_etf_mins_source_freq,
     normalize_etf_mins_trade_date,
     raw_etf_mins_check_names,
+    silver_etf_mins_check_names,
 )
 
 ETF_MINS_RAW_POLICY_STATE_UNCLASSIFIED = "unclassified"
 
 _SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _RAW_SCHEMA = tuple((column.name, column.type) for column in RAW_ETF_MINS_SCHEMA)
+_RAW_MATERIALIZATION_QUERY_LIMIT = ETF_MINS_SENSOR_WINDOW_LIMIT * 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +111,30 @@ class EtfMinsRawMaterializationEvidence:
     retained_legacy_count: int
     unexplained_new_count: int
     basic_reference: EtfBasicSilverSnapshotReference
+
+
+@dataclass(frozen=True, slots=True)
+class EtfMinsRawMaterializationBatchEvidence:
+    """The latest Raw lineage recovered with one bounded query per asset."""
+
+    expected_partition_keys: tuple[str, ...]
+    evidences_by_partition_and_freq: Mapping[
+        tuple[str, str], EtfMinsRawMaterializationEvidence
+    ]
+    missing_partition_and_freqs: tuple[tuple[str, str], ...]
+    materialization_query_count: int
+
+    def evidence_for(
+        self,
+        partition_key: str,
+        source_freq: str,
+    ) -> EtfMinsRawMaterializationEvidence | None:
+        return self.evidences_by_partition_and_freq.get(
+            (
+                normalize_etf_mins_trade_date(partition_key),
+                normalize_etf_mins_source_freq(source_freq),
+            )
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,7 +334,124 @@ def load_etf_mins_raw_materialization_evidence(
             "etf_mins_raw_materialization_missing: "
             f"asset={asset_key.to_user_string()}, partition={normalized_partition}."
         )
-    record = records[0]
+    return _build_etf_mins_raw_materialization_evidence(
+        record=records[0],
+        lake_root=lake_root,
+        asset_key=asset_key,
+        partition_key=normalized_partition,
+        source_freq=normalized_freq,
+    )
+
+
+def load_etf_mins_raw_materialization_evidence_batch(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    asset_keys_by_source_freq: Mapping[str, dg.AssetKey],
+    partition_keys: Sequence[str],
+) -> EtfMinsRawMaterializationBatchEvidence:
+    """Recover at most ten dates of Raw lineage in exactly five bounded queries."""
+
+    normalized_partitions = tuple(
+        sorted({normalize_etf_mins_trade_date(value) for value in partition_keys})
+    )
+    if len(normalized_partitions) > ETF_MINS_SENSOR_WINDOW_LIMIT:
+        raise ValueError(
+            "etf_mins_raw_lineage_window_exceeds_ten_trade_dates."
+        )
+    normalized_assets = {
+        normalize_etf_mins_source_freq(source_freq): asset_key
+        for source_freq, asset_key in asset_keys_by_source_freq.items()
+    }
+    if set(normalized_assets) != set(ETF_MINS_SOURCE_FREQS):
+        raise ValueError("etf_mins_raw_lineage_requires_five_canonical_assets.")
+    if len({asset_key for asset_key in normalized_assets.values()}) != len(
+        ETF_MINS_SOURCE_FREQS
+    ):
+        raise ValueError("etf_mins_raw_lineage_asset_keys_must_be_unique.")
+    if not normalized_partitions:
+        return EtfMinsRawMaterializationBatchEvidence(
+            expected_partition_keys=(),
+            evidences_by_partition_and_freq={},
+            missing_partition_and_freqs=(),
+            materialization_query_count=0,
+        )
+
+    evidences: dict[tuple[str, str], EtfMinsRawMaterializationEvidence] = {}
+    query_count = 0
+    for source_freq in ETF_MINS_SOURCE_FREQS:
+        asset_key = normalized_assets[source_freq]
+        records = instance.fetch_materializations(
+            dg.AssetRecordsFilter(
+                asset_key=asset_key,
+                asset_partitions=list(normalized_partitions),
+            ),
+            limit=_RAW_MATERIALIZATION_QUERY_LIMIT,
+        ).records
+        query_count += 1
+        seen_partitions: set[str] = set()
+        for record in records:
+            materialization = record.asset_materialization
+            record_partition = str(
+                getattr(record, "partition_key", None)
+                or (
+                    getattr(materialization, "partition", None)
+                    if materialization is not None
+                    else None
+                )
+                or ""
+            ).strip()
+            if record_partition not in normalized_partitions:
+                continue
+            if record_partition in seen_partitions:
+                continue
+            # Records are newest first.  Parse the first record before marking it
+            # seen so an invalid latest record fails closed instead of falling back.
+            evidence = _build_etf_mins_raw_materialization_evidence(
+                record=record,
+                lake_root=lake_root,
+                asset_key=asset_key,
+                partition_key=record_partition,
+                source_freq=source_freq,
+            )
+            evidences[(record_partition, source_freq)] = evidence
+            seen_partitions.add(record_partition)
+        missing_for_asset = tuple(
+            partition_key
+            for partition_key in normalized_partitions
+            if partition_key not in seen_partitions
+        )
+        if missing_for_asset and len(records) >= _RAW_MATERIALIZATION_QUERY_LIMIT:
+            raise RuntimeError(
+                "etf_mins_raw_materialization_batch_truncated: "
+                f"asset={asset_key.to_user_string()}, "
+                f"missing={missing_for_asset}."
+            )
+
+    missing = tuple(
+        (partition_key, source_freq)
+        for partition_key in normalized_partitions
+        for source_freq in ETF_MINS_SOURCE_FREQS
+        if (partition_key, source_freq) not in evidences
+    )
+    return EtfMinsRawMaterializationBatchEvidence(
+        expected_partition_keys=normalized_partitions,
+        evidences_by_partition_and_freq=evidences,
+        missing_partition_and_freqs=missing,
+        materialization_query_count=query_count,
+    )
+
+
+def _build_etf_mins_raw_materialization_evidence(
+    *,
+    record: Any,
+    lake_root: Path,
+    asset_key: dg.AssetKey,
+    partition_key: str,
+    source_freq: str,
+) -> EtfMinsRawMaterializationEvidence:
+    normalized_partition = normalize_etf_mins_trade_date(partition_key)
+    normalized_freq = normalize_etf_mins_source_freq(source_freq)
     materialization = record.asset_materialization
     if materialization is None:
         raise RuntimeError("etf_mins_raw_materialization_payload_missing.")
@@ -541,6 +691,822 @@ def audit_etf_mins_raw_request_scope(
     if evidence.unexplained_new_count:
         failures.append("unexplained_new_code")
     return validation, tuple(failures)
+
+
+def batch_etf_mins_raw_lake_readiness(
+    *,
+    connection: Any,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+    registered_trade_days: Sequence[str],
+    lineage: EtfMinsRawMaterializationBatchEvidence,
+    approved_policy_version: str = ETF_MINS_RAW_APPROVED_POLICY_VERSION,
+) -> ContinuityBatchReadiness:
+    """Recompute the three Raw checks for at most ten dates in one connection."""
+
+    started_at = perf_counter()
+    expected_dates = _normalize_etf_mins_readiness_dates(expected_trade_dates)
+    if expected_dates != lineage.expected_partition_keys:
+        raise ValueError("etf_mins_raw_lineage_window_mismatch.")
+    registered = {
+        normalize_etf_mins_trade_date(value) for value in registered_trade_days
+    }
+    policy = get_etf_mins_raw_decision_policy(approved_policy_version)
+    evidences = lineage.evidences_by_partition_and_freq
+    file_failures: dict[tuple[str, str], list[str]] = {}
+    valid_evidences: list[EtfMinsRawMaterializationEvidence] = []
+    for key, evidence in evidences.items():
+        failures = file_failures.setdefault(key, [])
+        if evidence.raw_path != raw_etf_mins_path(
+            lake_root,
+            evidence.source_freq,
+            evidence.partition_key,
+        ):
+            failures.append("path_mismatch")
+        elif not evidence.raw_path.is_file():
+            failures.append("file_missing")
+        elif _sha256_file(evidence.raw_path) != evidence.raw_sha256:
+            failures.append("file_hash_changed")
+        else:
+            observed_schema = tuple(
+                (str(row[0]), str(row[1]).upper())
+                for row in connection.execute(
+                    f"DESCRIBE SELECT * FROM "
+                    f"{read_parquet(evidence.raw_path, hive_partitioning=False)}"
+                ).fetchall()
+            )
+            if observed_schema != _RAW_SCHEMA:
+                failures.append("schema_mismatch")
+        if not failures:
+            valid_evidences.append(evidence)
+
+    _create_etf_mins_batch_raw_rows(connection, valid_evidences)
+    file_metrics = _load_etf_mins_batch_layer_metrics(
+        connection,
+        relation_name="etf_mins_batch_raw_rows",
+    )
+    for evidence in valid_evidences:
+        key = (evidence.partition_key, evidence.source_freq)
+        metrics = file_metrics.get(key, {})
+        if int(metrics.get("row_count", -1)) != evidence.row_count:
+            file_failures[key].append("row_count_mismatch")
+        for reason_code in (
+            "null_key_count",
+            "duplicate_key_count",
+            "date_mismatch_count",
+            "freq_mismatch_count",
+        ):
+            if int(metrics.get(reason_code, 0)):
+                file_failures[key].append(reason_code)
+
+    request_failures, request_metrics = _load_etf_mins_batch_request_scope(
+        connection=connection,
+        evidences=valid_evidences,
+    )
+    bar_results = _evaluate_etf_mins_batch_bar_domain(
+        connection=connection,
+        evidences=tuple(valid_evidences),
+        policy=policy,
+    )
+    bar_by_key = {
+        (result.partition_key, result.source_freq): result for result in bar_results
+    }
+
+    statuses: dict[str, ContinuityDateReadiness] = {}
+    for trade_date in expected_dates:
+        expected_keys = tuple(
+            (trade_date, source_freq) for source_freq in ETF_MINS_SOURCE_FREQS
+        )
+        missing_keys = tuple(key for key in expected_keys if key not in evidences)
+        missing_paths = tuple(
+            str(raw_etf_mins_path(lake_root, source_freq, trade_date))
+            for _, source_freq in missing_keys
+        )
+        if trade_date not in registered:
+            statuses[trade_date] = ContinuityDateReadiness(
+                trade_date=trade_date,
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="etf_mins_partition_not_registered",
+                missing_check_names=tuple(
+                    check_name
+                    for source_freq in ETF_MINS_SOURCE_FREQS
+                    for check_name in raw_etf_mins_check_names(
+                        asset_freq_for_etf_mins_source_freq(source_freq)
+                    )
+                ),
+                missing_file_paths=missing_paths,
+            )
+            continue
+        if missing_keys:
+            statuses[trade_date] = ContinuityDateReadiness(
+                trade_date=trade_date,
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="etf_mins_raw_materialization_missing",
+                missing_check_names=tuple(
+                    check_name
+                    for _, source_freq in missing_keys
+                    for check_name in raw_etf_mins_check_names(
+                        asset_freq_for_etf_mins_source_freq(source_freq)
+                    )
+                ),
+                missing_file_paths=missing_paths,
+            )
+            continue
+        references = {
+            evidences[key].basic_reference.reference_fingerprint
+            for key in expected_keys
+        }
+        failed_check_names: list[str] = []
+        failure_codes: list[str] = []
+        if len(references) != 1:
+            failure_codes.append("basic_reference_mismatch")
+            failed_check_names.extend(
+                raw_etf_mins_check_names(
+                    asset_freq_for_etf_mins_source_freq(source_freq)
+                )[1]
+                for source_freq in ETF_MINS_SOURCE_FREQS
+            )
+        for key in expected_keys:
+            minutes = asset_freq_for_etf_mins_source_freq(key[1])
+            check_names = raw_etf_mins_check_names(minutes)
+            if file_failures.get(key):
+                failed_check_names.append(check_names[0])
+                failure_codes.extend(file_failures[key])
+            if request_failures.get(key):
+                failed_check_names.append(check_names[1])
+                failure_codes.extend(request_failures[key])
+            bar_result = bar_by_key.get(key)
+            if bar_result is None or not bar_result.silver_eligible:
+                failed_check_names.append(check_names[2])
+                failure_codes.extend(
+                    ("bar_domain_missing",)
+                    if bar_result is None
+                    else bar_result.reason_codes
+                )
+        failed_check_names = list(dict.fromkeys(failed_check_names))
+        failure_codes = list(dict.fromkeys(failure_codes))
+        checks_passed = not failed_check_names
+        statuses[trade_date] = ContinuityDateReadiness(
+            trade_date=trade_date,
+            ready=checks_passed,
+            materialized=True,
+            checks_passed=checks_passed,
+            reason=(
+                "ready"
+                if checks_passed
+                else "etf_mins_existing_file_check_failed"
+            ),
+            failed_check_names=tuple(failed_check_names),
+            summary={
+                "failure_codes": failure_codes[:ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT],
+                "raw_file_count": len(expected_keys),
+                "raw_row_count": sum(evidences[key].row_count for key in expected_keys),
+                "request_scope": {
+                    source_freq: request_metrics.get((trade_date, source_freq), {})
+                    for source_freq in ETF_MINS_SOURCE_FREQS
+                },
+                "bar_domain_decisions": {
+                    source_freq: (
+                        bar_by_key[(trade_date, source_freq)].decision
+                        if (trade_date, source_freq) in bar_by_key
+                        else "missing"
+                    )
+                    for source_freq in ETF_MINS_SOURCE_FREQS
+                },
+            },
+        )
+    return ContinuityBatchReadiness(
+        expected_trade_dates=expected_dates,
+        statuses_by_trade_date=statuses,
+        elapsed_ms=int((perf_counter() - started_at) * 1000),
+        scanned_file_count=len(valid_evidences),
+    )
+
+
+def batch_etf_mins_silver_lake_readiness(
+    *,
+    connection: Any,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+    registered_trade_days: Sequence[str],
+    raw_lineage: EtfMinsRawMaterializationBatchEvidence,
+) -> ContinuityBatchReadiness:
+    """Recompute Silver file/equivalence checks without Dagster event history."""
+
+    started_at = perf_counter()
+    expected_dates = _normalize_etf_mins_readiness_dates(expected_trade_dates)
+    if expected_dates != raw_lineage.expected_partition_keys:
+        raise ValueError("etf_mins_silver_raw_lineage_window_mismatch.")
+    registered = {
+        normalize_etf_mins_trade_date(value) for value in registered_trade_days
+    }
+    raw_evidences = raw_lineage.evidences_by_partition_and_freq
+    silver_paths = {
+        (trade_date, source_freq): silver_etf_mins_path(
+            lake_root,
+            source_freq,
+            trade_date,
+        )
+        for trade_date in expected_dates
+        for source_freq in ETF_MINS_SOURCE_FREQS
+    }
+    valid_silver_keys: list[tuple[str, str]] = []
+    failures: dict[tuple[str, str], list[str]] = {
+        key: [] for key in silver_paths
+    }
+    expected_silver_schema = tuple(
+        (column.name, column.type) for column in SILVER_ETF_MINS_SCHEMA
+    )
+    for key, path in silver_paths.items():
+        if not path.is_file():
+            failures[key].append("file_missing")
+            continue
+        observed_schema = tuple(
+            (str(row[0]), str(row[1]).upper())
+            for row in connection.execute(
+                f"DESCRIBE SELECT * FROM "
+                f"{read_parquet(path, hive_partitioning=False)}"
+            ).fetchall()
+        )
+        if observed_schema != expected_silver_schema:
+            failures[key].append("schema_mismatch")
+            continue
+        valid_silver_keys.append(key)
+
+    _create_etf_mins_batch_silver_rows(
+        connection=connection,
+        silver_paths=silver_paths,
+        valid_keys=valid_silver_keys,
+    )
+    silver_metrics = _load_etf_mins_batch_layer_metrics(
+        connection,
+        relation_name="etf_mins_batch_silver_rows",
+    )
+    for key in valid_silver_keys:
+        metrics = silver_metrics.get(key, {})
+        for reason_code in (
+            "null_key_count",
+            "duplicate_key_count",
+            "date_mismatch_count",
+            "freq_mismatch_count",
+        ):
+            if int(metrics.get(reason_code, 0)):
+                failures[key].append(reason_code)
+
+    valid_raw_evidences = tuple(
+        raw_evidences[key]
+        for key in sorted(raw_evidences)
+        if key in set(valid_silver_keys)
+    )
+    _create_etf_mins_batch_raw_rows(connection, valid_raw_evidences)
+    differences = _load_etf_mins_batch_raw_silver_differences(connection)
+    for key in valid_silver_keys:
+        raw_evidence = raw_evidences.get(key)
+        if raw_evidence is None:
+            failures[key].append("raw_materialization_missing")
+            continue
+        metrics = silver_metrics.get(key, {})
+        if int(metrics.get("row_count", 0)) != raw_evidence.row_count:
+            failures[key].append("row_count_mismatch")
+        raw_minus, silver_minus = differences.get(key, (0, 0))
+        if raw_minus:
+            failures[key].append("raw_minus_silver_count")
+        if silver_minus:
+            failures[key].append("silver_minus_raw_count")
+
+    statuses: dict[str, ContinuityDateReadiness] = {}
+    for trade_date in expected_dates:
+        keys = tuple(
+            (trade_date, source_freq) for source_freq in ETF_MINS_SOURCE_FREQS
+        )
+        missing_paths = tuple(
+            str(silver_paths[key])
+            for key in keys
+            if "file_missing" in failures[key]
+        )
+        if trade_date not in registered:
+            statuses[trade_date] = ContinuityDateReadiness(
+                trade_date=trade_date,
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="etf_mins_partition_not_registered",
+                missing_check_names=tuple(
+                    check_name
+                    for source_freq in ETF_MINS_SOURCE_FREQS
+                    for check_name in silver_etf_mins_check_names(
+                        asset_freq_for_etf_mins_source_freq(source_freq)
+                    )
+                ),
+                missing_file_paths=missing_paths,
+            )
+            continue
+        if missing_paths:
+            statuses[trade_date] = ContinuityDateReadiness(
+                trade_date=trade_date,
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="etf_mins_silver_materialization_missing",
+                missing_check_names=tuple(
+                    check_name
+                    for key in keys
+                    if "file_missing" in failures[key]
+                    for check_name in silver_etf_mins_check_names(
+                        asset_freq_for_etf_mins_source_freq(key[1])
+                    )
+                ),
+                missing_file_paths=missing_paths,
+            )
+            continue
+        failed_check_names: list[str] = []
+        failure_codes: list[str] = []
+        for key in keys:
+            check_names = silver_etf_mins_check_names(
+                asset_freq_for_etf_mins_source_freq(key[1])
+            )
+            key_failures = failures[key]
+            if any(
+                reason
+                in {
+                    "schema_mismatch",
+                    "null_key_count",
+                    "duplicate_key_count",
+                    "date_mismatch_count",
+                    "freq_mismatch_count",
+                }
+                for reason in key_failures
+            ):
+                failed_check_names.append(check_names[0])
+            if any(
+                reason
+                in {
+                    "raw_materialization_missing",
+                    "row_count_mismatch",
+                    "raw_minus_silver_count",
+                    "silver_minus_raw_count",
+                }
+                for reason in key_failures
+            ):
+                failed_check_names.append(check_names[1])
+            failure_codes.extend(key_failures)
+        failed_check_names = list(dict.fromkeys(failed_check_names))
+        failure_codes = list(dict.fromkeys(failure_codes))
+        checks_passed = not failed_check_names
+        statuses[trade_date] = ContinuityDateReadiness(
+            trade_date=trade_date,
+            ready=checks_passed,
+            materialized=True,
+            checks_passed=checks_passed,
+            reason=(
+                "ready"
+                if checks_passed
+                else "etf_mins_existing_file_check_failed"
+            ),
+            failed_check_names=tuple(failed_check_names),
+            summary={
+                "failure_codes": failure_codes[:ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT],
+                "silver_file_count": len(keys),
+                "silver_row_count": sum(
+                    int(silver_metrics.get(key, {}).get("row_count", 0))
+                    for key in keys
+                ),
+            },
+        )
+    return ContinuityBatchReadiness(
+        expected_trade_dates=expected_dates,
+        statuses_by_trade_date=statuses,
+        elapsed_ms=int((perf_counter() - started_at) * 1000),
+        scanned_file_count=len(valid_silver_keys) + len(valid_raw_evidences),
+    )
+
+
+def _normalize_etf_mins_readiness_dates(values: Sequence[str]) -> tuple[str, ...]:
+    normalized = tuple(
+        sorted({normalize_etf_mins_trade_date(value) for value in values})
+    )
+    if len(normalized) > ETF_MINS_SENSOR_WINDOW_LIMIT:
+        raise ValueError("etf_mins_readiness_window_exceeds_ten_trade_dates.")
+    return normalized
+
+
+def _create_etf_mins_batch_silver_rows(
+    *,
+    connection: Any,
+    silver_paths: Mapping[tuple[str, str], Path],
+    valid_keys: Sequence[tuple[str, str]],
+) -> None:
+    columns = ", ".join(ETF_MINS_SOURCE_COLUMNS)
+    selects = [
+        "SELECT "
+        f"{columns}, {duckdb_string(trade_date)} AS expected_trade_date, "
+        f"{duckdb_string(source_freq)} AS expected_source_freq FROM "
+        f"{read_parquet(silver_paths[(trade_date, source_freq)], hive_partitioning=False)}"
+        for trade_date, source_freq in valid_keys
+    ]
+    if selects:
+        sql = " UNION ALL ".join(selects)
+    else:
+        typed_columns = ", ".join(
+            f"CAST(NULL AS {column.type}) AS {column.name}"
+            for column in SILVER_ETF_MINS_SCHEMA
+        )
+        sql = (
+            f"SELECT {typed_columns}, CAST(NULL AS VARCHAR) AS expected_trade_date, "
+            "CAST(NULL AS VARCHAR) AS expected_source_freq WHERE FALSE"
+        )
+    connection.execute(
+        "CREATE OR REPLACE TEMP TABLE etf_mins_batch_silver_rows AS " + sql
+    )
+
+
+def _load_etf_mins_batch_layer_metrics(
+    connection: Any,
+    *,
+    relation_name: str,
+) -> dict[tuple[str, str], dict[str, int]]:
+    normalized_relation = _normalize_relation_name(relation_name)
+    rows = connection.execute(
+        f"""
+        WITH duplicate_keys AS (
+          SELECT expected_trade_date, expected_source_freq,
+            count(*) - 1 AS duplicate_count
+          FROM {normalized_relation}
+          GROUP BY expected_trade_date, expected_source_freq, ts_code, freq, trade_time
+          HAVING count(*) > 1
+        ), duplicates AS (
+          SELECT expected_trade_date, expected_source_freq,
+            coalesce(sum(duplicate_count), 0)::BIGINT AS duplicate_key_count
+          FROM duplicate_keys
+          GROUP BY expected_trade_date, expected_source_freq
+        )
+        SELECT rows.expected_trade_date, rows.expected_source_freq,
+          count(*)::BIGINT AS row_count,
+          count(*) FILTER (
+            WHERE ts_code IS NULL OR freq IS NULL OR trade_time IS NULL
+          )::BIGINT AS null_key_count,
+          coalesce(max(duplicates.duplicate_key_count), 0)::BIGINT,
+          count(*) FILTER (
+            WHERE trade_time IS NOT NULL
+              AND CAST(trade_time AS DATE) <> CAST(rows.expected_trade_date AS DATE)
+          )::BIGINT AS date_mismatch_count,
+          count(*) FILTER (
+            WHERE freq IS NOT NULL AND freq <> rows.expected_source_freq
+          )::BIGINT AS freq_mismatch_count
+        FROM {normalized_relation} AS rows
+        LEFT JOIN duplicates USING (expected_trade_date, expected_source_freq)
+        GROUP BY rows.expected_trade_date, rows.expected_source_freq
+        """
+    ).fetchall()
+    names = (
+        "row_count",
+        "null_key_count",
+        "duplicate_key_count",
+        "date_mismatch_count",
+        "freq_mismatch_count",
+    )
+    return {
+        (str(row[0]), str(row[1])): {
+            name: int(value)
+            for name, value in zip(names, row[2:], strict=True)
+        }
+        for row in rows
+    }
+
+
+def _load_etf_mins_batch_raw_silver_differences(
+    connection: Any,
+) -> dict[tuple[str, str], tuple[int, int]]:
+    columns = ", ".join(ETF_MINS_SOURCE_COLUMNS)
+    rows = connection.execute(
+        f"""
+        WITH raw_minus AS (
+          SELECT expected_trade_date, expected_source_freq, {columns}
+          FROM etf_mins_batch_raw_rows
+          EXCEPT ALL
+          SELECT expected_trade_date, expected_source_freq, {columns}
+          FROM etf_mins_batch_silver_rows
+        ), silver_minus AS (
+          SELECT expected_trade_date, expected_source_freq, {columns}
+          FROM etf_mins_batch_silver_rows
+          EXCEPT ALL
+          SELECT expected_trade_date, expected_source_freq, {columns}
+          FROM etf_mins_batch_raw_rows
+        ), keys AS (
+          SELECT DISTINCT expected_trade_date, expected_source_freq
+          FROM etf_mins_batch_raw_rows
+          UNION
+          SELECT DISTINCT expected_trade_date, expected_source_freq
+          FROM etf_mins_batch_silver_rows
+        )
+        SELECT keys.expected_trade_date, keys.expected_source_freq,
+          (SELECT count(*) FROM raw_minus
+            WHERE raw_minus.expected_trade_date = keys.expected_trade_date
+              AND raw_minus.expected_source_freq = keys.expected_source_freq)::BIGINT,
+          (SELECT count(*) FROM silver_minus
+            WHERE silver_minus.expected_trade_date = keys.expected_trade_date
+              AND silver_minus.expected_source_freq = keys.expected_source_freq)::BIGINT
+        FROM keys
+        """
+    ).fetchall()
+    return {
+        (str(row[0]), str(row[1])): (int(row[2]), int(row[3])) for row in rows
+    }
+
+
+def _create_etf_mins_batch_raw_rows(
+    connection: Any,
+    evidences: Sequence[EtfMinsRawMaterializationEvidence],
+) -> None:
+    columns = ", ".join(ETF_MINS_SOURCE_COLUMNS)
+    selects = [
+        "SELECT "
+        f"{columns}, "
+        f"{duckdb_string(evidence.partition_key)} AS expected_trade_date, "
+        f"{duckdb_string(evidence.source_freq)} AS expected_source_freq, "
+        f"{duckdb_string(evidence.basic_reference.reference_fingerprint)} "
+        "AS basic_reference_fingerprint FROM "
+        f"{read_parquet(evidence.raw_path, hive_partitioning=False)}"
+        for evidence in evidences
+    ]
+    if selects:
+        sql = " UNION ALL ".join(selects)
+    else:
+        typed_columns = ", ".join(
+            f"CAST(NULL AS {column.type}) AS {column.name}"
+            for column in RAW_ETF_MINS_SCHEMA
+        )
+        sql = (
+            f"SELECT {typed_columns}, CAST(NULL AS VARCHAR) AS expected_trade_date, "
+            "CAST(NULL AS VARCHAR) AS expected_source_freq, "
+            "CAST(NULL AS VARCHAR) AS basic_reference_fingerprint WHERE FALSE"
+        )
+    connection.execute("CREATE OR REPLACE TEMP TABLE etf_mins_batch_raw_rows AS " + sql)
+
+
+def _load_etf_mins_batch_request_scope(
+    *,
+    connection: Any,
+    evidences: Sequence[EtfMinsRawMaterializationEvidence],
+) -> tuple[
+    dict[tuple[str, str], list[str]],
+    dict[tuple[str, str], dict[str, int]],
+]:
+    failures: dict[tuple[str, str], list[str]] = {
+        (evidence.partition_key, evidence.source_freq): [] for evidence in evidences
+    }
+    references: dict[str, EtfBasicSilverSnapshotReference] = {}
+    for evidence in evidences:
+        reference = evidence.basic_reference.validate_contract()
+        references.setdefault(reference.reference_fingerprint, reference)
+
+    basic_selects: list[str] = []
+    for fingerprint, reference in references.items():
+        audit = audit_etf_basic_silver_snapshot(
+            path=Path(reference.silver_uri),
+            duckdb_resource=_BorrowedDuckDBResource(connection),
+            raw_path=Path(reference.raw_uri),
+            expected_raw_snapshot_hash=reference.raw_snapshot_hash,
+            expected_silver_content_hash=reference.silver_content_hash,
+        )
+        if not audit.passed:
+            for evidence in evidences:
+                if evidence.basic_reference.reference_fingerprint == fingerprint:
+                    failures[(evidence.partition_key, evidence.source_freq)].append(
+                        "frozen_basic_snapshot_invalid"
+                    )
+            continue
+        basic_selects.append(
+            "SELECT ts_code, list_status, list_date, "
+            f"{duckdb_string(fingerprint)} AS basic_reference_fingerprint FROM "
+            f"{read_parquet(Path(reference.silver_uri), hive_partitioning=False)}"
+        )
+    if basic_selects:
+        basic_sql = " UNION ALL ".join(basic_selects)
+    else:
+        basic_sql = (
+            "SELECT CAST(NULL AS VARCHAR) AS ts_code, "
+            "CAST(NULL AS VARCHAR) AS list_status, "
+            "CAST(NULL AS DATE) AS list_date, "
+            "CAST(NULL AS VARCHAR) AS basic_reference_fingerprint WHERE FALSE"
+        )
+    connection.execute(
+        "CREATE OR REPLACE TEMP TABLE etf_mins_batch_basic_rows AS " + basic_sql
+    )
+    manifest_values = ", ".join(
+        "("
+        f"{duckdb_string(evidence.partition_key)}, "
+        f"{duckdb_string(evidence.source_freq)}, "
+        f"{duckdb_string(evidence.basic_reference.reference_fingerprint)}, "
+        f"DATE {duckdb_string(evidence.basic_reference.eligibility_as_of)}"
+        ")"
+        for evidence in evidences
+    )
+    if not manifest_values:
+        return failures, {}
+    exchange_predicate = " OR ".join(
+        "(right(upper(trim(ts_code)), 3) = "
+        f"{duckdb_string(f'.{suffix}')} AND exchange = {duckdb_string(exchange)})"
+        for suffix, exchange in ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX.items()
+    )
+    rows = connection.execute(
+        f"""
+        WITH manifest(trade_date, source_freq, basic_reference_fingerprint,
+          eligibility_as_of) AS (VALUES {manifest_values}),
+        candidate_codes AS (
+          SELECT DISTINCT expected_trade_date AS trade_date,
+            expected_source_freq AS source_freq,
+            basic_reference_fingerprint, trim(ts_code) AS ts_code
+          FROM etf_mins_batch_raw_rows
+          WHERE ts_code IS NOT NULL
+        ),
+        basic_codes AS (
+          SELECT DISTINCT basic_reference_fingerprint, trim(ts_code) AS ts_code
+          FROM etf_mins_batch_basic_rows
+          WHERE ts_code IS NOT NULL
+        ),
+        expected_codes AS (
+          SELECT DISTINCT manifest.trade_date, manifest.source_freq,
+            manifest.basic_reference_fingerprint, trim(basic.ts_code) AS ts_code
+          FROM manifest
+          JOIN etf_mins_batch_basic_rows AS basic USING (basic_reference_fingerprint)
+          WHERE basic.list_status = 'L'
+            AND CAST(basic.list_date AS DATE) <= manifest.eligibility_as_of
+            AND CAST(basic.list_date AS DATE) <= CAST(manifest.trade_date AS DATE)
+        ),
+        metrics AS (
+          SELECT manifest.trade_date, manifest.source_freq,
+            (SELECT count(*) FROM expected_codes AS expected
+              WHERE expected.trade_date = manifest.trade_date
+                AND expected.source_freq = manifest.source_freq)::BIGINT
+              AS expected_count,
+            (SELECT count(*) FROM candidate_codes AS candidate
+              WHERE candidate.trade_date = manifest.trade_date
+                AND candidate.source_freq = manifest.source_freq)::BIGINT
+              AS present_count,
+            (SELECT count(*) FROM expected_codes AS expected
+              LEFT JOIN candidate_codes AS candidate
+                ON candidate.trade_date = expected.trade_date
+               AND candidate.source_freq = expected.source_freq
+               AND candidate.basic_reference_fingerprint =
+                 expected.basic_reference_fingerprint
+               AND candidate.ts_code = expected.ts_code
+              WHERE expected.trade_date = manifest.trade_date
+                AND expected.source_freq = manifest.source_freq
+                AND candidate.ts_code IS NULL)::BIGINT AS missing_count,
+            (SELECT count(*) FROM candidate_codes AS candidate
+              JOIN basic_codes AS basic
+                ON basic.basic_reference_fingerprint =
+                  candidate.basic_reference_fingerprint
+               AND basic.ts_code = candidate.ts_code
+              LEFT JOIN expected_codes AS expected
+                ON expected.trade_date = candidate.trade_date
+               AND expected.source_freq = candidate.source_freq
+               AND expected.basic_reference_fingerprint =
+                 candidate.basic_reference_fingerprint
+               AND expected.ts_code = candidate.ts_code
+              WHERE candidate.trade_date = manifest.trade_date
+                AND candidate.source_freq = manifest.source_freq
+                AND expected.ts_code IS NULL)::BIGINT
+              AS known_non_required_present_count,
+            (SELECT count(*) FROM candidate_codes AS candidate
+              LEFT JOIN basic_codes AS basic
+                ON basic.basic_reference_fingerprint =
+                  candidate.basic_reference_fingerprint
+               AND basic.ts_code = candidate.ts_code
+              WHERE candidate.trade_date = manifest.trade_date
+                AND candidate.source_freq = manifest.source_freq
+                AND basic.ts_code IS NULL)::BIGINT AS nonbasic_count
+          FROM manifest
+        ), exchange_metrics AS (
+          SELECT expected_trade_date AS trade_date,
+            expected_source_freq AS source_freq,
+            count(*) FILTER (
+              WHERE ts_code IS NOT NULL AND NOT ({exchange_predicate})
+            )::BIGINT AS exchange_mismatch_count
+          FROM etf_mins_batch_raw_rows
+          GROUP BY expected_trade_date, expected_source_freq
+        )
+        SELECT metrics.trade_date, metrics.source_freq,
+          expected_count, present_count, missing_count,
+          known_non_required_present_count, nonbasic_count,
+          coalesce(exchange_mismatch_count, 0)::BIGINT
+        FROM metrics
+        LEFT JOIN exchange_metrics USING (trade_date, source_freq)
+        ORDER BY trade_date, source_freq
+        """
+    ).fetchall()
+    metric_names = (
+        "expected_count",
+        "present_count",
+        "missing_count",
+        "known_non_required_present_count",
+        "nonbasic_count",
+        "exchange_mismatch_count",
+    )
+    metrics = {
+        (str(row[0]), str(row[1])): {
+            name: int(value)
+            for name, value in zip(metric_names, row[2:], strict=True)
+        }
+        for row in rows
+    }
+    evidence_by_key = {
+        (evidence.partition_key, evidence.source_freq): evidence
+        for evidence in evidences
+    }
+    comparisons = (
+        ("expected_count_changed", "expected_count", "expected_count"),
+        ("present_count_changed", "present_count", "present_count"),
+        ("missing_count_changed", "missing_count", "missing_count"),
+        (
+            "known_non_required_count_changed",
+            "known_non_required_present_count",
+            "known_non_required_present_count",
+        ),
+    )
+    for key, evidence in evidence_by_key.items():
+        observed = metrics.get(key)
+        if observed is None:
+            failures[key].append("request_scope_summary_missing")
+            continue
+        for reason_code, metric_name, evidence_name in comparisons:
+            if observed[metric_name] != int(getattr(evidence, evidence_name)):
+                failures[key].append(reason_code)
+        frozen_nonbasic_count = (
+            evidence.retained_legacy_count + evidence.unexplained_new_count
+        )
+        if observed["nonbasic_count"] != frozen_nonbasic_count:
+            failures[key].append("nonbasic_count_changed")
+        if observed["exchange_mismatch_count"]:
+            failures[key].append("exchange_identity_mismatch")
+        if evidence.unexplained_new_count:
+            failures[key].append("unexplained_new_code")
+    return failures, metrics
+
+
+def _evaluate_etf_mins_batch_bar_domain(
+    *,
+    connection: Any,
+    evidences: tuple[EtfMinsRawMaterializationEvidence, ...],
+    policy: EtfMinsRawDecisionPolicy,
+) -> tuple[EtfMinsRawBarDomainResult, ...]:
+    """Read the physical files once, then evaluate each date from the temp batch."""
+
+    by_date: dict[str, dict[str, EtfMinsRawMaterializationEvidence]] = {}
+    for evidence in evidences:
+        by_date.setdefault(evidence.partition_key, {})[evidence.source_freq] = evidence
+    results: list[EtfMinsRawBarDomainResult] = []
+    projected_columns = ", ".join(ETF_MINS_SOURCE_COLUMNS)
+    for trade_date in sorted(by_date):
+        evidence_by_freq = by_date[trade_date]
+        if set(evidence_by_freq) != set(ETF_MINS_SOURCE_FREQS):
+            continue
+        if len(
+            {
+                evidence.basic_reference.reference_fingerprint
+                for evidence in evidence_by_freq.values()
+            }
+        ) != 1:
+            continue
+        connection.execute(
+            "CREATE OR REPLACE TEMP VIEW etf_mins_bar_domain_rows AS "
+            f"SELECT {projected_columns}, expected_source_freq "
+            "FROM etf_mins_batch_raw_rows "
+            f"WHERE expected_trade_date = {duckdb_string(trade_date)}"
+        )
+        connection.execute("DROP TABLE IF EXISTS etf_mins_bar_domain_code_facts")
+        connection.execute(
+            "DROP TABLE IF EXISTS etf_mins_bar_domain_grid_differences"
+        )
+        connection.execute(_bar_domain_code_facts_sql())
+        connection.execute(_bar_domain_grid_differences_sql(policy))
+        full_zero_codes = tuple(
+            str(row[0])
+            for row in connection.execute(
+                _bar_domain_full_zero_codes_sql()
+            ).fetchall()
+        )
+        total_row_count = int(
+            connection.execute(
+                "SELECT count(*) FROM etf_mins_bar_domain_rows"
+            ).fetchone()[0]
+        )
+        results.extend(
+            _load_bar_domain_result(
+                connection=connection,
+                evidence=evidence_by_freq[source_freq],
+                policy=policy,
+                total_row_count=total_row_count,
+                full_zero_codes=full_zero_codes,
+            )
+            for source_freq in ETF_MINS_SOURCE_FREQS
+        )
+    return tuple(results)
 
 
 def evaluate_etf_mins_raw_bar_domain(
@@ -1410,15 +2376,19 @@ __all__ = [
     "EtfMinsBarDomainCheckEvidence",
     "EtfMinsRawBarDomainResult",
     "EtfMinsRawCandidateValidation",
+    "EtfMinsRawMaterializationBatchEvidence",
     "EtfMinsRawMaterializationEvidence",
     "EtfMinsSilverMaterializationEvidence",
     "audit_etf_mins_raw_file_contract",
     "audit_etf_mins_raw_request_scope",
     "audit_etf_mins_silver_file_contract",
     "audit_etf_mins_silver_raw_equivalence",
+    "batch_etf_mins_raw_lake_readiness",
+    "batch_etf_mins_silver_lake_readiness",
     "evaluate_etf_mins_raw_bar_domain",
     "evaluate_etf_mins_raw_candidate",
     "load_etf_mins_bar_domain_check_evidence",
     "load_etf_mins_raw_materialization_evidence",
+    "load_etf_mins_raw_materialization_evidence_batch",
     "load_etf_mins_silver_materialization_evidence",
 ]

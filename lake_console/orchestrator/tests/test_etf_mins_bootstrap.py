@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -466,7 +467,12 @@ def test_raw_apply_requires_confirmation_and_never_mentions_downstream_writes(
             raw_final_report_path=report_path,
             confirm_raw_lake_write=False,
         )
-    source = Path(bootstrap.__file__).read_text(encoding="utf-8")
+    source = "\n".join(
+        (
+            inspect.getsource(bootstrap.apply_etf_mins_bootstrap_raw),
+            inspect.getsource(bootstrap._apply_one_etf_mins_raw_target),
+        )
+    )
     for forbidden in (
         "report_runless_asset_event",
         "add_dynamic_partitions",

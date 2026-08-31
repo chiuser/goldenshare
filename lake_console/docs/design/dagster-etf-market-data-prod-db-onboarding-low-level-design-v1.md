@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P8 代码、隔离验收和首次正式 Silver Bootstrap 均已完成；首次正式 Raw Bootstrap、P7A 观察和 N3B decision 均已完成；N6 仍待 P10 启用前评审；尚未授权动态分区注册、事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P9 与 P10 核心代码/隔离验收已完成，首次正式 Raw/Silver Bootstrap、P7A、N3B、159 个历史动态分区、1,590 条 materialization、500 条 check events 及 P9 post-audit 已闭合；五个 Sensor 已默认 `STOPPED` 进入 Definitions，N6 运行窗口与正式启用仍待单独评审
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。首次 frozen plan、Raw apply、正式 P7A 观察、N3B policy、正式 `raw-decide`、P8 代码与隔离验收及首次正式 Silver apply 已按分阶段授权完成。795 个分区的最终结果为 585 green、210 WARN、0 blocked，全部可准入并已完成 Silver 物理验收；P9 动态分区注册与事件补录仍须分别授权，在 P9 完成前不得启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。首次 frozen plan、Raw apply、正式 P7A 观察、N3B policy、正式 `raw-decide`、P8 正式 Silver apply、P9 动态分区/Runless events/post-audit 和 P10 核心代码/隔离验收已按阶段完成。795 个分区的最终结果为 585 green、210 WARN、0 blocked，全部可准入并已完成 Silver 物理验收；159 个动态分区、1,590 条 materialization 和最近 20 日 500 条 blocking checks 已在正式 Dagster instance 闭合。分钟日常 Sensors 仍不得启用，直到 N6 运行窗口、窗口 gate 测试和上线验收另行获批。
 
 ---
 
@@ -971,7 +971,7 @@ raw_ready
   + 当前 policy 的 bar_domain passed
 ```
 
-`batch_etf_mins_raw_lake_readiness(...)` 必须在一个 DuckDB connection 中批量复刻上述三项 check 语义，不依赖 Dagster instance 或 event history。Raw 与 Silver Sensor 都消费这份结果；Silver Sensor 再叠加 Silver 自身 readiness。不再建立第二套 Silver 准入状态或引用。
+`request_scope` 需要每个 Raw 分区生成时已冻结的 Basic reference，而该引用只在 Raw materialization metadata 中，不在 11 字段 Parquet 内。因此 P10 允许先按五个 Raw asset 各执行一次有界 materialization metadata 批量读取，恢复最近 10 日最多 50 个 Raw 分区的冻结引用。随后 `batch_etf_mins_raw_lake_readiness(...)` 在一个 DuckDB connection 中批量复刻三项 check 语义；它只消费已恢复的小型 evidence，自身不读 Dagster instance。这段分钟连续性不读分钟 check history、不按日查询、不用当前 Basic 替换原分区引用，也不新增 sidecar、状态表或 `current` 指针。Raw 与 Silver Sensor 都消费这份结果；Silver Sensor 再叠加 Silver 自身 readiness。不再建立第二套 Silver 准入状态或引用。
 
 ### 14.5 目标文件冲突
 
@@ -1171,7 +1171,7 @@ silver_etf_mins_update_job
 - Cursor 使用 `build_sensor_cursor`，正常目标小于 2 KB，复杂错误也不得超过 8 KB。
 - Cursor 不保存完整代码、完整文件清单、SQL 或 Basic 快照内容。
 - Run key 使用统一 builder，不从 run key 解析 config。
-- `batch_etf_mins_raw_lake_readiness(...)` 在一个 DuckDB connection 中批量复刻三项 Raw blocking checks；`batch_etf_mins_silver_lake_readiness(...)` 复刻两项 Silver checks。两者都不依赖 Dagster instance，不逐日扫描 event history。
+- Raw lineage loader 按五个 Raw asset 各查一次 materialization，一个 tick 固定最多 5 次；这段分钟连续性检查不读分钟 check history、不按日查询。`batch_etf_mins_raw_lake_readiness(...)` 在一个 DuckDB connection 中批量复刻三项 Raw blocking checks；`batch_etf_mins_silver_lake_readiness(...)` 复刻两项 Silver checks。两个计算 helper 都不依赖 Dagster instance。Raw Sensor 选出新目标后调用的 latest-only Basic selector 仍按第 11 节有界读取两层 Basic materialization 和各自 3 项 checks；它不是分钟 continuity 的 check-history 扫描，也不能被省略。
 
 ### 18.2 `etf_mins_trade_day_sensor`
 
@@ -1197,6 +1197,7 @@ silver_etf_mins_update_job
 ```text
 window gate
 -> expected dates + registered partitions
+-> 五次有界 Raw materialization metadata 批量读取
 -> 10日 Raw Lake batch readiness（三项 blocking checks）
 -> select earliest actionable date
 -> latest-only same-day Basic reference
@@ -1208,7 +1209,7 @@ Sensor 不读取 TaskRun，也不为 N3 对 Prod 做价格、网格或内部空�
 
 ### 18.6 分钟 Silver Sensor
 
-只读最近 10 日 Raw/Silver Lake readiness，不访问 Prod/Tushare/Dagster event history。它先调用 `batch_etf_mins_raw_lake_readiness(...)`，只有同日五频三项 Raw checks 的等价语义全部通过，才调用 Silver batch readiness 并提交该日正式 Silver job。最早日期 Raw 或 Silver not-ready 时停在该日，不越过。Silver job 本身再次运行 Raw checks，从而覆盖 Sensor 与 job 触发之间的文件变化或手工从正式 job 启动的情况。
+只读最近 10 日 Raw/Silver Lake readiness，不访问 Prod/Tushare，不读 check history。它先通过五次有界 Raw materialization metadata 批量读取恢复冻结 Basic reference，再调用 `batch_etf_mins_raw_lake_readiness(...)`；只有同日五频三项 Raw checks 的等价语义全部通过，才调用 Silver batch readiness 并提交该日正式 Silver job。最早日期 Raw 或 Silver not-ready 时停在该日，不越过。Silver job 本身再次运行 Raw checks，从而覆盖 Sensor 与 job 触发之间的文件变化或手工从正式 job 启动的情况。
 
 ### 18.7 建议 reason codes
 
@@ -1367,7 +1368,7 @@ events        物理对账后单独补 materialization/check event，不写 Lake
 
 七个 subcommands 共用 `etf_mins_bootstrap.py` 的计划、校验、checkpoint 和报告类型，以及 `etf_mins_bootstrap_cli.py` 的参数解析；它们仍是七个单独授权阶段，不是一次命令自动跑完全链。禁止把写开关藏在只读入口。`raw-apply`、`silver-apply`、`partitions`、`events` 分别要求 `--confirm-raw-lake-write`、`--confirm-silver-lake-write`、`--confirm-partition-write`、`--confirm-event-write`。本 LLD 只设计入口，不授权执行。
 
-当前实现已经把进入开发范围的 `plan/raw-apply/raw-observe/raw-decide/silver-apply` 注册到 CLI；`partitions/events` 会在 P9 实现时再加入，不提前提供会被误认为可执行的空壳。最终目标仍是本节列出的一个 CLI、七个受控 subcommands，这不改变各阶段必须单独授权的边界。CLI 注册本身不代表执行授权；首次正式 `silver-apply` 已在 2026-08-31 另行获批并完成，P9 两个入口仍未实现或授权。
+当前实现已经把七个受控 subcommands 全部注册到同一个 CLI。`partitions/events` 默认只做 dry-run；写入必须分别显式传 `--confirm-partition-write`、`--confirm-event-write`，事件写后审计使用互斥的 `--post-audit`。CLI 注册和隔离测试本身不代表正式执行授权；首次正式 `silver-apply` 与 P9 分区、事件和 post-audit 已在 2026-08-31 分别获批并完成，未来历史 operation 仍须重新逐阶段授权。
 
 对应调用形状固定为：
 
@@ -1399,12 +1400,22 @@ python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli silver-apply \
   --confirm-silver-lake-write
 
 python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli partitions \
+  --final-report-path <explicit-json-path>
+
+python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli partitions \
   --final-report-path <explicit-json-path> \
   --confirm-partition-write
 
 python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli events \
+  --final-report-path <explicit-json-path>
+
+python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli events \
   --final-report-path <explicit-json-path> \
   --confirm-event-write
+
+python -m orchestrator.defs.bootstrap.etf_mins_bootstrap_cli events \
+  --final-report-path <explicit-json-path> \
+  --post-audit
 ```
 
 所有报告和 checkpoint 必须放在 `/Volumes/datasource/data_lake_staging/etf_mins/operation_id=<operation_id>/` 及其阶段子目录；CLI 要求绝对路径并校验 operation 边界，不能只检查“位于 staging 根下”。`plan/raw-observe/raw-decide` 没有正式 Lake/event 写参数，`raw-apply` 没有 Silver/event 参数，`silver-apply` 没有 Prod/event 参数，`partitions` 没有 source/Lake/event 参数，`events` 没有 source/Lake/partition write 参数。`raw-decide` 只接受代码中已登记且已有正反测试的 policy version，不能从命令行临时传阈值。历史专项入口另加 `--protect-from-date 2026-01-01`，其值只允许等于合同常量，不能由操作者改成更晚日期。
@@ -1711,15 +1722,15 @@ sha256
 | Basic Silver asset | 读 1 个冻结 Raw 文件，1 次 DuckDB set-based COPY | 1 staging + 0/1 新 Silver version | 禁止扫描所有历史 snapshot |
 | 分钟 Raw 日常 | Sensor 对最早候选日 1 条五频 coverage SQL；5 个 Raw asset 各 1 条单日单频明细 SQL，Raw 内不重查 coverage/fingerprint；随后五频 `bar_domain` 共用 1 个 DuckDB connection | 最多 5 个 Raw 文件 + 5 个 blocking check evaluations | 每个自然日最多 6 条 Prod SQL；不允许 ETF×频率 N+1；五个 bar_domain 不得五次重扫 |
 | 分钟 Silver 日常 | 正式 job 先执行同日五频 Raw checks，其中 `bar_domain` 必须共用 1 个 DuckDB connection/一次 evaluator；随后各读 1 个 Raw 文件做 COPY/对账 | 最多 5 个 Silver 文件 | 不访问 Prod，不跨日期扫描，不重跑 Raw writer，不使用额外 run config/reference；不得把五频 `bar_domain` 拆成五次深扫 |
-| Raw Sensor tick | 10 日期 batch Raw Lake readiness；最早候选日最多 1 次五频代码物理覆盖 query，不为 N3 预扫 Prod 价格/网格/空洞 | 0/1 RunRequest，小 cursor | 一次 DuckDB connection 复刻三项 Raw checks；任一失败停在最早日期；coverage/Basic 异常只 skip |
-| Silver Sensor tick | 10 日期、Raw/Silver 最多 100 个目标路径的 true batch Lake readiness | 0/1 RunRequest | 1 个 Raw DuckDB batch + 必要时 1 个 Silver DuckDB batch；不读 Dagster event history；最早 not-ready 日不越过 |
+| Raw Sensor tick | 分钟 continuity：五个 Raw asset 各 1 次有界 materialization metadata 批量读取 + 10 日期 batch Raw Lake readiness；选中目标后再执行既有 latest-only Basic selector；最早候选日最多 1 次五频代码物理覆盖 query | 0/1 RunRequest，小 cursor | 分钟 continuity 固定最多 5 次 materialization、0 次分钟 check-history；Basic selector 另有 2 次 Basic materialization 与 6 次 latest check 读取；一次 DuckDB connection 复刻三项 Raw checks，任一失败停在最早日期 |
+| Silver Sensor tick | 五个 Raw asset 各 1 次有界 materialization metadata 批量读取 + 10 日期、Raw/Silver 最多 100 个目标路径的 true batch Lake readiness | 0/1 RunRequest | materialization 查询固定最多 5 次、check-history 0 次；1 个 Raw DuckDB batch + 必要时 1 个 Silver DuckDB batch；最早 not-ready 日不越过 |
 | Bootstrap plan | 请求上界前最多 10 个 SSE 开市日的 1 条五频 coverage SQL；其它读本地日期/文件/空间证据 | 1 小 JSON 报告 | 单 plan 目标文件最多 10,000；`expected_remote_query_count=1+5×ceil(日数/20)`；证据不足停止 |
 | Bootstrap Raw apply | 每个单频 20 日批次恰好 1 条明细 SQL，不重查 coverage/fingerprint | 每个 frozen 日期/频率独立 staging 和 Raw 原子提升，包括显式零行文件 | 实际查询数必须等于 plan 的 `raw_detail_query_count`；不把全历史装内存；checkpoint 逐文件；不写 Silver/event |
 | N3A Raw observe | 只读本地 Raw；按频率/年份或受控日期批次列投影聚合 | staging 下 profile/detail/observation/proposed policy | 禁止访问 Prod、逐文件重复深扫或 Python 明细循环；不生成 decision |
 | N3B Raw decide | 只读 N3A 结果和已批准 policy version | staging 下 decision manifest/summary | 不重扫 Prod/Raw；policy 未登记、hash 漂移或分区未覆盖时停止 |
 | Bootstrap Silver apply | 只读 finalized Raw manifest、`silver_eligible` decision 和现有 Silver 目标 | 每日/频率独立 Silver staging 和原子提升/等价复用 | 不访问 Prod；blocked 分区零写入；Raw reused 不能漏掉 Silver 缺口；Raw/Silver 双向 `EXCEPT ALL` |
 | Partition registration | `physical_final_report.json` + Silver 交易日历 + 当前动态分区集合 | 只新增获批缺失 partition keys | 必须先于 event；禁止按有数据日期推导、禁止越水位或顺带补历史 |
-| Event backfill | 聚合文件清单 + 已注册分区 + 有界 Dagster 状态 | materialization 最多 `2×target_file_count`；checks 最多 500 | 先 dry-run 和 event 数上限，再单独审批 |
+| Event backfill | 聚合文件清单 + 已注册分区 + 有界 Dagster 状态；按 10 个资产各批量查一次 materialization、按 25 个 asset/check key 各批量查一次 check history，不按日期逐条查询 | materialization 最多 `2×target_file_count`；checks 最多 500 | 先 dry-run 和 event 数上限，再单独审批；首次 795 个全准入分区的物理上限为 1,590 + 500，实际待新增数以正式 dry-run 为准 |
 
 ### 23.3 DuckDB 与磁盘
 
@@ -1855,9 +1866,9 @@ tests/test_etf_mins_continuity_performance.py
 - Basic 不新鲜、Prod 物理 coverage 不完整或 probe 异常时零 RunRequest。
 - 一 tick 最多一个 RunRequest，最早日期优先，不越过空洞。
 - Silver Sensor 不访问 Prod/Tushare。
-- 不调用逐日 Dagster readiness，不深扫 event history。
+- 不调用逐日 Dagster readiness；Raw lineage 只允许五次有界 materialization metadata 批量读取，禁止分钟 check history 和其它分钟 event 深扫；Raw 选中目标后允许既有 latest-only Basic selector 读取两层 Basic 最新 materialization 与各自 checks。
 - cursor 小于 8 KB。
-- Raw/Silver Sensors 分别调用 `batch_etf_mins_raw_lake_readiness` 与 `batch_etf_mins_silver_lake_readiness`；Raw batch 完整复刻三项 checks，不依赖 Dagster instance/event history。
+- Raw/Silver Sensors 分别调用 `batch_etf_mins_raw_lake_readiness` 与 `batch_etf_mins_silver_lake_readiness`；Raw batch 完整复刻三项 checks，只消费已批量恢复的 evidence，计算 helper 本身不依赖 Dagster instance。
 
 ### 24.5 Bootstrap/保护门禁
 
@@ -2026,13 +2037,31 @@ Bootstrap 已增加 `silver-apply`：只消费同 operation 的 Raw 完成报告
 
 2026-08-31 经后续单独授权，operation `etf-mins-bootstrap-20260831-01` 的正式 `silver-apply` 已完成。写前只读预检确认 159 个交易日、5 个频率、795 个 Raw/decision 分区一一对应，77,079,483 行全部 `silver_eligible=true`，正式 Silver 目标全部缺失、无冲突或残留 candidate，可用空间约 2.52 TB；执行未访问 Prod 或 Dagster instance。795 个目标全部以 `added` 原子提升，0 reused、0 blocked、210 WARN，Silver 总行数与 Raw 同为 77,079,483，总文件字节数同为 1,155,673,309；从 work manifest 生成到 final report 约 100 秒。Silver work manifest hash 为 `97838e9d7e0e8ae105249fcf24952702392ea117968de827e5f3e6efe0fbe3d5`，finalized Silver manifest hash 为 `6976a4ba45dec00f4a3130795987bd6134c1a32706c1c71d8f807d2d98c4686d`，checkpoint hash 为 `a98851757edc313bd160224bcfe5cd0df9698173a0da1a5da0b33bdbe7d14562`，physical final report hash 为 `3c0814e25b2589e829a3c7418e86f16c83a8e5983110d327c2de8e32ec434909`。独立 post-audit 复算三个报告/manifest hash 全部通过，正式文件集合 795/795、缺失/额外/hash 漂移均为 0，聚合行数闭合；抽查首、中、尾三个日期五频共 15 对 Raw/Silver 双向差集均为 0，Silver staging 残留文件为 0。此次执行未注册动态分区、未写 Dagster event、未启用 Sensor，P9 边界保持不变。
 
+上段“未注册动态分区、未写 Dagster event”只描述 P8 `silver-apply` 刚结束时的阶段边界；当前 P9 正式结果以本节为准。
+
 ### P9：历史动态分区与 Runless events
 
 只消费 P8 生成并验收的 `physical_final_report.json`：先单独 dry-run/授权注册历史动态分区，再单独 dry-run/授权补 materialization 和最近 20 日 checks，最后做 post-audit。任一 operation/hash 漂移或目标分区未注册时不得写入。
 
+执行结果：P9 代码与隔离验收已完成。`partitions` 默认 dry-run，确认后只向专属 `cn_a_etf_mins_trade_days` 增加缺失日期并写后复核；`events` 默认 dry-run，确认后只补缺失的 Raw/Silver materialization 和最近 20 日正式 checks，`--post-audit` 与写确认互斥。两个入口都会从 `physical_final_report.json` 重新核验整条 P8 证据链和全部正式 Raw/Silver 文件 hash；等价事件复用，非等价事件、文件漂移、未注册分区或预算超限都在写前停止。实现不创建第二套模块、锁或状态表，不访问 Prod，不写 Lake，不运行 job/sensor，也不删除或覆盖历史事件。
+
+隔离验收使用最多 2 个日期的五频合成文件和临时 Dagster instance，证明：分区写入需要显式确认且幂等；事件必须等待全部分区注册；全准入、blocked、等价复用、materialization/check 冲突、正式文件漂移和 post-audit 均有正反测试；旧 `raw-apply` 的负向门禁已收窄到真实 Raw 调用链，继续证明它不会登记分区或事件。ETF 专项回归为 89 passed，orchestrator 全量回归为 2,432 passed、833 subtests passed，Ruff 通过。该代码验收阶段没有读取或写入正式 Dagster instance；随后正式执行结果如下。
+
+2026-08-31 经逐阶段单独授权，operation `etf-mins-bootstrap-20260831-01` 的 P9 正式执行闭合：
+
+1. `partitions` dry-run 用 3.44 秒复核 1,590 个正式文件和报告链，确认计划 159 个 SSE 交易日、已存在 0、待新增 159；绑定 physical report hash `3c0814e25b2589e829a3c7418e86f16c83a8e5983110d327c2de8e32ec434909` 和 plan fingerprint `3ed987fe5ab57635124bacaefd5d5e2a374e41cbce9e3105ca10feeb8f9b1658`。
+2. `partitions --confirm-partition-write` 用 3.22 秒向 `cn_a_etf_mins_trade_days` 新增 159 个日期，写后已存在 159、缺失 0；没有写 Lake 或事件。
+3. `events` dry-run 用 3.46 秒验证 795 个 Raw + 795 个 Silver 文件共 2,311,346,618 字节，执行 10 次 materialization history 和 25 次 check history 批量查询，确认待补 1,590 条 materialization 与最近 20 日 500 条 checks，已有等价均为 0、无冲突。
+4. `events --confirm-event-write` 用 28.27 秒追加 795 条 Raw materialization、795 条 Silver materialization 和 500 条 blocking checks，写后待补均为 0、等价数量分别为 1,590/500；没有创建 Dagster run。
+5. `events --post-audit` 用 4.07 秒再次核验全部文件、分区和事件身份，确认待补为 0；首中尾抽样日期为 `2026-08-03`、`2026-08-17`、`2026-08-28`。全过程未访问 Prod、未写 Lake、未运行 job/sensor，分钟 Sensors 继续保持未启用。
+
 ### P10：分区与更新 Sensors
 
 实现 true-batch readiness、五个默认 STOPPED Sensors，完成本地静态/隔离测试。
+
+实现结果：五次有界 Raw materialization metadata loader 已按五个 Raw asset 各一次查询恢复最近 10 日最多 50 个分区的原始 Basic reference；`batch_etf_mins_raw_lake_readiness(...)` 在一个 DuckDB connection 中复算 file contract、冻结 request scope 和 N3 bar domain，`batch_etf_mins_silver_lake_readiness(...)` 直接从最多 50 对 Raw/Silver 文件复算 Silver 合同与双向等价。两个计算 helper 都不接收 Dagster instance，也不读取 check history。一个分区注册 Sensor、两个 Basic Sensor、两个分钟 Sensor 已进入正式 Definitions，全部默认 `STOPPED`；Raw 只在选中目标后消费一次五频 coverage，Silver 路径不引用 Prod。
+
+隔离验收只使用单日五频合成 Parquet，没有同步全量数据；正反样本覆盖原 Basic reference 恢复、10 日上限、缺 materialization、Raw/Silver ready、Silver 内容冲突、已有 Raw check 失败不覆盖、Silver 停在 Raw 失败日、单次 coverage 和小 cursor。ETF 专项加静态门禁共 268 passed，Ruff 通过。此次没有读取 Prod、正式 Lake、正式 Dagster instance，也没有运行或启用 Sensor。N6 仍是唯一上线前未关闭项：确认上海运行窗口后，必须先把窗口 gate 和窗口内外零查询测试落进这五个 Sensor，再单独授权启用和自然生产日观察；当前结果不能解释成已经上线。
 
 完成条件：分钟 Raw Sensor 每个目标日只执行一次五频 coverage，结合 P5 已验证的五条单频明细 SQL，日常链最多六条 Prod SQL；Raw/Silver continuity 都只读最近 10 个交易日并停在最早 not-ready 日。启用仍需另一次授权，并按 Basic Raw→Basic Silver→分钟 Raw→分钟 Silver 顺序各观察至少一个自然生产日；任一层异常时不启用下游。
 

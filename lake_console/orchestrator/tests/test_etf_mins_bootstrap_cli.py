@@ -13,7 +13,7 @@ from orchestrator.defs.bootstrap.etf_mins_bootstrap import (
 )
 
 
-def test_cli_exposes_the_five_developed_stages_and_requires_write_flags() -> None:
+def test_cli_exposes_seven_stages_and_keeps_p9_writes_explicit() -> None:
     parser = cli._build_parser()
     plan_args = parser.parse_args(
         [
@@ -93,9 +93,41 @@ def test_cli_exposes_the_five_developed_stages_and_requires_write_flags() -> Non
         ]
     )
     assert silver_apply_args.command == "silver-apply"
-    for future_stage in ("partitions", "events"):
-        with pytest.raises(SystemExit):
-            parser.parse_args([future_stage])
+    final_report = "/tmp/operation/physical_final_report.json"
+    partitions_dry_run = parser.parse_args(
+        ["partitions", "--final-report-path", final_report]
+    )
+    assert partitions_dry_run.confirm_partition_write is False
+    partitions_apply = parser.parse_args(
+        [
+            "partitions",
+            "--final-report-path",
+            final_report,
+            "--confirm-partition-write",
+        ]
+    )
+    assert partitions_apply.confirm_partition_write is True
+    events_dry_run = parser.parse_args(["events", "--final-report-path", final_report])
+    assert events_dry_run.confirm_event_write is False
+    assert events_dry_run.post_audit is False
+    events_apply = parser.parse_args(
+        ["events", "--final-report-path", final_report, "--confirm-event-write"]
+    )
+    assert events_apply.confirm_event_write is True
+    events_post_audit = parser.parse_args(
+        ["events", "--final-report-path", final_report, "--post-audit"]
+    )
+    assert events_post_audit.post_audit is True
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "events",
+                "--final-report-path",
+                final_report,
+                "--confirm-event-write",
+                "--post-audit",
+            ]
+        )
 
 
 def test_operation_paths_must_be_absolute_and_bound_to_one_operation(
@@ -435,3 +467,62 @@ def test_silver_apply_cli_is_local_only_and_passes_only_frozen_artifacts(
     output = capsys.readouterr().out
     assert '"operation_id": "silver"' in output
     assert str(final_report_path) in output
+
+
+def test_p9_cli_dry_runs_never_construct_a_prod_resource(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lake_root = tmp_path / "data_lake"
+    staging_root = tmp_path / "data_lake_staging"
+    lake_root.mkdir()
+    staging_root.mkdir()
+    final_report_path = (
+        staging_root / "etf_mins" / "operation_id=p9" / "physical_final_report.json"
+    )
+    instance = object()
+    captured: list[tuple[str, dict[str, object]]] = []
+
+    class _InstanceContext:
+        def __enter__(self):  # type: ignore[no-untyped-def]
+            return instance
+
+        def __exit__(self, *args):  # type: ignore[no-untyped-def]
+            del args
+            return False
+
+    def fake_partition_plan(**kwargs):  # type: ignore[no-untyped-def]
+        captured.append(("partitions", kwargs))
+        return SimpleNamespace(to_dict=lambda: {"mode": "dry-run"})
+
+    def fake_event_plan(**kwargs):  # type: ignore[no-untyped-def]
+        captured.append(("events", kwargs))
+        return SimpleNamespace(to_dict=lambda: {"mode": "dry-run"})
+
+    def prod_resource_must_not_be_created():  # type: ignore[no-untyped-def]
+        raise AssertionError("P9 must not construct a Prod resource")
+
+    monkeypatch.setattr(cli, "DEFAULT_LAKE_ROOT", str(lake_root))
+    monkeypatch.setattr(cli, "DEFAULT_LAKE_STAGING_ROOT", str(staging_root))
+    monkeypatch.setattr(cli, "ProdPostgresResource", prod_resource_must_not_be_created)
+    monkeypatch.setattr(cli.dg.DagsterInstance, "get", lambda: _InstanceContext())
+    monkeypatch.setattr(
+        cli,
+        "plan_etf_mins_bootstrap_partitions",
+        fake_partition_plan,
+    )
+    monkeypatch.setattr(cli, "plan_etf_mins_bootstrap_events", fake_event_plan)
+
+    for command in ("partitions", "events"):
+        assert cli.main([command, "--final-report-path", str(final_report_path)]) == 0
+    assert [name for name, _ in captured] == ["partitions", "events"]
+    for _, kwargs in captured:
+        assert kwargs == {
+            "instance": instance,
+            "lake_root": lake_root,
+            "staging_root": staging_root,
+            "duckdb": kwargs["duckdb"],
+            "final_report_path": final_report_path,
+        }
+    assert capsys.readouterr().out.count('"mode": "dry-run"') == 2
