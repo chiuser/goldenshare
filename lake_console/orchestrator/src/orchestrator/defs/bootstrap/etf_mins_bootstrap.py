@@ -97,6 +97,15 @@ ETF_MINS_BOOTSTRAP_TARGET_STATES = (
     "present_structurally_valid_uncompared",
     "present_invalid",
 )
+_PROTECTED_FILE_MANIFEST_KEY_FIELDS = (
+    "layer",
+    "source_freq",
+    "trade_date",
+    "relative_path",
+)
+_PROTECTED_FILE_MANIFEST_FIELDS = frozenset(
+    (*_PROTECTED_FILE_MANIFEST_KEY_FIELDS, "row_count", "size_bytes", "sha256")
+)
 
 _ESTIMATE_BASIS = (
     "P0_2026-08-30:20_trade_days_all_freqs=10460000_rows;"
@@ -649,6 +658,7 @@ def build_etf_mins_bootstrap_plan(
     protection_mode, protected_manifest, protected_hash = (
         _build_historical_protection_contract(
             lake_root=lake_root,
+            duckdb=duckdb,
             requested_start_date=started,
             requested_end_date=requested_end,
             protect_from_date=protect_from_date,
@@ -936,7 +946,11 @@ def load_etf_mins_bootstrap_raw_evidence(
         lake_root=lake_root,
         basic_reference=basic_reference,
     )
-    _assert_protected_manifest_unchanged(plan=plan, lake_root=lake_root)
+    _assert_protected_manifest_unchanged(
+        plan=plan,
+        lake_root=lake_root,
+        duckdb=duckdb,
+    )
     raw_apply_report = _load_completed_raw_apply_report(
         plan=plan,
         plan_path=provisional_report.plan_path,
@@ -1209,7 +1223,11 @@ def apply_etf_mins_bootstrap_raw(
         lake_root=lake_root,
         basic_reference=basic_reference,
     )
-    _assert_protected_manifest_unchanged(plan=plan, lake_root=lake_root)
+    _assert_protected_manifest_unchanged(
+        plan=plan,
+        lake_root=lake_root,
+        duckdb=duckdb,
+    )
     if raw_final_report_path.exists():
         return _load_completed_raw_apply_report(
             plan=plan,
@@ -1362,7 +1380,11 @@ def apply_etf_mins_bootstrap_raw(
         lake_root=lake_root,
         manifest_rows=manifest_rows,
     )
-    _assert_protected_manifest_unchanged(plan=plan, lake_root=lake_root)
+    _assert_protected_manifest_unchanged(
+        plan=plan,
+        lake_root=lake_root,
+        duckdb=duckdb,
+    )
     checkpoint_hash = _checkpoint_hash(checkpoint)
     source_batches = checkpoint.get("source_batches")
     if not isinstance(source_batches, dict):
@@ -1514,6 +1536,7 @@ def apply_etf_mins_bootstrap_silver(
     _assert_protected_manifest_unchanged(
         plan=raw_evidence.plan,
         lake_root=lake_root,
+        duckdb=duckdb,
     )
 
     for key, decision_row in decision_rows_by_key.items():
@@ -1640,6 +1663,7 @@ def apply_etf_mins_bootstrap_silver(
     _assert_protected_manifest_unchanged(
         plan=raw_evidence.plan,
         lake_root=lake_root,
+        duckdb=duckdb,
     )
 
     report_payload: dict[str, object] = {
@@ -3404,9 +3428,21 @@ def _plan_from_payload(payload: Mapping[str, object]) -> EtfMinsBootstrapPlan:
                 "use not_applicable/null."
             )
     elif protection_mode == ETF_MINS_BOOTSTRAP_PROTECTION_2026:
+        if any(
+            set(row) != _PROTECTED_FILE_MANIFEST_FIELDS
+            or str(row.get("layer")) not in {"raw", "silver"}
+            or not isinstance(row.get("row_count"), int)
+            or int(row.get("row_count", -1)) < 0
+            or not isinstance(row.get("size_bytes"), int)
+            or int(row.get("size_bytes", -1)) < 0
+            for row in protected_manifest
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_protected_manifest_contract_invalid."
+            )
         expected_protected_hash = compute_etf_mins_bootstrap_manifest_hash(
             protected_manifest,
-            key_fields=("source_freq", "trade_date", "relative_path"),
+            key_fields=_PROTECTED_FILE_MANIFEST_KEY_FIELDS,
         )
         if protected_hash_value != expected_protected_hash:
             raise EtfMinsBootstrapError(
@@ -3481,6 +3517,7 @@ def _plan_from_payload(payload: Mapping[str, object]) -> EtfMinsBootstrapPlan:
 def _build_historical_protection_contract(
     *,
     lake_root: Path,
+    duckdb: DuckDBResource,
     requested_start_date: str,
     requested_end_date: str,
     protect_from_date: str | None,
@@ -3490,7 +3527,7 @@ def _build_historical_protection_contract(
         if requested_start_date < cutoff:
             raise EtfMinsBootstrapError(
                 "etf_mins_bootstrap_protection_required: pre-2026 plans must protect "
-                "all 2026 and later Raw files."
+                "all 2026 and later Raw/Silver files."
             )
         return ETF_MINS_BOOTSTRAP_PROTECTION_NOT_APPLICABLE, (), None
     normalized_protect_from = normalize_etf_mins_trade_date(protect_from_date)
@@ -3503,43 +3540,87 @@ def _build_historical_protection_contract(
             "etf_mins_bootstrap_protected_range_overlap: a protected historical plan "
             "must end on or before 2025-12-31."
         )
-    manifest = _collect_protected_raw_manifest(
+    manifest = _collect_protected_file_manifest(
         lake_root=lake_root,
+        duckdb=duckdb,
         protect_from_date=cutoff,
     )
     manifest_hash = compute_etf_mins_bootstrap_manifest_hash(
         manifest,
-        key_fields=("source_freq", "trade_date", "relative_path"),
+        key_fields=_PROTECTED_FILE_MANIFEST_KEY_FIELDS,
     )
     return ETF_MINS_BOOTSTRAP_PROTECTION_2026, manifest, manifest_hash
 
 
-def _collect_protected_raw_manifest(
+def _collect_protected_file_manifest(
     *,
     lake_root: Path,
+    duckdb: DuckDBResource,
     protect_from_date: str,
 ) -> tuple[Mapping[str, object], ...]:
-    dataset_root = lake_root / "raw" / "tushare" / "etf_mins"
-    rows: list[dict[str, object]] = []
-    if not dataset_root.exists():
-        return ()
-    for path in sorted(dataset_root.glob("freq=*/trade_date=*/part-000.parquet")):
-        source_freq = normalize_etf_mins_source_freq(
-            path.parents[1].name.split("=", 1)[1]
-        )
-        trade_date = normalize_etf_mins_trade_date(path.parent.name.split("=", 1)[1])
-        if trade_date < protect_from_date:
+    protected_paths: list[tuple[str, str, str, Path]] = []
+    dataset_roots = (
+        ("raw", lake_root / "raw" / "tushare" / "etf_mins"),
+        ("silver", lake_root / "silver" / "quote" / "etf_mins"),
+    )
+    for layer, dataset_root in dataset_roots:
+        if not dataset_root.exists():
             continue
-        if not path.is_file():
-            raise EtfMinsBootstrapError(
-                "etf_mins_bootstrap_protected_file_invalid: protected target is not "
-                "a regular file."
+        for path in sorted(
+            dataset_root.glob("freq=*/trade_date=*/part-000.parquet")
+        ):
+            source_freq = normalize_etf_mins_source_freq(
+                path.parents[1].name.split("=", 1)[1]
             )
+            trade_date = normalize_etf_mins_trade_date(
+                path.parent.name.split("=", 1)[1]
+            )
+            if trade_date < protect_from_date:
+                continue
+            if not path.is_file():
+                raise EtfMinsBootstrapError(
+                    "etf_mins_bootstrap_protected_file_invalid: protected target "
+                    "is not a regular file."
+                )
+            protected_paths.append((layer, source_freq, trade_date, path))
+    if not protected_paths:
+        return ()
+
+    paths = tuple(path for _, _, _, path in protected_paths)
+    try:
+        with duckdb.connect() as connection:
+            row_count_rows = connection.execute(
+                "SELECT file_name, CAST(sum(num_rows) AS BIGINT) AS row_count "
+                f"FROM parquet_file_metadata({_duckdb_path_list(paths)}) "
+                "GROUP BY file_name"
+            ).fetchall()
+    except Exception:  # noqa: BLE001 - normalize protected-file read failures.
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_protected_file_invalid: protected row counts "
+            "cannot be read."
+        ) from None
+    row_count_by_path = {
+        str(Path(str(file_name)).resolve(strict=False)): int(row_count)
+        for file_name, row_count in row_count_rows
+    }
+    expected_paths = {str(path.resolve(strict=False)) for path in paths}
+    if set(row_count_by_path) != expected_paths:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_protected_file_invalid: protected row-count scope "
+            "does not match the discovered files."
+        )
+
+    rows: list[dict[str, object]] = []
+    for layer, source_freq, trade_date, path in protected_paths:
         rows.append(
             {
+                "layer": layer,
                 "source_freq": source_freq,
                 "trade_date": trade_date,
                 "relative_path": path.relative_to(lake_root).as_posix(),
+                "row_count": row_count_by_path[
+                    str(path.resolve(strict=False))
+                ],
                 "size_bytes": path.stat().st_size,
                 "sha256": _sha256_file(path),
             }
@@ -3551,6 +3632,7 @@ def _assert_protected_manifest_unchanged(
     *,
     plan: EtfMinsBootstrapPlan,
     lake_root: Path,
+    duckdb: DuckDBResource,
 ) -> None:
     if plan.historical_protection_mode == (
         ETF_MINS_BOOTSTRAP_PROTECTION_NOT_APPLICABLE
@@ -3560,18 +3642,19 @@ def _assert_protected_manifest_unchanged(
                 "etf_mins_bootstrap_protection_contract_invalid."
             )
         return
-    current_manifest = _collect_protected_raw_manifest(
+    current_manifest = _collect_protected_file_manifest(
         lake_root=lake_root,
+        duckdb=duckdb,
         protect_from_date=ETF_MINS_HISTORICAL_PROTECTION_CUTOFF.isoformat(),
     )
     current_hash = compute_etf_mins_bootstrap_manifest_hash(
         current_manifest,
-        key_fields=("source_freq", "trade_date", "relative_path"),
+        key_fields=_PROTECTED_FILE_MANIFEST_KEY_FIELDS,
     )
     if current_hash != plan.protected_file_manifest_hash:
         raise EtfMinsBootstrapError(
-            "etf_mins_bootstrap_protected_files_changed: 2026 and later Raw files "
-            "differ from the frozen protection manifest."
+            "etf_mins_bootstrap_protected_files_changed: 2026 and later Raw/Silver "
+            "files differ from the frozen protection manifest."
         )
 
 
@@ -4449,6 +4532,7 @@ def _load_etf_mins_bootstrap_physical_evidence(
     _assert_protected_manifest_unchanged(
         plan=raw_evidence.plan,
         lake_root=lake_root,
+        duckdb=duckdb,
     )
 
     eligible_keys = {

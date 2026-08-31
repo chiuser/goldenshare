@@ -507,11 +507,11 @@ requested_end_date <= 2025-12-31
 6. 某只 ETF 在早先任务中仍可请求、后来退市或从 Basic 消失时，已经进入正式 Lake 的历史数据继续保留。后续任务不再要求它出现，也绝不删除、回收或重写它的旧数据。
 7. 候选中出现无法由最新 Basic 识别、且本次执行前同一目标正式文件也没有的新代码时，必须停下人工解释；Raw 不能靠静默丢行通过校验，也不能为了分类去扫描全部历史 Lake。
 8. 历史 writer 在代码层拒绝任何 `trade_date >= 2026-01-01` 的候选路径。
-9. 执行前生成 2026 正式文件保护清单，至少包含路径、行数、文件大小和 SHA-256；执行后复算，必须零变化。
+9. 执行前生成 2026 年及以后全部正式分钟 Raw/Silver 文件保护清单，每行固定记录 `layer/source_freq/trade_date/relative_path/row_count/size_bytes/SHA-256`；执行后按同一口径复算，必须逐项零变化。
 10. 历史目标文件不存在时才允许新增；存在且 11 字段语义等价则复用，存在但不同则停止，不能自动覆盖。
 11. Raw apply 输出包含 `added/reused` 的完整 finalized manifest。Silver work manifest 取“`silver_eligible=true` 且 Silver 缺失或需要等价核验”的批准范围：缺失则新增，已存在且等价则复用，冲突则停止；不得因为 Raw 已复用就漏掉缺失的 Silver，也不能扫描并重写 2026。
 12. 2025 年及以前的动态分区只注册本次已批准 frozen plan 中的 SSE 开市日，且必须在对应 Runless Event 之前完成；Runless Event 消费最终验收的 `added/reused` 文件范围并幂等补缺失事件，不重复写已有等价事件。
-13. 单份 frozen plan 最多包含 10,000 个 Raw 目标文件；更长历史按连续、互不重叠的日期段拆成多份计划，分别审批并串行完成。全部完成后对日期并集做总审计，并再次证明 2026 保护清单零变化。
+13. 单份 frozen plan 最多包含 10,000 个 Raw 目标文件；更长历史按连续、互不重叠的日期段拆成多份计划，分别审批并串行完成。全部完成后对日期并集做总审计，并再次证明 2026 年及以后 Raw/Silver 保护清单零变化。
 
 这样做的实际效果是：补 2025 或更早的数据，只会新增对应历史目录；2026 年既不进入候选清单，也不进入写入函数。
 
@@ -644,7 +644,7 @@ tushare_request_count / page_count / quota_impact
 
 已完成 P6 代码与临时湖验收：新增一个 Bootstrap 实现模块和一个 CLI；P6 完成时只开放本阶段已经授权开发的 `plan/raw-apply`，P7A 完成后才按阶段增加 `raw-observe`，其余四个 subcommand 仍不提前放空壳。plan 只做一次最多 10 个 SSE 开市日的五频 coverage 查询，冻结动态水位、latest-only Basic、目标状态、查询/文件/磁盘预算和 protection mode；不会读取 TaskRun，也不会在 apply 重查 coverage。raw-apply 按单频最多 20 日串行读取，每批只有一次明细查询，逐日生成普通或显式零行候选，复用 P5 稳定 validator，只允许新增或语义等价复用，内容冲突立即停止。
 
-断点续跑只保留尚未完成批次的 source Parquet；整批逐文件验收并写入 checkpoint 后，原子关闭并清理该批自己生成的临时 source 文件，避免 staging 长期保留一份完整历史副本。checkpoint 直接记录每批 source/staging/Raw 行数、added/reused/zero-row、查询耗时和临时空间峰值；最终报告补充正式 Raw 实际空间增量，并记录同一 operation 内 frozen plan/checkpoint 的相对路径。完成报告只有在全部目标、批次汇总、查询预算、Basic reference、正式文件 hash 和适用的 2026 保护清单都闭合后才生成；后续 P7A 从报告精确回溯输入，不猜固定文件名。该补充不改变 plan fingerprint、动态水位或 `plan` 与 `raw-apply` 分开授权的流程。
+断点续跑只保留尚未完成批次的 source Parquet；整批逐文件验收并写入 checkpoint 后，原子关闭并清理该批自己生成的临时 source 文件，避免 staging 长期保留一份完整历史副本。checkpoint 直接记录每批 source/staging/Raw 行数、added/reused/zero-row、查询耗时和临时空间峰值；最终报告补充正式 Raw 实际空间增量，并记录同一 operation 内 frozen plan/checkpoint 的相对路径。完成报告只有在全部目标、批次汇总、查询预算、Basic reference、正式文件 hash 和适用的 2026 年及以后 Raw/Silver 保护清单都闭合后才生成；后续 P7A 从报告精确回溯输入，不猜固定文件名。该补充不改变 plan fingerprint、动态水位或 `plan` 与 `raw-apply` 分开授权的流程。
 
 临时湖 + fake/read-only source 已证明：21 日会固定拆成 `5 × ceil(21/20) = 10` 个明细查询；进程中断后复用未完成批次，不重复查询；批次完成但最终报告写出前中断时，可以只靠 checkpoint 完成收尾；结构正确零行文件可进入比较；单文件 schema 损坏会令 plan 停止；Basic 在下一批前漂移时先停且不发出下一条明细查询；已有目标等价时只复用，不一致时不覆盖；完成报告不把绝对 staging 路径算进身份。ETF Basic + 分钟专项与治理回归为 233 passed；orchestrator 全量回归为 2,408 passed、833 subtests passed；Ruff、格式和文档完整性检查通过。没有访问 Prod、正式 Lake 或正式 Dagster instance，也没有执行 CLI、Dagster job、分区或事件写入。
 
@@ -698,7 +698,9 @@ P9 代码与隔离验收已完成。现有同一个 Bootstrap CLI 已加入 `par
 
 ### P11：2026 年以前独立补录
 
-等 Prod 对应范围同步完成后单独计划、单独授权；按执行时最新 Basic Silver 校验，不回溯历史 Basic，并严格执行第 12 节的 2026 文件零变化门禁。若目标超过单 plan 的 10,000 文件上限，按互不重叠日期段拆分并串行验收。
+等 Prod 对应范围同步完成后单独计划、单独授权；按执行时最新 Basic Silver 校验，不回溯历史 Basic，并严格执行第 12 节的 2026 年及以后 Raw/Silver 文件零变化门禁。若目标超过单 plan 的 10,000 文件上限，按互不重叠日期段拆分并串行验收。
+
+P11 发生在日常链已经启用之后。正式执行时不新增跨路径锁，也不暂停全部五个 Sensor：从生成正式 `plan` 前开始，只暂停会写分钟文件的 `raw_etf_mins_update_job_sensor` 和 `silver_etf_mins_update_job_sensor`，并先确认对应分钟 update jobs 没有 `QUEUED/STARTED` 运行；两者一直保持暂停，直到同一 operation 完成 `events --post-audit`。Basic Raw/Silver Sensor 和交易日注册 Sensor 可以继续运行，因为 Basic 使用不可变内容版本，plan 会冻结其精确 reference，而交易日 Sensor 不写分钟文件。P11 最终验收通过后再恢复两条分钟 Sensor。
 
 ---
 
@@ -734,6 +736,7 @@ P9 代码与隔离验收已完成。现有同一个 Bootstrap CLI 已加入 `par
 | C24 | 分钟 Raw 只有一套正式 readiness：`file_contract/request_scope/bar_domain` 全部是 `blocking=True`。失败不回滚 Raw 文件，但阻断日常连续性和 Silver；Silver 正式 Job 通过选择 Raw checks 在同一 run 内 fail-closed，不新增第二套准入引用或 writer guard。 |
 | C25 | 正式 Bootstrap plan 不预判既有目标可复用；它只标记缺失、结构有效但未比较、结构无效。等价复用或内容冲突只在 apply 的唯一一次明细导出后判定。 |
 | C26 | N3B 已批准 `etf_mins_gap_policy_v1`：五频使用正式 P7A 实测精确网格，标准午休 gap 合法；普通或单频零成交接受，只有同一 ETF-day 五频均整日零成交才为可准入 WARN；known-non-required、retained-legacy 同样为可准入 WARN；其余空频率、缺代码、非标准网格、数值域、未知代码和稳定合同异常阻断。 |
+| C27 | P11 在日常链启用后执行时，从正式 plan 前到 `events --post-audit` 只暂停两条分钟 Raw/Silver Sensor，并确认分钟 update jobs 没有活动运行；Basic Raw/Silver 与交易日 Sensor 继续运行，不新增跨路径锁。 |
 
 ### 16.2 正式启用与结案状态
 
@@ -764,7 +767,7 @@ P9 代码与隔离验收已完成。现有同一个 Bootstrap CLI 已加入 `par
 4. Prod 单次导出 relation、staging、Raw、Silver 在批准范围内完成行数、主键、字段值和覆盖分类对账；Raw asset 没有重复 coverage 或导出后 Prod 扫描，ETF 链也未读取任何 Prod `ops.*` 状态表。
 5. blocking/WARN 已由本地 Raw DuckDB N3 审计冻结，不靠猜测，也不依赖 Prod 全量深扫；日常同日五频只做一次 N3 评估，五个 `bar_domain` blocking checks 绑定各自当前 Raw materialization，正式 Silver Job 在同一 run 内先执行这些 Raw checks。
 6. Bootstrap 可幂等续跑，冲突 fail-closed，不覆盖未授权正式文件。
-7. 2026 年以前补录演练证明 2026 文件路径、行数、大小和 SHA-256 全部零变化。
+7. 2026 年以前补录演练证明 2026 年及以后 Raw/Silver 文件的层级、路径、行数、大小和 SHA-256 全部零变化。
 8. 历史物理文件验收后，先注册批准范围内的动态分区，再补事件；Sensor 在 Definitions 中默认 `STOPPED`，经单独授权后已在正式实例启用并完成首个自然生产日验收。
 9. 历史补录没有回溯历史 Basic，最新 Basic 变化没有删除或重写任何已有分钟历史。
 10. 分钟链未使用旧 Lake、Kopia、ETF × 频率 N+1 Prod 查询或 Python 逐行大数据处理；Tushare 只由 Basic 自身的正式快照 Job 请求一次完整分页链。

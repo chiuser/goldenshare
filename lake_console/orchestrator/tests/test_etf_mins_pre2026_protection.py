@@ -13,7 +13,7 @@ from orchestrator.defs.bootstrap.etf_mins_bootstrap import (
     operation_root_for_etf_mins_bootstrap,
     write_etf_mins_bootstrap_plan,
 )
-from orchestrator.defs.paths import raw_etf_mins_path
+from orchestrator.defs.paths import raw_etf_mins_path, silver_etf_mins_path
 from tests.etf_mins_bootstrap_support import (
     FakeProdPostgres,
     TestDuckDBResource,
@@ -77,15 +77,22 @@ def test_pre2026_plan_requires_the_fixed_protection_cutoff(
         )
 
 
-def test_pre2026_plan_hashes_protected_files_and_apply_fails_on_any_change(
+def _write_protected_raw_and_silver(lake_root: Path) -> dict[str, Path]:
+    paths = {
+        "raw": raw_etf_mins_path(lake_root, "1min", "2026-01-02"),
+        "silver": silver_etf_mins_path(lake_root, "1min", "2026-01-02"),
+    }
+    rows = [minute_row(source_freq="1min", trade_date="2026-01-02")]
+    for path in paths.values():
+        write_minute_file(path, rows)
+    return paths
+
+
+def test_pre2026_plan_hashes_raw_and_silver_with_row_counts(
     tmp_path: Path,
 ) -> None:
     lake_root, staging_root = roots(tmp_path)
-    protected_path = raw_etf_mins_path(lake_root, "1min", "2026-01-02")
-    write_minute_file(
-        protected_path,
-        [minute_row(source_freq="1min", trade_date="2026-01-02")],
-    )
+    _write_protected_raw_and_silver(lake_root)
     plan = _historical_plan(
         lake_root=lake_root,
         staging_root=staging_root,
@@ -94,7 +101,29 @@ def test_pre2026_plan_hashes_protected_files_and_apply_fails_on_any_change(
     )
     assert plan.historical_protection_mode == ETF_MINS_BOOTSTRAP_PROTECTION_2026
     assert plan.protected_file_manifest_hash is not None
-    assert len(plan.protected_file_manifest) == 1
+    assert len(plan.protected_file_manifest) == 2
+    assert {row["layer"] for row in plan.protected_file_manifest} == {
+        "raw",
+        "silver",
+    }
+    assert {row["row_count"] for row in plan.protected_file_manifest} == {1}
+    assert all(int(row["size_bytes"]) > 0 for row in plan.protected_file_manifest)
+    assert all(len(str(row["sha256"])) == 64 for row in plan.protected_file_manifest)
+
+
+@pytest.mark.parametrize("changed_layer", ["raw", "silver"])
+def test_pre2026_apply_fails_when_any_protected_layer_changes(
+    tmp_path: Path,
+    changed_layer: str,
+) -> None:
+    lake_root, staging_root = roots(tmp_path)
+    protected_paths = _write_protected_raw_and_silver(lake_root)
+    plan = _historical_plan(
+        lake_root=lake_root,
+        staging_root=staging_root,
+        requested_end_date="2025-12-31",
+        protect_from_date="2026-01-01",
+    )
     operation_root = operation_root_for_etf_mins_bootstrap(
         staging_root=staging_root,
         operation_id=plan.operation_id,
@@ -105,7 +134,7 @@ def test_pre2026_plan_hashes_protected_files_and_apply_fails_on_any_change(
     write_etf_mins_bootstrap_plan(plan_path, plan)
 
     write_minute_file(
-        protected_path,
+        protected_paths[changed_layer],
         [
             minute_row(
                 source_freq="1min",
@@ -127,3 +156,25 @@ def test_pre2026_plan_hashes_protected_files_and_apply_fails_on_any_change(
         )
     assert not checkpoint_path.exists()
     assert not report_path.exists()
+
+
+def test_pre2026_plan_records_zero_row_protected_files(tmp_path: Path) -> None:
+    lake_root, staging_root = roots(tmp_path)
+    write_minute_file(
+        raw_etf_mins_path(lake_root, "1min", "2026-01-02"),
+        [],
+    )
+    write_minute_file(
+        silver_etf_mins_path(lake_root, "1min", "2026-01-02"),
+        [],
+    )
+
+    plan = _historical_plan(
+        lake_root=lake_root,
+        staging_root=staging_root,
+        requested_end_date="2025-12-31",
+        protect_from_date="2026-01-01",
+    )
+
+    assert len(plan.protected_file_manifest) == 2
+    assert {row["row_count"] for row in plan.protected_file_manifest} == {0}
