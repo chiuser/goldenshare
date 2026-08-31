@@ -10,7 +10,7 @@
 - 当前代码 target_table：`raw_tushare.moneyflow_ths`
 - 当前生产路径：`raw_tushare.moneyflow_ths` 唯一物理事实表、`raw_only_upsert`；`core_serving.equity_moneyflow_ths` 为 0 B 只读 view
 - raw 直出专项目标：`raw_tushare.moneyflow_ths` 唯一物理事实表，原 `core_serving.equity_moneyflow_ths` 名称保留为只读 view
-- 当前阶段：`P1-B3-moneyflow_ths-M0/M1/M2/M3a` 已通过并完成生产切换；2026-08-29 生产只读复核确认 schedule #4 下一次为 `2026-08-31 20:00+08`，M3b 待该次自然工作流观察
+- 当前阶段：`P1-B3-moneyflow_ths-M0/M1/M2/M3a/M3b` 全部通过并结案；生产为 Raw 唯一物理事实表与 0 B Serving view
 
 ---
 
@@ -182,7 +182,7 @@
 - [x] M1 raw-only Definition、ORM metadata、独立 migration 和自动化测试
 - [x] M2 隔离 PostgreSQL 验证
 - [x] M3a 生产切换与即时验收
-- [ ] M3b 首个自然工作流验收
+- [x] M3b 首个自然工作流验收
 
 ---
 
@@ -250,3 +250,12 @@
 8. schedule #4 通过 config revision 128 原样恢复 active，scheduler 与 generic worker 均恢复；Web、日期完整性、TaskRun 收尾服务和两个健康端点全部正常，开放任务、锁和长事务为 0。根盘可用空间从预检 `51,782,713,344 B` 变为最终 `52,283,146,240 B`，但确定性释放量只认 catalog 的 490,921,984 B，不把文件系统噪声计入收益。
 9. M3a 结论：**通过**。生产已经是 Raw 唯一物理事实表和读取透明的 0 B Serving view；`P1-B3-moneyflow_ths-M3b` 只待 schedule #4 下一次自然工作流观察，不创建额外任务、不重复请求源端。
 10. `2026-08-29 19:07+08` 再次只读核对生产 `ops.schedule#4`：状态为 `active`，触发规则为工作日 `0 20 * * 1-5`、时区 `Asia/Shanghai`，上次触发为 `2026-08-28 20:00:21+08`，下一次为 `2026-08-31 20:00+08`。2026-08-29 为周六，当日不会出现自然运行；手工补造任务不能替代 M3b，且 M3b 尚未到触发时刻不阻塞下一数据集独立 M0。
+
+## 15. 2026-08-31 `P1-B3-moneyflow_ths-M3b` 自然工作流验收与结案
+
+1. schedule #4 于 `20:00+08` 创建 TaskRun `10359`，父任务为 `success`、workflow step `7/7/0` 完成。
+2. `moneyflow_ths` node `16110` 成功处理 `2026-08-31`：1 页短页读取/保存 `5,210/5,210`，reject、去重、重试均为 0，未截断。
+3. 最终目标日 Raw/view 各 5,210 行和 5,210 个唯一 `(trade_date, ts_code)`；13 个源业务字段双向差异为 0，Raw 5,210 行的 `fetched_at` 全部位于 node 执行窗口内。
+4. 本轮只读核验复用既有自然工作流，没有创建额外任务、重复请求 Tushare 或修改 schedule #4。
+
+`P1-B3-moneyflow_ths-M3b` **通过**。本数据集 M0/M1/M2/M3a/M3b 全部完成并结案。

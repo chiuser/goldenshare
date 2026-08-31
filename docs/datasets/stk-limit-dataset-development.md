@@ -1,7 +1,7 @@
 # Tushare 每日涨跌停价格（`stk_limit`）数据集开发说明
 
-- 状态：现有数据集已运行；`P1-B4-stk_limit-M0/M1/M2/M3a` 已通过，生产已 raw 直出；M3b 待 `2026-08-31` 两个自然 workflow 分别验收
-- 更新时间：2026-08-30
+- 状态：现有数据集已运行；`P1-B4-stk_limit-M0/M1/M2/M3a/M3b` 全部通过并结案，生产已 raw 直出
+- 更新时间：2026-08-31
 - 专项依据：[生产 PostgreSQL raw 直出一期低层设计 v1](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)
 
 ## 1. 目标与边界
@@ -165,3 +165,12 @@ M3a 于 `06:50..06:59+08` 按维护窗口顺序完成。生产切换、即时查
 9. 维护期间远端在 `06:56:04+08` 另有一次 fast-forward 到 `4e54dec8`。该提交是 `da84a32a` 的后继，只新增/更新 8 份财务数据集文档，没有修改代码、migration、Definition 或运行契约；本并发事实保留在验收记录中，但不改变本项结论。
 
 `P1-B4-stk_limit-M3a` **通过**。生产现为 revision 162、Raw 唯一物理事实表和 0 B Serving view。`P1-B4-stk_limit-M3b` 已登记为后续 TODO：必须分别核验 `2026-08-31 18:30+08` 的 schedule #24 与 `21:02+08` 的 schedule #2 父 TaskRun 中 `stk_limit` node；不得用一个自然入口替代另一个，也不得为 M3b 创建额外任务或重复请求源端。
+
+## 12. `P1-B4-stk_limit-M3b` 双自然工作流验收与结案（2026-08-31）
+
+1. schedule #24 于 `18:30+08` 创建 TaskRun `10343`，父任务为 `success`。目标 node `16064` 成功处理 `2026-08-31`，两页为 `5,800+1,968`，最终短页结束；读取/保存 `7,768/7,768`，reject、去重、重试均为 0，未截断。父任务中的 `irm_qa_sh` 有 1 行独立 reject，不属于本节点。
+2. schedule #2 于 `21:02+08` 创建 TaskRun `10371`。父任务因无关的 `anns_d` 节点失败而是 `partial_success`，但目标 node `16135` 独立为 `success`，同样两页 `5,800+1,968`、读取/保存 `7,768/7,768`，reject、去重、重试为 0，未截断。
+3. 最终目标日 Raw/view 各 7,768 行和 7,768 个唯一 `(ts_code, trade_date)`；五个源业务字段双向差异为 0，Raw 7,768 行的 `fetched_at` 全部位于第二个 node 执行窗口内。两次自然执行结果相同且最终行数未增加，证明同日重跑为幂等刷新。
+4. 两个自然入口均已分别闭环，没有用一个父任务替代另一个，也没有创建额外 TaskRun、重复源端请求或修改 schedule。`irm_qa_sh` reject 与 `anns_d` 失败作为独立 TODO 保留，不重新打开本数据集结论。
+
+`P1-B4-stk_limit-M3b` **通过**。本数据集 M0/M1/M2/M3a/M3b 全部完成并结案。

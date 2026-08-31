@@ -1,6 +1,6 @@
 # Tushare 个股资金流向（DC）（`moneyflow_dc`）数据集开发说明
 
-- 当前阶段：`P1-B4-moneyflow_dc-M3a` 已通过；M3b 已登记为 `2026-08-31 20:00+08` 的 schedule #4 自然工作流观察
+- 当前阶段：`P1-B4-moneyflow_dc-M0/M1/M2/M3a/M3b` 全部通过并结案
 - 当前代码：生产已部署 `dc191135`；Definition 使用 `raw_only_upsert + raw_with_serving_view`，Raw ORM 声明既有两个二级索引，独立 revision `20260829_000161` 已应用
 - 当前生产：`raw_tushare.moneyflow_dc` 是 SSD 唯一物理事实表；`core_serving.equity_moneyflow_dc` 是受保护的 0 B Raw-backed view；schedule #4 已原样恢复
 - 目标形态：`raw_tushare.moneyflow_dc` 为唯一物理事实表，`core_serving.equity_moneyflow_dc` 保留为受保护的只读 Raw-backed view
@@ -237,3 +237,12 @@ M3a 于 `22:54..23:09+08` 按“暂停 schedule → 停 scheduler/generic worker
 9. schedule #4 已原样恢复 active，scheduler、generic worker、Web、date-completeness worker、task-completion worker 全部 active，两个健康端点返回正常；最终开放 TaskRun、开放目标 node、目标锁、等待锁和超过 30 秒事务均为 0。根盘最终可用 53,534,212,096 B、使用率 81%；瞬时 `df` 只作水位证据，不替代 catalog 释放量。
 
 `P1-B4-moneyflow_dc-M3a` 据此**通过**。生产已是 Raw 唯一物理事实表和读取透明的 0 B Serving view；下一步不是继续开发，而是在统一夜间台账中完成 `P1-B4-moneyflow_dc-M3b`：只读验收 `2026-08-31 20:00+08` schedule #4 自然父任务内的 `moneyflow_dc` 节点。M3b 不创建额外任务、不重复请求 Tushare，也不阻塞 `stk_limit-M0` 的独立只读复审。
+
+## 15. `P1-B4-moneyflow_dc-M3b` 自然工作流验收与结案（2026-08-31）
+
+1. schedule #4 于 `20:00+08` 创建 TaskRun `10359`，父任务为 `success`、workflow step `7/7/0` 完成。
+2. `moneyflow_dc` node `16111` 成功处理 `2026-08-31`：两页分别返回 `6,000+7` 行，terminal offset 为 6,000，第二页短页结束；读取/保存 `6,007/6,007`，reject、去重、重试均为 0，未截断。
+3. 最终目标日 Raw/view 各 6,007 行和 6,007 个唯一 `(trade_date, ts_code)`；15 个源业务字段双向差异为 0，Raw 6,007 行的 `fetched_at` 全部位于 node 执行窗口内。
+4. 本节点与同一父任务中的 `moneyflow_ths` 分别完成独立对账，没有以父任务成功替代节点证据；本轮没有额外 TaskRun、重复源端请求或 schedule 修改。
+
+`P1-B4-moneyflow_dc-M3b` **通过**。本数据集 M0/M1/M2/M3a/M3b 全部完成并结案。

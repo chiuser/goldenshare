@@ -1,6 +1,6 @@
 # 股票收盘集合竞价数据集接入方案（`stk_auction_c`）
 
-> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0/M1/M2/M3a` 已通过，生产已切换为 Raw 唯一物理事实表与 0 B Serving view；M3b 待下一次自然工作流观察
+> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0/M1/M2/M3a/M3b` 全部通过并结案，生产为 Raw 唯一物理事实表与 0 B Serving view
 > 日期：2026-05-16  
 > raw 直出 M0 复审：2026-08-29
 > 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)  
@@ -469,3 +469,12 @@ M3a 于 `16:26..16:32+08` 按维护窗口顺序完成，没有使用会在门禁
 8. 开放任务归零后，schedule #2/#24 通过正式服务恢复为 active，config revision `125/126` 记录 resumed；cron、时区、`next_run_at=2026-08-31 18:30/21:02+08` 与 `last_triggered_at` 均保持不变。Web、generic worker、scheduler、日期完整性、TaskRun 收尾和 QTF worker 最终均为 active，健康端点为 200，开放任务、目标 node、目标锁、等待锁和长事务均为 0；最终 Raw/view 全表仍各为 2,255,593 行及同数唯一身份，根盘可用 `51,782,873,088 B`。文件系统瞬时变化包含依赖安装、WAL 和运行噪声，确定性释放量只认原 Serving relation 的 390,266,880 B。
 
 `P1-B3-stk_auction_c-M3a` 据此**通过**。生产现已是 Raw 唯一物理事实表与读取透明的 0 B Serving view，M0/M1/M2/M3a 全部闭环。M3b 只等待 schedule #24（18:30）与 #2（21:02）的下一次自然工作流，分别核对父 TaskRun 和 `stk_auction_c` node；该待观察项不授权额外 Tushare 请求，也不阻塞后续数据集独立 M0/M1/M2/M3a。
+
+## 15. 2026-08-31 `P1-B3-stk_auction_c-M3b` 自然工作流验收与结案
+
+1. schedule #24 于 `18:30+08` 创建 TaskRun `10343`，父任务为 `success`。`stk_auction_c` node `16058` 成功处理 `2026-08-31`，源端第 1 页即为空短页，读取/保存/reject/去重均为 `0/0/0/0`，重试为 0、未截断。这与 M0/M3a 已证明的“18:30 可能尚未就绪”时序一致，不是缺页或写入失败。
+2. schedule #2 于 `21:02+08` 创建 TaskRun `10371`。父任务因无关的 `anns_d` 节点失败而是 `partial_success`，但目标 node `16129` 独立为 `success`：1 页短页读取/保存 `5,551/5,551`，reject、去重、重试均为 0，未截断。父任务其它节点的状态不替代、也不否定本目标节点证据。
+3. 最终 `2026-08-31` Raw/view 各 5,551 行和 5,551 个唯一 `(ts_code, trade_date)`；九个源业务字段双向差异均为 0，Raw 5,551 行的 `fetched_at` 全部位于 node `16129` 执行窗口内。
+4. 两个既有自然入口均已分别核验，没有创建额外 TaskRun、没有为验收重复请求源端，也没有修改 schedule。`anns_d` 的独立失败继续由专项 TODO 跟踪，不重新打开本数据集结论。
+
+`P1-B3-stk_auction_c-M3b` **通过**。本数据集 M0/M1/M2/M3a/M3b 全部完成并结案。
