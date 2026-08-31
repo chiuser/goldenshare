@@ -128,6 +128,37 @@ class SectorHeatTaskExecutor:
         self._replay_planner = replay_planner or SectorHeatReplayPlanner(self._materialization_service)
 
     def plan(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan:
+        if request.action_key == "maintenance.materialize_wealth_sector_heat_daily":
+            trade_date = self._required_date(request.params, "trade_date")
+            readiness = request.params.get("readiness")
+            payload: dict[str, Any] = {"trade_date": trade_date.isoformat()}
+            if hasattr(readiness, "get"):
+                for source_key, target_key in (
+                    ("planHash", "expected_plan_hash"),
+                    ("contentHash", "expected_content_hash"),
+                ):
+                    value = readiness.get(source_key)
+                    if value not in (None, ""):
+                        payload[target_key] = str(value)
+            plan_hash = canonical_json_hash(
+                {
+                    "actionKey": request.action_key,
+                    "tradeDate": trade_date.isoformat(),
+                    "expectedPlanHash": payload.get("expected_plan_hash"),
+                    "expectedContentHash": payload.get("expected_content_hash"),
+                }
+            )
+            return MaintenanceExecutionPlan(
+                plan_hash=plan_hash,
+                units=(
+                    MaintenanceExecutionUnit(
+                        unit_key=f"wealth-sector-heat:{trade_date.isoformat()}",
+                        payload=payload,
+                    ),
+                ),
+                expected_rows=0,
+                metadata={"trade_date": trade_date.isoformat()},
+            )
         if request.action_key != "maintenance.replay_wealth_sector_heat_history":
             raise ValueError(f"unsupported Heat plan action: {request.action_key}")
         start_date = self._required_date(request.params, "start_date")

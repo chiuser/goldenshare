@@ -14,7 +14,7 @@ from src.app.runtime.sector_heat_task_executor import SectorSourceCompletionEvid
 from src.biz.services.wealth.market.sector_overview import SectorHeatSourceNotReadyError
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
-from src.ops.runtime.heat_readiness import (
+from src.ops.runtime.sector_heat_readiness import (
     HEAT_AUTOMATION_SOURCE_TIMEOUT,
     HEAT_NON_TRADING_DAY,
     HEAT_PREVIEW_FAILED,
@@ -24,7 +24,7 @@ from src.ops.runtime.heat_readiness import (
     HeatReadinessResult,
 )
 from src.ops.runtime.scheduler import OperationsScheduler
-from src.ops.services.operations_schedule_service import OperationsScheduleService
+from src.ops.services.operations_schedule_service import HEAT_DAILY_ACTION_KEY, OperationsScheduleService
 from src.ops.services.sector_heat_upstream_readiness_service import SectorHeatUpstreamReadinessService
 
 
@@ -117,7 +117,7 @@ def test_heat_schedule_hit_stages_one_task_with_frozen_readiness_and_advances(
         )
     )
 
-    created = OperationsScheduler(heat_readiness_evaluator=evaluator).run_once(db_session, now=CHECK_AT)
+    created = OperationsScheduler(readiness_evaluators={HEAT_DAILY_ACTION_KEY: evaluator}).run_once(db_session, now=CHECK_AT)
 
     assert len(created) == 1
     task_run = created[0]
@@ -135,7 +135,7 @@ def test_heat_schedule_hit_stages_one_task_with_frozen_readiness_and_advances(
     assert refreshed.next_run_at is not None
     assert refreshed.next_run_at.replace(tzinfo=timezone.utc) > CHECK_AT
 
-    duplicate = OperationsScheduler(heat_readiness_evaluator=evaluator).run_once(
+    duplicate = OperationsScheduler(readiness_evaluators={HEAT_DAILY_ACTION_KEY: evaluator}).run_once(
         db_session,
         now=CHECK_AT + timedelta(minutes=10),
     )
@@ -163,7 +163,7 @@ def test_heat_schedule_never_repeats_any_existing_automatic_attempt(
     )
     evaluator = StubReadinessEvaluator(HeatReadinessResult(True, HEAT_READY, "ready"))
 
-    created = OperationsScheduler(heat_readiness_evaluator=evaluator).run_once(db_session, now=CHECK_AT)
+    created = OperationsScheduler(readiness_evaluators={HEAT_DAILY_ACTION_KEY: evaluator}).run_once(db_session, now=CHECK_AT)
 
     assert created == []
     assert evaluator.calls == []
@@ -178,7 +178,7 @@ def test_heat_schedule_miss_retries_without_task_then_times_out_once(
     evaluator = StubReadinessEvaluator(
         HeatReadinessResult(False, HEAT_SOURCE_NOT_READY, "dc_member missing", {"missing": ["dc_member"]})
     )
-    scheduler = OperationsScheduler(heat_readiness_evaluator=evaluator)
+    scheduler = OperationsScheduler(readiness_evaluators={HEAT_DAILY_ACTION_KEY: evaluator})
 
     first = scheduler.run_once(db_session, now=CHECK_AT)
 
@@ -217,7 +217,7 @@ def test_heat_schedule_late_restart_keeps_original_due_trade_date(
         HeatReadinessResult(False, HEAT_SOURCE_NOT_READY, "missing", {"missing": ["dc_daily"]})
     )
 
-    created = OperationsScheduler(heat_readiness_evaluator=evaluator).run_once(db_session, now=restarted_at)
+    created = OperationsScheduler(readiness_evaluators={HEAT_DAILY_ACTION_KEY: evaluator}).run_once(db_session, now=restarted_at)
 
     assert len(created) == 1
     assert evaluator.calls[0].trade_date == TARGET_DATE
@@ -234,7 +234,7 @@ def test_heat_schedule_non_trading_day_skips_without_task(db_session, ops_schedu
         HeatReadinessResult(False, HEAT_NON_TRADING_DAY, "closed", {"isOpen": False})
     )
 
-    created = OperationsScheduler(heat_readiness_evaluator=evaluator).run_once(db_session, now=CHECK_AT)
+    created = OperationsScheduler(readiness_evaluators={HEAT_DAILY_ACTION_KEY: evaluator}).run_once(db_session, now=CHECK_AT)
 
     assert created == []
     assert db_session.scalar(select(TaskRun).where(TaskRun.schedule_id == schedule.id)) is None
@@ -473,10 +473,10 @@ def test_scheduler_factory_injects_heat_readiness(web_engine) -> None:
 
     scheduler = build_operations_scheduler(session_factory=session_factory)
 
-    assert scheduler.schedule_service.heat_readiness_evaluator is not None
+    assert HEAT_DAILY_ACTION_KEY in scheduler.schedule_service.readiness_evaluators
 
     runtime_service = build_ops_runtime_command_service(session_factory=session_factory)
-    assert runtime_service.scheduler.schedule_service.heat_readiness_evaluator is not None
+    assert HEAT_DAILY_ACTION_KEY in runtime_service.scheduler.schedule_service.readiness_evaluators
     assert "wealth_sector_heat" in runtime_service.worker.dispatcher.maintenance_executors
 
 

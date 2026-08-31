@@ -6,11 +6,15 @@ from datetime import time
 from src.db import get_session_factory
 from src.ops.action_catalog import get_maintenance_action
 from src.ops.runtime.scheduler import OperationsScheduler
-from src.ops.services.operations_schedule_service import HEAT_DAILY_ACTION_KEY
+from src.ops.services.operations_schedule_service import (
+    HEAT_DAILY_ACTION_KEY,
+    SECTOR_ANALYSIS_DAILY_ACTION_KEY,
+)
 from src.ops.services.runtime_service import OpsRuntimeCommandService
 from src.ops.services.sector_heat_upstream_readiness_service import SectorHeatUpstreamReadinessService
 
 from .sector_heat_readiness_evaluator import SectorHeatReadinessEvaluator
+from .sector_analysis_daily_readiness_evaluator import SectorAnalysisDailyReadinessEvaluator
 
 
 def build_operations_scheduler(*, session_factory=None) -> OperationsScheduler:  # type: ignore[no-untyped-def]
@@ -31,12 +35,17 @@ def build_operations_scheduler(*, session_factory=None) -> OperationsScheduler: 
     except (TypeError, ValueError) as exc:
         raise RuntimeError("Heat 自动任务上游时间契约格式无效") from exc
     return OperationsScheduler(
-        heat_readiness_evaluator=SectorHeatReadinessEvaluator(
-            session_factory=resolved_session_factory,
-            upstream_service=SectorHeatUpstreamReadinessService(
-                workflow_not_before_local_times=workflow_not_before
+        readiness_evaluators={
+            HEAT_DAILY_ACTION_KEY: SectorHeatReadinessEvaluator(
+                session_factory=resolved_session_factory,
+                upstream_service=SectorHeatUpstreamReadinessService(
+                    workflow_not_before_local_times=workflow_not_before
+                ),
             ),
-        )
+            SECTOR_ANALYSIS_DAILY_ACTION_KEY: SectorAnalysisDailyReadinessEvaluator(
+                session_factory=resolved_session_factory,
+            ),
+        },
     )
 
 

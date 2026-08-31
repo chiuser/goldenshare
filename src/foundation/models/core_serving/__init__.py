@@ -31,6 +31,15 @@ from src.foundation.models.core_serving.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
 from src.foundation.models.core_serving.wealth_sector_heat_daily import WealthSectorHeatDaily
 from src.foundation.models.core_serving.wealth_sector_hierarchy import WealthSectorHierarchy
+from src.foundation.models.core_serving.wealth_sector_analysis_publish_batch import WealthSectorAnalysisPublishBatch
+from src.foundation.models.core_serving.wealth_sector_momentum_daily import WealthSectorMomentumDaily
+from src.foundation.models.core_serving.wealth_sector_dual_momentum_daily import WealthSectorDualMomentumDaily
+from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily import WealthSectorRelativeRotationDaily
+from src.foundation.models.core_serving.wealth_sector_member_breadth_daily import WealthSectorMemberBreadthDaily
+from src.foundation.models.core_serving.wealth_sector_member_ma_breadth_daily import WealthSectorMemberMaBreadthDaily
+from src.foundation.models.core_serving.wealth_sector_price_volume_daily import WealthSectorPriceVolumeDaily
+from src.foundation.models.core_serving.wealth_sector_daily_insight_summary import WealthSectorDailyInsightSummary
+from src.foundation.models.core_serving.wealth_sector_daily_insight_item import WealthSectorDailyInsightItem
 from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
 from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
 from src.foundation.models.core_serving.news_stock_link import NewsStockLink
@@ -72,6 +81,15 @@ __all__ = [
     "WealthMarketTurnoverSnapshot",
     "WealthSectorHeatDaily",
     "WealthSectorHierarchy",
+    "WealthSectorAnalysisPublishBatch",
+    "WealthSectorMomentumDaily",
+    "WealthSectorDualMomentumDaily",
+    "WealthSectorRelativeRotationDaily",
+    "WealthSectorMemberBreadthDaily",
+    "WealthSectorMemberMaBreadthDaily",
+    "WealthSectorPriceVolumeDaily",
+    "WealthSectorDailyInsightSummary",
+    "WealthSectorDailyInsightItem",
     "MktIdxBmkCurrent",
     "MktIdxBmkObservation",
     "NewsStockLink",

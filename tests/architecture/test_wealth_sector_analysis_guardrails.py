@@ -25,6 +25,11 @@ LOW_LEVEL_DESIGN = (
     / "wealth/docs/pages/wealth-exploration/sector-analysis-low-level-design-v1.md"
 )
 ALEMBIC_VERSIONS = REPO_ROOT / "alembic/versions"
+DAILY_FACTS_PATH = (
+    REPO_ROOT / "src/biz/services/wealth/market/sector_analysis/daily_facts"
+)
+DAILY_FACTS_SOURCE_QUERY = DAILY_FACTS_PATH / "source_query.py"
+DAILY_FACTS_WRITE_MODEL_PREFIX = "src.foundation.models.core_serving.wealth_sector_"
 
 APPROVED_SOURCE_TABLES = {
     "core_serving.trade_calendar",
@@ -60,6 +65,11 @@ REGISTERED_EXCEPTION_CODES = {
     "SA_BREADTH_SOURCE_EMPTY",
     "SA_BREADTH_QUERY_FAILED",
     "SA_PRICE_VOLUME_FACT_MISMATCH",
+    "SA_DAILY_INSIGHT_BATCH_MISMATCH",
+    "SA_DAILY_INSIGHT_QUERY_FAILED",
+    "SA_DAILY_FACT_SOURCE_NOT_READY",
+    "SA_DAILY_FACT_READBACK_MISMATCH",
+    "SA_DAILY_FACT_PLAN_DRIFT",
     "SA_QUERY_FAILED",
 }
 
@@ -255,6 +265,10 @@ def _target_sources() -> dict[Path, str]:
     return {path: path.read_text(encoding="utf-8") for path in paths}
 
 
+def _is_daily_facts_file(path: Path) -> bool:
+    return path == DAILY_FACTS_PATH or DAILY_FACTS_PATH in path.parents
+
+
 def test_sector_analysis_source_table_contract_is_exactly_six_prod_tables() -> None:
     actual_tables = {
         TradeCalendar.__table__.fullname,
@@ -278,6 +292,8 @@ def test_sector_analysis_backend_only_imports_approved_fact_models_and_shared_qu
     violations: list[str] = []
 
     for path in python_files:
+        if _is_daily_facts_file(path):
+            continue
         relative_path = path.relative_to(REPO_ROOT).as_posix()
         for line_no, module in _python_imports(path):
             if (
@@ -309,6 +325,8 @@ def test_sector_analysis_has_no_forbidden_subsystem_or_persistence_dependency() 
     backend_files = _iter_files(BACKEND_SECTOR_ANALYSIS_PATHS, suffixes=(".py",))
 
     for path in backend_files:
+        if _is_daily_facts_file(path):
+            continue
         relative_path = path.relative_to(REPO_ROOT).as_posix()
         source = path.read_text(encoding="utf-8")
         lowered = source.lower()
@@ -387,14 +405,44 @@ def test_sector_analysis_exception_codes_match_the_central_registry() -> None:
     assert used_codes <= REGISTERED_EXCEPTION_CODES
 
 
-def test_sector_analysis_does_not_add_an_alembic_migration() -> None:
-    violations: list[str] = []
+def test_sector_analysis_has_only_the_frozen_m22_migration() -> None:
+    migrations: list[str] = []
     for path in sorted(ALEMBIC_VERSIONS.glob("*.py")):
         source = path.read_text(encoding="utf-8").lower()
         if "sector_analysis" in source or "sector-analysis" in source:
-            violations.append(path.relative_to(REPO_ROOT).as_posix())
+            migrations.append(path.relative_to(REPO_ROOT).as_posix())
 
-    assert not violations, "板块分析首期不允许新增迁移：\n" + "\n".join(violations)
+    assert migrations == [
+        "alembic/versions/20260831_000168_add_wealth_sector_analysis_daily_facts.py"
+    ]
+
+
+def test_daily_facts_source_query_reads_only_the_frozen_six_sources() -> None:
+    imports = {module for _, module in _python_imports(DAILY_FACTS_SOURCE_QUERY)}
+    imported_models = {module for module in imports if module.startswith("src.foundation.models")}
+    assert imported_models == APPROVED_MODEL_MODULES - {
+        "src.foundation.models.core_serving.wealth_sector_hierarchy"
+    }
+    assert "src.biz.queries.wealth.market.common.sector_hierarchy_query" in imports
+    source = DAILY_FACTS_SOURCE_QUERY.read_text(encoding="utf-8").lower()
+    for forbidden in ("requests", "httpx", "dagster", "duckdb", "parquet", "moneyflow", "sector_heat", "qtf"):
+        assert forbidden not in source
+    assert "repeatable read, read only" in source
+
+
+def test_daily_facts_persistence_is_isolated_to_its_repository() -> None:
+    repository = DAILY_FACTS_PATH / "repository.py"
+    violations: list[str] = []
+    for path in _iter_files((DAILY_FACTS_PATH,), suffixes=(".py",)):
+        imports = {module for _, module in _python_imports(path)}
+        write_models = {
+            module for module in imports if module.startswith(DAILY_FACTS_WRITE_MODEL_PREFIX)
+        }
+        if write_models and path != repository:
+            violations.append(
+                f"{path.relative_to(REPO_ROOT).as_posix()} imports write models {sorted(write_models)}"
+            )
+    assert not violations
 
 
 def test_dual_momentum_backend_stays_on_the_three_read_only_fact_sources() -> None:
@@ -475,7 +523,7 @@ def test_member_breadth_adj_factor_is_isolated_to_its_query() -> None:
         imports_factor = (
             "src.foundation.models.core_serving.equity_adj_factor" in imported_modules
         )
-        if imports_factor and path != breadth_query:
+        if imports_factor and path not in {breadth_query, DAILY_FACTS_SOURCE_QUERY}:
             violations.append(
                 f"{path.relative_to(REPO_ROOT).as_posix()} imports EquityAdjFactor"
             )

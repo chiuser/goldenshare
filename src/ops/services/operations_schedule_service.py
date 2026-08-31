@@ -24,13 +24,20 @@ from src.ops.services.schedule_planner import (
     preview_schedule_runs,
 )
 from src.ops.services.task_run_service import ScheduleWindowAlreadyCovered, TaskRunCommandService
-from src.ops.runtime.heat_readiness import (
+from src.ops.runtime.maintenance_readiness import (
+    MaintenanceReadinessEvaluator,
+    MaintenanceReadinessRequest,
+    MaintenanceReadinessResult,
+)
+from src.ops.runtime.sector_heat_readiness import (
     HEAT_AUTOMATION_ALREADY_ATTEMPTED,
     HEAT_AUTOMATION_SOURCE_TIMEOUT,
     HEAT_NON_TRADING_DAY,
-    HeatReadinessEvaluator,
-    HeatReadinessRequest,
-    HeatReadinessResult,
+)
+from src.ops.runtime.sector_analysis_daily_readiness import (
+    SECTOR_ANALYSIS_DAILY_ALREADY_ATTEMPTED,
+    SECTOR_ANALYSIS_DAILY_NON_TRADING_DAY,
+    SECTOR_ANALYSIS_DAILY_SOURCE_TIMEOUT,
 )
 from src.foundation.ingestion.errors import IngestionError
 from src.ops.services.ingestion_error_presentation import present_ingestion_error, structured_error_payload
@@ -70,15 +77,20 @@ SUPPORTED_CALENDAR_POLICIES = {
 FALLBACK_PROBE_EFFECTIVE_TASK_STATUSES = ("queued", "running", "canceling", "success", "partial_success")
 logger = logging.getLogger(__name__)
 HEAT_DAILY_ACTION_KEY = "maintenance.materialize_wealth_sector_heat_daily"
+SECTOR_ANALYSIS_DAILY_ACTION_KEY = "maintenance.materialize_wealth_sector_analysis_daily"
 NEWS_STOCK_LINKING_TIMEZONE = "Asia/Shanghai"
 
 
 class OperationsScheduleService:
-    def __init__(self, *, heat_readiness_evaluator: HeatReadinessEvaluator | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        readiness_evaluators: dict[str, MaintenanceReadinessEvaluator] | None = None,
+    ) -> None:
         self.task_run_service = TaskRunCommandService()
         self.probe_binding_service = ScheduleProbeBindingService()
         self.automation_capability_resolver = ScheduleAutomationCapabilityResolver()
-        self.heat_readiness_evaluator = heat_readiness_evaluator
+        self.readiness_evaluators = dict(readiness_evaluators or {})
 
     def create_schedule(
         self,
@@ -105,7 +117,7 @@ class OperationsScheduleService:
             target_key=target_key,
             params_json=dict(params_json or {}),
         )
-        self._validate_heat_schedule_contract(
+        self._validate_readiness_schedule_contract(
             target_type=target_type,
             target_key=target_key,
             schedule_type=schedule_type,
@@ -116,7 +128,7 @@ class OperationsScheduleService:
             probe_config_json=probe_config_json,
             params_json=normalized_params,
         )
-        self._validate_unique_heat_schedule(
+        self._validate_unique_readiness_schedule(
             session,
             target_type=target_type,
             target_key=target_key,
@@ -353,7 +365,7 @@ class OperationsScheduleService:
                 scheduled_at=self._stored_datetime(schedule.next_run_at) or datetime.now(timezone.utc),
                 timezone_name=schedule.timezone,
             )
-        self._validate_heat_schedule_contract(
+        self._validate_readiness_schedule_contract(
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             schedule_type=schedule.schedule_type,
@@ -364,7 +376,7 @@ class OperationsScheduleService:
             probe_config_json=dict(schedule.probe_config_json or {}),
             params_json=dict(schedule.params_json or {}),
         )
-        self._validate_unique_heat_schedule(
+        self._validate_unique_readiness_schedule(
             session,
             target_type=schedule.target_type,
             target_key=schedule.target_key,
@@ -466,7 +478,7 @@ class OperationsScheduleService:
             target_key=schedule.target_key,
             params_json=dict(schedule.params_json or {}),
         )
-        self._validate_heat_schedule_contract(
+        self._validate_readiness_schedule_contract(
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             schedule_type=schedule.schedule_type,
@@ -477,7 +489,7 @@ class OperationsScheduleService:
             probe_config_json=dict(schedule.probe_config_json or {}),
             params_json=dict(schedule.params_json or {}),
         )
-        self._validate_unique_heat_schedule(
+        self._validate_unique_readiness_schedule(
             session,
             target_type=schedule.target_type,
             target_key=schedule.target_key,
@@ -619,8 +631,8 @@ class OperationsScheduleService:
             ):
                 self._advance_schedule_after_skipped_due_run(session, schedule=schedule, current_time=current_time)
                 continue
-            if self._is_heat_daily_schedule(schedule):
-                task_run = self._process_heat_daily_schedule(
+            if self._is_registered_readiness_schedule(schedule):
+                task_run = self._process_registered_readiness_schedule(
                     session,
                     schedule=schedule,
                     current_time=current_time,
@@ -703,8 +715,11 @@ class OperationsScheduleService:
         return task_runs
 
     @staticmethod
-    def _is_heat_daily_schedule(schedule: OpsSchedule) -> bool:
-        return schedule.target_type == "maintenance_action" and schedule.target_key == HEAT_DAILY_ACTION_KEY
+    def _is_registered_readiness_schedule(schedule: OpsSchedule) -> bool:
+        if schedule.target_type != "maintenance_action":
+            return False
+        action = get_maintenance_action(schedule.target_key)
+        return action is not None and action.readiness_condition is not None
 
     @staticmethod
     def _is_news_stock_linking_schedule(schedule: OpsSchedule) -> bool:
@@ -789,7 +804,7 @@ class OperationsScheduleService:
         return task_run
 
     @staticmethod
-    def _validate_heat_schedule_contract(
+    def _validate_readiness_schedule_contract(
         *,
         target_type: str,
         target_key: str,
@@ -801,30 +816,32 @@ class OperationsScheduleService:
         probe_config_json: dict | None,
         params_json: dict,
     ) -> None:
-        if target_type != "maintenance_action" or target_key != HEAT_DAILY_ACTION_KEY:
+        if target_type != "maintenance_action":
             return
         action = get_maintenance_action(target_key)
-        if action is None:
-            raise WebAppError(status_code=422, code="heat_schedule.contract_missing", message="Heat 自动任务定义不存在")
+        if action is None or action.readiness_condition is None:
+            return
         initial_check = time.fromisoformat(str(action.readiness_policy["initial_check_local_time"]))
         expected_timezone = str(action.readiness_policy["timezone"])
+        subject = "Heat 自动任务" if target_key == HEAT_DAILY_ACTION_KEY else "板块分析每日事实自动任务"
+        error_code = "heat_schedule.contract_invalid" if target_key == HEAT_DAILY_ACTION_KEY else "sector_analysis_daily.schedule_contract_invalid"
         if schedule_type != "cron" or str(trigger_mode or "schedule").strip().lower() != "schedule":
-            raise WebAppError(status_code=422, code="heat_schedule.contract_invalid", message="Heat 自动任务只支持周期定时触发")
-        if not OperationsScheduleService._matches_heat_cron(cron_expr, initial_check) or timezone_name != expected_timezone:
+            raise WebAppError(status_code=422, code=error_code, message=f"{subject}只支持周期定时触发")
+        if not OperationsScheduleService._matches_readiness_cron(cron_expr, initial_check) or timezone_name != expected_timezone:
             raise WebAppError(
                 status_code=422,
-                code="heat_schedule.contract_invalid",
-                message="Heat 自动任务必须使用 Asia/Shanghai 工作日 21:15",
+                code=error_code,
+                message=f"{subject}必须使用 {expected_timezone} 工作日 {initial_check.strftime('%H:%M')}",
             )
         if calendar_policy not in (None, "") or probe_config_json or params_json:
             raise WebAppError(
                 status_code=422,
-                code="heat_schedule.contract_invalid",
-                message="Heat 自动任务日期和 readiness 由系统生成，禁止配置日期、探测或策略参数",
+                code=error_code,
+                message=f"{subject}日期和 readiness 由系统生成，禁止配置日期、探测或策略参数",
             )
 
     @staticmethod
-    def _matches_heat_cron(cron_expr: str | None, initial_check: time) -> bool:
+    def _matches_readiness_cron(cron_expr: str | None, initial_check: time) -> bool:
         fields = str(cron_expr or "").split()
         if len(fields) != 5:
             return False
@@ -860,26 +877,30 @@ class OperationsScheduleService:
         return {0 if weekday == 7 else weekday for weekday in weekdays}
 
     @staticmethod
-    def _validate_unique_heat_schedule(
+    def _validate_unique_readiness_schedule(
         session: Session,
         *,
         target_type: str,
         target_key: str,
         exclude_schedule_id: int | None = None,
     ) -> None:
-        if target_type != "maintenance_action" or target_key != HEAT_DAILY_ACTION_KEY:
+        if target_type != "maintenance_action":
+            return
+        action = get_maintenance_action(target_key)
+        if action is None or action.readiness_condition is None:
             return
         stmt = select(OpsSchedule.id).where(
             OpsSchedule.target_type == "maintenance_action",
-            OpsSchedule.target_key == HEAT_DAILY_ACTION_KEY,
+            OpsSchedule.target_key == target_key,
         )
         if exclude_schedule_id is not None:
             stmt = stmt.where(OpsSchedule.id != exclude_schedule_id)
         if session.scalar(stmt.limit(1)) is not None:
+            is_heat = target_key == HEAT_DAILY_ACTION_KEY
             raise WebAppError(
                 status_code=409,
-                code="heat_schedule.already_exists",
-                message="生产只允许一条板块热度自动任务，请更新已有任务",
+                code="heat_schedule.already_exists" if is_heat else "sector_analysis_daily.schedule_already_exists",
+                message="生产只允许一条板块热度自动任务，请更新已有任务" if is_heat else "生产只允许一条板块分析每日事实自动任务，请更新已有任务",
             )
 
     @staticmethod
@@ -951,48 +972,56 @@ class OperationsScheduleService:
             return
         NewsStockLinkingWindowResolver().require_manual_baseline(session)
 
-    def _process_heat_daily_schedule(
+    def _process_registered_readiness_schedule(
         self,
         session: Session,
         *,
         schedule: OpsSchedule,
         current_time: datetime,
     ) -> TaskRun | None:
-        if self.heat_readiness_evaluator is None:
-            raise RuntimeError("Heat 自动任务缺少 readiness evaluator")
+        evaluator = self.readiness_evaluators.get(schedule.target_key)
+        if evaluator is None:
+            raise RuntimeError(f"{schedule.target_key} 自动任务缺少 readiness evaluator")
         action = get_maintenance_action(schedule.target_key)
-        if action is None or action.readiness_condition != "wealth_sector_heat_sources_ready":
-            raise RuntimeError("Heat 自动任务缺少固定 readiness contract")
+        if action is None or action.readiness_condition is None:
+            raise RuntimeError(f"{schedule.target_key} 自动任务缺少固定 readiness contract")
         due_at = self._stored_datetime(schedule.next_run_at) or current_time
         initial_check = time.fromisoformat(str(action.readiness_policy["initial_check_local_time"]))
         deadline_time = time.fromisoformat(str(action.readiness_policy["deadline_next_day_local_time"]))
         retry_interval_seconds = int(action.readiness_policy["retry_interval_seconds"])
-        trade_date, deadline = self._heat_target_window(
+        trade_date, deadline = self._readiness_target_window(
             due_at=due_at,
             timezone_name=schedule.timezone,
             initial_check_local_time=initial_check,
             deadline_next_day_local_time=deadline_time,
         )
-        existing = self._existing_heat_automation_attempt(
+        existing = self._existing_readiness_automation_attempt(
             session,
             schedule_id=schedule.id,
+            action_key=schedule.target_key,
             trade_date=trade_date,
         )
         if existing is not None:
+            already_attempted_code = (
+                HEAT_AUTOMATION_ALREADY_ATTEMPTED
+                if schedule.target_key == HEAT_DAILY_ACTION_KEY
+                else SECTOR_ANALYSIS_DAILY_ALREADY_ATTEMPTED
+            )
             logger.info(
-                "heat_schedule_already_attempted schedule_id=%s trade_date=%s task_run_id=%s status=%s reason=%s",
+                "readiness_schedule_already_attempted schedule_id=%s action=%s trade_date=%s task_run_id=%s status=%s reason=%s",
                 schedule.id,
+                schedule.target_key,
                 trade_date.isoformat(),
                 existing.id,
                 existing.status,
-                HEAT_AUTOMATION_ALREADY_ATTEMPTED,
+                already_attempted_code,
             )
-            self._advance_heat_schedule(session, schedule=schedule, current_time=current_time, triggered=False)
+            self._advance_readiness_schedule(session, schedule=schedule, current_time=current_time, triggered=False)
             return None
 
-        result = self.heat_readiness_evaluator.evaluate(
+        result = evaluator.evaluate(
             session,
-            request=HeatReadinessRequest(trade_date=trade_date, checked_at=current_time),
+            request=MaintenanceReadinessRequest(trade_date=trade_date, checked_at=current_time),
         )
         if result.ready:
             context = self.task_run_service.build_schedule_task_context(
@@ -1001,7 +1030,7 @@ class OperationsScheduleService:
                 target_key=schedule.target_key,
                 params_json={
                     "trade_date": trade_date.isoformat(),
-                    "readiness": self._heat_readiness_payload(result, checked_at=current_time),
+                    "readiness": self._readiness_payload(result, checked_at=current_time),
                 },
                 trigger_source="scheduled",
                 requested_by_user_id=None,
@@ -1011,17 +1040,18 @@ class OperationsScheduleService:
                 timezone_name=schedule.timezone,
             )
             task_run = self.task_run_service.stage_task_run(session, context=context)
-            self._advance_heat_schedule(session, schedule=schedule, current_time=current_time, triggered=True)
+            self._advance_readiness_schedule(session, schedule=schedule, current_time=current_time, triggered=True)
             return task_run
 
-        if result.reason_code == HEAT_NON_TRADING_DAY:
-            self._advance_heat_schedule(session, schedule=schedule, current_time=current_time, triggered=False)
+        if result.reason_code in {HEAT_NON_TRADING_DAY, SECTOR_ANALYSIS_DAILY_NON_TRADING_DAY}:
+            self._advance_readiness_schedule(session, schedule=schedule, current_time=current_time, triggered=False)
             return None
         if current_time < deadline:
             schedule.next_run_at = min(current_time + timedelta(seconds=retry_interval_seconds), deadline)
             logger.info(
-                "heat_schedule_readiness_miss schedule_id=%s trade_date=%s reason=%s next_check=%s message=%s",
+                "readiness_schedule_miss schedule_id=%s action=%s trade_date=%s reason=%s next_check=%s message=%s",
                 schedule.id,
+                schedule.target_key,
                 trade_date.isoformat(),
                 result.reason_code,
                 schedule.next_run_at.isoformat(),
@@ -1029,17 +1059,17 @@ class OperationsScheduleService:
             )
             session.commit()
             return None
-        task_run = self._stage_heat_source_timeout(
+        task_run = self._stage_readiness_source_timeout(
             session,
             schedule=schedule,
             trade_date=trade_date,
             current_time=current_time,
             result=result,
         )
-        self._advance_heat_schedule(session, schedule=schedule, current_time=current_time, triggered=True)
+        self._advance_readiness_schedule(session, schedule=schedule, current_time=current_time, triggered=True)
         return task_run
 
-    def _advance_heat_schedule(
+    def _advance_readiness_schedule(
         self,
         session: Session,
         *,
@@ -1060,22 +1090,25 @@ class OperationsScheduleService:
         )
         session.commit()
 
-    def _stage_heat_source_timeout(
+    def _stage_readiness_source_timeout(
         self,
         session: Session,
         *,
         schedule: OpsSchedule,
         trade_date: date,
         current_time: datetime,
-        result: HeatReadinessResult,
+        result: MaintenanceReadinessResult,
     ) -> TaskRun:
+        is_heat = schedule.target_key == HEAT_DAILY_ACTION_KEY
+        timeout_code = HEAT_AUTOMATION_SOURCE_TIMEOUT if is_heat else SECTOR_ANALYSIS_DAILY_SOURCE_TIMEOUT
+        subject = "Heat" if is_heat else "板块分析每日事实"
         context = self.task_run_service.build_schedule_task_context(
             session,
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             params_json={
                 "trade_date": trade_date.isoformat(),
-                "readiness": self._heat_readiness_payload(result, checked_at=current_time),
+                "readiness": self._readiness_payload(result, checked_at=current_time),
             },
             trigger_source="scheduled",
             requested_by_user_id=None,
@@ -1086,21 +1119,21 @@ class OperationsScheduleService:
         )
         task_run = self.task_run_service.stage_task_run(session, context=context)
         task_run.status = "failed"
-        task_run.status_reason_code = HEAT_AUTOMATION_SOURCE_TIMEOUT
+        task_run.status_reason_code = timeout_code
         task_run.ended_at = current_time
         fingerprint = hashlib.sha256(
-            f"heat_source_timeout\x1f{schedule.id}\x1f{trade_date.isoformat()}".encode("utf-8")
+            f"readiness_source_timeout\x1f{schedule.target_key}\x1f{schedule.id}\x1f{trade_date.isoformat()}".encode("utf-8")
         ).hexdigest()
         issue = TaskRunIssue(
             task_run_id=task_run.id,
             node_id=None,
             severity="error",
-            code=HEAT_AUTOMATION_SOURCE_TIMEOUT,
-            title="板块热度自动计算输入超时",
-            operator_message=f"{trade_date.isoformat()} 的 Heat 输入截至 00:30 仍未齐备。",
+            code=timeout_code,
+            title=f"{subject}自动计算输入超时",
+            operator_message=f"{trade_date.isoformat()} 的 {subject} 输入截至 00:30 仍未齐备。",
             suggested_action="核对上游必需工作流和生产来源，齐备后通过人工单日入口恢复。",
             technical_message=result.message,
-            technical_payload_json={"readiness": self._heat_readiness_payload(result, checked_at=current_time)},
+            technical_payload_json={"readiness": self._readiness_payload(result, checked_at=current_time)},
             object_json={"schedule_id": schedule.id, "trade_date": trade_date.isoformat()},
             source_phase="schedule_readiness",
             fingerprint=fingerprint,
@@ -1112,7 +1145,7 @@ class OperationsScheduleService:
         return task_run
 
     @staticmethod
-    def _heat_readiness_payload(result: HeatReadinessResult, *, checked_at: datetime) -> dict[str, Any]:
+    def _readiness_payload(result: MaintenanceReadinessResult, *, checked_at: datetime) -> dict[str, Any]:
         return {
             "checkedAt": checked_at.isoformat(),
             "reasonCode": result.reason_code,
@@ -1126,10 +1159,11 @@ class OperationsScheduleService:
         }
 
     @staticmethod
-    def _existing_heat_automation_attempt(
+    def _existing_readiness_automation_attempt(
         session: Session,
         *,
         schedule_id: int | None,
+        action_key: str,
         trade_date: date,
     ) -> TaskRun | None:
         if schedule_id is None:
@@ -1140,7 +1174,7 @@ class OperationsScheduleService:
                 TaskRun.schedule_id == schedule_id,
                 TaskRun.trigger_source == "scheduled",
                 TaskRun.task_type == "maintenance_action",
-                TaskRun.request_payload_json["target_key"].as_string() == HEAT_DAILY_ACTION_KEY,
+                TaskRun.request_payload_json["target_key"].as_string() == action_key,
                 TaskRun.time_input_json["trade_date"].as_string() == trade_date.isoformat(),
             )
             .order_by(TaskRun.id.desc())
@@ -1148,7 +1182,7 @@ class OperationsScheduleService:
         )
 
     @staticmethod
-    def _heat_target_window(
+    def _readiness_target_window(
         *,
         due_at: datetime,
         timezone_name: str,

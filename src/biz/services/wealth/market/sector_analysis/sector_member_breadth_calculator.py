@@ -60,6 +60,64 @@ class SectorMemberBreadthCalculator:
             ma_period=ma_period,
         )
 
+    def calculate_composition_grid(
+        self,
+        *,
+        sector_codes: Iterable[str],
+        target_date: date,
+        relations: Iterable[MemberRelationFact],
+        market_facts: Iterable[MemberMarketFact],
+        open_dates: tuple[date, ...],
+    ) -> dict[tuple[str, SectorMemberBreadthMetric, int], MemberBreadthCompositionFact]:
+        """Build every frozen breadth composition while indexing the source only once."""
+        codes = tuple(dict.fromkeys(sector_codes))
+        relations_by_sector: dict[str, list[MemberRelationFact]] = {
+            code: [] for code in codes
+        }
+        for relation in relations:
+            if relation.trade_date == target_date and relation.sector_code in relations_by_sector:
+                relations_by_sector[relation.sector_code].append(relation)
+        market_index = self.index_market_facts(market_facts)
+        grid: dict[tuple[str, SectorMemberBreadthMetric, int], MemberBreadthCompositionFact] = {}
+        for code in codes:
+            rows = tuple(sorted(relations_by_sector[code], key=lambda item: item.stock_code))
+            for metric, ma_periods in (
+                ("MEMBER_COUNT", (20,)),
+                ("TURNOVER", (20,)),
+                ("MA_POSITION", (5, 10, 15, 20, 30, 60)),
+            ):
+                for ma_period in ma_periods:
+                    grid[(code, metric, ma_period)] = self._calculate_composition_from_index(
+                        metric=metric,
+                        target_date=target_date,
+                        relations=rows,
+                        market_index=market_index,
+                        open_dates=open_dates,
+                        ma_period=ma_period,
+                    )
+        return grid
+
+    @staticmethod
+    def turnover_amount_totals(
+        *,
+        relations: Iterable[MemberRelationFact],
+        target_date: date,
+        market_index: dict[tuple[str, date], MemberMarketFact],
+    ) -> tuple[Decimal, Decimal, Decimal]:
+        totals = [Decimal(0), Decimal(0), Decimal(0)]
+        for relation in relations:
+            market = market_index.get((relation.stock_code, target_date))
+            if (
+                market is None
+                or not _is_finite(market.pct_change)
+                or not _is_finite(market.amount_thousand_yuan)
+                or market.amount_thousand_yuan < 0
+            ):
+                continue
+            position = 0 if market.pct_change > 0 else 1 if market.pct_change == 0 else 2
+            totals[position] += market.amount_thousand_yuan
+        return totals[0], totals[1], totals[2]
+
     def _calculate_composition_from_index(
         self,
         *,
@@ -452,7 +510,12 @@ class SectorMemberBreadthCalculator:
                 reasons.add("AMOUNT_NON_POSITIVE")
                 continue
             values.append((market.pct_change, market.amount_thousand_yuan))
-        total_amount = sum((amount for _, amount in values), Decimal(0))
+        amount_totals = self.turnover_amount_totals(
+            relations=relations,
+            target_date=target_date,
+            market_index=market_index,
+        )
+        total_amount = sum(amount_totals, Decimal(0))
         available = bool(values) and total_amount > 0
         if values and total_amount <= 0:
             reasons.add("AMOUNT_NON_POSITIVE")
@@ -466,14 +529,7 @@ class SectorMemberBreadthCalculator:
         if not available:
             percentages = (None, None, None)
         else:
-            percentages = tuple(
-                amount / total_amount * _HUNDRED
-                for amount in (
-                    sum((amount for value, amount in values if value > 0), Decimal(0)),
-                    sum((amount for value, amount in values if value == 0), Decimal(0)),
-                    sum((amount for value, amount in values if value < 0), Decimal(0)),
-                )
-            )
+            percentages = tuple(amount / total_amount * _HUNDRED for amount in amount_totals)
         return MemberBreadthCompositionFact(
             metric="TURNOVER",
             up_count=counts[0],

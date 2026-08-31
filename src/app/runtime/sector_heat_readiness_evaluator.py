@@ -9,7 +9,7 @@ from src.biz.services.wealth.market.sector_overview import (
     SectorHeatMaterializationService,
     SectorHeatSourceNotReadyError,
 )
-from src.ops.runtime.heat_readiness import (
+from src.ops.runtime.sector_heat_readiness import (
     HEAT_PREVIEW_FAILED,
     HEAT_READY,
     HEAT_SOURCE_NOT_READY,

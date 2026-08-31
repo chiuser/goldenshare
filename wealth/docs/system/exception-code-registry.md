@@ -253,6 +253,11 @@
 | `SA_BREADTH_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 成员广度查询、纯计算或合同组合失败 | SQL、重复业务键、窗口、Decimal 计算或 DTO 不变量失败 | 当前成员广度 endpoint 进入安全 ERROR；不泄露技术细节 | biz-api | Phase-6-M14 | active |
 | `SA_PRICE_VOLUME_FACT_MISMATCH` | `sectorAnalysis` | warn | false | false | 量价分布请求携带的行业层级版本与当前发布版本不一致 | 量价分布 Meta 返回后层级重新发布，或客户端使用过期 hierarchyVersion 请求 Snapshot／Details | HTTP 409；只清空量价分布短期事实并重新加载量价分布 Meta；不得继续读取行情 | biz-api | Phase-6-M17 | active |
 | `SA_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 板块分析查询或纯计算出现未分类失败 | SQL、日期窗口、结果唯一性、DTO 组合或未知内部异常 | 稳定 ERROR；安全文案和重试，不展示不完整结果 | biz-api | Phase-6 | active |
+| `SA_DAILY_INSIGHT_BATCH_MISMATCH` | `sectorAnalysis` | warn | false | false | 每日洞察请求的已发布批次与当前可见批次不一致 | Meta 返回后批次被同日新发布代次替换，或客户端携带过期 batchKey 请求 Snapshot | HTTP 409；只清空每日洞察短期事实并重载 Meta 一次 | biz-api | Phase-6-M25 | active |
+| `SA_DAILY_INSIGHT_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 每日洞察只读查询或响应组合失败 | PUBLISHED 批次、summary、item 或 DTO 组合出现未恢复异常 | HTTP 500；保持稳定 Error，安全重试当前链路 | biz-api | Phase-6-M25 | active |
+| `SA_DAILY_FACT_SOURCE_NOT_READY` | `sectorAnalysis` | warn | false | true | 每日事实所需生产来源尚未达到单日物化门禁 | 上游维护节点、层级、行业行情、成员、股票行情或复权事实未齐 | 仅记录 TaskRun/readiness；零公式执行、零新批次 | biz/ops | Phase-6-M22 | active |
+| `SA_DAILY_FACT_READBACK_MISMATCH` | `sectorAnalysis` | error | false | true | 新建每日事实批次的逐表回读与期望不一致 | 计数、业务键、日期、内容 hash 或复合外键核验失败 | 仅记录 TaskRun；新批次标记 FAILED，旧 PUBLISHED 继续服务 | biz/ops | Phase-6-M22 | active |
+| `SA_DAILY_FACT_PLAN_DRIFT` | `sectorAnalysis` | error | false | true | 历史回补 APPLY 与已确认 PLAN 发生漂移 | 日期清单、层级版本、公式包、模板、参数或 expected hash 变化 | 拒绝执行漂移计划，保留既有已发布事实 | biz/ops | Phase-6-M23 | active |
 
 补充规则：
 

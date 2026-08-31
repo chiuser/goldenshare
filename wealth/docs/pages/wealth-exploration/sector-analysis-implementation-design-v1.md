@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.57；横截面动量排名 M0～M3A、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M13～M16R2 与量价分布 M17～M20 均已按各自结论收口。量价分布三只 strict 只读 API、第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13种状态已经完成部署联调；真实事实、`3/5/5` SQL、payload、P95、四档宽度和用户页面验收全部通过。本轮不新增后续里程碑。
+> - 当前状态：v1.61；横截面动量排名 M0～M3A、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M13～M16R2 与量价分布 M17～M20 均已收口。每日洞察 M21 编码门禁和 M22 代码开发已经完成：九张 ORM、HDD fail-closed 迁移、单日物化、确定性洞察、自动任务及回归均已落地；M22 仍待提交、由管理员部署迁移并完成首次 Prod HDD catalog／受控单日验收，之后才能进入 M23。当前未执行真实 Prod 写入，也未进入 M23 回补、M24 切读、M25 API／前端或 M26 最终交付验收。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-31。
@@ -10,7 +10,7 @@
 
 ## 0. 结论摘要
 
-本方案把当前已确认的交互拆成五个明确交付范围：
+本方案把当前已确认的交互拆成六个明确交付范围：
 
 1. 先把现有财势探查单页改成“入口首页 + 独立模块子页面”，并让财势探查真正复用财势乾坤首页的快捷入口组件。
 2. 横截面动量排名及三级行业成分明细已经完成；双动量作为第二个独立方法，严格按产品基线 v1.4 和正式 Figma 建设独立路由、独立接口与独立工作区，不与动量排名混合成综合评分。
@@ -18,6 +18,7 @@
 4. 相对轮动作为第三个独立方法，使用“当前同组强度百分位 + 5个交易日百分位变化”形成四象限快照，并只为当前选中行业展示 `20/30/60` 日轨迹；它不实现传统 RRG、不读取宽基指数，也不解释为预测。
 5. 成员广度作为第四个独立方法，使用同日来源成分关系、股票日行情和复权因子，分别计算成分股数量、成交额参与和均线位置三项客观广度；不合成为综合分、不解释为预测。其正式交互、数据合同和分期方案由第 12C 节冻结；M14、M15、M16R、M16I 和 M16R2 已完成本轮收口，页面及30日口径可用，较重的60日口径仍存在超过15秒客户端等待的已知限制。当前不继续放宽超时，持久化／预计算作为后续独立需求。
 6. 量价分布作为第五个独立方法，使用同一行业体系的区间涨跌幅和两段等长窗口成交额均值变化，形成当前横截面散点、完整列表和所选行业双历史趋势；不生成预测、信号、综合分或交易建议。第 12D 节冻结其三只只读 API、独立路由／controller、最大119个交易日窗口、状态、性能和验收边界；M18 后端、M19 前端和 M20 部署联调均已完成，本轮正式关闭。
+7. 每日洞察作为板块分析默认入口，汇总同一业务日期、同一行业层级版本和同一公式包下五种方法的已发布客观事实；它不是第六种公式，不调用生成式 AI，也不在线并发五组现算接口。第12E节新增每日事实批次、方法事实表、洞察汇总／事件表、自动物化、2025年以来回补、只读 API、独立路由和五方法等价切读方案。
 
 既有动量排名直接读取 Prod 已有正式事实：
 
@@ -28,6 +29,8 @@
 - `core_serving.equity_daily_bar`（仅成分股目标日收盘价和区间涨跌幅）
 
 双动量、相对轮动和量价分布都只复用其中前三张表，不读取成分股关系或股票行情。成员广度新增读取 `core.equity_adj_factor`，但仍只读 Prod，不新增数据库表、迁移、物化结果、缓存或同步任务；不读取 DG/Lake，不依赖 `dc_index`、资金流、Heat、QTF、申万、概念或地域数据。DG 只继续承担既有行业层级发布，Web 查询只读 Prod。
+
+上述“不新增物化结果”是五个方法各自在线计算阶段的历史边界。每日洞察新阶段以性能和每日事实沉淀为明确目标，将在同一 Prod DB 的 `core_serving` 新增版本化每日事实及发布批次；来源仍只读上述现有 Prod 表，不复制来源数据，不写 DG/Lake，不新增数据库、账号或连接配置。
 
 ## 1. 目标、依据与边界
 
@@ -49,6 +52,11 @@
 14. 成员广度后端输出排名、组成、趋势和明细事实；前端只负责选择服务器已返回的事实并格式化展示，不自行计算均线、占比、覆盖率或排名。
 15. 量价分布支持五类比较池、`1/5/10/20/30` 日统一分析周期、四种零轴状态、两种可排序指标、五种列表视图、`20/30/60` 日双历史趋势和历史日期复盘。
 16. 量价分布后端输出价格动量、成交活跃度、两项横向名次、状态、缺失原因和历史序列；前端只做筛选、稳定排序选择、坐标映射与格式化，不重新计算公式、名次或缺失事实。
+17. 板块分析默认路由调整为每日洞察；现有五个方法精确路由保持不变，方法切换仍只挂载当前工作区。
+18. 将五个方法约94%的核心结果沉淀为按业务日期和批次发布的 typed serving facts；逐只股票明细、页面筛选、Tooltip 和运行时状态不物化。
+19. 每个交易日的五方法事实、洞察摘要和洞察事件必须以一个发布批次原子可见；新批次未发布时 API 只能读取上一已发布批次，不能混用不同日期或版本。
+20. 正式结果补齐自2025年第一个 SSE 交易日起的全部开市日；2024年末只作为滚动窗口预热，不对页面发布。
+21. 五个既有方法在完成逐字段等价对账后切换为读取每日事实；公开 API、公式、缺失原因、完整行业数、成员明细和历史槽位不得降级。
 
 ### 1.2 视觉与交互依据
 
@@ -68,12 +76,22 @@
 | Delayed | `1036:1014` | 保留最近完整交易日内容并明确实际盘后日期 |
 | Empty | `1036:1386` | 显式历史无数据或比较池全部不可计算 |
 | Error | `1036:1762` | 查询或合同失败后的稳定错误态与重试 |
+| 每日洞察／一级行业 Ready | `1227:22298` | 板块分析默认入口、一级行业概览与四类事实列表 |
+| 每日洞察／二级行业 Ready | `1227:23074` | 二级行业独立汇总，不跨层级比较 |
+| 每日洞察／三级行业 Ready | `1227:23850` | 三级行业独立汇总及完整滚动列表 |
+| 每日洞察／Delayed | `1227:24626` | 当前批次未发布时读取最近已发布批次并明确实际日期 |
+| 每日洞察／Loading | `1227:25085` | 六方法稳定骨架及洞察加载占位 |
+| 每日洞察／Empty | `1227:25544` | 显式业务日期无已发布批次或当前层级无可展示事实 |
+| 每日洞察／Error | `1227:26003` | 合同、查询或网络失败与重试 |
+| 每日洞察／交互与数据合同 | `1227:26462` | 默认入口、层级、日期、阈值、模板、缺失和状态合同 |
 | 双动量旧草稿 | `967:72` | 已移动至 Archive 并标记 `Frozen / Do Not Implement`，不得作为编码依据 |
 | 相对轮动旧草稿 | `967:158` | 已标记 `Archive / Frozen / Relative Rotation / Do Not Implement`，不得作为编码依据 |
 | 成员广度旧草稿 | `967:244` | 已冻结并移入交付区，只保留历史参考，不作为编码依据 |
 | 量价分布旧草稿 | `967:330` | 已标记 `Archive / Frozen / Price Volume / Do Not Implement`，不得作为编码依据 |
 
 Figma 页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）负责板块分析交互事实。旧板块雷达和原复杂量化研究画板保持冻结，不参与本方案。
+
+每日洞察组件交付区根节点为 `1219:21622`，概览指标组件为 `1219:21625`，列表行组件为 `1219:21630`，稳定状态面板为 `1219:21647`；一级／二级／三级 Ready 工作区组件分别为 `1221:21622`、`1225:21837`、`1225:22183`，非 Ready 工作区组件为 `1225:22529`、`1225:22556`、`1225:22583`、`1225:22610`，交互合同组件为 `1226:22295`。8张正式画板均为 `1600×1292.390625`，工作区为 `1564×1006`。页面骨架、工具栏、指标卡、四类列表和状态面板使用 Auto Layout；本工作区没有需要复制为运行时绝对坐标的图表。
 
 双动量正式交互以同一页面中的以下节点为唯一视觉和状态依据；旧草稿节点 `967:72` 不再具备需求效力：
 
@@ -181,7 +199,7 @@ Figma 页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）负责板块�
 6. 不改 `TopMarketBar` 的结构、样式和一级导航。
 7. 不在财势探查入口首页预加载、隐藏挂载成交额或板块分析工作区。
 8. 不扩展移动端设计；继续使用当前宽桌面基线。
-9. 不新增数据库表、迁移、账号、连接、定时任务、缓存服务或第三方前端依赖。
+9. 五个已完成方法原阶段不新增数据库表、迁移、账号、连接、定时任务、缓存服务或第三方前端依赖；每日洞察只按第12E节新增同一 Prod DB 内的 serving 表、迁移和既有 Ops 维护动作，不新增数据库、账号、连接、Worker Lane、缓存服务或第三方依赖。
 10. 不增加成分股筛选器、搜索、分页控件、勾选、导出、股票详情跳转或更多行情字段；本增量严格保留已确认的四列。
 11. 双动量不读取成分股、资金流、Heat、新闻、宽基、分钟行情、概念、地域或申万数据，也不新增历史趋势、详情 API 或成员 API。
 12. 双动量不提供预测、转热信号、成功率、参数回测、多个方法勾选组合、综合分或对行情系统的发布流程。
@@ -196,12 +214,12 @@ Figma 页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）负责板块�
 
 | 原则 | 本模块结论 | 设计落点 | 计划测试 |
 |---|---|---|---|
-| 事实源单一原则 | 层级、交易日、行业日行情、成分关系、股票日行情和复权因子只由后端 Prod 查询归一；量价分布只使用前三类行业事实 | 第 5、6、12C、12D 节 | 前端无公式、无事实补值；真实 API 字段对账 |
-| 契约先行与冻结原则 | 既有十一只板块分析 endpoint 保持冻结；量价分布只在 M17 LLD 通过后新增三只独立 endpoint | 第 7、12A.5、12B.6、12C.6、12D.5、13 节 | schema 正反例、未知字段拒绝、既有消费者零变化 |
-| 配置一致性原则 | 本期没有运营配置；各方法的周期、范围、阈值和版本均为产品合同枚举 | 第 6.8、12A.2、12B.2、12C.2、12D.2 节 | 未批准枚举拒绝；仓库不存在第二套常量 |
-| 默认行为显式原则 | 前四种方法保持既有默认值；量价分布固定为一级总览／20日／全部状态／价格动量降序／第一只可绘制行业／20日历史 | 第 4.4、12A.2、12B.2、12C.2、12D.2 节 | 无参数、非法参数、保留选择、父级切换和失效选择测试 |
+| 事实源单一原则 | 层级、交易日、行业日行情、成分关系、股票日行情和复权因子只由后端 Prod 查询归一；每日事实是可追溯计算结果，不是来源快照或副本 | 第 5、6、12C、12D、12E 节 | 前端无公式、无事实补值；来源 hash、批次和真实 API 字段对账 |
+| 契约先行与冻结原则 | 既有五方法公开合同保持不变；每日洞察只在技术方案、LLD、迁移和等价对账依次通过后新增两只 endpoint 并切换默认路由 | 第 7、12A.5、12B.6、12C.6、12D.5、12E.8、13 节 | schema 正反例、未知字段拒绝、既有消费者逐字段零变化 |
+| 配置一致性原则 | 公式周期、范围、阈值和版本均为产品合同枚举；每日任务只复用 Ops 维护动作元数据，不新增散落的环境变量或页面常量 | 第 6.8、12A.2、12B.2、12C.2、12D.2、12E.10 节 | 未批准枚举拒绝；任务定义、公式包和前端无第二套常量 |
+| 默认行为显式原则 | 五方法保持既有默认值；每日洞察固定为默认入口、一级行业、公共业务日期和同批次事实 | 第 4.4、12A.2、12B.2、12C.2、12D.2、12E.2 节 | 无参数、非法参数、历史日期、Delayed 和默认路由测试 |
 | 排序与筛选确定性原则 | 比较池、空值、并列和稳定次序全部固定；量价分布筛选只改变列表和图中强调，不改变横截面事实 | 第 6.3、6.5、12D.4 节 | 同值、缺值、跨父级、完整列表、筛选零重算测试 |
-| 性能预算前置原则 | 只查询当前工作区；量价分布当前截面最多60个开市日，所选历史最多119个开市日，均为行业级有界批量读取 | 第 11、12A.9、12B.9、12C.9、12D.9 节 | SQL 数量、payload、P95、未选工作区零请求 |
+| 性能预算前置原则 | 只查询当前工作区；每日洞察和五方法主事实优先读取已发布 typed facts，逐只股票明细继续按需读取 | 第 11、12A.9、12B.9、12C.9、12D.9、12E.11 节 | SQL 数量、payload、P95、未选工作区零请求和事实完整性 |
 | 可观测与异常标准化原则 | 只输出用户状态和已登记异常码；debug 不泄露 SQL | 第 9 节 | READY/DELAYED/EMPTY/ERROR 和未登录 401 反例 |
 | 测试以用户可见结果为中心原则 | 真实路由字段必须逐项驱动榜单、摘要、散点、双趋势和边界状态 | 第 12、12D.11 节 | 后端真实 API + 前端真实 API smoke 双门禁 |
 
@@ -328,6 +346,21 @@ M1 已关闭原先三项页面差异：
 9. 前端筛选、表头排序、散点 Hover 和图中强调只需要已返回的完整 Snapshot，可在 feature 内零请求完成；价格／成交名次、公式值、状态与缺失原因仍必须由后端返回，前端不得重新计算业务事实。
 10. 当前图表实现以模块内 SVG/CSS 为主，未引入通用散点图库。量价分布首版继续使用 feature 内响应式 SVG；只有形成两个以上真实消费者后才能抽取共享散点组件。
 
+### 2.9 每日洞察与事实物化当前代码审计
+
+2026-08-31 已结合当前代码、CodeGraph、五方法 M20 部署证据和每日洞察正式 Figma 完成方案前审计：
+
+1. `SectorAnalysisPage` 当前只识别五个方法，板块分析根地址仍重定向到动量排名；`SectorAnalysisMethodBar` 也只有五项。每日洞察必须新增第六个精确方法和 route，且只在该 route 挂载自己的 controller。
+2. 后端 `sector_analysis.py` 当前聚合五个方法共十四只公开只读 endpoint；没有每日洞察 DTO、API、查询服务、物化服务或 serving 模型。不得通过调用这些 HTTP endpoint 或循环调用五个 QueryService 拼出每日洞察。
+3. 五个方法当前均从 Prod 来源在线计算。成员广度最重链路虽已做等价投影优化，但60日口径仍存在超过15秒客户端等待的已接受限制；该事实证明“只调超时”不能同时满足性能和事实沉淀目标。
+4. 五个公式已经分别冻结为 `sector-cross-sectional-momentum@1`、`sector-dual-momentum@1`、`sector-relative-rotation@1`、`sector-member-breadth@1` 和 `sector-price-volume-distribution@1`。物化层必须调用这些既有纯计算语义或其等价共享内核，禁止复制出第二套公式。
+5. 当前来源边界已经由架构测试冻结为 `TradeCalendar / WealthSectorHierarchy / DcDaily / DcMember / EquityDailyBar / EquityAdjFactor`；每日事实不增加 Heat、资金流、新闻、宽基、分钟、概念、地域、申万、QTF、DG 或 Lake 依赖。
+6. 现有 `SectorHeatMaterializationService + SectorHeatTaskExecutor + Ops MaintenanceAction` 已证明“Biz 承载计算与业务写入、App 负责执行器装配、Ops 只保存执行意图和状态”的链路可用。每日事实复用该职责模式，但不复用 Heat 表、配置或计算合同。
+7. 现有 Heat 写法按日期删除重写单表，不能直接满足多张事实表的原子可见。每日事实需要独立批次表：先构建不可见批次，全部 read-back 通过后再一次性发布；API 只读 `PUBLISHED` 批次。
+8. 当前 `GENERAL` Worker 已能派发 maintenance executor，因此本需求不需要新 Worker Lane、systemd unit、数据库账号或连接配置；只需在现有 action catalog、dispatcher 装配和 scheduler readiness 中增加一个板块每日事实动作。
+9. 五个现有公开 API 和前端 strict adapter 已有大量正反例消费者。切读物化结果必须先做旧在线结果与新事实逐字段对账，再保持公开响应不变；禁止为了迁移方便修改旧公式、字段、状态或缺失语义。
+10. 影响面集中在 Foundation `core_serving` ORM／Alembic、Biz 物化与只读查询、App executor 装配、Ops 维护动作、Wealth 新 daily-insight feature 和五方法内部 reader；不修改 DatasetDefinition、ingestion、上游同步、首页板块速览、QTF、DG/Lake 或 legacy 目录。
+
 ## 3. 目标信息架构与正式路由
 
 ### 3.1 路由表
@@ -336,14 +369,15 @@ M1 已关闭原先三项页面差异：
 |---|---|---|
 | 财势探查入口首页 | `/wealth/exploration` | M1 已实现 |
 | 成交额洞察 | `/wealth/exploration/turnover-insight` | M1 已实现 |
-| 板块分析默认入口 | `/wealth/exploration/sector-analysis` | `replace` 到动量排名 |
+| 板块分析默认入口 | `/wealth/exploration/sector-analysis` | 每日洞察上线后 `replace` 到每日洞察；当前代码仍指向动量排名 |
+| 每日洞察 | `/wealth/exploration/sector-analysis/daily-insight` | 产品、正式 Figma、技术方案、代码级LLD、M21门禁和M22本地开发已完成；M23～M26尚未实施，路由仍未开放 |
 | 横截面动量排名 | `/wealth/exploration/sector-analysis/momentum-ranking` | M3 与 M3A 已完成并通过验收 |
 | 双动量 | `/wealth/exploration/sector-analysis/dual-momentum` | M8 已完成并关闭；冷启动性能按用户决定接受现状 |
 | 相对轮动 | `/wealth/exploration/sector-analysis/relative-rotation` | M12/M12R 已完成并关闭 |
 | 成员广度 | `/wealth/exploration/sector-analysis/member-breadth` | 本轮已带已接受性能限制关闭；事实、载荷和等价合同通过，30日口径现场可返回，较重的60日口径在15秒客户端等待下仍超时；持久化／预计算另列后续 TODO |
 | 量价分布 | `/wealth/exploration/sector-analysis/price-volume` | M19 已切换为第五条正式路由；M20 部署联调与交付验收已通过，需求关闭 |
 
-`momentum-ranking`、`dual-momentum`、`relative-rotation`、`member-breadth` 与 `price-volume` 现在是五个可用且互相独立的方法路由。`price-volume` 已使用独立 controller 完成部署验收；未选中的其他方法仍不得隐藏挂载或提前请求。
+`momentum-ranking`、`dual-momentum`、`relative-rotation`、`member-breadth` 与 `price-volume` 现在是五个可用且互相独立的方法路由。每日洞察上线时只增加第六个精确路由并调整根重定向，不改变现有五条地址；未选中的工作区仍不得隐藏挂载或提前请求。
 
 ### 3.2 面包屑
 
@@ -364,12 +398,12 @@ flowchart TD
   B --> D["板块分析子页面"]
   D --> E["当前方法按钮"]
   E --> F["仅挂载当前工作区"]
-  F --> G["动量排名、双动量、相对轮动、成员广度或量价分布"]
+  F --> G["每日洞察或五个独立分析方法"]
 ```
 
 1. 入口首页只请求页面公共上下文和 TopMarketBar ticker，不请求成交额或板块数据。
 2. 成交额子页面只请求现有成交额洞察接口。
-3. 板块分析只请求当前路由方法的数据；五个方法不得同时挂载 controller、图表或隐藏 DOM。
+3. 板块分析只请求当前路由方法的数据；每日洞察和五个方法不得同时挂载 controller、图表或隐藏 DOM。
 4. 未选方法不创建 controller、图表实例、网络请求或隐藏 DOM。
 5. 成员广度已由 M15 接入精确路由并按第12C节请求数据；M16I 已补齐趋势图本地查看增量，不能退回“待建设” toast，也不能接入第二套趋势交互。量价分布已由 M19 使用独立 route/controller 替换 toast，不修改其他方法状态。
 
@@ -2858,6 +2892,404 @@ M17在编码前只做一次有界Prod只读 `EXPLAIN/代表性调用`，验证�
 4. M17已经把本节落成代码级文件、类型、SQL、DTO、状态机和测试映射，并完成LLD、异常码、架构门禁和性能预检；现行门禁通过后，M18已具备进入条件。
 5. 若当前代码、真实字段、Figma、产品基线或性能预检与本节冲突，立即停止并回到方案层；不得边编码边改公式、状态、接口或布局。
 
+## 12E. 每日洞察与每日事实物化增量技术方案
+
+### 12E.1 目标合同与实现边界
+
+本增量同时解决两个已经明确的问题：
+
+1. 为板块分析提供默认“每日洞察”，让用户先看到同一业务日的结构、头部强弱和相对上一交易日的显著变化，再进入五个方法查看证据。
+2. 将五个方法约94%的核心计算结果沉淀为可追溯的每日事实，消除成员广度等重计算的重复在线开销，并为后续历史分析保留稳定事实。
+
+每日洞察不是第六种量化公式。它只汇总以下五个已冻结版本：
+
+```text
+sector-cross-sectional-momentum@1
+sector-dual-momentum@1
+sector-relative-rotation@1
+sector-member-breadth@1
+sector-price-volume-distribution@1
+```
+
+首版只覆盖当前发布的行业一级、二级、三级；不增加概念、地域、申万、跨体系、预测、信号、综合热度分、机会等级或买卖建议。确定性文案只由版本化模板和结构化事实生成，不调用生成式 AI。
+
+### 12E.2 默认入口、层级与日期合同
+
+默认行为固定为：
+
+```text
+route = /wealth/exploration/sector-analysis/daily-insight
+industryLevel = 1
+tradeDate = pageContext.tradeDate（URL 未显式选择日期）
+factBatch = 目标日期最新 PUBLISHED 批次
+```
+
+1. `/wealth/exploration/sector-analysis` 在本增量正式上线后使用 `replace` 进入每日洞察；五条既有方法路由不改名、不加兼容分支。
+2. 页面支持一级、二级、三级切换；三种层级只读取本层级全局比较池，不增加“一级内二级／二级内三级”。
+3. 日期选择器继续覆盖从2025年起至公共目标日期的全部 SSE 开市日。URL 显式 `tradeDate` 时严格查看该日，不自动回退。
+4. 自动模式下，公共目标日没有 `PUBLISHED` 批次时读取不晚于目标日的最近已发布批次并进入 Delayed；页面必须同时显示公共目标日和实际事实日。
+5. 显式历史日没有批次时进入 Empty，不借用更早批次。任一响应只能引用一个 `batchKey`，不能组合不同日期或不同版本。
+
+### 12E.3 来源、计算范围与94%口径
+
+物化任务只读取现有 Prod：
+
+- `core_serving.trade_calendar`
+- `core_serving.wealth_sector_hierarchy`
+- `core_serving.dc_daily`
+- `core_serving.dc_member`
+- `core_serving.equity_daily_bar`
+- `core.equity_adj_factor`
+
+不读取 API 响应，不通过 Web 请求反向抓取五个方法，不保存上述来源的快照、副本、CSV、JSON 或缓存。DG 仍只承担既有行业层级发布；每日事实计算与发布全部发生在 Prod-native Biz 主链。
+
+| 方法 | 需要物化的核心结果 | 不物化的展示或明细 |
+|---|---|---|
+| 动量排名 | `1/5/10/20/30` 日收益、五类比较池名次／分母／百分位、缺失原因 | 榜单方向、表头排序、Hover、逐只成分股 |
+| 双动量 | `5/10/20/30` 日绝对动量、三档阈值状态、小组资格和原因 | “符合条件／全部行业”筛选、选中态、散点像素 |
+| 相对轮动 | 四周期强度、固定5日改善、四象限状态、小组资格和原因 | 象限筛选、搜索、放大图、Tooltip |
+| 成员广度 | 成员／成交额／六均线位置组成、覆盖、资格、五类比较池名次和每日趋势点 | 页面当前选中的逐只股票明细、Tooltip和十字线 |
+| 量价分布 | 五周期价格动量、成交活跃度、两项名次、四状态和缺失原因 | 状态筛选、排序、散点坐标像素和Tooltip |
+| 每日洞察 | 三层概览、头部上涨／下跌、显著转强／转弱、模板和证据引用 | Loading、用户筛选、滚动位置、Hover |
+
+“约94%”表示五个方法的行业级数值、名次、分母、百分位、状态、覆盖和缺失原因进入每日事实；逐只股票明细和纯交互状态继续按需读取或本地表达。任何未物化项都不能被删除或改成更粗口径。
+
+### 12E.4 Prod serving 表与版本模型
+
+新增 typed serving 表，不使用一张 `metric_key/value` 大 EAV 表，也不把核心业务数值塞进任意 JSON：
+
+| 表 | 粒度与职责 |
+|---|---|
+| `core_serving.wealth_sector_analysis_publish_batch` | 一个业务日期的一次完整计算与发布代次；保存状态、版本、hash、数量和时间 |
+| `core_serving.wealth_sector_momentum_daily` | `batch × scope × parent × sector × period` 的收益、名次、分母、百分位和缺失 |
+| `core_serving.wealth_sector_dual_momentum_daily` | `batch × scope × parent × sector × period` 的绝对／相对状态、70／80／90三档结果和资格 |
+| `core_serving.wealth_sector_relative_rotation_daily` | `batch × scope × parent × sector × period` 的当前强度、5日变化、象限和资格 |
+| `core_serving.wealth_sector_member_breadth_daily` | `batch × scope × parent × sector` 的成员数与成交额组成、覆盖、资格和双向名次 |
+| `core_serving.wealth_sector_member_ma_breadth_daily` | `batch × scope × parent × sector × maPeriod` 的均线上／等于／下组成、覆盖、资格和双向名次 |
+| `core_serving.wealth_sector_price_volume_daily` | `batch × scope × parent × sector × period` 的价格、成交、两项名次、状态和缺失 |
+| `core_serving.wealth_sector_daily_insight_summary` | `batch × industryLevel` 的八项概览计数、行业总数、可计算数和缺失数 |
+| `core_serving.wealth_sector_daily_insight_item` | `batch × industryLevel × category × sector` 的稳定顺序、事件变化、模板身份和证据引用 |
+
+所有子表都以 `batch_id` 关联批次，并保留 `trade_date` 便于约束和分区式查询。六张方法事实表的公共维度至少包括：
+
+```text
+trade_date
+batch_id
+hierarchy_version
+comparison_scope
+parent_sector_code（全局范围为空）
+sector_code / sector_name / industry_level / hierarchy_path
+formula_key / formula_version
+calculation_status / missing_reason
+calculated_at
+```
+
+批次表至少保存：
+
+```text
+batch_id（UUID）
+trade_date
+status = BUILDING | PUBLISHED | SUPERSEDED | FAILED
+hierarchy_version
+formula_bundle_version
+template_version
+source_hash / plan_hash / content_hash
+source_dates_json / source_row_counts_json
+expected_fact_counts_json / actual_fact_counts_json
+started_at / calculated_at / published_at
+```
+
+JSON 只允许保存来源日期／数量、各 typed 表预期／实际计数和公式版本清单等审计元数据；页面所用业务数值必须有明确列、类型和约束。每个业务日期最多一个当前 `PUBLISHED` 批次；旧批次只能变为 `SUPERSEDED`，不能与新批次同时被公开读取。
+
+按当前496个行业节点和五类比较池估算，单日约产生2.4万至2.6万条 typed facts；从2025年起约为数百万级，适合 Prod PostgreSQL serving。该估算只用于证明量级合理，LLD仍需按真实层级数量、索引和行宽重新计算存储及回补耗时。
+
+#### 12E.4.1 HDD 物理存储硬门禁
+
+用户已明确九张新表不得占用 SSD。物理存储合同固定如下：
+
+1. 九张表的 heap、TOAST、主键索引、唯一索引和全部普通／覆盖索引统一落到现有 HDD tablespace `gs_raw_cold_hdd`；不得把“小批次表”“当前日期索引”或其他看似较小对象例外留在 `pg_default`。
+2. 若 LLD 最终决定按日期分区，则所有有物理存储的叶分区及其本地索引仍必须显式绑定 `gs_raw_cold_hdd`；分区父表没有 heap 不等于叶分区可以继承数据库默认 tablespace。
+3. Alembic migration 必须在创建任何对象前一次性验证 `gs_raw_cold_hdd` 存在、当前迁移角色具有所需权限，并能从 PostgreSQL catalog 解析到非空物理位置；任一条件不满足即 fail-closed，整个迁移回滚，禁止静默省略 `TABLESPACE` 或回退 `pg_default`。
+4. 建表 DDL 必须显式使用 `TABLESPACE gs_raw_cold_hdd`；由主键／唯一约束自动创建的索引必须通过 `USING INDEX TABLESPACE gs_raw_cold_hdd` 或等价的受控 DDL 落盘；后建索引也必须逐条显式指定同一 tablespace。
+5. migration 完成后必须从 `pg_class / pg_namespace / pg_tablespace` read-back 九张表及其全部索引的真实 tablespace。只要任一有存储对象解析为 `pg_default`、数据库默认 tablespace 或其他 tablespace，迁移验收即失败，不得启动历史回补。
+6. 不新建数据库、账号、连接或第二个 tablespace；复用生产已经存在的 `gs_raw_cold_hdd`。方案只冻结目标 catalog 名称，不把其历史物理目录名当成业务合同；部署验收仍需确认该 tablespace 的实际目录位于 HDD 挂载盘。
+7. HDD 只决定表、TOAST和索引的持久化位置，不代表回补过程不会产生 WAL、排序临时文件或事务峰值。M23 在执行2025年以来回补前必须检查 SSD 上 `pg_wal`／临时目录的剩余空间，按有界批次提交并观测峰值；禁止用超大单事务把 HDD 数据量转化为 SSD 瞬时占用风险。
+8. HDD 查询性能必须使用真实生产 tablespace 验收。若 Meta／Snapshot 或五方法切读未通过既定 P95，优先修正索引、查询和读放大，不能未经用户批准把任一表或索引迁回 SSD，也不能通过 Top N、缩短历史或过滤缺失行业降低数据体验。
+
+### 12E.5 计算、read-back 与原子发布
+
+单日执行顺序固定为：
+
+```text
+Ops 产生单日维护意图
+  -> App executor 使用独立业务 session
+  -> Biz readiness 读取上游完成证据
+  -> Biz source query 在一致读取边界内加载来源
+  -> 复用五个冻结公式生成 typed facts
+  -> 生成概览、洞察事件和确定性模板
+  -> 写入 BUILDING batch 及全部子表
+  -> 逐表 read-back 数量、业务键和 content hash
+  -> 同一小事务将旧 PUBLISHED 改为 SUPERSEDED、新 batch 改为 PUBLISHED
+  -> API 才能看见新批次
+```
+
+关键约束：
+
+1. `source_hash` 对按稳定业务键排序的实际输入列计算，不复制来源行；`plan_hash` 覆盖日期、层级、公式包、模板、范围和来源 hash；`content_hash` 覆盖全部待发布 typed facts。
+2. 同一 `plan_hash + content_hash` 已有 PUBLISHED 批次时幂等跳过，不新增重复代次。
+3. 来源或公式版本变化导致 hash 漂移时创建新批次；旧批次在新批次 read-back 完成前继续服务。
+4. 任一表数量、唯一键、约束或 hash 不一致时新批次标为 FAILED，旧 PUBLISHED 批次保持不变。
+5. 日级来源任务尚未完成属于硬阻断，不创建可发布批次；上游已明确完成但个别行业仍缺事实属于行业级缺失，写入原因并允许该日批次发布。
+6. 不补零、不前向填充、不借用其他行业或上一日数值。显著转强／转弱只比较紧邻上一 SSE 交易日的同版本 PUBLISHED facts；上一日不可比较时不生成事件。
+7. Ops TaskRun 状态与业务发布使用不同 session；Ops 观测写失败不能回滚已经通过 read-back 的业务批次，业务发布失败也不能被 Ops 误记为业务成功。
+8. 当前发布层级版本变化时禁止把新层级当日事实与旧层级上一日事实比较。每日动作必须先阻断并要求以新层级版本生成升序 replay PLAN；至少重新发布上一 SSE 日和目标日后才能恢复当日洞察，完整2025年以来历史随后按同一 PLAN 口径重放。
+
+### 12E.6 自动任务与2025年以来回补
+
+新增现有 Ops maintenance 主链中的两个动作：
+
+```text
+maintenance.materialize_wealth_sector_analysis_daily
+maintenance.replay_wealth_sector_analysis_history
+executor_key = wealth_sector_analysis_daily
+worker_lane = GENERAL
+```
+
+不新增 Worker Lane、systemd 服务、数据库账号、连接或队列。单日自动动作从20:05起每10分钟检查一次来源完成证据，最晚检查至次日00:30；来源未齐时不进入计算，页面继续使用上一 PUBLISHED 批次。该时刻只决定“何时开始检查”，不替代来源齐备门禁。
+
+正式回补要求：
+
+1. 先以 SSE 日历生成从2025年第一个开市日至批准结束日的升序 PLAN；PLAN 对全部目标日期冻结同一个当前发布层级版本，2024年末只进入预热读取范围。
+2. PLAN 固定日期清单、公式包、层级版本策略、预期表、预期行数区间和 plan hash；APPLY 只能执行已确认 PLAN。
+3. 按交易日从旧到新发布，保证每一天能精确读取紧邻上一日结果；单日失败不删除已完成日期。
+4. 完成后逐日 read-back 批次、九张表数量、hash、上一交易日链路和空洞；再对同一 PLAN 做幂等重放，证明零新增与零漂移。
+5. 历史回补和每日任务使用同一计算／发布服务，禁止维护第二套“回补公式”。
+
+### 12E.7 洞察汇总、事件与确定性模板
+
+每个层级的 summary 固定输出：
+
+```text
+up_count / down_count / flat_count / median_change_pct_1d
+dual_momentum_count_20d_80
+leading_improving_count_20d_5d
+price_volume_joint_count_20d
+breadth_up_share_above_50_count
+sector_count / calculable_count / missing_count
+```
+
+四类列表全部由服务器确定顺序并完整返回，由固定高度容器内部滚动，不做 Top N、分页或静默截断：
+
+1. `HEAD_GAINER`：当日涨幅大于0，按1日涨跌幅降序、行业代码升序。
+2. `HEAD_LOSER`：当日涨幅小于0，按1日涨跌幅升序、行业代码升序。
+3. `STRENGTHENING`：20日同层级百分位提升至少10个百分点，或从非前20%进入前20%；按提升值降序、行业代码升序。
+4. `WEAKENING`：20日同层级百分位下降至少10个百分点，或从非后20%进入后20%；按下降绝对值降序、行业代码升序。
+
+平盘行业只进入结构概览，不进入上涨／下跌列表。不可计算行业继续进入缺失计数和批次事实，但不制造头部或变化事件。
+
+洞察 item 至少引用当日／5日／20日收益、当前20日名次与分母、上一日名次与分母、百分位变化、量价状态、双动量状态、相对轮动状态以及成员／成交额／均线广度中实际存在的证据。模板生成器固定：
+
+```text
+template_key
+template_version = sector-daily-insight-template@1
+primary_evidence_type
+secondary_evidence_types（最多2项）
+rendered_text
+```
+
+证据选择顺序严格服从产品基线；没有事实时省略，不写“可能因为”、不猜原因。相同 batch、item 和 templateVersion 必须得到字节一致的文案。
+
+### 12E.8 每日洞察 API 合同
+
+新增两只只读接口，不修改既有十四只板块分析 endpoint：
+
+```http
+GET /api/v1/wealth/market/sector-analysis/daily-insight/meta
+GET /api/v1/wealth/market/sector-analysis/daily-insight/snapshot
+```
+
+#### Meta
+
+```http
+GET /daily-insight/meta?market=CN_A
+```
+
+返回：
+
+```text
+contractKey = sector-daily-insight
+contractVersion = 1
+formulaBundleVersion
+templateVersion
+levels = [1, 2, 3]
+defaultLevel = 1
+dateContext
+coverageStartDate / coverageEndDate
+tradeDates[].availability = PUBLISHED | MISSING
+defaultTradeDate / defaultBatchKey / defaultStatus
+hierarchyVersion
+```
+
+Meta 是自动回退的唯一入口：公共目标日有 PUBLISHED 批次则 Ready；否则选择不晚于目标日的最近批次并返回 Delayed。日期覆盖只按发布批次判断，不在线扫描六张来源表。
+
+#### Snapshot
+
+```http
+GET /daily-insight/snapshot
+  ?market=CN_A
+  &tradeDate=2026-08-28
+  &industryLevel=1
+  &batchKey=...
+  &hierarchyVersion=...
+  [&debug=1]
+```
+
+`tradeDate/industryLevel/batchKey/hierarchyVersion` 必填。响应包含：
+
+```text
+status / message / exceptionCode
+requestedTradeDate / observedTradeDate / previousTradeDate
+batchKey / hierarchyVersion / formulaBundleVersion / templateVersion
+publishedAt / calculatedAt
+industryLevel
+summary
+headGainers[] / headLosers[] / strengthening[] / weakening[]
+missingSectorCount / missingReasonCounts
+```
+
+每个列表项返回行业身份／路径、1／5／20日收益、20日名次／分母／百分位、上一交易日对应事实、变化值、事件类型、量价／双动量／轮动／广度证据、模板身份和确定性文案。未知字段、重复行业、顺序错误、非有限数值、分母不一致或跨 batch 数据必须被 strict schema 拒绝。
+
+Snapshot 不再次自动回退；`batchKey` 已被替换、层级版本不一致或不再是该日期当前 PUBLISHED 批次时返回409，前端最多重载一次 Meta。显式日期无批次返回 Empty，不把数据库表名、SQL、hash 明文、连接或堆栈返回页面。
+
+新增异常码：
+
+```text
+SA_DAILY_INSIGHT_BATCH_MISMATCH    HTTP 409
+SA_DAILY_INSIGHT_QUERY_FAILED      HTTP 500
+SA_DAILY_FACT_SOURCE_NOT_READY     仅任务失败原因，不直接暴露来源细节
+SA_DAILY_FACT_READBACK_MISMATCH    仅任务失败原因，不发布批次
+SA_DAILY_FACT_PLAN_DRIFT           仅回补 APPLY 失败原因
+```
+
+接口继续复用 `require_quote_access`；当前认证合同只验证未登录401，不虚构不存在的403角色路径。
+
+### 12E.9 五个既有方法的等价切读
+
+物化完成不等于可以直接切换五个页面。切读顺序固定为：
+
+1. 在线现算继续作为对账基线，先生成2025年以来每日事实。
+2. 对一级、二级、三级、两个父级范围、全部周期、方向、阈值、MA周期、历史范围和代表性缺失日执行“现算结果 vs typed facts”逐字段比较。
+3. 数值、名次、分母、百分位、状态、资格、缺失原因、行业数量、日期槽和排序语义全部一致后，才把各 QueryService 的内部 reader 改为 serving reader。
+4. 五个方法公开 URL、query、DTO、strict adapter、默认值和状态机保持不变；前端不感知数据来自在线计算还是 typed facts。
+5. 动量成分股四列和成员广度逐只股票明细不物化，仍在用户选中行业后按需读取 Prod；行业级排名、组成和历史趋势改读每日事实。
+6. Meta 的自动模式只选择有 PUBLISHED 批次的日期；显式历史仍严格命中。行业级部分缺失已经保存在批次内，页面继续 Ready 并显示原缺失原因。
+7. 切读后删除被完全替代的在线聚合路径和重复重计算代码，不保留运行时双读开关或永久 fallback；等价比较工具只作为测试／验收代码存在。
+
+这一步不能通过放宽精度、减少行业、缩短窗口、隐藏缺失或改变成员口径来“通过”。任一字段不等价必须停在切读前定位公式或事实模型错误。
+
+### 12E.10 前端路由、URL、交互与 Design System
+
+前端新增独立 feature：
+
+```text
+wealth/src/features/wealth-exploration/sector-analysis/daily-insight/
+  api/
+    sectorDailyInsightApi.ts
+    sectorDailyInsightTypes.ts
+    sectorDailyInsightAdapter.ts
+  model/
+    sectorDailyInsightUrlState.ts
+    useSectorDailyInsightController.ts
+  ui/
+    DailyInsightWorkspace.tsx
+    DailyInsightToolbar.tsx
+    DailyInsightOverview.tsx
+    DailyInsightPanel.tsx
+    DailyInsightRow.tsx
+    DailyInsightStateSurface.tsx
+    sector-daily-insight.css
+```
+
+URL 只保存用户能理解且需要恢复的状态：
+
+| query | 允许值 | 默认值 |
+|---|---|---|
+| `market` | `CN_A` | `CN_A` |
+| `tradeDate` | Meta范围内 SSE 开市日 | 公共自动日期；自动模式不写URL |
+| `level` | `1/2/3` | `1` |
+
+`batchKey`、公式包、模板版本属于内部一致性合同，不写入用户 URL。请求时序为：精确路由激活 → Meta → 确定唯一 observedTradeDate／batchKey → Snapshot；切换层级只请求 Snapshot，切换历史日期先由当前 Meta 校准后请求对应 Snapshot。快速切换使用完整 request key 和 AbortController 丢弃旧响应；未选每日洞察时零请求、零 DOM。
+
+交互跳转固定为：
+
+1. 点击行业主体进入现有动量排名工作区，带入同一业务日期、对应全局层级 scope、20日周期和 `sectorCode`；不新增独立“行业详情页”。
+2. 点击双动量、相对轮动、成员广度或量价证据标签进入对应既有方法，带入同一日期、层级 scope、行业和该方法已批准的默认参数。
+3. 切换方法时只保留公共日期和能被目标方法识别的范围／行业参数，不把洞察的内部 batch 身份泄漏给其他 URL。
+
+四类列表完整渲染在各自固定高度、固定表头、独立纵向滚动 viewport 中。名称和路径单行省略并提供 Tooltip；数值右对齐并使用 `.num`。页面只使用现有背景、边框、文字、行情方向、warning、间距和圆角 token；不复制 Figma 的绝对 `x/y`，不新增硬编码颜色或第二套状态组件。
+
+### 12E.11 查询、payload 与性能门禁
+
+每日洞察线上只读路径不再扫描来源表：
+
+| 接口 | SQL上限 | 最大响应 | 部署稳态P95 | payload上限 |
+|---|---:|---:|---:|---:|
+| Meta | 2 | 2025年以来交易日发布覆盖＋当前批次身份 | `<=1,000ms` | `<=256KB` |
+| Snapshot | 3 | 单层级完整四列表、概览和缺失摘要 | `<=1,000ms` | `<=1MB` |
+
+Meta 最多执行公共页面日期1条和批次覆盖1条；Snapshot 最多执行当前 PUBLISHED 批次校验1条、summary 1条、四类 item 与所需 typed facts 联表1条。SQL 数量不得随行业数增长。
+
+五方法切读后继续遵守各自既有 SQL、payload 和 P95 门禁；成员广度行业级 Rankings／Details 的重计算必须消失，目标为完整事实 P95 不高于2秒。逐只股票明细仍完整返回，不以分页、Top N、采样、缩窗或旧事实回退换性能。
+
+每日任务和历史回补属于后台执行，不以一次页面等待为预算。LLD 编码前必须用当前最大层级和60日成员／复权窗口做有界 Prod 只读原型，记录单日来源行数、计算耗时、写入行数、表大小估算和 read-back 耗时；若单日自动任务无法在盘后窗口稳定完成，必须停止评审执行分块或索引方案，不能降低事实范围。
+
+上述 API 和切读性能门禁必须在九张表及全部索引真实位于 `gs_raw_cold_hdd` 的生产拓扑上测量；SSD 临时库或 `pg_default` 上的结果只能用于功能调试，不能作为部署性能验收证据。
+
+### 12E.12 自动化、真实验收与安全删除
+
+后端正反例至少覆盖：
+
+1. 六张来源表精确白名单、未来事实不影响历史、无 DG/Lake/Heat/QTF/资金流依赖。
+2. 九张表业务键、CheckConstraint、批次 FK、单日唯一 PUBLISHED、旧批次 supersede 和 FAILED 不可见。
+3. migration 在 HDD tablespace 缺失、权限不足时 fail-closed；成功时九张表的 heap／TOAST和所有约束／普通索引均由 catalog 解析为 `gs_raw_cold_hdd`，零对象落入 `pg_default`。
+4. 五公式所有周期、五scope、并列、空值、小组、资格、覆盖和缺失原因与现算结果一致。
+5. 单日 PREVIEW／APPLY、source／plan／content hash、逐表 read-back、同内容幂等、来源漂移和发布事务回滚。
+6. 上游未完成零公式执行；个别行业缺失可发布且原因完整；上一日缺失零显著变化事件。
+7. 三层 summary、四类完整列表、±10个百分点、进入前／后20%、稳定排序和确定性模板字节一致。
+8. Meta自动Delayed、显式日期不回退、Snapshot batch 409、Empty、500、未知参数、strict DTO和401。
+9. Meta／Snapshot `2/3` SQL、全三级最大payload、两轮稳态HTTP P95和未发布批次零泄漏。
+10. 2025年以来 PLAN／APPLY／read-back／幂等重放，无自然日空行、无日期洞、无跨批次引用；回补期间 SSD WAL／临时文件峰值受控。
+11. 五个方法全部公开响应逐字段等价；切读后静态门禁禁止 QueryService 回到来源重计算行业级事实。
+
+前端正反例至少覆盖：
+
+1. 根路由默认每日洞察、六方法精确 route、切换只挂载一个 controller、未选零请求。
+2. `tradeDate/level` URL恢复、Meta→Snapshot、Delayed、显式Empty、一次409重载、Abort和竞态丢弃。
+3. 一级／二级／三级概览和四类完整滚动列表，长名称、空列表、局部缺失和确定性文案。
+4. 行业主体与证据标签进入正确既有方法，并带入日期、全局层级、行业和方法默认参数。
+5. 8张正式 Figma 状态、`1600/1512/1460/1366` 四档、普通UI偏差不超过2px、无模块内部横向溢出。
+6. 既有五个工作区视觉、URL、选择、图表和完整数据体验零回归。
+
+删除在线重计算代码只能发生在全量等价测试和新 reader 生产验收之后。LLD 必须逐文件列出：被事实 reader 完全替代的查询／聚合方法、仍被成员明细使用的来源读取、所有消费者和删除顺序；禁止只删入口后留下死代码，也禁止保留运行时兼容分支。
+
+### 12E.13 配置审计、待决策与停止门禁
+
+本方案不新增 Settings、环境变量、数据库配置文件、账号、连接或前端运行开关。新增的固定值及唯一来源为：
+
+| 项目 | 固定值 | 持久化／消费者 | 生效方式 |
+|---|---|---|---|
+| 洞察合同 | `sector-daily-insight@1` | Biz contract、API strict schema、前端 adapter | 随部署提交生效 |
+| 模板 | `sector-daily-insight-template@1` | Biz 模板生成器、item、API | 随部署提交生效 |
+| 公式包 | 五个既有 `@1` 版本 | batch、五事实表、物化器 | 随公式代码版本生效 |
+| 变化阈值 | `±10pp`、进入前／后20% | Biz insight builder | 产品合同，不可运行时改 |
+| 自动检查 | 20:05起、600秒重试、次日00:30截止 | Ops action catalog、scheduler | 部署后由现有 scheduler 读取 |
+| 历史起点 | 2025年第一个 SSE 开市日 | replay planner、Meta coverage | 首次回补后生效 |
+| 物理存储 | `gs_raw_cold_hdd` | 九张表 heap／TOAST、主键和全部索引 | migration 显式DDL并由catalog read-back；缺失时fail-closed |
+
+当前没有新增产品拍板项：完整滚动列表、三层级、默认公共日期、显著变化阈值、确定性模板、2025回补和约94%物化范围均来自已批准产品基线；本节将“行业主体进入既有动量详情、证据标签进入对应方法、无Top N截断”作为对既有交互的最小技术落点，不增加新页面或新业务能力。
+
+进入编码前仍必须先完成代码级 LLD，并在实施日重新确认 Alembic 单一 head；2026-08-31 方案编写时 head 为 `20260830_000167`，不得将该值提前写死为未来迁移的 `down_revision`。若 LLD 审计发现真实表字段、当前 Ops 调度、最大事实规模、公式复用点或 Figma 与本节冲突，必须停在方案层等待确认，不得边编码边改口径。
+
 ## 13. 分期里程碑
 
 ### M0：合同与治理收口
@@ -3138,7 +3570,73 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 3. 三接口各预热一次后执行两轮、每轮20次认证HTTP；合并40次样本的P95分别为 `223.72/661.94/45.38ms`，通过 `1,000/2,000/1,000ms` 门禁。
 4. 真实页面五类 scope 分别返回 `31/128/337/8/4` 个行业及等量散点；状态筛选只把三级列表由337行收敛到94行，散点仍保留337个背景点；成交活跃度排序、行业选择、摘要、双历史图和 Hover Tooltip 均联动正确。
 5. `1600/1512/1460/1366` 四档下工作区分别为 `1549/1461/1424/1424px`，量价模块内部横向溢出均为0；1366仅保留全站已批准的1460px最小宽页面级滚动。13张正式 Figma 与前端13态自动化继续逐一对账，真实 Ready 页面和用户部署验收均无问题。
-6. 冻结后端矩阵 `402 passed`，前端 `76` 个测试文件／`537 passed`、typecheck和production build均通过。量价分布正式关闭，不新增后续里程碑。
+6. 冻结后端矩阵 `402 passed`，前端 `76` 个测试文件／`537 passed`、typecheck和production build均通过。量价分布自身正式关闭；后续 M21～M26 属于独立的每日事实／每日洞察增量，不回写 M17～M20 状态。
+
+### M21：每日事实与每日洞察 LLD／编码门禁
+
+状态：`PASS (2026-08-31)`。
+
+1. 以产品基线第4.5节、每日洞察8张正式 Figma 和本文第12E节为唯一新增依据，完成代码级 LLD。
+2. 逐表冻结九张 ORM／迁移、业务键、索引、约束、批次状态、hash、read-back、原子发布和回补 PLAN／APPLY 合同；所有有存储对象统一使用 `gs_raw_cold_hdd`，零 SSD 例外。
+3. 逐文件审计五公式复用点、现有十四只 endpoint、Ops maintenance 主链、App executor、前端 route 和全部消费者；列出未来安全删除在线聚合路径的顺序。
+4. 实施日前重新确认 Alembic 单一 head；当前方案记录的 `20260830_000167` 只作审计证据，不能提前作为迁移父版本。
+5. 用最大三级池和成员广度60日来源窗口完成一次有界 Prod 只读规模／耗时原型；超出合理盘后窗口时停下评审，不缩数据。
+6. M21实测使用 `2026-08-28` 完整盘后日、496个层级节点和337个三级行业，在单个 `REPEATABLE READ, READ ONLY` 事务中读取60个SSE交易日：`dc_daily=29,760`、三级成员关系`337,193`、股票日线`331,493`、匹配复权因子`331,493`。来源读取与行物化约`35.298s`，五类计算器与摘要／模板约`2.570s`，完整原型约`38.819s`，通过20:05～00:30盘后窗口可行性门禁。
+7. `gs_raw_cold_hdd` 已只读确认存在、位置可解析且当前迁移身份具备CREATE权限；25,020条typed rows的逻辑序列化投影约`5.72MB/日`、约`1.44GB/252交易日`。这只是M21容量预估，M23仍须以真实表、TOAST、索引、WAL和temp实测为准。
+
+### M22：表结构、单日物化与自动任务
+
+状态：`CODE COMPLETE / REMOTE ACCEPTANCE PENDING（2026-08-31）`；需先提交、由管理员部署迁移并完成首次 Prod HDD catalog／受控单日验收，才可关闭 M22 并进入 M23。M26仍负责最终自动任务与整体验收。
+
+1. 新增九张 `core_serving` ORM、单一 Alembic 迁移和 App 模型注册；迁移对 `gs_raw_cold_hdd` fail-closed，并将九张表的 heap／TOAST、约束索引和普通索引全部显式落到该 HDD tablespace；不新增数据库、账号、连接或 DatasetDefinition。
+2. 实现共享来源读取、五公式 typed facts、洞察 summary／item、确定性模板、hash、read-back、幂等和批次原子发布。
+3. 在既有 GENERAL Worker 注册单日／历史维护动作、readiness 和 App executor；Ops 只保存意图／状态，Biz 承载计算与业务写入。
+4. 完成上游未齐、行业级缺失、失败批次不可见、同内容重放、来源漂移和 Ops 观测失败不回滚业务发布测试。
+5. 完成后只生成受控测试日或明确批准的单日，不自动回补2025、不切读五方法、不修改前端默认路由。
+6. 实际实现新增 Alembic head `20260831_000168`，其父版本来自实施日重新读取的真实单一 head `20260830_000167`；迁移在首个 DDL 前校验 `gs_raw_cold_hdd` 的存在、位置和 CREATE 权限，并为九表 heap／TOAST／全部索引声明同一 tablespace。该结论只表示迁移代码和本地模型门禁通过，不表示 Prod 已执行迁移或 catalog 已验收。
+7. 单日主链只读取冻结的六来源，在独立只读事务中生成五类 typed facts、三层洞察汇总和确定性条目；source／plan／content hash、read-back、同内容零新增、新内容替换、旧内容禁止静默回退和失败批次不可见均有自动化反例。
+8. Ops 注册单日 action 与禁用的历史 replay action；单日 action 固定 GENERAL lane、20:05、600秒重试、次日00:30截止和四个上游节点。Heat 的旧专属 readiness 被收敛到通用维护 readiness 合同，Heat／news／QTF／分钟及默认 Ops API 回归保持通过。
+9. 本地验收未连接或写入 Prod，没有创建物理表、没有执行批准日、没有回补、没有切读、没有 API／前端或默认路由变化；因此 M22 尚需在管理员部署后核对九表及其全部对象的 HDD catalog，并执行受控单日验收。M26再做自动任务和整套交付终验。
+
+### M23：2025年以来回补与物理验收
+
+状态：`PENDING`。
+
+1. 生成并确认从2025年第一个 SSE 开市日至目标日的升序 PLAN；2024年末只作为预热。
+2. 执行 APPLY、逐日九表 read-back、内容 hash、日期连续性和前一交易日引用核验。
+3. 对同一 PLAN 做幂等重放，证明零新增、零漂移；失败日期可恢复且不影响已发布日期。
+4. 记录总交易日、每表行数、无批次日期、行业级缺失分布、HDD存储量、SSD WAL／临时文件峰值、单日／全量耗时和 PUBLISHED 唯一性。
+5. M23通过前，现有五方法仍以当前在线链路服务；回补事实不得被页面偷偷读取。
+
+### M24：五方法逐字段等价与 serving 切读
+
+状态：`PENDING`。
+
+1. 对五类 scope、全部周期／阈值／MA／历史范围、正常日和代表性缺失日执行现算与 typed facts 逐字段对账。
+2. 等价通过后，按方法逐个将行业级 QueryService 改读 serving facts；每次只切一个方法并完成旧 endpoint、前端和生产样本回归。
+3. 动量成分股四列与成员广度逐只股票明细继续按需读取 Prod，不物化、不截断。
+4. 每个方法部署验收通过后删除被完全替代的在线聚合路径；不保留运行时双读开关、旧事实 fallback 或兼容实现。
+5. 任一字段、行业数、日期槽、缺失原因或性能门禁不一致即停止该方法切读，不影响其他已验证方法。
+
+### M25：每日洞察后端与前端
+
+状态：`PENDING`。
+
+1. 实现两只 strict API、异常码、批次一致性、Meta唯一自动回退和 Snapshot 显式日期语义。
+2. 新增每日洞察精确 route、strict adapter、URL／controller、概览、四类完整滚动列表和五状态组件。
+3. 调整板块分析根地址默认进入每日洞察，方法栏升级为六项；五条既有地址和工作区合同不变。
+4. 行业主体进入现有动量详情，证据标签进入对应方法；带入日期、层级、行业和方法默认参数，不新增行业详情页。
+5. 完成8张 Figma、四档宽度、未选零请求、401／409、超时、竞态和既有五方法零回归测试。
+
+### M26：部署、自动化与交付验收
+
+状态：`PENDING`。
+
+1. 用户完成迁移／部署后，只读确认九表结构、全部表／TOAST／索引位于 `gs_raw_cold_hdd`、零对象落入 `pg_default`、单一 head、GENERAL Worker／scheduler、维护动作和健康状态。
+2. 使用同一部署提交验证当日自动物化、来源未齐延迟、来源齐备发布、上一批次保留和页面 Delayed→Ready 转换。
+3. 记录 Meta／Snapshot `2/3` SQL、全三级 payload、两轮稳态 HTTP P95、完整列表、确定性文案和批次身份。
+4. 对五方法各执行最大代表性请求，确认 serving 切读后的数据完整性和性能；成员广度60日不得再依赖15秒在线重计算。
+5. 完成后回填产品、技术方案和 LLD 的真实状态；没有部署／数据／页面证据时不得把 M26 写成 PASS。
 
 ## 14. 影响面、风险与处理
 
@@ -3193,30 +3691,48 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 | 缺坐标行业被补成零点 | 任一价格或成交事实缺失时用0或旧值代替 | 行业继续保留在完整列表，值显示`--`且不绘点；只有全部行业均无完整坐标才进入Empty |
 | 选择行业导致全快照重复读取 | 每次点击列表或散点都重新请求Snapshot | Snapshot与Details分离；选择只请求单行业Details，筛选、排序和Hover保持零请求 |
 | 量价Figma固定几何造成横向溢出 | 把`600+12+952`直接写成运行时固定宽度 | 以Figma比例实现响应式Grid，散点和历史图按真实容器计算SVG几何；1600/1512/1460/1366四档为否决门禁 |
+| 多表只写了一部分就被页面读到 | 各方法事实分事务直接按日期公开 | 先写 BUILDING batch，九表 read-back 后用一个小事务切换唯一 PUBLISHED；API只读PUBLISHED |
+| 同一页混用不同日期或公式 | 页面分别请求五方法现算接口或按“最新行”拼接 | 每日洞察只接受一个 batchKey；summary、item和所有证据必须属于同一批次 |
+| 物化复制出第二套公式 | 为后台任务重写涨跌幅、百分位、广度或量价计算 | 调用既有冻结纯计算语义并做逐字段等价测试；任何差异阻断切读 |
+| 物化被做成来源数据副本 | 把行情、成员和复权原始行复制到新表或文件 | 只存方法计算结果、版本、hash和计数；来源继续直接读Prod，不建快照／缓存／CSV |
+| 为性能减少数据体验 | 只存Top N、缩短60日、过滤缺失行业或成员 | typed facts保留完整行业、分母、日期槽和原因；逐只股票明细继续按需完整返回 |
+| 回补使用当前层级混写历史批次 | 回放中层级版本改变，日期间比较不可追溯 | 每个batch保存hierarchyVersion；显著变化只比较相同版本的紧邻上一SSE日，不跨版本硬接 |
+| 新批次失败覆盖旧数据 | 先删除旧日事实再计算 | 旧PUBLISHED保持服务；新batch失败只标FAILED，绝不删除旧批次 |
+| Ops状态失败污染业务发布 | TaskRun与业务表使用同一session提交 | App executor拆分业务session和观测session；Ops失败只影响观测，不回滚业务批次 |
+| 默认首页并发五套重接口 | DailyInsight挂载五个controller或调用现有十四只API | 两只专属只读API只查serving；未选工作区零挂载、零请求 |
+| 切读后遗留双实现 | 现算与serving通过长期开关并存 | 等价验收后按方法删除被完全替代路径；只保留测试对账工具和仍需的逐股明细读取 |
+| 固定任务时点早于来源齐备 | 20:05直接计算未完成上游 | 20:05只开始检查；完成证据未齐零公式执行并每10分钟重试，截止后保持Delayed |
+| 确定性话术发生漂移 | 页面临时拼文案或模板无版本 | Biz生成并物化templateKey/version/renderedText；同事实同版本必须字节一致 |
+| 九张物化表或索引误占 SSD | migration 未显式指定tablespace，或只移动heap未移动约束／普通索引 | 全部物理对象固定`gs_raw_cold_hdd`；创建前fail-closed，创建后catalog逐对象read-back，任何`pg_default`对象阻断回补 |
+| HDD回补间接打满SSD | 2025年以来大事务在`pg_wal`或临时目录产生峰值 | 回补前核对SSD余量，使用有界批次提交并观测WAL／临时文件；不足即停止，不减少业务事实范围 |
 
 ## 15. 边界与依赖矩阵结论
 
-1. 新业务 API、查询、schema、service 只落 `src/biz/**`。
-2. `src.app` 只增加路由 include；不承载板块业务逻辑。
-3. `wealth` 前端继续独立，不复用运营后台 Shell。
-4. 不新增 `foundation -> biz`、`biz -> ops` 或任何 `src -> qtf` 反向依赖。
-5. 不修改 `platform/operations` legacy 目录。
-6. 本方案不要求更新仓库级依赖矩阵；编码后仍必须通过零白名单架构护栏。
-7. 相对轮动属于既有 `src/biz` 与 `wealth` 板块分析读链路，不进入 `qtf`，也不引入任何 `src -> qtf` 或 `qtf -> biz` 依赖。
-8. 成员广度仍属于既有 `src/biz` 与 `wealth` 只读板块分析链路；只消费现有 Foundation ORM，不修改 Foundation 模型、DatasetDefinition、同步、Ops或QTF。
-9. 量价分布继续沿用同一只读边界：后端只在`src/biz/**`新增专属查询、计算、service与strict schema，前端只在`wealth`新增第五个独立feature；只读现有交易日历、行业层级和`dc_daily`，不修改Foundation事实模型、DatasetDefinition、同步、Ops、QTF或数据库结构。
-10. 本轮技术方案变更不改变仓库级依赖方向，预计无需修改依赖矩阵；M17仍必须通过CodeGraph影响面复核和零白名单架构测试后才能进入后端编码。
+1. 新业务 API、strict schema、来源／serving query、公式编排、物化、模板和读服务落 `src/biz/**`；业务计算和业务事务不得进入 Ops 或 App。
+2. `src.foundation` 只新增九张 `core_serving` ORM 和迁移注册，不新增 DatasetDefinition、ingestion 或 Foundation 业务服务。
+3. `src.app` 只增加路由 include、maintenance executor 和现有 worker／scheduler 组合装配；不承载板块公式或发布事务。
+4. `src.ops` 只增加维护动作定义、readiness、执行意图和 TaskRun 观测；不得 import Biz 公式或写业务事实表。
+5. `wealth` 前端继续独立，不复用运营后台 Shell。
+6. 不新增 `foundation -> biz`、`biz -> ops`、`ops -> biz` 或任何 `src -> qtf` 反向依赖；App 是唯一组合根。
+7. 不修改 `platform/operations` legacy 目录，不接入 QTF、DG/Lake 或新数据库。
+8. 相对轮动、成员广度和量价分布的既有公开合同继续有效；第12E节只改变内部事实来源，不能反向污染其公式或前端状态。
+9. M22 已新增 Foundation ORM、Ops action 和 App executor，属于职责内增量且没有改变仓库级依赖方向；CodeGraph影响面和零白名单架构护栏均已复核，无需修改依赖矩阵正文。
+10. 逐只股票明细仍属于 Biz 按需只读 Prod 的现有链路；不得因行业级事实物化把股票事实复制到新表或把 Foundation 依赖反向引入 Wealth。
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) 已补齐量价分布的代码级文件、合同、SQL、前端状态机、SVG和测试方案。M18后端、M19前端与M20部署联调均已按该合同完成；部署态真实事实、P95、页面交互和用户验收证据已经回填，本轮不新增后续里程碑。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) 已经覆盖第12E节和 M21～M26，并完成 M21 编码门禁及 M22 代码开发。下一步先提交并由管理员部署 M22，再只读核对迁移 head、九表 HDD catalog 和受控单日结果；这些证据通过后才关闭 M22，并进入 M23 PLAN。不得在未批准时执行 M23 APPLY，也不等于五方法已经切读或每日洞察页面已经开放。
 
-M17～M20 若发现当前数据字段、消费者、真实性能或 Figma 与本文冲突，必须停止并回到方案层修正，禁止边编码边改口径。量价分布任何新增索引、迁移、缓存、结果表、第三方依赖、后台任务、持久化或范围扩张都不在本方案授权内；不能用数据截断、采样、缩窗、补零或旧事实回退换取性能。
+M21～M26 若发现当前字段、公式消费者、Ops调度、最大事实规模、历史层级、真实性能或 Figma 与本文冲突，必须停止并回到方案层修正。不得通过 Top N、分页、采样、缩窗、补零、旧事实回退、跨批次拼接或长期双读兼容来绕过问题。
 
 ## 17. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.61 | 2026-08-31 | 完成M22代码开发：新增九张每日事实／洞察ORM和单一HDD fail-closed迁移`20260831_000168`，实现六来源只读bundle、五公式typed facts、确定性洞察、source／plan／content hash、read-back、幂等与原子发布；将维护readiness与registered executor收敛为通用合同，注册20:05单日action和M23前禁用的历史action，并保持Heat／news／QTF／分钟lane回归。源码head、模型、物化、调度、执行器、架构和既有五方法回归通过；未部署迁移、未写Prod、未回补、未切读、未新增API／前端。下一步先提交／部署并完成M22远程初验，通过后才进入M23 PLAN | Codex |
+| v1.60 | 2026-08-31 | 完成M21编码门禁：代码级LLD、CodeGraph影响面、五个每日异常码与静态架构门禁对账通过；最大三级337行业／60日Prod只读原型读取29,760条行业行情、337,193条成员关系、331,493条股票日线及同量匹配复权因子，总耗时约38.819秒，HDD tablespace前置条件通过，25,020 typed rows逻辑投影约5.72MB/日。未创建迁移、表、任务、API、前端或生产事实；下一步固定M22 | Codex |
+| v1.59 | 2026-08-31 | 按用户明确的物理落盘要求，将每日洞察九张新表的 heap、TOAST、主键、唯一索引和全部普通／覆盖索引固定到 HDD tablespace `gs_raw_cold_hdd`；迁移在 tablespace 缺失、位置不可解析或权限不足时 fail-closed，禁止回退 `pg_default`。补充 catalog 逐对象 read-back、真实 HDD 性能验收、2025回补前 SSD WAL／临时文件空间门禁，以及 M21～M26 对应落点；当前仍只修改技术方案，不创建表或执行迁移 | Codex |
+| v1.58 | 2026-08-31 | 依据每日洞察产品基线与8张正式Figma完成增量技术方案：冻结默认路由、三层级、同批次原子发布、九张typed serving表、五公式约94%物化、确定性模板、两只strict API、五方法逐字段等价切读、2025年以来PLAN/APPLY/read-back/幂等回补、GENERAL Worker自动任务、性能／缺失／安全／删除门禁及M21～M26顺序。当前只完成方案，不修改LLD、代码、数据库或生产数据 | Codex |
 | v1.57 | 2026-08-31 | 完成量价分布M20：远程提交`22e5531d`及三服务／健康接口通过；公共完整日2026-08-28返回337行／337点／0缺失和60历史点，业务SQL `3/5/5`，payload `206,987/158,331/9,144 bytes`，两轮40次认证HTTP P95 `223.72/661.94/45.38ms`。五scope、筛选、排序、选择、Hover、13态、四档模块零溢出和用户验收通过；后端402项、前端537项、typecheck/build通过，量价分布需求关闭 | Codex |
 | v1.56 | 2026-08-31 | 完成量价分布M19前端：启用第五条精确route，新增独立strict adapter、十项URL、Meta→Snapshot→Details controller、完整滚动列表、摘要、响应式散点、双历史趋势、局部Details错误和13态；落实筛选／排序／Hover零请求、5秒等待、401、一次409重载、竞态丢弃及按需挂载。前端76个测试文件／537项测试、typecheck与production build通过；下一步固定M20部署联调与交付验收 | Codex |
 | v1.55 | 2026-08-30 | 完成量价分布M18后端：新增专属contract/calculator/query/QueryService/strict schema和Meta/Snapshot/Details三只只读API；落实五scope、五周期、三历史范围、四状态、价格公式组合复用、成交额前缀计算、独立缺失、Meta唯一回退、显式日期不回退、3/5/5 SQL、最大337行与119日、payload、401/409和架构边界。LLD冻结后端矩阵402项通过；未进入前端、部署或生产验收，下一步固定M19 | Codex |

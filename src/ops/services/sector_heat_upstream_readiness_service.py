@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_node import TaskRunNode
-from src.ops.runtime.heat_readiness import (
+from src.ops.runtime.sector_heat_readiness import (
     HEAT_NON_TRADING_DAY,
     HEAT_READY,
     HEAT_UPSTREAM_NOT_READY,

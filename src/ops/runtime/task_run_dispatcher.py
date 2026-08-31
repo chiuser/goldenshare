@@ -456,12 +456,12 @@ class TaskRunDispatcher:
             if action.key == "maintenance.replay_wealth_sector_heat_history":
                 self._validate_replay_apply_params(params)
                 units = self._load_replay_apply_units(session=session, task_run=task_run, action=action, params=params)
-            elif action.key == "maintenance.materialize_news_stock_links":
+            else:
                 plan = executor.plan(MaintenanceExecutionRequest(action_key=action.key, params=params))
                 task_run.plan_snapshot_json = self._maintenance_plan_snapshot(action=action, plan=plan)
+                if not plan.apply_ready:
+                    raise ValueError("maintenance plan is not apply-ready")
                 units = plan.units
-            else:
-                units = (self._single_day_heat_unit(params),)
 
             task_run.unit_total = len(units)
             task_run.unit_done = 0
@@ -492,9 +492,7 @@ class TaskRunDispatcher:
                 task_run.current_object_json = dict(unit.payload)
                 session.commit()
 
-                if action.key == "maintenance.materialize_news_stock_links":
-                    if not isinstance(executor, TaskRunAwareMaintenanceExecutor):
-                        raise TypeError("news stock linking executor requires TaskRun runtime context")
+                if isinstance(executor, TaskRunAwareMaintenanceExecutor):
                     result = executor.execute_unit_for_task_run(
                         unit,
                         context=MaintenanceTaskRunContext(
@@ -597,23 +595,6 @@ class TaskRunDispatcher:
             raise ValueError("replay APPLY forbids start_date and end_date")
         if params.get("plan_task_run_id") in (None, "") or not str(params.get("plan_hash") or "").strip():
             raise ValueError("replay APPLY requires plan_task_run_id and plan_hash")
-
-    @staticmethod
-    def _single_day_heat_unit(params: Mapping[str, Any]) -> MaintenanceExecutionUnit:
-        trade_date = TaskRunDispatcher._parse_date(params.get("trade_date"))
-        readiness = params.get("readiness")
-        payload: dict[str, Any] = {"trade_date": trade_date.isoformat()}
-        if isinstance(readiness, Mapping):
-            expected_plan_hash = readiness.get("planHash")
-            expected_content_hash = readiness.get("contentHash")
-            if expected_plan_hash not in (None, ""):
-                payload["expected_plan_hash"] = str(expected_plan_hash)
-            if expected_content_hash not in (None, ""):
-                payload["expected_content_hash"] = str(expected_content_hash)
-        return MaintenanceExecutionUnit(
-            unit_key=f"wealth-sector-heat:{trade_date.isoformat()}",
-            payload=payload,
-        )
 
     @staticmethod
     def _maintenance_plan_snapshot(

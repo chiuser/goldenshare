@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.49；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；每日洞察与每日事实物化已完成产品基线、8张正式 Figma、技术方案和本版代码级 LLD。M21 仍需执行最大三级／60日有界 Prod 只读预检后才能通过；M22～M26 尚未编码、迁移、回补、切读、部署或验收。
+- 状态：v1.51；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；每日洞察与每日事实物化已完成产品基线、8张正式 Figma、技术方案、M21 编码门禁和 M22 代码开发。M22 已生成九表 ORM／迁移、单日物化与自动任务代码，但尚未提交、部署迁移或写入 Prod；M23～M26 尚未执行。
 - 编写日期：2026-08-31。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -10,7 +10,7 @@
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：五条既有精确方法路由保持不变；M25 新增 `/wealth/exploration/sector-analysis/daily-insight`，并在其正式上线时把板块分析根地址改为 `replace` 到每日洞察。六个工作区始终只挂载当前 controller。
 - 目标 API：既有十四只板块分析只读 API 保持公开合同不变；M25 新增 `/daily-insight/meta` 与 `/daily-insight/snapshot` 两只 strict 只读 API。
-- 待实施项：M22 九表、单日物化与自动任务；M23 自2025年起回补；M24 五方法等价切读；M25 每日洞察前后端；M26 部署、自动化与交付验收。每个里程碑独立停止，不自动进入下一步。
+- 待实施项：先提交／部署 M22 并完成首次 Prod 迁移、HDD catalog 和受控单日验收；再执行 M23 自2025年起回补、M24 五方法等价切读、M25 每日洞察前后端、M26 自动化与最终交付验收。每个里程碑独立停止，不自动进入下一步。
 
 本文定义财势探查页面结构、五个已完成的独立分析方法，以及新增“每日洞察 + 每日事实物化”的代码级方案。每日洞察不是第六种公式，只汇总同一业务日期、同一层级版本、同一公式包和同一发布批次下的五方法客观事实；不生成综合分、预测、信号、机会等级或买卖建议。M3A 成分股明细和成员广度逐只股票明细继续按需读取，不进入本期物化结果。
 
@@ -951,7 +951,7 @@ M19 前端只允许以下增量：
 | 新增 | `src/biz/queries/wealth/market/sector_analysis/sector_daily_insight_query_service.py` | Meta/Snapshot 组合、唯一回退点、batch/hierarchy guard、稳定DTO |
 | 新增 | `src/biz/schemas/wealth/market/sector_daily_insight.py` | strict camelCase request/response DTO；拒绝 unknown、跨批次、非有限和顺序错误 |
 | 修改 | `src/biz/api/wealth/market/sector_analysis.py` | 只新增两只 daily-insight GET；复用 `require_quote_access` 与安全异常 builder |
-| 修改 | `wealth/docs/system/exception-code-registry.md` | 编码前登记五个 `SA_DAILY_*` 码；不新造同义码 |
+| 修改 | `wealth/docs/system/exception-code-registry.md` | M21已登记五个每日洞察／每日事实专属码；不新造同义码 |
 
 #### 5.12.3 Ops 与 App 组合
 
@@ -4815,7 +4815,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 6. 8张正式Figma、`1600/1512/1460/1366`、固定表头、四独立滚动区、2px基线、无模块横向溢出。
 7. 五方法公开URL/query/DTO/adapter/状态逐字段零回归；每个方法切读后最大事实、缺失日和历史槽与现算oracle相等。
 
-真实Prod写入、回补、HDD catalog和部署HTTP只在用户批准／部署后的M22～M26阶段执行；M21只完成代码级合同，不把单元测试计划写成已通过。
+真实Prod写入、回补、HDD catalog和部署HTTP只在用户批准／部署后的M22～M26阶段执行；当前M22只完成迁移与业务代码、本地模型／物化／调度／回归门禁，不把尚未发生的远程部署、catalog或真实单日写入写成已通过。
 
 ## 12. 性能与验收门禁
 
@@ -4982,6 +4982,24 @@ read-back scan/hash ms
 ```
 
 该原型是M22开始前的盘后窗口可行性门禁，不读取或消耗Tushare额度，不写Prod，不导出来源行。若单日完整计算明显无法在20:05～00:30窗口稳定完成，必须停下来给出按表批量写、数据库索引或计算复用方案；不得减少行业、成员、周期、历史、缺失原因或精度。
+
+2026-08-31 M21实际执行证据：使用现有Prod连接，在一个`REPEATABLE READ, READ ONLY`事务中读取并最终回滚；目标为最近完整盘后日`2026-08-28`、层级版本`eastmoney_dc_industry_hierarchy.cn_a.v1`、最大三级池337个行业和60个SSE交易日（`2026-06-05`～`2026-08-28`）。没有写SQL、Tushare请求或来源行导出。
+
+| 阶段 | 行数／规模 | 耗时 |
+|---|---:|---:|
+| Catalog前置 | `gs_raw_cold_hdd`存在、位置可解析、当前身份具备CREATE | `15.624ms` |
+| 页面日期／层级／覆盖 | 496节点，`31/128/337` | `582.554ms` |
+| 六来源读取与行物化 | 60日；`dc_daily=29,760`（三级20,220）、`dc_member=337,193`、5,654只股票、`equity_daily_bar=331,493`、匹配`equity_adj_factor=331,493` | `35,298.321ms` |
+| Momentum | 三级池5个周期、1,685行 | `29.690ms` |
+| Dual momentum | 4周期×3阈值，4,044次分类 | `5.476ms` |
+| Relative rotation | 4周期、1,348行 | `36.810ms` |
+| Member breadth | 成员／成交两方向及6条均线两方向，共16组完整排名 | `2,332.341ms` |
+| Price volume | 5周期、1,685行 | `165.850ms` |
+| Summary／item／确定性模板投影 | 三级概览及头部涨跌有限条目 | `0.259ms` |
+| 25,020 typed rows规范序列化／hash投影 | 平均逻辑行约228.6B，约5,719,109B／日、约1,441,215,468B／252交易日 | `36.768ms` |
+| 总链路 | 完整有界只读原型 | `38,818.803ms` |
+
+结论：总耗时约38.8秒，相比20:05～00:30的15,300秒窗口有充分余量，G58通过。逻辑容量投影不是PostgreSQL物理占用证据，也不能可靠推导包含索引、full-page image和执行计划差异的WAL／temp峰值；M22只允许单交易日事务，M23回补前仍必须以九张真实HDD表、TOAST、索引、`pg_wal`和temp的实际观测为准，不得据此提前关闭G59/G62/G66。
 
 M23写入验收必须分开记录：
 
@@ -5297,22 +5315,27 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 
 ### M21：每日事实与每日洞察 LLD／编码门禁
 
-状态：`LLD COMPLETE / PROD PREFLIGHT PENDING (2026-08-31)`。
+状态：`PASS (2026-08-31)`。
 
 1. 本版已按产品基线第4.5节、技术方案第12E节、8张正式Figma和当前代码冻结九表、HDD、批次、hash、发布、回补、Ops、API、前端、切读、安全删除和测试方案。
 2. CodeGraph已覆盖五方法共享服务、API消费者、ORM注册、dispatcher/scheduler、App组合与前端路由；当前真实Heat特例和可空父级主键问题已在编码方案中纠正。
 3. 当前事实规模按31/128/337层级重算为961个scope-sector位、24,025方法行、单日全部typed rows上限25,020；双动量三阈值固定同一行。
-4. M22实施日前必须先登记五个异常码、增加架构门禁、重新确认Alembic单一head，并完成第12.5节最大三级／60日有界Prod只读原型。该预检未执行，因此M21不写PASS。
-5. 本里程碑只修改LLD；没有创建迁移、表、任务、API、页面、Figma或生产事实。
+4. 五个每日异常码已进入中央注册表和架构门禁；M21当时的Alembic单一head为`20260830_000167`，M22已重新读取该真实head并据此生成新head `20260831_000168`。
+5. 第12.5节最大三级／60日有界Prod只读原型已通过：六来源读取与行物化约35.3秒，完整原型约38.8秒，HDD tablespace前置条件通过，G58关闭。
+6. 本里程碑仅修改产品／技术／LLD／异常注册表和静态架构门禁；没有创建迁移、表、任务、API、页面、Figma或生产事实。
 
 ### M22：九表、单日物化与自动任务
 
-状态：`PENDING`。
+状态：`CODE COMPLETE / REMOTE ACCEPTANCE PENDING（2026-08-31）`；Prod迁移、首次 HDD catalog 和受控单日验收通过后才能关闭 M22，自动任务最终实机验收仍归 M26。
 
-1. 先完成M21剩余预检；通过后新增九ORM、单一migration和App注册，所有物理对象HDD fail-closed。
+1. M21已经通过；实施日先重新确认Alembic单一head，再新增九ORM、单一migration和App注册，所有物理对象HDD fail-closed。
 2. 实现source bundle、五公式typed builder、洞察builder/template、repository、preview/materialize、read-back、幂等和原子发布。
 3. 收敛registered maintenance plan与通用readiness，注册两个action和GENERAL executor；Heat/news/QTF/分钟lane零回归。
 4. 只允许用户批准的测试日／单日执行；不自动回补2025、不切读五方法、不改默认路由。
+5. 实施日重新确认 Alembic 单一 head 为`20260830_000167`，新增唯一 head `20260831_000168`；迁移源码在首个DDL前检查HDD tablespace，并逐对象声明heap／TOAST／索引位置。当前仅验证迁移图和ORM合同，未在Prod执行迁移。
+6. 新增`daily_facts`纯业务主链：六来源只读bundle、五Calculator复用、typed builder、三层洞察、确定性模板、repository、preview/materialize/read-back、三类hash、同内容零新增、新内容替换、旧内容禁止静默回退及失败批次隔离。
+7. 新增单日readiness／executor并在GENERAL worker装配；历史action已登记但`manual_enabled=false`且executor在M23前显式拒绝。调度冻结为20:05、600秒重试、次日00:30截止以及`daily/adj_factor/dc_member/dc_daily`四节点同日成功。
+8. Heat专属readiness被收敛为通用maintenance readiness合同，registered executor不再借用Heat默认plan。相关Heat、news、QTF、Worker lane、CLI／部署脚本、Ops API和五方法冻结回归均通过；没有新增HTTP API、前端路由、默认入口或生产写入。
 
 ### M23：2025年以来回补与物理验收
 
@@ -5398,7 +5421,7 @@ uv run python scripts/check_docs_integrity.py
 git diff --check
 ```
 
-M21只有文档，新增测试文件尚不存在；从M22开始按实际切片加入上述测试。`alembic heads` 在M22前用于取得真实父版本，迁移后用于证明单一head；两者都不能替代HDD catalog和生产部署验收。
+M21只增加异常码中央登记和既有静态架构门禁允许集合，没有新增业务测试文件。M22已加入模型、来源、物化、executor、自动任务和架构测试；`alembic heads` 已证明源码迁移图仍为单一head `20260831_000168`，但不能替代HDD catalog和生产部署验收。
 
 M17没有创建量价业务文件，新增的三个量价测试文件尚不存在；M17只运行文档、diff和既有冻结回归。M18开始后才把上述三个文件纳入必跑命令。M19还必须单独运行量价feature定向测试，再运行前端全量、typecheck和build。
 
@@ -5470,10 +5493,10 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G55 量价交付 | 真实事实、3/5/5 SQL、payload、Meta／Snapshot／Details分别1秒／2秒／1秒P95、13态、四档宽度和用户验收 | PASS (M20)：337行／337点／0缺失、60历史点、`3/5/5` SQL、P95 `223.72/661.94/45.38ms`、四档模块零溢出及用户验收通过 |
 | G56 Daily产品／Figma／技术一致 | 默认入口、三层、四列表、确定性模板、8张正式状态与第12E节一致 | PASS (design evidence) |
 | G57 Daily代码影响面 | 五方法、十四endpoint、ORM、Ops/App、route/consumer与安全删除顺序已审计 | PASS (M21 CodeGraph/current code) |
-| G58 Daily规模与Prod预检 | 961事实位、24,025方法行；最大三级／60日只读分段、存储和盘后窗口可行 | OPEN；LLD计数完成，Prod只读原型待执行 |
-| G59 九表模型／HDD | 业务键、约束、FK、single PUBLISHED；heap/TOAST/全部索引均为`gs_raw_cold_hdd`且fail-closed | OPEN (M22/M26) |
-| G60 单日物化与发布 | 六来源、五公式等价、hash/read-back/幂等/原子发布、失败不可见 | OPEN (M22) |
-| G61 Ops自动主链 | GENERAL、20:05/600/00:30、来源齐备、通用plan/readiness；Heat/news/QTF/分钟零回归 | OPEN (M22/M26) |
+| G58 Daily规模与Prod预检 | 961事实位、24,025方法行；最大三级／60日只读分段、存储和盘后窗口可行 | PASS (M21 Prod read-only)：337行业／60日，来源物化约35.3秒、总链路约38.8秒，HDD前置通过；物理容量仍待M23 |
+| G59 九表模型／HDD | 业务键、约束、FK、single PUBLISHED；heap/TOAST/全部索引均为`gs_raw_cold_hdd`且fail-closed | PARTIAL PASS (M22 code)：九ORM、约束、单一head和fail-closed迁移源码已通过；Prod heap/TOAST/全部索引首次catalog仍OPEN (M22 remote)，最终复验归M26 |
+| G60 单日物化与发布 | 六来源、五公式等价、hash/read-back/幂等/原子发布、失败不可见 | PASS (M22 local)：typed facts、hash、read-back、同内容零新增、新内容替换、旧内容回退拒绝和失败不可见均有正反例；未执行Prod单日写入 |
+| G61 Ops自动主链 | GENERAL、20:05/600/00:30、来源齐备、通用plan/readiness；Heat/news/QTF/分钟零回归 | PARTIAL PASS (M22 code)：action、readiness、executor、GENERAL装配和冻结回归通过；远程scheduler/systemd实机仍OPEN (M26) |
 | G62 历史回补 | 2025升序PLAN/APPLY/read-back/previous链/幂等；HDD与SSD峰值受控 | OPEN (M23) |
 | G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | OPEN (M24) |
 | G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN (M25/M26) |
@@ -5547,13 +5570,14 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 
 ### 16.4 每日洞察 M21 对账
 
-1. 产品基线v1.22、技术方案v1.59、8张正式Figma和当前代码已经逐项对齐；Daily默认入口、三层、四类列表、±10pp、确定性模板、2025回补和约94%范围没有新增产品冲突。
+1. 产品基线v1.23、技术方案v1.60、8张正式Figma和当前代码已经逐项对齐；Daily默认入口、三层、四类列表、±10pp、确定性模板、2025回补和约94%范围没有新增产品冲突。
 2. CodeGraph影响面覆盖共享snapshot、五方法QueryService、十四endpoint、Foundation模型注册、Alembic先例、Ops dispatcher/scheduler、App factory、前端route/page/method bar和测试消费者。
 3. 技术方案“单日2.4万～2.6万行”已由真实层级数推导为24,025方法行、全部typed rows上限25,020；双动量阈值列式存储，未产生额外业务粒度。
 4. LLD已决定首版九张非分区表，并冻结comparisonKey、复合FK、partial unique、typed业务列、HDD全对象、source/hash/read-back/发布、PLAN/APPLY和安全删除。
-5. 当前Ops的Heat专属readiness和默认Heat unit不是可直接复用的通用合同；LLD冻结为M22内的小范围通用化，并要求Heat/news/QTF/分钟零回归，不复制第二套业务特例。
-6. M21尚未执行第12.5节Prod只读规模／耗时原型，也未登记异常码或编码架构门禁，因此G58和M21整体保持开放；没有以文档设计冒充运行证据。
-7. 本轮只修改LLD，不修改技术方案、产品基线、代码、测试、Figma、数据库或生产。
+5. M22已把Ops的Heat专属readiness和默认Heat unit收敛为按action注入的通用合同，并以Heat/news/QTF/分钟冻结回归证明没有复制第二套业务特例。
+6. 五个每日异常码已进入中央注册表和静态架构门禁；架构测试继续要求技术方案、LLD、注册表和允许集合完全一致。
+7. 第12.5节Prod只读原型实际读取337个三级行业、60个交易日、33.7万成员关系和33.1万股票／复权事实，总耗时约38.8秒；G58和M21据此通过。该证据只证明当前单日计算规模可行，不替代M22真实写入或M23物理存储验收。
+8. M22已完成代码与本地门禁，但未修改Figma、未执行Prod迁移或生产事实写入。下一步先提交、由管理员部署并完成M22远程初验；通过后才进入M23升序PLAN，不自动APPLY。
 
 ## 17. 风险、回滚与停止条件
 
@@ -5660,14 +5684,16 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 量价分布 M18 后端、M19 前端与 M20 部署联调均已完成：后端建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；前端建立第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13态。Meta唯一自动回退、显式日期精确显示、局部缺失透明和按需挂载均已有自动化证据；部署态337行完整事实、60日历史、`3/5/5` SQL、payload、P95、五scope、四档页面及用户验收全部通过，G55关闭。本轮不自动进入新需求。
 
-每日洞察与五方法每日事实已经完成代码级 LLD：九张非分区 `core_serving` 表统一落 `gs_raw_cold_hdd`，约24,025条方法事实／交易日，使用单一 batch 做幂等、read-back 与原子发布；自动任务复用既有 GENERAL Worker 和 Ops maintenance 主链，历史回补自2025年起，五方法逐个通过等价门禁后切读；每日洞察只新增两只只读 API 和一个按正式 Figma 实现的工作区。该结论是设计完成，不代表数据库、任务、回补、切读或页面已经实现。
+每日洞察与五方法每日事实已经完成 M22 代码开发：九张非分区 `core_serving` ORM 与 HDD fail-closed 迁移、约24,025条方法事实／交易日、单一 batch 幂等／read-back／原子发布，以及 GENERAL Worker／Ops maintenance 单日自动主链均已实现并通过本地回归。迁移仍未部署到Prod；M22还需远程初验，历史回补、五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M23～M26，不得把本地代码通过解释为数据库或页面已经上线。
 
-下一步固定为 M21 剩余门禁：只执行第12.5节最大三级／60日有界 Prod 只读预检，核实一次来源读取、计算、序列化、预估写入、WAL／temp 峰值和 HDD 前置条件。预检通过后才可进入 M22；实施日仍须重新确认 Alembic 单一 head。当前没有新的产品待拍板项。
+下一步先提交并由管理员部署 M22，再只读核对远程 Alembic head、九表 heap／TOAST／全部索引的 HDD catalog，并验收受控单日批次。全部通过后，下一步才固定为 M23：生成从2025年第一个SSE交易日至批准目标日的升序回补PLAN并等待批准。不得提前APPLY、切读五方法、修改默认路由或进入M24～M26。当前没有新的产品待拍板项。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.51 | 2026-08-31 | 完成M22代码开发：实施日确认真实head `20260830_000167`后新增唯一head `20260831_000168`；新增九ORM、HDD fail-closed迁移、六来源只读bundle、五方法typed builder、确定性洞察、hash/read-back/幂等/原子发布、20:05自动任务、通用readiness和GENERAL executor。新增模型、来源、物化、任务与自动化正反例，并完成Heat/news/QTF/分钟lane、Ops、架构和五方法冻结回归；未部署迁移、未写Prod、未回补、未切读、未新增API／前端。G60本地PASS，G59/G61保留远程证据；下一步先提交／部署并完成M22远程初验，通过后才进入M23 PLAN |
+| v1.50 | 2026-08-31 | 完成M21编码门禁：校准产品／技术／LLD状态，登记五个每日异常码并扩充静态架构门禁；当前Alembic单一head为`20260830_000167`。最大三级337行业／60日Prod只读原型读取29,760条行业行情、337,193条成员关系、331,493条股票日线及同量匹配复权因子，来源物化约35.3秒、完整原型约38.8秒；HDD tablespace存在、位置可解析且当前身份可创建，25,020 typed rows逻辑投影约5.72MB/日。G58和M21 PASS；未创建迁移、表、任务、API、前端或生产事实，下一步固定M22 |
 | v1.49 | 2026-08-31 | 完成每日洞察与每日事实物化代码级LLD：基于产品基线v1.22、技术方案v1.59、8张正式Figma、当前代码和CodeGraph影响面，冻结九张非分区HDD表、comparisonKey、约24,025方法行／日、六源一致性读取、五Calculator复用、确定性模板、batch幂等／read-back／原子发布、2025回补PLAN/APPLY、Ops通用化、五方法逐个等价切读、两只strict API、每日洞察前端、文件矩阵、测试、性能、风险、停止条件和安全删除顺序。M21仍待最大三级／60日Prod只读预检，M22～M26未编码；本轮只改LLD，无新增待拍板项 |
 | v1.48 | 2026-08-31 | 完成量价分布M20：远程提交`22e5531d`及三服务／健康接口通过；公共完整日2026-08-28返回337行／337点／0缺失和60历史点，业务SQL `3/5/5`，payload `206,987/158,331/9,144 bytes`，两轮40次认证HTTP P95 `223.72/661.94/45.38ms`。五scope、筛选、排序、选择、Hover、13态、四档模块零溢出和用户验收通过；后端402项、前端537项、typecheck/build通过，G55及量价分布需求关闭 |
 | v1.47 | 2026-08-31 | 完成量价分布M19前端：新增第五条精确route、独立strict adapter、十项URL、Meta→Snapshot→Details controller、完整滚动列表、摘要、响应式散点、双历史趋势、局部Details错误和13态；落实零请求本地筛选／排序／Hover、5秒等待、401、一次409重载、竞态丢弃与按需挂载。前端76个测试文件／537项测试、typecheck与production build通过，G53/G54 PASS；下一步固定M20部署联调与交付验收 |
