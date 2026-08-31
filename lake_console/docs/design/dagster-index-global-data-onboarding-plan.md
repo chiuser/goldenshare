@@ -3,6 +3,7 @@
 ## 1. 文档状态
 
 - 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调、P5 正式 Dagster definitions、P6 自然日分区注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量 Tushare 源请求审计、正式 Raw/Silver 生成与全量文件对账、P8 Dagster 分区注册与事件验收均已完成；P9 已完成实例启用和首个实际运行日验证，多交易日观察仍在进行。
+- 2026-08-31 源端契约调整：Tushare `index_global` 按日请求开始返回 `HSHKCI`，当前实测可见日期至少包括 `2026-08-27`、`2026-08-28`、`2026-08-31`。经确认将其纳入正式身份集合，现行合同由 21 个扩为 22 个。本次只扩展允许身份和单阶段最大行数，不将“每天必须覆盖 22 个代码”升级为 blocking check。P1/P3/P4/P9 中已记录的 21 行数据仍是当时历史事实，不回写成 22。
 - 数据集：`index_global`，中文展示名为“国际指数日线”。
 - 数据源：Tushare `index_global`。
 - 本文记录设计和验证；正式 Raw/Silver Bootstrap 与 P8 Dagster 控制面补录已完成，P9 已在正式实例中显式启用相关 sensor，当前进入日常运行观察。
@@ -32,7 +33,7 @@
 | Silver asset | `silver_index_global`，把日期和字段名标准化为内部事实口径 |
 | 数据域/group | `index_topic` / `index` |
 | 主要消费者 | 当前无已登记下游消费者；后续国际市场概览、研究查询和跨市场分析只能消费 Silver，不直接消费 Raw |
-| 数据层职责 | Raw 只镜像源站；Silver 只做类型、字段名、日期和键标准化，不承担 21 个指数覆盖判断 |
+| 数据层职责 | Raw 只镜像源站；Silver 只做类型、字段名、日期和键标准化，不承担当前完整身份集合的每日覆盖判断 |
 | 初始化来源 | Tushare 按五阶段读取；不从 Prod DB 或旧湖初始化 |
 | 更新单位 | 一个自然日、一个 `probe_phase`，最终 Silver 每日只消费 `americas` 完成后的 Raw |
 
@@ -86,7 +87,7 @@ Catalog 固定字段：
 
 ### 2.1 历史起点
 
-历史初始化下限固定为 `2022-01-01`，但这只是统一的查询下限，不表示 21 个指数都从当天开始有数据。
+历史初始化下限固定为 `2022-01-01`，但这只是统一的查询下限，不表示当前 22 个身份代码都从当天开始有数据。
 
 Tushare MCP 实测：
 
@@ -103,7 +104,7 @@ Tushare MCP 实测：
 - 每个自然日都可以注册分区；
 - 注册不依赖 A 股 `index_trade_day_sensor`；
 - 注册不读取 Tushare 数据；
-- 注册不判断当天是否有 21 个指数；
+- 注册不判断当天是否覆盖当前完整身份集合；
 - 周末、节假日允许存在空分区；
 - 分区注册和源数据同步完全解耦。
 
@@ -116,7 +117,7 @@ Tushare MCP 实测：
 | 阶段 | 北京时间 | 目标自然日 | 主要市场/代码 |
 | --- | --- | --- | --- |
 | `asia_1` | 14:40 | 当天 | `N225`、`KS11`、`TWII`、`AS51` |
-| `asia_2` | 16:20 | 当天 | `HSI`、`HKTECH`、`HKAH` |
+| `asia_2` | 16:20 | 当天 | `HSI`、`HKTECH`、`HKAH`、`HSHKCI` |
 | `asia_3` | 18:30 | 当天 | `XIN9`、`CKLSE`、`SENSEX` |
 | `europe` | 00:45 | 前一天 | `FTSE`、`FCHI`、`GDAXI`、`CSX5P`、`RTS` |
 | `americas` | 05:30 | 前一天 | `DJI`、`SPX`、`IXIC`、`RUT`、`SPTSX`、`IBOVESPA` |
@@ -134,11 +135,11 @@ index_global(
 
 Tushare 返回的是该日期当前已经发布的全部指数。后续阶段重新请求同一日期，合并并原子替换该日期文件。
 
-### 2.4 空结果和 21 个指数覆盖
+### 2.4 空结果和完整身份集合覆盖
 
-本阶段不定义“21 个指数自然缺失”的业务口径，因此禁止以下 blocking check：
+本阶段不定义“当前完整身份集合自然缺失”的业务口径，因此禁止以下 blocking check：
 
-- 每天必须返回 21 个指数；
+- 每天必须返回当前全部 22 个身份代码；
 - 每个代码每天都必须存在；
 - 行数必须大于 0；
 - 任何缺失代码都判定为失败。
@@ -168,7 +169,7 @@ Raw 保留 Tushare 原始字段名，Silver 使用项目内部标准字段：
 
 该口径与现有 `raw_index_daily -> silver_index_daily` 一致：Raw 不改动源字段，Silver 在 DuckDB 标准化时执行 `change -> change_amount`。
 
-## 3. 源接口与 21 个代码
+## 3. 源接口与 22 个代码
 
 源接口文档为：[`0211_国际指数.md`](/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0211_国际指数.md)。接口支持 `ts_code`、`trade_date`、`start_date`、`end_date`、`limit`、`offset`，单次最多 4000 行。
 
@@ -189,10 +190,12 @@ Raw 保留 Tushare 原始字段名，Silver 使用项目内部标准字段：
 
 ```text
 XIN9 HSI HKTECH HKAH DJI SPX IXIC FTSE FCHI GDAXI N225 KS11
-AS51 SENSEX IBOVESPA RTS TWII CKLSE SPTSX CSX5P RUT
+AS51 SENSEX IBOVESPA RTS TWII CKLSE SPTSX CSX5P RUT HSHKCI
 ```
 
 代码集合只用于身份字段校验、统计和有限样本，不用于覆盖完整性 blocking check。
+
+`HSHKCI` 为恒生香港综合指数。2026-08-31 实测发现，源站已在按日全量请求中返回该代码，而 2026-05-01 抓取的本地源文档尚未列出。当前合同以实测源行为为准纳入该身份；任何新的未知代码仍必须 fail-closed，不得因本次扩展改成无界接受。
 
 ### 3.1 收盘时间依据
 
@@ -258,7 +261,7 @@ P1 已使用 `tushareMcp.index_global` 和同一 Tushare HTTP API 的只读最�
 - 不复用 A 股 `cn_a_index_trade_days`；
 - 不复用 A 股 `index_trade_day_sensor`；
 - 不从 Prod DB 初始化；
-- 不按 21 个代码逐个请求；
+- 不按 22 个代码逐个请求；
 - 不定义每个指数的自然缺失业务规则；
 - 不新增数据库表、summary asset、manifest asset 或 readiness asset；
 - 不在 sensor 中调用 Tushare；
@@ -302,12 +305,12 @@ merge 的 rank 只存在于本次 DuckDB 临时查询，不写入 Raw schema：
 P2 已落地以下稳定职责代码：
 
 - `orchestrator/defs/run_contracts/asset_column_schemas.py`：增加 `RAW_INDEX_GLOBAL_SCHEMA`，固定 12 个 Raw 源字段及类型；
-- `orchestrator/defs/run_contracts/index_global.py`：集中定义字段、21 个身份代码、phase 集合、日期归一化、行合同和有限数值校验；
+- `orchestrator/defs/run_contracts/index_global.py`：集中定义字段、22 个身份代码、phase 集合、日期归一化、行合同和有限数值校验；
 - `orchestrator/defs/paths.py`：增加 Raw 目标路径和 `run_id + trade_date + probe_phase` staging 路径，并拒绝不安全路径组件；
 - `orchestrator/defs/assets/index_global_raw.py`：实现 Raw writer 核心 `merge_index_global_phase(...)`，并由 P5 外层 active asset wrapper 调用；writer 通过 DuckDB 临时表、窗口去重、staging 回读和 `os.replace` 完成原子 promote；
 - `tests/test_index_global_contracts.py`、`tests/test_index_global_raw_io.py`：覆盖字段/日期/身份/重复键边界、五阶段覆盖、空阶段、空分区、错误目标保护和数值失败不覆盖。
 
-P2 的运行规模是有界的：单阶段最多 21 行，DuckDB 只建立当前日期的临时表，正式 writer 不扫描 Dagster event history、不调用 Tushare、不写正式湖。已有目标合同错误、当前阶段字段/日期/主键/数值错误或 staging 回读不一致时，`os.replace` 不会发生。目标已存在且当前阶段为空时直接 no-op；目标不存在且当前阶段为空时仍生成固定 schema 的空 Parquet。
+P2 的运行规模是有界的：单阶段最多 22 行，DuckDB 只建立当前日期的临时表，正式 writer 不扫描 Dagster event history、不调用 Tushare、不写正式湖。已有目标合同错误、当前阶段字段/日期/主键/数值错误或 staging 回读不一致时，`os.replace` 不会发生。目标已存在且当前阶段为空时直接 no-op；目标不存在且当前阶段为空时仍生成固定 schema 的空 Parquet。
 
 P2/P3/P4 的 writer 和临时联调保持正式湖与 Dagster instance 隔离；P5 在复用这些 writer 的基础上接入 active Raw/Silver asset、core check 和 job，但本地验证仍不调用 `dg`、不写正式湖或 Dagster event。
 
@@ -335,7 +338,7 @@ P5 已将经过 P2/P3/P4 验证的 writer 接入 Dagster definitions：
 
 - `orchestrator/defs/assets/index_global_raw.py`：`raw_index_global` 使用 `cn_global_index_trade_days`，读取 typed `IndexGlobalRawConfig`，每次只处理一个自然日和一个 `probe_phase`，并把请求、分页、重试、合并和目标摘要写入 materialization metadata；不把完整返回行写入 metadata。
 - `orchestrator/defs/assets/index_global_silver.py`：`silver_index_global` 使用同一分区定义，声明依赖同日 `raw_index_global`，只调用既有 Silver writer，不在 asset 内访问 Tushare、Prod DB 或 Dagster event history。
-- `orchestrator/defs/checks/index_global_checks.py`：新增 `raw_index_global_core_check` 和 `silver_index_global_core_check`，均显式绑定 `cn_global_index_trade_days` 且 `blocking=True`。检查文件、固定 schema、分区日期、身份字段、业务键唯一性和有限数值；自然日空文件在这些规则通过时允许通过，不执行 21 个指数全覆盖或 row-count-positive 硬门禁。
+- `orchestrator/defs/checks/index_global_checks.py`：新增 `raw_index_global_core_check` 和 `silver_index_global_core_check`，均显式绑定 `cn_global_index_trade_days` 且 `blocking=True`。检查文件、固定 schema、分区日期、身份字段、业务键唯一性和有限数值；自然日空文件在这些规则通过时允许通过，不执行完整身份集合覆盖或 row-count-positive 硬门禁。
 - `orchestrator/defs/jobs/index_global.py`：新增 `raw_index_global_update_job` 和 `silver_index_global_update_job`，均为单分区 job，只选择对应 asset 与 core check，不选择其它资产，不新增 sensor。
 
 P5 同步完成 `cn_global_index_trade_days`、两个 partition model、catalog、中文名、schema、路径、统一 contract 和治理映射登记。P5 定向测试与既有静态门禁共 `123 passed`、`72 subtests passed`；验证未运行 `dg`，未写正式 lake、Dagster 数据库或 Dagster event。下一阶段 P6 才处理自然日分区注册、五阶段 Raw sensor、late-empty 和 Silver final-phase 触发。
@@ -385,7 +388,7 @@ P6 本地验证结果：P5 定向回归、P6 sensor/static 测试和 `test_run_c
 - `amount`、`vol` 等源站允许为空的字段不因 NULL 失败；
 - 空文件允许通过。
 
-Silver check 同样只验证当前分区文件事实，必须使用 `build_check_metadata(...)`；不得把源站发布时间、21 个代码覆盖或历史完整性混入 blocking check。
+Silver check 同样只验证当前分区文件事实，必须使用 `build_check_metadata(...)`；不得把源站发布时间、当前完整身份集合覆盖或历史完整性混入 blocking check。
 
 ## 7. Sensor 与 Job
 
@@ -395,7 +398,7 @@ Silver check 同样只验证当前分区文件事实，必须使用 `build_check
 
 - 不调用 Tushare；
 - 不读取 Prod DB；
-- 不判断 21 个代码；
+- 不判断当前完整身份集合覆盖；
 - 不依赖 A 股交易日历；
 - 在现有 `orchestrator/defs/partitions.py` 新增
   `cn_global_index_trade_days = dg.DynamicPartitionsDefinition(...)`；
@@ -418,7 +421,7 @@ Raw sensor 根据北京时间阶段窗口选择目标日期和 `probe_phase`：
 - 只做时间窗口、分区注册和幂等判断；
 - 不调用 Tushare；
 - 不访问 Dagster event history；
-- 不做 21 代码 coverage readiness。
+- 不做当前完整身份集合 coverage readiness。
 
 原始 phase run 使用：
 
@@ -481,7 +484,7 @@ Raw 的 `americas` run 成功是 Silver 的唯一日常触发信号。它保证 
 ## 8. 性能门禁
 
 - 正常日期最多 5 次 Tushare 请求；
-- 不得退化成 21 代码循环；
+- 不得退化成 22 代码循环；
 - 每次请求 `limit=4000`、`offset=0`，分页仍受 bounded policy 约束；
 - 每个阶段只保留当前日期的有限内存数据；
 - DuckDB 使用 set-based merge 和校验；

@@ -2053,7 +2053,7 @@ LAKE_ASSET_CATALOG += (
         performance_notes=(
             "One natural date and one probe step per run; five steps are "
             "serialized and each step uses bounded pagination. Empty source "
-            "observations are valid and do not imply 21-code coverage."
+            "observations are valid and do not imply full managed-code coverage."
         ),
     ),
     _derived_entry(

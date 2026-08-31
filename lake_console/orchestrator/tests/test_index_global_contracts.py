@@ -31,7 +31,8 @@ class IndexGlobalContractTests(unittest.TestCase):
     def test_contract_has_fixed_source_fields_and_identity_bound(self) -> None:
         self.assertEqual(len(INDEX_GLOBAL_FIELDS), 12)
         self.assertEqual(INDEX_GLOBAL_FIELDS[:2], ("ts_code", "trade_date"))
-        self.assertEqual(len(INDEX_GLOBAL_EXPECTED_CODES), 21)
+        self.assertEqual(len(INDEX_GLOBAL_EXPECTED_CODES), 22)
+        self.assertIn("HSHKCI", INDEX_GLOBAL_EXPECTED_CODES)
 
     def test_trade_date_normalizes_iso_and_raw_forms(self) -> None:
         self.assertEqual(normalize_index_global_trade_date("20220104"), "2022-01-04")
@@ -39,8 +40,9 @@ class IndexGlobalContractTests(unittest.TestCase):
 
     def test_phase_rows_are_normalized_without_changing_source_fields(self) -> None:
         rows = validate_index_global_phase_rows(
-            [_row()], trade_date="2022-01-04", probe_phase="asia_1"
+            [_row("HSHKCI")], trade_date="2022-01-04", probe_phase="asia_1"
         )
+        self.assertEqual(rows[0]["ts_code"], "HSHKCI")
         self.assertEqual(rows[0]["trade_date"], "20220104")
         self.assertEqual(set(rows[0]), set(INDEX_GLOBAL_FIELDS))
 

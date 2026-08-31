@@ -6,12 +6,12 @@ import pytest
 
 from orchestrator.defs.assets.index_global_raw import raw_index_global
 from orchestrator.defs.assets.index_global_silver import silver_index_global
-from orchestrator.defs.checks.index_global_checks import _core_check
 from orchestrator.defs.catalog import (
     PartitionModel,
     get_lake_asset_catalog_entry,
     get_partition_model_definition,
 )
+from orchestrator.defs.checks.index_global_checks import _core_check
 from orchestrator.defs.jobs.index_global import (
     raw_index_global_update_job,
     silver_index_global_update_job,
@@ -34,7 +34,6 @@ from orchestrator.defs.run_contracts.metadata import (
     CHECKED_ROW_COUNT_METADATA_KEY,
     FAILED_ROW_COUNT_METADATA_KEY,
 )
-
 
 PARTITION_KEY = "2022-01-04"
 
@@ -145,4 +144,5 @@ def test_core_check_rejects_unknown_code_but_does_not_require_all_codes(tmp_path
     )
     assert result.passed is False
     assert "ts_code_non_null_and_known" in result.metadata["goldenshare/failed_rule_names"].value
-    assert len(INDEX_GLOBAL_EXPECTED_CODES) == 21
+    assert len(INDEX_GLOBAL_EXPECTED_CODES) == 22
+    assert "HSHKCI" in INDEX_GLOBAL_EXPECTED_CODES

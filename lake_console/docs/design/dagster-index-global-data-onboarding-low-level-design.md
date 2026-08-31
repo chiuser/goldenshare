@@ -13,12 +13,14 @@
 - 不复用 `cn_a_index_trade_days`；
 - 不复用 `index_trade_day_sensor`；
 - 不复用 A 股指数 Prod DB source readiness；
-- 不按 21 个指数代码逐个请求；
-- 不以 21 个指数全覆盖作为 blocking check；
+- 不按当前 22 个指数代码逐个请求；
+- 不以当前完整身份集合全覆盖作为 blocking check；
 - 不在 sensor 热路径调用 Tushare、Prod DB 或 Dagster event history；
 - 不新增 summary asset、manifest asset、readiness asset 或状态表；
 - 不通过追加写入已有 Parquet；
 - 不在 staging 未通过时覆盖正式目标文件。
+
+2026-08-31 契约变更已冻结：当前 Tushare 按日请求返回新身份 `HSHKCI`（恒生香港综合指数），正式 `INDEX_GLOBAL_EXPECTED_CODES` 从 21 个扩展为 22 个。该变更同时放宽 Raw fetch、Raw/Silver writer、core check、lake readiness 和 bootstrap 审计的合法身份集合，但不新增日覆盖检查。既有历史文件和历史事件不因新代码加入而重写。
 
 ## 2. 当前代码事实与影响面
 
@@ -109,7 +111,7 @@ P5 的实现边界是把已经通过 P2/P3/P4 验证的 Raw/Silver writer 接入
 
 1. `raw_index_global` 和 `silver_index_global` 均使用 `cn_global_index_trade_days`，同一自然日是两层的唯一 partition unit。Raw asset 通过 `IndexGlobalRawConfig` 接收 `trade_date`、`probe_phase`、`slot_key`、`attempt` 和 `late_empty_attempt`，并在进入 writer 前校验 partition/config 一致性。
 2. `raw_index_global` 每次只运行一个自然日的一个探测阶段；`silver_index_global` 声明同日 Raw 依赖并调用现有 DuckDB Silver writer。两个 asset 只返回小型 materialization metadata，不写完整代码列表、逐行结果或 event history。
-3. `raw_index_global_core_check`、`silver_index_global_core_check` 都显式绑定 `cn_global_index_trade_days` 且 `blocking=True`。它们执行文件存在、schema、分区日期、身份字段、业务键唯一和有限数值规则；自然日空文件只要上述规则通过就可以通过，不把 21 指数覆盖或 row count positive 误设为核心硬门禁。
+3. `raw_index_global_core_check`、`silver_index_global_core_check` 都显式绑定 `cn_global_index_trade_days` 且 `blocking=True`。它们执行文件存在、schema、分区日期、身份字段、业务键唯一和有限数值规则；自然日空文件只要上述规则通过就可以通过，不把完整身份集合覆盖或 row count positive 误设为核心硬门禁。
 4. `raw_index_global_update_job`、`silver_index_global_update_job` 均为单分区 job，只选择对应 asset 与 core check，禁止多分区聚合 check，未新增 sensor。
 5. P5 同步完成 `PartitionModel`、catalog、中文名、schema、路径、统一 contract 和治理映射。定向回归结果为 `123 passed`、`72 subtests passed`；没有运行 `dg`，没有写正式 lake、Dagster DB 或 Dagster event。
 
@@ -369,7 +371,7 @@ fetch_index_global_phase(
 }
 ```
 
-禁止传入一个代码列表并假设接口支持逗号拼接。通过不传 `ts_code` 获取当日已发布的全部指数，避免 21 次代码请求。
+禁止传入一个代码列表并假设接口支持逗号拼接。通过不传 `ts_code` 获取当日已发布的全部指数，避免 22 次代码请求。
 
 Tushare token 只通过现有 `TushareResource` 和 `dg.EnvVar("TUSHARE_TOKEN")` 注入；不得在 config、metadata、cursor、日志或报告中写入 token。
 
@@ -379,7 +381,7 @@ Tushare token 只通过现有 `TushareResource` 和 `dg.EnvVar("TUSHARE_TOKEN")`
 
 - 返回列集合等于 `INDEX_GLOBAL_FIELDS`；
 - 所有返回行 `trade_date` 等于请求日期；
-- `ts_code` 非空且属于 21 个固定身份代码；
+- `ts_code` 非空且属于 22 个固定身份代码；
 - `(ts_code, trade_date)` 在单次返回内唯一；
 - `offset` 只允许从 0 开始并严格递增；
 - 满页必须继续请求，空页结束；
@@ -506,7 +508,7 @@ unique(ts_code, trade_date)
 
 ```text
 row_count > 0
-observed_code_count == 21
+observed_code_count == 22
 every_code_exists
 ```
 
@@ -766,9 +768,9 @@ numeric_columns_have_contract_types
 
 - `amount`、`vol` 等源站允许为空的字段为 NULL；
 - 当前自然日没有任何源站返回，生成了固定 schema 的空 Silver 文件；
-- 21 个指数没有全部出现。
+- 当前 22 个指数没有全部出现。
 
-该 check 不承担 Tushare 请求完整性、阶段发布时间判断或 21 个指数覆盖率判断。请求失败、字段漂移、分页重复等问题必须在 Raw writer 的 fail-closed 门禁中阻止文件替换；阶段覆盖情况进入 materialization metadata 和离线审计。
+该 check 不承担 Tushare 请求完整性、阶段发布时间判断或当前完整身份集合覆盖率判断。请求失败、字段漂移、分页重复等问题必须在 Raw writer 的 fail-closed 门禁中阻止文件替换；阶段覆盖情况进入 materialization metadata 和离线审计。
 
 ### 8.3 Silver Trigger Policy
 
@@ -1001,7 +1003,7 @@ apply 期间共执行 8,350 次请求、8,350 页、0 次重试；请求阶段�
 - core check 显式 partitioned；
 - core check 使用 `build_check_metadata(...)`、`CheckScope`、失败规则、失败数量和有限样本；
 - 空文件通过 core check；
-- 21 代码缺失不触发失败；
+- 22 代码未全覆盖不触发失败；
 - 五个阶段目标日期映射正确；
 - 同日期不同阶段 run key 不冲突；
 - retry 和 late-empty 只从 typed run config 读取状态，不读取 run tags、不解析 run key；
@@ -1018,7 +1020,7 @@ apply 期间共执行 8,350 次请求、8,350 页、0 次重试；请求阶段�
 - 超过 10 个自然日积压时 fail-closed；
 - failed run retry sensor 只消费直接失败事件，不调用 event history；
 - retry attempt 超限后不产生无限新 run；
-- 空文件只触发有限 late-empty reprobe，不引入 21 代码 coverage check；
+- 空文件只触发有限 late-empty reprobe，不引入完整身份集合 coverage check；
 - late-empty reprobe 不删除前序阶段数据，仍使用 phase merge。
 
 ### 11.5 配置与预算

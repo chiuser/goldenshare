@@ -101,7 +101,7 @@ def _read_rows(path: Path) -> list[tuple[object, ...]]:
 
 
 def test_writer_normalizes_raw_date_and_change_name(tmp_path: Path) -> None:
-    _write_raw(tmp_path, [_row(amount=None)])
+    _write_raw(tmp_path, [_row("HSHKCI", amount=None)])
 
     result = write_silver_index_global_partition(
         lake_root_path=tmp_path,
@@ -116,7 +116,7 @@ def test_writer_normalizes_raw_date_and_change_name(tmp_path: Path) -> None:
     assert result.promoted is True
     assert result.staging_path.exists() is False
     assert _read_rows(result.target_file_path)[0] == (
-        "XIN9",
+        "HSHKCI",
         date(2022, 1, 4),
         100.0,
         102.0,

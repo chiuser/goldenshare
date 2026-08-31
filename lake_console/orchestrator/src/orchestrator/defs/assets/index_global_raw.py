@@ -1,8 +1,8 @@
 """Raw phase merge writer and Dagster asset for international indexes."""
 
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-import os
 from pathlib import Path
 from typing import Any
 
@@ -19,33 +19,38 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
     raw_index_global_path,
+    raw_index_global_staging_path,
 )
-from orchestrator.defs.resources import LakeRootResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+    TushareResult,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import RAW_INDEX_GLOBAL_SCHEMA
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import (
-    SourceSystem,
-    build_asset_definition_metadata,
-    build_materialization_metadata,
-)
-from orchestrator.defs.paths import raw_index_global_staging_path
-from orchestrator.defs.resources import DuckDBResource, TushareResource, TushareResult
 from orchestrator.defs.run_contracts.index_global import (
     INDEX_GLOBAL_COLUMN_TYPES,
+    INDEX_GLOBAL_EXPECTED_CODES,
     INDEX_GLOBAL_FIELDS,
     INDEX_GLOBAL_NORMAL_PHASES,
     INDEX_GLOBAL_REQUEST_LIMIT,
     IndexGlobalRawConfig,
     IndexGlobalRawValidationError,
     build_index_global_request_policy,
-    normalize_index_global_trade_date,
     normalize_index_global_numeric_values,
-    validate_index_global_raw_config,
+    normalize_index_global_trade_date,
     validate_index_global_phase_rows,
+    validate_index_global_raw_config,
+)
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
 )
 from orchestrator.defs.tushare_request_policy import (
     TushareRequestPolicy,
@@ -221,19 +226,16 @@ def _create_empty_table(connection: Any, table_name: str) -> None:
 
 def _validate_table_rows(connection: Any, table_name: str, *, trade_date: str) -> int:
     source_trade_date = trade_date.replace("-", "")
+    expected_code_placeholders = ", ".join("?" for _ in INDEX_GLOBAL_EXPECTED_CODES)
     invalid_scope = connection.execute(
         f"""
         SELECT count(*)
         FROM \"{table_name}\"
         WHERE ts_code IS NULL OR trim(ts_code) = ''
-           OR ts_code NOT IN (
-             'XIN9','HSI','HKTECH','HKAH','DJI','SPX','IXIC','FTSE','FCHI','GDAXI',
-             'N225','KS11','AS51','SENSEX','IBOVESPA','RTS','TWII','CKLSE','SPTSX',
-             'CSX5P','RUT'
-           )
+           OR ts_code NOT IN ({expected_code_placeholders})
            OR trade_date IS NULL OR trade_date <> ?
         """,
-        [source_trade_date],
+        [*INDEX_GLOBAL_EXPECTED_CODES, source_trade_date],
     ).fetchone()[0]
     if int(invalid_scope) != 0:
         raise IndexGlobalRawValidationError(

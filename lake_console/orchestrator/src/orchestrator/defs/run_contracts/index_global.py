@@ -1,11 +1,12 @@
 """Stable contracts for the Tushare international index daily dataset."""
 
+import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-import math
-import re
 from zoneinfo import ZoneInfo
+
 import dagster as dg
 from pydantic import Field
 
@@ -14,7 +15,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_GLOBAL_SCHEMA,
 )
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
-
 
 INDEX_GLOBAL_FIELDS = tuple(column.name for column in RAW_INDEX_GLOBAL_SCHEMA)
 INDEX_GLOBAL_COLUMN_TYPES = {
@@ -32,6 +32,7 @@ INDEX_GLOBAL_EXPECTED_CODES = (
     "HSI",
     "HKTECH",
     "HKAH",
+    "HSHKCI",
     "DJI",
     "SPX",
     "IXIC",
