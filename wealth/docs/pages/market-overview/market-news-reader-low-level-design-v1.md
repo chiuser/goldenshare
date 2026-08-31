@@ -1,14 +1,14 @@
 # 市场总览｜新闻速览、新闻通讯与阅读器低层设计 v2（LLD）
 
 > 稳定文档路径沿用 `market-news-reader-low-level-design-v1.md`，正文版本升级为 v2。
-> 状态：双来源新闻、阅读器、新闻速览标题提取及 2026-08-27 确认的新闻通讯来源过滤与同花顺尾注清理均已开发完成，待用户部署与页面验收。
-> 日期：2026-08-24；标题提取及新闻通讯展示策略确认日期：2026-08-27。
+> 状态：已实现并结案（2026-09-01 用户确认）；N01～N19 均已完成。
+> 日期：2026-08-24；标题提取及新闻通讯展示策略确认日期：2026-08-27；结案日期：2026-09-01。
 > 技术方案：[market-news-implementation-design-v1.md](./market-news-implementation-design-v1.md)。
 > 视觉与 modal 合同：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)。
 
-## 1. 开工结论
+## 1. 开发前结论（历史基线）
 
-当前代码已经完成新闻弹窗阅读器，但列表和详情仍绑定旧的 `news + channels` 分流。本 LLD 的开发目标是一次性完成以下合同迁移：
+开发开始前，代码已经完成新闻弹窗阅读器，但列表和详情仍绑定旧的 `news + channels` 分流。本 LLD 随后一次性完成了以下合同迁移：
 
 ```text
 新闻速览: NewsLight 全频道
@@ -848,7 +848,7 @@ python3 scripts/check_docs_integrity.py
 git diff --check
 ```
 
-不启动服务、不部署、不访问浏览器做视觉验收；部署和最终 UI 验收由用户另行执行。
+原开发轮次不启动服务、不部署、不访问浏览器做视觉验收；部署和最终 UI 验收由用户另行执行。该交付边界保留为历史记录，并已随 2026-09-01 结案关闭。
 
 2026-08-27 当前开发验证结果：后端目标测试 41 项通过；市场总览与阅读器目标前端测试 50 项通过；Wealth 全量测试 335 项、架构依赖测试 4 项、`typecheck`、`build` 通过；文档完整性与 `git diff --check` 通过。构建仅保留既有大 chunk 警告，不影响本增量。
 
@@ -867,4 +867,4 @@ git diff --check
 | N16-N17 | `news_display_title.py`、`market_news_query.py`、`news_reader_query_service.py`；前端只消费合同 | `test_wealth_market_news_api.py`、`test_wealth_market_news_reader_api.py`、`market-overview-news-real-api.test.tsx` | 已完成：空标题正文开头与非空标题统一提取并参与最终标题去重；畸形回退、正文中部不扫描及 major/stock-detail 作用域隔离保持不变 |
 | N18-N19 | `major_news_display_policy.py`、`major_news_query.py`、`major_news_reader_query.py`、major resolver 调用链 | `test_wealth_market_news_api.py`、`test_wealth_market_news_reader_api.py` | 已完成：新浪列表/观测/详情统一过滤；同花顺固定推广文字按来源清理且正文主体保留 |
 
-未完成项不得默认为完成；若任何正式数据事实与本 LLD 冲突，先停下审计并更新方案，不允许临时回退 URL 或保留旧 `/stocks` 兜底。
+本需求已结案。后续若任何正式数据事实与本 LLD 冲突，先停下审计并更新方案，不允许临时回退 URL 或恢复旧 `/stocks` 兜底。

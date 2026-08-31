@@ -5,10 +5,10 @@
 - 文档类型：低层设计（LLD）
 - 依据方案：[新闻—个股关联技术方案 v1](./news-stock-linking-technical-solution-v1.md)
 - 审计基准：2026-08-23 当前工作区代码、测试和数据模型
-- 当前状态：M0～M6、批次级实时进度、`news_time` 手动范围与可配置自动增量均已在当前工作区实现；尚未部署
+- 当前状态：已结案（2026-09-01 用户确认）；M0～M6、批次级实时进度、`news_time` 手动范围与可配置自动增量均已实现
 - 本文目的：记录最终实现事实、文件落点、调用链、事务边界和验收契约
 
-本文记录的是当前工作区代码事实，不据此宣称已经上线；生产迁移、回填、Schedule 启用和部署验收仍以实际运行记录为准。
+本文记录已实现代码合同和结案边界；生产迁移、回填、Schedule 状态和部署事实仍以实际运行记录为准，不由文档状态推断。
 
 ## 1. 审计结论与拍板项
 
@@ -42,7 +42,7 @@
 4. `news_time` 同时负责物化范围、批次 keyset、历史名称生效判断、API 时间过滤和最终排序；`fetched_at` 只保留为新闻源事实字段。
 5. 自动任务记录由运营部署后创建和启用；本次代码不能 seed、创建或修改生产 Schedule。
 
-### 1.3 实施与上线门禁
+### 1.3 实施与上线时采用的门禁（历史执行记录）
 
 这些事项不构成新的产品拍板项：
 
@@ -73,23 +73,23 @@
 | 手动任务时间表单 | `src/ops/queries/manual_action_query_service.py`、`src/ops/services/manual_action_service.py` | 新闻动作已声明必填上海自然日范围，复用通用日期格式和顺序校验；不调用交易日历 |
 | 自动任务能力 | `src/ops/services/schedule_automation_capability_resolver.py`、`src/ops/services/operations_schedule_service.py`、`frontend/src/pages/ops-v21-task-auto-tab.tsx` | 新闻动作已通过通用 `repeat_policy` 开放 Cron 日内间隔，默认 5 分钟、最小 3 分钟，并实现唯一 Schedule、基线门禁和触发合并 |
 
-### 2.2 已存在但不能直接复用的部分
+### 2.2 开发前存在但不能直接复用的部分（历史基线）
 
-当前市场总览“个股新闻”链路位于：
+开发前市场总览“个股新闻”链路位于：
 
 - `src/biz/queries/wealth/market/news/stock_news_query.py`
 - `src/biz/queries/wealth/market/news/news_query_service.py`
 - `src/biz/api/wealth/market/stock_news.py`
 - `wealth/src/features/market-overview/news/**`
 
-它的真实语义是市场总览面板，不是股票详情页新闻：
+该历史链路的真实语义是市场总览面板，不是股票详情页新闻：
 
 1. 只查询 `channels = '公司'`。
 2. 按展示标题做 `row_number()` 去重。
 3. 没有 `tsCode` 请求参数，也没有 `news_stock_link` 关系表。
 4. 返回的是市场面板结构，不是股票详情新闻响应。
 
-因此股票详情新闻已经通过独立 query、schema、router 和前端 feature 实现，不能回退为修改现有总览查询来“顺便支持”详情页。
+股票详情新闻已经通过独立 query、schema、router 和前端 feature 实现，不能回退为修改市场总览查询来“顺便支持”详情页。市场总览新闻此后已由独立方案完成双来源改造，本节文件清单不代表当前市场总览实现。
 
 ### 2.3 已修复的运行观测缺口
 
@@ -982,14 +982,14 @@ Tab 顺序固定为：
 3. 默认 `pytest -q` 在收集阶段被一个已不存在的 Lake Console 模块和两个同名测试模块阻塞；用 importlib 隔离并排除该缺失模块后，仓库其余测试为 `1984 passed, 10 failed, 10 skipped`。失败项位于既有架构守卫、Lake Console、CLI、ETF 报告和板块总览范围，不在本需求改动白名单内，本轮没有越界修复。
 4. 生产只读 `EXPLAIN` 命中 `idx_raw_tushare_news_time`，并使用 Incremental Sort 完成 `row_key_hash` tie-breaker；未执行 `ANALYZE`、数据写入或 migration。
 
-### 11.4 明确不在本轮开发范围
+### 11.4 原开发轮次明确不在范围（历史记录）
 
 - 不新增 migration、表字段、证据表或 API 路由。
 - 不修改 `StockNewsLinker`、新闻范围、历史名称规则、关联表主键或 API 新闻排序。
 - 不修改市场总览新闻逻辑、K 线、盘口和资料 Tab。
 - 不执行生产 migration、生产回填、Schedule 创建/启用或部署；运营部署后自行配置自动任务。
 
-现有运行中任务不会热加载本轮实现。旧契约成功任务也不会自动成为新 `news_time` 游标；部署后需按 12.13 的切换步骤建立一次新基线。
+运行中任务不会热加载新版本实现。旧契约成功任务也不会自动成为新 `news_time` 游标；版本切换时按 12.13 的步骤建立新基线。该段保留为历史切换规则，不是当前开放事项。
 
 ## 12. 风险与当前判断
 
@@ -1006,6 +1006,6 @@ Tab 顺序固定为：
 11. `core_serving_light.news` 当前已有 `news_time` 及 `(src, news_time)` 索引，本轮没有 migration；生产只读 `EXPLAIN` 已确认使用 `idx_raw_tushare_news_time`，并通过 Incremental Sort 完成同时间戳 tie-breaker。
 12. 截止日期包含整天会生成可能晚于当前时间的 `window_end`；手动任务可以安全扫描完整范围，但基线使用
     `cursor_end=min(window_end, task_frozen_at)`，不能把尚未发生的当天后续时间误记为已覆盖。
-13. 切换到新版本时，旧 Full 任务即使成功也没有新契约游标。无需重新跑全部历史；部署后应手动运行一个覆盖“旧 Full 冻结时间至当前时间”所在自然日期的范围任务，成功后再创建/恢复自动 Schedule。
+13. 切换到新版本时，旧 Full 任务即使成功也没有新契约游标。无需重新跑全部历史；切换时应手动运行一个覆盖“旧 Full 冻结时间至当前时间”所在自然日期的范围任务，成功后再创建/恢复自动 Schedule。该项是历史切换规则。
 
-当前没有新的业务口径需要拍板。本地验证结果已记录在第 11.3 节；剩余门禁仅是由运营执行第 12.13 节的部署、基线切换和自动任务配置，本轮不执行这些生产动作。
+当前没有新的业务口径需要拍板。本地验证结果已记录在第 11.3 节；2026-09-01 用户已确认本需求结案，本文没有待开发、待上线或待验收事项。后续自动任务配置和范围补跑属于既有运营能力。

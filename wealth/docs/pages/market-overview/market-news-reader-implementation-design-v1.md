@@ -1,7 +1,7 @@
 # 市场总览｜新闻弹窗阅读器视觉与安全基线 v2
 
 > 稳定文档路径沿用 `market-news-reader-implementation-design-v1.md`，正文版本升级为 v2。
-> 状态：现有阅读器已开发并经过用户验收；双来源合同扩展已开发完成，待用户部署与页面验收。
+> 状态：已实现并结案（2026-09-01 用户确认）；阅读器视觉、安全及双来源合同均已完成。
 > 视觉依据：Figma `RADlZzREU4lPVviYfkLy6x`，`13 News Reader - Components and States`（node `876:2`）。
 > 数据源与 API 方案：[market-news-implementation-design-v1.md](./market-news-implementation-design-v1.md)。
 > 代码级改造：[market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md)。

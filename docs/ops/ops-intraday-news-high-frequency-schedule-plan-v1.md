@@ -1,8 +1,10 @@
 # Ops 新闻日内高频自动任务方案 v1
 
-状态：已实现，待实际自动任务配置验收  
+状态：已实现并结案（2026-09-01 用户确认）；实际自动任务配置属于运营日常，不再作为本文开放事项
 创建日期：2026-05-14  
 适用范围：仅 `news` 新闻快讯、`major_news` 新闻通讯的自动任务高频维护。
+
+结案说明：本文第 3 节保留开发前代码审计，第 4～7 节保留当时的目标设计与实施记录；当前运行事实以现有代码、配置和 TaskRun/Schedule 记录为准。
 
 ## 1. 目标
 
@@ -22,11 +24,11 @@
 - 不引入 cursor/checkpoint/acquire/定点重跑。
 - 不把前端选择的日内策略直接展开成源接口 `start_date/end_date`。
 
-## 3. 当前代码审计
+## 3. 开发前代码审计（历史基线）
 
 ### 3.1 后端调度能力
 
-当前 `src/ops/services/schedule_planner.py` 已支持标准 5 段 cron。
+开发前 `src/ops/services/schedule_planner.py` 已支持标准 5 段 cron。
 
 `_parse_field()` 支持 `*/3` 这样的步长表达式，`_next_cron_occurrence()` 按分钟向后寻找下一次命中时间。因此后端计算层已经可以处理：
 
@@ -34,11 +36,11 @@
 */3 * * * *
 ```
 
-现有限制不在后端 cron parser，而在前端表单。
+当时的限制不在后端 cron parser，而在前端表单。
 
 ### 3.2 前端自动任务入口
 
-当前 `frontend/src/pages/ops-v21-task-auto-tab.tsx` 的 `RepeatMode` 只有：
+开发前 `frontend/src/pages/ops-v21-task-auto-tab.tsx` 的 `RepeatMode` 只有：
 
 ```text
 daily / weekly / monthly
@@ -48,7 +50,7 @@ daily / weekly / monthly
 
 ### 3.3 TaskRun 日期传导
 
-当前 `src/ops/services/task_run_service.py` 已有几类 `calendar_policy`：
+开发前 `src/ops/services/task_run_service.py` 已有几类 `calendar_policy`：
 
 | 策略 | 当前用途 |
 | --- | --- |
@@ -57,7 +59,7 @@ daily / weekly / monthly
 | `monthly_window_current_month` | 触发时生成当月 `start_month/end_month` |
 | `trigger_day_single_range` | 触发时生成自然日单日 `start_date/end_date` |
 
-目前还没有“触发日作为 point 日期”的策略，所以新闻高频自动任务不能只靠 cron 解决。
+当时还没有“触发日作为 point 日期”的策略，所以新闻高频自动任务不能只靠 cron 解决。
 
 ### 3.4 新闻数据集请求链路
 
@@ -288,7 +290,7 @@ python3 scripts/check_docs_integrity.py
 | --- | --- | --- |
 | M1 | 后端 calendar policy 支持 `trigger_day_point` | 已完成，schedule API 与 runtime 测试通过 |
 | M2 | 前端自动任务页新增“每 N 分钟”入口 | 已完成，前端定向测试和 typecheck 通过 |
-| M3 | 本地或远程创建 news/major_news 测试任务验证 | 待实际配置验证；代码级 scheduler 测试已覆盖 TaskRun 日期传导 |
+| M3 | 本地或远程创建 news/major_news 测试任务验证 | 需求已结案；实际配置与运行状态转为运营日常，代码级 scheduler 测试已覆盖 TaskRun 日期传导 |
 | M4 | 文档与 API 说明收口 | 已完成，docs integrity 通过 |
 
 ## 11. 当前结论
@@ -300,4 +302,4 @@ python3 scripts/check_docs_integrity.py
 - DatasetActionResolver 负责把 point 请求归一化为执行计划。
 - request builder 只负责把执行计划中的日期格式化成源接口参数。
 
-本轮没有待决策项。已确认口径为：仅 `news` / `major_news`，最小 3 分钟，触发日 point，全日窗口，幂等去重。
+本轮没有待决策或待验收事项。已确认口径为：仅 `news` / `major_news`，最小 3 分钟，触发日 point，全日窗口，幂等去重；后续配置变更按既有 Ops 自动任务能力管理。
