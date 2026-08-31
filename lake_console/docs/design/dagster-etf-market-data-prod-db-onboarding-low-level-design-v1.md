@@ -1,10 +1,10 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P10 代码/隔离验收已完成，首次正式 Raw/Silver Bootstrap、P7A、N3B、159 个历史动态分区、1,590 条 materialization、500 条 check events 及 P9 post-audit 已闭合；五个 Sensor 已按上海时间 `21:00（含）—24:00（不含）` 完成最前置运行门禁并默认 `STOPPED` 进入 Definitions，正式启用仍待单独授权
+状态：已结案；P0-P10 代码/隔离验收、首次正式 Raw/Silver Bootstrap、P7A、N3B、159 个历史动态分区、1,590 条 materialization、500 条 check events 及 P9 post-audit 均已闭合；五个 Sensor 保持 Definitions 默认 `STOPPED`，并已于 2026-08-31 经逐层授权在正式实例启用，首个自然生产日 Raw/Silver 闭环验收通过
 
 创建日期：2026-08-29
 
-最近更新：2026-08-31
+最近更新：2026-09-01
 
 对应技术方案：[ETF 市场数据 DG 接入技术方案 v1](./dagster-etf-market-data-prod-db-onboarding-plan-v1.md)
 
@@ -51,9 +51,9 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N3 | 分钟 Raw 完整性审计拆成 N3A 观察/profile 与 N3B policy/decision | 已完成：正式 N3A、`etf_mins_gap_policy_v1`、P7B 代码与隔离验收及首次正式 decision 均已闭合；Bootstrap 不回滚 Raw，日常三项 Raw checks fail-closed |
 | N4 | 首次 Bootstrap 截止日以每次执行前动态审计水位为准，不写死日期 | 已确认；具体日期在 P6 plan 时冻结 |
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
-| N6 | Basic 与分钟 Sensor 仅在上海时间 `21:00（含）—24:00（不含）` 工作；窗口外必须在任何资源、Dagster 状态、DuckDB、Lake 文件或 Prod 访问之前 skip | 已确认并完成代码/隔离测试；全部仍以 `STOPPED` 发布，正式启用另行授权 |
+| N6 | Basic 与分钟 Sensor 仅在上海时间 `21:00（含）—24:00（不含）` 工作；窗口外必须在任何资源、Dagster 状态、DuckDB、Lake 文件或 Prod 访问之前 skip | 已确认；代码/隔离测试、正式启用和首个自然生产日验收均已完成；Definitions 默认 `STOPPED`，正式实例五个 Sensor 均为 `RUNNING` |
 
-当前没有需要立即补充拍板的架构口径。首次 frozen plan、Raw apply、正式 P7A 观察、N3B policy、正式 `raw-decide`、P8 正式 Silver apply、P9 动态分区/Runless events/post-audit 和 P10 代码/隔离验收已按阶段完成。795 个分区的最终结果为 585 green、210 WARN、0 blocked，全部可准入并已完成 Silver 物理验收；159 个动态分区、1,590 条 materialization 和最近 20 日 500 条 blocking checks 已在正式 Dagster instance 闭合。N6 已按上海时间 `21:00（含）—24:00（不含）` 关闭；分钟日常 Sensors 仍不得自行启用，正式启用与自然生产日观察另行授权。
+当前没有需要补充拍板的架构口径或剩余上线授权。首次 frozen plan、Raw apply、正式 P7A 观察、N3B policy、正式 `raw-decide`、P8 正式 Silver apply、P9 动态分区/Runless events/post-audit、P10 代码/隔离验收、五个 Sensor 的正式启用和首个自然生产日观察已按阶段完成。795 个历史分区的最终结果为 585 green、210 WARN、0 blocked，全部可准入并已完成 Silver 物理验收；首次 159 个动态分区、1,590 条 materialization 和最近 20 日 500 条 blocking checks 已在正式 Dagster instance 闭合。2026-08-31 的日常链又新增并验收 `2026-08-31` 分区，详细证据见第 25 节 P10 执行记录。
 
 ---
 
@@ -2064,9 +2064,11 @@ Bootstrap 已增加 `silver-apply`：只消费同 operation 的 Raw 完成报告
 
 实现结果：五次有界 Raw materialization metadata loader 已按五个 Raw asset 各一次查询恢复最近 10 日最多 50 个分区的原始 Basic reference；`batch_etf_mins_raw_lake_readiness(...)` 在一个 DuckDB connection 中复算 file contract、冻结 request scope 和 N3 bar domain，`batch_etf_mins_silver_lake_readiness(...)` 直接从最多 50 对 Raw/Silver 文件复算 Silver 合同与双向等价。两个计算 helper 都不接收 Dagster instance，也不读取 check history。一个分区注册 Sensor、两个 Basic Sensor、两个分钟 Sensor 已进入正式 Definitions，全部默认 `STOPPED`；N6 门禁统一为上海时间 `21:00（含）—24:00（不含）`，并位于五个 Sensor 的任何资源或状态访问之前；Raw 只在窗口内选中目标后消费一次五频 coverage，Silver 路径不引用 Prod。
 
-隔离验收只使用单日五频合成 Parquet，没有同步全量数据；正反样本覆盖原 Basic reference 恢复、10 日上限、缺 materialization、Raw/Silver ready、Silver 内容冲突、已有 Raw check 失败不覆盖、Silver 停在 Raw 失败日、单次 coverage 和小 cursor。N6 测试另覆盖 `20:59:59` 窗口外五个 Sensor 零资源/零 Dagster/零 DuckDB/零 Prod 访问、`21:00` 与 `23:59:59` 可进入，以及次日 `00:00` 重新关闭。此次没有读取 Prod、正式 Lake、正式 Dagster instance，也没有运行或启用 Sensor。N6 已关闭，但当前结果不能解释成已经上线；正式启用和自然生产日观察仍须单独授权。
+隔离验收只使用单日五频合成 Parquet，没有同步全量数据；正反样本覆盖原 Basic reference 恢复、10 日上限、缺 materialization、Raw/Silver ready、Silver 内容冲突、已有 Raw check 失败不覆盖、Silver 停在 Raw 失败日、单次 coverage 和小 cursor。N6 测试另覆盖 `20:59:59` 窗口外五个 Sensor 零资源/零 Dagster/零 DuckDB/零 Prod 访问、`21:00` 与 `23:59:59` 可进入，以及次日 `00:00` 重新关闭。上述表述只描述 P10 代码与隔离验收阶段；当时没有读取 Prod、正式 Lake、正式 Dagster instance，也没有运行或启用 Sensor。正式启用结果如下。
 
-完成条件：分钟 Raw Sensor 每个目标日只执行一次五频 coverage，结合 P5 已验证的五条单频明细 SQL，日常链最多六条 Prod SQL；Raw/Silver continuity 都只读最近 10 个交易日并停在最早 not-ready 日。启用仍需另一次授权，并按 Basic Raw→Basic Silver→分钟 Raw→分钟 Silver 顺序各观察至少一个自然生产日；任一层异常时不启用下游。
+正式启用与首日验收结果：2026-08-31 经逐层授权，五个 Sensor 全部在正式实例启用。当天 Basic Raw run `cbd341b1-0f60-4001-9b80-aa182787bee8` 与 Basic Silver run `a21d7bab-cb48-4c99-a29c-0b499d78b03e` 已分别成功并通过各自三项 blocking checks；对应 Sensor 只返回 `all_ready`，没有重复请求。交易日 Sensor 将 `2026-08-31` 注册到 `cn_a_etf_mins_trade_days`，动态分区总数由 159 增至 160。
+
+分钟 Raw Sensor 对当天执行一次五频 coverage 后触发 run `e4b97bf8-e528-40fc-af86-10f152a5452a`。该 run 为 `2026-08-31` 生成五个正式 Raw 文件：`1min=396,927`、`5min=80,703`、`15min=27,999`、`30min=14,823`、`60min=8,235`，合计 528,687 行；15 项 `file_contract/request_scope/bar_domain` blocking checks 全部通过。分钟 Silver Sensor 随后触发 run `55f90427-e3c9-4954-9798-11343e5c7e48`，生成五个正式 Silver 文件，逐频与 Raw 行数一致；同一 run 重新执行的 15 项 Raw checks 和 10 项 Silver checks 共 25 项全部通过。2026-09-01 06:59 结案反查确认五个 Sensor 均为 `RUNNING`，四类 ETF update job 活动任务均为 0。至此 P10 的“日常最多六条 Prod SQL、最近 10 日连续性、最早缺口推进、分层 fail-closed 和自然生产日观察”完成条件闭合。
 
 ### P11：2026 年以前独立补录
 
@@ -2107,5 +2109,5 @@ Bootstrap 已增加 `silver-apply`：只消费同 operation 的 Raw 完成报告
 6. Raw/Silver 在批准日期范围完成行数、主键、11 字段值和文件集合对账。
 7. Bootstrap 可幂等续跑，只新增/复用，冲突停止。
 8. 2025 及以前补录证明 2026 及以后文件零变化。
-9. 历史动态分区先于 runless events 注册；分区、事件和物理写入分别授权，Sensors 默认 STOPPED 并经自然运行验收。
+9. 历史动态分区先于 runless events 注册；分区、事件和物理写入分别授权，Sensors 在 Definitions 中默认 STOPPED，经单独授权后已在正式实例启用并完成首个自然生产日验收。
 10. 没有 ETF 激活池、`fund_daily`、旧 Lake、Kopia、Prod N+1 或 Python 明细循环。
