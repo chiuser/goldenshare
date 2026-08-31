@@ -12,7 +12,26 @@ from tests.test_etf_basic_readiness import (
     _ready_fixture,
 )
 
-NOW = datetime(2026, 8, 30, 18, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+NOW = datetime(2026, 8, 30, 21, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(
+    2026,
+    8,
+    30,
+    20,
+    59,
+    59,
+    tzinfo=ZoneInfo("Asia/Shanghai"),
+)
+
+
+class ForbiddenContext:
+    @property
+    def resources(self):  # type: ignore[no-untyped-def]
+        raise AssertionError("outside-window evaluation must not access resources")
+
+    @property
+    def instance(self):  # type: ignore[no-untyped-def]
+        raise AssertionError("outside-window evaluation must not access Dagster")
 
 
 def _context(instance, lake_root):  # type: ignore[no-untyped-def]
@@ -54,3 +73,21 @@ def test_basic_ready_latest_versions_are_not_retriggered(tmp_path) -> None:  # t
     assert not silver_result.run_requests
     assert "ready" in str(raw_result.skip_reason)
     assert "ready" in str(silver_result.skip_reason)
+
+
+def test_basic_sensors_skip_before_window_without_any_state_access() -> None:
+    context = ForbiddenContext()
+
+    raw_result = evaluate_raw_etf_basic_sensor(  # type: ignore[arg-type]
+        context,
+        evaluated_at=BEFORE_WINDOW,
+    )
+    silver_result = evaluate_silver_etf_basic_sensor(  # type: ignore[arg-type]
+        context,
+        evaluated_at=BEFORE_WINDOW,
+    )
+
+    assert not raw_result.run_requests
+    assert not silver_result.run_requests
+    assert "21:00" in str(raw_result.skip_reason)
+    assert "21:00" in str(silver_result.skip_reason)

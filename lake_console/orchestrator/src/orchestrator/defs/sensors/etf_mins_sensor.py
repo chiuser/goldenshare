@@ -41,6 +41,8 @@ from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_SENSOR_WINDOW_LIMIT,
     ETF_MINS_SOURCE_FREQS,
     build_etf_mins_raw_run_config,
+    etf_sensor_window_is_open,
+    normalize_etf_sensor_evaluated_at,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
@@ -157,7 +159,17 @@ def evaluate_raw_etf_mins_sensor(
     evaluated_at: datetime | None = None,
 ) -> dg.SensorResult:
     sensor_name = "raw_etf_mins_update_job_sensor"
-    now = evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
+    now = normalize_etf_sensor_evaluated_at(
+        evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
+    )
+    if not etf_sensor_window_is_open(now):
+        return _skip(
+            evaluated_at=now,
+            sensor_name=sensor_name,
+            target_date=None,
+            reason_code="outside_operating_window",
+            message="ETF 自动更新等待上海时间 21:00 运行窗口。",
+        )
     try:
         with context.resources.duckdb.connect() as connection:
             expected_window, registered, gap_status, lineage = (
@@ -279,7 +291,17 @@ def evaluate_silver_etf_mins_sensor(
     evaluated_at: datetime | None = None,
 ) -> dg.SensorResult:
     sensor_name = "silver_etf_mins_update_job_sensor"
-    now = evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
+    now = normalize_etf_sensor_evaluated_at(
+        evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
+    )
+    if not etf_sensor_window_is_open(now):
+        return _skip(
+            evaluated_at=now,
+            sensor_name=sensor_name,
+            target_date=None,
+            reason_code="outside_operating_window",
+            message="ETF 自动更新等待上海时间 21:00 运行窗口。",
+        )
     try:
         with context.resources.duckdb.connect() as connection:
             expected_window, registered, gap_status, lineage = (
@@ -391,7 +413,10 @@ def evaluate_silver_etf_mins_sensor(
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="按最早 Raw 缺口、当天 Basic 和一次 Prod 五频覆盖触发 ETF 分钟 Raw。",
+    description=(
+        "上海时间 21:00 后按最早 Raw 缺口、当天 Basic 和一次 Prod 五频覆盖"
+        "触发 ETF 分钟 Raw。"
+    ),
 )
 def raw_etf_mins_update_job_sensor(
     context: dg.SensorEvaluationContext,
@@ -409,7 +434,9 @@ def raw_etf_mins_update_job_sensor(
         target_layer=SensorTargetLayer.SILVER,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="只读本地 Raw/Silver，按最早缺口触发 ETF 分钟 Silver。",
+    description=(
+        "上海时间 21:00 后只读本地 Raw/Silver，按最早缺口触发 ETF 分钟 Silver。"
+    ),
 )
 def silver_etf_mins_update_job_sensor(
     context: dg.SensorEvaluationContext,

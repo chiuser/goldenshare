@@ -22,6 +22,10 @@ from orchestrator.defs.run_contracts.cursors import (
 from orchestrator.defs.run_contracts.etf_basic import (
     build_etf_basic_silver_run_config,
 )
+from orchestrator.defs.run_contracts.etf_mins import (
+    etf_sensor_window_is_open,
+    normalize_etf_sensor_evaluated_at,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -85,7 +89,19 @@ def evaluate_raw_etf_basic_sensor(
     *,
     evaluated_at: datetime | None = None,
 ) -> dg.SensorResult:
-    now = evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
+    now = normalize_etf_sensor_evaluated_at(
+        evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
+    )
+    if not etf_sensor_window_is_open(now):
+        return dg.SensorResult(
+            skip_reason="ETF 自动更新等待上海时间 21:00 运行窗口。",
+            cursor=_cursor(
+                evaluated_at=now,
+                sensor_name="raw_etf_basic_update_job_sensor",
+                decision=SensorCursorDecision.SKIP,
+                reason_code="outside_operating_window",
+            ),
+        )
     try:
         context.resources.lake_root.ensure_available_for_run()
         select_latest_etf_basic_raw_snapshot_reference(
@@ -137,7 +153,19 @@ def evaluate_silver_etf_basic_sensor(
     *,
     evaluated_at: datetime | None = None,
 ) -> dg.SensorResult:
-    now = evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
+    now = normalize_etf_sensor_evaluated_at(
+        evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
+    )
+    if not etf_sensor_window_is_open(now):
+        return dg.SensorResult(
+            skip_reason="ETF 自动更新等待上海时间 21:00 运行窗口。",
+            cursor=_cursor(
+                evaluated_at=now,
+                sensor_name="silver_etf_basic_update_job_sensor",
+                decision=SensorCursorDecision.SKIP,
+                reason_code="outside_operating_window",
+            ),
+        )
     context.resources.lake_root.ensure_available_for_run()
     try:
         raw_reference = select_latest_etf_basic_raw_snapshot_reference(
@@ -218,7 +246,10 @@ def evaluate_silver_etf_basic_sensor(
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="当天 ETF Basic Raw 缺失或过期时触发；失败版本不自动覆盖。",
+    description=(
+        "上海时间 21:00 后检查当天 ETF Basic Raw；缺失或过期时触发，"
+        "失败版本不自动覆盖。"
+    ),
 )
 def raw_etf_basic_update_job_sensor(
     context: dg.SensorEvaluationContext,
@@ -236,7 +267,10 @@ def raw_etf_basic_update_job_sensor(
         target_layer=SensorTargetLayer.SILVER,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="当天 ETF Basic Raw ready 且 Silver 缺失时触发；失败版本不回退。",
+    description=(
+        "上海时间 21:00 后检查当天 ETF Basic；Raw ready 且 Silver 缺失时触发，"
+        "失败版本不回退。"
+    ),
 )
 def silver_etf_basic_update_job_sensor(
     context: dg.SensorEvaluationContext,

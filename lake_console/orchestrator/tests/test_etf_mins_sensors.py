@@ -30,13 +30,14 @@ from orchestrator.defs.run_contracts.etf_mins import (
     build_etf_mins_prod_coverage_reference,
     compute_etf_mins_expected_code_hash,
 )
-from orchestrator.defs.sensors import etf_mins_sensor
+from orchestrator.defs.sensors import etf_mins_partition_sensor, etf_mins_sensor
 from orchestrator.defs.sensors.etf_basic_sensor import (
     raw_etf_basic_update_job_sensor,
     silver_etf_basic_update_job_sensor,
 )
 from orchestrator.defs.sensors.etf_mins_partition_sensor import (
     etf_mins_trade_day_sensor,
+    evaluate_etf_mins_trade_day_sensor,
 )
 from orchestrator.defs.sensors.etf_mins_sensor import (
     evaluate_raw_etf_mins_sensor,
@@ -46,7 +47,26 @@ from orchestrator.defs.sensors.etf_mins_sensor import (
 )
 
 TRADE_DATE = "2026-08-28"
-NOW = datetime(2026, 8, 31, 18, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+NOW = datetime(2026, 8, 31, 21, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(
+    2026,
+    8,
+    31,
+    20,
+    59,
+    59,
+    tzinfo=ZoneInfo("Asia/Shanghai"),
+)
+
+
+class ForbiddenContext:
+    @property
+    def resources(self):  # type: ignore[no-untyped-def]
+        raise AssertionError("outside-window evaluation must not access resources")
+
+    @property
+    def instance(self):  # type: ignore[no-untyped-def]
+        raise AssertionError("outside-window evaluation must not access Dagster")
 
 
 class FakeDuckDBResource:
@@ -132,6 +152,46 @@ def test_all_five_etf_sensors_are_stopped_by_default() -> None:
     assert all(
         sensor.default_status is dg.DefaultSensorStatus.STOPPED for sensor in sensors
     )
+
+
+def test_partition_and_minute_sensors_skip_before_window_without_state_access() -> None:
+    context = ForbiddenContext()
+
+    partition_result = evaluate_etf_mins_trade_day_sensor(  # type: ignore[arg-type]
+        context,
+        evaluated_at=BEFORE_WINDOW,
+    )
+    raw_result = evaluate_raw_etf_mins_sensor(  # type: ignore[arg-type]
+        context,
+        evaluated_at=BEFORE_WINDOW,
+    )
+    silver_result = evaluate_silver_etf_mins_sensor(  # type: ignore[arg-type]
+        context,
+        evaluated_at=BEFORE_WINDOW,
+    )
+
+    assert not partition_result.dynamic_partitions_requests
+    assert not raw_result.run_requests
+    assert not silver_result.run_requests
+    assert "21:00" in str(partition_result.skip_reason)
+    assert "21:00" in str(raw_result.skip_reason)
+    assert "21:00" in str(silver_result.skip_reason)
+
+
+def test_partition_sensor_enters_calendar_path_at_window_start(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    expected = dg.SensorResult(skip_reason="calendar path reached")
+    monkeypatch.setattr(
+        etf_mins_partition_sensor,
+        "build_calendar_only_partition_registration_result",
+        lambda *args, **kwargs: expected,
+    )
+
+    result = evaluate_etf_mins_trade_day_sensor(  # type: ignore[arg-type]
+        ForbiddenContext(),
+        evaluated_at=NOW,
+    )
+
+    assert result is expected
 
 
 def test_raw_sensor_uses_one_coverage_result_after_batch_readiness(

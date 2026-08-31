@@ -7,7 +7,8 @@ import json
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 
 import dagster as dg
 
@@ -18,6 +19,8 @@ from orchestrator.defs.run_contracts.etf_basic import (
 ETF_MINS_SOURCE_FREQS = ("1min", "5min", "15min", "30min", "60min")
 ETF_MINS_ASSET_FREQS = (1, 5, 15, 30, 60)
 ETF_MINS_SENSOR_WINDOW_LIMIT = 10
+ETF_SENSOR_WINDOW_START = time(21, 0)
+ETF_SENSOR_TIMEZONE = ZoneInfo("Asia/Shanghai")
 ETF_MINS_BOOTSTRAP_BATCH_TRADE_DAY_LIMIT = 20
 ETF_MINS_BOOTSTRAP_MAX_TARGET_FILES = 10_000
 ETF_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER = 1.25
@@ -94,6 +97,21 @@ ETF_MINS_RAW_DECISION_WARNING_REASON_CODES = (
 )
 
 _ISO_TRADE_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def normalize_etf_sensor_evaluated_at(value: datetime) -> datetime:
+    """Normalize one ETF sensor tick to the approved Shanghai clock."""
+
+    if value.tzinfo is None:
+        return value.replace(tzinfo=ETF_SENSOR_TIMEZONE)
+    return value.astimezone(ETF_SENSOR_TIMEZONE)
+
+
+def etf_sensor_window_is_open(value: datetime) -> bool:
+    """Return whether a tick is inside 21:00 inclusive to midnight exclusive."""
+
+    evaluated_at = normalize_etf_sensor_evaluated_at(value)
+    return evaluated_at.time() >= ETF_SENSOR_WINDOW_START
 
 
 def _build_etf_mins_clock_grid(
@@ -778,6 +796,8 @@ __all__ = [
     "ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX",
     "ETF_MINS_SOURCE_FREQS",
     "ETF_MINS_SOURCE_FREQ_BY_ASSET_FREQ",
+    "ETF_SENSOR_TIMEZONE",
+    "ETF_SENSOR_WINDOW_START",
     "EtfMinsFrequencyCoverageConfig",
     "EtfMinsProdCoverageConfig",
     "EtfMinsProdCoverageReference",
@@ -788,6 +808,7 @@ __all__ = [
     "build_etf_mins_prod_coverage_reference",
     "build_etf_mins_raw_run_config",
     "compute_etf_mins_expected_code_hash",
+    "etf_sensor_window_is_open",
     "expected_etf_mins_source_exchange",
     "expected_etf_mins_targets_for_trade_date",
     "get_etf_mins_raw_decision_policy",
@@ -796,6 +817,7 @@ __all__ = [
     "normalize_etf_mins_requestable_targets",
     "normalize_etf_mins_source_freq",
     "normalize_etf_mins_trade_date",
+    "normalize_etf_sensor_evaluated_at",
     "raw_etf_mins_check_names",
     "silver_etf_mins_check_names",
     "source_freq_for_etf_mins_asset_freq",

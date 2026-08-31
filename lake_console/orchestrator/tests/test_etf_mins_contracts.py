@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, time, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -52,12 +54,15 @@ from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_SOURCE_COLUMNS,
     ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX,
     ETF_MINS_SOURCE_FREQS,
+    ETF_SENSOR_WINDOW_START,
     asset_freq_for_etf_mins_source_freq,
+    etf_sensor_window_is_open,
     expected_etf_mins_source_exchange,
     get_etf_mins_raw_decision_policy,
     normalize_etf_mins_asset_freq,
     normalize_etf_mins_source_freq,
     normalize_etf_mins_trade_date,
+    normalize_etf_sensor_evaluated_at,
     raw_etf_mins_check_names,
     silver_etf_mins_check_names,
     source_freq_for_etf_mins_asset_freq,
@@ -112,6 +117,28 @@ def test_operational_constants_match_the_approved_lld() -> None:
     assert ETF_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER == 1.25
     assert ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT == 20
     assert ETF_MINS_HISTORICAL_PROTECTION_CUTOFF.isoformat() == "2026-01-01"
+    assert ETF_SENSOR_WINDOW_START == time(21, 0)
+
+
+def test_etf_sensor_window_is_21_to_midnight_in_shanghai() -> None:
+    shanghai = ZoneInfo("Asia/Shanghai")
+
+    assert not etf_sensor_window_is_open(
+        datetime(2026, 8, 31, 20, 59, 59, tzinfo=shanghai)
+    )
+    assert etf_sensor_window_is_open(
+        datetime(2026, 8, 31, 21, 0, 0, tzinfo=shanghai)
+    )
+    assert etf_sensor_window_is_open(
+        datetime(2026, 8, 31, 23, 59, 59, tzinfo=shanghai)
+    )
+    assert not etf_sensor_window_is_open(
+        datetime(2026, 9, 1, 0, 0, 0, tzinfo=shanghai)
+    )
+
+    utc_boundary = datetime(2026, 8, 31, 13, 0, 0, tzinfo=timezone.utc)
+    assert etf_sensor_window_is_open(utc_boundary)
+    assert normalize_etf_sensor_evaluated_at(utc_boundary).hour == 21
 
 
 def test_raw_decision_policy_freezes_the_approved_grid_and_reason_mapping() -> None:
