@@ -232,6 +232,8 @@ describe("PriceVolumeWorkspace", () => {
     expect(css).toContain("grid-template-columns: minmax(520px, 600fr) minmax(760px, 952fr)");
     expect(css).toContain("grid-template-rows: 100px 430px 312px");
     expect(css).toMatch(/\.price-volume-list-viewport\s*\{[^}]*overflow-y:\s*auto/s);
+    expect(css).toMatch(/\.price-volume-status-chip\s*\{[^}]*box-sizing:\s*border-box[^}]*height:\s*24px[^}]*max-height:\s*24px[^}]*min-height:\s*24px/s);
+    expect(css).toMatch(/\.price-volume-row-select > \.price-volume-status-chip\s*\{[^}]*align-self:\s*center[^}]*justify-self:\s*center[^}]*max-width:\s*120px/s);
     expect(css).not.toMatch(/width:\s*1564px/);
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).not.toContain("overflow-x: auto");
