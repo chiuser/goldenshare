@@ -365,6 +365,8 @@ docs/
 
 ## 9. 产品原始材料
 
-- [东财行业财务指标统计分析报表方案 v1（待评审）](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v1.md)
+- [东财行业财务统计分析报表方案 v2（待评审）](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v2.md)
+- [申万行业财务景气分析报表方案 v1（正式版已生成）](/Users/congming/github/goldenshare/docs/product/sw2021-industry-financial-analysis-report-plan-v1.md)
+- [申万行业周期拐点雷达方案 v1（方法原型已生成）](/Users/congming/github/goldenshare/docs/product/sw2021-industry-turning-point-radar-plan-v1.md)
 - [行情图表页接口需求说明](/Users/congming/github/goldenshare/docs/product/行情图表页接口需求说明_基于当前数据基座.md)
 - [财势乾坤交易系统需求说明（PDF）](/Users/congming/github/goldenshare/docs/product/财势乾坤交易系统需求说明.pdf)

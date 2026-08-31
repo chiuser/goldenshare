@@ -2,10 +2,11 @@
 
 ## 1. 文档状态
 
-- 状态：待评审
+- 状态：已被 v2 取代，仅保留历史方案背景
 - 方案日期：2026-08-29
 - 目标产物：一份可独立打开的 HTML 行业财务分析报表
 - 本文只定义分析口径、报表内容和实施边界，不改代码、不查询或写入生产数据
+- 当前方案：[东财行业财务统计分析报表方案 v2](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v2.md)
 
 ---
 
