@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.61；横截面动量排名 M0～M3A、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M13～M16R2 与量价分布 M17～M20 均已收口。每日洞察 M21 编码门禁和 M22 代码开发已经完成：九张 ORM、HDD fail-closed 迁移、单日物化、确定性洞察、自动任务及回归均已落地；M22 仍待提交、由管理员部署迁移并完成首次 Prod HDD catalog／受控单日验收，之后才能进入 M23。当前未执行真实 Prod 写入，也未进入 M23 回补、M24 切读、M25 API／前端或 M26 最终交付验收。
+> - 当前状态：v1.62；横截面动量排名 M0～M3A、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M13～M16R2 与量价分布 M17～M20 均已收口。M22 已完成远程迁移、HDD catalog 和受控单日生产验收并关闭。M23 的回补 PLAN/APPLY 代码合同与本地正反例已经完成，尚待提交、部署后生成真实生产 PLAN；在管理员明确批准前不得执行 APPLY。M24 切读、M25 API／前端和 M26 最终交付均未开始。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-31。
@@ -370,7 +370,7 @@ M1 已关闭原先三项页面差异：
 | 财势探查入口首页 | `/wealth/exploration` | M1 已实现 |
 | 成交额洞察 | `/wealth/exploration/turnover-insight` | M1 已实现 |
 | 板块分析默认入口 | `/wealth/exploration/sector-analysis` | 每日洞察上线后 `replace` 到每日洞察；当前代码仍指向动量排名 |
-| 每日洞察 | `/wealth/exploration/sector-analysis/daily-insight` | 产品、正式 Figma、技术方案、代码级LLD、M21门禁和M22本地开发已完成；M23～M26尚未实施，路由仍未开放 |
+| 每日洞察 | `/wealth/exploration/sector-analysis/daily-insight` | 产品、正式 Figma、技术方案、代码级LLD和M21～M22已完成；M23代码合同已完成但生产回补未执行，M24～M26尚未实施，路由仍未开放 |
 | 横截面动量排名 | `/wealth/exploration/sector-analysis/momentum-ranking` | M3 与 M3A 已完成并通过验收 |
 | 双动量 | `/wealth/exploration/sector-analysis/dual-momentum` | M8 已完成并关闭；冷启动性能按用户决定接受现状 |
 | 相对轮动 | `/wealth/exploration/sector-analysis/relative-rotation` | M12/M12R 已完成并关闭 |
@@ -3586,27 +3586,33 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 
 ### M22：表结构、单日物化与自动任务
 
-状态：`CODE COMPLETE / REMOTE ACCEPTANCE PENDING（2026-08-31）`；需先提交、由管理员部署迁移并完成首次 Prod HDD catalog／受控单日验收，才可关闭 M22 并进入 M23。M26仍负责最终自动任务与整体验收。
+状态：`PASS（2026-09-01）`。M26仍负责最终自动任务与整体验收。
 
 1. 新增九张 `core_serving` ORM、单一 Alembic 迁移和 App 模型注册；迁移对 `gs_raw_cold_hdd` fail-closed，并将九张表的 heap／TOAST、约束索引和普通索引全部显式落到该 HDD tablespace；不新增数据库、账号、连接或 DatasetDefinition。
 2. 实现共享来源读取、五公式 typed facts、洞察 summary／item、确定性模板、hash、read-back、幂等和批次原子发布。
 3. 在既有 GENERAL Worker 注册单日／历史维护动作、readiness 和 App executor；Ops 只保存意图／状态，Biz 承载计算与业务写入。
 4. 完成上游未齐、行业级缺失、失败批次不可见、同内容重放、来源漂移和 Ops 观测失败不回滚业务发布测试。
 5. 完成后只生成受控测试日或明确批准的单日，不自动回补2025、不切读五方法、不修改前端默认路由。
-6. 实际实现新增 Alembic head `20260831_000168`，其父版本来自实施日重新读取的真实单一 head `20260830_000167`；迁移在首个 DDL 前校验 `gs_raw_cold_hdd` 的存在、位置和 CREATE 权限，并为九表 heap／TOAST／全部索引声明同一 tablespace。该结论只表示迁移代码和本地模型门禁通过，不表示 Prod 已执行迁移或 catalog 已验收。
+6. 实际实现新增 Alembic head `20260831_000168`，其父版本来自实施日重新读取的真实单一 head `20260830_000167`；迁移在首个 DDL 前校验 `gs_raw_cold_hdd` 的存在、位置和 CREATE 权限，并为九表 heap／TOAST／全部索引声明同一 tablespace。迁移代码和本地模型门禁先行通过，随后已由本节第9～11项的远程证据完成 Prod 迁移、catalog 与受控单日验收。
 7. 单日主链只读取冻结的六来源，在独立只读事务中生成五类 typed facts、三层洞察汇总和确定性条目；source／plan／content hash、read-back、同内容零新增、新内容替换、旧内容禁止静默回退和失败批次不可见均有自动化反例。
-8. Ops 注册单日 action 与禁用的历史 replay action；单日 action 固定 GENERAL lane、20:05、600秒重试、次日00:30截止和四个上游节点。Heat 的旧专属 readiness 被收敛到通用维护 readiness 合同，Heat／news／QTF／分钟及默认 Ops API 回归保持通过。
-9. 本地验收未连接或写入 Prod，没有创建物理表、没有执行批准日、没有回补、没有切读、没有 API／前端或默认路由变化；因此 M22 尚需在管理员部署后核对九表及其全部对象的 HDD catalog，并执行受控单日验收。M26再做自动任务和整套交付终验。
+8. Ops 注册单日 action 与 M23 历史 replay action；单日 action 固定 GENERAL lane、20:05、600秒重试、次日00:30截止和四个上游节点。Heat 的旧专属 readiness 被收敛到通用维护 readiness 合同，Heat／news／QTF／分钟及默认 Ops API 回归保持通过。
+9. 远程提交 `09007004cb12f118c1b7d141bd0089668d128bcf` 已部署，Prod Alembic head 为 `20260831_000168`；九张表的 heap、实际 TOAST 和27个索引全部解析到 `gs_raw_cold_hdd`，27个索引有效、38个约束已验证，未发现 SSD 回退。
+10. 经正式 ManualAction → TaskRun → GENERAL Worker 主链执行受控单日 `2026-08-28`：TaskRun `10386` 成功，`1/1/0` unit，读取／写入 `24,525/24,525` 行，issue 为0；批次 `2c11013d-1505-4bc8-bed8-409a6292b574` 为唯一 PUBLISHED，九表逐表计数、plan/content/source hash 和缺失原因 read-back 一致，总物理占用约 `15.3MiB`。本次未执行幂等重放或历史回补。
+11. 远程 Web、GENERAL Worker 与 Scheduler 均为 active，健康接口正常；尚未配置每日 action 的 schedule row，保留到 M26 自动化终验，不阻断 M22 关闭。
 
 ### M23：2025年以来回补与物理验收
 
-状态：`PENDING`。
+状态：`CODE COMPLETE / DEPLOYMENT AND PROD PLAN PENDING（2026-09-01）`。
 
 1. 生成并确认从2025年第一个 SSE 开市日至目标日的升序 PLAN；2024年末只作为预热。
 2. 执行 APPLY、逐日九表 read-back、内容 hash、日期连续性和前一交易日引用核验。
 3. 对同一 PLAN 做幂等重放，证明零新增、零漂移；失败日期可恢复且不影响已发布日期。
 4. 记录总交易日、每表行数、无批次日期、行业级缺失分布、HDD存储量、SSD WAL／临时文件峰值、单日／全量耗时和 PUBLISHED 唯一性。
 5. M23通过前，现有五方法仍以当前在线链路服务；回补事实不得被页面偷偷读取。
+6. 已实现 `SectorAnalysisReplayPlanner`：PLAN 从2025年第一个 SSE 开市日起升序生成日期单元，冻结唯一层级版本、公式包、模板、2024预热起点、每日日源 hash／日期／行数和逐表行数范围；任一硬缺口均保留为 gap 并令 `apply_ready=false`。
+7. PLAN 不伪造尚不存在的前一日批次 UUID，也不提前冻结依赖该 UUID 的每日 content hash。APPLY 先验证冻结的交易日清单、层级／公式／模板、来源 hash 和计数范围，再由同一单日物化服务结合当时已发布的紧邻前一日批次计算 plan/content hash；预览与写入间再次漂移仍由既有 hash 门禁拒绝。
+8. 现有 maintenance dispatcher 的 PLAN/APPLY 识别已从 Heat 动作名特例收敛为 action 配置，Heat 行为保持不变；分析回补 action 已开放管理员手动入口，APPLY 仍必须引用成功 PLAN TaskRun 和精确 plan hash。
+9. 当前只完成本地代码和测试；必须先提交并由管理员部署，随后通过正式 TaskRun 生成真实生产 PLAN 并停下等待批准。本阶段没有执行生产 PLAN 或 APPLY，也没有读取切换。
 
 ### M24：五方法逐字段等价与 serving 切读
 
@@ -3721,7 +3727,7 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) 已经覆盖第12E节和 M21～M26，并完成 M21 编码门禁及 M22 代码开发。下一步先提交并由管理员部署 M22，再只读核对迁移 head、九表 HDD catalog 和受控单日结果；这些证据通过后才关闭 M22，并进入 M23 PLAN。不得在未批准时执行 M23 APPLY，也不等于五方法已经切读或每日洞察页面已经开放。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) 已经覆盖第12E节和 M21～M26。M22 已通过远程迁移、HDD catalog 与受控单日验收并关闭；M23 回补代码合同已完成。下一步只允许提交／部署 M23，然后通过正式 TaskRun 生成真实生产 PLAN 并停止等待管理员批准。不得在未批准时执行 M23 APPLY，也不等于五方法已经切读或每日洞察页面已经开放。
 
 M21～M26 若发现当前字段、公式消费者、Ops调度、最大事实规模、历史层级、真实性能或 Figma 与本文冲突，必须停止并回到方案层修正。不得通过 Top N、分页、采样、缩窗、补零、旧事实回退、跨批次拼接或长期双读兼容来绕过问题。
 
@@ -3729,6 +3735,7 @@ M21～M26 若发现当前字段、公式消费者、Ops调度、最大事实规�
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.62 | 2026-09-01 | 关闭M22并推进M23：远程head `20260831_000168`、九表heap／实际TOAST／27索引全量HDD catalog、38约束和服务健康通过；正式主链TaskRun `10386` 成功发布`2026-08-28`唯一批次，九表24,525行、hash/read-back和显式缺失一致。M23新增2025起升序replay planner、来源／层级／公式／模板／日期清单／计数范围冻结、BLOCKED、共享PLAN/APPLY snapshot、精确漂移码及正反例；未执行真实PLAN/APPLY、未切读、未进入M24 | Codex |
 | v1.61 | 2026-08-31 | 完成M22代码开发：新增九张每日事实／洞察ORM和单一HDD fail-closed迁移`20260831_000168`，实现六来源只读bundle、五公式typed facts、确定性洞察、source／plan／content hash、read-back、幂等与原子发布；将维护readiness与registered executor收敛为通用合同，注册20:05单日action和M23前禁用的历史action，并保持Heat／news／QTF／分钟lane回归。源码head、模型、物化、调度、执行器、架构和既有五方法回归通过；未部署迁移、未写Prod、未回补、未切读、未新增API／前端。下一步先提交／部署并完成M22远程初验，通过后才进入M23 PLAN | Codex |
 | v1.60 | 2026-08-31 | 完成M21编码门禁：代码级LLD、CodeGraph影响面、五个每日异常码与静态架构门禁对账通过；最大三级337行业／60日Prod只读原型读取29,760条行业行情、337,193条成员关系、331,493条股票日线及同量匹配复权因子，总耗时约38.819秒，HDD tablespace前置条件通过，25,020 typed rows逻辑投影约5.72MB/日。未创建迁移、表、任务、API、前端或生产事实；下一步固定M22 | Codex |
 | v1.59 | 2026-08-31 | 按用户明确的物理落盘要求，将每日洞察九张新表的 heap、TOAST、主键、唯一索引和全部普通／覆盖索引固定到 HDD tablespace `gs_raw_cold_hdd`；迁移在 tablespace 缺失、位置不可解析或权限不足时 fail-closed，禁止回退 `pg_default`。补充 catalog 逐对象 read-back、真实 HDD 性能验收、2025回补前 SSD WAL／临时文件空间门禁，以及 M21～M26 对应落点；当前仍只修改技术方案，不创建表或执行迁移 | Codex |

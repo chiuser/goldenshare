@@ -234,7 +234,10 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         domain_display_name="维护动作",
         description="先冻结至少 60 个有效交易日的计划，再按计划从旧到新回放。",
         executor_key="wealth_sector_heat",
-        execution_config={"target_tables": ("core_serving.wealth_sector_heat_daily",)},
+        execution_config={
+            "target_tables": ("core_serving.wealth_sector_heat_daily",),
+            "plan_apply_replay": True,
+        },
         parameters=(
             EXECUTION_MODE_PARAM,
             ActionParameter(
@@ -301,9 +304,10 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         display_name="回补板块分析历史事实",
         domain_key="maintenance",
         domain_display_name="维护动作",
-        description="按已批准的冻结计划从2025年起升序回补；M23前不可执行。",
+        description="先冻结2025年以来的升序计划，再按已批准计划逐交易日回补。",
         executor_key="wealth_sector_analysis_daily",
         execution_config={
+            "plan_apply_replay": True,
             "target_tables": (
                 "core_serving.wealth_sector_analysis_publish_batch",
                 "core_serving.wealth_sector_momentum_daily",
@@ -317,7 +321,7 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
             ),
         },
         parameters=(EXECUTION_MODE_PARAM, START_DATE_PARAM, END_DATE_PARAM, PLAN_TASK_RUN_ID_PARAM, PLAN_HASH_PARAM),
-        manual_enabled=False,
+        manual_enabled=True,
         schedule_enabled=False,
         retry_enabled=True,
     ),

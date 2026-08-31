@@ -419,7 +419,7 @@ class TaskRunDispatcher:
         params = self._maintenance_params(task_run)
         current_node_id: int | None = None
         try:
-            if action.key == "maintenance.replay_wealth_sector_heat_history" and str(
+            if action.execution_config.get("plan_apply_replay") is True and str(
                 params.get("execution_mode") or ""
             ).upper() == "PLAN":
                 self._validate_replay_plan_params(params)
@@ -448,12 +448,12 @@ class TaskRunDispatcher:
                 return TaskRunDispatchOutcome(
                     status="success",
                     summary_message=(
-                        f"Heat 回放计划已冻结：units={len(plan.units)} gaps={gap_count} "
+                        f"{action.display_name}计划已冻结：units={len(plan.units)} gaps={gap_count} "
                         f"apply_ready={str(plan.apply_ready).lower()} plan_hash={plan.plan_hash}"
                     ),
                 )
 
-            if action.key == "maintenance.replay_wealth_sector_heat_history":
+            if action.execution_config.get("plan_apply_replay") is True:
                 self._validate_replay_apply_params(params)
                 units = self._load_replay_apply_units(session=session, task_run=task_run, action=action, params=params)
             else:
@@ -535,11 +535,12 @@ class TaskRunDispatcher:
             )
         except Exception as exc:
             session.rollback()
+            error_code = str(getattr(exc, "code", "") or "maintenance_executor_failed")
             issue = self._record_issue(
                 session,
                 task_run=task_run,
                 node_id=current_node_id,
-                code="maintenance_executor_failed",
+                code=error_code,
                 title="系统维护执行失败",
                 operator_message="系统维护动作执行失败。",
                 suggested_action="查看技术诊断和已完成单元；历史回放应从原计划续跑，不要重新规划。",
@@ -671,9 +672,16 @@ class TaskRunDispatcher:
         if snapshot.get("apply_ready") is not True:
             raise ValueError("referenced replay PLAN contains source gaps and is not apply-ready")
         metadata = snapshot.get("metadata")
+        metadata_start_date = (
+            metadata.get("requested_start_date")
+            if isinstance(metadata, Mapping)
+            else None
+        )
+        if metadata_start_date in (None, "") and isinstance(metadata, Mapping):
+            metadata_start_date = metadata.get("start_date")
         if (
             not isinstance(metadata, Mapping)
-            or metadata.get("start_date") != referenced_params.get("start_date")
+            or metadata_start_date != referenced_params.get("start_date")
             or metadata.get("end_date") != referenced_params.get("end_date")
         ):
             raise ValueError("referenced replay PLAN date window does not match its frozen snapshot")

@@ -874,6 +874,7 @@ def test_ops_manual_actions_exposes_heat_single_day_and_plan_apply_contract(app_
     actions = _actions_by_key(response.json())
     single = actions["maintenance.materialize_wealth_sector_heat_daily"]
     replay = actions["maintenance.replay_wealth_sector_heat_history"]
+    analysis_replay = actions["maintenance.replay_wealth_sector_analysis_history"]
     assert single["action_type"] == "maintenance_action"
     assert [item["mode"] for item in single["time_form"]["modes"]] == ["point"]
     assert single["filters"] == []
@@ -885,6 +886,15 @@ def test_ops_manual_actions_exposes_heat_single_day_and_plan_apply_contract(app_
     ]
     assert replay["filters"][0]["required"] is True
     assert replay["filters"][0]["options"] == ["PLAN", "APPLY"]
+    assert [item["mode"] for item in analysis_replay["time_form"]["modes"]] == [
+        "range",
+        "none",
+    ]
+    assert [item["key"] for item in analysis_replay["filters"]] == [
+        "execution_mode",
+        "plan_task_run_id",
+        "plan_hash",
+    ]
 
 
 def test_ops_manual_action_creates_heat_single_plan_and_apply_task_runs(

@@ -19,6 +19,8 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
         "maintenance.rebuild_index_kline_serving",
         "maintenance.materialize_wealth_sector_heat_daily",
         "maintenance.replay_wealth_sector_heat_history",
+        "maintenance.materialize_wealth_sector_analysis_daily",
+        "maintenance.replay_wealth_sector_analysis_history",
         "maintenance.materialize_news_stock_links",
     }
     assert {action.domain_key for action in MAINTENANCE_ACTION_REGISTRY.values()} == {"maintenance"}
@@ -49,6 +51,19 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
         "deadline_next_day_local_time": "00:30",
     }
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.replay_wealth_sector_heat_history"].schedule_enabled is False
+    analysis_daily = MAINTENANCE_ACTION_REGISTRY[
+        "maintenance.materialize_wealth_sector_analysis_daily"
+    ]
+    analysis_replay = MAINTENANCE_ACTION_REGISTRY[
+        "maintenance.replay_wealth_sector_analysis_history"
+    ]
+    assert analysis_daily.executor_key == "wealth_sector_analysis_daily"
+    assert analysis_daily.schedule_enabled is True
+    assert analysis_daily.manual_enabled is True
+    assert analysis_replay.executor_key == "wealth_sector_analysis_daily"
+    assert analysis_replay.manual_enabled is True
+    assert analysis_replay.schedule_enabled is False
+    assert analysis_replay.execution_config["plan_apply_replay"] is True
     news_action = MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_news_stock_links"]
     assert news_action.executor_key == "news_stock_linking"
     assert news_action.target_tables == ("core_serving.news_stock_link",)
