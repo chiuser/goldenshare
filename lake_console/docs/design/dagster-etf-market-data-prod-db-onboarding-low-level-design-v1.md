@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P8 代码与隔离验收已完成；首次正式 Raw Bootstrap、P7A 观察和 N3B decision 均已完成；正式 Silver 写入仍未授权；N6 仍待 P10 启用前评审；尚未授权事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P8 代码、隔离验收和首次正式 Silver Bootstrap 均已完成；首次正式 Raw Bootstrap、P7A 观察和 N3B decision 均已完成；N6 仍待 P10 启用前评审；尚未授权动态分区注册、事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。首次 frozen plan、Raw apply、正式 P7A 观察、N3B policy、正式 `raw-decide` 以及 P8 代码与隔离验收已按分阶段授权完成。795 个分区的最终结果为 585 green、210 WARN、0 blocked，全部可准入；正式 Silver 写入仍须单独授权。在正式 Silver 物理验收完成前，不得补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。首次 frozen plan、Raw apply、正式 P7A 观察、N3B policy、正式 `raw-decide`、P8 代码与隔离验收及首次正式 Silver apply 已按分阶段授权完成。795 个分区的最终结果为 585 green、210 WARN、0 blocked，全部可准入并已完成 Silver 物理验收；P9 动态分区注册与事件补录仍须分别授权，在 P9 完成前不得启用分钟日常 Sensors。
 
 ---
 
@@ -1367,7 +1367,7 @@ events        物理对账后单独补 materialization/check event，不写 Lake
 
 七个 subcommands 共用 `etf_mins_bootstrap.py` 的计划、校验、checkpoint 和报告类型，以及 `etf_mins_bootstrap_cli.py` 的参数解析；它们仍是七个单独授权阶段，不是一次命令自动跑完全链。禁止把写开关藏在只读入口。`raw-apply`、`silver-apply`、`partitions`、`events` 分别要求 `--confirm-raw-lake-write`、`--confirm-silver-lake-write`、`--confirm-partition-write`、`--confirm-event-write`。本 LLD 只设计入口，不授权执行。
 
-当前实现已经把进入开发范围的 `plan/raw-apply/raw-observe/raw-decide/silver-apply` 注册到 CLI；`partitions/events` 会在 P9 实现时再加入，不提前提供会被误认为可执行的空壳。最终目标仍是本节列出的一个 CLI、七个受控 subcommands，这不改变各阶段必须单独授权的边界，也不代表已经授权执行正式 `silver-apply`。
+当前实现已经把进入开发范围的 `plan/raw-apply/raw-observe/raw-decide/silver-apply` 注册到 CLI；`partitions/events` 会在 P9 实现时再加入，不提前提供会被误认为可执行的空壳。最终目标仍是本节列出的一个 CLI、七个受控 subcommands，这不改变各阶段必须单独授权的边界。CLI 注册本身不代表执行授权；首次正式 `silver-apply` 已在 2026-08-31 另行获批并完成，P9 两个入口仍未实现或授权。
 
 对应调用形状固定为：
 
@@ -2022,7 +2022,9 @@ decision evaluator 先验证 N3A summary/hash 与 6 个小型 Parquet 的 hash�
 
 执行结果：已实现并由正式 Definitions 自动发现五个 Raw assets、五个 Silver assets、15 个 Raw blocking checks、10 个 Silver blocking checks和两个 in-process jobs。五个 `bar_domain` evaluations 由一个 multi-asset check 在同一 DuckDB connection 中生成；正式 Silver job 不包含 Raw writer，五个 Silver 节点分别依赖同频 `file_contract/request_scope` 和共享 `bar_domain`，任一门禁失败都会阻断对应 Silver。Silver materialization 的 Basic/Raw lineage 来自当前 Raw materialization，policy/decision/reasons 只来自精确绑定该 Raw storage id 且已通过的 `bar_domain` evaluation，Silver writer 不重跑 N3。
 
-Bootstrap 已增加 `silver-apply`：只消费同 operation 的 Raw 完成报告、N3A summary、N3B summary/decision manifest 和已登记 policy，不构造 Prod resource；从完整 finalized Raw manifest 生成 Silver work manifest，只处理 `silver_eligible=true`，目标只允许新增或 11 字段双向等价复用，冲突不覆盖，blocked 分区要求 Silver 文件不存在。每个目标完成后原子更新 checkpoint，全部物理集合、Raw/Silver 行数与双向等价、候选清理和报告 hash 闭合后才生成 finalized Silver manifest 与不可变 `physical_final_report.json`。隔离湖只用最多 2 个日期的五频合成数据，覆盖 green/WARN/blocked、已有等价文件、冲突不覆盖、显式确认、断点复用、正式 Definitions 完整发现与 job blocking 依赖；ETF 专项测试为 146 passed，orchestrator 全量回归为 2,427 passed、833 subtests passed。该验收没有访问 Prod、正式 Lake 或正式 Dagster instance，也没有执行正式 `silver-apply`。
+Bootstrap 已增加 `silver-apply`：只消费同 operation 的 Raw 完成报告、N3A summary、N3B summary/decision manifest 和已登记 policy，不构造 Prod resource；从完整 finalized Raw manifest 生成 Silver work manifest，只处理 `silver_eligible=true`，目标只允许新增或 11 字段双向等价复用，冲突不覆盖，blocked 分区要求 Silver 文件不存在。每个目标完成后原子更新 checkpoint，全部物理集合、Raw/Silver 行数与双向等价、候选清理和报告 hash 闭合后才生成 finalized Silver manifest 与不可变 `physical_final_report.json`。隔离湖只用最多 2 个日期的五频合成数据，覆盖 green/WARN/blocked、已有等价文件、冲突不覆盖、显式确认、断点复用、正式 Definitions 完整发现与 job blocking 依赖；ETF 专项测试为 146 passed，orchestrator 全量回归为 2,427 passed、833 subtests passed。该代码验收阶段没有访问 Prod、正式 Lake 或正式 Dagster instance，也没有提前执行正式 `silver-apply`。
+
+2026-08-31 经后续单独授权，operation `etf-mins-bootstrap-20260831-01` 的正式 `silver-apply` 已完成。写前只读预检确认 159 个交易日、5 个频率、795 个 Raw/decision 分区一一对应，77,079,483 行全部 `silver_eligible=true`，正式 Silver 目标全部缺失、无冲突或残留 candidate，可用空间约 2.52 TB；执行未访问 Prod 或 Dagster instance。795 个目标全部以 `added` 原子提升，0 reused、0 blocked、210 WARN，Silver 总行数与 Raw 同为 77,079,483，总文件字节数同为 1,155,673,309；从 work manifest 生成到 final report 约 100 秒。Silver work manifest hash 为 `97838e9d7e0e8ae105249fcf24952702392ea117968de827e5f3e6efe0fbe3d5`，finalized Silver manifest hash 为 `6976a4ba45dec00f4a3130795987bd6134c1a32706c1c71d8f807d2d98c4686d`，checkpoint hash 为 `a98851757edc313bd160224bcfe5cd0df9698173a0da1a5da0b33bdbe7d14562`，physical final report hash 为 `3c0814e25b2589e829a3c7418e86f16c83a8e5983110d327c2de8e32ec434909`。独立 post-audit 复算三个报告/manifest hash 全部通过，正式文件集合 795/795、缺失/额外/hash 漂移均为 0，聚合行数闭合；抽查首、中、尾三个日期五频共 15 对 Raw/Silver 双向差集均为 0，Silver staging 残留文件为 0。此次执行未注册动态分区、未写 Dagster event、未启用 Sensor，P9 边界保持不变。
 
 ### P9：历史动态分区与 Runless events
 

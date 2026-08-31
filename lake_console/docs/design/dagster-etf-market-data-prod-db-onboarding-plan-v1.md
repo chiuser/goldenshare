@@ -1,6 +1,6 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：架构口径已收敛；P0-P8 代码与隔离验收已完成；首次正式 Raw Bootstrap、P7A 观察和 N3B decision 均已完成；正式 Silver 写入仍未授权；N6 仍待 P10 启用前评审；尚未授权补事件或启用 Sensor
+状态：架构口径已收敛；P0-P8 代码、隔离验收和首次正式 Silver Bootstrap 均已完成；首次正式 Raw Bootstrap、P7A 观察和 N3B decision 均已完成；N6 仍待 P10 启用前评审；尚未授权动态分区注册、事件补录或 Sensor 启用
 创建日期：2026-08-27
 最近更新：2026-08-31
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
@@ -676,7 +676,9 @@ P7B 代码已完成：集中 policy 合同保存 version/hash/grid/reason mappin
 
 把已经冻结的 Raw 和 N3 policy 接入正式 Definitions；日常同日五频只扫描一次并生成五个 Raw `bar_domain` blocking checks。Silver 正式 Job 选择 Raw checks 与 Silver assets/checks，Raw check 失败时不执行 Silver；历史 Silver 从完整 finalized Raw manifest 中筛选 `silver_eligible=true` 且需要新增或等价核验的分区，物理集合对账通过后由 `silver-apply` 生成 `physical_final_report.json`。
 
-已完成代码与隔离验收：正式 Definitions 可发现五个 Raw、五个 Silver、25 个 blocking checks 和两个 jobs；Silver job 不含 Raw writer，并由三项 Raw 门禁直接阻断 Silver。历史 `silver-apply` 只读同 operation 的完整报告链和批准后的 decision manifest，不访问 Prod；Silver 不修值、不删行，只允许新增或与 Raw 11 字段双向等价复用，冲突停止，blocked 分区不写。checkpoint、work/finalized manifests 和 physical final report 均绑定 operation、Raw/N3/Basic/policy hashes，且只有在物理集合闭合后才生成最终报告。隔离测试只使用最多 2 个日期的五频合成文件，没有同步全量数据，也没有触碰正式 Lake 或执行正式 `silver-apply`。
+已完成代码与隔离验收：正式 Definitions 可发现五个 Raw、五个 Silver、25 个 blocking checks 和两个 jobs；Silver job 不含 Raw writer，并由三项 Raw 门禁直接阻断 Silver。历史 `silver-apply` 只读同 operation 的完整报告链和批准后的 decision manifest，不访问 Prod；Silver 不修值、不删行，只允许新增或与 Raw 11 字段双向等价复用，冲突停止，blocked 分区不写。checkpoint、work/finalized manifests 和 physical final report 均绑定 operation、Raw/N3/Basic/policy hashes，且只有在物理集合闭合后才生成最终报告。代码验收阶段的隔离测试只使用最多 2 个日期的五频合成文件，没有同步全量数据，也没有提前触碰正式 Lake。
+
+2026-08-31 经单独授权，operation `etf-mins-bootstrap-20260831-01` 的正式 `silver-apply` 已完成：159 个交易日、五个频率共 795 个 Silver 文件全部新增，Raw/Silver 均为 77,079,483 行和 1,155,673,309 文件字节；0 reused、0 blocked、210 WARN。执行不访问 Prod 或 Dagster instance，逐文件完成 DuckDB exact copy、双向等价校验、原子提升和 checkpoint；约 100 秒后生成 `physical_final_report.json`。独立 post-audit 证明 795 个目标无缺失、额外或 hash 漂移，首中尾三个日期五频共 15 对样本的双向差集为 0，staging 残留为 0。finalized Silver manifest hash 为 `6976a4ba45dec00f4a3130795987bd6134c1a32706c1c71d8f807d2d98c4686d`，physical final report hash 为 `3c0814e25b2589e829a3c7418e86f16c83a8e5983110d327c2de8e32ec434909`。本阶段没有注册动态分区、补 Dagster event 或启用 Sensor。
 
 ### P9：历史动态分区与 Runless events
 
@@ -727,7 +729,7 @@ P7B 代码已完成：集中 policy 合同保存 version/hash/grid/reason mappin
 
 ### 16.2 后续阶段仍需管理员拍板
 
-当前没有需要立即补充拍板的架构口径。P0-P8 代码与隔离验收、首次正式 Raw Bootstrap、正式 P7A 观察、N3B policy 评审以及正式 `raw-decide` 均已完成。正式 Silver 写入和 P9 以后仍需按阶段单独授权；N6 只在 P10 Sensor 启用前确认。
+当前没有需要立即补充拍板的架构口径。P0-P8 代码与隔离验收、首次正式 Raw/Silver Bootstrap、正式 P7A 观察、N3B policy 评审以及正式 `raw-decide` 均已完成。P9 以后仍需按阶段单独授权；N6 只在 P10 Sensor 启用前确认。
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |
