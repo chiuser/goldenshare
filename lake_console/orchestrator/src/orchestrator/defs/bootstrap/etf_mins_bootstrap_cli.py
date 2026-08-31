@@ -13,8 +13,12 @@ from orchestrator.defs.assets.etf_mins import EtfMinsRawWriteError
 from orchestrator.defs.bootstrap.etf_mins_bootstrap import (
     EtfMinsBootstrapError,
     apply_etf_mins_bootstrap_raw,
+    apply_etf_mins_bootstrap_silver,
     run_etf_mins_bootstrap_plan,
     validate_etf_mins_bootstrap_operation_path,
+)
+from orchestrator.defs.bootstrap.etf_mins_raw_decision import (
+    decide_etf_mins_raw,
 )
 from orchestrator.defs.bootstrap.etf_mins_raw_observation import (
     observe_etf_mins_raw,
@@ -26,7 +30,8 @@ from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "ETF 分钟 Direct Lake Bootstrap（当前开放 plan/raw-apply/raw-observe）"
+            "ETF 分钟 Direct Lake Bootstrap"
+            "（当前开放 plan/raw-apply/raw-observe/raw-decide/silver-apply）"
         )
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -69,6 +74,53 @@ def _build_parser() -> argparse.ArgumentParser:
         "--output-dir",
         required=True,
         type=Path,
+    )
+    raw_decide_parser = subcommands.add_parser(
+        "raw-decide",
+        help="只读 N3A 产物，按已登记 policy 生成 N3B 分区决策",
+    )
+    raw_decide_parser.add_argument(
+        "--observation-summary-path",
+        required=True,
+        type=Path,
+    )
+    raw_decide_parser.add_argument(
+        "--approved-policy-version",
+        required=True,
+    )
+    raw_decide_parser.add_argument(
+        "--output-dir",
+        required=True,
+        type=Path,
+    )
+    silver_apply_parser = subcommands.add_parser(
+        "silver-apply",
+        help="只消费已批准的 N3 decision，写入或等价复用 Silver",
+    )
+    silver_apply_parser.add_argument(
+        "--raw-decision-summary-path",
+        required=True,
+        type=Path,
+    )
+    silver_apply_parser.add_argument(
+        "--decision-manifest-path",
+        required=True,
+        type=Path,
+    )
+    silver_apply_parser.add_argument(
+        "--checkpoint-path",
+        required=True,
+        type=Path,
+    )
+    silver_apply_parser.add_argument(
+        "--final-report-path",
+        required=True,
+        type=Path,
+    )
+    silver_apply_parser.add_argument(
+        "--confirm-silver-lake-write",
+        required=True,
+        action="store_true",
     )
     return parser
 
@@ -160,6 +212,85 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 "peak_temp_dir_size_bytes": observation.peak_temp_dir_size_bytes,
                 "elapsed_seconds": observation.elapsed_seconds,
+            }
+        elif args.command == "raw-decide":
+            operation_root, operation_id = validate_etf_mins_bootstrap_operation_path(
+                args.observation_summary_path,
+                staging_root=staging_root,
+            )
+            validate_etf_mins_bootstrap_operation_path(
+                args.output_dir / "raw_decision_summary.json",
+                staging_root=staging_root,
+                expected_operation_id=operation_id,
+            )
+            if args.output_dir.resolve(strict=False) != operation_root.resolve(
+                strict=False
+            ):
+                raise EtfMinsBootstrapError(
+                    "etf_mins_raw_decision_output_path_invalid."
+                )
+            decision = decide_etf_mins_raw(
+                observation_summary_path=args.observation_summary_path,
+                approved_policy_version=args.approved_policy_version,
+                output_dir=args.output_dir,
+            )
+            payload = {
+                "operation_id": decision.operation_id,
+                "output_dir": str(decision.output_dir),
+                "raw_partition_decision_manifest_path": str(
+                    decision.raw_partition_decision_manifest_path
+                ),
+                "raw_decision_summary_path": str(decision.raw_decision_summary_path),
+                "observation_summary_hash": decision.observation_summary_hash,
+                "approved_policy_version": decision.approved_policy_version,
+                "approved_policy_hash": decision.approved_policy_hash,
+                "raw_partition_decision_manifest_hash": (
+                    decision.raw_partition_decision_manifest_hash
+                ),
+                "raw_decision_summary_hash": decision.raw_decision_summary_hash,
+                "partition_count": decision.partition_count,
+                "green_partition_count": decision.green_partition_count,
+                "warn_partition_count": decision.warn_partition_count,
+                "blocked_partition_count": decision.blocked_partition_count,
+                "silver_eligible_partition_count": (
+                    decision.silver_eligible_partition_count
+                ),
+                "analysis_sql_statement_count": (decision.analysis_sql_statement_count),
+                "elapsed_seconds": decision.elapsed_seconds,
+            }
+        elif args.command == "silver-apply":
+            report = apply_etf_mins_bootstrap_silver(
+                lake_root=lake_root,
+                staging_root=staging_root,
+                duckdb=duckdb,
+                raw_decision_summary_path=args.raw_decision_summary_path,
+                decision_manifest_path=args.decision_manifest_path,
+                checkpoint_path=args.checkpoint_path,
+                final_report_path=args.final_report_path,
+                confirm_silver_lake_write=args.confirm_silver_lake_write,
+            )
+            payload = {
+                "operation_id": report.operation_id,
+                "plan_fingerprint": report.plan_fingerprint,
+                "silver_work_manifest_path": str(report.silver_work_manifest_path),
+                "silver_work_manifest_hash": report.silver_work_manifest_hash,
+                "finalized_silver_manifest_path": str(
+                    report.finalized_silver_manifest_path
+                ),
+                "finalized_silver_manifest_hash": (
+                    report.finalized_silver_manifest_hash
+                ),
+                "checkpoint_path": str(report.checkpoint_path),
+                "final_report_path": str(report.final_report_path),
+                "raw_file_count": report.raw_file_count,
+                "raw_row_count": report.raw_row_count,
+                "silver_file_count": report.silver_file_count,
+                "silver_row_count": report.silver_row_count,
+                "added_file_count": report.added_file_count,
+                "reused_file_count": report.reused_file_count,
+                "blocked_partition_count": report.blocked_partition_count,
+                "warn_partition_count": report.warn_partition_count,
+                "report_hash": report.report_hash,
             }
         else:  # pragma: no cover - argparse rejects unknown commands.
             raise AssertionError(f"Unsupported command: {args.command}")

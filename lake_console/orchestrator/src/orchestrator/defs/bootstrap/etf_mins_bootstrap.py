@@ -27,6 +27,7 @@ from orchestrator.defs.asset_guards.etf_mins_lake_readiness import (
     evaluate_etf_mins_raw_candidate,
 )
 from orchestrator.defs.assets.etf_mins import (
+    build_etf_mins_silver_copy_sql,
     create_etf_mins_frozen_basic_relations,
     etf_mins_relations_are_semantically_equal,
     revalidate_etf_mins_basic_reference,
@@ -67,6 +68,7 @@ from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_SOURCE_COLUMNS,
     ETF_MINS_SOURCE_FREQS,
     EtfMinsRequestableTarget,
+    get_etf_mins_raw_decision_policy,
     normalize_etf_mins_source_freq,
     normalize_etf_mins_trade_date,
 )
@@ -95,6 +97,44 @@ _SOURCE_BATCH_RELATION = "etf_mins_source_batch"
 _SOURCE_DATE_RELATION = "etf_mins_source_date"
 _CANDIDATE_RELATION = "etf_mins_candidate"
 _EXISTING_RELATION = "etf_mins_existing_target"
+_SILVER_WORK_MANIFEST_FILENAME = "silver_work_manifest.parquet"
+_FINALIZED_SILVER_MANIFEST_FILENAME = "finalized_silver_manifest.parquet"
+_PHYSICAL_FINAL_REPORT_FILENAME = "physical_final_report.json"
+_SILVER_CHECKPOINT_FILENAME = "silver_checkpoint.json"
+
+_SILVER_WORK_MANIFEST_COLUMNS = (
+    "operation_id",
+    "plan_fingerprint",
+    "source_freq",
+    "trade_date",
+    "formal_raw_relative_path",
+    "formal_raw_sha256",
+    "formal_raw_row_count",
+    "formal_silver_relative_path",
+    "decision",
+    "decision_reason_codes_json",
+    "approved_policy_version",
+    "approved_policy_hash",
+    "initial_silver_target_state",
+)
+_FINALIZED_SILVER_MANIFEST_COLUMNS = (
+    "operation_id",
+    "plan_fingerprint",
+    "source_freq",
+    "trade_date",
+    "formal_raw_relative_path",
+    "formal_raw_sha256",
+    "formal_raw_row_count",
+    "formal_silver_relative_path",
+    "formal_silver_sha256",
+    "formal_silver_size_bytes",
+    "formal_silver_row_count",
+    "disposition",
+    "decision",
+    "decision_reason_codes_json",
+    "approved_policy_version",
+    "approved_policy_hash",
+)
 
 
 class EtfMinsBootstrapError(RuntimeError):
@@ -228,6 +268,32 @@ class EtfMinsBootstrapRawEvidence:
     raw_apply_report: EtfMinsBootstrapRawApplyReport
     basic_reference: EtfBasicSilverSnapshotReference
     finalized_raw_manifest: tuple[Mapping[str, object], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EtfMinsBootstrapSilverApplyReport:
+    operation_id: str
+    plan_fingerprint: str
+    raw_final_report_hash: str
+    raw_observation_summary_hash: str
+    raw_decision_summary_hash: str
+    finalized_raw_manifest_hash: str
+    silver_work_manifest_path: Path
+    silver_work_manifest_hash: str
+    finalized_silver_manifest_path: Path
+    finalized_silver_manifest_hash: str
+    checkpoint_path: Path
+    final_report_path: Path
+    raw_file_count: int
+    raw_row_count: int
+    silver_file_count: int
+    silver_row_count: int
+    added_file_count: int
+    reused_file_count: int
+    blocked_partition_count: int
+    warn_partition_count: int
+    checkpoint_hash: str
+    report_hash: str
 
 
 def compute_etf_mins_bootstrap_payload_hash(
@@ -1219,6 +1285,991 @@ def apply_etf_mins_bootstrap_raw(
     )
     _write_immutable_json(raw_final_report_path, report_payload)
     return _raw_apply_report_from_payload(report_payload, raw_final_report_path)
+
+
+def apply_etf_mins_bootstrap_silver(
+    *,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    raw_decision_summary_path: Path,
+    decision_manifest_path: Path,
+    checkpoint_path: Path,
+    final_report_path: Path,
+    confirm_silver_lake_write: bool,
+) -> EtfMinsBootstrapSilverApplyReport:
+    """Publish only N3-admitted Raw partitions as exact Silver copies."""
+
+    if not confirm_silver_lake_write:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_confirmation_required: pass the explicit "
+            "Silver Lake write confirmation."
+        )
+    _assert_roots_available(lake_root=lake_root, staging_root=staging_root)
+    operation_root, operation_id = validate_etf_mins_bootstrap_operation_path(
+        raw_decision_summary_path,
+        staging_root=staging_root,
+    )
+    for path in (decision_manifest_path, checkpoint_path, final_report_path):
+        candidate_root, _ = validate_etf_mins_bootstrap_operation_path(
+            path,
+            staging_root=staging_root,
+            expected_operation_id=operation_id,
+        )
+        if candidate_root != operation_root:
+            raise EtfMinsBootstrapError("etf_mins_bootstrap_operation_mismatch.")
+    expected_names = {
+        raw_decision_summary_path: "raw_decision_summary.json",
+        decision_manifest_path: "raw_partition_decision_manifest.parquet",
+        checkpoint_path: _SILVER_CHECKPOINT_FILENAME,
+        final_report_path: _PHYSICAL_FINAL_REPORT_FILENAME,
+    }
+    if any(
+        path.parent.resolve(strict=False) != operation_root
+        or path.name != expected_name
+        for path, expected_name in expected_names.items()
+    ):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_artifact_path_invalid.")
+
+    raw_evidence = load_etf_mins_bootstrap_raw_evidence(
+        lake_root=lake_root,
+        duckdb=duckdb,
+        raw_final_report_path=operation_root / "raw_final_report.json",
+    )
+    if raw_evidence.plan.operation_id != operation_id:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_operation_mismatch.")
+    decision_summary, decision_rows, observation_summary_hash = (
+        _load_etf_mins_silver_decision_evidence(
+            operation_root=operation_root,
+            operation_id=operation_id,
+            raw_evidence=raw_evidence,
+            decision_summary_path=raw_decision_summary_path,
+            decision_manifest_path=decision_manifest_path,
+            duckdb=duckdb,
+        )
+    )
+    policy = get_etf_mins_raw_decision_policy(
+        str(decision_summary["approved_policy_version"])
+    )
+    raw_rows_by_key = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"])): row
+        for row in raw_evidence.finalized_raw_manifest
+    }
+    decision_rows_by_key = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"])): row
+        for row in decision_rows
+    }
+    _assert_etf_mins_silver_decision_scope(
+        raw_rows_by_key=raw_rows_by_key,
+        decision_rows_by_key=decision_rows_by_key,
+        raw_evidence=raw_evidence,
+        policy=policy,
+    )
+    _assert_protected_manifest_unchanged(
+        plan=raw_evidence.plan,
+        lake_root=lake_root,
+    )
+
+    for key, decision_row in decision_rows_by_key.items():
+        if bool(decision_row["silver_eligible"]):
+            continue
+        raw_row = raw_rows_by_key[key]
+        blocked_target = silver_etf_mins_path(
+            lake_root,
+            str(raw_row["source_freq"]),
+            str(raw_row["trade_date"]),
+        )
+        if blocked_target.exists():
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_blocked_silver_target_present: blocked/unknown "
+                "partitions must have no Silver file."
+            )
+
+    work_manifest_path = operation_root / _SILVER_WORK_MANIFEST_FILENAME
+    work_rows = _load_or_create_etf_mins_silver_work_manifest(
+        path=work_manifest_path,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        raw_evidence=raw_evidence,
+        raw_rows_by_key=raw_rows_by_key,
+        decision_rows_by_key=decision_rows_by_key,
+        policy=policy,
+    )
+    work_manifest_hash = compute_etf_mins_bootstrap_manifest_hash(
+        work_rows,
+        key_fields=("source_freq", "trade_date"),
+    )
+    checkpoint = _load_or_initialize_etf_mins_silver_checkpoint(
+        checkpoint_path=checkpoint_path,
+        raw_evidence=raw_evidence,
+        decision_summary=decision_summary,
+        work_manifest_hash=work_manifest_hash,
+    )
+    completed_targets = checkpoint["completed_targets"]
+    if not isinstance(completed_targets, dict):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_checkpoint_invalid: completed_targets."
+        )
+
+    for work_row in work_rows:
+        source_freq = str(work_row["source_freq"])
+        trade_date = str(work_row["trade_date"])
+        target_key = _target_key(source_freq, trade_date)
+        raw_path = raw_etf_mins_path(lake_root, source_freq, trade_date)
+        if (
+            not raw_path.is_file()
+            or _sha256_file(raw_path) != work_row["formal_raw_sha256"]
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_raw_changed_before_copy."
+            )
+        if target_key in completed_targets:
+            _assert_etf_mins_completed_silver_target(
+                lake_root=lake_root,
+                duckdb=duckdb,
+                work_row=work_row,
+                completed_row=completed_targets[target_key],
+            )
+            stale_candidate = etf_mins_staging_path(
+                staging_root,
+                operation_id,
+                "silver",
+                source_freq,
+                trade_date,
+            )
+            if stale_candidate.exists():
+                _assert_etf_mins_silver_candidate_equivalent(
+                    duckdb=duckdb,
+                    raw_path=raw_path,
+                    candidate_path=stale_candidate,
+                )
+                stale_candidate.unlink()
+            continue
+        completed_targets[target_key] = _apply_one_etf_mins_silver_target(
+            lake_root=lake_root,
+            staging_root=staging_root,
+            duckdb=duckdb,
+            operation_id=operation_id,
+            work_row=work_row,
+        )
+        _write_etf_mins_silver_checkpoint(checkpoint_path, checkpoint)
+
+    expected_work_keys = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"]))
+        for row in work_rows
+    }
+    if set(completed_targets) != expected_work_keys:
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_targets_incomplete.")
+    finalized_rows = tuple(
+        dict(completed_targets[key]) for key in sorted(completed_targets)
+    )
+    finalized_manifest_path = operation_root / _FINALIZED_SILVER_MANIFEST_FILENAME
+    _write_or_validate_etf_mins_typed_manifest(
+        path=finalized_manifest_path,
+        rows=finalized_rows,
+        columns=_FINALIZED_SILVER_MANIFEST_COLUMNS,
+        duckdb=duckdb,
+    )
+    finalized_manifest_hash = compute_etf_mins_bootstrap_manifest_hash(
+        finalized_rows,
+        key_fields=("source_freq", "trade_date"),
+    )
+    checkpoint_hash = _validate_etf_mins_silver_checkpoint(
+        checkpoint,
+        raw_evidence=raw_evidence,
+        decision_summary=decision_summary,
+        work_manifest_hash=work_manifest_hash,
+    )
+    _assert_etf_mins_silver_physical_closure(
+        lake_root=lake_root,
+        staging_root=staging_root,
+        duckdb=duckdb,
+        raw_evidence=raw_evidence,
+        raw_rows_by_key=raw_rows_by_key,
+        decision_rows_by_key=decision_rows_by_key,
+        work_rows=work_rows,
+        finalized_rows=finalized_rows,
+        checkpoint=checkpoint,
+    )
+    _assert_protected_manifest_unchanged(
+        plan=raw_evidence.plan,
+        lake_root=lake_root,
+    )
+
+    report_payload: dict[str, object] = {
+        "bootstrap_kind": ETF_MINS_BOOTSTRAP_KIND,
+        "schema_version": ETF_MINS_BOOTSTRAP_SCHEMA_VERSION,
+        "operation_id": operation_id,
+        "plan_fingerprint": raw_evidence.plan.plan_fingerprint,
+        "raw_final_report_hash": raw_evidence.raw_apply_report.report_hash,
+        "raw_observation_summary_hash": observation_summary_hash,
+        "raw_decision_summary_hash": str(decision_summary["raw_decision_summary_hash"]),
+        "raw_partition_decision_manifest_hash": str(
+            decision_summary["raw_partition_decision_manifest"]["sha256"]
+        ),
+        "finalized_raw_manifest_hash": (
+            raw_evidence.raw_apply_report.finalized_raw_manifest_hash
+        ),
+        "silver_work_manifest_relative_path": work_manifest_path.name,
+        "silver_work_manifest_hash": work_manifest_hash,
+        "finalized_silver_manifest_relative_path": finalized_manifest_path.name,
+        "finalized_silver_manifest_hash": finalized_manifest_hash,
+        "silver_checkpoint_relative_path": checkpoint_path.name,
+        "checkpoint_hash": checkpoint_hash,
+        "basic_raw_snapshot_hash": raw_evidence.plan.basic_raw_snapshot_hash,
+        "basic_silver_content_hash": raw_evidence.plan.basic_silver_content_hash,
+        "gap_policy_version": policy.version,
+        "gap_policy_hash": policy.policy_hash,
+        "historical_protection_mode": raw_evidence.plan.historical_protection_mode,
+        "protected_file_manifest_hash": (
+            raw_evidence.plan.protected_file_manifest_hash
+        ),
+        "raw_file_count": len(raw_evidence.finalized_raw_manifest),
+        "raw_row_count": sum(
+            int(row["formal_raw_row_count"])
+            for row in raw_evidence.finalized_raw_manifest
+        ),
+        "silver_file_count": len(finalized_rows),
+        "silver_row_count": sum(
+            int(row["formal_silver_row_count"]) for row in finalized_rows
+        ),
+        "added_file_count": sum(
+            row["disposition"] == "added" for row in finalized_rows
+        ),
+        "reused_file_count": sum(
+            row["disposition"] == "reused" for row in finalized_rows
+        ),
+        "blocked_partition_count": sum(
+            row["decision"] == "blocked" for row in decision_rows
+        ),
+        "warn_partition_count": sum(row["decision"] == "warn" for row in decision_rows),
+    }
+    report_payload["report_hash"] = compute_etf_mins_bootstrap_payload_hash(
+        report_payload
+    )
+    _write_immutable_json(final_report_path, report_payload)
+    return _silver_apply_report_from_payload(report_payload, final_report_path)
+
+
+def _load_etf_mins_silver_decision_evidence(
+    *,
+    operation_root: Path,
+    operation_id: str,
+    raw_evidence: EtfMinsBootstrapRawEvidence,
+    decision_summary_path: Path,
+    decision_manifest_path: Path,
+    duckdb: DuckDBResource,
+) -> tuple[dict[str, Any], tuple[dict[str, object], ...], str]:
+    summary = _load_json(decision_summary_path, label="ETF minute Raw decision")
+    expected_summary_hash = compute_etf_mins_bootstrap_payload_hash(
+        summary,
+        self_hash_field="raw_decision_summary_hash",
+    )
+    manifest_metadata = summary.get("raw_partition_decision_manifest")
+    policy_version = str(summary.get("approved_policy_version") or "")
+    try:
+        policy = get_etf_mins_raw_decision_policy(policy_version)
+    except ValueError as error:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_policy_not_registered."
+        ) from error
+    if (
+        summary.get("decision_kind") != "etf_mins_raw_decision"
+        or int(summary.get("schema_version", 0)) != ETF_MINS_BOOTSTRAP_SCHEMA_VERSION
+        or summary.get("operation_id") != operation_id
+        or summary.get("plan_fingerprint") != raw_evidence.plan.plan_fingerprint
+        or summary.get("input_manifest_hash")
+        != raw_evidence.raw_apply_report.finalized_raw_manifest_hash
+        or summary.get("approved_policy_hash") != policy.policy_hash
+        or summary.get("raw_decision_summary_hash") != expected_summary_hash
+        or not isinstance(manifest_metadata, Mapping)
+        or manifest_metadata.get("filename") != decision_manifest_path.name
+        or not decision_manifest_path.is_file()
+        or int(manifest_metadata.get("size_bytes", -1))
+        != decision_manifest_path.stat().st_size
+        or manifest_metadata.get("sha256") != _sha256_file(decision_manifest_path)
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_decision_evidence_invalid."
+        )
+    observation_summary_path = (
+        operation_root / "raw-observe/raw_observation_summary.json"
+    )
+    observation_summary = _load_json(
+        observation_summary_path,
+        label="ETF minute Raw observation summary",
+    )
+    observation_summary_hash = compute_etf_mins_bootstrap_payload_hash(
+        observation_summary,
+        self_hash_field="observation_summary_hash",
+    )
+    if (
+        observation_summary.get("operation_id") != operation_id
+        or observation_summary.get("plan_fingerprint")
+        != raw_evidence.plan.plan_fingerprint
+        or observation_summary.get("input_manifest_hash")
+        != raw_evidence.raw_apply_report.finalized_raw_manifest_hash
+        or observation_summary.get("observation_summary_hash")
+        != observation_summary_hash
+        or summary.get("observation_summary_hash") != observation_summary_hash
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_observation_evidence_invalid."
+        )
+    selected_columns = (
+        "operation_id",
+        "plan_fingerprint",
+        "trade_date",
+        "source_freq",
+        "raw_relative_path",
+        "raw_sha256",
+        "raw_row_count",
+        "basic_raw_snapshot_hash",
+        "basic_silver_content_hash",
+        "approved_policy_version",
+        "approved_policy_hash",
+        "decision_reason_codes_json",
+        "decision",
+        "silver_eligible",
+    )
+    try:
+        with duckdb.connect() as connection:
+            cursor = connection.execute(
+                f"SELECT {', '.join(selected_columns)} FROM "
+                f"{read_parquet(decision_manifest_path, hive_partitioning=False)} "
+                "ORDER BY source_freq, trade_date"
+            )
+            rows = tuple(
+                dict(zip(selected_columns, row, strict=True))
+                for row in cursor.fetchall()
+            )
+    except Exception:  # noqa: BLE001 - normalize decision manifest failures.
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_decision_manifest_unreadable."
+        ) from None
+    if len(rows) != int(manifest_metadata.get("row_count", -1)):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_decision_manifest_count_invalid."
+        )
+    return summary, rows, observation_summary_hash
+
+
+def _assert_etf_mins_silver_decision_scope(
+    *,
+    raw_rows_by_key: Mapping[str, Mapping[str, object]],
+    decision_rows_by_key: Mapping[str, Mapping[str, object]],
+    raw_evidence: EtfMinsBootstrapRawEvidence,
+    policy: Any,
+) -> None:
+    if len(decision_rows_by_key) != len(raw_evidence.finalized_raw_manifest) or set(
+        decision_rows_by_key
+    ) != set(raw_rows_by_key):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_decision_scope_mismatch."
+        )
+    allowed_reasons = set(policy.blocking_reason_codes) | set(
+        policy.warning_reason_codes
+    )
+    for key, decision_row in decision_rows_by_key.items():
+        raw_row = raw_rows_by_key[key]
+        try:
+            reason_codes = json.loads(str(decision_row["decision_reason_codes_json"]))
+        except json.JSONDecodeError as error:
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_decision_reasons_invalid."
+            ) from error
+        if not isinstance(reason_codes, list) or any(
+            not isinstance(reason, str) or reason not in allowed_reasons
+            for reason in reason_codes
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_decision_reasons_invalid."
+            )
+        blocking = any(
+            reason in policy.blocking_reason_codes for reason in reason_codes
+        )
+        warning = any(reason in policy.warning_reason_codes for reason in reason_codes)
+        expected_decision = "blocked" if blocking else "warn" if warning else "green"
+        if (
+            decision_row["operation_id"] != raw_evidence.plan.operation_id
+            or decision_row["plan_fingerprint"] != raw_evidence.plan.plan_fingerprint
+            or decision_row["raw_relative_path"] != raw_row["formal_raw_relative_path"]
+            or decision_row["raw_sha256"] != raw_row["formal_raw_sha256"]
+            or int(decision_row["raw_row_count"])
+            != int(raw_row["formal_raw_row_count"])
+            or decision_row["basic_raw_snapshot_hash"]
+            != raw_evidence.plan.basic_raw_snapshot_hash
+            or decision_row["basic_silver_content_hash"]
+            != raw_evidence.plan.basic_silver_content_hash
+            or decision_row["approved_policy_version"] != policy.version
+            or decision_row["approved_policy_hash"] != policy.policy_hash
+            or decision_row["decision"] != expected_decision
+            or bool(decision_row["silver_eligible"]) != (not blocking)
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_decision_row_mismatch."
+            )
+
+
+def _load_or_create_etf_mins_silver_work_manifest(
+    *,
+    path: Path,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    raw_evidence: EtfMinsBootstrapRawEvidence,
+    raw_rows_by_key: Mapping[str, Mapping[str, object]],
+    decision_rows_by_key: Mapping[str, Mapping[str, object]],
+    policy: Any,
+) -> tuple[dict[str, object], ...]:
+    expected_rows = []
+    for key in sorted(decision_rows_by_key):
+        decision_row = decision_rows_by_key[key]
+        if not bool(decision_row["silver_eligible"]):
+            continue
+        raw_row = raw_rows_by_key[key]
+        source_freq = str(raw_row["source_freq"])
+        trade_date = str(raw_row["trade_date"])
+        silver_path = silver_etf_mins_path(lake_root, source_freq, trade_date)
+        expected_rows.append(
+            {
+                "operation_id": raw_evidence.plan.operation_id,
+                "plan_fingerprint": raw_evidence.plan.plan_fingerprint,
+                "source_freq": source_freq,
+                "trade_date": trade_date,
+                "formal_raw_relative_path": raw_row["formal_raw_relative_path"],
+                "formal_raw_sha256": raw_row["formal_raw_sha256"],
+                "formal_raw_row_count": int(raw_row["formal_raw_row_count"]),
+                "formal_silver_relative_path": silver_path.relative_to(
+                    lake_root
+                ).as_posix(),
+                "decision": decision_row["decision"],
+                "decision_reason_codes_json": decision_row[
+                    "decision_reason_codes_json"
+                ],
+                "approved_policy_version": policy.version,
+                "approved_policy_hash": policy.policy_hash,
+                "initial_silver_target_state": (
+                    "present" if silver_path.exists() else "missing"
+                ),
+            }
+        )
+    if path.exists():
+        observed = _load_etf_mins_typed_manifest(
+            path=path,
+            columns=_SILVER_WORK_MANIFEST_COLUMNS,
+            duckdb=duckdb,
+        )
+        expected_without_state = {
+            _target_key(str(row["source_freq"]), str(row["trade_date"])): {
+                key: value
+                for key, value in row.items()
+                if key != "initial_silver_target_state"
+            }
+            for row in expected_rows
+        }
+        observed_without_state = {
+            _target_key(str(row["source_freq"]), str(row["trade_date"])): {
+                key: value
+                for key, value in row.items()
+                if key != "initial_silver_target_state"
+            }
+            for row in observed
+        }
+        if expected_without_state != observed_without_state or any(
+            row["initial_silver_target_state"] not in {"missing", "present"}
+            for row in observed
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_work_manifest_conflict."
+            )
+        return observed
+    rows = tuple(expected_rows)
+    _write_or_validate_etf_mins_typed_manifest(
+        path=path,
+        rows=rows,
+        columns=_SILVER_WORK_MANIFEST_COLUMNS,
+        duckdb=duckdb,
+    )
+    return rows
+
+
+def _load_or_initialize_etf_mins_silver_checkpoint(
+    *,
+    checkpoint_path: Path,
+    raw_evidence: EtfMinsBootstrapRawEvidence,
+    decision_summary: Mapping[str, object],
+    work_manifest_hash: str,
+) -> dict[str, object]:
+    if checkpoint_path.exists():
+        checkpoint = _load_json(
+            checkpoint_path,
+            label="ETF minute Silver checkpoint",
+        )
+        _validate_etf_mins_silver_checkpoint(
+            checkpoint,
+            raw_evidence=raw_evidence,
+            decision_summary=decision_summary,
+            work_manifest_hash=work_manifest_hash,
+        )
+        return checkpoint
+    checkpoint: dict[str, object] = {
+        "checkpoint_kind": "etf_mins_silver_apply_checkpoint",
+        "schema_version": ETF_MINS_BOOTSTRAP_SCHEMA_VERSION,
+        "operation_id": raw_evidence.plan.operation_id,
+        "plan_fingerprint": raw_evidence.plan.plan_fingerprint,
+        "raw_final_report_hash": raw_evidence.raw_apply_report.report_hash,
+        "raw_decision_summary_hash": decision_summary["raw_decision_summary_hash"],
+        "silver_work_manifest_hash": work_manifest_hash,
+        "completed_targets": {},
+    }
+    _write_etf_mins_silver_checkpoint(checkpoint_path, checkpoint)
+    return checkpoint
+
+
+def _write_etf_mins_silver_checkpoint(
+    checkpoint_path: Path,
+    checkpoint: dict[str, object],
+) -> None:
+    checkpoint["checkpoint_hash"] = compute_etf_mins_bootstrap_payload_hash(
+        checkpoint,
+        self_hash_field="checkpoint_hash",
+    )
+    _atomic_write_json(checkpoint_path, checkpoint)
+
+
+def _validate_etf_mins_silver_checkpoint(
+    checkpoint: Mapping[str, object],
+    *,
+    raw_evidence: EtfMinsBootstrapRawEvidence,
+    decision_summary: Mapping[str, object],
+    work_manifest_hash: str,
+) -> str:
+    expected_hash = compute_etf_mins_bootstrap_payload_hash(
+        checkpoint,
+        self_hash_field="checkpoint_hash",
+    )
+    if (
+        checkpoint.get("checkpoint_kind") != "etf_mins_silver_apply_checkpoint"
+        or int(checkpoint.get("schema_version", 0)) != ETF_MINS_BOOTSTRAP_SCHEMA_VERSION
+        or checkpoint.get("operation_id") != raw_evidence.plan.operation_id
+        or checkpoint.get("plan_fingerprint") != raw_evidence.plan.plan_fingerprint
+        or checkpoint.get("raw_final_report_hash")
+        != raw_evidence.raw_apply_report.report_hash
+        or checkpoint.get("raw_decision_summary_hash")
+        != decision_summary["raw_decision_summary_hash"]
+        or checkpoint.get("silver_work_manifest_hash") != work_manifest_hash
+        or checkpoint.get("checkpoint_hash") != expected_hash
+        or not isinstance(checkpoint.get("completed_targets"), Mapping)
+    ):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_checkpoint_invalid.")
+    return expected_hash
+
+
+def _apply_one_etf_mins_silver_target(
+    *,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    operation_id: str,
+    work_row: Mapping[str, object],
+) -> dict[str, object]:
+    source_freq = str(work_row["source_freq"])
+    trade_date = str(work_row["trade_date"])
+    raw_path = raw_etf_mins_path(lake_root, source_freq, trade_date)
+    target_path = silver_etf_mins_path(lake_root, source_freq, trade_date)
+    candidate_path = etf_mins_staging_path(
+        staging_root,
+        operation_id,
+        "silver",
+        source_freq,
+        trade_date,
+    )
+    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    with duckdb.connect() as connection:
+        raw_relation = read_parquet(raw_path, hive_partitioning=False)
+        if not candidate_path.exists():
+            connection.execute(
+                copy_query_to_parquet(
+                    build_etf_mins_silver_copy_sql(raw_relation),
+                    candidate_path,
+                )
+            )
+        _assert_exact_etf_mins_silver_candidate(
+            connection=connection,
+            raw_path=raw_path,
+            candidate_path=candidate_path,
+            expected_row_count=int(work_row["formal_raw_row_count"]),
+        )
+        candidate_relation = read_parquet(candidate_path, hive_partitioning=False)
+        if target_path.exists():
+            if not target_path.is_file():
+                raise EtfMinsBootstrapError(
+                    "etf_mins_bootstrap_silver_target_conflict."
+                )
+            target_relation = read_parquet(target_path, hive_partitioning=False)
+            try:
+                target_equal = etf_mins_relations_are_semantically_equal(
+                    connection,
+                    left_relation=candidate_relation,
+                    right_relation=target_relation,
+                )
+            except Exception as error:
+                raise EtfMinsBootstrapError(
+                    "etf_mins_bootstrap_silver_target_conflict."
+                ) from error
+            if not target_equal:
+                raise EtfMinsBootstrapError(
+                    "etf_mins_bootstrap_silver_target_conflict."
+                )
+            candidate_path.unlink()
+            disposition = "reused"
+        else:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            if target_path.exists():
+                raise EtfMinsBootstrapError(
+                    "etf_mins_bootstrap_silver_target_conflict."
+                )
+            try:
+                os.replace(candidate_path, target_path)
+            except OSError:
+                raise EtfMinsBootstrapError(
+                    "etf_mins_bootstrap_silver_atomic_promote_failed."
+                ) from None
+            disposition = "added"
+    if not target_path.is_file():
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_target_missing.")
+    return {
+        "operation_id": work_row["operation_id"],
+        "plan_fingerprint": work_row["plan_fingerprint"],
+        "source_freq": source_freq,
+        "trade_date": trade_date,
+        "formal_raw_relative_path": work_row["formal_raw_relative_path"],
+        "formal_raw_sha256": work_row["formal_raw_sha256"],
+        "formal_raw_row_count": int(work_row["formal_raw_row_count"]),
+        "formal_silver_relative_path": target_path.relative_to(lake_root).as_posix(),
+        "formal_silver_sha256": _sha256_file(target_path),
+        "formal_silver_size_bytes": target_path.stat().st_size,
+        "formal_silver_row_count": int(work_row["formal_raw_row_count"]),
+        "disposition": disposition,
+        "decision": work_row["decision"],
+        "decision_reason_codes_json": work_row["decision_reason_codes_json"],
+        "approved_policy_version": work_row["approved_policy_version"],
+        "approved_policy_hash": work_row["approved_policy_hash"],
+    }
+
+
+def _assert_exact_etf_mins_silver_candidate(
+    *,
+    connection: Any,
+    raw_path: Path,
+    candidate_path: Path,
+    expected_row_count: int,
+) -> None:
+    try:
+        candidate_relation = read_parquet(candidate_path, hive_partitioning=False)
+        observed_schema = tuple(
+            (str(row[0]), str(row[1]).upper())
+            for row in connection.execute(
+                f"DESCRIBE SELECT * FROM {candidate_relation}"
+            ).fetchall()
+        )
+        if observed_schema != _RAW_SCHEMA:
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_candidate_schema_invalid."
+            )
+        raw_relation = read_parquet(raw_path, hive_partitioning=False)
+        if not etf_mins_relations_are_semantically_equal(
+            connection,
+            left_relation=raw_relation,
+            right_relation=candidate_relation,
+        ):
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_candidate_not_equal_to_raw."
+            )
+        row_count = int(
+            connection.execute(f"SELECT count(*) FROM {candidate_relation}").fetchone()[
+                0
+            ]
+        )
+        if row_count != expected_row_count:
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_candidate_row_count_invalid."
+            )
+    except EtfMinsBootstrapError:
+        raise
+    except Exception:  # noqa: BLE001 - normalize candidate failures.
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_candidate_unreadable."
+        ) from None
+
+
+def _assert_etf_mins_silver_candidate_equivalent(
+    *,
+    duckdb: DuckDBResource,
+    raw_path: Path,
+    candidate_path: Path,
+) -> None:
+    with duckdb.connect() as connection:
+        expected_rows = int(
+            connection.execute(
+                f"SELECT count(*) FROM {read_parquet(raw_path, hive_partitioning=False)}"
+            ).fetchone()[0]
+        )
+        _assert_exact_etf_mins_silver_candidate(
+            connection=connection,
+            raw_path=raw_path,
+            candidate_path=candidate_path,
+            expected_row_count=expected_rows,
+        )
+
+
+def _assert_etf_mins_completed_silver_target(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    work_row: Mapping[str, object],
+    completed_row: object,
+) -> None:
+    if not isinstance(completed_row, Mapping):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_checkpoint_target_invalid."
+        )
+    source_freq = str(work_row["source_freq"])
+    trade_date = str(work_row["trade_date"])
+    target_path = silver_etf_mins_path(lake_root, source_freq, trade_date)
+    expected_identity = {
+        "operation_id": work_row["operation_id"],
+        "plan_fingerprint": work_row["plan_fingerprint"],
+        "source_freq": source_freq,
+        "trade_date": trade_date,
+        "formal_raw_relative_path": work_row["formal_raw_relative_path"],
+        "formal_raw_sha256": work_row["formal_raw_sha256"],
+        "formal_raw_row_count": int(work_row["formal_raw_row_count"]),
+        "formal_silver_relative_path": target_path.relative_to(lake_root).as_posix(),
+        "formal_silver_row_count": int(work_row["formal_raw_row_count"]),
+        "decision": work_row["decision"],
+        "decision_reason_codes_json": work_row["decision_reason_codes_json"],
+        "approved_policy_version": work_row["approved_policy_version"],
+        "approved_policy_hash": work_row["approved_policy_hash"],
+    }
+    if (
+        any(completed_row.get(key) != value for key, value in expected_identity.items())
+        or not target_path.is_file()
+        or completed_row.get("formal_silver_sha256") != _sha256_file(target_path)
+        or int(completed_row.get("formal_silver_size_bytes", -1))
+        != target_path.stat().st_size
+        or completed_row.get("disposition") not in {"added", "reused"}
+    ):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_completed_target_changed."
+        )
+    raw_path = raw_etf_mins_path(lake_root, source_freq, trade_date)
+    with duckdb.connect() as connection:
+        try:
+            equal = etf_mins_relations_are_semantically_equal(
+                connection,
+                left_relation=read_parquet(raw_path, hive_partitioning=False),
+                right_relation=read_parquet(target_path, hive_partitioning=False),
+            )
+        except Exception as error:
+            raise EtfMinsBootstrapError(
+                "etf_mins_bootstrap_silver_completed_target_changed."
+            ) from error
+    if not equal:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_completed_target_changed."
+        )
+
+
+def _write_or_validate_etf_mins_typed_manifest(
+    *,
+    path: Path,
+    rows: Sequence[Mapping[str, object]],
+    columns: Sequence[str],
+    duckdb: DuckDBResource,
+) -> None:
+    if path.exists():
+        observed = _load_etf_mins_typed_manifest(
+            path=path,
+            columns=columns,
+            duckdb=duckdb,
+        )
+        if compute_etf_mins_bootstrap_manifest_hash(
+            observed,
+            key_fields=("source_freq", "trade_date"),
+        ) != compute_etf_mins_bootstrap_manifest_hash(
+            rows,
+            key_fields=("source_freq", "trade_date"),
+        ):
+            raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_manifest_conflict.")
+        return
+    if any(set(row) != set(columns) for row in rows):
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_manifest_schema_invalid."
+        )
+    candidate = path.with_name(f".{path.name}.candidate-{uuid.uuid4().hex}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    schema_sql = ", ".join(
+        f"{column} "
+        + ("BIGINT" if column.endswith(("_count", "_bytes")) else "VARCHAR")
+        for column in columns
+    )
+    try:
+        with duckdb.connect() as connection:
+            connection.execute(f"CREATE TEMP TABLE manifest ({schema_sql})")
+            if rows:
+                placeholders = ", ".join("?" for _ in columns)
+                connection.executemany(
+                    f"INSERT INTO manifest VALUES ({placeholders})",
+                    [tuple(row[column] for column in columns) for row in rows],
+                )
+            connection.execute(
+                copy_query_to_parquet(
+                    "SELECT * FROM manifest ORDER BY source_freq, trade_date",
+                    candidate,
+                )
+            )
+        os.replace(candidate, path)
+    finally:
+        if candidate.exists():
+            candidate.unlink()
+
+
+def _load_etf_mins_typed_manifest(
+    *,
+    path: Path,
+    columns: Sequence[str],
+    duckdb: DuckDBResource,
+) -> tuple[dict[str, object], ...]:
+    try:
+        with duckdb.connect() as connection:
+            cursor = connection.execute(
+                f"SELECT * FROM {read_parquet(path, hive_partitioning=False)} "
+                "ORDER BY source_freq, trade_date"
+            )
+            observed_columns = tuple(str(item[0]) for item in cursor.description)
+            if observed_columns != tuple(columns):
+                raise EtfMinsBootstrapError(
+                    "etf_mins_bootstrap_silver_manifest_schema_invalid."
+                )
+            return tuple(
+                dict(zip(observed_columns, row, strict=True))
+                for row in cursor.fetchall()
+            )
+    except EtfMinsBootstrapError:
+        raise
+    except Exception:  # noqa: BLE001 - normalize manifest read failures.
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_silver_manifest_unreadable."
+        ) from None
+
+
+def _assert_etf_mins_silver_physical_closure(
+    *,
+    lake_root: Path,
+    staging_root: Path,
+    duckdb: DuckDBResource,
+    raw_evidence: EtfMinsBootstrapRawEvidence,
+    raw_rows_by_key: Mapping[str, Mapping[str, object]],
+    decision_rows_by_key: Mapping[str, Mapping[str, object]],
+    work_rows: Sequence[Mapping[str, object]],
+    finalized_rows: Sequence[Mapping[str, object]],
+    checkpoint: Mapping[str, object],
+) -> None:
+    eligible_keys = {
+        key for key, row in decision_rows_by_key.items() if bool(row["silver_eligible"])
+    }
+    work_keys = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"]))
+        for row in work_rows
+    }
+    final_rows_by_key = {
+        _target_key(str(row["source_freq"]), str(row["trade_date"])): row
+        for row in finalized_rows
+    }
+    completed = checkpoint.get("completed_targets")
+    if (
+        work_keys != eligible_keys
+        or set(final_rows_by_key) != eligible_keys
+        or not isinstance(completed, Mapping)
+        or set(completed) != eligible_keys
+    ):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_physical_scope_invalid.")
+    for key, raw_row in raw_rows_by_key.items():
+        source_freq = str(raw_row["source_freq"])
+        trade_date = str(raw_row["trade_date"])
+        silver_path = silver_etf_mins_path(lake_root, source_freq, trade_date)
+        if (key in eligible_keys) != silver_path.is_file():
+            raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_file_set_invalid.")
+        if key not in eligible_keys:
+            continue
+        final_row = final_rows_by_key[key]
+        _assert_etf_mins_completed_silver_target(
+            lake_root=lake_root,
+            duckdb=duckdb,
+            work_row=final_row,
+            completed_row=final_row,
+        )
+        if int(final_row["formal_silver_row_count"]) != int(
+            raw_row["formal_raw_row_count"]
+        ):
+            raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_row_count_mismatch.")
+    operation_silver_root = (
+        operation_root_for_etf_mins_bootstrap(
+            staging_root=staging_root,
+            operation_id=raw_evidence.plan.operation_id,
+        )
+        / "silver"
+    )
+    if operation_silver_root.exists() and any(
+        path.is_file() for path in operation_silver_root.rglob("*")
+    ):
+        raise EtfMinsBootstrapError("etf_mins_bootstrap_silver_staging_not_closed.")
+
+
+def _silver_apply_report_from_payload(
+    payload: Mapping[str, object],
+    final_report_path: Path,
+) -> EtfMinsBootstrapSilverApplyReport:
+    expected_hash = compute_etf_mins_bootstrap_payload_hash(
+        payload,
+        self_hash_field="report_hash",
+    )
+    if payload.get("report_hash") != expected_hash:
+        raise EtfMinsBootstrapError(
+            "etf_mins_bootstrap_physical_final_report_hash_invalid."
+        )
+    operation_root = final_report_path.parent
+    return EtfMinsBootstrapSilverApplyReport(
+        operation_id=str(payload["operation_id"]),
+        plan_fingerprint=str(payload["plan_fingerprint"]),
+        raw_final_report_hash=str(payload["raw_final_report_hash"]),
+        raw_observation_summary_hash=str(payload["raw_observation_summary_hash"]),
+        raw_decision_summary_hash=str(payload["raw_decision_summary_hash"]),
+        finalized_raw_manifest_hash=str(payload["finalized_raw_manifest_hash"]),
+        silver_work_manifest_path=(
+            operation_root / str(payload["silver_work_manifest_relative_path"])
+        ),
+        silver_work_manifest_hash=str(payload["silver_work_manifest_hash"]),
+        finalized_silver_manifest_path=(
+            operation_root / str(payload["finalized_silver_manifest_relative_path"])
+        ),
+        finalized_silver_manifest_hash=str(payload["finalized_silver_manifest_hash"]),
+        checkpoint_path=(
+            operation_root / str(payload["silver_checkpoint_relative_path"])
+        ),
+        final_report_path=final_report_path,
+        raw_file_count=int(payload["raw_file_count"]),
+        raw_row_count=int(payload["raw_row_count"]),
+        silver_file_count=int(payload["silver_file_count"]),
+        silver_row_count=int(payload["silver_row_count"]),
+        added_file_count=int(payload["added_file_count"]),
+        reused_file_count=int(payload["reused_file_count"]),
+        blocked_partition_count=int(payload["blocked_partition_count"]),
+        warn_partition_count=int(payload["warn_partition_count"]),
+        checkpoint_hash=str(payload["checkpoint_hash"]),
+        report_hash=expected_hash,
+    )
 
 
 def _ensure_etf_mins_source_batch(
@@ -2853,7 +3904,9 @@ __all__ = [
     "EtfMinsBootstrapPlan",
     "EtfMinsBootstrapRawApplyReport",
     "EtfMinsBootstrapRawEvidence",
+    "EtfMinsBootstrapSilverApplyReport",
     "apply_etf_mins_bootstrap_raw",
+    "apply_etf_mins_bootstrap_silver",
     "audit_etf_mins_bootstrap_targets",
     "build_etf_mins_bootstrap_plan",
     "compute_etf_mins_bootstrap_manifest_hash",

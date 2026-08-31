@@ -44,12 +44,17 @@ from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_BOOTSTRAP_MAX_TARGET_FILES,
     ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT,
     ETF_MINS_HISTORICAL_PROTECTION_CUTOFF,
+    ETF_MINS_RAW_APPROVED_POLICY_VERSION,
+    ETF_MINS_RAW_DECISION_BLOCKING_REASON_CODES,
+    ETF_MINS_RAW_DECISION_WARNING_REASON_CODES,
+    ETF_MINS_RAW_OBSERVATION_REASON_CODES,
     ETF_MINS_SENSOR_WINDOW_LIMIT,
     ETF_MINS_SOURCE_COLUMNS,
     ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX,
     ETF_MINS_SOURCE_FREQS,
     asset_freq_for_etf_mins_source_freq,
     expected_etf_mins_source_exchange,
+    get_etf_mins_raw_decision_policy,
     normalize_etf_mins_asset_freq,
     normalize_etf_mins_source_freq,
     normalize_etf_mins_trade_date,
@@ -107,6 +112,47 @@ def test_operational_constants_match_the_approved_lld() -> None:
     assert ETF_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER == 1.25
     assert ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT == 20
     assert ETF_MINS_HISTORICAL_PROTECTION_CUTOFF.isoformat() == "2026-01-01"
+
+
+def test_raw_decision_policy_freezes_the_approved_grid_and_reason_mapping() -> None:
+    policy = get_etf_mins_raw_decision_policy(ETF_MINS_RAW_APPROVED_POLICY_VERSION)
+
+    assert policy.version == "etf_mins_gap_policy_v1"
+    assert {
+        source_freq: len(clock_times)
+        for source_freq, clock_times in policy.expected_clock_times_by_source_freq
+    } == {
+        "1min": 241,
+        "5min": 49,
+        "15min": 17,
+        "30min": 9,
+        "60min": 5,
+    }
+    assert policy.expected_clock_times("1min")[:2] == (
+        "09:30:00",
+        "09:31:00",
+    )
+    assert policy.expected_clock_times("1min")[120:122] == (
+        "11:30:00",
+        "13:01:00",
+    )
+    assert policy.expected_clock_times("60min") == (
+        "09:30:00",
+        "10:30:00",
+        "11:30:00",
+        "14:00:00",
+        "15:00:00",
+    )
+    assert policy.blocking_reason_codes == (ETF_MINS_RAW_DECISION_BLOCKING_REASON_CODES)
+    assert policy.warning_reason_codes == ETF_MINS_RAW_DECISION_WARNING_REASON_CODES
+    assert "internal_grid_gap_candidate" in ETF_MINS_RAW_OBSERVATION_REASON_CODES
+    assert "internal_grid_gap_candidate" not in policy.blocking_reason_codes
+    assert "zero_volume_bar_observed" not in policy.warning_reason_codes
+    assert "full_zero_volume_etf_day_observed" in policy.warning_reason_codes
+    assert len(policy.policy_hash) == 64
+
+    with pytest.raises(ValueError, match="not registered"):
+        get_etf_mins_raw_decision_policy("operator-supplied-threshold")
 
 
 def test_minute_schema_is_an_exact_eleven_column_copy_contract() -> None:

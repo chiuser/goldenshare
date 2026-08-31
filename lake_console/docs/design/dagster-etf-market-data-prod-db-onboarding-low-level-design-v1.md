@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0-P7A 代码与临时湖验收已完成；正式 Bootstrap 与正式 P7A 观察尚未执行；P7B 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P8 代码与隔离验收已完成；首次正式 Raw Bootstrap、P7A 观察和 N3B decision 均已完成；正式 Silver 写入仍未授权；N6 仍待 P10 启用前评审；尚未授权事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -42,18 +42,18 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 
 ## 2. 开工状态与拍板门禁
 
-本 LLD 已经把推荐实现写完整。N3 的执行顺序已经确认：Direct Lake Bootstrap 先完成批准范围的 Raw 物理文件，再做 N3，不因单个分区的质量结论回滚已经安全落地的 Raw。N3B 冻结后，日常链把 `bar_domain` 作为第三项 Raw blocking check；失败会阻断该日及后续日常连续性和 Silver。全局 N3 policy 尚未冻结时，P10 日常 Sensors 仍不得启用。当前状态如下：
+本 LLD 已经把推荐实现写完整。N3 的执行顺序已经确认：Direct Lake Bootstrap 先完成批准范围的 Raw 物理文件，再做 N3，不因单个分区的质量结论回滚已经安全落地的 Raw。N3B 已冻结为 `etf_mins_gap_policy_v1`；日常链后续把同一规则落成第三项 Raw blocking check `bar_domain`，失败会阻断该日及后续日常连续性和 Silver。当前状态如下：
 
 | 编号 | 结论 | 状态与阻断范围 |
 | --- | --- | --- |
 | N1 | Basic 使用 `snapshot_id=<Raw内容hash>/part-000.parquet` 的 content-addressed 不可变版本，不建 `current` 文件；hash 是 DG Raw 自身可复算内容身份，不要求与 Prod 一致；同时检查 Dagster 最新 Raw 与最新 Silver materialization、各自 checks、内容 hash 对齐和两层当天 freshness，失败或不新鲜不回退 | 已确认；Basic path、writer、latest-only selector 可按本文合同开发 |
 | N2 | ETF 不读取 `ops.task_run`、`task_run_node` 或任何其它 Prod `ops.*`；日常只在 Sensor 做一次 Prod Raw 五频代码 coverage，Raw asset 不重复 probe、不做导出前后 fingerprint | 已关闭；不修改 `lake_console/AGENTS.md` 白名单 |
-| N3 | 分钟 Raw 完整性审计拆成 N3A 观察/profile 与 N3B policy/decision | 执行顺序已确认；N3A 的规则建议不生效，N3B 待管理员看过真实报告后拍板；Bootstrap 不回滚 Raw，日常三项 Raw checks fail-closed |
+| N3 | 分钟 Raw 完整性审计拆成 N3A 观察/profile 与 N3B policy/decision | 已完成：正式 N3A、`etf_mins_gap_policy_v1`、P7B 代码与隔离验收及首次正式 decision 均已闭合；Bootstrap 不回滚 Raw，日常三项 Raw checks fail-closed |
 | N4 | 首次 Bootstrap 截止日以每次执行前动态审计水位为准，不写死日期 | 已确认；具体日期在 P6 plan 时冻结 |
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。P0-P7A 代码与临时湖验收已经完成；P6 正式 frozen plan、Raw apply 和随后正式 P7A 观察仍未执行，执行前分别需要批准完整 plan fingerprint、Raw 写入和本地全量 Raw 观察；P7B 及以后也须逐阶段授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。首次 frozen plan、Raw apply、正式 P7A 观察、N3B policy、正式 `raw-decide` 以及 P8 代码与隔离验收已按分阶段授权完成。795 个分区的最终结果为 585 green、210 WARN、0 blocked，全部可准入；正式 Silver 写入仍须单独授权。在正式 Silver 物理验收完成前，不得补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -926,7 +926,7 @@ proposed_policy.json
 
 `raw_observation_summary` 只回答“看见了什么”，例如某分区有多少代码、各有多少时间点、哪些地方缺 bar、多少行价格为空或 OHLC 关系异常。`proposed_policy` 回答“根据这些事实，建议以后怎么判”，例如建议把“整日五频全空”设为阻断、把某种稳定存在的边界点差异设为 WARN。它只是建议，不产生 `green/warn/blocked`，也不产生 `silver_eligible`。
 
-本文所说“blocking/WARN policy 尚未确认”，精确指 N3A 报告已经生成并交给管理员、但管理员尚未明确批准 N3B 规则的这段时间。这个阶段 Raw 文件保留，所有分区状态都是 `unclassified`；不能把建议规则当成正式口径。
+本文所说“blocking/WARN policy 尚未确认”，精确指 N3A 报告已经生成并交给管理员、但管理员尚未明确批准 N3B 规则的历史阶段。这个阶段 Raw 文件保留，所有分区状态都是 `unclassified`；不能把建议规则当成正式口径。该门禁已于 2026-08-31 由 `etf_mins_gap_policy_v1` 和随后生成的正式 `raw-decide` 产物共同关闭。
 
 管理员确认后才进入 N3B：把批准的 issue→decision 映射、阈值和例外冻结为有版本的代码合同与正反测试，再由 `decide_etf_mins_raw` 生成：
 
@@ -1054,7 +1054,7 @@ ORDER BY ts_code, trade_time
 
 ### 15.4 Silver materialization metadata
 
-Silver 使用 `build_materialization_metadata(...)` 返回 `dagster/uri`、`dagster/row_count`、`goldenshare/observed_columns`，并在 `goldenshare/*` 下记录 `partition_key/source_freq/code_count/raw_uri/raw_sha256/silver_sha256/write_disposition`、`basic_raw_snapshot_hash/basic_silver_content_hash/basic_raw_observed_at/basic_silver_observed_at/basic_reference_fingerprint/eligibility_as_of/requestable_code_hash`，以及 `gap_policy_version/bar_domain_decision/bar_domain_reason_codes`。这些值从目标日 Raw materialization 的有界 metadata 读取和文件复算得到，不从“今天最新 Basic”重新拼装；如果 Raw metadata 缺失、其文件 hash 与当前正式 Raw 不一致或 policy version 不可解释，Silver 停止。不得写裸 metadata key 或 Dagster storage id。
+Silver 使用 `build_materialization_metadata(...)` 返回 `dagster/uri`、`dagster/row_count`、`goldenshare/observed_columns`，并在 `goldenshare/*` 下记录 `partition_key/source_freq/code_count/raw_uri/raw_sha256/silver_sha256/write_disposition`、`basic_raw_snapshot_hash/basic_silver_content_hash/basic_raw_observed_at/basic_silver_observed_at/basic_reference_fingerprint/eligibility_as_of/requestable_code_hash`，以及 `gap_policy_version/bar_domain_decision/bar_domain_reason_codes`。Basic lineage、Raw URI/hash 和 requestable 事实从目标分区最新 Raw materialization 的有界 metadata 读取并以正式文件复算；policy version、decision 和 reason codes 从本次正式 Silver job 已执行、且通过 `target_materialization_data.storage_id` 精确绑定同一 Raw materialization 的 `bar_domain` check evaluation 读取。Silver writer 不重新执行 N3 规则，也不从“今天最新 Basic”拼装历史引用；Raw metadata 缺失、check 未通过或未绑定同一 materialization、Raw 文件 hash 漂移、policy version 不可解释时全部停止。storage id 只用于运行时内部绑定验证，不写入 Silver metadata。
 
 ---
 
@@ -1367,7 +1367,7 @@ events        物理对账后单独补 materialization/check event，不写 Lake
 
 七个 subcommands 共用 `etf_mins_bootstrap.py` 的计划、校验、checkpoint 和报告类型，以及 `etf_mins_bootstrap_cli.py` 的参数解析；它们仍是七个单独授权阶段，不是一次命令自动跑完全链。禁止把写开关藏在只读入口。`raw-apply`、`silver-apply`、`partitions`、`events` 分别要求 `--confirm-raw-lake-write`、`--confirm-silver-lake-write`、`--confirm-partition-write`、`--confirm-event-write`。本 LLD 只设计入口，不授权执行。
 
-当前实现只把已经进入开发范围的 `plan/raw-apply/raw-observe` 注册到 CLI；`raw-decide/silver-apply/partitions/events` 会在各自阶段实现时再加入，不提前提供会被误认为可执行的空壳。最终目标仍是本节列出的一个 CLI、七个受控 subcommands，这不改变各阶段必须单独授权的边界。
+当前实现已经把进入开发范围的 `plan/raw-apply/raw-observe/raw-decide/silver-apply` 注册到 CLI；`partitions/events` 会在 P9 实现时再加入，不提前提供会被误认为可执行的空壳。最终目标仍是本节列出的一个 CLI、七个受控 subcommands，这不改变各阶段必须单独授权的边界，也不代表已经授权执行正式 `silver-apply`。
 
 对应调用形状固定为：
 
@@ -1557,9 +1557,31 @@ exchange_identity_anomaly
 
 ### 20.6 N3B policy freeze 与 Raw decision
 
-管理员审阅 N3A 报告并明确批准 blocking/WARN 映射、阈值和例外后，P7B 才把 policy 写入集中合同、reason codes 和正反测试，产生不可变 `approved_policy_version`。raw-decide 只消费 N3A hash 和该登记版本，生成覆盖全部 Raw 分区的 decision manifest；观察文件或 policy hash 不一致立即停止。
+管理员审阅 N3A 报告并明确批准 blocking/WARN 映射、阈值和例外后，P7B 才把 policy 写入集中合同、reason codes 和正反测试，产生不可变 `approved_policy_version`。raw-decide 只消费由 N3A summary hash 绑定的 observation/profile 产物和该登记版本，生成覆盖全部 Raw 分区的 decision manifest；观察文件或 policy hash 不一致立即停止。
 
 这一步的输出才是 Silver 的准入依据。批准前不存在“暂定 green”，也不能因为某条建议看起来合理就自动执行。
+
+2026-08-31 已根据正式 P7A 结果批准第一版唯一登记 policy：`etf_mins_gap_policy_v1`。冻结口径如下：
+
+1. 五频时钟网格精确固定为正式 P7A 实测全集：`1min=241`、`5min=49`、`15min=17`、`30min=9`、`60min=5` 个时点。上午分别从 `09:30` 到 `11:30`；下午起点分别为 `13:01/13:05/13:15/13:30/14:00`，终点均为 `15:00`。上午最后一根与下午第一根之间的标准午休 gap 合法，不把 P7A 的 `internal_grid_gap_candidate` 直接当成缺 bar。
+2. 任一频率出现预期时点缺失、额外时点、覆盖率不足、边界漂移或 off-session 时点，判为 `blocked`。
+3. 普通或部分零成交 bar 合法，不产生 WARN；只有同一个 ETF 在同一交易日的五个源频率都存在、且各频率全部 bar 都为零成交时，才记录 `full_zero_volume_etf_day_observed`，五个对应分区均判为 `warn` 且 `silver_eligible=true`。单独一个频率全零、其余频率有成交仍按部分零成交接受，不升级 WARN。
+4. `known_non_required_code_present` 与 `retained_legacy_code_present` 判为 `warn` 且可准入；它们不触发删历史数据。
+5. 五频全空、部分频率空、expected code 缺失、价格/OHLC、成交量/额、VWAP、未知新增代码、主键、分区和 exchange 身份异常全部判为 `blocked`。
+6. `blocked` 优先于 WARN；没有任何生效 reason 时为 `green`。只有 `green` 和获准 WARN 的分区 `silver_eligible=true`。
+
+policy 合同集中在 `defs/run_contracts/etf_mins.py`，同时保存完整五频时钟点、blocking/WARN reason code 集合和可复算 policy hash。`raw-decide` 不接受阈值、例外或临时 reason 参数；传入未登记版本立即停止。
+
+N3A summary 是决策入口，但 evaluator 仍需读取 summary 中逐一登记 hash 的小型 Parquet profile，才能形成逐分区计数。它会先复算 summary 自身 hash、6 个 Parquet 的文件 hash/size/row count、`schema_version/input_manifest_hash` 和业务主键，再从 partition/code-day/grid/issue profile 集合化生成 decision manifest；不会读取 795 个正式 Raw 文件，也不会访问 Prod。网格异常按 `trade_date + freq` 定位，只阻断真正受影响的分区，不能因为某一天异常而把同频其他日期一起阻断；全局 grid profile 若显示异常、但 code-day profile 无法定位到任何具体日期，则 decision 直接 fail-closed，不生成结果。
+
+输出直接位于同一 operation 目录：
+
+```text
+raw_partition_decision_manifest.parquet
+raw_decision_summary.json
+```
+
+两者先在同文件系统 candidate 中完整生成，再逐文件原子提升；summary 是完整提交证据。既有两件完整输出只允许按 observation hash、policy hash、manifest hash 和 summary hash 等价复用；只存在一件、内容冲突或任一上游证据漂移时立即停止，绝不自动覆盖。
 
 ### 20.7 Silver apply
 
@@ -1810,7 +1832,7 @@ tests/test_etf_mins_checks.py
 - staging 回读失败不触碰旧文件。
 - 已有目标语义不同停止，不覆盖。
 - Silver 不允许 WHERE 删除、去重、填空、舍入或修值。
-- Silver metadata 必须继承目标日 Raw materialization 已冻结的两个 Basic hash、两个 `observed_at`、reference fingerprint 和 policy version，并以正式 Raw 文件复算校验；不得从执行当天最新 Basic 重新拼装历史引用。
+- Silver metadata 必须继承目标日 Raw materialization 已冻结的两个 Basic hash、两个 `observed_at` 和 reference fingerprint，并从精确绑定同一 Raw materialization 的已通过 `bar_domain` check evaluation 继承 policy version、decision 和 reason codes；必须以正式 Raw 文件复算校验，不得从执行当天最新 Basic 重新拼装历史引用，也不得在 Silver writer 内重跑 N3。
 - partitioned check event 必须带正确 partition。
 - 同日五频 `bar_domain` 只建立一个 DuckDB connection/共享 evaluation，发出五个 `blocking=True` checks；green/WARN passed，blocked failed，metadata 都绑定当前 Raw hash 和 policy。
 - 某日 N3 blocked 后，该日 Raw 文件保留；Raw 和 Silver Sensors 都停在该日，不越过继续推进。
@@ -1946,7 +1968,7 @@ latest-only selector 对 Raw/Silver 各有界读取一条最新 materialization�
 
 完成条件：临时湖 + fake/read-only source 样本通过；每个 Raw writer 只执行一次明细查询、不执行 coverage/fingerprint 查询，五频调用合计最多五条明细 SQL；`missing/grid` 被记录但不阻断 Raw，`unexplained_new` 和传输/合同错误阻断；未启用 Sensor，未写正式 Lake。
 
-执行结果：已新增尚未注册到 Definitions 的 `defs/assets/etf_mins.py`，提供 `write_raw_etf_mins_partition_from_prod_db(...)`、`EtfMinsRawWriteResult` 和 `build_etf_mins_raw_materialization_metadata(...)`。writer 先按 content-addressed 路径回读冻结 Basic Raw/Silver，复算两层 hash、请求集合 count/hash，并在存在日常 coverage reference 时只做本地引用复核；随后复用 P4 的显式列 SQL、只读 attach 和稳定 validator，在一个 DuckDB connection 中完成一条单频明细查询、staging Parquet、`hive_partitioning=false` 回读、source/candidate 双向 `EXCEPT ALL`、六类集合和目标内容比较。正式目标不存在时只允许 `os.replace()` 新增，语义相同只复用，任何内容冲突停止且保留候选；成功后记录正式文件 SHA-256，失败不会触碰已有正式文件。
+执行结果：P5 当时新增但尚未注册到 Definitions 的 `defs/assets/etf_mins.py`，提供 `write_raw_etf_mins_partition_from_prod_db(...)`、`EtfMinsRawWriteResult` 和 `build_etf_mins_raw_materialization_metadata(...)`；该模块已在 P8 注册为正式资产定义。writer 先按 content-addressed 路径回读冻结 Basic Raw/Silver，复算两层 hash、请求集合 count/hash，并在存在日常 coverage reference 时只做本地引用复核；随后复用 P4 的显式列 SQL、只读 attach 和稳定 validator，在一个 DuckDB connection 中完成一条单频明细查询、staging Parquet、`hive_partitioning=false` 回读、source/candidate 双向 `EXCEPT ALL`、六类集合和目标内容比较。正式目标不存在时只允许 `os.replace()` 新增，语义相同只复用，任何内容冲突停止且保留候选；成功后记录正式文件 SHA-256，失败不会触碰已有正式文件。
 
 P5 同时保留了已确认的两种调用语义：日常调用必须携带全绿 coverage reference，若单次明细结果为零或仍缺 expected code，则以 reference/candidate 自相矛盾停止且不重查 Prod；历史调用不带该引用，`missing`、grid gap、数值域诊断和 schema 正确的显式零行文件均可落 Raw，但结果固定为 `policy_state=unclassified`、`silver_eligible=false`。P5 开工时还修正了 P4 validator 手写第二份 `XSHG/XSHE` 的偏差；validator 现只消费集中映射，并有静态测试阻止重复映射回流。
 
@@ -1974,7 +1996,9 @@ raw-apply 只消费冻结 plan，不重算水位或 coverage。它按频率和�
 
 执行结果：已新增 `defs/bootstrap/etf_mins_raw_observation.py`，并只在既有 Bootstrap CLI 中增加 `raw-observe --raw-final-report-path ... --output-dir .../raw-observe`。入口不接 Prod、Dagster instance、写湖确认或 policy 参数；CLI 的 raw-observe 分支也不构造 `ProdPostgresResource`。它先复用 P6 完成报告证据链，验证 plan/checkpoint/manifest/Raw/Basic/交易日历，再用一个 DuckDB connection 和两次分钟 Raw 深扫描生成 6 个 Parquet、observation summary 与 proposed policy；其它聚合只读小型 manifest/profile。issue 明细固定为 16 类 observation reason code、每类最多 20 个稳定样本，总行数同时受 `target_file_count × 16`、200,000 行和 256 MiB 限制，超限停止而非截断。
 
-所有 Parquet 都带 `schema_version/input_manifest_hash`；summary 和 proposal 都带输入 hash 与自身内容 hash。partition observation 只写 `policy_state=unclassified`，不含 decision/`silver_eligible`；proposal 明确 `effective=false/requires_admin_approval=true`。输出使用同 operation 候选目录和目录级原子提升，既有完整结果按 hash 复用，冲突不覆盖。隔离验收只使用最多 2 个日期、5 个频率和极小合成 Parquet，覆盖普通行、五频显式零行、跨日期 clock boundary、数值域/网格事实、hash 漂移、路径边界和幂等；专项 CLI/观察测试为 10 passed，orchestrator 全量回归为 2,414 passed、833 subtests passed，Ruff、Definitions 加载和文档完整性检查通过。没有执行正式 plan/raw-apply/raw-observe，没有同步全量数据，也没有访问 Prod、正式 Lake 或正式 Dagster instance。因此 P7A 的代码门禁已完成，但“真实报告”完成条件仍需等正式 Raw 存在后单独授权运行才能关闭，P7B 继续被阻断。
+所有 Parquet 都带 `schema_version/input_manifest_hash`；summary 和 proposal 都带输入 hash 与自身内容 hash。partition observation 只写 `policy_state=unclassified`，不含 decision/`silver_eligible`；proposal 明确 `effective=false/requires_admin_approval=true`。输出使用同 operation 候选目录和目录级原子提升，既有完整结果按 hash 复用，冲突不覆盖。隔离验收只使用最多 2 个日期、5 个频率和极小合成 Parquet，覆盖普通行、五频显式零行、跨日期 clock boundary、数值域/网格事实、hash 漂移、路径边界和幂等；专项 CLI/观察测试为 10 passed，orchestrator 全量回归为 2,414 passed、833 subtests passed，Ruff、Definitions 加载和文档完整性检查通过。
+
+2026-08-31 经逐阶段批准，首次正式 operation `etf-mins-bootstrap-20260831-01` 已完成 frozen plan、Raw apply 与 raw-observe：水位冻结为 `2026-08-28`，159 个交易日、5 个频率、795 个 Raw 文件全部新增，Prod 明细共 40 次有界查询，source/正式 Raw 均为 77,079,483 行，没有复用、冲突或零行文件。正式 P7A 只读这 795 个 Raw 文件，用 2 次深扫描和 17 条分析 SQL 在 44.45 秒内完成，DuckDB 临时空间峰值约 7.50 GB；6 个 Parquet profile、summary 与 proposal 全部闭合。真实观察中没有空分区、expected code 缺失、合同/身份/数值域/off-session/边界异常；五频所有时钟点覆盖率均为 100%。1,200,615 个 code-day-freq 各有一个标准午休 gap；22,404,721 根零成交 bar 占 29.067%，其中 57 个 ETF-day（33 个代码、42 个日期）在五频均为整日零成交。上述事实已经关闭 P7A 的正式报告门禁。
 
 ### P7B：N3 policy freeze 与 decision manifest
 
@@ -1982,11 +2006,23 @@ raw-apply 只消费冻结 plan，不重算水位或 coverage。它按频率和�
 
 完成条件：全部 Raw 目标都有确定 decision；policy/hash 可复算；blocked、WARN 和 green 样本都能解释，Silver 才可进入 P8。
 
+执行结果：已把管理员批准的 `etf_mins_gap_policy_v1` 固化到 `defs/run_contracts/etf_mins.py`，完整登记五频精确时钟网格、blocking/WARN reason codes 和可复算 policy hash；P7A 的 16 类 observation reason code 也收敛到同一合同。新增 `defs/bootstrap/etf_mins_raw_decision.py` 和既有 CLI 的 `raw-decide` 子命令。入口只接收 `raw_observation_summary.json`、登记 policy version 和同 operation 输出目录，不构造 Prod resource、不读取 Raw、不写正式 Lake/Silver/event。
+
+decision evaluator 先验证 N3A summary/hash 与 6 个小型 Parquet 的 hash、size、row count、schema version、input manifest hash 和业务主键，再用 DuckDB 集合 SQL 生成每个 `trade_date + freq` 一行的 decision manifest。它保留全部 16 类观察计数，并新增逐分区 `minute_grid_contract_anomaly_count`、只作对账证据的 `global_grid_contract_anomaly_count` 与 `full_zero_volume_etf_day_observed_count`；标准午休 gap 和普通零成交 bar 不升级为 decision reason。逐分区网格异常只阻断实际异常日期，同频其他日期不受牵连；全局异常无法由 code-day profile 定位时直接停止。输出先写 candidate，再原子提升；完整既有结果只允许按 observation/policy/manifest/summary hash 等价复用，部分输出、内容冲突、观察漂移或 policy 漂移全部停止。
+
+隔离测试只使用最多 2 个日期和 5 个频率的合成分钟数据：证明精确午休网格为 green，五频整日零成交为 WARN 且可准入，单频全零仍为 green，缺少一个非午休时点只阻断实际异常日期、不会误伤同频另一日期，价格域异常 blocked；同时覆盖未知 policy、错误输出目录、operation id 错配、N3A artifact hash 漂移、policy hash 漂移、decision 文件冲突和幂等复用。P7B 落地时 ETF 专项为 30 passed，本阶段文件 Ruff 通过；orchestrator 全量回归为 2,419 passed、833 subtests passed。
+
+2026-08-31 经单独授权，operation `etf-mins-bootstrap-20260831-01` 的正式 `raw-decide` 已完成：795 个分区中 585 green、210 WARN、0 blocked，795 个全部 `silver_eligible=true`。210 个 WARN 精确覆盖 42 个日期的五个频率，唯一 reason 是 `full_zero_volume_etf_day_observed`；对应 57 个 ETF-day，按五频展开为 285 次观察。执行未访问 Prod、未重扫 Raw，使用 16 条小型 profile 分析 SQL，耗时 0.147 秒。observation/policy/manifest/summary 内容 hash 分别为 `a1a50b12fd21108d4faf7293d37e438159cf7ed1a93bec5c50707e0e2b118f9d`、`c2ac820cdb1436f84c56c5c8bd529a8384ed95ac17ec90eaa31c89d34063bd1c`、`934494a04897907f0a61e0d0994b740157434e7a9d8bc404ca6f03de7ad8588c`、`cc7f39a7c7862944a416b157bf679d4a67bd367ac6dc0f5234541c9657c396a2`。逐频均为 117 green + 42 WARN，795 个 `trade_date + freq` 主键唯一，全部绑定同一 observation/policy hash，网格异常计数为零且没有候选目录残留。正式执行只写 operation staging 下的 decision 两件产物，未写 Silver、正式 Lake、Dagster instance、动态分区或 event。
+
 ### P8：分钟 Raw/Silver assets/checks/jobs 与 Bootstrap Silver apply
 
 在 N3 policy 冻结后实现五频 Raw/Silver asset factories、Raw 三类 blocking checks、两类 Silver blocking checks、两个 jobs、同日五频单次 `bar_domain` evaluator，以及从 finalized Raw manifest 构造 Silver work manifest、完成物理集合审计并生成 `physical_final_report.json` 的历史入口。
 
 完成条件：11 字段两个方向 `EXCEPT ALL=0`，没有修值或删行；blocked/未知 decision 分区零 Silver 写入且日常连续性停在该日；五个 `bar_domain` evaluations 共用一次扫描，正式 Silver job 的 Raw check 失败会阻断 Silver steps；报告链 hash 和 Raw/Silver 物理集合闭合后才生成 `physical_final_report.json`。
+
+执行结果：已实现并由正式 Definitions 自动发现五个 Raw assets、五个 Silver assets、15 个 Raw blocking checks、10 个 Silver blocking checks和两个 in-process jobs。五个 `bar_domain` evaluations 由一个 multi-asset check 在同一 DuckDB connection 中生成；正式 Silver job 不包含 Raw writer，五个 Silver 节点分别依赖同频 `file_contract/request_scope` 和共享 `bar_domain`，任一门禁失败都会阻断对应 Silver。Silver materialization 的 Basic/Raw lineage 来自当前 Raw materialization，policy/decision/reasons 只来自精确绑定该 Raw storage id 且已通过的 `bar_domain` evaluation，Silver writer 不重跑 N3。
+
+Bootstrap 已增加 `silver-apply`：只消费同 operation 的 Raw 完成报告、N3A summary、N3B summary/decision manifest 和已登记 policy，不构造 Prod resource；从完整 finalized Raw manifest 生成 Silver work manifest，只处理 `silver_eligible=true`，目标只允许新增或 11 字段双向等价复用，冲突不覆盖，blocked 分区要求 Silver 文件不存在。每个目标完成后原子更新 checkpoint，全部物理集合、Raw/Silver 行数与双向等价、候选清理和报告 hash 闭合后才生成 finalized Silver manifest 与不可变 `physical_final_report.json`。隔离湖只用最多 2 个日期的五频合成数据，覆盖 green/WARN/blocked、已有等价文件、冲突不覆盖、显式确认、断点复用、正式 Definitions 完整发现与 job blocking 依赖；ETF 专项测试为 146 passed，orchestrator 全量回归为 2,427 passed、833 subtests passed。该验收没有访问 Prod、正式 Lake 或正式 Dagster instance，也没有执行正式 `silver-apply`。
 
 ### P9：历史动态分区与 Runless events
 
@@ -2015,7 +2051,7 @@ raw-apply 只消费冻结 plan，不重算水位或 coverage。它按频率和�
 3. 最新 Basic Raw/Silver 任一层不是当天、任一层 checks 没有绑定对应当前 materialization、两层内容不对齐，或运行中 reference 漂移。
 4. Prod SQL 需要 Basic join/代码过滤才能跑完，或 20 日批次超时/超空间。
 5. 实现试图读取任何 Prod `ops.*`、Serving 表，或用执行状态代替 Prod Raw 物理覆盖。
-6. 进入 Silver、补 green check event 或启用分钟日常 Sensors 前，N3 仍未解释内部空洞、停牌/空结果和部分频率缺失；该条件不回滚已经通过稳定门禁的 Raw 文件，但 N3B 冻结后失败的 `bar_domain` 会阻断日常连续性。
+6. 进入 Silver、补 green check event 或启用分钟日常 Sensors 前，N3 policy 未登记、正式 decision manifest 未覆盖全部 Raw 分区、observation/policy hash 漂移，或待处理分区仍为 `unclassified/blocked`；这些条件不回滚已经通过稳定门禁的 Raw 文件，但不得把未准入分区写入 Silver，日常 `bar_domain` 失败也会阻断连续性。
 7. candidate 出现 `unexplained_new`、Basic/exchange 身份污染、主键/字段/物理类型/日期/频率/路径异常；价格空值、负成交量、OHLC、网格和内部空洞不在这里提前判死，而是进入 N3。
 8. 正式目标与候选不等价。
 9. 2025 及以前补录触碰或改变任何 2026 及以后文件。

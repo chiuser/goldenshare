@@ -33,6 +33,7 @@ from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_ASSET_FREQ_BY_SOURCE_FREQ,
     ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT,
+    ETF_MINS_RAW_OBSERVATION_REASON_CODES,
     ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX,
 )
 
@@ -41,26 +42,7 @@ ETF_MINS_RAW_PROPOSED_POLICY_KIND = "etf_mins_raw_proposed_policy"
 ETF_MINS_RAW_OBSERVATION_MAX_ISSUE_ROWS = 200_000
 ETF_MINS_RAW_OBSERVATION_MAX_ISSUE_BYTES = 256 * 1024 * 1024
 
-ETF_MINS_RAW_OBSERVATION_REASON_CODES = (
-    "all_frequencies_empty",
-    "partial_frequency_empty",
-    "expected_code_missing",
-    "internal_grid_gap_candidate",
-    "boundary_time_variant_candidate",
-    "zero_volume_bar_observed",
-    "price_domain_anomaly",
-    "volume_amount_domain_anomaly",
-    "vwap_domain_anomaly",
-    "off_session_time_observed",
-    "known_non_required_code_present",
-    "retained_legacy_code_present",
-    "unexplained_new_code_observed",
-    "key_contract_anomaly",
-    "partition_contract_anomaly",
-    "exchange_identity_anomaly",
-)
-
-_PARQUET_FILENAMES = (
+ETF_MINS_RAW_OBSERVATION_ARTIFACT_FILENAMES = (
     "raw_file_manifest.parquet",
     "raw_code_day_freq_profile.parquet",
     "raw_grid_profile.parquet",
@@ -1098,7 +1080,7 @@ def _load_artifact_row_counts(
         "(SELECT count(*) FROM "
         f"{read_parquet(candidate_dir / filename, hive_partitioning=False)})"
         f" AS count_{index}"
-        for index, filename in enumerate(_PARQUET_FILENAMES)
+        for index, filename in enumerate(ETF_MINS_RAW_OBSERVATION_ARTIFACT_FILENAMES)
     )
     row = _execute(
         connection,
@@ -1108,7 +1090,8 @@ def _load_artifact_row_counts(
     if row is None:
         raise EtfMinsBootstrapError("etf_mins_raw_observation_artifact_counts_missing.")
     return {
-        filename: int(row[index]) for index, filename in enumerate(_PARQUET_FILENAMES)
+        filename: int(row[index])
+        for index, filename in enumerate(ETF_MINS_RAW_OBSERVATION_ARTIFACT_FILENAMES)
     }
 
 
@@ -1302,7 +1285,7 @@ def _artifact_metadata(
             "size_bytes": (candidate_dir / filename).stat().st_size,
             "sha256": _sha256_file(candidate_dir / filename),
         }
-        for filename in _PARQUET_FILENAMES
+        for filename in ETF_MINS_RAW_OBSERVATION_ARTIFACT_FILENAMES
     }
 
 
@@ -1353,11 +1336,13 @@ def _load_existing_observation(
             "etf_mins_raw_observation_proposed_policy_conflict."
         )
     artifacts = summary.get("artifacts")
-    if not isinstance(artifacts, Mapping) or set(artifacts) != set(_PARQUET_FILENAMES):
+    if not isinstance(artifacts, Mapping) or set(artifacts) != set(
+        ETF_MINS_RAW_OBSERVATION_ARTIFACT_FILENAMES
+    ):
         raise EtfMinsBootstrapError(
             "etf_mins_raw_observation_artifact_manifest_invalid."
         )
-    for filename in _PARQUET_FILENAMES:
+    for filename in ETF_MINS_RAW_OBSERVATION_ARTIFACT_FILENAMES:
         metadata = artifacts.get(filename)
         path = output_dir / filename
         if (
@@ -1453,6 +1438,7 @@ def _sha256_file(path: Path) -> str:
 
 
 __all__ = [
+    "ETF_MINS_RAW_OBSERVATION_ARTIFACT_FILENAMES",
     "ETF_MINS_RAW_OBSERVATION_KIND",
     "ETF_MINS_RAW_OBSERVATION_REASON_CODES",
     "ETF_MINS_RAW_PROPOSED_POLICY_KIND",

@@ -611,7 +611,6 @@ def test_writer_source_has_no_second_prod_probe_or_active_definition() -> None:
         "load_prod_etf_mins_code_coverage",
         "connect_readonly_transaction",
         "ops.",
-        "@dg.asset",
         "@dg.sensor",
         "define_asset_job",
     ):

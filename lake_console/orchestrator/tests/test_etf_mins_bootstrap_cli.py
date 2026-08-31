@@ -13,7 +13,7 @@ from orchestrator.defs.bootstrap.etf_mins_bootstrap import (
 )
 
 
-def test_cli_exposes_only_the_three_authorized_stages_and_requires_write_flag() -> None:
+def test_cli_exposes_the_five_developed_stages_and_requires_write_flags() -> None:
     parser = cli._build_parser()
     plan_args = parser.parse_args(
         [
@@ -52,7 +52,48 @@ def test_cli_exposes_only_the_three_authorized_stages_and_requires_write_flag() 
         ]
     )
     assert raw_observe_args.command == "raw-observe"
-    for future_stage in ("raw-decide", "silver-apply", "partitions", "events"):
+    raw_decide_args = parser.parse_args(
+        [
+            "raw-decide",
+            "--observation-summary-path",
+            "/tmp/operation/raw-observe/raw_observation_summary.json",
+            "--approved-policy-version",
+            "etf_mins_gap_policy_v1",
+            "--output-dir",
+            "/tmp/operation",
+        ]
+    )
+    assert raw_decide_args.command == "raw-decide"
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "silver-apply",
+                "--raw-decision-summary-path",
+                "/tmp/operation/raw_decision_summary.json",
+                "--decision-manifest-path",
+                "/tmp/operation/raw_partition_decision_manifest.parquet",
+                "--checkpoint-path",
+                "/tmp/operation/silver_checkpoint.json",
+                "--final-report-path",
+                "/tmp/operation/physical_final_report.json",
+            ]
+        )
+    silver_apply_args = parser.parse_args(
+        [
+            "silver-apply",
+            "--raw-decision-summary-path",
+            "/tmp/operation/raw_decision_summary.json",
+            "--decision-manifest-path",
+            "/tmp/operation/raw_partition_decision_manifest.parquet",
+            "--checkpoint-path",
+            "/tmp/operation/silver_checkpoint.json",
+            "--final-report-path",
+            "/tmp/operation/physical_final_report.json",
+            "--confirm-silver-lake-write",
+        ]
+    )
+    assert silver_apply_args.command == "silver-apply"
+    for future_stage in ("partitions", "events"):
         with pytest.raises(SystemExit):
             parser.parse_args([future_stage])
 
@@ -248,3 +289,149 @@ def test_raw_observe_cli_is_local_only_and_passes_one_completed_report(
     output = capsys.readouterr().out
     assert "raw_observation_summary.json" in output
     assert '"raw_scan_query_count": 2' in output
+
+
+def test_raw_decide_cli_is_local_only_and_accepts_only_registered_policy_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lake_root = tmp_path / "data_lake"
+    staging_root = tmp_path / "data_lake_staging"
+    lake_root.mkdir()
+    staging_root.mkdir()
+    operation_root = staging_root / "etf_mins" / "operation_id=decide"
+    observation_path = operation_root / "raw-observe" / "raw_observation_summary.json"
+    captured: dict[str, object] = {}
+
+    def fake_decide(**kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return SimpleNamespace(
+            operation_id="decide",
+            output_dir=operation_root,
+            raw_partition_decision_manifest_path=(
+                operation_root / "raw_partition_decision_manifest.parquet"
+            ),
+            raw_decision_summary_path=operation_root / "raw_decision_summary.json",
+            observation_summary_hash="a" * 64,
+            approved_policy_version="etf_mins_gap_policy_v1",
+            approved_policy_hash="b" * 64,
+            raw_partition_decision_manifest_hash="c" * 64,
+            raw_decision_summary_hash="d" * 64,
+            partition_count=5,
+            green_partition_count=5,
+            warn_partition_count=0,
+            blocked_partition_count=0,
+            silver_eligible_partition_count=5,
+            analysis_sql_statement_count=12,
+            elapsed_seconds=0.1,
+        )
+
+    def prod_resource_must_not_be_created():  # type: ignore[no-untyped-def]
+        raise AssertionError("raw-decide must not construct a Prod resource")
+
+    monkeypatch.setattr(cli, "DEFAULT_LAKE_ROOT", str(lake_root))
+    monkeypatch.setattr(cli, "DEFAULT_LAKE_STAGING_ROOT", str(staging_root))
+    monkeypatch.setattr(cli, "decide_etf_mins_raw", fake_decide)
+    monkeypatch.setattr(cli, "ProdPostgresResource", prod_resource_must_not_be_created)
+    assert (
+        cli.main(
+            [
+                "raw-decide",
+                "--observation-summary-path",
+                str(observation_path),
+                "--approved-policy-version",
+                "etf_mins_gap_policy_v1",
+                "--output-dir",
+                str(operation_root),
+            ]
+        )
+        == 0
+    )
+    assert captured == {
+        "observation_summary_path": observation_path,
+        "approved_policy_version": "etf_mins_gap_policy_v1",
+        "output_dir": operation_root,
+    }
+    output = capsys.readouterr().out
+    assert '"approved_policy_version": "etf_mins_gap_policy_v1"' in output
+    assert '"partition_count": 5' in output
+
+
+def test_silver_apply_cli_is_local_only_and_passes_only_frozen_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lake_root = tmp_path / "data_lake"
+    staging_root = tmp_path / "data_lake_staging"
+    lake_root.mkdir()
+    staging_root.mkdir()
+    operation_root = staging_root / "etf_mins" / "operation_id=silver"
+    decision_summary_path = operation_root / "raw_decision_summary.json"
+    decision_manifest_path = operation_root / "raw_partition_decision_manifest.parquet"
+    checkpoint_path = operation_root / "silver_checkpoint.json"
+    final_report_path = operation_root / "physical_final_report.json"
+    captured: dict[str, object] = {}
+
+    def fake_apply(**kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return SimpleNamespace(
+            operation_id="silver",
+            plan_fingerprint="a" * 64,
+            silver_work_manifest_path=operation_root / "silver_work_manifest.parquet",
+            silver_work_manifest_hash="b" * 64,
+            finalized_silver_manifest_path=(
+                operation_root / "finalized_silver_manifest.parquet"
+            ),
+            finalized_silver_manifest_hash="c" * 64,
+            checkpoint_path=checkpoint_path,
+            final_report_path=final_report_path,
+            raw_file_count=5,
+            raw_row_count=100,
+            silver_file_count=5,
+            silver_row_count=100,
+            added_file_count=5,
+            reused_file_count=0,
+            blocked_partition_count=0,
+            warn_partition_count=0,
+            report_hash="d" * 64,
+        )
+
+    def prod_resource_must_not_be_created():  # type: ignore[no-untyped-def]
+        raise AssertionError("silver-apply must not construct a Prod resource")
+
+    monkeypatch.setattr(cli, "DEFAULT_LAKE_ROOT", str(lake_root))
+    monkeypatch.setattr(cli, "DEFAULT_LAKE_STAGING_ROOT", str(staging_root))
+    monkeypatch.setattr(cli, "apply_etf_mins_bootstrap_silver", fake_apply)
+    monkeypatch.setattr(cli, "ProdPostgresResource", prod_resource_must_not_be_created)
+    assert (
+        cli.main(
+            [
+                "silver-apply",
+                "--raw-decision-summary-path",
+                str(decision_summary_path),
+                "--decision-manifest-path",
+                str(decision_manifest_path),
+                "--checkpoint-path",
+                str(checkpoint_path),
+                "--final-report-path",
+                str(final_report_path),
+                "--confirm-silver-lake-write",
+            ]
+        )
+        == 0
+    )
+    assert captured == {
+        "lake_root": lake_root,
+        "staging_root": staging_root,
+        "duckdb": captured["duckdb"],
+        "raw_decision_summary_path": decision_summary_path,
+        "decision_manifest_path": decision_manifest_path,
+        "checkpoint_path": checkpoint_path,
+        "final_report_path": final_report_path,
+        "confirm_silver_lake_write": True,
+    }
+    output = capsys.readouterr().out
+    assert '"operation_id": "silver"' in output
+    assert str(final_report_path) in output

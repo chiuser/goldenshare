@@ -1,6 +1,6 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：架构口径已收敛；P0-P7A 代码与临时湖验收已完成；正式 Bootstrap 与正式 P7A 观察尚未执行；P7B 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权补事件或启用 Sensor
+状态：架构口径已收敛；P0-P8 代码与隔离验收已完成；首次正式 Raw Bootstrap、P7A 观察和 N3B decision 均已完成；正式 Silver 写入仍未授权；N6 仍待 P10 启用前评审；尚未授权补事件或启用 Sensor
 创建日期：2026-08-27
 最近更新：2026-08-31
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
@@ -330,7 +330,7 @@ Silver：
 
 ### 8.2 分钟 Raw blocking checks 与 Silver 准入候选
 
-以下口径可以先写进 LLD 和审计脚本候选，但最终哪些判为 blocked、哪些只 WARN，必须以第 9 节对本地 Raw 的 N3 审计结果为准。除稳定的导出/身份门禁外，这些候选不阻断首次 Raw 物理 Bootstrap：
+以下是首次 Raw Bootstrap 开发前冻结的观察候选；当时要求最终 blocked/WARN 必须以第 9 节本地 Raw 的 N3 结果为准，除稳定的导出/身份门禁外不阻断 Raw 物理保存。该评审现已完成，正式分类以第 15 节批准的 `etf_mins_gap_policy_v1` 为准：
 
 1. 本次使用的最新 Basic Raw/Silver 已 materialize、两层各自 blocking checks 全绿、内容 hash 对齐且两层 freshness 都满足要求；任务记录的两个 Basic hash 可独立复算。
 2. 从该 Silver 计算当前可请求集合：`list_status='L'`、`list_date` 非空且不晚于 `eligibility_as_of`，结果的代码数量和 hash 与任务记录一致。
@@ -403,7 +403,7 @@ N3 固定拆成两步：
 1. **N3A 观察**：输出客观 profile 和 issue，例如某日某频率应有/实有代码数、缺失代码、实际分钟时间点、每个 code-day 的 bar 数、价格空值、负成交量和 OHLC 异常。此时不生成 `silver_eligible`，也不把任何尚未确认的类别写成正式 blocking check。
 2. **N3B 决策**：根据 N3A 的真实分布提出逐类建议，由管理员确认哪些 reason code 阻断、哪些只告警；随后冻结 `gap_policy_version`，再用同一份 observation 生成 `raw_partition_decision_manifest` 和 `silver_eligible`。
 
-这里的“blocking/WARN policy 尚未确认”具体指 N3A 报告已经完成、但管理员还没有完成 N3B 评审的时间段。只有 N3B 关闭后，才能进入 Silver。
+这里的“blocking/WARN policy 尚未确认”是流程中的历史状态：指 N3A 报告已经完成、但管理员还没有完成 N3B 评审的时间段。2026-08-31 该门禁已由 `etf_mins_gap_policy_v1` 关闭，正式 `raw-decide` 也已生成并完成物理对账；但这仍不等于 Silver 已经写入或后续阶段已经获准执行。
 
 Bootstrap 的物理写入与日常 readiness 必须分开理解：Bootstrap 可以先完成全部批准范围的正式 Raw 文件，再做 N3；这不表示这些历史分区已经 ready。N3B 冻结后，日常和历史验收都使用同一套 `file_contract/request_scope/bar_domain` blocking 语义。事件补录只是 UI/历史索引，不是全历史 readiness 的事实源。
 
@@ -634,7 +634,7 @@ tushare_request_count / page_count / quota_impact
 
 把 P4 的 validator 集成进五频共享 writer，实现 staging、候选回读、新增/等价复用/冲突停止和 metadata；本阶段测试每个 Raw writer 只执行一次明细查询、不重查 coverage/fingerprint，五频合计最多五条明细查询；不启用 Sensor，不写正式 Lake。
 
-已完成：新增尚未注册到 Definitions 的 `defs/assets/etf_mins.py` 稳定 writer/helper。每次单日单频写入先回读并复算冻结 Basic Raw/Silver 文件与请求集合，再只校验携带的 coverage reference；随后在一个 DuckDB connection 中执行一条明细 SQL、写 run-scoped staging、回读 Parquet，并复用 P4 validator 完成传输、11 字段、主键、日期/频率、exchange 和六类集合校验。正式目标只允许 `added/reused`，内容冲突立即停止；失败候选保留用于排障，成功候选经同文件系统 `os.replace()` 提升并清理空 staging 目录。历史入口不带日常 coverage reference，因此缺代码、grid gap 和显式零行文件可以原样落 Raw 且继续保持 `unclassified/silver_eligible=false`；日常入口若候选与已冻结的全绿 coverage 自相矛盾则停止，不重查 Prod。metadata helper 已覆盖 LLD 规定的 Basic 双 hash/双观测时间、coverage fingerprint、六类计数、文件 hash、查询数和写入处置。
+已完成：P5 当时新增但尚未注册到 Definitions 的 `defs/assets/etf_mins.py` 稳定 writer/helper，已在 P8 注册为正式资产定义。每次单日单频写入先回读并复算冻结 Basic Raw/Silver 文件与请求集合，再只校验携带的 coverage reference；随后在一个 DuckDB connection 中执行一条明细 SQL、写 run-scoped staging、回读 Parquet，并复用 P4 validator 完成传输、11 字段、主键、日期/频率、exchange 和六类集合校验。正式目标只允许 `added/reused`，内容冲突立即停止；失败候选保留用于排障，成功候选经同文件系统 `os.replace()` 提升并清理空 staging 目录。历史入口不带日常 coverage reference，因此缺代码、grid gap 和显式零行文件可以原样落 Raw 且继续保持 `unclassified/silver_eligible=false`；日常入口若候选与已冻结的全绿 coverage 自相矛盾则停止，不重查 Prod。metadata helper 已覆盖 LLD 规定的 Basic 双 hash/双观测时间、coverage fingerprint、六类计数、文件 hash、查询数和写入处置。
 
 临时湖 + fake/read-only source 验收证明五个频率合计恰好构建 5 条明细 SQL、每个结果 `query_count=1`，没有 coverage/fingerprint 第二次查询。正反样本覆盖等价复用、目标冲突、Basic 文件漂移、staging 回读损坏、`unexplained_new`、历史 `missing/grid` 和显式零行 Raw。专项与治理回归为 229 passed、432 subtests passed；orchestrator 全量回归为 2,388 passed、833 subtests passed。P5 没有新增 Asset、Check、Job、Sensor、Bootstrap CLI 或配置项，没有访问 Prod、正式 Lake 或正式 Dagster instance，也没有执行任何 Dagster 命令。
 
@@ -656,15 +656,27 @@ tushare_request_count / page_count / quota_impact
 
 分钟明细固定只做两次集合化深扫描：第一次生成 code-day 与日期/频率数值域聚合，并重新核对 Basic expected/present/missing/known-non-required/nonbasic 集合；第二次生成各频率 clock-time 的 code-day 覆盖率。其它 file/domain/issue/partition 产物都从 manifest 和上述聚合派生，不在 Python 中逐行或逐代码计算。输出目录先写同 operation 的候选目录，8 件产物全部闭合后一次原子提升；既有完整结果按 hash 等价复用，内容或证据漂移立即停止，不覆盖。
 
-观察层登记的 reason code 只是问题分类，不是生效 policy。`proposed_policy.json` 只给出候选建议并明确 `effective=false/requires_admin_approval=true`；所有分区仍为 `unclassified`，所有 Parquet 都不含 decision 或 `silver_eligible`。临时湖使用最多 2 个日期、5 个频率和极小合成行验证了普通数据、五频显式零行、跨日期相同 clock boundary、价格/成交/vwap 异常、网格候选、证据 hash 漂移、输出路径边界和幂等复用；没有同步全量数据，没有访问 Prod、正式 Lake、正式 Dagster instance，也没有写 Silver、分区或事件。专项 CLI/观察测试为 10 passed；orchestrator 全量回归为 2,414 passed、833 subtests passed，Ruff、Definitions 加载和文档完整性检查通过。正式扫描文件/行/字节、SQL 数、DuckDB spill 峰值和耗时要等 P6 正式 Raw 完成后，单独授权运行 `raw-observe` 才会形成真实报告。
+观察层登记的 reason code 只是问题分类，不是生效 policy。`proposed_policy.json` 只给出候选建议并明确 `effective=false/requires_admin_approval=true`；所有分区仍为 `unclassified`，所有 Parquet 都不含 decision 或 `silver_eligible`。临时湖使用最多 2 个日期、5 个频率和极小合成行验证了普通数据、五频显式零行、跨日期相同 clock boundary、价格/成交/vwap 异常、网格候选、证据 hash 漂移、输出路径边界和幂等复用；专项 CLI/观察测试为 10 passed；orchestrator 全量回归为 2,414 passed、833 subtests passed，Ruff、Definitions 加载和文档完整性检查通过。
+
+2026-08-31 经逐阶段批准，正式 operation `etf-mins-bootstrap-20260831-01` 已完成 Raw Bootstrap 与 P7A：动态水位为 `2026-08-28`，159 个交易日 × 5 个频率共 795 个 Raw 文件，source 与正式 Raw 都是 77,079,483 行，40 次有界 Prod 明细查询，0 复用、0 冲突、0 零行文件。P7A 在本地用 2 次 Raw 深扫描和 17 条分析 SQL 于 44.45 秒完成，DuckDB 临时空间峰值约 7.50 GB。真实数据没有空频率、expected code 缺失、合同/身份/数值域/off-session/边界问题；五频时钟点覆盖率均为 100%。所有 1,200,615 个 code-day-freq 只有标准午休 gap；22,404,721 根零成交 bar 中有 57 个五频一致的整日零成交 ETF-day，覆盖 33 个代码和 42 个日期。
 
 ### P7B：N3 policy freeze 与 decision manifest
 
 管理员根据 P7A 报告确认 blocking/WARN reason codes，冻结 `gap_policy_version`，再生成覆盖全部 Raw 分区的 decision manifest。
 
+已批准并落地 `etf_mins_gap_policy_v1`：冻结 P7A 实测的五套精确时钟网格，允许标准午休 gap；普通或单频零成交直接接受，只有同一 ETF-day 五个源频率都为整日零成交才告警且可准入；known-non-required 和 retained-legacy 同样只告警且可准入；空频率、缺 expected code、非标准网格/边界、价格成交/VWAP、off-session、未知代码及合同/身份异常阻断。
+
+P7B 代码已完成：集中 policy 合同保存 version/hash/grid/reason mapping；`raw-decide` 只读 summary 中 hash 登记的 6 个小型 N3A Parquet，不访问 Prod、不重扫 Raw，也不写正式 Lake/Silver/event。它输出 795 行上限内的逐分区 decision manifest 与聚合 summary，完整记录 Raw/Basic/observation/policy hash、全部问题计数、decision、`silver_eligible` 和有界样本。网格异常只阻断实际受影响的 `trade_date + freq`，不连带阻断同频其他日期；全局 grid 异常无法由 code-day profile 定位时直接停止。既有结果只允许等价复用，任何 hash 漂移或内容冲突立即停止。
+
+隔离验收覆盖 green、单频全零仍为 green、五频整日零成交 WARN、非标准网格只阻断实际异常日期、价格异常 blocked、未知 policy、operation id 错配、观察/policy hash 漂移、输出冲突和幂等复用；ETF 专项 30 passed，本阶段文件 Ruff 通过，orchestrator 全量回归 2,419 passed、833 subtests passed。
+
+2026-08-31 经单独授权，operation `etf-mins-bootstrap-20260831-01` 的正式 `raw-decide` 已完成：795 个分区中 585 green、210 WARN、0 blocked，795 个全部 `silver_eligible=true`。210 个 WARN 精确覆盖 42 个日期的五个频率，唯一 reason 是 `full_zero_volume_etf_day_observed`；对应 57 个 ETF-day，按五频展开为 285 次观察。执行未访问 Prod、未重扫 Raw，记录 16 条小型 profile 分析 SQL，耗时 0.147 秒。observation hash 为 `a1a50b12fd21108d4faf7293d37e438159cf7ed1a93bec5c50707e0e2b118f9d`，policy hash 为 `c2ac820cdb1436f84c56c5c8bd529a8384ed95ac17ec90eaa31c89d34063bd1c`，decision manifest hash 为 `934494a04897907f0a61e0d0994b740157434e7a9d8bc404ca6f03de7ad8588c`，decision summary 内容 hash 为 `cc7f39a7c7862944a416b157bf679d4a67bd367ac6dc0f5234541c9657c396a2`。逐频均为 117 green + 42 WARN，主键、hash、准入数量和候选目录清理全部闭合；尚未写 Silver、动态分区、Dagster event 或启用 Sensor。
+
 ### P8：分钟 Raw/Silver assets/checks/jobs 与 Bootstrap Silver apply
 
 把已经冻结的 Raw 和 N3 policy 接入正式 Definitions；日常同日五频只扫描一次并生成五个 Raw `bar_domain` blocking checks。Silver 正式 Job 选择 Raw checks 与 Silver assets/checks，Raw check 失败时不执行 Silver；历史 Silver 从完整 finalized Raw manifest 中筛选 `silver_eligible=true` 且需要新增或等价核验的分区，物理集合对账通过后由 `silver-apply` 生成 `physical_final_report.json`。
+
+已完成代码与隔离验收：正式 Definitions 可发现五个 Raw、五个 Silver、25 个 blocking checks 和两个 jobs；Silver job 不含 Raw writer，并由三项 Raw 门禁直接阻断 Silver。历史 `silver-apply` 只读同 operation 的完整报告链和批准后的 decision manifest，不访问 Prod；Silver 不修值、不删行，只允许新增或与 Raw 11 字段双向等价复用，冲突停止，blocked 分区不写。checkpoint、work/finalized manifests 和 physical final report 均绑定 operation、Raw/N3/Basic/policy hashes，且只有在物理集合闭合后才生成最终报告。隔离测试只使用最多 2 个日期的五频合成文件，没有同步全量数据，也没有触碰正式 Lake 或执行正式 `silver-apply`。
 
 ### P9：历史动态分区与 Runless events
 
@@ -711,14 +723,14 @@ tushare_request_count / page_count / quota_impact
 | C23 | Bootstrap plan 在请求上界前最多 10 个 SSE 开市日用一条 coverage 冻结水位；apply 不重查。单 plan 最多 10,000 个 Raw 文件，更长历史拆成互不重叠的串行计划。 |
 | C24 | 分钟 Raw 只有一套正式 readiness：`file_contract/request_scope/bar_domain` 全部是 `blocking=True`。失败不回滚 Raw 文件，但阻断日常连续性和 Silver；Silver 正式 Job 通过选择 Raw checks 在同一 run 内 fail-closed，不新增第二套准入引用或 writer guard。 |
 | C25 | 正式 Bootstrap plan 不预判既有目标可复用；它只标记缺失、结构有效但未比较、结构无效。等价复用或内容冲突只在 apply 的唯一一次明细导出后判定。 |
+| C26 | N3B 已批准 `etf_mins_gap_policy_v1`：五频使用正式 P7A 实测精确网格，标准午休 gap 合法；普通或单频零成交接受，只有同一 ETF-day 五频均整日零成交才为可准入 WARN；known-non-required、retained-legacy 同样为可准入 WARN；其余空频率、缺代码、非标准网格、数值域、未知代码和稳定合同异常阻断。 |
 
 ### 16.2 后续阶段仍需管理员拍板
 
-当前没有需要立即补充拍板的架构口径。P0-P7A 代码与临时湖验收已经完成，但 P6 正式 frozen plan、Raw apply 和随后正式 P7A 观察仍需分别授权执行；P7B 及以后也须逐阶段授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
+当前没有需要立即补充拍板的架构口径。P0-P8 代码与隔离验收、首次正式 Raw Bootstrap、正式 P7A 观察、N3B policy 评审以及正式 `raw-decide` 均已完成。正式 Silver 写入和 P9 以后仍需按阶段单独授权；N6 只在 P10 Sensor 启用前确认。
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |
-| N3B | 根据 P7A 真实 observation 确认 blocking/WARN、阈值、例外和 `gap_policy_version` | 阻断 P7B decision、正式 `bar_domain` check、Silver、green event 和分钟自动化；不阻断 Raw Bootstrap 与 P7A |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口 | 只阻断 P10 Sensor 启用；全部 Sensor 仍先以 `STOPPED` 发布 |
 
 ---
