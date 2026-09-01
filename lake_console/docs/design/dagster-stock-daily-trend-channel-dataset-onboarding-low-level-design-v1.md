@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：M0～M3 已完成；每日双资产、共享候选审计、双文件提升和三个 blocking checks 已落地，R4 为下一停止点，尚未实现 Job/Sensor、repair、bootstrap、本地 Wealth、部署或正式写湖
+状态：M0～M4 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job、06:00 分区注册和有界 readiness Sensor 已落地，R5 为下一停止点，尚未实现 repair、bootstrap、本地 Wealth、部署、正式写湖或 Sensor 启用
 
 日期：2026-09-01
 
@@ -712,7 +712,7 @@ expected lifecycle    = actual state + uninitialized
 
 ### 7.5 复用原则
 
-抽出纯函数：
+单日文件读取入口保持为：
 
 ```text
 audit_stock_daily_trend_channel_result(...)
@@ -724,10 +724,27 @@ audit_stock_daily_trend_channel_state_coverage(...)
 
 1. candidate validator；
 2. 正式 asset checks；
-3. batch Lake readiness；
-4. bootstrap final audit
+3. bootstrap final audit
 
-共同调用。不得分别复制 SQL 后逐渐漂移。
+共同调用。
+
+M4 实现审计确认：上述函数均为单日、多查询包装，若 batch Lake readiness 在 10 日窗口逐日直接调用，会与 8.5 的真正集合读取门禁冲突。经 2026-09-01 拍板，复用合同澄清为：
+
+```text
+单日读取 SQL ─┐
+              ├─> shared result/state/coverage rule evaluation kernel
+批量集合 SQL ─┘
+```
+
+共享规则评估内核固定为：
+
+```text
+evaluate_stock_daily_trend_channel_result_rules(...)
+evaluate_stock_daily_trend_channel_state_rules(...)
+evaluate_stock_daily_trend_channel_coverage_rules(...)
+```
+
+单日审计与批量 readiness 必须共同调用这些纯评估函数，由它们唯一维护规则名称、失败计数映射和 coverage 派生等式；批量路径保留集合 SQL，不得回调单日重查询包装。result/state/coverage 各有一组 parity 负向测试，保证两条读取路径对同一坏文件给出相同非零规则计数。不得在任一路径另建规则名称或通过判定。
 
 ### 7.6 Check metadata
 
@@ -1488,7 +1505,7 @@ wealth/src/features/stock-detail/trend-channel/
 ### 15.3 Check/readiness 测试
 
 1. 三个 ordinary checks 的正负样本。
-2. candidate、formal check、batch readiness 调用同一 audit helper。
+2. candidate 与 formal check 调用同一单日 audit helper；单日 audit 与 batch readiness 调用同一共享规则评估内核，并由 result/state/coverage 三组 parity 测试锁定等价语义。
 3. batch helper 对 10 天只执行一条或少量 SQL，并记录 SQL/file count。
 4. 只文件存在、row count 非零但 schema/coverage 错误不能 ready。
 5. target 已 materialized 但 check 红时 sensor 不提交 run。
@@ -1663,7 +1680,19 @@ wealth/src/pages/stock-detail/StockDetailPage.tsx
 
 ### R4：分区和每日调度
 
-实现 06:00 只注册 sensor、真正 batch readiness、daily job/sensor。
+状态：已完成（2026-09-01）。
+
+1. 新增 `stock_daily_trend_channel_trade_day_sensor`，默认 `STOPPED`、最小间隔 600 秒；上海时间 06:00 后按 10 日 expected window 每 tick 最多注册两个缺失分区，只返回 dynamic partition add request。
+2. 新增 `gold_stock_daily_trend_channel_update_job`，selection 精确包含 result/state 双资产和三个 blocking checks，不写业务逻辑或扩大上游 selection。
+3. 新增 `gold_stock_daily_trend_channel_update_job_sensor`，默认 `STOPPED`、每 tick 最多一个 RunRequest；按 expected calendar、registered gap、批量 target readiness 和 selected T 上游门禁顺序推进最早可行动日期。
+4. target readiness 最多读取 10 日、20 个目标文件和一个 previous-state 边界文件，正常路径执行一次 schema SQL 和一次集合审计 SQL；返回 `sql_count`、`scanned_file_count`、`elapsed_ms`、`slowest_query_ms`、`window_date_count`。
+5. M0 冻结规模合成样本为连续 11 日、每日 5547 行，评估后 10 日加边界 state：`elapsed_ms=63`、`slowest_query_ms=60`、`sql_count=2`、`scanned_file_count=21`，低于 5000 ms 工程门禁；fixture 构造耗时不计入 readiness。
+6. target 完全缺失时可行动；双文件部分存在、schema/contract/coverage 失败时 materialized fail closed，不自动覆盖。10 日以上窗口在任何 SQL 前拒绝。
+7. qfq、stock basic、lifecycle 和 previous state 只针对 selected T 检查；qfq reconciliation 必须匹配最新 qfq producer run 推导的 exact upstream batch，旧绿色 batch 不放行。`repair_required=true` 在 R5 前以 `trend_repair_required` 阻断。
+8. run key 固定为 `gold_stock_daily_trend_channel_update:{T}:{formula_version}`；cursor 使用统一 builder，只保存 frontier、小型 readiness/repair 摘要和批量性能统计，正常样本小于 2 KB。
+9. result/state/coverage 三类单日审计和集合审计共同消费共享规则评估内核；M4 直接测试 15 passed，M3+M4 35 passed；合同、公式、qfq repair、Catalog、治理和静态门禁定向回归 213 passed、605 个 subtests passed。
+10. orchestrator 全量回归按进程拆分通过：主套件排除既有 RSS 敏感文件后 2506 passed、853 个 subtests passed，`test_major_index_nineturn_m4b.py` 独立进程 18 passed，合计覆盖 2524 个测试。单进程全量的 8 个失败均因该无关文件读取整个 pytest 进程峰值 RSS（约 1.14 GiB）触发自身 1 GiB 门禁；本轮未改该文件或其门禁。
+11. 未运行 `dg` 或访问正式 Dagster runtime，未写正式 Lake/staging、未启用 Sensor、未部署；R5 为下一停止点。
 
 ### R5：repair
 

@@ -84,6 +84,121 @@ class StockDailyTrendChannelCoverageAudit:
 
 
 @dataclass(frozen=True)
+class StockDailyTrendChannelResultRuleMetrics:
+    """Aggregate result counts consumed by every result-contract read path."""
+
+    output_row_count: int
+    partition_date_mismatch_count: int
+    null_key_count: int
+    duplicate_key_count: int
+    invalid_ohlc_count: int
+    invalid_channel_count: int
+    invalid_enum_count: int
+    inconsistent_combined_state_count: int
+    invalid_formula_version_count: int
+    missing_qfq_result_count: int
+    unexpected_result_count: int
+
+
+@dataclass(frozen=True)
+class StockDailyTrendChannelStateRuleMetrics:
+    """Aggregate state counts consumed by every state-contract read path."""
+
+    partition_date_mismatch_count: int
+    required_null_count: int
+    duplicate_key_count: int
+    invalid_raw_channel_count: int
+    invalid_enum_count: int
+    inconsistent_combined_state_count: int
+    invalid_source_date_count: int
+    invalid_formula_version_count: int
+    invalid_lifecycle_membership_count: int
+
+
+@dataclass(frozen=True)
+class StockDailyTrendChannelCoverageRuleMetrics:
+    """Aggregate counts consumed by every state-coverage read path."""
+
+    expected_lifecycle_count: int
+    qfq_observed_count: int
+    expected_carry_count: int
+    actual_observed_state_count: int
+    actual_carry_state_count: int
+    uninitialized_count: int
+    missing_state_count: int
+    unexpected_state_count: int
+
+
+def evaluate_stock_daily_trend_channel_result_rules(
+    metrics: StockDailyTrendChannelResultRuleMetrics,
+) -> dict[str, int]:
+    """Map result aggregates to the canonical result-contract rule names."""
+
+    return {
+        "partition_date_matches": int(metrics.partition_date_mismatch_count),
+        "key_columns_non_null": int(metrics.null_key_count),
+        "unique_ts_code_trade_date": int(metrics.duplicate_key_count),
+        "ohlc_domain_valid": int(metrics.invalid_ohlc_count),
+        "channel_bands_valid": int(metrics.invalid_channel_count),
+        "enum_values_valid": int(metrics.invalid_enum_count),
+        "combined_state_consistent": int(
+            metrics.inconsistent_combined_state_count
+        ),
+        "formula_version_matches": int(metrics.invalid_formula_version_count),
+        "missing_qfq_result_rows": int(metrics.missing_qfq_result_count),
+        "unexpected_result_rows": int(metrics.unexpected_result_count),
+        "row_count_positive": int(metrics.output_row_count <= 0),
+    }
+
+
+def evaluate_stock_daily_trend_channel_state_rules(
+    metrics: StockDailyTrendChannelStateRuleMetrics,
+) -> dict[str, int]:
+    """Map state aggregates to the canonical state-contract rule names."""
+
+    return {
+        "partition_date_matches": int(metrics.partition_date_mismatch_count),
+        "required_columns_non_null": int(metrics.required_null_count),
+        "unique_ts_code_trade_date": int(metrics.duplicate_key_count),
+        "raw_channel_values_valid": int(metrics.invalid_raw_channel_count),
+        "state_enums_valid": int(metrics.invalid_enum_count),
+        "combined_state_consistent": int(
+            metrics.inconsistent_combined_state_count
+        ),
+        "state_source_date_valid": int(metrics.invalid_source_date_count),
+        "formula_version_matches": int(metrics.invalid_formula_version_count),
+        "lifecycle_membership_valid": int(
+            metrics.invalid_lifecycle_membership_count
+        ),
+    }
+
+
+def evaluate_stock_daily_trend_channel_coverage_rules(
+    metrics: StockDailyTrendChannelCoverageRuleMetrics,
+) -> dict[str, int]:
+    """Map coverage aggregates to the canonical coverage-contract equations."""
+
+    return {
+        "observed_state_matches_qfq": abs(
+            metrics.actual_observed_state_count - metrics.qfq_observed_count
+        ),
+        "carry_state_matches_expected": abs(
+            metrics.actual_carry_state_count - metrics.expected_carry_count
+        ),
+        "lifecycle_equation_matches": abs(
+            metrics.expected_lifecycle_count
+            - (
+                metrics.actual_observed_state_count
+                + metrics.actual_carry_state_count
+                + metrics.uninitialized_count
+            )
+        ),
+        "missing_state": int(metrics.missing_state_count),
+        "unexpected_state": int(metrics.unexpected_state_count),
+    }
+
+
+@dataclass(frozen=True)
 class StockDailyTrendChannelWriteResult:
     """Result of one validated paired candidate write and promotion."""
 
@@ -577,18 +692,21 @@ def audit_stock_daily_trend_channel_result(
         FROM result_rows
         """
     ).fetchone()
-    failure_rule_counts = {
-        "partition_date_matches": int(counts[0]),
-        "key_columns_non_null": int(counts[1]),
-        "unique_ts_code_trade_date": int(counts[2]),
-        "ohlc_domain_valid": int(counts[3]),
-        "channel_bands_valid": int(counts[4]),
-        "enum_values_valid": int(counts[5]),
-        "combined_state_consistent": int(counts[6]),
-        "formula_version_matches": int(counts[7]),
-        "missing_qfq_result_rows": int(counts[8]),
-        "unexpected_result_rows": int(counts[9]),
-    }
+    failure_rule_counts = evaluate_stock_daily_trend_channel_result_rules(
+        StockDailyTrendChannelResultRuleMetrics(
+            output_row_count=output_row_count,
+            partition_date_mismatch_count=int(counts[0]),
+            null_key_count=int(counts[1]),
+            duplicate_key_count=int(counts[2]),
+            invalid_ohlc_count=int(counts[3]),
+            invalid_channel_count=int(counts[4]),
+            invalid_enum_count=int(counts[5]),
+            inconsistent_combined_state_count=int(counts[6]),
+            invalid_formula_version_count=int(counts[7]),
+            missing_qfq_result_count=int(counts[8]),
+            unexpected_result_count=int(counts[9]),
+        )
+    )
     samples = _result_failure_samples(
         connection=connection,
         result_sql=result_sql,
@@ -602,10 +720,7 @@ def audit_stock_daily_trend_channel_result(
         failed_row_count=(failed_row_count if output_row_count > 0 else 1),
         source_row_count=source_row_count,
         output_row_count=output_row_count,
-        failure_rule_counts={
-            **failure_rule_counts,
-            "row_count_positive": int(output_row_count <= 0),
-        },
+        failure_rule_counts=failure_rule_counts,
         failure_samples=samples,
         observed_columns=tuple(column[0] for column in observed_schema),
     )
@@ -741,17 +856,19 @@ def audit_stock_daily_trend_channel_state(
             """
         ).fetchone()[0]
     )
-    failure_rule_counts = {
-        "partition_date_matches": int(counts[0]),
-        "required_columns_non_null": int(counts[1]),
-        "unique_ts_code_trade_date": int(counts[2]),
-        "raw_channel_values_valid": int(counts[3]),
-        "state_enums_valid": int(counts[4]),
-        "combined_state_consistent": int(counts[5]),
-        "state_source_date_valid": int(counts[6]),
-        "formula_version_matches": int(counts[7]),
-        "lifecycle_membership_valid": int(counts[8]),
-    }
+    failure_rule_counts = evaluate_stock_daily_trend_channel_state_rules(
+        StockDailyTrendChannelStateRuleMetrics(
+            partition_date_mismatch_count=int(counts[0]),
+            required_null_count=int(counts[1]),
+            duplicate_key_count=int(counts[2]),
+            invalid_raw_channel_count=int(counts[3]),
+            invalid_enum_count=int(counts[4]),
+            inconsistent_combined_state_count=int(counts[5]),
+            invalid_source_date_count=int(counts[6]),
+            invalid_formula_version_count=int(counts[7]),
+            invalid_lifecycle_membership_count=int(counts[8]),
+        )
+    )
     samples = _state_failure_samples(
         connection=connection,
         state_sql=state_sql,
@@ -897,23 +1014,18 @@ def audit_stock_daily_trend_channel_state_coverage(
     uninitialized_count = int(metrics[6])
     missing_state_count = int(metrics[7])
     unexpected_state_count = int(metrics[8])
-    observed_count_delta = abs(actual_observed_state_count - qfq_observed_count)
-    carry_count_delta = abs(actual_carry_state_count - expected_carry_count)
-    lifecycle_equation_delta = abs(
-        expected_lifecycle_count
-        - (
-            actual_observed_state_count
-            + actual_carry_state_count
-            + uninitialized_count
+    failure_rule_counts = evaluate_stock_daily_trend_channel_coverage_rules(
+        StockDailyTrendChannelCoverageRuleMetrics(
+            expected_lifecycle_count=expected_lifecycle_count,
+            qfq_observed_count=qfq_observed_count,
+            expected_carry_count=expected_carry_count,
+            actual_observed_state_count=actual_observed_state_count,
+            actual_carry_state_count=actual_carry_state_count,
+            uninitialized_count=uninitialized_count,
+            missing_state_count=missing_state_count,
+            unexpected_state_count=unexpected_state_count,
         )
     )
-    failure_rule_counts = {
-        "observed_state_matches_qfq": observed_count_delta,
-        "carry_state_matches_expected": carry_count_delta,
-        "lifecycle_equation_matches": lifecycle_equation_delta,
-        "missing_state": missing_state_count,
-        "unexpected_state": unexpected_state_count,
-    }
     failed_row_count = sum(failure_rule_counts.values())
     samples = _coverage_failure_samples(
         connection=connection,

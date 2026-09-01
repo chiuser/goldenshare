@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M3 已完成；每日双资产、共享候选审计、双文件提升和三个 blocking checks 已落地，尚未实现 Job/Sensor、repair、bootstrap、本地 Wealth、部署或正式写湖
+状态：M0～M4 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job、06:00 分区注册和有界 readiness Sensor 已落地，尚未实现 repair、bootstrap、本地 Wealth、部署、正式写湖或 Sensor 启用
 
 日期：2026-09-01
 
@@ -1146,8 +1146,17 @@ formula_version_mismatch
 
 ### M4：06:00 注册与日常 readiness 链
 
-- 实现分区注册 sensor、daily job、daily readiness sensor。
-- 验证有界窗口、最早缺口、并发去重和 fail-closed。
+- 状态：已完成（2026-09-01）。
+- 已实现默认 `STOPPED` 的 `stock_daily_trend_channel_trade_day_sensor`：上海时间 06:00 后只注册最近 10 个 expected trade dates 中最早两个缺失分区，不提交数据 RunRequest。
+- 已实现只选择 result/state 双资产和三个 blocking checks 的 `gold_stock_daily_trend_channel_update_job`。
+- 已实现默认 `STOPPED` 的 `gold_stock_daily_trend_channel_update_job_sensor`：按最近 10 个 expected trade dates 选择最早可行动 not-ready 日期，每 tick 最多提交一个 run；已存在但检查失败或部分存在的目标 fail closed，不自动覆盖。
+- target readiness 使用真正集合读取：最多扫描 20 个目标文件和一个 previous-state 边界文件，正常路径固定两次 DuckDB SQL，不读取 Dagster instance；M0 冻结规模的 10 日合成样本实测 `elapsed_ms=63`、`slowest_query_ms=60`、`sql_count=2`、`scanned_file_count=21`。
+- 单日审计和批量审计共同消费 result/state/coverage 三个共享规则评估内核；批量路径不逐日调用单日重查询函数，并由三组正负 parity 测试锁定等价语义。
+- qfq reconciliation 使用目标 qfq 最新成功 materialization 的 producer run id 构造 exact upstream batch；旧 batch 绿色状态不能放行，需要趋势 repair 时在 M5 完成前明确阻断。
+- run key 固定为 `gold_stock_daily_trend_channel_update:{trade_date}:{formula_version}`；cursor 正常小于 2 KB，10 日以上窗口在执行 SQL 前拒绝。
+- M4 相关合同、公式、M3/M4、qfq repair、Catalog、治理和静态门禁定向回归 `213 passed`、`605` 个 subtests passed。
+- orchestrator 全量回归按进程拆分通过：主套件排除既有 RSS 敏感文件后 `2506 passed`、`853` 个 subtests passed，`test_major_index_nineturn_m4b.py` 独立进程 `18 passed`，合计覆盖当前 `2524` 个测试。单进程全量曾因该无关文件读取整个 pytest 进程峰值 RSS（约 1.14 GiB）触发其 1 GiB 门禁而出现 8 个失败；独立重跑证明不是趋势通道回归，本轮未修改无关测试或门禁。
+- 本里程碑未实现 M5 repair、M6 bootstrap 或 M7 本地 Wealth，未运行 `dg`、未访问正式 Dagster instance、未写正式 Lake/staging、未启用 Sensor，也未部署。
 
 ### M5：趋势 Repair
 

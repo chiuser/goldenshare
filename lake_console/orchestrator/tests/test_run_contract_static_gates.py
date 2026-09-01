@@ -165,6 +165,8 @@ EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
         "sensors/stock_daily_qfq_nineturn_prod_core_sensor.py:prod_core_stock_daily_qfq_nineturn_sync_job_sensor",
         "sensors/stock_daily_qfq_nineturn_sensor.py:gold_stock_daily_qfq_nineturn_update_job_sensor",
         "sensors/stock_daily_qfq_sensor.py:gold_stock_daily_qfq_update_job_sensor",
+        "sensors/stock_daily_trend_channel_sensor.py:gold_stock_daily_trend_channel_update_job_sensor",
+        "sensors/stock_daily_trend_channel_trade_day_sensor.py:stock_daily_trend_channel_trade_day_sensor",
         "sensors/stock_daily_sensor.py:raw_stock_daily_update_job_sensor",
         "sensors/stock_daily_sensor.py:silver_stock_daily_update_job_sensor",
         "sensors/stock_identity_map_sensor.py:stock_identity_map_sensor",

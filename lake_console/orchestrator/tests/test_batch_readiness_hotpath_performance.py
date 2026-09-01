@@ -23,14 +23,17 @@ from orchestrator.defs.asset_guards.stk_nineturn_lake_readiness import (
     batch_raw_stk_nineturn_lake_readiness,
     batch_silver_stock_nineturn_daily_lake_readiness,
 )
+from orchestrator.defs.asset_guards.stock_daily_trend_channel_lake_readiness import (
+    batch_gold_stock_daily_trend_channel_readiness,
+)
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.seeds.market.major_indices import load_major_indices_seed
 from tests.test_market_breadth_lake_readiness import (
-    _FakeClickHouseClient,
     _clickhouse_row,
     _copy_gold_breadth,
     _copy_gold_distribution,
     _copy_silver_stock_daily,
+    _FakeClickHouseClient,
 )
 from tests.test_market_major_indices_lake_readiness import (
     _copy_gold_daily,
@@ -45,13 +48,14 @@ from tests.test_stk_nineturn_lake_readiness import (
     _write_raw,
     _write_silver,
 )
-
+from tests.test_stock_daily_trend_channel_m4 import _write_ready_days
 
 ADJ_FACTOR_10_DAY_BUDGET_MS = 10_000
 MARKET_MAJOR_INDICES_10_DAY_BUDGET_MS = 3_000
 MARKET_BREADTH_10_DAY_BUDGET_MS = 3_000
 CLICKHOUSE_10_DAY_BUDGET_MS = 3_000
 STK_NINETURN_10_DAY_BUDGET_MS = 5_000
+STOCK_DAILY_TREND_CHANNEL_10_DAY_BUDGET_MS = 5_000
 
 
 def _ten_trade_dates() -> tuple[str, ...]:
@@ -67,6 +71,37 @@ def _assert_batch_ready(test_case, batch_status) -> None:
 
 
 class BatchReadinessHotPathPerformanceTests(unittest.TestCase):
+    def test_stock_daily_trend_channel_batch_helper_covers_ten_day_budget(
+        self,
+    ) -> None:
+        start = date(2026, 6, 1)
+        all_trade_dates = tuple(
+            (start + timedelta(days=index)).isoformat() for index in range(11)
+        )
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            root = Path(directory) / "lake"
+            _write_ready_days(
+                connection,
+                root=root,
+                staging=Path(directory) / "staging",
+                trade_dates=all_trade_dates,
+            )
+            batch_status = batch_gold_stock_daily_trend_channel_readiness(
+                connection=connection,
+                lake_root=root,
+                expected_trade_dates=all_trade_dates[1:],
+                previous_trade_date=all_trade_dates[0],
+            )
+
+        _assert_batch_ready(self, batch_status)
+        self.assertEqual(batch_status.sql_count, 2)
+        self.assertEqual(batch_status.scanned_file_count, 21)
+        self.assertLess(
+            batch_status.elapsed_ms,
+            STOCK_DAILY_TREND_CHANNEL_10_DAY_BUDGET_MS,
+            batch_status.to_cursor_details(),
+        )
+
     def test_stk_nineturn_batch_helpers_cover_ten_day_budget(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)

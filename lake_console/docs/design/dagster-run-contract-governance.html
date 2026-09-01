@@ -559,6 +559,18 @@
       与性能边界以<a href="dagster-stock-qfq-nineturn-dataset-low-level-design.md">前复权九转 LLD</a>为准。
     </p>
     <p>
+      股票日线趋势通道 M4 的确定分类是：<code>stock_daily_trend_channel_trade_day_sensor</code>
+      使用 <code>quote_data / partition / partition_registration</code>，默认
+      <code>STOPPED</code>，06:00 后每 tick 最多注册两个专属交易日分区，只返回 dynamic
+      partition add request，不提交 <code>RunRequest</code>；
+      <code>gold_stock_daily_trend_channel_update_job_sensor</code> 使用
+      <code>quote_data / gold / asset_update</code>，默认 <code>STOPPED</code>，按最近 10 个
+      expected trade dates 的集合 Lake readiness 每 tick 最多提交一个日期。生产 sensor 只使用统一
+      <code>build_asset_update_run_key(...)</code> 与 <code>build_run_request(...)</code>，run key
+      固定映射为 <code>gold_stock_daily_trend_channel_update:{trade_date}:{formula_version}</code>；
+      不写自定义 run tags、不把完整窗口状态写入 cursor，也不在 M4 自动执行趋势 repair。
+    </p>
+    <p>
       主要指数日级技术因子 M4 的确定分类是：<code>idx_factor_pro_trade_day_sensor</code>
       使用 <code>index_topic / partition / partition_registration</code>；
       <code>raw_tushare_idx_factor_pro_update_job_sensor</code> 使用
