@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -34,6 +34,7 @@ LONG_DECAY = 1.0 - LONG_ALPHA
 SEGMENT_TRADE_DAY_LIMIT = 250
 DAILY_SOURCE_ROW_HARD_LIMIT = 10_000
 DAILY_TEMP_SPILL_HARD_LIMIT_BYTES = 1_073_741_824
+TREND_AUTO_REPAIR_CODE_LIMIT = 500
 AUDIT_SAMPLE_LIMIT = 20
 
 POSITION_VALUES = ("ABOVE", "INSIDE", "BELOW")
@@ -227,6 +228,35 @@ class StockDailyTrendChannelWriteResult:
     @property
     def candidate_bytes(self) -> int:
         return self.result_candidate_bytes + self.state_candidate_bytes
+
+
+@dataclass(frozen=True)
+class StockDailyTrendChannelRepairPartition:
+    """All formal and run-scoped paths for one repair trade date."""
+
+    trade_date: str
+    qfq_source_path: Path
+    previous_state_target_path: Path | None
+    result_target_path: Path
+    state_target_path: Path
+    result_candidate_path: Path
+    state_candidate_path: Path
+
+
+@dataclass(frozen=True)
+class StockDailyTrendChannelRepairResult:
+    """Validated full-scope result for one trend-channel factor repair."""
+
+    repair_start_trade_date: str
+    repair_end_trade_date: str
+    selected_partition_count: int
+    repair_required_code_count: int
+    rewritten_result_partition_count: int
+    rewritten_state_partition_count: int
+    rewritten_result_row_count: int
+    rewritten_state_row_count: int
+    temp_spill_bytes: int
+    elapsed_ms: float
 
 
 def build_stock_daily_trend_channel_daily_sql(
@@ -1658,6 +1688,666 @@ def write_stock_daily_trend_channel_daily_partition(
     )
 
 
+def write_stock_daily_trend_channel_factor_repair(
+    *,
+    connection: Any,
+    repair_start_trade_date: str,
+    repair_end_trade_date: str,
+    repair_required_codes: Sequence[str],
+    stock_lifecycle_path: Path,
+    partitions: Sequence[StockDailyTrendChannelRepairPartition],
+    replace_file: Callable[[Path, Path], None] = os.replace,
+) -> StockDailyTrendChannelRepairResult:
+    """Recompute one exact affected-code scope and replace complete partitions."""
+
+    started_at = perf_counter()
+    normalized_start = _normalize_trade_date(repair_start_trade_date)
+    normalized_end = _normalize_trade_date(repair_end_trade_date)
+    normalized_codes = _normalize_trend_repair_codes(repair_required_codes)
+    normalized_partitions = _validate_trend_repair_partitions(
+        partitions,
+        repair_start_trade_date=normalized_start,
+        repair_end_trade_date=normalized_end,
+    )
+    if not stock_lifecycle_path.is_file():
+        raise FileNotFoundError(
+            "Missing stock lifecycle file for trend-channel repair: "
+            f"{stock_lifecycle_path}"
+        )
+    if not normalized_partitions:
+        return StockDailyTrendChannelRepairResult(
+            repair_start_trade_date=normalized_start,
+            repair_end_trade_date=normalized_end,
+            selected_partition_count=0,
+            repair_required_code_count=len(normalized_codes),
+            rewritten_result_partition_count=0,
+            rewritten_state_partition_count=0,
+            rewritten_result_row_count=0,
+            rewritten_state_row_count=0,
+            temp_spill_bytes=0,
+            elapsed_ms=(perf_counter() - started_at) * 1000,
+        )
+
+    _prepare_trend_repair_candidates(normalized_partitions)
+    _assert_trend_repair_disk_capacity(normalized_partitions)
+    _create_trend_repair_scope_relations(
+        connection=connection,
+        stock_lifecycle_path=stock_lifecycle_path,
+        repair_required_codes=normalized_codes,
+    )
+
+    candidate_result_rows: dict[str, int] = {}
+    candidate_state_rows: dict[str, int] = {}
+    candidate_state_paths: dict[str, Path] = {}
+    for segment_start in range(0, len(normalized_partitions), SEGMENT_TRADE_DAY_LIMIT):
+        segment = normalized_partitions[
+            segment_start : segment_start + SEGMENT_TRADE_DAY_LIMIT
+        ]
+        _compute_trend_repair_segment(
+            connection=connection,
+            segment=segment,
+            has_seed=segment_start > 0,
+        )
+        for segment_offset, partition in enumerate(segment):
+            partition_index = segment_start + segment_offset
+            _write_trend_repair_partition_candidates(
+                connection=connection,
+                partition=partition,
+            )
+            previous_state_path = (
+                candidate_state_paths[
+                    normalized_partitions[partition_index - 1].trade_date
+                ]
+                if partition_index > 0
+                else partition.previous_state_target_path
+            )
+            result_audit, state_audit, coverage_audit = _audit_trend_repair_partition(
+                connection=connection,
+                partition=partition,
+                stock_lifecycle_path=stock_lifecycle_path,
+                result_path=partition.result_candidate_path,
+                state_path=partition.state_candidate_path,
+                previous_state_path=previous_state_path,
+            )
+            _assert_trend_repair_audits(
+                trade_date=partition.trade_date,
+                result_audit=result_audit,
+                state_audit=state_audit,
+                coverage_audit=coverage_audit,
+            )
+            _assert_trend_repair_candidate_scope(
+                connection=connection,
+                partition=partition,
+            )
+            candidate_result_rows[partition.trade_date] = result_audit.output_row_count
+            candidate_state_rows[partition.trade_date] = state_audit.output_row_count
+            candidate_state_paths[partition.trade_date] = partition.state_candidate_path
+        _replace_trend_repair_seed(
+            connection=connection,
+            trade_date=segment[-1].trade_date,
+        )
+
+    temp_spill_bytes = _trend_repair_temp_spill_bytes(connection)
+    if temp_spill_bytes > DAILY_TEMP_SPILL_HARD_LIMIT_BYTES:
+        raise RuntimeError(
+            "DuckDB temp spill exceeded the trend-channel repair hard limit: "
+            f"{temp_spill_bytes} bytes."
+        )
+
+    for partition in normalized_partitions:
+        replace_file(partition.state_candidate_path, partition.state_target_path)
+        replace_file(partition.result_candidate_path, partition.result_target_path)
+
+    for index, partition in enumerate(normalized_partitions):
+        previous_state_path = (
+            normalized_partitions[index - 1].state_target_path
+            if index > 0
+            else partition.previous_state_target_path
+        )
+        result_audit, state_audit, coverage_audit = _audit_trend_repair_partition(
+            connection=connection,
+            partition=partition,
+            stock_lifecycle_path=stock_lifecycle_path,
+            result_path=partition.result_target_path,
+            state_path=partition.state_target_path,
+            previous_state_path=previous_state_path,
+        )
+        _assert_trend_repair_audits(
+            trade_date=partition.trade_date,
+            result_audit=result_audit,
+            state_audit=state_audit,
+            coverage_audit=coverage_audit,
+        )
+        if (
+            result_audit.output_row_count != candidate_result_rows[partition.trade_date]
+            or state_audit.output_row_count
+            != candidate_state_rows[partition.trade_date]
+        ):
+            raise ValueError(
+                "Stock daily trend-channel final repair row counts changed after "
+                f"promotion: trade_date={partition.trade_date}."
+            )
+
+    return StockDailyTrendChannelRepairResult(
+        repair_start_trade_date=normalized_start,
+        repair_end_trade_date=normalized_end,
+        selected_partition_count=len(normalized_partitions),
+        repair_required_code_count=len(normalized_codes),
+        rewritten_result_partition_count=len(normalized_partitions),
+        rewritten_state_partition_count=len(normalized_partitions),
+        rewritten_result_row_count=sum(candidate_result_rows.values()),
+        rewritten_state_row_count=sum(candidate_state_rows.values()),
+        temp_spill_bytes=temp_spill_bytes,
+        elapsed_ms=(perf_counter() - started_at) * 1000,
+    )
+
+
+def _normalize_trend_repair_codes(values: Sequence[str]) -> tuple[str, ...]:
+    normalized = tuple(
+        sorted({str(value).strip().upper() for value in values if str(value).strip()})
+    )
+    declared = tuple(str(value).strip().upper() for value in values)
+    if not normalized or declared != normalized:
+        raise ValueError(
+            "Trend-channel repair codes must be non-empty, sorted, unique and normalized."
+        )
+    if len(normalized) > TREND_AUTO_REPAIR_CODE_LIMIT:
+        raise ValueError(
+            "Trend-channel repair code count exceeds automatic limit: "
+            f"{len(normalized)} > {TREND_AUTO_REPAIR_CODE_LIMIT}."
+        )
+    return normalized
+
+
+def _validate_trend_repair_partitions(
+    partitions: Sequence[StockDailyTrendChannelRepairPartition],
+    *,
+    repair_start_trade_date: str,
+    repair_end_trade_date: str,
+) -> tuple[StockDailyTrendChannelRepairPartition, ...]:
+    normalized = tuple(partitions)
+    dates = tuple(_normalize_trade_date(item.trade_date) for item in normalized)
+    if dates != tuple(sorted(set(dates))):
+        raise ValueError("Trend-channel repair partitions must be sorted and unique.")
+    if normalized and (
+        dates[0] != repair_start_trade_date or dates[-1] != repair_end_trade_date
+    ):
+        raise ValueError(
+            "Trend-channel repair partition boundaries do not match declared scope."
+        )
+    if not normalized and repair_start_trade_date <= repair_end_trade_date:
+        raise ValueError(
+            "Empty trend-channel repair partitions require an empty date scope."
+        )
+    for item in normalized:
+        required = (
+            item.qfq_source_path,
+            item.result_target_path,
+            item.state_target_path,
+        )
+        missing = tuple(path for path in required if not path.is_file())
+        if missing:
+            raise FileNotFoundError(
+                "Missing trend-channel repair input/formal files: "
+                + ", ".join(str(path) for path in missing)
+            )
+        if item.result_candidate_path == item.result_target_path or (
+            item.state_candidate_path == item.state_target_path
+        ):
+            raise ValueError("Trend-channel repair candidates must be run-scoped.")
+    return normalized
+
+
+def _prepare_trend_repair_candidates(
+    partitions: Sequence[StockDailyTrendChannelRepairPartition],
+) -> None:
+    for item in partitions:
+        for candidate, target in (
+            (item.result_candidate_path, item.result_target_path),
+            (item.state_candidate_path, item.state_target_path),
+        ):
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            _assert_same_filesystem(candidate_path=candidate, target_path=target)
+            candidate.unlink(missing_ok=True)
+
+
+def _assert_trend_repair_disk_capacity(
+    partitions: Sequence[StockDailyTrendChannelRepairPartition],
+) -> None:
+    estimated_candidate_bytes = sum(
+        item.result_target_path.stat().st_size + item.state_target_path.stat().st_size
+        for item in partitions
+    )
+    required_free_bytes = (
+        2 * estimated_candidate_bytes + DAILY_TEMP_SPILL_HARD_LIMIT_BYTES
+    )
+    free_bytes = shutil.disk_usage(partitions[0].result_candidate_path.parent).free
+    if free_bytes < required_free_bytes:
+        raise RuntimeError(
+            "Insufficient staging space for stock daily trend-channel repair: "
+            f"free={free_bytes}, required={required_free_bytes}."
+        )
+
+
+def _create_trend_repair_scope_relations(
+    *,
+    connection: Any,
+    stock_lifecycle_path: Path,
+    repair_required_codes: Sequence[str],
+) -> None:
+    code_values = ", ".join(
+        f"({duckdb_string(code)})" for code in repair_required_codes
+    )
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE trend_repair_codes AS
+        SELECT CAST(col0 AS VARCHAR) AS ts_code
+        FROM (VALUES {code_values})
+        """
+    )
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP VIEW trend_repair_lifecycle AS
+        SELECT
+          CAST(ts_code AS VARCHAR) AS ts_code,
+          CAST(is_cny_stock AS BOOLEAN) AS is_cny_stock,
+          CAST(list_date AS DATE) AS list_date,
+          CAST(delist_date AS DATE) AS delist_date
+        FROM {read_parquet(stock_lifecycle_path, hive_partitioning=False)}
+        """
+    )
+
+
+def _compute_trend_repair_segment(
+    *,
+    connection: Any,
+    segment: Sequence[StockDailyTrendChannelRepairPartition],
+    has_seed: bool,
+) -> None:
+    source_sql = _read_parquet_paths_sql(
+        tuple(item.qfq_source_path for item in segment)
+    )
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP VIEW trend_repair_segment_source AS
+        SELECT
+          CAST(source.ts_code AS VARCHAR) AS ts_code,
+          CAST(source.trade_date AS DATE) AS trade_date,
+          CAST(source.open AS DOUBLE) AS open,
+          CAST(source.high AS DOUBLE) AS high,
+          CAST(source.low AS DOUBLE) AS low,
+          CAST(source.close AS DOUBLE) AS close
+        FROM {source_sql} AS source
+        JOIN trend_repair_codes USING (ts_code)
+        """
+    )
+    formula_sql = build_stock_daily_trend_channel_repair_segment_sql(
+        "trend_repair_segment_source",
+        segment_trade_day_count=len(segment),
+        previous_state_relation=("trend_repair_seed" if has_seed else None),
+    )
+    connection.execute(
+        f"CREATE OR REPLACE TEMP TABLE trend_repair_observed AS {formula_sql}"
+    )
+    date_values = ", ".join(
+        f"(DATE {duckdb_string(item.trade_date)})" for item in segment
+    )
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE trend_repair_segment_dates AS
+        SELECT CAST(col0 AS DATE) AS trade_date
+        FROM (VALUES {date_values})
+        """
+    )
+    seed_sql = (
+        "SELECT * FROM trend_repair_seed"
+        if has_seed
+        else _empty_trend_repair_seed_sql()
+    )
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE trend_repair_affected_state AS
+        WITH state_events AS (
+          SELECT
+            ts_code,
+            trade_date AS state_source_trade_date,
+            short_upper_raw,
+            short_lower_raw,
+            short_state,
+            long_upper_raw,
+            long_lower_raw,
+            long_state,
+            combined_state,
+            formula_version
+          FROM trend_repair_observed
+          UNION ALL
+          {seed_sql}
+        ),
+        valid_code_dates AS (
+          SELECT DISTINCT codes.ts_code, dates.trade_date
+          FROM trend_repair_codes AS codes
+          CROSS JOIN trend_repair_segment_dates AS dates
+          JOIN trend_repair_lifecycle AS lifecycle USING (ts_code)
+          WHERE lifecycle.is_cny_stock
+            AND lifecycle.list_date <= dates.trade_date
+            AND (
+              lifecycle.delist_date IS NULL
+              OR lifecycle.delist_date > dates.trade_date
+            )
+        )
+        SELECT
+          grid.ts_code,
+          grid.trade_date,
+          latest.state_source_trade_date,
+          latest.state_source_trade_date = grid.trade_date
+            AS observed_on_partition,
+          latest.short_upper_raw,
+          latest.short_lower_raw,
+          latest.short_state,
+          latest.long_upper_raw,
+          latest.long_lower_raw,
+          latest.long_state,
+          latest.combined_state,
+          latest.formula_version
+        FROM valid_code_dates AS grid
+        JOIN LATERAL (
+          SELECT event.*
+          FROM state_events AS event
+          WHERE event.ts_code = grid.ts_code
+            AND event.state_source_trade_date <= grid.trade_date
+          ORDER BY event.state_source_trade_date DESC
+          LIMIT 1
+        ) AS latest ON true
+        ORDER BY grid.ts_code, grid.trade_date
+        """
+    )
+
+
+def _read_parquet_paths_sql(paths: Sequence[Path]) -> str:
+    if not paths:
+        raise ValueError("Trend-channel repair source path list must not be empty.")
+    values = ", ".join(duckdb_string(path) for path in paths)
+    return f"read_parquet([{values}], hive_partitioning=false, union_by_name=true)"
+
+
+def _empty_trend_repair_seed_sql() -> str:
+    return """
+      SELECT
+        CAST(NULL AS VARCHAR) AS ts_code,
+        CAST(NULL AS DATE) AS state_source_trade_date,
+        CAST(NULL AS DOUBLE) AS short_upper_raw,
+        CAST(NULL AS DOUBLE) AS short_lower_raw,
+        CAST(NULL AS VARCHAR) AS short_state,
+        CAST(NULL AS DOUBLE) AS long_upper_raw,
+        CAST(NULL AS DOUBLE) AS long_lower_raw,
+        CAST(NULL AS VARCHAR) AS long_state,
+        CAST(NULL AS VARCHAR) AS combined_state,
+        CAST(NULL AS VARCHAR) AS formula_version
+      WHERE false
+    """
+
+
+def _write_trend_repair_partition_candidates(
+    *,
+    connection: Any,
+    partition: StockDailyTrendChannelRepairPartition,
+) -> None:
+    date_sql = duckdb_string(partition.trade_date)
+    result_target_sql = read_parquet(
+        partition.result_target_path,
+        hive_partitioning=False,
+    )
+    state_target_sql = read_parquet(
+        partition.state_target_path,
+        hive_partitioning=False,
+    )
+    result_sql = f"""
+      SELECT * FROM {result_target_sql} AS formal
+      WHERE NOT EXISTS (
+        SELECT 1 FROM trend_repair_codes AS scope
+        WHERE scope.ts_code = CAST(formal.ts_code AS VARCHAR)
+      )
+      UNION ALL
+      SELECT
+        CAST(ts_code AS VARCHAR), CAST(trade_date AS DATE),
+        CAST(open AS DOUBLE), CAST(high AS DOUBLE), CAST(low AS DOUBLE),
+        CAST(close AS DOUBLE), CAST(short_upper AS DOUBLE),
+        CAST(short_lower AS DOUBLE), CAST(short_position AS VARCHAR),
+        CAST(short_state AS VARCHAR), CAST(long_upper AS DOUBLE),
+        CAST(long_lower AS DOUBLE), CAST(long_position AS VARCHAR),
+        CAST(long_state AS VARCHAR), CAST(combined_state AS VARCHAR),
+        CAST(formula_version AS VARCHAR)
+      FROM trend_repair_observed
+      WHERE trade_date = DATE {date_sql}
+      ORDER BY ts_code
+    """
+    state_sql = f"""
+      SELECT * FROM {state_target_sql} AS formal
+      WHERE NOT EXISTS (
+        SELECT 1 FROM trend_repair_codes AS scope
+        WHERE scope.ts_code = CAST(formal.ts_code AS VARCHAR)
+      )
+      UNION ALL
+      SELECT
+        CAST(ts_code AS VARCHAR), CAST(trade_date AS DATE),
+        CAST(state_source_trade_date AS DATE),
+        CAST(observed_on_partition AS BOOLEAN),
+        CAST(short_upper_raw AS DOUBLE), CAST(short_lower_raw AS DOUBLE),
+        CAST(short_state AS VARCHAR), CAST(long_upper_raw AS DOUBLE),
+        CAST(long_lower_raw AS DOUBLE), CAST(long_state AS VARCHAR),
+        CAST(combined_state AS VARCHAR), CAST(formula_version AS VARCHAR)
+      FROM trend_repair_affected_state
+      WHERE trade_date = DATE {date_sql}
+      ORDER BY ts_code
+    """
+    connection.execute(
+        copy_query_to_parquet(result_sql, partition.result_candidate_path)
+    )
+    connection.execute(copy_query_to_parquet(state_sql, partition.state_candidate_path))
+
+
+def _audit_trend_repair_partition(
+    *,
+    connection: Any,
+    partition: StockDailyTrendChannelRepairPartition,
+    stock_lifecycle_path: Path,
+    result_path: Path,
+    state_path: Path,
+    previous_state_path: Path | None,
+) -> tuple[
+    StockDailyTrendChannelAudit,
+    StockDailyTrendChannelAudit,
+    StockDailyTrendChannelCoverageAudit,
+]:
+    return (
+        audit_stock_daily_trend_channel_result(
+            connection=connection,
+            result_path=result_path,
+            qfq_source_path=partition.qfq_source_path,
+            trade_date=partition.trade_date,
+        ),
+        audit_stock_daily_trend_channel_state(
+            connection=connection,
+            state_path=state_path,
+            stock_lifecycle_path=stock_lifecycle_path,
+            trade_date=partition.trade_date,
+        ),
+        audit_stock_daily_trend_channel_state_coverage(
+            connection=connection,
+            state_path=state_path,
+            qfq_source_path=partition.qfq_source_path,
+            stock_lifecycle_path=stock_lifecycle_path,
+            previous_state_path=previous_state_path,
+            trade_date=partition.trade_date,
+        ),
+    )
+
+
+def _assert_trend_repair_audits(
+    *,
+    trade_date: str,
+    result_audit: StockDailyTrendChannelAudit,
+    state_audit: StockDailyTrendChannelAudit,
+    coverage_audit: StockDailyTrendChannelCoverageAudit,
+) -> None:
+    if result_audit.passed and state_audit.passed and coverage_audit.passed:
+        return
+    raise ValueError(
+        "Stock daily trend-channel repair audit failed: "
+        f"trade_date={trade_date}, "
+        f"result={dict(result_audit.failure_rule_counts)}, "
+        f"state={dict(state_audit.failure_rule_counts)}, "
+        f"coverage={dict(coverage_audit.failure_rule_counts)}."
+    )
+
+
+def _assert_trend_repair_candidate_scope(
+    *,
+    connection: Any,
+    partition: StockDailyTrendChannelRepairPartition,
+) -> None:
+    date_sql = duckdb_string(partition.trade_date)
+    candidate_result = read_parquet(
+        partition.result_candidate_path,
+        hive_partitioning=False,
+    )
+    candidate_state = read_parquet(
+        partition.state_candidate_path,
+        hive_partitioning=False,
+    )
+    formal_result = read_parquet(partition.result_target_path, hive_partitioning=False)
+    formal_state = read_parquet(partition.state_target_path, hive_partitioning=False)
+    counts = connection.execute(
+        f"""
+        WITH candidate_result_rows AS (SELECT * FROM {candidate_result}),
+        candidate_state_rows AS (SELECT * FROM {candidate_state}),
+        formal_result_rows AS (SELECT * FROM {formal_result}),
+        formal_state_rows AS (SELECT * FROM {formal_state}),
+        candidate_result_unaffected AS (
+          SELECT * FROM candidate_result_rows AS rows
+          WHERE NOT EXISTS (
+            SELECT 1 FROM trend_repair_codes AS scope
+            WHERE scope.ts_code = rows.ts_code
+          )
+        ),
+        formal_result_unaffected AS (
+          SELECT * FROM formal_result_rows AS rows
+          WHERE NOT EXISTS (
+            SELECT 1 FROM trend_repair_codes AS scope
+            WHERE scope.ts_code = rows.ts_code
+          )
+        ),
+        candidate_state_unaffected AS (
+          SELECT * FROM candidate_state_rows AS rows
+          WHERE NOT EXISTS (
+            SELECT 1 FROM trend_repair_codes AS scope
+            WHERE scope.ts_code = rows.ts_code
+          )
+        ),
+        formal_state_unaffected AS (
+          SELECT * FROM formal_state_rows AS rows
+          WHERE NOT EXISTS (
+            SELECT 1 FROM trend_repair_codes AS scope
+            WHERE scope.ts_code = rows.ts_code
+          )
+        ),
+        expected_result_affected AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(trade_date AS DATE) AS trade_date,
+            CAST(open AS DOUBLE) AS open,
+            CAST(high AS DOUBLE) AS high,
+            CAST(low AS DOUBLE) AS low,
+            CAST(close AS DOUBLE) AS close,
+            CAST(short_upper AS DOUBLE) AS short_upper,
+            CAST(short_lower AS DOUBLE) AS short_lower,
+            CAST(short_position AS VARCHAR) AS short_position,
+            CAST(short_state AS VARCHAR) AS short_state,
+            CAST(long_upper AS DOUBLE) AS long_upper,
+            CAST(long_lower AS DOUBLE) AS long_lower,
+            CAST(long_position AS VARCHAR) AS long_position,
+            CAST(long_state AS VARCHAR) AS long_state,
+            CAST(combined_state AS VARCHAR) AS combined_state,
+            CAST(formula_version AS VARCHAR) AS formula_version
+          FROM trend_repair_observed
+          WHERE trade_date = DATE {date_sql}
+        ),
+        expected_state_affected AS (
+          SELECT * FROM trend_repair_affected_state
+          WHERE trade_date = DATE {date_sql}
+        )
+        SELECT
+          (SELECT count(*) FROM (
+            (SELECT * FROM candidate_result_unaffected EXCEPT ALL
+             SELECT * FROM formal_result_unaffected)
+            UNION ALL
+            (SELECT * FROM formal_result_unaffected EXCEPT ALL
+             SELECT * FROM candidate_result_unaffected)
+          )),
+          (SELECT count(*) FROM (
+            (SELECT * FROM candidate_state_unaffected EXCEPT ALL
+             SELECT * FROM formal_state_unaffected)
+            UNION ALL
+            (SELECT * FROM formal_state_unaffected EXCEPT ALL
+             SELECT * FROM candidate_state_unaffected)
+          )),
+          (SELECT count(*) FROM (
+            (SELECT rows.* FROM candidate_result_rows AS rows
+             JOIN trend_repair_codes USING (ts_code)
+             EXCEPT ALL SELECT * FROM expected_result_affected)
+            UNION ALL
+            (SELECT * FROM expected_result_affected EXCEPT ALL
+             SELECT rows.* FROM candidate_result_rows AS rows
+             JOIN trend_repair_codes USING (ts_code))
+          )),
+          (SELECT count(*) FROM (
+            (SELECT rows.* FROM candidate_state_rows AS rows
+             JOIN trend_repair_codes USING (ts_code)
+             EXCEPT ALL SELECT * FROM expected_state_affected)
+            UNION ALL
+            (SELECT * FROM expected_state_affected EXCEPT ALL
+             SELECT rows.* FROM candidate_state_rows AS rows
+             JOIN trend_repair_codes USING (ts_code))
+          ))
+        """
+    ).fetchone()
+    if any(int(count) for count in counts):
+        raise ValueError(
+            "Stock daily trend-channel repair candidate escaped its affected scope: "
+            f"trade_date={partition.trade_date}, counts={tuple(map(int, counts))}."
+        )
+
+
+def _replace_trend_repair_seed(*, connection: Any, trade_date: str) -> None:
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE trend_repair_seed AS
+        SELECT
+          ts_code,
+          state_source_trade_date,
+          short_upper_raw,
+          short_lower_raw,
+          short_state,
+          long_upper_raw,
+          long_lower_raw,
+          long_state,
+          combined_state,
+          formula_version
+        FROM trend_repair_affected_state
+        WHERE trade_date = DATE {duckdb_string(trade_date)}
+        """
+    )
+
+
+def _trend_repair_temp_spill_bytes(connection: Any) -> int:
+    return int(
+        connection.execute(
+            "SELECT coalesce(sum(size), 0) FROM duckdb_temporary_files()"
+        ).fetchone()[0]
+    )
+
+
 def _assert_daily_path_contracts(
     *,
     qfq_source_path: Path,
@@ -1687,9 +2377,7 @@ def _assert_daily_path_contracts(
             + ", ".join(str(path) for path in existing_targets)
         )
     existing_candidates = tuple(
-        path
-        for path in (result_candidate_path, state_candidate_path)
-        if path.exists()
+        path for path in (result_candidate_path, state_candidate_path) if path.exists()
     )
     if existing_candidates:
         raise FileExistsError(
@@ -1812,9 +2500,7 @@ def _validate_daily_source_inputs(
         "stock_basic_row_count_positive": int(basic_row_count <= 0),
         "stock_basic_row_limit": int(basic_row_count > DAILY_SOURCE_ROW_HARD_LIMIT),
         "lifecycle_row_count_positive": int(lifecycle_row_count <= 0),
-        "lifecycle_row_limit": int(
-            lifecycle_row_count > DAILY_SOURCE_ROW_HARD_LIMIT
-        ),
+        "lifecycle_row_limit": int(lifecycle_row_count > DAILY_SOURCE_ROW_HARD_LIMIT),
         "qfq_unique_key": int(counts[3]),
         "qfq_partition_date_matches": int(counts[4]),
         "qfq_ohlc_valid": int(counts[5]),
@@ -1823,8 +2509,7 @@ def _validate_daily_source_inputs(
     }
     if any(failure_counts.values()):
         raise ValueError(
-            "Stock daily trend-channel source validation failed: "
-            f"{failure_counts}."
+            f"Stock daily trend-channel source validation failed: {failure_counts}."
         )
     if (previous_trade_date is None) != (previous_state_path is None):
         raise ValueError(

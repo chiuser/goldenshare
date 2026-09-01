@@ -11,7 +11,7 @@
 > `build_raw_index_daily_update_job_run_config(...)` 构造。指数当前实现以
 > `dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md` 为准。
 
-更新时间：2026-06-17
+更新时间：2026-09-02
 
 上层方案：`lake_console/docs/design/dagster-run-key-governance-optimization-plan.md`
 
@@ -113,7 +113,7 @@ CodeGraph 重点覆盖：
 | 位置 | 治理前事实 | 编码影响 |
 | --- | --- | --- |
 | `src/orchestrator/defs/run_contracts/requests.py` | `build_run_request(...)` 只是 `dg.RunRequest` 薄封装，不生成 run key。 | 保留该职责；新增 run key builder 不塞进 `requests.py`。 |
-| `src/orchestrator/defs/sensors/**` | 多数 sensor 直接用 `run_key=f"...` 或 `dg.RunRequest(run_key=(...))` 手写模板。 | 全量迁移到统一 builder；除前复权分钟线 MACD/KDJ 修复外，输出字符串必须不变。 |
+| `src/orchestrator/defs/sensors/**` | 多数 sensor 直接用 `run_key=f"...` 或 `dg.RunRequest(run_key=(...))` 手写模板。 | 全量迁移到统一 builder；前复权分钟线 MACD/KDJ 修复迁移为 upstream batch，后续股票日线趋势通道 repair 直接按该口径新增，其余既有输出字符串必须不变。 |
 | 历史 `src/orchestrator/defs/sensors/index_daily_late_arrival_repair.py` | raw-by-code 退出前存在 `base_index_daily_run_key(...)`、`repair_index_daily_run_key(...)` 两个局部 helper；该文件已删除。 | 这是历史迁移证据，不是现行实现。当前 raw 指数日线使用 `build_asset_update_run_key(subject="raw_index_daily", unit_id=trade_date)`；不存在专属 late-arrival repair helper。 |
 | `src/orchestrator/defs/sensors/stock_daily_sensor.py` | raw 日更和 missing-code repair run key 在 sensor 内拼接。 | 日更迁到 asset update builder；missing-code repair 迁到 repair attempt builder，字符串保持不变。 |
 | `src/orchestrator/defs/sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py` | 日常更新 run key 是 `gold_stk_mins_qfq_macd_kdj_daily_update:{trade_date}`。 | 这是普通资产更新，不使用 `upstream_batch_id`；字符串保持不变。 |
@@ -227,7 +227,7 @@ build_batch_id:
 
 ## 6. 现有 run key 迁移表
 
-除前复权分钟线 MACD/KDJ 修复外，下表输出必须与当前字符串完全一致。
+除前复权分钟线 MACD/KDJ 修复和后续新增的股票日线趋势通道 repair 外，下表中的既有模板输出必须保持不变。
 
 | 现有模板 | 目标 builder 调用 |
 | --- | --- |
@@ -248,6 +248,7 @@ build_batch_id:
 | `stock_mins_qfq_daily_update:{trade_date}` | `build_asset_update_run_key(subject="stock_mins_qfq_daily_update", unit_id=trade_date)` |
 | `stock_mins_qfq_factor_repair:{trade_date}` | `build_asset_update_run_key(subject="stock_mins_qfq_factor_repair", unit_id=trade_date)` |
 | `gold_stk_mins_qfq_macd_kdj_daily_update:{trade_date}` | `build_asset_update_run_key(subject="gold_stk_mins_qfq_macd_kdj_daily_update", unit_id=trade_date)` |
+| `gold_stock_daily_trend_channel_repair:{formula_version}:{source_upstream_batch_id}` | `build_upstream_triggered_run_key(consumer=f"gold_stock_daily_trend_channel_repair:{formula_version}", upstream_batch_id=source_upstream_batch_id)` |
 | `index_daily:{trade_date}:{index_code}` | `build_asset_update_run_key(subject="index_daily", unit_id=f"{trade_date}:{index_code}")` |
 | `index_daily:{trade_date}:{index_code}:repair:{evaluation_date}:{repair_attempt}` | `build_repair_attempt_run_key(subject="index_daily", repair_scope_id=f"{trade_date}:{index_code}:repair", attempt_scope=evaluation_date, attempt=repair_attempt)` |
 | `silver_index_daily:{trade_date}` | `build_asset_update_run_key(subject="silver_index_daily", unit_id=trade_date)` |

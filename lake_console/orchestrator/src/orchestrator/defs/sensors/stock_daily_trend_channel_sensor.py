@@ -27,6 +27,9 @@ from orchestrator.defs.asset_guards.stock_daily_trend_channel_lake_readiness imp
     StockDailyTrendChannelBatchReadiness,
     batch_gold_stock_daily_trend_channel_readiness,
 )
+from orchestrator.defs.asset_guards.stock_daily_trend_channel_repair import (
+    gold_stock_daily_trend_channel_repair_completion_status,
+)
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.jobs.stock_daily_trend_channel_update import (
     gold_stock_daily_trend_channel_update_job,
@@ -268,7 +271,30 @@ def _qfq_reconciliation(
     if status.repair_required != plan.repair_required:
         return plan, status, "qfq_reconciliation_plan_mismatch"
     if plan.repair_required:
-        return plan, status, "trend_repair_required"
+        if (
+            previous_trade_date is None
+            or status.repair_start_trade_date is None
+            or status.repair_required_codes_hash is None
+            or status.upstream_batch_id is None
+            or status.selected_partition_count <= 0
+        ):
+            return plan, status, "qfq_reconciliation_plan_mismatch"
+        trend_repair_status = gold_stock_daily_trend_channel_repair_completion_status(
+            context.instance,
+            qfq_factor_repair_trade_date=target_trade_date,
+            repair_start_trade_date=status.repair_start_trade_date,
+            repair_end_trade_date=previous_trade_date,
+            selected_partition_count=max(
+                status.selected_partition_count - 1,
+                0,
+            ),
+            repair_required_code_count=(status.repair_required_code_count),
+            repair_required_codes_hash=(status.repair_required_codes_hash),
+            source_upstream_batch_id=status.upstream_batch_id,
+            formula_version=FORMULA_VERSION,
+        )
+        if not trend_repair_status.ready:
+            return plan, status, "trend_repair_required"
     return plan, status, None
 
 
@@ -331,7 +357,7 @@ def _summary_and_next_action(
         ),
         "trend_repair_required": (
             f"未触发：{target} 的 qfq 历史发生重写，需要先修复趋势历史。",
-            "等待 M5 趋势 repair completion；不得先计算当日状态。",
+            "等待同一 upstream batch 的趋势 repair 双 completion checks；不得先计算当日状态。",
         ),
     }
     return messages.get(

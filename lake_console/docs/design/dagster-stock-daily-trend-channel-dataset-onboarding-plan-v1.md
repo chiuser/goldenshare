@@ -1,8 +1,8 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M4 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job、06:00 分区注册和有界 readiness Sensor 已落地，尚未实现 repair、bootstrap、本地 Wealth、部署、正式写湖或 Sensor 启用
+状态：M0～M5 已完成；每日链路与 exact-batch 趋势 repair 已落地，尚未实现 bootstrap、本地 Wealth、部署、正式写湖或 Sensor 启用
 
-日期：2026-09-01
+日期：2026-09-02
 
 适用范围：A 股股票日线、前复权、Gold Lake、Dagster 日常增量与历史 repair、本地 Wealth 消费
 
@@ -588,11 +588,16 @@ Repair sensor 监听 qfq factor repair job 成功：
 Run key：
 
 ```text
+build_upstream_triggered_run_key(
+  consumer="gold_stock_daily_trend_channel_repair:{formula_version}",
+  upstream_batch_id=source_upstream_batch_id,
+)
+
 gold_stock_daily_trend_channel_repair:
-  {qfq_factor_trade_date}:{repair_required_codes_hash}:{formula_version}
+  {formula_version}:{source_upstream_batch_id}
 ```
 
-正式 run key 实现为一行稳定字符串，不加入文件数、时间戳或随机值。
+`source_upstream_batch_id` 是 qfq repair 提供的 opaque exact batch，不能用日期或代码 hash 替代。同一 exact batch 与公式版本重复 tick 必须得到同一 key；同一日期、同一代码 hash 但上游 producer run 不同，必须得到不同 key。正式 run key 实现为一行稳定字符串，不加入文件数、时间戳或随机值。
 
 ### 10.4 Repair 计算与写入
 
@@ -1160,9 +1165,16 @@ formula_version_mismatch
 
 ### M5：趋势 Repair
 
-- 实现 upstream batch 校验、scoped repair helper/job/sensor/completion check。
-- 通过中断恢复、幂等和全历史重算一致性测试。
-- 自动上限只使用 M0 实测结论。
+- 状态：已完成（2026-09-02）。
+- 已实现 typed repair config、专属 op/job、默认 `STOPPED` 的 run-status sensor、exact qfq batch 二次校验及 result/state 双 completion checks。
+- run key 使用公共 upstream-triggered builder，固定为 `gold_stock_daily_trend_channel_repair:{formula_version}:{source_upstream_batch_id}`；同批次稳定、不同 producer batch 必然不同，不再用日期和代码 hash 代替上游批次身份。
+- scoped repair 以最多 250 个交易日为 segment，通过 DuckDB 集合 SQL 重算 affected codes；逐日把 affected 重算结果与 unaffected 正式行合并成完整单文件候选。Python 只编排日期 segment、文件审计和原子提升，不处理行情明细行。
+- 全范围候选全部通过 result/state/coverage 和 affected/unaffected 集合差异审计后，才按日期升序执行 state -> result 原子替换；中断保留已提升日期，重试幂等，completion checks 只在全范围最终审计成功后写入。
+- 日常 sensor 只有在同一 `source_upstream_batch_id`、范围、代码 count/hash 和公式版本的两个 completion checks 同时通过后才继续 T 日更新；旧批次、缺 check、范围或公式不一致均 fail closed。
+- 自动股票范围继续使用 M0 冻结上限 500；501 起不提交自动 repair。未新增配置项、状态实体、数据库或 manifest。
+- M5 直接测试 `12 passed`；趋势合同、公式、M3～M5、qfq 与分钟线/MACD-KDJ repair、run contract 定向回归 `284 passed`、`58` 个 subtests；治理/readiness/Definitions 回归 `157 passed`、`593` 个 subtests。
+- orchestrator 全量回归按既有 RSS 隔离策略通过：主套件 `2519 passed`、`853` 个 subtests，既有 `test_major_index_nineturn_m4b.py` 独立进程 `18 passed`，合计 `2537 passed`。
+- 未运行 `dg`、未访问正式 Dagster instance、未写正式 Lake/staging、未启用 Sensor、未部署；M6 为下一停止点。
 
 ### M6：历史 Bootstrap
 

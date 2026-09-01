@@ -2,7 +2,7 @@
 
 状态：M1-M9 已按本文核心口径落地并完成最终专项验收，legacy bridge 已退出。本文保留为 run key 治理长期方案与后续回归依据。
 
-更新时间：2026-06-17
+更新时间：2026-09-02
 
 ## 0. 实施状态
 
@@ -17,6 +17,7 @@
 7. M7 已删除 legacy bridge 读取逻辑和相关测试；生产代码不再依赖旧 `source_qfq_factor_repair_event_storage_ids` 字段。
 8. M8 已完成本地完整 pytest 回归，并把 M7 后手工重放、`upstream_batch_id`、legacy bridge 退出和 qfq 普通 event reconciliation 撤销口径同步到长期规范与业务设计文档。
 9. M9 已完成最终专项验收：确认没有散落手写正式 run key、没有新增直接 `RunRequest`、没有解析 run key 反推 config、没有正式路径写旧 storage id 字段，且所有正式 run key 都经统一 builder。
+10. 后续新增的股票日线趋势通道 repair 已继续遵守 upstream-triggered 口径：版本化 consumer 与 qfq exact `upstream_batch_id` 生成下游 run key；日期和代码 hash 只保留在显式 config/metadata，不再替代批次身份。
 
 M7 只做 legacy bridge 退出和文档/静态门禁收口；M8 只做本地完整回归和文档对账；M9 只做最终专项验收和治理文档状态收口。三轮均不改变资产写入语义、job selection、sensor 启用状态或正式 Dagster instance 状态。
 
@@ -314,6 +315,7 @@ payload:
 | `stock_mins_qfq_factor_repair:{trade_date}` | 股票分钟线前复权因子修复 | `build_asset_update_run_key` | `subject=stock_mins_qfq_factor_repair`，`unit_id=trade_date` | 保持字符串不变 |
 | `gold_stk_mins_qfq_macd_kdj_daily_update:{trade_date}` | 前复权分钟线 MACD/KDJ 日常更新 | `build_asset_update_run_key` | `subject=gold_stk_mins_qfq_macd_kdj_daily_update`，`unit_id=trade_date` | 保持字符串不变；上游 run-status 只是唤醒 sensor 与 readiness gate，不按上游批次重复触发 |
 | `gold_stk_mins_qfq_macd_kdj_repair:{target_trade_date}:{repair_required_codes_hash}:{qfq_event_identity}` | 前复权分钟线 MACD/KDJ 修复 | `build_upstream_triggered_run_key` + `build_batch_id` | `consumer=gold_stk_mins_qfq_macd_kdj_repair`，`upstream_batch_id=qfq_factor_repair:target_trade_date:digest` | 改为 `gold_stk_mins_qfq_macd_kdj_repair:{upstream_batch_id}`；M4 迁移期曾走 completion gate 与 legacy bridge 防重复，M7 后只保留 `source_upstream_batch_id` completion gate |
+| `gold_stock_daily_trend_channel_repair:{formula_version}:{source_upstream_batch_id}` | 股票日线趋势通道 repair | `build_upstream_triggered_run_key` | `consumer=gold_stock_daily_trend_channel_repair:formula_version`，`upstream_batch_id` 使用 qfq repair exact batch | 同一 exact batch/公式版本稳定；同日同代码 hash 但 producer batch 不同必须生成新 key；完成门禁只匹配 `source_upstream_batch_id` |
 | `index_daily:{trade_date}:{index_code}` | 指数日线 raw by code 更新 | `build_asset_update_run_key` | `subject=index_daily`，`unit_id=trade_date:index_code` | 保持字符串不变 |
 | `index_daily:{trade_date}:{index_code}:repair:{evaluation_date}:{repair_attempt}` | 指数日线 raw late-arrival 修复 | `build_repair_attempt_run_key` | `subject=index_daily`，`repair_scope_id=trade_date:index_code:repair`，`attempt_scope=evaluation_date`，`attempt=repair_attempt` | 保持字符串不变 |
 | `silver_index_daily:{trade_date}` | 指数日线 silver 日更 | `build_asset_update_run_key` | `subject=silver_index_daily`，`unit_id=trade_date` | 保持字符串不变 |
@@ -424,7 +426,7 @@ silver_adj_factor_update
    - 不同 `unit_id`、`attempt`、`attempt_scope`、`upstream_batch_id` 生成不同 key。
    - 非法 `attempt <= 0` 直接报错。
    - payload 字段顺序不同但语义相同时，`build_batch_id(...)` 结果一致。
-   - 第 6 节全量清单中的每一条现有 run key 模板都必须有 builder 测试覆盖；除前复权分钟线 MACD/KDJ 修复外，生成结果必须与旧字符串完全一致。
+   - 第 6 节全量清单中的每一条既有 run key 模板都必须有 builder 测试覆盖；前复权分钟线 MACD/KDJ 修复已迁移为 upstream batch，后续股票日线趋势通道 repair 直接按该新口径新增，其余既有模板生成结果必须与旧字符串完全一致。
 2. 静态门禁测试：
    - 正式 sensor 禁止手写 run key 字符串模板。
    - 正式 sensor 禁止解析 run key 生成 run config。

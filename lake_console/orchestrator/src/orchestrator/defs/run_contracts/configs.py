@@ -55,6 +55,27 @@ class GoldStockDailyQfqFactorRepairConfig(dg.Config):
     )
 
 
+class GoldStockDailyTrendChannelRepairConfig(dg.Config):
+    qfq_factor_repair_trade_date: str = Field(
+        description="触发趋势通道 repair 的 qfq 因子交易日，格式 YYYY-MM-DD。",
+    )
+    repair_start_trade_date: str = Field(
+        description="趋势通道从该交易日开始重算，格式 YYYY-MM-DD。",
+    )
+    repair_end_trade_date: str = Field(
+        description="趋势通道重算到该交易日，格式 YYYY-MM-DD。",
+    )
+    stock_codes: list[str] = Field(
+        description="来自 qfq repair completion metadata 的完整受影响股票代码。",
+    )
+    repair_required_codes_hash: str = Field(
+        description="完整受影响股票代码集合的 SHA-256。",
+    )
+    source_upstream_batch_id: str = Field(
+        description="触发本次趋势修复的 qfq repair exact upstream batch id。",
+    )
+
+
 StockMinsRawSource = Literal["tushare", "prod_db"]
 StockMinsRawWriteMode = Literal["reuse_existing", "merge_repair"]
 StockMinsSilverWriteMode = Literal["write_new", "reuse_existing"]
@@ -463,6 +484,69 @@ def build_gold_stock_daily_qfq_factor_repair_run_config(
                         repair_config.repair_required_codes_hash
                     ),
                     "upstream_batch_id": repair_config.upstream_batch_id,
+                }
+            }
+        }
+    }
+
+
+def build_gold_stock_daily_trend_channel_repair_run_config(
+    *,
+    qfq_factor_repair_trade_date: str,
+    repair_start_trade_date: str,
+    repair_end_trade_date: str,
+    stock_codes: Sequence[str],
+    repair_required_codes_hash: str,
+    source_upstream_batch_id: str,
+) -> dict[str, object]:
+    normalized_codes = tuple(str(item).strip().upper() for item in stock_codes)
+    if (
+        not normalized_codes
+        or any(not item for item in normalized_codes)
+        or normalized_codes != tuple(sorted(set(normalized_codes)))
+    ):
+        raise ValueError(
+            "stock_codes must be a non-empty, sorted and unique code list."
+        )
+    repair_config = GoldStockDailyTrendChannelRepairConfig(
+        qfq_factor_repair_trade_date=normalize_iso_trade_date(
+            qfq_factor_repair_trade_date,
+            field_name="qfq_factor_repair_trade_date",
+        ),
+        repair_start_trade_date=normalize_iso_trade_date(
+            repair_start_trade_date,
+            field_name="repair_start_trade_date",
+        ),
+        repair_end_trade_date=normalize_iso_trade_date(
+            repair_end_trade_date,
+            field_name="repair_end_trade_date",
+        ),
+        stock_codes=list(normalized_codes),
+        repair_required_codes_hash=_normalize_sha256_hex(
+            repair_required_codes_hash,
+            field_name="repair_required_codes_hash",
+        ),
+        source_upstream_batch_id=_normalize_required_text(
+            source_upstream_batch_id,
+            field_name="source_upstream_batch_id",
+        ),
+    )
+    return {
+        "ops": {
+            "gold_stock_daily_trend_channel_repair_op": {
+                "config": {
+                    "qfq_factor_repair_trade_date": (
+                        repair_config.qfq_factor_repair_trade_date
+                    ),
+                    "repair_start_trade_date": repair_config.repair_start_trade_date,
+                    "repair_end_trade_date": repair_config.repair_end_trade_date,
+                    "stock_codes": repair_config.stock_codes,
+                    "repair_required_codes_hash": (
+                        repair_config.repair_required_codes_hash
+                    ),
+                    "source_upstream_batch_id": (
+                        repair_config.source_upstream_batch_id
+                    ),
                 }
             }
         }

@@ -1,8 +1,8 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：M0～M4 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job、06:00 分区注册和有界 readiness Sensor 已落地，R5 为下一停止点，尚未实现 repair、bootstrap、本地 Wealth、部署、正式写湖或 Sensor 启用
+状态：M0～M5 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job/Sensor 和 exact-batch 趋势 repair 已落地，R6 为下一停止点，尚未实现 bootstrap、本地 Wealth、部署、正式写湖或 Sensor 启用
 
-日期：2026-09-01
+日期：2026-09-02
 
 上位方案：
 
@@ -1012,6 +1012,23 @@ affected_codes               = exact list
 source_upstream_batch_id     = exact batch
 ```
 
+Run key 必须使用公共 upstream-triggered builder：
+
+```python
+build_upstream_triggered_run_key(
+    consumer=f"gold_stock_daily_trend_channel_repair:{FORMULA_VERSION}",
+    upstream_batch_id=source_upstream_batch_id,
+)
+```
+
+固定输出：
+
+```text
+gold_stock_daily_trend_channel_repair:{formula_version}:{source_upstream_batch_id}
+```
+
+`qfq_factor_repair_trade_date` 和 `repair_required_codes_hash` 是 run config/metadata 中的执行与审计事实，不能代替 exact upstream batch 进入 run key。测试必须证明：同一批次重复求值 key 不变；同日同 hash 但 `source_upstream_batch_id` 不同，key 必须不同；公式版本变化也必须生成新的下游执行身份。
+
 对每只 affected code，repair 起点是 qfq repair 已声明的最早重写日期；结束日期是 T 之前最后一个 expected trade date。不能只重算 25/90 日。
 
 ### 10.2 自动范围
@@ -1696,7 +1713,21 @@ wealth/src/pages/stock-detail/StockDetailPage.tsx
 
 ### R5：repair
 
-实现 exact batch 传播、集合 repair、completion checks 和 fail-closed guard。
+状态：已完成（2026-09-02）。
+
+1. 新增 `GoldStockDailyTrendChannelRepairConfig` 和统一 run-config builder；配置只接受完整有序代码集合、SHA-256、qfq T、repair 起止日期和 exact source batch，op 启动后重新读取 qfq repair status 并逐项校验。
+2. 新增 `gold_stock_daily_trend_channel_repair_job` 与同名 run-status sensor；sensor 监听 qfq repair 成功、默认 `STOPPED`、每个成功上游 run 最多一个请求，0 changed codes 不提交，500 允许，501 起 fail closed。
+3. repair run key 通过 `build_upstream_triggered_run_key(...)` 生成，版本化 consumer 与 opaque `source_upstream_batch_id` 共同构成身份；不同 producer batch 不会被旧日期/hash key 误去重。
+4. 核心 writer 使用一个 configured DuckDB connection、最多 250 个交易日一段；affected 结果/state 集合重算，unaffected 行通过集合合并保持不变，不存在 Python 行级行情计算。
+5. 每个日期生成 result/state 两个完整单文件候选；所有候选完成 contract、coverage、affected 精确相等和 unaffected `EXCEPT ALL` 审计后，才按日期升序执行 state -> result 原子替换。
+6. 中断不做跨文件伪事务或 Kopia 回滚；已提升日期保留，同 scope 重试重建完整候选并幂等收敛。失败路径不写 completion checks，成功后再对全部正式分区复审。
+7. 新增 result/state 两个 repair completion check 名称及 fail-closed guard；两个 checks 必须在 qfq T 分区同时为 blocking green，并精确匹配 batch、范围、partition count、代码 count/hash、公式版本、producer run 和重写行数。
+8. 日常 sensor 的 qfq reconciliation 已接入该 guard；旧批次 completion、单 check、范围/公式/行数不一致均继续返回 `trend_repair_required`。
+9. M2 的“整个公式文件禁止任何 `for`”静态测试已校准为只约束四个公式 SQL builder；M5 只允许日期 segment、文件生成/审计/提升编排循环，仍禁止公式或行情明细 Python 循环。
+10. M5 直接测试 `12 passed`；趋势合同、公式、M3～M5、qfq 与分钟线/MACD-KDJ repair、run contract 定向回归 `284 passed`、`58` 个 subtests；治理/readiness/Definitions 回归 `157 passed`、`593` 个 subtests。
+11. orchestrator 全量回归按既有 RSS 隔离策略通过：主套件 `2519 passed`、`853` 个 subtests，`test_major_index_nineturn_m4b.py` 独立进程 `18 passed`，合计 `2537 passed`。
+12. 修改文件致命 Ruff 门禁通过，新文件及本轮直接测试完整 Ruff 通过；`configs.py` 的 11 项默认 Ruff 报告均为本轮前已存在的 DTZ007/TRY004 债务，本轮未越界修改。
+13. 未运行 `dg`、未访问正式 Dagster runtime、未写正式 Lake/staging、未启用 Sensor、未部署；R6 为下一停止点。
 
 ### R6：bootstrap 工具
 

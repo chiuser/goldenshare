@@ -219,5 +219,22 @@ def test_formula_kernel_has_no_dagster_runtime_or_python_detail_loop() -> None:
     }
     assert "dagster" not in imported_modules
     assert "duckdb" not in imported_modules
-    assert not any(isinstance(node, (ast.For, ast.AsyncFor)) for node in ast.walk(tree))
+    formula_function_names = {
+        "build_stock_daily_trend_channel_daily_sql",
+        "build_stock_daily_trend_channel_history_segment_sql",
+        "build_stock_daily_trend_channel_repair_segment_sql",
+        "_build_stock_daily_trend_channel_sql",
+    }
+    formula_functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name in formula_function_names
+    }
+    assert formula_functions.keys() == formula_function_names
+    assert not any(
+        isinstance(node, (ast.For, ast.AsyncFor))
+        for function in formula_functions.values()
+        for node in ast.walk(function)
+    )
     assert "duckdb.connect" not in source

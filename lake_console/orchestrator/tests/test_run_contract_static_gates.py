@@ -127,6 +127,7 @@ EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
         "sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py:gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
         "sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py:gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
         "sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py:gold_stock_daily_qfq_factor_repair_job_sensor",
+        "sensors/gold_stock_daily_trend_channel_repair_job_sensor.py:gold_stock_daily_trend_channel_repair_job_sensor",
         "sensors/gold_wealth_market_turnover_sensor.py:gold_wealth_market_turnover_update_job_sensor",
         "sensors/idx_factor_pro_partition_sensor.py:idx_factor_pro_trade_day_sensor",
         "sensors/idx_factor_pro_sensor.py:raw_tushare_idx_factor_pro_update_job_sensor",
@@ -5134,6 +5135,20 @@ def use_nested_resource(context):
                 issues.append(f"{status_path} contains forbidden snippet: {snippet}")
 
         self.assertEqual(issues, [])
+
+    def test_stock_daily_trend_channel_repair_uses_exact_upstream_batch_key(
+        self,
+    ) -> None:
+        sensor_path = (
+            SENSORS_DIR / "gold_stock_daily_trend_channel_repair_job_sensor.py"
+        )
+        source = sensor_path.read_text()
+
+        self.assertIn("build_upstream_triggered_run_key", source)
+        self.assertIn("upstream_batch_id=decision.source_upstream_batch_id", source)
+        self.assertIn("FORMULA_VERSION", source)
+        self.assertNotIn("build_asset_update_run_key", source)
+        self.assertNotIn("repair_required_codes_hash}:{FORMULA_VERSION", source)
 
     def test_gold_stock_daily_qfq_history_bootstrap_does_not_write_dagster_events(
         self,
