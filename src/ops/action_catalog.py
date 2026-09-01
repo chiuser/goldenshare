@@ -304,7 +304,7 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         display_name="回补板块分析历史事实",
         domain_key="maintenance",
         domain_display_name="维护动作",
-        description="先冻结2025年以来的升序计划，再按已批准计划逐交易日回补。",
+        description="先冻结2025年8月22日以来的升序计划，再按已批准计划逐交易日回补。",
         executor_key="wealth_sector_analysis_daily",
         execution_config={
             "plan_apply_replay": True,

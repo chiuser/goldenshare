@@ -64,6 +64,7 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert analysis_replay.manual_enabled is True
     assert analysis_replay.schedule_enabled is False
     assert analysis_replay.execution_config["plan_apply_replay"] is True
+    assert "2025年8月22日以来" in analysis_replay.description
     news_action = MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_news_stock_links"]
     assert news_action.executor_key == "news_stock_linking"
     assert news_action.target_tables == ("core_serving.news_stock_link",)

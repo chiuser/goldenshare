@@ -21,7 +21,7 @@ from .materialization_service import SectorAnalysisDailyFactsMaterializationServ
 from .source_query import ensure_repeatable_read_only_transaction
 
 
-MIN_PUBLISH_DATE = date(2025, 1, 1)
+MIN_PUBLISH_DATE = date(2025, 8, 22)
 INSIGHT_ITEM_MAX_PER_SECTOR = 2
 
 

@@ -23,8 +23,8 @@ from src.biz.services.wealth.market.sector_analysis.daily_facts.source_query imp
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
-FIRST = date(2025, 1, 2)
-SECOND = date(2025, 1, 3)
+FIRST = date(2025, 8, 22)
+SECOND = date(2025, 8, 25)
 
 
 def _preview(
@@ -40,7 +40,7 @@ def _preview(
         plan_hash="b" * 64,
         content_hash="c" * 64,
         source_dates={
-            "trade_calendar": f"2024-10-10..{trade_date.isoformat()}",
+            "trade_calendar": f"2025-05-30..{trade_date.isoformat()}",
             "wealth_sector_hierarchy": "2026-08-31T00:00:00+00:00",
         },
         source_row_counts={
@@ -175,7 +175,7 @@ def _engine():  # type: ignore[no-untyped-def]
         connection.execute(
             TradeCalendar.__table__.insert(),
             [
-                {"exchange": "SSE", "trade_date": date(2024, 12, 31), "is_open": True},
+                {"exchange": "SSE", "trade_date": date(2025, 8, 21), "is_open": True},
                 {"exchange": "SSE", "trade_date": FIRST, "is_open": True},
                 {"exchange": "SSE", "trade_date": SECOND, "is_open": True},
             ],
@@ -183,7 +183,7 @@ def _engine():  # type: ignore[no-untyped-def]
     return engine
 
 
-def test_replay_plan_clamps_to_2025_and_freezes_ascending_source_evidence() -> None:
+def test_replay_plan_clamps_to_first_supported_publish_date_and_freezes_evidence() -> None:
     materializer = _MaterializerStub(
         previews={FIRST: _preview(FIRST), SECOND: _preview(SECOND, source_hash="d" * 64)}
     )
@@ -208,7 +208,7 @@ def test_replay_plan_clamps_to_2025_and_freezes_ascending_source_evidence() -> N
     assert first.start_date == FIRST
     assert first.open_trade_dates == (FIRST, SECOND)
     assert tuple(unit.trade_date for unit in first.units) == (FIRST, SECOND)
-    assert first.warmup_start_date == date(2024, 10, 10)
+    assert first.warmup_start_date == date(2025, 5, 30)
     assert first.hierarchy_version == "hierarchy-v1"
     assert first.units[0].expected_fact_count_ranges[
         "wealth_sector_daily_insight_item"
