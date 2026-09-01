@@ -14,6 +14,9 @@ from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import 
 from src.biz.services.wealth.market.sector_analysis.daily_facts.replay_planner import (
     SectorAnalysisReplayPlanner,
 )
+from src.biz.services.wealth.market.sector_analysis.daily_facts.source_query import (
+    ensure_repeatable_read_only_transaction,
+)
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -74,6 +77,46 @@ class _MaterializerStub:
         return self.previews[trade_date]
 
 
+class _PostgresBindStub:
+    class Dialect:
+        name = "postgresql"
+
+    dialect = Dialect()
+
+
+class _PostgresSessionStub:
+    def __init__(self) -> None:
+        self.info: dict[str, object] = {}
+        self.transaction: object | None = None
+        self.events: list[str] = []
+
+    def get_bind(self):  # type: ignore[no-untyped-def]
+        return _PostgresBindStub()
+
+    def get_transaction(self):  # type: ignore[no-untyped-def]
+        return self.transaction
+
+    def execute(self, statement):  # type: ignore[no-untyped-def]
+        self.events.append(str(statement))
+        if self.transaction is None:
+            self.transaction = object()
+
+    def scalars(self, statement):  # type: ignore[no-untyped-def]
+        del statement
+        self.events.append("SELECT trade_calendar")
+        return (FIRST, SECOND)
+
+
+@dataclass
+class _TransactionAwareMaterializer:
+    events: list[str]
+
+    def preview_trade_date(self, session, *, trade_date):  # type: ignore[no-untyped-def]
+        ensure_repeatable_read_only_transaction(session)
+        self.events.append(f"PREVIEW {trade_date.isoformat()}")
+        return _preview(trade_date)
+
+
 def _engine():  # type: ignore[no-untyped-def]
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
@@ -122,6 +165,27 @@ def test_replay_plan_clamps_to_2025_and_freezes_ascending_source_evidence() -> N
     assert first.apply_ready is True
     assert first.gaps == ()
     assert first.plan_hash == second.plan_hash
+
+
+def test_replay_plan_starts_one_read_only_snapshot_before_calendar_and_all_previews() -> None:
+    session = _PostgresSessionStub()
+    planner = SectorAnalysisReplayPlanner(
+        _TransactionAwareMaterializer(session.events)  # type: ignore[arg-type]
+    )
+
+    plan = planner.plan(  # type: ignore[arg-type]
+        session,
+        start_date=FIRST,
+        end_date=SECOND,
+    )
+
+    assert plan.apply_ready is True
+    assert session.events == [
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+        "SELECT trade_calendar",
+        f"PREVIEW {FIRST.isoformat()}",
+        f"PREVIEW {SECOND.isoformat()}",
+    ]
 
 
 def test_replay_plan_keeps_every_blocked_date_and_never_silently_skips() -> None:

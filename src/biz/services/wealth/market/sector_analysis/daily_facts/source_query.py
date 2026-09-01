@@ -30,6 +30,23 @@ from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 
 
+_READ_ONLY_TRANSACTION_INFO_KEY = "sector_analysis_daily_facts_read_only_transaction"
+
+
+def ensure_repeatable_read_only_transaction(session: Session) -> None:
+    """Start the PostgreSQL snapshot before the first query and only once per transaction."""
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    current_transaction = session.get_transaction()
+    if (
+        current_transaction is not None
+        and session.info.get(_READ_ONLY_TRANSACTION_INFO_KEY) is current_transaction
+    ):
+        return
+    session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+    session.info[_READ_ONLY_TRANSACTION_INFO_KEY] = session.get_transaction()
+
+
 class SectorAnalysisDailyFactsSourceQuery:
     WINDOW_SIZE = 60
 
@@ -37,8 +54,7 @@ class SectorAnalysisDailyFactsSourceQuery:
         self._hierarchy_query = hierarchy_query or SectorHierarchyQuery()
 
     def load_bundle(self, session: Session, *, trade_date: date) -> SectorAnalysisSourceBundle:
-        if session.get_bind().dialect.name == "postgresql":
-            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        ensure_repeatable_read_only_transaction(session)
 
         open_dates = tuple(
             reversed(

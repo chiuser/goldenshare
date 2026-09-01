@@ -17,6 +17,7 @@ from .contract import (
     canonical_json_hash,
 )
 from .materialization_service import SectorAnalysisDailyFactsMaterializationService
+from .source_query import ensure_repeatable_read_only_transaction
 
 
 MIN_PUBLISH_DATE = date(2025, 1, 1)
@@ -73,6 +74,7 @@ class SectorAnalysisReplayPlanner:
     ) -> SectorAnalysisReplayPlan:
         if start_date > end_date:
             raise ValueError("start_date must not be later than end_date")
+        ensure_repeatable_read_only_transaction(session)
         requested_floor = max(start_date, MIN_PUBLISH_DATE)
         open_trade_dates = tuple(
             session.scalars(

@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.62；横截面动量排名 M0～M3A、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M13～M16R2 与量价分布 M17～M20 均已收口。M22 已完成远程迁移、HDD catalog 和受控单日生产验收并关闭。M23 的回补 PLAN/APPLY 代码合同与本地正反例已经完成，尚待提交、部署后生成真实生产 PLAN；在管理员明确批准前不得执行 APPLY。M24 切读、M25 API／前端和 M26 最终交付均未开始。
+> - 当前状态：v1.63；横截面动量排名 M0～M3A、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M13～M16R2 与量价分布 M17～M20 均已收口。M22 已完成远程迁移、HDD catalog 和受控单日生产验收并关闭。M23 首次生产 PLAN TaskRun `10421` 在零业务写入时暴露只读事务起始顺序错误并失败；修复已完成本地正反例，尚待提交、重新部署后重新生成 PLAN。在管理员明确批准前不得执行 APPLY。M24 切读、M25 API／前端和 M26 最终交付均未开始。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-31。
@@ -3602,7 +3602,7 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 
 ### M23：2025年以来回补与物理验收
 
-状态：`CODE COMPLETE / DEPLOYMENT AND PROD PLAN PENDING（2026-09-01）`。
+状态：`PLAN TRANSACTION FIX READY / REDEPLOYMENT PENDING（2026-09-01）`。
 
 1. 生成并确认从2025年第一个 SSE 开市日至目标日的升序 PLAN；2024年末只作为预热。
 2. 执行 APPLY、逐日九表 read-back、内容 hash、日期连续性和前一交易日引用核验。
@@ -3612,7 +3612,8 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 6. 已实现 `SectorAnalysisReplayPlanner`：PLAN 从2025年第一个 SSE 开市日起升序生成日期单元，冻结唯一层级版本、公式包、模板、2024预热起点、每日日源 hash／日期／行数和逐表行数范围；任一硬缺口均保留为 gap 并令 `apply_ready=false`。
 7. PLAN 不伪造尚不存在的前一日批次 UUID，也不提前冻结依赖该 UUID 的每日 content hash。APPLY 先验证冻结的交易日清单、层级／公式／模板、来源 hash 和计数范围，再由同一单日物化服务结合当时已发布的紧邻前一日批次计算 plan/content hash；预览与写入间再次漂移仍由既有 hash 门禁拒绝。
 8. 现有 maintenance dispatcher 的 PLAN/APPLY 识别已从 Heat 动作名特例收敛为 action 配置，Heat 行为保持不变；分析回补 action 已开放管理员手动入口，APPLY 仍必须引用成功 PLAN TaskRun 和精确 plan hash。
-9. 当前只完成本地代码和测试；必须先提交并由管理员部署，随后通过正式 TaskRun 生成真实生产 PLAN 并停下等待批准。本阶段没有执行生产 PLAN 或 APPLY，也没有读取切换。
+9. 提交 `bab80b5e` 已部署；远程 HEAD、Web／GENERAL Worker／Scheduler、健康接口和 Alembic head `20260831_000168` 均通过。公共页面日期由远程 `MarketPageContextQuery` 解析为 `2026-08-31`。
+10. 首次生产 PLAN TaskRun `10421` 在 planner 先查交易日历、source query 后设 `REPEATABLE READ, READ ONLY` 时被 PostgreSQL 以 `2j85` 拒绝；任务在生成 snapshot 前失败，未执行 APPLY、未写九张业务事实表。根因修复为 planner 在任何 SQL 前建立一次只读快照，source query 按当前 transaction identity 幂等复用；本地正反例通过后必须重新提交、部署，再创建新的 PLAN，禁止重用失败任务。
 
 ### M24：五方法逐字段等价与 serving 切读
 
@@ -3727,7 +3728,7 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) 已经覆盖第12E节和 M21～M26。M22 已通过远程迁移、HDD catalog 与受控单日验收并关闭；M23 回补代码合同已完成。下一步只允许提交／部署 M23，然后通过正式 TaskRun 生成真实生产 PLAN 并停止等待管理员批准。不得在未批准时执行 M23 APPLY，也不等于五方法已经切读或每日洞察页面已经开放。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) 已经覆盖第12E节和 M21～M26。M22 已通过远程迁移、HDD catalog 与受控单日验收并关闭；M23 回补合同已完成，但首次生产 PLAN TaskRun `10421` 暴露事务起始顺序错误。下一步只允许提交／部署该修复，然后创建新的正式 PLAN 并停止等待管理员批准。不得重用失败任务，不得在未批准时执行 M23 APPLY，也不等于五方法已经切读或每日洞察页面已经开放。
 
 M21～M26 若发现当前字段、公式消费者、Ops调度、最大事实规模、历史层级、真实性能或 Figma 与本文冲突，必须停止并回到方案层修正。不得通过 Top N、分页、采样、缩窗、补零、旧事实回退、跨批次拼接或长期双读兼容来绕过问题。
 
@@ -3735,6 +3736,7 @@ M21～M26 若发现当前字段、公式消费者、Ops调度、最大事实规�
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.63 | 2026-09-01 | M23 首次生产 PLAN TaskRun `10421` 在 snapshot 生成前因 PostgreSQL `2j85` 失败：planner 已先查询交易日历，source query 才设置事务隔离级别。九张业务事实表零写入。修复为 planner 在第一条 SQL 前建立一次 `REPEATABLE READ, READ ONLY` 快照，source query 以 transaction identity 幂等复用；新增顺序反例，待提交、重新部署后创建新 PLAN，失败任务禁止重用 | Codex |
 | v1.62 | 2026-09-01 | 关闭M22并推进M23：远程head `20260831_000168`、九表heap／实际TOAST／27索引全量HDD catalog、38约束和服务健康通过；正式主链TaskRun `10386` 成功发布`2026-08-28`唯一批次，九表24,525行、hash/read-back和显式缺失一致。M23新增2025起升序replay planner、来源／层级／公式／模板／日期清单／计数范围冻结、BLOCKED、共享PLAN/APPLY snapshot、精确漂移码及正反例；未执行真实PLAN/APPLY、未切读、未进入M24 | Codex |
 | v1.61 | 2026-08-31 | 完成M22代码开发：新增九张每日事实／洞察ORM和单一HDD fail-closed迁移`20260831_000168`，实现六来源只读bundle、五公式typed facts、确定性洞察、source／plan／content hash、read-back、幂等与原子发布；将维护readiness与registered executor收敛为通用合同，注册20:05单日action和M23前禁用的历史action，并保持Heat／news／QTF／分钟lane回归。源码head、模型、物化、调度、执行器、架构和既有五方法回归通过；未部署迁移、未写Prod、未回补、未切读、未新增API／前端。下一步先提交／部署并完成M22远程初验，通过后才进入M23 PLAN | Codex |
 | v1.60 | 2026-08-31 | 完成M21编码门禁：代码级LLD、CodeGraph影响面、五个每日异常码与静态架构门禁对账通过；最大三级337行业／60日Prod只读原型读取29,760条行业行情、337,193条成员关系、331,493条股票日线及同量匹配复权因子，总耗时约38.819秒，HDD tablespace前置条件通过，25,020 typed rows逻辑投影约5.72MB/日。未创建迁移、表、任务、API、前端或生产事实；下一步固定M22 | Codex |

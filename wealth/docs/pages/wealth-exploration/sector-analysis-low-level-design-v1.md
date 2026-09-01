@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.52；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22 已通过远程迁移、HDD catalog 和受控单日生产验收并关闭。M23 的 replay planner、共享 PLAN/APPLY 主链和本地正反例已完成，尚待提交、部署和生成真实生产 PLAN；APPLY、M24～M26 均未执行。
+- 状态：v1.53；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22 已通过远程迁移、HDD catalog 和受控单日生产验收并关闭。M23 首次生产 PLAN TaskRun `10421` 在零业务写入时暴露 PostgreSQL 只读事务起始顺序错误；修复及本地正反例已完成，尚待提交、重新部署和生成新的生产 PLAN；APPLY、M24～M26 均未执行。
 - 编写日期：2026-08-31。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -10,7 +10,7 @@
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：五条既有精确方法路由保持不变；M25 新增 `/wealth/exploration/sector-analysis/daily-insight`，并在其正式上线时把板块分析根地址改为 `replace` 到每日洞察。六个工作区始终只挂载当前 controller。
 - 目标 API：既有十四只板块分析只读 API 保持公开合同不变；M25 新增 `/daily-insight/meta` 与 `/daily-insight/snapshot` 两只 strict 只读 API。
-- 待实施项：先提交／部署 M23 回补合同，再通过正式 TaskRun 生成自2025年起的生产 PLAN 并等待管理员批准；批准后才允许 APPLY、read-back 和幂等重放。随后才是 M24 五方法等价切读、M25 每日洞察前后端、M26 自动化与最终交付验收。每个里程碑独立停止，不自动进入下一步。
+- 待实施项：先提交／部署 M23 PLAN 事务顺序修复，再创建新的正式 TaskRun 生成自2025年起的生产 PLAN 并等待管理员批准；失败 TaskRun `10421` 不得重用。批准后才允许 APPLY、read-back 和幂等重放。随后才是 M24 五方法等价切读、M25 每日洞察前后端、M26 自动化与最终交付验收。每个里程碑独立停止，不自动进入下一步。
 
 本文定义财势探查页面结构、五个已完成的独立分析方法，以及新增“每日洞察 + 每日事实物化”的代码级方案。每日洞察不是第六种公式，只汇总同一业务日期、同一层级版本、同一公式包和同一发布批次下的五方法客观事实；不生成综合分、预测、信号、机会等级或买卖建议。M3A 成分股明细和成员广度逐只股票明细继续按需读取，不进入本期物化结果。
 
@@ -2592,6 +2592,7 @@ PLAN：
 3. 标出 BLOCKED 日期与原因；只要存在硬阻断则 `apply_ready=false`，禁止偷偷跳过。
 4. PLAN 冻结的是不依赖未来发布结果的身份：目标日清单及其 hash、唯一 hierarchy version、公式包、模板、2024预热起点、每日日源内容 hash、来源日期／行数和逐表行数范围。`wealth_sector_daily_insight_item` 的数量会受紧邻前一日变化事件影响，因此冻结 `0..2×层级节点数` 合法范围，其余表冻结精确数量。
 5. PLAN 阶段尚不存在后续各日的 PUBLISHED batch UUID，禁止伪造 previous batch、每日 content hash 或跨日洞察。整体 `plan_hash` 只覆盖上述真实可冻结事实、全部 units 和全部 gaps。
+6. PostgreSQL PLAN 必须在查询目标交易日清单之前建立一次 `REPEATABLE READ, READ ONLY` 事务；同一 PLAN 内所有逐日 source preview 复用该 transaction identity，不得在已经执行日历或来源查询后再次发送 `SET TRANSACTION`。事务结束后新请求必须建立新的只读快照，禁止用进程级布尔标志跨事务复用。
 
 APPLY：
 
@@ -5344,7 +5345,7 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 
 ### M23：2025年以来回补与物理验收
 
-状态：`CODE COMPLETE / DEPLOYMENT AND PROD PLAN PENDING（2026-09-01）`。
+状态：`PLAN TRANSACTION FIX READY / REDEPLOYMENT PENDING（2026-09-01）`。
 
 1. 生成升序PLAN并等待明确批准；APPLY一日一提交，2024只预热。
 2. 逐日九表read-back、hash、previous链、PUBLISHED唯一和空洞核验；失败可从失败日恢复。
@@ -5353,7 +5354,8 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 5. 已新增`daily_facts/replay_planner.py`，按SSE日历将请求起点收敛到2025首个开市日，逐日冻结来源证据、唯一层级版本、公式／模板、2024预热起点和行数范围；硬缺口逐日记录且阻断APPLY。
 6. `sector_analysis_daily_task_executor.py`现可生成回补plan和执行冻结unit；`task_run_dispatcher.py`以`execution_config.plan_apply_replay=true`识别共享回放合同，不再写死Heat动作名。Heat现有PLAN/APPLY行为由原测试保持。
 7. APPLY引用的PLAN TaskRun、snapshot完整性、plan hash和原请求参数仍由Ops通用主链校验；业务unit再校验日期清单与当日来源／身份。业务异常的中央`code`透传为TaskRun issue，`SA_DAILY_FACT_PLAN_DRIFT`不再降成通用错误码。
-8. 当前尚未部署上述M23代码，真实PLAN TaskRun尚不存在；必须部署后生成PLAN并停下等待批准，禁止直接APPLY。
+8. 提交`bab80b5e`已部署，远程HEAD、三服务、健康接口和Alembic head `20260831_000168`通过；公共日期由远程`MarketPageContextQuery`解析为`2026-08-31`。
+9. 首次生产PLAN TaskRun `10421`在planner查询交易日历后、source query设置事务隔离级别时被PostgreSQL以`2j85`拒绝；失败发生在snapshot生成前，未执行APPLY、未写九张业务事实表。修复在`source_query.py`提供按transaction identity幂等的只读事务入口，replay planner在第一条SQL前调用；顺序反例证明同一PLAN只设置一次。必须重新提交／部署并创建新PLAN，失败任务不得重用。
 
 ### M24：五方法逐字段等价与 serving 切读
 
@@ -5694,14 +5696,15 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 量价分布 M18 后端、M19 前端与 M20 部署联调均已完成：后端建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；前端建立第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13态。Meta唯一自动回退、显式日期精确显示、局部缺失透明和按需挂载均已有自动化证据；部署态337行完整事实、60日历史、`3/5/5` SQL、payload、P95、五scope、四档页面及用户验收全部通过，G55关闭。本轮不自动进入新需求。
 
-每日洞察与五方法每日事实的 M22 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日已由正式主链发布并通过九表read-back，M22关闭。M23回补合同已完成本地编码，但生产尚无M23 PLAN TaskRun；五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M24～M26。
+每日洞察与五方法每日事实的 M22 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日已由正式主链发布并通过九表read-back，M22关闭。M23首次生产PLAN TaskRun `10421`因只读事务起始顺序错误失败且零业务写入；修复已完成本地正反例，但尚未重新部署或生成成功PLAN。五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M24～M26。
 
-下一步固定为：提交并由管理员部署 M23 代码，然后通过正式 TaskRun 生成从2025年第一个SSE交易日至批准目标日的升序PLAN并等待批准。不得提前APPLY、切读五方法、修改默认路由或进入M24～M26。当前没有新的产品待拍板项。
+下一步固定为：提交并由管理员部署 M23 PLAN 事务顺序修复，然后创建新的正式 TaskRun，生成从2025年第一个SSE交易日至批准目标日的升序PLAN并等待批准。TaskRun `10421`不得重用；不得提前APPLY、切读五方法、修改默认路由或进入M24～M26。当前没有新的产品待拍板项。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.53 | 2026-09-01 | M23首次生产PLAN TaskRun `10421`在snapshot生成前因PostgreSQL `2j85`失败：planner先查交易日历，source query后设事务隔离级别。九张业务事实表零写入。修复为planner在第一条SQL前建立一次`REPEATABLE READ, READ ONLY`快照，source query按transaction identity幂等复用；新增顺序反例。待重新提交／部署后创建新PLAN，失败任务禁止重用 |
 | v1.52 | 2026-09-01 | 关闭M22并完成M23代码合同：远程head、九表HDD catalog、27索引、38约束、服务健康与TaskRun 10386受控单日24,525行通过；新增2025升序replay planner、来源／层级／公式／模板／日期清单／逐表范围冻结、BLOCKED、共享PLAN/APPLY配置、TaskRun snapshot绑定、精确漂移码及正反例。真实PLAN/APPLY、全量read-back、previous链、幂等和物理峰值仍待部署与批准，G62仅PARTIAL PASS |
 | v1.51 | 2026-08-31 | 完成M22代码开发：实施日确认真实head `20260830_000167`后新增唯一head `20260831_000168`；新增九ORM、HDD fail-closed迁移、六来源只读bundle、五方法typed builder、确定性洞察、hash/read-back/幂等/原子发布、20:05自动任务、通用readiness和GENERAL executor。新增模型、来源、物化、任务与自动化正反例，并完成Heat/news/QTF/分钟lane、Ops、架构和五方法冻结回归；未部署迁移、未写Prod、未回补、未切读、未新增API／前端。G60本地PASS，G59/G61保留远程证据；下一步先提交／部署并完成M22远程初验，通过后才进入M23 PLAN |
 | v1.50 | 2026-08-31 | 完成M21编码门禁：校准产品／技术／LLD状态，登记五个每日异常码并扩充静态架构门禁；当前Alembic单一head为`20260830_000167`。最大三级337行业／60日Prod只读原型读取29,760条行业行情、337,193条成员关系、331,493条股票日线及同量匹配复权因子，来源物化约35.3秒、完整原型约38.8秒；HDD tablespace存在、位置可解析且当前身份可创建，25,020 typed rows逻辑投影约5.72MB/日。G58和M21 PASS；未创建迁移、表、任务、API、前端或生产事实，下一步固定M22 |
