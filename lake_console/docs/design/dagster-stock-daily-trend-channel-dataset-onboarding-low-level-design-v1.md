@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：M0 真实只读规模/性能门禁已通过，实施级设计已冻结；尚未开发、部署、写入正式 Lake 或启用 Sensor
+状态：M0～M2 已完成；实施级合同与公式内核已落地，R3 为下一停止点，尚未实现趋势资产、部署、写入正式 Lake 或启用 Sensor
 
 日期：2026-09-01
 
@@ -1628,11 +1628,24 @@ wealth/src/pages/stock-detail/StockDetailPage.tsx
 4. guard 要求新字段并校验规范化、排序、去重、count、hash 和 samples 一致性；旧 metadata 不做兼容读取，超过 500 条保持 fail closed。
 5. 直接契约测试 19 passed、12 个边界 subtests passed；日线 qfq、分钟 qfq、MACD/KDJ repair、completion event 与 run-contract 消费者回归 207 passed、21 个 subtests passed。
 6. 完整测试进程通过 2449 项后，8 项无关 major-index history 测试因进程累计 RSS 超过 1024 MiB 门禁失败；该文件在独立新进程 18/18 通过，未修改其性能门禁。
-7. 未实现任何趋势资产、趋势 job/sensor、趋势 repair 或本地 API；R2 仍为下一停止点。
+7. 未实现任何趋势资产、趋势 job/sensor、趋势 repair 或本地 API；R1 完成时 R2 为下一停止点，当前 R2 已按下节完成。
 
 ### R2：合同和公式内核
 
-实现 schema、paths、Catalog、partition、公式 SQL 和 golden tests。
+状态：已完成（2026-09-01）。
+
+实现结果：
+
+1. 在 `asset_column_schemas.py` 中新增结果与 state 两份精确 schema；在 `name_mapping.py` 中新增两个 Catalog 中文名称。
+2. 在 `paths.py` 中新增结果/state 正式路径与 run-scoped staging 路径 helper；staging 路径固定包含 `run_id` 和 `trade_date`，并拒绝正式 Lake 根、旧 Lake 根、非法日期和不安全 run id。
+3. 在 `lake_assets.py` 中新增两个合同级 Catalog 条目、独立 `PartitionModel` 和既定 check 名称；未注册尚不存在的 asset/check 定义。
+4. 在 `partitions.py` 中新增 `cn_a_stock_daily_trend_channel_trade_days`，不复用 qfq 分区对象。
+5. 在 `stock_daily_trend_channel.py` 中新增纯 DuckDB SQL 内核：不连接数据库、不 import Dagster、不逐行 Python 循环；daily、history segment 与 repair segment 共用同一公式构建路径。
+6. 公式常量冻结为 25/90 日窗口、既定 EMA 衰减、250 日 segment 上限、单日 10000 行上限；计算先使用未量化 band 判定严格突破，再用 `ROUND_HALF_UP` 序列化 4 位小数。
+7. 复用 M0 的独立字面量 fixture 完成 1599 行全量 parity，并覆盖 249/250/251 边界、daily/history/repair 一致性、多股票隔离、等号不突破和量化边界。
+8. M2 直接合同与公式测试 30 passed；连同 Catalog、check 治理和静态门禁共 152 passed、589 个 subtests passed；修改文件 Ruff 检查通过。
+9. orchestrator 全量测试为 2485 passed、3 failed；失败均来自既有 `test_major_index_nineturn_m4b.py` 在累计进程中 RSS 刚超过 1024 MiB 门禁，该文件在独立新进程 18/18 通过，因此未修改任何无关性能门禁。
+10. 未实现 asset/check/job/sensor/bootstrap/repair/API，未写正式 Lake、staging 或 Dagster event；R3 为下一停止点。
 
 ### R3：每日 assets/checks
 

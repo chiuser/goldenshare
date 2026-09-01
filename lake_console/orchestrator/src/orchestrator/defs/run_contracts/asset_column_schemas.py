@@ -557,6 +557,48 @@ GOLD_STOCK_DAILY_QFQ_SCHEMA = (
     ColumnContract("amount", "DOUBLE", "成交额，沿用 silver_stock_daily 事实"),
 )
 
+GOLD_STOCK_DAILY_TREND_CHANNEL_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract("trade_date", "DATE", "真实前复权行情交易日"),
+    ColumnContract("open", "DOUBLE", "当日前复权开盘价"),
+    ColumnContract("high", "DOUBLE", "当日前复权最高价"),
+    ColumnContract("low", "DOUBLE", "当日前复权最低价"),
+    ColumnContract("close", "DOUBLE", "当日前复权收盘价"),
+    ColumnContract("short_upper", "DOUBLE", "短期上轨，对外量化到 4 位小数"),
+    ColumnContract("short_lower", "DOUBLE", "短期下轨，对外量化到 4 位小数"),
+    ColumnContract("short_position", "VARCHAR", "短期位置，ABOVE、INSIDE 或 BELOW"),
+    ColumnContract("short_state", "VARCHAR", "短期状态，UNKNOWN、UP 或 DOWN"),
+    ColumnContract("long_upper", "DOUBLE", "长期上轨，对外量化到 4 位小数"),
+    ColumnContract("long_lower", "DOUBLE", "长期下轨，对外量化到 4 位小数"),
+    ColumnContract("long_position", "VARCHAR", "长期位置，ABOVE、INSIDE 或 BELOW"),
+    ColumnContract("long_state", "VARCHAR", "长期状态，UNKNOWN、UP 或 DOWN"),
+    ColumnContract("combined_state", "VARCHAR", "短期与长期状态的组合状态"),
+    ColumnContract(
+        "formula_version",
+        "VARCHAR",
+        "趋势通道公式版本，固定为 stock-daily-trend-channel-v1",
+    ),
+)
+
+GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract("trade_date", "DATE", "递推状态快照所属交易日"),
+    ColumnContract("state_source_trade_date", "DATE", "最近一次实际使用行情推进状态的日期"),
+    ColumnContract("observed_on_partition", "BOOLEAN", "本分区是否存在实际前复权行情"),
+    ColumnContract("short_upper_raw", "DOUBLE", "短期上轨未量化精确递推值"),
+    ColumnContract("short_lower_raw", "DOUBLE", "短期下轨未量化精确递推值"),
+    ColumnContract("short_state", "VARCHAR", "短期状态，UNKNOWN、UP 或 DOWN"),
+    ColumnContract("long_upper_raw", "DOUBLE", "长期上轨未量化精确递推值"),
+    ColumnContract("long_lower_raw", "DOUBLE", "长期下轨未量化精确递推值"),
+    ColumnContract("long_state", "VARCHAR", "长期状态，UNKNOWN、UP 或 DOWN"),
+    ColumnContract("combined_state", "VARCHAR", "短期与长期状态的组合状态"),
+    ColumnContract(
+        "formula_version",
+        "VARCHAR",
+        "趋势通道公式版本，固定为 stock-daily-trend-channel-v1",
+    ),
+)
+
 GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
     ColumnContract("trade_date", "DATE", "交易日"),

@@ -414,6 +414,8 @@ PLANNED_CATALOG_ASSET_KEYS = {
         major_index_mins_technical_state_asset_key(freq)
         for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     ),
+    "gold_stock_daily_trend_channel",
+    "gold_stock_daily_trend_channel_state",
 }
 
 
@@ -484,6 +486,30 @@ def _planned_index_technical_asset_rules() -> dict[
             retention_allowed=True,
         )
     return rules
+
+
+def _planned_stock_daily_trend_channel_rules() -> dict[
+    str, dict[str, AssetCheckGovernanceRule]
+]:
+    return {
+        "gold_stock_daily_trend_channel": _rules(
+            (
+                "gold_stock_daily_trend_channel_contract_check",
+                "gold_stock_daily_trend_channel_input_coverage_check",
+            ),
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="STOCK_DAILY_TREND_CHANNEL",
+            readiness=False,
+            retention_allowed=True,
+        ),
+        "gold_stock_daily_trend_channel_state": _rules(
+            ("gold_stock_daily_trend_channel_state_contract_check",),
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="STOCK_DAILY_TREND_CHANNEL",
+            readiness=False,
+            retention_allowed=True,
+        ),
+    }
 
 
 def _stk_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
@@ -711,6 +737,7 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
     ),
     **_planned_etf_asset_rules(),
     **_planned_index_technical_asset_rules(),
+    **_planned_stock_daily_trend_channel_rules(),
     "gold_major_index_daily_nineturn": _rules(
         GOLD_MAJOR_INDEX_DAILY_NINETURN_CHECKS,
         category=KEEP_BLOCKING_DAGSTER,

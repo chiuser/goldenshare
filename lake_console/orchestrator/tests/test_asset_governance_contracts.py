@@ -359,6 +359,8 @@ CONTRACT_ONLY_CATALOG_ASSET_KEYS = {
     "gold_major_index_mins_technical_state_60m",
     "gold_major_index_mins_technical_state_90m",
     "gold_major_index_mins_technical_state_120m",
+    "gold_stock_daily_trend_channel",
+    "gold_stock_daily_trend_channel_state",
 }
 
 

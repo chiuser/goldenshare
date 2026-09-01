@@ -25,6 +25,8 @@ from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
     gold_stock_daily_qfq_nineturn_path,
     gold_stock_daily_qfq_path,
+    gold_stock_daily_trend_channel_path,
+    gold_stock_daily_trend_channel_state_path,
     gold_stock_return_distribution_path,
     gold_wealth_market_turnover_path,
     lake_path_template,
@@ -88,6 +90,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
     GOLD_STOCK_DAILY_QFQ_SCHEMA,
+    GOLD_STOCK_DAILY_TREND_CHANNEL_SCHEMA,
+    GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
     PROD_CORE_INDEX_DAILY_NINETURN_SCHEMA,
@@ -241,6 +245,12 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_SILVER_ADJ_FACTOR = "trade_date_partition_silver_adj_factor"
     TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ = (
         "trade_date_partition_gold_stock_daily_qfq"
+    )
+    TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_TREND_CHANNEL = (
+        "trade_date_partition_gold_stock_daily_trend_channel"
+    )
+    TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_TREND_CHANNEL_STATE = (
+        "trade_date_partition_gold_stock_daily_trend_channel_state"
     )
     TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ_NINETURN = (
         "trade_date_partition_gold_stock_daily_qfq_nineturn"
@@ -490,6 +500,13 @@ SILVER_ADJ_FACTOR_CHECKS = (
     "silver_adj_factor_partition_allowed_check",
 )
 GOLD_STOCK_DAILY_QFQ_CHECKS = ("gold_stock_daily_qfq_contract_check",)
+GOLD_STOCK_DAILY_TREND_CHANNEL_CHECKS = (
+    "gold_stock_daily_trend_channel_contract_check",
+    "gold_stock_daily_trend_channel_input_coverage_check",
+)
+GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_CHECKS = (
+    "gold_stock_daily_trend_channel_state_contract_check",
+)
 GOLD_STOCK_DAILY_QFQ_NINETURN_CHECKS = (
     "gold_stock_daily_qfq_nineturn_integrity_check",
 )
@@ -787,6 +804,22 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.GOLD,
         "stock_daily_qfq",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_TREND_CHANNEL,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "stock_daily_trend_channel",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_TREND_CHANNEL_STATE,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "stock_daily_trend_channel",
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
     ),
@@ -1679,6 +1712,60 @@ LAKE_ASSET_CATALOG = (
             "Daily qfq reads silver_stock_daily and silver_adj_factor. Historical "
             "bootstrap may use runless full-history materialization events and "
             "recent-window ordinary check events."
+        ),
+    ),
+    _derived_entry(
+        asset_key="gold_stock_daily_trend_channel",
+        dataset_id="stock_daily_trend_channel",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="gold_stock_daily_qfq_trend_channel",
+        column_schema=GOLD_STOCK_DAILY_TREND_CHANNEL_SCHEMA,
+        path_template=lake_path_template(
+            gold_stock_daily_trend_channel_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=(
+            PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_TREND_CHANNEL
+        ),
+        blocking_check_names=GOLD_STOCK_DAILY_TREND_CHANNEL_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes=(
+            "Daily precomputed trend-channel observations derived from stock daily "
+            "QFQ bars with DuckDB set-based recursion; Python row loops are forbidden."
+        ),
+    ),
+    _derived_entry(
+        asset_key="gold_stock_daily_trend_channel_state",
+        dataset_id="stock_daily_trend_channel_state",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="gold_stock_daily_qfq_trend_channel_state",
+        column_schema=GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_SCHEMA,
+        path_template=lake_path_template(
+            gold_stock_daily_trend_channel_state_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=(
+            PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_TREND_CHANNEL_STATE
+        ),
+        blocking_check_names=GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes=(
+            "Daily exact recursive state paired with the trend-channel result; "
+            "initialized lifecycle-valid stocks may carry state across suspended days."
         ),
     ),
     _derived_entry(

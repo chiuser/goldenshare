@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 from orchestrator.defs.run_contracts.etf_mins import (
@@ -442,6 +443,90 @@ def gold_stock_daily_qfq_path(root: Path, partition_key: str) -> Path:
         f"trade_date={partition_key}",
         "part-000.parquet",
     )
+
+
+def gold_stock_daily_trend_channel_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "stock_daily_trend_channel",
+        f"trade_date={_stock_daily_trend_channel_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_stock_daily_trend_channel_state_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "stock_daily_trend_channel_state",
+        f"trade_date={_stock_daily_trend_channel_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_stock_daily_trend_channel_staging_path(
+    staging_root: Path,
+    run_id: str,
+    partition_key: str,
+) -> Path:
+    _validate_stock_daily_trend_channel_staging_root(staging_root)
+    return lake_path(
+        staging_root,
+        GOLD,
+        "indicator",
+        "stock_daily_trend_channel",
+        _safe_run_id_part(run_id, asset_family="stock_daily_trend_channel"),
+        f"trade_date={_stock_daily_trend_channel_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_stock_daily_trend_channel_state_staging_path(
+    staging_root: Path,
+    run_id: str,
+    partition_key: str,
+) -> Path:
+    _validate_stock_daily_trend_channel_staging_root(staging_root)
+    return lake_path(
+        staging_root,
+        GOLD,
+        "indicator",
+        "stock_daily_trend_channel_state",
+        _safe_run_id_part(run_id, asset_family="stock_daily_trend_channel_state"),
+        f"trade_date={_stock_daily_trend_channel_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def _stock_daily_trend_channel_partition_component(partition_key: str) -> str:
+    if partition_key == PATH_TEMPLATE_PARTITION_KEY:
+        return partition_key
+    normalized = str(partition_key).strip()
+    try:
+        parsed = date.fromisoformat(normalized)
+    except ValueError as error:
+        raise ValueError(
+            "Stock daily trend-channel partition key must be an ISO date."
+        ) from error
+    if parsed.isoformat() != normalized:
+        raise ValueError("Stock daily trend-channel partition key must be an ISO date.")
+    return normalized
+
+
+def _validate_stock_daily_trend_channel_staging_root(staging_root: Path) -> None:
+    normalized_root = staging_root.resolve(strict=False)
+    forbidden_roots = {
+        Path(DEFAULT_LAKE_ROOT).resolve(strict=False),
+        Path("/Volumes/datasource/goldenshare-tushare-lake").resolve(strict=False),
+    }
+    if normalized_root in forbidden_roots:
+        raise ValueError(
+            "Stock daily trend-channel staging root must not use a formal or legacy "
+            "Lake root."
+        )
 
 
 def gold_stock_daily_qfq_nineturn_path(root: Path, partition_key: str) -> Path:

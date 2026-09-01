@@ -10,6 +10,9 @@ cn_a_stk_nineturn_trade_days = dg.DynamicPartitionsDefinition(
 cn_a_stock_current_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_a_stock_current_trade_days"
 )
+cn_a_stock_daily_trend_channel_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_a_stock_daily_trend_channel_trade_days"
+)
 cn_a_stock_mins_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_a_stock_mins_trade_days"
 )

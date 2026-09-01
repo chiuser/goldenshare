@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0 真实只读规模/性能验证已通过，技术方案与 LLD 已冻结；尚未开发、部署、写入正式 Lake 或启用 Sensor
+状态：M0～M2 已完成；数据合同、Catalog、独立分区和纯 DuckDB 公式内核已落地，尚未实现趋势资产、部署、写入正式 Lake 或启用 Sensor
 
 日期：2026-09-01
 
@@ -1120,13 +1120,17 @@ formula_version_mismatch
 - 全量消费者审计旧 metadata 口径，21～500 代码回归。
 - 已公开统一的 `build_gold_stock_daily_qfq_factor_repair_upstream_batch_id()`；当前 qfq repair sensor 已复用，后续趋势 daily/repair sensor 必须继续复用，禁止自行拼接 batch id。
 - `0/1/20/21/500/501` 边界、旧 metadata 拒绝、排序/去重/count/hash 一致性，以及分钟 qfq、MACD/KDJ repair 下游均已通过回归；501 仍 fail closed。
-- 本里程碑未新增趋势资产、配置、实体、check 名称或正式 Lake 写入；M2 及以后仍未开始。
+- 截至 M1 停止点，本里程碑未新增趋势资产、配置、实体、check 名称或正式 Lake 写入；M2 新增的合同级 check 名称见下一节。
 
 ### M2：数据合同、Catalog、分区和公式 helper
 
-- 新增 schema、paths、Catalog、names、partition definition。
-- 新增 DuckDB 公式与 state helper。
-- 建立受保护公式金样本和增量一致性测试。
+- 状态：已完成（2026-09-01）。
+- 已新增结果与 state schema、正式/staging 路径 helper、Catalog 条目、中文名称和独立交易日分区定义；Catalog 当前仅声明合同，不注册尚未实现的资产。
+- 已新增不连接数据库、不依赖 Dagster 的纯 DuckDB SQL 公式内核，统一承载 daily、history segment 和 repair segment 三种计划；窗口、衰减、分段上限和日行数上限均由代码常量冻结。
+- 已复用 M0 独立字面量金样本，对 1599 行全量结果、249/250/251 分段边界、daily/history/repair 一致性、多股票隔离、等号保持区间内和 `ROUND_HALF_UP` 边界建立保护测试。
+- M2 直接合同与公式测试 30 passed；连同 Catalog、check 治理和静态门禁共 152 passed、589 个 subtests passed。
+- orchestrator 全量测试为 2485 passed、3 failed；3 项均是既有 major-index history 测试在累计测试进程中 RSS 刚超过 1024 MiB 门禁，该文件在独立新进程 18/18 通过。本里程碑不修改该无关性能门禁。
+- 本里程碑未实现 asset/check/job/sensor/bootstrap/repair/API，未写正式 Lake、staging 或 Dagster event；M3 为下一停止点。
 
 ### M3：Assets、Checks 与每日写入
 
