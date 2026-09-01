@@ -186,11 +186,15 @@ class OperationsWorker:
         task_run.rows_saved = int(outcome.rows_saved)
         task_run.rows_rejected = int(outcome.rows_rejected)
         task_run.rows_deduplicated = int(outcome.rows_deduplicated)
-        task_run.ingestion_diagnostics_json = dict(outcome.ingestion_diagnostics or {})
+        if outcome.ingestion_diagnostics is not None:
+            task_run.ingestion_diagnostics_json = dict(outcome.ingestion_diagnostics)
+        elif final_status != "canceled":
+            task_run.ingestion_diagnostics_json = {}
         task_run.rejected_reason_counts_json = dict(outcome.rejected_reason_counts or task_run.rejected_reason_counts_json or {})
         task_run.rejected_reason_samples_json = dict(outcome.rejected_reason_samples or task_run.rejected_reason_samples_json or {})
         task_run.primary_issue_id = outcome.issue_id or task_run.primary_issue_id
-        task_run.current_object_json = {}
+        if final_status != "canceled":
+            task_run.current_object_json = {}
         if final_status == "success":
             task_run.unit_done = task_run.unit_total or task_run.unit_done
             task_run.progress_percent = 100

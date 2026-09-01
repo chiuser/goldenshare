@@ -32,10 +32,12 @@ from src.ops.runtime.maintenance_executor import (
     MaintenanceExecutor,
     MaintenanceTaskRunContext,
     TaskRunAwareMaintenanceExecutor,
+    TaskRunAwareMaintenancePlanner,
 )
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.ingestion_error_presentation import present_ingestion_error, structured_error_payload
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
+from src.ops.services.task_run_maintenance_plan_context import TaskRunMaintenancePlanContext
 from src.ops.action_catalog import MaintenanceActionDefinition, get_maintenance_action, get_workflow_definition
 from src.utils import truncate_text
 
@@ -436,11 +438,39 @@ class TaskRunDispatcher:
                 )
                 current_node_id = node.id
                 task_run.current_node_id = node.id
-                task_run.unit_total = 1
+                task_aware_plan = isinstance(executor, TaskRunAwareMaintenancePlanner)
+                task_run.unit_total = 0 if task_aware_plan else 1
+                task_run.unit_done = 0
+                task_run.unit_failed = 0
+                task_run.progress_percent = None if task_aware_plan else 0
                 session.commit()
-                plan = executor.plan(MaintenanceExecutionRequest(action_key=action.key, params=params))
-                task_run.plan_snapshot_json = self._maintenance_plan_snapshot(action=action, plan=plan)
-                task_run.unit_done = 1
+                request = MaintenanceExecutionRequest(action_key=action.key, params=params)
+                if task_aware_plan:
+                    plan = executor.plan_for_task_run(
+                        request,
+                        context=TaskRunMaintenancePlanContext(
+                            session,
+                            task_run_id=task_run.id,
+                            action_key=action.key,
+                            executor_key=action.executor_key,
+                        ),
+                    )
+                else:
+                    plan = executor.plan(request)
+                session.expire_all()
+                task_run = session.get(TaskRun, task_run.id)
+                node = session.get(TaskRunNode, current_node_id)
+                if task_run is None or node is None:
+                    raise RuntimeError("maintenance PLAN task or node disappeared")
+                task_run.plan_snapshot_json = self._maintenance_plan_snapshot(
+                    action=action,
+                    plan=plan,
+                    snapshot_state="FROZEN" if task_aware_plan else None,
+                )
+                plan_total = self._maintenance_plan_total(plan) if task_aware_plan else 1
+                task_run.unit_total = plan_total
+                task_run.unit_done = plan_total
+                task_run.unit_failed = 0
                 task_run.progress_percent = 100
                 self._finish_node(node, status="success")
                 session.commit()
@@ -533,6 +563,21 @@ class TaskRunDispatcher:
                 rejected_reason_counts=rejected_reason_counts,
                 summary_message=last_message or action.display_name,
             )
+        except IngestionCanceledError:
+            session.rollback()
+            if current_node_id is not None:
+                node = session.get(TaskRunNode, current_node_id)
+                if node is not None and node.status in {"pending", "running"}:
+                    self._finish_node(node, status="canceled")
+            current_task_run = session.get(TaskRun, task_run.id)
+            if current_task_run is not None:
+                current_task_run.status_reason_code = "ingestion_canceled"
+            session.commit()
+            return TaskRunDispatchOutcome(
+                status="canceled",
+                summary_message="任务已收到停止请求，并在当前计划边界结束。",
+                status_reason_code="ingestion_canceled",
+            )
         except Exception as exc:
             session.rollback()
             error_code = str(getattr(exc, "code", "") or "maintenance_executor_failed")
@@ -599,7 +644,10 @@ class TaskRunDispatcher:
 
     @staticmethod
     def _maintenance_plan_snapshot(
-        *, action: MaintenanceActionDefinition, plan: MaintenanceExecutionPlan
+        *,
+        action: MaintenanceActionDefinition,
+        plan: MaintenanceExecutionPlan,
+        snapshot_state: str | None = None,
     ) -> dict[str, Any]:
         snapshot = {
             "schema_version": 1,
@@ -614,8 +662,20 @@ class TaskRunDispatcher:
             ],
             "metadata": dict(plan.metadata),
         }
+        if snapshot_state is not None:
+            snapshot["snapshot_state"] = snapshot_state
         snapshot["snapshot_integrity_hash"] = TaskRunDispatcher._maintenance_snapshot_hash(snapshot)
         return snapshot
+
+    @staticmethod
+    def _maintenance_plan_total(plan: MaintenanceExecutionPlan) -> int:
+        metadata = plan.metadata if isinstance(plan.metadata, Mapping) else {}
+        open_trade_dates = metadata.get("open_trade_dates")
+        if isinstance(open_trade_dates, list) and open_trade_dates:
+            return len(open_trade_dates)
+        gaps = metadata.get("gaps")
+        gap_count = len(gaps) if isinstance(gaps, list) else 0
+        return max(len(plan.units) + gap_count, 1)
 
     @staticmethod
     def _maintenance_snapshot_hash(snapshot: Mapping[str, Any]) -> str:

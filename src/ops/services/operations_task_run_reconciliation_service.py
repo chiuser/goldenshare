@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
+from src.ops.models.ops.task_run_node import TaskRunNode
 
 
 RUNNING_STALE_FOR_MINUTES = 10
@@ -92,6 +93,12 @@ class OperationsTaskRunReconciliationService:
         if new_status == "canceled":
             task_run.canceled_at = task_run.canceled_at or now
             task_run.status_reason_code = "stale_cancel_reconciled"
+            self._close_open_nodes_for_cancellation(
+                session=session,
+                task_run_id=task_run.id,
+                now=now,
+                reason=reason,
+            )
         else:
             task_run.status_reason_code = "stale_task_run"
             issue = TaskRunIssue(
@@ -113,6 +120,35 @@ class OperationsTaskRunReconciliationService:
             session.flush()
             task_run.primary_issue_id = issue.id
         return ReconciledTaskRun(id=task_run.id, previous_status=previous_status, new_status=new_status, reason=reason)
+
+    @classmethod
+    def _close_open_nodes_for_cancellation(
+        cls,
+        *,
+        session: Session,
+        task_run_id: int,
+        now: datetime,
+        reason: str,
+    ) -> None:
+        nodes = session.scalars(
+            select(TaskRunNode).where(
+                TaskRunNode.task_run_id == task_run_id,
+                TaskRunNode.status.in_(("pending", "running")),
+            )
+        )
+        normalized_now = cls._normalize_datetime(now)
+        for node in nodes:
+            started_at = cls._normalize_datetime(node.started_at) if node.started_at else normalized_now
+            diagnostics = dict(node.ingestion_diagnostics_json or {})
+            diagnostics["reconciliation"] = {
+                "reason_code": "stale_cancel_reconciled",
+                "message": reason,
+                "reconciled_at": normalized_now.isoformat(),
+            }
+            node.status = "canceled"
+            node.ended_at = now
+            node.duration_ms = max(int((normalized_now - started_at).total_seconds() * 1000), 0)
+            node.ingestion_diagnostics_json = diagnostics
 
     @staticmethod
     def _target_status_and_reason(task_run: TaskRun) -> tuple[str, str]:

@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from datetime import date
 import hashlib
 import json
+from typing import Callable
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -53,7 +54,14 @@ class SectorAnalysisDailyFactsSourceQuery:
     def __init__(self, *, hierarchy_query: SectorHierarchyQuery | None = None) -> None:
         self._hierarchy_query = hierarchy_query or SectorHierarchyQuery()
 
-    def load_bundle(self, session: Session, *, trade_date: date) -> SectorAnalysisSourceBundle:
+    def load_bundle(
+        self,
+        session: Session,
+        *,
+        trade_date: date,
+        cancel_check: Callable[[], None] | None = None,
+    ) -> SectorAnalysisSourceBundle:
+        self._check_cancel(cancel_check)
         ensure_repeatable_read_only_transaction(session)
 
         open_dates = tuple(
@@ -76,8 +84,10 @@ class SectorAnalysisDailyFactsSourceQuery:
             raise SectorAnalysisDailyFactsSourceNotReadyError(
                 f"{trade_date.isoformat()} 缺少完整60交易日窗口或不是SSE开市日"
             )
+        self._check_cancel(cancel_check)
 
         hierarchy = self._hierarchy_query.load(session)
+        self._check_cancel(cancel_check)
         pools = self._comparison_pools(hierarchy)
         sector_codes = tuple(node.sector_code for node in hierarchy.nodes)
 
@@ -106,6 +116,7 @@ class SectorAnalysisDailyFactsSourceQuery:
             actual_dates=(row.trade_date for row in sector_rows),
             source="dc_daily",
         )
+        self._check_cancel(cancel_check)
 
         member_rows = tuple(
             session.execute(
@@ -128,6 +139,7 @@ class SectorAnalysisDailyFactsSourceQuery:
             actual_dates=(row.trade_date for row in member_rows),
             source="dc_member",
         )
+        self._check_cancel(cancel_check)
         stock_codes = tuple(sorted({row.con_code for row in member_rows}))
 
         market_rows = tuple(
@@ -163,6 +175,7 @@ class SectorAnalysisDailyFactsSourceQuery:
             actual_dates=(row.trade_date for row in market_rows if row.adj_factor is not None),
             source="equity_adj_factor",
         )
+        self._check_cancel(cancel_check)
 
         sector_facts = tuple(
             SectorDailyFact(row.ts_code, row.trade_date, row.close, row.pct_change)
@@ -212,6 +225,7 @@ class SectorAnalysisDailyFactsSourceQuery:
             member_rows=member_rows,
             market_rows=market_rows,
         )
+        self._check_cancel(cancel_check)
         return SectorAnalysisSourceBundle(
             trade_date=trade_date,
             previous_trade_date=open_dates[-2],
@@ -226,6 +240,11 @@ class SectorAnalysisDailyFactsSourceQuery:
             source_row_counts=source_row_counts,
             source_hash=source_hash,
         )
+
+    @staticmethod
+    def _check_cancel(cancel_check: Callable[[], None] | None) -> None:
+        if cancel_check is not None:
+            cancel_check()
 
     @staticmethod
     def _comparison_pools(snapshot: SectorHierarchySnapshot) -> tuple[SectorComparisonPool, ...]:

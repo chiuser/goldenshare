@@ -84,8 +84,16 @@ class SourceStub:
         self.bundle = bundle
         self.calls = 0
 
-    def load_bundle(self, session, *, trade_date):  # type: ignore[no-untyped-def]
+    def load_bundle(
+        self,
+        session,
+        *,
+        trade_date,
+        cancel_check=None,
+    ):  # type: ignore[no-untyped-def]
         del session
+        if cancel_check is not None:
+            cancel_check()
         self.calls += 1
         assert trade_date == self.bundle.trade_date
         return self.bundle

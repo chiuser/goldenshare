@@ -49,8 +49,20 @@ class SectorAnalysisDailyFactsMaterializationService:
         self._repository = repository or SectorAnalysisDailyFactsRepository()
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def preview_trade_date(self, session: Session, *, trade_date: date) -> DailyFactsPreview:
-        facts = self._build(session, trade_date=trade_date)
+    def preview_trade_date(
+        self,
+        session: Session,
+        *,
+        trade_date: date,
+        cancel_check: Callable[[], None] | None = None,
+        phase_update: Callable[[str], None] | None = None,
+    ) -> DailyFactsPreview:
+        facts = self._build(
+            session,
+            trade_date=trade_date,
+            cancel_check=cancel_check,
+            phase_update=phase_update,
+        )
         return self._preview(facts)
 
     def materialize_trade_date(
@@ -141,19 +153,37 @@ class SectorAnalysisDailyFactsMaterializationService:
             idempotent=idempotent,
         )
 
-    def _build(self, session: Session, *, trade_date: date) -> BuiltDailyFacts:
-        bundle = self._source_query.load_bundle(session, trade_date=trade_date)
+    def _build(
+        self,
+        session: Session,
+        *,
+        trade_date: date,
+        cancel_check: Callable[[], None] | None = None,
+        phase_update: Callable[[str], None] | None = None,
+    ) -> BuiltDailyFacts:
+        self._update_phase(phase_update, "READING_SOURCE")
+        bundle = self._source_query.load_bundle(
+            session,
+            trade_date=trade_date,
+            cancel_check=cancel_check,
+        )
+        self._check_cancel(cancel_check)
+        self._update_phase(phase_update, "CALCULATING_FACTS")
         methods = self._fact_builder.build(bundle)
+        self._check_cancel(cancel_check)
         previous = self._repository.load_previous_evidence(
             session,
             trade_date=bundle.previous_trade_date,
             hierarchy_version=bundle.hierarchy.baseline_version,
         )
+        self._check_cancel(cancel_check)
+        self._update_phase(phase_update, "BUILDING_INSIGHT")
         summaries, items = self._insight_builder.build(
             bundle=bundle,
             facts=methods,
             previous=previous,
         )
+        self._check_cancel(cancel_check)
         provisional = BuiltDailyFacts(
             trade_date=bundle.trade_date,
             previous_trade_date=bundle.previous_trade_date,
@@ -175,7 +205,18 @@ class SectorAnalysisDailyFactsMaterializationService:
         content_hash = self._repository.content_hash_from_records(
             self._repository.records_for_facts(provisional)
         )
+        self._check_cancel(cancel_check)
         return replace(provisional, content_hash=content_hash)
+
+    @staticmethod
+    def _check_cancel(cancel_check: Callable[[], None] | None) -> None:
+        if cancel_check is not None:
+            cancel_check()
+
+    @staticmethod
+    def _update_phase(phase_update: Callable[[str], None] | None, phase: str) -> None:
+        if phase_update is not None:
+            phase_update(phase)
 
     @staticmethod
     def _preview(facts: BuiltDailyFacts) -> DailyFactsPreview:

@@ -10,6 +10,9 @@ from src.biz.services.wealth.market.sector_analysis.daily_facts import (
     TEMPLATE_VERSION,
     SectorAnalysisDailyFactsMaterializationService,
     SectorAnalysisReplayPlanner,
+    SectorAnalysisReplayScope,
+    SectorAnalysisReplayUnit,
+    SectorAnalysisReplayGap,
 )
 from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import (
     DailyFactsPreview,
@@ -17,8 +20,14 @@ from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import 
     canonical_json_hash,
 )
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.ingestion.run_errors import IngestionCanceledError
+from src.biz.services.wealth.market.sector_analysis.daily_facts.source_query import (
+    ensure_repeatable_read_only_transaction,
+)
 from src.ops.runtime.maintenance_executor import (
     MaintenanceExecutionPlan,
+    MaintenancePlanCheckpoint,
+    MaintenancePlanTaskRunContext,
     MaintenanceExecutionRequest,
     MaintenanceExecutionResult,
     MaintenanceExecutionUnit,
@@ -45,7 +54,7 @@ class SectorAnalysisDailyTaskExecutor:
 
     def plan(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan:
         if request.action_key == REPLAY_ACTION_KEY:
-            return self._plan_replay(request)
+            raise RuntimeError("sector-analysis replay PLAN requires TaskRun context")
         if request.action_key != DAILY_ACTION_KEY:
             raise ValueError(f"unsupported sector-analysis action: {request.action_key}")
         trade_date = self._required_date(request.params, "trade_date")
@@ -132,17 +141,145 @@ class SectorAnalysisDailyTaskExecutor:
             },
         )
 
-    def _plan_replay(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan:
+    def plan_for_task_run(
+        self,
+        request: MaintenanceExecutionRequest,
+        *,
+        context: MaintenancePlanTaskRunContext,
+    ) -> MaintenanceExecutionPlan:
+        if request.action_key != REPLAY_ACTION_KEY:
+            raise ValueError("task-aware PLAN is only supported for sector-analysis replay")
         start_date = self._required_date(request.params, "start_date")
         end_date = self._required_date(request.params, "end_date")
+        self._raise_if_canceled(context)
         with self._session_factory() as session:
-            replay = self._replay_planner.plan(
+            scope = self._replay_planner.resolve_scope(
                 session,
                 start_date=start_date,
                 end_date=end_date,
             )
             session.rollback()
-        target_dates_hash = canonical_json_hash(replay.open_trade_dates)
+        total = len(scope.open_trade_dates)
+        results: list[SectorAnalysisReplayUnit | SectorAnalysisReplayGap] = []
+        context.update_phase(
+            unit_done=0,
+            unit_total=total,
+            phase="SCOPE_RESOLVED",
+            current_object=self._plan_current_object(scope.open_trade_dates[0], "SCOPE_RESOLVED"),
+        )
+        for trade_date in scope.open_trade_dates:
+            self._raise_if_canceled(context)
+
+            def phase_update(phase: str, *, _trade_date: date = trade_date) -> None:
+                context.update_phase(
+                    unit_done=len(results),
+                    unit_total=total,
+                    phase=phase,
+                    current_object=self._plan_current_object(_trade_date, phase),
+                )
+
+            with self._session_factory() as session:
+                result = self._replay_planner.preview_unit(
+                    session,
+                    scope=scope,
+                    trade_date=trade_date,
+                    cancel_check=lambda: self._raise_if_canceled(context),
+                    phase_update=phase_update,
+                )
+                session.rollback()
+            self._raise_if_canceled(context)
+            results.append(result)
+            units = self._maintenance_units(scope=scope, results=tuple(results))
+            gaps = self._gap_payloads(tuple(results))
+            context.save_checkpoint(
+                MaintenancePlanCheckpoint(
+                    unit_done=len(results),
+                    unit_total=total,
+                    units=units,
+                    gaps=gaps,
+                    metadata=self._replay_metadata(
+                        requested_start_date=start_date,
+                        scope=scope,
+                        warmup_start_date=self._first_warmup(tuple(results)),
+                        gaps=gaps,
+                    ),
+                    expected_rows=self._expected_rows_max(tuple(results)),
+                    phase="CHECKPOINT_SAVED",
+                    current_object=self._plan_current_object(trade_date, "CHECKPOINT_SAVED"),
+                )
+            )
+            self._raise_if_canceled(context)
+
+        context.update_phase(
+            unit_done=total,
+            unit_total=total,
+            phase="FINAL_SCOPE_CHECK",
+            current_object=self._plan_current_object(scope.open_trade_dates[-1], "FINAL_SCOPE_CHECK"),
+        )
+        self._raise_if_canceled(context)
+        with self._session_factory() as session:
+            final_scope = self._replay_planner.resolve_scope(
+                session,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            session.rollback()
+        if final_scope != scope:
+            raise SectorAnalysisDailyFactsPlanDriftError(
+                "回补PLAN最终交易日清单或层级身份已偏离初始范围"
+            )
+        self._raise_if_canceled(context)
+        replay = self._replay_planner.finalize(scope=scope, results=tuple(results))
+        return self._to_maintenance_plan(
+            replay=replay,
+            requested_start_date=start_date,
+        )
+
+    @staticmethod
+    def _to_maintenance_plan(
+        *,
+        replay,  # type: ignore[no-untyped-def]
+        requested_start_date: date,
+    ) -> MaintenanceExecutionPlan:
+        scope = SectorAnalysisReplayScope(
+            requested_start_date=requested_start_date,
+            start_date=replay.start_date,
+            end_date=replay.end_date,
+            open_trade_dates=replay.open_trade_dates,
+            hierarchy_version=str(replay.hierarchy_version or ""),
+        )
+        units = SectorAnalysisDailyTaskExecutor._maintenance_units(
+            scope=scope,
+            results=tuple(replay.units),
+        )
+        gaps = SectorAnalysisDailyTaskExecutor._gap_payloads(tuple(replay.gaps))
+        metadata = SectorAnalysisDailyTaskExecutor._replay_metadata(
+            requested_start_date=requested_start_date,
+            scope=scope,
+            warmup_start_date=replay.warmup_start_date,
+            gaps=gaps,
+        )
+        metadata.update(
+            {
+                "expected_rows_min": replay.expected_rows_min,
+                "expected_rows_max": replay.expected_rows_max,
+            }
+        )
+        return MaintenanceExecutionPlan(
+            plan_hash=replay.plan_hash,
+            units=units,
+            apply_ready=replay.apply_ready,
+            expected_rows=replay.expected_rows_max,
+            metadata=metadata,
+        )
+
+    @staticmethod
+    def _maintenance_units(
+        *,
+        scope: SectorAnalysisReplayScope,
+        results: tuple[SectorAnalysisReplayUnit | SectorAnalysisReplayGap, ...],
+    ) -> tuple[MaintenanceExecutionUnit, ...]:
+        target_dates_hash = canonical_json_hash(scope.open_trade_dates)
         units = tuple(
             MaintenanceExecutionUnit(
                 unit_key=f"wealth-sector-analysis-daily:{unit.trade_date.isoformat()}",
@@ -150,8 +287,8 @@ class SectorAnalysisDailyTaskExecutor:
                     "replay_unit": True,
                     "validate_replay_scope": index == 0,
                     "trade_date": unit.trade_date.isoformat(),
-                    "replay_start_date": replay.start_date.isoformat(),
-                    "replay_end_date": replay.end_date.isoformat(),
+                    "replay_start_date": scope.start_date.isoformat(),
+                    "replay_end_date": scope.end_date.isoformat(),
                     "target_dates_hash": target_dates_hash,
                     "expected_hierarchy_version": unit.hierarchy_version,
                     "expected_formula_bundle_version": FORMULA_BUNDLE_VERSION,
@@ -165,39 +302,83 @@ class SectorAnalysisDailyTaskExecutor:
                     },
                 },
             )
-            for index, unit in enumerate(replay.units)
+            for index, unit in enumerate(
+                item for item in results if isinstance(item, SectorAnalysisReplayUnit)
+            )
         )
-        return MaintenanceExecutionPlan(
-            plan_hash=replay.plan_hash,
-            units=units,
-            apply_ready=replay.apply_ready,
-            expected_rows=replay.expected_rows_max,
-            metadata={
-                "requested_start_date": start_date.isoformat(),
-                "start_date": replay.start_date.isoformat(),
-                "end_date": replay.end_date.isoformat(),
-                "warmup_start_date": (
-                    replay.warmup_start_date.isoformat()
-                    if replay.warmup_start_date is not None
-                    else None
-                ),
-                "open_trade_dates": [item.isoformat() for item in replay.open_trade_dates],
-                "target_dates_hash": target_dates_hash,
-                "hierarchy_version": replay.hierarchy_version,
-                "formula_bundle_version": FORMULA_BUNDLE_VERSION,
-                "template_version": TEMPLATE_VERSION,
-                "expected_rows_min": replay.expected_rows_min,
-                "expected_rows_max": replay.expected_rows_max,
-                "gaps": [
-                    {
-                        "trade_date": gap.trade_date.isoformat(),
-                        "reason_code": gap.reason_code,
-                        "message": gap.message,
-                    }
-                    for gap in replay.gaps
-                ],
-            },
+        return units
+
+    @staticmethod
+    def _gap_payloads(
+        results: tuple[SectorAnalysisReplayUnit | SectorAnalysisReplayGap, ...],
+    ) -> tuple[Mapping[str, Any], ...]:
+        return tuple(
+            {
+                "trade_date": gap.trade_date.isoformat(),
+                "reason_code": gap.reason_code,
+                "message": gap.message,
+            }
+            for gap in results
+            if isinstance(gap, SectorAnalysisReplayGap)
         )
+
+    @staticmethod
+    def _replay_metadata(
+        *,
+        requested_start_date: date,
+        scope: SectorAnalysisReplayScope,
+        warmup_start_date: date | None,
+        gaps: tuple[Mapping[str, Any], ...],
+    ) -> dict[str, Any]:
+        return {
+            "requested_start_date": requested_start_date.isoformat(),
+            "start_date": scope.start_date.isoformat(),
+            "end_date": scope.end_date.isoformat(),
+            "warmup_start_date": warmup_start_date.isoformat() if warmup_start_date else None,
+            "open_trade_dates": [item.isoformat() for item in scope.open_trade_dates],
+            "target_dates_hash": canonical_json_hash(scope.open_trade_dates),
+            "hierarchy_version": scope.hierarchy_version,
+            "formula_bundle_version": FORMULA_BUNDLE_VERSION,
+            "template_version": TEMPLATE_VERSION,
+            "gaps": [dict(gap) for gap in gaps],
+        }
+
+    @staticmethod
+    def _first_warmup(
+        results: tuple[SectorAnalysisReplayUnit | SectorAnalysisReplayGap, ...],
+    ) -> date | None:
+        return next(
+            (
+                item.warmup_start_date
+                for item in results
+                if isinstance(item, SectorAnalysisReplayUnit) and item.warmup_start_date is not None
+            ),
+            None,
+        )
+
+    @staticmethod
+    def _expected_rows_max(
+        results: tuple[SectorAnalysisReplayUnit | SectorAnalysisReplayGap, ...],
+    ) -> int:
+        return sum(
+            maximum
+            for item in results
+            if isinstance(item, SectorAnalysisReplayUnit)
+            for _minimum, maximum in item.expected_fact_count_ranges.values()
+        )
+
+    @staticmethod
+    def _plan_current_object(trade_date: date, phase: str) -> dict[str, Any]:
+        return {
+            "entity": {"type": "trade_date", "value": trade_date.isoformat()},
+            "time": {"trade_date": trade_date.isoformat()},
+            "attributes": {"phase": phase},
+        }
+
+    @staticmethod
+    def _raise_if_canceled(context: MaintenancePlanTaskRunContext) -> None:
+        if context.is_cancel_requested():
+            raise IngestionCanceledError("sector-analysis replay PLAN cancellation requested")
 
     @staticmethod
     def _validate_replay_preview(
@@ -245,6 +426,7 @@ class SectorAnalysisDailyTaskExecutor:
 
     @staticmethod
     def _validate_replay_scope(session, payload: Mapping[str, Any]) -> None:  # type: ignore[no-untyped-def]
+        ensure_repeatable_read_only_transaction(session)
         start_date = SectorAnalysisDailyTaskExecutor._required_date(payload, "replay_start_date")
         end_date = SectorAnalysisDailyTaskExecutor._required_date(payload, "replay_end_date")
         current_dates = tuple(

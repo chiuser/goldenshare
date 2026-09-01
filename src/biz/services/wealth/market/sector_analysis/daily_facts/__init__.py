@@ -9,6 +9,7 @@ from .replay_planner import (
     SectorAnalysisReplayGap,
     SectorAnalysisReplayPlan,
     SectorAnalysisReplayPlanner,
+    SectorAnalysisReplayScope,
     SectorAnalysisReplayUnit,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "SectorAnalysisReplayGap",
     "SectorAnalysisReplayPlan",
     "SectorAnalysisReplayPlanner",
+    "SectorAnalysisReplayScope",
     "SectorAnalysisReplayUnit",
 ]

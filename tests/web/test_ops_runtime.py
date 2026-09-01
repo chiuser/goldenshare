@@ -1242,6 +1242,36 @@ def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_fa
     assert dispatcher.calls == [task_run.id]
 
 
+def test_worker_preserves_last_checkpoint_context_when_dispatcher_cancels(db_session, task_run_factory) -> None:
+    task_run = task_run_factory(
+        status="queued",
+        resource_key=None,
+        task_type="maintenance_action",
+        title="历史计划",
+        current_object_json={"time": {"trade_date": "2025-01-03"}},
+    )
+    task_run.ingestion_diagnostics_json = {
+        "maintenance_plan": {"phase": "READING_SOURCE", "unit_done": 1, "unit_total": 2}
+    }
+    task_run.unit_done = 1
+    task_run.unit_total = 2
+    task_run.progress_percent = 50
+    db_session.commit()
+    dispatcher = StubDispatcher(
+        TaskRunDispatchOutcome(status="canceled", status_reason_code="ingestion_canceled")
+    )
+
+    result = OperationsWorker(dispatcher=dispatcher).run_next(db_session)
+
+    assert result is not None
+    assert result.status == "canceled"
+    assert result.unit_done == 1
+    assert result.unit_total == 2
+    assert result.progress_percent == 50
+    assert result.current_object_json == {"time": {"trade_date": "2025-01-03"}}
+    assert result.ingestion_diagnostics_json["maintenance_plan"]["phase"] == "READING_SOURCE"
+
+
 def test_general_worker_excludes_minute_dataset_tasks(db_session, task_run_factory) -> None:
     stk_task = task_run_factory(resource_key="stk_mins", title="股票历史分钟线")
     ordinary_task = task_run_factory(resource_key="daily", title="股票日线")

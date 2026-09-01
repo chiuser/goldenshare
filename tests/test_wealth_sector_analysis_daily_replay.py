@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -12,7 +13,9 @@ from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import 
     SectorAnalysisDailyFactsSourceNotReadyError,
 )
 from src.biz.services.wealth.market.sector_analysis.daily_facts.replay_planner import (
+    SectorAnalysisReplayGap,
     SectorAnalysisReplayPlanner,
+    SectorAnalysisReplayScope,
 )
 from src.biz.services.wealth.market.sector_analysis.daily_facts.source_query import (
     ensure_repeatable_read_only_transaction,
@@ -67,14 +70,34 @@ class _MaterializerStub:
     blocked_dates: set[date] = field(default_factory=set)
     calls: list[date] = field(default_factory=list)
 
-    def preview_trade_date(self, session, *, trade_date):  # type: ignore[no-untyped-def]
+    def preview_trade_date(
+        self,
+        session,
+        *,
+        trade_date,
+        cancel_check=None,
+        phase_update=None,
+    ):  # type: ignore[no-untyped-def]
         del session
+        if cancel_check is not None:
+            cancel_check()
+        if phase_update is not None:
+            phase_update("CALCULATING_FACTS")
         self.calls.append(trade_date)
         if trade_date in self.blocked_dates:
             raise SectorAnalysisDailyFactsSourceNotReadyError(
                 f"{trade_date.isoformat()} source blocked"
             )
         return self.previews[trade_date]
+
+
+class _HierarchyQueryStub:
+    def __init__(self, version: str = "hierarchy-v1") -> None:
+        self.version = version
+
+    def load(self, session):  # type: ignore[no-untyped-def]
+        del session
+        return type("Hierarchy", (), {"baseline_version": self.version})()
 
 
 class _PostgresBindStub:
@@ -106,15 +129,38 @@ class _PostgresSessionStub:
         self.events.append("SELECT trade_calendar")
         return (FIRST, SECOND)
 
+    def rollback(self) -> None:
+        return None
+
 
 @dataclass
 class _TransactionAwareMaterializer:
     events: list[str]
 
-    def preview_trade_date(self, session, *, trade_date):  # type: ignore[no-untyped-def]
+    def preview_trade_date(
+        self,
+        session,
+        *,
+        trade_date,
+        cancel_check=None,
+        phase_update=None,
+    ):  # type: ignore[no-untyped-def]
+        if cancel_check is not None:
+            cancel_check()
         ensure_repeatable_read_only_transaction(session)
+        if phase_update is not None:
+            phase_update("CALCULATING_FACTS")
         self.events.append(f"PREVIEW {trade_date.isoformat()}")
         return _preview(trade_date)
+
+
+def _build_plan(planner: SectorAnalysisReplayPlanner, session: Session, *, start_date: date, end_date: date):  # type: ignore[no-untyped-def]
+    scope = planner.resolve_scope(session, start_date=start_date, end_date=end_date)
+    results = tuple(
+        planner.preview_unit(session, scope=scope, trade_date=trade_date)
+        for trade_date in scope.open_trade_dates
+    )
+    return planner.finalize(scope=scope, results=results)
 
 
 def _engine():  # type: ignore[no-untyped-def]
@@ -141,14 +187,19 @@ def test_replay_plan_clamps_to_2025_and_freezes_ascending_source_evidence() -> N
     materializer = _MaterializerStub(
         previews={FIRST: _preview(FIRST), SECOND: _preview(SECOND, source_hash="d" * 64)}
     )
-    planner = SectorAnalysisReplayPlanner(materializer)  # type: ignore[arg-type]
+    planner = SectorAnalysisReplayPlanner(
+        materializer,  # type: ignore[arg-type]
+        hierarchy_query=_HierarchyQueryStub(),  # type: ignore[arg-type]
+    )
     with Session(_engine()) as session:
-        first = planner.plan(
+        first = _build_plan(
+            planner,
             session,
             start_date=date(2024, 1, 1),
             end_date=SECOND,
         )
-        second = planner.plan(
+        second = _build_plan(
+            planner,
             session,
             start_date=date(2024, 1, 1),
             end_date=SECOND,
@@ -167,25 +218,34 @@ def test_replay_plan_clamps_to_2025_and_freezes_ascending_source_evidence() -> N
     assert first.plan_hash == second.plan_hash
 
 
-def test_replay_plan_starts_one_read_only_snapshot_before_calendar_and_all_previews() -> None:
-    session = _PostgresSessionStub()
+def test_replay_plan_uses_one_short_read_only_transaction_per_scope_and_trade_date() -> None:
+    scope_session = _PostgresSessionStub()
+    first_session = _PostgresSessionStub()
+    second_session = _PostgresSessionStub()
     planner = SectorAnalysisReplayPlanner(
-        _TransactionAwareMaterializer(session.events)  # type: ignore[arg-type]
+        _TransactionAwareMaterializer([]),  # type: ignore[arg-type]
+        hierarchy_query=_HierarchyQueryStub(),  # type: ignore[arg-type]
     )
 
-    plan = planner.plan(  # type: ignore[arg-type]
-        session,
+    scope = planner.resolve_scope(  # type: ignore[arg-type]
+        scope_session,
         start_date=FIRST,
         end_date=SECOND,
     )
+    results = (
+        planner.preview_unit(first_session, scope=scope, trade_date=FIRST),  # type: ignore[arg-type]
+        planner.preview_unit(second_session, scope=scope, trade_date=SECOND),  # type: ignore[arg-type]
+    )
+    plan = planner.finalize(scope=scope, results=results)
 
     assert plan.apply_ready is True
-    assert session.events == [
+    assert scope_session.events == [
         "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
         "SELECT trade_calendar",
-        f"PREVIEW {FIRST.isoformat()}",
-        f"PREVIEW {SECOND.isoformat()}",
     ]
+    assert first_session.events[0] == "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+    assert second_session.events[0] == "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+    assert first_session.transaction is not second_session.transaction
 
 
 def test_replay_plan_keeps_every_blocked_date_and_never_silently_skips() -> None:
@@ -193,9 +253,12 @@ def test_replay_plan_keeps_every_blocked_date_and_never_silently_skips() -> None
         previews={FIRST: _preview(FIRST), SECOND: _preview(SECOND)},
         blocked_dates={FIRST},
     )
-    planner = SectorAnalysisReplayPlanner(materializer)  # type: ignore[arg-type]
+    planner = SectorAnalysisReplayPlanner(
+        materializer,  # type: ignore[arg-type]
+        hierarchy_query=_HierarchyQueryStub(),  # type: ignore[arg-type]
+    )
     with Session(_engine()) as session:
-        plan = planner.plan(session, start_date=FIRST, end_date=SECOND)
+        plan = _build_plan(planner, session, start_date=FIRST, end_date=SECOND)
 
     assert plan.open_trade_dates == (FIRST, SECOND)
     assert tuple(unit.trade_date for unit in plan.units) == (SECOND,)
@@ -211,11 +274,38 @@ def test_replay_plan_blocks_mixed_hierarchy_versions() -> None:
             SECOND: _preview(SECOND, hierarchy_version="hierarchy-v2"),
         }
     )
-    planner = SectorAnalysisReplayPlanner(materializer)  # type: ignore[arg-type]
+    planner = SectorAnalysisReplayPlanner(
+        materializer,  # type: ignore[arg-type]
+        hierarchy_query=_HierarchyQueryStub(),  # type: ignore[arg-type]
+    )
     with Session(_engine()) as session:
-        plan = planner.plan(session, start_date=FIRST, end_date=SECOND)
+        scope = planner.resolve_scope(session, start_date=FIRST, end_date=SECOND)
+        results = tuple(
+            planner.preview_unit(session, scope=scope, trade_date=trade_date)
+            for trade_date in scope.open_trade_dates
+        )
+        plan = planner.finalize(scope=scope, results=results)
 
     assert tuple(unit.trade_date for unit in plan.units) == (FIRST,)
     assert tuple(gap.trade_date for gap in plan.gaps) == (SECOND,)
     assert plan.gaps[0].reason_code == "SA_DAILY_FACT_PLAN_DRIFT"
     assert plan.apply_ready is False
+
+
+def test_replay_finalize_rejects_partial_or_out_of_order_results() -> None:
+    planner = SectorAnalysisReplayPlanner(
+        _MaterializerStub(previews={FIRST: _preview(FIRST), SECOND: _preview(SECOND)}),  # type: ignore[arg-type]
+        hierarchy_query=_HierarchyQueryStub(),  # type: ignore[arg-type]
+    )
+    scope = SectorAnalysisReplayScope(
+        requested_start_date=FIRST,
+        start_date=FIRST,
+        end_date=SECOND,
+        open_trade_dates=(FIRST, SECOND),
+        hierarchy_version="hierarchy-v1",
+    )
+    with pytest.raises(ValueError, match="frozen scope"):
+        planner.finalize(
+            scope=scope,
+            results=(SectorAnalysisReplayGap(FIRST, "missing", "missing"),),
+        )

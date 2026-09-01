@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.53；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22 已通过远程迁移、HDD catalog 和受控单日生产验收并关闭。M23 首次生产 PLAN TaskRun `10421` 在零业务写入时暴露 PostgreSQL 只读事务起始顺序错误；修复及本地正反例已完成，尚待提交、重新部署和生成新的生产 PLAN；APPLY、M24～M26 均未执行。
+- 状态：v1.55；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22 已通过远程迁移、HDD catalog 和受控单日生产验收并关闭。M23R 已完成本地编码与261项正反例：长周期 PLAN 按交易日短事务执行、逐日保存不可执行草稿、取消保留最后检查点，stale cancel 同事务结束内部节点；未新增 Worker/Lane。当前等待提交、部署和远程验收；M23 PLAN/APPLY、M24～M26 均不得提前执行。
 - 编写日期：2026-08-31。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -10,7 +10,7 @@
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：五条既有精确方法路由保持不变；M25 新增 `/wealth/exploration/sector-analysis/daily-insight`，并在其正式上线时把板块分析根地址改为 `replace` 到每日洞察。六个工作区始终只挂载当前 controller。
 - 目标 API：既有十四只板块分析只读 API 保持公开合同不变；M25 新增 `/daily-insight/meta` 与 `/daily-insight/snapshot` 两只 strict 只读 API。
-- 待实施项：先提交／部署 M23 PLAN 事务顺序修复，再创建新的正式 TaskRun 生成自2025年起的生产 PLAN 并等待管理员批准；失败 TaskRun `10421` 不得重用。批准后才允许 APPLY、read-back 和幂等重放。随后才是 M24 五方法等价切读、M25 每日洞察前后端、M26 自动化与最终交付验收。每个里程碑独立停止，不自动进入下一步。
+- 待实施项：先提交、部署并远程验收 M23R；通过后再创建新的正式 TaskRun，生成自2025年起的生产 PLAN 并等待批准，失败 TaskRun `10421` 不得重用。批准后才允许 APPLY、read-back 和幂等重放。随后才是 M24 五方法等价切读、M25 每日洞察前后端、M26 自动化与最终交付验收。每个里程碑独立停止，不自动进入下一步。
 
 本文定义财势探查页面结构、五个已完成的独立分析方法，以及新增“每日洞察 + 每日事实物化”的代码级方案。每日洞察不是第六种公式，只汇总同一业务日期、同一层级版本、同一公式包和同一发布批次下的五方法客观事实；不生成综合分、预测、信号、机会等级或买卖建议。M3A 成分股明细和成员广度逐只股票明细继续按需读取，不进入本期物化结果。
 
@@ -940,13 +940,13 @@ M19 前端只允许以下增量：
 | 操作 | 文件 | 精确要求 |
 |---|---|---|
 | 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/contract.py` | batch、source bundle、typed rows、summary/item、preview/result 与版本常量 |
-| 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/source_query.py` | 一次一致性读取六张白名单来源；稳定排序、计数和 source hash；无来源副本 |
+| 新增／修改 | `src/biz/services/wealth/market/sector_analysis/daily_facts/source_query.py` | 单日一致性读取六张白名单来源；稳定排序、计数和 source hash；M23R 在各来源读取阶段之间执行无 Ops 依赖的取消回调；无来源副本 |
 | 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/fact_builder.py` | 组合调用五个冻结 calculator；不复制公式，不调用页面 QueryService/API |
 | 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/insight_builder.py` | 三层 summary、四类完整事件、上一日同版本比较与稳定排序 |
 | 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/template_renderer.py` | `sector-daily-insight-template@1`，固定证据优先级、最多2项、字节确定性 |
 | 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/repository.py` | BUILDING 写入、逐表 read-back、状态切换、PUBLISHED reader；唯一业务写入边界 |
-| 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/materialization_service.py` | preview/materialize 单日主链、hash、幂等、失败和原子发布 |
-| 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/replay_planner.py` | 2025起升序 PLAN、APPLY 绑定、层级版本、预期计数和 plan hash |
+| 新增／修改 | `src/biz/services/wealth/market/sector_analysis/daily_facts/materialization_service.py` | preview/materialize 单日主链、hash、幂等、失败和原子发布；M23R 仅为 preview 透传纯取消回调，单日自动物化行为不变 |
+| 新增／重构 | `src/biz/services/wealth/market/sector_analysis/daily_facts/replay_planner.py` | 2025起升序 PLAN、APPLY 绑定、层级版本、预期计数和 plan hash；M23R 拆为范围解析、单日 unit/gap 预览和纯 finalize，删除跨全部日期持有同一 session 的旧 `plan(session, ...)` 主链 |
 | 新增 | `src/biz/queries/wealth/market/sector_analysis/sector_daily_insight_query.py` | 只读 batch coverage、summary 和 item；不碰六张来源 |
 | 新增 | `src/biz/queries/wealth/market/sector_analysis/sector_daily_insight_query_service.py` | Meta/Snapshot 组合、唯一回退点、batch/hierarchy guard、稳定DTO |
 | 新增 | `src/biz/schemas/wealth/market/sector_daily_insight.py` | strict camelCase request/response DTO；拒绝 unknown、跨批次、非有限和顺序错误 |
@@ -964,8 +964,12 @@ M19 前端只允许以下增量：
 | 修改 | `src/ops/action_catalog.py` | 增加单日／历史两动作，20:05/600秒/00:30，GENERAL executor key；目标九表 |
 | 修改 | `src/ops/services/operations_schedule_service.py` | 把 Heat 专属自动 readiness 收敛为 action-key evaluator 映射；保留每 action 唯一 schedule、固定 cron、日期生成、重试与超时 issue；Heat输出零变化 |
 | 修改 | `src/ops/runtime/scheduler.py` | 接收通用 evaluator 映射，不 import Biz |
-| 修改 | `src/ops/runtime/task_run_dispatcher.py` | 普通 registered maintenance action 一律调用 executor.plan() 获取 units；Heat daily 同步迁移并删除 `_single_day_heat_unit()`；PLAN/APPLY 特殊冻结语义保持 |
-| 新增 | `src/app/runtime/sector_analysis_daily_task_executor.py` | App 组合 Ops evidence 与 Biz materializer；业务和观测使用不同 session |
+| 修改 | `src/ops/runtime/maintenance_executor.py` | M23R 增加通用 `MaintenancePlanCheckpoint`、`MaintenancePlanTaskRunContext` 与 `TaskRunAwareMaintenancePlanner`；只表达计划进度／取消／草稿写回，不认识板块业务 |
+| 新增 | `src/ops/services/task_run_maintenance_plan_context.py` | M23R 用独立短 session 读取取消请求并原子保存 PLAN 草稿、真实完成数、当前阶段与节点诊断；检查点失败必须终止 PLAN，禁止吞错 |
+| 修改 | `src/ops/runtime/task_run_dispatcher.py` | 普通 registered maintenance action 一律调用 executor.plan() 获取 units；Heat daily 同步迁移并删除 `_single_day_heat_unit()`；M23R 对 task-aware PLAN 注入 context，显式把 `IngestionCanceledError` 收口为 canceled，最终成功才写冻结 snapshot |
+| 修改 | `src/ops/services/operations_task_run_reconciliation_service.py` | M23R 在 `canceling -> canceled` 同一事务内收口该 TaskRun 全部 `pending/running` 节点；补 ended/duration/原因并保证幂等，不改其他 TaskRun |
+| 修改 | `src/ops/runtime/worker.py` | canceled 终态保留最后一个持久化检查点的当前日期、阶段、完成数和诊断；success／failed 既有收口不变 |
+| 新增／修改 | `src/app/runtime/sector_analysis_daily_task_executor.py` | App 组合 Ops evidence 与 Biz materializer；M23R 编排短范围事务、逐交易日只读事务、检查点与取消；业务和观测使用不同 session |
 | 新增 | `src/app/runtime/sector_analysis_daily_readiness_evaluator.py` | 先核验 Ops evidence，再用只读 Biz preview；失败零业务写入 |
 | 修改 | `src/app/runtime/sector_heat_task_executor.py` | Heat daily `plan()` 生成自身单日 unit，证明通用 dispatcher 重构零行为变化 |
 | 修改 | `src/app/runtime/ops_worker_factory.py` | GENERAL 注册 `wealth_sector_analysis_daily` executor；不新增 Lane |
@@ -1005,7 +1009,9 @@ tests/test_wealth_sector_analysis_daily_models.py
 tests/test_wealth_sector_analysis_daily_materialization.py
 tests/test_wealth_sector_analysis_daily_replay.py
 tests/test_wealth_sector_daily_insight_query_service.py
+tests/test_task_run_reconciliation_service.py
 tests/web/test_wealth_sector_analysis_api.py
+tests/web/test_wealth_sector_analysis_replay_runtime.py
 tests/test_worker_lane.py
 tests/test_ops_scheduler.py
 tests/test_ops_worker_factory.py
@@ -2592,7 +2598,58 @@ PLAN：
 3. 标出 BLOCKED 日期与原因；只要存在硬阻断则 `apply_ready=false`，禁止偷偷跳过。
 4. PLAN 冻结的是不依赖未来发布结果的身份：目标日清单及其 hash、唯一 hierarchy version、公式包、模板、2024预热起点、每日日源内容 hash、来源日期／行数和逐表行数范围。`wealth_sector_daily_insight_item` 的数量会受紧邻前一日变化事件影响，因此冻结 `0..2×层级节点数` 合法范围，其余表冻结精确数量。
 5. PLAN 阶段尚不存在后续各日的 PUBLISHED batch UUID，禁止伪造 previous batch、每日 content hash 或跨日洞察。整体 `plan_hash` 只覆盖上述真实可冻结事实、全部 units 和全部 gaps。
-6. PostgreSQL PLAN 必须在查询目标交易日清单之前建立一次 `REPEATABLE READ, READ ONLY` 事务；同一 PLAN 内所有逐日 source preview 复用该 transaction identity，不得在已经执行日历或来源查询后再次发送 `SET TRANSACTION`。事务结束后新请求必须建立新的只读快照，禁止用进程级布尔标志跨事务复用。
+6. PostgreSQL PLAN 不再用一个跨全部历史日期的长事务。范围解析使用一个短 `REPEATABLE READ, READ ONLY` 事务；每个交易日 preview 使用一个新的短 `REPEATABLE READ, READ ONLY` 事务；最终冻结前再使用一个短事务复核目标日期清单与层级身份。每个事务都必须在任何日历、层级或来源 SQL 前调用 `ensure_repeatable_read_only_transaction()`，同一 transaction identity 内幂等复用，禁止用进程级布尔标志跨事务复用。
+7. 单日事务之间不宣称共享同一个数据库瞬时快照。安全性由三层保证：范围身份先冻结；每个 unit 保存自己的 source hash／日期／行数；最终冻结前复核范围，APPLY 再逐日重算并拒绝漂移。任一日层级身份不同、最终日期清单变化或来源漂移都不得被静默合并成可执行 PLAN。
+
+M23R 将 `SectorAnalysisReplayPlanner` 拆成三个无 Ops 依赖的业务步骤：
+
+```text
+resolve_scope(session, start_date, end_date) -> SectorAnalysisReplayScope
+preview_unit(session, scope, trade_date, cancel_probe) -> ReplayUnit | ReplayGap
+finalize(scope, units, gaps) -> SectorAnalysisReplayPlan
+```
+
+1. `resolve_scope()` 只解析日期清单、日期 hash、唯一 hierarchy version、公式／模板和预热起点，不读取跨全部日期的来源明细。
+2. `preview_unit()` 只处理一个交易日；来源读取、五方法计算和 unit/gap 序列化结束后，调用方必须关闭／回滚该只读 session 并释放该日来源行和计算中间量。
+3. `finalize()` 是纯内存轻量步骤，只接收已经序列化的 unit/gap 证据；它复算最终 `plan_hash`，不得重新读取来源或产生业务写入。
+4. 删除原 `plan(session, start_date, end_date)` 跨日期循环主链及其“全 PLAN 只有一个 SET TRANSACTION”的测试；不得保留旧入口、兼容分支或第二套规划路径。
+
+M23R 的 PLAN 运行合同落在 Ops 通用协议，不把 Biz 类型反向引入 Ops：
+
+```text
+MaintenancePlanCheckpoint
+  snapshot_state = BUILDING
+  total_dates / completed_dates
+  current_trade_date / current_phase / last_checkpoint_at
+  serialized_units / serialized_gaps
+  draft_integrity_hash
+
+MaintenancePlanTaskRunContext
+  task_run_id
+  is_cancel_requested()
+  save_checkpoint(checkpoint)
+
+TaskRunAwareMaintenancePlanner.plan_for_task_run(request, context)
+```
+
+1. `src.app` 的 `SectorAnalysisDailyTaskExecutor` 实现 `TaskRunAwareMaintenancePlanner`；其他 maintenance executor 继续使用现有 `plan(request)`，Heat 行为不变。
+2. dispatcher 创建 `maintenance_plan` 节点后，task-aware PLAN 先解析范围，将 `unit_total` 设置为目标 SSE 日期数、`unit_done=0`、`progress_percent=0`；普通 PLAN 不受影响。
+3. 每个交易日完成后，App 把 Biz unit/gap 转成通用 JSON，调用 `save_checkpoint()`。该方法使用与 Biz 只读事务分离的短 Ops session，在一个事务中更新 `plan_snapshot_json`、`unit_done/unit_total/progress_percent`、`current_object_json`、`ingestion_diagnostics_json` 和当前 running plan node。只有该事务提交成功，内存循环才进入下一日。
+4. BUILDING 草稿复用现有 `TaskRun.plan_snapshot_json`，不新增表或迁移。它不得保存来源原始行、五方法完整中间事实或股票明细；只保存最终 PLAN 本来就需要的 unit/gap 证据和进度元数据。
+5. BUILDING 草稿的 `plan_hash` 必须为 null、`apply_ready=false`。全部日期完成并通过最终范围复核后，dispatcher 才以现有 `_maintenance_plan_snapshot()` 一次性替换为 schema v1 冻结 snapshot，随后令节点 success、TaskRun progress 100。APPLY 继续要求引用 success PLAN TaskRun、完整性 hash、精确 plan hash 和 `apply_ready=true`，因此草稿、失败或取消任务天然不可执行。
+6. 进度百分比固定为 `floor(completed_dates / total_dates × 100)`，但在冻结前最高只能是99；100只代表最终冻结 snapshot 已提交。`current_object_json` 使用既有安全结构：`entity={type:'trade_date', value:...}`、`time={tradeDate:...}`、`attributes={phase, completed, total}`。
+7. `current_phase` 只允许 `RESOLVING_SCOPE/READING_SOURCE/CALCULATING/SAVING_CHECKPOINT/FINALIZING`。阶段心跳可更新当前对象和节点诊断，但不得增加 `unit_done`；完成数只认已提交检查点。
+
+取消检查固定在以下边界：
+
+1. 范围解析前、范围解析后。
+2. 每个交易日事务开始前。
+3. source query 的日历／层级、行业行情、成员、股票日线、复权因子读取阶段之间。
+4. 五方法计算前后。
+5. 草稿检查点提交前后。
+6. 最终范围复核前和冻结 snapshot 提交前。
+
+`MaintenancePlanTaskRunContext.is_cancel_requested()` 必须使用独立短 Ops session 读取最新取消请求，不能借用逐日 Biz 只读 session。收到取消后抛既有 `IngestionCanceledError`：当前未完成交易日事务回滚，最后一个已提交 BUILDING 检查点保留；registered maintenance dispatcher 必须在通用异常分支之前单独捕获该异常，把当前 plan node 收口为 `canceled` 并返回 canceled outcome。不得创建失败 issue、不得把 `unit_done` 改成总数、不得把进度改为100，也不得生成冻结 snapshot。单条正在执行的数据库 SQL 只能在返回后检查取消；因此每个来源阶段必须保持有界，禁止重新合并成一条无法观测的跨年 SQL。
 
 APPLY：
 
@@ -2613,6 +2670,16 @@ APPLY：
 初次20:05不是workflow的最早启动时刻，不能要求上游 TaskRun 在20:05以后创建；只核对节点日期、成功状态和完成时间，避免把已于20:05前完成的有效同步误判为无证据。`dc_index`不是六张计算来源，层级事实直接取当前 `wealth_sector_hierarchy` 并进入plan/hash；资金workflow完全不参与。
 
 dispatcher重构后的普通 registered action 流程为 `executor.plan(request) -> units -> execute_unit()`。Heat daily executor补齐自身单日plan，news与既有replay行为不变；删除默认“非特殊动作就是Heat单日”的分支。架构测试必须证明 Ops 仍不import Biz、GENERAL仍排除QTF、分钟lane不变。
+
+### 6.51A stale cancel 的 TaskRun／节点一致性
+
+当前 `OperationsTaskRunReconciliationService._apply_reconciliation()` 只更新 TaskRun；当 worker 已中断、任务停在 `canceling` 时，`TaskRunNode.status` 仍可能长期保持 `running`。M23R 只修正取消对账，不改变既有 running-stale → failed 判定阈值或其他任务状态机：
+
+1. `_apply_reconciliation()` 在处理 `canceling -> canceled` 时，先锁定该 TaskRun，并查询 `task_run_id` 相同且 `status in ('pending','running')` 的全部节点。
+2. 在同一事务中把这些节点设为 `canceled`，`ended_at=now`；已有 `started_at` 时按 `now-started_at` 计算非负 `duration_ms`，未开始的 pending 节点记0。节点保留已记录的 rows、issue 和业务诊断，并在诊断中追加 `reconciliation={reason:'stale_cancel_reconciled', previousStatus:...}`。
+3. 同一事务再把 TaskRun 设为 `canceled`，补 `ended_at/canceled_at/status_reason_code`。`unit_done/unit_failed/progress_percent/current_node_id/current_object_json/plan_snapshot_json` 保留最后真实值，禁止清零或伪造100%。
+4. 已经 success/failed/canceled/skipped 的节点不得改写；其他 TaskRun 节点不得触碰。重复执行时因零未终结节点而成为幂等空操作，原 `ended_at/duration_ms` 不得漂移。
+5. 事务任一步失败则 TaskRun 和节点一起回滚，禁止出现只结束一边。该收口只写 Ops 表，不读取或修改九张业务事实表。
 
 ### 6.52 配置审计
 
@@ -5345,7 +5412,7 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 
 ### M23：2025年以来回补与物理验收
 
-状态：`PLAN TRANSACTION FIX READY / REDEPLOYMENT PENDING（2026-09-01）`。
+状态：`WAITING M23R DEPLOYMENT / REAL PLAN NOT AUTHORIZED（2026-09-01）`。
 
 1. 生成升序PLAN并等待明确批准；APPLY一日一提交，2024只预热。
 2. 逐日九表read-back、hash、previous链、PUBLISHED唯一和空洞核验；失败可从失败日恢复。
@@ -5355,7 +5422,29 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 6. `sector_analysis_daily_task_executor.py`现可生成回补plan和执行冻结unit；`task_run_dispatcher.py`以`execution_config.plan_apply_replay=true`识别共享回放合同，不再写死Heat动作名。Heat现有PLAN/APPLY行为由原测试保持。
 7. APPLY引用的PLAN TaskRun、snapshot完整性、plan hash和原请求参数仍由Ops通用主链校验；业务unit再校验日期清单与当日来源／身份。业务异常的中央`code`透传为TaskRun issue，`SA_DAILY_FACT_PLAN_DRIFT`不再降成通用错误码。
 8. 提交`bab80b5e`已部署，远程HEAD、三服务、健康接口和Alembic head `20260831_000168`通过；公共日期由远程`MarketPageContextQuery`解析为`2026-08-31`。
-9. 首次生产PLAN TaskRun `10421`在planner查询交易日历后、source query设置事务隔离级别时被PostgreSQL以`2j85`拒绝；失败发生在snapshot生成前，未执行APPLY、未写九张业务事实表。修复在`source_query.py`提供按transaction identity幂等的只读事务入口，replay planner在第一条SQL前调用；顺序反例证明同一PLAN只设置一次。必须重新提交／部署并创建新PLAN，失败任务不得重用。
+9. 首次生产PLAN TaskRun `10421`在planner查询交易日历后、source query设置事务隔离级别时被PostgreSQL以`2j85`拒绝；失败发生在snapshot生成前，未执行APPLY、未写九张业务事实表。事务顺序根因已经定位，但后续真实长周期 PLAN 又确认当前实现只有开始／100%两态、没有中途取消检查，stale cancel 对账还会遗留运行中节点。因此禁止仅部署事务顺序修复后直接重跑。
+
+### M23R：PLAN 分段进度、取消检查与节点终态
+
+状态：`CODE COMPLETE / LOCAL PASS / DEPLOYMENT PENDING（2026-09-01）`。
+
+开发顺序固定为：
+
+1. 先补 `MaintenancePlanCheckpoint`、`MaintenancePlanTaskRunContext` 和 `TaskRunAwareMaintenancePlanner`；通用协议不得 import Biz。
+2. 新增 `TaskRunMaintenancePlanContext`，以独立短 session 提供取消读取和草稿／进度／节点诊断原子写回；检查点写失败必须向上抛错。
+3. 把 `SectorAnalysisReplayPlanner` 拆成 `resolve_scope/preview_unit/finalize`，一交易日一只读事务；删除旧跨日期 `plan(session, ...)` 主链和“整个 PLAN 单一 transaction identity”测试。
+4. `SectorAnalysisDailyTaskExecutor.plan_for_task_run()` 负责逐日编排、阶段取消、轻量 unit/gap 序列化、最终范围复核和计划 finalize；不写九张业务表。
+5. dispatcher 对 task-aware PLAN 初始化真实日期总数，BUILDING 检查点期间最高99%；最终冻结后才100%。在通用异常前捕获 `IngestionCanceledError`，节点与 outcome 收口 canceled。
+6. reconciliation 在 `canceling -> canceled` 同事务关闭该任务全部 pending/running 节点；保留真实进度、当前对象和草稿，不影响其他任务或业务表。
+7. 通过下列正反例后停止，不创建生产 TaskRun：
+   - 三个交易日逐日出现 `0/3 -> 1/3 -> 2/3 -> FROZEN 3/3`，草稿 integrity hash 每次稳定且只含轻量 unit/gap；
+   - 第二日来源读取前取消，只保留第一日检查点，当前日不落草稿，节点／outcome 为 canceled，进度不为100，九表零写入；
+   - 各来源阶段、计算前后、保存前后和最终冻结前取消均被观察；普通非 task-aware PLAN 与 Heat PLAN 行为不变；
+   - 每个日期事务均以 `SET TRANSACTION ... READ ONLY` 为第一条 SQL，事务 identity 逐日变化；最终范围漂移、层级漂移和 checkpoint 写失败都不得冻结 PLAN；
+   - canceled／failed／BUILDING TaskRun 均被 APPLY 拒绝，只有 success + 完整冻结 snapshot 可 APPLY；
+   - stale cancel 同时关闭一个 running 节点和任意 pending 节点，已成功节点、其他 TaskRun、真实完成数保持不变；重复对账零漂移；
+   - `tests/test_wealth_sector_analysis_daily_replay.py`、`tests/web/test_wealth_sector_analysis_replay_runtime.py`、`tests/test_task_run_reconciliation_service.py`、Heat／news／QTF／分钟／worker lane／架构回归全部通过。
+8. M23R 未新增迁移、API、页面、配置、账号、数据副本、Lane、Worker、systemd 或队列；继续使用既有 GENERAL。261项本地正反例已通过，下一步只允许提交／部署并完成远程验收，才允许重跑 M23 PLAN。
 
 ### M24：五方法逐字段等价与 serving 切读
 
@@ -5418,7 +5507,9 @@ uv run pytest -q \
   tests/test_wealth_sector_analysis_daily_materialization.py \
   tests/test_wealth_sector_analysis_daily_replay.py \
   tests/test_wealth_sector_daily_insight_query_service.py \
+  tests/test_task_run_reconciliation_service.py \
   tests/web/test_wealth_sector_analysis_api.py \
+  tests/web/test_wealth_sector_analysis_replay_runtime.py \
   tests/web/test_wealth_market_sector_overview_api.py \
   tests/test_wealth_turnover_insight_static_gates.py \
   tests/architecture/test_wealth_sector_analysis_guardrails.py \
@@ -5508,7 +5599,8 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G59 九表模型／HDD | 业务键、约束、FK、single PUBLISHED；heap/TOAST/全部索引均为`gs_raw_cold_hdd`且fail-closed | PASS (M22 remote)：Prod head `20260831_000168`；九heap、实际TOAST、27/27有效索引全部解析到HDD，38/38约束已验证；M26保留最终复验 |
 | G60 单日物化与发布 | 六来源、五公式等价、hash/read-back/幂等/原子发布、失败不可见 | PASS (M22 local+remote)：TaskRun 10386正式主链发布2026-08-28唯一批次，九表24,525行、hash/read-back和显式缺失一致；历史幂等归M23 |
 | G61 Ops自动主链 | GENERAL、20:05/600/00:30、来源齐备、通用plan/readiness；Heat/news/QTF/分钟零回归 | PARTIAL PASS (M22 code)：action、readiness、executor、GENERAL装配和冻结回归通过；远程scheduler/systemd实机仍OPEN (M26) |
-| G62 历史回补 | 2025升序PLAN/APPLY/read-back/previous链/幂等；HDD与SSD峰值受控 | PARTIAL PASS (M23 code)：planner、冻结snapshot、共享PLAN/APPLY、漂移拒绝和正反例已完成；部署、真实PLAN、批准后的APPLY、物理峰值和幂等仍OPEN |
+| G62 历史回补 | 2025升序PLAN/APPLY/read-back/previous链/幂等；HDD与SSD峰值受控 | BLOCKED：M23R本地代码已完成，但部署、真实PLAN、批准后的APPLY、物理峰值和幂等仍OPEN |
+| G62A M23R 长PLAN与取消一致性 | 逐日短事务、BUILDING检查点、真实进度、分阶段取消、非冻结不可APPLY；TaskRun与节点同事务取消 | LOCAL PASS / REMOTE OPEN：261项正反例通过；继续使用既有GENERAL且无新增Worker/Lane，待提交、部署及远程任务验收 |
 | G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | OPEN (M24) |
 | G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN (M25/M26) |
 | G65 Daily前端 | 第六route、三参数URL、controller、四完整滚动列表、五态、跳转和按需挂载 | OPEN (M25) |
@@ -5573,7 +5665,7 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 
 ### 16.3 量价分布 M17 对账
 
-1. 产品基线v1.18、技术方案v1.53、13张正式Figma和当前代码已逐项对齐；页面名称、五scope、周期、公式、状态、排序、历史和缺失无未决产品项。
+1. 产品基线v1.18、技术方案v1.64、13张正式Figma和当前代码已逐项对齐；页面名称、五scope、周期、公式、状态、排序、历史和缺失无未决产品项。
 2. CodeGraph影响面覆盖聚合router、`DcDaily`字段、既有价格Calculator、scope helper、共享95日Query、route/method/page/controller消费者和测试；第5.11节文件矩阵据此冻结。
 3. 日期冲突已消除：Meta唯一负责自动完整日回退，Snapshot／Details只计算精确tradeDate。产品、技术方案和LLD三处一致。
 4. LLD已冻结专属日事实、价格组合复用、成交前缀算法、排名／状态、3/5/5 SQL、最大119日、三只DTO、十项URL、请求状态机、SVG几何、13态和正反例。
@@ -5683,6 +5775,9 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 30. 2025 回补的 PLAN 与 APPLY 日期、层级版本、来源身份、预期计数或 hash 不一致，或某日失败后无法保持已完成日期可验证、失败日期不可见和升序幂等续跑。
 31. 五方法任一公开 DTO、URL、状态、排序、缺失、Decimal 或完整行数与现算 oracle 不一致；不得切读该方法，更不得删除旧聚合入口。
 32. 每日洞察正式 Figma、产品基线、两只 API 或五态无法按本文保持一致，或实现需要新增产品字段、综合分、预测、机会等级、AI 文案、外部模型、Redis、独立队列／Lane／systemd、数据库账号或连接配置。
+33. M23 PLAN 仍将全部日期放在一个长只读事务、全量内存列表或只在结束时写100%；没有逐日持久化检查点、当前日期／阶段，或取消不能在第6.50节冻结边界生效。
+34. BUILDING／canceled／failed PLAN 能被 APPLY 引用，取消被记成 failed，取消后进度被改成100%，或任何检查点／取消路径写入九张业务事实表。
+35. stale cancel 后 TaskRun 已是 canceled 但仍存在 pending/running 节点，或节点收口改写已终结节点、其他 TaskRun、真实完成数、业务事实；不得重跑 M23。
 
 ## 18. 结论
 
@@ -5696,14 +5791,16 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 量价分布 M18 后端、M19 前端与 M20 部署联调均已完成：后端建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；前端建立第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13态。Meta唯一自动回退、显式日期精确显示、局部缺失透明和按需挂载均已有自动化证据；部署态337行完整事实、60日历史、`3/5/5` SQL、payload、P95、五scope、四档页面及用户验收全部通过，G55关闭。本轮不自动进入新需求。
 
-每日洞察与五方法每日事实的 M22 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日已由正式主链发布并通过九表read-back，M22关闭。M23首次生产PLAN TaskRun `10421`因只读事务起始顺序错误失败且零业务写入；修复已完成本地正反例，但尚未重新部署或生成成功PLAN。五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M24～M26。
+每日洞察与五方法每日事实的 M22 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日已由正式主链发布并通过九表read-back，M22关闭。M23首次生产PLAN TaskRun `10421`因只读事务起始顺序错误失败且零业务写入；后续长周期 PLAN 暴露的无分段进度／取消点和 stale cancel 节点遗留已由 M23R 完成本地修复并通过261项回归，当前等待部署和远程验收。五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M24～M26。
 
-下一步固定为：提交并由管理员部署 M23 PLAN 事务顺序修复，然后创建新的正式 TaskRun，生成从2025年第一个SSE交易日至批准目标日的升序PLAN并等待批准。TaskRun `10421`不得重用；不得提前APPLY、切读五方法、修改默认路由或进入M24～M26。当前没有新的产品待拍板项。
+下一步固定为：提交 M23R，由管理员部署并完成远程验收；通过后再创建新的正式 TaskRun，生成从2025年第一个SSE交易日至批准目标日的升序PLAN并等待批准。TaskRun `10421`不得重用；不得提前PLAN／APPLY、切读五方法、修改默认路由或进入M24～M26。当前没有新的产品待拍板项。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.55 | 2026-09-01 | 完成M23R本地编码：新增通用task-aware PLAN协议与独立短session检查点上下文；板块replay拆为scope／单日preview／finalize，逐日BUILDING草稿和最高99%的真实进度，最终范围复核后才冻结；来源读取与计算阶段可取消，dispatcher返回canceled，Worker保留取消现场；stale cancel同事务结束全部未终结节点。261项板块、Heat、news、QTF、分钟、普通maintenance、lane和架构回归通过；未部署、未执行真实PLAN/APPLY |
+| v1.54 | 2026-09-01 | 冻结M23R代码级修正：replay planner拆为范围解析／单日preview／纯finalize，一交易日一短只读事务；Ops增加task-aware PLAN context和BUILDING草稿检查点，完成数只在落盘后推进，阶段取消保留最后检查点且不生成可执行PLAN；registered maintenance显式返回canceled；stale cancel同事务关闭TaskRun及全部pending/running节点。补文件矩阵、正反例、G62A和停止条件；当前只改文档，禁止直接重跑M23 |
 | v1.53 | 2026-09-01 | M23首次生产PLAN TaskRun `10421`在snapshot生成前因PostgreSQL `2j85`失败：planner先查交易日历，source query后设事务隔离级别。九张业务事实表零写入。修复为planner在第一条SQL前建立一次`REPEATABLE READ, READ ONLY`快照，source query按transaction identity幂等复用；新增顺序反例。待重新提交／部署后创建新PLAN，失败任务禁止重用 |
 | v1.52 | 2026-09-01 | 关闭M22并完成M23代码合同：远程head、九表HDD catalog、27索引、38约束、服务健康与TaskRun 10386受控单日24,525行通过；新增2025升序replay planner、来源／层级／公式／模板／日期清单／逐表范围冻结、BLOCKED、共享PLAN/APPLY配置、TaskRun snapshot绑定、精确漂移码及正反例。真实PLAN/APPLY、全量read-back、previous链、幂等和物理峰值仍待部署与批准，G62仅PARTIAL PASS |
 | v1.51 | 2026-08-31 | 完成M22代码开发：实施日确认真实head `20260830_000167`后新增唯一head `20260831_000168`；新增九ORM、HDD fail-closed迁移、六来源只读bundle、五方法typed builder、确定性洞察、hash/read-back/幂等/原子发布、20:05自动任务、通用readiness和GENERAL executor。新增模型、来源、物化、任务与自动化正反例，并完成Heat/news/QTF/分钟lane、Ops、架构和五方法冻结回归；未部署迁移、未写Prod、未回补、未切读、未新增API／前端。G60本地PASS，G59/G61保留远程证据；下一步先提交／部署并完成M22远程初验，通过后才进入M23 PLAN |

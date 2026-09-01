@@ -19,11 +19,13 @@ from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import 
 )
 from src.biz.services.wealth.market.sector_analysis.daily_facts.replay_planner import (
     SectorAnalysisReplayPlan,
+    SectorAnalysisReplayScope,
     SectorAnalysisReplayUnit,
 )
 from src.ops.runtime.maintenance_executor import MaintenanceExecutionRequest
 from src.ops.runtime.maintenance_executor import MaintenanceExecutionUnit
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.ingestion.run_errors import IngestionCanceledError
 
 
 TARGET = date(2026, 8, 31)
@@ -34,8 +36,19 @@ class MaterializationStub:
         self.preview_calls = 0
         self.materialize_calls = []
 
-    def preview_trade_date(self, session, *, trade_date):  # type: ignore[no-untyped-def]
+    def preview_trade_date(
+        self,
+        session,
+        *,
+        trade_date,
+        cancel_check=None,
+        phase_update=None,
+    ):  # type: ignore[no-untyped-def]
         del session
+        if cancel_check is not None:
+            cancel_check()
+        if phase_update is not None:
+            phase_update("CALCULATING_FACTS")
         self.preview_calls += 1
         assert trade_date == TARGET
         return DailyFactsPreview(
@@ -65,10 +78,49 @@ class MaterializationStub:
 
 
 class ReplayPlannerStub:
-    def plan(self, session, *, start_date, end_date):  # type: ignore[no-untyped-def]
+    def resolve_scope(self, session, *, start_date, end_date):  # type: ignore[no-untyped-def]
         del session
         assert start_date == TARGET
         assert end_date == TARGET
+        return SectorAnalysisReplayScope(
+            requested_start_date=TARGET,
+            start_date=TARGET,
+            end_date=TARGET,
+            open_trade_dates=(TARGET,),
+            hierarchy_version="hierarchy-v1",
+        )
+
+    def preview_unit(
+        self,
+        session,
+        *,
+        scope,
+        trade_date,
+        cancel_check=None,
+        phase_update=None,
+    ):  # type: ignore[no-untyped-def]
+        del session
+        assert scope.open_trade_dates == (TARGET,)
+        assert trade_date == TARGET
+        if cancel_check is not None:
+            cancel_check()
+        if phase_update is not None:
+            phase_update("CALCULATING_FACTS")
+        return SectorAnalysisReplayUnit(
+            trade_date=TARGET,
+            hierarchy_version="hierarchy-v1",
+            source_hash="a" * 64,
+            source_dates={},
+            source_row_counts={},
+            expected_fact_count_ranges={
+                "wealth_sector_analysis_publish_batch": (1, 1),
+            },
+            warmup_start_date=date(2026, 6, 1),
+        )
+
+    def finalize(self, *, scope, results):  # type: ignore[no-untyped-def]
+        assert scope.open_trade_dates == (TARGET,)
+        assert len(results) == 1
         return SectorAnalysisReplayPlan(
             start_date=TARGET,
             end_date=TARGET,
@@ -84,6 +136,7 @@ class ReplayPlannerStub:
                     expected_fact_count_ranges={
                         "wealth_sector_analysis_publish_batch": (1, 1),
                     },
+                    warmup_start_date=date(2026, 6, 1),
                 ),
             ),
             gaps=(),
@@ -93,6 +146,55 @@ class ReplayPlannerStub:
             expected_rows_min=1,
             expected_rows_max=1,
         )
+
+
+class PlanContextStub:
+    task_run_id = 1
+
+    def __init__(self) -> None:
+        self.phases = []
+        self.checkpoints = []
+
+    def is_cancel_requested(self) -> bool:
+        return False
+
+    def update_phase(self, **kwargs):  # type: ignore[no-untyped-def]
+        self.phases.append(kwargs)
+
+    def save_checkpoint(self, checkpoint):  # type: ignore[no-untyped-def]
+        self.checkpoints.append(checkpoint)
+
+
+class CancelDuringCalculationContext(PlanContextStub):
+    def __init__(self) -> None:
+        super().__init__()
+        self.canceled = False
+
+    def is_cancel_requested(self) -> bool:
+        return self.canceled
+
+    def update_phase(self, **kwargs):  # type: ignore[no-untyped-def]
+        super().update_phase(**kwargs)
+        if kwargs.get("phase") == "CALCULATING_FACTS":
+            self.canceled = True
+
+
+class DriftingReplayPlannerStub(ReplayPlannerStub):
+    def __init__(self) -> None:
+        self.scope_calls = 0
+
+    def resolve_scope(self, session, *, start_date, end_date):  # type: ignore[no-untyped-def]
+        scope = super().resolve_scope(session, start_date=start_date, end_date=end_date)
+        self.scope_calls += 1
+        if self.scope_calls == 2:
+            return SectorAnalysisReplayScope(
+                requested_start_date=scope.requested_start_date,
+                start_date=scope.start_date,
+                end_date=scope.end_date,
+                open_trade_dates=scope.open_trade_dates,
+                hierarchy_version="hierarchy-v2",
+            )
+        return scope
 
 def _factory():  # type: ignore[no-untyped-def]
     engine = create_engine(
@@ -179,11 +281,12 @@ def test_replay_executor_freezes_plan_and_executes_only_matching_source() -> Non
         replay_planner=ReplayPlannerStub(),  # type: ignore[arg-type]
     )
 
-    plan = executor.plan(
+    plan = executor.plan_for_task_run(
         MaintenanceExecutionRequest(
             action_key=REPLAY_ACTION_KEY,
             params={"start_date": TARGET.isoformat(), "end_date": TARGET.isoformat()},
-        )
+        ),
+        context=PlanContextStub(),
     )
 
     assert plan.apply_ready is True
@@ -223,11 +326,12 @@ def test_replay_executor_rejects_sse_date_list_drift_before_preview_or_write() -
         materialization_service=materializer,  # type: ignore[arg-type]
         replay_planner=ReplayPlannerStub(),  # type: ignore[arg-type]
     )
-    plan = executor.plan(
+    plan = executor.plan_for_task_run(
         MaintenanceExecutionRequest(
             action_key=REPLAY_ACTION_KEY,
             params={"start_date": TARGET.isoformat(), "end_date": TARGET.isoformat()},
-        )
+        ),
+        context=PlanContextStub(),
     )
 
     with pytest.raises(SectorAnalysisDailyFactsPlanDriftError, match="交易日清单"):
@@ -240,3 +344,43 @@ def test_replay_executor_rejects_sse_date_list_drift_before_preview_or_write() -
 
     assert materializer.preview_calls == 0
     assert materializer.materialize_calls == []
+
+
+def test_replay_executor_cancels_during_calculation_without_checkpointing_current_date() -> None:
+    context = CancelDuringCalculationContext()
+    executor = SectorAnalysisDailyTaskExecutor(
+        session_factory=_factory(),
+        materialization_service=MaterializationStub(),  # type: ignore[arg-type]
+        replay_planner=ReplayPlannerStub(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(IngestionCanceledError):
+        executor.plan_for_task_run(
+            MaintenanceExecutionRequest(
+                action_key=REPLAY_ACTION_KEY,
+                params={"start_date": TARGET.isoformat(), "end_date": TARGET.isoformat()},
+            ),
+            context=context,
+        )
+
+    assert context.checkpoints == []
+
+
+def test_replay_executor_rejects_final_scope_drift_after_last_checkpoint() -> None:
+    context = PlanContextStub()
+    executor = SectorAnalysisDailyTaskExecutor(
+        session_factory=_factory(),
+        materialization_service=MaterializationStub(),  # type: ignore[arg-type]
+        replay_planner=DriftingReplayPlannerStub(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(SectorAnalysisDailyFactsPlanDriftError, match="最终交易日清单或层级"):
+        executor.plan_for_task_run(
+            MaintenanceExecutionRequest(
+                action_key=REPLAY_ACTION_KEY,
+                params={"start_date": TARGET.isoformat(), "end_date": TARGET.isoformat()},
+            ),
+            context=context,
+        )
+
+    assert [checkpoint.unit_done for checkpoint in context.checkpoints] == [1]

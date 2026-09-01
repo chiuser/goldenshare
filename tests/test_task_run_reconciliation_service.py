@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
+from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.services.operations_task_run_reconciliation_service import OperationsTaskRunReconciliationService
 
 
@@ -24,6 +25,7 @@ def db_session() -> Generator[Session, None, None]:
     with engine.begin() as connection:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         TaskRun.__table__.create(connection)
+        TaskRunNode.__table__.create(connection)
         TaskRunIssue.__table__.create(connection)
     testing_session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     session = testing_session_local()
@@ -97,6 +99,63 @@ def test_reconcile_stale_task_runs_marks_canceling_task_run_as_canceled(db_sessi
         updated_at=now - timedelta(minutes=4),
     )
     db_session.add(task_run)
+    db_session.flush()
+    running_node = TaskRunNode(
+        task_run_id=task_run.id,
+        node_key="running",
+        node_type="maintenance_plan",
+        sequence_no=1,
+        title="运行中",
+        status="running",
+        time_input_json={},
+        context_json={},
+        started_at=now - timedelta(minutes=5),
+    )
+    pending_node = TaskRunNode(
+        task_run_id=task_run.id,
+        node_key="pending",
+        node_type="maintenance_unit",
+        sequence_no=2,
+        title="待执行",
+        status="pending",
+        time_input_json={},
+        context_json={},
+    )
+    success_node = TaskRunNode(
+        task_run_id=task_run.id,
+        node_key="success",
+        node_type="maintenance_unit",
+        sequence_no=3,
+        title="已完成",
+        status="success",
+        time_input_json={},
+        context_json={},
+        started_at=now - timedelta(minutes=8),
+        ended_at=now - timedelta(minutes=7),
+        duration_ms=60_000,
+    )
+    other_task = build_task_run(
+        resource_key="other",
+        status="running",
+        requested_at=now,
+        queued_at=now,
+        started_at=now,
+        updated_at=now,
+    )
+    db_session.add(other_task)
+    db_session.flush()
+    other_node = TaskRunNode(
+        task_run_id=other_task.id,
+        node_key="other-running",
+        node_type="maintenance_plan",
+        sequence_no=1,
+        title="其他任务",
+        status="running",
+        time_input_json={},
+        context_json={},
+        started_at=now - timedelta(minutes=5),
+    )
+    db_session.add_all([running_node, pending_node, success_node, other_node])
     db_session.commit()
 
     reconciled = OperationsTaskRunReconciliationService().reconcile_stale_task_runs(
@@ -110,6 +169,25 @@ def test_reconcile_stale_task_runs_marks_canceling_task_run_as_canceled(db_sessi
     assert task_run.canceled_at is not None
     assert task_run.canceled_at.replace(tzinfo=timezone.utc) == now
     assert task_run.status_reason_code == "stale_cancel_reconciled"
+    db_session.refresh(running_node)
+    db_session.refresh(pending_node)
+    db_session.refresh(success_node)
+    db_session.refresh(other_node)
+    assert running_node.status == "canceled"
+    assert pending_node.status == "canceled"
+    assert running_node.ended_at is not None and running_node.duration_ms == 300_000
+    assert pending_node.ended_at is not None and pending_node.duration_ms == 0
+    assert running_node.ingestion_diagnostics_json["reconciliation"]["reason_code"] == "stale_cancel_reconciled"
+    assert success_node.status == "success"
+    assert other_node.status == "running"
+
+    repeated = OperationsTaskRunReconciliationService().reconcile_stale_task_runs(
+        db_session,
+        now=now + timedelta(minutes=1),
+    )
+    assert all(item.id != task_run.id for item in repeated)
+    db_session.refresh(running_node)
+    assert running_node.duration_ms == 300_000
 
 
 def test_reconcile_stale_task_runs_records_issue_for_failed_item(db_session: Session) -> None:

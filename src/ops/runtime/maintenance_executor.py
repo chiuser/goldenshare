@@ -43,6 +43,35 @@ class MaintenanceTaskRunContext:
     run_context: IngestionRunContext
 
 
+@dataclass(frozen=True, slots=True)
+class MaintenancePlanCheckpoint:
+    unit_done: int
+    unit_total: int
+    units: tuple[MaintenanceExecutionUnit, ...]
+    gaps: tuple[Mapping[str, Any], ...]
+    metadata: Mapping[str, Any]
+    expected_rows: int
+    phase: str
+    current_object: Mapping[str, Any] = field(default_factory=dict)
+
+
+class MaintenancePlanTaskRunContext(Protocol):
+    task_run_id: int
+
+    def is_cancel_requested(self) -> bool: ...
+
+    def update_phase(
+        self,
+        *,
+        unit_done: int,
+        unit_total: int,
+        phase: str,
+        current_object: Mapping[str, Any],
+    ) -> None: ...
+
+    def save_checkpoint(self, checkpoint: MaintenancePlanCheckpoint) -> None: ...
+
+
 class MaintenanceExecutor(Protocol):
     def plan(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan: ...
 
@@ -57,3 +86,13 @@ class TaskRunAwareMaintenanceExecutor(MaintenanceExecutor, Protocol):
         *,
         context: MaintenanceTaskRunContext,
     ) -> MaintenanceExecutionResult: ...
+
+
+@runtime_checkable
+class TaskRunAwareMaintenancePlanner(MaintenanceExecutor, Protocol):
+    def plan_for_task_run(
+        self,
+        request: MaintenanceExecutionRequest,
+        *,
+        context: MaintenancePlanTaskRunContext,
+    ) -> MaintenanceExecutionPlan: ...

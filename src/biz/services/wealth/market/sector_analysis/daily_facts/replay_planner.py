@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Mapping
+from typing import Callable, Mapping
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.biz.queries.wealth.market.common.sector_hierarchy_query import SectorHierarchyQuery
 
 from .contract import (
     FORMULA_BUNDLE_VERSION,
@@ -32,6 +33,7 @@ class SectorAnalysisReplayUnit:
     source_dates: Mapping[str, str]
     source_row_counts: Mapping[str, int]
     expected_fact_count_ranges: Mapping[str, tuple[int, int]]
+    warmup_start_date: date | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,22 +58,33 @@ class SectorAnalysisReplayPlan:
     expected_rows_max: int
 
 
+@dataclass(frozen=True, slots=True)
+class SectorAnalysisReplayScope:
+    requested_start_date: date
+    start_date: date
+    end_date: date
+    open_trade_dates: tuple[date, ...]
+    hierarchy_version: str
+
+
 class SectorAnalysisReplayPlanner:
     def __init__(
         self,
         materialization_service: SectorAnalysisDailyFactsMaterializationService | None = None,
+        hierarchy_query: SectorHierarchyQuery | None = None,
     ) -> None:
         self._materialization_service = (
             materialization_service or SectorAnalysisDailyFactsMaterializationService()
         )
+        self._hierarchy_query = hierarchy_query or SectorHierarchyQuery()
 
-    def plan(
+    def resolve_scope(
         self,
         session: Session,
         *,
         start_date: date,
         end_date: date,
-    ) -> SectorAnalysisReplayPlan:
+    ) -> SectorAnalysisReplayScope:
         if start_date > end_date:
             raise ValueError("start_date must not be later than end_date")
         ensure_repeatable_read_only_transaction(session)
@@ -90,60 +103,80 @@ class SectorAnalysisReplayPlanner:
         )
         if not open_trade_dates:
             raise ValueError("replay PLAN has no SSE open trade dates")
-        effective_start = open_trade_dates[0]
+        hierarchy = self._hierarchy_query.load(session)
+        return SectorAnalysisReplayScope(
+            requested_start_date=start_date,
+            start_date=open_trade_dates[0],
+            end_date=end_date,
+            open_trade_dates=open_trade_dates,
+            hierarchy_version=hierarchy.baseline_version,
+        )
 
-        units: list[SectorAnalysisReplayUnit] = []
-        gaps: list[SectorAnalysisReplayGap] = []
-        hierarchy_version: str | None = None
-        warmup_start_date: date | None = None
-        for trade_date in open_trade_dates:
-            try:
-                preview = self._materialization_service.preview_trade_date(
-                    session,
-                    trade_date=trade_date,
-                )
-            except SectorAnalysisDailyFactsSourceNotReadyError as exc:
-                gaps.append(
-                    SectorAnalysisReplayGap(
-                        trade_date=trade_date,
-                        reason_code=exc.code,
-                        message=str(exc),
-                    )
-                )
-                continue
-            if hierarchy_version is None:
-                hierarchy_version = preview.hierarchy_version
-            elif preview.hierarchy_version != hierarchy_version:
-                gaps.append(
-                    SectorAnalysisReplayGap(
-                        trade_date=trade_date,
-                        reason_code="SA_DAILY_FACT_PLAN_DRIFT",
-                        message=(
-                            "回补窗口内层级版本不唯一："
-                            f"expected={hierarchy_version}, actual={preview.hierarchy_version}"
-                        ),
-                    )
-                )
-                continue
-            if warmup_start_date is None:
-                warmup_start_date = self._warmup_start(preview)
-            units.append(
-                SectorAnalysisReplayUnit(
-                    trade_date=trade_date,
-                    hierarchy_version=preview.hierarchy_version,
-                    source_hash=preview.source_hash,
-                    source_dates=dict(preview.source_dates),
-                    source_row_counts=dict(preview.source_row_counts),
-                    expected_fact_count_ranges=self._fact_count_ranges(preview),
-                )
+    def preview_unit(
+        self,
+        session: Session,
+        *,
+        scope: SectorAnalysisReplayScope,
+        trade_date: date,
+        cancel_check: Callable[[], None] | None = None,
+        phase_update: Callable[[str], None] | None = None,
+    ) -> SectorAnalysisReplayUnit | SectorAnalysisReplayGap:
+        if trade_date not in scope.open_trade_dates:
+            raise ValueError("replay trade_date is outside the frozen scope")
+        ensure_repeatable_read_only_transaction(session)
+        try:
+            preview = self._materialization_service.preview_trade_date(
+                session,
+                trade_date=trade_date,
+                cancel_check=cancel_check,
+                phase_update=phase_update,
             )
+        except SectorAnalysisDailyFactsSourceNotReadyError as exc:
+            return SectorAnalysisReplayGap(
+                trade_date=trade_date,
+                reason_code=exc.code,
+                message=str(exc),
+            )
+        if preview.hierarchy_version != scope.hierarchy_version:
+            return SectorAnalysisReplayGap(
+                trade_date=trade_date,
+                reason_code="SA_DAILY_FACT_PLAN_DRIFT",
+                message=(
+                    "回补窗口内层级版本不唯一："
+                    f"expected={scope.hierarchy_version}, actual={preview.hierarchy_version}"
+                ),
+            )
+        return SectorAnalysisReplayUnit(
+            trade_date=trade_date,
+            hierarchy_version=preview.hierarchy_version,
+            source_hash=preview.source_hash,
+            source_dates=dict(preview.source_dates),
+            source_row_counts=dict(preview.source_row_counts),
+            expected_fact_count_ranges=self._fact_count_ranges(preview),
+            warmup_start_date=self._warmup_start(preview),
+        )
+
+    def finalize(
+        self,
+        *,
+        scope: SectorAnalysisReplayScope,
+        results: tuple[SectorAnalysisReplayUnit | SectorAnalysisReplayGap, ...],
+    ) -> SectorAnalysisReplayPlan:
+        if tuple(item.trade_date for item in results) != scope.open_trade_dates:
+            raise ValueError("replay results do not cover the frozen scope in order")
+        units = tuple(item for item in results if isinstance(item, SectorAnalysisReplayUnit))
+        gaps = tuple(item for item in results if isinstance(item, SectorAnalysisReplayGap))
+        warmup_start_date = next(
+            (item.warmup_start_date for item in units if item.warmup_start_date is not None),
+            None,
+        )
 
         plan_payload = {
-            "startDate": effective_start,
-            "endDate": end_date,
+            "startDate": scope.start_date,
+            "endDate": scope.end_date,
             "warmupStartDate": warmup_start_date,
-            "openTradeDates": open_trade_dates,
-            "hierarchyVersion": hierarchy_version,
+            "openTradeDates": scope.open_trade_dates,
+            "hierarchyVersion": scope.hierarchy_version,
             "formulaBundleVersion": FORMULA_BUNDLE_VERSION,
             "templateVersion": TEMPLATE_VERSION,
             "units": [self._unit_payload(unit) for unit in units],
@@ -167,17 +200,16 @@ class SectorAnalysisReplayPlanner:
             for _minimum, maximum in unit.expected_fact_count_ranges.values()
         )
         return SectorAnalysisReplayPlan(
-            start_date=effective_start,
-            end_date=end_date,
+            start_date=scope.start_date,
+            end_date=scope.end_date,
             warmup_start_date=warmup_start_date,
-            open_trade_dates=open_trade_dates,
-            units=tuple(units),
-            gaps=tuple(gaps),
-            hierarchy_version=hierarchy_version,
+            open_trade_dates=scope.open_trade_dates,
+            units=units,
+            gaps=gaps,
+            hierarchy_version=scope.hierarchy_version,
             apply_ready=(
                 not gaps
-                and hierarchy_version is not None
-                and len(units) == len(open_trade_dates)
+                and len(units) == len(scope.open_trade_dates)
             ),
             plan_hash=canonical_json_hash(plan_payload),
             expected_rows_min=expected_rows_min,

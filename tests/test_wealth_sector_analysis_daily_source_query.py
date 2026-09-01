@@ -218,3 +218,25 @@ def test_whole_adj_factor_date_gap_is_blocking_but_not_filled() -> None:
                 session,
                 trade_date=open_dates[-1],
             )
+
+
+def test_source_query_checks_cancellation_between_source_reads() -> None:
+    engine = _engine()
+    checks = 0
+
+    def cancel_check() -> None:
+        nonlocal checks
+        checks += 1
+        if checks == 3:
+            raise RuntimeError("stop between source reads")
+
+    with Session(engine) as session:
+        open_dates = _seed(session)
+        with pytest.raises(RuntimeError, match="stop between source reads"):
+            SectorAnalysisDailyFactsSourceQuery().load_bundle(
+                session,
+                trade_date=open_dates[-1],
+                cancel_check=cancel_check,
+            )
+
+    assert checks == 3
