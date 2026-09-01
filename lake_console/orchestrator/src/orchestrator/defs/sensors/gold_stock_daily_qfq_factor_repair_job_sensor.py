@@ -103,16 +103,6 @@ def build_gold_stock_daily_qfq_factor_repair_run_status_decision(
             reason="Gold stock daily qfq factor repair plan is unavailable.",
             next_action="Check silver_adj_factor files for target and previous trade date.",
         )
-    if not repair_plan.repair_required:
-        return GoldStockDailyQfqFactorRepairRunStatusDecision(
-            target_trade_date=target_trade_date,
-            selected_trade_date=None,
-            reason_code="no_factor_changed",
-            reason="No adjacent silver_adj_factor changes were found.",
-            next_action="No repair run is needed.",
-            repair_required_codes_hash=repair_plan.repair_required_codes_hash,
-            repair_required_code_count=0,
-        )
     if (
         repair_plan.repair_required_code_count
         > GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT
@@ -147,12 +137,20 @@ def build_gold_stock_daily_qfq_factor_repair_run_status_decision(
             upstream_batch_id=upstream_batch_id,
             repair_required_code_count=repair_plan.repair_required_code_count,
         )
+    if repair_plan.repair_required:
+        reason_code = "selected_for_repair"
+        reason = "Gold stock daily qfq factor repair is required."
+        next_action = "Submit scoped repair run and wait for repair status check."
+    else:
+        reason_code = "selected_for_reconciliation"
+        reason = "No adjacent silver_adj_factor changes were found."
+        next_action = "Submit no-op reconciliation and wait for durable status check."
     return GoldStockDailyQfqFactorRepairRunStatusDecision(
         target_trade_date=target_trade_date,
         selected_trade_date=target_trade_date,
-        reason_code="selected_for_repair",
-        reason="Gold stock daily qfq factor repair is required.",
-        next_action="Submit scoped repair run and wait for repair status check.",
+        reason_code=reason_code,
+        reason=reason,
+        next_action=next_action,
         repair_required_codes_hash=repair_plan.repair_required_codes_hash,
         upstream_batch_id=upstream_batch_id,
         repair_required_code_count=repair_plan.repair_required_code_count,
@@ -207,7 +205,7 @@ def _load_expected_stock_trade_dates() -> tuple[str, ...]:
     return tuple(str(row[0]) for row in rows)
 
 
-def _repair_upstream_batch_id(
+def build_gold_stock_daily_qfq_factor_repair_upstream_batch_id(
     *,
     producer_run_id: str,
     target_trade_date: str,
@@ -291,10 +289,12 @@ def _evaluate_gold_stock_daily_qfq_factor_repair_job_sensor(
                     qfq_factor_trade_date=target_trade_date,
                     previous_trade_date=previous_trade_date,
                 )
-            upstream_batch_id = _repair_upstream_batch_id(
-                producer_run_id=context.dagster_run.run_id,
-                target_trade_date=target_trade_date,
-                repair_required_codes_hash=repair_plan.repair_required_codes_hash,
+            upstream_batch_id = (
+                build_gold_stock_daily_qfq_factor_repair_upstream_batch_id(
+                    producer_run_id=context.dagster_run.run_id,
+                    target_trade_date=target_trade_date,
+                    repair_required_codes_hash=repair_plan.repair_required_codes_hash,
+                )
             )
             repair_status = gold_stock_daily_qfq_factor_repair_status(
                 context.instance,
@@ -325,8 +325,8 @@ def _evaluate_gold_stock_daily_qfq_factor_repair_job_sensor(
         role=SensorRole.ASSET_UPDATE,
     ),
     description=(
-        "股票日线前复权 daily 成功后，按相邻复权因子变化自动提交 scoped "
-        "factor repair；超过自动上限时只 skip。"
+        "股票日线前复权 daily 成功后，自动提交相邻复权因子 reconciliation；"
+        "无变化时写 durable no-op check，超过自动上限时只 skip。"
     ),
 )
 def gold_stock_daily_qfq_factor_repair_job_sensor(

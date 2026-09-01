@@ -1114,9 +1114,13 @@ formula_version_mismatch
 
 ### M1：修正 qfq repair 两个现有契约缺口
 
+- 状态：已完成（2026-09-01）。
 - 无变化也生成 durable no-op check。
 - 完整代码列表与 samples 字段分离。
 - 全量消费者审计旧 metadata 口径，21～500 代码回归。
+- 已公开统一的 `build_gold_stock_daily_qfq_factor_repair_upstream_batch_id()`；当前 qfq repair sensor 已复用，后续趋势 daily/repair sensor 必须继续复用，禁止自行拼接 batch id。
+- `0/1/20/21/500/501` 边界、旧 metadata 拒绝、排序/去重/count/hash 一致性，以及分钟 qfq、MACD/KDJ repair 下游均已通过回归；501 仍 fail closed。
+- 本里程碑未新增趋势资产、配置、实体、check 名称或正式 Lake 写入；M2 及以后仍未开始。
 
 ### M2：数据合同、Catalog、分区和公式 helper
 

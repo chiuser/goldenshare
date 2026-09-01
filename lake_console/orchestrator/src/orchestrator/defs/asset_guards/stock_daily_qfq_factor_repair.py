@@ -15,11 +15,13 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     metadata_has_keys,
     metadata_int,
     metadata_str,
-    metadata_str_tuple,
+    metadata_value,
 )
 from orchestrator.defs.stock_daily_qfq import (
     GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT,
+    GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT,
     GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
+    gold_stock_daily_qfq_factor_repair_codes_hash,
 )
 
 
@@ -29,6 +31,8 @@ _REQUIRED_METADATA_KEYS = (
     "selected_partition_count",
     "repair_required",
     "repair_required_code_count",
+    "repair_required_codes",
+    "repair_required_code_samples",
     "repair_required_codes_hash",
     "repair_required_codes_truncated",
     "upstream_batch_id",
@@ -51,6 +55,7 @@ class GoldStockDailyQfqFactorRepairStatus:
     selected_partition_count: int = 0
     repair_required_code_count: int = 0
     repair_required_codes: tuple[str, ...] = ()
+    repair_required_code_samples: tuple[str, ...] = ()
     repair_required_codes_hash: str | None = None
     repair_required_codes_truncated: bool = False
     rewritten_partition_count: int = 0
@@ -76,6 +81,7 @@ class GoldStockDailyQfqFactorRepairStatus:
             "selected_partition_count": self.selected_partition_count,
             "repair_required_code_count": self.repair_required_code_count,
             "repair_required_codes": list(self.repair_required_codes),
+            "repair_required_code_samples": list(self.repair_required_code_samples),
             "repair_required_codes_hash": self.repair_required_codes_hash,
             "repair_required_codes_truncated": self.repair_required_codes_truncated,
             "rewritten_partition_count": self.rewritten_partition_count,
@@ -144,7 +150,14 @@ def _status_from_metadata(
     selected_partition_count = metadata_int(metadata, "selected_partition_count")
     repair_required = metadata_bool(metadata, "repair_required")
     repair_required_code_count = metadata_int(metadata, "repair_required_code_count")
-    repair_required_codes = metadata_str_tuple(metadata, "repair_required_codes")
+    repair_required_codes = _metadata_ordered_str_tuple(
+        metadata,
+        "repair_required_codes",
+    )
+    repair_required_code_samples = _metadata_ordered_str_tuple(
+        metadata,
+        "repair_required_code_samples",
+    )
     repair_required_codes_hash = metadata_str(metadata, "repair_required_codes_hash")
     repair_required_codes_truncated = metadata_bool(
         metadata,
@@ -159,6 +172,8 @@ def _status_from_metadata(
         or selected_partition_count is None
         or repair_required is None
         or repair_required_code_count is None
+        or repair_required_codes is None
+        or repair_required_code_samples is None
         or repair_required_codes_hash is None
         or repair_required_codes_truncated is None
         or rewritten_partition_count is None
@@ -176,14 +191,40 @@ def _status_from_metadata(
             reason="stock daily qfq factor repair metadata is missing repair start date.",
         )
     if not _code_scope_is_consistent(
+        repair_required=repair_required,
         repair_required_code_count=repair_required_code_count,
         repair_required_codes=repair_required_codes,
+        repair_required_code_samples=repair_required_code_samples,
+        repair_required_codes_hash=repair_required_codes_hash,
         repair_required_codes_truncated=repair_required_codes_truncated,
     ):
         return GoldStockDailyQfqFactorRepairStatus(
             ready=False,
             trade_date=trade_date,
             reason="stock daily qfq factor repair code scope metadata is inconsistent.",
+        )
+    if not repair_required and (
+        selected_partition_count != 0
+        or rewritten_partition_count != 0
+        or rewritten_row_count != 0
+    ):
+        return GoldStockDailyQfqFactorRepairStatus(
+            ready=False,
+            trade_date=trade_date,
+            reason="stock daily qfq no-op reconciliation metadata is inconsistent.",
+        )
+    if (
+        min(
+            selected_partition_count,
+            rewritten_partition_count,
+            rewritten_row_count,
+        )
+        < 0
+    ):
+        return GoldStockDailyQfqFactorRepairStatus(
+            ready=False,
+            trade_date=trade_date,
+            reason="stock daily qfq factor repair count metadata is inconsistent.",
         )
     return GoldStockDailyQfqFactorRepairStatus(
         ready=True,
@@ -197,6 +238,7 @@ def _status_from_metadata(
         selected_partition_count=selected_partition_count,
         repair_required_code_count=repair_required_code_count,
         repair_required_codes=repair_required_codes,
+        repair_required_code_samples=repair_required_code_samples,
         repair_required_codes_hash=repair_required_codes_hash,
         repair_required_codes_truncated=repair_required_codes_truncated,
         rewritten_partition_count=rewritten_partition_count,
@@ -206,15 +248,49 @@ def _status_from_metadata(
 
 def _code_scope_is_consistent(
     *,
+    repair_required: bool,
     repair_required_code_count: int,
     repair_required_codes: Sequence[str],
+    repair_required_code_samples: Sequence[str],
+    repair_required_codes_hash: str,
     repair_required_codes_truncated: bool,
 ) -> bool:
     if repair_required_code_count < 0:
         return False
-    if repair_required_code_count <= GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT:
-        return (
-            not repair_required_codes_truncated
-            and len(tuple(repair_required_codes)) == repair_required_code_count
-        )
-    return repair_required_codes_truncated
+    if repair_required != (repair_required_code_count > 0):
+        return False
+    if repair_required_code_count > GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT:
+        return False
+
+    codes = tuple(repair_required_codes)
+    samples = tuple(repair_required_code_samples)
+    if repair_required_codes_truncated:
+        return False
+    normalized_codes = tuple(
+        sorted({code.strip().upper() for code in codes if code.strip()})
+    )
+    if codes != normalized_codes:
+        return False
+    if len(codes) != repair_required_code_count:
+        return False
+    if samples != codes[:GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT]:
+        return False
+    return (
+        gold_stock_daily_qfq_factor_repair_codes_hash(codes)
+        == repair_required_codes_hash
+    )
+
+
+def _metadata_ordered_str_tuple(
+    metadata: Mapping[str, object],
+    key: str,
+) -> tuple[str, ...] | None:
+    value = metadata_value(metadata, key)
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        return None
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item:
+            return None
+        result.append(item)
+    return tuple(result)

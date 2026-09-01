@@ -8,6 +8,7 @@ import dagster as dg
 from orchestrator.defs.asset_guards.stock_daily_qfq_factor_repair import (
     GoldStockDailyQfqFactorRepairStatus,
 )
+from orchestrator.defs.run_contracts.run_keys import build_batch_id
 from orchestrator.defs.sensors import (
     gold_stock_daily_qfq_factor_repair_job_sensor as sensor_module,
 )
@@ -15,6 +16,7 @@ from orchestrator.defs.sensors.gold_stock_daily_qfq_factor_repair_job_sensor imp
     GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_SENSOR_NAME,
     GoldStockDailyQfqFactorRepairRunStatusDecision,
     build_gold_stock_daily_qfq_factor_repair_run_status_decision,
+    build_gold_stock_daily_qfq_factor_repair_upstream_batch_id,
     gold_stock_daily_qfq_factor_repair_job_sensor,
 )
 from orchestrator.defs.sensors.readiness import (
@@ -30,6 +32,7 @@ from orchestrator.defs.stock_daily_qfq import (
 TARGET_DATE = "2026-06-18"
 PREVIOUS_DATE = "2026-06-17"
 AFFECTED_HASH = gold_stock_daily_qfq_factor_repair_codes_hash(("000001.SZ",))
+EMPTY_HASH = gold_stock_daily_qfq_factor_repair_codes_hash(())
 UPSTREAM_BATCH_ID = "gold_stock_daily_qfq_update:2026-06-18:abc123"
 
 
@@ -109,17 +112,39 @@ class StockDailyQfqFactorRepairSensorContractTests(unittest.TestCase):
             dg.DefaultSensorStatus.STOPPED,
         )
 
-    def test_decision_skips_when_no_factor_changed(self) -> None:
+    def test_decision_selects_no_op_reconciliation_when_no_factor_changed(self) -> None:
         decision = build_gold_stock_daily_qfq_factor_repair_run_status_decision(
             target_trade_date=TARGET_DATE,
             gold_stock_daily_qfq_ready=True,
             repair_plan=_repair_plan(repair_required_codes=()),
             repair_status=None,
-            upstream_batch_id=None,
+            upstream_batch_id=UPSTREAM_BATCH_ID,
         )
 
-        self.assertIsNone(decision.selected_trade_date)
-        self.assertEqual(decision.reason_code, "no_factor_changed")
+        self.assertEqual(decision.selected_trade_date, TARGET_DATE)
+        self.assertEqual(decision.reason_code, "selected_for_reconciliation")
+        self.assertEqual(decision.repair_required_codes_hash, EMPTY_HASH)
+        self.assertEqual(decision.repair_required_code_count, 0)
+
+    def test_public_upstream_batch_builder_uses_frozen_source_facts(self) -> None:
+        actual = build_gold_stock_daily_qfq_factor_repair_upstream_batch_id(
+            producer_run_id="daily-run-id",
+            target_trade_date=TARGET_DATE,
+            repair_required_codes_hash=EMPTY_HASH,
+        )
+
+        self.assertEqual(
+            actual,
+            build_batch_id(
+                producer="gold_stock_daily_qfq_update",
+                scope=TARGET_DATE,
+                payload={
+                    "producer_run_id": "daily-run-id",
+                    "qfq_factor_trade_date": TARGET_DATE,
+                    "repair_required_codes_hash": EMPTY_HASH,
+                },
+            ),
+        )
 
     def test_decision_skips_when_scope_exceeds_auto_limit(self) -> None:
         codes = tuple(f"{index:06d}.SZ" for index in range(501))
@@ -134,6 +159,22 @@ class StockDailyQfqFactorRepairSensorContractTests(unittest.TestCase):
         self.assertIsNone(decision.selected_trade_date)
         self.assertEqual(decision.reason_code, "repair_scope_exceeds_auto_limit")
         self.assertEqual(decision.repair_required_code_count, 501)
+
+    def test_decision_does_not_duplicate_ready_no_op_reconciliation(self) -> None:
+        decision = build_gold_stock_daily_qfq_factor_repair_run_status_decision(
+            target_trade_date=TARGET_DATE,
+            gold_stock_daily_qfq_ready=True,
+            repair_plan=_repair_plan(repair_required_codes=()),
+            repair_status=GoldStockDailyQfqFactorRepairStatus(
+                ready=True,
+                trade_date=TARGET_DATE,
+                reason="no-op reconciliation ready",
+            ),
+            upstream_batch_id=UPSTREAM_BATCH_ID,
+        )
+
+        self.assertIsNone(decision.selected_trade_date)
+        self.assertEqual(decision.reason_code, "repair_status_ready")
 
     def test_selected_decision_builds_upstream_triggered_run_request_without_codes(self) -> None:
         decision = GoldStockDailyQfqFactorRepairRunStatusDecision(
@@ -201,6 +242,52 @@ class StockDailyQfqFactorRepairSensorContractTests(unittest.TestCase):
         )
         plan_builder.assert_called_once()
         repair_status.assert_called_once()
+
+    def test_sensor_submits_no_op_reconciliation_when_no_factor_changed(self) -> None:
+        with (
+            patch.object(
+                sensor_module,
+                "partition_dataset_readiness_status_from_latest_checks",
+                return_value=_ready_gold_status(),
+            ),
+            patch.object(
+                sensor_module,
+                "_load_expected_stock_trade_dates",
+                return_value=(PREVIOUS_DATE, TARGET_DATE),
+            ),
+            patch.object(
+                sensor_module,
+                "connect_configured_duckdb",
+                return_value=nullcontext(object()),
+            ),
+            patch.object(
+                sensor_module,
+                "build_gold_stock_daily_qfq_factor_repair_plan",
+                return_value=_repair_plan(repair_required_codes=()),
+            ),
+            patch.object(
+                sensor_module,
+                "gold_stock_daily_qfq_factor_repair_status",
+                return_value=_not_ready_repair_status(),
+            ),
+            patch.object(sensor_module, "assert_lake_root_available_for_run"),
+        ):
+            result = _single_sensor_result(_FakeRunStatusContext())
+
+        self.assertIsInstance(result, dg.RunRequest)
+        config = result.run_config["ops"]["gold_stock_daily_qfq_factor_repair_op"][
+            "config"
+        ]
+        self.assertEqual(config["qfq_factor_trade_date"], TARGET_DATE)
+        self.assertEqual(config["repair_required_codes_hash"], EMPTY_HASH)
+        self.assertEqual(
+            config["upstream_batch_id"],
+            build_gold_stock_daily_qfq_factor_repair_upstream_batch_id(
+                producer_run_id="daily-run-id",
+                target_trade_date=TARGET_DATE,
+                repair_required_codes_hash=EMPTY_HASH,
+            ),
+        )
 
     def test_sensor_does_not_read_repair_status_when_daily_not_ready(self) -> None:
         not_ready = DatasetReadinessStatus(

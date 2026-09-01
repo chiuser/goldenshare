@@ -1616,7 +1616,19 @@ wealth/src/pages/stock-detail/StockDetailPage.tsx
 
 ### R1：qfq reconciliation 缺口
 
+状态：已完成（2026-09-01）。
+
 先修 no-op durable check 和完整代码范围 metadata，完成全部消费者回归。趋势资产不能早于该契约进入自动链。
+
+实现结果：
+
+1. 无因子变化日改为提交既有 qfq factor repair job，由 op 走零写入分支并产出 durable reconciliation check。
+2. 公共 batch builder 已落地，sensor 不再使用私有 batch id 拼接函数。
+3. `repair_required_codes` 在 0～500 条时保存完整规范集合，`repair_required_code_samples` 固定最多前 20 条；501 条起完整列表为空且 `truncated=true`。
+4. guard 要求新字段并校验规范化、排序、去重、count、hash 和 samples 一致性；旧 metadata 不做兼容读取，超过 500 条保持 fail closed。
+5. 直接契约测试 19 passed、12 个边界 subtests passed；日线 qfq、分钟 qfq、MACD/KDJ repair、completion event 与 run-contract 消费者回归 207 passed、21 个 subtests passed。
+6. 完整测试进程通过 2449 项后，8 项无关 major-index history 测试因进程累计 RSS 超过 1024 MiB 门禁失败；该文件在独立新进程 18/18 通过，未修改其性能门禁。
+7. 未实现任何趋势资产、趋势 job/sensor、趋势 repair 或本地 API；R2 仍为下一停止点。
 
 ### R2：合同和公式内核
 

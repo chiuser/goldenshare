@@ -803,7 +803,31 @@ def build_gold_stock_daily_qfq_factor_repair_check_metadata(
     *,
     producer_run_id: str,
 ) -> dict[str, object]:
-    repair_required_codes = result.plan.repair_required_codes
+    declared_repair_required_codes = tuple(result.plan.repair_required_codes)
+    repair_required_codes = tuple(
+        sorted(
+            {
+                str(stock_code).strip().upper()
+                for stock_code in declared_repair_required_codes
+                if str(stock_code).strip()
+            }
+        )
+    )
+    if declared_repair_required_codes != repair_required_codes:
+        raise ValueError(
+            "stock daily qfq repair code list must be normalized, sorted and unique."
+        )
+    if result.plan.repair_required is not bool(repair_required_codes):
+        raise ValueError(
+            "stock daily qfq repair_required must match the declared code list."
+        )
+    if (
+        gold_stock_daily_qfq_factor_repair_codes_hash(repair_required_codes)
+        != result.plan.repair_required_codes_hash
+    ):
+        raise ValueError(
+            "stock daily qfq repair code list does not match its declared hash."
+        )
     repair_required_codes_truncated = (
         len(repair_required_codes) > GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT
     )
@@ -827,7 +851,10 @@ def build_gold_stock_daily_qfq_factor_repair_check_metadata(
             "selected_partition_count": result.selected_partition_count,
             "repair_required": result.plan.repair_required,
             "repair_required_code_count": result.plan.repair_required_code_count,
-            "repair_required_codes": list(repair_required_code_samples),
+            "repair_required_codes": (
+                [] if repair_required_codes_truncated else list(repair_required_codes)
+            ),
+            "repair_required_code_samples": list(repair_required_code_samples),
             "repair_required_codes_hash": result.plan.repair_required_codes_hash,
             "repair_required_codes_truncated": repair_required_codes_truncated,
             "rewritten_partition_count": result.rewritten_partition_count,
