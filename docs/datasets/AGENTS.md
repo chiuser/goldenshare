@@ -16,10 +16,12 @@
 
 ## 编写约束
 
-1. 新增或更新数据集文档时，优先引用 DatasetDefinition / date_model / execution plan，不再引用旧任务规格作为主能力说明。
-2. 数据集文档不得把旧执行任务名写成当前能力口径。
-3. 不要让用户或前端通过内部路由 key、`job_name`、旧 CLI 名称理解一个数据集。
-4. 周线/月线、月度窗口、公告日期等时间语义必须引用日期模型单一事实源，不在文档里重新发明规则。
+1. 新增数据集前必须复制并完整填写 [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)；更新数据集合同后必须同步校准原开发文档，不能另写一份旁路说明。
+2. 新增或更新数据集文档时，优先引用 DatasetDefinition / date_model / execution plan，不再引用旧任务规格作为主能力说明。
+3. 数据集文档不得把旧执行任务名写成当前能力口径。
+4. 不要让用户或前端通过内部路由 key、`job_name`、旧 CLI 名称理解一个数据集。
+5. 周线/月线、月度窗口、公告日期等时间语义必须引用日期模型单一事实源，不在文档里重新发明规则。
+6. 触发仓库根长任务门禁时，开发文档必须填写模板 0.3.5，明确内存、持久化、续跑、进度、取消、TaskRun/节点终态和 worker lane；不能只写“支持断点续跑”或“显示进度”。
 
 ---
 
@@ -29,3 +31,4 @@
 2. [DatasetDefinition 单一事实源重构方案](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
 3. [DatasetExecutionPlan 执行计划模型重构方案](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
 4. [股票周/月线同步逻辑说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)
+5. [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)

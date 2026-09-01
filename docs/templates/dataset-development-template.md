@@ -6,6 +6,7 @@
 > - 文档命名建议：`<dataset-key>-dataset-development.md`。
 > - 未完成本文档，不得进入编码、发版或远程同步。
 > - 本模板以当前新架构为准：数据集事实源是 `DatasetDefinition`，执行主链是 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor`，任务观测主链是 Ops TaskRun。
+> - 预计或实测超过 60 秒，或执行规模会随日期、对象、分页、分区持续增长且无法静态约束时，必须同时完成 0.3.5 的长任务执行合同；没有该合同不得进入编码或生产执行。
 > - 如果本数据集还要接入 Dagster sensor，必须同时使用 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 的 sensor cursor 规范；本模板不允许为 Dagster sensor 另起一套 cursor 字段。
 
 ---
@@ -14,7 +15,7 @@
 
 ### 0.1 当前必须遵守的主线
 
-1. 数据集身份、来源、输入、日期模型、落库、规划、清洗、能力、观测、质量、事务，全部收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition`。
+1. 数据集身份、领域、来源、输入、日期模型、落库、规划、清洗、能力、观测、质量、事务与完整性，全部收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition`。
 2. 维护动作统一为 `action=maintain`，动作 key 由 `DatasetDefinition.action_key("maintain")` 派生，格式为 `<dataset_key>.maintain`。
 3. 执行计划由 `DatasetActionResolver` 根据 `DatasetDefinition` 生成，执行器只消费 `DatasetExecutionPlan` 和 plan units。
 4. Ops 手动任务、自动任务、任务详情、数据状态、数据源卡片均消费由 `DatasetDefinition` 派生的事实，不在前端或 Ops 查询层重新拼装数据集事实。
@@ -27,7 +28,7 @@
 2. 不得新增旧同步服务包或旧 `operations/platform` 主实现。
 3. 不得在 foundation 中依赖 ops、biz、app、platform、operations。
 4. 不得使用 `__ALL__` / `__all__` 这类业务占位值污染请求参数、落库行或 source key。需要全量枚举时，必须在 `enum_fanout_defaults` 中显式列出真实枚举值。
-5. 不得引入 checkpoint / acquire / 定点跳过语义；除非项目负责人明确提出该能力，并先完成专项方案评审。
+5. 不得私自新增 checkpoint / acquire / 定点跳过或第二套任务状态机。长任务确需持久化续跑能力时，必须先完成 0.3.5，优先复用现有 TaskRun、节点和业务幂等边界；新增专用 checkpoint 表必须逐需求评审，不能成为所有数据集的默认结构。
 6. 不得把状态写入失败设计成回滚业务数据；Ops/TaskRun/freshness/snapshot/schedule 等状态写入只能影响观测状态。
 7. 不得写“临时方案”。如果事实或能力还没准备好，应标为“不支持 / 暂不接入”，不要把临时路径做进主链。
 8. 不得在 Ops、前端、自动任务服务中提前展开日期模型，例如把自然月窗口提前转成源接口 `start_date/end_date`。这类展开必须由 resolver 根据 `DatasetDefinition.date_model` 完成。
@@ -41,7 +42,7 @@
 
 ### 0.3 开发前置硬检查
 
-下面四张验证 / 审计表与 0.3.4 硬需求追溯账本未填写完成前，不得进入编码。
+下面四张验证 / 审计表、0.3.4 硬需求追溯账本，以及适用时的 0.3.5 长任务执行合同未填写完成前，不得进入编码。
 
 #### 0.3.0 源接口真实行为验证表
 
@@ -155,14 +156,49 @@
 5. 只有本阶段全部关联行均为“已验证”，才可标记该阶段完成。缺少前端、浏览器、真实 connector 或最小真实同步证据时，只能报告对应子项完成，禁止宣布整体完成。
 6. 提交前必须按追溯账本复核 `git diff`：每个“实现文件”要么出现在本次 / 已引用的前序提交中，要么明确说明已存在且给出验证证据；任何未覆盖行都是 blocker。
 
+#### 0.3.5 长任务识别与执行合同
+
+满足任一条件即按长任务设计：预计或实测运行超过 60 秒；执行规模随日期、对象、分页或分区增长且无法静态约束；单次 PLAN / APPLY 需要处理大量历史范围；取消或进程退出后重新开始会造成明显时间、配额或资源浪费。
+
+| 合同项 | 本数据集答案 | 代码 / 测试 / 真实证据 |
+| --- | --- | --- |
+| 是否为长任务及判断依据 |  |  |
+| 最小独立执行 unit 与总 unit 估算 |  |  |
+| 单 unit 页数、行数和耗时上界 |  |  |
+| 批次大小、内存模式和内存上限 |  |  |
+| 业务数据持久化边界 |  |  |
+| 幂等键与重复执行结果 |  |  |
+| 续跑依据：已提交 unit、业务读回或专用 checkpoint |  |  |
+| 进度字段、更新频率与页面展示 |  |  |
+| 取消检查点与最大取消延迟 |  |  |
+| TaskRun 与活动节点终态同步 |  |  |
+| worker lane、并发和对其他任务的影响 |  |  |
+| 事务边界与一致性口径 |  |  |
+| 最小真实运行、取消、续跑和读回验收 |  |  |
+
+长任务硬规则：
+
+1. 禁止把完整历史范围长期累积在一个内存 `list`、`dict`、DataFrame 或等价容器中，并在任务末尾才首次写入。常驻内存必须与单批次大小相关，不能与全量范围线性增长。
+2. APPLY 必须在每个已定义的独立业务 unit 完成后形成可读回的持久化边界。进程退出或用户取消后，已提交 unit 保留，未提交 unit 不得伪装完成。
+3. 长 PLAN 若必须汇总全范围才能冻结，只能分批保存“不可执行的草稿证据”，全部完成并校验后再原子冻结最终 PLAN；未冻结或部分 PLAN 不得进入 APPLY。
+4. 续跑必须从持久化事实、已提交 unit 或经专项批准的 checkpoint 恢复；不得依赖进程内缓存。重复执行同一 unit 必须幂等，不产生重复业务数据。
+5. 页面必须显示阶段、当前对象或窗口、已完成量、总量、百分比和最后更新时间。运行中不得连续 30 秒没有可见更新；心跳只能证明任务仍活着，不能冒充业务完成进度。
+6. ETA 仅在存在可靠样本时显示；无法可靠估算时明确显示“暂无法估算”，不得伪造倒计时。若复用当前 Ops ETA，必须按已提交 unit 进度计算，并遵守 10 秒浏览器采样口径。
+7. 每个 unit 或分页开始前、完整结束后检查取消。任何不可分割步骤若可能超过 30 秒，必须继续拆分，或使用能安全中断的源调用；取消后不得领取新 unit。
+8. TaskRun 与当前活动 `task_run_node` 必须在成功、失败、取消时共同进入一致终态；观察状态写入仍不得回滚已提交业务数据。
+9. 历史回补、大范围 PLAN 或其他长任务默认不得占用串行 GENERAL worker。必须使用专用 lane，或在方案中量化证明不会阻塞其他任务并取得明确批准。
+10. 默认禁止用一个覆盖全历史的长数据库事务换取一致性。应使用版本、日期、范围 hash 或冻结状态表达一致快照；确需长事务必须单独说明锁、空间、失败恢复和影响范围并取得批准。
+11. 自动化测试至少覆盖：中途取消、进程退出、续跑、幂等重放、进度单调、状态写失败不回滚业务数据、TaskRun/节点终态一致和 lane 隔离。
+12. 全量生产执行前必须完成一次有代表性的最小真实运行，并实际验证取消、续跑、读回和进度展示；只跑单元测试不能关闭该门禁。
+
 ---
 
 ## 1. 标准交付流程
 
 1. 固定源站事实：官方文档、输入参数、输出字段、分页、限速、更新时间。
-2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”、“0.3.3 源字段端到端对账表”和“0.3.4 硬需求追溯账本”。
+2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”、“0.3.3 源字段端到端对账表”和“0.3.4 硬需求追溯账本”，并判断是否触发 0.3.5 长任务门禁。
 3. 新增源站文档，或在真实验证改变已知源端事实时更新 `docs/sources/**`；Tushare 文档新增/修改必须同步 `docs/sources/tushare/docs_index.csv`。已有且未变化的源文档要在方案中引用并记录已核验，不重复新建。
-4. 完成本文档，明确 `DatasetDefinition` 十段事实和执行/落库/观测方案。
+4. 完成本文档，明确 `DatasetDefinition` 完整事实合同和执行/落库/观测方案；长任务同时明确内存、持久化、续跑、进度、取消与 worker lane。
 5. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
 6. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
 7. 补齐 ingestion 能力：request builder、unit builder、row transform、writer 路径、分页、reject reason、codebook。
@@ -286,12 +322,14 @@
     "source_doc_id": "",
     "request_builder_key": "generic",
     "base_params": {},
+    "release_policy": "same_day",
 }
 ```
 
 - `source_key_default` 必须属于 `source_keys`。
 - `source_fields` 必须与源站文档和实际请求字段一致。
 - 自定义请求参数构造器必须注册在 `src/foundation/ingestion/request_builders.py`。
+- `release_policy` 当前只允许 `same_day` / `next_calendar_day_0830` / `next_open_day_0930`，并必须与 probe、排程目标日和 runtime 入队校验一致；新增发布策略前先扩展单一事实源和消费者测试，不能在数据集内自定义字符串。
 - 不得从 `dataset_key` 前缀反推 source；source 事实只能来自这里。
 - `source_fields` 会被 `DatasetSourceClient` 传给连接器作为源端 `fields`；不要把字段白名单写进 request builder。
 - 有些 Tushare 接口默认不返回全部字段，必须用 `source_fields` 显式请求需要的字段。新增或修改字段时，测试要覆盖 connector 收到的 `fields`。
@@ -314,7 +352,7 @@
 ```
 
 - `date_axis`：`trade_open_day` / `natural_day` / `month_key` / `month_window` / `none`
-- `bucket_rule`：`every_open_day` / `week_last_open_day` / `month_last_open_day` / `every_natural_day` / `week_friday` / `month_last_calendar_day` / `every_natural_month` / `month_window_has_data` / `not_applicable`
+- `bucket_rule`：`every_open_day` / `week_last_open_day` / `month_last_open_day` / `every_natural_day` / `week_friday` / `month_last_calendar_day` / `calendar_quarter_end` / `every_natural_month` / `month_window_has_data` / `not_applicable`
 - `window_mode`：`point` / `range` / `point_or_range` / `none`
 - `input_shape`：按现有代码枚举选择，例如 `trade_date_or_start_end`、`month_or_range`、`start_end_month_window`、`ann_date_or_start_end`、`none`
 - `observed_field`：用于 freshness 和日期审计观测的目标表字段；没有业务日期时填 `None`
@@ -375,12 +413,15 @@
 }
 ```
 
-| 字段 | 类型 | 是否必填 | 默认值 | 枚举值 | 是否多选 | 中文名 | 说明 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| 字段 | 类型 | 是否必填 | 默认值 | 枚举值 | 选项中文名 | 是否多选 | 是否允许全选 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 约束：
+- 表中“类型 / 枚举值 / 是否多选”分别对应 `DatasetInputField.field_type`、`enum_values`、`multi_value`；其他列分别落到同名字段，不得只写展示文案而遗漏结构化合同。
 - 时间字段必须与 `date_model.input_shape` 一致。
 - 给用户看的 `display_name` 必须是中文业务名，不得暴露内部字段含义。
+- 枚举项的中文标签写入 `option_labels`；只有多值枚举且已声明非空枚举集合时才允许 `select_all_enabled=True`。
+- `scoped_repair_policy` 只用于已定义的受限修复语义，必须使用当前 linter 支持值，并同时由 API 条件合同、前端控件和后端 validator 执行。
 - 枚举多选如果要默认展开，必须同步配置 `planning.enum_fanout_defaults`。
 - 如果某 filter 会限制可选时间模式、是否多值或“只能补录已存在日期桶”等执行边界，必须在字段级声明通用约束；Manual Action API 必须返回可消费的条件规则，前端随筛选值切换控件，planner / validator 同时做权威拒绝。禁止只按 `dataset_key` 写 UI 分支。
 
@@ -396,11 +437,16 @@
     "std_table": None,
     "serving_table": None,
     "raw_table": "",
+    "observation_dao_name": None,
+    "observation_table": None,
+    "stage_dao_name": None,
+    "stage_table": None,
     "raw_conflict_columns": None,
     "conflict_columns": None,
     "write_path": "raw_core_upsert",
     "serving_conflict_resolution_policy": "none",
     "row_identity_filters": {},
+    "replacement_scope_fields": (),
 }
 ```
 
@@ -410,11 +456,14 @@
 - `layer_plan`：例如 `raw-only`、`raw->core`、`raw->serving`、`raw->std->serving`
 - `raw_dao_name`：
 - `core_dao_name`：
+- `observation_dao_name` / `observation_table`：需要从独立观测表发布 current serving 时填写，否则显式为 `None`。
+- `stage_dao_name` / `stage_table`：只有当前 write path 明确支持 staged stream 时填写，否则显式为 `None`。
 - `raw_conflict_columns`：
 - `conflict_columns`：
 - `write_path`：
 - `serving_conflict_resolution_policy`：
 - `row_identity_filters`：
+- `replacement_scope_fields`：完整范围替换时必须非空并全部属于必填字段；其他路径保持空元组。
 
 约束：
 - raw 与 serving/core 的冲突列可以不同，必须分别说明。不要为了省事把 serving 口径硬套到 raw。
@@ -424,7 +473,7 @@
 - direct-serving 页面不能显示伪造 raw 表或“—”掩盖事实：在通用来源卡片中应回退展示 target/serving 表，并明确这是服务表；raw-backed 数据集展示不得回归。
 - 任何新 write path 都必须声明：所需 DAO、禁止访问的 DAO、空 batch 语义、冲突键、事务边界，以及对所有既有 write path 的回归范围。
 
-常见 `write_path`：
+以下只是常见 `write_path` 示例，不是完整枚举；可用值以当前 writer、Definition linter 和已注册 definitions 为准：
 - `raw_only_upsert`
 - `raw_core_upsert`
 - `raw_core_snapshot_insert_by_trade_date`
@@ -440,24 +489,35 @@
 ```python
 "planning": {
     "universe_policy": "no_pool",
+    "universe": None,
     "enum_fanout_fields": (),
     "enum_fanout_defaults": {},
+    "request_variant_fields": (),
+    "request_variant_defaults": {},
     "pagination_policy": "none",
     "page_limit": None,
+    "max_source_rows_per_unit": None,
     "chunk_size": None,
     "max_units_per_execution": None,
     "unit_builder_key": "generic",
+    "fetch_concurrency": 1,
+    "page_processing_mode": "buffer_all",
 }
 ```
 
 - `universe_policy`：`no_pool` 表示明确不按对象池展开；`pool` 表示按 `planning.universe` 声明的对象池展开；`none` 只表示未定义，不得用于新数据集。
+- `universe`：使用对象池时填写 `request_field`、允许的 `override_fields` 与正式 `sources`；每个 source 必须明确 `type` 和 `resource`。不使用对象池时显式为 `None`。
 - `enum_fanout_fields`：哪些枚举字段参与 unit 扇出。
 - `enum_fanout_defaults`：用户未填写枚举时默认展开的真实枚举值集合。
+- `request_variant_fields` / `request_variant_defaults`：只描述源请求变体，不得冒充用户输入或对象池。
 - `pagination_policy`：`none` / `offset_limit` / 其他现有策略。
 - `page_limit`：
+- `max_source_rows_per_unit`：单 unit 源端行数硬上限；超限必须失败，不能静默截断。
 - `chunk_size`：
 - `max_units_per_execution`：
 - `unit_builder_key`：如需自定义，必须在 `src/foundation/ingestion/unit_planner.py` 有清晰实现和测试。
+- `fetch_concurrency`：当前允许范围以 linter 为准；必须评估配额、连接数、worker 占用和稳定排序。
+- `page_processing_mode`：当前只允许 `buffer_all` / `staged_stream`。长分页任务优先评估 `staged_stream`；选用时必须同时满足对应 write path、stage 表、单并发与 `commit_policy=unit` 的 linter 合同。
 
 写入量评估：
 - 必须估算单个 unit 的最大写入行数：
@@ -499,6 +559,7 @@
             "schedule_enabled": True,
             "retry_enabled": True,
             "supported_time_modes": (),
+            "schedule_time_policy": None,
         },
     ),
 }
@@ -508,6 +569,8 @@
 - 是否允许自动调度：
 - 是否允许重试：
 - `supported_time_modes`：`point` / `range` / `none`
+- `schedule_time_policy`：自动任务如何从排程生成时间意图；不适用时显式为 `None`，不得由 Ops 自行展开源接口日期参数。
+- 使用 `schedule_time_policy` 时必须逐项写清 `policy`、允许的 `schedule_types`、`cron_repeat_modes`、`explicit_time_input`、`generated_time_mode`、`generated_time_field` 和 `policy_parameters`；生成的时间模式必须属于本 action 的 `supported_time_modes`。
 
 ### 4.10 `observability`、`quality`、`transaction`
 
@@ -520,6 +583,13 @@
 "quality": {
     "reject_policy": "record_rejections",
     "required_fields": (),
+    "unit_date_field": None,
+    "duplicate_key_policy": "allow",
+    "required_distinct_values": {},
+    "batch_unique_key_fields": (),
+    "source_multiplicity_policy": "reject",
+    "empty_result_policy": "allow",
+    "pre_write_validator_key": None,
 },
 "transaction": {
     "commit_policy": "unit",
@@ -532,8 +602,32 @@
 - `observability.observed_field` 必须与 `date_model.observed_field` 保持一致。
 - `observability.freshness_policy` 由 definition builder 从 `src/foundation/datasets/freshness_policies.py` 注入，开发文档必须说明本数据集归属哪一种 policy，但不要在 `DATASET_ROWS` 中重复保存。
 - `quality.required_fields` 必须覆盖不能缺失的业务主键和日期字段。
-- `transaction.commit_policy` 当前必须为 `unit`。
+- `quality.unit_date_field`、重复键、必备枚举、批内唯一键、源端多重记录、空结果和写前校验策略必须按当前数据集真实风险填写，不能依赖 writer 临场猜测。
+- `transaction.commit_policy` 当前支持 `unit` 和受专用 write path 约束的 `raw_then_serving`；具体组合必须通过 Definition linter，不得自行创造提交策略。
 - `transaction.write_volume_assessment` 必须写人话，说明单事务写入量如何被控制。
+
+### 4.11 `completeness`
+
+```python
+"completeness": {
+    "scope": "",
+    "subject_kind": None,
+    "subject_key_fields": (),
+    "actual_key_fields": (),
+    "universe_strategy": None,
+    "universe_source_table": None,
+    "universe_key_field": None,
+    "universe_name_field": None,
+    "lifecycle_start_field": None,
+    "lifecycle_end_field": None,
+    "status_field": None,
+    "active_status_values": (),
+}
+```
+
+- `scope`：说明是日期桶、对象池、组内成员还是不适用；不得从表名猜测。
+- 需要对象完整性时，必须明确期望对象来源、实际键、生命周期和状态字段；不得用页面当前出现的对象反推完整对象池。
+- 不适用时也要给出明确 scope 与理由，不能省略整个合同。
 
 ---
 
@@ -609,11 +703,13 @@
 - `progress_context` 字段：
 - 单 unit 最大数据量评估：
 - 单次执行最大 unit 数评估：
+- 是否触发 0.3.5 长任务门禁；unit 是否同时构成进度、取消、持久化和续跑边界：
 
 ### 6.3 Source Client 与分页
 
 - adapter：`tushare` / `biying` / 其他
 - `pagination_policy`：
+- `page_processing_mode`：`buffer_all` / `staged_stream`
 - 单页参数：
 - 结束条件：
 - 限速策略：
@@ -625,6 +721,8 @@
 2. 必须记录 `offset/limit` 序列、每页行数、终止 short page、页合并行数和唯一业务键数。
 3. 对达到或可能达到源端上限的范围，分页合并的唯一键集合必须与一个已证明不截断的同范围基准请求完全相等；任意漏键、额外键或内容冲突都阻断写入/上线。
 4. 在 DAO `bulk_upsert` 前检测同批冲突键：完全相同可按明确定义去重；内容不一致必须以结构化错误使 unit 失败，不能依赖 DAO 的最后一行覆盖。
+5. `buffer_all` 必须证明单 unit 全部分页合并后的内存和事务规模有硬上限；触发长任务门禁且无法证明时不得使用。
+6. `staged_stream` 必须逐页写入隔离的 stage 范围，完整 unit 校验通过后再发布；中途取消或失败不得让部分 stage 数据成为对上事实。
 
 ### 6.4 Normalizer
 
@@ -644,8 +742,10 @@
 - 幂等写入策略：
 - 冲突列：
 - 事务边界：每个 unit 一个业务数据事务
+- 已提交 unit 的读回与续跑判定：
+- 取消后保留 / 清理边界：
 
-如果 source client 先累积完整分页结果再写入，必须明确内存上限和单事务行数；分页不是把一个业务 unit 拆成多个可部分提交的业务事务的理由，除非方案另行定义并证明可恢复 / 不污染完整性。
+如果 source client 先累积完整分页结果再写入，必须明确内存上限和单事务行数；超过长任务阈值时不得把全范围数据留在内存并等到末尾首次写入。分页是否成为持久化边界取决于经评审的 `staged_stream` / write path 合同，不能自行把一个业务 unit 拆成可见的部分业务结果。
 
 ### 6.6 结构化错误与 codebook
 
@@ -699,11 +799,20 @@
 - 失败时 `TaskRunIssue.object_json` 示例：
 - 是否有 `rows_rejected`：
 - 是否有 `rejected_reason_counts` / `rejected_reason_samples`：
+- 进度总量来自哪里，何时冻结：
+- 已完成量是否只在业务持久化边界后递增：
+- 进度更新频率与最大静默时长：
+- 取消检查点与最大取消延迟：
+- TaskRun 与活动节点如何同步终态：
+- worker lane 及为什么不会阻塞 GENERAL：
+- ETA 是否可可靠计算；不可计算时的页面文案：
 
 展示原则：
 - 页面主指标只展示最终已提交结果，不把中间尝试写入量当成已入库结果。
 - 后端输出结构化 token，Ops 层负责转换为用户可读展示。
 - 不得在前端按 dataset_key 写专用文案分支。
+- 进度只能在业务持久化边界完成后增加，且必须单调；心跳和当前阶段不能冒充已完成量。
+- 若复用现有 ETA 页面能力，ETA 由浏览器按 10 秒样本窗口从已提交 unit 进度推算；样本不足或速度不稳定时显示“暂无法估算”。
 
 ### 7.4 数据状态、数据源卡片与 freshness
 
@@ -734,6 +843,7 @@
 - Resolver / planner：
   - point / range / none / month 视数据集能力覆盖
   - unit_count、unit_id、request_params、progress_context 正确
+  - 长任务总量可冻结，超预算拒绝，不允许边执行边无限扩展计划
 - Request builder：
   - 时间参数映射
   - filter / enum 参数映射
@@ -750,12 +860,18 @@
   - 单 unit 事务边界
   - 同批冲突键的相同 / 不同内容处理
   - direct-serving 时不解析 raw DAO；raw/core 既有路径完整回归
+  - 长任务中途取消或进程退出后，已提交 unit 可读回、未提交 unit 不可见；续跑和幂等重放无重复
 - Ops API：
   - manual-actions
   - catalog
   - task-runs
   - freshness / dataset-cards
   - 如有 source probe：schedule API、binding、runtime action / filters 防篡改、目标日期去重
+- Runtime / TaskRun（长任务适用）：
+  - 进度只在持久化边界后单调递增，连续运行不超过 30 秒无可见更新
+  - queued / running 取消、进程退出后续跑、TaskRun 与节点终态一致
+  - 状态观察写失败不回滚业务数据，业务失败不生成成功状态
+  - 专用 lane 与 GENERAL 隔离；或批准的例外具备量化证据
 - Frontend（如显示或交互变化）：
   - 页面能看到动作
   - 表单控件正确
@@ -792,10 +908,10 @@ cd frontend && npm run typecheck && npm run test && npm run build
 - [ ] 每次里程碑 / 提交前已将追溯账本与实际 `git diff`、前序提交和测试文件对账；不存在未覆盖消费者
 - [ ] 源站文档与 docs index 已更新
 - [ ] 0.3.3 源字段端到端对账表已填完，源文档、真实样本、`source_fields`、ORM、迁移、真实表、Lake 白名单口径一致
-- [ ] DatasetDefinition 十段事实完整
+- [ ] DatasetDefinition 完整事实合同已填写，与当前模型和 linter 一致
 - [ ] 新数据集没有旧执行术语或旧路由
 - [ ] 没有新增 `__ALL__` / `__all__` 业务占位值
-- [ ] 没有新增 checkpoint / acquire 语义
+- [ ] 没有私自新增 checkpoint / acquire / 第二套任务状态机；如为长任务，0.3.5 已批准且续跑来源明确
 - [ ] ORM、DAO、迁移一致
 - [ ] Alembic `down_revision` 已按真实 `alembic heads` 确认
 - [ ] `target_table` 能被 table model registry 发现
@@ -805,11 +921,13 @@ cd frontend && npm run typecheck && npm run test && npm run build
 - [ ] `DatasetActionResolver` 测试覆盖该数据集的时间输入归一化
 - [ ] 测试覆盖 `TaskRun.time_input_json -> DatasetActionResolver.build_plan() -> PlanUnit.request_params`
 - [ ] 单事务写入量已真实评估并写入 `transaction.write_volume_assessment`
+- [ ] 已判断是否属于长任务；适用时已验证批量内存上限、分批持久化、取消、进程退出、续跑、幂等、进度单调、节点终态和 lane 隔离
 - [ ] 分页已用项目实际 connector（或同等请求层）验证第二页、short page 和分页合并唯一键集合；未用无日期/宽区间截断结果充当基准
 - [ ] request builder、unit planner、normalizer、writer 均有测试
 - [ ] 同批冲突键不会被 DAO 静默最后一行覆盖；冲突的结构化错误和样本可追溯
 - [ ] reject reason code 和 rejected reason samples 可解释，任何 reject 都有字段和值样本
 - [ ] TaskRun 详情展示可读，无重复错误信息
+- [ ] 长任务页面显示阶段、当前对象、完成量、总量、百分比和最后更新时间；30 秒内有可见更新，ETA 不可靠时明确不展示估算
 - [ ] 数据源卡片和数据状态页展示正确；direct-serving 的无 raw 层与 target/serving fallback 已验证，raw-backed 页面无回归
 - [ ] 若 filter 有条件时间 / 范围约束：Manual Action API、前端控件与 resolver / planner 拒绝逻辑一致
 - [ ] 若使用 source readiness probe：schedule API、binding service、runtime 防篡改和按目标日期去重都已覆盖；生产 schedule 的创建权限和持久化来源已确认
@@ -836,6 +954,7 @@ cd frontend && npm run typecheck && npm run test && npm run build
 - 如需生产排程 / probe rule：创建入口、持久化位置、启用顺序和授权人；不得在 Alembic 中隐式 seed：
 - 是否需要重建数据状态：`goldenshare ops-rebuild-dataset-status`
 - 最小真实同步命令：
+- 长任务最小运行 / 取消 / 续跑 / 读回命令与证据：
 - 验收查询 SQL：
 - 回滚方式：
 - 风险点与处理：
