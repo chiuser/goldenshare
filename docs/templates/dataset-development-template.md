@@ -6,7 +6,7 @@
 > - 文档命名建议：`<dataset-key>-dataset-development.md`。
 > - 未完成本文档，不得进入编码、发版或远程同步。
 > - 本模板以当前新架构为准：数据集事实源是 `DatasetDefinition`，执行主链是 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor`，任务观测主链是 Ops TaskRun。
-> - 预计或实测超过 60 秒，或执行规模会随日期、对象、分页、分区持续增长且无法静态约束时，必须同时完成 0.3.5 的长任务执行合同；没有该合同不得进入编码或生产执行。
+> - 只有目标为 Prod 数据集的任务，预计或实测超过 60 秒，或执行规模会随日期、对象、分页、分区持续增长且无法静态约束时，才必须同时完成 0.3.5；数据湖、Dagster、DuckDB／Parquet 数据集任务不适用 0.3.5，遵守其自身专项规则。
 > - 如果本数据集还要接入 Dagster sensor，必须同时使用 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 的 sensor cursor 规范；本模板不允许为 Dagster sensor 另起一套 cursor 字段。
 
 ---
@@ -28,7 +28,7 @@
 2. 不得新增旧同步服务包或旧 `operations/platform` 主实现。
 3. 不得在 foundation 中依赖 ops、biz、app、platform、operations。
 4. 不得使用 `__ALL__` / `__all__` 这类业务占位值污染请求参数、落库行或 source key。需要全量枚举时，必须在 `enum_fanout_defaults` 中显式列出真实枚举值。
-5. 不得私自新增 checkpoint / acquire / 定点跳过或第二套任务状态机。长任务确需持久化续跑能力时，必须先完成 0.3.5，优先复用现有 TaskRun、节点和业务幂等边界；新增专用 checkpoint 表必须逐需求评审，不能成为所有数据集的默认结构。
+5. 不得私自新增 checkpoint / acquire / 定点跳过或第二套任务状态机。Prod 数据集长任务确需持久化续跑能力时，必须先完成 0.3.5，优先复用现有 TaskRun、节点和业务幂等边界；新增专用 checkpoint 表必须逐需求评审，不能成为所有数据集的默认结构。
 6. 不得把状态写入失败设计成回滚业务数据；Ops/TaskRun/freshness/snapshot/schedule 等状态写入只能影响观测状态。
 7. 不得写“临时方案”。如果事实或能力还没准备好，应标为“不支持 / 暂不接入”，不要把临时路径做进主链。
 8. 不得在 Ops、前端、自动任务服务中提前展开日期模型，例如把自然月窗口提前转成源接口 `start_date/end_date`。这类展开必须由 resolver 根据 `DatasetDefinition.date_model` 完成。
@@ -42,7 +42,7 @@
 
 ### 0.3 开发前置硬检查
 
-下面四张验证 / 审计表、0.3.4 硬需求追溯账本，以及适用时的 0.3.5 长任务执行合同未填写完成前，不得进入编码。
+下面四张验证 / 审计表、0.3.4 硬需求追溯账本，以及目标为 Prod 数据集且满足长任务条件时的 0.3.5 执行合同未填写完成前，不得进入编码。
 
 #### 0.3.0 源接口真实行为验证表
 
@@ -156,9 +156,9 @@
 5. 只有本阶段全部关联行均为“已验证”，才可标记该阶段完成。缺少前端、浏览器、真实 connector 或最小真实同步证据时，只能报告对应子项完成，禁止宣布整体完成。
 6. 提交前必须按追溯账本复核 `git diff`：每个“实现文件”要么出现在本次 / 已引用的前序提交中，要么明确说明已存在且给出验证证据；任何未覆盖行都是 blocker。
 
-#### 0.3.5 长任务识别与执行合同
+#### 0.3.5 Prod 数据集长任务识别与执行合同
 
-满足任一条件即按长任务设计：预计或实测运行超过 60 秒；执行规模随日期、对象、分页或分区增长且无法静态约束；单次 PLAN / APPLY 需要处理大量历史范围；取消或进程退出后重新开始会造成明显时间、配额或资源浪费。
+本节只适用于目标为 Prod 数据集的同步、回补、PLAN / APPLY 或批量计算；数据湖、Dagster、DuckDB／Parquet 数据集任务不填写本节。Prod 数据集任务满足任一条件即按长任务设计：预计或实测运行超过 60 秒；执行规模随日期、对象、分页或分区增长且无法静态约束；单次 PLAN / APPLY 需要处理大量历史范围；取消或进程退出后重新开始会造成明显时间、配额或资源浪费。
 
 | 合同项 | 本数据集答案 | 代码 / 测试 / 真实证据 |
 | --- | --- | --- |
@@ -172,7 +172,6 @@
 | 进度字段、更新频率与页面展示 |  |  |
 | 取消检查点与最大取消延迟 |  |  |
 | TaskRun 与活动节点终态同步 |  |  |
-| worker lane、并发和对其他任务的影响 |  |  |
 | 事务边界与一致性口径 |  |  |
 | 最小真实运行、取消、续跑和读回验收 |  |  |
 
@@ -186,19 +185,18 @@
 6. ETA 仅在存在可靠样本时显示；无法可靠估算时明确显示“暂无法估算”，不得伪造倒计时。若复用当前 Ops ETA，必须按已提交 unit 进度计算，并遵守 10 秒浏览器采样口径。
 7. 每个 unit 或分页开始前、完整结束后检查取消。任何不可分割步骤若可能超过 30 秒，必须继续拆分，或使用能安全中断的源调用；取消后不得领取新 unit。
 8. TaskRun 与当前活动 `task_run_node` 必须在成功、失败、取消时共同进入一致终态；观察状态写入仍不得回滚已提交业务数据。
-9. 历史回补、大范围 PLAN 或其他长任务默认不得占用串行 GENERAL worker。必须使用专用 lane，或在方案中量化证明不会阻塞其他任务并取得明确批准。
-10. 默认禁止用一个覆盖全历史的长数据库事务换取一致性。应使用版本、日期、范围 hash 或冻结状态表达一致快照；确需长事务必须单独说明锁、空间、失败恢复和影响范围并取得批准。
-11. 自动化测试至少覆盖：中途取消、进程退出、续跑、幂等重放、进度单调、状态写失败不回滚业务数据、TaskRun/节点终态一致和 lane 隔离。
-12. 全量生产执行前必须完成一次有代表性的最小真实运行，并实际验证取消、续跑、读回和进度展示；只跑单元测试不能关闭该门禁。
+9. 默认禁止用一个覆盖全历史的长数据库事务换取一致性。应使用版本、日期、范围 hash 或冻结状态表达一致快照；确需长事务必须单独说明锁、空间、失败恢复和影响范围并取得批准。
+10. 自动化测试至少覆盖：中途取消、进程退出、续跑、幂等重放、进度单调、状态写失败不回滚业务数据和 TaskRun/节点终态一致。
+11. 全量生产执行前必须完成一次有代表性的最小真实运行，并实际验证取消、续跑、读回和进度展示；只跑单元测试不能关闭该门禁。
 
 ---
 
 ## 1. 标准交付流程
 
 1. 固定源站事实：官方文档、输入参数、输出字段、分页、限速、更新时间。
-2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”、“0.3.3 源字段端到端对账表”和“0.3.4 硬需求追溯账本”，并判断是否触发 0.3.5 长任务门禁。
+2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”、“0.3.3 源字段端到端对账表”和“0.3.4 硬需求追溯账本”；仅目标为 Prod 数据集时判断是否触发 0.3.5 长任务门禁。
 3. 新增源站文档，或在真实验证改变已知源端事实时更新 `docs/sources/**`；Tushare 文档新增/修改必须同步 `docs/sources/tushare/docs_index.csv`。已有且未变化的源文档要在方案中引用并记录已核验，不重复新建。
-4. 完成本文档，明确 `DatasetDefinition` 完整事实合同和执行/落库/观测方案；长任务同时明确内存、持久化、续跑、进度、取消与 worker lane。
+4. 完成本文档，明确 `DatasetDefinition` 完整事实合同和执行/落库/观测方案；Prod 数据集长任务同时明确内存、持久化、续跑、进度和取消。
 5. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
 6. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
 7. 补齐 ingestion 能力：request builder、unit builder、row transform、writer 路径、分页、reject reason、codebook。
@@ -703,7 +701,7 @@
 - `progress_context` 字段：
 - 单 unit 最大数据量评估：
 - 单次执行最大 unit 数评估：
-- 是否触发 0.3.5 长任务门禁；unit 是否同时构成进度、取消、持久化和续跑边界：
+- 本任务是否以 Prod 数据集为目标；如是，是否触发 0.3.5 长任务门禁，unit 是否同时构成进度、取消、持久化和续跑边界：
 
 ### 6.3 Source Client 与分页
 
@@ -721,7 +719,7 @@
 2. 必须记录 `offset/limit` 序列、每页行数、终止 short page、页合并行数和唯一业务键数。
 3. 对达到或可能达到源端上限的范围，分页合并的唯一键集合必须与一个已证明不截断的同范围基准请求完全相等；任意漏键、额外键或内容冲突都阻断写入/上线。
 4. 在 DAO `bulk_upsert` 前检测同批冲突键：完全相同可按明确定义去重；内容不一致必须以结构化错误使 unit 失败，不能依赖 DAO 的最后一行覆盖。
-5. `buffer_all` 必须证明单 unit 全部分页合并后的内存和事务规模有硬上限；触发长任务门禁且无法证明时不得使用。
+5. `buffer_all` 必须证明单 unit 全部分页合并后的内存和事务规模有硬上限；Prod 数据集任务触发 0.3.5 且无法证明时不得使用。
 6. `staged_stream` 必须逐页写入隔离的 stage 范围，完整 unit 校验通过后再发布；中途取消或失败不得让部分 stage 数据成为对上事实。
 
 ### 6.4 Normalizer
@@ -745,7 +743,7 @@
 - 已提交 unit 的读回与续跑判定：
 - 取消后保留 / 清理边界：
 
-如果 source client 先累积完整分页结果再写入，必须明确内存上限和单事务行数；超过长任务阈值时不得把全范围数据留在内存并等到末尾首次写入。分页是否成为持久化边界取决于经评审的 `staged_stream` / write path 合同，不能自行把一个业务 unit 拆成可见的部分业务结果。
+如果 Prod 数据集任务的 source client 先累积完整分页结果再写入，必须明确内存上限和单事务行数；超过 0.3.5 长任务阈值时不得把全范围数据留在内存并等到末尾首次写入。分页是否成为持久化边界取决于经评审的 `staged_stream` / write path 合同，不能自行把一个业务 unit 拆成可见的部分业务结果。数据湖任务不适用本段 0.3.5 门禁。
 
 ### 6.6 结构化错误与 codebook
 
@@ -804,7 +802,6 @@
 - 进度更新频率与最大静默时长：
 - 取消检查点与最大取消延迟：
 - TaskRun 与活动节点如何同步终态：
-- worker lane 及为什么不会阻塞 GENERAL：
 - ETA 是否可可靠计算；不可计算时的页面文案：
 
 展示原则：
@@ -843,7 +840,7 @@
 - Resolver / planner：
   - point / range / none / month 视数据集能力覆盖
   - unit_count、unit_id、request_params、progress_context 正确
-  - 长任务总量可冻结，超预算拒绝，不允许边执行边无限扩展计划
+  - Prod 数据集长任务总量可冻结，超预算拒绝，不允许边执行边无限扩展计划
 - Request builder：
   - 时间参数映射
   - filter / enum 参数映射
@@ -860,18 +857,17 @@
   - 单 unit 事务边界
   - 同批冲突键的相同 / 不同内容处理
   - direct-serving 时不解析 raw DAO；raw/core 既有路径完整回归
-  - 长任务中途取消或进程退出后，已提交 unit 可读回、未提交 unit 不可见；续跑和幂等重放无重复
+  - Prod 数据集长任务中途取消或进程退出后，已提交 unit 可读回、未提交 unit 不可见；续跑和幂等重放无重复
 - Ops API：
   - manual-actions
   - catalog
   - task-runs
   - freshness / dataset-cards
   - 如有 source probe：schedule API、binding、runtime action / filters 防篡改、目标日期去重
-- Runtime / TaskRun（长任务适用）：
+- Runtime / TaskRun（Prod 数据集长任务适用）：
   - 进度只在持久化边界后单调递增，连续运行不超过 30 秒无可见更新
   - queued / running 取消、进程退出后续跑、TaskRun 与节点终态一致
   - 状态观察写失败不回滚业务数据，业务失败不生成成功状态
-  - 专用 lane 与 GENERAL 隔离；或批准的例外具备量化证据
 - Frontend（如显示或交互变化）：
   - 页面能看到动作
   - 表单控件正确
@@ -911,7 +907,7 @@ cd frontend && npm run typecheck && npm run test && npm run build
 - [ ] DatasetDefinition 完整事实合同已填写，与当前模型和 linter 一致
 - [ ] 新数据集没有旧执行术语或旧路由
 - [ ] 没有新增 `__ALL__` / `__all__` 业务占位值
-- [ ] 没有私自新增 checkpoint / acquire / 第二套任务状态机；如为长任务，0.3.5 已批准且续跑来源明确
+- [ ] 没有私自新增 checkpoint / acquire / 第二套任务状态机；如为 Prod 数据集长任务，0.3.5 已批准且续跑来源明确
 - [ ] ORM、DAO、迁移一致
 - [ ] Alembic `down_revision` 已按真实 `alembic heads` 确认
 - [ ] `target_table` 能被 table model registry 发现
@@ -921,13 +917,13 @@ cd frontend && npm run typecheck && npm run test && npm run build
 - [ ] `DatasetActionResolver` 测试覆盖该数据集的时间输入归一化
 - [ ] 测试覆盖 `TaskRun.time_input_json -> DatasetActionResolver.build_plan() -> PlanUnit.request_params`
 - [ ] 单事务写入量已真实评估并写入 `transaction.write_volume_assessment`
-- [ ] 已判断是否属于长任务；适用时已验证批量内存上限、分批持久化、取消、进程退出、续跑、幂等、进度单调、节点终态和 lane 隔离
+- [ ] 已判断目标是否为 Prod 数据集；仅在是时判断是否属于长任务，并在适用时验证批量内存上限、分批持久化、取消、进程退出、续跑、幂等、进度单调和节点终态
 - [ ] 分页已用项目实际 connector（或同等请求层）验证第二页、short page 和分页合并唯一键集合；未用无日期/宽区间截断结果充当基准
 - [ ] request builder、unit planner、normalizer、writer 均有测试
 - [ ] 同批冲突键不会被 DAO 静默最后一行覆盖；冲突的结构化错误和样本可追溯
 - [ ] reject reason code 和 rejected reason samples 可解释，任何 reject 都有字段和值样本
 - [ ] TaskRun 详情展示可读，无重复错误信息
-- [ ] 长任务页面显示阶段、当前对象、完成量、总量、百分比和最后更新时间；30 秒内有可见更新，ETA 不可靠时明确不展示估算
+- [ ] Prod 数据集长任务页面显示阶段、当前对象、完成量、总量、百分比和最后更新时间；30 秒内有可见更新，ETA 不可靠时明确不展示估算
 - [ ] 数据源卡片和数据状态页展示正确；direct-serving 的无 raw 层与 target/serving fallback 已验证，raw-backed 页面无回归
 - [ ] 若 filter 有条件时间 / 范围约束：Manual Action API、前端控件与 resolver / planner 拒绝逻辑一致
 - [ ] 若使用 source readiness probe：schedule API、binding service、runtime 防篡改和按目标日期去重都已覆盖；生产 schedule 的创建权限和持久化来源已确认
@@ -954,7 +950,7 @@ cd frontend && npm run typecheck && npm run test && npm run build
 - 如需生产排程 / probe rule：创建入口、持久化位置、启用顺序和授权人；不得在 Alembic 中隐式 seed：
 - 是否需要重建数据状态：`goldenshare ops-rebuild-dataset-status`
 - 最小真实同步命令：
-- 长任务最小运行 / 取消 / 续跑 / 读回命令与证据：
+- Prod 数据集长任务最小运行 / 取消 / 续跑 / 读回命令与证据：
 - 验收查询 SQL：
 - 回滚方式：
 - 风险点与处理：
