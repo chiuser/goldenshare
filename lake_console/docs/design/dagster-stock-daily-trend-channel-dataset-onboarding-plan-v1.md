@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M2 已完成；数据合同、Catalog、独立分区和纯 DuckDB 公式内核已落地，尚未实现趋势资产、部署、写入正式 Lake 或启用 Sensor
+状态：M0～M3 已完成；每日双资产、共享候选审计、双文件提升和三个 blocking checks 已落地，尚未实现 Job/Sensor、repair、bootstrap、本地 Wealth、部署或正式写湖
 
 日期：2026-09-01
 
@@ -1134,9 +1134,15 @@ formula_version_mismatch
 
 ### M3：Assets、Checks 与每日写入
 
-- 实现 multi_asset、candidate validation、atomic replace。
-- 实现三个 blocking checks。
-- 验证普通日、停牌 carry、新上市初始化和退市退出。
+- 状态：已完成（2026-09-01）。
+- 已实现不可子集化的 result/state `multi_asset`，静态依赖保持为 qfq 同分区映射及 stock basic、lifecycle、trade calendar；previous state 仍由前一 expected date 文件显式承接，不伪造同分区依赖。
+- 一个 configured DuckDB connection 内完成输入拒绝、observed 计算、停牌 carry、未初始化统计和两份 run-scoped candidate 写入；单日 qfq/lifecycle 继续执行 10000 行硬门禁，无 Python 股票明细循环。
+- `audit_stock_daily_trend_channel_result()`、`audit_stock_daily_trend_channel_state()`、`audit_stock_daily_trend_channel_state_coverage()` 已成为 candidate 与三个 ordinary checks 的唯一审计事实源；正式检查不重算 EMA。
+- 提升顺序固定为“两个候选全部通过 -> state -> result”；第二次提升失败时移除正式 state 并恢复本 run state candidate，不发出任何 materialization。
+- 已覆盖普通交易日、停牌 carry、新上市未初始化/首次 qfq 初始化、退市半开边界、目标存在、候选失败、第二文件提升失败、qfq 非法输入、previous state 重复/非法 raw/倒挂/版本不一致和三个 checks 正负样本。
+- 以冻结上限 5547 条 qfq、5565 条 lifecycle 的本地合成日样本验证完整 writer，result/state 各 5547 行，18 个未初始化代码，端到端 182.202 ms、temp spill 0，低于 120 s/1 GiB 日常门禁。
+- M3 直接测试 20 passed；合同、公式、Catalog、治理和静态门禁定向回归 172 passed、593 个 subtests passed；orchestrator 全量回归 2508 passed、853 个 subtests passed，修改文件 Ruff 与 `git diff --check` 通过。
+- 本里程碑未实现 Job/Sensor、batch readiness、repair、bootstrap 或 API，未写正式 Lake、staging root 或 Dagster event；M4 为下一停止点。
 
 ### M4：06:00 注册与日常 readiness 链
 

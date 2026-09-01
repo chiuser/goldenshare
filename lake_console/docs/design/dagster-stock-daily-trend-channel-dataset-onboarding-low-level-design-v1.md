@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：M0～M2 已完成；实施级合同与公式内核已落地，R3 为下一停止点，尚未实现趋势资产、部署、写入正式 Lake 或启用 Sensor
+状态：M0～M3 已完成；每日双资产、共享候选审计、双文件提升和三个 blocking checks 已落地，R4 为下一停止点，尚未实现 Job/Sensor、repair、bootstrap、本地 Wealth、部署或正式写湖
 
 日期：2026-09-01
 
@@ -1649,7 +1649,17 @@ wealth/src/pages/stock-detail/StockDetailPage.tsx
 
 ### R3：每日 assets/checks
 
-实现 multi_asset、候选审计、双文件提升和三个 checks。
+已完成（2026-09-01）：
+
+1. 新增不可子集化的 `gold_stock_daily_trend_channel_assets`，一次 run 同时生成 result 和 state，静态依赖严格保持 qfq identity mapping、stock basic、lifecycle 和 trade calendar。
+2. 日常 writer 在一个 configured DuckDB connection 内完成输入拒绝、observed 结果、停牌 carry、未初始化统计和两份 run-scoped candidate 写入；正式 result 只含 qfq 实际行，state 使用 `list_date <= T < delist_date` 半开生命周期。
+3. 三个公共 audit helper 同时服务 candidate 和 ordinary checks；审计覆盖单文件/分区路径、精确 schema、键、值域、版本、qfq 一一对账、state 生命周期及 observed/carry/uninitialized 聚合等式，不重算 EMA。
+4. 两个候选全部通过后才按 state、result 顺序原子提升；第二文件失败时删除未发事件的正式 state 并恢复 state candidate，保留本 run 诊断。
+5. 新增三个显式分区、blocking checks，并从 Catalog 合同态切换为当前自动发现的正式 asset/check 定义；治理分类保持等待 R4 batch readiness 的既定口径。
+6. M3 直接测试 20 passed，覆盖普通日、停牌 carry、新上市初始化、退市边界、目标冲突、候选失败、第二提升失败、qfq/previous state 全部拒绝规则和 checks 正负样本。
+7. 冻结上限 5547 条 qfq、5565 条 lifecycle 的本地合成日样本完成 result/state 各 5547 行，18 个未初始化代码，完整 writer 端到端 182.202 ms、temp spill 0，低于 120 s/1 GiB 日常门禁。
+8. 合同、公式、Catalog、治理和静态门禁定向回归 172 passed、593 个 subtests passed；orchestrator 全量回归 2508 passed、853 个 subtests passed；修改文件 Ruff、定义自动发现和 `git diff --check` 均通过。
+9. 未实现 Job/Sensor、batch readiness、repair、bootstrap 或 API，未执行正式 Lake/staging 写入或 Dagster event；R4 为下一停止点。
 
 ### R4：分区和每日调度
 

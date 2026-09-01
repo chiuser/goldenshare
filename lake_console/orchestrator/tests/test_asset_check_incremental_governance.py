@@ -414,8 +414,6 @@ PLANNED_CATALOG_ASSET_KEYS = {
         major_index_mins_technical_state_asset_key(freq)
         for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     ),
-    "gold_stock_daily_trend_channel",
-    "gold_stock_daily_trend_channel_state",
 }
 
 
@@ -498,14 +496,14 @@ def _planned_stock_daily_trend_channel_rules() -> dict[
                 "gold_stock_daily_trend_channel_input_coverage_check",
             ),
             category=MOVE_TO_SENSOR_LAKE_READINESS,
-            phase="STOCK_DAILY_TREND_CHANNEL",
+            phase="STOCK_DAILY_TREND_CHANNEL_R3",
             readiness=False,
             retention_allowed=True,
         ),
         "gold_stock_daily_trend_channel_state": _rules(
             ("gold_stock_daily_trend_channel_state_contract_check",),
             category=MOVE_TO_SENSOR_LAKE_READINESS,
-            phase="STOCK_DAILY_TREND_CHANNEL",
+            phase="STOCK_DAILY_TREND_CHANNEL_R3",
             readiness=False,
             retention_allowed=True,
         ),

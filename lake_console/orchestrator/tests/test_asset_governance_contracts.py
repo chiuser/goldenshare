@@ -118,6 +118,9 @@ from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
 from orchestrator.defs.assets.stock_daily_qfq_nineturn_prod_core import (
     prod_core_stock_daily_qfq_nineturn,
 )
+from orchestrator.defs.assets.stock_daily_trend_channel import (
+    gold_stock_daily_trend_channel_assets,
+)
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_return_distribution import (
@@ -263,6 +266,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_adj_factor,
     silver_adj_factor,
     gold_stock_daily_qfq,
+    gold_stock_daily_trend_channel_assets,
     gold_stock_daily_qfq_nineturn,
     prod_core_stock_daily_qfq_nineturn,
     raw_stk_mins_1m,
@@ -359,8 +363,6 @@ CONTRACT_ONLY_CATALOG_ASSET_KEYS = {
     "gold_major_index_mins_technical_state_60m",
     "gold_major_index_mins_technical_state_90m",
     "gold_major_index_mins_technical_state_120m",
-    "gold_stock_daily_trend_channel",
-    "gold_stock_daily_trend_channel_state",
 }
 
 
