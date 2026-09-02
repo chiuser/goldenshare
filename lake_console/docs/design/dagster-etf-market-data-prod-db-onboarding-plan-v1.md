@@ -1,8 +1,8 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：已结案；P0-P10 代码/隔离验收、首次正式 Raw/Silver Bootstrap、P7A、N3B、159 个历史动态分区、1,590 条 materialization、500 条 check events 及 P9 post-audit 均已闭合；五个 Sensor 保持 Definitions 默认 `STOPPED`，并已于 2026-08-31 经逐层授权在正式实例启用，首个自然生产日 Raw/Silver 闭环验收通过
+状态：已结案；P0-P11 全部闭合；首次 2026 年 Bootstrap 与日常链验收已完成，2025 全年正式补录又新增 243 个历史分区、1,215 个 Raw 与 1,215 个 Silver 文件、2,430 条 materialization 和 500 条 check events，2026 年及以后保护文件零变化；五个 Sensor 保持 Definitions 默认 `STOPPED`，正式实例最终均为 `RUNNING`
 创建日期：2026-08-27
-最近更新：2026-09-01
+最近更新：2026-09-02
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
 
 上游已落地方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
@@ -696,11 +696,15 @@ P9 代码与隔离验收已完成。现有同一个 Bootstrap CLI 已加入 `par
 
 正式启用与首日验收结果：2026-08-31 经逐层授权，交易日分区、Basic Raw、Basic Silver、分钟 Raw、分钟 Silver 五个 Sensor 已在正式实例启用。当天 Basic Raw/Silver 已有同日正式成功 materialization，因此对应 Sensor 按 `all_ready` 跳过，没有重复请求；交易日 Sensor 将 `2026-08-31` 注册到专属动态分区。分钟 Raw Sensor 在一次五频 coverage 通过后触发 run `e4b97bf8-e528-40fc-af86-10f152a5452a`，五频共写入 528,687 行，5 个 Raw 文件和 15 项 blocking checks 全部通过。随后分钟 Silver Sensor 触发 run `55f90427-e3c9-4954-9798-11343e5c7e48`，生成与 Raw 行数一致的 5 个 Silver 文件，同一 run 中 25 项 Raw/Silver blocking checks 全部通过。2026-09-01 06:59 结案反查确认五个 Sensor 均为 `RUNNING`，四类 ETF update job 活动任务均为 0。
 
-### P11：2026 年以前独立补录
+### P11：2026 年以前独立补录（已完成）
 
-等 Prod 对应范围同步完成后单独计划、单独授权；按执行时最新 Basic Silver 校验，不回溯历史 Basic，并严格执行第 12 节的 2026 年及以后 Raw/Silver 文件零变化门禁。若目标超过单 plan 的 10,000 文件上限，按互不重叠日期段拆分并串行验收。
+在 Prod 对应范围同步完成后单独计划、单独授权；按执行时最新 Basic Silver 校验，不回溯历史 Basic，并严格执行第 12 节的 2026 年及以后 Raw/Silver 文件零变化门禁。若目标超过单 plan 的 10,000 文件上限，按互不重叠日期段拆分并串行验收。
 
 P11 发生在日常链已经启用之后。正式执行时不新增跨路径锁，也不暂停全部五个 Sensor：从生成正式 `plan` 前开始，只暂停会写分钟文件的 `raw_etf_mins_update_job_sensor` 和 `silver_etf_mins_update_job_sensor`，并先确认对应分钟 update jobs 没有 `QUEUED/STARTED` 运行；两者一直保持暂停，直到同一 operation 完成 `events --post-audit`。Basic Raw/Silver Sensor 和交易日注册 Sensor 可以继续运行，因为 Basic 使用不可变内容版本，plan 会冻结其精确 reference，而交易日 Sensor 不写分钟文件。P11 最终验收通过后再恢复两条分钟 Sensor。
+
+正式执行结果：2026-09-01 至 2026-09-02，operation `etf-mins-bootstrap-2025-20260901-01` 完成 `2025-01-01..2025-12-31` 补录。plan 冻结 243 个 SSE 交易日、5 个频率、1,648 个可请求代码和 1,215 个目标文件；全程按 1 次 coverage 加 65 次明细查询的有界形状执行。Raw 新增 1,215 个文件、93,994,578 行，0 reused、0 零行；本地 N3A/N3B 将 1,215 个分区判为 605 green、610 WARN、0 blocked，全部可准入，唯一 WARN 原因是 `full_zero_volume_etf_day_observed`。Silver 随后新增 1,215 个文件、93,994,578 行，与 Raw 逐文件等价。
+
+P9 为这次补录新增 243 个动态分区，专属分区集最终共有 404 个日期，其中 2025 年 243 个、2026 年 161 个；随后追加 1,215 条 Raw 与 1,215 条 Silver materialization，并补最近 20 个交易日 500 条 blocking checks。最终 post-audit 的待补 materialization/check 均为 0，正式文件验证覆盖 2,430 个文件、2,600,160,418 字节。2026 年及以后保护清单写前写后 hash 均为 `e75d5a718fe8f5b1a1f147e40b4c73caf5fada09050c2cdeaa6cad8b53d908c2`，证明未改动保护范围。验收后两条分钟 Sensor 按原有正式 origin 恢复；2026-09-02 最终只读反查确认五个 ETF Sensor 均为 `RUNNING`，四个 ETF update job 均无活动运行。
 
 ---
 
@@ -740,11 +744,12 @@ P11 发生在日常链已经启用之后。正式执行时不新增跨路径锁�
 
 ### 16.2 正式启用与结案状态
 
-当前没有需要补充拍板的架构口径或剩余上线授权。P0-P10 代码与隔离验收、首次正式 Raw/Silver Bootstrap、正式 P7A 观察、N3B policy/decision、历史动态分区、Runless events、最终 post-audit、五个 Sensor 的正式启用和首个自然生产日 Raw/Silver 观察均已完成。
+当前没有需要补充拍板的架构口径或剩余上线授权。P0-P11 代码、隔离验收和正式执行均已闭合：首次 Raw/Silver Bootstrap、正式 P7A 观察、N3B policy/decision、历史动态分区、Runless events、最终 post-audit、五个 Sensor 的正式启用和首个自然生产日 Raw/Silver 观察均已完成；2025 全年独立补录也已完成并证明 2026 年及以后保护范围零变化。
 
 | 阶段门禁 | 已确认事项 | 结案结果 |
 | --- | --- | --- |
 | N6 | Basic 与分钟 Sensor 仅在上海时间 `21:00（含）—24:00（不含）` 工作，窗口外必须在任何资源或状态访问前 skip | 代码与隔离测试、正式启用和首日自然运行均已通过；Definitions 仍默认 `STOPPED`，正式实例五个 Sensor 均为 `RUNNING` |
+| P11 | 2025 年补录只新增批准历史范围，写前写后复算 2026 年及以后 Raw/Silver 保护清单 | 243 个交易日、1,215 个 Raw 和 1,215 个 Silver 文件、2,430 条 materialization、500 条 checks 全部闭合；保护 hash 零变化 |
 
 ---
 
@@ -767,7 +772,7 @@ P11 发生在日常链已经启用之后。正式执行时不新增跨路径锁�
 4. Prod 单次导出 relation、staging、Raw、Silver 在批准范围内完成行数、主键、字段值和覆盖分类对账；Raw asset 没有重复 coverage 或导出后 Prod 扫描，ETF 链也未读取任何 Prod `ops.*` 状态表。
 5. blocking/WARN 已由本地 Raw DuckDB N3 审计冻结，不靠猜测，也不依赖 Prod 全量深扫；日常同日五频只做一次 N3 评估，五个 `bar_domain` blocking checks 绑定各自当前 Raw materialization，正式 Silver Job 在同一 run 内先执行这些 Raw checks。
 6. Bootstrap 可幂等续跑，冲突 fail-closed，不覆盖未授权正式文件。
-7. 2026 年以前补录演练证明 2026 年及以后 Raw/Silver 文件的层级、路径、行数、大小和 SHA-256 全部零变化。
+7. 2025 全年正式补录已经证明 2026 年及以后 Raw/Silver 文件的层级、路径、行数、大小和 SHA-256 全部零变化。
 8. 历史物理文件验收后，先注册批准范围内的动态分区，再补事件；Sensor 在 Definitions 中默认 `STOPPED`，经单独授权后已在正式实例启用并完成首个自然生产日验收。
 9. 历史补录没有回溯历史 Basic，最新 Basic 变化没有删除或重写任何已有分钟历史。
 10. 分钟链未使用旧 Lake、Kopia、ETF × 频率 N+1 Prod 查询或 Python 逐行大数据处理；Tushare 只由 Basic 自身的正式快照 Job 请求一次完整分页链。
