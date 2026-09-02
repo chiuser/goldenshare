@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：M0～M5 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job/Sensor 和 exact-batch 趋势 repair 已落地，R6 为下一停止点，尚未实现 bootstrap、本地 Wealth、部署、正式写湖或 Sensor 启用
+状态：M0～M6 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job/Sensor、exact-batch 趋势 repair 和历史 bootstrap 工具已落地，R7 为下一停止点，尚未实现本地 Wealth、部署、正式写湖、runless event backfill 或 Sensor 启用
 
 日期：2026-09-02
 
@@ -74,7 +74,7 @@ AND 正式趋势结果目录可读
 
 ### 2.1 CodeGraph 审计范围
 
-本轮以仓库根 `/Users/congming/github/goldenshare` 的健康索引为准，索引包含 2,984 个文件。影响面覆盖：
+本轮以仓库根 `/Users/congming/github/goldenshare` 的健康索引为准；M6 完成后同步状态为 3,006 个文件、54,718 个节点、137,040 条边。影响面覆盖：
 
 1. `gold_stock_daily_qfq` 资产、普通 check、repair plan、repair op/job/run-status sensor。
 2. `GoldStockDailyQfqFactorRepairStatus` 及 repair metadata 消费者。
@@ -1190,11 +1190,13 @@ plan_hash
 
 在全部正式文件物理对账通过后：
 
-1. 为两个资产的每个已提升分区报告 materialization event。
-2. ordinary check event 只补最近 20 个 expected dates加最新日期，去重后最多 21 个分区。
-3. check event 必须绑定对应 materialization storage id。
-4. dry-run 先输出 exact event count 和范围。
-5. 不存在物理 materialization 的分区不得报告 check。
+1. 先把批准范围内尚未登记的日期批量加入 `cn_a_stock_daily_trend_channel_trade_days`；sample 只登记 sample 日期，full apply 登记剩余日期。登记数量不得超过批准分区数。
+2. 为两个资产的每个已提升分区报告 materialization event。
+3. ordinary check event 只补最近 20 个 expected dates加最新日期，去重后最多 21 个分区。
+4. check event 必须绑定对应 materialization storage id。
+5. dry-run 先输出 exact partition registration、materialization 和 check event 数量及范围。
+6. 不存在物理 materialization 的分区不得报告 check。
+7. event checkpoint 和审阅报告必须位于正式 Lake 与候选 staging 之外；event 模块不得导入候选写入路径或修改任何正式文件。
 
 event 上限：
 
@@ -1731,7 +1733,22 @@ wealth/src/pages/stock-detail/StockDetailPage.tsx
 
 ### R6：bootstrap 工具
 
-只完成工具和 dry-run 验证；正式执行需另行批准。
+状态：已完成（2026-09-02）。
+
+1. 新增 `stock_daily_trend_channel_history.py` 和 CLI，提供 `plan / sample / benchmark / generate / audit-files / promote / final-audit`；新增独立 runless event 模块和 CLI，提供 `dry-run / sample / apply / final-audit`。物理命令与事件命令互不调用。
+2. `plan` 枚举全部正式 qfq 日期，要求每个分区只有精确 `part-000.parquet`，冻结源文件行数、大小、SHA-256、lifecycle SHA-256、13 个以内的 250 日 segment、目标冲突和磁盘预算。M0 的 `3079 partitions / 11,710,697 rows / 5565 codes` 继续作为性能基线；M6 完成日的正式只读 plan 已增长为 `3080 partitions / 11,716,243 rows / 5567 codes`，不把历史快照写成固定数据门禁。
+3. `sample/benchmark` 只允许写 `/private/tmp` 子目录；`generate` 只允许把候选和物理 checkpoint 写入正式 staging 根下。每个 segment 使用一个 configured DuckDB connection，公式计算和审计均为集合 SQL；候选行数通过一次批量 filename 聚合读取，不逐文件新建连接。
+4. 历史输出显式保留正式 schema 列名和类型。对外 4 位小数结果、状态、枚举和版本逐值等同每日路径；内部 raw state 按既有公式金样本合同使用 `abs <= 1e-10` 的浮点等价门限，不改变序列化结果或状态判定。
+5. 新增 history segment readiness helper：一次规划最多 250 日的 result/state/qfq/previous-state 文件，以一次 schema 查询和一次集合审计查询复用 result/state/coverage 共享规则内核；不在 Python 日期循环中执行单日重审计。
+6. checkpoint 只记录已完成 segment、精确候选文件身份和 audit 摘要；候选文件缺失、大小或 hash 漂移时不复用，按原 segment 重算。promotion checkpoint 只记录已完整提升日期；同日按 state -> result 提升，中断重试接受已存在且 hash 完全一致的目标，冲突目标立即停止。
+7. `audit-files` 要求全部 segment 完成并再次集合审计；`promote` 要求精确 audit hash；物理 `final-audit` 要求精确 promote hash，并重新验证全部正式文件与跨 segment state 连续性。
+8. runless event plan 只接受 green promote/final-audit 报告和未漂移的正式文件；先登记缺失动态分区，再补两个资产的 materialization。checks 只覆盖最近 20 日与最新日期的去重并集，绑定最新 materialization storage id；materialization 上限为 `2 * approved partitions`，ordinary check 上限为 `21 * 3`。
+9. event apply 在任何 active Dagster run、数量越界、物理路径/大小/hash 漂移或缺少显式确认时 fail closed。event checkpoint 与报告被强制隔离在正式 Lake 和候选 staging 之外；event 失败测试证明正式文件 hash 不变。
+10. M6 专项测试 `11 passed`，覆盖全 qfq 范围与退市股票、lifecycle 缺口、dry-run 零写入、每日路径 parity、停牌 state carry、候选损坏重算、promotion 中断续跑、动态分区登记、event 数量与 materialization 绑定、event 失败文件不变、控制文件路径隔离和错误确认参数。
+11. M0～M6 趋势通道合同、公式、每日、readiness、repair 和 bootstrap 回归 `88 passed`；热路径、治理和静态门禁 `130 passed`、`593` 个 subtests，Definitions `validate_loadable` 通过，根依赖矩阵 `4 passed`，文档完整性通过。
+12. orchestrator 全量回归沿用既有 RSS 隔离口径：主套件 `2530 passed`、`853` 个 subtests，`test_major_index_nineturn_m4b.py` 独立进程 `18 passed`，合计 `2548 passed`。
+13. 2026-09-02 正式 Lake 只读 `plan` 结果：`2014-01-02～2026-09-01`、`3080` 个 qfq 分区、`11,716,243` 行、`5567` 个历史代码、`14` 个退市历史代码、`13` 个 segment；lifecycle 缺口 `0`、目标冲突 `0`、预计 materialization/check event `6160/63`、`should_stop=false`。随后使用精确 plan id/hash/range 执行 `generate` dry-run，候选和正式文件数均为 0，未创建 staging 目录或 checkpoint。该 `/private/tmp` 报告只用于 M6 验证，正式执行前仍须重新生成并审批新 plan。
+14. 未运行 `dg`、未访问正式 Dagster runtime、未写正式 Lake/staging、未报告正式 runless event、未启用 Sensor、未部署；R7 为下一停止点。正式 bootstrap 与 event backfill 仍需管理员逐命令单独批准。
 
 ### R7：本地 Wealth
 

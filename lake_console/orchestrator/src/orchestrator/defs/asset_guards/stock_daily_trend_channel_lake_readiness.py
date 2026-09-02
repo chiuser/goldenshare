@@ -27,6 +27,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.stock_daily_trend_channel import (
     FORMULA_VERSION,
+    SEGMENT_TRADE_DAY_LIMIT,
     StockDailyTrendChannelCoverageRuleMetrics,
     StockDailyTrendChannelResultRuleMetrics,
     StockDailyTrendChannelStateRuleMetrics,
@@ -78,6 +79,137 @@ class StockDailyTrendChannelBatchReadiness(ContinuityBatchReadiness):
             }
         )
         return details
+
+
+@dataclass(frozen=True)
+class StockDailyTrendChannelHistorySegmentAudit:
+    """Set-based audit evidence for one bounded history segment."""
+
+    trade_dates: tuple[str, ...]
+    statuses_by_trade_date: Mapping[str, ContinuityDateReadiness]
+    elapsed_ms: int
+    scanned_file_count: int
+    sql_count: int
+    slowest_query_ms: int
+
+    @property
+    def passed(self) -> bool:
+        return bool(self.trade_dates) and all(
+            self.statuses_by_trade_date[trade_date].ready
+            for trade_date in self.trade_dates
+        )
+
+    @property
+    def failed_trade_dates(self) -> tuple[str, ...]:
+        return tuple(
+            trade_date
+            for trade_date in self.trade_dates
+            if not self.statuses_by_trade_date[trade_date].ready
+        )
+
+
+def audit_stock_daily_trend_channel_history_segment(
+    *,
+    connection,
+    trade_dates: Sequence[str],
+    result_paths: Mapping[str, Path],
+    state_paths: Mapping[str, Path],
+    qfq_paths: Mapping[str, Path],
+    lifecycle_path: Path,
+    previous_state_path: Path | None,
+) -> StockDailyTrendChannelHistorySegmentAudit:
+    """Audit up to 250 history dates with two set-based DuckDB queries."""
+
+    started_at = perf_counter()
+    normalized_dates = _normalize_trade_dates(trade_dates)
+    if not normalized_dates:
+        raise ValueError("history segment trade dates must not be empty.")
+    if len(normalized_dates) > SEGMENT_TRADE_DAY_LIMIT:
+        raise ValueError(
+            "history segment exceeds the trend-channel trade-day limit: "
+            f"{len(normalized_dates)} > {SEGMENT_TRADE_DAY_LIMIT}."
+        )
+    expected_keys = set(normalized_dates)
+    for label, paths in (
+        ("result", result_paths),
+        ("state", state_paths),
+        ("qfq", qfq_paths),
+    ):
+        if set(paths) != expected_keys:
+            raise ValueError(f"history {label} paths must match the exact date scope.")
+    required_paths = tuple(
+        dict.fromkeys(
+            [lifecycle_path]
+            + [result_paths[value] for value in normalized_dates]
+            + [state_paths[value] for value in normalized_dates]
+            + [qfq_paths[value] for value in normalized_dates]
+            + ([previous_state_path] if previous_state_path is not None else [])
+        )
+    )
+    missing_paths = tuple(path for path in required_paths if not path.is_file())
+    if missing_paths:
+        raise FileNotFoundError(
+            "history segment audit inputs are missing: "
+            + ", ".join(str(path) for path in missing_paths[:20])
+        )
+
+    output_paths = tuple(
+        [result_paths[value] for value in normalized_dates]
+        + [state_paths[value] for value in normalized_dates]
+    )
+    schema_started_at = perf_counter()
+    schema_by_path = _load_parquet_schemas(connection, output_paths)
+    schema_elapsed_ms = _elapsed_ms(schema_started_at)
+    expected_result_schema = tuple(
+        (column.name, column.type.upper())
+        for column in GOLD_STOCK_DAILY_TREND_CHANNEL_SCHEMA
+    )
+    expected_state_schema = tuple(
+        (column.name, column.type.upper())
+        for column in GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_SCHEMA
+    )
+    schema_failures = tuple(
+        trade_date
+        for trade_date in normalized_dates
+        if schema_by_path.get(result_paths[trade_date]) != expected_result_schema
+        or schema_by_path.get(state_paths[trade_date]) != expected_state_schema
+    )
+    if schema_failures:
+        raise ValueError(
+            "history segment schema contract failed: " + ", ".join(schema_failures[:20])
+        )
+
+    previous_paths: dict[str, Path | None] = {}
+    previous = previous_state_path
+    for trade_date in normalized_dates:
+        previous_paths[trade_date] = previous
+        previous = state_paths[trade_date]
+    audit_started_at = perf_counter()
+    audit_rows = _load_batch_audit_rows(
+        connection,
+        trade_dates=normalized_dates,
+        result_paths=result_paths,
+        state_paths=state_paths,
+        qfq_paths=qfq_paths,
+        lifecycle_path=lifecycle_path,
+        previous_state_paths=previous_paths,
+    )
+    audit_elapsed_ms = _elapsed_ms(audit_started_at)
+    statuses = {
+        trade_date: _status_from_audit_row(
+            trade_date=trade_date,
+            row=audit_rows[trade_date],
+        )
+        for trade_date in normalized_dates
+    }
+    return StockDailyTrendChannelHistorySegmentAudit(
+        trade_dates=normalized_dates,
+        statuses_by_trade_date=statuses,
+        elapsed_ms=_elapsed_ms(started_at),
+        scanned_file_count=len(required_paths),
+        sql_count=2,
+        slowest_query_ms=max(schema_elapsed_ms, audit_elapsed_ms),
+    )
 
 
 @dataclass(frozen=True)
@@ -203,9 +335,7 @@ def batch_gold_stock_daily_trend_channel_readiness(
                 reason="target_audit_input_missing",
                 failed_check_names=STOCK_DAILY_TREND_CHANNEL_ALL_CHECKS,
                 summary={
-                    "failure_rule_counts": {
-                        "required_file_exists": len(missing_inputs)
-                    }
+                    "failure_rule_counts": {"required_file_exists": len(missing_inputs)}
                 },
             )
             continue
@@ -307,8 +437,7 @@ def batch_gold_stock_daily_trend_channel_readiness(
         else None
     )
     scanned_file_count = sum(
-        int(result_paths[trade_date].is_file())
-        + int(state_paths[trade_date].is_file())
+        int(result_paths[trade_date].is_file()) + int(state_paths[trade_date].is_file())
         for trade_date in trade_dates
     ) + int(boundary_state_path is not None and boundary_state_path.is_file())
     return StockDailyTrendChannelBatchReadiness(
@@ -385,9 +514,7 @@ def _load_parquet_schemas(
     ).fetchall()
     return {
         path: tuple(
-            (str(row[1]), str(row[2]))
-            for row in rows
-            if str(row[0]) == str(path)
+            (str(row[1]), str(row[2])) for row in rows if str(row[0]) == str(path)
         )
         for path in paths
     }
@@ -932,12 +1059,13 @@ def _path_date_values_sql(
     trade_dates: Sequence[str],
 ) -> str:
     if not trade_dates:
-        return (
-            "SELECT CAST(NULL AS VARCHAR), CAST(NULL AS DATE) WHERE false"
-        )
+        return "SELECT CAST(NULL AS VARCHAR), CAST(NULL AS DATE) WHERE false"
     return "VALUES " + ", ".join(
-        "(" + duckdb_string(paths_by_trade_date[trade_date]) + ", DATE "
-        + duckdb_string(trade_date) + ")"
+        "("
+        + duckdb_string(paths_by_trade_date[trade_date])
+        + ", DATE "
+        + duckdb_string(trade_date)
+        + ")"
         for trade_date in trade_dates
     )
 

@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M5 已完成；每日链路与 exact-batch 趋势 repair 已落地，尚未实现 bootstrap、本地 Wealth、部署、正式写湖或 Sensor 启用
+状态：M0～M6 已完成；每日链路、exact-batch 趋势 repair 和受控历史 bootstrap 工具已落地，尚未实现本地 Wealth、部署、正式写湖、runless event backfill 或 Sensor 启用
 
 日期：2026-09-02
 
@@ -1178,8 +1178,18 @@ formula_version_mismatch
 
 ### M6：历史 Bootstrap
 
-- 完成 plan/sample/generate/audit/promote/report-events/final-audit 工具链。
-- 正式执行仍需单独命令审批。
+- 状态：已完成（2026-09-02）。
+- 已实现 `plan / sample / benchmark / generate / audit-files / promote / report-events / final-audit` 工具链；物理文件命令与 Dagster event 命令分离，任何命令都不会同时写正式 Lake 和 event log。
+- `plan` 只从全部正式 qfq 单文件分区推导历史范围，冻结每个源文件的日期、路径、行数、大小和 SHA-256，并校验 lifecycle 覆盖、退市历史代码、目标冲突、同文件系统和磁盘预算；不使用当前股票池裁剪历史。
+- `generate` 以最多 250 个交易日为 segment，使用 configured DuckDB 集合 SQL 生成 result/state 候选；每段完成共享 schema/result/state/coverage 审计后才原子写 checkpoint。候选损坏或 hash 漂移会按原 scope 重算，不从不可信 checkpoint 继续递推。
+- `audit-files` 对全部候选做 segment 级集合审计；`promote` 只接受精确 plan/hash/range/audit hash，并按日期升序、同日 state -> result 提升。中断后保留已提升日期，重试时只接受与已审阅候选 SHA-256 完全相同的正式文件。
+- 物理 final audit 逐段复核正式文件 hash、schema、result/state/coverage 和跨 segment state 边界；通过后才允许进入 event 命令。
+- runless event 工具会先登记计划内缺失的独立动态分区，再为两个资产补 materialization；ordinary checks 只覆盖最近 20 个 expected dates 与最新日期的去重并集，最多 21 个分区、63 条，且每条 check 绑定对应 materialization storage id。
+- event apply 在任何 Dagster run 活跃、物理文件路径/大小/hash 漂移、事件数量越界或确认参数缺失时 fail closed；event checkpoint 和审阅报告不得进入正式 Lake 或候选 staging。
+- M6 专项测试 `11 passed`；M0～M6 趋势通道合同、公式、每日、readiness、repair 和 bootstrap 回归 `88 passed`；热路径、治理和静态门禁 `130 passed`、`593` 个 subtests，Definitions `validate_loadable` 通过，根依赖矩阵 `4 passed`，文档完整性通过。
+- orchestrator 全量回归沿用既有 RSS 隔离口径：主套件 `2530 passed`、`853` 个 subtests，`test_major_index_nineturn_m4b.py` 独立进程 `18 passed`，合计 `2548 passed`。
+- 2026-09-02 对正式 Lake 执行只读 `plan + generate dry-run`：范围为 `2014-01-02～2026-09-01`，`3080` 个 qfq 分区、`11,716,243` 行、`5567` 个历史代码、`14` 个退市历史代码、`13` 个 segment；lifecycle 缺口和目标冲突均为 0，预计 materialization/check event 为 `6160/63`，`should_stop=false`。dry-run 候选和正式文件数均为 0，未创建 staging 目录或 checkpoint。
+- 未运行 `dg`、未访问正式 Dagster runtime、未写正式 Lake/staging、未报告正式 runless event、未启用 Sensor、未部署；正式 bootstrap 和 event backfill 仍需单独命令审批。
 
 ### M7：本地 Wealth 接入
 
