@@ -22,6 +22,9 @@ from orchestrator.defs.jobs.gold_stock_daily_qfq_factor_repair import (
 from orchestrator.defs.jobs.gold_stock_daily_trend_channel_repair import (
     gold_stock_daily_trend_channel_repair_job,
 )
+from orchestrator.defs.partitions import (
+    cn_a_stock_daily_trend_channel_trade_days,
+)
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, silver_trade_calendar_path
 from orchestrator.defs.run_contracts.configs import (
     build_gold_stock_daily_trend_channel_repair_run_config,
@@ -239,6 +242,7 @@ def _cursor(
             sensor_name=SENSOR_NAME,
             job_name=JOB_NAME,
             asset_family="stock_daily_trend_channel",
+            partition_set=cn_a_stock_daily_trend_channel_trade_days.name,
             reason_code=decision.reason_code,
             blocked_component=("none" if decision.selected else decision.reason_code),
             summary=decision.reason,

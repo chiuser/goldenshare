@@ -25,6 +25,7 @@ from orchestrator.defs.asset_guards.stock_daily_trend_channel_lake_readiness imp
     StockDailyTrendChannelBatchReadiness,
     batch_gold_stock_daily_trend_channel_readiness,
 )
+from orchestrator.defs.assets import stock_daily_trend_channel as asset_module
 from orchestrator.defs.jobs.stock_daily_trend_channel_update import (
     gold_stock_daily_trend_channel_update_job,
 )
@@ -77,6 +78,44 @@ from tests.test_stock_daily_trend_channel_m3 import (
 
 DAY_1 = "2026-08-27"
 DAY_2 = "2026-08-28"
+
+
+def test_daily_materialization_metadata_uses_registered_stock_basic_key() -> None:
+    write_result = SimpleNamespace(
+        state_path=Path("/lake/state.parquet"),
+        result_path=Path("/lake/result.parquet"),
+        qfq_source_path=Path("/lake/qfq.parquet"),
+        previous_state_path=None,
+        stock_basic_path=Path("/lake/stock_basic.parquet"),
+        stock_lifecycle_path=Path("/lake/stock_lifecycle.parquet"),
+        source_row_count=1,
+        output_row_count=1,
+        observed_state_row_count=1,
+        carried_state_row_count=0,
+        uninitialized_lifecycle_code_count=0,
+        candidate_bytes=128,
+        elapsed_ms=1.5,
+        peak_memory_bytes=None,
+        temp_spill_bytes=0,
+        observed_state_columns=("ts_code",),
+        observed_result_columns=("ts_code",),
+    )
+
+    state_metadata = asset_module._state_materialization_metadata(
+        write_result=write_result,
+        partition_key=DAY_1,
+    )
+    result_metadata = asset_module._result_materialization_metadata(
+        write_result=write_result,
+        partition_key=DAY_1,
+    )
+
+    for metadata in (state_metadata, result_metadata):
+        assert metadata["goldenshare/stock_basic_file_path"] == (
+            "/lake/stock_basic.parquet"
+        )
+        assert "stock_basic_path" not in metadata
+        assert "goldenshare/stock_basic_path" not in metadata
 
 
 def _write_ready_days(

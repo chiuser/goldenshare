@@ -627,7 +627,7 @@ formula_key
 formula_version
 qfq_source_path
 previous_state_path
-stock_basic_path
+stock_basic_file_path
 stock_lifecycle_path
 source_row_count
 output_row_count

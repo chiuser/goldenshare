@@ -1,3 +1,4 @@
+import json
 import os
 from contextlib import nullcontext
 from dataclasses import replace
@@ -10,6 +11,7 @@ import pytest
 
 import orchestrator.defs.asset_guards.stock_daily_trend_channel_repair as repair_guard
 import orchestrator.defs.ops.gold_stock_daily_trend_channel_repair as repair_op_module
+import orchestrator.defs.sensors.gold_stock_daily_trend_channel_repair_job_sensor as repair_sensor
 import orchestrator.defs.sensors.stock_daily_trend_channel_sensor as daily_sensor
 from orchestrator.defs.asset_guards.stock_daily_qfq_factor_repair import (
     GoldStockDailyQfqFactorRepairStatus,
@@ -23,6 +25,9 @@ from orchestrator.defs.asset_guards.stock_daily_trend_channel_repair import (
 )
 from orchestrator.defs.jobs.gold_stock_daily_trend_channel_repair import (
     gold_stock_daily_trend_channel_repair_job,
+)
+from orchestrator.defs.partitions import (
+    cn_a_stock_daily_trend_channel_trade_days,
 )
 from orchestrator.defs.paths import (
     gold_stock_daily_qfq_path,
@@ -441,6 +446,62 @@ def test_repair_sensor_contract_and_run_key_are_exact() -> None:
     )
     assert gold_stock_daily_trend_channel_repair_job_sensor.default_status == (
         dg.DefaultSensorStatus.STOPPED
+    )
+
+
+def test_repair_sensor_cursor_uses_trend_partition_set() -> None:
+    selected = build_stock_daily_trend_channel_repair_run_status_decision(
+        qfq_factor_repair_trade_date="2026-08-31",
+        repair_end_trade_date="2026-08-28",
+        qfq_factor_repair_status=_status(),
+    )
+    no_op = build_stock_daily_trend_channel_repair_run_status_decision(
+        qfq_factor_repair_trade_date="2026-08-31",
+        repair_end_trade_date="2026-08-28",
+        qfq_factor_repair_status=_status(code_count=0, repair_required=False),
+    )
+
+    for decision in (selected, no_op):
+        payload = json.loads(repair_sensor._cursor(decision))
+        assert payload["details"]["partition_set"] == (
+            cn_a_stock_daily_trend_channel_trade_days.name
+        )
+
+
+def test_repair_sensor_evaluation_returns_run_and_cursor(monkeypatch) -> None:
+    status = _status()
+    monkeypatch.setattr(
+        repair_sensor,
+        "_qfq_config_from_run",
+        lambda _run: ("2026-08-31", "qfq-batch"),
+    )
+    monkeypatch.setattr(
+        repair_sensor,
+        "_previous_expected_trade_date",
+        lambda _trade_date: "2026-08-28",
+    )
+    monkeypatch.setattr(
+        repair_sensor,
+        "gold_stock_daily_qfq_factor_repair_status",
+        lambda _instance, _trade_date, *, upstream_batch_id: status,
+    )
+    monkeypatch.setattr(
+        repair_sensor,
+        "gold_stock_daily_trend_channel_repair_completion_status",
+        lambda _instance, **_kwargs: SimpleNamespace(ready=False),
+    )
+
+    result = repair_sensor._evaluate_sensor(
+        SimpleNamespace(dagster_run=object(), instance=object())
+    )
+
+    assert len(result.run_requests) == 1
+    assert result.run_requests[0].run_key == (
+        f"gold_stock_daily_trend_channel_repair:{FORMULA_VERSION}:qfq-batch"
+    )
+    payload = json.loads(result.cursor)
+    assert payload["details"]["partition_set"] == (
+        cn_a_stock_daily_trend_channel_trade_days.name
     )
 
 

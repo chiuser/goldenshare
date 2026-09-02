@@ -263,7 +263,7 @@ def _shared_materialization_metadata(
             if write_result.previous_state_path is not None
             else None
         ),
-        "stock_basic_path": str(write_result.stock_basic_path),
+        "stock_basic_file_path": str(write_result.stock_basic_path),
         "stock_lifecycle_path": str(write_result.stock_lifecycle_path),
         "source_row_count": write_result.source_row_count,
         "observed_state_row_count": write_result.observed_state_row_count,
