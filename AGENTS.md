@@ -184,6 +184,7 @@ qtf/             # 财势量化平台正式产品域
 33. 禁止 Codex 私自创建临时分支、临时 worktree 或在非当前开发分支上提交代码。默认且只能在当前 `dev-interface` 工作区推进；若工作区存在阻塞、冲突或脏文件导致无法继续，必须停下说明情况并等待用户处理或明确授权，不能自行绕开。
 34. 架构分析、重构、依赖边界调整、共享 contract 修改、dispatcher/worker/service 修改前，必须先完成 CodeGraph 上下文与影响面分析，并在交付时说明分析范围。
 35. 不得引入 `foundation|ops|biz|platform|operations -> qtf` 反向依赖；`qtf` 只允许依赖自身与 `src.foundation`，由 `src.app` 负责组合装配。
+36. 新增或修改 Raw/Silver 成对数据集时，方案、LLD 和编码前必须逐字段验证 `Raw 字段集合 ⊆ Silver 字段集合`；删除、替换或重命名任何 Raw 字段必须立即停止并取得用户明确确认，不得以现有兄弟数据集的实现作为例外依据。
 
 ---
 
