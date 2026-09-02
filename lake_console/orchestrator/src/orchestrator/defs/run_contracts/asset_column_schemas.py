@@ -1,6 +1,14 @@
 """Stable column schema contracts for Dagster asset definitions."""
 
 from orchestrator.defs.run_contracts.column_schema import ColumnContract
+from orchestrator.defs.run_contracts.etf_daily import (
+    FUND_ADJ_RAW_COLUMN_TYPES,
+    FUND_ADJ_SILVER_COLUMN_TYPES,
+    FUND_ADJ_SOURCE_COLUMNS,
+    FUND_DAILY_RAW_COLUMN_TYPES,
+    FUND_DAILY_SILVER_COLUMN_TYPES,
+    FUND_DAILY_SOURCE_COLUMNS,
+)
 from orchestrator.defs.run_contracts.idx_factor_pro import (
     IDX_FACTOR_PRO_RAW_COLUMN_TYPES,
     IDX_FACTOR_PRO_SILVER_COLUMN_TYPES,
@@ -193,6 +201,63 @@ SILVER_ETF_BASIC_SCHEMA = (
     ColumnContract("custod_name", "VARCHAR", "托管人名称，可为空"),
     ColumnContract("mgt_fee", "DECIMAL(12,6)", "标准化管理费率，可为空"),
     ColumnContract("etf_type", "VARCHAR", "ETF 类型，可为空"),
+)
+
+_FUND_DAILY_COLUMN_DESCRIPTIONS = {
+    "ts_code": "Tushare 基金代码；Raw 保留接口返回的全部代码",
+    "trade_date": "交易日；Raw 为 YYYYMMDD 字符串，Silver 标准化为 DATE",
+    "pre_close": "前一交易日收盘价，源端允许为空",
+    "open": "当日开盘价，源端允许为空",
+    "high": "当日最高价，源端允许为空",
+    "low": "当日最低价，源端允许为空",
+    "close": "当日收盘价，源端允许为空",
+    "change": "源站原始涨跌额字段，不改名、不修值",
+    "pct_chg": "源站原始涨跌幅，单位为百分比",
+    "vol": "成交量，沿用 Tushare 基金日线单位",
+    "amount": "成交额，沿用 Tushare 基金日线单位",
+}
+
+RAW_TUSHARE_FUND_DAILY_SCHEMA = tuple(
+    ColumnContract(
+        column,
+        FUND_DAILY_RAW_COLUMN_TYPES[column],
+        _FUND_DAILY_COLUMN_DESCRIPTIONS[column],
+    )
+    for column in FUND_DAILY_SOURCE_COLUMNS
+)
+
+SILVER_ETF_DAILY_SCHEMA = tuple(
+    ColumnContract(
+        column,
+        FUND_DAILY_SILVER_COLUMN_TYPES[column],
+        _FUND_DAILY_COLUMN_DESCRIPTIONS[column],
+    )
+    for column in FUND_DAILY_SOURCE_COLUMNS
+)
+
+_FUND_ADJ_COLUMN_DESCRIPTIONS = {
+    "ts_code": "Tushare 基金代码；Raw 保留接口返回的全部代码",
+    "trade_date": "交易日；Raw 为 YYYYMMDD 字符串，Silver 标准化为 DATE",
+    "adj_factor": "基金复权因子，原样保留",
+    "discount_rate": "贴水率，允许为空；有限极端值原样保留",
+}
+
+RAW_TUSHARE_FUND_ADJ_SCHEMA = tuple(
+    ColumnContract(
+        column,
+        FUND_ADJ_RAW_COLUMN_TYPES[column],
+        _FUND_ADJ_COLUMN_DESCRIPTIONS[column],
+    )
+    for column in FUND_ADJ_SOURCE_COLUMNS
+)
+
+SILVER_ETF_ADJ_FACTOR_SCHEMA = tuple(
+    ColumnContract(
+        column,
+        FUND_ADJ_SILVER_COLUMN_TYPES[column],
+        _FUND_ADJ_COLUMN_DESCRIPTIONS[column],
+    )
+    for column in FUND_ADJ_SOURCE_COLUMNS
 )
 
 RAW_ETF_MINS_SCHEMA = (

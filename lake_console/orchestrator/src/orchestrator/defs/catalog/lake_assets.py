@@ -36,6 +36,8 @@ from orchestrator.defs.paths import (
     raw_dc_member_path,
     raw_etf_basic_snapshot_path,
     raw_etf_mins_path,
+    raw_fund_adj_path,
+    raw_fund_daily_path,
     raw_idx_factor_pro_path,
     raw_index_basic_path,
     raw_index_daily_path,
@@ -108,6 +110,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_INDEX_SCHEMA,
     RAW_TUSHARE_DC_MEMBER_SCHEMA,
     RAW_TUSHARE_ETF_BASIC_SCHEMA,
+    RAW_TUSHARE_FUND_ADJ_SCHEMA,
+    RAW_TUSHARE_FUND_DAILY_SCHEMA,
     RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
@@ -162,6 +166,16 @@ from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
 from orchestrator.defs.run_contracts.etf_basic import (
     RAW_ETF_BASIC_CHECKS,
     SILVER_ETF_BASIC_CHECKS,
+)
+from orchestrator.defs.run_contracts.etf_daily import (
+    FUND_ADJ_API_NAME,
+    FUND_ADJ_DATASET_ID,
+    FUND_DAILY_API_NAME,
+    FUND_DAILY_DATASET_ID,
+    RAW_FUND_ADJ_CHECKS,
+    RAW_FUND_DAILY_CHECKS,
+    RAW_TUSHARE_FUND_ADJ_ASSET_KEY,
+    RAW_TUSHARE_FUND_DAILY_ASSET_KEY,
 )
 from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_ASSET_FREQS,
@@ -273,6 +287,16 @@ class PartitionModel(str, Enum):
     )
     TRADE_DATE_PARTITION_RAW_INDEX_MINS = "trade_date_partition_raw_index_mins"
     TRADE_DATE_PARTITION_SILVER_INDEX_MINS = "trade_date_partition_silver_index_mins"
+    TRADE_DATE_PARTITION_RAW_FUND_DAILY = (
+        "trade_date_partition_raw_fund_daily"
+    )
+    TRADE_DATE_PARTITION_SILVER_ETF_DAILY = (
+        "trade_date_partition_silver_etf_daily"
+    )
+    TRADE_DATE_PARTITION_RAW_FUND_ADJ = "trade_date_partition_raw_fund_adj"
+    TRADE_DATE_PARTITION_SILVER_ETF_ADJ_FACTOR = (
+        "trade_date_partition_silver_etf_adj_factor"
+    )
     TRADE_DATE_PARTITION_RAW_ETF_MINS = "trade_date_partition_raw_etf_mins"
     TRADE_DATE_PARTITION_SILVER_ETF_MINS = "trade_date_partition_silver_etf_mins"
     TRADE_DATE_PARTITION_GOLD_INDEX_MINS = "trade_date_partition_gold_index_mins"
@@ -914,6 +938,42 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
         notes="指数分钟线 Silver 原生及派生频率共用专属交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_FUND_DAILY,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "fund_daily",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="基金日线 Raw 复用 ETF 行情共享交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_ETF_DAILY,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "etf_daily",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="ETF 日线 Silver 与 Raw 复用 ETF 行情共享交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_FUND_ADJ,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "fund_adj",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="基金复权因子 Raw 复用 ETF 行情共享交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_ETF_ADJ_FACTOR,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "etf_adj_factor",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="ETF 复权因子 Silver 与 Raw 复用 ETF 行情共享交易日分区。",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_ETF_MINS,
@@ -3118,6 +3178,85 @@ LAKE_ASSET_CATALOG += tuple(
         ),
     )
     for freq in ETF_MINS_ASSET_FREQS
+)
+
+LAKE_ASSET_CATALOG += (
+    _entry(
+        asset_key=RAW_TUSHARE_FUND_DAILY_ASSET_KEY,
+        dataset_id=FUND_DAILY_DATASET_ID,
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="tushare_fund_daily_full_source_mirror",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_TUSHARE_FUND_DAILY_SCHEMA,
+        path_template=lake_path_template(
+            raw_fund_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_FUND_DAILY,
+        source_api=FUND_DAILY_API_NAME,
+        source_doc="docs/sources/tushare/ETF专题/0127_ETF日线行情.md",
+        ingestion_sources=(IngestionSource.TUSHARE_API,),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.TUSHARE_API,),
+        blocking_check_names=RAW_FUND_DAILY_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="trade_date",
+            compute_engine=ComputeEngine.TUSHARE_RESOURCE,
+            source_request_policy=(
+                "trade_date_limit_5000_max_requests_2_max_elapsed_30s"
+            ),
+            notes=(
+                "Consumes pages into one DuckDB accumulator without Basic or suffix "
+                "filtering; targets are add, equivalent reuse, or conflict-stop."
+            ),
+        ),
+        notes="Raw preserves every source row returned for the requested trade date.",
+    ),
+    _entry(
+        asset_key=RAW_TUSHARE_FUND_ADJ_ASSET_KEY,
+        dataset_id=FUND_ADJ_DATASET_ID,
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="tushare_fund_adj_full_source_mirror",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_TUSHARE_FUND_ADJ_SCHEMA,
+        path_template=lake_path_template(
+            raw_fund_adj_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_FUND_ADJ,
+        source_api=FUND_ADJ_API_NAME,
+        source_doc="docs/sources/tushare/ETF专题/0199_基金复权因子.md",
+        ingestion_sources=(IngestionSource.TUSHARE_API,),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.TUSHARE_API,),
+        blocking_check_names=RAW_FUND_ADJ_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="trade_date",
+            compute_engine=ComputeEngine.TUSHARE_RESOURCE,
+            source_request_policy=(
+                "trade_date_limit_2000_max_requests_4_max_elapsed_30s"
+            ),
+            notes=(
+                "Explicitly requests discount_rate and streams bounded pages into "
+                "DuckDB; targets are add, equivalent reuse, or conflict-stop."
+            ),
+        ),
+        notes="Raw preserves nullable and extreme finite discount_rate source facts.",
+    ),
 )
 
 

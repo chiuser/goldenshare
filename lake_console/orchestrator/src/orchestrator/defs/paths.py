@@ -1,6 +1,13 @@
 from datetime import date
 from pathlib import Path
 
+from orchestrator.defs.run_contracts.etf_daily import (
+    RAW_TUSHARE_FUND_ADJ_ASSET_KEY,
+    RAW_TUSHARE_FUND_DAILY_ASSET_KEY,
+    SILVER_ETF_ADJ_FACTOR_ASSET_KEY,
+    SILVER_ETF_DAILY_ASSET_KEY,
+    normalize_etf_daily_trade_date,
+)
 from orchestrator.defs.run_contracts.etf_mins import (
     normalize_etf_mins_path_freq,
     normalize_etf_mins_trade_date,
@@ -240,6 +247,119 @@ def etf_mins_staging_path(
     )
 
 
+def raw_fund_daily_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "fund_daily",
+        f"trade_date={_etf_daily_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def raw_fund_daily_staging_path(
+    staging_root: Path,
+    operation_id: str,
+    partition_key: str,
+) -> Path:
+    return _etf_daily_staging_path(
+        staging_root,
+        operation_id=operation_id,
+        asset_key=RAW_TUSHARE_FUND_DAILY_ASSET_KEY,
+        partition_key=partition_key,
+    )
+
+
+def silver_etf_daily_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "etf_daily",
+        f"trade_date={_etf_daily_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def silver_etf_daily_staging_path(
+    staging_root: Path,
+    operation_id: str,
+    partition_key: str,
+) -> Path:
+    return _etf_daily_staging_path(
+        staging_root,
+        operation_id=operation_id,
+        asset_key=SILVER_ETF_DAILY_ASSET_KEY,
+        partition_key=partition_key,
+    )
+
+
+def raw_fund_adj_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "fund_adj",
+        f"trade_date={_etf_daily_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def raw_fund_adj_staging_path(
+    staging_root: Path,
+    operation_id: str,
+    partition_key: str,
+) -> Path:
+    return _etf_daily_staging_path(
+        staging_root,
+        operation_id=operation_id,
+        asset_key=RAW_TUSHARE_FUND_ADJ_ASSET_KEY,
+        partition_key=partition_key,
+    )
+
+
+def silver_etf_adj_factor_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "etf_adj_factor",
+        f"trade_date={_etf_daily_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def silver_etf_adj_factor_staging_path(
+    staging_root: Path,
+    operation_id: str,
+    partition_key: str,
+) -> Path:
+    return _etf_daily_staging_path(
+        staging_root,
+        operation_id=operation_id,
+        asset_key=SILVER_ETF_ADJ_FACTOR_ASSET_KEY,
+        partition_key=partition_key,
+    )
+
+
+def _etf_daily_staging_path(
+    staging_root: Path,
+    *,
+    operation_id: str,
+    asset_key: str,
+    partition_key: str,
+) -> Path:
+    return (
+        staging_root
+        / "etf_daily"
+        / f"operation_id={_normalize_etf_staging_id(operation_id, name='operation_id')}"
+        / asset_key
+        / f"trade_date={_etf_daily_partition_component(partition_key)}"
+        / "part-000.parquet"
+    )
+
+
 def _normalize_etf_basic_snapshot_id(value: str) -> str:
     if value == PATH_TEMPLATE_SNAPSHOT_ID:
         return value
@@ -255,6 +375,12 @@ def _normalize_etf_mins_partition_key(value: str) -> str:
     if value == PATH_TEMPLATE_PARTITION_KEY:
         return value
     return normalize_etf_mins_trade_date(value)
+
+
+def _etf_daily_partition_component(partition_key: str) -> str:
+    if partition_key == PATH_TEMPLATE_PARTITION_KEY:
+        return partition_key
+    return normalize_etf_daily_trade_date(partition_key)
 
 
 def _normalize_etf_staging_id(value: str, *, name: str) -> str:

@@ -154,6 +154,12 @@ def test_all_five_etf_sensors_are_stopped_by_default() -> None:
     )
 
 
+def test_partition_sensor_description_declares_shared_etf_quote_dates() -> None:
+    assert etf_mins_trade_day_sensor.name == "etf_mins_trade_day_sensor"
+    assert "ETF 行情共享交易日分区" in etf_mins_trade_day_sensor.description
+    assert "分钟线、日线和复权因子" in etf_mins_trade_day_sensor.description
+
+
 def test_partition_and_minute_sensors_skip_before_window_without_state_access() -> None:
     context = ForbiddenContext()
 

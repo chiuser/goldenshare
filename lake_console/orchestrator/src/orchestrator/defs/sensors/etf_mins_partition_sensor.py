@@ -1,4 +1,4 @@
-"""Calendar-only partition registration for ETF minute assets."""
+"""Calendar-only partition registration for ETF quote assets."""
 
 from datetime import datetime
 
@@ -70,8 +70,8 @@ def evaluate_etf_mins_trade_day_sensor(
         role=SensorRole.PARTITION_REGISTRATION,
     ),
     description=(
-        "上海时间 21:00 后只按 SSE 交易日历注册 ETF 分钟专属交易日分区，"
-        "不探测行情源。"
+        "上海时间 21:00 后只按 SSE 交易日历注册 ETF 行情共享交易日分区，"
+        "供 ETF 分钟线、日线和复权因子共同使用；不探测行情源。"
     ),
 )
 def etf_mins_trade_day_sensor(
