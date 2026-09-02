@@ -506,6 +506,7 @@ describe("MarketOverviewPage", () => {
 
     const breadcrumb = await screen.findByLabelText("Breadcrumb");
     expect(within(breadcrumb).getByText("市场总览")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "搜索股票" })).toBeInTheDocument();
     expect(screen.queryByText("页面更新时间：")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /手动刷新/ })).not.toBeInTheDocument();
     expect(screen.getByText("已收盘")).toBeInTheDocument();

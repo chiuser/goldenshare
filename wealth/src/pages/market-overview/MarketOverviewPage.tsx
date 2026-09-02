@@ -66,6 +66,7 @@ import {
   type MarketNewsDebugInfo,
 } from "../../features/market-overview/news/api/marketNewsApi";
 import { useMarketNewsReader } from "../../features/market-overview/news/model/useMarketNewsReader";
+import { StockSearch } from "../../features/stock-search/ui/StockSearch";
 import { SectorOverviewPanel } from "../../features/market-overview/sectors/SectorOverviewPanel";
 import type { SectorOverviewDebugInfo } from "../../features/market-overview/sectors/api/marketSectorOverviewApi";
 import { useSectorOverviewController } from "../../features/market-overview/sectors/useSectorOverviewController";
@@ -979,6 +980,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
       />
       <main className="page-shell">
         <PageBreadcrumb
+          centerSlot={<StockSearch onSelect={openStockDetail} />}
           items={[
             { label: "财势乾坤", path: "/wealth/market/overview" },
             { label: "乾坤行情", path: "/wealth/market/overview" },

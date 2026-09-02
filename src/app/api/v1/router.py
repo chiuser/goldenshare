@@ -25,6 +25,7 @@ from src.biz.api.wealth.market import sector_analysis as wealth_market_sector_an
 from src.biz.api.wealth.market import stock_detail as wealth_market_stock_detail
 from src.biz.api.wealth.market import stock_detail_news as wealth_market_stock_detail_news
 from src.biz.api.wealth.market import stock_detail_nine_turn as wealth_market_stock_detail_nine_turn
+from src.biz.api.wealth.market import stock_search as wealth_market_stock_search
 from src.biz.api.wealth.market import streak_ladder as wealth_market_streak_ladder
 from src.biz.api.wealth.market import style as wealth_market_style
 from src.biz.api.wealth.market import summary as wealth_market_summary
@@ -69,6 +70,7 @@ router.include_router(wealth_market_streak_ladder.router)
 router.include_router(wealth_market_stock_detail.router)
 router.include_router(wealth_market_stock_detail_news.router)
 router.include_router(wealth_market_stock_detail_nine_turn.router)
+router.include_router(wealth_market_stock_search.router)
 router.include_router(wealth_market_sector_overview.router)
 router.include_router(wealth_market_sector_analysis.router)
 router.include_router(wealth_market_news_briefs.router)

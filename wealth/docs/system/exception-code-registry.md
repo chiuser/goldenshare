@@ -151,6 +151,13 @@
 | `NEWS_READER_CONTENT_TOO_LARGE` | `marketNewsReader` | error | false | false | 新闻正文超过阅读器有界载荷上限 | UTF-8 正文大于 `256 KiB` | 阅读器显示统一 error 文案，不截断冒充完整正文 | biz-api | Phase-5 | active |
 | `NEWS_READER_QUERY_FAILED` | `marketNewsReader` | error | false | false | 新闻详情查询失败 | 主键查询或未分类服务异常 | 阅读器显示统一 error 文案，保留首页并允许重试 | biz-api | Phase-5 | active |
 
+## 6.1 首页股票搜索模块（Phase-7）
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `SS_REQUEST_INVALID` | `stockSearch` | warn | false | false | 股票搜索请求不符合冻结合同 | keyword 为空或超长，或 limit 越界 | 保留输入并提示修正；不执行模糊查询或回退 | biz-api | Phase-7 | active |
+| `SS_QUERY_FAILED` | `stockSearch` | error | false | false | 股票搜索查询或 DTO 组合失败 | 数据库、查询执行或响应映射出现未恢复异常 | 联想菜单显示统一 error；不调用 mock 或其它接口 | biz-api | Phase-7 | active |
+
 ## 7. 股票详情分钟模块（Phase-2）
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |

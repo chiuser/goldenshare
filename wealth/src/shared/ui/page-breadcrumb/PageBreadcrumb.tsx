@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 
 import "./page-breadcrumb.css";
 
@@ -13,6 +13,7 @@ interface PageBreadcrumbProps {
   items: readonly PageBreadcrumbItem[];
   sessionStatus: PageSessionStatus;
   onNavigate: (path: string) => void;
+  centerSlot?: ReactNode;
 }
 
 const weekdays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
@@ -35,7 +36,12 @@ function formatSessionStatus(status: PageSessionStatus): string {
   return "已收盘";
 }
 
-export function PageBreadcrumb({ items, sessionStatus, onNavigate }: PageBreadcrumbProps) {
+export function PageBreadcrumb({
+  items,
+  sessionStatus,
+  onNavigate,
+  centerSlot,
+}: PageBreadcrumbProps) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -60,6 +66,7 @@ export function PageBreadcrumb({ items, sessionStatus, onNavigate }: PageBreadcr
           );
         })}
       </div>
+      {centerSlot ? <div className="breadcrumb-center">{centerSlot}</div> : null}
       <div className="breadcrumb-meta" aria-label="页面时间状态">
         <span>{formatDateText(now)}</span>
         <span>{weekdays[now.getDay()]}</span>
