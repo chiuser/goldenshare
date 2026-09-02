@@ -40,6 +40,10 @@
   position: relative;
 }
 
+.turnover-insight-panel--compact {
+  height: 484px;
+}
+
 .turnover-insight-summary {
   align-items: center;
   display: flex;
@@ -59,6 +63,20 @@
   gap: 12px;
 }
 
+.turnover-insight-summary--compact {
+  align-items: stretch;
+  display: block;
+  left: 46px;
+  right: 22px;
+  top: 10px;
+}
+
+.turnover-insight-summary--compact .turnover-insight-summary__cards {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .turnover-insight-metric {
   align-items: flex-start;
   background: var(--cs-color-surface-card);
@@ -70,6 +88,22 @@
   justify-content: center;
   padding: 0 12px;
   width: 148px;
+}
+
+.turnover-insight-summary--compact .turnover-insight-metric {
+  height: 58px;
+  min-width: 0;
+  padding: 0 8px;
+  width: auto;
+}
+
+.turnover-insight-summary--compact .turnover-insight-metric span {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.turnover-insight-summary--compact .turnover-insight-metric strong {
+  font-size: 17px;
 }
 
 .turnover-insight-metric span {
@@ -107,6 +141,16 @@
   white-space: nowrap;
 }
 
+.turnover-insight-summary--compact .turnover-insight-legend {
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.turnover-insight-summary--compact .turnover-insight-legend > span {
+  font-size: 11px;
+}
+
 .turnover-insight-legend__line {
   display: inline-block;
   height: 2px;
@@ -136,6 +180,10 @@
   overflow: hidden;
   position: relative;
   width: 100%;
+}
+
+.turnover-insight-chart--compact {
+  height: 484px;
 }
 
 .turnover-insight-chart canvas {
@@ -193,9 +241,38 @@
   top: 318px;
 }
 
+.turnover-insight-panel--compact .turnover-insight-notice {
+  left: 46px;
+  top: 105px;
+}
+
+.turnover-insight-panel--compact .turnover-insight-partial-note {
+  bottom: 52px;
+  left: 46px;
+  top: auto;
+}
+
 .turnover-insight-loading {
   height: 420px;
   position: relative;
+}
+
+.turnover-insight-loading--compact {
+  height: 484px;
+}
+
+.turnover-insight-loading--compact .turnover-insight-loading__cards {
+  left: 46px;
+  right: 22px;
+  top: 10px;
+  width: auto;
+}
+
+.turnover-insight-loading--compact .turnover-insight-loading__chart {
+  bottom: 18px;
+  left: 46px;
+  right: 22px;
+  top: 120px;
 }
 
 .turnover-insight-loading__cards,
@@ -232,6 +309,10 @@
   text-align: center;
 }
 
+.turnover-insight-panel--compact .turnover-insight-state {
+  min-height: 484px;
+}
+
 .turnover-insight-state strong { color: var(--cs-color-text-primary); font-size: 16px; }
 .turnover-insight-state button {
   background: var(--cs-color-brand-weak);
@@ -245,4 +326,127 @@
 @keyframes turnover-insight-pulse {
   0%, 100% { opacity: 0.58; }
   50% { opacity: 1; }
+}
+
+.index-turnover-insight-section {
+  margin-top: 24px;
+}
+
+.index-turnover-insight-header {
+  align-items: flex-end;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.index-turnover-insight-header h2 {
+  color: var(--cs-color-text-primary);
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.index-turnover-insight-header p {
+  color: var(--cs-color-text-muted);
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.index-turnover-insight-grid {
+  display: grid;
+  gap: 16px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.index-turnover-insight-group-notice {
+  color: var(--cs-color-warning);
+  font-size: 12px;
+  margin: -4px 0 10px;
+}
+
+.index-turnover-insight-group-notice--error {
+  color: var(--cs-color-market-up);
+}
+
+.index-turnover-insight-card {
+  height: 540px;
+  min-width: 0;
+}
+
+.index-turnover-insight-card__header {
+  align-items: center;
+  display: flex;
+  height: 55px;
+  justify-content: space-between;
+}
+
+.index-turnover-insight-card__header h3 {
+  color: var(--cs-color-text-primary);
+  font-size: 17px;
+  margin: 0;
+}
+
+.index-turnover-insight-card__identity {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.index-turnover-insight-card__identity small {
+  color: var(--cs-color-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.index-turnover-insight-card__code {
+  color: var(--cs-color-brand);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.index-turnover-insight-card__asof {
+  background: var(--cs-color-surface-card);
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: 6px;
+  color: var(--cs-color-text-secondary);
+  font-size: 12px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.index-turnover-insight-card__header--loading {
+  animation: turnover-insight-pulse 1.4s ease-in-out infinite;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 6px;
+}
+
+.index-turnover-insight-card .turnover-insight-panel {
+  border-radius: 8px;
+}
+
+.index-turnover-insight-group-state {
+  align-items: center;
+  background: var(--cs-color-surface-panel);
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: 8px;
+  color: var(--cs-color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  min-height: 240px;
+}
+
+.index-turnover-insight-group-state strong {
+  color: var(--cs-color-text-primary);
+}
+
+.index-turnover-insight-group-state button {
+  background: var(--cs-color-brand-weak);
+  border: 1px solid rgba(247, 199, 107, 0.3);
+  border-radius: 6px;
+  color: var(--cs-color-brand);
+  cursor: pointer;
+  padding: 6px 14px;
 }

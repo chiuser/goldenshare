@@ -73,7 +73,7 @@
 
 ## 6. 首期（Phase-1）已登记模块
 
-> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 大盘资金流向模块 + 涨跌分布模块 + 涨跌停统计与分布模块 + 连板天梯模块 + 板块速览模块 + 新闻速览/新闻通讯模块。
+> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 成交额洞察模块 + 指数成交额洞察模块 + 大盘资金流向模块 + 涨跌分布模块 + 涨跌停统计与分布模块 + 连板天梯模块 + 板块速览模块 + 新闻速览/新闻通讯模块。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -108,6 +108,14 @@
 | `TI_POINT_QUALITY_INVALID` | `turnoverInsight` | error | false | true | 成交额洞察分钟点质量无效 | JSON、金额、日期、重复或尾值对账失败 | 模块显示 error，保留页面其它模块 | biz-api | Phase-4 | active |
 | `TI_QUERY_FAILED` | `turnoverInsight` | error | false | true | 成交额洞察查询失败 | SQL 或未分类服务异常 | 模块显示 error，允许用户重试 | biz-api | Phase-4 | active |
 | `TI_DAILY_AVERAGE_UNAVAILABLE` | `turnoverInsight` | warn | false | true | 成交额洞察日均值查询暂不可用 | 5 日/20 日成交额均值的有界交易日或日线聚合查询失败 | 保留分钟累计曲线与原状态；均值卡显示 `--`，不绘制均值参考线 | biz-api | Phase-4 | active |
+| `ITI_SOURCE_NOT_READY` | `indexTurnoverInsight` | warn | false | true | 指数成交额洞察所需日期对或单指数必要日数据尚未就绪 | 预期 current/previous 分区或单指数必要行缺失，且对应范围没有合法可展示结果 | 整组不可用时显示 empty 并保留 10 卡占位；局部缺失时对应卡显示 partial/empty，不混用旧日期 | biz-api | Phase-4 | active |
+| `ITI_SOURCE_DELAYED` | `indexTurnoverInsight` | warn | false | true | 指数成交额洞察使用了较早的完整相邻日期对 | 预期日期对整体不可用，但最近 4 个候选交易日中存在十指数全部完整的严格相邻日期对 | 整组显示 delayed、实际 observed 日期和固定 10 卡 | biz-api | Phase-4 | active |
+| `ITI_SOURCE_CONTRACT_MISMATCH` | `indexTurnoverInsight` | error | false | true | 指数分钟 Gold 的全局读取合同不匹配 | 正式根/分区路径越界，必需 schema 缺失或类型不可安全转换，或 freq/分区日期合同冲突 | 整组显示 error；不降级读取其它 Lake、频率或数据源 | biz-api | Phase-4 | active |
+| `ITI_CODE_SCOPE_MISMATCH` | `indexTurnoverInsight` | error | false | true | 指数分钟分区代码范围越过固定十指数合同 | 分区出现固定十指数集合之外的额外代码，或物理集合与冻结产品范围发生越界漂移 | 整组显示 error；不静默过滤额外代码，不改变固定顺序 | biz-api | Phase-4 | active |
+| `ITI_TIME_GRID_MISMATCH` | `indexTurnoverInsight` | error | false | true | 单指数分钟时间网格不符合 1 分钟合同 | current/previous 任一日不是精确唯一升序 241 点、午休边界错误，或两日时间键不一致 | current 合法时对应卡可 partial；current 无效时该卡 error；其它合法卡继续展示 | biz-api | Phase-4 | active |
+| `ITI_POINT_QUALITY_INVALID` | `indexTurnoverInsight` | error | false | true | 单指数分钟点质量无效 | amount 为空、非有限或负数，行内日期与分区/时间日期不一致，或唯一键重复 | 局部问题对应卡 partial/error；全局不可隔离问题整组 error，不填 0 | biz-api | Phase-4 | active |
+| `ITI_AVERAGE_WINDOW_INCOMPLETE` | `indexTurnoverInsight` | warn | false | true | 单指数 5 日或 20 日均值窗口不足 | 截至实际 observed 日期不足精确 5 个或 20 个完整交易日 | 曲线和可用对比继续展示；不足均值显示 `--`，不绘制对应参考线，卡片 partial | biz-api | Phase-4 | active |
+| `ITI_QUERY_FAILED` | `indexTurnoverInsight` | error | false | true | 指数成交额洞察查询或响应构建失败 | Calendar、DuckDB 查询或 DTO 组合发生未分类服务异常 | 整组显示 error，保留既有全市场成交额模块并允许重试 | biz-api | Phase-4 | active |
 | `MF_SOURCE_DELAYED` | `moneyFlow` | warn | false | true | 资金流模块数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
 | `MF_SOURCE_EMPTY` | `moneyFlow` | warn | false | true | 资金流模块关键源无数据 | 双卡与历史数据都为空 | 模块 empty，展示空态 | biz-api | Phase-1 | active |
 | `MF_HISTORY_INCOMPLETE` | `moneyFlow` | warn | false | true | 资金流历史样本不足 | 历史点少于 22（1m）或 62（3m） | 模块 partial，debug 标记历史不足 | biz-api | Phase-1 | active |

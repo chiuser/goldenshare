@@ -37,4 +37,21 @@ describe("turnoverInsightGeometry", () => {
   it("rejects a zero-span axis contract", () => {
     expect(() => yForValue(1, { ...axis, minYi: 1, maxYi: 1 }, 0, 100)).toThrow("zero span");
   });
+
+  it("keeps the reviewed compact preset while preserving all 241 hover positions", () => {
+    const geometry = buildTurnoverInsightGeometry(776, "compact");
+
+    expect(geometry).toEqual({
+      width: 776,
+      height: 484,
+      plotLeft: 46,
+      plotRight: 754,
+      upperTop: 120,
+      upperBottom: 300,
+      lowerTop: 350,
+      lowerBottom: 416,
+      timeLabelY: 466,
+    });
+    expect(indexForX(geometry, xForIndex(geometry, 137, 241), 241)).toBe(137);
+  });
 });

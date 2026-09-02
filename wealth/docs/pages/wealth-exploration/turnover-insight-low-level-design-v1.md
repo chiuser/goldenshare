@@ -1,27 +1,34 @@
-# 财势探查｜成交额洞察低层设计 v1
+# 财势探查｜成交额洞察低层设计 v1.1
 
 ## 0. 文档状态
 
-- 状态：基础版本及 5 日/20 日均值补充功能均已开发、部署并通过用户 UI 验收，需求闭环
+- 状态：基础版本及 5 日/20 日均值补充功能已闭环；十指数成交额扩展 M7 已完成开发、自动化验证、正式 Gold 对账、真实 API 与浏览器验收，待用户 UI 验收后闭环
 - 编写日期：2026-08-22
+- 本次修订：2026-09-02
 - 适用仓库：`/Users/congming/github/goldenshare`
 - 上游技术方案：`wealth/docs/pages/wealth-exploration/turnover-insight-implementation-design-v1.md`
 - Figma 文件：`RADlZzREU4lPVviYfkLy6x`
 - Figma Loaded 页面：`11 Wealth Exploration - Desktop Loaded`（`741:52`）
 - Figma 组件页：`11.5 Wealth Exploration - Components`（`797:2`）
 - Figma 状态与交互页：`11.8 Wealth Exploration - States and Interaction Notes`（`797:3`）
+- 十指数扩展 Loaded 设计：`Wealth Exploration / Desktop / Turnover Insight / Total + 10 Indices / Loaded`（`1244:28288`）
 - 目标路由：`/wealth/exploration`
-- 目标 endpoint：`GET /api/v1/wealth/market/turnover-insight`
-- 事实审计截止：2026-08-22
-- 待拍板项：无
+- 既有 endpoint：`GET /api/v1/wealth/market/turnover-insight`
+- M7 新增 endpoint：`GET /api/v1/wealth/market/turnover-insight/indices`
+- 事实审计截止：2026-09-02
+- 待拍板项：无；M7 LLD 已于 2026-09-02 评审通过
 
-本文档只设计“成交额洞察”及其接入财势探查页面所必需的共享契约。它不实现板块雷达、不修改成交额快照生产、不修改 Dagster/Lake、不扩展旧首页 turnover API。
+本文档只设计“成交额洞察”及其接入财势探查页面所必需的共享契约。它不实现板块雷达、不修改成交额快照生产、不修改 Dagster/Lake、不扩展旧首页 turnover API。M7 只读现有 DG 正式 Gold `major_index_mins/freq=1`，不新增数据集、不写 Lake、不修改指数详情对象池。
 
 2026-08-22 补充功能开发完成：基础版本的历史实现与验收记录继续保留；第 15 节定义的 5 日/20 日成交额均值卡片与上图参考线已经落地并通过自动化验证。补充功能尚未经过用户部署与浏览器视觉验收，不得提前标记为验收闭环。
 
 2026-08-23 视觉修订验收闭环：首轮部署暴露出的均值标签重叠、虚线节奏偏长、图例缺少均值说明、均值卡金额与线色未建立视觉映射四个问题，已按 Figma 和第 15 节口径完成代码修正。目标测试、全量前端测试、TypeScript 检查和生产构建均通过；用户已完成部署和 UI 审查，效果符合预期，本补充功能闭环。
 
-## 1. 冻结口径与代码约束
+2026-09-02 十指数扩展：既有全市场整行模块保持不变；其下新增固定十指数、两列五行的成交额分钟图。第 17 节是本次 M7 的唯一代码级设计依据。若前述历史章节中的“只读 snapshot”“响应小于 64KB”或“全部需求闭环”等描述与 M7 冲突，仅表示既有全市场模块的历史口径，不得用于否定第 17 节的独立 Lake 只读链和性能合同。
+
+2026-09-02 M7 开发与本地验收完成：第 17 节定义的 Foundation Reader、Biz 查询链、独立 endpoint、共享 panel 原语、单 batch controller 与 2×5 网格均已落地。后端 99 项、前端 578 项、类型检查、生产构建、正式 Gold 独立 SQL 对账、真实 API 和浏览器/Figma 验收均通过；M7-D 只剩用户 UI 验收，未提前标记最终闭环。
+
+## 1. 既有全市场模块冻结口径与代码约束
 
 | 冻结口径 | 代码落点 | 必须证明的测试 |
 | --- | --- | --- |
@@ -409,9 +416,9 @@ wealth/src/pages/index-detail/IndexDetailPage.tsx
 后端：
 
 ```text
-tests/test_wealth_market_turnover_insight_query.py
+tests/test_wealth_turnover_insight_calculator.py
 tests/test_wealth_market_turnover_insight_query_service.py
-tests/web/test_wealth_market_turnover_insight_api.py
+tests/web/test_wealth_turnover_insight_api.py
 tests/test_wealth_turnover_insight_static_gates.py
 ```
 
@@ -1431,9 +1438,9 @@ Major Indices：
 ```bash
 cd /Users/congming/github/goldenshare
 uv run pytest \
-  tests/test_wealth_market_turnover_insight_query.py \
+  tests/test_wealth_turnover_insight_calculator.py \
   tests/test_wealth_market_turnover_insight_query_service.py \
-  tests/web/test_wealth_market_turnover_insight_api.py \
+  tests/web/test_wealth_turnover_insight_api.py \
   tests/web/test_wealth_market_turnover_api.py \
   tests/test_wealth_turnover_insight_static_gates.py
 ```
@@ -1834,7 +1841,7 @@ ticks    0 / 8,000 / 16,000 / 24,000 / 32,000
 ```text
 tests/test_wealth_market_turnover_daily_average_query.py
 tests/test_wealth_market_turnover_insight_query_service.py
-tests/web/test_wealth_market_turnover_insight_api.py
+tests/web/test_wealth_turnover_insight_api.py
 tests/web/test_wealth_market_turnover_api.py
 tests/test_wealth_turnover_insight_static_gates.py
 ```
@@ -1920,8 +1927,964 @@ Figma 组件源已完成以下修订：
 
 本节当前状态：Figma、文档、代码、自动化验证和用户 UI 验收均已完成，视觉修订闭环。
 
-## 16. 结论
+## 16. 既有全市场模块结论
 
-本需求不缺数据基础，也不需要新增预计算链路。开发核心是：在共享一分钟快照之上建立完全独立的成交额洞察业务合同，并把财势探查页面接入现有 TopMarketBar、Breadcrumb 和 Market Context 三个共享能力。
+既有全市场模块不缺数据基础，也不需要新增预计算链路。它继续在共享一分钟快照之上使用独立的成交额洞察业务合同，并继续接入现有 TopMarketBar、Breadcrumb 和 Market Context 三个共享能力。
 
-当前没有待拍板项。基础版本 M1 至 M5、M6 均值补充功能及 2026-08-23 视觉修订均已完成开发、自动化验证、用户部署和 UI 验收，需求闭环。前端不得引入均值计算，首页与洞察继续共同消费页面中立均值 query，旧 API 契约保持不变。
+基础版本 M1 至 M5、M6 均值补充功能及 2026-08-23 视觉修订均已完成开发、自动化验证、用户部署和 UI 验收。前端不得引入均值计算，首页与洞察继续共同消费页面中立均值 query，旧 API 契约保持不变。以下第 17 节只定义十指数扩展 M7，不回写上述既有合同。
+
+## 17. 十指数成交额扩展 M7 代码级设计
+
+### 17.1 M7 目标、依据与改动边界
+
+开发目标：在既有全市场整行成交额模块下方，按固定顺序展示 10 个指数成交额分钟图；桌面布局为两列五行，每张卡复用既有五项摘要、累计曲线、5/20 日均值线、累计差值柱、crosshair 和 tooltip 语义。
+
+设计依据按优先级排列：
+
+1. 当前代码、当前 `major_index_mins` Foundation/DG 合同与 2026-09-01 正式 Gold 只读审计。
+2. 上游技术方案第 19 节。
+3. Figma Loaded 节点 `1244:28288` 的结构、尺寸、层级和视觉密度。
+4. `engineering-architecture.md`、`module-incremental-delivery-spec-v1.md`、`module-delivery-checklist-v1.md`、`design-system-baseline.md` 和 `component-guidelines-baseline.md`。
+
+本轮允许修改：
+
+```text
+src/foundation/clients/local_lake/major_index_mins_contract.py
+src/foundation/clients/local_lake/major_index_turnover_reader.py                  # 新增
+src/biz/api/wealth/market/index_turnover_insight.py                              # 新增
+src/biz/queries/wealth/market/index_turnover_insight/**                          # 新增
+src/biz/queries/wealth/market/turnover_common/turnover_panel_calculator.py        # 新增
+src/biz/queries/wealth/market/turnover_insight/turnover_insight_calculator.py
+src/biz/schemas/wealth/market/index_turnover_insight.py                          # 新增
+src/biz/services/wealth/market/index_turnover_insight/**                         # 新增
+src/app/api/v1/router.py
+wealth/src/features/wealth-exploration/turnover-insight/**
+wealth/src/pages/wealth-exploration/TurnoverInsightPage.tsx
+wealth/docs/system/exception-code-registry.md
+本文与上游技术方案
+对应 tests/** 与 wealth/src/**/*.test.*
+```
+
+本轮禁止修改：
+
+- `lake_console/orchestrator/**` 的 asset、sensor、check、writer、分区或对象池。
+- `DatasetDefinition`、`DatasetExecutionPlan`、数据库表、迁移和 serving 表。
+- `MajorIndexMinsLakeReader` 的现有按代码分页行为和指数详情分钟 API 合同。
+- `IndexDetailUniverseService` 及指数详情、九转、权重、行情首页主要指数对象池。
+- 既有 `GET /api/v1/wealth/market/turnover-insight` 的路由、请求参数、响应 schema 和可用环境。
+- `src/platform`、`src/operations` 和任何 `foundation -> biz/app` 反向依赖。
+
+### 17.2 固定十指数业务合同
+
+新增：
+
+```text
+src/biz/services/wealth/market/index_turnover_insight/__init__.py
+src/biz/services/wealth/market/index_turnover_insight/index_turnover_insight_universe.py
+```
+
+稳定内存合同：
+
+```python
+@dataclass(frozen=True, slots=True)
+class IndexTurnoverInsightIdentity:
+    ts_code: str
+    index_name: str
+
+INDEX_TURNOVER_INSIGHT_UNIVERSE: tuple[IndexTurnoverInsightIdentity, ...] = (
+    IndexTurnoverInsightIdentity("000001.SH", "上证指数"),
+    IndexTurnoverInsightIdentity("399001.SZ", "深证成指"),
+    IndexTurnoverInsightIdentity("399006.SZ", "创业板"),
+    IndexTurnoverInsightIdentity("000688.SH", "科创50"),
+    IndexTurnoverInsightIdentity("000680.SH", "科创综指"),
+    IndexTurnoverInsightIdentity("000905.SH", "中证500"),
+    IndexTurnoverInsightIdentity("000510.SH", "中证A500"),
+    IndexTurnoverInsightIdentity("000300.SH", "沪深300"),
+    IndexTurnoverInsightIdentity("000852.SH", "中证1000"),
+    IndexTurnoverInsightIdentity("000016.SH", "上证50"),
+)
+```
+
+约束：
+
+1. 该 tuple 是产品名称和展示顺序的唯一事实源；响应必须按 tuple 顺序组装，前端不复制 allowlist、不排序。
+2. API 不接受 `codes`、`tsCode`、`freq`、`limit`、`offset` 或排序参数。
+3. 业务合同不得 import `IndexDetailUniverseService` 或 `lake_console.orchestrator`。
+4. Foundation 只保存无名称、无顺序语义的物理 Gold 代码集合；Biz 产品集合必须与其做集合对账，但展示顺序只属于 Biz。
+5. 北证50 `899050.BJ`、中证2000 `932000.CSI` 和任意其它代码不得进入该 tuple、响应或扫描谓词。
+
+### 17.3 Foundation 物理合同与静态对账
+
+修改/新增：
+
+```text
+src/foundation/clients/local_lake/major_index_mins_contract.py
+tests/test_index_turnover_insight_contract_alignment.py
+```
+
+新增物理常量：
+
+```python
+MAJOR_INDEX_MINS_GOLD_CODES: frozenset[str] = frozenset({
+    "000001.SH", "399001.SZ", "399006.SZ", "000688.SH", "000680.SH",
+    "000905.SH", "000510.SH", "000300.SH", "000852.SH", "000016.SH",
+})
+MAJOR_INDEX_TURNOVER_MAX_PARTITIONS = 24
+MAJOR_INDEX_TURNOVER_MAX_ROWS = 24 * 10 * EXPECTED_BARS_PER_SESSION[1]  # 57_840
+```
+
+既有正式根、Gold schema、`freq=1`、241 点和分区路径 helper 继续作为 Foundation 事实源，不另建重复常量。静态合同测试必须：
+
+1. 用 AST 读取 DG `lake_console/orchestrator/src/orchestrator/defs/run_contracts/major_index_mins.py` 的 `MAJOR_INDEX_MINS_SOURCE_SCOPES` 构造参数和 `MAJOR_INDEX_MINS_SILVER_EXCLUDED_CODES`，推导实际 Gold 集合；不得在 `src/**` 运行时 import orchestrator。
+2. 断言 DG Gold 集合等于 `MAJOR_INDEX_MINS_GOLD_CODES`。
+3. 断言 Biz `INDEX_TURNOVER_INSIGHT_UNIVERSE` 的代码集合等于 Foundation Gold 集合，tuple 长度为 10 且无重复。
+4. 断言 `src/**` 不出现 `lake_console.orchestrator` 运行时 import。
+
+静态对账只能防止合同漂移；运行时 Reader 仍须校验每个分区的真实 schema、代码、时间网格和行质量。
+
+### 17.4 批量 Gold Reader
+
+新增：
+
+```text
+src/foundation/clients/local_lake/major_index_turnover_reader.py
+tests/test_major_index_turnover_reader.py
+```
+
+稳定输入输出：
+
+```python
+@dataclass(frozen=True, slots=True)
+class MajorIndexTurnoverReadRequest:
+    trade_dates: tuple[date, ...]
+
+@dataclass(frozen=True, slots=True)
+class MajorIndexTurnoverMinuteRow:
+    ts_code: str
+    trade_date: date
+    trade_time: datetime
+    amount_yuan: Decimal
+
+@dataclass(frozen=True, slots=True)
+class MajorIndexTurnoverReadIssue:
+    code: str
+    ts_code: str | None
+    trade_date: date | None
+    detail: str
+
+@dataclass(frozen=True, slots=True)
+class MajorIndexTurnoverReadResult:
+    rows: tuple[MajorIndexTurnoverMinuteRow, ...]
+    available_trade_dates: tuple[date, ...]
+    missing_trade_dates: tuple[date, ...]
+    issues: tuple[MajorIndexTurnoverReadIssue, ...]
+    scanned_file_count: int
+    scanned_row_count: int
+    elapsed_ms: int
+
+class MajorIndexTurnoverLakeReader:
+    def read(self, request: MajorIndexTurnoverReadRequest) -> MajorIndexTurnoverReadResult: ...
+```
+
+输入门禁：
+
+- `trade_dates` 去重后必须为降序、数量 `1..24`；Reader 不自行扫描目录寻找日期。
+- 频率在实现中固定为 `1`，请求对象没有频率或代码字段。
+- 每个路径必须由既有正式 Gold path helper 生成，且精确为 `gold/quote/major_index_mins/freq=1/trade_date=YYYY-MM-DD/part-000.parquet`。
+- 对每个候选文件执行 `resolve()` 后必须仍位于正式根 `/Volumes/datasource/data_lake`；拒绝符号链接逃逸、staging 和旧 Lake 根。
+
+DuckDB 生命周期：
+
+1. 只建立一个 `duckdb.connect(":memory:")`，在 `finally` 中关闭。
+2. 先对存在文件执行最小 schema inspection；数据阶段只执行一次批量 query。
+3. 数据 query 只投影 `ts_code/freq/trade_date/trade_time/amount`，不得读取 OHLC、volume、vwap 或指标列。
+4. SQL 以明确文件数组调用 `read_parquet(..., hive_partitioning=true, union_by_name=false)`；不得使用 `**` glob 或扫描超过请求日期的目录。
+5. SQL 固定 `WHERE freq = 1`，同时返回 `ts_code IN (<十代码>) AS code_allowed` 诊断列；不能只用 `IN` 过滤后把额外代码静默丢弃。
+6. Python 将 `amount` 立即规范为 `Decimal(str(value))`，不以 float 做领域计算。
+
+批量 SQL 形态冻结为：
+
+```sql
+SELECT
+    ts_code,
+    CAST(freq AS INTEGER) AS freq,
+    CAST(trade_date AS DATE) AS trade_date,
+    CAST(trade_time AS TIMESTAMP) AS trade_time,
+    amount,
+    ts_code IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) AS code_allowed
+FROM read_parquet(?, hive_partitioning = true, union_by_name = false)
+WHERE CAST(freq AS INTEGER) = 1
+ORDER BY trade_date DESC, ts_code, trade_time
+```
+
+Reader 的全局 fail-closed 条件：缺必需列、列类型不能安全转换、额外代码、重复 `(ts_code, trade_date, trade_time, freq)`、行内日期与分区日期不一致、时间日期不一致、频率不等于 1、扫描数量越界。缺少某代码、少于 241 点、时间网格错误或金额空/非有限/负数必须形成带代码和日期的 issue，保留其它合法代码行，以便服务返回逐卡 `PARTIAL/EMPTY`；不得把坏值填成 0。
+
+Reader 不负责选择 observed date、不求累计、不求均值、不生成 Pydantic DTO，也不改变现有 `MajorIndexMinsLakeReader`。
+
+### 17.5 交易日候选 Query
+
+新增：
+
+```text
+src/biz/queries/wealth/market/index_turnover_insight/index_turnover_insight_calendar_query.py
+tests/test_index_turnover_insight_calendar_query.py
+```
+
+稳定合同：
+
+```python
+@dataclass(frozen=True, slots=True)
+class IndexTurnoverInsightCalendarDay:
+    trade_date: date
+    previous_trade_date: date | None
+
+class IndexTurnoverInsightCalendarQuery:
+    def load_candidates(
+        self,
+        session: Session,
+        *,
+        expected_trade_date: date,
+        limit: int = 24,
+    ) -> tuple[IndexTurnoverInsightCalendarDay, ...]: ...
+```
+
+单次 SQLAlchemy query 固定读取 `TradeCalendar`：
+
+```text
+exchange = 'SSE'
+is_open = true
+trade_date <= expected_trade_date
+ORDER BY trade_date DESC
+LIMIT 24
+```
+
+结果保留每行 `pretrade_date` 并验证候选严格降序、相邻行与 `pretrade_date` 一致。不得按 24 个日期逐日查库，也不得用自然日减一代替 SSE 交易日历。页面 `market/tradeDate` 的解析继续由既有 `MarketPageContextQuery` 完成；新 Calendar Query 只扩展向前 24 个开市日的有界候选，不建立第二套页面日期解析器。
+
+### 17.6 页面中立计算内核与单位适配
+
+为避免全市场和指数各复制一套 241 点累计、差值、取整、坐标轴和文案逻辑，新增 API 中立的纯计算内核：
+
+```text
+src/biz/queries/wealth/market/turnover_common/turnover_panel_calculator.py
+tests/test_turnover_panel_calculator.py
+```
+
+稳定内存合同：
+
+```python
+@dataclass(frozen=True, slots=True)
+class TurnoverPanelMinuteInput:
+    time: str
+    amount_yuan: Decimal
+
+@dataclass(frozen=True, slots=True)
+class TurnoverPanelAverageInput:
+    avg5d_yuan: Decimal | None
+    avg20d_yuan: Decimal | None
+    available5d_count: int
+    available20d_count: int
+
+@dataclass(frozen=True, slots=True)
+class TurnoverPanelCalculation:
+    summary: TurnoverPanelSummary
+    upper_axis: TurnoverPanelAxis
+    delta_axis: TurnoverPanelAxis | None
+    series: tuple[TurnoverPanelSeriesPoint, ...]
+
+class TurnoverPanelCalculator:
+    def calculate(
+        self,
+        *,
+        current: tuple[TurnoverPanelMinuteInput, ...],
+        previous: tuple[TurnoverPanelMinuteInput, ...] | None,
+        averages: TurnoverPanelAverageInput | None,
+    ) -> TurnoverPanelCalculation: ...
+```
+
+`TurnoverPanelSummary/Axis/SeriesPoint` 也必须是本文件内定义的 frozen dataclass，字段与 API 中立且固定为：
+
+```text
+TurnoverPanelAmount(amount_yi, display_text, direction)
+TurnoverPanelAverage(amount_yi, display_text, direction, reference_label)
+TurnoverPanelSummary(current, previous, delta, avg5d, avg20d)
+TurnoverPanelAxisTick(value_yi, display_text)
+TurnoverPanelAxis(min_yi, max_yi, zero_yi, ticks)
+TurnoverPanelSeriesPoint(
+  time, show_axis_label,
+  current_amount_yi, current_display_text,
+  previous_amount_yi, previous_display_text,
+  delta_amount_yi, delta_display_text, delta_direction
+)
+```
+
+该文件中的中间结果全部为 frozen dataclass，不 import 任何全市场或指数 Pydantic response DTO。它是唯一负责以下领域事实的符号：
+
+- 规范 241 点时间集合：`09:30..11:30`、`13:01..15:00`。
+- 轴标签业务集合；全屏密度仍为既有 17 个标签，紧凑卡片可以只绘制其中的视觉子集。
+- `Decimal` 累计、先相减后取整、`ROUND_HALF_UP(value_yuan / 100_000_000)`。
+- `displayText`、正负方向、累计轴和差值轴。
+- upper axis 纳入 current、previous、非空 5/20 日均值；累计轴最小值固定 0，delta axis 必须包含 0 且允许负值。
+
+既有 `TurnoverInsightCalculator` 改成 snapshot/API adapter，而不是保留第二套算法：
+
+1. `parse_snapshot(...)` 继续校验 snapshot 专属的 `total_amount_thousand_yuan` 对账。
+2. 将每分钟 `amount_thousand_yuan * 1000` 映射成 `TurnoverPanelMinuteInput.amount_yuan`。
+3. 将既有 `TurnoverDailyAverageSnapshot` 的千元均值乘以 1000 后交给中立内核；既有全市场“有多少有效日就对多少日求均值”的历史语义不改变。
+4. 将中立结果映射回现有 `TurnoverInsight*Dto`；现有 endpoint 的 JSON 字段、单位、状态和轴结果必须通过快照回归保持完全一致。
+
+新增指数 adapter：
+
+```text
+src/biz/queries/wealth/market/index_turnover_insight/index_turnover_insight_calculator.py
+tests/test_index_turnover_insight_calculator.py
+```
+
+`IndexTurnoverInsightCalculator` 固定执行：
+
+1. 按 `ts_code/trade_date` 分组 Reader 行，校验每组精确匹配同一规范 241 点网格。
+2. Gold `amount` 已是元，直接构造 `TurnoverPanelMinuteInput`，不得乘以 1000。
+3. 每个完整日期的日总额等于 241 个未取整分钟值之和。
+4. 以实际 observed date 为截止日，从降序完整日序列取最近 5/20 日；只有 `available5d_count == 5` 或 `available20d_count == 20` 时才返回相应均值，否则为 `None`。
+5. 均值为 `sum(exact_daily_amount_yuan) / n`，最后由中立内核转亿元；不得先逐日转亿再平均。
+6. 将中立结果映射成指数 panel DTO；不构造伪 snapshot，不调用全市场 response builder。
+
+正反测试必须同时覆盖元/千元两种输入 adapter，尤其断言同一数值事实不会出现 1000 倍缩放错误。
+
+### 17.7 日期选择、整组状态与逐卡状态
+
+新增：
+
+```text
+src/biz/queries/wealth/market/index_turnover_insight/index_turnover_insight_query_service.py
+src/biz/services/wealth/market/index_turnover_insight/index_turnover_insight_status_resolver.py
+src/biz/services/wealth/market/index_turnover_insight/index_turnover_insight_exception_builder.py
+tests/test_index_turnover_insight_query_service.py
+```
+
+稳定服务入口采用显式依赖注入，便于 route 集成和真实 Reader 测试：
+
+```python
+class IndexTurnoverInsightQueryService:
+    def __init__(
+        self,
+        *,
+        context_query: MarketPageContextQuery,
+        calendar_query: IndexTurnoverInsightCalendarQuery,
+        reader: MajorIndexTurnoverLakeReader,
+        calculator: IndexTurnoverInsightCalculator,
+        status_resolver: IndexTurnoverInsightStatusResolver,
+        exception_builder: IndexTurnoverInsightExceptionBuilder,
+    ) -> None: ...
+
+    def build_index_turnover_insight(
+        self,
+        session: Session,
+        *,
+        market: str,
+        trade_date: date | None,
+        debug: bool,
+    ) -> IndexTurnoverInsightResponseDto: ...
+```
+
+`build_index_turnover_insight(...)` 的调用顺序固定为：
+
+```text
+MarketPageContextQuery.resolve_context(...)
+    -> IndexTurnoverInsightCalendarQuery.load_candidates(limit=24)
+    -> MajorIndexTurnoverLakeReader.read(all explicit candidate dates once)
+    -> select one shared date pair
+    -> IndexTurnoverInsightCalculator.calculate each of 10 identities
+    -> IndexTurnoverInsightStatusResolver.resolve group + items
+    -> IndexTurnoverInsightResponseDto
+```
+
+日期对选择算法：
+
+1. `expected_pair = (context.trade_date, context.prev_trade_date)`。
+2. 如果两个预期分区都存在，选择该 pair；即使某些代码不完整，也不得整体或逐卡回退。
+3. 如果任一预期分区整体缺失，或该 pair 没有任何可展示代码，只在候选列表前 4 个交易日中按 `pretrade_date` 寻找更早、严格相邻且 10 个代码都完整的 pair。
+4. 找到则整个响应使用同一 fallback pair；找不到则不选择日期对。
+5. 其余候选日期只用于 5/20 日均值，不得扩大 fallback 搜索范围，也不得单卡回退。
+
+后端整组状态只有五种；前端 `LOADING` 由 controller 补齐为第六种 UI 状态：
+
+| 整组状态 | 判定优先级 | 响应行为 |
+| --- | --- | --- |
+| `ERROR` | 路径、schema、额外代码、重复键、查询等全局合同失败 | 固定返回 10 个 ERROR placeholder，无 series |
+| `EMPTY` | 没有可用日期对或没有任何 current 曲线 | 固定返回 10 个 EMPTY/ERROR placeholder，无伪数据 |
+| `DELAYED` | 使用整组 fallback pair | 顶层 observed date 与 expected date 不同；各卡仍按自身 READY/PARTIAL 表达完整性 |
+| `PARTIAL` | 使用 expected pair，但至少一张卡非 READY | 合法卡正常展示，坏卡保留占位和诊断 |
+| `READY` | expected pair 的 10 张卡全部完整且 5/20 均值完整 | 10 卡均有 241 点和双轴 |
+
+逐卡状态只有 `READY/PARTIAL/EMPTY/ERROR`：
+
+| 单卡事实 | 单卡状态 | 允许字段 |
+| --- | --- | --- |
+| current/previous 均完整，5/20 均值均完整 | `READY` | 241 点、upper/delta 两轴、五卡全值 |
+| 日期对完整但至少一个均值不足 | `PARTIAL` | 241 点、双轴；不足均值为 `null/--` 且无参考线 |
+| current 完整、previous 无效或缺失 | `PARTIAL` | 241 个 current-only 点、upper axis；previous/delta 为 null，delta axis 为空 |
+| current 缺失 | `EMPTY` | 空 series、空 axes、五项 `--` |
+| current 质量错误或该代码发生不可恢复合同错误 | `ERROR` | 空 series、空 axes、受控 exceptionCode |
+
+所有业务响应必须始终包含 10 个 items，并按第 17.2 节顺序排列。一个代码错误不得删除 DOM 卡位或导致其它代码失败；全局合同错误除外。顶层 date 适用于全部可展示卡，禁止单卡拥有不同 observed date。
+
+均值不足只把对应单卡降为 `PARTIAL`；与既有全市场 M6 “缺均值不改主体状态”的历史语义不同。两者的数据源和完整性合同不同，不得复用全市场 `TurnoverDailyAverageQuery` 来绕过指数精确 5/20 日门禁。
+
+### 17.8 异常合同
+
+异常 module 固定为 `indexTurnoverInsight`，不能复用既有 `TI_*`。以下 8 个 code 已登记到 `wealth/docs/system/exception-code-registry.md`：
+
+| code | 固定 severity | 触发条件 | 作用范围与用户行为 |
+| --- | --- | --- | --- |
+| `ITI_SOURCE_NOT_READY` | warn | 预期日期对或单指数必要日数据缺失 | 整组不可用时 10 卡 EMPTY placeholder；局部缺失时对应卡 PARTIAL/EMPTY |
+| `ITI_SOURCE_DELAYED` | warn | 使用整组更早的十指数完整相邻日期对 | 顶层 DELAYED，10 卡共享 observed date |
+| `ITI_SOURCE_CONTRACT_MISMATCH` | error | 正式根/分区路径、schema、类型、freq 或分区日期合同错误 | 整组 ERROR，不切换其它 Lake、频率或数据源 |
+| `ITI_CODE_SCOPE_MISMATCH` | error | 分区出现额外代码或物理集合越过固定十指数范围 | 整组 ERROR，不静默过滤或重排 |
+| `ITI_TIME_GRID_MISMATCH` | error | 单指数不是精确 241 点、午休边界错误或两日时间键不一致 | current 合法时该卡可 PARTIAL；current 无效时该卡 ERROR；其它卡保留 |
+| `ITI_POINT_QUALITY_INVALID` | error | 金额空、非有限、负数，日期不一致或唯一键重复 | 可隔离时单卡 PARTIAL/ERROR；不可隔离时整组 ERROR，不填 0 |
+| `ITI_AVERAGE_WINDOW_INCOMPLETE` | warn | 单指数不足精确 5/20 个完整交易日 | 单卡 PARTIAL，不足均值为 `--`，不绘制参考线 |
+| `ITI_QUERY_FAILED` | error | Calendar、DuckDB 或响应构建未分类失败 | 整组 ERROR，保留既有全市场模块并允许重试 |
+
+builder 的代码级 allowlist 固定为：
+
+```python
+INDEX_TURNOVER_INSIGHT_EXCEPTION_SEVERITY: Final = MappingProxyType({
+    "ITI_SOURCE_NOT_READY": "warn",
+    "ITI_SOURCE_DELAYED": "warn",
+    "ITI_SOURCE_CONTRACT_MISMATCH": "error",
+    "ITI_CODE_SCOPE_MISMATCH": "error",
+    "ITI_TIME_GRID_MISMATCH": "error",
+    "ITI_POINT_QUALITY_INVALID": "error",
+    "ITI_AVERAGE_WINDOW_INCOMPLETE": "warn",
+    "ITI_QUERY_FAILED": "error",
+})
+```
+
+`IndexTurnoverInsightExceptionBuilder` 只接受上述精确 allowlist，并由 code 内部决定固定 severity；调用方不得传入或覆盖 severity。severity 表达问题本身的严重程度，整组或单卡还能否展示由 `status` 独立决定，因此 `error` 级单卡问题可以对应整组 `PARTIAL`。builder 输出固定的 code、severity、公开 message 和脱敏 details。debug details 只允许代码、日期、计数和 reason code；禁止返回绝对文件路径、SQL、数据库 DSN、堆栈或源数据行。
+
+主异常码选择优先级固定为：`QUERY_FAILED` > `SOURCE_CONTRACT_MISMATCH` > `CODE_SCOPE_MISMATCH` > `POINT_QUALITY_INVALID/TIME_GRID_MISMATCH` > `SOURCE_NOT_READY` > `SOURCE_DELAYED` > `AVERAGE_WINDOW_INCOMPLETE`。顶层 `exceptionCode` 只放影响整组的最高优先级 code；单卡 `exceptionCode` 放该卡主 code；获准的 `debugInfo.exceptions` 保留本次所有结构化异常，不能用一个主 code 覆盖诊断事实。
+
+自然的 capability 404 不是 `ITI_*` 业务异常：路由未挂载时根本没有业务 response。已挂载路由内发生的 FileNotFound、合同或查询错误不得再伪装成 404。
+
+### 17.9 严格 API DTO
+
+新增：
+
+```text
+src/biz/schemas/wealth/market/index_turnover_insight.py
+tests/test_index_turnover_insight_schema.py
+```
+
+所有 DTO 使用 `ConfigDict(extra="forbid")`。响应根合同：
+
+```python
+IndexTurnoverInsightStatus = Literal["READY", "DELAYED", "PARTIAL", "EMPTY", "ERROR"]
+IndexTurnoverInsightItemStatus = Literal["READY", "PARTIAL", "EMPTY", "ERROR"]
+
+class IndexTurnoverInsightTradingDayDto(_StrictDto):
+    market: Literal["CN_A"]
+    expectedTradeDate: date
+    observedTradeDate: date | None
+    previousObservedTradeDate: date | None
+    isTradingDay: bool
+    sessionStatus: Literal["PRE_OPEN", "TRADING", "BREAK", "CLOSED"]
+    timezone: Literal["Asia/Shanghai"] = "Asia/Shanghai"
+    generatedAt: datetime
+
+class IndexTurnoverInsightPanelDto(_StrictDto):
+    tsCode: str
+    indexName: str
+    status: IndexTurnoverInsightItemStatus
+    summary: IndexTurnoverInsightSummaryDto
+    upperAxis: IndexTurnoverInsightValueAxisDto | None
+    deltaAxis: IndexTurnoverInsightValueAxisDto | None
+    series: list[IndexTurnoverInsightSeriesPointDto]
+    message: str | None
+    exceptionCode: str | None
+
+class IndexTurnoverInsightResponseDto(_StrictDto):
+    status: IndexTurnoverInsightStatus
+    tradingDay: IndexTurnoverInsightTradingDayDto
+    asOf: str | None
+    unit: Literal["yi"] = "yi"
+    unitLabel: Literal["亿"] = "亿"
+    indices: list[IndexTurnoverInsightPanelDto]
+    message: str | None
+    exceptionCode: str | None
+    debugInfo: IndexTurnoverInsightDebugInfoDto | None
+```
+
+amount、average、axis、series DTO 的字段名与既有全市场合同保持同构：`amountYi/displayText/direction/referenceLabel`、`minYi/maxYi/zeroYi/ticks`、`time/showAxisLabel/currentAmountYi/previousAmountYi/deltaAmountYi`。它们属于新 response schema，不能为了复用而让新根 DTO 继承既有 `TurnoverInsightResponseDto`。
+
+Lake 文件没有可信的统一 `built_at`，因此 `asOf` 是后端形成的显示文案 `盘后数据 · YYYY-MM-DD`，日期必须等于 `observedTradeDate`；不得把 API 生成时刻描述成数据构建时刻。真实生成时刻只放 `tradingDay.generatedAt`。
+
+根 validator 必须验证：
+
+- `indices` 精确 10 项，`tsCode/indexName` 唯一；Query Service 另以完整 tuple 断言顺序。
+- `READY` item 必须有 241 点、upper/delta 两轴和 previous observed date。
+- `PARTIAL` 只允许“完整比较但均值缺失”或“current-only”两种结构。
+- `EMPTY/ERROR` item 不得有 series 或 axis。
+- `DELAYED` 根状态要求 `observedTradeDate != expectedTradeDate`；`READY/PARTIAL` 要求两者相等。
+- `EMPTY/ERROR` 根状态允许 observed date 为空，但仍保留固定 10 个 placeholder。
+
+`debugInfo` 固定字段为 `candidateTradeDateCount/scannedFileCount/scannedRowCount/exceptions`。非 debug 请求和非 `local/dev/test` 环境必须为 null。
+
+### 17.10 API、装配与 capability
+
+新增：
+
+```text
+src/biz/api/wealth/market/index_turnover_insight.py
+tests/web/test_index_turnover_insight_api.py
+```
+
+修改：
+
+```text
+src/app/api/v1/router.py
+```
+
+路由合同：
+
+```http
+GET /api/v1/wealth/market/turnover-insight/indices
+    ?market=CN_A
+    &tradeDate=YYYY-MM-DD
+    &debug=0|1
+```
+
+FastAPI endpoint 必须：
+
+- 使用与既有全市场 endpoint 相同的 `require_quote_access` 和 DB session dependency。
+- 只接受 `market/tradeDate/debug`；未知 query 参数由静态/路由测试阻止成为业务能力。
+- `debug` 只有在 `APP_ENV in {local, dev, test}` 且显式为 `1` 时生效。
+- 调用新的 Query Service，不 import 既有全市场 query/service/schema/status/exception。
+- response model 固定为 `IndexTurnoverInsightResponseDto`。
+
+在 `_include_local_minute_router()` 的 `index_capability.enabled` 分支中同时延迟 import 并挂载：
+
+```python
+from src.biz.api.wealth.market import index_detail_minutes, index_turnover_insight
+
+target_router.include_router(index_detail_minutes.router)
+target_router.include_router(index_turnover_insight.router)
+```
+
+endpoint 内必须再次调用 `resolve_index_minute_capability(get_settings())` 取得 `lake_root` 并构造 Reader，防止进程启动后正式目录失效。此复核失败返回受控 503/业务错误，不能返回 404；404 只来自路由未挂载。
+
+环境合同：
+
+| 环境与配置 | 指数 endpoint | 前端行为 |
+| --- | --- | --- |
+| `local/dev` + capability enabled | 挂载 | 请求并展示 10 卡 |
+| `local/dev` + capability disabled/source root not ready | 不挂载，404 | 隐藏整个指数网格，仅保留全市场模块 |
+| `prod/staging` | 不挂载，404 | 隐藏整个指数网格 |
+| 路由已挂载但数据/合同失败 | 返回非 404 的严格错误响应 | 展示网格错误/逐卡状态，不隐藏 |
+
+既有全市场 router 继续在顶层无条件 include；不能移动到 capability 分支。
+
+### 17.11 前端模型、请求与 controller
+
+在现有 feature 内新增，不新建第二个全局 feature：
+
+```text
+wealth/src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightApi.ts
+wealth/src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightAdapter.ts
+wealth/src/features/wealth-exploration/turnover-insight/model/indexTurnoverInsightTypes.ts
+wealth/src/features/wealth-exploration/turnover-insight/model/useIndexTurnoverInsightController.ts
+```
+
+既有模型抽取页面内共享结构：
+
+```ts
+export interface TurnoverInsightPanelViewModel {
+  status: DataStatus;
+  summary: TurnoverInsightSummaryViewModel;
+  upperAxis: TurnoverInsightAxisViewModel | null;
+  deltaAxis: TurnoverInsightAxisViewModel | null;
+  points: readonly TurnoverInsightChartPoint[];
+  message: string | null;
+  exceptionCode: string | null;
+}
+
+export interface TurnoverInsightViewModel extends TurnoverInsightPanelViewModel {
+  tradingDay: TurnoverInsightTradingDayViewModel;
+  asOf: string | null;
+}
+
+export interface IndexTurnoverInsightPanelViewModel extends TurnoverInsightPanelViewModel {
+  tsCode: string;
+  indexName: string;
+}
+```
+
+这只是 TypeScript 结构共享，不改变既有全市场 API 或运行时 model shape。共享范围保留在当前 feature；在没有第二页面消费者前不得上移到全局 `shared`。
+
+`fetchIndexTurnoverInsight(...)`：
+
+- 复用 shared API base/auth fetch 基础设施，timeout 固定 5 秒。
+- 一次请求返回 10 项；不得 per-code fetch、重试 10 次或在前端补发历史日期请求。
+- 自定义 error 必须保留 HTTP status，以区分 endpoint-level 404 与其它错误。
+- adapter 只做 strict payload 到 view model 的字段映射和 schema guard；不得累计、求平均、转单位、取整、选择日期、排序或构造缺失卡。
+
+controller 稳定状态：
+
+```ts
+type IndexTurnoverInsightCapabilityState = "loading" | "supported" | "unsupported";
+
+interface IndexTurnoverInsightControllerResult {
+  capabilityState: IndexTurnoverInsightCapabilityState;
+  viewState: TurnoverInsightViewState;
+  model: IndexTurnoverInsightViewModel | null;
+  errorMessage: string | null;
+  retry(): void;
+}
+```
+
+规则：
+
+1. endpoint-level 404 才设置 `unsupported`，页面不渲染 grid。
+2. 400/401/403/408/500/503、网络失败、schema mismatch 和业务 ERROR 都保留 `supported`，渲染受控 error；不得退回 mock 或隐藏。
+3. request key 只由共享 Market Context 的 resolved `market/tradeDate` 和允许的 debug 组成；Context 未就绪或失败时不发请求。
+4. request 变化取消旧请求并忽略迟到响应；retry 只重发一个批量请求。
+5. `LOADING` 是 controller viewState，不写入后端业务 schema。
+
+### 17.12 共享 panel、两列五行和 Canvas 几何
+
+新增/修改：
+
+```text
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightPanel.tsx       # 新增
+wealth/src/features/wealth-exploration/turnover-insight/ui/IndexTurnoverInsightGrid.tsx  # 新增
+wealth/src/features/wealth-exploration/turnover-insight/ui/IndexTurnoverInsightPanel.tsx # 新增薄壳
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSection.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSummary.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightChart.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/turnoverInsightGeometry.ts
+wealth/src/features/wealth-exploration/turnover-insight/ui/turnover-insight.css
+wealth/src/pages/wealth-exploration/TurnoverInsightPage.tsx
+```
+
+组件职责：
+
+- `TurnoverInsightPanel`：唯一的 LOADING/READY/DELAYED/PARTIAL/EMPTY/ERROR shell，组合 summary、legend、chart、message 和 retry。
+- `TurnoverInsightSection`：既有全市场整行标题与容器，向共享 panel 传 `layout="full"`；现有 DOM、视觉和交互保持回归。
+- `IndexTurnoverInsightPanel`：只渲染指数名称/代码标题并向共享 panel 传 `layout="compact"`；不复制状态或 Canvas 实现。
+- `IndexTurnoverInsightGrid`：按 API 顺序 map 10 项，只负责 grid 与整组状态提示。
+
+页面装配：
+
+```tsx
+<TurnoverInsightSection ... />
+{indices.capabilityState !== "unsupported" ? (
+  <IndexTurnoverInsightGrid ... />
+) : null}
+```
+
+`TurnoverInsightContent` 从同一个 `model.pageContext` 构造两个 request。全市场 controller 与指数 controller 彼此独立：指数失败不能覆盖全市场结果；Context 失败时两个 controller 均不请求，页面沿用现有 Context retry。
+
+Figma 桌面布局冻结：
+
+```text
+page content width         1564px
+total panel                1564px × 500px，整行
+index grid columns         repeat(2, minmax(0, 1fr))
+column gap                 12px
+row gap                    16px
+compact panel              776px × 540px
+compact title header       56px
+compact inner panel/canvas 776px × 484px（summary 绝对定位在该 panel 顶部）
+```
+
+CSS 不设置独立 776px 固定列溢出；以 `minmax(0, 1fr)` 和容器实际宽度驱动 Canvas ResizeObserver。Figma 数值是 1600px 桌面基准，现有产品桌面最小宽度下按同一 geometry 重新计算；禁止 CSS `scale()`、缩小全局字体或横向滚动来伪造适配。本期不设计移动端单列。
+
+`TurnoverInsightSummary` 增加 `layout: "full" | "compact"`：
+
+| layout | 卡片区合同 |
+| --- | --- |
+| full | 保持既有 `148px` 卡宽、`12px` gap 和当前位置，不得产生视觉回退 |
+| compact | 可用宽度 `692px`，5 个等宽列、`8px` gap，label/value 均单行；长样本不得重叠 |
+
+`TurnoverInsightChart` 仍是一张卡一个 Canvas，单 Canvas 内含 upper/lower 两图区并共享 x 映射和 hover。geometry 增加显式 layout preset：
+
+```ts
+full: {
+  height: 420, plotLeft: 58, plotRightInset: 30,
+  upperTop: 96, upperBottom: 270,
+  lowerTop: 318, lowerBottom: 392, timeLabelY: 408,
+}
+
+compact: {
+  height: 484, plotLeft: 46, plotRightInset: 22,
+  upperTop: 120, upperBottom: 300,
+  lowerTop: 350, lowerBottom: 416, timeLabelY: 466,
+}
+```
+
+full preset 必须逐像素回归现有 geometry。compact 只减少绘制密度，不改变领域点集；横轴可见标签固定为 `09:30/10:00/10:30/11:00/11:30/13:15/14:00/14:30/15:00`，但 hover 仍覆盖全部 241 点。前端不得用 `showAxisLabel` 的变化推导交易时段或删除点。
+
+交互合同：
+
+- 每张卡内部 crosshair 同步 upper line、lower bar 和同一 tooltip。
+- 10 张卡之间不共享 hover index，不联动 crosshair。
+- 只重绘当前 hover/resize 的 Canvas；无 `requestAnimationFrame` 常驻动画。
+- tooltip 的数值、正负号、日期和单位完全使用后端字段；均值不进入 tooltip。
+- 正差值沿用 A 股红，负差值沿用 A 股绿；current 红、previous 白、5 日品牌金、20 日紫保持既有 token。
+
+### 17.13 配置项审计
+
+本轮不新增配置。沿用配置的完整合同：
+
+| 配置 | 当前默认值/来源 | 持久化位置 | 消费者与作用范围 | 生效方式/运维可见性 | 测试门禁 |
+| --- | --- | --- | --- | --- | --- |
+| `APP_ENV` | `dev`；`Settings.app_env` | env / Settings | `resolve_local_minute_capability` 只允许 `local/dev`；API debug 另允许 test | 重启 Web 进程；启动日志/路由表可见 | prod/staging 不挂载，local/dev 可挂载 |
+| `WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED` | `false`；Settings | env / Settings | 本地 stock/index minute capability 总开关 | 重启 Web；无用户开关 | false 404，true 继续根目录门禁 |
+| `GOLDENSHARE_LAKE_ROOT` | 空字符串；Settings | env / Settings | capability 解析唯一 Lake 根 | 重启 Web；配置错误 fail-closed | 指数只接受精确 `/Volumes/datasource/data_lake` |
+
+依赖关系固定为：`APP_ENV in {local,dev}` AND `WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=true` AND `GOLDENSHARE_LAKE_ROOT` 精确正式根 AND Gold dataset root 可读。任一条件不满足均不挂载路由；不得在页面、Reader 或脚本散落第二套开关。当前 capability 同时服务指数详情分钟与本模块，因此本轮不能改变其既有语义。
+
+### 17.14 性能、资源和可观测性门禁
+
+单次请求硬上限：
+
+| 项目 | 上限/目标 |
+| --- | --- |
+| 日历 SQL | 1 次，最多 24 行 |
+| DuckDB connection | 1 个 |
+| DuckDB 批量数据 query | 1 次 |
+| 明确 Parquet 文件 | 最多 24 个 |
+| 扫描业务行 | 最多 `24 × 10 × 241 = 57,840` |
+| HTTP | 页面上下文稳定后 1 次批量指数请求，不是 10 次 |
+| 响应 items/points | 固定 10 项，每个最多 241 点 |
+| 未压缩响应 | `< 1 MiB` |
+| local backend P95 | `<= 300ms`，以最小真实正式 Gold 样本复核 |
+| frontend timeout | 5 秒，不因性能问题放宽 |
+
+禁止 N+1 calendar SQL、per-code DuckDB、全历史 glob、把 24 日全量复制成 10 份 Python 中间表、第二 serving source 或前端历史补查。本期不加 cache；若真实 P95 不达标，先用 query profile 定位投影、文件打开或 JSON 序列化瓶颈，不能用不受控缓存掩盖。
+
+Reader 结果必须记录 `scannedFileCount/scannedRowCount/elapsedMs`；debug response 只在获准环境暴露计数，常规日志记录 request id、observed date、状态和计数，不记录行内容。浏览器验收需用 Performance 面板证明滚动无持续动画、hover 只重绘目标卡，10 个 ResizeObserver 不产生循环警告。
+
+### 17.15 自动化测试与最小真实验收
+
+后端新增：
+
+```text
+tests/test_major_index_turnover_reader.py
+tests/test_index_turnover_insight_calendar_query.py
+tests/test_turnover_panel_calculator.py
+tests/test_index_turnover_insight_calculator.py
+tests/test_index_turnover_insight_query_service.py
+tests/test_index_turnover_insight_schema.py
+tests/test_index_turnover_insight_contract_alignment.py
+tests/test_index_turnover_insight_static_gates.py
+tests/web/test_index_turnover_insight_api.py
+```
+
+必须回归：
+
+```text
+tests/test_major_index_mins_reader.py
+tests/test_major_index_mins_contract_alignment.py
+tests/web/test_index_detail_minutes_api.py
+tests/test_wealth_turnover_insight_calculator.py
+tests/test_wealth_market_turnover_insight_query_service.py
+tests/web/test_wealth_turnover_insight_api.py
+```
+
+后端覆盖矩阵：
+
+1. 十代码、中文名和顺序精确相等；重复代码、北证50、中证2000、请求 codes/freq 的反例。
+2. DG Gold、Foundation 物理集合和 Biz 产品集合静态对账；`src/**` 无 orchestrator runtime import。
+3. 只接受正式根，拒绝 symlink/path escape/staging/旧 Lake；最多 24 个明确文件、57,840 行。
+4. 一次 DuckDB connection、一次批量数据 query、只投影 5 个源字段；反例证明不执行 10 次 per-code query。
+5. 241 点规范网格、午休、唯一键、分区/行日期、`freq=1`、金额 finite/non-negative 的正反例。
+6. 元与千元 adapter、`ROUND_HALF_UP` 边界、先差后取整、先精确日总额后 5/20 均值。
+7. 5/20 精确计数为 4/5、19/20、5/20 的边界，证明不足 N 日不会除以实际天数冒充。
+8. expected pair 优先、只有整组缺失才 fallback、fallback 仅前 4 候选、所有卡共享同一 pair、禁止单卡回退。
+9. 根 READY/DELAYED/PARTIAL/EMPTY/ERROR 与单卡 READY/PARTIAL/EMPTY/ERROR 的组合和优先级。
+10. capability disabled/prod/staging 路由 404；local/dev enabled 路由存在；挂载后的内部失败不是 404。
+11. 8 个 `ITI_*` 与注册表精确对账、severity 不可由调用方覆盖、未知 code 和 `TI_*/IM_*` 前缀被 builder 拒绝；顶层与单卡主 code 优先级正确。
+12. strict response 10 项、241 点、单位、asOf、debug 脱敏、auth 和未知字段拒绝。
+13. 既有全市场 response 快照、状态、均值和指数详情分钟 reader/API 完全回归。
+
+`tests/web/test_index_turnover_insight_api.py` 的核心用例必须通过临时正式形态 Parquet fixture 走真实 FastAPI route、真实 Query Service、真实 Calendar query 和真实 Reader；只允许替换测试 app 的 auth/DB/settings dependency，不得 mock service/query/calculator 或直接构造 response DTO。该用例至少断言 10 个 item 的 `tsCode/indexName/status/summary/upperAxis/deltaAxis/series/message/exceptionCode` 及顶层日期、单位和 debug 计数。
+
+前端新增/扩展：
+
+```text
+wealth/src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightAdapter.test.ts
+wealth/src/features/wealth-exploration/turnover-insight/model/useIndexTurnoverInsightController.test.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightPanel.test.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/IndexTurnoverInsightGrid.test.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightChart.test.ts
+wealth/src/features/wealth-exploration/turnover-insight/ui/turnoverInsightGeometry.test.ts
+wealth/src/pages/wealth-exploration/TurnoverInsightPage.test.tsx
+wealth/src/test/wealth-exploration-index-turnover-real-api.smoke.test.tsx
+```
+
+前端覆盖：
+
+- 一个 Context 驱动两个独立 controller；指数只发一个请求，不影响全市场。
+- loading -> ready/delayed/partial/empty/error、404 -> unsupported/hide、timeout -> error、retry -> 单次重发。
+- API 返回顺序即 DOM 顺序；10 卡、两列五行、12/16 gap 和稳定 key。
+- full panel 现有 DOM/几何不变；compact 五卡、四项 legend、241 点 hover、9 个可见 x 标签。
+- 单卡上下图区共用 hover/crosshair/tooltip，卡间不联动；resize 只按 preset 重算。
+- `10,000亿`、`20日均值 100,000亿`、`+100,000亿` 等最长样本单行且不重叠。
+- adapter 无累计、均值、排序、单位换算和字段补造。
+
+前端 real-API smoke 必须使用真实 fetch client、adapter、controller 和页面组件，不能 mock adapter/controller。自动化测试可以拦截网络并使用与后端核心 fixture 同源的完整 JSON；M7-D 最终门禁仍须启动本地后端和前端，通过浏览器访问真实 endpoint，不能只凭网络 mock 闭环。
+
+建议执行命令：
+
+```bash
+pytest -q \
+  tests/test_major_index_turnover_reader.py \
+  tests/test_index_turnover_insight_calendar_query.py \
+  tests/test_turnover_panel_calculator.py \
+  tests/test_index_turnover_insight_calculator.py \
+  tests/test_index_turnover_insight_query_service.py \
+  tests/test_index_turnover_insight_schema.py \
+  tests/test_index_turnover_insight_contract_alignment.py \
+  tests/test_index_turnover_insight_static_gates.py \
+  tests/web/test_index_turnover_insight_api.py \
+  tests/test_major_index_mins_reader.py \
+  tests/test_major_index_mins_contract_alignment.py \
+  tests/web/test_index_detail_minutes_api.py \
+  tests/test_wealth_turnover_insight_calculator.py \
+  tests/test_wealth_market_turnover_insight_query_service.py \
+  tests/web/test_wealth_turnover_insight_api.py \
+  tests/test_index_turnover_insight_contracts.py \
+  tests/test_index_turnover_insight_routing.py
+
+npm --prefix wealth run test -- \
+  src/features/wealth-exploration/turnover-insight \
+  src/pages/wealth-exploration/TurnoverInsightPage.test.tsx \
+  src/test/wealth-exploration-index-turnover-real-api.smoke.test.tsx
+npm --prefix wealth run typecheck
+npm --prefix wealth run build
+python3 scripts/check_docs_integrity.py
+git diff --check
+```
+
+最小真实只读验收固定使用正式 Lake，不产生写入：
+
+1. 以 2026-09-01 与其严格上一 SSE 开市日对账 10×241 点、代码集合、时间集合和日总额。
+2. 抽检上证指数、创业板、科创综指、中证A500 的代表分钟累计值和收盘累计值。
+3. 用独立 DuckDB SQL 对账每个指数的 5/20 日精确均值；证明不是全市场均值或日线 amount。
+4. 调用一次真实 API，断言扫描文件 `<=24`、扫描行 `<=57,840`、响应 `<1MiB`、P95 `<=300ms`。
+5. 浏览器核对 total 在上、10 卡 2×5 在下；至少 hover 4 张不同卡，核对正负柱、均值线、tooltip、crosshair 和日期文案。
+6. 用 Figma `1244:28288` 做视觉验收；Figma 样例金额不能作为数据正确性证据。
+
+### 17.16 通用清单 2.1—2.18 编码门禁矩阵
+
+任一“否决项”未满足即停止编码或提测。本 LLD 已评审通过，但评审通过不替代逐项实现与验收证据。
+
+| 清单 | 适用性 | M7 落点 | 正向证明与禁止项 |
+| --- | --- | --- | --- |
+| 2.1 交付事实链 | 适用，否决项 | Figma `1244:28288`、技术方案 19、LLD 17 | 三者评审通过且 ITI 登记后才开工；禁止以截图或口头约定替代 |
+| 2.2 后端事实归一 | 适用，否决项 | Reader、Calculator、strict DTO | API 产出排序、累计、均值、轴和文案；前端禁止二次计算/排序 |
+| 2.3 状态机 | 适用，否决项 | 17.7、controller | 六个 UI 状态和 5 秒超时过程测试；禁止 mock/旧值冒充 ready |
+| 2.4 显示与数据语义 | 适用 | direction、design token | 正红负绿、neutral 与结构字段一致；禁止解析中文文案决定颜色 |
+| 2.5 行为过程测试 | 适用 | 17.15 | loading→ready、404→hide、timeout→error、retry、10 卡变体；禁止只测最终 JSON |
+| 2.6 文档同轮同步 | 适用，否决项 | Figma、技术方案、LLD、registry | 契约变更同轮更新并跑 docs check；禁止文档旧实现新 |
+| 2.7 渐进替换 | 适用 | 独立 index route/grid；既有 capability | 只增加目标子模块；source gate 前后均为既有 capability，无 mock 源；回滚只移除新 route/grid，不影响 total |
+| 2.8 契约先行 | 适用，否决项 | 17.2、17.9、17.11 | Pydantic/TS/real smoke 一一对应；禁止前端临时补字段 |
+| 2.9 坐标与文案 | 适用 | common calculator、17.12 | upper min=0，delta 包含 0，compact 9 标签；说明文案只按 Figma展示 |
+| 2.10 统计与传输 | 适用 | 1 calendar SQL + 1 DuckDB query | 57,840 行是绘制/均值所需有界事实；禁止全历史、N+1 和前端聚合 |
+| 2.11 配置语义 | 适用 | 17.13 | 三配置完整审计且不新增配置；错误 fail-closed，需重启生效 |
+| 2.12 清单映射 | 适用，否决项 | 本表 | 2.1—2.18 无空项，评审后开工 |
+| 2.13 例外白名单 | 适用，否决项 | 17.17 E01 | upper 累计轴 min=0；signed delta 负轴有测试；禁止其它隐式例外 |
+| 2.14 显式图表参数 | 适用，否决项 | API axes + Canvas y mapping | min/max/ticks 原值映射，geometry 不改轴；可执行 draw 断言 |
+| 2.15 并排双图 | 不适用 | 单卡为上下堆叠双图区 | 无左右并排图；仍用同一 geometry/x function 验证基线与标签避让 |
+| 2.16 卡片单行 | 适用，否决项 | compact/full summary CSS | 最长金额和 20 日均值样本 smoke；禁止挤压其它卡或全局缩放 |
+| 2.17 真实核心 case | 适用，否决项 | 17.15 real route + real client | 核心字段全部可见；禁止 mock service/query/adapter 作为交付证据 |
+| 2.18 跨模块原则 | 适用，否决项 | 17.18 | 8 条逐项有符号和测试；任一缺失停止 |
+
+### 17.17 模块例外白名单
+
+| ID | 例外规则 | 适用模块/范围 | 业务语义依据 | 可执行断言 |
+| --- | --- | --- | --- | --- |
+| E01 | 下方累计差值图区允许负 y 刻度 | 全市场与十指数 panel 的 `deltaAxis`，不包括 upper 累计轴 | 差值是 `current cumulative - previous cumulative`，天然为 signed；强制从 0 起会丢失“少于昨日”的事实 | common calculator 断言负样本 `minYi<0/zeroYi=0`；Canvas 断言负 tick 原值生效；upper axis 始终 `minYi=0` |
+
+除此之外无例外。capability 404 是环境可用性边界，不是 mock 回退或数据状态例外；compact 横轴减少可见标签是同一 241 点事实的视觉密度调整，不改变轴语义。
+
+### 17.18 跨模块抽象门禁 8 原则映射
+
+| 原则 | M7 落点 | 测试/验收 |
+| --- | --- | --- |
+| 1. 事实源单一 | 正式 Gold → Reader → API；Biz universe 唯一产品顺序；前端只映射 | 集合对账、adapter static gate、real API field assertion |
+| 2. 契约先行冻结 | 17.2/17.7/17.9/17.11 | Pydantic strict、TS 类型、fixture 同源、文档 diff gate |
+| 3. 配置一致性 | 只使用 Settings 三配置和现有 capability | defaults/环境/正式根/重启生效测试，不新增 env 名 |
+| 4. 默认行为显式 | 无 codes/freq；expected 优先；整组 fallback；404 hide；其它错误显示 | 缺参、未知参、日期缺失、404/503、partial/fallback 反例 |
+| 5. 排序筛选确定性 | 固定 tuple 顺序；固定 `freq=1`；额外/缺失代码 fail-closed/partial | 精确顺序、排除代码、extra code、前端不 sort |
+| 6. 性能预算前置 | 24 文件/57,840 行/1 connection/1 query/300ms/1MiB/5s | query spy、计数、payload 和真实 P95、浏览器 Performance |
+| 7. 可观测异常标准化 | `ITI_*` registry、结构化 debug、计数日志 | registry/static test、debug 环境与脱敏测试 |
+| 8. 用户可见结果优先 | real route → real client → 2×5 页面，六态与 hover | 后端核心 route、前端 real-API smoke、本地浏览器/Figma 验收 |
+
+### 17.19 M7 里程碑与完成条件
+
+#### M7-A：LLD 与合同冻结
+
+- [x] 原 LLD 已修订，没有创建平行设计文档。
+- [x] 技术方案里程碑从与既有 M6 冲突的编号校准为 M7。
+- [x] 类、函数、DTO、SQL、组件、几何、性能、测试和门禁已映射。
+- [x] 用户评审并批准本 LLD。
+- [x] 8 个 `ITI_*` 已登记且 registry 无未归属冲突。
+
+#### M7-B：批量只读后端
+
+- [x] Foundation 物理合同与三方集合对账完成。
+- [x] Reader、Calendar Query、common/index calculator、Query Service、schema、exception 和 local endpoint 完成。
+- [x] 后端目标测试、非目标回归和正式 Gold 最小只读对账通过。
+- [x] 证明一次 connection、一次 batch query、24/57,840 上限、300ms/1MiB 门禁。
+
+#### M7-C：前端共享化与网格
+
+- [x] 既有 full panel 行为与像素基线无回退。
+- [x] 一个 batch controller、10 个 compact panel 和 2×5 grid 完成。
+- [x] 六态、404 capability、最长文案、Canvas hover/resize 和请求次数测试通过。
+- [x] 前端 test、typecheck、build 通过。
+
+#### M7-D：集成与验收
+
+- [x] 本地真实 endpoint 和真实页面集成通过，不使用 mock adapter/controller。
+- [x] Figma、数据、状态、性能、浏览器交互和非目标回归全部通过。
+- [x] 技术方案、LLD、异常注册表和验收记录同步为“开发与本地验收完成、待用户 UI 验收”。
+- [ ] 用户完成 UI 验收后方可闭环。
+
+编码前硬门禁：M7-A 已全部完成。完成定义不是“页面出现 10 张卡”，而是 M7-B 至 M7-D 每条均有可复核证据；任何未完成项必须保留为显式风险，不能默认算完成。
+
+### 17.19.1 M7 验收证据（2026-09-02）
+
+1. 后端目标与非目标回归共 `99 passed`，Python 静态检查通过；前端全量 `88` 个测试文件、`578 passed`，TypeScript 类型检查与生产构建通过。
+2. 正式 Gold 最多读取 24 个明确分区：审计扫描 `57,840` 行且 `0` issue；2026-09-01 单日 `2,410` 行、十代码各 `241` 点。独立 DuckDB SQL 对账最近 20 个 SSE 开市日共 `48,200` 行，十代码 5/20 日均值与 API 全部一致。
+3. 真实 API 返回固定十项，常规响应 `545,023` bytes，低于 `1MiB`；排除冷启动后的 40 次实测 nearest-rank P95 为 `187.33ms`，低于 `300ms`。Reader 仍为一个 connection、一次 batch query，无 cache、第二 serving source或 per-code 查询。
+4. 浏览器真实页面只发起一次全市场请求和一次十指数请求；十卡按产品顺序呈现为两列五行。抽检上证指数、深证成指、创业板和科创50四张卡的 hover，tooltip、crosshair、正负累计差和均值线均正确；控制台无 error/warning，静置后无持续 redraw。
+5. 最终页面与 Figma `1244:28288` 实图逐项核对。复核中发现卡头缺少“成交额”、副标题和卡级日期，已修正为设计稿口径并重新通过页面/测试验收。
+
+### 17.20 风险与回滚
+
+| 风险 | 防线 | 回滚边界 |
+| --- | --- | --- |
+| Gold 单位误当千元 | 双 adapter 反向 fixture + 正式总额对账 | 只回滚指数 calculator/endpoint，不碰数据 |
+| 产品池和 DG 漂移 | 三方静态对账 + 运行时 extra code fail-closed | 禁用新 route/grid，修合同后重发 |
+| per-code/N+1 性能放大 | connection/query spy + 计数门禁 | 回滚新 Reader，不改现有 Reader |
+| 某卡坏数据拖垮全页 | issue 分类 + 固定 10 placeholder + group/item 状态 | 只隐藏/回滚指数 grid，total 保持服务 |
+| 404 与真实错误混淆 | HTTP status error + endpoint-level 404 唯一 unsupported | 回滚 controller capability 分支 |
+| 共用 UI 导致 total 回退 | full geometry/DOM/截图和旧测试全回归 | 回滚共享 UI refactor 与 grid，同步恢复 total 原组件 |
+| 10 Canvas 卡顿 | 无常驻动画、局部 redraw、Performance 验收 | 暂停指数 grid 发布，不引入降采样假数据 |
+
+回滚不删除数据、不改 DG、不改数据库，也不建立 mock fallback。代码回滚范围只包括本节新增 route、Reader、Biz 查询链、指数 UI 及为共享计算/视图所做的可逆重构；既有全市场 endpoint 和指数详情分钟 endpoint 必须始终可独立回归。
+
+## 18. 当前结论与版本记录
+
+十指数扩展的数据前置条件满足：DG 正式 Gold `major_index_mins/freq=1` 已提供本期固定 10 个指数的分钟成交额事实。本需求不新增数据集，也不读取通用 `index_mins`。
+
+目标实现是独立的 local/dev 批量只读链：一个 endpoint、一个 DuckDB connection、一次最多 24 个明确分区的批量查询，返回固定 10 项；前端在既有全市场整行模块下方渲染两列五行，并复用同一 panel 交互原语。全市场接口、指数详情对象池、DG 数据管道、数据库和生产 serving 均不改变。
+
+本 LLD 的 M7-A、M7-B、M7-C，以及 M7-D 的机器、数据、真实 API、Figma 和浏览器验收均已完成，8 个 `ITI_*` 已登记。当前唯一未完成项是用户 UI 验收，因此仍不标记最终闭环。远程 prod/staging 没有指数分钟 serving，继续只显示既有全市场模块；生产化须另立方案，不属于本期隐含工作。
+
+| 版本 | 日期 | 内容 |
+| --- | --- | --- |
+| v1 | 2026-08-22～2026-08-23 | 全市场成交额洞察、5/20 日均值和视觉修订完成并验收 |
+| v1.1 | 2026-09-02 | 完成固定十指数 2×5 扩展 M7 LLD、开发与本地验收；8 个 `ITI_*` 已登记，数据源为现有 `major_index_mins`，当前待用户 UI 验收 |

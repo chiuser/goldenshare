@@ -1,9 +1,10 @@
-# 财势探查｜成交额洞察技术实施方案 v1
+# 财势探查｜成交额洞察技术实施方案 v1.1
 
 ## 0. 文档状态
 
-- 状态：基础版本及 5 日/20 日均值补充功能均已开发、部署并通过用户 UI 验收，需求闭环
+- 状态：基础版本及 5 日/20 日均值补充功能已闭环；十指数成交额扩展 M7 已完成开发、自动化验证、正式 Gold 对账、真实 API 与浏览器验收，待用户 UI 验收后闭环
 - 编写日期：2026-08-21
+- 本次修订：2026-09-02
 - 适用仓库：`/Users/congming/github/goldenshare`
 - 目标页面：财势探查（Wealth Exploration）
 - Figma 文件：`RADlZzREU4lPVviYfkLy6x`
@@ -14,7 +15,8 @@
   - 地域板块：`752:102`，成交额洞察实例 `807:434`
   - 组件页：`11.5 Wealth Exploration - Components`（`797:2`）
   - 状态与交互页：`11.8 Wealth Exploration - States and Interaction Notes`（`797:3`）
-- 事实基线：当前代码与 2026-08-21 正式只读数据审计
+  - 十指数扩展 Loaded 设计：`Wealth Exploration / Desktop / Turnover Insight / Total + 10 Indices / Loaded`（`1244:28288`）
+- 事实基线：当前代码、2026-08-21 全市场成交额审计，以及 2026-09-01 `major_index_mins` 正式 Gold 与 Tushare 源站只读审计
 
 2026-08-22 开发收口：独立后端接口、财势探查页面、共享顶部栏/面包屑/时间上下文、单 Canvas 双图区和六态均已按本方案落地；自动化测试、TypeScript 类型检查和生产构建通过。开发阶段按约定未启动服务或部署。
 
@@ -24,6 +26,8 @@
 
 2026-08-23 视觉修订验收闭环：用户部署首轮实现后发现两条均值标签在数值接近时会重叠。Figma 和代码现已统一为“较高值在线上方、较低值在线下方”，参考线使用 `4/4` 短密虚线，图例补齐 5 日/20 日均值虚线，两张均值卡金额使用对应参考线颜色。目标测试、全量前端测试、TypeScript 检查和生产构建均通过；用户已完成部署和 UI 审查，效果符合预期，本补充功能闭环。
 
+2026-09-02 十指数扩展开发与本地验收完成：固定十指数批量 Gold Reader、独立 Biz/API 查询链、共享 panel 原语和 2×5 网格均已按 M7 LLD 落地。后端 99 项目标与非目标回归、前端 88 个文件 578 项测试、类型检查、生产构建、正式 Gold 独立 SQL 对账、真实 API 性能/体积门禁和浏览器/Figma 交互验收均通过。Figma 实图复核中发现卡头缺少“成交额”、副标题和卡级日期，已在最终实现中校准；当前只等待用户 UI 验收，不提前标记业务闭环。
+
 2026-08-22 补充冻结：
 
 - 既有行情首页半小时成交额来自预计算表 `core_serving.wealth_market_turnover_snapshot`；新模块读取该表的 `freq=1`，不在线扫描分钟明细。
@@ -31,11 +35,20 @@
 - 财势探查页面直接复用行情首页的 `TopMarketBar` 和 Breadcrumb 视觉/DOM 实现；面包屑固定为 `财势乾坤 / 财势探查`。
 - 页面公共时间口径与行情首页完全一致，继续支持相同的 `market`、`tradeDate` 参数，并以共享 Market Context 为页面唯一时间事实。
 
+2026-09-02 十指数扩展冻结：
+
+- 既有全市场成交额模块保持整行展示，既有接口、计算口径和数据源均不改变。
+- 在全市场模块下方增加 10 个指数成交额模块，固定为两列五行；每个模块复用全市场成交额的五卡、累计曲线、均值参考线、累计差值柱、crosshair 和 tooltip 交互语义。
+- 指数数据唯一读取 DG 正式 Gold `gold/quote/major_index_mins/freq=1`，不读取通用 `index_mins`，不新增数据集，不修改 Dagster asset、sensor、check、Lake writer 或生产数据库。
+- 十指数范围固定为：上证指数、深证成指、创业板、科创50、科创综指、中证500、中证A500、沪深300、中证1000、上证50；北证50和中证2000不在本期范围。
+- 指数扩展使用独立批量 API 和批量 Lake reader；不得把现有全市场接口改造成依赖本地 Lake 的混合接口，也不得按指数发起 10 次 HTTP 或 10 次 DuckDB 查询。
+- 当前 `major_index_mins` Web 能力只在 `local/dev` 且本地正式 Lake capability 开启时可用；远程 `prod/staging` 的指数分钟发布与 serving 不在本期范围。
+
 本文档是“成交额洞察”模块的技术实施方案，不是低层设计。当前评审通过的 Figma 直接承担视觉/交互 benchmark；不再新增重复的 benchmark requirement 或独立 coding-gate。LLD 必须把本文约束映射到具体符号、测试、验收步骤和内嵌编码门禁矩阵。
 
 ## 1. 目标
 
-在财势探查页面的板块雷达上方新增“成交额洞察”模块，用一分钟全市场成交额快照对比最近完整交易日与上一交易日的盘中累计成交额走势。
+在财势探查页面的板块雷达上方提供“成交额洞察”模块：顶部用一分钟全市场成交额快照对比最近完整交易日与上一交易日的盘中累计成交额走势；其下用 `major_index_mins` 一分钟 Gold 数据，以相同交互语义展示 10 个指数各自的成交额走势。
 
 模块需要同时回答五个问题：
 
@@ -51,11 +64,13 @@
 - 上图：当日与昨日累计成交额曲线，以及 5 日、20 日成交额均值水平参考线。
 - 下图：当日累计成交额与昨日同一时刻累计成交额的差值柱状图。
 
+十指数扩展不改变上述单模块语义，只把同一组五卡、上图和下图按固定指数对象重复 10 次。全市场模块继续占满整行；指数模块固定两列五行，并共享同一页面交易日上下文。
+
 ## 2. 明确不做
 
 - 不做全天成交额预测。
 - 不做实时行情接入；“当日”固定表示页面上下文选中的最近完整交易日。
-- 不扫描股票一分钟原始湖文件服务在线请求。
+- 全市场模块不扫描股票一分钟原始湖文件；指数扩展只允许有界读取正式 Gold `major_index_mins`，不读取 Raw、Silver、staging 或旧 Lake。
 - 不在前端累计一分钟成交额。
 - 不在前端计算当日与昨日差值。
 - 不在前端执行“千元转亿元”或金额取整。
@@ -64,6 +79,10 @@
 - 不 import 或调用首页 `MarketTurnoverQueryService`、`TurnoverQuery`、旧 schema、旧 status resolver 或旧 exception builder；均值共享只能下沉为页面中立的底层日成交额均值 query，由两个模块共同消费。
 - 不把成交额洞察并入板块雷达内部状态或接口。
 - 不增加面向用户的计算参数、频率开关或市场开关。
+- 不新增、复制或改造 DG 数据集；不读取通用 `index_mins`，不从日线、成分股或全市场成交额反推指数成交额。
+- 不修改指数详情页现有十指数产品对象池；成交额洞察拥有独立且固定的十指数合同。
+- 不支持北证50、中证2000，也不接受前端传入任意指数代码列表。
+- 不在本期建设远程生产环境的分钟数据发布、同步表或 serving 层。
 
 ## 3. 已冻结的产品与交互口径
 
@@ -797,7 +816,7 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 - 20 日均值卡片与参考线 `28,064亿`。
 - 11:30 等代表时间点的累计值与离线 SQL 一致。
 
-## 15. 开发里程碑
+## 15. 既有全市场模块开发里程碑（已完成）
 
 ### M1：治理和合同冻结
 
@@ -839,9 +858,9 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 
 开发结果：首轮开发和自动化验证已完成；用户部署后发现的均值标签重叠及图例/色彩表达不足已按 Figma 和本文口径完成代码修正。目标测试 19 项、全量前端测试 313 项、TypeScript 检查和生产构建均通过；用户已完成部署与 UI 验收，效果符合预期，需求闭环。
 
-## 16. 编码前硬门禁
+## 16. 既有全市场模块编码前硬门禁（已完成）
 
-正式开发前必须全部满足：
+M1 至 M5 开发前要求全部满足：
 
 1. Figma、本文技术方案、LLD 及其编码门禁矩阵无冲突。
 2. 新 API 与旧首页 turnover API 的边界明确，并有 import/static gate 禁止复用旧 query/service/schema/status/exception。
@@ -852,7 +871,7 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 7. 真实只读样本继续满足 241 点和时间集合一致。
 8. 代码实现不得修改快照生产、Lake 或 Dagster 主链。
 
-## 17. 风险与处理
+## 17. 既有全市场模块风险与处理
 
 | 风险 | 后果 | 处理 |
 | --- | --- | --- |
@@ -873,14 +892,423 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 | resize 后 geometry 过期 | 上下图区、网格或 hover 错位 | 单 geometry 计算、ResizeObserver 和两种基准宽度测试 |
 | 缺数据被填成 0 | 误导用户 | 使用 PARTIAL/EMPTY，不造数据 |
 
-## 18. 方案结论
+## 18. 既有全市场模块结论
 
-现有正式一分钟成交额快照继续完整支持累计曲线与差值；5 日/20 日均值沿用行情首页现有 `EquityDailyBar` 日成交额事实。无需新增数据集、无需扫描 Lake，也无需修改快照生产链路。
+既有全市场模块继续使用正式一分钟成交额快照支持累计曲线与差值，5 日/20 日均值继续沿用行情首页现有 `EquityDailyBar` 日成交额事实。该模块无需新增数据集、无需扫描 Lake，也无需修改快照生产链路。
 
-真正的开发工作集中在三处：
+基础版本 M1 至 M5 已完成自动化验证、部署和浏览器人工验收，2026-08-23 的视觉反馈已同步到 Figma、本文和 `turnover-insight-low-level-design-v1.md`，现状已闭环。下述第 19 节是 2026-09-02 新增的十指数扩展方案；它不会回写或改变既有全市场模块的事实源和接口合同。
 
-1. 建立独立的成交额洞察后端 API，在后端完成累计、对齐、差值、亿元换算和整数展示合同。
-2. 建立正式财势探查页面与独立前端 feature，还原 Figma 中的摘要卡片、双曲线和累计差值柱。
-3. 收敛 TopMarketBar、Breadcrumb 和 MarketContext 三个共享契约，保证页面顶部结构、面包屑和时间事实与行情首页一致，同时不让行情首页和详情页产生回退。
+## 19. 十指数成交额扩展技术方案
 
-基础版本 M1 至 M4 已完成自动化验证、部署和浏览器人工验收。M5 均值卡片与参考线已经完成首轮开发；2026-08-23 的视觉反馈已同步到 Figma、本文和 `turnover-insight-low-level-design-v1.md`。后续必须先按修订口径完成代码与测试，再由用户部署复验，当前不得把 M5 标记为闭环。
+### 19.1 技术决策总表
+
+| 决策项 | 冻结结论 | 原因 |
+| --- | --- | --- |
+| 数据源 | DG 正式 Gold `gold/quote/major_index_mins/freq=1` | 正好覆盖本期 10 个指数，已有 Wealth 只读合同和 Reader 基础，数据量小于通用 `index_mins` |
+| 是否新增数据集 | 不新增 | `major_index_mins` 已提供 `ts_code/trade_date/trade_time/amount` 全部必要事实 |
+| 是否使用通用 `index_mins` | 不使用 | 虽然目标日数据可对齐，但其对象池更大且源链不同，本需求没有引入第二事实源的必要 |
+| 全市场模块 | 保持现有 endpoint、query、DTO、计算和数据源 | 避免让已闭环的生产接口依赖本地 Lake |
+| 指数 API | 新增一个十指数批量 endpoint | 一次请求返回 10 卡，便于共享日期、状态和性能边界 |
+| Lake 查询 | 新增有界批量 Reader，一次 DuckDB 连接扫描最多 24 个日期分区 | 避免 10 次按代码查询和 10 次打开 DuckDB |
+| 指数名单 | 成交额洞察专属固定十指数合同 | 该名单与指数详情页对象池不同，不能互相复用或修改 |
+| 频率 | 后端固定 `freq=1` | 产品没有频率选择需求，不对外暴露源参数 |
+| 部署边界 | 当前只进入 `local/dev` 正式 Lake capability | 现有架构中远程 `prod/staging` 不挂载本地指数分钟路由 |
+
+### 19.2 只读审计结论与接入前提
+
+2026-09-01 正式 Gold 文件：
+
+```text
+/Volumes/datasource/data_lake/gold/quote/major_index_mins/
+  freq=1/
+    trade_date=2026-09-01/
+      part-000.parquet
+```
+
+审计结论：
+
+1. 目标 10 个代码全部存在，每个代码 241 个一分钟点，共 2,410 行。
+2. 时间范围为 `09:30:00` 至 `15:00:00`，符合现有 241 点交易时段合同。
+3. `amount` 无空值、非有限值或非法负数；个别合法零值不得当作缺失。
+4. Gold schema 已包含 `ts_code/freq/trade_date/trade_time/amount`；本需求不需要 OHLC、成交量或技术指标。
+5. Tushare `idx_mins` 源站对同日、同 10 个代码的显式字段实测可返回 `amount/freq/exchange/vwap` 等字段；Gold 的 `amount` 业务单位为“元”。
+6. `major_index_mins` 当前 Silver/Gold 明确排除已停止覆盖的 `899050.BJ`，保留 `000680.SH`，因此其当前 Gold 对象集正好是本需求的 10 个指数。
+
+以上证明“数据存在、字段可用、目标日完整”，不等于未来每个日期都天然完整。在线 Reader 仍必须逐请求验证 schema、日期、代码集合、241 点时间网格、唯一键和金额质量，不能把本次审计样本写成永久假设。
+
+### 19.3 十指数唯一合同与展示顺序
+
+成交额洞察建立独立的 `IndexTurnoverInsightUniverse` 业务合同，顺序固定如下：
+
+| 行 | 左列 | 右列 |
+| --- | --- | --- |
+| 1 | 上证指数 `000001.SH` | 深证成指 `399001.SZ` |
+| 2 | 创业板 `399006.SZ` | 科创50 `000688.SH` |
+| 3 | 科创综指 `000680.SH` | 中证500 `000905.SH` |
+| 4 | 中证A500 `000510.SH` | 沪深300 `000300.SH` |
+| 5 | 中证1000 `000852.SH` | 上证50 `000016.SH` |
+
+合同约束：
+
+1. 代码、名称和顺序只在后端业务合同定义一次；前端消费 API 返回顺序，不复制 allowlist，不按成交额或名称重排。
+2. 不复用 `IndexDetailUniverseService`。现有指数详情对象池包含 `899050.BJ`、不包含 `000680.SH`，改变它会越界影响指数详情、九转、权重和分钟 API。
+3. 不从 `lake_console/orchestrator` 运行时 import 对象池，保持 `src` 与 DG 编排代码的边界；测试通过显式合同对账防止两边漂移。
+4. API 不接受 `codes`、`tsCode`、`freq` 或排序参数，调用方不能扩大扫描范围。
+
+### 19.4 数据日期、完整性和降级语义
+
+页面仍以共享 Market Context 的已解析 `tradeDate` 为预期日期，指数扩展不得自行使用系统当天日期。
+
+单次批量读取规则：
+
+1. 从预期日期向前最多枚举 24 个已有的 `freq=1` 日期分区。
+2. 先精确检查预期日期和交易日历中严格相邻的上一交易日。两个分区都存在时固定使用这组日期，不因单个指数数据不完整而整体回退；10 个指数都完整则为 `READY`，部分指数完整则为 `PARTIAL`。
+3. 只有预期日期对缺少整个分区或没有任何可展示的指数日期对时，才在最近 4 个候选交易日内寻找一组更早、严格相邻且十指数全部完整的日期对，并将整组标记为 `DELAYED`。
+4. 不允许某一张卡单独回退到不同日期，避免同一页面 10 张卡出现不可比较的日期混搭。
+5. 找不到可用日期对时，不生成曲线；根据是否存在部分可诊断数据返回 `PARTIAL` 或 `EMPTY`。
+
+“单指数完整日期对”的门禁固定为：
+
+- 该代码在两个日期中都存在，且每天恰好 241 点。
+- 唯一键 `(ts_code, trade_date, trade_time, freq)` 无重复。
+- `freq=1`、分区日期、行内 `trade_date` 和 `trade_time` 日期一致。
+- 同一代码的两天使用同一套规范时间网格；所有可展示代码也必须对齐该规范网格。
+- `amount` 有限且大于等于 0。
+
+网格 `READY` 和受控 `DELAYED` 还要求分区代码集合精确等于第 19.3 节固定集合，不多不少；代码缺失进入 `PARTIAL`，出现额外代码或全局 schema/唯一键合同异常则 fail-closed 为 `ERROR`。
+
+5 日和 20 日均值以实际 `observedTradeDate` 为截止日，按每个指数分别使用最近 5/20 个完整交易日的日成交额：
+
+```text
+index_daily_amount_yuan(d) = SUM(amount_yuan of the 241 points on d)
+average_n_yuan = SUM(index_daily_amount_yuan) / n
+```
+
+若曲线日期对完整，但某指数不足 5 或 20 个可用日：
+
+- 曲线、昨日和累计差值继续展示。
+- 对应均值为 `null/--`，对应参考线不绘制。
+- 该卡状态为 `PARTIAL`，不得用不足 N 日的平均数冒充 N 日均值。
+
+### 19.5 金额、累计、差值和坐标合同
+
+指数 Gold `amount` 是每一分钟成交额，单位为“元”。后端以高精度十进制值完成全部领域计算，再一次性输出整数“亿”：
+
+```text
+exact_current_cumulative_yuan(t) = SUM(current.amount_yuan from open to t)
+exact_previous_cumulative_yuan(t) = SUM(previous.amount_yuan from open to t)
+exact_delta_yuan(t) = exact_current_cumulative_yuan(t) - exact_previous_cumulative_yuan(t)
+
+display_yi(value_yuan) = ROUND_HALF_UP(value_yuan / 100_000_000)
+```
+
+硬约束：
+
+1. 差值先用未取整累计值相减，最后再转亿元取整，不能拿两个已取整整数相减。
+2. 5 日/20 日均值先在元单位求平均，最后再转亿元取整。
+3. 前端不做累计、均值、差值、元转亿、取整或轴范围领域计算。
+4. 每个指数独立计算累计纵轴和差值纵轴；不得让上证指数的大值压缩其它卡片曲线。
+5. 上图 domain 同时包含当日曲线、昨日曲线、5 日均值和 20 日均值；下图 domain 包含零轴和全部差值。
+6. 参考线标签重叠、颜色、虚线节奏、tooltip 和 crosshair 语义完全沿用既有全市场模块。
+
+### 19.6 后端目标架构
+
+```text
+GET /api/v1/wealth/market/turnover-insight/indices
+        |
+        v
+IndexTurnoverInsightQueryService
+        |-- IndexTurnoverInsightUniverse（固定十指数、名称和顺序）
+        |-- SSE 交易日历 / 共享 Market Context 日期语义
+        |-- MajorIndexTurnoverLakeReader（一次批量、有界 Gold 读取）
+        |-- IndexTurnoverInsightCalculator（逐指数纯计算）
+        `-- IndexTurnoverInsightStatusResolver（整组 + 单卡状态）
+```
+
+现有接口保持不变：
+
+```text
+GET /api/v1/wealth/market/turnover-insight
+```
+
+新 endpoint 只在 `resolve_index_minute_capability()` 为 enabled 时通过 `_include_local_minute_router()` 挂载。这样：
+
+- 既有全市场 endpoint 始终按原条件提供，不依赖 Lake。
+- `local/dev` 且正式 Gold 可读时，前端获得十指数批量数据。
+- `prod/staging` 继续不挂载指数分钟 endpoint，返回 404；前端把该 404 识别为 capability 未启用并隐藏整个指数网格，不显示 10 张错误卡，也不影响全市场模块。
+- 已挂载后的查询失败、合同异常或数据不完整不能再当 capability 404 隐藏，必须展示明确状态。
+
+Foundation 读取层不直接复用现有按单代码分页的 `MajorIndexMinsLakeReader.read_bars()` 执行 10 次。目标是新增批量读取能力，并与现有 Reader 共用正式路径、schema、频率、时间键和校验合同：
+
+- 一次 DuckDB `:memory:` connection。
+- 一次显式列投影，只读 `ts_code/freq/trade_date/trade_time/amount`。
+- 一组最多 24 个明确分区文件；不使用目录递归 glob，不扫描全历史。
+- SQL 内部固定十代码 allowlist 和日期边界。
+- 返回计算所需的规范行和可观测元数据，不返回 DuckDB 对象或物理路径给 API。
+
+### 19.7 新 API 合同
+
+请求：
+
+```http
+GET /api/v1/wealth/market/turnover-insight/indices?market=CN_A&tradeDate=2026-09-01&debug=0
+```
+
+允许参数只有：
+
+- `market`：继续固定 `CN_A`，与共享页面上下文一致。
+- `tradeDate`：共享 Market Context 已解析日期。
+- `debug`：沿用现有管理员调试授权；未授权不得返回内部信息。
+
+响应骨架：
+
+```json
+{
+  "status": "READY",
+  "tradingDay": {
+    "expectedTradeDate": "2026-09-01",
+    "observedTradeDate": "2026-09-01",
+    "previousObservedTradeDate": "2026-08-31",
+    "timezone": "Asia/Shanghai"
+  },
+  "asOf": "盘后数据 · 2026-09-01",
+  "unit": "yi",
+  "unitLabel": "亿",
+  "indices": [
+    {
+      "tsCode": "000001.SH",
+      "indexName": "上证指数",
+      "status": "READY",
+      "summary": {},
+      "upperAxis": {},
+      "deltaAxis": {},
+      "series": [],
+      "message": null,
+      "exceptionCode": null
+    }
+  ],
+  "message": null,
+  "exceptionCode": null,
+  "debugInfo": null
+}
+```
+
+其中每个 `summary/upperAxis/deltaAxis/series` 的业务字段和展示语义与现有全市场成交额 DTO 保持一致，但新 API 拥有独立 schema；不能直接把现有单模块 root DTO 塞进数组或让两个 endpoint 共用同一个响应根模型。实现时可以提取页面中立的内部 panel value object，不能造成 API 契约耦合。
+
+整组 `indices` 必须始终按第 19.3 节返回 10 项；单个指数缺失时保留其位置并返回该卡状态，不允许直接删项导致布局和身份错位。
+
+### 19.8 状态与异常隔离
+
+整组和单卡继续使用六态：`LOADING/READY/DELAYED/PARTIAL/EMPTY/ERROR`。
+
+| 场景 | 整组状态 | 卡片处理 |
+| --- | --- | --- |
+| 预期日及上一交易日十指数完整，且各自均值窗口完整 | `READY` | 10 卡均 READY |
+| 日期对完整，但部分指数均值窗口不足 | `PARTIAL` | 曲线保留；问题卡均值为 `--`，参考线不绘制 |
+| 使用同一组更早完整相邻日期 | `DELAYED` | 10 卡显示相同 observed/asOf，并明确延迟 |
+| 日期对有部分代码或点位不完整 | `PARTIAL` | 有效卡可展示，问题卡局部状态；不得混用旧日期 |
+| 无可用完整日期对 | `EMPTY` | 网格空态，不造零值或平线 |
+| Lake 查询或合同失败 | `ERROR` | 网格错误态；全市场模块继续可用 |
+| endpoint 404（capability 未挂载） | 不进入业务状态 | 整个指数网格不渲染 |
+
+新异常码前缀固定为 `ITI_*`，已登记到异常码注册表：
+
+- `ITI_SOURCE_NOT_READY`
+- `ITI_SOURCE_DELAYED`
+- `ITI_SOURCE_CONTRACT_MISMATCH`
+- `ITI_CODE_SCOPE_MISMATCH`
+- `ITI_TIME_GRID_MISMATCH`
+- `ITI_POINT_QUALITY_INVALID`
+- `ITI_AVERAGE_WINDOW_INCOMPLETE`
+- `ITI_QUERY_FAILED`
+
+`SOURCE_NOT_READY/SOURCE_DELAYED/AVERAGE_WINDOW_INCOMPLETE` 固定为 `warn`；其余五个固定为 `error`。severity 表达数据问题本身的严重程度，整组或单卡还能否展示由 `status` 独立决定，禁止同一 code 在不同路径切换 severity。
+
+用户态 message 不暴露 Lake 路径、SQL、DuckDB 异常、堆栈或内部配置。`debugInfo` 只在现有管理员调试授权成立时返回，且仍需脱敏。
+
+### 19.9 前端组件与页面编排
+
+Figma `1244:28288` 冻结的 1600 桌面基线为：
+
+- 页面内容宽 `1564px`。
+- 全市场模块 `1564 × 500px`，继续独占整行。
+- 指数网格宽 `1564px`，两列五行。
+- 单卡 `776 × 540px`，列间距 `12px`、行间距 `16px`。
+- 卡片标题为“指数名称 + 成交额”，同时展示代码、`当日与昨日同分钟累计` 副标题和 as-of chip。
+- 每卡保留五个摘要指标、四项图例、上方累计图区、下方累计差值区和共享 hover layer。
+
+实现结构：
+
+```text
+TurnoverInsightPage
+  |-- TurnoverInsightSection               # 既有全市场整行模块
+  `-- IndexTurnoverInsightGrid             # 新增，一次请求管理 10 卡
+        `-- IndexTurnoverInsightPanel × 10  # 同一个组件实例化，不复制 10 套代码
+              |-- TurnoverInsightSummary
+              `-- TurnoverInsightChart
+```
+
+现有 chart、summary、legend、tooltip 和状态壳需要收敛为页面中立的共享渲染原语，由 full/compact 两种 layout variant 消费同一 panel view model；variant 只能改变几何和排版，不能改变业务字段、交互或颜色语义。
+
+响应式边界：
+
+1. 当前产品和 Figma 只冻结桌面两列布局；不在本期自行增加移动端单列交互。
+2. 在现有 Wealth 全局桌面最小宽度内保持两列，不使用 CSS `scale`、viewport 字体缩放或横向滚动补丁。
+3. 单卡 Canvas 用 `ResizeObserver` 读取实际容器宽度；geometry、hoverIndex 和 crosshair 在单卡内部共享。
+4. 10 个 Canvas 不运行持续动画循环；只在数据、尺寸或当前卡 hover 改变时重绘。
+5. 10 卡由一个 controller、一个请求管理；切换行业/概念/地域板块不重新请求指数数据。
+6. 一张卡 hover 不驱动其它九张卡同步，避免 10 个 Canvas 同帧重绘；“交互一致”指每张卡内部上下图联动一致。
+
+Figma 中金额和曲线是设计样例，只承担布局、样式和交互 benchmark；实现不得把样例数值写入 mock fallback 或业务代码。
+
+### 19.10 性能、资源与请求边界
+
+稳定态读取最近 20 个日期分区，受控延迟识别最多读取 24 个分区：
+
+```text
+24 partitions × 10 codes × 241 points = 57,840 rows hard upper bound
+```
+
+性能硬约束：
+
+- 一次页面加载只有 1 个指数批量 HTTP 请求。
+- 后端每次请求只有 1 次 DuckDB 连接和 1 组有界文件扫描。
+- 禁止 10 次 per-code HTTP、10 次 per-code Reader、全历史 glob 或加载全文件全部列。
+- 返回 JSON 未压缩体积目标不超过 `1 MiB`；真实实现必须测量，超过时先精简重复文本字段，不能删除时间点或改成交互降级。
+- 正式本机样本后端 P95 目标不超过 `300ms`；若不满足，先检查重复扫描、列投影和 JSON 编码，不引入常驻缓存或第二份 serving 事实。
+- 浏览器必须验证初次绘制、滚动和单卡 hover 无持续重绘风暴；固定 10 卡不引入虚拟列表。
+
+### 19.11 配置、安全和运行边界
+
+本期不新增配置项，复用现有：
+
+| 配置 | 要求 | 作用 |
+| --- | --- | --- |
+| `APP_ENV` | `local` 或 `dev` | 允许本地分钟 capability |
+| `WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED` | `true` | 显式开启本地分钟 API |
+| `GOLDENSHARE_LAKE_ROOT` | `/Volumes/datasource/data_lake` | 唯一正式 Lake 根 |
+
+继续禁止：
+
+- `/Volumes/datasource/goldenshare-tushare-lake` 旧 Lake。
+- `/Volumes/datasource/data_lake_staging` staging。
+- Raw、Silver 或用户可选数据层。
+- 任何 Lake、数据库、Dagster、sensor、asset check 或 runless event 写入。
+- 把物理路径、SQL 或内部异常暴露给普通用户。
+
+如未来要求远程 `prod/staging` 使用本功能，必须另立正式分钟发布/serving 方案并重新审计时效、写入、恢复和运维边界；不能把本地 Lake 路径或 DuckDB 查询直接复制到远程生产环境。
+
+### 19.12 影响面与预期改动范围
+
+M7 LLD 已把下列影响面映射到具体符号，后续实现必须按该映射对账：
+
+| 层 | 预期范围 | 边界 |
+| --- | --- | --- |
+| Foundation | `src/foundation/clients/local_lake/major_index_mins_*` 批量读取与共享合同 | 只读正式 Gold；不依赖 Biz、App 或 orchestrator |
+| Biz query/service/schema/API | 新增 `index_turnover_insight` 独立模块 | 固定十指数、纯计算、严格 DTO、独立异常 |
+| App composition | `src/app/api/v1/router.py` local minute 条件挂载 | 不改变现有全市场路由 |
+| Wealth API/model/controller | 新批量 adapter、DTO 和 controller | 一个请求；404 capability 与业务错误分开 |
+| Wealth UI | 成交额共享 panel 原语、指数 grid、页面编排 | 总模块在上；2×5；不复制领域计算 |
+| Tests | Reader、calculator、API、router、controller、Canvas、页面与静态门禁 | 包含正向、负向、性能和真实只读对账 |
+| Docs | 本文、原 `turnover-insight-low-level-design-v1.md`、异常码注册表 | 不新增平行技术方案或独立 coding-gate |
+
+不改动：
+
+- `lake_console/orchestrator` 的 dataset、asset、job、sensor、check 和路径合同。
+- `DatasetDefinition`、`DatasetExecutionPlan` 或任何数据集配置。
+- 生产数据库 schema、迁移和全市场成交额 snapshot。
+- 指数详情页对象池与既有指数详情 API。
+- `qtf`、legacy `platform/operations` 和依赖矩阵。
+
+### 19.13 测试与真实验收
+
+自动化测试至少覆盖：
+
+1. 十指数代码、名称、顺序精确相等；北证50、中证2000和任意请求 codes 被拒绝或不存在入口。
+2. runtime 不 import orchestrator；产品对象池与 `major_index_mins` Gold 目标集合做静态对账。
+3. 批量 Reader 最多枚举 24 个明确分区、只投影 5 列、只打开一次 DuckDB、只执行一次批量查询。
+4. 241 点、统一时间网格、唯一键、日期一致、金额有限且非负的正反例。
+5. 元到亿、`ROUND_HALF_UP`、先差后取整、5/20 日均值的边界值。
+6. READY、DELAYED、PARTIAL、EMPTY、ERROR 六态；禁止单卡独立回退到不同日期。
+7. `prod/staging` 路由 404、前端隐藏网格；`local/dev` capability 开启时路由存在；已挂载查询错误不能被隐藏。
+8. 新批量 API 严格 schema、固定 10 项、顺序不变、debug 脱敏、未授权不返回 debugInfo。
+9. 全市场 endpoint 契约快照不变，现有全市场自动化测试全部回归。
+10. 前端一个请求、10 个同构卡、2×5 排列、单卡上下图联动、跨卡不联动、无前端领域计算。
+11. 1600 桌面基线与现有全局桌面最小宽度下不裁切、不重叠、不使用 CSS scale。
+12. 响应体积、后端 P95、Canvas 重绘次数和浏览器滚动/hover 性能。
+
+最小真实只读验收：
+
+- 用 2026-09-01 对其严格上一 SSE 开市日，逐代码对账 241 点、日总额、收盘累计值和代表分钟累计值。
+- 抽检上证指数、科创综指、中证A500、创业板四个不同起始历史范围的代码。
+- 用离线 DuckDB SQL 对账每个指数的 5 日/20 日均值，证明不是全市场均值或日线 amount。
+- 验证 API 一次读取返回 10 卡，观测扫描分区数不超过 24、行数不超过 57,840。
+- 浏览器逐一 hover 至少四张卡，核对 crosshair、tooltip、正负差值柱、均值线和日期文案。
+- 最后以 Figma `1244:28288` 做布局与交互验收；Figma 样例金额不作为数据验收值。
+
+### 19.14 开发里程碑与编码门禁
+
+#### M7-A：LLD 与合同冻结
+
+- 修订原 `turnover-insight-low-level-design-v1.md`，不新建平行 LLD。
+- 把本节每条硬口径映射到具体类、函数、DTO、SQL、组件和测试。
+- 登记 `ITI_*` 异常码。
+- 完成配置消费者、路由 capability、十指数身份和共享 UI 原语影响面审计。
+
+#### M7-B：批量只读后端
+
+- [x] 实现固定十指数批量 Reader、calculator、状态解析、schema 和 local endpoint。
+- [x] 完成单元、合同、路由和真实只读对账。
+- [x] 证明一次请求、一次 DuckDB、最多 24 分区和 57,840 行边界。
+
+#### M7-C：前端共享化与网格
+
+- [x] 把既有全市场 UI 收敛为可复用 panel 原语，保证原页面视觉与行为不回退。
+- [x] 实现批量 controller、指数 grid 和 10 个同构 panel。
+- [x] 完成 2×5、六态、404 capability、Canvas 交互和性能测试。
+
+#### M7-D：集成与验收
+
+- [x] 前后端真实 API 集成。
+- [x] Figma、数据、状态、性能和浏览器交互验收。
+- [ ] 用户完成 UI 验收后更新闭环状态。
+
+M7-A 已于 2026-09-02 评审通过。编码前硬门禁还包括：
+
+1. 本节与 Figma、现有全市场合同、正式 Lake 事实无冲突。
+2. 十指数固定合同、批量 SQL、24 分区上限和日期降级规则已落到 LLD 正反测试。
+3. 现有全市场 API 和 `IndexDetailUniverseService` 明确列入“不修改”门禁。
+4. `ITI_*` 已登记。
+5. 真实只读样本仍满足 10×241，且数据审计只证明样本，不替代运行时校验。
+6. 没有新增数据集、配置、数据库迁移、Lake writer 或 Dagster 写入。
+
+### 19.15 风险与处理
+
+| 风险 | 后果 | 处理 |
+| --- | --- | --- |
+| 误复用指数详情对象池 | 丢失科创综指、引入无分钟数据的北证50 | 建立成交额洞察专属固定合同，不修改详情对象池 |
+| 把 Gold `amount` 当千元 | 所有指数金额缩放错误 | 合同冻结为元，直接除以 `100_000_000` 后取整 |
+| 10 次 per-code 查询 | 重复打开 DuckDB、延迟和资源放大 | 单 endpoint、单 connection、单批量读取 |
+| 扫描全历史求 20 日均值 | 延迟和内存不可控 | 最多 24 个明确日期分区、只投影 5 列 |
+| 单卡各自回退日期 | 十卡看似可比但事实日期不同 | 所有可展示卡固定同一相邻日期对，只允许整组回退 |
+| 均值不足仍除以实际天数 | 把 3 日均值冒充 5 日均值 | 返回 null，卡片 PARTIAL，参考线不绘制 |
+| 修改既有全市场 endpoint | 已闭环生产能力被 Lake 可用性牵连 | 新增独立 local 批量 endpoint，原 endpoint 不变 |
+| prod bundle 请求未挂载路由 | 页面出现大面积错误卡 | 404 仅表示 capability 未启用，前端隐藏整个网格 |
+| 把 Figma 样例金额当真实值 | 写入假数据或错误验收 | Figma 只作为视觉/交互 benchmark，数据验收以 Gold 为准 |
+| 10 Canvas 同步 hover | 一次鼠标移动触发 10 倍重绘 | 只在当前卡内部联动，不做跨卡 crosshair |
+| 未来 Gold 对象池漂移 | 代码与数据集合不一致 | 运行时 fail-closed + 静态合同对账 + 真实只读验收 |
+
+### 19.16 本期结论
+
+本需求的数据前置条件满足：现有 DG `major_index_mins` 已提供本期 10 个指数的一分钟成交额事实，因此不需要新增数据集，也不需要读取通用 `index_mins`。
+
+开发的实质是新增一条“固定十指数、一次批量、有界读 Gold”的 Wealth 只读查询链，并把既有成交额 panel 收敛为可复用视图原语，在全市场整行模块下方渲染两列五行。全市场模块、指数详情对象池、DG 数据管道和数据库均保持不变。
+
+技术方案和原 LLD 已于 2026-09-02 评审通过，`ITI_*` 异常码已完成登记。M7-B、M7-C 以及 M7-D 的机器、数据、真实 API、Figma 和浏览器验收已经严格按 LLD 完成；唯一未完成项是用户 UI 验收，因此本需求仍不标记为最终闭环。远程 prod/staging 没有指数分钟 serving，生产化仍须另立方案。
+
+## 20. 版本记录
+
+| 版本 | 日期 | 内容 |
+| --- | --- | --- |
+| v1 | 2026-08-21～2026-08-23 | 全市场成交额洞察、5 日/20 日均值与视觉修订闭环 |
+| v1.1 | 2026-09-02 | 选择 `major_index_mins`，完成十指数 2×5 扩展设计、开发与本地验收；8 个 `ITI_*` 已登记，当前待用户 UI 验收 |

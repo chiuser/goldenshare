@@ -11,6 +11,7 @@ import {
   indexForX,
   xForIndex,
   yForValue,
+  type TurnoverInsightLayout,
 } from "./turnoverInsightGeometry";
 
 interface TurnoverInsightChartProps {
@@ -19,6 +20,7 @@ interface TurnoverInsightChartProps {
   deltaAxis: TurnoverInsightAxisViewModel | null;
   avg5d: TurnoverInsightAverageViewModel;
   avg20d: TurnoverInsightAverageViewModel;
+  layout?: TurnoverInsightLayout;
 }
 
 const COLORS = {
@@ -81,12 +83,30 @@ export function resolveAverageReferenceRenderItems(
   return [];
 }
 
-export function TurnoverInsightChart({ points, upperAxis, deltaAxis, avg5d, avg20d }: TurnoverInsightChartProps) {
+const COMPACT_AXIS_LABELS = new Set([
+  "09:30", "10:00", "10:30", "11:00", "11:30", "13:15", "14:00", "14:30", "15:00",
+]);
+
+export function shouldShowTurnoverAxisLabel(
+  point: Pick<TurnoverInsightChartPoint, "time" | "showAxisLabel">,
+  layout: TurnoverInsightLayout,
+): boolean {
+  return layout === "compact" ? COMPACT_AXIS_LABELS.has(point.time) : point.showAxisLabel;
+}
+
+export function TurnoverInsightChart({
+  points,
+  upperAxis,
+  deltaAxis,
+  avg5d,
+  avg20d,
+  layout = "full",
+}: TurnoverInsightChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(1330);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const geometry = useMemo(() => buildTurnoverInsightGeometry(width), [width]);
+  const geometry = useMemo(() => buildTurnoverInsightGeometry(width, layout), [layout, width]);
   const averageColors = useMemo(resolveAverageColors, []);
 
   useEffect(() => {
@@ -131,7 +151,7 @@ export function TurnoverInsightChart({ points, upperAxis, deltaAxis, avg5d, avg2
 
   return (
     <div
-      className="turnover-insight-chart"
+      className={`turnover-insight-chart turnover-insight-chart--${layout}`}
       ref={containerRef}
       onPointerLeave={() => setHoverIndex(null)}
       onPointerMove={(event) => {
@@ -167,8 +187,9 @@ function drawChart(context: CanvasRenderingContext2D, input: DrawChartInput) {
     deltaAxis,
     avg5d,
     avg20d,
-    averageColors,
-    hoverIndex,
+      averageColors,
+      hoverIndex,
+      layout,
   } = input;
   const averageRenderItems = resolveAverageReferenceRenderItems(avg5d, avg20d, averageColors);
   context.clearRect(0, 0, geometry.width, geometry.height);
@@ -181,7 +202,8 @@ function drawChart(context: CanvasRenderingContext2D, input: DrawChartInput) {
   context.strokeStyle = COLORS.grid;
   context.fillStyle = COLORS.axis;
   points.forEach((point, index) => {
-    if (!point.showAxisLabel) return;
+    const showLabel = shouldShowTurnoverAxisLabel(point, input.layout ?? "full");
+    if (!showLabel) return;
     const x = xForIndex(geometry, index, points.length);
     context.beginPath();
     context.moveTo(x, geometry.upperTop);

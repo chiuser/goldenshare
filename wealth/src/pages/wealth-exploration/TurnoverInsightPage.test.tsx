@@ -121,6 +121,9 @@ describe("TurnoverInsightPage", () => {
           },
         });
       }
+      if (url.includes("/wealth/market/turnover-insight/indices")) {
+        return jsonResponse({ code: "not_found", message: "Not Found" }, 404);
+      }
       if (url.includes("/wealth/market/turnover-insight")) return jsonResponse(turnoverPayload());
       return jsonResponse({ message: "unexpected request" }, 404);
     }));
@@ -133,9 +136,11 @@ describe("TurnoverInsightPage", () => {
     expect(urls[0]).toContain("/wealth/market/context");
     expect(await screen.findByText("18,921亿")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("上证指数").length).toBeGreaterThan(0));
-    expect(urls).toHaveLength(3);
-    expect(urls.filter((url) => url.includes("turnover-insight"))).toHaveLength(1);
-    expect(urls.find((url) => url.includes("turnover-insight"))).toContain("tradeDate=2026-08-21");
+    expect(urls).toHaveLength(4);
+    expect(urls.filter((url) => url.includes("turnover-insight"))).toHaveLength(2);
+    expect(urls.filter((url) => url.includes("turnover-insight")).every((url) => (
+      url.includes("tradeDate=2026-08-21")
+    ))).toBe(true);
     expect(screen.getAllByRole("button", { name: "财势探查" }).some((button) => button.classList.contains("active"))).toBe(true);
     expect(screen.getByText("成交额洞察", { selector: ".current" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /成交额洞察/ })).toHaveClass("selected");

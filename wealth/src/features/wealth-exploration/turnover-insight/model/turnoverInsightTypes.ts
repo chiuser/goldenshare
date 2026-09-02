@@ -30,14 +30,8 @@ export interface TurnoverInsightChartPoint {
   deltaDirection: "up" | "down" | "flat";
 }
 
-export interface TurnoverInsightViewModel {
+export interface TurnoverInsightPanelViewModel {
   status: DataStatus;
-  tradingDay: {
-    expectedTradeDate: string;
-    observedTradeDate: string | null;
-    previousObservedTradeDate: string | null;
-  };
-  asOf: string | null;
   summary: {
     current: TurnoverInsightAmountViewModel;
     previous: TurnoverInsightAmountViewModel;
@@ -50,6 +44,15 @@ export interface TurnoverInsightViewModel {
   points: readonly TurnoverInsightChartPoint[];
   message: string | null;
   exceptionCode: string | null;
+}
+
+export interface TurnoverInsightViewModel extends TurnoverInsightPanelViewModel {
+  tradingDay: {
+    expectedTradeDate: string;
+    observedTradeDate: string | null;
+    previousObservedTradeDate: string | null;
+  };
+  asOf: string | null;
 }
 
 export type TurnoverInsightViewState = "loading" | "ready" | "delayed" | "partial" | "empty" | "error";

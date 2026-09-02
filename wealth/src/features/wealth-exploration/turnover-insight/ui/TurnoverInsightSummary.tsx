@@ -1,14 +1,16 @@
-import type { TurnoverInsightViewModel } from "../model/turnoverInsightTypes";
+import type { TurnoverInsightPanelViewModel } from "../model/turnoverInsightTypes";
+import type { TurnoverInsightLayout } from "./turnoverInsightGeometry";
 import { TurnoverInsightLegend } from "./TurnoverInsightLegend";
 import { TurnoverMetricCard } from "./TurnoverMetricCard";
 
 interface TurnoverInsightSummaryProps {
-  model: TurnoverInsightViewModel;
+  model: TurnoverInsightPanelViewModel;
+  layout?: TurnoverInsightLayout;
 }
 
-export function TurnoverInsightSummary({ model }: TurnoverInsightSummaryProps) {
+export function TurnoverInsightSummary({ model, layout = "full" }: TurnoverInsightSummaryProps) {
   return (
-    <div className="turnover-insight-summary">
+    <div className={`turnover-insight-summary turnover-insight-summary--${layout}`}>
       <div className="turnover-insight-summary__cards">
         <TurnoverMetricCard label="当日累计成交额" value={model.summary.current} />
         <TurnoverMetricCard label="昨日累计成交额" value={model.summary.previous} />

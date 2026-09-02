@@ -2,6 +2,8 @@ import { useMemo } from "react";
 
 import { readMarketContextRequest } from "../../features/market-context/api/marketPageContextApi";
 import { useTurnoverInsightController } from "../../features/wealth-exploration/turnover-insight/model/useTurnoverInsightController";
+import { useIndexTurnoverInsightController } from "../../features/wealth-exploration/turnover-insight/model/useIndexTurnoverInsightController";
+import { IndexTurnoverInsightGrid } from "../../features/wealth-exploration/turnover-insight/ui/IndexTurnoverInsightGrid";
 import { TurnoverInsightSection } from "../../features/wealth-exploration/turnover-insight/ui/TurnoverInsightSection";
 import { WealthExplorationShell } from "./layout/WealthExplorationShell";
 import type { WealthExplorationShellModel } from "./layout/useWealthExplorationShell";
@@ -18,21 +20,25 @@ interface TurnoverInsightContentProps {
 }
 
 function TurnoverInsightContent({ contextErrorMessage, debug, model }: TurnoverInsightContentProps) {
-  const turnoverRequest = useMemo(() => model.pageContext ? {
+  const contextFailed = model.contextState === "error";
+  const turnoverRequest = useMemo(() => !contextFailed && model.pageContext ? {
     market: model.pageContext.market,
     tradeDate: model.pageContext.tradeDate,
     debug,
-  } : null, [debug, model.pageContext]);
+  } : null, [contextFailed, debug, model.pageContext]);
   const turnover = useTurnoverInsightController(turnoverRequest);
-  const contextFailed = model.contextState === "error";
+  const indices = useIndexTurnoverInsightController(turnoverRequest);
 
   return (
-    <TurnoverInsightSection
-      errorMessage={contextFailed ? contextErrorMessage ?? undefined : turnover.errorMessage ?? undefined}
-      model={contextFailed ? null : turnover.model}
-      onRetry={contextFailed ? model.retryContext : turnover.retry}
-      viewState={contextFailed ? "error" : turnover.viewState}
-    />
+    <>
+      <TurnoverInsightSection
+        errorMessage={contextFailed ? contextErrorMessage ?? undefined : turnover.errorMessage ?? undefined}
+        model={contextFailed ? null : turnover.model}
+        onRetry={contextFailed ? model.retryContext : turnover.retry}
+        viewState={contextFailed ? "error" : turnover.viewState}
+      />
+      {!contextFailed ? <IndexTurnoverInsightGrid controller={indices} /> : null}
+    </>
   );
 }
 

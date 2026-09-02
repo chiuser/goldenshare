@@ -10,6 +10,26 @@ IndexMinuteDataset = Literal["bars", "indicators"]
 FORMAL_LAKE_ROOT: Final = Path("/Volumes/datasource/data_lake")
 SUPPORTED_INDEX_MINUTE_FREQS: Final = (1, 5, 15, 30, 60, 90, 120)
 EXPECTED_BARS_PER_SESSION: Final = {1: 241, 5: 48, 15: 16, 30: 8, 60: 4, 90: 3, 120: 2}
+MAJOR_INDEX_MINS_GOLD_CODES: Final = frozenset(
+    {
+        "000001.SH",
+        "399001.SZ",
+        "399006.SZ",
+        "000688.SH",
+        "000680.SH",
+        "000905.SH",
+        "000510.SH",
+        "000300.SH",
+        "000852.SH",
+        "000016.SH",
+    }
+)
+MAJOR_INDEX_TURNOVER_MAX_PARTITIONS: Final = 24
+MAJOR_INDEX_TURNOVER_MAX_ROWS: Final = (
+    MAJOR_INDEX_TURNOVER_MAX_PARTITIONS
+    * len(MAJOR_INDEX_MINS_GOLD_CODES)
+    * EXPECTED_BARS_PER_SESSION[1]
+)
 MAX_INDEX_MINUTE_LIMIT: Final = 10_000
 MAX_INDEX_MINUTE_PARTITION_FILES: Final = 5_000
 INDEX_MINUTE_CURSOR_VERSION: Final = 1

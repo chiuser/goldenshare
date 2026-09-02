@@ -5,6 +5,7 @@ import {
   drawAverageReferenceLabel,
   drawAverageReferenceLine,
   resolveAverageReferenceRenderItems,
+  shouldShowTurnoverAxisLabel,
 } from "./TurnoverInsightChart";
 import { buildTurnoverInsightGeometry, yForValue } from "./turnoverInsightGeometry";
 
@@ -159,5 +160,21 @@ describe("resolveAverageReferenceRenderItems", () => {
       { ...avg20d, amountYi: null },
       averageColors,
     )).toEqual([]);
+  });
+});
+
+describe("compact turnover axis labels", () => {
+  it("draws the fixed nine-label visual subset without removing hover points", () => {
+    const labels = [
+      "09:30", "09:45", "10:00", "10:30", "11:00", "11:30",
+      "13:15", "13:30", "14:00", "14:30", "15:00",
+    ];
+    expect(labels.filter((time) => shouldShowTurnoverAxisLabel(
+      { time, showAxisLabel: true },
+      "compact",
+    ))).toEqual([
+      "09:30", "10:00", "10:30", "11:00", "11:30", "13:15", "14:00", "14:30", "15:00",
+    ]);
+    expect(shouldShowTurnoverAxisLabel({ time: "09:45", showAxisLabel: true }, "full")).toBe(true);
   });
 });

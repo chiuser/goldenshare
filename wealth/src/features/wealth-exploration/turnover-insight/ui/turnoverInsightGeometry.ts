@@ -12,8 +12,26 @@ export interface TurnoverInsightChartGeometry {
   timeLabelY: number;
 }
 
-export function buildTurnoverInsightGeometry(width: number): TurnoverInsightChartGeometry {
+export type TurnoverInsightLayout = "full" | "compact";
+
+export function buildTurnoverInsightGeometry(
+  width: number,
+  layout: TurnoverInsightLayout = "full",
+): TurnoverInsightChartGeometry {
   const safeWidth = Math.max(360, width);
+  if (layout === "compact") {
+    return {
+      width: safeWidth,
+      height: 484,
+      plotLeft: 46,
+      plotRight: Math.max(66, safeWidth - 22),
+      upperTop: 120,
+      upperBottom: 300,
+      lowerTop: 350,
+      lowerBottom: 416,
+      timeLabelY: 466,
+    };
+  }
   return {
     width: safeWidth,
     height: 420,
