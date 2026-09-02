@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M7 已完成；每日链路、exact-batch 趋势 repair、受控历史 bootstrap 工具和本地 Wealth 消费代码已落地，尚未部署、正式写湖、执行 runless event backfill、启用 Sensor 或配置本地趋势通道能力
+状态：M0～M8 已完成并关闭；正式历史 result/state 已覆盖 `2014-01-02～2026-09-01`，物理审计、runless event 对账、三个 Sensor 启用和本地 Wealth 真实 API/绘图验收均已通过；远程环境按合同不挂载本地 Lake 能力
 
 日期：2026-09-02
 
@@ -79,7 +79,7 @@ silver_trade_calendar
 5. 不允许运营或前端传入 EMA 周期、种子或状态规则。
 6. 不生成买卖建议、胜率或预测结论。
 7. 不把生产 check 做成第二套趋势公式计算器。
-8. 不在本方案中启用 sensor、执行历史 bootstrap、repair 或正式写湖。
+8. 编码里程碑不自动授权 sensor 启用、历史 bootstrap、repair 或正式写湖；上述运营动作只能在 M8 逐命令审批后执行。
 
 ---
 
@@ -1204,8 +1204,16 @@ formula_version_mismatch
 
 ### M8：部署与运营启用
 
-- 由管理员单独批准并执行正式 bootstrap、event backfill、sensor 启用和本地 Wealth 配置。
-- 本文不授权 M8 的任何生产动作。
+- 状态：已完成（2026-09-02）。M8 的每个正式 Dagster/Lake 命令均由管理员逐项批准后执行；没有把方案文档本身视为写入授权。
+- 冻结执行计划为 `plan_id=cf161c2e70ec49b38c33cd1f349361cd`、`plan_hash=e6ed2fbd610d0964089463cc8a11aecc54493ea0a24dc6e7ab36e73931c3367c`：范围 `2014-01-02～2026-09-01`，`3080` 个 qfq 分区、`11,716,243` 行、`5567` 个历史代码和 `14` 个退市历史代码；lifecycle 缺口、目标冲突和 stop reason 均为 `0`。
+- 13 个最多 250 日的 segment 全部生成并通过候选审计：result `3080` 文件、`11,716,243` 行；state `3080` 文件、`11,986,495` 行；`audit_hash=d8fcd45958ead7dc5a2a33f428aefb9e574cf56d96c7615bef1868e409fb4227`，`should_stop=false`。
+- promotion 已处理并提升全部 `3080` 个分区、共 `6160` 个正式文件；`promote_hash=493cf0bdcfff8da5981353d27a34a13bce3568c31517bb34a62dc98e021c9d12`。最终物理审计确认 result/state 各 `3080` 文件、13 个 segment 零失败，`final_audit_hash=483eb495a44fc81e50f46ec56c059339021307f089893515e4f2b795fa87baa7`，`should_stop=false`；候选 staging 已清零。
+- runless event 已登记全部 `3080` 个动态分区，报告两个资产共 `6160` 条 materialization，并为最近 `20` 个日期报告 `60` 条 blocking check。最终 event audit 的待登记、待 materialization、待 check 和 active run 数均为 `0`，`should_stop=false`。
+- 启用前完成正式最近 10 日 readiness 实测：3 次预热、20 次计量，P50 `65 ms`、P95 `68 ms`、最大 `84 ms`、峰值 RSS `494.859 MiB`、temp spill `0`、21 个文件和 2 条 SQL；低于 `5000 ms` 门禁。Definitions 完整加载通过。
+- `stock_daily_trend_channel_trade_day_sensor`、`gold_stock_daily_trend_channel_update_job_sensor`、`gold_stock_daily_trend_channel_repair_job_sensor` 已在正式代码位置 `orchestrator` 启用并核验为 `RUNNING`。注册 Sensor 预演无缺失分区，日更 Sensor 预演确认最近窗口全部 ready；repair Sensor 首 tick 只初始化至最新成功事件，不追溯提交历史 repair。
+- 本地 `.env.web.local` 已显式配置 `APP_ENV=local`、正式 Lake root 和独立趋势通道开关，未改变远程环境合同。重启后，`GET /api/v1/wealth/market/stock-detail/trend-channel?tsCode=000001.SZ&endDate=2026-09-01&limit=300` 返回 `200`、300 根升序日线、`READY` 和最新日期 `2026-09-01`。
+- 已登录 Wealth 页面 `http://127.0.0.1:5174/wealth/market/stock/000001.SZ` 完成真实浏览器验收：首次选择“趋势通道”发出一次目标 API 请求并收到 `200`，短上/短下/长上/长下四条轨道和最新数值正常展示，控制台无 warning/error。没有使用 mock、临时正式目录或 Prod DB fallback。
+- 本轮没有执行远程部署；这是既定产品边界，远程 `prod/production/staging` 继续不挂载该本地 Lake route，而不是待补的发布步骤。
 
 ---
 

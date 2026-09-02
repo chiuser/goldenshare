@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：M0～M7 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job/Sensor、exact-batch 趋势 repair、历史 bootstrap 工具和本地 Wealth 消费代码已落地，R8 为下一停止点；尚未部署、正式写湖、执行 runless event backfill、启用 Sensor 或配置本地趋势通道能力
+状态：R0～R8 已完成并关闭；正式历史 result/state、物理审计、runless event、三个 Sensor 和本地 Wealth 真实消费链路已于 2026-09-02 完成对账；远程环境继续按合同不挂载本地 Lake 能力
 
 日期：2026-09-02
 
@@ -12,7 +12,7 @@ M0 实测基线：
 
 - [股票日线趋势通道 M0 只读规模与性能验证报告](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md)
 
-本文把已确认技术方案拆成可编码、可测试、可验收的低层合同。当前代码、Catalog、Dagster 定义、Lake 路径和现有消费者是事实源；本文不授权任何正式写湖、runless event、Sensor 启用或部署动作。
+本文把已确认技术方案拆成可编码、可测试、可验收的低层合同。当前代码、Catalog、Dagster 定义、Lake 路径和现有消费者是事实源；R8 正式动作均在管理员逐命令批准后执行，本文自身不构成后续写湖、runless event、Sensor 或部署授权。
 
 ---
 
@@ -74,7 +74,7 @@ AND 正式趋势结果目录可读
 
 ### 2.1 CodeGraph 审计范围
 
-本轮以仓库根 `/Users/congming/github/goldenshare` 的健康索引为准；M6 完成后同步状态为 3,006 个文件、54,718 个节点、137,040 条边。影响面覆盖：
+本轮以仓库根 `/Users/congming/github/goldenshare` 的健康索引为准；R8 收口时同步状态为 3,022 个文件、54,926 个节点、137,397 条边。影响面覆盖：
 
 1. `gold_stock_daily_qfq` 资产、普通 check、repair plan、repair op/job/run-status sensor。
 2. `GoldStockDailyQfqFactorRepairStatus` 及 repair metadata 消费者。
@@ -1781,7 +1781,75 @@ WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED=true
 
 ### R8：部署、正式 Bootstrap 和启用
 
-不属于编码授权。部署、正式 Lake 写入、runless event、Sensor 开启和本地环境配置均由用户另行批准和执行。
+状态：已完成（2026-09-02）。不改变“编码授权不等于运营授权”的合同；以下正式动作均在用户逐命令确认后执行。
+
+1. 执行计划冻结为：
+
+```text
+plan_id   = cf161c2e70ec49b38c33cd1f349361cd
+plan_hash = e6ed2fbd610d0964089463cc8a11aecc54493ea0a24dc6e7ab36e73931c3367c
+range     = 2014-01-02..2026-09-01
+segments  = 13
+```
+
+源事实为 `3080` 个 qfq 分区、`11,716,243` 行、`5567` 个历史代码和 `14` 个退市历史代码；lifecycle 缺失与冲突目标均为 0。
+
+2. 先完成两只股票、250 日 sample，再完成首个全市场 segment，最后通过 checkpoint 生成其余 12 个 segment。全部候选为：
+
+```text
+result = 3080 files / 11,716,243 rows
+state  = 3080 files / 11,986,495 rows
+audit_hash = d8fcd45958ead7dc5a2a33f428aefb9e574cf56d96c7615bef1868e409fb4227
+```
+
+13 个 segment 均通过共享 result/state/coverage 和跨段 state 审计，`should_stop=false`，temp spill 为 0。
+
+3. promotion dry-run 确认 `3080` 个分区、`6160` 个文件后执行原子提升。最终：
+
+```text
+promote_hash     = 493cf0bdcfff8da5981353d27a34a13bce3568c31517bb34a62dc98e021c9d12
+formal result    = 3080 files
+formal state     = 3080 files
+processed/promoted partitions = 3080/3080
+final_audit_hash = 483eb495a44fc81e50f46ec56c059339021307f089893515e4f2b795fa87baa7
+failed segments  = 0
+```
+
+最终物理审计 `should_stop=false`，计划范围与正式范围精确相等，候选文件已清零。
+
+4. runless event 先单日 sample，再提交余下 `3079` 个动态分区、`6158` 条 materialization 和 `57` 条 check；连同 sample，最终总量为 `3080` 个动态分区、`6160` 条 materialization 和最近 20 日的 `60` 条 blocking check。最终审计为：
+
+```text
+planned_registration_count    = 0
+planned_materialization_count = 0
+planned_check_count           = 0
+active_run_count              = 0
+should_stop                   = false
+```
+
+5. Sensor 启用前使用正式最近 10 日执行 3 次预热和 20 次计量：P50 `65 ms`、P95 `68 ms`、最大 `84 ms`、峰值 RSS `494.859 MiB`、temp spill `0`、21 个文件、2 条 SQL、最慢 SQL `60 ms`；`all_ready=true` 且通过 `5000 ms` 门禁。`dg check defs` 完整加载通过。
+
+6. CLI 使用当前 `dg dev` 生成且 `location_name=orchestrator` 的 live workspace，避免 `-m orchestrator.definitions` 产生另一代码位置身份。以下三个 Sensor 已启用并核验为 `RUNNING`：
+
+```text
+stock_daily_trend_channel_trade_day_sensor
+gold_stock_daily_trend_channel_update_job_sensor
+gold_stock_daily_trend_channel_repair_job_sensor
+```
+
+注册 Sensor 当前无缺失动态分区，日更 Sensor 最近窗口全部 ready。run-status repair Sensor 首 tick 按 Dagster 合同初始化到最新成功事件，不追溯历史成功 run。
+
+7. 本地运行配置已加入独立开关，并由用户重启服务：
+
+```text
+APP_ENV=local
+GOLDENSHARE_LAKE_ROOT=/Volumes/datasource/data_lake
+WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED=true
+```
+
+直接 API 以 `000001.SZ / endDate=2026-09-01 / limit=300` 返回 `200`、300 根严格升序日线、`dataStatus.status=READY` 和 `observedTradeDate=2026-09-01`。已登录 Wealth 页面首次选择“趋势通道”产生一次相同 API 请求并收到 `200`；四条轨道和 header 数值正常绘制，浏览器 console 无 warning/error。
+
+8. 没有执行远程部署，也无需补做远程部署：`prod/production/staging` 不挂载股票趋势通道本地 Lake API 是冻结产品合同。R8 没有修改 Prod DB、ClickHouse、Redis、Kopia 或其他数据集。
 
 ### 必须停止并请求拍板的情况
 
@@ -1803,7 +1871,7 @@ M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空�
 停牌不造指标行 + 已初始化 state carry-forward
 ```
 
-M0 真实只读规模、性能证据和趋势自动 repair 上限已经完成并冻结。当前没有新增业务待拍板项；后续仍需单独授权的是正式 bootstrap、runless event、Sensor 启用和部署。
+M0 真实只读规模、性能证据和趋势自动 repair 上限已经完成并冻结；R8 正式 bootstrap、runless event、Sensor 启用和本地 Wealth 验收也已完成。当前没有新增业务待拍板项或本需求待执行里程碑。后续日常 Sensor 运行与 qfq 触发的趋势 repair 属于既定运行合同，新的手工 repair、历史重算或 Sensor 停用仍须另行按命令审批。
 
 ---
 
