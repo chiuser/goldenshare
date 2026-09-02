@@ -1,6 +1,6 @@
 # ETF 日线与复权因子 DG 数据湖接入 LLD v1
 
-> 状态：设计已确认，P1 已完成；P2 代码与隔离 fake/临时目录验证已完成，待单独批准最多一个日期、两个接口的真实临时目录样本；尚未写正式 Lake、补 Dagster 事件或启用 Sensor
+> 状态：设计已确认，P1、P2 已完成；P2 最小真实样本已通过，待推进 P3；尚未写正式 Lake、补 Dagster 事件或启用 Sensor
 > 更新日期：2026-09-02
 > 上位方案：`dagster-etf-daily-data-onboarding-plan-v1.md`
 > P0 证据：`dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md`
@@ -1004,7 +1004,7 @@ tests/test_etf_daily_definitions.py
 
 ### P2：Raw
 
-状态：代码与隔离验证已完成（2026-09-02）；真实 Tushare 单日样本按门禁待单独批准，未写正式 Lake。
+状态：已完成（2026-09-02）。隔离 fake/临时目录测试和 `2026-09-01` 两接口最小真实样本均通过；真实样本仅写 `/private/tmp`，未写正式 Lake 或 Dagster event。验收证据见 `dagster-etf-daily-data-onboarding-p2-real-sample-2026-09-02.md`。
 
 先 writer/audit，再把 Raw Catalog entries、assets、checks、jobs 同一切片落地，最后 source probe。隔离 fake 通过后，另行申请最多一个日期、两个接口的真实临时目录验证，不写正式 Lake。
 
