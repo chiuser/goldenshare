@@ -1,7 +1,7 @@
 # ETF 日线与复权因子 DG 数据湖接入 LLD v1
 
-> 状态：设计已确认，P1—P4 开发已完成；P2 最小真实样本已通过；P4 启用前源端复验待单独授权，下一开发阶段为 P5；尚未写正式 Lake、补 Dagster 事件或启用 Sensor
-> 更新日期：2026-09-02
+> 状态：设计已确认，P1—P5 开发已完成；P2 最小真实样本已通过；P5 仅完成隔离 fake/临时目录验证；P4 启用前源端复验与 P6 正式执行待单独授权；尚未写正式 Lake、补正式 Dagster 事件或启用 Sensor
+> 更新日期：2026-09-03
 > 上位方案：`dagster-etf-daily-data-onboarding-plan-v1.md`
 > P0 证据：`dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md`
 > 开发目录：`lake_console/orchestrator`
@@ -860,6 +860,8 @@ class EtfDailyBootstrapCheckpointEntry:
 
 checkpoint 使用同目录临时文件 + `os.replace()` 原子更新。每完成一个文件立即落盘；20 日 batch 不是事务。Raw entry 的 `phase_plan_hash` 必须等于 Raw Plan hash，Silver entry 必须等于 Silver Plan hash，events entry 必须等于 event plan hash。续跑逐条核验正式文件 schema/hash/row count，不能只信 checkpoint 文本。
 
+事件阶段仍使用同一个 checkpoint 结构。materialization 的 `target_path` 写为 `dagster://materialization/<asset>`；check 的 `target_path` 写为 `dagster://asset-check/<asset>/<check>`，从而在不增加临时字段的前提下区分同一资产、同一日期的多个 blocking checks。
+
 ### 16.5 Raw apply 与 audit
 
 - 每批最多 20 日，日期升序；同日先 `fund_daily` 后 `fund_adj`。
@@ -1020,7 +1022,11 @@ tests/test_etf_daily_definitions.py
 
 ### P5：Bootstrap 工具
 
-按 raw-plan -> bounded-sample -> raw-apply -> raw-audit（包含 profile）-> silver-plan -> silver-apply -> physical-post-audit -> events-plan -> events-apply -> events-post-audit 开发。只执行 `/private/tmp` 或明确隔离 staging 的最多 3 日样本，不运行全量。
+状态：已完成（2026-09-03）。
+
+已按 raw-plan -> bounded-sample -> raw-apply -> raw-audit（包含 profile）-> silver-plan -> silver-apply -> physical-post-audit -> events-plan -> events-apply -> events-post-audit 落地五个 Bootstrap 模块和独立 CLI。隔离 fake/临时目录验证最多 3 日；没有请求真实 Tushare、写正式 Lake、写正式 Dagster instance 或运行全量。
+
+隔离验收覆盖：Raw 中途停止后从逐文件 checkpoint 续跑、文件已原子提升但 checkpoint 尚未落盘时通过公开 writer 重新证明等价后续跑、未完成目标与水位漂移 fail-closed、Raw audit 与 manifest 闭合、coverage review/policy 门禁、Silver Basic fingerprint 漂移拒绝、四资产物理对账、20 日 batch 调度上限、全日期 materialization、最近 20 日 blocking checks、已有等价事件复用、active run/内容冲突停止、事件重放与 post-audit。bounded sample 同时记录请求/行数、耗时、峰值 RSS、DuckDB spill、文件大小以及 `change`/`discount_rate` 字段门禁。
 
 ### P6：正式执行
 
@@ -1060,7 +1066,7 @@ git diff --check
 | 共享 ETF 日期 | assets/jobs/sensors/bootstrap | partition identity 与 frozen dates |
 | latest-only Basic | selector + Silver asset/Silver Plan preflight | 最新失败不回退、reference 漂移；Raw Plan/apply 不受 Basic 影响 |
 | 有界分页 | request builders/policies/raw writer | 参数、预算失败不提升 |
-| 新增/等价复用/冲突停止 | promote helper | mtime、EXCEPT ALL、冲突不覆盖 |
+| 新增/等价复用/冲突停止 | Raw/Silver writer + Bootstrap preflight | checkpoint 续跑、等价重放、目标冲突不覆盖 |
 | 21:00 + 最近 10 日 | sensor evaluator | 时间边界、最早缺口、调用次数 |
 | Sensor 默认停用 | decorators | Definitions/static gate |
 | 2025+ Direct Bootstrap | raw-plan/raw-apply/audit/silver-plan/silver-apply/events | 水位、范围、Raw manifest、分阶段 checkpoint 与授权 |
@@ -1079,4 +1085,4 @@ git diff --check
 7. staging/正式 Lake 非同文件系统、空间不足或 Raw Plan/目标漂移：停止 Raw apply，不降级安全门禁。
 8. Silver Plan 的 Raw manifest、coverage policy、Basic 或目标漂移：停止 Silver apply，只重做 Silver Plan，不回滚 Raw。
 
-本 LLD 没有授权任何正式执行动作。评审通过后才能从 P1 开始；任何现实与本文不符都必须停下来等待 review。
+P1—P5 的本地开发完成不授权任何正式执行动作。P6 必须按 Raw Plan、Raw apply、Raw audit/review、Silver Plan、Silver apply、物理审计、events plan/apply/post-audit 和 Sensor 启用逐阶段审批；任何现实与本文不符都必须停下来等待 review。

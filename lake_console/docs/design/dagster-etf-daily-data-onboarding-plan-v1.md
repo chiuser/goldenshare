@@ -1,7 +1,7 @@
 # ETF 日线与复权因子 DG 数据湖接入技术方案 v1
 
-> 状态：P0—P4 开发已完成；P2 最小真实样本已通过；P4 启用前源端复验待单独授权，下一开发阶段为 P5；尚未进入 Bootstrap 或 Sensor 启用
-> 更新日期：2026-09-02
+> 状态：P0—P5 开发已完成；P2 最小真实样本已通过；P5 仅完成隔离 fake/临时目录验证；P4 启用前源端复验与 P6 正式 Bootstrap 均待单独授权；尚未写正式 Lake、补正式 Dagster 事件或启用 Sensor
+> 更新日期：2026-09-03
 > 适用范围：`lake_console/orchestrator` 当前 Dagster 数据湖主链
 > 正式 Lake：`/Volumes/datasource/data_lake`
 > 数据集：Tushare `fund_daily`、`fund_adj`
@@ -56,7 +56,7 @@ Tushare fund_adj   -> raw_tushare_fund_adj   -> silver_etf_adj_factor
 - 不通过日常 Sensor 追赶 2025 年以来的全历史。
 - 不新增数据库表、状态表、缓存层、Tushare 客户端或环境配置。
 - 不修改现有股票日线通用分页 helper 的行为。
-- 不在本文或 LLD 评审完成前写正式 Lake、补 Dagster 事件或启用 Sensor。
+- 不在 P6 逐阶段授权前写正式 Lake、补 Dagster 事件或启用 Sensor。
 
 ---
 
@@ -615,9 +615,14 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ### P5：Bootstrap 工具
 
+状态：已完成（2026-09-03）。
+
 - 实现 raw-plan、bounded-sample、raw-apply、包含 profile 的 raw-audit、silver-plan、silver-apply、physical-post-audit、events-plan、events-apply 和 events-post-audit 工具。
-- 只做极小隔离样本，不同步全量。
-- 测试停止/续跑、等价重放、目标冲突、Raw Plan 漂移、Silver Plan/Basic/Raw manifest 漂移、空间漂移和事件幂等。
+- Raw 与 Silver 分别冻结 plan/hash；每个文件完成后立即原子写 checkpoint；每批最多 20 日但不形成跨日事务。
+- Raw audit 只把 latest ready Basic 用于 coverage 观察；Silver Plan 才冻结 Basic reference，并在 apply 前重新验证 latest-only fingerprint。
+- 物理 post-audit 先闭合四资产文件、schema/key/date/hash/parity/domain、checkpoint 和 staging，再允许生成 event plan；materialization 覆盖全日期，blocking checks 只覆盖最近 20 日。
+- 隔离 fake 验证最多 3 日，没有读取真实 Tushare、写正式 Lake、写正式 Dagster instance 或启用 Sensor；批次上限另以无数据写入的调度测试验证。
+- 已覆盖停止/续跑、写文件后 checkpoint 前中断恢复、等价重放、目标与水位漂移、Basic/Raw manifest/policy/空间门禁、字段门禁、active run/事件冲突和幂等。ETF 日线定向测试与静态门禁合计 `245 passed`。
 
 ### P6：正式历史建设与启用
 
