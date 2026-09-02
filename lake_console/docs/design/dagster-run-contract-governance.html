@@ -580,6 +580,18 @@
       <code>STOPPED</code>，只评估当前开放交易日，单 tick 最多注册一个分区或提交一个 run；
       readiness 只读同日物理文件并执行 blocking checks，不读 Dagster event history，也不自动覆盖或 repair 已存在的坏文件。
     </p>
+    <p>
+      ETF 日线与复权因子 P4 的四个生产 sensor 使用同一套低基数分类：
+      <code>raw_fund_daily_update_job_sensor</code> 与 <code>raw_fund_adj_update_job_sensor</code>
+      使用 <code>quote_data / raw / asset_update</code>；
+      <code>silver_etf_daily_update_job_sensor</code> 与
+      <code>silver_etf_adj_factor_update_job_sensor</code> 使用
+      <code>quote_data / silver / asset_update</code>。四者均默认 <code>STOPPED</code>，
+      上海时间 21:00 前不访问 DuckDB、Tushare 或 Dagster lineage；21:00 后只评估最近
+      10 个共享 ETF 交易日，每个资产最多一次 materialization 查询，每 tick 最多提交一个
+      run。cursor 只保留最早缺口、阻断组件、有界 readiness/发布摘要、查询次数和耗时；
+      不保存完整窗口报告，不写自定义 run tags 或 run config。
+    </p>
   </section>
 
   <section>

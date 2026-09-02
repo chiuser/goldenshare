@@ -1,6 +1,6 @@
 # ETF 日线与复权因子 DG 数据湖接入技术方案 v1
 
-> 状态：P0、P1、P2 已完成；P2 最小真实样本已通过，待推进 P3；尚未进入 Bootstrap 或 Sensor 启用
+> 状态：P0—P4 开发已完成；P2 最小真实样本已通过；P4 启用前源端复验待单独授权，下一开发阶段为 P5；尚未进入 Bootstrap 或 Sensor 启用
 > 更新日期：2026-09-02
 > 适用范围：`lake_console/orchestrator` 当前 Dagster 数据湖主链
 > 正式 Lake：`/Volumes/datasource/data_lake`
@@ -578,7 +578,7 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ### P1：纯合同与共享结构
 
-状态：已完成（2026-09-02）。
+开发状态：已完成（2026-09-02）；启用验收待授权。
 
 - 新增 ETF 日线 run contract、四套 schema、四个 path helper、PartitionModel 和中文名。
 - 更新共享分区 Sensor 的人类可读说明，不改 partition definition 名称。
@@ -596,6 +596,8 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ### P3：Silver
 
+状态：已完成（2026-09-02）。本阶段只使用固定 ETF Basic fixture 和临时目录验证，没有读取源端、写正式 Lake 或补 Dagster event。
+
 - 复用 latest-only Basic selector/reference。
 - 用 DuckDB 完成筛选、DATE cast、拒绝分类和候选写入。
 - 实现五个 blocking checks 与一个 coverage WARN check。
@@ -604,10 +606,12 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ### P4：Jobs、Sensors 与 readiness
 
-- 复验 P2/P3 已随各层落地的四个 layer-isolated jobs 的 Definitions 装载与选择范围；P4 不重新实现 jobs。
-- 复用 P2 已落地的两个单页发布探测，实现四个默认 `STOPPED` sensors 和批量 10 日 readiness。
-- 测试 21:00 边界、最早缺口、已有坏文件阻断、Basic latest-only、run key 和调用次数。
-- 在一个正常交易日 21:00 后完成源端非空复验；未通过不得启用。
+状态：已完成（2026-09-02）。
+
+- 已复验 P2/P3 随各层落地的四个 layer-isolated jobs 的 Definitions 装载与选择范围；P4 没有重写 jobs。
+- 已复用 P2 的两个单页发布探测，落地四个默认 `STOPPED` sensors 和批量 10 日 readiness。
+- 已通过隔离测试验证 21:00 边界、最早缺口、已有坏文件阻断、Basic latest-only、稳定 run key、紧凑 cursor 和固定查询次数。
+- 正常交易日 21:00 后的源端非空复验仍保留为正式启用前门禁；未通过不得启用。
 
 ### P5：Bootstrap 工具
 

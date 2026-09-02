@@ -56,7 +56,9 @@ from orchestrator.defs.paths import (
     silver_dc_index_path,
     silver_dc_industry_hierarchy_path,
     silver_dc_member_path,
+    silver_etf_adj_factor_path,
     silver_etf_basic_snapshot_path,
+    silver_etf_daily_path,
     silver_etf_mins_path,
     silver_index_basic_path,
     silver_index_daily_path,
@@ -125,7 +127,9 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_DC_INDEX_SCHEMA,
     SILVER_DC_INDUSTRY_HIERARCHY_SCHEMA,
     SILVER_DC_MEMBER_SCHEMA,
+    SILVER_ETF_ADJ_FACTOR_SCHEMA,
     SILVER_ETF_BASIC_SCHEMA,
+    SILVER_ETF_DAILY_SCHEMA,
     SILVER_ETF_MINS_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
@@ -168,6 +172,8 @@ from orchestrator.defs.run_contracts.etf_basic import (
     SILVER_ETF_BASIC_CHECKS,
 )
 from orchestrator.defs.run_contracts.etf_daily import (
+    ETF_ADJ_FACTOR_DATASET_ID,
+    ETF_DAILY_DATASET_ID,
     FUND_ADJ_API_NAME,
     FUND_ADJ_DATASET_ID,
     FUND_DAILY_API_NAME,
@@ -176,6 +182,10 @@ from orchestrator.defs.run_contracts.etf_daily import (
     RAW_FUND_DAILY_CHECKS,
     RAW_TUSHARE_FUND_ADJ_ASSET_KEY,
     RAW_TUSHARE_FUND_DAILY_ASSET_KEY,
+    SILVER_ETF_ADJ_FACTOR_ASSET_KEY,
+    SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
+    SILVER_ETF_DAILY_ASSET_KEY,
+    SILVER_ETF_DAILY_BLOCKING_CHECKS,
 )
 from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_ASSET_FREQS,
@@ -3256,6 +3266,60 @@ LAKE_ASSET_CATALOG += (
             ),
         ),
         notes="Raw preserves nullable and extreme finite discount_rate source facts.",
+    ),
+    _derived_entry(
+        asset_key=SILVER_ETF_DAILY_ASSET_KEY,
+        dataset_id=ETF_DAILY_DATASET_ID,
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="latest_basic_filtered_etf_daily",
+        column_schema=SILVER_ETF_DAILY_SCHEMA,
+        path_template=lake_path_template(
+            silver_etf_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_ETF_DAILY,
+        blocking_check_names=SILVER_ETF_DAILY_BLOCKING_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes=(
+            "Reads one Raw partition and one frozen latest-ready ETF Basic snapshot "
+            "with DuckDB; only trade_date is cast and existing targets are add, "
+            "equivalent reuse, or conflict-stop."
+        ),
+    ),
+    _derived_entry(
+        asset_key=SILVER_ETF_ADJ_FACTOR_ASSET_KEY,
+        dataset_id=ETF_ADJ_FACTOR_DATASET_ID,
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="latest_basic_filtered_etf_adj_factor",
+        column_schema=SILVER_ETF_ADJ_FACTOR_SCHEMA,
+        path_template=lake_path_template(
+            silver_etf_adj_factor_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=(
+            PartitionModel.TRADE_DATE_PARTITION_SILVER_ETF_ADJ_FACTOR
+        ),
+        blocking_check_names=SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes=(
+            "Reads one Raw partition and one frozen latest-ready ETF Basic snapshot "
+            "with DuckDB; preserves adj_factor and discount_rate exactly and uses "
+            "add, equivalent reuse, or conflict-stop promotion."
+        ),
     ),
 )
 

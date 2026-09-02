@@ -6,6 +6,14 @@ from datetime import date, datetime
 from decimal import Decimal
 from types import MappingProxyType
 
+from orchestrator.defs.run_contracts.etf_basic import (
+    ETF_BASIC_REQUESTABILITY_EXCHANGE_MISMATCH,
+    ETF_BASIC_REQUESTABILITY_LIST_DATE_AFTER_AS_OF,
+    ETF_BASIC_REQUESTABILITY_LIST_DATE_NULL,
+    ETF_BASIC_REQUESTABILITY_NON_EXCHANGE_SUFFIX,
+    ETF_BASIC_REQUESTABILITY_STATUS_NOT_LISTED,
+    classify_etf_basic_requestability,
+)
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
 FUND_DAILY_API_NAME = "fund_daily"
@@ -116,6 +124,24 @@ RAW_FUND_ADJ_CHECKS = (
     "raw_tushare_fund_adj_partition_scope_check",
     "raw_tushare_fund_adj_key_integrity_check",
 )
+SILVER_ETF_DAILY_BLOCKING_CHECKS = (
+    "silver_etf_daily_contract_check",
+    "silver_etf_daily_source_filter_check",
+    "silver_etf_daily_source_parity_check",
+    "silver_etf_daily_key_integrity_check",
+    "silver_etf_daily_bar_domain_check",
+)
+SILVER_ETF_DAILY_COVERAGE_CHECK = "silver_etf_daily_basic_coverage_check"
+SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS = (
+    "silver_etf_adj_factor_contract_check",
+    "silver_etf_adj_factor_source_filter_check",
+    "silver_etf_adj_factor_source_parity_check",
+    "silver_etf_adj_factor_key_integrity_check",
+    "silver_etf_adj_factor_domain_check",
+)
+SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK = (
+    "silver_etf_adj_factor_basic_coverage_check"
+)
 
 FUND_DAILY_REQUEST_POLICY = TushareRequestPolicy(
     minimum_interval_seconds=0.13,
@@ -161,6 +187,36 @@ def normalize_etf_daily_trade_date(value: str | date) -> str:
             f"ETF daily trade date must use YYYY-MM-DD: {value!r}"
         )
     return text
+
+
+def classify_etf_daily_source_row(
+    *,
+    ts_code: object,
+    trade_date: date,
+    basic_row: Mapping[str, object] | None,
+) -> str | None:
+    """Classify one Raw row against the frozen Basic snapshot in fixed order."""
+
+    if isinstance(trade_date, datetime) or not isinstance(trade_date, date):
+        raise EtfDailyContractError("ETF daily classification trade_date must be DATE")
+    if not isinstance(ts_code, str) or not ts_code.endswith((".SH", ".SZ")):
+        return "NON_EXCHANGE_SUFFIX"
+    if basic_row is None or basic_row.get("ts_code") != ts_code:
+        return "BASIC_CODE_ABSENT"
+    reason = classify_etf_basic_requestability(
+        basic_row,
+        eligibility_as_of=trade_date,
+    )
+    return {
+        None: None,
+        ETF_BASIC_REQUESTABILITY_NON_EXCHANGE_SUFFIX: "NON_EXCHANGE_SUFFIX",
+        ETF_BASIC_REQUESTABILITY_EXCHANGE_MISMATCH: "EXCHANGE_MISMATCH",
+        ETF_BASIC_REQUESTABILITY_STATUS_NOT_LISTED: "STATUS_NOT_LISTED",
+        ETF_BASIC_REQUESTABILITY_LIST_DATE_NULL: "LIST_DATE_NULL",
+        ETF_BASIC_REQUESTABILITY_LIST_DATE_AFTER_AS_OF: (
+            "LIST_DATE_AFTER_TRADE_DATE"
+        ),
+    }[reason]
 
 
 def _validated_offset(offset: int, *, page_limit: int) -> int:

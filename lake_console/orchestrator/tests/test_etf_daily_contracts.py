@@ -27,8 +27,12 @@ from orchestrator.defs.run_contracts.etf_daily import (
     RAW_FUND_DAILY_CHECKS,
     RAW_FUND_DAILY_JOB_NAME,
     RAW_FUND_DAILY_SENSOR_NAME,
+    SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
+    SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
     SILVER_ETF_ADJ_FACTOR_JOB_NAME,
     SILVER_ETF_ADJ_FACTOR_SENSOR_NAME,
+    SILVER_ETF_DAILY_BLOCKING_CHECKS,
+    SILVER_ETF_DAILY_COVERAGE_CHECK,
     SILVER_ETF_DAILY_JOB_NAME,
     SILVER_ETF_DAILY_SENSOR_NAME,
     EtfDailyContractError,
@@ -229,4 +233,27 @@ def test_silver_rejection_reason_contract_is_frozen() -> None:
         "STATUS_NOT_LISTED",
         "LIST_DATE_NULL",
         "LIST_DATE_AFTER_TRADE_DATE",
+    )
+
+
+def test_silver_check_names_keep_warn_checks_out_of_blocking_catalog_contract() -> None:
+    assert SILVER_ETF_DAILY_BLOCKING_CHECKS == (
+        "silver_etf_daily_contract_check",
+        "silver_etf_daily_source_filter_check",
+        "silver_etf_daily_source_parity_check",
+        "silver_etf_daily_key_integrity_check",
+        "silver_etf_daily_bar_domain_check",
+    )
+    assert SILVER_ETF_DAILY_COVERAGE_CHECK == (
+        "silver_etf_daily_basic_coverage_check"
+    )
+    assert SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS == (
+        "silver_etf_adj_factor_contract_check",
+        "silver_etf_adj_factor_source_filter_check",
+        "silver_etf_adj_factor_source_parity_check",
+        "silver_etf_adj_factor_key_integrity_check",
+        "silver_etf_adj_factor_domain_check",
+    )
+    assert SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK == (
+        "silver_etf_adj_factor_basic_coverage_check"
     )

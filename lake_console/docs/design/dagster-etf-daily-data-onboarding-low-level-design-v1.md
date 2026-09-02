@@ -1,6 +1,6 @@
 # ETF 日线与复权因子 DG 数据湖接入 LLD v1
 
-> 状态：设计已确认，P1、P2 已完成；P2 最小真实样本已通过，待推进 P3；尚未写正式 Lake、补 Dagster 事件或启用 Sensor
+> 状态：设计已确认，P1—P4 开发已完成；P2 最小真实样本已通过；P4 启用前源端复验待单独授权，下一开发阶段为 P5；尚未写正式 Lake、补 Dagster 事件或启用 Sensor
 > 更新日期：2026-09-02
 > 上位方案：`dagster-etf-daily-data-onboarding-plan-v1.md`
 > P0 证据：`dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md`
@@ -1010,11 +1010,13 @@ tests/test_etf_daily_definitions.py
 
 ### P3：Silver
 
+状态：已完成（2026-09-02）。仅以固定 ETF Basic fixture 和临时目录完成纯分类、DuckDB SQL、候选提升、资产检查与 Definitions 装载验证；未读取 Tushare、写正式 Lake 或补 Dagster event。
+
 先纯分类和 SQL fixture，再把 Silver Catalog entries、writer、checks、assets、jobs 同一切片落地。固定 Basic fixture 下 source parity 为零，`change`/`discount_rate` 门禁通过。
 
 ### P4：Readiness 与 Sensor
 
-先批量 readiness 性能测试，再 evaluator，最后 Definition。完成一个正常交易日 21:00 后只读发布复验；未经授权不启用。
+开发状态：已完成（2026-09-02）；启用验收待授权。先通过最多 10 日的批量 readiness 性能测试，再落四个 evaluator 和四个默认 `STOPPED` 的 Definition。Raw 每个资产最多一次 materialization 查询，Silver 合计最多两次；已有坏文件或坏证据 fail-closed，Coverage WARN 不阻断。隔离测试覆盖 20:59:59 零访问、21:00 入窗、最近 10 日、最早缺口、已有坏文件、发布未就绪、latest-only Basic、稳定 run key、紧凑 cursor、查询预算和 Definitions 自动发现。正常交易日 21:00 后的源端只读发布复验仍是启用门禁；未经授权不启用。
 
 ### P5：Bootstrap 工具
 
