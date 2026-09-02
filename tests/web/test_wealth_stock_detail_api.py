@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.security_serving import Security
+from src.foundation.config.stock_daily_trend_channel_capability import (
+    StockDailyTrendChannelCapability,
+)
 
 
 def _ensure_stock_detail_tables(db_session) -> None:
@@ -115,10 +119,42 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
     assert payload["chartDefaults"]["defaultAdjustment"] == "forward"
     assert payload["chartDefaults"]["sourceAdjustment"] == "qfq"
     assert payload["chartDefaults"]["availablePeriods"] == ["day"]
+    assert payload["chartDefaults"]["availableMainOverlays"] == ["MA", "BOLL"]
+    assert payload["capabilities"]["supportsTrendChannel"] is False
     assert payload["dataStatus"]["status"] == "READY"
     assert payload["debugInfo"]["sourceTables"] == [
         "core_serving.security_serving",
         "core_serving.equity_factor_pro",
+    ]
+
+
+def test_stock_detail_page_init_exposes_trend_overlay_only_from_capability(
+    app_client,
+    db_session,
+    monkeypatch,
+) -> None:
+    _seed_stock_detail_data(db_session)
+    monkeypatch.setattr(
+        "src.biz.queries.wealth.market.stock_detail.stock_detail_query_service.resolve_stock_daily_trend_channel_capability",
+        lambda _settings: StockDailyTrendChannelCapability(
+            True,
+            Path("/Volumes/datasource/data_lake"),
+            None,
+        ),
+    )
+
+    response = app_client.get(
+        "/api/v1/wealth/market/stock-detail/page-init",
+        params={"tsCode": "603806.SH", "tradeDate": "2026-05-29"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["capabilities"]["supportsTrendChannel"] is True
+    assert payload["chartDefaults"]["availableMainOverlays"] == [
+        "MA",
+        "BOLL",
+        "TREND_CHANNEL",
     ]
 
 

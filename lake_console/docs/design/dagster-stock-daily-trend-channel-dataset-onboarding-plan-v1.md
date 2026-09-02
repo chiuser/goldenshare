@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M6 已完成；每日链路、exact-batch 趋势 repair 和受控历史 bootstrap 工具已落地，尚未实现本地 Wealth、部署、正式写湖、runless event backfill 或 Sensor 启用
+状态：M0～M7 已完成；每日链路、exact-batch 趋势 repair、受控历史 bootstrap 工具和本地 Wealth 消费代码已落地，尚未部署、正式写湖、执行 runless event backfill、启用 Sensor 或配置本地趋势通道能力
 
 日期：2026-09-02
 
@@ -1193,8 +1193,14 @@ formula_version_mismatch
 
 ### M7：本地 Wealth 接入
 
-- 完成配置审计、capability、local Lake reader、API、page-init 和前端绘图接入。
-- 远程 capability 缺失与现有分钟线回归验收。
+- 状态：已完成（2026-09-02）。
+- 新增独立且默认关闭的股票日线趋势通道开关；capability 仅在 `dev/local`、正式 Lake root、DuckDB 和 result/state 两个正式目录均可读时成立。分钟线开关与趋势开关互不控制，远程不挂载 route，也不回退 Prod DB。
+- local reader 只读取 result 资产，按 `endDate` 和 `limit` 有界选择正式单文件分区；DuckDB 单连接限制为 256 MB、单线程，结果先倒序截断再严格升序返回，并校验 schema、股票代码、文件分区日期、日期唯一性、公式版本、有限数值和状态枚举。
+- 新增 `/api/v1/wealth/market/stock-detail/trend-channel`，实现默认 300、最大 2000、`endDate` 包含、股票身份校验和既定 400/404/503/500 错误码；page-init 仅在 capability 为 true 时返回 `supportsTrendChannel=true` 和 `TREND_CHANNEL` overlay。
+- 将指数趋势通道通用 geometry/primitive 提取到 shared；股票页由 capability 控制入口，首次选择才请求，切换股票或离页会取消旧请求，前端保持 API 顺序且不重算指标。趋势 API 失败只影响趋势图层，不破坏 K 线、九转或 MA/BOLL。
+- 后端相关回归 `150 passed`；Wealth 类型检查通过，全量 `78` 个测试文件、`544 passed`，构建通过。根仓库单进程全量收集仍被两个既有且无关的测试基础设施问题阻断：冻结 Lake Console 测试引用已删除模块、两份同名 `test_tushare_client.py` 导入冲突；本里程碑未修改这些无关测试。
+- 浏览器基础检查确认 Wealth 开发页及登录保护正常加载、无 console warning/error；当前会话无登录态，且正式 result/state 目录在 M8 bootstrap 前均不存在，因此真实股票趋势图的数据验收保留到 M8 之后，不以 mock 或临时正式目录冒充完成。
+- 本里程碑未创建或修改正式 Lake 文件、staging、Dagster event、Sensor、部署或运行配置。
 
 ### M8：部署与运营启用
 

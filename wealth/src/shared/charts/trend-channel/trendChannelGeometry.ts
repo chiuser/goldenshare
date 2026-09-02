@@ -1,4 +1,11 @@
-import type { TrendChannelPoint } from "../model/indexDetailTypes";
+export interface TrendChannelPoint {
+  time: string;
+  close: number;
+  shortUpper: number;
+  shortLower: number;
+  longUpper: number;
+  longLower: number;
+}
 
 export type TrendChannelTone = "short-above" | "short-below" | "long-above" | "long-below";
 

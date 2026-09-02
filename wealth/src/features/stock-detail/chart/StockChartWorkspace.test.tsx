@@ -102,6 +102,9 @@ describe("StockChartWorkspace shared adapter", () => {
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={onAction}
+        onTrendSelect={vi.fn()}
+        supportsTrendChannel={false}
+        trend={null}
         tsCode="000001.SZ"
       />,
     );
@@ -143,6 +146,9 @@ describe("StockChartWorkspace shared adapter", () => {
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
+        onTrendSelect={vi.fn()}
+        supportsTrendChannel={false}
+        trend={null}
         tsCode="000001.SZ"
       />,
     );
@@ -155,6 +161,9 @@ describe("StockChartWorkspace shared adapter", () => {
         nineTurnLayer={readyNineTurnLayer(candles.at(-1)!.fullDate)}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
+        onTrendSelect={vi.fn()}
+        supportsTrendChannel={false}
+        trend={null}
         tsCode="000001.SZ"
       />,
     );
@@ -176,6 +185,9 @@ describe("StockChartWorkspace shared adapter", () => {
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
+        onTrendSelect={vi.fn()}
+        supportsTrendChannel={false}
+        trend={null}
         tsCode="688635.SH"
       />,
     );

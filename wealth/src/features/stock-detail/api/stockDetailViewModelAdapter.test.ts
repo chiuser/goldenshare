@@ -98,6 +98,7 @@ function makePageInit(): StockDetailPageInitResponseDto {
       supportsMinute: false,
       minuteFrequencies: [],
       supportsNineTurn: false,
+      supportsTrendChannel: false,
       nineTurnPeriods: ["day"],
       supportsWeeklyMonthly: false,
       supportsUserActions: false,

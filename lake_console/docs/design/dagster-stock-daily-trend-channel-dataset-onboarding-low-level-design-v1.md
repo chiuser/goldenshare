@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：M0～M6 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job/Sensor、exact-batch 趋势 repair 和历史 bootstrap 工具已落地，R7 为下一停止点，尚未实现本地 Wealth、部署、正式写湖、runless event backfill 或 Sensor 启用
+状态：M0～M7 已完成；每日双资产、共享审计规则、双文件提升、三个 blocking checks、日常 Job/Sensor、exact-batch 趋势 repair、历史 bootstrap 工具和本地 Wealth 消费代码已落地，R8 为下一停止点；尚未部署、正式写湖、执行 runless event backfill、启用 Sensor 或配置本地趋势通道能力
 
 日期：2026-09-02
 
@@ -1635,6 +1635,7 @@ wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx
 wealth/src/features/stock-detail/model/stockDetailTypes.ts
 wealth/src/features/stock-detail/api/stockDetailApiTypes.ts
 wealth/src/pages/stock-detail/StockDetailPage.tsx
+wealth/docs/system/exception-code-registry.md
 对应前端测试
 
 本技术方案、LLD、文档索引和本地运行说明
@@ -1752,7 +1753,31 @@ wealth/src/pages/stock-detail/StockDetailPage.tsx
 
 ### R7：本地 Wealth
 
-实现独立 capability、local reader、API、page-init 和股票图层，保持远程不存在。
+状态：已完成（2026-09-02）。
+
+1. 新增唯一配置 `WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED`，默认 `false`；capability 严格要求 `APP_ENV in {dev, local}`、正式 Lake root、DuckDB 和 result/state 两个正式目录均可读。flag=false 或远程环境不探测 DuckDB 和正式目录。
+2. Router 通过独立 `_include_local_stock_daily_trend_channel_router()` 组合，不复用分钟 capability，不改变分钟、九转或其他业务路由。远程或 capability=false 时 route 不存在；foundation 没有新增对 ops/biz/app 的反向依赖。
+3. 新增 result-only local reader；只枚举合法日期目录，并仅校验按 `endDate` 截断后最新 `limit` 个分区的 `part-000.parquet`。DuckDB 使用单个内存连接、`256MB` memory limit、单线程和显式排序；API 在成功和异常路径都显式关闭本次请求的 Reader，不读取 state、不扫描 Prod DB、不请求时计算 EMA。
+4. Reader 对每个被选文件校验精确 schema，对结果校验股票代码、公式版本、source file 与分区日期一致、日期唯一且严格升序、数值有限、上下轨顺序和全部枚举值。合同漂移统一映射 source-not-ready；非合同 DuckDB 故障统一映射 read-failed。
+5. 新增股票趋势通道 schema、query service 和 API。API 严格拒绝未知/重复参数，`tsCode` 必填，`endDate` 为包含日期，缺省时使用 page-init 市场日期，`limit` 默认 300、最大 2000；响应保持 `tradeDate ASC`，不分页。
+6. 错误码已先登记到 `wealth/docs/system/exception-code-registry.md`：股票不存在为 404，参数非法为 400，正式数据合同未 ready 为 503，读取故障为 500。
+7. 股票详情 page-init 新增 `supportsTrendChannel`；只有 capability=true 时 `availableMainOverlays` 才包含 `TREND_CHANNEL`，服务端保持唯一能力事实源。
+8. 通用 `TrendChannelPanePrimitive` 与 geometry 已从指数 feature 原位迁移到 `wealth/src/shared/charts/trend-channel/`；指数消费者改为 shared import，指数专属 API、controller 和类型未移动。股票 feature 没有反向依赖指数 feature。
+9. 股票趋势 controller 首次选择才请求 300 行；loading/ready 期间重复选择不重复请求。切换股票、能力关闭或离页时 AbortController 取消旧请求，并以 request id 和 request key 双重阻止旧响应泄漏。
+10. 股票主图只按现有 candle 时间连接服务端顺序结果，不排序、不补停牌日、不重算指标；header 展示短上/短下/长上/长下，绘图颜色复用既有指数 primitive。趋势请求失败只保留趋势图层空态，不进入页面级错误，也不破坏 K 线、九转和 MA/BOLL。
+11. 后端 M7 核心定向测试 `18 passed`；连同分钟、股票九转、指数趋势、page-init/API 和架构边界的相关回归 `150 passed`。修改范围 Ruff、Python 编译和 diff whitespace 门禁通过。
+12. Wealth 类型检查通过；全量测试 `78` 个文件、`544 passed`；生产构建通过，仅保留既有 bundle 超过 500 kB 的非阻断提示。
+13. 根仓库单进程全量 pytest 在收集阶段被两个既有无关问题阻断：`tests/lake_console/test_sync_services.py` 引用已删除的冻结服务模块，且根目录与 `tests/lake_console` 存在同名 `test_tushare_client.py` 导入冲突。本轮未修改或规避这些无关测试；M7 调用链和依赖边界已由上述 150 项回归覆盖。
+14. 浏览器使用独立临时 Wealth dev server 检查到登录保护页正常加载且 console 无 warning/error；因没有当前浏览器登录态，未进入股票详情。正式 result/state 目录当前均不存在，真实 API/绘图验收必须在 M8 bootstrap、event、配置和登录条件满足后执行，本轮没有创建 mock 正式目录。
+15. M8 后本地启用参数固定为：
+
+```text
+APP_ENV=local
+GOLDENSHARE_LAKE_ROOT=/Volumes/datasource/data_lake
+WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED=true
+```
+
+上述配置只有在正式 bootstrap 与物理审计完成后才允许启用。本轮未修改任何运行配置、正式 Lake、staging、Dagster event、Sensor 或部署状态。
 
 ### R8：部署、正式 Bootstrap 和启用
 
@@ -1819,6 +1844,6 @@ M0 真实只读规模、性能证据和趋势自动 repair 上限已经完成并
 - `src/biz/services/quote_trend_channel_calculator.py`
 - `src/foundation/config/local_minute_capability.py`
 - `src/app/api/v1/router.py`
-- `wealth/src/features/index-detail/chart/TrendChannelPanePrimitive.ts`
-- `wealth/src/features/index-detail/chart/trendChannelGeometry.ts`
+- `wealth/src/shared/charts/trend-channel/TrendChannelPanePrimitive.ts`
+- `wealth/src/shared/charts/trend-channel/trendChannelGeometry.ts`
 - `wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx`

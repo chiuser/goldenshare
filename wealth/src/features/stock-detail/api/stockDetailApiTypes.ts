@@ -50,7 +50,7 @@ export interface StockChartDefaultsDto {
   sourceAdjustment: "qfq";
   availablePeriods: ["day"];
   availableAdjustments: ["forward"];
-  availableMainOverlays: Array<"MA" | "BOLL">;
+  availableMainOverlays: Array<"MA" | "BOLL" | "TREND_CHANNEL">;
   availableIndicatorTabs: Array<"VOL" | "amount" | "MA" | "MACD" | "KDJ" | "BOLL">;
 }
 
@@ -60,6 +60,7 @@ export interface StockDetailCapabilitiesDto {
   minuteFrequencies?: StockMinuteFrequency[];
   nineTurnPeriods: NineTurnPeriod[];
   supportsNineTurn: boolean;
+  supportsTrendChannel: boolean;
   supportsWeeklyMonthly: boolean;
   supportsUserActions: boolean;
   unsupportedActions: string[];

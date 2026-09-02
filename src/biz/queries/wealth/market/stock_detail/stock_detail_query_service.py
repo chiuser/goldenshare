@@ -33,6 +33,9 @@ from src.foundation.config.local_minute_capability import (
     resolve_stock_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import get_settings
+from src.foundation.config.stock_daily_trend_channel_capability import (
+    resolve_stock_daily_trend_channel_capability,
+)
 from src.foundation.models.core_serving.security_serving import Security
 
 
@@ -67,16 +70,26 @@ class StockDetailQueryService:
         nine_turn_minute_capability = resolve_stock_nine_turn_minute_capability(
             get_settings()
         )
+        trend_channel_capability = resolve_stock_daily_trend_channel_capability(
+            get_settings()
+        )
 
         return StockDetailPageInitResponseDto(
             pageContext=self._to_context_dto(context),
             stock=self._to_stock_identity(security),
             quote=build_quote(factor_row) if factor_row is not None else None,
-            chartDefaults=StockChartDefaultsDto(),
+            chartDefaults=StockChartDefaultsDto(
+                availableMainOverlays=(
+                    ["MA", "BOLL", "TREND_CHANNEL"]
+                    if trend_channel_capability.enabled
+                    else ["MA", "BOLL"]
+                )
+            ),
             capabilities=StockDetailCapabilitiesDto(
                 supportsMinute=minute_capability.enabled,
                 minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if minute_capability.enabled else [],
                 supportsNineTurn=True,
+                supportsTrendChannel=trend_channel_capability.enabled,
                 nineTurnPeriods=(
                     ["day", "30", "60", "90", "120"]
                     if nine_turn_minute_capability.enabled

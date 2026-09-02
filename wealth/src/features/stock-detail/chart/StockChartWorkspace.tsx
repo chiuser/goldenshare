@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
@@ -13,6 +13,9 @@ import type {
 } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { directionClass } from "../../../shared/lib/marketDirection";
 import type { MarketDirection } from "../../../shared/model/market";
+import { TrendChannelPanePrimitive } from "../../../shared/charts/trend-channel/TrendChannelPanePrimitive";
+import { buildTrendChannelLines } from "../../../shared/charts/trend-channel/trendChannelGeometry";
+import type { StockTrendChannelViewModel } from "../trend-channel/api/stockTrendChannelViewModelAdapter";
 import type {
   StockCandlePoint,
   StockIndicatorTab,
@@ -25,6 +28,9 @@ interface StockChartWorkspaceProps {
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   onAction: (message: string) => void;
+  onTrendSelect: () => void;
+  supportsTrendChannel: boolean;
+  trend: StockTrendChannelViewModel | null;
   tsCode: string;
 }
 
@@ -34,12 +40,21 @@ export function StockChartWorkspace({
   nineTurnLayer,
   onNineTurnRetry,
   onAction,
+  onTrendSelect,
+  supportsTrendChannel,
+  trend,
   tsCode,
 }: StockChartWorkspaceProps) {
   const [overlay, setOverlay] = useState<StockMainOverlay>("MA");
+  useEffect(() => {
+    setOverlay("MA");
+  }, [tsCode]);
+  useEffect(() => {
+    if (!supportsTrendChannel && overlay === "TREND_CHANNEL") setOverlay("MA");
+  }, [overlay, supportsTrendChannel]);
   const points = useMemo(() => candles.map(toDetailChartPoint), [candles]);
   const mainLines = useMemo<DetailChartLineDefinition[]>(
-    () => overlay === "MA" ? buildMaLines() : buildBollLines(),
+    () => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [],
     [overlay],
   );
   const dataKey = `stock:${tsCode}:day`;
@@ -49,6 +64,26 @@ export function StockChartWorkspace({
     points,
     timeMode: "daily",
   });
+  const trendByTime = useMemo(
+    () => new Map((trend?.points ?? []).map((point) => [point.time, point])),
+    [trend],
+  );
+  const trendPrimitives = useMemo(() => {
+    if (overlay !== "TREND_CHANNEL" || !trend) return [];
+    const lines = buildTrendChannelLines(
+      trend.points,
+      points.map((point) => String(point.time)),
+    );
+    return [new TrendChannelPanePrimitive(lines)];
+  }, [overlay, points, trend]);
+  const mainPrimitives = useMemo(
+    () => [...trendPrimitives, ...nineTurnChartLayer.mainPrimitives],
+    [nineTurnChartLayer.mainPrimitives, trendPrimitives],
+  );
+  const changeOverlay = (nextOverlay: StockMainOverlay) => {
+    setOverlay(nextOverlay);
+    if (nextOverlay === "TREND_CHANNEL") onTrendSelect();
+  };
 
   return (
     <DetailChartWorkspace
@@ -57,8 +92,9 @@ export function StockChartWorkspace({
         <StockIndicatorBar
           indicatorTabs={indicatorTabs}
           onAction={onAction}
-          onOverlayChange={setOverlay}
+          onOverlayChange={changeOverlay}
           overlay={overlay}
+          supportsTrendChannel={supportsTrendChannel}
         />
       )}
       bottomBarAriaLabel="底部指标栏"
@@ -71,7 +107,7 @@ export function StockChartWorkspace({
         />
       )}
       mainLines={mainLines}
-      mainPrimitives={nineTurnChartLayer.mainPrimitives}
+      mainPrimitives={mainPrimitives}
       panelAriaLabels={{
         kline: "K线主图",
         macd: "MACD(12,26,9)",
@@ -82,9 +118,11 @@ export function StockChartWorkspace({
       renderMainHeader={(point) => (
         <StockMainChartHeader
           onAction={onAction}
-          onOverlayChange={setOverlay}
+          onOverlayChange={changeOverlay}
           overlay={overlay}
           point={point}
+          supportsTrendChannel={supportsTrendChannel}
+          trendPoint={point ? trendByTime.get(String(point.time)) : undefined}
         />
       )}
       renderPanelHeader={(panel, point) => <StockIndicatorPanelHeader panel={panel} point={point} />}
@@ -163,11 +201,15 @@ function StockMainChartHeader({
   onOverlayChange,
   overlay,
   point,
+  supportsTrendChannel,
+  trendPoint,
 }: {
   onAction: (message: string) => void;
   onOverlayChange: (overlay: StockMainOverlay) => void;
   overlay: StockMainOverlay;
   point: DetailChartPoint | null;
+  supportsTrendChannel: boolean;
+  trendPoint?: { shortUpper: number; shortLower: number; longUpper: number; longLower: number };
 }) {
   return (
     <>
@@ -182,8 +224,9 @@ function StockMainChartHeader({
       >
         <option value="MA">MA 均线</option>
         <option value="BOLL">BOLL 布林线</option>
+        {supportsTrendChannel ? <option value="TREND_CHANNEL">趋势通道</option> : null}
       </select>
-      {point ? <StockKlineMetrics point={point} overlay={overlay} /> : null}
+      {point ? <StockKlineMetrics point={point} overlay={overlay} trendPoint={trendPoint} /> : null}
       <button
         className="detail-chart-gear"
         title="指标设置"
@@ -196,7 +239,25 @@ function StockMainChartHeader({
   );
 }
 
-function StockKlineMetrics({ point, overlay }: { point: DetailChartPoint; overlay: StockMainOverlay }) {
+function StockKlineMetrics({
+  point,
+  overlay,
+  trendPoint,
+}: {
+  point: DetailChartPoint;
+  overlay: StockMainOverlay;
+  trendPoint?: { shortUpper: number; shortLower: number; longUpper: number; longLower: number };
+}) {
+  if (overlay === "TREND_CHANNEL") {
+    return (
+      <>
+        <span className="metric ma5">短上:{formatMetric(finiteTrendValue(trendPoint?.shortUpper))}</span>
+        <span className="metric ma10">短下:{formatMetric(finiteTrendValue(trendPoint?.shortLower))}</span>
+        <span className="metric ma20">长上:{formatMetric(finiteTrendValue(trendPoint?.longUpper))}</span>
+        <span className="metric ma90">长下:{formatMetric(finiteTrendValue(trendPoint?.longLower))}</span>
+      </>
+    );
+  }
   if (overlay === "BOLL") {
     return (
       <>
@@ -272,11 +333,13 @@ function StockIndicatorBar({
   onAction,
   onOverlayChange,
   overlay,
+  supportsTrendChannel,
 }: {
   indicatorTabs: StockIndicatorTab[];
   onAction: (message: string) => void;
   onOverlayChange: (overlay: StockMainOverlay) => void;
   overlay: StockMainOverlay;
+  supportsTrendChannel: boolean;
 }) {
   return (
     <div className="detail-chart-indicator-tabs">
@@ -296,6 +359,15 @@ function StockIndicatorBar({
           {tab.label}
         </button>
       ))}
+      {supportsTrendChannel ? (
+        <button
+          className={`detail-chart-indicator-tab ${overlay === "TREND_CHANNEL" ? "active" : ""}`}
+          type="button"
+          onClick={() => onOverlayChange("TREND_CHANNEL")}
+        >
+          趋势通道
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -328,8 +400,7 @@ function StockKlineTooltip({ point, side }: { point: DetailChartPoint; side: Det
 }
 
 function buildIndicatorClass(tab: StockIndicatorTab, overlay: StockMainOverlay): string {
-  const isOverlayActive = tab.overlay && tab.overlay === overlay;
-  const isActive = tab.active || isOverlayActive;
+  const isActive = tab.overlay ? tab.overlay === overlay : tab.active;
   return ["detail-chart-indicator-tab", isActive ? "active" : "", tab.supported ? "" : "unsupported"]
     .filter(Boolean)
     .join(" ");
@@ -371,6 +442,10 @@ function resolveValueDirection(value: number | null): MarketDirection {
 
 function formatMetric(value: number | null): string {
   return isFiniteChartNumber(value) ? value.toFixed(2) : "--";
+}
+
+function finiteTrendValue(value: number | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function formatPanelMetric(value: number | null): string {

@@ -15,6 +15,7 @@ import { StockBreadcrumbActionBar } from "../../features/stock-detail/layout/Sto
 import { StockChartToolbar } from "../../features/stock-detail/layout/StockChartToolbar";
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
 import { StockDetailToast } from "../../features/stock-detail/ui/StockDetailToast";
+import { useStockTrendChannel } from "../../features/stock-detail/trend-channel/controller/useStockTrendChannel";
 import {
   buildIndexDetailPath,
   navigateWealth,
@@ -59,6 +60,11 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
   const activePageInit = pageInit?.stock.tsCode === tsCode ? pageInit : null;
+  const trendChannel = useStockTrendChannel({
+    enabled: activePageInit?.capabilities.supportsTrendChannel ?? false,
+    endDate: activePageInit?.pageContext.tradeDate ?? null,
+    tsCode,
+  });
   const nineTurnRegistry = useNineTurnSeriesRegistry({
     endDate: activePageInit?.pageContext.tradeDate ?? null,
     load: loadStockNineTurnSeries,
@@ -239,6 +245,9 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
               if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
             }}
             onAction={showToast}
+            onTrendSelect={trendChannel.ensure}
+            supportsTrendChannel={activePageInit?.capabilities.supportsTrendChannel ?? false}
+            trend={trendChannel.data}
             tsCode={viewModel.stock.tsCode}
           />
         ) : (

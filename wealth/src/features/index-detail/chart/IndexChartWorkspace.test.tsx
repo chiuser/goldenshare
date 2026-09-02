@@ -7,7 +7,7 @@ import { NineTurnMarkerPrimitive } from "../../../shared/charts/detail-workspace
 import { buildIndexDetailViewModel } from "../api/indexDetailViewModelAdapter";
 import { makeKline, makePageInit } from "../testing/indexDetailTestFixtures";
 import { IndexChartWorkspace } from "./IndexChartWorkspace";
-import { TrendChannelPanePrimitive } from "./TrendChannelPanePrimitive";
+import { TrendChannelPanePrimitive } from "../../../shared/charts/trend-channel/TrendChannelPanePrimitive";
 
 const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],

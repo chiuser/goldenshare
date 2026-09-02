@@ -69,7 +69,9 @@ class StockChartDefaultsDto(BaseModel):
     sourceAdjustment: Literal["qfq"] = "qfq"
     availablePeriods: list[Literal["day"]] = Field(default_factory=lambda: ["day"])
     availableAdjustments: list[Literal["forward"]] = Field(default_factory=lambda: ["forward"])
-    availableMainOverlays: list[Literal["MA", "BOLL"]] = Field(default_factory=lambda: ["MA", "BOLL"])
+    availableMainOverlays: list[Literal["MA", "BOLL", "TREND_CHANNEL"]] = Field(
+        default_factory=lambda: ["MA", "BOLL"]
+    )
     availableIndicatorTabs: list[Literal["VOL", "amount", "MA", "MACD", "KDJ", "BOLL"]] = Field(
         default_factory=lambda: ["VOL", "amount", "MA", "MACD", "KDJ", "BOLL"]
     )
@@ -82,6 +84,7 @@ class StockDetailCapabilitiesDto(BaseModel):
     supportsMinute: bool = False
     minuteFrequencies: list[Literal[1, 5, 15, 30, 60, 90, 120]] = Field(default_factory=list)
     supportsNineTurn: bool = False
+    supportsTrendChannel: bool = False
     nineTurnPeriods: list[Literal["day", "30", "60", "90", "120"]] = Field(
         default_factory=list
     )

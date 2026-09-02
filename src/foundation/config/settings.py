@@ -51,6 +51,10 @@ class Settings(BaseSettings):
         default=False,
         alias="WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED",
     )
+    wealth_local_lake_stock_daily_trend_channel_api_enabled: bool = Field(
+        default=False,
+        alias="WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED",
+    )
     goldenshare_lake_root: str = Field(default="", alias="GOLDENSHARE_LAKE_ROOT")
     redis_url: str = Field(default="redis://127.0.0.1:6379/0", alias="REDIS_URL")
     wealth_clickhouse_url: str = Field(default="http://127.0.0.1:8123", alias="WEALTH_CLICKHOUSE_URL")

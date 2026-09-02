@@ -14,7 +14,7 @@ export type StockPeriodKey =
   | "m5"
   | "m1";
 
-export type StockMainOverlay = "MA" | "BOLL";
+export type StockMainOverlay = "MA" | "BOLL" | "TREND_CHANNEL";
 
 export interface StockPeriodOption {
   key: StockPeriodKey;

@@ -13,14 +13,14 @@ import type {
 } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { directionClass } from "../../../shared/lib/marketDirection";
 import type { MarketDirection } from "../../../shared/model/market";
+import { TrendChannelPanePrimitive } from "../../../shared/charts/trend-channel/TrendChannelPanePrimitive";
+import { buildTrendChannelLines } from "../../../shared/charts/trend-channel/trendChannelGeometry";
 import type {
   IndexCandlePoint,
   IndexDetailViewModel,
   IndexMainOverlay,
   TrendChannelViewModel,
 } from "../model/indexDetailTypes";
-import { TrendChannelPanePrimitive } from "./TrendChannelPanePrimitive";
-import { buildTrendChannelLines } from "./trendChannelGeometry";
 
 interface IndexChartWorkspaceProps {
   nineTurnLayer: NineTurnLayerViewModel;

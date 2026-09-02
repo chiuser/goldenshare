@@ -6,7 +6,17 @@ import { WealthRouter } from "../../app/routes/WealthRouter";
 import { StockDetailPage } from "./StockDetailPage";
 
 describe("StockDetailPage", () => {
-  function mockStockDetailFetch({ fail = false, supportsMinute = false }: { fail?: boolean; supportsMinute?: boolean } = {}) {
+  function mockStockDetailFetch({
+    fail = false,
+    failTrend = false,
+    supportsMinute = false,
+    supportsTrendChannel = false,
+  }: {
+    fail?: boolean;
+    failTrend?: boolean;
+    supportsMinute?: boolean;
+    supportsTrendChannel?: boolean;
+  } = {}) {
     const pageInit = {
       pageContext: {
         market: "CN_A",
@@ -51,7 +61,7 @@ describe("StockDetailPage", () => {
         sourceAdjustment: "qfq",
         availablePeriods: ["day"],
         availableAdjustments: ["forward"],
-        availableMainOverlays: ["MA", "BOLL"],
+        availableMainOverlays: supportsTrendChannel ? ["MA", "BOLL", "TREND_CHANNEL"] : ["MA", "BOLL"],
         availableIndicatorTabs: ["VOL", "amount", "MA", "MACD", "KDJ", "BOLL"],
       },
       capabilities: {
@@ -59,6 +69,7 @@ describe("StockDetailPage", () => {
         supportsMinute,
         minuteFrequencies: supportsMinute ? [1, 5, 15, 30, 60, 90, 120] : [],
         supportsNineTurn: true,
+        supportsTrendChannel,
         nineTurnPeriods: supportsMinute ? ["day", "30", "60", "90", "120"] : ["day"],
         supportsWeeklyMonthly: false,
         supportsUserActions: false,
@@ -251,12 +262,54 @@ describe("StockDetailPage", () => {
         markerCount: 1,
       },
     };
+    const stockTrendChannel = {
+      stockRef: { tsCode: "603806.SH", name: "福斯特" },
+      period: "day",
+      adjustment: "forward",
+      sourceAdjustment: "qfq",
+      formula: {
+        key: "high-low-ema-hysteresis",
+        version: "stock-daily-trend-channel-v1",
+        shortPeriod: 25,
+        longPeriod: 90,
+        seed: "first_observation",
+        stateRule: "strict_close_breakout_inside_retention",
+      },
+      bars: [
+        {
+          tradeDate: "2026-05-28",
+          open: 18.1,
+          high: 18.9,
+          low: 17.9,
+          close: 18.5,
+          shortChannel: { upper: 19.2, lower: 17.8, position: "INSIDE", state: "UP" },
+          longChannel: { upper: 20.2, lower: 16.8, position: "INSIDE", state: "DOWN" },
+          combinedState: "UP_DOWN",
+        },
+        {
+          tradeDate: "2026-05-29",
+          open: 18.7,
+          high: 19.4,
+          low: 18.2,
+          close: 19.1,
+          shortChannel: { upper: 19.3, lower: 17.9, position: "INSIDE", state: "UP" },
+          longChannel: { upper: 20.3, lower: 16.9, position: "INSIDE", state: "DOWN" },
+          combinedState: "UP_DOWN",
+        },
+      ],
+      meta: { count: 2, limit: 300, endDate: "2026-05-29" },
+      dataStatus: { status: "READY", observedTradeDate: "2026-05-29", note: null },
+    };
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (fail) return new Response(JSON.stringify({ code: "internal_error", message: "接口失败" }), { status: 500 });
+      if (url.includes("/trend-channel") && failTrend) {
+        return new Response(JSON.stringify({ code: "STOCK_TREND_CHANNEL_READ_FAILED", message: "趋势通道失败" }), { status: 500 });
+      }
       if (url.includes("/page-init")) return new Response(JSON.stringify(pageInit), { status: 200 });
       if (url.includes("/kline")) return new Response(JSON.stringify(kline), { status: 200 });
+      if (url.includes("/trend-channel")) return new Response(JSON.stringify(stockTrendChannel), { status: 200 });
       if (url.includes("/stock-detail/news")) return new Response(JSON.stringify(stockNews), { status: 200 });
       if (url.includes("/minute-nine-turn")) {
         const period = new URL(url).searchParams.get("freq") ?? "30";
@@ -390,6 +443,52 @@ describe("StockDetailPage", () => {
       .map(([input]) => String(input))
       .filter((url) => url.includes("/minute-nine-turn"));
     expect(nineTurnMinuteRequests).toHaveLength(0);
+  });
+
+  it("loads stock trend channel only after first selection and keeps the base chart alive", async () => {
+    const fetchMock = mockStockDetailFetch({ supportsTrendChannel: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
+
+    await waitFor(() => {
+      const requests = fetchMock.mock.calls
+        .map(([input]) => String(input))
+        .filter((url) => url.includes("/trend-channel"));
+      expect(requests).toHaveLength(1);
+      expect(requests[0]).toContain("tsCode=603806.SH");
+      expect(requests[0]).toContain("endDate=2026-05-29");
+      expect(requests[0]).toContain("limit=300");
+    });
+    expect(await screen.findByText("短上:19.30")).toBeInTheDocument();
+    expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "均线" }));
+    fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/trend-channel"))).toHaveLength(1);
+  });
+
+  it("does not expose or request stock trend channel when capability is false", async () => {
+    const fetchMock = mockStockDetailFetch({ supportsTrendChannel: false });
+    render(<StockDetailPage tsCode="603806.SH" />);
+
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "趋势通道" })).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
+  });
+
+  it("keeps kline and other overlays available when trend channel fails", async () => {
+    mockStockDetailFetch({ failTrend: true, supportsTrendChannel: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
+    await waitFor(() => expect(screen.getByText("短上:--")).toBeInTheDocument());
+    expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "均线" }));
+    expect(screen.getAllByText("MA10:18.90").length).toBeGreaterThan(0);
   });
 
   it.each([

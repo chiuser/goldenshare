@@ -17,7 +17,7 @@ describe("trend channel geometry", () => {
     expect(resolveTrendTone(points[2], "long")).toBe("long-above");
   });
 
-  it("draws both daily vertical bands and breaks upper/lower connections across missing kline days", () => {
+  it("draws daily bands and breaks connections across missing candle days", () => {
     const lines = buildTrendChannelLines(points, ["2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31"]);
     const verticals = lines.filter((line) => line.fromTime === line.toTime);
     const connections = lines.filter((line) => line.fromTime !== line.toTime);

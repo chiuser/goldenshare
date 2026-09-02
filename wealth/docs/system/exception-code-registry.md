@@ -163,6 +163,15 @@
 
 ---
 
+## 7.1 股票日线趋势通道（M7，本地能力）
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `STOCK_TREND_CHANNEL_SOURCE_NOT_READY` | `stockDetailTrendChannel` | warn | false | true | 本地股票趋势通道正式事实尚不可安全读取 | 正式 result/state 根缺失或不可读、目标分区缺文件、Parquet/schema/公式版本/日期唯一性合同不一致 | route 未挂载时不展示入口；已挂载后的局部请求返回 HTTP 503，保留 K 线与其它图层 | foundation/biz-api | M7 | active |
+| `STOCK_TREND_CHANNEL_READ_FAILED` | `stockDetailTrendChannel` | error | false | false | 本地股票趋势通道有界查询执行失败 | DuckDB 或文件 IO 在已通过 capability 与源合同门禁后执行失败 | 趋势通道局部 error，不影响 K 线、九转、MA/BOLL | foundation/biz-api | M7 | active |
+
+---
+
 ## 8. 指数详情模块（Phase-3）
 
 > 正式日线 DTO 语义见 [指数详情页正式 API / DTO 合同 v1](../pages/index-detail/index-detail-api-contract-v1.md)。`ID_*` 服务正式日线详情；`IM_*` 服务已启用的 local/dev 指数分钟独立合同，具体语义见 [指数详情本地分钟 API / DTO 合同 v1](../pages/index-detail/index-detail-minutes-api-contract-v1.md)。
