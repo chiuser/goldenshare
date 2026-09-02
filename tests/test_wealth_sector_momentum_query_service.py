@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from uuid import UUID
 
 import pytest
 
@@ -13,10 +14,14 @@ from src.biz.queries.wealth.market.context.market_page_context_query import Mark
 from src.biz.queries.wealth.market.sector_analysis.sector_momentum_query_service import (
     SectorMomentumQueryService,
 )
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+    SectorAnalysisFactReader,
+    SectorPublishedCalendarDate,
+    SectorPublishedCoverage,
+)
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorDateAvailabilityFact,
     SectorSelectionInvalidError,
-    SectorTradingDateResolution,
 )
 
 
@@ -75,47 +80,62 @@ class _HierarchyQuery:
         return _snapshot()
 
 
-class _MissingMomentumQuery:
+class _MissingFactReader:
     def __init__(self, *, fail: bool = False) -> None:
         self.fail = fail
         self.open_date_calls = 0
-        self.fact_calls = 0
+        self.row_calls = 0
 
-    def resolve_trading_date(self, _session, **_kwargs):
+    def load_momentum_coverage(self, _session, **_kwargs):
         if self.fail:
             raise RuntimeError("SELECT secret FROM private_table")
+        previous = SectorDateAvailabilityFact(
+            trade_date=date(2026, 8, 26),
+            availability="COMPLETE",
+            expected_sector_count=1,
+            valid_sector_count=1,
+        )
         missing = SectorDateAvailabilityFact(
             trade_date=TARGET_DATE,
             availability="MISSING",
             expected_sector_count=1,
             valid_sector_count=0,
         )
-        return SectorTradingDateResolution(
+        return SectorPublishedCoverage(
             coverage_start_date=date(2026, 1, 1),
             coverage_end_date=TARGET_DATE,
-            expected=missing,
-            observed=missing,
-            is_explicit=True,
+            calendar_dates=(
+                SectorPublishedCalendarDate(
+                    availability=previous,
+                    batch_id=UUID("00000000-0000-0000-0000-000000000001"),
+                ),
+                SectorPublishedCalendarDate(
+                    availability=missing,
+                    batch_id=None,
+                ),
+            ),
         )
 
     def load_open_dates(self, *_args, **_kwargs):
         self.open_date_calls += 1
         return ()
 
-    def load_facts(self, *_args, **_kwargs):
-        self.fact_calls += 1
+    def load_momentum_rows(self, *_args, **_kwargs):
+        self.row_calls += 1
         return ()
+
+    resolve_trading_date = staticmethod(SectorAnalysisFactReader.resolve_trading_date)
 
 
 def _service(*, hierarchy_fail: bool = False, query_fail: bool = False):
-    query = _MissingMomentumQuery(fail=query_fail)
+    reader = _MissingFactReader(fail=query_fail)
     return (
         SectorMomentumQueryService(
             context_query=_ContextQuery(),
             hierarchy_query=_HierarchyQuery(fail=hierarchy_fail),
-            momentum_query=query,
+            fact_reader=reader,  # type: ignore[arg-type]
         ),
-        query,
+        reader,
     )
 
 
@@ -138,7 +158,7 @@ def test_explicit_missing_date_returns_empty_before_window_or_fact_query() -> No
     assert response.exceptionCode == "SA_SOURCE_EMPTY"
     assert response.tradingDay.observedTradeDate == TARGET_DATE
     assert query.open_date_calls == 0
-    assert query.fact_calls == 0
+    assert query.row_calls == 0
 
 
 def test_hierarchy_failure_returns_safe_error_shell_for_rankings() -> None:

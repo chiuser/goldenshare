@@ -2,15 +2,15 @@
 
 ## 0. 文档状态
 
-- 状态：v1.57；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22、M23 已关闭。全窗口 APPLY TaskRun `10567` 在213/248后因进程退出失败，已提交日期保留；尾段 PLAN TaskRun `10585` 冻结35个交易日、零 gap、`applyReady=true`，APPLY TaskRun `10587` 完成35/35并补齐剩余事实。最终 `2025-08-22～2026-08-31` 为248/248唯一 PUBLISHED，九表计数、物理行数、previous 链和 HDD 落盘全部通过。下一步固定为 M24；M25～M26 均不得提前执行。
-- 编写日期：2026-09-02。
+- 状态：v1.58；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22、M23 已关闭。M24 首个动量排名切片已完成 typed reader、后端切读、正反例和 Prod 只读全矩阵对账，当前等待独立部署验收；其余四方法尚未切读。M25～M26 均不得提前执行。
+- 编写日期：2026-09-03。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
 - 技术依据：[财势探查｜板块分析技术实施方案 v1](./sector-analysis-implementation-design-v1.md)。
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：五条既有精确方法路由保持不变；M25 新增 `/wealth/exploration/sector-analysis/daily-insight`，并在其正式上线时把板块分析根地址改为 `replace` 到每日洞察。六个工作区始终只挂载当前 controller。
 - 目标 API：既有十四只板块分析只读 API 保持公开合同不变；M25 新增 `/daily-insight/meta` 与 `/daily-insight/snapshot` 两只 strict 只读 API。
-- 待实施项：M23 不再有待执行的生产回补。下一步是 M24 五方法等价切读；随后才是 M25 每日洞察前后端和 M26 自动化与最终交付验收。TaskRun `10421`、`10518`、`10548`、`10567`、`10585` 与 `10587` 均保留为不可变执行证据，不得重用或改写。
+- 待实施项：M23 不再有待执行的生产回补。下一步是部署并验收 M24 动量排名切片；只有通过后才进入双动量，再按既定顺序完成其余三方法。随后才是 M25 每日洞察前后端和 M26 自动化与最终交付验收。TaskRun `10421`、`10518`、`10548`、`10567`、`10585` 与 `10587` 均保留为不可变执行证据，不得重用或改写。
 
 本文定义财势探查页面结构、五个已完成的独立分析方法，以及新增“每日洞察 + 每日事实物化”的代码级方案。每日洞察不是第六种公式，只汇总同一业务日期、同一层级版本、同一公式包和同一发布批次下的五方法客观事实；不生成综合分、预测、信号、机会等级或买卖建议。M3A 成分股明细和成员广度逐只股票明细继续按需读取，不进入本期物化结果。
 
@@ -5458,12 +5458,22 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 
 ### M24：五方法逐字段等价与 serving 切读
 
-状态：`PENDING`。
+状态：`IN PROGRESS（动量排名本地与 Prod 只读等价通过，待独立部署验收）`。
 
 1. 按五scope、所有周期／阈值／MA／历史、正常与缺失日比较现算和typed facts。
 2. 按动量、双动量、相对轮动、成员广度、量价分布逐个切读；一次只切一个并独立部署验收。
 3. 公开URL/query/DTO/state不变；成员明细继续按需；不保留双读、开关或fallback。
 4. 单方法全矩阵或性能不通过就停止该方法，不影响其他方法。
+
+#### M24.1 动量排名首切片实装
+
+1. 新增 `src/biz/queries/wealth/market/sector_analysis/sector_analysis_fact_reader.py`，只连接 `PUBLISHED` batch 与 `wealth_sector_momentum_daily`；reader 校验 hierarchy／formula bundle／formula key／formula version、全局层级行数、行身份及 nullable／rank 不变量。禁止导入 `DcDaily`。
+2. `SectorMomentumQueryService` 的 Meta／Rankings／History 改由 reader 读取 typed facts；公开 URL、query、DTO、状态、排序和 SQL 上限不变。`members` endpoint 与其 `dc_member/equity_daily_bar` 按需链不变。
+3. 自动日期规则为：目标日无 PUBLISHED 时回退最近 PUBLISHED；目标日已有 PUBLISHED 时，无论 COMPLETE 或 PARTIAL 均使用目标日。显式未发布目标日返回 Empty；历史显示日期仍来自 SSE 日历，未发布日期保留 null 槽，不前填。
+4. `SectorMomentumSnapshotQueryService`、`SectorMomentumQuery` 和 `SectorMomentumCalculator` 暂时保留：双动量、相对轮动等未切方法仍是其真实消费者，且 M24 等价测试以其作为旧算法 oracle。不得因动量排名已经切读而删除共享代码。
+5. 自动化必须覆盖五 scope、五周期、涨／跌排序、三历史范围、正常日、PUBLISHED 部分缺失、未发布自动回退、显式未发布 Empty、历史 null 槽、typed 表缺失安全错误、删除 `DcDaily` 后动量公开接口仍可读，以及架构反例。
+6. 2026-09-03 Prod 只读对账在一个 `REPEATABLE READ, READ ONLY` 事务中完成；读取248个 PUBLISHED 日期中的最近60日及代表性部分缺失日 `2026-05-25`，对比49,410个切片、293,105行和98,820组方向排序，逐字段差异为0。未写数据库、未保存来源副本。
+7. 本地冻结回归439项通过。当前停止点是用户部署后完成动量 endpoint／页面真实样本、SQL、payload和P95验收；部署验收前不得进入双动量，也不得把 G63 标成 PASS。
 
 ### M25：每日洞察后端与前端
 
@@ -5611,7 +5621,7 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G61 Ops自动主链 | GENERAL、20:05/600/00:30、来源齐备、通用plan/readiness；Heat/news/QTF/分钟零回归 | PARTIAL PASS (M22 code)：action、readiness、executor、GENERAL装配和冻结回归通过；远程scheduler/systemd实机仍OPEN (M26) |
 | G62 历史回补 | 2025-08-22起升序PLAN/APPLY/read-back/previous链；HDD物理落盘和日期完整性受控 | PASS (M23 approved scope)：10548冻结248日；10567持久化前213日后失败；10585/10587只恢复35日尾段并完成35/35。最终248/248唯一PUBLISHED、0缺口、0重复、计数／物理行数／previous链差异均为0，九表约3,774MB且全部位于HDD。全窗口幂等重放及其后新增门禁按用户明确豁免，不追溯补做 |
 | G62A M23R 长PLAN与取消一致性 | 逐日短事务、BUILDING检查点、真实进度、分阶段取消、非冻结不可APPLY；TaskRun与节点同事务取消 | PASS (local+remote)：261项正反例、提交685b42a3部署、10518逐日检查点／FROZEN终态及历史节点收口通过；继续使用既有GENERAL且无新增Worker/Lane |
-| G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | OPEN (M24) |
+| G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | IN PROGRESS (M24)：动量排名本地／Prod只读等价通过，待独立部署验收；其余四方法OPEN |
 | G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN (M25/M26) |
 | G65 Daily前端 | 第六route、三参数URL、controller、四完整滚动列表、五态、跳转和按需挂载 | OPEN (M25) |
 | G66 Daily交付 | HDD真实拓扑、自动任务、payload/P95、8张Figma、四档及用户验收 | OPEN (M26) |
@@ -5801,14 +5811,15 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 量价分布 M18 后端、M19 前端与 M20 部署联调均已完成：后端建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；前端建立第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13态。Meta唯一自动回退、显式日期精确显示、局部缺失透明和按需挂载均已有自动化证据；部署态337行完整事实、60日历史、`3/5/5` SQL、payload、P95、五scope、四档页面及用户验收全部通过，G55关闭。本轮不自动进入新需求。
 
-每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M24～M26。
+每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M24～M26。M24 的动量排名首切片已完成本地实现和 Prod 只读等价对账，尚未完成独立部署验收；其余四方法未切读。
 
-下一步固定为 M24：按动量、双动量、相对轮动、成员广度、量价分布逐个完成现算与 typed serving facts 的全合同等价对账，再逐个切读。M23 的任务均只保留为审计证据，不得重用；不得借M23收口提前修改默认路由或进入M25～M26。
+下一步固定为部署并验收 M24 动量排名切片；通过后才按双动量、相对轮动、成员广度、量价分布顺序继续。M23 的任务均只保留为审计证据，不得重用；不得提前修改默认路由或进入M25～M26。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.58 | 2026-09-03 | 推进M24首个动量排名切片：新增只读PUBLISHED typed fact reader，Meta／Rankings／History切至`wealth_sector_momentum_daily`，成员链与未切方法共享Snapshot保持不变；冻结已发布部分缺失不回退、显式未发布Empty和历史null槽。Prod只读对账61日、49,410切片、293,105行、98,820组排序零差异，本地439项回归通过；当前待独立部署验收，G63仍为IN PROGRESS |
 | v1.57 | 2026-09-02 | 关闭M23：全窗口PLAN 10548冻结248/248、零gap；APPLY 10567在213/248后因进程退出失败但每日提交事实保留，遗留节点16635已按父任务终态收口。尾段PLAN 10585冻结2026-07-14～2026-08-31共35日、零gap、applyReady；APPLY 10587完成35/35、写入读回862,983行且零issue。最终248/248唯一PUBLISHED，日期、计数、物理行数和previous链差异均为0，九表约3,774MB且全部位于HDD。按用户豁免不做全窗口幂等重放；下一步固定M24 |
 | v1.56 | 2026-09-02 | M23R远程验收与历史起点纠偏：提交685b42a3部署后，TaskRun 10518以403个逐日检查点完成且九表零写入，得到248个有效unit和155个来源gap。Prod只读对账确认当前发布层级成员代码自2025-05-30起匹配，60个SSE交易日预热后的首个正式物化日为2025-08-22。将replay planner常量、Ops动作说明、Meta覆盖、测试和M23门禁统一到该日；旧PLAN只保留审计证据，替代PLAN必须满足248/248、零gap、FROZEN和applyReady=true后才能申请APPLY |
 | v1.55 | 2026-09-01 | 完成M23R本地编码：新增通用task-aware PLAN协议与独立短session检查点上下文；板块replay拆为scope／单日preview／finalize，逐日BUILDING草稿和最高99%的真实进度，最终范围复核后才冻结；来源读取与计算阶段可取消，dispatcher返回canceled，Worker保留取消现场；stale cancel同事务结束全部未终结节点。261项板块、Heat、news、QTF、分钟、普通maintenance、lane和架构回归通过；未部署、未执行真实PLAN/APPLY |

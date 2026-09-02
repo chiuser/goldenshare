@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from uuid import UUID
 
 import pytest
 
@@ -17,6 +18,12 @@ from src.biz.queries.wealth.market.sector_analysis.sector_momentum_snapshot_quer
 )
 from src.biz.queries.wealth.market.sector_analysis.sector_momentum_query_service import (
     SectorMomentumQueryService,
+)
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+    SectorAnalysisFactReader,
+    SectorPublishedCalendarDate,
+    SectorPublishedCoverage,
+    SectorPublishedMomentumRow,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contract import (
     SectorMomentumFactVersionMismatchError,
@@ -149,6 +156,62 @@ def _service(query: _MomentumQuery) -> SectorMomentumSnapshotQueryService:
     )
 
 
+class _PublishedFactReader:
+    resolve_trading_date = staticmethod(SectorAnalysisFactReader.resolve_trading_date)
+
+    def __init__(self) -> None:
+        self.coverage_calls = 0
+        self.row_calls = 0
+
+    def load_momentum_coverage(self, _session, **_kwargs):
+        self.coverage_calls += 1
+        availability = SectorDateAvailabilityFact(
+            trade_date=TARGET_DATE,
+            availability="PARTIAL",
+            expected_sector_count=3,
+            valid_sector_count=2,
+        )
+        return SectorPublishedCoverage(
+            coverage_start_date=OPEN_DATES[0],
+            coverage_end_date=TARGET_DATE,
+            calendar_dates=(
+                SectorPublishedCalendarDate(
+                    availability=availability,
+                    batch_id=UUID("00000000-0000-0000-0000-000000000001"),
+                ),
+            ),
+        )
+
+    def load_momentum_rows(self, _session, **_kwargs):
+        self.row_calls += 1
+        values = (
+            ("BK1001.DC", "行业甲", Decimal("10.0000"), 1, Decimal("100.0")),
+            ("BK1002.DC", "行业乙", Decimal("5.0000"), 2, Decimal("0.0")),
+            ("BK1003.DC", "行业丙", None, None, None),
+        )
+        return tuple(
+            SectorPublishedMomentumRow(
+                batch_id=UUID("00000000-0000-0000-0000-000000000001"),
+                trade_date=TARGET_DATE,
+                comparison_scope="LEVEL_1",
+                comparison_key="GLOBAL:L1",
+                parent_sector_code=None,
+                sector_code=code,
+                sector_name=name,
+                industry_level=1,
+                hierarchy_path=name,
+                period=5,
+                return_pct=return_pct,
+                strength_rank=rank,
+                rankable_count=2 if rank is not None else None,
+                percentile=percentile,
+                calculation_status="CALCULABLE" if rank is not None else "UNAVAILABLE",
+                missing_reason="NONE" if rank is not None else "DATE_MISSING",
+            )
+            for code, name, return_pct, rank, percentile in values
+        )
+
+
 def test_snapshot_keeps_scope_order_and_missing_rows_without_extra_reads() -> None:
     query = _MomentumQuery()
     snapshot = _service(query).build(
@@ -229,12 +292,12 @@ def test_dual_date_mode_converts_only_date_resolution_errors() -> None:
         )
 
 
-def test_existing_rankings_contract_is_preserved_on_the_shared_snapshot() -> None:
-    query = _MomentumQuery()
+def test_existing_rankings_contract_is_preserved_after_serving_fact_cutover() -> None:
+    reader = _PublishedFactReader()
     response = SectorMomentumQueryService(
         context_query=_ContextQuery(),
         hierarchy_query=_HierarchyQuery(),
-        momentum_query=query,  # type: ignore[arg-type]
+        fact_reader=reader,  # type: ignore[arg-type]
     ).build_rankings(
         object(),  # type: ignore[arg-type]
         market="CN_A",
@@ -261,4 +324,4 @@ def test_existing_rankings_contract_is_preserved_on_the_shared_snapshot() -> Non
         "BK1003.DC",
     ]
     assert payload["ranking"]["rows"][-1]["returnPct"] is None
-    assert query.resolve_calls == query.open_calls == query.fact_calls == 1
+    assert reader.coverage_calls == reader.row_calls == 1

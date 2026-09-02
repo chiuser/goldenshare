@@ -47,6 +47,10 @@ APPROVED_MODEL_MODULES = {
     "src.foundation.models.core_serving.equity_adj_factor",
     "src.foundation.models.core_serving.wealth_sector_hierarchy",
 }
+APPROVED_SERVING_FACT_MODEL_MODULES = {
+    "src.foundation.models.core_serving.wealth_sector_analysis_publish_batch",
+    "src.foundation.models.core_serving.wealth_sector_momentum_daily",
+}
 APPROVED_SHARED_QUERY_MODULES = {
     "src.biz.queries.wealth.market.common.sector_hierarchy_query",
     "src.biz.queries.wealth.market.context.market_page_context_query",
@@ -298,7 +302,8 @@ def test_sector_analysis_backend_only_imports_approved_fact_models_and_shared_qu
         for line_no, module in _python_imports(path):
             if (
                 module.startswith("src.foundation.models")
-                and module not in APPROVED_MODEL_MODULES
+                and module
+                not in APPROVED_MODEL_MODULES | APPROVED_SERVING_FACT_MODEL_MODULES
             ):
                 violations.append(
                     f"{relative_path}:{line_no} imports unapproved model {module}"
@@ -316,8 +321,28 @@ def test_sector_analysis_backend_only_imports_approved_fact_models_and_shared_qu
                     )
 
     assert not violations, (
-        "板块分析只能读取冻结的六张 Prod 表和两项共享查询：\n" + "\n".join(violations)
+        "板块分析只能读取冻结来源、已发布 serving facts 和两项共享查询：\n"
+        + "\n".join(violations)
     )
+
+
+def test_m24_momentum_runtime_reads_published_facts_without_online_recalculation() -> None:
+    service = (
+        REPO_ROOT
+        / "src/biz/queries/wealth/market/sector_analysis/sector_momentum_query_service.py"
+    ).read_text(encoding="utf-8")
+    reader = (
+        REPO_ROOT
+        / "src/biz/queries/wealth/market/sector_analysis/sector_analysis_fact_reader.py"
+    ).read_text(encoding="utf-8")
+
+    assert "SectorAnalysisFactReader" in service
+    assert "sector_momentum_query import" not in service
+    assert "SectorMomentumSnapshotQueryService" not in service
+    assert "DcDaily" not in service
+    assert "WealthSectorAnalysisPublishBatch" in reader
+    assert "WealthSectorMomentumDaily" in reader
+    assert "DcDaily" not in reader
 
 
 def test_sector_analysis_has_no_forbidden_subsystem_or_persistence_dependency() -> None:

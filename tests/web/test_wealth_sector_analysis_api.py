@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from time import perf_counter
+from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import event, select
 
@@ -14,6 +15,33 @@ from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.wealth_sector_hierarchy import (
     WealthSectorHierarchy,
+)
+from src.foundation.models.core_serving.wealth_sector_analysis_publish_batch import (
+    WealthSectorAnalysisPublishBatch,
+)
+from src.foundation.models.core_serving.wealth_sector_momentum_daily import (
+    WealthSectorMomentumDaily,
+)
+from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import (
+    FORMULA_BUNDLE_VERSION,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_momentum_calculator import (
+    SectorMomentumCalculator,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
+    FORMULA_KEY as MOMENTUM_FORMULA_KEY,
+    FORMULA_VERSION as MOMENTUM_FORMULA_VERSION,
+    SectorDailyFact,
+    SectorReturnFact,
+    global_level_pool,
+    parent_pool,
+    resolve_scope_pool,
+)
+from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
+    SectorHierarchyQuery,
+)
+from src.biz.queries.wealth.market.sector_analysis.sector_momentum_snapshot_query_service import (
+    SectorMomentumSnapshotQueryService,
 )
 
 
@@ -28,6 +56,8 @@ def _ensure_tables(db_session) -> None:
     EquityAdjFactor.__table__.create(bind, checkfirst=True)
     EquityDailyBar.__table__.create(bind, checkfirst=True)
     WealthSectorHierarchy.__table__.create(bind, checkfirst=True)
+    WealthSectorAnalysisPublishBatch.__table__.create(bind, checkfirst=True)
+    WealthSectorMomentumDaily.__table__.create(bind, checkfirst=True)
 
 
 def _hierarchy_rows() -> tuple[tuple[str, str, int, str | None, str, str], ...]:
@@ -111,7 +141,175 @@ def _seed_sector_analysis(db_session) -> None:
                     turnover_rate=Decimal("2"),
                 )
             )
+    _seed_momentum_serving_facts(db_session, rows=rows)
     db_session.commit()
+
+
+def _seed_momentum_serving_facts(db_session, *, rows) -> None:  # type: ignore[no-untyped-def]
+    calculator = SectorMomentumCalculator()
+    facts = tuple(
+        SectorDailyFact(
+            sector_code=code,
+            trade_date=item,
+            close=Decimal(100 + order * 10 + date_index),
+            pct_change=Decimal(10 - order),
+        )
+        for order, (code, *_rest) in enumerate(rows, start=1)
+        for date_index, item in enumerate(OPEN_DATES)
+    )
+    fact_index = calculator.index_facts(facts)
+    by_code = {row[0]: row for row in rows}
+    pools: list[tuple[str, str, str | None, tuple[str, ...]]] = []
+    for level in (1, 2, 3):
+        pools.append(
+            (
+                f"LEVEL_{level}",
+                f"GLOBAL:L{level}",
+                None,
+                tuple(row[0] for row in rows if row[2] == level),
+            )
+        )
+    for parent_code, _name, parent_level, *_rest in rows:
+        if parent_level not in (1, 2):
+            continue
+        children = tuple(row[0] for row in rows if row[3] == parent_code)
+        if children:
+            pools.append(
+                (
+                    f"LEVEL_{parent_level}_CHILDREN",
+                    f"PARENT:L{parent_level}:{parent_code}",
+                    parent_code,
+                    children,
+                )
+            )
+    calculated_at = datetime(2026, 4, 30, 20, 0, tzinfo=timezone.utc)
+    for target_date in OPEN_DATES:
+        batch_id = uuid5(NAMESPACE_URL, f"sector-analysis-test:{target_date.isoformat()}")
+        fact_count = sum(len(pool[3]) * 5 for pool in pools)
+        db_session.add(
+            WealthSectorAnalysisPublishBatch(
+                batch_id=batch_id,
+                trade_date=target_date,
+                status="PUBLISHED",
+                previous_trade_date=None,
+                previous_batch_id=None,
+                hierarchy_version="2026-04-30-v1",
+                formula_bundle_version=FORMULA_BUNDLE_VERSION,
+                template_version="sector-daily-insight-template@1",
+                source_hash="a" * 64,
+                plan_hash="b" * 64,
+                content_hash="c" * 64,
+                source_dates_json={},
+                source_row_counts_json={},
+                expected_fact_counts_json={"wealth_sector_momentum_daily": fact_count},
+                actual_fact_counts_json={"wealth_sector_momentum_daily": fact_count},
+                started_at=calculated_at,
+                calculated_at=calculated_at,
+                published_at=calculated_at,
+            )
+        )
+        for scope, comparison_key, parent_code, sector_codes in pools:
+            for period in (1, 5, 10, 20, 30):
+                returns = calculator.calculate_for_date(
+                    sector_codes=sector_codes,
+                    open_dates=OPEN_DATES,
+                    target_date=target_date,
+                    period=period,  # type: ignore[arg-type]
+                    fact_index=fact_index,
+                )
+                ranked = calculator.rank_strength(returns)
+                return_by_code = {row.sector_code: row for row in returns}
+                calculable_count = sum(row.return_pct is not None for row in ranked)
+                for rank in ranked:
+                    code, name, level, _parent, _root, path = by_code[rank.sector_code]
+                    return_fact = return_by_code[code]
+                    db_session.add(
+                        WealthSectorMomentumDaily(
+                            batch_id=batch_id,
+                            trade_date=target_date,
+                            comparison_scope=scope,
+                            comparison_key=comparison_key,
+                            parent_sector_code=parent_code,
+                            sector_code=code,
+                            sector_name=name,
+                            industry_level=level,
+                            hierarchy_path=path,
+                            period=period,
+                            return_pct=rank.return_pct,
+                            strength_rank=rank.strength_rank,
+                            rankable_count=(
+                                calculable_count if rank.strength_rank is not None else None
+                            ),
+                            percentile=rank.percentile,
+                            formula_key=MOMENTUM_FORMULA_KEY,
+                            formula_version=MOMENTUM_FORMULA_VERSION,
+                            calculation_status=(
+                                "CALCULABLE"
+                                if rank.return_pct is not None
+                                else "UNAVAILABLE"
+                            ),
+                            missing_reason=return_fact.missing_reason,
+                            calculated_at=calculated_at,
+                        )
+                    )
+
+
+def _mark_momentum_unavailable(
+    db_session,
+    *,
+    trade_date: date,
+    comparison_key: str,
+    sector_code: str,
+    period: int = 1,
+) -> None:
+    rows = tuple(
+        db_session.scalars(
+        select(WealthSectorMomentumDaily).where(
+            WealthSectorMomentumDaily.trade_date == trade_date,
+            WealthSectorMomentumDaily.comparison_key == comparison_key,
+            WealthSectorMomentumDaily.period == period,
+        )
+        )
+    )
+    row = next((item for item in rows if item.sector_code == sector_code), None)
+    assert row is not None
+    row.return_pct = None
+    row.strength_rank = None
+    row.rankable_count = None
+    row.percentile = None
+    row.calculation_status = "UNAVAILABLE"
+    row.missing_reason = "DATE_MISSING"
+    ranked = SectorMomentumCalculator.rank_strength(
+        SectorReturnFact(
+            sector_code=item.sector_code,
+            trade_date=trade_date,
+            return_pct=item.return_pct,
+            missing_reason=item.missing_reason,
+        )
+        for item in rows
+    )
+    rank_by_code = {item.sector_code: item for item in ranked}
+    calculable_count = sum(item.return_pct is not None for item in ranked)
+    for item in rows:
+        updated = rank_by_code[item.sector_code]
+        item.strength_rank = updated.strength_rank
+        item.rankable_count = (
+            calculable_count if updated.strength_rank is not None else None
+        )
+        item.percentile = updated.percentile
+
+
+def _unpublish_momentum_date(db_session, *, trade_date: date) -> None:
+    batch = db_session.scalar(
+        select(WealthSectorAnalysisPublishBatch).where(
+            WealthSectorAnalysisPublishBatch.trade_date == trade_date,
+            WealthSectorAnalysisPublishBatch.status == "PUBLISHED",
+        )
+    )
+    assert batch is not None
+    batch.status = "FAILED"
+    batch.failed_at = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    batch.failure_reason_code = "TEST_UNPUBLISHED"
 
 
 def _seed_sector_members(db_session) -> None:
@@ -263,7 +461,7 @@ def test_meta_returns_hierarchy_and_complete_open_date_coverage_in_three_sql(
     }
 
 
-def test_rankings_returns_full_gain_and_loss_lists_with_stable_strength_ranks_in_five_sql(
+def test_rankings_returns_full_gain_and_loss_lists_with_stable_strength_ranks_in_four_sql(
     app_client,
     db_session,
     web_engine,
@@ -292,7 +490,7 @@ def test_rankings_returns_full_gain_and_loss_lists_with_stable_strength_ranks_in
 
     assert gainers.status_code == 200
     assert losers.status_code == 200
-    assert sql_count == 5
+    assert sql_count == 4
     gain_payload = gainers.json()
     loss_payload = losers.json()
     assert gain_payload["status"] == "READY"
@@ -355,18 +553,207 @@ def test_history_returns_current_global_and_parent_ranks_and_sixty_slots_in_five
     assert payload["detail"]["scopeTitle"] == "一级甲内二级行业"
 
 
+def test_m24_all_momentum_scopes_periods_and_directions_match_online_oracle(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    calculator = SectorMomentumCalculator()
+    oracle = SectorMomentumSnapshotQueryService()
+    scope_cases = (
+        ("LEVEL_1", None, None),
+        ("LEVEL_2", None, None),
+        ("LEVEL_3", None, None),
+        ("LEVEL_1_CHILDREN", "BK1001.DC", None),
+        ("LEVEL_2_CHILDREN", "BK1001.DC", "BK1101.DC"),
+    )
+    for scope, level1_code, level2_code in scope_cases:
+        for period in (1, 5, 10, 20, 30):
+            snapshot = oracle.build(
+                db_session,
+                market="CN_A",
+                trade_date=TARGET_DATE,
+                scope=scope,  # type: ignore[arg-type]
+                level1_code=level1_code,
+                level2_code=level2_code,
+                period=period,  # type: ignore[arg-type]
+            )
+            node_by_code = {row.node.sector_code: row.node for row in snapshot.rows}
+            rank_rows = tuple(row.rank_fact for row in snapshot.rows)
+            for direction in ("GAINERS", "LOSERS"):
+                response = app_client.get(
+                    "/api/v1/wealth/market/sector-analysis/momentum/rankings",
+                    params={
+                        key: value
+                        for key, value in {
+                            "tradeDate": TARGET_DATE.isoformat(),
+                            "scope": scope,
+                            "level1Code": level1_code,
+                            "level2Code": level2_code,
+                            "period": period,
+                            "direction": direction,
+                        }.items()
+                        if value is not None
+                    },
+                )
+                assert response.status_code == 200
+                payload = response.json()
+                assert payload["status"] == "READY"
+                expected = calculator.sort_ranking_rows(
+                    rank_rows,
+                    direction=direction,  # type: ignore[arg-type]
+                )
+                assert payload["ranking"]["totalCount"] == len(snapshot.rows)
+                assert payload["ranking"]["calculableCount"] == sum(
+                    row.return_pct is not None for row in expected
+                )
+                assert [
+                    (
+                        row["listPosition"],
+                        row["sectorCode"],
+                        row["strengthRank"],
+                        row["returnPct"],
+                        row["percentile"],
+                    )
+                    for row in payload["ranking"]["rows"]
+                ] == [
+                    (
+                        index,
+                        row.sector_code,
+                        row.strength_rank,
+                        calculator.as_json_return(row.return_pct),
+                        calculator.as_json_percentile(row.percentile),
+                    )
+                    for index, row in enumerate(expected, start=1)
+                ]
+                assert all(row.sector_code in node_by_code for row in expected)
+
+
+def test_m24_all_momentum_history_ranges_match_online_calculator(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    hierarchy = SectorHierarchyQuery().load(db_session)
+    calculator = SectorMomentumCalculator()
+    facts = tuple(
+        SectorDailyFact(
+            sector_code=row.ts_code,
+            trade_date=row.trade_date,
+            close=row.close,
+            pct_change=row.pct_change,
+        )
+        for row in db_session.scalars(
+            select(DcDaily).where(DcDaily.category == "行业板块")
+        )
+    )
+    fact_index = calculator.index_facts(facts)
+    scope_cases = (
+        ("LEVEL_1", None, None),
+        ("LEVEL_2", None, None),
+        ("LEVEL_3", None, None),
+        ("LEVEL_1_CHILDREN", "BK1001.DC", None),
+        ("LEVEL_2_CHILDREN", "BK1001.DC", "BK1101.DC"),
+    )
+    for scope, level1_code, level2_code in scope_cases:
+        pool = resolve_scope_pool(
+            hierarchy,
+            scope=scope,  # type: ignore[arg-type]
+            level1_code=level1_code,
+            level2_code=level2_code,
+        )
+        selected = pool[0]
+        global_pool = global_level_pool(
+            hierarchy,
+            industry_level=selected.industry_level,
+        )
+        selected_parent_pool = parent_pool(hierarchy, node=selected)
+        for period in (1, 5, 10, 20, 30):
+            for history_range in (20, 30, 60):
+                display_dates = OPEN_DATES[-history_range:]
+                returns_by_date = calculator.calculate_for_dates(
+                    sector_codes=(node.sector_code for node in pool),
+                    open_dates=OPEN_DATES,
+                    target_dates=display_dates,
+                    period=period,  # type: ignore[arg-type]
+                    fact_index=fact_index,
+                )
+                ranked_by_date = {
+                    item: calculator.rank_strength(returns_by_date[item])
+                    for item in display_dates
+                }
+                response = app_client.get(
+                    "/api/v1/wealth/market/sector-analysis/momentum/history",
+                    params={
+                        key: value
+                        for key, value in {
+                            "tradeDate": TARGET_DATE.isoformat(),
+                            "scope": scope,
+                            "level1Code": level1_code,
+                            "level2Code": level2_code,
+                            "period": period,
+                            "historyRange": history_range,
+                            "sectorCode": selected.sector_code,
+                        }.items()
+                        if value is not None
+                    },
+                )
+                assert response.status_code == 200
+                payload = response.json()
+                assert payload["status"] == "READY"
+                expected_selected = [
+                    next(
+                        row
+                        for row in ranked_by_date[item]
+                        if row.sector_code == selected.sector_code
+                    )
+                    for item in display_dates
+                ]
+                assert payload["rollingReturns"] == [
+                    {
+                        "tradeDate": item.isoformat(),
+                        "returnPct": calculator.as_json_return(row.return_pct),
+                    }
+                    for item, row in zip(
+                        display_dates,
+                        expected_selected,
+                        strict=True,
+                    )
+                ]
+                assert payload["historicalRanks"] == [
+                    {
+                        "tradeDate": item.isoformat(),
+                        "strengthRank": row.strength_rank,
+                        "calculableCount": sum(
+                            rank.return_pct is not None for rank in ranked_by_date[item]
+                        ),
+                        "totalCount": len(pool),
+                        "percentile": calculator.as_json_percentile(row.percentile),
+                    }
+                    for item, row in zip(
+                        display_dates,
+                        expected_selected,
+                        strict=True,
+                    )
+                ]
+                assert payload["detail"]["currentScopeTotalCount"] == len(pool)
+                assert payload["detail"]["globalLevelTotalCount"] == len(global_pool)
+                assert payload["detail"]["parentTotalCount"] == (
+                    len(selected_parent_pool)
+                    if selected_parent_pool is not None
+                    else None
+                )
+
+
 def test_explicit_partial_keeps_full_pool_and_null_row_without_fallback(
     app_client, db_session
 ) -> None:
     _seed_sector_analysis(db_session)
-    db_session.delete(
-        db_session.scalar(
-            select(DcDaily).where(
-                DcDaily.ts_code == "BK1002.DC",
-                DcDaily.trade_date == TARGET_DATE,
-                DcDaily.category == "行业板块",
-            )
-        )
+    _mark_momentum_unavailable(
+        db_session,
+        trade_date=TARGET_DATE,
+        comparison_key="GLOBAL:L1",
+        sector_code="BK1002.DC",
     )
     db_session.commit()
 
@@ -386,20 +773,40 @@ def test_explicit_partial_keeps_full_pool_and_null_row_without_fallback(
     assert payload["ranking"]["rows"][-1]["returnPct"] is None
 
 
-def test_default_partial_falls_back_to_latest_complete_day_and_reports_delayed(
+def test_default_partial_published_batch_stays_on_expected_day_and_reports_ready(
     app_client,
     db_session,
 ) -> None:
     _seed_sector_analysis(db_session)
-    db_session.delete(
-        db_session.scalar(
-            select(DcDaily).where(
-                DcDaily.ts_code == "BK1202.DC",
-                DcDaily.trade_date == TARGET_DATE,
-                DcDaily.category == "行业板块",
-            )
-        )
+    _mark_momentum_unavailable(
+        db_session,
+        trade_date=TARGET_DATE,
+        comparison_key="GLOBAL:L3",
+        sector_code="BK1202.DC",
     )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/momentum/rankings",
+        params={"scope": "LEVEL_1"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert payload["exceptionCode"] is None
+    assert payload["tradingDay"]["expectedTradeDate"] == TARGET_DATE.isoformat()
+    assert payload["tradingDay"]["observedTradeDate"] == TARGET_DATE.isoformat()
+    assert payload["tradingDay"]["expectedAvailability"] == "PARTIAL"
+    assert payload["tradingDay"]["observedAvailability"] == "PARTIAL"
+
+
+def test_default_unpublished_day_falls_back_to_latest_published_day(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    _unpublish_momentum_date(db_session, trade_date=TARGET_DATE)
     db_session.commit()
 
     response = app_client.get(
@@ -411,9 +818,8 @@ def test_default_partial_falls_back_to_latest_complete_day_and_reports_delayed(
     payload = response.json()
     assert payload["status"] == "DELAYED"
     assert payload["exceptionCode"] == "SA_SOURCE_DELAYED"
-    assert payload["tradingDay"]["expectedTradeDate"] == TARGET_DATE.isoformat()
+    assert payload["tradingDay"]["expectedAvailability"] == "MISSING"
     assert payload["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
-    assert payload["tradingDay"]["expectedAvailability"] == "PARTIAL"
     assert payload["tradingDay"]["observedAvailability"] == "COMPLETE"
 
 
@@ -421,13 +827,7 @@ def test_explicit_missing_day_is_empty_and_never_falls_back(
     app_client, db_session
 ) -> None:
     _seed_sector_analysis(db_session)
-    for row in db_session.scalars(
-        select(DcDaily).where(
-            DcDaily.trade_date == TARGET_DATE,
-            DcDaily.category == "行业板块",
-        )
-    ).all():
-        db_session.delete(row)
+    _unpublish_momentum_date(db_session, trade_date=TARGET_DATE)
     db_session.commit()
 
     response = app_client.get(
@@ -451,22 +851,13 @@ def test_meta_keeps_partial_missing_days_and_ignores_codes_outside_current_hiera
     _seed_sector_analysis(db_session)
     partial_date = OPEN_DATES[-2]
     missing_date = OPEN_DATES[-3]
-    db_session.delete(
-        db_session.scalar(
-            select(DcDaily).where(
-                DcDaily.ts_code == "BK1202.DC",
-                DcDaily.trade_date == partial_date,
-                DcDaily.category == "行业板块",
-            )
-        )
+    _mark_momentum_unavailable(
+        db_session,
+        trade_date=partial_date,
+        comparison_key="GLOBAL:L3",
+        sector_code="BK1202.DC",
     )
-    for row in db_session.scalars(
-        select(DcDaily).where(
-            DcDaily.trade_date == missing_date,
-            DcDaily.category == "行业板块",
-        )
-    ).all():
-        db_session.delete(row)
+    _unpublish_momentum_date(db_session, trade_date=missing_date)
     db_session.add(
         DcDaily(
             ts_code="BK9999.DC",
@@ -494,12 +885,7 @@ def test_meta_keeps_partial_missing_days_and_ignores_codes_outside_current_hiera
         "expectedSectorCount": 7,
         "validSectorCount": 6,
     }
-    assert by_date[missing_date.isoformat()] == {
-        "tradeDate": missing_date.isoformat(),
-        "availability": "MISSING",
-        "expectedSectorCount": 7,
-        "validSectorCount": 0,
-    }
+    assert missing_date.isoformat() not in by_date
 
 
 def test_history_retains_missing_date_slot_instead_of_filling_or_dropping_it(
@@ -508,14 +894,11 @@ def test_history_retains_missing_date_slot_instead_of_filling_or_dropping_it(
 ) -> None:
     _seed_sector_analysis(db_session)
     missing_date = OPEN_DATES[-10]
-    db_session.delete(
-        db_session.scalar(
-            select(DcDaily).where(
-                DcDaily.ts_code == "BK1101.DC",
-                DcDaily.trade_date == missing_date,
-                DcDaily.category == "行业板块",
-            )
-        )
+    _mark_momentum_unavailable(
+        db_session,
+        trade_date=missing_date,
+        comparison_key="PARENT:L1:BK1001.DC",
+        sector_code="BK1101.DC",
     )
     db_session.commit()
 
@@ -628,7 +1011,7 @@ def test_rankings_hierarchy_and_query_failures_use_safe_business_error_shells(
     assert "hierarchy" not in hierarchy_payload["message"].lower()
 
     _seed_sector_analysis(db_session)
-    DcDaily.__table__.drop(db_session.get_bind())
+    WealthSectorMomentumDaily.__table__.drop(db_session.get_bind())
     query_response = app_client.get(
         "/api/v1/wealth/market/sector-analysis/momentum/rankings",
         params={"debug": 1},
@@ -639,6 +1022,22 @@ def test_rankings_hierarchy_and_query_failures_use_safe_business_error_shells(
     assert query_payload["exceptionCode"] == "SA_QUERY_FAILED"
     assert "SELECT" not in query_response.text
     assert "dc_daily" not in query_response.text
+
+
+def test_momentum_rankings_remain_ready_when_online_dc_daily_is_unavailable(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    DcDaily.__table__.drop(db_session.get_bind())
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/momentum/rankings",
+        params={"tradeDate": TARGET_DATE.isoformat(), "scope": "LEVEL_1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "READY"
 
 
 def test_debug_payload_is_hidden_outside_local_dev_and_test(
