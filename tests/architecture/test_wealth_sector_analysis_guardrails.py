@@ -51,6 +51,7 @@ APPROVED_SERVING_FACT_MODEL_MODULES = {
     "src.foundation.models.core_serving.wealth_sector_analysis_publish_batch",
     "src.foundation.models.core_serving.wealth_sector_momentum_daily",
     "src.foundation.models.core_serving.wealth_sector_dual_momentum_daily",
+    "src.foundation.models.core_serving.wealth_sector_relative_rotation_daily",
 }
 APPROVED_SHARED_QUERY_MODULES = {
     "src.biz.queries.wealth.market.common.sector_hierarchy_query",
@@ -525,7 +526,7 @@ def test_dual_momentum_adds_only_the_two_frozen_read_only_routes() -> None:
     assert '@router.post(\n    "/dual-momentum/' not in api_source
 
 
-def test_relative_rotation_backend_stays_on_the_three_read_only_fact_sources() -> None:
+def test_relative_rotation_backend_reads_only_published_serving_facts() -> None:
     violations: list[str] = []
     for path in RELATIVE_ROTATION_BACKEND_PATHS:
         source = path.read_text(encoding="utf-8")
@@ -536,17 +537,23 @@ def test_relative_rotation_backend_stays_on_the_three_read_only_fact_sources() -
                 violations.append(f"{relative_path} contains forbidden token {token}")
         for line_no, module in _python_imports(path):
             if module.startswith("src.foundation.models") and module not in {
-                "src.foundation.models.core.dc_daily",
                 "src.foundation.models.core.trade_calendar",
                 "src.foundation.models.core_serving.wealth_sector_hierarchy",
-            }:
+            } | APPROVED_SERVING_FACT_MODEL_MODULES:
                 violations.append(
                     f"{relative_path}:{line_no} imports unapproved rotation source {module}"
                 )
 
     assert not violations, (
-        "相对轮动只允许复用交易日历、行业层级和行业日行情：\n" + "\n".join(violations)
+        "相对轮动只允许交易日历、行业层级和已发布物化事实：\n" + "\n".join(violations)
     )
+    service = RELATIVE_ROTATION_BACKEND_PATHS[0].read_text()
+    for forbidden in (
+        "SectorMomentumSnapshotQueryService", "SectorAnalysisMetaQueryService",
+        "SectorRelativeRotationCalculator", "SectorMomentumQuery", "calculate_for_date",
+        "rank_strength", "rank_selected", "DcDaily", "load_open_dates",
+    ):
+        assert forbidden not in service
 
 
 def test_relative_rotation_adds_only_the_two_frozen_read_only_routes() -> None:

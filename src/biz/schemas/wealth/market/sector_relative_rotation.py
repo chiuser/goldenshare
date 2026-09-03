@@ -15,12 +15,29 @@ from src.biz.schemas.wealth.market.sector_analysis import (
     SectorMomentumScopeValue,
     SectorParentSelectionDto,
     SectorTradeDateAvailabilityDto,
-    _validate_response_status,
+    _validate_response_status as _validate_non_delayed_status,
 )
 
 
 class _StrictDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+def _validate_response_status(*, status, trading_day, exception_code) -> None:
+    if status != "DELAYED":
+        _validate_non_delayed_status(
+            status=status, trading_day=trading_day, exception_code=exception_code,
+        )
+        return
+    # Published partial facts remain usable; publication, not completeness, selects the date.
+    if (
+        trading_day.observedTradeDate is None
+        or trading_day.observedTradeDate >= trading_day.expectedTradeDate
+        or trading_day.expectedAvailability not in {"PARTIAL", "MISSING"}
+        or trading_day.observedAvailability not in {"COMPLETE", "PARTIAL"}
+        or exception_code != "SA_SOURCE_DELAYED"
+    ):
+        raise ValueError("DELAYED response has an invalid trading-day contract")
 
 
 RelativeRotationStatusValue = Literal[

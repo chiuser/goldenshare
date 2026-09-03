@@ -40,6 +40,17 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
     classify_availability,
     resolve_scope_pool,
 )
+from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_contract import (
+    FORMULA_KEY as ROTATION_FORMULA_KEY,
+    FORMULA_VERSION as ROTATION_FORMULA_VERSION,
+    SectorRelativeGroupInterpretation,
+    SectorRelativeCoordinateStatus,
+    SectorRelativeRotationStatus,
+    parse_relative_rotation_period,
+)
+from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily import (
+    WealthSectorRelativeRotationDaily,
+)
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.wealth_sector_analysis_publish_batch import (
     WealthSectorAnalysisPublishBatch,
@@ -109,6 +120,21 @@ class SectorPublishedDualMomentumRow(SectorPublishedMomentumRow):
     qualification_status: SectorDualMomentumQualificationStatus
     coordinate_status: SectorDualMomentumCoordinateStatus
     display_status: SectorDualMomentumDisplayStatus
+
+
+@dataclass(frozen=True, slots=True)
+class SectorPublishedRelativeRotationRow(SectorPublishedMomentumRow):
+    comparison_trade_date: date
+    comparison_return_pct: Decimal | None
+    comparison_strength_rank: int | None
+    comparison_rankable_count: int | None
+    comparison_percentile: Decimal | None
+    percentile_delta_5d: Decimal | None
+    rotation_status: SectorRelativeRotationStatus
+    coordinate_status: SectorRelativeCoordinateStatus
+    group_interpretation: SectorRelativeGroupInterpretation
+    current_missing_reason: str | None
+    comparison_missing_reason: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -577,6 +603,173 @@ class SectorAnalysisFactReader:
                 for field in fields(SectorPublishedDualMomentumRow)
             }))
         return tuple(result)
+
+    def load_relative_rotation_rows(
+        self, session: Session, *, batch_id: UUID, trade_date: date,
+        scope: SectorMomentumScope, level1_code: str | None, level2_code: str | None,
+        period: int, hierarchy: SectorHierarchySnapshot,
+    ) -> tuple[SectorPublishedRelativeRotationRow, ...]:
+        """Read the complete current pool, not its historical cross product."""
+        return self._load_relative_rotation_rows(
+            session, batch_by_date={trade_date: batch_id}, scope=scope,
+            level1_code=level1_code, level2_code=level2_code, period=period,
+            hierarchy=hierarchy, selected_sector_code=None,
+        )
+
+    def load_relative_rotation_history(
+        self, session: Session, *, batch_by_date: dict[date, UUID],
+        scope: SectorMomentumScope, level1_code: str | None, level2_code: str | None,
+        period: int, hierarchy: SectorHierarchySnapshot, selected_sector_code: str,
+    ) -> tuple[SectorPublishedRelativeRotationRow, ...]:
+        """One selected sector per published date; absent dates remain caller-owned slots."""
+        if not batch_by_date:
+            return ()
+        if len(batch_by_date) > 59:
+            raise SectorDataQueryError("published rotation history exceeds 59 previous slots")
+        return self._load_relative_rotation_rows(
+            session, batch_by_date=batch_by_date, scope=scope,
+            level1_code=level1_code, level2_code=level2_code, period=period,
+            hierarchy=hierarchy, selected_sector_code=selected_sector_code,
+        )
+
+    def _load_relative_rotation_rows(
+        self, session: Session, *, batch_by_date: dict[date, UUID],
+        scope: SectorMomentumScope, level1_code: str | None, level2_code: str | None,
+        period: int, hierarchy: SectorHierarchySnapshot, selected_sector_code: str | None,
+    ) -> tuple[SectorPublishedRelativeRotationRow, ...]:
+        parse_relative_rotation_period(period)
+        pool = resolve_scope_pool(
+            hierarchy, scope=scope, level1_code=level1_code, level2_code=level2_code,
+        )
+        expected_codes = {node.sector_code for node in pool}
+        if selected_sector_code is not None:
+            if selected_sector_code not in expected_codes:
+                raise SectorDataQueryError("published rotation selection is outside its pool")
+            expected_codes = {selected_sector_code}
+        parent_code = (
+            level1_code if scope == "LEVEL_1_CHILDREN"
+            else level2_code if scope == "LEVEL_2_CHILDREN" else None
+        )
+        key = {
+            "LEVEL_1": "GLOBAL:L1", "LEVEL_2": "GLOBAL:L2", "LEVEL_3": "GLOBAL:L3",
+            "LEVEL_1_CHILDREN": f"PARENT:L1:{level1_code}",
+            "LEVEL_2_CHILDREN": f"PARENT:L2:{level2_code}",
+        }[scope]
+        fact, batch = WealthSectorRelativeRotationDaily, WealthSectorAnalysisPublishBatch
+        statement = (
+            select(
+                *(getattr(fact, field.name) for field in fields(SectorPublishedRelativeRotationRow)),
+                fact.minimum_group_size, fact.formula_key, fact.formula_version,
+                batch.hierarchy_version, batch.formula_bundle_version,
+            )
+            .join(batch, and_(
+                batch.batch_id == fact.batch_id, batch.trade_date == fact.trade_date,
+                batch.status == "PUBLISHED",
+            ))
+            .where(
+                or_(*(and_(fact.trade_date == day, fact.batch_id == batch_id)
+                      for day, batch_id in sorted(batch_by_date.items()))),
+                fact.comparison_scope == scope, fact.comparison_key == key,
+                fact.period == period,
+            )
+            .order_by(fact.trade_date, fact.sector_code)
+        )
+        if selected_sector_code is not None:
+            statement = statement.where(fact.sector_code == selected_sector_code)
+        rows = session.execute(statement).all()
+        expected_keys = {(day, code) for day in batch_by_date for code in expected_codes}
+        if len(rows) != len(expected_keys) or {
+            (row.trade_date, row.sector_code) for row in rows
+        } != expected_keys:
+            raise SectorDataQueryError("published rotation slice does not match its selection")
+        result = []
+        for row in rows:
+            self._validate_batch_identity(
+                hierarchy_version=row.hierarchy_version,
+                formula_bundle_version=row.formula_bundle_version, hierarchy=hierarchy,
+            )
+            node = hierarchy.nodes_by_code[row.sector_code]
+            if (
+                row.parent_sector_code != parent_code
+                or row.sector_name != node.sector_name
+                or row.industry_level != node.industry_level
+                or row.hierarchy_path != node.hierarchy_path
+                or row.formula_key != ROTATION_FORMULA_KEY
+                or row.formula_version != ROTATION_FORMULA_VERSION
+                or row.minimum_group_size != MINIMUM_GROUP_SIZE
+                or row.comparison_trade_date >= row.trade_date
+            ):
+                raise SectorDataQueryError("published rotation identity is inconsistent")
+            self._validate_rotation_values(row, pool_size=len(pool))
+            result.append(SectorPublishedRelativeRotationRow(**{
+                field.name: row._mapping[field.name]
+                for field in fields(SectorPublishedRelativeRotationRow)
+            }))
+        if selected_sector_code is None:
+            current_count = sum(row.percentile is not None for row in rows)
+            comparison_count = sum(row.comparison_percentile is not None for row in rows)
+            expected_group = (
+                "QUADRANT" if min(current_count, comparison_count) >= MINIMUM_GROUP_SIZE
+                else "SAMPLE_INSUFFICIENT"
+            )
+            if any(
+                row.group_interpretation != expected_group
+                or (row.percentile is not None and row.rankable_count != current_count)
+                or (row.comparison_percentile is not None
+                    and row.comparison_rankable_count != comparison_count)
+                for row in rows
+            ):
+                raise SectorDataQueryError("published rotation group fields are inconsistent")
+        return tuple(result)
+
+    @staticmethod
+    def _validate_rotation_values(row, *, pool_size: int) -> None:
+        # Validate stored response shape only; do not re-audit upstream prices.
+        missing_reasons = {
+            "HISTORY_INSUFFICIENT", "DATE_MISSING", "CLOSE_MISSING",
+            "CLOSE_NON_POSITIVE", "PCT_CHANGE_MISSING",
+        }
+        for prefix, reason in (
+            ("", row.current_missing_reason),
+            ("comparison_", row.comparison_missing_reason),
+        ):
+            value, rank, count, percentile = (
+                getattr(row, prefix + name)
+                for name in ("return_pct", "strength_rank", "rankable_count", "percentile")
+            )
+            if percentile is None:
+                if any(item is not None for item in (value, rank, count)) or reason not in missing_reasons:
+                    raise SectorDataQueryError("published rotation missing fields are inconsistent")
+            elif (
+                value is None or rank is None or count is None or reason is not None
+                or not value.is_finite() or not percentile.is_finite()
+                or not 0 <= percentile <= 100 or not 1 <= rank <= count <= pool_size
+            ):
+                raise SectorDataQueryError("published rotation numeric fields are invalid")
+        complete = row.percentile is not None and row.comparison_percentile is not None
+        if row.group_interpretation not in {"QUADRANT", "SAMPLE_INSUFFICIENT"}:
+            raise SectorDataQueryError("published rotation group interpretation is invalid")
+        if complete:
+            delta = row.percentile_delta_5d
+            if (
+                delta is None or not delta.is_finite() or not -100 <= delta <= 100
+                or row.coordinate_status != "PLOTTABLE"
+                or row.calculation_status != "CALCULABLE" or row.missing_reason != "NONE"
+                or (row.group_interpretation == "SAMPLE_INSUFFICIENT"
+                    and row.rotation_status != "SAMPLE_INSUFFICIENT")
+                or (row.group_interpretation == "QUADRANT" and row.rotation_status not in {
+                    "LEADING_IMPROVING", "WEAK_IMPROVING",
+                    "STRONG_NOT_IMPROVING", "WEAK_NOT_IMPROVING",
+                })
+            ):
+                raise SectorDataQueryError("published rotation coordinates are inconsistent")
+        elif (
+            row.percentile_delta_5d is not None or row.coordinate_status != "UNAVAILABLE"
+            or row.rotation_status != "DATA_INSUFFICIENT"
+            or row.calculation_status != "UNAVAILABLE"
+            or row.missing_reason != (row.current_missing_reason or row.comparison_missing_reason)
+        ):
+            raise SectorDataQueryError("published rotation unavailable fields are inconsistent")
 
     def load_momentum_history_slices(
         self,

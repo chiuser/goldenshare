@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import NAMESPACE_URL, uuid5
@@ -502,3 +503,134 @@ def test_history_reader_rejects_duplicate_selection_identity(
             period=20,
             hierarchy=hierarchy,
         )
+
+@pytest.fixture()
+def rotation_reader_session(momentum_reader_session):
+    from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily import WealthSectorRelativeRotationDaily
+    session, hierarchy = momentum_reader_session
+    WealthSectorRelativeRotationDaily.__table__.create(session.get_bind())
+    for row in session.scalars(select(WealthSectorMomentumDaily)):
+        session.add(WealthSectorRelativeRotationDaily(
+            **{name: getattr(row, name) for name in (
+                "batch_id", "trade_date", "comparison_scope", "comparison_key", "parent_sector_code",
+                "sector_code", "sector_name", "industry_level", "hierarchy_path", "period",
+                "return_pct", "strength_rank", "rankable_count", "percentile", "calculation_status",
+                "missing_reason", "calculated_at",
+            )},
+            formula_key="sector-relative-rotation", formula_version=1, minimum_group_size=3,
+            comparison_trade_date=date(2026, 8, 21), comparison_return_pct=row.return_pct,
+            comparison_strength_rank=row.strength_rank, comparison_rankable_count=3,
+            comparison_percentile=row.percentile, percentile_delta_5d=Decimal(0),
+            coordinate_status="PLOTTABLE", group_interpretation="QUADRANT",
+            rotation_status="STRONG_NOT_IMPROVING" if row.percentile >= 50 else "WEAK_NOT_IMPROVING",
+            current_missing_reason=None, comparison_missing_reason=None,
+        ))
+    session.commit()
+    return session, hierarchy
+
+
+def _read_rotation(session, hierarchy, **overrides):
+    kwargs = dict(
+        batch_id=uuid5(NAMESPACE_URL, f"momentum-reader:{TRADE_DATE.isoformat()}"),
+        trade_date=TRADE_DATE, scope="LEVEL_1", level1_code=None, level2_code=None,
+        period=20, hierarchy=hierarchy,
+    )
+    kwargs.update(overrides)
+    return SectorAnalysisFactReader().load_relative_rotation_rows(session, **kwargs)
+
+
+def test_rotation_reads_stored_full_pool_and_selected_history_without_raw(rotation_reader_session):
+    session, hierarchy = rotation_reader_session
+    statements = []
+    def observe(_c, _cursor, statement, _params, _context, _many):
+        statements.append(statement)
+    engine = session.get_bind()
+    event.listen(engine, "before_cursor_execute", observe)
+    try:
+        rows = _read_rotation(session, hierarchy)
+        history = SectorAnalysisFactReader().load_relative_rotation_history(
+            session, batch_by_date={TRADE_DATE: rows[0].batch_id}, scope="LEVEL_1",
+            level1_code=None, level2_code=None, period=20, hierarchy=hierarchy,
+            selected_sector_code=SECTOR_CODES[1],
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", observe)
+    assert len(rows) == 3 and len(history) == 1
+    assert history[0] == rows[1]
+    assert len(statements) == 2
+    assert "sector_code =" in statements[1]
+    assert all("dc_daily" not in sql.lower() and "SELECT" in sql for sql in statements)
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("formula_version", 2), ("formula_key", "wrong"),
+    ("parent_sector_code", "BK9999.DC"), ("sector_name", "wrong"),
+    ("hierarchy_path", "wrong"), ("minimum_group_size", 4),
+    ("comparison_trade_date", TRADE_DATE),
+    ("return_pct", None), ("percentile", Decimal("101")), ("rankable_count", 4),
+    ("comparison_return_pct", None), ("comparison_percentile", Decimal("-1")),
+    ("comparison_rankable_count", 4), ("percentile_delta_5d", Decimal("101")),
+    ("current_missing_reason", "DATE_MISSING"), ("comparison_missing_reason", "DATE_MISSING"),
+    ("calculation_status", "UNAVAILABLE"), ("missing_reason", "DATE_MISSING"),
+    ("group_interpretation", "wrong"), ("coordinate_status", "UNAVAILABLE"),
+    ("rotation_status", "DATA_INSUFFICIENT"),
+])
+def test_rotation_rejects_inconsistent_stored_fields(rotation_reader_session, field, value):
+    from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily import WealthSectorRelativeRotationDaily
+    session, hierarchy = rotation_reader_session
+    row = session.scalars(select(WealthSectorRelativeRotationDaily)).first()
+    # Fixture-only corruption: prove the read boundary even when a stored row is malformed.
+    session.execute(text("PRAGMA ignore_check_constraints = ON"))
+    setattr(row, field, value)
+    session.flush()
+    with pytest.raises(SectorDataQueryError):
+        _read_rotation(session, hierarchy)
+
+
+@pytest.mark.parametrize("field", ["status", "hierarchy_version", "formula_bundle_version"])
+def test_rotation_rejects_unpublished_or_mismatched_batch(rotation_reader_session, field):
+    session, hierarchy = rotation_reader_session
+    batch = session.scalars(select(WealthSectorAnalysisPublishBatch)).one()
+    setattr(batch, field, "SUPERSEDED" if field == "status" else "other")
+    session.flush()
+    with pytest.raises(SectorDataQueryError):
+        _read_rotation(session, hierarchy)
+
+
+def test_rotation_published_missing_selected_row_is_error_not_fake_gap(rotation_reader_session):
+    from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily import WealthSectorRelativeRotationDaily
+    session, hierarchy = rotation_reader_session
+    row = session.scalars(select(WealthSectorRelativeRotationDaily)).first()
+    batch_id, code = row.batch_id, row.sector_code
+    session.delete(row)
+    session.flush()
+    with pytest.raises(SectorDataQueryError):
+        _read_rotation(session, hierarchy)
+    with pytest.raises(SectorDataQueryError):
+        SectorAnalysisFactReader().load_relative_rotation_history(
+            session, batch_by_date={TRADE_DATE: batch_id}, scope="LEVEL_1",
+            level1_code=None, level2_code=None, period=20, hierarchy=hierarchy,
+            selected_sector_code=code,
+        )
+
+
+def test_rotation_history_limits_and_wrong_identity_stop_without_query(rotation_reader_session):
+    from datetime import timedelta
+    session, hierarchy = rotation_reader_session
+    kwargs = dict(
+        session=session, scope="LEVEL_1", level1_code=None, level2_code=None,
+        period=20, hierarchy=hierarchy, selected_sector_code=SECTOR_CODES[0],
+    )
+    batch_id = uuid5(NAMESPACE_URL, f"momentum-reader:{TRADE_DATE.isoformat()}")
+    reader = SectorAnalysisFactReader()
+    assert reader.load_relative_rotation_history(batch_by_date={}, **kwargs) == ()
+    with pytest.raises(SectorDataQueryError):
+        reader.load_relative_rotation_history(
+            batch_by_date={TRADE_DATE-timedelta(days=n): batch_id for n in range(60)}, **kwargs,
+        )
+    for mapping in (
+        {TRADE_DATE: uuid5(NAMESPACE_URL, "another")},
+        {TRADE_DATE-timedelta(days=1): batch_id},
+    ):
+        with pytest.raises(SectorDataQueryError):
+            reader.load_relative_rotation_history(batch_by_date=mapping, **kwargs)

@@ -25,6 +25,9 @@ from src.foundation.models.core_serving.wealth_sector_momentum_daily import (
 from src.foundation.models.core_serving.wealth_sector_dual_momentum_daily import (
     WealthSectorDualMomentumDaily,
 )
+from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily import (
+    WealthSectorRelativeRotationDaily,
+)
 from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_classifier import (
     SectorDualMomentumClassifier,
 )
@@ -65,6 +68,7 @@ def _ensure_tables(db_session) -> None:
     WealthSectorAnalysisPublishBatch.__table__.create(bind, checkfirst=True)
     WealthSectorMomentumDaily.__table__.create(bind, checkfirst=True)
     WealthSectorDualMomentumDaily.__table__.create(bind, checkfirst=True)
+    WealthSectorRelativeRotationDaily.__table__.create(bind, checkfirst=True)
 
 
 def _hierarchy_rows() -> tuple[tuple[str, str, int, str | None, str, str], ...]:
@@ -2348,6 +2352,89 @@ def test_dual_maximum_337_pool_meets_sql_payload_and_local_p95_budgets(
     assert sorted(durations)[18] <= 0.5
 
 
+def _seed_rotation_serving_facts(db_session, *, dates=OPEN_DATES[5:], only_scope=None):
+    """Use the actual offline builder as the oracle; requests may not recompute."""
+    from dataclasses import asdict
+    from types import SimpleNamespace
+
+    from src.biz.services.wealth.market.sector_analysis.daily_facts.fact_builder import SectorAnalysisDailyFactBuilder
+    from src.biz.services.wealth.market.sector_analysis.daily_facts.source_query import SectorAnalysisDailyFactsSourceQuery
+
+    hierarchy = SectorHierarchyQuery().load(db_session)
+    open_dates = tuple(db_session.scalars(select(TradeCalendar.trade_date).where(
+        TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True),
+    ).order_by(TradeCalendar.trade_date)))
+    calculator, builder = SectorMomentumCalculator(), SectorAnalysisDailyFactBuilder()
+    index = calculator.index_facts(SectorDailyFact(
+        sector_code=row.ts_code, trade_date=row.trade_date, close=row.close, pct_change=row.pct_change,
+    ) for row in db_session.scalars(select(DcDaily).where(DcDaily.category == "行业板块")))
+    all_pools = SectorAnalysisDailyFactsSourceQuery._comparison_pools(hierarchy)
+    pools = tuple(pool for pool in all_pools if only_scope is None or pool.scope == only_scope)
+    cache = {}
+    for day in dates:
+        batch = db_session.scalar(select(WealthSectorAnalysisPublishBatch).where(
+            WealthSectorAnalysisPublishBatch.trade_date == day,
+            WealthSectorAnalysisPublishBatch.status == "PUBLISHED",
+        ))
+        seed_coverage = batch is None
+        if batch is None:
+            batch = WealthSectorAnalysisPublishBatch(
+                batch_id=uuid5(NAMESPACE_URL, f"rotation-test:{day}"), trade_date=day,
+                status="PUBLISHED", hierarchy_version=hierarchy.baseline_version,
+                formula_bundle_version=FORMULA_BUNDLE_VERSION,
+                template_version="sector-daily-insight-template@1",
+                source_hash="a"*64, plan_hash="b"*64, content_hash="c"*64,
+                source_dates_json={}, source_row_counts_json={},
+                expected_fact_counts_json={}, actual_fact_counts_json={},
+                started_at=hierarchy.published_at, calculated_at=hierarchy.published_at,
+                published_at=hierarchy.published_at,
+            )
+            db_session.add(batch)
+        previous = open_dates[open_dates.index(day)-5]
+        for pool in all_pools:
+            for period in ((1, 5, 10, 20, 30) if pool in pools else (1,)):
+                for target in ((day,) if period == 1 else (day, previous)):
+                    key = (pool.comparison_key, period, target)
+                    if key not in cache:
+                        returns = calculator.calculate_for_date(
+                            sector_codes=pool.sector_codes, open_dates=open_dates,
+                            target_date=target, period=period, fact_index=index,
+                        )
+                        ranked = calculator.rank_strength(returns)
+                        cache[key] = (returns, ranked, sum(row.percentile is not None for row in ranked))
+        bundle = SimpleNamespace(
+            trade_date=day, open_dates=tuple(d for d in open_dates if d <= day),
+            hierarchy=hierarchy, comparison_pools=pools,
+        )
+        if seed_coverage:
+            for pool in all_pools[:3]:
+                coverage_bundle = SimpleNamespace(trade_date=day, hierarchy=hierarchy, comparison_pools=(pool,))
+                # Only 1-day global coverage is needed by the shared metadata query.
+                returns, ranks, count = cache[(pool.comparison_key, 1, day)]
+                by_code = {row.sector_code: row for row in returns}
+                for rank in ranks:
+                    identity = builder._identity(coverage_bundle, pool, rank.sector_code)
+                    db_session.add(WealthSectorMomentumDaily(
+                        **asdict(identity), batch_id=batch.batch_id, period=1,
+                        return_pct=rank.return_pct, strength_rank=rank.strength_rank,
+                        rankable_count=count if rank.strength_rank else None, percentile=rank.percentile,
+                        formula_key=MOMENTUM_FORMULA_KEY, formula_version=1,
+                        calculation_status="CALCULABLE" if rank.return_pct is not None else "UNAVAILABLE",
+                        missing_reason=by_code[rank.sector_code].missing_reason,
+                        calculated_at=hierarchy.published_at,
+                    ))
+        for row in builder._build_rotation(bundle, cache):
+            values = asdict(row)
+            identity = values.pop("identity")
+            db_session.add(WealthSectorRelativeRotationDaily(
+                **identity, **values, batch_id=batch.batch_id,
+                formula_key="sector-relative-rotation", formula_version=1,
+                calculated_at=hierarchy.published_at,
+            ))
+        db_session.flush()
+    db_session.commit()
+
+
 def _relative_results_params(**overrides):
     params = {
         "market": "CN_A",
@@ -2368,6 +2455,7 @@ def test_relative_rotation_meta_and_results_keep_three_and_five_sql_contracts(
     web_engine,
 ) -> None:
     _seed_sector_analysis(db_session)
+    _seed_rotation_serving_facts(db_session)
 
     meta_sql_count, meta_response = _count_request_sql(
         web_engine,
@@ -2427,6 +2515,7 @@ def test_relative_rotation_supports_all_scopes_periods_and_trail_lengths(
     db_session,
 ) -> None:
     _seed_sector_analysis(db_session)
+    _seed_rotation_serving_facts(db_session)
     scopes = (
         ("LEVEL_1", {}),
         ("LEVEL_2", {}),
@@ -2521,6 +2610,10 @@ def test_relative_rotation_maximum_window_meets_sql_and_payload_budgets(
         db_session,
         open_date_count=95,
     )
+    _seed_rotation_serving_facts(
+        db_session, dates=tuple(target_date-timedelta(days=n) for n in range(59, -1, -1)),
+        only_scope="LEVEL_3",
+    )
     params = {
         "market": "CN_A",
         "tradeDate": target_date.isoformat(),
@@ -2543,6 +2636,116 @@ def test_relative_rotation_maximum_window_meets_sql_and_payload_budgets(
     assert first.json()["analysis"]["selectedTrail"]["dateSlotCount"] == 60
     assert sql_count == 5
     assert len(first.content) <= 256 * 1024
+
+
+def test_relative_rotation_online_path_never_recomputes_or_queries_original_prices(
+    app_client, db_session, web_engine, monkeypatch,
+):
+    from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_calculator import SectorRelativeRotationCalculator
+    _seed_sector_analysis(db_session)
+    _seed_rotation_serving_facts(db_session)
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("original calculation must not run in a serving request")
+    for name in ("calculate_for_date", "calculate_for_dates", "rank_strength", "rank_selected"):
+        monkeypatch.setattr(SectorMomentumCalculator, name, forbidden)
+    monkeypatch.setattr(SectorRelativeRotationCalculator, "calculate_current_snapshot", forbidden)
+    monkeypatch.setattr(SectorRelativeRotationCalculator, "calculate_selected_trail", forbidden)
+    statements = []
+    def observe(_conn, _cursor, sql, _params, _context, _many):
+        statements.append(sql)
+    event.listen(web_engine, "before_cursor_execute", observe)
+    try:
+        response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/relative-rotation/results",
+            params=_relative_results_params(),
+        )
+    finally:
+        event.remove(web_engine, "before_cursor_execute", observe)
+    assert response.status_code == 200 and response.json()["status"] == "READY"
+    assert not any("dc_daily" in sql.lower() for sql in statements)
+    rotation_sql = [sql for sql in statements if "wealth_sector_relative_rotation_daily" in sql]
+    assert len(rotation_sql) == 2 and "sector_code =" in rotation_sql[-1]
+    stored = {row.sector_code: row for row in db_session.scalars(select(WealthSectorRelativeRotationDaily).where(
+        WealthSectorRelativeRotationDaily.trade_date == TARGET_DATE,
+        WealthSectorRelativeRotationDaily.comparison_key == "GLOBAL:L2",
+        WealthSectorRelativeRotationDaily.period == 20,
+    ))}
+    for item in response.json()["analysis"]["items"]:
+        fact = stored[item["sectorCode"]]
+        assert item["returnPct"] == float(fact.return_pct)
+        assert item["strengthRank"] == fact.strength_rank
+        assert item["percentile"] == float(fact.percentile)
+        assert item["percentileDelta5d"] == float(fact.percentile_delta_5d)
+        assert item["rotationStatus"] == fact.rotation_status
+
+
+def test_relative_rotation_published_partial_and_unpublished_dates_preserve_public_contract(
+    app_client, db_session,
+):
+    _seed_sector_analysis(db_session)
+    _seed_rotation_serving_facts(db_session)
+    path = "/api/v1/wealth/market/sector-analysis/relative-rotation/"
+    for day in (TARGET_DATE, OPEN_DATES[-2]):
+        _mark_momentum_unavailable(db_session, trade_date=day,
+                                  comparison_key="GLOBAL:L1", sector_code="BK1001.DC")
+    db_session.commit()
+    automatic = _relative_results_params()
+    automatic.pop("tradeDate")
+    for params in (automatic, _relative_results_params()):
+        response = app_client.get(path+"results", params=params).json()
+        assert response["status"] == "READY"
+        assert response["tradingDay"]["observedTradeDate"] == TARGET_DATE.isoformat()
+        assert response["tradingDay"]["observedAvailability"] == "PARTIAL"
+    # Unpublish one historical date: its calendar slot must remain a gap.
+    gap_day = OPEN_DATES[-3]
+    gap = db_session.scalar(select(WealthSectorAnalysisPublishBatch).where(
+        WealthSectorAnalysisPublishBatch.trade_date == gap_day,
+    ))
+    gap.status = "SUPERSEDED"
+    db_session.commit()
+    response = app_client.get(path+"results", params=_relative_results_params()).json()
+    points = response["analysis"]["selectedTrail"]["points"]
+    assert len(points) == 20
+    point = next(point for point in points if point["tradeDate"] == gap_day.isoformat())
+    assert point["returnPct"] is point["percentile"] is point["percentileDelta5d"] is None
+    assert point["currentMissingReason"] == "DATE_MISSING"
+    current = db_session.scalar(select(WealthSectorAnalysisPublishBatch).where(
+        WealthSectorAnalysisPublishBatch.trade_date == TARGET_DATE,
+    ))
+    current.status = "SUPERSEDED"
+    db_session.commit()
+    assert app_client.get(path+"results", params=_relative_results_params()).json()["status"] == "EMPTY"
+    for response in (
+        app_client.get(path+"meta", params={"market": "CN_A"}).json(),
+        app_client.get(path+"results", params=automatic).json(),
+    ):
+        assert response["status"] == "DELAYED"
+        assert response["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
+        assert response["tradingDay"]["observedAvailability"] == "PARTIAL"
+
+
+def test_relative_rotation_published_history_missing_row_is_safe_error_without_fallback(
+    app_client, db_session,
+):
+    _seed_sector_analysis(db_session)
+    _seed_rotation_serving_facts(db_session)
+    row = db_session.scalar(select(WealthSectorRelativeRotationDaily).where(
+        WealthSectorRelativeRotationDaily.trade_date == OPEN_DATES[-2],
+        WealthSectorRelativeRotationDaily.sector_code == "BK1101.DC",
+        WealthSectorRelativeRotationDaily.comparison_key == "GLOBAL:L2",
+        WealthSectorRelativeRotationDaily.period == 20,
+    ))
+    db_session.delete(row)  # Isolated fixture, not a production operation.
+    db_session.commit()
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/relative-rotation/results",
+        params=_relative_results_params(sectorCode="BK1101.DC"),
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ERROR"
+    assert response.json()["exceptionCode"] == "SA_QUERY_FAILED"
+    assert response.json()["analysis"] is None
+    assert "SELECT" not in response.text and "wealth_sector_relative_rotation_daily" not in response.text
 
 
 def _member_breadth_rankings_params(**overrides):

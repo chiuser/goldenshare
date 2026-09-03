@@ -7,6 +7,48 @@ import type { SectorRelativeRotationResultsRequest } from "../model/sectorRelati
 const request: SectorRelativeRotationResultsRequest = { market: "CN_A", tradeDate: "2026-08-27", scope: "LEVEL_1", period: 20, trailLength: 20, hierarchyVersion: "dc-industry-v1" };
 
 describe("sectorRelativeRotationAdapter", () => {
+  it.each([false, true])("retains published partial facts and the observed trail date (delayed=%s)", (delayed) => {
+    const meta: any = relativeMetaPayload();
+    const results: any = relativeResultsPayload();
+    for (const payload of [meta, results]) {
+      payload.status = delayed ? "DELAYED" : "READY";
+      payload.pageStatus.status = payload.status;
+      payload.exceptionCode = delayed ? "SA_SOURCE_DELAYED" : null;
+      payload.tradingDay.expectedAvailability = delayed ? "MISSING" : "PARTIAL";
+      payload.tradingDay.expectedValidSectorCount = delayed ? 0 : 3;
+      payload.tradingDay.observedTradeDate = delayed ? "2026-08-26" : "2026-08-27";
+      payload.tradingDay.observedAvailability = "PARTIAL";
+      payload.tradingDay.observedValidSectorCount = 3;
+    }
+    meta.tradeDates[1].availability = meta.tradingDay.expectedAvailability;
+    meta.tradeDates[1].validSectorCount = meta.tradingDay.expectedValidSectorCount;
+    if (delayed) {
+      results.analysis.selectedTrail.points[0].tradeDate = "2026-08-25";
+      results.analysis.selectedTrail.points[1].tradeDate = "2026-08-26";
+    }
+    expect(buildSectorRelativeRotationMetaViewModel(meta).tradingDay.observedAvailability).toBe("PARTIAL");
+    const view = buildSectorRelativeRotationResultsViewModel(results, request);
+    expect(view.kind).toBe("ready");
+    if (view.kind !== "ready") return;
+    expect(view.data.analysis.items).toHaveLength(4);
+    expect(view.data.analysis.items[3]?.percentileText).toBe("--");
+    expect(view.data.analysis.selectedTrail.points.at(-1)?.tradeDate).toBe(results.tradingDay.observedTradeDate);
+  });
+
+  it("keeps an unpublished historical date as a null slot without dropping it", () => {
+    const payload: any = relativeResultsPayload();
+    Object.assign(payload.analysis.selectedTrail.points[0], {
+      returnPct: null, percentile: null, percentileDelta5d: null,
+      coordinateStatus: "UNAVAILABLE", rotationStatus: "DATA_INSUFFICIENT",
+      currentMissingReason: "DATE_MISSING", comparisonMissingReason: "DATE_MISSING",
+    });
+    const view = buildSectorRelativeRotationResultsViewModel(payload, request);
+    expect(view.kind).toBe("ready");
+    if (view.kind !== "ready") return;
+    expect(view.data.analysis.selectedTrail.points).toHaveLength(2);
+    expect(view.data.analysis.selectedTrail.points[0]?.percentile).toBeNull();
+  });
+
   it("accepts the exact frozen Meta and derives only display partitions", () => {
     const meta = buildSectorRelativeRotationMetaViewModel(relativeMetaPayload());
     expect(meta.formula.periods).toEqual([5, 10, 20, 30]);
