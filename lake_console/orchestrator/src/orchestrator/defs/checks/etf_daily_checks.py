@@ -46,7 +46,6 @@ from orchestrator.defs.run_contracts.etf_daily import (
     RAW_FUND_ADJ_CHECKS,
     RAW_FUND_DAILY_CHECKS,
     SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
-    SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
     SILVER_ETF_DAILY_BLOCKING_CHECKS,
     SILVER_ETF_DAILY_COVERAGE_CHECK,
 )
@@ -729,12 +728,7 @@ def _silver_failed_rules(
                     + ("coverage_not_evaluated",)
                 )
             )
-        rules: list[str] = []
-        if audit.coverage.missing_expected_code_count:
-            rules.append("missing_expected_codes")
-        if audit.coverage.silver_extra_code_count:
-            rules.append("unexpected_silver_codes")
-        return tuple(rules)
+        return audit.coverage.error_codes
     raise ValueError(f"unsupported ETF daily Silver check kind: {check_kind!r}")
 
 
@@ -748,8 +742,13 @@ def evaluate_etf_daily_silver_check(
 ) -> dg.AssetCheckResult:
     partition_key = _partition_key(context)
     is_coverage = check_kind == "coverage"
+    coverage_warn_only = (
+        is_coverage and spec.asset_key == FUND_DAILY_SILVER_SPEC.asset_key
+    )
     severity = (
-        dg.AssetCheckSeverity.WARN if is_coverage else dg.AssetCheckSeverity.ERROR
+        dg.AssetCheckSeverity.WARN
+        if coverage_warn_only
+        else dg.AssetCheckSeverity.ERROR
     )
     if partition_key is None:
         return dg.AssetCheckResult(
@@ -781,7 +780,7 @@ def evaluate_etf_daily_silver_check(
     domain = audit.domain
     coverage = audit.coverage
     if is_coverage:
-        passed = coverage is not None and not coverage.has_warning
+        passed = not failed_rules
         failed_row_count = (
             coverage.missing_expected_code_count + coverage.silver_extra_code_count
             if coverage is not None
@@ -854,7 +853,7 @@ def evaluate_etf_daily_silver_check(
                     "ready"
                     if passed
                     else "coverage_warning"
-                    if is_coverage and coverage is not None
+                    if coverage_warn_only and coverage is not None
                     else f"etf_daily_silver_{check_kind}_failed"
                 ),
                 "failed_rule_names": list(failed_rules),
@@ -908,14 +907,16 @@ def evaluate_etf_daily_silver_check(
                     "Silver 分区通过当前检查。"
                     if passed
                     else "Silver 分区存在覆盖差异；本检查只告警，不阻断。"
-                    if is_coverage and coverage is not None
+                    if coverage_warn_only and coverage is not None
                     else "Silver 分区未通过准入检查。"
                 ),
                 "next_action": (
                     "无需处理。"
                     if passed
-                    else "查看缺失代码样本，待全历史 profile 后确认最终策略。"
-                    if is_coverage and coverage is not None
+                    else "查看覆盖差异样本；日线缺码保持告警，不自动补值。"
+                    if coverage_warn_only and coverage is not None
+                    else "检查因子缺码及 Basic 基线；分区不可用，不自动填值或覆盖。"
+                    if is_coverage
                     else "查看失败规则和样本，修复输入或候选后重跑。"
                 ),
             },
@@ -999,10 +1000,7 @@ def _build_silver_check(
         blocking=blocking,
     )
     for name, kind, blocking in zip(
-        (
-            *SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
-            SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
-        ),
+        SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
         (
             "contract",
             "source_filter",
@@ -1011,7 +1009,7 @@ def _build_silver_check(
             "domain",
             "coverage",
         ),
-        (True, True, True, True, True, False),
+        (True, True, True, True, True, True),
         strict=True,
     )
 )

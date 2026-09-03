@@ -59,7 +59,6 @@ from orchestrator.defs.run_contracts.etf_daily import (
     RAW_TUSHARE_FUND_DAILY_ASSET_KEY,
     SILVER_ETF_ADJ_FACTOR_ASSET_KEY,
     SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
-    SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
     SILVER_ETF_ADJ_FACTOR_JOB_NAME,
     SILVER_ETF_ADJ_FACTOR_SENSOR_NAME,
     SILVER_ETF_DAILY_ASSET_KEY,
@@ -102,9 +101,7 @@ def test_raw_assets_and_checks_match_the_frozen_p2_contract() -> None:
     assert raw_tushare_fund_daily.key.to_user_string() == (
         RAW_TUSHARE_FUND_DAILY_ASSET_KEY
     )
-    assert raw_tushare_fund_adj.key.to_user_string() == (
-        RAW_TUSHARE_FUND_ADJ_ASSET_KEY
-    )
+    assert raw_tushare_fund_adj.key.to_user_string() == (RAW_TUSHARE_FUND_ADJ_ASSET_KEY)
     assert raw_tushare_fund_daily.dependency_keys == set()
     assert raw_tushare_fund_adj.dependency_keys == set()
     assert raw_tushare_fund_daily.partitions_def is cn_a_etf_mins_trade_days
@@ -118,9 +115,7 @@ def test_raw_assets_and_checks_match_the_frozen_p2_contract() -> None:
         assert tuple(spec.name for spec in specs) == expected_names
         assert all(spec.asset_key == asset.key for spec in specs)
         assert all(spec.blocking is True for spec in specs)
-        assert all(
-            spec.partitions_def is cn_a_etf_mins_trade_days for spec in specs
-        )
+        assert all(spec.partitions_def is cn_a_etf_mins_trade_days for spec in specs)
 
 
 def test_raw_jobs_select_only_one_asset_and_its_checks() -> None:
@@ -155,8 +150,7 @@ def test_raw_jobs_select_only_one_asset_and_its_checks() -> None:
         assert job.partitions_def is cn_a_etf_mins_trade_days
         assert job.selection.resolve(asset_graph) == {asset.key}
         assert {
-            check_key.name
-            for check_key in job.selection.resolve_checks(asset_graph)
+            check_key.name for check_key in job.selection.resolve_checks(asset_graph)
         } == set(check_names)
 
 
@@ -188,14 +182,14 @@ def test_silver_assets_checks_and_jobs_match_the_frozen_p3_contract() -> None:
     )
     dg.Definitions.validate_loadable(definitions)
     asset_graph = definitions.resolve_asset_graph()
-    for asset, asset_key, raw_asset, checks, blocking_names, coverage_name in (
+    for asset, asset_key, raw_asset, checks, blocking_names, warning_names in (
         (
             silver_etf_daily,
             SILVER_ETF_DAILY_ASSET_KEY,
             raw_tushare_fund_daily,
             SILVER_DAILY_CHECKS,
             SILVER_ETF_DAILY_BLOCKING_CHECKS,
-            SILVER_ETF_DAILY_COVERAGE_CHECK,
+            (SILVER_ETF_DAILY_COVERAGE_CHECK,),
         ),
         (
             silver_etf_adj_factor,
@@ -203,17 +197,17 @@ def test_silver_assets_checks_and_jobs_match_the_frozen_p3_contract() -> None:
             raw_tushare_fund_adj,
             SILVER_ADJ_CHECKS,
             SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
-            SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
+            (),
         ),
     ):
         assert asset.key.to_user_string() == asset_key
         assert raw_asset.key in asset.dependency_keys
         assert asset.partitions_def is cn_a_etf_mins_trade_days
         specs = tuple(next(iter(check.check_specs)) for check in checks)
-        assert tuple(spec.name for spec in specs) == (*blocking_names, coverage_name)
+        assert tuple(spec.name for spec in specs) == (*blocking_names, *warning_names)
         assert all(spec.asset_key == asset.key for spec in specs)
-        assert all(spec.blocking for spec in specs[:-1])
-        assert specs[-1].blocking is False
+        assert all(spec.blocking is (spec.name in blocking_names) for spec in specs)
+        assert len({spec.name for spec in specs}) == len(specs)
 
     for job, job_name, asset, check_names in (
         (
@@ -226,10 +220,7 @@ def test_silver_assets_checks_and_jobs_match_the_frozen_p3_contract() -> None:
             silver_etf_adj_factor_update_job,
             SILVER_ETF_ADJ_FACTOR_JOB_NAME,
             silver_etf_adj_factor,
-            (
-                *SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
-                SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
-            ),
+            SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
         ),
     ):
         assert job.name == job_name
@@ -256,9 +247,7 @@ def test_raw_job_module_contains_no_execution_or_storage_logic() -> None:
 def test_raw_runtime_has_no_basic_prod_or_legacy_lake_dependency() -> None:
     source = "\n".join(
         (
-            inspect.getsource(
-                raw_tushare_fund_daily.op.compute_fn.decorated_fn
-            ),
+            inspect.getsource(raw_tushare_fund_daily.op.compute_fn.decorated_fn),
             inspect.getsource(raw_tushare_fund_adj.op.compute_fn.decorated_fn),
             inspect.getsource(etf_daily_writer_module),
         )

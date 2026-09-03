@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_apply import (
     run_silver_apply,
 )
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_audit import (
+    EtfDailyBootstrapAuditError,
     run_physical_post_audit,
     run_raw_audit,
 )
@@ -28,6 +30,7 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
     build_etf_daily_raw_bootstrap_plan,
     build_etf_daily_silver_bootstrap_plan,
     load_etf_daily_raw_bootstrap_plan,
+    load_json,
     write_raw_bootstrap_plan,
     write_silver_bootstrap_plan,
 )
@@ -154,9 +157,7 @@ def test_raw_plan_round_trip_rejects_hash_and_contract_drift(tmp_path: Path) -> 
     path = tmp_path / "raw-plan.json"
     write_raw_bootstrap_plan(plan, path)
     assert (
-        load_etf_daily_raw_bootstrap_plan(
-            path, expected_plan_hash=plan.raw_plan_hash
-        )
+        load_etf_daily_raw_bootstrap_plan(path, expected_plan_hash=plan.raw_plan_hash)
         == plan
     )
 
@@ -165,9 +166,7 @@ def test_raw_plan_round_trip_rejects_hash_and_contract_drift(tmp_path: Path) -> 
     )
     path.write_text(payload, encoding="utf-8")
     with pytest.raises(EtfDailyBootstrapPlanError, match="drifted"):
-        load_etf_daily_raw_bootstrap_plan(
-            path, expected_plan_hash=plan.raw_plan_hash
-        )
+        load_etf_daily_raw_bootstrap_plan(path, expected_plan_hash=plan.raw_plan_hash)
 
 
 def test_raw_apply_stops_then_resumes_from_per_file_checkpoint(tmp_path: Path) -> None:
@@ -186,7 +185,9 @@ def test_raw_apply_stops_then_resumes_from_per_file_checkpoint(tmp_path: Path) -
             confirm_raw_apply=True,
         )
 
-    assert len([item for item in load_checkpoint(checkpoint) if item.phase == "raw"]) == 2
+    assert (
+        len([item for item in load_checkpoint(checkpoint) if item.phase == "raw"]) == 2
+    )
 
     resumed_source = _FakeTushare()
     report = run_raw_apply(
@@ -279,8 +280,7 @@ def test_raw_apply_recovers_file_written_before_checkpoint(tmp_path: Path) -> No
     recovered = next(
         item
         for item in entries
-        if item.asset_key == "raw_tushare_fund_daily"
-        and item.trade_date == DATES[0]
+        if item.asset_key == "raw_tushare_fund_daily" and item.trade_date == DATES[0]
     )
     assert report["completed_file_count"] == 4
     assert recovered.write_mode == "reuse_existing"
@@ -352,15 +352,19 @@ def test_bounded_sample_uses_at_most_three_dates_and_never_writes_source_lake(
     assert len(list(isolated_lake.rglob("part-000.parquet"))) == 14
 
 
+@pytest.mark.parametrize("missing_factor", (False, True))
 def test_raw_audit_silver_plan_apply_and_physical_audit_close_four_assets(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    missing_factor: bool,
 ) -> None:
     lake_root, staging_root, raw_plan = _raw_plan(tmp_path)
     reference = write_basic_reference(
         lake_root=lake_root,
         staging_root=staging_root,
-        rows=(basic_row("510330.SH"),),
+        rows=(basic_row("510330.SH"), basic_row("159919.SZ"))
+        if missing_factor
+        else (basic_row("510330.SH"),),
     )
     checkpoint = tmp_path / "checkpoint.json"
     run_raw_apply(
@@ -377,8 +381,11 @@ def test_raw_audit_silver_plan_apply_and_physical_audit_close_four_assets(
     from orchestrator.defs.bootstrap import etf_daily_bootstrap_plan as plan_module
 
     with monkeypatch.context() as patch:
+
         def no_second_manifest_scan(**_kwargs):
-            raise AssertionError("Raw audit must derive its manifest from the batch results")
+            raise AssertionError(
+                "Raw audit must derive its manifest from the batch results"
+            )
 
         patch.setattr(plan_module, "build_raw_manifest", no_second_manifest_scan)
         raw_audit = run_raw_audit(
@@ -395,8 +402,10 @@ def test_raw_audit_silver_plan_apply_and_physical_audit_close_four_assets(
     assert raw_audit["performance"]["raw_data_load_count"] == 2
     assert raw_audit["performance"]["raw_batch_sql_query_count"] == 22
     assert [item["asset_key"] for item in raw_audit["raw_manifest"]] == [
-        "raw_tushare_fund_daily", "raw_tushare_fund_adj",
-        "raw_tushare_fund_daily", "raw_tushare_fund_adj",
+        "raw_tushare_fund_daily",
+        "raw_tushare_fund_adj",
+        "raw_tushare_fund_daily",
+        "raw_tushare_fund_adj",
     ]
     silver_plan = build_etf_daily_silver_bootstrap_plan(
         raw_plan=raw_plan,
@@ -435,16 +444,23 @@ def test_raw_audit_silver_plan_apply_and_physical_audit_close_four_assets(
         confirm_silver_apply=True,
     )
     assert silver_replay["completed_file_count"] == 4
-    physical = run_physical_post_audit(
-        raw_plan=raw_plan,
-        silver_plan=silver_plan,
-        lake_root=lake_root,
-        staging_root=staging_root,
-        duckdb_resource=DuckDBResource(),
-        checkpoint_path=checkpoint,
-        output_path=tmp_path / "physical.json",
+    expectation = (
+        pytest.raises(EtfDailyBootstrapAuditError, match="did not pass")
+        if missing_factor
+        else nullcontext()
     )
-    assert physical["passed"] is True
+    with expectation:
+        run_physical_post_audit(
+            raw_plan=raw_plan,
+            silver_plan=silver_plan,
+            lake_root=lake_root,
+            staging_root=staging_root,
+            duckdb_resource=DuckDBResource(),
+            checkpoint_path=checkpoint,
+            output_path=tmp_path / "physical.json",
+        )
+    physical = load_json(tmp_path / "physical.json", label="physical audit")
+    assert physical["passed"] is (not missing_factor)
     assert physical["expected_file_count"] == physical["actual_file_count"] == 8
     assert {item["asset_key"] for item in physical["file_evidence"]} == {
         "raw_tushare_fund_daily",
@@ -452,6 +468,28 @@ def test_raw_audit_silver_plan_apply_and_physical_audit_close_four_assets(
         "silver_etf_daily",
         "silver_etf_adj_factor",
     }
+
+    if missing_factor:
+        from orchestrator.defs.bootstrap.etf_daily_bootstrap_events import (
+            EtfDailyBootstrapEventsError,
+            build_event_plan,
+        )
+
+        for item in physical["file_evidence"]:
+            assert Path(item["target_path"]).is_file()
+            if item["asset_key"] == "silver_etf_adj_factor":
+                assert item["passed"] is False
+                assert item["coverage_error_codes"] == ["missing_expected_codes"]
+            elif item["asset_key"] == "silver_etf_daily":
+                assert item["passed"] is True
+                assert item["coverage_warning"] is True
+        with pytest.raises(EtfDailyBootstrapEventsError, match="not green"):
+            build_event_plan(
+                instance=None,
+                silver_plan=silver_plan,
+                physical_report_path=tmp_path / "physical.json",
+            )
+        return
 
     drifted_reference = write_basic_reference(
         lake_root=lake_root,
@@ -521,7 +559,7 @@ def test_silver_plan_requires_coverage_review_and_exact_policy(tmp_path: Path) -
             staging_root=tmp_path,
             duckdb_resource=DuckDBResource(),
             code_revision="revision",
-            coverage_policy_revision="unreviewed-policy",
+            coverage_policy_revision="fund_daily_warn__fund_adj_warn_v1",
             coverage_review_confirmed=True,
         )
 

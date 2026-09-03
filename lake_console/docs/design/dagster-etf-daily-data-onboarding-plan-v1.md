@@ -1,7 +1,7 @@
 # ETF 日线与复权因子 DG 数据湖接入技术方案 v1
 
-> 状态：P0—P5 开发已完成；P6 正式 Raw Plan、三日样本、Raw 入湖及全区间 Raw 审计已完成；fund_adj coverage 策略待 review；尚未生成正式 Silver Plan、写 Silver、补 Dagster 事件或启用 Sensor
-> 更新日期：2026-09-03
+> 状态：P0—P5 开发已完成；P6 Raw 入湖与全区间审计已完成；fund_adj coverage 已于 2026-09-04 拍板升级为阻断；尚未生成正式 Silver Plan、写 Silver、补 Dagster 事件或启用 Sensor
+> 更新日期：2026-09-04
 > 适用范围：`lake_console/orchestrator` 当前 Dagster 数据湖主链
 > 正式 Lake：`/Volumes/datasource/data_lake`
 > 数据集：Tushare `fund_daily`、`fund_adj`
@@ -373,9 +373,9 @@ P0 三日样本：
 因此：
 
 - `fund_daily` Basic 覆盖差异固定为 WARN，不阻断 Silver。
-- `fund_adj` 在开发阶段也以 WARN 形式实现，保证可以形成全区间 profile；但正式历史 Silver apply 之前必须 review 2025 年以来的完整 profile。若证据要求升级为 blocking，必须同步修改本文、LLD、Catalog、check spec 和测试后再执行，禁止用运行时开关临时切换。
+- `fund_adj` 已于 2026-09-04 根据全区间 profile 获批升级为 blocking/ERROR。406 日、539,536 个预期 ETF/日期组合缺码为 0；后续缺少预期代码或出现不应进入 Silver 的代码，因子分区不能认定为 ready，历史物理验收不能通过。Raw 额外代码不阻断。政策版本固定为 `fund_daily_warn__fund_adj_blocking_v2`，不得用运行时开关切换。
 
-这项后置 review 不阻断 P1—P5 开发，只阻断正式 `silver_etf_adj_factor` 全历史提升。
+该 review 已关闭；批准后的代码、Catalog、check 级别、readiness、历史验收/事件和测试必须同步完成，才能生成正式 Silver Plan。仍遵守“检查失败不回滚文件、不自动覆盖”的既有口径。
 
 ---
 
@@ -601,7 +601,7 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 - 复用 latest-only Basic selector/reference。
 - 用 DuckDB 完成筛选、DATE cast、拒绝分类和候选写入。
-- 实现五个 blocking checks 与一个 coverage WARN check。
+- P3 初版每个 Silver 实现五个 blocking checks 与一个 coverage WARN check；2026-09-04 因子 coverage 已升级，当前日线为五个 blocking＋一个 WARN，因子为六个 blocking。
 - Silver Catalog entries 与 Silver assets/checks/jobs 在同一切片原子落地。
 - 明确验证 `change` 保留、`change_amount` 不存在、`discount_rate` 不被修正。
 
@@ -635,7 +635,14 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 - 正式 Raw 审计通过：4 组、44 次批量 SQL、4 次 Raw 明细载入；核心审计 1,296.8 ms（不含 CLI 启动与报告序列化），各批结束时临时文件占用为 0。812 个文件的 schema/key/date/hash 与 checkpoint 对账通过；两个数据集均未命中已定义的数值异常规则。
 - 按本次 latest ready Basic 观察，`fund_adj` 全部 406 日缺失为 0；`fund_daily` 有 166 日、共 310 个代码/日期缺口，单日最多 10 个，仍为已确认的 WARN。这里的 310 不是 310 个不同 ETF，也不能据此宣称日线全覆盖。Raw 中非当前 eligible ETF 的行继续保留。
 - 证据目录：`/private/tmp/goldenshare-bootstrap/etf_daily/etf-daily-20260903-p6-r2/`，包含 `raw-plan.json`、`bounded-sample-audit.json`、`raw-apply-report.json`、`raw-apply-receipt.json`、`raw-audit.json`。Raw audit report hash：`caf22459d5514c6c43a015119186aab354683986357f44a9d099d19f771bdb2b`。
-- 本轮未重拉源数据、未改写已落盘 Raw、未写 Silver/事件、未启用 Sensor。下一步只 review `fund_adj` coverage 最终保持 WARN 还是升级 blocking；未拍板前不生成 Silver Plan。
+- 9 月 3 日停止于 coverage review，未写 Silver/事件、未启用 Sensor。9 月 4 日管理员确认因子缺码升级为阻断，日线仍告警；规则见 §8.3，编码与性能约束见 LLD §11.6。
+
+2026-09-04 review 与执行边界：
+
+- 再次核对 Raw manifest 与审计报告 hash 一致，已完成的 812 个 Raw 文件无需重拉或改写。
+- 因子覆盖规则同步到 check 的 blocking/ERROR、Catalog 名单、readiness 和历史验收；事件补录必须有明确的因子 coverage 零缺口证据，不接受只有总 `passed=true` 的旧报告。
+- 06:57 正式只读预检发现最新 Basic 仍为 9 月 3 日晚间版本；现有当天新鲜度规则要求 9 月 4 日，返回 `etf_basic_raw_observed_at_stale`。不回退、不手动刷新、不放宽新鲜度。当天 Basic 合格后才能生成 Silver Plan，仍冻结原 Raw Plan 的 406 日，不自动扩到新增日期。
+- 升级实现已完成：ETF 日线定向与静态门禁 279 项通过，Dagster Definitions 加载、Ruff、文档完整性检查通过；因子 coverage 的 2/10 日调用预算、缺码阻断、日线告警、失败不改文件及事件证据门禁均有回归。07:10 再次只读核验 Raw manifest 未变，Raw/Silver 字段完整继承；Basic 仍报同一新鲜度错误，因此没有生成 Silver Plan，也没有写 Silver、补事件或启用 Sensor。
 
 按独立授权顺序执行：
 
@@ -682,8 +689,8 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ---
 
-## 15. 待后置 review 的唯一事项
+## 15. 已关闭的 coverage 决策与后续门禁
 
-当前没有阻断 LLD 或开发的待拍板项。
+2026-09-04 管理员已确认：`fund_adj` 缺码检查升级为 blocking/ERROR，`fund_daily` 保持 WARN。完整证据为 406 日、539,536 个预期 ETF/日期组合、因子缺口为 0，详见 §8.3、§13 P6。
 
-唯一后置 review 是：Raw 全历史完成后，根据 2025 年以来 `fund_adj` 对最新 Basic 的完整 coverage profile，确认 coverage 最终保持 WARN，还是升级为 blocking。这个决定只影响正式 `silver_etf_adj_factor` 全历史提升和日常 readiness，不改变 Raw 保存源端事实、Silver 只筛场内 ETF、保留 `discount_rate` 等已拍板口径。
+不再保留待选择的 WARN/blocking 口径。后续按已确认规则验证与执行：Basic 当天合格后生成 Silver Plan；Silver apply、物理验收、事件补录和 Sensor 启用继续分阶段推进。此决定不改变 Raw 保存源端事实、Silver 只筛场内 ETF、保留 `discount_rate`、不回滚或自动覆盖文件等既有口径。

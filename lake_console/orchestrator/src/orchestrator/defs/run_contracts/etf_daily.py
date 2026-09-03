@@ -48,7 +48,7 @@ ETF_DAILY_BOOTSTRAP_CHECK_EVENT_TAIL_DAYS = 20
 ETF_DAILY_DISK_SAFETY_FACTOR = Decimal("2.5")
 ETF_DAILY_AUTOMATION_CONTRACT_REVISION = "v1"
 ETF_DAILY_BOOTSTRAP_CONTRACT_REVISION = "v1"
-ETF_DAILY_COVERAGE_POLICY_REVISION = "fund_daily_warn__fund_adj_warn_v1"
+ETF_DAILY_COVERAGE_POLICY_REVISION = "fund_daily_warn__fund_adj_blocking_v2"
 ETF_DAILY_CHANGE_TOLERANCE = 1e-6
 ETF_DAILY_PCT_CHG_TOLERANCE = 0.01
 ETF_DAILY_DIAGNOSTIC_SAMPLE_LIMIT = 20
@@ -134,15 +134,14 @@ SILVER_ETF_DAILY_BLOCKING_CHECKS = (
     "silver_etf_daily_bar_domain_check",
 )
 SILVER_ETF_DAILY_COVERAGE_CHECK = "silver_etf_daily_basic_coverage_check"
+SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK = "silver_etf_adj_factor_basic_coverage_check"
 SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS = (
     "silver_etf_adj_factor_contract_check",
     "silver_etf_adj_factor_source_filter_check",
     "silver_etf_adj_factor_source_parity_check",
     "silver_etf_adj_factor_key_integrity_check",
     "silver_etf_adj_factor_domain_check",
-)
-SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK = (
-    "silver_etf_adj_factor_basic_coverage_check"
+    SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
 )
 
 FUND_DAILY_REQUEST_POLICY = TushareRequestPolicy(
@@ -215,9 +214,7 @@ def classify_etf_daily_source_row(
         ETF_BASIC_REQUESTABILITY_EXCHANGE_MISMATCH: "EXCHANGE_MISMATCH",
         ETF_BASIC_REQUESTABILITY_STATUS_NOT_LISTED: "STATUS_NOT_LISTED",
         ETF_BASIC_REQUESTABILITY_LIST_DATE_NULL: "LIST_DATE_NULL",
-        ETF_BASIC_REQUESTABILITY_LIST_DATE_AFTER_AS_OF: (
-            "LIST_DATE_AFTER_TRADE_DATE"
-        ),
+        ETF_BASIC_REQUESTABILITY_LIST_DATE_AFTER_AS_OF: ("LIST_DATE_AFTER_TRADE_DATE"),
     }[reason]
 
 

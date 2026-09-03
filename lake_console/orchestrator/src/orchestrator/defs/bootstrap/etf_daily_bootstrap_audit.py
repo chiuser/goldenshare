@@ -333,6 +333,8 @@ def _audit_pair(
         + list(parity.error_codes)
         + list(domain.error_codes)
     )
+    if silver_spec.asset_key == FUND_ADJ_SILVER_SPEC.asset_key:
+        silver_errors.extend(coverage.error_codes)
     silver_evidence = {
         "asset_key": silver_spec.asset_key,
         "trade_date": trade_date,
@@ -351,7 +353,13 @@ def _audit_pair(
         "basic_raw_uri": basic_reference.raw_uri,
         "basic_silver_uri": basic_reference.silver_uri,
         "source_fields": list(silver_spec.source_columns),
-        "coverage_warning": coverage.has_warning,
+        "coverage_warning": (
+            silver_spec.asset_key == FUND_DAILY_SILVER_SPEC.asset_key
+            and coverage.has_warning
+        ),
+        "coverage_error_codes": list(coverage.error_codes),
+        "missing_expected_code_count": coverage.missing_expected_code_count,
+        "silver_extra_code_count": coverage.silver_extra_code_count,
         "errors": silver_errors,
         "passed": not silver_errors,
     }

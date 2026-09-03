@@ -157,8 +157,17 @@ class EtfDailyCoverageAudit:
     failure_samples: tuple[dict[str, object], ...]
 
     @property
+    def error_codes(self) -> tuple[str, ...]:
+        errors: list[str] = []
+        if self.missing_expected_code_count:
+            errors.append("missing_expected_codes")
+        if self.silver_extra_code_count:
+            errors.append("unexpected_silver_codes")
+        return tuple(errors)
+
+    @property
     def has_warning(self) -> bool:
-        return bool(self.missing_expected_code_count or self.silver_extra_code_count)
+        return bool(self.error_codes)
 
 
 @dataclass(frozen=True, slots=True)
@@ -662,7 +671,7 @@ def audit_etf_daily_basic_coverage(
     basic_relation_sql: str,
     partition_key: str,
 ) -> EtfDailyCoverageAudit:
-    """Compare expected Basic codes with Raw and Silver without blocking writes."""
+    """Return coverage facts; callers apply the daily WARN or factor ERROR policy."""
 
     trade_date = normalize_etf_daily_trade_date(partition_key)
     raw_sql = _relation_select(raw_relation_sql)

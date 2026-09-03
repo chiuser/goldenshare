@@ -30,7 +30,6 @@ from orchestrator.defs.run_contracts.etf_daily import (
     RAW_FUND_ADJ_JOB_NAME,
     RAW_FUND_DAILY_JOB_NAME,
     SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
-    SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
     SILVER_ETF_ADJ_FACTOR_JOB_NAME,
     SILVER_ETF_DAILY_BLOCKING_CHECKS,
     SILVER_ETF_DAILY_COVERAGE_CHECK,
@@ -52,9 +51,7 @@ def test_silver_assets_use_lineage_only_deps_and_shared_partitions() -> None:
     for asset in (silver_etf_daily, silver_etf_adj_factor):
         metadata = asset.metadata_by_key[asset.key]
         assert metadata["goldenshare/source_system"] == "derived"
-        assert metadata["goldenshare/partition_set"] == (
-            cn_a_etf_mins_trade_days.name
-        )
+        assert metadata["goldenshare/partition_set"] == (cn_a_etf_mins_trade_days.name)
         assert "dagster/column_schema" in metadata
         assert "goldenshare/path_template" in metadata
 
@@ -80,9 +77,9 @@ def test_silver_checks_are_bound_to_the_exact_assets_and_names() -> None:
         *SILVER_ETF_DAILY_BLOCKING_CHECKS,
         SILVER_ETF_DAILY_COVERAGE_CHECK,
     )
-    assert tuple(next(iter(check.check_specs)).name for check in adj_checks) == (
-        *SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
-        SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
+    assert (
+        tuple(next(iter(check.check_specs)).name for check in adj_checks)
+        == SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS
     )
     for check in daily_checks:
         assert next(iter(check.check_specs)).asset_key == silver_etf_daily.key

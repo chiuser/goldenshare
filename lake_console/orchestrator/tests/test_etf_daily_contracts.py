@@ -11,6 +11,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.run_contracts.etf_daily import (
     ETF_ADJ_FACTOR_DATASET_ID,
+    ETF_DAILY_COVERAGE_POLICY_REVISION,
     ETF_DAILY_DATASET_ID,
     ETF_DAILY_REJECTION_REASON_CODES,
     FUND_ADJ_DATASET_ID,
@@ -237,6 +238,7 @@ def test_silver_rejection_reason_contract_is_frozen() -> None:
 
 
 def test_silver_check_names_keep_warn_checks_out_of_blocking_catalog_contract() -> None:
+    assert ETF_DAILY_COVERAGE_POLICY_REVISION == "fund_daily_warn__fund_adj_blocking_v2"
     assert SILVER_ETF_DAILY_BLOCKING_CHECKS == (
         "silver_etf_daily_contract_check",
         "silver_etf_daily_source_filter_check",
@@ -244,15 +246,14 @@ def test_silver_check_names_keep_warn_checks_out_of_blocking_catalog_contract() 
         "silver_etf_daily_key_integrity_check",
         "silver_etf_daily_bar_domain_check",
     )
-    assert SILVER_ETF_DAILY_COVERAGE_CHECK == (
-        "silver_etf_daily_basic_coverage_check"
-    )
+    assert SILVER_ETF_DAILY_COVERAGE_CHECK == ("silver_etf_daily_basic_coverage_check")
     assert SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS == (
         "silver_etf_adj_factor_contract_check",
         "silver_etf_adj_factor_source_filter_check",
         "silver_etf_adj_factor_source_parity_check",
         "silver_etf_adj_factor_key_integrity_check",
         "silver_etf_adj_factor_domain_check",
+        "silver_etf_adj_factor_basic_coverage_check",
     )
     assert SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK == (
         "silver_etf_adj_factor_basic_coverage_check"

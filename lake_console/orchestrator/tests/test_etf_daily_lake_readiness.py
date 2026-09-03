@@ -228,8 +228,7 @@ def test_ten_day_batch_readiness_uses_one_query_per_asset_and_one_connection(
 def test_readiness_rejects_more_than_ten_dates_without_querying() -> None:
     instance = _FakeInstance({})
     trade_dates = tuple(
-        (date(2026, 8, 1) + timedelta(days=offset)).isoformat()
-        for offset in range(11)
+        (date(2026, 8, 1) + timedelta(days=offset)).isoformat() for offset in range(11)
     )
     with (
         DuckDBResource().connect() as connection,
@@ -378,3 +377,88 @@ def test_adj_factor_raw_and_silver_use_the_same_readiness_contract(
         )
     assert raw_batch.status_for_trade_date(partition_key).ready
     assert silver_batch.status_for_trade_date(partition_key).ready
+
+
+@pytest.mark.parametrize("day_count", (2, 10))
+@pytest.mark.parametrize("missing", (False, True))
+def test_adj_coverage_controls_readiness_with_bounded_queries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    day_count: int,
+    missing: bool,
+) -> None:
+    from orchestrator.defs.asset_guards import etf_daily_lake_readiness as readiness
+
+    lake_root, staging_root = make_roots(tmp_path)
+    dates = _ten_weekdays()[:day_count]
+    rows = (basic_row("510330.SH"),)
+    if missing:
+        rows += (basic_row("159919.SZ"),)
+    reference = write_basic_reference(
+        lake_root=lake_root,
+        staging_root=staging_root,
+        rows=rows,
+        eligibility_as_of=date(2026, 9, 2),
+    )
+    records = []
+    snapshots = {}
+    for index, trade_date in enumerate(dates):
+        raw_path = write_raw_fixture(
+            lake_root=lake_root,
+            spec=FUND_ADJ_RAW_SPEC,
+            partition_key=trade_date,
+            rows=(_adj_row(trade_date), _adj_row(trade_date, "160105.SZ")),
+        )
+        result = write_etf_adj_factor_silver_partition(
+            lake_root_path=lake_root,
+            staging_root_path=staging_root,
+            duckdb_resource=DuckDBResource(),
+            partition_key=trade_date,
+            operation_id=f"coverage-{index}",
+            basic_reference=reference,
+        )
+        records.insert(
+            0,
+            _record(
+                storage_id=index + 1,
+                partition_key=trade_date,
+                metadata=_silver_metadata(result),
+            ),
+        )
+        snapshots[raw_path] = raw_path.read_bytes()
+        snapshots[result.target_path] = result.target_path.read_bytes()
+    instance = _FakeInstance({SILVER_ETF_ADJ_FACTOR_ASSET_KEY: records})
+    original = readiness.audit_etf_daily_basic_coverage
+    query_count = 0
+    call_count = 0
+
+    def counted(connection, **kwargs):
+        nonlocal call_count
+        call_count += 1
+
+        class Counter:
+            def execute(self, *args, **options):
+                nonlocal query_count
+                query_count += 1
+                return connection.execute(*args, **options)
+
+        return original(Counter(), **kwargs)
+
+    monkeypatch.setattr(readiness, "audit_etf_daily_basic_coverage", counted)
+    with DuckDBResource().connect() as connection:
+        batch = batch_etf_adj_factor_silver_lake_readiness(
+            instance=instance,
+            connection=connection,
+            lake_root=lake_root,
+            trade_dates=dates,
+        )
+    assert instance.query_count == batch.materialization_query_count == 1
+    assert call_count == day_count
+    assert query_count == 2 * day_count
+    assert all(status.ready is (not missing) for status in batch.statuses)
+    if missing:
+        assert all(
+            status.reason_code == "materialized_check_failed"
+            for status in batch.statuses
+        )
+    assert all(path.read_bytes() == value for path, value in snapshots.items())

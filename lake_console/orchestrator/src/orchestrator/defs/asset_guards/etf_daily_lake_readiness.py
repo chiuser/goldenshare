@@ -22,6 +22,7 @@ from orchestrator.defs.io.etf_daily_silver_writer import (
     FUND_ADJ_SILVER_SPEC,
     FUND_DAILY_SILVER_SPEC,
     EtfDailySilverSpec,
+    audit_etf_daily_basic_coverage,
     audit_etf_daily_domain,
     audit_etf_daily_silver_relation,
     audit_etf_daily_source_filter,
@@ -89,7 +90,9 @@ class EtfDailyBatchReadiness:
             raise ValueError("ETF daily readiness elapsed_ms must not be negative.")
         dates = tuple(status.trade_date for status in self.statuses)
         if dates != tuple(sorted(set(dates))):
-            raise ValueError("ETF daily readiness statuses must use unique sorted dates.")
+            raise ValueError(
+                "ETF daily readiness statuses must use unique sorted dates."
+            )
         if any(status.asset_key != self.asset_key for status in self.statuses):
             raise ValueError("ETF daily readiness statuses must use one asset key.")
 
@@ -136,8 +139,7 @@ def _materialization_metadata(record: Any) -> dict[str, Any]:
     if materialization is None:
         raise ValueError("materialization_payload_missing")
     return {
-        key: _metadata_scalar(value)
-        for key, value in materialization.metadata.items()
+        key: _metadata_scalar(value) for key, value in materialization.metadata.items()
     }
 
 
@@ -167,7 +169,9 @@ def _latest_materializations(
     for record in records:
         partition_key = str(
             getattr(record, "partition_key", None)
-            or getattr(getattr(record, "asset_materialization", None), "partition", None)
+            or getattr(
+                getattr(record, "asset_materialization", None), "partition", None
+            )
             or ""
         ).strip()
         if partition_key not in trade_dates or partition_key in latest:
@@ -253,9 +257,10 @@ def _metadata_binding_errors(
         errors.append("materialization_uri_mismatch")
     if _integer_metadata(metadata, "dagster/row_count") != row_count:
         errors.append("materialization_row_count_mismatch")
-    if content_hash is None or _string_metadata(
-        metadata, "goldenshare/content_hash"
-    ) != content_hash:
+    if (
+        content_hash is None
+        or _string_metadata(metadata, "goldenshare/content_hash") != content_hash
+    ):
         errors.append("materialization_content_hash_mismatch")
     return tuple(errors)
 
@@ -339,7 +344,9 @@ def _basic_reference(metadata: Mapping[str, Any]) -> EtfBasicSilverSnapshotRefer
     value = metadata.get("goldenshare/basic_reference")
     if not isinstance(value, Mapping):
         raise TypeError("basic_reference_metadata_missing")
-    return EtfBasicSilverSnapshotReference.model_validate(dict(value)).validate_contract()
+    return EtfBasicSilverSnapshotReference.model_validate(
+        dict(value)
+    ).validate_contract()
 
 
 def _silver_status(
@@ -433,6 +440,15 @@ def _silver_status(
                 content_hash=relation.content_hash,
             ),
         ]
+        if spec.asset_key == FUND_ADJ_SILVER_SPEC.asset_key:
+            coverage = audit_etf_daily_basic_coverage(
+                connection,
+                raw_relation_sql=raw_sql,
+                silver_relation_sql=silver_sql,
+                basic_relation_sql=basic_sql,
+                partition_key=trade_date,
+            )
+            errors.extend(coverage.error_codes)
         expected_counts = {
             "goldenshare/raw_row_count": parity.raw_row_count,
             "goldenshare/selected_row_count": parity.selected_row_count,

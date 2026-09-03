@@ -28,6 +28,7 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
 )
 from orchestrator.defs.run_contracts.etf_daily import (
     ETF_DAILY_BOOTSTRAP_CHECK_EVENT_TAIL_DAYS,
+    ETF_DAILY_COVERAGE_POLICY_REVISION,
     RAW_FUND_ADJ_CHECKS,
     RAW_FUND_DAILY_CHECKS,
     RAW_TUSHARE_FUND_ADJ_ASSET_KEY,
@@ -238,7 +239,9 @@ def load_event_plan(
             event_plan_hash=str(payload["event_plan_hash"]),
         )
     except (KeyError, TypeError, ValueError) as error:
-        raise EtfDailyBootstrapEventsError("event plan is structurally invalid") from error
+        raise EtfDailyBootstrapEventsError(
+            "event plan is structurally invalid"
+        ) from error
     if (
         plan.schema_version != "etf_daily_bootstrap_events_v1"
         or hash_payload(plan.hash_payload()) != expected_plan_hash
@@ -259,10 +262,14 @@ def apply_events(
     if not confirm_events_apply:
         raise EtfDailyBootstrapEventsError("events apply confirmation is required")
     if plan.should_stop:
-        raise EtfDailyBootstrapEventsError("event plan contains an active run or conflict")
+        raise EtfDailyBootstrapEventsError(
+            "event plan contains an active run or conflict"
+        )
     _revalidate_physical_report(plan)
     if _active_run_count(instance):
-        raise EtfDailyBootstrapEventsError("Dagster has an active run; events apply stopped")
+        raise EtfDailyBootstrapEventsError(
+            "Dagster has an active run; events apply stopped"
+        )
     checkpoint = load_checkpoint(checkpoint_path)
     if any(
         item.phase == "events" and item.phase_plan_hash != plan.event_plan_hash
@@ -300,7 +307,9 @@ def apply_events(
             (spec.asset_key, spec.trade_date)
         )
         if record is None or not _materialization_matches(record, spec):
-            raise EtfDailyBootstrapEventsError("materialization post-write verification failed")
+            raise EtfDailyBootstrapEventsError(
+                "materialization post-write verification failed"
+            )
         materialization_records[(spec.asset_key, spec.trade_date)] = record
         reported_materializations += 1
         _ensure_event_checkpoint(
@@ -320,7 +329,9 @@ def apply_events(
             (spec.asset_key, spec.check_name, spec.trade_date)
         )
         if existing is not None:
-            if not _check_matches(existing, target_storage_id=int(materialization.storage_id)):
+            if not _check_matches(
+                existing, target_storage_id=int(materialization.storage_id)
+            ):
                 raise EtfDailyBootstrapEventsError(
                     f"asset check conflict: {_check_identity(spec)}"
                 )
@@ -348,7 +359,9 @@ def apply_events(
             if written is None or not _check_matches(
                 written, target_storage_id=int(materialization.storage_id)
             ):
-                raise EtfDailyBootstrapEventsError("asset check post-write verification failed")
+                raise EtfDailyBootstrapEventsError(
+                    "asset check post-write verification failed"
+                )
             mode = "write_new"
             reported_checks += 1
         _ensure_event_checkpoint(
@@ -397,7 +410,9 @@ def post_audit_events(
         if (
             materialization is None
             or record is None
-            or not _check_matches(record, target_storage_id=int(materialization.storage_id))
+            or not _check_matches(
+                record, target_storage_id=int(materialization.storage_id)
+            )
         ):
             failures.append(_check_identity(spec))
     payload: dict[str, object] = {
@@ -428,6 +443,7 @@ def _load_physical_report(
     validate_report_hash(report)
     if (
         report.get("passed") is not True
+        or silver_plan.coverage_policy_revision != ETF_DAILY_COVERAGE_POLICY_REVISION
         or report.get("silver_plan_hash") != silver_plan.silver_plan_hash
         or int(report.get("dagster_events_written", -1)) != 0
     ):
@@ -456,7 +472,9 @@ def _load_physical_report(
 
 
 def _revalidate_physical_report(plan: EtfDailyBootstrapEventPlan) -> None:
-    report = load_json(Path(plan.physical_report_path), label="ETF daily physical post-audit")
+    report = load_json(
+        Path(plan.physical_report_path), label="ETF daily physical post-audit"
+    )
     validate_report_hash(report)
     if (
         report.get("report_hash") != plan.physical_report_hash
@@ -477,6 +495,14 @@ def _materialization_specs(
         if not isinstance(item, Mapping) or item.get("passed") is not True:
             raise EtfDailyBootstrapEventsError("physical file evidence is invalid")
         asset_key = str(item["asset_key"])
+        if asset_key == SILVER_ETF_ADJ_FACTOR_ASSET_KEY and (
+            item.get("coverage_error_codes") != []
+            or item.get("missing_expected_code_count") != 0
+            or item.get("silver_extra_code_count") != 0
+        ):
+            raise EtfDailyBootstrapEventsError(
+                "fund_adj blocking coverage evidence is missing or failed"
+            )
         source_fields = tuple(str(value) for value in item["source_fields"])
         extra = {
             key: item[key]
@@ -590,7 +616,9 @@ def _load_checks(
 ) -> dict[tuple[str, str, str], object]:
     grouped: dict[tuple[str, str], set[str]] = {}
     for spec in specs:
-        grouped.setdefault((spec.asset_key, spec.check_name), set()).add(spec.trade_date)
+        grouped.setdefault((spec.asset_key, spec.check_name), set()).add(
+            spec.trade_date
+        )
     result: dict[tuple[str, str, str], object] = {}
     for (asset_key, check_name), partitions in grouped.items():
         limit = max(500, len(partitions) * 10)
@@ -618,7 +646,9 @@ def _active_run_count(instance: dg.DagsterInstance) -> int:
     )
 
 
-def _materialization_matches(record: object, spec: EtfDailyMaterializationEventSpec) -> bool:
+def _materialization_matches(
+    record: object, spec: EtfDailyMaterializationEventSpec
+) -> bool:
     materialization = getattr(record, "asset_materialization", None)
     return bool(
         materialization is not None
@@ -647,7 +677,10 @@ def _check_matches(record: object, *, target_storage_id: int) -> bool:
 def _metadata_contains(
     actual: Mapping[str, object], expected: Mapping[str, object]
 ) -> bool:
-    return all(_metadata_scalar(actual.get(key)) == _metadata_scalar(value) for key, value in expected.items())
+    return all(
+        _metadata_scalar(actual.get(key)) == _metadata_scalar(value)
+        for key, value in expected.items()
+    )
 
 
 def _metadata_scalar(value: object) -> object:
@@ -672,9 +705,9 @@ def _validate_event_plan_scope(plan: EtfDailyBootstrapEventPlan) -> None:
         _materialization_identity(spec) for spec in plan.materializations
     )
     check_ids = tuple(_check_identity(spec) for spec in plan.checks)
-    if len(materialization_ids) != len(set(materialization_ids)) or len(check_ids) != len(
-        set(check_ids)
-    ):
+    if len(materialization_ids) != len(set(materialization_ids)) or len(
+        check_ids
+    ) != len(set(check_ids)):
         raise EtfDailyBootstrapEventsError("event plan has duplicate identities")
     dates = tuple(sorted({spec.trade_date for spec in plan.materializations}))
     expected_materializations = {
@@ -717,13 +750,25 @@ def _validate_event_plan_scope(plan: EtfDailyBootstrapEventPlan) -> None:
         or set(materialization_ids) != expected_materializations
         or set(check_ids) != expected_checks
         or set.union(*materialization_states) != expected_materializations
-        or any(left & right for left in materialization_states for right in materialization_states if left is not right)
+        or any(
+            left & right
+            for left in materialization_states
+            for right in materialization_states
+            if left is not right
+        )
         or set.union(*check_states) != expected_checks
-        or any(left & right for left in check_states for right in check_states if left is not right)
+        or any(
+            left & right
+            for left in check_states
+            for right in check_states
+            if left is not right
+        )
         or plan.active_run_count < 0
         or not Path(plan.physical_report_path).is_absolute()
     ):
-        raise EtfDailyBootstrapEventsError("event plan scope or state partition is invalid")
+        raise EtfDailyBootstrapEventsError(
+            "event plan scope or state partition is invalid"
+        )
 
 
 def _ensure_event_checkpoint(
@@ -765,7 +810,9 @@ def _ensure_event_checkpoint(
             or existing.content_hash != content_hash
             or existing.row_count != row_count
         ):
-            raise EtfDailyBootstrapEventsError("event checkpoint conflicts with current fact")
+            raise EtfDailyBootstrapEventsError(
+                "event checkpoint conflicts with current fact"
+            )
         return
     append_checkpoint(checkpoint_path, entry=entry)
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -119,6 +121,9 @@ def _physical_report(path: Path, plan: EtfDailySilverBootstrapPlan) -> None:
                         ),
                         "basic_raw_uri": plan.basic_reference.raw_uri,
                         "basic_silver_uri": plan.basic_reference.silver_uri,
+                        "coverage_error_codes": [],
+                        "missing_expected_code_count": 0,
+                        "silver_extra_code_count": 0,
                     }
                 )
             evidence.append(item)
@@ -149,11 +154,63 @@ def test_event_plan_materializes_all_dates_but_checks_only_recent_twenty(
             physical_report_path=physical,
         )
     assert len(event_plan.materializations) == 84
-    assert len(event_plan.checks) == 20 * (3 + 3 + 5 + 5)
-    assert {item.trade_date for item in event_plan.checks} == set(plan.trade_dates[-20:])
+    assert len(event_plan.checks) == 20 * (3 + 3 + 5 + 6)
+    assert (
+        sum(
+            item.check_name == "silver_etf_adj_factor_basic_coverage_check"
+            for item in event_plan.checks
+        )
+        == 20
+    )
+    assert len(
+        {
+            (item.asset_key, item.check_name, item.trade_date)
+            for item in event_plan.checks
+        }
+    ) == len(event_plan.checks)
+    assert {item.trade_date for item in event_plan.checks} == set(
+        plan.trade_dates[-20:]
+    )
     assert len(event_plan.pending_materializations) == 84
     assert event_plan.active_run_count == 0
     assert event_plan.should_stop is False
+
+
+@pytest.mark.parametrize(
+    "case",
+    ("missing_evidence", "missing_count", "missing_codes", "extra_codes", "old_policy"),
+)
+def test_events_refuse_unproven_or_failed_factor_coverage(
+    tmp_path: Path, case: str
+) -> None:
+    plan = _silver_plan(_dates(1))
+    physical = tmp_path / "physical.json"
+    _physical_report(physical, plan)
+    if case == "old_policy":
+        plan = replace(
+            plan, coverage_policy_revision="fund_daily_warn__fund_adj_warn_v1"
+        )
+    else:
+        report = json.loads(physical.read_text())
+        item = next(
+            row
+            for row in report["file_evidence"]
+            if row["asset_key"] == "silver_etf_adj_factor"
+        )
+        if case == "missing_evidence":
+            del item["coverage_error_codes"]
+        elif case == "missing_count":
+            del item["missing_expected_code_count"]
+        elif case == "missing_codes":
+            item["missing_expected_code_count"] = 1
+        else:
+            item["silver_extra_code_count"] = 1
+        report["report_hash"] = hash_payload(
+            {key: value for key, value in report.items() if key != "report_hash"}
+        )
+        physical.write_text(json.dumps(report))
+    with pytest.raises(EtfDailyBootstrapEventsError):
+        build_event_plan(instance=None, silver_plan=plan, physical_report_path=physical)
 
 
 def test_event_plan_round_trip_apply_replay_and_post_audit(tmp_path: Path) -> None:
@@ -183,7 +240,7 @@ def test_event_plan_round_trip_apply_replay_and_post_audit(tmp_path: Path) -> No
             confirm_events_apply=True,
         )
         assert first["reported_materialization_count"] == 8
-        assert first["reported_check_count"] == 32
+        assert first["reported_check_count"] == 34
 
         second = apply_events(
             instance=instance,

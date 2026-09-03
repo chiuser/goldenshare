@@ -213,12 +213,19 @@ def test_silver_check_definitions_have_exact_blocking_policy() -> None:
     for index, check in enumerate(checks):
         spec = next(iter(check.check_specs))
         assert spec.partitions_def is not None
-        assert spec.blocking is (index not in {5, 11})
+        assert spec.blocking is (index != 5)
 
 
 @pytest.mark.parametrize(
     "check_kind",
-    ("contract", "source_filter", "source_parity", "key_integrity", "domain", "coverage"),
+    (
+        "contract",
+        "source_filter",
+        "source_parity",
+        "key_integrity",
+        "domain",
+        "coverage",
+    ),
 )
 def test_daily_checks_pass_on_one_fully_aligned_partition(
     tmp_path: Path,
@@ -236,16 +243,17 @@ def test_daily_checks_pass_on_one_fully_aligned_partition(
     )
 
     assert check_result.passed is True
-    assert len(
-        check_result.metadata["goldenshare/input_file_paths"].value
-    ) == {
-        "contract": 0,
-        "source_filter": 1,
-        "source_parity": 2,
-        "key_integrity": 0,
-        "domain": 0,
-        "coverage": 2,
-    }[check_kind]
+    assert (
+        len(check_result.metadata["goldenshare/input_file_paths"].value)
+        == {
+            "contract": 0,
+            "source_filter": 1,
+            "source_parity": 2,
+            "key_integrity": 0,
+            "domain": 0,
+            "coverage": 2,
+        }[check_kind]
+    )
 
 
 @pytest.mark.parametrize(
@@ -293,9 +301,7 @@ def test_each_daily_blocking_check_detects_its_own_failure(
     )
 
     assert check_result.passed is False
-    assert expected_rule in check_result.metadata[
-        "goldenshare/failed_rule_names"
-    ].value
+    assert expected_rule in check_result.metadata["goldenshare/failed_rule_names"].value
 
 
 def test_daily_coverage_difference_is_warn_and_does_not_become_blocking(
@@ -321,6 +327,55 @@ def test_daily_coverage_difference_is_warn_and_does_not_become_blocking(
     assert check_result.metadata["goldenshare/failed_rule_names"].value == [
         "missing_expected_codes"
     ]
+
+
+@pytest.mark.parametrize(
+    "case", ("complete", "missing", "raw_extra", "silver_extra", "raw_unreadable")
+)
+def test_adj_coverage_is_error_and_never_repairs_data(
+    tmp_path: Path, case: str
+) -> None:
+    basic_rows = (basic_row("510330.SH"),)
+    if case == "missing":
+        basic_rows += (basic_row("159919.SZ"),)
+    rows = (_adj_row(),)
+    if case == "raw_extra":
+        rows += (_adj_row("160105.SZ"),)
+    lake_root, result = _write_adj(tmp_path, rows=rows, basic_rows=basic_rows)
+    if case == "silver_extra":
+        _replace_target(
+            result,
+            "SELECT * FROM {relation} UNION ALL SELECT '159919.SZ', DATE '2026-09-01', 1.0, NULL",
+        )
+    if case == "raw_unreadable":
+        result.raw_path.write_bytes(b"invalid parquet fixture")
+    before = (result.raw_path.read_bytes(), result.target_path.read_bytes())
+    with dg.DagsterInstance.ephemeral() as instance:
+        _report_materialization(instance, result)
+        check_result = _evaluate(
+            instance=instance,
+            lake_root=lake_root,
+            spec=FUND_ADJ_SILVER_SPEC,
+            check_kind="coverage",
+        )
+    assert check_result.passed is (case in {"complete", "raw_extra"})
+    assert check_result.severity is dg.AssetCheckSeverity.ERROR
+    assert next(iter(silver_etf_adj_factor_basic_coverage_check.check_specs)).blocking
+    if case == "missing":
+        assert check_result.metadata["goldenshare/failed_rule_names"].value == [
+            "missing_expected_codes"
+        ]
+    elif case == "silver_extra":
+        assert check_result.metadata["goldenshare/failed_rule_names"].value == [
+            "unexpected_silver_codes"
+        ]
+    elif case == "raw_extra":
+        assert check_result.metadata["goldenshare/raw_extra_code_count"].value == 1
+    if not check_result.passed:
+        assert (
+            check_result.metadata["goldenshare/reason_code"].value != "coverage_warning"
+        )
+    assert before == (result.raw_path.read_bytes(), result.target_path.read_bytes())
 
 
 def test_source_filter_check_revalidates_the_materialized_basic_reference(
@@ -381,7 +436,14 @@ def test_adj_domain_counts_invalid_factor_and_nonfinite_discount_rate(
 
 @pytest.mark.parametrize(
     "check_kind",
-    ("contract", "source_filter", "source_parity", "key_integrity", "domain", "coverage"),
+    (
+        "contract",
+        "source_filter",
+        "source_parity",
+        "key_integrity",
+        "domain",
+        "coverage",
+    ),
 )
 def test_adj_checks_pass_with_null_negative_and_extreme_finite_discount_rate(
     tmp_path: Path,
@@ -400,9 +462,12 @@ def test_adj_checks_pass_with_null_negative_and_extreme_finite_discount_rate(
     instance = dg.DagsterInstance.ephemeral()
     _report_materialization(instance, result)
 
-    assert _evaluate(
-        instance=instance,
-        lake_root=lake_root,
-        spec=FUND_ADJ_SILVER_SPEC,
-        check_kind=check_kind,
-    ).passed is True
+    assert (
+        _evaluate(
+            instance=instance,
+            lake_root=lake_root,
+            spec=FUND_ADJ_SILVER_SPEC,
+            check_kind=check_kind,
+        ).passed
+        is True
+    )
