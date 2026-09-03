@@ -13,7 +13,7 @@ import tempfile
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import insert
+from sqlalchemy import insert, update
 import uvicorn
 
 from src.biz.api.wealth.market import (
@@ -30,6 +30,7 @@ from src.foundation.models.core_serving.equity_qfq_nineturn_daily import (
 )
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.news_stock_link import NewsStockLink
+from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving_light.news import NewsLight
 from tests.wealth_watchlist_postgres_support import (
     DAY,
@@ -43,6 +44,17 @@ from tests.wealth_watchlist_postgres_support import (
 
 def seed_browser_context(engine):
     with engine.begin() as connection:
+        # Visual edge cases exist only in this fresh browser fixture database.
+        connection.execute(
+            update(Security)
+            .where(Security.ts_code == "000008.SZ")
+            .values(industry="电力设备与新能源材料")
+        )
+        connection.execute(
+            update(Security)
+            .where(Security.ts_code == "000009.SZ")
+            .values(industry=None)
+        )
         connection.exec_driver_sql("CREATE SCHEMA core_serving_light")
         for model in (
             EquityFactorPro,

@@ -64,7 +64,7 @@ describe("watchlist page", () => {
       "市净率（PB）",
       "量比",
       "换手率（%）",
-      "资金净流入（千万）",
+      "资金净流入（万）",
       "所属板块",
       "操作",
     ]);
@@ -79,7 +79,7 @@ describe("watchlist page", () => {
       "0.71",
       "1.08",
       "0.92",
-      "-2.19",
+      "-2189.40",
       "银行",
       "移除",
     ]);
@@ -102,6 +102,37 @@ describe("watchlist page", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "000001.SZ" }));
     expect(window.location.pathname).toBe("/wealth/market/stock/000001.SZ");
+  });
+  it("renders sector labels without decorating missing industries", async () => {
+    mockPage(
+      page([
+        item(1),
+        item(2, { stock: { ...item(2).stock, industry: null } }),
+      ]),
+    );
+    render(<WatchlistPage />);
+    const table = await screen.findByRole("table", { name: "自选股票列表" });
+    const sector = within(table).getByText("银行");
+    expect(sector).toHaveClass("watchlist-sector-tag");
+    expect(sector).toHaveAttribute("title", "银行");
+    const missing = table.querySelector(".watchlist-sector-empty");
+    expect(missing).toHaveTextContent("--");
+    expect(missing).not.toHaveClass("watchlist-sector-tag");
+    expect(table.querySelectorAll(".watchlist-sector-tag")).toHaveLength(1);
+    expect(missing?.closest(".sector-column")?.querySelector("button")).toBeNull();
+  });
+  it("keeps full long sector names available without adding a label action", async () => {
+    const industry = "电力设备与新能源材料";
+    mockPage(page([item(1, { stock: { ...item(1).stock, industry } })]));
+    render(<WatchlistPage />);
+    const sector = await screen.findByText(industry);
+    expect(sector).toHaveClass("watchlist-sector-tag");
+    expect(sector).toHaveAttribute("title", industry);
+    expect(sector.tagName).toBe("SPAN");
+    expect(sector).not.toHaveAttribute("role");
+    fireEvent.click(sector);
+    expect(window.location.pathname).toBe("/wealth/market/stock/000001.SZ");
+    expect(window.location.search).not.toContain("period=");
   });
   it.each([
     ["UP", 1.73, "up"],

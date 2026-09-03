@@ -13,7 +13,7 @@ const columns = [
   ["pb-column", "市净率（PB）"],
   ["ratio-column", "量比"],
   ["turnover-column", "换手率（%）"],
-  ["money-column", "资金净流入（千万）"],
+  ["money-column", "资金净流入（万）"],
   ["sector-column", "所属板块"],
   ["action-column", "操作"],
 ] as const;
@@ -138,7 +138,13 @@ export function WatchlistTable({
               </td>
               <td className="sector-column">
                 <span className="watchlist-sector-wrap">
-                  <span className="watchlist-sector-tag">{row.industry}</span>
+                  {row.industry === "--" ? (
+                    <span className="watchlist-sector-empty">--</span>
+                  ) : (
+                    <span className="watchlist-sector-tag" title={row.industry}>
+                      {row.industry}
+                    </span>
+                  )}
                 </span>
               </td>
               <td className="action-column">

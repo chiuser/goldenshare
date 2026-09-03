@@ -120,15 +120,30 @@
 .watchlist-sector-wrap {
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 .watchlist-sector-tag {
-  padding: 4px 8px;
-  margin-left: -8px;
-  border-radius: 6px;
-  background: var(--cs-color-bg-panel-soft);
-  color: var(--cs-color-text-secondary);
-  font-size: 11px;
+  display: inline-block;
+  height: var(--cs-space-24);
+  min-width: 0;
+  max-width: calc(100% + var(--cs-space-8));
+  padding: 0 var(--cs-space-8);
+  margin-left: calc(0px - var(--cs-space-8));
+  border-radius: calc(var(--cs-space-8) / 2);
+  background: var(--cs-color-brand-weak);
+  box-shadow: inset 0 0 0 1px var(--cs-color-border-strong);
+  color: var(--cs-color-brand);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: var(--cs-space-24);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: left;
+}
+.watchlist-sector-empty {
+  color: var(--cs-color-text-secondary);
+  font-size: 12px;
 }
 .watchlist-remove,
 .watchlist-dialog button,

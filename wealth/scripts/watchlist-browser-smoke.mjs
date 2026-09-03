@@ -53,10 +53,11 @@ try {
     changeClass: row.querySelector(".change-column").className,
     flowClass: row.querySelector(".money-column").className,
   })));
-  assert.deepEqual(fields[0].cells, ["000001.SZ", "测试股票1", "12.34", "-1.50", "123.46", "5.62", "0.71", "1.08", "0.92", "-2.19", "银行", "移除"]);
+  assert.deepEqual(fields[0].cells, ["000001.SZ", "测试股票1", "12.34", "-1.50", "123.46", "5.62", "0.71", "1.08", "0.92", "-2189.40", "银行", "移除"]);
+  assert.equal(await page.locator(".watchlist-table th.money-column").innerText(), "资金净流入（万）");
   assert.match(fields[0].changeClass, /\bdown\b/); assert.match(fields[0].flowClass, /\bdown\b/);
   assert.equal(fields[1].cells[3], "0.00"); assert.match(fields[1].changeClass, /\bflat\b/);
-  assert.equal(fields[2].cells[3], "+1.73"); assert.equal(fields[2].cells[9], "+2.19");
+  assert.equal(fields[2].cells[3], "+1.73"); assert.equal(fields[2].cells[9], "+2189.40");
   assert.match(fields[2].changeClass, /\bup\b/); assert.match(fields[2].flowClass, /\bup\b/);
   for (const [index, direction] of [[0, "down"], [1, "flat"], [2, "up"]]) {
     assert.ok(fields[index].priceClass.split(" ").includes(direction));
@@ -104,6 +105,43 @@ try {
     return Math.abs((cell.top + cell.bottom) / 2 - (badge.top + badge.bottom) / 2);
   });
   assert.ok(centeredTag <= 1);
+  const sectorTagStyle = await page.locator(".watchlist-sector-tag").first().evaluate((tag) => {
+    const style = getComputedStyle(tag);
+    return { height: tag.getBoundingClientRect().height, fontSize: style.fontSize, fontWeight: style.fontWeight,
+      color: style.color, background: style.backgroundColor, shadow: style.boxShadow,
+      radius: style.borderRadius, paddingLeft: style.paddingLeft, paddingRight: style.paddingRight };
+  });
+  assert.deepEqual(sectorTagStyle, { height: 24, fontSize: "12px", fontWeight: "400", color: "rgb(247, 199, 107)",
+    background: "rgba(247, 199, 107, 0.1)", shadow: "rgba(247, 199, 107, 0.56) 0px 0px 0px 1px inset",
+    radius: "4px", paddingLeft: "8px", paddingRight: "8px" });
+  const longTag = page.locator(".watchlist-table tbody tr").nth(7).locator(".watchlist-sector-tag");
+  const longTagLayout = await longTag.evaluate((tag) => {
+    const box = tag.getBoundingClientRect(), cell = tag.closest("td").getBoundingClientRect();
+    const style = getComputedStyle(tag);
+    const header = document.querySelector("th.sector-column span").getBoundingClientRect();
+    const range = document.createRange(); range.selectNodeContents(tag);
+    return { text: tag.textContent, title: tag.title, textOverflow: style.textOverflow,
+      clientWidth: tag.clientWidth, scrollWidth: tag.scrollWidth,
+      leftOffset: range.getBoundingClientRect().left - header.left,
+      centerOffset: (box.top + box.bottom - cell.top - cell.bottom) / 2,
+      fitsCell: box.left >= cell.left && box.right <= cell.right };
+  });
+  assert.equal(longTagLayout.text, "电力设备与新能源材料");
+  assert.equal(longTagLayout.title, longTagLayout.text);
+  assert.equal(longTagLayout.textOverflow, "ellipsis");
+  assert.ok(longTagLayout.scrollWidth > longTagLayout.clientWidth, "Long sector name should truncate");
+  assert.ok(longTagLayout.fitsCell && Math.abs(longTagLayout.leftOffset) <= 1 && Math.abs(longTagLayout.centerOffset) <= 1);
+  await longTag.hover();
+  assert.equal(await longTag.evaluate((tag) => getComputedStyle(tag).backgroundColor), sectorTagStyle.background);
+  const missingSector = page.locator(".watchlist-table tbody tr").nth(8).locator(".sector-column");
+  assert.equal(await missingSector.locator(".watchlist-sector-tag").count(), 0);
+  const missingTagStyle = await missingSector.locator(".watchlist-sector-empty").evaluate((tag) => {
+    const style = getComputedStyle(tag);
+    return { text: tag.textContent, color: style.color, background: style.backgroundColor, shadow: style.boxShadow };
+  });
+  assert.deepEqual(missingTagStyle, { text: "--", color: "rgb(155, 168, 188)", background: "rgba(0, 0, 0, 0)", shadow: "none" });
+  await page.mouse.move(0, 0);
+  await page.screenshot({ path: `${output}/watchlist-tag-a.png` });
   await table.evaluate((element) => { element.scrollTop = element.scrollHeight; });
   await page.waitForFunction(() => document.querySelectorAll(".watchlist-table tbody tr").length === 200);
   await table.evaluate((element) => { element.scrollTop = element.scrollHeight; });
@@ -171,7 +209,7 @@ try {
   await unauthenticated.waitForURL(/\/wealth\/login\?redirect=/);
   assert.ok(unauthenticated.url().includes("redirect=%2Fwealth%2Fmarket%2Fwatchlist"));
   await expired.close();
-  await writeFile(`${output}/watchlist-browser-evidence.json`, JSON.stringify({ first100ReadyMs, fields, layout, geometry, centeredTagOffset: centeredTag, removeButtonCenter, addButtonCenter, homepageResponses, homepageErrors,
+  await writeFile(`${output}/watchlist-browser-evidence.json`, JSON.stringify({ first100ReadyMs, fields, layout, geometry, centeredTagOffset: centeredTag, sectorTagStyle, longTagLayout, missingTagStyle, removeButtonCenter, addButtonCenter, homepageResponses, homepageErrors,
     scrollingLongTasks, addDialogHeight: blankHeight, removeDialog: box, errors, requests }, null, 2));
   console.log(JSON.stringify({ first100ReadyMs, rowCount: 200, columnCount: layout.length, removeButtonCenter, addButtonCenter, scrollingLongTasks, addDialogHeight: blankHeight, removeDialog: box, errors }));
 } catch (error) {

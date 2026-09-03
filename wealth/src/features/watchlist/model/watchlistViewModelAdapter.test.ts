@@ -4,13 +4,15 @@ import { buildWatchlistRow } from "./watchlistViewModelAdapter";
 
 describe("watchlist display units", () => {
   it.each([
-    [2189.4, "+2.19"],
-    [-2189.4, "-2.19"],
-    [1000, "+1.00"],
+    [2189.4, "+2189.40"],
+    [-2189.4, "-2189.40"],
+    [1000, "+1000.00"],
+    [0.01, "+0.01"],
+    [12345678.9, "+12345678.90"],
     [0, "0.00"],
     [null, "--"],
   ] as const)(
-    "converts %s ten-thousand yuan to ten-million yuan",
+    "preserves %s ten-thousand yuan without rescaling",
     (netAmount, expected) => {
       const row = buildWatchlistRow(
         item(1, { moneyFlow: { netAmount, direction: "UNKNOWN" } }),

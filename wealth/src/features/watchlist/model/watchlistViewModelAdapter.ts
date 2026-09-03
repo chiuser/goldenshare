@@ -28,7 +28,7 @@ export function buildWatchlistRow(
         : "--",
     volumeRatio: number(item.activity.volumeRatio),
     turnoverRate: number(item.activity.turnoverRate),
-    netAmount: number(item.moneyFlow.netAmount, 1000, true),
+    netAmount: number(item.moneyFlow.netAmount, 1, true),
     priceDirection: item.quote.direction,
     moneyFlowDirection: item.moneyFlow.direction,
     missingFields: item.missingFields,
