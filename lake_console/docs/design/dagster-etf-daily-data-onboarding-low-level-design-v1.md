@@ -1,6 +1,6 @@
 # ETF 日线与复权因子 DG 数据湖接入 LLD v1
 
-> 状态：设计已确认，P1—P5 开发已完成；P2 最小真实样本已通过；P5 仅完成隔离 fake/临时目录验证；P4 启用前源端复验与 P6 正式执行待单独授权；尚未写正式 Lake、补正式 Dagster 事件或启用 Sensor
+> 状态：设计已确认，P1—P5 开发已完成；P6 正式 Raw Plan、三日样本、Raw 入湖及全区间 Raw 审计已完成；fund_adj coverage 策略待 review；尚未生成正式 Silver Plan、写 Silver、补 Dagster 事件或启用 Sensor
 > 更新日期：2026-09-03
 > 上位方案：`dagster-etf-daily-data-onboarding-plan-v1.md`
 > P0 证据：`dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md`
@@ -872,6 +872,31 @@ checkpoint 使用同目录临时文件 + `os.replace()` 原子更新。每完成
 
 Raw audit 用一次或少量 DuckDB 扫描完成日期矩阵、文件/行数/schema/key/date/hash、source/write 守恒、日线/因子质量观察。随后用 review 时 latest ready Basic 计算每日 expected/present/missing/extra；这份 Basic 只服务 coverage 观察，不追溯绑定 Raw，也不改变 Raw 审计结论。报告明确两个 Raw 不要求同代码集合。
 
+批量读取实现固定如下（2026-09-03 修正）：
+
+1. `bootstrap/etf_daily_raw_batch_audit.py` 按 `asset + year` 组织冻结文件清单；Python 只遍历文件路径与分区级汇总，不处理业务明细。
+2. 每组先用一次 `parquet_schema` 检查所有文件的字段名、顺序和类型，再用一次 `read_parquet(..., hive_partitioning=false)` 将明细装入连接内临时表；缺文件、坏 schema、空分区、空/重复主键、日期错位继续阻断，不允许批量类型合并掩盖坏文件。
+3. 按文件归组计算行数、主键、日期、内容 hash；hash 与单文件 writer 共用同一 SQL 表达式，不改变既有 checkpoint/manifest identity。
+4. Raw audit 复用该组扫描结果生成 manifest 和结构证据，并在同一临时表上完成质量与 Basic coverage profile。数值规则与正式单分区检查共用纯 SQL predicates；失败样本每分区最多 20 条。
+5. `build_raw_manifest` 使用同一个批量入口但不读取 Basic、不计算质量/coverage；因此 Raw audit、Silver Plan 与 Silver apply 的 Raw manifest 重验不会恢复逐文件深扫。日常 writer/check/sensor 不改变读取模型。
+6. 报告记录 batch 数、Raw 文件数/行数/字节、批量 SQL 次数、明细载入次数、耗时及批次结束时临时文件占用。隔离测试对照单文件结果，并证明同年日期从 2 增至 20 时查询次数不增长；跨年只按组数增长。
+
+本次正式范围为 406 日、812 个 Raw 文件、1,460,629 行、30,053,205 bytes，形成 4 组；历史审计不调用 Tushare、不写 Lake/事件，只输出审计报告。复用统一 DuckDB 连接及其内存/spill 配置，每组结束释放临时表。先验证隔离样本与查询次数，再运行正式只读审计；出现错误即停，不降级检查、不重拉 Raw。
+
+本次性能与验收对账：
+
+| 项目 | 执行口径与结果 |
+| --- | --- |
+| 读取量 | 2 个资产 × 2 年，共 812 文件、1,460,629 行；每组一次 footer schema 检查、一次 Raw 明细载入 |
+| SQL 上限模型 | 每组结构审计 5 次；带质量/coverage 为 11 次（含临时表清理），本次共 44 次，不含独立 Basic reference 验证查询 |
+| 计算与内存 | 在 DuckDB 临时表上聚合、join、按文件算 hash；Python 只接收分区汇总与每分区至多 20 条样本，每组结束释放临时表 |
+| 写入与配额 | Tushare 请求 0、Lake 写入 0、Dagster 事件 0；只写 `/private/tmp` 下不可变报告，无业务事务或文件提升 |
+| 真实性能 | 核心审计 1,296.8 ms；4 组均在批次结束时观测到临时文件占用 0（不是过程 spill 峰值证明） |
+| 拒绝策略 | 缺文件/坏 schema/key/date/空分区立即停止；checkpoint hash/行数漂移不通过；不得跳过坏文件或改变数值规则；本次未触发 |
+| 隔离门禁 | 同年 2 日与 20 日查询次数相同；异常第二文件、hash 金样本、单文件语义对照、每日期样本上限、manifest 不重复扫描均有测试；ETF 定向及静态门禁共 264 passed |
+
+2026-09-03 全区间审计结果：结构与 checkpoint 差异均为 0，两个 Raw 数据集的已定义数值异常计数均为 0；`fund_adj` 406 日 coverage 缺失为 0，`fund_daily` 166 日共 310 个代码/日期缺口，维持 WARN。执行报告及当前停止点见技术方案 §13 P6；此证据不自动关闭 `fund_adj` 策略 review，也不授权 Silver 或事件阶段。
+
 `fund_adj` coverage profile review 未关闭前，不得生成 Silver Plan，`silver-apply` 也必须拒绝。
 
 ### 16.6 Silver apply 与物理对账
@@ -1030,6 +1055,8 @@ tests/test_etf_daily_definitions.py
 
 ### P6：正式执行
 
+当前已完成正式 Raw Plan、三日隔离样本、812 个 Raw 文件入湖及全区间批量审计。详见 §16.5 与技术方案 §13 P6；`fund_adj` coverage 策略仍待 review，未生成正式 Silver Plan、写 Silver、补事件或启用 Sensor。
+
 严格按技术方案的独立授权链。每阶段交付 report/hash/checkpoint，用户确认后才能继续。
 
 ---
@@ -1070,6 +1097,7 @@ git diff --check
 | 21:00 + 最近 10 日 | sensor evaluator | 时间边界、最早缺口、调用次数 |
 | Sensor 默认停用 | decorators | Definitions/static gate |
 | 2025+ Direct Bootstrap | raw-plan/raw-apply/audit/silver-plan/silver-apply/events | 水位、范围、Raw manifest、分阶段 checkpoint 与授权 |
+| 历史 Raw 审计不逐文件深扫 | `etf_daily_raw_batch_audit`、`build_raw_manifest`、`run_raw_audit` | 同年 2/20 日固定 SQL 次数；逐文件原语义对照；坏第二文件、原 hash 与只读不变门禁 |
 | 不使用 Prod/旧湖/Kopia | imports/paths/static gates | 全范围静态扫描 |
 
 ---

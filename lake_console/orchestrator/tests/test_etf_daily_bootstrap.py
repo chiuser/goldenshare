@@ -354,6 +354,7 @@ def test_bounded_sample_uses_at_most_three_dates_and_never_writes_source_lake(
 
 def test_raw_audit_silver_plan_apply_and_physical_audit_close_four_assets(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lake_root, staging_root, raw_plan = _raw_plan(tmp_path)
     reference = write_basic_reference(
@@ -373,16 +374,30 @@ def test_raw_audit_silver_plan_apply_and_physical_audit_close_four_assets(
         output_path=tmp_path / "raw-apply.json",
         confirm_raw_apply=True,
     )
-    raw_audit = run_raw_audit(
-        raw_plan=raw_plan,
-        lake_root=lake_root,
-        duckdb_resource=DuckDBResource(),
-        checkpoint_path=checkpoint,
-        latest_basic_reference=reference,
-        output_path=tmp_path / "raw-audit.json",
-    )
+    from orchestrator.defs.bootstrap import etf_daily_bootstrap_plan as plan_module
+
+    with monkeypatch.context() as patch:
+        def no_second_manifest_scan(**_kwargs):
+            raise AssertionError("Raw audit must derive its manifest from the batch results")
+
+        patch.setattr(plan_module, "build_raw_manifest", no_second_manifest_scan)
+        raw_audit = run_raw_audit(
+            raw_plan=raw_plan,
+            lake_root=lake_root,
+            duckdb_resource=DuckDBResource(),
+            checkpoint_path=checkpoint,
+            latest_basic_reference=reference,
+            output_path=tmp_path / "raw-audit.json",
+        )
     assert raw_audit["passed"] is True
     assert raw_audit["raw_asset_code_sets_required_equal"] is False
+    assert raw_audit["performance"]["batch_count"] == 2
+    assert raw_audit["performance"]["raw_data_load_count"] == 2
+    assert raw_audit["performance"]["raw_batch_sql_query_count"] == 22
+    assert [item["asset_key"] for item in raw_audit["raw_manifest"]] == [
+        "raw_tushare_fund_daily", "raw_tushare_fund_adj",
+        "raw_tushare_fund_daily", "raw_tushare_fund_adj",
+    ]
     silver_plan = build_etf_daily_silver_bootstrap_plan(
         raw_plan=raw_plan,
         raw_audit_report=raw_audit,

@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
+from orchestrator.defs.bootstrap.etf_daily_raw_batch_audit import (
+    audit_etf_daily_raw_batch,
+    etf_daily_raw_batches,
+)
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
     FUND_ADJ_RAW_SPEC,
@@ -174,7 +178,9 @@ class EtfDailyRawBootstrapPlan:
 
     @property
     def should_stop(self) -> bool:
-        return any(target.observed_state == "existing_invalid" for target in self.raw_targets)
+        return any(
+            target.observed_state == "existing_invalid" for target in self.raw_targets
+        )
 
     def hash_payload(self) -> dict[str, object]:
         return {
@@ -198,7 +204,11 @@ class EtfDailyRawBootstrapPlan:
             **self.hash_payload(),
             "raw_plan_hash": self.raw_plan_hash,
             "should_stop": self.should_stop,
-            "writes": {"tushare_requests": 0, "formal_lake_files": 0, "dagster_events": 0},
+            "writes": {
+                "tushare_requests": 0,
+                "formal_lake_files": 0,
+                "dagster_events": 0,
+            },
         }
 
 
@@ -226,7 +236,10 @@ class EtfDailySilverBootstrapPlan:
 
     @property
     def should_stop(self) -> bool:
-        return any(target.observed_state == "existing_invalid" for target in self.silver_targets)
+        return any(
+            target.observed_state == "existing_invalid"
+            for target in self.silver_targets
+        )
 
     def hash_payload(self) -> dict[str, object]:
         return {
@@ -251,7 +264,11 @@ class EtfDailySilverBootstrapPlan:
             **self.hash_payload(),
             "silver_plan_hash": self.silver_plan_hash,
             "should_stop": self.should_stop,
-            "writes": {"tushare_requests": 0, "formal_lake_files": 0, "dagster_events": 0},
+            "writes": {
+                "tushare_requests": 0,
+                "formal_lake_files": 0,
+                "dagster_events": 0,
+            },
         }
 
 
@@ -452,32 +469,33 @@ def build_raw_manifest(
 ) -> tuple[EtfDailyRawManifestEntry, ...]:
     entries: list[EtfDailyRawManifestEntry] = []
     with duckdb_resource.connect() as connection:
-        for trade_date in raw_plan.trade_dates:
-            for spec in (FUND_DAILY_RAW_SPEC, FUND_ADJ_RAW_SPEC):
-                path = spec.target_path_builder(lake_root, trade_date)
-                if not path.is_file():
-                    raise EtfDailyBootstrapPlanError(f"Raw manifest file is missing: {path}")
-                audit = audit_etf_daily_raw_relation(
-                    connection,
-                    relation_sql=read_parquet(path, hive_partitioning=False),
-                    spec=spec,
-                    partition_key=trade_date,
-                )
-                if audit.error_codes or audit.content_hash is None:
-                    raise EtfDailyBootstrapPlanError(
-                        f"Raw manifest file is invalid: {path}, errors={audit.error_codes!r}"
-                    )
+        for spec, dates in etf_daily_raw_batches(raw_plan.trade_dates):
+            batch = audit_etf_daily_raw_batch(
+                connection,
+                lake_root=lake_root,
+                trade_dates=dates,
+                spec=spec,
+            )
+            for item in batch["files"]:
                 entries.append(
                     EtfDailyRawManifestEntry(
                         asset_key=spec.asset_key,  # type: ignore[arg-type]
-                        trade_date=trade_date,
-                        target_path=str(path),
-                        row_count=audit.row_count,
-                        content_hash=audit.content_hash,
-                        size_bytes=path.stat().st_size,
+                        trade_date=item["trade_date"],
+                        target_path=item["target_path"],
+                        row_count=item["row_count"],
+                        content_hash=item["content_hash"],
+                        size_bytes=item["size_bytes"],
                     )
                 )
-    return tuple(entries)
+    return tuple(
+        sorted(
+            entries,
+            key=lambda item: (
+                item.trade_date,
+                item.asset_key != FUND_DAILY_RAW_SPEC.asset_key,
+            ),
+        )
+    )
 
 
 def build_etf_daily_silver_bootstrap_plan(
@@ -508,11 +526,11 @@ def build_etf_daily_silver_bootstrap_plan(
         duckdb_resource=duckdb_resource,
     )
     manifest_hash = hash_payload([entry.to_dict() for entry in manifest])
-    if (
-        raw_audit_report.get("raw_manifest_hash") != manifest_hash
-        or raw_audit_report.get("raw_manifest")
-        != [entry.to_dict() for entry in manifest]
-    ):
+    if raw_audit_report.get(
+        "raw_manifest_hash"
+    ) != manifest_hash or raw_audit_report.get("raw_manifest") != [
+        entry.to_dict() for entry in manifest
+    ]:
         raise EtfDailyBootstrapPlanError("Raw manifest differs from the green audit")
     reference = validate_etf_daily_basic_reference(
         lake_root_path=lake_root,
@@ -594,9 +612,12 @@ def load_etf_daily_raw_bootstrap_plan(
             trade_dates=tuple(str(value) for value in payload["trade_dates"]),
             trade_dates_hash=str(payload["trade_dates_hash"]),
             source_contracts=tuple(
-                _source_contract_from_payload(value) for value in payload["source_contracts"]
+                _source_contract_from_payload(value)
+                for value in payload["source_contracts"]
             ),
-            raw_targets=tuple(_target_from_payload(value) for value in payload["raw_targets"]),
+            raw_targets=tuple(
+                _target_from_payload(value) for value in payload["raw_targets"]
+            ),
             estimated_new_bytes=int(payload["estimated_new_bytes"]),
             required_free_bytes=int(payload["required_free_bytes"]),
             observed_free_bytes=int(payload["observed_free_bytes"]),
@@ -613,7 +634,9 @@ def load_etf_daily_silver_bootstrap_plan(
 ) -> EtfDailySilverBootstrapPlan:
     payload = load_json(path, label="ETF daily Silver plan")
     if payload.get("silver_plan_hash") != expected_plan_hash:
-        raise EtfDailyBootstrapPlanError("expected Silver Plan hash does not match report")
+        raise EtfDailyBootstrapPlanError(
+            "expected Silver Plan hash does not match report"
+        )
     try:
         plan = EtfDailySilverBootstrapPlan(
             schema_version=str(payload["schema_version"]),
@@ -622,7 +645,9 @@ def load_etf_daily_silver_bootstrap_plan(
             code_revision=str(payload["code_revision"]),
             contract_revision=str(payload["contract_revision"]),
             parent_raw_plan_hash=str(payload["parent_raw_plan_hash"]),
-            raw_manifest=tuple(_manifest_from_payload(value) for value in payload["raw_manifest"]),
+            raw_manifest=tuple(
+                _manifest_from_payload(value) for value in payload["raw_manifest"]
+            ),
             raw_manifest_hash=str(payload["raw_manifest_hash"]),
             coverage_policy_revision=str(payload["coverage_policy_revision"]),
             basic_reference=EtfBasicSilverSnapshotReference.model_validate(
@@ -637,7 +662,9 @@ def load_etf_daily_silver_bootstrap_plan(
             silver_plan_hash=str(payload["silver_plan_hash"]),
         )
     except (KeyError, TypeError, ValueError) as error:
-        raise EtfDailyBootstrapPlanError("Silver Plan is structurally invalid") from error
+        raise EtfDailyBootstrapPlanError(
+            "Silver Plan is structurally invalid"
+        ) from error
     _validate_silver_plan(plan, expected_plan_hash=expected_plan_hash)
     return plan
 
@@ -653,7 +680,9 @@ def _normalize_timestamp(value: datetime) -> str:
     return value.isoformat()
 
 
-def _source_contract_from_payload(value: Mapping[str, Any]) -> EtfDailyBootstrapSourceContract:
+def _source_contract_from_payload(
+    value: Mapping[str, Any],
+) -> EtfDailyBootstrapSourceContract:
     return EtfDailyBootstrapSourceContract(
         api_name=str(value["api_name"]),  # type: ignore[arg-type]
         fields=tuple(str(item) for item in value["fields"]),
@@ -697,7 +726,9 @@ def _manifest_from_payload(value: Mapping[str, Any]) -> EtfDailyRawManifestEntry
     )
 
 
-def _validate_raw_plan(plan: EtfDailyRawBootstrapPlan, *, expected_plan_hash: str) -> None:
+def _validate_raw_plan(
+    plan: EtfDailyRawBootstrapPlan, *, expected_plan_hash: str
+) -> None:
     _validate_operation_id(plan.operation_id)
     dates = tuple(normalize_etf_daily_trade_date(value) for value in plan.trade_dates)
     expected = {
@@ -717,7 +748,9 @@ def _validate_raw_plan(plan: EtfDailyRawBootstrapPlan, *, expected_plan_hash: st
         or plan.source_contracts != source_contracts()
         or observed != expected
         or len(plan.raw_targets) != len(expected)
-        or any(target.observed_state not in _TARGET_STATES for target in plan.raw_targets)
+        or any(
+            target.observed_state not in _TARGET_STATES for target in plan.raw_targets
+        )
         or hash_payload(plan.hash_payload()) != expected_plan_hash
     ):
         raise EtfDailyBootstrapPlanError("Raw Plan payload or contract has drifted")
@@ -736,19 +769,26 @@ def _validate_silver_plan(
     silver_expected = {
         (asset_key, trade_date)
         for trade_date in dates
-        for asset_key in (FUND_DAILY_SILVER_SPEC.asset_key, FUND_ADJ_SILVER_SPEC.asset_key)
+        for asset_key in (
+            FUND_DAILY_SILVER_SPEC.asset_key,
+            FUND_ADJ_SILVER_SPEC.asset_key,
+        )
     }
     if (
         plan.schema_version != ETF_DAILY_BOOTSTRAP_SCHEMA_VERSION
         or plan.contract_revision != ETF_DAILY_BOOTSTRAP_CONTRACT_REVISION
         or plan.coverage_policy_revision != ETF_DAILY_COVERAGE_POLICY_REVISION
         or not dates
-        or {(item.asset_key, item.trade_date) for item in plan.raw_manifest} != raw_expected
+        or {(item.asset_key, item.trade_date) for item in plan.raw_manifest}
+        != raw_expected
         or len(plan.raw_manifest) != len(raw_expected)
         or {(item.asset_key, item.trade_date) for item in plan.silver_targets}
         != silver_expected
         or len(plan.silver_targets) != len(silver_expected)
-        or any(target.observed_state not in _TARGET_STATES for target in plan.silver_targets)
+        or any(
+            target.observed_state not in _TARGET_STATES
+            for target in plan.silver_targets
+        )
         or plan.raw_manifest_hash
         != hash_payload([entry.to_dict() for entry in plan.raw_manifest])
         or hash_payload(plan.hash_payload()) != expected_plan_hash
@@ -765,7 +805,9 @@ def _validate_raw_audit_report(
         or int(report.get("dagster_events_written", -1)) != 0
     ):
         raise EtfDailyBootstrapPlanError("Raw audit report is not green for the plan")
-    expected = hash_payload({key: value for key, value in report.items() if key != "report_hash"})
+    expected = hash_payload(
+        {key: value for key, value in report.items() if key != "report_hash"}
+    )
     if report.get("report_hash") != expected:
         raise EtfDailyBootstrapPlanError("Raw audit report hash has drifted")
 

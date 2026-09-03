@@ -1,6 +1,6 @@
 # ETF 日线与复权因子 DG 数据湖接入技术方案 v1
 
-> 状态：P0—P5 开发已完成；P2 最小真实样本已通过；P5 仅完成隔离 fake/临时目录验证；P4 启用前源端复验与 P6 正式 Bootstrap 均待单独授权；尚未写正式 Lake、补正式 Dagster 事件或启用 Sensor
+> 状态：P0—P5 开发已完成；P6 正式 Raw Plan、三日样本、Raw 入湖及全区间 Raw 审计已完成；fund_adj coverage 策略待 review；尚未生成正式 Silver Plan、写 Silver、补 Dagster 事件或启用 Sensor
 > 更新日期：2026-09-03
 > 适用范围：`lake_console/orchestrator` 当前 Dagster 数据湖主链
 > 正式 Lake：`/Volumes/datasource/data_lake`
@@ -107,7 +107,7 @@ P0 在 2026-09-02 盘中验证当日两个接口均为零行，只能证明盘�
 因此状态分为两层：
 
 - 开发门禁：已通过；可以写 LLD 和进入后续开发评审。
-- 启用门禁：尚未通过；正式启用 Sensor 前，必须在一个正常交易日 21:00 后用同一字段和 limit 做一次当日非空复验。失败时只调整发布窗口方案并重新 review，不在代码里猜时间。
+- 源端非空复验：2026-09-03 22:29 的 P6 三日样本已使用相同字段和 limit，取得当日日线 2,113 行、复权因子 2,142 行（两页）。这证明该时刻已发布，不证明每天 21:00 准点完成；日常仍保留非空发布探测，正式启用 Sensor 仍需单独批准。
 
 ---
 
@@ -509,6 +509,7 @@ Silver apply 执行前重验 Silver Plan hash、父 Raw manifest、coverage poli
 - 当前文件完成后才领取下一个 unit；失败时保留已完成正式文件和 checkpoint。
 - 续跑先核验 checkpoint 与正式文件；等价则跳过，冲突则停止。
 - 全区间审计使用一次或少量 DuckDB 聚合扫描，不按 404 日启动 404 个进程。
+- 全历史 Raw 审计和 Raw manifest 重验按“数据集＋年份”批量读取；每组先统一核验各文件 schema，再只载入一次明细，复用临时表完成行数、主键、日期、hash、质量和覆盖统计。单文件 writer 与批量审计共享 hash 表达式和数值规则，禁止逐文件重跑整套审计。实现和性能回归要求见 LLD §16.5。
 
 ### 10.5 事件补齐
 
@@ -626,9 +627,19 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ### P6：正式历史建设与启用
 
+2026-09-03 已完成的范围：
+
+- operation：`etf-daily-20260903-p6-r2`；冻结 `2025-01-02..2026-09-03` 的 406 个共享 ETF 交易日。
+- 三日隔离样本通过，随后正式新增 Raw 文件 812 个：`fund_daily` 724,654 行、`fund_adj` 735,975 行；合计 30,053,205 bytes。Raw apply 约 154.47 秒，无覆盖、无 staging 文件残留。
+- 发现原全历史审计重复调用单文件检查后，已按批准范围改为数据集/年度批量读取，并保持单文件 hash 和数值规则不变。264 项 ETF 日线定向测试及静态门禁通过。
+- 正式 Raw 审计通过：4 组、44 次批量 SQL、4 次 Raw 明细载入；核心审计 1,296.8 ms（不含 CLI 启动与报告序列化），各批结束时临时文件占用为 0。812 个文件的 schema/key/date/hash 与 checkpoint 对账通过；两个数据集均未命中已定义的数值异常规则。
+- 按本次 latest ready Basic 观察，`fund_adj` 全部 406 日缺失为 0；`fund_daily` 有 166 日、共 310 个代码/日期缺口，单日最多 10 个，仍为已确认的 WARN。这里的 310 不是 310 个不同 ETF，也不能据此宣称日线全覆盖。Raw 中非当前 eligible ETF 的行继续保留。
+- 证据目录：`/private/tmp/goldenshare-bootstrap/etf_daily/etf-daily-20260903-p6-r2/`，包含 `raw-plan.json`、`bounded-sample-audit.json`、`raw-apply-report.json`、`raw-apply-receipt.json`、`raw-audit.json`。Raw audit report hash：`caf22459d5514c6c43a015119186aab354683986357f44a9d099d19f771bdb2b`。
+- 本轮未重拉源数据、未改写已落盘 Raw、未写 Silver/事件、未启用 Sensor。下一步只 review `fund_adj` coverage 最终保持 WARN 还是升级 blocking；未拍板前不生成 Silver Plan。
+
 按独立授权顺序执行：
 
-1. 正式 Raw Plan；
+1. 正式 Raw Plan 与三日隔离样本；
 2. Raw apply；
 3. 全区间 Raw 审计和 `fund_adj` coverage review；
 4. 必要时同步调整 coverage blocking 合同；

@@ -518,9 +518,7 @@ def audit_etf_daily_source_filter(
     LEFT JOIN ({basic_sql}) basic_rows USING (ts_code)
     """
     checked_row_count = int(
-        connection.execute(
-            f"SELECT count(*) FROM ({silver_sql}) rows"
-        ).fetchone()[0]
+        connection.execute(f"SELECT count(*) FROM ({silver_sql}) rows").fetchone()[0]
         or 0
     )
     failure_count = int(
@@ -581,9 +579,7 @@ def audit_etf_daily_source_parity(
         """
     ).fetchone()
     silver_row_count = int(
-        connection.execute(
-            f"SELECT count(*) FROM ({silver_sql}) rows"
-        ).fetchone()[0]
+        connection.execute(f"SELECT count(*) FROM ({silver_sql}) rows").fetchone()[0]
         or 0
     )
     reason_rows = connection.execute(
@@ -745,16 +741,9 @@ def audit_etf_daily_basic_coverage(
     )
 
 
-def audit_etf_daily_domain(
-    connection,
-    *,
-    silver_relation_sql: str,
-    spec: EtfDailySilverSpec,
-) -> EtfDailyDomainAudit:
-    """Aggregate the exact post-write value rules without repairing values."""
-
+def etf_daily_domain_predicates(spec: EtfDailySilverSpec) -> dict[str, str]:
+    """Share unchanged value predicates with grouped historical profiling."""
     _approved_spec(spec)
-    silver_sql = _relation_select(silver_relation_sql)
     if spec.domain_kind == "daily_bar":
         predicates = {
             "null_or_nonfinite_price_count": """
@@ -818,9 +807,20 @@ def audit_etf_daily_domain(
                 "discount_rate IS NOT NULL AND NOT isfinite(discount_rate)"
             ),
         }
+    return predicates
+
+
+def audit_etf_daily_domain(
+    connection,
+    *,
+    silver_relation_sql: str,
+    spec: EtfDailySilverSpec,
+) -> EtfDailyDomainAudit:
+    """Aggregate the exact post-write value rules without repairing values."""
+    predicates = etf_daily_domain_predicates(spec)
+    silver_sql = _relation_select(silver_relation_sql)
     count_columns = ",\n".join(
-        f"count(*) FILTER (WHERE {predicate})"
-        for predicate in predicates.values()
+        f"count(*) FILTER (WHERE {predicate})" for predicate in predicates.values()
     )
     any_failure_predicate = " OR ".join(
         f"({predicate})" for predicate in predicates.values()
@@ -951,7 +951,9 @@ def _write_etf_daily_silver_partition(
         normalized_partition,
     )
     if not raw_path.is_file():
-        raise EtfDailySilverValidationError(f"ETF daily Raw file is missing: {raw_path}")
+        raise EtfDailySilverValidationError(
+            f"ETF daily Raw file is missing: {raw_path}"
+        )
     if staging_path.exists():
         raise EtfDailySilverValidationError(
             f"operation-scoped Silver staging file already exists: {staging_path}"
@@ -966,7 +968,9 @@ def _write_etf_daily_silver_partition(
     try:
         with duckdb_resource.connect() as connection:
             raw_sql = read_parquet(raw_path, hive_partitioning=False)
-            basic_sql = read_parquet(Path(reference.silver_uri), hive_partitioning=False)
+            basic_sql = read_parquet(
+                Path(reference.silver_uri), hive_partitioning=False
+            )
             raw_audit = audit_etf_daily_raw_relation(
                 connection,
                 relation_sql=raw_sql,
@@ -1069,7 +1073,11 @@ def _write_etf_daily_silver_partition(
         if staging_path.exists():
             staging_path.unlink()
         raise
-    if candidate_audit is None or candidate_audit.content_hash is None or parity is None:
+    if (
+        candidate_audit is None
+        or candidate_audit.content_hash is None
+        or parity is None
+    ):
         raise AssertionError("ETF daily Silver writer completed without audit evidence")
     return EtfDailySilverWriteResult(
         asset_key=spec.asset_key,
@@ -1147,6 +1155,7 @@ __all__ = [
     "audit_etf_daily_silver_relation",
     "audit_etf_daily_source_filter",
     "audit_etf_daily_source_parity",
+    "etf_daily_domain_predicates",
     "validate_etf_daily_basic_reference",
     "write_etf_adj_factor_silver_partition",
     "write_etf_daily_silver_partition",

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_apply import (
@@ -14,12 +14,16 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_apply import (
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
     EtfDailyBootstrapPlanError,
     EtfDailyRawBootstrapPlan,
+    EtfDailyRawManifestEntry,
     EtfDailySilverBootstrapPlan,
-    build_raw_manifest,
     hash_payload,
     write_immutable_json,
 )
-from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
+from orchestrator.defs.bootstrap.etf_daily_raw_batch_audit import (
+    audit_etf_daily_raw_batch,
+    etf_daily_raw_batches,
+)
+from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
     FUND_ADJ_RAW_SPEC,
     FUND_DAILY_RAW_SPEC,
@@ -54,6 +58,7 @@ def run_raw_audit(
 ) -> dict[str, object]:
     """Audit all Raw files and profile latest-Basic coverage without binding Raw."""
 
+    started = perf_counter()
     checkpoint_entries = _validate_checkpoint_scope(
         checkpoint_path=checkpoint_path,
         phase="raw",
@@ -65,10 +70,36 @@ def run_raw_audit(
         duckdb_resource=duckdb_resource,
         basic_reference=latest_basic_reference,
     )
-    manifest = build_raw_manifest(
-        raw_plan=raw_plan,
-        lake_root=lake_root,
-        duckdb_resource=duckdb_resource,
+    files: list[dict[str, Any]] = []
+    coverage: list[dict[str, Any]] = []
+    domain_profiles: list[dict[str, Any]] = []
+    batches: list[dict[str, Any]] = []
+    with duckdb_resource.connect() as connection:
+        basic_sql = read_parquet(Path(reference.silver_uri), hive_partitioning=False)
+        for spec, dates in etf_daily_raw_batches(raw_plan.trade_dates):
+            batch = audit_etf_daily_raw_batch(
+                connection,
+                lake_root=lake_root,
+                trade_dates=dates,
+                spec=spec,
+                basic_relation_sql=basic_sql,
+            )
+            files.extend(batch["files"])
+            coverage.extend(batch["coverage_profiles"])
+            domain_profiles.extend(batch["domain_profiles"])
+            batches.append(batch["performance"])
+    for summaries in (files, coverage, domain_profiles):
+        summaries.sort(
+            key=lambda item: (
+                item["trade_date"],
+                item["asset_key"] != FUND_DAILY_RAW_SPEC.asset_key,
+            )
+        )
+    manifest = tuple(
+        EtfDailyRawManifestEntry(
+            **{key: value for key, value in item.items() if key != "error_codes"}
+        )
+        for item in files
     )
     manifest_by_key = {(item.asset_key, item.trade_date): item for item in manifest}
     checkpoint_failures = [
@@ -80,57 +111,7 @@ def run_raw_audit(
         or item.row_count != manifest_entry.row_count
         or item.content_hash != manifest_entry.content_hash
     ]
-    files: list[dict[str, object]] = []
-    structural_failures: list[dict[str, object]] = []
-    coverage: list[dict[str, object]] = []
-    domain_profiles: list[dict[str, object]] = []
-    with duckdb_resource.connect() as connection:
-        basic_sql = read_parquet(Path(reference.silver_uri), hive_partitioning=False)
-        for trade_date in raw_plan.trade_dates:
-            for raw_spec, silver_spec in (
-                (FUND_DAILY_RAW_SPEC, FUND_DAILY_SILVER_SPEC),
-                (FUND_ADJ_RAW_SPEC, FUND_ADJ_SILVER_SPEC),
-            ):
-                path = raw_spec.target_path_builder(lake_root, trade_date)
-                relation_sql = read_parquet(path, hive_partitioning=False)
-                audit = audit_etf_daily_raw_relation(
-                    connection,
-                    relation_sql=relation_sql,
-                    spec=raw_spec,
-                    partition_key=trade_date,
-                )
-                evidence = {
-                    "asset_key": raw_spec.asset_key,
-                    "trade_date": trade_date,
-                    "target_path": str(path),
-                    "row_count": audit.row_count,
-                    "content_hash": audit.content_hash,
-                    "error_codes": list(audit.error_codes),
-                }
-                files.append(evidence)
-                if audit.error_codes:
-                    structural_failures.append(evidence)
-                domain = audit_etf_daily_domain(
-                    connection,
-                    silver_relation_sql=relation_sql,
-                    spec=silver_spec,
-                )
-                domain_profiles.append(
-                    {
-                        "asset_key": raw_spec.asset_key,
-                        "trade_date": trade_date,
-                        **asdict(domain),
-                    }
-                )
-                coverage.append(
-                    _raw_basic_coverage(
-                        connection,
-                        raw_relation_sql=relation_sql,
-                        basic_relation_sql=basic_sql,
-                        trade_date=trade_date,
-                        asset_key=raw_spec.asset_key,
-                    )
-                )
+    structural_failures = [item for item in files if item["error_codes"]]
     payload: dict[str, object] = {
         "schema_version": "etf_daily_raw_audit_v1",
         "raw_plan_hash": raw_plan.raw_plan_hash,
@@ -149,6 +130,15 @@ def run_raw_audit(
         "raw_asset_code_sets_required_equal": False,
         "passed": not structural_failures and not checkpoint_failures,
         "dagster_events_written": 0,
+        "performance": {
+            "batch_count": len(batches),
+            "raw_batch_sql_query_count": sum(
+                item["sql_query_count"] for item in batches
+            ),
+            "raw_data_load_count": sum(item["raw_data_load_count"] for item in batches),
+            "elapsed_ms": round((perf_counter() - started) * 1000, 3),
+            "batches": batches,
+        },
     }
     payload["report_hash"] = hash_payload(payload)
     write_immutable_json(output_path, payload)
@@ -194,7 +184,9 @@ def run_physical_post_audit(
     failures: list[dict[str, object]] = []
     if not missing_paths and not extra_paths:
         with duckdb_resource.connect() as connection:
-            basic_sql = read_parquet(Path(reference.silver_uri), hive_partitioning=False)
+            basic_sql = read_parquet(
+                Path(reference.silver_uri), hive_partitioning=False
+            )
             for trade_date in raw_plan.trade_dates:
                 for raw_spec, silver_spec in (
                     (FUND_DAILY_RAW_SPEC, FUND_DAILY_SILVER_SPEC),
@@ -210,7 +202,9 @@ def run_physical_post_audit(
                         basic_reference=reference,
                     )
                     file_evidence.extend(evidence)
-                    failures.extend(item for item in evidence if item["passed"] is not True)
+                    failures.extend(
+                        item for item in evidence if item["passed"] is not True
+                    )
     staging_residuals = sorted(
         str(path)
         for operation in (
@@ -232,12 +226,12 @@ def run_physical_post_audit(
             "trade_date": item["trade_date"],
         }
         for item in file_evidence
-        for phase in (
-            "raw" if str(item["asset_key"]).startswith("raw_") else "silver",
+        for phase in ("raw" if str(item["asset_key"]).startswith("raw_") else "silver",)
+        if (
+            checkpoint := checkpoint_by_key.get(
+                (phase, str(item["asset_key"]), str(item["trade_date"]))
+            )
         )
-        if (checkpoint := checkpoint_by_key.get(
-            (phase, str(item["asset_key"]), str(item["trade_date"]))
-        ))
         is None
         or checkpoint.target_path != item["target_path"]
         or checkpoint.row_count != item["row_count"]
@@ -268,62 +262,6 @@ def run_physical_post_audit(
     if payload["passed"] is not True:
         raise EtfDailyBootstrapAuditError("ETF daily physical post-audit did not pass")
     return payload
-
-
-def _raw_basic_coverage(
-    connection: Any,
-    *,
-    raw_relation_sql: str,
-    basic_relation_sql: str,
-    trade_date: str,
-    asset_key: str,
-) -> dict[str, object]:
-    expected = f"""
-        SELECT ts_code FROM {basic_relation_sql}
-        WHERE (ends_with(ts_code, '.SH') OR ends_with(ts_code, '.SZ'))
-          AND exchange = right(ts_code, 2)
-          AND list_status = 'L'
-          AND list_date IS NOT NULL
-          AND list_date <= CAST({duckdb_string(trade_date)} AS DATE)
-    """
-    present = f"SELECT DISTINCT ts_code FROM {raw_relation_sql}"
-    counts = connection.execute(
-        f"""
-        SELECT
-          (SELECT count(*) FROM ({expected}) rows),
-          (SELECT count(*) FROM ({present}) rows),
-          (SELECT count(*) FROM (
-            SELECT ts_code FROM ({expected}) EXCEPT SELECT ts_code FROM ({present})
-          ) rows),
-          (SELECT count(*) FROM (
-            SELECT ts_code FROM ({present}) EXCEPT SELECT ts_code FROM ({expected})
-          ) rows)
-        """
-    ).fetchone()
-    samples = connection.execute(
-        f"""
-        SELECT reason_code, ts_code FROM (
-          SELECT 'MISSING_EXPECTED_CODE' AS reason_code, ts_code FROM (
-            SELECT ts_code FROM ({expected}) EXCEPT SELECT ts_code FROM ({present})
-          ) rows
-          UNION ALL
-          SELECT 'RAW_EXTRA_CODE' AS reason_code, ts_code FROM (
-            SELECT ts_code FROM ({present}) EXCEPT SELECT ts_code FROM ({expected})
-          ) rows
-        ) differences ORDER BY reason_code, ts_code LIMIT 20
-        """
-    ).fetchall()
-    return {
-        "asset_key": asset_key,
-        "trade_date": trade_date,
-        "expected_code_count": int(counts[0] or 0),
-        "present_code_count": int(counts[1] or 0),
-        "missing_expected_code_count": int(counts[2] or 0),
-        "raw_extra_code_count": int(counts[3] or 0),
-        "samples": [
-            {"reason_code": row[0], "ts_code": row[1]} for row in samples
-        ],
-    }
 
 
 def _audit_pair(
@@ -443,7 +381,9 @@ def _actual_dataset_files(lake_root: Path) -> set[Path]:
             FUND_ADJ_SILVER_SPEC,
         )
     }
-    return {path for root in roots for path in root.glob("trade_date=*/part-000.parquet")}
+    return {
+        path for root in roots for path in root.glob("trade_date=*/part-000.parquet")
+    }
 
 
 def _validate_checkpoint_scope(

@@ -185,26 +185,25 @@ def _expected_types(spec: EtfDailyRawSpec) -> tuple[str, ...]:
     return tuple(spec.raw_column_types[column] for column in spec.source_columns)
 
 
+def etf_daily_raw_content_hash_sql(spec: EtfDailyRawSpec) -> str:
+    """One canonical aggregate for single-file and grouped historical audits."""
+    struct_fields = ", ".join(
+        f'{column} := "{column}"' for column in spec.source_columns
+    )
+    return f"""sha256(coalesce(string_agg(
+        to_json(struct_pack({struct_fields})), '\n' ORDER BY ts_code, trade_date
+    ), ''))"""
+
+
 def _canonical_content_hash(
     connection,
     *,
     select_sql: str,
     spec: EtfDailyRawSpec,
 ) -> str:
-    struct_fields = ", ".join(
-        f'{column} := "{column}"' for column in spec.source_columns
-    )
     value = connection.execute(
         f"""
-        SELECT sha256(
-          coalesce(
-            string_agg(
-              to_json(struct_pack({struct_fields})),
-              '\n' ORDER BY ts_code, trade_date
-            ),
-            ''
-          )
-        )
+        SELECT {etf_daily_raw_content_hash_sql(spec)}
         FROM ({select_sql}) relation_rows
         """
     ).fetchone()[0]
@@ -302,10 +301,7 @@ def audit_etf_daily_raw_relation(
         errors.append("schema_columns")
     if column_types != _expected_types(spec):
         errors.append("schema_types")
-    if (
-        expected_source_row_count is not None
-        and row_count != expected_source_row_count
-    ):
+    if expected_source_row_count is not None and row_count != expected_source_row_count:
         errors.append("row_count_mismatch")
     if row_count == 0:
         errors.append("empty_partition")
@@ -397,8 +393,7 @@ def _typed_page_select(spec: EtfDailyRawSpec, relation_name: str) -> str:
 
 def _create_accumulator(connection, spec: EtfDailyRawSpec) -> None:
     columns_sql = ", ".join(
-        f'"{column}" {spec.raw_column_types[column]}'
-        for column in spec.source_columns
+        f'"{column}" {spec.raw_column_types[column]}' for column in spec.source_columns
     )
     connection.execute(f"CREATE TEMP TABLE etf_daily_raw_rows ({columns_sql})")
 
@@ -699,7 +694,9 @@ def _write_etf_daily_raw_partition(
         or candidate_audit is None
         or candidate_audit.content_hash is None
     ):
-        raise AssertionError("ETF daily Raw writer completed without frozen audit evidence")
+        raise AssertionError(
+            "ETF daily Raw writer completed without frozen audit evidence"
+        )
     return EtfDailyRawWriteResult(
         asset_key=spec.asset_key,
         api_name=spec.api_name,
@@ -771,6 +768,7 @@ __all__ = [
     "EtfDailyRawValidationError",
     "EtfDailyRawWriteResult",
     "audit_etf_daily_raw_relation",
+    "etf_daily_raw_content_hash_sql",
     "write_fund_adj_raw_partition",
     "write_fund_daily_raw_partition",
 ]
