@@ -18,6 +18,8 @@ from src.biz.queries.wealth.market.context.market_page_context_query import (
 from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
     SectorAnalysisFactReader,
     SectorMomentumFactSelection,
+    SectorMomentumHistorySelection,
+    SectorPublishedMomentumHistorySlice,
     SectorPublishedMomentumRow,
 )
 from src.biz.schemas.wealth.market.sector_analysis import (
@@ -87,7 +89,9 @@ class SectorMomentumQueryService:
         self._status = status_resolver or SectorAnalysisStatusResolver()
         self._facts = fact_reader or SectorAnalysisFactReader()
 
-    def build_meta(self, session: Session, *, market: str) -> SectorAnalysisMetaResponseDto:
+    def build_meta(
+        self, session: Session, *, market: str
+    ) -> SectorAnalysisMetaResponseDto:
         context = self._load_current_context(session, market=market)
         hierarchy = self._hierarchy_query.load(session)
         coverage = self._facts.load_momentum_coverage(
@@ -108,9 +112,7 @@ class SectorMomentumQueryService:
             hierarchy=SectorHierarchyDto(
                 hierarchyVersion=hierarchy.baseline_version,
                 publishedAt=hierarchy.published_at,
-                nodes=[
-                    self._hierarchy_node_dto(node) for node in hierarchy.nodes
-                ],
+                nodes=[self._hierarchy_node_dto(node) for node in hierarchy.nodes],
             ),
             coverageStartDate=published_dates[0].trade_date,
             coverageEndDate=published_dates[-1].trade_date,
@@ -209,7 +211,9 @@ class SectorMomentumQueryService:
                     debug=debug,
                 )
 
-            sorted_rows = self._calculator.sort_ranking_rows(ranked, direction=direction)
+            sorted_rows = self._calculator.sort_ranking_rows(
+                ranked, direction=direction
+            )
             node_by_code = {node.sector_code: node for node in pool}
             ranking = SectorRankingDto(
                 formulaKey=FORMULA_KEY,
@@ -296,7 +300,9 @@ class SectorMomentumQueryService:
                 level1_code=level1_code,
                 level2_code=level2_code,
             )
-            selected = next((node for node in pool if node.sector_code == sector_code), None)
+            selected = next(
+                (node for node in pool if node.sector_code == sector_code), None
+            )
             if selected is None:
                 raise SectorSelectionInvalidError("sectorCode 不在当前比较范围内")
             coverage = self._facts.load_momentum_coverage(
@@ -327,9 +333,7 @@ class SectorMomentumQueryService:
                 count=history_range,
             )
             display_dates = tuple(
-                item
-                for item in display_dates
-                if item >= resolution.coverage_start_date
+                item for item in display_dates if item >= resolution.coverage_start_date
             )
             current_key = self._comparison_key(
                 scope=scope,
@@ -342,55 +346,95 @@ class SectorMomentumQueryService:
             )
             parent_identity = self._parent_identity(hierarchy, node=selected)
             selections = [
-                SectorMomentumFactSelection(
+                SectorMomentumHistorySelection(
                     trade_dates=display_dates,
                     comparison_scope=scope,
                     comparison_key=current_key,
+                    selected_sector_code=selected.sector_code,
+                    expected_sector_codes=tuple(node.sector_code for node in pool),
                 )
             ]
             if global_key != current_key:
                 selections.append(
-                    SectorMomentumFactSelection(
+                    SectorMomentumHistorySelection(
                         trade_dates=(resolution.observed.trade_date,),
                         comparison_scope=global_scope,
                         comparison_key=global_key,
+                        selected_sector_code=selected.sector_code,
+                        expected_sector_codes=tuple(
+                            node.sector_code for node in global_pool
+                        ),
                     )
                 )
             if parent_identity is not None and parent_identity[1] not in {
                 current_key,
                 global_key,
             }:
+                parent_pool_for_selection = parent_identity[2]
                 selections.append(
-                    SectorMomentumFactSelection(
+                    SectorMomentumHistorySelection(
                         trade_dates=(resolution.observed.trade_date,),
                         comparison_scope=parent_identity[0],
                         comparison_key=parent_identity[1],
+                        selected_sector_code=selected.sector_code,
+                        expected_sector_codes=tuple(
+                            node.sector_code for node in parent_pool_for_selection
+                        ),
                     )
                 )
-            rows = self._facts.load_momentum_rows(
+            slices = self._facts.load_momentum_history_slices(
                 session,
                 selections=tuple(selections),
                 period=period,
                 hierarchy=hierarchy,
             )
-            rows_by_slice = self._published_rows_by_slice(rows)
+            slices_by_identity: dict[
+                tuple[date, str], SectorPublishedMomentumHistorySlice
+            ] = {}
+            for history_slice in slices:
+                identity = (
+                    history_slice.trade_date,
+                    history_slice.comparison_key,
+                )
+                if identity in slices_by_identity:
+                    raise SectorDataQueryError(
+                        "published momentum history contains a duplicate slice"
+                    )
+                slices_by_identity[identity] = history_slice
+
+            def resolve_published_slice(
+                *, trade_date: date, comparison_key: str
+            ) -> SectorPublishedMomentumHistorySlice | None:
+                history_slice = slices_by_identity.get((trade_date, comparison_key))
+                published_batch_id = coverage.batch_by_date.get(trade_date)
+                if published_batch_id is None:
+                    if history_slice is not None:
+                        raise SectorDataQueryError(
+                            "unpublished date cannot carry momentum facts"
+                        )
+                    return None
+                if (
+                    history_slice is None
+                    or history_slice.batch_id != published_batch_id
+                ):
+                    raise SectorDataQueryError(
+                        "published momentum history slice is missing or stale"
+                    )
+                return history_slice
+
             current_by_date = {
-                item: self._ranked_history_slice(
-                    rows_by_slice.get((item, current_key), ()),
-                    pool=pool,
+                item: resolve_published_slice(
                     trade_date=item,
                     comparison_key=current_key,
-                    batch_is_published=item in coverage.batch_by_date,
                 )
                 for item in display_dates
             }
-            observed_ranked, observed_calculable = current_by_date[
-                resolution.observed.trade_date
-            ]
-            observed_rank = self._find_rank(
-                observed_ranked,
-                sector_code=selected.sector_code,
-            )
+            observed_slice = current_by_date[resolution.observed.trade_date]
+            if observed_slice is None:
+                raise SectorDataQueryError(
+                    "observed momentum history slice is unpublished"
+                )
+            observed_calculable = observed_slice.calculable_count
             status = self._status.resolve(
                 trading_day=resolution,
                 calculable_count=observed_calculable,
@@ -404,71 +448,70 @@ class SectorMomentumQueryService:
                     debug=debug,
                 )
 
-            global_ranked, global_calculable = (
-                (observed_ranked, observed_calculable)
+            global_slice = (
+                observed_slice
                 if global_key == current_key
-                else self._ranked_history_slice(
-                    rows_by_slice.get(
-                        (resolution.observed.trade_date, global_key),
-                        (),
-                    ),
-                    pool=global_pool,
+                else resolve_published_slice(
                     trade_date=resolution.observed.trade_date,
                     comparison_key=global_key,
-                    batch_is_published=True,
                 )
             )
-            global_selected = self._find_rank(global_ranked, sector_code=sector_code)
-            parent_ranked: tuple[SectorRankFact, ...] | None = None
-            parent_calculable: int | None = None
+            if global_slice is None:
+                raise SectorDataQueryError(
+                    "global momentum history slice is unpublished"
+                )
+            global_calculable = global_slice.calculable_count
+            parent_slice: SectorPublishedMomentumHistorySlice | None = None
             parent_pool_nodes: tuple[SectorHierarchyNode, ...] | None = None
             if parent_identity is not None:
                 _parent_scope, parent_key, parent_pool_nodes = parent_identity
                 if parent_key == current_key:
-                    parent_ranked, parent_calculable = (
-                        observed_ranked,
-                        observed_calculable,
-                    )
+                    parent_slice = observed_slice
                 elif parent_key == global_key:
-                    parent_ranked, parent_calculable = (
-                        global_ranked,
-                        global_calculable,
-                    )
+                    parent_slice = global_slice
                 else:
-                    parent_ranked, parent_calculable = self._ranked_history_slice(
-                        rows_by_slice.get(
-                            (resolution.observed.trade_date, parent_key),
-                            (),
-                        ),
-                        pool=parent_pool_nodes,
+                    parent_slice = resolve_published_slice(
                         trade_date=resolution.observed.trade_date,
                         comparison_key=parent_key,
-                        batch_is_published=True,
                     )
-            parent_selected = (
-                self._find_rank(parent_ranked, sector_code=sector_code)
-                if parent_ranked is not None
-                else None
-            )
+                    if parent_slice is None:
+                        raise SectorDataQueryError(
+                            "parent momentum history slice is unpublished"
+                        )
 
             rolling_returns: list[RollingReturnPointDto] = []
             historical_ranks: list[HistoricalRankPointDto] = []
             for item in display_dates:
-                ranked, calculable_count = current_by_date[item]
-                selected_rank = self._find_rank(ranked, sector_code=sector_code)
+                history_slice = current_by_date[item]
                 rolling_returns.append(
                     RollingReturnPointDto(
                         tradeDate=item,
-                        returnPct=self._calculator.as_json_return(selected_rank.return_pct),
+                        returnPct=self._calculator.as_json_return(
+                            history_slice.selected_return_pct
+                            if history_slice is not None
+                            else None
+                        ),
                     )
                 )
                 historical_ranks.append(
                     HistoricalRankPointDto(
                         tradeDate=item,
-                        strengthRank=selected_rank.strength_rank,
-                        calculableCount=calculable_count,
+                        strengthRank=(
+                            history_slice.selected_strength_rank
+                            if history_slice is not None
+                            else None
+                        ),
+                        calculableCount=(
+                            history_slice.calculable_count
+                            if history_slice is not None
+                            else 0
+                        ),
                         totalCount=len(pool),
-                        percentile=self._calculator.as_json_percentile(selected_rank.percentile),
+                        percentile=self._calculator.as_json_percentile(
+                            history_slice.selected_percentile
+                            if history_slice is not None
+                            else None
+                        ),
                     )
                 )
 
@@ -482,16 +525,26 @@ class SectorMomentumQueryService:
                     level1_name=self._node_name(hierarchy, level1_code),
                     level2_name=self._node_name(hierarchy, level2_code),
                 ),
-                returnPct=self._calculator.as_json_return(observed_rank.return_pct),
-                percentile=self._calculator.as_json_percentile(observed_rank.percentile),
-                currentScopeStrengthRank=observed_rank.strength_rank,
+                returnPct=self._calculator.as_json_return(
+                    observed_slice.selected_return_pct
+                ),
+                percentile=self._calculator.as_json_percentile(
+                    observed_slice.selected_percentile
+                ),
+                currentScopeStrengthRank=observed_slice.selected_strength_rank,
                 currentScopeCalculableCount=observed_calculable,
                 currentScopeTotalCount=len(pool),
-                globalLevelStrengthRank=global_selected.strength_rank,
+                globalLevelStrengthRank=global_slice.selected_strength_rank,
                 globalLevelCalculableCount=global_calculable,
                 globalLevelTotalCount=len(global_pool),
-                parentStrengthRank=parent_selected.strength_rank if parent_selected else None,
-                parentCalculableCount=parent_calculable,
+                parentStrengthRank=(
+                    parent_slice.selected_strength_rank
+                    if parent_slice is not None
+                    else None
+                ),
+                parentCalculableCount=(
+                    parent_slice.calculable_count if parent_slice is not None else None
+                ),
                 parentTotalCount=(
                     len(parent_pool_nodes) if parent_pool_nodes is not None else None
                 ),
@@ -621,23 +674,6 @@ class SectorMomentumQueryService:
         )
 
     @staticmethod
-    def _published_rows_by_slice(
-        rows: tuple[SectorPublishedMomentumRow, ...],
-    ) -> dict[tuple[date, str], tuple[SectorPublishedMomentumRow, ...]]:
-        grouped: dict[tuple[date, str], list[SectorPublishedMomentumRow]] = {}
-        for row in rows:
-            grouped.setdefault((row.trade_date, row.comparison_key), []).append(row)
-        result: dict[tuple[date, str], tuple[SectorPublishedMomentumRow, ...]] = {}
-        for key, values in grouped.items():
-            codes = tuple(item.sector_code for item in values)
-            if len(codes) != len(set(codes)):
-                raise SectorDataQueryError(
-                    "published momentum slice contains duplicate sectors"
-                )
-            result[key] = tuple(values)
-        return result
-
-    @staticmethod
     def _ranked_from_published_rows(
         rows: tuple[SectorPublishedMomentumRow, ...],
         *,
@@ -676,45 +712,6 @@ class SectorMomentumQueryService:
             ),
             calculable_count,
         )
-
-    def _ranked_history_slice(
-        self,
-        rows: tuple[SectorPublishedMomentumRow, ...],
-        *,
-        pool: tuple[SectorHierarchyNode, ...],
-        trade_date: date,
-        comparison_key: str,
-        batch_is_published: bool,
-    ) -> tuple[tuple[SectorRankFact, ...], int]:
-        if batch_is_published:
-            return self._ranked_from_published_rows(
-                rows,
-                pool=pool,
-                trade_date=trade_date,
-                comparison_key=comparison_key,
-            )
-        if rows:
-            raise SectorDataQueryError("unpublished date cannot carry momentum facts")
-        return (
-            tuple(
-                SectorRankFact(
-                    sector_code=node.sector_code,
-                    return_pct=None,
-                    strength_rank=None,
-                    percentile=None,
-                )
-                for node in pool
-            ),
-            0,
-        )
-
-    @staticmethod
-    def _find_rank(
-        rows: tuple[SectorRankFact, ...],
-        *,
-        sector_code: str,
-    ) -> SectorRankFact:
-        return next(row for row in rows if row.sector_code == sector_code)
 
     @staticmethod
     def _hierarchy_node_dto(node: SectorHierarchyNode) -> SectorHierarchyNodeDto:

@@ -345,6 +345,25 @@ def test_m24_momentum_runtime_reads_published_facts_without_online_recalculation
     assert "DcDaily" not in reader
 
 
+def test_m24r_history_uses_compact_reader_without_full_ranking_rebuild() -> None:
+    service = (
+        REPO_ROOT
+        / "src/biz/queries/wealth/market/sector_analysis/sector_momentum_query_service.py"
+    ).read_text(encoding="utf-8")
+    history_body = service.split("    def build_history(", maxsplit=1)[1].split(
+        "    def _load_current_context(", maxsplit=1
+    )[0]
+
+    assert "load_momentum_history_slices" in history_body
+    assert "load_momentum_rows" not in history_body
+    assert "_ranked_from_published_rows" not in history_body
+    assert "_published_rows_by_slice" not in service
+    assert "_ranked_history_slice" not in service
+    assert "_find_rank" not in service
+    assert "SectorMomentumSnapshotQueryService" not in history_body
+    assert "DcDaily" not in history_body
+
+
 def test_sector_analysis_has_no_forbidden_subsystem_or_persistence_dependency() -> None:
     violations: list[str] = []
     backend_files = _iter_files(BACKEND_SECTOR_ANALYSIS_PATHS, suffixes=(".py",))

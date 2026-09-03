@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.58；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22、M23 已关闭。M24 首个动量排名切片已完成 typed reader、后端切读、正反例和 Prod 只读全矩阵对账，当前等待独立部署验收；其余四方法尚未切读。M25～M26 均不得提前执行。
+- 状态：v1.60；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22、M23 已关闭。M24R 已完成紧凑 History reader、QueryService 切读、安全删除、本地回归和 Prod 只读直接服务预验收，最大三级30日周期／60日 History 固定5条 SQL、返回61行聚合事实、20次 P95 `483.41ms`。当前等待提交、部署后的认证 HTTP 与页面验收；其余四方法尚未切读，M25～M26 均不得提前执行。
 - 编写日期：2026-09-03。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -10,7 +10,7 @@
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：五条既有精确方法路由保持不变；M25 新增 `/wealth/exploration/sector-analysis/daily-insight`，并在其正式上线时把板块分析根地址改为 `replace` 到每日洞察。六个工作区始终只挂载当前 controller。
 - 目标 API：既有十四只板块分析只读 API 保持公开合同不变；M25 新增 `/daily-insight/meta` 与 `/daily-insight/snapshot` 两只 strict 只读 API。
-- 待实施项：M23 不再有待执行的生产回补。下一步是部署并验收 M24 动量排名切片；只有通过后才进入双动量，再按既定顺序完成其余三方法。随后才是 M25 每日洞察前后端和 M26 自动化与最终交付验收。TaskRun `10421`、`10518`、`10548`、`10567`、`10585` 与 `10587` 均保留为不可变执行证据，不得重用或改写。
+- 待实施项：M23 不再有待执行的生产回补。下一步固定为提交 M24R 并由用户部署同一提交，再完成认证 HTTP 与页面验收；通过后才进入双动量，再按既定顺序完成其余三方法。随后才是 M25 每日洞察前后端和 M26 自动化与最终交付验收。TaskRun `10421`、`10518`、`10548`、`10567`、`10585` 与 `10587` 均保留为不可变执行证据，不得重用或改写。
 
 本文定义财势探查页面结构、五个已完成的独立分析方法，以及新增“每日洞察 + 每日事实物化”的代码级方案。每日洞察不是第六种公式，只汇总同一业务日期、同一层级版本、同一公式包和同一发布批次下的五方法客观事实；不生成综合分、预测、信号、机会等级或买卖建议。M3A 成分股明细和成员广度逐只股票明细继续按需读取，不进入本期物化结果。
 
@@ -5458,7 +5458,7 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 
 ### M24：五方法逐字段等价与 serving 切读
 
-状态：`IN PROGRESS（动量排名本地与 Prod 只读等价通过，待独立部署验收）`。
+状态：`IN PROGRESS（M24R 本地代码与 Prod 只读直接服务预验收通过，待部署验收）`。
 
 1. 按五scope、所有周期／阈值／MA／历史、正常与缺失日比较现算和typed facts。
 2. 按动量、双动量、相对轮动、成员广度、量价分布逐个切读；一次只切一个并独立部署验收。
@@ -5474,6 +5474,182 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 5. 自动化必须覆盖五 scope、五周期、涨／跌排序、三历史范围、正常日、PUBLISHED 部分缺失、未发布自动回退、显式未发布 Empty、历史 null 槽、typed 表缺失安全错误、删除 `DcDaily` 后动量公开接口仍可读，以及架构反例。
 6. 2026-09-03 Prod 只读对账在一个 `REPEATABLE READ, READ ONLY` 事务中完成；读取248个 PUBLISHED 日期中的最近60日及代表性部分缺失日 `2026-05-25`，对比49,410个切片、293,105行和98,820组方向排序，逐字段差异为0。未写数据库、未保存来源副本。
 7. 本地冻结回归439项通过。当前停止点是用户部署后完成动量 endpoint／页面真实样本、SQL、payload和P95验收；部署验收前不得进入双动量，也不得把 G63 标成 PASS。
+
+#### M24.2 动量排名部署验收结果
+
+1. 远程分支包含提交 `2bd2ad4b`；Web／Worker／Scheduler 均为 active，应用健康接口正常，页面静态路由返回200。
+2. 最大代表性读取结果：Meta `3 SQL / 166,259 bytes / P95 155.949ms`；三级30日 Rankings `4 SQL / 337行 / 99,949 bytes / P95 180.230ms`；Members 保持4条 SQL并返回完整所选行业成员。三者通过既有门禁。
+3. 三级30日、60日 History 保持 `5 SQL / 60个rollingReturns / 60个historicalRanks / 10,062 bytes`，但20次稳态直接服务 P95 为 `1,108.223ms`，高于既有700ms门禁；直接服务已经超限，因此无需用未认证 HTTP 结果推断通过。
+4. 当时公共目标日为 `2026-09-02`、最近 PUBLISHED 日为 `2026-08-31`，服务正确返回 DELAYED 并保留8月31日事实；这属于发布覆盖状态，不是本次性能失败原因。
+5. 未登录 Meta／Rankings 正确返回401，服务日志未出现相关异常。当前缺少可复用的生产登录态，认证页面和真实 HTTP P95 未完成；M24 已因 History 服务门禁失败而停止，不能进入双动量。
+
+#### M24R：动量 History 紧凑读取代码级纠偏
+
+状态：`CODE COMPLETE / LOCAL AND PROD READ-ONLY PRE-GATE PASS / PENDING DEPLOYMENT`。
+
+##### M24R.0 开发硬边界
+
+本阶段只允许优化 `/api/v1/wealth/market/sector-analysis/momentum/history` 的内部读取和组装。必须同时满足：
+
+1. 公开 route、query、response DTO、字段精度、排序、状态、异常码、日期语义和前端交互零变化。
+2. 五scope、五period、20／30／60日、当前范围／同层级／直属父级名次和所有缺失语义零变化。
+3. 数据库仍核验每个已发布比较切片的完整成员集合、全部行业身份、公式身份、可计算状态和排名分母；禁止为了少传行而跳过完整性门禁。
+4. History 仍为5条 SQL：公共日期1条、当前层级1条、发布覆盖1条、SSE历史日期1条、紧凑历史事实1条。SQL数量不得随日期、行业或内部选择数量增长。
+5. 不修改 Meta、Rankings、Members，不修改前端、Figma、API router/schema、Calculator公式、数据库模型、九张表、索引、迁移、配置、依赖、部署脚本、自动任务或生产数据。
+6. 不增加缓存、物化表、运行时双读、旧事实 fallback、分页、Top N、采样、缩窗、补零、前向填充或新的性能开关。
+
+##### M24R.1 允许文件与影响面
+
+实施获批后允许修改：
+
+| 文件 | 允许内容 |
+|---|---|
+| `src/biz/queries/wealth/market/sector_analysis/sector_analysis_fact_reader.py` | 新增 History 专属内部选择／聚合值对象和单 SQL 紧凑读取；保留 Rankings 全量 reader |
+| `src/biz/queries/wealth/market/sector_analysis/sector_momentum_query_service.py` | 只把 `build_history()` 改为消费紧凑切片；删除被其完全替代的三个私有全榜重建 helper |
+| `tests/test_wealth_sector_analysis_fact_reader.py` | 新增 reader 聚合、不变量和单 SQL 正反例 |
+| `tests/test_wealth_sector_momentum_query_service.py` | 更新 fake reader 合同并覆盖紧凑 History 状态编排 |
+| `tests/web/test_wealth_sector_analysis_api.py` | 保留现有 oracle，补充全矩阵逐字段、缺失分母、5 SQL和最大结构门禁 |
+| `tests/architecture/test_wealth_sector_analysis_guardrails.py` | 禁止 History 回到全量行重建、来源重算、缓存或新依赖 |
+| 本技术方案与 LLD | 实施后只回填真实代码和验收状态 |
+
+CodeGraph 已核对入口和消费者：`get_sector_momentum_history -> SectorMomentumQueryService.build_history -> SectorAnalysisFactReader.load_momentum_rows`；前端只消费 `detail/rollingReturns/historicalRanks/tradingDay/pageStatus/status`，并要求两条历史序列日期严格一致。`load_momentum_rows()` 当前只有 Rankings 和 History 两个直接调用点；改动后它继续服务 Rankings。`_published_rows_by_slice()`、`_ranked_history_slice()`、`_find_rank()` 只服务当前 History，可在新路径全矩阵通过后删除。旧 `SectorMomentumSnapshotQueryService`、`SectorMomentumQuery` 和 `SectorMomentumCalculator` 仍有双动量／相对轮动及测试 oracle 消费者，禁止删除。
+
+##### M24R.2 内部值对象
+
+在 `sector_analysis_fact_reader.py` 新增两个 frozen dataclass，仅供 Biz 内部使用，不进入公开 schema：
+
+```python
+@dataclass(frozen=True, slots=True)
+class SectorMomentumHistorySelection:
+    trade_dates: tuple[date, ...]
+    comparison_scope: SectorMomentumScope
+    comparison_key: str
+    selected_sector_code: str
+    expected_sector_codes: tuple[str, ...]
+
+@dataclass(frozen=True, slots=True)
+class SectorPublishedMomentumHistorySlice:
+    batch_id: UUID
+    trade_date: date
+    comparison_scope: SectorMomentumScope
+    comparison_key: str
+    selected_sector_code: str
+    selected_return_pct: Decimal | None
+    selected_strength_rank: int | None
+    selected_percentile: Decimal | None
+    selected_calculation_status: str
+    selected_missing_reason: str
+    row_count: int
+    calculable_count: int
+```
+
+`SectorMomentumHistorySelection` 构造时必须验证：日期升序且唯一、单选择最多60日、scope/key匹配、对象池非空且代码唯一、所选行业属于对象池。QueryService 先按 `(scope, comparison_key)` 合并重复选择，同一身份合并日期；最终选择数为1～3。所有代码和值来自已经验证的 hierarchy 和服务合同，不接受用户提供的任意 SQL 片段。
+
+新增 reader 入口：
+
+```python
+def load_momentum_history_slices(
+    self,
+    session: Session,
+    *,
+    selections: tuple[SectorMomentumHistorySelection, ...],
+    period: SectorMomentumPeriod,
+    hierarchy: SectorHierarchySnapshot,
+) -> tuple[SectorPublishedMomentumHistorySlice, ...]:
+    ...
+```
+
+##### M24R.3 单 SQL 聚合算法
+
+reader 为每个去重选择构造一个受参数绑定保护的聚合分支，最后以 `UNION ALL` 合成一次数据库语句。每个分支只处理该 scope/key/period、最多60个日期和其冻结对象池；结果按 `trade_date, comparison_scope, comparison_key` 稳定排序。
+
+每个分支在数据库内部完成以下聚合：
+
+1. 连接 `wealth_sector_analysis_publish_batch` 且限定 `status='PUBLISHED'`，按 `batch_id + trade_date` 锁定不可变批次。
+2. 左连接当前 `wealth_sector_hierarchy`，累计行业代码不在预期池、名称／层级／路径／baseline 不一致的错误行数。
+3. 累计公式 key/version、状态枚举、nullable 字段组合、missing reason、rank范围等不变量错误行数。
+4. 计算 `row_count`、`calculable_count`，以及 CALCULABLE 行的 `min(rankable_count)` 与 `max(rankable_count)`。
+5. 使用条件聚合提取唯一 `selected_sector_code` 行的收益、名次、排名分位、状态和缺失原因，并返回 `selected_count`。
+
+reader 对每个返回组执行 fail-closed 验证：
+
+- `row_count == len(expected_sector_codes)`；
+- 对象池不匹配数、层级身份错误数、公式错误数和值规则错误数均为0；
+- `selected_count == 1`；
+- `calculable_count > 0` 时，排名分母最小值和最大值必须都等于 `calculable_count`；为0时二者必须均为空；
+- batch层级／公式包必须与当前 hierarchy 和 `FORMULA_BUNDLE_VERSION` 一致；
+- 同一选择和日期不得返回重复组。
+
+这些检查等价保留当前“完整池集合相等、每行身份有效、排名分母一致”的运行时门禁。SQL可以使用 SQLAlchemy `case/sum/min/max/in_/union_all` 等可移植表达式；禁止写 PostgreSQL 与 SQLite 两套业务分支，禁止拼接用户输入字符串。
+
+最大三级60日仍会在数据库内部检查20,220个行业日期行，但应用层最多接收60个当前范围组，加当前日全层级／直属父级至多2组，总计最多62行。2026-09-03 Prod只读原型中，旧查询返回20,220行、数据库执行约273.043ms；候选聚合返回60行、执行约97.747ms且无临时块读写，20次实际读取 P95 为140.323ms。现有 HDD 索引已经覆盖定位条件，因此 M24R 不新增索引或迁移。
+
+##### M24R.4 QueryService 映射与缺失语义
+
+`build_history()` 保持前四步不变：加载公共日期、当前 hierarchy、解析scope对象池、加载发布覆盖并解析 observed date；显式未发布仍在事实查询前返回 Empty。
+
+随后按以下顺序组装紧凑选择：
+
+1. 当前scope：全部 `display_dates`、当前对象池、所选行业。
+2. 当前日全层级scope：仅当其 comparison key 与当前scope不同才加入。
+3. 当前日直属父级scope：仅当存在且不与前两者重复才加入。
+
+reader 返回后，QueryService 建立 `(trade_date, comparison_key)` 唯一映射：
+
+- coverage 标为已发布的预期组必须存在，batch id 必须与 coverage 中该日批次一致；缺组直接返回安全 Error。
+- coverage 标为未发布的历史日期不得出现事实组；服务为该日期生成 null 收益／名次／分位、`calculableCount=0` 的空槽。
+- 已发布组直接使用所选行的预计算收益、名次和分位；即使所选行 UNAVAILABLE，也使用切片聚合的真实 `calculable_count`，不得从所选行为空的 `rankable_count` 推断为0。
+- 当前 observed 组的 `calculable_count` 继续参与 READY／DELAYED／EMPTY 状态解析；全层级和直属父级组只生成 detail 中对应名次与分母。
+- `totalCount` 始终来自当前已验证 hierarchy 对象池长度，不从数据库计数替代产品对象池。
+
+新路径逐字段通过后，删除 `SectorMomentumQueryService._published_rows_by_slice()`、`_ranked_history_slice()` 和 `_find_rank()`。不得删除或改写 Rankings 使用的 `_ranked_from_published_rows()` 与 `SectorAnalysisFactReader.load_momentum_rows()`，不得删除未切方法共享的旧 Snapshot／Calculator。
+
+##### M24R.5 正反例与性能门禁
+
+自动化必须至少覆盖：
+
+1. 五scope×五period×三historyRange 与现有在线 Calculator oracle 的所有公开字段相同。
+2. 当前scope与全层级／父级相同或不同的1／2／3选择去重；始终只执行一条 History facts SQL，总请求固定5条 SQL。
+3. 已发布完整日、已发布部分缺失且所选行业可计算、所选行业不可计算但同组仍有其他可计算行业、全组零可计算。
+4. 未发布日期保留日期空槽；显式未发布在紧凑查询前 Empty；自动目标日无发布批次时仍回退最近 PUBLISHED。
+5. 缺行、额外行业、错误parent/scope/key、重复选择、错误名称／层级／路径、错误公式包／公式版本、非法状态／nullable组合、排名超分母、组内分母不一致均安全失败。
+6. 两条历史序列仍日期升序、唯一、等长；当前／全局／父级名次、`calculableCount/totalCount` 和Decimal取舍不变。
+7. 架构反例证明 History 不再调用全量 `load_momentum_rows()` 或全榜重建 helper，不读取 `dc_daily`，不引入缓存、配置、迁移、Foundation/Ops/QTF反向依赖或新第三方依赖。
+8. 既有 Rankings、Members、双动量、相对轮动、成员广度、量价分布、每日事实和首页板块速览回归全部保持通过。
+
+本地／只读门禁：
+
+- 实现后的最大三级30日周期／60日 History 仍为5 SQL、60＋60槽、payload不超过256KB；
+- Prod只读20次直接服务 P95 必须不超过700ms；任一字段、日期槽或对象池减少均按失败处理；
+- `uv run alembic heads` 只确认当前单一head，不创建新迁移；文档、架构和diff检查必须通过。
+
+部署门禁：
+
+1. 用户提交和部署同一 commit 后，确认服务健康、部署 commit 和静态页面路由。
+2. 使用既有获批认证路径调用最大三级、30日周期、60日 History；若没有可用登录态，记录阻塞，不绕过认证、不读取或搬运凭据。
+3. 预热一次后执行两轮、每轮20次 localhost 真实 HTTP；两轮 P95 均须 `<=700ms`。
+4. 同时记录5 SQL、60＋60槽、当前／全局／父级名次、部分缺失 `calculableCount`、payload和页面实际加载；任一项不一致即停止。
+5. 通过后只关闭 M24R 的动量 History 阻断，完成动量切片独立验收；G63仍需等待其余四方法，下一步才允许进入双动量切读。
+
+##### M24R.6 实施顺序与停止点
+
+1. 先增加 reader 值对象、聚合正反例和 SQL 计数测试。
+2. 实现单 SQL 紧凑 reader，在不接入 QueryService 前独立通过完整性测试。
+3. 接入 `build_history()`，运行五scope全矩阵 oracle 和公开 API 回归。
+4. 确认三个旧私有 helper 引用清零后删除，运行全量相关后端／前端／架构回归。
+5. 执行有界 Prod只读直接服务门禁；通过后仅回填“本地代码完成，待部署”，停止等待用户提交／部署。
+6. 部署后按 M24R.5 执行认证HTTP与页面验收；通过前不得进入双动量。
+
+任一步出现公开字段差异、缺失日语义变化、SQL超过5条、候选直接服务P95仍超过700ms、必须新增索引／迁移／缓存才能继续，或现有表无法在紧凑投影中证明完整性时，立即停止并等待用户重新评审；禁止自行扩大范围。
+
+##### M24R.7 实施与本地验收证据
+
+1. 允许文件已按 M24R.1 落地：reader 新增 `SectorMomentumHistorySelection`、`SectorPublishedMomentumHistorySlice` 和 `load_momentum_history_slices()`；QueryService 只替换 `build_history()` 内部事实读取，公开 schema／router／前端均未修改。
+2. 单条 History facts SQL 使用1～3个参数绑定聚合分支和 `UNION ALL`。每个返回组验证 batch、完整对象池、distinct、额外行业、层级／父级、公式、状态／nullable、所选行业唯一性及统一排名分母；已发布组缺失安全失败，未发布 SSE 日期继续生成 null 槽。
+3. `_published_rows_by_slice()`、`_ranked_history_slice()`、`_find_rank()` 已在 CodeGraph 和文本引用归零后删除；`load_momentum_rows()` 与 `_ranked_from_published_rows()` 继续只服务完整 Rankings，旧 Snapshot／Calculator 继续服务尚未切读的方法和测试 oracle。
+4. 新增 reader 18项正反例，覆盖对象池、层级／父级、公式包／公式版本、非法状态／空值、排名越界／分母和选择合同；既有 API oracle 保持五scope×五period×三historyRange 全矩阵，并新增未发布 SSE 日期 `returnPct/strengthRank/percentile=null`、`calculableCount=0` 的反例。相关后端187项、前端578项、typecheck和production build全部通过；Ruff、单一 Alembic head与diff检查通过。
+5. Prod 只读直接服务验收限定 `LEVEL_3 / period=30 / historyRange=60 / BK1616.DC`，每次使用独立 `REPEATABLE READ, READ ONLY` 事务；预热1次后实测20次，固定5条 SQL、61行聚合事实、60个收益槽、60个排名槽、`10,062 bytes`，P95 `483.41ms`、中位数 `348.64ms`、最大 `624.85ms`。结果为 DELAYED，符合公共目标日晚于最近 PUBLISHED 日的既有语义。
+6. 本轮零迁移、索引、缓存、配置、依赖、前端、Figma和生产写入。M24R 仍待同一提交部署后的两轮认证 localhost HTTP P95、页面实际加载及公开字段复核；当前不得标记 PASS 或进入双动量。
 
 ### M25：每日洞察后端与前端
 
@@ -5621,7 +5797,7 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G61 Ops自动主链 | GENERAL、20:05/600/00:30、来源齐备、通用plan/readiness；Heat/news/QTF/分钟零回归 | PARTIAL PASS (M22 code)：action、readiness、executor、GENERAL装配和冻结回归通过；远程scheduler/systemd实机仍OPEN (M26) |
 | G62 历史回补 | 2025-08-22起升序PLAN/APPLY/read-back/previous链；HDD物理落盘和日期完整性受控 | PASS (M23 approved scope)：10548冻结248日；10567持久化前213日后失败；10585/10587只恢复35日尾段并完成35/35。最终248/248唯一PUBLISHED、0缺口、0重复、计数／物理行数／previous链差异均为0，九表约3,774MB且全部位于HDD。全窗口幂等重放及其后新增门禁按用户明确豁免，不追溯补做 |
 | G62A M23R 长PLAN与取消一致性 | 逐日短事务、BUILDING检查点、真实进度、分阶段取消、非冻结不可APPLY；TaskRun与节点同事务取消 | PASS (local+remote)：261项正反例、提交685b42a3部署、10518逐日检查点／FROZEN终态及历史节点收口通过；继续使用既有GENERAL且无新增Worker/Lane |
-| G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | IN PROGRESS (M24)：动量排名本地／Prod只读等价通过，待独立部署验收；其余四方法OPEN |
+| G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | IN PROGRESS (M24/M24R)：动量Meta／Rankings／Members部署通过；History紧凑切读、本地全矩阵和Prod只读直接服务预门禁通过，待部署认证HTTP／页面验收；其余四方法OPEN |
 | G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN (M25/M26) |
 | G65 Daily前端 | 第六route、三参数URL、controller、四完整滚动列表、五态、跳转和按需挂载 | OPEN (M25) |
 | G66 Daily交付 | HDD真实拓扑、自动任务、payload/P95、8张Figma、四档及用户验收 | OPEN (M26) |
@@ -5811,14 +5987,16 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 量价分布 M18 后端、M19 前端与 M20 部署联调均已完成：后端建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；前端建立第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13态。Meta唯一自动回退、显式日期精确显示、局部缺失透明和按需挂载均已有自动化证据；部署态337行完整事实、60日历史、`3/5/5` SQL、payload、P95、五scope、四档页面及用户验收全部通过，G55关闭。本轮不自动进入新需求。
 
-每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M24～M26。M24 的动量排名首切片已完成本地实现和 Prod 只读等价对账，尚未完成独立部署验收；其余四方法未切读。
+每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。五方法切读、每日洞察两只只读 API 和正式工作区仍分别属于 M24～M26。M24R 已完成动量 History 紧凑读取、完整切片审计、公开合同回归和 Prod 只读直接服务预门禁：最大三级30日周期／60日 History 固定5条 SQL、61行聚合事实、60＋60槽和 `10,062 bytes`，20次 P95 `483.41ms`。M24仍等待部署后的认证 HTTP 与页面验收，其余四方法尚未切读。
 
-下一步固定为部署并验收 M24 动量排名切片；通过后才按双动量、相对轮动、成员广度、量价分布顺序继续。M23 的任务均只保留为审计证据，不得重用；不得提前修改默认路由或进入M25～M26。
+下一步固定为提交 M24R 并由用户部署同一提交，再完成两轮认证 localhost HTTP 与页面验收；通过后才按双动量、相对轮动、成员广度、量价分布顺序继续。M23 的任务均只保留为审计证据，不得重用；不得提前修改默认路由或进入M25～M26。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.60 | 2026-09-03 | 完成M24R本地实施：新增History专属紧凑选择／聚合reader，在数据库内保留完整对象池、层级、公式、状态与排名分母审计；`build_history()`切读并安全删除三个仅服务旧History的全榜helper，公开合同及其余方法零变化。后端187项、前端578项、typecheck/build通过；Prod只读最大三级30日／60日场景固定5 SQL、61行聚合事实、60＋60槽、10,062 bytes，20次P95 483.41ms通过700ms预门禁。当前待提交、部署后认证HTTP和页面验收，G63保持IN PROGRESS |
+| v1.59 | 2026-09-03 | 完成M24R代码级纠偏设计：部署验收确认Meta／Rankings／Members通过，但最大三级30日周期／60日History稳态服务P95 `1,108.223ms`超过700ms门禁。冻结单SQL数据库内完整切片审计＋所选行业投影、最多62行返回、公开合同和数据体验零变化、零迁移／索引／缓存；明确允许文件、值对象、聚合不变量、旧私有helper安全删除范围、全矩阵正反例及两轮HTTP P95门禁。当前仅修改文档，等待用户评审后方可编码 |
 | v1.58 | 2026-09-03 | 推进M24首个动量排名切片：新增只读PUBLISHED typed fact reader，Meta／Rankings／History切至`wealth_sector_momentum_daily`，成员链与未切方法共享Snapshot保持不变；冻结已发布部分缺失不回退、显式未发布Empty和历史null槽。Prod只读对账61日、49,410切片、293,105行、98,820组排序零差异，本地439项回归通过；当前待独立部署验收，G63仍为IN PROGRESS |
 | v1.57 | 2026-09-02 | 关闭M23：全窗口PLAN 10548冻结248/248、零gap；APPLY 10567在213/248后因进程退出失败但每日提交事实保留，遗留节点16635已按父任务终态收口。尾段PLAN 10585冻结2026-07-14～2026-08-31共35日、零gap、applyReady；APPLY 10587完成35/35、写入读回862,983行且零issue。最终248/248唯一PUBLISHED，日期、计数、物理行数和previous链差异均为0，九表约3,774MB且全部位于HDD。按用户豁免不做全窗口幂等重放；下一步固定M24 |
 | v1.56 | 2026-09-02 | M23R远程验收与历史起点纠偏：提交685b42a3部署后，TaskRun 10518以403个逐日检查点完成且九表零写入，得到248个有效unit和155个来源gap。Prod只读对账确认当前发布层级成员代码自2025-05-30起匹配，60个SSE交易日预热后的首个正式物化日为2025-08-22。将replay planner常量、Ops动作说明、Meta覆盖、测试和M23门禁统一到该日；旧PLAN只保留审计证据，替代PLAN必须满足248/248、零gap、FROZEN和applyReady=true后才能申请APPLY |

@@ -85,6 +85,7 @@ class _MissingFactReader:
         self.fail = fail
         self.open_date_calls = 0
         self.row_calls = 0
+        self.history_slice_calls = 0
 
     def load_momentum_coverage(self, _session, **_kwargs):
         if self.fail:
@@ -122,6 +123,10 @@ class _MissingFactReader:
 
     def load_momentum_rows(self, *_args, **_kwargs):
         self.row_calls += 1
+        return ()
+
+    def load_momentum_history_slices(self, *_args, **_kwargs):
+        self.history_slice_calls += 1
         return ()
 
     resolve_trading_date = staticmethod(SectorAnalysisFactReader.resolve_trading_date)
@@ -220,3 +225,5 @@ def test_history_selection_error_is_not_hidden_as_query_error() -> None:
             sector_code="BK1101.DC",
             debug=False,
         )
+
+    assert _query.history_slice_calls == 0

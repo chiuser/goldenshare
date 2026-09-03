@@ -923,6 +923,40 @@ def test_history_retains_missing_date_slot_instead_of_filling_or_dropping_it(
     assert rank_by_date[missing_date.isoformat()]["totalCount"] == 2
 
 
+def test_history_retains_unpublished_sse_date_as_null_slot(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    unpublished_date = OPEN_DATES[-10]
+    _unpublish_momentum_date(db_session, trade_date=unpublished_date)
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/momentum/history",
+        params={
+            "scope": "LEVEL_1_CHILDREN",
+            "level1Code": "BK1001.DC",
+            "period": 1,
+            "historyRange": 20,
+            "sectorCode": "BK1101.DC",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    returns = {item["tradeDate"]: item for item in payload["rollingReturns"]}
+    ranks = {item["tradeDate"]: item for item in payload["historicalRanks"]}
+    assert returns[unpublished_date.isoformat()]["returnPct"] is None
+    assert ranks[unpublished_date.isoformat()] == {
+        "tradeDate": unpublished_date.isoformat(),
+        "strengthRank": None,
+        "calculableCount": 0,
+        "totalCount": 2,
+        "percentile": None,
+    }
+
+
 def test_api_rejects_unknown_duplicate_direction_on_history_and_invalid_closure(
     app_client,
     db_session,
