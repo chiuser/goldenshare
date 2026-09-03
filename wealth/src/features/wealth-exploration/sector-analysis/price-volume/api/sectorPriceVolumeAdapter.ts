@@ -48,7 +48,7 @@ export function buildSectorPriceVolumeMetaViewModel(payload: unknown): PriceVolu
   exactArray(root.historyRanges, HISTORY_RANGES, "historyRanges");
   exactArray(root.scopes, SCOPES, "scopes");
   exactArray(root.states, STATES, "states");
-  literal(root.dateCoverageBasis, "INDUSTRY_PRICE_AMOUNT_DAILY", "dateCoverageBasis");
+  literal(root.dateCoverageBasis, "INDUSTRY_DAILY", "dateCoverageBasis");
 
   const defaults = exactRecord(root.defaults, ["scope", "period", "stateFilter", "sortBy", "sortDirection", "historyRange"], "默认值");
   literal(defaults.scope, "LEVEL_1", "defaults.scope");
@@ -84,13 +84,13 @@ export function buildSectorPriceVolumeMetaViewModel(payload: unknown): PriceVolu
   if (expectedTradeDate !== coverageEndDate) fail("期望日期必须等于覆盖结束日。");
   if (defaultTradeDate) {
     const match = tradeDates.find((item) => item.tradeDate === defaultTradeDate);
-    if (match?.availability !== "COMPLETE") fail("默认日期必须是完整交易日。");
+    if (!match) fail("默认日期必须在交易日覆盖范围内。");
   }
   return {
     formulaKey: "sector-price-volume-distribution", formulaVersion: 1, market: "CN_A",
     periods: [...PERIODS], historyRanges: [...HISTORY_RANGES], scopes: [...SCOPES], states: [...STATES],
     defaults: { scope: "LEVEL_1", period: 20, stateFilter: "ALL", sortBy: "PRICE_MOMENTUM", sortDirection: "DESC", historyRange: 20 },
-    dateCoverageBasis: "INDUSTRY_PRICE_AMOUNT_DAILY",
+    dateCoverageBasis: "INDUSTRY_DAILY",
     dateContext: { expectedTradeDate, defaultTradeDate, defaultStatus, displayText },
     hierarchy: { hierarchyVersion, publishedAt, nodes }, coverageStartDate, coverageEndDate, tradeDates,
     level1Nodes: nodes.filter((node) => node.industryLevel === 1),

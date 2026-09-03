@@ -7,7 +7,6 @@ from enum import StrEnum
 from typing import Literal, cast
 
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
-    SectorAvailability,
     SectorScopeInvalidError,
 )
 
@@ -20,7 +19,7 @@ SectorPriceVolumeDefaultStatus = Literal["READY", "DELAYED", "EMPTY"]
 
 FORMULA_KEY = "sector-price-volume-distribution"
 FORMULA_VERSION = 1
-DATE_COVERAGE_BASIS = "INDUSTRY_PRICE_AMOUNT_DAILY"
+DATE_COVERAGE_BASIS = "INDUSTRY_DAILY"
 ALLOWED_PERIODS: tuple[SectorPriceVolumePeriod, ...] = (1, 5, 10, 20, 30)
 ALLOWED_HISTORY_RANGES: tuple[SectorPriceVolumeHistoryRange, ...] = (20, 30, 60)
 ALLOWED_STATES: tuple[SectorPriceVolumeState, ...] = (
@@ -120,40 +119,6 @@ class SectorPriceVolumeRankedFact:
         )
         if both_present != (self.state is not None):
             raise ValueError("state requires both coordinates and only both coordinates")
-
-
-@dataclass(frozen=True, slots=True)
-class SectorPriceVolumeDateAvailabilityFact:
-    trade_date: date
-    availability: SectorAvailability
-    expected_sector_count: int
-    valid_sector_count: int
-
-    def __post_init__(self) -> None:
-        if self.expected_sector_count <= 0:
-            raise ValueError("expected_sector_count must be positive")
-        if not 0 <= self.valid_sector_count <= self.expected_sector_count:
-            raise ValueError("valid_sector_count is outside the expected range")
-        if self.availability == "COMPLETE" and self.valid_sector_count != self.expected_sector_count:
-            raise ValueError("COMPLETE requires full coverage")
-        if self.availability == "PARTIAL" and not 0 < self.valid_sector_count < self.expected_sector_count:
-            raise ValueError("PARTIAL requires non-zero incomplete coverage")
-        if self.availability == "MISSING" and self.valid_sector_count != 0:
-            raise ValueError("MISSING requires zero coverage")
-
-
-@dataclass(frozen=True, slots=True)
-class SectorPriceVolumeCoverageFacts:
-    coverage_start_date: date
-    coverage_end_date: date
-    trade_dates: tuple[SectorPriceVolumeDateAvailabilityFact, ...]
-
-    def __post_init__(self) -> None:
-        dates = tuple(item.trade_date for item in self.trade_dates)
-        if not dates or dates != tuple(sorted(set(dates))):
-            raise ValueError("coverage dates must be unique and ascending")
-        if dates[0] != self.coverage_start_date or dates[-1] != self.coverage_end_date:
-            raise ValueError("coverage dates must span the declared range")
 
 
 def parse_price_volume_period(value: int) -> SectorPriceVolumePeriod:

@@ -12,6 +12,25 @@ const snapshotRequest = { market: "CN_A", tradeDate: "2026-08-27", scope: "LEVEL
 const detailsRequest = { ...snapshotRequest, historyRange: 20, sectorCode: "BK1001.DC" } as const;
 
 describe("sectorPriceVolumeAdapter", () => {
+  it.each([5, 0])("keeps a published default with %i calculable industries", (valid) => {
+    const payload = priceVolumeMetaPayload();
+    payload.tradeDates[2]!.availability = valid ? "PARTIAL" : "MISSING";
+    payload.tradeDates[2]!.validSectorCount = valid;
+    const meta = buildSectorPriceVolumeMetaViewModel(payload);
+    expect(meta.dateContext.defaultTradeDate).toBe("2026-08-27");
+    expect(meta.dateContext.defaultStatus).toBe("READY");
+    expect(meta.dateCoverageBasis).toBe("INDUSTRY_DAILY");
+  });
+
+  it("rejects the old coverage meaning and invalid default dates", () => {
+    expect(() => buildSectorPriceVolumeMetaViewModel({ ...priceVolumeMetaPayload(), dateCoverageBasis: "INDUSTRY_PRICE_AMOUNT_DAILY" })).toThrow(SectorPriceVolumeContractError);
+    const payload = priceVolumeMetaPayload({ delayed: true });
+    payload.dateContext.defaultTradeDate = "2026-08-24";
+    expect(() => buildSectorPriceVolumeMetaViewModel(payload)).toThrow(/覆盖范围/);
+    payload.dateContext.defaultTradeDate = "2026-08-28";
+    expect(() => buildSectorPriceVolumeMetaViewModel(payload)).toThrow(/DELAYED/);
+  });
+
   it("accepts the frozen Meta, Snapshot and Details facts without recomputing them", () => {
     const meta = buildSectorPriceVolumeMetaViewModel(priceVolumeMetaPayload());
     const snapshot = buildSectorPriceVolumeSnapshotViewModel(priceVolumeSnapshotPayload(new URL("http://localhost/snapshot?tradeDate=2026-08-27&scope=LEVEL_1&period=20")), snapshotRequest);

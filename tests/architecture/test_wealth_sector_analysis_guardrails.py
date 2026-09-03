@@ -630,8 +630,8 @@ def test_member_breadth_details_uses_one_projection_path_without_degradation() -
     )
 
 
-def test_price_volume_backend_is_pre_gated_to_three_read_only_fact_sources() -> None:
-    """M17 freezes the M18 source boundary before those business files exist."""
+def test_price_volume_backend_preserves_raw_formula_boundary_and_published_dates() -> None:
+    """M24.6.1 changes date admission only; raw calculation inputs stay bounded."""
 
     violations: list[str] = []
     for path in PRICE_VOLUME_BACKEND_PATHS:
@@ -660,6 +660,24 @@ def test_price_volume_backend_is_pre_gated_to_three_read_only_fact_sources() -> 
                 )
 
     assert not violations, (
-        "量价分布只允许读取交易日历、行业层级和行业日行情，且不得增加配置、"
-        "缓存、持久化或外部子系统依赖：\n" + "\n".join(violations)
+        "量价计算只允许读取交易日历、行业层级和行业日行情；日期仅复用共享发布覆盖，"
+        "不得增加配置、缓存、写入或外部子系统依赖：\n" + "\n".join(violations)
     )
+
+    query = (
+        REPO_ROOT
+        / "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query.py"
+    ).read_text()
+    service = (
+        REPO_ROOT
+        / "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query_service.py"
+    ).read_text()
+    for removed in (
+        "_valid_price_volume_predicate",
+        "load_trade_date_coverage",
+        "load_exact_trade_date_status",
+    ):
+        assert removed not in query + service
+    assert "load_momentum_coverage" in service
+    assert "coverage.published_dates" in service
+    assert 'availability == "COMPLETE"' not in service

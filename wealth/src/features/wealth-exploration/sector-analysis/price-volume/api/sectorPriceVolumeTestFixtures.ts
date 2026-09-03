@@ -22,7 +22,7 @@ export function priceVolumeMetaPayload(options: { delayed?: boolean; empty?: boo
     scopes: ["LEVEL_1", "LEVEL_2", "LEVEL_3", "LEVEL_1_CHILDREN", "LEVEL_2_CHILDREN"],
     states: ["JOINT", "PRICE_ONLY", "AMOUNT_ONLY", "NEUTRAL"],
     defaults: { scope: "LEVEL_1", period: 20, stateFilter: "ALL", sortBy: "PRICE_MOMENTUM", sortDirection: "DESC", historyRange: 20 },
-    dateCoverageBasis: "INDUSTRY_PRICE_AMOUNT_DAILY",
+    dateCoverageBasis: "INDUSTRY_DAILY",
     dateContext: {
       expectedTradeDate: "2026-08-27",
       defaultTradeDate,
@@ -35,7 +35,7 @@ export function priceVolumeMetaPayload(options: { delayed?: boolean; empty?: boo
     tradeDates: [
       { tradeDate: "2026-08-25", availability: options.empty ? "MISSING" : "COMPLETE", expectedSectorCount: 6, validSectorCount: options.empty ? 0 : 6 },
       { tradeDate: "2026-08-26", availability: options.empty ? "MISSING" : "COMPLETE", expectedSectorCount: 6, validSectorCount: options.empty ? 0 : 6 },
-      { tradeDate: "2026-08-27", availability: options.empty ? "MISSING" : options.delayed ? "PARTIAL" : "COMPLETE", expectedSectorCount: 6, validSectorCount: options.empty ? 0 : options.delayed ? 5 : 6 },
+      { tradeDate: "2026-08-27", availability: options.empty ? "MISSING" : options.delayed ? "MISSING" : "COMPLETE", expectedSectorCount: 6, validSectorCount: options.empty ? 0 : options.delayed ? 0 : 6 },
     ],
   };
 }

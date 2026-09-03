@@ -359,6 +359,7 @@ class SectorAnalysisFactReader:
         *,
         coverage_end_date: date,
         hierarchy: SectorHierarchySnapshot,
+        allow_empty: bool = False,
     ) -> SectorPublishedCoverage:
         summary = (
             select(
@@ -393,6 +394,17 @@ class SectorAnalysisFactReader:
             .where(WealthSectorAnalysisPublishBatch.status == "PUBLISHED")
             .scalar_subquery()
         )
+        if allow_empty:
+            # Price-volume can render an empty Meta before its first publication.
+            first_published_date = func.coalesce(
+                select(func.min(WealthSectorAnalysisPublishBatch.trade_date))
+                .where(
+                    WealthSectorAnalysisPublishBatch.status == "PUBLISHED",
+                    WealthSectorAnalysisPublishBatch.trade_date <= coverage_end_date,
+                )
+                .scalar_subquery(),
+                coverage_end_date,
+            )
         rows = session.execute(
             select(
                 TradeCalendar.trade_date,
@@ -469,10 +481,10 @@ class SectorAnalysisFactReader:
                 )
             )
         published = tuple(item for item in calendar_dates if item.batch_id is not None)
-        if not published:
+        if not published and not allow_empty:
             raise SectorDataQueryError("published sector-analysis coverage is empty")
         return SectorPublishedCoverage(
-            coverage_start_date=published[0].availability.trade_date,
+            coverage_start_date=calendar_dates[0].availability.trade_date,
             coverage_end_date=coverage_end_date,
             calendar_dates=tuple(calendar_dates),
         )

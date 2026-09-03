@@ -79,7 +79,7 @@ export interface PriceVolumeMetaViewModel {
     sortDirection: "DESC";
     historyRange: 20;
   };
-  dateCoverageBasis: "INDUSTRY_PRICE_AMOUNT_DAILY";
+  dateCoverageBasis: "INDUSTRY_DAILY";
   dateContext: {
     expectedTradeDate: string;
     defaultTradeDate: string | null;

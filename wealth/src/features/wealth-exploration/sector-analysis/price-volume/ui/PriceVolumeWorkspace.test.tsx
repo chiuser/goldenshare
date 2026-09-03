@@ -18,6 +18,30 @@ afterEach(() => {
 });
 
 describe("PriceVolumeWorkspace", () => {
+  it.each([5, 0])("uses the published date with %i calculable industries without looking for a complete date", async (valid) => {
+    const urls: string[] = [];
+    const ready = buildReadyFetch(urls);
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/price-volume/meta")) {
+        urls.push(String(input));
+        const meta = priceVolumeMetaPayload();
+        meta.tradeDates[2]!.validSectorCount = valid;
+        meta.tradeDates[2]!.availability = valid ? "PARTIAL" : "MISSING";
+        return jsonResponse(meta);
+      }
+      return ready(input);
+    }));
+    window.history.replaceState({}, "", WEALTH_EXPLORATION_SECTOR_PRICE_VOLUME_PATH);
+    render(<AuthProvider><WealthRouter /></AuthProvider>);
+    await screen.findByRole("table", { name: "行业量价分布完整列表" });
+    await waitFor(() => expect(count(urls, "/price-volume/details")).toBe(1));
+    expect(lastUrl(urls, "/price-volume/snapshot").searchParams.get("tradeDate")).toBe("2026-08-27");
+    expect(lastUrl(urls, "/price-volume/details").searchParams.get("tradeDate")).toBe("2026-08-27");
+    expect(screen.queryByText("当前展示 2026-08-26 盘后数据")).not.toBeInTheDocument();
+    expect(count(urls, "/price-volume/meta")).toBe(1);
+    expect(count(urls, "/price-volume/snapshot")).toBe(1);
+  });
+
   it("mounts only the fifth controller and resolves the first complete coordinate", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", buildReadyFetch(urls));

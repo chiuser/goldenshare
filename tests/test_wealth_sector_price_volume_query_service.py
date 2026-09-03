@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from uuid import UUID
 
 import pytest
 
@@ -20,14 +21,19 @@ from src.biz.queries.wealth.market.sector_analysis.sector_price_volume_query imp
 )
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorDataQueryError,
+    SectorDateAvailabilityFact,
+    SectorSelectionInvalidError,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract import (
-    SectorPriceVolumeCoverageFacts,
     SectorPriceVolumeDailyFact,
-    SectorPriceVolumeDateAvailabilityFact,
     SectorPriceVolumeFactMismatchError,
 )
 
+
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+    SectorPublishedCoverage,
+    SectorPublishedCalendarDate,
+)
 
 OPEN_DATES = tuple(date(2026, 5, 2) + timedelta(days=index) for index in range(119))
 TARGET_DATE = OPEN_DATES[-1]
@@ -101,35 +107,36 @@ class _HierarchyQuery:
 
 
 class _Query:
-    def __init__(self, *, delayed: bool = False) -> None:
+    def __init__(
+        self, *, delayed: bool = False, empty: bool = False, valid: int | None = None
+    ) -> None:
         self.delayed = delayed
+        self.empty = empty
+        self.valid = valid
         self.exact_calls = 0
         self.open_calls: list[int] = []
         self.fact_calls = 0
 
-    def load_trade_date_coverage(self, _session, *, hierarchy_codes, expected_trade_date):
-        assert len(hierarchy_codes) == 7
-        dates = OPEN_DATES[-3:]
-        rows = tuple(
-            SectorPriceVolumeDateAvailabilityFact(
-                trade_date=item,
-                availability="PARTIAL" if self.delayed and item == TARGET_DATE else "COMPLETE",
-                expected_sector_count=7,
-                valid_sector_count=6 if self.delayed and item == TARGET_DATE else 7,
-            )
-            for item in dates
-        )
-        return SectorPriceVolumeCoverageFacts(dates[0], dates[-1], rows)
-
-    def load_exact_trade_date_status(self, _session, *, hierarchy_codes, trade_date):
+    def load_momentum_coverage(
+        self, _session, *, hierarchy, coverage_end_date, allow_empty
+    ):
         self.exact_calls += 1
-        assert len(hierarchy_codes) == 7
-        return SectorPriceVolumeDateAvailabilityFact(
-            trade_date=trade_date,
-            availability="COMPLETE",
-            expected_sector_count=7,
-            valid_sector_count=7,
-        )
+        assert coverage_end_date == TARGET_DATE and allow_empty
+        expected = len(hierarchy.nodes)
+        rows = []
+        for item in OPEN_DATES:
+            published = not self.empty and not (self.delayed and item == TARGET_DATE)
+            valid = (expected if self.valid is None else self.valid) if published else 0
+            availability = (
+                "COMPLETE" if valid == expected else "PARTIAL" if valid else "MISSING"
+            )
+            rows.append(
+                SectorPublishedCalendarDate(
+                    SectorDateAvailabilityFact(item, availability, expected, valid),
+                    UUID(int=1) if published else None,
+                )
+            )
+        return SectorPublishedCoverage(OPEN_DATES[0], TARGET_DATE, tuple(rows))
 
     def load_open_dates(self, _session, *, end_date, count):
         self.open_calls.append(count)
@@ -156,15 +163,16 @@ def _service(query: _Query) -> SectorPriceVolumeQueryService:
         context_query=_ContextQuery(),
         hierarchy_query=_HierarchyQuery(),
         price_volume_query=query,
+        fact_reader=query,
     )
 
 
-def test_meta_uses_price_amount_coverage_and_returns_delayed_default() -> None:
+def test_meta_uses_published_coverage_and_returns_delayed_default() -> None:
     response = _service(_Query(delayed=True)).build_meta(None, market="CN_A")
     assert response.dateContext.expectedTradeDate == TARGET_DATE
     assert response.dateContext.defaultTradeDate == OPEN_DATES[-2]
     assert response.dateContext.defaultStatus == "DELAYED"
-    assert response.dateCoverageBasis == "INDUSTRY_PRICE_AMOUNT_DAILY"
+    assert response.dateCoverageBasis == "INDUSTRY_DAILY"
     assert response.periods == [1, 5, 10, 20, 30]
     assert response.historyRanges == [20, 30, 60]
 
@@ -334,22 +342,11 @@ def test_maximum_level_three_snapshot_keeps_all_337_rows_under_payload_budget() 
         def load(self, _session):
             return hierarchy
 
-    class _LargeQuery(_Query):
-        def load_exact_trade_date_status(
-            self, _session, *, hierarchy_codes, trade_date
-        ):
-            self.exact_calls += 1
-            return SectorPriceVolumeDateAvailabilityFact(
-                trade_date=trade_date,
-                availability="COMPLETE",
-                expected_sector_count=len(hierarchy_codes),
-                valid_sector_count=len(hierarchy_codes),
-            )
-
     response = SectorPriceVolumeQueryService(
         context_query=_ContextQuery(),
         hierarchy_query=_LargeHierarchyQuery(),
-        price_volume_query=_LargeQuery(),
+        price_volume_query=_Query(),
+        fact_reader=_Query(),
     ).build_snapshot(
         None,
         market="CN_A",
@@ -367,3 +364,131 @@ def test_maximum_level_three_snapshot_keeps_all_337_rows_under_payload_budget() 
     assert response.snapshot.totalCount == 337
     assert response.snapshot.coordinateCount == 337
     assert len(response.model_dump_json().encode()) <= 256 * 1024
+
+
+@pytest.mark.parametrize("valid", [6, 0])
+def test_published_partial_or_zero_coverage_keeps_today_and_independent_values(valid):
+    query = _Query(valid=valid)
+    service = _service(query)
+    meta = service.build_meta(None, market="CN_A")
+    assert meta.dateContext.defaultTradeDate == TARGET_DATE
+    assert meta.dateContext.defaultStatus == "READY"
+    snapshot = service.build_snapshot(
+        None,
+        market="CN_A",
+        trade_date=TARGET_DATE,
+        scope="LEVEL_1",
+        level1_code=None,
+        level2_code=None,
+        period=1,
+        hierarchy_version="v1",
+        debug=False,
+    )
+    details = service.build_details(
+        None,
+        market="CN_A",
+        trade_date=TARGET_DATE,
+        scope="LEVEL_1",
+        level1_code=None,
+        level2_code=None,
+        period=1,
+        history_range=20,
+        sector_code="BK1001.DC",
+        hierarchy_version="v1",
+        debug=False,
+    )
+    assert snapshot.status == details.status == "READY"
+    assert snapshot.snapshot.rows[0].amountActivityPct is not None
+    assert details.details.history[-1].amountActivityPct is not None
+
+
+def test_no_publication_meta_is_empty_and_default_is_not_invented():
+    response = _service(_Query(empty=True)).build_meta(None, market="CN_A")
+    assert response.dateContext.defaultStatus == "EMPTY"
+    assert response.dateContext.defaultTradeDate is None
+
+
+def test_explicit_unpublished_date_never_reads_raw_or_executes_formula():
+    query = _Query(delayed=True)
+    service = _service(query)
+
+    class NoCalculator:
+        def __getattr__(self, name):
+            # DTO conversion of an empty fact is formatting, not formula execution.
+            if name == "as_json_percent":
+                return lambda value: None
+            raise AssertionError(f"unexpected formula call {name}")
+
+    service._calculator = NoCalculator()
+    snapshot = service.build_snapshot(
+        None,
+        market="CN_A",
+        trade_date=TARGET_DATE,
+        scope="LEVEL_1",
+        level1_code=None,
+        level2_code=None,
+        period=20,
+        hierarchy_version="v1",
+        debug=False,
+    )
+    details = service.build_details(
+        None,
+        market="CN_A",
+        trade_date=TARGET_DATE,
+        scope="LEVEL_1",
+        level1_code=None,
+        level2_code=None,
+        period=20,
+        history_range=60,
+        sector_code="BK1001.DC",
+        hierarchy_version="v1",
+        debug=False,
+    )
+    assert snapshot.status == details.status == "EMPTY"
+    assert len(snapshot.snapshot.rows) == 2
+    assert (
+        snapshot.snapshot.observedTradeDate
+        == details.details.observedTradeDate
+        == TARGET_DATE
+    )
+    assert details.details.history[0].priceMissingReason == "DATE_MISSING"
+    assert query.fact_calls == 0 and query.open_calls == []
+
+
+def test_date_outside_published_calendar_is_rejected_before_raw_read():
+    query = _Query()
+    with pytest.raises(SectorSelectionInvalidError):
+        _service(query).build_snapshot(
+            None,
+            market="CN_A",
+            trade_date=OPEN_DATES[0] - timedelta(days=1),
+            scope="LEVEL_1",
+            level1_code=None,
+            level2_code=None,
+            period=20,
+            hierarchy_version="v1",
+            debug=False,
+        )
+    assert query.fact_calls == 0 and query.open_calls == []
+
+
+def test_meta_schema_accepts_partial_but_rejects_legacy_basis_and_bad_date():
+    from pydantic import ValidationError
+    from src.biz.schemas.wealth.market.sector_price_volume import (
+        SectorPriceVolumeMetaResponseDto,
+    )
+
+    payload = _service(_Query(valid=6)).build_meta(None, market="CN_A").model_dump()
+    assert (
+        SectorPriceVolumeMetaResponseDto.model_validate(
+            payload
+        ).dateContext.defaultStatus
+        == "READY"
+    )
+    with pytest.raises(ValidationError):
+        SectorPriceVolumeMetaResponseDto.model_validate(
+            {**payload, "dateCoverageBasis": "INDUSTRY_PRICE_AMOUNT_DAILY"}
+        )
+    payload["dateContext"]["defaultTradeDate"] = TARGET_DATE + timedelta(days=1)
+    with pytest.raises(ValidationError):
+        SectorPriceVolumeMetaResponseDto.model_validate(payload)

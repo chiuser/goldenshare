@@ -83,7 +83,7 @@ class SectorPriceVolumeMetaResponseDto(_StrictDto):
     scopes: list[SectorMomentumScopeValue]
     states: list[PriceVolumeStateValue]
     defaults: SectorPriceVolumeDefaultsDto
-    dateCoverageBasis: Literal["INDUSTRY_PRICE_AMOUNT_DAILY"]
+    dateCoverageBasis: Literal["INDUSTRY_DAILY"]
     dateContext: PriceVolumeDateContextDto
     hierarchy: SectorHierarchyDto
     coverageStartDate: date
@@ -119,8 +119,8 @@ class SectorPriceVolumeMetaResponseDto(_StrictDto):
                 for item in self.tradeDates
                 if item.tradeDate == self.dateContext.defaultTradeDate
             ]
-            if len(defaults) != 1 or defaults[0].availability != "COMPLETE":
-                raise ValueError("defaultTradeDate must be a COMPLETE coverage date")
+            if len(defaults) != 1:
+                raise ValueError("defaultTradeDate must be a covered date")
         return self
 
 

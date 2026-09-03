@@ -18,6 +18,10 @@ from src.biz.queries.wealth.market.context.market_page_context_query import (
 from src.biz.queries.wealth.market.sector_analysis.sector_price_volume_query import (
     SectorPriceVolumeQuery,
 )
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+    SectorAnalysisFactReader,
+    SectorPublishedCalendarDate,
+)
 from src.biz.schemas.wealth.market.sector_analysis import (
     SectorHierarchyDto,
     SectorHierarchyNodeDto,
@@ -39,6 +43,7 @@ from src.biz.schemas.wealth.market.sector_price_volume import (
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     ALLOWED_SCOPES,
     SectorDataQueryError,
+    SectorDateAvailabilityFact,
     SectorMomentumScope,
     SectorScopeInvalidError,
     SectorSelectionInvalidError,
@@ -54,7 +59,6 @@ from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract
     DATE_COVERAGE_BASIS,
     FORMULA_KEY,
     FORMULA_VERSION,
-    SectorPriceVolumeDateAvailabilityFact,
     SectorPriceVolumeFactMismatchError,
     SectorPriceVolumeHistoryRange,
     SectorPriceVolumeMetricFact,
@@ -74,11 +78,13 @@ class SectorPriceVolumeQueryService:
         context_query: MarketPageContextQuery | None = None,
         hierarchy_query: SectorHierarchyQuery | None = None,
         price_volume_query: SectorPriceVolumeQuery | None = None,
+        fact_reader: SectorAnalysisFactReader | None = None,
         calculator: SectorPriceVolumeCalculator | None = None,
     ) -> None:
         self._context_query = context_query or MarketPageContextQuery()
         self._hierarchy_query = hierarchy_query or SectorHierarchyQuery()
         self._query = price_volume_query or SectorPriceVolumeQuery()
+        self._fact_reader = fact_reader or SectorAnalysisFactReader()
         self._calculator = calculator or SectorPriceVolumeCalculator()
 
     def build_meta(
@@ -93,30 +99,13 @@ class SectorPriceVolumeQueryService:
             requested_trade_date=None,
         )
         hierarchy = self._hierarchy_query.load(session)
-        coverage = self._query.load_trade_date_coverage(
+        coverage = self._fact_reader.load_momentum_coverage(
             session,
-            hierarchy_codes=self._hierarchy_codes(hierarchy),
-            expected_trade_date=context.trade_date,
+            hierarchy=hierarchy,
+            coverage_end_date=context.trade_date,
+            allow_empty=True,
         )
-        expected = next(
-            (
-                item
-                for item in coverage.trade_dates
-                if item.trade_date == context.trade_date
-            ),
-            None,
-        )
-        if expected is None:
-            raise SectorDataQueryError("public business date is absent from coverage")
-        default = expected if expected.availability == "COMPLETE" else next(
-            (
-                item
-                for item in reversed(coverage.trade_dates)
-                if item.trade_date < context.trade_date
-                and item.availability == "COMPLETE"
-            ),
-            None,
-        )
+        default = coverage.published_dates[-1] if coverage.published_dates else None
         if default is None:
             default_status = "EMPTY"
             display_text = "暂无可用量价数据"
@@ -152,7 +141,10 @@ class SectorPriceVolumeQueryService:
             hierarchy=self._hierarchy_dto(hierarchy),
             coverageStartDate=coverage.coverage_start_date,
             coverageEndDate=coverage.coverage_end_date,
-            tradeDates=[self._availability_dto(item) for item in coverage.trade_dates],
+            tradeDates=[
+                self._availability_dto(item.availability)
+                for item in coverage.calendar_dates
+            ],
         )
 
     def build_snapshot(
@@ -191,31 +183,43 @@ class SectorPriceVolumeQueryService:
             )
             pool_size = len(pool)
             self._validate_trade_date(trade_date=trade_date, context=context)
-            availability = self._query.load_exact_trade_date_status(
-                session,
-                hierarchy_codes=self._hierarchy_codes(hierarchy),
-                trade_date=trade_date,
+            day = self._published_day(
+                session, hierarchy=hierarchy, context=context, trade_date=trade_date
             )
-            open_dates = self._query.load_open_dates(
-                session,
-                end_date=trade_date,
-                count=requested_count,
-            )
-            loaded_count = len(open_dates)
-            if not open_dates or open_dates[-1] != trade_date:
-                raise SectorSelectionInvalidError("tradeDate 必须是 SSE 开市日")
-            facts = self._query.load_facts(
-                session,
-                sector_codes=tuple(node.sector_code for node in pool),
-                start_date=open_dates[0],
-                end_date=open_dates[-1],
-            )
-            ranked = self._calculator.calculate_snapshot(
-                sector_codes=tuple(node.sector_code for node in pool),
-                open_dates=open_dates,
-                facts=facts,
-                period=period,
-            )
+            availability = day.availability
+            if day.batch_id is None:
+                ranked = tuple(
+                    SectorPriceVolumeRankedFact(
+                        metric=self._missing_metric(node.sector_code, trade_date),
+                        price_rank=None,
+                        price_rankable_count=0,
+                        amount_rank=None,
+                        amount_rankable_count=0,
+                        state=None,
+                    )
+                    for node in sorted(pool, key=lambda item: item.sector_code)
+                )
+            else:
+                open_dates = self._query.load_open_dates(
+                    session,
+                    end_date=trade_date,
+                    count=requested_count,
+                )
+                loaded_count = len(open_dates)
+                if not open_dates or open_dates[-1] != trade_date:
+                    raise SectorSelectionInvalidError("tradeDate 必须是 SSE 开市日")
+                facts = self._query.load_facts(
+                    session,
+                    sector_codes=tuple(node.sector_code for node in pool),
+                    start_date=open_dates[0],
+                    end_date=open_dates[-1],
+                )
+                ranked = self._calculator.calculate_snapshot(
+                    sector_codes=tuple(node.sector_code for node in pool),
+                    open_dates=open_dates,
+                    facts=facts,
+                    period=period,
+                )
             node_by_code = {node.sector_code: node for node in pool}
             rows = [
                 self._snapshot_row_dto(item, node=node_by_code[item.metric.sector_code])
@@ -337,42 +341,33 @@ class SectorPriceVolumeQueryService:
             if selected is None:
                 raise SectorSelectionInvalidError("sectorCode 不属于当前比较范围")
             self._validate_trade_date(trade_date=trade_date, context=context)
-            availability = self._query.load_exact_trade_date_status(
-                session,
-                hierarchy_codes=self._hierarchy_codes(hierarchy),
-                trade_date=trade_date,
+            day = self._published_day(
+                session, hierarchy=hierarchy, context=context, trade_date=trade_date
             )
-            open_dates = self._query.load_open_dates(
-                session,
-                end_date=trade_date,
-                count=requested_count,
-            )
-            loaded_count = len(open_dates)
-            if not open_dates or open_dates[-1] != trade_date:
-                raise SectorSelectionInvalidError("tradeDate 必须是 SSE 开市日")
-            facts = self._query.load_facts(
-                session,
-                sector_codes=(selected.sector_code,),
-                start_date=open_dates[0],
-                end_date=open_dates[-1],
-            )
-            metrics = self._calculator.calculate_history(
-                sector_code=selected.sector_code,
-                open_dates=open_dates,
-                facts=facts,
-                period=period,
-                history_range=history_range,
-            )
-            if availability.availability == "MISSING":
-                metrics = (
-                    SectorPriceVolumeMetricFact(
-                        sector_code=selected.sector_code,
-                        trade_date=trade_date,
-                        price_momentum_pct=None,
-                        amount_activity_pct=None,
-                        price_missing_reason=SectorPriceVolumeMissingReason.DATE_MISSING,
-                        amount_missing_reason=SectorPriceVolumeMissingReason.DATE_MISSING,
-                    ),
+            availability = day.availability
+            if day.batch_id is None:
+                metrics = (self._missing_metric(selected.sector_code, trade_date),)
+            else:
+                open_dates = self._query.load_open_dates(
+                    session,
+                    end_date=trade_date,
+                    count=requested_count,
+                )
+                loaded_count = len(open_dates)
+                if not open_dates or open_dates[-1] != trade_date:
+                    raise SectorSelectionInvalidError("tradeDate 必须是 SSE 开市日")
+                facts = self._query.load_facts(
+                    session,
+                    sector_codes=(selected.sector_code,),
+                    start_date=open_dates[0],
+                    end_date=open_dates[-1],
+                )
+                metrics = self._calculator.calculate_history(
+                    sector_code=selected.sector_code,
+                    open_dates=open_dates,
+                    facts=facts,
+                    period=period,
+                    history_range=history_range,
                 )
             details = SectorPriceVolumeDetailsDto(
                 formulaKey=FORMULA_KEY,
@@ -456,13 +451,48 @@ class SectorPriceVolumeQueryService:
         if trade_date > context.trade_date:
             raise SectorSelectionInvalidError("tradeDate 超出公共业务日期范围")
 
+    def _published_day(
+        self,
+        session: Session,
+        *,
+        hierarchy: SectorHierarchySnapshot,
+        context: MarketPageContext,
+        trade_date: date,
+    ) -> SectorPublishedCalendarDate:
+        coverage = self._fact_reader.load_momentum_coverage(
+            session,
+            hierarchy=hierarchy,
+            coverage_end_date=context.trade_date,
+            allow_empty=True,
+        )
+        day = next(
+            (
+                item
+                for item in coverage.calendar_dates
+                if item.availability.trade_date == trade_date
+            ),
+            None,
+        )
+        if day is None:
+            raise SectorSelectionInvalidError("tradeDate 必须是发布覆盖内的 SSE 开市日")
+        return day
+
     @staticmethod
-    def _hierarchy_codes(hierarchy: SectorHierarchySnapshot) -> tuple[str, ...]:
-        return tuple(node.sector_code for node in hierarchy.nodes)
+    def _missing_metric(
+        sector_code: str, trade_date: date
+    ) -> SectorPriceVolumeMetricFact:
+        return SectorPriceVolumeMetricFact(
+            sector_code=sector_code,
+            trade_date=trade_date,
+            price_momentum_pct=None,
+            amount_activity_pct=None,
+            price_missing_reason=SectorPriceVolumeMissingReason.DATE_MISSING,
+            amount_missing_reason=SectorPriceVolumeMissingReason.DATE_MISSING,
+        )
 
     @staticmethod
     def _availability_dto(
-        item: SectorPriceVolumeDateAvailabilityFact,
+        item: SectorDateAvailabilityFact,
     ) -> PriceVolumeTradeDateAvailabilityDto:
         return PriceVolumeTradeDateAvailabilityDto(
             tradeDate=item.trade_date,

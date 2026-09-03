@@ -1482,6 +1482,7 @@ def test_price_volume_meta_snapshot_and_details_follow_three_five_five_sql(
     meta = meta_response.json()
     assert meta["formulaKey"] == "sector-price-volume-distribution"
     assert meta["formulaVersion"] == 1
+    assert meta["dateCoverageBasis"] == "INDUSTRY_DAILY"
     assert meta["periods"] == [1, 5, 10, 20, 30]
     assert meta["historyRanges"] == [20, 30, 60]
     assert meta["dateContext"] == {
@@ -1533,7 +1534,8 @@ def test_price_volume_partial_and_missing_dates_keep_exact_requested_day(
     partial_payload = partial_response.json()
     assert partial_payload["status"] == "READY"
     assert partial_payload["snapshot"]["observedTradeDate"] == TARGET_DATE.isoformat()
-    assert partial_payload["snapshot"]["availability"] == "PARTIAL"
+    # Date coverage describes published 1d results, not current raw amount validity.
+    assert partial_payload["snapshot"]["availability"] == "COMPLETE"
     assert partial_payload["snapshot"]["totalCount"] == 2
     assert partial_payload["snapshot"]["coordinateCount"] == 1
     missing_row = next(
@@ -1563,12 +1565,12 @@ def test_price_volume_partial_and_missing_dates_keep_exact_requested_day(
     missing_payload = missing_response.json()
     assert missing_payload["status"] == "EMPTY"
     assert missing_payload["snapshot"]["observedTradeDate"] == TARGET_DATE.isoformat()
-    assert missing_payload["snapshot"]["availability"] == "MISSING"
+    assert missing_payload["snapshot"]["availability"] == "COMPLETE"
     assert missing_payload["snapshot"]["totalCount"] == 2
     assert missing_payload["snapshot"]["coordinateCount"] == 0
 
 
-def test_price_volume_rejects_open_day_before_source_coverage(
+def test_price_volume_rejects_open_day_before_published_coverage(
     app_client,
     db_session,
 ) -> None:
@@ -1590,6 +1592,149 @@ def test_price_volume_rejects_open_day_before_source_coverage(
     )
     assert response.status_code == 400
     assert response.json()["code"] == "SA_SELECTION_INVALID"
+
+
+def test_price_volume_published_partial_and_zero_coverage_do_not_fall_back(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    current = db_session.scalars(
+        select(WealthSectorMomentumDaily).where(
+            WealthSectorMomentumDaily.trade_date == TARGET_DATE,
+            WealthSectorMomentumDaily.period == 1,
+            WealthSectorMomentumDaily.comparison_scope.in_(
+                ("LEVEL_1", "LEVEL_2", "LEVEL_3")
+            ),
+        )
+    ).all()
+    for missing_count in (1, 7):
+        for row in current[:missing_count]:
+            row.calculation_status = "UNAVAILABLE"
+            row.return_pct = row.strength_rank = row.rankable_count = row.percentile = (
+                None
+            )
+            row.missing_reason = "PCT_CHANGE_MISSING"
+        db_session.commit()
+        meta = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/meta"
+        ).json()
+        assert meta["dateContext"]["defaultTradeDate"] == TARGET_DATE.isoformat()
+        assert meta["dateContext"]["defaultStatus"] == "READY"
+        assert meta["tradeDates"][-1]["validSectorCount"] == 7 - missing_count
+        assert meta["tradeDates"][-1]["availability"] == (
+            "PARTIAL" if missing_count == 1 else "MISSING"
+        )
+        details = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/details",
+            params=_price_volume_details_params(),
+        ).json()
+        # The metadata count must not erase independently available amount/history.
+        assert details["status"] == "READY"
+        assert details["details"]["history"][-1]["amountActivityPct"] is not None
+
+
+def test_price_volume_unpublished_date_is_empty_without_raw_reads(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+    batch = db_session.scalar(
+        select(WealthSectorAnalysisPublishBatch).where(
+            WealthSectorAnalysisPublishBatch.trade_date == TARGET_DATE,
+        )
+    )
+    batch.status = "SUPERSEDED"
+    db_session.commit()
+    meta = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/meta"
+    ).json()
+    assert meta["dateContext"]["defaultTradeDate"] == OPEN_DATES[-2].isoformat()
+    assert meta["dateContext"]["defaultStatus"] == "DELAYED"
+    for endpoint, params in (
+        ("snapshot", _price_volume_snapshot_params()),
+        ("details", _price_volume_details_params()),
+    ):
+        sql_count, response = _count_request_sql(
+            web_engine,
+            lambda: app_client.get(
+                f"/api/v1/wealth/market/sector-analysis/price-volume/{endpoint}",
+                params=params,
+            ),
+        )
+        assert response.status_code == 200 and sql_count == 3
+        payload = response.json()
+        assert payload["status"] == "EMPTY"
+        assert payload[endpoint]["observedTradeDate"] == TARGET_DATE.isoformat()
+        assert payload["debugInfo"]["loadedOpenDateCount"] == 0
+    history = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
+        params=_price_volume_snapshot_params(tradeDate=OPEN_DATES[-3].isoformat()),
+    ).json()
+    assert history["snapshot"]["observedTradeDate"] == OPEN_DATES[-3].isoformat()
+
+
+def test_price_volume_no_publication_is_empty_without_changing_other_reader_defaults(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    import pytest
+    from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+        SectorAnalysisFactReader,
+    )
+    from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
+        SectorDataQueryError,
+    )
+
+    _seed_sector_analysis(db_session)
+    for batch in db_session.scalars(select(WealthSectorAnalysisPublishBatch)):
+        batch.status = "SUPERSEDED"
+    db_session.commit()
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/price-volume/meta",
+        ),
+    )
+    assert response.status_code == 200 and sql_count == 3
+    meta = response.json()
+    assert meta["dateContext"]["defaultStatus"] == "EMPTY"
+    assert meta["dateContext"]["defaultTradeDate"] is None
+    assert meta["tradeDates"] == [
+        {
+            "tradeDate": TARGET_DATE.isoformat(),
+            "availability": "MISSING",
+            "expectedSectorCount": 7,
+            "validSectorCount": 0,
+        }
+    ]
+    with pytest.raises(SectorDataQueryError):
+        SectorAnalysisFactReader().load_momentum_coverage(
+            db_session,
+            hierarchy=SectorHierarchyQuery().load(db_session),
+            coverage_end_date=TARGET_DATE,
+        )
+
+
+def test_price_volume_metadata_does_not_reaudit_raw_price_or_amount(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    before = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/meta"
+    ).json()
+    for row in db_session.scalars(
+        select(DcDaily).where(DcDaily.trade_date == TARGET_DATE)
+    ):
+        row.close = row.pct_change = row.amount = None
+    db_session.commit()
+    after = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/price-volume/meta"
+    ).json()
+    assert after == before
 
 
 def test_price_volume_version_mismatch_stops_after_two_sql(
