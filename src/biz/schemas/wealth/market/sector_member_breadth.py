@@ -14,6 +14,10 @@ from src.biz.schemas.wealth.market.sector_analysis import (
 )
 
 
+# Three percentages rounded to four decimals; epsilon only covers float noise.
+_COMPOSITION_SUM_TOLERANCE = 3 * 0.00005 + 1e-12
+
+
 SectorMemberBreadthMetricValue = Literal["MEMBER_COUNT", "TURNOVER", "MA_POSITION"]
 SectorMemberBreadthReasonValue = Literal[
     "SOURCE_MEMBER_EMPTY",
@@ -304,7 +308,7 @@ class SectorMemberBreadthCompositionDto(_StrictDto):
             value is None for value in percentages
         ):
             raise ValueError("composition percentages must be null together")
-        if percentages[0] is not None and abs(sum(percentages) - 100) > 1e-6:  # type: ignore[arg-type]
+        if percentages[0] is not None and abs(sum(percentages) - 100) > _COMPOSITION_SUM_TOLERANCE:  # type: ignore[arg-type]
             raise ValueError("composition percentages must sum to 100")
         return self
 

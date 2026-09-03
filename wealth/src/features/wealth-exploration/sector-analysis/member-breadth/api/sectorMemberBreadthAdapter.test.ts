@@ -6,6 +6,78 @@ const rankingRequest = { market: "CN_A", tradeDate: "2026-08-27", scope: "LEVEL_
 const detailsRequest = { market: "CN_A", tradeDate: "2026-08-27", sectorCode: "BK1001.DC", direction: "UP", maPeriod: 20, historyRange: 20, hierarchyVersion: "dc-industry-v1" } as const;
 
 describe("sectorMemberBreadthAdapter", () => {
+  it.each([
+    { counts: [2, 2, 2], percentages: [33.3333, 33.3333, 33.3333] },
+    { counts: [1, 1, 4], percentages: [16.6667, 16.6667, 66.6667] },
+    { counts: [2, 2, 2], percentages: [100 / 3, 100 / 3, 100 / 3] },
+  ])("accepts normal composition rounding without changing the values: $percentages", ({ counts, percentages }) => {
+    const payload = breadthDetailsPayload(new URL("http://localhost/details"));
+    for (const row of payload.compositions) {
+      Object.assign(row, {
+        sourceCount: 6, calculableCount: 6, coveragePct: 100, eligible: true,
+        positiveCount: counts[0], neutralCount: counts[1], negativeCount: counts[2],
+        positivePct: percentages[0], neutralPct: percentages[1], negativePct: percentages[2],
+      });
+    }
+    const result = buildSectorMemberBreadthDetailsViewModel(payload, detailsRequest);
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") {
+      for (const row of result.data.compositions) {
+        expect([row.positivePct, row.neutralPct, row.negativePct]).toEqual(percentages);
+      }
+    }
+  });
+
+  it.each([
+    [33.3332, 33.3333, 33.3333],
+    [33.3334, 33.3334, 33.3334],
+  ])("rejects composition totals beyond rounding allowance: %s, %s, %s", (positivePct, neutralPct, negativePct) => {
+    const payload = breadthDetailsPayload(new URL("http://localhost/details"));
+    Object.assign(payload.compositions[0]!, { positivePct, neutralPct, negativePct });
+    expect(() => buildSectorMemberBreadthDetailsViewModel(payload, detailsRequest)).toThrow(/百分比之和/);
+  });
+
+  it.each([
+    { sourceCount: 6, calculableCount: 5, coveragePct: 83.3333, accepted: true },
+    { sourceCount: 9, calculableCount: 8, coveragePct: 88.8889, accepted: true },
+    { sourceCount: 6, calculableCount: 5, coveragePct: 100 * 5 / 6, accepted: true },
+    { sourceCount: 6, calculableCount: 5, coveragePct: 83.3334, accepted: false },
+    { sourceCount: 9, calculableCount: 8, coveragePct: 88.8888, accepted: false },
+  ])("checks rounding for both ranking and composition coverage: $coveragePct", ({ sourceCount, calculableCount, coveragePct, accepted }) => {
+    const rankings = breadthRankingsPayload(new URL("http://localhost/rankings"));
+    Object.assign(rankings.rows[0]!, { sourceMemberCount: sourceCount, calculableCount, coveragePct });
+    const details = breadthDetailsPayload(new URL("http://localhost/details"));
+    Object.assign(details.compositions[0]!, {
+      sourceCount, calculableCount, coveragePct, eligible: true,
+      positiveCount: calculableCount, neutralCount: 0, negativeCount: 0,
+      positivePct: 100, neutralPct: 0, negativePct: 0,
+    });
+    if (!accepted) {
+      expect(() => buildSectorMemberBreadthRankingsViewModel(rankings, rankingRequest)).toThrow(/覆盖率与数量/);
+      expect(() => buildSectorMemberBreadthDetailsViewModel(details, detailsRequest)).toThrow(/覆盖率与数量/);
+      return;
+    }
+    const rankingResult = buildSectorMemberBreadthRankingsViewModel(rankings, rankingRequest);
+    const detailsResult = buildSectorMemberBreadthDetailsViewModel(details, detailsRequest);
+    expect(rankingResult.kind).toBe("ready");
+    expect(detailsResult.kind).toBe("ready");
+    if (rankingResult.kind === "ready") expect(rankingResult.data.rows[0]!.coveragePct).toBe(coveragePct);
+    if (detailsResult.kind === "ready") expect(detailsResult.data.compositions[0]!.coveragePct).toBe(coveragePct);
+  });
+
+  it.each([
+    { positivePct: Number.NaN },
+    { positivePct: Number.POSITIVE_INFINITY },
+    { positivePct: -0.00001 },
+    { positivePct: 100.00001 },
+    { positivePct: null },
+    { positiveCount: 13 },
+  ])("still rejects invalid composition fields: %j", (changes) => {
+    const payload = breadthDetailsPayload(new URL("http://localhost/details"));
+    Object.assign(payload.compositions[0]!, changes);
+    expect(() => buildSectorMemberBreadthDetailsViewModel(payload, detailsRequest)).toThrow(SectorMemberBreadthContractError);
+  });
+
   it("accepts the frozen Meta, Rankings and Details contracts without computing business facts", () => {
     const meta = buildSectorMemberBreadthMetaViewModel(breadthMetaPayload());
     const rankings = buildSectorMemberBreadthRankingsViewModel(breadthRankingsPayload(new URL("http://localhost/rankings?tradeDate=2026-08-27&scope=LEVEL_1&direction=UP&metric=MEMBER_COUNT&maPeriod=20")), rankingRequest);
