@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from dataclasses import asdict
+from types import SimpleNamespace
 from time import perf_counter
 from uuid import NAMESPACE_URL, uuid5
 
@@ -28,6 +30,12 @@ from src.foundation.models.core_serving.wealth_sector_dual_momentum_daily import
 from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily import (
     WealthSectorRelativeRotationDaily,
 )
+from src.foundation.models.core_serving.wealth_sector_member_breadth_daily import WealthSectorMemberBreadthDaily
+from src.foundation.models.core_serving.wealth_sector_member_ma_breadth_daily import WealthSectorMemberMaBreadthDaily
+from src.biz.services.wealth.market.sector_analysis.daily_facts.fact_builder import SectorAnalysisDailyFactBuilder
+from src.biz.services.wealth.market.sector_analysis.daily_facts.source_query import SectorAnalysisDailyFactsSourceQuery
+from src.biz.services.wealth.market.sector_analysis.daily_facts.repository import SectorAnalysisDailyFactsRepository
+from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contract import MemberMarketFact, MemberRelationFact
 from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_classifier import (
     SectorDualMomentumClassifier,
 )
@@ -419,6 +427,39 @@ def _seed_member_breadth(db_session) -> None:
                         adj_factor=Decimal(1),
                     )
                 )
+    db_session.commit()
+    _seed_breadth_serving_facts(db_session)
+
+
+def _seed_breadth_serving_facts(db_session, *, dates=OPEN_DATES):
+    """Use the existing offline formula/writer normalization as the parity oracle."""
+    for model in (WealthSectorMemberBreadthDaily, WealthSectorMemberMaBreadthDaily):
+        model.__table__.create(db_session.get_bind(), checkfirst=True)
+    hierarchy = SectorHierarchyQuery().load(db_session)
+    pools = SectorAnalysisDailyFactsSourceQuery._comparison_pools(hierarchy)
+    relations = tuple(MemberRelationFact(row.ts_code, row.trade_date, row.con_code, row.name)
+                      for row in db_session.scalars(select(DcMember)))
+    factors = {(row.ts_code, row.trade_date): row.adj_factor
+               for row in db_session.scalars(select(EquityAdjFactor))}
+    market = tuple(MemberMarketFact(row.ts_code, row.trade_date, row.close,
+                                   row.pct_chg, row.amount, factors.get((row.ts_code, row.trade_date)))
+                   for row in db_session.scalars(select(EquityDailyBar)))
+    builder = SectorAnalysisDailyFactBuilder()
+    for day in dates:
+        bundle = SimpleNamespace(trade_date=day, hierarchy=hierarchy, comparison_pools=pools,
+                                 open_dates=tuple(d for d in OPEN_DATES if d <= day),
+                                 member_relations=relations, member_market_facts=market)
+        ordinary, ma = builder._build_breadth(bundle)
+        for model, rows in ((WealthSectorMemberBreadthDaily, ordinary), (WealthSectorMemberMaBreadthDaily, ma)):
+            for row in rows:
+                values = {**asdict(row.identity), **dict(row.values),
+                          "calculation_status": row.calculation_status, "missing_reason": row.missing_reason,
+                          "formula_key": "sector-member-breadth", "formula_version": 1}
+                if model is WealthSectorMemberMaBreadthDaily:
+                    values["ma_period"] = row.ma_period
+                values = SectorAnalysisDailyFactsRepository._normalize_record(model, values)
+                db_session.merge(model(batch_id=uuid5(NAMESPACE_URL, f"sector-analysis-test:{day.isoformat()}"),
+                                       calculated_at=datetime(2026, 4, 30, 20, 0, tzinfo=timezone.utc), **values))
     db_session.commit()
 
 
@@ -2846,7 +2887,7 @@ def test_member_breadth_rankings_return_full_list_in_four_sql(
     assert [row["rank"] for row in payload["rows"]] == [1, 2]
 
 
-def test_member_breadth_ma_rankings_read_factors_without_extra_sql(
+def test_member_breadth_ma_rankings_read_materialized_facts_without_extra_sql(
     app_client,
     db_session,
     web_engine,
@@ -2953,6 +2994,7 @@ def test_member_breadth_details_projection_preserves_independent_missing_reasons
     db_session.delete(missing_market)
     db_session.delete(missing_factor)
     db_session.commit()
+    _seed_breadth_serving_facts(db_session, dates=(TARGET_DATE,))
 
     sql_count, response = _count_request_sql(
         web_engine,
@@ -3106,6 +3148,7 @@ def test_member_breadth_missing_selected_relations_returns_safe_empty_details(
     web_engine,
 ) -> None:
     _seed_sector_analysis(db_session)
+    _seed_breadth_serving_facts(db_session)
 
     sql_count, response = _count_request_sql(
         web_engine,
@@ -3167,3 +3210,138 @@ def test_member_breadth_hierarchy_unavailable_keeps_common_exception_semantics(
     assert details.json()["status"] == "ERROR"
     assert details.json()["exceptionCode"] == "SA_HIERARCHY_UNAVAILABLE"
     assert details_sql_count == 1
+
+
+def test_member_breadth_materialized_full_matrix_matches_offline_facts(app_client, db_session, web_engine):
+    _seed_member_breadth(db_session)
+    scopes = (("LEVEL_1", None, None, 2), ("LEVEL_2", None, None, 3), ("LEVEL_3", None, None, 2),
+              ("LEVEL_1_CHILDREN", "BK1001.DC", None, 2),
+              ("LEVEL_2_CHILDREN", "BK1001.DC", "BK1101.DC", 2))
+    hierarchy = SectorHierarchyQuery().load(db_session)
+    statements = []
+    def record(_conn, _cursor, sql, _params, _context, _many):
+        statements.append(sql.lower())
+    event.listen(web_engine, "before_cursor_execute", record)
+    try:
+        for scope, l1, l2, count in scopes:
+            for metric in ("MEMBER_COUNT", "TURNOVER", "MA_POSITION"):
+                for ma in (5, 10, 15, 20, 30, 60):
+                    for direction in ("UP", "DOWN"):
+                        params = _member_breadth_rankings_params(scope=scope, metric=metric, maPeriod=ma, direction=direction)
+                        if l1:
+                            params["level1Code"] = l1
+                        if l2:
+                            params["level2Code"] = l2
+                        statements.clear()
+                        response = app_client.get("/api/v1/wealth/market/sector-analysis/member-breadth/rankings", params=params)
+                        payload = response.json()
+                        assert response.status_code == 200 and payload["status"] == "READY", payload
+                        assert len(statements) == 4 and len(payload["rows"]) == count
+                        assert not any(source in sql for sql in statements for source in ("core_serving.dc_member", "core_serving.equity_daily_bar", "core_serving.equity_adj_factor", "core_serving.dc_daily"))
+                        selected_model = WealthSectorMemberMaBreadthDaily if metric == "MA_POSITION" else WealthSectorMemberBreadthDaily
+                        key = f"PARENT:L1:{l1}" if scope == "LEVEL_1_CHILDREN" else f"PARENT:L2:{l2}" if scope == "LEVEL_2_CHILDREN" else f"GLOBAL:L{scope[-1]}"
+                        prefix = "" if metric == "MA_POSITION" else "member_" if metric == "MEMBER_COUNT" else "turnover_"
+                        for row in payload["rows"]:
+                            identity = dict(batch_id=uuid5(NAMESPACE_URL, f"sector-analysis-test:{TARGET_DATE.isoformat()}"), comparison_scope=scope, comparison_key=key, sector_code=row["sectorCode"])
+                            if metric == "MA_POSITION":
+                                identity["ma_period"] = ma
+                            stored = db_session.get(selected_model, identity)
+                            side = ("above" if direction == "UP" else "below") if metric == "MA_POSITION" else prefix + direction.lower()
+                            assert row["metricValuePct"] == float(getattr(stored, side + "_pct"))
+                            assert row["rank"] == getattr(stored, prefix + direction.lower() + "_rank")
+                            assert row["coveragePct"] == float(getattr(stored, prefix + "coverage_pct"))
+                        assert {row["sectorCode"] for row in payload["rows"]} == {node.sector_code for node in resolve_scope_pool(hierarchy, scope=scope, level1_code=l1, level2_code=l2)}
+        for ma in (5, 10, 15, 20, 30, 60):
+            for history in (20, 30, 60):
+                for direction in ("UP", "DOWN"):
+                    statements.clear()
+                    payload = app_client.get("/api/v1/wealth/market/sector-analysis/member-breadth/details", params=_member_breadth_details_params(maPeriod=ma, historyRange=history, direction=direction)).json()
+                    assert payload["status"] == "READY", payload
+                    assert len(statements) == 4
+                    assert len(payload["trend"]) == history and len(payload["members"]) == 5
+                    assert [row["tradeDate"] for row in payload["trend"]] == [day.isoformat() for day in OPEN_DATES[-history:]]
+                    assert sum("core_serving.dc_member" in sql for sql in statements) == 1
+                    assert "union all" not in statements[-1]
+    finally:
+        event.remove(web_engine, "before_cursor_execute", record)
+
+
+def test_member_breadth_keeps_published_partial_and_unpublished_history_gap(app_client, db_session):
+    _seed_member_breadth(db_session)
+    current_id = uuid5(NAMESPACE_URL, f"sector-analysis-test:{TARGET_DATE.isoformat()}")
+    momentum = db_session.scalar(select(WealthSectorMomentumDaily).where(
+        WealthSectorMomentumDaily.batch_id == current_id,
+        WealthSectorMomentumDaily.comparison_scope == "LEVEL_1",
+        WealthSectorMomentumDaily.period == 1, WealthSectorMomentumDaily.sector_code == "BK1001.DC"))
+    momentum.calculation_status = "UNAVAILABLE"
+    momentum.return_pct = momentum.strength_rank = momentum.rankable_count = momentum.percentile = None
+    momentum.missing_reason = "MISSING_TARGET_DAY"
+    gap = OPEN_DATES[-2]
+    batch = db_session.get(WealthSectorAnalysisPublishBatch, uuid5(NAMESPACE_URL, f"sector-analysis-test:{gap.isoformat()}"))
+    batch.status = "SUPERSEDED"
+    db_session.commit()
+    meta = app_client.get("/api/v1/wealth/market/sector-analysis/member-breadth/meta").json()
+    assert meta["tradeDates"][-1]["availability"] == "PARTIAL"
+    assert meta["dateContext"]["defaultStatus"] == "READY"
+    assert meta["dateContext"]["defaultTradeDate"] == TARGET_DATE.isoformat()
+    details = app_client.get("/api/v1/wealth/market/sector-analysis/member-breadth/details", params=_member_breadth_details_params()).json()
+    assert details["status"] == "READY"
+    assert details["trend"][-2] == dict(tradeDate=gap.isoformat(), memberPct=None, turnoverPct=None, maPositionPct=None,
+                                       memberReasonCodes=["MARKET_ROW_MISSING"], turnoverReasonCodes=["MARKET_ROW_MISSING"], maPositionReasonCodes=["MARKET_ROW_MISSING"])
+    for endpoint, params in (("rankings", _member_breadth_rankings_params(tradeDate=gap.isoformat())), ("details", _member_breadth_details_params(tradeDate=gap.isoformat()))):
+        result = app_client.get(f"/api/v1/wealth/market/sector-analysis/member-breadth/{endpoint}", params=params).json()
+        assert result["status"] == "EMPTY" and result["tradeDate"] == gap.isoformat()
+    current = db_session.get(WealthSectorAnalysisPublishBatch, current_id)
+    current.status = "SUPERSEDED"
+    db_session.commit()
+    meta = app_client.get("/api/v1/wealth/market/sector-analysis/member-breadth/meta").json()
+    assert meta["dateContext"]["defaultStatus"] == "DELAYED"
+    assert meta["dateContext"]["defaultTradeDate"] == OPEN_DATES[-3].isoformat()
+
+
+def test_member_breadth_source_changes_do_not_recompute_published_compositions(app_client, db_session):
+    _seed_member_breadth(db_session)
+    params = _member_breadth_details_params()
+    path = "/api/v1/wealth/market/sector-analysis/member-breadth/details"
+    before = app_client.get(path, params=params).json()
+    source = db_session.get(EquityDailyBar, {"ts_code": "060001.SZ", "trade_date": TARGET_DATE})
+    source.pct_chg = Decimal(-99)
+    db_session.commit()
+    after = app_client.get(path, params=params).json()
+    assert after["status"] == "READY"
+    assert before["compositions"] == after["compositions"]
+    assert before["trend"] == after["trend"]
+    assert before["members"] != after["members"]
+
+
+def test_member_breadth_trend_reads_each_dates_own_values(app_client, db_session):
+    _seed_member_breadth(db_session)
+    historic_day = OPEN_DATES[-4]
+    row = db_session.get(WealthSectorMemberBreadthDaily, dict(
+        batch_id=uuid5(NAMESPACE_URL, f"sector-analysis-test:{historic_day.isoformat()}"),
+        comparison_scope="LEVEL_3", comparison_key="GLOBAL:L3", sector_code="BK1201.DC"))
+    row.member_up_count, row.member_flat_count, row.member_down_count = 3, 1, 1
+    row.member_up_pct, row.member_flat_pct, row.member_down_pct = Decimal(60), Decimal(20), Decimal(20)
+    db_session.commit()
+    for direction, historic_value, current_value in (("UP", 60, 100), ("DOWN", 20, 0)):
+        result = app_client.get("/api/v1/wealth/market/sector-analysis/member-breadth/details", params=_member_breadth_details_params(direction=direction)).json()
+        assert result["status"] == "READY"
+        assert result["trend"][-4]["tradeDate"] == historic_day.isoformat()
+        assert result["trend"][-4]["memberPct"] == historic_value
+        assert result["trend"][-1]["memberPct"] == current_value
+
+
+def test_member_breadth_rejects_missing_published_row_and_wrong_formula_without_fallback(app_client, db_session):
+    _seed_member_breadth(db_session)
+    key = dict(batch_id=uuid5(NAMESPACE_URL, f"sector-analysis-test:{TARGET_DATE.isoformat()}"), comparison_scope="LEVEL_3", comparison_key="GLOBAL:L3", sector_code="BK1201.DC")
+    stored = db_session.get(WealthSectorMemberBreadthDaily, key)
+    stored.formula_version = 2
+    db_session.commit()
+    params = _member_breadth_details_params()
+    result = app_client.get("/api/v1/wealth/market/sector-analysis/member-breadth/details", params=params).json()
+    assert result["status"] == "ERROR" and result["exceptionCode"] == "SA_BREADTH_QUERY_FAILED"
+    assert not result["members"] and "SELECT" not in result["message"]
+    db_session.delete(stored)
+    db_session.commit()
+    result = app_client.get("/api/v1/wealth/market/sector-analysis/member-breadth/rankings", params=_member_breadth_rankings_params(scope="LEVEL_3")).json()
+    assert result["status"] == "ERROR" and result["exceptionCode"] == "SA_BREADTH_QUERY_FAILED"

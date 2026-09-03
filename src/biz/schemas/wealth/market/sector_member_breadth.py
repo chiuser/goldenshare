@@ -100,27 +100,16 @@ class SectorMemberBreadthMetaResponseDto(_StrictDto):
             raise ValueError("member breadth tradeDates must span public coverage")
         if self.dateContext.expectedTradeDate != self.coverageEndDate:
             raise ValueError("member breadth expected date must equal coverage end")
-        complete_dates = [
-            item.tradeDate
-            for item in self.tradeDates
-            if item.availability == "COMPLETE"
-        ]
-        expected = self.tradeDates[-1]
         default_date = self.dateContext.defaultTradeDate
-        if expected.availability == "COMPLETE":
-            if (
-                default_date != expected.tradeDate
-                or self.dateContext.defaultStatus != "READY"
-            ):
-                raise ValueError("complete expected date must be the READY default")
-        elif complete_dates:
-            if (
-                default_date != complete_dates[-1]
-                or self.dateContext.defaultStatus != "DELAYED"
-            ):
-                raise ValueError("incomplete expected date must use latest COMPLETE")
-        elif default_date is not None or self.dateContext.defaultStatus != "EMPTY":
-            raise ValueError("missing COMPLETE coverage must produce an EMPTY default")
+        # Publication is resolved by the server, not inferred from calculable counts.
+        if default_date is not None and default_date not in dates:
+            raise ValueError("default date must be in public coverage")
+        expected_status = (
+            "EMPTY" if default_date is None else
+            "READY" if default_date == self.coverageEndDate else "DELAYED"
+        )
+        if self.dateContext.defaultStatus != expected_status:
+            raise ValueError("default status must match the published date selection")
         return self
 
 
@@ -230,18 +219,22 @@ class SectorMemberBreadthRankingsResponseDto(_StrictDto):
             rank_total = len(ranked_rows)
             previous_value: float | None = None
             previous_rank = 0
+            previous_code = ""
             for position, row in enumerate(ranked_rows, start=1):
                 if row.rankTotal != rank_total:
                     raise ValueError("rankTotal must count eligible sectors")
-                expected_rank = (
-                    previous_rank if row.metricValuePct == previous_value else position
-                )
-                if row.rank != expected_rank:
+                # Four-decimal values can coincide without an original-value tie.
+                if row.rank != position and not (
+                    row.rank == previous_rank and row.metricValuePct == previous_value
+                ):
                     raise ValueError(
                         "member breadth ranks must use competition ranking"
                     )
+                if row.rank == previous_rank and row.sectorCode < previous_code:
+                    raise ValueError("tied member breadth ranks must use stable code order")
                 previous_value = row.metricValuePct
                 previous_rank = row.rank
+                previous_code = row.sectorCode
             if [row.metricValuePct for row in ranked_rows] != sorted(
                 (row.metricValuePct for row in ranked_rows),
                 reverse=True,

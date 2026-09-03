@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from uuid import UUID
 
 import pytest
 from sqlalchemy.dialects import postgresql
@@ -14,9 +15,14 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
 from src.biz.queries.wealth.market.context.market_page_context_query import (
     MarketPageContext,
 )
-from src.biz.queries.wealth.market.sector_analysis.sector_analysis_meta_query_service import (
-    SectorAnalysisMetaFacts,
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+    SectorPublishedBreadthRow,
+    SectorPublishedBreadthDay,
+    SectorPublishedCoverage,
+    SectorPublishedCalendarDate,
+    _breadth_composition,
 )
+from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import SectorDataQueryError
 from src.biz.queries.wealth.market.sector_analysis.sector_member_breadth_query_service import (
     SectorMemberBreadthQueryService,
 )
@@ -24,19 +30,16 @@ from src.biz.queries.wealth.market.sector_analysis.sector_member_breadth_query i
     SectorMemberBreadthQuery,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contract import (
-    MemberBreadthDailyProjectionFact,
-    MemberBreadthDetailsProjectionFact,
-    MemberBreadthDetailsWindowFact,
+    MemberBreadthCompositionFact,
+    MetricCoverageFact,
     MemberBreadthMemberProjectionFact,
-    MemberBreadthWindowRelationsFact,
-    MemberMarketFact,
-    MemberRelationFact,
     SectorMemberBreadthDetailsRequest,
     SectorMemberBreadthFactMismatchError,
     SectorMemberBreadthRankingsRequest,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorDateAvailabilityFact,
+    resolve_scope_pool,
     SectorScopeInvalidError,
     SectorSelectionInvalidError,
 )
@@ -143,222 +146,162 @@ class _ContextQuery:
         return _context()
 
 
-class _MetaService:
-    def __init__(self, availability: tuple[str, ...]) -> None:
-        self.availability = availability
+class _FactReader:
+    def __init__(
+        self, *, statuses=("COMPLETE",), published=None, empty=False, fail=False
+    ):
+        self.statuses = statuses
+        self.published = published if published is not None else (True,) * len(statuses)
+        self.empty = empty
+        self.fail = fail
+        self.calls = []
 
-    def load(self, _session, *, market) -> SectorAnalysisMetaFacts:
-        assert market == "CN_A"
-        dates = tuple(
-            TARGET_DATE - timedelta(days=len(self.availability) - index - 1)
-            for index in range(len(self.availability))
+    def load_momentum_coverage(self, _session, *, coverage_end_date, hierarchy):
+        self.calls.append(("coverage", coverage_end_date))
+        days = tuple(
+            TARGET_DATE - timedelta(days=len(self.statuses) - i - 1)
+            for i in range(len(self.statuses))
         )
-        hierarchy = _hierarchy()
-        return SectorAnalysisMetaFacts(
-            context=_context(),
-            hierarchy=hierarchy,
-            coverage_start_date=dates[0],
-            coverage_end_date=dates[-1],
-            trade_dates=tuple(
-                SectorDateAvailabilityFact(
-                    trade_date=item,
-                    availability=status,  # type: ignore[arg-type]
-                    expected_sector_count=len(hierarchy.nodes),
-                    valid_sector_count=(
-                        len(hierarchy.nodes)
-                        if status == "COMPLETE"
-                        else 1
-                        if status == "PARTIAL"
-                        else 0
+        return SectorPublishedCoverage(
+            days[0],
+            days[-1],
+            tuple(
+                SectorPublishedCalendarDate(
+                    SectorDateAvailabilityFact(
+                        day,
+                        status,
+                        7,
+                        7 if status == "COMPLETE" else 1 if status == "PARTIAL" else 0,
                     ),
+                    UUID(int=i + 1) if published else None,
                 )
-                for item, status in zip(dates, self.availability, strict=True)
+                for i, (day, status, published) in enumerate(
+                    zip(days, self.statuses, self.published, strict=True)
+                )
+            ),
+        )
+
+    def load_breadth_rankings(self, _session, **kwargs):
+        self.calls.append(("rankings", kwargs))
+        if self.fail:
+            raise RuntimeError("sensitive SQL password")
+        pool = resolve_scope_pool(
+            kwargs["hierarchy"],
+            scope=kwargs["scope"],
+            level1_code=kwargs["level1_code"],
+            level2_code=kwargs["level2_code"],
+        )
+        return tuple(
+            SectorPublishedBreadthRow(
+                node.sector_code, _composition(kwargs["metric"]), 1, len(pool)
+            )
+            for node in sorted(pool, key=lambda n: n.sector_code)
+        )
+
+    def load_breadth_history(self, _session, **kwargs):
+        self.calls.append(("history", kwargs))
+        if self.fail:
+            raise RuntimeError("sensitive SQL password")
+        return tuple(
+            SectorPublishedBreadthDay(
+                TARGET_DATE - timedelta(days=offset),
+                UUID(int=1),
+                tuple(
+                    _composition(metric, empty=self.empty)
+                    for metric in ("MEMBER_COUNT", "TURNOVER", "MA_POSITION")
+                ),
+            )
+            for offset in reversed(range(kwargs["history_range"]))
+        )
+
+
+def _composition(metric, *, empty=False):
+    return MemberBreadthCompositionFact(
+        metric,
+        0 if empty else 5,
+        0,
+        0,
+        None if empty else Decimal("100"),
+        None if empty else Decimal(0),
+        None if empty else Decimal(0),
+        MetricCoverageFact(
+            0 if empty else 5,
+            0 if empty else 5,
+            Decimal(0 if empty else 100),
+            not empty,
+            ("SOURCE_MEMBER_EMPTY",) if empty else (),
+        ),
+    )
+
+
+class _FactQuery:
+    def __init__(self):
+        self.calls = []
+
+    def load_member_projection(self, _session, **kwargs):
+        self.calls.append(kwargs)
+        return (
+            MemberBreadthMemberProjectionFact(
+                TARGET_DATE,
+                "000001.SZ",
+                "股票甲",
+                Decimal(1),
+                Decimal(100),
+                Decimal(11),
+                Decimal(10 * kwargs["ma_period"]),
+                kwargs["ma_period"],
+                kwargs["ma_period"],
+                (),
             ),
         )
 
 
-class _FactQuery:
-    def __init__(self, *, empty_relations: bool = False, fail: bool = False) -> None:
-        self.empty_relations = empty_relations
-        self.fail = fail
-        self.window_calls: list[dict] = []
-        self.market_calls: list[dict] = []
-        self.details_window_calls: list[dict] = []
-        self.details_projection_calls: list[dict] = []
-
-    def load_window_relations(self, _session, **kwargs):
-        if self.fail:
-            raise RuntimeError("sensitive sql details")
-        self.window_calls.append(kwargs)
-        open_dates = tuple(
-            kwargs["target_date"]
-            - timedelta(days=kwargs["open_date_count"] - index - 1)
-            for index in range(kwargs["open_date_count"])
-        )
-        relation_dates = open_dates[-kwargs["relation_date_count"] :]
-        relations = ()
-        if not self.empty_relations:
-            relations = tuple(
-                MemberRelationFact(
-                    sector_code=sector_code,
-                    trade_date=item,
-                    stock_code=f"{sector_index:02d}{stock_index:04d}.SZ",
-                    stock_name=f"股票{stock_index}",
-                )
-                for item in relation_dates
-                for sector_index, sector_code in enumerate(
-                    kwargs["relation_sector_codes"], start=1
-                )
-                for stock_index in range(1, 6)
-            )
-        return MemberBreadthWindowRelationsFact(
-            coverage_start_date=TARGET_DATE - timedelta(days=200),
-            coverage_end_date=kwargs["coverage_end_date"],
-            open_dates=open_dates,
-            relation_dates=relation_dates,
-            relations=relations,
-        )
-
-    def load_market_facts(self, _session, **kwargs):
-        self.market_calls.append(kwargs)
-        dates = tuple(
-            kwargs["start_date"] + timedelta(days=index)
-            for index in range((kwargs["end_date"] - kwargs["start_date"]).days + 1)
-        )
-        return tuple(
-            MemberMarketFact(
-                stock_code=stock_code,
-                trade_date=item,
-                close=Decimal("10"),
-                pct_change=Decimal("1"),
-                amount_thousand_yuan=Decimal("100"),
-                adj_factor=Decimal("1") if kwargs["include_adj_factor"] else None,
-            )
-            for item in dates
-            for stock_code in kwargs["stock_codes"]
-        )
-
-    def load_details_window(self, _session, **kwargs):
-        if self.fail:
-            raise RuntimeError("sensitive sql details")
-        self.details_window_calls.append(kwargs)
-        open_dates = tuple(
-            kwargs["target_date"]
-            - timedelta(days=kwargs["open_date_count"] - index - 1)
-            for index in range(kwargs["open_date_count"])
-        )
-        relation_dates = open_dates[-kwargs["relation_date_count"] :]
-        return MemberBreadthDetailsWindowFact(
-            coverage_start_date=TARGET_DATE - timedelta(days=200),
-            coverage_end_date=kwargs["coverage_end_date"],
-            open_dates=open_dates,
-            relation_dates=relation_dates,
-            target_source_count=0 if self.empty_relations else 5,
-        )
-
-    def load_details_projection(self, _session, **kwargs):
-        if self.fail:
-            raise RuntimeError("sensitive sql details")
-        self.details_projection_calls.append(kwargs)
-        daily = tuple(
-            MemberBreadthDailyProjectionFact(
-                trade_date=item,
-                source_count=5,
-                member_calculable_count=5,
-                member_up_count=5,
-                member_flat_count=0,
-                member_down_count=0,
-                turnover_calculable_count=5,
-                turnover_up_count=5,
-                turnover_flat_count=0,
-                turnover_down_count=0,
-                turnover_up_amount=Decimal("500"),
-                turnover_flat_amount=Decimal(0),
-                turnover_down_amount=Decimal(0),
-                ma_calculable_count=5,
-                ma_above_count=0,
-                ma_equal_count=5,
-                ma_below_count=0,
-                member_source_reasons=(),
-                turnover_source_reasons=(),
-                ma_source_reasons=(),
-            )
-            for item in kwargs["relation_dates"]
-        )
-        members = tuple(
-            MemberBreadthMemberProjectionFact(
-                trade_date=kwargs["target_date"],
-                stock_code=f"01{index:04d}.SZ",
-                stock_name=f"股票{index}",
-                daily_pct_change=Decimal(1),
-                amount_thousand_yuan=Decimal(100),
-                current_adjusted_basis=Decimal(10),
-                rolling_adjusted_sum=Decimal(10) * kwargs["ma_period"],
-                rolling_slot_count=kwargs["ma_period"],
-                rolling_valid_count=kwargs["ma_period"],
-                source_reasons=(),
-            )
-            for index in range(1, 6)
-        )
-        return MemberBreadthDetailsProjectionFact(daily=daily, members=members)
-
-
-class _CaptureProjectionStatementSession:
-    def __init__(self) -> None:
-        self.sql: str | None = None
-
-    def execute(self, statement):
-        self.sql = str(statement.compile(dialect=postgresql.dialect()))
-        raise RuntimeError("statement captured")
+def _service(*, reader=None, query=None, hierarchy=None, context=None):
+    return SectorMemberBreadthQueryService(
+        hierarchy_query=hierarchy or _HierarchyQuery(),
+        context_query=context or _ContextQuery(),
+        fact_reader=reader or _FactReader(),
+        query=query or _FactQuery(),
+    )
 
 
 @pytest.mark.parametrize(
-    ("availability", "status", "default_date"),
+    ("statuses", "published", "status", "default_date"),
     [
-        (("COMPLETE",), "READY", TARGET_DATE),
-        (("COMPLETE", "PARTIAL"), "DELAYED", TARGET_DATE - timedelta(days=1)),
-        (("MISSING",), "EMPTY", None),
+        (("COMPLETE",), (True,), "READY", TARGET_DATE),
+        (("COMPLETE", "PARTIAL"), (True, True), "READY", TARGET_DATE),
+        (("COMPLETE", "MISSING"), (True, True), "READY", TARGET_DATE),
+        (
+            ("PARTIAL", "MISSING"),
+            (True, False),
+            "DELAYED",
+            TARGET_DATE - timedelta(days=1),
+        ),
+        (("MISSING",), (False,), "EMPTY", None),
     ],
 )
-def test_meta_uses_public_coverage_for_ready_delayed_and_empty(
-    availability,
-    status,
-    default_date,
-) -> None:
-    response = SectorMemberBreadthQueryService(
-        meta_service=_MetaService(availability)
+def test_meta_selects_published_not_complete_day(
+    statuses, published, status, default_date
+):
+    response = _service(
+        reader=_FactReader(statuses=statuses, published=published)
     ).build_meta(object(), market="CN_A")
-
     assert response.dateContext.defaultStatus == status
     assert response.dateContext.defaultTradeDate == default_date
     assert response.maPeriods == [5, 10, 15, 20, 30, 60]
-    assert response.metrics == ["MEMBER_COUNT", "TURNOVER", "MA_POSITION"]
 
 
-def test_stale_version_stops_before_public_date_and_source_queries() -> None:
-    hierarchy_query = _HierarchyQuery()
-    context_query = _ContextQuery()
-    fact_query = _FactQuery()
-    service = SectorMemberBreadthQueryService(
-        hierarchy_query=hierarchy_query,
-        context_query=context_query,
-        query=fact_query,
-    )
-
+def test_stale_version_stops_before_context_and_facts():
+    context, reader, query = _ContextQuery(), _FactReader(), _FactQuery()
     with pytest.raises(SectorMemberBreadthFactMismatchError):
-        service.build_rankings(
-            object(),
-            request=_ranking_request(hierarchy_version="stale"),
+        _service(reader=reader, query=query, context=context).build_rankings(
+            object(), request=_ranking_request(hierarchy_version="stale")
         )
-
-    assert hierarchy_query.calls == 1
-    assert context_query.calls == 0
-    assert fact_query.window_calls == []
-    assert fact_query.market_calls == []
+    assert context.calls == 0 and reader.calls == [] and query.calls == []
 
 
 @pytest.mark.parametrize(
-    ("scope", "level1_code", "level2_code", "expected_count"),
+    ("scope", "l1", "l2", "count"),
     [
         ("LEVEL_1", None, None, 2),
         ("LEVEL_2", None, None, 3),
@@ -367,195 +310,174 @@ def test_stale_version_stops_before_public_date_and_source_queries() -> None:
         ("LEVEL_2_CHILDREN", "BK1001.DC", "BK1101.DC", 2),
     ],
 )
-def test_rankings_support_all_five_scopes(
-    scope,
-    level1_code,
-    level2_code,
-    expected_count,
-) -> None:
-    response = SectorMemberBreadthQueryService(
-        hierarchy_query=_HierarchyQuery(),
-        context_query=_ContextQuery(),
-        query=_FactQuery(),
-    ).build_rankings(
+@pytest.mark.parametrize("metric", ["MEMBER_COUNT", "TURNOVER", "MA_POSITION"])
+@pytest.mark.parametrize("direction", ["UP", "DOWN"])
+def test_rankings_only_read_requested_materialized_pool(
+    scope, l1, l2, count, metric, direction
+):
+    reader, query = _FactReader(), _FactQuery()
+    response = _service(reader=reader, query=query).build_rankings(
         object(),
         request=_ranking_request(
             scope=scope,
-            level1_code=level1_code,
-            level2_code=level2_code,
+            level1_code=l1,
+            level2_code=l2,
+            metric=metric,
+            direction=direction,
+            ma_period=60,
         ),
     )
-
     assert response.status == "READY"
-    assert response.totalSectorCount == expected_count
-    assert len(response.rows) == expected_count
-    assert response.eligibleSectorCount == expected_count
+    assert len(response.rows) == response.eligibleSectorCount == count
+    assert reader.calls[-1][1]["metric"] == metric
+    assert reader.calls[-1][1]["direction"] == direction
+    assert reader.calls[-1][1]["ma_period"] == 60
+    assert query.calls == []
 
 
-@pytest.mark.parametrize(
-    ("metric", "expected_open_count", "include_factor"),
-    [
-        ("MEMBER_COUNT", 1, False),
-        ("TURNOVER", 1, False),
-        ("MA_POSITION", 30, True),
-    ],
-)
-def test_rankings_only_projects_the_requested_metric_inputs(
-    metric,
-    expected_open_count,
-    include_factor,
-) -> None:
-    fact_query = _FactQuery()
-    response = SectorMemberBreadthQueryService(
-        hierarchy_query=_HierarchyQuery(),
-        context_query=_ContextQuery(),
-        query=fact_query,
-    ).build_rankings(
-        object(),
-        request=_ranking_request(metric=metric, ma_period=30),
+def test_explicit_unpublished_date_does_not_fallback_or_compute():
+    reader, query = (
+        _FactReader(statuses=("COMPLETE", "MISSING"), published=(True, False)),
+        _FactQuery(),
     )
-
-    assert response.status == "READY"
-    assert fact_query.window_calls[0]["open_date_count"] == expected_open_count
-    assert fact_query.market_calls[0]["include_adj_factor"] is include_factor
-
-
-def test_details_use_119_day_window_and_keep_three_independent_compositions() -> None:
-    fact_query = _FactQuery()
-    response = SectorMemberBreadthQueryService(
-        hierarchy_query=_HierarchyQuery(),
-        context_query=_ContextQuery(),
-        query=fact_query,
-    ).build_details(
-        object(),
-        request=_details_request(ma_period=60, history_range=60),
+    result = _service(reader=reader, query=query).build_rankings(
+        object(), request=_ranking_request()
     )
+    assert result.status == "EMPTY"
+    assert result.tradeDate == TARGET_DATE and len(result.rows) == 2
+    assert all(row.reasonCodes == ["MARKET_ROW_MISSING"] for row in result.rows)
+    assert [call[0] for call in reader.calls] == ["coverage"]
+    assert query.calls == []
 
+
+@pytest.mark.parametrize("history_range", [20, 30, 60])
+@pytest.mark.parametrize("ma_period", [5, 10, 15, 20, 30, 60])
+def test_details_read_history_but_only_current_members(history_range, ma_period):
+    reader, query = _FactReader(), _FactQuery()
+    response = _service(reader=reader, query=query).build_details(
+        object(),
+        request=_details_request(ma_period=ma_period, history_range=history_range),
+    )
     assert response.status == "READY"
-    assert fact_query.details_window_calls[0]["open_date_count"] == 119
-    assert fact_query.details_window_calls[0]["relation_date_count"] == 60
-    assert fact_query.details_projection_calls[0]["ma_period"] == 60
-    assert [item.metric for item in response.compositions] == [
+    assert len(response.trend) == history_range
+    assert [row.metric for row in response.compositions] == [
         "MEMBER_COUNT",
         "TURNOVER",
         "MA_POSITION",
     ]
-    assert len(response.trend) == 60
+    assert response.members[0].maRelation == "ABOVE"
+    assert query.calls == [
+        dict(sector_code="BK1001.DC", target_date=TARGET_DATE, ma_period=ma_period)
+    ]
+    assert reader.calls[0][1]["history_range"] == history_range
 
 
-def test_query_rejects_a_120_day_open_window_before_sql() -> None:
-    with pytest.raises(SectorSelectionInvalidError, match="1 到 119"):
-        SectorMemberBreadthQuery.load_window_relations(
-            object(),  # type: ignore[arg-type]
-            target_date=TARGET_DATE,
-            coverage_end_date=TARGET_DATE,
-            hierarchy_sector_codes=("BK1001.DC",),
-            relation_sector_codes=("BK1001.DC",),
-            open_date_count=120,
-            relation_date_count=60,
-        )
-
-    with pytest.raises(SectorSelectionInvalidError, match="1 到 119"):
-        SectorMemberBreadthQuery.load_details_window(
-            object(),  # type: ignore[arg-type]
-            target_date=TARGET_DATE,
-            coverage_end_date=TARGET_DATE,
-            hierarchy_sector_codes=("BK1001.DC",),
-            sector_code="BK1001.DC",
-            open_date_count=120,
-            relation_date_count=60,
-        )
-
-
-def test_details_projection_compiles_for_postgresql_without_a_dialect_branch() -> None:
-    session = _CaptureProjectionStatementSession()
-
-    with pytest.raises(RuntimeError, match="statement captured"):
-        SectorMemberBreadthQuery.load_details_projection(
-            session,  # type: ignore[arg-type]
-            sector_code="BK1001.DC",
-            target_date=TARGET_DATE,
-            open_dates=tuple(
-                TARGET_DATE - timedelta(days=19 - index) for index in range(20)
-            ),
-            relation_dates=tuple(
-                TARGET_DATE - timedelta(days=19 - index) for index in range(20)
-            ),
-            ma_period=20,
-        )
-
-    assert session.sql is not None
-    lowered = session.sql.lower()
-    assert "with" in lowered
-    assert "rows between" in lowered
-    assert "union all" in lowered
-    assert "sqlite" not in lowered
-
-
-def test_details_source_empty_and_query_failure_use_safe_local_shells() -> None:
-    common = {
-        "hierarchy_query": _HierarchyQuery(),
-        "context_query": _ContextQuery(),
-    }
-    empty = SectorMemberBreadthQueryService(
-        **common,
-        query=_FactQuery(empty_relations=True),
-    ).build_details(object(), request=_details_request())
-    failed = SectorMemberBreadthQueryService(
-        **common,
-        query=_FactQuery(fail=True),
-    ).build_details(object(), request=_details_request())
-
-    assert empty.status == "EMPTY"
-    assert empty.exceptionCode == "SA_BREADTH_SOURCE_EMPTY"
-    assert failed.status == "ERROR"
-    assert failed.exceptionCode == "SA_BREADTH_QUERY_FAILED"
-    assert "sensitive" not in (failed.message or "")
-
-
-def test_hierarchy_unavailable_has_a_distinct_safe_error_for_business_responses() -> (
-    None
-):
-    service = SectorMemberBreadthQueryService(
-        hierarchy_query=_UnavailableHierarchyQuery(),
-        context_query=_ContextQuery(),
-        query=_FactQuery(),
+def test_empty_and_failed_details_are_safe_and_do_not_read_stocks():
+    query = _FactQuery()
+    empty = _service(reader=_FactReader(empty=True), query=query).build_details(
+        object(), request=_details_request()
     )
-
-    rankings = service.build_rankings(object(), request=_ranking_request())
-    details = service.build_details(object(), request=_details_request())
-
-    assert rankings.status == "ERROR"
-    assert rankings.exceptionCode == "SA_HIERARCHY_UNAVAILABLE"
-    assert rankings.rows == []
-    assert details.status == "ERROR"
-    assert details.exceptionCode == "SA_HIERARCHY_UNAVAILABLE"
-    assert details.compositions == []
-    assert details.trend == []
-    assert details.members == []
-    assert "sensitive" not in (rankings.message or "")
-    assert "sensitive" not in (details.message or "")
-
-
-def test_invalid_scope_and_sector_are_not_silently_replaced() -> None:
-    service = SectorMemberBreadthQueryService(
-        hierarchy_query=_HierarchyQuery(),
-        context_query=_ContextQuery(),
-        query=_FactQuery(),
+    failed = _service(reader=_FactReader(fail=True), query=query).build_details(
+        object(), request=_details_request()
     )
+    assert empty.status == "EMPTY" and empty.exceptionCode == "SA_BREADTH_SOURCE_EMPTY"
+    assert (
+        failed.status == "ERROR" and failed.exceptionCode == "SA_BREADTH_QUERY_FAILED"
+    )
+    assert "sensitive" not in failed.message
+    assert query.calls == []
+
+
+def test_hierarchy_failure_preserves_safe_shells():
+    service = _service(hierarchy=_UnavailableHierarchyQuery())
+    for response in (
+        service.build_rankings(object(), request=_ranking_request()),
+        service.build_details(object(), request=_details_request()),
+    ):
+        assert (
+            response.status == "ERROR"
+            and response.exceptionCode == "SA_HIERARCHY_UNAVAILABLE"
+        )
+
+
+def test_invalid_scope_sector_and_future_are_not_replaced():
+    service = _service()
     with pytest.raises(SectorScopeInvalidError):
         service.build_rankings(
-            object(),
-            request=_ranking_request(
-                scope="LEVEL_1_CHILDREN",
-                level1_code=None,
-            ),
+            object(), request=_ranking_request(scope="LEVEL_1_CHILDREN")
+        )
+    with pytest.raises(SectorSelectionInvalidError):
+        service.build_details(
+            object(), request=_details_request(sector_code="BK9999.DC")
         )
     with pytest.raises(SectorSelectionInvalidError):
         service.build_details(
             object(),
-            request=_details_request(sector_code="BK9999.DC"),
+            request=_details_request(trade_date=TARGET_DATE + timedelta(days=1)),
         )
+
+
+class _CaptureProjectionStatementSession:
+    def execute(self, statement):
+        self.compiled = statement.compile(dialect=postgresql.dialect())
+        raise RuntimeError("statement captured")
+
+
+def test_member_projection_bounds_stock_history_and_never_aggregates_industry_history():
+    session = _CaptureProjectionStatementSession()
+    with pytest.raises(RuntimeError, match="statement captured"):
+        SectorMemberBreadthQuery.load_member_projection(
+            session, sector_code="BK1001.DC", target_date=TARGET_DATE, ma_period=60
+        )
+    sql = str(session.compiled).lower()
+    assert "rows between" in sql and "limit" in sql
+    assert "dc_member.trade_date =" in sql and "dc_member.ts_code =" in sql
+    assert "union all" not in sql and "dc_daily" not in sql
+    assert 60 in session.compiled.params.values()
+    assert TARGET_DATE in session.compiled.params.values()
+    assert "sqlite" not in sql
+
+
+def test_member_projection_rejects_unapproved_period_before_read():
+    with pytest.raises(SectorSelectionInvalidError):
+        SectorMemberBreadthQuery.load_member_projection(
+            object(), sector_code="BK1001.DC", target_date=TARGET_DATE, ma_period=120
+        )
+
+
+def _stored_composition(**changes):
+    values = dict(source_count=6, calculable_count=6, coverage_pct=Decimal(100),
+                  qualification="ELIGIBLE", reason_codes=[], up_count=2, flat_count=2, down_count=2,
+                  up_pct=Decimal("33.3333"), flat_pct=Decimal("33.3333"), down_pct=Decimal("33.3333"))
+    values.update(changes)
+    return values
+
+
+def test_stored_composition_accepts_rounding_without_recomputing():
+    result = _breadth_composition(_stored_composition(), "MEMBER_COUNT")
+    assert result.up_pct == result.flat_pct == result.down_pct == Decimal("33.3333")
+    result = _breadth_composition(_stored_composition(source_count=7, coverage_pct=Decimal("85.7143")), "MA_POSITION")
+    assert result.coverage.coverage_pct == Decimal("85.7143")
+
+
+@pytest.mark.parametrize("change", [
+    dict(up_pct=Decimal("NaN")), dict(up_pct=Decimal("100.1")), dict(up_pct=None),
+    dict(up_count=3), dict(coverage_pct=Decimal("99.9999")),
+    dict(up_pct=Decimal("33.3332")), dict(qualification="INELIGIBLE"),
+    dict(reason_codes=["UNKNOWN"]), dict(reason_codes=["AMOUNT_MISSING", "AMOUNT_MISSING"]),
+])
+def test_stored_composition_rejects_actual_contract_drift(change):
+    with pytest.raises(SectorDataQueryError):
+        _breadth_composition(_stored_composition(**change), "MEMBER_COUNT")
+
+
+def test_stored_zero_turnover_retains_unavailable_even_when_coverage_is_complete():
+    result = _breadth_composition(_stored_composition(
+        up_pct=None, flat_pct=None, down_pct=None, qualification="INELIGIBLE",
+        reason_codes=["AMOUNT_NON_POSITIVE"],
+    ), "TURNOVER")
+    assert result.coverage.calculable_count == 6 and result.coverage.coverage_pct == 100
+    assert not result.coverage.eligible and result.up_pct is None
 
 
 def _ranking_request(**changes) -> SectorMemberBreadthRankingsRequest:

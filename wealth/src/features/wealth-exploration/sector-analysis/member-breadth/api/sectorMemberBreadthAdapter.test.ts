@@ -6,6 +6,50 @@ const rankingRequest = { market: "CN_A", tradeDate: "2026-08-27", scope: "LEVEL_
 const detailsRequest = { market: "CN_A", tradeDate: "2026-08-27", sectorCode: "BK1001.DC", direction: "UP", maPeriod: 20, historyRange: 20, hierarchyVersion: "dc-industry-v1" } as const;
 
 describe("sectorMemberBreadthAdapter", () => {
+  it.each(["PARTIAL", "MISSING"])("keeps the server-selected published %s day without fallback", (availability) => {
+    const payload = breadthMetaPayload();
+    Object.assign(payload.tradeDates.at(-1)!, { availability, validSectorCount: availability === "PARTIAL" ? 2 : 0 });
+    const result = buildSectorMemberBreadthMetaViewModel(payload);
+    expect(result.dateContext.defaultStatus).toBe("READY");
+    expect(result.dateContext.defaultTradeDate).toBe("2026-08-27");
+    payload.dateContext.defaultStatus = "DELAYED";
+    expect(() => buildSectorMemberBreadthMetaViewModel(payload)).toThrow(/日期与状态/);
+  });
+
+  it.each([1, 2])("preserves stored rank %s when rounded percentages coincide", (secondRank) => {
+    const payload = breadthRankingsPayload(new URL("http://localhost/rankings"));
+    payload.rows.forEach((row, index) => Object.assign(row, {
+      rank: index === 0 ? 1 : secondRank, rankTotal: 2, metricValuePct: 33.3333,
+      sourceMemberCount: 6, calculableCount: 6, coveragePct: 100,
+      qualificationStatus: "ELIGIBLE", reasonCodes: [],
+    }));
+    Object.assign(payload, { eligibleSectorCount: 2, ineligibleSectorCount: 0 });
+    payload.availability.eligibleSectorCount = 2;
+    const result = buildSectorMemberBreadthRankingsViewModel(payload, rankingRequest);
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") expect(result.data.rows[1]!.rank).toBe(secondRank);
+    payload.rows[1]!.rank = 3;
+    expect(() => buildSectorMemberBreadthRankingsViewModel(payload, rankingRequest)).toThrow(/竞争排名/);
+  });
+
+  it("accepts an unavailable zero-amount composition despite sufficient count and coverage", () => {
+    const payload = breadthDetailsPayload(new URL("http://localhost/details"));
+    Object.assign(payload.compositions[1]!, {
+      eligible: false, positivePct: null, neutralPct: null, negativePct: null,
+      reasonCodes: ["AMOUNT_NON_POSITIVE"],
+    });
+    const result = buildSectorMemberBreadthDetailsViewModel(payload, detailsRequest);
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") expect(result.data.compositions[1]!.positivePct).toBeNull();
+  });
+
+  it("accepts the full unavailable pool in an EMPTY rankings response", () => {
+    const payload = breadthRankingsPayload(new URL("http://localhost/rankings"), { allIneligible: true });
+    Object.assign(payload, { status: "EMPTY", exceptionCode: "SA_SOURCE_EMPTY" });
+    Object.assign(payload.availability, { calculableSectorCount: 0, status: "UNAVAILABLE" });
+    expect(buildSectorMemberBreadthRankingsViewModel(payload, rankingRequest).kind).toBe("empty");
+  });
+
   it.each([
     { counts: [2, 2, 2], percentages: [33.3333, 33.3333, 33.3333] },
     { counts: [1, 1, 4], percentages: [16.6667, 16.6667, 66.6667] },

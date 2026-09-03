@@ -293,7 +293,7 @@ class SectorMemberBreadthCalculator:
             )
             for item in projection.daily
         )
-        members = self._project_members(
+        members = self.build_members(
             rows=projection.members,
             direction=direction,
             ma_period=ma_period,
@@ -378,7 +378,7 @@ class SectorMemberBreadthCalculator:
         )
         return member, turnover, ma
 
-    def _project_members(
+    def build_members(
         self,
         *,
         rows: tuple[MemberBreadthMemberProjectionFact, ...],

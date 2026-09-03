@@ -64,6 +64,40 @@ from src.foundation.models.core_serving.wealth_sector_dual_momentum_daily import
 from src.foundation.models.core_serving.wealth_sector_momentum_daily import (
     WealthSectorMomentumDaily,
 )
+from src.foundation.models.core_serving.wealth_sector_member_breadth_daily import (
+    WealthSectorMemberBreadthDaily,
+)
+from src.foundation.models.core_serving.wealth_sector_member_ma_breadth_daily import (
+    WealthSectorMemberMaBreadthDaily,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contract import (
+    MEMBER_BREADTH_FORMULA_KEY,
+    MEMBER_BREADTH_FORMULA_VERSION,
+    MemberBreadthCompositionFact,
+    MetricCoverageFact,
+    ordered_member_breadth_reasons,
+    parse_member_breadth_metric,
+    parse_member_breadth_direction,
+    parse_member_breadth_ma_period,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
+    SectorSelectionInvalidError,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SectorPublishedBreadthRow:
+    sector_code: str
+    composition: MemberBreadthCompositionFact
+    rank: int | None
+    rank_total: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class SectorPublishedBreadthDay:
+    trade_date: date
+    batch_id: UUID | None
+    compositions: tuple[MemberBreadthCompositionFact, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,6 +244,110 @@ class SectorPublishedMomentumHistorySlice:
     selected_missing_reason: str
     row_count: int
     calculable_count: int
+
+
+def _breadth_columns(model, metric: str, label: str = ""):
+    prefix = (
+        ""
+        if metric == "MA_POSITION"
+        else "member_"
+        if metric == "MEMBER_COUNT"
+        else "turnover_"
+    )
+    names = {"source_count": "source_member_count"}
+    names.update(
+        {
+            name: prefix + name
+            for name in (
+                "calculable_count",
+                "coverage_pct",
+                "qualification",
+                "reason_codes",
+            )
+        }
+    )
+    for direction, stored in (("up", "above"), ("flat", "equal"), ("down", "below")):
+        for suffix in ("count", "pct"):
+            names[direction + "_" + suffix] = (
+                (stored if metric == "MA_POSITION" else prefix + direction)
+                + "_"
+                + suffix
+            )
+    return tuple(
+        getattr(model, column).label(label + name) for name, column in names.items()
+    )
+
+
+def _validate_breadth_identity(row, node, parent, *, prefix: str = "") -> None:
+    values = row if hasattr(row, "keys") else row._mapping
+    expected = dict(
+        sector_code=node.sector_code,
+        sector_name=node.sector_name,
+        industry_level=node.industry_level,
+        hierarchy_path=node.hierarchy_path,
+        parent_sector_code=parent,
+        formula_key=MEMBER_BREADTH_FORMULA_KEY,
+        formula_version=MEMBER_BREADTH_FORMULA_VERSION,
+    )
+    if any(values[prefix + key] != value for key, value in expected.items()):
+        raise SectorDataQueryError("published breadth identity is inconsistent")
+
+
+def _breadth_composition(
+    row, metric: str, prefix: str = ""
+) -> MemberBreadthCompositionFact:
+    def value(name):
+        return row[prefix + name]
+
+    source, count = value("source_count"), value("calculable_count")
+    counts = tuple(value(d + "_count") for d in ("up", "flat", "down"))
+    percentages = tuple(value(d + "_pct") for d in ("up", "flat", "down"))
+    coverage, reasons, qualification = (
+        value("coverage_pct"),
+        value("reason_codes"),
+        value("qualification"),
+    )
+    if (
+        any(type(n) is not int or n < 0 for n in (source, count, *counts))
+        or count > source
+        or sum(counts) != count
+    ):
+        raise SectorDataQueryError("published breadth counts are invalid")
+    if coverage is None or not coverage.is_finite() or not 0 <= coverage <= 100:
+        raise SectorDataQueryError("published breadth coverage is invalid")
+    expected_coverage = Decimal(count) / source * 100 if source else Decimal(0)
+    if abs(coverage - expected_coverage) > Decimal("0.00005"):
+        raise SectorDataQueryError("published breadth coverage does not match counts")
+    if not isinstance(reasons, (list, tuple)) or tuple(
+        reasons
+    ) != ordered_member_breadth_reasons(reasons):
+        raise SectorDataQueryError("published breadth reasons are invalid")
+    present = all(p is not None for p in percentages)
+    if not present and any(p is not None for p in percentages):
+        raise SectorDataQueryError(
+            "published breadth percentages must be null together"
+        )
+    if present and (
+        any(not p.is_finite() or not 0 <= p <= 100 for p in percentages)
+        or abs(sum(percentages) - 100) > Decimal("0.00015")
+    ):
+        raise SectorDataQueryError("published breadth percentages are invalid")
+    eligible = count >= 5 and coverage >= 80 and present
+    if (
+        qualification not in {"ELIGIBLE", "INELIGIBLE"}
+        or (qualification == "ELIGIBLE") != eligible
+    ):
+        raise SectorDataQueryError("published breadth qualification is inconsistent")
+    return MemberBreadthCompositionFact(
+        metric=metric,
+        up_count=counts[0],
+        flat_count=counts[1],
+        down_count=counts[2],
+        up_pct=percentages[0],
+        flat_pct=percentages[1],
+        down_pct=percentages[2],
+        coverage=MetricCoverageFact(source, count, coverage, eligible, tuple(reasons)),
+    )
 
 
 class SectorAnalysisFactReader:
@@ -770,6 +908,238 @@ class SectorAnalysisFactReader:
             or row.missing_reason != (row.current_missing_reason or row.comparison_missing_reason)
         ):
             raise SectorDataQueryError("published rotation unavailable fields are inconsistent")
+
+    def load_breadth_rankings(
+        self,
+        session: Session,
+        *,
+        batch_id: UUID,
+        trade_date: date,
+        hierarchy: SectorHierarchySnapshot,
+        scope: SectorMomentumScope,
+        level1_code: str | None,
+        level2_code: str | None,
+        metric: str,
+        direction: str,
+        ma_period: int,
+    ) -> tuple[SectorPublishedBreadthRow, ...]:
+        parse_member_breadth_metric(metric)
+        parse_member_breadth_direction(direction)
+        parse_member_breadth_ma_period(ma_period)
+        pool = resolve_scope_pool(
+            hierarchy, scope=scope, level1_code=level1_code, level2_code=level2_code
+        )
+        parent = (
+            level1_code
+            if scope == "LEVEL_1_CHILDREN"
+            else level2_code
+            if scope == "LEVEL_2_CHILDREN"
+            else None
+        )
+        key = {
+            "LEVEL_1": "GLOBAL:L1",
+            "LEVEL_2": "GLOBAL:L2",
+            "LEVEL_3": "GLOBAL:L3",
+            "LEVEL_1_CHILDREN": f"PARENT:L1:{level1_code}",
+            "LEVEL_2_CHILDREN": f"PARENT:L2:{level2_code}",
+        }[scope]
+        fact = (
+            WealthSectorMemberMaBreadthDaily
+            if metric == "MA_POSITION"
+            else WealthSectorMemberBreadthDaily
+        )
+        prefix = (
+            ""
+            if metric == "MA_POSITION"
+            else "member_"
+            if metric == "MEMBER_COUNT"
+            else "turnover_"
+        )
+        rank_prefix = prefix + direction.lower()
+        batch = WealthSectorAnalysisPublishBatch
+        statement = (
+            select(
+                fact.sector_code,
+                fact.sector_name,
+                fact.industry_level,
+                fact.hierarchy_path,
+                fact.parent_sector_code,
+                fact.formula_key,
+                fact.formula_version,
+                batch.hierarchy_version,
+                batch.formula_bundle_version,
+                *_breadth_columns(fact, metric),
+                getattr(fact, rank_prefix + "_rank").label("rank"),
+                getattr(fact, rank_prefix + "_rankable_count").label("rank_total"),
+            )
+            .join(
+                batch,
+                and_(
+                    batch.batch_id == fact.batch_id,
+                    batch.trade_date == fact.trade_date,
+                    batch.status == "PUBLISHED",
+                ),
+            )
+            .where(
+                fact.batch_id == batch_id,
+                fact.trade_date == trade_date,
+                fact.comparison_scope == scope,
+                fact.comparison_key == key,
+            )
+            .order_by(fact.sector_code)
+        )
+        if metric == "MA_POSITION":
+            statement = statement.where(fact.ma_period == ma_period)
+        rows = session.execute(statement).all()
+        if len(rows) != len(pool) or {r.sector_code for r in rows} != {
+            n.sector_code for n in pool
+        }:
+            raise SectorDataQueryError(
+                "published breadth comparison pool is incomplete"
+            )
+        result = []
+        for row in rows:
+            self._validate_batch_identity(
+                hierarchy_version=row.hierarchy_version,
+                formula_bundle_version=row.formula_bundle_version,
+                hierarchy=hierarchy,
+            )
+            _validate_breadth_identity(
+                row, hierarchy.nodes_by_code[row.sector_code], parent
+            )
+            composition = _breadth_composition(row._mapping, metric)
+            if composition.coverage.eligible:
+                if (
+                    row.rank is None
+                    or row.rank_total is None
+                    or not 1 <= row.rank <= row.rank_total <= len(pool)
+                ):
+                    raise SectorDataQueryError("published breadth rank is invalid")
+            elif row.rank is not None or row.rank_total is not None:
+                raise SectorDataQueryError("ineligible breadth cannot carry a rank")
+            result.append(
+                SectorPublishedBreadthRow(
+                    row.sector_code, composition, row.rank, row.rank_total
+                )
+            )
+        total = sum(row.rank is not None for row in result)
+        if any(row.rank_total != total for row in result if row.rank is not None):
+            raise SectorDataQueryError("published breadth rank denominator is invalid")
+        return tuple(
+            sorted(result, key=lambda r: (r.rank is None, r.rank or 0, r.sector_code))
+        )
+
+    def load_breadth_history(
+        self,
+        session: Session,
+        *,
+        hierarchy: SectorHierarchySnapshot,
+        sector_code: str,
+        trade_date: date,
+        history_range: int,
+        ma_period: int,
+    ) -> tuple[SectorPublishedBreadthDay, ...]:
+        parse_member_breadth_ma_period(ma_period)
+        if (
+            history_range not in (20, 30, 60)
+            or sector_code not in hierarchy.nodes_by_code
+        ):
+            raise SectorSelectionInvalidError("成员广度历史选择不合法")
+        node = hierarchy.nodes_by_code[sector_code]
+        batch = WealthSectorAnalysisPublishBatch
+        first_date = (
+            select(func.min(batch.trade_date))
+            .where(batch.status == "PUBLISHED")
+            .scalar_subquery()
+        )
+        dates = (
+            select(TradeCalendar.trade_date)
+            .where(
+                TradeCalendar.exchange == "SSE",
+                TradeCalendar.is_open.is_(True),
+                TradeCalendar.trade_date >= first_date,
+                TradeCalendar.trade_date <= trade_date,
+            )
+            .order_by(TradeCalendar.trade_date.desc())
+            .limit(history_range)
+            .subquery()
+        )
+        ordinary, ma = WealthSectorMemberBreadthDaily, WealthSectorMemberMaBreadthDaily
+        scope, key = f"LEVEL_{node.industry_level}", f"GLOBAL:L{node.industry_level}"
+
+        def matches(fact):
+            return and_(
+                fact.batch_id == batch.batch_id,
+                fact.trade_date == dates.c.trade_date,
+                fact.comparison_scope == scope,
+                fact.comparison_key == key,
+                fact.sector_code == sector_code,
+            )
+
+        identity = (
+            "sector_code",
+            "sector_name",
+            "industry_level",
+            "hierarchy_path",
+            "parent_sector_code",
+            "formula_key",
+            "formula_version",
+        )
+        rows = session.execute(
+            select(
+                dates.c.trade_date,
+                batch.batch_id,
+                batch.hierarchy_version,
+                batch.formula_bundle_version,
+                *(getattr(ordinary, name).label("o_" + name) for name in identity),
+                *(getattr(ma, name).label("a_" + name) for name in identity),
+                *_breadth_columns(ordinary, "MEMBER_COUNT", "m_"),
+                *_breadth_columns(ordinary, "TURNOVER", "t_"),
+                *_breadth_columns(ma, "MA_POSITION", "a_"),
+            )
+            .select_from(dates)
+            .outerjoin(
+                batch,
+                and_(
+                    batch.trade_date == dates.c.trade_date, batch.status == "PUBLISHED"
+                ),
+            )
+            .outerjoin(ordinary, matches(ordinary))
+            .outerjoin(ma, and_(matches(ma), ma.ma_period == ma_period))
+            .order_by(dates.c.trade_date)
+        ).all()
+        if not rows or rows[-1].trade_date != trade_date:
+            raise SectorSelectionInvalidError(
+                "tradeDate 必须是已发布覆盖内的 SSE 开市日"
+            )
+        if len({row.trade_date for row in rows}) != len(rows):
+            raise SectorDataQueryError("duplicate published breadth dates")
+        result = []
+        for row in rows:
+            if row.batch_id is None:
+                result.append(SectorPublishedBreadthDay(row.trade_date, None, ()))
+                continue
+            self._validate_batch_identity(
+                hierarchy_version=row.hierarchy_version,
+                formula_bundle_version=row.formula_bundle_version,
+                hierarchy=hierarchy,
+            )
+            for prefix in ("o_", "a_"):
+                _validate_breadth_identity(row._mapping, node, None, prefix=prefix)
+            comps = tuple(
+                _breadth_composition(row._mapping, metric, prefix)
+                for metric, prefix in (
+                    ("MEMBER_COUNT", "m_"),
+                    ("TURNOVER", "t_"),
+                    ("MA_POSITION", "a_"),
+                )
+            )
+            if len({c.coverage.source_count for c in comps}) != 1:
+                raise SectorDataQueryError("published breadth source counts differ")
+            result.append(
+                SectorPublishedBreadthDay(row.trade_date, row.batch_id, comps)
+            )
+        return tuple(result)
 
     def load_momentum_history_slices(
         self,

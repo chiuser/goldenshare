@@ -52,6 +52,8 @@ APPROVED_SERVING_FACT_MODEL_MODULES = {
     "src.foundation.models.core_serving.wealth_sector_momentum_daily",
     "src.foundation.models.core_serving.wealth_sector_dual_momentum_daily",
     "src.foundation.models.core_serving.wealth_sector_relative_rotation_daily",
+    "src.foundation.models.core_serving.wealth_sector_member_breadth_daily",
+    "src.foundation.models.core_serving.wealth_sector_member_ma_breadth_daily",
 }
 APPROVED_SHARED_QUERY_MODULES = {
     "src.biz.queries.wealth.market.common.sector_hierarchy_query",
@@ -601,15 +603,19 @@ def test_member_breadth_details_uses_one_projection_path_without_degradation() -
     service_source = MEMBER_BREADTH_BACKEND_PATHS[1].read_text(encoding="utf-8")
     calculator_source = MEMBER_BREADTH_BACKEND_PATHS[3].read_text(encoding="utf-8")
 
-    assert "def load_details_window(" in query_source
-    assert "def load_details_projection(" in query_source
-    assert "union_all(daily_rows, member_rows)" in query_source
-    assert 'literal("DAY")' in query_source
-    assert 'literal("MEMBER")' in query_source
+    assert "def load_member_projection(" in query_source
+    assert "DcMember.trade_date == target_date" in query_source
+    assert "limit(ma_period)" in query_source
+    assert "DcDaily" not in query_source
+    assert "union_all" not in query_source
     assert "session.bind.dialect" not in query_source
     assert "from_statement(" not in query_source
     assert "def _build_members(" not in calculator_source
-    assert "load_details_projection(" in service_source
+    assert "load_member_projection(" in service_source
+    assert "load_breadth_rankings(" in service_source
+    assert "load_breadth_history(" in service_source
+    for obsolete in ("load_details_window(", "load_details_projection(", "load_window_relations(", "load_market_facts(", "rank_requested_metric(", "calculate_composition_grid("):
+        assert obsolete not in service_source + query_source
 
     forbidden_degradation_tokens = (
         ".limit(625)",

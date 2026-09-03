@@ -13,8 +13,8 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
 from src.biz.queries.wealth.market.context.market_page_context_query import (
     MarketPageContextQuery,
 )
-from src.biz.queries.wealth.market.sector_analysis.sector_analysis_meta_query_service import (
-    SectorAnalysisMetaQueryService,
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+    SectorAnalysisFactReader,
 )
 from src.biz.queries.wealth.market.sector_analysis.sector_member_breadth_query import (
     SectorMemberBreadthQuery,
@@ -53,6 +53,9 @@ from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contra
     MEMBER_BREADTH_MINIMUM_CALCULABLE_COUNT,
     MEMBER_BREADTH_MINIMUM_COVERAGE_PCT,
     MemberBreadthCompositionFact,
+    MemberBreadthRankFact,
+    MemberBreadthTrendPointFact,
+    MetricCoverageFact,
     SectorMemberBreadthDetailsRequest,
     SectorMemberBreadthFactMismatchError,
     SectorMemberBreadthRankingsRequest,
@@ -73,13 +76,13 @@ class SectorMemberBreadthQueryService:
     def __init__(
         self,
         *,
-        meta_service: SectorAnalysisMetaQueryService | None = None,
+        fact_reader: SectorAnalysisFactReader | None = None,
         hierarchy_query: SectorHierarchyQuery | None = None,
         context_query: MarketPageContextQuery | None = None,
         query: SectorMemberBreadthQuery | None = None,
         calculator: SectorMemberBreadthCalculator | None = None,
     ) -> None:
-        self._meta_service = meta_service or SectorAnalysisMetaQueryService()
+        self._fact_reader = fact_reader or SectorAnalysisFactReader()
         self._hierarchy_query = hierarchy_query or SectorHierarchyQuery()
         self._context_query = context_query or MarketPageContextQuery()
         self._query = query or SectorMemberBreadthQuery()
@@ -94,28 +97,27 @@ class SectorMemberBreadthQueryService:
     ) -> SectorMemberBreadthMetaResponseDto:
         if market != "CN_A":
             raise SectorScopeInvalidError("只支持 CN_A 市场")
-        facts = self._meta_service.load(session, market=market)
-        expected = facts.context.trade_date
-        expected_availability = next(
-            (item for item in facts.trade_dates if item.trade_date == expected),
-            None,
+        context = self._context_query.resolve_context(
+            session,
+            market=market,
+            requested_trade_date=None,
         )
-        if expected_availability is None:
-            raise ValueError("public coverage does not contain the expected trade date")
-        complete_dates = tuple(
-            item.trade_date
-            for item in facts.trade_dates
-            if item.availability == "COMPLETE" and item.trade_date <= expected
+        hierarchy = self._hierarchy_query.load(session)
+        expected = context.trade_date
+        coverage = self._fact_reader.load_momentum_coverage(
+            session,
+            hierarchy=hierarchy,
+            coverage_end_date=expected,
         )
-        if expected_availability.availability == "COMPLETE":
-            default_date = expected
-            default_status = "READY"
-        elif complete_dates:
-            default_date = complete_dates[-1]
-            default_status = "DELAYED"
-        else:
-            default_date = None
-            default_status = "EMPTY"
+        published_dates = coverage.published_dates
+        default_date = published_dates[-1].trade_date if published_dates else None
+        default_status = (
+            "EMPTY"
+            if default_date is None
+            else "READY"
+            if default_date == expected
+            else "DELAYED"
+        )
         display_text = (
             f"当前展示 {default_date.isoformat()} 盘后数据"
             if default_date is not None
@@ -131,9 +133,9 @@ class SectorMemberBreadthQueryService:
                 defaultStatus=default_status,
                 displayText=display_text,
             ),
-            hierarchy=self._hierarchy_dto(facts.hierarchy),
-            coverageStartDate=facts.coverage_start_date,
-            coverageEndDate=facts.coverage_end_date,
+            hierarchy=self._hierarchy_dto(hierarchy),
+            coverageStartDate=coverage.coverage_start_date,
+            coverageEndDate=coverage.coverage_end_date,
             tradeDates=[
                 SectorTradeDateAvailabilityDto(
                     tradeDate=item.trade_date,
@@ -141,7 +143,7 @@ class SectorMemberBreadthQueryService:
                     expectedSectorCount=item.expected_sector_count,
                     validSectorCount=item.valid_sector_count,
                 )
-                for item in facts.trade_dates
+                for item in (day.availability for day in coverage.calendar_dates)
             ],
             scopes=list(ALLOWED_SCOPES),
             directions=list(ALLOWED_MEMBER_BREADTH_DIRECTIONS),
@@ -182,38 +184,69 @@ class SectorMemberBreadthQueryService:
                 market=request.market,
                 requested_trade_date=None,
             )
-            open_date_count = (
-                request.ma_period if request.metric == "MA_POSITION" else 1
-            )
-            window = self._query.load_window_relations(
+            coverage = self._fact_reader.load_momentum_coverage(
                 session,
-                target_date=request.trade_date,
+                hierarchy=hierarchy,
                 coverage_end_date=context.trade_date,
-                hierarchy_sector_codes=tuple(
-                    node.sector_code for node in hierarchy.nodes
-                ),
-                relation_sector_codes=tuple(node.sector_code for node in pool),
-                open_date_count=open_date_count,
-                relation_date_count=1,
             )
-            stock_codes = tuple(sorted({row.stock_code for row in window.relations}))
-            market_facts = self._query.load_market_facts(
-                session,
-                stock_codes=stock_codes,
-                start_date=window.open_dates[0],
-                end_date=window.open_dates[-1],
-                include_adj_factor=request.metric == "MA_POSITION",
-            )
-            ranked = self._calculator.rank_requested_metric(
-                sector_codes=(node.sector_code for node in pool),
-                target_date=request.trade_date,
-                metric=request.metric,
-                direction=request.direction,
-                ma_period=request.ma_period,
-                open_dates=window.open_dates,
-                relations=window.relations,
-                market_facts=market_facts,
-            )
+            if request.trade_date not in {
+                day.availability.trade_date for day in coverage.calendar_dates
+            }:
+                raise SectorSelectionInvalidError(
+                    "tradeDate 必须是公共覆盖内的 SSE 开市日"
+                )
+            batch_id = coverage.batch_by_date.get(request.trade_date)
+            if batch_id is None:
+                # Explicit historical selection never falls back or computes live facts.
+                missing = MetricCoverageFact(
+                    0,
+                    0,
+                    Decimal(0),
+                    False,
+                    ("MARKET_ROW_MISSING",),
+                )
+                ranked = tuple(
+                    MemberBreadthRankFact(
+                        node.sector_code,
+                        False,
+                        None,
+                        None,
+                        None,
+                        missing,
+                        missing.reason_codes,
+                    )
+                    for node in sorted(pool, key=lambda item: item.sector_code)
+                )
+            else:
+                published = self._fact_reader.load_breadth_rankings(
+                    session,
+                    batch_id=batch_id,
+                    trade_date=request.trade_date,
+                    hierarchy=hierarchy,
+                    scope=request.scope,
+                    level1_code=request.level1_code,
+                    level2_code=request.level2_code,
+                    metric=request.metric,
+                    direction=request.direction,
+                    ma_period=request.ma_period,
+                )
+                ranked = tuple(
+                    MemberBreadthRankFact(
+                        row.sector_code,
+                        row.composition.up_pct is not None,
+                        self._calculator.selected_pct(
+                            row.composition,
+                            direction=request.direction,
+                        )
+                        if row.rank is not None
+                        else None,
+                        row.rank,
+                        row.rank_total,
+                        row.composition.coverage,
+                        row.composition.coverage.reason_codes,
+                    )
+                    for row in published
+                )
             nodes_by_code = {node.sector_code: node for node in pool}
             rows = [
                 SectorMemberBreadthRankingRowDto(
@@ -321,19 +354,21 @@ class SectorMemberBreadthQueryService:
                 market=request.market,
                 requested_trade_date=None,
             )
-            open_date_count = request.history_range + request.ma_period - 1
-            window = self._query.load_details_window(
+            if request.trade_date > context.trade_date:
+                raise SectorSelectionInvalidError("tradeDate 不得晚于公共行情日期")
+            history = self._fact_reader.load_breadth_history(
                 session,
-                target_date=request.trade_date,
-                coverage_end_date=context.trade_date,
-                hierarchy_sector_codes=tuple(
-                    item.sector_code for item in hierarchy.nodes
-                ),
+                hierarchy=hierarchy,
                 sector_code=request.sector_code,
-                open_date_count=open_date_count,
-                relation_date_count=request.history_range,
+                trade_date=request.trade_date,
+                history_range=request.history_range,
+                ma_period=request.ma_period,
             )
-            if window.target_source_count == 0:
+            current = history[-1]
+            if (
+                not current.compositions
+                or current.compositions[0].coverage.source_count == 0
+            ):
                 exception = self._exceptions.build("SA_BREADTH_SOURCE_EMPTY")
                 return self._empty_details(
                     request=request,
@@ -341,21 +376,50 @@ class SectorMemberBreadthQueryService:
                     exception_code=exception.code,
                     message=exception.message,
                 )
-            projection = self._query.load_details_projection(
+            projection = self._query.load_member_projection(
                 session,
                 sector_code=request.sector_code,
                 target_date=request.trade_date,
-                open_dates=window.open_dates,
-                relation_dates=window.relation_dates,
                 ma_period=request.ma_period,
             )
-            details = self._calculator.build_details(
-                target_date=request.trade_date,
+            members = self._calculator.build_members(
+                rows=projection,
                 direction=request.direction,
                 ma_period=request.ma_period,
-                window=window,
-                projection=projection,
             )
+            trend = []
+            for day in history:
+                if day.compositions:
+                    member, turnover, ma = day.compositions
+                    trend.append(
+                        MemberBreadthTrendPointFact(
+                            day.trade_date,
+                            self._calculator.selected_pct(
+                                member, direction=request.direction
+                            ),
+                            self._calculator.selected_pct(
+                                turnover, direction=request.direction
+                            ),
+                            self._calculator.selected_pct(
+                                ma, direction=request.direction
+                            ),
+                            member.coverage.reason_codes,
+                            turnover.coverage.reason_codes,
+                            ma.coverage.reason_codes,
+                        )
+                    )
+                else:
+                    trend.append(
+                        MemberBreadthTrendPointFact(
+                            day.trade_date,
+                            None,
+                            None,
+                            None,
+                            ("MARKET_ROW_MISSING",),
+                            ("MARKET_ROW_MISSING",),
+                            ("MARKET_ROW_MISSING",),
+                        )
+                    )
             return SectorMemberBreadthDetailsResponseDto(
                 status="READY",
                 message=None,
@@ -372,7 +436,7 @@ class SectorMemberBreadthQueryService:
                 maPeriod=request.ma_period,
                 historyRange=request.history_range,
                 compositions=[
-                    self._composition_dto(item) for item in details.compositions
+                    self._composition_dto(item) for item in current.compositions
                 ],
                 trend=[
                     SectorMemberBreadthTrendPointDto(
@@ -384,7 +448,7 @@ class SectorMemberBreadthQueryService:
                         turnoverReasonCodes=list(item.turnover_reason_codes),
                         maPositionReasonCodes=list(item.ma_position_reason_codes),
                     )
-                    for item in details.trend
+                    for item in trend
                 ],
                 members=[
                     SectorMemberBreadthMemberRowDto(
@@ -401,7 +465,7 @@ class SectorMemberBreadthQueryService:
                         maDistancePct=self._json_decimal(item.ma_distance_pct),
                         reasonCodes=list(item.reason_codes),
                     )
-                    for item in details.members
+                    for item in members
                 ],
             )
         except (
