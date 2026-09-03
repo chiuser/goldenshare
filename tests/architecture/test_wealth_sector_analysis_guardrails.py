@@ -50,6 +50,7 @@ APPROVED_MODEL_MODULES = {
 APPROVED_SERVING_FACT_MODEL_MODULES = {
     "src.foundation.models.core_serving.wealth_sector_analysis_publish_batch",
     "src.foundation.models.core_serving.wealth_sector_momentum_daily",
+    "src.foundation.models.core_serving.wealth_sector_dual_momentum_daily",
 }
 APPROVED_SHARED_QUERY_MODULES = {
     "src.biz.queries.wealth.market.common.sector_hierarchy_query",
@@ -79,9 +80,7 @@ REGISTERED_EXCEPTION_CODES = {
 
 DUAL_MOMENTUM_BACKEND_PATHS = (
     REPO_ROOT
-    / "src/biz/queries/wealth/market/sector_analysis/sector_analysis_meta_query_service.py",
-    REPO_ROOT
-    / "src/biz/queries/wealth/market/sector_analysis/sector_momentum_snapshot_query_service.py",
+    / "src/biz/queries/wealth/market/sector_analysis/sector_analysis_fact_reader.py",
     REPO_ROOT
     / "src/biz/queries/wealth/market/sector_analysis/sector_dual_momentum_query_service.py",
     REPO_ROOT
@@ -489,7 +488,7 @@ def test_daily_facts_persistence_is_isolated_to_its_repository() -> None:
     assert not violations
 
 
-def test_dual_momentum_backend_stays_on_the_three_read_only_fact_sources() -> None:
+def test_dual_momentum_backend_reads_only_published_serving_facts() -> None:
     violations: list[str] = []
     for path in DUAL_MOMENTUM_BACKEND_PATHS:
         source = path.read_text(encoding="utf-8")
@@ -500,17 +499,19 @@ def test_dual_momentum_backend_stays_on_the_three_read_only_fact_sources() -> No
                 violations.append(f"{relative_path} contains forbidden token {token}")
         for line_no, module in _python_imports(path):
             if module.startswith("src.foundation.models") and module not in {
-                "src.foundation.models.core.dc_daily",
                 "src.foundation.models.core.trade_calendar",
                 "src.foundation.models.core_serving.wealth_sector_hierarchy",
-            }:
+            } | APPROVED_SERVING_FACT_MODEL_MODULES:
                 violations.append(
                     f"{relative_path}:{line_no} imports unapproved dual source {module}"
                 )
 
     assert not violations, (
-        "双动量只允许复用交易日历、行业层级和行业日行情：\n" + "\n".join(violations)
+        "双动量只允许读取交易日历、行业层级和已发布物化事实：\n" + "\n".join(violations)
     )
+    service = (REPO_ROOT / "src/biz/queries/wealth/market/sector_analysis/sector_dual_momentum_query_service.py").read_text()
+    for forbidden in ("SectorMomentumSnapshotQueryService", "SectorAnalysisMetaQueryService", "SectorDualMomentumClassifier", "calculate_for_date", "rank_strength", "DcDaily"):
+        assert forbidden not in service
 
 
 def test_dual_momentum_adds_only_the_two_frozen_read_only_routes() -> None:

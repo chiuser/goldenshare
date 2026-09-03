@@ -33,6 +33,9 @@ from src.foundation.models.core_serving.wealth_sector_hierarchy import (
 from src.foundation.models.core_serving.wealth_sector_momentum_daily import (
     WealthSectorMomentumDaily,
 )
+from src.foundation.models.core_serving.wealth_sector_dual_momentum_daily import (
+    WealthSectorDualMomentumDaily,
+)
 
 
 TRADE_DATE = date(2026, 8, 28)
@@ -149,6 +152,119 @@ def momentum_reader_session() -> tuple[Session, SectorHierarchySnapshot]:
     finally:
         session.close()
         engine.dispose()
+
+
+@pytest.fixture()
+def dual_reader_session(momentum_reader_session):
+    session, hierarchy = momentum_reader_session
+    WealthSectorDualMomentumDaily.__table__.create(session.get_bind())
+    for row in session.scalars(select(WealthSectorMomentumDaily)):
+        first = row.strength_rank == 1
+        db_row = WealthSectorDualMomentumDaily(
+            **{name: getattr(row, name) for name in (
+                "batch_id", "trade_date", "comparison_scope", "comparison_key", "parent_sector_code",
+                "sector_code", "sector_name", "industry_level", "hierarchy_path", "period",
+                "return_pct", "strength_rank", "rankable_count", "percentile", "calculation_status",
+                "missing_reason", "calculated_at",
+            )},
+            formula_key="sector-dual-momentum", formula_version=1, minimum_group_size=3,
+            absolute_status="POSITIVE", coordinate_status="PLOTTABLE",
+            **{f"{name}_{threshold}": value
+               for threshold in (70, 80, 90)
+               for name, value in (
+                   ("relative_status", "LEADING" if first else "NOT_LEADING"),
+                   ("qualification_status", "QUALIFIED" if first else "NOT_QUALIFIED"),
+                   ("display_status", "QUALIFIED" if first else "UP_NOT_LEADING"),
+               )},
+        )
+        session.add(db_row)
+    session.commit()
+    return session, hierarchy
+
+
+def _read_dual(session, hierarchy, **overrides):
+    params = dict(
+        batch_id=uuid5(NAMESPACE_URL, f"momentum-reader:{TRADE_DATE.isoformat()}"),
+        trade_date=TRADE_DATE, scope="LEVEL_1", level1_code=None, level2_code=None,
+        period=20, leading_threshold=80, hierarchy=hierarchy,
+    )
+    params.update(overrides)
+    return SectorAnalysisFactReader().load_dual_momentum_rows(session, **params)
+
+
+def test_dual_reader_single_published_slice_one_sql_without_source_tables(dual_reader_session):
+    session, hierarchy = dual_reader_session
+    statements = []
+    def record(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+    event.listen(session.get_bind(), "before_cursor_execute", record)
+    try:
+        rows = _read_dual(session, hierarchy)
+    finally:
+        event.remove(session.get_bind(), "before_cursor_execute", record)
+    assert len(statements) == 1
+    assert "dc_daily" not in statements[0].lower()
+    assert len(rows) == 3
+    assert rows[0].qualification_status == "QUALIFIED"
+    assert rows[1].display_status == "UP_NOT_LEADING"
+    assert rows[2].percentile == 0
+
+
+def test_dual_reader_selects_each_thresholds_stored_columns(dual_reader_session):
+    session, hierarchy = dual_reader_session
+    row = session.scalar(select(WealthSectorDualMomentumDaily).where(
+        WealthSectorDualMomentumDaily.sector_code == SECTOR_CODES[0],
+    ))
+    row.percentile = Decimal("80")
+    row.relative_status_90 = "NOT_LEADING"
+    row.qualification_status_90 = "NOT_QUALIFIED"
+    row.display_status_90 = "UP_NOT_LEADING"
+    session.commit()
+    for threshold in (70, 80, 90):
+        result = _read_dual(session, hierarchy, leading_threshold=threshold)[0]
+        assert result.qualification_status == ("NOT_QUALIFIED" if threshold == 90 else "QUALIFIED")
+        assert result.relative_status == ("NOT_LEADING" if threshold == 90 else "LEADING")
+
+
+@pytest.mark.parametrize(("field", "value"), (
+    ("formula_key", "wrong"), ("formula_version", 2), ("minimum_group_size", 4),
+    ("parent_sector_code", "BK9999.DC"), ("sector_name", "changed"),
+    ("industry_level", 2), ("hierarchy_path", "wrong"),
+    ("calculation_status", "BAD"), ("return_pct", None),
+    ("strength_rank", 0), ("strength_rank", 4), ("rankable_count", 4),
+    ("percentile", Decimal("101")), ("percentile", Decimal("Infinity")),
+    ("return_pct", Decimal("Infinity")), ("missing_reason", "DATE_MISSING"),
+))
+def test_dual_reader_rejects_invalid_published_contract(dual_reader_session, field, value):
+    session, hierarchy = dual_reader_session
+    session.execute(text("PRAGMA ignore_check_constraints=ON"))
+    row = session.scalar(select(WealthSectorDualMomentumDaily).where(
+        WealthSectorDualMomentumDaily.sector_code == SECTOR_CODES[0],
+    ))
+    setattr(row, field, value)
+    session.commit()
+    with pytest.raises(SectorDataQueryError):
+        _read_dual(session, hierarchy)
+
+
+@pytest.mark.parametrize("change", ("missing_row", "extra_code", "unpublished", "hierarchy", "formula_bundle", "other_batch"))
+def test_dual_reader_rejects_missing_or_mixed_published_identity(dual_reader_session, change):
+    session, hierarchy = dual_reader_session
+    row = session.scalar(select(WealthSectorDualMomentumDaily))
+    batch = session.scalar(select(WealthSectorAnalysisPublishBatch))
+    if change == "missing_row":
+        session.delete(row)
+    elif change == "extra_code":
+        row.sector_code = "BK9999.DC"
+    elif change == "unpublished":
+        batch.status = "FAILED"
+    elif change == "hierarchy":
+        batch.hierarchy_version = "other"
+    elif change == "formula_bundle":
+        batch.formula_bundle_version = "other"
+    session.commit()
+    with pytest.raises(SectorDataQueryError):
+        _read_dual(session, hierarchy, **({"batch_id": uuid5(NAMESPACE_URL, "not-the-selected-batch")} if change == "other_batch" else {}))
 
 
 def _selection(

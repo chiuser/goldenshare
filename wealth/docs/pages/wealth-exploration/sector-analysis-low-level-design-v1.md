@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.61；既有动量排名 M0～M4、双动量 M5～M8、相对轮动 M9～M12R、成员广度 M14～M16R2 与量价分布 M17～M20 保持既有关闭结论；M22、M23 已关闭。M24R 与动量 serving 切读子阶段已部署验收通过并关闭：提交 `d5f42566` 的最大三级30日周期／60日 History 两轮认证 HTTPS P95 为 `358.4/370.9ms`，60＋60槽、排名与缺失语义一致。用户已批准本次HTTPS等效验收，700ms门槛不变。M24／G63 整体仍在进行，下一方法为双动量；其余四方法尚未切读，M25～M26 均不得提前执行。
+- 状态：v1.62；既有五方法、M22、M23及动量切读／M24R保持关闭。M24.3双动量改读已发布事实的代码与只读预验收完成：23,064条阈值结果零差异，Meta／最大三级Results直接服务P95为265.95／393.78ms。按用户拍板不新增上游完整性计数、不回查原始行情兜底，已发布PARTIAL不回退。双动量待提交／部署后正式验收；M24／G63整体仍在进行，其余三方法未切读，不进入M25～M26。
 - 编写日期：2026-09-03。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -10,7 +10,7 @@
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：五条既有精确方法路由保持不变；M25 新增 `/wealth/exploration/sector-analysis/daily-insight`，并在其正式上线时把板块分析根地址改为 `replace` 到每日洞察。六个工作区始终只挂载当前 controller。
 - 目标 API：既有十四只板块分析只读 API 保持公开合同不变；M25 新增 `/daily-insight/meta` 与 `/daily-insight/snapshot` 两只 strict 只读 API。
-- 待实施项：M23 无待执行的生产回补，M24R 与动量切读无待验收项。下一步固定为 M24 的双动量等价切读，再依次完成相对轮动、成员广度、量价分布并分别部署验收；本轮仅结案，不自动执行。随后才是 M25 每日洞察前后端和 M26 自动化与最终交付验收。TaskRun `10421`、`10518`、`10548`、`10567`、`10585` 与 `10587` 均保留为不可变执行证据，不得重用或改写。
+- 待实施项：M23无待执行的生产回补，M24R与动量切读无待验收项。下一步是双动量提交、用户部署后的正式验收；通过后再依次完成相对轮动、成员广度、量价分布切读并独立验收。本轮不自动提交或部署。随后才是M25每日洞察前后端、M26自动化与最终交付。TaskRun `10421`、`10518`、`10548`、`10567`、`10585` 与 `10587` 均保留为不可变执行证据，不得重用或改写。
 
 本文定义财势探查页面结构、五个已完成的独立分析方法，以及新增“每日洞察 + 每日事实物化”的代码级方案。每日洞察不是第六种公式，只汇总同一业务日期、同一层级版本、同一公式包和同一发布批次下的五方法客观事实；不生成综合分、预测、信号、机会等级或买卖建议。M3A 成分股明细和成员广度逐只股票明细继续按需读取，不进入本期物化结果。
 
@@ -725,6 +725,8 @@ wealth/src/features/wealth-exploration/sector-analysis/
 
 ### 5.8 M6／M7 双动量文件级增量矩阵
 
+本节是已完成M6／M7的历史增量记录；当前M24切读不重新执行它。双动量当前读取文件、日期策略、来源门禁和删除范围以M24.3为准。
+
 M6 后端只允许下列增量：
 
 | 操作 | 文件 | 精确要求 |
@@ -1406,6 +1408,8 @@ DATA_INSUFFICIENT
 
 ### 6.18 页面无关 Meta 事实与单日快照
 
+本节保留M6在线阶段的共享设计，继续服务尚未切读的方法及离线验证。当前动量排名、双动量均已按M24改读typed facts；下述两者消费旧Meta／Snapshot的描述不再适用其线上路径，当前双动量以M24.3为准，不能据此重新接回来源行情。
+
 公共 Meta service 输出不可变 `SectorAnalysisMetaFacts`：
 
 ```python
@@ -1452,7 +1456,7 @@ class SectorMomentumSnapshot:
 
 ### 6.19 双动量结果计数、排序和主状态
 
-对快照全量行计算：
+对当前PUBLISHED批次的全量双动量行计数（分类与数值已存储，不重新计算）：
 
 ```text
 totalCount       = rows.length
@@ -1477,16 +1481,16 @@ items.length = totalCount
 页面主状态继续复用 `READY/DELAYED/EMPTY/ERROR`：
 
 1. `calculableCount>0` 且 observed=expected 为 READY。
-2. 默认目标日不完整、已回退最近 COMPLETE 日且 `calculableCount>0` 为 DELAYED。
+2. 默认目标日尚未发布、已选此前最近PUBLISHED日且 `calculableCount>0` 为DELAYED；实际日可为PARTIAL，不继续找更早COMPLETE日。目标日已发布PARTIAL则留在该日。
 3. `calculableCount=0` 为 EMPTY。
 4. 查询、层级、公式、DTO 或内部合同失败为 ERROR。
 5. `qualifiedCount=0`、`calculableCount<3`、部分行缺坐标都仍是 Ready/Delayed 内容状态，不得改成 Empty/Error。
 
 ### 6.20 层级版本与查询时序
 
-双动量 Results 必须携带 Meta 返回的 `hierarchyVersion`，最长 128 个字符、trim 后非空；服务加载当前唯一发布层级后先比较版本，再读取窗口日历和行情。版本不一致立即返回 HTTP 409 `SA_FACT_VERSION_MISMATCH`，不得继续读取行情或返回新旧混合结果。
+双动量 Results 必须携带 Meta 返回的 `hierarchyVersion`，最长128个字符、trim后非空；服务加载当前唯一发布层级后先比较版本，再读取已发布覆盖和typed结果。版本不一致立即返回HTTP 409 `SA_FACT_VERSION_MISMATCH`，不得继续读取事实或返回新旧混合结果。
 
-正常 Results 查询顺序固定为：公共日期、层级、observed 覆盖／回退、窗口日历、一次行业行情集合查询，最多 5 条 SQL。显式 MISSING 日不回退；默认 PARTIAL/MISSING 才按既有公共延迟规则回退。双动量不得增加第二套日期规则、自然日减法、逐行业 SQL、缓存、快照副本或结果表。
+M24.3正常Results顺序固定为：公共日期、层级、已发布覆盖／日期选择、所选批次的一次双动量结果投影，最多4条SQL。显式未发布日不回退，3SQL返回EMPTY；目标日已发布PARTIAL不回退。禁止原始行情查询、自然日减法、逐行业SQL、缓存、来源快照副本和新增完整性计数。本期不新增表，只读取M22已有结果表。
 
 ### 6.21 相对轮动合同与不可变事实
 
@@ -5458,11 +5462,11 @@ M24/M25/M26线上性能只在九表及索引真实位于HDD的生产拓扑验收
 
 ### M24：五方法逐字段等价与 serving 切读
 
-状态：`IN PROGRESS（动量切读与 M24R 已 PASS / CLOSED；其余四方法 OPEN）`。
+状态：`IN PROGRESS（动量切读与M24R已PASS/CLOSED；双动量代码与只读预验收完成、部署验收OPEN；其余三方法OPEN）`。
 
 1. 按五scope、所有周期／阈值／MA／历史、正常与缺失日比较现算和typed facts。
 2. 按动量、双动量、相对轮动、成员广度、量价分布逐个切读；一次只切一个并独立部署验收。
-3. 公开URL/query/DTO/state不变；成员明细继续按需；不保留双读、开关或fallback。
+3. 公开URL/query/DTO字段和状态集合不变；双动量已发布PARTIAL的日期策略按M24.3新拍板；成员明细继续按需，不保留原始行情双读、开关或fallback。
 4. 单方法全矩阵或性能不通过就停止该方法，不影响其他方法。
 
 #### M24.1 动量排名首切片实装
@@ -5681,6 +5685,73 @@ P95按排序后位置 `(n-1)×0.95` 线性插值计算，浏览器样本为Netwo
 
 结案范围：M24R和动量serving切读子阶段无剩余验收项，均关闭；原Meta／Rankings／Members验收结论继续有效。M24／G63整体保持 `IN PROGRESS`，双动量、相对轮动、成员广度、量价分布仍为 `OPEN`。未切方法仍需共享Snapshot／Calculator，不能因本次结案删除。下一步固定为双动量等价切读，但本轮仅同步技术方案与LLD，不启动后续开发、生产任务或Git提交。
 
+### M24.3：双动量改读已发布事实
+
+状态：`CODE / READ-ONLY PRECHECK PASS；DEPLOYMENT ACCEPTANCE OPEN`；2026-09-03用户确认口径后实施。仅此方法，不进入相对轮动、成员广度、量价分布或M25。
+
+#### M24.3.1 责任与日期合同
+
+1. 数据完整性由上游 Prod／Lake 保证，上游如何实现不在本需求。禁止新增收盘价有效数、来源检查字段、表、迁移、配置、上游审计或回补；禁止请求时回查 `dc_daily`，也不将动量1日可计算结果解释为“收盘价有效”的证明。
+2. Meta 日期覆盖复用 `SectorAnalysisFactReader.load_momentum_coverage()`：公共日期1SQL、已发布层级1SQL、PUBLISHED批次＋SSE日历＋动量1日已发布可用数1SQL。保留覆盖区间内全部开市日及COMPLETE/PARTIAL/MISSING。计数语义是已发布1日结果可用数，不是上游质量结论。
+3. `resolve_trading_date()`：目标日已发布则保留该日，部分不可算如实展示；自动目标日未发布才选此前最近PUBLISHED日，即使该日PARTIAL也不能继续寻找更早COMPLETE日。显式未发布日为EMPTY，不回退。已发布坏字段安全ERROR，不以旧批次替代。此规则覆盖6.18～6.20双动量在线阶段的“默认找完整日”描述，不影响其他方法。
+4. 继续复用现有状态名称和文案。DELAYED允许实际已发布日为PARTIAL；全部不可计算仍按EMPTY处理。READY使用当天的可用结果和缺失行，不新增完整性提示或页面字段。
+
+#### M24.3.2 编码落点与查询边界
+
+| 文件 | 具体编码内容 | 禁止项 |
+|---|---|---|
+| `sector_analysis_fact_reader.py` | 新增只读双动量行类型和 `load_dual_momentum_rows()`；绑定已选批次、日期、比较scope/key、周期、阈值，单SQL投影完整对象池；选择对应70/80/90存储列 | 无历史窗口、无逐行业SQL、无源行情读取、无运行时分类重算 |
+| `sector_dual_momentum_query_service.py` | Meta改为公共日期→层级→已发布覆盖；Results再读单日typed表，共最多4SQL。沿用DTO五计数、固定排序和格式化，删除本服务旧Meta／Snapshot／Classifier执行路径 | 不保留双读开关／fallback，不删除其他方法与离线测试仍在使用的共享Snapshot／Calculator／Classifier |
+| `schemas/wealth/market/sector_dual_momentum.py` | DELAYED实际日期可为PARTIAL，其余状态／数据字段与严格校验保持 | 不增加DTO字段或新状态 |
+| 双动量query、API、fact reader、前端adapter合同测试与架构护栏测试 | 存储事实正反例；源行情更改／删除不影响线上结果；完整矩阵、有限只读等价、SQL／payload／耗时；验证现有adapter接受PARTIAL日期 | 不通过忽略缺失行业、弱化公式或减少周期达标；前端仅补测试，不改页面 |
+
+读取安全只覆盖已发布合同：批次和当前层级／公式包一致，公式身份与版本一致，scope/key/parent/period一致，行业身份及池匹配，数值有限且状态／空值符合合同，排名分母与该响应可计算数量一致。遇到不合法行安全失败；不修改上游，不推断或补造缺失值。完整存储对象池和批次一致检查沿用M24的防混批边界，不增加新的原始数据质量校验。
+
+保留公共访问认证、URL/query、4周期、3阈值、5比较范围、三种视图和全部五类计数。前端现有adapter已经允许DELAYED＋PARTIAL，无需修改页面、样式或Figma。Meta保持3SQL，非空Results最多4SQL，最大337行业／256KB和P95≤500ms不放宽；M24R的单次HTTPS例外不自动沿用。
+
+#### M24.3.3 验收顺序与停止点
+
+1. 先补齐文档，再实现typed reader与安全测试，再切QueryService；同一请求只消费已选PUBLISHED批次。
+2. 自动化覆盖5scope×4period×3threshold、并列／零涨跌／负收益／小样本／缺失、已发布PARTIAL不回退、未发布自动DELAYED、显式未发布EMPTY、版本冲突、非法字段与混批、未登录401、最大payload／SQL。证明线上调用不执行旧Snapshot／Classifier且不依赖 `dc_daily`。
+3. Prod只读预验收限定两个代表性已发布日（完整日与部分缺失日），比较原计算器与已发布行的收益、名次、分位、全部阈值状态及五计数；只在进程内使用有限来源投影，不保存来源副本、不写Prod。该离线对账不是新增上游保障步骤。
+4. 再测最大三级Results的SQL、完整数量、payload和P95；本地全方法API回归与文档检查通过后写实记录。部署、认证HTTP和页面验收待用户部署后完成，本轮不自动提交、推送或部署。M24／G63仍保持进行中。
+
+#### M24.3.4 实施对账与证据
+
+代码与测试：
+
+- `SectorPublishedDualMomentumRow`／`load_dual_momentum_rows()`投影所选周期与70/80/90对应的已存列，PUBLISHED＋batchId＋tradeDate约束防混批；保持现有对象池、公式、类型、有限值和状态安全检查。无新字段、质量计数、源查询或在线分类器。
+- `SectorDualMomentumQueryService`删除旧Meta／Snapshot／Classifier注入及旧“找COMPLETE日”helper；复用公共日期、层级、published coverage和原数值格式化。Meta3SQL，非空Results4SQL，未发布显式EMPTY3SQL，版本冲突2SQL。全空行仍先通过既有DTO状态合同，非法存储状态不能被Empty掩盖。
+- 后端schema仅放行DELAYED实际日PARTIAL；现有前端adapter无需改代码，新增2条READY/PARTIAL和DELAYED/PARTIAL合同测试。页面布局、样式、公式、URL和参数未改。
+- 后端208项通过，范围包含reader、双动量query/classifier、动量query/snapshot/calculator、每日物化／回放／模型、全方法API、板块与子系统架构护栏。前端板块分析21文件／184项、typecheck与production build通过。构建仅保留现有大chunk提示，未启动Web/Vite服务。
+- Ruff、文档完整性与`git diff --check`通过。当前本地Alembic单一head为`20260903_000169`（其他需求的现有迁移）；本轮零迁移、索引、配置、依赖、TaskRun或Prod写入。
+- CodeGraph使用explore／impact核验reader→双动量service→两只API及测试、前端adapter/controller消费者；实施后sync/status为最新。共享Snapshot／Calculator／Classifier仍由未切方法或离线生产器消费，不删除；子系统边界和依赖矩阵不变。
+
+Prod只读范围与逐字段对账：
+
+连接复用`.env.web.local`的现有配置，每轮`REPEATABLE READ, READ ONLY`。读取既有层级身份字段、PUBLISHED批次身份、SSE日期，以及双动量的收益／名次／分母／分位／各阈值状态／缺失原因／公式身份；离线oracle仅投影`dc_daily`的`ts_code/trade_date/close/pct_change`，限定行业板块、当前496代码、每目标日最多31个交易日。无来源导出，进程内处理；临时复核脚本在`/private/tmp/goldenshare-m24-dual-ZWzsRI/audit.py`，长期证据以本节计数和结果为准。
+
+| 目标日 | 离线价格窗口 | 来源行数 | 双动量存储行数 | 其中不可计算行 |
+|---|---|---:|---:|---:|
+| 2026-05-25 | 2026-04-08～2026-05-25，31交易日 | 14,786 | 3,844 | 3,764 |
+| 2026-08-31 | 2026-07-20～2026-08-31，31交易日 | 15,376 | 3,844 | 0 |
+
+共496行业、162比较池、1,296个日期／周期／池切片、7,688存储行、23,064条阈值结果，收益、名次、分母、分位、状态与原因零差异；三个全层级池额外核对每周期／阈值五计数和完整排序一致。缺失原样保留，没有补值或借旧数据。自动日期选择按本次新拍板验证，不声称与旧“找完整日”策略相同。
+
+当前本地代码直接调用service读取Prod，计时包含查询、对象组装、DTO检查与JSON序列化；不包含认证HTTP、浏览器和部署环境，不替代正式验收。每接口独立只读事务，预热1次后20次，P95按`(n-1)×0.95`线性插值：
+
+| 接口／场景 | SQL | 完整规模 | payload | P95 | 最大值 | 500ms预门禁 |
+|---|---:|---|---:|---:|---:|---|
+| 双动量Meta | 3 | 496行业及日期覆盖 | 167,236 bytes | 265.95ms | 266.27ms | PASS |
+| 双动量Results：LEVEL_3／30日／80阈值 | 4 | 337行业完整返回 | 154,383 bytes | 393.78ms | 405.57ms | PASS |
+
+两者均按最近PUBLISHED日返回DELAYED，不代表已经补齐最新目标日。原始计时（ms）：
+
+- Meta：`231.90,202.51,241.32,184.35,256.70,266.27,207.84,233.58,175.72,263.01,215.76,219.84,176.15,265.93,179.90,258.57,180.99,259.29,175.04,265.60`。
+- Results：`195.40,295.62,194.56,230.73,211.11,240.32,195.82,227.65,250.07,200.25,216.12,239.35,194.47,393.16,405.57,236.21,225.42,217.46,219.00,222.89`。
+
+停止点：双动量代码与预验收通过，但部署、正式认证HTTP和页面验收尚未发生；M24／G63不关闭，不推进相对轮动或M25。上游完整性保障与修复不属于本需求，不新增相关待办。
+
 ### M25：每日洞察后端与前端
 
 状态：`PENDING`。
@@ -5785,10 +5856,10 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G21 成员局部状态 | 独立 request key/retry/abort；不污染整页五态 | PASS (M3A code/tests) |
 | G22 成员响应式 | `390+12+464`、共享四列 Grid、三档无溢出、双滚动 | PASS (Figma/M3A browser) |
 | G23 双动量产品与 Figma | 产品基线 v1.4、15 状态、组件集和旧草稿冻结一致 | PASS (M5 docs/Figma) |
-| G24 双动量代码边界 | 公共 Meta 事实、单日快照、分类器、页面 service 职责及禁止项冻结 | PASS (M5 LLD/M6 code) |
+| G24 双动量代码边界 | M24.3线上只读published事实；旧Snapshot／Classifier仅未切方法或离线使用，页面service不重算 | PASS (M24.3 code/tests；部署验收归G63) |
 | G25 双动量 API 合同 | 专属 Meta/Results、strict DTO、五计数、状态和 409 语义 | PASS (M6 code/tests) |
 | G26 双动量公式 | 复用 basis@1；5/10/20/30、70/80/90、min group 3、零值边界 | PASS (M6 classifier/tests) |
-| G27 双动量事实源 | 只读前三张 Prod 表，无 members/股票/资金/Heat/QTF/DG/Lake | PASS (M6 guardrail) |
+| G27 双动量事实源 | M24.3线上只读日历、层级、PUBLISHED批次及动量1日／双动量typed表；无原行情兜底，无成员／股票／资金／Heat／QTF／DG/Lake | PASS (M24.3 guardrail；替代M6在线三表约束) |
 | G28 双动量路由与按需挂载 | 两个方法精确路由，只挂载当前 controller，三按钮零副作用 | PASS (M7 code/tests) |
 | G29 双动量前端事实边界 | adapter 无分类计算，resultView/选择/排序零请求，散点无伪点 | PASS (M7 code/tests) |
 | G30 双动量交付 | 后端、前端、性能、15 状态和四档宽度全量验收 | PASS (M8 技术证据、用户验收与冷启动性能决策已完成) |
@@ -5827,7 +5898,7 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G61 Ops自动主链 | GENERAL、20:05/600/00:30、来源齐备、通用plan/readiness；Heat/news/QTF/分钟零回归 | PARTIAL PASS (M22 code)：action、readiness、executor、GENERAL装配和冻结回归通过；远程scheduler/systemd实机仍OPEN (M26) |
 | G62 历史回补 | 2025-08-22起升序PLAN/APPLY/read-back/previous链；HDD物理落盘和日期完整性受控 | PASS (M23 approved scope)：10548冻结248日；10567持久化前213日后失败；10585/10587只恢复35日尾段并完成35/35。最终248/248唯一PUBLISHED、0缺口、0重复、计数／物理行数／previous链差异均为0，九表约3,774MB且全部位于HDD。全窗口幂等重放及其后新增门禁按用户明确豁免，不追溯补做 |
 | G62A M23R 长PLAN与取消一致性 | 逐日短事务、BUILDING检查点、真实进度、分阶段取消、非冻结不可APPLY；TaskRun与节点同事务取消 | PASS (local+remote)：261项正反例、提交685b42a3部署、10518逐日检查点／FROZEN终态及历史节点收口通过；继续使用既有GENERAL且无新增Worker/Lane |
-| G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | IN PROGRESS (M24)：动量Meta／Rankings／Members及M24R History已完成部署、用户批准的等效HTTPS性能和页面验收，动量子阶段PASS/CLOSED；其余四方法OPEN，不能整体关闭 |
+| G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | IN PROGRESS (M24)：动量子阶段与M24R已PASS/CLOSED；双动量代码、23,064阈值结果等价及3/4SQL、500ms只读预门禁通过，部署验收OPEN；其余三方法OPEN，不能整体关闭 |
 | G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN (M25/M26) |
 | G65 Daily前端 | 第六route、三参数URL、controller、四完整滚动列表、五态、跳转和按需挂载 | OPEN (M25) |
 | G66 Daily交付 | HDD真实拓扑、自动任务、payload/P95、8张Figma、四档及用户验收 | OPEN (M26) |
@@ -6025,12 +6096,13 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。M24R 已完成紧凑History读取、完整切片审计、公开合同回归和部署验收：最大三级30日周期／60日场景的两轮认证HTTPS P95为 `358.4/370.9ms`，60＋60槽、排名与缺失分母和Prod一致。用户批准本次HTTPS等效验收且700ms门槛不变，M24R及动量切读子阶段关闭。M24／G63仍需完成其余四方法；每日洞察API与前端仍属于M25，自动化与最终交付验收仍属于M26。
 
-下一步固定为 M24 的双动量等价切读，再按相对轮动、成员广度、量价分布顺序分别实施和独立验收；本轮仅完成M24R和动量子阶段结案，不自动开发。M23 的任务均只保留为审计证据，不得重用；其余四方法未完成前，不得整体关闭M24／G63、提前修改默认路由或进入M25～M26。
+M24.3双动量代码与只读预验收已完成，下一步固定为提交、用户部署后的正式验收；通过后再按相对轮动、成员广度、量价分布顺序实施并独立验收。当前不自动提交、部署或推进下一方法。M23任务只保留证据，不重用；双动量正式验收与其余三方法完成前，不整体关闭M24／G63、不提前修改默认路由或进入M25～M26。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.62 | 2026-09-03 | 按用户拍板完成M24.3双动量切读：不新增完整性计数、不回查原始行情、不设计上游保障；明确已发布PARTIAL保留、默认未发布选最近PUBLISHED，更新旧快照／日期／SQL描述。新增typed reader并删除双动量旧在线计算依赖，保持公式与页面合同；后端208项、前端184项、typecheck/build及文档检查通过。两日23,064阈值结果零差异、Meta/Results 3/4SQL与265.95/393.78ms只读预门禁通过，归档范围及计时；部署验收OPEN，不自动提交部署或进入下一方法 |
 | v1.61 | 2026-09-03 | 关闭M24R与动量切读子阶段：部署提交d5f42566的两轮各20次认证HTTPS全部200，完整请求P95 358.4/370.9ms、最慢407ms；页面337行业、60＋60槽、当前／全局／父级名次和真实缺失分母核对通过。记录用户批准的仅本次HTTPS等效验收，700ms不变，区分本轮测量和前轮SQL／payload证据并归档原始浏览器样本。M24／G63仍IN PROGRESS，下一方法为双动量，本轮不开发或提交 |
 | v1.60 | 2026-09-03 | 完成M24R本地实施：新增History专属紧凑选择／聚合reader，在数据库内保留完整对象池、层级、公式、状态与排名分母审计；`build_history()`切读并安全删除三个仅服务旧History的全榜helper，公开合同及其余方法零变化。后端187项、前端578项、typecheck/build通过；Prod只读最大三级30日／60日场景固定5 SQL、61行聚合事实、60＋60槽、10,062 bytes，20次P95 483.41ms通过700ms预门禁。当前待提交、部署后认证HTTP和页面验收，G63保持IN PROGRESS |
 | v1.59 | 2026-09-03 | 完成M24R代码级纠偏设计：部署验收确认Meta／Rankings／Members通过，但最大三级30日周期／60日History稳态服务P95 `1,108.223ms`超过700ms门禁。冻结单SQL数据库内完整切片审计＋所选行业投影、最多62行返回、公开合同和数据体验零变化、零迁移／索引／缓存；明确允许文件、值对象、聚合不变量、旧私有helper安全删除范围、全矩阵正反例及两轮HTTP P95门禁。当前仅修改文档，等待用户评审后方可编码 |

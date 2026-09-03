@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
@@ -14,6 +14,20 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
 from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import (
     FORMULA_BUNDLE_VERSION,
 )
+from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contract import (
+    FORMULA_KEY as DUAL_FORMULA_KEY,
+    FORMULA_VERSION as DUAL_FORMULA_VERSION,
+    MINIMUM_GROUP_SIZE,
+    SectorDualMomentumAbsoluteStatus,
+    SectorDualMomentumCoordinateStatus,
+    SectorDualMomentumDisplayStatus,
+    SectorDualMomentumLeadingThreshold,
+    SectorDualMomentumPeriod,
+    SectorDualMomentumQualificationStatus,
+    SectorDualMomentumRelativeStatus,
+    parse_dual_momentum_leading_threshold,
+    parse_dual_momentum_period,
+)
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     FORMULA_KEY,
     FORMULA_VERSION,
@@ -24,6 +38,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
     SectorScopeInvalidError,
     SectorTradingDateResolution,
     classify_availability,
+    resolve_scope_pool,
 )
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.wealth_sector_analysis_publish_batch import (
@@ -31,6 +46,9 @@ from src.foundation.models.core_serving.wealth_sector_analysis_publish_batch imp
 )
 from src.foundation.models.core_serving.wealth_sector_hierarchy import (
     WealthSectorHierarchy,
+)
+from src.foundation.models.core_serving.wealth_sector_dual_momentum_daily import (
+    WealthSectorDualMomentumDaily,
 )
 from src.foundation.models.core_serving.wealth_sector_momentum_daily import (
     WealthSectorMomentumDaily,
@@ -82,6 +100,15 @@ class SectorPublishedMomentumRow:
     percentile: Decimal | None
     calculation_status: str
     missing_reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class SectorPublishedDualMomentumRow(SectorPublishedMomentumRow):
+    absolute_status: SectorDualMomentumAbsoluteStatus
+    relative_status: SectorDualMomentumRelativeStatus
+    qualification_status: SectorDualMomentumQualificationStatus
+    coordinate_status: SectorDualMomentumCoordinateStatus
+    display_status: SectorDualMomentumDisplayStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -462,6 +489,94 @@ class SectorAnalysisFactReader:
                 )
             )
         return tuple(results)
+
+    def load_dual_momentum_rows(
+        self,
+        session: Session,
+        *,
+        batch_id: UUID,
+        trade_date: date,
+        scope: SectorMomentumScope,
+        level1_code: str | None,
+        level2_code: str | None,
+        period: SectorDualMomentumPeriod,
+        leading_threshold: SectorDualMomentumLeadingThreshold,
+        hierarchy: SectorHierarchySnapshot,
+    ) -> tuple[SectorPublishedDualMomentumRow, ...]:
+        """Read one published slice; never inspect or repair its upstream inputs."""
+        parse_dual_momentum_period(period)
+        parse_dual_momentum_leading_threshold(leading_threshold)
+        pool = resolve_scope_pool(
+            hierarchy, scope=scope, level1_code=level1_code, level2_code=level2_code,
+        )
+        parent_code = (
+            level1_code if scope == "LEVEL_1_CHILDREN"
+            else level2_code if scope == "LEVEL_2_CHILDREN" else None
+        )
+        key = {
+            "LEVEL_1": "GLOBAL:L1", "LEVEL_2": "GLOBAL:L2", "LEVEL_3": "GLOBAL:L3",
+            "LEVEL_1_CHILDREN": f"PARENT:L1:{level1_code}",
+            "LEVEL_2_CHILDREN": f"PARENT:L2:{level2_code}",
+        }[scope]
+        fact, batch = WealthSectorDualMomentumDaily, WealthSectorAnalysisPublishBatch
+        base_fields = tuple(field.name for field in fields(SectorPublishedMomentumRow))
+        statement = (
+            select(
+                *(getattr(fact, name) for name in base_fields),
+                fact.absolute_status, fact.coordinate_status,
+                getattr(fact, f"relative_status_{leading_threshold}").label("relative_status"),
+                getattr(fact, f"qualification_status_{leading_threshold}").label("qualification_status"),
+                getattr(fact, f"display_status_{leading_threshold}").label("display_status"),
+                fact.minimum_group_size, fact.formula_key, fact.formula_version,
+                batch.hierarchy_version, batch.formula_bundle_version,
+            )
+            .join(batch, and_(
+                batch.batch_id == fact.batch_id,
+                batch.trade_date == fact.trade_date,
+                batch.status == "PUBLISHED",
+            ))
+            .where(
+                fact.batch_id == batch_id, fact.trade_date == trade_date,
+                fact.comparison_scope == scope, fact.comparison_key == key,
+                fact.period == period,
+            )
+            .order_by(fact.sector_code)
+        )
+        rows = session.execute(statement).all()
+        expected_codes = {node.sector_code for node in pool}
+        if len(rows) != len(expected_codes) or {row.sector_code for row in rows} != expected_codes:
+            raise SectorDataQueryError("published dual-momentum slice does not match its object pool")
+        calculable_count = sum(row.calculation_status == "CALCULABLE" for row in rows)
+        result = []
+        for row in rows:
+            self._validate_batch_identity(
+                hierarchy_version=row.hierarchy_version,
+                formula_bundle_version=row.formula_bundle_version, hierarchy=hierarchy,
+            )
+            node = hierarchy.nodes_by_code[row.sector_code]
+            if (
+                row.parent_sector_code != parent_code
+                or row.sector_name != node.sector_name
+                or row.industry_level != node.industry_level
+                or row.hierarchy_path != node.hierarchy_path
+                or row.formula_key != DUAL_FORMULA_KEY
+                or row.formula_version != DUAL_FORMULA_VERSION
+                or row.minimum_group_size != MINIMUM_GROUP_SIZE
+            ):
+                raise SectorDataQueryError("published dual-momentum identity is inconsistent")
+            self._validate_momentum_values(row)
+            if row.calculation_status == "CALCULABLE" and (
+                not row.return_pct.is_finite() or not row.percentile.is_finite()
+                or not 0 <= row.percentile <= 100
+                or not 1 <= row.strength_rank <= calculable_count
+                or row.rankable_count != calculable_count
+            ):
+                raise SectorDataQueryError("published dual-momentum values are invalid")
+            result.append(SectorPublishedDualMomentumRow(**{
+                field.name: row._mapping[field.name]
+                for field in fields(SectorPublishedDualMomentumRow)
+            }))
+        return tuple(result)
 
     def load_momentum_history_slices(
         self,

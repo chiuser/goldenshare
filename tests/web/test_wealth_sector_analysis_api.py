@@ -22,6 +22,12 @@ from src.foundation.models.core_serving.wealth_sector_analysis_publish_batch imp
 from src.foundation.models.core_serving.wealth_sector_momentum_daily import (
     WealthSectorMomentumDaily,
 )
+from src.foundation.models.core_serving.wealth_sector_dual_momentum_daily import (
+    WealthSectorDualMomentumDaily,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_classifier import (
+    SectorDualMomentumClassifier,
+)
 from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import (
     FORMULA_BUNDLE_VERSION,
 )
@@ -58,6 +64,7 @@ def _ensure_tables(db_session) -> None:
     WealthSectorHierarchy.__table__.create(bind, checkfirst=True)
     WealthSectorAnalysisPublishBatch.__table__.create(bind, checkfirst=True)
     WealthSectorMomentumDaily.__table__.create(bind, checkfirst=True)
+    WealthSectorDualMomentumDaily.__table__.create(bind, checkfirst=True)
 
 
 def _hierarchy_rows() -> tuple[tuple[str, str, int, str | None, str, str], ...]:
@@ -1600,6 +1607,86 @@ def test_price_volume_rejects_unknown_duplicate_invalid_scope_selection_and_date
     assert bad_date.json()["code"] == "SA_SELECTION_INVALID"
 
 
+def _seed_dual_serving_facts(db_session, *, dates=(TARGET_DATE, OPEN_DATES[-2])):
+    """Offline oracle fixture only; the HTTP path must never run this calculation."""
+    hierarchy = SectorHierarchyQuery().load(db_session)
+    open_dates = tuple(db_session.scalars(select(TradeCalendar.trade_date).where(
+        TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True),
+    ).order_by(TradeCalendar.trade_date)))
+    calculator, classifier = SectorMomentumCalculator(), SectorDualMomentumClassifier()
+    index = calculator.index_facts(SectorDailyFact(
+        sector_code=row.ts_code, trade_date=row.trade_date,
+        close=row.close, pct_change=row.pct_change,
+    ) for row in db_session.scalars(select(DcDaily).where(DcDaily.category == "行业板块")))
+    pools = [(f"LEVEL_{level}", f"GLOBAL:L{level}", None,
+              global_level_pool(hierarchy, industry_level=level)) for level in (1, 2, 3)]
+    pools.extend((f"LEVEL_{node.industry_level}_CHILDREN",
+                  f"PARENT:L{node.industry_level}:{node.sector_code}", node.sector_code,
+                  hierarchy.children_by_parent[node.sector_code])
+                 for node in hierarchy.nodes if node.industry_level in (1, 2)
+                 and hierarchy.children_by_parent.get(node.sector_code))
+    for target in dates:
+        batch = db_session.scalar(select(WealthSectorAnalysisPublishBatch).where(
+            WealthSectorAnalysisPublishBatch.trade_date == target,
+            WealthSectorAnalysisPublishBatch.status == "PUBLISHED",
+        ))
+        seed_coverage = batch is None
+        if batch is None:
+            batch = WealthSectorAnalysisPublishBatch(
+                batch_id=uuid5(NAMESPACE_URL, f"dual-test:{target}"), trade_date=target,
+                status="PUBLISHED", hierarchy_version=hierarchy.baseline_version,
+                formula_bundle_version=FORMULA_BUNDLE_VERSION,
+                template_version="sector-daily-insight-template@1",
+                source_hash="a" * 64, plan_hash="b" * 64, content_hash="c" * 64,
+                source_dates_json={}, source_row_counts_json={},
+                expected_fact_counts_json={}, actual_fact_counts_json={},
+                started_at=hierarchy.published_at, calculated_at=hierarchy.published_at,
+                published_at=hierarchy.published_at,
+            )
+            db_session.add(batch)
+        for scope, key, parent, pool in pools:
+            for period in ((1, 5, 10, 20, 30) if seed_coverage else (5, 10, 20, 30)):
+                returns = calculator.calculate_for_date(
+                    sector_codes=tuple(node.sector_code for node in pool),
+                    open_dates=open_dates, target_date=target, period=period, fact_index=index,
+                )
+                ranked = calculator.rank_strength(returns)
+                count = sum(item.return_pct is not None for item in ranked)
+                by_code = {item.sector_code: item for item in returns}
+                for rank in ranked:
+                    node = hierarchy.nodes_by_code[rank.sector_code]
+                    fact = by_code[rank.sector_code]
+                    values = dict(
+                        batch_id=batch.batch_id, trade_date=target, comparison_scope=scope,
+                        comparison_key=key, parent_sector_code=parent,
+                        sector_code=node.sector_code, sector_name=node.sector_name,
+                        industry_level=node.industry_level, hierarchy_path=node.hierarchy_path,
+                        period=period, return_pct=rank.return_pct, strength_rank=rank.strength_rank,
+                        rankable_count=count if rank.strength_rank is not None else None,
+                        percentile=rank.percentile, formula_version=1,
+                        calculation_status="CALCULABLE" if rank.return_pct is not None else "UNAVAILABLE",
+                        missing_reason=fact.missing_reason, calculated_at=hierarchy.published_at,
+                    )
+                    if period == 1:
+                        db_session.add(WealthSectorMomentumDaily(
+                            **values, formula_key=MOMENTUM_FORMULA_KEY,
+                        ))
+                        continue
+                    classifications = {threshold: classifier.classify(
+                        return_fact=fact, rank_fact=rank, calculable_count=count,
+                        leading_threshold=threshold,
+                    ) for threshold in (70, 80, 90)}
+                    db_session.add(WealthSectorDualMomentumDaily(
+                        **values, formula_key="sector-dual-momentum", minimum_group_size=3,
+                        absolute_status=classifications[80].absolute_status,
+                        coordinate_status=classifications[80].coordinate_status,
+                        **{f"{name}_{threshold}": getattr(classification, name)
+                           for threshold, classification in classifications.items()
+                           for name in ("relative_status", "qualification_status", "display_status")},
+                    ))
+    db_session.commit()
+
+
 def _dual_results_params(**overrides):
     params = {
         "market": "CN_A",
@@ -1620,6 +1707,7 @@ def test_dual_meta_returns_dedicated_contract_in_three_sql(
     web_engine,
 ) -> None:
     _seed_sector_analysis(db_session)
+    _seed_dual_serving_facts(db_session)
 
     sql_count, response = _count_request_sql(
         web_engine,
@@ -1659,12 +1747,13 @@ def test_dual_meta_returns_dedicated_contract_in_three_sql(
     assert 1 not in payload["formula"]["periods"]
 
 
-def test_dual_results_returns_full_canonical_rows_and_five_counts_in_five_sql(
+def test_dual_results_returns_full_canonical_rows_and_five_counts_in_four_sql(
     app_client,
     db_session,
     web_engine,
 ) -> None:
     _seed_sector_analysis(db_session)
+    _seed_dual_serving_facts(db_session)
 
     sql_count, response = _count_request_sql(
         web_engine,
@@ -1675,7 +1764,7 @@ def test_dual_results_returns_full_canonical_rows_and_five_counts_in_five_sql(
     )
 
     assert response.status_code == 200
-    assert sql_count == 5
+    assert sql_count == 4
     payload = response.json()
     assert payload["status"] == "READY"
     analysis = payload["analysis"]
@@ -1702,8 +1791,16 @@ def test_dual_results_returns_full_canonical_rows_and_five_counts_in_five_sql(
 def test_dual_results_supports_all_frozen_scopes_periods_and_thresholds(
     app_client,
     db_session,
+    monkeypatch,
 ) -> None:
     _seed_sector_analysis(db_session)
+    _seed_dual_serving_facts(db_session)
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("online dual momentum must not recalculate")
+    monkeypatch.setattr(SectorMomentumSnapshotQueryService, "build", forbidden)
+    monkeypatch.setattr(SectorDualMomentumClassifier, "classify", forbidden)
+    monkeypatch.setattr(SectorMomentumCalculator, "calculate_for_date", forbidden)
+    monkeypatch.setattr(SectorMomentumCalculator, "rank_strength", forbidden)
     scopes = (
         ("LEVEL_1", {}),
         ("LEVEL_2", {}),
@@ -1733,6 +1830,26 @@ def test_dual_results_supports_all_frozen_scopes_periods_and_thresholds(
                 assert payload["analysis"]["scope"] == scope
                 assert payload["analysis"]["period"] == period
                 assert payload["analysis"]["leadingThreshold"] == threshold
+                stored = {row.sector_code: row for row in db_session.scalars(
+                    select(WealthSectorDualMomentumDaily).where(
+                        WealthSectorDualMomentumDaily.trade_date == TARGET_DATE,
+                        WealthSectorDualMomentumDaily.comparison_scope == scope,
+                        WealthSectorDualMomentumDaily.period == period,
+                        WealthSectorDualMomentumDaily.parent_sector_code == (
+                            parents.get("level2Code") or parents.get("level1Code")
+                        ),
+                    )
+                )}
+                assert len(stored) == payload["analysis"]["totalCount"]
+                for item in payload["analysis"]["items"]:
+                    row = stored[item["sectorCode"]]
+                    assert item["returnPct"] == SectorMomentumCalculator.as_json_return(row.return_pct)
+                    assert item["percentile"] == SectorMomentumCalculator.as_json_percentile(row.percentile)
+                    assert item["strengthRank"] == row.strength_rank
+                    assert item["absoluteStatus"] == row.absolute_status
+                    assert item["coordinateStatus"] == row.coordinate_status
+                    for public, column in (("relativeStatus", "relative_status"), ("qualificationStatus", "qualification_status"), ("displayStatus", "display_status")):
+                        assert item[public] == getattr(row, f"{column}_{threshold}")
 
 
 def test_dual_small_group_is_ready_with_plottable_facts_and_no_qualification(
@@ -1740,6 +1857,7 @@ def test_dual_small_group_is_ready_with_plottable_facts_and_no_qualification(
     db_session,
 ) -> None:
     _seed_sector_analysis(db_session)
+    _seed_dual_serving_facts(db_session)
 
     response = app_client.get(
         "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
@@ -1773,6 +1891,7 @@ def test_dual_no_qualified_is_ready_and_keeps_all_negative_facts(
         )
         row.close = Decimal("1")
     db_session.commit()
+    _seed_dual_serving_facts(db_session)
 
     response = app_client.get(
         "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
@@ -1804,7 +1923,10 @@ def test_dual_explicit_partial_is_ready_and_preserves_missing_coordinate(
             )
         )
     )
+    _mark_momentum_unavailable(db_session, trade_date=TARGET_DATE,
+                              comparison_key="GLOBAL:L2", sector_code="BK1103.DC")
     db_session.commit()
+    _seed_dual_serving_facts(db_session)
 
     response = app_client.get(
         "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
@@ -1824,7 +1946,7 @@ def test_dual_explicit_partial_is_ready_and_preserves_missing_coordinate(
     assert missing["missingReason"] == "DATE_MISSING"
 
 
-def test_dual_default_partial_falls_back_and_meta_reports_same_delayed_date(
+def test_dual_default_published_partial_keeps_date_in_meta_and_results(
     app_client,
     db_session,
 ) -> None:
@@ -1838,7 +1960,10 @@ def test_dual_default_partial_falls_back_and_meta_reports_same_delayed_date(
             )
         )
     )
+    _mark_momentum_unavailable(db_session, trade_date=TARGET_DATE,
+                              comparison_key="GLOBAL:L3", sector_code="BK1202.DC")
     db_session.commit()
+    _seed_dual_serving_facts(db_session)
 
     meta = app_client.get("/api/v1/wealth/market/sector-analysis/dual-momentum/meta")
     params = _dual_results_params()
@@ -1849,11 +1974,68 @@ def test_dual_default_partial_falls_back_and_meta_reports_same_delayed_date(
     )
 
     assert meta.status_code == results.status_code == 200
-    assert meta.json()["status"] == results.json()["status"] == "DELAYED"
-    assert meta.json()["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
+    assert meta.json()["status"] == results.json()["status"] == "READY"
+    assert meta.json()["tradingDay"]["observedTradeDate"] == TARGET_DATE.isoformat()
     assert (
-        results.json()["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
+        results.json()["tradingDay"]["observedTradeDate"] == TARGET_DATE.isoformat()
     )
+
+
+def test_dual_unpublished_default_uses_latest_published_partial_not_older_complete(app_client, db_session):
+    _seed_sector_analysis(db_session)
+    _seed_dual_serving_facts(db_session)
+    _unpublish_momentum_date(db_session, trade_date=TARGET_DATE)
+    _mark_momentum_unavailable(db_session, trade_date=OPEN_DATES[-2],
+                              comparison_key="GLOBAL:L3", sector_code="BK1202.DC")
+    db_session.commit()
+    params = _dual_results_params()
+    params.pop("tradeDate")
+    for endpoint, query in (("meta", {}), ("results", params)):
+        response = app_client.get(f"/api/v1/wealth/market/sector-analysis/dual-momentum/{endpoint}", params=query)
+        assert response.status_code == 200
+        assert response.json()["status"] == "DELAYED"
+        assert response.json()["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
+        assert response.json()["tradingDay"]["observedAvailability"] == "PARTIAL"
+
+
+def test_dual_published_responses_do_not_depend_on_source_close_or_daily_table(app_client, db_session):
+    _seed_sector_analysis(db_session)
+    _seed_dual_serving_facts(db_session)
+    def responses():
+        meta = app_client.get("/api/v1/wealth/market/sector-analysis/dual-momentum/meta").json()
+        result = app_client.get("/api/v1/wealth/market/sector-analysis/dual-momentum/results", params=_dual_results_params()).json()
+        for payload in (meta, result):
+            assert payload["status"] == "READY"
+            payload["pageStatus"].pop("asOfTime")
+        return meta, result
+    baseline = responses()
+    # Source values are deliberately inconsistent with the already-published batch.
+    for row in db_session.scalars(select(DcDaily).where(DcDaily.trade_date == TARGET_DATE)):
+        row.close = None
+        row.pct_change = Decimal("-99")
+    db_session.commit()
+    assert responses() == baseline
+    DcDaily.__table__.drop(db_session.get_bind())  # isolated in-memory fixture only
+    assert responses() == baseline
+
+
+def test_dual_bad_published_status_is_error_not_old_date_fallback(app_client, db_session):
+    _seed_sector_analysis(db_session)
+    _seed_dual_serving_facts(db_session)
+    row = db_session.scalar(select(WealthSectorDualMomentumDaily).where(
+        WealthSectorDualMomentumDaily.trade_date == TARGET_DATE,
+        WealthSectorDualMomentumDaily.comparison_scope == "LEVEL_2",
+        WealthSectorDualMomentumDaily.period == 20,
+    ))
+    row.absolute_status = "UNAVAILABLE"
+    db_session.commit()
+    params = _dual_results_params()
+    params.pop("tradeDate")
+    response = app_client.get("/api/v1/wealth/market/sector-analysis/dual-momentum/results", params=params)
+    assert response.status_code == 200
+    assert response.json()["status"] == "ERROR"
+    assert response.json()["exceptionCode"] == "SA_QUERY_FAILED"
+    assert response.json()["analysis"] is None
 
 
 def test_dual_explicit_missing_is_empty_without_window_or_fact_queries(
@@ -1862,13 +2044,7 @@ def test_dual_explicit_missing_is_empty_without_window_or_fact_queries(
     web_engine,
 ) -> None:
     _seed_sector_analysis(db_session)
-    for row in db_session.scalars(
-        select(DcDaily).where(
-            DcDaily.trade_date == TARGET_DATE,
-            DcDaily.category == "行业板块",
-        )
-    ).all():
-        db_session.delete(row)
+    _unpublish_momentum_date(db_session, trade_date=TARGET_DATE)
     db_session.commit()
 
     sql_count, response = _count_request_sql(
@@ -1989,7 +2165,7 @@ def test_dual_meta_and_results_use_safe_hierarchy_and_query_failures(
     assert results.json()["exceptionCode"] == "SA_HIERARCHY_UNAVAILABLE"
 
     _seed_sector_analysis(db_session)
-    DcDaily.__table__.drop(db_session.get_bind())
+    WealthSectorDualMomentumDaily.__table__.drop(db_session.get_bind())
     query_failure = app_client.get(
         "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
         params=_dual_results_params(),
@@ -2115,6 +2291,7 @@ def test_dual_maximum_337_pool_meets_sql_payload_and_local_p95_budgets(
     web_engine,
 ) -> None:
     target_date, hierarchy_version = _seed_maximum_dual_pool(db_session)
+    _seed_dual_serving_facts(db_session, dates=(target_date,))
     params = {
         "market": "CN_A",
         "tradeDate": target_date.isoformat(),
@@ -2166,7 +2343,7 @@ def test_dual_maximum_337_pool_meets_sql_payload_and_local_p95_budgets(
     assert sorted(meta_durations)[18] <= 0.5
     assert first.json()["analysis"]["totalCount"] == 337
     assert first.json()["analysis"]["calculableCount"] == 337
-    assert sql_count == 5
+    assert sql_count == 4
     assert len(first.content) <= 256 * 1024
     assert sorted(durations)[18] <= 0.5
 

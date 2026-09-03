@@ -7,19 +7,17 @@ from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
     SectorHierarchyNode,
+    SectorHierarchyQuery,
     SectorHierarchySnapshot,
     SectorHierarchyUnavailableError,
 )
 from src.biz.queries.wealth.market.context.market_page_context_query import (
     MarketPageContext,
+    MarketPageContextQuery,
 )
-from src.biz.queries.wealth.market.sector_analysis.sector_analysis_meta_query_service import (
-    SectorAnalysisMetaFacts,
-    SectorAnalysisMetaQueryService,
-)
-from src.biz.queries.wealth.market.sector_analysis.sector_momentum_snapshot_query_service import (
-    SectorMomentumSnapshot,
-    SectorMomentumSnapshotQueryService,
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+    SectorAnalysisFactReader,
+    SectorPublishedDualMomentumRow,
 )
 from src.biz.schemas.wealth.market.sector_analysis import (
     SectorAnalysisDebugInfoDto,
@@ -42,9 +40,6 @@ from src.biz.services.wealth.market.sector_analysis.sector_analysis_status_resol
     SectorAnalysisStatusResolution,
     SectorAnalysisStatusResolver,
 )
-from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_classifier import (
-    SectorDualMomentumClassifier,
-)
 from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contract import (
     ALLOWED_LEADING_THRESHOLDS,
     ALLOWED_PERIODS,
@@ -53,7 +48,6 @@ from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contrac
     FORMULA_KEY,
     FORMULA_VERSION,
     MINIMUM_GROUP_SIZE,
-    SectorDualMomentumClassification,
     SectorDualMomentumLeadingThreshold,
     SectorDualMomentumPeriod,
     SectorMomentumFactVersionMismatchError,
@@ -68,6 +62,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
     SectorScopeInvalidError,
     SectorSelectionInvalidError,
     SectorTradingDateResolution,
+    resolve_scope_pool,
 )
 
 
@@ -75,20 +70,20 @@ _CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
 class SectorDualMomentumQueryService:
-    """Compose dual-momentum DTOs from the shared immutable fact snapshot."""
+    """Compose dual-momentum DTOs exclusively from the selected published batch."""
 
     def __init__(
         self,
         *,
-        meta_service: SectorAnalysisMetaQueryService | None = None,
-        snapshot_service: SectorMomentumSnapshotQueryService | None = None,
-        classifier: SectorDualMomentumClassifier | None = None,
+        context_query: MarketPageContextQuery | None = None,
+        hierarchy_query: SectorHierarchyQuery | None = None,
+        fact_reader: SectorAnalysisFactReader | None = None,
         calculator: SectorMomentumCalculator | None = None,
         status_resolver: SectorAnalysisStatusResolver | None = None,
     ) -> None:
-        self._meta_service = meta_service or SectorAnalysisMetaQueryService()
-        self._snapshot_service = snapshot_service or SectorMomentumSnapshotQueryService()
-        self._classifier = classifier or SectorDualMomentumClassifier()
+        self._context_query = context_query or MarketPageContextQuery()
+        self._hierarchy_query = hierarchy_query or SectorHierarchyQuery()
+        self._facts = fact_reader or SectorAnalysisFactReader()
         self._calculator = calculator or SectorMomentumCalculator()
         self._status = status_resolver or SectorAnalysisStatusResolver()
 
@@ -98,19 +93,26 @@ class SectorDualMomentumQueryService:
         *,
         market: str,
     ) -> SectorDualMomentumMetaResponseDto:
-        facts = self._meta_service.load(session, market=market)
-        resolution = self._meta_resolution(facts)
-        assert resolution.observed is not None
+        context = self._context_query.resolve_context(
+            session, market=market, requested_trade_date=None,
+        )
+        hierarchy = self._hierarchy_query.load(session)
+        coverage = self._facts.load_momentum_coverage(
+            session, coverage_end_date=context.trade_date, hierarchy=hierarchy,
+        )
+        resolution = self._facts.resolve_trading_date(
+            coverage, expected_trade_date=context.trade_date, is_explicit=False,
+        )
         status = self._status.resolve(
             trading_day=resolution,
-            calculable_count=resolution.observed.valid_sector_count,
+            calculable_count=resolution.observed.valid_sector_count if resolution.observed else 0,
         )
         if status.status not in {"READY", "DELAYED"}:
             raise SectorDataQueryError("dual-momentum meta has no usable business date")
         return SectorDualMomentumMetaResponseDto(
             status=status.status,
             tradingDay=self._trading_day(resolution),
-            pageStatus=self._page_status(status, context=facts.context),
+            pageStatus=self._page_status(status, context=context),
             message=status.message,
             exceptionCode=status.exception_code,
             debugInfo=None,
@@ -130,9 +132,9 @@ class SectorDualMomentumQueryService:
                 leadingThreshold=80,
                 resultView="QUALIFIED",
             ),
-            hierarchy=self._hierarchy_dto(facts.hierarchy),
-            coverageStartDate=facts.coverage_start_date,
-            coverageEndDate=facts.coverage_end_date,
+            hierarchy=self._hierarchy_dto(hierarchy),
+            coverageStartDate=coverage.coverage_start_date,
+            coverageEndDate=coverage.coverage_end_date,
             tradeDates=[
                 SectorTradeDateAvailabilityDto(
                     tradeDate=item.trade_date,
@@ -140,7 +142,7 @@ class SectorDualMomentumQueryService:
                     expectedSectorCount=item.expected_sector_count,
                     validSectorCount=item.valid_sector_count,
                 )
-                for item in facts.trade_dates
+                for item in (entry.availability for entry in coverage.calendar_dates)
             ],
         )
 
@@ -159,61 +161,66 @@ class SectorDualMomentumQueryService:
         debug: bool,
     ) -> SectorDualMomentumResultsResponseDto:
         try:
-            snapshot = self._snapshot_service.build(
-                session,
-                market=market,
-                trade_date=trade_date,
+            context = self._context_query.resolve_context(
+                session, market=market, requested_trade_date=None,
+            )
+            hierarchy = self._hierarchy_query.load(session)
+            if hierarchy.baseline_version != hierarchy_version:
+                raise SectorMomentumFactVersionMismatchError("行业层级版本已更新，请刷新后重试")
+            pool = resolve_scope_pool(
+                hierarchy,
                 scope=scope,
                 level1_code=level1_code,
                 level2_code=level2_code,
-                period=period,
-                expected_hierarchy_version=hierarchy_version,
-                date_errors_are_selection=True,
             )
-            calculable_count = sum(
-                row.rank_fact.return_pct is not None for row in snapshot.rows
+            coverage = self._facts.load_momentum_coverage(
+                session, coverage_end_date=context.trade_date, hierarchy=hierarchy,
             )
+            try:
+                resolution = self._facts.resolve_trading_date(
+                    coverage, expected_trade_date=trade_date or context.trade_date,
+                    is_explicit=trade_date is not None,
+                )
+            except SectorScopeInvalidError as exc:
+                raise SectorSelectionInvalidError(str(exc)) from exc
+            debug_info = self._debug_info(
+                resolution=resolution, scope=scope, pool=pool, debug=debug,
+            )
+            observed = resolution.observed
+            batch_id = coverage.batch_by_date.get(observed.trade_date) if observed else None
+            if batch_id is None or observed is None or observed.availability == "MISSING":
+                return self._empty_response(context=context, resolution=resolution, debug_info=debug_info)
+            rows = self._facts.load_dual_momentum_rows(
+                session, batch_id=batch_id, trade_date=observed.trade_date,
+                scope=scope, level1_code=level1_code, level2_code=level2_code,
+                period=period, leading_threshold=leading_threshold, hierarchy=hierarchy,
+            )
+            calculable_count = sum(row.return_pct is not None for row in rows)
             status = self._status.resolve(
-                trading_day=snapshot.resolution,
+                trading_day=resolution,
                 calculable_count=calculable_count,
             )
-            if status.status == "EMPTY":
-                return self._empty_response(snapshot=snapshot, debug=debug)
-
-            classifications = tuple(
-                self._classifier.classify(
-                    return_fact=row.return_fact,
-                    rank_fact=row.rank_fact,
-                    calculable_count=calculable_count,
-                    leading_threshold=leading_threshold,
-                )
-                for row in snapshot.rows
-            )
-            sorted_classifications = tuple(
-                sorted(classifications, key=self._classification_sort_key)
-            )
-            node_by_code = {
-                row.node.sector_code: row.node for row in snapshot.rows
-            }
             items = [
                 self._row_dto(
                     classification=item,
-                    node=node_by_code[item.sector_code],
-                    hierarchy=snapshot.hierarchy,
+                    node=hierarchy.nodes_by_code[item.sector_code],
+                    hierarchy=hierarchy,
                 )
-                for item in sorted_classifications
+                for item in sorted(rows, key=self._classification_sort_key)
             ]
+            if status.status == "EMPTY":
+                return self._empty_response(context=context, resolution=resolution, debug_info=debug_info)
             analysis = SectorDualMomentumAnalysisDto(
                 formulaKey=FORMULA_KEY,
                 formulaVersion=FORMULA_VERSION,
                 basisFormulaKey=BASIS_FORMULA_KEY,
                 basisFormulaVersion=BASIS_FORMULA_VERSION,
-                hierarchyVersion=snapshot.hierarchy.baseline_version,
+                hierarchyVersion=hierarchy.baseline_version,
                 scope=scope,
                 period=period,
                 leadingThreshold=leading_threshold,
                 minimumGroupSize=MINIMUM_GROUP_SIZE,
-                parentSelection=self._parent_selection(snapshot),
+                parentSelection=self._parent_selection(hierarchy, level1_code=level1_code, level2_code=level2_code),
                 totalCount=len(items),
                 calculableCount=calculable_count,
                 qualifiedCount=sum(
@@ -229,12 +236,12 @@ class SectorDualMomentumQueryService:
             )
             return SectorDualMomentumResultsResponseDto(
                 status=status.status,
-                tradingDay=self._trading_day(snapshot.resolution),
-                pageStatus=self._page_status(status, context=snapshot.context),
+                tradingDay=self._trading_day(resolution),
+                pageStatus=self._page_status(status, context=context),
                 analysis=analysis,
                 message=status.message,
                 exceptionCode=status.exception_code,
-                debugInfo=self._debug_info(snapshot=snapshot, debug=debug),
+                debugInfo=debug_info,
             )
         except (SectorScopeInvalidError, SectorSelectionInvalidError):
             raise
@@ -254,41 +261,7 @@ class SectorDualMomentumQueryService:
             )
 
     @staticmethod
-    def _meta_resolution(facts: SectorAnalysisMetaFacts) -> SectorTradingDateResolution:
-        expected = next(
-            (
-                item
-                for item in facts.trade_dates
-                if item.trade_date == facts.context.trade_date
-            ),
-            None,
-        )
-        if expected is None:
-            raise SectorDataQueryError("public business date is absent from coverage")
-        if expected.availability == "COMPLETE":
-            observed = expected
-        else:
-            observed = next(
-                (
-                    item
-                    for item in reversed(facts.trade_dates)
-                    if item.trade_date < expected.trade_date
-                    and item.availability == "COMPLETE"
-                ),
-                None,
-            )
-        if observed is None:
-            raise SectorDataQueryError("coverage has no complete business date")
-        return SectorTradingDateResolution(
-            coverage_start_date=facts.coverage_start_date,
-            coverage_end_date=facts.coverage_end_date,
-            expected=expected,
-            observed=observed,
-            is_explicit=False,
-        )
-
-    @staticmethod
-    def _classification_sort_key(item: SectorDualMomentumClassification):
+    def _classification_sort_key(item: SectorPublishedDualMomentumRow):
         if item.return_pct is None:
             return (1, 0, 0, item.sector_code)
         assert item.percentile is not None
@@ -297,7 +270,7 @@ class SectorDualMomentumQueryService:
     def _row_dto(
         self,
         *,
-        classification: SectorDualMomentumClassification,
+        classification: SectorPublishedDualMomentumRow,
         node: SectorHierarchyNode,
         hierarchy: SectorHierarchySnapshot,
     ) -> SectorDualMomentumRowDto:
@@ -327,32 +300,36 @@ class SectorDualMomentumQueryService:
 
     @staticmethod
     def _parent_selection(
-        snapshot: SectorMomentumSnapshot,
+        hierarchy: SectorHierarchySnapshot,
+        *,
+        level1_code: str | None,
+        level2_code: str | None,
     ) -> SectorParentSelectionDto:
-        level1 = snapshot.hierarchy.nodes_by_code.get(snapshot.level1_code or "")
-        level2 = snapshot.hierarchy.nodes_by_code.get(snapshot.level2_code or "")
+        level1 = hierarchy.nodes_by_code.get(level1_code or "")
+        level2 = hierarchy.nodes_by_code.get(level2_code or "")
         return SectorParentSelectionDto(
-            level1Code=snapshot.level1_code,
+            level1Code=level1_code,
             level1Name=level1.sector_name if level1 is not None else None,
-            level2Code=snapshot.level2_code,
+            level2Code=level2_code,
             level2Name=level2.sector_name if level2 is not None else None,
         )
 
     def _empty_response(
         self,
         *,
-        snapshot: SectorMomentumSnapshot,
-        debug: bool,
+        context: MarketPageContext,
+        resolution: SectorTradingDateResolution,
+        debug_info: SectorAnalysisDebugInfoDto | None,
     ) -> SectorDualMomentumResultsResponseDto:
         status = self._status.empty()
         return SectorDualMomentumResultsResponseDto(
             status=status.status,
-            tradingDay=self._trading_day(snapshot.resolution),
-            pageStatus=self._page_status(status, context=snapshot.context),
+            tradingDay=self._trading_day(resolution),
+            pageStatus=self._page_status(status, context=context),
             analysis=None,
             message=status.message,
             exceptionCode=status.exception_code,
-            debugInfo=self._debug_info(snapshot=snapshot, debug=debug),
+            debugInfo=debug_info,
         )
 
     def _error_response(
@@ -441,21 +418,22 @@ class SectorDualMomentumQueryService:
     @staticmethod
     def _debug_info(
         *,
-        snapshot: SectorMomentumSnapshot,
+        resolution: SectorTradingDateResolution,
+        scope: SectorMomentumScope,
+        pool: tuple[SectorHierarchyNode, ...],
         debug: bool,
     ) -> SectorAnalysisDebugInfoDto | None:
         if not debug:
             return None
-        resolution = snapshot.resolution
         observed = resolution.observed
         return SectorAnalysisDebugInfoDto(
             expectedTradeDate=resolution.expected.trade_date,
             observedTradeDate=observed.trade_date if observed else None,
-            scope=snapshot.scope,
+            scope=scope,
             expectedSectorCount=resolution.expected.expected_sector_count,
             expectedValidSectorCount=resolution.expected.valid_sector_count,
             observedValidSectorCount=observed.valid_sector_count if observed else 0,
-            sampleSectorCodes=[row.node.sector_code for row in snapshot.rows[:5]],
+            sampleSectorCodes=[node.sector_code for node in pool[:5]],
         )
 
     @staticmethod

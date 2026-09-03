@@ -18,6 +18,29 @@ const request: SectorDualMomentumResultsRequest = {
 };
 
 describe("sectorDualMomentumAdapter", () => {
+  it.each([false, true])("accepts published partial dates without hiding the available analysis (delayed=%s)", (delayed) => {
+    const meta: any = metaPayload();
+    const results: any = resultsPayload();
+    for (const payload of [meta, results]) {
+      payload.status = delayed ? "DELAYED" : "READY";
+      payload.pageStatus.status = payload.status;
+      payload.exceptionCode = delayed ? "SA_SOURCE_DELAYED" : null;
+      payload.tradingDay.expectedAvailability = delayed ? "MISSING" : "PARTIAL";
+      payload.tradingDay.expectedValidSectorCount = delayed ? 0 : 3;
+      payload.tradingDay.observedTradeDate = delayed ? "2026-08-26" : "2026-08-27";
+      payload.tradingDay.observedAvailability = "PARTIAL";
+      payload.tradingDay.observedValidSectorCount = 3;
+    }
+    meta.tradeDates[1].availability = meta.tradingDay.expectedAvailability;
+    meta.tradeDates[1].validSectorCount = meta.tradingDay.expectedValidSectorCount;
+    expect(buildSectorDualMomentumMetaViewModel(meta).tradingDay.observedAvailability).toBe("PARTIAL");
+    const view = buildSectorDualMomentumResultsViewModel(results, request);
+    expect(view.kind).toBe("ready");
+    if (view.kind !== "ready") return;
+    expect(view.data.analysis.items).toHaveLength(4);
+    expect(view.data.analysis.items[3].returnText).toBe("--");
+  });
+
   it("strictly adapts frozen Meta and Results facts", () => {
     const meta = buildSectorDualMomentumMetaViewModel(metaPayload());
     const results = buildSectorDualMomentumResultsViewModel(resultsPayload(), request);

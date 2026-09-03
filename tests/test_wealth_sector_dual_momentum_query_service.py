@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
@@ -14,15 +16,14 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
 from src.biz.queries.wealth.market.context.market_page_context_query import (
     MarketPageContext,
 )
-from src.biz.queries.wealth.market.sector_analysis.sector_analysis_meta_query_service import (
-    SectorAnalysisMetaFacts,
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
+    SectorAnalysisFactReader,
+    SectorPublishedCoverage,
+    SectorPublishedCalendarDate,
+    SectorPublishedDualMomentumRow,
 )
 from src.biz.queries.wealth.market.sector_analysis.sector_dual_momentum_query_service import (
     SectorDualMomentumQueryService,
-)
-from src.biz.queries.wealth.market.sector_analysis.sector_momentum_snapshot_query_service import (
-    SectorMomentumSnapshot,
-    SectorMomentumSnapshotRow,
 )
 from src.biz.schemas.wealth.market.sector_dual_momentum import (
     SectorDualMomentumResultsResponseDto,
@@ -32,9 +33,6 @@ from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contrac
 )
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorDateAvailabilityFact,
-    SectorRankFact,
-    SectorReturnFact,
-    SectorTradingDateResolution,
 )
 
 
@@ -93,125 +91,90 @@ def _availability(
     )
 
 
-def _resolution(*, delayed: bool = False, missing: bool = False):
-    expected = _availability(
-        TARGET_DATE,
-        "MISSING" if missing else ("PARTIAL" if delayed else "COMPLETE"),
-        0 if missing else (3 if delayed else 4),
-    )
-    observed = (
-        None
-        if missing
-        else (_availability(PREVIOUS_DATE, "COMPLETE", 4) if delayed else expected)
-    )
-    return SectorTradingDateResolution(
-        coverage_start_date=PREVIOUS_DATE,
-        coverage_end_date=TARGET_DATE,
-        expected=expected,
-        observed=observed,
-        is_explicit=missing,
-    )
-
-
-def _snapshot(*, delayed: bool = False, missing: bool = False):
+def _published_rows(*, missing: bool = False):
     hierarchy = _hierarchy()
     facts = (
-        ("5", 1, "100", "NONE"),
-        ("1", 2, "50", "NONE"),
-        ("0", 3, "0", "NONE"),
-        (None, None, None, "DATE_MISSING"),
-    )
-    rows = tuple(
-        SectorMomentumSnapshotRow(
-            node=node,
-            return_fact=SectorReturnFact(
-                sector_code=node.sector_code,
-                trade_date=TARGET_DATE,
-                return_pct=Decimal(value) if value is not None else None,
-                missing_reason=reason,  # type: ignore[arg-type]
-            ),
-            rank_fact=SectorRankFact(
-                sector_code=node.sector_code,
-                return_pct=Decimal(value) if value is not None else None,
-                strength_rank=rank,
-                percentile=Decimal(percentile) if percentile is not None else None,
-            ),
-        )
-        for node, (value, rank, percentile, reason) in zip(
-            hierarchy.nodes,
-            facts,
-            strict=True,
-        )
+        ("5", 1, "100", "NONE", "POSITIVE", "LEADING", "QUALIFIED", "QUALIFIED"),
+        ("1", 2, "50", "NONE", "POSITIVE", "NOT_LEADING", "NOT_QUALIFIED", "UP_NOT_LEADING"),
+        ("0", 3, "0", "NONE", "NOT_POSITIVE", "NOT_LEADING", "NOT_QUALIFIED", "NOT_UP_NOT_LEADING"),
+        (None, None, None, "DATE_MISSING", "UNAVAILABLE", "UNAVAILABLE", "NOT_EVALUATED", "DATA_INSUFFICIENT"),
     )
     if missing:
-        rows = tuple(
-            SectorMomentumSnapshotRow(
-                node=row.node,
-                return_fact=SectorReturnFact(
-                    row.node.sector_code,
-                    TARGET_DATE,
-                    None,
-                    "DATE_MISSING",
-                ),
-                rank_fact=SectorRankFact(row.node.sector_code, None, None, None),
-            )
-            for row in rows
+        facts = (facts[-1],) * 4
+    return tuple(
+        SectorPublishedDualMomentumRow(
+            batch_id=UUID(int=1), trade_date=TARGET_DATE,
+            comparison_scope="LEVEL_1", comparison_key="GLOBAL:L1",
+            parent_sector_code=None, sector_code=node.sector_code,
+            sector_name=node.sector_name, industry_level=1,
+            hierarchy_path=node.hierarchy_path, period=20,
+            return_pct=Decimal(value) if value is not None else None,
+            strength_rank=rank, rankable_count=3 if rank else None,
+            percentile=Decimal(percentile) if percentile is not None else None,
+            calculation_status="CALCULABLE" if value is not None else "UNAVAILABLE",
+            missing_reason=reason, absolute_status=absolute, relative_status=relative,
+            qualification_status=qualification, display_status=display,
+            coordinate_status="PLOTTABLE" if rank else "UNAVAILABLE",
         )
-    return SectorMomentumSnapshot(
-        context=_context(),
-        hierarchy=hierarchy,
-        resolution=_resolution(delayed=delayed, missing=missing),
-        scope="LEVEL_1",
-        period=20,
-        level1_code=None,
-        level2_code=None,
-        rows=rows,
+        for node, (value, rank, percentile, reason, absolute, relative, qualification, display)
+        in zip(hierarchy.nodes, facts, strict=True)
     )
 
 
-class _MetaService:
-    def load(self, _session, *, market):
-        assert market == "CN_A"
-        return SectorAnalysisMetaFacts(
-            context=_context(),
-            hierarchy=_hierarchy(),
+class _ContextQuery:
+    def resolve_context(self, _session, *, market, requested_trade_date):
+        assert market == "CN_A" and requested_trade_date is None
+        return _context()
+
+
+class _HierarchyQuery:
+    def load(self, _session):
+        return _hierarchy()
+
+
+class _Reader(SectorAnalysisFactReader):
+    def __init__(self, *, rows=None, failure=None, unpublished=False):
+        self.rows = rows if rows is not None else _published_rows()
+        self.failure = failure
+        self.unpublished = unpublished
+        self.calls = 0
+
+    def load_momentum_coverage(self, _session, **kwargs):
+        return SectorPublishedCoverage(
             coverage_start_date=PREVIOUS_DATE,
             coverage_end_date=TARGET_DATE,
-            trade_dates=(
-                _availability(PREVIOUS_DATE, "COMPLETE", 4),
-                _availability(TARGET_DATE, "PARTIAL", 3),
+            calendar_dates=(
+                SectorPublishedCalendarDate(_availability(PREVIOUS_DATE, "PARTIAL", 3), UUID(int=2)),
+                SectorPublishedCalendarDate(
+                    _availability(TARGET_DATE, "MISSING" if self.unpublished else "PARTIAL", 0 if self.unpublished else 3),
+                    None if self.unpublished else UUID(int=1),
+                ),
             ),
         )
 
-
-class _SnapshotService:
-    def __init__(self, *, snapshot=None, failure: Exception | None = None) -> None:
-        self.snapshot = snapshot or _snapshot()
-        self.failure = failure
-        self.calls = 0
-
-    def build(self, _session, **kwargs):
+    def load_dual_momentum_rows(self, _session, **kwargs):
         self.calls += 1
-        assert kwargs["expected_hierarchy_version"] == "v1"
-        assert kwargs["date_errors_are_selection"] is True
+        assert kwargs["hierarchy"].baseline_version == "v1"
         if self.failure is not None:
             raise self.failure
-        return self.snapshot
+        return self.rows
 
 
-def _service(snapshot_service: _SnapshotService | None = None):
+def _service(reader: _Reader | None = None):
     return SectorDualMomentumQueryService(
-        meta_service=_MetaService(),  # type: ignore[arg-type]
-        snapshot_service=snapshot_service or _SnapshotService(),  # type: ignore[arg-type]
+        context_query=_ContextQuery(),  # type: ignore[arg-type]
+        hierarchy_query=_HierarchyQuery(),  # type: ignore[arg-type]
+        fact_reader=reader or _Reader(),
     )
 
 
 def test_meta_uses_dedicated_formula_contract_and_public_delayed_date() -> None:
-    response = _service().build_meta(object(), market="CN_A")  # type: ignore[arg-type]
+    response = _service(_Reader(unpublished=True)).build_meta(object(), market="CN_A")  # type: ignore[arg-type]
 
     assert response.status == "DELAYED"
     assert response.tradingDay.expectedTradeDate == TARGET_DATE
     assert response.tradingDay.observedTradeDate == PREVIOUS_DATE
+    assert response.tradingDay.observedAvailability == "PARTIAL"
     assert response.formula.model_dump() == {
         "formulaKey": "sector-dual-momentum",
         "formulaVersion": 1,
@@ -262,7 +225,7 @@ def test_results_returns_full_canonical_analysis_and_all_five_counts() -> None:
 
 
 def test_zero_calculable_rows_are_empty_and_do_not_return_analysis() -> None:
-    response = _service(_SnapshotService(snapshot=_snapshot(missing=True))).build_results(
+    response = _service(_Reader(rows=_published_rows(missing=True))).build_results(
         object(),  # type: ignore[arg-type]
         market="CN_A",
         trade_date=TARGET_DATE,
@@ -280,6 +243,18 @@ def test_zero_calculable_rows_are_empty_and_do_not_return_analysis() -> None:
     assert response.analysis is None
 
 
+def test_invalid_unavailable_stored_status_is_not_hidden_by_empty_shell() -> None:
+    rows = _published_rows(missing=True)
+    rows = (replace(rows[0], qualification_status="QUALIFIED"), *rows[1:])
+    response = _service(_Reader(rows=rows)).build_results(
+        object(), market="CN_A", trade_date=TARGET_DATE, scope="LEVEL_1",
+        level1_code=None, level2_code=None, period=20, leading_threshold=80,
+        hierarchy_version="v1", debug=False,
+    )
+    assert response.status == "ERROR"
+    assert response.exceptionCode == "SA_QUERY_FAILED"
+
+
 @pytest.mark.parametrize(
     ("failure", "expected_code"),
     (
@@ -288,7 +263,7 @@ def test_zero_calculable_rows_are_empty_and_do_not_return_analysis() -> None:
     ),
 )
 def test_results_failures_return_safe_error_shells(failure, expected_code) -> None:
-    response = _service(_SnapshotService(failure=failure)).build_results(
+    response = _service(_Reader(failure=failure)).build_results(
         object(),  # type: ignore[arg-type]
         market="CN_A",
         trade_date=TARGET_DATE,
@@ -310,7 +285,7 @@ def test_results_failures_return_safe_error_shells(failure, expected_code) -> No
 def test_version_mismatch_is_not_hidden_in_a_200_error_shell() -> None:
     with pytest.raises(SectorMomentumFactVersionMismatchError):
         _service(
-            _SnapshotService(
+            _Reader(
                 failure=SectorMomentumFactVersionMismatchError("stale")
             )
         ).build_results(

@@ -307,7 +307,7 @@ def _validate_status(
             trading_day.observedTradeDate is None
             or trading_day.observedTradeDate >= trading_day.expectedTradeDate
             or trading_day.expectedAvailability not in {"PARTIAL", "MISSING"}
-            or trading_day.observedAvailability != "COMPLETE"
+            or trading_day.observedAvailability not in {"COMPLETE", "PARTIAL"}
             or exception_code != "SA_SOURCE_DELAYED"
         ):
             raise ValueError("DELAYED response has an invalid trading-day contract")
