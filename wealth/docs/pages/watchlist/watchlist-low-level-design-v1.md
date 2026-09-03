@@ -1,6 +1,6 @@
 # 财势乾坤｜我的自选低层设计 v1（LLD）
 
-> 状态：Figma 交互设计已完成并完成自检，待用户评审；代码未实现；编码门禁未签字
+> 状态：D0 审计、D1—D4 开发及开发自测完成；未提交、未推送、未部署；正式验收由用户负责
 >
 > 日期：2026-09-03
 >
@@ -53,6 +53,7 @@ Figma 自检结果：无缺失字体；左侧代码/名称固定区为 `260px`�
 | 新增置尾 | `id ASC`、`afterId` | 只 append，不重排 | 添加前后顺序 |
 | 当前上市 A 股 | 复用 StockSearchPolicy/Query 四项条件 | 只展示服务端候选 | B 股/退市/非股票负例 |
 | 同日行情 | 单一 `observedTradeDate` | 展示服务端日期 | 跨日数据不得补入 |
+| 分页日期变化 | 沿用当前列表 DTO | 丢弃不同日期批次，整表重载并回到顶部 | 分页/尾部补读日期变化、null→日期 |
 | 固定搜索区 | 有界 Top N | 固定 body 高度 | 初始/ready/empty/error 截图与 DOM |
 | 三列状态 | `AVAILABLE/ADDED` | 代码/名称/状态 | 已添加不能重复提交 |
 | 删除确认 | DELETE 幂等 | centered dialog | 取消、确认、失败、非 anchor 定位 |
@@ -563,9 +564,10 @@ retry()
 追加规则：
 
 1. PUT 成功后若 item 已在本地，不重复追加。
-2. 若全部页已加载，可重新请求最后一批或用服务端返回的完整新增 item 追加。
+2. 若全部页已加载，以已读最大 id（独立于删除后的行数组保留）做有界尾部补读；空列表请求首批。沿用现有列表 DTO，不向 PUT 响应添加完整行情 item。
 3. 若尚有未加载页，不把新行插到当前批末尾冒充全局末尾；只更新 count 并提示“已添加到列表末尾”，滚动加载后按服务端 id 顺序出现。
 4. Controller 不按行情值重排。
+5. 分页或尾部补读的 `observedTradeDate` 与当前列表不同（包含 null 与日期互变）时，丢弃该响应，取消旧批次请求并重新加载首批；滚动位置回到顶部。新批次不得与旧日期行合并；重载失败进入可重试 error，不伪装完成。
 
 ### 7.5 添加弹窗 Controller
 
@@ -750,22 +752,22 @@ items loaded -> ready shell + dataStatus badge
 
 | 通用清单项 | 适用 | 本模块落点 | 验证方式 | 状态 |
 |---|---|---|---|---|
-| 交付事实链先行 | 是 | benchmark + design + LLD + Figma | 文档与节点互链 | Figma 已完成，待评审 |
-| 后端事实归一 | 是 | WatchlistQueryService/DTO | 真实 API 字段断言 | 待编码 |
-| 模块状态机 | 是 | 页面/搜索/mutation 状态 | 状态过程测试 | 待编码 |
-| 显示与数据语义绑定 | 是 | direction 字段 | 红涨绿跌/缺失测试 | 待编码 |
-| 测试覆盖过程 | 是 | Controller/AddDialog/RemoveDialog | loading→ready/error | 待编码 |
-| 文档实现同轮同步 | 是 | 三份文档 + registry | diff 审核 | 待编码 |
-| 模块级渐进替换 | 是 | 独立 watchlist real API | 无 mock/silent fallback | 待编码 |
-| 契约先行 | 是 | 第 5 节 DTO | schema/type 对账 | 已设计 |
+| 交付事实链先行 | 是 | benchmark + design + LLD + Figma | 文档与节点互链 | 用户已确认，D0 通过 |
+| 后端事实归一 | 是 | WatchlistQueryService/DTO | 真实 API 字段断言 | 开发自测通过 |
+| 模块状态机 | 是 | 页面/搜索/mutation 状态 | 状态过程测试 | 开发自测通过 |
+| 显示与数据语义绑定 | 是 | direction 字段 | 红涨绿跌/缺失测试 | 开发自测通过 |
+| 测试覆盖过程 | 是 | Controller/AddDialog/RemoveDialog | loading→ready/error | 开发自测通过 |
+| 文档实现同轮同步 | 是 | 三份文档 + registry + README | diff 审核、第 17 节 | 已同步开发事实 |
+| 模块级渐进替换 | 是 | 独立 watchlist real API | 无 mock/silent fallback | 开发自测通过 |
+| 契约先行 | 是 | 第 5 节 DTO | schema/type 对账 | 开发自测通过 |
 | 图表坐标 | 否 | 本模块无图表 | 无图表组件 | 不适用 |
-| 统计下推 | 是 | count/joins SQL | 无应用层全量统计 | 待编码 |
+| 统计下推 | 是 | count/joins SQL | 无应用层全量统计 | 开发自测通过 |
 | 配置生效语义 | 否 | 无配置项 | env/Settings 静态审计 | 不适用 |
 | 显式图表参数 | 否 | 本模块无图表 | 无 | 不适用 |
 | 双图对齐 | 否 | 本模块无双图 | 无 | 不适用 |
 | 卡片单行文案 | 否 | 不是指标卡模块 | 无 | 不适用 |
-| 核心测试 case | 是 | 第 10.4 节 | 后端真实 API + 前端真实展示 | 待编码 |
-| 跨模块 8 原则 | 是 | 第 12.1 节 | 逐条测试 | 已映射 |
+| 核心测试 case | 是 | 第 10.4 节 | 后端真实 API + 前端真实展示 | 开发自测通过，正式验收待用户执行 |
+| 跨模块 8 原则 | 是 | 第 12.1 节 | 第 17 节代码/测试对账 | 开发自测通过 |
 
 ### 12.1 跨模块八原则门禁
 
@@ -786,24 +788,29 @@ items loaded -> ready shell + dataStatus badge
 
 ### 12.3 开工前签字
 
-1. [ ] 产品与交互基准已确认。
+1. [x] 产品与交互基准已确认（用户本轮明确授权按方案开发）。
 2. [x] Figma 交互设计已交付并完成结构、字体与原型自检。
-3. [ ] 技术实施方案已确认。
-4. [ ] 本 LLD 与编码门禁矩阵已确认。
+3. [x] 技术实施方案已确认。
+4. [x] 本 LLD 与编码门禁矩阵已确认，含分页日期变化整表重载。
 5. [x] 异常码已登记。
-6. [ ] 开工时 Alembic head 已复查。
+6. [x] 开工时 Alembic head 已复查：`20260831_000168`。
 7. [x] 无新增配置项。
-8. [ ] 当前工作区无与计划文件重叠的用户改动。
+8. [x] 当前工作区无与计划文件重叠的用户改动；无关文件保持不动。
 
-当前结论：Figma 设计交付已完成；产品交互、技术方案和 LLD 仍待用户评审签字，签字前不进入 D1 编码。Alembic head 与工作区状态在获准开工时重新核验。
+当前结论：D0—D4 开发及隔离测试环境自测完成；本轮不提交、不推送、不部署，不代替用户正式验收。开发证据见第 17 节。
 
-## 13. 验证命令计划
+## 13. 验证命令
 
 ```bash
-pytest -q tests/test_wealth_watchlist_model.py
-pytest -q tests/web/test_wealth_market_watchlist_api.py
-pytest -q tests/web/test_wealth_market_stock_detail_api.py
-pytest -q tests/architecture/test_subsystem_dependency_matrix.py
+APP_ENV=test JWT_SECRET=watchlist-isolated-test-key-never-for-production \
+WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=false \
+WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED=false \
+.venv/bin/pytest -q tests/test_wealth_watchlist_model.py \
+  tests/test_wealth_watchlist_postgres.py \
+  tests/web/test_wealth_market_watchlist_api.py \
+  tests/web/test_wealth_market_stock_search_api.py \
+  tests/web/test_wealth_stock_detail_api.py \
+  tests/architecture/test_subsystem_dependency_matrix.py
 cd wealth && npm run typecheck
 cd wealth && npm run test
 cd wealth && npm run build
@@ -811,7 +818,7 @@ python3 scripts/check_docs_integrity.py
 git diff --check
 ```
 
-页面可视行为必须再走本地真实 API 浏览器验收；仅单测或 mock 不算交付完成。
+页面可视行为须提供真实 API 开发 smoke 证据；仅 mock 不算开发验证通过。部署及正式页面验收由用户执行，未执行项必须单独列明，不能标为已验收。
 
 ## 14. 回滚边界
 
@@ -829,3 +836,65 @@ git diff --check
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-09-03 | 冻结代码符号、数据模型、API、状态、测试与编码门禁 | Codex |
+| v1 开发对账 | 2026-09-03 | D0 同步分页日期变化规则；D1—D4 落地，记录隔离开发验证，保留部署和正式验收边界 | Codex |
+
+## 17. 开发交付记录（2026-09-03）
+
+### 17.1 代码与硬口径对账
+
+所有路径以仓库根为基准。下表中的测试名均指仓库内可执行测试，不以截图替代行为断言。
+
+| 硬口径 / 阶段 | 实现落点 | 验证落点与结果 |
+|---|---|---|
+| D0：冻结日期变化规则、修正回归路径、真实 head | 本文 7.4/12.3/13 及原技术方案 | head 从 `20260831_000168` 接到唯一 `20260903_000169`；保留当前 `dev-interface` 和所有无关改动 |
+| D1：用户私有、唯一、级联、id 递增 | `src/biz/models/wealth/watchlist_item.py`、`src/app/model_registry.py`、迁移 `20260903_000169_add_wealth_watchlist_item.py` | `tests/test_wealth_watchlist_model.py`：唯一约束、双用户、级联、删除后 id 不复用、注册与迁移范围 |
+| 并发幂等、提交失败回滚、只修改关系表 | `watchlist_command_service.py`：资格复核、savepoint、特定唯一约束识别、owner 条件 DELETE | `tests/test_wealth_watchlist_postgres.py`：8 并发 PUT 仅一条；外键错误不伪装重复；提交失败独立 session 读回无关系 |
+| D2：六接口强制认证、用户隔离、安全错误 | `src/biz/api/wealth/market/watchlist.py`、Query/Command、`src/app/api/v1/router.py` | `tests/web/test_wealth_market_watchlist_api.py`：六接口 401、双用户读写隔离、重复增删、400/422/500、不泄露内部错误 |
+| 当前上市 A 股候选，不按代码前缀猜资格 | 复用 `StockSearchPolicy/Query`；`WatchlistQuery.load_eligible_security` 复核四项条件 | API 测试覆盖 SSE/SZSE/BSE 正例及 B 股、退市、暂停上市、ETF、指数、其它市场负例；搜索后退市再次 PUT 被拒绝；首页 stock-search 原契约回归通过 |
+| 同日行情、缺失不跨日、不补零、空自选不查行情 | `watchlist_query.py` 单一 observed date + 三表精确左连接；`watchlist_field_mapper.py` | API 逐字段断言价格/成交量/估值/量比/换手/资金/身份/行业；前日反例、无行情日期、缺 Security、零值与方向、PARTIAL/DELAYED/EMPTY |
+| id ASC、有界 100/200、无 N+1、全局置尾 | `WatchlistPolicy`、`list_memberships/load_snapshot`、`useWatchlistController` | API 游标边界与追加；PostgreSQL 两次有界数据查询及索引；Controller 部分页不提前插新行、已读最大 id 删除后保留、重复项不追加 |
+| 后续分页/尾读不同日期整表重载、回顶部 | `useWatchlistController.readMore/loadInitial`、`WatchlistTable` | Controller 测试含日期→日期、日期→null、null→日期、添加尾读变化、重载失败不保留旧表；旧请求取消和乱序保护 |
+| D3：真实数量、独立页面、六态，不混用其它产品接口 | `WatchlistPage`、`useWatchlistSummary`、`watchlistApi`、`MarketShortcutBar`、`WealthRouter` | `WatchlistPage.test.tsx`、`MarketOverviewPage.test.tsx`、API client 测试；首页数量失败只显示 `--`，其它入口不改；浏览器真实 summary→200→进入自选页 |
+| 添加弹窗固定空结果区、hint、三列、500ms、+ / 已添加 | `AddWatchlistDialog`、`useWatchlistSearchController` | 弹窗测试覆盖 499/500ms、IME、请求取消、乱序、关闭重置、失败重试、单行 pending、成功不关闭；浏览器初始/结果均为 560px 高 |
+| 删除居中确认、取消/失败保留、pending 禁止二次操作 | `RemoveWatchlistDialog`、`useWatchlistDialog`、Controller | 弹窗及 Controller 测试覆盖 Esc/遮罩/取消/失败/防冒泡/锁定；浏览器 380×168 弹窗中心为视口中心 |
+| 11 列顺序、单位在表头、估值纯数值、独立量比/换手、左对齐 | `WatchlistTable`、`watchlistViewModelAdapter`、`watchlist.css` | 页面测试 + 浏览器逐列文本断言：成交量 `/10000`、资金 `/10000`、PE/PB 无前缀；表头与内容实际文字左边界误差小于 1px |
+| 代码/名称固定左侧、板块末列可滑动、仅操作固定右侧 | `watchlist.css` + 语义 table | 浏览器 computed style 仅三列 sticky；横滚后板块移动且完整停在操作左侧；板块标签垂直中心误差不超过 1px，行高 60px |
+| 纵向加载至末行、同游标不重复请求 | `WatchlistTable` sentinel + Controller 单在途请求 | Controller 过程测试；真实浏览器 100→200 行后停止列表请求，添加 201 后尾部补读，移除回到 200 |
+| D4：详情成员状态和幂等添加；默认日 K 不变 | `useStockWatchlist`、`StockInfoRail`、`StockDetailPage` | `StockDetailPage.test.tsx` 覆盖读取/添加/已添加/失败，重复点击只一次 PUT；真实浏览器行跳转后已自选，K 线首请求 `period=day&adjustment=forward` |
+| 逐项能力合同、旧消费者清零、未开通动作不变 | `StockDetailUserActionsDto`、QueryService、TS API 类型与 fixtures | 后端/前端回归；全仓 `src`、`wealth/src`、`tests` 搜索旧字段，只剩证明字段不存在的负向断言；提醒、计划、诊股仍未开通 |
+
+### 17.2 测试结果与隔离边界
+
+1. 第 13 节后端组合：**60 passed**，含真实 PostgreSQL 4 项；随后补充 summary/membership EXPLAIN 断言再次 **4 passed**。
+2. `wealth`：`npm run typecheck` 通过，`npm run test` **93 files / 610 tests passed**，`npm run build` 通过。
+3. 新增后端/迁移/测试文件的 Ruff 检查通过；无新依赖、env、Settings 或配置中心项。
+4. 开发数据库由 `tests/wealth_watchlist_postgres_support.py` 在新建空临时目录启动独立 PostgreSQL，仅监听随机本地端口。它不接受既有数据库地址；只创建白名单测试表并执行本次迁移，测试结束停止自身进程。不连接生产数据库，不清空或重建既有表。
+5. 真实浏览器入口为 `tests/wealth_watchlist_browser_fixture.py`，前端使用正常构建产物、真实认证及业务路由，不使用 mock adapter。`wealth/scripts/watchlist-browser-smoke.mjs` 验证上涨/下跌/平盘、PE 缺失、指标/资金缺失、搜索 AVAILABLE/ADDED、增删、冻结/对齐、默认日 K 和 401 回登录。
+6. 首页浏览器部分只验本轮数量及入口：真实 summary 返回 200 只，点击进入自选页。隔离服务未挂载的其它首页模块返回 404，明确不计为那些模块的验收，不伪造成功响应；自选及详情主流程 console/pageerror 为零。
+7. 浏览器截图和量测 JSON 位于本次临时目录 `/private/tmp/wealth-watchlist-browser-evidence/`；可使用上述 fixture 和 smoke 脚本重新生成，不依赖把合成数据或截图提交为生产资源。
+
+浏览器复跑方式：先构建 Wealth，在仓库根以第 13 节相同测试环境变量运行 `.venv/bin/python -m tests.wealth_watchlist_browser_fixture`。使用其输出的本地 URL、已创建的证据目录和本机 Playwright 模块绝对路径作为 `node wealth/scripts/watchlist-browser-smoke.mjs` 的三个参数。完成后 Ctrl-C 停止 fixture，它会停止自己创建的 PostgreSQL。
+
+### 17.3 性能开发证据
+
+样本为隔离 PostgreSQL 中 5,000 个合成股票、54 个测试用户；不是生产库数据或生产网络性能结论。每种接口 30 次顺序请求，列表按默认 100 行。
+
+| 测量 | 结果 | 预算 |
+|---|---:|---:|
+| 0 / 20 / 100 / 200 行响应 | 362 / 8,243 / 40,208 / 80,286 字节 | 单批 ≤256KiB |
+| list P95 | 10.15ms | ≤300ms |
+| summary P95 | 2.72ms | ≤300ms |
+| membership P95 | 2.90ms | ≤300ms |
+| search P95 | 5.82ms | ≤200ms |
+| PUT P95 | 4.57ms | ≤300ms |
+| DELETE P95 | 3.07ms | ≤300ms |
+
+`EXPLAIN (ANALYZE, BUFFERS)`：游标列表命中 `idx_wealth_watchlist_item_user_id_id`；同日有界关联命中三张事实表主键；summary 命中用户索引，membership 命中用户—股票唯一索引。对应执行时间为 0.024 / 0.250 / 0.025 / 0.017ms。浏览器 1600×980 首批 100 行 ready 多次自测约 140—195ms；横向/纵向滚动未观测到长任务。
+
+### 17.4 影响面、风险与下一步
+
+CodeGraph 开工使用 `codegraph_status`、`codegraph_explore`、`codegraph_search`、`codegraph_impact`，覆盖首页入口、路由、搜索 Query/Policy、认证、行情模型与详情 capability 全部当前消费者；开发后 `codegraph sync` 与状态检查通过。业务规则归属 `src.biz`，`src.app` 只挂路由和注册模型，行情继续只读 `foundation` 模型；没有修改依赖矩阵，没有引入 ops、legacy 或 qtf 反向依赖。
+
+当前没有未落地的 D1—D4 编码项。尚未执行且由用户负责：迁移部署、后端与前端同批发布、真实账号/真实行情的正式验收及生产性能复核。详情 capability 是替换契约，不保留旧字段，发布时不可长期混用新旧前后端。
+
+构建仍提示单个 JS chunk 大于 500KB（当前约 954.86KB，gzip 284.53KB）；本轮未扩展为全站拆包重构。测试运行有现有依赖的弃用警告，不影响通过。所有无关工作区改动保留；本轮未提交、未推送、未部署。

@@ -1,0 +1,1 @@
+"""Business-owned persistence models."""

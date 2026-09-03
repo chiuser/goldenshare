@@ -77,6 +77,15 @@ class StockChartDefaultsDto(BaseModel):
     )
 
 
+class StockDetailUserActionsDto(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    watchlist: bool = True
+    alert: bool = False
+    tradePlan: bool = False
+    diagnosis: bool = False
+
+
 class StockDetailCapabilitiesDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -89,8 +98,7 @@ class StockDetailCapabilitiesDto(BaseModel):
         default_factory=list
     )
     supportsWeeklyMonthly: bool = False
-    supportsUserActions: bool = False
-    unsupportedActions: list[str] = Field(default_factory=lambda: ["自选", "提醒", "交易计划", "诊股"])
+    userActions: StockDetailUserActionsDto
 
 
 class StockMovingAverageDto(BaseModel):

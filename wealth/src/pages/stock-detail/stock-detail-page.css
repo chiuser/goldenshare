@@ -367,6 +367,8 @@
   color: var(--cs-color-brand);
 }
 
+.stock-header-action:disabled { cursor: default; opacity: .6; }
+
 .right-tabs {
   align-items: center;
   border-bottom: 1px solid rgba(148, 163, 184, 0.14);

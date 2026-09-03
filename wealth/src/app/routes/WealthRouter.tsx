@@ -5,6 +5,7 @@ import { LoginPage } from "../../features/auth/ui/LoginPage";
 import { MarketOverviewPage } from "../../pages/market-overview/MarketOverviewPage";
 import { IndexDetailPage } from "../../pages/index-detail/IndexDetailPage";
 import { StockDetailPage } from "../../pages/stock-detail/StockDetailPage";
+import { WatchlistPage } from "../../pages/watchlist/WatchlistPage";
 import { SectorAnalysisPage } from "../../pages/wealth-exploration/SectorAnalysisPage";
 import { TurnoverInsightPage } from "../../pages/wealth-exploration/TurnoverInsightPage";
 import { WealthExplorationLandingPage } from "../../pages/wealth-exploration/WealthExplorationLandingPage";
@@ -14,6 +15,7 @@ import {
   buildLoginPath,
   DEFAULT_WEALTH_PATH,
   isLoginPath,
+  isWatchlistPath,
   navigateWealth,
   readRedirectPath,
   readWealthLocation,
@@ -40,6 +42,8 @@ export function WealthRouter() {
   if (auth.status === "unauthenticated") {
     return <AuthRedirect redirectPath={currentPath} />;
   }
+
+  if (isWatchlistPath(location.pathname)) return <WatchlistPage search={location.search} />;
 
   const stockDetailTsCode = parseStockDetailTsCode(location.pathname);
   if (stockDetailTsCode) {

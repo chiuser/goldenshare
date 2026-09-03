@@ -4,13 +4,16 @@ import { directionClass } from "../../../shared/lib/marketDirection";
 import { formatPoint, formatSignedPercent } from "../../../shared/lib/formatters";
 import { StockDetailNewsPanel } from "../news/StockDetailNewsPanel";
 import type { StockDetailViewModel } from "../model/stockDetailTypes";
+import type { StockWatchlistState } from "../../watchlist/model/useStockWatchlist";
 
 interface StockInfoRailProps {
   viewModel: StockDetailViewModel;
   onAction: (message: string) => void;
+  watchlistState: StockWatchlistState;
+  onAddToWatchlist: () => void;
 }
 
-export function StockInfoRail({ viewModel, onAction }: StockInfoRailProps) {
+export function StockInfoRail({ viewModel, onAction, watchlistState, onAddToWatchlist }: StockInfoRailProps) {
   const [activeTab, setActiveTab] = useState<"quote" | "profile" | "news">("quote");
   const quoteDirection = directionClass(viewModel.quote.direction);
 
@@ -38,7 +41,10 @@ export function StockInfoRail({ viewModel, onAction }: StockInfoRailProps) {
           </div>
         </div>
         <div className="stock-header-actions" aria-label="个股操作">
-          {["+自选", "+提醒", "+交易计划"].map((label) => (
+          <button className="stock-header-action" type="button" disabled={watchlistState === "loading" || watchlistState === "added"} onClick={onAddToWatchlist}>
+            {watchlistState === "loading" ? "处理中" : watchlistState === "added" ? "已自选" : "+自选"}
+          </button>
+          {["+提醒", "+交易计划"].map((label) => (
             <button className="stock-header-action" key={label} type="button" onClick={() => onAction(`${label}暂未开通`)}>
               {label}
             </button>

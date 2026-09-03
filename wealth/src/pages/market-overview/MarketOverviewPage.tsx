@@ -26,6 +26,7 @@ import {
 import { fetchMarketMajorIndices, type MajorIndicesDebugInfo } from "../../features/major-indices/api/marketMajorIndicesApi";
 import { buildMajorIndicesViewModelFromMock } from "../../features/market-overview/indices/api/marketMajorIndicesMockAdapter";
 import { MarketShortcutBar } from "../../features/market-overview/layout/MarketShortcutBar";
+import { useWatchlistSummary } from "../../features/watchlist/model/useWatchlistSummary";
 import { LeaderboardPanel } from "../../features/market-overview/leaderboards/LeaderboardPanel";
 import {
   buildLeaderboardsViewModelFromApi,
@@ -133,6 +134,7 @@ function readRouteSearch(search: string | undefined): string {
 }
 
 export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
+  const watchlistCount = useWatchlistSummary();
   const routeSearch = readRouteSearch(search);
   const contextRequest = useMemo(() => readMarketContextRequest(routeSearch), [routeSearch]);
   const requestedTradeDate = contextRequest.tradeDate;
@@ -989,7 +991,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
           onNavigate={navigateWealth}
           sessionStatus={pageContext.sessionStatus}
         />
-        <MarketShortcutBar onAction={showToast} />
+        <MarketShortcutBar onAction={showToast} onNavigate={navigateWealth} watchlistCount={watchlistCount} />
         <div className="content-grid">
           <MarketNewsPanelGroup
             marketNews={

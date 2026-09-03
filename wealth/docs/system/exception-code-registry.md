@@ -168,7 +168,7 @@
 
 ## 6.2 我的自选模块（Phase-8）
 
-> 本节只完成异常码合同登记；模块当前仍处于文档待评审、未实现状态。
+> 2026-09-03：六个接口及前端局部错误处理已实现，开发自测通过；未部署、未正式验收。证据见 [我的自选 LLD 第 17 节](../pages/watchlist/watchlist-low-level-design-v1.md#17-开发交付记录2026-09-03)。异常码语义不变。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|

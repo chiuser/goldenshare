@@ -11,11 +11,15 @@ describe("StockDetailPage", () => {
     failTrend = false,
     supportsMinute = false,
     supportsTrendChannel = false,
+    isAdded = false,
+    failWatchlist = false,
   }: {
     fail?: boolean;
     failTrend?: boolean;
     supportsMinute?: boolean;
     supportsTrendChannel?: boolean;
+    isAdded?: boolean;
+    failWatchlist?: boolean;
   } = {}) {
     const pageInit = {
       pageContext: {
@@ -72,8 +76,7 @@ describe("StockDetailPage", () => {
         supportsTrendChannel,
         nineTurnPeriods: supportsMinute ? ["day", "30", "60", "90", "120"] : ["day"],
         supportsWeeklyMonthly: false,
-        supportsUserActions: false,
-        unsupportedActions: ["自选", "提醒", "交易计划", "诊股"],
+        userActions: { watchlist: true, alert: false, tradePlan: false, diagnosis: false },
       },
       dataStatus: {
         status: "READY",
@@ -301,9 +304,15 @@ describe("StockDetailPage", () => {
       dataStatus: { status: "READY", observedTradeDate: "2026-05-29", note: null },
     };
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const url = String(input);
       if (fail) return new Response(JSON.stringify({ code: "internal_error", message: "接口失败" }), { status: 500 });
+      if (url.includes("/watchlist/items/")) {
+        if (failWatchlist) return new Response(JSON.stringify({ code: "WL_QUERY_FAILED", message: "自选失败" }), { status: 500 });
+        return new Response(JSON.stringify(options?.method === "PUT"
+          ? { tsCode: "603806.SH", isAdded: true, created: !isAdded, totalCount: 1 }
+          : { tsCode: "603806.SH", isAdded }));
+      }
       if (url.includes("/trend-channel") && failTrend) {
         return new Response(JSON.stringify({ code: "STOCK_TREND_CHANNEL_READ_FAILED", message: "趋势通道失败" }), { status: 500 });
       }
@@ -371,6 +380,31 @@ describe("StockDetailPage", () => {
       expect.stringContaining("/stock-detail/nine-turn"),
       expect.anything(),
     ));
+  });
+
+  it("loads membership, adds once and preserves default day/forward and other placeholders", async () => {
+    const fetchMock = mockStockDetailFetch();
+    render(<StockDetailPage tsCode="603806.SH" />);
+    const button = await screen.findByRole("button", { name: "+自选" });
+    fireEvent.click(button);
+    expect(await screen.findByRole("button", { name: "已自选" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "已自选" }));
+    expect(fetchMock.mock.calls.filter(([url, options]) => String(url).includes("/watchlist/") && options?.method === "PUT")).toHaveLength(1);
+    const klineUrl = new URL(String(fetchMock.mock.calls.find(([url]) => String(url).includes("/kline"))![0]));
+    expect(klineUrl.searchParams.get("period")).toBe("day"); expect(klineUrl.searchParams.get("adjustment")).toBe("forward");
+    fireEvent.click(screen.getByRole("button", { name: "+提醒" })); expect(screen.getByText("+提醒暂未开通")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "+交易计划" })); expect(screen.getByText("+交易计划暂未开通")).toBeInTheDocument();
+  });
+
+  it("disables already-added stock and keeps membership errors local to the action", async () => {
+    mockStockDetailFetch({ isAdded: true });
+    const view = render(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByRole("button", { name: "已自选" })).toBeDisabled();
+    view.unmount();
+    mockStockDetailFetch({ failWatchlist: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByText("自选失败")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+自选" })).toBeEnabled(); expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
   });
 
   it("returns a direct stock detail visit to the Wealth overview", async () => {

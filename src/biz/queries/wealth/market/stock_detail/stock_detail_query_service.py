@@ -20,6 +20,7 @@ from src.biz.schemas.wealth.market.stock_detail import (
     StockDetailPageInitResponseDto,
     StockDetailStockIdentityDto,
     StockDetailStockRefDto,
+    StockDetailUserActionsDto,
     StockKlineMetaDto,
 )
 from src.biz.services.wealth.market.stock_detail.stock_detail_field_mapper import (
@@ -86,6 +87,7 @@ class StockDetailQueryService:
                 )
             ),
             capabilities=StockDetailCapabilitiesDto(
+                userActions=StockDetailUserActionsDto(),
                 supportsMinute=minute_capability.enabled,
                 minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if minute_capability.enabled else [],
                 supportsNineTurn=True,

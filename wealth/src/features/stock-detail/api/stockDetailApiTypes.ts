@@ -62,8 +62,7 @@ export interface StockDetailCapabilitiesDto {
   supportsNineTurn: boolean;
   supportsTrendChannel: boolean;
   supportsWeeklyMonthly: boolean;
-  supportsUserActions: boolean;
-  unsupportedActions: string[];
+  userActions: { watchlist: boolean; alert: boolean; tradePlan: boolean; diagnosis: boolean };
 }
 
 export interface StockDetailDataStatusDto {

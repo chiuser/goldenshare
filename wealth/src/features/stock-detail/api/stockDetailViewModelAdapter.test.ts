@@ -101,8 +101,7 @@ function makePageInit(): StockDetailPageInitResponseDto {
       supportsTrendChannel: false,
       nineTurnPeriods: ["day"],
       supportsWeeklyMonthly: false,
-      supportsUserActions: false,
-      unsupportedActions: [],
+      userActions: { watchlist: true, alert: false, tradePlan: false, diagnosis: false },
     },
     dataStatus: {
       status: "READY",

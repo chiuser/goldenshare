@@ -1,0 +1,362 @@
+.watchlist-table-scroll {
+  --wl-code-width: 125px;
+  --wl-name-width: 135px;
+  --wl-action-width: 110px;
+  --wl-table-width: 1672px;
+  --wl-cell-padding: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: var(--cs-color-text-muted) var(--cs-color-bg-panel-soft);
+  scrollbar-width: thin;
+}
+.watchlist-table {
+  width: 100%;
+  min-width: var(--wl-table-width);
+  table-layout: fixed;
+  border-spacing: 0;
+  border-collapse: separate;
+  font-size: 13px;
+}
+.watchlist-table .stock-code-column {
+  width: var(--wl-code-width);
+}
+.watchlist-table .stock-name-column {
+  width: var(--wl-name-width);
+}
+.watchlist-table .price-column {
+  width: 142px;
+}
+.watchlist-table .change-column {
+  width: 156px;
+}
+.watchlist-table .volume-column {
+  width: 176px;
+}
+.watchlist-table .valuation-column {
+  width: 194px;
+}
+.watchlist-table .ratio-column {
+  width: 134px;
+}
+.watchlist-table .turnover-column {
+  width: 154px;
+}
+.watchlist-table .money-column {
+  width: 212px;
+}
+.watchlist-table .sector-column {
+  width: 134px;
+}
+.watchlist-table .action-column {
+  width: var(--wl-action-width);
+}
+.watchlist-table th,
+.watchlist-table td {
+  text-align: left;
+  vertical-align: middle;
+  padding: 0 var(--wl-cell-padding);
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  white-space: nowrap;
+}
+.watchlist-table th {
+  position: sticky;
+  top: 0;
+  height: 42px;
+  background: var(--cs-color-bg-panel-soft);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cs-color-text-secondary);
+  z-index: 2;
+}
+.watchlist-table td {
+  height: 60px;
+  background: var(--cs-color-surface-card);
+}
+.watchlist-table tr:hover td {
+  background: var(--cs-color-surface-card-hover);
+}
+.watchlist-table th.stock-code-column,
+.watchlist-table td.stock-code-column {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.watchlist-table th.stock-name-column,
+.watchlist-table td.stock-name-column {
+  position: sticky;
+  left: var(--wl-code-width);
+  z-index: 1;
+  border-right: 1px solid var(--cs-color-border-default);
+}
+.watchlist-table th.action-column,
+.watchlist-table td.action-column {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  padding-left: 19px;
+  border-left: 1px solid var(--cs-color-border-default);
+}
+.watchlist-table th.action-column > span {
+  display: block;
+  padding-left: 12px;
+}
+.watchlist-table th.stock-code-column,
+.watchlist-table th.stock-name-column,
+.watchlist-table th.action-column {
+  z-index: 3;
+}
+.watchlist-table td.stock-name-column {
+  font-weight: 600;
+}
+.watchlist-stock-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cs-color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+.watchlist-valuation {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.watchlist-valuation small {
+  font-size: 11px;
+  color: var(--cs-color-text-muted);
+}
+.watchlist-sector-wrap {
+  display: flex;
+  align-items: center;
+}
+.watchlist-sector-tag {
+  padding: 4px 8px;
+  margin-left: -8px;
+  border-radius: 6px;
+  background: var(--cs-color-bg-panel-soft);
+  color: var(--cs-color-text-secondary);
+  font-size: 11px;
+  text-align: left;
+}
+.watchlist-remove,
+.watchlist-dialog button,
+.watchlist-load-more button {
+  background: var(--cs-color-surface-card);
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: 6px;
+  color: var(--cs-color-text-secondary);
+  cursor: pointer;
+}
+.watchlist-remove {
+  width: 72px;
+  height: 28px;
+  padding-left: 11px;
+  text-align: left;
+  color: var(--cs-color-danger-system);
+  font-size: 12px;
+}
+.watchlist-table button:focus-visible,
+.watchlist-dialog button:focus-visible {
+  outline: 1px solid var(--cs-color-brand);
+  outline-offset: 2px;
+}
+.watchlist-missing {
+  color: var(--cs-color-text-muted);
+}
+.watchlist-load-more {
+  min-width: var(--wl-table-width);
+  padding: 16px;
+  font-size: 12px;
+  color: var(--cs-color-text-muted);
+}
+.watchlist-load-more button {
+  margin-left: 12px;
+}
+.watchlist-dialog {
+  color: var(--cs-color-text-primary);
+  background: var(--cs-color-bg-panel);
+  border: 1px solid var(--cs-color-border-strong);
+  padding: 0;
+  box-shadow: var(--cs-shadow-panel);
+}
+.watchlist-dialog::backdrop {
+  background: rgb(0 0 0 / 58%);
+}
+.watchlist-dialog h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.watchlist-dialog p {
+  color: var(--cs-color-text-muted);
+  font-size: 12px;
+}
+.watchlist-dialog button {
+  height: 32px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 12px;
+}
+.watchlist-dialog button:disabled,
+.watchlist-remove:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.watchlist-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.watchlist-add-dialog {
+  width: 560px;
+  height: 560px;
+  max-height: calc(100vh - 48px);
+  margin: min(14.5vh, 142px) auto 0;
+  border-radius: var(--cs-radius-panel);
+}
+.watchlist-add-dialog .watchlist-dialog-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+}
+.watchlist-add-dialog header {
+  position: relative;
+  height: 42px;
+  flex-shrink: 0;
+}
+.watchlist-add-dialog header p {
+  margin: 5px 0 0;
+  font-size: 11px;
+}
+.watchlist-dialog .watchlist-dialog-close {
+  position: absolute;
+  right: 0;
+  top: -7px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  font-size: 20px;
+  background: var(--cs-color-bg-panel-soft);
+}
+.watchlist-search-input {
+  flex-shrink: 0;
+  height: 40px;
+  width: 100%;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--cs-color-border-default);
+  background: var(--cs-color-bg-panel-soft);
+  color: var(--cs-color-text-primary);
+  font: inherit;
+  font-size: 12px;
+}
+.watchlist-search-input:focus {
+  outline: none;
+  border-color: var(--cs-color-border-strong);
+}
+.watchlist-search-input::placeholder {
+  color: var(--cs-color-text-muted);
+}
+.watchlist-search-results {
+  height: 360px;
+  min-height: 0;
+  flex-shrink: 1;
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--cs-color-bg-panel-soft);
+}
+.watchlist-search-header,
+.watchlist-search-row {
+  display: grid;
+  grid-template-columns: 152px 1fr 82px;
+  align-items: center;
+  text-align: left;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.watchlist-search-header {
+  height: 40px;
+  background: var(--cs-color-surface-card);
+  color: var(--cs-color-text-secondary);
+}
+.watchlist-search-body {
+  height: 318px;
+  overflow-y: auto;
+}
+.watchlist-search-row {
+  height: 56px;
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  background: var(--cs-color-surface-card);
+}
+.watchlist-search-row:hover {
+  background: var(--cs-color-surface-card-hover);
+}
+.watchlist-search-row .num,
+.watchlist-added {
+  color: var(--cs-color-text-muted);
+  font-size: 11px;
+}
+.watchlist-dialog .watchlist-plus {
+  height: 28px;
+  width: 28px;
+  padding: 0;
+  color: var(--cs-color-brand);
+  border-color: var(--cs-color-border-strong);
+  background: var(--cs-color-brand-weak);
+  font-size: 18px;
+}
+.watchlist-search-message {
+  padding: 24px 12px;
+  font-size: 12px;
+  color: var(--cs-color-text-secondary);
+}
+.watchlist-search-message button {
+  margin-left: 8px;
+}
+.watchlist-add-dialog footer {
+  margin-top: auto;
+}
+.watchlist-add-dialog footer span {
+  flex: 1;
+  font-size: 11px;
+  color: var(--cs-color-text-muted);
+}
+.watchlist-add-dialog footer button {
+  min-width: 84px;
+}
+.watchlist-remove-dialog {
+  width: 380px;
+  min-height: 168px;
+  border-radius: 10px;
+  margin: auto;
+}
+.watchlist-remove-dialog::backdrop {
+  background: transparent;
+}
+.watchlist-remove-dialog .watchlist-dialog-shell {
+  padding: 20px;
+}
+.watchlist-remove-dialog h2 {
+  font-size: 14px;
+}
+.watchlist-remove-dialog p {
+  margin: 14px 0 30px;
+}
+.watchlist-remove-dialog footer button {
+  min-width: 82px;
+}
+.watchlist-dialog .watchlist-remove-confirm {
+  border-color: var(--cs-color-danger-system);
+  color: var(--cs-color-danger-system);
+  background: var(--cs-color-bg-panel-soft);
+}
+.watchlist-dialog .watchlist-error {
+  margin: 8px 0;
+  color: var(--cs-color-danger-system);
+}

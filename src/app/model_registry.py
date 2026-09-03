@@ -10,6 +10,7 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.foundation.models.all_models",
     "src.foundation.models.meta.realtime_runtime_config",
     "src.app.models.app_user",
+    "src.biz.models.wealth.watchlist_item",
     "src.app.models.auth_action_token",
     "src.app.models.auth_audit_log",
     "src.app.models.auth_invite_code",

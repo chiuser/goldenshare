@@ -450,6 +450,7 @@ function mockSuccessfulMarketFetch(
     const url = toUrlString(input);
     const contextResponse = maybeContextResponse(url);
     if (contextResponse) return contextResponse;
+    if (url.includes("/api/v1/wealth/market/watchlist/summary")) return responseJson({ totalCount: 23 });
     if (url.includes("/api/v1/wealth/market/summary")) {
       return responseJson(summaryPayload);
     }
@@ -499,6 +500,24 @@ describe("MarketOverviewPage", () => {
     vi.restoreAllMocks();
     vi.useRealTimers();
     window.history.pushState({}, "", "/");
+  });
+
+  it("shows the real watchlist count and opens only its real route", async () => {
+    render(<MarketOverviewPage />);
+    const shortcut = (await screen.findByText("我的自选")).closest("button")!;
+    await waitFor(() => expect(within(shortcut).getByText("23")).toBeInTheDocument());
+    expect(shortcut).not.toHaveTextContent("分组");
+    fireEvent.click(shortcut); expect(window.location.pathname).toBe("/wealth/market/watchlist");
+  });
+
+  it("keeps a failed watchlist badge at -- without blocking the homepage", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const fallback = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input, options) => toUrlString(input).includes("/watchlist/summary")
+      ? Promise.resolve(responseJson({ code: "WL_QUERY_FAILED", message: "自选不可用" })) : fallback(input, options));
+    render(<MarketOverviewPage />);
+    await screen.findByText("截至收盘，A 股主要指数多数上涨。");
+    expect(within(screen.getByText("我的自选").closest("button")!).getByText("--")).toBeInTheDocument();
   });
 
   it("renders the V1.1 market overview structure", async () => {
@@ -812,6 +831,7 @@ describe("MarketOverviewPage", () => {
     expect(within(majorSection).getByText("loading")).toBeInTheDocument();
     expect(majorSection.querySelectorAll(".index-card")).toHaveLength(0);
 
+    await waitFor(() => expect(resolveMajorFetch).toBeTypeOf("function"));
     if (typeof resolveMajorFetch !== "function") {
       throw new Error("major indices fetch resolver is missing");
     }
@@ -1374,7 +1394,10 @@ describe("MarketOverviewPage", () => {
 
     expect(await screen.findByText("页面时间上下文加载失败")).toBeInTheDocument();
     expect(screen.getByText("context unavailable")).toBeInTheDocument();
-    expect(requestUrls).toEqual([expect.stringContaining("/api/v1/wealth/market/context")]);
+    expect(requestUrls).toEqual([
+      expect.stringContaining("/api/v1/wealth/market/watchlist/summary"),
+      expect.stringContaining("/api/v1/wealth/market/context"),
+    ]);
   });
 
   it("uses page-level debug switch for summary, major-indices, breadth, style, turnover and leaderboards modules", async () => {

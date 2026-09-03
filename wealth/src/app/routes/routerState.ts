@@ -7,6 +7,12 @@ import {
 } from "../../features/wealth-exploration/navigation/explorationNavigation";
 
 export const DEFAULT_WEALTH_PATH = "/wealth/market/overview";
+export const WEALTH_WATCHLIST_PATH = "/wealth/market/watchlist";
+
+export function buildWatchlistPath(): string { return WEALTH_WATCHLIST_PATH; }
+export function isWatchlistPath(pathname: string): boolean {
+  return pathname === WEALTH_WATCHLIST_PATH || pathname === "/market/watchlist";
+}
 export const WEALTH_EXPLORATION_PATH = "/wealth/exploration";
 export const WEALTH_EXPLORATION_TURNOVER_PATH = EXPLORATION_TURNOVER_PATH;
 export const WEALTH_EXPLORATION_SECTOR_PATH = "/wealth/exploration/sector-analysis";

@@ -1,0 +1,1 @@
+"""Wealth user data models."""
