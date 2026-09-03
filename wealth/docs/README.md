@@ -16,6 +16,7 @@ docs/
     wealth-exploration/
     stock-detail/
     index-detail/
+    watchlist/
 ```
 
 ## 文档优先级
@@ -117,6 +118,9 @@ docs/
 - [新闻速览、新闻通讯与阅读器低层设计 v2（N01-N19 已完成并结案，2026-09-01）](./pages/market-overview/market-news-reader-low-level-design-v1.md)
 - [首页股票搜索技术实施方案 v1（已部署并通过用户验收，2026-09-02 结案）](./pages/market-overview/homepage-stock-search-implementation-design-v1.md)
 - [首页股票搜索低层设计 v1（已部署并通过用户验收，2026-09-02 结案）](./pages/market-overview/homepage-stock-search-low-level-design-v1.md)
+- [我的自选产品与交互基准 v1（Figma 已完成，待评审；未实现）](./pages/watchlist/watchlist-benchmark-requirement-v1.md)
+- [我的自选技术实施方案 v1（Figma 已完成，待评审；未实现）](./pages/watchlist/watchlist-implementation-design-v1.md)
+- [我的自选低层设计 v1（Figma 已完成，待评审；未实现）](./pages/watchlist/watchlist-low-level-design-v1.md)
 - [市场总览 Codex 实现提示词基线](./pages/market-overview/implementation-prompt-baseline.md)
 - [市场总览 homepage 代码架构设计](./pages/market-overview/implementation-architecture-v1.md)
 - [市场总览原生 Figma 设计稿还原计划 v1（历史准备稿，不得继续执行）](./pages/market-overview/market-overview-figma-reconstruction-plan-v1.md)

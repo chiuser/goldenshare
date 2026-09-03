@@ -166,6 +166,17 @@
 | `SS_REQUEST_INVALID` | `stockSearch` | warn | false | false | 股票搜索请求不符合冻结合同 | keyword 为空或超长，或 limit 越界 | 保留输入并提示修正；不执行模糊查询或回退 | biz-api | Phase-7 | active |
 | `SS_QUERY_FAILED` | `stockSearch` | error | false | false | 股票搜索查询或 DTO 组合失败 | 数据库、查询执行或响应映射出现未恢复异常 | 联想菜单显示统一 error；不调用 mock 或其它接口 | biz-api | Phase-7 | active |
 
+## 6.2 我的自选模块（Phase-8）
+
+> 本节只完成异常码合同登记；模块当前仍处于文档待评审、未实现状态。
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `WL_REQUEST_INVALID` | `watchlist` | warn | false | false | 自选请求不符合冻结合同 | tsCode、limit、afterId 或 tradeDate 非法 | 当前页面或弹窗显示不可重试的输入错误；不执行宽松回退 | biz-api | Phase-8 | active |
+| `WL_STOCK_NOT_ELIGIBLE` | `watchlist` | warn | false | false | 添加目标不是当前上市 A 股 | security 不满足 EQUITY、L、CNY、SSE/SZSE/BSE 四项条件 | 保留列表和弹窗；提示仅支持当前上市 A 股 | biz-api | Phase-8 | active |
+| `WL_QUERY_FAILED` | `watchlist` | error | false | false | 自选列表、数量、搜索或成员状态查询失败 | 数据库查询、页面上下文或 DTO 组合发生未恢复异常 | 只让对应列表、徽标、弹窗或详情动作进入 error；不回退 mock | biz-api | Phase-8 | active |
+| `WL_WRITE_FAILED` | `watchlist` | error | false | false | 自选添加或删除事务失败 | 资格校验通过后，唯一约束之外的写入、提交或结果回读失败 | 保留操作前 UI 事实，解除 pending 并提示重试 | biz-api | Phase-8 | active |
+
 ## 7. 股票详情分钟模块（Phase-2）
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
