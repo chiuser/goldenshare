@@ -94,7 +94,9 @@ export function AddWatchlistDialog({
           <div role="row" className="watchlist-search-header">
             <span role="columnheader">代码</span>
             <span role="columnheader">名称</span>
-            <span role="columnheader">状态</span>
+            <span role="columnheader" className="watchlist-search-status">
+              状态
+            </span>
           </div>
           <div
             role="rowgroup"
@@ -135,7 +137,7 @@ export function AddWatchlistDialog({
                     {item.tsCode}
                   </span>
                   <span role="cell">{item.name}</span>
-                  <span role="cell">
+                  <span role="cell" className="watchlist-search-status">
                     {isAdded ? (
                       <span className="watchlist-added">已添加</span>
                     ) : (
@@ -146,7 +148,17 @@ export function AddWatchlistDialog({
                         disabled={pending}
                         onClick={() => void add(item.tsCode)}
                       >
-                        {pending ? "…" : "+"}
+                        {pending ? (
+                          <span aria-hidden="true">…</span>
+                        ) : (
+                          <svg
+                            className="watchlist-plus-icon"
+                            viewBox="0 0 16 16"
+                            aria-hidden="true"
+                          >
+                            <path d="M8 2v12M2 8h12" />
+                          </svg>
+                        )}
                       </button>
                     )}
                   </span>

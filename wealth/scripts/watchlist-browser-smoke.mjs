@@ -21,6 +21,25 @@ const errors = [], requests = [];
 page.on("pageerror", (error) => errors.push(error.message));
 page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
 page.on("request", (request) => { if (request.url().includes("/api/")) requests.push({ url: request.url(), method: request.method() }); });
+async function measureButtonCenter(selector, contentSelector) {
+  return page.locator(selector).first().evaluate((button, contentSelector) => {
+    const box = button.getBoundingClientRect(), cell = button.closest("td,[role='cell']").getBoundingClientRect();
+    const content = button.querySelector(contentSelector).getBoundingClientRect();
+    const row = button.closest("tr,[role='row']").getBoundingClientRect();
+    const offset = (a, b) => ({ x: a.x + a.width / 2 - b.x - b.width / 2, y: a.y + a.height / 2 - b.y - b.height / 2 });
+    return { buttonToCell: offset(box, cell), contentToButton: offset(content, box), buttonToRowY: offset(box, row).y,
+      display: getComputedStyle(button).display, textAlign: getComputedStyle(button).textAlign };
+  }, contentSelector);
+}
+function assertButtonCentered(measurement) {
+  for (const offset of [measurement.buttonToCell, measurement.contentToButton]) {
+    assert.ok(Math.abs(offset.x) <= 1 && Math.abs(offset.y) <= 1, JSON.stringify(measurement));
+  }
+  assert.ok(Math.abs(measurement.buttonToRowY) <= 1, JSON.stringify(measurement));
+  // A flex item is blockified, so inline-flex computes to flex in the status cell.
+  assert.ok(["inline-flex", "flex"].includes(measurement.display));
+  assert.equal(measurement.textAlign, "center");
+}
 try {
   const start = performance.now();
   await page.goto(`${base}/wealth/market/watchlist?tradeDate=2026-09-02`);
@@ -28,16 +47,24 @@ try {
   const first100ReadyMs = Math.round(performance.now() - start);
   const fields = await page.locator(".watchlist-table tbody tr").evaluateAll((rows) => rows.slice(0, 7).map((row) => ({
     cells: [...row.querySelectorAll("td")].map((cell) => cell.innerText),
+    priceClass: row.querySelector(".price-column").className,
+    priceColor: getComputedStyle(row.querySelector(".price-column")).color,
+    changeColor: getComputedStyle(row.querySelector(".change-column")).color,
     changeClass: row.querySelector(".change-column").className,
     flowClass: row.querySelector(".money-column").className,
   })));
-  assert.deepEqual(fields[0].cells, ["000001.SZ", "测试股票1", "12.34", "-1.50", "123.46", "5.62\n0.71", "1.08", "0.92", "-0.22", "银行", "移除"]);
+  assert.deepEqual(fields[0].cells, ["000001.SZ", "测试股票1", "12.34", "-1.50", "123.46", "5.62", "0.71", "1.08", "0.92", "-2.19", "银行", "移除"]);
   assert.match(fields[0].changeClass, /\bdown\b/); assert.match(fields[0].flowClass, /\bdown\b/);
   assert.equal(fields[1].cells[3], "0.00"); assert.match(fields[1].changeClass, /\bflat\b/);
-  assert.equal(fields[2].cells[3], "+1.73"); assert.equal(fields[2].cells[8], "+0.22");
+  assert.equal(fields[2].cells[3], "+1.73"); assert.equal(fields[2].cells[9], "+2.19");
   assert.match(fields[2].changeClass, /\bup\b/); assert.match(fields[2].flowClass, /\bup\b/);
-  assert.equal(fields[4].cells[5], "--\n0.71");
-  assert.deepEqual(fields[6].cells.slice(5, 9), ["--\n--", "--", "--", "--"]);
+  for (const [index, direction] of [[0, "down"], [1, "flat"], [2, "up"]]) {
+    assert.ok(fields[index].priceClass.split(" ").includes(direction));
+    assert.equal(fields[index].priceColor, fields[index].changeColor);
+  }
+  assert.deepEqual(fields[4].cells.slice(5, 7), ["--", "0.71"]);
+  assert.deepEqual(fields[6].cells.slice(5, 10), ["--", "--", "--", "--", "--"]);
+  assert.equal(await page.locator(".valuation-column, .watchlist-valuation").count(), 0);
   assert.match(fields[6].flowClass, /\bwatchlist-missing\b/);
   assert.equal(await page.getByText("部分数据缺失，缺失字段以 -- 展示。", { exact: true }).count(), 1);
   const table = page.locator(".watchlist-table-scroll");
@@ -58,18 +85,20 @@ try {
       position: getComputedStyle(cells[index]).position, rowHeight: cells[index].getBoundingClientRect().height, left: cells[index].getBoundingClientRect().left }));
   });
   for (const column of layout) {
-    assert.equal(column.headerAlign, "left"); assert.equal(column.contentAlign, "left");
+    const expectedAlign = column.label === "操作" ? "center" : "left";
+    assert.equal(column.headerAlign, expectedAlign); assert.equal(column.contentAlign, expectedAlign);
     assert.ok(Math.abs(column.headerLeft - column.contentLeft) < 1, `text-left mismatch: ${JSON.stringify(column)}`);
     assert.equal(column.rowHeight, 60);
   }
+  assert.equal(layout.length, 12);
   assert.deepEqual(layout.filter((column) => column.position === "sticky").map((column) => column.label), ["股票代码", "股票名称", "操作"]);
   const geometry = await table.evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }));
   assert.ok(geometry.scroll > geometry.client);
   await page.evaluate(() => { window.__watchlistLongTasks = []; });
   await table.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
   const afterScroll = await page.locator(".watchlist-table tbody tr:first-child td").evaluateAll((cells) => cells.map((cell) => ({ left: cell.getBoundingClientRect().left, right: cell.getBoundingClientRect().right })));
-  for (const index of [0, 1, 10]) assert.ok(Math.abs(afterScroll[index].left - layout[index].left) < 1);
-  assert.ok(afterScroll[9].left < layout[9].left); assert.ok(Math.abs(afterScroll[9].right - afterScroll[10].left) < 1);
+  for (const index of [0, 1, 11]) assert.ok(Math.abs(afterScroll[index].left - layout[index].left) < 1);
+  assert.ok(afterScroll[10].left < layout[10].left); assert.ok(Math.abs(afterScroll[10].right - afterScroll[11].left) < 1);
   const centeredTag = await page.locator(".watchlist-sector-tag").first().evaluate((tag) => {
     const cell = tag.closest("td").getBoundingClientRect(), badge = tag.getBoundingClientRect();
     return Math.abs((cell.top + cell.bottom) / 2 - (badge.top + badge.bottom) / 2);
@@ -82,6 +111,8 @@ try {
   const scrollingLongTasks = await page.evaluate(() => window.__watchlistLongTasks);
   assert.equal(requests.filter((request) => new URL(request.url).pathname === "/api/v1/wealth/market/watchlist").length, 2);
   await table.evaluate((element) => { element.scrollTop = 0; element.scrollLeft = 0; });
+  const removeButtonCenter = await measureButtonCenter(".watchlist-remove", "span");
+  assertButtonCentered(removeButtonCenter);
   await page.screenshot({ path: `${output}/watchlist-ready.png` });
   await page.getByRole("button", { name: "+ 添加自选", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "添加自选" });
@@ -92,6 +123,8 @@ try {
   await dialog.getByRole("button", { name: "添加 测试股票201 000201.SZ", exact: true }).waitFor();
   assert.ok(await dialog.getByText("已添加", { exact: true }).count() >= 1);
   assert.equal((await dialog.boundingBox()).height, blankHeight);
+  const addButtonCenter = await measureButtonCenter(".watchlist-plus", ".watchlist-plus-icon");
+  assertButtonCentered(addButtonCenter);
   await page.screenshot({ path: `${output}/watchlist-add-results.png` });
   await dialog.getByRole("button", { name: "添加 测试股票201 000201.SZ", exact: true }).click();
   await dialog.getByText("已添加到列表末尾").waitFor(); assert.equal(await dialog.isVisible(), true);
@@ -138,9 +171,9 @@ try {
   await unauthenticated.waitForURL(/\/wealth\/login\?redirect=/);
   assert.ok(unauthenticated.url().includes("redirect=%2Fwealth%2Fmarket%2Fwatchlist"));
   await expired.close();
-  await writeFile(`${output}/watchlist-browser-evidence.json`, JSON.stringify({ first100ReadyMs, fields, layout, geometry, centeredTagOffset: centeredTag, homepageResponses, homepageErrors,
+  await writeFile(`${output}/watchlist-browser-evidence.json`, JSON.stringify({ first100ReadyMs, fields, layout, geometry, centeredTagOffset: centeredTag, removeButtonCenter, addButtonCenter, homepageResponses, homepageErrors,
     scrollingLongTasks, addDialogHeight: blankHeight, removeDialog: box, errors, requests }, null, 2));
-  console.log(JSON.stringify({ first100ReadyMs, rowCount: 200, columnCount: layout.length, scrollingLongTasks, addDialogHeight: blankHeight, removeDialog: box, errors }));
+  console.log(JSON.stringify({ first100ReadyMs, rowCount: 200, columnCount: layout.length, removeButtonCenter, addButtonCenter, scrollingLongTasks, addDialogHeight: blankHeight, removeDialog: box, errors }));
 } catch (error) {
   await page.screenshot({ path: `${output}/watchlist-failure.png` }); throw error;
 } finally { await browser.close(); }

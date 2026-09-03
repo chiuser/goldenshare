@@ -49,6 +49,17 @@ describe("add watchlist dialog", () => {
     await act(() => vi.advanceTimersByTimeAsync(1));
     expect(search).toHaveBeenCalledTimes(1);
     expect(screen.getByText("已添加")).toBeInTheDocument();
+    const addButton = screen.getByRole("button", {
+      name: "添加 平安银行 000001.SZ",
+    });
+    expect(addButton.parentElement).toHaveClass("watchlist-search-status");
+    expect(addButton.querySelector(".watchlist-plus-icon")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(screen.getByRole("columnheader", { name: "状态" })).toHaveClass(
+      "watchlist-search-status",
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "添加 平安银行 000001.SZ" }),
     );

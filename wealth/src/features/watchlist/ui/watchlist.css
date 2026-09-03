@@ -2,7 +2,7 @@
   --wl-code-width: 125px;
   --wl-name-width: 135px;
   --wl-action-width: 110px;
-  --wl-table-width: 1672px;
+  --wl-table-width: 1768px;
   --wl-cell-padding: 12px;
   flex: 1;
   min-height: 0;
@@ -33,8 +33,11 @@
 .watchlist-table .volume-column {
   width: 176px;
 }
-.watchlist-table .valuation-column {
-  width: 194px;
+.watchlist-table .pe-column {
+  width: 156px;
+}
+.watchlist-table .pb-column {
+  width: 134px;
 }
 .watchlist-table .ratio-column {
   width: 134px;
@@ -94,12 +97,8 @@
   position: sticky;
   right: 0;
   z-index: 1;
-  padding-left: 19px;
+  text-align: center;
   border-left: 1px solid var(--cs-color-border-default);
-}
-.watchlist-table th.action-column > span {
-  display: block;
-  padding-left: 12px;
 }
 .watchlist-table th.stock-code-column,
 .watchlist-table th.stock-name-column,
@@ -117,15 +116,6 @@
   font-size: 11px;
   cursor: pointer;
   text-align: left;
-}
-.watchlist-valuation {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.watchlist-valuation small {
-  font-size: 11px;
-  color: var(--cs-color-text-muted);
 }
 .watchlist-sector-wrap {
   display: flex;
@@ -152,10 +142,22 @@
 .watchlist-remove {
   width: 72px;
   height: 28px;
-  padding-left: 11px;
-  text-align: left;
+  padding: 0 12px;
   color: var(--cs-color-danger-system);
   font-size: 12px;
+}
+.watchlist-remove,
+.watchlist-dialog .watchlist-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 1;
+  text-align: center;
+}
+.watchlist-remove:hover:not(:disabled) {
+  border-color: var(--cs-color-danger-system);
+  background: var(--cs-color-surface-card-hover);
 }
 .watchlist-table button:focus-visible,
 .watchlist-dialog button:focus-visible {
@@ -297,6 +299,13 @@
 .watchlist-search-row:hover {
   background: var(--cs-color-surface-card-hover);
 }
+.watchlist-search-status {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
 .watchlist-search-row .num,
 .watchlist-added {
   color: var(--cs-color-text-muted);
@@ -310,6 +319,17 @@
   border-color: var(--cs-color-border-strong);
   background: var(--cs-color-brand-weak);
   font-size: 18px;
+}
+.watchlist-dialog .watchlist-plus:hover:not(:disabled) {
+  border-color: var(--cs-color-brand);
+}
+.watchlist-plus-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 .watchlist-search-message {
   padding: 24px 12px;

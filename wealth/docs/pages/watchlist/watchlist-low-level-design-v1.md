@@ -1,6 +1,6 @@
 # 财势乾坤｜我的自选低层设计 v1（LLD）
 
-> 状态：D0 审计、D1—D4 开发及开发自测完成；未提交、未推送、未部署；正式验收由用户负责
+> 状态：首版已提交 `d143dec4`；第 18 节五项展示修正开发与自测完成；本次未提交、未部署
 >
 > 日期：2026-09-03
 >
@@ -9,6 +9,8 @@
 > 上层方案：[我的自选技术实施方案 v1](./watchlist-implementation-design-v1.md)
 
 ## 0. Figma 实现基准
+
+第 18 节为用户最新明确修正，优先于以下首版画板的对应细节：按钮/状态格居中、最新价跟随涨跌色、PE/PB 拆列、资金显示单位为千万。本轮不修改 Figma；其余布局、搜索、增删、滚动和详情交互继续沿用首版基准。
 
 编码时以以下节点作为视觉与状态事实，不允许只凭本文文字自行发挥：
 
@@ -38,11 +40,12 @@ Figma 自检结果：无缺失字体；左侧代码/名称固定区为 `260px`�
 9. 股票详情页“+自选”接入相同幂等添加能力。
 10. 只允许当前上市 A 股进入新增候选池。
 11. 股票代码、股票名称为独立列，顺序固定为代码在前、名称在后。
-12. 表头承担单位；成交量以万手、资金净流入以亿元、涨跌幅与换手率以百分比展示，单元格不重复单位。
-13. 估值表头说明 `PE / PB`，单元格的两行值只显示数值，不显示 `PE xx` 或 `PB xx`。
+12. 表头承担单位；成交量以万手、资金净流入以千万、涨跌幅与换手率以百分比展示，单元格不重复单位。
+13. 市盈率（PE TTM）与市净率（PB）分成两个独立列，每格只有单项数值，不显示 `PE xx` 或 `PB xx`，禁止估值组合列。
 14. 量比和换手率各自成列，不存在“活跃度”组合列。
 15. 所属板块是横向滑动区的最后一列，业务顺序位于操作左侧但不得冻结；只有操作列固定在右侧。
-16. 所有列表头和对应单元格内容统一左对齐，并使用相同列内左边界；所属板块标签文字左对齐且在每行内垂直居中。
+16. 数据列表头和对应单元格内容统一左对齐；所属板块标签文字左对齐且在每行内垂直居中。操作列、搜索状态列和按钮内容按用户最新要求居中。
+17. 最新价与涨跌幅使用相同 `quote.direction` 行情色；缺失价格显示中性的 `--`。
 
 ## 2. 开发约束映射
 
@@ -59,7 +62,7 @@ Figma 自检结果：无缺失字体；左侧代码/名称固定区为 `260px`�
 | 删除确认 | DELETE 幂等 | centered dialog | 取消、确认、失败、非 anchor 定位 |
 | 横向滚动 | DTO 不删列 | `overflow-x:auto` | scrollWidth > clientWidth |
 | 列冻结边界 | 无后端影响 | 仅代码/名称 sticky left、操作 sticky right；所属板块不 sticky | computed style + 横向滚动截图 |
-| 列内对齐 | 无后端影响 | 表头与表体共享列宽和左侧内边距，统一 `text-align:left` | DOM 边界断言 + 截图 |
+| 列内对齐 | 无后端影响 | 数据列统一左对齐；操作/搜索状态列与按钮内容居中 | DOM 左边界/中心断言 + 截图 |
 | 原子列与单位 | 数值字段保持原始单位 | 表头换算单位、单元格纯数值 | 列顺序、换算、无旧组合列 |
 | 详情页联动 | membership + PUT | `+自选/已自选` | 状态加载与添加 |
 | 详情默认日 K | 不改既有 Kline contract | 复用 buildStockDetailPath | 首请求 `day + forward` |
@@ -615,14 +618,14 @@ close -> abort + reset idle
 2. 外层 `.watchlist-table-scroll` 同时提供 `overflow-x:auto` 和纵向 viewport。
 3. 表格最小宽度由页面 CSS 自定义属性集中声明，不把数值散落到单元格。
 4. `.stock-code-column`、`.stock-name-column` 依次 sticky left；`.action-column` sticky right；`.sector-column` 不设置 sticky，作为横向滚动内容的最后一列；三个固定列背景跟随 row hover。
-5. 所有 `th`、`td` 统一左对齐，表头和表体通过同一列宽与左侧内边距保证内容左边界一致；数值列使用 `.num`、`font-variant-numeric: tabular-nums`，但仍保持左对齐。
-6. 正/负/零/缺失分别使用结构化 direction 对应 `.up/.down/.flat` 和中性占位。
+5. 数据列 `th`、`td` 统一左对齐，表头和表体通过同一列宽与左侧内边距保证内容左边界一致；数值列使用 `.num`、`font-variant-numeric: tabular-nums`。操作列及搜索状态列居中，按钮内容双轴居中。
+6. 正/负/零/缺失分别使用结构化 direction 对应 `.up/.down/.flat` 和中性占位。最新价复用涨跌幅的 direction；价格自身缺失时不渲染带涨跌色的 `--`。
 7. 底部 sentinel 进入视区且 `nextCursor != null` 时调用 `loadMore()`；请求中不重复触发。
 8. 最后一批加载后移除 sentinel，最后一行可以完整滚入视区。
-9. 可见列严格按以下顺序渲染：`tsCode`、`name`、`price`、`changePct`、`vol`、`peTtm/pb`、`volumeRatio`、`turnoverRate`、`netAmount`、`industry`、操作。
-10. 表头文案严格为：股票代码、股票名称、最新价（元）、涨跌幅（%）、成交量（万手）、估值（PE / PB）、量比、换手率（%）、资金净流入（亿元）、所属板块、操作。
-11. `vol` 源单位手，显示值为 `vol / 10000`；`netAmount` 源单位万元，显示值为 `netAmount / 10000`；表体不追加“万手”“亿元”或 `%`。
-12. 估值单元格第一行只显示格式化后的 `peTtm`，第二行只显示格式化后的 `pb`；不得渲染 `PE` 或 `PB` 字符串前缀。
+9. 可见列严格按以下顺序渲染：`tsCode`、`name`、`price`、`changePct`、`vol`、`peTtm`、`pb`、`volumeRatio`、`turnoverRate`、`netAmount`、`industry`、操作。
+10. 表头文案严格为：股票代码、股票名称、最新价（元）、涨跌幅（%）、成交量（万手）、市盈率（PE TTM）、市净率（PB）、量比、换手率（%）、资金净流入（千万）、所属板块、操作，共 12 列。
+11. `vol` 源单位手，显示值为 `vol / 10000`；`netAmount` 源单位万元，显示值为 `netAmount / 1000`；表体不追加“万手”“千万”或 `%`。
+12. `peTtm` 与 `pb` 各占一个独立单元格，只显示单行格式化数值；删除旧 `valuation-column` 与两行布局，不保留兼容组合列。
 13. `.sector-column` 内标签使用 flex 垂直居中，标签文字保持左对齐；不得使用水平居中覆盖整列左对齐合同。
 
 ### 7.7 删除确认弹窗
@@ -710,7 +713,7 @@ items loaded -> ready shell + dataStatus badge
 2. `useWatchlistController.test.tsx`：初始、游标、去重、置尾、mutation 和乱序。
 3. `AddWatchlistDialog.test.tsx`：hint、固定空 body、三列、500ms、abort、`+`、已添加、保持打开。
 4. `RemoveWatchlistDialog.test.tsx`：页面居中、无 anchor、取消、确认、Esc、遮罩、pending、stopPropagation。
-5. `WatchlistPage.test.tsx`：六态、原子列顺序、单位表头、数值换算、横向容器、代码/名称/操作三个 sticky 列、所属板块非 sticky 且为滑动区末列、表头与单元格左对齐及左边界一致、板块标签垂直居中、load-more、行跳详情。
+5. `WatchlistPage.test.tsx`：六态、原子列顺序、单位表头、数值换算、横向容器、代码/名称/操作三个 sticky 列、所属板块非 sticky 且为滑动区末列、数据列表头与单元格左对齐及左边界一致、操作控件居中、板块标签垂直居中、load-more、行跳详情。
 6. `MarketOverviewPage.test.tsx`：真实 count、`--` 降级、入口路径，不改变其它卡片。
 7. `StockDetailPage.test.tsx`：membership 状态、PUT、其它动作仍 placeholder、K 线参数不变。
 8. `stockDetailViewModelAdapter.test.ts`：新 userActions contract，无旧字段。
@@ -731,7 +734,7 @@ items loaded -> ready shell + dataStatus badge
 1. 1600px 宽桌面打开 `/wealth/market/watchlist`。
 2. 验证对话框 fixed body 不跳高。
 3. 验证横向滚动时股票代码、股票名称和操作列保持可见，所属板块随行情内容移动，并能在滑动到末端时完整显示在操作列左侧。
-4. 验证所有列表头与对应单元格内容均左对齐且左边界一致。
+4. 验证数据列表头与内容左边界一致；操作列和搜索状态列中心一致，按钮内文字/加号双轴居中。
 5. 验证纵向滚动到最后一项并停止请求。
 6. 验证详情跳转后默认日 K 和“已自选”。
 7. 检查 console 无错误、network 无重复循环请求、401 能回登录。
@@ -837,8 +840,11 @@ git diff --check
 |---|---|---|---|
 | v1 | 2026-09-03 | 冻结代码符号、数据模型、API、状态、测试与编码门禁 | Codex |
 | v1 开发对账 | 2026-09-03 | D0 同步分页日期变化规则；D1—D4 落地，记录隔离开发验证，保留部署和正式验收边界 | Codex |
+| v1 展示修正 | 2026-09-03 | 按用户反馈修正两个按钮居中、最新价着色、PE/PB 拆列与资金千万单位；重新完成前端及真实 API 浏览器自测 | Codex |
 
 ## 17. 开发交付记录（2026-09-03）
+
+本节为 `d143dec4` 首版开发时的历史测试证据；其中 11 列、估值组合列、资金亿元和全列左对齐口径已被第 18 节取代，不作为本次展示修正的通过依据。
 
 ### 17.1 代码与硬口径对账
 
@@ -898,3 +904,31 @@ CodeGraph 开工使用 `codegraph_status`、`codegraph_explore`、`codegraph_sea
 当前没有未落地的 D1—D4 编码项。尚未执行且由用户负责：迁移部署、后端与前端同批发布、真实账号/真实行情的正式验收及生产性能复核。详情 capability 是替换契约，不保留旧字段，发布时不可长期混用新旧前后端。
 
 构建仍提示单个 JS chunk 大于 500KB（当前约 954.86KB，gzip 284.53KB）；本轮未扩展为全站拆包重构。测试运行有现有依赖的弃用警告，不影响通过。所有无关工作区改动保留；本轮未提交、未推送、未部署。
+
+## 18. 用户反馈展示修正（2026-09-03）
+
+### 18.1 本次冻结范围
+
+仅修改 `wealth/src/features/watchlist` 的展示与格式化、对应页面测试、浏览器 smoke 和本页面三份文档。不改后端 DTO、SQL、持久化、搜索/分页、默认日 K、共享主题或其它模块；不提交、不推送、不部署。
+
+| 用户要求 | 当前证据 / 根因 | 编码落点 | 必须验证 |
+|---|---|---|---|
+| 移除按钮采用按钮样式，文字居中 | 已是原生 button，但 `padding-left:11px;text-align:left` 刻意把文字推向左侧 | `watchlist.css` 删除单侧偏移，暗底/描边沿用 token；操作列和按钮内容居中，补 hover | 浏览器按钮与单元格中心、文字与按钮中心误差 ≤1px；点击仍只开确认弹窗 |
+| 添加按钮水平/垂直居中 | 状态格没有居中布局，加号按字体基线排列 | `AddWatchlistDialog` 状态格 flex 居中；按钮 inline-flex；对称 SVG 加号避免字体基线偏移 | 真实搜索结果状态格、按钮、加号三者双轴中心一致；pending/已添加不偏移 |
+| 最新价跟随涨跌百分比字色 | `price-column` 没有使用现成的 `priceDirection` | `WatchlistTable` 使用相同行情色 class；缺价仍中性 | UP/DOWN/FLAT/UNKNOWN、缺价负例；实际 computed color 与涨跌幅相同 |
+| PE/PB 拆列 | DTO/view model 已是两个字段，仅表格合并展示 | 独立 `pe-column`/`pb-column`，宽度 156/134px；原 194px 组合列删除，总表宽 1768px | 12 列顺序、数值独立、无旧组合列；PE/PB 缺失不影响彼此；原冻结边界和横滚保持 |
+| 资金净流入改为千万 | API `netAmount` 是万元，当前 adapter 除以 10000 | 仅 adapter 改为 `/1000`，表头“资金净流入（千万）” | 2189.4→+2.19、-2189.4→-2.19、0→0.00、null→--；成交量仍除以 10000 |
+
+数据列继续左对齐；操作/搜索状态列的居中是本次用户要求对首版全列左对齐的明确局部替换，不扩散到其它列。按钮仍使用已有原生语义与 feature 样式，不新建全站 Button 框架。
+
+### 18.2 开发验证记录
+
+1. 本次重新执行 `wealth` 全量前端测试：**94 files / 626 tests passed**；自选专项为 **6 files / 42 tests passed**。新增 adapter 测试 9 项，页面补充涨跌方向、缺价和独立估值反例；添加弹窗断言状态格及加号结构，原 pending/幂等/搜索时序测试保留。
+2. `npm run typecheck`、`npm run build`、文档完整性及 `git diff --check` 通过。构建仍有单个 JS chunk 超过 500KB 的既有提醒（当前约 955.19KB，gzip 284.64KB）；未扩展为全站拆包工作。
+3. 使用首版隔离 fixture 的全新临时 PostgreSQL、真实认证、真实 API 和本次构建产物重新跑浏览器 smoke；只操作隔离合成数据，未连接既有或生产数据库。12 列顺序、PE/PB 独立缺失、资金正负值与千万换算、数据列左对齐、冻结边界、所属板块横滚、增删及默认日 K 全部通过；100→200 行后停止分页，添加置尾到 201、移除回到 200。
+4. 浏览器双轴量测：添加按钮相对状态格中心偏差 **(0, 0)px**，加号相对按钮中心偏差 **(0, 0)px**；移除按钮相对单元格中心偏差 **(0.5, -0.5)px**，文字相对按钮中心偏差 **(0, 0)px**，均满足 ≤1px。添加初始/结果弹窗同为 560px 高；删除确认仍在页面中心。截图人工复核通过。
+5. 最新价与涨跌幅 computed color 完全一致：上涨 `rgb(255, 77, 90)`、下跌 `rgb(21, 199, 132)`、平盘 `rgb(203, 213, 225)`；缺价中性由页面负向测试覆盖。主流程 console/pageerror 为零；其它未挂载的首页模块仍仅作为隔离边界记录，不算其验收。
+6. 复现方式沿用第 17.2 节。本次截图及量测 JSON 位于 `/private/tmp/wealth-watchlist-ui-review.ySIy5B/`，为本机临时开发证据，不作为生产资源提交。
+7. 编码前使用 `codegraph_explore` 核验 `WatchlistTable`、`AddWatchlistDialog`、`buildWatchlistRow` 及页面消费者；开发后执行 `codegraph sync` 与状态检查。改动仅在第 18.1 节范围，无共享契约、后端或依赖矩阵变更，所有无关工作区修改保留。本次未重跑后端单元套件，不把首版 60 项结果写成本轮结果；后端连通及主流程由上述真实 API smoke 验证。
+
+本次开发与自测已完成；未提交、未推送、未部署。后续由用户部署并进行真实账号、真实行情的正式验收。Figma 保留首版，本次明确修正以三份同步文档为准。

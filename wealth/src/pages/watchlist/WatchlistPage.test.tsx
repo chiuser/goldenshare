@@ -60,10 +60,11 @@ describe("watchlist page", () => {
       "最新价（元）",
       "涨跌幅（%）",
       "成交量（万手）",
-      "估值（PE / PB）",
+      "市盈率（PE TTM）",
+      "市净率（PB）",
       "量比",
       "换手率（%）",
-      "资金净流入（亿元）",
+      "资金净流入（千万）",
       "所属板块",
       "操作",
     ]);
@@ -74,26 +75,79 @@ describe("watchlist page", () => {
       "12.34",
       "+1.73",
       "123.46",
-      "5.620.71",
+      "5.62",
+      "0.71",
       "1.08",
       "0.92",
-      "-0.22",
+      "-2.19",
       "银行",
       "移除",
     ]);
+    expect(cells[2]).toHaveClass("up");
     expect(cells[3]).toHaveClass("up");
-    expect(cells[8]).toHaveClass("down");
+    expect(cells[9]).toHaveClass("down");
+    expect(cells[5]).toHaveClass("pe-column");
+    expect(cells[6]).toHaveClass("pb-column");
+    expect(
+      table.querySelector(".valuation-column, .watchlist-valuation"),
+    ).toBeNull();
     expect(cells[0]).toHaveClass("stock-code-column");
     expect(cells[1]).toHaveClass("stock-name-column");
-    expect(cells[10]).toHaveClass("action-column");
-    expect(cells[9]).toHaveClass("sector-column");
-    expect(cells[9]).not.toHaveClass("action-column");
+    expect(cells[11]).toHaveClass("action-column");
+    expect(cells[10]).toHaveClass("sector-column");
+    expect(cells[10]).not.toHaveClass("action-column");
     expect(screen.getByLabelText("自选股票滚动区域")).toHaveClass(
       "watchlist-table-scroll",
     );
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "000001.SZ" }));
     expect(window.location.pathname).toBe("/wealth/market/stock/000001.SZ");
+  });
+  it.each([
+    ["UP", 1.73, "up"],
+    ["DOWN", -1.73, "down"],
+    ["FLAT", 0, "flat"],
+    ["UNKNOWN", null, "watchlist-missing"],
+  ] as const)(
+    "uses the same %s price and change color",
+    async (direction, changePct, className) => {
+      mockPage(
+        page([
+          item(1, {
+            quote: { price: 12.34, changePct, direction, vol: 1234567 },
+          }),
+        ]),
+      );
+      render(<WatchlistPage />);
+      const table = await screen.findByRole("table", { name: "自选股票列表" });
+      const cells = within(table).getAllByRole("cell");
+      expect(cells[2]).toHaveClass(className);
+      expect(cells[3]).toHaveClass(className);
+    },
+  );
+  it("keeps missing price neutral even with a known rising change", async () => {
+    mockPage(
+      page([
+        item(1, {
+          quote: {
+            price: null,
+            changePct: 1.73,
+            direction: "UP",
+            vol: 1234567,
+          },
+          valuation: { peTtm: null, pb: 0.71 },
+        }),
+      ]),
+    );
+    render(<WatchlistPage />);
+    const table = await screen.findByRole("table", { name: "自选股票列表" });
+    const cells = within(table).getAllByRole("cell");
+    expect(cells[2]).toHaveTextContent("--");
+    expect(cells[2]).toHaveClass("watchlist-missing");
+    expect(cells[2]).not.toHaveClass("up");
+    expect(cells[3]).toHaveClass("up");
+    expect(cells[5]).toHaveTextContent("--");
+    expect(cells[6]).toHaveTextContent("0.71");
   });
   it.each(["DELAYED", "PARTIAL"] as const)(
     "keeps rows for %s and shows missing valuation as --",

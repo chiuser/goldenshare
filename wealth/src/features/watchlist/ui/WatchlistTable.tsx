@@ -9,10 +9,11 @@ const columns = [
   ["price-column", "最新价（元）"],
   ["change-column", "涨跌幅（%）"],
   ["volume-column", "成交量（万手）"],
-  ["valuation-column", "估值（PE / PB）"],
+  ["pe-column", "市盈率（PE TTM）"],
+  ["pb-column", "市净率（PB）"],
   ["ratio-column", "量比"],
   ["turnover-column", "换手率（%）"],
-  ["money-column", "资金净流入（亿元）"],
+  ["money-column", "资金净流入（千万）"],
   ["sector-column", "所属板块"],
   ["action-column", "操作"],
 ] as const;
@@ -105,7 +106,9 @@ export function WatchlistTable({
               <td className="stock-name-column">
                 <span>{row.name}</span>
               </td>
-              <td className="price-column num">
+              <td
+                className={`price-column num ${direction(row.price === "--" ? "UNKNOWN" : row.priceDirection)}`}
+              >
                 <span>{row.price}</span>
               </td>
               <td
@@ -116,11 +119,11 @@ export function WatchlistTable({
               <td className="volume-column num">
                 <span>{row.vol}</span>
               </td>
-              <td className="valuation-column num">
-                <span className="watchlist-valuation">
-                  <span>{row.peTtm}</span>
-                  <small>{row.pb}</small>
-                </span>
+              <td className="pe-column num">
+                <span>{row.peTtm}</span>
+              </td>
+              <td className="pb-column num">
+                <span>{row.pb}</span>
               </td>
               <td className="ratio-column num">
                 <span>{row.volumeRatio}</span>
@@ -149,7 +152,7 @@ export function WatchlistTable({
                     onRemove(row);
                   }}
                 >
-                  移除
+                  <span>移除</span>
                 </button>
               </td>
             </tr>
