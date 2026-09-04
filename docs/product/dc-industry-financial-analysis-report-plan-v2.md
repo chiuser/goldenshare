@@ -2,13 +2,15 @@
 
 ## 1. 文档状态
 
-- 状态：行业财务景气可读性重构版已生成
+- 状态：正式版 HTML 已归档；生成过程为历史记录
 - 方案日期：2026-08-30
-- 目标产物：一份可独立打开、可重复生成的 HTML 行业财务分析报表
+- 归档产物：一份可独立打开的 HTML 行业财务分析报表
 - 上一版：[东财行业财务指标统计分析报表方案 v1](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v1.md)
 - 升级原因：`income`、`balancesheet`、`cashflow` 已完成 Prod 接入和验收，原方案“只能分析公司指标分布、不能汇总行业绝对金额”的能力边界已经失效
 
 本文只定义分析口径、报表内容、质量门禁和实施边界。本阶段不修改业务 API，不写生产数据库，不接入运营后台。
+
+2026-09-04 按运营确认，仅保留东财正式版、申万正式版和申万周期拐点雷达原型三份自包含 HTML；本轮生成脚本、独立 JSON、对应测试及临时截图已清理。以下方案与生成记录用于解释归档报告，不代表仓库仍保留可重复生成命令。
 
 ---
 
@@ -458,9 +460,8 @@ reports/dc_industry_financial_analysis_2026_h1.html
 - 正式版生成时间：2026-08-30 23:43:43 CST
 - 行业成员快照：2026-06-30
 - 本次源数据最新抓取时间：2026-08-30 21:29:41 CST
-- 规范化报表输入：[dc_industry_financial_analysis_2026_h1.artifact.json](/Users/congming/github/goldenshare/reports/dc_industry_financial_analysis_2026_h1.artifact.json)
+- 规范化报表数据：已内嵌在 HTML 中，归档时已核对与原独立 JSON 的 manifest、snapshot 一致。
 - 正式版 HTML：[dc_industry_financial_analysis_2026_h1.html](/Users/congming/github/goldenshare/reports/dc_industry_financial_analysis_2026_h1.html)
-- 可重复生成脚本：[build_dc_industry_financial_analysis_report.py](/Users/congming/github/goldenshare/reports/build_dc_industry_financial_analysis_report.py)
 
 正式版质量结果：
 
@@ -474,13 +475,7 @@ reports/dc_industry_financial_analysis_2026_h1.html
 8. 报表不展示长明细和翻页控件。7 张可见表格均不超过 15 行；31 个一级行业只分成改善、分化、转弱三组，二级行业只展示内部差异最大的 10 组，公司驱动只展示改善和拖累各 6 家。
 9. 规范化 artifact 校验、自包含 HTML 构建、artifact/HTML 结构一致性及桌面/390px 移动端浏览器验收全部通过；页面没有全局横向滚动。
 
-后续若源站继续修订，可继续执行同一脚本重新生成正式版：
-
-```bash
-uv run python reports/build_dc_industry_financial_analysis_report.py --edition formal
-```
-
-正式版只允许更新数据快照、生成时间和由数据自然产生的结论，不修改计算口径或手工调整结果。
+归档报告保存当时的数据快照、生成时间与结论，不会随源站修订自动变化。生成脚本已按运营要求清理；未来如需更新报告，须另行安排生成工作，不能继续使用旧命令。
 
 ## 18. 本期不做
 
