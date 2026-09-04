@@ -2,15 +2,15 @@
 
 ## 0. 文档状态
 
-- 状态：v1.75；M22、M23、M24／G63已关闭。M25进行中：生成侧纠偏及两只后端API已实现，下一项为前端；最新正式Figma已落实到第3.6节视觉基线、第8.34节布局编码要求和第11.7节验收矩阵，事实标签直接展示后端状态。默认入口尚未改动，M26未开始。旧生产洞察尚未更新，不把设计核验、本地测试或生产只读预检冒充部署验收。
-- 编写日期：2026-09-04。
+- 状态：v1.76；M22、M23、M24／G63已关闭。M25生成侧、两只后端API及前端已完成本地开发验证：默认入口、紧凑四列表和屏幕居中说明弹窗均已实现但未部署。G65本地通过，G64部署验收及G66保持OPEN；旧生产洞察@2更新尚未执行，M25未整体结案，M26未开始。
+- 编写日期：2026-09-05。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
 - 技术依据：[财势探查｜板块分析技术实施方案 v1](./sector-analysis-implementation-design-v1.md)。
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：五条既有精确方法路由保持不变；M25 新增 `/wealth/exploration/sector-analysis/daily-insight`，并在其正式上线时把板块分析根地址改为 `replace` 到每日洞察。六个工作区始终只挂载当前 controller。
 - 目标 API：既有十四只板块分析只读 API 保持公开合同不变；M25 新增 `/daily-insight/meta` 与 `/daily-insight/snapshot` 两只 strict 只读 API。
-- 待实施项：M24五方法切读已通过；M25生成侧纠偏和两只API已实现，下一步实施每日洞察前端。M26及历史洞察更新尚未执行。M23历史TaskRun均保留为不可变证据，不得重用或改写。
+- 待实施项：M25本地开发已通过，等待用户审阅、提交／部署，以及独立批准的生产@2洞察更新与read-back；然后按M26完成部署态验收。M23历史TaskRun均保留为不可变证据，不得重用或改写。
 
 本文定义财势探查页面结构、五个已完成的独立分析方法，以及新增“每日洞察 + 每日事实物化”的代码级方案。每日洞察不是第六种公式，只汇总同一业务日期、同一层级版本、同一公式包和同一发布批次下的五方法客观事实；不生成综合分、预测、信号、机会等级或买卖建议。M3A 成分股明细和成员广度逐只股票明细继续按需读取，不进入本期物化结果。
 
@@ -4431,6 +4431,7 @@ parse URL
 | `DailyInsightOverview` | 展示summary卡 | 合成综合分、推断好坏 |
 | `DailyInsightPanel` | 既定标题及排序说明、固定表头、独立滚动viewport；按第3.6节控制面板尺寸与完整列表 | TopN、分页、共用滚动条、补空行、新增计数或“列表可滚动”提示 |
 | `DailyInsightRow` | 七列布局、typed item格式化、非交互事实标签、完整原文Tooltip、既定行业／方法证据跳转 | 重算名次、证据或文案；把事实标签改成按钮 |
+| `DailyInsightExplanationDialog` | 说明原文和最多两项方法证据入口；viewport居中、焦点和关闭生命周期 | 行旁定位、按长页面高度居中、重写原文或自行选择证据 |
 | `DailyInsightStateSurface` | Loading/Delayed/Empty/Error统一视觉 | 泄露SQL/hash/表名 |
 
 #### 列表布局的编码落点
@@ -4443,6 +4444,16 @@ parse URL
 4. **紧凑标签**：80px列只是布局槽；内部以非交互文本标签表达状态，宽度随文案、24px高、左右8px、12px常规字、24px行高、4px圆角。使用 `--cs-color-brand-weak` 背景、`--cs-color-border-strong` 1px内描边和 `--cs-color-brand` 文字；四字标签在Figma中为64×24。仅借鉴 `watchlist-sector-tag` 的视觉，不导入自选业务样式、不复制负margin／扩大max-width、不带圆点、不注册点击或悬停状态。事实标签与既定的方法证据跳转是不同对象，不能合并。
 5. **说明与原文**：直接显示完整 `renderedText`，CSS以11px／16px行高、两行line-clamp和末尾省略控制视觉，不在adapter或React中裁切字符串。Tooltip继续读取同一个完整原文，单行／两行说明均在44px内容区内垂直居中；不为说明新增底部留白。
 6. **完整列表与末行**：保持固定表头、四个独立 `overflow-y: auto` 列表；按API既有顺序完整渲染实际数据行，列表末行判定只针对数据行。用末行选择规则取消底线，不写死第3行；可将1px分隔线仅应用到非末行。没有“列表可滚动”提示、尾部横线节点、撑高占位行或默认四行参数。0条按既定局部空态展示，不影响其它面板；1／3条自然留出容器剩余空间，5条及更多时可滚动到最后一条。当前3条示例的82px剩余空间不是额外padding，不能通过缩小面板或添加假数据消除。
+
+#### 说明弹窗编码合同（2026-09-04 用户批准）
+
+1. 补充设计依据：画板 `1368:24576`（1600×1292.39）、组件 `1367:24138`、实例 `1368:25015`（380×194示例）；原八张正式画板及四面板尺寸不变。实例中心相对画板偏差为0；Web按浏览器**可视viewport**居中，而不是按1292.39px长文档居中。
+2. `DailyInsightWorkspace` 保存选中的说明行及触发元素，说明按钮只上报该行。`DailyInsightExplanationDialog` 采用原生 `<dialog>.showModal()`、`position:fixed; inset:0; margin:auto`，380px宽、最大宽度为viewport减32px，16px内距、12px间距、12px圆角、既有panel背景／内描边／阴影。正常示例194px，长原文Hug内容，最大高度为viewport减32px并内部滚动；透明backdrop，不新增遮暗颜色。
+3. 内容只有行业标题、层级与事实日期、完整 `renderedText`、可选“查看相关分析”。标题15px/22px，元信息11px/16px，原文13px/22px，两个按钮等宽36px高／8px间隔／10px圆角，复用已批准token。接口未提供证据时不显示标题和按钮区，也不推断替代证据。
+4. 方法入口由独立 `model/sectorDailyInsightNavigation.ts` 调用下述目标URL builder生成；UI只上报目标路径给页面导航。广度三类证据仍进入同一成员广度工作区、使用本节已冻结默认参数；不另造指标选择。入口标题可区分证据类别，最多两项，不能把六种事实状态标签改成可点击按钮。
+5. 关闭、透明外部点击、Escape、背景页面／任一列表滚动关闭；弹窗自身滚动不关闭。日期、层级、响应身份改变或卸载立即清除选中项，禁止旧日期说明留在新数据上。原生模态负责焦点约束，关闭后仅在触发元素仍连接DOM时恢复焦点。说明按钮支持Enter／Space，原文Tooltip与两行摘要仍保留，选中说明金色下划线。
+6. 表头和滚动行共用Grid。`DailyInsightPanel` 用ResizeObserver量测滚动容器的实际clientWidth同步表头可用宽度，只处理滚动条占宽，不新增补偿坐标；监听卸载清理。新增严格合同基础读取器可拆为 `api/sectorDailyInsightContract.ts`，保持单文件职责，不复制服务端入选算法。
+7. 测试必须覆盖居中／滚动后居中、完整长文、0／1／2证据、三种广度入口、关闭三路径与背景滚动、键盘焦点、日期层级切换关闭，以及七列表头对齐、60px行高、四列表独立滚动到末行。浏览器按1600／1512／1460／1366检查；不启动或遗留默认开发端口服务。
 
 #### 事实标签的唯一展示映射（2026-09-04 用户拍板）
 
@@ -4906,7 +4917,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 7. 五方法公开URL/query/DTO/adapter/状态逐字段零回归；每个方法切读后最大事实、缺失日和历史槽与现算oracle相等。
 8. M25前端补六种 `eventType` 的固定标签正例；普通转强／转弱即使1日涨跌幅为0或null也保持后端状态；仅跨越前／后20%边界且变化不足10个百分点的合法候选仍完整展示，不新增前／后20%标签、不被前端过滤；未知eventType拒绝。相同事件修改数值或说明文字不改变标签，原 `renderedText` 与 Tooltip 不重拼、不丢数值。
 
-列表专项测试落在既定 `DailyInsightPanel/Row` 组件测试及M25浏览器布局验收中，不增加新的开发阶段。下表是待编码执行的要求，当前Figma属性核对不等于这些测试已通过。
+列表专项测试落在 `daily-insight/ui/DailyInsightWorkspace.test.tsx`（覆盖Panel／Row）及 `wealth/scripts/daily-insight-browser-fixture.py`、`daily-insight-browser-smoke.mjs`，不增加新的开发阶段。下表为固定验收要求；2026-09-05本地执行结果见M25前端记录，不以Figma属性核对替代浏览器证据。
 
 | 场景 | 正例与反例验收 |
 |---|---|
@@ -6045,7 +6056,7 @@ Prod只读范围与逐字段对账：
 
 ### M25：每日洞察后端与前端
 
-状态：`IN_PROGRESS`。2026-09-04批准先纠偏，以下前置步骤通过后再继续API／前端；M24保持PASS / CLOSED。
+状态：`IN_PROGRESS / 本地开发通过、部署待验收`。生成侧、API及前端均已实现，2026-09-05前端执行证据见本节末尾。M24保持PASS / CLOSED，旧生产洞察更新和M26尚未执行。以下2026-09-04分步记录保留其当时状态，不代表前端仍未开发。
 
 #### M25.0 生成侧纠偏与旧结果更新边界
 
@@ -6190,6 +6201,49 @@ Figma修改记录（file key `RADlZzREU4lPVviYfkLy6x`，page `965:2`）：
 
 2026-09-04 LLD按最新Figma收口：只读复核三层工作区组件及正式实例，共24个面板、72个行出现位置；面板均776×348，三条示例的底线依次为1／1／0，已删除的提示文字出现数为0。读取共享行、一级表头、标签与说明实际属性，确认748×60、数字列居中、64×24标签、说明`maxLines=2`；标题38＋表头28＋滚动区262的尺寸与第3.6节一致。当前代码的`.num`仅定义数字字体／等宽数字，没有对齐规则；`daily-insight`前端仍未创建。将以上要求集中落实到第8.34节编码落点与第11.7节测试，清除LLD及技术方案的旧右对齐句子；其余方法的右对齐要求不变。本轮只修正文档，无Figma写操作、无代码／API／生产变更，不关闭G65／G66或推进M26。
 
+#### M25前端：批准稿实现与本地验收（2026-09-05）
+
+状态：`PASS（本地开发／自动化／浏览器）`。仅收口前端，不关闭整体M25或M26。依据第3.6、8.34、11.7节，另已读取说明展开画板 `1368:24576` 及Loading组件 `1225:22556` 的实际设计上下文；本轮无Figma写入。普通说明两行省略，点击后在可视屏幕中心展示完整原文和后端证据，不改变业务字段或事件分类。
+
+**文件与硬口径对账：** 下表中的feature相对路径均位于 `wealth/src/features/wealth-exploration/sector-analysis/daily-insight/`。
+
+| 约束 | 编码落点 | 正反例与验证 |
+|---|---|---|
+| 第六精确路由、默认入口、只挂载当前方法 | `routerState.ts`、`WealthRouter.tsx`、`SectorAnalysisPage.tsx`、`SectorAnalysisMethodBar.tsx`、`explorationNavigation.ts` | `SectorDailyInsightPage.test.tsx`及原页面／入口测试；六tab、根replace、URL恢复、五方法零daily请求／DOM，daily零其它方法请求 |
+| 仅两API、完整字段、零业务分类 | `api/sectorDailyInsightApi.ts`、`Contract.ts`、`Types.ts`、`Adapter.ts`（均使用sectorDailyInsight前缀） | 三层完整数组、未知／多余／错误类型／非有限字段及批次错配拒绝；缺失不补值；普通事件0／null不改判、两种逆势标签、仅跨边界且不足10pp候选不被删除、完整原文不重写 |
+| 公共日期及异步边界 | `model/sectorDailyInsightUrlState.ts`、`useSectorDailyInsightController.ts` | Meta→Snapshot、层级只重取Snapshot、日期重取Meta、显式Missing不回退、自动Delayed、全未发布Empty、一次409恢复／第二次停止、两阶段5秒超时、401／400／500安全提示、迟到结果丢弃、卸载Abort |
+| 原有方法参数和事实日期 | `model/sectorDailyInsightNavigation.ts` | 调用五方法现有URL builder；三全局层级、目标日、行业、20日及各自默认值；三种广度证据仍使用批准默认参数；普通方法切换仅带日期，内部batch不进URL |
+| 概览、四完整列表和稳定状态 | `ui/DailyInsightWorkspace.tsx`、`DailyInsightToolbar.tsx`、`DailyInsightOverview.tsx`、`DailyInsightStateSurface.tsx` | 缺失计数／原因可见；上一日不可比不清空HEAD；0／1／3／4／5／80行无假行与截断；Ready／Delayed／Loading／Empty／Error保留骨架 |
+| 最新紧凑列表布局 | `ui/DailyInsightPanel.tsx`、`DailyInsightRow.tsx`、`sector-daily-insight.css` | 同Grid、表头clientWidth同步、数字居中、两行原文、24px非交互标签、四独立262px滚动区、实际末行无底线；浏览器四档尺寸验证 |
+| 屏幕居中说明弹窗 | `ui/DailyInsightExplanationDialog.tsx`及Workspace局部选择状态 | 380px、原生模态与焦点恢复、背景滚动后仍按viewport居中；关闭／外部点击／Escape／背景滚动关闭，内部滚动保留，日期／层级身份变化清除；0／1／2证据、原文完整、行业及方法跳转 |
+
+**本地执行结果：**
+
+- 前端daily feature及页面专项 **91项通过**；前端全量 **104文件／803项通过**；`typecheck`和production build通过。构建仍提示共享主包超过500KB（本次约981.78KB、gzip290.85KB）；本轮没有修改打包配置或启动无关优化。
+- 既有每日洞察后端query／API专项 **57项通过**；此处是本地SQLite／真实FastAPI合同回归，不是新生产审计或部署P95。既有依赖弃用警告保留，不在本轮调整依赖。
+- 浏览器使用临时内存SQLite和真实FastAPI路由／Query／DTO，构造三层完整测试数据，每层四列表各80项，共320行。日期与认证为测试环境专用；小行数、Delayed／Loading／Error通过明确的合成响应验证，不能用这些测试样本证明生产覆盖或效果。正常加载只调用一遍daily Meta和Snapshot（另有既有公共context／ticker请求）；其它五方法零请求。控制台及页面错误为0。
+- 1600／1512／1460／1366四档：1600下面板776×348、行60、表头28、滚动区262；其它宽度仅按现有全站宽度约束收缩。表头／单元格中心及数字中心差≤1px，行业／说明左边界差≤1px，无模块横向溢出；1366遵守全站1460最小宽，不另造缩放。四字标签24px高且不侵占相邻列，说明≤32px。0／1／3／4／5／80行均不补空行；3行剩余82px，5／80行可滚至末项，末项无底线，四列表滚动互不影响。
+- 说明展开时先滚动页面，再读取DOM矩形：弹窗中心相对当前viewport的水平／垂直误差均≤1px，宽380px；长示例按内容增高至238px而非强行截成194px，符合Hug合同。完整原文、焦点恢复及四条关闭路径通过；截图已人工检查。三层Ready、Delayed、Loading、历史Missing Empty、Error均保存截图；交互合同画板用于核对规则，不伪称它是运行中的第八页面。
+- 证据目录：`/private/tmp/m25-daily-insight-20260904/`（跨午夜沿用目录名）。包括 `checks.json`、`ready-1600.png`／`ready-1512.png`／`ready-1460.png`／`ready-1366.png`、`ready-二级行业.png`／`ready-三级行业.png`、`list-0-rows.png`／`list-1-rows.png`／`list-3-rows.png`／`list-4-rows.png`／`list-5-rows.png`、`explanation-centered.png`、`delayed.png`、`loading.png`、`historical-missing.png`、`error.png`。它们是本机临时测试证据，不是已提交仓库或生产数据导出；长期可复核依据为本节数量及仓库测试脚本。
+- 测试脚本只允许临时证据目录，不接受数据库URL；随机loopback端口、180秒进程上限、finally关闭浏览器／服务／内存库。最终临时端口51264已退出，未启动或停止用户8000／5173等开发服务。测试脚本的一次线程锁异常已按FastAPI同步依赖可跨线程退出的事实修正，修正后完整重跑通过，没有改应用运行代码。
+
+CodeGraph `status/explore/impact/sync`覆盖路由、方法枚举、Shell、五方法URL builder和新增feature消费者，索引同步后3184文件。`app/routes`负责导航组合，feature内部只复用既有shared和目标方法URL合同；没有新增后端依赖、跨子系统反向依赖或依赖矩阵变更。公共顶部栏、面包屑和其它五方法业务页面不重建。
+
+复验入口：
+
+```text
+npm --prefix wealth test -- src/features/wealth-exploration/sector-analysis/daily-insight src/pages/wealth-exploration/SectorDailyInsightPage.test.tsx
+npm --prefix wealth run typecheck
+npm --prefix wealth test
+npm --prefix wealth run build
+uv run pytest -q tests/test_wealth_sector_daily_insight_query_service.py tests/web/test_wealth_sector_daily_insight_api.py
+PYTHONPATH=. uv run python wealth/scripts/daily-insight-browser-fixture.py /private/tmp/m25-daily-insight-20260904 /absolute/path/to/playwright/index.mjs
+uv run python scripts/check_docs_integrity.py
+git diff --check
+```
+
+最后一个浏览器参数使用本机已有Playwright入口，不为复验增加项目依赖。**停止点：** G65只记录本地通过；G64部署验收及G66保持OPEN。默认入口切换已写入当前代码，但本轮未提交／部署、未刷新生产@2数据、未进入M26。正式交付仍以M25.0获批生产更新／read-back和后续部署验收为前提，不重用旧TaskRun／PLAN，也不把本地合成样本当作生产成功。
+
 ### M26：部署、自动化与最终验收
 
 状态：`PENDING`。
@@ -6329,7 +6383,7 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G62A M23R 长PLAN与取消一致性 | 逐日短事务、BUILDING检查点、真实进度、分阶段取消、非冻结不可APPLY；TaskRun与节点同事务取消 | PASS (local+remote)：261项正反例、提交685b42a3部署、10518逐日检查点／FROZEN终态及历史节点收口通过；继续使用既有GENERAL且无新增Worker/Lane |
 | G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | PASS / CLOSED（2026-09-04）：五方法全部通过；成员广度及量价分布依据用户自行验收确认结案，保留原自动化与只读预检证据，详见M24.5.5、M24.6.3 |
 | G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN（M25本地实现及只读预检通过；M26部署验收未执行） |
-| G65 Daily前端 | 第六route、三参数URL、controller、四完整滚动列表、五态、跳转和按需挂载 | OPEN (M25) |
+| G65 Daily前端 | 第六route、三参数URL、controller、四完整滚动列表、五态、居中说明、跳转和按需挂载 | PASS（M25本地代码／91专项／803全量／四档浏览器；部署及最终用户验收归M26，未提前关闭） |
 | G66 Daily交付 | HDD真实拓扑、自动任务、payload/P95、8张Figma、四档及用户验收 | OPEN (M26) |
 
 ### 15.1 例外白名单
@@ -6525,14 +6579,15 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 量价分布 M18 后端、M19 前端与 M20 部署联调均已完成：后端建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；前端建立第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13态。Meta唯一自动回退、显式日期精确显示、局部缺失透明和按需挂载均已有自动化证据；部署态337行完整事实、60日历史、`3/5/5` SQL、payload、P95、五scope、四档页面及用户验收全部通过，G55关闭。本轮不自动进入新需求。
 
-每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。M24R 已完成紧凑History读取、完整切片审计、公开合同回归和部署验收：最大三级30日周期／60日场景的两轮认证HTTPS P95为 `358.4/370.9ms`，60＋60槽、排名与缺失分母和Prod一致。用户批准本次HTTPS等效验收且700ms门槛不变，M24R及动量切读子阶段关闭。M24.3双动量、M24.4相对轮动此后均已关闭；2026-09-04用户确认成员广度及量价分布验收通过后，M24／G63整体关闭。M25已完成生成侧纠偏及两只每日洞察API，本地实现与生产只读预检通过；前端未实施，旧@1洞察未更新，M26自动化与最终交付验收未开始。
+每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。M24R 已完成紧凑History读取、完整切片审计、公开合同回归和部署验收：最大三级30日周期／60日场景的两轮认证HTTPS P95为 `358.4/370.9ms`，60＋60槽、排名与缺失分母和Prod一致。用户批准本次HTTPS等效验收且700ms门槛不变，M24R及动量切读子阶段关闭。M24.3双动量、M24.4相对轮动此后均已关闭；2026-09-04用户确认成员广度及量价分布验收通过后，M24／G63整体关闭。M25已完成生成侧、两只每日洞察API和前端本地实现；后端只读预检与前端自动化／浏览器证据各保留其边界。旧@1洞察尚未更新，M26自动化与最终交付验收未开始。
 
-M24.5成员广度（`6f124782`）与M24.6量价分布（日期`625ae045`、完整数值切读`cd81c702`）以用户自行验收确认结案，不重复已确认验收、不追加远程测量。五方法切读M24／G63为PASS / CLOSED，M25已完成生成侧纠偏与两只后端API；下一开发项是每日洞察前端。本轮尚未修改默认路由，未执行生产洞察刷新或M26，不重用历史TaskRun。
+M24.5成员广度（`6f124782`）与M24.6量价分布（日期`625ae045`、完整数值切读`cd81c702`）以用户自行验收确认结案，不重复已确认验收、不追加远程测量。五方法切读M24／G63为PASS / CLOSED。2026-09-05已完成M25前端本地实现及验证，默认路由切换和居中说明弹窗已在本地代码中落地；下一步为用户审阅、提交／部署，以及独立批准的生产@2洞察更新与read-back。未执行生产刷新或M26，不重用历史TaskRun；M25未整体结案。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.76 | 2026-09-05 | 按批准的居中说明稿完成M25前端与合同对账：第六route、两API、三参数URL、竞态／异常、六标签、紧凑完整四列表、原文模态与方法跳转；91专项／803全量、typecheck/build、57后端及四档浏览器通过，记录文件／截图／临时服务清理。G65本地通过，G64部署与G66仍OPEN，旧生产洞察更新未执行 |
 | v1.75 | 2026-09-04 | 只读对齐最新每日洞察Figma：清除数值右对齐旧要求，统一当前布局基线；补Panel／Row具体编码、共享Grid、紧凑标签、两行原文Tooltip、真实末行无底线与固定262px滚动区语义，补边界样本验收并接入M25步骤。仅文档修正，前端及其运行验收仍待实施 |
 | v1.74 | 2026-09-04 | 按用户六项意见修正每日洞察列表：共用表头／行列宽、紧凑金色标签、两行说明、60px行和独立滚动区；同步三层12面板及正式实例，记录节点和Figma核验。仅设计与文档收口，M25前端待实施 |
 | v1.73 | 2026-09-04 | 按用户拍板统一每日洞察eventType到状态标签的六项映射，取消前／后20%展示子类，说明保留后端事实；补零／缺失涨跌幅、边界候选和未知状态反例要求，同步正式Figma。仅文档与设计调整，不改后台入选条件、API或生产数据，M25前端仍待实施 |

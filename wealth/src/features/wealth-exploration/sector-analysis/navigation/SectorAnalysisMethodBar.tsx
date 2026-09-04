@@ -3,9 +3,10 @@ interface SectorAnalysisMethodBarProps {
   onSelect: (method: SectorAnalysisMethod) => void;
 }
 
-export type SectorAnalysisMethod = "momentum-ranking" | "dual-momentum" | "relative-rotation" | "member-breadth" | "price-volume";
+export type SectorAnalysisMethod = "daily-insight" | "momentum-ranking" | "dual-momentum" | "relative-rotation" | "member-breadth" | "price-volume";
 
 const availableMethods: ReadonlyArray<{ key: SectorAnalysisMethod; label: string }> = [
+  { key: "daily-insight", label: "每日洞察" },
   { key: "momentum-ranking", label: "动量排名" },
   { key: "dual-momentum", label: "双动量" },
   { key: "relative-rotation", label: "相对轮动" },

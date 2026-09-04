@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../../features/auth/model/AuthProvider";
 import { WealthRouter } from "../../app/routes/WealthRouter";
 import {
+  WEALTH_EXPLORATION_SECTOR_DAILY_INSIGHT_PATH,
   WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH,
   WEALTH_EXPLORATION_SECTOR_PATH,
 } from "../../app/routes/routerState";
@@ -31,7 +32,7 @@ describe("SectorAnalysisPage", () => {
     expect(screen.getByText("板块分析", { selector: ".current" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /板块分析/ })).toHaveClass("selected");
     expect(screen.getByRole("tab", { name: "动量排名" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getAllByRole("tab")).toHaveLength(5);
+    expect(screen.getAllByRole("tab")).toHaveLength(6);
     const table = screen.getByRole("table", { name: "行业动量完整排名" });
     expect(within(table).getAllByRole("row")).toHaveLength(3);
     expect(within(table).getAllByText("一级行业甲")).toHaveLength(2);
@@ -395,10 +396,10 @@ describe("SectorAnalysisPage", () => {
     expect(requestCount(urls, "/momentum/history")).toBe(1);
   });
 
-  it("replaces the sector root with the momentum route and preserves its query", async () => {
+  it("replaces the sector root with the daily insight route and preserves its query", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ message: "unused" }, 500)));
     window.localStorage.setItem("wealth.auth.access-token", "mock-token");
-    window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_PATH}?tradeDate=2026-08-21&scope=level1`);
+    window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_PATH}?tradeDate=2026-08-21&level=2`);
     const replaceState = vi.spyOn(window.history, "replaceState");
 
     render(
@@ -407,12 +408,12 @@ describe("SectorAnalysisPage", () => {
       </AuthProvider>,
     );
 
-    await waitFor(() => expect(window.location.pathname).toBe(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH));
-    expect(window.location.search).toBe("?tradeDate=2026-08-21&scope=level1");
+    await waitFor(() => expect(window.location.pathname).toBe(WEALTH_EXPLORATION_SECTOR_DAILY_INSIGHT_PATH));
+    expect(window.location.search).toBe("?tradeDate=2026-08-21&level=2");
     expect(replaceState).toHaveBeenCalledWith(
       expect.anything(),
       "",
-      `${WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH}?tradeDate=2026-08-21&scope=level1`,
+      `${WEALTH_EXPLORATION_SECTOR_DAILY_INSIGHT_PATH}?tradeDate=2026-08-21&level=2`,
     );
   });
 });

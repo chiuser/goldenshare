@@ -1,5 +1,6 @@
 import type { TopMarketNavKey } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import {
+  EXPLORATION_SECTOR_DAILY_INSIGHT_PATH,
   EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH,
   EXPLORATION_SECTOR_MOMENTUM_PATH,
   EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH,
@@ -16,6 +17,7 @@ export function isWatchlistPath(pathname: string): boolean {
 export const WEALTH_EXPLORATION_PATH = "/wealth/exploration";
 export const WEALTH_EXPLORATION_TURNOVER_PATH = EXPLORATION_TURNOVER_PATH;
 export const WEALTH_EXPLORATION_SECTOR_PATH = "/wealth/exploration/sector-analysis";
+export const WEALTH_EXPLORATION_SECTOR_DAILY_INSIGHT_PATH = EXPLORATION_SECTOR_DAILY_INSIGHT_PATH;
 export const WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH = EXPLORATION_SECTOR_MOMENTUM_PATH;
 export const WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH = EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH;
 export const WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH = EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH;
@@ -91,6 +93,7 @@ export type WealthExplorationRoute =
   | { kind: "landing" }
   | { kind: "turnover-insight" }
   | { kind: "sector-analysis-redirect" }
+  | { kind: "sector-analysis-daily-insight" }
   | { kind: "sector-analysis-momentum" }
   | { kind: "sector-analysis-dual-momentum" }
   | { kind: "sector-analysis-relative-rotation" }
@@ -116,6 +119,10 @@ export function buildSectorAnalysisMomentumPath(search?: RouteSearch): string {
   return appendSearch(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH, search);
 }
 
+export function buildSectorAnalysisDailyInsightPath(search?: RouteSearch): string {
+  return appendSearch(WEALTH_EXPLORATION_SECTOR_DAILY_INSIGHT_PATH, search);
+}
+
 export function buildSectorAnalysisDualMomentumPath(search?: RouteSearch): string {
   return appendSearch(WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH, search);
 }
@@ -136,6 +143,7 @@ export function resolveWealthExplorationRoute(pathname: string): WealthExplorati
   if (pathname === WEALTH_EXPLORATION_PATH) return { kind: "landing" };
   if (pathname === WEALTH_EXPLORATION_TURNOVER_PATH) return { kind: "turnover-insight" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_PATH) return { kind: "sector-analysis-redirect" };
+  if (pathname === WEALTH_EXPLORATION_SECTOR_DAILY_INSIGHT_PATH) return { kind: "sector-analysis-daily-insight" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH) return { kind: "sector-analysis-momentum" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH) return { kind: "sector-analysis-dual-momentum" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH) return { kind: "sector-analysis-relative-rotation" };

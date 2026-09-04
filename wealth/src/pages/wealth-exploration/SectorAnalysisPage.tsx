@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import {
+  buildSectorAnalysisDailyInsightPath,
   buildSectorAnalysisDualMomentumPath,
   buildSectorAnalysisMomentumPath,
   buildSectorAnalysisMemberBreadthPath,
@@ -8,6 +9,9 @@ import {
   buildSectorAnalysisRelativeRotationPath,
   navigateWealth,
 } from "../../app/routes/routerState";
+import { useSectorDailyInsightController } from "../../features/wealth-exploration/sector-analysis/daily-insight/model/useSectorDailyInsightController";
+import type { DailyInsightDestination } from "../../features/wealth-exploration/sector-analysis/daily-insight/model/sectorDailyInsightNavigation";
+import { DailyInsightWorkspace } from "../../features/wealth-exploration/sector-analysis/daily-insight/ui/DailyInsightWorkspace";
 import { useSectorMemberBreadthController } from "../../features/wealth-exploration/sector-analysis/member-breadth/model/useSectorMemberBreadthController";
 import { MemberBreadthStateSurface } from "../../features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthStateSurface";
 import { MemberBreadthWorkspace } from "../../features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthWorkspace";
@@ -48,8 +52,10 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
     || shell.model.pageContext?.tradeDate === requestedTradeDate;
   const handleMethodSelect = useCallback((nextMethod: SectorAnalysisMethod) => {
     if (nextMethod === method) return;
-    const sharedSearch = buildSharedMethodSearch(routeSearch);
-    const path = nextMethod === "momentum-ranking"
+    const sharedSearch = method === "daily-insight" ? buildPriceVolumeSharedSearch(routeSearch) : buildSharedMethodSearch(routeSearch);
+    const path = nextMethod === "daily-insight"
+      ? buildSectorAnalysisDailyInsightPath(buildPriceVolumeSharedSearch(routeSearch))
+      : nextMethod === "momentum-ranking"
       ? buildSectorAnalysisMomentumPath(sharedSearch)
       : nextMethod === "dual-momentum"
         ? buildSectorAnalysisDualMomentumPath(sharedSearch)
@@ -67,6 +73,7 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
         activeMethod={method}
         onSelect={handleMethodSelect}
       />
+      {method === "daily-insight" ? <DailyInsightMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
       {method === "momentum-ranking" ? <MomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
       {method === "dual-momentum" ? <DualMomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
       {method === "relative-rotation" ? <RelativeRotationMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
@@ -74,6 +81,17 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
       {method === "price-volume" ? <PriceVolumeMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
     </>
   );
+}
+
+function DailyInsightMethodContent({ contextMatchesRoute, routeSearch, shell }: { contextMatchesRoute: boolean; routeSearch: string; shell: WealthExplorationShellRenderProps }) {
+  const onNavigateSearch = useCallback((nextSearch: string, options?: { replace?: boolean }) => navigateWealth(buildSectorAnalysisDailyInsightPath(nextSearch), options), []);
+  const controller = useSectorDailyInsightController({ enabled: shell.model.contextState === "ready" && contextMatchesRoute, search: routeSearch, onNavigateSearch });
+  const onNavigate = useCallback(({ method, search }: DailyInsightDestination) => {
+    const builders = { "daily-insight": buildSectorAnalysisDailyInsightPath, "momentum-ranking": buildSectorAnalysisMomentumPath, "dual-momentum": buildSectorAnalysisDualMomentumPath, "relative-rotation": buildSectorAnalysisRelativeRotationPath, "member-breadth": buildSectorAnalysisMemberBreadthPath, "price-volume": buildSectorAnalysisPriceVolumePath };
+    navigateWealth(builders[method](search));
+  }, []);
+  const displayed = shell.model.contextState === "error" ? { ...controller, viewState: { kind: "error" as const, message: "页面时间上下文加载失败。", retryable: true }, retry: shell.model.retryContext } : controller;
+  return <DailyInsightWorkspace controller={displayed} onNavigate={onNavigate} />;
 }
 
 function PriceVolumeMethodContent({ contextMatchesRoute, routeSearch, shell }: { contextMatchesRoute: boolean; routeSearch: string; shell: WealthExplorationShellRenderProps }) {

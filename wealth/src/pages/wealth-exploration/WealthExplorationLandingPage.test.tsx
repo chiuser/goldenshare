@@ -56,6 +56,6 @@ describe("WealthExplorationLandingPage", () => {
     render(<WealthExplorationLandingPage />);
 
     fireEvent.click(screen.getByRole("button", { name: /板块分析/ }));
-    expect(window.location.pathname).toBe("/wealth/exploration/sector-analysis/momentum-ranking");
+    expect(window.location.pathname).toBe("/wealth/exploration/sector-analysis/daily-insight");
   });
 });

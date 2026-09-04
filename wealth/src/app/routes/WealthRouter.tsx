@@ -11,7 +11,7 @@ import { TurnoverInsightPage } from "../../pages/wealth-exploration/TurnoverInsi
 import { WealthExplorationLandingPage } from "../../pages/wealth-exploration/WealthExplorationLandingPage";
 import {
   addWealthRouteListener,
-  buildSectorAnalysisMomentumPath,
+  buildSectorAnalysisDailyInsightPath,
   buildLoginPath,
   DEFAULT_WEALTH_PATH,
   isLoginPath,
@@ -64,6 +64,9 @@ export function WealthRouter() {
   if (explorationRoute.kind === "sector-analysis-momentum") {
     return <SectorAnalysisPage method="momentum-ranking" search={location.search} />;
   }
+  if (explorationRoute.kind === "sector-analysis-daily-insight") {
+    return <SectorAnalysisPage method="daily-insight" search={location.search} />;
+  }
   if (explorationRoute.kind === "sector-analysis-dual-momentum") {
     return <SectorAnalysisPage method="dual-momentum" search={location.search} />;
   }
@@ -101,7 +104,7 @@ function AuthRedirect({ redirectPath }: { redirectPath: string }) {
 
 function ExplorationRedirect({ search }: { search: string }) {
   useEffect(() => {
-    navigateWealth(buildSectorAnalysisMomentumPath(search), { replace: true });
+    navigateWealth(buildSectorAnalysisDailyInsightPath(search), { replace: true });
   }, [search]);
   return null;
 }

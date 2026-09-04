@@ -1,0 +1,77 @@
+.daily-insight-workspace { display: flex; flex-direction: column; gap: var(--cs-space-12); width: 100%; min-width: 0; min-height: 1006px; margin-top: var(--cs-space-12); }
+.daily-insight-toolbar, .daily-insight-state, .daily-insight-panel, .daily-insight-overview { background: var(--cs-color-bg-panel); box-shadow: inset 0 0 0 1px var(--cs-color-border-default); border: 0; min-width: 0; }
+.daily-insight-toolbar { border-radius: 8px; height: 100px; flex: none; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.daily-insight-toolbar-primary { display: flex; align-items: center; gap: 8px; height: 34px; color: var(--cs-color-text-secondary); font-size: 14px; }
+.daily-insight-levels { display: flex; align-items: center; gap: 4px; width: 230px; height: 32px; padding: 4px; background: var(--cs-color-bg-panel-soft); box-shadow: inset 0 0 0 1px var(--cs-color-border-default); border-radius: 7px; }
+.daily-insight-levels button { width: 64px; height: 24px; padding: 0; font: inherit; font-size: 12px; color: var(--cs-color-text-secondary); background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
+.daily-insight-levels button.active { background: var(--cs-color-brand-weak); color: var(--cs-color-brand); }
+.daily-insight-date { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--cs-color-text-muted); font-size: 13px; }
+.daily-insight-date select { width: 192px; height: 34px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--cs-color-border-default); color: var(--cs-color-text-primary); background: var(--cs-color-bg-panel-soft); font: inherit; }
+.daily-insight-toolbar-context { height: 36px; border-top: 1px solid var(--cs-color-border-default); padding-top: 8px; display: flex; align-items: center; gap: 14px; font-size: 13px; }
+.daily-insight-previous { color: var(--cs-color-text-secondary); }
+.daily-insight-status { margin-left: auto; }
+.daily-insight-status .data-badge { background: transparent; border: 0; padding: 0; font-size: 13px; }
+.daily-insight-status.loading .data-badge { color: var(--cs-color-info); }
+.daily-insight-status.error .data-badge { color: var(--cs-color-danger-system); }
+.daily-insight-status.loading .status-dot { background: var(--cs-color-info); }
+.daily-insight-status.error .status-dot { background: var(--cs-color-danger-system); }
+.daily-insight-overview { height: 174px; flex: none; border-radius: 8px; padding: 10px 12px; position: relative; }
+.daily-insight-overview > .section-header { height: 34px; margin: 0; }
+.daily-insight-overview .section-title { font-size: 18px; }
+.daily-insight-overview-meta { display: flex; justify-content: flex-end; align-items: center; gap: 12px; min-width: 0; max-width: 75%; font-size: 12px; color: var(--cs-color-text-muted); }
+.daily-insight-overview-meta > span:last-child { flex: none; }
+.daily-insight-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.daily-insight-card.metric-card { min-width: 0; height: 118px; padding: 16px; border-radius: 8px; background: var(--cs-color-surface-card); box-shadow: inset 0 0 0 1px var(--cs-color-border-default); border: 0; }
+.daily-insight-card .metric-label { border-top: 2px solid var(--cs-color-brand); padding-top: 8px; font-size: 13px; line-height: 18px; }
+.daily-insight-card .metric-value { margin: 8px 0; font-size: 22px; line-height: 24px; white-space: nowrap; }
+.daily-insight-card .metric-sub { font-size: 11px; line-height: 16px; color: var(--cs-color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.daily-insight-tone-up { color: var(--cs-color-market-up); }
+.daily-insight-tone-brand { color: var(--cs-color-brand); }
+.daily-insight-tone-info { color: var(--cs-color-info); }
+.daily-insight-tone-flat { color: var(--cs-color-market-flat); }
+.daily-insight-missing { min-width: 0; color: var(--cs-color-warning); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.daily-insight-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cs-space-12); }
+.daily-insight-panel { height: 348px; padding: 10px 14px; border-radius: 8px; overflow: hidden; }
+.daily-insight-panel > .section-header { height: 38px; margin: 0; justify-content: flex-start; gap: 8px; }
+.daily-insight-panel .section-title { font-size: 16px; line-height: 24px; }
+.daily-insight-sort-note { font-size: 12px; color: var(--cs-color-text-muted); }
+.daily-insight-columns { display: grid; grid-template-columns: minmax(0, 116fr) 74px 74px 74px 78px 80px minmax(0, 180fr); gap: 8px; padding: 0 12px; width: 100%; min-width: 0; }
+.daily-insight-header { height: 28px; align-items: center; font-size: 12px; line-height: 16px; color: var(--cs-color-text-muted); background: var(--cs-color-bg-panel-soft); }
+.daily-insight-centered { text-align: center; }
+.daily-insight-scroll { height: 262px; overflow-y: auto; overflow-x: hidden; }
+.daily-insight-row { height: 60px; padding-block: 8px; align-items: center; }
+.daily-insight-row:not(:last-child) { box-shadow: inset 0 -1px var(--cs-color-border-default); }
+.daily-insight-row > [role="cell"] { min-width: 0; height: 44px; }
+.daily-insight-identity { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.daily-insight-identity button { padding: 0; margin: 0; background: transparent; border: 0; color: var(--cs-color-text-primary); font: inherit; font-size: 15px; line-height: 22px; font-weight: 700; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.daily-insight-identity span { font-size: 11px; line-height: 16px; color: var(--cs-color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.daily-insight-number, .daily-insight-fact-cell { display: flex; justify-content: center; align-items: center; }
+.daily-insight-number .num { font-size: 13px; font-weight: 500; white-space: nowrap; }
+.daily-insight-number .missing { color: var(--cs-color-text-muted); }
+.daily-insight-fact-tag { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 24px; padding: 0 8px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--cs-color-border-strong); color: var(--cs-color-brand); background: var(--cs-color-brand-weak); font-size: 12px; line-height: 24px; font-weight: 400; white-space: nowrap; }
+.daily-insight-reason-cell { display: flex; align-items: center; }
+.daily-insight-reason { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-height: 32px; width: 100%; padding: 0; background: transparent; border: 0; font: inherit; font-size: 11px; line-height: 16px; color: var(--cs-color-text-secondary); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.daily-insight-reason:hover, .daily-insight-reason.selected { color: var(--cs-color-brand); text-decoration: underline; }
+.daily-insight-local-empty { padding: 32px 12px; font-size: 13px; color: var(--cs-color-text-muted); }
+.daily-insight-state { height: 894px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 200px 24px 24px; color: var(--cs-color-text-secondary); }
+.daily-insight-state strong { font-size: 18px; }
+.daily-insight-state-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; border: 1px solid currentColor; background: var(--cs-color-bg-panel-soft); font-size: 18px; }
+.daily-insight-state.loading strong, .daily-insight-state.loading .daily-insight-state-icon { color: var(--cs-color-info); }
+.daily-insight-state.error strong, .daily-insight-state.error .daily-insight-state-icon { color: var(--cs-color-danger-system); }
+.daily-insight-state button { border: 1px solid var(--cs-color-border-strong); border-radius: 8px; background: var(--cs-color-brand-weak); color: var(--cs-color-brand); padding: 8px 16px; cursor: pointer; font: inherit; }
+.daily-insight-explanation { position: fixed; inset: 0; margin: auto; width: 380px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); padding: var(--cs-space-16); border: 0; border-radius: var(--cs-radius-panel); background: var(--cs-color-bg-panel); color: var(--cs-color-text-primary); box-shadow: inset 0 0 0 1px var(--cs-color-border-default), var(--cs-shadow-panel); overflow: auto; }
+.daily-insight-explanation[open] { display: flex; flex-direction: column; gap: var(--cs-space-12); height: fit-content; }
+.daily-insight-explanation > * { flex: none; }
+.daily-insight-explanation::backdrop { background: transparent; }
+.daily-insight-explanation p, .daily-insight-explanation h3 { margin: 0; }
+.daily-insight-explanation-header { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.daily-insight-explanation-header h3 { flex: 1; min-width: 0; font-size: 15px; line-height: 22px; overflow-wrap: anywhere; }
+.daily-insight-explanation-header button { flex: none; width: 40px; height: 28px; border: 0; background: transparent; color: var(--cs-color-text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.daily-insight-explanation-context { color: var(--cs-color-text-muted); font-size: 11px; line-height: 16px; }
+.daily-insight-explanation-text { font-size: 13px; line-height: 22px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.daily-insight-related { display: flex; flex-direction: column; gap: 8px; }
+.daily-insight-related > p { color: var(--cs-color-text-secondary); font-size: 11px; line-height: 16px; }
+.daily-insight-related > div { display: flex; gap: 8px; }
+.daily-insight-related button { flex: 1; min-width: 0; height: 36px; border: 0; box-shadow: inset 0 0 0 1px var(--cs-color-border-default); border-radius: var(--cs-radius-card); background: var(--cs-color-bg-panel-soft); color: var(--cs-color-brand); padding: 0 12px; font: inherit; font-size: 12px; line-height: 18px; cursor: pointer; }
+.daily-insight-workspace button:focus-visible, .daily-insight-workspace select:focus-visible, .daily-insight-explanation button:focus-visible { outline: 2px solid var(--cs-color-brand); outline-offset: 1px; }
+.daily-insight-workspace button:disabled, .daily-insight-workspace select:disabled { cursor: default; opacity: .6; }
