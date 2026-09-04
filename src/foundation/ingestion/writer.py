@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import dataclass, field
 from datetime import date
 from datetime import datetime
@@ -9,10 +10,12 @@ import hashlib
 import json
 import math
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Date as SqlDate
 from sqlalchemy import DateTime as SqlDateTime
 from sqlalchemy import and_, delete, func, or_, select, text, tuple_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
@@ -28,6 +31,7 @@ from src.foundation.ingestion.etf_basic_snapshot import (
     validate_etf_basic_snapshot,
 )
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
+from src.foundation.ingestion.index_month_calendar import load_index_month_open_dates
 from src.foundation.ingestion.moneyflow_publish import publish_moneyflow_serving_for_keys
 from src.foundation.ingestion.normalizer import DatasetNormalizer, NormalizedBatch
 from src.foundation.ingestion.observed_snapshot import (
@@ -46,7 +50,7 @@ from src.foundation.ingestion.sentinel_guard import (
 )
 from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
 from src.foundation.services.transform.normalize_security_service import NormalizeSecurityService
-from src.utils import parse_tushare_date
+from src.utils import chunked, parse_tushare_date
 from src.foundation.serving.publish_service import ServingPublishService
 
 
@@ -1645,6 +1649,7 @@ class DatasetWriter:
         rejected_reason_counts: dict[str, int] = {}
         rejected_reason_samples: dict[str, list[dict[str, Any]]] = {}
         active_codes = self._resolve_active_index_codes()
+        is_monthly = definition.dataset_key == "index_monthly"
         explicit_ts_code = bool(
             plan_unit is not None and str(plan_unit.request_params.get("ts_code") or "").strip()
         )
@@ -1674,7 +1679,7 @@ class DatasetWriter:
                 rows=filtered_rows,
                 dataset_key=definition.dataset_key,
             )
-            if full_date_refresh and plan_unit is not None and not explicit_ts_code:
+            if full_date_refresh and plan_unit is not None and not explicit_ts_code and (not is_monthly or batch.rows_rejected == 0):
                 trade_date = plan_unit.trade_date
                 if isinstance(trade_date, date):
                     existing_codes = {
@@ -1693,6 +1698,8 @@ class DatasetWriter:
                         )
             if not serving_rows:
                 rows_written = 0
+            elif is_monthly:
+                rows_written = self._upsert_index_monthly_serving_rows(core_dao=core_dao, rows=serving_rows)
             elif full_date_refresh:
                 rows_written = self._replace_index_period_serving_rows_by_trade_dates(
                     core_dao=core_dao,
@@ -1705,7 +1712,11 @@ class DatasetWriter:
                     keep_api=False,
                 )
             conflict_strategy = "index_period_upsert"
-        elif plan_unit is not None and (run_profile == "point_incremental" or full_date_refresh):
+        elif (
+            plan_unit is not None
+            and (run_profile == "point_incremental" or full_date_refresh or (is_monthly and run_profile == "range_rebuild"))
+            and (not is_monthly or batch.rows_rejected == 0)
+        ):
             if explicit_ts_code:
                 ts_code = str(plan_unit.request_params.get("ts_code") or "").strip().upper()
                 derived_rows = (
@@ -1727,7 +1738,9 @@ class DatasetWriter:
                     if isinstance(trade_date, date)
                     else []
                 )
-            if full_date_refresh:
+            if is_monthly:
+                rows_written = self._upsert_index_monthly_serving_rows(core_dao=core_dao, rows=derived_rows)
+            elif full_date_refresh:
                 rows_written = self._replace_index_period_serving_rows_by_trade_dates(
                     core_dao=core_dao,
                     rows=derived_rows,
@@ -1798,6 +1811,26 @@ class DatasetWriter:
         trade_date: date,
         ts_codes: list[str],
     ) -> list[dict[str, Any]]:
+        expected_open_dates = None
+        if definition.dataset_key == "index_monthly":
+            # Input dates cannot advance the real clock. Month-end itself is too early.
+            today = datetime.now(ZoneInfo("Asia/Shanghai")).astimezone(ZoneInfo("Asia/Shanghai")).date()
+            if today.replace(day=1) <= trade_date.replace(day=1):
+                return []
+            expected_open_dates = load_index_month_open_dates(
+                self.session, exchange=self.dao.trade_calendar.settings.default_exchange, day=trade_date,
+            )
+            if not expected_open_dates or trade_date != expected_open_dates[-1]:
+                return []
+            model = self.dao.index_monthly_serving.model
+            api_codes = set(self.session.scalars(
+                select(model.ts_code).where(
+                    model.period_start_date == expected_open_dates[0],
+                    model.source == "api",
+                    model.ts_code.in_(ts_codes),
+                )
+            ))
+            ts_codes = [code for code in ts_codes if code not in api_codes]
         results: list[dict[str, Any]] = []
         for code in ts_codes:
             ts_code = str(code or "").strip().upper()
@@ -1808,6 +1841,7 @@ class DatasetWriter:
                     definition=definition,
                     trade_date=trade_date,
                     ts_code=ts_code,
+                    expected_open_dates=expected_open_dates,
                 )
             )
         return results
@@ -1818,14 +1852,34 @@ class DatasetWriter:
         definition: DatasetDefinition,
         trade_date: date,
         ts_code: str,
+        expected_open_dates: tuple[date, ...] | None = None,
     ) -> list[dict[str, Any]]:
-        period_start_date = self._resolve_index_period_start_date(
+        period_start_date = expected_open_dates[0] if expected_open_dates else self._resolve_index_period_start_date(
             dataset_key=definition.dataset_key,
             trade_date=trade_date,
             cache={},
         )
-        sql = text(
+        completeness_clause = ""
+        if expected_open_dates is not None:
+            # Compare actual dates, not just COUNT/MAX; SQL aggregates must not hide NULLs.
+            completeness_clause = """
+                having array_agg(trade_date order by trade_date) = cast(:expected_dates as date[])
+                   and bool_and(
+                       open is not null and high is not null and low is not null
+                       and close is not null and pre_close is not null
+                       and vol is not null and amount is not null
+                       and open::text not in ('NaN', 'Infinity', '-Infinity')
+                       and high::text not in ('NaN', 'Infinity', '-Infinity')
+                       and low::text not in ('NaN', 'Infinity', '-Infinity')
+                       and close::text not in ('NaN', 'Infinity', '-Infinity')
+                       and pre_close::text not in ('NaN', 'Infinity', '-Infinity')
+                       and vol::text not in ('NaN', 'Infinity', '-Infinity')
+                       and amount::text not in ('NaN', 'Infinity', '-Infinity')
+                       and pre_close <> 0
+                   )
             """
+        sql = text(
+            f"""
             with win as (
                 select
                     d.ts_code,
@@ -1840,7 +1894,7 @@ class DatasetWriter:
                     row_number() over (partition by d.ts_code order by d.trade_date asc) as rn_first,
                     row_number() over (partition by d.ts_code order by d.trade_date desc) as rn_last
                 from core_serving.index_daily_serving d
-                where d.trade_date between :start_date and :trade_date
+                where d.trade_date between :start_date and :end_date
                   and d.ts_code = :ts_code
             ),
             agg as (
@@ -1855,6 +1909,7 @@ class DatasetWriter:
                     sum(amount) as amount
                 from win
                 group by ts_code
+                {completeness_clause}
             )
             select
                 a.ts_code as ts_code,
@@ -1882,10 +1937,43 @@ class DatasetWriter:
                 "ts_code": ts_code,
                 "trade_date": trade_date,
                 "period_start_date": period_start_date,
-                "start_date": period_start_date,
+                "start_date": trade_date.replace(day=1) if expected_open_dates is not None else period_start_date,
+                "end_date": (
+                    trade_date.replace(day=monthrange(trade_date.year, trade_date.month)[1])
+                    if expected_open_dates is not None else trade_date
+                ),
+                "expected_dates": list(expected_open_dates) if expected_open_dates is not None else None,
             },
         ).mappings()
         return [dict(row) for row in rows]
+
+    def _upsert_index_monthly_serving_rows(self, *, core_dao, rows: list[dict[str, Any]]) -> int:
+        columns = set(core_dao.model.__table__.columns.keys())
+        rows = [
+            {key: value for key, value in row.items() if key in columns}
+            for row in self._coerce_rows_for_dao(self._dedupe_index_period_rows(rows), core_dao)
+        ]
+        if not rows:
+            return 0
+        model = core_dao.model
+        period_key = ("ts_code", "period_start_date")
+        written = 0
+        for batch in chunked(rows, core_dao._resolve_batch_size(rows)):
+            statement = pg_insert(model).values(batch)
+            updates = {
+                column.name: statement.excluded[column.name]
+                for column in model.__table__.columns
+                if column.name not in (*period_key, "created_at")
+            }
+            updates["updated_at"] = func.now()
+            # Include trade_date in the update: old partial-month rows must be corrected.
+            # The WHERE guard also prevents a concurrent API write being downgraded.
+            statement = statement.on_conflict_do_update(
+                index_elements=list(period_key), set_=updates,
+                where=or_(statement.excluded.source == "api", model.source != "api"),
+            )
+            written += len(self.session.scalars(statement.returning(model.ts_code)).all())
+        return written
 
     def _replace_index_period_serving_rows(
         self,
@@ -2043,13 +2131,19 @@ class DatasetWriter:
         cache: dict[date, date] | None,
     ) -> date:
         natural_start = self._resolve_natural_period_start(dataset_key=dataset_key, trade_date=trade_date)
-        if cache is not None and natural_start in cache:
-            return cache[natural_start]
+        cache_key = trade_date if dataset_key == "index_monthly" else natural_start
+        if cache is not None and cache_key in cache:
+            return cache[cache_key]
         exchange = self.dao.trade_calendar.settings.default_exchange
-        open_dates = self.dao.trade_calendar.get_open_dates(exchange, natural_start, trade_date)
+        if dataset_key == "index_monthly":
+            open_dates = load_index_month_open_dates(self.session, exchange=exchange, day=trade_date)
+            if not open_dates or trade_date != open_dates[-1]:
+                raise ValueError(f"{trade_date} 不是完整交易日历中的月末交易日，请先核对交易日历与源站日期")
+        else:
+            open_dates = self.dao.trade_calendar.get_open_dates(exchange, natural_start, trade_date)
         period_start = open_dates[0] if open_dates else natural_start
         if cache is not None:
-            cache[natural_start] = period_start
+            cache[cache_key] = period_start
         return period_start
 
     @staticmethod
