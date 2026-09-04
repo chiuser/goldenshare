@@ -5,6 +5,7 @@ import re
 from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from src.app.auth.dependencies import require_quote_access
@@ -31,6 +32,12 @@ from src.biz.queries.wealth.market.sector_analysis.sector_member_breadth_query_s
 )
 from src.biz.queries.wealth.market.sector_analysis.sector_price_volume_query_service import (
     SectorPriceVolumeQueryService,
+)
+from src.biz.queries.wealth.market.sector_analysis.sector_daily_insight_query import SectorDailyInsightBatchMismatchError
+from src.biz.queries.wealth.market.sector_analysis.sector_daily_insight_query_service import SectorDailyInsightQueryService
+from src.biz.schemas.wealth.market.sector_daily_insight import (
+    SectorDailyInsightMetaRequest, SectorDailyInsightMetaResponseDto,
+    SectorDailyInsightSnapshotRequest, SectorDailyInsightSnapshotResponseDto,
 )
 from src.biz.schemas.wealth.market.sector_analysis import (
     SectorAnalysisMetaResponseDto,
@@ -100,6 +107,55 @@ router = APIRouter(prefix="/wealth/market/sector-analysis", tags=["wealth-market
 _DEBUG_ENVIRONMENTS = frozenset({"local", "dev", "test"})
 _ISO_DATE_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _SECTOR_CODE_PATTERN = re.compile(r"^BK[0-9]{4}\.DC$")
+
+
+@router.get("/daily-insight/meta", response_model=SectorDailyInsightMetaResponseDto)
+def get_sector_daily_insight_meta(
+    request: Request,
+    market: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorDailyInsightMetaResponseDto:
+    try:
+        _validate_query_shape(request, allowed={"market"})
+        try:
+            params = SectorDailyInsightMetaRequest.model_validate(dict(request.query_params))
+        except ValidationError as exc:
+            raise SectorScopeInvalidError("每日洞察仅支持 CN_A 市场。") from exc
+        return SectorDailyInsightQueryService().build_meta(session, market=params.market)
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    except Exception as exc:
+        raise WebAppError(status_code=500, code="SA_DAILY_INSIGHT_QUERY_FAILED", message="每日洞察读取失败，请稍后重试。") from exc
+    raise AssertionError("unreachable")
+
+
+@router.get("/daily-insight/snapshot", response_model=SectorDailyInsightSnapshotResponseDto)
+def get_sector_daily_insight_snapshot(
+    request: Request,
+    market: str | None = Query(default=None),
+    trade_date: str | None = Query(default=None, alias="tradeDate"),
+    industry_level: str | None = Query(default=None, alias="industryLevel"),
+    batch_key: str | None = Query(default=None, alias="batchKey"),
+    hierarchy_version: str | None = Query(default=None, alias="hierarchyVersion"),
+    debug: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorDailyInsightSnapshotResponseDto:
+    try:
+        _validate_query_shape(request, allowed={"market", "tradeDate", "industryLevel", "batchKey", "hierarchyVersion", "debug"})
+        try:
+            params = SectorDailyInsightSnapshotRequest.model_validate(dict(request.query_params))
+        except ValidationError as exc:
+            raise SectorScopeInvalidError("每日洞察参数无效，请检查分析日期、行业层级和已发布批次。") from exc
+        return SectorDailyInsightQueryService().build_snapshot(session, request=params)
+    except SectorDailyInsightBatchMismatchError as exc:
+        raise WebAppError(status_code=409, code="SA_DAILY_INSIGHT_BATCH_MISMATCH", message="每日洞察已更新，请重新加载。") from exc
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    except Exception as exc:
+        raise WebAppError(status_code=500, code="SA_DAILY_INSIGHT_QUERY_FAILED", message="每日洞察读取失败，请稍后重试。") from exc
+    raise AssertionError("unreachable")
 
 
 @router.get("/meta", response_model=SectorAnalysisMetaResponseDto)

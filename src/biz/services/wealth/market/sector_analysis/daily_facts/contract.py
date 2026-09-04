@@ -18,7 +18,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract
 
 
 FORMULA_BUNDLE_VERSION = "sector-analysis-daily-facts@1"
-TEMPLATE_VERSION = "sector-daily-insight-template@1"
+TEMPLATE_VERSION = "sector-daily-insight-template@2"
 TEMPLATE_KEY = "sector-daily-insight"
 SOURCE_NOT_READY = "SA_DAILY_FACT_SOURCE_NOT_READY"
 PLAN_DRIFT = "SA_DAILY_FACT_PLAN_DRIFT"
@@ -209,6 +209,9 @@ class PreviousSectorEvidence:
     member_up_pct: Decimal | None
     turnover_up_pct: Decimal | None
     ma20_above_pct: Decimal | None
+    member_qualification: str | None
+    turnover_qualification: str | None
+    ma20_qualification: str | None
 
 
 @dataclass(frozen=True, slots=True)

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import (
     BuiltDailyFacts,
     FORMULA_BUNDLE_VERSION,
+    TEMPLATE_VERSION,
     PreviousPublishedEvidence,
     PreviousSectorEvidence,
     SectorAnalysisDailyFactsPlanDriftError,
@@ -122,6 +123,9 @@ class SectorAnalysisDailyFactsRepository:
                 member_up_pct=breadth.get(code).member_up_pct if code in breadth else None,
                 turnover_up_pct=breadth.get(code).turnover_up_pct if code in breadth else None,
                 ma20_above_pct=ma20.get(code).above_pct if code in ma20 else None,
+                member_qualification=breadth.get(code).member_qualification if code in breadth else None,
+                turnover_qualification=breadth.get(code).turnover_qualification if code in breadth else None,
+                ma20_qualification=ma20.get(code).qualification if code in ma20 else None,
             )
             for code, row in momentum.items()
         }
@@ -158,7 +162,7 @@ class SectorAnalysisDailyFactsRepository:
                 previous_batch_id=facts.previous_batch_id,
                 hierarchy_version=facts.hierarchy_version,
                 formula_bundle_version=FORMULA_BUNDLE_VERSION,
-                template_version="sector-daily-insight-template@1",
+                template_version=TEMPLATE_VERSION,
                 source_hash=facts.source_hash,
                 plan_hash=plan_hash,
                 content_hash=facts.content_hash,

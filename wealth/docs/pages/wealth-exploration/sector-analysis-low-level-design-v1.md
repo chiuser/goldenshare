@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.70；M22、M23已关闭。2026-09-04用户确认成员广度M24.5、量价分布M24.6均已验证无问题，批准直接通过；五方法切读M24／G63整体为PASS / CLOSED。保留原开发及只读预检证据，不追加或声称新的远程验收测量。下一步为M25每日洞察后端与前端；M25～M26均未开始。
+- 状态：v1.72；M22、M23、M24／G63已关闭。M25进行中：生成侧纠偏及两只后端API已实现，下一项为前端；默认入口尚未改动，M26未开始。旧生产洞察尚未更新，不把本地测试或生产只读预检冒充部署验收。
 - 编写日期：2026-09-04。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -10,7 +10,7 @@
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
 - 目标路由：五条既有精确方法路由保持不变；M25 新增 `/wealth/exploration/sector-analysis/daily-insight`，并在其正式上线时把板块分析根地址改为 `replace` 到每日洞察。六个工作区始终只挂载当前 controller。
 - 目标 API：既有十四只板块分析只读 API 保持公开合同不变；M25 新增 `/daily-insight/meta` 与 `/daily-insight/snapshot` 两只 strict 只读 API。
-- 待实施项：M24.5成员广度代码和自动化／只读预检已通过，新代码待用户安排提交部署；量价分布切读随后单独推进，M25每日洞察、M26自动化与最终交付未开始。用户对既有版本的验收不代表本轮新代码已上线。M23历史TaskRun均保留为不可变证据，不得重用或改写。
+- 待实施项：M24五方法切读已通过；M25生成侧纠偏和两只API已实现，下一步实施每日洞察前端。M26及历史洞察更新尚未执行。M23历史TaskRun均保留为不可变证据，不得重用或改写。
 
 本文定义财势探查页面结构、五个已完成的独立分析方法，以及新增“每日洞察 + 每日事实物化”的代码级方案。每日洞察不是第六种公式，只汇总同一业务日期、同一层级版本、同一公式包和同一发布批次下的五方法客观事实；不生成综合分、预测、信号、机会等级或买卖建议。M3A 成分股明细和成员广度逐只股票明细继续按需读取，不进入本期物化结果。
 
@@ -88,7 +88,7 @@ formulaVersion = 1
 formulaBundleVersion = sector-analysis-daily-facts@1
 contractKey = sector-daily-insight
 contractVersion = 1
-templateVersion = sector-daily-insight-template@1
+templateVersion = sector-daily-insight-template@2
 ```
 
 上述版本只随明确的新公式、字段语义或模板文字合同升级；重新计算、历史回补和同内容幂等重放不得自行改版本。
@@ -945,7 +945,7 @@ M19 前端只允许以下增量：
 | 新增／修改 | `src/biz/services/wealth/market/sector_analysis/daily_facts/source_query.py` | 单日一致性读取六张白名单来源；稳定排序、计数和 source hash；M23R 在各来源读取阶段之间执行无 Ops 依赖的取消回调；无来源副本 |
 | 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/fact_builder.py` | 组合调用五个冻结 calculator；不复制公式，不调用页面 QueryService/API |
 | 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/insight_builder.py` | 三层 summary、四类完整事件、上一日同版本比较与稳定排序 |
-| 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/template_renderer.py` | `sector-daily-insight-template@1`，固定证据优先级、最多2项、字节确定性 |
+| 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/template_renderer.py` | `sector-daily-insight-template@2`，固定证据优先级、最多2项、字节确定性 |
 | 新增 | `src/biz/services/wealth/market/sector_analysis/daily_facts/repository.py` | BUILDING 写入、逐表 read-back、状态切换、PUBLISHED reader；唯一业务写入边界 |
 | 新增／修改 | `src/biz/services/wealth/market/sector_analysis/daily_facts/materialization_service.py` | preview/materialize 单日主链、hash、幂等、失败和原子发布；M23R 仅为 preview 透传纯取消回调，单日自动物化行为不变 |
 | 新增／重构 | `src/biz/services/wealth/market/sector_analysis/daily_facts/replay_planner.py` | `MIN_PUBLISH_DATE=2025-08-22` 的升序 PLAN、APPLY 绑定、层级版本、预期计数和 plan hash；更早请求只收敛到该日，不生成已知无效目标 unit。M23R 拆为范围解析、单日 unit/gap 预览和纯 finalize，删除跨全部日期持有同一 session 的旧 `plan(session, ...)` 主链 |
@@ -2354,7 +2354,7 @@ all typed rows/day <= 25,020
 | `previous_batch_id` | UUID nullable | 同版本上一日批次；自引用 FK |
 | `hierarchy_version` | VARCHAR(128) | 当前发布层级版本 |
 | `formula_bundle_version` | VARCHAR(64) | 固定 `sector-analysis-daily-facts@1` |
-| `template_version` | VARCHAR(64) | 固定 `sector-daily-insight-template@1` |
+| `template_version` | VARCHAR(64) | 固定 `sector-daily-insight-template@2` |
 | `source_hash/plan_hash/content_hash` | CHAR(64) | 小写 SHA-256，DB check |
 | `source_dates_json/source_row_counts_json` | JSONB | 只存审计元数据，不存业务值 |
 | `expected_fact_counts_json/actual_fact_counts_json` | JSONB | 九表逐表计数，只作 read-back 证据 |
@@ -2480,6 +2480,10 @@ missing_group_size_count / missing_coverage_count / missing_previous_batch_count
 ```
 
 缺失计数使用固定 typed 列，不把页面业务数字塞入 JSON。API 的 `missingReasonCounts` 由非零固定列映射成稳定数组，顺序按上表；`sector_count = calculable_count + missing_count`，涨跌平三数只统计1日可计算行业并相加等于 calculable_count。
+
+API原因代码依次为 `HISTORY/DATE/PRICE/MEMBER/AMOUNT/ADJ_FACTOR/GROUP_SIZE/COVERAGE/PREVIOUS_BATCH/OTHER`，分别一一对应上述十个 `missing_*_count` 列；只输出非零项。不同方法的缺失可重叠，不得把原因之和强制校验成 `missing_count`。固定映射由专属schema的 `MISSING_REASON_FIELDS` 定义，QueryService与响应校验共用；前端只翻译原因名称，不重新统计。
+
+`breadth_up_share_above_50_count`只计既有成员广度资格ELIGIBLE且有限占比严格>50%的行业，不能仅凭非空或100%就计入；不合格的原始占比仍保留在方法事实中。本规则及文案纠偏见M25.0。
 
 `wealth_sector_daily_insight_item` 主键为 `batch_id + industry_level + category + sector_code`；category只允许四类。字段分组：
 
@@ -2663,7 +2667,7 @@ dispatcher重构后的普通 registered action 流程为 `executor.plan(request)
 | 固定项 | 值 | 唯一代码来源 |
 |---|---|---|
 | 公式包 | `sector-analysis-daily-facts@1` | Biz daily facts contract |
-| 模板 | `sector-daily-insight-template@1` | template renderer |
+| 模板 | `sector-daily-insight-template@2` | template renderer |
 | 变化阈值 | `±10pp`、前80/后20 | insight builder |
 | 自动检查 | 20:05/600秒/次日00:30 | Ops action catalog readiness policy |
 | 历史起点 | `2025-08-22` | replay planner、Ops action 文案、Meta coverage |
@@ -5990,12 +5994,95 @@ Prod只读范围与逐字段对账：
 
 ### M25：每日洞察后端与前端
 
-状态：`PENDING`。
+状态：`IN_PROGRESS`。2026-09-04批准先纠偏，以下前置步骤通过后再继续API／前端；M24保持PASS / CLOSED。
+
+#### M25.0 生成侧纠偏与旧结果更新边界
+
+CodeGraph影响面：`SectorDailyInsightBuilder`只由物化服务调用，renderer只由builder调用；追到repository、版本常量、PLAN hash以及五方法typed reader。已有实测反例：只保留两只有效股票时，广度为100%但资格INELIGIBLE，旧概览仍计1；旧句子仅列“佐证：量价状态、成分股广度”。这不是新需求，也不是五公式错误。
+
+| 顺序 | 文件／实现点 | 固定修正与验收 |
+| --- | --- | --- |
+| 1 | 本LLD及原技术方案M25 | 冻结本节后才编码；不修改产品阈值、五公式、数据库结构、上游数据或worker |
+| 2 | `daily_facts/insight_builder.py` | `breadth_up_share_above_50_count`同时要求ELIGIBLE、Decimal有限、严格>50；50／缺失／不足资格反例均不计。只选有限可用且资格有效的证据，最多两项，保持量价→数量广度→成交额广度→双动量→轮动→MA20顺序 |
+| 3 | `daily_facts/template_renderer.py` | 接收证据类型code而非中文标题，输出实际状态或数值；HEAD写1日方向幅度、当前20日同层级rank/count、5日收益；显著变化写前后20日rank/count及百分位变化；COUNTER_TREND_STRENGTHENING写下跌但相对抗跌，RISING_BUT_WEAKENING写上涨但相对滞后。缺少可选事实省略分句，不输出伪0、`--%`或空泛佐证。名次用“由第x/a变为第y/b”，与百分位升降分别陈述，避免分母变化时误称名次上升／下降 |
+| 4 | `daily_facts/contract.py`、`repository.py` | TEMPLATE_VERSION升为@2，表示本次洞察生成合同；FORMULA_BUNDLE_VERSION不变。repository批次版本引用常量。内部PreviousSectorEvidence补充三项广度资格，repository直接投影既有资格列，不新增SQL／表；保留前日数值原貌。当前合格而前日不合格时，只描述当前值，不描述跨日变化 |
+| 5 | Figma正式每日洞察8画板 | 将四个既有方法按钮的“待建设／不得改变URL”说明改为按既有正式路由切换、只传tradeDate；逐画板记录节点ID和属性核对，视觉及布局不变 |
+| 6 | 新增`tests/test_wealth_sector_daily_insight_generation.py`及既有物化／reader测试 | 覆盖资格门槛、有限数值、四类列表及逆势文案、独立分母、两证据优先级、未知／缺值／不合格不生成证据、前日不足资格不生成变化、相同输入字节一致、公式事实不变、batch/item/PLAN版本一致及旧版本五方法读合同 |
+
+格式固定：百分比及百分点保留2位、Decimal ROUND_HALF_UP、中文标点；下跌／下降写绝对幅度，0不得显示负零；状态名称沿用既有工作区中文名称。广度证据均写具体“上涨成分股占比／上涨成分股成交额占比／站上MA20成分股占比”，前日可用且变化在两位小数展示精度下可见时写“由x%升至／降至y%”，否则写当前值；不得因为当前未舍入值与前日落库四位小数的差异写出“由33.33%升至33.33%”。双动量只把QUALIFIED/NOT_QUALIFIED作为可解释状态，未知不描述进入／退出；轮动同理只描述既有有效状态。基础量价当前状态也占两项证据中的一项，不重复添加第三项。`primary_evidence_type`保存第一项，`secondary_evidence_type_1`保存第二项，`secondary_evidence_type_2`本版恒为空。
+
+版本边界：@1已生成的数据不自动变为@2；本次汇总修正与话术修正一同由@2批次身份及content hash追踪。五方法typed reader不以templateVersion过滤，因此原已验收五方法继续可用；前日洞察比较读取前日方法事实而非旧句子，templateVersion不同不构成禁止比较的理由。生产上线每日洞察前须核对被展示批次确实经@2重新生成；不能在API响应上把旧@1伪标为@2。
+
+**旧结果更新步骤（只设计，不执行）：**
+
+1. 部署后另申请一个代表日的正式更新。保留旧批次；新PLAN必须绑定当前来源、公式@1、模板@2、前日batch及新content hash，旧PLAN一律不复用。
+2. 使用已有单日执行主链生成完整新批次，read-back成功后原子发布；不直接UPDATE summary/item，不新建worker，不重新设计五公式。对同来源六张方法事实逐字段比对必须完全一致，汇总差异只能来自资格过滤，文案差异须符合产品基线。
+3. 新批次read-back、版本、唯一PUBLISHED、前日绑定和幂等通过后，再申请历史日期范围及执行预算。当前已知旧主链是完整九表发布而不是只刷新两表，不隐瞒重算成本。若需仅复用已有物化事实刷新洞察，须另立获批方案，本轮不实现。
+4. 连续日期按正序逐日生成新PLAN并执行；前一日批次替换后，后一日原PLAN可能因previous/content hash变化而失效，不允许关闭hash门禁或强行重放旧计划。旧SUPERSEDED保留，不删业务数据。
+5. 本轮零生产写入、零历史重跑。M25生成侧单测通过不代表历史数据已修复；API／前端开发可以随后进行，但正式入口交付前必须完成上述数据更新核验。M26不提前关闭。
+
+**2026-09-04实现与验收记录：**
+
+- 生成侧四个文件及专项测试已实现本节约束；基础算法与五方法事实结构无变化，未增加迁移、API、配置、worker或前端代码。CodeGraph `impact`核对builder→materialization、renderer→builder，源码审计覆盖repository、常量→单日与历史PLAN hash、previous资格投影及typed reader；无新增跨子系统依赖，不调整依赖矩阵。
+- 专项测试32项通过；含专项、既有物化、历史planner、typed reader、Task executor、五方法API及子系统依赖矩阵的最终回归237项通过（66.06秒）。仅1条现存TestClient依赖弃用警告，不在本轮修改依赖。文档完整性及`git diff --check`均通过。SQLite内的新旧发布演练证明：同来源六张方法表内容hash完全一致；不足资格100%对应概览由1修为0；旧PLAN拒绝；新批次唯一PUBLISHED、旧批次保留SUPERSEDED。此为本地测试，不是生产更新。
+- Figma仅更新下表32个INSTANCE的annotations，没有新增／删除节点，没有修改文字、颜色、字号、组件结构或prototype reactions。每组对全部子节点的ID、父子关系、名称、类型、x/y、宽高、Auto Layout及文本做前后比较，8画板均一致；尺寸保持1600×1292.390625。四组代表截图已工具内检查，最终8画板旧“点击只显示待建设／不得改变URL”注释残留为0。原prototype reactions为空，本轮仍为空，跳转要求由更新后的说明表达，不声称新增了可点击原型连线。
+
+| 正式画板 | 双动量／相对轮动／成员广度／量价分布修改节点ID |
+| --- | --- |
+| 一级 `1227:22298` | `1227:22308`、`1227:22309`、`1227:22310`、`1227:22311` |
+| 二级 `1227:23074` | `1227:23084`、`1227:23085`、`1227:23086`、`1227:23087` |
+| 三级 `1227:23850` | `1227:23860`、`1227:23861`、`1227:23862`、`1227:23863` |
+| Delayed `1227:24626` | `1227:24636`、`1227:24637`、`1227:24638`、`1227:24639` |
+| Loading `1227:25085` | `1227:25095`、`1227:25096`、`1227:25097`、`1227:25098` |
+| Empty `1227:25544` | `1227:25554`、`1227:25555`、`1227:25556`、`1227:25557` |
+| Error `1227:26003` | `1227:26013`、`1227:26014`、`1227:26015`、`1227:26016` |
+| Contract `1227:26462` | `1227:26472`、`1227:26473`、`1227:26474`、`1227:26475` |
+
+本小步通过不关闭G64／G65／G66；下一开发项仍为以下M25 API／前端，生产洞察刷新另行批准。本轮未启动本地常驻Web／前端服务，未写生产库，未部署、提交或推送。
+
+本次回归命令（仅本地测试）：
+
+```text
+uv run pytest -q tests/test_wealth_sector_daily_insight_generation.py tests/test_wealth_sector_analysis_daily_materialization.py tests/test_wealth_sector_analysis_daily_replay.py tests/test_wealth_sector_analysis_fact_reader.py tests/test_sector_analysis_daily_task_executor.py tests/web/test_wealth_sector_analysis_api.py tests/architecture/test_subsystem_dependency_matrix.py
+uv run python scripts/check_docs_integrity.py
+git diff --check
+```
 
 1. 实现Meta/Snapshot、异常、安全批次一致性和2/3 SQL。
 2. 新增daily route/adapter/URL/controller/UI，根路由改为daily、方法栏六项。
 3. 实现概览、四类完整滚动列表、确定性文案、五态和方法证据跳转。
 4. 完成8张Figma、四档、一次409、竞态、401、超时、按需挂载和五方法零回归。
+
+#### M25第1项：后端接口实现记录（2026-09-04）
+
+状态：`本地实现与只读预检通过`；不是M25整体结案。第2～4项前端尚未实施，G64仍等待部署态验收，G65／G66 OPEN。
+
+| 硬口径 | 实现点 | 验证 |
+| --- | --- | --- |
+| strict、四项身份必填、未知／重复／非法值拒绝 | `schemas/wealth/market/sector_daily_insight.py`及既有`api/wealth/market/sector_analysis.py`两只新GET | 缺字段、重复、非法日期／层级／UUID／debug、非有限数值、字符串伪数值和bool伪数字反例 |
+| Meta唯一自动回退、公共20:00、发布覆盖 | `sector_daily_insight_query_service.py::build_meta`复用MarketPageContextQuery；`sector_daily_insight_query.py::load_coverage`只连接日历和PUBLISHED批次 | Ready／Delayed／Empty、20点前后、未来批次不可见；已发布局部缺失不回退；真实SQL计数2 |
+| Snapshot不回退、完整四列表、整页单批次 | `build_snapshot`→`load_batch/load_summary/load_items`，三个查询均显式PUBLISHED | 旧batch／错误hierarchy／无该日批次在子表读取前409；summary或items读取中发布被替换同样409；真实SQL计数3 |
+| 原始typed事实与模板原文、缺失不编造 | 专属summary／item DTO、明确投影列表、固定原因映射 | 四类排序、count守恒、rank/count、百分位差、阈值／逆势、跨panel同一行业事实一致、最多两证据及模板版本；80项列表无TopN |
+| 只读四表、不重算五方法、身份不泄密 | Query仅日历／publish_batch／summary／item；无来源或方法事实表查询，API不返回ORM | SQL监听白名单；真实生成器→repository→查询→DTO测试；FastAPI应用真实路由400／401／409／500及敏感错误反例 |
+
+DTO状态以是否存在可展示事实判断：1日可计算计数、四类事件或其余概览事实仍有内容时保持Ready；全盘平盘的0是有效事实。某个事件列表为空或某项缺失不得升级整页Empty。Meta和Snapshot如实输出读到的templateVersion；旧@1不得伪标@2。此规则不为旧@1汇总／文案正确性背书，正式入口交付仍受M25.0的数据更新条件约束。
+
+新增测试为 `tests/test_wealth_sector_daily_insight_query_service.py` 与 `tests/web/test_wealth_sector_daily_insight_api.py`，共57项；没有修改历史测试来迁就新实现。与上轮32项生成测试、物化／回补／typed reader／Task executor／原五方法API／依赖矩阵共同运行294项通过（65.38秒）。仅有既有Starlette测试客户端弃用提示，不改依赖。新增文件静态检查通过。
+
+**有界生产只读证据：** 使用现有Settings→SessionLocal连接；每次首先设置 `REPEATABLE READ, READ ONLY` 及15秒单SQL超时，结束rollback。白名单仅 `core_serving.trade_calendar`、`wealth_sector_analysis_publish_batch`、`wealth_sector_daily_insight_summary`、`wealth_sector_daily_insight_item`；投影为第7.23节字段，不读取hash、来源JSON或其他方法表。日期覆盖限定2025-08-22至公共目标日，Snapshot只取最新已发布日的三个层级，不导出明细，无生产写入。
+
+| 直接服务读取 | SQL数 | 完整规模／列表 | JSON bytes | 两次单次耗时ms |
+| --- | ---: | --- | ---: | --- |
+| Meta | 2 | 248个已发布日；第一次251个日历槽，20:00公共日期切换后252槽 | 54,162／54,273 | 84.94／89.05 |
+| Snapshot一级 | 3 | 31行业；上涨20、下跌11、转强6、转弱6 | 48,850 | 61.89／128.42 |
+| Snapshot二级 | 3 | 128行业；上涨81、下跌47、转强17、转弱21 | 188,240 | 64.92／67.54 |
+| Snapshot三级 | 3 | 337行业；上涨196、下跌139、转强47、转弱53 | 497,964 | 78.13／69.61 |
+
+两次最新发布日均为2026-08-31、templateVersion均为@1；公共目标日由2026-09-03切换为2026-09-04，Meta均为Delayed，Snapshot严格保持同日同批内容。各层级1日缺失行业数均为0；此为存量结构、SQL数量、版本和完整列表的只读核验，不是@2生产刷新验收或部署HTTP P95。三级payload低于1MiB，但未缩减字段、列表或行业。临时执行脚本 `/private/tmp/verify_m25_insight_api_readonly.py` 只输出以上统计，没有落地业务行。
+
+CodeGraph使用status／explore／callers及开发后sync，覆盖原sector_analysis路由、公共认证及session、现有五方法QueryService／reader、新增专属schema和查询；当前前端仍只消费原五方法，新API尚无前端消费者。新增依赖只在Biz内及Biz→Foundation，依赖矩阵不变。正式Ready一级Figma `1227:22298`已用设计上下文读取，本轮没有改Figma或前端，也没有做页面像素验收。
+
+本项交付范围为schema、Query、QueryService、原router、新增两份测试与原技术方案／LLD。无迁移、账号、配置、worker、生产任务、部署、提交或推送；没有启动本地常驻Web／Vite服务。下一项继续本M25每日洞察前端；生产@2更新与M26仍单独保留。
 
 ### M26：部署、自动化与最终验收
 
@@ -6135,7 +6222,7 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G62 历史回补 | 2025-08-22起升序PLAN/APPLY/read-back/previous链；HDD物理落盘和日期完整性受控 | PASS (M23 approved scope)：10548冻结248日；10567持久化前213日后失败；10585/10587只恢复35日尾段并完成35/35。最终248/248唯一PUBLISHED、0缺口、0重复、计数／物理行数／previous链差异均为0，九表约3,774MB且全部位于HDD。全窗口幂等重放及其后新增门禁按用户明确豁免，不追溯补做 |
 | G62A M23R 长PLAN与取消一致性 | 逐日短事务、BUILDING检查点、真实进度、分阶段取消、非冻结不可APPLY；TaskRun与节点同事务取消 | PASS (local+remote)：261项正反例、提交685b42a3部署、10518逐日检查点／FROZEN终态及历史节点收口通过；继续使用既有GENERAL且无新增Worker/Lane |
 | G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | PASS / CLOSED（2026-09-04）：五方法全部通过；成员广度及量价分布依据用户自行验收确认结案，保留原自动化与只读预检证据，详见M24.5.5、M24.6.3 |
-| G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN (M25/M26) |
+| G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN（M25本地实现及只读预检通过；M26部署验收未执行） |
 | G65 Daily前端 | 第六route、三参数URL、controller、四完整滚动列表、五态、跳转和按需挂载 | OPEN (M25) |
 | G66 Daily交付 | HDD真实拓扑、自动任务、payload/P95、8张Figma、四档及用户验收 | OPEN (M26) |
 
@@ -6332,14 +6419,16 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 量价分布 M18 后端、M19 前端与 M20 部署联调均已完成：后端建立专属日事实和119日Query边界，组合复用既有价格公式，以前缀和计算两段等长成交额变化；前端建立第五条精确路由、独立 strict adapter／十项 URL／controller、完整列表、响应式散点、双历史趋势和13态。Meta唯一自动回退、显式日期精确显示、局部缺失透明和按需挂载均已有自动化证据；部署态337行完整事实、60日历史、`3/5/5` SQL、payload、P95、五scope、四档页面及用户验收全部通过，G55关闭。本轮不自动进入新需求。
 
-每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。M24R 已完成紧凑History读取、完整切片审计、公开合同回归和部署验收：最大三级30日周期／60日场景的两轮认证HTTPS P95为 `358.4/370.9ms`，60＋60槽、排名与缺失分母和Prod一致。用户批准本次HTTPS等效验收且700ms门槛不变，M24R及动量切读子阶段关闭。M24.3双动量、M24.4相对轮动此后均已关闭；2026-09-04用户确认成员广度及量价分布验收通过后，M24／G63整体关闭。每日洞察API与前端仍属于M25，自动化与最终交付验收仍属于M26，均未开始。
+每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。M24R 已完成紧凑History读取、完整切片审计、公开合同回归和部署验收：最大三级30日周期／60日场景的两轮认证HTTPS P95为 `358.4/370.9ms`，60＋60槽、排名与缺失分母和Prod一致。用户批准本次HTTPS等效验收且700ms门槛不变，M24R及动量切读子阶段关闭。M24.3双动量、M24.4相对轮动此后均已关闭；2026-09-04用户确认成员广度及量价分布验收通过后，M24／G63整体关闭。M25已完成生成侧纠偏及两只每日洞察API，本地实现与生产只读预检通过；前端未实施，旧@1洞察未更新，M26自动化与最终交付验收未开始。
 
-M24.5成员广度（`6f124782`）与M24.6量价分布（日期`625ae045`、完整数值切读`cd81c702`）以用户自行验收确认结案，不重复已确认验收、不追加远程测量。五方法切读M24／G63为PASS / CLOSED，下一步固定为M25每日洞察后端与前端。本轮仅同步文档状态，不修改默认路由、不执行M25～M26、不重用历史TaskRun。
+M24.5成员广度（`6f124782`）与M24.6量价分布（日期`625ae045`、完整数值切读`cd81c702`）以用户自行验收确认结案，不重复已确认验收、不追加远程测量。五方法切读M24／G63为PASS / CLOSED，M25已完成生成侧纠偏与两只后端API；下一开发项是每日洞察前端。本轮尚未修改默认路由，未执行生产洞察刷新或M26，不重用历史TaskRun。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.72 | 2026-09-04 | 完成M25第1项后端：strict Meta／Snapshot、2／3SQL、完整列表、批次竞态409、安全错误和57项专项，合并294项回归通过。记录三层级生产有限只读数量／版本／payload；旧@1未更新、前端未开发，G64部署验收及G65/G66仍OPEN |
+| v1.71 | 2026-09-04 | 完成获批M25.0纠偏的编码及正反例：广度资格、真实数值／状态模板、@2批次版本与前日资格传递；记录32处Figma说明修正及几何无变化，冻结旧洞察正式更新步骤。M25两只API及前端尚未开发，不关闭后续Gate |
 | v1.70 | 2026-09-04 | 根据用户自行验收确认，关闭M24.5成员广度、M24.6量价分布及整体M24/G63；登记本次免重复远程验收的边界，保留历史测试、只读预检和冷请求证据。仅文档状态更新，下一步M25，M25～M26未开始 |
 | v1.69 | 2026-09-04 | 完成M24.6.2量价数值切读；共享reader精确PUBLISHED投影、独立缺失／分母映射、单行业60日槽，删除旧原行情Query及在线公式接线。11,110次Prod对账零差异，371后端／214前端／typecheck通过，3/4/5 SQL及直接服务P95 259.71/296.98/292.89ms通过预检；未提交部署，不整体关闭M24/G63 |
 | v1.68 | 2026-09-04 | 完成M24.6.1已批准日期合同修正；删除原始完整日入口、共享PUBLISHED覆盖、前后端统一INDUSTRY_DAILY；已发布PARTIAL／零可计算不回退，显式未发布Empty且零源读取。300后端／214前端、typecheck/build及一次3 SQL Prod只读通过；数值完整切读未执行，未提交部署 |

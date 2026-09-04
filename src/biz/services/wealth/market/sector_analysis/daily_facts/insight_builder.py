@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import (
     BuiltMethodFacts,
+    FORMULA_BUNDLE_VERSION,
     DailyInsightItemRow,
     DailyInsightSummaryRow,
     PreviousPublishedEvidence,
@@ -18,15 +19,6 @@ class SectorDailyInsightBuilder:
     CHANGE_THRESHOLD_PP = Decimal("10")
     HOT_ENTRY_PERCENTILE = Decimal("80")
     COLD_ENTRY_PERCENTILE = Decimal("20")
-    _EVIDENCE_LABELS = {
-        "PRICE_VOLUME": "量价状态",
-        "MEMBER_BREADTH": "成分股广度",
-        "TURNOVER_BREADTH": "成交额广度",
-        "DUAL_MOMENTUM": "双动量",
-        "RELATIVE_ROTATION": "相对轮动",
-        "MA20_BREADTH": "MA20位置广度",
-    }
-
     def __init__(self, *, renderer: SectorDailyInsightTemplateRenderer | None = None) -> None:
         self._renderer = renderer or SectorDailyInsightTemplateRenderer()
 
@@ -74,7 +66,7 @@ class SectorDailyInsightBuilder:
             previous is not None
             and previous.trade_date == bundle.previous_trade_date
             and previous.hierarchy_version == bundle.hierarchy.baseline_version
-            and previous.formula_bundle_version == "sector-analysis-daily-facts@1"
+            and previous.formula_bundle_version == FORMULA_BUNDLE_VERSION
         )
         for level in (1, 2, 3):
             nodes = tuple(node for node in bundle.hierarchy.nodes if node.industry_level == level)
@@ -97,7 +89,9 @@ class SectorDailyInsightBuilder:
                         "leading_improving_count_20d_5d": sum(rotation[node.sector_code].rotation_status == "LEADING_IMPROVING" for node in nodes),
                         "price_volume_joint_count_20d": sum(price_volume[node.sector_code].values["distribution_state"] == "JOINT" for node in nodes),
                         "breadth_up_share_above_50_count": sum(
-                            isinstance(breadth[node.sector_code].values["member_up_pct"], Decimal)
+                            breadth[node.sector_code].values["member_qualification"] == "ELIGIBLE"
+                            and isinstance(breadth[node.sector_code].values["member_up_pct"], Decimal)
+                            and breadth[node.sector_code].values["member_up_pct"].is_finite()
                             and breadth[node.sector_code].values["member_up_pct"] > Decimal("50")
                             for node in nodes
                         ),
@@ -183,12 +177,31 @@ class SectorDailyInsightBuilder:
                     "ma20_above_pct_current": ma20[code].values["above_pct"],
                     "ma20_above_pct_previous": old.ma20_above_pct if old else None,
                 }
-                evidence = self._evidence(values)
+                evidence = self._renderer.select_evidence(
+                    values=values,
+                    qualifications={
+                        "MEMBER_BREADTH": breadth[code].values["member_qualification"],
+                        "TURNOVER_BREADTH": breadth[code].values["turnover_qualification"],
+                        "MA20_BREADTH": ma20[code].values["qualification"],
+                    },
+                )
+                previous_evidence = self._renderer.select_evidence(
+                    values=values,
+                    qualifications={
+                        "MEMBER_BREADTH": old.member_qualification if old else None,
+                        "TURNOVER_BREADTH": old.turnover_qualification if old else None,
+                        "MA20_BREADTH": old.ma20_qualification if old else None,
+                    },
+                    suffix="previous",
+                )
+                evidence = evidence[:2]
                 template_key, template_version, rendered = self._renderer.render(
                     category=category,
                     sector_name=node.sector_name,
+                    industry_level=level,
                     values=values,
-                    evidence_types=tuple(self._EVIDENCE_LABELS[item] for item in evidence),
+                    evidence_types=evidence,
+                    previous_evidence_types=previous_evidence,
                 )
                 values.update(
                     {
@@ -202,18 +215,6 @@ class SectorDailyInsightBuilder:
                 )
                 rows.append(DailyInsightItemRow(row.identity.trade_date, level, category, code, values))
         return rows
-
-    @staticmethod
-    def _evidence(values) -> tuple[str, ...]:  # type: ignore[no-untyped-def]
-        candidates = (
-            ("PRICE_VOLUME", values["price_volume_state_current"] is not None),
-            ("MEMBER_BREADTH", values["member_up_pct_current"] is not None),
-            ("TURNOVER_BREADTH", values["turnover_up_pct_current"] is not None),
-            ("DUAL_MOMENTUM", values["dual_qualification_20d_80_current"] is not None),
-            ("RELATIVE_ROTATION", values["rotation_status_20d_current"] is not None),
-            ("MA20_BREADTH", values["ma20_above_pct_current"] is not None),
-        )
-        return tuple(name for name, available in candidates if available)[:2]
 
     @staticmethod
     def _event_type(category: str, return_pct: Decimal | None) -> str:
