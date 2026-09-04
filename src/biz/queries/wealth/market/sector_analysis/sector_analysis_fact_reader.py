@@ -70,6 +70,17 @@ from src.foundation.models.core_serving.wealth_sector_member_breadth_daily impor
 from src.foundation.models.core_serving.wealth_sector_member_ma_breadth_daily import (
     WealthSectorMemberMaBreadthDaily,
 )
+from src.foundation.models.core_serving.wealth_sector_price_volume_daily import (
+    WealthSectorPriceVolumeDaily,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract import (
+    FORMULA_KEY as PRICE_VOLUME_FORMULA_KEY,
+    FORMULA_VERSION as PRICE_VOLUME_FORMULA_VERSION,
+    SectorPriceVolumeMetricFact,
+    SectorPriceVolumeMissingReason,
+    SectorPriceVolumeState,
+    parse_price_volume_period,
+)
 from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contract import (
     MEMBER_BREADTH_FORMULA_KEY,
     MEMBER_BREADTH_FORMULA_VERSION,
@@ -83,6 +94,43 @@ from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contra
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorSelectionInvalidError,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class SectorPublishedPriceVolumeRow:
+    batch_id: UUID
+    trade_date: date
+    comparison_scope: str
+    comparison_key: str
+    parent_sector_code: str | None
+    sector_code: str
+    sector_name: str
+    industry_level: int
+    hierarchy_path: str
+    period: int
+    price_momentum_pct: Decimal | None
+    amount_activity_pct: Decimal | None
+    price_missing_reason: str | None
+    amount_missing_reason: str | None
+    price_rank: int | None
+    price_rankable_count: int | None
+    amount_rank: int | None
+    amount_rankable_count: int | None
+    distribution_state: SectorPriceVolumeState | None
+    calculation_status: str
+    missing_reason: str
+
+    @property
+    def metric(self) -> SectorPriceVolumeMetricFact:
+        return SectorPriceVolumeMetricFact(
+            sector_code=self.sector_code, trade_date=self.trade_date,
+            price_momentum_pct=self.price_momentum_pct,
+            amount_activity_pct=self.amount_activity_pct,
+            price_missing_reason=(SectorPriceVolumeMissingReason(self.price_missing_reason)
+                                  if self.price_missing_reason is not None else None),
+            amount_missing_reason=(SectorPriceVolumeMissingReason(self.amount_missing_reason)
+                                   if self.amount_missing_reason is not None else None),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -753,6 +801,131 @@ class SectorAnalysisFactReader:
                 for field in fields(SectorPublishedDualMomentumRow)
             }))
         return tuple(result)
+
+    def load_price_volume_rows(
+        self, session: Session, *, batch_id: UUID, trade_date: date,
+        scope: SectorMomentumScope, level1_code: str | None, level2_code: str | None,
+        period: int, hierarchy: SectorHierarchySnapshot,
+    ) -> tuple[SectorPublishedPriceVolumeRow, ...]:
+        return self._load_price_volume_rows(
+            session, batch_by_date={trade_date: batch_id}, scope=scope,
+            level1_code=level1_code, level2_code=level2_code, period=period,
+            hierarchy=hierarchy, selected_sector_code=None,
+        )
+
+    def load_price_volume_history(
+        self, session: Session, *, batch_by_date: dict[date, UUID],
+        scope: SectorMomentumScope, level1_code: str | None, level2_code: str | None,
+        period: int, hierarchy: SectorHierarchySnapshot, selected_sector_code: str,
+    ) -> tuple[SectorPublishedPriceVolumeRow, ...]:
+        if len(batch_by_date) > 60:
+            raise SectorDataQueryError("published price-volume history exceeds 60 slots")
+        return self._load_price_volume_rows(
+            session, batch_by_date=batch_by_date, scope=scope,
+            level1_code=level1_code, level2_code=level2_code, period=period,
+            hierarchy=hierarchy, selected_sector_code=selected_sector_code,
+        )
+
+    def _load_price_volume_rows(
+        self, session: Session, *, batch_by_date: dict[date, UUID],
+        scope: SectorMomentumScope, level1_code: str | None, level2_code: str | None,
+        period: int, hierarchy: SectorHierarchySnapshot, selected_sector_code: str | None,
+    ) -> tuple[SectorPublishedPriceVolumeRow, ...]:
+        parse_price_volume_period(period)
+        pool = resolve_scope_pool(
+            hierarchy, scope=scope, level1_code=level1_code, level2_code=level2_code,
+        )
+        expected_codes = {node.sector_code for node in pool}
+        if selected_sector_code is not None:
+            if selected_sector_code not in expected_codes:
+                raise SectorDataQueryError("published price-volume selection is outside its pool")
+            expected_codes = {selected_sector_code}
+        if not batch_by_date:
+            return ()
+        parent_code = (level1_code if scope == "LEVEL_1_CHILDREN"
+                       else level2_code if scope == "LEVEL_2_CHILDREN" else None)
+        key = {
+            "LEVEL_1": "GLOBAL:L1", "LEVEL_2": "GLOBAL:L2", "LEVEL_3": "GLOBAL:L3",
+            "LEVEL_1_CHILDREN": f"PARENT:L1:{level1_code}",
+            "LEVEL_2_CHILDREN": f"PARENT:L2:{level2_code}",
+        }[scope]
+        fact, batch = WealthSectorPriceVolumeDaily, WealthSectorAnalysisPublishBatch
+        statement = (
+            select(
+                *(getattr(fact, field.name) for field in fields(SectorPublishedPriceVolumeRow)),
+                fact.formula_key, fact.formula_version,
+                batch.hierarchy_version, batch.formula_bundle_version,
+            )
+            .join(batch, and_(batch.batch_id == fact.batch_id,
+                             batch.trade_date == fact.trade_date, batch.status == "PUBLISHED"))
+            .where(
+                or_(*(and_(fact.trade_date == day, fact.batch_id == batch_id)
+                      for day, batch_id in sorted(batch_by_date.items()))),
+                fact.comparison_scope == scope, fact.comparison_key == key, fact.period == period,
+            )
+            .order_by(fact.trade_date, fact.sector_code)
+        )
+        if selected_sector_code is not None:
+            statement = statement.where(fact.sector_code == selected_sector_code)
+        rows = session.execute(statement).all()
+        expected_keys = {(day, code) for day in batch_by_date for code in expected_codes}
+        if len(rows) != len(expected_keys) or {
+            (row.trade_date, row.sector_code) for row in rows
+        } != expected_keys:
+            raise SectorDataQueryError("published price-volume slice does not match its selection")
+        result = []
+        for row in rows:
+            self._validate_batch_identity(
+                hierarchy_version=row.hierarchy_version,
+                formula_bundle_version=row.formula_bundle_version, hierarchy=hierarchy,
+            )
+            node = hierarchy.nodes_by_code[row.sector_code]
+            if (row.parent_sector_code != parent_code or row.sector_name != node.sector_name
+                or row.industry_level != node.industry_level or row.hierarchy_path != node.hierarchy_path
+                or row.formula_key != PRICE_VOLUME_FORMULA_KEY
+                or row.formula_version != PRICE_VOLUME_FORMULA_VERSION):
+                raise SectorDataQueryError("published price-volume identity is inconsistent")
+            projected = SectorPublishedPriceVolumeRow(**{
+                field.name: row._mapping[field.name] for field in fields(SectorPublishedPriceVolumeRow)
+            })
+            self._validate_price_volume_values(projected, pool_size=len(pool))
+            result.append(projected)
+        if selected_sector_code is None:
+            for prefix, field in (("price", "price_momentum_pct"), ("amount", "amount_activity_pct")):
+                count = sum(getattr(row, field) is not None for row in result)
+                if any(getattr(row, field) is not None
+                       and getattr(row, f"{prefix}_rankable_count") != count for row in result):
+                    raise SectorDataQueryError("published price-volume group counts are inconsistent")
+        return tuple(result)
+
+    @staticmethod
+    def _validate_price_volume_values(row: SectorPublishedPriceVolumeRow, *, pool_size: int) -> None:
+        try:
+            metric = row.metric
+        except (TypeError, ValueError) as exc:
+            raise SectorDataQueryError("published price-volume metric is inconsistent") from exc
+        for prefix, value in (("price", metric.price_momentum_pct), ("amount", metric.amount_activity_pct)):
+            rank, count = getattr(row, f"{prefix}_rank"), getattr(row, f"{prefix}_rankable_count")
+            if value is None:
+                if rank is not None or count is not None:
+                    raise SectorDataQueryError("missing published price-volume metric carries ranks")
+            elif type(rank) is not int or type(count) is not int or not 1 <= rank <= count <= pool_size:
+                raise SectorDataQueryError("published price-volume rank is inconsistent")
+        both = metric.price_momentum_pct is not None and metric.amount_activity_pct is not None
+        if (row.calculation_status != ("CALCULABLE" if both else "UNAVAILABLE")
+            or row.missing_reason != (row.price_missing_reason or row.amount_missing_reason or "NONE")):
+            raise SectorDataQueryError("published price-volume status is inconsistent")
+        if not both:
+            if row.distribution_state is not None:
+                raise SectorDataQueryError("missing published coordinate carries a state")
+        else:
+            # Validate the stored quadrant, never substitute a recomputed state.
+            signs = {"JOINT": (True, True), "PRICE_ONLY": (True, False),
+                     "AMOUNT_ONLY": (False, True), "NEUTRAL": (False, False)}
+            if signs.get(row.distribution_state) != (
+                metric.price_momentum_pct > 0, metric.amount_activity_pct > 0,
+            ):
+                raise SectorDataQueryError("published price-volume state contradicts its values")
 
     def load_relative_rotation_rows(
         self, session: Session, *, batch_id: UUID, trade_date: date,

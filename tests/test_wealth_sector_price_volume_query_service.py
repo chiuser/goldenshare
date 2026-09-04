@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
@@ -16,16 +17,14 @@ from src.biz.queries.wealth.market.context.market_page_context_query import (
 from src.biz.queries.wealth.market.sector_analysis.sector_price_volume_query_service import (
     SectorPriceVolumeQueryService,
 )
-from src.biz.queries.wealth.market.sector_analysis.sector_price_volume_query import (
-    SectorPriceVolumeQuery,
-)
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorDataQueryError,
     SectorDateAvailabilityFact,
     SectorSelectionInvalidError,
+    resolve_scope_pool,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract import (
-    SectorPriceVolumeDailyFact,
+    SectorPriceVolumeMetricFact,
     SectorPriceVolumeFactMismatchError,
 )
 
@@ -33,6 +32,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract
 from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
     SectorPublishedCoverage,
     SectorPublishedCalendarDate,
+    SectorAnalysisFactReader,
 )
 
 OPEN_DATES = tuple(date(2026, 5, 2) + timedelta(days=index) for index in range(119))
@@ -142,19 +142,28 @@ class _Query:
         self.open_calls.append(count)
         return tuple(item for item in OPEN_DATES if item <= end_date)[-count:]
 
-    def load_facts(self, _session, *, sector_codes, start_date, end_date):
+    def load_price_volume_rows(self, _session, *, batch_id, trade_date, hierarchy, scope, level1_code, level2_code, period):
         self.fact_calls += 1
+        pool = resolve_scope_pool(hierarchy, scope=scope, level1_code=level1_code, level2_code=level2_code)
+        return tuple(self._row(node.sector_code, trade_date, index, len(pool))
+                     for index, node in enumerate(pool, 1))
+
+    def load_price_volume_history(self, _session, *, batch_by_date, selected_sector_code, **kwargs):
+        self.fact_calls += 1
+        assert len(batch_by_date) <= 60
         return tuple(
-            SectorPriceVolumeDailyFact(
-                sector_code=code,
-                trade_date=item,
-                close=Decimal(100 + code_index * 10 + date_index),
-                pct_change=Decimal(code_index),
-                amount=Decimal(1000 + code_index * date_index),
-            )
-            for date_index, item in enumerate(OPEN_DATES)
-            for code_index, code in enumerate(sector_codes, start=1)
-            if start_date <= item <= end_date
+            self._row(selected_sector_code, day, 1, 2)
+            for day in sorted(batch_by_date)
+        )
+
+    @staticmethod
+    def _row(code, day, index, count):
+        price, amount = Decimal(count - index + 1), Decimal(index)
+        return SimpleNamespace(
+            trade_date=day, price_momentum_pct=price, amount_activity_pct=amount,
+            price_rank=index, amount_rank=count-index+1,
+            price_rankable_count=count, amount_rankable_count=count, distribution_state="JOINT",
+            metric=SectorPriceVolumeMetricFact(code, day, price, amount, None, None),
         )
 
 
@@ -162,7 +171,6 @@ def _service(query: _Query) -> SectorPriceVolumeQueryService:
     return SectorPriceVolumeQueryService(
         context_query=_ContextQuery(),
         hierarchy_query=_HierarchyQuery(),
-        price_volume_query=query,
         fact_reader=query,
     )
 
@@ -177,6 +185,7 @@ def test_meta_uses_published_coverage_and_returns_delayed_default() -> None:
     assert response.historyRanges == [20, 30, 60]
 
 
+@pytest.mark.parametrize("period", [1, 5, 10, 20, 30])
 @pytest.mark.parametrize(
     ("scope", "level1", "level2", "expected_count"),
     (
@@ -188,7 +197,7 @@ def test_meta_uses_published_coverage_and_returns_delayed_default() -> None:
     ),
 )
 def test_snapshot_supports_all_five_scopes_and_keeps_complete_pool(
-    scope, level1, level2, expected_count
+    scope, level1, level2, expected_count, period
 ) -> None:
     query = _Query()
     response = _service(query).build_snapshot(
@@ -198,7 +207,7 @@ def test_snapshot_supports_all_five_scopes_and_keeps_complete_pool(
         scope=scope,
         level1_code=level1,
         level2_code=level2,
-        period=20,
+        period=period,
         hierarchy_version="v1",
         debug=True,
     )
@@ -207,7 +216,7 @@ def test_snapshot_supports_all_five_scopes_and_keeps_complete_pool(
     assert response.snapshot.totalCount == expected_count
     assert len(response.snapshot.rows) == expected_count
     assert response.snapshot.observedTradeDate == TARGET_DATE
-    assert query.open_calls == [40]
+    assert query.open_calls == []
     assert query.fact_calls == 1
 
 
@@ -230,7 +239,8 @@ def test_stale_version_stops_before_coverage_open_dates_or_facts() -> None:
     assert query.fact_calls == 0
 
 
-def test_details_uses_maximum_119_dates_and_returns_sixty_ascending_slots() -> None:
+@pytest.mark.parametrize("history_range", [20, 30, 60])
+def test_details_reads_only_display_dates_and_returns_ascending_slots(history_range) -> None:
     query = _Query()
     response = _service(query).build_details(
         None,
@@ -240,25 +250,25 @@ def test_details_uses_maximum_119_dates_and_returns_sixty_ascending_slots() -> N
         level1_code=None,
         level2_code=None,
         period=30,
-        history_range=60,
+        history_range=history_range,
         sector_code="BK1001.DC",
         hierarchy_version="v1",
         debug=True,
     )
     assert response.status == "READY"
     assert response.details is not None
-    assert query.open_calls == [119]
-    assert len(response.details.history) == 60
+    assert query.open_calls == [history_range]
+    assert len(response.details.history) == history_range
     assert response.details.history[-1].tradeDate == TARGET_DATE
     assert [item.tradeDate for item in response.details.history] == sorted(
         item.tradeDate for item in response.details.history
     )
     assert response.debugInfo is not None
-    assert response.debugInfo.requestedOpenDateCount == 119
-    assert response.debugInfo.loadedOpenDateCount == 119
+    assert response.debugInfo.requestedOpenDateCount == history_range
+    assert response.debugInfo.loadedOpenDateCount == history_range
 
 
-def test_open_date_query_accepts_119_and_rejects_120_before_database_access() -> None:
+def test_open_date_query_accepts_60_and_rejects_61_before_database_access() -> None:
     class _ScalarRows:
         @staticmethod
         def all():
@@ -269,16 +279,16 @@ def test_open_date_query_accepts_119_and_rejects_120_before_database_access() ->
         def scalars(_statement):
             return _ScalarRows()
 
-    assert SectorPriceVolumeQuery.load_open_dates(
+    assert SectorAnalysisFactReader.load_open_dates(
         _Session(),  # type: ignore[arg-type]
         end_date=TARGET_DATE,
-        count=119,
+        count=60,
     ) == ()
     with pytest.raises(SectorDataQueryError):
-        SectorPriceVolumeQuery.load_open_dates(
+        SectorAnalysisFactReader.load_open_dates(
             None,  # type: ignore[arg-type]
             end_date=TARGET_DATE,
-            count=120,
+            count=61,
         )
 
 
@@ -345,7 +355,6 @@ def test_maximum_level_three_snapshot_keeps_all_337_rows_under_payload_budget() 
     response = SectorPriceVolumeQueryService(
         context_query=_ContextQuery(),
         hierarchy_query=_LargeHierarchyQuery(),
-        price_volume_query=_Query(),
         fact_reader=_Query(),
     ).build_snapshot(
         None,
@@ -408,18 +417,39 @@ def test_no_publication_meta_is_empty_and_default_is_not_invented():
     assert response.dateContext.defaultTradeDate is None
 
 
+@pytest.mark.parametrize("independent_amount", [True, False])
+def test_published_missing_price_keeps_all_rows_and_uniform_counts(independent_amount):
+    from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract import SectorPriceVolumeMissingReason
+    class Missing(_Query):
+        def load_price_volume_rows(self, *args, **kwargs):
+            rows = super().load_price_volume_rows(*args, **kwargs)
+            for row in rows:
+                row.price_momentum_pct = row.price_rank = row.price_rankable_count = None
+                row.distribution_state = None
+                if not independent_amount:
+                    row.amount_activity_pct = row.amount_rank = row.amount_rankable_count = None
+                row.metric = SectorPriceVolumeMetricFact(
+                    row.metric.sector_code, row.trade_date, None, row.amount_activity_pct,
+                    SectorPriceVolumeMissingReason.CLOSE_MISSING,
+                    None if independent_amount else SectorPriceVolumeMissingReason.AMOUNT_MISSING,
+                )
+            return rows
+    query = Missing()
+    result = _service(query).build_snapshot(None, market="CN_A", trade_date=TARGET_DATE,
+        scope="LEVEL_1", level1_code=None, level2_code=None, period=20, hierarchy_version="v1", debug=False)
+    assert result.status == "EMPTY" and result.snapshot.totalCount == 2
+    assert result.snapshot.observedTradeDate == TARGET_DATE
+    for row in result.snapshot.rows:
+        assert row.priceRankableCount == 0
+        assert row.amountRankableCount == (2 if independent_amount else 0)
+        assert (row.amountActivityPct is not None) == independent_amount
+    assert query.fact_calls == 1 and query.open_calls == []
+
+
 def test_explicit_unpublished_date_never_reads_raw_or_executes_formula():
     query = _Query(delayed=True)
     service = _service(query)
 
-    class NoCalculator:
-        def __getattr__(self, name):
-            # DTO conversion of an empty fact is formatting, not formula execution.
-            if name == "as_json_percent":
-                return lambda value: None
-            raise AssertionError(f"unexpected formula call {name}")
-
-    service._calculator = NoCalculator()
     snapshot = service.build_snapshot(
         None,
         market="CN_A",

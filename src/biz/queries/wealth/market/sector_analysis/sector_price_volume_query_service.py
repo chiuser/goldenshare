@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import date
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.orm import Session
 
@@ -15,12 +16,10 @@ from src.biz.queries.wealth.market.context.market_page_context_query import (
     MarketPageContext,
     MarketPageContextQuery,
 )
-from src.biz.queries.wealth.market.sector_analysis.sector_price_volume_query import (
-    SectorPriceVolumeQuery,
-)
 from src.biz.queries.wealth.market.sector_analysis.sector_analysis_fact_reader import (
     SectorAnalysisFactReader,
     SectorPublishedCalendarDate,
+    SectorPublishedCoverage,
 )
 from src.biz.schemas.wealth.market.sector_analysis import (
     SectorHierarchyDto,
@@ -49,9 +48,6 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
     SectorSelectionInvalidError,
     resolve_scope_pool,
 )
-from src.biz.services.wealth.market.sector_analysis.sector_price_volume_calculator import (
-    SectorPriceVolumeCalculator,
-)
 from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract import (
     ALLOWED_HISTORY_RANGES,
     ALLOWED_PERIODS,
@@ -77,15 +73,11 @@ class SectorPriceVolumeQueryService:
         *,
         context_query: MarketPageContextQuery | None = None,
         hierarchy_query: SectorHierarchyQuery | None = None,
-        price_volume_query: SectorPriceVolumeQuery | None = None,
         fact_reader: SectorAnalysisFactReader | None = None,
-        calculator: SectorPriceVolumeCalculator | None = None,
     ) -> None:
         self._context_query = context_query or MarketPageContextQuery()
         self._hierarchy_query = hierarchy_query or SectorHierarchyQuery()
-        self._query = price_volume_query or SectorPriceVolumeQuery()
         self._fact_reader = fact_reader or SectorAnalysisFactReader()
-        self._calculator = calculator or SectorPriceVolumeCalculator()
 
     def build_meta(
         self,
@@ -162,7 +154,7 @@ class SectorPriceVolumeQueryService:
     ) -> SectorPriceVolumeSnapshotResponseDto:
         context: MarketPageContext | None = None
         pool_size = 0
-        requested_count = 2 * period
+        requested_count = 1
         loaded_count = 0
         try:
             context = self._context_query.resolve_context(
@@ -183,7 +175,7 @@ class SectorPriceVolumeQueryService:
             )
             pool_size = len(pool)
             self._validate_trade_date(trade_date=trade_date, context=context)
-            day = self._published_day(
+            day, _ = self._published_context(
                 session, hierarchy=hierarchy, context=context, trade_date=trade_date
             )
             availability = day.availability
@@ -200,26 +192,26 @@ class SectorPriceVolumeQueryService:
                     for node in sorted(pool, key=lambda item: item.sector_code)
                 )
             else:
-                open_dates = self._query.load_open_dates(
-                    session,
-                    end_date=trade_date,
-                    count=requested_count,
+                facts = self._fact_reader.load_price_volume_rows(
+                    session, batch_id=day.batch_id, trade_date=trade_date,
+                    scope=scope, level1_code=level1_code, level2_code=level2_code,
+                    period=period, hierarchy=hierarchy,
                 )
-                loaded_count = len(open_dates)
-                if not open_dates or open_dates[-1] != trade_date:
-                    raise SectorSelectionInvalidError("tradeDate 必须是 SSE 开市日")
-                facts = self._query.load_facts(
-                    session,
-                    sector_codes=tuple(node.sector_code for node in pool),
-                    start_date=open_dates[0],
-                    end_date=open_dates[-1],
-                )
-                ranked = self._calculator.calculate_snapshot(
-                    sector_codes=tuple(node.sector_code for node in pool),
-                    open_dates=open_dates,
-                    facts=facts,
-                    period=period,
-                )
+                loaded_count = 1
+                price_count = sum(item.price_momentum_pct is not None for item in facts)
+                amount_count = sum(item.amount_activity_pct is not None for item in facts)
+                ranked = tuple(sorted(
+                    (SectorPriceVolumeRankedFact(
+                        metric=item.metric, price_rank=item.price_rank,
+                        price_rankable_count=price_count, amount_rank=item.amount_rank,
+                        amount_rankable_count=amount_count, state=item.distribution_state,
+                    ) for item in facts),
+                    key=lambda item: (
+                        item.metric.price_momentum_pct is None,
+                        -item.metric.price_momentum_pct if item.metric.price_momentum_pct is not None else Decimal(0),
+                        item.metric.sector_code,
+                    ),
+                ))
             node_by_code = {node.sector_code: node for node in pool}
             rows = [
                 self._snapshot_row_dto(item, node=node_by_code[item.metric.sector_code])
@@ -314,7 +306,7 @@ class SectorPriceVolumeQueryService:
     ) -> SectorPriceVolumeDetailsResponseDto:
         context: MarketPageContext | None = None
         pool_size = 0
-        requested_count = history_range + 2 * period - 1
+        requested_count = history_range
         loaded_count = 0
         try:
             context = self._context_query.resolve_context(
@@ -341,14 +333,14 @@ class SectorPriceVolumeQueryService:
             if selected is None:
                 raise SectorSelectionInvalidError("sectorCode 不属于当前比较范围")
             self._validate_trade_date(trade_date=trade_date, context=context)
-            day = self._published_day(
+            day, coverage = self._published_context(
                 session, hierarchy=hierarchy, context=context, trade_date=trade_date
             )
             availability = day.availability
             if day.batch_id is None:
                 metrics = (self._missing_metric(selected.sector_code, trade_date),)
             else:
-                open_dates = self._query.load_open_dates(
+                open_dates = self._fact_reader.load_open_dates(
                     session,
                     end_date=trade_date,
                     count=requested_count,
@@ -356,18 +348,16 @@ class SectorPriceVolumeQueryService:
                 loaded_count = len(open_dates)
                 if not open_dates or open_dates[-1] != trade_date:
                     raise SectorSelectionInvalidError("tradeDate 必须是 SSE 开市日")
-                facts = self._query.load_facts(
-                    session,
-                    sector_codes=(selected.sector_code,),
-                    start_date=open_dates[0],
-                    end_date=open_dates[-1],
+                batches = coverage.batch_by_date
+                facts = self._fact_reader.load_price_volume_history(
+                    session, batch_by_date={day: batches[day] for day in open_dates if day in batches},
+                    scope=scope, level1_code=level1_code, level2_code=level2_code,
+                    period=period, hierarchy=hierarchy, selected_sector_code=selected.sector_code,
                 )
-                metrics = self._calculator.calculate_history(
-                    sector_code=selected.sector_code,
-                    open_dates=open_dates,
-                    facts=facts,
-                    period=period,
-                    history_range=history_range,
+                by_date = {item.trade_date: item.metric for item in facts}
+                metrics = tuple(
+                    by_date[day] if day in by_date else self._missing_metric(selected.sector_code, day)
+                    for day in open_dates
                 )
             details = SectorPriceVolumeDetailsDto(
                 formulaKey=FORMULA_KEY,
@@ -451,14 +441,14 @@ class SectorPriceVolumeQueryService:
         if trade_date > context.trade_date:
             raise SectorSelectionInvalidError("tradeDate 超出公共业务日期范围")
 
-    def _published_day(
+    def _published_context(
         self,
         session: Session,
         *,
         hierarchy: SectorHierarchySnapshot,
         context: MarketPageContext,
         trade_date: date,
-    ) -> SectorPublishedCalendarDate:
+    ) -> tuple[SectorPublishedCalendarDate, SectorPublishedCoverage]:
         coverage = self._fact_reader.load_momentum_coverage(
             session,
             hierarchy=hierarchy,
@@ -475,7 +465,7 @@ class SectorPriceVolumeQueryService:
         )
         if day is None:
             raise SectorSelectionInvalidError("tradeDate 必须是发布覆盖内的 SSE 开市日")
-        return day
+        return day, coverage
 
     @staticmethod
     def _missing_metric(
@@ -538,10 +528,10 @@ class SectorPriceVolumeQueryService:
             parentSectorName=node.parent_sector_name,
             rootSectorCode=node.root_sector_code,
             rootSectorName=node.root_sector_name,
-            priceMomentumPct=self._calculator.as_json_percent(
+            priceMomentumPct=self._as_json_percent(
                 item.metric.price_momentum_pct
             ),
-            amountActivityPct=self._calculator.as_json_percent(
+            amountActivityPct=self._as_json_percent(
                 item.metric.amount_activity_pct
             ),
             priceRank=item.price_rank,
@@ -569,15 +559,19 @@ class SectorPriceVolumeQueryService:
     ) -> SectorPriceVolumeHistoryPointDto:
         return SectorPriceVolumeHistoryPointDto(
             tradeDate=item.trade_date,
-            priceMomentumPct=self._calculator.as_json_percent(
+            priceMomentumPct=self._as_json_percent(
                 item.price_momentum_pct
             ),
-            amountActivityPct=self._calculator.as_json_percent(
+            amountActivityPct=self._as_json_percent(
                 item.amount_activity_pct
             ),
             priceMissingReason=item.price_missing_reason,
             amountMissingReason=item.amount_missing_reason,
         )
+
+    @staticmethod
+    def _as_json_percent(value: Decimal | None) -> float | None:
+        return None if value is None else float(value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
 
     @staticmethod
     def _reason_counts(

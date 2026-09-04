@@ -2,6 +2,7 @@ from __future__ import annotations
 
 
 from datetime import date, datetime, timezone
+from dataclasses import replace
 from decimal import Decimal
 from uuid import NAMESPACE_URL, uuid5
 
@@ -37,11 +38,174 @@ from src.foundation.models.core_serving.wealth_sector_momentum_daily import (
 from src.foundation.models.core_serving.wealth_sector_dual_momentum_daily import (
     WealthSectorDualMomentumDaily,
 )
+from src.foundation.models.core_serving.wealth_sector_price_volume_daily import WealthSectorPriceVolumeDaily
 
 
 TRADE_DATE = date(2026, 8, 28)
 HIERARCHY_VERSION = "2026-08-28-v1"
 SECTOR_CODES = ("BK1001.DC", "BK1002.DC", "BK1003.DC")
+
+
+@pytest.fixture()
+def price_volume_reader_session(momentum_reader_session):
+    session, hierarchy = momentum_reader_session
+    WealthSectorPriceVolumeDaily.__table__.create(session.get_bind())
+    for source in session.scalars(select(WealthSectorMomentumDaily)):
+        for period in (1, 5, 10, 20, 30):
+            session.add(WealthSectorPriceVolumeDaily(
+                **{name: getattr(source, name) for name in (
+                    "batch_id", "trade_date", "comparison_scope", "comparison_key", "parent_sector_code",
+                    "sector_code", "sector_name", "industry_level", "hierarchy_path", "calculated_at",
+                )}, period=period, price_momentum_pct=source.return_pct,
+                amount_activity_pct=source.return_pct, price_rank=source.strength_rank,
+                amount_rank=source.strength_rank, price_rankable_count=3, amount_rankable_count=3,
+                price_missing_reason=None, amount_missing_reason=None, distribution_state="JOINT",
+                formula_key="sector-price-volume-distribution", formula_version=1,
+                calculation_status="CALCULABLE", missing_reason="NONE",
+            ))
+    session.commit()
+    return session, hierarchy
+
+
+def _read_price_volume(session, hierarchy, **overrides):
+    params = dict(batch_id=uuid5(NAMESPACE_URL, f"momentum-reader:{TRADE_DATE.isoformat()}"),
+                  trade_date=TRADE_DATE, scope="LEVEL_1", level1_code=None, level2_code=None,
+                  period=20, hierarchy=hierarchy)
+    params.update(overrides)
+    return SectorAnalysisFactReader().load_price_volume_rows(session, **params)
+
+
+@pytest.mark.parametrize("period", [1, 5, 10, 20, 30])
+def test_price_volume_reader_one_sql_exact_period_without_source_tables(price_volume_reader_session, period):
+    session, hierarchy = price_volume_reader_session
+    statements = []
+    def record(_c, _cur, sql, _p, _ctx, _many):
+        statements.append(sql)
+    event.listen(session.get_bind(), "before_cursor_execute", record)
+    try:
+        rows = _read_price_volume(session, hierarchy, period=period)
+    finally:
+        event.remove(session.get_bind(), "before_cursor_execute", record)
+    assert len(statements) == 1 and len(rows) == 3
+    assert [r.price_rank for r in rows] == [1, 2, 3]
+    assert all(r.period == period for r in rows)
+    assert "wealth_sector_price_volume_daily" in statements[0]
+    assert "dc_daily" not in statements[0]
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("sector_name", "错误名称"), ("hierarchy_path", "错误路径"), ("price_rank", 0),
+    ("formula_key", "wrong"), ("formula_version", 2), ("missing_reason", "DATE_MISSING"),
+    ("price_missing_reason", "UNKNOWN"), ("price_rank", 4), ("price_rankable_count", 2),
+    ("distribution_state", "NEUTRAL"), ("calculation_status", "UNAVAILABLE"),
+    ("price_momentum_pct", None), ("amount_rankable_count", None),
+])
+def test_price_volume_reader_rejects_malformed_published_row(price_volume_reader_session, field, value):
+    session, hierarchy = price_volume_reader_session
+    row = session.scalar(select(WealthSectorPriceVolumeDaily).where(
+        WealthSectorPriceVolumeDaily.sector_code == SECTOR_CODES[0],
+        WealthSectorPriceVolumeDaily.period == 20,
+    ))
+    setattr(row, field, value)
+    session.commit()
+    with pytest.raises(SectorDataQueryError):
+        _read_price_volume(session, hierarchy)
+
+
+@pytest.mark.parametrize("field", ["hierarchy_version", "formula_bundle_version"])
+def test_price_volume_reader_rejects_wrong_batch_identity(price_volume_reader_session, field):
+    session, hierarchy = price_volume_reader_session
+    row = session.scalar(select(WealthSectorAnalysisPublishBatch))
+    setattr(row, field, "wrong")
+    session.commit()
+    with pytest.raises(SectorDataQueryError):
+        _read_price_volume(session, hierarchy)
+
+
+@pytest.mark.parametrize("damage", ["missing", "unpublished", "wrong_period", "wrong_key"])
+def test_price_volume_reader_rejects_missing_slice_without_fallback(price_volume_reader_session, damage):
+    session, hierarchy = price_volume_reader_session
+    row = session.scalar(select(WealthSectorPriceVolumeDaily).where(WealthSectorPriceVolumeDaily.period == 20))
+    if damage == "missing":
+        session.delete(row)
+    elif damage == "unpublished":
+        session.scalar(select(WealthSectorAnalysisPublishBatch)).status = "SUPERSEDED"
+    elif damage == "wrong_period":
+        session.delete(row)
+        # Other periods remain present but must never substitute this slice.
+    else:
+        row.comparison_key = "GLOBAL:L2"
+        row.comparison_scope = "LEVEL_2"
+        row.industry_level = 2
+    session.commit()
+    with pytest.raises(SectorDataQueryError):
+        _read_price_volume(session, hierarchy)
+
+
+@pytest.mark.parametrize("missing_prefix", ["price", "amount"])
+def test_price_volume_reader_preserves_independent_missing(price_volume_reader_session, missing_prefix):
+    session, hierarchy = price_volume_reader_session
+    rows = session.scalars(select(WealthSectorPriceVolumeDaily).where(WealthSectorPriceVolumeDaily.period == 20)).all()
+    missing = rows[-1]
+    field = "price_momentum_pct" if missing_prefix == "price" else "amount_activity_pct"
+    reason = "CLOSE_MISSING" if missing_prefix == "price" else "AMOUNT_MISSING"
+    setattr(missing, field, None)
+    setattr(missing, f"{missing_prefix}_rank", None)
+    setattr(missing, f"{missing_prefix}_rankable_count", None)
+    setattr(missing, f"{missing_prefix}_missing_reason", reason)
+    missing.distribution_state = None
+    missing.calculation_status = "UNAVAILABLE"
+    missing.missing_reason = reason
+    for row in rows[:-1]:
+        setattr(row, f"{missing_prefix}_rankable_count", 2)
+    session.commit()
+    result = _read_price_volume(session, hierarchy)[-1]
+    assert getattr(result, field) is None and result.distribution_state is None
+    other = "amount_activity_pct" if missing_prefix == "price" else "price_momentum_pct"
+    assert getattr(result, other) == Decimal(1)
+
+
+@pytest.mark.parametrize(("price", "amount", "state"), [
+    ("0", "0", "NEUTRAL"), ("1", "0", "PRICE_ONLY"),
+    ("0", "1", "AMOUNT_ONLY"), ("1", "1", "JOINT"),
+])
+def test_price_volume_reader_retains_zero_values_and_published_states(price_volume_reader_session, price, amount, state):
+    session, hierarchy = price_volume_reader_session
+    row = session.scalar(select(WealthSectorPriceVolumeDaily).where(WealthSectorPriceVolumeDaily.period == 20))
+    row.price_momentum_pct, row.amount_activity_pct = Decimal(price), Decimal(amount)
+    row.distribution_state = state
+    session.commit()
+    result = _read_price_volume(session, hierarchy)[0]
+    assert (result.price_momentum_pct, result.amount_activity_pct, result.distribution_state) == (Decimal(price), Decimal(amount), state)
+
+
+def test_price_volume_history_reads_only_selected_industry_and_bounds_dates(price_volume_reader_session):
+    session, hierarchy = price_volume_reader_session
+    source = _read_price_volume(session, hierarchy)[0]
+    for row in session.scalars(select(WealthSectorPriceVolumeDaily).where(
+        WealthSectorPriceVolumeDaily.sector_code != source.sector_code,
+    )):
+        session.delete(row)
+    session.commit()
+    kwargs = dict(batch_by_date={TRADE_DATE: source.batch_id}, scope="LEVEL_1", level1_code=None,
+                  level2_code=None, period=20, hierarchy=hierarchy, selected_sector_code=source.sector_code)
+    result = SectorAnalysisFactReader().load_price_volume_history(session, **kwargs)
+    assert len(result) == 1 and result[0] == source
+    with pytest.raises(SectorDataQueryError):
+        SectorAnalysisFactReader().load_price_volume_history(session, **{**kwargs, "selected_sector_code": "OUTSIDE"})
+    with pytest.raises(SectorDataQueryError):
+        SectorAnalysisFactReader().load_price_volume_history(None, **{**kwargs, "batch_by_date": {
+            date.fromordinal(TRADE_DATE.toordinal()-i): source.batch_id for i in range(61)
+        }})
+    assert SectorAnalysisFactReader().load_price_volume_history(None, **{**kwargs, "batch_by_date": {}}) == ()
+
+
+@pytest.mark.parametrize("value", [Decimal("NaN"), Decimal("Infinity"), Decimal("-Infinity"), 1.0])
+def test_price_volume_reader_rejects_non_finite_or_non_decimal_values(price_volume_reader_session, value):
+    session, hierarchy = price_volume_reader_session
+    row = replace(_read_price_volume(session, hierarchy)[0], price_momentum_pct=value)
+    with pytest.raises(SectorDataQueryError):
+        SectorAnalysisFactReader._validate_price_volume_values(row, pool_size=3)
 
 
 @pytest.fixture()

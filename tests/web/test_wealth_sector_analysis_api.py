@@ -32,6 +32,8 @@ from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily im
 )
 from src.foundation.models.core_serving.wealth_sector_member_breadth_daily import WealthSectorMemberBreadthDaily
 from src.foundation.models.core_serving.wealth_sector_member_ma_breadth_daily import WealthSectorMemberMaBreadthDaily
+from src.foundation.models.core_serving.wealth_sector_price_volume_daily import WealthSectorPriceVolumeDaily
+from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract import SectorPriceVolumeDailyFact
 from src.biz.services.wealth.market.sector_analysis.daily_facts.fact_builder import SectorAnalysisDailyFactBuilder
 from src.biz.services.wealth.market.sector_analysis.daily_facts.source_query import SectorAnalysisDailyFactsSourceQuery
 from src.biz.services.wealth.market.sector_analysis.daily_facts.repository import SectorAnalysisDailyFactsRepository
@@ -1422,6 +1424,35 @@ def test_quote_auth_requirement_is_reused(app_client, monkeypatch) -> None:
         get_settings.cache_clear()
 
 
+def _seed_price_volume(db_session):
+    _seed_sector_analysis(db_session)
+    _publish_price_volume_fixture(db_session)
+
+
+def _publish_price_volume_fixture(db_session, *, dates=OPEN_DATES):
+    """Use the real offline builder; never calculate in the request under test."""
+    WealthSectorPriceVolumeDaily.__table__.create(db_session.get_bind(), checkfirst=True)
+    hierarchy = SectorHierarchyQuery().load(db_session)
+    pools = SectorAnalysisDailyFactsSourceQuery._comparison_pools(hierarchy)
+    facts = tuple(SectorPriceVolumeDailyFact(r.ts_code, r.trade_date, r.close, r.pct_change, r.amount)
+                  for r in db_session.scalars(select(DcDaily).where(DcDaily.category == "行业板块")))
+    builder = SectorAnalysisDailyFactBuilder()
+    for day in dates:
+        bundle = SimpleNamespace(trade_date=day, hierarchy=hierarchy, comparison_pools=pools,
+                                 open_dates=tuple(d for d in OPEN_DATES if d <= day),
+                                 price_volume_facts=tuple(f for f in facts if f.trade_date <= day))
+        rows = builder._build_price_volume(bundle)
+        for row in rows:
+            db_session.add(WealthSectorPriceVolumeDaily(
+                **asdict(row.identity), period=row.period, **row.values,
+                calculation_status=row.calculation_status, missing_reason=row.missing_reason,
+                batch_id=uuid5(NAMESPACE_URL, f"sector-analysis-test:{day.isoformat()}"),
+                formula_key="sector-price-volume-distribution", formula_version=1,
+                calculated_at=datetime(2026, 4, 30, 20, 0, tzinfo=timezone.utc),
+            ))
+    db_session.commit()
+
+
 def _price_volume_snapshot_params(**overrides):
     params = {
         "market": "CN_A",
@@ -1435,6 +1466,88 @@ def _price_volume_snapshot_params(**overrides):
     return params
 
 
+def test_price_volume_published_matrix_never_reads_raw_or_executes_formula(app_client, db_session, web_engine, monkeypatch):
+    from src.biz.services.wealth.market.sector_analysis.sector_price_volume_calculator import SectorPriceVolumeCalculator
+    _seed_price_volume(db_session)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("online price-volume calculation is forbidden")
+    monkeypatch.setattr(SectorPriceVolumeCalculator, "calculate_snapshot", forbidden)
+    monkeypatch.setattr(SectorPriceVolumeCalculator, "calculate_history", forbidden)
+    def forbid_source(_c, _cur, sql, _p, _ctx, _many):
+        assert "dc_daily" not in sql.lower()
+    event.listen(web_engine, "before_cursor_execute", forbid_source)
+    scopes = (("LEVEL_1", None, None, "GLOBAL:L1"), ("LEVEL_2", None, None, "GLOBAL:L2"),
+              ("LEVEL_3", None, None, "GLOBAL:L3"),
+              ("LEVEL_1_CHILDREN", "BK1001.DC", None, "PARENT:L1:BK1001.DC"),
+              ("LEVEL_2_CHILDREN", "BK1001.DC", "BK1101.DC", "PARENT:L2:BK1101.DC"))
+    try:
+        for scope, l1, l2, key in scopes:
+            for period in (1, 5, 10, 20, 30):
+                params = _price_volume_snapshot_params(scope=scope, period=period)
+                params.update({k:v for k,v in (("level1Code",l1),("level2Code",l2)) if v})
+                count, response = _count_request_sql(web_engine, lambda: app_client.get(
+                    "/api/v1/wealth/market/sector-analysis/price-volume/snapshot", params=params))
+                payload = response.json()
+                assert response.status_code == 200 and payload["status"] == "READY" and count == 4
+                saved = db_session.scalars(select(WealthSectorPriceVolumeDaily).where(
+                    WealthSectorPriceVolumeDaily.trade_date == TARGET_DATE,
+                    WealthSectorPriceVolumeDaily.comparison_key == key,
+                    WealthSectorPriceVolumeDaily.period == period,
+                )).all()
+                by_code = {r.sector_code:r for r in saved}
+                assert len(payload["snapshot"]["rows"]) == len(saved)
+                for row in payload["snapshot"]["rows"]:
+                    source = by_code[row["sectorCode"]]
+                    for public, field in (("priceMomentumPct","price_momentum_pct"), ("amountActivityPct","amount_activity_pct"),
+                                          ("priceRank","price_rank"), ("amountRank","amount_rank"), ("state","distribution_state")):
+                        value = getattr(source, field)
+                        assert row[public] == (float(value) if isinstance(value, Decimal) else value)
+                for history_range in (20, 30, 60):
+                    selected = payload["snapshot"]["rows"][0]["sectorCode"]
+                    count, history = _count_request_sql(web_engine, lambda: app_client.get(
+                        "/api/v1/wealth/market/sector-analysis/price-volume/details",
+                        params={**params, "sectorCode":selected, "historyRange":history_range}))
+                    assert history.status_code == 200 and history.json()["status"] == "READY" and count == 5
+                    points = history.json()["details"]["history"]
+                    assert len(points) == history_range
+                    assert points[-1]["tradeDate"] == TARGET_DATE.isoformat()
+    finally:
+        event.remove(web_engine, "before_cursor_execute", forbid_source)
+
+
+def test_price_volume_unpublished_history_gap_is_not_filled_from_raw(app_client, db_session):
+    _seed_price_volume(db_session)
+    gap = OPEN_DATES[-4]
+    _unpublish_momentum_date(db_session, trade_date=gap)
+    db_session.commit()
+    response = app_client.get("/api/v1/wealth/market/sector-analysis/price-volume/details",
+                             params=_price_volume_details_params())
+    points = response.json()["details"]["history"]
+    assert len(points) == 60
+    point = next(p for p in points if p["tradeDate"] == gap.isoformat())
+    assert point["priceMomentumPct"] is point["amountActivityPct"] is None
+    assert point["priceMissingReason"] == point["amountMissingReason"] == "DATE_MISSING"
+    assert points[-1]["priceMomentumPct"] is not None
+
+
+def test_price_volume_missing_published_history_row_is_error_not_a_date_gap(app_client, db_session):
+    _seed_price_volume(db_session)
+    missing = db_session.scalar(select(WealthSectorPriceVolumeDaily).where(
+        WealthSectorPriceVolumeDaily.trade_date == OPEN_DATES[-4],
+        WealthSectorPriceVolumeDaily.comparison_key == "GLOBAL:L3",
+        WealthSectorPriceVolumeDaily.sector_code == "BK1201.DC",
+        WealthSectorPriceVolumeDaily.period == 1,
+    ))
+    db_session.delete(missing)
+    db_session.commit()
+    response = app_client.get("/api/v1/wealth/market/sector-analysis/price-volume/details",
+                             params=_price_volume_details_params())
+    body = response.json()
+    assert body["status"] == "ERROR" and body["exceptionCode"] == "SA_QUERY_FAILED"
+    assert body["details"] is None
+    assert "core_serving" not in response.text and "SELECT" not in response.text
+
+
 def _price_volume_details_params(**overrides):
     params = {
         **_price_volume_snapshot_params(),
@@ -1445,12 +1558,12 @@ def _price_volume_details_params(**overrides):
     return params
 
 
-def test_price_volume_meta_snapshot_and_details_follow_three_five_five_sql(
+def test_price_volume_meta_snapshot_and_details_follow_three_four_five_sql(
     app_client,
     db_session,
     web_engine,
 ) -> None:
-    _seed_sector_analysis(db_session)
+    _seed_price_volume(db_session)
 
     meta_sql, meta_response = _count_request_sql(
         web_engine,
@@ -1477,7 +1590,7 @@ def test_price_volume_meta_snapshot_and_details_follow_three_five_five_sql(
     assert meta_response.status_code == 200
     assert snapshot_response.status_code == 200
     assert details_response.status_code == 200
-    assert (meta_sql, snapshot_sql, details_sql) == (3, 5, 5)
+    assert (meta_sql, snapshot_sql, details_sql) == (3, 4, 5)
 
     meta = meta_response.json()
     assert meta["formulaKey"] == "sector-price-volume-distribution"
@@ -1500,7 +1613,7 @@ def test_price_volume_meta_snapshot_and_details_follow_three_five_five_sql(
     assert snapshot["snapshot"]["coordinateCount"] == 2
     assert snapshot["snapshot"]["missingCoordinateCount"] == 0
     assert all(item["state"] == "PRICE_ONLY" for item in snapshot["snapshot"]["rows"])
-    assert snapshot["debugInfo"]["requestedOpenDateCount"] == 2
+    assert snapshot["debugInfo"]["requestedOpenDateCount"] == 1
     assert len(snapshot_response.content) < 256 * 1024
 
     details = details_response.json()
@@ -1525,6 +1638,7 @@ def test_price_volume_partial_and_missing_dates_keep_exact_requested_day(
     )
     partial.amount = None
     db_session.commit()
+    _publish_price_volume_fixture(db_session)
 
     partial_response = app_client.get(
         "/api/v1/wealth/market/sector-analysis/price-volume/snapshot",
@@ -1563,18 +1677,20 @@ def test_price_volume_partial_and_missing_dates_keep_exact_requested_day(
     )
     assert missing_response.status_code == 200
     missing_payload = missing_response.json()
-    assert missing_payload["status"] == "EMPTY"
+    # Raw source changes cannot rewrite a published price-volume result.
+    assert missing_payload == partial_payload
+    assert missing_payload["status"] == "READY"
     assert missing_payload["snapshot"]["observedTradeDate"] == TARGET_DATE.isoformat()
     assert missing_payload["snapshot"]["availability"] == "COMPLETE"
     assert missing_payload["snapshot"]["totalCount"] == 2
-    assert missing_payload["snapshot"]["coordinateCount"] == 0
+    assert missing_payload["snapshot"]["coordinateCount"] == 1
 
 
 def test_price_volume_rejects_open_day_before_published_coverage(
     app_client,
     db_session,
 ) -> None:
-    _seed_sector_analysis(db_session)
+    _seed_price_volume(db_session)
     earlier = OPEN_DATES[0] - timedelta(days=1)
     db_session.add(
         TradeCalendar(
@@ -1598,7 +1714,7 @@ def test_price_volume_published_partial_and_zero_coverage_do_not_fall_back(
     app_client,
     db_session,
 ) -> None:
-    _seed_sector_analysis(db_session)
+    _seed_price_volume(db_session)
     current = db_session.scalars(
         select(WealthSectorMomentumDaily).where(
             WealthSectorMomentumDaily.trade_date == TARGET_DATE,
@@ -1639,7 +1755,7 @@ def test_price_volume_unpublished_date_is_empty_without_raw_reads(
     db_session,
     web_engine,
 ) -> None:
-    _seed_sector_analysis(db_session)
+    _seed_price_volume(db_session)
     batch = db_session.scalar(
         select(WealthSectorAnalysisPublishBatch).where(
             WealthSectorAnalysisPublishBatch.trade_date == TARGET_DATE,
@@ -1688,7 +1804,7 @@ def test_price_volume_no_publication_is_empty_without_changing_other_reader_defa
         SectorDataQueryError,
     )
 
-    _seed_sector_analysis(db_session)
+    _seed_price_volume(db_session)
     for batch in db_session.scalars(select(WealthSectorAnalysisPublishBatch)):
         batch.status = "SUPERSEDED"
     db_session.commit()
@@ -1722,7 +1838,7 @@ def test_price_volume_metadata_does_not_reaudit_raw_price_or_amount(
     app_client,
     db_session,
 ) -> None:
-    _seed_sector_analysis(db_session)
+    _seed_price_volume(db_session)
     before = app_client.get(
         "/api/v1/wealth/market/sector-analysis/price-volume/meta"
     ).json()
@@ -1742,7 +1858,7 @@ def test_price_volume_version_mismatch_stops_after_two_sql(
     db_session,
     web_engine,
 ) -> None:
-    _seed_sector_analysis(db_session)
+    _seed_price_volume(db_session)
     sql_count, response = _count_request_sql(
         web_engine,
         lambda: app_client.get(
@@ -1759,7 +1875,7 @@ def test_price_volume_rejects_unknown_duplicate_invalid_scope_selection_and_date
     app_client,
     db_session,
 ) -> None:
-    _seed_sector_analysis(db_session)
+    _seed_price_volume(db_session)
     unknown = app_client.get(
         "/api/v1/wealth/market/sector-analysis/price-volume/meta?unknown=1"
     )

@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.68；M22、M23、动量、双动量和相对轮动切读已关闭。成员广度M24.5完整切读已提交`6f124782`，该提交的部署状态未在本轮核验。M24.6.1量价日期合同修正通过：按PUBLISHED选日、取消原始行情完整日限制，后端300项／前端214项、typecheck/build及有界Prod只读检查通过。本轮量价修改未提交部署；完整量价数值切读仍待下一步，M24／G63进行中，M25～M26未开始。
+- 状态：v1.69；M22、M23、动量、双动量和相对轮动切读已关闭。成员广度M24.5已提交6f124782，部署状态本轮未核验。量价日期修正M24.6.1已提交625ae045；M24.6.2完整数值切读开发／371项后端／214项前端／Prod只读等价与性能预检通过，未提交部署。下一步为量价切读部署验收；M24／G63仍进行中，M25～M26未开始。
 - 编写日期：2026-09-04。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -887,7 +887,7 @@ M17 文档完成后，M18 后端只允许以下增量：
 |---|---|---|
 | 新增 | `src/biz/services/wealth/market/sector_analysis/sector_price_volume_contract.py` | 公式身份、五scope、五周期、三历史范围、四状态、缺失原因、专属日事实和不可变计算结果；无Session／ORM／DTO／文案 |
 | 新增 | `src/biz/services/wealth/market/sector_analysis/sector_price_volume_calculator.py` | 组合既有价格计算器，新增成交额前缀和／缺失前缀计数、两项竞争排名、状态和历史序列；纯内存Decimal、无IO |
-| 修改 | `src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query.py` | M24.6.1删除原始完整日覆盖；仅保留最多119个SSE开市日和`dc_daily`集合读取，稳定排序、唯一性校验、无N+1 SQL |
+| 已删除（M24.6.2） | `src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query.py` | 原M18在线输入Query被共享FactReader的PUBLISHED量价当前／历史切片替代；不保留fallback |
 | 新增 | `src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query_service.py` | 编排Meta／Snapshot／Details、当前层级、scope、版本、日期、状态、计数和strict DTO；Meta唯一负责自动回退 |
 | 新增 | `src/biz/schemas/wealth/market/sector_price_volume.py` | 三只响应的strict DTO、有限数值、计数、日期、状态、排名和请求事实交叉校验 |
 | 修改 | `src/biz/api/wealth/market/sector_analysis.py` | 只追加三只GET、unknown／duplicate拒绝、quote auth、400/401/409/500安全映射；不改既有十一只route |
@@ -2120,6 +2120,8 @@ M16R2 文档评审、等价代码、自动化和 Prod 只读直接 service 预�
 
 ### 6.33 量价分布版本化合同
 
+生效范围：6.33～6.35的公式与原始日事实合同继续供离线物化使用；M24.6.2线上只读已发布数值，具体读取和编排以6.37～6.39为准，不再在请求内执行该公式。
+
 `sector_price_volume_contract.py` 固定下列代码枚举，不接受任意字符串或运行时配置：
 
 ```python
@@ -2244,97 +2246,51 @@ Snapshot／Details 的 `tradeDate` 必填且始终是精确计算日：
 
 这消除了“Meta回退一次、Snapshot再次回退”的双重日期风险。Snapshot和Details响应的`observedTradeDate`必须等于请求`tradeDate`；页面Delayed文案只来自自动模式下Meta的`defaultStatus`，不能由日期值相等与否猜测。
 
-### 6.37 Query 集合读取与边界
+### 6.37 物化集合读取与边界（M24.6.2）
 
-本节的两个原始日期覆盖方法于M24.6.1删除；当前日期入口为共享发布覆盖。`load_open_dates/load_facts`仍供尚未切读的量价数值计算使用，参数和公式不变；不能把这部分称为已经物化切读。
-
-`SectorPriceVolumeQuery`只读取`TradeCalendar/DcDaily`；行业层级仍由`SectorHierarchyQuery`读取，发布日期由`SectorAnalysisFactReader`读取。量价Query仅提供下列有界方法：
+量价在线专属原行情Query已删除。共享`SectorAnalysisFactReader`提供：
 
 ```python
-load_open_dates(*, end_date, count) -> tuple[date, ...]
-load_facts(*, sector_codes, start_date, end_date) -> tuple[SectorPriceVolumeDailyFact, ...]
+load_price_volume_rows(batch_id, trade_date, scope, parents, period, hierarchy)
+load_price_volume_history(batch_by_date, scope, parents, period, hierarchy, selected_sector_code)
+load_open_dates(end_date, count)  # 展示窗口1..60
 ```
 
-硬约束：
-
-1. `load_open_dates()` 只接受 `1..119`；120直接拒绝。不得修改既有95日上限。
-2. Snapshot读取 `2N` 个开市日，最大60；Details读取 `H+2N-1`，最大119。
-3. `load_facts()` 只选择六个冻结字段，条件下推行业代码池、日期范围和`category='行业板块'`，按 `trade_date, ts_code` 稳定排序。
-4. 查询不得过滤掉空值或非法业务值；计算器需要据此返回精确原因。只有category、日期和代码池属于SQL过滤条件。
-5. 返回后校验 `(sectorCode, tradeDate)` 唯一；重复键立即进入安全查询错误，不采用最后一行覆盖。
-6. 缺失组合由计算器对 `scopePool × openDates` 显式识别，不补零、不前向填充、不生成来源副本。
+1. 仅查询`wealth_sector_price_volume_daily`与PUBLISHED批次精确联结；SQL下推日期／batch、scope／comparison_key、period，历史额外下推选中行业。当前完整池最多337行，历史最多60行；不加载全池历史，不读取原行情。
+2. 值、独立原因、名次和四态直接来自存储；验证批次／层级／公式／对象身份与字段形状，不重算公式或排名，不执行来源完整性审计。已发布缺行或错误身份返回安全ERROR，不能把它伪装成普通日期空槽。
+3. 存储缺指标行的分母为NULL；Snapshot从完整切片统计该指标非空行数，并核对非空行保存的分母，再映射为所有接口行的统一count。不能以总体UNAVAILABLE清除独立可用项。
+4. 未发布历史日期保留两个null与`DATE_MISSING`，不前填、不补零、不借其他批次。已发布行保留其各自的实际缺失原因。
+5. 保留离线writer使用的纯计算器／原始日事实合同。原119日在线预热查询已被替代，不得恢复旧Query、线上计算器或fallback。
 
 ### 6.38 QueryService 编排和SQL预算
 
-三个入口统一调用`SectorAnalysisFactReader.load_momentum_coverage(hierarchy, coverage_end_date=context.trade_date, allow_empty=True)`。Meta选最近已发布日；Snapshot/Details精确查找请求日期，范围外或非开市日拒绝，查不到batch则返回Empty（至多3 SQL），不得继续读源表。正常已发布请求仍为3/5/5 SQL。`allow_empty`是内部调用参数，不是产品或运营配置；其他已切方法的默认严格行为不变。
-
-三只服务的顺序冻结为：
+三个入口统一使用公共页面日期、当前层级和`load_momentum_coverage(..., allow_empty=True)`。Meta选最近已发布日；Snapshot/Details精确选择日期而不再次回退。层级版本、scope、父级、选择对象错误在第3条SQL前失败。
 
 ```text
 Meta (3 SQL)
   1. MarketPageContextQuery.resolve_context()
-  2. SectorHierarchyQuery.load_current()
+  2. SectorHierarchyQuery.load()
   3. load_momentum_coverage(hierarchy, context.trade_date, allow_empty=True)
-  -- select latest PUBLISHED, regardless of COMPLETE/PARTIAL/MISSING counts
 
-Snapshot (5 SQL)
-  1. MarketPageContextQuery.resolve_context()
-  2. SectorHierarchyQuery.load_current()
-  -- immediately validate hierarchyVersion + scope + parents
-  3. load_momentum_coverage(hierarchy, context.trade_date, allow_empty=True)
-  -- select exact tradeDate; missing batch => EMPTY, skip steps 4/5
-  4. load_open_dates(end=tradeDate, count=2N)
-  5. load_facts(scopePool, firstOpenDate, tradeDate)
+Snapshot (4 SQL)
+  1～3. 同上，精确选择请求日期的batch
+  4. load_price_volume_rows(batch_id, trade_date, scope, parents, period, hierarchy)
 
 Details (5 SQL)
-  1. MarketPageContextQuery.resolve_context()
-  2. SectorHierarchyQuery.load_current()
-  -- immediately validate hierarchyVersion + scope + parents + sector membership
-  3. load_momentum_coverage(hierarchy, context.trade_date, allow_empty=True)
-  -- select exact tradeDate; missing batch => EMPTY, skip steps 4/5
-  4. load_open_dates(end=tradeDate, count=H+2N-1)
-  5. load_facts([sectorCode], firstOpenDate, tradeDate)
+  1～3. 同上，同时保留日期→batch映射
+  4. load_open_dates(end_date=tradeDate, count=H)
+  5. load_price_volume_history(窗口内已发布日期→batch, selected_sector_code, scope, parents, period)
 ```
 
-层级版本、scope或选择不合法必须在第3条SQL前失败，因此量价行情读取为0。Snapshot／Details不会把第3条SQL用于回退，只用于精确日期状态、覆盖边界和安全debug计数。SQL数量不得随行业、周期、历史点或缺口数增长。
+当前请求日未发布时Snapshot／Details保持原Empty语义，停止于3 SQL；其他方法默认严格的无发布处理不变。debug中的requestedOpenDateCount／loadedOpenDateCount改为实际展示请求／取得的日历槽数：Snapshot1／已发布1或未发布0，Details H／实际日历槽数；不再把原始预热窗口当成读取事实量。
 
-### 6.39 Snapshot 与 Details 伪代码
+### 6.39 Snapshot 与 Details 组装
 
-下列伪代码对应M24.6.1完成后的日期链路；正常已发布日仍沿用既有量价计算，完整数值切读尚待下一步。不能恢复已经删除的原始日期完整性谓词。
+Snapshot：完整物化切片逐行映射身份、两项值、原因、名次、统一组内分母和四态；服务器顺序仍为价格非空降序、空值最后、代码稳定。完整坐标数决定原READY／EMPTY状态，缺失行业不能删除。
 
-```python
-def build_snapshot(request):
-    context = page_context.resolve_context(request.market)
-    hierarchy = hierarchy_query.load_current(request.market)
-    assert_hierarchy_version(request.hierarchy_version, hierarchy)
-    pool = resolve_scope_pool(hierarchy, request.scope, request.parents)
-    day = service._published_day(hierarchy, context, request.trade_date)
-    if day.batch_id is None:
-        return empty_snapshot_with_all_pool_rows(day.availability, pool)
-    dates = query.load_open_dates(request.trade_date, 2 * request.period)
-    facts = query.load_facts(pool.codes, dates[0], dates[-1])
-    rows = calculator.calculate_snapshot(pool, dates, facts, request.period)
-    return snapshot_dto(day.availability, pool, rows)
+Details：取得截至请求日的最近H个SSE开市日，再读取同一scope、period、所选行业在这些日期的PUBLISHED事实。按日历升序组装；未发布日保留空槽，已发布缺行报错。只要历史任一独立指标有值，保留原READY；两项均无值才EMPTY。不为选中行业重新计算横截面名次或两项公式。
 
-def build_details(request):
-    context = page_context.resolve_context(request.market)
-    hierarchy = hierarchy_query.load_current(request.market)
-    assert_hierarchy_version(request.hierarchy_version, hierarchy)
-    pool = resolve_scope_pool(hierarchy, request.scope, request.parents)
-    selected = assert_sector_in_pool(request.sector_code, pool)
-    day = service._published_day(hierarchy, context, request.trade_date)
-    if day.batch_id is None:
-        return empty_details_with_requested_date_slot(day.availability, selected)
-    count = request.history_range + 2 * request.period - 1
-    dates = query.load_open_dates(request.trade_date, count)
-    facts = query.load_facts((selected.code,), dates[0], dates[-1])
-    history = calculator.calculate_history(
-        selected, dates, facts, request.period, request.history_range
-    )
-    return details_dto(day.availability, selected, history)
-```
-
-若覆盖起点导致开市日不足，Query返回实际已有日期，Calculator为受影响目标点输出`HISTORY_INSUFFICIENT`；不得把较短历史扩成伪119日，也不得因一个行业缺失让整个Snapshot失败。
+已有日历不足H时只返回已有槽；早于首批发布但存在日历的槽保持DATE_MISSING。已发布的HISTORY_INSUFFICIENT等原因直接展示，不将其改写为DATE_MISSING。公开JSON仍按4位HALF_UP呈现，字段、日期、缺失、排序、前端交互不变。
 
 ### 6.40 时间前沿与不变量
 
@@ -2348,7 +2304,7 @@ def build_details(request):
 
 ### 6.41 配置、迁移和依赖审计
 
-本能力不新增可配置项。公式身份、五个周期、三个历史范围、四状态、默认值、最大119日、5秒客户端等待和SQL／payload／P95门禁均是冻结代码合同，不进入环境变量、Settings、数据库配置、JSON文件或运营配置中心。后端唯一来源是contract模块，前端允许值只能来自Meta并由本地strict联合类型约束；不得散落第二套可执行默认值。
+本能力不新增可配置项。公式身份、五个周期、三个历史范围、四状态、默认值、最大60日物化展示窗口、5秒客户端等待和SQL／payload／P95门禁均是冻结代码合同，不进入环境变量、Settings、数据库配置、JSON文件或运营配置中心。后端唯一来源是contract模块，前端允许值只能来自Meta并由本地strict联合类型约束；不得散落第二套可执行默认值。
 
 M18开始前重新执行`alembic heads`只用于确认没有意外分叉；本能力不新增迁移、ORM model、索引、表、视图或数据库权限。依赖清单不变，不引入NumPy、Pandas或图表库。若实现需要任何新配置、迁移或依赖，立即触发第17节停止条件。
 
@@ -5955,7 +5911,7 @@ Prod只读范围与逐字段对账：
 
 #### M24.6.1 已批准的旧日期合同修正
 
-状态：`PASS（代码、自动化与有界Prod只读验证）`。本轮仅修正日期准入及前后端消费者，不把Snapshot/Details的数值读取切换混入本轮；尚未提交部署。
+状态：`PASS（代码、自动化与有界Prod只读验证）`，已提交`625ae045`；该小节保留当时日期纠偏的历史证据，数值切读见后续M24.6.2，不能将本节当成当前在线数值路径。
 
 审计证据：原模块函数`_valid_price_volume_predicate`与两个覆盖读取方法要求原始收盘价、涨跌幅、成交额齐全；`build_meta`寻找COMPLETE日，schema和adapter再次拒绝非COMPLETE默认日。该链路与12E.9“只按PUBLISHED决定自动回退”冲突，用户已批准沿用已发布结果口径。日期元数据沿用其他已切方法的1日动量覆盖，不能把它解释成量价坐标覆盖。
 
@@ -5983,6 +5939,38 @@ Prod只读范围与逐字段对账：
 本轮共15个文件：5个后端（reader、量价query/service、contract、schema），3个后端／架构测试，5个量价前端合同／测试文件及两份原方案。测试日志为`/private/tmp/goldenshare-pv-date-backend-tests.log`、`/private/tmp/goldenshare-pv-date-frontend-tests.log`，构建日志为`/private/tmp/goldenshare-pv-date-build.log`；生产只打印上述摘要，未导出来源行。没有启动本地服务。既有Starlette弃用提示及bundle体积警告保留，不扩展修改依赖或构建策略。
 
 停止点：本轮合同修正通过后停止，不提交、不部署、不启动常驻服务。旧枚举不再接受，实际部署时前后端必须同批更新，不能混用旧前端与新后端。M24.6完整量价数值切读、M24／G63整体和M25～M26仍未完成；后续切读必须核对实际值、状态、排名、独立缺失与精度，不得从本轮日期修正推定等价性已通过。
+
+#### M24.6.2 量价数值完整切读（2026-09-04）
+
+状态：`PASS（开发、自动化、Prod只读预验收）`，未提交部署；前置M24.6.1已提交`625ae045`。只替换量价Snapshot／Details数值来源，不改前端、接口字段、公式、表、配置、发布任务或上游质量治理，不进入M25。
+
+切读前有界对账：沿用应用Prod连接，事务首句为`REPEATABLE READ, READ ONLY`、单SQL15秒超时，结束rollback。读取当前层级496行业、162比较池、119交易日（2026-03-11～08-31）行业行情58,434行；物化只读08-28／08-31全部比较池×五周期，以及五类范围各一只行业最近60日×五周期，共11,060行。用既有计算器进行11,110次比较（当前／历史有重叠），价格、成交、两套名次／分母、四态、独立原因及总体状态差异0；包含价格缺失130次、成交缺失405次、单项独立可用275次。耗时13.32秒。只读白名单为日历、层级、发布批次、动量1日覆盖、量价物化表与限日期／代码／行业分类的`dc_daily`；未保存来源副本，临时脚本`/private/tmp/audit_m24_6_price_volume.py`不进入运行路径。
+
+编码与删除顺序：
+
+1. 在`SectorAnalysisFactReader`新增量价不可变投影及当前榜单／选中行业历史读取。唯一事实为`wealth_sector_price_volume_daily`，按日期、PUBLISHED batch、scope／comparison_key、period下推；历史额外下推单个行业，最多60个日期／batch对，不能读全范围历史交叉积。
+2. 读取验证仅限发布身份、层级／公式、精确对象集合、有限值、值与原因互斥、名次／分母范围及状态空值合同。已发布但缺行／身份错误走原ERROR；未发布日期保留空槽。不得查原行情、重新计算收益／成交／名次／状态或寻找“完整日”。
+3. 存储的缺指标行其`rankable_count=NULL`，公开接口要求每行携带同一指标的组内可排名总数。当前榜单从该次完整物化切片统计非空指标数量，并核对非空行保存的分母一致，再把该数量映射给所有行；这不是重新计算指标／排名，不修改表。价格／成交的值、原因、名次各自映射，不能用总体UNAVAILABLE清空仍可用的另一项。排列仍按价格降序、空值最后、代码稳定；JSON沿用4位HALF_UP。
+4. QueryService去掉在线Query／Calculator注入。Snapshot在原3条公共日期／层级／覆盖SQL之后只读1条物化榜单；Details保留覆盖结果的日期→batch映射，再查最多H个交易日及该行业已发布历史，缺发布日生成`DATE_MISSING`空槽，不前填、不补零。Meta／Snapshot／Details上限为3／4／5 SQL；未发布当前日仍仅3 SQL。H=20/30/60，不再读H+2N-1的原始预热窗口。
+5. `debugInfo.requestedOpenDateCount/loadedOpenDateCount`记录实际请求／读到的展示交易日数：Snapshot为1／已发布则1，否则0；Details为H／实际日历槽数。不再把原始计算预热天数冒充物化读取量。公开业务值、日期、原因和状态合同不变。
+6. 全量消费者搜索后删除仅在线使用的`sector_price_volume_query.py`。保留离线物化writer使用的`SectorPriceVolumeDailyFact`、纯计算器及其公式测试，不修改writer。架构反例禁止在线恢复该Query或计算器调用；不保留fallback或双读开关。
+7. 正反例覆盖五范围×五周期、三历史窗口、独立缺失／零值／四态／并列排名、当前未发布／历史空槽、缺行／错误批次／公式／层级／scope／对象、日期身份、401／409、SQL上限、337行与256KB、零原行情读取和零在线公式调用；相邻四方法及离线物化回归必须通过。生产只读预验收另记录最大请求SQL、完整数量／序列化体积及有限重复耗时，不当作已部署HTTP验收。
+
+允许修改：共享fact reader、量价query service及被替代query、对应reader/service/API／架构测试及两份原方案。无迁移、上游写入、源完整性扫描、新前端能力或本地常驻服务。完成后停止，保留部署验收边界，不自动提交。
+
+实施与预验收证据：
+
+| 项目 | 结果 |
+|---|---|
+| 代码与删除 | FactReader新增不可变量价投影、当前切片及单行业历史；QueryService完全去掉在线Query／Calculator接线并保持独立缺失／统一分母／排序；删除80行旧原行情Query，离线writer与公式未改 |
+| 自动化 | 13个后端／架构测试文件371项通过，含实际API的五范围×五周期×三历史窗口、401／409、3/4/5 SQL、零原行情／零公式、已发布缺行ERROR与未发布空槽；板块分析前端21文件214项通过，无前端代码变更 |
+| Prod日期与数据 | 公共日期2026-09-03、最近PUBLISHED为2026-08-31，DELAYED；251个日期槽。三级30日Snapshot完整337行／337坐标，158,554 bytes；选中BK1616.DC的60日Details覆盖2026-06-08～08-31，9,314 bytes，无缩窗或截断 |
+| 冷请求 | Meta／Snapshot／Details分别200.13／173.94／257.36ms，业务SQL为3／4／5 |
+| 固定预热后各20次 | 含组装与JSON序列化的直接服务P95分别259.71／296.98／292.89ms；最慢286.60／571.08／297.84ms。分别低于原1秒／2秒／1秒门槛；不是已部署认证HTTP验收 |
+| 安全范围 | 使用既有连接、每请求首句只读可重复读事务、单SQL15秒超时、最终rollback；本轮切读性能测试只查询四张公共日历／层级／发布／动量表及量价物化表。SQL监听同时拒绝原行情读取；无数据导出、生产写入或本地服务启动 |
+| 影响面 | CodeGraph status/explore/impact与源码引用审计覆盖三只量价API、schema／前端adapter、共享reader消费者、离线writer及测试；子系统依赖方向不变，不修改依赖矩阵或其他方法 |
+
+只读计时脚本为`/private/tmp/verify_m24_6_serving.py`，仅输出聚合计时／数量，不保存来源行。当前保留既有Starlette弃用提示，不扩展修改依赖。下一步仅提交／由用户部署后的量价切读验收；不整体关闭M24／G63，不自动进入M25。
 
 ### M25：每日洞察后端与前端
 
@@ -6118,7 +6106,7 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G49 量价代码影响面 | 专属contract/query/service/schema/feature；既有十一endpoint、四方法和首页零变化 | PASS (M17 CodeGraph/LLD) |
 | G50 量价异常与架构门禁 | 既有409码；计算输入仍三表，日期共享PUBLISHED覆盖；无成员／股票／因子／资金／Heat／QTF／DG/Lake／迁移／配置 | PASS (M17＋M24.6.1 architecture test) |
 | G51 量价性能预检 | 最大60日Snapshot、119日Details、3/5/5 SQL、payload和分段预算可行 | PASS (M17 Prod只读)：Meta／Snapshot／Details P95 `249.546/1,521.863/193.725ms`，通过现行`1,000/2,000/1,000ms`门禁 |
-| G52 量价后端 | 三只strict API、价格复用、成交前缀计算、PUBLISHED日期、四状态、119日和正反例 | PASS (M18 code/tests＋M24.6.1日期合同回归)；数值切读等价验收仍归G63 |
+| G52 量价后端 | 三只strict API、PUBLISHED日期／量价切片、四状态、独立原因、完整列表与60日槽；公式仅离线执行 | PASS (M24.6.2 code/tests／等价／性能预检)；部署验收仍归G63 |
 | G53 量价前端 | 第五route、十项URL、controller、strict adapter、完整列表、散点、双趋势和13态 | PASS (M19 code/tests)：76个测试文件／537项、typecheck与production build通过 |
 | G54 量价日期职责 | Meta唯一自动回退；Snapshot／Details精确日期不回退；显式PARTIAL/MISSING透明 | PASS (M18 backend + M19 frontend) |
 | G55 量价交付 | 真实事实、3/5/5 SQL、payload、Meta／Snapshot／Details分别1秒／2秒／1秒P95、13态、四档宽度和用户验收 | PASS (M20)：337行／337点／0缺失、60历史点、`3/5/5` SQL、P95 `223.72/661.94/45.38ms`、四档模块零溢出及用户验收通过 |
@@ -6130,7 +6118,7 @@ M17没有创建量价业务文件，新增的三个量价测试文件尚不存�
 | G61 Ops自动主链 | GENERAL、20:05/600/00:30、来源齐备、通用plan/readiness；Heat/news/QTF/分钟零回归 | PARTIAL PASS (M22 code)：action、readiness、executor、GENERAL装配和冻结回归通过；远程scheduler/systemd实机仍OPEN (M26) |
 | G62 历史回补 | 2025-08-22起升序PLAN/APPLY/read-back/previous链；HDD物理落盘和日期完整性受控 | PASS (M23 approved scope)：10548冻结248日；10567持久化前213日后失败；10585/10587只恢复35日尾段并完成35/35。最终248/248唯一PUBLISHED、0缺口、0重复、计数／物理行数／previous链差异均为0，九表约3,774MB且全部位于HDD。全窗口幂等重放及其后新增门禁按用户明确豁免，不追溯补做 |
 | G62A M23R 长PLAN与取消一致性 | 逐日短事务、BUILDING检查点、真实进度、分阶段取消、非冻结不可APPLY；TaskRun与节点同事务取消 | PASS (local+remote)：261项正反例、提交685b42a3部署、10518逐日检查点／FROZEN终态及历史节点收口通过；继续使用既有GENERAL且无新增Worker/Lane |
-| G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | IN PROGRESS：动量、双动量、相对轮动PASS/CLOSED；M24.5成员广度开发／自动化／只读预检PASS，已提交6f124782；M24.6.1量价日期合同PASS，完整量价数值切读OPEN，不能整体关闭 |
+| G63 五方法等价切读 | 全scope/周期/缺失逐字段相等，成员明细保留，无双读/fallback，旧聚合安全删除 | IN PROGRESS：动量、双动量、相对轮动PASS/CLOSED；成员广度已提交6f124782；量价M24.6.1已提交625ae045，M24.6.2数值开发／等价／自动化／性能预检PASS，未提交部署；不能整体关闭 |
 | G64 Daily API | 两只strict API、Meta唯一回退、Snapshot batch guard、2/3 SQL、401/409/500 | OPEN (M25/M26) |
 | G65 Daily前端 | 第六route、三参数URL、controller、四完整滚动列表、五态、跳转和按需挂载 | OPEN (M25) |
 | G66 Daily交付 | HDD真实拓扑、自动任务、payload/P95、8张Figma、四档及用户验收 | OPEN (M26) |
@@ -6329,12 +6317,13 @@ M16R2 已完成等价投影：第三条 SQL 只返回日期／覆盖／目标日
 
 每日洞察与五方法每日事实的 M22、M23 已完成：九张非分区 `core_serving` 表及全部实际存储对象位于 HDD，受控单日和 `2025-08-22～2026-08-31` 历史窗口均由正式主链发布并通过物理 read-back。M23 在10567中断后保留已提交213日，再由10585/10587按实际35日尾段恢复；最终248个开市日全部唯一PUBLISHED，计数、物理行数和previous链差异为0。M24R 已完成紧凑History读取、完整切片审计、公开合同回归和部署验收：最大三级30日周期／60日场景的两轮认证HTTPS P95为 `358.4/370.9ms`，60＋60槽、排名与缺失分母和Prod一致。用户批准本次HTTPS等效验收且700ms门槛不变，M24R及动量切读子阶段关闭。M24.3双动量也已独立验收并关闭，M24／G63仍需完成其余三方法；每日洞察API与前端仍属于M25，自动化与最终交付验收仍属于M26。
 
-M24.3双动量、M24.4相对轮动均已关闭，不重复已确认验收。M24.5成员广度完整切读已提交6f124782。量价M24.6.1日期合同修正及本地300后端／214前端回归、有界生产只读验证通过，本轮修改未提交部署；下一步是量价数值完整切读，不能把日期修正当作等价切读验收。M24／G63不整体关闭，不修改默认路由，不进入M25～M26，不重用历史TaskRun。
+M24.3双动量、M24.4相对轮动均已关闭，不重复已确认验收。M24.5成员广度完整切读已提交6f124782。量价M24.6.1日期修正已提交625ae045，M24.6.2数值完整切读及371后端／214前端、typecheck、Prod等价和直接服务性能预检通过，本轮未提交部署。下一步是量价切读部署验收；M24／G63不整体关闭，不修改默认路由，不进入M25～M26，不重用历史TaskRun。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.69 | 2026-09-04 | 完成M24.6.2量价数值切读；共享reader精确PUBLISHED投影、独立缺失／分母映射、单行业60日槽，删除旧原行情Query及在线公式接线。11,110次Prod对账零差异，371后端／214前端／typecheck通过，3/4/5 SQL及直接服务P95 259.71/296.98/292.89ms通过预检；未提交部署，不整体关闭M24/G63 |
 | v1.68 | 2026-09-04 | 完成M24.6.1已批准日期合同修正；删除原始完整日入口、共享PUBLISHED覆盖、前后端统一INDUSTRY_DAILY；已发布PARTIAL／零可计算不回退，显式未发布Empty且零源读取。300后端／214前端、typecheck/build及一次3 SQL Prod只读通过；数值完整切读未执行，未提交部署 |
 | v1.67 | 2026-09-04 | 完成M24.5完整切读及旧在线聚合删除；明确typed reader、逐日batch、目标成员MA投影、舍入后真实名次、零金额和日期消费者。368后端／209前端、typecheck/build通过；Prod三级337行、625成员／60槽及3/4/4 SQL，最大详情直接服务P95 1,081.11ms通过预检；未提交部署，不进入量价分布 |
 | v1.66 | 2026-09-03 | 用户拍板舍入精度处理：只调整校验，三项合计容差0.00015个百分点、覆盖率容差0.00005个百分点；不恢复比例、不修改数据。替代上一版待确认建议，冻结最小文件／测试范围，完整成员广度切读仍待实施 |

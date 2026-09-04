@@ -54,6 +54,7 @@ APPROVED_SERVING_FACT_MODEL_MODULES = {
     "src.foundation.models.core_serving.wealth_sector_relative_rotation_daily",
     "src.foundation.models.core_serving.wealth_sector_member_breadth_daily",
     "src.foundation.models.core_serving.wealth_sector_member_ma_breadth_daily",
+    "src.foundation.models.core_serving.wealth_sector_price_volume_daily",
 }
 APPROVED_SHARED_QUERY_MODULES = {
     "src.biz.queries.wealth.market.common.sector_hierarchy_query",
@@ -132,8 +133,6 @@ MEMBER_BREADTH_BACKEND_PATHS = (
     REPO_ROOT / "src/biz/schemas/wealth/market/sector_member_breadth.py",
 )
 PRICE_VOLUME_BACKEND_PATHS = (
-    REPO_ROOT
-    / "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query.py",
     REPO_ROOT
     / "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query_service.py",
     REPO_ROOT
@@ -630,8 +629,8 @@ def test_member_breadth_details_uses_one_projection_path_without_degradation() -
     )
 
 
-def test_price_volume_backend_preserves_raw_formula_boundary_and_published_dates() -> None:
-    """M24.6.1 changes date admission only; raw calculation inputs stay bounded."""
+def test_price_volume_backend_uses_published_facts_without_online_calculation() -> None:
+    """M24.6.2 removes online raw queries; the offline formula is retained."""
 
     violations: list[str] = []
     for path in PRICE_VOLUME_BACKEND_PATHS:
@@ -664,10 +663,11 @@ def test_price_volume_backend_preserves_raw_formula_boundary_and_published_dates
         "不得增加配置、缓存、写入或外部子系统依赖：\n" + "\n".join(violations)
     )
 
-    query = (
+    query_path = (
         REPO_ROOT
         / "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query.py"
-    ).read_text()
+    )
+    assert not query_path.exists()
     service = (
         REPO_ROOT
         / "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query_service.py"
@@ -676,8 +676,14 @@ def test_price_volume_backend_preserves_raw_formula_boundary_and_published_dates
         "_valid_price_volume_predicate",
         "load_trade_date_coverage",
         "load_exact_trade_date_status",
+        "SectorPriceVolumeQuery",
+        "SectorPriceVolumeCalculator",
+        "load_facts",
+        "calculate_snapshot",
+        "calculate_history",
     ):
-        assert removed not in query + service
+        # The service class itself retains its public name.
+        assert removed not in service.replace("SectorPriceVolumeQueryService", "")
     assert "load_momentum_coverage" in service
     assert "coverage.published_dates" in service
     assert 'availability == "COMPLETE"' not in service
