@@ -225,7 +225,7 @@ silver_etf_mins_30m
 silver_etf_mins_60m
 ```
 
-分钟线使用专属动态分区 `cn_a_etf_mins_trade_days`，不复用股票或指数分钟分区。
+分钟线使用 ETF 行情专属动态分区 `cn_a_etf_mins_trade_days`，不复用股票或指数分钟分区。该集合在分钟方案落地时只供分钟资产使用；[ETF 日线与复权因子接入](./dagster-etf-daily-data-onboarding-plan-v1.md)后，同一集合也作为 ETF 行情家族的共享交易日集合，以保证日线日期与分钟日期物理一致。保留现有名称，不迁移正式 Dagster 动态分区状态。
 
 ---
 

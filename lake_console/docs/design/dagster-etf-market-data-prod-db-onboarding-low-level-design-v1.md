@@ -332,7 +332,7 @@ ETF_MINS_SOURCE_COLUMNS = (
 | `ETF_MINS_BOOTSTRAP_BATCH_TRADE_DAY_LIMIT=20`、`ETF_MINS_BOOTSTRAP_MAX_TARGET_FILES=10_000`、`ETF_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER=1.25` | `run_contracts/etf_mins.py` 代码常量 | plan/query budget/raw-apply/空间门禁 | 单频单批最多 20 日、单 plan 最多 10,000 个 Raw 目标，空间按 1.25 倍安全系数 | plan 报告显示批次/查询/文件/空间；任一超限拒绝 |
 | `ETF_BASIC_DIAGNOSTIC_SAMPLE_LIMIT=20`、`ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT=20` | 各自 run contracts 代码常量 | checks、coverage、报告和 reason samples | 只限制诊断样本，不截断事实计数或 N3 明细合同 | 测试证明计数完整、样本有界 |
 | `ETF_MINS_HISTORICAL_PROTECTION_CUTOFF=2026-01-01` | `run_contracts/etf_mins.py` 代码常量 | P11 plan/apply/protection audit | CLI 只能确认等于该值，不能改成更晚日期 | 边界正反测试；Raw/Silver 写前写后保护清单零变化 |
-| `cn_a_etf_mins_trade_days` | 现有 Dagster instance 的专属动态分区集合 | 分钟 assets/jobs/sensors/events | 仅 partitions 入口或 trade-day sensor 新增；不代表数据 ready | UI 可见；测试证明不复用股票/指数分区、不越界注册 |
+| `cn_a_etf_mins_trade_days` | 现有 Dagster instance 的 ETF 行情专属动态分区集合；历史名称保留 | ETF 分钟 assets/jobs/sensors/events；后续 [ETF 日线与复权因子](./dagster-etf-daily-data-onboarding-plan-v1.md)复用同一日期集合 | 仅 partitions 入口或 trade-day sensor 新增；不代表任一数据资产 ready | UI 可见；测试证明不复用股票/指数分区、不越界注册；ETF 日线接入另按其方案验证日期集合一致 |
 
 任何实现若增加表外 config、默认值或消费者，必须先更新本表并完成全量消费者和生效方式审计；不得把常量散落到 Sensor、CLI、页面和文档各写一份。
 
@@ -1311,7 +1311,7 @@ build_asset_definition_metadata(
 | `silver_etf_basic_update_job` | 从已验收的指定 Basic Raw 版本生成沪深场内 Silver 快照；前置 Raw/reference 不一致时停止，修复后可重跑并等价复用。 |
 | `raw_etf_mins_update_job` | 为一个交易日批量导出五个原生频率 ETF 分钟 Raw，并执行三项 Raw blocking checks；冲突不覆盖，可按原分区重跑。 |
 | `silver_etf_mins_update_job` | 先重跑目标日五频 Raw blocking checks，通过后生成五个 Silver 分区；Raw writer 不在 selection 中，失败时不执行 Silver。 |
-| `etf_mins_trade_day_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 从 SSE 交易日历补注册 ETF 分钟专属动态分区；窗口外零资源访问，不请求行情、不写 Lake，默认停止。 |
+| `etf_mins_trade_day_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 从 SSE 交易日历补注册 ETF 行情共享动态分区；历史 sensor 名称保留；窗口外零资源访问，不请求行情、不写 Lake，默认停止。 |
 | `raw_etf_basic_update_job_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 检查当天 Basic Raw 是否缺失或过期，满足条件时触发 Basic Raw 更新；窗口外零资源访问，已有失败版本时不自动覆盖，默认停止。 |
 | `silver_etf_basic_update_job_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 且当天 Basic Raw 及其 checks 已通过后触发对应 Silver 版本；窗口外零资源访问，失败版本要求人工处理，不回退旧 Raw，默认停止。 |
 | `raw_etf_mins_update_job_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 检查最早 Raw readiness 缺口、最新 Basic 和一次 Prod 五频覆盖，满足后触发五频 Raw；窗口外零资源访问，任一 Raw check 失败时停在该日，默认停止。 |
