@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：R0～R8 的首次交付已于 2026-09-02 完成并关闭，原物理数据、事件和本地 Wealth 验收记录保留；2026-09-04 新增第 17 节 R9 修正需求，自动提交协议代码、本地验证与正式加载已完成；受控 repair 曾在历史首日前置 state 边界失败，未提升正式文件。R9.8 边界修正现已完成代码、本地测试与正式目录只读规划，尚未重新加载或补跑，9 月 3 日恢复仍未完成；远程环境继续按合同不挂载本地 Lake 能力
+状态：R0～R8 的首次交付已于 2026-09-02 完成并关闭，原物理数据、事件和本地 Wealth 验收记录保留；2026-09-04 第 17 节 R9 恢复已关闭。R9.8 边界修正已提交并加载；R9.9 历史 repair 成功且双 completion ready 后，原 sensor 于 19:10 自动完成 9 月 3 日日更。19:41 两个文件、三条普通检查与物理 readiness 验收通过，见 R9.10；远程环境继续按合同不挂载本地 Lake 能力
 
 首次交付日期：2026-09-02；本次修正方案更新：2026-09-04
 
@@ -1872,7 +1872,7 @@ WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED=true
 
 ### R9：趋势 Repair 自动提交协议修正与 2026-09-03 恢复
 
-状态：2026-09-04 已完成代码修正与本地验证，193 项定向测试通过；随后经管理员批准完成正式加载并尝试受控 repair。repair 在首个候选校验处失败，未提升正式文件，R9.5 第 5～7 步未执行，R9 尚未关闭。以下保留修正前证据和完整执行合同，代码结果见 R9.6，执行结果与新增阻断见 R9.7。
+状态：2026-09-04 恢复已关闭。协议修正、首日边界修正与正式加载已完成；R9.9 同批次历史 repair 成功后，原 sensor 自动完成 9 月 3 日日更，R9.10 最终验收通过。以下保留修正前证据及首次补跑失败记录；首次失败见 R9.7，不代表当前数据仍有缺口。
 
 #### R9.1 证据与根因
 
@@ -2064,6 +2064,57 @@ preflight 同步纠偏：本次盘点遗漏了首日的 previous-state 边界输
 
 本轮没有提交代码、重载 code location、启停 sensor、提交 run、写 Lake/DB/event。后续仍须按 R9.5 先加载修正，再在批准范围内恢复同一 exact batch；不能以本节验收代替 9 月 3 日数据完成验收。
 
+#### R9.9 边界修正后的正式历史修复验收（2026-09-04）
+
+管理员在边界修正提交 `ba464143` 后确认“本地已经加载”，并批准先执行历史修复。本轮复用已加载的 code location，没有再次 reload、启停 sensor 或重置 cursor；没有修改生产代码。
+
+| 项目 | 实际执行与验收 |
+| --- | --- |
+| 写前复核 | 18:53 新鲜 preflight：原 QFQ SUCCESS run、exact batch、15 代码/hash、3,081 日期及文件指纹均与 R9.4/R9.7 一致；所有相关 job 无活动 run；分区缺口 0；三类文件存在，首日 previous state 为 `None`，其它精确对齐上一交易日 |
+| 空间与加载 | 所需空间 3,430,459,554 字节，可用 2,510,492,639,232 字节；正式与 staging 同卷。location 为 LOADED，version `442a7294-0f5e-4362-93fc-10f84e21f30b`，使用管理员本次已加载版本 |
+| 提交与身份 | 经 `DagsterGraphQLClient.submit_job_execution` 提交既有 repair job；run `de048557-a0b0-4c90-ae50-93a317bc7055`。原 run key、完整 config、代码 hash 和 upstream batch 不变；只允许重试已核实的旧 FAILURE `23330a85-c222-4857-a625-fa8bb1c6b21d`，无并发或已有 completion 时才提交 |
+| 运行结果 | 18:54:20～19:02:20，SUCCESS，**480.166 秒**；writer 计时 477.228 秒，临时 spill 0。首日边界错误未复现 |
+| 正式写入 | `2014-01-02～2026-09-02`，结果与 state 各 **3,081** 个文件，共 **6,162**；结果合计 **11,721,790** 行，state 合计 **11,992,049** 行。行数是重写的完整分区行数，公式修复范围仍只有 15 个代码，不代表全市场公式重算 |
+| 文件读回 | 结果文件总量 722,151,021 字节，state 总量 456,213,520 字节；两类各 3,081 文件均完成替换。QFQ 输入 **3,081 文件、825,344,586 字节**，大小/mtime 与写前全部一致 |
+| Completion | 仅正常写入原有两条 passed/blocking completion，分区均为 `2026-09-03`，event id `7318771/7318772`；producer 均为本次 run；batch、15-code hash、范围、日期数、公式版本和行数一致。正式 completion helper 返回 `ready=true` |
+| 独立只读抽查 | `2014-01-02`、`2020-04-28`、`2026-09-02` 的 result/state/coverage 均 passed。writer 自身已完成全候选审计及全部正式文件写后复核，抽查不是替代全范围验收 |
+| 下游与开关 | 19:02 post-audit 时三个趋势 sensor 仍 RUNNING，相关 active run 为 0。9 月 3 日日更尚无 run，当天两个文件仍不存在；本轮没有手工触发 daily |
+
+本轮不重跑 QFQ、分钟线或其它数据集；不访问 prod/ClickHouse，不改动态分区、不补历史 materialization/check、不删除旧失败 run。写入只有已批准的趋势历史目标文件、run-scoped staging、正常运行记录及两个原有 completion。没有额外备份、快照或 Kopia 操作。
+
+执行证据：
+
+- [新鲜 preflight](/private/tmp/trend_channel_r9_preflight_20260904_185305.json)
+- [正式提交与重试身份](/private/tmp/trend_channel_r9_boundary_repair_submission_20260904.json)
+- [运行阶段与终态](/private/tmp/trend_channel_r9_watch_de048557-a0b0-4c90-ae50-93a317bc7055.json)
+- [独立 post-audit](/private/tmp/trend_channel_r9_boundary_repair_post_audit_20260904.json)
+
+**当时的下一步边界：**历史修复已验收，R9.5 第 5 步完成；当时须继续观察原日更 sensor 是否自然推进 `2026-09-03`，或在独立批准后人工提交，不能以历史修复成功代替当天文件验收。后续日更与验收现已完成，见 R9.10。
+
+#### R9.10 9 月 3 日日更自动完成与最终验收（2026-09-04）
+
+管理员要求“继续补”。本轮先复用日更 sensor 的既有只读门禁 helper，检查指定日期的 QFQ、stock basic、lifecycle、精确上一交易日 state 和 QFQ/趋势 repair 批次一致性；未调用整个 sensor evaluator，不改变 cursor，也不选择 9 月 4 日。19:40 复核发现 9 月 3 日日更已自然完成，因此停止人工提交分支，转为只读验收。
+
+| 项目 | 正式验收结果 |
+| --- | --- |
+| 日更身份 | `gold_stock_daily_trend_channel_update_job[2026-09-03]`；run `713a34b2-bb14-4820-9471-0e350fe97a7e` |
+| 自动触发证据 | run tags：`dagster/sensor_name=gold_stock_daily_trend_channel_update_job_sensor`、`dagster/tick=1413899`；run key 仍为 `gold_stock_daily_trend_channel_update:2026-09-03:stock-daily-trend-channel-v1` |
+| 运行结果 | 19:10:51.836～19:10:58.043，SUCCESS，**6.207 秒**；晚于历史 repair 的 19:02:20 终态 |
+| result 正式文件 | 当日 `part-000.parquet`，**5,549 行/代码、272,568 bytes**，文件内日期仅为 `2026-09-03` |
+| state 正式文件 | 当日 `part-000.parquet`，**5,555 行/代码、209,791 bytes**；5,549 个当日观测 + 6 个生命周期内停牌 carry，未初始化数 0 |
+| materialization | result `7318839`、state `7318837`，均属于上述日更 run 与当日分区 |
+| 三条普通检查 | result contract `7318855`、input coverage `7318866`、state contract `7318856`；均 passed/blocking，并分别绑定本次最新 materialization id 和 run id |
+| 单日文件 readiness | `ready=true`，result/state/coverage 失败规则均为空；两条聚合 SQL **54 ms**，helper 的 `scanned_file_count=3`，另依既有合同读取 lifecycle 与前日 state；没有全历史扫描 |
+| repair 完成依据 | 双 completion `7318771/7318772` 仍匹配原 15-code batch、hash、3,081 日期与公式版本；未补造或重写 completion |
+| 并发与范围 | 相关 active run 为 0；三个趋势 sensor 仍 RUNNING；只读验收前后所核对输入大小/mtime 不变；本轮没有提交 run、启停 sensor、写 Lake/DB/event、注册分区或重跑上游 |
+
+报告：
+
+- [日更写前只读复核](/private/tmp/trend_channel_r9_daily_preflight_20260904.json)：`should_stop=true` 表示已有 SUCCESS run、文件和 materialization，**阻止重复人工提交**，不是数据验收失败。
+- [日更最终只读验收](/private/tmp/trend_channel_r9_daily_final_audit_20260904.json)：`passed=true`，包含 run、最新 materialization/check 绑定、物理行数、readiness、修复依据及输入未变证据。
+
+R9.5 第 6～7 步已完成，R9 恢复关闭。原失败 run 继续作为历史证据保留，本轮不删除历史状态；不扩展到 9 月 4 日或其它数据集，也不新增生产代码修改。
+
 ### 必须停止并请求拍板的情况
 
 M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空间四项前置阻断。后续开发仍在以下情况停止：
@@ -2084,7 +2135,7 @@ M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空�
 停牌不造指标行 + 已初始化 state carry-forward
 ```
 
-M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 首次正式 bootstrap、runless event、Sensor 启用和本地 Wealth 验收已完成。第 17 节 R9 的返回协议修正、真实外层测试与正式加载现已完成；受控 repair 暴露 R9.7 的首日 previous-state 规划缺陷，已停止运行且未提升正式文件。R9.8 边界修正现已完成代码、本地验证及正式目录只读规划；下一步是单独加载修正并恢复同一 exact batch，最后生成 9 月 3 日数据，不能将本地验证通过表述为数据已恢复。
+M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 首次正式 bootstrap、runless event、Sensor 启用和本地 Wealth 验收已完成。R9 返回协议、首日边界修正及加载均已完成；同一 exact batch 历史修复通过后，原日更 sensor 自动补齐 9 月 3 日 result/state。R9.10 已确认两个文件、三条普通检查、双 completion 和物理 readiness 全部通过，R9 恢复关闭，本专项没有待执行的补跑动作。不将该结论扩展为 9 月 4 日或其它数据集已齐备。
 
 ---
 
