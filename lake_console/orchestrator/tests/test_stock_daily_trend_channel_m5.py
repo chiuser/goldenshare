@@ -30,9 +30,7 @@ from orchestrator.defs.jobs.gold_stock_daily_trend_channel_repair import (
 from orchestrator.defs.paths import (
     gold_stock_daily_qfq_path,
     gold_stock_daily_trend_channel_path,
-    gold_stock_daily_trend_channel_staging_path,
     gold_stock_daily_trend_channel_state_path,
-    gold_stock_daily_trend_channel_state_staging_path,
     silver_stock_lifecycle_path,
     silver_trade_calendar_path,
 )
@@ -57,6 +55,7 @@ from orchestrator.defs.stock_daily_trend_channel import (
 )
 from tests.test_stock_daily_trend_channel_m3 import (
     _rows,
+    _write_calendar,
     _write_day,
     _write_qfq,
 )
@@ -124,29 +123,12 @@ def _repair_partitions(
     staging_root: Path,
     run_id: str,
 ) -> tuple[StockDailyTrendChannelRepairPartition, ...]:
-    return tuple(
-        StockDailyTrendChannelRepairPartition(
-            trade_date=trade_date,
-            qfq_source_path=gold_stock_daily_qfq_path(root, trade_date),
-            previous_state_target_path=(
-                gold_stock_daily_trend_channel_state_path(root, DATES[index - 1])
-                if index > 0
-                else None
-            ),
-            result_target_path=gold_stock_daily_trend_channel_path(root, trade_date),
-            state_target_path=gold_stock_daily_trend_channel_state_path(
-                root, trade_date
-            ),
-            result_candidate_path=gold_stock_daily_trend_channel_staging_path(
-                staging_root, run_id, trade_date
-            ),
-            state_candidate_path=(
-                gold_stock_daily_trend_channel_state_staging_path(
-                    staging_root, run_id, trade_date
-                )
-            ),
-        )
-        for index, trade_date in enumerate(DATES)
+    return repair_op_module._repair_partitions(
+        lake_root=root,
+        staging_root=staging_root,
+        run_id=run_id,
+        target_dates=DATES,
+        expected_trade_dates=("2026-08-26", *DATES),
     )
 
 
@@ -171,6 +153,199 @@ def _execute_repair(
         ),
         replace_file=replace_file,
     )
+
+
+@pytest.fixture
+def planner_lake(tmp_path: Path) -> Path:
+    root = tmp_path / "lake"
+    # Planner tests need only file identities, never business rows.
+    for path_builder in (
+        gold_stock_daily_qfq_path,
+        gold_stock_daily_trend_channel_path,
+        gold_stock_daily_trend_channel_state_path,
+    ):
+        for trade_date in DATES:
+            path = path_builder(root, trade_date)
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"metadata-only fixture")
+    return root
+
+
+@pytest.mark.parametrize("target_dates", (DATES, DATES[1:], DATES[2:]))
+def test_repair_planner_uses_dataset_start_not_calendar_or_repair_start(
+    planner_lake: Path, tmp_path: Path, target_dates: tuple[str, ...]
+) -> None:
+    partitions = repair_op_module._repair_partitions(
+        lake_root=planner_lake,
+        staging_root=tmp_path / "staging",
+        run_id="planner",
+        target_dates=target_dates,
+        expected_trade_dates=("2026-08-26", *DATES),
+    )
+    assert tuple(item.trade_date for item in partitions) == target_dates
+    for partition in partitions:
+        index = DATES.index(partition.trade_date)
+        assert partition.previous_state_target_path == (
+            gold_stock_daily_trend_channel_state_path(planner_lake, DATES[index - 1])
+            if index > 0
+            else None
+        )
+    assert not (tmp_path / "staging").exists()
+
+
+def test_repair_planner_never_skips_missing_previous_state(
+    planner_lake: Path, tmp_path: Path
+) -> None:
+    missing_path = gold_stock_daily_trend_channel_state_path(planner_lake, DATES[1])
+    missing_path.unlink()
+    assert gold_stock_daily_trend_channel_state_path(planner_lake, DATES[0]).is_file()
+    with pytest.raises(FileNotFoundError, match="previous state is missing") as error:
+        repair_op_module._repair_partitions(
+            lake_root=planner_lake,
+            staging_root=tmp_path / "staging",
+            run_id="missing-previous",
+            target_dates=DATES[2:],
+            expected_trade_dates=("2026-08-26", *DATES),
+        )
+    assert str(missing_path) in str(error.value)
+    assert not (tmp_path / "staging").exists()
+
+
+@pytest.mark.parametrize(
+    "path_builder",
+    (
+        gold_stock_daily_qfq_path,
+        gold_stock_daily_trend_channel_path,
+        gold_stock_daily_trend_channel_state_path,
+    ),
+)
+@pytest.mark.parametrize("remove_directory", (False, True))
+def test_repair_planner_rejects_missing_or_mismatched_history_start(
+    planner_lake: Path, tmp_path: Path, path_builder, remove_directory: bool
+) -> None:
+    first_path = path_builder(planner_lake, DATES[0])
+    first_path.unlink()
+    if remove_directory:
+        first_path.parent.rmdir()
+    error_type = dg.Failure if remove_directory else FileNotFoundError
+    message = "starts do not match" if remove_directory else "history first file"
+    with pytest.raises(error_type, match=message):
+        repair_op_module._repair_partitions(
+            lake_root=planner_lake,
+            staging_root=tmp_path / "staging",
+            run_id="missing-first",
+            target_dates=DATES[1:],
+            expected_trade_dates=("2026-08-26", *DATES),
+        )
+    assert not (tmp_path / "staging").exists()
+
+
+@pytest.mark.parametrize(
+    "path_builder",
+    (
+        gold_stock_daily_qfq_path,
+        gold_stock_daily_trend_channel_path,
+        gold_stock_daily_trend_channel_state_path,
+    ),
+)
+def test_repair_planner_checks_all_selected_input_files_before_candidates(
+    planner_lake: Path, tmp_path: Path, path_builder
+) -> None:
+    missing_path = path_builder(planner_lake, DATES[1])
+    missing_path.unlink()
+    with pytest.raises(FileNotFoundError, match="input file is missing") as error:
+        _repair_partitions(
+            root=planner_lake, staging_root=tmp_path / "staging", run_id="missing-input"
+        )
+    assert str(missing_path) in str(error.value)
+    assert not (tmp_path / "staging").exists()
+
+
+@pytest.mark.parametrize("directory_date", ("2026-08-99", "20260826"))
+def test_repair_planner_rejects_invalid_history_partition(
+    planner_lake: Path, tmp_path: Path, directory_date: str
+) -> None:
+    root = gold_stock_daily_qfq_path(planner_lake, DATES[0]).parent.parent
+    (root / f"trade_date={directory_date}").mkdir()
+    with pytest.raises(dg.Failure, match="partition"):
+        _repair_partitions(
+            root=planner_lake, staging_root=tmp_path / "staging", run_id="invalid-date"
+        )
+
+
+@pytest.mark.parametrize(
+    "target_dates,calendar",
+    (
+        (("2026-08-26",), ("2026-08-26", *DATES)),
+        (("2026-08-29",), DATES),
+        (DATES[1:], DATES[1:]),
+    ),
+)
+def test_repair_planner_rejects_dates_outside_verified_history_calendar(
+    planner_lake: Path, tmp_path: Path, target_dates, calendar
+) -> None:
+    with pytest.raises(dg.Failure, match="verified history start"):
+        repair_op_module._repair_partitions(
+            lake_root=planner_lake,
+            staging_root=tmp_path / "staging",
+            run_id="invalid-calendar",
+            target_dates=target_dates,
+            expected_trade_dates=calendar,
+        )
+
+
+def test_repair_planner_empty_scope_has_no_history_lookup(tmp_path: Path, monkeypatch):
+    resolver = Mock(side_effect=AssertionError("Unexpected history lookup"))
+    monkeypatch.setattr(repair_op_module, "_trend_history_start_trade_date", resolver)
+    assert (
+        repair_op_module._repair_partitions(
+            lake_root=tmp_path / "absent-lake",
+            staging_root=tmp_path / "staging",
+            run_id="empty",
+            target_dates=(),
+            expected_trade_dates=DATES,
+        )
+        == ()
+    )
+    resolver.assert_not_called()
+
+
+def test_repair_planner_requires_physical_history(tmp_path: Path) -> None:
+    with pytest.raises(dg.Failure, match="repair history is missing"):
+        _repair_partitions(
+            root=tmp_path / "absent-lake",
+            staging_root=tmp_path / "staging",
+            run_id="absent",
+        )
+
+
+def test_repair_planner_resolves_once_with_three_shallow_scans_and_no_row_read(
+    planner_lake: Path, tmp_path: Path, monkeypatch
+) -> None:
+    resolver = Mock(wraps=repair_op_module._trend_history_start_trade_date)
+    monkeypatch.setattr(repair_op_module, "_trend_history_start_trade_date", resolver)
+    glob = Path.glob
+    scans = []
+
+    def recorded_glob(path, pattern):
+        scans.append((path, pattern))
+        return glob(path, pattern)
+
+    monkeypatch.setattr(Path, "glob", recorded_glob)
+    monkeypatch.setattr(Path, "open", Mock(side_effect=AssertionError("File read")))
+    partitions = _repair_partitions(
+        root=planner_lake, staging_root=tmp_path / "staging", run_id="metadata-only"
+    )
+    assert len(partitions) == 3
+    resolver.assert_called_once()
+    assert scans == [
+        (path_builder(planner_lake, DATES[0]).parent.parent, "trade_date=*")
+        for path_builder in (
+            gold_stock_daily_qfq_path,
+            gold_stock_daily_trend_channel_path,
+            gold_stock_daily_trend_channel_state_path,
+        )
+    ]
 
 
 def test_scoped_repair_matches_clean_full_recompute_and_preserves_unaffected(
@@ -811,7 +986,10 @@ def test_typed_repair_config_rejects_non_exact_code_order() -> None:
         )
 
 
-def test_repair_op_failure_does_not_emit_completion_checks(monkeypatch) -> None:
+@pytest.mark.parametrize("missing_input", (False, True))
+def test_repair_op_failure_does_not_emit_completion_checks(
+    planner_lake: Path, tmp_path: Path, monkeypatch, missing_input: bool
+) -> None:
     emitted_events: list[object] = []
     context = SimpleNamespace(
         instance=object(),
@@ -819,12 +997,15 @@ def test_repair_op_failure_does_not_emit_completion_checks(monkeypatch) -> None:
         resources=SimpleNamespace(
             lake_root=SimpleNamespace(
                 ensure_available_for_run=lambda: None,
-                root=lambda: Path("/private/tmp/unused-lake-root"),
+                root=lambda: planner_lake,
             ),
             duckdb=SimpleNamespace(connect=lambda: nullcontext(object())),
         ),
         log_event=emitted_events.append,
         log=SimpleNamespace(info=lambda *args, **kwargs: None),
+    )
+    monkeypatch.setattr(
+        repair_op_module, "DEFAULT_LAKE_STAGING_ROOT", tmp_path / "staging"
     )
     monkeypatch.setattr(
         repair_op_module,
@@ -834,18 +1015,19 @@ def test_repair_op_failure_does_not_emit_completion_checks(monkeypatch) -> None:
     monkeypatch.setattr(
         repair_op_module,
         "_load_expected_trade_dates",
-        lambda **kwargs: DATES,
+        lambda **kwargs: ("2026-08-26", *DATES),
     )
     monkeypatch.setattr(
         repair_op_module,
         "_trend_repair_trade_dates",
         lambda **kwargs: (DATES[1], DATES[:2]),
     )
+    writer = Mock(side_effect=OSError("forced repair failure"))
     monkeypatch.setattr(
-        repair_op_module,
-        "write_stock_daily_trend_channel_factor_repair",
-        lambda **kwargs: (_ for _ in ()).throw(OSError("forced repair failure")),
+        repair_op_module, "write_stock_daily_trend_channel_factor_repair", writer
     )
+    if missing_input:
+        gold_stock_daily_trend_channel_state_path(planner_lake, DATES[1]).unlink()
     config = GoldStockDailyTrendChannelRepairConfig(
         qfq_factor_repair_trade_date=DATES[2],
         repair_start_trade_date=DATES[0],
@@ -855,13 +1037,79 @@ def test_repair_op_failure_does_not_emit_completion_checks(monkeypatch) -> None:
         source_upstream_batch_id="qfq-batch",
     )
 
-    with pytest.raises(OSError, match="forced repair failure"):
+    message = "input file is missing" if missing_input else "forced repair failure"
+    with pytest.raises(OSError, match=message):
         repair_op_module.gold_stock_daily_trend_channel_repair_op.compute_fn.decorated_fn(
             context,
             config,
         )
 
     assert emitted_events == []
+    assert not (tmp_path / "staging").exists()
+    assert writer.call_count == (0 if missing_input else 1)
+
+
+def test_repair_op_uses_real_calendar_planner_and_writer_at_history_start(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = tmp_path / "lake"
+    staging = tmp_path / "staging"
+    emitted_events: list[object] = []
+    code_hash = gold_stock_daily_qfq_factor_repair_codes_hash((AFFECTED_CODE,))
+    config = GoldStockDailyTrendChannelRepairConfig(
+        qfq_factor_repair_trade_date=DATES[2],
+        repair_start_trade_date=DATES[0],
+        repair_end_trade_date=DATES[1],
+        stock_codes=[AFFECTED_CODE],
+        repair_required_codes_hash=code_hash,
+        source_upstream_batch_id="qfq-batch",
+    )
+    monkeypatch.setattr(repair_op_module, "DEFAULT_LAKE_STAGING_ROOT", staging)
+    monkeypatch.setattr(
+        repair_op_module,
+        "gold_stock_daily_qfq_factor_repair_status",
+        lambda *args, **kwargs: replace(
+            _status(),
+            repair_required_codes=(AFFECTED_CODE,),
+            repair_required_codes_hash=code_hash,
+        ),
+    )
+    with duckdb.connect() as connection:
+        _write_history(
+            connection=connection, root=root, staging_root=staging, repaired=False
+        )
+        _replace_qfq_with_repaired_history(connection, root)
+        _write_calendar(connection, root, ["2026-08-26", *DATES])
+        context = SimpleNamespace(
+            instance=object(),
+            run_id="real-planner-op",
+            resources=SimpleNamespace(
+                lake_root=SimpleNamespace(
+                    ensure_available_for_run=lambda: None, root=lambda: root
+                ),
+                duckdb=SimpleNamespace(connect=lambda: nullcontext(connection)),
+            ),
+            log_event=emitted_events.append,
+            log=SimpleNamespace(info=lambda *args, **kwargs: None),
+        )
+        repair_op_module.gold_stock_daily_trend_channel_repair_op.compute_fn.decorated_fn(
+            context, config
+        )
+    assert len(emitted_events) == 2
+    assert {(event.asset_key, event.check_name) for event in emitted_events} == {
+        (RESULT_ASSET_KEY, RESULT_REPAIR_COMPLETION_CHECK_NAME),
+        (STATE_ASSET_KEY, STATE_REPAIR_COMPLETION_CHECK_NAME),
+    }
+    assert all(
+        event.passed and event.blocking and event.partition == DATES[2]
+        for event in emitted_events
+    )
+    for event in emitted_events:
+        assert event.metadata["goldenshare/selected_partition_count"].value == 2
+        assert (
+            event.metadata["goldenshare/repair_required_codes_hash"].value == code_hash
+        )
+    assert not gold_stock_daily_trend_channel_state_path(root, "2026-08-26").exists()
 
 
 def test_daily_gate_requires_exact_trend_completion(

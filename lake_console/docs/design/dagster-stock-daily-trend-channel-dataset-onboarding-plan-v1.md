@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M8 的首次交付已于 2026-09-02 完成并关闭；当次历史 result/state 覆盖 `2014-01-02～2026-09-01`，物理审计、runless event、Sensor 启用和本地 Wealth 验收结论作为历史记录保留。2026-09-04 新增的 M9 自动提交协议修正已完成代码与本地验证，部署加载验证和 9 月 3 日数据恢复仍待执行；远程环境按合同不挂载本地 Lake 能力
+状态：M0～M8 的首次交付已于 2026-09-02 完成并关闭；当次历史 result/state 覆盖 `2014-01-02～2026-09-01`，物理审计、runless event、Sensor 启用和本地 Wealth 验收结论作为历史记录保留。2026-09-04 新增的 M9 自动提交协议修正已完成代码、本地验证和正式加载；受控补跑曾在历史首日前置 state 边界失败，未替换正式文件。M9.5 边界修正现已完成代码、本地测试和正式目录只读规划，未重新加载或补跑，9 月 3 日恢复尚未完成；远程环境按合同不挂载本地 Lake 能力
 
 首次交付日期：2026-09-02；本次修正方案更新：2026-09-04
 
@@ -599,7 +599,7 @@ gold_stock_daily_trend_channel_repair:
 
 `source_upstream_batch_id` 是 qfq repair 提供的 opaque exact batch，不能用日期或代码 hash 替代。同一 exact batch 与公式版本重复 tick 必须得到同一 key；同一日期、同一代码 hash 但上游 producer run 不同，必须得到不同 key。正式 run key 实现为一行稳定字符串，不加入文件数、时间戳或随机值。
 
-**2026-09-04 修正口径，M9 代码与本地验证已完成，待部署验证：**该 sensor 是 `run_status_sensor`，其“已读到哪一条上游事件”的 cursor 由 Dagster 管理，业务代码不得覆盖。保留现有 `SensorResult` 返回类型，但所有分支均不传 `cursor`；提交时返回一个既有 `RunRequest`，跳过时通过 `skip_reason` 说明原因和下一步，提交分支用简短 sensor 日志说明目标日期、代码数和上游批次。不修改普通日更 sensor 的统一 cursor。
+**2026-09-04 修正口径，M9 代码、本地验证和正式加载已完成，数据恢复见 M9.4：**该 sensor 是 `run_status_sensor`，其“已读到哪一条上游事件”的 cursor 由 Dagster 管理，业务代码不得覆盖。保留现有 `SensorResult` 返回类型，但所有分支均不传 `cursor`；提交时返回一个既有 `RunRequest`，跳过时通过 `skip_reason` 说明原因和下一步，提交分支用简短 sensor 日志说明目标日期、代码数和上游批次。不修改普通日更 sensor 的统一 cursor。
 
 发生提交前异常不等于上游成功事件会被再次处理。本次已漏掉的 repair 必须经批准使用既有 repair job 精确补跑；禁止通过重置 cursor、重跑成功的 qfq repair 或补造 completion 来绕过断链。真实 Dagster 外层执行与恢复验收见 M9 和 LLD R9。
 
@@ -1228,7 +1228,7 @@ formula_version_mismatch
 
 ### M9：运行状态 Sensor 协议修正与 9 月 3 日恢复
 
-状态：2026-09-04 已完成协议代码修正及本地验证，193 项定向测试通过。未执行正式 definitions 加载验证、未提交正式 run、未写正式 Lake/数据库；M9 的部署与数据恢复部分仍未完成。
+状态：2026-09-04 已完成协议代码修正及本地验证，193 项定向测试通过。随后经管理员批准完成正式代码加载并提交 repair；本次 repair 在首个候选校验处失败，未提升正式文件，后续日更未提交。M9 尚未关闭，新增阻断见 M9.4。
 
 #### M9.1 故障事实
 
@@ -1247,7 +1247,7 @@ formula_version_mismatch
 #### M9.2 实施与恢复顺序
 
 1. **先修代码和测试（已完成）**：移除趋势 repair run-status sensor 的自定义 cursor 写入及无用依赖，保持原决策、run key、job/config、500 代码上限和两个 completion checks；补真实外层测试和静态防回退门禁。
-2. **再验证部署**：通过本地测试后，在单独批准的加载验证中确认正式 code location 已加载修正版本。空 tick 不算有变化 repair 分支验证通过，不重置事件 cursor。
+2. **再验证部署（已完成正式加载）**：通过本地测试后，在单独批准的加载验证中确认正式 code location 已加载修正版本。空 tick 不算有变化 repair 分支验证通过，不重置事件 cursor。
 3. **单独批准趋势历史 repair**：从上述日线 qfq 成功批次 metadata 生成既有 repair config；仅重算其 15 个代码，范围 `2014-01-02～2026-09-02`。按日历和现有 op 合同预计 3,081 个日期、6,162 个 result/state 完整候选文件，13 个最多 250 日的计算段；不是重算全市场公式，也不是只改 15 个小文件。执行前冻结文件大小、空间与冲突 run，参数变化先停止复核。
 4. **再补 9 月 3 日日更**：两个趋势 repair completion checks 在触发日 `2026-09-03` 同时通过，且批次、范围、代码 hash、公式版本均匹配后，才允许既有日更 job 生成当天 result/state；自然触发和人工提交二选一，先查活动 run，避免重复。
 5. **最终审计**：验收历史修复范围、两个 completion checks、9 月 3 日两个文件及三个普通 blocking checks。不补全历史 check/materialization，不重跑已成功的日线 qfq 或分钟线链路，不改 prod、动态分区、公式、schema、路径和 Wealth。
@@ -1261,6 +1261,25 @@ formula_version_mismatch
 - R9 指定的六个测试文件共 **193 项通过、0 失败、0 跳过**，耗时 **11.530 秒**。测试使用临时 instance 和日历，不读取正式数据。报告：[R9 本地回归结果](/private/tmp/trend_channel_r9_tests_20260904.xml)。
 - 成功事件路径仍为一次日历读取、一次上游状态读取、一次双 completion helper 调用；已消费事件不重复读取，500 个代码不进入日志正文。Ruff 与文档检查结果统一记入 LLD R9.6。
 - 本地测试通过不等于漏掉的上游事件会自动重放。下一步仅按 M9.2 验证部署，再单独批准 exact batch 历史 repair，随后生成 9 月 3 日 result/state。
+
+#### M9.4 正式补跑结果与新增阻断（2026-09-04）
+
+1. 管理员批准补跑后，已复核 exact batch、15 个代码、3,081 个历史日期、注册分区、文件和无活动 run；正式 code location 重新加载成功，三个趋势 sensor 保持 RUNNING，未重置 cursor。
+2. 已提交既有 repair job：`23330a85-c222-4857-a625-fa8bb1c6b21d`，11:15:15～11:15:18 失败，耗时 2.536 秒。范围和 config 来自已验证的上游 metadata，未扩大或截断。
+3. 失败不是旧 cursor 问题。生产 repair planner 把完整交易日历中的 `2013-12-31` 当作 `2014-01-02` 的必需前置 state，但 qfq/result/state 的物理历史均从 `2014-01-02` 开始。不能把“前一交易日存在”当作“该数据集此前已有历史”。
+4. 首日两份候选各 2,159 行，结果与 state 检查通过；coverage 仅报前置文件缺失。失败发生在整体 promote 之前，9,243 个正式输入/目标文件大小和修改时间均与 preflight 一致；没有新增 completion/materialization。保留两份 run-scoped staging 候选作证据，未提交 9 月 3 日日更。
+5. 后续须先修正 **数据集历史首日与非首日的 state 依赖边界**，并补“日历早于数据历史”的真实 planner/writer 用例。非首日缺 state 仍必须失败，不能统一忽略缺文件。管理员随后已批准“先修正边界”，精确合同见 LLD R9.8；不伪造 2013 年文件、不临时改日历、不盲目重跑。
+
+报告及代码根因见 LLD R9.7。首轮 preflight 只核对了选中日期的三类文件，漏掉 repair 首日的前置边界文件；后续必须将 planner 解析出的全部必需输入一并对账。
+
+#### M9.5 首日边界修正（代码与本地验收完成，待加载和正式补跑）
+
+- 在 repair planner 一次性核对正式 QFQ、趋势 result/state 的共同历史起点。只枚举日期目录、核对文件存在，不扫描行情；不从完整日历或 affected-code 的 repair 起点推断数据集起点。
+- 真正历史首日允许初始化；中途 repair 继续要求精确上一交易日的 state。三者起点不一致、必需输入缺失时，在生成候选前停止，不搜索更早的 state 代替。
+- 只改 repair op 的分区规划、M5 测试及两份原文档；保持 writer、coverage、公式、scope、run key、sensor 与 completion 身份不变。已有 writer 回归改经生产 planner，补首日正向和中途缺状态反向用例。
+- 没有新增状态、数据文件、SQL 或 sensor 热路径扫描。完整代码点、测试和静态性能测算见 LLD R9.8。该阶段不重载正式 definitions、不补跑数据、不修改正式 Lake/DB 或 sensor 状态。
+
+验收：先用生产 planner 在旧代码上复现缺前置 state 的失败，修正后 M5 50 项通过；扩展回归 **242 项通过，另 5 个 subtests 通过**。正式目录只读规划确认 3,081 日期的真实首日不再依赖 `2013-12-31`，其余日期仍取精确上一交易日；元数据规划约 **0.477 秒**，9,243 个正式文件大小/mtime 无变化，没有生成候选或运行 writer。报告、Ruff 和文档校验见 LLD R9.8。本轮未提交代码；下一步仍是独立加载与正式恢复，不是数据已补齐。
 
 ---
 

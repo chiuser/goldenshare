@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import dagster as dg
@@ -124,6 +125,47 @@ def _validated_qfq_repair_status(
     return status
 
 
+def _trend_history_start_trade_date(
+    *, lake_root: Path, reference_trade_date: str
+) -> str:
+    starts: dict[str, str] = {}
+    for path_builder in (
+        gold_stock_daily_qfq_path,
+        gold_stock_daily_trend_channel_path,
+        gold_stock_daily_trend_channel_state_path,
+    ):
+        root = path_builder(lake_root, reference_trade_date).parent.parent
+        first_date: str | None = None
+        # Include empty date directories so a missing first file cannot shift the floor.
+        for directory in root.glob("trade_date=*"):
+            if not directory.is_dir():
+                continue
+            trade_date = directory.name.removeprefix("trade_date=")
+            try:
+                canonical_date = date.fromisoformat(trade_date).isoformat()
+            except ValueError as exc:
+                raise dg.Failure(
+                    f"Invalid trend-channel history partition directory: {directory}."
+                ) from exc
+            if trade_date != canonical_date:
+                raise dg.Failure(
+                    f"Non-canonical trend-channel history partition: {directory}."
+                )
+            if first_date is None or trade_date < first_date:
+                first_date = trade_date
+        if first_date is None:
+            raise dg.Failure(f"Trend-channel repair history is missing: {root}.")
+        first_path = path_builder(lake_root, first_date)
+        if not first_path.is_file():
+            raise FileNotFoundError(
+                f"Trend-channel repair history first file is missing: {first_path}."
+            )
+        starts[root.name] = first_date
+    if len(set(starts.values())) != 1:
+        raise dg.Failure(f"Trend-channel repair history starts do not match: {starts}.")
+    return next(iter(starts.values()))
+
+
 def _repair_partitions(
     *,
     lake_root: Path,
@@ -132,10 +174,23 @@ def _repair_partitions(
     target_dates: tuple[str, ...],
     expected_trade_dates: tuple[str, ...],
 ) -> tuple[StockDailyTrendChannelRepairPartition, ...]:
+    if not target_dates:
+        return ()
+    history_start = _trend_history_start_trade_date(
+        lake_root=lake_root, reference_trade_date=target_dates[0]
+    )
     expected_indexes = {
         trade_date: index for index, trade_date in enumerate(expected_trade_dates)
     }
-    return tuple(
+    if history_start not in expected_indexes or any(
+        trade_date not in expected_indexes or trade_date < history_start
+        for trade_date in target_dates
+    ):
+        raise dg.Failure(
+            "Trend-channel repair dates must be in the calendar and not precede "
+            f"the verified history start: {history_start}."
+        )
+    partitions = tuple(
         StockDailyTrendChannelRepairPartition(
             trade_date=trade_date,
             qfq_source_path=gold_stock_daily_qfq_path(lake_root, trade_date),
@@ -144,7 +199,7 @@ def _repair_partitions(
                     lake_root,
                     expected_trade_dates[expected_indexes[trade_date] - 1],
                 )
-                if expected_indexes[trade_date] > 0
+                if trade_date != history_start
                 else None
             ),
             result_target_path=gold_stock_daily_trend_channel_path(
@@ -170,6 +225,23 @@ def _repair_partitions(
         )
         for trade_date in target_dates
     )
+    for partition in partitions:
+        for path in (
+            partition.qfq_source_path,
+            partition.result_target_path,
+            partition.state_target_path,
+        ):
+            if not path.is_file():
+                raise FileNotFoundError(
+                    f"Trend-channel repair input file is missing: {path}."
+                )
+    previous_state = partitions[0].previous_state_target_path
+    if previous_state is not None and not previous_state.is_file():
+        raise FileNotFoundError(
+            "Trend-channel repair previous state is missing; only the verified "
+            f"history first day may initialize without it: {previous_state}."
+        )
+    return partitions
 
 
 def _completion_metadata(

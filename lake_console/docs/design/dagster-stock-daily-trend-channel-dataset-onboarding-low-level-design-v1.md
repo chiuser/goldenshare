@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：R0～R8 的首次交付已于 2026-09-02 完成并关闭，原物理数据、事件和本地 Wealth 验收记录保留；2026-09-04 新增第 17 节 R9 修正需求，自动提交协议代码与本地验证已完成，部署加载验证和 9 月 3 日数据恢复仍待执行；远程环境继续按合同不挂载本地 Lake 能力
+状态：R0～R8 的首次交付已于 2026-09-02 完成并关闭，原物理数据、事件和本地 Wealth 验收记录保留；2026-09-04 新增第 17 节 R9 修正需求，自动提交协议代码、本地验证与正式加载已完成；受控 repair 曾在历史首日前置 state 边界失败，未提升正式文件。R9.8 边界修正现已完成代码、本地测试与正式目录只读规划，尚未重新加载或补跑，9 月 3 日恢复仍未完成；远程环境继续按合同不挂载本地 Lake 能力
 
 首次交付日期：2026-09-02；本次修正方案更新：2026-09-04
 
@@ -1118,7 +1118,7 @@ rewritten_state_row_count
 
 guard 必须同时验证两个 checks、partition、batch、日期范围、code count/hash 和公式版本完全一致。
 
-### 10.7 Run-status Sensor 返回协议（R9 代码完成，待部署验证）
+### 10.7 Run-status Sensor 返回协议（R9 代码与正式加载已完成）
 
 `gold_stock_daily_trend_channel_repair_job_sensor` 由 `@dg.run_status_sensor` 包装，不是第 8.6 节的普通 polling sensor。Dagster 负责记录已处理的上游成功事件位置；业务摘要不能替换这份内部 cursor。
 
@@ -1872,7 +1872,7 @@ WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED=true
 
 ### R9：趋势 Repair 自动提交协议修正与 2026-09-03 恢复
 
-状态：2026-09-04 已完成代码修正与本地验证，193 项定向测试通过；只完成 R9.5 第 1 步。正式加载验证及数据恢复未执行，R9 尚未关闭。以下保留修正前证据和完整执行合同，实际实现结果见 R9.6。
+状态：2026-09-04 已完成代码修正与本地验证，193 项定向测试通过；随后经管理员批准完成正式加载并尝试受控 repair。repair 在首个候选校验处失败，未提升正式文件，R9.5 第 5～7 步未执行，R9 尚未关闭。以下保留修正前证据和完整执行合同，代码结果见 R9.6，执行结果与新增阻断见 R9.7。
 
 #### R9.1 证据与根因
 
@@ -1998,6 +1998,72 @@ stock_codes = [001206.SZ, 002043.SZ, 002555.SZ, 002563.SZ, 002709.SZ,
 - 实施前再次使用 CodeGraph `callers / impact`，并逐项对照当前代码，影响面仍限定为 repair sensor、M5 测试和局部静态门禁；没有新增跨子系统依赖或共享 contract 变更。
 - 本轮没有重载正式 definitions、修改 sensor 状态/cursor、提交正式 run 或写正式 Lake、prod、Dagster DB；没有重跑上游或补造 completion。R9.5 第 2～7 步仍待独立执行，不能以本地测试通过宣称 9 月 3 日缺口已修复。
 
+#### R9.7 受控恢复执行记录与首日边界阻断（2026-09-04）
+
+本节为 R9.6 代码提交后的独立执行记录：管理员已批准“补跑一下数据”。没有修改生产代码、资源、sensor 开关或公式；不将本次失败算作恢复完成。
+
+| 阶段 | 实际结果 |
+| --- | --- |
+| 11:13 只读 preflight | exact upstream batch、15 代码/hash、3,081 日期与 R9.4 一致；相关分区缺口 0、所有 active runs 0；当前 completion 缺失，9 月 3 日 result/state 均不存在 |
+| 文件与空间 | qfq 825,344,586 字节；历史 result 722,145,345 字节，state 456,213,520 字节；要求空间 3,430,459,554 字节，可用 2,510,469,095,424 字节，staging/正式目录同卷 |
+| 正式加载 | 11:14:13 通过 `DagsterGraphQLClient.reload_repository_location("orchestrator")` 成功加载；location version 从 `81fd8a1c-8311-47e7-b5f4-49ab54e266ec` 变为 `e44cf5f5-b74e-4f1b-9364-a86dee6dd35c`；未重置事件 cursor |
+| 正式提交 | 使用现有 pure decision/config builder 与 `DagsterGraphQLClient.submit_job_execution`；既有 job 和 run key 不变，run 为 `23330a85-c222-4857-a625-fa8bb1c6b21d` |
+| 运行终态 | 11:15:15～11:15:18，FAILURE，2.535506 秒；首日 `2014-01-02` coverage 报 `required_file_exists=1`，未执行任何正式 promote |
+| 首日候选审计 | result/state 各 2,159 行；result/state 检查均 passed；唯一缺失输入为 `gold/indicator/stock_daily_trend_channel_state/trade_date=2013-12-31/part-000.parquet` |
+| 正式数据未变化 | 9,243 个 preflight 文件的大小/mtime 全部未变；失败发生在提升循环之前；该 run 的 materialization/check event 数为 0，只新增正常运行失败记录和两份首日 staging 候选 |
+| 下游与开关 | 未提交 9 月 3 日日更；result/state 仍缺失；三个趋势 sensor 仍 RUNNING；无相关 active run |
+
+**代码根因已核实：**
+
+1. `defs/ops/gold_stock_daily_trend_channel_repair.py::_load_expected_trade_dates` 从完整 SSE 开市日历取截至触发日的所有日期；当前日历最早为 `1990-12-19`。
+2. 同文件 `_repair_partitions` 以该日历的 `expected_indexes[trade_date] - 1` 构造首日 `previous_state_target_path`。对数据集首日 `2014-01-02`，因此误构造 `2013-12-31` 的路径。
+3. `defs/stock_daily_trend_channel.py::_audit_trend_repair_partition` 将该非空路径交给 `audit_stock_daily_trend_channel_state_coverage`；后者正确拒绝缺文件，失败集中于 `required_file_exists`。应修复规划的边界身份，而非放宽 coverage。
+4. qfq、趋势 result/state 三者的实际物理历史起点均为 `2014-01-02`。这是历史起点，不是需要补齐的 2013 年中间空洞。
+5. M5 writer fixture 通过测试侧 `_repair_partitions` 对首日直接设置 `previous_state_target_path=None`；op 失败测试又用 `DATES` 替代完整日历，未覆盖“完整日历早于真实数据起点”的生产规划场景。原 193 项验证证明 cursor 修复，不证明该未覆盖边界正确。
+
+**修正边界（随后已批准，实施见 R9.8）：**依据已验证的历史输入起点区分“首日初始化，无上一状态”与“非首日递推，上一状态必须存在”；不硬编码 `2014-01-02`，不以任意缺文件自动降级为 `None`，不截断共享日历、不伪造 state。原 R9.2 白名单不包含 op/helper 修改，因此本次运行已停止；管理员随后批准“先修正边界”，只授权代码与本地验证，不包含重新加载或正式补跑。
+
+preflight 同步纠偏：本次盘点遗漏了首日的 previous-state 边界输入。修正后必须按真实 planner 对全部必需输入做写前对账，不仅检查 target dates 内的 qfq/result/state。
+
+执行报告：
+
+- [写前对账与文件指纹](/private/tmp/trend_channel_r9_preflight_20260904_111341.json)
+- [正式加载结果](/private/tmp/trend_channel_r9_reload_20260904.json)
+- [正式提交与精确 config](/private/tmp/trend_channel_r9_repair_submission_20260904.json)
+- [运行失败事件](/private/tmp/trend_channel_r9_watch_23330a85-c222-4857-a625-fa8bb1c6b21d.json)
+- [首日缺失路径、候选审计与正式文件未变证据](/private/tmp/trend_channel_r9_failed_repair_audit_20260904.json)
+
+#### R9.8 历史首日边界修正实施合同（2026-09-04）
+
+状态：代码、本地验收及正式目录只读规划已完成；尚未重新加载或补跑，不恢复正式运行。
+
+**起点依据与影响面：**已核对 `bootstrap/stock_daily_trend_channel_history.py::plan_stock_daily_trend_channel_history`，历史初始化从正式 QFQ 文件的最早日期开始，而不是完整 SSE 日历的起点。QFQ `_effective_repair_start_trade_date` 只取受影响股票的最早行情，可能晚于数据集起点，故不能把“本轮 repair 第一日”一律当成初始化日。CodeGraph `explore / callers / impact` 与全仓引用搜索确认，生产 `_repair_partitions` 只有本文件 repair op 一个调用方；测试同名 helper 是另一符号。active 代码不得 import bootstrap。
+
+| 硬口径 | 精确改动点 | 正反验收 |
+| --- | --- | --- |
+| 真实起点，不写日期常量 | `ops/gold_stock_daily_trend_channel_repair.py` 新增私有 `_trend_history_start_trade_date`，使用既有路径 helper 定位三个正式根，浅层枚举 `trade_date=*` 目录，解析 ISO 日期并核对各自最早 `part-000.parquet` 存在 | 不同日历/数据起点可通过；空根、非规范日期、最早目录缺文件、三者起点不一致均停止 |
+| 只有真正首日允许空 previous state | `_repair_partitions` 每次规划仅解析一次共同起点；仅 `trade_date == history_start` 设 `None`，其余仍精确取日历前一交易日 | 日历早于历史首日通过；中途 repair 必须保留前置状态，不跳到更早文件，不以缺文件初始化 |
+| 写候选前核对完整输入 | `_repair_partitions` 返回前确认所有选中日期的 QFQ/result/state 文件，以及非历史首日的修复边界 previous state；起点/目标必须在日历内，目标不得早于历史起点 | 缺少范围内输入或边界输入，在 writer 调用前失败，候选及正式文件均不变；空目标范围仍返回空 tuple |
+| 不放宽校验和计算 | `stock_daily_trend_channel.py` writer、coverage 与公式 SQL 不修改 | M5 经生产 planner 调用真实 writer，保持全量干净重算对照、非受影响行不变、全候选先验收和部分 promote 后幂等续跑 |
+| 不改变调度和状态身份 | sensor、job、config、run key、动态分区、repair scope、两个 completion checks 不修改 | op 成功才发两个 completion；规划或 writer 失败均不发事件，已有 R9 wrapper/gate 测试继续通过 |
+
+**文件白名单：**本次新增生产改动仅 `defs/ops/gold_stock_daily_trend_channel_repair.py`，测试仅 `tests/test_stock_daily_trend_channel_m5.py`；文档只更新原方案 M9 与本节。原金样本、bootstrap、共享日历、writer、schema、paths、sensor 和其它工作区改动不动。
+
+**性能预算：**起点解析只在实际 repair op 内执行一次，浅层读取三个目录，复杂度为 `O(Nqfq + Nresult + Nstate)`；随后做 `3 × D` 个选中输入文件存在性检查及最多一个前置边界文件检查。本次约 9,245 个目录项、9,243 个范围内文件检查，额外不扫描 Parquet 业务行、不查历史事件、不增加 SQL、候选或正式文件，不进入 sensor 的 10 日热路径。以临时目录测试锁定三次枚举及一次起点解析；真实目录如复核，仅允许只读元数据与计时，不运行 writer。
+
+**本地验收顺序：**先让现有 M5 修复用例通过生产 planner，证明旧实现会错误依赖历史起点之前的 state；再实现上述边界，补中途缺文件/起点不一致/失败零事件和零候选用例。运行 M3/M4/M5/M6、contract、公式金样本、run static gates 与 cursor contracts，再执行 Ruff、文档完整性与 `git diff --check`。正式加载、同 batch 历史 repair 与 9 月 3 日日更仍按 R9.5 独立推进，不能由本地通过自动进入。
+
+**实施与验收记录：**
+
+1. 先将 M5 `_repair_partitions` 测试 helper 改为调用生产 planner，使用比物理历史早一天的日历。旧实现复现 `required_file_exists=1`；随后只改生产 planner，保留 core writer 和 coverage 原样，同一测试通过。
+2. M5 **50 项通过**：共同起点、完整日历早于数据、部分范围 repair、精确前置文件缺失、三者首日不一致、最早目录缺文件、非法日期、输入缺失、空范围、一次解析/三次浅层枚举/不读文件内容、op 失败零 completion，以及真实 calendar -> planner -> writer -> 两个原 completion 均覆盖。
+3. M3/M4/M5/M6、contract、公式金样本、run static gates、cursor contracts 共 **242 passed、0 failed，另 5 个 subtests 通过**，耗时 **14.89 秒**。公式字面量金样本未改；原局部修复与干净全量重算对照、非受影响行不变、全候选先验证和部分 promote 后幂等续跑均通过。[测试报告](/private/tmp/trend_channel_r9_boundary_tests_20260904.xml)。仅有既存 Dagster/Pydantic deprecated/preview 警告。
+4. 正式目录只读规划于 **2026-09-04 18:37 +08** 通过：日历起点 `1990-12-19`，共同历史起点 `2014-01-02`，范围仍为 `2014-01-02～2026-09-02` 的 **3,081 日**。首日 `previous_state_target_path=None`；其余逐日精确对齐前一交易日，所有必需文件存在；本次规划实测 **477.17 ms**。这是单次元数据规划计时，不是完整 repair 耗时或 p95。
+5. 上述只读审计仅额外读取一份交易日历，不读取 QFQ/趋势行情明细，不访问 Dagster instance、不调用 writer。与 R9.7 preflight 对比，**9,243 个正式文件大小/mtime 均未变化**，候选创建数 0。[只读规划报告](/private/tmp/trend_channel_r9_boundary_readonly_20260904.json)。该报告证明边界规划，不替代下一次正式补跑前的 batch/活动 run/空间复核。
+6. 两个修改 Python 文件的完整 Ruff、orchestrator `src/tests` 致命错误门禁、文档完整性与 `git diff --check` 通过。没有更改 definitions、依赖矩阵、公式、schema、路径、sensor、job/config、run key、check 身份、bootstrap 或其它数据集。
+
+本轮没有提交代码、重载 code location、启停 sensor、提交 run、写 Lake/DB/event。后续仍须按 R9.5 先加载修正，再在批准范围内恢复同一 exact batch；不能以本节验收代替 9 月 3 日数据完成验收。
+
 ### 必须停止并请求拍板的情况
 
 M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空间四项前置阻断。后续开发仍在以下情况停止：
@@ -2018,7 +2084,7 @@ M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空�
 停牌不造指标行 + 已初始化 state carry-forward
 ```
 
-M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 首次正式 bootstrap、runless event、Sensor 启用和本地 Wealth 验收已完成。第 17 节 R9 的返回协议修正与真实外层测试现已完成；剩余工作为验证部署、按 exact batch 补趋势历史 repair，再生成 9 月 3 日数据。业务范围没有新增待拍板项；加载验证和正式恢复按各阶段独立批准，不把代码完成或 R0～R8 已关闭误写成当前已无待办。
+M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 首次正式 bootstrap、runless event、Sensor 启用和本地 Wealth 验收已完成。第 17 节 R9 的返回协议修正、真实外层测试与正式加载现已完成；受控 repair 暴露 R9.7 的首日 previous-state 规划缺陷，已停止运行且未提升正式文件。R9.8 边界修正现已完成代码、本地验证及正式目录只读规划；下一步是单独加载修正并恢复同一 exact batch，最后生成 9 月 3 日数据，不能将本地验证通过表述为数据已恢复。
 
 ---
 
@@ -2043,6 +2109,7 @@ M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 
 | 性能和编码硬门禁 | 12、13、15 |
 | repair run-status cursor 归 Dagster 管理 | 10.7、17/R9.2～R9.3 |
 | 已漏事件精确补 repair，再生成当天趋势 | 17/R9.4～R9.5 |
+| 真正历史首日初始化，中途缺上一状态仍阻断 | 17/R9.7～R9.8 |
 
 ---
 
