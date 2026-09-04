@@ -12,6 +12,7 @@ docs/
   system/                 # 系统级：工程、设计、组件、开发原则
   templates/              # 模块开发模板（需求/实施/门禁）
   pages/                  # 页面级：页面需求、API contract、实现提示词
+    login/
     market-overview/
     wealth-exploration/
     stock-detail/
@@ -78,6 +79,8 @@ docs/
 
 ## 页面级文档
 
+- [财势天下登录页视觉改版与鉴权接入技术方案 v1（开发完成，待用户部署验收）](./pages/login/login-page-auth-design-v1.md)
+- [财势天下登录页视觉改版低层设计 v1（修订 v1.2，含登录校验脱敏与开发对账）](./pages/login/login-page-auth-low-level-design-v1.md)
 - [财势乾坤板块分析产品交互基线文档 v1](./pages/wealth-exploration/sector-analysis-product-interaction-baseline-v1.md)
 - [财势探查｜板块分析技术实施方案 v1（五方法已完成；每日洞察 M22 代码完成，待远程验收）](./pages/wealth-exploration/sector-analysis-implementation-design-v1.md)
 - [财势探查｜板块分析低层设计 v1（每日洞察 M22 代码完成，待远程验收）](./pages/wealth-exploration/sector-analysis-low-level-design-v1.md)

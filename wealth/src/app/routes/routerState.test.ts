@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_WEALTH_PATH,
+  buildLoginPath,
+  isLoginPath,
+  readRedirectPath,
   WEALTH_EXPLORATION_PATH,
   WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH,
   WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH,
@@ -29,6 +32,19 @@ import {
 afterEach(() => {
   vi.restoreAllMocks();
   window.history.replaceState({}, "", DEFAULT_WEALTH_PATH);
+});
+
+describe("login redirect contract U06", () => {
+  it.each(["", "?redirect=relative", "?redirect=%2F%2Fexample.com"])("uses default for %s", (query) => {
+    expect(readRedirectPath(query)).toBe(DEFAULT_WEALTH_PATH);
+  });
+  it("preserves a single-slash path and query without adding a new whitelist", () => {
+    expect(readRedirectPath("?redirect=%2Fcustom%3Fx%3D1")).toBe("/custom?x=1");
+    expect(buildLoginPath("/wealth/market/overview?debug=1")).toBe("/wealth/login?redirect=%2Fwealth%2Fmarket%2Foverview%3Fdebug%3D1");
+    expect(isLoginPath("/wealth/login")).toBe(true);
+    expect(isLoginPath("/login")).toBe(true);
+    expect(isLoginPath("/wealth/login/extra")).toBe(false);
+  });
 });
 
 describe("buildStockDetailPath", () => {

@@ -328,6 +328,8 @@ docs/
 
 ## 6. 前端、业务与发布（S4）
 
+- [财势天下登录页视觉改版与鉴权接入技术方案 v1（开发完成，待用户部署验收）](/Users/congming/github/goldenshare/wealth/docs/pages/login/login-page-auth-design-v1.md)
+- [财势天下登录页视觉改版低层设计 v1（修订 v1.2，含登录校验脱敏与开发对账）](/Users/congming/github/goldenshare/wealth/docs/pages/login/login-page-auth-low-level-design-v1.md)
 - [前端技术与组件体系选型建议](/Users/congming/github/goldenshare/docs/frontend/frontend-technology-and-component-selection.md)
 - [前端当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
 - [前端交付流程规范 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-delivery-workflow-v1.md)

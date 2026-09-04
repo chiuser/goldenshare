@@ -45,6 +45,16 @@ def install_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        if request.method == "POST" and getattr(request.scope.get("route"), "path", None) == "/api/v1/auth/login":
+            # Validation details can contain credentials, including malformed JSON input.
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content=_error_payload(
+                    request,
+                    code="validation_error",
+                    message="登录参数校验失败，请检查用户名和密码",
+                ),
+            )
         operator_error = _operator_forbidden_validation_error(exc)
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

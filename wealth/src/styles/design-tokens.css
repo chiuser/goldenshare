@@ -57,3 +57,49 @@
   --cs-radius-card: 10px;
   --cs-shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.26);
 }
+
+.login-page {
+  --cs-auth-color-text-primary: #17324d;
+  --cs-auth-color-border-focus: #17324d;
+  --cs-auth-color-surface-field: #ffffff;
+  --cs-auth-color-border-default: #8391a3;
+  --cs-auth-color-error: #b42318;
+  --cs-auth-control-height: 56px;
+  --cs-auth-form-width: 400px;
+  --cs-auth-section-gap: 48px;
+  --cs-auth-border-width: 1px;
+  --cs-auth-brand-height: 88px;
+  --cs-auth-seal-size: 72px;
+  --cs-auth-brand-title-width: 286px;
+  --cs-auth-brand-font-size: 64px;
+  --cs-auth-brand-line-height: 88px;
+  --cs-auth-brand-letter-spacing: 10px;
+  --cs-auth-brand-font-weight: 600;
+  --cs-auth-brand-optical-offset-y: -3px;
+  --cs-auth-font-family-brand: "CS Auth Serif", "Noto Serif SC", serif;
+  --cs-auth-font-family-control: "CS Auth Sans", var(--cs-font-family-base);
+  --cs-auth-control-font-size: 16px;
+  --cs-auth-control-line-height: 24px;
+  --cs-auth-control-font-weight: 400;
+  --cs-auth-button-font-weight: 500;
+  --cs-auth-button-letter-spacing: 3px;
+  --cs-auth-feedback-font-size: 12px;
+  --cs-auth-feedback-line-height: 20px;
+  --cs-auth-form-gap: var(--cs-space-24);
+  --cs-auth-action-padding-top: var(--cs-space-8);
+  --cs-auth-feedback-gap: var(--cs-space-8);
+  --cs-auth-safe-inset: var(--cs-space-24);
+  --cs-auth-content-base-height: 360px;
+  --cs-auth-content-feedback-height: calc(var(--cs-auth-content-base-height) + var(--cs-auth-feedback-gap) + var(--cs-auth-feedback-line-height));
+  --cs-auth-content-left: clamp(var(--cs-auth-safe-inset), calc(100% * 304 / 1920), calc(100% - var(--cs-auth-form-width) - var(--cs-auth-safe-inset)));
+  --cs-auth-content-top: max(var(--cs-auth-safe-inset), min(calc(100vh * 264 / 1080), calc(100vh - var(--cs-auth-content-feedback-height) - var(--cs-auth-safe-inset))));
+  --cs-auth-seal-source-size: 1254;
+  --cs-auth-seal-crop-size: 948;
+  --cs-auth-seal-crop-x: 154;
+  --cs-auth-seal-crop-y: 150;
+  --cs-auth-loading-opacity: 0.72;
+  --cs-auth-disabled-opacity: 0.4;
+  --cs-auth-interaction-duration: 160ms;
+  --cs-auth-focus-ring-width: 2px;
+  --cs-auth-focus-ring-offset: 2px;
+}
