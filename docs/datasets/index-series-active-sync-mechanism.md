@@ -2,7 +2,10 @@
 
 状态：当前实现说明
 核验日期：2026-05-05
+月线专项复核日期：2026-09-04（修复规则已确认，代码待开发）
 适用范围：`index_daily`、`index_weekly`、`index_monthly`、`ops.index_series_active`
+
+> 当前月线代码存在截断月份被派生、同月不同日期覆盖冲突的缺陷。已确认目标见[指数行情 raw / serving 分层方案第 11 节](/Users/congming/github/goldenshare/docs/datasets/index-raw-serving-layer-alignment-plan-v1.md#11-指数月线完整月份与覆盖修复2026-09-04-已确认待开发)。本说明不代表新门禁已上线，也不代表旧月线已经校正。
 
 ---
 
@@ -92,17 +95,29 @@ active 池表：`ops.index_series_active`
 
 ### 3.3 `index_monthly`
 
-当前行为：
+#### 当前代码事实（2026-09-04 复核）
 
-1. 月线任务按月锚点执行。
-2. 写入逻辑与周线一致，只是目标表和周期粒度不同。
+1. Definition 声明 `month_last_open_day`，但当前区间 planner 只取输入范围内每月最后一个开市日，会把被截断的月中日期错误地当成月末。
+2. 月线与周线共享写入入口；本次月线修复不能直接全局改变周线规则。
 3. raw 表写入 Tushare 月线接口返回的完整行，不按 active 池过滤。
 4. `core_serving.index_monthly_serving` 写入前读取 `resource='index_daily'` active 池作为门禁。
 5. active 池命中的 API 行写入 serving，来源标记为 `source='api'`。
-6. 对 active 池中接口未返回的代码，使用已存在的 `core_serving.index_daily_serving` 日线数据派生补齐，来源标记为 `source='derived_daily'`。
+6. 对 active 池中接口未返回的代码，当前代码直接聚合 `core_serving.index_daily_serving` 已有数据，标记 `source='derived_daily'`；没有检查自然月已结束，也没有校验整月日线齐全。这是已确认缺陷，不是目标规则。
 7. 显式传入非 active `ts_code` 时，raw 可以写入，serving 不得写入，也不得触发日线派生写入 serving。
-8. 显式传入 active `ts_code` 但源端本次空返回时，已有 API 月线必须保留；只有不存在 API 月线时，才允许写入或刷新日线派生月线。
+8. 显式传入 active `ts_code` 且本次空返回时，代码已有保留 API 月线的分支；但全范围替换仍只按 `trade_date` 删除再插入，未统一同月份身份与来源保护，task 10869 因此失败。
 9. 派生补齐发生在月线任务内。
+
+#### 已确认修复目标（待开发）
+
+完整硬口径、流程和验收以[原技术方案第 11 节](/Users/congming/github/goldenshare/docs/datasets/index-raw-serving-layer-alignment-plan-v1.md#11-指数月线完整月份与覆盖修复2026-09-04-已确认待开发)为唯一依据：
+
+1. 北京时间已经进入下一个自然月，才允许派生目标月份；用户选择未来结束日期不能提前放行。
+2. 使用完整交易日历确定真实月末，并逐指数验证整月交易日日线及计算必要字段完整；不只检查最后一天。
+3. 只有成功完成全部源站分页后仍无该指数当月月线，且库内也无同月源站月线，才可进入派生判断。
+4. 同一“指数 + 月份”只保留一条 serving 记录。源站覆盖派生，源站修订覆盖旧源站；本次空返回不删除或降级已有源站行。
+5. 月份未结束、基础日线不全或源站请求失败时，不生成新派生；派生不写 raw，正常替换在 unit 事务内完成。
+
+月末当天缺少源站月线的指数不会被当场派生，最早下月再次维护该月时处理。本次不新增调度，不自动重跑，也不清理历史表；旧的不完整派生必须经有效结果校正，不能视为已经满足新规则。
 
 ---
 
