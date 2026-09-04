@@ -1,8 +1,8 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M8 已完成并关闭；正式历史 result/state 已覆盖 `2014-01-02～2026-09-01`，物理审计、runless event 对账、三个 Sensor 启用和本地 Wealth 真实 API/绘图验收均已通过；远程环境按合同不挂载本地 Lake 能力
+状态：M0～M8 的首次交付已于 2026-09-02 完成并关闭；当次历史 result/state 覆盖 `2014-01-02～2026-09-01`，物理审计、runless event、Sensor 启用和本地 Wealth 验收结论作为历史记录保留。2026-09-04 新增的 M9 自动提交协议修正已完成代码与本地验证，部署加载验证和 9 月 3 日数据恢复仍待执行；远程环境按合同不挂载本地 Lake 能力
 
-日期：2026-09-02
+首次交付日期：2026-09-02；本次修正方案更新：2026-09-04
 
 适用范围：A 股股票日线、前复权、Gold Lake、Dagster 日常增量与历史 repair、本地 Wealth 消费
 
@@ -599,6 +599,10 @@ gold_stock_daily_trend_channel_repair:
 
 `source_upstream_batch_id` 是 qfq repair 提供的 opaque exact batch，不能用日期或代码 hash 替代。同一 exact batch 与公式版本重复 tick 必须得到同一 key；同一日期、同一代码 hash 但上游 producer run 不同，必须得到不同 key。正式 run key 实现为一行稳定字符串，不加入文件数、时间戳或随机值。
 
+**2026-09-04 修正口径，M9 代码与本地验证已完成，待部署验证：**该 sensor 是 `run_status_sensor`，其“已读到哪一条上游事件”的 cursor 由 Dagster 管理，业务代码不得覆盖。保留现有 `SensorResult` 返回类型，但所有分支均不传 `cursor`；提交时返回一个既有 `RunRequest`，跳过时通过 `skip_reason` 说明原因和下一步，提交分支用简短 sensor 日志说明目标日期、代码数和上游批次。不修改普通日更 sensor 的统一 cursor。
+
+发生提交前异常不等于上游成功事件会被再次处理。本次已漏掉的 repair 必须经批准使用既有 repair job 精确补跑；禁止通过重置 cursor、重跑成功的 qfq repair 或补造 completion 来绕过断链。真实 Dagster 外层执行与恢复验收见 M9 和 LLD R9。
+
 ### 10.4 Repair 计算与写入
 
 Repair helper 使用 DuckDB 批量完成：
@@ -775,7 +779,7 @@ M0 已用正式 Lake 只读数据替换未知实际值：3079 个交易日、11,
 | 输入明细行 | 不超过 26,000 量级 |
 | Python 明细循环 | 0 |
 | event/check 查询 | 有界，最近 10 个 expected dates，批量读取 latest |
-| cursor | 正常小于 2 KB，硬上限 8 KB |
+| 普通 sensor 业务 cursor | 正常小于 2 KB，硬上限 8 KB；repair run-status sensor 不赋值业务 cursor |
 
 开发拒绝阈值：
 
@@ -1024,7 +1028,7 @@ elapsed_ms
 
 ### 16.2 Sensor cursor
 
-Cursor 只保存决策前沿：
+普通分区注册、日更 polling sensor 的业务 cursor 只保存决策前沿：
 
 ```text
 evaluated_at
@@ -1038,6 +1042,8 @@ frontier
 ```
 
 不得保存股票代码列表、文件路径列表、全历史分区列表或异常堆栈。
+
+`gold_stock_daily_trend_channel_repair_job_sensor` 不适用上述自定义字段模板：它的 cursor 归 Dagster 运行状态事件订阅机制所有，不调用统一业务 cursor builder、不传 `SensorResult.cursor`、不手动 `update_cursor`。人的诊断入口是本次 tick 的 `skip_reason`、简短 sensor 日志和上游 repair metadata；没有新事件时的空结果不能证明历史 repair 已成功，应查看两个 completion checks。
 
 ### 16.3 Fail-closed reason codes
 
@@ -1087,7 +1093,9 @@ formula_version_mismatch
 3. qfq、repair、stock basic、previous state 任一未 ready 时不提交 daily。
 4. 最早日期阻塞时不越过缺口提交更晚日期。
 5. 目标已 materialized 但 check 失败时不自动覆盖。
-6. Sensor cursor 小于硬上限且不含代码列表。
+6. 普通 sensor cursor 小于硬上限且不含代码列表；repair run-status sensor 不写自定义 cursor。
+7. Repair sensor 测试必须经过真实 `evaluate_tick` 外层：可提交、无需修复、已完成、上游证据异常和超过范围上限均不发生 cursor 协议错误；只测内部决策函数不能作为验收。
+8. 用本地临时 instance 验证事件消费前沿和 exact batch 去重身份；既有批次 completion 缺失时，普通日更仍阻断，不因修正 cursor 放宽。
 
 ### 17.4 文件与性能验收
 
@@ -1166,6 +1174,7 @@ formula_version_mismatch
 ### M5：趋势 Repair
 
 - 状态：已完成（2026-09-02）。
+- 记录口径：以下是首次交付的实现与测试结果，不代表已覆盖真实 run-status 外层协议。2026-09-04 新发现的自动提交缺陷由 M9 修正，不能用本节历史通过数代替 M9 验收。
 - 已实现 typed repair config、专属 op/job、默认 `STOPPED` 的 run-status sensor、exact qfq batch 二次校验及 result/state 双 completion checks。
 - run key 使用公共 upstream-triggered builder，固定为 `gold_stock_daily_trend_channel_repair:{formula_version}:{source_upstream_batch_id}`；同批次稳定、不同 producer batch 必然不同，不再用日期和代码 hash 代替上游批次身份。
 - scoped repair 以最多 250 个交易日为 segment，通过 DuckDB 集合 SQL 重算 affected codes；逐日把 affected 重算结果与 unaffected 正式行合并成完整单文件候选。Python 只编排日期 segment、文件审计和原子提升，不处理行情明细行。
@@ -1214,6 +1223,44 @@ formula_version_mismatch
 - 本地 `.env.web.local` 已显式配置 `APP_ENV=local`、正式 Lake root 和独立趋势通道开关，未改变远程环境合同。重启后，`GET /api/v1/wealth/market/stock-detail/trend-channel?tsCode=000001.SZ&endDate=2026-09-01&limit=300` 返回 `200`、300 根升序日线、`READY` 和最新日期 `2026-09-01`。
 - 已登录 Wealth 页面 `http://127.0.0.1:5174/wealth/market/stock/000001.SZ` 完成真实浏览器验收：首次选择“趋势通道”发出一次目标 API 请求并收到 `200`，短上/短下/长上/长下四条轨道和最新数值正常展示，控制台无 warning/error。没有使用 mock、临时正式目录或 Prod DB fallback。
 - 本轮没有执行远程部署；这是既定产品边界，远程 `prod/production/staging` 继续不挂载该本地 Lake route，而不是待补的发布步骤。
+
+---
+
+### M9：运行状态 Sensor 协议修正与 9 月 3 日恢复
+
+状态：2026-09-04 已完成协议代码修正及本地验证，193 项定向测试通过。未执行正式 definitions 加载验证、未提交正式 run、未写正式 Lake/数据库；M9 的部署与数据恢复部分仍未完成。
+
+#### M9.1 故障事实
+
+| 环节 | 2026-09-04 07:44 前的审计结论 |
+| --- | --- |
+| 9 月 3 日趋势分区、开关 | 分区已注册，三个趋势 sensor 均为 RUNNING，不是未注册或开关未开 |
+| 股票日线 qfq | 日更和因子 repair 已成功；不是股票分钟线的批次 |
+| 上游因子 repair | `8a19f964-7415-4fd6-a8a6-661e8069dca4`，9 月 3 日 17:49:34 成功，完整范围为 15 个代码 |
+| 趋势 repair sensor | 17:49:50 tick 在提交前抛出 `build_cursor_details()` 缺少 `partition_set`，未产生 run |
+| 修正前磁盘代码 | 已有该参数，但仍返回带自定义 cursor 的 `SensorResult`；Dagster 外层明确拒绝这种返回，本轮代码已移除该路径 |
+| 后续 tick 与日更 | 上游事件前沿已推进，后续空结果不会自动重放该事件；日更以 `trend_repair_required` 阻断，保护行为正确 |
+| 待补数据 | 趋势历史 repair completion 缺失，9 月 3 日 result/state 未生成 |
+
+运行 traceback 与修正前磁盘源文件不一致，说明不能仅凭文件已改就宣布线上已修复；具体部署加载状态仍待验证。自定义 cursor 被拒绝是代码审计发现并由本地真实外层测试复现的第二项缺陷，不冒充正式 tick 已发生的第二条报错。
+
+#### M9.2 实施与恢复顺序
+
+1. **先修代码和测试（已完成）**：移除趋势 repair run-status sensor 的自定义 cursor 写入及无用依赖，保持原决策、run key、job/config、500 代码上限和两个 completion checks；补真实外层测试和静态防回退门禁。
+2. **再验证部署**：通过本地测试后，在单独批准的加载验证中确认正式 code location 已加载修正版本。空 tick 不算有变化 repair 分支验证通过，不重置事件 cursor。
+3. **单独批准趋势历史 repair**：从上述日线 qfq 成功批次 metadata 生成既有 repair config；仅重算其 15 个代码，范围 `2014-01-02～2026-09-02`。按日历和现有 op 合同预计 3,081 个日期、6,162 个 result/state 完整候选文件，13 个最多 250 日的计算段；不是重算全市场公式，也不是只改 15 个小文件。执行前冻结文件大小、空间与冲突 run，参数变化先停止复核。
+4. **再补 9 月 3 日日更**：两个趋势 repair completion checks 在触发日 `2026-09-03` 同时通过，且批次、范围、代码 hash、公式版本均匹配后，才允许既有日更 job 生成当天 result/state；自然触发和人工提交二选一，先查活动 run，避免重复。
+5. **最终审计**：验收历史修复范围、两个 completion checks、9 月 3 日两个文件及三个普通 blocking checks。不补全历史 check/materialization，不重跑已成功的日线 qfq 或分钟线链路，不改 prod、动态分区、公式、schema、路径和 Wealth。
+
+以上日期、代码数和文件数是本次事件的审计基线，不能硬编码为日常逻辑。精确代码清单、hash、代码/测试白名单、性能与写入前门禁统一见 LLD 第 17 节 R9，避免另建一套恢复工具或平行文档。
+
+#### M9.3 本地实现验收（2026-09-04）
+
+- 改动仅涉及 repair sensor、M5 测试、该 sensor 的静态防回退测试，以及两份原文档；未改变公式、读取范围、writer、普通日更 sensor 或恢复范围。
+- 先用真实 `evaluate_tick` 在旧代码上复现 `Sensor returned a SensorResult with a cursor value`，再修正返回协议；未通过 mock 框架来绕过错误。
+- R9 指定的六个测试文件共 **193 项通过、0 失败、0 跳过**，耗时 **11.530 秒**。测试使用临时 instance 和日历，不读取正式数据。报告：[R9 本地回归结果](/private/tmp/trend_channel_r9_tests_20260904.xml)。
+- 成功事件路径仍为一次日历读取、一次上游状态读取、一次双 completion helper 调用；已消费事件不重复读取，500 个代码不进入日志正文。Ruff 与文档检查结果统一记入 LLD R9.6。
+- 本地测试通过不等于漏掉的上游事件会自动重放。下一步仅按 M9.2 验证部署，再单独批准 exact batch 历史 repair，随后生成 9 月 3 日 result/state。
 
 ---
 
@@ -1273,6 +1320,7 @@ formula_version_mismatch
 6. 性能实测通过，不存在 Python 明细循环、全历史日常扫描或逐股票小文件。
 7. 本地 Wealth 可用，远程部署不存在该能力，且无 Prod fallback。
 8. 相关文档、LLD、代码、测试和运营启用说明口径一致。
+9. M9 修正必须通过真实 run-status sensor 外层测试、部署加载验证及本次 exact batch 的 repair -> daily 恢复验收；首次交付通过或 sensor 开关为 RUNNING 均不能替代这些证据。
 
 ---
 

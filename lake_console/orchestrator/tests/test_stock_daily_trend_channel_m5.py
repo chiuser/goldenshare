@@ -1,13 +1,14 @@
-import json
 import os
 from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import dagster as dg
 import duckdb
 import pytest
+from dagster._core.definitions.run_status_sensor_definition import RunStatusSensorCursor
 
 import orchestrator.defs.asset_guards.stock_daily_trend_channel_repair as repair_guard
 import orchestrator.defs.ops.gold_stock_daily_trend_channel_repair as repair_op_module
@@ -26,9 +27,6 @@ from orchestrator.defs.asset_guards.stock_daily_trend_channel_repair import (
 from orchestrator.defs.jobs.gold_stock_daily_trend_channel_repair import (
     gold_stock_daily_trend_channel_repair_job,
 )
-from orchestrator.defs.partitions import (
-    cn_a_stock_daily_trend_channel_trade_days,
-)
 from orchestrator.defs.paths import (
     gold_stock_daily_qfq_path,
     gold_stock_daily_trend_channel_path,
@@ -36,6 +34,7 @@ from orchestrator.defs.paths import (
     gold_stock_daily_trend_channel_state_path,
     gold_stock_daily_trend_channel_state_staging_path,
     silver_stock_lifecycle_path,
+    silver_trade_calendar_path,
 )
 from orchestrator.defs.run_contracts.configs import (
     GoldStockDailyTrendChannelRepairConfig,
@@ -449,26 +448,124 @@ def test_repair_sensor_contract_and_run_key_are_exact() -> None:
     )
 
 
-def test_repair_sensor_cursor_uses_trend_partition_set() -> None:
-    selected = build_stock_daily_trend_channel_repair_run_status_decision(
-        qfq_factor_repair_trade_date="2026-08-31",
-        repair_end_trade_date="2026-08-28",
-        qfq_factor_repair_status=_status(),
-    )
-    no_op = build_stock_daily_trend_channel_repair_run_status_decision(
-        qfq_factor_repair_trade_date="2026-08-31",
-        repair_end_trade_date="2026-08-28",
-        qfq_factor_repair_status=_status(code_count=0, repair_required=False),
-    )
-
-    for decision in (selected, no_op):
-        payload = json.loads(repair_sensor._cursor(decision))
-        assert payload["details"]["partition_set"] == (
-            cn_a_stock_daily_trend_channel_trade_days.name
+@pytest.fixture
+def repair_sensor_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    calendar_path = silver_trade_calendar_path(tmp_path)
+    calendar_path.parent.mkdir(parents=True, exist_ok=True)
+    with duckdb.connect() as connection:
+        connection.execute(
+            f"COPY (SELECT 'SSE' AS exchange, true AS is_open, "
+            f"trade_date::DATE AS trade_date FROM (VALUES ('2026-08-27'), "
+            f"('2026-08-28'), ('2026-08-31')) AS dates(trade_date)) "
+            f"TO '{calendar_path}' (FORMAT PARQUET)"
         )
+    monkeypatch.setattr(repair_sensor, "DEFAULT_LAKE_ROOT", str(tmp_path))
+    calendar_connection = Mock(side_effect=duckdb.connect)
+    monkeypatch.setattr(
+        repair_sensor, "connect_configured_duckdb", calendar_connection
+    )
+    status = Mock(return_value=_status())
+    completion = Mock(return_value=SimpleNamespace(ready=False))
+    monkeypatch.setattr(
+        repair_sensor, "gold_stock_daily_qfq_factor_repair_status", status
+    )
+    monkeypatch.setattr(
+        repair_sensor,
+        "gold_stock_daily_trend_channel_repair_completion_status",
+        completion,
+    )
+    return SimpleNamespace(
+        status=status, completion=completion, calendar_connection=calendar_connection
+    )
 
 
-def test_repair_sensor_evaluation_returns_run_and_cursor(monkeypatch) -> None:
+def _record_qfq_success(
+    instance: dg.DagsterInstance,
+    *,
+    batch_id: str = "qfq-batch",
+    job_name: str = "gold_stock_daily_qfq_factor_repair_job",
+    trade_date: str = "2026-08-31",
+) -> dg.DagsterRun:
+    run = dg.DagsterRun(
+        job_name=job_name,
+        run_config={
+            "ops": {
+                "gold_stock_daily_qfq_factor_repair_op": {
+                    "config": {
+                        "qfq_factor_trade_date": trade_date,
+                        "upstream_batch_id": batch_id,
+                    }
+                }
+            }
+        },
+    )
+    instance.run_storage.add_run(run)
+    instance.report_dagster_event(
+        dg.DagsterEvent(dg.DagsterEventType.RUN_SUCCESS.value, job_name=job_name),
+        run.run_id,
+    )
+    return run
+
+
+def _evaluate_repair_tick(instance: dg.DagsterInstance, cursor: str | None = None):
+    with dg.build_sensor_context(instance=instance, cursor=cursor) as context:
+        return gold_stock_daily_trend_channel_repair_job_sensor.evaluate_tick(context)
+
+
+def test_repair_sensor_wrapper_requests_run_without_custom_cursor(
+    repair_sensor_inputs,
+) -> None:
+    with dg.DagsterInstance.ephemeral() as instance:
+        initial_tick = _evaluate_repair_tick(instance)
+        assert RunStatusSensorCursor.is_valid(initial_tick.cursor)
+        repair_sensor_inputs.status.assert_not_called()
+        source_run = _record_qfq_success(instance)
+
+        tick = _evaluate_repair_tick(instance, initial_tick.cursor)
+
+        assert len(tick.run_requests) == 1
+        assert not tick.dagster_run_reactions
+        assert tick.skip_message is None
+        assert tick.run_requests[0].run_key == (
+            f"gold_stock_daily_trend_channel_repair:{FORMULA_VERSION}:qfq-batch"
+        )
+        config = tick.run_requests[0].run_config["ops"][
+            "gold_stock_daily_trend_channel_repair_op"
+        ]["config"]
+        assert config["stock_codes"] == ["000000.SZ"]
+        assert config["repair_start_trade_date"] == "2026-08-27"
+        assert config["repair_end_trade_date"] == "2026-08-28"
+        assert config["source_upstream_batch_id"] == "qfq-batch"
+        assert RunStatusSensorCursor.is_valid(tick.cursor)
+        assert RunStatusSensorCursor.from_json(tick.cursor).record_id > (
+            RunStatusSensorCursor.from_json(initial_tick.cursor).record_id
+        )
+        repair_sensor_inputs.calendar_connection.assert_called_once_with()
+        repair_sensor_inputs.status.assert_called_once_with(
+            instance, "2026-08-31", upstream_batch_id="qfq-batch"
+        )
+        repair_sensor_inputs.completion.assert_called_once_with(
+            instance,
+            qfq_factor_repair_trade_date="2026-08-31",
+            repair_start_trade_date="2026-08-27",
+            repair_end_trade_date="2026-08-28",
+            selected_partition_count=2,
+            repair_required_code_count=1,
+            repair_required_codes_hash=_status().repair_required_codes_hash,
+            source_upstream_batch_id="qfq-batch",
+        )
+        assert instance.get_runs_count() == 1
+        assert (
+            instance.get_run_by_id(source_run.run_id).status
+            == dg.DagsterRunStatus.SUCCESS
+        )
+        assert not tick.asset_events
+        assert not tick.dynamic_partitions_requests
+
+
+def test_repair_sensor_evaluation_returns_run_without_business_cursor(
+    monkeypatch,
+) -> None:
     status = _status()
     monkeypatch.setattr(
         repair_sensor,
@@ -491,18 +588,171 @@ def test_repair_sensor_evaluation_returns_run_and_cursor(monkeypatch) -> None:
         lambda _instance, **_kwargs: SimpleNamespace(ready=False),
     )
 
+    logger = Mock()
     result = repair_sensor._evaluate_sensor(
-        SimpleNamespace(dagster_run=object(), instance=object())
+        SimpleNamespace(dagster_run=object(), instance=object(), log=logger)
     )
 
     assert len(result.run_requests) == 1
     assert result.run_requests[0].run_key == (
         f"gold_stock_daily_trend_channel_repair:{FORMULA_VERSION}:qfq-batch"
     )
-    payload = json.loads(result.cursor)
-    assert payload["details"]["partition_set"] == (
-        cn_a_stock_daily_trend_channel_trade_days.name
+    assert result.cursor is None
+    logger.info.assert_called_once()
+    message, *values = logger.info.call_args.args
+    diagnostic = message % tuple(values)
+    assert "已生成" in diagnostic
+    assert "下一步" in diagnostic
+    assert "2026-08-31" in diagnostic
+    assert "qfq-batch" in diagnostic
+    assert "股票数=1" in diagnostic
+    assert "000000.SZ" not in diagnostic
+    assert len(diagnostic.encode("utf-8")) < 1024
+
+
+@pytest.mark.parametrize(
+    ("case", "reason_code", "expected_completion_calls"),
+    [
+        ("no_change", "trend_repair_not_required", 0),
+        ("completed", "trend_repair_completion_ready", 1),
+        ("not_ready", "qfq_repair_status_not_ready", 0),
+        ("missing_date", "missing_qfq_factor_repair_trade_date", 0),
+        ("missing_batch_config", "qfq_repair_status_not_ready", 0),
+        ("bad_count", "qfq_repair_scope_invalid", 0),
+        ("missing_hash", "qfq_repair_scope_invalid", 0),
+        ("bad_end_date", "qfq_repair_scope_invalid", 0),
+        ("truncated", "repair_scope_exceeds_auto_limit", 0),
+        ("too_many", "repair_scope_exceeds_auto_limit", 0),
+    ],
+)
+def test_repair_sensor_wrapper_skip_branches_keep_framework_cursor(
+    repair_sensor_inputs,
+    case: str,
+    reason_code: str,
+    expected_completion_calls: int,
+) -> None:
+    statuses = {
+        "no_change": _status(code_count=0, repair_required=False),
+        "not_ready": replace(_status(), ready=False, reason="upstream failed"),
+        "bad_count": replace(_status(), repair_required_code_count=2),
+        "missing_hash": replace(_status(), repair_required_codes_hash=None),
+        "bad_end_date": replace(_status(), repair_end_trade_date="2026-08-28"),
+        "truncated": replace(_status(), repair_required_codes_truncated=True),
+        "too_many": _status(code_count=501),
+    }
+    repair_sensor_inputs.status.return_value = statuses.get(case, _status())
+    repair_sensor_inputs.completion.return_value = SimpleNamespace(
+        ready=case == "completed", reason="ready"
     )
+    with dg.DagsterInstance.ephemeral() as instance:
+        initial_tick = _evaluate_repair_tick(instance)
+        _record_qfq_success(
+            instance,
+            trade_date="" if case == "missing_date" else "2026-08-31",
+            batch_id="" if case == "missing_batch_config" else "qfq-batch",
+        )
+
+        tick = _evaluate_repair_tick(instance, initial_tick.cursor)
+
+        assert not tick.run_requests
+        assert not tick.dagster_run_reactions
+        assert tick.skip_message.startswith(reason_code)
+        assert "下一步" in tick.skip_message
+        assert len(tick.skip_message.encode("utf-8")) < 1024
+        assert RunStatusSensorCursor.is_valid(tick.cursor)
+        assert RunStatusSensorCursor.from_json(tick.cursor).record_id > (
+            RunStatusSensorCursor.from_json(initial_tick.cursor).record_id
+        )
+        assert (
+            repair_sensor_inputs.completion.call_count == expected_completion_calls
+        )
+        assert repair_sensor_inputs.calendar_connection.call_count == (
+            0 if case == "missing_date" else 1
+        )
+        assert repair_sensor_inputs.status.call_count == (
+            0 if case in {"missing_date", "missing_batch_config"} else 1
+        )
+        assert not tick.asset_events
+        assert not tick.dynamic_partitions_requests
+        assert instance.get_runs_count() == 1
+
+
+def test_repair_sensor_wrapper_accepts_500_codes_without_logging_full_scope(
+    repair_sensor_inputs, caplog: pytest.LogCaptureFixture
+) -> None:
+    repair_sensor_inputs.status.return_value = _status(code_count=500)
+    with dg.DagsterInstance.ephemeral() as instance:
+        initial_tick = _evaluate_repair_tick(instance)
+        _record_qfq_success(instance)
+        with dg.build_sensor_context(
+            instance=instance, cursor=initial_tick.cursor
+        ) as context:
+            context.log.addHandler(caplog.handler)
+            tick = gold_stock_daily_trend_channel_repair_job_sensor.evaluate_tick(
+                context
+            )
+        assert len(tick.run_requests) == 1
+        config = tick.run_requests[0].run_config["ops"][
+            "gold_stock_daily_trend_channel_repair_op"
+        ]["config"]
+        assert len(config["stock_codes"]) == 500
+        assert "股票数=500" in caplog.text
+        assert "000499.SZ" not in caplog.text
+        assert RunStatusSensorCursor.is_valid(tick.cursor)
+
+
+def test_repair_sensor_wrapper_consumes_events_once_and_preserves_batch_keys(
+    repair_sensor_inputs,
+) -> None:
+    repair_sensor_inputs.status.side_effect = (
+        lambda _instance, _trade_date, *, upstream_batch_id: replace(
+            _status(), upstream_batch_id=upstream_batch_id
+        )
+    )
+    with dg.DagsterInstance.ephemeral() as instance:
+        initial_tick = _evaluate_repair_tick(instance)
+        _record_qfq_success(instance)
+        _record_qfq_success(instance)
+        _record_qfq_success(instance, batch_id="qfq-new-batch")
+
+        first = _evaluate_repair_tick(instance, initial_tick.cursor)
+        duplicate_batch = _evaluate_repair_tick(instance, first.cursor)
+        new_batch = _evaluate_repair_tick(instance, duplicate_batch.cursor)
+
+        for tick in (first, duplicate_batch, new_batch):
+            assert len(tick.run_requests) == 1
+            assert RunStatusSensorCursor.is_valid(tick.cursor)
+        assert first.run_requests[0].run_key == duplicate_batch.run_requests[0].run_key
+        assert first.run_requests[0].run_key != new_batch.run_requests[0].run_key
+        assert repair_sensor_inputs.completion.call_args.kwargs[
+            "source_upstream_batch_id"
+        ] == "qfq-new-batch"
+
+        consumed = _evaluate_repair_tick(instance, new_batch.cursor)
+        assert not consumed.run_requests
+        assert consumed.cursor == new_batch.cursor
+        assert repair_sensor_inputs.calendar_connection.call_count == 3
+        assert repair_sensor_inputs.status.call_count == 3
+        assert repair_sensor_inputs.completion.call_count == 3
+        assert instance.get_runs_count() == 3
+
+
+def test_repair_sensor_wrapper_does_not_replay_history_or_monitor_other_jobs(
+    repair_sensor_inputs,
+) -> None:
+    with dg.DagsterInstance.ephemeral() as instance:
+        _record_qfq_success(instance)
+        initialized = _evaluate_repair_tick(instance)
+        assert not initialized.run_requests
+        assert RunStatusSensorCursor.is_valid(initialized.cursor)
+        _record_qfq_success(instance, job_name="unrelated_job")
+
+        tick = _evaluate_repair_tick(instance, initialized.cursor)
+
+        assert not tick.run_requests
+        repair_sensor_inputs.calendar_connection.assert_not_called()
+        repair_sensor_inputs.status.assert_not_called()
+        repair_sensor_inputs.completion.assert_not_called()
 
 
 def test_repair_run_key_is_stable_per_exact_upstream_batch() -> None:

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 import dagster as dg
@@ -22,17 +21,9 @@ from orchestrator.defs.jobs.gold_stock_daily_qfq_factor_repair import (
 from orchestrator.defs.jobs.gold_stock_daily_trend_channel_repair import (
     gold_stock_daily_trend_channel_repair_job,
 )
-from orchestrator.defs.partitions import (
-    cn_a_stock_daily_trend_channel_trade_days,
-)
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, silver_trade_calendar_path
 from orchestrator.defs.run_contracts.configs import (
     build_gold_stock_daily_trend_channel_repair_run_config,
-)
-from orchestrator.defs.run_contracts.cursor_payloads import build_cursor_details
-from orchestrator.defs.run_contracts.cursors import (
-    SensorCursorDecision,
-    build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_upstream_triggered_run_key
@@ -42,14 +33,10 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
     build_sensor_tags,
 )
-from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 from orchestrator.defs.stock_daily_trend_channel import (
     FORMULA_VERSION,
     TREND_AUTO_REPAIR_CODE_LIMIT,
 )
-
-SENSOR_NAME = "gold_stock_daily_trend_channel_repair_job_sensor"
-JOB_NAME = "gold_stock_daily_trend_channel_repair_job"
 
 
 @dataclass(frozen=True)
@@ -81,8 +68,8 @@ def build_stock_daily_trend_channel_repair_run_status_decision(
             repair_start_trade_date=None,
             repair_end_trade_date=None,
             reason_code="missing_qfq_factor_repair_trade_date",
-            reason="The completed qfq repair run has no valid target trade date.",
-            next_action="Inspect the triggering qfq repair run config.",
+            reason="上游日线前复权修复任务未提供有效触发日。",
+            next_action="检查该上游任务的交易日配置。",
         )
     status = qfq_factor_repair_status
     if status is None or not status.ready:
@@ -91,12 +78,8 @@ def build_stock_daily_trend_channel_repair_run_status_decision(
             repair_start_trade_date=None,
             repair_end_trade_date=repair_end_trade_date,
             reason_code="qfq_repair_status_not_ready",
-            reason=(
-                status.reason
-                if status is not None
-                else "The exact qfq repair status is unavailable."
-            ),
-            next_action="Restore the exact qfq factor repair completion check.",
+            reason="尚未取得当前批次的日线前复权修复完成证据。",
+            next_action="检查该批次上游修复完成检查，修复后按原范围补跑趋势修复。",
         )
     if not status.repair_required:
         return StockDailyTrendChannelRepairRunStatusDecision(
@@ -104,8 +87,8 @@ def build_stock_daily_trend_channel_repair_run_status_decision(
             repair_start_trade_date=None,
             repair_end_trade_date=repair_end_trade_date,
             reason_code="trend_repair_not_required",
-            reason="The qfq reconciliation found no factor changes.",
-            next_action="No trend repair is needed; the daily sensor may continue.",
+            reason="日线前复权因子没有变化，无需修复趋势历史。",
+            next_action="等待日更 sensor 检查其它上游并继续。",
         )
     if (
         status.repair_required_code_count > TREND_AUTO_REPAIR_CODE_LIMIT
@@ -116,8 +99,8 @@ def build_stock_daily_trend_channel_repair_run_status_decision(
             repair_start_trade_date=None,
             repair_end_trade_date=repair_end_trade_date,
             reason_code="repair_scope_exceeds_auto_limit",
-            reason="The affected stock scope exceeds the automatic trend repair limit.",
-            next_action="Run a separately approved dry-run and manual scoped repair.",
+            reason="上游股票范围超过趋势自动修复上限或代码清单被截断。",
+            next_action="先做只读范围审计，再单独审批历史修复；不能截取部分代码执行。",
         )
     if (
         repair_end_trade_date is None
@@ -134,16 +117,16 @@ def build_stock_daily_trend_channel_repair_run_status_decision(
             repair_start_trade_date=None,
             repair_end_trade_date=repair_end_trade_date,
             reason_code="qfq_repair_scope_invalid",
-            reason="The qfq repair metadata does not contain one exact repair scope.",
-            next_action="Fix the qfq repair count, range, code list, hash or batch metadata.",
+            reason="上游日线前复权修复范围不完整或不一致。",
+            next_action="核对日期、数量、完整代码清单、hash 和批次，修正后按原范围补跑。",
         )
     return StockDailyTrendChannelRepairRunStatusDecision(
         qfq_factor_repair_trade_date=qfq_factor_repair_trade_date,
         repair_start_trade_date=status.repair_start_trade_date,
         repair_end_trade_date=repair_end_trade_date,
         reason_code="selected_for_trend_repair",
-        reason="The exact qfq repair scope requires a trend-channel repair.",
-        next_action="Submit the scoped repair and wait for both completion checks.",
+        reason="当前日线前复权批次需要修复对应股票的趋势历史。",
+        next_action="等待两个趋势修复完成检查通过后，再生成当日数据。",
         stock_codes=status.repair_required_codes,
         repair_required_codes_hash=status.repair_required_codes_hash,
         source_upstream_batch_id=status.upstream_batch_id,
@@ -215,50 +198,6 @@ def _run_request(
     )
 
 
-def _cursor(
-    decision: StockDailyTrendChannelRepairRunStatusDecision,
-) -> str:
-    return build_sensor_cursor(
-        evaluated_at=datetime.now(CN_A_SENSOR_TIMEZONE),
-        decision=(
-            SensorCursorDecision.REQUEST_RUNS
-            if decision.selected
-            else SensorCursorDecision.SKIP
-        ),
-        target_date=decision.qfq_factor_repair_trade_date,
-        selected_count=1 if decision.selected else 0,
-        blocked_count=(
-            1
-            if decision.reason_code
-            in {"repair_scope_exceeds_auto_limit", "qfq_repair_scope_invalid"}
-            else 0
-        ),
-        sample_keys=(
-            (decision.qfq_factor_repair_trade_date,)
-            if decision.qfq_factor_repair_trade_date
-            else ()
-        ),
-        details=build_cursor_details(
-            sensor_name=SENSOR_NAME,
-            job_name=JOB_NAME,
-            asset_family="stock_daily_trend_channel",
-            partition_set=cn_a_stock_daily_trend_channel_trade_days.name,
-            reason_code=decision.reason_code,
-            blocked_component=("none" if decision.selected else decision.reason_code),
-            summary=decision.reason,
-            next_action=decision.next_action,
-            evidence={
-                "repair_start_trade_date": decision.repair_start_trade_date,
-                "repair_end_trade_date": decision.repair_end_trade_date,
-                "repair_required_code_count": len(decision.stock_codes),
-                "repair_required_codes_hash": decision.repair_required_codes_hash,
-                "source_upstream_batch_id": decision.source_upstream_batch_id,
-                "formula_version": FORMULA_VERSION,
-            },
-        ),
-    )
-
-
 def _evaluate_sensor(
     context: dg.RunStatusSensorContext,
 ) -> dg.SensorResult:
@@ -282,8 +221,10 @@ def _evaluate_sensor(
     )
     if not decision.selected:
         return dg.SensorResult(
-            skip_reason=f"{decision.reason_code}: {decision.reason}",
-            cursor=_cursor(decision),
+            skip_reason=(
+                f"{decision.reason_code}: {decision.reason} "
+                f"下一步：{decision.next_action}"
+            ),
         )
     assert status is not None
     completion = gold_stock_daily_trend_channel_repair_completion_status(
@@ -297,22 +238,25 @@ def _evaluate_sensor(
         source_upstream_batch_id=decision.source_upstream_batch_id,
     )
     if completion.ready:
-        completed_decision = StockDailyTrendChannelRepairRunStatusDecision(
-            qfq_factor_repair_trade_date=trade_date,
-            repair_start_trade_date=None,
-            repair_end_trade_date=decision.repair_end_trade_date,
-            reason_code="trend_repair_completion_ready",
-            reason=completion.reason,
-            next_action="No duplicate trend repair run is needed.",
-        )
         return dg.SensorResult(
-            skip_reason=completed_decision.reason,
-            cursor=_cursor(completed_decision),
+            skip_reason=(
+                "trend_repair_completion_ready: 当前批次趋势历史修复已完成，"
+                "无需重复提交。下一步：等待日更 sensor 推进。"
+            ),
         )
-    return dg.SensorResult(
-        run_requests=[_run_request(decision)],
-        cursor=_cursor(decision),
+    request = _run_request(decision)
+    context.log.info(
+        "已生成股票日线趋势历史修复请求：触发日=%s，范围=%s～%s，"
+        "股票数=%s，上游批次=%s。下一步：%s",
+        trade_date,
+        decision.repair_start_trade_date,
+        decision.repair_end_trade_date,
+        len(decision.stock_codes),
+        decision.source_upstream_batch_id,
+        decision.next_action,
     )
+    # Run-status event progress belongs to Dagster, not a business cursor.
+    return dg.SensorResult(run_requests=[request])
 
 
 @dg.run_status_sensor(

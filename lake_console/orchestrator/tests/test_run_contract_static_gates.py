@@ -5154,6 +5154,25 @@ def use_nested_resource(context):
         self.assertNotIn("build_asset_update_run_key", source)
         self.assertNotIn("repair_required_codes_hash}:{FORMULA_VERSION", source)
 
+    def test_stock_daily_trend_channel_repair_cursor_is_managed_by_dagster(self) -> None:
+        sensor_path = (
+            SENSORS_DIR / "gold_stock_daily_trend_channel_repair_job_sensor.py"
+        )
+        tree = ast.parse(sensor_path.read_text(), filename=str(sensor_path))
+        forbidden_builders = {"build_cursor_details", "build_sensor_cursor"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    self.assertNotIn(alias.name, forbidden_builders)
+            if isinstance(node, ast.FunctionDef):
+                self.assertNotEqual(node.name, "_cursor")
+            if not isinstance(node, ast.Call):
+                continue
+            call_name = _call_name(node.func)
+            self.assertNotIn(call_name, forbidden_builders | {"update_cursor"})
+            if call_name == "SensorResult":
+                self.assertNotIn("cursor", {keyword.arg for keyword in node.keywords})
+
     def test_gold_stock_daily_qfq_history_bootstrap_does_not_write_dagster_events(
         self,
     ) -> None:
