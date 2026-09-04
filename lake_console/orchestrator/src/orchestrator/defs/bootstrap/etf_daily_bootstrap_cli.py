@@ -6,15 +6,17 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import dagster as dg
 
 from orchestrator.defs.asset_guards.etf_basic_readiness import (
+    EtfBasicReadinessError,
     select_latest_etf_basic_snapshot_reference,
 )
+from orchestrator.defs.assets.etf_basic import raw_tushare_etf_basic
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_apply import (
     EtfDailyBootstrapApplyError,
     run_bounded_sample,
@@ -49,6 +51,8 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
     write_silver_bootstrap_plan,
 )
 from orchestrator.defs.resources import DuckDBResource, TushareResource
+from orchestrator.defs.run_contracts.etf_basic import EtfBasicSilverSnapshotReference
+from orchestrator.defs.run_contracts.etf_mins import etf_sensor_window_is_open
 
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
 
@@ -155,16 +159,64 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _latest_basic(
-    *, instance: dg.DagsterInstance, lake_root: Path, duckdb: DuckDBResource
-):  # type: ignore[no-untyped-def]
-    today = datetime.now(_SHANGHAI).date()
-    return select_latest_etf_basic_snapshot_reference(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    evaluated_at: datetime | None = None,
+) -> EtfBasicSilverSnapshotReference:
+    """Validate the latest Basic against its daily refresh window, not midnight."""
+    now = evaluated_at or datetime.now(_SHANGHAI)
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("Bootstrap Basic evaluated_at must include a timezone")
+    now = now.astimezone(_SHANGHAI)
+    earliest_date = now.date()
+    if not etf_sensor_window_is_open(now):
+        earliest_date -= timedelta(days=1)
+    records = instance.fetch_materializations(
+        dg.AssetRecordsFilter(asset_key=raw_tushare_etf_basic.key), limit=1
+    ).records
+    if not records:
+        raise EtfBasicReadinessError(
+            "etf_basic_latest_materialization_missing: raw_tushare_etf_basic."
+        )
+    materialization = records[0].asset_materialization
+    if materialization is None:
+        raise EtfBasicReadinessError("etf_basic_materialization_payload_missing.")
+    metadata = materialization.metadata
+    observed_value = metadata.get("goldenshare/observed_at")
+    observed_value = getattr(observed_value, "value", observed_value)
+    if not isinstance(observed_value, str) or not observed_value:
+        raise EtfBasicReadinessError("etf_basic_raw_observed_at_missing.")
+    try:
+        observed_at = datetime.fromisoformat(observed_value)
+    except ValueError as error:
+        raise EtfBasicReadinessError("etf_basic_raw_observed_at_invalid.") from error
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise EtfBasicReadinessError(
+            "etf_basic_raw_observed_at_invalid: timezone required."
+        )
+    observed_date = observed_at.astimezone(_SHANGHAI).date()
+    if observed_at > now or observed_date < earliest_date:
+        raise EtfBasicReadinessError(
+            "etf_basic_raw_observed_at_outside_refresh_window: "
+            f"observed_at={observed_at.isoformat()}, earliest_date={earliest_date}, "
+            f"evaluated_at={now.isoformat()}."
+        )
+    reference = select_latest_etf_basic_snapshot_reference(
         instance=instance,
         lake_root_path=lake_root,
         duckdb_resource=duckdb,
-        eligibility_as_of=today,
-        required_freshness_date=today,
+        eligibility_as_of=observed_date,
+        required_freshness_date=observed_date,
     )
+    snapshot_hash = metadata.get("goldenshare/raw_snapshot_hash")
+    if (
+        reference.raw_snapshot_hash != getattr(snapshot_hash, "value", snapshot_hash)
+        or datetime.fromisoformat(reference.raw_observed_at) != observed_at
+    ):
+        raise EtfBasicReadinessError("etf_basic_changed_during_bootstrap_selection.")
+    return reference
 
 
 def _confirmation_error(args: argparse.Namespace) -> str | None:
@@ -185,7 +237,10 @@ def _confirmation_error(args: argparse.Namespace) -> str | None:
 
 
 def _require_formal_roots(lake_root: Path, staging_root: Path) -> None:
-    if lake_root.resolve() != FORMAL_LAKE_ROOT or staging_root.resolve() != BOOTSTRAP_STAGING_ROOT:
+    if (
+        lake_root.resolve() != FORMAL_LAKE_ROOT
+        or staging_root.resolve() != BOOTSTRAP_STAGING_ROOT
+    ):
         raise EtfDailyBootstrapPlanError(
             "formal Bootstrap commands require the approved Lake and staging roots"
         )
@@ -200,7 +255,9 @@ def _require_bounded_sample_roots(
         )
     allowed_parents = (Path("/private/tmp"), BOOTSTRAP_STAGING_ROOT)
     for root in (isolated_lake_root.resolve(), isolated_staging_root.resolve()):
-        if root == FORMAL_LAKE_ROOT or not any(root.is_relative_to(parent) for parent in allowed_parents):
+        if root == FORMAL_LAKE_ROOT or not any(
+            root.is_relative_to(parent) for parent in allowed_parents
+        ):
             raise EtfDailyBootstrapPlanError(
                 "bounded sample roots must stay under /private/tmp or approved staging"
             )
@@ -243,7 +300,11 @@ def main(argv: list[str] | None = None) -> int:
         with dg.DagsterInstance.get() as instance:
             result = _run(args=args, instance=instance, duckdb=duckdb)
         print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
-        return 3 if result.get("should_stop") is True or result.get("passed") is False else 0
+        return (
+            3
+            if result.get("should_stop") is True or result.get("passed") is False
+            else 0
+        )
     except (
         EtfDailyBootstrapApplyError,
         EtfDailyBootstrapAuditError,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,6 +22,7 @@ from orchestrator.defs.assets.etf_basic import (
     build_etf_basic_silver_materialization_metadata,
     write_etf_basic_silver_snapshot,
 )
+from orchestrator.defs.bootstrap.etf_daily_bootstrap_cli import _latest_basic
 from orchestrator.defs.paths import raw_etf_basic_snapshot_path
 from orchestrator.defs.run_contracts.etf_basic import (
     ETF_BASIC_SOURCE_COLUMNS,
@@ -393,4 +394,205 @@ def test_required_freshness_date_must_equal_eligibility_as_of(
             duckdb_resource=TestDuckDBResource(),  # type: ignore[arg-type]
             eligibility_as_of=date(2026, 8, 30),
             required_freshness_date=date(2026, 8, 29),
+        )
+
+
+@pytest.mark.parametrize(
+    ("observed_day", "evaluated_at"),
+    [
+        ("2026-09-03", "2026-09-03T23:59:59+08:00"),
+        ("2026-09-03", "2026-09-04T00:00:00+08:00"),
+        ("2026-09-03", "2026-09-04T08:30:00+08:00"),
+        ("2026-09-03", "2026-09-04T20:59:59+08:00"),
+        ("2026-09-03", "2026-09-04T00:30:00+00:00"),
+        ("2026-09-04", "2026-09-04T08:30:00+08:00"),
+        ("2026-09-04", "2026-09-04T21:00:00+08:00"),
+    ],
+)
+def test_daily_bootstrap_basic_uses_refresh_window_and_latest_snapshot(
+    tmp_path: Path, observed_day: str, evaluated_at: str
+) -> None:
+    instance, lake_root, raw_hash = _ready_fixture(
+        tmp_path,
+        raw_observed_at=f"{observed_day}T07:00:00+08:00",
+        silver_observed_at=f"{observed_day}T07:05:00+08:00",
+    )
+    before = {path: path.read_bytes() for path in lake_root.rglob("*.parquet")}
+    reference = _latest_basic(
+        instance=instance,  # type: ignore[arg-type]
+        lake_root=lake_root,
+        duckdb=TestDuckDBResource(),  # type: ignore[arg-type]
+        evaluated_at=datetime.fromisoformat(evaluated_at),
+    )
+    assert reference.raw_snapshot_hash == raw_hash
+    assert reference.eligibility_as_of == observed_day
+    assert instance.fetch_calls == [
+        (dg.AssetKey("raw_tushare_etf_basic"), 1),
+        (dg.AssetKey("raw_tushare_etf_basic"), 1),
+        (dg.AssetKey("silver_etf_basic"), 1),
+    ]
+    assert len(instance.event_log_storage.calls) == len(
+        RAW_ETF_BASIC_CHECKS + SILVER_ETF_BASIC_CHECKS
+    )
+    assert all(limit == 1 for _, limit in instance.event_log_storage.calls)
+    assert before == {path: path.read_bytes() for path in lake_root.rglob("*.parquet")}
+
+
+@pytest.mark.parametrize(
+    ("observed_at", "evaluated_at", "reason"),
+    [
+        (
+            "2026-09-03T21:05:00+08:00",
+            "2026-09-04T21:00:00+08:00",
+            "outside_refresh_window",
+        ),
+        (
+            "2026-09-02T21:05:00+08:00",
+            "2026-09-04T08:30:00+08:00",
+            "outside_refresh_window",
+        ),
+        (
+            "2026-09-04T09:00:00+08:00",
+            "2026-09-04T08:30:00+08:00",
+            "outside_refresh_window",
+        ),
+        (None, "2026-09-04T08:30:00+08:00", "observed_at_missing"),
+        ("invalid", "2026-09-04T08:30:00+08:00", "observed_at_invalid"),
+        ("2026-09-03T21:05:00", "2026-09-04T08:30:00+08:00", "timezone required"),
+    ],
+)
+def test_daily_bootstrap_basic_rejects_stale_or_invalid_latest_without_fallback(
+    tmp_path: Path, observed_at: str | None, evaluated_at: str, reason: str
+) -> None:
+    instance, lake_root, _ = _ready_fixture(tmp_path)
+    raw_records = instance.records_by_asset[dg.AssetKey("raw_tushare_etf_basic")]
+    valid_metadata = dict(raw_records[0].asset_materialization.metadata)
+    valid_metadata["goldenshare/observed_at"] = dg.MetadataValue.text(
+        "2026-09-03T21:05:00+08:00"
+    )
+    invalid_metadata = dict(valid_metadata)
+    invalid_metadata["goldenshare/observed_at"] = observed_at
+    raw_records[:] = [
+        _materialization_record(storage_id=303, metadata=invalid_metadata),
+        _materialization_record(storage_id=101, metadata=valid_metadata),
+    ]
+    with pytest.raises(EtfBasicReadinessError, match=reason):
+        _latest_basic(
+            instance=instance,  # type: ignore[arg-type]
+            lake_root=lake_root,
+            duckdb=TestDuckDBResource(),  # type: ignore[arg-type]
+            evaluated_at=datetime.fromisoformat(evaluated_at),
+        )
+    assert instance.fetch_calls == [(dg.AssetKey("raw_tushare_etf_basic"), 1)]
+    assert not instance.event_log_storage.calls
+
+
+@pytest.mark.parametrize("layer", ["raw_tushare_etf_basic", "silver_etf_basic"])
+def test_daily_bootstrap_basic_keeps_latest_failed_check_blocking(
+    tmp_path: Path, layer: str
+) -> None:
+    instance, lake_root, _ = _ready_fixture(
+        tmp_path,
+        raw_observed_at="2026-09-03T21:05:00+08:00",
+        silver_observed_at="2026-09-03T21:08:00+08:00",
+    )
+    is_raw = layer == "raw_tushare_etf_basic"
+    check_name = (RAW_ETF_BASIC_CHECKS if is_raw else SILVER_ETF_BASIC_CHECKS)[0]
+    storage_id = 101 if is_raw else 202
+    instance.event_log_storage.records_by_key[
+        dg.AssetCheckKey(dg.AssetKey(layer), check_name)
+    ] = [
+        _check_record(storage_id, passed=False),
+        _check_record(storage_id),
+    ]
+    with pytest.raises(EtfBasicReadinessError, match="latest_check_failed"):
+        _latest_basic(
+            instance=instance,  # type: ignore[arg-type]
+            lake_root=lake_root,
+            duckdb=TestDuckDBResource(),  # type: ignore[arg-type]
+            evaluated_at=datetime.fromisoformat("2026-09-04T08:30:00+08:00"),
+        )
+
+
+def test_daily_bootstrap_basic_reference_does_not_drift_at_midnight(
+    tmp_path: Path,
+) -> None:
+    instance, lake_root, _ = _ready_fixture(
+        tmp_path,
+        raw_observed_at="2026-09-03T21:05:00+08:00",
+        silver_observed_at="2026-09-03T21:08:00+08:00",
+    )
+    references = [
+        _latest_basic(
+            instance=instance,  # type: ignore[arg-type]
+            lake_root=lake_root,
+            duckdb=TestDuckDBResource(),  # type: ignore[arg-type]
+            evaluated_at=datetime.fromisoformat(evaluated_at),
+        )
+        for evaluated_at in ("2026-09-03T23:59:59+08:00", "2026-09-04T00:00:00+08:00")
+    ]
+    assert references[0] == references[1]
+
+
+def test_daily_bootstrap_basic_rejects_change_during_selection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    instance, lake_root, _ = _ready_fixture(
+        tmp_path,
+        raw_observed_at="2026-09-03T21:05:00+08:00",
+        silver_observed_at="2026-09-03T21:08:00+08:00",
+    )
+
+    def changed_reference(**kwargs):  # type: ignore[no-untyped-def]
+        reference = select_latest_etf_basic_snapshot_reference(**kwargs)
+        return reference.model_copy(
+            update={"raw_observed_at": "2026-09-03T22:00:00+08:00"}
+        )
+
+    monkeypatch.setattr(
+        "orchestrator.defs.bootstrap.etf_daily_bootstrap_cli.select_latest_etf_basic_snapshot_reference",
+        changed_reference,
+    )
+    with pytest.raises(
+        EtfBasicReadinessError, match="changed_during_bootstrap_selection"
+    ):
+        _latest_basic(
+            instance=instance,  # type: ignore[arg-type]
+            lake_root=lake_root,
+            duckdb=TestDuckDBResource(),  # type: ignore[arg-type]
+            evaluated_at=datetime.fromisoformat("2026-09-04T08:30:00+08:00"),
+        )
+
+
+@pytest.mark.parametrize(
+    "problem", ["missing_raw", "missing_payload", "silver_binding"]
+)
+def test_daily_bootstrap_basic_keeps_materialization_and_layer_binding_gates(
+    tmp_path: Path, problem: str
+) -> None:
+    instance, lake_root, _ = _ready_fixture(
+        tmp_path,
+        raw_observed_at="2026-09-03T21:05:00+08:00",
+        silver_observed_at="2026-09-03T21:08:00+08:00",
+    )
+    if problem == "missing_raw":
+        instance.records_by_asset[dg.AssetKey("raw_tushare_etf_basic")] = []
+        reason = "latest_materialization_missing"
+    elif problem == "missing_payload":
+        instance.records_by_asset[dg.AssetKey("raw_tushare_etf_basic")][
+            0
+        ].asset_materialization = None
+        reason = "materialization_payload_missing"
+    else:
+        record = instance.records_by_asset[dg.AssetKey("silver_etf_basic")][0]
+        record.asset_materialization.metadata["goldenshare/raw_snapshot_hash"] = (
+            "0" * 64
+        )
+        reason = "latest_layers_not_aligned"
+    with pytest.raises(EtfBasicReadinessError, match=reason):
+        _latest_basic(
+            instance=instance,  # type: ignore[arg-type]
+            lake_root=lake_root,
+            duckdb=TestDuckDBResource(),  # type: ignore[arg-type]
+            evaluated_at=datetime.fromisoformat("2026-09-04T08:30:00+08:00"),
         )

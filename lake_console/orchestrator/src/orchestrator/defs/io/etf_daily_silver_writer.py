@@ -251,13 +251,20 @@ def _expected_types(spec: EtfDailySilverSpec) -> tuple[str, ...]:
     return tuple(spec.silver_column_types[column] for column in spec.source_columns)
 
 
-def _classified_select(
+def etf_daily_classified_select(
     *,
     raw_relation_sql: str,
     basic_relation_sql: str,
+    trade_date_is_typed: bool = False,
 ) -> str:
+    """Share the row-selection contract with checks and grouped lake audits."""
     raw_sql = _relation_select(raw_relation_sql)
     basic_sql = _relation_select(basic_relation_sql)
+    trade_date_sql = (
+        "raw_rows.trade_date"
+        if trade_date_is_typed
+        else "strptime(raw_rows.trade_date, '%Y%m%d')::DATE"
+    )
     return f"""
     SELECT
       raw_rows.*,
@@ -270,7 +277,7 @@ def _classified_select(
           THEN 'EXCHANGE_MISMATCH'
         WHEN basic_rows.list_status IS DISTINCT FROM 'L' THEN 'STATUS_NOT_LISTED'
         WHEN basic_rows.list_date IS NULL THEN 'LIST_DATE_NULL'
-        WHEN basic_rows.list_date > strptime(raw_rows.trade_date, '%Y%m%d')::DATE
+        WHEN basic_rows.list_date > {trade_date_sql}
           THEN 'LIST_DATE_AFTER_TRADE_DATE'
         ELSE NULL
       END AS rejection_reason
@@ -298,26 +305,26 @@ def _silver_projection(
     """
 
 
+def etf_daily_silver_content_hash_sql(spec: EtfDailySilverSpec) -> str:
+    """Canonical aggregate shared by single-file and grouped Silver audits."""
+    _approved_spec(spec)
+    struct_fields = ", ".join(
+        f'{column} := "{column}"' for column in spec.source_columns
+    )
+    return f"""sha256(coalesce(string_agg(
+        to_json(struct_pack({struct_fields})), '\n' ORDER BY ts_code, trade_date
+    ), ''))"""
+
+
 def _canonical_content_hash(
     connection,
     *,
     select_sql: str,
     spec: EtfDailySilverSpec,
 ) -> str:
-    struct_fields = ", ".join(
-        f'{column} := "{column}"' for column in spec.source_columns
-    )
     value = connection.execute(
         f"""
-        SELECT sha256(
-          coalesce(
-            string_agg(
-              to_json(struct_pack({struct_fields})),
-              '\n' ORDER BY ts_code, trade_date
-            ),
-            ''
-          )
-        )
+        SELECT {etf_daily_silver_content_hash_sql(spec)}
         FROM ({select_sql}) relation_rows
         """
     ).fetchone()[0]
@@ -506,26 +513,11 @@ def audit_etf_daily_source_filter(
 
     silver_sql = _relation_select(silver_relation_sql)
     basic_sql = _relation_select(basic_relation_sql)
-    invalid_sql = f"""
-    SELECT
-      silver_rows.ts_code,
-      silver_rows.trade_date,
-      CASE
-        WHEN NOT ends_with(silver_rows.ts_code, '.SH')
-         AND NOT ends_with(silver_rows.ts_code, '.SZ')
-          THEN 'NON_EXCHANGE_SUFFIX'
-        WHEN basic_rows.ts_code IS NULL THEN 'BASIC_CODE_ABSENT'
-        WHEN basic_rows.exchange IS DISTINCT FROM right(silver_rows.ts_code, 2)
-          THEN 'EXCHANGE_MISMATCH'
-        WHEN basic_rows.list_status IS DISTINCT FROM 'L' THEN 'STATUS_NOT_LISTED'
-        WHEN basic_rows.list_date IS NULL THEN 'LIST_DATE_NULL'
-        WHEN basic_rows.list_date > silver_rows.trade_date
-          THEN 'LIST_DATE_AFTER_TRADE_DATE'
-        ELSE NULL
-      END AS rejection_reason
-    FROM ({silver_sql}) silver_rows
-    LEFT JOIN ({basic_sql}) basic_rows USING (ts_code)
-    """
+    invalid_sql = etf_daily_classified_select(
+        raw_relation_sql=silver_sql,
+        basic_relation_sql=basic_sql,
+        trade_date_is_typed=True,
+    )
     checked_row_count = int(
         connection.execute(f"SELECT count(*) FROM ({silver_sql}) rows").fetchone()[0]
         or 0
@@ -572,7 +564,7 @@ def audit_etf_daily_source_parity(
     """Reconcile Silver bidirectionally against Raw plus frozen Basic."""
 
     _approved_spec(spec)
-    classified_sql = _classified_select(
+    classified_sql = etf_daily_classified_select(
         raw_relation_sql=raw_relation_sql,
         basic_relation_sql=basic_relation_sql,
     )
@@ -991,7 +983,7 @@ def _write_etf_daily_silver_partition(
                     "ETF daily Raw file failed the admission contract: "
                     f"errors={raw_audit.error_codes!r}, path={raw_path}"
                 )
-            classified_sql = _classified_select(
+            classified_sql = etf_daily_classified_select(
                 raw_relation_sql=raw_sql,
                 basic_relation_sql=basic_sql,
             )

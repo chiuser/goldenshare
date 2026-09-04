@@ -19,6 +19,9 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
     hash_payload,
     write_immutable_json,
 )
+from orchestrator.defs.bootstrap.etf_daily_physical_batch_audit import (
+    audit_etf_daily_physical_batch,
+)
 from orchestrator.defs.bootstrap.etf_daily_raw_batch_audit import (
     audit_etf_daily_raw_batch,
     etf_daily_raw_batches,
@@ -27,16 +30,10 @@ from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
     FUND_ADJ_RAW_SPEC,
     FUND_DAILY_RAW_SPEC,
-    audit_etf_daily_raw_relation,
 )
 from orchestrator.defs.io.etf_daily_silver_writer import (
     FUND_ADJ_SILVER_SPEC,
     FUND_DAILY_SILVER_SPEC,
-    audit_etf_daily_basic_coverage,
-    audit_etf_daily_domain,
-    audit_etf_daily_silver_relation,
-    audit_etf_daily_source_filter,
-    audit_etf_daily_source_parity,
     validate_etf_daily_basic_reference,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -157,6 +154,7 @@ def run_physical_post_audit(
 ) -> dict[str, object]:
     """Close the four-asset physical contract before any Dagster event write."""
 
+    started = perf_counter()
     if silver_plan.parent_raw_plan_hash != raw_plan.raw_plan_hash:
         raise EtfDailyBootstrapAuditError("Silver Plan is not a child of the Raw Plan")
     raw_checkpoint = _validate_checkpoint_scope(
@@ -182,29 +180,42 @@ def run_physical_post_audit(
     extra_paths = sorted(str(path) for path in actual_files - expected_paths)
     file_evidence: list[dict[str, object]] = []
     failures: list[dict[str, object]] = []
+    batches: list[dict[str, Any]] = []
     if not missing_paths and not extra_paths:
         with duckdb_resource.connect() as connection:
             basic_sql = read_parquet(
                 Path(reference.silver_uri), hive_partitioning=False
             )
-            for trade_date in raw_plan.trade_dates:
-                for raw_spec, silver_spec in (
-                    (FUND_DAILY_RAW_SPEC, FUND_DAILY_SILVER_SPEC),
-                    (FUND_ADJ_RAW_SPEC, FUND_ADJ_SILVER_SPEC),
-                ):
-                    evidence = _audit_pair(
-                        connection,
-                        lake_root=lake_root,
-                        trade_date=trade_date,
-                        raw_spec=raw_spec,
-                        silver_spec=silver_spec,
-                        basic_sql=basic_sql,
-                        basic_reference=reference,
-                    )
-                    file_evidence.extend(evidence)
-                    failures.extend(
-                        item for item in evidence if item["passed"] is not True
-                    )
+            for raw_spec, dates in etf_daily_raw_batches(raw_plan.trade_dates):
+                batch = audit_etf_daily_physical_batch(
+                    connection,
+                    lake_root=lake_root,
+                    trade_dates=dates,
+                    spec=FUND_DAILY_SILVER_SPEC
+                    if raw_spec is FUND_DAILY_RAW_SPEC
+                    else FUND_ADJ_SILVER_SPEC,
+                    basic_sql=basic_sql,
+                    basic_reference=reference,
+                )
+                file_evidence.extend(batch["files"])
+                batches.append(batch["performance"])
+                failures.extend(
+                    item for item in batch["files"] if item["passed"] is not True
+                )
+    asset_order = {
+        spec.asset_key: index
+        for index, spec in enumerate(
+            (
+                FUND_DAILY_RAW_SPEC,
+                FUND_DAILY_SILVER_SPEC,
+                FUND_ADJ_RAW_SPEC,
+                FUND_ADJ_SILVER_SPEC,
+            )
+        )
+    }
+    file_evidence.sort(
+        key=lambda item: (item["trade_date"], asset_order[item["asset_key"]])
+    )
     staging_residuals = sorted(
         str(path)
         for operation in (
@@ -256,114 +267,24 @@ def run_physical_post_audit(
         and not checkpoint_failures
         and not failures,
         "dagster_events_written": 0,
+        "performance": {
+            "batch_count": len(batches),
+            "physical_batch_sql_query_count": sum(
+                item["sql_query_count"] for item in batches
+            ),
+            "raw_data_load_count": sum(item["raw_data_load_count"] for item in batches),
+            "silver_data_load_count": sum(
+                item["silver_data_load_count"] for item in batches
+            ),
+            "elapsed_ms": round((perf_counter() - started) * 1000, 3),
+            "batches": batches,
+        },
     }
     payload["report_hash"] = hash_payload(payload)
     write_immutable_json(output_path, payload)
     if payload["passed"] is not True:
         raise EtfDailyBootstrapAuditError("ETF daily physical post-audit did not pass")
     return payload
-
-
-def _audit_pair(
-    connection: Any,
-    *,
-    lake_root: Path,
-    trade_date: str,
-    raw_spec: Any,
-    silver_spec: Any,
-    basic_sql: str,
-    basic_reference: EtfBasicSilverSnapshotReference,
-) -> list[dict[str, object]]:
-    raw_path = raw_spec.target_path_builder(lake_root, trade_date)
-    silver_path = silver_spec.target_path_builder(lake_root, trade_date)
-    raw_sql = read_parquet(raw_path, hive_partitioning=False)
-    silver_sql = read_parquet(silver_path, hive_partitioning=False)
-    raw = audit_etf_daily_raw_relation(
-        connection,
-        relation_sql=raw_sql,
-        spec=raw_spec,
-        partition_key=trade_date,
-    )
-    silver = audit_etf_daily_silver_relation(
-        connection,
-        relation_sql=silver_sql,
-        spec=silver_spec,
-        partition_key=trade_date,
-    )
-    source_filter = audit_etf_daily_source_filter(
-        connection,
-        silver_relation_sql=silver_sql,
-        basic_relation_sql=basic_sql,
-    )
-    parity = audit_etf_daily_source_parity(
-        connection,
-        raw_relation_sql=raw_sql,
-        silver_relation_sql=silver_sql,
-        basic_relation_sql=basic_sql,
-        spec=silver_spec,
-    )
-    domain = audit_etf_daily_domain(
-        connection,
-        silver_relation_sql=silver_sql,
-        spec=silver_spec,
-    )
-    coverage = audit_etf_daily_basic_coverage(
-        connection,
-        raw_relation_sql=raw_sql,
-        silver_relation_sql=silver_sql,
-        basic_relation_sql=basic_sql,
-        partition_key=trade_date,
-    )
-    raw_evidence = {
-        "asset_key": raw_spec.asset_key,
-        "trade_date": trade_date,
-        "target_path": str(raw_path),
-        "row_count": raw.row_count,
-        "content_hash": raw.content_hash,
-        "source_row_count": raw.row_count,
-        "normalized_row_count": raw.row_count,
-        "written_row_count": raw.row_count,
-        "source_fields": list(raw_spec.source_columns),
-        "errors": list(raw.error_codes),
-        "passed": not raw.error_codes,
-    }
-    silver_errors = (
-        list(silver.error_codes)
-        + list(source_filter.error_codes)
-        + list(parity.error_codes)
-        + list(domain.error_codes)
-    )
-    if silver_spec.asset_key == FUND_ADJ_SILVER_SPEC.asset_key:
-        silver_errors.extend(coverage.error_codes)
-    silver_evidence = {
-        "asset_key": silver_spec.asset_key,
-        "trade_date": trade_date,
-        "target_path": str(silver_path),
-        "row_count": silver.row_count,
-        "content_hash": silver.content_hash,
-        "raw_row_count": parity.raw_row_count,
-        "selected_row_count": parity.selected_row_count,
-        "rejected_row_count": parity.rejected_row_count,
-        "written_row_count": silver.row_count,
-        "reject_reason_counts": dict(parity.reason_counts),
-        "basic_reference": basic_reference.model_dump(mode="json"),
-        "basic_reference_fingerprint": basic_reference.reference_fingerprint,
-        "basic_raw_snapshot_hash": basic_reference.raw_snapshot_hash,
-        "basic_silver_content_hash": basic_reference.silver_content_hash,
-        "basic_raw_uri": basic_reference.raw_uri,
-        "basic_silver_uri": basic_reference.silver_uri,
-        "source_fields": list(silver_spec.source_columns),
-        "coverage_warning": (
-            silver_spec.asset_key == FUND_DAILY_SILVER_SPEC.asset_key
-            and coverage.has_warning
-        ),
-        "coverage_error_codes": list(coverage.error_codes),
-        "missing_expected_code_count": coverage.missing_expected_code_count,
-        "silver_extra_code_count": coverage.silver_extra_code_count,
-        "errors": silver_errors,
-        "passed": not silver_errors,
-    }
-    return [raw_evidence, silver_evidence]
 
 
 def _expected_paths(lake_root: Path, dates: Sequence[str]) -> set[Path]:

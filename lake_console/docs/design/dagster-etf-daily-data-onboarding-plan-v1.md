@@ -1,6 +1,6 @@
 # ETF 日线与复权因子 DG 数据湖接入技术方案 v1
 
-> 状态：P0—P5 开发已完成；P6 Raw 入湖与全区间审计已完成；fund_adj coverage 已于 2026-09-04 拍板升级为阻断；尚未生成正式 Silver Plan、写 Silver、补 Dagster 事件或启用 Sensor
+> 状态：P0—P5 开发已完成；P6 Raw/Silver 历史入湖、物理验收、事件补录及写后验收已完成；fund_adj coverage 为阻断、日线 coverage 为告警；Sensor 启用和日常运行验收尚未执行
 > 更新日期：2026-09-04
 > 适用范围：`lake_console/orchestrator` 当前 Dagster 数据湖主链
 > 正式 Lake：`/Volumes/datasource/data_lake`
@@ -213,7 +213,7 @@ list_date 非空
 list_date <= 行情分区 trade_date
 ```
 
-Basic reference 的“新鲜日期”是执行日；`list_date <= trade_date` 才是历史行情分区的资格判断。两者不能混成“为每个历史日期恢复一版 Basic”。
+日常 Silver 保持执行日 Basic 门禁。历史 Bootstrap 按 Basic 已有的每日上海时间 21:00 更新窗口判断新鲜度：21:00 前允许最新版本的观测日期为昨日或今日，21:00 起要求今日；只检查最新版本，不向前搜索旧的合格版本。先读取最新 Raw 的真实观测日期，再以该日期调用既有同日 Raw/Silver selector，完整复用 checks、文件、hash 和两层绑定校验；异常或选择期间版本变化立即停止。reference 的资格日期采用该快照的观测日期，避免仅因跨零点改变 fingerprint；`list_date <= trade_date` 仍按每个历史行情分区计算。不得改写观测时间，也不恢复不存在的历史 Basic。
 
 ---
 
@@ -508,8 +508,9 @@ Silver apply 执行前重验 Silver Plan hash、父 Raw manifest、coverage poli
 - 源请求串行执行，不新增并发。
 - 当前文件完成后才领取下一个 unit；失败时保留已完成正式文件和 checkpoint。
 - 续跑先核验 checkpoint 与正式文件；等价则跳过，冲突则停止。
-- 全区间审计使用一次或少量 DuckDB 聚合扫描，不按 404 日启动 404 个进程。
+- 全区间审计使用一次或少量 DuckDB 聚合扫描，不逐日启动进程。
 - 全历史 Raw 审计和 Raw manifest 重验按“数据集＋年份”批量读取；每组先统一核验各文件 schema，再只载入一次明细，复用临时表完成行数、主键、日期、hash、质量和覆盖统计。单文件 writer 与批量审计共享 hash 表达式和数值规则，禁止逐文件重跑整套审计。实现和性能回归要求见 LLD §16.5。
+- 最终四资产物理验收也按“数据集＋年份”批量执行，不能恢复逐日深扫。复用 Raw 批量结构检查，再批量完成 Silver 结构、Basic 筛选、全部源字段双向对账、数值规则和 coverage；逐文件证据、checkpoint 对账及失败规则不变。每组固定 15 次 SQL，Raw 载入两次、Silver 一次（第二次 Raw 用于生成预期 Silver）；本次 406 日为 4 组、60 次 SQL，不含独立 Basic reference 验证。具体约束见 LLD §16.6。
 
 ### 10.5 事件补齐
 
@@ -641,8 +642,49 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 - 再次核对 Raw manifest 与审计报告 hash 一致，已完成的 812 个 Raw 文件无需重拉或改写。
 - 因子覆盖规则同步到 check 的 blocking/ERROR、Catalog 名单、readiness 和历史验收；事件补录必须有明确的因子 coverage 零缺口证据，不接受只有总 `passed=true` 的旧报告。
-- 06:57 正式只读预检发现最新 Basic 仍为 9 月 3 日晚间版本；现有当天新鲜度规则要求 9 月 4 日，返回 `etf_basic_raw_observed_at_stale`。不回退、不手动刷新、不放宽新鲜度。当天 Basic 合格后才能生成 Silver Plan，仍冻结原 Raw Plan 的 406 日，不自动扩到新增日期。
-- 升级实现已完成：ETF 日线定向与静态门禁 279 项通过，Dagster Definitions 加载、Ruff、文档完整性检查通过；因子 coverage 的 2/10 日调用预算、缺码阻断、日线告警、失败不改文件及事件证据门禁均有回归。07:10 再次只读核验 Raw manifest 未变，Raw/Silver 字段完整继承；Basic 仍报同一新鲜度错误，因此没有生成 Silver Plan，也没有写 Silver、补事件或启用 Sensor。
+- 历史记录：06:57、07:10 和 08:28 预检被“Basic 观测日期必须等于执行自然日”的旧规则阻断，最新版本为 9 月 3 日晚间。这是新鲜度设计错误，不是已证明的 Basic 数据缺陷。管理员随后批准按实际每日 21:00 更新窗口修正，见 §5.2 和 LLD §16.2.1；不刷新 Basic，仍冻结原 Raw Plan 的 406 日，不自动扩到新增日期。
+- coverage 升级验收：ETF 日线定向与静态门禁 279 项通过，Dagster Definitions 加载、Ruff、文档完整性检查通过；因子 coverage 的 2/10 日调用预算、缺码阻断、日线告警、失败不改文件及事件证据门禁均有回归。07:10 只读核验 Raw manifest 未变，Raw/Silver 字段完整继承；当时尚未生成 Silver Plan，没有写 Silver、补事件或启用 Sensor。
+
+2026-09-04 08:50 正式 Silver Plan 已生成：
+
+- 新鲜度修正仅修改 `etf_daily_bootstrap_cli._latest_basic`：复用现有 21:00 窗口和原 selector，不改 Basic 共用检查、日常链、分钟链或字段。CodeGraph explore/impact 确认影响限于该 CLI 的四个 Basic 消费分支；无 Prod/API/前端或子系统依赖变化。
+- 隔离回归共 372 项通过（ETF 日线、ETF Basic、ETF 分钟 sensor 和静态门禁）；新增 20 个历史新鲜度测试场景。Ruff、`dg check defs`、文档完整性检查通过。
+- 正式只读 Raw 复验：仍为 4 组、44 次 SQL、812 文件、1,460,629 行，核心耗时 1,327.492 ms；结构、checkpoint、已定义数值异常均为 0。因子缺码 0，日线 166 日共 310 个代码/日期缺口仍 WARN。
+- 使用的最新 Basic：Raw 观测于 `2026-09-03T21:06:22.795212+08:00`，Silver 观测于 `2026-09-03T21:08:15.448445+08:00`，可请求 ETF 1,650 个；reference fingerprint 为 `5858fab6044298a6b37a9e09d6d66502b00333477d30eddb275b8f5f2faf96c1`。未手动刷新 Basic；审计和 Plan 使用同一 reference。
+- Plan 保留原 `2025-01-02..2026-09-03` 的 406 日：`silver_etf_daily` 与 `silver_etf_adj_factor` 各 406 个目标，全部 missing，无目标文件冲突。按当前 Raw/Basic 预计筛选后分别为 539,226 / 539,536 行；这是预计值，不是已写入行数。
+- 预计新文件空间上界 30,053,205 bytes，2.5 倍空间要求 75,133,013 bytes，实际可用 2,510,528,303,104 bytes；空间门禁通过。Raw manifest hash 仍为 `dcbae06225c2a029848b753c4bb6265ac44777ec12b4d807b3f8ebe3d0aedd8e`，未重拉或改写 Raw。
+- 证据仍在原 operation 目录：`raw-audit-20260904-silver-preflight.json`（report hash `bfc53fef6694b7f6bc0755563ed6c1d40112bbb9152707175b8912d8ff10ce1d`）和 `silver-plan.json`（plan hash `2e0224254061157d86e9eb470a60a42522be9c0b45740fd4b284cecbecc69f95`）。Plan 的 `code_revision` 同时记录当前提交和本轮 CLI 工作区文件 SHA-256，不冒充已提交的代码版本。
+- 该次 Plan 阶段源请求、正式 Lake 文件写入、Dagster event/分区/sensor 写入均为 0；当时全部 Silver 目标不存在。后续获批执行的结果见下段。
+
+2026-09-04 Silver apply 与物理验收已完成：
+
+- 管理员批准先补齐最终物理验收的批量实现，再继续已批准的 Silver apply。修正范围仅为 Bootstrap 验收读取模型及共用纯 SQL；删除逐日 `_audit_pair`，分类、hash、全字段双向 parity、数值和 coverage 规则不变，不增加配置或源请求。
+- CodeGraph explore/impact 核验 Bootstrap、Silver writer、正式 check 和 readiness 的调用关系；分类和 hash 提取为同一纯 helper，未改变字段、API、前端、子系统边界或依赖矩阵。398 项定向/静态回归通过，新增批量测试逐项对照每文件证据，覆盖错误第二文件、同键改值、空/重复键、错位/空日期、零行 Silver；同年 2/20 日均固定 15 次 SQL。Ruff、Definitions 与文档完整性检查通过。
+- 复用原 Silver Plan `2e0224254061157d86e9eb470a60a42522be9c0b45740fd4b284cecbecc69f95`，启动时最新 Basic、Raw manifest、目标和空间门禁通过。正式新增 Silver 812 个文件，全部 `write_new`：日线 406 文件 / 539,226 行；复权因子 406 文件 / 539,536 行，范围仍为 `2025-01-02..2026-09-03`。Silver apply 126.821 秒，每文件 checkpoint 已保存，无自动覆盖。
+- 最终只读物理验收通过：Raw/Silver 四资产各 406 文件，合计 1,624 文件；无缺文件、多余文件、checkpoint 差异或 staging Parquet 残留，结构/hash/筛选/parity/数值检查通过。因子缺码 0；日线仍有 166 日、310 个代码/日期缺口，按既定 WARN 保留，不能据此宣称日线全部覆盖。
+- 性能实测为 4 组、60 次批量 SQL、Raw 明细载入 8 次、Silver 4 次；核心验收 2,953.390 ms（不含 CLI 启动与报告序列化），各组结束时临时文件占用为 0，不作为峰值证明。详见 LLD §16.6。
+- 证据仍在原 operation 目录：`silver-apply-report.json`（hash `280467238a328eab9a1be79149dac1a9832f9da6f98791d82d7b3de22aa25657`）、`physical-post-audit.json`（hash `6866a60b107923a17897be598ee611c222b4a67a6051525c7b900c4187aba4b4`）及 `checkpoint.json`。本轮没有源请求、Raw 改写、Dagster 事件/动态分区写入或 Sensor 启用。
+- 该阶段完成的是历史物理建设，不是整个 P6 结案。事件补录 Plan 的后续执行结果见下段；事件 apply、Sensor 启用和连续三个交易日验收仍按下述独立授权顺序推进。
+
+2026-09-04 11:10 正式事件补录 Plan 已生成（只读）：
+
+- 复用原 operation `etf-daily-20260903-p6-r2`、原 Silver Plan 及已通过的物理报告，不重新拉取源数据、不生成 Parquet、不重新选择 Basic。按数据湖集成技能要求，事件登记与数据写入保持分阶段授权。
+- 待补 materialization 共 1,624 条：四资产各 406 条，覆盖 `2025-01-02..2026-09-03`。它们表示已有文件的登记，不代表重新计算 1,624 次。
+- 待补 blocking check 共 340 条，仅覆盖最近 20 个交易日 `2026-08-07..2026-09-03`：两个 Raw 各 60 条，日线 Silver 100 条，复权因子 Silver 120 条。日线 coverage WARN 不伪装为通过的 blocking check，已知缺口仍保留在物理报告中。
+- 现有等价 materialization/check 均为 0，冲突均为 0；生成时全 instance 活动任务探测为 0，`should_stop=false`。这是 Plan 时点结果，后续 apply 仍按既有门禁重验，不等于已获得写入授权。
+- 沿用已有批量 Plan 实现，无需改生产代码。按代码读取模型为 4 次 materialization 集合读取、17 次 check history 读取、1 次活动任务探测；各调用有上限，没有逐分区 readiness 深扫。实际 CLI 总耗时 1.51 秒（含启动、Plan 序列化和输出），未触发历史截断或冲突门禁；没有源请求、DuckDB 明细重扫、Lake/事件/动态分区/Sensor 写入。
+- Plan：`/private/tmp/goldenshare-bootstrap/etf_daily/etf-daily-20260903-p6-r2/events-plan.json`；hash `fedd011810a665eec5e0c9e3be26f9fdae691251c5231c51800ad8fbe331536a`，绑定物理报告 hash `6866a60b107923a17897be598ee611c222b4a67a6051525c7b900c4187aba4b4`。读取回验 hash、范围和数量通过，事件模块隔离测试 `10 passed`；原 checkpoint 仍仅有 812 Raw + 812 Silver 条目，事件条目 0。
+- 该 Plan 冻结的写入上限为 1,624 + 340 = 1,964 条事件，写入需要单独批准。事件阶段不改数据文件、不注册日期、不启用 Sensor；失败保留已有登记与 checkpoint，不做数据库级删除回滚。后续获批执行结果见下段。
+
+2026-09-04 17:54 正式事件补录与写后验收已完成：
+
+- 管理员明确批准上述 1,964 条记录后，复用原事件 Plan 和正式 CLI 执行，不修改生产代码、不重建 Plan、不重新同步数据。写前 Plan hash、物理报告、checkpoint 和无活动任务门禁通过；事件模块隔离测试再次 `10 passed`，包含两日期 8 条 materialization + 34 条 check 的真实临时 Dagster instance 写入、等价重放和读回验收。
+- 正式新增 1,624 条 materialization，覆盖四资产各 406 个历史交易日；新增 340 条 blocking check，覆盖 `2026-08-07..2026-09-03` 最近 20 日。所有事件均为 `write_new`，没有冲突或失败。CLI 总耗时 137.15 秒，每条事件完成后保存 checkpoint；checkpoint 当前为 812 Raw + 812 Silver + 1,964 events，共 3,588 条。
+- 写后聚合验收通过：1,624 条 materialization 的 metadata 与冻结文件证据一致，340 条 check 均为 blocking/passed 且绑定对应 materialization，失败数 0；CLI 总耗时 1.87 秒。未用全历史逐分区 readiness 深扫代替集合验收。
+- 另按数据湖集成技能要求，只读抽查 `2026-08-07`、`2026-08-20`、`2026-09-03` 三日的四资产 readiness，共 12 个分区全部 ready；使用现有正式 helper，每资产一次 materialization 查询，共 4 次，核心耗时 1,282.948 ms。该抽样不改变日线历史 166 日、310 个代码/日期缺口的 WARN 结论，也不宣称全部历史日线无缺码。
+- 本轮源请求、Lake 文件写入、动态分区注册、Sensor 启用均为 0；只新增正式 Dagster 事件及原 operation 目录中的执行/审计证据。没有影响 Prod 数据库、数据字段、路径、Definitions 或依赖边界。
+- 证据仍在原 operation 目录：`events-apply-report.json`（hash `f86f577c80108d26289d39115ffc33c8e8bf3ff9c81f3287f6ffdef27d32d51a`）、`events-post-audit.json`（hash `9e83a3ab759b96432ccfb25e1328ed6fd9f02aae6addaa4a14abce55573d657a`）、`events-readiness-sample.json`（hash `549ff28c59a79b4c350f8c91e3289bf93a297201464e1fca91ef20934bf6f18b`）。只读抽样脚本保存在同目录 `audit_event_readiness_sample.py`，不进入生产定义。
+- 历史物理数据与 Dagster 记录现已闭环。整个 P6 仍未结案：后续还需 21:00 后源端发布验证、四个 Sensor 单独获批启用，以及连续三个交易日日常运行验收；本轮不顺带执行这些动作。
 
 按独立授权顺序执行：
 
@@ -693,4 +735,4 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 2026-09-04 管理员已确认：`fund_adj` 缺码检查升级为 blocking/ERROR，`fund_daily` 保持 WARN。完整证据为 406 日、539,536 个预期 ETF/日期组合、因子缺口为 0，详见 §8.3、§13 P6。
 
-不再保留待选择的 WARN/blocking 口径。后续按已确认规则验证与执行：Basic 当天合格后生成 Silver Plan；Silver apply、物理验收、事件补录和 Sensor 启用继续分阶段推进。此决定不改变 Raw 保存源端事实、Silver 只筛场内 ETF、保留 `discount_rate`、不回滚或自动覆盖文件等既有口径。
+不再保留待选择的 WARN/blocking 口径。后续按已确认规则验证与执行：最新 Basic 通过 §5.2 的更新窗口及完整质量检查后生成 Silver Plan；Silver apply、物理验收、事件补录和 Sensor 启用继续分阶段推进。此决定不改变 Raw 保存源端事实、Silver 只筛场内 ETF、保留 `discount_rate`、不回滚或自动覆盖文件等既有口径。

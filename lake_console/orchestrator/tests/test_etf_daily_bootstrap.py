@@ -462,6 +462,10 @@ def test_raw_audit_silver_plan_apply_and_physical_audit_close_four_assets(
     physical = load_json(tmp_path / "physical.json", label="physical audit")
     assert physical["passed"] is (not missing_factor)
     assert physical["expected_file_count"] == physical["actual_file_count"] == 8
+    assert physical["performance"]["batch_count"] == 2
+    assert physical["performance"]["physical_batch_sql_query_count"] == 30
+    assert physical["performance"]["raw_data_load_count"] == 4
+    assert physical["performance"]["silver_data_load_count"] == 2
     assert {item["asset_key"] for item in physical["file_evidence"]} == {
         "raw_tushare_fund_daily",
         "raw_tushare_fund_adj",
