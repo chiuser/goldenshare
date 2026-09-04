@@ -1,6 +1,6 @@
 # ETF 日线与复权因子 DG 数据湖接入技术方案 v1
 
-> 状态：P0—P5 开发已完成；P6 Raw/Silver 历史入湖、物理验收、事件补录及写后验收已完成；fund_adj coverage 为阻断、日线 coverage 为告警；Sensor 启用和日常运行验收尚未执行
+> 状态：已结案（2026-09-04，管理员确认）；历史入湖、事件补录、四个 Sensor 启用及首个交易日日常验收已完成；不再等待剩余两个交易日观察；因子 coverage 阻断、日线 coverage 告警的规则不变
 > 更新日期：2026-09-04
 > 适用范围：`lake_console/orchestrator` 当前 Dagster 数据湖主链
 > 正式 Lake：`/Volumes/datasource/data_lake`
@@ -32,6 +32,8 @@ Tushare fund_adj   -> raw_tushare_fund_adj   -> silver_etf_adj_factor
 
 本期不建设 Gold 复权行情，不改 Prod 数据集，不接前端，不从 Prod DB 导出，也不使用旧 Lake Console、旧 Lake Root 或 Kopia。
 
+结案依据：历史 `2025-01-02..2026-09-03` 共 406 日已完成文件与事件验收；`2026-09-04` 已通过正式 Sensor 自然完成四资产更新。管理员在首日验收通过后明确要求直接结案，原连续三个交易日观察不再作为结案条件，不能写成已完成三日验收。四个 Sensor 保持启用，后续进入日常维护；详细记录见 §13 P6。
+
 ---
 
 ## 2. 目标与边界
@@ -60,11 +62,11 @@ Tushare fund_adj   -> raw_tushare_fund_adj   -> silver_etf_adj_factor
 
 ---
 
-## 3. 当前事实与 P0 结论
+## 3. 建设前事实与 P0 结论
 
-### 3.1 当前 DG 事实
+### 3.1 建设前 DG 事实（2026-09-02）
 
-- DG 目前没有这四个正式资产和对应正式 Lake 文件。
+- P0 审计时 DG 尚无这四个正式资产和对应正式 Lake 文件；现已完成建设，结案状态以 §13 P6 为准。
 - ETF Basic 已具备 content-addressed Raw/Silver 快照、latest-only selector 和 blocking checks，可直接复用。
 - ETF 分钟线已使用 `cn_a_etf_mins_trade_days`。2026-09-02 的只读证据为 404 个分区：2025 年 243 个、2026 年 161 个，范围 `2025-01-02..2026-09-01`。
 - 上述数量只是审计时事实。正式 Bootstrap 仍要动态读取分区集合并冻结水位，不能把 404 或 `2026-09-01` 写成运行常量。
@@ -106,8 +108,8 @@ P0 在 2026-09-02 盘中验证当日两个接口均为零行，只能证明盘�
 
 因此状态分为两层：
 
-- 开发门禁：已通过；可以写 LLD 和进入后续开发评审。
-- 源端非空复验：2026-09-03 22:29 的 P6 三日样本已使用相同字段和 limit，取得当日日线 2,113 行、复权因子 2,142 行（两页）。这证明该时刻已发布，不证明每天 21:00 准点完成；日常仍保留非空发布探测，正式启用 Sensor 仍需单独批准。
+- 开发门禁：P0 已通过，后续 LLD 与开发已完成。
+- 源端非空复验：2026-09-03 22:29 的 P6 三日样本已使用相同字段和 limit，取得当日日线 2,113 行、复权因子 2,142 行（两页）。2026-09-04 21:15 启用前再次验证当日已发布：日线第一页 2,114 行，因子第一页 2,000 行；因子完整分页由正式 Raw job 执行，最终为 2,145 行。上述结果不证明每天 21:00 准点完成；日常非空发布探测继续保留。四个 Sensor 已单独获批启用，见 §13 P6。
 
 ---
 
@@ -580,7 +582,7 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ### P1：纯合同与共享结构
 
-开发状态：已完成（2026-09-02）；启用验收待授权。
+开发状态：已完成（2026-09-02）；正式启用与结案记录见 P6。
 
 - 新增 ETF 日线 run contract、四套 schema、四个 path helper、PartitionModel 和中文名。
 - 更新共享分区 Sensor 的人类可读说明，不改 partition definition 名称。
@@ -628,6 +630,8 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ### P6：正式历史建设与启用
 
+状态：已结案（2026-09-04）。下列记录按执行阶段保留；最终启用、首日验收及管理员结案决定见本节末尾。
+
 2026-09-03 已完成的范围：
 
 - operation：`etf-daily-20260903-p6-r2`；冻结 `2025-01-02..2026-09-03` 的 406 个共享 ETF 交易日。
@@ -664,7 +668,7 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 - 最终只读物理验收通过：Raw/Silver 四资产各 406 文件，合计 1,624 文件；无缺文件、多余文件、checkpoint 差异或 staging Parquet 残留，结构/hash/筛选/parity/数值检查通过。因子缺码 0；日线仍有 166 日、310 个代码/日期缺口，按既定 WARN 保留，不能据此宣称日线全部覆盖。
 - 性能实测为 4 组、60 次批量 SQL、Raw 明细载入 8 次、Silver 4 次；核心验收 2,953.390 ms（不含 CLI 启动与报告序列化），各组结束时临时文件占用为 0，不作为峰值证明。详见 LLD §16.6。
 - 证据仍在原 operation 目录：`silver-apply-report.json`（hash `280467238a328eab9a1be79149dac1a9832f9da6f98791d82d7b3de22aa25657`）、`physical-post-audit.json`（hash `6866a60b107923a17897be598ee611c222b4a67a6051525c7b900c4187aba4b4`）及 `checkpoint.json`。本轮没有源请求、Raw 改写、Dagster 事件/动态分区写入或 Sensor 启用。
-- 该阶段完成的是历史物理建设，不是整个 P6 结案。事件补录 Plan 的后续执行结果见下段；事件 apply、Sensor 启用和连续三个交易日验收仍按下述独立授权顺序推进。
+- 该阶段仅完成历史物理建设，当时尚未结案。之后的事件补录、Sensor 启用和结案结果见下文；不能用物理验收代替后续授权。
 
 2026-09-04 11:10 正式事件补录 Plan 已生成（只读）：
 
@@ -684,9 +688,28 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 - 另按数据湖集成技能要求，只读抽查 `2026-08-07`、`2026-08-20`、`2026-09-03` 三日的四资产 readiness，共 12 个分区全部 ready；使用现有正式 helper，每资产一次 materialization 查询，共 4 次，核心耗时 1,282.948 ms。该抽样不改变日线历史 166 日、310 个代码/日期缺口的 WARN 结论，也不宣称全部历史日线无缺码。
 - 本轮源请求、Lake 文件写入、动态分区注册、Sensor 启用均为 0；只新增正式 Dagster 事件及原 operation 目录中的执行/审计证据。没有影响 Prod 数据库、数据字段、路径、Definitions 或依赖边界。
 - 证据仍在原 operation 目录：`events-apply-report.json`（hash `f86f577c80108d26289d39115ffc33c8e8bf3ff9c81f3287f6ffdef27d32d51a`）、`events-post-audit.json`（hash `9e83a3ab759b96432ccfb25e1328ed6fd9f02aae6addaa4a14abce55573d657a`）、`events-readiness-sample.json`（hash `549ff28c59a79b4c350f8c91e3289bf93a297201464e1fca91ef20934bf6f18b`）。只读抽样脚本保存在同目录 `audit_event_readiness_sample.py`，不进入生产定义。
-- 历史物理数据与 Dagster 记录现已闭环。整个 P6 仍未结案：后续还需 21:00 后源端发布验证、四个 Sensor 单独获批启用，以及连续三个交易日日常运行验收；本轮不顺带执行这些动作。
+- 17:54 时历史物理数据与 Dagster 记录已闭环，但当时尚未启用 Sensor，事件补录授权不包含启用。之后的独立启用与结案结果如下。
 
-按独立授权顺序执行：
+2026-09-04 日常启用、首日验收与结案：
+
+- 21:15 只读预检通过：两个源接口当日已发布；共享分区 `cn_a_etf_mins_trade_days` 已包含 `2026-09-04`，共 407 个日期；最新 Basic Raw/Silver 分别观测于 21:01:15 / 21:10:52，可用 ETF 1,650 个，latest-only 与质量检查通过。四个 Sensor 均已加载且为 `STOPPED`；试算只选择当天，不追赶历史。
+- 管理员明确批准“启动吧”后，21:18:53 开启两个 Raw Sensor；Raw 成功后，21:19:29 开启两个 Silver Sensor。四个 Sensor 均读回为 `RUNNING`，其它 Sensor 开关没有改变；未手动提交 job、重置 cursor 或补注册日期。
+
+| 正式 Job（Sensor 名为 Job 名加 `_sensor`） | 9 月 4 日写入行数 | Run ID | 运行耗时 |
+| --- | ---: | --- | ---: |
+| `raw_fund_daily_update_job` | 2,114 | `5f34f959-2986-418f-8298-bb281348bc0f` | 1.208 秒 |
+| `raw_fund_adj_update_job` | 2,145 | `93606563-6fa2-4618-9a05-5e9dce81df9c` | 1.165 秒 |
+| `silver_etf_daily_update_job` | 1,650 | `96889564-5d74-4857-b73a-1df04a52f2d7` | 1.980 秒 |
+| `silver_etf_adj_factor_update_job` | 1,650 | `554488e5-a96e-4b1e-be09-30ef9a41b9d7` | 1.739 秒 |
+
+- 四个 run 均由对应正式 Sensor 触发且为 `SUCCESS`。仅新增当天 4 个 Parquet，共 149,983 bytes，全部为 `write_new`；日线 Raw 拉取 1 页，因子 Raw 拉取 2 页，无重试。原历史 Bootstrap 的 406 日范围、Plan 和 checkpoint 未扩展，也未重跑或覆盖历史文件。
+- Silver 日线按既定规则筛除 464 行（459 行 Basic 无对应代码、4 行上市日期为空、1 行非场内后缀）；因子筛除 495 行（491 行 Basic 无对应代码、4 行上市日期为空）。这些源端行全部保留在 Raw，不是源数据丢失。
+- 21:21 写后只读验收通过：4 个实际文件均 ready，18 项正式 check 全部 passed（17 项 blocking、1 项日线 coverage WARN 级检查），check 分区和 materialization 绑定正确。当天两个 Silver 的预期 ETF 缺码和多余代码均为 0；物理 readiness 合计 4 次 materialization 查询，整个验收耗时 923.840 ms。
+- 证据仍在原 operation 目录：`sensor-preflight-20260904.json`（hash `19e5a2b5da366940d4914e1bb11522f04b01063aca4a7ab44e7484df1f27868d`）、`sensor-enable-20260904-raw-verified.json`、`sensor-enable-20260904-silver-verified.json`、`daily-first-run-audit-20260904.json`（hash `a63d176b42d23ed6bb8cdea3bfefd7e4c987557b87f54f3d96fdaeca57c21af7`）。
+- 管理员在首日验收后明确要求“直接结案吧”：本需求及 P6 结案，不再以剩余两个交易日观察作为待办或阻断。实际只完成一个交易日的日常验收，不宣称已通过连续三个交易日验证。四个 Sensor 继续按上海时间 21:00 起的既定窗口运行，日常质量门禁不变。
+- 已知边界继续保留：历史日线 166 日、310 个 ETF/日期缺口仍是已接受的 WARN，不因结案改成“历史全覆盖”。结案不授权自动修值、历史覆盖、新增 Gold 或 Prod 写入；本次不改代码、字段、路径或依赖矩阵。
+
+已执行的独立授权顺序与结案调整：
 
 1. 正式 Raw Plan 与三日隔离样本；
 2. Raw apply；
@@ -697,7 +720,7 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 7. 物理 post-audit；
 8. events plan/apply/post-audit；
 9. 启用四个 Sensor；
-10. 连续三个交易日验收。
+10. 首个交易日日常验收通过；管理员于 2026-09-04 取消剩余两日观察门槛，批准直接结案。
 
 任何阶段发现当前代码、源端或正式数据与本文冲突，都停下来说明，不靠兼容或临时开关绕过。
 
@@ -715,7 +738,7 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 
 ### 14.2 物理与数据
 
-- 四个资产的日期集合等于正式 Raw Plan 冻结的共享 ETF 分区集合，起点不早于 2025，终点不晚于冻结水位；Silver Plan 通过 Raw manifest 锁定同一集合。
+- 历史 Bootstrap 的四资产日期集合等于正式 Raw Plan 冻结的共享 ETF 分区集合，起点不早于 2025，终点不晚于冻结水位；Silver Plan 通过 Raw manifest 锁定同一集合。启用后的日常新增日期不回填到历史 Plan；本次新增 `2026-09-04` 由日常 run 独立记录。
 - 每分区恰好一个可读 Parquet；schema、日期、主键、行数、内容 hash 和 source/Silver 对账全部通过。
 - `source = normalized = Raw written`；`Silver selected + rejected = Raw`。
 - 已存在文件只出现等价复用或显式冲突停止，没有静默覆盖。
@@ -727,12 +750,14 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 - 21:00 前不做重检查；21:00 后每 tick 每 Sensor 最多一个 run。
 - 日常只看最近 10 个交易日，不追赶 2025 历史。
 - 最新 Basic 不 ready 时不回退旧版本。
-- 正式启用前完成 21:00 源端复验；启用后连续三个交易日 Raw、Silver、checks、cursor 和 metadata 验收通过。
+- 正式启用前完成 21:00 后源端复验；启用后首个交易日的正式 Sensor 触发、Raw/Silver 文件、checks 和 metadata 验收通过。原连续三个交易日观察门槛已由管理员于 2026-09-04 明确取消，剩余两日未执行、不计为已通过；不改变日常运行门禁。
 
 ---
 
-## 15. 已关闭的 coverage 决策与后续门禁
+## 15. 已关闭的决策与日常维护边界
 
 2026-09-04 管理员已确认：`fund_adj` 缺码检查升级为 blocking/ERROR，`fund_daily` 保持 WARN。完整证据为 406 日、539,536 个预期 ETF/日期组合、因子缺口为 0，详见 §8.3、§13 P6。
 
-不再保留待选择的 WARN/blocking 口径。后续按已确认规则验证与执行：最新 Basic 通过 §5.2 的更新窗口及完整质量检查后生成 Silver Plan；Silver apply、物理验收、事件补录和 Sensor 启用继续分阶段推进。此决定不改变 Raw 保存源端事实、Silver 只筛场内 ETF、保留 `discount_rate`、不回滚或自动覆盖文件等既有口径。
+不再保留待选择的 WARN/blocking 口径。Silver Plan/apply、物理验收、事件补录及四个 Sensor 启用均已分阶段获批并完成，详情见 §13 P6。管理员已批准在首个交易日日常验收通过后结案，不再等待剩余两日观察。
+
+后续由已启用的四个 Sensor 日常维护，继续遵守 Raw 保存源端事实、Silver 只筛场内 ETF、保留 `discount_rate`、最新 Basic 不合格不回退、坏文件不自动覆盖等规则。后续若需要历史修复或扩展范围，另行审计和授权，不复用本次结案作为写入许可。

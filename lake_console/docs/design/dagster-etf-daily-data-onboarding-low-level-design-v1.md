@@ -1,6 +1,6 @@
 # ETF 日线与复权因子 DG 数据湖接入 LLD v1
 
-> 状态：设计已确认，P1—P5 开发已完成；P6 Raw/Silver 历史入湖、物理验收、事件补录及写后验收已完成；fund_adj coverage 为阻断、日线 coverage 为告警；Sensor 启用和日常运行验收尚未执行
+> 状态：已结案（2026-09-04，管理员确认）；历史入湖、事件补录、四个 Sensor 启用及首个交易日日常验收已完成；不再等待剩余两个交易日观察；因子 coverage 阻断、日线 coverage 告警的规则不变
 > 更新日期：2026-09-04
 > 上位方案：`dagster-etf-daily-data-onboarding-plan-v1.md`
 > P0 证据：`dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md`
@@ -10,7 +10,7 @@
 
 ## 1. 设计目标与硬口径
 
-本 LLD 是后续 P1—P6 的直接编码依据。若现实代码、源接口或正式数据与本文冲突，必须先停止并回到技术方案 review，不能自行加兼容或临时开关。
+本 LLD 是已完成的 P1—P6 实现与后续维护依据。若现实代码、源接口或正式数据与本文冲突，必须先停止并回到技术方案 review，不能自行加兼容或临时开关。
 
 ### 1.1 必须
 
@@ -42,6 +42,8 @@
 字段、日期、路径、资产名、Job/Sensor 名、21:00 窗口、Raw/Silver 边界、Basic latest-only、分页 limit、请求预算、价格容差、20 日批次和 2.5 倍空间系数都已冻结。
 
 2026-09-04 后置 review 已关闭：`fund_adj` coverage 升级 blocking/ERROR，`fund_daily` 保持 WARN。当前固定合同与编码要求见 §11.6，不再保留运行时可选策略。
+
+2026-09-04 结案决定：四个 Sensor 获批启用并完成当日日常验收后，管理员明确要求直接结案；原连续三个交易日观察不再作为结案条件。剩余两日未执行，不宣称三日验证已通过。该决定只调整结案门槛，不改变运行窗口、readiness、coverage 或写入规则；证据见 §19 P6 与技术方案 §13 P6。
 
 ---
 
@@ -968,7 +970,7 @@ Physical post-audit 要求四资产日期集合等于 frozen list、文件数为
 
 2026-09-04 11:10 正式只读验收：`events-plan.json` 已生成，hash 为 `fedd011810a665eec5e0c9e3be26f9fdae691251c5231c51800ad8fbe331536a`，沿用原 operation、Silver Plan 和物理报告。待补 1,624 条 materialization、340 条 blocking check，已有与冲突均为 0，活动任务探测为 0，`should_stop=false`。Check 日期为 `2026-08-07..2026-09-03` 共 20 日；分资产数量为 60/60/100/120。代码模型为 4 + 17 + 1 次有界批量 API 读取，实际 CLI 总耗时 1.51 秒；没有源请求、Parquet 深扫或正式写入。10 项事件模块隔离测试和 Plan hash/范围读回校验通过。该时点仅完成 Plan；正式写入结果见下段，不得把 Plan 本身当作已完成登记的证据。
 
-2026-09-04 17:54 获批执行验收：原 Plan 的 1,624 条 materialization 和 340 条 blocking check 全部新增完成，CLI 耗时 137.15 秒；逐事件 checkpoint 共 1,964 条。`events-post-audit` 按资产/check 集合读回核对，失败 0，CLI 耗时 1.87 秒。再抽查 `2026-08-07/2026-08-20/2026-09-03` 三日、四资产，共 12 个分区全部 ready；正式 readiness helper 合计 4 次 materialization 查询，核心耗时 1,282.948 ms。10 项事件隔离测试再次通过，包含临时 Dagster instance 的两日写入/重放/验收；没有重新同步源数据、改湖文件、注册日期或启用 Sensor。执行报告、聚合验收、抽样验收及其 hash 统一记录在技术方案 §13 P6。历史补录已闭环，但这不替代后续 21:00 发布验证、Sensor 启用和连续三个交易日验收。
+2026-09-04 17:54 获批执行验收：原 Plan 的 1,624 条 materialization 和 340 条 blocking check 全部新增完成，CLI 耗时 137.15 秒；逐事件 checkpoint 共 1,964 条。`events-post-audit` 按资产/check 集合读回核对，失败 0，CLI 耗时 1.87 秒。再抽查 `2026-08-07/2026-08-20/2026-09-03` 三日、四资产，共 12 个分区全部 ready；正式 readiness helper 合计 4 次 materialization 查询，核心耗时 1,282.948 ms。10 项事件隔离测试再次通过，包含临时 Dagster instance 的两日写入/重放/验收；没有重新同步源数据、改湖文件、注册日期或启用 Sensor。执行报告、聚合验收、抽样验收及其 hash 统一记录在技术方案 §13 P6。该时点只完成历史补录，不替代日常验收；当晚另行获批的 Sensor 启用、首日验收及结案决定见 §19 P6。
 
 ---
 
@@ -1101,9 +1103,9 @@ tests/test_etf_daily_definitions.py
 
 ### P4：Readiness 与 Sensor
 
-开发状态：已完成（2026-09-02）；启用验收待授权。先通过最多 10 日的批量 readiness 性能测试，再落四个 evaluator 和四个默认 `STOPPED` 的 Definition。Raw 每个资产最多一次 materialization 查询，Silver 合计最多两次；已有坏文件或坏证据 fail-closed，Coverage WARN 不阻断。隔离测试覆盖 20:59:59 零访问、21:00 入窗、最近 10 日、最早缺口、已有坏文件、发布未就绪、latest-only Basic、稳定 run key、紧凑 cursor、查询预算和 Definitions 自动发现。正常交易日 21:00 后的源端只读发布复验仍是启用门禁；未经授权不启用。
+开发状态：已完成（2026-09-02）；当时尚未授权启用，正式启用与结案见 P6。先通过最多 10 日的批量 readiness 性能测试，再落四个 evaluator 和四个默认 `STOPPED` 的 Definition。Raw 每个资产最多一次 materialization 查询，Silver 合计最多两次；已有坏文件或坏证据 fail-closed，P4 初版 Coverage WARN 不阻断。隔离测试覆盖 20:59:59 零访问、21:00 入窗、最近 10 日、最早缺口、已有坏文件、发布未就绪、latest-only Basic、稳定 run key、紧凑 cursor、查询预算和 Definitions 自动发现。正常交易日 21:00 后的源端只读发布复验是启用门禁；未经授权不启用。
 
-上述为 P4 初版验收记录；当前因子 coverage 已按 §11.6 升级为阻断，只有日线 coverage 保持 WARN。9 月 3 日 22:29 的源端非空复验已经通过（详见技术方案 §3.4），但不代表每天 21:00 准点发布，也不代替 Sensor 启用批准。
+上述为 P4 初版验收记录；当前因子 coverage 已按 §11.6 升级为阻断，只有日线 coverage 保持 WARN。9 月 3 日 22:29 与 9 月 4 日 21:15 的源端非空复验均通过（详见技术方案 §3.4）；四个 Sensor 已于 9 月 4 日晚单独获批启用。这些实测时点仍不代表每天 21:00 准点发布，日常 publication probe 继续保留。
 
 ### P5：Bootstrap 工具
 
@@ -1115,9 +1117,15 @@ tests/test_etf_daily_definitions.py
 
 ### P6：正式执行
 
-当前已完成正式 Raw Plan、三日隔离样本、812 个 Raw 文件入湖、全区间批量审计、正式 Silver Plan、812 个 Silver 文件入湖及最终物理验收。2026-09-04 coverage 已拍板：因子阻断、日线告警；代码与验收要求见 §11.6。历史入口新鲜度与最终批量验收分别按 §16.2.1、§16.6 修正并通过回归。日线 Silver 为 539,226 行，因子为 539,536 行；物理验收 4 组、60 次 SQL、核心耗时 2,953.390 ms，1,624 个文件及 checkpoint 全部对账通过。因子缺码 0，日线 166 日共 310 个代码/日期缺口仍 WARN。398 项定向/静态测试、Ruff、Definitions 和文档完整性检查通过；完整执行记录及报告 hash 见技术方案 §13 P6。随后 §16.7 的事件 Plan、1,964 条正式事件补录、聚合写后验收和三日 readiness 抽样均完成，历史数据与登记记录已闭环。尚未启用 Sensor；下一步为启用前 21:00 发布验证、获批启用四个 Sensor 和连续三个交易日日常验收，P6 尚未结案。
+状态：已结案（2026-09-04，管理员确认）。
 
-严格按技术方案的独立授权链。每阶段交付 report/hash/checkpoint，用户确认后才能继续。
+历史建设已完成正式 Raw Plan、三日隔离样本、812 个 Raw 文件入湖、全区间批量审计、正式 Silver Plan、812 个 Silver 文件入湖及最终物理验收。2026-09-04 coverage 已拍板：因子阻断、日线告警；代码与验收要求见 §11.6。历史入口新鲜度与最终批量验收分别按 §16.2.1、§16.6 修正并通过回归。历史日线 Silver 为 539,226 行，因子为 539,536 行；物理验收 4 组、60 次 SQL、核心耗时 2,953.390 ms，1,624 个文件及 checkpoint 全部对账通过。因子缺码 0，日线 166 日共 310 个代码/日期缺口仍 WARN。398 项定向/静态测试、Ruff、Definitions 和文档完整性检查通过。随后 §16.7 的事件 Plan、1,964 条正式事件补录、聚合写后验收和三日历史 readiness 抽样均完成，历史数据与登记记录已闭环。
+
+日常启用与验收已完成：21:15 发布预检和最新 Basic 检查通过，共享分区已到 `2026-09-04`；管理员批准后，21:18:53 开启两个 Raw Sensor，Raw 成功后于 21:19:29 开启两个 Silver Sensor。四个正式 run 均由对应 Sensor 触发且成功，日线/因子 Raw 分别新增 2,114 / 2,145 行，两个 Silver 各 1,650 行。仅新增当天 4 个文件，未重跑或覆盖历史；日线 1 页、因子 2 页，无重试，各 run 耗时 1.165—1.980 秒。21:21 读回验收确认四个文件 ready、18 项 check 全部 passed（17 blocking、1 WARN 级检查）、当天两个 Silver 缺码均为 0；验收耗时 923.840 ms，四个 Sensor 均为 `RUNNING`。完整 run ID、筛除原因、报告路径和 hash 统一记录在技术方案 §13 P6。
+
+管理员在首日验收后明确要求直接结案，取消剩余两个交易日观察门槛。本需求及 P6 无待开发、待启用或待观察的结案阻断；实际只完成一个交易日日常验收，不冒充连续三日验证。历史 310 个 ETF/日期缺口的 WARN 事实继续保留。四个 Sensor 进入日常维护，不改变默认 `STOPPED` 的代码定义、21:00 窗口、Basic/coverage 门禁或冲突不覆盖规则。
+
+各阶段已按技术方案独立获批并交付执行证据。后续历史修复或范围扩展仍需另行审计和授权，本次结案不提供额外写入许可。
 
 ---
 
