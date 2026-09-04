@@ -1,12 +1,12 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2
 
-状态：代码逐项复核与 LLD 细化完成 / 清退与恢复工具重构口径已全部拍板 / 尚未实施
+状态：2026-09-05 复审口径已更新 / 无用物理数据纳入逐项审计清退 / 尚未实施
 
-审计日期：2026-08-28
+初审日期：2026-08-28；本次复审基线：2026-09-05，`dev-interface@10521877`
 
 适用仓库：`/Users/congming/github/goldenshare`
 
-> 本文替代本文件的 v1 结论。v1 错误地把 `OLD_LAKE_BOOTSTRAP` / `old_lake_root` 留在本次范围之外，也没有完成两份旧模板的内容价值审计。本文按最终口径重新划界：清退 Kopia、旧 `lake_console/frontend + backend`，以及只负责把旧湖或历史备份数据迁入正式湖的适配器；保留现行 Dagster、ClickHouse、DuckDB/Parquet、Ops Dataset Status Snapshot、物理旧湖、`lake_console/reports/**` 和本机 ignored 环境。
+> 本文替代本文件的 v1 结论。v1 错误地把 `OLD_LAKE_BOOTSTRAP` / `old_lake_root` 留在本次范围之外，也没有完成两份旧模板的内容价值审计。代码范围仍为 Kopia、旧 `lake_console/frontend + backend` 和旧湖/历史备份迁移适配器；现行 Dagster、ClickHouse、DuckDB/Parquet、Ops Dataset Status Snapshot 保留。按 2026-09-05 用户更新，物理数据不再一律延期：与本专项相关且审计证实不再使用的数据，纳入 M8 精确清退；仍在使用或证据不足的保留。reports 不整目录删除；ignored 依赖环境和本机配置仍另轮处理。
 
 代码实施细节以 [`legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md`](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md) 为准。LLD 已把混合文件逐段拆分、CLI 命令归属、catalog 精确值、测试迁移和原子删除顺序落实到符号级；若本文概括与 LLD 的代码级结论冲突，以当前代码复核后的 LLD 为准并同步修正本文。
 
@@ -39,11 +39,11 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 
 `docs/templates/dataset-development-template.md` 仍作为生产 `DatasetDefinition` / Ops 数据集开发模板保留，它与正式 Dagster Lake onboarding 模板职责不同。
 
-### 0.3 本次明确不处理
+### 0.3 数据与保留边界（2026-09-05 更新）
 
-1. 物理旧湖 `/Volumes/datasource/goldenshare-tushare-lake`：本次不读取、不改写、不删除。代码清退完成后另立物理数据审计。
-2. 本机 ignored 目录和配置：本次不删除。Git 清退稳定后逐路径精确处理。
-3. `lake_console/reports/**`：保留，不随旧 Console 删除。
+1. 物理旧湖 `/Volumes/datasource/goldenshare-tushare-lake` 及本专项涉及的旧迁移/恢复遗留数据：纳入逐项只读审计。确认不再使用的精确对象在 M8 删除；仍有消费者、未完成恢复依赖或用途未核清的保留。不能因路径叫“旧湖”“backup”“quarantine”就判无用，不能整根删除，不能重新用旧湖驱动 DG。
+2. 本机 ignored 依赖环境、构建产物和配置：本次不删除，Git 清退稳定后另轮逐路径处理；此处不是把所有 ignored 业务数据一律排除，数据仍按第 1、3 项用途审计。
+3. `lake_console/reports/**`：不随旧 Console 整体删除。当前正式审计工具仍使用这个输出目录；具体旧报告只有在用途、引用和证据价值审计完成后才能进入 M8 清单。
 4. `ops.dataset_status_snapshot` 及其 ORM、service、CLI、任务完成副作用、freshness/date completeness 查询和页面消费者：全部保留。
 5. `lake_console/orchestrator/**` 的正式 Dagster 主链、当前 ClickHouse、DuckDB、Parquet、正式 Lake 读写和无 Kopia 发布机制：全部保留。
 6. 根目录现行运营后台 `frontend/**`、Wealth、QTF、`src/foundation/clients/local_lake/**`：全部保留。
@@ -55,7 +55,7 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 
 1. `stk_mins_raw_replace_from_prod` 的**业务能力保留并重构**：继续支持“prod DB 可信、正式 Raw
    单日五频错误”的离线恢复，但候选、审计、报告和 checkpoint 全部迁入正式 staging 根；删除正式
-   根内 `_staging/_quarantine`、backup 和假整体回滚设计，改为逐文件 fingerprint、checkpoint、验证和
+   根内 `_staging/_quarantine`、backup 的生成代码和假整体回滚设计，改为逐文件 fingerprint、checkpoint、验证和
    幂等续跑。
 2. 原拟 `HISTORICALIZE` 的 86 份纯旧 Console 文档不再保留在当前工作树。对后续仍有价值的执行数量、
    修复结果和数据语义先压缩进现行 Dagster 总账/设计文档，清理全部现行引用后删除原文；Git 历史是
@@ -65,8 +65,15 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 4. Raw `stk_mins` 恢复工具不新增自造排它锁。它继续是人工、非 active 的离线工具；并发安全收敛为
    “同日期只允许一个未完成 recovery run + 执行前进入明确维护窗口 + 确认没有同日期写任务”。
 
-当前没有未决业务口径。物理旧湖和 ignored 环境已经明确延期到代码清退后的独立审计；代码清退和
-恢复工具重构仍需用户另行明确授权后实施。
+5. 物理数据以“无用才删、在用不删、未知先保留”为准，M8 纳入专项但与 M0–M7 代码清退分阶段验收。
+6. Raw 恢复的 5 分钟改为耗时参考和人工排查提示，不再因超过这个时间自动拒绝；正确性和范围门禁不放宽。
+7. 下一项工作是代码清退实施前的物理数据用途只读审计，先形成逐项分类清单供用户 review，不等到 M8 才首次核用途；代码实施后、实际删除前再次复核。
+8. 任何代码、旧文档和物理数据删除，都必须先由用户确认具体删除清单；同意方案、允许审计或提交文档不等于授权删除。清单新增或范围变化必须重新确认，禁止自行删除。
+
+旧“不处理物理数据”口径来自用户此前“物理旧湖本次先不删”“其它物理旧湖、ignored 环境等清退后
+再处理”的决定，曾落在本节、§1.4、§4.6、M8 和 §9；2026-09-05 的决定替代其中物理数据的延期口径，
+没有把 ignored 依赖环境/本机配置自动变成数据删除对象。当前是审计和文档更新，不执行代码清退或数据删除。
+具体物理对象的删除资格仍须由 LLD §16 的清单证明，不能把原则拍板写成所有对象已可删除。
 
 ---
 
@@ -127,14 +134,14 @@ lake_console/bin/lake-prod-clickhouse-tunnel
 
 只有同时满足以下条件，专项才可宣布完成：
 
-1. 旧 Console 前后端及专属入口全部清零。
+1. 旧 Console 前后端及专属入口的 Git 跟踪文件和运行入口全部清零，不要求本机 ignored 目录消失。
 2. 可执行代码和可生效配置中不再存在 Kopia 正向能力。
 3. 可执行代码中不再存在旧湖/历史备份到正式湖的 bootstrap reader、参数、命令和 catalog 入口。
 4. `OLD_LAKE_BOOTSTRAP`、`old_lake_root` 等正向运行契约清零；负向守卫和历史文字不要求字符串清零。
 5. 混合迁移文件中的现行中性 helper 已迁到合适的当前模块，所有消费者改用新位置，不留兼容 wrapper 或 alias。
 6. 两份旧模板的有效内容已吸收到正式文档，现行引用已切换，旧模板和旧 bootstrap migration 模板已删除。
 7. 正式 Dagster、ClickHouse、正式 Lake Reader、Ops Snapshot 等保留主链通过回归。
-8. 未触碰物理旧湖、正式 Lake 数据、数据库业务表、Dagster instance、`lake_console/reports/**` 和本机 ignored 环境。
+8. M0–M7 不改物理数据、数据库或 Dagster instance；M8 只删除已完成用途审计的精确废弃数据，保留在用/未知对象，输出逐项结果；ignored 依赖环境和本机配置不动。
 
 ---
 
@@ -199,7 +206,8 @@ CodeGraph 对 enum member 字符串和动态 CLI 分支覆盖有限，因此又�
    `lake_console/backend/**`、`lake_console/frontend/**`、专属入口/配置边界；不能仅凭“是负向禁令”
    就不登记。
 
-经本轮复扫，逐文件矩阵由 125 份扩为 143 份。实施 M0、M5 和 M7 都要重跑同一组扫描；只有
+矩阵经历 125 → 143 → M0 的 145 份；2026-09-05 按当前 HEAD 补齐 9 份，现为 154 份。
+其中两个趋势通道文档仍引用待删模板，必须在 M5 切换引用。实施 M0、M5 和 M7 都要重跑同一组扫描；只有
 “未归类命中文件为 0、待删文档现行入链为 0、矩阵路径不存在/重复为 0”才允许继续。这样不能承诺未来
 新增文件永远不会出现，但可以保证当前 HEAD 上的新增命中不会被静默漏过。
 
@@ -358,7 +366,7 @@ candidate/audit/promote/checkpoint，但只修复冻结的 BSE 代码/日期范�
 
 | 能力 | 代码处理 | Catalog 处理 |
 |---|---|---|
-| 单日全市场五频 prod-DB 恢复 | **保留能力、重构实现**：报告/candidate/checkpoint 全迁 `DEFAULT_LAKE_STAGING_ROOT`；按 candidate → audit → checkpointed promote 重写；每个频率冻结 old/new fingerprint 并记录 `pending/promoted/verified`；删除正式根 quarantine/backup 和整体回滚设计 | Raw `stk_mins` ingestion 保留当前 `TUSHARE_API`、`PROD_DB_READONLY`；五个 entry 固定为 `bootstrap_sources=(PROD_DB_READONLY,)` |
+| 单日全市场五频 prod-DB 恢复 | **保留能力、重构实现**：报告/candidate/checkpoint 全迁 `DEFAULT_LAKE_STAGING_ROOT`；按 candidate → audit → checkpointed promote 重写；每个频率冻结 old/new fingerprint 并记录 `pending/promoted/verified`；删除生成正式根 quarantine/backup 的代码和整体回滚设计，物理遗留按 M8 审计 | Raw `stk_mins` ingestion 保留当前 `TUSHARE_API`、`PROD_DB_READONLY`；五个 entry 固定为 `bootstrap_sources=(PROD_DB_READONLY,)` |
 
 除 Raw `stk_mins` 这一项外，其余 12 个受影响 catalog entry 的目标已经确定：
 
@@ -391,10 +399,11 @@ M4 的性能门禁只约束上述单日五频 Raw 恢复，不涉及 Ops Dataset
 原因是该工具要从生产 PostgreSQL 读取约 180 万分钟行、生成并审计五个 Parquet 后才替换正式文件；如果
 实现意外变成逐股票查询、Python 明细循环或无界全表扫描，可能长时间占用生产库、内存和 staging 磁盘。
 
-门禁不是要求“越快越好”，而是在编码前冻结一个简单上界：一个交易日、五个频率、五个候选文件；
-按集合 SQL/流式导出执行；以 2026-07-27 的 1,776,093 行、约 42.5 MiB、实际 109.973 秒作为样本，
-候选生成与审计超过 5 分钟或空间不足时在正式 promote 前停止并报告。它只防止实现退化和无界执行，
-不改变恢复结果的业务判断。
+按低频、人工监督场景采用简单约束：一个交易日、五个频率、五个候选文件；集合 SQL/流式导出，不并发
+增加生产库压力。2026-07-27 的 1,776,093 行、约 42.5 MiB、109.973 秒仅是历史参考，不是性能 SLA。
+超过 5 分钟提示人工检查，不自动失败、不废弃已校验候选，也不引入新的超时配置/后台计时服务。
+范围失控、数据校验失败、目标漂移、空间不足或跨文件系统仍必须停止；按 LLD §6.4.4 记录阶段、实际
+耗时、行数/字节数和磁盘空间。取消或中断按 checkpoint 处理，不能省略校验来追求速度。
 
 ### 3.7 一次性事件补录模块的处置
 
@@ -620,9 +629,9 @@ ops.dataset_status_snapshot 全链
 `stk_mins_raw_replace_from_prod` 按第 3.6 节进入“保留能力、必须重构”的修改清单；现模块和 CLI 不得
 原样视为保留完成。
 
-### 4.6 F 类：代码清退后另轮处理
+### 4.6 F 类：物理数据纳入 M8，ignored 环境仍另轮处理
 
-物理旧湖：
+物理旧湖（逐项审计对象，不是整目录删除白名单）：
 
 ```text
 /Volumes/datasource/goldenshare-tushare-lake
@@ -638,7 +647,9 @@ lake_console/frontend/*.tsbuildinfo
 lake_console/config.local.toml
 ```
 
-以上本轮全部不动。后续必须逐路径确认存在性、用途、恢复要求和删除边界，不能使用上层目录递归删除。
+旧湖、旧迁移源和恢复遗留数据按 LLD §16 分类。只读用途审计前置到代码清退实施前；物理删除必须在 M0–M7 验收后
+作为 M8 独立执行；代码仍消费的数据要先解除依赖。上列 ignored 依赖环境和配置仍不在 M8 删除范围，
+后续单独精确处理。任何阶段都不能使用上层目录递归删除。
 
 ---
 
@@ -661,7 +672,7 @@ lake_console/config.local.toml
 
 1. `lake_console/docs/templates/dagster-dataset-onboarding-template.html`：吸收第 3.10 节有效检查项；删除旧 bootstrap 作为正常接入路径的章节和 checklist。
 2. `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`：如正式模板不适合承载通用 prod DB 流式读取约束，则把它们落在此处并由模板引用。
-3. `lake_console/docs/design/dagster-bootstrap-legacy-links.md`：保留为已结束迁移的历史总账，写明执行代码已清退、物理旧湖延期审计、不可再作为运行入口。
+3. `lake_console/docs/design/dagster-bootstrap-legacy-links.md`：保留为已结束迁移的历史总账，写明执行代码已清退、物理旧湖按 M8 逐项审计清退、不可再作为运行入口。
 4. `lake_console/docs/architecture/dagster-data-system-architecture.html`：删除 `KopiaResource` 正向建议。
 5. `lake_console/docs/design/dagster-new-lake-asset-catalog-design.md` 和 run-contract 治理文档：移除旧迁移 source 的现行契约表述。
 6. `dagster-phase-2-design.html` 等历史设计：保留历史事实并加退役边界，不把历史方案重写成从未发生。
@@ -689,6 +700,7 @@ lake_console/config.local.toml
 4. 只读检查本机是否仍有旧 Console 进程；发现遗留进程只说明运行状态，不扩大代码保留范围。
 5. 形成 tracked 文件删除白名单和修改白名单；不得使用目录上层模糊删除。
 6. 重跑第 2.4 节三路文档扫描，确认未归类命中文件、矩阵重复/不存在路径和待删文档现行入链均为 0。
+7. 先完成 LLD §16 的用途只读审计和分类清单，再进入代码清退实施；未核清对象显式列为待审，不以用户拍板代替事实核验。任何删除前另行提交具体清单请用户确认。
 
 准入：依赖图与本文第 3、4 节一致；任何新增消费者都必须先补回方案。
 
@@ -735,7 +747,7 @@ lake_console/config.local.toml
 
 1. 先把 `stk_mins_raw_replace_from_prod` 的 report/candidate/checkpoint 迁到正式 staging 根，完成逐文件
    fingerprint、`pending/promoted/verified` checkpoint、中断判定、幂等续跑和五频最终核验。
-2. 删除正式根 `_staging/_quarantine`、backup 和整体回滚路径；恢复工具新测试全绿后才进入旧适配器删除。
+2. 删除该工具生成正式根 `_staging/_quarantine`、backup 的代码和整体回滚分支；不在 M4 清物理目录。既有数据按 M8 清单处理；恢复工具新测试全绿后才进入旧适配器删除。
 3. 删除旧 bootstrap dataset specs、executor、旧 enum members、exports、CLI 分支和参数。
 4. 删除七个旧 SQL templates。
 5. 逐资产修正 17 个 catalog source/bootstrap 声明；Raw `stk_mins` 五项固定保留
@@ -744,7 +756,7 @@ lake_console/config.local.toml
 7. 删除旧 producer 后，确认历史 event 无需数据迁移。
 8. 保留并补强旧根拒绝测试。
 9. 恢复工具不新增 lock/pid 文件；按第 3.6.1 节用未完成 checkpoint 唯一性和人工维护窗口防止同日期并发。
-10. 按第 3.6.2 节冻结单日五频性能预算；超过预算或 staging 空间不足时必须停在正式 promote 之前。
+10. 按第 3.6.2 节落实单日五频、受控资源和耗时记录；5 分钟只提示，正确性或资源安全失败必须停在正式 promote 之前。续跑必须覆盖 replace 后 checkpoint 未落盘及部分完成后候选丢失两个场景。
 
 ### M5：模板迁移、证据摘要收敛与旧文档删除
 
@@ -772,14 +784,16 @@ lake_console/config.local.toml
 
 执行第 7 节的静态、单元、definitions、文档和差异门禁。任何保留主链失败都必须修复真实依赖，禁止恢复兼容 wrapper、空 module、旧 enum 或旧 CLI alias。
 
-### M8：后续独立工作，不属于本轮
+### M8：无用物理数据精确清退（纳入专项，独立验收）
 
-1. 物理旧湖逐目录数据审计，另行决定是否删除。
-2. ignored 环境逐路径精确删除。
-3. 两者都需要独立清单和回退口径，不与 Git 代码清退混合。
+1. 复核代码清退前已完成的 LLD §16 用途审计，逐数据集/逐 run 更新代码消费者、在途任务、恢复状态、数据替代关系和文档证据；不能等到 M8 才首次审计。
+2. 每个对象唯一归类为“保留在用”“待核实”“可删但需先完成依赖/证据迁移”“可精确删除”，列绝对路径、文件数、字节数和指纹，不把父目录当白名单。
+3. M0–M7 验收后，提交精确删除清单，取得用户确认；执行前重查消费者和文件指纹，任一变化停止该项。只删经确认的白名单，逐项记录实际结果和能否恢复；新增目标重新确认。
+4. 同步被引用的历史证据位置和保留摘要；删除后验证正式消费者与保留对象没有变化。
 
-M8 不是本专项实施阶段，不包含在本轮授权、提交、验收或回退范围中；只有 M0–M7 完成并稳定后，
-才可另立方案、重新审计和单独授权。
+M8 不与代码提交混做，不修改业务数据库或 Dagster 历史，不清 ignored 依赖环境/本机配置，也不是全盘
+数据清理。当前只更新方案和审计清单；尚未完成精确用途审计的对象不能进入删除执行。物理删除不能用
+Git revert 恢复，更不能以本阶段为由启用 Kopia 或生成新的数据备份。
 
 ---
 
@@ -787,7 +801,7 @@ M8 不是本专项实施阶段，不包含在本轮授权、提交、验收或�
 
 ### 7.1 删除和保留路径
 
-预期清零：
+预期清零（以下目录只要求 Git 跟踪文件清零，不要求本机目录消失）：
 
 ```text
 lake_console/backend
@@ -801,6 +815,9 @@ docs/templates/lake-prod-raw-db-export-template.md
 lake_console/docs/templates/dagster-bootstrap-migration-template.html
 LLD 第 9.4.2–9.4.3 节列出的 86 份纯旧 Console 文档
 ```
+
+特别是 `lake_console/frontend/node_modules`、`dist` 等 ignored 内容不得为满足“清零”而删除；M8 的
+数据白名单也不能覆盖这些依赖环境。物理数据验收另按 LLD §16，不能要求整个 `_quarantine` 不存在。
 
 预期保留：
 
@@ -900,18 +917,18 @@ git diff --name-status
 | 删除旧 backend 时连 DuckDB/Parquet 依赖一起删 | 当前正式 Lake/分钟查询失效 | 保留现行 reader 和 optional dependency 回归 |
 | 把离线 Raw 恢复工具当旧湖迁移器直接删 | 丢失单日全市场五频事故恢复能力 | 已拍板保留能力；第 3.6 节重构项必须进入修改白名单 |
 | 原样保留 Raw 恢复工具 | 正式根出现 `_staging/_quarantine` 和长期备份，违反当前路径规则 | 必须迁到正式 staging，改用逐文件 fingerprint/checkpoint/verified 和幂等续跑 |
-| 顺带删除物理旧湖、reports、ignored 环境 | 未审计数据或证据丢失 | 明确分轮，当前禁止触碰 |
+| 把物理旧湖、reports、quarantine 一律判无用 | 在用数据、未完成恢复现场或唯一证据丢失 | M8 逐项用途审计；未知保留，先解除依赖/迁移证据，禁止整根删除；ignored 环境另轮处理 |
 
 ---
 
 ## 9. 回退姿态
 
-1. 本次 Git 清退不包含数据库迁移、Dagster event rewrite、Lake 数据写入或物理目录删除。
+1. M0–M7 Git 清退不包含数据库迁移、Dagster event rewrite、Lake 数据写入或物理目录删除；M8 单独执行和留证。
 2. 合并前通过精确 diff 恢复误删；合并后整体 revert 清退提交。
 3. 旧 Console frontend/backend 必须整体回退，不能只恢复一侧。
 4. 不允许把 Kopia、旧 enum、旧 module wrapper、旧 CLI alias 或空壳 package 恢复为“临时兼容”。
 5. 模板回退必须连同引用和正式模板内容一起评估，不能只恢复旧模板入口。
-6. 物理旧湖和 ignored 环境未来各自拥有独立回退/恢复方案。
+6. M8 必须逐项说明恢复能力：Git 跟踪的报告可从 Git 追溯；非 Git 数据若无既有可用副本则删除不可恢复，必须在清单中明示，不能承诺 Git 回退或假设有 Kopia 恢复。ignored 环境未来另轮处理。
 
 ---
 
@@ -929,12 +946,14 @@ git diff --name-status
 
 两份文档都包含值得保留的检查项，但**都不再适合作为独立、现行模板继续使用**。正确处置是把有效内容并入正式 Dagster onboarding/性能治理文档，切换现行引用，然后删除旧模板。`lake-dataset-development-template.md` 不应因为过去常被用于新湖接入就原样保留；恰恰因为仍可能被打开，它的旧 Console 主体会持续误导新开发。
 
-### 10.4 明确保留并延期
+### 10.4 明确保留与物理数据分类
 
-Ops Dataset Status Snapshot、正式 orchestrator、ClickHouse、正式 DuckDB/Parquet、现行历史处理、`lake_console/reports/**` 均保留。物理旧湖和本机 ignored 环境等代码清退完成后再分别审计和精确处理。
+Ops Dataset Status Snapshot、正式 orchestrator、ClickHouse、正式 DuckDB/Parquet 和现行历史处理保留。
+reports 不整删；旧湖和本专项遗留物理数据纳入 M8，“确认无用才删、仍在用不删、未知先保留”。本机
+ignored 依赖环境/配置仍在代码清退稳定后另轮精确处理。
 
 ### 10.5 下一步
 
 清退边界、Raw 恢复工具重构和 86 份旧文档删除口径已经全部拍板。下一步需由用户单独授权实施，
-并严格按 M0 → M7 推进。M8 是物理旧湖和 ignored 环境的后续独立专项，不属于本轮。本轮文档修改
+并严格按 M0 → M7 推进，再按 M8 精确清退已证实无用的数据。M8 清单尚未全部完成，不可整目录删除。本轮文档修改
 不构成代码/旧文档删除、`dg` 执行、数据写入或物理目录清理授权。

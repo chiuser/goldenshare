@@ -50,8 +50,8 @@ docs/
 
 - [设计原则（历史参考；当前边界以基线为准）](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
 - [CodeGraph 架构快照（当前代码事实，2026-08-22）](/Users/congming/github/goldenshare/docs/architecture/codegraph-architecture-snapshot.md)
-- [旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2（代码逐项审计与 LLD 已完成 / 尚未实施）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
-- [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（待评审 / 尚未实施）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
+- [旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2（2026-09-05 口径更新 / 无用数据纳入逐项清退 / 尚未实施）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
+- [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（154 份文档矩阵 / M8 数据清单待逐项完成 / 尚未实施）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
 - [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [DatasetDefinition 单一事实源重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
