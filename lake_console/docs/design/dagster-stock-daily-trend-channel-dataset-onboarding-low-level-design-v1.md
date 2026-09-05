@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：R0～R8 的首次交付已于 2026-09-02 完成并关闭，原物理数据、事件和本地 Wealth 验收记录保留；2026-09-04 第 17 节 R9 恢复已关闭。2026-09-05 复核确认 9 月 2 日当前 result/state 文件及覆盖规则正确，9 月 3 日和 4 日日更正常，但 9 月 2 日仍缺两个 materialization 和三个成功 ordinary check event。R10 的专属离线控制面核对方案和两阶段授权已确认，R10.1 开发与 R10.2 本地完整门禁已完成；当前只待部署后只读计划、分阶段事件补记及最终验收。远程环境继续按合同不挂载本地 Lake 能力
+状态：R0～R8 的首次交付已于 2026-09-02 完成并关闭，原物理数据、事件和本地 Wealth 验收记录保留；2026-09-04 第 17 节 R9 恢复已关闭。2026-09-05 复核确认 9 月 2 日当前 result/state 文件及覆盖规则正确，9 月 3 日和 4 日日更正常，但 9 月 2 日仍缺两个 materialization 和三个成功 ordinary check event。R10 的专属离线控制面核对方案和两阶段授权已确认，R10.1 开发、R10.2 本地完整门禁及 R10.3 正式只读计划已完成；当前停在第一次正式事件写入批准前。远程环境继续按合同不挂载本地 Lake 能力
 
 首次交付日期：2026-09-02；本次控制面核对 LLD 更新：2026-09-05
 
@@ -2426,13 +2426,23 @@ R10 是一个新增阶段，但内部按以下独立停止点推进：
 R10.0  技术方案与 LLD 冻结                         已完成
 R10.1  专属业务模块、CLI 和测试                    已完成（6 passed，Ruff 通过）
 R10.2  本地隔离测试、Definitions/静态/文档门禁      已完成（2812 passed）
-R10.3  部署后正式 plan，只读、零事件                待独立执行
+R10.3  部署后正式 plan，只读、零事件                已完成（should_stop=false）
 R10.4  管理员第一次批准，最多写 2 条 materialization 待批准
 R10.5  materialization 独立只读审计                 待执行
 R10.6  管理员第二次批准，最多写 3 条 check           待批准
 R10.7  final-audit 与文件/事件/邻接日期对账          待执行
 R10.8  回填实际 id、报告和结果，关闭 R10             待执行
 ```
+
+R10.3 实际计划（2026-09-05 09:21 Asia/Shanghai）：
+
+- 报告：[stock_daily_trend_channel_event_reconciliation_plan_20260902.json](/private/tmp/stock_daily_trend_channel_event_reconciliation_plan_20260902.json)。
+- `plan_id=stock-trend-event-reconciliation-2026-09-02-04a1691cdca4`，`plan_hash=04a1691cdca4805dffddab5340a1511da694ed950a637c94f087b21ad4c5887a`。
+- `should_stop=false`、`blockers=[]`、`active_run_count=0`，目标动态分区已注册；incident run 与 current file producer run 的身份、状态、范围和 completion event 均与冻结合同一致。
+- result/state 分别为 `5547/5554` 行，三个 audit 全部 `passed=true`、失败行 0；正式文件和四类输入文件的路径、大小、SHA-256、行数及 observed columns 已冻结。
+- 目标分区现有 materialization 为 0，现有 check execution 为三条历史 `PLANNED` 且 target 为空；预计新增 `2` 条 materialization、`3` 条 check，总上限 `5` 条。9 月 3 日、4 日的十条邻接事件 storage id 已冻结。
+- 命令总耗时约 `29.35 s`，低于 `30 s` fail-closed 硬门禁但高于 `<5 s` 工程目标；R10.4 APPLY 会重新验证同一计划。文件/事件/run/邻接 guard 漂移或出现活动 run 时会在写前停止；耗时门禁当前在每条追加事件完成并读回后检查，若越线可能留下同计划的部分成功事件，必须按既定 event-log 幂等续跑合同重新读取状态，不能假定零写或删除事件。
+- 本阶段只读取正式 Lake 与 Dagster instance，唯一写入为 `/private/tmp` 报告；没有追加 event、创建 run、注册动态分区或修改 Parquet。
 
 两次批准已确定必须分开，不能合并。R10.3 计划生成后，如目标文件指纹、run 身份、事件快照、活动 run 或 9 月 3/4 邻接 guard 变化，旧计划立即作废并回到只读 plan；不现场修改参数继续。R10.7 必须确认正式 Lake 文件 SHA-256 与计划一致、实际新增事件总数不超过五、三个 check 的 latest status 为成功且 target 正确、9 月 3/4 事件 id 未变化。只有上述结果写回本节后才能把状态改为完成。
 
@@ -2461,7 +2471,7 @@ M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空�
 
 M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 首次正式 bootstrap、runless event、Sensor 启用和本地 Wealth 验收已完成。R9 返回协议、首日边界修正及加载均已完成；同一 exact batch 历史修复通过后，原日更 sensor 自动补齐 9 月 3 日 result/state，R9 恢复关闭。
 
-R10 的实现方式和两阶段批准已经确认，没有新的业务选择待拍板；专属离线 CLI 与 R10.2 本地完整门禁已完成，尚待部署后正式只读 plan、两次独立 event 写入批准和 final-audit。9 月 2 日物理数据已正确，不存在待执行的数据补跑；待补的是其两个 materialization 和三个成功 ordinary check event。R10 完成前，本专项不能标记为控制面完全关闭。
+R10 的实现方式和两阶段批准已经确认，没有新的业务选择待拍板；专属离线 CLI、R10.2 本地完整门禁和 R10.3 正式只读计划已完成，当前停在第一次 event 写入批准前，后续仍需两次独立批准、阶段间只读审计和 final-audit。9 月 2 日物理数据已正确，不存在待执行的数据补跑；待补的是其两个 materialization 和三个成功 ordinary check event。R10 完成前，本专项不能标记为控制面完全关闭。
 
 ---
 
