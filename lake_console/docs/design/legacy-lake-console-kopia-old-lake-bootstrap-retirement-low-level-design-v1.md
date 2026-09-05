@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 安全加固完成、待 review / M3 未开始 / 文档矩阵 156 份 / 其余具体删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 完成、本次提交归档 / M4 未开始 / 文档矩阵 156 份 / 其余具体删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -35,7 +35,7 @@ HEAD、CodeGraph 状态和精确文件白名单。
 本次代码审计得到五个关键结论：
 
 1. `lake_console/backend/**`、`lake_console/frontend/**`、旧 Console 专属入口和 `tests/lake_console/**` 是封闭的旧产品边界，可以同轮原子删除。
-2. 审计基线中 `stk_mins_migration.py` 和 `stk_mins_migration_cli.py` 是混合文件：旧湖/历史备份迁移能力要删除，但 Silver、QFQ、派生指标和 MACD/KDJ 历史治理能力必须保留。现已完成 M1 helper 迁出及 M2A 四 CLI 拆分，旧混合 CLI 已删除；旧 migration 主体仍待 M3，不能把本轮入口删除扩大为主体删除。
+2. 审计基线中 `stk_mins_migration.py` 和 `stk_mins_migration_cli.py` 是混合文件：旧湖/历史备份迁移能力要删除，但 Silver、QFQ、派生指标和 MACD/KDJ 历史治理能力必须保留。现已完成 M1 helper 迁出、M2A 四 CLI 拆分、M2B 门禁及 M3 旧 migration 主体删除；当前历史治理能力保留。各阶段分别验收，generic old-lake adapter 和恢复工具仍归 M4。
 3. Raw `stk_mins` 的非 active 单日五频 prod-DB 恢复工具不属于旧湖/Kopia；用户已拍板保留业务能力
    并重构实现。它必须迁到正式 staging，改成逐文件 fingerprint/checkpoint/验证/幂等续跑，不能原样保留。
 4. `ops.dataset_status_snapshot`、正式 Dagster、ClickHouse、DuckDB/Parquet、当前 Raw → Silver → Gold 派生、当前 runless event 治理均不在删除范围内。
@@ -885,7 +885,7 @@ test_adj_factor_raw_bootstrap_events.py
 test_adj_factor_silver_bootstrap_events.py
 ```
 
-其中 `test_stk_mins_migration.py` 不能先删：必须先把 Raw partition discovery、五频 alignment 和 success count 的现行覆盖迁到对应当前模块测试。
+其中 `test_stk_mins_migration.py` 不能先删：必须先把 Raw partition discovery、五频 alignment 和 success count 的现行覆盖迁到对应当前模块测试。M1 已完成这些独立覆盖；M3 又将两条仍有效的零价格样本转到当前 Raw check，随后才删除旧测试，见 §11 M3。
 
 ### 7.2 当前测试的 import 迁移
 
@@ -1641,13 +1641,90 @@ uv run --no-sync python -m pytest -q --disable-warnings \
   tests/test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_rebuild_cli_uses_full_market_scope_when_stock_codes_are_omitted
 ```
 
-本阶段完成后停在 review，不自动提交/推送或进入 M3。M3 仍须先复核旧 migration 主体现行引用清零，再列明精确删除文件并执行独立回归。
+M2B 已按用户要求提交为 `e8e2abf9`，未推送。用户随后单独授权进入 M3；引用清零与精确删除审计另记于下节，不回写成 M2B 成果。
 
 ### M3：删除旧 migration 主体
 
-1. 证明 `stk_mins_migration.py` 只剩旧符号且所有当前 import 已清零。
+1. 证明 `stk_mins_migration.py` 的现行消费者已清零：其中仍保留 M1 已迁出的四个 helper 旧副本，不应误写成文件里只剩旧语义；这些旧副本也没有现行调用方，随整文件退出。
 2. 删除该文件及纯旧测试。
 3. 运行当前 Silver/QFQ/derived/MACD/KDJ 全套定向测试。
+
+#### M3 开工核验与执行约束（2026-09-05，基线 `e8e2abf9`）
+
+用户已明确要求进入 M3；只退出旧 minute migration 主体，不提前处理 M4 的 specs/executor/catalog/恢复工具，也不删除旧 Console、历史文档、物理数据或 ignored 环境。
+
+逐行复核完整 1,328 行旧模块（32 个顶层函数、10 个 dataclass）和 425 行旧测试（10 项）。CodeGraph `explore/impact/callers` 覆盖 plan、Raw event report、Raw audit；全仓 tracked Python AST import 核验仅命中旧测试一个导入点。bootstrap package exports 未导出该模块；当前四 CLI、正式 assets/checks/jobs/sensors、API/前端和构建配置均无正向引用。名字相似的当前 Raw checks、分区定义和 identity-map asset 不随旧 producer 删除。
+
+| 硬口径 | 精确文件/落点 | 验收 |
+|---|---|---|
+| 删除旧 minute migration 主体且不留兼容入口 | 删除 `orchestrator/src/orchestrator/defs/bootstrap/stk_mins_migration.py` | 当前模块引用为 0；旧模块和已删 CLI 均不可发现/import；新增静态防回退 |
+| 旧测试先分辨用途再退出 | 删除 `orchestrator/tests/test_stk_mins_migration.py`；两条零价格样本先迁入新 `test_stk_mins_raw_value_domain_contract.py` | 对现行 `_raw_value_domain_check` 验证零 low 和全零报价通过，负价格/空值拒绝；不保留旧 audit 实现 |
+| 已迁出的 helper 和 CLI 保持 | M1 的 discovery/alignment/check count、M2 四 CLI 和 fixture 均不改实现 | M1 helper/计数、21 命令/246 原案例及 M2B 批准差异、五组现行历史治理全套隔离回归 |
+| 正式 Raw/identity-map 链不受误删 | 当前 `stk_mins_checks.py`、`assets/stock_identity_map.py`、readiness/partition/catalog 均保留 | 现行 Raw 合同和 identity-map asset/sensor 测试；asset governance/static gates |
+| 不误扩大 M3 | `specs/stk_mins.py`、`specs/stock_identity_map.py`、source method、executor、Raw 恢复工具仍归 M4 | 最终删除文件必须恰好上述 2 份；保留运行文件与本轮基线逐字一致 |
+
+旧测试逐项处置：
+
+| 原测试行/名称 | 结论 |
+|---|---|
+| 115 `test_plan_is_read_only_and_reports_expected_counts` | 旧 backup/identity 迁移计划，随旧入口删除；当前分区发现/五频对齐已有 M1 独立测试 |
+| 143 `test_migrates_raw_history_and_skips_existing_targets` | 旧 backup → Raw 写入，删除；不是现行 prod Raw 恢复工具的测试 |
+| 169 `test_migration_requires_source_file` | 旧 backup 缺源行为，删除，不恢复已退役源 |
+| 180 `test_registers_only_missing_stock_mins_partitions` | 旧迁移注册 helper，删除；正式 partition 定义与日常注册链保留 |
+| 197 `test_reports_runless_raw_events_and_readiness` | 旧迁移 Raw 事件 producer，删除；不删除正式 Raw checks/readiness |
+| 238 `test_raw_event_dry_run_does_not_write_events` | 旧 producer dry-run，删除；现行 Silver/QFQ/derived/MACD 事件 dry-run 独立测试保留 |
+| 275 `test_failed_raw_audit_blocks_event_reporting` | 旧 producer 审计门禁，删除；当前 Raw 文件门禁与 value-domain 测试保留 |
+| 320 `test_raw_price_sanity_allows_legacy_zero_low` | 样本仍代表现行 Raw 规则，迁到当前 check 测试后删除旧测试 |
+| 356 `test_raw_price_sanity_allows_legacy_zero_quote_rows` | 全零报价样本仍有效，迁到当前 check 测试；不因源迁移退役而收紧零价格规则 |
+| 392 `test_reports_identity_map_events_and_readiness` | 旧 manifest 导入及补事件，删除；现行 lifecycle + seed 生成 identity-map 的代码和测试保留 |
+
+性能与安全预算：
+
+| 项目 | M3 边界 |
+|---|---|
+| 正式对象/日期/分区、请求/分页、源行/写入行/文件/事件 | 全部 0；只删源码，禁止以验收为由执行旧迁移或触碰正式数据 |
+| 新增样本 | 4 个固定案例；每例 1 个代码、1 天、1 频、1 行 Parquet；只写 pytest 临时目录 |
+| DuckDB / spill | 现行 SQL 不变；新样本使用显式临时 DuckDB 目录，旧集成测试用既有隔离 runner 将连接 temp 改到测试目录 |
+| replace / 事务 / 重试 | 正式实现均不修改；测试只验证现行行为，不新建状态实体或重试逻辑 |
+| 耗时/配额 | 删除前完整五组历史治理回归 70 passed / 17.48 秒；生产网络请求与配额为 0；记录删除后同组结果，不增加性能门禁 |
+| 拒绝条件 | 出现现行导入、遗失有效规则覆盖、冻结 CLI 差异、正式环境访问或第三个删除文件即停止 |
+
+按文档治理核验，P6A 两份现行 check 治理文档仍把旧 producer 写成可用路径（G1）；本轮将对应句子标为历史事实并注明 M3 退出，不改正式三类 Raw check 口径，不另建方案。完整 Definitions 加载如需验证，只允许无正式实例/网络的隔离模式；不执行 `dg` job/sensor/materialization 或修改历史事件。
+
+#### M3 实施与验收（2026-09-05）
+
+1. 已精确删除上述两份文件，未创建 wrapper、alias 或替代旧迁移入口；从 `e8e2abf9` Git 历史可恢复源码，不需恢复任何物理备份。未删除其它 specs/executor/SQL/template/catalog 或旧 Console 文件。
+2. 原旧文件 10 个测试已逐项处置：8 个纯旧迁移测试退出；2 个仍有效的零价格样本在删除前已改测当前 `_raw_value_domain_check` 并通过，额外负价格/空值样本也通过。M1 helper、check count 和 21 CLI 合同没有重录或降级。
+3. `test_stk_mins_history_cli_contract_equivalence.py` 增加旧模块/CLI 不存在且不可发现，以及全 orchestrator 运行源码无旧 import 的静态门禁。删除前门禁按预期报旧模块存在（1 failed、2 passed），删除后全绿。
+4. 删除前五组完整历史治理回归 **70 passed / 17.48 秒**；删除后同五组加当前 Raw 合同、identity-map asset/sensor 为 **112 passed / 17.85 秒**。另跑合同/静态/新样本组合 **318 passed、696 subtests passed / 6.69 秒**；两组合计 430 项测试，696 个子案例，不包含重复计算删除前基线。
+5. 修改/新增测试默认 Ruff 与全 orchestrator `E9,F63,F7,F82`、文档完整性、矩阵与 `git diff --check` 均通过；156 份矩阵无缺失/重复、处理分类数不变，263 个旧产品路径及其 SHA-256 不变。根索引已执行 `codegraph sync/status`，状态 up to date。
+6. 查阅了本地 `uv run --no-sync dg check defs --help`：该命令需要实例。没有运行正式 `dg check defs`、job、sensor 或生产读写；本轮通过隔离测试验证 assets/checks/CLI 消费者，不能称为正式部署或整份 code location 的运行验收。测试 DuckDB spill 和 Lake 均为临时目录，instance 使用 fake/ephemeral，网络与正式 `DagsterInstance.get()` 被隔离 runner 拦截。
+7. 同步原方案、本 LLD、M0 清单、CodeGraph 快照和 P6A 两份 check 治理文档；不更新新闻关联等其它任务文档。用户随后要求提交：本次在 `dev-interface` 按 M3 的 10 文件白名单归档（6 份文档、2 份删除、1 份修改测试、1 份新增测试），不推送、不自动进入 M4。
+8. 删除后以项目 Python 3.13.5 重新解析全仓 2,615 份已跟踪 Python 文件，对旧模块的 import 为 0；与 `e8e2abf9` 对比，运行代码差异仅旧 migration 模块删除，全部删除项恰好两份。CLI fixture 字节完全一致，SHA-256 为 `937a2e9aa42c93c0b7534d2f680a1249d9f96ee2d4f10ce33067543f2ad9f3bc`。首次误用系统 Python 3.11 扫描时不支持仓库已有 f-string 语法，已改用项目环境复核，未修改该无关代码。
+
+复现命令（从 `lake_console/orchestrator` 执行）：
+
+```bash
+uv run --no-sync python -m pytest -q --disable-warnings \
+  tests/test_stk_mins_history_cli_contract_equivalence.py \
+  tests/test_stk_mins_macd_kdj_baseline_single_partition.py \
+  tests/test_stk_mins_history_helpers.py \
+  tests/test_stk_mins_history_check_events.py \
+  tests/test_run_contract_static_gates.py \
+  tests/test_asset_governance_contracts.py \
+  tests/test_stk_mins_raw_value_domain_contract.py
+uv run --no-sync python /private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_isolated_cli_tests.py \
+  -q --disable-warnings \
+  tests/test_stk_mins_silver_m6_history.py \
+  tests/test_stk_mins_qfq_m8c_history.py \
+  tests/test_stk_mins_qfq_m8d_events.py \
+  tests/test_stk_mins_qfq_m11f_derived_history.py \
+  tests/test_stk_mins_qfq_m12_macd_kdj.py \
+  tests/test_stk_mins_raw_m4_contracts.py \
+  tests/test_stock_identity_map_active_asset.py
+```
+
+后续只进入 M4 的单独审计/实施：先处理仍在用的 Raw 恢复工具，再解除 generic old-lake adapter；不把 M3 零引用结论推广到它们。
 
 ### M4：重构 Raw 恢复工具并删除 generic old-lake adapter
 
@@ -1807,8 +1884,8 @@ M8 删除前必须在清单中明确恢复能力。非 Git 数据没有既有可
 - [x] Silver register/report 只从 Silver 文件或显式 keys 选择（M2B；显式注册本身不新增文件审计）。
 - [x] MACD/KDJ rebuild 仍要求 checkpoint 和 confirm（M2B 回归）。
 - [x] MACD/KDJ baseline event 只能选择单日单 partition（M2B）。
-- [ ] Raw/Silver/QFQ/derived/MACD-KDJ 当前 tests 通过。
-- [ ] `stk_mins_migration.py` 和 CLI 不留 wrapper/alias。
+- [x] Raw/Silver/QFQ/derived/MACD-KDJ 当前定向 tests 通过（M3 隔离回归；不代表正式部署验收）。
+- [x] `stk_mins_migration.py` 和 CLI 已删除，不留 wrapper/alias（M3）。
 
 ### 14.2 旧适配器
 
@@ -1919,7 +1996,7 @@ fingerprint/checkpoint/verified 状态、幂等续跑和无 backup 恢复是实�
 也不等待 M0–M7；仅做路径、无符号链接/跨挂载、范围元数据和占用检查后精确删除。记录执行前逐文件
 路径/类型/大小/mtime/device/inode 清单及其摘要指纹，删除后确认目标消失、排除对象仍在。
 旧湖内 `research/stk_mins_by_date_clean_next` 与正式 Raw 完全排除。旧迁移默认源将不可用，
-`specs/stk_mins.py` 等旧代码仍按 M3 清退，不重建源、不重启迁移。此批准不是其他数据、代码或文档的
+旧 migration 主体按 M3 清退，`specs/stk_mins.py` 等适配器按 M4 清退，不重建源、不重启迁移。此批准不是其他数据、代码或文档的
 删除授权；非 Git 备份直接删除不承诺可恢复。执行结果见 §16.9，其他对象仍遵守上文通用门禁。
 
 ### 16.2 首轮定点核验记录（历史取样，后续进展见 §16.4–16.10）
@@ -2020,7 +2097,7 @@ Dagster 表查询先设置只读事务，查询后 rollback；没有改运行状
 | `derived/stk_mins_indicators_by_date` | 102580 / 80148850273 | `PENDING_AUDIT`。旧指标分桶结果；先核其参数/用途和当前 Gold 承接关系 |
 | `_recovery` 的 20 个旧修复目录 | 7470 / 88777972 | `PENDING_AUDIT`。存在 patch_rows 与 raw_partition_backup；尚未证明每份 patch 已进入被保留的最终事实，不能只按 2026-05 日期删除 |
 | `_tmp` 全部 | 30242 / 160116510870 | `PENDING_AUDIT`。含未发布候选、旧备份、分块文件；年龄清理工具不是本专项的安全判据，不调用它 |
-| `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next` | 删除前 21047 / 67676449533；删除后目录不存在 | `DELETED`。用户确认基础版本备份无需再审，批准提前精确删除，见 §16.9；取消内容替代证明前置项。`specs/stk_mins.py` 等旧迁移代码仍待 M3 清退，默认源已不可用，不得重建 |
+| `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next` | 删除前 21047 / 67676449533；删除后目录不存在 | `DELETED`。用户确认基础版本备份无需再审，批准提前精确删除，见 §16.9；取消内容替代证明前置项。旧 migration 主体已在 M3 删除，`specs/stk_mins.py` 等适配器仍待 M4，默认源已不可用，不得重建 |
 
 根级及各层 `.DS_Store` 只是元数据，不是业务数据；未据此新建删除任务，仍须纳入用户确认的精确清单。
 
@@ -2316,7 +2393,7 @@ sync/status；图未精确表达的动态目录读取由当前 catalog/scanner/s
 旧 scanner 的 [实际路径拼装](/Users/congming/github/goldenshare/lake_console/backend/app/services/filesystem_scanner.py:282)
 是 `lake_root / node.path`，分别按日期目录或单文件读取；因此仅搜索完整 Parquet 文件名不足以排除旧消费者。
 以上六个旧 spec 的源/目标与 SQL 已逐份核对。本轮只静态提取日期/类型投影做只读比较，没有 import、
-运行旧 executor 或恢复旧 bootstrap 权限；移除这些旧入口仍是 M3/M6，不影响当前 Tushare/正式湖链路。
+运行旧 executor 或恢复旧 bootstrap 权限；旧 migration 主体已在 M3 退出，六个旧 spec/executor 与旧产品分别归 M4/M6，不影响当前 Tushare/正式湖链路。
 
 #### 16.12.2 物理范围与逐项结论
 
@@ -2330,7 +2407,7 @@ sync/status；图未精确表达的动态目录读取由当前 catalog/scanner/s
 | `raw_tushare/adj_factor` → `raw/tushare/adj_factor` | 旧 4215 个分区，2009-01-05–2026-05-15；新 4294 个，至 2026-09-04。旧路径全部有对应新分区；5 个样本逐行等价 | `PENDING_AUDIT`。尚缺其余重叠分区的内容/键/字段核验，路径全覆盖不是全量替代证明；再解除旧 catalog/spec 依赖后才能评估候选 |
 | `raw_tushare/suspend_d` → `raw/tushare/suspend_d` | 旧 6381 个分区，2000-01-04–2026-05-15；新 3083 个，2014-01-02–2026-09-04。共同 3004 个；旧独有 3377 个、10355813 字节，全部为 2000-01-04–2013-12-31。早期首/中/末样本分别 8/127/122 行 | `PENDING_AUDIT`。与早期日线一起核用途，不能因新停牌数据日更正常就删历史。当前停牌修正 CSV/SQL 不在旧数据删除目标中 |
 | `raw_tushare/stock_basic/current/part-000.parquet` → `raw/tushare/stock_basic/full/part-000.parquet` | 全文件旧 5842 行、新 5895 行；旧代码集合多 `TS0018.SH` 一项。完整 17 字段双向差集为 5655/5708 行 | `PENDING_AUDIT`。不是完整重复快照；先解释缺失退市证券及状态/退市日期等变化，确认历史用途与保留来源，不能只按新文件较新判可删 |
-| `raw_tushare/trade_cal/current/part-000.parquet` → `raw/tushare/trade_calendar/full/part-000.parquet` | 全文件双方各 13162 行；规范日期/类型后 4 字段双向 `EXCEPT ALL` 均 0，无旧文件字段被遗漏 | **仅旧这个 Parquet** 为 `DELETE_AFTER_DEPENDENCY`。现内容有正式副本，仍须 M3/M6 移除旧入口、执行前重核与用户具体确认。未包含旁边 `.DS_Store`、父目录或 `manifest/trading_calendar/tushare_trade_cal.parquet`；后者未做此次内容比较 |
+| `raw_tushare/trade_cal/current/part-000.parquet` → `raw/tushare/trade_calendar/full/part-000.parquet` | 全文件双方各 13162 行；规范日期/类型后 4 字段双向 `EXCEPT ALL` 均 0，无旧文件字段被遗漏 | **仅旧这个 Parquet** 为 `DELETE_AFTER_DEPENDENCY`。现内容有正式副本，仍须 M4/M6 移除旧适配器/产品入口、执行前重核与用户具体确认。未包含旁边 `.DS_Store`、父目录或 `manifest/trading_calendar/tushare_trade_cal.parquet`；后者未做此次内容比较 |
 | `manifest/security_identity/security_identity_map.parquet` → `silver/basic/stock_identity_map/part-000.parquet` | 全文件旧 6089 行、新 6146 行。旧独有 source code 为 `706055.SH`、`TS0018.SH`；共有映射的 latest code 无差异，但 valid_to/effective_delist_date 各 17 项不同 | `PENDING_AUDIT`。两条旧映射和有效期变化尚未解释闭合；当前 mapping seed 与正式资产保留，不能把旧映射无条件追加到新表，也不能以新表行数更多判旧表无用 |
 
 快照差异的业务含义须进一步核实：
@@ -2452,7 +2529,7 @@ CodeGraph `status/explore` 覆盖旧 scanner、正式 LakeRootResource、当前 
 #### 16.14.2 只有旧代码使用：退出依赖后清退
 
 本组均为 `DELETE_AFTER_DEPENDENCY`。没有找到保留主链对这些旧湖数据的读取入口；不能现在删，是因为
-旧 Console 与迁移代码尚在，并非数据完整性或历史价值未知。M3/M6 按原 LLD 退出旧适配器/旧产品，
+旧 Console 与通用迁移适配器尚在，并非数据完整性或历史价值未知。旧 migration 主体已在 M3 退出，M4/M6 按原 LLD 退出其余适配器/旧产品，
 现行 CLI 拆分和回归完成后，再按 M8 申请删除。本轮引用分类覆盖 **106 个已盘点对象**，不以旧湖根整删。
 
 以下路径相对于 `/Volumes/datasource/goldenshare-tushare-lake`；执行清单须展开为绝对路径，不使用通配符。

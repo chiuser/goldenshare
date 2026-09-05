@@ -535,8 +535,9 @@ P6A 已落地事实：
 - `batch_raw_stk_mins_lake_readiness(...)` 继续只读 lake 文件和 registered
   partition set，不读取 Dagster event history；failed check names 改为 3 个新正式
   check 名称。
-- `stk_mins_migration` runless/bootstrap raw audit 输出同步改为 3 个新 check 名称，
-  防止未来补历史事件时重新写入旧 7 个普通 check。
+- P6A 实施时，旧 `stk_mins_migration` runless/bootstrap raw audit 曾同步输出 3 个新 check 名称。
+  该旧迁移 producer 已于 2026-09-05 清退 M3 删除，此处仅记录历史事实，不再是可调用入口。
+  当前 Raw 的 3 类 checks/readiness 及现行 Silver/QFQ 历史事件能力保留，不得为补事件恢复旧模块。
 - P6A 不触碰 silver/qfq/MACD-KDJ，不触碰 repair/status/completion protected checks。
 
 P6B 已落地事实：

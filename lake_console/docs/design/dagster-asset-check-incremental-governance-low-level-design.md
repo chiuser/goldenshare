@@ -889,7 +889,9 @@ P5C 已落地：
     Dagster asset check。
   - `batch_raw_stk_mins_lake_readiness(...)` 不新增查询，只把原 metrics 映射到
     3 个新 failed check names。
-  - `stk_mins_migration` 的 raw runless/bootstrap audit 也只输出 3 个新 check 名称。
+  - P6A 当时还将旧 `stk_mins_migration` 的 raw runless/bootstrap audit 输出改为 3 个新 check 名称。
+    该 producer 已于 2026-09-05 清退 M3 删除，仅保留此历史实施记录；当前 Raw checks/readiness
+    与现行 Silver/QFQ 事件能力不变，不得恢复旧迁移入口。
 - P6B 收敛 `silver_stk_mins`：
   - `SILVER_STK_MINS_CHECK_NAMES` 从旧 10 个普通 check 改为
     `silver_stk_mins_contract_check`、`silver_stk_mins_key_integrity_check`、

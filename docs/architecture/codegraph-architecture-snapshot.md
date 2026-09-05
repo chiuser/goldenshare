@@ -1,7 +1,7 @@
 # CodeGraph 架构快照
 
 生成日期：2026-08-22
-局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分及 M2B 入口安全门禁；未重审其它模块，下面索引规模仍是原生成日记录。
+局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分、M2B 入口安全门禁及 M3 旧 migration 主体退出；未重审其它模块，下面索引规模仍是原生成日记录。
 索引根：`/Users/congming/github/goldenshare`
 索引结果：2,508 files，44,388 nodes，101,669 edges，DB 110.44 MB
 
@@ -144,7 +144,7 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 
 `orchestrator/defs/**` 包含 stock_basic、stock_daily、stk_mins、adj_factor、index_daily、market_breadth、ClickHouse serving 等资产、检查、任务、传感器和 run contract。
 
-### 分钟历史 CLI（2026-09-05 M2A / M2B）
+### 分钟历史 CLI（2026-09-05 M2A / M2B / M3）
 
 以下是人工离线入口，不新增 job/sensor/asset，不由页面或 API 触发。模块都位于
 `lake_console/orchestrator/src/orchestrator/defs/bootstrap/`：
@@ -159,10 +159,12 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 共享 `stk_mins_history_cli_contract.py` 只负责参数注册、CSV/partition 解析和读取已注册 Silver 分区，
 不扫描 Lake、不写数据或事件。CLI 不再直接依赖旧 migration；canonical QFQ 六阶段
 入口仍是独立的 `stk_mins_qfq_canonical_history_cli.py`，不合并进上述 21 命令。
-原混合 CLI 已在 246 组同输入双跑通过后删除，不提供兼容入口；旧 migration 主体和旧 Console 仍待后续阶段，
-不能据此删除本快照中的旧 Console 节点。
+原混合 CLI 已在 246 组同输入双跑通过后删除，不提供兼容入口；旧 migration 主体在 M3 确认现行消费者清零后删除。
+旧 Console 仍待后续阶段，不能据此删除本快照中的旧 Console 节点。
 
 M2B 已分离 Silver CLI 的 Raw 输入 / Silver 输入 selector，去掉批准的旧 option；baseline CLI 先校验单日范围，再调用原 report。report 入口复核同一范围，且在一次 planner 返回后、文件审计与 event writer 前检查实际分区是请求当天。文件计算、check/event payload、其它 CLI 和多日只读 planner 不变；未引入新服务或跨域依赖。
+
+M3 删除旧 `stk_mins_migration.py` 及其旧测试；当前 helper、Raw checks/readiness、identity-map asset 与上述四 CLI 保留。两条仍有效的零价格测试样本迁到当前 Raw check。generic old-lake adapter、specs/executor 和仍在用的 Raw 恢复工具属于 M4，不能套用本次旧 migration 模块的零引用结论。
 
 ## 关键 Contract 与 Adapter
 
@@ -242,6 +244,7 @@ M2B 已分离 Silver CLI 的 Raw 输入 / Silver 输入 selector，去掉批准�
     覆盖 MACD/KDJ rebuild 与其测试消费者；结合 tracked 程序引用补扫核清四份 CLI 测试、static gate，
     未发现 API/前端/调度消费者。此处记录入口重组，不宣称已完成后续迁移主体或旧产品清退。
 11. 清退 M2B：`codegraph_explore/impact` 覆盖 Silver selector 和 baseline CLI → report → planner/审计/事件写入；现行 report 运行调用方仅 MACD CLI，共享 planner 的只读消费者保留多日能力。
+12. 清退 M3：`codegraph_explore/impact/callers` 覆盖旧 plan、Raw event report 与 Raw audit；全仓 tracked Python AST 和文本引用补扫，正向导入仅旧测试。复核 package exports、当前 CLI、assets/checks/readiness、identity-map、API/前端和构建入口后，删除旧模块与旧测试；不删除现行 Raw check 或泛化到其它适配器。
 
 ## 仍需人工确认
 

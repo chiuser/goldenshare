@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退 M0 只读审计清单 v1
 
-状态：2026-08-28 M0 历史基线；2026-09-05 旧湖批量分类见 §21，M1 已提交见 §22，M2A 已提交 `0cc84004` 见 §23，M2B 完成待 review 见 §24；M3 未开始，其余具体删除待确认
+状态：2026-08-28 M0 历史基线；2026-09-05 旧湖批量分类见 §21，M1 已提交见 §22，M2A 已提交 `0cc84004` 见 §23，M2B 已提交 `e8e2abf9` 见 §24；M3 完成、本次提交归档见 §25，M4 未开始，其余具体删除待确认
 
 审计日期：2026-08-28
 
@@ -881,7 +881,22 @@ LLD §16.1/16.8/16.14；不改变 M4 写湖安全、CLI 回归、具体删除确
 - [x] 原 fixture 21 命令/246 案例内容完整保留，增加哈希断言和四命令 `approved_delta`；新增 54 项 CLI 与 44 项 report 门禁/现行规划链测试。
 - [x] 定向回归 315 passed、696 subtests passed；原 CLI 临时环境集成 5 passed；Ruff、文档完整性、矩阵、diff 检查通过。执行命令和逐文件映射见 LLD §11 M2B。
 - [x] 本轮无文件删除、无配置变更、无正式 Lake/数据库/Dagster 访问或写入；依赖边界、156 份文档矩阵、263 个旧 Console 文件清单未扩大。
-- [ ] 本阶段待用户 review/提交；M3 先核零引用和精确文件表，再单独实施。没有提前删除 migration 主体、旧 Console 或物理数据。
+- [x] M2B 已按用户要求提交 `e8e2abf9`，未推送；该阶段没有删除 migration 主体、旧 Console 或物理数据。随后用户单独授权 M3，见 §25。
 
 旧 migration 主体、263 个旧产品文件、旧文档、物理数据、停牌 CSV、ignored 环境、Ops Snapshot
 均未改动；子系统边界/依赖矩阵不变。删除前双跑脚本仅作临时证据，旧文件删除后不再作为回归入口。
+
+## 25. 2026-09-05 M3 执行回填
+
+本节是用户明确要求进入 M3 后的实施记录，基线 `e8e2abf9`；不回写为原 M0 只读审计成果。
+
+- [x] 逐行复核旧模块 1,328 行和旧测试 425 行；CodeGraph `explore/impact/callers` 加全仓 tracked Python AST、文本引用核验，正向导入仅剩旧测试。
+- [x] 精确删除 `orchestrator/src/orchestrator/defs/bootstrap/stk_mins_migration.py` 和 `orchestrator/tests/test_stk_mins_migration.py` 两份文件；Git 历史可恢复，无 wrapper/alias。
+- [x] 旧测试 10 项逐项处置见 LLD §11 M3：8 项纯旧迁移测试退出；2 条零价格样本先改测当前 Raw check，再删除旧测试；补充负价格/空值反例，共 4 项通过。
+- [x] 已迁出的 helper、四份当前 CLI、21 命令冻结 fixture 和全部保留运行代码未改；新增旧模块/CLI 不可发现与运行源码无旧 import 的防回退测试。
+- [x] 删除前五组现行历史治理测试 70 passed；删除后两组无重叠回归合计 **430 passed、696 subtests passed**。覆盖完整 Silver/QFQ/derived/MACD-KDJ 历史治理、当前 Raw 合同和 identity-map asset/sensor；命令与边界见 LLD §11 M3。
+- [x] 修改/新增测试 Ruff 与全 orchestrator 致命静态规则通过；同步原方案、LLD、本清单、架构快照和两份 P6A check 治理文档，旧 producer 仅作为历史事实。
+- [x] 收口核验通过：2,615 份已跟踪 Python 的旧模块 import 为 0；删除恰好两份，保留运行文件和 CLI fixture 与 `e8e2abf9` 字节一致；文档完整性、156 份矩阵、263 个旧产品路径指纹与 diff 检查通过，CodeGraph 已 sync/status。
+- [x] specs、source method、executor、Raw 恢复工具仍归 M4；旧 Console、历史文档、物理数据、ignored 环境、停牌 CSV、Ops Snapshot 不在本轮删除范围。
+- [x] 测试使用临时 Lake、临时 DuckDB spill 和 fake/ephemeral instance；未运行正式 `dg check defs` 或任何正式任务、补事件、生产读写、部署。不能将隔离测试称为完整 code location 运行验收。
+- [x] 用户要求提交 M3；本次在 `dev-interface` 按 10 文件白名单归档，不推送、不自动进入 M4。工作区两份新闻关联文档的并行修改不属于本轮，未触碰。

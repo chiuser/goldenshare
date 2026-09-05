@@ -9,6 +9,7 @@ import importlib
 import io
 import json
 from contextlib import ExitStack, redirect_stderr, redirect_stdout
+from importlib.util import find_spec
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import create_autospec, patch
@@ -537,9 +538,28 @@ def test_each_cli_exposes_only_its_own_current_commands(module_name):
     )
 
 
-def test_old_dispatcher_is_absent():
+@pytest.mark.parametrize("module_name", ("stk_mins_migration", "stk_mins_migration_cli"))
+def test_old_migration_entry_points_are_absent(module_name):
     current = importlib.import_module(PREFIX + "stk_mins_silver_history_cli")
-    assert not Path(current.__file__).with_name("stk_mins_migration_cli.py").exists()
+    assert not Path(current.__file__).with_name(f"{module_name}.py").exists()
+    assert find_spec(PREFIX + module_name) is None
+
+
+def test_runtime_has_no_retired_migration_imports():
+    source_root = Path(__file__).parents[1] / "src" / "orchestrator"
+    retired = {"stk_mins_migration", "stk_mins_migration_cli"}
+    violations = []
+    for path in source_root.rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.ImportFrom):
+                names = [node.module or "", *(alias.name for alias in node.names)]
+            elif isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            else:
+                continue
+            if any(retired.intersection(name.split(".")) for name in names):
+                violations.append((str(path.relative_to(source_root)), node.lineno))
+    assert violations == []
 
 
 @pytest.mark.parametrize(
