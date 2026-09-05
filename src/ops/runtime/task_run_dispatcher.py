@@ -26,11 +26,13 @@ from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.contracts.external_task import ExternalTaskExecutor
 from src.ops.runtime.maintenance_executor import (
+    MaintenanceInputAuditBlockedError,
     MaintenanceExecutionPlan,
     MaintenanceExecutionRequest,
     MaintenanceExecutionUnit,
     MaintenanceExecutor,
     MaintenanceTaskRunContext,
+    TaskRunAwareMaintenanceInputAuditor,
     TaskRunAwareMaintenanceExecutor,
     TaskRunAwareMaintenancePlanner,
 )
@@ -420,8 +422,84 @@ class TaskRunDispatcher:
     ) -> TaskRunDispatchOutcome:
         params = self._maintenance_params(task_run)
         current_node_id: int | None = None
+        unit_sequence_offset = 0
         try:
-            if action.execution_config.get("plan_apply_replay") is True and str(
+            if action.execution_config.get("execution_style") == "audit_then_apply":
+                self._validate_audit_then_apply_params(params)
+                if not isinstance(executor, TaskRunAwareMaintenanceInputAuditor):
+                    raise RuntimeError(
+                        "audit_then_apply maintenance action requires a task-aware input auditor"
+                    )
+                node = self._create_node(
+                    session,
+                    task_run_id=task_run.id,
+                    node_key=f"{action.key}:input-audit",
+                    node_type="maintenance_plan",
+                    sequence_no=1,
+                    title=f"{action.display_name}：输入审计",
+                    resource_key=task_run.resource_key,
+                    time_input=dict(task_run.time_input_json or {}),
+                    context={
+                        "action_key": action.key,
+                        "execution_style": "audit_then_apply",
+                    },
+                )
+                current_node_id = node.id
+                task_run.current_node_id = node.id
+                task_run.unit_total = 0
+                task_run.unit_done = 0
+                task_run.unit_failed = 0
+                task_run.progress_percent = None
+                session.commit()
+                plan = executor.audit_for_task_run(
+                    MaintenanceExecutionRequest(action_key=action.key, params=params),
+                    context=TaskRunMaintenancePlanContext(
+                        session,
+                        task_run_id=task_run.id,
+                        action_key=action.key,
+                        executor_key=action.executor_key,
+                    ),
+                )
+                session.expire_all()
+                task_run = session.get(TaskRun, task_run.id)
+                node = session.get(TaskRunNode, current_node_id)
+                if task_run is None or node is None:
+                    raise RuntimeError("maintenance input audit task or node disappeared")
+                task_run.plan_snapshot_json = self._maintenance_input_audit_snapshot(
+                    action=action,
+                    plan=plan,
+                )
+                if not plan.apply_ready:
+                    session.commit()
+                    audit_issues = plan.metadata.get("audit_issues")
+                    blocking_code = "maintenance_input_audit_blocked"
+                    if isinstance(audit_issues, Sequence):
+                        for audit_issue in audit_issues:
+                            if (
+                                isinstance(audit_issue, Mapping)
+                                and audit_issue.get("blocking") is True
+                                and str(audit_issue.get("code") or "").strip()
+                            ):
+                                blocking_code = str(audit_issue["code"])
+                                break
+                    raise MaintenanceInputAuditBlockedError(
+                        "maintenance input audit is blocked",
+                        code=blocking_code,
+                    )
+                self._finish_node(
+                    node,
+                    status="success",
+                    ingestion_diagnostics={
+                        "maintenance_audit": {
+                            "phase": "AUDIT_PASSED",
+                            "audit_hash": plan.plan_hash,
+                        }
+                    },
+                )
+                units = plan.units
+                unit_sequence_offset = 1
+                session.commit()
+            elif action.execution_config.get("plan_apply_replay") is True and str(
                 params.get("execution_mode") or ""
             ).upper() == "PLAN":
                 self._validate_replay_plan_params(params)
@@ -483,10 +561,10 @@ class TaskRunDispatcher:
                     ),
                 )
 
-            if action.execution_config.get("plan_apply_replay") is True:
+            elif action.execution_config.get("plan_apply_replay") is True:
                 self._validate_replay_apply_params(params)
                 units = self._load_replay_apply_units(session=session, task_run=task_run, action=action, params=params)
-            else:
+            elif action.execution_config.get("execution_style") != "audit_then_apply":
                 plan = executor.plan(MaintenanceExecutionRequest(action_key=action.key, params=params))
                 task_run.plan_snapshot_json = self._maintenance_plan_snapshot(action=action, plan=plan)
                 if not plan.apply_ready:
@@ -506,12 +584,14 @@ class TaskRunDispatcher:
             ingestion_diagnostics: dict[str, Any] = {}
             last_message: str | None = None
             for sequence_no, unit in enumerate(units, start=1):
+                if action.execution_config.get("execution_style") == "audit_then_apply":
+                    self._raise_if_task_cancel_requested(session, task_run.id)
                 node = self._create_node(
                     session,
                     task_run_id=task_run.id,
                     node_key=unit.unit_key,
                     node_type="maintenance_unit",
-                    sequence_no=sequence_no,
+                    sequence_no=sequence_no + unit_sequence_offset,
                     title=f"{action.display_name}：{unit.unit_key}",
                     resource_key=task_run.resource_key,
                     time_input=self._unit_time_input(unit),
@@ -581,6 +661,14 @@ class TaskRunDispatcher:
         except Exception as exc:
             session.rollback()
             error_code = str(getattr(exc, "code", "") or "maintenance_executor_failed")
+            if action.execution_config.get("execution_style") == "audit_then_apply":
+                suggested_action = (
+                    "查看输入审计问题；由上游修复来源后，重新提交同一日期范围。"
+                )
+            else:
+                suggested_action = (
+                    "查看技术诊断和已完成单元；历史回放应从原计划续跑，不要重新规划。"
+                )
             issue = self._record_issue(
                 session,
                 task_run=task_run,
@@ -588,7 +676,7 @@ class TaskRunDispatcher:
                 code=error_code,
                 title="系统维护执行失败",
                 operator_message="系统维护动作执行失败。",
-                suggested_action="查看技术诊断和已完成单元；历史回放应从原计划续跑，不要重新规划。",
+                suggested_action=suggested_action,
                 technical_message=str(exc),
                 source_phase="execute",
                 severity="error",
@@ -634,6 +722,20 @@ class TaskRunDispatcher:
             raise ValueError("replay PLAN forbids plan_task_run_id and plan_hash")
 
     @staticmethod
+    def _validate_audit_then_apply_params(params: Mapping[str, Any]) -> None:
+        if not params.get("start_date") or not params.get("end_date"):
+            raise ValueError("audit_then_apply requires start_date and end_date")
+        forbidden = {
+            key
+            for key in ("execution_mode", "plan_task_run_id", "plan_hash")
+            if params.get(key) not in (None, "")
+        }
+        if forbidden:
+            raise ValueError(
+                "audit_then_apply forbids legacy PLAN/APPLY parameters"
+            )
+
+    @staticmethod
     def _validate_replay_apply_params(params: Mapping[str, Any]) -> None:
         if str(params.get("execution_mode") or "").upper() != "APPLY":
             raise ValueError("replay execution_mode must be PLAN or APPLY")
@@ -668,6 +770,46 @@ class TaskRunDispatcher:
         return snapshot
 
     @staticmethod
+    def _maintenance_input_audit_snapshot(
+        *,
+        action: MaintenanceActionDefinition,
+        plan: MaintenanceExecutionPlan,
+    ) -> dict[str, Any]:
+        metadata = dict(plan.metadata)
+        snapshot = {
+            "schema_version": 2,
+            "snapshot_state": str(metadata.get("audit_state") or "BLOCKED"),
+            "action_key": action.key,
+            "executor_key": action.executor_key,
+            "audit_contract_version": metadata.get("audit_contract_version"),
+            "audit_hash": plan.plan_hash,
+            "apply_ready": plan.apply_ready,
+            "requested_start_date": metadata.get("requested_start_date"),
+            "requested_end_date": metadata.get("requested_end_date"),
+            "effective_start_date": metadata.get("effective_start_date"),
+            "effective_end_date": metadata.get("effective_end_date"),
+            "warmup_start_date": metadata.get("warmup_start_date"),
+            "ordered_trade_dates": list(metadata.get("ordered_trade_dates") or ()),
+            "trade_dates_hash": metadata.get("trade_dates_hash"),
+            "hierarchy_version": metadata.get("hierarchy_version"),
+            "formula_bundle_version": metadata.get("formula_bundle_version"),
+            "template_version": metadata.get("template_version"),
+            "target_tables": list(metadata.get("target_tables") or ()),
+            "source_coverage_summary": dict(
+                metadata.get("source_coverage_summary") or {}
+            ),
+            "audit_issues": list(metadata.get("audit_issues") or ()),
+            "units": [
+                {"unit_key": unit.unit_key, "payload": dict(unit.payload)}
+                for unit in plan.units
+            ],
+        }
+        snapshot["snapshot_integrity_hash"] = TaskRunDispatcher._maintenance_snapshot_hash(
+            snapshot
+        )
+        return snapshot
+
+    @staticmethod
     def _maintenance_plan_total(plan: MaintenanceExecutionPlan) -> int:
         metadata = plan.metadata if isinstance(plan.metadata, Mapping) else {}
         open_trade_dates = metadata.get("open_trade_dates")
@@ -691,6 +833,16 @@ class TaskRunDispatcher:
             separators=(",", ":"),
         ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
+
+    @staticmethod
+    def _raise_if_task_cancel_requested(session: Session, task_run_id: int) -> None:
+        cancel_requested_at, status = session.execute(
+            select(TaskRun.cancel_requested_at, TaskRun.status).where(
+                TaskRun.id == task_run_id
+            )
+        ).one()
+        if cancel_requested_at is not None or status == "canceling":
+            raise IngestionCanceledError("maintenance task cancellation requested")
 
     def _load_replay_apply_units(
         self,

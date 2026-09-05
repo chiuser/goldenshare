@@ -67,6 +67,33 @@ class TaskRunMaintenancePlanContext:
             self._update_node(session, task_run=task_run, diagnostics=diagnostics)
             session.commit()
 
+    def update_audit_phase(
+        self,
+        *,
+        audit_done: int,
+        audit_total: int,
+        phase: str,
+        current_object: Mapping[str, Any],
+    ) -> None:
+        self._validate_progress(unit_done=audit_done, unit_total=audit_total)
+        with Session(bind=self._bind, autoflush=False, autocommit=False, future=True) as session:
+            task_run = self._require_active_task_run(session)
+            task_run.unit_done = 0
+            task_run.unit_failed = 0
+            task_run.progress_percent = None
+            task_run.current_object_json = self._current_object(current_object)
+            diagnostics = {
+                "maintenance_audit": {
+                    "phase": str(phase),
+                    "audit_done": audit_done,
+                    "audit_total": audit_total,
+                    "checkpointed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            }
+            task_run.ingestion_diagnostics_json = diagnostics
+            self._update_node(session, task_run=task_run, diagnostics=diagnostics)
+            session.commit()
+
     def save_checkpoint(self, checkpoint: MaintenancePlanCheckpoint) -> None:
         self._validate_progress(
             unit_done=checkpoint.unit_done,

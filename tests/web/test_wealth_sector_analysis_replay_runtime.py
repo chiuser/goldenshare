@@ -2,19 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
-from collections.abc import Callable
+from typing import Callable
 
 from sqlalchemy import select
 
 from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import (
-    SectorAnalysisDailyFactsPlanDriftError,
+    HISTORY_INPUT_AUDIT_CONTRACT_VERSION,
 )
-from src.ops.action_catalog import get_maintenance_action
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.runtime.maintenance_executor import (
     MaintenanceExecutionPlan,
-    MaintenancePlanCheckpoint,
     MaintenanceExecutionRequest,
     MaintenanceExecutionResult,
     MaintenanceExecutionUnit,
@@ -22,126 +20,111 @@ from src.ops.runtime.maintenance_executor import (
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
 
 
-FIRST = date(2025, 1, 2)
-SECOND = date(2025, 1, 3)
+FIRST = date(2025, 8, 22)
+SECOND = date(2025, 8, 25)
 REPLAY_ACTION = "maintenance.replay_wealth_sector_analysis_history"
 
 
+def _unit(trade_date: date, index: int, total: int) -> MaintenanceExecutionUnit:
+    return MaintenanceExecutionUnit(
+        unit_key=f"wealth-sector-analysis-daily:{trade_date.isoformat()}",
+        payload={
+            "replay_unit": True,
+            "trade_date": trade_date.isoformat(),
+            "audit_contract_version": HISTORY_INPUT_AUDIT_CONTRACT_VERSION,
+            "audit_hash": "a" * 64,
+            "expected_hierarchy_version": "hierarchy-v1",
+            "expected_formula_bundle_version": "sector-analysis-daily-facts@1",
+            "expected_template_version": "sector-daily-insight-template@2",
+            "unit_index": index,
+            "unit_total": total,
+        },
+    )
+
+
+def _audit_plan(*, apply_ready: bool = True) -> MaintenanceExecutionPlan:
+    units = (_unit(FIRST, 1, 2), _unit(SECOND, 2, 2))
+    return MaintenanceExecutionPlan(
+        plan_hash="a" * 64,
+        units=units,
+        apply_ready=apply_ready,
+        expected_rows=0,
+        metadata={
+            "audit_contract_version": HISTORY_INPUT_AUDIT_CONTRACT_VERSION,
+            "audit_state": "AUDIT_PASSED" if apply_ready else "BLOCKED",
+            "requested_start_date": FIRST.isoformat(),
+            "requested_end_date": SECOND.isoformat(),
+            "effective_start_date": FIRST.isoformat(),
+            "effective_end_date": SECOND.isoformat(),
+            "warmup_start_date": "2025-05-30",
+            "ordered_trade_dates": [FIRST.isoformat(), SECOND.isoformat()],
+            "trade_dates_hash": "b" * 64,
+            "hierarchy_version": "hierarchy-v1",
+            "formula_bundle_version": "sector-analysis-daily-facts@1",
+            "template_version": "sector-daily-insight-template@2",
+            "target_tables": ["core_serving.wealth_sector_analysis_publish_batch"],
+            "source_coverage_summary": {"dc_daily": {"row_count": 100}},
+            "audit_issues": (
+                []
+                if apply_ready
+                else [
+                    {
+                        "code": "SA_DAILY_FACT_SOURCE_NOT_READY",
+                        "blocking": True,
+                    }
+                ]
+            ),
+        },
+    )
+
+
 @dataclass
-class _ReplayExecutorStub:
+class _AuditThenApplyExecutorStub:
     planned: MaintenanceExecutionPlan
-    fail_with_drift: bool = False
-    plan_calls: list[MaintenanceExecutionRequest] = field(default_factory=list)
+    after_execute: Callable[[int], None] | None = None
+    audit_calls: list[MaintenanceExecutionRequest] = field(default_factory=list)
     execute_calls: list[MaintenanceExecutionUnit] = field(default_factory=list)
 
     def plan(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan:
-        self.plan_calls.append(request)
+        raise AssertionError(f"full PLAN must not run: {request.action_key}")
+
+    def audit_for_task_run(self, request, *, context):  # type: ignore[no-untyped-def]
+        self.audit_calls.append(request)
+        context.update_audit_phase(
+            audit_done=0,
+            audit_total=6,
+            phase="AUDITING_INPUT",
+            current_object={"entity": {"type": "source", "value": "trade_calendar"}},
+        )
+        context.update_audit_phase(
+            audit_done=6,
+            audit_total=6,
+            phase="AUDITING_INPUT",
+            current_object={"entity": {"type": "source", "value": "equity_adj_factor"}},
+        )
         return self.planned
 
     def execute_unit(self, unit: MaintenanceExecutionUnit) -> MaintenanceExecutionResult:
         self.execute_calls.append(unit)
-        if self.fail_with_drift:
-            raise SectorAnalysisDailyFactsPlanDriftError("frozen source changed")
-        return MaintenanceExecutionResult(rows_fetched=10, rows_saved=10)
-
-
-@dataclass
-class _TaskAwareReplayExecutorStub:
-    planned: MaintenanceExecutionPlan
-    cancel_after_first: Callable[[], None] | None = None
-    plan_calls: list[MaintenanceExecutionRequest] = field(default_factory=list)
-
-    def plan(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan:
-        raise AssertionError(f"opaque plan path must not be used: {request.action_key}")
-
-    def plan_for_task_run(self, request, *, context):  # type: ignore[no-untyped-def]
-        self.plan_calls.append(request)
-        total = len(self.planned.units)
-        context.update_phase(
-            unit_done=0,
-            unit_total=total,
-            phase="SCOPE_RESOLVED",
-            current_object={"time": {"trade_date": FIRST.isoformat()}},
+        if self.after_execute:
+            self.after_execute(len(self.execute_calls))
+        return MaintenanceExecutionResult(
+            rows_fetched=10,
+            rows_saved=10,
+            metadata={"phase": "READBACK_COMPLETE"},
         )
-        for index, unit in enumerate(self.planned.units, start=1):
-            context.save_checkpoint(
-                MaintenancePlanCheckpoint(
-                    unit_done=index,
-                    unit_total=total,
-                    units=self.planned.units[:index],
-                    gaps=(),
-                    metadata={
-                        **dict(self.planned.metadata),
-                        "open_trade_dates": [FIRST.isoformat(), SECOND.isoformat()],
-                    },
-                    expected_rows=index * 10,
-                    phase="CHECKPOINT_SAVED",
-                    current_object={"time": {"trade_date": unit.payload["trade_date"]}},
-                )
-            )
-            if index == 1 and self.cancel_after_first is not None:
-                self.cancel_after_first()
-            if context.is_cancel_requested():
-                from src.foundation.ingestion.run_errors import IngestionCanceledError
-
-                raise IngestionCanceledError("cancel after first checkpoint")
-        return self.planned
-
-    def execute_unit(self, unit: MaintenanceExecutionUnit) -> MaintenanceExecutionResult:
-        return MaintenanceExecutionResult(rows_fetched=10, rows_saved=10)
 
 
-def _maintenance_plan() -> MaintenanceExecutionPlan:
-    return MaintenanceExecutionPlan(
-        plan_hash="frozen-analysis-plan",
-        units=(
-            MaintenanceExecutionUnit(
-                unit_key=f"wealth-sector-analysis-daily:{FIRST.isoformat()}",
-                payload={"trade_date": FIRST.isoformat(), "replay_unit": True},
-            ),
-        ),
-        apply_ready=True,
-        expected_rows=10,
-        metadata={
-            "start_date": FIRST.isoformat(),
-            "end_date": SECOND.isoformat(),
-            "gaps": [],
-        },
-    )
-
-
-def _two_day_maintenance_plan() -> MaintenanceExecutionPlan:
-    units = tuple(
-        MaintenanceExecutionUnit(
-            unit_key=f"wealth-sector-analysis-daily:{trade_date.isoformat()}",
-            payload={"trade_date": trade_date.isoformat(), "replay_unit": True},
-        )
-        for trade_date in (FIRST, SECOND)
-    )
-    return MaintenanceExecutionPlan(
-        plan_hash="two-day-frozen-plan",
-        units=units,
-        apply_ready=True,
-        expected_rows=20,
-        metadata={
-            "start_date": FIRST.isoformat(),
-            "end_date": SECOND.isoformat(),
-            "open_trade_dates": [FIRST.isoformat(), SECOND.isoformat()],
-            "gaps": [],
-        },
-    )
-
-
-def _plan_task_run(task_run_factory, *, status: str):  # type: ignore[no-untyped-def]
+def _task_run(task_run_factory, *, filters=None):  # type: ignore[no-untyped-def]
     return task_run_factory(
         task_type="maintenance_action",
-        status=status,
+        status="running",
         time_input_json={
             "mode": "range",
             "start_date": FIRST.isoformat(),
             "end_date": SECOND.isoformat(),
         },
-        filters_json={"execution_mode": "PLAN"},
+        filters_json=dict(filters or {}),
         request_payload_json={
             "target_type": "maintenance_action",
             "target_key": REPLAY_ACTION,
@@ -150,187 +133,110 @@ def _plan_task_run(task_run_factory, *, status: str):  # type: ignore[no-untyped
                 "start_date": FIRST.isoformat(),
                 "end_date": SECOND.isoformat(),
             },
-            "filters": {"execution_mode": "PLAN"},
+            "filters": dict(filters or {}),
         },
     )
 
 
-def _apply_task_run(task_run_factory, *, plan_task_run_id: int):  # type: ignore[no-untyped-def]
-    return task_run_factory(
-        task_type="maintenance_action",
-        status="running",
-        time_input_json={"mode": "none"},
-        filters_json={
-            "execution_mode": "APPLY",
-            "plan_task_run_id": plan_task_run_id,
-            "plan_hash": "frozen-analysis-plan",
-        },
-        request_payload_json={
-            "target_type": "maintenance_action",
-            "target_key": REPLAY_ACTION,
-            "time_input": {"mode": "none"},
-            "filters": {
-                "execution_mode": "APPLY",
-                "plan_task_run_id": plan_task_run_id,
-                "plan_hash": "frozen-analysis-plan",
-            },
-        },
-    )
-
-
-def test_analysis_replay_plan_and_apply_use_the_shared_frozen_snapshot_contract(
+def test_history_audit_and_apply_share_one_task_run_and_schema_v2_snapshot(
     db_session,
     task_run_factory,
 ) -> None:
-    executor = _ReplayExecutorStub(_maintenance_plan())
-    plan_task_run = _plan_task_run(task_run_factory, status="running")
-    dispatcher = TaskRunDispatcher(
-        maintenance_executors={"wealth_sector_analysis_daily": executor}
-    )
-
-    plan_outcome = dispatcher.dispatch(db_session, plan_task_run)
-
-    assert plan_outcome.status == "success"
-    assert len(executor.plan_calls) == 1
-    assert executor.execute_calls == []
-    assert plan_task_run.plan_snapshot_json["plan_hash"] == "frozen-analysis-plan"
-    plan_task_run.status = "success"
-    db_session.commit()
-
-    apply_task_run = _apply_task_run(
-        task_run_factory,
-        plan_task_run_id=plan_task_run.id,
-    )
-    apply_outcome = dispatcher.dispatch(db_session, apply_task_run)
-
-    assert apply_outcome.status == "success"
-    assert len(executor.plan_calls) == 1
-    assert executor.execute_calls == list(_maintenance_plan().units)
-
-
-def test_analysis_replay_surfaces_plan_drift_code_without_later_execution(
-    db_session,
-    task_run_factory,
-) -> None:
-    frozen_plan = _maintenance_plan()
-    action = get_maintenance_action(REPLAY_ACTION)
-    assert action is not None
-    plan_task_run = _plan_task_run(task_run_factory, status="success")
-    plan_task_run.plan_snapshot_json = TaskRunDispatcher._maintenance_plan_snapshot(
-        action=action,
-        plan=frozen_plan,
-    )
-    db_session.commit()
-    apply_task_run = _apply_task_run(
-        task_run_factory,
-        plan_task_run_id=plan_task_run.id,
-    )
-    executor = _ReplayExecutorStub(frozen_plan, fail_with_drift=True)
-
-    outcome = TaskRunDispatcher(
-        maintenance_executors={"wealth_sector_analysis_daily": executor}
-    ).dispatch(db_session, apply_task_run)
-
-    assert outcome.status == "failed"
-    assert outcome.status_reason_code == "SA_DAILY_FACT_PLAN_DRIFT"
-    issue = db_session.get(TaskRunIssue, outcome.issue_id)
-    assert issue is not None
-    assert issue.code == "SA_DAILY_FACT_PLAN_DRIFT"
-
-
-def test_task_aware_replay_plan_checkpoints_then_freezes_at_one_hundred_percent(
-    db_session,
-    task_run_factory,
-) -> None:
-    task_run = _plan_task_run(task_run_factory, status="running")
-    executor = _TaskAwareReplayExecutorStub(_two_day_maintenance_plan())
+    executor = _AuditThenApplyExecutorStub(_audit_plan())
+    task_run = _task_run(task_run_factory)
 
     outcome = TaskRunDispatcher(
         maintenance_executors={"wealth_sector_analysis_daily": executor}
     ).dispatch(db_session, task_run)
 
     db_session.refresh(task_run)
-    node = db_session.scalar(select(TaskRunNode).where(TaskRunNode.task_run_id == task_run.id))
+    nodes = tuple(
+        db_session.scalars(
+            select(TaskRunNode)
+            .where(TaskRunNode.task_run_id == task_run.id)
+            .order_by(TaskRunNode.sequence_no)
+        )
+    )
     assert outcome.status == "success"
+    assert len(executor.audit_calls) == 1
+    assert executor.execute_calls == list(_audit_plan().units)
     assert task_run.unit_total == 2
     assert task_run.unit_done == 2
     assert task_run.progress_percent == 100
-    assert task_run.plan_snapshot_json["snapshot_state"] == "FROZEN"
-    assert node is not None and node.status == "success"
+    assert task_run.plan_snapshot_json["schema_version"] == 2
+    assert task_run.plan_snapshot_json["snapshot_state"] == "AUDIT_PASSED"
+    assert task_run.plan_snapshot_json["audit_hash"] == "a" * 64
+    assert task_run.plan_snapshot_json["snapshot_integrity_hash"] == (
+        TaskRunDispatcher._maintenance_snapshot_hash(task_run.plan_snapshot_json)
+    )
+    assert [node.node_type for node in nodes] == [
+        "maintenance_plan",
+        "maintenance_unit",
+        "maintenance_unit",
+    ]
+    assert all(node.status == "success" for node in nodes)
 
 
-def test_task_aware_replay_cancel_preserves_last_building_checkpoint_and_cancels_node(
+def test_blocked_history_audit_writes_snapshot_and_executes_zero_units(
     db_session,
     task_run_factory,
 ) -> None:
-    task_run = _plan_task_run(task_run_factory, status="running")
+    executor = _AuditThenApplyExecutorStub(_audit_plan(apply_ready=False))
+    task_run = _task_run(task_run_factory)
 
-    def request_cancel() -> None:
-        task_run.cancel_requested_at = datetime.now(timezone.utc)
-        task_run.status = "canceling"
-        db_session.commit()
+    outcome = TaskRunDispatcher(
+        maintenance_executors={"wealth_sector_analysis_daily": executor}
+    ).dispatch(db_session, task_run)
 
-    executor = _TaskAwareReplayExecutorStub(
-        _two_day_maintenance_plan(),
-        cancel_after_first=request_cancel,
+    db_session.refresh(task_run)
+    assert outcome.status == "failed"
+    assert executor.execute_calls == []
+    assert task_run.plan_snapshot_json["schema_version"] == 2
+    assert task_run.plan_snapshot_json["snapshot_state"] == "BLOCKED"
+    assert outcome.status_reason_code == "SA_DAILY_FACT_SOURCE_NOT_READY"
+    issue = db_session.get(TaskRunIssue, outcome.issue_id)
+    assert issue is not None
+    assert issue.code == "SA_DAILY_FACT_SOURCE_NOT_READY"
+
+
+def test_history_action_rejects_legacy_plan_apply_request_before_audit(
+    db_session,
+    task_run_factory,
+) -> None:
+    executor = _AuditThenApplyExecutorStub(_audit_plan())
+    task_run = _task_run(task_run_factory, filters={"execution_mode": "PLAN"})
+
+    outcome = TaskRunDispatcher(
+        maintenance_executors={"wealth_sector_analysis_daily": executor}
+    ).dispatch(db_session, task_run)
+
+    assert outcome.status == "failed"
+    assert executor.audit_calls == []
+    assert executor.execute_calls == []
+
+
+def test_cancel_after_committed_date_stops_before_next_date(
+    db_session,
+    task_run_factory,
+) -> None:
+    task_run = _task_run(task_run_factory)
+
+    def cancel_after_first(index: int) -> None:
+        if index == 1:
+            task_run.cancel_requested_at = datetime.now(timezone.utc)
+            task_run.status = "canceling"
+            db_session.commit()
+
+    executor = _AuditThenApplyExecutorStub(
+        _audit_plan(),
+        after_execute=cancel_after_first,
     )
     outcome = TaskRunDispatcher(
         maintenance_executors={"wealth_sector_analysis_daily": executor}
     ).dispatch(db_session, task_run)
 
     db_session.refresh(task_run)
-    node = db_session.scalar(select(TaskRunNode).where(TaskRunNode.task_run_id == task_run.id))
     assert outcome.status == "canceled"
-    assert outcome.issue_id is None
-    assert task_run.unit_total == 2
+    assert len(executor.execute_calls) == 1
     assert task_run.unit_done == 1
-    assert task_run.progress_percent == 50
-    assert task_run.plan_snapshot_json["snapshot_state"] == "BUILDING"
-    assert task_run.plan_snapshot_json["apply_ready"] is False
-    assert task_run.plan_snapshot_json["plan_hash"] is None
-    assert len(task_run.plan_snapshot_json["units"]) == 1
-    assert task_run.plan_snapshot_json["snapshot_integrity_hash"] == TaskRunDispatcher._maintenance_snapshot_hash(
-        task_run.plan_snapshot_json
-    )
-    assert node is not None and node.status == "canceled"
-
-
-def test_replay_apply_rejects_building_snapshot_even_if_outer_status_is_tampered_to_success(
-    db_session,
-    task_run_factory,
-) -> None:
-    action = get_maintenance_action(REPLAY_ACTION)
-    assert action is not None
-    plan_task_run = _plan_task_run(task_run_factory, status="success")
-    snapshot = {
-        "schema_version": 1,
-        "snapshot_state": "BUILDING",
-        "action_key": action.key,
-        "executor_key": action.executor_key,
-        "plan_hash": None,
-        "apply_ready": False,
-        "expected_rows": 10,
-        "units": [
-            {
-                "unit_key": f"wealth-sector-analysis-daily:{FIRST.isoformat()}",
-                "payload": {"trade_date": FIRST.isoformat(), "replay_unit": True},
-            }
-        ],
-        "metadata": {
-            "start_date": FIRST.isoformat(),
-            "end_date": SECOND.isoformat(),
-            "gaps": [],
-        },
-    }
-    snapshot["snapshot_integrity_hash"] = TaskRunDispatcher._maintenance_snapshot_hash(snapshot)
-    plan_task_run.plan_snapshot_json = snapshot
-    db_session.commit()
-    apply_task_run = _apply_task_run(task_run_factory, plan_task_run_id=plan_task_run.id)
-    executor = _ReplayExecutorStub(_maintenance_plan())
-
-    outcome = TaskRunDispatcher(
-        maintenance_executors={"wealth_sector_analysis_daily": executor}
-    ).dispatch(db_session, apply_task_run)
-
-    assert outcome.status == "failed"
-    assert executor.execute_calls == []
+    assert task_run.unit_total == 2

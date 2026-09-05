@@ -188,11 +188,32 @@ class SectorAnalysisDailyFactsRepository:
         batch = session.get(WealthSectorAnalysisPublishBatch, batch_id)
         if batch is None or batch.trade_date != expected.trade_date or batch.status != "BUILDING":
             raise SectorAnalysisDailyFactsReadbackError("BUILDING batch身份不一致")
+        return self._readback_content(session, batch=batch, expected=expected)
+
+    def readback_published(
+        self,
+        session: Session,
+        *,
+        batch_id: UUID,
+        expected: BuiltDailyFacts,
+    ) -> dict[str, int]:
+        batch = session.get(WealthSectorAnalysisPublishBatch, batch_id)
+        if batch is None or batch.trade_date != expected.trade_date or batch.status != "PUBLISHED":
+            raise SectorAnalysisDailyFactsReadbackError("PUBLISHED batch身份不一致")
+        return self._readback_content(session, batch=batch, expected=expected)
+
+    def _readback_content(
+        self,
+        session: Session,
+        *,
+        batch: WealthSectorAnalysisPublishBatch,
+        expected: BuiltDailyFacts,
+    ) -> dict[str, int]:
         actual_counts = {"wealth_sector_analysis_publish_batch": 1}
         payload: dict[str, list[dict[str, Any]]] = {}
         for model in _CHILD_MODELS:
             name = model.__tablename__
-            rows = tuple(session.scalars(select(model).where(model.batch_id == batch_id)))
+            rows = tuple(session.scalars(select(model).where(model.batch_id == batch.batch_id)))
             actual_counts[name] = len(rows)
             payload[name] = [self._model_content_record(row) for row in rows]
         if actual_counts != expected.fact_counts:
@@ -201,7 +222,8 @@ class SectorAnalysisDailyFactsRepository:
             )
         if self.content_hash_from_records(payload) != expected.content_hash:
             raise SectorAnalysisDailyFactsReadbackError("逐表内容hash不一致")
-        batch.actual_fact_counts_json = actual_counts
+        if batch.status == "BUILDING":
+            batch.actual_fact_counts_json = actual_counts
         return actual_counts
 
     def publish(self, session: Session, *, batch_id: UUID, now: datetime) -> tuple[str, bool]:

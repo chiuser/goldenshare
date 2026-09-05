@@ -304,10 +304,10 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         display_name="回补板块分析历史事实",
         domain_key="maintenance",
         domain_display_name="维护动作",
-        description="先冻结2025年8月22日以来的升序计划，再按已批准计划逐交易日回补。",
+        description="先审计2025年8月22日以来的输入完整性，通过后在同一任务内逐交易日回补。",
         executor_key="wealth_sector_analysis_daily",
         execution_config={
-            "plan_apply_replay": True,
+            "execution_style": "audit_then_apply",
             "target_tables": (
                 "core_serving.wealth_sector_analysis_publish_batch",
                 "core_serving.wealth_sector_momentum_daily",
@@ -320,7 +320,7 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
                 "core_serving.wealth_sector_daily_insight_item",
             ),
         },
-        parameters=(EXECUTION_MODE_PARAM, START_DATE_PARAM, END_DATE_PARAM, PLAN_TASK_RUN_ID_PARAM, PLAN_HASH_PARAM),
+        parameters=(START_DATE_PARAM, END_DATE_PARAM),
         manual_enabled=True,
         schedule_enabled=False,
         retry_enabled=True,

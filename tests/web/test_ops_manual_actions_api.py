@@ -888,13 +888,8 @@ def test_ops_manual_actions_exposes_heat_single_day_and_plan_apply_contract(app_
     assert replay["filters"][0]["options"] == ["PLAN", "APPLY"]
     assert [item["mode"] for item in analysis_replay["time_form"]["modes"]] == [
         "range",
-        "none",
     ]
-    assert [item["key"] for item in analysis_replay["filters"]] == [
-        "execution_mode",
-        "plan_task_run_id",
-        "plan_hash",
-    ]
+    assert analysis_replay["filters"] == []
 
 
 def test_ops_manual_action_creates_heat_single_plan_and_apply_task_runs(
@@ -962,6 +957,57 @@ def test_ops_manual_action_rejects_heat_replay_without_execution_mode(app_client
 
     assert response.status_code == 422
     assert response.json()["message"] == "执行模式不能为空"
+
+
+def test_ops_manual_action_creates_one_sector_history_audit_then_apply_task(
+    app_client,
+    user_factory,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/maintenance.replay_wealth_sector_analysis_history/task-runs",
+        headers=headers,
+        json={
+            "time_input": {
+                "mode": "range",
+                "start_date": "2025-08-22",
+                "end_date": "2026-08-31",
+            },
+            "filters": {},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["run"]["time_input"] == {
+        "mode": "range",
+        "start_date": "2025-08-22",
+        "end_date": "2026-08-31",
+    }
+    assert response.json()["run"]["filters"] == {}
+
+
+def test_ops_manual_action_rejects_legacy_sector_history_plan_filters(
+    app_client,
+    user_factory,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/maintenance.replay_wealth_sector_analysis_history/task-runs",
+        headers=headers,
+        json={
+            "time_input": {
+                "mode": "range",
+                "start_date": "2025-08-22",
+                "end_date": "2026-08-31",
+            },
+            "filters": {"execution_mode": "PLAN"},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "不支持的筛选项：execution_mode"
 
 
 def test_ops_manual_action_task_run_rejects_workflow_without_required_time_mode(app_client, user_factory) -> None:

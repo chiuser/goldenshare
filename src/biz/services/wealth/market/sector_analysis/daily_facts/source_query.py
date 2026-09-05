@@ -6,7 +6,7 @@ import hashlib
 import json
 from typing import Callable
 
-from sqlalchemy import select, text
+from sqlalchemy import case, func, literal, or_, select, text
 from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
@@ -14,6 +14,7 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
     SectorHierarchySnapshot,
 )
 from src.biz.services.wealth.market.sector_analysis.daily_facts.contract import (
+    HistorySourceCoverage,
     SectorAnalysisDailyFactsSourceNotReadyError,
     SectorAnalysisSourceBundle,
     SectorComparisonPool,
@@ -240,6 +241,253 @@ class SectorAnalysisDailyFactsSourceQuery:
             source_row_counts=source_row_counts,
             source_hash=source_hash,
         )
+
+    def audit_dc_daily(
+        self,
+        session: Session,
+        *,
+        open_dates: tuple[date, ...],
+        sector_codes: tuple[str, ...],
+        cancel_check: Callable[[], None] | None = None,
+    ) -> HistorySourceCoverage:
+        return self._audit_source(
+            session,
+            source="dc_daily",
+            date_column=DcDaily.trade_date,
+            key_columns=(DcDaily.ts_code, DcDaily.trade_date, DcDaily.category),
+            open_dates=open_dates,
+            scope_conditions=(
+                DcDaily.category == "行业板块",
+                DcDaily.ts_code.in_(sector_codes),
+            ),
+            invalid_condition=or_(
+                DcDaily.close.is_not(None) & (DcDaily.close <= 0),
+                DcDaily.amount.is_not(None) & (DcDaily.amount < 0),
+            ),
+            missing_condition=or_(
+                DcDaily.close.is_(None),
+                DcDaily.pct_change.is_(None),
+                DcDaily.amount.is_(None),
+            ),
+            cancel_check=cancel_check,
+        )
+
+    def audit_dc_member(
+        self,
+        session: Session,
+        *,
+        open_dates: tuple[date, ...],
+        sector_codes: tuple[str, ...],
+        cancel_check: Callable[[], None] | None = None,
+    ) -> HistorySourceCoverage:
+        return self._audit_source(
+            session,
+            source="dc_member",
+            date_column=DcMember.trade_date,
+            key_columns=(DcMember.trade_date, DcMember.ts_code, DcMember.con_code),
+            open_dates=open_dates,
+            scope_conditions=(DcMember.ts_code.in_(sector_codes),),
+            invalid_condition=or_(
+                func.length(func.trim(DcMember.ts_code)) == 0,
+                func.length(func.trim(DcMember.con_code)) == 0,
+            ),
+            missing_condition=None,
+            cancel_check=cancel_check,
+        )
+
+    def audit_equity_daily_bar(
+        self,
+        session: Session,
+        *,
+        open_dates: tuple[date, ...],
+        sector_codes: tuple[str, ...],
+        cancel_check: Callable[[], None] | None = None,
+    ) -> HistorySourceCoverage:
+        stock_codes = self._member_stock_codes_subquery(
+            open_dates=open_dates,
+            sector_codes=sector_codes,
+        )
+        return self._audit_source(
+            session,
+            source="equity_daily_bar",
+            date_column=EquityDailyBar.trade_date,
+            key_columns=(EquityDailyBar.ts_code, EquityDailyBar.trade_date),
+            open_dates=open_dates,
+            scope_conditions=(EquityDailyBar.ts_code.in_(stock_codes),),
+            invalid_condition=or_(
+                EquityDailyBar.close.is_not(None) & (EquityDailyBar.close <= 0),
+                EquityDailyBar.amount.is_not(None) & (EquityDailyBar.amount < 0),
+            ),
+            missing_condition=or_(
+                EquityDailyBar.close.is_(None),
+                EquityDailyBar.pct_chg.is_(None),
+                EquityDailyBar.amount.is_(None),
+            ),
+            cancel_check=cancel_check,
+        )
+
+    def audit_equity_adj_factor(
+        self,
+        session: Session,
+        *,
+        open_dates: tuple[date, ...],
+        sector_codes: tuple[str, ...],
+        cancel_check: Callable[[], None] | None = None,
+    ) -> HistorySourceCoverage:
+        stock_codes = self._member_stock_codes_subquery(
+            open_dates=open_dates,
+            sector_codes=sector_codes,
+        )
+        return self._audit_source(
+            session,
+            source="equity_adj_factor",
+            date_column=EquityAdjFactor.trade_date,
+            key_columns=(EquityAdjFactor.ts_code, EquityAdjFactor.trade_date),
+            open_dates=open_dates,
+            scope_conditions=(EquityAdjFactor.ts_code.in_(stock_codes),),
+            invalid_condition=EquityAdjFactor.adj_factor <= 0,
+            missing_condition=None,
+            cancel_check=cancel_check,
+        )
+
+    @staticmethod
+    def _member_stock_codes_subquery(
+        *,
+        open_dates: tuple[date, ...],
+        sector_codes: tuple[str, ...],
+    ):
+        return (
+            select(DcMember.con_code)
+            .where(
+                DcMember.trade_date.in_(open_dates),
+                DcMember.ts_code.in_(sector_codes),
+            )
+            .distinct()
+        )
+
+    def _audit_source(
+        self,
+        session: Session,
+        *,
+        source: str,
+        date_column,
+        key_columns: tuple,
+        open_dates: tuple[date, ...],
+        scope_conditions: tuple,
+        invalid_condition,
+        missing_condition,
+        cancel_check: Callable[[], None] | None,
+    ) -> HistorySourceCoverage:
+        if not open_dates:
+            raise ValueError("history source audit requires open_dates")
+        date_range_condition = date_column.between(open_dates[0], open_dates[-1])
+        in_window_condition = date_column.in_(open_dates)
+        missing_value_count = literal(0)
+        if missing_condition is not None:
+            missing_value_count = func.coalesce(
+                func.sum(
+                    case(
+                        (in_window_condition & missing_condition, 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            )
+        summary = self._execute_one(
+            session,
+            select(
+                func.count().label("row_count"),
+                func.coalesce(
+                    func.sum(case((~in_window_condition, 1), else_=0)),
+                    0,
+                ).label("illegal_date_count"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (in_window_condition & invalid_condition, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("invalid_value_count"),
+                missing_value_count.label("missing_value_count"),
+            ).where(date_range_condition, *scope_conditions),
+            cancel_check=cancel_check,
+        )
+        daily_row_counts = tuple(
+            (row[0], int(row[1]))
+            for row in self._execute_all(
+                session,
+                select(date_column, func.count())
+                .where(in_window_condition, *scope_conditions)
+                .group_by(date_column)
+                .order_by(date_column),
+                cancel_check=cancel_check,
+            )
+        )
+        covered_dates = tuple(item[0] for item in daily_row_counts)
+        duplicate_groups = (
+            select(*key_columns, func.count().label("row_count"))
+            .where(in_window_condition, *scope_conditions)
+            .group_by(*key_columns)
+            .having(func.count() > 1)
+            .subquery()
+        )
+        duplicate_key_count = int(
+            self._execute_scalar(
+                session,
+                select(func.coalesce(func.sum(duplicate_groups.c.row_count - 1), 0)),
+                cancel_check=cancel_check,
+            )
+            or 0
+        )
+        return HistorySourceCoverage(
+            source=source,
+            row_count=int(summary.row_count or 0),
+            covered_dates=covered_dates,
+            daily_row_counts=daily_row_counts,
+            missing_dates=tuple(sorted(set(open_dates) - set(covered_dates))),
+            duplicate_key_count=duplicate_key_count,
+            illegal_date_count=int(summary.illegal_date_count or 0),
+            invalid_value_count=int(summary.invalid_value_count or 0),
+            missing_value_count=int(summary.missing_value_count or 0),
+        )
+
+    def _execute_one(
+        self,
+        session: Session,
+        statement,
+        *,
+        cancel_check: Callable[[], None] | None,
+    ):
+        self._check_cancel(cancel_check)
+        result = session.execute(statement).one()
+        self._check_cancel(cancel_check)
+        return result
+
+    def _execute_all(
+        self,
+        session: Session,
+        statement,
+        *,
+        cancel_check: Callable[[], None] | None,
+    ):
+        self._check_cancel(cancel_check)
+        result = tuple(session.execute(statement).all())
+        self._check_cancel(cancel_check)
+        return result
+
+    def _execute_scalar(
+        self,
+        session: Session,
+        statement,
+        *,
+        cancel_check: Callable[[], None] | None,
+    ):
+        self._check_cancel(cancel_check)
+        result = session.scalar(statement)
+        self._check_cancel(cancel_check)
+        return result
 
     @staticmethod
     def _check_cancel(cancel_check: Callable[[], None] | None) -> None:

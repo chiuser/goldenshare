@@ -6,6 +6,12 @@ from typing import Any, Mapping, Protocol, runtime_checkable
 from src.foundation.kernel.contracts.ingestion_run_context import IngestionRunContext
 
 
+class MaintenanceInputAuditBlockedError(RuntimeError):
+    def __init__(self, message: str, *, code: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 @dataclass(frozen=True, slots=True)
 class MaintenanceExecutionRequest:
     action_key: str
@@ -72,6 +78,21 @@ class MaintenancePlanTaskRunContext(Protocol):
     def save_checkpoint(self, checkpoint: MaintenancePlanCheckpoint) -> None: ...
 
 
+class MaintenanceInputAuditTaskRunContext(Protocol):
+    task_run_id: int
+
+    def is_cancel_requested(self) -> bool: ...
+
+    def update_audit_phase(
+        self,
+        *,
+        audit_done: int,
+        audit_total: int,
+        phase: str,
+        current_object: Mapping[str, Any],
+    ) -> None: ...
+
+
 class MaintenanceExecutor(Protocol):
     def plan(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan: ...
 
@@ -95,4 +116,14 @@ class TaskRunAwareMaintenancePlanner(MaintenanceExecutor, Protocol):
         request: MaintenanceExecutionRequest,
         *,
         context: MaintenancePlanTaskRunContext,
+    ) -> MaintenanceExecutionPlan: ...
+
+
+@runtime_checkable
+class TaskRunAwareMaintenanceInputAuditor(MaintenanceExecutor, Protocol):
+    def audit_for_task_run(
+        self,
+        request: MaintenanceExecutionRequest,
+        *,
+        context: MaintenanceInputAuditTaskRunContext,
     ) -> MaintenanceExecutionPlan: ...

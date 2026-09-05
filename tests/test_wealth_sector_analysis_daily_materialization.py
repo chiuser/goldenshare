@@ -260,6 +260,63 @@ def test_single_day_build_has_all_five_scopes_and_expected_typed_rows() -> None:
         assert session.scalar(select(func.count()).select_from(WealthSectorMomentumDaily)) == 25
 
 
+def test_history_materialization_builds_once_and_readback_does_not_recalculate() -> None:
+    engine = _engine()
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    source = SourceStub(_bundle())
+    service = SectorAnalysisDailyFactsMaterializationService(
+        session_factory=session_factory,
+        source_query=source,
+    )
+
+    first = service.materialize_trade_date(
+        trade_date=source.bundle.trade_date,
+        expected_hierarchy_version=source.bundle.hierarchy.baseline_version,
+    )
+    second = service.materialize_trade_date(
+        trade_date=source.bundle.trade_date,
+        expected_hierarchy_version=source.bundle.hierarchy.baseline_version,
+    )
+
+    assert first.status == "PUBLISHED"
+    assert second.status == "IDEMPOTENT"
+    assert source.calls == 2
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(WealthSectorAnalysisPublishBatch)) == 1
+        assert session.scalar(select(func.count()).select_from(WealthSectorMomentumDaily)) == 25
+
+
+def test_history_idempotent_replay_verifies_published_rows_from_database() -> None:
+    engine = _engine()
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    source = SourceStub(_bundle())
+    service = SectorAnalysisDailyFactsMaterializationService(
+        session_factory=session_factory,
+        source_query=source,
+    )
+    first = service.materialize_trade_date(
+        trade_date=source.bundle.trade_date,
+        expected_hierarchy_version=source.bundle.hierarchy.baseline_version,
+    )
+    with session_factory.begin() as session:
+        session.execute(
+            delete(WealthSectorMomentumDaily).where(
+                WealthSectorMomentumDaily.batch_id == first.batch_id,
+                WealthSectorMomentumDaily.period == 1,
+            )
+        )
+
+    with pytest.raises(SectorAnalysisDailyFactsReadbackError, match="逐表计数不一致"):
+        service.materialize_trade_date(
+            trade_date=source.bundle.trade_date,
+            expected_hierarchy_version=source.bundle.hierarchy.baseline_version,
+        )
+
+    assert source.calls == 2
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(WealthSectorAnalysisPublishBatch)) == 1
+
+
 def test_same_content_replay_is_idempotent_with_zero_new_rows() -> None:
     engine = _engine()
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)

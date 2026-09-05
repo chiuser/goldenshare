@@ -69,23 +69,49 @@ class SectorAnalysisDailyFactsMaterializationService:
         self,
         *,
         trade_date: date,
-        expected_source_hash: str,
-        expected_plan_hash: str,
-        expected_content_hash: str,
+        expected_source_hash: str | None = None,
+        expected_plan_hash: str | None = None,
+        expected_content_hash: str | None = None,
+        expected_hierarchy_version: str | None = None,
+        cancel_check: Callable[[], None] | None = None,
+        phase_update: Callable[[str], None] | None = None,
     ) -> DailyFactsMaterializationResult:
         if self._session_factory is None:
             raise RuntimeError("daily facts materialization requires a session factory")
+        expected_hashes = (
+            expected_source_hash,
+            expected_plan_hash,
+            expected_content_hash,
+        )
+        if any(value is not None for value in expected_hashes) and not all(
+            value is not None for value in expected_hashes
+        ):
+            raise ValueError("source/plan/content expected hashes must be provided together")
         with self._session_factory() as source_session:
-            facts = self._build(source_session, trade_date=trade_date)
+            facts = self._build(
+                source_session,
+                trade_date=trade_date,
+                cancel_check=cancel_check,
+                phase_update=phase_update,
+            )
             preview = self._preview(facts)
             source_session.rollback()
-        if (
+        self._check_cancel(cancel_check)
+        if expected_hierarchy_version is not None and (
+            preview.hierarchy_version != expected_hierarchy_version
+        ):
+            raise SectorAnalysisDailyFactsPlanDriftError(
+                "输入审计与执行时的层级版本不一致"
+            )
+        if expected_source_hash is not None and (
             preview.source_hash != expected_source_hash
             or preview.plan_hash != expected_plan_hash
             or preview.content_hash != expected_content_hash
         ):
             raise SectorAnalysisDailyFactsPlanDriftError("readiness与执行时的source/plan/content hash不一致")
 
+        self._update_phase(phase_update, "WRITING_FACTS")
+        self._check_cancel(cancel_check)
         batch_id = uuid4()
         calculated_at = self._clock()
         with self._session_factory() as session:
@@ -101,6 +127,11 @@ class SectorAnalysisDailyFactsMaterializationService:
                         raise SectorAnalysisDailyFactsPlanDriftError(
                             "本次内容只存在于已被替换的历史batch，禁止静默回退当前事实"
                         )
+                    self._repository.readback_published(
+                        session,
+                        batch_id=successful.batch_id,
+                        expected=facts,
+                    )
                     return DailyFactsMaterializationResult(
                         trade_date=trade_date,
                         batch_id=successful.batch_id,
@@ -120,6 +151,7 @@ class SectorAnalysisDailyFactsMaterializationService:
                 )
 
         try:
+            self._update_phase(phase_update, "READING_BACK")
             with self._session_factory() as session:
                 with session.begin():
                     self._repository.readback(session, batch_id=batch_id, expected=facts)
@@ -136,6 +168,7 @@ class SectorAnalysisDailyFactsMaterializationService:
                 raise
             raise SectorAnalysisDailyFactsReadbackError("每日事实read-back失败") from exc
 
+        self._update_phase(phase_update, "PUBLISHING")
         with self._session_factory() as session:
             with session.begin():
                 status, idempotent = self._repository.publish(

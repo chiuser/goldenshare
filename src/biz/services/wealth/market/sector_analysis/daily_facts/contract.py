@@ -20,6 +20,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_price_volume_contract
 FORMULA_BUNDLE_VERSION = "sector-analysis-daily-facts@1"
 TEMPLATE_VERSION = "sector-daily-insight-template@2"
 TEMPLATE_KEY = "sector-daily-insight"
+HISTORY_INPUT_AUDIT_CONTRACT_VERSION = "sector-analysis-history-input-audit@1"
 SOURCE_NOT_READY = "SA_DAILY_FACT_SOURCE_NOT_READY"
 PLAN_DRIFT = "SA_DAILY_FACT_PLAN_DRIFT"
 READBACK_MISMATCH = "SA_DAILY_FACT_READBACK_MISMATCH"
@@ -71,6 +72,19 @@ class SectorAnalysisSourceBundle:
     source_dates: Mapping[str, str]
     source_row_counts: Mapping[str, int]
     source_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class HistorySourceCoverage:
+    source: str
+    row_count: int
+    covered_dates: tuple[date, ...]
+    daily_row_counts: tuple[tuple[date, int], ...]
+    missing_dates: tuple[date, ...]
+    duplicate_key_count: int
+    illegal_date_count: int
+    invalid_value_count: int
+    missing_value_count: int
 
 
 @dataclass(frozen=True, slots=True)

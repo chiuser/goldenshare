@@ -63,7 +63,12 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert analysis_replay.executor_key == "wealth_sector_analysis_daily"
     assert analysis_replay.manual_enabled is True
     assert analysis_replay.schedule_enabled is False
-    assert analysis_replay.execution_config["plan_apply_replay"] is True
+    assert analysis_replay.execution_config["execution_style"] == "audit_then_apply"
+    assert "plan_apply_replay" not in analysis_replay.execution_config
+    assert [parameter.key for parameter in analysis_replay.parameters] == [
+        "start_date",
+        "end_date",
+    ]
     assert "2025年8月22日以来" in analysis_replay.description
     news_action = MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_news_stock_links"]
     assert news_action.executor_key == "news_stock_linking"

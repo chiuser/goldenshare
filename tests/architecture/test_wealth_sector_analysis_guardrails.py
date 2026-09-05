@@ -55,6 +55,8 @@ APPROVED_SERVING_FACT_MODEL_MODULES = {
     "src.foundation.models.core_serving.wealth_sector_member_breadth_daily",
     "src.foundation.models.core_serving.wealth_sector_member_ma_breadth_daily",
     "src.foundation.models.core_serving.wealth_sector_price_volume_daily",
+    "src.foundation.models.core_serving.wealth_sector_daily_insight_summary",
+    "src.foundation.models.core_serving.wealth_sector_daily_insight_item",
 }
 APPROVED_SHARED_QUERY_MODULES = {
     "src.biz.queries.wealth.market.common.sector_hierarchy_query",
@@ -488,6 +490,32 @@ def test_daily_facts_persistence_is_isolated_to_its_repository() -> None:
                 f"{path.relative_to(REPO_ROOT).as_posix()} imports write models {sorted(write_models)}"
             )
     assert not violations
+
+
+def test_m25r_history_audit_cannot_reenter_full_preview_contract() -> None:
+    planner = (DAILY_FACTS_PATH / "replay_planner.py").read_text(encoding="utf-8")
+    auditor = (DAILY_FACTS_PATH / "history_input_auditor.py").read_text(
+        encoding="utf-8"
+    )
+    executor = (
+        REPO_ROOT / "src/app/runtime/sector_analysis_daily_task_executor.py"
+    ).read_text(encoding="utf-8")
+
+    assert "def preview_unit(" not in planner
+    assert "def finalize(" not in planner
+    for forbidden in (
+        "preview_trade_date(",
+        "._build(",
+        "SectorAnalysisDailyFactBuilder",
+        "SectorDailyInsightBuilder",
+        "SectorAnalysisDailyFactsRepository",
+    ):
+        assert forbidden not in auditor
+    history_audit_body = executor.split("    def audit_for_task_run(", maxsplit=1)[1].split(
+        "    def execute_unit(", maxsplit=1
+    )[0]
+    assert "preview_trade_date(" not in history_audit_body
+    assert "materialize_trade_date(" not in history_audit_body
 
 
 def test_dual_momentum_backend_reads_only_published_serving_facts() -> None:
