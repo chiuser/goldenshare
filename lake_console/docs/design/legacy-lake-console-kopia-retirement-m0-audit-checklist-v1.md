@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退 M0 只读审计清单 v1
 
-状态：2026-08-28 M0 历史基线；2026-09-05 旧湖批量分类见 §21，M1 已提交见 §22，M2A 等价迁移完成并在本次提交归档见 §23；M2B 未开始，其余具体删除待确认
+状态：2026-08-28 M0 历史基线；2026-09-05 旧湖批量分类见 §21，M1 已提交见 §22，M2A 已提交 `0cc84004` 见 §23，M2B 完成待 review 见 §24；M3 未开始，其余具体删除待确认
 
 审计日期：2026-08-28
 
@@ -343,7 +343,7 @@ lake_console/orchestrator/tests/test_run_contract_static_gates.py
 - [x] 旧/新入口用 fake 资源/业务函数双跑 246 组输入，不碰真实运行态。
 - [x] 7 个旧迁移命令在四个新 CLI 中均拒绝；当前 canonical CLI 继续拒绝已删除 one-shot。
 - [x] M2A 等价与消费者切换通过后，唯一删除旧 dispatcher。
-- [ ] M2B 才允许执行已拍板的 Silver selector 收紧和 MACD/KDJ 单分区门禁；其余差异一律视为回归。
+- [x] M2B 已单独执行已拍板的 Silver selector 收紧和 MACD/KDJ 单分区门禁，见 §24；其余差异一律视为回归。
 
 ---
 
@@ -868,7 +868,20 @@ LLD §16.1/16.8/16.14；不改变 M4 写湖安全、CLI 回归、具体删除确
   不连接正式 Dagster/数据库/网络，不访问正式 Lake。具体命令与最终回归统计见 LLD §11 M2A。
 - [x] 原专项方案、LLD、清单、canonical 文档与架构快照同步；后两份原已属于 156 份处理矩阵。
 - [x] 用户要求提交 M2A；本次按 18 文件白名单归档，未推送；正式部署/长历史运行不在验收内。
-- [ ] 下一步 M2B：仅 Silver selector 收紧和 MACD/KDJ baseline 单分区门禁；其余冻结行为保持。
+- [x] 后续 M2B 仅实施 Silver selector 收紧和 MACD/KDJ baseline 单分区门禁，见 §24；其余冻结行为保持。
+
+## 24. 2026-09-05 M2B 执行回填
+
+本节是用户明确要求继续 M2B 后的实施记录，不回写为原 M0 只读审计成果。
+
+- [x] generate Silver 删除 `--all`；register/report 删除 `--all` 和 `--all-from-raw-files`；分开 Raw/Silver selector，拒绝 `--all` 被 argparse 重新解释为缩写。
+- [x] 保留显式 keys 的排序/重复值/空值/优先级、其它 option 缩写、日期边界与输出；report 无 selector 仍由原 planner 从 Silver 文件选择。
+- [x] baseline 日期显式必填且相同，显式 keys 不得越出当天；CLI 在实例访问前校验，Python report 入口复核；一次 planner 后、文件审计/事件写入前检查恰好一个请求日分区。
+- [x] dry-run 不能绕过；skip-ready、check/event 构造和只读多日 planner 保留。
+- [x] 原 fixture 21 命令/246 案例内容完整保留，增加哈希断言和四命令 `approved_delta`；新增 54 项 CLI 与 44 项 report 门禁/现行规划链测试。
+- [x] 定向回归 315 passed、696 subtests passed；原 CLI 临时环境集成 5 passed；Ruff、文档完整性、矩阵、diff 检查通过。执行命令和逐文件映射见 LLD §11 M2B。
+- [x] 本轮无文件删除、无配置变更、无正式 Lake/数据库/Dagster 访问或写入；依赖边界、156 份文档矩阵、263 个旧 Console 文件清单未扩大。
+- [ ] 本阶段待用户 review/提交；M3 先核零引用和精确文件表，再单独实施。没有提前删除 migration 主体、旧 Console 或物理数据。
 
 旧 migration 主体、263 个旧产品文件、旧文档、物理数据、停牌 CSV、ignored 环境、Ops Snapshot
 均未改动；子系统边界/依赖矩阵不变。删除前双跑脚本仅作临时证据，旧文件删除后不再作为回归入口。

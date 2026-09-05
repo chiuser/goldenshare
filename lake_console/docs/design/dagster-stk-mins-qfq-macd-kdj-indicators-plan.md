@@ -852,7 +852,7 @@ checks 可以用同一 DuckDB 连接批量聚合，不允许全绿场景无条�
 2. MACD 样本测试必须断言 `macd_qfq = 2 * (macd_dif_qfq - macd_dea_qfq)`。
 3. 历史 bootstrap 工具必须在 `plan` 输出 source rows、target files、state files、baseline event count、如果误做全量历史 event 的上界。
 4. `generate` 前必须先跑只读 benchmark 和 `/private/tmp` 样本写入；样本不得写正式 lake。
-5. event/report 执行口径只允许 baseline cutoff 与 future tracking，不得补齐全部历史 partition events。当前 CLI 仍需补单分区硬门禁；正式执行前必须显式传入同一天的 `--start-date` / `--end-date`，并确认 `selected_partition_count=1`。
+5. event/report 执行口径只允许 baseline cutoff 与 future tracking，不得补齐全部历史 partition events。2026-09-05 清退 M2B 已补单分区硬门禁：CLI 必须显式传入同一天的 `--start-date` / `--end-date`，显式 keys 不得越出当天，report 在任何文件审计/事件写入前确认实际 plan 只有该分区；dry-run 同样执行门禁。
 6. audit 必须用聚合 count 和 sample readiness，禁止把 readiness 逐 partition 作为主流程。
 
 ## 13. 历史 event 追踪口径
@@ -871,7 +871,7 @@ M12 历史初始化不做历史逐日 runless event 全量补录。原因是物�
 | state blocking checks | `2` |
 | 合计 | `8` |
 
-七频度 baseline event 共 `56` 条。baseline 之后，每个交易日由正式 daily job/sensor 正常写约 `56` 条 materialization/check events。
+以上是原 M12 执行时的 check 集合，七频度 baseline event 共 `56` 条，保留用于解释下方历史结果。2026-09-05 当前 baseline 代码已是指标 checks `2`、state checks `2`，每频 `6` 条、七频 `42` 条，资产分区仍为 `14`；以当前 check 常量为准。M2B 不修改 check 集合、daily job/sensor 或历史事件。
 
 当前执行事实：
 
@@ -882,7 +882,7 @@ reported_asset_partition_count = 14
 quick audit sample_readiness = 14/14 True
 ```
 
-如果误做历史逐日全量 events，以当前约 `3019` 个交易日估算：
+如果误做历史逐日全量 events，按原执行时约 `3019` 个交易日和每频 `8` 条的旧集合估算：
 
 ```text
 3019 * 7 freq * 8 events = 169064 events
@@ -890,7 +890,7 @@ quick audit sample_readiness = 14/14 True
 
 该做法禁止作为 M12 默认执行口径。
 
-当前已发现的代码硬化缺口：`report-gold-stk-mins-qfq-macd-kdj-baseline-events` 的 CLI 默认选择仍会覆盖全历史范围。执行层已改为 scoped baseline cutoff 命令完成正式写入；代码层仍需补单分区硬门禁和测试，使不传单日范围的 baseline event 命令直接失败。
+该代码硬化缺口已在 2026-09-05 清退 M2B 修复：`report-gold-stk-mins-qfq-macd-kdj-baseline-events` 不再默认选择全历史。CLI 在实例访问前校验日期/显式 keys；公开 Python report 的日期也必填并复用校验。report 内只执行一次 baseline event planner，实际 keys 恰好为请求当天后，才进行文件审计和原有补事件流程；零/多/错日期结果失败，不能等报告返回再检查。原文件审计内部仍会再次调用 history planner，底层 history 规划共两次，本轮不新增预规划。只读 planner/final audit 仍支持多日。测试及执行证据见 [清退 LLD M2B](legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md#m2b当前-cli-安全加固)。本轮仅做隔离验证，未再次操作正式 baseline。
 
 ### 13.2 复核方式
 
@@ -953,7 +953,7 @@ baseline/future tracking 复核使用：
 3. 临时 lake 样本验证后再申请正式写入。
 4. 正式补录已按 `Direct Lake Bootstrap + Baseline/Future Event Tracking` 执行完成。
 5. 禁止历史逐日 event backfill；全历史文件完成后只写 baseline cutoff events，当前 baseline cutoff 为 `2026-06-05`。
-6. 待补代码硬门禁：baseline event CLI 必须强制单分区执行，避免默认全历史 dry-run/backfill。
+6. 2026-09-05 已补代码硬门禁与正反例：baseline event CLI/Python report 强制单日且实际单分区，禁止默认全历史 dry-run/backfill；其它历史生成/规划/审计的范围能力不变。
 
 ## 15. 测试计划
 

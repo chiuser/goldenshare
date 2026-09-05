@@ -17,6 +17,7 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
 from orchestrator.defs.bootstrap.stk_mins_qfq_macd_kdj_baseline_events import (
     audit_stk_mins_qfq_macd_kdj_final_state,
     report_stk_mins_qfq_macd_kdj_baseline_events,
+    validate_stk_mins_qfq_macd_kdj_baseline_selection,
 )
 from orchestrator.defs.bootstrap.stk_mins_qfq_macd_kdj_history import (
     audit_stk_mins_qfq_macd_kdj_files,
@@ -69,10 +70,13 @@ def main(argv: list[str] | None = None) -> None:
     report_gold_qfq_macd_kdj_baseline_events.add_argument(
         "--lake-root", default=DEFAULT_LAKE_ROOT
     )
-    add_history_selection_arguments(
-        report_gold_qfq_macd_kdj_baseline_events,
-        default_start_date=STK_MINS_QFQ_HISTORY_START_DATE,
+    report_gold_qfq_macd_kdj_baseline_events.add_argument(
+        "--start-date", required=True
     )
+    report_gold_qfq_macd_kdj_baseline_events.add_argument("--end-date", required=True)
+    report_gold_qfq_macd_kdj_baseline_events.add_argument("--partition-keys")
+    report_gold_qfq_macd_kdj_baseline_events.add_argument("--freqs")
+    report_gold_qfq_macd_kdj_baseline_events.add_argument("--years")
     report_gold_qfq_macd_kdj_baseline_events.add_argument(
         "--dry-run", action="store_true"
     )
@@ -196,12 +200,18 @@ def main(argv: list[str] | None = None) -> None:
             }
         )
     elif args.command == "report-gold-stk-mins-qfq-macd-kdj-baseline-events":
+        partition_keys = parse_optional_partition_keys(args.partition_keys)
+        validate_stk_mins_qfq_macd_kdj_baseline_selection(
+            start_date=args.start_date,
+            end_date=args.end_date,
+            partition_keys=partition_keys,
+        )
         report = report_stk_mins_qfq_macd_kdj_baseline_events(
             instance=dg.DagsterInstance.get(),
             lake_root=Path(args.lake_root),
             duckdb=DuckDBResource(),
             registered_partition_keys=registered_stk_mins_silver_partition_keys(),
-            partition_keys=parse_optional_partition_keys(args.partition_keys),
+            partition_keys=partition_keys,
             start_date=args.start_date,
             end_date=args.end_date,
             freqs=parse_optional_csv_values(args.freqs),

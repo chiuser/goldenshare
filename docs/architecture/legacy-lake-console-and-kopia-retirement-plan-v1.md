@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 等价迁移完成、本次提交归档 / M2B 未开始 / 旧湖已批量分类、其余具体删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 安全加固完成、待 review / M3 未开始 / 旧湖已批量分类、其余具体删除待确认
 
 初审日期：2026-08-28；本次复审基线：2026-09-05，`dev-interface@10521877`
 
@@ -784,19 +784,19 @@ Ruff 与文档检查结果见 LLD M1 记录；未运行正式 Dagster、Lake、�
 
 另有 5 个原 CLI 集成测试在临时 Lake、ephemeral instance、临时 DuckDB spill 下通过，正式环境未参与。
 完整文件表、测试结果、限制及新入口见 LLD §11 M2A。同步 canonical 现行文档、架构快照与三份专项记录；
-未改变边界/依赖矩阵、156 份文档矩阵和 263 个旧产品文件清单。用户要求提交 M2A，本次按 18 文件白名单归档，未推送，M2B 未开始；
+未改变边界/依赖矩阵、156 份文档矩阵和 263 个旧产品文件清单。用户要求提交 M2A，按 18 文件白名单归档为 `0cc84004`，未推送，当时 M2B 未开始；
 旧 migration 主体、旧 Console、物理数据、ignored 环境均未动。
 
 ### M2B：CLI 安全门禁收紧
 
 只在 M2A 等价基线通过后，单独实施并测试两项已批准的现行安全修正：
 
-1. Silver register/report 的 selector 只允许正式 Silver 文件或显式 partition keys，不再接受含糊 `--all`
-   或 `--all-from-raw-files`。
-2. MACD/KDJ baseline event 强制 `start_date == end_date` 且 planner 只能选出一个 partition；`--dry-run`
-   不能绕过。
+1. Silver generate 删除 `--all`、保留显式 keys 和 `--all-from-raw-files`；register/report 只允许 Silver 文件或显式 keys，不再接受 `--all` 或 `--all-from-raw-files`。禁止利用 argparse 缩写继续传入 `--all`；其它 option 缩写不变。
+2. MACD/KDJ baseline event 的日期显式必填且相同，显式 keys 不能超出当天，planner 只能选出该天一个 partition；`--dry-run` 不能绕过。CLI 在实例访问前校验，公开 report 入口复用校验，并在其内部 baseline planner 返回后、文件审计/事件写入前检查最终 plan；不增加预规划。原文件审计还会调用 history planner，底层仍共两次，未增加扫描。
 
 准入：等价迁移失败和安全加固失败可分别定位；不得把安全变更混入“迁移等价”验收。
+
+2026-09-05 已完成本阶段代码和隔离验证，待用户 review。原 M2A fixture 的 21 命令、246 案例原文保留并加哈希断言，仅新增四个命令的 `approved_delta`。新增 98 项正反例；合并回归 315 passed、696 subtests passed，另有 5 项原 CLI 隔离集成测试通过。完整逐文件落点、命令、范围和限制见 LLD §11 M2B。没有删文件、改数据、接入正式 Dagster 或开始 M3。
 
 ### M3：删除旧 migration 主体
 
@@ -1016,6 +1016,4 @@ ignored 依赖环境/配置仍在代码清退稳定后另轮精确处理。
 
 ### 10.5 下一步
 
-清退边界、Raw 恢复工具重构和 86 份旧文档删除口径已经全部拍板。下一步需由用户单独授权实施，
-并严格按 M0 → M7 推进，再按 M8 精确清退已证实无代码用途的数据。目录分组及五项无引用候选已列 LLD §16.14；不可清空共享根。本轮文档修改
-不构成代码/旧文档删除、`dg` 执行、数据写入或物理目录清理授权。
+清退边界、Raw 恢复工具重构和 86 份旧文档删除口径已经全部拍板。当前已完成至 M2B，先 review 本阶段差异；后续按 M3 → M7 分轮推进，再按 M8 精确清退已证实无代码用途的数据。M3 开始前重新核验旧 migration 主体的现行引用为零，并明确列出本轮删除文件。目录分组及五项无引用候选已列 LLD §16.14；不可清空共享根。M2B 不包含后续阶段删除、正式 `dg` 执行、数据写入或物理目录清理授权。

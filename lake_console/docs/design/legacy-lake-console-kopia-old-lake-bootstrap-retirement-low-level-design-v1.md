@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 等价迁移完成、本次提交归档 / M2B 未开始 / 文档矩阵 156 份 / 其余具体删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 安全加固完成、待 review / M3 未开始 / 文档矩阵 156 份 / 其余具体删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -217,7 +217,7 @@ adj_factor_silver_bootstrap_events.py
 ## 4. `stk_mins_migration_cli.py` 逐段审计与修改设计
 
 本节旧行号对应删除前的审计基线，不表示原文件仍存在。M2A 已完成当前命令拆分及原文件删除，
-实际新入口与验证见 §11 M2A；本节标注的最终 selector/日期加固仍须在 M2B 单独实施。
+实际新入口与验证见 §11 M2A；最终 selector/日期加固已按 §11 M2B 单独实施。
 
 审计对象：`lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_mins_migration_cli.py`，审计基线共 1,038 行。
 
@@ -271,11 +271,16 @@ Silver 参数必须收紧：
 |---|---|---|---|
 | `plan-silver` | `--partition-keys`、`--start-date`、`--end-date` | 无 | planner 本身可按范围发现 Raw 输入 |
 | `generate-silver` | `--partition-keys`、`--all-from-raw-files`、日期范围 | `--all` | 明确全集来自 Raw 文件，消除 `--all` 隐式语义 |
-| `register-silver-partitions` | `--partition-keys`、`--all-from-silver-files`、日期范围 | `--all`、`--all-from-raw-files` | 只能注册已经存在的 Silver 文件 |
+| `register-silver-partitions` | `--partition-keys`、`--all-from-silver-files`、日期范围 | `--all`、`--all-from-raw-files` | 自动发现只能来自 Silver，不能用 Raw 文件推断 Silver 分区 |
 | `report-silver-events` | `--partition-keys`、`--all-from-silver-files`、日期范围 | `--all`、`--all-from-raw-files` | event 必须以已存在且审计通过的 Silver 文件为准 |
 | `audit-silver-final` | `--start-date`、`--end-date` | 所有“all”别名 | 审计函数自身按日期范围规划 |
 
-参数错误必须在进入文件扫描或 Dagster instance 写入前抛出 `ValueError`。错误文本必须只列该命令真正支持的选择器。
+参数错误必须在进入文件扫描或 Dagster instance 访问前失败：不支持的 option、缺少必填参数沿用 argparse 的 `SystemExit(2)`；解析成功后的选择语义错误沿用 `ValueError`。错误文本必须只列该命令真正支持的选择器。
+
+显式 keys 的排序、重复值、空串/空 tuple 和对合法文件 selector 的优先级保持 M2A 不变。
+原 register 函数只注册传入的 keys，不审计文件存在性；M2B 不给显式 keys 新加物理审计。真正补事件仍经过原 report planner 的 Silver 文件审计，不能将“动态分区已注册”当作文件/检查已就绪。
+`report-silver-events` 不传 selector 时仍传 `None`，其现有 planner 按日期范围发现 **Silver** 文件；不新增必填限制。
+删除 `--all` 注册后还须在 dispatch 前拒绝该完整 token，避免 argparse 将它当成剩余文件 selector 的缩写。其它 option 的缩写行为不扩大修改。
 
 #### 4.2.3 保留并迁入 QFQ CLI 的命令
 
@@ -341,9 +346,10 @@ Baseline event 命令在现代码中默认可选整段历史，但现行指标�
 
 1. `--start-date` 和 `--end-date` 改为该子命令显式必填。
 2. 两者必须相等。
-3. planner 返回后再次断言 `len(report.plan.selected_partition_keys) == 1`。
+3. 显式 `partition_keys` 若存在，规范化后只能包含请求的当天；不能利用其优先于日期范围的现有语义扩大范围。planner 返回后再次检查 `plan.selected_partition_keys` 恰好为该当天的一项。
 4. `--dry-run` 也必须经过同样门禁，不能把 dry-run 当绕过方式。
-5. 失败发生在 `report_stk_mins_qfq_macd_kdj_baseline_events` 报告事件之前。
+5. CLI 的日期/显式 keys 校验位于实例获取前；公开 Python report 入口重复同一纯校验，防止绕过 CLI。最终 plan 检查位于 report 函数内部、planner 返回之后，文件审计、readiness 和 `_report_asset_partition_events` 之前。不能等 report 返回再检查，因为那时事件可能已经写入。
+6. baseline event planner 只执行一次，不增加 CLI 预规划或新配置；原文件审计内部还会调用 history planner，因此底层 history planner 合计仍为两次，不将“一次 baseline 规划”误写成整条链只有一次扫描。共享只读 planner 和 final audit 继续支持多日。
 
 这项修改是现行 MACD/KDJ 方案的安全门禁补齐，不是为了清退而新增业务能力。
 
@@ -393,7 +399,7 @@ M2B 只允许两项批准差异，并在 fixture 上标记 `approved_delta`：
 | 命令组 | 批准差异 | 必须新增的负例 |
 |---|---|---|
 | Silver register/report/generate | 删除含糊 `--all`；register/report 禁止 `--all-from-raw-files` | 旧 selector 在扫描文件或访问 Dagster 前失败；显式 keys/正确文件 selector 仍 dispatch 一次 |
-| MACD/KDJ baseline event | `start_date/end_date` 必填且相等，planner 只能返回一个 partition | 跨日、零 partition、多 partition、`--dry-run` 跨日均不得调用 event report |
+| MACD/KDJ baseline event | `start_date/end_date` 必填且相等，planner 只能返回请求当天一个 partition | 跨日、空/越界显式 keys 在实例访问前失败；零、多、错日期 plan 在文件审计和事件写入前失败；dry-run 同样执行门禁 |
 
 除这两项外，任何差异都是回归，不得解释为“拆文件后的自然变化”。
 
@@ -889,7 +895,7 @@ test_adj_factor_silver_bootstrap_events.py
 | `test_stk_mins_qfq_m8c_history.py` | `stk_mins_migration_cli` | 改 import `stk_mins_qfq_history_cli` |
 | `test_stk_mins_qfq_m8d_events.py` | `stk_mins_migration_cli` | 改 import `stk_mins_qfq_history_cli` |
 | `test_stk_mins_qfq_m11f_derived_history.py` | `stk_mins_migration_cli` | 改 import `stk_mins_qfq_derived_history_cli` |
-| `test_stk_mins_qfq_m12_macd_kdj.py` | `stk_mins_migration_cli` | 改 import `stk_mins_qfq_macd_kdj_history_cli`，新增单分区门禁测试 |
+| `test_stk_mins_qfq_m12_macd_kdj.py` | `stk_mins_migration_cli` | M2A 已改 import `stk_mins_qfq_macd_kdj_history_cli`；M2B 的 CLI 单分区测试落在 contract 测试，真实 report 门禁落在独立 `test_stk_mins_macd_kdj_baseline_single_partition.py` |
 
 `test_stk_mins_qfq_m8c_history.py` 中用于证明 canonical unsafe command 不应存在的负例，不能继续调用将删除的 migration CLI。它应直接针对当前 canonical CLI：
 
@@ -910,11 +916,11 @@ stk_mins_qfq_canonical_history_cli.main(
 2. 每个保留命令能正确 dispatch 到目标 function。
 3. 参数解析后 Path、tuple、日期、freq、year 与当前 handler 传参一致。
 4. 输出 dictionary 保留现有 key。
-5. 未选择 partition/source 时 fail-closed。
+5. generate/register Silver 未选择 partition/source 时 fail-closed；report Silver 保持 `None` 交由现有 planner 按范围发现 Silver 文件，不从 Raw 发现。
 6. `--all` 在 Silver CLI 不再可接受。
 7. register/report Silver 不接受 `--all-from-raw-files`。
 8. rebuild 未确认时不调用写函数。
-9. baseline event 日期不相等或选出多 partition 时不调用 event report。
+9. baseline 日期/显式 keys 不合法时不获取实例；实际 plan 为零、多或错日期分区时不进入文件审计和事件 writer。
 10. `--dry-run` 不绕过参数和单分区校验。
 11. fixture 中 side-effect 分类与目标 function 一致；read-only 命令不得触发 writer/event fake。
 12. 旧 CLI 删除后，新 CLI 对冻结 fixture 继续全绿；测试不得 import tombstone module。
@@ -1576,13 +1582,66 @@ derived 五命令/full/quick 和 canonical 拒绝旧命令；隔离运行器
 使用 CodeGraph `explore/impact/callers` 追踪旧 CLI helper、MACD rebuild、四份测试和底层 history/event；
 全仓 tracked 程序引用补扫未发现 API、前端、调度、配置或脚本消费者。新 CLI 仅是人工离线入口，
 不注册 active 组件，不改变子系统边界/依赖矩阵。正式环境及完整长历史链路没有执行，也未部署或推送。
-M2A 修改按用户要求本次提交归档，未推送；下一步仅为 M2B 两项已批准的安全加固，本次提交不启动 M2B，也不进入 M3 或 M8。
+M2A 修改已按用户要求归档为 `0cc84004`，未推送；该次提交未包含 M2B，也未进入 M3 或 M8。后续 M2B 独立实施记录见下。
 
 ### M2B：当前 CLI 安全加固
 
 1. 只修改 Silver selector 歧义。
 2. 只增加 MACD/KDJ baseline 单分区门禁。
 3. 新增批准差异正反例；M2A fixture 其余字段必须不变。
+
+#### 2026-09-05 执行约束与代码映射（开工前核验）
+
+| 硬口径 | 实现点 | 验证 |
+|---|---|---|
+| 三条 Silver 写入口仅去掉批准的旧选择器 | Silver CLI 显式 parser；分离 Raw/Silver 两个私有 selector；精确拒绝 `--all` token | 旧 option、与合法 keys 混用、dry-run 和系统 argv 都在任何 capability 前失败；合法 selector 仅调用一次正确文件发现器 |
+| baseline 请求和最终选择都是同一天 | MACD CLI 必填参数及实例访问前纯校验；baseline report 入口复用校验；一次 planner 后再次检查 | 缺日期、跨日、空/越界 keys、零/多/错日期 plan；正例、dry-run、skip-ready、审计失败和原有事件载荷 |
+| 其余行为不变 | M2A 原 fixture 内容保持，新增 `approved_delta` 明确规则，不从新实现重录原预期 | 21 命令、246 原案例逐条对账；新增合法单日与拒绝案例；原有隔离回归 |
+| 不扩至 M3 或数据操作 | 仅两份 CLI、一份 baseline report、对应测试及原设计文档 | diff 清单；无删除、无部署、无正式实例/Lake/数据库访问 |
+
+性能边界：本轮不新增 SQL、文件扫描、事件类型、事务或配置。新门禁本身只解析日期和显式 keys（时间 O(keys)，内存与输入相关）；无效日期/keys 的文件查询、事件和提交均为 0。合法 baseline 仍只调用一次 event planner；其内部调用 history planner，后续原文件审计再调用一次 history planner，底层合计仍为两次。日期数固定 1，频率数不超过现有 `STK_MINS_QFQ_FREQS`，事件上界为该频率数乘现行 `EVENT_COUNT_PER_FREQ_PARTITION`，资产分区数为频率数 × 2。底层按年文件读取量、DuckDB 内存/spill 与原审计相同，本轮不声称单日门禁使物理扫描自动缩为日文件，也不新增超时阈值。使用隔离 mock 和临时样本计数核验，不进行正式全量性能验收。
+
+CodeGraph 已在修改前覆盖两个选择入口、baseline CLI → report → planner → 文件审计/事件写入；文本复核确认 report 的现行运行调用方只有 MACD CLI，planner 另有只读 final audit 和测试消费者，均保持其多日能力。没有前端/API/sensor 消费者或跨子系统契约变更。
+
+#### M2B 执行结果（2026-09-05）
+
+| 文件（相对 orchestrator） | 已完成的修改 |
+|---|---|
+| `src/orchestrator/defs/bootstrap/stk_mins_silver_history_cli.py` | 三命令显式注册各自 selector；删除含糊 option；dispatch 前精确拒绝 `--all` token，包括实际 `sys.argv` 调用；分离 `_selected_raw_partition_keys` / `_selected_silver_partition_keys`；日期范围、排序/重复值/空值、合法 keys 优先级、skip/overwrite/dry-run 和输出不变 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_history_cli.py` | 仅 baseline 子命令显式必填起止日期；在任何 capability 获取前调用纯范围校验；其它五命令和四函数 shared contract 不变 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_baseline_events.py` | 新增纯校验；report 的 Python 起止日期参数改为必填，入口复核日期/keys；原 baseline event planner 执行一次后检验实际 keys 恰好为请求当天；不修改文件审计、check、event payload、skip-ready 或只读 planner/final audit |
+| `tests/fixtures/stk_mins_history_cli_contract_v1.json` | 仅增加顶层 `approved_delta`，明确四命令的删参、必填和错误文本；原 M2A 全部内容保留 |
+| `tests/test_stk_mins_history_cli_contract_equivalence.py` | 从旧 fixture 按批准规则转换预期，不重录新实现输出；哈希防止原基线漂移；增加 54 项 CLI 边界/合法单日对账，包含 target 异常传播、空值、重复 keys、优先级与其它 option 缩写 |
+| `tests/test_stk_mins_macd_kdj_baseline_single_partition.py` | 新增 44 项真实 report 编排与事件构造测试；隔离 I/O；直接 Python 入口、零/多/错日期 plan、失败前无事件、单日七频、dry-run、skip-ready、审计失败、真实只读多日 planner 和原文件审计的第二次 history 规划 |
+
+未修改当前 Silver/QFQ/derived/MACD 计算函数、生产数据、旧 migration 主体、旧 Console、配置和目录。原三份专项文档、MACD/KDJ 原设计与 CodeGraph 快照同步回填；边界/依赖矩阵不变。
+
+验证结果：
+
+1. 定向回归 **315 passed、696 subtests passed**（其中 246 为原 CLI 案例，其余 450 为既有合同子案例）；覆盖 contract、单分区、history helpers、check events、run-contract/static、asset governance，以及 Silver helper 和 MACD rebuild 两项原行为。
+2. 原 QFQ/derived CLI 隔离集成测试 **5 passed、42 deselected**，复用 `/private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_isolated_cli_tests.py`；临时 Lake、ephemeral instance、临时 DuckDB spill，不使用正式环境。
+3. 新增测试确认请求非法时 planner/文件/事件均 0 次；异常实际 plan 只规划 1 次、文件/事件均 0 次。正常单日 7 频当前是 14 个资产分区、42 条事件（每频 2 materialization + 4 checks），不使用旧历史报告中的 56 条作为当前常量。
+4. 五份 Python 文件 Ruff 检查通过；文档完整性与 `git diff --check` 通过。156 份文档矩阵无缺失/重复，263 个旧 Console 文件路径指纹保持 `d0f3778dab3fabb0992d92322dce3b3209d318e80f98b40c2a16d225f33f02bf`。CodeGraph sync/status 为 up to date。本轮未运行正式 baseline 补事件或生产性能验收，也未新增性能阈值。
+5. 额外用真实 report → baseline planner → 文件审计验证底层 history planner 共两次（原逻辑），没有新增预扫描；不使用 mock 层的一次调用数推断全链扫描次数。
+
+外部语义核验：Python 官方说明 argparse 默认允许无歧义前缀，因此需要精确拒绝已移除的 `--all`，同时保持其它缩写行为（[Python 3.13 argparse](https://docs.python.org/3.13/library/argparse.html#allow-abbrev)）。Dagster 的 `report_runless_asset_event` 会直接记录非 run 事件，安全检查必须位于调用之前（[Dagster Instance API](https://docs.dagster.io/api/dagster/internals#dagster.DagsterInstance.report_runless_asset_event)）；当前事件构造与本地安装版本已用隔离测试核验。
+
+可复现的定向回归（从 `lake_console/orchestrator` 执行）：
+
+```bash
+uv run --no-sync python -m pytest -q --disable-warnings \
+  tests/test_stk_mins_history_cli_contract_equivalence.py \
+  tests/test_stk_mins_macd_kdj_baseline_single_partition.py \
+  tests/test_stk_mins_history_helpers.py \
+  tests/test_stk_mins_history_check_events.py \
+  tests/test_run_contract_static_gates.py \
+  tests/test_asset_governance_contracts.py \
+  tests/test_stk_mins_silver_m6_history.py::StkMinsSilverM6HistoryTests::test_m6_helpers_do_not_define_active_dagster_components \
+  tests/test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_history_rebuild_uses_bounded_duckdb_memory \
+  tests/test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_rebuild_cli_uses_full_market_scope_when_stock_codes_are_omitted
+```
+
+本阶段完成后停在 review，不自动提交/推送或进入 M3。M3 仍须先复核旧 migration 主体现行引用清零，再列明精确删除文件并执行独立回归。
 
 ### M3：删除旧 migration 主体
 
@@ -1740,14 +1799,14 @@ M8 删除前必须在清单中明确恢复能力。非 Git 数据没有既有可
 
 ### 14.1 `stk_mins` 当前能力
 
-- [ ] 四个当前 CLI 可以独立 import。
-- [ ] 21 个保留命令全部迁移到正确 CLI。
-- [ ] 21 个命令 old/new 等价对账和新 CLI 冻结 fixture 对账全部通过。
-- [ ] 7 个旧 migration 命令全部消失。
-- [ ] Silver 命令不再存在含糊 `--all`。
-- [ ] Silver register/report 只从 Silver 文件或显式 keys 选择。
-- [ ] MACD/KDJ rebuild 仍要求 checkpoint 和 confirm。
-- [ ] MACD/KDJ baseline event 只能选择单日单 partition。
+- [x] 四个当前 CLI 可以独立 import（M2A；M2B 回归通过）。
+- [x] 21 个保留命令全部迁移到正确 CLI（M2A）。
+- [x] 21 个命令 old/new 等价对账通过；M2B 仅按 `approved_delta` 收紧四命令，其余冻结 fixture 对账通过。
+- [x] 7 个旧 migration 命令在四个当前 CLI 均不存在（M2A）。
+- [x] Silver 命令不再接受含糊 `--all`（M2B）。
+- [x] Silver register/report 只从 Silver 文件或显式 keys 选择（M2B；显式注册本身不新增文件审计）。
+- [x] MACD/KDJ rebuild 仍要求 checkpoint 和 confirm（M2B 回归）。
+- [x] MACD/KDJ baseline event 只能选择单日单 partition（M2B）。
 - [ ] Raw/Silver/QFQ/derived/MACD-KDJ 当前 tests 通过。
 - [ ] `stk_mins_migration.py` 和 CLI 不留 wrapper/alias。
 

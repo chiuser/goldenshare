@@ -2,7 +2,9 @@
 
 import argparse
 import ast
+import copy
 import dataclasses
+import hashlib
 import importlib
 import io
 import json
@@ -264,6 +266,12 @@ def sentinel_report(target, kwargs):
         return StkMinsSilverFinalAuditReport(
             2, {1: 13}, 3, {1: 7}, {"check-a": 11}, {"sample-a": True}
         )
+    if (
+        target == "report_stk_mins_qfq_macd_kdj_baseline_events"
+        and kwargs.get("start_date") == kwargs.get("end_date")
+        and kwargs.get("start_date")
+    ):
+        fields["selected_partition_keys"] = (kwargs["start_date"],)
     return SimpleNamespace(**fields, plan=SimpleNamespace(**fields))
 
 
@@ -399,13 +407,83 @@ def contract():
     return json.loads(FIXTURE.read_text())
 
 
+def approved_parser_contract(frozen, delta):
+    """Apply only the approved option removals/required dates to the OLD oracle."""
+    actions = copy.deepcopy(frozen["parser"])
+    actions = [
+        action
+        for action in actions
+        if not set(action["options"]) & set(delta.get("removed_options", ()))
+    ]
+    for action in actions:
+        if set(action["options"]) & set(delta.get("required_dates", ())):
+            action.update(required=True, default=None)
+    return actions
+
+
+def approved_case_result(case, delta):
+    """Translate literal M2A expectations, never record the new implementation."""
+    expected = copy.deepcopy(case["expected"])
+    argv = case["argv"]
+
+    def rejected(message, *, argument=True, parsed=False):
+        return {
+            "namespace": expected["namespace"] if parsed else {},
+            "calls": [],
+            "printed": [],
+            "stdout": "",
+            "return": None,
+            "failure": {
+                "type": "SystemExit" if argument else "ValueError",
+                "message": "2" if argument else message,
+            },
+            "argument_error": message if argument else "",
+        }
+
+    removed = delta.get("removed_options", ())
+    for option in removed:
+        expected["namespace"].pop(option[2:].replace("-", "_"), None)
+    if "--all-from-raw-files" in removed and "--all-from-raw-files" in argv:
+        return rejected("unrecognized arguments: --all-from-raw-files")
+    if "--all" in removed and "--all" in argv:
+        # Parsing accepts this unambiguous prefix, then the token gate rejects it.
+        selector = (
+            "all_from_raw_files"
+            if argv[0] == "generate-silver"
+            else "all_from_silver_files"
+        )
+        expected["namespace"][selector] = True
+        return rejected("unrecognized arguments: --all", parsed=True)
+    if (
+        delta.get("missing_selector_error")
+        and expected["failure"] is not None
+        and expected["failure"]["type"] == "ValueError"
+    ):
+        expected["failure"]["message"] = delta["missing_selector_error"]
+    if "required_dates" in delta:
+        # A missing option value still fails before argparse checks required dates.
+        if case["name"] == "missing-option-value":
+            return expected
+        missing = [option for option in delta["required_dates"] if option not in argv]
+        if missing:
+            return rejected(
+                "the following arguments are required: " + ", ".join(missing)
+            )
+        if expected["namespace"]["start_date"] != expected["namespace"]["end_date"]:
+            return rejected(delta["date_error"], argument=False, parsed=True)
+    return expected
+
+
 @pytest.mark.parametrize("command", tuple(SPECS))
 def test_current_command_matches_frozen_contract(command, contract, subtests):
     spec = SPECS[command]
     module = importlib.import_module(PREFIX + spec["cli"])
     frozen = contract["commands"][command]
+    delta = contract["approved_delta"]["commands"].get(command, {})
     assert frozen["identity"] == spec
-    assert parser_contract(command_parsers(module)[command]) == frozen["parser"]
+    assert parser_contract(
+        command_parsers(module)[command]
+    ) == approved_parser_contract(frozen, delta)
     assert (
         f"{getattr(module, spec['target']).__module__}.{spec['target']}"
         == frozen["target_qualified_name"]
@@ -415,10 +493,26 @@ def test_current_command_matches_frozen_contract(command, contract, subtests):
             actual = capture_run(
                 module, case["argv"], fail_target=case.get("fail_target", False)
             )
-            assert actual == case["expected"]
+            assert actual == approved_case_result(case, delta)
 
 
 def test_frozen_inventory_is_complete(contract):
+    original = {
+        key: value for key, value in contract.items() if key != "approved_delta"
+    }
+    assert (
+        hashlib.sha256(
+            json.dumps(original, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        == "2491554f7291b188a4c9700f05b6571c08b398ba211ac3c814dae25cf940c216"
+    )
+    assert contract["approved_delta"]["phase"] == "M2B"
+    assert set(contract["approved_delta"]["commands"]) == {
+        "generate-silver",
+        "register-silver-partitions",
+        "report-silver-events",
+        "report-gold-stk-mins-qfq-macd-kdj-baseline-events",
+    }
     assert contract["baseline_commit"] == "3007cc0e"
     assert contract["command_count"] == len(SPECS) == 21
     assert set(contract["commands"]) == set(SPECS)
@@ -498,3 +592,151 @@ def test_shared_instance_injection_does_not_open_another_instance():
             "2026-09-02",
             "2026-09-04",
         )
+
+
+BASELINE_COMMAND = "report-gold-stk-mins-qfq-macd-kdj-baseline-events"
+SILVER_WRITES = (
+    "generate-silver",
+    "register-silver-partitions",
+    "report-silver-events",
+)
+DAY = "2026-09-04"
+
+
+@pytest.mark.parametrize(
+    "command,option",
+    (
+        (command, option)
+        for command in SILVER_WRITES
+        for option in ("--all", "--all=true", "--all-from-raw-files")
+        if (command, option) != ("generate-silver", "--all-from-raw-files")
+    ),
+)
+@pytest.mark.parametrize("with_keys", (False, True))
+def test_removed_silver_selectors_fail_before_capabilities(command, option, with_keys):
+    argv = [command, option]
+    if with_keys:
+        argv += ["--partition-keys", DAY]
+    if command != "generate-silver":
+        argv += ["--dry-run"]
+    result = capture_run(importlib.import_module(PREFIX + SPECS[command]["cli"]), argv)
+    assert result["failure"] == {"type": "SystemExit", "message": "2"}
+    assert result["calls"] == result["printed"] == []
+
+
+@pytest.mark.parametrize("command", SILVER_WRITES)
+def test_removed_all_is_rejected_with_real_process_argv(command, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["silver-cli", command, "--all"])
+    result = capture_run(importlib.import_module(PREFIX + SPECS[command]["cli"]), None)
+    assert result["failure"] == {"type": "SystemExit", "message": "2"}
+    assert result["calls"] == []
+
+
+@pytest.mark.parametrize("command", SILVER_WRITES)
+def test_silver_legal_overlapping_selectors_keep_full_m2a_dispatch(command, contract):
+    frozen = contract["commands"][command]
+    case = next(c for c in frozen["cases"] if c["name"].startswith("all-options"))
+    delta = contract["approved_delta"]["commands"][command]
+    case = copy.deepcopy(case)
+    case["argv"] = [arg for arg in case["argv"] if arg not in delta["removed_options"]]
+    actual = capture_run(
+        importlib.import_module(PREFIX + SPECS[command]["cli"]), case["argv"]
+    )
+    assert actual == approved_case_result(case, delta)
+    assert (
+        sum(
+            call["target"] == frozen["target_qualified_name"]
+            for call in actual["calls"]
+        )
+        == 1
+    )
+    assert not any(
+        "all_raw_" in call["target"] or "all_silver_" in call["target"]
+        for call in actual["calls"]
+    )
+
+
+@pytest.mark.parametrize("command", SILVER_WRITES)
+def test_unrelated_option_abbreviations_remain_supported(command):
+    module = importlib.import_module(PREFIX + SPECS[command]["cli"])
+    assert capture_run(module, [command, "--part", DAY]) == capture_run(
+        module, [command, "--partition-keys", DAY]
+    )
+
+
+@pytest.mark.parametrize("case_index", range(13))
+def test_baseline_single_day_keeps_original_dispatch_and_output(case_index, contract):
+    """Replay all old baseline cases with the newly required, bounded date scope."""
+    frozen = contract["commands"][BASELINE_COMMAND]
+    case = copy.deepcopy(frozen["cases"][case_index])
+    argv = case["argv"]
+    for option in ("--start-date", "--end-date"):
+        if option in argv:
+            argv[argv.index(option) + 1] = DAY
+        else:
+            argv[1:1] = [option, DAY]
+    if case["name"].startswith("all-options"):
+        argv[argv.index("--partition-keys") + 1] = f" {DAY},{DAY}, "
+    expected = case["expected"]
+    if expected["namespace"]:
+        expected["namespace"].update(start_date=DAY, end_date=DAY)
+    if case["name"].startswith("all-options"):
+        expected["namespace"]["partition_keys"] = f" {DAY},{DAY}, "
+    if case["name"] == "partition-keys-only-separators":
+        expected.update(
+            calls=[],
+            printed=[],
+            stdout="",
+            failure={
+                "type": "ValueError",
+                "message": contract["approved_delta"]["commands"][BASELINE_COMMAND][
+                    "partition_error"
+                ],
+            },
+        )
+    else:
+        for call in expected["calls"]:
+            if call["target"] == frozen["target_qualified_name"]:
+                call["kwargs"].update(start_date=DAY, end_date=DAY)
+                if case["name"].startswith("all-options"):
+                    call["kwargs"]["partition_keys"] = normalize((DAY, DAY))
+        if expected["printed"]:
+            output = expected["printed"][0]["args"]["items"][0]
+            output["selected_partition_count"] = 1
+            expected["stdout"] = repr(output) + "\n"
+    actual = capture_run(
+        importlib.import_module(PREFIX + SPECS[BASELINE_COMMAND]["cli"]),
+        argv,
+        fail_target=case.get("fail_target", False),
+    )
+    assert actual == expected
+
+
+@pytest.mark.parametrize("dry_run", (False, True))
+@pytest.mark.parametrize(
+    "selection",
+    (
+        ["--start-date", DAY],
+        ["--end-date", DAY],
+        ["--start-date", DAY, "--end-date", "2026-09-03"],
+        ["--start-date", "", "--end-date", ""],
+        ["--start-date", "2026-02-30", "--end-date", "2026-02-30"],
+        ["--start-date", DAY, "--end-date", DAY, "--partition-keys", "2026-09-03"],
+        [
+            "--start-date",
+            DAY,
+            "--end-date",
+            DAY,
+            "--partition-keys",
+            "2026-09-03,2026-09-04",
+        ],
+        ["--start-date", DAY, "--end-date", DAY, "--partition-keys", " , "],
+    ),
+)
+def test_baseline_invalid_scope_never_opens_capabilities(selection, dry_run):
+    argv = [BASELINE_COMMAND, *selection, *(["--dry-run"] if dry_run else [])]
+    result = capture_run(
+        importlib.import_module(PREFIX + SPECS[BASELINE_COMMAND]["cli"]), argv
+    )
+    assert result["failure"]["type"] in ("SystemExit", "ValueError")
+    assert result["calls"] == result["printed"] == []

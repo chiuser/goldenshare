@@ -1,5 +1,27 @@
 {
   "version": 1,
+  "approved_delta": {
+    "phase": "M2B",
+    "commands": {
+      "generate-silver": {
+        "removed_options": ["--all"],
+        "missing_selector_error": "Pass --partition-keys or --all-from-raw-files."
+      },
+      "register-silver-partitions": {
+        "removed_options": ["--all", "--all-from-raw-files"],
+        "missing_selector_error": "Pass --partition-keys or --all-from-silver-files."
+      },
+      "report-silver-events": {
+        "removed_options": ["--all", "--all-from-raw-files"]
+      },
+      "report-gold-stk-mins-qfq-macd-kdj-baseline-events": {
+        "required_dates": ["--start-date", "--end-date"],
+        "date_error": "Baseline events require equal --start-date and --end-date.",
+        "partition_error": "Baseline --partition-keys must select only the requested day.",
+        "plan_error": "Baseline plan must select exactly the requested day's partition."
+      }
+    }
+  },
   "baseline_commit": "3007cc0e",
   "legacy_source_sha256": "2e93cf484c9fc03ae89c52862f61eb8ad2382d7ac3ed5df0bea66f655770240e",
   "command_count": 21,

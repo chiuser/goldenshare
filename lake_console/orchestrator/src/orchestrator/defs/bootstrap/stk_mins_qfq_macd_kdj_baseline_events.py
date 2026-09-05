@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -204,6 +205,22 @@ def plan_stk_mins_qfq_macd_kdj_baseline_events(
     )
 
 
+def validate_stk_mins_qfq_macd_kdj_baseline_selection(
+    *, start_date: str, end_date: str, partition_keys: Sequence[str] | None
+) -> str:
+    """Validate the write scope without opening an instance or discovering files."""
+    if not start_date or not end_date or start_date != end_date:
+        raise ValueError("Baseline events require equal --start-date and --end-date.")
+    requested_day = date.fromisoformat(start_date.strip()).isoformat()
+    if partition_keys is not None:
+        requested_keys = {
+            date.fromisoformat(key.strip()).isoformat() for key in partition_keys
+        }
+        if requested_keys != {requested_day}:
+            raise ValueError("Baseline --partition-keys must select only the requested day.")
+    return requested_day
+
+
 def report_stk_mins_qfq_macd_kdj_baseline_events(
     *,
     instance: dg.DagsterInstance,
@@ -211,13 +228,16 @@ def report_stk_mins_qfq_macd_kdj_baseline_events(
     duckdb: DuckDBResource,
     registered_partition_keys: Sequence[str],
     partition_keys: Sequence[str] | None = None,
-    start_date: str = STK_MINS_QFQ_HISTORY_START_DATE,
-    end_date: str | None = None,
+    start_date: str,
+    end_date: str,
     freqs: Sequence[int | str] | None = None,
     years: Sequence[int | str] | None = None,
     dry_run: bool = False,
     skip_existing_ready: bool = False,
 ) -> StkMinsQfqMacdKdjBaselineEventReport:
+    requested_day = validate_stk_mins_qfq_macd_kdj_baseline_selection(
+        start_date=start_date, end_date=end_date, partition_keys=partition_keys
+    )
     plan = plan_stk_mins_qfq_macd_kdj_baseline_events(
         instance=instance,
         lake_root=lake_root,
@@ -230,6 +250,8 @@ def report_stk_mins_qfq_macd_kdj_baseline_events(
         duckdb_resource=duckdb,
         include_check_success_counts=False,
     )
+    if plan.selected_partition_keys != (requested_day,):
+        raise ValueError("Baseline plan must select exactly the requested day's partition.")
     file_audit = audit_stk_mins_qfq_macd_kdj_files(
         lake_root=lake_root,
         registered_partition_keys=registered_partition_keys,
