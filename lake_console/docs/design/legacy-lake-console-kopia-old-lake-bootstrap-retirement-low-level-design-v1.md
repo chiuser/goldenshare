@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 完成、本次提交归档 / M4 未开始 / 文档矩阵 156 份 / 其余具体删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 字段边界已确认、待实施（见 §11） / 文档矩阵 156 份 / 其余具体删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -1727,6 +1727,26 @@ uv run --no-sync python /private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_iso
 后续只进入 M4 的单独审计/实施：先处理仍在用的 Raw 恢复工具，再解除 generic old-lake adapter；不把 M3 零引用结论推广到它们。
 
 ### M4：重构 Raw 恢复工具并删除 generic old-lake adapter
+
+#### M4 开工对账（2026-09-05，基线 `1b0deb63`）
+
+用户已授权进入 M4。开工核验曾因 Raw/Silver 字段继承规则暂停；历史追溯与用户最新拍板已撤回该阻塞判断：保持现有字段及日常链路不变，`vwap` 差异不处理。当前仅完成开工审计与规则/文档纠正，尚未进入 M4 编码或删除。M4 不包含正式恢复、写湖、补事件、部署或 M5/M6/M8。
+
+| 核验项 | 当前代码证据 | 结论 |
+|---|---|---|
+| 恢复工具入口与范围 | 完整阅读 `bootstrap/stk_mins_raw_replace_from_prod.py`（989 行）、CLI（76 行）与专属测试（365 行）；CodeGraph `explore/impact/callers` 加全仓引用核验 | 正向运行调用方只有专属 CLI；日常 prod Raw `reuse_existing` 不替代覆盖恢复。仍需按 §6.4 保留业务能力并重构 |
+| Raw/Silver 既有字段差异 | `run_contracts/asset_column_schemas.py` 的 `RAW_STK_MINS_SCHEMA` 含 `vwap DOUBLE`；`SILVER_STK_MINS_SCHEMA` 不含它 | 这是既有字段契约差异，不能仅凭差集认定为实现 bug 或待修复技术债 |
+| 当前写入与契约一致 | `assets/stk_mins.py::_prod_db_raw_stk_mins_output_sql` 输出 `vwap`；`_create_silver_stk_mins_base_tables` 没有投影它；`_write_distinct_silver_stk_mins_rows` 按 Silver 字段常量写文件 | 当前 Silver 实现确实不输出 `vwap`；未读取正式物理分区，不宣称完成数据盘点 |
+| 现行契约有明确测试 | `_silver_stk_mins_extra_metadata` 的 `vwap_policy` 写明排除；`test_stk_mins_contracts.py:191` 和 `test_stk_mins_silver_m5b_contracts.py:536` 明确断言不存在 | 保留这些断言与现行字段；不补列、不删除断言，不作为 M4 待办 |
+| 擅改字段的影响 | CodeGraph `impact write_silver_stk_mins_partition` 命中五频日常 Silver assets、Silver history/CLI、Silver replace/CLI | 字段变更会触及保留链路，M4 不做此类变更；这只是已核实的直接影响面，不代替将来真正变更契约时的全消费者审计 |
+
+**原 G0 阻塞判断已撤回，不再要求补 `vwap` 或单独治理。** 历史追溯确认：2026-05-31 的分钟线 Silver 清洗与标准化设计（`c864e139`）已明确 Raw 保留、Silver 排除 `vwap`，见 [`dagster-stk-mins-asset-design.html` §8.7/8.9](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-asset-design.html)；随后 `068e5ef2` 落地字段契约与排除断言，`01d25486` 落地资产及检查。字段继承规则于 2026-06-08 的 `9c9812ab`（分钟线 sensor 时窗调整提交）加入，未同步修改上述契约。未取得该规则产生时的原始对话，不推断它原本针对哪个具体漏字段问题。此前只按通用规则认定既有设计为字段缺口，是本次审计判断错误，不是已经证实的运行故障。
+
+**2026-09-05 用户拍板并已落档：** 删除 `orchestrator/AGENTS.md` 整段 Raw/Silver 字段继承门禁，以及根 `AGENTS.md` 第 36 条同义要求，不再强制 Silver 覆盖 Raw 全部字段。Raw → Silver 允许按数据清洗和具体业务契约形成不同字段集合；本次 `vwap` 差异不处理、不列待修复事项、不另设字段治理任务。M4 保持 Raw/Silver 字段、现有字段测试及日常处理链路不变，仅按 §6.4/6.5 修改恢复流程和来源声明，再清退旧适配器。移除一刀切规则不授权随意增删现有字段；既有契约变更审计要求不变。此项已确认，不需要重复拍板，也不代表 M4 已实施或验收。
+
+验证：原恢复工具 10 项测试经既有隔离 runner 全通过（1.07 秒，44 warnings），使用临时 Lake、临时 DuckDB spill、替身源，拦截网络与正式 `DagsterInstance.get()`；未新增或删除任何代码文件，未访问正式数据/实例。性能预算仍见 §6.4.4，未进行生产导出测量，不将历史样本当当前性能保证。
+
+以下为批准的阶段步骤，不因完成开工对账而算作已实施：
 
 1. 先按第 6.4 节重构 `stk_mins_raw_replace_from_prod`：candidate/report/checkpoint 迁正式 staging，删除
    生成正式根 `_staging/_quarantine` 和 backup 的代码，增加逐文件 fingerprint 状态机、重入判定和幂等续跑测试；本阶段不清既有物理目录。

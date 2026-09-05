@@ -445,19 +445,6 @@ duckdb_compute/_tmp
 2. 若目的是按数据湖分区批量读取数据，必须明确说明使用的是目录分区列还是文件内部字段。
 3. 禁止把 DuckDB 自动推断出来的目录分区列，误当成 parquet 文件内部真实字段。
 
-### Raw / Silver 字段继承门禁
-
-`raw` 层是源站事实镜像，`silver` 层是在 raw 字段全集基础上的标准化、清洗和补充，不是字段裁剪层。新增或修改任何 raw/silver 成对数据资产时，silver 字段契约必须覆盖对应 raw 字段契约；允许增加标准化字段、派生字段和治理字段，但不允许删除、丢弃或静默省略 raw 字段。
-
-规则：
-
-1. 对同一个 `dataset_id` 的 raw/silver 成对资产，`SILVER_*_SCHEMA` 必须包含 `RAW_*_SCHEMA` 的全部业务字段；新增标准化字段只能追加，不能替代到 raw 字段消失。
-2. raw 字段需要类型标准化时，silver 中仍必须保留该字段名，并把类型写成 silver 层稳定类型；例如 raw `trade_date VARCHAR` 可在 silver 中成为 `trade_date DATE`。
-3. raw 字段需要更清晰的业务命名时，允许在 silver 中额外新增标准化别名字段，但不得只保留别名而删除 raw 字段；例如新增 `change_amount` 时，仍必须保留 raw 字段 `change`，除非用户单独拍板字段重命名迁移方案并同步全部消费者。
-4. 禁止因为“当前下游暂时不用”“字段看起来冗余”“UI 不展示”“节省空间”而裁剪 raw 字段。
-5. 现有数据资产若已存在 raw 字段未进入 silver 的情况，必须标记为待修复技术债；后续只要改动该数据集 schema、写入 SQL、catalog entry、checks、bootstrap 或历史补录，就必须同步消除该字段缺口，不得扩大或固化例外。
-6. 字段继承必须有静态门禁或契约测试：新增/修改 raw/silver schema 时，测试应断言 silver 字段集合覆盖 raw 字段集合，并明确列出任何已获用户拍板的重命名迁移例外。
-
 ### Silver 层时间字段标准化门禁
 
 `raw` 层保持源站镜像口径，`silver` 层负责形成 Goldenshare 内部稳定可计算的数据事实。因此 `silver` 层必须对时间语义字段做类型标准化，但不能断章取义、机械转换。
