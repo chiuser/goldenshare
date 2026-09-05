@@ -739,7 +739,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
 
             with patch.object(
                 derived_events,
-                "_check_success_count",
+                "count_succeeded_asset_check_executions",
                 side_effect=AssertionError("report path must not scan check history"),
             ):
                 dry_run = report_stk_mins_qfq_derived_bootstrap_events(
@@ -852,7 +852,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
 
             with patch.object(
                 derived_events,
-                "_check_success_count",
+                "count_succeeded_asset_check_executions",
                 side_effect=AssertionError("quick audit must not scan check history"),
             ):
                 final = audit_stk_mins_qfq_derived_final_state(

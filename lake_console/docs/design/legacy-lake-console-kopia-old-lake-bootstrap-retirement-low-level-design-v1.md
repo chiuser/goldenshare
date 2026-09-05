@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 复审修订 / 文档矩阵 154 份 / Raw 恢复续跑与性能口径修正 / M8 数据清单待逐项完成 / 尚未实施
+状态：2026-09-05 M1 当前 helper 迁出及隔离验证完成、待 review / M2 未开始 / 文档矩阵 156 份 / 具体删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -11,7 +11,16 @@ HEAD、CodeGraph 状态和精确文件白名单。
 
 初审日期：2026-08-28；本次复审：2026-09-05，`dev-interface@10521877`（代码边界仍为 263 个旧产品文件）
 
+物理用途审计补充：2026-09-05，`dev-interface@75af8445`；本次点时结果见 §16.4–16.8，不覆盖上文历史基线。
+
+后续执行补充：2026-09-05 08:21–08:24 +08:00，核验时 HEAD 为 `dev-interface@ca625748`；
+单项 backup 删除见 §16.9，报告用途复核见 §16.10。其他任务提交造成的 HEAD 推进不纳入本专项改动。
+
 上位方案：[`legacy-lake-console-and-kopia-retirement-plan-v1.md`](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
+
+**最新数据清退口径**：用户已确认只依据代码直接使用判断用途，取消完整性、日期范围、内容替代和历史
+价值审计。执行规则见 §16.1，当前批量清单见 §16.14；此前物理审计中的待核内容差异、人工取证/副本
+确认等不再作为前置项。M4 写湖安全与代码回归要求不变，本轮不执行代码或数据删除。
 
 > 本文是本专项的代码实施依据。上位方案负责说明为什么清退、清退边界和阶段顺序；本文负责说明每个混合文件、运行契约、CLI、测试和文档具体如何修改。若实施时当前代码已经偏离本文审计基线，必须先重新做 CodeGraph 和文本引用审计，不能机械套用本文行号。
 
@@ -496,11 +505,14 @@ def all_raw_stk_mins_partition_keys(lake_root: Path) -> tuple[str, ...]: ...
 
 ```python
 def _validate_stk_mins_partition_alignment(
-    partition_keys_by_freq: Mapping[int, tuple[str, ...]],
-) -> tuple[str, ...]: ...
+    partitions_by_freq: Mapping[int, tuple[str, ...]],
+) -> None: ...
 ```
 
 保持 fail-closed：任一频率多/少日期都失败，不自动取交集掩盖缺文件。
+
+M1 开工复核：旧函数实际返回 `None`，日期 tuple 由调用方取得。上面的签名已按当前代码纠正，
+不新增返回行为；比较基准、异常类型和异常文字均原样保留。
 
 #### 5.2.3 Asset check success 计数
 
@@ -1097,13 +1109,14 @@ Lake 的历史 `_quarantine` 执行证据，补出两份只记录正式 Dagster 
 旧 Console/Kopia，也不提供旧湖执行入口，统一登记为 `KEEP_CURRENT_VERIFY`；原矩阵遗漏是扫描口径
 过窄，不是删除范围扩大。
 
-矩阵现在由三份机器可复跑的候选清单交叉生成：
+矩阵由以下候选清单交叉生成：
 
 1. 86 份待删文档、三个待删模板、旧 frontend/backend 路径的反向引用清单。
 2. `OLD_LAKE_BOOTSTRAP|old_lake_root|BootstrapDatasetSpec|BootstrapSourceMethod|old_lake_executor`、
    Kopia、旧物理湖路径、`lake_console/backend|frontend`、`stk_mins_raw_replace_from_prod`、旧
    `_staging/_quarantine` 口径的全仓 tracked 文本命中清单。
 3. 本表路径存在性、唯一性和处理码计数清单。
+4. 实际物理文件的绝对路径、相对路径和文件名反向引用清单；关键词扫描未命中，不代表没有物理证据依赖。
 
 `lake_console/backend/**`、`lake_console/frontend/**`、`lake_console/config.local.example.toml` 等位于263个
 旧产品直接删除边界内的 AGENTS、skills、说明和配置，由精确 Git 删除白名单整体覆盖，不在本表重复列。
@@ -1115,9 +1128,12 @@ Lake 的历史 `_quarantine` 执行证据，补出两份只记录正式 Dagster 
 为 0”只对应 2026-08-28 M0 基线，不能作为仓库继续开发后的永久完整性保证；旧发现方式不足和后续
 仓库变化都会产生新候选，必须在每次执行前重新扫描，而不是保证未来不会新增遗漏。
 
-本矩阵共 154 份文件：3 份迁移后删除、33 份现行文档修改、12 份混合文档局部修改、86 份纯旧文档
-删除、20 份现行文档只验证。86 份删除目标全部逐文件列名；任何新增发现必须先补矩阵，禁止扩大目录级
-删除范围。实施 M0、M5 和 M7 均要求三份候选清单的未归类命中、重复路径和不存在路径为 0。
+本次从 reports 的具体 CSV 反查，再补两份已经标明被替代的正式指数设计文档。它们不含旧 Console
+关键词，也不是旧产品删除对象；登记为只验证保留。不能把其历史 CSV 初始化口径当当前代码事实。
+
+本矩阵共 156 份文件：3 份迁移后删除、33 份现行文档修改、12 份混合文档局部修改、86 份纯旧文档
+删除、22 份只验证保留。86 份删除目标全部逐文件列名；任何新增发现必须先补矩阵，禁止扩大目录级
+删除范围。实施 M0、M5 和 M7 均要求上述清单的未归类命中、重复路径和不存在路径为 0；物理用途待审不能算闭环。
 
 #### 9.4.1 当前规则、索引、模板和正式 Dagster 文档
 
@@ -1151,6 +1167,8 @@ Lake 的历史 `_quarantine` 执行证据，补出两份只记录正式 Dagster 
 | `docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md` | `MODIFY_MIXED` | 保留生产 PostgreSQL 当前设计；把旧 backend mapping 标为历史审计参照，去掉当前消费者含义 |
 | `lake_console/docs/design/dagster-index-daily-raw-by-date-prod-db-migration-plan.md` | `MODIFY_MIXED` | 保留 Dagster 当前方案；旧 backend service 只保留为当时字段口径证据，不可链接为实现依赖 |
 | `lake_console/docs/design/dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md` | `MODIFY_MIXED` | 同上；删除/转文本旧 backend 代码链接 |
+| `lake_console/docs/design/dagster-phase-3-index-daily-refactor-design.html` | `KEEP_CURRENT_VERIFY` | 已标为被替代的正式指数历史设计，不是旧 Console 文档；CSV 初始化段只作历史证据，不能用其 948 代码重建当前 820 代码集合。报告处置按 §16.6，不连带删本文或分区集合 |
+| `lake_console/docs/design/dagster-phase-3-index-daily-refactor-low-level-design.html` | `KEEP_CURRENT_VERIFY` | 同上；全文已审，raw-by-code/旧 Tushare sensor 不是当前运行链。当前代码读取正式 instance 的 cn_a_index_ts_codes，不运行本文历史初始化步骤 |
 | `lake_console/docs/design/dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md` | `MODIFY_MIXED` | 把待删除旧算法 producer 更新为已清退事实；保留正式 Dagster 算法和验收记录 |
 | `docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md` | `MODIFY_CURRENT` | 删除旧 index-mins/indicator/MACD 文档引用，改指正式 major-index 分钟接入、canonical bars 和现行 MACD/KDJ Dagster 设计 |
 | `lake_console/docs/design/dagster-stk-mins-asset-design.html` | `MODIFY_CURRENT` | 删除 clean_next 代码集合审计原文链接；保留已写入本文的停牌/身份映射/非 strict equality 正式语义，并改引历史迁移总账 |
@@ -1162,7 +1180,7 @@ Lake 的历史 `_quarantine` 执行证据，补出两份只记录正式 Dagster 
 | `lake_console/docs/design/dagster-stock-limit-assets-design.md` | `MODIFY_CURRENT` | 尚未开发的现行方案不得再计划从物理旧湖 bootstrap；保留旧湖审计为历史证据，实施前重新审计 prod DB/Tushare 的完整历史来源并重做初始化预算 |
 | `lake_console/docs/design/dagster-adj-factor-asset-design.md` | `MODIFY_MIXED` | 保留 M5/M6 已发生的旧湖迁移、行数和 event 记录；删除当前代码依据中的 generic bootstrap 可用性和可执行 spec 表述，明确后续不再复用旧适配器 |
 | `lake_console/docs/design/dagster-namechange-asset-design.md` | `KEEP_CURRENT_VERIFY` | 旧湖只作为已明确的历史只读审计证据，正式来源是 Tushare；确认不新增旧湖执行入口即可，不改历史数字 |
-| `lake_console/docs/design/dagster-stk-mins-prod-task-run-readiness-low-level-design.md` | `MODIFY_MIXED` | 保留 2026-07-27 事故、109.973秒、1,776,093行；当前 Raw 恢复实现改指第6.4节，不误改 Silver 工具合同。M8 删除旧 Raw manifest 前先保留其 run/date/status/五频指纹摘要，将物理路径标为历史位置及实际清退状态，不保留失效的现行证据入口 |
+| `lake_console/docs/design/dagster-stk-mins-prod-task-run-readiness-low-level-design.md` | `MODIFY_MIXED` | 保留 2026-07-27 事故、109.973秒、1,776,093行；当前 Raw 恢复实现改指第6.4节，不误改 Silver 工具合同。M8 删除 D04/D05 时，将物理路径注明为历史位置及实际清退状态，已有摘要保留；不再将搬迁完整 manifest 或重新审计人工取证价值列为数据删除前置项（§16.14） |
 | `wealth/docs/pages/stock-detail/stock-detail-minutes-api-implementation-design-v1.md` | `MODIFY_CURRENT` | 保留“不依赖旧 backend”的边界；M6 后把“是本地管理台”改为“已清退的旧管理台”，避免把已删产品写成当前存在 |
 | `wealth/docs/pages/stock-detail/stock-detail-minutes-api-benchmark-requirement-v1.md` | `MODIFY_CURRENT` | 保留性能合同和不导入旧 router 的负向门禁；M6 后更新旧 backend 时态 |
 | `wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md` | `MODIFY_CURRENT` | 保留 Foundation Reader/Biz API/Wealth 页面当前链；M6 后把旧 backend 行改为已清退且禁止恢复 |
@@ -1391,6 +1409,67 @@ lake_console/reports/**
 4. 更新对应测试并跑定向回归。
 5. 此阶段不删旧 migration 文件，保证每一步可验证。
 
+#### M1 本轮执行约束（2026-09-05）
+
+基线 `dev-interface@650c549d`。用户要求继续推进后进入本阶段；仅迁出当前能力，旧迁移模块及旧 CLI
+保持原文件不动，直到 M2/M3 分阶段退出，不新增旧名 wrapper、alias 或新模块对旧迁移的依赖。
+
+| 硬口径 | 代码落点 | 验证 |
+|---|---|---|
+| 四个事件模块不再导入旧 migration 的计数函数 | `stk_mins_history_check_events.py` 与 §5.2.3 四个消费者 | 真实消费者接线、只计 SUCCEEDED、空历史和读取异常、每 check 恰好一次 limit=50000 查询 |
+| Raw 发现及五频校验归 Silver history | `stk_mins_silver_history.py` 的 discover/all_raw/alignment | 空目录、排序、只认 part-000 普通文件、不同频率缺日/多日必须失败；Raw/Silver 调用方均覆盖 |
+| 不改变写入、参数、选择范围与成功口径 | 原 CLI/migration 原样；四个事件模块只改 import 和调用名 | 固定期望值、现有定向测试、静态无旧 import；derived/MACD quick 模式仍跳过历史计数 |
+| 不运行正式环境、不删除物理数据或旧产品文件 | 本轮仅代码和测试重构、原三份文档同步 | 临时目录/fake instance 隔离；最终 diff 核对无删除、无 paths/catalog/SQL/asset/check 定义改动 |
+
+性能与验证范围：
+
+| 项目 | 本轮预算及边界 |
+|---|---|
+| 对象/日期/分区 | discovery 固定五频；隔离样本最多三日、十五个主路径，另设错误路径；不扫描正式湖 |
+| 请求/分页/行数 | 计数 helper 每 check 一次 history 查询、limit=50000，原样保留；fake 样本覆盖零条、混合状态和 50000 条；Tushare/生产 DB 请求为 0 |
+| 扫描与写入 | 只迁路径发现与计数，不增 Parquet scan/join/write/spill；测试数据及 DuckDB temp 只能在隔离临时目录 |
+| 提交/替换/重试 | 不改正式 writer、事务、replace 或 checkpoint；helper 读取异常原样上抛，不新增重试或吞异常 |
+| 耗时/空间/配额 | 不新增运行查询次数；测试规模固定，记录实际用时；无生产配额、正式数据磁盘增量或全量执行 |
+| 拒绝项 | 新增生产访问、增加 history 查询次数、降低五频一致性或引入旧模块依赖，任一出现即停止验收 |
+
+CodeGraph `explore/impact` 已覆盖迁出函数、Silver history、四个事件消费者和 CLI/测试；全仓程序引用
+补扫确认离线 strict audit 的同名 discover 是独立定义，不属于本轮迁移，不顺手合并。参考
+[Dagster asset checks 官方说明](https://docs.dagster.io/guides/test/asset-checks)，本轮不改 check 定义或注册。
+#### M1 实施与验证结果
+
+已完成代码迁移，尚未提交或部署；本轮停止在 M1，不执行 M2 或任何文件删除。
+
+| 文件（以下 Python 路径相对 orchestrator） | 结果 |
+|---|---|
+| `src/orchestrator/defs/bootstrap/stk_mins_history_check_events.py` | 新增公开计数 helper，保留原查询次数、上限、状态过滤和异常传播 |
+| `src/orchestrator/defs/bootstrap/stk_mins_silver_history.py` | 承接 discover/all_raw/alignment，Raw 与 Silver 日期对齐保持原语义 |
+| `src/orchestrator/defs/bootstrap/stk_mins_silver_bootstrap_events.py` | final audit 改用新计数 helper |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_bootstrap_events.py` | plan/final audit 所用计数改接新模块 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_derived_bootstrap_events.py` | full 计数改接新模块，quick/report 跳过计数行为不变 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_baseline_events.py` | indicator/state 计数改接新模块，可选跳过行为不变 |
+| `tests/test_stk_mins_history_helpers.py` | 新增 Raw/Silver 路径、排序、空集、五频差异、选择和依赖防回退测试 |
+| `tests/test_stk_mins_history_check_events.py` | 新增只读计数、50000 上限、异常、四个真实消费者和 full/quick 接线测试 |
+| `tests/test_stk_mins_qfq_m11f_derived_history.py` | 两处 mock target 随公开 helper 改名；原“不得扫描历史”负向断言不减弱 |
+
+验证结果：
+
+1. 开工前 static gates：108 passed；改后定向组合：**155 passed、450 subtests passed、5.80 秒**。
+   包括两份新测试（33 项）、static gates、asset governance、Silver helper 不注册组件检查，以及
+   MACD/KDJ 内存配置与原 CLI 默认对象范围检查。16 条 warning 来自既有 Dagster/Pydantic 依赖提示。
+2. 改动 Python 文件默认 Ruff、全 orchestrator `E9,F63,F7,F82` 均通过。
+3. 结构等价核验：4 个迁出函数在名称/说明归一化后 AST 相等；5 个保留模块去除已审计 import、迁入函数
+   并归一化调用名后 AST 相等。旧 migration 与旧 CLI 对开工基线逐字未变，当前五个消费者旧 import 为 0。
+4. 现有部分集成测试会使用正式盘 DuckDB temp，因此本轮没有全跑 Silver/QFQ/derived/MACD 写湖集成测试；
+   不把上述 155 项冒充完整链路或生产验收。正式 `dg check defs`、job/sensor、生产数据读取/写入均未执行。
+   更新 mock target 的两条原 derived 写湖集成用例本轮未执行，已由新隔离 full/quick 接线测试覆盖迁移契约。
+5. 没有改变 asset/check/partition/job/sensor 定义、路径/schema/catalog/SQL、业务 writer、前端/API、
+   Ops Snapshot 或 ignored 配置；子系统边界与依赖矩阵不变，只解除 bootstrap 内当前模块对旧迁移的 import。
+6. 文档完整性检查、`git diff --check` 通过；CodeGraph 已 sync 且 current。没有删除文件，既有 156 份
+   文档矩阵与 263 个旧产品文件清单未变；其它任务的工作区改动保留，未纳入本轮。
+
+下一步为 M2A：先冻结 21 个当前 CLI 命令合同，再迁移四个 CLI 并做双跑等价验证；本轮不提前切入口。
+旧模块中原实现保持冻结，不是新增兼容实现，也不代表已经符合 M3 的整文件删除前提。
+
 ### M2A：当前 CLI 行为等价迁移
 
 1. 新增 shared CLI contract、冻结 fixture 和 old/new 等价测试。
@@ -1454,10 +1533,10 @@ M5 不提前把仍存在的旧 Console 代码写成“已删除”；当前规�
 
 ### M8：精确清退已证实无用的物理数据
 
-1. 复核代码清退实施前已完成的 §16 对象清单；删除在 M0–M7 验收后独立进行，须先取得用户对具体删除清单的确认。
-2. 对每个拟删对象重新核对引用、正式替代数据、运行/恢复状态、路径/指纹和证据摘要；未核清的不删。
-3. 只删除已确认的精确文件或经核实为空的最末级目录，不清根、不跟随符号链接、不混入 ignored 环境。
-4. 记录删除数/字节数/结果和能否恢复；同步历史文档，复核受保护文件指纹和当前消费者未变化。
+1. 复核代码清退实施前已完成的 §16 对象清单；删除在 M0–M7 验收后独立进行，须先取得用户对具体删除清单的确认。§16.9 的单项 backup 是用户明确批准提前删除的唯一例外，不扩展到其余目标。
+2. 按 §16.1/16.14 复核代码入口、配置与动态路径；不再核正式替代数据、完整性、日期、全量内容哈希或历史价值。
+3. 只删除用户确认的精确数据集目录、恢复 run 目录或单文件；执行前核 realpath、范围、符号链接、跨挂载和占用。不清根、不跟随链接、不混入 ignored 环境。
+4. 记录执行结果和能否恢复；历史文档中的物理位置改为当时位置/实际清退状态。核保留路径和代码未被触碰，不对正式数据新增内容扫描。
 5. M8 清单与执行结果单独 review，不能用 M7 测试全绿代替数据用途判定。
 
 ---
@@ -1611,8 +1690,8 @@ M8 删除前必须在清单中明确恢复能力。非 Git 数据没有既有可
 
 ### 14.6 M8 物理数据
 
-- [ ] §16 候选逐项归类，有消费者证据、精确文件、指纹、数据替代/恢复状态和恢复能力说明。
-- [ ] 依赖和证据迁移先完成，删除前复核无漂移；仍在用和未核清的对象未删。
+- [ ] §16.14 按代码引用归类，有消费者证据、精确目录/文件、依赖前置项和恢复能力说明；不要求内容替代证明。
+- [ ] 旧代码依赖先退出，用户确认具体清单，删除前机械安全检查通过；当前使用及引用范围未核清的对象未删。
 - [ ] 实际删除与白名单一致，正式数据和共享目录未被误删；历史证据位置已更新。
 - [ ] 未删除对象保留原因显式列出；不能把“未核清”当清退完成，也不为结案强制清空目录。
 
@@ -1647,28 +1726,45 @@ fingerprint/checkpoint/verified 状态、幂等续跑和无 backup 恢复是实�
 
 ---
 
-## 16. 物理数据用途审计与清退清单（2026-09-05 新口径）
+## 16. 物理数据代码用途审计与清退清单（2026-09-05 更新）
 
 ### 16.1 判定规则与执行边界
 
 本节替代旧版 §1.3/1.4、§13.4/14.5 的“物理数据本专项一律不处理”。范围限本专项涉及的旧 Console
 数据、旧迁移输入、旧恢复遗留文件和报告，不扩成全盘数据治理，也不包含删除业务数据库/Dagster 历史。
-“代码没直接引用路径”不足以单独判可删，还须排查动态 glob、配置入口、CLI、在途任务、checkpoint/
-恢复依赖、历史证据引用，以及是否存在仍需保存的唯一有效数据。物理旧湖的审计不等于允许 DG 重新读取它。
+用户已明确：代码没有直接使用的数据不再需要。直接使用包括真实读写、配置指定、路径拼接、glob，
+以及代码读取 manifest/checkpoint 后继续读写的具体文件；不等于完整路径字符串命中。仅在禁止规则、
+历史文字中提及不算使用。当前工具能接受任意文件参数，也不能据此把所有未指定文件永久判为在用。
+取消日期/行数/schema/完整性、旧新内容差异、历史价值、副本承接及假设的人工用途审计；不恢复旧湖迁移。
 
 | 处理状态 | 判断与动作 |
 |---|---|
 | `KEEP_IN_USE` | 有当前生产/查询/恢复/审计用途，保留；若未来解除依赖，重新审计 |
-| `PENDING_AUDIT` | 代码引用未闭环、在途状态未知、数据替代关系不明或存在唯一有效数据风险，暂保留，不能放入删除白名单 |
-| `DELETE_AFTER_DEPENDENCY` | 已确认仅属退出能力/旧版本，但仍需先解除代码或证据引用；前置项通过后再转可删 |
-| `DELETE_READY` | 当前用途、恢复/证据价值、替代关系均已核清；仅表示具备提请删除资格，用户确认精确白名单且删除前复核通过后才可执行 |
+| `PENDING_AUDIT` | 仅用于代码/配置实际读写范围还没核清；不是因数据独有、年代早或副本未知而延长审计 |
+| `DELETE_AFTER_DEPENDENCY` | 只有本专项待清退旧代码读写；先退出对应旧入口，再列入可删清单，不要求数据内容承接 |
+| `DELETE_READY` | 已核无当前代码数据读写/续跑用途，可提请删除；不是已授权删除，仍须具体清单确认及原 M8 阶段/机械安全验收 |
+| `DELETED` | 精确对象经用户确认并执行删除、完成删除后核验；不等于同目录其他对象或整个 M8 完成 |
 
-每份实际执行清单必须记录：审计时间/HEAD、绝对路径及 realpath、类型、文件数、字节数、逐文件 SHA-256、
-消费者/配置/动态扫描证据、在途或恢复状态、替代正式数据证据、文档摘要位置、处理状态及理由、前置项、
-能否恢复、用户确认的清单范围/记录、删除后核验。执行前发现路径、符号链接、指纹、消费者或运行状态变化即停止该项。不允许
+每份实际执行清单只需记录：审计时间/HEAD、精确绝对路径及类型、代码引用与分类、待退出依赖、用户确认
+范围、机械安全检查、执行结果和能否恢复。已有文件数/字节数可作范围参考，不额外读内容或遍历行数据。
+执行前核 realpath、目录边界、符号链接、跨挂载、占用及新增消费者；异常则停该项。不允许
 `/Volumes/datasource`、正式/旧 Lake 根、`_quarantine`、`reports` 等共享上层目录成为递归删除目标。
 
-### 16.2 已完成的定点核验与尚未完成的审计
+§16.2、16.4–16.7、16.9–16.10、16.12–16.13 是已发生的历史审计记录；其中基于内容差异、唯一历史、人工恢复
+价值或证据迁移的保留结论与待办已被本节替代，不再执行。当前分类只看 §16.14；§16.9 已批准删除的事实
+不变，§16.11 停牌规则 TODO 继续有效。此简化不降低 §6.4 新恢复工具的候选校验、fingerprint/checkpoint
+和写入安全要求——清退无用旧数据与生成/替换正式数据是两件事。
+
+**单对象明确批准例外（2026-09-05）**：用户确认
+`/Volumes/datasource/backup/research/stk_mins_by_date_clean_next` 只是基础版本备份，无需再审内容，
+并在确认精确路径后要求删除、继续推进。此对象不再要求内容替代证明或逐 Parquet 内容 SHA-256，
+也不等待 M0–M7；仅做路径、无符号链接/跨挂载、范围元数据和占用检查后精确删除。记录执行前逐文件
+路径/类型/大小/mtime/device/inode 清单及其摘要指纹，删除后确认目标消失、排除对象仍在。
+旧湖内 `research/stk_mins_by_date_clean_next` 与正式 Raw 完全排除。旧迁移默认源将不可用，
+`specs/stk_mins.py` 等旧代码仍按 M3 清退，不重建源、不重启迁移。此批准不是其他数据、代码或文档的
+删除授权；非 Git 备份直接删除不承诺可恢复。执行结果见 §16.9，其他对象仍遵守上文通用门禁。
+
+### 16.2 首轮定点核验记录（历史取样，后续进展见 §16.4–16.10）
 
 本轮使用 CodeGraph explore 核对 Raw recovery/CLI/rollback 和其他 quarantine 使用方，再核对实际代码、
 tracked 文本引用、定点目录与 SHA-256。没有运行 Kopia、Dagster 或生产查询，没有启动恢复、改数据或删除文件。
@@ -1706,7 +1802,588 @@ tracked 文本引用、定点目录与 SHA-256。没有运行 Kopia、Dagster �
 
 ### 16.3 M8 完成条件
 
-每个已纳入范围的对象都必须有结论及证据；有用的保留是合格结论，未知用途不是“默认已清退”。删除只针对
-`DELETE_READY` 清单，不能把 `DELETE_AFTER_DEPENDENCY` 的前置条件跳过。清理不会保证所有旧目录消失，
-也不建立周期性自动清理任务。若审计发现需要迁移仍在用的唯一数据，先停该项，给出迁移影响与方案，不擅自
-改消费者来达到删除目的。M8 未完成的清单不能用本次文档修订或 M0 历史结论代替。
+每个已纳入范围的对象都必须按当前代码读写用途形成结论；保留代码使用的保留，无代码用途的不再追加历史
+价值或内容承接证明。删除只针对经用户确认的 `DELETE_READY` 清单，不能跳过 `DELETE_AFTER_DEPENDENCY`
+的旧代码退出前置条件。清理不保证所有旧目录消失，也不建立周期性自动清理任务；不擅自修改保留消费者
+来达到删除目的。完成记录须包含精确范围、确认依据、机械安全检查及执行结果，文档分类不能代替实际清退。
+
+### 16.4 2026-09-05 首批物理用途审计：做到了哪一步
+
+本批基线 `dev-interface@75af8445`，运行态取样时间为 07:55–07:58 +08:00。只读取代码、文件、
+本机进程、Dagster GraphQL 查询及正式本机 `goldenshare_dagster` 的指数动态分区表；未执行 Kopia、
+恢复 CLI、job、sensor evaluation、materialization、生产 DB 查询或任何数据删除。
+Dagster 表查询先设置只读事务，查询后 rollback；没有改运行状态或分区集合。
+
+方法与局限：
+
+1. CodeGraph `status/explore/callers` 覆盖旧 bootstrap spec/executor、分钟恢复、当前 WMT 恢复输入；
+   对图索引没有覆盖的动态路径、配置、CSV 文件名和历史引用，直接核对当前文件。
+2. 逐目录枚举文件元数据，不跟随符号链接；每根预算为 45 秒或约 60 万目录项，在完成当前目录后检查预算。
+   不扫描全湖 Parquet 行、不执行旧湖 bootstrap。大文件不因同名、同日期或目标存在就判为已完整替代。
+3. 表中为普通文件数和逻辑字节数，含隐藏元数据；不是 Parquet 行数，也不等于可释放磁盘空间。
+   五个根的 realpath 都等于记录的绝对路径；已访问范围没有符号链接或读取错误。
+4. 原始逐文件路径/大小/mtime/device/inode 清单和查询结果在
+   `/private/tmp/lake-retirement-audit-20260905.F0fmIk/`，属于可失效的临时审计产物；稳定结论保存在本节。
+   `old_lake.csv/clean_next.csv/quarantine.csv/reports.csv` 为完整枚举，`staging.csv` 是部分枚举。
+   它们没有全量内容 SHA-256，不能直接当删除执行清单。删除前必须重新生成并冻结精确白名单。
+
+| 根/对象 | 普通文件数 | 逻辑字节数 | 本批完成程度 |
+|---|---:|---:|---|
+| `/Volumes/datasource/goldenshare-tushare-lake` | 297730 | 509788479887 | 元数据枚举完整，17.42 秒；逐数据集内容替代关系尚未完成 |
+| `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next` | 21047 | 67676449533 | 元数据完整，1.14 秒；21045 个 Parquet 的对应正式路径全部存在，但尚未做全量内容对账 |
+| `/Volumes/datasource/data_lake/_quarantine` | 75265 | 14845426378 | 元数据完整，5.87 秒；只对两个五频恢复 run 完成 old/new SHA 核验 |
+| `/Volumes/datasource/data_lake_staging` | 至少 40787 | 至少 4925835331 | 25.03 秒触达目录项预算，已访问 600436 项，尚有 4287 个待遍历目录；不声称全量统计 |
+| `/Users/congming/github/goldenshare/lake_console/reports` | 4 | 200145 | 三个 tracked CSV 及 `.DS_Store`；三个 CSV 均完整解析并计算 SHA-256 |
+
+运行态点时证据：
+
+- `127.0.0.1:3000` 返回 Dagster 1.13.18；查询 `QUEUED/NOT_STARTED/MANAGED/STARTING/STARTED/CANCELING`
+  的 run 总数为 0。这只证明取样时无这些在途 run，不证明之后没有新任务，也没有审完所有历史 backfill 意图。
+- 进程参数扫描未命中旧 Console backend、两个分钟恢复 CLI、旧分钟迁移 CLI；不能替代对未命名脚本、
+  未来人工恢复用途或其他机器的确认。
+- 打开文件快照没有命中旧湖、clean_next、quarantine 或 staging；三个报告由 CodeGraph 索引进程
+  PID 7942 打开，不是业务消费者。单次无占用不能证明永久无用。
+- `.env.web.local` 的本地分钟能力已开启、Lake root 为 `/Volumes/datasource/data_lake`；旧
+  `config.local.toml` 的 root 则为旧湖。二者是不同配置入口，不得删除前者的 Foundation Reader/API。
+
+本批首轮取样时没有产生 `DELETE_READY` 执行白名单，也没有取得删除批准；这不是之后执行状态。
+用户随后批准并删除的唯一 backup 见 §16.9；其他对象继续补齐内容/用途证据，不进入整湖删除。
+
+### 16.5 旧湖与旧迁移输入分类清单
+
+| 对象（旧湖内路径相对于 `/Volumes/datasource/goldenshare-tushare-lake`） | 文件数 / 字节数 | 状态、消费者和剩余证据 |
+|---|---|---|
+| `raw_tushare` 全部 54 个数据集及其隐藏元数据 | 80929 / 81763838602 | `PENDING_AUDIT`。旧 backend 动态目录消费者仍在；其中 daily、adj_factor、suspend_d、stock_basic、trade_cal 还有待删的旧 bootstrap spec。须逐数据集核正式源/范围/内容及唯一数据价值，不得把所有 54 个都写成“已迁完” |
+| `manifest` | 149 / 558251170 | `PENDING_AUDIT`。含身份映射、日历、参考数据、gate、checkpoint 和运行账本；`specs/stock_identity_map.py` 仍指向旧身份映射文件。先解除旧迁移依赖，再核正式 seed/资产承接与历史证据摘要 |
+| `research/stk_mins_by_date_clean_next` | 21077 / 95539889959 | `PENDING_AUDIT`。这不是下面 backup 目录的同一份输入；字节数明显不同，旧 compute 发布记录也存在。须按字段、复权语义、业务键和范围核对，不得当目录副本删 |
+| `research/stk_mins_by_symbol_month` | 46817 / 89771554123 | `PENDING_AUDIT`。旧重排/指标链输出；尚未证明可从保留的正式数据完整重建 |
+| `research/stk_mins_indicators_by_symbol_month` | 32 / 29402350 | `PENDING_AUDIT`。旧指标样本输出；需核算法、参数及历史证据引用，不按样本少就直接删 |
+| `derived/stk_mins_by_date` | 8431 / 1771375884 | `PENDING_AUDIT`。旧 90/120 分钟派生数据；当前 canonical bars 不是凭路径就能证明与之等价 |
+| `derived/stk_mins_indicators_by_date` | 102580 / 80148850273 | `PENDING_AUDIT`。旧指标分桶结果；先核其参数/用途和当前 Gold 承接关系 |
+| `_recovery` 的 20 个旧修复目录 | 7470 / 88777972 | `PENDING_AUDIT`。存在 patch_rows 与 raw_partition_backup；尚未证明每份 patch 已进入被保留的最终事实，不能只按 2026-05 日期删除 |
+| `_tmp` 全部 | 30242 / 160116510870 | `PENDING_AUDIT`。含未发布候选、旧备份、分块文件；年龄清理工具不是本专项的安全判据，不调用它 |
+| `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next` | 删除前 21047 / 67676449533；删除后目录不存在 | `DELETED`。用户确认基础版本备份无需再审，批准提前精确删除，见 §16.9；取消内容替代证明前置项。`specs/stk_mins.py` 等旧迁移代码仍待 M3 清退，默认源已不可用，不得重建 |
+
+根级及各层 `.DS_Store` 只是元数据，不是业务数据；未据此新建删除任务，仍须纳入用户确认的精确清单。
+
+54 个旧 Raw 数据集的首批盘点账如下。路径相对于旧湖根，数量为历史元数据盘点。
+**按最新代码引用审计，以下 54 个目录统一为 `DELETE_AFTER_DEPENDENCY`（§16.14），不再逐个对账内容。**
+旧 Console/适配器退出后，按这些精确目录提请删除；不能把本表当作已获删除批准。
+目录内隐藏元数据计入文件数，`raw_tushare` 根自身的 `.DS_Store` 不在下面 54 行内。
+
+| 相对路径 | 文件数 | 字节数 |
+|---|---:|---:|
+| `raw_tushare/adj_factor` | 4215 | 125267552 |
+| `raw_tushare/bse_mapping` | 1 | 7325 |
+| `raw_tushare/cyq_perf` | 2027 | 206000983 |
+| `raw_tushare/daily` | 8641 | 772709905 |
+| `raw_tushare/daily_basic` | 3971 | 1479472036 |
+| `raw_tushare/dc_daily` | 570 | 30455001 |
+| `raw_tushare/dc_hot` | 516 | 13778958 |
+| `raw_tushare/dc_index` | 336 | 10087580 |
+| `raw_tushare/dc_member` | 336 | 91984315 |
+| `raw_tushare/etf_basic` | 1 | 119594 |
+| `raw_tushare/etf_index` | 1 | 42505 |
+| `raw_tushare/fund_adj` | 2515 | 19232158 |
+| `raw_tushare/fund_daily` | 2515 | 119254586 |
+| `raw_tushare/hk_basic` | 1 | 160874 |
+| `raw_tushare/index_basic` | 1 | 516088 |
+| `raw_tushare/index_daily` | 1540 | 118000496 |
+| `raw_tushare/index_daily_basic` | 1540 | 11718095 |
+| `raw_tushare/index_mins_by_date` | 1615 | 3093448632 |
+| `raw_tushare/index_monthly` | 76 | 5729662 |
+| `raw_tushare/index_weekly` | 326 | 24153717 |
+| `raw_tushare/kpl_concept_cons` | 384 | 137188656 |
+| `raw_tushare/kpl_list` | 328 | 11289540 |
+| `raw_tushare/limit_cpt_list` | 605 | 3816846 |
+| `raw_tushare/limit_list_d` | 1540 | 27510115 |
+| `raw_tushare/limit_list_ths` | 613 | 15300798 |
+| `raw_tushare/limit_step` | 605 | 1880783 |
+| `raw_tushare/margin` | 327 | 1887568 |
+| `raw_tushare/moneyflow` | 3971 | 1198170527 |
+| `raw_tushare/moneyflow_cnt_ths` | 400 | 9317152 |
+| `raw_tushare/moneyflow_dc` | 643 | 209456719 |
+| `raw_tushare/moneyflow_ind_dc` | 643 | 26310824 |
+| `raw_tushare/moneyflow_ind_ths` | 400 | 5095430 |
+| `raw_tushare/moneyflow_mkt_dc` | 744 | 7421400 |
+| `raw_tushare/moneyflow_ths` | 337 | 93217892 |
+| `raw_tushare/namechange` | 1 | 230045 |
+| `raw_tushare/st` | 1 | 374951 |
+| `raw_tushare/stk_factor_pro` | 328 | 3221219515 |
+| `raw_tushare/stk_limit` | 570 | 54734377 |
+| `raw_tushare/stk_mins_by_date` | 21725 | 69744658004 |
+| `raw_tushare/stk_nineturn` | 812 | 143651444 |
+| `raw_tushare/stk_period_bar_adj_month` | 196 | 49701934 |
+| `raw_tushare/stk_period_bar_adj_week` | 838 | 202200036 |
+| `raw_tushare/stk_period_bar_month` | 196 | 29467981 |
+| `raw_tushare/stk_period_bar_week` | 838 | 117834444 |
+| `raw_tushare/stock_basic` | 2 | 363940 |
+| `raw_tushare/stock_company` | 1 | 5721427 |
+| `raw_tushare/stock_st` | 2368 | 11183497 |
+| `raw_tushare/suspend_d` | 6381 | 20281446 |
+| `raw_tushare/ths_daily` | 1540 | 235582642 |
+| `raw_tushare/ths_hot` | 328 | 15122189 |
+| `raw_tushare/ths_index` | 1 | 28737 |
+| `raw_tushare/ths_member` | 1 | 1229598 |
+| `raw_tushare/top_list` | 2515 | 40165407 |
+| `raw_tushare/trade_cal` | 2 | 74480 |
+
+旧迁移输入的路径覆盖已逐分区检查：
+
+| 频率 | 源 Parquet / 日期数 | 日期范围 | 对应正式 Raw 存在 | 尚未证明 |
+|---|---:|---|---:|---|
+| 1 | 4209 | 2009-01-05 至 2026-05-07 | 4209 | 行/键/字段内容替代关系 |
+| 5 | 4209 | 同上 | 4209 | 同上 |
+| 15 | 4209 | 同上 | 4209 | 同上 |
+| 30 | 4209 | 同上 | 4209 | 同上 |
+| 60 | 4209 | 同上 | 4209 | 同上 |
+
+对应路径通过已读的 `stk_mins_bootstrap_spec` 确定为
+`/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq={freq}/trade_date={date}/part-000.parquet`。
+这项结果只排除了“根本没有对应正式分区”的情况，不是删除批准，也不允许再用旧迁移器读旧湖写正式湖。
+
+旧 compute 六份 `run.json` 已逐份读取。以下只是磁盘记录状态，不冒充当时执行的内容验收：
+
+| run_id | manifest 状态 | `_tmp/duckdb_compute/<run_id>` 文件数 / 字节数 | 本次处置 |
+|---|---|---|---|
+| `20260516T142430Z-stk-mins-qfq-4945b7` | abandoned | 32 / 1324953 | 暂保留，先核候选内容与旧发布/gate 依赖 |
+| `20260517T024717Z-stk-mins-qfq-554d6c` | abandoned | 66 / 11827693 | 同上 |
+| `20260517T035958Z-stk-mins-qfq-f659f3` | abandoned | 本次无普通文件命中 | manifest 仍有证据用途待核，不因为无候选就整目录删除 |
+| `20260517T040204Z-stk-mins-qfq-ef77de` | abandoned | 1 / 1155359 | 暂保留，先核内容和引用 |
+| `20260517T040338Z-stk-mins-qfq-f3a1a9` | abandoned | 4151 / 61181524575 | 暂保留；约 57 GiB 未发布候选不能只依据 abandoned 判断可删 |
+| `20260517T044621Z-stk-mins-qfq-c906ef` | published | 21035 / 95298928595 | 暂保留；有正式发布/gate/downstream 阶段记录，需核替代内容与证据承接 |
+
+代码证据为旧 `DuckDbComputeRunLifecycleService`：`abandoned` 表示退出旧 readiness 的 active 集合，
+其设计明确保留 candidate/tmp/backup 追溯；它不证明候选和当前数据相同，也不代表本专项已确认可删。
+
+### 16.6 reports 逐文件用途及指纹
+
+以下路径统一位于 `/Users/congming/github/goldenshare/lake_console/reports`。目录继续服务当前
+`orchestrator/audits/stk_mins_silver_strict_audit.py` 的 CLI 输出；此次三个既有 CSV 不是该工具的输出文件。
+当前代码/脚本文件名反查未发现读取这三个 CSV 的运行入口；指数文件另有两份历史设计引用，已加入 §9.4。
+
+| 文件 | 内容事实 | 处置与前置条件 |
+|---|---|---|
+| `index_daily_continuous_since_list_date_after_20000101.csv` | 188989 字节、948 行，as-of 为 2026-05-22，缺日计数均为 0。两份 Phase 3 HTML 的 CSV 初始化段属于已被替代的历史设计 | `DELETE_AFTER_DEPENDENCY`。当前 `assets/index_daily.py::_registered_index_ts_codes`、sensor/check 读的是正式 instance 的集合而不是 CSV。必要历史摘要已记在本节；M8 前复核没有新的文件消费者并确保历史引用不被当成可执行初始化入口，用户确认后才可删 CSV。两份历史设计本身不在新增删除范围 |
+| `namechange_unresolved_candidates_active_only_v2_rules_20260530.csv` | 989 字节，14 行全是 SUMMARY；blocking/unresolved conflict 和 unresolved_candidate_rows 均为 0，人工已解决事件 3 条；不是待选事件明细或当前映射 seed | `DELETE_AFTER_DEPENDENCY`。保留本节零未决摘要；代码清退后再次核无读者并提交用户确认。不能根据它删除当前 namechange overrides/身份映射数据 |
+| `stock_daily_missing_ranges.csv` | 1971 字节、35 行；后续 §16.10 核实：31 项与现行停牌修正规则相同、3 项未标停牌缺口已有正式数据、1 项 920188.BJ 的 S 标注与当前事实不符 | `DELETE_AFTER_DEPENDENCY`。报告不再作为未决修复输入；摘要与实际消费者已明确，M8 前复核无新引用、用户确认后再删。31 项现行 seed/修正规则和正式数据全部保留，不将报告退出当作全历史数据质量验收 |
+
+正式本机 `goldenshare_dagster.public.dynamic_partitions` 只读结果：`cn_a_index_ts_codes` 当前 820 个，
+全部包含在历史 CSV 的 948 个内；CSV 多 128 个，当前集合没有 CSV 外新增项。本轮没有审计这 128 个
+目前不在集合的逐项原因，不能擅自添加或删除分区。当前排序代码加末尾换行的 SHA-256 为
+`c93cc203a552f96d9087fbcab0cfa9edb254d819cf964be941c455b5ae526184`。
+**禁止用旧 CSV 的 948 个代码重新初始化当前集合。** 数据集合保存在 Dagster，并不会因删 CSV 自动消失。
+
+| CSV | 本次 SHA-256 |
+|---|---|
+| index_daily 连续性报告 | `be57b3cec0a41d2ddf060a774451317a79b357ec09dfddfc47886b555125010b` |
+| namechange 零未决摘要 | `8eef7b295a93a4e8ba8366a9a5d3be18784b8a46ceb39c31ee957f61b236a4e3` |
+| stock_daily 缺口报告 | `671b4266509bb25d3a9c369e1c7eecdde7ba63c84ffa15522378c91317fa045a` |
+
+三个 CSV 均为 Git tracked，可从审计基线版本取回。Git 可恢复报告不等于可恢复未跟踪的湖数据，
+更不构成未经确认直接删报告的理由。
+
+### 16.7 正式湖恢复遗留与当前 staging 防误删清单
+
+Raw run 仍为 §16.2 的六个文件，旧五频 SHA 分别匹配 manifest 的 before，正式五频分别匹配 staged，
+不是旧文件与正式文件互相相同；保持
+`DELETE_AFTER_DEPENDENCY`。本次增加同日 Silver run 的独立核验，不改变 Silver 工具保留决定：
+
+```text
+/Volumes/datasource/data_lake/_quarantine/stk_mins_silver_replace_from_raw/trade_date=2026-07-27/recovery_run_id=70c5f3d5-3857-4fa9-b840-3d632fba9e3f
+```
+
+该 run 是 `promoted`，频率 1/5/15/30/60 全完成。五份旧文件合计 21811817 字节，均匹配
+`target_files_before`；当前五份正式 Silver 均匹配 staged SHA，不是待删文件。
+manifest 为 16990 字节，仍被 readiness LLD §9.4 的执行记录引用，SHA-256 为
+`28f1931c0219593c62d377e08d3a6e72a1a8967ec93a4b042decc8413c36917c`。
+Raw manifest 为 4572 字节，本次 SHA-256 为 `8e892a12c252ab90bb34f7d50da8683e26e80c80d6d8602c1a8f3ecd6e0a7676`。
+`stk_mins_silver_replace_from_raw.py` 的备份只用于同次异常回滚，没有读取历史 manifest 续跑入口。
+因此该 run 的六个文件列 `DELETE_AFTER_DEPENDENCY`：先把必要摘要补回事故记录、确认无人工恢复用途，
+M8 再独立提交精确清单；**不以清遗留文件为由删除或顺手重构 Silver 恢复工具**。
+
+| Silver backup 相对路径 | 字节数 | backup SHA-256 | 当前正式 Silver SHA-256 |
+|---|---:|---|---|
+| `freq=1/trade_date=2026-07-27/part-000.parquet` | 14997533 | `18ee627219248ecb3914599d2de51e7a8ddc09cb89b20e3242a411250d547bca` | `ce2b1d9cb6afb754be85d81cc26d0586c985526a55708464dc2320a55de91bcb` |
+| `freq=5/trade_date=2026-07-27/part-000.parquet` | 3892777 | `09d8eee34a92724b80d63e515539696cad18ee6db1b2491dd81442120beab171` | `3f5ab7f7ad9fccb035682a3109f22a11894d9e5f12ab1d519df7427197387026` |
+| `freq=15/trade_date=2026-07-27/part-000.parquet` | 1464056 | `ba3686444b8241a326a3b034d2d044ad165dc3ad9cf184929ae72b73e00e7cc7` | `fe1e13697e38d885148cb17361931af845e05335809cd7843ef38b400b1f1fd9` |
+| `freq=30/trade_date=2026-07-27/part-000.parquet` | 858723 | `5687c725ccafbc18ab70176136d201d5c09a176298f8a1ba86ba2f883ef3db32` | `18206ed63eb3e032af515025df960485338babc48ec25121237cf45892e5a7e9` |
+| `freq=60/trade_date=2026-07-27/part-000.parquet` | 598728 | `ebe5c34313b3f8098d9a1ad0a52379038eb5fc2b8614c29607668e7e10904574` | `217d9c6c64cb632a9eb715606ffa12cda80427ec5c02084b99ebc012062e6e30` |
+
+其他 quarantine 全部只是相邻目录，不因此变成 Kopia/旧 Console 数据；尚未证明内容替代，不扩成独立
+指数/九转治理任务，以下统一暂保留。目录名中的 failed/remove 不是删除依据。
+
+| `_quarantine` 下直接子项 | 普通文件数 / 字节数 | 已核事实与状态 |
+|---|---|---|
+| `index_daily_p8` | 0 / 0 | 只有目录层级或空项，没有普通文件；不递归清理共享父目录 |
+| `index_daily_remove_58_codes_20260710T044737Z` | 6606 / 181948582 | staging/normalized 文件，无本次完整成功/替代核验；`PENDING_AUDIT` |
+| `index_daily_remove_58_codes_20260710T050156Z` | 6606 / 181948582 | 同上；两个目录相同大小不能代替内容判重 |
+| `index_daily_remove_58_codes_20260710T052642Z` | 13088 / 477021392 | backup manifest 有 13057 entries，不等于整目录文件数；剩余文件未按用途闭环；`PENDING_AUDIT` |
+| `index_daily_remove_68_codes_20260723T201420+0800` | 6580 / 278515993 | backup manifest 有 6578 entries，另有 registry CSV；需核移除/保留证据，`PENDING_AUDIT` |
+| `qfq_nineturn_p6b_failed_20260808_130229` | 3553 / 185941102 | manifest 记录 3552 个隔离输出；当前九转方案/LLD 仍引用本次事故，`PENDING_AUDIT`；不因失败文件就丢唯一事故证据 |
+| `stk_mins_qfq_macd_kdj_r5_multi_20260714T130322Z` | 38820 / 13486935297 | manifest 与现行 R5 LLD 引用仍在；未重验 38819 个数据文件与当前目标，`PENDING_AUDIT` |
+
+当前 staging 核查发现真实的后续使用关系，须保护：
+
+1. `wealth_market_turnover_history.py::_load_recovery_inputs` 读取 BSE source bundle 与 actual changed
+   Silver manifest；`_assert_recovery_inputs_unchanged` 在构建、提升、审计、prod publish 等步骤复核。
+   `publish_wealth_market_turnover_history_to_prod` 还消费 actual changed WMT manifest。
+   **链路是 BSE 恢复证据 → WMT 修复/审计 → Prod 发布，不是旧 Console 备份。**
+2. `/Volumes/datasource/data_lake_staging/prod-republish-changed-wmt-manifest.json` 是 652228 字节，
+   `stage=r5_actual_changed_wmt_manifest`、`complete=true`、1157 个 changed partitions。
+   complete 只证明该 manifest 声明完整，不能独自证明所有后续发布/人工重试结束；保留其运行契约/证据用途。
+3. `wealth_market_turnover_history` 下五份 actual-changed manifest 中，计划哈希前缀 `14557f0f`、
+   `46f397e0`、`5f55277c` 仍为 `complete=false`，分别记录 80/738、340/658、420/1158 个
+   已处理分区（最后一份为 60 changed + 360 no-op）；`8ca42653` 为 317 changed + 1 no-op，
+   `84452203` 为 1 changed，均 complete=true。必须先核前后计划是否已合并接替，不能删 checkpoint。
+4. `stk_mins_bse_recovery`、上述 WMT 文件及各自 checkpoint 先保护其恢复/审计用途；单个候选文件是否
+   废弃仍逐 run `PENDING_AUDIT`。其他 ETF、趋势通道、九转、正式 raw/silver/gold staging 家族不因
+   本次发现目录而加入旧产品删除目标；本次也未对未遍历部分声称“没有用途”。
+
+### 16.8 剩余任务、验收与停止点
+
+| 顺序 | 下一项工作 | 完成证据 | 不做什么 |
+|---|---|---|---|
+| 已完成 | 旧湖六个目录家族、54 个 Raw 和两个正式分钟恢复 run 按代码引用批量分类 | §16.14；旧湖同名 clean_next 属于旧 Console 依赖组，已删除 backup 的事实仍见 §16.9 | 不再核数据完整性、早期历史、旧证券差异或人工价值 |
+| 2 | 用户 review 分类与具体候选；按批准阶段实施 M1–M7，解除旧适配器/Console 依赖 | 旧代码实际退出、现行 CLI/主链回归；M4 安全验收不变 | 审计同意不代替代码/数据删除批准 |
+| 3 | M8 对获批目录/文件复核代码引用和机械安全，执行并记录结果 | 具体清单确认、精确路径、无越界/占用，保留范围未触碰 | 不重做 Parquet 对账或全量内容 SHA，不清共享根，不改业务库/DG |
+
+原“剩余 49 个数据集内容核验、早期日线/停牌价值、两条身份映射、20 个旧恢复 run 内容承接、完整 staging
+盘点、事故证据/人工恢复价值逐项确认”等任务取消。仍被当前恢复代码读取的 BSE/WMT 输入按代码依据保留，
+不要求为了清退再证明这些文件是否成功发布。未纳入专项的其他正式治理隔离项不扩成新审计任务。
+非 Git 数据删除不承诺可恢复；这是一项交付风险说明，不再启动副本搜寻或要求内容备份。
+
+### 16.9 已执行：仅删除用户确认的基础版本备份
+
+用户先说明“这个你不需要审计了，可以删了。它之前是一个基础的版本备份”，随后在精确路径确认后
+要求“确认，删除后，你继续推进吧”。据此取消该 backup 的全量内容对账，不声称内容已经证明等价。
+执行前先同步本节例外与上位方案，随后只做机械安全检查并删除；本节是实际结果，不是待执行计划。
+
+| 项目 | 结果 |
+|---|---|
+| 唯一删除目标 | `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next`，realpath 与字面路径一致 |
+| 删除前范围 | 21047 个普通文件：21045 个 Parquet、2 个 `.DS_Store`；目录内 21050 个子目录，只有五个 freq 家族和元数据；67676449533 逻辑字节，约 63.03 GiB |
+| 安全检查 | 08:21:04 +08:00，全路径及子树无符号链接、无跨 device 项、无特殊文件；元数据数量/字节与首批盘点一致；本机打开文件及旧分钟迁移进程扫描均无目标命中 |
+| 精确清单 | 相对路径、类型、大小、mtime_ns、device、inode 的排序 JSON；SHA-256 为 `b423ed947a46d4320a84dcb24908a7e455ab65cd2ff221409c50c90b27e2b38d`。这是元数据清单指纹，不是 Parquet 内容哈希 |
+| 执行及核验 | 精确目录递归删除命令退出码 0；08:21:45 +08:00 核验 `lexists=false`；核验时 HEAD `ca6257480f38c547158f86a3de2cc4abea4c8e4f` |
+| 排除对象 | backup 的 `research` 父目录、旧湖 `research/stk_mins_by_date_clean_next`、正式 `data_lake/raw/tushare/stk_mins` 均存在且 device/inode 与删除前一致；未对这些数据执行写入/删除。不把目录身份检查说成全内容哈希审计 |
+| 恢复能力 | 直接物理删除，未创建额外内容备份，也未调用 Kopia；这些文件不在 Git，不能通过 Git 恢复，不承诺存在其他可恢复副本；逻辑字节数不等于实际磁盘释放量 |
+| 代码影响 | `specs/stk_mins.py` 中历史迁移默认源现已不存在，旧入口会找不到输入；这是已退役迁移能力的明确退出，不是现行日更输入丢失。当前 `_materialize_raw_stk_mins_partition` 仍读 Tushare/prod DB，未改代码、参数或正式数据 |
+
+临时证据目录为 `/private/tmp/lake-retirement-delete-20260905.fZGKOr/`，其中 `metadata.json`、
+`preflight.json`、`result.json` 保存执行信息，不包含已删除备份内容；稳定结论保存在本节。
+其他物理数据、旧产品代码、旧文档和 ignored 环境均未删除，M1–M7 与整个 M8 不因本项完成而算完成。
+
+### 16.10 继续推进：stock_daily 旧报告用途核验
+
+08:24 +08:00 只读核对 `lake_console/reports/stock_daily_missing_ranges.csv`。预算为 2 个精确日期、
+4 个代码、11 个输入文件合计 1463473 字节；DuckDB 内存上限 256 MB、2 线程、仅放行精确输入路径，
+禁用其他外部访问及持久化 secrets，耗时 0.44 秒。没有扫描全历史分区，没有请求生产库/Tushare，
+没有运行修复或写回。所有 11 个文件前后内容哈希一致。
+
+| 报告项 | 当前证据 | 用途结论 |
+|---|---|---|
+| 001257.SZ、688813.SH、920055.BJ，2026-03-31 三条未标 S 的 single | 正式 Raw/Silver 日线各代码各有 1 行；Silver stock_basic 的上市日均为 2026-03-31，两层当日停牌表均无这三个代码 | 三条“缺行”描述已不反映当前 Lake，不需要据此补数据；不推断当时为什么缺行 |
+| 其余标 S 的 31 条区间/单日 | 将 single 归一为同日起止后，代码+起止日与当前 `defs/corrections/suspend_full_day_ranges.csv` 31 项完全对应；双向 EXCEPT ALL 仅报告多 1 项，seed 无多余项 | 规则已经由现行 seed 承接，原报告不是唯一依据；保留 seed 和 `suspend_full_day.py`，不是删除停牌能力 |
+| 报告多出的 920188.BJ，2026-03-30–31，标 S | 当前 stock_basic 上市日 2026-03-30；两天 Raw/Silver 各 1 行，收盘价分别 30.20 / 25.29，成交量均正；两层停牌表都无对应记录；现行 seed 不含该项 | 旧报告的 S 标注与当前行情事实不符，不得把它“补入”现行停牌 seed，也不能据此删除或屏蔽正式行情 |
+
+消费者核对：`suspend_full_day.py` 的 `_PATCH_CSV_PATH` 是同目录 `suspend_full_day_ranges.csv`，
+不是 reports 文件；`suspend_full_day_ranges()` → `suspend_full_day_ranges_values_sql()` →
+`duckdb_sql.py::silver_stock_suspend_daily_select()` 按分区日期生成全日停牌规则。函数还独立处理
+688766.SH / 688005.SH 两条 raw override，均保留。CodeGraph 两次 explore 未准确命中该报告动态
+文件路径，已直接阅读上述代码、路径函数及停牌 CSV，未把无图命中当作无消费者。
+
+原报告 SHA-256 仍为 `671b4266509bb25d3a9c369e1c7eecdde7ba63c84ffa15522378c91317fa045a`；
+当前 seed 为 `3969f5c9ccd177bb4ea389136798b6e28925b2a54b1a583e3a47bca2af8a9e63`。
+11 个输入路径、指纹和查询样本保存在上述临时目录 `report_audit.json`，稳定判断以本节为准。
+
+结论：35 项报告内容的用途已分类闭合，转为 `DELETE_AFTER_DEPENDENCY`，与另两份 CSV 一样等待
+删除前引用复核和用户具体确认。本轮不删报告、不改 seed；31 个历史停牌范围没有全量重验所有物理分区，
+不能声称其历史数据质量已全部通过。报告清退只依赖“有效规则已有现行承接、其余缺行已不存在或旧标注
+不适用”，不以本报告重写现行数据。下一批仍是旧湖逐数据集用途审计及恢复记录前置项梳理。
+
+### 16.11 TODO-SUSPEND-001：消除停牌修正规则的运行时 CSV 隐性依赖
+
+- [ ] **待后续治理，本轮仅登记，未实施。** 2026-09-05 用户明确要求：停牌修正规则后续不能再靠读取
+  文件承载，要消除隐性依赖。§16.10 的“保留”仅指当前防误删，不代表认可这套长期实现。
+
+**当前代码事实与风险**
+
+`defs/corrections/suspend_full_day.py` 通过 `_PATCH_CSV_PATH = Path(__file__).with_name(...)`
+定位同目录 `suspend_full_day_ranges.csv`，`suspend_full_day_ranges()` 用 `csv.DictReader` 读取，
+并用 `@cache` 保存在进程内。`suspend_full_day_ranges_values_sql()` 将规则拼进 SQL，直接消费者有：
+
+1. `defs/duckdb_sql.py::silver_stock_suspend_daily_select()`：生成正式 Silver 停牌数据。
+2. `defs/assets/suspend_d.py::_full_day_patch_ctes()`：支撑冲突检查、修正数量及样本统计。
+
+这意味着该 CSV 实际参与业务结果，不是可随手清理的报告。文件缺失会使首次加载失败；直接修改文件
+又不一定被已有进程重新读取，存在进程间规则不一致的风险。此次通过 CodeGraph explore 和当前代码
+核实上述直接读取链；后续实施前仍须补齐所有下游消费者、测试和运行影响，不能把本次登记当全量审计。
+
+**后续目标与验收要求**
+
+1. 先核清为什么需要这些人工修正、每项依据和现行有效性，再设计明确的事实源、管理入口和依赖契约；
+   不只是把 CSV 换个格式、位置或隐藏读取函数。本次不预先决定建什么表或新增什么系统。
+2. 停牌修正规则不再由运行代码隐式打开 CSV/旁路文件加载；规则来源、生效方式及影响范围必须可查，
+   消费者显式依赖同一口径，不再依赖进程内缓存偶然决定采用哪版规则。
+3. 迁移前逐项核对当前 31 条区间规则；同模块的两条 raw override 也需纳入影响面核验，不能遗漏或误删。
+   核验仍有效的停牌规则必须保留业务效果；过期或错误规则的纠正须有证据和明确批准，不机械复制旧报告。
+4. 验收至少证明：有效规则迁移前后结果一致、正常交易日不会被误标停牌、所有消费者使用相同规则、
+   移除旧 CSV 后主链不再读取或依赖它。若结果需要纠正，单列差异与批准依据；不保留旧文件读取兜底。
+
+**执行边界**：这是用户要求登记的后续治理项，不自动扩成清退 M0–M8 的新实施内容或前置门禁。
+本轮不改 CSV、Python、SQL、正式停牌数据或其他业务数据。替代方案经确认、实现验收完成且具体删除
+清单获批后，才能移除旧读取链及 CSV；在此之前继续保护现有依赖，不因“危险”立即删文件。
+
+### 16.12 2026-09-05：五个旧 Raw 数据集与身份映射的用途初核
+
+本轮是用户要求继续的只读审计，不执行迁移、修复或删除。开始基线为 `dev-interface@ca625748`；
+审计期间其他任务提交到 `a5f995fa`，两次 HEAD 之间仅两个 asset governance 测试变化，本轮所读
+生产代码未变，未触碰其他任务文件。CodeGraph 已执行 status、explore、callers，并在 HEAD 更新后
+sync/status；图未精确表达的动态目录读取由当前 catalog/scanner/spec 实现补核，不以无图命中证明无依赖。
+
+#### 16.12.1 当前消费者和承接来源
+
+下面链接均指向本轮实际阅读的实现。旧代码尚未清退，不能把“正式主链不使用旧湖”写成“全仓没有旧读者”。
+
+| 对象 | 仍在仓库的旧读取/入口 | 正式生产者及保留内容 |
+|---|---|---|
+| daily | 旧 market catalog 的 daily 节点、filesystem scanner、prod Raw 日线导出；旧 `stock_daily_bootstrap_spec` | [raw_tushare_stock_daily](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily.py:416) 从 Tushare 取分区，写正式 `raw/tushare/stock_daily`；Silver 读正式 Raw 及基础/停牌数据，不从旧湖日线承接日更 |
+| adj_factor | 旧 market catalog/scanner；旧 `adj_factor_bootstrap_spec` | [raw_tushare_adj_factor](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/adj_factor.py:243) 从 Tushare 写正式 `raw/tushare/adj_factor`；复权因子能力与正式数据保留 |
+| suspend_d | 旧 market catalog/scanner；旧 `suspend_d_bootstrap_spec` | [raw_tushare_suspend_d](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/suspend_d.py:348) 从 Tushare 写正式 Raw，允许空分区；正式 Silver 修正规则与 §16.11 CSV 读取链当前保留 |
+| stock_basic | 旧 reference catalog/scanner、prod current 导出；旧 `stock_basic_bootstrap_spec` | [raw_tushare_stock_basic](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_basic.py:129) 直接拉取当前基础信息到正式 Raw full 文件；不是从旧 current 文件复制 |
+| trade_cal | 旧 reference catalog/scanner、prod current 导出；旧 `trade_calendar_bootstrap_spec` | [raw_tushare_trade_calendar](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/calendar.py:105) 从 Tushare 取 SSE 日历并写正式 Raw full；旧 `manifest/trading_calendar` 另被旧导出/分钟恢复读取，不能连带删 |
+| security_identity | 旧 `stock_identity_map_bootstrap_spec` 明确把旧 manifest 映射到正式 Silver；旧分钟 migration 的 plan/migrate/audit 等仍调用它 | [silver_stock_identity_map](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_identity_map.py:365) 从正式 `silver_stock_lifecycle`、`silver_namechange` 与当前 mapping seed 构建，**不以旧 manifest 作为现行输入**；资产、seed、checks 和所有正式消费者继续保留 |
+
+旧 scanner 的 [实际路径拼装](/Users/congming/github/goldenshare/lake_console/backend/app/services/filesystem_scanner.py:282)
+是 `lake_root / node.path`，分别按日期目录或单文件读取；因此仅搜索完整 Parquet 文件名不足以排除旧消费者。
+以上六个旧 spec 的源/目标与 SQL 已逐份核对。本轮只静态提取日期/类型投影做只读比较，没有 import、
+运行旧 executor 或恢复旧 bootstrap 权限；移除这些旧入口仍是 M3/M6，不影响当前 Tushare/正式湖链路。
+
+#### 16.12.2 物理范围与逐项结论
+
+本表旧路径相对于 `/Volumes/datasource/goldenshare-tushare-lake`，新路径相对于
+`/Volumes/datasource/data_lake`。数量为 Parquet 数，不混入 `.DS_Store`；日期范围只是文件分区覆盖，
+不是每个日期/证券均正确完整的证明。早期缺失只相对于表中正式 Lake，未审计 Prod/其他存储，不能称全局唯一。
+
+| 对象及精确对应路径 | 当前物理与内容证据 | 本轮分类、删除前尚缺什么 |
+|---|---|---|
+| `raw_tushare/daily` → `raw/tushare/stock_daily` | 旧 8640 个分区，1990-12-19–2026-05-15；新 3083 个，2014-01-02–2026-09-04。共同 3004 个；旧独有 5636 个、253397444 字节，全部为 1990-12-19–2013-12-31。抽读旧早期首/中/末三分区分别 3/1114/2352 行，不是空目录 | `PENDING_AUDIT`。早期历史未在所比新湖承接，先保留并核是否仍有历史研究/业务用途及其他保留来源；重叠部分仅抽样等价，不整段判重复。正式代码 `STOCK_DAILY_MIN_TRADE_DATE=2014-01-01` 与范围差异相符，本轮不把早期缺失认定为新湖 bug，也不擅自补录 |
+| `raw_tushare/adj_factor` → `raw/tushare/adj_factor` | 旧 4215 个分区，2009-01-05–2026-05-15；新 4294 个，至 2026-09-04。旧路径全部有对应新分区；5 个样本逐行等价 | `PENDING_AUDIT`。尚缺其余重叠分区的内容/键/字段核验，路径全覆盖不是全量替代证明；再解除旧 catalog/spec 依赖后才能评估候选 |
+| `raw_tushare/suspend_d` → `raw/tushare/suspend_d` | 旧 6381 个分区，2000-01-04–2026-05-15；新 3083 个，2014-01-02–2026-09-04。共同 3004 个；旧独有 3377 个、10355813 字节，全部为 2000-01-04–2013-12-31。早期首/中/末样本分别 8/127/122 行 | `PENDING_AUDIT`。与早期日线一起核用途，不能因新停牌数据日更正常就删历史。当前停牌修正 CSV/SQL 不在旧数据删除目标中 |
+| `raw_tushare/stock_basic/current/part-000.parquet` → `raw/tushare/stock_basic/full/part-000.parquet` | 全文件旧 5842 行、新 5895 行；旧代码集合多 `TS0018.SH` 一项。完整 17 字段双向差集为 5655/5708 行 | `PENDING_AUDIT`。不是完整重复快照；先解释缺失退市证券及状态/退市日期等变化，确认历史用途与保留来源，不能只按新文件较新判可删 |
+| `raw_tushare/trade_cal/current/part-000.parquet` → `raw/tushare/trade_calendar/full/part-000.parquet` | 全文件双方各 13162 行；规范日期/类型后 4 字段双向 `EXCEPT ALL` 均 0，无旧文件字段被遗漏 | **仅旧这个 Parquet** 为 `DELETE_AFTER_DEPENDENCY`。现内容有正式副本，仍须 M3/M6 移除旧入口、执行前重核与用户具体确认。未包含旁边 `.DS_Store`、父目录或 `manifest/trading_calendar/tushare_trade_cal.parquet`；后者未做此次内容比较 |
+| `manifest/security_identity/security_identity_map.parquet` → `silver/basic/stock_identity_map/part-000.parquet` | 全文件旧 6089 行、新 6146 行。旧独有 source code 为 `706055.SH`、`TS0018.SH`；共有映射的 latest code 无差异，但 valid_to/effective_delist_date 各 17 项不同 | `PENDING_AUDIT`。两条旧映射和有效期变化尚未解释闭合；当前 mapping seed 与正式资产保留，不能把旧映射无条件追加到新表，也不能以新表行数更多判旧表无用 |
+
+快照差异的业务含义须进一步核实：
+
+- `TS0018.SH` 在旧 stock_basic 中是“上港集箱(退)”，`list_status=D`，上市 2000-07-19、退市
+  2006-10-20；旧 identity 为其自映射。不是仅凭名字推测的“垃圾代码”。
+- `706055.SH` 旧 identity 映射到 `600680.SH`，有效期 1993-10-18–2019-05-24，旧记录标
+  `confidence=inferred`、来自 namechange 重叠推断。尚未验证推断正确，**既不直接删，也不直接沿用**。
+- stock_basic 共有代码比较中，名称 247、上市状态 14、退市日期 16 项变化，另有英文名等描述字段
+  更新；变化不能全部当成丢数，也不能全部视为可忽略。
+- identity 完整行差集为 6089/6146，包含共有记录 `created_at` 的 6087 项变化及来源/理由的
+  5837 项变化；这不是“全部证券身份都不一致”。剥离观测/生成字段后，仍有上述旧代码与有效期差异待核。
+
+#### 16.12.3 样本、指纹和审计限度
+
+主对账于 08:46:27 +08:00 完成：42 个精确输入文件、3849480 字节、0.612 秒；DuckDB 内存
+512 MB、2 线程、45 秒中断预算，禁用 Hive 自动字段补入、额外外部访问和持久化 secrets，只放行精确路径。
+旧数据投影采用已读 SQL 中明确的日期/类型转换，保留全部旧字段，双向 `EXCEPT ALL` 不做浮点舍入；
+对账前后 42 文件 SHA/大小/mtime 一致。另对上述两条旧证券记录及正式 lifecycle 做过小范围只读取样，
+不据此宣称生命周期全表验收。没有连接 Prod/Tushare，没有运行资产检查、迁移或数据写入。
+
+| 数据集 | 抽样共同日期（括号内为旧=新行数） | 内容对账 |
+|---|---|---|
+| daily | 2014-01-02 (2354)、2020-03-04 (3846)、2026-05-15 (5495)、2026-03-31 (5482)、2026-05-07 (5493) | 五个样本双向差集均 0；其余共同分区未全量验证 |
+| adj_factor | 2009-01-05 (1603)、2017-09-01 (3499)、2026-05-15 (5523)、2026-03-31 (5499)、2026-05-07 (5519) | 同上 |
+| suspend_d | 2014-01-02 (121)、2020-03-04 (15)、2026-05-15 (27)、2026-03-31 (23)、2026-05-07 (27) | 同上；空分区允许性不等于已验证整个日期范围 |
+
+旧 trade_cal 精确候选文件为 68332 字节，SHA-256：
+`1f85de555ae6be8ea239cf2576d000d1459bfd06833d1558a09da1f338f2bc19`；正式文件 85798 字节，SHA-256：
+`fd4828e913af6a091557fe1407e2c795e6d2a5b31aedb5a54f7ccef949768ee9`。
+二者字节不同但规范后全字段/行等价；这证明的是本次内容承接，不是物理文件相同。
+
+临时证据 `/private/tmp/lake-retirement-audit2-20260905.Lcviqk/` 中的 `inventory.json` 保存六对象双方
+逐文件元数据；`comparison.json` 保存 18 组对账、6 个早期样本、全部输入指纹/schema、逐字段差异和
+投影源码 SHA。稳定结果保存在本节，临时文件不是数据备份，也不是必须保留到执行时的唯一删除依据。
+后续实际删除必须重新生成精确证据；本轮只有 **5/54 Raw 的首轮分类 + 一个 identity 对象初核**，
+其余 49 个 Raw、旧 manifest 日历/参考数据、research/derived 及本批未决差异均未结案。
+
+### 16.13 2026-09-05：两次分钟恢复遗留的再次核验
+
+08:52:52–53 +08:00 定点重验 §16.2 Raw 与 §16.7 Silver 两个 2026-07-27 run：总计 12 个遗留
+文件、53115430 字节；连同 10 个正式文件共哈希读取 129366998 字节（包含 manifest 复读），没有写湖。
+检查 realpath、无符号链接、同 device、文件集合与哈希期间大小/mtime 不变；两个家族各只发现这一份
+run manifest。两个精确 run 的 `_staging/recovery_run_id=...` 均不存在，不据此删除共享 `_staging` 根。
+
+| 独立核验项 | Raw `f573265f-1162-4535-9089-c486f7b7dac1` | Silver `70c5f3d5-3857-4fa9-b840-3d632fba9e3f` |
+|---|---|---|
+| 遗留内容 | 5 份替换前文件 31282051 字节 + manifest 4572 字节 | 5 份替换前文件 21811817 字节 + manifest 16990 字节 |
+| 当前 manifest | `promoted`，五频完整，SHA 仍为 §16.7 所列值 | 同左，各用自己的 manifest，不套用 Raw 结果 |
+| 旧文件核验 | 5/5 的字节数、SHA 等于自己的 `target_files_before` | 同左 |
+| 正式文件核验 | 5/5 的字节数、SHA 等于自己的 staged 记录 | 同左 |
+| 旧与正式是否相同 | **五频均不同**；旧文件是被替换的版本，不是当前正式数据副本 | 同左 |
+| 代码恢复用途 | `apply_stk_mins_raw_replace_from_prod` 的 `_restore_backups` 仅处理本次调用已移走的文件；CLI 仅 plan/apply，无从历史 manifest 恢复/续跑入口 | Silver apply 同样仅在本次异常分支回滚；CLI 无历史恢复入口。工具保留，不因遗留文件退出而删改 |
+
+CodeGraph callers 各命中自己的 CLI `main`，并已直接阅读两个 apply、两个 CLI、回滚函数和路径构造；
+既没有把 CLI 无历史恢复参数当作“人工不可能恢复”，也没有调用旧恢复代码作验证。
+
+对 [当时的事故/执行记录](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-prod-task-run-readiness-low-level-design.md:280)
+所列 run ID 逐一查询当前本机 Dagster，以下七条持久化记录仍为 `SUCCESS`：
+
+| 阶段 | 实际 job / run ID |
+|---|---|
+| Raw 复用恢复结果 | `stock_mins_raw_update_from_prod_job` / `ae26c9f7-cb37-40be-9596-39eed38df343` |
+| Silver 复用恢复结果 | `stock_mins_silver_update_job` / `33fc6520-9a55-4164-9d31-987c9bbbe9d6` |
+| QFQ 日更 | `stock_mins_qfq_daily_update_job` / `f5569417-bd87-4dba-9d07-2f2ce0c69167` |
+| QFQ 因子修复 | `stock_mins_qfq_factor_repair_job` / `96bb23db-04f2-4673-a6ce-6a2108a9c8d7` |
+| MACD/KDJ 日更 | `gold_stk_mins_qfq_macd_kdj_daily_update_job` / `5202cc2a-6492-47ba-8443-6133c595a8be` |
+| MACD/KDJ 修复 | `gold_stk_mins_qfq_macd_kdj_repair_job` / `ff441876-2ca2-4844-8789-5a0efeb25b7b` |
+| WMT 日更 | `gold_wealth_market_turnover_update_job` / `a340e0b3-3833-4ce2-9c08-70badd6d2771` |
+
+这证明历史流程有成功结束记录，**不等于本轮重跑全部 checks，也不证明当前全部下游内容无变化**。
+点时 GraphQL（Dagster 1.13.18）在途六类状态合计 0；旧 Console/两类恢复/旧迁移进程未命中，
+本机 `lsof` 对两个精确遗留根及旧湖根未命中，退出码 0。这些只是点时本机证据，不排除将来执行、
+人工/异机用途，也不用于给整个旧湖放行。
+
+两项均继续为 `DELETE_AFTER_DEPENDENCY`，本轮 `DELETE_READY` 仍为 0。必要前置项分清如下：
+
+1. M3/M4/M6 按原顺序处理旧入口及 Raw 工具依赖；本次不提前删除数据、改 Raw 代码或扩大 Silver 重构。
+2. M8 提请删除前，把各自 manifest 的必要执行/指纹摘要纳入事故记录，处理原记录对物理 manifest 的
+   证据引用；本节已保存用途摘要，但未改原事故文档，不把其引用当作已解除。
+3. 向用户明确：删除将丢失这 10 个替换前版本与 2 个原始 manifest，无法通过 Git 恢复；未核实其他
+   可恢复副本，不能承诺可恢复。须确认不再需要人工回退/取证，再确认两个独立的逐文件清单。
+4. 实际执行前再核指纹、正式目标、在途/占用和新消费者；任何变化都暂停该项，不按旧成功记录强删。
+
+定点文件/运行快照保存在本轮临时目录 `recovery.json`；七条历史 run 查询结果摘要已完整记于上表。
+旧湖自己的 `_recovery` 20 个目录、其他指数/九转/MACD 隔离项、本轮未审的 staging 均未获得新删除资格。
+BSE/WMT 当前恢复证据链继续按 §16.7 保护；七条 7 月历史 run 成功不用于证明后续 BSE/WMT 恢复已结束。
+
+### 16.14 当前执行清单：只按代码引用批量分类
+
+**本节替代此前物理审计的分类及剩余待办。** 用户已确认不需要代码未使用的数据；本轮只审代码、配置和
+路径构造，复用既有目录名清单，没有打开 Parquet/CSV 数据、读取恢复 manifest 内容、查询数据库/Dagster，
+也没有重新比较日期、行数、哈希或检查数据完整性。代码清退及物理删除均未执行。
+
+#### 16.14.1 代码证据和排除误报
+
+2026-09-05 09:19 +08:00，基线 `dev-interface@0bae0fd0`。集中扫描 3227 个 tracked/非 ignored
+untracked 程序及配置文件（Python、Shell、SQL、TS/JS、TOML/YAML/JSON 和 bin 入口），75 文件命中
+旧路径/旧参数等候选词。按代码区分正向读写、旧入口、负向拒绝、测试及纯文字，不把命中数当消费者数。
+另只读核 `.env.web.local` 的 Lake root 与旧 Console 本机 root，不输出凭据、不修改配置。
+
+| 证据 | 确认的实际含义 |
+|---|---|
+| [旧 catalog 汇总入口](/Users/congming/github/goldenshare/lake_console/backend/app/catalog/datasets/__init__.py:15) 与九个数据域定义文件 | 静态提取 `storage_root`，旧湖盘点的 **54/54 Raw 目录全部有精确 catalog 声明**，没有未归类项；不是逐个读取数据得出的结论 |
+| [旧 scanner](/Users/congming/github/goldenshare/lake_console/backend/app/services/filesystem_scanner.py:282)、`_physical_assets` | 拼接 `lake_root / node.path`；还扫描 raw_tushare/manifest/derived/research 和 _tmp/_recovery。旧代码引用覆盖这些家族，而非必须硬编码每个恢复目录名 |
+| 六个旧湖 spec + 旧分钟 migration/CLI | 旧 Raw daily/adj_factor/suspend_d/stock_basic/trade_cal 和旧 manifest identity 仍是待清退适配器输入。分钟历史默认 source 为已删除的 backup，不是旧湖内同名 research；两者不混淆 |
+| [正式根与路径](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/paths.py:41)、`LakeRootResource` | 正式路径为 data_lake/raw、silver、gold；旧路径片段的禁止列表不是旧数据读取者 |
+| [股票分钟 Reader](/Users/congming/github/goldenshare/src/foundation/clients/local_lake/stock_mins_reader.py:91)、`resolve_local_minute_capability` | 依赖配置 root 下的正式 Gold 路径；本机 Web 配置为 `/Volumes/datasource/data_lake`，不消费旧 raw_tushare/research/derived。Reader/API 能力保留 |
+| `MajorIndexTurnoverLakeReader`、BSE recovery、九转 no-price history、趋势通道 staging guard | 命中的旧湖根均用于拒绝输入，不是读取旧湖数据；不得因字面命中保留旧数据或删掉保护规则 |
+| 正式 `index_daily_000680_history_supplement_apply.checkpoint_path` 中的 `manifest` | 位于正式 staging 的本次 run 下，不是旧湖 manifest；同名目录不能串到删除范围 |
+| Raw/Silver 两个 replace apply、CLI 和 `_restore_backups` | 只读写本次 run 新建的备份用于同次异常回滚；已有 run ID 被拒绝，无读取历史 manifest 自动恢复/续跑入口。新 run 的路径模板不意味着历史 run 永久在用 |
+| 三份旧报告文件名与两个恢复 UUID 反查 | 本次程序/配置扫描无命中；再结合上一行动态路径语义确认，不单凭零命中判可删。历史文档提及不算代码用途 |
+
+CodeGraph `status/explore` 覆盖旧 scanner、正式 LakeRootResource、当前 WMT `_load_recovery_inputs`；
+目录/字符串未被图表达的部分补读实现和静态 catalog。期间其他任务仅提交 ETF 文档/索引，生产代码未变，
+已执行 sync/status；没有变更共享 contract、依赖矩阵、CLI 或运行配置。扫描不宣称覆盖仓库外个人脚本，
+也不因此追加“所有潜在历史用途均须证明不存在”的门禁。
+
+#### 16.14.2 只有旧代码使用：退出依赖后清退
+
+本组均为 `DELETE_AFTER_DEPENDENCY`。没有找到保留主链对这些旧湖数据的读取入口；不能现在删，是因为
+旧 Console 与迁移代码尚在，并非数据完整性或历史价值未知。M3/M6 按原 LLD 退出旧适配器/旧产品，
+现行 CLI 拆分和回归完成后，再按 M8 申请删除。本轮引用分类覆盖 **106 个已盘点对象**，不以旧湖根整删。
+
+以下路径相对于 `/Volumes/datasource/goldenshare-tushare-lake`；执行清单须展开为绝对路径，不使用通配符。
+目录名复用此前元数据盘点，执行前只机械复核范围；新出现的对象须重新列入清单，不借父目录扩大授权。
+
+| 家族 | 精确对象或清单位置 | 数量 |
+|---|---|---:|
+| Raw | §16.5 的 54 个 `raw_tushare/<dataset>` 精确目录，全部同一处理码 | 54 |
+| research | `research/stk_mins_by_date_clean_next`、`research/stk_mins_by_symbol_month`、`research/stk_mins_indicators_by_symbol_month` | 3 |
+| derived | `derived/stk_mins_by_date`、`derived/stk_mins_indicators_by_date` | 2 |
+| manifest | `manifest/` 下：board_membership、board_universe、downstream_rebuild_requirements、duckdb_compute、etf_reference、etf_universe、index_universe、indicator_recalc_queue、indicator_state、lake.json、lake_jobs、security_identity、security_reference、security_universe、source_partition_events、stk_mins_quality、sync_checkpoints、sync_runs.jsonl、trading_calendar | 19 |
+| 旧恢复 | 下列 `_recovery/` 20 个 run 目录；不再核 patch_rows 是否已合入其他数据 | 20 |
+| 旧临时结果 | 下列 `_tmp/` 8 个子目录；不再比较候选或备份内容 | 8 |
+
+旧恢复目录（每行完整相对路径）：
+
+```text
+_recovery/20260510T233701Z-stk-mins-raw-recovery
+_recovery/20260510T233800Z-stk-mins-raw-recovery
+_recovery/20260510T234031Z-stk-mins-raw-recovery
+_recovery/20260510T234124Z-stk-mins-raw-recovery
+_recovery/20260510T234221Z-stk-mins-raw-recovery
+_recovery/20260510T234322Z-stk-mins-raw-recovery
+_recovery/20260510T234520Z-stk-mins-raw-recovery
+_recovery/20260510T234721Z-stk-mins-raw-recovery
+_recovery/20260510T234926Z-stk-mins-raw-recovery
+_recovery/20260510T235151Z-stk-mins-raw-recovery
+_recovery/20260510T235410Z-stk-mins-raw-recovery
+_recovery/20260510T235714Z-stk-mins-raw-recovery
+_recovery/20260510T235942Z-stk-mins-raw-recovery
+_recovery/20260511T000229Z-stk-mins-raw-recovery
+_recovery/20260511T000648Z-stk-mins-raw-recovery
+_recovery/20260511T000936Z-stk-mins-raw-recovery
+_recovery/20260511T001244Z-stk-mins-raw-recovery
+_recovery/20260511T001558Z-stk-mins-raw-recovery
+_recovery/20260511T001935Z-stk-mins-raw-recovery
+_recovery/20260511T002311Z-stk-mins-raw-recovery
+```
+
+旧临时目录：
+
+```text
+_tmp/20260503T163545Z-stk-mins-range
+_tmp/20260507T130033Z-stk-mins-range
+_tmp/20260509T202056Z-index-mins-prod-raw-db
+_tmp/20260510T015622Z-compute-stk-mins-macd
+_tmp/20260513T021617Z-repair-clean-next-2022-bj-freq30
+_tmp/20260514T002433Z-research-stk-mins
+_tmp/20260514T002501Z-research-stk-mins
+_tmp/duckdb_compute
+```
+
+这 106 个对象没有当前保留消费者，不再逐项要求数据迁移；独有早期行情、旧证券信息、不同复权版本等
+都不改变本次分类。散落的 `.DS_Store` 与共享父目录不追加到这份清单；获批子目录内部的普通附属文件
+随该目录范围处理，不建立逐 Parquet 内容审计任务。
+
+#### 16.14.3 无当前代码用途：五项可提请删除
+
+以下 **5 个批准单位**列为 `DELETE_READY`，即无需再证明历史价值或内容替代；仍未取得具体删除批准，
+也不跳过 M8 阶段。旧报告 3 个文件，恢复 run 2 个目录（原盘点每个 6 文件），不包含任何共享父目录。
+
+| ID | 精确目标 | 说明 |
+|---|---|---|
+| D01 | `/Users/congming/github/goldenshare/lake_console/reports/index_daily_continuous_since_list_date_after_20000101.csv` | 旧报告，无代码读取；当前集合不是由此文件动态读取 |
+| D02 | `/Users/congming/github/goldenshare/lake_console/reports/namechange_unresolved_candidates_active_only_v2_rules_20260530.csv` | 旧报告，无代码读取；不是当前身份映射 seed |
+| D03 | `/Users/congming/github/goldenshare/lake_console/reports/stock_daily_missing_ranges.csv` | 旧报告，无代码读取；现行停牌 CSV 是不同文件，保留 |
+| D04 | `/Volumes/datasource/data_lake/_quarantine/stk_mins_raw_replace_from_prod/trade_date=2026-07-27/recovery_run_id=f573265f-1162-4535-9089-c486f7b7dac1` | 已完成的旧 run，代码不把其旧版本作为当前输入；Raw 工具重构要求仍按 M4 保留 |
+| D05 | `/Volumes/datasource/data_lake/_quarantine/stk_mins_silver_replace_from_raw/trade_date=2026-07-27/recovery_run_id=70c5f3d5-3857-4fa9-b840-3d632fba9e3f` | 同理；只删此旧 run，不删除或重构 Silver 工具，也不清整个 Silver quarantine 家族 |
+
+D04/D05 的既有 run ID 存在性防覆盖检查不读取旧版本数据，不作为长期保留理由。实际删除前仍检查没有
+正在使用这些精确目录的进程/任务；不能沿用前轮无占用快照直接执行。历史事故文档删除时改注“当时位置，
+已清退”，不再要求先迁移完整 manifest 或再问是否有潜在人工取证价值。三个报告可从 Git 取回；两组
+湖文件不在 Git，删除不承诺可恢复，不新建备份或调用 Kopia。
+
+#### 16.14.4 必须保留和本轮边界
+
+1. 正式 `data_lake/raw|silver|gold` 及当前 Foundation Reader/Wealth API 使用的数据保留；本次不审计
+   正式数据是否完整，不改生产数据库、Ops Snapshot 或 Dagster 历史。
+2. 当前停牌 `suspend_full_day_ranges.csv` 由 `suspend_full_day_ranges()` 实际读取；当前
+   `stock_identity_mappings.cn_a.csv` 由 `load_stock_identity_mapping_seed()` 实际读取。两者均保留，
+   不与旧湖 manifest 或 reports 混同；停牌 TODO 仍只是后续治理项。
+3. reports 目录保留：[正式审计 CLI](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/audits/stk_mins_silver_strict_audit.py:463)
+   默认在其子目录输出。该输出路径不等于 D01–D03，不能因为输出目录在用就保留所有历史报告。
+4. BSE/WMT 的 source bundle、actual-changed manifest、checkpoint 和被这些输入指向的候选属于
+   当前恢复/审计代码读取范围，按真实依赖保留；与 D04/D05 无关。不再全盘盘点 staging，也不因
+   本次简化把其他指数/九转/MACD 正式治理隔离目录扩大为本轮删除目标。
+5. ignored 环境、本机配置、共享上层目录不删；Git 旧代码/86+3 文档仍依照原处理矩阵，不因物理用途
+   标准简化而跳过当前 CLI 迁出、模板内容迁移及回归要求。
+
+临时可复核证据为 `/private/tmp/lake-retirement-code-refs-20260905.hindQZ/code_reference_audit.json`：
+含程序输入指纹、命中位置、54 个 catalog 对应项与 106 个旧湖精确对象。只对源码生成指纹，没有对湖
+数据计算内容哈希。稳定分类和完整目录名称已落本节及 §16.5；临时文件不是唯一执行依据。

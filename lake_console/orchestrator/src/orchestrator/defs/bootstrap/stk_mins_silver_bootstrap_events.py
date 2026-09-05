@@ -10,14 +10,16 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.bootstrap.stk_mins_migration import _check_success_count
+from orchestrator.defs.bootstrap.stk_mins_history_check_events import (
+    count_succeeded_asset_check_executions,
+)
 from orchestrator.defs.bootstrap.stk_mins_silver_history import (
     STK_MINS_SILVER_HISTORY_START_DATE,
     all_silver_partition_keys,
     discover_silver_stk_mins_partitions,
 )
 from orchestrator.defs.checks import stk_mins_checks
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import count_parquet_query, describe_parquet_query
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, silver_stk_mins_path
@@ -32,7 +34,6 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     asset_readiness_status,
 )
-
 
 SILVER_STK_MINS_ASSET_KEYS = {
     freq: dg.AssetKey(f"silver_stk_mins_{freq}m") for freq in STK_MINS_FREQS
@@ -333,7 +334,7 @@ def audit_stk_mins_silver_final_state(
     for freq, asset_key in SILVER_STK_MINS_ASSET_KEYS.items():
         for check_name in SILVER_STK_MINS_CHECKS:
             key = f"{asset_key.to_user_string()}:{check_name}"
-            check_counts[key] = _check_success_count(
+            check_counts[key] = count_succeeded_asset_check_executions(
                 instance,
                 dg.AssetCheckKey(asset_key, check_name),
             )

@@ -10,7 +10,9 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
 
-from orchestrator.defs.bootstrap.stk_mins_migration import _check_success_count
+from orchestrator.defs.bootstrap.stk_mins_history_check_events import (
+    count_succeeded_asset_check_executions,
+)
 from orchestrator.defs.bootstrap.stk_mins_qfq_bootstrap_events import (
     _latest_materialization,
     _sample_partition_keys,
@@ -44,7 +46,6 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     asset_readiness_status,
 )
-
 
 GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_KEYS = {
     freq: dg.AssetKey(f"gold_stk_mins_qfq_macd_kdj_{freq}m")
@@ -543,7 +544,7 @@ def _collect_check_success_counts(
 ) -> None:
     for check_name in check_names:
         key = f"{asset_key.to_user_string()}:{check_name}"
-        result[key] = _check_success_count(
+        result[key] = count_succeeded_asset_check_executions(
             instance,
             dg.AssetCheckKey(asset_key, check_name),
         )

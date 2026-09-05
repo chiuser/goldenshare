@@ -8,10 +8,6 @@ from orchestrator.defs.assets.stk_mins import (
     SilverStkMinsWriteResult,
     write_silver_stk_mins_partition,
 )
-from orchestrator.defs.bootstrap.stk_mins_migration import (
-    _validate_backup_partition_alignment,
-    discover_raw_stk_mins_partitions,
-)
 from orchestrator.defs.checks.stk_mins_checks import SILVER_STK_MINS_CHECK_NAMES
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
@@ -25,7 +21,6 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
-
 
 STK_MINS_SILVER_HISTORY_START_DATE = "2014-01-01"
 
@@ -48,6 +43,45 @@ class StkMinsSilverHistoryReport:
     written_asset_partitions: tuple[tuple[int, str], ...]
     skipped_existing_asset_partitions: tuple[tuple[int, str], ...]
     write_results: tuple[SilverStkMinsWriteResult, ...]
+
+
+def discover_raw_stk_mins_partitions(
+    lake_root: Path = Path(DEFAULT_LAKE_ROOT),
+) -> dict[int, tuple[str, ...]]:
+    partitions_by_freq: dict[int, tuple[str, ...]] = {}
+    for freq in STK_MINS_FREQS:
+        raw_root = Path(lake_root) / "raw" / "tushare" / "stk_mins" / f"freq={freq}"
+        partition_keys = sorted(
+            path.parent.name.removeprefix("trade_date=")
+            for path in raw_root.glob("trade_date=*/part-000.parquet")
+            if path.is_file()
+        )
+        partitions_by_freq[freq] = tuple(partition_keys)
+    return partitions_by_freq
+
+
+def all_raw_stk_mins_partition_keys(
+    lake_root: Path = Path(DEFAULT_LAKE_ROOT),
+) -> tuple[str, ...]:
+    raw_by_freq = discover_raw_stk_mins_partitions(lake_root)
+    _validate_stk_mins_partition_alignment(raw_by_freq)
+    return raw_by_freq[STK_MINS_FREQS[0]]
+
+
+def _validate_stk_mins_partition_alignment(
+    partitions_by_freq: Mapping[int, tuple[str, ...]],
+) -> None:
+    expected = set(partitions_by_freq[STK_MINS_FREQS[0]])
+    mismatches = {
+        freq: {
+            "missing_from_freq": sorted(expected - set(partitions)),
+            "extra_in_freq": sorted(set(partitions) - expected),
+        }
+        for freq, partitions in partitions_by_freq.items()
+        if set(partitions) != expected
+    }
+    if mismatches:
+        raise ValueError(f"stk_mins partition sets are not aligned by freq: {mismatches}")
 
 
 def discover_silver_stk_mins_partitions(
@@ -78,7 +112,7 @@ def all_silver_partition_keys(
     end_date: str | None = None,
 ) -> tuple[str, ...]:
     silver_by_freq = discover_silver_stk_mins_partitions(lake_root)
-    _validate_backup_partition_alignment(silver_by_freq)
+    _validate_stk_mins_partition_alignment(silver_by_freq)
     return _filter_partition_keys(
         silver_by_freq[STK_MINS_FREQS[0]],
         start_date=start_date,
@@ -94,7 +128,7 @@ def plan_stk_mins_silver_history(
     end_date: str | None = None,
 ) -> StkMinsSilverHistoryPlan:
     raw_by_freq = discover_raw_stk_mins_partitions(lake_root)
-    _validate_backup_partition_alignment(raw_by_freq)
+    _validate_stk_mins_partition_alignment(raw_by_freq)
     selected_keys = _select_history_partition_keys(
         raw_by_freq[STK_MINS_FREQS[0]],
         partition_keys=partition_keys,
