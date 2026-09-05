@@ -1789,7 +1789,7 @@ def _price_volume_sanity(
             "partition_key": partition_key,
             "freq": freq,
             "raw_sanity_policy": (
-                "Raw stk_mins keeps backup clean_next source facts. This check only "
+                "Raw stk_mins preserves existing promoted partition facts. This check only "
                 "blocks null values, negative numeric values, and empty stock codes."
             ),
             "failed_rule_names": failed_rule_names,

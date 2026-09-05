@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 字段边界已确认、待实施（见 §11） / 文档矩阵 156 份 / 其余具体删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已实现并通过隔离回归，随本次提交归档（见 §11） / 文档矩阵 156 份 / 其余具体删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -558,6 +558,8 @@ stk_mins_qfq_macd_kdj_baseline_events.py
 
 ## 6. Generic 旧湖 bootstrap 适配器清退
 
+本章保留实施前证据及批准的目标合同；2026-09-05 M4 已完成代码实现与隔离回归，实际文件、测试和未执行边界见 §11。下面的旧模块、旧字段值和旧恢复流程不是当前可用入口；正式环境恢复未执行。
+
 ### 6.1 直接删除的运行模块
 
 ```text
@@ -615,7 +617,7 @@ IngestionSource.OLD_LAKE_BOOTSTRAP
 
 共修改 17 个 catalog entry：
 
-| 资产组 | 数量 | 当前旧值 | 目标值 | 代码事实 |
+| 资产组 | 数量 | 实施前旧值 | 目标值（M4 已实现） | 代码事实 |
 |---|---:|---|---|---|
 | `silver_adj_factor` | 1 | `OLD_LAKE_BOOTSTRAP` | `DERIVED_FROM_ASSETS` | 当前 asset 依赖 Raw adj factor 和 lifecycle |
 | Raw `stk_mins` 1/5/15/30/60m | 5 | ingestion 含 OLD；bootstrap 为 OLD | ingestion 保留 `TUSHARE_API`、`PROD_DB_READONLY`；`bootstrap_sources=(PROD_DB_READONLY,)` | 用户已拍板保留 prod-DB 单日五频恢复能力，但必须先完成正式 staging/checkpoint 重构 |
@@ -623,7 +625,7 @@ IngestionSource.OLD_LAKE_BOOTSTRAP
 | native Gold QFQ 1/5/15/30/60m | 5 | OLD + DERIVED | 只保留 `DERIVED_FROM_ASSETS` | 当前由 Silver 和复权因子生成 |
 | `silver_index_daily` | 1 | OLD | `DERIVED_FROM_ASSETS` | 当前读取同日 Raw index daily |
 
-Raw `stk_mins` 工具的代码事实：
+Raw `stk_mins` 工具的实施前代码事实（基线 `d2d177bb`，下列旧命令链只作历史说明）：
 
 ```text
 stk_mins_raw_replace_from_prod_cli.py plan
@@ -650,12 +652,12 @@ stk_mins_raw_replace_from_prod_cli.py apply --apply --plan-report
 已存在目标；`merge_repair` 只允许 `source=tushare`，语义是缺失代码合并，不提供 prod-DB 五频整体
 替换。因此该 CLI 的业务空档真实存在；用户已拍板继续保留该能力并重构实现。
 
-但当前 `_staging_root(...)` 解析到正式 Raw 树内 `raw/tushare/stk_mins/_staging/**`，
+但旧实现 `_staging_root(...)` 解析到正式 Raw 树内 `raw/tushare/stk_mins/_staging/**`，
 `_quarantine_root(...)` 解析到正式根 `_quarantine/**`，成功后 manifest 和五个 backup 文件长期保留。
 这与根规则“候选只能在 `/Volumes/datasource/data_lake_staging`、正式根只允许 raw/silver/gold、不得以
 文件备份/快照承担恢复”冲突。
 
-此外，当前五次 `os.replace()` 仅各自保证单文件原子，五个频率之间没有文件系统事务。正常 Python
+此外，旧实现五次 `os.replace()` 仅各自保证单文件原子，五个频率之间没有文件系统事务。正常 Python
 异常可以进入回滚分支，但进程被强杀、宿主机掉电或文件系统异常可能绕过回滚，使正式 Raw 留下部分
 频率已替换、部分频率未替换的状态。保留分支必须用逐文件 old/new fingerprint、promote checkpoint、
 重入时状态判定和幂等续跑替代“移动旧文件后整体回滚”的假原子语义。
@@ -721,7 +723,7 @@ promote 也须持久化源/目标父目录的 rename 结果；平台无法满足
 #### 6.4.2 首次 apply 与中断重入状态机
 
 **问题归属**：2026-09-05 复审指出的“候选丢失要求新 run，但部分提升后又禁止新 run”，是本 LLD
-尚未实施的设计矛盾，不是当前代码已有 checkpoint 状态机的 bug。现代码在同 run 目录存在时直接拒绝，
+当时尚未实施的设计矛盾，不是已上线 checkpoint 状态机的 bug。实施前代码在同 run 目录存在时直接拒绝，
 且只用 Python 异常回滚，强杀/掉电不能可靠恢复；修复现实现缺陷与补全新设计均在已批准的 M4 内。
 
 首次进入 promote 前重新读取 source facts、stock code set 和五个 target fingerprint，要求全部与
@@ -750,6 +752,10 @@ promote 也须持久化源/目标父目录的 rename 结果；平台无法满足
 身份校验先行；`aborted_before_promote` 的旧 run 再次 apply 必须拒绝，只能新建计划，不能重新提升旧候选。
 其余状态再按物理 target 判断；old=candidate 时按“目标已满足候选”完整审计，不强行区分是否发生
 replace。判断“未提升”必须同时核对全部物理 target 和 checkpoint，不能只看 pending 标记。
+
+若 plan 因某个目标原本不存在而被标记 `should_stop`，仍禁止 apply；人工废弃时允许按 plan 的原始
+“不存在”事实核对该目标仍不存在。该例外只使拒绝执行的计划可以明确终结，不允许忽略计划后新出现、
+消失或变化的目标，也不允许给有效计划放宽五频完整性要求。
 
 中断重入时不能照搬现有“重新生成包含五个 target hash 的 plan 再比较”逻辑，因为部分 target 已合法
 变成 candidate hash；必须按上表逐频率判定。普通进程中断、候选仍完整时走同 run 幂等续跑。候选已丢失
@@ -801,8 +807,8 @@ M4 前半段“从 prod DB 导出五频候选并审计”的离线数据处理�
 
 落实点：plan/report 记录 `source_row_count_by_freq`、`target_size_bytes_by_freq`、
 `staging_free_bytes_before`；实际执行 report/checkpoint 记录 `candidate_size_bytes_by_freq`、阶段耗时和
-最后检查到的 `staging_free_bytes`。已有 source facts/target fingerprints 可直接映射，不能写成当前
-dataclass 已具备全部字段。不再要求不存在于当前 plan 的 `estimated_candidate_bytes` 上界，也取消
+最后检查到的 `staging_free_bytes`。已有 source facts/target fingerprints 已在 M4 映射到上述报告字段；
+实施前 dataclass 不具备全部字段。不要求 plan 提供 `estimated_candidate_bytes` 上界，也取消
 “估算值 × 2”硬拒绝。候选生成可能发生空间不足：捕获后停止、保留有效 checkpoint、不开始 promote；
 资源错误后不能清空现场。全部候选已落盘、fsync 并通过 audit 后，promote 仅同文件系统 rename，不再
 生成大型数据；checkpoint 写入失败按 §6.4.2 恢复，不能判成功。此方案不承诺避免耗尽磁盘，人工预检
@@ -1730,7 +1736,7 @@ uv run --no-sync python /private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_iso
 
 #### M4 开工对账（2026-09-05，基线 `1b0deb63`）
 
-用户已授权进入 M4。开工核验曾因 Raw/Silver 字段继承规则暂停；历史追溯与用户最新拍板已撤回该阻塞判断：保持现有字段及日常链路不变，`vwap` 差异不处理。当前仅完成开工审计与规则/文档纠正，尚未进入 M4 编码或删除。M4 不包含正式恢复、写湖、补事件、部署或 M5/M6/M8。
+用户已授权进入 M4。开工核验曾因 Raw/Silver 字段继承规则暂停；历史追溯与用户最新拍板已撤回该阻塞判断：保持现有字段及日常链路不变，`vwap` 差异不处理。本小节保留开工时证据；规则/文档纠正随后提交为 `d2d177bb`，其后的代码实施结果见下文。M4 不包含正式恢复、写湖、补事件、部署或 M5/M6/M8。
 
 | 核验项 | 当前代码证据 | 结论 |
 |---|---|---|
@@ -1748,6 +1754,10 @@ uv run --no-sync python /private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_iso
 
 以下为批准的阶段步骤，不因完成开工对账而算作已实施：
 
+本轮实现落点：`paths.py::stk_mins_raw_recovery_run_root` 固定日期/UUID 路径；恢复模块负责计划冻结、逐频候选审计、checkpoint、人工废弃与续跑；专属 CLI 只做参数验证和调用。现有生产只读 source adapter 与 Raw 字段投影不改。正反回归落在 `test_stk_mins_raw_replace_from_prod.py`，覆盖 §6.4.2 全表、目录限制、资源错误、JSON 半写及 CLI。
+
+运营参数对账：`--staging-root` 默认取 `DEFAULT_LAKE_STAGING_ROOT`，只接受该正式根；`--recovery-run-id` 在 plan 可省略并生成 UUID，apply 从已审阅 plan 继承，显式提供时必须一致。两者冻结到 plan/checkpoint，不新增 env/Settings/数据库配置；只作用于本次离线恢复，CLI 报告可见。`--output` 只允许 run 内非保留文件名的报告副本，默认仍为 `plan.json` / `final-report.json`；`--plan-report` 必须属于同一 run，不能借此覆盖 checkpoint、audit 或 candidate。提升前人工废弃通过 `apply --apply --abort-before-promote` 明确表达，必须验证五频仍为原目标且没有任何提升证据；这只是 §6.4.2 已批准动作的 CLI 落点，不增加自动废弃/自动换 run 能力。
+
 1. 先按第 6.4 节重构 `stk_mins_raw_replace_from_prod`：candidate/report/checkpoint 迁正式 staging，删除
    生成正式根 `_staging/_quarantine` 和 backup 的代码，增加逐文件 fingerprint 状态机、重入判定和幂等续跑测试；本阶段不清既有物理目录。
 2. 恢复工具新链验收通过后，删除 source method、dataset spec、executor、specs 和 adj factor old event 模块。
@@ -1758,6 +1768,54 @@ uv run --no-sync python /private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_iso
 6. 不新增 lock/pid 文件；同日期未完成 checkpoint 只允许原 run id 续跑，正式 apply 走人工维护窗口。
 7. 按第 6.4.4 节验证单日五频、资源错误和阶段记录；5 分钟为提示，不拒绝正确候选。验证 §6.4.2 的 checkpoint 落盘间隙和部分提升后候选丢失分支，不能遗漏人工停止点。
 8. 运行恢复工具、catalog、run contract、asset/check contract 测试。
+
+#### M4 实施结果（2026-09-05，基线 `d2d177bb`，随本次提交归档）
+
+先提交两份 AGENTS 与三份口径文档，提交为 `d2d177bb`，未推送；随后按上述步骤先完成恢复工具隔离回归，再退出旧适配器。本次不修改数据集字段，不更改日常处理，不做正式恢复或物理删除。
+
+实际修改逐文件对账（代码路径相对 `lake_console/orchestrator/`）：
+
+| 文件 | 本次实际处理 | 保留与验证边界 |
+|---|---|---|
+| `src/orchestrator/defs/bootstrap/stk_mins_raw_replace_from_prod.py` | schema version 2；冻结计划、candidate audit、带校验和的原子 checkpoint；五频分步替换、同 run 续跑、提升前人工废弃、失败保全；移除备份和回滚分支 | 原 `ProdStkMinsRawReplaceSource` 的 SQL、投影与调用语义结构相同；候选仍遵守当前 Raw 字段、顺序和类型，不增加 Silver 字段 |
+| `src/orchestrator/defs/bootstrap/stk_mins_raw_replace_from_prod_cli.py` | `plan/apply` 保留；新增已批准的 staging/run 参数；输出只能在同 run；`--abort-before-promote` 显式废弃；失败非成功退出 | 不接入页面、API、job、sensor，不保留旧 `/private/tmp` 报告或旧 schema 兼容 |
+| `src/orchestrator/defs/paths.py` | 新增 `stk_mins_raw_recovery_run_root`，限定 ISO 单日和 UUID | 原有所有正式路径函数不改；恢复运行时另核 Lake/staging/五频父目录同文件系统及路径无逃逸 |
+| `src/orchestrator/defs/bootstrap/__init__.py` | 删除旧 spec/executor 导出，只留包说明 | 不重导出所有 history 函数，不加兼容 alias |
+| `src/orchestrator/defs/catalog/lake_assets.py` | 删除旧 enum 成员，修改 §6.4 的 17 项来源声明 | 159 个资产均保留；逐 entry 对比只允许 `ingestion_sources/bootstrap_sources` 差异，asset key/columns/path/partition 等不变 |
+| `src/orchestrator/defs/run_contracts/metadata.py` | 只删除 `SourceSystem.OLD_LAKE_BOOTSTRAP` | 不迁移或删除历史 Dagster event |
+| `src/orchestrator/defs/duckdb_sql.py` | 删除 §7 的七个 `*_BOOTSTRAP_SELECT_TEMPLATE` | 删除这些赋值后，余下源码 AST 与基线一致，当前 SQL 不改 |
+| `src/orchestrator/defs/assets/stk_mins.py` | 改 `_raw_stk_mins_extra_metadata` 来源说明、五个 Raw asset description | 除该 metadata helper 和 description 外，全部顶层 AST 相同；五个 Raw 函数体、日常 SQL、Silver writer 均未改 |
+| `src/orchestrator/defs/checks/stk_mins_checks.py` | 只改一条旧 backup 说明 | 去除该文字差异后 AST 相同；规则和数值判定不改 |
+| `src/orchestrator/defs/run_contracts/asset_column_schemas.py` | 只改 Raw `vol/amount` 两条旧来源说明 | 所有字段名、顺序、类型 AST 相同；Raw 有 `vwap`、Silver 无 `vwap` 的断言保留 |
+| `tests/test_stk_mins_raw_replace_from_prod.py` | 保留业务事实测试，改写旧备份回滚断言，增加状态机/CLI/失败注入 | 最终 38 项测试，22 个参数化子例；不是删除恢复能力的测试 |
+| `tests/test_stk_mins_contracts.py` | 删除两项旧 bootstrap SQL 测试及专属 fixture/import | 保留当前字段、Raw/Silver/check/path 测试 |
+| `tests/test_adj_factor_contracts.py` | 删除两项旧 bootstrap SQL 测试及专属 fixture/helper/import | 当前 lifecycle/Silver SQL、字段与路径测试保留 |
+| `tests/test_old_lake_adapter_retirement.py` | 新增旧入口不可用、AST 无旧 import/enum、catalog 精确值和保留模块存在检查 | 只接受 ignored 缓存形成的无源码 namespace，不允许任何旧 spec 可导入；不删除本机 ignored 缓存 |
+
+实际删除严格等于 §6.1 的 13 个运行文件，以及 `test_stk_mins_bootstrap_spec.py`、`test_adj_factor_bootstrap_spec.py`、`test_adj_factor_raw_bootstrap_events.py`、`test_adj_factor_silver_bootstrap_events.py` 四份专属测试。没有删除第 18 个文件；这些 Git 文件可由 `d2d177bb` 历史取回，但不提供运行兜底。`adj_factor_silver_history.py`、当前 Silver/QFQ/derived/MACD-KDJ/history events、canonical/指数 Gold 工具及 21 命令 fixture 保留。
+
+实际安全与行为对账：
+
+| 约束 | 已实现与验证 |
+|---|---|
+| plan 不改正式数据 | 只在 staging 写 plan/checkpoint；冻结 source TaskRun、股票池、五频聚合和五个旧目标指纹；禁止用旧根和跨文件系统路径 |
+| 所有候选先完成验证 | 顺序生成五频 candidate，核 schema/顺序/类型/主键/空键/日期/频率/股票集合/时间范围/行数；全部冻结后再次核源和旧目标，才进入 promote |
+| 替换后进度未写下 | 1/5/15/30/60m 分别注入 replace 后中断，以及 checkpoint 写入失败；目标等于候选时重新完整审计，不重复导出或覆盖 |
+| 部分完成、剩余候选异常 | 候选丢失/改变时保留现场，禁止新 run、禁止废弃已提升 run；只有恢复完全相同的冻结字节和 audit 后才允许原 run 续跑 |
+| 提升前废弃/完成后重入 | 五频原始状态且无提升证据才可显式废弃；包括被拒绝计划中原本缺失且仍缺失的目标，后来出现文件则拒绝废弃。已废弃 run 不能 apply。完成后重入只审计，不查生产源、不重新导出或替换目标 |
+| 资源和慢任务 | 模拟 ENOSPC、DuckDB OOM 均保留 checkpoint，候选阶段失败零正式改动；模拟 301 秒仍可成功并给出 slow warning。不宣称已测量当前生产导出速度 |
+| 人工维护窗口 | 无 lock/pid/后台服务；同日未完成 run 阻止新计划，但不伪装成跨进程互斥。正式使用仍须人工暂停同日 writer、确认残留会话结束 |
+
+最终验证记录：
+
+1. 既有隔离 runner `/private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_isolated_cli_tests.py` 拦截网络与正式 `DagsterInstance.get()`，使用临时 Lake、staging、DuckDB spill 和替身生产源。
+2. 最终联合运行 A/B 两组：A 组覆盖恢复工具、旧适配器退场、stk_mins/adj-factor/metadata/asset governance/static gates、21 命令 fixture；B 组覆盖当前 Silver/QFQ/event/derived/MACD-KDJ/adj-factor/identity-map/Silver contract。合计 439 项测试、750 个子例全部通过（33.61 秒，1577 条既有依赖等 warning）；已包含最后补充的“缺失目标的停止计划安全废弃”反例。没有正式数据库或湖写入。
+3. `/private/tmp/lake-retirement-m4-20260905.aUDbb3/audit_boundaries.py` 对照 `d2d177bb` 验证精确 17 文件删除、七项 SQL 赋值外 AST 相同、字段/当前处理/source adapter 不变、159 资产仅 17 项来源变化、现行四 CLI/共享 contract/fixture、Local Lake Reader、Ops/Biz/前端/Wealth/旧 Console/正式 bin 不变。该脚本是临时只读审计证据，不是新运行依赖。
+4. 10 个新实现相关/干净修改文件完整 Ruff 通过；全体修改 Python 文件逐诊断对比基线，新增问题 0。`assets/stk_mins.py` 既有 8 项、checks 1 项、duckdb_sql 1 项、metadata 2 项共 12 项历史 lint 问题未扩大；不为清退顺手改变原日期逻辑。整个 orchestrator `src/tests` 的 `E9,F63,F7,F82` 检查通过。
+5. 全仓程序引用扫描排除防回退测试后，旧模块路径、`OLD_LAKE_BOOTSTRAP`、`old_lake_root`、七个旧 SQL 常量、旧 spec/source type 均无匹配。旧 Console 263 路径及其清单 SHA-256 未变；文档矩阵仍为 156 份、无遗漏或重复。文档完整性和 `git diff --check` 另作交付检查，不代替代码安全证明。
+6. CodeGraph `explore/impact/callers` 覆盖恢复入口、旧 spec/executor/event、当前资产/测试和 API/前端消费者；对 `cn_a_minute_gold_history._DatasetSpec.source_path` 与旧后台通用 callback 的同名误命中逐条看代码排除，未删除这些保留能力。根索引 `codegraph sync/status` 已完成，无需新建索引；架构快照同步 M4，跨子系统依赖方向和 dependency matrix 不变。
+
+验收边界：这是代码实现与隔离回归结果，不是生产恢复验收。未进行真实 prod 导出、正式文件替换、正式 Dagster 装配执行/事件写入、断电测试或历史数据删除；不承诺五文件组级原子，也不承诺自动处理不可重建候选。用户已要求提交，本次按 35 文件白名单归档，不推送；真实恢复另行确认日期、容量和维护窗口。本轮到 M4 为止，不自动进入 M5–M8。并行任务的 `wealth/docs/pages/wealth-exploration/sector-analysis-implementation-design-v1.md` 与 `wealth/docs/pages/wealth-exploration/sector-analysis-low-level-design-v1.md` 不属于本专项，未触碰、未纳入提交范围；上述 Wealth 保护结论针对运行代码。
 
 ### M5：合并模板、收敛证据摘要并删除旧文档
 
@@ -1909,21 +1967,21 @@ M8 删除前必须在清单中明确恢复能力。非 Git 数据没有既有可
 
 ### 14.2 旧适配器
 
-- [ ] generic old-lake spec/executor/specs 全部删除。
-- [ ] `OLD_LAKE_BOOTSTRAP` 和 `old_lake_root` 无运行时正向使用。
-- [ ] 旧 DuckDB bootstrap templates 清零。
-- [ ] 旧 adj-factor event 补录模块和纯旧测试删除。
-- [ ] 历史事件不做存储改写。
+- [x] generic old-lake spec/executor/specs 全部删除（M4 工作区）。
+- [x] `OLD_LAKE_BOOTSTRAP` 和 `old_lake_root` 无运行时正向使用（M4）。
+- [x] 旧 DuckDB bootstrap templates 清零（M4）。
+- [x] 旧 adj-factor event 补录模块和纯旧测试删除（M4）。
+- [x] 历史事件不做存储改写（M4 未访问正式实例）。
 
 ### 14.3 Catalog 与 metadata
 
-- [ ] 17 个 catalog entry 按第 6.4 节逐个对账。
-- [ ] Raw `stk_mins` 五个 entry 固定保留 `PROD_DB_READONLY` 恢复来源，不声明尚未完成重构的不合规入口。
-- [ ] Raw 恢复工具已完成重构：`bootstrap_sources=(PROD_DB_READONLY,)`，candidate/audit/checkpoint 已迁
+- [x] 17 个 catalog entry 按第 6.4 节逐个对账（M4）。
+- [x] Raw `stk_mins` 五个 entry 固定保留 `PROD_DB_READONLY` 恢复来源（M4 代码与隔离回归）。
+- [x] Raw 恢复工具已完成重构：`bootstrap_sources=(PROD_DB_READONLY,)`，candidate/audit/checkpoint 已迁
       正式 staging，逐文件状态可幂等续跑；新流程不再生成正式根 `_staging/_quarantine`，不以清空既有目录作为 M4 验收。
-- [ ] Silver/Gold/index/adj 的 derived source 与当前依赖一致。
-- [ ] 当前 asset metadata 不再宣称 backup clean_next 可用。
-- [ ] schema、asset key、partition 和 path contract 未变化。
+- [x] Silver/Gold/index/adj 的 derived source 与当前依赖一致（M4）。
+- [x] 当前 asset metadata 不再宣称 backup clean_next 可用（M4）。
+- [x] schema、asset key、partition 和既有正式 path contract 未变化（M4 结构对比与回归）。
 
 ### 14.4 旧 Console/Kopia
 

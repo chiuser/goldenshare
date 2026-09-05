@@ -1,17 +1,10 @@
-import tempfile
 import unittest
-from pathlib import Path
-
-import duckdb
 
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
 from orchestrator.defs.duckdb_sql import (
     SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
-    STK_MINS_BOOTSTRAP_SELECT_TEMPLATE,
     STK_MINS_RAW_REQUIRED_COLUMNS,
     STK_MINS_SILVER_REQUIRED_COLUMNS,
-    STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE,
-    duckdb_string,
 )
 from orchestrator.defs.partitions import (
     cn_a_stock_mins_silver_trade_days,
@@ -39,51 +32,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_qfq_freq,
     qfq_source_freq_for_derived_freq,
 )
-
-
-def _write_backup_stk_mins_parquet(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(database=":memory:") as connection:
-        connection.execute(
-            f"""
-            COPY (
-              SELECT
-                '000001.SZ'::VARCHAR AS ts_code,
-                30::BIGINT AS freq,
-                TIMESTAMP '2026-05-07 09:30:00' AS trade_time,
-                1.0::DOUBLE AS open,
-                1.1::DOUBLE AS close,
-                1.2::DOUBLE AS high,
-                0.9::DOUBLE AS low,
-                100::BIGINT AS vol,
-                1234.5::DOUBLE AS amount,
-                NULL AS exchange,
-                1.05::DOUBLE AS vwap
-            ) TO {duckdb_string(path)} (FORMAT PARQUET)
-            """
-        )
-
-
-def _write_stock_identity_map_parquet(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(database=":memory:") as connection:
-        connection.execute(
-            f"""
-            COPY (
-              SELECT
-                '001872.SZ'::VARCHAR AS latest_ts_code,
-                '000022.SZ'::VARCHAR AS source_ts_code,
-                DATE '1993-04-30' AS valid_from,
-                NULL::DATE AS valid_to,
-                DATE '1993-04-30' AS effective_list_date,
-                NULL::DATE AS effective_delist_date,
-                'namechange'::VARCHAR AS identity_source,
-                'inferred'::VARCHAR AS confidence,
-                '代码变更映射'::VARCHAR AS reason,
-                TIMESTAMPTZ '2026-05-12 10:00:00+08' AS created_at
-            ) TO {duckdb_string(path)} (FORMAT PARQUET)
-            """
-        )
 
 
 class StkMinsContractTests(unittest.TestCase):
@@ -238,132 +186,6 @@ class StkMinsContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported silver stk_mins"):
             derive_silver_stk_mins_exchange_from_ts_code("000001.HK")
 
-    def test_stk_mins_bootstrap_select_normalizes_backup_schema_variant(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            old_path = Path(temp_dir) / "part-00000.parquet"
-            _write_backup_stk_mins_parquet(old_path)
-
-            select_sql = STK_MINS_BOOTSTRAP_SELECT_TEMPLATE.format(
-                old_path=duckdb_string(old_path)
-            )
-            with duckdb.connect(database=":memory:") as connection:
-                describe_rows = connection.execute(
-                    f"DESCRIBE SELECT * FROM ({select_sql})"
-                ).fetchall()
-                rows = connection.execute(
-                    f"""
-                    SELECT
-                      ts_code,
-                      freq,
-                      strftime(trade_time, '%Y-%m-%d %H:%M:%S'),
-                      open,
-                      close,
-                      high,
-                      low,
-                      vol,
-                      amount,
-                      exchange,
-                      vwap
-                    FROM ({select_sql})
-                    """
-                ).fetchall()
-
-        self.assertEqual(
-            [(row[0], row[1]) for row in describe_rows],
-            [
-                ("ts_code", "VARCHAR"),
-                ("freq", "INTEGER"),
-                ("trade_time", "TIMESTAMP"),
-                ("open", "DOUBLE"),
-                ("close", "DOUBLE"),
-                ("high", "DOUBLE"),
-                ("low", "DOUBLE"),
-                ("vol", "BIGINT"),
-                ("amount", "DOUBLE"),
-                ("exchange", "VARCHAR"),
-                ("vwap", "DOUBLE"),
-            ],
-        )
-        self.assertEqual(
-            rows,
-            [
-                (
-                    "000001.SZ",
-                    30,
-                    "2026-05-07 09:30:00",
-                    1.0,
-                    1.1,
-                    1.2,
-                    0.9,
-                    100,
-                    1234.5,
-                    None,
-                    1.05,
-                )
-            ],
-        )
-
-    def test_stock_identity_map_bootstrap_select_normalizes_types(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            old_path = Path(temp_dir) / "security_identity_map.parquet"
-            _write_stock_identity_map_parquet(old_path)
-
-            select_sql = STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE.format(
-                old_path=duckdb_string(old_path)
-            )
-            with duckdb.connect(database=":memory:") as connection:
-                describe_rows = connection.execute(
-                    f"DESCRIBE SELECT * FROM ({select_sql})"
-                ).fetchall()
-                rows = connection.execute(
-                    f"""
-                    SELECT
-                      latest_ts_code,
-                      source_ts_code,
-                      strftime(valid_from, '%Y-%m-%d'),
-                      valid_to IS NULL,
-                      strftime(effective_list_date, '%Y-%m-%d'),
-                      effective_delist_date IS NULL,
-                      identity_source,
-                      confidence,
-                      reason,
-                      typeof(created_at)
-                    FROM ({select_sql})
-                    """
-                ).fetchall()
-
-        self.assertEqual(
-            [(row[0], row[1]) for row in describe_rows],
-            [
-                ("latest_ts_code", "VARCHAR"),
-                ("source_ts_code", "VARCHAR"),
-                ("valid_from", "DATE"),
-                ("valid_to", "DATE"),
-                ("effective_list_date", "DATE"),
-                ("effective_delist_date", "DATE"),
-                ("identity_source", "VARCHAR"),
-                ("confidence", "VARCHAR"),
-                ("reason", "VARCHAR"),
-                ("created_at", "TIMESTAMP WITH TIME ZONE"),
-            ],
-        )
-        self.assertEqual(
-            rows,
-            [
-                (
-                    "001872.SZ",
-                    "000022.SZ",
-                    "1993-04-30",
-                    True,
-                    "1993-04-30",
-                    True,
-                    "namechange",
-                    "inferred",
-                    "代码变更映射",
-                    "TIMESTAMP WITH TIME ZONE",
-                )
-            ],
-        )
 
 
 if __name__ == "__main__":

@@ -134,8 +134,8 @@ RAW_STK_MINS_SCHEMA = (
     ColumnContract("close", "DOUBLE", "分钟 bar 收盘价"),
     ColumnContract("high", "DOUBLE", "分钟 bar 最高价"),
     ColumnContract("low", "DOUBLE", "分钟 bar 最低价"),
-    ColumnContract("vol", "BIGINT", "成交量，沿用 backup clean_next 口径"),
-    ColumnContract("amount", "DOUBLE", "成交额，沿用 backup clean_next 口径"),
+    ColumnContract("vol", "BIGINT", "成交量，整数契约"),
+    ColumnContract("amount", "DOUBLE", "成交额，浮点数契约"),
     ColumnContract("exchange", "VARCHAR", "交易所代码；历史全空分区归一为 VARCHAR"),
     ColumnContract("vwap", "DOUBLE", "成交均价"),
 )

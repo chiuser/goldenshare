@@ -221,7 +221,6 @@ class DataContractSource(str, Enum):
 class IngestionSource(str, Enum):
     TUSHARE_API = "tushare_api"
     PROD_DB_READONLY = "prod_db_readonly"
-    OLD_LAKE_BOOTSTRAP = "old_lake_bootstrap"
     DERIVED_FROM_ASSETS = "derived_from_assets"
     SEED_FILE = "seed_file"
     INFRASTRUCTURE_CHECK = "infrastructure_check"
@@ -1756,7 +1755,7 @@ LAKE_ASSET_CATALOG = (
         blocking_check_names=SILVER_ADJ_FACTOR_CHECKS,
         batch_grain="trade_date",
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
-        bootstrap_sources=(IngestionSource.OLD_LAKE_BOOTSTRAP,),
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
     ),
     _derived_entry(
         asset_key="gold_stock_daily_qfq",
@@ -1915,10 +1914,9 @@ LAKE_ASSET_CATALOG += tuple(
         ingestion_sources=(
             IngestionSource.TUSHARE_API,
             IngestionSource.PROD_DB_READONLY,
-            IngestionSource.OLD_LAKE_BOOTSTRAP,
         ),
         default_daily_ingestion_source=IngestionSource.PROD_DB_READONLY,
-        bootstrap_sources=(IngestionSource.OLD_LAKE_BOOTSTRAP,),
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
         blocking_check_names=RAW_STK_MINS_CHECKS,
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
@@ -1953,7 +1951,7 @@ LAKE_ASSET_CATALOG += tuple(
         batch_grain="freq/trade_date",
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
-        bootstrap_sources=(IngestionSource.OLD_LAKE_BOOTSTRAP,),
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
         notes="Silver source freqs remain limited to 1/5/15/30/60.",
     )
     for freq in (1, 5, 15, 30, 60)
@@ -1982,7 +1980,6 @@ LAKE_ASSET_CATALOG += tuple(
         write_policy=WritePolicy.STOCK_YEAR_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         bootstrap_sources=(
-            IngestionSource.OLD_LAKE_BOOTSTRAP,
             IngestionSource.DERIVED_FROM_ASSETS,
         ),
         notes="Native qfq freqs are generated from silver stk_mins and adj_factor.",
@@ -2188,7 +2185,7 @@ LAKE_ASSET_CATALOG += (
         blocking_check_names=SILVER_INDEX_DAILY_CHECKS,
         batch_grain="trade_date",
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
-        bootstrap_sources=(IngestionSource.OLD_LAKE_BOOTSTRAP,),
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
     ),
     _tushare_raw_entry(
         asset_key="raw_index_global",

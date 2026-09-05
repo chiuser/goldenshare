@@ -42,26 +42,6 @@ TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS = tuple(
     column.name for column in SILVER_TRADE_CALENDAR_SCHEMA
 )
 
-TRADE_CALENDAR_BOOTSTRAP_SELECT_TEMPLATE = """
-SELECT
-  CAST(exchange AS VARCHAR) AS exchange,
-  CASE
-    WHEN cal_date IS NULL OR trim(CAST(cal_date AS VARCHAR)) = '' THEN NULL
-    ELSE strftime(CAST(CAST(cal_date AS VARCHAR) AS DATE), '%Y%m%d')
-  END AS cal_date,
-  CASE
-    WHEN is_open IS NULL THEN NULL
-    WHEN CAST(is_open AS VARCHAR) IN ('true', 'TRUE', 'True', '1') THEN 1
-    WHEN CAST(is_open AS VARCHAR) IN ('false', 'FALSE', 'False', '0') THEN 0
-    ELSE NULL
-  END AS is_open,
-  CASE
-    WHEN pretrade_date IS NULL OR trim(CAST(pretrade_date AS VARCHAR)) = '' THEN NULL
-    ELSE strftime(CAST(CAST(pretrade_date AS VARCHAR) AS DATE), '%Y%m%d')
-  END AS pretrade_date
-FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
-"""
-
 STOCK_BASIC_RAW_COLUMNS = tuple(
     column.name for column in RAW_TUSHARE_STOCK_BASIC_SCHEMA
 )
@@ -97,34 +77,6 @@ NAMECHANGE_SILVER_REQUIRED_COLUMNS = tuple(
 
 STOCK_BASIC_KNOWN_LIST_STATUS_VALUES = ("L", "D", "P", "G")
 
-STOCK_BASIC_BOOTSTRAP_SELECT_TEMPLATE = """
-SELECT
-  CAST(ts_code AS VARCHAR) AS ts_code,
-  CAST(symbol AS VARCHAR) AS symbol,
-  CAST(name AS VARCHAR) AS name,
-  CAST(area AS VARCHAR) AS area,
-  CAST(industry AS VARCHAR) AS industry,
-  CAST(fullname AS VARCHAR) AS fullname,
-  CAST(enname AS VARCHAR) AS enname,
-  CAST(cnspell AS VARCHAR) AS cnspell,
-  CAST(market AS VARCHAR) AS market,
-  CAST(exchange AS VARCHAR) AS exchange,
-  CAST(curr_type AS VARCHAR) AS curr_type,
-  CAST(list_status AS VARCHAR) AS list_status,
-  CASE
-    WHEN list_date IS NULL OR trim(CAST(list_date AS VARCHAR)) = '' THEN NULL
-    ELSE CAST(list_date AS VARCHAR)
-  END AS list_date,
-  CASE
-    WHEN delist_date IS NULL OR trim(CAST(delist_date AS VARCHAR)) = '' THEN NULL
-    ELSE CAST(delist_date AS VARCHAR)
-  END AS delist_date,
-  CAST(is_hs AS VARCHAR) AS is_hs,
-  CAST(act_name AS VARCHAR) AS act_name,
-  CAST(act_ent_type AS VARCHAR) AS act_ent_type
-FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
-"""
-
 STOCK_DAILY_RAW_REQUIRED_COLUMNS = tuple(
     column.name for column in RAW_TUSHARE_STOCK_DAILY_SCHEMA
 )
@@ -151,79 +103,6 @@ ADJ_FACTOR_SILVER_REQUIRED_COLUMNS = tuple(
     column.name for column in SILVER_ADJ_FACTOR_SCHEMA
 )
 
-STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE = """
-SELECT
-  CAST(ts_code AS VARCHAR) AS ts_code,
-  CASE
-    WHEN trade_date IS NULL OR trim(CAST(trade_date AS VARCHAR)) = '' THEN NULL
-    WHEN regexp_matches(trim(CAST(trade_date AS VARCHAR)), '^\\d{{8}}$')
-      THEN trim(CAST(trade_date AS VARCHAR))
-    ELSE strftime(CAST(trade_date AS DATE), '%Y%m%d')
-  END AS trade_date,
-  CAST(open AS DOUBLE) AS open,
-  CAST(high AS DOUBLE) AS high,
-  CAST(low AS DOUBLE) AS low,
-  CAST(close AS DOUBLE) AS close,
-  CAST(pre_close AS DOUBLE) AS pre_close,
-  CAST(change AS DOUBLE) AS change,
-  CAST(pct_chg AS DOUBLE) AS pct_chg,
-  CAST(vol AS DOUBLE) AS vol,
-  CAST(amount AS DOUBLE) AS amount
-FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
-"""
-
-STK_MINS_BOOTSTRAP_SELECT_TEMPLATE = """
-SELECT
-  CAST(ts_code AS VARCHAR) AS ts_code,
-  CAST(freq AS INTEGER) AS freq,
-  CAST(trade_time AS TIMESTAMP) AS trade_time,
-  CAST(open AS DOUBLE) AS open,
-  CAST(close AS DOUBLE) AS close,
-  CAST(high AS DOUBLE) AS high,
-  CAST(low AS DOUBLE) AS low,
-  CAST(vol AS BIGINT) AS vol,
-  CAST(amount AS DOUBLE) AS amount,
-  CAST(exchange AS VARCHAR) AS exchange,
-  CAST(vwap AS DOUBLE) AS vwap
-FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
-"""
-
-STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE = """
-SELECT
-  CAST(latest_ts_code AS VARCHAR) AS latest_ts_code,
-  CAST(source_ts_code AS VARCHAR) AS source_ts_code,
-  CAST(valid_from AS DATE) AS valid_from,
-  CASE
-    WHEN valid_to IS NULL OR trim(CAST(valid_to AS VARCHAR)) = '' THEN NULL
-    ELSE CAST(valid_to AS DATE)
-  END AS valid_to,
-  CAST(effective_list_date AS DATE) AS effective_list_date,
-  CASE
-    WHEN effective_delist_date IS NULL
-      OR trim(CAST(effective_delist_date AS VARCHAR)) = ''
-    THEN NULL
-    ELSE CAST(effective_delist_date AS DATE)
-  END AS effective_delist_date,
-  CAST(identity_source AS VARCHAR) AS identity_source,
-  CAST(confidence AS VARCHAR) AS confidence,
-  CAST(reason AS VARCHAR) AS reason,
-  CAST(created_at AS TIMESTAMP WITH TIME ZONE) AS created_at
-FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
-"""
-
-ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE = """
-SELECT
-  CAST(ts_code AS VARCHAR) AS ts_code,
-  CASE
-    WHEN trade_date IS NULL OR trim(CAST(trade_date AS VARCHAR)) = '' THEN NULL
-    WHEN regexp_matches(trim(CAST(trade_date AS VARCHAR)), '^\\d{{8}}$')
-      THEN trim(CAST(trade_date AS VARCHAR))
-    ELSE strftime(CAST(trade_date AS DATE), '%Y%m%d')
-  END AS trade_date,
-  CAST(adj_factor AS DOUBLE) AS adj_factor
-FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
-"""
-
 SUSPEND_D_RAW_COLUMNS = tuple(
     column.name for column in RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA
 )
@@ -235,15 +114,6 @@ SUSPEND_D_SILVER_REQUIRED_COLUMNS = tuple(
 )
 
 SUSPEND_D_KNOWN_TYPE_VALUES = ("S", "R")
-
-SUSPEND_D_BOOTSTRAP_SELECT_TEMPLATE = """
-SELECT
-  CAST(ts_code AS VARCHAR) AS ts_code,
-  strftime(CAST(trade_date AS DATE), '%Y%m%d') AS trade_date,
-  CAST(suspend_timing AS VARCHAR) AS suspend_timing,
-  CAST(suspend_type AS VARCHAR) AS suspend_type
-FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
-"""
 
 MARKET_BREADTH_DAILY_COLUMNS = (
     "trade_date",

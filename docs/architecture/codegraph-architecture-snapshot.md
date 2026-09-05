@@ -1,7 +1,7 @@
 # CodeGraph 架构快照
 
 生成日期：2026-08-22
-局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分、M2B 入口安全门禁及 M3 旧 migration 主体退出；未重审其它模块，下面索引规模仍是原生成日记录。
+局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分、M2B 入口安全门禁、M3 旧 migration 主体退出及 M4 旧适配器退出/Raw 恢复重构；未重审其它模块，下面索引规模仍是原生成日记录。
 索引根：`/Users/congming/github/goldenshare`
 索引结果：2,508 files，44,388 nodes，101,669 edges，DB 110.44 MB
 
@@ -164,7 +164,25 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 
 M2B 已分离 Silver CLI 的 Raw 输入 / Silver 输入 selector，去掉批准的旧 option；baseline CLI 先校验单日范围，再调用原 report。report 入口复核同一范围，且在一次 planner 返回后、文件审计与 event writer 前检查实际分区是请求当天。文件计算、check/event payload、其它 CLI 和多日只读 planner 不变；未引入新服务或跨域依赖。
 
-M3 删除旧 `stk_mins_migration.py` 及其旧测试；当前 helper、Raw checks/readiness、identity-map asset 与上述四 CLI 保留。两条仍有效的零价格测试样本迁到当前 Raw check。generic old-lake adapter、specs/executor 和仍在用的 Raw 恢复工具属于 M4，不能套用本次旧 migration 模块的零引用结论。
+M3 删除旧 `stk_mins_migration.py` 及其旧测试；当前 helper、Raw checks/readiness、identity-map asset 与上述四 CLI 保留。两条仍有效的零价格测试样本迁到当前 Raw check。M4 单独核清依赖后删除 generic old-lake adapter、specs/executor 和两个旧 adj-factor event 模块；仍在用的 Raw 恢复工具保留并重构，不能套用旧 migration 的零引用结论。
+
+### 单日五频 Raw 离线恢复（2026-09-05 M4）
+
+```text
+stk_mins_raw_replace_from_prod_cli.py plan/apply（人工维护窗口）
+  -> stk_mins_raw_replace_from_prod（生产库只读 source + 当前股票池 + 旧目标指纹）
+  -> 正式 staging：日期/UUID 的 plan、五频 candidates、audits、checkpoint
+  -> 所有候选审计通过后逐文件 os.replace 到正式 Raw
+  -> 目标完整复核 + checkpoint verified -> 五频完成报告
+```
+
+该入口仍不接入页面/API/job/sensor；不写业务数据库或 Dagster event，不做备份、整体回滚或自动换 run。
+中断后按同 run 的目标/候选物理指纹续跑；部分提升后候选丢失是人工停止点。只有单文件原子性，没有
+五文件事务；操作前须人工协调同日 writer，未引入常驻服务或锁文件。
+
+M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式 path/partition、当前日常计算和上述
+21 CLI 命令契约不变。旧 enum/exports/七项 SQL 退出；历史 event 不改写。M4 实现与隔离回归记录随本次提交归档，
+不是正式恢复或部署验收，旧 Console 和物理数据仍按后续批准阶段处理。
 
 ## 关键 Contract 与 Adapter
 
@@ -245,6 +263,7 @@ M3 删除旧 `stk_mins_migration.py` 及其旧测试；当前 helper、Raw check
     未发现 API/前端/调度消费者。此处记录入口重组，不宣称已完成后续迁移主体或旧产品清退。
 11. 清退 M2B：`codegraph_explore/impact` 覆盖 Silver selector 和 baseline CLI → report → planner/审计/事件写入；现行 report 运行调用方仅 MACD CLI，共享 planner 的只读消费者保留多日能力。
 12. 清退 M3：`codegraph_explore/impact/callers` 覆盖旧 plan、Raw event report 与 Raw audit；全仓 tracked Python AST 和文本引用补扫，正向导入仅旧测试。复核 package exports、当前 CLI、assets/checks/readiness、identity-map、API/前端和构建入口后，删除旧模块与旧测试；不删除现行 Raw check 或泛化到其它适配器。
+13. 清退 M4：`codegraph_explore/impact/callers` 覆盖单日 Raw recovery/CLI、旧 spec/executor/events、资产/catalog/tests 与 API/前端消费者；核实指数 Gold 私有 `_DatasetSpec.source_path` 和旧后台通用 callback 是同名误命中，不属于旧适配器调用。结合真实 import、AST 和基线差异删除 13 个旧模块、4 份专属测试；根 `codegraph sync/status` 显示最新（3,182 files / 57,813 nodes / 141,807 edges，点时值），未新建索引。未改变跨子系统依赖方向，正式运行维护窗口需另确认。
 
 ## 仍需人工确认
 

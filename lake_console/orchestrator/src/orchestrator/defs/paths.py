@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from uuid import UUID
 
 from orchestrator.defs.run_contracts.etf_daily import (
     RAW_TUSHARE_FUND_ADJ_ASSET_KEY,
@@ -59,6 +60,20 @@ FORBIDDEN_NEW_LAKE_PARTS = {
     "lake_jobs",
     "duckdb_compute",
 }
+
+
+def stk_mins_raw_recovery_run_root(
+    staging_root: Path, trade_date: str, recovery_run_id: str,
+) -> Path:
+    """Return the dedicated, single-day raw recovery evidence directory."""
+    if date.fromisoformat(trade_date).isoformat() != trade_date:
+        raise ValueError("Recovery trade_date must use YYYY-MM-DD")
+    if str(UUID(recovery_run_id)) != recovery_run_id:
+        raise ValueError("Recovery run id must be a canonical UUID")
+    return (
+        staging_root / "recovery" / "stk_mins_raw_replace_from_prod"
+        / f"trade_date={trade_date}" / f"recovery_run_id={recovery_run_id}"
+    )
 
 
 def lake_path(root: Path, layer: str, *parts: str) -> Path:

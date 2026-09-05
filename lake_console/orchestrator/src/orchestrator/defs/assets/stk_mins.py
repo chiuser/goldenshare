@@ -2712,11 +2712,11 @@ def _raw_stk_mins_extra_metadata(freq: int) -> dict[str, object]:
         "freq": freq,
         "freq_label": _freq_label(freq),
         "source_window": "09:00:00-19:00:00",
-        "bootstrap_source": "backup_clean_next",
+        "historical_repair_source": "prod_db_raw_tushare",
         "daily_source": "prod_db_raw_tushare",
         "fallback_source": "tushare_stk_mins",
         "raw_contract": (
-            "Historical baseline comes from backup clean_next; daily partitions "
+            "Existing promoted partitions remain historical facts; daily partitions "
             "default to prod DB raw_tushare.stk_mins, with Tushare stk_mins kept "
             "as a manual fallback; all sources are normalized to the same raw schema."
         ),
@@ -2743,7 +2743,7 @@ def _raw_stk_mins_extra_metadata(freq: int) -> dict[str, object]:
         ),
         extra_metadata=_raw_stk_mins_extra_metadata(1),
     ),
-    description="股票 1 分钟 raw 行情，历史基线来自 clean_next，默认日常来自 prod DB，Tushare 保留为备用。",
+    description="股票 1 分钟 raw 行情，保留既有正式分区，默认日常来自 prod DB，Tushare 保留为备用；受控五频恢复使用独立 CLI。",
 )
 def raw_stk_mins_1m(
     context: dg.AssetExecutionContext,
@@ -2782,7 +2782,7 @@ def raw_stk_mins_1m(
         ),
         extra_metadata=_raw_stk_mins_extra_metadata(5),
     ),
-    description="股票 5 分钟 raw 行情，历史基线来自 clean_next，默认日常来自 prod DB，Tushare 保留为备用。",
+    description="股票 5 分钟 raw 行情，保留既有正式分区，默认日常来自 prod DB，Tushare 保留为备用；受控五频恢复使用独立 CLI。",
 )
 def raw_stk_mins_5m(
     context: dg.AssetExecutionContext,
@@ -2821,7 +2821,7 @@ def raw_stk_mins_5m(
         ),
         extra_metadata=_raw_stk_mins_extra_metadata(15),
     ),
-    description="股票 15 分钟 raw 行情，历史基线来自 clean_next，默认日常来自 prod DB，Tushare 保留为备用。",
+    description="股票 15 分钟 raw 行情，保留既有正式分区，默认日常来自 prod DB，Tushare 保留为备用；受控五频恢复使用独立 CLI。",
 )
 def raw_stk_mins_15m(
     context: dg.AssetExecutionContext,
@@ -2860,7 +2860,7 @@ def raw_stk_mins_15m(
         ),
         extra_metadata=_raw_stk_mins_extra_metadata(30),
     ),
-    description="股票 30 分钟 raw 行情，历史基线来自 clean_next，默认日常来自 prod DB，Tushare 保留为备用。",
+    description="股票 30 分钟 raw 行情，保留既有正式分区，默认日常来自 prod DB，Tushare 保留为备用；受控五频恢复使用独立 CLI。",
 )
 def raw_stk_mins_30m(
     context: dg.AssetExecutionContext,
@@ -2899,7 +2899,7 @@ def raw_stk_mins_30m(
         ),
         extra_metadata=_raw_stk_mins_extra_metadata(60),
     ),
-    description="股票 60 分钟 raw 行情，历史基线来自 clean_next，默认日常来自 prod DB，Tushare 保留为备用。",
+    description="股票 60 分钟 raw 行情，保留既有正式分区，默认日常来自 prod DB，Tushare 保留为备用；受控五频恢复使用独立 CLI。",
 )
 def raw_stk_mins_60m(
     context: dg.AssetExecutionContext,

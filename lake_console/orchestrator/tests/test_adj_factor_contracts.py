@@ -6,7 +6,6 @@ import duckdb
 
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
 from orchestrator.defs.duckdb_sql import (
-    ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE,
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
     duckdb_string,
@@ -23,20 +22,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
 )
-
-
-def _write_old_adj_factor_parquet(path: Path, trade_date_expression: str) -> None:
-    with duckdb.connect(database=":memory:") as connection:
-        connection.execute(
-            f"""
-            COPY (
-              SELECT
-                '000001.SZ'::VARCHAR AS ts_code,
-                {trade_date_expression} AS trade_date,
-                1.234::DOUBLE AS adj_factor
-            ) TO {duckdb_string(path)} (FORMAT PARQUET)
-            """
-        )
 
 
 def _write_raw_adj_factor_parquet(path: Path) -> None:
@@ -142,24 +127,6 @@ class AdjFactorContractTests(unittest.TestCase):
             "data_lake/silver/quote/adj_factor/trade_date=2026-05-29/part-000.parquet",
         )
 
-    def test_bootstrap_select_normalizes_old_lake_date_trade_date(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            old_path = Path(temp_dir) / "old-date.parquet"
-            _write_old_adj_factor_parquet(old_path, "DATE '2009-01-05'")
-
-            rows = self._query_bootstrap_select(old_path)
-
-        self.assertEqual(rows, [("000001.SZ", "20090105", 1.234)])
-
-    def test_bootstrap_select_keeps_yyyymmdd_string_trade_date(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            old_path = Path(temp_dir) / "old-string.parquet"
-            _write_old_adj_factor_parquet(old_path, "'20090105'::VARCHAR")
-
-            rows = self._query_bootstrap_select(old_path)
-
-        self.assertEqual(rows, [("000001.SZ", "20090105", 1.234)])
-
     def test_silver_select_keeps_lifecycle_valid_cny_rows(
         self,
     ) -> None:
@@ -188,18 +155,6 @@ class AdjFactorContractTests(unittest.TestCase):
             ],
         )
 
-    def _query_bootstrap_select(self, old_path: Path) -> list[tuple[str, str, float]]:
-        select_sql = ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE.format(
-            old_path=duckdb_string(old_path)
-        )
-        with duckdb.connect(database=":memory:") as connection:
-            return connection.execute(
-                f"""
-                SELECT ts_code, trade_date, adj_factor
-                FROM ({select_sql})
-                ORDER BY ts_code
-                """
-            ).fetchall()
 
 
 if __name__ == "__main__":
