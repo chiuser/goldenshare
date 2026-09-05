@@ -1067,7 +1067,7 @@ tests/architecture/test_operations_legacy_guardrails.py
 
 门禁：本阶段只读，不执行生产写入、迁移或任务调度。
 
-2026-08-10 已生成 M4 只读验收证据：[上证指数日线趋势通道 M4 只读与性能验收报告](./sse-daily-trend-channel-m4-readonly-performance-validation-2026-08-10.md)。正式数据、金标、计算、缓存内存和并发单飞已通过；同机正式数据快照的冷/热 API 已通过。生产 Web 与生产 PostgreSQL 实际拓扑的最终冷/热 API P95 验收已完成。
+2026-08-10 已生成 M4 只读验收证据：[上证指数日线趋势通道 M4 只读与性能验收报告](./sse-daily-trend-channel-m4-readonly-performance-validation-2026-08-10.md)。正式数据、金标、计算、缓存内存和并发单飞已通过；同机正式数据快照的冷/热 API 已通过。2026-09-05，管理员确认已完成生产 Web 与生产 PostgreSQL 实际拓扑验证、接口运行无问题，并同意关闭需求；M4 最终验收据此完成，原报告已同步登记关闭记录。
 
 ### M5：前端接入，另立范围
 
