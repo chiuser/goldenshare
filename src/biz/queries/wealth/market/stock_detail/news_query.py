@@ -2,12 +2,19 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import datetime, timezone
-from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
+from src.biz.queries.wealth.market.news.news_event_deduplicator import (
+    NEWS_EVENT_CANDIDATE_BATCH_SIZE,
+    NEWS_EVENT_MAX_CANDIDATE_SCAN,
+    NEWS_EVENT_WINDOW,
+    NewsEvent,
+    NewsEventCandidate,
+    deduplicate_news_events,
+)
 from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service import StockDetailNotFoundError
 from src.biz.schemas.wealth.market.stock_detail import StockDetailStockRefDto
 from src.biz.schemas.wealth.market.stock_detail_news import (
@@ -61,23 +68,15 @@ class StockDetailNewsQuery:
             raise ValueError("startAt 必须早于 endAt")
         effective_limit = min(limit, self.MAX_LIMIT)
 
-        statement = (
-            select(NewsLight, NewsStockLink.match_method)
-            .join(
-                NewsStockLink,
-                NewsStockLink.news_id == NewsLight.row_key_hash,
-            )
-            .where(NewsStockLink.ts_code == normalized_ts_code)
-            .where(NewsLight.news_time >= resolved_start)
-            .where(NewsLight.news_time < resolved_end)
-            .order_by(NewsLight.news_time.desc(), NewsLight.row_key_hash.asc())
-            .limit(effective_limit)
+        candidates = self._load_candidates(
+            session,
+            ts_code=normalized_ts_code,
+            start_at=resolved_start,
+            end_at=resolved_end,
+            limit=effective_limit,
         )
-        rows = session.execute(statement).all()
-        items = [
-            self._to_item(news, str(match_method), debug=debug)
-            for news, match_method in rows
-        ]
+        events = deduplicate_news_events(candidates)[:effective_limit]
+        items = [self._to_item(event, debug=debug) for event in events]
         return StockDetailNewsResponseDto(
             stockRef=StockDetailStockRefDto(tsCode=security.ts_code, name=security.name),
             items=items,
@@ -90,16 +89,96 @@ class StockDetailNewsQuery:
         )
 
     @staticmethod
-    def _to_item(news: NewsLight, match_method: str, *, debug: bool) -> StockDetailNewsItemDto:
-        title = (news.title or "").strip()
-        if not title:
-            title = (news.content or "").strip()[:80]
-        publish_time = _to_shanghai(news.news_time)
+    def _load_candidates(
+        session: Session,
+        *,
+        ts_code: str,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int,
+    ) -> list[NewsEventCandidate]:
+        candidates: list[NewsEventCandidate] = []
+        cursor_time: datetime | None = None
+        cursor_news_id: str | None = None
+
+        while len(candidates) < NEWS_EVENT_MAX_CANDIDATE_SCAN:
+            batch_limit = min(
+                NEWS_EVENT_CANDIDATE_BATCH_SIZE,
+                NEWS_EVENT_MAX_CANDIDATE_SCAN - len(candidates),
+            )
+            statement = (
+                select(
+                    NewsLight.row_key_hash,
+                    NewsLight.news_time,
+                    NewsLight.title,
+                    NewsLight.content,
+                    NewsLight.src,
+                    NewsStockLink.match_method,
+                )
+                .join(
+                    NewsStockLink,
+                    NewsStockLink.news_id == NewsLight.row_key_hash,
+                )
+                .where(NewsStockLink.ts_code == ts_code)
+                .where(NewsLight.news_time >= start_at)
+                .where(NewsLight.news_time < end_at)
+            )
+            if cursor_time is not None and cursor_news_id is not None:
+                statement = statement.where(
+                    or_(
+                        NewsLight.news_time < cursor_time,
+                        and_(
+                            NewsLight.news_time == cursor_time,
+                            NewsLight.row_key_hash > cursor_news_id,
+                        ),
+                    )
+                )
+            statement = statement.order_by(
+                NewsLight.news_time.desc(),
+                NewsLight.row_key_hash.asc(),
+            ).limit(batch_limit)
+
+            rows = session.execute(statement).all()
+            if not rows:
+                break
+
+            candidates.extend(
+                NewsEventCandidate(
+                    news_id=str(news_id),
+                    publish_time=_to_shanghai(news_time),
+                    title=title,
+                    content=content,
+                    source=str(source),
+                    match_method=str(match_method),
+                )
+                for news_id, news_time, title, content, source, match_method in rows
+            )
+
+            events = deduplicate_news_events(candidates)
+            if len(events) >= limit:
+                merge_cutoff = events[limit - 1].representative.publish_time - NEWS_EVENT_WINDOW
+                if candidates[-1].publish_time < merge_cutoff:
+                    break
+
+            if len(rows) < batch_limit:
+                break
+            cursor_news_id = str(rows[-1][0])
+            cursor_time = rows[-1][1]
+
+        return candidates
+
+    @staticmethod
+    def _to_item(event: NewsEvent, *, debug: bool) -> StockDetailNewsItemDto:
+        representative = event.representative
         return StockDetailNewsItemDto(
-            newsId=str(news.row_key_hash),
-            publishTime=publish_time,
-            title=title,
-            debugInfo=StockDetailNewsDebugInfoDto(matchMethod=match_method) if debug else None,
+            newsId=representative.news_id,
+            publishTime=representative.publish_time,
+            title=event.display_title,
+            debugInfo=(
+                StockDetailNewsDebugInfoDto(matchMethod=representative.match_method)
+                if debug
+                else None
+            ),
         )
 
 

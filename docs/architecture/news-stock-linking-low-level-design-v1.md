@@ -5,10 +5,11 @@
 - 文档类型：低层设计（LLD）
 - 依据方案：[新闻—个股关联技术方案 v1](./news-stock-linking-technical-solution-v1.md)
 - 审计基准：2026-08-23 当前工作区代码、测试和数据模型
-- 当前状态：已结案（2026-09-01 用户确认）；M0～M6、批次级实时进度、`news_time` 手动范围与可配置自动增量均已实现
+- 当前状态：关联物化主链已结案；股票详情新闻事件合并已完成本地开发与回归，待部署验收
 - 本文目的：记录最终实现事实、文件落点、调用链、事务边界和验收契约
 
-本文记录已实现代码合同和结案边界；生产迁移、回填、Schedule 状态和部署事实仍以实际运行记录为准，不由文档状态推断。
+本文记录已实现代码合同和后续改造边界；生产迁移、回填、Schedule 状态和部署事实仍以实际运行记录为准，不由文档状态推断。
+事件合并的正式技术口径见[技术方案第 13 节](./news-stock-linking-technical-solution-v1.md#13-股票详情新闻事件合并增强)。
 
 ## 1. 审计结论与拍板项
 
@@ -24,6 +25,7 @@
 | 历史名称 | 使用 `core_serving_light.namechange` 的 `start_date/end_date`；新闻日期按 `news_time` 的上海时区日期判断 |
 | 关系字段 | 只保留 `match_method`、`source_field`、`rule_version`；不做 `relation_type`、`decision_status`、`match_score` 或证据表 |
 | API | 默认最近 2 个自然月，默认 `limit=50`，最大 2000，不分页；支持显式时间范围 |
+| 事件合并 | raw 与关系表保留全部来源事实；Biz 查询层按同一股票的新闻事件合并，`limit` 作用于事件，前端不去重 |
 | 排序 | 后端按完整 `news_time DESC`，完全相同时间再按 `row_key_hash ASC`；前端严格按 API 数组顺序展示 |
 | 展示 | 只展示标题和日期；当前年份显示 `MM-DD`，其他年份显示 `YYYY-MM-DD`；不展示时分秒 |
 | 物化时间轴 | 统一按 `news_time` 选择新闻、排序批次和推进 keyset；不再使用 `fetched_at` |
@@ -38,7 +40,7 @@
 
 1. 关联结果属于派生维护动作，接入现有 `maintenance_action` TaskRun 主链，不伪造一个 `DatasetDefinition` 数据集。
 2. 调度频率属于运营侧 Schedule 配置，不写死在业务 API 或算法内核中；没有 Schedule 时只能手动执行指定范围。
-3. API 展示标题沿用当前市场新闻查询的显示口径：`title` 非空时使用 `title`，否则使用 `content` 去首尾空白后截取前 80 个字符。这个处理是显示字段归一化，不是标题去重。
+3. API 展示标题继续复用 `build_news_display_title()` 的统一口径；事件合并属于 Biz 查询层的独立步骤，不能让前端按标题去重，也不能用一个 SQL `DISTINCT title` 代替事件判断。
 4. `news_time` 同时负责物化范围、批次 keyset、历史名称生效判断、API 时间过滤和最终排序；`fetched_at` 只保留为新闻源事实字段。
 5. 自动任务记录由运营部署后创建和启用；本次代码不能 seed、创建或修改生产 Schedule。
 
@@ -67,7 +69,7 @@
 | 关联表/ORM/DAO | `alembic/versions/20260823_000145_add_news_stock_link.py`、`src/foundation/models/core_serving/news_stock_link.py`、`src/foundation/dao/news_stock_link_dao.py` | 已实现；主键 `(news_id, ts_code)`，只增加 `ts_code` 索引 |
 | 物化服务 | `src/ops/services/news_stock_linking_service.py` | 已实现 `news_time ASC, row_key_hash ASC` 范围/keyset、批次 delete/upsert、独立提交和实时进度 |
 | TaskRun executor | `src/app/runtime/news_stock_linking_task_executor.py`、`src/ops/runtime/maintenance_executor.py`、`src/ops/runtime/task_run_dispatcher.py` | 已实现；单窗口单 unit，批次进度通过 action-specific TaskRun 运行上下文写回，dispatcher 保留终态权威写回 |
-| 股票详情新闻 API | `src/biz/queries/wealth/market/stock_detail/news_query.py`、`src/biz/api/wealth/market/stock_detail_news.py` | 已实现；完整 `news_time DESC` 和 `row_key_hash ASC` tie-breaker |
+| 股票详情新闻 API | `src/biz/queries/wealth/market/news/news_event_deduplicator.py`、`src/biz/queries/wealth/market/stock_detail/news_query.py`、`src/biz/api/wealth/market/stock_detail_news.py` | 已实现 Biz 请求内事件合并、候选 keyset 分批读取和事件级 `limit`；route/schema 不变，完整时间排序契约继续保留 |
 | Wealth 新闻 feature | `wealth/src/features/stock-detail/news/**` | 已实现；点击懒加载、AbortController、四态、原样保持 API 顺序 |
 | Ops TaskRun 主链 | `src/ops/services/task_run_service.py`、`src/ops/runtime/worker.py`、`src/ops/runtime/task_run_dispatcher.py` | 已存在；支持 dataset、workflow、maintenance 三类任务 |
 | 手动任务时间表单 | `src/ops/queries/manual_action_query_service.py`、`src/ops/services/manual_action_service.py` | 新闻动作已声明必填上海自然日范围，复用通用日期格式和顺序校验；不调用交易日历 |
@@ -742,11 +744,11 @@ LIMIT :limit;
 
 1. `news_time` 直接以带时区完整时间戳排序，精度保留到秒；不得 cast 成 date、截断到日或按展示字符串排序。
 2. `row_key_hash ASC` 只在完整 `news_time` 完全相同时作为稳定 tie-breaker。
-3. `LIMIT` 在 `ORDER BY` 之后执行。
-4. 不按标题去重；两个不同 `news_id` 即使标题相同，也必须分别返回。
-5. 关系表已经按 `(news_id, ts_code)` 去重，API 不再二次去重。
+3. 上述 SQL 是当前代码基线：`LIMIT` 在源新闻排序后立即执行，因此同一事件的多来源转载会占用多个展示名额。
+4. 旧的“两个不同 `news_id` 必须分别返回”要求已被 2026-09-05 的事件合并决策取代；后续实现必须在 Biz 查询层合并同一事件。
+5. 关系表的 `(news_id, ts_code)` 只保证来源新闻关联不重复，不能替代展示事件合并。
 6. API 输出的 `publishTime` 保留完整时间和 `Asia/Shanghai` 偏移，例如 `2026-08-22T10:30:05+08:00`。
-7. API 只读取 `news_id/news_time/title/content/ts_code/name/match_method` 所需字段，不扫描正文做二次识别。
+7. API 只读取 `news_id/news_time/title/content/ts_code/name/match_method` 所需字段；`content` 只用于统一展示标题和事件事实签名，不重新执行股票关联识别。
 
 ### 8.4 Response schema
 
@@ -774,6 +776,77 @@ class StockDetailNewsResponseDto(BaseModel):
 普通响应不返回 `matchMethod/sourceField/ruleVersion`。`debug=1` 只返回 `matchMethod`，不返回证据片段、命中位置或内部规则以外的字段。
 
 错误语义与现有股票详情保持一致：股票不存在或不是股票证券返回 404；时间、时区、范围和 limit 参数错误返回 400；查询异常返回 500，页面只让新闻 Tab 进入错误态。
+
+### 8.5 事件合并增强的编码门禁
+
+目标调用链固定为：
+
+```text
+StockDetailNewsQuery 分批读取候选源新闻
+  -> Biz 纯事件合并器
+  -> 选择每组代表新闻
+  -> 按代表新闻时间排序
+  -> 按事件应用 limit
+  -> 现有 DTO 和 API route
+```
+
+代码落点约束：
+
+1. 事件合并器必须位于 `src/biz`，输入普通不可变候选对象，输出事件代表对象；不得依赖 SQLAlchemy session、Ops、前端或数据库写入。
+2. 标题提取必须复用 `src/biz/queries/wealth/market/news/news_display_title.py` 的统一函数；若需要调整目录，只能在 Biz 内收敛并完成市场新闻和股票详情两个消费者审计。
+3. `StockDetailNewsQuery` 只负责股票校验、时间范围、候选分批读取、调用合并器和 DTO 映射；不得在查询方法中堆叠不可测试的文本相似逻辑。
+4. 候选查询必须显式选择 `row_key_hash/news_time/title/content/src/match_method`；不得加载无关列或修改新闻事实。
+5. 事件合并只在请求内存中计算，不保存事件指纹，不新增表、DAO、migration、TaskRun 或清洗任务。
+6. API schema、路由、前端类型和列表组件原则上不改；`newsId/publishTime/title/debugInfo` 均来自最终代表新闻。
+7. `meta.count` 和 `meta.limit` 改为事件数量语义；候选源新闻不得在合并前按事件 `limit` 直接截断。
+8. 相近时间窗口、标题/正文判断阈值、截断前缀最小长度、候选批大小和最大扫描量只能使用本节冻结值，不得在调用方另设副本。
+
+前端继续保持第 9.4 节的纯 DTO 映射。事件合并结果有误时必须修复后端事实规则，禁止在 React 组件中增加 `Set`、标题比较或日期分组补丁。
+
+#### 8.5.1 D0 样本校准结果
+
+2026-09-05 通过生产只读查询复核 `600021.SH`：`2026-08-28` 的 3 条半年报报道发布时间跨度 89 秒，
+`2026-08-18` 的 8 条项目投产报道发布时间跨度 139 秒。项目投产样本中，用于连接不同标题版本的三元字符包含率最低值为：
+
+| 比较 | 标题包含率 | 正文包含率 | 结论 |
+|---|---:|---:|---|
+| “6号机组投产”短标题 vs “6号机组投产，项目全面建成” | `1.000` | `0.833` | 同一事件 |
+| “全面建成投产” vs “6号机组投产，项目全面建成” | `0.810` | `0.806` | 同一事件 |
+
+反例使用相同句式但把“6号机组”改为“5号机组”，以及把净利润同比 `47.55%` 改为 `47.54%`；两者文本高度相似，
+但数字序列数量相同且值不同，必须判为不同事件。窗口反例使用完全相同标题但发布时间相隔超过 10 分钟，必须保留两条。
+
+#### 8.5.2 唯一常量
+
+| 常量 | 值 | 含义 |
+|---|---:|---|
+| `NEWS_EVENT_WINDOW` | 10 分钟 | 只比较发布时间差不超过该窗口的同股票新闻 |
+| `NEWS_EVENT_NGRAM_SIZE` | 3 | 标题和正文使用三元字符集合比较 |
+| `NEWS_EVENT_CONTAINMENT_THRESHOLD` | `0.80` | 标题和正文包含率都达到该值才允许近似合并 |
+| `NEWS_EVENT_MIN_EXACT_TITLE_LENGTH` | 12 | 标准标题低于该长度时，标题完全相同也不能单独作为合并证据 |
+| `NEWS_EVENT_MIN_EXACT_CONTENT_LENGTH` | 24 | 标准正文低于该长度时，正文完全相同也不能单独作为合并证据 |
+| `NEWS_EVENT_MIN_APPROXIMATE_LENGTH` | 16 | 标题或正文过短时禁止进入近似比较 |
+| `NEWS_EVENT_TRUNCATED_PREFIX_LENGTH` | 16 | 只有明确带省略号且安全前缀达到该长度，才允许按前缀合并 |
+| `NEWS_EVENT_CANDIDATE_BATCH_SIZE` | 500 | 股票详情查询每批读取的候选源新闻数 |
+| `NEWS_EVENT_MAX_CANDIDATE_SCAN` | 10000 | 单次 API 请求最多读取的候选源新闻数 |
+
+包含率定义为两个三元字符集合交集数量除以较小集合的数量，适合识别“完整报道与摘要/截断报道”的包含关系；不用 Jaccard，
+避免较长正文因为补充细节而把同一事件的相似度稀释。文本先执行 Unicode NFKC、大小写归一并移除空白和标点，数字序列必须在移除标点前提取。
+
+#### 8.5.3 确定性分组与代表记录
+
+1. 候选先按 `news_time DESC, news_id ASC` 排序，再在 10 分钟窗口内两两比较并构建并查集；合并两个组前必须保证合并后整组最早与最晚发布时间仍不超过 10 分钟，禁止通过中间记录链式跨越窗口。同一输入集合不因数据库返回顺序变化而改变分组。
+2. 合并证据按顺序为：足够长的标准标题完全相同、足够长的标准正文完全相同、明确截断前缀、标题与正文三元字符包含率同时达标。
+3. 若两个标准标题或完整正文首个事实句提取出的数字序列数量相同但值不同，先判为数字冲突，后续任何文本相似证据都不能覆盖该结论；正文明确以省略号截断时不使用残缺正文数字判冲突。
+4. 每组代表记录依次优先：非空且未截断的源标题、正文更完整、标准标题更完整、发布时间更新、`news_id ASC`。
+5. 事件列表按代表记录 `news_time DESC, news_id ASC` 排序。
+
+#### 8.5.4 候选读取停止条件
+
+1. 查询固定使用 `news_time DESC, row_key_hash ASC` keyset，每批最多 500 条。
+2. 未取得 `limit` 个事件时继续读取，直到时间范围耗尽或达到 10000 条硬上限。
+3. 已取得 `limit` 个事件后，继续读取到当前最旧候选早于第 `limit` 个事件代表时间减 10 分钟，确保可能归入末位事件的较旧转载也参与代表记录选择。
+4. 达到 10000 条后必须停止，不允许无界加载；返回已完成合并并排序的前 `limit` 个事件。`limit` 是上限，不承诺在候选硬上限内一定凑满。
 
 ## 9. Wealth 新闻 Tab 低层设计
 
@@ -879,7 +952,7 @@ Tab 顺序固定为：
 9. payload 中出现旧 `mode/overlap_seconds`、`window_field != news_time`、naive datetime 或无限窗口时明确失败，不做兼容转换。
 10. 单篇识别不包含逐股票循环；本地 benchmark 只衡量内存识别，不混入数据库时间。
 
-### 10.3 API（当前实现）
+### 10.3 API（当前基线及事件合并目标）
 
 当前测试已覆盖或必须保持：
 
@@ -887,10 +960,13 @@ Tab 顺序固定为：
 2. 完全相同 `news_time` 的 tie-breaker 按 `row_key_hash ASC`。
 3. `publishTime` 保留完整时间和上海时区偏移。
 4. 默认最近 2 个自然月；显式时间窗口为半开区间。
-5. `limit` 默认 50，超过 2000 截断到 2000，截断发生在排序之后；不生成分页游标。
-6. 不按 `channels` 二次过滤，不按标题去重，不重新识别正文。
+5. `limit` 默认 50，超过 2000 截断到 2000，不生成分页游标；事件合并落地后必须在事件排序之后截断，不能在候选源新闻阶段截断。
+6. 不按 `channels` 二次过滤；事件合并后，同一事件的多来源转载只返回一条代表新闻。
 7. 普通响应不含 debug 字段，`debug=1` 只含 `matchMethod`。
 8. 空结果、股票不存在、参数错误和查询异常符合约定 HTTP 语义。
+9. 无标题正文、书名括号标题、完整标题、截断标题和小幅改写的同事件正例可以合并；关键数字冲突、跨时间窗口和独立进展反例不得合并。
+10. `limit` 在事件合并后执行；源新闻重复占满首批候选时仍能继续读取后续事件。
+11. 事件分组和代表新闻选择不受候选输入顺序影响；默认 50 与最大 2000 事件场景有明确候选扫描边界和性能验证。
 
 ### 10.4 前端（当前实现）
 
@@ -1008,4 +1084,6 @@ Tab 顺序固定为：
     `cursor_end=min(window_end, task_frozen_at)`，不能把尚未发生的当天后续时间误记为已覆盖。
 13. 切换到新版本时，旧 Full 任务即使成功也没有新契约游标。无需重新跑全部历史；切换时应手动运行一个覆盖“旧 Full 冻结时间至当前时间”所在自然日期的范围任务，成功后再创建/恢复自动 Schedule。该项是历史切换规则。
 
-当前没有新的业务口径需要拍板。本地验证结果已记录在第 11.3 节；2026-09-01 用户已确认本需求结案，本文没有待开发、待上线或待验收事项。后续自动任务配置和范围补跑属于既有运营能力。
+关联物化主链没有新的业务口径需要拍板，本地验证结果已记录在第 11.3 节。2026-09-01 用户确认的是该主链结案；
+股票详情新闻事件合并已于 2026-09-05 完成本地开发与回归：新增纯事件合并器，股票详情查询按 keyset 分批读取并在事件合并后应用 `limit`，
+上海电力脱敏样本从 11 条源记录稳定收敛为 2 个事件。后端事件/API、市场新闻、依赖边界和 Wealth 新闻消费者回归均通过；未执行部署、生产写入或数据库变更，生产效果待运营部署后验收。
