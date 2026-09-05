@@ -6,7 +6,7 @@ export function OpsV21BizTablePage() {
     <OpsV21SourcePage
       sourceKey="biz_tableset"
       title="数据集 · Biz数据集"
-      description="展示本系统自建业务派生表的只读状态。暂不提供写入和调度入口。"
+      description="展示本系统自建业务数据集的状态、维护入口和自动任务配置。"
     />
   );
 }

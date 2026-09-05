@@ -17,7 +17,7 @@ from src.ops.dataset_definition_projection import (
     delivery_mode_label,
     delivery_mode_tone,
 )
-from src.ops.catalog.biz_table_catalog import BIZ_TABLE_SOURCE_KEY
+from src.ops.catalog.biz_dataset_definitions import BIZ_TABLE_SOURCE_KEY
 from src.ops.queries.biz_table_card_query_service import BizTableCardQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.dataset_card import (
@@ -45,6 +45,7 @@ class DatasetCardFact:
     layer_plan: str
     raw_table: str | None
     serving_table: str | None
+    primary_action_type: str | None
     primary_action_key: str | None
     std_mapping_configured: bool
     std_cleansing_configured: bool
@@ -170,6 +171,7 @@ class DatasetCardQueryService:
                         default=None,
                     ),
                     freshness_note=primary_freshness.freshness_note if primary_freshness else None,
+                    primary_action_type=primary.primary_action_type,
                     primary_action_key=(primary_freshness.primary_action_key if primary_freshness else None) or primary.primary_action_key,
                     active_task_run_status=active_status,
                     active_task_run_started_at=primary_freshness.active_task_run_started_at if primary_freshness else None,
@@ -231,6 +233,7 @@ class DatasetCardQueryService:
         config_flags: tuple[bool, bool, bool],
     ) -> DatasetCardFact:
         std_mapping_configured, std_cleansing_configured, resolution_policy_configured = config_flags
+        primary_action_key = self._primary_action_key(definition)
         return DatasetCardFact(
             dataset_key=definition.dataset_key,
             logical_key=definition.logical_key,
@@ -244,7 +247,8 @@ class DatasetCardQueryService:
             layer_plan=definition.storage.layer_plan,
             raw_table=definition.storage.raw_table,
             serving_table=definition.storage.serving_table,
-            primary_action_key=self._primary_action_key(definition),
+            primary_action_type=("dataset_action" if primary_action_key else None),
+            primary_action_key=primary_action_key,
             std_mapping_configured=std_mapping_configured,
             std_cleansing_configured=std_cleansing_configured,
             resolution_policy_configured=resolution_policy_configured,

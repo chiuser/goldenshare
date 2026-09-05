@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -41,6 +42,7 @@ class DatasetCardItem(BaseModel):
     last_success_label: str | None = None
     lag_days: int | None = None
     freshness_note: str | None = None
+    primary_action_type: Literal["dataset_action", "maintenance_action"] | None = None
     primary_action_key: str | None = None
     active_task_run_status: str | None = None
     active_task_run_started_at: datetime | None = None

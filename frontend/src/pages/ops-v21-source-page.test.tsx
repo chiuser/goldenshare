@@ -75,6 +75,7 @@ function card(overrides: Partial<Record<string, unknown>>) {
     last_success_label: "最近维护成功时间",
     lag_days: 0,
     freshness_note: null,
+    primary_action_type: "dataset_action",
     primary_action_key: "daily.maintain",
     active_task_run_status: null,
     active_task_run_started_at: null,
@@ -289,16 +290,16 @@ describe("V2.1 数据源详情页", () => {
     expect(tableLabel.style.webkitLineClamp).toBe("3");
   });
 
-  it("支持 Biz 数据集只读卡片展示", async () => {
+  it("按服务端顺序展示 Biz 分组、维护入口和自动任务状态", async () => {
     apiRequest.mockImplementation(async (url: string) => {
       if (url === "/api/v1/ops/dataset-cards?source_key=biz_tableset") {
         return {
-          total: 1,
+          total: 4,
           groups: [
             {
-              group_key: "wealth_market",
-              group_label: "财势乾坤",
-              group_order: 90,
+              group_key: "data_mart",
+              group_label: "数据集市",
+              group_order: 10,
               items: [
                 card({
                   card_key: "wealth_market_turnover_snapshot",
@@ -306,9 +307,9 @@ describe("V2.1 数据源详情页", () => {
                   detail_dataset_key: "wealth_market_turnover_snapshot",
                   resource_key: "wealth_market_turnover_snapshot",
                   display_name: "成交额分钟快照",
-                  group_key: "wealth_market",
-                  group_label: "财势乾坤",
-                  group_order: 90,
+                  group_key: "data_mart",
+                  group_label: "数据集市",
+                  group_order: 10,
                   item_order: 10,
                   domain_key: "biz_tableset",
                   domain_display_name: "Biz数据集",
@@ -331,6 +332,96 @@ describe("V2.1 数据源详情页", () => {
                   expected_observed_date: "2026-05-08",
                   expected_observed_date_label: "应完成业务日期",
                   last_success_label: "最近构建成功时间",
+                  primary_action_type: null,
+                  primary_action_key: null,
+                  auto_schedule_status: "none",
+                  auto_schedule_total: 0,
+                  auto_schedule_active: 0,
+                  auto_schedule_next_run_at: null,
+                  probe_total: 0,
+                  probe_active: 0,
+                }),
+                card({
+                  card_key: "equity_daily_snapshot",
+                  dataset_key: "equity_daily_snapshot",
+                  detail_dataset_key: "equity_daily_snapshot",
+                  resource_key: "equity_daily_snapshot",
+                  display_name: "股票日线数据集市快照",
+                  group_key: "data_mart",
+                  group_label: "数据集市",
+                  group_order: 10,
+                  item_order: 20,
+                  domain_key: "biz_tableset",
+                  domain_display_name: "Biz数据集",
+                  delivery_mode: "biz_table_snapshot",
+                  target_table: "dm.equity_daily_snapshot",
+                  raw_table: null,
+                  raw_table_label: null,
+                  primary_action_type: "maintenance_action",
+                  primary_action_key: "maintenance.rebuild_dm",
+                  auto_schedule_status: "paused",
+                  auto_schedule_total: 1,
+                  auto_schedule_active: 0,
+                  auto_schedule_next_run_at: null,
+                  probe_total: 0,
+                  probe_active: 0,
+                }),
+              ],
+            },
+            {
+              group_key: "content_relation",
+              group_label: "内容关联",
+              group_order: 30,
+              items: [
+                card({
+                  card_key: "news_stock_link",
+                  dataset_key: "news_stock_link",
+                  detail_dataset_key: "news_stock_link",
+                  resource_key: "news_stock_link",
+                  display_name: "新闻个股关联",
+                  group_key: "content_relation",
+                  group_label: "内容关联",
+                  group_order: 30,
+                  item_order: 10,
+                  domain_key: "biz_tableset",
+                  domain_display_name: "Biz数据集",
+                  delivery_mode: "biz_table_snapshot",
+                  target_table: "core_serving.news_stock_link",
+                  raw_table: null,
+                  raw_table_label: null,
+                  primary_action_type: "maintenance_action",
+                  primary_action_key: "maintenance.materialize_news_stock_links",
+                  auto_schedule_status: "none",
+                  auto_schedule_total: 0,
+                  auto_schedule_active: 0,
+                  auto_schedule_next_run_at: null,
+                  probe_total: 0,
+                  probe_active: 0,
+                }),
+              ],
+            },
+            {
+              group_key: "technical_indicators",
+              group_label: "技术指标",
+              group_order: 40,
+              items: [
+                card({
+                  card_key: "index_nineturn_daily",
+                  dataset_key: "index_nineturn_daily",
+                  detail_dataset_key: "index_nineturn_daily",
+                  resource_key: "index_nineturn_daily",
+                  display_name: "指数日线神奇九转",
+                  group_key: "technical_indicators",
+                  group_label: "技术指标",
+                  group_order: 40,
+                  item_order: 20,
+                  domain_key: "biz_tableset",
+                  domain_display_name: "Biz数据集",
+                  delivery_mode: "biz_table_snapshot",
+                  target_table: "core_serving.index_nineturn_daily",
+                  raw_table: null,
+                  raw_table_label: null,
+                  primary_action_type: null,
                   primary_action_key: null,
                   auto_schedule_status: "none",
                   auto_schedule_total: 0,
@@ -350,15 +441,24 @@ describe("V2.1 数据源详情页", () => {
     renderPage({
       sourceKey: "biz_tableset",
       title: "数据集 · Biz数据集",
-      description: "展示本系统自建业务派生表的只读状态。暂不提供写入和调度入口。",
+      description: "展示本系统自建业务数据集的状态、维护入口和自动任务配置。",
     });
 
     expect(await screen.findByText("数据集 · Biz数据集")).toBeInTheDocument();
     expect(await screen.findByText("成交额分钟快照")).toBeInTheDocument();
     expect(await screen.findByText("core_serving.wealth_market_turnover_snapshot")).toBeInTheDocument();
     expect(await screen.findByText("最近构建成功时间：2026/05/08 20:10:00")).toBeInTheDocument();
-    expect(await screen.findByText("只读展示")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "去操作" })).not.toBeInTheDocument();
-    expect(screen.queryByText("未配置自动更新")).not.toBeInTheDocument();
+    expect(await screen.findAllByText("只读展示")).toHaveLength(2);
+    expect(await screen.findByText("自动已暂停")).toBeInTheDocument();
+    expect(await screen.findByText("未配置自动更新")).toBeInTheDocument();
+    const links = screen.getAllByRole("link", { name: "去操作" });
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute(
+      "href",
+      "/app/ops/v21/datasets/tasks?tab=manual&action_key=maintenance.rebuild_dm&action_type=maintenance_action",
+    );
+    expect(screen.getByText("成交额分钟快照").compareDocumentPosition(
+      screen.getByText("股票日线数据集市快照"),
+    ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

@@ -22,8 +22,10 @@ interface SourceCardItem {
   lastSyncLabel: string;
   lastSyncText: string;
   observedText: string;
+  primaryActionType: "dataset_action" | "maintenance_action" | null;
   primaryActionKey: string | null;
   autoEnabled: boolean;
+  autoScheduleStatus: string;
   autoTooltip: string;
   autoTooltipText: string;
   probeEnabled: boolean;
@@ -132,9 +134,10 @@ export function OpsV21SourcePage({
   const isLoading = cardQuery.isLoading;
   const error = cardQuery.error;
 
-  const cards: SourceCardItem[] = (cardQuery.data?.groups || [])
-    .flatMap((group) => group.items)
-    .map((item) => {
+  const groupedCards = (cardQuery.data?.groups || []).map((group) => ({
+    groupKey: group.group_key,
+    groupLabel: group.group_label,
+    items: group.items.map((item): SourceCardItem => {
       const activeTaskRunStatus = (item.active_task_run_status || "").toLowerCase();
       const hasActiveTaskRun = activeTaskRunStatus === "queued" || activeTaskRunStatus === "running" || activeTaskRunStatus === "canceling";
       const status = toCardStatus(item.status, item.freshness_status);
@@ -147,8 +150,10 @@ export function OpsV21SourcePage({
         lastSyncLabel: item.last_success_label || (isBizTable ? "最近构建成功时间" : "最近维护成功时间"),
         lastSyncText: buildLastSyncText(item, hasActiveTaskRun),
         observedText: buildObservedText(item),
+        primaryActionType: item.primary_action_type || null,
         primaryActionKey: item.primary_action_key || null,
         autoEnabled: item.auto_schedule_active > 0,
+        autoScheduleStatus: item.auto_schedule_status,
         autoTooltip:
           item.auto_schedule_total > 0
             ? `已配置自动任务 ${item.auto_schedule_active}/${item.auto_schedule_total} 条，下一次：${item.auto_schedule_next_run_at ? formatDateTimeLabel(item.auto_schedule_next_run_at) : "待计算"}`
@@ -159,13 +164,9 @@ export function OpsV21SourcePage({
           : "未配置自动探测规则",
         autoTooltipText: isBizTable ? "只读展示" : "未配置自动更新",
       };
-    })
-    .sort((a, b) => a.displayName.localeCompare(b.displayName, "zh-CN"));
-  const groupedCards = (cardQuery.data?.groups || []).map((group) => ({
-    groupKey: group.group_key,
-    groupLabel: group.group_label,
-    items: cards.filter((card) => group.items.some((item) => item.card_key === card.datasetKey)),
+    }),
   })).filter((group) => group.items.length > 0);
+  const cards = groupedCards.flatMap((group) => group.items);
 
   return (
     <Stack gap="lg">
@@ -253,6 +254,11 @@ export function OpsV21SourcePage({
                             </Badge>
                           </Tooltip>
                         ) : null}
+                        {!item.autoEnabled && item.autoScheduleStatus === "paused" ? (
+                          <Tooltip label={item.autoTooltip} withArrow multiline w={280}>
+                            <Text size="xs" c="dimmed">自动已暂停</Text>
+                          </Tooltip>
+                        ) : null}
                         {item.probeEnabled ? (
                           <Tooltip label={item.probeTooltip} withArrow multiline w={260}>
                             <Badge variant="light" color="info">
@@ -260,14 +266,21 @@ export function OpsV21SourcePage({
                             </Badge>
                           </Tooltip>
                         ) : null}
-                        {!item.autoEnabled && !item.probeEnabled ? (
-                          <Text size="xs" c="dimmed">{item.autoTooltipText}</Text>
+                        {!item.autoEnabled && item.autoScheduleStatus !== "paused" && !item.probeEnabled ? (
+                          <Text size="xs" c="dimmed">
+                            {sourceKey === "biz_tableset" && item.primaryActionKey
+                              ? "未配置自动更新"
+                              : item.autoTooltipText}
+                          </Text>
                         ) : null}
                       </Group>
-                      {item.status !== "healthy" && item.primaryActionKey ? (
+                      {item.primaryActionType && item.primaryActionKey && (sourceKey === "biz_tableset" || item.status !== "healthy") ? (
                         <Button
                           component="a"
-                          href={buildManualTaskHref({ actionKey: item.primaryActionKey, actionType: "dataset_action" })}
+                          href={buildManualTaskHref({
+                            actionKey: item.primaryActionKey,
+                            actionType: item.primaryActionType,
+                          })}
                           size="xs"
                           variant="light"
                           color="brand"

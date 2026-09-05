@@ -938,6 +938,7 @@ export interface DatasetCardListResponse {
       last_success_label: string | null;
       lag_days: number | null;
       freshness_note: string | null;
+      primary_action_type: "dataset_action" | "maintenance_action" | null;
       primary_action_key: string | null;
       active_task_run_status: string | null;
       active_task_run_started_at: string | null;

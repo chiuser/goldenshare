@@ -244,9 +244,9 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 - 功能：返回运营后台总览页、数据源页使用的数据集卡片视图。
 - 口径：页面不得再自行拼装数据集来源、raw 表名、层级状态、最近同步日期和卡片去重结果；这些展示事实由本接口统一返回。
-- 静态事实来源：外部数据集身份、名称、底层领域、来源、raw 表、目标表、交付模式、手动维护入口均从 `DatasetDefinition` 派生；用户可见展示分组来自 Ops 默认展示目录；健康度只来自统一 freshness 事实。`source_key=biz_tableset` 是 Biz 自建业务表只读展示分支，不进入 `DatasetDefinition`，不提供手动维护入口。
+- 静态事实来源：外部数据集身份、名称、底层领域、来源、raw 表、目标表、交付模式和维护入口从 `DatasetDefinition` 派生；用户可见展示分组来自 Ops 默认展示目录；健康度只来自统一 freshness 事实。`source_key=biz_tableset` 的身份、表、分组、观测策略和生产入口来自 Ops `BizDatasetDefinition`，不进入外部数据集的 `DatasetDefinition`。其中 maintenance producer 复用现有 `MaintenanceActionDefinition` 提供维护入口，Dagster producer 保持只读。
 - Query 参数：
-  - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片；传入 `biz_tableset` 时，返回 Biz 自建业务表只读卡片。
+  - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片；传入 `biz_tableset` 时，返回 15 张 Biz 自建业务数据集卡片。
   - `limit`：默认 2000，范围 `1..2000`。
 - 返回：`DatasetCardListResponse`
   - `total`
@@ -288,7 +288,9 @@ curl -H "Authorization: Bearer <TOKEN>" \
           "freshness_status": "fresh",
           "delivery_mode_label": "单源服务",
           "raw_table_label": "raw_tushare.daily",
-          "last_sync_date": "2026-04-24"
+          "last_sync_date": "2026-04-24",
+          "primary_action_type": "dataset_action",
+          "primary_action_key": "daily.maintain"
         }
       ]
     }
@@ -1516,7 +1518,8 @@ ProbeRule 没有对外写入 request；规则只由 `OpsSchedule` 的自动任�
 - `WorkflowStepCatalogItem`：`step_key, action_key, dataset_key, display_name, depends_on, default_params`
 - `DatasetCardListResponse`：`total, groups`
 - `DatasetCardGroup`：`group_key, group_label, group_order, items`
-- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, freshness_policy, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, latest_observed_at, earliest_observed_at, last_sync_date, latest_success_at, expected_business_date, latest_observed_date, latest_observed_date_label, expected_observed_date, expected_observed_date_label, last_success_label, lag_days, freshness_note, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
+- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, freshness_policy, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, latest_observed_at, earliest_observed_at, last_sync_date, latest_success_at, expected_business_date, latest_observed_date, latest_observed_date_label, expected_observed_date, expected_observed_date_label, last_success_label, lag_days, freshness_note, primary_action_type, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
+  - `primary_action_type/primary_action_key` 必须成对使用：外部数据集维护入口为 `dataset_action`；Biz maintenance producer 为 `maintenance_action`；只读卡片两者均为 `null`。页面不得根据 key 自行猜动作类型。
 
 ### 12.2 任务运行
 

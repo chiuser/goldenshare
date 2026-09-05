@@ -95,6 +95,7 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     assert fund_basic["freshness_policy"] == "snapshot_run_trace"
     assert fund_basic["raw_table_label"] is None
     assert fund_basic["target_table"] == "core_serving.fund_basic_current"
+    assert fund_basic["primary_action_type"] == "dataset_action"
     assert fund_basic["primary_action_key"] == "fund_basic.maintain"
     assert fund_basic["probe_total"] == 0
 
@@ -105,6 +106,7 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     assert fund_manager["freshness_policy"] == "snapshot_run_trace"
     assert fund_manager["raw_table_label"] is None
     assert fund_manager["target_table"] == "core_serving.fund_manager_current"
+    assert fund_manager["primary_action_type"] == "dataset_action"
     assert fund_manager["primary_action_key"] == "fund_manager.maintain"
     assert fund_manager["probe_total"] == 0
 

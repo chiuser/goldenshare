@@ -1,4 +1,6 @@
-# Ops Biz 表数据源展示方案 v1（已实现）
+# Ops Biz 表数据源展示方案 v1（一期已实现，历史基线）
+
+> 当前说明：本文保留 2026-05-10 首次接入 `wealth_market_turnover_snapshot` 的一期设计与实现记录。Biz 数据集自动投影、14 张新增业务表和后续开发模板，统一以 [Ops Biz 数据集自动投影与 14 表展示技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-biz-dataset-auto-projection-plan-v1.md) 为代码已实现、待部署验收的当前主案；本文的一期“只读、只纳入一张表”边界不再代表当前目标。本文后文出现的“财势乾坤”分组仅是一期历史记录，当前实现已将成交额分钟快照并入“数据集市”并删除该分组。
 
 ## 0. 背景
 
@@ -467,3 +469,4 @@ frontend/src/pages/ops-v21-source-page.test.tsx
 | v1 | 2026-05-10 | 首版：定义 Biz 表作为 Ops 数据源平级展示的一期读展示方案 | Codex |
 | v1.1 | 2026-05-10 | 回填评审结论：确认 `source_key=biz_tableset`、展示名 `Biz数据集`、一期对象和状态日期口径 | Codex |
 | v1.2 | 2026-06-24 | 按当前实现纠偏：补充多频率构建、页面默认消费 30 分钟快照、日度指标来源、`core_serving.trade_calendar` 与实施状态 | Codex |
+| v1.3 | 2026-09-05 | 标记为一期历史基线；二期自动投影与 14 表扩展转入独立现行方案 | Codex |
