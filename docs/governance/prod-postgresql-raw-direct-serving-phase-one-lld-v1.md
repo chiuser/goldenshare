@@ -1,5 +1,7 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
+> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码待 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
+
 - 版本：v1
 - 状态：一期 12 项的生产 raw 直出与自然 M3b 数据链全部通过并结案
 - 更新时间：2026-08-31

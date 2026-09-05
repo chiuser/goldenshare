@@ -1,126 +1,94 @@
-# Dagster Bootstrap 旧链路记录
+# Dagster 历史初始化与旧分钟数据修复总账
 
-## 定位
+更新时间：2026-09-05。性质：历史证据摘要，不是执行手册。
 
-本文档专门记录 Dagster bootstrap 过程中产生的“具体数据集旧链路”。
+## 1. 当前边界
 
-这里的旧链路指：
+旧湖迁移适配器已在清退专项 M3/M4 删除（M4 提交 `68f97744`）；旧 Console frontend/backend 尚待 M6 同轮删除。
+本账只解释正式 Lake 历史数据如何形成，不提供旧湖路径、旧命令、Kopia 或可复用的旧 spec/executor。
+历史 Dagster 事件中的旧来源字符串只读保留，不作为当前摄取能力或依赖。
 
-- 某个数据集从旧湖读取的输入路径。
-- 某个数据集专用的 `BootstrapDatasetSpec`。
-- 某个数据集专用的 bootstrap `select_sql_template` / cast 规则。
-- 某个数据集专用的 migration-only bootstrap job。
+日常更新、正式 Silver/Gold 重建、runless event 工具和 prod 只读 Raw 恢复仍保留，见
+[正式分钟设计](dagster-stk-mins-asset-design.html)、[清退 LLD](legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md) 和
+[正式模板](../templates/dagster-dataset-onboarding-template.html)。不得根据历史输入恢复旧湖读取链。
 
-它不等于通用 bootstrap 引擎。
+物理数据与文档删除分开：本轮 M5 不删除物理数据。旧 backup、旧湖和恢复遗留物按清退 LLD §16 的代码用途分类，
+执行前仍需用户确认精确对象。“文档已删”或“过去迁移成功”不等于物理数据可自行删除。
+完整旧文档可从 Git 基线 `5f834b02` 查阅；本账不建立第二套历史目录。
 
-通用 bootstrap 引擎是长期迁移能力，会继续服务后续数据集迁移；具体数据集的旧链路通常只服务一次历史拉齐，完成后不进入日常生产、不被 sensor/schedule/declarative automation 触发。
+## 2. 正式新湖历史初始化结果
 
-## 总原则
+以下数字来自清退前已记录的执行结果，不是 2026-09-05 的实时扫描。
+原文中的 M2/M3/M5/M6 是各自数据集的历史阶段，与当前清退专项同名阶段无关。
 
-1. 新湖正式资产路径只允许位于 `data_lake/raw`、`data_lake/silver`、`data_lake/gold`。
-2. 旧湖路径只允许出现在本文档、bootstrap spec、migration-only job 或迁移审计记录中。
-3. `source_method=old_lake_bootstrap` 只允许进入迁移审计 metadata，不允许进入 Parquet 业务字段，也不能作为下游业务判断条件。
-4. 后续日常生产必须走 `TushareResource` 或对应正式资源，不允许继续依赖旧湖 bootstrap 链路。
-5. 清理旧链路前必须做引用审计、Definitions 审计、运行记录审计和路径契约审计。
+| 数据集 | 当时来源与处理 | 已记录结果 / 后续维护边界 |
+|---|---|---|
+| `suspend_d` | 旧湖停复牌分区；日期转 Raw 字符串，全空 suspend_timing 显式转字符串 | Slice 2.0.3 单日验证通过；合法无记录日允许空文件，后续由正式来源维护 |
+| `trade_calendar` | 旧日历 full；boolean is_open 转 0/1，日期转 Raw YYYYMMDD | Slice 2.0.4 验证通过，后续由正式来源维护 |
+| `stock_basic` | 旧基础信息 full；保持当时 Raw 显式字段，日期在 Silver 标准化 | Slice 2.0.4 验证通过；不保留旧湖初始化分支 |
+| `stock_daily` | 旧日线分区；Raw 保留 change，Silver 使用 change_amount | 2026-04 共 21 个交易日完成；当时 Raw/Silver blocking checks 通过，unexplained missing/extra 均 0 |
+| `adj_factor` | 旧湖因子初始化，生成正式 Silver，分别补事件 | 见 §2.1；现行日常 Raw/Silver job 独立执行 |
+| `stk_mins` | 当时 backup 的 clean_next，一次性初始化 | 五频各 4,209 个 Raw 文件，共 21,045 个；2009-01-05 至 2026-05-07；动态分区 4,209 个，各 Raw asset materialized 4,209 分区，7 个 Raw blocking checks 各 succeeded=4,209、failed=0 |
+| `stock_identity_map` | 旧身份映射 full 初始化 | 6,089 行、1 个 runless materialization、9 个 blocking check events，当时全通过；日常由正式基础信息自映射和版本化 seed 维护 |
 
-## 当前旧链路清单
+### 2.1 复权因子的历史规模
 
-| 数据集 | 旧湖输入 | 新湖目标 | 专用 spec / template | migration-only job | 当前状态 |
-|---|---|---|---|---|---|
-| `suspend_d` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/suspend_d/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/suspend_d/trade_date={partition_key}/part-000.parquet` | `suspend_d_bootstrap_spec` / `SUSPEND_D_BOOTSTRAP_SELECT_TEMPLATE` | 暂未新增独立 job，当前通过 asset selection 验证 | 已完成 Slice 2.0.3 单日验证 |
-| `trade_calendar` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/trade_cal/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/trade_calendar/full/part-000.parquet` | `trade_calendar_bootstrap_spec` / `TRADE_CALENDAR_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_calendar_job` | 已完成 Slice 2.0.4 验证 |
-| `stock_basic` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_basic/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_basic/full/part-000.parquet` | `stock_basic_bootstrap_spec` / `STOCK_BASIC_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_basic_update_job` | 已完成 Slice 2.0.4 验证 |
-| `stock_daily` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet` | `stock_daily_bootstrap_spec` / `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` | `历史 quote bootstrap 入口` | 已完成 Slice 2.0.5 验证 |
-| `adj_factor` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `adj_factor_bootstrap_spec` / `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` | 未新增独立 job；M5 使用受控 Python 命令直接调用现有 bootstrap executor；M6B 使用 runless events 补录 Dagster 事件事实 | M5 raw 迁移已完成；M6B raw event 补录已完成；M6C silver 文件生成已完成；M6D silver event 补录已完成；A7 已补齐至 `2026-05-29` |
-| `stk_mins` | `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq={freq}/trade_date={partition_key}/*.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq={freq}/trade_date={partition_key}/part-000.parquet` | `stk_mins_bootstrap_spec` / `STK_MINS_BOOTSTRAP_SELECT_TEMPLATE` | 未新增 active job；M3 使用受控 CLI/helper 执行 dry-run、样本、全量迁移、分区注册和 runless event 补录 | M3 raw 迁移、分区注册和 event 补录已完成 |
-| `stock_identity_map` | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet` | `/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet` | `stock_identity_map_bootstrap_spec` / `STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE` | 只保留为历史初始化审计；active 日常维护已切到 `silver_stock_identity_map` asset、版本化 seed、`stock_identity_map_update_job` 与 `stock_identity_map_sensor` | M3 初始化写入和 event 补录已完成；active asset 已接管日常维护 |
+- 初次 Raw：4,215 个分区，2009-01-05 至 2026-05-15，14,959,706 行；同批注册 4,215 个动态分区。
+- Raw 文件与事件分开：之后 8 个 Raw blocking checks 各 succeeded=4,215、failed=0。
+- Silver：4,215 个分区，13,908,872 行，全量只读审计失败分区 0；之后 10 个 Silver checks 各 succeeded=4,215、failed=0。
+- 再补齐 2026-05-18 至 2026-05-29 的 10 个交易日。当时最终核验：分区、Raw/Silver 文件与 materialization 都为 4,225 个；Raw 8 项和 Silver 10 项 checks 各 succeeded=4,225、failed=0。
+- runless events 不产生对应 Runs 页面执行记录，也不触发当时的飞书 run-status 通知；不是日常 job 已重跑的证明。新事件补录仍须单独审批。
 
-## 已确认的迁移纠偏规则
+### 2.2 分钟初始化时的已知语义
 
-### `suspend_d`
+当时 clean_next 中存在 low=0、vwap=0、停牌结构行全 0 和少量 OHLC 区间残留。初始化 Raw 保留当时来源事实，
+Raw 检查拦空值、负值和空代码，更强价格治理留给后续 Silver。期间外挂盘掉挂载导致一次事件审计失败，
+恢复后先核验文件、分区和样本事件再补录；不能据此承诺任意中断都自动恢复。
 
-- 旧湖 `trade_date` 可能是 Parquet `DATE`，新湖 raw 必须写成 Tushare 源站镜像的 `YYYYMMDD` 字符串。
-- 旧湖 `suspend_timing` 存在类型漂移：全空分区可能被 DuckDB 推断为 `INTEGER/NULL`，有值分区可能是 `VARCHAR`。
-- bootstrap 读取旧湖时必须使用 `union_by_name=true`，并显式 `cast(suspend_timing as varchar)`。
-- `empty_policy=allow_empty`，因为某个交易日可能没有停复牌记录，但仍需要一个合法空 parquet 表示“已确认无记录”。
+## 3. 旧分钟数据修复的必要证据
 
-### `trade_calendar`
+本节收敛旧文档的必要结果，不把旧 schema 或旧过滤范围作为当前 Raw/Silver 契约。
 
-- 旧湖实际路径是 `raw_tushare/trade_cal/current/part-000.parquet`，不是文档示例里的 `trade_calendar/full`。
-- 旧湖 `is_open` 是 boolean，新湖 raw 必须纠偏为 Tushare 源站镜像的 `0/1`。
-- 旧湖 `cal_date/pretrade_date` 可能是 `YYYY-MM-DD` 字符串，新湖 raw 必须写成 `YYYYMMDD` 字符串。
-- `empty_policy=require_positive`。
+### 3.1 Raw 事故与 clean_next 重建
 
-### `stock_basic`
+- 旧单股票补数曾错误替换全市场分区。记录确认恢复严重低行数分区 3,735 个：1min 为 3,508 个（2010-08-27 至 2025-02-14），5min 为 227 个（2010-08-27 至 2011-08-05）。旧反向恢复和单股票专项入口随后退役。
+- 2026-05-12/13 clean_next 重建：21,045 个分区，Raw 4,576,238,458 行，保留 4,428,800,144 行，过滤 147,438,314 行。其中上市前 10,281,480、退市证券 137,156,532、非法量额 302。这是两次后续修复前的构建行数。
+- 当时 clean_next 物理字段为 `ts_code,freq,trade_time,open,close,high,low,vol,amount,exchange,vwap`。目录虚拟 trade_date 不等于物理字段；历史 11 列结论不要求现行 Silver 补回 vwap。
+- 初次完备性审计 14,583 个问题。完成下列两次修复后，2026-05-13 全量复审 21,045 个分区、issue_count=0。旧错误 schema clean 后来单独获准删除；不等于当前全湖实时无缺口。
 
-- 旧湖实际路径是 `raw_tushare/stock_basic/current/part-000.parquet`。
-- 新湖 raw 只保留 Tushare `stock_basic` 显式字段全集。
-- `list_date/delist_date` 保持 `YYYYMMDD` 字符串或 null；日期标准化只在 silver 层做。
-- `empty_policy=require_positive`。
+### 3.2 2022 北交所 30min 修复（2026-05-13 执行）
 
-### `stock_daily`
+范围 2022-07-15 至 2022-12-30，共 115 个交易日、161 个唯一代码、13,568 个日-代码组合。
+用当时同日同股票 15min 重建受影响 30min：81,408 → 122,112 行（每组合 6 → 9 bar），
+目标分区总计 4,934,172 → 4,974,876 行。未受影响股票保留，15min 只读，missing_vwap_rows=0。
+修复后基础/完备性 scoped audit 均 115 分区、issue_count=0。
 
-- 旧湖实际路径是 `raw_tushare/daily/trade_date={partition_key}/part-000.parquet`，不是 `stock_daily` 目录。
-- 旧湖 `trade_date` 是 Parquet `DATE`，新湖 raw 必须纠偏为 Tushare 源站镜像的 `YYYYMMDD` 字符串。
-- 新湖 raw 字段名保留 Tushare `daily` 源字段 `change`；silver 层再标准化为 `change_amount`。
-- `empty_policy=require_positive`，因为已完成交易日的股票日线 raw 不应为空。
-- `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` 会经过 Python `str.format(...)` 渲染；SQL 正则中的 `{8}` 必须写成 `{{8}}`，否则会被误识别成 format 占位符。
-- Slice 2.0.5 已用正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 跑通 2026-04 全月 21 个交易日。
-- 2026-04 验证结果：`历史 quote bootstrap 入口` 全部分区成功，raw/silver blocking checks 全部通过，`silver_stock_daily_covers_expected_tradable_universe` 全部通过，`unexplained_missing_count=0` 且 `unexplained_extra_count=0`。
+### 3.3 2024-10-30 多频污染修复（2026-05-13 执行）
 
-### `adj_factor`
+旧数据把部分股票 1min 行混入 5/15/30/60min。只重建受影响股票，未改其他股票和 1min 源。
 
-- 旧湖实际路径是 `raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet`。
-- 旧湖 `trade_date` 是 Parquet `DATE`，但新湖 raw 契约必须写成 Tushare 源站镜像的 `YYYYMMDD` 字符串。
-- `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` 同时兼容旧湖 `DATE` 和 `YYYYMMDD` 字符串输入。
-- `empty_policy=require_positive`，因为已完成交易日的复权因子 raw 不应为空。
-- M5 已完成正式旧湖 raw 迁移：`4215` 个分区，范围 `2009-01-05` 至 `2026-05-15`，总行数 `14,959,706`。
-- M5 已把上述 `4215` 个日期注册到正式 `cn_a_stock_current_trade_days`。
-- M5 不等同于 Dagster materialization：它没有补 raw asset materialization event，也没有生成 raw asset check event。
-- M6B 已通过 `DagsterInstance.report_runless_asset_event(...)` 对已迁移 raw 文件补录 `raw_tushare_adj_factor` materialization 与 raw blocking check events；最终 `4215` 个 raw 分区可见，8 个 raw blocking checks 均为 `succeeded=4215, failed=0`。
-- M6 的 silver 历史文件生成属于 bootstrap 收尾，当时不能使用旧混合入口跑历史，因为该入口会重新请求 Tushare raw；当前日常入口已拆为 `raw_adj_factor_update_job` / `silver_adj_factor_update_job`。
-- M6C 已生成 `silver_adj_factor` 历史文件：`4215` 个分区，范围 `2009-01-05` 至 `2026-05-15`，总行数 `13,908,872`，全量只读审计失败分区数 `0`。
-- M6D 已补录 `silver_adj_factor` 的 runless materialization 与 silver blocking check events；最终 `4215` 个 silver 分区可见，10 个 silver blocking checks 均为 `succeeded=4215, failed=0`。
-- M6B runless events 不产生 Runs 页面记录，也不会触发飞书 run status 通知。
-- M6D 之后，已补注册并通过人工旧混合入口补齐 `2026-05-18` 至 `2026-05-29` 这 10 个交易日分区；后续日常自动链路使用 raw/silver 两个 adj_factor job。
-- 最新只读核验：`cn_a_stock_current_trade_days`、raw 文件、silver 文件、raw materialization、silver materialization 均为 `4225` 个分区，范围 `2009-01-05` 至 `2026-05-29`；raw 8 个 blocking checks 和 silver 10 个 blocking checks 均为 `succeeded=4225, failed=0`。
+| 频度 | 受影响股票 | 旧错误行 → 新行 | 分区总行数：修复前 → 后 |
+|---|---:|---|---|
+| 5min | 253 | 68,563 → 12,397 | 316,944 → 260,778 |
+| 15min | 254 | 68,834 → 4,318 | 155,007 → 90,491 |
+| 30min | 254 | 68,834 → 2,286 | 114,446 → 47,898 |
+| 60min | 254 | 68,834 → 1,270 | 94,179 → 26,615 |
 
-### `stk_mins`
+当时 missing_vwap_rows 均 0；修复后四频基础/完备性 scoped audit 均 issue_count=0。
+旧问题账本不自动代表修后状态，结果依据是目标文件直读与复审。
 
-- backup 输入不属于正式新湖路径，只是历史 raw 初始化来源。
-- backup 目录中部分分区文件名为 `part-00000.parquet`；bootstrap 来源按 `*.parquet` 解析，但每个 `freq + trade_date` 必须恰好一个 parquet 文件。
-- 新湖 raw 目标统一为 `part-000.parquet`，不得继承 backup 文件名差异。
-- `empty_policy=require_positive`，因为已完成交易日的分钟线 raw 不应为空。
-- M2 已实现 spec/helper 与临时目录测试；M3 已完成正式迁移、`cn_a_stock_mins_trade_days` 注册和 runless event 补录。
-- M3 最终结果：五个频度各 `4209` 个 raw 文件，合计 `21045` 个；动态分区 `4209` 个，范围 `2009-01-05` 至 `2026-05-07`；五个 raw asset 各 `4209` 个 materialized 分区，7 个 raw blocking checks 均为 `succeeded=4209, failed=0`。
-- M3 执行中发现 backup clean_next 历史存在 `low=0`、`vwap=0`、停牌结构行全 0、少量 OHLC 区间残留。raw event check 正式口径为只拦空值、负值和空代码，保留 backup 原始 clean_next 事实；更强的价格逻辑治理留给后续 silver 标准化。
-- M3 执行过程中外挂盘曾短暂掉挂载，导致一次全量 event 补录在审计阶段失败；恢复挂载后先做断点审计，确认 raw 文件、动态分区和样本 events 一致，再继续补录。
+### 3.4 分钟与日线代码集合不能无条件要求相等
 
-### `stock_identity_map`
+2026-05-30 审计覆盖 2014-01-02 至 2026-05-15，共 3,004 个交易日；五频与日线均不能逐日 strict equality。
+1min clean_only 为 206,975 个日-代码，全部被当时停牌事实解释；daily_only 为 33,126，
+其中北交所映射 23,423、更名映射 3,446、未命中映射 6,257。未映射部分当时未作最终定性，不算已修复。
+保留结论是先区分停牌、身份映射和未解释差异，不以日线行数或代码集合直接否定分钟事实。
+现行证券身份、停牌过滤和缺口判定以正式资产/checks 为准，不得重新读取旧 manifest。
 
-- 来源是旧湖 `manifest/security_identity/security_identity_map.parquet`，只作为 `silver_stock_identity_map` 初始 full snapshot bootstrap 来源。
-- 该数据集不是 raw 层，因此不复用 `BootstrapDatasetSpec`；M2 使用 dataset-specific helper 写入 `data_lake/silver/basic/stock_identity_map/part-000.parquet`。
-- 写入时显式归一日期字段和 `created_at` 类型，并验证行数为正、字段顺序符合 `SILVER_STOCK_IDENTITY_MAP_SCHEMA`。
-- M3 已写入 `silver_stock_identity_map` full snapshot：`6089` 行；已补录 1 个 runless materialization 与 9 个 blocking check events，最终 checks 均为 `succeeded=1, failed=0`。
-- 日常维护已由 active asset 接管：当前上市股票自映射来自 `silver_stock_basic`，非自映射来自仓库 seed；旧湖 manifest 不再作为日常依赖。
-- 独立维护方案见 `docs/design/dagster-stock-identity-map-design.md`；本文件只记录旧湖 bootstrap 链路和退场边界。
+## 4. 不迁移旧执行体系
 
-## 清理门禁
-
-清理某个具体数据集旧链路前，必须至少完成以下审计：
-
-1. 代码静态审计：搜索该数据集的 spec 名称、template 名称、旧湖路径、migration job 名称、`old_lake_bootstrap` 引用。
-2. Dagster Definitions 审计：确认没有 sensor、schedule、ongoing job、declarative automation 或 readiness gate 引用该旧链路。
-3. 运行记录审计：确认该数据集历史 bootstrap 已完成，materialization metadata 中能查到迁移记录。
-4. 路径契约审计：确认正式 asset path 中没有旧湖路径概念，Parquet 字段中没有 `source_method`、旧湖路径或 bootstrap 系统字段。
-5. 验证审计：删除或调整后先做静态编译、单元测试、文档完整性检查和引用扫描；如确需运行 `dg check defs` 或相关 Dagster 验证，必须按正式 Dagster 环境执行门禁单独列命令和影响范围，并取得明确批准。
-
-## 保留策略
-
-默认保留通用 bootstrap 引擎。
-
-具体数据集旧链路是否保留，按以下原则处理：
-
-- 若后续还有相似数据集需要参考迁移写法，可以保留 spec/template/job 作为迁移审计和模板。
-- 若该数据集已经完全进入 Tushare 日常更新链路，且旧链路不再需要重跑，可以在完成清理门禁后删除具体 spec/template/job。
-- 删除旧链路不得影响通用 bootstrap 引擎，也不得影响新湖 raw/silver/gold 正式资产。
+其余旧分钟指标开发、MACD v2、clean 发布、队列、锁和 UI 文档退出工作树。
+有效的请求预算、内存、候选校验、原子提升及实测对账合入正式模板 7A 和性能治理 §6.4。
+当前公式、参数、baseline、状态及恢复门禁以 [正式 MACD/KDJ 方案](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md)、
+[R5 对账恢复 LLD](dagster-stk-mins-qfq-macd-kdj-reconciliation-recovery-r5-low-level-design.md) 和受保护金样本为准。
+旧指标性能样本不作为当前硬阈值；旧 Console 命令、锁、备份和 checkpoint 实体不迁入正式主链。

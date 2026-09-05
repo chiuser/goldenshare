@@ -170,7 +170,7 @@ final
 示例：
 
 ```text
-合格：  bootstrap/dataset_spec.py
+合格：  bootstrap/stk_mins_contract.py
 合格：  jobs/index_daily_update.py
 合格：  checks/market_major_indices_checks.py
 
@@ -227,7 +227,8 @@ final
 
 ```text
 合格 asset：raw_tushare_stock_daily
-合格 metadata：source_method=old_lake_bootstrap
+合格 definition metadata 来源：SourceSystem.TUSHARE（通过治理 helper 注册）
+旧湖来源枚举和适配器已清退；历史事件字符串只读保留，不可作为当前 metadata 示例
 
 不合格 asset：old_lake_stock_daily_asset
 ```

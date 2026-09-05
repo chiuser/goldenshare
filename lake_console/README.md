@@ -1,5 +1,7 @@
 # Goldenshare Local Lake Console
 
+> M5 清退边界（2026-09-05）：本目录仍包含待 M6 原子删除的旧 Console frontend/backend，下面旧启动/配置章节暂留为冻结实现说明，不是当前 DG 操作指引，禁止运行 Kopia。现行开发从 [orchestrator](orchestrator/README.md)、[正式接入模板](docs/templates/dagster-dataset-onboarding-template.html) 和 [性能规范](docs/design/dagster-data-pipeline-performance-governance.md) 进入；保留 reports 与 ClickHouse 工具，不动物理数据。
+
 `lake_console` is a local-only console for managing Tushare Parquet data on a removable disk.
 
 It is intentionally isolated from the production Goldenshare app:

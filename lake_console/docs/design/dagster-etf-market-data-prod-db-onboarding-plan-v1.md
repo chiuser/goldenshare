@@ -756,7 +756,7 @@ P9 为这次补录新增 243 个动态分区，专属分区集最终共有 404 �
 ## 17. 文档权威和旧方案处理
 
 1. 本文是 ETF Basic + ETF 历史分钟进入正式 DG orchestrator 的技术方案事实源。
-2. 旧文档 `docs/datasets/etf-basic-prod-raw-db-lake-export-plan.md` 描述的是旧 Lake Console 从 Prod Raw DB 导出 `etf_basic` 的候选，已被本文“DG 直接请求 Tushare、Raw/Silver 版本化”的口径取代，不能用于正式 DG。
+2. 旧 Console 的 ETF Basic 导出候选文档已删除；正式口径仍是本文“DG 直接请求 Tushare、Raw/Silver 版本化”，不改为 Prod DB 导出。
 3. 所有仍引用 `ops.etf_series_active`、ETF active-pool manifest、1,395 固定代码或旧 Lake 路径的 DG 设计均视为失效。
 4. 后续若修改 Tushare Basic 字段、Silver 的 `.SH/.SZ` 筛选、当前可请求条件、分钟请求日期语义或 Prod 分钟物理表，必须同步更新对应源合同、上游 Prod 文档和本文，不能只改一边。
 

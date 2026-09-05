@@ -231,7 +231,7 @@
     <div class="flow">
       <pre><code>业务需求 / 下游消费
   -> 数据集说明卡
-  -> Tushare 文档 + tushareMCP 实测 + 旧湖审计
+  -> 当前代码 + 源契约实测 + 正式上游/获准只读来源审计
   -> Catalog entry：identity / source / partition / path / schema / checks / performance
   -> raw 字段契约与路径
   -> silver 标准事实口径
@@ -362,8 +362,8 @@
         </tr>
         <tr>
           <td>历史迁移</td>
-          <td>是否需要旧湖 bootstrap、旧路径、迁移范围、清理策略。</td>
-          <td>旧路径只做输入和文档记录，不进入 parquet 字段。</td>
+          <td>是否需要历史回补、合法来源、日期/对象范围、分批和续跑策略。</td>
+          <td>来源限 Tushare、经批准的 prod 只读源、正式 Lake 上游或版本化 seed；禁止旧湖和 Kopia。</td>
         </tr>
         <tr>
           <td>验收计划</td>
@@ -576,7 +576,7 @@ data_lake/silver/{domain}/{dataset}/full/part-000.parquet</code></pre>
     <div class="danger">
       <strong>路径禁区：</strong>
       新 Dagster asset path 不得出现旧湖概念，例如 <code>raw_tushare</code>、<code>manifest</code>、<code>derived</code>、<code>research</code>、<code>lake_jobs</code>。
-      旧湖路径只允许作为 bootstrap 输入参数和迁移审计记录。
+      旧湖路径只能留作历史证据，不得作为读取事实源、bootstrap 输入、写入目标或 staging。候选和执行 staging 位于 <code>/Volumes/datasource/data_lake_staging</code>；正式数据只在上述三层。
     </div>
   </section>
 
@@ -646,6 +646,26 @@ fetch_tushare_full_file_to_raw(
   </section>
 
   <section>
+    <h2 id="source-contract-budget">7A. 源契约、执行预算与实测对账卡</h2>
+    <p>接入或变更数据集时填写下表并指向真实实现和验证证据。沿用现行字段契约，不把旧 Console 的日期类型、目录、CLI 或小文件固定阈值搬入正式链。</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>检查项</th><th>设计与验证必须写清</th></tr></thead>
+      <tbody>
+        <tr><td>输入与分页</td><td>源参数 → 运营意图 → planner/request builder/SQL 条件；必填值由谁生成、默认值、多值是透传还是 fan-out、时间点/区间语义、limit/offset 或稳定分页键、结束条件及满页截断反例。可选源参数不自动成为运营参数。</td></tr>
+        <tr><td>三类字段实测</td><td>分别记录默认返回字段、显式请求字段、身份/主键/频度/时间/过滤等业务关键字段的真实样本。源文档与实测不一致时逐项解释；不能因一次未请求便判断源端缺字段。</td></tr>
+        <tr><td>逐字段对账</td><td>源字段、输入类型、Raw 字段/类型、Silver 字段/类型、可空性、转换/改名/过滤原因、消费者和测试逐项登记。Raw 保持当前源镜像契约，Silver 可按已确认规则清洗；不要求 Raw 字段集合一律包含于 Silver。</td></tr>
+        <tr><td>Parquet / DuckDB</td><td>区分文件物理字段与 Hive 目录虚拟列；用 hive_partitioning=false 或 parquet_schema 核验。日期字符串、DATE、TIMESTAMP、月份键、整数范围、DOUBLE/DECIMAL 精度逐字段决策，记录历史分区类型漂移的处理范围。</td></tr>
+        <tr><td>执行模式与成本</td><td>选择范围流式、分页、按日期或按对象扇出并说明理由；测算对象数 × 窗口数 × 频度 × 页数，列出请求/SQL/连接次数、限流配额、预计耗时和超预算处置。读粒度与写分区粒度可以不同。</td></tr>
+        <tr><td>批次、内存与续跑</td><td>记录 fetch batch、写 batch、单分区缓冲、DuckDB 内存/spill 上限、失败重跑最小 unit、持久化/checkpoint 边界、取消检查点和进度粒度。大表不得全量积攒后首次写盘。</td></tr>
+        <tr><td>文件规模</td><td>估算单日/月/年及全历史的行数、文件数、平均/最大文件大小、每分区 part 数与扫描成本；有小文件风险时按真实查询和维护频率确定阈值，不沿用旧模板的固定 MB/文件数门禁。</td></tr>
+        <tr><td>候选与提升</td><td>明确正式目标与独立 staging；全部候选完成 schema、分区、业务 key、行数/覆盖等当前契约校验后，同文件系统逐文件原子提升。多文件组不等于组级原子；中断按 checkpoint 和实际文件核验续跑，异常现场未经确认不得清理。</td></tr>
+        <tr><td>最小真实验收</td><td>记录源端行数、归一化行数、写入行数、每类 reject/过滤原因与样本、目标读回行数及差异；差异须解释，不强求合法清洗前后等量。覆盖空结果、重复、缺关键字段、满页和中断反例；正式写入需另行批准。</td></tr>
+        <tr><td>Prod 只读来源</td><td>按<a href="../design/dagster-data-pipeline-performance-governance.md#prod-readonly-export">性能治理：Prod 只读导出</a>填写表/列白名单、只读事务、连接/SQL/fetch batch 预算及目标对账，不以模板扩大现有源权限。</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
     <h2>8. 字段与类型定义模板</h2>
     <div class="grid">
       <div class="card">
@@ -706,7 +726,7 @@ fetch_tushare_full_file_to_raw(
         <tbody>
         <tr>
           <td>raw partitioned asset</td>
-          <td>调用 Tushare 或 bootstrap helper，写 raw parquet。</td>
+          <td>调用本数据集已登记的 Tushare 或获准 prod 只读 helper，写 raw parquet。</td>
           <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>；项目字段必须使用 <code>goldenshare/*</code> 或已登记 helper，例如脱敏请求参数、fields、page_count、partition summary。</td>
         </tr>
         <tr>
@@ -1062,7 +1082,7 @@ def raw_tushare_dataset(...) -> dg.MaterializeResult:
         <tr>
           <td>历史 bootstrap job</td>
           <td>只用于迁移验收，不进入日常生产，不被 sensor 触发。</td>
-          <td>旧湖到新湖 raw 的一次性迁移入口。</td>
+          <td>基于已批准来源的历史初始化；Direct Lake Bootstrap 与事件补录分开审批。</td>
         </tr>
         </tbody>
       </table>
@@ -1204,10 +1224,9 @@ dataset_update_job = dg.define_asset_job(
   </section>
 
   <section>
-    <h2>14. 历史 bootstrap 模板</h2>
+    <h2 id="history-recovery">14. 历史初始化与恢复</h2>
     <p>
-      bootstrap 是“旧湖历史数据节约时间地进入新湖 raw”的迁移工具，不是日常生产分支。
-      通用 bootstrap 引擎可以长期保留，具体数据集 spec 和旧链路必须记录到 legacy links。
+      历史初始化与恢复必须使用已批准的正式来源。旧湖迁移适配器已在清退专项 M4 删除；legacy links 仅保留历史结果，不提供可复用执行引擎。Direct Lake Bootstrap、现行 Raw 恢复和正式 Silver/Gold 重建仍保留。
     </p>
 
     <div class="table-wrap">
@@ -1220,12 +1239,12 @@ dataset_update_job = dg.define_asset_job(
         </thead>
         <tbody>
         <tr>
-          <td>旧湖路径</td>
-          <td>只作为 input pattern 和审计记录，不进入新湖 parquet 字段。</td>
+          <td>输入边界</td>
+          <td>Tushare、prod 只读源、正式 Lake 上游或版本化 seed；按实际数据集登记，不能据此自动扩大读取权限。</td>
         </tr>
         <tr>
           <td>字段纠偏</td>
-          <td>旧湖写入新湖 raw 前必须向 Tushare 源字段契约对齐。</td>
+          <td>按当前目标 schema 显式投影和转换；差异逐字段解释，不因整理模板擅自增删 Raw/Silver 字段。</td>
         </tr>
         <tr>
           <td>类型漂移</td>
@@ -1233,11 +1252,11 @@ dataset_update_job = dg.define_asset_job(
         </tr>
         <tr>
           <td>写入方式</td>
-          <td><code>.tmp</code> 文件写成功后 <code>os.replace</code> 原子替换。</td>
+          <td>在正式 Lake 外的 run-scoped staging 完成全量候选校验，确认同文件系统后逐文件 <code>os.replace</code>；保存 checkpoint，续跑核验实际文件，不使用备份或 Kopia。</td>
         </tr>
         <tr>
           <td>bootstrap source method</td>
-          <td><code>old_lake_bootstrap</code> 只允许作为迁移审计 metadata，不进 parquet 字段，也不作为新生产链路判断条件。</td>
+          <td>只登记代码当前支持的来源；历史事件中的旧来源字符串只读保留，不再用于生成新事件或指导当前摄取。</td>
         </tr>
         <tr>
           <td>日常生产</td>
@@ -1338,7 +1357,7 @@ git status --short</code></pre>
         </tr>
         </thead>
         <tbody>
-        <tr><td>依据</td><td>当前代码、旧湖数据、本地 Tushare 文档、tushareMCP 实测都已核验。</td><td>□</td></tr>
+        <tr><td>依据</td><td>当前代码、合法来源、本地源文档已核验；涉及 Tushare 真实行为时已用 tushareMCP 实测。</td><td>□</td></tr>
         <tr><td>层级</td><td>raw/silver/gold 分类清楚，没有 support/reference 新层级。</td><td>□</td></tr>
         <tr><td>Asset tags</td><td>已使用 <code>build_asset_tags(...)</code>，layer/data_domain 均为治理文档登记的英文枚举。</td><td>□</td></tr>
         <tr><td>中文名</td><td><code>dataset_id</code> 已登记到 <code>DATASET_CHINESE_NAMES</code>，中文名只进入 definition metadata。</td><td>□</td></tr>
@@ -1347,10 +1366,10 @@ git status --short</code></pre>
         <tr><td>命名</td><td>asset/job/sensor/file 名称单一职责，不宽泛。</td><td>□</td></tr>
         <tr><td>UI 文案</td><td>asset/job/sensor/check 的 description 已用中文简明表达能力和用途。</td><td>□</td></tr>
         <tr><td>人类可读治理</td><td>asset/job/sensor/check/cursor/log/metadata 都已能回答“是什么、为什么跑/不跑、卡在哪里、下一步做什么、完整证据在哪里”。</td><td>□</td></tr>
-        <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入；definition <code>path_template</code> 由真实路径函数生成。</td><td>□</td></tr>
+        <tr><td>路径</td><td>正式路径位于 <code>data_lake/raw|silver|gold</code>，staging 位于 <code>data_lake_staging</code>；禁止读取旧湖；definition <code>path_template</code> 由真实路径函数生成。</td><td>□</td></tr>
         <tr><td>Definition metadata</td><td>已使用 <code>build_asset_definition_metadata(...)</code> 写清数据集身份、source、contract 和路径模板。</td><td>□</td></tr>
         <tr><td>Materialization metadata</td><td>已使用 <code>build_materialization_metadata(...)</code>，路径、行数使用 Dagster 标准 key；本次输出列使用 <code>goldenshare/observed_columns</code>；展示顺序按结论、数量、位置、差异、样本、报告引用组织。</td><td>□</td></tr>
-        <tr><td>字段</td><td>raw 源镜像字段、silver 标准字段、类型转换、日期语义已列清。</td><td>□</td></tr>
+        <tr><td>字段</td><td>raw 源镜像字段、silver 标准字段、类型转换、日期语义已列清；已填写 7A 的字段、批次、内存、请求/SQL/连接预算、文件规模和真实读回对账。</td><td>□</td></tr>
         <tr><td>Tushare</td><td>参数、字段、分页、空结果、权限/配额、样本行数已实测。</td><td>□</td></tr>
         <tr><td>请求范围</td><td>逐对象接口的对象池、请求量、分页量、耗时和不可接受量级已评估；raw 范围与设计文档一致。</td><td>□</td></tr>
         <tr><td>checks</td><td>blocking/WARN 分清；每个 check 都有 <code>build_check_metadata(...)</code>、scope、数量和样本；合并 check 时 metadata 能列出 failed rule、失败数量和少量样本。</td><td>□</td></tr>
@@ -1361,7 +1380,7 @@ git status --short</code></pre>
         <tr><td>日志</td><td>长耗时 asset 已设计 stdout 里程碑日志；日志只记录阶段、数量、目标路径和关键异常上下文，不打印敏感信息、完整 SQL、完整 DataFrame 或全量路径列表。</td><td>□</td></tr>
         <tr><td>诊断入口</td><td>设计文档已列出 sensor 没触发、asset run 失败、check 失败、历史补录异常、是否能重跑时分别先看哪里。</td><td>□</td></tr>
         <tr><td>run tags</td><td>没有新增项目自定义 run tags；如确需新增，已先登记治理文档并补静态门禁。</td><td>□</td></tr>
-        <tr><td>bootstrap</td><td>如需旧湖迁移，spec、legacy links、清理边界已记录。</td><td>□</td></tr>
+        <tr><td>bootstrap</td><td>如需历史初始化，来源、范围、完整候选校验、逐文件 checkpoint、幂等续跑及事件补录审批边界已记录；不依赖旧适配器。</td><td>□</td></tr>
         <tr><td>验收</td><td>单日、小批量、全量、UI 可观测、失败恢复计划已列清。</td><td>□</td></tr>
         <tr><td>静态门禁</td><td><code>unittest</code>、<code>ruff</code>、文档完整性检查和 <code>git diff --check</code> 已通过。</td><td>□</td></tr>
         <tr><td>range 回补</td><td>如使用 dynamic partition range，必须在资产代码里校验实际 <code>partition_keys</code> 与自然日期区间期望一致；不能只凭 CLI 文本判断覆盖范围。</td><td>□</td></tr>

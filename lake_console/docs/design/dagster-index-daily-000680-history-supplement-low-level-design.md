@@ -746,5 +746,5 @@ M5 当前验证结果：
 - [指数日线 Raw by-date / Prod DB 迁移 LLD](./dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md)
 - [指数技术数据资产接入方案](./dagster-index-technical-datasets-onboarding-plan-v1.html)
 - [指数技术数据资产接入 LLD](./dagster-index-technical-datasets-onboarding-low-level-design-v1.html)
-- [Dagster Bootstrap 历史迁移开发模板](../templates/dagster-bootstrap-migration-template.html)
+- [正式接入模板：历史初始化与恢复](../templates/dagster-dataset-onboarding-template.html#history-recovery)
 - [Dagster 数据管道性能治理](./dagster-data-pipeline-performance-governance.md)

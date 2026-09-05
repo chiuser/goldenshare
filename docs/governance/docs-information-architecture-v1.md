@@ -87,7 +87,7 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 3. 数据集静态事实：以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准；执行计划以 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan` 为准。
 4. `dataset-definition-enum-reference-v1.md` 只维护枚举语义和约束边界，不维护易漂移的数量快照；精确数量由代码 registry 与测试提供。
 5. 方案、LLD 与验收记录保留各自角色：方案/LLD 解释设计与局部实现，验收记录提供时点证据，均不能覆盖当前代码事实。
-6. 已标记“历史/冻结”的 Local Lake 文档仅用于追溯旧 backend、旧 Lake 路径和迁移背景，不作为当前 Dagster Lake、新开发或写湖依据。
+6. 清退专项 M5 的 86 份纯旧 Local Lake 文档与 3 份旧模板退出当前工作树，不建立 archive/tombstone。必要历史结果归入 [单一初始化与修复总账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-bootstrap-legacy-links.md)，全文通过 Git 历史追溯；当前正式设计与混合文档只局部纠偏，不连带删除。
 
 `docs/README.md` 负责导航和阅读顺序，不重复承载上述事实。
 

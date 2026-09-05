@@ -16,7 +16,7 @@
 本方案遵循：
 
 - `lake_console/docs/templates/dagster-dataset-onboarding-template.html`
-- `lake_console/docs/templates/dagster-bootstrap-migration-template.html`
+- `lake_console/docs/templates/dagster-dataset-onboarding-template.html#history-recovery`
 - `lake_console/orchestrator/CODING_STANDARDS.md`
 - `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`
 - `lake_console/docs/design/dagster-asset-check-incremental-governance-plan.md`

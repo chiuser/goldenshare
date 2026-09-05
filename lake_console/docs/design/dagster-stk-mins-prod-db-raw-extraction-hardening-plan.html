@@ -318,7 +318,8 @@
       casting、scope 校验、去重校验和排序，最后写入临时 <code>part-000.parquet.tmp</code>，通过
       <code>os.replace</code> 原子替换正式文件。
     </p>
-    <pre>raw/tushare/stk_mins/freq=1/trade_date=YYYY-MM-DD/
+    <p>以下是历史分页落盘方案的临时位置，不是当前执行示例。现行日常抽取以 assets/stk_mins.py 的受控 DuckDB COPY 为准；M4 Raw 恢复独立使用 data_lake_staging 下的 plan/candidate/checkpoint。本段不授权写入旧 .prod_db_staging 位置。</p>
+    <pre>历史路径（不执行）：raw/tushare/stk_mins/freq=1/trade_date=YYYY-MM-DD/
   .prod_db_staging/run_id=&lt;run-id-or-uuid&gt;/batch=00001.parquet
   .prod_db_staging/run_id=&lt;run-id-or-uuid&gt;/batch=00002.parquet
   part-000.parquet.tmp

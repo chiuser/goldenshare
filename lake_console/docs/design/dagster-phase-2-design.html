@@ -264,6 +264,7 @@
 <main>
   <header>
     <h1>Dagster 第二期方案设计：自动化执行链路与停复牌校验</h1>
+    <div class="note"><strong>M5 清退边界（2026-09-05）：</strong>仅旧湖 Slice 2.0、旧 spec/executor/metadata 和旧路径说明退出执行口径，视为已结束历史阶段；相关代码已在 M4 删除。日常 Tushare、Raw/Silver/Gold、分区、readiness 和自动化设计不因本轮清退历史化；历史初始化结果统一见 dagster-bootstrap-legacy-links.md。禁止复制旧迁移步骤。</div>
     <p class="subtitle">
       本文是第二期方案设计与实施口径记录。目标不是扩大业务范围，而是把第一期手动执行的资产链路收敛成可重复、可观测、可回填的 Dagster 流程，
       并把 Tushare raw 拉取纳入 Dagster 资产链路，让 <code>daily</code>、<code>suspend_d</code>、<code>trade_cal</code>、<code>stock_basic</code> 都有明确的接入口径。
@@ -801,7 +802,7 @@ gold_stock_return_distribution[trade_date]</code></pre>
       </table>
     </div>
 
-    <h3>4.4 Slice 2.0.6：quote 日频全历史 bootstrap 收口</h3>
+    <h3>历史记录（不执行）：4.4 Slice 2.0.6：quote 日频全历史 bootstrap 收口</h3>
     <p>
       增加 <code>Slice 2.0.6</code> 的原因是：当时 <code>历史 quote bootstrap 入口</code> 选中的仍是走旧湖 bootstrap 的正式 raw/silver assets。
       这正好提供了一个窗口，可以把旧湖中已经存在的 quote 日频历史数据迁到新湖。
@@ -1444,7 +1445,7 @@ daily_market_breadth_job[2026-05-19]</code></pre>
       第二期的数据来源分两步：历史日期先从旧湖 bootstrap 到新湖 raw；bootstrap 之后的新日期再由 Tushare API 续更新。
     </p>
 
-    <h3>6.1 历史 bootstrap 口径</h3>
+    <h3>历史记录（不执行）：6.1 历史 bootstrap 口径</h3>
     <div class="callout">
       旧湖已经拉取过大量历史数据，第二期没有必要为了旧日期重新消耗 Tushare 接口和时间。
       但旧湖文件不能原样复制：新湖 raw 必须看起来像 Tushare 源站直接返回的数据，所以 bootstrap 必须做字段投影和类型纠偏。
@@ -2494,7 +2495,7 @@ historical quote bootstrap successful partitions: 3004 / 3004</code></pre>
       <li><code>docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md</code></li>
       <li><code>docs/sources/tushare/股票数据/基础数据/0026_交易日历.md</code></li>
       <li><code>docs/sources/tushare/股票数据/基础数据/0025_股票基础信息.md</code></li>
-      <li><code>docs/datasets/suspend-d-prod-raw-db-lake-export-plan.md</code></li>
+      <li><a href="dagster-bootstrap-legacy-links.md">历史初始化总账（仅结果追溯）</a></li>
       <li><code>/Users/congming/.codex/skills/tushare-data/SKILL.md</code></li>
       <li><code>tushareMCP.daily</code> 实测：默认字段、显式 fields、单日全市场请求、单股票区间请求、非交易日空结果。</li>
       <li><code>tushareMCP.suspend_d</code> 实测：默认字段、显式 fields、区间请求、<code>suspend_type</code> 过滤。</li>

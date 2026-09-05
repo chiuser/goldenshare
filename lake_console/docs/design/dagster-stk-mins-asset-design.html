@@ -272,6 +272,7 @@
       <span class="pill gold">gold: qfq 分钟线</span>
     </div>
     <h1>Dagster stk_mins 资产落地设计</h1>
+    <div class="note"><strong>M5 清退边界（2026-09-05）：</strong>旧 backup/clean_next 输入、M2 spec 与 M3 初始化步骤仅是历史记录，相关适配器已在 M3/M4 删除，不能照做。当前 Raw/Silver/QFQ/指标、停牌和身份映射口径不变；现行 CLI 已拆成 Silver history、QFQ history、MACD/KDJ history、events 四个模块，21 命令合同保留，见清退 LLD §4/§11。</div>
     <p class="subtitle">
       本文定义股票分钟线 <code>stk_mins</code> 在新 Dagster lake 中的正式分层、分区、资产拆分、历史导入和后续增量路线。
       已拍板口径：raw/silver 按交易日分区，按分钟频度拆不同资产；gold qfq 的 Dagster 分区仍按交易日，但物理文件按 <code>freq + ts_code + year</code> 组织；raw 历史基线来自 backup clean_next，默认日常增量来自 prod DB，Tushare 入口保留为人工备用；silver 做代码与停复牌口径标准化，gold 存前复权后的分钟线。
@@ -298,7 +299,7 @@
       <li><code>lake_console/orchestrator/CODING_STANDARDS.md</code>：正式资产命名、schema contract、definition metadata 与 materialization metadata 边界。</li>
       <li><code>lake_console/orchestrator/src/orchestrator/defs/partitions.py</code>：当前股票日频分区为 <code>cn_a_stock_trade_days</code>，adj factor 使用 <code>cn_a_stock_current_trade_days</code>。</li>
       <li><code>lake_console/docs/design/dagster-adj-factor-asset-design.md</code>：旧湖 raw bootstrap、dynamic partition 注册、runless materialization/check event 补录的可复用方法。</li>
-      <li><code>docs/datasets/stk-mins-clean-next-vs-silver-stock-daily-code-audit-v1.md</code>：clean_next 与新湖 stock daily 的代码集合审计结果。</li>
+      <li><a href="dagster-bootstrap-legacy-links.md#34-分钟与日线代码集合不能无条件要求相等">历史总账 §3.4</a>：停牌与身份映射差异证据；不把旧 clean_next 作为当前读取来源。</li>
     </ul>
 
     <h3>2.2 Dagster 官方依据</h3>

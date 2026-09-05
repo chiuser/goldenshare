@@ -1,5 +1,7 @@
 # Dagster Asset Check 增量治理专项方案
 
+> M5 清退边界（2026-09-05）：P6A 中旧 migration producer 的实现状态仅作历史证据；对应旧适配器已在 M3/M4 清退。正式 checks、readiness、Silver/QFQ history 与事件工具保留，不能据历史 producer 名称恢复旧湖读取。
+
 更新时间：2026-06-24
 
 > **QFQ/MACD-KDJ 状态校正（2026-07-15）：** 本文早期表格中的 event 数量与旧 formula rule 是历史统计，不是当前 active check 定义。现行 QFQ/MACD-KDJ production check 以 `dagster-stk-mins-qfq-validation-governance-low-level-design.md` 和 `defs/checks/**` 为准：QFQ native/derived 各 4 条，indicator 每频度 2 条，state 每频度 2 条；公式正确性只由受保护金样本测试验证。

@@ -1,6 +1,6 @@
 # Dagster 数据管道性能治理规范
 
-更新时间：2026-06-21
+更新时间：2026-09-05（M5 合并只读导出检查项，不调整既有热路径预算）
 
 本文是 `lake_console/orchestrator` 的长期性能治理规范，适用于 Dagster 资产、asset check、sensor、run-status sensor、continuity selector、readiness helper、bootstrap、runless event 补录、DuckDB/Parquet 计算和数据集接入设计。
 
@@ -251,6 +251,26 @@ sensor 热路径禁止：
 5. 失败后不留下半成品。
 
 大范围 bootstrap 必须先 dry-run，再 sample，再 batch，再 final audit。
+
+<a id="prod-readonly-export"></a>
+
+### 6.4 Prod 只读导出：先确认来源，再约束读取成本
+
+本节适用于正式 orchestrator 从已批准 prod 数据源读取并生成 Lake 候选的链路，不授予生产写入权限，
+也不把旧 Console 的“只允许 raw_tushare、禁止读取 Ops”套到现行链路上。
+例如分钟 Raw 恢复会读取 `ops.task_run` 作为来源就绪证据；其字段、范围和查询上限由该专项约束，不能删掉。
+
+1. 表/列白名单必须来自本数据集当前 source contract 和获准范围，不能从数据库全字段推导。显式投影，禁止源表 `SELECT *`；标识符来自受控映射，输入值采用参数绑定或已验证的专用 SQL builder，禁止任意 SQL/标识符透传。
+2. 只读属性必须在业务查询前建立。Python 流式读取优先复用 `ProdPostgresResource.connect_readonly_transaction()`，结束 rollback 并关闭连接；不混入生产写入事务。DuckDB 读取使用现行受控只读 attach/source contract。
+3. 大范围读取优先按一个有界 unit 使用单连接、只读事务、服务端游标和 `fetchmany`；读范围与写分区可以不同。不得无依据退化为“每日重新建连接 + 每日查询”，也不得让全历史长事务成为默认值。分页、分区读取或 DuckDB COPY 路径如更适合现有契约，写明理由和预算，不为统一模板强制改写。
+4. 大表禁止无界 `fetchall` 或完整 DataFrame 常驻内存。小型有界聚合可以读回结果，但须记录返回上限；流式路径写清 fetch batch、写 batch、缓冲上限、内存/spill 预算、取消与重试粒度。
+5. 每次设计列出连接次数、SQL 次数、扫描行/文件数、分页次数、预计耗时和超预算行为；最低真实验证记录实际数量和最慢阶段。人工低频恢复可记录慢操作告警，不因慢于历史单次样本而否决；正确性、只读和范围边界不能放宽。
+6. 源 schema、显式投影、归一化与目标 schema 逐项对账；源行数、读取行数、归一化行数、reject/过滤原因与样本、写入行数、目标读回行数必须可解释。按当前 Raw/Silver 契约处理合法清洗差异，不强制所有字段或行数不变。
+7. 正式源只允许本数据集已获准的 Tushare、prod 只读源、正式 Lake 上游或版本化 seed。旧湖不得用作来源或 staging；Kopia 禁止。候选位于 `data_lake_staging`，正式目标位于 `data_lake/raw|silver|gold`，完整候选校验后同文件系统逐文件 `os.replace()`，保留 checkpoint 与幂等续跑；不得自动删除异常现场。
+
+代码依据：`defs/resources.py` 的只读连接、`defs/bootstrap/stk_mins_raw_replace_from_prod.py` 的有界状态查询及
+受控导出、`defs/prod_db/stk_mins.py` 的显式源契约（路径均相对于 `lake_console/orchestrator/src/orchestrator/`）。
+接入记录统一填写 [正式 onboarding 模板 7A](../templates/dagster-dataset-onboarding-template.html#source-contract-budget)。
 
 ---
 

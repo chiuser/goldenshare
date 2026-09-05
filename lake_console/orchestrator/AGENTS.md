@@ -277,7 +277,7 @@ Sensor definition tags 是 Automation 页面筛选和运维分类的一部分，
 
 直写补录模式，全称 `Direct Lake Bootstrap + Runless Event Backfill`，指历史大批量数据不通过 Dagster backfill 逐分区执行 asset，而是先用受控 helper / CLI 直接生成或迁移 lake parquet 文件，再用 runless materialization / asset check events 把文件事实补录为 Dagster event 事实。
 
-该模式是 `stk_mins` silver / gold 历史初始化已经采用的正式模式。后续类似历史大批量 silver/gold 初始化、旧湖迁移、物理布局重建，可以复用这个名字和流程。
+该模式是 `stk_mins` silver / gold 历史初始化已经采用的正式模式。后续类似历史大批量 silver/gold 初始化、基于获准正式来源的物理布局重建，可以复用这个名字和流程。
 
 规则：
 
@@ -393,9 +393,9 @@ Check    = 这个资产生成后是否合格
 
 1. 想获取 Tushare 数据源中数据集的相关信息时，可以使用 `tushare-data` skill 辅助理解，例如接口家族、数据域背景、常见字段、可能相关接口、研究路径和自然语言需求到接口能力的映射。skill 路径：`/Users/congming/.codex/skills/tushare-data/SKILL.md`。
 2. 想实测请求接口、验证真实输入输出返回值、确认字段是否真实返回、样本行数、分页行为、日期过滤、权限积分或空结果原因时，必须使用 `tushareMcp` 做真实请求核验。
-3. `tushare-data` skill 只能做理解与选型辅助，不能替代当前代码、`docs/sources/tushare/**`、旧数据湖实际 parquet 和 `tushareMcp` 实测。
-4. 设计或实现 `raw_tushare_*` asset、Tushare resource、字段契约、asset checks、分区口径、数据完整性判断前，必须先说明依据来自哪里：当前代码、本地 Tushare 文档、旧湖 parquet、`tushare-data` skill、`tushareMcp` 实测。
-5. 若本地文档、旧湖 parquet 和 `tushareMcp` 实测不一致，必须显式记录差异，并以“当前代码 + 旧湖实际数据 + 实测行为”校准第一期实现；禁止带着未核清口径继续编码。
+3. `tushare-data` skill 只能做理解与选型辅助，不能替代当前代码、`docs/sources/tushare/**`、正式 Lake 上游与获准来源实际样本和 `tushareMcp` 实测。
+4. 设计或实现 `raw_tushare_*` asset、Tushare resource、字段契约、asset checks、分区口径、数据完整性判断前，必须先说明依据来自哪里：当前代码、本地 Tushare 文档、正式 Lake 上游与获准来源样本、`tushare-data` skill、`tushareMcp` 实测。
+5. 若本地文档、正式 Lake 上游与获准来源样本和 `tushareMcp` 实测不一致，必须显式记录差异，并以“当前代码 + 获准来源实际数据 + 实测行为”校准实现；禁止带着未核清口径继续编码。
 
 禁止：
 
@@ -455,7 +455,7 @@ duckdb_compute/_tmp
 2. `raw` 层中的同名字段仍按源站契约保留，例如 Tushare `daily.trade_date` 在 raw 中保持 `YYYYMMDD` 字符串。
 3. 具备具体时刻语义的字段不得硬转 `DATE`，应按真实语义标准化为 `TIMESTAMP` 或保留为字符串，例如 `trade_time`、`update_time`、`created_at`、`datetime`。
 4. 周期、月份、报告期、财报期等字段不得按字段名直接转 `DATE`，必须先定义语义再确定类型，例如 `period`、`report_period`、`end_date` 在不同接口中可能分别表示月份、报告期或自然日期。
-5. 对时间字段类型做任何修改前，必须核验源接口文档、旧湖实际 parquet 和当前代码消费者；禁止只凭字段名猜测类型。
+5. 对时间字段类型做任何修改前，必须核验源接口文档、正式 Lake 上游与获准来源实际样本和当前代码消费者；禁止只凭字段名猜测类型。
 6. 相关 asset checks 必须围绕标准化后的类型设计，例如 `silver_stock_daily.trade_date` 应按 `DATE` 与 partition key 比较，而不是按 raw 字符串比较。
 
 ---
@@ -511,7 +511,7 @@ C1 已将新湖 Dagster asset 事实收敛到 `orchestrator.defs.catalog.lake_as
 新增或迁移任何 Dagster resource 前，必须先完成配置和边界审计，至少列清：
 
 1. resource 名称。
-2. 管理的外部能力：Lake Root、DuckDB、Tushare、PostgreSQL、ClickHouse、Kopia 等。
+2. 管理的外部能力：Lake Root、DuckDB、Tushare、PostgreSQL、ClickHouse 等（Kopia 禁止）。
 3. 配置来源与持久化位置。
 4. 是否包含敏感信息。
 5. 是否允许 `dg dev` 启动时失败。

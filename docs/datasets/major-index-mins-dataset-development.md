@@ -9,7 +9,7 @@
 | 事实源 | 当前 Dagster assets、Lake Catalog、运行合同与对应 Gold canonical LLD；本项目不进入生产 `DatasetDefinition`/TaskRun 主链 |
 | 源接口 | Tushare `idx_mins` |
 | 当前源接口实测 | MCP 已验证代码、起始日、停止日、五种频率和显式字段；项目 wrapper 的显式字段与 `limit/offset` 真实分页已由 P1 实测通过 |
-| 依据模板 | `docs/templates/lake-dataset-development-template.md`、`docs/templates/dataset-development-template.md`、`lake_console/docs/templates/dagster-dataset-onboarding-template.html` |
+| 依据模板 | `docs/templates/dataset-development-template.md`、`lake_console/docs/templates/dagster-dataset-onboarding-template.html` |
 | 设计依据 | `/Users/congming/github/goldenshare/AGENTS.md`、`lake_console/orchestrator/AGENTS.md`、`lake_console/orchestrator/CODING_STANDARDS.md`、`lake_console/docs/design/dagster-data-pipeline-performance-governance.md` |
 
 本说明已按新增数据集模板补齐：基本信息、源端行为、时间输入/执行/freshness 三层语义、字段端到端追踪、Catalog、分区模型、路径、请求模式、性能预算、资产依赖、job/sensor/cursor、Bootstrap、事件验收、测试和风险清单。

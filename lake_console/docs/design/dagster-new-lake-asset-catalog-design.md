@@ -1,5 +1,7 @@
 # Dagster 新湖 Asset Catalog 设计方案
 
+> M5 清退边界（2026-09-05）：C1 已落地；M4 已移除旧湖来源成员并校准 17 项，见 §9.3。旧 Console 尚待 M6 删除，旧 catalog 只作为边界对照，不是当前可复用事实源。
+
 更新时间：2026-06-10
 
 ## 1. 结论
@@ -20,7 +22,7 @@ C1 已按该口径落地为 `orchestrator.defs.catalog.lake_assets`：只做代�
 | 新湖 Dagster | `lake_console/orchestrator` | 正式 Dagster assets/checks/jobs/sensors/resources，目标路径为 `data_lake/raw`、`data_lake/silver`、`data_lake/gold` |
 | 数据基座 | `src/foundation/datasets`、`src/foundation/ingestion` | 生产主系统成熟的数据集事实源和执行计划模型 |
 
-旧湖控制台会逐步退场，`lake_console/backend` 的 catalog 不应继续升级为长期事实源。新湖后续仍会持续接入来自 Tushare、prod DB 和旧湖未迁移数据的数据集，因此需要在新湖内部建立稳定资产事实模型。
+旧湖控制台会逐步退场，`lake_console/backend` 的 catalog 不应继续升级为长期事实源。新湖后续仍会持续接入来自 Tushare、获准 prod 只读来源、正式上游或版本化 seed 的数据集，因此需要在新湖内部建立稳定资产事实模型。
 
 ## 3. 当前现状审计
 
@@ -60,7 +62,7 @@ C1 已将这张隐形 catalog 迁移为正式只读 registry；治理测试现�
 - 字段契约是 Tushare raw mirror。
 - 日常默认来源可以是 prod DB 的 `raw_tushare.stk_mins`。
 - 备用来源是 Tushare API。
-- 历史初始化可来自旧湖 bootstrap。
+- 历史初始化来源按当前 catalog 登记；旧湖 bootstrap 不再可用。
 
 当前 metadata 中的 `source_system=SourceSystem.TUSHARE` 表达的是字段契约来源，不足以表达实际摄取来源。Catalog 应拆开：
 
@@ -138,7 +140,7 @@ CodeGraph 也确认了 `DatasetMaintainService.maintain` 的主要调用方是 C
 | `src.foundation` 运行时 import | `lake_console/orchestrator` 是独立 Dagster 工程；引入主系统运行链会扩大依赖边界 | 只复制建模经验，不 import foundation 代码 |
 | SQLAlchemy DAO / raw/core/serving 写库 | 新湖正式产物是 Parquet/DuckDB/Dagster event，不是生产库表 | 新湖保留 LakeRoot/DuckDB/resource/path/check 体系 |
 | `DatasetMaintainService`、Ops TaskRun、dispatcher | 新湖控制面是 Dagster job/sensor/schedule | 不让新湖 sensor/job 走 Ops TaskRun |
-| `source_client` 运行时重试/限流 | 新湖 Tushare/prod DB/旧湖 bootstrap 已有独立受控路径，需要单独设计权限、只读和性能门禁 | 借鉴分页与字段投影，不直接复用客户端 |
+| `source_client` 运行时重试/限流 | 新湖 Tushare/prod DB/正式上游 已有独立受控路径，需要单独设计权限、只读和性能门禁 | 借鉴分页与字段投影，不直接复用客户端 |
 | per-stock planned unit 默认模型 | 对生产数据库维护可控，但对 qfq/分钟线 Parquet 批量写入会退化成碎循环 | 新湖重型路径必须按 freq/year/date window 批量规划 |
 | UI filter/input 控件模型 | 旧湖 backend/frontend 会逐步退场；新湖 C1 不做 UI | catalog 先服务代码门禁和审计 |
 | 动态 feature flag 修改 definition | `_builder.py` 对 hot market enum 有运行期变体 | 新湖 catalog 第一阶段必须是稳定只读事实，不做运行期变形 |
@@ -149,7 +151,7 @@ CodeGraph 也确认了 `DatasetMaintainService.maintain` 的主要调用方是 C
 |---|---|---|---|
 | Tushare | `source_fields`、`source_doc_id`、`request_builder_key`、pagination policy | `data_contract_source=tushare_raw_contract`、`source_api`、`source_doc`、`source_fields/column_schema`、`ingestion_sources=(tushare_api,)` | 不把可选源参数自动暴露成 Dagster run config；新增/修改请求仍必须查本地 Tushare 文档并实测 |
 | prod DB | 明确字段投影、源适配器隔离、write volume assessment | `ingestion_sources=(prod_db_readonly,)`、白名单表/字段投影、READ_ONLY attach、批量 SQL 维度 | 不保存 host/user/password/dbname，不把连接串写进 catalog、metadata、run tags |
-| 旧湖未迁移数据 | 定义卡和执行计划分离 | `bootstrap_sources=(old_lake_bootstrap,)`、bootstrap spec、允许直写/无 run event 补齐策略 | 旧湖 path/layout/scan profile 不进入正式 asset path 和 dataset 名称 |
+| 正式上游 / seed | 定义事实与执行计划分离 | 当前 catalog 的 `derived_from_assets`、`seed_file` 等获准来源；直写与补事件分开 | 旧湖与旧适配器不可作为摄取来源 |
 
 ### 5.4 对 C1/C2/C3 的具体影响
 
@@ -228,7 +230,7 @@ class LakeAssetCatalogEntry:
 | `dataset_id` | 稳定 dataset id，对应 definition metadata |
 | `layer` / `data_domain` | 对应 `goldenshare/layer` 和 `goldenshare/data_domain` tags |
 | `data_contract_source` | 字段契约来源，例如 `tushare_raw_contract`、`derived_contract`、`seed_contract`、`prod_serving_contract` |
-| `ingestion_sources` | 实际可摄取来源，例如 `tushare_api`、`prod_db_readonly`、`old_lake_bootstrap`、`derived_from_assets`、`seed_file` |
+| `ingestion_sources` | 实际可摄取来源，例如 `tushare_api`、`prod_db_readonly`、`derived_from_assets`、`seed_file` |
 | `partition_model` | 具体 leaf 分区模型，命名采用“分区维度 + layer + 资产名/资产簇”，例如 `trade_date_partition_raw_stock_mins`；上层关系由 `PartitionModelDefinition.family` 表达 |
 | `blocking_check_names` | 该 asset 正式 blocking checks 名称 |
 | `write_policy` | `single_file_replace`、`partition_file_replace`、`stock_year_atomic_replace`、`clickhouse_sync` 等 |
@@ -359,15 +361,20 @@ Catalog 记录：
 
 Catalog 不保存密码、连接串、host、user、dbname，也不承载运行配置。
 
-### 9.3 旧湖未迁移数据
+### 9.3 历史构建来源（M4 之后）
 
-Catalog 记录：
+`bootstrap_sources` 字段仍保留，删除的是旧湖来源成员，不是整个历史构建能力。
 
-- 正式目标 asset 的 contract。
-- 允许的 bootstrap source：`old_lake_bootstrap`。
-- 对应 bootstrap spec 名称。
+| M4 校准对象 | 个数 | 当前来源 |
+|---|---:|---|
+| silver_adj_factor | 1 | DERIVED_FROM_ASSETS |
+| Raw stk_mins 1/5/15/30/60m | 5 | ingestion 保留 TUSHARE_API/PROD_DB_READONLY；bootstrap 为 PROD_DB_READONLY |
+| Silver stk_mins 1/5/15/30/60m | 5 | DERIVED_FROM_ASSETS |
+| native Gold QFQ 1/5/15/30/60m | 5 | DERIVED_FROM_ASSETS |
+| silver_index_daily | 1 | DERIVED_FROM_ASSETS |
 
-旧湖路径只能出现在 bootstrap spec 和迁移审计，不进入正式 asset path，不进入 parquet 字段，不污染 asset 名称。
+上述 17 项不改变字段 schema、路径、分区、check 或日常 job。历史事件来源字符串只读保留，不能反推旧适配器仍可用。
+Raw stk_mins 的 prod 只读恢复已按 [清退 LLD §6.4](legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md) 重构并通过 M4 隔离回归；真实 apply 仍须单独确认日期、容量和人工维护窗口，catalog 来源声明不等于已执行恢复。
 
 ## 10. 风险与边界
 
@@ -381,6 +388,6 @@ Catalog 记录：
 
 ## 11. 建议下一步
 
-C1 已实施。它不改变 Dagster 行为，只把已经存在的散落事实登记成一张正式 registry，并用 static gates 防止后续接入 prod DB、Tushare 和旧湖迁移数据时继续漂移。
+C1 已实施。它不改变 Dagster 行为，只把已经存在的散落事实登记成一张正式 registry，并用 static gates 防止后续接入 prod DB、Tushare 和正式上游数据时继续漂移。
 
 下一步再决定是否进入 C2/C3。C2/C3 应等待下一个新增数据集或 M12 技术指标资产开始前推进。

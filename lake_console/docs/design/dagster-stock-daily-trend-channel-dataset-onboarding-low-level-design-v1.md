@@ -2521,7 +2521,7 @@ R10 的实现方式和两阶段批准均已执行完成，没有新的业务选�
 
 - [Dagster 数据管道性能治理规范](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-data-pipeline-performance-governance.md)
 - [Dagster Asset Schema Contract 设计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-asset-schema-contract-design.md)
-- [Local Lake 数据集接入说明模板](/Users/congming/github/goldenshare/docs/templates/lake-dataset-development-template.md)
+- [正式 Dagster 接入模板：源契约与预算](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html#source-contract-budget)
 - `lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_qfq.py`
 - `lake_console/orchestrator/src/orchestrator/defs/stock_daily_qfq.py`
 - `lake_console/orchestrator/src/orchestrator/defs/sensors/stock_daily_qfq_sensor.py`

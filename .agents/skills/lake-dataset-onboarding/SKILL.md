@@ -12,6 +12,7 @@ Use this skill for Lake Console and new lake asset work.
 1. Read `lake_console/AGENTS.md`.
 2. If the task touches Dagster, assets, checks, sensors, jobs, resources, partitions, or new lake topology, also read `lake_console/orchestrator/AGENTS.md`.
 3. Read the relevant design document before implementation. If no design exists for a high-risk lake change, stop and ask for a design decision.
+4. For formal dataset onboarding, use `lake_console/docs/templates/dagster-dataset-onboarding-template.html`, including section 7A, and `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`. Retired Console templates are not development references.
 
 ## Performance Gate
 
@@ -31,7 +32,7 @@ If the scale cannot be measured, has no real sample, has no upper bound, or exce
 1. Default to dry-run, small sample, or aggregate audit before full execution.
 2. Use DuckDB SQL, `COPY ... TO parquet`, or equivalent columnar/vectorized execution for large Parquet compute and writes.
 3. Keep Python on large paths limited to orchestration, validation, path discovery, batch planning, sampling, and summaries.
-4. Use `_tmp -> validate -> atomic replace` for writes.
+4. Use run-scoped candidates under `/Volumes/datasource/data_lake_staging`, full candidate validation, same-filesystem per-file atomic replace and checkpoints for safe resume. Never use the old lake or Kopia. Preserve current Raw/Silver contracts; do not impose blanket field inheritance.
 5. For historical audits, prefer set differences and aggregate counts. Do not deep-scan every partition when partition count exceeds 100 or `partition_count * blocking_check_count` exceeds 1000.
 6. For full snapshot or shared assets, document unique writer, repeat trigger behavior, and concurrency protection.
 

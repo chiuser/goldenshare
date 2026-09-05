@@ -68,8 +68,8 @@ manifest/security_universe/tushare_stock_basic.parquet
 
 1. 仓库根规则：`AGENTS.md`
 2. 本地执行规则：`AGENTS.local.md`
-3. Lake Console 架构方案：`docs/architecture/local-lake-console-architecture-plan-v1.md`
-4. `stk_mins` Parquet Lake 方案：`docs/datasets/stk-mins-parquet-lake-plan-v1.md`
+3. 清退阶段范围：`docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md`（旧 frontend/backend 尚待 M6 同轮删除）
+4. 正式 `stk_mins` 方案：`lake_console/docs/design/dagster-stk-mins-asset-design.html`
 5. Tushare `stock_basic` 源文档（实现 `sync-stock-basic` 前）
 6. Tushare `stk_mins` 源文档：`docs/sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md`
 7. 涉及 Dagster 数据管道、sensor、readiness、asset check、bootstrap、DuckDB/Parquet 性能设计时，必须阅读：`docs/design/dagster-data-pipeline-performance-governance.md`
@@ -385,11 +385,7 @@ units_done / units_total
 
 API 必须先定义输入参数和输出对象，再实现。
 
-第一版 API 契约见：
-
-```text
-docs/architecture/local-lake-console-architecture-plan-v1.md
-```
+旧 Console API 已冻结，旧架构文档已在 M5 清退；不得据此新增能力。代码仍保留到 M6 原子删除，当前阶段不改 API 行为。
 
 禁止：
 

@@ -1,5 +1,7 @@
 # Dagster Asset Check 增量治理低层设计
 
+> M5 清退边界（2026-09-05）：P6A 中旧 migration producer 的实现状态仅作历史证据；对应旧适配器已在 M3/M4 清退。正式 checks、readiness、Silver/QFQ history 与事件工具保留，不能据历史 producer 名称恢复旧湖读取。
+
 对应方案文档：[`dagster-asset-check-incremental-governance-plan.md`](./dagster-asset-check-incremental-governance-plan.md)
 
 更新时间：2026-06-25

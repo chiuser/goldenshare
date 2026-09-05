@@ -41,7 +41,7 @@
 - `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`
 - `lake_console/docs/design/dagster-asset-schema-contract-design.md`
 - `lake_console/docs/templates/dagster-dataset-onboarding-template.html`
-- `lake_console/docs/templates/dagster-bootstrap-migration-template.html`
+- `lake_console/docs/templates/dagster-dataset-onboarding-template.html#history-recovery`
 - `docs/sources/tushare/股票数据/特色数据/0364_神奇九转指标.md`
 
 ### 2.2 当前可复用能力

@@ -380,7 +380,7 @@ major_indices.cn_a.csv seed
     <pre><code>raw by code:
 data_lake/raw/tushare/index_daily_by_code/ts_code=000001.SH/part-000.parquet
 
-raw staging:
+历史 raw staging（旧 by-code 布局，禁止作为当前写入位置；当前 by-date 口径见 dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md）:
 data_lake/raw/tushare/index_daily_by_code/_staging/run_id=&lt;RUN_ID&gt;/ts_code=000001.SH/
 
 silver by trade date:

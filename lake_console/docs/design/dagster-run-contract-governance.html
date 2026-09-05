@@ -254,6 +254,7 @@
 <main>
   <header>
     <h1>Dagster Run Contract 治理方案</h1>
+    <div class="note"><strong>M5 清退边界（2026-09-05）：</strong>SourceSystem 与 IngestionSource 的旧湖枚举已在 M4 删除。历史事件里已经保存的旧来源字符串不改写；当前代码不再生成该来源，新 metadata 不得按历史模板填写。其余 metadata、asset schema 和 run contract 不变。</div>
     <p class="subtitle">
       本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据；任何真实代码变更都必须按对应 milestone 单独实施和验证。
     </p>
@@ -1073,10 +1074,6 @@ ops:
       <tr>
         <td><code>seed</code></td>
         <td>资产来自仓库维护的静态 seed 文件，治理口径不同于外部 API。</td>
-      </tr>
-      <tr>
-        <td><code>old_lake_bootstrap</code></td>
-        <td>只用于一次性迁移来源或 bootstrap 记录，提醒维护者该来源不是长期正式写入口。</td>
       </tr>
       </tbody>
     </table>

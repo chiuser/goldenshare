@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已实现并通过隔离回归，随本次提交归档（见 §11） / 文档矩阵 156 份 / 其余具体删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已提交 `68f97744` / M5 文档清退已实施并通过校验，随本次提交归档（见 §11） / 文档矩阵 165 份 / 其余具体数据删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -20,8 +20,8 @@ HEAD、CodeGraph 状态和精确文件白名单。
 
 **最新数据清退口径**：用户已确认只依据代码直接使用判断用途，取消完整性、日期范围、内容替代和历史
 价值审计。执行规则见 §16.1，当前批量清单见 §16.14；此前物理审计中的待核内容差异、人工取证/副本
-确认等不再作为前置项。M4 写湖安全与代码回归要求不变；数据审计本身不授权删除。本次 M2A 仅删除
-已迁空且完成双跑验证的旧混合 CLI，实施记录见 §11 M2A；不执行物理数据删除。
+确认等不再作为前置项。M4 写湖安全与代码回归要求不变；数据审计本身不授权删除。本次 M5 仅处理
+已批准文档、规则和模板；代码阶段的历史实施记录见 §11 M2A–M4，不执行物理数据删除。
 
 > 本文是本专项的代码实施依据。上位方案负责说明为什么清退、清退边界和阶段顺序；本文负责说明每个混合文件、运行契约、CLI、测试和文档具体如何修改。若实施时当前代码已经偏离本文审计基线，必须先重新做 CodeGraph 和文本引用审计，不能机械套用本文行号。
 
@@ -1149,9 +1149,15 @@ Lake 的历史 `_quarantine` 执行证据，补出两份只记录正式 Dagster 
 本次从 reports 的具体 CSV 反查，再补两份已经标明被替代的正式指数设计文档。它们不含旧 Console
 关键词，也不是旧产品删除对象；登记为只验证保留。不能把其历史 CSV 初始化口径当当前代码事实。
 
-本矩阵共 156 份文件：3 份迁移后删除、33 份现行文档修改、12 份混合文档局部修改、86 份纯旧文档
-删除、22 份只验证保留。86 份删除目标全部逐文件列名；任何新增发现必须先补矩阵，禁止扩大目录级
-删除范围。实施 M0、M5 和 M7 均要求上述清单的未归类命中、重复路径和不存在路径为 0；物理用途待审不能算闭环。
+M5 开工复扫补充（2026-09-05，基线 `5f834b02`）：全仓旧标识/路径反查新增 9 份，见表尾。
+其中 6 份仅有合法 staging、负向禁令或只读验收证据，保留；3 份修正文档中的历史/当前 staging 边界。
+另有 3 份原 `KEEP_CURRENT_VERIFY` 文档仍引用待删 bootstrap 模板，改为仅切换依据链接的 `MODIFY_CURRENT`，不改业务正文。
+此前遗漏是扫描候选没有完整并入矩阵，不能用“都已审过”代替本轮集合对账；本轮不扩大 89 份删除白名单。
+
+本矩阵共 165 份文件：3 份迁移后删除、37 份现行文档修改、14 份混合文档局部修改、86 份纯旧文档
+删除、25 份只验证保留。86 份删除目标全部逐文件列名；任何新增发现必须先补矩阵，禁止扩大目录级
+删除范围。实施 M0、M5 和 M7 均要求未归类命中、重复路径和意外不存在路径为 0；M5 删除完成后，
+只允许明确批准的 89 个路径不存在，不能把正常删除算扫描失败，也不能借此忽略其他死链。物理用途待审不能算闭环。
 
 #### 9.4.1 当前规则、索引、模板和正式 Dagster 文档
 
@@ -1177,9 +1183,9 @@ Lake 的历史 `_quarantine` 执行证据，补出两份只记录正式 Dagster 
 | `lake_console/docs/design/dagster-index-mins-data-onboarding-plan.md` | `MODIFY_CURRENT` | 删除旧 `lake-dataset-development-template.md` 依据，只保留正式 Dagster onboarding/性能/源文档 |
 | `lake_console/docs/design/dagster-major-index-mins-data-onboarding-plan.md` | `MODIFY_CURRENT` | 同上 |
 | `docs/datasets/major-index-mins-dataset-development.md` | `MODIFY_CURRENT` | 当前正式 Dagster 数据集说明；只移除旧模板引用，保留正式模板和数据集事实 |
-| `lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-plan.md` | `KEEP_CURRENT_VERIFY` | 已走正式模板；确认不引入旧模板/旧 root |
-| `lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-low-level-design.md` | `KEEP_CURRENT_VERIFY` | 同上 |
-| `lake_console/docs/design/dagster-index-daily-000680-history-supplement-low-level-design.md` | `KEEP_CURRENT_VERIFY` | 当前正式历史补录；确认 source/staging 不依赖旧湖 |
+| `lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-plan.md` | `MODIFY_CURRENT` | M5 仅把旧 bootstrap 模板依据切到正式模板 §14；prod-only 初始化与日常 Tushare 正文保留，不历史化 |
+| `lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-low-level-design.md` | `MODIFY_CURRENT` | M5 仅切换同一旧模板依据，其余正文不动 |
+| `lake_console/docs/design/dagster-index-daily-000680-history-supplement-low-level-design.md` | `MODIFY_CURRENT` | M5 仅切换旧模板链接到正式模板 §14；保留当前正式历史补录 source/staging 与验收 |
 | `docs/governance/engineering-risk-register.md` | `MODIFY_MIXED` | 保留当时 py_compile/pytest 命令为历史证据；对应风险状态改为旧实现已随产品清退，不再列当前入口 |
 | `docs/governance/docs-information-architecture-v1.md` | `MODIFY_CURRENT` | 把“旧 Local Lake 文档保留追溯”改为“已从当前工作树删除，必要摘要见单一总账，全文走 Git 历史” |
 | `docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md` | `MODIFY_MIXED` | 保留生产 PostgreSQL 当前设计；把旧 backend mapping 标为历史审计参照，去掉当前消费者含义 |
@@ -1222,6 +1228,15 @@ Lake 的历史 `_quarantine` 执行证据，补出两份只记录正式 Dagster 
 | `lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md` | `MODIFY_CURRENT` | §15 依据中的旧 `lake-dataset-development-template.md` 改引正式 Dagster onboarding 模板；保留现行趋势通道生产、repair、Wealth API 和全部验收记录 |
 | `lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-plan-v1.md` | `MODIFY_CURRENT` | 文末依据中的旧 Lake 模板链接改引正式 Dagster onboarding 模板；其余当前方案不动；与对应 LLD 同步 |
 | `wealth/docs/pages/wealth-exploration/turnover-insight-implementation-design-v1.md` | `KEEP_CURRENT_VERIFY` | 旧湖路径属于显式禁止读取项；保留 Gold turnover → Foundation Reader → Wealth 洞察页面当前链 |
+| `lake_console/docs/design/dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md` | `KEEP_CURRENT_VERIFY` | M5 新发现：正式 staging 和隔离只读审计证据，不删、不改生产准入结论 |
+| `lake_console/docs/design/dagster-etf-daily-data-onboarding-p2-real-sample-2026-09-02.md` | `KEEP_CURRENT_VERIFY` | 隔离样本 staging 与未写正式 Lake 的记录，保留 |
+| `lake_console/docs/design/dagster-index-global-data-onboarding-low-level-design.md` | `KEEP_CURRENT_VERIFY` | 当前 Silver staging helper 与写入结果设计，保留 |
+| `lake_console/docs/design/dagster-index-technical-datasets-onboarding-low-level-design-v1.html` | `MODIFY_CURRENT` | 仅补齐 §5.6 Silver staging 示例的独立根路径；不改字段、公式、源范围或样本门禁 |
+| `lake_console/docs/design/dagster-major-index-mins-data-onboarding-low-level-design.md` | `KEEP_CURRENT_VERIFY` | 已获准保留的 source staging 和临时构建证据；不删、不触发源请求 |
+| `lake_console/docs/design/dagster-phase-3-major-indices-design.html` | `MODIFY_MIXED` | 在旧 by-code 路径块标注历史位置；当前 Raw by-date 口径指向现行迁移 LLD，不把旧 staging 当操作示例 |
+| `lake_console/docs/design/dagster-stk-mins-prod-db-raw-extraction-hardening-plan.html` | `MODIFY_MIXED` | 旧 .prod_db_staging 分页临时路径标为历史方案，不冒充现行 DuckDB COPY 或 M4 Raw 恢复路径 |
+| `lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md` | `KEEP_CURRENT_VERIFY` | 当前趋势通道只读性能证据与容量估算，保留 |
+| `wealth/docs/system/detail-page-nine-turn-m3-serving-publication-gate-v1.md` | `KEEP_CURRENT_VERIFY` | 当前九转 serving 发布与 staging/容量门禁，保留；M5 不处理其恢复副本 |
 | `docs/templates/lake-dataset-development-template.md` | `DELETE_AFTER_MIGRATION` | 有效检查迁入正式模板后删除，不留 tombstone |
 | `docs/templates/lake-prod-raw-db-export-template.md` | `DELETE_AFTER_MIGRATION` | 有效只读/流式约束迁入性能治理后删除，不留 tombstone |
 | `lake_console/docs/templates/dagster-bootstrap-migration-template.html` | `DELETE_AFTER_MIGRATION` | 旧湖→新湖执行模板直接删除；历史总账承接追溯 |
@@ -1828,6 +1843,40 @@ uv run --no-sync python /private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_iso
 6. 运行全仓文件名/路径反向引用扫描和文档完整性检查。
 
 M5 不提前把仍存在的旧 Console 代码写成“已删除”；当前规则和 README 的最终事实在 M6 原子同步。
+
+#### M5 实施对账（2026-09-05，随本次提交归档）
+
+基线 `dev-interface@5f834b02`，该基线已经包含 M4 提交 `68f97744`。本轮目标、依据和范围就是上文 M5 六步；
+遵循文档治理 skill 的 current/mixed/legacy 分类，以当前代码和逐文件矩阵决定处置，不按 snapshot/backup 等关键词删除业务能力。
+本轮修改 46 份文档/规则/skill、删除精确 89 份文档，不修改运行代码、测试或数据。历史 §M0–M4 的数字保留其原基线含义。
+
+| 硬口径 | 落点与实际处理 | 核验结果 |
+|---|---|---|
+| 先保留有效检查，再删旧模板 | 正式 onboarding 模板新增 7A `source-contract-budget`、改写 §14 `history-recovery`；性能治理新增 §6.4 `prod-readonly-export` | 源参数/fan-out/三类字段、类型与精度、请求/连接/内存/文件成本、候选/提升/续跑、只读/白名单/流式、真实对账六组要求均可从正式入口找到 |
+| 不照搬失去上下文的旧规则 | 逐字段说明 Raw/Silver 合法差异；日期按层和语义决定；小文件/低频耗时按实测预算；只读范围按当前 source contract | 不补回 vwap，不恢复 Raw⊆Silver；保留 Raw 恢复读取有界 `ops.task_run`，不套旧模板 raw-only 权限；服务端游标与 DuckDB COPY 均可在有界预算下使用 |
+| 保留必要历史结果，不保留旧手册 | 单一历史总账 §2 保留正式初始化分区/行数/事件；§3 保留事故、clean_next 重建、BSE 30m、多频污染修复与代码集合差异；§4 指向现行指标方案 | 数字来自原文点时结果，不是本轮物理扫描；未映射的 6,257 个日-代码未冒充已解决；旧命令不复制，旧 11 列不成为当前 Silver 门禁 |
+| 先解除引用依赖 | docs 索引/S0、onboarding skill、规则、两份趋势通道及指数/九转/分钟设计切换到正式模板和总账 | 89 文件名在全仓 tracked 文本中的剩余命中只在本专项三份清单/历史记录，无现行正向链接或代码读取引用 |
+| 混合文档局部处理 | Phase 2、adj_factor、Raw readiness 等保留历史事实及正式运行设计，旧 spec/executor 不再可执行；Raw 恢复指向 M4，不改 Silver 恢复合同 | 保留 2026-07-27 的 109.973 秒、1,776,093 行等证据；旧物理位置只标历史，不称已删除；正式库写入/源验证未执行 |
+| 不误删未开发方案中的有效设计 | 涨跌停方案撤回旧湖 bootstrap、固定 prod gap 日期和旧湖推算的预算；保留 §6–9 字段/业务键、§11 日常来源、§12.4–12.7 审计/事件绑定/幂等/计数门禁 | 新全历史来源和预算列为该数据集开工前的未验证项，不虚构可行性，不要求在本专项实现替代接入 |
+| 删除范围不扩大 | 从固定基线矩阵提取 86 份 `DELETE_LEGACY_DOC` 与 3 份 `DELETE_AFTER_MIGRATION`，逐文件确认无基线后变更/符号链接后删除 | 实际删除恰好 89，无目录递归删、无 archive/tombstone；原文可从 Git 基线或后续提交父版本恢复 |
+| 当前文档防误删 | §9.4 补 9 份：6 保留、3 局部改；原 3 保留项纠正为仅改模板链接 | 矩阵 165 唯一路径，处理码 37 current / 14 mixed / 25 keep / 86 legacy delete / 3 migrate-delete；25 份 keep 字节一致，3 份链接变更外正文一致；意外缺失和未归类均 0 |
+| 业务与环境边界不变 | 263 个旧产品文件、orchestrator src/tests、Foundation Local Lake Reader、frontend/Wealth 源码、reports、正式 bin 保护核验 | 这些保护目标相对基线无差异；本轮没有 CLI、ClickHouse、Ops Snapshot 变更，未访问/删除物理湖或 ignored 环境；跨子系统依赖方向不变 |
+
+M6 延后项不是 M5 漏项：
+
+1. `AGENTS.md`、`scripts/AGENTS.md`、frontend QA skill、架构 CodeGraph 快照及四份 Wealth 分钟 API 文档，待旧产品原子删除后再改成“已清退”的最终时态，本轮不改。
+2. `lake_console/AGENTS.md`、README、S0 和风险登记，本轮只解除旧文档引用/标明冻结边界；旧产品仍存在的事实、旧入口操作章节和历史测试命令不提前整段删除。M6 负责同步清零正向旧入口。
+3. 物理数据归 M8，经具体清单确认再删；ignored 环境另轮精确处理。停牌 CSV 和现行隐性依赖 TODO 保留。
+
+验证记录与限制：
+
+- 临时只读核验 `/private/tmp/lake-retirement-m5-20260905.q040Vb/verify_m5.py`：固定基线 89 删除清单、165 矩阵计数/唯一性/预期缺失、25 保留文件内容、3 仅链接变更、263 旧产品内容和保护运行目录检查通过；全仓旧标识/路径候选全部归类。临时脚本不是产品依赖；后续复核以本节口径和 §9.4 固定清单重跑，不依赖临时目录永久存在。
+- 已修改 Markdown/HTML 的本地目标链接核验：新增死链 0；10 份 HTML 的受检结构（section/table/row/cell/pre）无新增不平衡、id 无重复；正式模板两个新锚点和性能治理新锚点均可定位。未做浏览器视觉验收。
+- `python3 scripts/check_docs_integrity.py` 与 `git diff --check` 通过。完整性脚本仅证明路径/索引等检查，不替代本节内容、删除集合及保护目标对账。
+- CodeGraph `status/explore/impact` 配合当前代码核验恢复 CLI → Raw 恢复 → `ProdPostgresResource`/受控 prod adapter → catalog/测试；确认有界 Ops 状态读取不可按旧模板禁止。收尾执行根 `codegraph sync/status`，索引正常；无新运行边界，不需更改 dependency matrix。
+- 未重跑业务回归、正式 `dg check defs`、真实恢复或 Tushare/prod 请求，因为本轮没有代码/契约实现；不把 M4 的隔离测试结果冒充 M5 生产验收。并行板块分析代码/测试修改不属于本专项，未触碰、不纳入上述保护结论。
+
+用户已要求提交 M5；本次在 `dev-interface` 按精确 135 文件白名单归档（46 修改、89 删除），不推送。提交前 HEAD 为 `58d316c0`；并行板块分析代码、测试及两份 Wealth 文档已在该提交独立归档，不纳入本专项差异。本轮到 M5 为止，单独获准进入 M6 后才删除旧 Console 产品代码。
 
 ### M6：原子删除旧 Console/Kopia并同步当前规则
 

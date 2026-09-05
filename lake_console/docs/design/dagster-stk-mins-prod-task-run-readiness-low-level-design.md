@@ -1,5 +1,7 @@
 # Dagster 股票分钟线 Prod TaskRun 完成门禁 LLD
 
+> M5 清退边界（2026-09-05）：本文 2026-07-27 Raw 恢复的 109,973ms、行数与 quarantine 路径是历史记录。当前 Raw 恢复以清退 LLD M4 为准：独立 staging、完整候选校验、逐文件 checkpoint/原子提升/续跑，不再移动旧文件到 quarantine；不改本文独立 Silver 替换工具的契约。历史遗留目录是否删除另按 M8 确认。
+
 **状态：2026-07-27 的 R2 raw、R3A Silver、R3B 下游重建与 R4 最终验收均已完成；未来日常的 TaskRun + prod 覆盖双门禁代码与本地验证已完成，待正式只读演练和启用决策**
 **日期：2026-07-28**
 **范围：`stock_mins_raw_update_from_prod_job` 的 prod 完成门禁与 2026-07-27 受控重建**

@@ -599,7 +599,7 @@ assert count(DISTINCT (ts_code, trade_date)) == written_rows</code></pre>
 /Volumes/datasource/data_lake_staging/raw/tushare/idx_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/part-000.parquet
 
 silver/index/index_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet
-silver/index/index_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/part-000.parquet</code></pre>
+/Volumes/datasource/data_lake_staging/silver/index/index_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/part-000.parquet</code></pre>
     <p>日级 Raw 的 run-scoped 候选文件必须位于独立 staging 根。写前核验 staging 与正式目标处于同一文件系统，再通过 <code>os.replace()</code> 原子提升；不得把候选文件写进正式 Lake 根。所有 path builder 必须拒绝非 ISO 日期、空 run_id 和路径穿越；Catalog path template 只能调用正式 path builder。</p>
 
     <h3>5.7 Asset 定义</h3>

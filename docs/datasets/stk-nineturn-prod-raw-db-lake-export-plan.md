@@ -1,5 +1,7 @@
 # 神奇九转指标 Lake prod-raw-db 导出方案
 
+> M5 清退边界（2026-09-05）：本文旧 Console 按日导出与 CLI 是历史实现记录；正式九转 prod 只读初始化和日常 Tushare 方案仍有效，以文首所链 Dagster LLD 为准。禁止用旧湖文件或旧 Console 导出入口代替正式 manifest/staging 链。
+
 Dagster 接入 LLD：
 [`dagster-stk-nineturn-dataset-onboarding-low-level-design.md`](../../lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-low-level-design.md)
 
@@ -7,7 +9,7 @@ Dagster 接入 LLD：
 
 本文定义 `stk_nineturn` 数据集从生产 `raw_tushare.stk_nineturn` 只读导出到本地 Lake Parquet 的方案。
 
-> Dagster 接入口径：本导出能力只作为神奇九转历史 bootstrap 的 prod 只读来源，
+> Dagster 接入口径：正式 prod 只读初始化只通过当前 orchestrator 专用来源实现，不复用旧 Console 导出能力，
 > 不进入 Dagster 日常 sensor。导出文件经批量校验后迁入正式
 > `raw/tushare/stk_nineturn/trade_date=YYYY-MM-DD/part-000.parquet`；
 > 日常 raw 由 Tushare `stk_nineturn` 更新，silver 再做标准代码归一。

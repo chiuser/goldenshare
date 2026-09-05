@@ -1,5 +1,7 @@
 # Index Daily Raw By-Date Prod DB Migration Low-Level Design
 
+> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码待 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
+
 状态：P-1 至 P9C-2 已完成；包括 P8 旧 by-code quarantine 最终物理删除，以及 P9C-2 四个 mixed run 的精确 Dagster 状态治理。`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。
 
 > **后续单代码历史补录（2026-08-08）：** Prod 已补齐 `000680.SH` 科创综指 `2020-01-02..2025-01-16` 的 1223 个开市日，但 DG 同期 Raw/Silver 文件是“文件存在、目标代码缺行”。该场景不能复用普通 `raw_index_daily` 历史 backfill，因为正式 Raw 会按当前注册代码全集做 exact coverage 并整文件 replace。专用补录、11 个日级主要指数 seed、Gold 全历史重建和 runless event 审批边界，以 [科创综指指数日线历史补录 LLD](./dagster-index-daily-000680-history-supplement-low-level-design.md) 为准。

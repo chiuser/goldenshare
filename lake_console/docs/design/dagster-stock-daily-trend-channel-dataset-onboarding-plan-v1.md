@@ -1499,7 +1499,7 @@ R10.6 与 R10.7 均低于 `30 s` fail-closed 硬门禁，但高于 `<5 s` 工程
 - [Dagster 数据管道性能治理规范](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-data-pipeline-performance-governance.md)
 - [Dagster Asset Schema Contract 设计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-asset-schema-contract-design.md)
 - [股票日线趋势通道 Lake 数据集接入 LLD v1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md)
-- [Local Lake 数据集接入说明模板](/Users/congming/github/goldenshare/docs/templates/lake-dataset-development-template.md)
+- [正式 Dagster 接入模板：源契约与预算](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html#source-contract-budget)
 - [M12 Gold 股票分钟前复权 MACD/KDJ 指标资产设计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md)
 - [上证指数日线趋势通道实时计算方案 v1](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
 - `lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_qfq.py`

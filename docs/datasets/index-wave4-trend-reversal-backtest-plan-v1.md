@@ -644,9 +644,9 @@ data_snapshot_id
 
 ## 18. 相关依据
 
-- [指数历史分钟行情 Lake 双模式接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/index-mins-dual-source-lake-plan-v1.md)
+- [正式指数分钟接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-index-mins-data-onboarding-plan.md)
 - [主要指数分钟线数据接入低层设计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-major-index-mins-data-onboarding-low-level-design.md)
 - [90/120 分钟派生契约重建低层设计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)
-- [股票分钟线指标系统设计方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-system-plan-v1.md)
-- [股票分钟线 MACD v2 重算与增量可靠性方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md)
+- [正式分钟 MACD/KDJ 方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md)
+- [正式分钟指标对账恢复 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-reconciliation-recovery-r5-low-level-design.md)
 - [数据集日期模型消费者指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)

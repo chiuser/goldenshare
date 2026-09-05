@@ -1,8 +1,8 @@
 # Dagster 股票涨跌停资产接入方案
 
-状态：调研结论已形成；SL-0 关键口径已拍板；尚未进入代码开发。
+状态：保留接入设计与历史调研；旧湖初始化路线已撤回，新的全历史来源和预算待重新审计，尚不具备开工条件。
 
-更新时间：2026-06-17
+更新时间：2026-09-05（M5 清退纠偏；未重新请求 Tushare 或读取生产数据）
 
 ## 1. 目标
 
@@ -21,12 +21,12 @@
 
 核心目标：
 
-1. 历史数据先从旧湖 bootstrap 到 `2026-05-15`。
-2. `2026-05-16` 至最新日期用 prod DB 补齐，之后日常默认从 prod DB 更新到新湖 raw。
+1. 历史初始化禁止读取旧湖；从获准 prod 只读源或 Tushare 重新审计完整历史可达性、分页/配额和读取预算，缺失来源不能假定可用。
+2. 日常 prod DB 来源方向保留；历史起止范围及来源切分必须重新确认，不再使用 2026-05-15/16 作为旧湖与 prod 的固定接缝。
 3. Tushare API 保留为人工备用和受控修复入口，不作为日常默认来源。
 4. raw 层保持 Tushare 源字段契约，不做业务过滤。
 5. silver 层负责日期标准化、类型标准化、去重和业务质量 checks。
-6. 不把旧湖路径、bootstrap 来源、source method 写入 parquet 字段；这些只进入 materialization metadata。
+6. 不把来源路径、source method 或系统 metadata 写入 Parquet 业务字段；新事件只使用当前代码支持的来源，禁止恢复旧湖来源枚举。
 
 ## 2. 依据
 
@@ -41,13 +41,13 @@
 | `lake_console/orchestrator/CODING_STANDARDS.md` | 正式 asset 必须注册 definition column schema；materialization metadata 只记录 observed columns。 |
 | `lake_console/docs/design/dagster-asset-schema-contract-design.md` | 新增 raw/silver asset 必须在 `asset_column_schemas.py` 注册字段契约。 |
 | `lake_console/docs/design/dagster-run-key-governance-low-level-design.md` | 后续如新增 sensor，run key 只做幂等身份，必须使用统一 builder；禁止从 run key 反推执行参数。 |
-| `lake_console/docs/templates/dagster-dataset-onboarding-template.html` | 新数据集接入需要先完成旧湖审计、Tushare 文档与 MCP 实测、分区/路径/checks/job/sensor 设计。 |
+| `lake_console/docs/templates/dagster-dataset-onboarding-template.html` | 新数据集接入先审计获准来源、Tushare 文档与 MCP 实测，完成分区/路径/checks/job/sensor 及模板 7A 预算。 |
 
 当前代码审计结论：
 
 1. `lake_console/orchestrator/src/orchestrator/defs/assets/**` 中尚无上述 6 个涨跌停相关 Dagster asset。
 2. 已有通用能力可复用：
-   - 旧湖迁移 metadata / event 补录经验：`defs/bootstrap/**`，仅作口径参考，不作为历史搬运主入口
+   - 正式历史构建 / event 补录经验：`defs/bootstrap/**` 只复用经过语义审计的现行 helper，旧 spec/executor 已删除
    - Tushare 分页拉取写 raw：`defs/tushare_api_io.py`
    - prod DB 只读资源：`ProdPostgresResource`
    - schema contract：`defs/run_contracts/asset_column_schemas.py`
@@ -119,7 +119,9 @@
 | `limit_cpt_list` | `trade_date=20260515, ts_code=881109.TI` | 字段与旧湖匹配；`cons_nums/rank` 的返回类型与旧湖 parquet 类型存在差异，需要设计时统一。 |
 | `kpl_list` | `trade_date=20260515, ts_code=000010.SZ, tag=炸板` | 字段与旧湖匹配；必须按 `tag` 枚举拉取。 |
 
-## 3. 旧湖数据现状
+## 3. 旧湖历史调研（禁止用作当前来源）
+
+以下为原 2026-06-17 方案中的旧湖取样结果，仅解释当时设计判断；不要求重新读取旧湖，也不证明当前历史来源可用。
 
 旧湖根路径：
 
@@ -149,7 +151,7 @@
 | `limit_cpt_list` | 是 | 无重复。 |
 | `kpl_list` | 否 | 同一股票同日可对应不同标签或状态，旧湖存在多行是正常业务事实。 |
 
-## 4. Prod DB 数据现状
+## 4. Prod DB 历史调研（需在开工前刷新）
 
 prod DB 只读审计确认，6 张目标表都存在于 `raw_tushare` schema：
 
@@ -181,50 +183,12 @@ prod DB 与新湖 raw 的边界：
 4. prod DB 投影到新湖目标字段后，本轮审计未发现 exact duplicate。
 5. prod DB 的 `trade_date` 是 `DATE`；新湖 raw 如果保持 Tushare 源镜像，写入 parquet 前必须 cast 成 `YYYYMMDD` 字符串。
 
-## 4.1 历史初始化性能门禁
+## 4.1 历史初始化性能门禁待重设
 
-本资产族进入开发前必须先把以下性能表作为 SL-1 的输入固化到 migration specs。任何一项在 dry-run 中超出表内口径，必须停下来重新评估，不能直接进入全量写入。
-
-### 4.1.1 已知规模基线
-
-| 数据集 | 旧湖分区数 | 旧湖行数 | prod 最新行数 | prod gap 行数估算 | Tushare fanout 数 | 日常 Tushare 备用单日最少请求数 | 历史 raw 目标文件数下限 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `stk_limit` | 570 | 4,039,398 | 4,123,166 | 83,768 | 1 | 1 | 570 + prod gap 分区数 |
-| `limit_step` | 605 | 12,426 | 12,622 | 196 | 1 | 1 | 605 + prod gap 分区数 |
-| `limit_list_d` | 1540 | 153,214 | 154,603 | 1,389 | 9 | 9 | 1540 + prod gap 分区数 |
-| `limit_list_ths` | 613 | 95,835 | 97,937 | 2,102 | 15 | 15 | 613 + prod gap 分区数 |
-| `limit_cpt_list` | 605 | 12,133 | 12,353 | 220 | 1 | 1 | 605 + prod gap 分区数 |
-| `kpl_list` | 328 | 117,203 | 122,489 | 5,286 | 5 | 5 | 328 + prod gap 分区数 |
-| 合计 | 4261 | 4,430,209 | 4,523,170 | 92,961 | - | - | 4261 + prod gap 分区数 |
-
-说明：
-
-1. `prod gap 行数估算` = 当前 prod DB 总行数 - 旧湖截至 `2026-05-15` 行数，用于测算 `2026-05-16` 至 prod 最新日的补数规模。
-2. `prod gap 分区数` 不在本文硬编码为自然日或工作日；正式执行时必须从 `cn_a_stock_trade_days` 与 prod DB 实际 `trade_date` 集合取交集生成，dry-run 输出每个数据集的精确值。
-3. `日常 Tushare 备用单日最少请求数` 只计算 fanout 第一页，不含分页。实际请求数 = `fanout 组合数 * 分页页数`，分页页数按旧 prod page limit 和接口返回行数决定。
-4. 历史初始化默认从旧湖和 prod DB 读取，不用 Tushare 重拉历史，因此 Tushare 请求规模只约束后续人工备用 / 受控修复入口。
-
-### 4.1.2 DuckDB / PostgreSQL 批量执行门禁
-
-| 门禁项 | 正式口径 |
-|---|---|
-| 对象数 | 6 个 raw asset + 6 个 silver asset；历史初始化先只做 raw。 |
-| 日期数 | 每个数据集按自身源数据起始日到迁移终止日的 `cn_a_stock_trade_days` 交集计算，不要求补该数据集源站起始日前的空分区。 |
-| 分区数 | 以 dry-run 输出的 `target_partition_count` 为准；必须能解释为旧湖分区 + prod gap 分区。 |
-| 枚举展开 | `limit_list_d=9`，`limit_list_ths=15`，`kpl_list=5`，其余为 1。 |
-| 请求数 | 历史旧湖阶段 0 个 Tushare 请求；prod gap 阶段每个数据集优先一条日期范围 SQL 或受控批次 SQL，不按日期碎查；Tushare 只用于后续备用入口。 |
-| 页数 | 历史阶段无 Tushare 分页；备用 Tushare 入口必须记录每个 fanout 组合的 `page_count`。 |
-| 源端行数 | 旧湖阶段以第 3 节行数为基线；prod gap 阶段以第 4 节 prod DB 与旧湖差值为第一基线，正式 dry-run 重新输出精确值。 |
-| 写入行数 | 写入行数必须等于源端投影后按旧 prod key 去重的最终行数；差异只能来自同 key 后到覆盖先到，必须输出 dedup 计数。 |
-| 预计文件数 | 每个 raw 分区一个 `part-000.parquet`；如果 DuckDB `COPY` 产生多文件，必须在 staging 中合并或改写为单文件后才能替换目标。 |
-| DuckDB scan | 旧湖 parquet 和新湖目标审计均用 DuckDB 聚合 SQL；禁止 Python 明细循环。 |
-| PostgreSQL scan | prod DB 只读 SQL 必须显式字段白名单，不得 `SELECT *`；推荐通过 DuckDB `postgres_query` / 只读 attached DB 模式落地。 |
-| join / dedup | 主键去重、exact duplicate、分区日期、schema、row count 全部用 SQL 聚合完成。 |
-| 临时目录 / spill | 使用统一 DuckDB 连接配置；临时目录遵守 orchestrator DuckDB 规范，不在仓库目录、用户 home 或系统散落临时目录写大文件。 |
-| commit / replace 粒度 | 以单 dataset / 单 partition 文件为原子替换粒度；先写 staging，审计通过后替换目标 `part-000.parquet`。 |
-| 重试成本 | 文件生成失败可按 dataset/date 分区重跑；event 补录失败只能补 event，不重写已经审计通过的 parquet。 |
-| 不可接受阈值 | `schema_mismatch_count > 0`、`partition_date_mismatch_count > 0`、`duplicate_key_count > 0`、`exact_duplicate_count > 0`、`zero_row_partition_count > 0`、写入行数无法解释，任一出现即停止。 |
-| dry-run / sample | 每个数据集必须先 dry-run，再取至少 1 个旧湖样本分区和 1 个 prod gap 样本分区写入 staging 验证，通过后才能全量。 |
+原“旧湖分区 + prod gap”测算模型已撤回，不能用旧数据量授权全历史读取。
+开工前按正式 onboarding 模板 7A 与性能治理 §6.4，逐数据集重新记录：合法来源覆盖、对象/日期/频度范围、
+SQL/连接/请求/分页次数、fetch/write batch、内存/spill、文件数、预计耗时、失败重跑 unit、超预算行为及最小真实样本。
+人工作业允许较宽松耗时，但范围、只读、完整候选校验和行数/字段对账不能放宽。本轮没有验证替代来源可达完整历史。
 
 ## 5. 固定命名口径
 
@@ -424,7 +388,7 @@ raw 层原则：
 
 1. Tushare 日期字段保留 `YYYYMMDD` 字符串。
 2. raw 字段名保持源字段名，不把 `change` 一类字段改成 silver 名。
-3. 旧湖 bootstrap 时必须把旧湖 parquet 类型归一到新 raw schema contract，不能直接把旧湖物理类型当新湖长期契约。
+3. 历史初始化按获准来源显式投影到经确认的 Raw schema；旧湖类型仅是历史对照，不得作为来源或当前 schema 依据。
 
 当前特殊风险：
 
@@ -602,21 +566,14 @@ silver 层负责标准化，不负责改变源站业务含义：
 | numeric sanity | 价格、成交额、换手率等字段按接口语义做非负或合理范围检查。 |
 | enum value valid | 对 `limit/tag/limit_type/market_type/status` 等枚举字段做合法性 blocking 校验。 |
 
-## 10. Bootstrap 初始化方案
+## 10. 历史初始化：旧路线已撤回
 
-### 10.1 可行性结论
+不能再执行旧湖迁入新湖的方案，也不能恢复已删除的 bootstrap spec/executor/source enum。
+替代路线只允许在 prod 只读源或 Tushare 中审计后选择；是否能取得目标全历史、代价是否可接受，本轮未验证。
+需要先完成 §4.1，再明确 source manifest、候选完整校验、逐文件原子提升、checkpoint/续跑和独立事件补录审批。
+字段、业务键和枚举语义仍参考 §6–9，但开工前必须以当前代码和源实测重新核对，不因移除旧路线自动视为通过。
 
-旧湖初始化可行。
-
-依据：
-
-1. 旧湖存在 6 个目标数据集的真实 parquet 分区。
-2. 旧湖字段与 Tushare MCP 显式字段整体匹配。
-3. 现有 Dagster 旧湖 bootstrap 经验可作为 metadata / event 口径参考；历史数据实际搬运按第 12 节走 DuckDB 批量写入。
-4. prod DB 已有同名 raw 表且比旧湖更新，可作为日常默认来源。
-5. Tushare API 能按 `trade_date` 拉取目标接口，可作为人工备用和受控修复来源。
-
-### 10.2 不可直接忽略的风险
+### 10.1 仍需保留的来源无关风险
 
 | 风险 | 影响 | 处理策略 |
 ---|---|---|
@@ -626,30 +583,6 @@ silver 层负责标准化，不负责改变源站业务含义：
 | 不同接口 ready 时间不同 | 一个 sensor 跑全部会出现部分接口未 ready。 | 第一版先手动 job；自动化分组设计。 |
 | `limit_list_ths/kpl_list` 主键复杂 | 错用 `trade_date+ts_code` 会误报重复。 | 只做 exact duplicate，或设计包含类别字段的业务键。 |
 | prod DB 系统字段污染 raw | 把 `api_name/fetched_at/raw_payload/query_*` 写进 parquet 会破坏 Tushare 源镜像。 | prod DB helper 必须字段白名单 + schema cast。 |
-
-### 10.3 Bootstrap 验收
-
-初始化边界已拍板：
-
-1. 旧湖 bootstrap 只负责迁移到 `2026-05-15`。
-2. `2026-05-16` 至 prod DB 最新日期由 prod DB 补齐。
-3. 后续日常默认继续从 prod DB 更新。
-4. Tushare API 只作为人工备用或受控修复入口。
-
-每个数据集 bootstrap 前必须先做旧湖预检：
-
-1. 源路径存在。
-2. 分区范围和行数与本方案表格一致，或差异有记录。
-3. 字段名与 schema contract 一致。
-4. 分区目录日期与文件内 `trade_date` 一致。
-5. 旧湖数据是否存在完全重复行。
-
-Bootstrap 后验收：
-
-1. 新湖 raw 分区数等于该数据集目标日期范围内的 `cn_a_stock_trade_days` 分区数；不要求补齐该数据集旧湖/源站起始日之前的日期。
-2. 新湖 raw 字段只包含 Tushare raw contract 字段。
-3. materialization metadata 记录 `source_method=old_lake_bootstrap`、`bootstrap_spec`、`partition_key`、`row_count`、`observed_columns`。
-4. parquet 字段中不得出现旧湖路径、source method、bootstrap metadata。
 
 ## 11. 日常 prod DB 默认更新方案
 
@@ -714,106 +647,20 @@ Tushare 备用入口仍需保留：
 4. 受控修复必须明确日期、接口、来源和覆盖/替换策略。
 5. Tushare 请求方式必须复刻旧 prod request builder 和 fanout 口径。
 
-## 12. 历史初始化执行方案：DuckDB 批量写入 + Dagster event 补登记
+## 12. 历史初始化执行约束（等待来源审计）
 
-历史初始化阶段不通过 Dagster asset job/backfill 一天一天跑。正式口径是：
+当前只确认流程边界，不提供尚未验证的全历史执行命令：
 
-```text
-旧湖 parquet / prod DB
-  -> DuckDB / PostgreSQL SQL 批量审计
-  -> DuckDB 批量写新湖 raw parquet
-  -> DuckDB 批量审计新湖结果
-  -> 统一补 Dagster materialization/check events
-```
+1. 只读审计获准来源，冻结日期/对象/字段/行数与成本；没有可行来源则停止。
+2. 单样本通过后，在独立 `data_lake_staging` 分批生成候选，完整验证 schema、分区、业务键、行数和拒绝原因。
+3. 同文件系统逐文件原子提升，记录 checkpoint 并核验实际文件续跑；不使用 Kopia/文件备份，不清理异常现场。
+4. 文件验收与 Dagster runless event 补录分开审批；不能以文件存在直接写绿色事件，也不把一次历史补录接入日常 sensor。
 
-原因：
+详细预算与采样记录按 [正式模板](../templates/dagster-dataset-onboarding-template.html#source-contract-budget) 和
+[性能规范](dagster-data-pipeline-performance-governance.md#prod-readonly-export) 填写。
+原旧湖写入、prod gap 接缝及旧湖样本推算出的 event 总数已失效，不保留为可执行步骤。
 
-1. 历史分区数量多，用 Dagster job/backfill 逐分区执行太慢。
-2. 字段校验、行数统计、重复审计、分区日期校验都适合 SQL 批量完成。
-3. Dagster 在历史初始化阶段只负责后补事件，让 UI 和后续 readiness 能看到资产状态，不负责承载大批量搬运计算。
-4. 日常更新才回到 Dagster job 入口。
-
-### 12.1 执行边界
-
-| 环节 | 执行方式 | 说明 |
-|---|---|---|
-| 旧湖预检 | DuckDB SQL | 扫描旧湖 parquet，统计分区、行数、字段、重复、分区日期。 |
-| 旧湖写新湖 raw | DuckDB SQL | 从旧湖 parquet 读取、cast 到 raw schema contract、按分区写新湖 parquet。 |
-| prod DB gap 预检 | PostgreSQL SQL + DuckDB SQL | PostgreSQL 负责源表范围、行数、字段白名单；DuckDB 负责 staging 后 parquet 审计。 |
-| prod DB gap 写新湖 raw | PostgreSQL 抽取 + DuckDB SQL | 抽取 `2026-05-16` 至 prod DB 最新日期，字段白名单、cast、主键 dedup 后按分区写 parquet。 |
-| 新湖 raw 审计 | DuckDB SQL | 对新湖 raw 做行数、字段、分区日期、key uniqueness、exact duplicate 审计。 |
-| Dagster event 补登记 | 专用 CLI / helper | 只补 materialization/check event，不重新搬运数据。 |
-
-禁止事项：
-
-1. 禁止用 Python 对明细行逐行校验、逐行合并、逐行写 parquet。
-2. 禁止用 Dagster backfill 作为历史搬运主执行方式。
-3. 禁止把旧湖路径、prod DB 表名、source method、event 补登记信息写进 parquet 字段。
-4. 禁止跳过批量审计直接补 event。
-
-### 12.2 旧湖到新湖 raw 批量写入步骤
-
-每个数据集执行：
-
-1. 用 DuckDB 扫描旧湖目标目录：
-
-```text
-/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/<dataset>/trade_date=*/part-000.parquet
-```
-
-2. 只选择 `trade_date <= 2026-05-15` 的分区。
-3. 校验旧湖字段集合与目标 raw schema contract 的字段集合一致；如旧湖字段类型不同，只允许在写入 SQL 中显式 cast，不允许沿用旧湖物理类型。
-4. 校验旧湖分区目录日期与文件内 `trade_date` 一致。
-5. 用 DuckDB 将数据 cast 到目标 raw schema：
-   - `trade_date` 写为 `YYYYMMDD` 字符串。
-   - `limit_cpt_list.cons_nums/rank` 写为 `INTEGER`。
-   - 其它字段按 raw schema contract 写入。
-6. 按分区写入：
-
-```text
-raw/tushare/<dataset>/trade_date=YYYY-MM-DD/part-000.parquet
-```
-
-7. 写入必须使用 staging 临时目录，完成审计后再原子替换目标分区文件。
-
-### 12.3 prod DB gap 批量补数步骤
-
-补数范围：
-
-```text
-2026-05-16 <= trade_date <= prod DB 最新日期
-```
-
-每个数据集执行：
-
-1. 用 PostgreSQL SQL 查询 prod DB 源表日期范围、目标日期行数和字段清单。
-2. SQL 必须显式列字段白名单，不得 `SELECT *`。
-3. 不得读取或写入这些字段：
-
-```text
-api_name
-fetched_at
-raw_payload
-query_limit_type
-query_market
-```
-
-4. `limit_list_ths.query_limit_type/query_market` 允许在 staging 内部用于复刻旧 prod 主键语义，但最终 parquet 必须删除。
-5. prod DB `trade_date` 为 `DATE`，写入新湖 raw 前 cast 为 `YYYYMMDD` 字符串。
-6. 按旧 prod 主键语义做 dedup/upsert 结果选择：
-
-| 数据集 | dedup key |
-|---|---|
-| `stk_limit` | `(ts_code, trade_date)` |
-| `limit_step` | `(ts_code, trade_date, nums)` |
-| `limit_list_d` | `(ts_code, trade_date, limit)` |
-| `limit_list_ths` | staging 内按 `(trade_date, ts_code, query_limit_type, query_market)`；最终 parquet 不含 query 字段。 |
-| `limit_cpt_list` | `(ts_code, trade_date)` |
-| `kpl_list` | `(ts_code, trade_date, tag)` |
-
-7. 同一 key 多行时，按旧 prod DAO 语义保留最终版本。
-8. 用 DuckDB 按分区写入新湖 raw parquet。
-9. 写入完成后用 DuckDB 审计新湖 raw 分区，不通过则不得补 Dagster event。
+下列来源无关审计字段、事件目标绑定、幂等重放与计数门禁继续保留；不是本轮已经实现或执行的结果。原 §12.2–12.3 旧路线删除，保留小节编号便于追溯。
 
 ### 12.4 批量审计输出
 
@@ -828,8 +675,8 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 
 | 指标 | 来源 |
 |---|---|
-| `source_partition_count` | 旧湖 / prod DB |
-| `source_row_count` | 旧湖 / prod DB |
+| `source_partition_count` | 经批准并实测的正式来源 |
+| `source_row_count` | 经批准并实测的正式来源 |
 | `target_partition_count` | 新湖 raw |
 | `target_row_count` | 新湖 raw |
 | `schema_mismatch_count` | DuckDB |
@@ -842,7 +689,7 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 验收要求：
 
 1. `target_partition_count` 必须等于该数据集目标日期范围内的 `cn_a_stock_trade_days` 分区数；目标日期范围以该数据集实际源数据起始日和本轮迁移/补数终止日为准。
-2. `target_row_count` 必须能解释到旧湖行数或 prod DB 行数；差异必须有原因。
+2. `target_row_count` 必须能解释到已批准源端行数；差异必须有原因。
 3. `schema_mismatch_count = 0`。
 4. `partition_date_mismatch_count = 0`。
 5. `duplicate_key_count = 0`。
@@ -857,7 +704,7 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 
 1. 对每个 raw asset / partition 写 materialization event。
 2. metadata 必须包含：
-   - `source_method`：`old_lake_bootstrap` 或 `prod_db_gap_fill`
+   - 来源 provenance：按当前 metadata 治理 helper 和获准来源登记，不恢复旧来源 enum/spec
    - `partition_key`
    - `row_count`
    - `dagster/uri`
@@ -876,7 +723,7 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 
 ### 12.6 Runless event helper 设计门禁
 
-本资产族不能只在文档里写“补 event”，正式 SL-3D 必须新增涨跌停资产族专用 helper / CLI，并按现有 `adj_factor`、`stk_mins` 的 runless event 模式实现。建议命名按长期职责表达，例如：
+本资产族不能只在文档里写“补 event”，正式 SL-3D 必须新增涨跌停资产族专用 helper / CLI，并按现行 `stk_mins` Silver/Gold 的 runless event 模式（不复用已删除的 adj-factor 旧迁移事件 helper）实现。建议命名按长期职责表达，例如：
 
 ```text
 defs/bootstrap/stock_limit_migration_events.py
@@ -920,17 +767,7 @@ exact duplicate absent
 raw_event_count = sum(target_partition_count_by_dataset) * 7
 ```
 
-其中 `target_partition_count_by_dataset` 必须由 SL-3 dry-run 读取 `cn_a_stock_trade_days` 与源数据日期范围交集得到。按照旧湖已知分区数下限估算，仅旧湖阶段至少：
-
-```text
-4261 * 7 = 29827 条 runless events
-```
-
-prod gap 补数还会增加：
-
-```text
-sum(prod_gap_partition_count_by_dataset) * 7
-```
+其中 `target_partition_count_by_dataset` 必须由 SL-3 dry-run 读取 `cn_a_stock_trade_days` 与新批准来源日期范围交集得到；不得沿用旧湖 4,261 分区下限或固定 prod gap 接缝。此处 6 类 checks 是原设计估算，开工时还须与实际注册的 checks 对齐。
 
 SL-3D 必须在 dry-run 输出 `planned_materialization_count`、`planned_check_event_count`、`planned_event_count`、`already_materialized_count`、`already_green_check_count`。如果计划 event 数与分区数、check 数无法对账，禁止进入 report。
 
@@ -944,7 +781,7 @@ SL-3D 必须在 dry-run 输出 `planned_materialization_count`、`planned_check_
 2. raw/silver 分区已拍板：6 个数据集全部使用 `cn_a_stock_trade_days`。
 3. silver 股票池口径已拍板：不过滤当前上市股票，保留源站榜单事实。
 4. `limit_cpt_list.cons_nums/rank` 已拍板：按 `INTEGER` 注册和写入。
-5. 历史初始化边界已拍板：旧湖到 `2026-05-15`，prod DB 补 `2026-05-16` 至最新。
+5. 历史初始化边界须重新确认：不读旧湖，先验证合法来源的全历史可达性与成本。
 6. job 口径已拍板：每个数据资产一个独立 job，不做组合 job。
 7. sensor 已拍板：第一版不做。
 
@@ -954,7 +791,7 @@ SL-3D 必须在 dry-run 输出 `planned_materialization_count`、`planned_check_
 
 1. 新增 raw/silver schema contract。
 2. 新增 paths。
-3. 新增旧湖 / prod DB 批量迁移 specs。
+3. 根据获准来源设计本数据集的有界执行计划，不恢复旧湖 spec/executor。
 4. 新增历史初始化性能门禁表的代码侧 specs：每个数据集必须能输出源范围、分区数、行数、fanout 数、预计文件数、预计 runless event 数。
 5. 新增 prod DB 字段白名单 specs：每个数据集必须固定 `SOURCE_COLUMNS`、源表映射、cast 规则和 forbidden columns；禁止 `SELECT *`。
 6. 新增 staging/dedup specs：特别是 `limit_list_ths` 必须明确 staging query key 与最终 parquet 字段投影。
@@ -984,8 +821,8 @@ SL-3D 必须在 dry-run 输出 `planned_materialization_count`、`planned_check_
 
 目标：
 
-1. `SL-3A`：用 DuckDB 从旧湖批量写入 `<= 2026-05-15` 的历史 raw。
-2. `SL-3B`：用 PostgreSQL + DuckDB 从 prod DB 批量补齐 `2026-05-16` 至 prod DB 最新日期。
+1. `SL-3A`：先完成合法来源覆盖和成本审计，确认完整历史可行；未通过不能写湖。
+2. `SL-3B`：按新批准的范围和来源分批生成、校验、提升 Raw 候选；不存在旧湖/prod 固定接缝。
 3. `SL-3C`：用 DuckDB 批量审计新湖 raw。
 4. `SL-3D`：统一补 Dagster materialization/check events。
 5. 不通过 Dagster backfill 搬运历史数据。
@@ -1043,9 +880,9 @@ SL-3D 必须在 dry-run 输出 `planned_materialization_count`、`planned_check_
 
 本轮调研结论：
 
-1. 6 个数据集都具备接入 Dagster raw/silver 的条件。
-2. 旧湖 bootstrap 到 `2026-05-15` 可行。
-3. prod DB 补 `2026-05-16` 至最新并作为日常默认来源可行。
+1. 保留 6 个数据集的接入设计，不代表当前具备开工条件。
+2. 旧湖初始化已禁止且旧适配器已删除，不再判断为可行。
+3. prod DB 日常来源方向保留，但完整历史与预算必须重新实测，不能沿用旧湖接缝。
 4. Tushare API 备用更新可行，但必须复刻旧 prod request/fanout 方式。
 5. 主要风险不是“能不能拉到数据”，而是 fanout 漏数、类型漂移、主键误判、prod DB 系统字段污染和 readiness 时间不一致。
 6. `limit_list_d` 命名已收紧；`limit_list_ths/kpl_list` 的正常多行不能被误判成重复数据。

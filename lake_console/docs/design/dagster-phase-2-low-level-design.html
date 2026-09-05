@@ -285,15 +285,16 @@
 <main>
   <header>
     <h1>Dagster 第二期 Low Level Design</h1>
+    <div class="note"><strong>M5 清退边界（2026-09-05）：</strong>仅旧湖 Slice 2.0、旧 spec/executor/metadata 和旧路径说明退出执行口径，视为已结束历史阶段；相关代码已在 M4 删除。日常 Tushare、Raw/Silver/Gold、分区、readiness 和自动化设计不因本轮清退历史化；历史初始化结果统一见 dagster-bootstrap-legacy-links.md。禁止复制旧迁移步骤。</div>
     <p class="subtitle">
       本文是第二期低层设计与当前实现口径记录，承接 <code>dagster-phase-2-design.html</code>。
       它不重新讨论方向，只把实现边界、文件组织、asset/job/check/resource 的落地方式、执行顺序和验收门禁写清楚。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档类型</strong>Low Level Design / 当前实现口径</div>
+      <div class="chip"><strong>文档类型</strong>Low Level Design / 第二期阶段记录，现行依据见 §0</div>
       <div class="chip"><strong>项目目录</strong><code>lake_console/orchestrator</code></div>
       <div class="chip"><strong>Lake Root</strong><code>/Volumes/datasource/data_lake</code></div>
-      <div class="chip"><strong>阶段目标</strong>旧湖 bootstrap + Tushare 续更新 + quote/breadth 自动化门禁</div>
+      <div class="chip"><strong>阶段目标</strong>Tushare 续更新 + quote/breadth 自动化门禁；旧湖初始化已结束</div>
     </div>
   </header>
 
@@ -319,7 +320,7 @@
     <div class="warning">
       <strong>本 LLD 的底线：</strong>
       第二期不是扩大业务资产范围，也不是重写第一期。第二期只围绕四件事展开：
-      旧湖历史数据按 Tushare raw 契约 bootstrap 到新湖；TushareResource 拉取新增 raw；股票行情日频链路自动化；market breadth 下游只在上游质量门禁通过后生产。
+      当时旧湖历史初始化已结束，相关执行器现已清退；保留 TushareResource 拉取新增 raw、股票行情日频链路自动化、market breadth 上游质量门禁三项设计。
     </div>
 
     <div class="table-wrap">
@@ -333,11 +334,11 @@
         <tbody>
         <tr>
           <td>数据湖路径</td>
-          <td>正式 asset path 只允许 <code>data_lake/raw</code>、<code>data_lake/silver</code>、<code>data_lake/gold</code>。旧湖只作为 bootstrap 输入，不出现在新 Dagster asset 的正式 path 中。</td>
+          <td>正式 asset path 只允许 <code>data_lake/raw</code>、<code>data_lake/silver</code>、<code>data_lake/gold</code>。当前禁止旧湖作为读取或 bootstrap 输入；候选使用独立正式 staging 根。</td>
         </tr>
         <tr>
           <td>raw 定义</td>
-          <td>新湖 raw 是 Tushare 源站镜像。旧湖 bootstrap 写入 raw 前必须投影字段、纠偏类型，写出来的 parquet 要看起来像 Tushare API 直接返回。</td>
+          <td>新湖 raw 保持当前 Tushare 源字段契约。当时旧湖初始化做过字段投影和类型纠偏；该执行路径已删除，不构成当前接入方式。</td>
         </tr>
         <tr>
           <td>job 拆分</td>
@@ -357,7 +358,7 @@
         </tr>
         <tr>
           <td>配置新增</td>
-          <td>新增 Tushare token、旧湖 root、自动化开关等配置前，必须先做配置项审计。禁止新增临时 env 文件或散落配置。</td>
+          <td>新增 Tushare token、自动化开关等配置前，必须先做配置项审计。禁止恢复旧湖 root 配置，禁止新增临时 env 文件或散落配置。</td>
         </tr>
         </tbody>
       </table>
@@ -520,25 +521,6 @@
     silver_stock_suspend_daily_select(...)
     completed trade day key query for audited runnable_keys
 
-  bootstrap/
-    __init__.py
-    dataset_spec.py
-      BootstrapDatasetSpec
-    source_method.py
-      BootstrapSourceMethod
-    old_lake_executor.py
-      bootstrap_partition_to_raw(...)
-      bootstrap_full_file_to_raw(...)
-    specs/
-      trade_calendar.py
-        trade_calendar_bootstrap_spec
-      stock_basic.py
-        stock_basic_bootstrap_spec
-      stock_daily.py
-        stock_daily_bootstrap_spec
-      suspend_d.py
-        suspend_d_bootstrap_spec
-
   assets/
     calendar.py
     stock_basic.py
@@ -652,137 +634,8 @@
   </section>
 
   <section>
-    <h2>6. Bootstrap 低层设计</h2>
-    <p>
-      Bootstrap 是历史迁移工具链，不是长期生产链路。对某一个具体数据集来说，bootstrap 通常只执行一次：把旧湖历史数据按 Tushare raw 契约写入新湖 raw。
-      但这套“读旧湖、字段投影、类型纠偏、写新 raw、跑 raw checks”的通用机制后续会被很多数据集复用，所以它不能退化成散落的手工 <code>cp</code> 命令。
-      Bootstrap 入口、spec 和通用执行逻辑长期保留，用作迁移审计记录和后续类似数据集接入的复用基础。
-    </p>
-    <p>
-      边界要拆开：bootstrap 通用引擎只负责把旧湖历史数据写成符合 Tushare 契约的新湖 raw。
-      bootstrap migration job 可以为了验收继续选择对应 silver assets 和 checks，但 silver 仍由正式 silver asset 生成，不由 bootstrap 引擎生成一套旁路结果。
-    </p>
-
-    <div class="warning">
-      <strong>硬边界：</strong>
-      bootstrap 不参与每日自动化，不被 <code>stock_trade_day_sensor</code>、schedule 或 declarative automation 触发。
-      具体数据集 bootstrap 完成并验收后，日常更新只走 <code>TushareResource</code> 和对应的 calendar/basic/quote jobs。
-    </div>
-
-    <h3>6.1 BootstrapDatasetSpec</h3>
-    <pre><code>BootstrapDatasetSpec:
-  dataset_key: str
-  layer: "raw"
-  old_lake_path_pattern: str
-  target_path_pattern: str
-  partition_type: "full" | "trade_date"
-  source_fields: tuple[str, ...]
-  target_raw_fields: tuple[str, ...]
-  select_sql_template: str
-  partition_key_to_source_path(...)
-  partition_key_to_target_path(...)
-  empty_policy: "allow_empty" | "require_positive"
-  business_key: tuple[str, ...]
-  source_method_metadata: "old_lake_bootstrap"</code></pre>
-
-    <div class="warning">
-      <code>old_lake_path_pattern</code> 是 bootstrap 输入参数，不是正式 asset path，也不能写入新湖 parquet 字段。
-      Materialization metadata 可以记录 <code>source_method=old_lake_bootstrap</code>、行数、字段列表、cast 摘要，但不要把旧湖路径做成业务字段。
-      具体 spec、migration entrypoints 和通用执行逻辑长期保留为迁移审计记录和后续类似数据集复用依据；但不能被当成日常生产配置继续依赖。
-    </div>
-
-    <h3>6.2 四个 spec 的关键 cast</h3>
-    <div class="table-wrap">
-      <table>
-        <thead>
-        <tr>
-          <th>spec</th>
-          <th>关键 cast / 投影</th>
-          <th>empty policy</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-          <td><code>trade_calendar_bootstrap_spec</code></td>
-          <td><code>cal_date/pretrade_date</code> 输出 <code>YYYYMMDD</code> 字符串；<code>is_open</code> 从旧湖 boolean 纠偏为 0/1。</td>
-          <td><code>require_positive</code></td>
-        </tr>
-        <tr>
-          <td><code>stock_basic_bootstrap_spec</code></td>
-          <td>只保留 Tushare <code>stock_basic</code> 显式字段全集；<code>list_date/delist_date</code> 输出 <code>YYYYMMDD</code> 字符串或 null。</td>
-          <td><code>require_positive</code></td>
-        </tr>
-        <tr>
-          <td><code>stock_daily_bootstrap_spec</code></td>
-          <td><code>trade_date</code> 从旧湖 DATE 输出为 <code>YYYYMMDD</code> 字符串；字段名必须是 <code>change</code>，不是 <code>change_amount</code>。</td>
-          <td><code>require_positive</code></td>
-        </tr>
-        <tr>
-          <td><code>suspend_d_bootstrap_spec</code></td>
-          <td><code>trade_date</code> 输出为 <code>YYYYMMDD</code> 字符串；<code>suspend_timing</code> 显式 <code>cast(... as varchar)</code>；读取旧湖多分区时使用 <code>union_by_name=true</code>。</td>
-          <td><code>allow_empty</code></td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h3>6.3 suspend_timing 类型漂移固定处理</h3>
-    <p>
-      旧湖里不同交易日的 <code>suspend_d</code> parquet 文件不一定有完全一致的字段类型。
-      最典型的是 <code>suspend_timing</code>：有的日期有类似 <code>14:51-14:57</code> 的日内停牌时间，DuckDB 会把它看成字符串；
-      有的日期这一列全是空，DuckDB 可能把它推断成 <code>INTEGER/NULL</code>。这就是“类型漂移”。
-    </p>
-    <p>
-      如果 bootstrap 批量读取这些旧湖分区，不做处理就可能出现两类问题：
-      一类是直接读取失败；另一类更危险，是 DuckDB 自动推断出一个不符合 Tushare 源站契约的类型，然后悄悄写进新湖 raw。
-      所以这里必须先按字段名合并，再强制 cast 成新湖 raw 要求的类型。
-    </p>
-    <pre><code>select
-  cast(ts_code as varchar) as ts_code,
-  strftime(cast(trade_date as date), '%Y%m%d') as trade_date,
-  cast(suspend_timing as varchar) as suspend_timing,
-  cast(suspend_type as varchar) as suspend_type
-from read_parquet(
-  old_path,
-  hive_partitioning=false,
-  union_by_name=true
-)</code></pre>
-
-    <div class="warning">
-      <code>union_by_name=true</code> 的意思是：多个 parquet 文件合并时按字段名对齐，不按字段位置瞎拼。
-      <code>cast(suspend_timing as varchar)</code> 的意思是：不管旧湖里 DuckDB 把它猜成什么，新湖 raw 都统一写成 nullable string。
-      写完后还要做 raw schema check，如果新湖 raw 里的 <code>suspend_timing</code> 不是字符串列，直接失败，不能继续生成 silver。
-    </div>
-
-    <h3>6.4 写入策略</h3>
-    <pre><code>write_raw_parquet(target_path, select_sql):
-  1. ensure parent directory
-  2. write to part-000.parquet.tmp
-  3. validate temp row count and schema
-  4. os.replace(tmp, target_path)
-  5. return MaterializeResult metadata:
-       path
-       row_count
-       columns
-       source_method
-       bootstrap_spec
-       cast_summary
-       partition_key</code></pre>
-
-    <p>
-      bootstrap 写 raw 后，必须复用同一套 raw checks。下游 silver/gold 不关心 raw 历史分区最初是从旧湖 bootstrap 来的，还是后续由 Tushare API 来的。
-      但这种“不关心来源”只针对数据契约，不表示 bootstrap 是长期上游任务。
-    </p>
-
-    <h3>6.5 第一个使用者：suspend_d</h3>
-    <p>
-      <code>suspend_d</code> 作为 bootstrap 引擎的第一个使用者。它字段少、业务逻辑相对单纯，但能覆盖 bootstrap 最关键的能力：
-      按 <code>trade_date</code> 分区迁移、旧湖字段类型纠偏、nullable string cast、允许 0 行结果、写入新 raw 后复用 raw checks。
-    </p>
-    <div class="callout">
-      不建议第一个使用者选择 <code>stock_daily</code>。它数据量更大，重复行、冲突行、完整性 checks 和业务检查更多，
-      容易把 bootstrap 引擎问题和数据质量问题搅在一起。先用 <code>suspend_d</code> 把迁移引擎跑稳，再扩到 calendar/basic/stock_daily。
-    </div>
+    <h2>6. 旧湖 Bootstrap 已清退</h2>
+    <p>旧 spec、executor 和写入/metadata 模板已删除。此历史阶段的 cast 经验与迁移结果见 <a href="dagster-bootstrap-legacy-links.md">历史总账</a>；后续初始化按正式 onboarding 模板使用获准来源，不恢复旧迁移引擎。</p>
   </section>
 
   <section>
@@ -959,35 +812,8 @@ from read_parquet(
 
   <section>
     <h2>8. Asset 实现设计</h2>
-    <h3>8.1 raw asset 日常职责与 bootstrap 边界</h3>
-    <p>
-      第二期的长期生产口径是：raw asset 日常更新由 <code>TushareResource</code> 写入。
-      bootstrap 只是历史迁移入口，它可以写入同一套新湖 raw 路径，并记录 <code>source_method=old_lake_bootstrap</code> 的 materialization metadata；
-      但不应该把 <code>old_lake_bootstrap</code> 做成每日 raw asset 的长期分支。
-    </p>
-    <pre><code>long-term raw asset execution:
-  use TushareResource
-  write Tushare source-mirror raw parquet
-  emit MaterializeResult metadata:
-    source_method = "tushare_api"
-
-one-time bootstrap execution:
-  use BootstrapDatasetSpec + old_lake_executor
-  write the same raw parquet contract
-  emit migration metadata:
-    source_method = "old_lake_bootstrap"
-
-shared contract:
-  same asset key
-  same physical path
-  same raw fields
-  same raw checks
-  same downstream silver/gold code</code></pre>
-
-    <div class="warning">
-      <code>source_method</code> 是运行 metadata，不是业务字段，也不是下游判断逻辑。
-      任何 sensor、schedule、declarative automation 都不能选择或触发 <code>old_lake_bootstrap</code>。
-    </div>
+    <h3>8.1 raw asset 日常职责与已退役迁移边界</h3>
+    <p>Raw 日常由正式 Tushare helper 写入源契约数据并返回治理 metadata。旧湖迁移分支、BootstrapDatasetSpec 和 old_lake_executor 已删除，不再提供双入口伪代码。历史数据结果不依赖旧源继续存在。</p>
 
     <h3>8.2 新增 suspend_d assets</h3>
     <pre><code>@dg.asset(
@@ -1255,161 +1081,8 @@ intraday_suspended:
 
   <section>
     <h2>10. Jobs 与执行链路</h2>
-    <h3>10.1 migration-only bootstrap entrypoints</h3>
-    <p>
-      这些入口只服务历史拉齐，不属于日常生产 job 集合。它们可以用 Dagster 记录 materialization 和 checks，但默认不被 sensor、schedule 或 declarative automation 引用。
-      某个数据集 bootstrap 完成并验收后，入口和 spec 继续保留，作为迁移审计和未来类似数据集复用依据；但不能再进入每日链路。
-    </p>
-    <div class="table-wrap">
-      <table>
-        <thead>
-        <tr>
-          <th>job</th>
-          <th>selection</th>
-          <th>source_method</th>
-          <th>用途</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-          <td><code>bootstrap_calendar</code> historical entry</td>
-          <td>历史迁移期间曾选择 <code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code></td>
-          <td><code>old_lake_bootstrap</code></td>
-          <td>一次性把旧湖交易日历拉齐到新湖 raw/silver；<code>Slice 2.2.1c</code> 后不再保留 active bootstrap job，避免同名入口跑成 Tushare API。</td>
-        </tr>
-        <tr>
-          <td><code>bootstrap_basic</code> historical entry</td>
-          <td>历史迁移期间曾选择 <code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code></td>
-          <td><code>old_lake_bootstrap</code></td>
-          <td>一次性把旧湖 stock_basic 拉齐到新湖 raw/silver；<code>Slice 2.2.1c</code> 后不再保留 active bootstrap job，避免同名入口跑成 Tushare API。</td>
-        </tr>
-        <tr>
-          <td><code>历史 quote bootstrap 入口</code> historical entry</td>
-          <td><code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code></td>
-          <td><code>old_lake_bootstrap</code></td>
-          <td>已完成并退役为活跃 job。历史 run/event 记录保留在 Dagster instance。<code>Slice 2.1</code> / <code>2.2.1b</code> 已用 <code>历史 quote 日频验证入口</code> 验证日常 quote 链路；<code>Slice 2.2.1d</code> 后正式入口拆分为 <code>raw_suspend_d_update_job / silver_suspend_d_update_job</code> 与 <code>raw_stock_daily_update_job / silver_stock_daily_update_job</code>。</td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h3>10.2 Slice 2.0.6 全历史 quote bootstrap 执行设计</h3>
-    <p>
-      2.0.6 是从旧湖 bootstrap 切换到 Tushare API 日常更新前的收口动作。
-      2.0.6 执行时，<code>历史 quote bootstrap 入口</code> 是 asset selection job，它选中的 <code>raw_tushare_stock_daily</code> 和 <code>raw_tushare_suspend_d</code> 仍走旧湖 bootstrap。
-      进入 2.1 后，这两个 raw assets 会改成 Tushare API 写入，同一个 job 如果继续存在，也会跟随 asset 当前实现变成 API 拉取。
-      因此 2.0.6 必须先完成历史 quote 日频迁移，避免后续再用一个名字叫 bootstrap、实际却跑 API 的入口。
-      现在 <code>Slice 2.1</code> 已完成，活跃 <code>历史 quote bootstrap 入口</code> 已退役。
-    </p>
-    <p>
-      当前全历史迁移审计口径已经收紧：迁移下限为 <code>2014-01-01</code>，实际首个交易日为 <code>2014-01-02</code>；
-      旧湖 <code>daily</code> 与 <code>suspend_d</code> 共同最新日期为 <code>2026-05-15</code>；
-      可迁移 SSE 开市日为 <code>3004</code> 个。<code>raw_tushare_stock_daily</code> 必须保留旧湖源记录全集；
-      <code>silver_stock_daily</code> 才应用当前上市、上市日后、BJ 自 <code>2021-11-15</code> 起、2014 起始日四类过滤。
-    </p>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-        <tr>
-          <th>对象</th>
-          <th>输入</th>
-          <th>输出</th>
-          <th>验收口径</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-          <td><code>raw_tushare_stock_daily[trade_date]</code></td>
-          <td>旧湖 <code>raw_tushare/daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
-          <td>新湖 <code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
-          <td>字段等于 <code>STOCK_DAILY_RAW_REQUIRED_COLUMNS</code>；<code>trade_date</code> 为 <code>YYYYMMDD</code> 字符串；<code>row_count &gt; 0</code>。</td>
-        </tr>
-        <tr>
-          <td><code>raw_tushare_suspend_d[trade_date]</code></td>
-          <td>旧湖 <code>raw_tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
-          <td>新湖 <code>raw/tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
-          <td>字段等于 <code>SUSPEND_D_RAW_COLUMNS</code>；<code>suspend_timing</code> 是 nullable string；源文件存在时允许 <code>row_count=0</code>。</td>
-        </tr>
-        <tr>
-          <td><code>silver_stock_daily[trade_date]</code></td>
-          <td>新湖 stock daily raw</td>
-          <td>新湖 <code>silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
-          <td>由正式 silver asset 生成；重复完全行可 distinct 并上报；冲突键失败；只保留当前上市、上市日后、BJ 自 <code>2021-11-15</code> 起、<code>2014-01-01</code> 起的标准事实行。</td>
-        </tr>
-        <tr>
-          <td><code>silver_stock_suspend_daily[trade_date]</code></td>
-          <td>新湖 suspend_d raw</td>
-          <td>新湖 <code>silver/quote/stock_suspend_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
-          <td>由正式 silver asset 生成；<code>suspend_type</code> 只允许已知值；业务键不冲突；14 条已确认盘中停牌 timing 修正写入 <code>suspend_timing</code> 业务字段，审计留痕写 metadata。</td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <pre><code>Slice 2.0.6 source coverage audit:
-  daily_keys =
-    list old_lake/raw_tushare/daily/trade_date=*/part-000.parquet
-
-  suspend_keys =
-    list old_lake/raw_tushare/suspend_d/trade_date=*/part-000.parquet
-
-  calendar_open_keys =
-    select trade_date from silver_trade_calendar
-    where exchange = 'SSE'
-      and is_open = true
-
-  runnable_keys = daily_keys intersect suspend_keys intersect calendar_open_keys
-    filtered by trade_date >= 2014-01-01
-  missing_suspend_keys = daily_keys - suspend_keys
-  excluded_non_open_day_keys = (daily_keys union suspend_keys) - calendar_open_keys
-
-  if missing_suspend_keys is not empty:
-    write summary to run output / review notes
-    do not treat missing suspend_d source as empty suspend_d data
-    only run accepted historical quote bootstrap partitions for explicitly accepted runnable_keys
-
-  if excluded_non_open_day_keys is not empty:
-    write summary to run output / review notes
-    do not register these dates into cn_a_stock_trade_days
-    do not run quote daily jobs for non-SSE-open days
-
-Slice 2.0.6 execution:
-  1. confirm working tree clean
-  2. run source coverage audit
-  3. register runnable_keys into cn_a_stock_trade_days using formal DagsterInstance
-     - no manual POC partition registration job is kept in current code
-     - full-history registration must use the audited runnable_keys
-  4. run accepted historical quote bootstrap partitions in batches
-  5. collect per-partition result:
-     - run success/failure
-     - raw/silver row_count
-     - failed blocking checks
-     - stock_daily unexplained_missing_count / unexplained_extra_count
-     - stock_daily standard-fact filter counts
-     - suspend_timing_correction_count
-  6. stop on systematic failure; do not continue blind batch execution
-  7. final report lists migrated_count, failed_count, skipped_missing_suspend_count, excluded_non_open_day_count, first/last migrated trade_date</code></pre>
-
-    <div class="warning">
-      2.0.6 不新增业务资产定义；它生成的是已有 quote assets 的历史 partitions、materializations 和 check evaluations。
-      不生产 <code>gold_market_breadth_daily</code>，不运行下游 gold 自动化，不调用 Tushare API，不启用 sensor。
-      若 <code>silver_stock_daily</code> 未应用最新四类过滤，或 <code>silver_stock_suspend_daily</code> 未应用 14 条 timing 修正，禁止进入全历史批量迁移。
-    </div>
-
-    <div class="callout">
-      <strong>执行验收状态：</strong>
-      <code>Slice 2.0.6</code> 已完成。新湖
-      <code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、
-      <code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code>
-      均覆盖 <code>3004/3004</code> 个目标交易日，缺失分区为 <code>0</code>。
-      最终行数为：stock daily raw <code>11,831,651</code>，
-      stock daily silver <code>11,296,600</code>，suspend_d raw <code>385,128</code>，
-      suspend_d silver <code>389,147</code>。关键质量项均为 <code>0</code>：
-      silver daily 主键重复、<code>pct_chg</code> 空值、价格异常、股票池越界、上市日前数据、BJ 开市日前数据、
-      suspend_d 非法类型、业务键重复、全日停牌但 silver daily 有记录、完整性 missing/extra。
-      Dagster run 记录中所有目标分区均有成功 run；历史取消 run 与一次失败 run 已由后续成功 run 覆盖。
-    </div>
+    <h3>10.1–10.2 已结束的历史初始化</h3>
+    <p>旧迁移入口及执行步骤已退出。历史 2014-01-02 至 2026-05-15 共 3,004 个交易日的结果仍属于当时验收记录，不是当前重跑指令；其后日常任务仍按下节当前入口运行。</p>
 
     <h3>10.3 ongoing jobs and current implementation status</h3>
     <div class="table-wrap">
@@ -2298,9 +1971,9 @@ defs/sensors/stock_return_distribution_automation_sensor.py
         </tr>
         <tr>
           <td>2.0.2</td>
-          <td>Bootstrap 历史迁移通用引擎。</td>
-          <td><code>defs/bootstrap/**</code>。</td>
-          <td>单个小样本能从旧湖读、投影、cast、写新 raw；确认它不是日常生产链路。</td>
+          <td>历史 Bootstrap 通用引擎（已清退）。</td>
+          <td>当时的旧 spec/executor；不代表整个 <code>defs/bootstrap/</code> 都已删除。</td>
+          <td>仅记录当时完成的小样本验证；不重新实施。2.0.3–2.0.6 同为已结束的历史切片，保留结果，不恢复旧入口。</td>
         </tr>
         <tr>
           <td>2.0.3</td>
@@ -2417,8 +2090,8 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
           <td><code>uv run dg check defs</code> 通过；Dagster UI 中新 assets/jobs/checks/sensor 可见。</td>
         </tr>
         <tr>
-          <td>Bootstrap</td>
-          <td>旧湖历史迁移写入新湖 raw 后，字段与 Tushare 契约一致；metadata 有 <code>source_method=old_lake_bootstrap</code>；2.0.6 覆盖 <code>2014-01-02</code> 至 <code>2026-05-15</code> 的 3004 个目标交易日；迁移入口不被任何自动化引用。</td>
+          <td>Bootstrap（历史验收，不重跑）</td>
+          <td>当时旧湖初始化按 Raw 契约完成，2.0.6 覆盖 <code>2014-01-02</code> 至 <code>2026-05-15</code> 的 3004 个目标交易日。既有 metadata 的 <code>source_method=old_lake_bootstrap</code> 仅是只读历史字符串，不再是允许生成的新 enum 值；当前执行器及生产入口均已退出。</td>
         </tr>
         <tr>
           <td>Tushare API</td>

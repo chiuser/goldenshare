@@ -261,7 +261,7 @@ Silver sensor 只读取 Raw/Silver lake readiness，不调用 Tushare、Prod DB 
 
 ## 12. 新增数据集模板审计与代码事实对账
 
-本节是对 `lake-dataset-development-template.md`、`dataset-development-template.md` 和 Dagster onboarding 模板的逐项收口。它不是泛化说明，而是本专项进入编码前的硬门禁。
+本节是对 `dataset-development-template.md`、正式 Dagster onboarding 模板 7A 和性能治理规范的逐项收口。它不是泛化说明，而是本专项进入编码前的硬门禁。
 
 | 模板要求 | 本专项落点 | 当前状态/验收 |
 | --- | --- | --- |

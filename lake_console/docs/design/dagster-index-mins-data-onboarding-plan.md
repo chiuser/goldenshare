@@ -49,7 +49,7 @@ Prod PostgreSQL raw_tushare.index_mins
 - `lake_console/orchestrator/CODING_STANDARDS.md`
 - `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`
 - `lake_console/docs/design/dagster-asset-schema-contract-design.md`
-- `docs/templates/lake-dataset-development-template.md`
+- `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`（正式接入预算与只读来源约束）
 - `lake_console/docs/templates/dagster-dataset-onboarding-template.html`
 - `lake_console/docs/design/dagster-index-global-data-onboarding-plan.md`
 - `lake_console/docs/design/dagster-index-global-data-onboarding-low-level-design.md`

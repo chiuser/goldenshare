@@ -1,5 +1,7 @@
 # Dagster Adj Factor 资产设计
 
+> M5 清退边界（2026-09-05）：§2 的迁移和事件数字、§12 的 A2/A5/A6 阶段只作历史记录；M4 已删除旧迁移适配器。现行 Raw/Silver schema、生命周期、日常 job/sensor/readiness 保留，不按旧 spec 再次初始化。
+
 状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C 历史 silver 文件生成已完成；M6D silver 事件补录已完成；A7 已通过人工 job 补齐 `2026-05-15` 之后缺口至 `2026-05-29`；A8 已将日常自动链路拆为 `raw_adj_factor_update_job` / `silver_adj_factor_update_job`，silver 触发前等待 raw adj_factor event/check ready 与 `stock_basic_ready_without_freshness`。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
@@ -13,7 +15,7 @@
 
 把复权因子作为股票行情域的日频基础事实资产接入新 Dagster lake：
 
-- `raw_tushare_adj_factor`：Tushare `adj_factor` 源站镜像。历史数据先从旧湖 bootstrap 到新湖 raw；日常按交易日从 Tushare 更新。
+- `raw_tushare_adj_factor`：Tushare `adj_factor` 源站镜像。历史初始化已经完成；日常按交易日从 Tushare 更新。
 - `silver_adj_factor`：从 raw 生成的标准层复权因子，只保留 CNY 股票生命周期内记录，并确保每个应覆盖交易日都有因子值。
 
 核心原则：
@@ -32,7 +34,7 @@
 - `lake_console/orchestrator/src/orchestrator/defs/partitions.py`：股票日频资产当前使用 `cn_a_stock_trade_days` 动态分区；`adj_factor` 需要新增独立的 `cn_a_stock_current_trade_days`，用于早盘可用的数据集。
 - `lake_console/orchestrator/src/orchestrator/defs/paths.py`：股票行情 raw/silver 路径已收敛为 `raw/tushare/.../trade_date=...` 与 `silver/quote/.../trade_date=...`。
 - `lake_console/orchestrator/src/orchestrator/defs/assets/suspend_d.py`：停复牌资产是本设计的分区和日更形态参考。
-- `lake_console/orchestrator/src/orchestrator/defs/bootstrap/**`：已有旧湖 bootstrap 能力，支持按 `trade_date` 从旧路径复制到新湖 raw。
+- `lake_console/orchestrator/src/orchestrator/defs/bootstrap/**`：仅保留正式历史构建/恢复工具；旧 spec/executor 已在 M4 删除，不能复用。
 - `lake_console/orchestrator/src/orchestrator/defs/tushare_api_io.py`：已有 Tushare 分页拉取并写 raw parquet 的通用 helper。
 - `lake_console/orchestrator/src/orchestrator/defs/run_contracts/**`：asset tags、definition metadata、column schema、materialization metadata 已有治理入口，新资产必须使用这些入口。
 
@@ -84,7 +86,7 @@
 - 当时若按 `list_status='L'` 当前上市股票口径统计，上市日之后交易日复权因子缺失为 0。
 - 当时若把全部退市股票历史生命周期也纳入，仍存在部分退市股票缺口；这是历史审计记录，不代表当前 `silver_stock_lifecycle` 日更口径。
 
-这些是历史审计记录，不冒充当前实时状态。开发前仍需做一次只读复核，确认旧湖路径、字段和分区范围没有变化。
+这些是历史审计记录，不冒充当前实时状态。后续开发只审计获准正式来源；不再以旧湖复核作为准入。
 
 ### 2.5 M5 历史 raw bootstrap 执行记录
 
@@ -174,15 +176,15 @@ M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后
 | 数据域 tag | `quote_data` | `quote_data` |
 | 分区 | `cn_a_stock_current_trade_days` | `cn_a_stock_current_trade_days` |
 | 分区键 | `YYYY-MM-DD` 交易日 | `YYYY-MM-DD` 交易日 |
-| 来源 | bootstrap 时来自旧湖；日常来自 Tushare `adj_factor` | `raw_tushare_adj_factor` + `silver_stock_lifecycle` |
+| 来源 | 当前为 Tushare `adj_factor`；已结束的旧湖初始化见 §2.5 | `raw_tushare_adj_factor` + `silver_stock_lifecycle` |
 | 写入策略 | replace partition | replace partition |
 | 路径 | `data_lake/raw/tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `data_lake/silver/quote/adj_factor/trade_date={partition_key}/part-000.parquet` |
 
 命名说明：
 
-- 不使用 `raw_legacy_adj_factor`。原因是旧湖只是 bootstrap 来源；资产长期来源和字段契约仍是 Tushare `adj_factor`。
+- 不使用 `raw_legacy_adj_factor`。旧湖只曾用于已结束的初始化；资产长期来源和字段契约仍是 Tushare `adj_factor`。
 - 不使用 `silver_adj_factor_latest` 或 `silver_adj_factor_basis_snapshot`。同一天同一股票的因子值不应拆成两个业务资产；前复权使用哪个 `as_of_trade_date` 作为基准，是下游 qfq run 的显式输入选择，不是 `adj_factor` 本身的第二套事实。
-- `cn_a_stock_current_trade_days` 承载历史分区和日常分区：历史初始化从旧湖 `adj_factor` 最早日期开始，对齐旧湖 `adj_factor` 全量范围内的股票开市日；日常运行每天 6:00 后追加注册当天股票开市日。
+- `cn_a_stock_current_trade_days` 承载历史分区和日常分区：当时历史初始化按旧湖覆盖范围注册股票开市日，结果已保存在正式实例；日常运行每天 6:00 后追加注册当天股票开市日，不再读取旧湖。
 
 ## 4. 字段契约
 
@@ -232,9 +234,6 @@ silver_stock_lifecycle 中 is_cny_stock=true 且 list_date <= D < delist_date �
 ## 5. 数据流
 
 ```text
-旧湖 raw_tushare/adj_factor
-  -> bootstrap raw_tushare_adj_factor[trade_date]
-
 Tushare adj_factor(trade_date=YYYYMMDD)
   -> 日常更新 raw_tushare_adj_factor[trade_date]
 
@@ -243,44 +242,10 @@ silver_stock_lifecycle
   -> silver_adj_factor[trade_date]
 ```
 
-## 6. Bootstrap 设计
+## 6. 历史初始化已结束
 
-历史数据迁移使用现有 bootstrap 能力，不新增一套迁移框架。
-
-已新增 `adj_factor_bootstrap_spec(...)`：
-
-| 项 | 口径 |
-| --- | --- |
-| `dataset_key` | `raw_tushare_adj_factor` |
-| `layer` | `raw` |
-| `partition_type` | `trade_date` |
-| 旧湖路径 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet` |
-| 新湖目标路径 | `raw_adj_factor_path(lake_root, "{partition_key}")` |
-| `empty_policy` | `require_positive` |
-| `business_key` | `("ts_code", "trade_date")` |
-
-bootstrap select 口径：
-
-```sql
-SELECT
-  CAST(ts_code AS VARCHAR) AS ts_code,
-  CASE
-    WHEN trade_date IS NULL OR trim(CAST(trade_date AS VARCHAR)) = '' THEN NULL
-    WHEN regexp_matches(trim(CAST(trade_date AS VARCHAR)), '^\\d{8}$')
-      THEN trim(CAST(trade_date AS VARCHAR))
-    ELSE strftime(CAST(trade_date AS DATE), '%Y%m%d')
-  END AS trade_date,
-  CAST(adj_factor AS DOUBLE) AS adj_factor
-FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
-```
-
-门禁：
-
-- 必须使用 `hive_partitioning=false` 核验文件内部字段，避免把目录分区列误当成 parquet 内部字段。
-- bootstrap 只写新湖 raw，不直接写 silver。
-- 历史 bootstrap 范围必须对齐旧湖 `adj_factor` 最早日期到旧湖当前全量范围内的股票开市日；这些历史交易日需要先注册到 `cn_a_stock_current_trade_days`，不写非交易日分区。
-
-M5 已完成上述 raw bootstrap 和历史分区注册。M6 的历史 silver 生成是 bootstrap 收尾：它从 M5 迁移出的 raw 文件和现有 `silver_stock_lifecycle` 生成 `silver_adj_factor` 文件。M6 不使用 `raw_adj_factor_update_job / silver_adj_factor_update_job` 跑历史，因为该 job 会执行 `raw_tushare_adj_factor`，从而重新请求 Tushare 并可能覆盖 M5 raw。M6B 额外补录 raw 的 Dagster 事件事实，使 UI 和 readiness 能识别 M5 已迁移 raw。
+旧 spec/executor 已清退，不再提供可执行迁移流程。历史 Raw/Silver 行数和事件记录保留在 §2.5–2.9，摘要见 [单一历史总账](dagster-bootstrap-legacy-links.md)。
+后续仍可从正式 Raw 和生命周期事实生成 Silver；不能重新读取旧湖或调用已删除的专用事件 helper。
 
 ## 7. 日常更新设计
 
@@ -347,7 +312,7 @@ write_mode = replace partition
 - `stock_current_trade_day_sensor`
   - 只注册 `cn_a_stock_current_trade_days`，不触发数据更新任务。
   - 只处理当天日期：上海时间 06:00 后，如果当天是 `silver_trade_calendar` 中 SSE 开市日且尚未注册，则注册当天分区。
-  - 不做历史补齐；历史分区注册和旧湖 bootstrap 留到后续迁移验收。
+  - 不做历史补齐；需要补齐时另审计正式来源、范围与运行授权，不再使用旧湖。
 
 更新触发 sensors：
 
@@ -416,8 +381,8 @@ Readiness：
 
 ## 11. 风险与待确认点
 
-1. 旧湖 raw 的 `trade_date` 类型可能是 `DATE` 或字符串，bootstrap 必须在 select 中显式归一到 `YYYYMMDD` 字符串。
-2. 旧湖历史分区范围应在开发前只读复核，不把此前审计结果当成当前事实。
+1. 历史初始化曾将旧输入的 `DATE` 或字符串归一为 Raw 的 `YYYYMMDD` 字符串；这是已结束的类型纠偏记录，不要求恢复已删除的 bootstrap SQL 或测试。
+2. 旧湖迁移已结束，后续历史重建须审计正式来源，不把此前行数当当前实时事实。
 3. `silver_adj_factor` 当前以 `silver_stock_lifecycle` 为完整生命周期事实源：`delist_date` 按退市生效日解释，有效范围不含当天；本资产不为目标日已失效或非 CNY 股票设计 silver 完整性和下游加工口径。
 4. 分页必须复用现有 Tushare 通用拉取 helper，不新增 `adj_factor` 专用分页实现。
 5. `cn_a_stock_current_trade_days` 同日分区必须在早上 6:00 后才允许注册，同时支持最近 10 个 expected trade dates 内的停机补洞；两个 adj_factor update job sensor 必须晚于 Tushare 当日因子入库窗口，正式不早于 9:30。
@@ -434,12 +399,12 @@ Readiness：
 - 不接入 active Definitions。
 - 状态：已完成。
 
-### A2：Bootstrap raw
+### A2：Bootstrap raw（已结束的历史切片，不重新实施）
 
 - 增加 `adj_factor_bootstrap_spec(...)`。
 - 增加 bootstrap 纯函数/静态测试。
 - 用临时 parquet 测试 `DATE` / `YYYYMMDD` 两种旧湖输入都能生成新湖 raw 契约。
-- 状态：已完成；M5 已完成正式旧湖 raw bootstrap 与历史分区注册。
+- 状态：当时 M5 已完成正式旧湖 raw bootstrap 与历史分区注册；本专项 M4 已删除上述 spec 和专属测试，历史结果保留。
 
 ### A3：Assets 与 checks
 
