@@ -292,6 +292,8 @@ P8  只读最终审计：五频度 source/Lake code coverage、checks、Dagster 
    `09:30` 至 `15:00`；TaskRun `6544` 为 `29,355/29,355`、零 reject。
 4. raw apply 成功整体 promote 五个频度，耗时 `109,973ms`。旧文件 quarantine manifest 为
    `/Volumes/datasource/data_lake/_quarantine/stk_mins_raw_replace_from_prod/trade_date=2026-07-27/recovery_run_id=f573265f-1162-4535-9089-c486f7b7dac1/manifest.json`。
+   这是当时的历史位置；该精确旧恢复目录已在 2026-09-05 清退 M8（D04）获批删除，不再可作读取或恢复输入。
+   当时执行数字保留，正式 Raw 文件未删除；范围及结果见清退 LLD §16.15。
    随后 `stock_mins_raw_update_from_prod_job[2026-07-27]` 成功完成（run
    `ae26c9f7-cb37-40be-9596-39eed38df343`），仅以 `reuse_existing` 重新记录 raw 事实并运行既有 checks。
 5. `stock_mins_silver_update_job[2026-07-27]`（run
@@ -416,6 +418,8 @@ R3A 已于 2026-07-28 的受控维护窗口完成，执行证据如下：
    staging rule 并完成 promote，recovery run id 为
    `70c5f3d5-3857-4fa9-b840-3d632fba9e3f`；旧 Silver 文件保留在
    `/Volumes/datasource/data_lake/_quarantine/stk_mins_silver_replace_from_raw/trade_date=2026-07-27/recovery_run_id=70c5f3d5-3857-4fa9-b840-3d632fba9e3f/manifest.json`。
+   上述为当时的保存位置；该精确旧恢复目录已在 2026-09-05 清退 M8（D05）获批删除，非 Git 文件不承诺可恢复。
+   正式 Silver 文件及当前 Silver 工具均保留，范围及结果见清退 LLD §16.15。
 4. 显式 `reuse_existing` 状态核验 run
    `33fc6520-9a55-4164-9d31-987c9bbbe9d6` 成功：5 个 Silver materialization 均绑定该 run，20 条
    blocking check 全部 `SUCCEEDED/passed=true`。最终只读审计

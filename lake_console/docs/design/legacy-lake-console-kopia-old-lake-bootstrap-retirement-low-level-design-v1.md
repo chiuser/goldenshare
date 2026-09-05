@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已提交 `68f97744` / M5 已提交 `3ed4c6ca` / M6 已提交 `63be03af` / M7 技术验收通过，用户已要求按 11 文件白名单提交（见 §11 续轮收口） / 文档处置矩阵 165 份，专项控制文档另列 3 份 / 其余具体数据删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已提交 `68f97744` / M5 已提交 `3ed4c6ca` / M6 已提交 `63be03af` / M7 已提交 `3b94c48a` / M8 获批 111 项已精确删除，用户已要求按 10 文件白名单提交执行记录（§16.15） / 文档处置矩阵 165 份，专项控制文档另列 3 份 / ignored 环境与清单外对象未处理
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -20,8 +20,8 @@ HEAD、CodeGraph 状态和精确文件白名单。
 
 **最新数据清退口径**：用户已确认只依据代码直接使用判断用途，取消完整性、日期范围、内容替代和历史
 价值审计。执行规则见 §16.1，当前批量清单见 §16.14；此前物理审计中的待核内容差异、人工取证/副本
-确认等不再作为前置项。M4 写湖安全与代码回归要求不变；数据审计本身不授权删除。当前 M7 回归、
-正式 Definitions 与差异复核已通过，用户已要求按 11 文件白名单提交；阶段实施记录见 §11，不自动进入 M8。
+确认等不再作为前置项。M4 写湖安全与代码回归要求不变；数据审计本身不授权删除。M7 已验收并提交
+`3b94c48a`；用户随后 review 并确认 §16.14 的 111 个具体对象，本批 M8 已执行，结果见 §16.15。
 
 > 本文是本专项的代码实施依据。上位方案负责说明为什么清退、清退边界和阶段顺序；本文负责说明每个混合文件、运行契约、CLI、测试和文档具体如何修改。若实施时当前代码已经偏离本文审计基线，必须先重新做 CodeGraph 和文本引用审计，不能机械套用本文行号。
 
@@ -1199,8 +1199,8 @@ M7 补清统计边界：本专项方案、本文 LLD、M0 审计清单是三个�
 | `docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md` | `MODIFY_MIXED` | 保留生产 PostgreSQL 当前设计；把旧 backend mapping 标为历史审计参照，去掉当前消费者含义 |
 | `lake_console/docs/design/dagster-index-daily-raw-by-date-prod-db-migration-plan.md` | `MODIFY_MIXED` | 保留 Dagster 当前方案；旧 backend service 只保留为当时字段口径证据，不可链接为实现依赖 |
 | `lake_console/docs/design/dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md` | `MODIFY_MIXED` | 同上；删除/转文本旧 backend 代码链接 |
-| `lake_console/docs/design/dagster-phase-3-index-daily-refactor-design.html` | `KEEP_CURRENT_VERIFY` | 已标为被替代的正式指数历史设计，不是旧 Console 文档；CSV 初始化段只作历史证据，不能用其 948 代码重建当前 820 代码集合。报告处置按 §16.6，不连带删本文或分区集合 |
-| `lake_console/docs/design/dagster-phase-3-index-daily-refactor-low-level-design.html` | `KEEP_CURRENT_VERIFY` | 同上；全文已审，raw-by-code/旧 Tushare sensor 不是当前运行链。当前代码读取正式 instance 的 cn_a_index_ts_codes，不运行本文历史初始化步骤 |
+| `lake_console/docs/design/dagster-phase-3-index-daily-refactor-design.html` | `KEEP_CURRENT_VERIFY` | 已标为被替代的正式指数历史设计，不是旧 Console 文档；CSV 初始化段只作历史证据，不能用其 948 代码重建当前 820 代码集合。M8 仅补 D01 已删除的历史位置标注，不改业务正文或分区集合；这是 §16.15 显式记录的状态注释，不是删除本文 |
+| `lake_console/docs/design/dagster-phase-3-index-daily-refactor-low-level-design.html` | `KEEP_CURRENT_VERIFY` | 同上；raw-by-code/旧 Tushare sensor 不是当前运行链，不运行本文历史初始化步骤。M8 仅补 D01 已删除的历史位置标注；其它 23 份 KEEP 不变 |
 | `lake_console/docs/design/dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md` | `MODIFY_MIXED` | 把待删除旧算法 producer 更新为已清退事实；保留正式 Dagster 算法和验收记录 |
 | `docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md` | `MODIFY_CURRENT` | 删除旧 index-mins/indicator/MACD 文档引用，改指正式 major-index 分钟接入、canonical bars 和现行 MACD/KDJ Dagster 设计 |
 | `lake_console/docs/design/dagster-stk-mins-asset-design.html` | `MODIFY_CURRENT` | 删除 clean_next 代码集合审计原文链接；保留已写入本文的停牌/身份映射/非 strict equality 正式语义，并改引历史迁移总账 |
@@ -2139,9 +2139,8 @@ TaskRun 取消函数，图中同名 QTF `definitions` 误命中未用作 DG 证�
 这些不是新的运行依赖。正式命令只完成定义加载/静态清单核验，没有执行 job/sensor、物化、分区
 注册、runless event、生产恢复、Lake 写入、服务停启、部署或数据删除。
 
-结论：M7 技术验收已收口，无剩余两处测试/Definitions 授权事项；用户已明确要求提交。本次按
-11 文件白名单归档，提交前重新检查 staged diff，提交结果以 Git 记录为准；不推送、不进入 M8。
-M8 仍须用户确认具体数据清单。
+结论：M7 技术验收已收口，无剩余两处测试/Definitions 授权事项；已按 11 文件白名单提交
+`3b94c48a`，未推送。M7 提交没有包含物理删除；之后另行确认的 M8 清单与结果见 §16.15。
 
 ### M8：精确清退已证实无用的物理数据
 
@@ -2150,6 +2149,9 @@ M8 仍须用户确认具体数据清单。
 3. 只删除用户确认的精确数据集目录、恢复 run 目录或单文件；执行前核 realpath、范围、符号链接、跨挂载和占用。不清根、不跟随链接、不混入 ignored 环境。
 4. 记录执行结果和能否恢复；历史文档中的物理位置改为当时位置/实际清退状态。核保留路径和代码未被触碰，不对正式数据新增内容扫描。
 5. M8 清单与执行结果单独 review，不能用 M7 测试全绿代替数据用途判定。
+
+2026-09-05 执行：用户已明确确认 §16.14 全部 111 个对象及保留范围。获批对象现均不存在，
+无失败或新增删除项；详细绝对路径、数量、机械检查、恢复能力和文档同步白名单见 §16.15。
 
 ---
 
@@ -2299,14 +2301,15 @@ M8 删除前必须在清单中明确恢复能力。非 Git 数据没有既有可
 - [x] Wealth `local_lake` 全部当前 Reader、分钟/turnover insight/trend 等 API、页面调用和 optional dependency 未被误删（M6 内容与定向回归）。
 - [x] 本次 M7 未改物理数据/reports，Ops Snapshot 与 ignored 依赖环境/配置保留；历史单项 backup 提前删除仅按 §16.9 的独立批准，不扩展到其它物理对象。
 - [x] M7 全量回归与正式 Definitions 技术验收通过，工作区 diff 仅 11 个专项文件，无新增/删除文件；两处测试问题已按批准口径修正。
-- [x] 用户已要求提交 M7；本次按 11 文件白名单归档，提交前重新核验 staged diff，提交结果以 Git 记录为准；不推送、不进入 M8。
+- [x] M7 已按 11 文件白名单提交 `3b94c48a`，未推送；当时未进入 M8，后续数据批准与结果独立记录。
 
 ### 14.6 M8 物理数据
 
-- [ ] §16.14 按代码引用归类，有消费者证据、精确目录/文件、依赖前置项和恢复能力说明；不要求内容替代证明。
-- [ ] 旧代码依赖先退出，用户确认具体清单，删除前机械安全检查通过；当前使用及引用范围未核清的对象未删。
-- [ ] 实际删除与白名单一致，正式数据和共享目录未被误删；历史证据位置已更新。
-- [ ] 未删除对象保留原因显式列出；不能把“未核清”当清退完成，也不为结案强制清空目录。
+- [x] §16.14 的 111 项已按代码引用归类；依赖退出、精确路径和恢复能力见 §16.15，不要求内容替代证明。
+- [x] 用户确认具体清单后完成机械检查；旧代码已在 M3/M4/M6 退出，当前使用对象未删。
+- [x] 111 项全部删除并逐项核验不存在；保留范围完成对账，历史证据位置已更新，详见 §16.15。
+- [x] 清单外 5 个 `.DS_Store`、共享目录和 ignored 环境未删；原因是未纳入本批批准，不为结案清空目录。
+- [x] 用户已另行要求提交 M8 执行记录；本次按 10 文件白名单归档，提交结果以 Git 记录为准。不推送，不再次操作物理数据。
 
 ---
 
@@ -2480,8 +2483,8 @@ Dagster 表查询先设置只读事务，查询后 rollback；没有改运行状
 根级及各层 `.DS_Store` 只是元数据，不是业务数据；未据此新建删除任务，仍须纳入用户确认的精确清单。
 
 54 个旧 Raw 数据集的首批盘点账如下。路径相对于旧湖根，数量为历史元数据盘点。
-**按最新代码引用审计，以下 54 个目录统一为 `DELETE_AFTER_DEPENDENCY`（§16.14），不再逐个对账内容。**
-旧 Console/适配器退出后，按这些精确目录提请删除；不能把本表当作已获删除批准。
+**以下 54 个目录原按代码引用分类为 `DELETE_AFTER_DEPENDENCY`；旧依赖退出后，用户确认本批清单，M8 已全部删除（§16.15）。**
+本表文件数为历史盘点，实际执行路径和结果以 §16.15 为准；不再逐个对账内容，不扩大到共享根。
 目录内隐藏元数据计入文件数，`raw_tushare` 根自身的 `.DS_Store` 不在下面 54 行内。
 
 | 相对路径 | 文件数 | 字节数 |
@@ -2874,11 +2877,12 @@ CodeGraph callers 各命中自己的 CLI `main`，并已直接阅读两个 apply
 旧湖自己的 `_recovery` 20 个目录、其他指数/九转/MACD 隔离项、本轮未审的 staging 均未获得新删除资格。
 BSE/WMT 当前恢复证据链继续按 §16.7 保护；七条 7 月历史 run 成功不用于证明后续 BSE/WMT 恢复已结束。
 
-### 16.14 当前执行清单：只按代码引用批量分类
+### 16.14 本批清单：只按代码引用批量分类（M8 已执行）
 
 **本节替代此前物理审计的分类及剩余待办。** 用户已确认不需要代码未使用的数据；本轮只审代码、配置和
 路径构造，复用既有目录名清单，没有打开 Parquet/CSV 数据、读取恢复 manifest 内容、查询数据库/Dagster，
-也没有重新比较日期、行数、哈希或检查数据完整性。代码清退及物理删除均未执行。
+也没有重新比较日期、行数、内容哈希或检查数据完整性。这是首次分类时的方法；之后 M3/M4/M6 已完成
+代码清退，M7 已验收提交，用户确认本节 111 项后已执行 M8。当前执行结果见 §16.15。
 
 #### 16.14.1 代码证据和排除误报
 
@@ -2906,9 +2910,9 @@ CodeGraph `status/explore` 覆盖旧 scanner、正式 LakeRootResource、当前 
 
 #### 16.14.2 只有旧代码使用：退出依赖后清退
 
-本组均为 `DELETE_AFTER_DEPENDENCY`。没有找到保留主链对这些旧湖数据的读取入口；不能现在删，是因为
-旧 Console 与通用迁移适配器尚在，并非数据完整性或历史价值未知。旧 migration 主体已在 M3 退出，M4/M6 按原 LLD 退出其余适配器/旧产品，
-现行 CLI 拆分和回归完成后，再按 M8 申请删除。本轮引用分类覆盖 **106 个已盘点对象**，不以旧湖根整删。
+本组原为 `DELETE_AFTER_DEPENDENCY`，没有保留主链对这些旧湖数据的读取入口。旧 migration 主体已在
+M3 退出，其余适配器/旧产品已在 M4/M6 退出，现行 CLI 拆分和 M7 回归完成。用户已确认以下
+**106 个已盘点对象**，M8 已逐项删除，当前状态为 `DELETED`，见 §16.15；没有整删旧湖根。
 
 以下路径相对于 `/Volumes/datasource/goldenshare-tushare-lake`；执行清单须展开为绝对路径，不使用通配符。
 目录名复用此前元数据盘点，执行前只机械复核范围；新出现的对象须重新列入清单，不借父目录扩大授权。
@@ -2964,10 +2968,10 @@ _tmp/duckdb_compute
 都不改变本次分类。散落的 `.DS_Store` 与共享父目录不追加到这份清单；获批子目录内部的普通附属文件
 随该目录范围处理，不建立逐 Parquet 内容审计任务。
 
-#### 16.14.3 无当前代码用途：五项可提请删除
+#### 16.14.3 无当前代码用途：五项已获批并删除
 
-以下 **5 个批准单位**列为 `DELETE_READY`，即无需再证明历史价值或内容替代；仍未取得具体删除批准，
-也不跳过 M8 阶段。旧报告 3 个文件，恢复 run 2 个目录（原盘点每个 6 文件），不包含任何共享父目录。
+以下 **5 个批准单位**原列为 `DELETE_READY`，用户现已确认并在 M8 删除，当前状态为 `DELETED`。
+旧报告 3 个文件、恢复 run 2 个目录（每个 6 文件），不包含任何共享父目录；具体结果见 §16.15。
 
 | ID | 精确目标 | 说明 |
 |---|---|---|
@@ -2977,10 +2981,10 @@ _tmp/duckdb_compute
 | D04 | `/Volumes/datasource/data_lake/_quarantine/stk_mins_raw_replace_from_prod/trade_date=2026-07-27/recovery_run_id=f573265f-1162-4535-9089-c486f7b7dac1` | 已完成的旧 run，代码不把其旧版本作为当前输入；Raw 工具重构要求仍按 M4 保留 |
 | D05 | `/Volumes/datasource/data_lake/_quarantine/stk_mins_silver_replace_from_raw/trade_date=2026-07-27/recovery_run_id=70c5f3d5-3857-4fa9-b840-3d632fba9e3f` | 同理；只删此旧 run，不删除或重构 Silver 工具，也不清整个 Silver quarantine 家族 |
 
-D04/D05 的既有 run ID 存在性防覆盖检查不读取旧版本数据，不作为长期保留理由。实际删除前仍检查没有
-正在使用这些精确目录的进程/任务；不能沿用前轮无占用快照直接执行。历史事故文档删除时改注“当时位置，
-已清退”，不再要求先迁移完整 manifest 或再问是否有潜在人工取证价值。三个报告可从 Git 取回；两组
-湖文件不在 Git，删除不承诺可恢复，不新建备份或调用 Kopia。
+D04/D05 的既有 run ID 存在性防覆盖检查不读取旧版本数据，不作为长期保留理由。执行前已重新检查
+这两个精确目录无打开文件或相关进程命中，没有沿用旧快照。历史事故文档已加注“当时位置，已清退”，
+不迁移完整 manifest、不重审人工取证价值。三个报告可从 Git `3b94c48a` 取回；两组湖文件不在 Git，
+删除不承诺可恢复，没有新建备份或调用 Kopia。
 
 #### 16.14.4 必须保留和本轮边界
 
@@ -3000,3 +3004,212 @@ D04/D05 的既有 run ID 存在性防覆盖检查不读取旧版本数据，不�
 临时可复核证据为 `/private/tmp/lake-retirement-code-refs-20260905.hindQZ/code_reference_audit.json`：
 含程序输入指纹、命中位置、54 个 catalog 对应项与 106 个旧湖精确对象。只对源码生成指纹，没有对湖
 数据计算内容哈希。稳定分类和完整目录名称已落本节及 §16.5；临时文件不是唯一执行依据。
+
+<a id="retirement-m8-results"></a>
+
+### 16.15 M8 本批执行结果与绝对路径清单（2026-09-05）
+
+**本批已执行，不是待删建议。** 用户 review §16.14 的 106 个旧湖对象、D01–D05 和保留边界后明确回复
+“确认”。执行基线为 `dev-interface@3b94c48a`，开始时工作区干净。111 个目标现已全部删除，遗漏、
+新增目标、失败均为 0；执行轮未自动提交或推送。用户随后已要求提交，本次按 10 文件白名单归档，
+提交结果以 Git 记录为准；不推送，不再次操作物理数据。
+
+#### 16.15.1 实际结果、规模和恢复能力
+
+| 分组 | 获批对象 | 普通文件 | 逻辑字节 | 结果 |
+|---|---:|---:|---:|---|
+| 旧 Raw | 54 | 80,928 | 81,763,830,406 | 已删除 |
+| 旧 research | 3 | 67,926 | 185,340,846,432 | 已删除 |
+| 旧 derived | 2 | 111,011 | 81,920,226,157 | 已删除 |
+| 旧 manifest | 19 | 149 | 558,251,170 | 已删除 |
+| 旧恢复 | 20 | 7,470 | 88,777,972 | 已删除 |
+| 旧临时结果 | 8 | 30,241 | 160,116,500,626 | 已删除 |
+| D01–D03 报告 | 3 | 3 | 191,949 | 已删除 |
+| D04–D05 旧恢复 run | 2 | 12 | 53,115,430 | 已删除 |
+| 合计 | 111 | 297,740 | 509,841,740,142 | 全部删除 |
+
+约 510 GB 是删除前文件逻辑大小，不是实测磁盘释放量；未把 APFS 共享块、快照或磁盘剩余空间变化当作
+本批效果。108 个非 Git 对象在 23:11:33–23:12:30 +08:00 逐项处理，程序实测约 56.5 秒；
+3 份报告随后精确删除。23:14:19 +08:00 完成首轮删除后对账。
+
+- D01–D03 共 3 份 Git 报告，可从 `3b94c48a` 及更早的对应 Git 历史取回。
+- 其余 108 个非 Git 对象直接删除，不承诺可恢复。没有复制备份、创建快照、调用 Kopia 或移动到其它 Lake 根。
+- 只删本表对象；目录内部普通附属文件随获批目录范围处理，不把共享父目录追加为删除目标。
+
+#### 16.15.2 引用、机械安全与保留边界
+
+1. 使用 CodeGraph `explore` 核对 Lake root、Raw 恢复正式 staging、Silver 同次异常回滚以及 WMT 恢复输入。
+   再扫描 3,007 个当前程序/配置文件，24 个命中均为保护规则或测试；当前运行文件的 4 个旧湖路径命中
+   均是拒绝旧湖的条件，没有发现新增业务读写消费者。D01–D05 的文件名/UUID 无代码命中。
+   不能只用字符串零命中代替动态路径判断：Raw 已改用正式 staging，Silver 只回滚本次新 run；
+   BSE/WMT source bundle、changed manifest 和 checkpoint 仍是现行输入，全部排除。
+2. 只读取本机 Web 配置的 Lake root 口径，确认为 `/Volumes/datasource/data_lake`；不使用旧 Console
+   本机配置来确定 DG 根，不输出凭据，不改任何配置。
+3. 111 项均按绝对路径冻结，目标互不嵌套；realpath、各级无符号链接、同设备、普通文件/目录类型检查
+   全部通过。删除前逐对象重新比对路径/类型/设备/inode/大小/mtime 的元数据摘要；没有读 Parquet/CSV
+   行、日期、schema、恢复 manifest 内容或计算数据内容哈希。
+4. 23:11:32 +08:00 重新核占用，108 个非 Git 对象没有打开文件或相关进程命中；不是沿用早晨的快照。
+   D01–D03 只被 CodeGraph MCP 索引进程 PID 7942 以只读句柄打开，已核进程命令与访问模式，非业务
+   消费者或写入者；报告删除没有停止或杀死该进程，没有停止任何业务服务。
+5. 非 Git 删除进程的 macOS 文件写权限仅放行 108 个精确获批路径、当前临时证据目录及 `/dev/null`，
+   禁止网络及其它文件写入。使用目录句柄和不跟随符号链接的删除实现，不使用共享根或通配符。
+   两次早期预检因额外隔离限制在删除前退出：先补系统空设备权限，再将 macOS 进程枚举放在进入
+   删除隔离前执行；删除进程只接受 30 秒内的无占用证据。两个失败尝试均未开始任何删除。
+6. 18 个保留锚点的类型/设备/inode 均保持；64 个非目标同级对象及 27,240 个 ignored 文件的元数据
+   均不变；3,007 个程序/配置文件内容指纹不变。后者扫描不包含物理数据内容。
+   正式 2026-07-27 五频 Raw/Silver 共 10 文件确认仍在；停牌修正 CSV、身份映射 seed 和本机配置保留。
+   不把这些边界检查说成对整个正式 Lake 的内容完整性审计。
+7. 旧湖根和六个共享家族目录保留；旧湖剩余文件仅为以下 5 个清单外 `.DS_Store`：
+   根目录、`research/`、`derived/`、`_tmp/`、`raw_tushare/` 下各 1 个。它们不在 111 项批准内，
+   不为清空目录而删除。reports、quarantine、正式 raw/silver/gold、staging 和有效恢复资料均不扩删。
+
+#### 16.15.3 执行硬口径与验证
+
+| 硬口径 | 落点/检查 | 结果 |
+|---|---|---|
+| 仅 106 + 5 获批对象，不删根、不扩范围 | 从 §16.5/16.14 展开 111 绝对路径；系统写白名单；删除后逐项不存在 | 111/111 |
+| 有当前消费者的数据保留 | CodeGraph、当前动态路径、配置 root、3,007 文件复扫 | 未发现新增删除阻塞消费者；正式链不改 |
+| 不做内容、日期或完整性审计 | 仅目录项/元数据扫描；DuckDB、源请求、SQL、业务行读取/写入、Dagster event 均为 0 | 符合用户简化口径 |
+| 异常停该项，不继续扩大 | 每对象最多 60 秒/600,000 目录项的预检预算；逐项先核摘要再删；失败立即退出 | 111 预检均通过；实际删除无失败 |
+| 删除程序不能误删相邻对象 | 临时隔离测试覆盖精确子目录删除、相邻保留、共享根/正式 Raw/重复/未批准/变化对象/符号链接/跨设备拒绝 | 9 项通过，普通与写隔离环境各一次 |
+| 旧产品退出且当前能力仍保留 | 系统隔离下运行根清退护栏及编排旧适配器退出/当前模块保留测试；禁网络、正式 Lake 和 Dagster home 访问 | 根 13 项、编排 17 项通过；业务代码无变更，不重跑 M7 全量生产边界验收 |
+| 保留正式数据、环境与共享目录 | 18 锚点、64 同级对象、27,240 ignored 文件对账；正式分钟 10 文件存在 | 通过；未做业务内容验收 |
+| 报告和历史引用不得误导 | 删除 D01–D03；三个历史文档补“当时位置、已清退”；原事故数字和设计正文保留 | 本批文档同步 |
+| 文档、精确结果清单及索引有效 | 165 处置对象、3 控制文档、12 HTML 结构/id、111 行绝对路径结果及文档完整性检查 | 无未归类、死链或遗漏；23 份 KEEP 字节不变，2 份仅追加历史位置注释；CodeGraph sync/status 通过 |
+| 不自动提交、推送或处理其它目录 | 执行轮只保留本批 Git 差异；后续用户已要求按 10 文件白名单提交，ignored/共享目录仍另行确认 | 按明确指令归档；不推送，不扩范围 |
+
+这是一次性离线目录操作，不接热路径。日期/业务分区/枚举扩展、分页、数据源请求、数据库事务、DuckDB
+scan/join/write 和 spill 均为 0；常驻元数据与单个对象相关，没有读取约 510 GB 的文件内容。
+预检前采用 §16.4 已有约 30 万文件规模作预算，本次删除前记录实际数量；不是按每个交易日做业务审计。
+
+临时工具只属于本次 M8 审计/删除及结果 review，不注册为正式 CLI、job、sensor、定时清理或产品依赖。
+原始证据在 `/private/tmp/lake-retirement-m8-20260905.SjIlR9`：`approved-targets.json`、
+`preflight.json`、`code-references.json`、`occupancy-before-physical-delete.json`、
+`occupancy-before-reports-delete.json`、`deletion-events.jsonl`、`final-verification.json`。
+稳定结果和完整目标已落本文；临时文件并非唯一证据。当前任务持有，待本批 review 完成后仅精确清理本目录，
+不接入正式环境，不形成长期运行配置。
+
+本轮 Git 白名单：3 份专项控制文档、`docs/README.md`、3 份已有历史设计文档的状态标注、
+D01–D03 共 3 份 CSV 删除（合计 7 修改 + 3 删除）。两份 Phase 3 HTML 仍属于 KEEP：
+只增加历史位置状态注释，没有修改原业务设计，明确区别于 M7 时 25 份 KEEP 均字节不变的历史验收。
+不新增资产、字段、资源、分区、配置或跨子系统依赖；本轮没有运行正式 DG 命令、业务恢复、
+数据库查询/写入、job/sensor/check、物化、补事件、服务停启或部署。
+
+#### 16.15.4 逐项绝对路径结果
+
+下表每行是一个独立批准单位，状态均在删除后核验。文件数是删除前元数据统计，不是行数；
+“目录”包含其获批范围内的后代，不包含父目录或相邻目录。
+
+| ID | 精确绝对路径 | 类型 | 普通文件数 | 执行结果 |
+|---|---|---|---:|---|
+| L001 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor` | 目录 | 4,215 | DELETED |
+| L002 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/bse_mapping` | 目录 | 1 | DELETED |
+| L003 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/cyq_perf` | 目录 | 2,027 | DELETED |
+| L004 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily` | 目录 | 8,641 | DELETED |
+| L005 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily_basic` | 目录 | 3,971 | DELETED |
+| L006 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/dc_daily` | 目录 | 570 | DELETED |
+| L007 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/dc_hot` | 目录 | 516 | DELETED |
+| L008 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/dc_index` | 目录 | 336 | DELETED |
+| L009 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/dc_member` | 目录 | 336 | DELETED |
+| L010 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/etf_basic` | 目录 | 1 | DELETED |
+| L011 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/etf_index` | 目录 | 1 | DELETED |
+| L012 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/fund_adj` | 目录 | 2,515 | DELETED |
+| L013 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/fund_daily` | 目录 | 2,515 | DELETED |
+| L014 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/hk_basic` | 目录 | 1 | DELETED |
+| L015 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/index_basic` | 目录 | 1 | DELETED |
+| L016 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/index_daily` | 目录 | 1,540 | DELETED |
+| L017 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/index_daily_basic` | 目录 | 1,540 | DELETED |
+| L018 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/index_mins_by_date` | 目录 | 1,615 | DELETED |
+| L019 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/index_monthly` | 目录 | 76 | DELETED |
+| L020 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/index_weekly` | 目录 | 326 | DELETED |
+| L021 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/kpl_concept_cons` | 目录 | 384 | DELETED |
+| L022 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/kpl_list` | 目录 | 328 | DELETED |
+| L023 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/limit_cpt_list` | 目录 | 605 | DELETED |
+| L024 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/limit_list_d` | 目录 | 1,540 | DELETED |
+| L025 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/limit_list_ths` | 目录 | 613 | DELETED |
+| L026 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/limit_step` | 目录 | 605 | DELETED |
+| L027 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/margin` | 目录 | 327 | DELETED |
+| L028 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/moneyflow` | 目录 | 3,971 | DELETED |
+| L029 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/moneyflow_cnt_ths` | 目录 | 400 | DELETED |
+| L030 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/moneyflow_dc` | 目录 | 643 | DELETED |
+| L031 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/moneyflow_ind_dc` | 目录 | 643 | DELETED |
+| L032 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/moneyflow_ind_ths` | 目录 | 400 | DELETED |
+| L033 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/moneyflow_mkt_dc` | 目录 | 744 | DELETED |
+| L034 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/moneyflow_ths` | 目录 | 337 | DELETED |
+| L035 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/namechange` | 目录 | 1 | DELETED |
+| L036 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/st` | 目录 | 1 | DELETED |
+| L037 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stk_factor_pro` | 目录 | 328 | DELETED |
+| L038 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stk_limit` | 目录 | 570 | DELETED |
+| L039 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stk_mins_by_date` | 目录 | 21,725 | DELETED |
+| L040 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stk_nineturn` | 目录 | 812 | DELETED |
+| L041 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stk_period_bar_adj_month` | 目录 | 196 | DELETED |
+| L042 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stk_period_bar_adj_week` | 目录 | 838 | DELETED |
+| L043 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stk_period_bar_month` | 目录 | 196 | DELETED |
+| L044 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stk_period_bar_week` | 目录 | 838 | DELETED |
+| L045 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_basic` | 目录 | 2 | DELETED |
+| L046 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_company` | 目录 | 1 | DELETED |
+| L047 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_st` | 目录 | 2,368 | DELETED |
+| L048 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/suspend_d` | 目录 | 6,381 | DELETED |
+| L049 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/ths_daily` | 目录 | 1,540 | DELETED |
+| L050 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/ths_hot` | 目录 | 328 | DELETED |
+| L051 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/ths_index` | 目录 | 1 | DELETED |
+| L052 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/ths_member` | 目录 | 1 | DELETED |
+| L053 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/top_list` | 目录 | 2,515 | DELETED |
+| L054 | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/trade_cal` | 目录 | 2 | DELETED |
+| L055 | `/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean_next` | 目录 | 21,077 | DELETED |
+| L056 | `/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_symbol_month` | 目录 | 46,817 | DELETED |
+| L057 | `/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_indicators_by_symbol_month` | 目录 | 32 | DELETED |
+| L058 | `/Volumes/datasource/goldenshare-tushare-lake/derived/stk_mins_by_date` | 目录 | 8,431 | DELETED |
+| L059 | `/Volumes/datasource/goldenshare-tushare-lake/derived/stk_mins_indicators_by_date` | 目录 | 102,580 | DELETED |
+| L060 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/board_membership` | 目录 | 1 | DELETED |
+| L061 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/board_universe` | 目录 | 1 | DELETED |
+| L062 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/downstream_rebuild_requirements` | 目录 | 1 | DELETED |
+| L063 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/duckdb_compute` | 目录 | 38 | DELETED |
+| L064 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/etf_reference` | 目录 | 1 | DELETED |
+| L065 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/etf_universe` | 目录 | 1 | DELETED |
+| L066 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/index_universe` | 目录 | 2 | DELETED |
+| L067 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/indicator_recalc_queue` | 目录 | 1 | DELETED |
+| L068 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/indicator_state` | 目录 | 1 | DELETED |
+| L069 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/lake.json` | 文件 | 1 | DELETED |
+| L070 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/lake_jobs` | 目录 | 62 | DELETED |
+| L071 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity` | 目录 | 1 | DELETED |
+| L072 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_reference` | 目录 | 4 | DELETED |
+| L073 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_universe` | 目录 | 2 | DELETED |
+| L074 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/source_partition_events` | 目录 | 1 | DELETED |
+| L075 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality` | 目录 | 3 | DELETED |
+| L076 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/sync_checkpoints` | 目录 | 26 | DELETED |
+| L077 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/sync_runs.jsonl` | 文件 | 1 | DELETED |
+| L078 | `/Volumes/datasource/goldenshare-tushare-lake/manifest/trading_calendar` | 目录 | 1 | DELETED |
+| L079 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T233701Z-stk-mins-raw-recovery` | 目录 | 2 | DELETED |
+| L080 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T233800Z-stk-mins-raw-recovery` | 目录 | 36 | DELETED |
+| L081 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T234031Z-stk-mins-raw-recovery` | 目录 | 8 | DELETED |
+| L082 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T234124Z-stk-mins-raw-recovery` | 目录 | 446 | DELETED |
+| L083 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T234221Z-stk-mins-raw-recovery` | 目录 | 166 | DELETED |
+| L084 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T234322Z-stk-mins-raw-recovery` | 目录 | 488 | DELETED |
+| L085 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T234520Z-stk-mins-raw-recovery` | 目录 | 486 | DELETED |
+| L086 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T234721Z-stk-mins-raw-recovery` | 目录 | 476 | DELETED |
+| L087 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T234926Z-stk-mins-raw-recovery` | 目录 | 490 | DELETED |
+| L088 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T235151Z-stk-mins-raw-recovery` | 目录 | 486 | DELETED |
+| L089 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T235410Z-stk-mins-raw-recovery` | 目录 | 488 | DELETED |
+| L090 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T235714Z-stk-mins-raw-recovery` | 目录 | 488 | DELETED |
+| L091 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260510T235942Z-stk-mins-raw-recovery` | 目录 | 486 | DELETED |
+| L092 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260511T000229Z-stk-mins-raw-recovery` | 目录 | 488 | DELETED |
+| L093 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260511T000648Z-stk-mins-raw-recovery` | 目录 | 486 | DELETED |
+| L094 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260511T000936Z-stk-mins-raw-recovery` | 目录 | 484 | DELETED |
+| L095 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260511T001244Z-stk-mins-raw-recovery` | 目录 | 446 | DELETED |
+| L096 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260511T001558Z-stk-mins-raw-recovery` | 目录 | 484 | DELETED |
+| L097 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260511T001935Z-stk-mins-raw-recovery` | 目录 | 484 | DELETED |
+| L098 | `/Volumes/datasource/goldenshare-tushare-lake/_recovery/20260511T002311Z-stk-mins-raw-recovery` | 目录 | 52 | DELETED |
+| L099 | `/Volumes/datasource/goldenshare-tushare-lake/_tmp/20260503T163545Z-stk-mins-range` | 目录 | 33 | DELETED |
+| L100 | `/Volumes/datasource/goldenshare-tushare-lake/_tmp/20260507T130033Z-stk-mins-range` | 目录 | 2 | DELETED |
+| L101 | `/Volumes/datasource/goldenshare-tushare-lake/_tmp/20260509T202056Z-index-mins-prod-raw-db` | 目录 | 4,343 | DELETED |
+| L102 | `/Volumes/datasource/goldenshare-tushare-lake/_tmp/20260510T015622Z-compute-stk-mins-macd` | 目录 | 399 | DELETED |
+| L103 | `/Volumes/datasource/goldenshare-tushare-lake/_tmp/20260513T021617Z-repair-clean-next-2022-bj-freq30` | 目录 | 115 | DELETED |
+| L104 | `/Volumes/datasource/goldenshare-tushare-lake/_tmp/20260514T002433Z-research-stk-mins` | 目录 | 32 | DELETED |
+| L105 | `/Volumes/datasource/goldenshare-tushare-lake/_tmp/20260514T002501Z-research-stk-mins` | 目录 | 32 | DELETED |
+| L106 | `/Volumes/datasource/goldenshare-tushare-lake/_tmp/duckdb_compute` | 目录 | 25,285 | DELETED |
+| D01 | `/Users/congming/github/goldenshare/lake_console/reports/index_daily_continuous_since_list_date_after_20000101.csv` | 文件 | 1 | DELETED |
+| D02 | `/Users/congming/github/goldenshare/lake_console/reports/namechange_unresolved_candidates_active_only_v2_rules_20260530.csv` | 文件 | 1 | DELETED |
+| D03 | `/Users/congming/github/goldenshare/lake_console/reports/stock_daily_missing_ranges.csv` | 文件 | 1 | DELETED |
+| D04 | `/Volumes/datasource/data_lake/_quarantine/stk_mins_raw_replace_from_prod/trade_date=2026-07-27/recovery_run_id=f573265f-1162-4535-9089-c486f7b7dac1` | 目录 | 6 | DELETED |
+| D05 | `/Volumes/datasource/data_lake/_quarantine/stk_mins_silver_replace_from_raw/trade_date=2026-07-27/recovery_run_id=70c5f3d5-3857-4fa9-b840-3d632fba9e3f` | 目录 | 6 | DELETED |

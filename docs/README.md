@@ -2,6 +2,7 @@
 
 > 2026-09-05 M5：旧 Console 的 86 份方案及 3 份模板已退出工作树；必要历史结果合入 [初始化与修复总账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-bootstrap-legacy-links.md)。
 > 新湖接入使用 [正式 Dagster 模板](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html) 与 [性能治理](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-data-pipeline-performance-governance.md)。旧 Console 代码已在 M6 同轮清退；M6 没有删除物理数据。
+> 2026-09-05 M8：用户确认的 106 个旧湖对象及 D01–D05 已精确删除；[执行结果与逐项绝对路径清单](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md#retirement-m8-results)见 LLD §16.15。正式数据、共享目录、ignored 环境与配置保留。
 
 ## 1. 快速必读（S0）
 
@@ -52,8 +53,8 @@ docs/
 
 - [设计原则（历史参考；当前边界以基线为准）](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
 - [CodeGraph 架构快照（当前代码事实，2026-08-22）](/Users/congming/github/goldenshare/docs/architecture/codegraph-architecture-snapshot.md)
-- [旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2（2026-09-05 口径更新 / M1–M6 已实施 / 物理删除逐项确认）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
-- [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（165 份文档矩阵 / M1–M6 已实施 / M7 待验收）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
+- [旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2（M1–M7 已提交 / M8 本批 111 项已删除，执行记录随本次提交归档）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
+- [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（165 份文档矩阵 / M8 执行结果及精确清单位于 §16.15）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
 - [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [DatasetDefinition 单一事实源重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
