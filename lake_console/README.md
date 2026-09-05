@@ -16,7 +16,7 @@
 正式 Lake 根是 `/Volumes/datasource/data_lake`，仅有 raw、silver、gold 三层；
 候选文件和运行 staging 位于 `/Volumes/datasource/data_lake_staging`。
 事实以 [paths.py](orchestrator/src/orchestrator/defs/paths.py) 和当前 catalog 为准。
-ignored 的 `config.local.toml` 属于旧产品遗留配置，不能决定正式根。
+旧 `config.local.toml` 不决定正式根；该本机遗留配置已在 2026-09-06 的独立批准清理中移入废纸篓，不再作为可用配置入口。
 
 ## 开发与维护入口
 
@@ -36,6 +36,6 @@ ignored 的 `config.local.toml` 属于旧产品遗留配置，不能决定正式
 生产 Ops 的 `ops.dataset_status_snapshot` 与 Kopia 备份不是一回事，不属于清退对象。
 本轮不修改资产字段、路径、21 CLI 的行为，不操作数据库或正式 Dagster。
 
-本机 ignored 环境、依赖、构建产物和配置仍保留；物理旧湖及恢复遗留数据不随代码目录删除。
+本机旧 `.venv`、旧前端 `node_modules`/`dist`/`tsconfig.tsbuildinfo` 和旧配置共五项，已在独立用途审计、用户确认后移入废纸篓；结果及恢复映射见清退 LLD §16.16。正式环境与其他本机配置保留；物理旧湖及恢复遗留数据不随代码目录删除。
 后续物理清理必须按当前代码用途结论给出精确清单，并由管理员确认。
 现行停牌修正规则 CSV 仍由代码读取，必须保留；取消这项隐性文件依赖的 TODO 见清退审计清单。

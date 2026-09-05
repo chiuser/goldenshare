@@ -1,6 +1,8 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已提交 `68f97744` / M5 已提交 `3ed4c6ca` / M6 已提交 `63be03af` / M7 已提交 `3b94c48a` / M8 获批 111 项已精确删除，用户已要求按 10 文件白名单提交执行记录（§16.15） / 文档处置矩阵 165 份，专项控制文档另列 3 份 / ignored 环境与清单外对象未处理
+状态：M1–M7 已提交（各阶段见 §11） / M8 获批 111 项删除记录已提交 `db4c3137`（§16.15） / 2026-09-06 独立获批的 5 项旧 Console 本机残留已移入废纸篓，记录随本次提交归档（§16.16） / 文档处置矩阵 165 份，控制文档另列 3 份 / 清单外对象保留
+
+最新边界：本文此前各阶段的“ignored 环境/配置未处理”是当时的执行事实；2026-09-06 用户用途审计后单独确认的五项按 §16.16 清理。不是所有 ignored 文件获准删除，也不回写 M8 的 111 项数量或永久删除方式。
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -3213,3 +3215,46 @@ D01–D03 共 3 份 CSV 删除（合计 7 修改 + 3 删除）。两份 Phase 3 
 | D03 | `/Users/congming/github/goldenshare/lake_console/reports/stock_daily_missing_ranges.csv` | 文件 | 1 | DELETED |
 | D04 | `/Volumes/datasource/data_lake/_quarantine/stk_mins_raw_replace_from_prod/trade_date=2026-07-27/recovery_run_id=f573265f-1162-4535-9089-c486f7b7dac1` | 目录 | 6 | DELETED |
 | D05 | `/Volumes/datasource/data_lake/_quarantine/stk_mins_silver_replace_from_raw/trade_date=2026-07-27/recovery_run_id=70c5f3d5-3857-4fa9-b840-3d632fba9e3f` | 目录 | 6 | DELETED |
+
+<a id="retirement-local-env-results"></a>
+
+### 16.16 2026-09-06 独立本机残留清理：五项已移入废纸篓
+
+**批准和结果。** 用户先要求只读核实用途，审计覆盖 2026-09-05 23:58 至 2026-09-06 00:04（+08:00），随后明确回复“确认，删除吧”。仅批准下表五项，不包括父目录、正式环境或其他本机配置。执行基线为干净的 `dev-interface@db4c3137`。
+
+06:41:01 +08:00 重新确认精确路径、类型、数量和当前占用；06:41:02 五项全部完成同文件系统移动。状态为 `TRASHED_VERIFIED`：原路径已不存在，废纸篓内的逐项元数据摘要与移动前一致。没有永久擦除、复制备份、Kopia 调用或废纸篓清空；不把这种可恢复移除写成已经释放磁盘空间。
+
+#### 16.16.1 用途依据
+
+1. CodeGraph `status/explore` 已用于正式资源、Lake root 和 Web 入口影响面核对；它不索引 ignored 环境，也存在同名符号噪音，未据其零命中直接认定可删。直接读取现行两个 ClickHouse 脚本、resources、pyproject、Web 静态目录设置、启动脚本和清退测试，确认没有现行入口依赖旧环境或配置。
+2. 用途审计扫描 2,995 个受版本管理的程序/配置文件，旧对象引用命中仅为负向保护测试；同时核对 Shell 配置、自启动文件、用户定时任务、本机入口、三个 Python 环境的解释器/安装路径及现行前端目录。`.bash_profile` 中的旧配置来源说明只是注释；连接参数已独立配置，不运行时读取旧 TOML。旧配置只读取键名，不将其内容写入清退记录。
+3. 当时运行中的 Dagster 解释器和模块来自 `lake_console/orchestrator/.venv`；现行运营前端和 Wealth 分别使用仓库根 `frontend/node_modules`、`wealth/node_modules`。Web 的静态目录来自这两个项目，不是旧 Console 的 `dist`。
+4. `lake-clickhouse-start` 使用独立的本机 ClickHouse 二进制和 XML 配置；`lake-prod-clickhouse-tunnel` 调用 SSH。正式 ClickHouse resource 使用环境变量。两项工具、正式环境和连接配置全部保留。
+5. 用途审计及执行前刷新均未发现五项的进程命令引用或打开文件。执行前不是沿用数小时前的无占用结果；未停止或重启服务，也未导入正式 Dagster 项目试跑。
+
+#### 16.16.2 精确原路径与恢复映射
+
+废纸篓容器：`/Users/congming/.Trash/goldenshare-lake-console-retired-20260906-pi4ur41g`，权限 `0700`。表中去向是该容器内的名称，没有覆盖已有废纸篓对象。
+
+| ID | 精确原路径 | 用途 | 普通文件数 | 逻辑字节 | 废纸篓内名称 | 结果 |
+|---|---|---|---:|---:|---|---|
+| E01 | `/Users/congming/github/goldenshare/lake_console/.venv` | 已退出旧后台的 Python 依赖环境 | 8,997 | 351,716,585 | `old-console-python-env` | `TRASHED_VERIFIED` |
+| E02 | `/Users/congming/github/goldenshare/lake_console/frontend/node_modules` | 已退出旧前端的依赖 | 2,442 | 76,673,845 | `old-console-node-modules` | `TRASHED_VERIFIED` |
+| E03 | `/Users/congming/github/goldenshare/lake_console/frontend/dist` | 已退出旧页面的构建产物 | 4 | 2,060,230 | `old-console-dist` | `TRASHED_VERIFIED` |
+| E04 | `/Users/congming/github/goldenshare/lake_console/frontend/tsconfig.tsbuildinfo` | 旧 TypeScript 编译缓存 | 1 | 1,446 | `tsconfig.tsbuildinfo` | `TRASHED_VERIFIED` |
+| E05 | `/Users/congming/github/goldenshare/lake_console/config.local.toml` | 无现行加载入口的旧配置 | 1 | 542 | `config.local.toml` | `TRASHED_VERIFIED` |
+
+合计 **11,445 个普通文件、430,452,648 逻辑字节、16 个符号链接**。旧 Python 的 3 个链接指向共享 Miniconda，前端依赖的 13 个链接位于旧 node_modules 内；只移动链接本身，不沿链接处理目标。共享 Miniconda 和现行环境没有移动或删除。
+
+#### 16.16.3 安全与验收
+
+- 五项均为 ignored，未被 Git 跟踪；路径唯一、不包含共享根或通配符。移动前验证路径各级无符号链接、同设备、每项数量与用途审计一致；元数据扫描不打开业务文件内容。
+- 单次逐项同文件系统 rename，拒绝已有目标，不递归删除父目录；每项记录开始/结果并核对原路径不存在、目标对象元数据一致。占用证据超过 30 秒则停止。五项不是一个整体原子事务；若中途异常，停止并按逐项结果人工处理，不扩大范围。
+- 6 项临时机械测试通过：精确移动且保留相邻对象、拒绝未批准父目录、拒绝已有目标、拒绝已变化源、保留外部符号链接目标、拒绝符号链接源。测试仅使用当前临时目录内的样本。
+- 删除前后 2,968 个程序/配置文件指纹一致，工作区没有 Git 差异；该集合按固定代码扩展名统计，与上一项含 JSON 的 2,995 文件用途扫描范围不同。随后仅修改本轮文档记录。
+- 16 个保护锚点复核通过：根及 orchestrator 环境、现行前端环境/产物、ClickHouse 工具和配置、共享 Python、Shell/Web 配置、reports、旧 frontend 父目录、停牌 CSV。目录核身份，普通文件核身份/大小/修改时间；未将其冒充正式 Lake 的全内容审计。
+- 清退护栏 13 项回归通过；文档更新后，165 文档矩阵、3 控制文档、12 HTML 和 M8 原 111 行清单对账通过，文档完整性及差异检查通过。无源码、架构依赖矩阵、资源、CLI、字段或数据契约变更；未运行 Dagster、数据库、网络请求、业务恢复或服务停启。
+
+**恢复与剩余边界。** 废纸篓未清空前，可按表中映射将对象取回精确原位置；原路径如已被新对象占用，不得覆盖。恢复旧依赖不等于允许恢复旧 Console 产品。原配置权限保留，清空废纸篓后不能依靠 Git 恢复这些 ignored 对象。本轮未授权或执行凭据轮换；旧湖共享根、`.DS_Store`、其他 ignored 文件和空父目录均未扩大清理。
+
+原始非敏感执行证据：`/private/tmp/lake-console-env-retire-20260906.NmMCMs/execution-result.json`。临时核验/机械测试工具由当前任务持有，不注册正式 CLI 或定时清理；本批 review 完成后可另行精确清理该临时目录，不依赖其永久保留。稳定清单与恢复映射以本节为准。执行当轮未提交、未推送；用户随后要求提交，本次仅归档五份文档，提交结果以 Git 记录为准，不推送或追加物理操作。
