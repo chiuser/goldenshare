@@ -1,6 +1,6 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M8 的首次交付已于 2026-09-02 完成并关闭；当次历史 result/state 覆盖 `2014-01-02～2026-09-01`，物理审计、runless event、Sensor 启用和本地 Wealth 验收结论作为历史记录保留。M9 自动提交协议、首日边界修正、历史 repair 和 9 月 3 日日更恢复已于 2026-09-04 关闭。2026-09-05 审计确认 9 月 2 日 result/state 当前物理文件及覆盖规则正确、9 月 3 日和 4 日日更正常，但 9 月 2 日仍缺两个 materialization 和三个成功 ordinary check event；M10/R10.1 专属离线模块与测试、R10.2 本地完整门禁及 R10.3 正式只读计划均已完成，当前停在第一次正式事件写入批准前。远程环境继续按合同不挂载本地 Lake 能力
+状态：M0～M8 的首次交付已于 2026-09-02 完成并关闭；当次历史 result/state 覆盖 `2014-01-02～2026-09-01`，物理审计、runless event、Sensor 启用和本地 Wealth 验收结论作为历史记录保留。M9 自动提交协议、首日边界修正、历史 repair 和 9 月 3 日日更恢复已于 2026-09-04 关闭。2026-09-05 审计确认 9 月 2 日 result/state 当前物理文件及覆盖规则正确、9 月 3 日和 4 日日更正常。M10/R10.1～R10.3 已完成；R10.4 已补记两个 materialization，R10.5 独立只读审计通过，当前只剩三个 successful ordinary check event，停在第二次正式事件写入批准前。远程环境继续按合同不挂载本地 Lake 能力
 
 首次交付日期：2026-09-02；本次控制面核对方案更新：2026-09-05
 
@@ -1316,7 +1316,7 @@ M9.5 随后提交为 `ba464143`。管理员确认本地已加载，并批准先�
 
 ### M10：2026-09-02 单日控制面事件核对
 
-状态：方案已确认；LLD R10.1 专属业务模块、薄 CLI 与专属隔离测试、R10.2 完整本地门禁及 R10.3 正式只读计划均已完成。materialization/check 两阶段事件写入均未执行，当前停在第一次批准前。
+状态：方案已确认；LLD R10.1～R10.3 已完成。R10.4 已按第一次批准补记两个 materialization，R10.5 独立只读审计通过；当前停在 R10.6 第二次批准前，三个 successful ordinary check 尚未写入。
 
 #### M10.1 问题边界
 
@@ -1399,6 +1399,19 @@ active_run_count = 0
 目标动态分区已注册；result/state 当前分别为 `5547/5554` 行，三个正式 audit 的失败行均为 0。incident run 仍为预期的失败日更 run，当前文件生产者仍为预期的成功 repair run。目标日期没有 materialization，只有原失败 run 留下的三条 `PLANNED` check，且均没有 target storage id；因此冻结缺口准确为两个 materialization 和三个 successful ordinary check，最大五条。9 月 3 日、4 日的十条邻接 materialization/check storage id 已冻结进计划。
 
 本次命令总耗时约 `29.35 s`，未触发代码的 `30 s` fail-closed 硬门禁，但高于 `<5 s` 工程目标，作为后续 APPLY 重校验的性能风险保留。R10.3 没有追加事件、创建 run、注册分区或修改任何 Parquet；R10.4 仍须管理员独立批准后才能写入最多两条 materialization。
+
+#### M10.8 R10.4～R10.5 Materialization 写入与独立审计
+
+管理员第一次批准后，R10.4 使用 R10.3 的精确 `plan_id/plan_hash` 完成两条 runless materialization 追加，写入顺序和 storage id 为：
+
+```text
+gold_stock_daily_trend_channel_state | 2026-09-02 -> 7322603
+gold_stock_daily_trend_channel       | 2026-09-02 -> 7322604
+```
+
+[R10.4 写入报告](/private/tmp/stock_daily_trend_channel_event_reconciliation_materializations_20260902.json) 显示写前 0、写后 2、跳过 0、状态 `applied`，内部耗时 `28760.529 ms`，没有超过两条事件上限。随后 [R10.5 独立只读审计报告](/private/tmp/stock_daily_trend_channel_event_reconciliation_materialization_audit_20260902.json) 以同一计划重新核验正式文件、run provenance、活动 run、邻接 guard 与最新 materialization，状态为 `passed`，两个 storage id 与写入报告一致，耗时 `24979.488 ms`。
+
+两个阶段均未修改 Parquet、动态分区、原失败 run、历史 `PLANNED` check 或 9 月 3/4 邻接事件。当前停止点为 R10.6 第二次独立批准前；不得用第一次批准写入三个 ordinary check。
 
 ---
 
