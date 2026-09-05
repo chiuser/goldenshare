@@ -932,3 +932,29 @@ LLD §16.1/16.8/16.14；不改变 M4 写湖安全、CLI 回归、具体删除确
 - [x] 本轮未改 CLI、运行代码或业务测试；未做生产/DG 访问、物理数据删除、ignored 环境清理或部署。并行板块分析代码/测试及两份 Wealth 文档已独立提交 `58d316c0`，不属于本专项，未触碰。
 - [x] 用户要求提交 M5；在 `dev-interface` 按 135 文件白名单归档（46 修改、89 删除），不推送；提交前复跑文档和删除/保护清单校验。
 - [ ] M6 旧 frontend/backend、专属测试/入口与最终规则时态待下一阶段单独授权，不自动推进。
+
+## 28. 2026-09-05 M6 旧产品原子清退实施对账
+
+本节记录用户授权“继续推进 M6”后的实施，基线 dev-interface@3ed4c6ca；不是原 M0 的只读审计成果。
+
+- [x] CodeGraph 加实际 import/AST/动态导入、脚本/配置/前端引用反查完成；旧产品没有外部当前消费者。
+- [x] 精确同轮删除 263 个 Git 文件：旧 backend 181、frontend 65、根专属测试 14，加旧 CLI/联合启动/示例配置各 1；不递归删目录，不留兼容入口，源码可从 Git 恢复。
+- [x] static gate 去掉旧 backend 扫描和两个旧 writer 路径断言，保留正式 CLI 与 derived 门禁。
+  新增根架构清退护栏 13 项，含导入反例、当前模块允许项及 runtime/config 的旧引用禁止项；
+  删除前准确检出 263 文件，删除后通过。
+- [x] 2,140 个保护文件内容与基线一致；Foundation 全部 12 文件/6 Reader、当前 API、Ops snapshot、
+  正式 orchestrator、21 CLI fixture、frontend/Wealth 源码、reports 和 ClickHouse 工具未变。
+- [x] 旧 Console 软件环境范围内 11,692 个 ignored 文件元数据一致；本机旧配置保留。
+  没有检查业务日期/完整性或清空数据；停牌 CSV 及其隐性依赖 TODO 保留。
+- [x] 规则/skills/README/当前架构与混合旧段落同步清退时态；165 矩阵不增删对象，25 KEEP 文件内容不变，
+  文档完整性、两份 HTML 结构/id、无新增死链和 diff 检查通过。CODING_STANDARDS 已在 M4 校准，本轮只复核。
+- [x] 当前后端 140 项及清退护栏最终 13 项通过；编排/CLI/Raw 恢复/ClickHouse/catalog 304 项与 268 子例通过；
+  Wealth 60 项、运营后台 37 项、两个前端 typecheck/build、frontend 规则检查通过。
+- [x] 两份 Python Ruff check、编排 compileall、ClickHouse bin 的 bash -n 通过；
+  旧 static gate 在 HEAD 已有两处 formatter 折行差异，不夹带格式化；两前端保留大 chunk 提醒。
+- [x] CodeGraph 根 sync/status 最新（2,949 files / 53,540 nodes / 129,954 edges）；
+  无新跨子系统依赖，详细逐文件落点和命令见 LLD §11 M6。
+- [x] 未执行 Kopia、正式 DG/数据库/源请求、服务停启或部署；构建输出在临时目录。
+  页面测试使用 mock，不能作为线上 smoke 或停服证据。
+- [x] 用户已要求提交 M6 并进入 M7；本次按 292 文件白名单归档（263 删除、28 修改、1 新增），不推送。M7 全量验收单独记录。
+  正式 definitions 检查另行授权；M8 数据清理必须确认具体清单。本轮无新增设计拍板项。

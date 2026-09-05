@@ -4,7 +4,7 @@
 
 ## 1. 当前边界
 
-旧湖迁移适配器已在清退专项 M3/M4 删除（M4 提交 `68f97744`）；旧 Console frontend/backend 尚待 M6 同轮删除。
+旧湖迁移适配器已在清退专项 M3/M4 删除（M4 提交 `68f97744`）；旧 Console frontend/backend 已在 M6 同轮删除，历史入口不可执行。
 本账只解释正式 Lake 历史数据如何形成，不提供旧湖路径、旧命令、Kopia 或可复用的旧 spec/executor。
 历史 Dagster 事件中的旧来源字符串只读保留，不作为当前摄取能力或依赖。
 

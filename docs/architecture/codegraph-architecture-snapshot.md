@@ -1,7 +1,7 @@
 # CodeGraph 架构快照
 
 生成日期：2026-08-22
-局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分、M2B 入口安全门禁、M3 旧 migration 主体退出及 M4 旧适配器退出/Raw 恢复重构；未重审其它模块，下面索引规模仍是原生成日记录。
+局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分、M2B 入口安全门禁、M3 旧 migration 主体退出、M4 旧适配器退出/Raw 恢复重构及 M6 旧产品原子清退；未重审其它模块，下面索引规模仍是原生成日记录。
 索引根：`/Users/congming/github/goldenshare`
 索引结果：2,508 files，44,388 nodes，101,669 edges，DB 110.44 MB
 
@@ -29,13 +29,14 @@
 
 后端对应入口在 `src/biz/api/wealth/market/**`，统一挂到 `/api/v1/wealth/market/**`。
 
-### 本地 Lake 管理台与新湖：`lake_console/`
+### 正式 Dagster 数据湖：`lake_console/`
 
-`lake_console` 是本地独立工程，不是生产 Ops 子系统，也不是生产 Web app 的一部分。`backend` 是冻结的旧 Local Lake Console，`orchestrator` 是当前正式 Dagster 新湖主线；两者不能合并为一套 Lake 事实或写入规则。
+`lake_console/orchestrator` 是当前正式 Dagster 工程，不是生产 Ops 子系统或 Web app。
+旧 frontend/backend、Kopia、专属测试及旧入口已在 2026-09-05 M6 同轮清退，不再列作当前架构节点。
 
-1. `lake_console/backend/**`：冻结的旧本地 Lake 管理台后端。入口是 `lake_console/backend/app/main.py:create_app`，API 包括 `/api/lake/status`、datasets、partitions、recovery、sync center 等；其中 Kopia、旧 Lake Root、`raw_tushare`、`derived`、`research`、`manifest` 只作为旧实现证据，不得作为新主链依据。
-2. `lake_console/frontend/**`：本地 Lake 管理台前端。入口是 `lake_console/frontend/src/main.tsx`，共享 API adapter 是 `lake_console/frontend/src/services/lakeApi.ts`。
-3. `lake_console/orchestrator/**`：当前正式新湖 Dagster 编排工程。入口是 `lake_console/orchestrator/src/orchestrator/definitions.py:defs`，通过 Dagster `load_from_defs_folder` 加载 `defs/**` 下的 assets、checks、jobs、sensors、run contracts；正式路径以 `orchestrator/defs/paths.py` 为准，不使用 Kopia。
+1. `orchestrator/definitions.py:defs` 通过 load_from_defs_folder 加载 assets、checks、jobs、sensors、run contracts。
+2. `orchestrator/defs/paths.py` 决定正式 Lake 三层与独立 staging 根，不使用旧 config.local.toml 或 Kopia。
+3. reports 和两项 ClickHouse bin 工具保留；本机 ignored 环境不作为可用的旧产品入口。
 
 ## 关键调用链
 
@@ -114,21 +115,18 @@ MarketOverviewPage / TopMarketBar
 
 `wealthFetch` 是 Wealth 前端真实 API 模块的共享 adapter。CodeGraph 显示它被 market overview 的 breadth、context、indices、leaderboards、limit-up、money-flow、news、sectors、style、summary、turnover，以及 index detail 的 page-init、kline、weights、SSE-only trend 客户端调用。
 
-### Legacy Lake Console Sync Center 链（冻结旧 backend）
-
-以下链路只记录旧 `lake_console/backend` 的现存代码事实，不是当前 Dagster Lake 主线，也不是新开发、迁移、历史补录、bootstrap、修复或写湖依据。
+### Lake → 当前业务 API 链（M6 保留）
 
 ```text
-lake_console/frontend/src/services/lakeApi.ts
-  -> /api/lake/sync/**
-  -> lake_console/backend/app/api/sync_center.py
-  -> LakeJobStateStore / LakeJobLockService
-  -> KopiaPrewriteBackupService
-  -> SyncProfileRunner.run
-  -> dataset-specific lake sync services
+正式 Dagster Lake 文件
+  -> src.foundation.clients.local_lake 的 6 类 Reader / 12 个文件
+  -> Biz 查询服务与 API
+  -> Wealth 股票／指数详情页面
 ```
 
-旧 backend 的 `start_run` 曾要求 `confirmed_backup_required` 与 `confirmed_no_sql`，并在写入前创建 Kopia prewrite backup；这些是冻结旧实现事实，禁止据此新增或恢复 Kopia 主链。`stk_mins` 特殊 profile 也只作为旧 backend 历史证据保留。
+保留 StockMins、MajorIndexMins、StockNineTurn、IndexNineTurn、MajorIndexTurnover、
+StockDailyTrendChannel 六类 Reader；对应分钟行情、分钟九转、成交额洞察、日线趋势通道。
+它们不经过旧 Console API。生产 Ops 的 dataset_status_snapshot 是独立观测链，也继续保留。
 
 ### Dagster 新湖编排链
 
@@ -160,7 +158,7 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 不扫描 Lake、不写数据或事件。CLI 不再直接依赖旧 migration；canonical QFQ 六阶段
 入口仍是独立的 `stk_mins_qfq_canonical_history_cli.py`，不合并进上述 21 命令。
 原混合 CLI 已在 246 组同输入双跑通过后删除，不提供兼容入口；旧 migration 主体在 M3 确认现行消费者清零后删除。
-旧 Console 仍待后续阶段，不能据此删除本快照中的旧 Console 节点。
+旧 Console 已在 M6 清退；以上正式 CLI 和当前业务模块全部保留。
 
 M2B 已分离 Silver CLI 的 Raw 输入 / Silver 输入 selector，去掉批准的旧 option；baseline CLI 先校验单日范围，再调用原 report。report 入口复核同一范围，且在一次 planner 返回后、文件审计与 event writer 前检查实际分区是请求当天。文件计算、check/event payload、其它 CLI 和多日只读 planner 不变；未引入新服务或跨域依赖。
 
@@ -182,7 +180,7 @@ stk_mins_raw_replace_from_prod_cli.py plan/apply（人工维护窗口）
 
 M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式 path/partition、当前日常计算和上述
 21 CLI 命令契约不变。旧 enum/exports/七项 SQL 退出；历史 event 不改写。M4 实现与隔离回归记录随本次提交归档，
-不是正式恢复或部署验收，旧 Console 和物理数据仍按后续批准阶段处理。
+不是正式恢复或部署验收；旧 Console 随 M6 退出，物理数据仍须按精确清单单独确认。
 
 ## 关键 Contract 与 Adapter
 
@@ -195,9 +193,8 @@ M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式
 7. `TaskRunDispatcher`：位于 `src/ops/runtime/task_run_dispatcher.py`。负责 TaskRun 到执行链的运行时分派、节点、issue、plan snapshot 和 summary。
 8. `ManualActionQueryService`：位于 `src/ops/queries/manual_action_query_service.py`。把 DatasetDefinition 与 workflow definition 投影为运营前端可提交的 manual actions。
 9. `wealthFetch`：位于 `wealth/src/shared/api/wealthApiClient.ts`。Wealth 前端共享鉴权 API adapter。
-10. `lakeApi.ts`：位于 `lake_console/frontend/src/services/lakeApi.ts`。Lake Console 前端共享 API adapter。
-11. `SyncProfileRunner`：位于 `lake_console/backend/app/services/sync_profile_runner.py`。本地 Lake Sync Profile 执行 adapter。
-12. `orchestrator.definitions.defs`：位于 `lake_console/orchestrator/src/orchestrator/definitions.py`。Dagster defs-folder 装配入口。
+10. `local_lake` Readers：位于 `src/foundation/clients/local_lake/**`，读取正式文件，不依赖旧 Console。
+11. `orchestrator.definitions.defs`：位于 `lake_console/orchestrator/src/orchestrator/definitions.py`。Dagster defs-folder 装配入口。
 
 ## 风险点
 
@@ -205,8 +202,8 @@ M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式
 2. `TaskRunDispatcher` 是执行观测主链。CodeGraph impact 显示它直接影响 `src/ops/runtime/worker.py` 与 `tests/web/test_ops_runtime.py`。修改 dispatcher 时必须同时确认 worker、TaskRunNode、TaskRunIssue、progress、serving light refresh 和异常状态。
 3. `frontend` 手动任务页消费的是后端投影后的 `time_form` 和 filters。若后端自行变更字段或选择规则，前端控件会直接受影响。
 4. `wealth` 和 `frontend` 是两个独立前端，不共享 Shell 与路由。不能把运营后台组件或视觉规范默认套到 Wealth。
-5. `lake_console/backend` 是本地旧工程，现存 Kopia 代码只能作为冻结实现证据；不得把 Kopia 复用、下沉或重新启用到 Dagster orchestrator、Direct Lake Bootstrap 或新主链。新 Lake 的正式路径和写入安全规则以根 `AGENTS.md` 与 `orchestrator/defs/paths.py` 为准。
-6. `lake_console/orchestrator` 与 `lake_console/backend` 都涉及新湖/旧湖、文件事件、Dagster materialization 和 ClickHouse serving。修改时要先确认目标属于管理台、编排工程还是生产后端。
+5. 旧 Console/Kopia 已清退，禁止恢复或下沉到正式主链；新 Lake 路径和写入规则仍以根 AGENTS 与 paths.py 为准。
+6. 正式 orchestrator、ClickHouse 和生产 Foundation/Biz 的文件消费者继续保留；不能用旧产品零引用结论删除这些在用模块。
 7. `.codegraph/` 是本地索引产物，已加入根 `.gitignore`，不得提交索引数据库。
 
 ## 后续开发入口文件
@@ -237,15 +234,13 @@ M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式
 4. 股票详情：`wealth/src/features/stock-detail/**`、`wealth/src/pages/stock-detail/**`
 5. 详情共享图表：`wealth/src/shared/charts/detail-workspace/**`，当前消费者为 `StockChartWorkspace`
 
-### 本地 Lake 管理台与新湖
+### 正式数据湖
 
-1. Lake 后端入口：`lake_console/backend/app/main.py`
-2. Sync Center API：`lake_console/backend/app/api/sync_center.py`
-3. Sync Profile Runner：`lake_console/backend/app/services/sync_profile_runner.py`
-4. Lake 前端入口：`lake_console/frontend/src/main.tsx`
-5. Lake 前端 API：`lake_console/frontend/src/services/lakeApi.ts`
-6. Dagster 入口：`lake_console/orchestrator/src/orchestrator/definitions.py`
-7. Dagster defs：`lake_console/orchestrator/src/orchestrator/defs/**`
+1. Dagster 入口：`lake_console/orchestrator/src/orchestrator/definitions.py`
+2. Dagster defs：`lake_console/orchestrator/src/orchestrator/defs/**`
+3. 人工维护：上述四项分钟历史 CLI 与独立 Raw 恢复 CLI
+4. ClickHouse：`lake_console/bin/lake-clickhouse-start`、`lake_console/bin/lake-prod-clickhouse-tunnel`
+5. 当前业务消费者：`src/foundation/clients/local_lake/**` 与 `src/biz/api/wealth/market/**`
 
 ## 本次 CodeGraph 调用记录
 
@@ -265,9 +260,11 @@ M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式
 12. 清退 M3：`codegraph_explore/impact/callers` 覆盖旧 plan、Raw event report 与 Raw audit；全仓 tracked Python AST 和文本引用补扫，正向导入仅旧测试。复核 package exports、当前 CLI、assets/checks/readiness、identity-map、API/前端和构建入口后，删除旧模块与旧测试；不删除现行 Raw check 或泛化到其它适配器。
 13. 清退 M4：`codegraph_explore/impact/callers` 覆盖单日 Raw recovery/CLI、旧 spec/executor/events、资产/catalog/tests 与 API/前端消费者；核实指数 Gold 私有 `_DatasetSpec.source_path` 和旧后台通用 callback 是同名误命中，不属于旧适配器调用。结合真实 import、AST 和基线差异删除 13 个旧模块、4 份专属测试；根 `codegraph sync/status` 显示最新（3,182 files / 57,813 nodes / 141,807 edges，点时值），未新建索引。未改变跨子系统依赖方向，正式运行维护窗口需另确认。
 
+14. 清退 M6：codegraph_explore/impact/callers 覆盖旧 Kopia → API/CLI/UI/测试及当前 6 类 Reader 的 Biz/API 消费者。用全仓 2,410 份保留 Python 的 AST 导入、动态导入和 tracked 配置/脚本/TS 引用补扫弥补索引空结果；旧产品删除清单固定为 263 文件。正式运行源码、21 CLI fixture、Foundation/Biz/Ops、现行前端、reports、两项 ClickHouse 工具共 2,140 文件逐内容对照不变。调用图只作静态证据，不代表正式环境已部署或停服。根 sync/status 完成：2,949 files / 53,540 nodes / 129,954 edges，索引最新（M6 点时值）。
+
 ## 仍需人工确认
 
-1. “旧湖 + 新湖”的边界名称是否需要在后续文档中进一步统一：当前快照按代码目录区分 `lake_console/backend`、`lake_console/frontend`、`lake_console/orchestrator`。
+1. 旧 Console 代码已清退；物理旧湖和 ignored 环境仍须按精确用途清单由管理员确认清理，不能凭当前快照自行删除。
 2. `lake_console` 允许访问生产库只读导出的白名单边界，需要在具体改动前结合对应 Lake 文档和当前配置逐项确认。
 3. `wealth` 与生产后端 API 的版本化策略是否要单独出 contract 文档；当前快照只记录代码事实，不新增策略。
 4. `DatasetDefinition` 修改的测试门禁是否要沉淀为固定命令清单；当前已有架构护栏，但不同数据集仍需按计划口径补真实验证。

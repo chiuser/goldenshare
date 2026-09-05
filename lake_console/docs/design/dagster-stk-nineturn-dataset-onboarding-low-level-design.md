@@ -874,7 +874,7 @@ def load_stk_nineturn_prod_export_manifest(
 验证项：
 
 - `dataset_id == "stk_nineturn"`
-- `source_method == "prod-raw-db"`（backend `DbTradeDateExportService` 的正式 source 标识）
+- `source_method == "prod-raw-db"`（当时 backend DbTradeDateExportService 的 source 标识；旧导出代码已在 M6 删除）
 - range mode 且起点为 2023-01-03
 - end date 等于本次 cutover
 - expected dates 与 partition keys 完全一致
@@ -883,7 +883,7 @@ def load_stk_nineturn_prod_export_manifest(
 - 每个 output path 存在且位于允许 staging root
 - 文件 schema、partition date 和 manifest 行数一致
 
-Orchestrator 不能 import `lake_console.backend`。交接边界只能是 staging Parquet + manifest record。
+Orchestrator 不能 import `lake_console.backend`。本节记录当时 staging Parquet + manifest record 的一次性交接；旧生产者已在 M6 删除，不可照此恢复旧 CLI。现行日常链路和 manifest 校验保持不变。
 
 ### 13.3 N4 执行结果
 

@@ -18,13 +18,13 @@
 
 ## 项目定位
 
-`orchestrator` 是 Goldenshare 本地数据湖未来的 Dagster 编排项目。
+`orchestrator` 是 Goldenshare 当前正式的 Dagster 数据湖编排工程。
 
-长期目标：
+当前边界：
 
 1. 用 Dagster 管理本地数据湖资产、依赖、分区、检查、调度、回填、日志与运行状态。
-2. 若 Dagster 能胜任当前数据湖控制台的大部分工作，`lake_console` 产品形态将逐步废弃、退场，最终移除。
-3. 现有 `lake_console` 的数据结构、catalog、同步策略、数据生成服务、路径口径、质量检查经验，是迁移到 Dagster 的重要参考资产；不得凭空重写未知口径。
+2. 旧 Console frontend/backend、Kopia、旧专属入口和测试已在清退 M6 同轮删除；保留本工程、reports 与 ClickHouse 工具。
+3. 资产事实以当前 catalog、paths、schema、run contract 和消费者为准；旧实现仅从 Git 追溯，不恢复导入或兼容入口。
 
 ---
 
@@ -431,8 +431,8 @@ duckdb_compute/runs
 duckdb_compute/_tmp
 ```
 
-4. 旧数据湖不是废弃数据，而是迁移来源。
-5. 迁移一个数据集时，可以读取、审计、复制、对比旧路径数据，但最终新资产必须落到 `data_lake/raw|silver|gold`。
+4. 旧数据湖不得作为正式读取事实源、迁移输入或 staging；旧迁移适配器已在 M4 删除。
+5. 数据集来源必须是当前已批准的 Tushare、Prod 只读来源、正式 Lake 上游或版本化 seed。旧湖用途审计与物理清理单列精确清单，不能据此恢复业务读取。
 6. 不得在未获明确指令前创建移动盘目录、复制大数据文件或重写历史数据。
 
 ### DuckDB 读取 raw parquet 门禁
@@ -473,7 +473,7 @@ duckdb_compute/_tmp
 每个数据集迁移前，必须先形成设计记录，至少回答：
 
 1. 数据集名称、业务含义、来源系统。
-2. 旧数据湖来源路径，仅作为迁移输入。
+2. 当前批准的来源、字段合同与范围；禁止使用旧湖路径作为迁移输入。
 3. 新 Dagster asset key。
 4. 新物理路径，必须位于 `data_lake/raw`、`data_lake/silver` 或 `data_lake/gold`。
 5. 所属层级：`raw` / `silver` / `gold`。
@@ -528,16 +528,16 @@ C1 已将新湖 Dagster asset 事实收敛到 `orchestrator.defs.catalog.lake_as
 3. `TushareResource` token 必须通过 `dg.EnvVar("TUSHARE_TOKEN")` 注入；本机变量由 `~/.bash_profile` 提供。禁止硬编码 token，禁止写入 `dagster.yaml`、`.env`、`~/.goldenshare/*.sh`、设计文档、Parquet metadata、Dagster materialization metadata 或日志。
 4. `DuckDBResource` 必须约束临时目录和输出路径，不允许把大计算 spill 写到未知系统目录。
 5. `PostgreSQL` 分清 Dagster 内部库 `goldenshare_dagster` 和业务 metadata 库 `goldenshare_lake_meta`。
-6. `ClickHouseResource` 只服务本地 serving 表，不代表生产查询链路。
+6. 当前 `resources.py` 分别装配 `clickhouse` 与 `prod_clickhouse`，本机与生产配置、权限和消费者必须分开审计。保留已有批准链路，不能因清退旧 Console 删除生产 ClickHouse 能力。
 
 ---
 
 ## 已确认架构口径
 
-1. Dagster asset 以 `LakeNodeDefinition` 粒度迁移，不以 `LakeDatasetDefinition` 粒度粗暴迁移。
+1. Dagster asset 以当前 catalog 的独立物理资产粒度定义；旧 LakeNodeDefinition / LakeDatasetDefinition 已退出，不作为新定义来源。
 2. `manifest` 是历史物理目录，不是资产层级。
-3. `lake_jobs/*`、`duckdb_compute/runs/*`、`duckdb_compute/_tmp/*` 属于历史运行账本，应逐步退场给 Dagster。
-4. `research/stk_mins_by_date_clean_next` 在 qfq 前是 silver；qfq 后结果必须拆成独立 gold asset，不能原地替换造成语义混乱。
+3. 旧运行账本不再是当前事实源；正式运行状态与文件事实按 Dagster、当前 CLI checkpoint 和物理审计各自职责处理，不能恢复旧账本。
+4. Silver 与 QFQ Gold 保持独立资产语义；旧 research/clean_next 路径不再是实现口径，不得恢复或原地混写。
 5. `goldenshare_lake_meta` 不急于建表；真需要业务账本时再设计。
 
 ---

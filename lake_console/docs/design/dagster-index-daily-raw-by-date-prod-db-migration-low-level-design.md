@@ -1,6 +1,6 @@
 # Index Daily Raw By-Date Prod DB Migration Low-Level Design
 
-> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码待 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
+> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码已在 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
 
 状态：P-1 至 P9C-2 已完成；包括 P8 旧 by-code quarantine 最终物理删除，以及 P9C-2 四个 mixed run 的精确 Dagster 状态治理。`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。
 
@@ -236,14 +236,13 @@ raw/tushare/index_daily_by_code/ts_code=<TS_CODE>/part-000.parquet
 - catalog 展示与新事实源冲突。
 - 迁移后 entry 必须改成 prod core DB + by-date raw。
 
-### 4.8 prod DB 现有模式
+### 4.8 prod DB 模式（现行实现与历史参照分开）
 
-可复用模式：
+当前可复用模式：
 
 - `defs/resources.py::ProdPostgresResource`
 - `defs/prod_db/stk_mins.py`
-- `lake_console/backend/app/services/prod_core_db.py`
-- `lake_console/backend/app/sync/strategies/prod_db_trade_date.py`
+旧 backend 的 prod_core_db.py / prod_db_trade_date.py 已在 M6 删除；下列 backend 对照是迁移设计时的历史字段证据，不再作为可复用文件。正式实现位于 `defs/prod_db/index_daily.py`。
 
 已确认要求：
 

@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已提交 `68f97744` / M5 文档清退已实施并通过校验，随本次提交归档（见 §11） / 文档矩阵 165 份 / 其余具体数据删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已提交 `68f97744` / M5 已提交 `3ed4c6ca` / M6 旧产品原子清退已实施并通过定向回归，未提交（见 §11） / 文档矩阵 165 份 / 其余具体数据删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -1886,6 +1886,116 @@ M6 延后项不是 M5 漏项：
 4. 反查 Wealth `local_lake` 全部当前 Reader/API/page 链和 optional dependency 未变；原四 Reader 清单不是上限，还包括当前 turnover insight、trend channel 等新增消费者。
 5. 运行仓库引用清零 gate。
 
+
+#### M6 实施结果（2026-09-05，基线 `dev-interface@3ed4c6ca`，未提交）
+
+本次授权是“继续推进 M6”。以下是当前工作树实施证据，不覆盖旧阶段点时记录，不代表已经部署或正式服务停机。
+
+**范围和前置审计**
+
+- CodeGraph status/explore/impact/callers 核验 Kopia → 旧 API/CLI/UI/测试，以及六类 Lake Reader → Biz/API。
+  KopiaPrewriteBackupService 的二层影响 20 个符号都在旧边界内；当前 Reader 的空 callers 结果另用
+  impact 和真实 import/构造点补核，不能把索引空结果当无消费者。
+- 删除前扫描 2,410 份保留 tracked Python 的 AST（含直接、from 和字面量动态导入），
+  并补扫全仓 tracked TS/配置/脚本/构建入口；旧 backend 正向导入与外部当前调用均为 0。
+- 固定清单恰好 263 文件：backend 181、frontend 65、根专属 tests 14，另有旧 CLI、联合启动脚本、
+  示例配置各 1。逐文件核对基线内容、真实路径和非符号链接后，同轮删除；没有递归删除目录。
+  262 个文本文件使用补丁删除，1 个旧 UI PNG 用精确单文件删除；未运行任何旧入口。
+  “同轮原子”指前后端及外围作为一个交付集合，不声称文件系统提供 263 文件事务。
+- 2,140 个受保护 tracked 文件内容指纹与基线一致：正式运行源码、21 命令 fixture、整个 src、
+  主 frontend、Wealth 源码、reports、两项 ClickHouse bin 和根 pyproject。
+  Lake Reader 保护为全目录 12 文件 / 6 类，包含 turnover insight 与 daily trend channel，不局限于原四类。
+- 旧 Console 环境范围内 11,692 个 ignored 文件的路径、size、mtime、inode 集合与删除前一致；
+  只核软件环境元数据，不扫描旧湖数据内容。旧 config.local.toml 仍保留；其残留 Kopia 配置没有当前消费者，
+  不算生效配置，也不据此删除本机配置。
+- 本轮预算：正式 Lake/DB/Tushare 查询、业务文件写入、Dagster event、物理数据删除均为 0；
+  只读代码约 2,400 份，回归使用临时文件/替身。构建和 compileall 输出在本轮临时目录，
+  没有清空旧 Console 环境或原构建输出。
+
+**实现修改逐文件对账**
+
+| 文件/精确范围 | M6 实际处理 |
+|---|---|
+| §8 的 263 文件 | 同轮精确删除；无空壳 package、alias、wrapper 或新旧双入口 |
+| `orchestrator/tests/test_run_contract_static_gates.py` | 删除仅用于旧后台的两个目录常量；derived 全源扫描只遍历 DEFS_DIR；删除两个旧 writer 文件不存在断言。现行 CLI 检查和负向 derived 标识门禁保留 |
+| 根 `tests/architecture/test_lake_console_retirement_guardrails.py`（新增） | 13 项检查：旧产品源码/入口为空、全仓 AST 无旧导入、当前运行/版本化配置无 Kopia/旧入口引用、当前 Reader/Ops snapshot/ClickHouse/停牌 CSV 仍在；反例覆盖直接/from/动态 import，并允许当前模块和历史文本。源码枚举包含新增非 ignored 文件，过滤已删 index 项，不要求 ignored 目录消失 |
+| 根 `AGENTS.md` | 仅把旧 Kopia“现存冻结”改为已清退，保留禁令与正式路径 |
+| `lake_console/AGENTS.md` | 去除旧 API/UI/CLI/配置开发流程；收敛正式工程规则。保留 Prod 只读白名单、stock_mins readiness 窄例外、独立资源、性能/安全/人工批准门禁与停牌 CSV TODO，不把 readiness 的窄投影误施加到 Raw 恢复 |
+| `orchestrator/AGENTS.md` | 改当前定位，撤回旧湖允许输入、旧模型/clean_next 实现口径；按现行 resources.py 区分本机 clickhouse 与 prod_clickhouse，未更改资源或权限 |
+| `scripts/AGENTS.md` | 删除旧联合启动规则；保留两个正式 ClickHouse 工具的操作边界 |
+| `.agents/skills/frontend-qa/SKILL.md` | 退出旧 UI 路由/build；保留 frontend 与 Wealth 各自验证和设计边界 |
+| `.agents/skills/lake-dataset-onboarding/SKILL.md` | 退出旧 Console/Sync Center 技能入口，只指向正式 Dagster |
+| `lake_console/README.md` | 重写现行索引，移除全部旧启动、配置和 Kopia 操作；明确 CLI/Reader/ClickHouse/数据保留 |
+| `docs/README.md` | 更新 M6 状态及 165 份矩阵索引，不再标成“尚未实施” |
+| `docs/architecture/codegraph-architecture-snapshot.md` | 当前节点移除旧 UI/后台，补正式 Lake → 六类 Reader → Biz/API → Wealth 链和本轮影响面 |
+| `docs/architecture/goldenshare-repository-onboarding-overview-v1.html` | 仓库地图、维护入口、旧根说明和验证表全部切为清退后事实，不再提供旧启动/测试命令 |
+| `lake_console/docs/architecture/dagster-data-system-architecture.html` | 更新 M6 状态；保留 ClickHouse、Dagster 与 Wealth 链 |
+| `dagster-bootstrap-legacy-links.md` | 总账标明旧产品已退场；历史数字不改 |
+| `dagster-new-lake-asset-catalog-design.md` | 旧系统行明确历史/已退场；正式 catalog 继续保留 |
+| `dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md` | 旧 backend 部分改为已完成清退记录，不再要求改造已删 UI；当前计算合同不改 |
+| `dagster-index-daily-raw-by-date-prod-db-migration-plan.md` | 旧 prod_core_db 行明确为开发前历史依据 |
+| `dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md` | 旧文件退出“可复用模式”；当前实现仍指向正式 prod_db/index_daily.py |
+| `dagster-stk-nineturn-dataset-onboarding-low-level-design.md` | 明确旧 exporter/manifest 交接是一次性历史，不恢复旧 CLI；当前日常链和校验保持 |
+| `docs/datasets/ths-daily-valuation-fields-rebuild-plan-v1.md` | 只将旧 export 文件/测试改为 Git 历史证据，去掉死链接；生产字段和验收不改 |
+| `docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md` | 旧 Console mapping 退出当前消费者和当前依据；生产迁移正文与其余消费者保留 |
+| `docs/governance/engineering-risk-register.md` | 保留事故数字和修复证据，旧执行命令改历史说明；不把新 Raw 恢复当旧事故工具 |
+| Wealth 股票分钟 API 的 benchmark / implementation / LLD / M2 gate 四文件 | 只改旧后台时态和禁止恢复说明；API、Reader、页面与性能合同不变 |
+| 上位专项方案、本 LLD、M0 清单 | 同步当前 M6 结果；不改写 M0–M5 的历史检查记录 |
+
+上述 Dagster 简写文件均位于 `lake_console/docs/design/`；
+Wealth 四文件全名仍见 §9.4。CODING_STANDARDS 的旧来源示例已在 M4 修改，本轮复核通过，
+负向 old_lake/backend 禁令保留，不为“每个阶段都改一次”制造无意义差异。
+§9.4 矩阵未新增对象，仍是 165 唯一路径；M6 只完成此前明确延后项。
+
+**验证证据**
+
+| 验证 | 结果 |
+|---|---|
+| 删除前当前 Reader/API/Ops snapshot/边界回归 | 140 passed，16.18 秒 |
+| 删除前编排静态门禁 + 21 CLI 冻结行为 | 226 passed / 246 subtests，5.92 秒 |
+| 新清退检查的删除前反例 | 正确失败，恰好列出 263 个仍在的旧产品文件 |
+| 删除后同组后端回归 + 清退护栏 | 首次 152 passed；随后补运行/配置禁止项，护栏最终 13 passed；原 140 项仍通过 |
+| 删除后编排/CLI/Raw 恢复/ClickHouse/catalog 七组 | 304 passed / 268 subtests，12.13 秒；不访问正式 Dagster/网络，临时 DuckDB spill |
+| Wealth 详情页、指数分钟控制器、九转三组 | 6 文件 / 60 passed |
+| 运营后台手动任务、任务记录/中心、数据集详情/审计 | 5 文件 / 37 passed |
+| frontend / Wealth | typecheck、build 通过；frontend check:rules 通过。保留 chunk >500 kB 提醒，不在清退中做拆包改造 |
+| Python 静态 | 两份变更 Python 的 Ruff check 通过；新文件 formatter 通过。旧 static gate 在 HEAD 原有两处折行差异，本轮不夹带全文件格式化；无新增 lint 问题 |
+| compileall / 两项 ClickHouse bin | 编排源码编译通过；bin 只做 bash -n，不执行启动或隧道 |
+| 文档 / 差异 | 文档完整性、165 矩阵计数/唯一性、25 KEEP 字节一致、两份 HTML 结构/id、新增死链 0、git diff --check 通过 |
+| 删除与保留对照 | 恰好 263 D，2,140 保护文件内容一致，11,692 ignored 文件元数据一致；无新增正向运行引用 |
+| CodeGraph | 根 sync/status：2,949 files / 53,540 nodes / 129,954 edges，索引最新，未重建 |
+
+可复跑的核心命令（均从对应工程根执行；正式资源仍禁止）：
+
+```bash
+# 仓库根
+.venv/bin/python -m pytest -q tests/architecture/test_lake_console_retirement_guardrails.py
+.venv/bin/python -m pytest -q tests/test_stock_mins_reader.py tests/test_major_index_mins_reader.py tests/test_stock_nine_turn_reader.py tests/test_index_nine_turn_reader.py tests/test_major_index_turnover_reader.py tests/test_stock_daily_trend_channel_reader.py tests/web/test_stock_detail_minutes_api.py tests/web/test_index_detail_minutes_api.py tests/web/test_wealth_stock_minute_nine_turn_api.py tests/web/test_wealth_index_minute_nine_turn_api.py tests/web/test_wealth_stock_trend_channel_api.py tests/test_dataset_status_snapshot_service.py tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py
+npm --prefix wealth run test -- src/pages/stock-detail/StockDetailPage.test.tsx src/pages/index-detail/IndexDetailPage.test.tsx src/features/index-detail/controller/useIndexMinuteSeries.test.tsx src/features/nine-turn/controller/useNineTurnSeriesRegistry.test.tsx src/features/nine-turn/model/nineTurnAdapter.test.ts src/features/nine-turn/model/nineTurnChartAdapter.test.ts
+npm --prefix frontend run test -- src/pages/ops-v21-task-manual-tab.test.tsx src/pages/ops-v21-dataset-audit-page.test.tsx src/pages/ops-v21-dataset-detail-page.test.tsx src/pages/ops-v21-task-records-tab.test.tsx src/pages/ops-v21-task-center-page.test.tsx
+python3 scripts/check_docs_integrity.py
+git diff --check
+```
+
+编排回归从 orchestrator 根使用既有临时隔离 runner，选择
+test_run_contract_static_gates、test_stk_mins_history_cli_contract_equivalence、
+test_stk_mins_raw_replace_from_prod、test_prod_clickhouse_market_breadth_batch_sync、
+test_dc_daily_technical_clickhouse_bootstrap、test_dc_daily_technical_clickhouse_readiness、
+test_etf_daily_catalog 七份测试。runner 禁止 DagsterInstance.get 和 socket.connect，
+测试 DuckDB spill 改到 tmp_path；未运行正式 dg check/list defs。后续若临时 runner 不在，
+先按相同隔离要求建立测试环境，不能直接把命令指向正式环境。
+
+临时只读范围/文档校验脚本位于
+`/private/tmp/lake-retirement-m6-20260905.yrlBQW/`；
+这是本轮证据而非长期产品依赖。后续复核以 Git 基线、§8 固定删除范围和 §9.4 矩阵为准。
+
+**阶段结论**
+
+M6 实施及定向回归完成。用户已要求提交并进入 M7，本次按 292 文件白名单归档（263 删除、28 修改、1 新增），不推送。下一步 M7 做全量验收与最终差异复核；
+正式 definitions 检查仍须依 §12.3 单独授权。未停启任何正式服务、未进行线上 UI smoke，
+不把构建与 mock 页面测试说成部署验收。M8 仍须确认具体数据清单；停牌 CSV、reports、
+物理湖、ignored 环境与 Ops snapshot 均未删除。无新增待拍板设计项。
+
 ### M7：全量验证与差异复核
 
 1. 执行第 12 章验证矩阵。
@@ -2034,19 +2144,19 @@ M8 删除前必须在清单中明确恢复能力。非 Git 数据没有既有可
 
 ### 14.4 旧 Console/Kopia
 
-- [ ] 263 个旧产品边界文件原子删除。
-- [ ] 旧 backend/frontend 无当前 import、build、start 或 API 入口。
-- [ ] Kopia 无可执行代码和生效配置。
-- [ ] 正式 orchestrator、reports、ClickHouse bins 和根 frontend 保留。
+- [x] 263 个旧产品边界文件同轮删除（M6，精确清单与保护文件对照通过）。
+- [x] 旧 backend/frontend 无当前 import、build、start 或 API 入口（M6）。
+- [x] Kopia 无可执行代码和生效配置（M6；ignored 旧配置保留、无当前消费者）。
+- [x] 正式 orchestrator、reports、ClickHouse bins 和根 frontend 保留（M6 内容对照）。
 
 ### 14.5 文档与边界
 
-- [ ] 有效模板检查项已先迁入正式模板/性能文档。
-- [ ] 三个旧模板删除，当前引用已更新。
-- [ ] AGENTS、skills、README 和架构文档与代码事实一致。
-- [ ] 第 9.4 节逐文件矩阵全部完成；current/mixed 文档未被误删，86 份 `DELETE_LEGACY_DOC` 文件在
+- [x] 有效模板检查项已先迁入正式模板/性能文档（M5）。
+- [x] 三个旧模板删除，当前引用已更新（M5）。
+- [x] AGENTS、skills、README 和架构文档与代码事实一致（M6）。
+- [x] 第 9.4 节逐文件处理矩阵完成（M5/M6 定向校验，M7 再总复核）；current/mixed 文档未被误删，86 份 `DELETE_LEGACY_DOC` 文件在
       当前工作树清零，现行引用为 0，必要结果摘要已迁入现行总账/设计。
-- [ ] Wealth `local_lake` 全部当前 Reader、分钟/turnover insight/trend 等 API、页面调用和 optional dependency 未被误删。
+- [x] Wealth `local_lake` 全部当前 Reader、分钟/turnover insight/trend 等 API、页面调用和 optional dependency 未被误删（M6 内容与定向回归）。
 - [ ] M0–M7 未改物理数据/reports；全部阶段保留 Ops Snapshot 和 ignored 依赖环境/配置。
 - [ ] 全量验证通过，staged diff 只含专项白名单。
 

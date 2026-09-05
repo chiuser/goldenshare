@@ -64,13 +64,9 @@
 
 ---
 
-## 本地 Lake Console 脚本
+## 数据湖工具边界
 
-`scripts/local-lake-console.sh` 只用于本地移动盘 Lake Console。
-
-约束：
-
-1. 不参与生产部署。
-2. 不启动生产 web/worker/scheduler。
-3. 不读取或写入远程 `goldenshare-db`。
-4. 必须通过 `GOLDENSHARE_LAKE_ROOT` 指定本地移动盘 Lake 根目录。
+旧 Console 联合启动脚本已在 M6 删除，不得恢复或用新入口包装旧后台。
+正式维护入口位于 `lake_console/orchestrator`；Lake 根以其 paths.py 为准，不使用旧 Console 配置。
+保留 `lake_console/bin/lake-clickhouse-start` 和 `lake_console/bin/lake-prod-clickhouse-tunnel`；
+两者执行会改变服务或连接状态，静态审计只能做语法检查，不能把启动脚本当只读探针。

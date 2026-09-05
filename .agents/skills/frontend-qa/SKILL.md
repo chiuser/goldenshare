@@ -1,11 +1,11 @@
 ---
 name: frontend-qa
-description: Use for Goldenshare frontend UI, React, Vite, page interaction, layout, browser validation, data pages, API contract consumption, and frontend performance checks under frontend or lake_console/frontend. 适用于前端页面、交互、布局、数据页、浏览器验收和前端性能检查。
+description: Use for Goldenshare frontend UI, React, Vite, page interaction, layout, browser validation, data pages, API contract consumption, and frontend performance checks under frontend or wealth. 适用于前端页面、交互、布局、数据页、浏览器验收和前端性能检查。
 ---
 
 # Frontend QA
 
-Use this skill for changes under `frontend/**` or `lake_console/frontend/**`.
+Use this skill for changes under `frontend/**` or `wealth/**`. The retired Lake Console UI has no current build or development workflow; do not restore it.
 
 ## Required Context
 
@@ -31,12 +31,12 @@ For `frontend/**`:
 2. Run `npm --prefix frontend run build`.
 3. If layout, interaction, routing, or data loading changed, run browser verification with Browser, Chrome, or Playwright. Include console and network checks.
 
-For `lake_console/frontend/**`:
+For `wealth/**`:
 
-1. Run `npm --prefix lake_console/frontend run build`.
-2. If layout, interaction, routing, or data loading changed, run browser verification with Browser, Chrome, or Playwright. Include console and network checks.
+1. Run `npm --prefix wealth run typecheck`, the relevant tests, and `npm --prefix wealth run build`.
+2. Follow Wealth's own design system and API boundaries, not the operations UI shell.
+3. If layout, interaction, routing, or data loading changed, run browser verification with Browser, Chrome, or Playwright. Include console and network checks.
 
 ## Delivery Gate
 
 Report changed UI surface, API/contract impact, validation commands, browser findings when applicable, screenshots or routes checked, and remaining risk.
-

@@ -1,6 +1,6 @@
 # ths_daily 估值字段扩表重建方案 v1
 
-> M5 清退边界（2026-09-05）：生产 DatasetDefinition、pe_ttm/pb_mrq 字段与重建验收记录继续保留；旧 Console 导出白名单/CLI 部分只作 2026-05-08 实施证据，不是当前 DG 接入入口。旧 Console 代码待 M6 删除，本轮不改生产字段。
+> M5 清退边界（2026-09-05）：生产 DatasetDefinition、pe_ttm/pb_mrq 字段与重建验收记录继续保留；旧 Console 导出白名单/CLI 部分只作 2026-05-08 实施证据，不是当前 DG 接入入口。旧 Console 代码已在 M6 删除，不改变生产字段。
 
 状态：已实施（2026-05-08）
 
@@ -158,16 +158,11 @@ primary key (ts_code, trade_date)
 2. 新增 `pb_mrq` 字段。
 3. 主键不变。
 
-### 7.3 Lake prod-raw-db 导出
+### 7.3 Lake prod-raw-db 导出（历史实现，M6 已清退）
 
-文件：
-
-[board_hotspot.py](/Users/congming/github/goldenshare/lake_console/backend/app/catalog/datasets/board_hotspot.py)
-
-动作：
-
-1. `THS_DAILY_FIELDS` 增加 `pe_ttm`、`pb_mrq`。
-2. 相关导出测试同步更新。
+旧 `lake_console/backend/app/catalog/datasets/board_hotspot.py` 曾在 THS_DAILY_FIELDS 中补入
+pe_ttm、pb_mrq，并同步旧导出测试。该文件与旧测试已在 2026-09-05 M6 删除，只从 Git 追溯。
+此处不再是待执行改动；生产 DatasetDefinition、schema 和重建验收保持不变。
 
 ### 7.4 迁移
 

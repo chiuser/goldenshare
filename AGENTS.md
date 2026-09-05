@@ -111,7 +111,7 @@ qtf/             # 财势量化平台正式产品域
 3. `/Volumes/datasource/goldenshare-tushare-lake` 是旧 Lake Console 后端目录，严禁将它用作 DG 的正式根、读取事实源、写入目标、bootstrap 输入或 staging 路径。
 4. `lake_console/config.local.toml` 中的 `lake_root` 属于旧 Lake Console 后端配置，不能用于判断 DG orchestrator 的 Lake 根；DG 路径必须以 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 和当前正式目录为准。
 5. 本仓库的新开发、迁移、历史补录、bootstrap、修复和写湖任务禁止使用 Kopia；不得新增或调用 Kopia snapshot、prewrite backup、restore、recovery 命令或服务。
-6. `lake_console/backend` 中现存 Kopia 代码只能视为冻结的旧实现证据，不得被 DG orchestrator、Direct Lake Bootstrap 或新主链 import、复用、下沉或重新启用；若需清理现存实现，必须另立范围审计后执行。
+6. 旧 `lake_console/backend`、`lake_console/frontend` 及其 Kopia 实现已在清退 M6 同轮删除；不得恢复、import、复用、下沉或重新启用。历史实现只从 Git 追溯，不能作为新主链依据；本机 ignored 遗留环境不代表源码仍受维护。
 7. Codex 禁止运行任何 Kopia 命令。写湖安全必须使用候选文件完整校验、同文件系统 `os.replace()` 原子提升、逐文件 checkpoint、幂等续跑和物理对账，不得以“安全恢复”为由自行引入文件备份或快照。
 8. 若方案、LLD、代码或命令中出现与本节冲突的 Lake 路径或 Kopia 设计，必须先停止并修正文档/方案，禁止继续开发或执行。
 

@@ -418,7 +418,7 @@
       <section id="map" class="section">
         <div class="section-header">
           <h2>一眼看仓库地图</h2>
-          <p>先把根目录分清。最重要的误区是：生产运营后台、用户侧行情前端、本地 Lake Console 和 Dagster 新湖编排不是同一套系统。</p>
+          <p>先把根目录分清。最重要的误区是：生产运营后台、用户侧行情前端和正式 Dagster 编排是不同系统；旧 Lake Console 已在 M6 清退。</p>
         </div>
         <div class="section-body">
           <div class="table-wrap">
@@ -456,9 +456,9 @@
                 </tr>
                 <tr>
                   <td class="path">lake_console/</td>
-                  <td>冻结的旧 Local Lake 管理台与当前 Dagster 新湖编排（两条边界）</td>
-                  <td>旧 backend 的 Parquet/Sync Center/Kopia 证据；新 orchestrator 的 Dagster assets/jobs/sensors/checks</td>
-                  <td class="path">lake_console/backend/app, lake_console/frontend/src, lake_console/orchestrator/src</td>
+                  <td>当前正式 Dagster 数据湖工程（旧 Console 已清退）</td>
+                  <td>正式 Dagster assets/jobs/sensors/checks、人工维护 CLI、ClickHouse 工具与报告</td>
+                  <td class="path">lake_console/orchestrator/src, lake_console/bin, lake_console/reports</td>
                   <td><a href="legacy-lake-console-and-kopia-retirement-plan-v1.md">旧 Console 清退边界</a>、<a href="../../lake_console/AGENTS.md">lake_console/AGENTS.md</a></td>
                 </tr>
                 <tr>
@@ -478,8 +478,8 @@
                 <tr>
                   <td class="path">tests/</td>
                   <td>生产后端测试与架构护栏</td>
-                  <td>architecture、web、lake_console、ingestion、wealth API 等</td>
-                  <td class="path">tests/architecture, tests/web, tests/lake_console</td>
+                  <td>architecture、web、ingestion、wealth API 等；旧 Console 专属测试已清退</td>
+                  <td class="path">tests/architecture, tests/web</td>
                   <td>改边界跑 architecture；改 Ops/API 跑 web 定向测试</td>
                 </tr>
                 <tr>
@@ -749,24 +749,24 @@
       <section id="lake" class="section">
         <div class="section-header">
           <h2>数据湖情况</h2>
-          <p><code>lake_console</code> 是本地独立工程，不是生产 Ops 子模块。<code>backend</code> 是冻结的旧 Local Lake Console，<code>orchestrator</code> 才是当前正式 Dagster 新湖主线；两者不能共用 Lake 事实或写入规则。</p>
+          <p><code>lake_console</code> 是本地独立工程，不是生产 Ops 子模块。旧 backend/frontend 已同轮清退；<code>orchestrator</code> 是当前正式 Dagster 主线，ClickHouse、reports 和业务 Lake Reader 继续保留。</p>
         </div>
         <div class="section-body">
           <div class="grid-3">
             <div class="card">
-              <h3>lake_console/backend</h3>
-              <p>冻结的旧本地 FastAPI + CLI。负责旧 Lake Root 检查、文件事实扫描、DuckDB sample/query、Sync Center、Tushare 同步、prod-raw/core 只读导出、Kopia Recovery、Parquet 写入与计算；其中 Kopia 只作历史实现证据，不得进入新 Lake 主线。</p>
+              <h3>旧 Console 已清退</h3>
+              <p>旧 FastAPI、CLI、Sync Center、Recovery 页面及 Kopia 能力已在 M6 删除。历史实现只能从 Git 追溯，不提供旧启动入口或兼容服务。</p>
               <div class="tag-row">
-                <span class="tag blue">python3 -m lake_console.backend.app.main</span>
-                <span class="tag green">lake-console CLI</span>
+                <span class="tag blue">M6 已清退</span>
+                <span class="tag green">禁止恢复旧入口</span>
               </div>
             </div>
             <div class="card">
-              <h3>lake_console/frontend</h3>
-              <p>独立 Vite/React 前端，默认端口 <code>5178</code>。页面数据必须来自 lake backend，不 import 生产 <code>frontend/src/**</code>。</p>
+              <h3>保留的消费与工具</h3>
+              <p>Foundation 的 6 类 Lake Reader 与 Wealth 分钟 API、九转、成交额洞察、趋势通道继续使用正式文件。两项 ClickHouse 工具与 reports 保留。</p>
               <div class="tag-row">
-                <span class="tag blue">npm run dev</span>
-                <span class="tag amber">本地管理台，不挂生产 Web</span>
+                <span class="tag blue">现行业务链不变</span>
+                <span class="tag amber">不删除数据或本机环境</span>
               </div>
             </div>
             <div class="card">
@@ -794,21 +794,21 @@
               <tbody>
                 <tr>
                   <td>Lake Root</td>
-                  <td>旧 backend 的数据根由 <code>GOLDENSHARE_LAKE_ROOT</code> 或 <code>lake_console/config.local.toml</code> 指定；这不是新 Dagster Lake 根。</td>
-                  <td class="path">旧 backend：<br />lake_root = "/Volumes/TushareData/goldenshare-tushare-lake"</td>
+                  <td>正式根由 orchestrator 的 paths.py 确定；旧 config.local.toml 仅为 ignored 遗留配置，不参与正式路径选择。</td>
+                  <td class="path">/Volumes/datasource/data_lake<br />staging: /Volumes/datasource/data_lake_staging</td>
                   <td>没有明确 Lake Root 时禁止写入；不得默认写仓库、home 或 /tmp。</td>
                 </tr>
                 <tr>
                   <td>旧 Lake 物理层</td>
-                  <td>backend 当前仍管理 <code>raw_tushare</code>、<code>derived</code>、<code>research</code>、<code>manifest</code> 等本地 Parquet 文件事实。</td>
+                  <td>旧产品已清退，遗留物理目录不再是正式来源。物理数据清理按代码用途和管理员确认的精确清单另行执行。</td>
                   <td class="path">raw_tushare/stk_mins_by_date/freq=*/trade_date=*/*.parquet</td>
-                  <td>文件写入必须 <code>_tmp -> validate -> atomic replace</code>。</td>
+                  <td>M6 不删除任何物理数据。</td>
                 </tr>
                 <tr>
                   <td>新 Dagster Lake</td>
                   <td>新 Dagster asset 只使用三层路径：<code>data_lake/raw</code>、<code>data_lake/silver</code>、<code>data_lake/gold</code>；禁止 Kopia。</td>
                   <td class="path">lake_console/orchestrator/src/orchestrator/defs/assets/*</td>
-                  <td>旧路径是迁移来源，不是新 asset 正式 path。</td>
+                  <td>禁止把旧湖用作正式来源、迁移输入或 staging。</td>
                 </tr>
                 <tr>
                   <td>资产目录</td>
@@ -915,7 +915,7 @@
                 <li><a href="../sources/tushare/README.md">Tushare 接口说明目录</a></li>
                 <li><a href="../../lake_console/docs/templates/dagster-dataset-onboarding-template.html">正式 Dagster 接入模板</a></li>
                 <li><a href="../../lake_console/docs/design/dagster-new-lake-asset-catalog-design.md">正式 Lake 资产 Catalog</a></li>
-                <li><a href="legacy-lake-console-and-kopia-retirement-plan-v1.md">旧产品清退方案（代码待 M6 删除）</a></li>
+                <li><a href="legacy-lake-console-and-kopia-retirement-plan-v1.md">旧产品清退方案（M1–M6 已实施）</a></li>
               </ul>
             </div>
             <div class="card">
@@ -969,13 +969,13 @@
               </ol>
             </div>
             <div class="card">
-              <h3>改本地 Lake Console</h3>
+              <h3>核查清退与保留边界</h3>
               <ol>
-                <li>先读 <code>lake_console/AGENTS.md</code> 与 Local Lake 架构方案。</li>
+                <li>先读 <code>lake_console/AGENTS.md</code> 与清退专项 LLD。</li>
                 <li>涉及数据接口、同步、导出、Parquet 写入时，先列性能测算表。</li>
-                <li>backend 看 <code>lake_console/backend/app/api|services|sync|catalog</code>。</li>
-                <li>frontend 看 <code>lake_console/frontend/src</code>，不得 import 生产前端。</li>
-                <li>验证用 <code>lake_console/backend/tests</code> 或 <code>tests/lake_console</code> 的定向测试。</li>
+                <li>正式源码看 <code>lake_console/orchestrator/src</code>，不恢复旧后台。</li>
+                <li>保留 <code>frontend</code>、<code>wealth</code> 与 Foundation/Biz 的现行消费者。</li>
+                <li>验证使用架构清退护栏、当前 Reader/API 和 orchestrator 定向测试。</li>
               </ol>
             </div>
             <div class="card">
@@ -1086,9 +1086,9 @@
                   <td>真实 API 模块改动补对应 smoke 或后端 API 测试。</td>
                 </tr>
                 <tr>
-                  <td>Lake Console backend</td>
-                  <td class="path">pytest -q lake_console/backend/tests 或 pytest -q tests/lake_console</td>
-                  <td>大数据路径先 dry-run/sample，禁止无测算全量执行。</td>
+                  <td>旧 Console 清退护栏</td>
+                  <td class="path">pytest -q tests/architecture/test_lake_console_retirement_guardrails.py</td>
+                  <td>检查源码已退出、当前消费者保留；ignored 环境不作为删除对象。</td>
                 </tr>
                 <tr>
                   <td>Dagster orchestrator</td>

@@ -113,7 +113,7 @@
 
 ## 8. 历史经验复盘
 
-1. [x] 没有把 `lake_console/backend` 作为生产业务 API。
+1. [x] 旧 `lake_console/backend` 已在 M6 清退；生产分钟 API 未依赖它，Foundation Reader/Biz API/Wealth 链保持不变。
 2. [x] 没有让远程访问本地 Lake。
 3. [x] 没有让远程依赖本地配置或 DuckDB。
 4. [x] 没有把全湖扫描放入 HTTP 请求。

@@ -56,7 +56,7 @@ gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}/ts_code={ts_code}/year={year}/p
 
 ## 5. 本期不做
 
-1. 不修改 `lake_console/backend`，也不导入它的 router。
+1. 旧 `lake_console/backend` 已在 M6 清退；不恢复它，也不导入旧 router。
 2. 不把本地 Lake 挂载到远程 prod。
 3. 不在 API 请求中触发 Dagster、sensor、repair 或 materialization。
 4. 不从 Tushare 请求实时数据。

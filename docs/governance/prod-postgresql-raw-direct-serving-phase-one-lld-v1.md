@@ -1,6 +1,6 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
-> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码待 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
+> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码已在 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
 
 - 版本：v1
 - 状态：一期 12 项的生产 raw 直出与自然 M3b 数据链全部通过并结案
@@ -184,7 +184,7 @@ conflict_columns = 保持现有值
 6. `stk_limit`：
    - `src/biz/services/market_mood_calculator.py`
    - `src/biz/services/market_mood_walkforward_validation_service.py`
-7. Lake Console：`lake_console/backend/app/services/prod_raw_db.py` 当前对一期 10 个数据集直接映射 `raw_tushare`；对应 trade-date 同步策略位于 `lake_console/backend/app/sync/strategies/prod_db_trade_date.py`。两个 auction 数据集不在当前映射中。
+7. 旧 Lake Console（历史消费者，2026-09-05 M6 已清退）：原 prod_raw_db / prod_db_trade_date 曾对一期 10 个数据集直接映射 raw_tushare，未包含两个 auction 数据集。它们已不是当前消费者；正式 DG 的 dc_board_source_probe 等上列消费者继续保留。
 8. Ops/freshness：通过 `DatasetDefinition.storage.target_table` 的现有投影链读取目标 relation，不为一期维护第二套数据集白名单。
 9. `stk_auction_o`：未发现 Biz/QTF/DG/frontend/Lake 直接读取 serving；当前仓库消费者为 Ops Catalog、freshness、日期完整性和 TaskRun 观测。其自动写入口是 `daily_market_close_maintenance` 的 schedule #24（18:30）与 #2（21:02），未来维护窗口和自然验收都必须分别覆盖两个入口。
 10. `stk_auction_c`：未发现 Biz/QTF/DG/frontend/Lake 直接读取 serving，也未发现 ServingPublish 或显式 serving DML 旁路；当前仓库消费者同样为 Ops Catalog、freshness、日期完整性和 TaskRun 观测。它是 `daily_market_close_maintenance` 的第三个 step，生产自动入口同样为 schedule #24（18:30）与 #2（21:02）；最近自然运行表现为前者空短页、后者完整返回，未来 M3a/M3b 必须分别覆盖两个入口。
@@ -1391,7 +1391,7 @@ M3a 于 `06:50..06:59+08` 按正确维护顺序完成：
 5. `src/foundation/dao/factory.py`
 6. `src/ops/dataset_definition_projection.py`
 7. `src/ops/queries/freshness_query_service.py`
-8. `lake_console/backend/app/services/prod_raw_db.py`
+8. 历史依据：旧 backend 的 prod_raw_db.py（M6 已删除，只从 Git 追溯）
 9. `lake_console/orchestrator/src/orchestrator/defs/asset_guards/dc_board_source_probe.py`
 10. `qtf/adapters/prod/sector_source_adapter.py`
 11. `alembic/versions/20260803_000124_make_cyq_perf_nineturn_raw_views.py`

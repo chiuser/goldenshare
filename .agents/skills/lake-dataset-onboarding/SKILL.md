@@ -1,11 +1,11 @@
 ---
 name: lake-dataset-onboarding
-description: Use for Goldenshare Lake Console, Sync Center, Dagster lake assets, DuckDB, Parquet, full-market sync, historical backfill, lake data writes, lake dataset onboarding, and performance-sensitive lake work. 适用于 Lake Console、数据湖、同步、导出、全市场、历史批量和性能门禁任务。
+description: Use for Goldenshare Dagster lake assets, DuckDB, Parquet, full-market sync, historical backfill, lake data writes, lake dataset onboarding, and performance-sensitive lake work. 适用于正式数据湖、同步、导出、全市场、历史批量和性能门禁任务。
 ---
 
 # Lake Dataset Onboarding
 
-Use this skill for Lake Console and new lake asset work.
+Use this skill for formal Dagster lake work under `lake_console/orchestrator`. The old Console and Sync Center have been retired; their local configuration and commands are not current entrypoints.
 
 ## Required Context
 

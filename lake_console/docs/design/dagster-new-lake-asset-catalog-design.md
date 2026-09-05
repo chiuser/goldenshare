@@ -1,6 +1,6 @@
 # Dagster 新湖 Asset Catalog 设计方案
 
-> M5 清退边界（2026-09-05）：C1 已落地；M4 已移除旧湖来源成员并校准 17 项，见 §9.3。旧 Console 尚待 M6 删除，旧 catalog 只作为边界对照，不是当前可复用事实源。
+> M5 清退边界（2026-09-05）：C1 已落地；M4 已移除旧湖来源成员并校准 17 项，见 §9.3。旧 Console 已在 M6 删除，旧 catalog 仅作为历史边界对照，不是当前可复用事实源。
 
 更新时间：2026-06-10
 
@@ -14,15 +14,15 @@ C1 已按该口径落地为 `orchestrator.defs.catalog.lake_assets`：只做代�
 
 ## 2. 背景
 
-当前存在三类系统口径：
+设计时区分三类系统口径；其中旧控制台已清退：
 
 | 名称 | 目录 | 定位 |
 |---|---|---|
-| 旧湖控制台 | `lake_console/backend`、`lake_console/frontend` | 本地旧湖文件扫描、旧 Lake catalog、Sync Center、Recovery 页面 |
+| 旧湖控制台（M6 已清退） | 原 backend/frontend，只从 Git 追溯 | 曾有旧湖扫描、catalog、Sync Center、Recovery；无当前运行入口 |
 | 新湖 Dagster | `lake_console/orchestrator` | 正式 Dagster assets/checks/jobs/sensors/resources，目标路径为 `data_lake/raw`、`data_lake/silver`、`data_lake/gold` |
 | 数据基座 | `src/foundation/datasets`、`src/foundation/ingestion` | 生产主系统成熟的数据集事实源和执行计划模型 |
 
-旧湖控制台会逐步退场，`lake_console/backend` 的 catalog 不应继续升级为长期事实源。新湖后续仍会持续接入来自 Tushare、获准 prod 只读来源、正式上游或版本化 seed 的数据集，因此需要在新湖内部建立稳定资产事实模型。
+旧湖控制台已退场，不再维护旧 backend catalog。新湖后续仍会持续接入来自 Tushare、获准 prod 只读来源、正式上游或版本化 seed 的数据集，因此需要在新湖内部建立稳定资产事实模型。
 
 ## 3. 当前现状审计
 

@@ -283,7 +283,7 @@
 <main>
   <header>
     <h1>Goldenshare 本地数据系统与 Dagster 资产架构</h1>
-    <div class="note"><strong>M5 清退边界（2026-09-05）：</strong>正式资源不包含 Kopia。历史 Raw 已提升为正式文件事实，后续受控恢复使用 prod 只读来源；不复用旧 Console 服务。旧 backend/frontend 代码尚待 M6，同轮删除前只按冻结证据描述；本轮不改变 ClickHouse、Dagster 或 Wealth 读取链。</div>
+    <div class="note"><strong>M5 清退边界（2026-09-05）：</strong>正式资源不包含 Kopia。历史 Raw 已提升为正式文件事实，后续受控恢复使用 prod 只读来源；不复用旧 Console 服务。旧 backend/frontend 代码已在 M6 同轮删除；ClickHouse、Dagster 与 Wealth 读取链保留不变。</div>
     <p class="subtitle">
       本文按当前讨论目标梳理：本地 Parquet 数据湖、DuckDB、Dagster、本地 PostgreSQL、本地 ClickHouse、生产 PostgreSQL 与未来生产 ClickHouse 的关系；并把当前 `lake_console` 的数据集、节点、服务映射到 Dagster assets 与 resources。
     </p>

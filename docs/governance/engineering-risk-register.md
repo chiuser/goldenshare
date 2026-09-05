@@ -340,11 +340,10 @@
    - `2026-05-08` 在 `freq=1,5,15,30,60` 均为 missing，且 research 也无当日数据，不能通过本恢复命令修复；应作为后续普通补数任务处理。
    - 若干历史 `underfilled` 分区仍存在，属于数据完整性审计议题，不得用本次事故恢复工具硬修。
    - 通用持久 backup、统一恢复账本、前端 Recovery / Write Safety 页面尚未完成，已拆分为后续治理议题；本 P0 按表格状态关闭，不再保留单点恢复命令。
-6. 已通过本地代码门禁：
-   - `lake_console/.venv/bin/python -m py_compile lake_console/backend/app/services/stk_mins_raw_recovery_service.py lake_console/backend/app/cli/commands/stk_mins.py lake_console/backend/app/services/tushare_stk_mins_sync_service.py`
-   - `lake_console/.venv/bin/python -m pytest -q lake_console/backend/tests/test_stk_mins_raw_recovery_service.py lake_console/backend/tests/test_tushare_stk_mins_sync_service.py`
-   - `python3 scripts/check_docs_integrity.py`
-   - `git diff --check`
+6. 当时已通过本地代码门禁：旧 stk_mins_raw_recovery_service、CLI 和 tushare_stk_mins_sync_service
+   的编译与定向测试，以及文档和 diff 检查。2026-09-05 M6 已删除这些旧后台文件和测试，
+   不再保留可复制的旧执行命令；以上事故数量、恢复结果和残余差异仅作历史证据。
+   当前单日五频 Raw 恢复是 orchestrator 独立工具，不依赖旧 Console 或 Kopia。
 
 补充处理记录（2026-05-11）：
 

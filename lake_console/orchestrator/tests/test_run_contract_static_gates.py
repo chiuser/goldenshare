@@ -9,8 +9,6 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 )
 
 DEFS_DIR = Path("src/orchestrator/defs")
-LAKE_CONSOLE_DIR = Path(__file__).resolve().parents[2]
-BACKEND_DIR = LAKE_CONSOLE_DIR / "backend"
 AUDITS_DIR = Path("src/orchestrator/audits")
 ASSETS_DIR = DEFS_DIR / "assets"
 ASSET_GUARDS_DIR = DEFS_DIR / "asset_guards"
@@ -6366,8 +6364,7 @@ def use_nested_resource(context):
 
         active_python_sources = "\n".join(
             path.read_text(encoding="utf-8")
-            for root in (DEFS_DIR, BACKEND_DIR / "app")
-            for path in root.rglob("*.py")
+            for path in DEFS_DIR.rglob("*.py")
         )
         for forbidden in (
             "DerivedMinuteWindow",
@@ -6387,13 +6384,6 @@ def use_nested_resource(context):
         ):
             if forbidden in active_python_sources:
                 issues.append(f"legacy derived implementation remains: {forbidden}")
-
-        for removed_path in (
-            BACKEND_DIR / "app" / "services" / "stk_mins_derived_service.py",
-            BACKEND_DIR / "app" / "services" / "index_mins_derived_service.py",
-        ):
-            if removed_path.exists():
-                issues.append(f"legacy derived writer still exists: {removed_path}")
 
         self.assertEqual(issues, [])
 

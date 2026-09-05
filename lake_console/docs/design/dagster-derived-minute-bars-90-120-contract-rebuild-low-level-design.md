@@ -1,6 +1,6 @@
 # Dagster 90m/120m 分钟线合同修复与历史重建低层设计
 
-> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码待 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
+> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码已在 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
 
 > 2026-08-13 口径更新：本文保留为 90m/120m 历史修复记录。当前 Gold 七频业务合同、
 > 5m/15m/30m/60m 的 09:30 竞价锚点修复、指数 Gold 新层、股票 QFQ 与指标/state
@@ -324,9 +324,9 @@ amount = sum(regular.amount)
 | 三套 quality/readiness/check | 复用同一 identity/diagnostics 语义，不重算一套不同窗口 |
 | 三套 bootstrap/apply/event helper | 重建计划、行数和目标时间按新合同生成 |
 
-### 6.4 旧 backend 写入入口
+### 6.4 旧 backend 写入入口（历史清退记录）
 
-以下入口是会写文件的旧算法生产者，不能只改测试后继续保留第二套口径：
+以下路径曾是旧算法生产者；派生旧 writer 已先行退出，其余旧 backend 在 2026-09-05 M6 同轮删除。下面仅保留历史清退对象，不是当前入口：
 
 ```text
 lake_console/backend/app/services/stk_mins_derived_service.py
@@ -336,7 +336,7 @@ lake_console/backend/app/cli/commands/sync_dataset.py
 lake_console/backend/app/api/sync_center.py
 ```
 
-实现阶段先用 CodeGraph 再确认消费者，然后按以下顺序收敛：
+当时的收敛顺序如下；当前旧 UI/后台均已退出，不再存在第 3 项的只读 UI 改造任务：
 
 1. 正式 Lake 的 90m/120m 写入只保留 orchestrator 路径。
 2. 删除旧 backend 的派生写命令、API wiring、catalog action 和对应旧算法测试。

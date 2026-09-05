@@ -24,7 +24,7 @@ wealth 5173 -> local src/app/web 8000 -> src/biz minute API
 4. `wealth/vite.config.ts` 的 `/api` 代理目标是本机 8000。
 5. `wealth/src/features/stock-detail/api/stockDetailApiClient.ts` 是现有股票详情请求边界。
 6. `StockDetailPage` 当前只加载日线；分钟能力由 capability 和本地构建开关共同控制。
-7. `lake_console/backend` 是本地 Lake 管理台，不能被生产业务 API 导入。
+7. 旧 `lake_console/backend` 已在 M6 清退，不能被生产业务 API 导入或恢复。
 8. 当前生产 `pyproject.toml` 没有 DuckDB 依赖；DuckDB 固定放入独立的 `local-lake` 可选依赖组，远程生产安装不带该 extra。
 
 ## 3. 代码落点
@@ -45,7 +45,7 @@ wealth/src/features/stock-detail/api/
   stockMinuteViewModelAdapter.ts
 ```
 
-不修改 `lake_console/backend`，不从 production code import `lake_console` 或 `lake_console/orchestrator`。
+不恢复旧 `lake_console/backend`，不从 production code import `lake_console` 或 `lake_console/orchestrator`。
 
 ## 4. 配置与部署隔离
 

@@ -46,7 +46,7 @@ wealth 5173
 | `wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx` | 已消费 shared；当前 1600px 默认可视 120 根 | 与股票分钟、指数日线、指数分钟共享 viewport 与缩放合同 |
 | `wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts` | `valueOrZero()` 把 NULL 转 0 | 分钟 adapter 不复用该函数 |
 | `pyproject.toml` | 没有 DuckDB | 增加 `local-lake` optional extra，远程不安装 |
-| `lake_console/backend` | 独立本地 Lake 管理台 | 不导入、不挂载、不改动 |
+| 旧 `lake_console/backend` | M6 已清退的本地管理台 | 不恢复、不导入、不挂载；Foundation Reader/Biz API 链保留 |
 
 当前 Gold 合同已核对：
 

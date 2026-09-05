@@ -1,6 +1,6 @@
 # Dagster Index Daily Raw By-Date Prod DB Migration Plan
 
-> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码待 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
+> M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码已在 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
 
 状态：P-1 至 P9C-2 已完成；包括 P8 旧 by-code quarantine 最终物理删除，以及 P9C-2 四个 mixed run 的精确 Dagster 状态治理。`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。
 
@@ -42,7 +42,7 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 | `run_contracts/configs.py` | run config op key 是 `raw_tushare_index_daily_by_code`，只暴露 `trade_date/write_mode`。 | op key 要改为新 asset；配置字段可保持业务层简洁。 |
 | `run_contracts/asset_column_schemas.py` | raw schema 字段为 Tushare 源镜像：`trade_date` 是 `VARCHAR YYYYMMDD`，字段名是 `change`。silver schema 才使用 `DATE` 和 `change_amount`。 | 新 by-date raw 必须沿用 raw 字段契约，不得输出 silver 字段。 |
 | `resources.py` | 已有 `ProdPostgresResource`，通过 env 拼只读 Postgres 连接，并可供 DuckDB `postgres_query`/attach 模式复用。 | 新 prod-core-db source adapter 应复用该资源和只读连接模式。 |
-| `lake_console/backend/app/services/prod_core_db.py` | 已有 `prod-core-db` 白名单导出能力：`index_daily/index_weekly/index_monthly` 映射到 `core_serving.index_*_serving`，禁止 `select *`，禁止 `source/created_at/updated_at`，并已有 `change_amount AS change` 字段映射；但当前 backend query 只按 trade date/range 取数，没有按 DG code set 过滤。 | LLD 不能重新发明近义字段口径；Dagster 实现必须对齐字段白名单和安全门禁，但不能跨区直接引用 backend 文件，必须在 orchestrator 内实现带 code set 过滤的只读 adapter。 |
+| 旧 `lake_console/backend/app/services/prod_core_db.py`（M6 已清退，下列为开发前历史事实） | 当时已有 `prod-core-db` 白名单导出能力：`index_daily/index_weekly/index_monthly` 映射到 `core_serving.index_*_serving`，禁止 `select *`，禁止 `source/created_at/updated_at`，并已有 `change_amount AS change` 字段映射；但当前 backend query 只按 trade date/range 取数，没有按 DG code set 过滤。 | LLD 不能重新发明近义字段口径；Dagster 实现必须对齐字段白名单和安全门禁，但不能跨区直接引用 backend 文件，必须在 orchestrator 内实现带 code set 过滤的只读 adapter。 |
 | `run_contracts/metadata.py` / `catalog/lake_assets.py` | `SourceSystem` 目前没有 `PROD_CORE_DB`；`_tushare_raw_entry(...)` 会强制写 `SourceSystem.TUSHARE`、`DataContractSource.TUSHARE_RAW_CONTRACT` 和 `IngestionSource.TUSHARE_API`。 | `raw_index_daily` 不能继续套 `_tushare_raw_entry(...)`；需要新增 `SourceSystem.PROD_CORE_DB`，并用 `_entry(...)` 或新的 prod-core helper 写字段级 catalog 口径。 |
 | `catalog/lake_assets.py` | catalog 记录当前 raw-by-code path 和 checks。 | 迁移时必须同步 catalog，旧资产删除后 active catalog 不得残留旧口径。 |
 
