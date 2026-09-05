@@ -10,10 +10,10 @@ from unittest.mock import patch
 import dagster as dg
 import duckdb
 
-from orchestrator.defs.bootstrap import stk_mins_migration_cli
 from orchestrator.defs.bootstrap import (
     stk_mins_qfq_derived_bootstrap_events as derived_events,
 )
+from orchestrator.defs.bootstrap import stk_mins_qfq_derived_history_cli
 from orchestrator.defs.bootstrap.stk_mins_qfq_derived_bootstrap_events import (
     GOLD_STK_MINS_QFQ_DERIVED_ASSET_KEYS,
     GOLD_STK_MINS_QFQ_DERIVED_CHECKS,
@@ -882,11 +882,11 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                 "get",
                 return_value=instance,
             ), patch.object(
-                stk_mins_migration_cli,
-                "_registered_stock_mins_silver_partition_keys",
+                stk_mins_qfq_derived_history_cli,
+                "registered_stk_mins_silver_partition_keys",
                 return_value=(DATE_1,),
             ), contextlib.redirect_stdout(buffer):
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_derived_history_cli.main(
                     [
                         "plan-gold-qfq-derived-history",
                         "--lake-root",
@@ -897,7 +897,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                         "90",
                     ]
                 )
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_derived_history_cli.main(
                     [
                         "generate-gold-qfq-derived-history",
                         "--lake-root",
@@ -908,7 +908,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                         "90",
                     ]
                 )
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_derived_history_cli.main(
                     [
                         "plan-gold-qfq-derived-events",
                         "--lake-root",
@@ -919,7 +919,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                         "90",
                     ]
                 )
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_derived_history_cli.main(
                     [
                         "report-gold-qfq-derived-events",
                         "--lake-root",
@@ -930,7 +930,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                         "90",
                     ]
                 )
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_derived_history_cli.main(
                     [
                         "audit-gold-qfq-derived-final",
                         "--lake-root",
@@ -941,7 +941,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                         "90",
                     ]
                 )
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_derived_history_cli.main(
                     [
                         "audit-gold-qfq-derived-final",
                         "--lake-root",

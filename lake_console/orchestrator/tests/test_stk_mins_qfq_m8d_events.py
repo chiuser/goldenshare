@@ -10,7 +10,7 @@ from unittest.mock import patch
 import dagster as dg
 import duckdb
 
-from orchestrator.defs.bootstrap import stk_mins_migration_cli
+from orchestrator.defs.bootstrap import stk_mins_qfq_history_cli
 from orchestrator.defs.bootstrap.stk_mins_qfq_bootstrap_events import (
     GOLD_STK_MINS_QFQ_ASSET_KEYS,
     GOLD_STK_MINS_QFQ_CHECKS,
@@ -453,11 +453,11 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
                 "get",
                 return_value=instance,
             ), patch.object(
-                stk_mins_migration_cli,
-                "_registered_stock_mins_silver_partition_keys",
+                stk_mins_qfq_history_cli,
+                "registered_stk_mins_silver_partition_keys",
                 return_value=(DATE_1, DATE_2),
             ), contextlib.redirect_stdout(buffer):
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_history_cli.main(
                     [
                         "plan-gold-qfq-events",
                         "--lake-root",
@@ -468,7 +468,7 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
                         str(FREQ),
                     ]
                 )
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_history_cli.main(
                     [
                         "report-gold-qfq-events",
                         "--lake-root",
@@ -479,7 +479,7 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
                         str(FREQ),
                     ]
                 )
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_history_cli.main(
                     [
                         "audit-gold-qfq-final",
                         "--lake-root",

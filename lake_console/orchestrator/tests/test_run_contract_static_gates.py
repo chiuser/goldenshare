@@ -6294,8 +6294,8 @@ def use_nested_resource(context):
         macd_kdj_history_source = (
             DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py"
         ).read_text(encoding="utf-8")
-        migration_cli_source = (
-            DEFS_DIR / "bootstrap" / "stk_mins_migration_cli.py"
+        macd_kdj_history_cli_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history_cli.py"
         ).read_text(encoding="utf-8")
         for fragment in (
             "assert_canonical_gold_stk_mins_qfq_source_ready",
@@ -6345,11 +6345,11 @@ def use_nested_resource(context):
             macd_kdj_history_source
         ):
             issues.append("MACD/KDJ history must not accept an arbitrary older state")
-        if "rebuild-gold-qfq-canonical-history" in migration_cli_source:
+        if "rebuild-gold-qfq-canonical-history" in qfq_canonical_cli_source:
             issues.append("unsafe one-shot QFQ rebuild CLI remains")
-        if "rebuild-gold-stk-mins-qfq-macd-kdj-history" not in migration_cli_source:
-            issues.append("stock mins migration CLI misses MACD/KDJ rebuild")
-        if "--confirm-rebuild" not in migration_cli_source:
+        if "rebuild-gold-stk-mins-qfq-macd-kdj-history" not in macd_kdj_history_cli_source:
+            issues.append("stock mins MACD/KDJ history CLI misses rebuild")
+        if "--confirm-rebuild" not in macd_kdj_history_cli_source:
             issues.append("MACD/KDJ rebuild CLI must require explicit confirmation")
         for fragment in (
             "build-candidates",

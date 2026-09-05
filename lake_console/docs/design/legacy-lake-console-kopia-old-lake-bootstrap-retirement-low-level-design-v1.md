@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 当前 helper 迁出及隔离验证完成、待 review / M2 未开始 / 文档矩阵 156 份 / 具体删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 等价迁移完成、本次提交归档 / M2B 未开始 / 文档矩阵 156 份 / 其余具体删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -20,7 +20,8 @@ HEAD、CodeGraph 状态和精确文件白名单。
 
 **最新数据清退口径**：用户已确认只依据代码直接使用判断用途，取消完整性、日期范围、内容替代和历史
 价值审计。执行规则见 §16.1，当前批量清单见 §16.14；此前物理审计中的待核内容差异、人工取证/副本
-确认等不再作为前置项。M4 写湖安全与代码回归要求不变，本轮不执行代码或数据删除。
+确认等不再作为前置项。M4 写湖安全与代码回归要求不变；数据审计本身不授权删除。本次 M2A 仅删除
+已迁空且完成双跑验证的旧混合 CLI，实施记录见 §11 M2A；不执行物理数据删除。
 
 > 本文是本专项的代码实施依据。上位方案负责说明为什么清退、清退边界和阶段顺序；本文负责说明每个混合文件、运行契约、CLI、测试和文档具体如何修改。若实施时当前代码已经偏离本文审计基线，必须先重新做 CodeGraph 和文本引用审计，不能机械套用本文行号。
 
@@ -34,7 +35,7 @@ HEAD、CodeGraph 状态和精确文件白名单。
 本次代码审计得到五个关键结论：
 
 1. `lake_console/backend/**`、`lake_console/frontend/**`、旧 Console 专属入口和 `tests/lake_console/**` 是封闭的旧产品边界，可以同轮原子删除。
-2. `stk_mins_migration.py` 和 `stk_mins_migration_cli.py` 是混合文件：旧湖/历史备份迁移能力要删除，但 Silver、QFQ、派生指标和 MACD/KDJ 历史治理能力仍在当前测试和正式湖链路中使用，必须先迁出再删原文件。
+2. 审计基线中 `stk_mins_migration.py` 和 `stk_mins_migration_cli.py` 是混合文件：旧湖/历史备份迁移能力要删除，但 Silver、QFQ、派生指标和 MACD/KDJ 历史治理能力必须保留。现已完成 M1 helper 迁出及 M2A 四 CLI 拆分，旧混合 CLI 已删除；旧 migration 主体仍待 M3，不能把本轮入口删除扩大为主体删除。
 3. Raw `stk_mins` 的非 active 单日五频 prod-DB 恢复工具不属于旧湖/Kopia；用户已拍板保留业务能力
    并重构实现。它必须迁到正式 staging，改成逐文件 fingerprint/checkpoint/验证/幂等续跑，不能原样保留。
 4. `ops.dataset_status_snapshot`、正式 Dagster、ClickHouse、DuckDB/Parquet、当前 Raw → Silver → Gold 派生、当前 runless event 治理均不在删除范围内。
@@ -215,6 +216,9 @@ adj_factor_silver_bootstrap_events.py
 
 ## 4. `stk_mins_migration_cli.py` 逐段审计与修改设计
 
+本节旧行号对应删除前的审计基线，不表示原文件仍存在。M2A 已完成当前命令拆分及原文件删除，
+实际新入口与验证见 §11 M2A；本节标注的最终 selector/日期加固仍须在 M2B 单独实施。
+
 审计对象：`lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_mins_migration_cli.py`，审计基线共 1,038 行。
 
 ### 4.1 Import 区域逐段处置
@@ -363,7 +367,7 @@ fixture 对第 4.2.2–4.2.5 节每个命令逐项保存：
 | parser | option 名、positional 顺序、type、default、required、choices、`store_true/store_false` action |
 | normalization | `Path`、日期字符串、freq/year/partition tuple、空 tuple/`None` 的现行值 |
 | dispatch | 目标 function 的 module/name、位置参数/关键字参数映射 |
-| output | 当前 `print(...)` dictionary 的 key 集合、嵌套关键 key、返回值/exit code |
+| output | 当前 `print(...)` 的类型、dictionary key/嵌套 key 或 dataclass repr、返回值/exit code |
 | side effect | `READ_ONLY`、`LAKE_WRITE`、`DAGSTER_WRITE` 三类；确认/`dry-run`/checkpoint 门禁发生时点 |
 | failure | 缺必填参数、非法 choice、未确认、空 selector 时的异常类型和在目标 function 前失败的要求 |
 
@@ -372,7 +376,7 @@ M2A 测试方式：
 1. 在旧 dispatcher 仍存在时，用同一 argv 分别调用旧入口和目标新入口。
 2. patch 全部目标函数、Dagster instance、DuckDB/Lake writer 为记录调用的 fake；测试不得读写真实 Lake、
    数据库或 Dagster instance。
-3. 对比 parser 后的规范化参数、被调 function、调用次数、args/kwargs、stdout dictionary 和异常时点。
+3. 对比 parser 后的规范化参数、被调 function、调用次数、args/kwargs、原始 stdout/打印对象类型和异常时点。
 4. 21 个命令每个至少一条正例；有 `--dry-run`、checkpoint、confirm 或多 selector 的命令补对应边界例。
 5. 7 个旧命令只验证目标四个新 CLI 均拒绝，不生成兼容提示或 alias。
 6. 双跑全绿后删除旧 dispatcher；测试改为“新 CLI 对冻结 fixture”，不能为了继续双跑保留旧 module。
@@ -395,7 +399,9 @@ M2B 只允许两项批准差异，并在 fixture 上标记 `approved_delta`：
 
 ### 4.3 Handler 输出契约
 
-新 CLI 必须保留当前每个命令打印的 dictionary key。不得在拆文件时把可观测输出改成自由文本或统一成另一个 schema。
+新 CLI 必须保留当前每个命令的打印类型和内容。20 个命令打印 dictionary，保留其 key；
+`audit-silver-final` 实际直接 `print(StkMinsSilverFinalAuditReport)`，必须保留 dataclass repr，
+不能按本节旧的概括改成 dictionary。不得在拆文件时统一成另一个输出 schema。
 
 重点保留：
 
@@ -1437,7 +1443,8 @@ CodeGraph `explore/impact` 已覆盖迁出函数、Silver history、四个事件
 [Dagster asset checks 官方说明](https://docs.dagster.io/guides/test/asset-checks)，本轮不改 check 定义或注册。
 #### M1 实施与验证结果
 
-已完成代码迁移，尚未提交或部署；本轮停止在 M1，不执行 M2 或任何文件删除。
+M1 代码迁移于前轮完成，本轮按用户要求提交为 `3007cc0e`，未推送或部署。以下是 M1 当时的验证记录；
+本轮 M2A 的后续迁移和唯一文件删除另记于下节，不回写成 M1 的验证成果。
 
 | 文件（以下 Python 路径相对 orchestrator） | 结果 |
 |---|---|
@@ -1467,7 +1474,7 @@ CodeGraph `explore/impact` 已覆盖迁出函数、Silver history、四个事件
 6. 文档完整性检查、`git diff --check` 通过；CodeGraph 已 sync 且 current。没有删除文件，既有 156 份
    文档矩阵与 263 个旧产品文件清单未变；其它任务的工作区改动保留，未纳入本轮。
 
-下一步为 M2A：先冻结 21 个当前 CLI 命令合同，再迁移四个 CLI 并做双跑等价验证；本轮不提前切入口。
+M1 的后继阶段为 M2A：先冻结 21 个当前 CLI 命令合同，再迁移四个 CLI 并做双跑等价验证；现已执行，见下节。
 旧模块中原实现保持冻结，不是新增兼容实现，也不代表已经符合 M3 的整文件删除前提。
 
 ### M2A：当前 CLI 行为等价迁移
@@ -1478,6 +1485,98 @@ CodeGraph `explore/impact` 已覆盖迁出函数、Silver history、四个事件
 4. 对 21 个命令逐个双跑 parser/dispatch/output/failure 合同；7 个旧命令只做不存在负例。
 5. 双跑全绿后改为新 CLI 对冻结 fixture，更新全部现行 import/static gate。
 6. 证明无当前消费者后删除 `stk_mins_migration_cli.py`，不留 alias。
+
+#### M2A 本轮执行约束（2026-09-05）
+
+M1 已提交 `3007cc0e`，用户指定本轮进入 M2A。只新增 shared contract、四个 CLI、冻结 fixture 和
+隔离合同测试，迁移四份现行测试与相应 static gate，修正直接引用旧 CLI 的现行 canonical 文档及原专项记录。
+根规则要求主要入口实质变化时同步架构快照，因此一并更新 `docs/architecture/codegraph-architecture-snapshot.md`
+中的分钟 CLI 入口；该文件原已在 §9.4 的 `MODIFY_CURRENT` 矩阵，不新增清退范围，不提前删除旧 Console 节点。
+本轮唯一待删除代码文件为 `orchestrator/defs/bootstrap/stk_mins_migration_cli.py`，仅在双跑全部通过、
+现行程序消费者迁移后执行；不删除 `stk_mins_migration.py`、旧 Console、旧文档或物理数据。
+
+| 硬口径 | 代码/测试落点 |
+|---|---|
+| 先冻结旧入口，再创建新入口；期望值不由新实现生成 | fixture 记录旧文件 SHA/提交、21 项 parser/目标函数/副作用分类及实际隔离调用结果；先对旧入口验证 |
+| 每命令原行为相等 | 同 argv 双跑，逐项比较 Namespace、有类型的 args/kwargs、调用顺序、stdout、返回值、异常及其发生前的调用 |
+| 不提前实施 M2B | Silver 当前 selector/优先级/空值行为及 MACD baseline 当前日期默认保持；§4.2.2/4.2.5/4.4 中收紧和 selector 拆分属于最终 M2B 目标 |
+| 不删仍在用的命令 | Silver 5、QFQ 5、derived 5、MACD/KDJ 6，共 21；7 个旧命令在四个新入口都拒绝 |
+| 不执行正式能力 | Lake 路径发现、Dagster instance、DuckDB resource 和所有业务调用替换为严格 fake；异常调用即失败，不读取真实数据 |
+| 删除后仍能回归 | 新 CLI 对冻结 fixture；最终测试不 import、恢复或内嵌旧 dispatcher；旧文件仍可通过 Git 历史取回但不作运行兜底 |
+
+性能/副作用预算：21 个命令，每个覆盖默认和显式参数，并补 dry-run/selector/confirm/checkpoint/choice/
+空值与异常案例；单例最多三个模拟日期、固定返回对象，每次只记录参数与输出。正式分区、Parquet 扫描、
+源请求、数据库查询、事件写入、正式文件写入均为 0；不改变实际 writer 的批次、事务、原子替换或运行预算。
+对不支持 option、缺必填或未确认等负例检查调用边界；测试规模固定，完成时记录案例数和实际耗时。
+CodeGraph explore/impact 与程序引用补扫确认消费者为四份测试及 static gate，无业务 API/前端调用方。
+
+#### M2A 实施结果（2026-09-05）
+
+本轮先提交 M1，再基于 `dev-interface@3007cc0e` 冻结旧 CLI；创建新 CLI 前已生成固定 fixture。
+旧源文件 SHA-256 为 `2e93cf484c9fc03ae89c52862f61eb8ad2382d7ac3ed5df0bea66f655770240e`。
+21 个命令共 **246 组输入**完成旧/新双跑，parser、参数类型/值、目标函数、获取资源顺序、stdout、
+返回值和异常一致；21 段 handler 归一化公开 helper 调用名后 AST 相等。只有程序入口/根 help 描述及
+M1 已验证的 Raw discovery helper 归属变化，不引入业务逻辑差异。
+
+以下路径相对 `lake_console/orchestrator`，文档行另标仓库根路径：
+
+| 文件 | 已实施内容 |
+|---|---|
+| `src/orchestrator/defs/bootstrap/stk_mins_history_cli_contract.py` | 4 个 shared helper；CSV 保留输入顺序/重复项，partition 排序但不去重，空串与逗号空集原义不变；可注入 instance |
+| `src/orchestrator/defs/bootstrap/stk_mins_silver_history_cli.py` | 5 个命令，54 组对照；原 selector 优先级、generate/register 无 selector 失败、report 无 selector 可传 None 均保留 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_history_cli.py` | 5 个命令，57 组对照；历史生成和事件 plan/report/final 原样分派 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_derived_history_cli.py` | 5 个命令，60 组对照；full/quick 的计数开关、输出和默认值不变 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_history_cli.py` | 6 个命令，75 组对照；rebuild 必须 checkpoint + confirm，默认整数频率 tuple 与空对象范围不变；baseline 日期尚未收紧 |
+| `tests/fixtures/stk_mins_history_cli_contract_v1.json` | 独立于新实现的 21 命令字面量基线、246 案例及三类副作用标签；不把 fake 回放声称为生产读写验收 |
+| `tests/test_stk_mins_history_cli_contract_equivalence.py` | 固定基线回归、四组命令归属、7 旧命令 × 4 新入口拒绝、shared 空值/注入、旧入口缺失及无旧直接依赖门禁；不导入/恢复旧 CLI |
+| `tests/test_stk_mins_qfq_m8c_history.py` | 当前 plan/generate 改接 QFQ CLI；旧 canonical one-shot 负例改验证当前 canonical CLI，未删除负例 |
+| `tests/test_stk_mins_qfq_m8d_events.py` | 当前 QFQ plan/report/audit 改接 QFQ CLI，注册分区 mock target 随公开 helper 改名 |
+| `tests/test_stk_mins_qfq_m11f_derived_history.py` | 当前 derived 五命令及 quick audit 改接 derived CLI，原断言保留 |
+| `tests/test_stk_mins_qfq_m12_macd_kdj.py` | 默认全市场 rebuild 入口和 mock 改接 MACD/KDJ CLI，不收紧对象范围 |
+| `tests/test_run_contract_static_gates.py` | rebuild/confirm 检查读取 MACD/KDJ CLI；one-shot 禁令检查读取 canonical CLI；其它旧 backend/迁移静态门禁不动 |
+| `src/orchestrator/defs/bootstrap/stk_mins_migration_cli.py` | 双跑及消费者切换通过后唯一删除；无兼容 alias，可从 M1 提交的 Git 历史恢复 |
+| 仓库根 `lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md` | 更正已删除 one-shot 的现行入口说明，不改 canonical 六阶段设计 |
+| 仓库根 `docs/architecture/codegraph-architecture-snapshot.md` 与三份原专项文档 | 回填新入口、阶段进度、验证及保留边界；156 文档矩阵和 263 旧产品文件范围不变 |
+
+已核清的易错点：
+
+1. `audit-silver-final` 不是 dictionary 输出，已冻结真实 dataclass 类型及 repr，纠正 §4.3 文档概括。
+2. 部分 event 命令原来先取业务 instance，又单独读取已注册分区；M2A 保留原调用次数/顺序，没有顺手优化。
+3. `--partition-keys ''` 与 `' , '`、重复日期/频率/年份、`--all` 与文件 selector 的优先级都分别测试。
+4. baseline 日期默认及 Silver 含糊 selector 仍待 M2B；这不是遗漏，也不能把 M2A 通过当作安全加固已完成。
+5. 当前四组 history/event 业务函数、路径、schema、SQL、writer、事务、checkpoint、Dagster 组件、API/前端、
+   ClickHouse、Ops Snapshot 均未改。旧迁移主体、旧 Console、停牌 CSV、ignored 环境、物理数据均保留。
+
+验证与边界：删除旧入口前双跑脚本为 `/private/tmp/lake-retirement-m2a-20260905.5cPIXY/verify_dual.py`；
+其中旧源码 hash 校验、246 对输入和 21 段 AST 全通过。该脚本仅用于删除前取证，删除后不作为回归依赖，
+永久回归使用上述固定 fixture。补跑的现有 5 个 CLI 集成测试通过，覆盖 QFQ plan/generate/event/final、
+derived 五命令/full/quick 和 canonical 拒绝旧命令；隔离运行器
+`/private/tmp/lake-retirement-m2a-20260905.5cPIXY/run_isolated_cli_tests.py` 只把 DuckDB spill 重定向临时目录，
+使用临时 Lake/ephemeral instance 并禁止正式 instance 与网络。M1 的“未全跑集成”历史限制未被掩盖。
+最终收尾结果：
+
+1. 删除后定向组合 **217 passed、696 subtests passed，5.37 秒**；包括 M2A 固定合同/负例 62 项，
+   M1 helper/消费者、static gates、asset governance、Silver 非 active 检查、MACD 内存和默认对象范围检查。
+   696 个子断言中 246 个来自 CLI 固定案例，450 个来自既有治理测试。16 条 warning 为已有依赖提示。
+2. 删除后重新运行上述 5 个原 CLI 集成测试：**5 passed、42 deselected，2.19 秒**；52 条 warning 为
+   Dagster 现有 API/资源提示。没有把 deselected 的其它 42 项算成通过，没有全跑长历史集成或生产验收。
+3. 四个新模块分别执行 `uv run --no-sync python -m orchestrator.defs.bootstrap.<新模块名> --help`，
+   均 exit 0，命令集合分别为 5/5/5/6；没有实际执行其业务子命令。
+4. 11 个新增/修改 Python 文件默认 Ruff、全 orchestrator `E9,F63,F7,F82` 通过；固定 fixture 格式化后仍可解析。
+5. `scripts/check_docs_integrity.py`、156 文档矩阵检查、`git diff --check` 全通过；矩阵无遗漏路径/重复，
+   263 个旧产品 tracked 文件及路径摘要未变。CodeGraph sync/status 为 current。
+6. 工作区范围共 18 个文件：5 份文档、5 个新运行模块、5 份既有测试、1 份新合同测试、1 份固定 fixture、
+   1 个旧 CLI 删除；用户随后要求提交，本次仅按这 18 个文件归档，不包含 M2B 或其它阶段改动。
+
+复跑位置为 `lake_console/orchestrator`。永久合同检查为
+`uv run --no-sync python -m pytest -q tests/test_stk_mins_history_cli_contract_equivalence.py`。
+隔离集成检查通过上述临时运行器传入三份 `m8c_history/m8d_events/m11f_derived_history` 测试文件，并使用
+`-k 'test_cli or test_unsafe_canonical_rebuild_command_is_removed'`；不要直接全跑原集成文件而遗漏 DuckDB temp 隔离。
+
+使用 CodeGraph `explore/impact/callers` 追踪旧 CLI helper、MACD rebuild、四份测试和底层 history/event；
+全仓 tracked 程序引用补扫未发现 API、前端、调度、配置或脚本消费者。新 CLI 仅是人工离线入口，
+不注册 active 组件，不改变子系统边界/依赖矩阵。正式环境及完整长历史链路没有执行，也未部署或推送。
+M2A 修改按用户要求本次提交归档，未推送；下一步仅为 M2B 两项已批准的安全加固，本次提交不启动 M2B，也不进入 M3 或 M8。
 
 ### M2B：当前 CLI 安全加固
 

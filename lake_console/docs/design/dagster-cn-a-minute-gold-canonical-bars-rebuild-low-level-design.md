@@ -698,7 +698,7 @@ P0 不重新证明已验收 Silver 的全历史数据质量，只回答“影响
    不再使用“任意更早 state”。1m affected codes 可按共同最早受影响日期分组后通过显式
    `stock_codes` 范围执行，未受影响代码不进入重建范围。checkpoint 与计划、频率、日期和代码
    scope 绑定，断点续跑时缺少 indicator/state 目标会 fail closed。
-5. 旧 `rebuild-gold-qfq-canonical-history` one-shot 已从 `stk_mins_migration_cli.py` 删除，
+5. 旧 `rebuild-gold-qfq-canonical-history` one-shot 已移除，当前 canonical CLI 继续拒绝此命令，
    禁止绕过 staging 直接改正式 stock-year 文件。股票 QFQ 仅允许使用独立
    `stk_mins_qfq_canonical_history_cli.py`，并分为 `plan`、`build-candidates`、
    `audit-candidates`、`promote`、`audit-formal`、`audit-derived-equivalence` 六个显式阶段；

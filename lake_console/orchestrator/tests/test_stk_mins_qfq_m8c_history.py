@@ -11,8 +11,8 @@ from unittest.mock import patch
 import duckdb
 
 from orchestrator.defs.bootstrap import (
-    stk_mins_migration_cli,
     stk_mins_qfq_canonical_history_cli,
+    stk_mins_qfq_history_cli,
 )
 from orchestrator.defs.bootstrap.stk_mins_qfq_canonical_history import (
     StkMinsQfqCanonicalHistoryError,
@@ -350,7 +350,7 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
 
     def test_unsafe_canonical_rebuild_command_is_removed(self) -> None:
         with self.assertRaises(SystemExit):
-            stk_mins_migration_cli.main(["rebuild-gold-qfq-canonical-history"])
+            stk_mins_qfq_canonical_history_cli.main(["rebuild-gold-qfq-canonical-history"])
 
     def test_candidate_first_rebuild_preserves_formal_until_promote(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -757,11 +757,11 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
             buffer = io.StringIO()
 
             with patch.object(
-                stk_mins_migration_cli,
-                "_registered_stock_mins_silver_partition_keys",
+                stk_mins_qfq_history_cli,
+                "registered_stk_mins_silver_partition_keys",
                 return_value=(DATE_1, DATE_2),
             ), contextlib.redirect_stdout(buffer):
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_history_cli.main(
                     [
                         "plan-gold-qfq-history",
                         "--lake-root",
@@ -780,11 +780,11 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
             _write_valid_inputs(lake_root)
 
             with patch.object(
-                stk_mins_migration_cli,
-                "_registered_stock_mins_silver_partition_keys",
+                stk_mins_qfq_history_cli,
+                "registered_stk_mins_silver_partition_keys",
                 return_value=(DATE_1, DATE_2),
             ), contextlib.redirect_stdout(io.StringIO()):
-                stk_mins_migration_cli.main(
+                stk_mins_qfq_history_cli.main(
                     [
                         "generate-gold-qfq-history",
                         "--lake-root",

@@ -10,7 +10,7 @@ import duckdb
 from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
     gold_stk_mins_qfq_macd_kdj_1m,
 )
-from orchestrator.defs.bootstrap import stk_mins_migration_cli
+from orchestrator.defs.bootstrap import stk_mins_qfq_macd_kdj_history_cli
 from orchestrator.defs.bootstrap.stk_mins_qfq_macd_kdj_history import (
     MACD_KDJ_HISTORY_DUCKDB_SETTINGS,
     rebuild_stk_mins_qfq_macd_kdj_history,
@@ -185,7 +185,7 @@ class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
             executed_batch_count=1,
         )
         argv = [
-            "stk_mins_migration_cli",
+            "stk_mins_qfq_macd_kdj_history_cli",
             "rebuild-gold-stk-mins-qfq-macd-kdj-history",
             "--checkpoint",
             "/tmp/checkpoint.json",
@@ -194,18 +194,18 @@ class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
         with (
             patch("sys.argv", argv),
             patch.object(
-                stk_mins_migration_cli,
-                "_registered_stock_mins_silver_partition_keys",
+                stk_mins_qfq_macd_kdj_history_cli,
+                "registered_stk_mins_silver_partition_keys",
                 return_value=(FIRST_EXPECTED_TRADE_DATE,),
             ),
             patch.object(
-                stk_mins_migration_cli,
+                stk_mins_qfq_macd_kdj_history_cli,
                 "rebuild_stk_mins_qfq_macd_kdj_history",
                 return_value=report,
             ) as rebuild,
             patch("builtins.print"),
         ):
-            stk_mins_migration_cli.main()
+            stk_mins_qfq_macd_kdj_history_cli.main()
 
         self.assertEqual(rebuild.call_args.kwargs["stock_codes"], ())
 

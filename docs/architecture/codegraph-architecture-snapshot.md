@@ -1,6 +1,7 @@
 # CodeGraph 架构快照
 
 生成日期：2026-08-22
+局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分；未重审其它模块，下面索引规模仍是原生成日记录。
 索引根：`/Users/congming/github/goldenshare`
 索引结果：2,508 files，44,388 nodes，101,669 edges，DB 110.44 MB
 
@@ -143,6 +144,24 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 
 `orchestrator/defs/**` 包含 stock_basic、stock_daily、stk_mins、adj_factor、index_daily、market_breadth、ClickHouse serving 等资产、检查、任务、传感器和 run contract。
 
+### 分钟历史 CLI（2026-09-05 M2A）
+
+以下是人工离线入口，不新增 job/sensor/asset，不由页面或 API 触发。模块都位于
+`lake_console/orchestrator/src/orchestrator/defs/bootstrap/`：
+
+| 当前入口 | 保留命令 | 调用的业务模块 |
+|---|---:|---|
+| `stk_mins_silver_history_cli.py` | 5 | `stk_mins_silver_history`、`stk_mins_silver_bootstrap_events` |
+| `stk_mins_qfq_history_cli.py` | 5 | `stk_mins_qfq_history`、`stk_mins_qfq_bootstrap_events` |
+| `stk_mins_qfq_derived_history_cli.py` | 5 | `stk_mins_qfq_derived_history`、`stk_mins_qfq_derived_bootstrap_events` |
+| `stk_mins_qfq_macd_kdj_history_cli.py` | 6 | `stk_mins_qfq_macd_kdj_history`、`stk_mins_qfq_macd_kdj_baseline_events` |
+
+共享 `stk_mins_history_cli_contract.py` 只负责参数注册、CSV/partition 解析和读取已注册 Silver 分区，
+不扫描 Lake、不写数据或事件。CLI 不再直接依赖旧 migration，底层业务函数未变；canonical QFQ 六阶段
+入口仍是独立的 `stk_mins_qfq_canonical_history_cli.py`，不合并进上述 21 命令。
+原混合 CLI 已在 246 组同输入双跑通过后删除，不提供兼容入口；旧 migration 主体和旧 Console 仍待后续阶段，
+不能据此删除本快照中的旧 Console 节点。Silver selector 和 MACD/KDJ baseline 日期安全收紧尚待 M2B。
+
 ## 关键 Contract 与 Adapter
 
 1. `DatasetDefinition`：位于 `src/foundation/datasets/models.py`。核心字段包括 identity、domain、source、date_model、input_model、storage、planning、normalization、capabilities、observability、quality、transaction、completeness。
@@ -217,6 +236,9 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 7. `codegraph query DetailChartWorkspace` / `codegraph query StockChartWorkspace`：确认 shared engine、stock adapter、测试与 `StockDetailPage` 消费者。
 8. `codegraph impact DetailChartWorkspace`：确认本轮影响局限于 Wealth 图表入口；另用 import 搜索补足 CodeGraph 对 TSX 消费关系的识别不足。
 9. `codegraph query/impact IndexDetailPage`、`codegraph query useIndexDetailController`、`codegraph impact buildIndexDetailPath/MajorIndexPanel/TrendChannelPanePrimitive`：确认 M3 新入口、导航消费者、真实请求控制器和趋势 primitive 的影响面；另用 import 搜索补足 CodeGraph 对 TSX import 的识别不足。
+10. 清退 M2A：`codegraph_explore/impact` 覆盖 CLI selector/注册分区 helper，`codegraph_callers`
+    覆盖 MACD/KDJ rebuild 与其测试消费者；结合 tracked 程序引用补扫核清四份 CLI 测试、static gate，
+    未发现 API/前端/调度消费者。此处记录入口重组，不宣称已完成后续迁移主体或旧产品清退。
 
 ## 仍需人工确认
 

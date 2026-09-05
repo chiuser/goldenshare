@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2
 
-状态：2026-09-05 M1 当前 helper 迁出及隔离验证完成、待 review / M2 未开始 / 旧湖已批量分类、具体删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 等价迁移完成、本次提交归档 / M2B 未开始 / 旧湖已批量分类、其余具体删除待确认
 
 初审日期：2026-08-28；本次复审基线：2026-09-05，`dev-interface@10521877`
 
@@ -762,19 +762,30 @@ adj_factor 路径已全覆盖但只做 5 分区内容取样，仍待核；只有
 保留模块和三份测试文件（其中两份为新增），不改旧 CLI/migration，不删除文件。155 项隔离/静态测试
 及 450 个子断言通过，包含 33 项新增 helper/消费者测试；4 个迁出函数及 5 个保留模块的 AST 等价核验通过。
 Ruff 与文档检查结果见 LLD M1 记录；未运行正式 Dagster、Lake、数据库、部署或完整写湖集成测试。
+后续提交：按用户要求已提交为 `3007cc0e`，未推送。
 
 ### M2A：CLI 等价迁移
 
-1. 冻结当前 28 个命令的 parser/handler 合同：7 个旧命令、21 个当前命令。
+1. 区分原 28 个命令：冻结 21 个保留命令的 parser/handler 合同；7 个旧命令只做新入口拒绝测试，不迁移旧能力。
 2. 为 21 个当前命令记录命令名、参数/default/required/choices、handler、目标函数、参数映射、输出 key、
    side-effect 类型和确认门禁。
 3. 新增四个职责 CLI，把 21 个命令按 LLD 映射原样迁入；此阶段禁止改变 selector、默认值、输出或
    确认语义。
-4. 用 fake dependency 对旧、新入口做同输入双跑，比较规范化 Namespace、目标调用和输出字典；不执行
+4. 用 fake dependency 对旧、新入口做同输入双跑，比较规范化 Namespace、目标调用和原始输出类型/内容；不执行
    Lake、Dagster 或数据库写入。
 5. 21 个等价合同全绿后，删除原混合 dispatcher；7 个旧命令不迁移、不留 alias。
 
 准入：21 个当前命令行为等价；7 个旧命令在新入口均不存在；旧 dispatcher 当前消费者为 0。
+
+2026-09-05 实施记录：基于 `3007cc0e` 先冻结旧入口，再新增 shared contract 和四个职责 CLI。
+21 个命令、246 组输入双跑全等，21 段 handler 结构等价；四份现行 CLI 测试与 static gate 已切换，
+删除了唯一文件 `stk_mins_migration_cli.py`，不留 alias。永久回归改为“新入口对固定旧行为 fixture”，
+旧文件只通过 Git 历史追溯。`audit-silver-final` 保留真实 dataclass 打印，未按旧文档的 dictionary 概括改错。
+
+另有 5 个原 CLI 集成测试在临时 Lake、ephemeral instance、临时 DuckDB spill 下通过，正式环境未参与。
+完整文件表、测试结果、限制及新入口见 LLD §11 M2A。同步 canonical 现行文档、架构快照与三份专项记录；
+未改变边界/依赖矩阵、156 份文档矩阵和 263 个旧产品文件清单。用户要求提交 M2A，本次按 18 文件白名单归档，未推送，M2B 未开始；
+旧 migration 主体、旧 Console、物理数据、ignored 环境均未动。
 
 ### M2B：CLI 安全门禁收紧
 

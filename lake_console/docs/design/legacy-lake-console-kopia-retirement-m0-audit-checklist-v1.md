@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退 M0 只读审计清单 v1
 
-状态：2026-08-28 M0 历史基线；2026-09-05 旧湖批量分类见 §21，M1 helper 迁出及隔离验证完成见 §22；M2 未开始，具体删除待确认
+状态：2026-08-28 M0 历史基线；2026-09-05 旧湖批量分类见 §21，M1 已提交见 §22，M2A 等价迁移完成并在本次提交归档见 §23；M2B 未开始，其余具体删除待确认
 
 审计日期：2026-08-28
 
@@ -337,10 +337,12 @@ lake_console/orchestrator/tests/test_run_contract_static_gates.py
 
 ### 8.3 行为等价门禁
 
-- [ ] M2A 先冻结 21 个命令的 parser、默认值、规范化参数、dispatch、stdout key、失败时点和副作用分类。
-- [ ] 旧/新入口用 fake writer、fake Dagster instance、临时 Lake 双跑；不得碰真实运行态。
-- [ ] 7 个旧迁移命令和已删除 canonical one-shot 在新 CLI 中均不存在。
-- [ ] M2A 等价通过后才能删除旧 dispatcher。
+以下完成状态按 2026-09-05 M2A 回填，不属于原 M0 只读审计的实施成果。
+
+- [x] M2A 先冻结 21 个命令的 parser、默认值、规范化参数、dispatch、打印类型/内容、失败时点和副作用分类。
+- [x] 旧/新入口用 fake 资源/业务函数双跑 246 组输入，不碰真实运行态。
+- [x] 7 个旧迁移命令在四个新 CLI 中均拒绝；当前 canonical CLI 继续拒绝已删除 one-shot。
+- [x] M2A 等价与消费者切换通过后，唯一删除旧 dispatcher。
 - [ ] M2B 才允许执行已拍板的 Silver selector 收紧和 MACD/KDJ 单分区门禁；其余差异一律视为回归。
 
 ---
@@ -840,7 +842,7 @@ LLD §16.1/16.8/16.14；不改变 M4 写湖安全、CLI 回归、具体删除确
 - [x] 33 项新增测试 + 当前静态/隔离回归共 155 passed，另有 450 subtests passed，耗时 5.80 秒。
 - [x] 4 个迁出函数和 5 个保留模块 AST 等价核验通过，Ruff 默认规则及全项目致命错误检查通过。
 - [x] 目标及硬口径、具体文件、性能/副作用边界、验证限度已回填原方案和 LLD M1；未修改依赖矩阵。
-- [ ] M1 用户 review；随后按阶段进入 M2A，先冻结当前 CLI 行为再迁移，不把本轮 helper 验证当成 CLI 全验收。
+- [x] 用户要求提交 M1 并进入 M2A；M1 提交 `3007cc0e`，未推送。M2A 另做独立 CLI 验收，见 §23。
 - [ ] 写湖集成与正式环境验证按后续阶段执行：本轮不访问正式 Lake/Dagster/DB；原写湖集成测试因默认
   DuckDB temp 指向正式盘未全跑，两处 mock target 改名对应的旧集成用例也未执行，新隔离测试覆盖其计数开关契约。
 
@@ -848,3 +850,25 @@ LLD §16.1/16.8/16.14；不改变 M4 写湖安全、CLI 回归、具体删除确
 三份原专项文档同步更新。临时 AST 比对脚本为
 `/private/tmp/lake-retirement-m1-20260905.YlHLoU/verify_ast_equivalence.py`，稳定结论已入文档。
 没有删除数据或 Git 文件，没有修改 Ops Snapshot、停牌 CSV、身份 seed、ignored 环境、生产模块或其它任务文件。
+
+## 23. 2026-09-05 M2A 执行回填
+
+用户要求“提交修改，下一步是 M2A：冻结 21 个当前 CLI 命令的行为，再逐项等价迁移”。已先提交 M1，
+再基于 `3007cc0e` 实施 M2A；没有把 M2B 参数收紧或 M3/M4/M6/M8 删除混进来。
+
+- [x] 先保存旧入口固定 fixture，再创建 shared contract 与 Silver/QFQ/derived/MACD-KDJ 四个新 CLI。
+- [x] 21 命令、246 组旧/新同输入双跑全部一致；21 段 handler 归一化 helper 接口后 AST 相等。
+- [x] 冻结默认值、重复值、None/空 tuple、selector 优先级、dry-run/confirm/checkpoint、full/quick、
+  stdout/打印对象类型及异常发生前的调用顺序。`audit-silver-final` 保留实际 dataclass 输出。
+- [x] 四份现行测试、static gate 已改接正确新入口；canonical one-shot 拒绝检查保留，没有删除负例。
+- [x] 全仓 tracked 程序消费者已清零后，唯一删除 `stk_mins_migration_cli.py`，无 alias；可从 Git 历史恢复。
+- [x] 永久测试只对冻结 fixture 回归，不导入或恢复旧 dispatcher；另检查四 CLI 的命令归属、
+  7 × 4 旧命令拒绝、shared 注入/空值、旧入口缺失与无旧直接依赖。
+- [x] 5 个现有 CLI 集成测试通过，全部使用临时 Lake、ephemeral instance 和重定向临时目录的 DuckDB spill；
+  不连接正式 Dagster/数据库/网络，不访问正式 Lake。具体命令与最终回归统计见 LLD §11 M2A。
+- [x] 原专项方案、LLD、清单、canonical 文档与架构快照同步；后两份原已属于 156 份处理矩阵。
+- [x] 用户要求提交 M2A；本次按 18 文件白名单归档，未推送；正式部署/长历史运行不在验收内。
+- [ ] 下一步 M2B：仅 Silver selector 收紧和 MACD/KDJ baseline 单分区门禁；其余冻结行为保持。
+
+旧 migration 主体、263 个旧产品文件、旧文档、物理数据、停牌 CSV、ignored 环境、Ops Snapshot
+均未改动；子系统边界/依赖矩阵不变。删除前双跑脚本仅作临时证据，旧文件删除后不再作为回归入口。
