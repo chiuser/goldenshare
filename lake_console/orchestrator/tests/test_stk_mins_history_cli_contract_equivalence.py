@@ -538,7 +538,9 @@ def test_each_cli_exposes_only_its_own_current_commands(module_name):
     )
 
 
-@pytest.mark.parametrize("module_name", ("stk_mins_migration", "stk_mins_migration_cli"))
+@pytest.mark.parametrize(
+    "module_name", ("stk_mins_migration", "stk_mins_migration_cli")
+)
 def test_old_migration_entry_points_are_absent(module_name):
     current = importlib.import_module(PREFIX + "stk_mins_silver_history_cli")
     assert not Path(current.__file__).with_name(f"{module_name}.py").exists()

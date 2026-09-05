@@ -1,11 +1,10 @@
 """Keep the retired Console out without treating ignored environments as source."""
 
 import ast
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RETIRED_DIRS = (

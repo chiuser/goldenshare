@@ -1,6 +1,6 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已提交 `68f97744` / M5 已提交 `3ed4c6ca` / M6 旧产品原子清退已实施并通过定向回归，未提交（见 §11） / 文档矩阵 165 份 / 其余具体数据删除待确认
+状态：2026-09-05 M1 已提交 `3007cc0e` / M2A 已提交 `0cc84004` / M2B 已提交 `e8e2abf9` / M3 已提交 `1b0deb63` / M4 已提交 `68f97744` / M5 已提交 `3ed4c6ca` / M6 已提交 `63be03af` / M7 技术验收通过，用户已要求按 11 文件白名单提交（见 §11 续轮收口） / 文档处置矩阵 165 份，专项控制文档另列 3 份 / 其余具体数据删除待确认
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
 
@@ -20,8 +20,8 @@ HEAD、CodeGraph 状态和精确文件白名单。
 
 **最新数据清退口径**：用户已确认只依据代码直接使用判断用途，取消完整性、日期范围、内容替代和历史
 价值审计。执行规则见 §16.1，当前批量清单见 §16.14；此前物理审计中的待核内容差异、人工取证/副本
-确认等不再作为前置项。M4 写湖安全与代码回归要求不变；数据审计本身不授权删除。本次 M5 仅处理
-已批准文档、规则和模板；代码阶段的历史实施记录见 §11 M2A–M4，不执行物理数据删除。
+确认等不再作为前置项。M4 写湖安全与代码回归要求不变；数据审计本身不授权删除。当前 M7 回归、
+正式 Definitions 与差异复核已通过，用户已要求按 11 文件白名单提交；阶段实施记录见 §11，不自动进入 M8。
 
 > 本文是本专项的代码实施依据。上位方案负责说明为什么清退、清退边界和阶段顺序；本文负责说明每个混合文件、运行契约、CLI、测试和文档具体如何修改。若实施时当前代码已经偏离本文审计基线，必须先重新做 CodeGraph 和文本引用审计，不能机械套用本文行号。
 
@@ -1159,6 +1159,14 @@ M5 开工复扫补充（2026-09-05，基线 `5f834b02`）：全仓旧标识/路�
 删除范围。实施 M0、M5 和 M7 均要求未归类命中、重复路径和意外不存在路径为 0；M5 删除完成后，
 只允许明确批准的 89 个路径不存在，不能把正常删除算扫描失败，也不能借此忽略其他死链。物理用途待审不能算闭环。
 
+M7 补清统计边界：本专项方案、本文 LLD、M0 审计清单是三个持续更新的控制文档，不是待清退的
+产品文档，单独登记为 `MODIFY_CURRENT` 校验白名单，不重复计入下表 165 份处置对象。复扫集合为
+“165 个处置对象 + 3 个控制文档”；不能把这三个命中静默过滤后宣称全文零遗漏。三个精确路径为：
+
+1. `docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md`
+2. `lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md`
+3. `lake_console/docs/design/legacy-lake-console-kopia-retirement-m0-audit-checklist-v1.md`
+
 #### 9.4.1 当前规则、索引、模板和正式 Dagster 文档
 
 | 文件 | 处理码 | 精确修改 |
@@ -1887,7 +1895,7 @@ M6 延后项不是 M5 漏项：
 5. 运行仓库引用清零 gate。
 
 
-#### M6 实施结果（2026-09-05，基线 `dev-interface@3ed4c6ca`，未提交）
+#### M6 实施结果（2026-09-05，基线 `dev-interface@3ed4c6ca`，已提交 `63be03af`）
 
 本次授权是“继续推进 M6”。以下是当前工作树实施证据，不覆盖旧阶段点时记录，不代表已经部署或正式服务停机。
 
@@ -1991,7 +1999,7 @@ test_etf_daily_catalog 七份测试。runner 禁止 DagsterInstance.get 和 sock
 
 **阶段结论**
 
-M6 实施及定向回归完成。用户已要求提交并进入 M7，本次按 292 文件白名单归档（263 删除、28 修改、1 新增），不推送。下一步 M7 做全量验收与最终差异复核；
+M6 实施及定向回归完成，已按 292 文件白名单提交 `63be03af`（263 删除、28 修改、1 新增），未推送。用户已授权进入 M7，全量验收与最终差异复核见下一节；
 正式 definitions 检查仍须依 §12.3 单独授权。未停启任何正式服务、未进行线上 UI smoke，
 不把构建与 mock 页面测试说成部署验收。M8 仍须确认具体数据清单；停牌 CSV、reports、
 物理湖、ignored 环境与 Ops snapshot 均未删除。无新增待拍板设计项。
@@ -2002,6 +2010,138 @@ M6 实施及定向回归完成。用户已要求提交并进入 M7，本次按 2
 2. 逐项对照上位方案和本文 acceptance checklist。
 3. 只 stage 本专项白名单；禁止 `git add .`。
 4. 检查 staged name-status 和 staged diff，确认无物理数据、ignored 环境和用户无关改动。
+
+#### M7 首轮验收记录（2026-09-05，基线 `dev-interface@63be03af`）
+
+**首轮历史结论：当时尚未通过全部门禁。** 下表和失败记录保留原始证据，不代表当前还有相同待办；
+用户此后批准两处测试修正和 Definitions 检查，当前结果以本节“续轮收口”小节为准。不进入 M8。
+
+范围：第 12 章全量测试、现行 Reader/API/前端和 Ops snapshot 保护、各阶段实际差异、文档复扫。
+测试均采用临时文件/替身资源；系统层禁止网络和 `/Volumes` 写入，禁止读取正式 Lake、staging、旧湖
+及正式 Dagster home。测试 runner 在收集前禁止 `DagsterInstance.get()` 和真实 PostgreSQL 连接，
+只把默认 DuckDB spill 改为测试临时目录，显式临时配置保持原样。不启停正式服务，不执行生产恢复。
+
+| 门禁 | 本轮实际结果 | 判定与限制 |
+|---|---|---|
+| orchestrator 全量 pytest | 3,010 通过、3 失败，1,137 子例通过；279.24 秒 | 已完整执行，但首次未全绿；失败见下表 |
+| 九转文件独立进程复跑 | `test_major_index_nineturn_m4b.py` 18 项通过；3.77 秒 | 重复覆盖首次中的 18 项，不能与 3,010 相加；正式 1 GiB 门禁未改 |
+| 根架构 + 6 Reader + 分钟/九转/趋势 API + snapshot service | 242 通过、1 失败；21.93 秒 | 失败来自既有字符串扫描，非清退回归 |
+| Ops snapshot 查询/CLI/worker/API 补充回归 | 40 项通过；5.47 秒 | snapshot 能力没有清退，状态失败隔离测试保留 |
+| frontend | 40 个文件、149 项通过；typecheck、规则、build 通过 | 构建输出在临时目录，有既有大 chunk 提醒；不是线上 smoke |
+| Wealth | 6 个文件、60 项通过；typecheck、build 通过 | 股票/指数详情、分钟和九转合同；mock 不等于正式页面验收 |
+| 格式整理后的定向回归 | CLI/adj-factor/旧适配器/分钟合同 184 项、246 子例通过；根清退护栏 13 项通过 | 21 命令 fixture 未改；没有借格式化改参数或断言 |
+| DuckDB resource 补充隔离验证 | 临时测试 2 项通过 | 验证默认工厂无参委托、连接透传及成功/异常清理；不替代失败的原测试 |
+| 编译与静态检查 | 编排 `compileall`、全 `src/tests` 致命 Ruff、ClickHouse 两个 bin 语法通过 | 36 个专项存续 Python 完整 lint 对比；4 文件共 12 条既有诊断未扩大，不宣称全仓风格全绿 |
+| 文档 | 165 矩阵对象存在性/唯一性/分类通过；76 保留文档 + 3 控制文档链接检查、12 HTML 结构/id、完整性检查通过 | 89 个批准删除路径不存在；25 KEEP 与 M5 前基线字节一致；未归类命中和已删文档入链为 0 |
+| Git 与保留范围 | M6 263 删除与白名单一致；八个专项提交未修改根 `src/`、`frontend/`、`wealth/src/`、reports | 排除并行提交，不用跨整段历史 diff 误算其它任务；ignored 11,692 文件元数据未变 |
+| 正式 definitions | 未执行 `dg check defs` / `dg list defs` | 等待独立命令授权，不能据静态 catalog 数量宣称正式 Definitions 验收完成 |
+
+首轮失败逐项归因与当时提出的处理方案（此后已获批准并实施，结果见续轮收口）：
+
+| 项目 | 当前代码事实 | 下一步与禁止做法 |
+|---|---|---|
+| 两项九转 daily serving history 测试超内存 | `major_index_nineturn_history._peak_rss_mib()` 读取整个进程的历史峰值 `ru_maxrss`；全量测试时为 1025.17/1025.78 MiB，超过既有 1024 门禁。独立文件全部通过，相关代码/测试不在专项改动中 | 后续全量测试按文件分新进程隔离该资源敏感组，其余测试仍全部覆盖。保留首次失败证据；不提高生产内存上限、不屏蔽 OOM 测试、不伪称修复生产代码 |
+| `test_duckdb_resource_uses_configured_connection` | 原测试直接打开默认资源并断言 `/Volumes/datasource/.goldenshare_duckdb_tmp`；本轮 runner 为避免正式路径写入，将默认 spill 定位到临时目录，因此断言失败。原测试来自 `d946d440`，本专项未修改资源或此测试 | 建议仅重构该单元测试：mock 资源层连接工厂并断言无参委托/清理；保留既有临时目录真实连接设置测试及默认常量合同测试。两项临时验证已证明建议可行；不修改正式默认路径，不伪造查询结果或放行移动盘写入 |
+| `test_active_code_does_not_reference_legacy_dataset_run_names` | 既有测试用子串 `execution_canceled` 扫描，命中 `sector_analysis_daily_task_executor._raise_if_execution_canceled`。该方法实际检查当前 TaskRun 取消意图并抛 `IngestionCanceledError`，由并行提交 `58d316c0` 引入；测试最近提交为 `853e3ca1` | 建议另行确认只调整扫描测试：保留旧执行合同/字段的真实禁止项，区分合法局部函数名并添加正反例。不删除取消函数，不改生产 TaskRun 逻辑，不以整文件白名单掩盖真正旧字段；本轮仅记录 |
+
+**本轮实际文件修改**（除三个专项文档外，仅以下格式整理）：
+
+| 路径（相对仓库根） | 修改 | 语义检查 |
+|---|---|---|
+| `lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_history_cli.py` | 参数声明折行 | AST 与 M6 提交相同 |
+| `lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_mins_silver_history_cli.py` | 错误文字折行 | AST 与 M6 提交相同 |
+| `lake_console/orchestrator/tests/test_stk_mins_history_cli_contract_equivalence.py` | decorator 折行 | AST 相同 |
+| `lake_console/orchestrator/tests/test_adj_factor_contracts.py` | 移除多余空行 | AST 相同 |
+| `lake_console/orchestrator/tests/test_old_lake_adapter_retirement.py` | 常量/断言/参数折行 | AST 相同 |
+| `tests/architecture/test_lake_console_retirement_guardrails.py` | 标准库导入顺序与空行 | 导入集合与其余 AST 相同；13 项回归通过 |
+
+这是按 §12.2 格式要求处理专项新引入的差异；未整文件格式化已有格式债务的其它 19 份 Python。
+2,140 个 M6 保护文件中，2,138 个字节不变，只有上述两个 CLI 格式改变且 AST 不变；其余四份测试
+不属于该保护指纹集合，已单独比对。六份修改文件完整 Ruff/formatter 通过。无新功能、字段、配置、
+运行入口或跨子系统依赖，依赖矩阵不变。
+
+CodeGraph `explore` 本轮核对 Definitions 装配入口、DuckDB 连接工厂和 resource 委托；结合既有
+`callers/impact`、当前代码与 Git 差异复核 CLI、恢复、Reader、API 和前端消费者。没有以图中的
+名称匹配替代实际代码；根索引 `sync/status` 已通过（2,949 files / 53,540 nodes / 129,954 edges），未创建独立子项目索引。
+
+文档复扫另发现三个专项控制文档此前未进入同一链接集合，LLD 内有 3 处指向已删 backend 源码的
+链接。已核对 `3ed4c6ca` 原文件，把链接改为“提交号 + 当时路径/行号”的历史证据，不把历史源码
+恢复到工作树；§16.14 也注明旧代码依赖已退出 Git、物理删除仍未授权。完成修正后再得到上表的零死链结果。
+
+证据根：`/private/tmp/lake-retirement-m7-20260905.yEELOh`。主要结果为 `orchestrator-full-first.xml`、
+`nineturn-fresh-process.xml`、`root-acceptance.xml`、`ops-snapshot.xml`、`resource-delegation.xml`、
+`format-regression.xml`、`root-format-regression.xml`；`readonly-tests.sb` 与 `run_isolated_tests.py`
+记录隔离条件，`audit_docs.py`、`audit_python.py`、`verify_scope.py` 是本轮只读核验工具。
+这些临时文件不是产品依赖或永久门禁；由本任务使用至 M7 review 完成，届时仅按精确路径清理，不
+接入正式运行。本节数字与 Git 基线保留为持久摘要，不能假定临时文件永远可用。
+
+**正式 Definitions 命令及边界**（首轮待授权；续轮已批准并执行）：
+
+- 工作目录：`/Users/congming/github/goldenshare/lake_console/orchestrator`。
+- 目标 `DAGSTER_HOME`：`/Users/congming/.goldenshare/dagster_home`，不是测试 instance。
+- 完整命令：`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run --no-sync dg check defs`；
+  `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run --no-sync dg list defs --json`。
+- 目的：验证正式代码位置能加载，并核对现行 asset/check/job/sensor，补足 §12.3。
+- 范围：定义加载/配置读取；不触发任务、sensor、asset check 执行、分区注册、物化或补事件，不写湖或数据库业务数据，不启停常驻服务。加载可能建立短生命周期子进程并产生 CLI 缓存/日志；若要求超出批准范围的正式状态写入则停止。
+- 风险与退出：先核本地命令帮助和当前配置；定义错误只记录失败，不借机运行修复任务。结束检查子进程即停止，不需要数据回滚；不得清库、改事件或重启正式服务来让检查通过。
+
+收口顺序：用户确认测试修正范围及命令授权 → 修正/回归测试门禁 → 分进程覆盖完整编排测试集并跑
+正式 Definitions → 复核九文件及任何另批测试的精确差异 → M7 单独验收。M8 仍需另外确认数据清单。
+
+#### M7 续轮修正约束（2026-09-05，用户已同意）
+
+用户已明确同意修正上述两处测试，并按已列明的范围执行 Definitions 检查。授权只用于本节，不包含
+任务执行、物化、补事件、服务停启、业务数据写入、M8、提交或推送。上一节保留首次失败证据。
+
+| 硬口径 | 修改/验证落点 | 禁止项与反例 |
+|---|---|---|
+| DuckDB 资源只委托统一工厂 | `tests/test_duckdb_connection.py` 用 context-manager mock 验证无参调用、原连接透传、正常/异常退出；真实临时连接和默认配置合同测试保留 | 工厂失败或消费者抛错必须原样传播；不调用正式默认 spill，不修改 `resources.py` / `duckdb_connection.py` |
+| 旧模型扫描区分片段与完整名称 | `tests/architecture/test_dataset_maintenance_refactor_guardrails.py` 保留其它原有禁止片段；`execution_canceled` 按完整标识符/字符串边界匹配 | 合法 helper 名称及调用允许；同一 helper 内的旧字段、参数、事件字符串、属性访问仍拒绝；不设文件白名单，不改业务取消代码 |
+| 测试与正式资源分开 | 沿用隔离 runner；九转资源敏感文件单独进程，其余全量集独立进程，覆盖集合必须不缺失、不重复 | 不提高 1 GiB 生产门禁，不跳过任何测试冒充全量通过 |
+| Definitions 仅加载与清单核对 | 先读本地 help/JSON response schema，再执行已批准 check/list 命令；核资产/检查/任务/传感器身份 | 不启动正式 job/sensor/check，不注册分区，不用正式业务数据验收 |
+
+性能与读写边界：两个测试文件只读本地代码/小型临时 SQL 结果，mock 不访问外部系统；业务日期、
+分区、源端请求、正式行/文件写入、event 写入均为 0。全量测试沿用上一轮约 4–5 分钟预算，资源敏感
+组串行隔离，不新增并发。Definitions 只枚举静态定义，不扫描 Lake 或 event 历史，不设新的运行配置。
+
+#### M7 续轮收口（2026-09-05，技术验收通过，用户已要求提交）
+
+本轮完成上述已批准修正，保留首次失败记录，不降低正式门禁。改动相对 M6 的总范围为 11 个文件：
+首轮六份格式整理及三份专项文档，加本轮两份测试修正。只有测试断言/扫描方式改变，业务实现不变。
+
+| 文件 | 实际修改 | 验证 |
+|---|---|---|
+| `lake_console/orchestrator/tests/test_duckdb_connection.py` | 原默认资源测试改为 mock 统一连接工厂，验证无参调用、连接原样透传、正常退出；新增消费者错误清理与工厂错误传播，保留三个原默认配置/临时真实连接/错误目录测试 | 6 项通过；不伪造 DuckDB 设置查询结果；`resources.py` 与 `duckdb_connection.py` 对 M6 字节不变 |
+| `tests/architecture/test_dataset_maintenance_refactor_guardrails.py` | 抽取纯扫描 helper；23 个原禁止片段保持子串检查，`execution_canceled` 按完整名称边界检查，不禁止合法 helper 后缀；新增 5 个允许样本、12 个拒绝样本、6 个其它门禁保留样本 | 文件 64 项通过；24 个原禁止项集合/顺序完整保留，其余 41 个顶层函数 AST 不变；同一合法 helper 内出现旧字段/事件仍拒绝，没有文件白名单 |
+| 三个专项控制文档 | 同步批准状态、首轮历史与续轮结果、11 文件边界及下一步 | 不删除首次失败证据，不新增数据清退授权 |
+
+最终结果：
+
+| 验收 | 数量/结果 | 证据和边界 |
+|---|---|---|
+| 编排全量主组 | 2,997 passed，1,137 subtests passed；304.71 秒 | `orchestrator-final-main.xml`；只分离九转文件，没有其它排除 |
+| 编排九转独立组 | 18 passed；3.83 秒 | `orchestrator-final-nineturn.xml`；原 1 GiB 生产峰值保护代码不变 |
+| 全量覆盖核对 | 3,015 个 node ID，遗漏 0、重叠 0、跳过/错误/失败 0 | 两组集合并集严格等于 `final-full-collection.collection.json`；XML 主组另计 1,137 子例，总测试数不能与 pytest 主项混算 |
+| 根架构/6 Reader/API/Ops snapshot | 306 passed；27.17 秒 | `root-final.xml`，包括首轮误报门禁及新增 23 个反例/正例；不是只跑新测试 |
+| 正式 Definitions | check/list 均退出 0；159 assets、364 checks、75 jobs、88 sensors、8 resources、1 schedule | 本地 help/response schema 与安装的 CLI 代码先核对；正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，使用前述批准命令 |
+| Definitions 身份对账 | 各类型无重复；159 asset key 与当前 catalog 全等；返回的定义清单无旧 Console/Kopia/old-lake adapter 引用 | `formal-definitions-inventory.json`；Raw/Silver/QFQ/derived/MACD-KDJ、当前 ClickHouse 和 Prod 资源均保留。不启动资产、检查、任务或传感器执行 |
+| 静态与边界 | 编排 compileall/致命 Ruff、两份测试完整 Ruff 通过；38 个专项存续 Python 无新增 lint 诊断 | 原 4 文件共 12 条 lint 不扩大；本轮新纳入根测试也有既有格式债务，未整文件重排。总计 20 文件存在历史 formatter 差异，不声称全仓风格全绿 |
+| 防误删 | M6 263 删除清单不变；2,140 保护文件中只有首轮两个 CLI 仅格式变化，AST 相同；11,692 ignored 文件元数据不变 | 本轮业务取消函数、DuckDB 设置、九转恢复及 21 命令 fixture 对 M6 字节相同；没有新增/删除 Git 文件或物理数据 |
+| 文档 | 165 处置对象 + 3 控制文档、12 HTML、文档完整性与 diff 检查通过 | 首轮发现的三处旧源码链接已改为 Git 历史位置；不复活旧源码或兼容入口 |
+
+前端验证沿用首轮 frontend 149 项、Wealth 60 项及两边 typecheck/build 结果；本续轮未改前端源码，
+不重复构建，也不宣称做了线上 UI smoke。CodeGraph 本轮 `explore` 核对统一连接的现行调用面和
+TaskRun 取消函数，图中同名 QTF `definitions` 误命中未用作 DG 证据；当前 DG 装配以实际代码及
+正式命令结果为准。没有新增资产、字段、resource、分区、配置或跨子系统依赖。
+
+额外证据工具仍仅在首轮临时根中：`verify_final_acceptance.py` 对账 node ID、JUnit、原禁止项、
+其它测试函数 AST、受保护运行代码以及 11 文件白名单；`audit_python.py` 补入两份获批测试。
+这些不是新的运行依赖。正式命令只完成定义加载/静态清单核验，没有执行 job/sensor、物化、分区
+注册、runless event、生产恢复、Lake 写入、服务停启、部署或数据删除。
+
+结论：M7 技术验收已收口，无剩余两处测试/Definitions 授权事项；用户已明确要求提交。本次按
+11 文件白名单归档，提交前重新检查 staged diff，提交结果以 Git 记录为准；不推送、不进入 M8。
+M8 仍须用户确认具体数据清单。
 
 ### M8：精确清退已证实无用的物理数据
 
@@ -2154,11 +2294,12 @@ M8 删除前必须在清单中明确恢复能力。非 Git 数据没有既有可
 - [x] 有效模板检查项已先迁入正式模板/性能文档（M5）。
 - [x] 三个旧模板删除，当前引用已更新（M5）。
 - [x] AGENTS、skills、README 和架构文档与代码事实一致（M6）。
-- [x] 第 9.4 节逐文件处理矩阵完成（M5/M6 定向校验，M7 再总复核）；current/mixed 文档未被误删，86 份 `DELETE_LEGACY_DOC` 文件在
+- [x] 第 9.4 节逐文件处理矩阵完成（M7 已复核 165 对象 + 3 控制文档）；current/mixed 文档未被误删，86 份 `DELETE_LEGACY_DOC` 文件在
       当前工作树清零，现行引用为 0，必要结果摘要已迁入现行总账/设计。
 - [x] Wealth `local_lake` 全部当前 Reader、分钟/turnover insight/trend 等 API、页面调用和 optional dependency 未被误删（M6 内容与定向回归）。
-- [ ] M0–M7 未改物理数据/reports；全部阶段保留 Ops Snapshot 和 ignored 依赖环境/配置。
-- [ ] 全量验证通过，staged diff 只含专项白名单。
+- [x] 本次 M7 未改物理数据/reports，Ops Snapshot 与 ignored 依赖环境/配置保留；历史单项 backup 提前删除仅按 §16.9 的独立批准，不扩展到其它物理对象。
+- [x] M7 全量回归与正式 Definitions 技术验收通过，工作区 diff 仅 11 个专项文件，无新增/删除文件；两处测试问题已按批准口径修正。
+- [x] 用户已要求提交 M7；本次按 11 文件白名单归档，提交前重新核验 staged diff，提交结果以 Git 记录为准；不推送、不进入 M8。
 
 ### 14.6 M8 物理数据
 
@@ -2627,8 +2768,8 @@ sync/status；图未精确表达的动态目录读取由当前 catalog/scanner/s
 | trade_cal | 旧 reference catalog/scanner、prod current 导出；旧 `trade_calendar_bootstrap_spec` | [raw_tushare_trade_calendar](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/calendar.py:105) 从 Tushare 取 SSE 日历并写正式 Raw full；旧 `manifest/trading_calendar` 另被旧导出/分钟恢复读取，不能连带删 |
 | security_identity | 旧 `stock_identity_map_bootstrap_spec` 明确把旧 manifest 映射到正式 Silver；旧分钟 migration 的 plan/migrate/audit 等仍调用它 | [silver_stock_identity_map](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_identity_map.py:365) 从正式 `silver_stock_lifecycle`、`silver_namechange` 与当前 mapping seed 构建，**不以旧 manifest 作为现行输入**；资产、seed、checks 和所有正式消费者继续保留 |
 
-旧 scanner 的 [实际路径拼装](/Users/congming/github/goldenshare/lake_console/backend/app/services/filesystem_scanner.py:282)
-是 `lake_root / node.path`，分别按日期目录或单文件读取；因此仅搜索完整 Parquet 文件名不足以排除旧消费者。
+旧 scanner 当时的实际路径拼装是 `lake_root / node.path`，分别按日期目录或单文件读取；证据保存在
+`3ed4c6ca:lake_console/backend/app/services/filesystem_scanner.py:282`（M6 已删源码）。因此仅搜索完整 Parquet 文件名不足以排除当时的旧消费者。
 以上六个旧 spec 的源/目标与 SQL 已逐份核对。本轮只静态提取日期/类型投影做只读比较，没有 import、
 运行旧 executor 或恢复旧 bootstrap 权限；旧 migration 主体已在 M3 退出，六个旧 spec/executor 与旧产品分别归 M4/M6，不影响当前 Tushare/正式湖链路。
 
@@ -2748,9 +2889,9 @@ untracked 程序及配置文件（Python、Shell、SQL、TS/JS、TOML/YAML/JSON 
 
 | 证据 | 确认的实际含义 |
 |---|---|
-| [旧 catalog 汇总入口](/Users/congming/github/goldenshare/lake_console/backend/app/catalog/datasets/__init__.py:15) 与九个数据域定义文件 | 静态提取 `storage_root`，旧湖盘点的 **54/54 Raw 目录全部有精确 catalog 声明**，没有未归类项；不是逐个读取数据得出的结论 |
-| [旧 scanner](/Users/congming/github/goldenshare/lake_console/backend/app/services/filesystem_scanner.py:282)、`_physical_assets` | 拼接 `lake_root / node.path`；还扫描 raw_tushare/manifest/derived/research 和 _tmp/_recovery。旧代码引用覆盖这些家族，而非必须硬编码每个恢复目录名 |
-| 六个旧湖 spec + 旧分钟 migration/CLI | 旧 Raw daily/adj_factor/suspend_d/stock_basic/trade_cal 和旧 manifest identity 仍是待清退适配器输入。分钟历史默认 source 为已删除的 backup，不是旧湖内同名 research；两者不混淆 |
+| 旧 catalog 汇总入口：Git `3ed4c6ca:lake_console/backend/app/catalog/datasets/__init__.py:15`，以及当时九个数据域定义文件 | 静态提取 `storage_root`，旧湖盘点的 **54/54 Raw 目录全部有精确 catalog 声明**，没有未归类项；不是逐个读取数据得出的结论。旧产品代码已在 M6 退出 |
+| 旧 scanner：Git `3ed4c6ca:lake_console/backend/app/services/filesystem_scanner.py:282`、当时的 `_physical_assets` | 当时拼接 `lake_root / node.path`；还扫描 raw_tushare/manifest/derived/research 和 _tmp/_recovery。旧代码引用曾覆盖这些家族，而非必须硬编码每个恢复目录名；M6 已退出 |
+| 六个旧湖 spec + 旧分钟 migration/CLI（M3/M4 已退出 Git） | M0 核验时，旧 Raw daily/adj_factor/suspend_d/stock_basic/trade_cal 和旧 manifest identity 是这些适配器输入。分钟历史默认 source 为已删除的 backup，不是旧湖内同名 research；两者不混淆。代码退出不代表已取得剩余物理数据删除授权 |
 | [正式根与路径](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/paths.py:41)、`LakeRootResource` | 正式路径为 data_lake/raw、silver、gold；旧路径片段的禁止列表不是旧数据读取者 |
 | [股票分钟 Reader](/Users/congming/github/goldenshare/src/foundation/clients/local_lake/stock_mins_reader.py:91)、`resolve_local_minute_capability` | 依赖配置 root 下的正式 Gold 路径；本机 Web 配置为 `/Volumes/datasource/data_lake`，不消费旧 raw_tushare/research/derived。Reader/API 能力保留 |
 | `MajorIndexTurnoverLakeReader`、BSE recovery、九转 no-price history、趋势通道 staging guard | 命中的旧湖根均用于拒绝输入，不是读取旧湖数据；不得因字面命中保留旧数据或删掉保护规则 |

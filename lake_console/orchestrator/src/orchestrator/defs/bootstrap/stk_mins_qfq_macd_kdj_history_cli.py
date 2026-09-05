@@ -70,9 +70,7 @@ def main(argv: list[str] | None = None) -> None:
     report_gold_qfq_macd_kdj_baseline_events.add_argument(
         "--lake-root", default=DEFAULT_LAKE_ROOT
     )
-    report_gold_qfq_macd_kdj_baseline_events.add_argument(
-        "--start-date", required=True
-    )
+    report_gold_qfq_macd_kdj_baseline_events.add_argument("--start-date", required=True)
     report_gold_qfq_macd_kdj_baseline_events.add_argument("--end-date", required=True)
     report_gold_qfq_macd_kdj_baseline_events.add_argument("--partition-keys")
     report_gold_qfq_macd_kdj_baseline_events.add_argument("--freqs")

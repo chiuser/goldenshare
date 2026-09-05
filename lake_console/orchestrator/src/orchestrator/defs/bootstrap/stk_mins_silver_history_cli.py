@@ -100,9 +100,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "register-silver-partitions":
         selected_keys = _selected_silver_partition_keys(args)
         if selected_keys is None:
-            raise ValueError(
-                "Pass --partition-keys or --all-from-silver-files."
-            )
+            raise ValueError("Pass --partition-keys or --all-from-silver-files.")
         report = register_stock_mins_silver_partitions(
             instance=dg.DagsterInstance.get(),
             partition_keys=selected_keys,

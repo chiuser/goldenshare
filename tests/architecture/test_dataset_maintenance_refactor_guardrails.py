@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
-from src.ops.action_catalog import MAINTENANCE_ACTION_REGISTRY, WORKFLOW_DEFINITION_REGISTRY
-from src.foundation.datasets.registry import get_dataset_definition_by_action_key
-from src.foundation.datasets.registry import list_dataset_definitions
-
+import pytest
+from src.foundation.datasets.registry import (
+    get_dataset_definition_by_action_key,
+    list_dataset_definitions,
+)
+from src.ops.action_catalog import (
+    MAINTENANCE_ACTION_REGISTRY,
+    WORKFLOW_DEFINITION_REGISTRY,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACTIVE_CODE_ROOTS = (
@@ -32,7 +38,7 @@ def _python_and_frontend_files(root: Path) -> list[Path]:
     ]
 
 
-def test_active_code_does_not_reference_legacy_dataset_run_names() -> None:
+def _legacy_dataset_run_names(text: str) -> list[str]:
     forbidden_tokens = (
         "sync" + "_daily",
         "sync" + "_history",
@@ -57,18 +63,82 @@ def test_active_code_does_not_reference_legacy_dataset_run_names() -> None:
         "execution_" + "summary",
         "record_" + "execution" + "_outcome",
         "execution" + "_failed",
-        "execution" + "_canceled",
     )
+    violations = [token for token in forbidden_tokens if token in text]
+    # This is a retired event/field name, not a ban on a helper suffix such as
+    # _raise_if_execution_canceled. Keep the other legacy fragment gates intact.
+    exact_names = ("execution" + "_canceled",)
+    violations.extend(
+        name
+        for name in exact_names
+        if re.search(rf"(?<![\w$]){re.escape(name)}(?![\w$])", text)
+    )
+    return violations
+
+
+def test_active_code_does_not_reference_legacy_dataset_run_names() -> None:
     violations: list[str] = []
     for root in ACTIVE_CODE_ROOTS:
         for path in _python_and_frontend_files(root):
             text = path.read_text(encoding="utf-8")
-            for token in forbidden_tokens:
-                if token in text:
-                    rel_path = path.relative_to(REPO_ROOT).as_posix()
-                    violations.append(f"{rel_path}: {token}")
+            for token in _legacy_dataset_run_names(text):
+                rel_path = path.relative_to(REPO_ROOT).as_posix()
+                violations.append(f"{rel_path}: {token}")
 
     assert not violations, "旧数据集执行模型不得回到活跃代码:\n" + "\n".join(violations)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def _raise_if_execution_canceled(context):\n    return context.task_run_id",
+        "self._raise_if_execution_canceled(context)",
+        "await raise_if_execution_canceled(context)",
+        "const raiseIfCanceled = () => helper._raise_if_execution_canceled(context);",
+        'message = "TaskRun cancellation requested"',
+    ],
+)
+def test_legacy_run_scan_allows_current_cancellation_helpers(source: str) -> None:
+    assert _legacy_dataset_run_names(source) == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'event = "execution_canceled"',
+        "payload['execution_canceled'] = True",
+        "payload.execution_canceled",
+        "def handler(execution_canceled):\n    pass",
+        "def execution_canceled():\n    pass",
+        "handler(execution_canceled=True)",
+        'const payload = {"execution_canceled": true};',
+        "const event = `execution_canceled`;",
+        "function handle(execution_canceled) {}",
+        "def _raise_if_execution_canceled(context):\n    return context.execution_canceled",
+        'def _raise_if_execution_canceled(context):\n    return "execution_canceled"',
+        'self._raise_if_execution_canceled(context)\npayload = {"execution_canceled": True}',
+    ],
+)
+def test_legacy_run_scan_rejects_retired_cancellation_contracts(source: str) -> None:
+    assert "execution_canceled" in _legacy_dataset_run_names(source)
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ("context.execution_id", "execution_id"),
+        ("payload.active_execution_id", "execution_id"),
+        ('event = "execution_failed"', "execution_failed"),
+        ("def backfill_stock_daily(): pass", "backfill_"),
+        ("from legacy import DatasetSyncContract", "DatasetSyncContract"),
+        (
+            "def _raise_if_execution_canceled(context): return context.execution_id",
+            "execution_id",
+        ),
+    ],
+)
+def test_legacy_run_scan_keeps_other_fragment_gates(source: str, expected: str) -> None:
+    assert expected in _legacy_dataset_run_names(source)
 
 
 def test_active_code_does_not_persist_double_underscore_all_source_scope() -> None:

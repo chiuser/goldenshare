@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import ANY, MagicMock, patch, sentinel
 
 from orchestrator.defs.duckdb_connection import (
     DEFAULT_DUCKDB_CONNECTION_SETTINGS,
@@ -75,28 +76,66 @@ class DuckDBConnectionTests(unittest.TestCase):
             temp_file = Path(temp_dir) / "not_a_directory"
             temp_file.write_text("x")
             settings = DuckDBConnectionSettings(temp_directory=temp_file)
-            with self.assertRaises(FileExistsError):
-                with connect_configured_duckdb(settings):
-                    pass
+            with (
+                self.assertRaises(FileExistsError),
+                connect_configured_duckdb(settings),
+            ):
+                pass
 
     def test_duckdb_resource_uses_configured_connection(self) -> None:
-        with DuckDBResource().connect() as connection:
-            rows = dict(
-                connection.execute(
-                    """
-                    SELECT name, value
-                    FROM duckdb_settings()
-                    WHERE name IN (
-                      'temp_directory',
-                      'threads',
-                      'preserve_insertion_order'
-                    )
-                    """
-                ).fetchall()
-            )
-            self.assertEqual(rows["temp_directory"], str(DEFAULT_DUCKDB_TEMP_DIRECTORY))
-            self.assertEqual(rows["threads"], str(DEFAULT_DUCKDB_THREADS))
-            self.assertEqual(rows["preserve_insertion_order"], "false")
+        # Runtime settings are covered above with an explicit temporary directory.
+        # This test checks delegation without opening the production spill path.
+        manager = MagicMock()
+        manager.__enter__.return_value = sentinel.connection
+        with (
+            patch(
+                "orchestrator.defs.resources.connect_configured_duckdb",
+                return_value=manager,
+            ) as factory,
+            DuckDBResource().connect() as connection,
+        ):
+            self.assertIs(connection, sentinel.connection)
+            manager.__exit__.assert_not_called()
+
+        factory.assert_called_once_with()
+        manager.__enter__.assert_called_once_with()
+        manager.__exit__.assert_called_once_with(None, None, None)
+
+    def test_duckdb_resource_exits_connection_on_consumer_error(self) -> None:
+        manager = MagicMock()
+        manager.__enter__.return_value = sentinel.connection
+        manager.__exit__.return_value = False
+        error = ValueError("consumer failed")
+        with (
+            patch(
+                "orchestrator.defs.resources.connect_configured_duckdb",
+                return_value=manager,
+            ) as factory,
+            self.assertRaises(ValueError) as caught,
+            DuckDBResource().connect() as connection,
+        ):
+            self.assertIs(connection, sentinel.connection)
+            raise error
+
+        self.assertIs(caught.exception, error)
+        factory.assert_called_once_with()
+        manager.__enter__.assert_called_once_with()
+        manager.__exit__.assert_called_once_with(ValueError, error, ANY)
+
+    def test_duckdb_resource_propagates_connection_factory_error(self) -> None:
+        error = RuntimeError("connection failed")
+        with (
+            patch(
+                "orchestrator.defs.resources.connect_configured_duckdb",
+                side_effect=error,
+            ) as factory,
+            self.assertRaises(RuntimeError) as caught,
+            DuckDBResource().connect(),
+        ):
+            self.fail("a failed factory must not yield a connection")
+
+        self.assertIs(caught.exception, error)
+        factory.assert_called_once_with()
 
 
 if __name__ == "__main__":
