@@ -17,6 +17,12 @@ from orchestrator.defs.run_contracts.etf_basic import (
     RAW_ETF_BASIC_CHECKS,
     SILVER_ETF_BASIC_CHECKS,
 )
+from orchestrator.defs.run_contracts.etf_daily import (
+    RAW_FUND_ADJ_CHECKS,
+    RAW_FUND_DAILY_CHECKS,
+    SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
+    SILVER_ETF_DAILY_BLOCKING_CHECKS,
+)
 from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_ASSET_FREQS,
     raw_etf_mins_check_names,
@@ -432,6 +438,34 @@ def _planned_etf_asset_rules() -> dict[
             SILVER_ETF_BASIC_CHECKS,
             category=KEEP_BLOCKING_DAGSTER,
             phase="ETF_BASIC_SILVER",
+            readiness=False,
+            retention_allowed=True,
+        ),
+        "raw_tushare_fund_daily": _rules(
+            RAW_FUND_DAILY_CHECKS,
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="ETF_DAILY_RAW",
+            readiness=False,
+            retention_allowed=True,
+        ),
+        "raw_tushare_fund_adj": _rules(
+            RAW_FUND_ADJ_CHECKS,
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="ETF_DAILY_RAW",
+            readiness=False,
+            retention_allowed=True,
+        ),
+        "silver_etf_daily": _rules(
+            SILVER_ETF_DAILY_BLOCKING_CHECKS,
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="ETF_DAILY_SILVER",
+            readiness=False,
+            retention_allowed=True,
+        ),
+        "silver_etf_adj_factor": _rules(
+            SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="ETF_DAILY_SILVER",
             readiness=False,
             retention_allowed=True,
         ),

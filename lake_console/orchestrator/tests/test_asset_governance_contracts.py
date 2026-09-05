@@ -30,6 +30,8 @@ from orchestrator.defs.assets.etf_basic import raw_tushare_etf_basic, silver_etf
 from orchestrator.defs.assets.etf_daily import (
     raw_tushare_fund_adj,
     raw_tushare_fund_daily,
+    silver_etf_adj_factor,
+    silver_etf_daily,
 )
 from orchestrator.defs.assets.idx_factor_pro_raw import raw_tushare_idx_factor_pro
 from orchestrator.defs.assets.idx_factor_pro_silver import silver_index_factor_pro
@@ -310,6 +312,8 @@ ACTIVE_ASSET_DEFINITIONS = (
     silver_index_factor_pro,
     raw_tushare_fund_daily,
     raw_tushare_fund_adj,
+    silver_etf_daily,
+    silver_etf_adj_factor,
     gold_market_major_indices_daily,
     gold_market_breadth_daily,
     gold_stock_return_distribution,
