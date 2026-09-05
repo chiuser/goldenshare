@@ -1,7 +1,7 @@
 # ETF 日线与复权因子 DG 数据湖接入 LLD v1
 
 > 状态：已结案（2026-09-04，管理员确认）；历史入湖、事件补录、四个 Sensor 启用及首个交易日日常验收已完成；不再等待剩余两个交易日观察；因子 coverage 阻断、日线 coverage 告警的规则不变
-> 更新日期：2026-09-04
+> 更新日期：2026-09-05
 > 上位方案：`dagster-etf-daily-data-onboarding-plan-v1.md`
 > P0 证据：`dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md`
 > 开发目录：`lake_console/orchestrator`
@@ -1119,11 +1119,13 @@ tests/test_etf_daily_definitions.py
 
 状态：已结案（2026-09-04，管理员确认）。
 
-历史建设已完成正式 Raw Plan、三日隔离样本、812 个 Raw 文件入湖、全区间批量审计、正式 Silver Plan、812 个 Silver 文件入湖及最终物理验收。2026-09-04 coverage 已拍板：因子阻断、日线告警；代码与验收要求见 §11.6。历史入口新鲜度与最终批量验收分别按 §16.2.1、§16.6 修正并通过回归。历史日线 Silver 为 539,226 行，因子为 539,536 行；物理验收 4 组、60 次 SQL、核心耗时 2,953.390 ms，1,624 个文件及 checkpoint 全部对账通过。因子缺码 0，日线 166 日共 310 个代码/日期缺口仍 WARN。398 项定向/静态测试、Ruff、Definitions 和文档完整性检查通过。随后 §16.7 的事件 Plan、1,964 条正式事件补录、聚合写后验收和三日历史 readiness 抽样均完成，历史数据与登记记录已闭环。
+历史建设已完成正式 Raw Plan、三日隔离样本、812 个 Raw 文件入湖、全区间批量审计、正式 Silver Plan、812 个 Silver 文件入湖及最终物理验收。2026-09-04 coverage 已拍板：因子阻断、日线告警；代码与验收要求见 §11.6。历史入口新鲜度与最终批量验收分别按 §16.2.1、§16.6 修正并通过回归。历史日线 Silver 为 539,226 行，因子为 539,536 行；物理验收 4 组、60 次 SQL、核心耗时 2,953.390 ms，1,624 个文件及 checkpoint 全部对账通过。因子缺码 0，日线 166 日共 310 个代码/日期缺口仍 WARN。当时选定的 398 项定向/静态测试、Ruff、Definitions 和文档完整性检查通过，但该测试集合未包含 `test_asset_governance_contracts.py` 与 `test_asset_check_incremental_governance.py`，因此不能证明资产治理登记已闭环。随后 §16.7 的事件 Plan、1,964 条正式事件补录、聚合写后验收和三日历史 readiness 抽样均完成，历史数据与登记记录已闭环。
 
 日常启用与验收已完成：21:15 发布预检和最新 Basic 检查通过，共享分区已到 `2026-09-04`；管理员批准后，21:18:53 开启两个 Raw Sensor，Raw 成功后于 21:19:29 开启两个 Silver Sensor。四个正式 run 均由对应 Sensor 触发且成功，日线/因子 Raw 分别新增 2,114 / 2,145 行，两个 Silver 各 1,650 行。仅新增当天 4 个文件，未重跑或覆盖历史；日线 1 页、因子 2 页，无重试，各 run 耗时 1.165—1.980 秒。21:21 读回验收确认四个文件 ready、18 项 check 全部 passed（17 blocking、1 WARN 级检查）、当天两个 Silver 缺码均为 0；验收耗时 923.840 ms，四个 Sensor 均为 `RUNNING`。完整 run ID、筛除原因、报告路径和 hash 统一记录在技术方案 §13 P6。
 
 管理员在首日验收后明确要求直接结案，取消剩余两个交易日观察门槛。本需求及 P6 无待开发、待启用或待观察的结案阻断；实际只完成一个交易日日常验收，不冒充连续三日验证。历史 310 个 ETF/日期缺口的 WARN 事实继续保留。四个 Sensor 进入日常维护，不改变默认 `STOPPED` 的代码定义、21:00 窗口、Basic/coverage 门禁或冲突不覆盖规则。
+
+2026-09-05 事后治理回归发现并修复两项登记缺口：`ACTIVE_ASSET_DEFINITIONS` 补入两个 Silver asset，`ASSET_CHECK_GOVERNANCE` 补入四个 ETF 日线资产。修复提交为 `a5f995fa`，check 名称直接复用 `run_contracts.etf_daily`，没有复制字符串或改变 WARN/blocking 口径。原 5 个失败修复后，两份治理测试为 16 passed；按下方固定命令执行的 ETF 日线、治理和静态门禁扩大回归为 321 passed、609 个 subtests passed，修改文件 Ruff 通过。该修复没有修改生产 Definitions、Sensor、Check、Lake 文件或正式 Dagster 状态。
 
 各阶段已按技术方案独立获批并交付执行证据。后续历史修复或范围扩展仍需另行审计和授权，本次结案不提供额外写入许可。
 
@@ -1131,13 +1133,19 @@ tests/test_etf_daily_definitions.py
 
 ## 20. 验证命令
 
-开发期从 `lake_console/orchestrator` 使用 `uv run python -m pytest -q tests/test_etf_daily_*.py` 运行定向测试，并执行：
+开发期必须从 `lake_console/orchestrator` 一次执行 ETF 日线专项、全局资产治理、Check governance 与静态门禁；只运行 `tests/test_etf_daily_*.py` 不构成完整验收：
 
 ```bash
-uv run python -m pytest -q tests/test_run_contract_static_gates.py
+uv run python -m pytest -q \
+  tests/test_etf_daily_*.py \
+  tests/test_asset_governance_contracts.py \
+  tests/test_asset_check_incremental_governance.py \
+  tests/test_run_contract_static_gates.py
 uv run ruff check --select E9,F63,F7,F82 src tests
 uv run ruff check <本次新增和修改的 Python 文件>
 ```
+
+两份通用治理测试分别约束 active Definitions 与 Catalog、blocking check specs 与 Check governance 的精确集合关系，禁止再以数据集专项测试代替全局登记验收。
 
 Definitions、正式 Dagster instance、真实 Tushare、正式 Lake、Bootstrap、event 和 Sensor 操作都受生产执行门禁约束，必须在对应阶段先列明命令和影响并取得授权。
 
