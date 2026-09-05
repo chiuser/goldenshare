@@ -1,8 +1,8 @@
 # 股票日线趋势通道 Lake 数据集接入 LLD v1
 
-状态：R0～R8 的首次交付已于 2026-09-02 完成并关闭，原物理数据、事件和本地 Wealth 验收记录保留；2026-09-04 第 17 节 R9 恢复已关闭。R9.8 边界修正已提交并加载；R9.9 历史 repair 成功且双 completion ready 后，原 sensor 于 19:10 自动完成 9 月 3 日日更。19:41 两个文件、三条普通检查与物理 readiness 验收通过，见 R9.10；远程环境继续按合同不挂载本地 Lake 能力
+状态：R0～R8 的首次交付已于 2026-09-02 完成并关闭，原物理数据、事件和本地 Wealth 验收记录保留；2026-09-04 第 17 节 R9 恢复已关闭。2026-09-05 复核确认 9 月 2 日当前 result/state 文件及覆盖规则正确，9 月 3 日和 4 日日更正常，但 9 月 2 日仍缺两个 materialization 和三个成功 ordinary check event。R10 的专属离线控制面核对方案和两阶段授权已确认，R10.1 开发与 R10.2 本地完整门禁已完成；当前只待部署后只读计划、分阶段事件补记及最终验收。远程环境继续按合同不挂载本地 Lake 能力
 
-首次交付日期：2026-09-02；本次修正方案更新：2026-09-04
+首次交付日期：2026-09-02；本次控制面核对 LLD 更新：2026-09-05
 
 上位方案：
 
@@ -95,6 +95,8 @@ wealth 只消费 API contract
 ```
 
 不引入 `foundation -> biz/app/ops`、任何模块到 `qtf` 的反向依赖，也不复活 legacy `platform/operations`。
+
+R10 于 2026-09-05 使用同一仓库根索引复核；R10.2 最终同步为 3,188 个文件、57,921 个节点、144,829 条边且状态正常。新增影响面只覆盖现有趋势通道 runless helper、通用 historical materialization reconciliation、三个 ordinary checks、Catalog/check 名称消费者和 M3/M6 测试；现有全历史 helper 只有其 CLI 与 M6 测试直接消费，不修改它可以避免把 R8 历史 promote 证明链扩展为事故兼容入口。R10 新模块保持离线，新符号 impact 未发现 active Definitions 或跨子系统下游，直接消费者限定为薄 CLI 与专属测试。
 
 ### 2.2 现有公式事实
 
@@ -1611,6 +1613,21 @@ npm --prefix wealth run build
 
 具体命令以开发时当前 package scripts 为准，不在文档中伪造不存在的脚本。
 
+### 15.9 R10 单日控制面事件核对测试
+
+R10 使用临时 Lake fixture 和 ephemeral Dagster instance，禁止测试连接正式 `DAGSTER_HOME` 或正式 Lake。至少覆盖：
+
+1. `plan` 只读，事件写入计数为零；计划冻结日期、两条 run 身份、文件 SHA-256、行数、审计摘要、既有事件快照和邻接日期事件 guard。
+2. `apply-materializations` 按 state、result 固定顺序最多写两条，并使用标准 materialization metadata；缺少显式确认、事件上限异常或计划漂移均零写入。
+3. `audit-materializations` 只接受本计划生成、文件身份一致的两个最新 materialization，并返回准确 storage id。
+4. `apply-checks` 复用正式 result/state/coverage audit helper 和 `build_check_metadata`；state contract 绑定 state materialization，result contract 与 input coverage 绑定 result materialization。
+5. 只有 `PLANNED` 历史记录时不算成功；三个新 evaluation 必须是 `passed=true`、正确分区和正确 target materialization。
+6. 全部完成后重放新增事件数为零；只写一条 materialization 或一个 check 后可按同计划续补，其余已确认事件不重复。
+7. 未知 materialization/check、错误 `plan_id/plan_hash`、错误 target storage id、来源 run 不符、repair scope 不含目标日、文件 hash/row/schema 漂移、任一 audit 失败或相关活动 run 均 fail closed。
+8. 输出路径不在 `/private/tmp`、Lake root 不是正式 root、目标分区未注册或事件总数超过五条时拒绝。
+9. 静态测试确认新模块没有 Parquet 写入、面向 Lake/staging 的 `os.replace`、动态分区注册、sensor/job 定义或 active Definitions import；仅允许报告 writer 在 `/private/tmp` 内原子替换 JSON。
+10. `dg check defs`、`Definitions.validate_loadable`、Catalog/check 治理测试证明新增离线模块没有改变正式 Definitions。
+
 ---
 
 ## 16. 文件白名单
@@ -1657,6 +1674,21 @@ wealth/docs/system/exception-code-registry.md
 
 本技术方案、LLD、文档索引和本地运行说明
 ```
+
+R10 额外精确白名单：
+
+```text
+lake_console/orchestrator/src/orchestrator/defs/bootstrap/
+  stock_daily_trend_channel_event_reconciliation.py
+  stock_daily_trend_channel_event_reconciliation_cli.py
+lake_console/orchestrator/tests/
+  test_stock_daily_trend_channel_event_reconciliation.py
+lake_console/docs/design/
+  dagster-stock-daily-trend-channel-dataset-onboarding-plan-v1.md
+  dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md
+```
+
+R10 不修改既有 `stock_daily_trend_channel_runless_events.py`、通用 `historical_materialization_reconciliation.py`、正式 assets/checks/jobs/sensors、Catalog、paths、schema、公式或 Wealth 消费者。若编码时证明必须修改白名单外生产文件，立即停止并重新评审，不能自行扩大范围。
 
 不使用 `git add .`，不修改无关 QTF、Sector、ETF、新闻、市场总览或报告文件。
 
@@ -2115,6 +2147,295 @@ preflight 同步纠偏：本次盘点遗漏了首日的 previous-state 边界输
 
 R9.5 第 6～7 步已完成，R9 恢复关闭。原失败 run 继续作为历史证据保留，本轮不删除历史状态；不扩展到 9 月 4 日或其它数据集，也不新增生产代码修改。
 
+### R10：2026-09-02 单日控制面事件核对
+
+状态：方案与两阶段执行方式已确认；R10.1 专属业务模块、薄 CLI 与专属隔离测试已完成。尚未执行 R10.2 完整本地门禁、部署或向正式 Dagster instance 写入任何事件。只有后续停止点全部完成并记录实际事件与最终审计后才能关闭。
+
+#### R10.1 当前事实与根因身份
+
+2026-09-05 只读审计冻结以下事实；正式 `plan` 时必须重新读取，不能把本节快照直接当执行凭证：
+
+| 事实 | 冻结值 |
+| --- | --- |
+| 目标分区 | `2026-09-02` |
+| 最初失败日更 | `gold_stock_daily_trend_channel_update_job` run `959c5a30-b2a7-468e-8f74-fdef09ac13b3`，状态 `FAILURE` |
+| 最初失败原因 | result/state 已落地后，materialization metadata 仍传旧字段 `stock_basic_path`，被当前 metadata 合同拒绝 |
+| 当前文件最新生产来源 | 成功 repair run `de048557-a0b0-4c90-ae50-93a317bc7055`；其范围 `2014-01-02～2026-09-02`，完整重写 result/state 各 3,081 个分区 |
+| 当前 result | 5,547 行，单日 result contract audit 通过 |
+| 当前 state | 5,554 行；5,547 observed、7 carry、0 uninitialized，state contract 与 coverage audit 通过 |
+| 当前控制面缺口 | result/state materialization 各 0；三个 ordinary check 均只有原失败 run 的 `PLANNED`，没有成功 evaluation |
+| 9 月 3 日日更 | run `713a34b2-bb14-4820-9471-0e350fe97a7e`，`SUCCESS`，两个 materialization 与三个 check 通过 |
+| 9 月 4 日日更 | run `81c5d821-7cca-4f4f-939f-37dc25880f7d`，`SUCCESS`，两个 materialization 与三个 check 通过 |
+
+身份语义必须拆开：
+
+```text
+incident_run_id              = 最初写文件后事件失败的日更 run
+current_file_producer_run_id = 后续实际重写当前文件的成功 repair run
+```
+
+新 materialization 同时记录两者。禁止把 incident run 写成当前文件 producer，也禁止把当前 `silver_stock_basic` 文件补造成 9 月 2 日生产输入。
+
+#### R10.2 硬边界与非目标
+
+1. 只处理 `gold_stock_daily_trend_channel[2026-09-02]` 和 `gold_stock_daily_trend_channel_state[2026-09-02]`。
+2. 只新增最多两个 materialization 与三个 ordinary check evaluation；不产生 run、observation、completion、dynamic partition 或其它事件。
+3. 不读取或写入 Prod DB、ClickHouse、Redis，不调用 Tushare。
+4. 正式 Lake 只读；不创建 candidate，不写、移动、删除或重命名 Parquet，不使用 Kopia。
+5. 不重跑日更、repair、bootstrap，不修改原失败 run 状态或原 `PLANNED` check 记录。
+6. 不修改 9 月 3 日、4 日及以后日期；计划只冻结其最新事件 id 作为邻接 guard。
+7. 不把工具注册到 Definitions，不新增 asset/check/job/sensor/schedule/config/env 或状态表。
+8. 本文和代码通过不构成正式 event 写入授权；两次 APPLY 分别取得管理员确认。
+
+#### R10.3 文件与模块职责
+
+新增：
+
+```text
+defs/bootstrap/stock_daily_trend_channel_event_reconciliation.py
+defs/bootstrap/stock_daily_trend_channel_event_reconciliation_cli.py
+tests/test_stock_daily_trend_channel_event_reconciliation.py
+```
+
+业务模块公开稳定职责函数：
+
+```text
+build_stock_daily_trend_channel_event_reconciliation_plan(...)
+load_stock_daily_trend_channel_event_reconciliation_plan(...)
+apply_stock_daily_trend_channel_materialization_reconciliation(...)
+audit_stock_daily_trend_channel_materialization_reconciliation(...)
+apply_stock_daily_trend_channel_check_reconciliation(...)
+audit_stock_daily_trend_channel_event_reconciliation(...)
+write_stock_daily_trend_channel_event_reconciliation_report(...)
+```
+
+CLI 只做 `argparse`、阶段参数互斥、`DagsterInstance.get()`、正式 `LakeRootResource`/`DuckDBResource` 组装、调用业务函数及打印报告路径。CLI 不包含审计 SQL、事件拼装、幂等判断或文件扫描业务逻辑。
+
+不修改现有 R8 `stock_daily_trend_channel_runless_events*`：它要求 history plan/promote/final-audit 三类报告并服务截至 2026-09-01 的历史证明链。本次也不扩展 materialization-only 的通用 historical reconciliation；R10 需要三个专属 check 和双 run provenance，宽泛复用会模糊合同。
+
+#### R10.4 CLI wire contract
+
+通过模块运行，不新增 `pyproject.toml` console script：
+
+```text
+uv run python -m orchestrator.defs.bootstrap.stock_daily_trend_channel_event_reconciliation_cli <stage> ...
+```
+
+阶段固定为：
+
+```text
+plan
+apply-materializations
+audit-materializations
+apply-checks
+final-audit
+```
+
+`plan` 参数：
+
+```text
+--partition-date 2026-09-02
+--incident-run-id 959c5a30-b2a7-468e-8f74-fdef09ac13b3
+--current-file-producer-run-id de048557-a0b0-4c90-ae50-93a317bc7055
+--output /private/tmp/<report>.json
+```
+
+其余阶段统一要求：
+
+```text
+--plan-report /private/tmp/<plan>.json
+--plan-id <exact value>
+--plan-hash <exact value>
+--output /private/tmp/<stage-report>.json
+```
+
+两个 APPLY 阶段额外强制 `--confirm-event-write`；三个只读阶段出现该参数必须报错。生产 CLI 不提供 `--lake-root`、日期范围、asset selector、check selector、跳过审计或强制覆盖参数；测试通过业务函数注入临时 root 和 ephemeral instance。CLI 技术上只处理一个显式日期，R10 正式授权范围仍固定为 `2026-09-02`；未来其它日期即使属于同类事故，也必须重新落计划并取得独立批准，不能沿用本次计划身份。
+
+所有报告路径先 `resolve()`，必须位于 `/private/tmp`，并使用临时 JSON + `os.replace` 原子落报告；这里的 `os.replace` 只用于 `/private/tmp` 报告，不得触及 Lake/staging。正式 root 必须精确为 `/Volumes/datasource/data_lake`。
+
+#### R10.5 冻结计划结构
+
+计划使用有类型、可 JSON 序列化的不可变对象，至少包含：
+
+```text
+schema_version
+plan_id
+plan_hash
+generated_at
+partition_date
+formula_version
+lake_root
+incident_run: id/job/status/partition/error_fingerprint
+current_file_producer_run: id/job/status/repair_start/repair_end/formula_version
+result_file: path/bytes/sha256/row_count/observed_columns
+state_file: path/bytes/sha256/row_count/observed_columns
+inputs: qfq/previous_state/lifecycle/calendar file facts
+audits: result/state/coverage checked_count/failed_count/rule_counts
+registered_partition
+existing_materializations
+existing_check_executions
+neighbor_event_guard: 2026-09-03/2026-09-04 latest ids
+expected_materialization_writes
+expected_check_writes
+maximum_event_writes
+active_run_count
+blockers
+should_stop
+```
+
+`plan_hash` 对去除 `generated_at`、输出路径、`plan_id/plan_hash` 自身后的规范 JSON 做 SHA-256；key 排序、紧凑分隔符和 UTF-8 固定。`plan_id` 使用稳定前缀、分区日期和 hash 前 12 位。加载时重新计算 hash，不能只信报告内字段。
+
+#### R10.6 Plan 只读门禁
+
+计划阶段按以下顺序 fail closed：
+
+1. 验证目标日期是 `cn_a_stock_daily_trend_channel_trade_days` 已注册分区，不自动注册。
+2. 读取 incident run，要求 job、`FAILURE`、分区 tag 与错误指纹匹配；错误指纹至少证明失败发生在 materialization metadata 阶段且包含旧字段 `stock_basic_path`。
+3. 读取 current file producer run，要求为既有趋势 repair job 的 `SUCCESS`，config 和两个 completion check 证明范围包含 2026-09-02、公式版本匹配且 completion 通过。
+4. 通过正式路径 helper 定位 result/state/qfq/previous-state/lifecycle/calendar；每个路径必须在正式 root 内，目标单文件存在。
+5. 以 configured DuckDB connection 调用现有 `audit_stock_daily_trend_channel_result`、`audit_stock_daily_trend_channel_state`、`audit_stock_daily_trend_channel_state_coverage`；任一失败不生成可执行计划。
+6. 冻结所有文件 bytes、SHA-256、行数和 observed columns；不读取 current stock basic，不扫描全历史趋势文件。
+7. 按两个 asset-partition 和三个 check-partition 精确读取事件。`PLANNED` 不算 passed；无法归属的已有 materialization 或成功 evaluation 记为 blocker。
+8. 冻结 9 月 3 日、4 日的最新 materialization/check id，作为“不影响后续成功链”的只读 guard。
+9. 查询可能改变目标或输入的活动 trend daily、trend repair 和 qfq repair run；存在任何活动 run 时 `should_stop=true`。
+10. 计算本次缺失事件数，要求 materialization `0～2`、check `0～3`、总数 `0～5`。零缺口返回 `already_reconciled`，不得生成重复写计划。
+
+Plan 只写 `/private/tmp` 报告，Dagster event 写入数、正式文件写入数、动态分区写入数均为零。
+
+#### R10.7 Materialization APPLY
+
+`apply-materializations` 在任何事件写入前重新执行：计划 hash、正式 root、两个 run 身份、活动 run、全部文件指纹、三个 audit、既有事件和邻接 guard。随后按固定顺序处理：
+
+```text
+1. gold_stock_daily_trend_channel_state
+2. gold_stock_daily_trend_channel
+```
+
+每个事件写入前再次确认相关活动 run 为零且目标文件 SHA-256 未变。使用 `DagsterInstance.report_runless_asset_event(AssetMaterialization(...))`；metadata 通过现有 `build_materialization_metadata` 构造标准 `dagster/uri`、`dagster/row_count`、`goldenshare/observed_columns`，extra metadata 至少包含：
+
+```text
+partition_key
+formula_version
+file_bytes
+file_sha256
+source_qfq_file_path
+previous_state_file_path
+stock_lifecycle_file_path
+source_method=stock_daily_trend_channel_event_reconciliation
+reconciliation_reason=missing_partition_events_after_daily_post_write_metadata_failure
+incident_run_id
+current_file_producer_run_id
+plan_id
+plan_hash
+```
+
+不写 `stock_basic_path`，也不以当前 stock basic 补历史 provenance。单阶段硬上限为两条；成功一条后中断时不删除，下一次只按 R10.9 识别并续补。
+
+#### R10.8 Materialization 审计与 Check APPLY
+
+`audit-materializations` 必须重新读取两个目标 asset-partition 的最新 materialization，核对分区、URI、row count、observed columns、文件 hash、两条 run 身份和计划身份，并输出两个准确 storage id。缺少任一条、最新事件身份不符或邻接 guard 变化均停止。
+
+`apply-checks` 不能直接相信上一阶段报告；先重复 materialization 审计、文件指纹和三个正式 audit。事件顺序固定：
+
+```text
+1. gold_stock_daily_trend_channel_state_contract_check
+2. gold_stock_daily_trend_channel_contract_check
+3. gold_stock_daily_trend_channel_input_coverage_check
+```
+
+业务模块直接调用与正式 checks 相同的三个 audit helper，不复制 SQL、不调用装饰后的 check definition。metadata 通过同一 `build_check_metadata` 构造：state/result 使用 `CheckScope.SCHEMA`，coverage 使用 `CheckScope.RECONCILIATION`，字段和成功 summary/next_action 与正式 check 保持 parity，并追加 `plan_id/plan_hash`、两条 run 身份和 reconciliation reason。
+
+通过 `AssetCheckEvaluationTargetMaterializationData` 绑定：
+
+```text
+state contract -> state materialization storage id
+result contract -> result materialization storage id
+input coverage -> result materialization storage id
+```
+
+只有 audit `passed=true` 才写 evaluation；不使用本工具写失败 check。单阶段硬上限为三条。
+
+#### R10.9 幂等、部分恢复与冲突
+
+Dagster event log 本身是持久化进度，不新增数据库、manifest 或正式 checkpoint：
+
+1. 已存在事件只有在 asset/check key、分区、`plan_id/plan_hash`、run 身份、文件 hash 和 target storage id 全部匹配时才视为本计划已完成项。
+2. 匹配事件跳过，缺失事件续补；完整五条存在时所有 APPLY 返回 `already_reconciled`，新增数为零。
+3. 只有 state materialization 已写时，重试跳过它并补 result；两个 materialization 未齐前禁止任何 check。
+4. 部分 check 已写时，先重跑三个 audit，再跳过匹配项并补缺失项。
+5. 任一未知 materialization、成功 check、错误 plan 身份或错误 target storage id 都是冲突，不覆盖、不追加猜测性事件。
+6. 原失败 run 和三个 `PLANNED` 记录保留。错误 runless event 不做数据库删除回滚；如门禁外仍发生误写，必须停下并另行设计追加更正事件。
+
+每个 APPLY 报告写入 attempted/skipped/written event key、storage id、写前后计数和失败点；报告失败不删除已追加事件，重试从 event log 重新判定。
+
+#### R10.10 静态规模与性能预算
+
+| 维度 | 固定上限或当前规模 |
+| --- | ---: |
+| 日期/分区 | 1 |
+| 目标 asset | 2 |
+| ordinary check | 3 |
+| 最大 materialization 写入 | 2 |
+| 最大 check 写入 | 3 |
+| 最大总事件写入 | 5 |
+| 直接文件 | result、state、qfq、previous state、lifecycle、calendar，共 6 类 |
+| 当前 result/state 行数 | 5,547 / 5,554 |
+| 单日/lifecycle 行门禁 | 沿用既有 `<=10,000` |
+| 正式或 staging 文件写入 | 0 |
+| 历史日期扫描 | 0 |
+| Python 明细循环 | 0 |
+
+事件查询按两个 asset key、三个 check key、两个 exact run id 和三个相关 job 的活动状态有界读取，不按历史日期逐分区扫描。每阶段最多建立一个 configured DuckDB connection，运行三个现有单日 audit helper；不产生 Parquet、候选、spill 或大内存集合。当前机器单阶段工程目标 `<5,000 ms`；超过 30 秒或出现范围外文件/事件扫描立即停止分析，不通过提高 timeout 继续。
+
+由于目标只有一个分区、两个 materialization 和三个 check，不存在可再缩小且仍能证明绑定关系的独立 sample 分区。R10 以 `plan` 零写 dry-run、两条 materialization 小批、独立审计、三条 check 小批替代历史大批量的 sample/full 流程；不得据此放宽其它 runless 历史补录的 sample 门禁。
+
+#### R10.11 开发与本地验收
+
+实施顺序：
+
+1. 先新增 `test_stock_daily_trend_channel_event_reconciliation.py`，锁定 R10.2～R10.10 的正反合同。
+2. 再实现纯业务模块；所有外部路径、instance、DuckDB resource 和时钟可注入，默认生产入口仍固定正式 root。
+3. 最后实现薄 CLI 和参数互斥测试；不增加 console-script 注册。
+4. 运行 R10 专项测试、M3 ordinary check 回归、M6 runless event 回归、Catalog/check/static gates、`Definitions.validate_loadable` 与 `dg check defs`。
+5. 对新增 Python 文件运行 Ruff；运行 orchestrator 全量 pytest。若既有 RSS 敏感测试需按原隔离方式运行，只记录事实，不修改无关门禁。
+6. 运行 `python3 scripts/check_docs_integrity.py`、`git diff --check`、CodeGraph sync/status 和新符号 impact；确认新模块没有 active Definitions 或跨子系统消费者。
+
+本地测试只使用临时文件和 ephemeral instance，期望事件最多 5 条；不得读取或写入正式 Lake、staging、Dagster instance，也不部署。
+
+R10.1 实际开发结果（2026-09-05）：
+
+- 已新增专属业务模块、薄 CLI 和单一专属测试文件，未修改现有 asset/check/job/sensor、R8 helper、Catalog、schema、path 或公式。
+- 业务模块通过注入的 `LakeRootResource`、`DuckDBResource` 和 Dagster instance 完成冻结计划、两阶段追加、独立审计、幂等续跑与报告；生产 CLI 不暴露 Lake root、日期范围、selector、force 或跳过审计参数。
+- 专属测试使用临时 Lake 和 ephemeral instance，覆盖两条 materialization 与三条 check 的固定顺序和上限、两个阶段分别确认、完整幂等、materialization/check 各自中断续跑、未知事件、文件变化、活动 run、邻接事件变化、正式 check metadata parity、计划 hash 与 CLI 参数互斥。
+- R10 专属测试结果为 `6 passed`，新增三个 Python 文件 Ruff 通过。该结果只关闭 R10.1，不替代 R10.2 的 Definitions、静态、回归、全量、文档与 CodeGraph 门禁。
+
+R10.2 本地验收结果（2026-09-05）：
+
+- R10 专项、M3 ordinary check 与 M6 runless event 回归合计 `37 passed`；Catalog、check governance、metadata、离线 bootstrap 隔离和 run-contract static gates 合计 `157 passed`、`609` 个 subtests。
+- `Definitions.validate_loadable` 通过；`dg check defs` 在独立 `/private/tmp` Dagster Home 和临时 Lake root 下完成，Definitions 全部加载成功，没有使用正式 Dagster Home 或正式 Lake。
+- orchestrator 全量回归按既有 RSS 隔离方式通过：主套件 `2794 passed`、`869` 个 subtests，`test_major_index_nineturn_m4b.py` 独立进程 `18 passed`，合计 `2812 passed`。
+- 新增文件 Ruff、全仓 `E9/F63/F7/F82`、根依赖矩阵 `4 passed`。R10 新模块仍不进入 active Definitions，不改变 Catalog、asset/check/job/sensor、schema、path、公式或跨子系统依赖。
+- 本阶段所有事件测试只使用 ephemeral instance，文件测试只使用临时 Lake；没有部署、正式 Parquet/staging 写入、动态分区注册或正式 Dagster event 写入。
+- 文档完整性与 `git diff --check` 通过；CodeGraph 最终同步状态为 `3188` 个文件、`57921` 个节点、`144829` 条边，新符号 impact 未发现 active Definitions 或跨子系统下游。
+
+#### R10.12 部署后正式执行与停止点
+
+R10 是一个新增阶段，但内部按以下独立停止点推进：
+
+```text
+R10.0  技术方案与 LLD 冻结                         已完成
+R10.1  专属业务模块、CLI 和测试                    已完成（6 passed，Ruff 通过）
+R10.2  本地隔离测试、Definitions/静态/文档门禁      已完成（2812 passed）
+R10.3  部署后正式 plan，只读、零事件                待独立执行
+R10.4  管理员第一次批准，最多写 2 条 materialization 待批准
+R10.5  materialization 独立只读审计                 待执行
+R10.6  管理员第二次批准，最多写 3 条 check           待批准
+R10.7  final-audit 与文件/事件/邻接日期对账          待执行
+R10.8  回填实际 id、报告和结果，关闭 R10             待执行
+```
+
+两次批准已确定必须分开，不能合并。R10.3 计划生成后，如目标文件指纹、run 身份、事件快照、活动 run 或 9 月 3/4 邻接 guard 变化，旧计划立即作废并回到只读 plan；不现场修改参数继续。R10.7 必须确认正式 Lake 文件 SHA-256 与计划一致、实际新增事件总数不超过五、三个 check 的 latest status 为成功且 target 正确、9 月 3/4 事件 id 未变化。只有上述结果写回本节后才能把状态改为完成。
+
 ### 必须停止并请求拍板的情况
 
 M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空间四项前置阻断。后续开发仍在以下情况停止：
@@ -2123,6 +2444,9 @@ M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空�
 2. 当前代码在开发前已改变 qfq repair metadata、Catalog 或本地 capability 主链，导致本文合同失真。
 3. 需要新增数据库、配置表、状态 manifest、Kopia 或修改正式 Lake root。
 4. 需要改变已确认的历史范围、停牌 carry 口径或 M0 冻结常量。
+5. R10 实现需要修改其精确白名单之外的正式 asset/check/job/sensor、Catalog、schema、path、公式或既有历史 runless helper。
+6. 正式计划无法同时证明 incident run、current file producer run、文件指纹、三个 audit 和既有事件状态，或发现任何不能归属到本计划的目标事件。
+7. 需要删除、改写 Dagster event log，或无法通过追加式事件安全收敛当前控制面状态。
 
 ---
 
@@ -2135,7 +2459,9 @@ M0 已排除 lifecycle 覆盖、公式 parity、repair 上限和当前磁盘空�
 停牌不造指标行 + 已初始化 state carry-forward
 ```
 
-M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 首次正式 bootstrap、runless event、Sensor 启用和本地 Wealth 验收已完成。R9 返回协议、首日边界修正及加载均已完成；同一 exact batch 历史修复通过后，原日更 sensor 自动补齐 9 月 3 日 result/state。R9.10 已确认两个文件、三条普通检查、双 completion 和物理 readiness 全部通过，R9 恢复关闭，本专项没有待执行的补跑动作。不将该结论扩展为 9 月 4 日或其它数据集已齐备。
+M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 首次正式 bootstrap、runless event、Sensor 启用和本地 Wealth 验收已完成。R9 返回协议、首日边界修正及加载均已完成；同一 exact batch 历史修复通过后，原日更 sensor 自动补齐 9 月 3 日 result/state，R9 恢复关闭。
+
+R10 的实现方式和两阶段批准已经确认，没有新的业务选择待拍板；专属离线 CLI 与 R10.2 本地完整门禁已完成，尚待部署后正式只读 plan、两次独立 event 写入批准和 final-audit。9 月 2 日物理数据已正确，不存在待执行的数据补跑；待补的是其两个 materialization 和三个成功 ordinary check event。R10 完成前，本专项不能标记为控制面完全关闭。
 
 ---
 
@@ -2153,6 +2479,7 @@ M0 真实只读规模、性能证据和趋势自动 repair 上限已冻结；R8 
 | staging + validate + atomic replace | 4.4、6.4、10.5 |
 | 无 Kopia、正式 root 唯一 | 4.4、13.1 |
 | Direct Lake Bootstrap + runless events | 11 |
+| 单日物理已完成但控制面事件缺失 | 15.9、17/R10 |
 | 真 batch readiness 和 10 日热窗口 | 8.4、8.5、12.3 |
 | no-op qfq repair durable 状态 | 9.1 |
 | 完整代码范围与 sample 分离 | 9.2、9.3 |
