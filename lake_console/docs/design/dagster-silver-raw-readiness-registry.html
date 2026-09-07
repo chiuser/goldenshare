@@ -592,13 +592,22 @@ stk_mins checks and qfq-related downstream reads</pre>
     </div>
 
     <h3>5.3 停复牌链路</h3>
+    <div class="note">
+      <strong>2026-09-08 当前代码，正式发布待 S2–S4：</strong>
+      Silver sensor 在有候选日期后，仅调用一次 <code>stock_suspend_confirmed_readiness</code>：
+      完整验证固定文件，读取最新一条发布及两项最新检查（各 limit=1），核对版本、逻辑摘要和原生发布关联。
+      不要求当天 freshness，不回找旧绿灯，无候选时不读固定输入。
+      随后沿用每日期的 Raw 门禁；最多两个 RunRequest、日期窗口和 run key 不变。
+      两项固定检查也进入 Silver-only job，不能只依靠 sensor；最终 Silver 的三个原有检查显式绑定原交易日分区。
+      下游仍调用原最终停牌 readiness，不旁读固定输入。
+    </div>
     <pre class="flow">raw_suspend_d_update_job_sensor
         ▼
 raw_tushare_suspend_d + raw blocking checks
         ▼
-silver_suspend_d_update_job_sensor raw event/check gate
+silver_suspend_d_update_job_sensor fixed-input gate + raw event/check gate
         ▼
-silver_stock_suspend_daily + silver blocking checks
+fixed-input checks (2) → silver_stock_suspend_daily → daily checks (3)
         ▼
 raw_stock_daily_update_job_sensor gate
 silver_stock_daily_update_job_sensor gate
@@ -609,7 +618,7 @@ stk_mins structural checks</pre>
       <code>suspend_d</code> 自动链路已拆为 <code>raw_suspend_d_update_job</code> 与
       <code>silver_suspend_d_update_job</code>。旧 suspend_d 混合入口不再作为 active 定义加载。silver sensor 只在
       <code>raw_tushare_suspend_d[trade_date]</code> latest materialization 与同一 materialization 的
-      raw blocking checks 全绿后，才提交 <code>silver_stock_suspend_daily[trade_date]</code>。
+      raw blocking checks 全绿，且固定输入文件/发布/检查一致后，才提交 <code>silver_stock_suspend_daily[trade_date]</code>。
     </div>
     <table>
       <thead>
@@ -623,7 +632,7 @@ stk_mins structural checks</pre>
       <tbody>
       <tr>
         <td><code>raw_suspend_d_update_job_sensor</code> 提交 <code>raw_suspend_d_update_job</code>；<code>silver_suspend_d_update_job_sensor</code> 提交 <code>silver_suspend_d_update_job</code></td>
-        <td>raw sensor 只找 raw 缺 materialization；silver sensor 先调用 <code>raw_tushare_suspend_d_ready_for_trade_date</code>。</td>
+        <td>raw sensor 只找 raw 缺 materialization；silver sensor 对非空候选先检查固定输入，再调用原 <code>raw_tushare_suspend_d_ready_for_trade_date</code>。</td>
         <td class="ok">已要求 <code>raw_tushare_suspend_d[trade_date]</code> blocking checks 先通过，再生成 <code>silver_stock_suspend_daily[trade_date]</code>。</td>
         <td>保护 <code>silver_stock_daily</code> 的 expected tradable universe 和分钟线停牌结构判断。该链路已从 P1 待修复项移出。</td>
       </tr>
@@ -674,7 +683,7 @@ stk_mins structural checks</pre>
         <td>silver job</td>
         <td>无</td>
         <td><code>silver_suspend_d_update_job</code></td>
-        <td>只选择 <code>silver_stock_suspend_daily</code> 与 silver checks。</td>
+        <td>只写 <code>silver_stock_suspend_daily</code>；先执行两个固定输入checks，再执行writer和三个日频checks，不写Raw或固定输入。</td>
       </tr>
       <tr>
         <td>mixed sensor</td>
@@ -692,7 +701,7 @@ stk_mins structural checks</pre>
         <td>silver sensor</td>
         <td>无</td>
         <td><code>silver_suspend_d_update_job_sensor</code></td>
-        <td>只在 raw event/check ready 后提交 silver-only job，sensor tags 为 <code>quote_data/silver/asset_update</code>。</td>
+        <td>候选非空时先核验固定输入，再按同日raw event/check ready提交；sensor tags仍为 <code>quote_data/silver/asset_update</code>。</td>
       </tr>
       </tbody>
     </table>
@@ -738,7 +747,7 @@ stk_mins structural checks</pre>
       <tr>
         <td>silver 输出 row_count = 0</td>
         <td class="ok">可通过 silver checks</td>
-        <td>没有停复牌记录时标准层也可为空；full-day patch 命中时仍会生成 patch rows。</td>
+        <td>没有停复牌记录时标准层也可为空；历史确认事实命中时按已批准的补缺/明确覆盖模式合并。</td>
       </tr>
       </tbody>
     </table>
@@ -766,12 +775,14 @@ raw_suspend_d_update_job
 
 silver_suspend_d_update_job_sensor
         ├─ 找 silver_stock_suspend_daily 未 materialized 的分区
+        ├─ 截取原有最多2个候选；非空时只做一次固定文件/发布/检查门禁
         ├─ 调 raw_tushare_suspend_d_ready_for_trade_date
-        └─ raw latest materialization + checks 全绿后提交 silver_suspend_d_update_job[trade_date]
+        └─ 固定输入就绪且raw latest materialization + checks 全绿后提交 silver_suspend_d_update_job[trade_date]
 
 silver_suspend_d_update_job
+        ├─ 两个固定输入checks（无分区，必须关联真实固定发布）
         ├─ silver_stock_suspend_daily materialization
-        └─ silver_suspend_d_* blocking checks</pre>
+        └─ 三个silver_suspend_d_* blocking checks（原交易日分区）</pre>
     <table>
       <thead>
       <tr>
@@ -792,9 +803,9 @@ silver_suspend_d_update_job
       </tr>
       <tr>
         <td><code>silver_suspend_d_update_job_sensor</code></td>
-        <td>已注册交易日；silver materialized partition 集合；raw readiness helper 结果。</td>
-        <td>目标交易日 silver 缺 materialization，且同日 raw latest materialization 与 raw blocking checks 全绿。</td>
-        <td>raw 未 materialized、raw checks missing/failed、silver 已 materialized。</td>
+        <td>已注册交易日；silver materialized partition 集合；固定输入及raw readiness结果。</td>
+        <td>目标交易日silver缺materialization，固定输入文件/发布/检查一致，且同日raw latest materialization与raw blocking checks全绿。</td>
+        <td>固定输入无效或发布/检查不一致；raw未materialized、raw checks missing/failed、silver已materialized。</td>
         <td><code>run_key=silver_suspend_d_update:{trade_date}</code>；cursor 记录 readiness details、blocked keys、selected keys。</td>
       </tr>
       </tbody>

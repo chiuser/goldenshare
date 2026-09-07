@@ -4,13 +4,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-import duckdb
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_connection,
+    consumer_duckdb_resource,
+    require_isolated_context,
+)
 
 import orchestrator.defs.asset_guards.stk_mins_lake_readiness as lake_readiness_module
-from orchestrator.defs.assets.stk_mins import (
-    write_gold_stk_mins_qfq_asset_partition,
-    write_gold_stk_mins_qfq_derived_asset_partition,
-)
 from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
     batch_adj_factor_lake_readiness,
 )
@@ -19,6 +19,10 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     batch_gold_stk_mins_qfq_nineturn_upstream_lake_readiness,
     batch_raw_stk_mins_lake_readiness,
     batch_silver_stk_mins_lake_readiness,
+)
+from orchestrator.defs.assets.stk_mins import (
+    write_gold_stk_mins_qfq_asset_partition,
+    write_gold_stk_mins_qfq_derived_asset_partition,
 )
 from orchestrator.defs.checks.stk_mins_checks import (
     GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
@@ -42,18 +46,17 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    cn_a_derived_minute_window_rows,
+    expected_canonical_gold_source_times,
+    expected_gold_minute_times,
+)
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_FREQS,
     STK_MINS_QFQ_DERIVED_FREQS,
     STK_MINS_QFQ_FREQS,
     qfq_source_freq_for_derived_freq,
 )
-from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
-    cn_a_derived_minute_window_rows,
-    expected_canonical_gold_source_times,
-    expected_gold_minute_times,
-)
-from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.stk_mins_qfq import (
     build_gold_stk_mins_qfq_derived_select_sql,
 )
@@ -456,14 +459,14 @@ def _write_gold_qfq_ready_inputs(
     for freq in STK_MINS_FREQS:
         write_gold_stk_mins_qfq_asset_partition(
             lake_root=lake_root,
-            duckdb=DuckDBResource(),
+            duckdb=consumer_duckdb_resource(),
             freq=freq,
             partition_key=trade_date,
         )
     for target_freq in STK_MINS_QFQ_DERIVED_FREQS:
         write_gold_stk_mins_qfq_derived_asset_partition(
             lake_root=lake_root,
-            duckdb=DuckDBResource(),
+            duckdb=consumer_duckdb_resource(),
             freq=target_freq,
             partition_key=trade_date,
         )
@@ -496,7 +499,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_raw_batch_readiness_returns_ready_for_complete_window(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             trade_dates = _trade_dates(60)
@@ -530,7 +533,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_raw_batch_readiness_marks_missing_file_as_not_materialized(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             for freq in STK_MINS_FREQS[:-1]:
@@ -581,7 +584,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         )
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             for case in cases:
@@ -614,7 +617,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     ) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             for freq in STK_MINS_FREQS:
@@ -640,7 +643,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_adj_factor_batch_readiness_returns_ready_for_complete_window(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             trade_dates = _trade_dates(3)
@@ -664,7 +667,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_adj_factor_batch_readiness_detects_blocking_failures(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_adj_factor_stock_lifecycle_file(connection, lake_root)
@@ -708,7 +711,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_silver_batch_readiness_returns_ready_for_complete_window(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             trade_dates = _trade_dates(60)
@@ -746,7 +749,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     ) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(connection, lake_root)
@@ -803,7 +806,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         )
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(connection, lake_root)
@@ -865,7 +868,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         )
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(connection, lake_root, ts_code="000001.SZ")
@@ -904,7 +907,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     ) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(
@@ -947,7 +950,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_silver_batch_readiness_rejects_delist_effective_date_rows(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(
@@ -989,10 +992,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         )
 
     def test_silver_batch_readiness_fails_closed_for_unknown_date(self) -> None:
-        with duckdb.connect(":memory:") as connection:
+        with consumer_duckdb_connection() as connection:
             batch_status = batch_silver_stk_mins_lake_readiness(
                 connection=connection,
-                lake_root=Path("/tmp/does-not-matter"),
+                lake_root=require_isolated_context() / "does-not-matter",
                 expected_trade_dates=(),
                 registered_trade_days=(),
             )
@@ -1006,7 +1009,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     ) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
@@ -1031,7 +1034,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_nineturn_upstream_readiness_uses_only_required_four_freqs(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
@@ -1063,7 +1066,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     ) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
@@ -1098,7 +1101,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     ) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
@@ -1164,7 +1167,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_gold_qfq_batch_readiness_does_not_recalculate_qfq_prices(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
@@ -1201,7 +1204,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     ) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             trade_date = "2026-06-15"
@@ -1239,7 +1242,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_gold_qfq_batch_readiness_does_not_call_single_date_helpers(self) -> None:
         with (
             TemporaryDirectory() as directory,
-            duckdb.connect(":memory:") as connection,
+            consumer_duckdb_connection() as connection,
         ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(

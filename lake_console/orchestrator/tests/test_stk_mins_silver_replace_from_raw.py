@@ -6,6 +6,10 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_resource,
+)
+
 import orchestrator.defs.bootstrap.stk_mins_silver_replace_from_raw as recovery
 from orchestrator.defs.checks.stk_mins_checks import (
     SilverStkMinsPartitionDiagnostics,
@@ -19,8 +23,6 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource
-
 
 TRADE_DATE = "2026-07-27"
 
@@ -34,7 +36,7 @@ class StkMinsSilverReplaceFromRawTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = TemporaryDirectory()
         self.lake_root = Path(self.temp_dir.name)
-        self.duckdb = DuckDBResource()
+        self.duckdb = consumer_duckdb_resource()
         for freq in recovery.STK_MINS_SILVER_RECOVERY_FREQS:
             _write_file(
                 raw_stk_mins_path(self.lake_root, freq, TRADE_DATE),
@@ -184,13 +186,12 @@ class StkMinsSilverReplaceFromRawTests(unittest.TestCase):
                 recovery,
                 "evaluate_silver_stk_mins_partition_diagnostics",
                 side_effect=self._failed_diagnostics,
-            ),
+            ),self.assertRaisesRegex(
+            recovery.StkMinsSilverReplaceFromRawError,
+            "failed current rule diagnostics",
+        )
         ):
-            with self.assertRaisesRegex(
-                recovery.StkMinsSilverReplaceFromRawError,
-                "failed current rule diagnostics",
-            ):
-                self._apply(plan=plan, run_id="diagnostic-failure")
+            self._apply(plan=plan, run_id="diagnostic-failure")
 
         for freq in recovery.STK_MINS_SILVER_RECOVERY_FREQS:
             self.assertEqual(
@@ -204,7 +205,7 @@ class StkMinsSilverReplaceFromRawTests(unittest.TestCase):
     def test_stale_plan_is_rejected_before_staging(self) -> None:
         plan = self._plan()
         _write_file(raw_stk_mins_path(self.lake_root, 1, TRADE_DATE), "changed-raw")
-        with patch.object(recovery, "write_silver_stk_mins_partition") as writer:
+        with patch.object(recovery, "write_silver_stk_mins_partition") as writer:  # noqa: SIM117
             with self.assertRaisesRegex(
                 recovery.StkMinsSilverReplaceFromRawError,
                 "stale",
@@ -229,7 +230,7 @@ class StkMinsSilverReplaceFromRawTests(unittest.TestCase):
                 raise OSError("fixture promote failure")
             return original_replace(source_path, target_path)
 
-        with (
+        with (  # noqa: SIM117 -- preserve the existing failure-injection scope.
             patch.object(
                 recovery,
                 "write_silver_stk_mins_partition",

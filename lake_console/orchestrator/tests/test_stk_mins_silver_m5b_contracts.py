@@ -4,6 +4,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_resource,
+)
+
 from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
@@ -15,9 +19,7 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.sensors import readiness
-
 
 PARTITION_KEY = "2014-06-03"
 
@@ -52,7 +54,7 @@ def _write_rows(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = tuple(column_types)
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         column_defs = ", ".join(
             f'"{column}" {column_types[column]}' for column in columns
         )
@@ -81,7 +83,7 @@ def _write_rows(
 
 
 def _read_rows(path: Path) -> list[dict[str, object]]:
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         rows = connection.execute(
             f"""
             SELECT *
@@ -374,7 +376,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             result = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=5,
                 partition_key=partition_key,
             )
@@ -426,7 +428,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             result = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=5,
                 partition_key=partition_key,
             )
@@ -511,7 +513,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             result = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=PARTITION_KEY,
             )
@@ -555,7 +557,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             result = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=PARTITION_KEY,
             )
@@ -585,7 +587,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             ):
                 result = stk_mins.write_silver_stk_mins_partition(
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     freq=1,
                     partition_key=partition_key,
                 )
@@ -622,7 +624,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "identity mapping missing"):
                 stk_mins.write_silver_stk_mins_partition(
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     freq=1,
                     partition_key=partition_key,
                 )
@@ -728,7 +730,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             result = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=5,
                 partition_key=partition_key,
             )
@@ -785,7 +787,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "could not be recomputed"):
                 stk_mins.write_silver_stk_mins_partition(
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     freq=5,
                     partition_key=partition_key,
                 )
@@ -818,7 +820,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             result = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=partition_key,
             )
@@ -857,7 +859,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "conflicting duplicate keys"):
                 stk_mins.write_silver_stk_mins_partition(
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     freq=1,
                     partition_key=partition_key,
                 )
@@ -882,7 +884,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "identity mapping missing"):
                 stk_mins.write_silver_stk_mins_partition(
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     freq=1,
                     partition_key=partition_key,
                 )
@@ -905,7 +907,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             )
             stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=partition_key,
             )
@@ -913,14 +915,14 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             with self.assertRaisesRegex(FileExistsError, "already exists"):
                 stk_mins.write_silver_stk_mins_partition(
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     freq=1,
                     partition_key=partition_key,
                 )
 
             result = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=partition_key,
                 overwrite=True,
@@ -941,7 +943,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             resources = {
                 "context": context,
                 "lake_root": _LakeRoot(lake_root),
-                "duckdb": DuckDBResource(),
+                "duckdb": consumer_duckdb_resource(),
                 "freq": 1,
             }
 
@@ -991,7 +993,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             result = stk_mins_checks._silver_name_timeline_covered(
                 context=_CheckContext(partition_key),
                 lake_root=_LakeRoot(lake_root),
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
             )
 
@@ -1040,7 +1042,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             result = stk_mins_checks._silver_name_timeline_covered(
                 context=_CheckContext(partition_key),
                 lake_root=_LakeRoot(lake_root),
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
             )
 
@@ -1085,7 +1087,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             result = stk_mins_checks._silver_name_timeline_covered(
                 context=_CheckContext(partition_key),
                 lake_root=_LakeRoot(lake_root),
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
             )
 
@@ -1107,7 +1109,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             result = stk_mins_checks._silver_name_timeline_covered(
                 context=_CheckContext(),
                 lake_root=_LakeRoot(lake_root),
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
             )
 
@@ -1148,7 +1150,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             ),
         )
         for case_name, rows, check_helper in bad_cases:
-            with self.subTest(case_name=case_name):
+            with self.subTest(case_name=case_name):  # noqa: SIM117 -- preserve existing fixture scope.
                 with TemporaryDirectory() as directory:
                     lake_root = Path(directory)
                     _write_silver_for_check(lake_root, PARTITION_KEY, rows)
@@ -1175,7 +1177,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                     result = check_helper(
                         context=_CheckContext(),
                         lake_root=_LakeRoot(lake_root),
-                        duckdb=DuckDBResource(),
+                        duckdb=consumer_duckdb_resource(),
                         freq=1,
                     )
                     self.assertFalse(result.passed)
@@ -1220,7 +1222,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             result = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=PARTITION_KEY,
             )
@@ -1231,7 +1233,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             diagnostics = (
                 stk_mins_checks.evaluate_silver_stk_mins_partition_diagnostics(
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     freq=1,
                     partition_key=PARTITION_KEY,
                     silver_path=staging_path,
@@ -1260,7 +1262,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             )
             written = stk_mins.write_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=PARTITION_KEY,
             )
@@ -1268,7 +1270,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             reused = stk_mins.reuse_existing_silver_stk_mins_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=PARTITION_KEY,
             )

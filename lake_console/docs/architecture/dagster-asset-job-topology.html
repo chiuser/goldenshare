@@ -332,6 +332,15 @@
   <section>
     <h2>1. 代码事实快照</h2>
     <div class="callout">
+      <strong>2026-09-08 停牌专项代码增量，尚未正式发布：</strong>
+      <code>raw_tushare_suspend_d</code> 与外部固定输入 <code>silver_stock_suspend_confirmed</code>
+      共同生成 <code>silver_stock_suspend_daily</code>。Silver-only job 仍只写一个日期资产，
+      先跑固定输入的两项无分区 checks，再写 Silver、跑原三项日期 checks。固定输入没有自动 writer 或新 sensor；
+      日线、分钟、历史恢复继续只读最终停牌 Silver。
+      文件发布、事件登记、恢复 Silver sensor 和删除旧 CSV 尚未执行，须按
+      <a href="../design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation">S1 总对账及后续阶段</a>另行批准。
+    </div>
+    <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
       当前 active jobs 包括 <code>calendar_update_job</code>、<code>raw_stock_basic_update_job</code>、<code>silver_stock_basic_update_job</code>、<code>raw_namechange_update_job</code>、<code>silver_namechange_update_job</code>、<code>stock_identity_map_update_job</code>、<code>raw_suspend_d_update_job</code>、<code>silver_suspend_d_update_job</code>、<code>raw_stock_daily_update_job</code>、<code>silver_stock_daily_update_job</code>、<code>raw_adj_factor_update_job</code>、<code>silver_adj_factor_update_job</code>、<code>raw_fund_daily_update_job</code>、<code>silver_etf_daily_update_job</code>、<code>raw_fund_adj_update_job</code>、<code>silver_etf_adj_factor_update_job</code>、<code>stock_mins_raw_update_job</code>、<code>stock_mins_raw_update_from_prod_job</code>、<code>stock_mins_silver_update_job</code>、<code>stock_mins_qfq_daily_update_job</code>、<code>stock_mins_qfq_factor_repair_job</code>、<code>gold_stock_daily_qfq_nineturn_update_job</code>、<code>gold_stock_daily_trend_channel_update_job</code>、<code>gold_stk_mins_qfq_nineturn_update_job</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job</code>、<code>gold_stk_mins_qfq_macd_kdj_check_refresh_job</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>raw_index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code>、<code>prod_clickhouse_share_fact_market_breadth_sync_job</code> 和 <code>lake_root_health_check_job</code>。
       <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 derived/gold assets、checks、declarative automation 和各自 gold job 均已存在。
@@ -465,7 +474,7 @@
         <rect x="335" y="340" width="245" height="78" class="node node-silver" />
         <text x="353" y="368" class="svg-label">silver_stock_suspend_daily</text>
         <text x="353" y="391" class="svg-note">silver / quote / trade_date</text>
-        <text x="353" y="409" class="svg-note">停复牌标准事实</text>
+        <text x="353" y="409" class="svg-note">Raw＋确认事实（待发布）</text>
 
         <rect x="30" y="465" width="245" height="78" class="node node-raw" />
         <text x="48" y="493" class="svg-label">raw_tushare_stock_daily</text>
@@ -603,10 +612,10 @@
         </tr>
         <tr>
           <td><span class="tag">quote</span></td>
-          <td><code>raw_tushare_suspend_d</code> → <code>silver_stock_suspend_daily</code></td>
+          <td><code>raw_tushare_suspend_d</code>＋<code>silver_stock_suspend_confirmed</code> → <code>silver_stock_suspend_daily</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td><code>cn_a_stock_trade_days</code></td>
-          <td><code>raw_suspend_d_update_job</code> 只写 raw；<code>silver_suspend_d_update_job</code> 等 raw event/check ready 后写 silver；股票日线更新入口只读等待该分区 final ready。</td>
+          <td><code>raw_suspend_d_update_job</code>只写raw；Silver-only job需固定输入及raw event/check均就绪；日线消费者仍只等最终Silver。新固定输入待正式发布。</td>
           <td>交易日日频；允许空结果但必须写合法 schema。</td>
           <td>stock_daily 生产前必须准备好的上游事实；后续对 stock_daily 只读。</td>
         </tr>
@@ -862,10 +871,10 @@
         </tr>
         <tr>
           <td><code>silver_suspend_d_update_job</code></td>
-          <td><code>silver_stock_suspend_daily</code> + silver checks</td>
+          <td><code>silver_stock_suspend_daily</code>＋两个固定输入checks＋三个日频checks；只写最终Silver</td>
           <td>单个交易日停复牌 silver。</td>
           <td><code>silver_suspend_d_update_job_sensor</code> 或人工单分区。</td>
-          <td>自动触发前必须等同日 raw latest materialization 与 raw blocking checks 全绿。</td>
+          <td>固定输入文件/发布/检查一致，且同日raw latest materialization与raw blocking checks全绿；job内两个固定checks也不可绕过。</td>
         </tr>
         <tr>
           <td><code>raw_stock_daily_update_job</code></td>

@@ -12,6 +12,16 @@
 
 C1 已按该口径落地为 `orchestrator.defs.catalog.lake_assets`：只做代码内 registry 和 static gates，不新增数据库、不新增 UI、不新增配置项、不改变现有 asset/job/sensor/check 语义。原 C1 review 文档已并回本文，不再单独维护。
 
+### 2026-09-08 停牌固定事实登记（代码已实现，尚未正式发布）
+
+`silver_stock_suspend_confirmed` 已登记为 `quote/silver` 的外部 `AssetSpec`，
+分区模型 `FULL_FILE_SILVER_STOCK_SUSPEND_CONFIRMED` 无日期分区，五列固定合同、两项 blocking checks。
+唯一正式路径为 `data_lake/silver/quote/stock_suspend_confirmed/full/part-000.parquet`；
+只有专用人工发布工具可以提升该文件，资产自身没有计算函数、日更或自动 writer。
+最终 `silver_stock_suspend_daily` 读取 Raw 与该固定输入，四列输出与业务消费者不变。
+治理对账合并 executable definitions 与外部 specs；外部输入不得放进 CONTRACT_ONLY 排除集合。
+正式数据/事件迁移仍按[停牌 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md) S2–S5 分阶段批准，登记不表示已经发布。
+
 ## 2. 背景
 
 设计时区分三类系统口径；其中旧控制台已清退：

@@ -25,6 +25,9 @@ _started = 0.0
 _local_instance_factory = None
 _network_targets: dict = {}
 _native_socket_connect = socket.socket.connect
+_consumer_scope = False
+_subtests_completed = 0
+_connection_count = 0
 
 GOLDEN_BYTES = (
     b"stock_suspend_confirmed|v1\n"
@@ -140,6 +143,7 @@ def verify_confirmed_test_duckdb_connection(connection, *, expected: dict[str, s
 
 @contextmanager
 def connect_confirmed_test_duckdb(*, temp_directory: Path):
+    global _connection_count
     config = confirmed_test_duckdb_config(temp_directory=temp_directory)
     Path(config["temp_directory"]).mkdir(parents=True, exist_ok=True)
     import duckdb
@@ -147,7 +151,9 @@ def connect_confirmed_test_duckdb(*, temp_directory: Path):
     connection = duckdb.connect(database=":memory:", config=config)
     try:
         observed = verify_confirmed_test_duckdb_connection(connection, expected=config)
-        print(json.dumps({"duckdb_settings": observed}), flush=True)
+        _connection_count += 1
+        if not _consumer_scope or _connection_count == 1:
+            print(json.dumps({"duckdb_settings": observed}), flush=True)
         yield connection
     finally:
         connection.close()
@@ -155,6 +161,37 @@ def connect_confirmed_test_duckdb(*, temp_directory: Path):
 
 def _reject_formal_duckdb_connection(*args, **kwargs):
     raise RuntimeError("formal_duckdb_connection_forbidden_in_test")
+
+
+def consumer_duckdb_connection():
+    """Existing consumer fixtures use one explicit, bounded in-memory factory."""
+    return connect_confirmed_test_duckdb(temp_directory=require_isolated_context() / "consumer-duckdb")
+
+
+def consumer_duckdb_resource():
+    allowed = require_isolated_context()
+    return make_confirmed_test_resources(lake_root=allowed / "consumer-lake", work_root=allowed)["duckdb"]
+
+
+@contextmanager
+def consumer_test_instance():
+    import tempfile
+
+    root = Path(tempfile.mkdtemp(prefix="consumer-instance-", dir=require_isolated_context()))
+    with make_confirmed_test_instance(instance_root=root) as instance:
+        yield instance
+
+
+def _consumer_direct_connection(*args, **kwargs):
+    if args or kwargs:
+        raise ValueError("consumer_direct_connection_requires_no_arguments")
+    return consumer_duckdb_connection()
+
+
+def _consumer_audit_connection(database=":memory:"):
+    if database != ":memory:":
+        raise ValueError("consumer_audit_requires_memory")
+    return consumer_duckdb_connection()
 
 
 def verify_confirmed_test_instance(instance, *, expected_root: Path) -> dict:
@@ -348,11 +385,33 @@ def pytest_runtest_logstart(nodeid, location):
 
 
 def pytest_runtest_logreport(report):
-    global _completed, _failures
+    global _completed, _failures, _subtests_completed
     if report.failed or report.skipped:
         _failures += 1
     if report.when == "call" and report.passed:
-        _completed += 1
+        if _consumer_scope and hasattr(report, "context"):
+            _subtests_completed += 1
+        else:
+            _completed += 1
+
+
+def pytest_collection_finish(session):
+    if not _consumer_scope:
+        return
+    # Audit imported aliases; do not search-and-rewrite arbitrary module objects.
+    bindings = {}
+    for name, module in tuple(sys.modules.items()):
+        if name.startswith("orchestrator.") and module is not None:
+            value = vars(module).get("connect_configured_duckdb")
+            if value is not None:
+                if value not in (_consumer_direct_connection, _reject_formal_duckdb_connection):
+                    raise RuntimeError(f"unprotected_consumer_connection:{name}")
+                bindings[name] = value.__name__
+    print(json.dumps({"consumer_connection_bindings": bindings, "collected": len(session.items)}), flush=True)
+    if session.items and session.items[0].module.__name__.endswith("test_lake_console_retirement_guardrails"):
+        paths = tuple(Path(name) for name in json.loads((require_isolated_context() / "source-inventory.json").read_text()))
+        session.items[0].module._source_files = lambda: list(paths)
+        print(json.dumps({"root_guard_frozen_git_source_count": len(paths)}), flush=True)
 
 
 def pytest_runtest_logfinish(nodeid, location):
@@ -424,7 +483,7 @@ def probe_startup_gate(case: str, root_name: str, policy_hash: str, test_name: s
 def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
         case_names: tuple[str, ...], expected_count: int, network_targets: dict,
         scope: str = "isolation") -> int:
-    global _allowed, _local_instance_factory, _network_targets
+    global _allowed, _local_instance_factory, _network_targets, _consumer_scope
     root = Path(root_name)
     if root.parent != Path("/private/tmp") or not root.name.startswith("stock-suspend-isolated-"):
         raise RuntimeError("invalid_work_root")
@@ -441,6 +500,7 @@ def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
     _os_self_check(root)
     _allowed = allowed
     _network_targets = network_targets
+    _consumer_scope = scope in ("consumer", "root-guard")
     from contextlib import ExitStack
     from unittest.mock import patch
 
@@ -455,10 +515,11 @@ def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
             "--ignore-glob", str(Path(test_directory) / "*"),
             "--noconftest", "-p", "no:cacheprovider",
             "--import-mode=importlib", "--basetemp", str(allowed / "pytest"),
-            "-x", "-v", "-s", *(f"{test_name}::{name}" for name in case_names)]
+            "-x", "-q" if _consumer_scope else "-v", "-s", *(f"{test_name}::{name}" for name in case_names)]
     print(json.dumps({"pytest_argv": args, "implemented_slice": batch}), flush=True)
     _local_instance_factory = factory.create_local_temp_instance
     with ExitStack() as guards:
+        consumer_data_suite = scope == "consumer" and not Path(test_name).name.startswith(("test_asset_", "test_run_contract_"))
         for owner, name, replacement in (
             (resources, "connect_configured_duckdb", _reject_formal_duckdb_connection),
             (duckdb_connection, "connect_configured_duckdb", _reject_formal_duckdb_connection),
@@ -480,15 +541,25 @@ def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
                         Path(__file__).with_name("test_stock_suspend_confirmed_bootstrap.py"),
                     )):
                 continue
+            if consumer_data_suite and owner is duckdb_connection:
+                replacement = _consumer_direct_connection
             guards.enter_context(patch.object(owner, name, replacement))
+        if _consumer_scope and Path(test_name).name == "test_stk_mins_silver_strict_audit.py":
+            from types import SimpleNamespace
+
+            from orchestrator.audits import stk_mins_silver_strict_audit
+
+            guards.enter_context(patch.object(stk_mins_silver_strict_audit, "duckdb",
+                                             SimpleNamespace(connect=_consumer_audit_connection)))
         plugins = [sys.modules[__name__]]
         if scope in ("adapter", "regression"):
             plugins.append(_confirmed_contract_fixtures())
-        elif scope != "isolation":
+        elif scope not in ("isolation", "consumer", "root-guard"):
             raise ValueError("invalid_scope")
         result = int(pytest.main(args, plugins=plugins))
     (allowed / "pytest-result.json").write_text(json.dumps({
         "slice": batch, "completed": _completed, "failures": _failures,
+        "subtests_completed": _subtests_completed, "connection_count": _connection_count,
         "passed": result == 0 and _completed == expected_count and _failures == 0,
     }) + "\n")
     return result

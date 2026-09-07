@@ -8,7 +8,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import duckdb
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_connection,
+    consumer_duckdb_resource,
+)
 
 from orchestrator.defs.bootstrap.stk_mins_bse_history_recovery import (
     BseMinuteRecoveryError,
@@ -44,7 +47,7 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource, TushareResult
+from orchestrator.defs.resources import TushareResult
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
 RAW_SCHEMA = (
@@ -82,7 +85,7 @@ def _write_rows(
     rows: list[tuple[object, ...]],
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(database=":memory:") as connection:
+    with consumer_duckdb_connection() as connection:
         connection.execute(
             "CREATE TABLE rows ("
             + ", ".join(f'"{name}" {type_name}' for name, type_name in schema)
@@ -155,7 +158,11 @@ class BseMinuteHistoryRecoveryTests(unittest.TestCase):
         self.lake_root = self.root / "lake"
         self.staging_root = self.root / "staging" / "stk_mins_bse_recovery"
         self.trade_date = "2025-09-03"
-        self.resource = DuckDBResource()
+        self.resource = consumer_duckdb_resource()
+        self.enterContext(patch(
+            "orchestrator.defs.bootstrap.stk_mins_bse_history_recovery_cli.DuckDBResource",
+            side_effect=consumer_duckdb_resource,
+        ))
         self.raw_path = raw_stk_mins_path(self.lake_root, 1, self.trade_date)
         _write_rows(
             silver_stock_daily_path(self.lake_root, self.trade_date),

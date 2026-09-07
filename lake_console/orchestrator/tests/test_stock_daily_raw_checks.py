@@ -3,21 +3,26 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import dagster as dg
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_resource,
+)
 
-from orchestrator.defs.checks import stock_daily_checks
 from orchestrator.defs.assets.stock_daily import STOCK_DAILY_RAW_COLUMN_TYPES
 from orchestrator.defs.catalog.lake_assets import SILVER_STOCK_DAILY_CHECKS
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet, silver_stock_daily_select
+from orchestrator.defs.checks import stock_daily_checks
+from orchestrator.defs.duckdb_sql import (
+    copy_query_to_parquet,
+    silver_stock_daily_select,
+)
 from orchestrator.defs.paths import (
     raw_stock_daily_path,
-    silver_stock_daily_path,
     silver_stock_basic_path,
+    silver_stock_daily_path,
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.sensors import readiness
-
 
 PARTITION_KEY = "2026-05-29"
 
@@ -46,7 +51,7 @@ def _write_rows(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = tuple(column_types)
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         column_defs = ", ".join(
             f'"{column}" {column_types[column]}' for column in columns
         )
@@ -243,7 +248,7 @@ def _raw_universe_metadata(
     raw_path = _write_raw(lake_root, raw_rows)
     basic_path = _write_basic(lake_root, basic_rows)
     suspend_path = _write_suspend(lake_root, suspend_rows)
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         return stock_daily_checks._expected_tradable_universe_metadata(
             connection,
             partition_key=PARTITION_KEY,
@@ -269,7 +274,7 @@ def _silver_universe_metadata(
     silver_path = _write_silver(lake_root, silver_rows)
     lifecycle_path = _write_stock_lifecycle(lake_root, lifecycle_rows)
     suspend_path = _write_suspend(lake_root, suspend_rows)
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         return stock_daily_checks._expected_tradable_universe_metadata(
             connection,
             partition_key=PARTITION_KEY,
@@ -460,7 +465,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
                 Path(directory),
                 [_raw_row("000001.SZ"), _raw_row("000001.SZ")],
             )
-            with DuckDBResource().connect() as connection:
+            with consumer_duckdb_resource().connect() as connection:
                 metadata = stock_daily_checks._raw_duplicate_key_metadata(
                     connection,
                     raw_path=raw_path,
@@ -547,7 +552,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
                 ],
                 order_by="ts_code, trade_date",
             )
-            with DuckDBResource().connect() as connection:
+            with consumer_duckdb_resource().connect() as connection:
                 rows = connection.execute(
                     f"""
                     SELECT ts_code
@@ -579,7 +584,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
                 rows=[_full_raw_row("000638.SZ")],
                 order_by="ts_code, trade_date",
             )
-            with DuckDBResource().connect() as connection:
+            with consumer_duckdb_resource().connect() as connection:
                 rows = connection.execute(
                     f"""
                     SELECT ts_code
@@ -611,7 +616,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
                 rows=[_full_raw_row("600193.SH")],
                 order_by="ts_code, trade_date",
             )
-            with DuckDBResource().connect() as connection:
+            with consumer_duckdb_resource().connect() as connection:
                 rows = connection.execute(
                     f"""
                     SELECT ts_code
@@ -643,7 +648,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
                 rows=[_full_raw_row("000638.SZ")],
                 order_by="ts_code, trade_date",
             )
-            with DuckDBResource().connect() as connection:
+            with consumer_duckdb_resource().connect() as connection:
                 rows = connection.execute(
                     f"""
                     SELECT ts_code
@@ -674,7 +679,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
             )(
                 _PartitionContext(PARTITION_KEY),
                 LakeRootResource(root_path=str(lake_root)),
-                DuckDBResource(),
+                consumer_duckdb_resource(),
             )
 
         self.assertFalse(result.passed)

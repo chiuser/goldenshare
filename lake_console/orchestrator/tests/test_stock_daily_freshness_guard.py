@@ -4,6 +4,9 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import dagster as dg
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_resource,
+)
 
 from orchestrator.defs.asset_guards.stock_daily import (
     assert_silver_stock_basic_fresh_for_stock_daily,
@@ -20,9 +23,7 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.sensors.readiness import AssetReadinessStatus
-
 
 PARTITION_KEY = "2026-05-29"
 
@@ -79,7 +80,7 @@ def _write_rows(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = tuple(column_types)
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         column_defs = ", ".join(
             f'"{column}" {column_types[column]}' for column in columns
         )
@@ -246,7 +247,7 @@ def _write_existing_silver_target(lake_root: Path) -> None:
 
 
 def _target_ts_codes(path: Path) -> list[str]:
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         rows = connection.execute(
             f"SELECT ts_code FROM {read_parquet(path)} ORDER BY ts_code"
         ).fetchall()
@@ -257,7 +258,7 @@ def _call_silver_asset(lake_root: Path, *, instance: object) -> dg.MaterializeRe
     return silver_stock_daily.op.compute_fn.decorated_fn(
         _FakeContext(instance=instance),
         _FakeLakeRoot(lake_root),
-        DuckDBResource(),
+        consumer_duckdb_resource(),
     )
 
 
@@ -296,20 +297,18 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
         )
 
         for status in cases:
-            with self.subTest(reason=status.reason):
-                with patch(
-                    "orchestrator.defs.asset_guards.stock_daily."
-                    "silver_stock_basic_ready_for_trade_date",
-                    return_value=status,
-                ):
-                    with self.assertRaisesRegex(
-                        dg.Failure,
-                        "silver_stock_daily cannot be produced",
-                    ):
-                        assert_silver_stock_basic_fresh_for_stock_daily(
-                            object(),
-                            PARTITION_KEY,
-                        )
+            with self.subTest(reason=status.reason), patch(
+                "orchestrator.defs.asset_guards.stock_daily."
+                "silver_stock_basic_ready_for_trade_date",
+                return_value=status,
+            ), self.assertRaisesRegex(
+                dg.Failure,
+                "silver_stock_daily cannot be produced",
+            ):
+                assert_silver_stock_basic_fresh_for_stock_daily(
+                    object(),
+                    PARTITION_KEY,
+                )
 
     def test_raw_asset_does_not_reference_stock_basic_freshness_guard(self) -> None:
         raw_source = raw_tushare_stock_daily.op.compute_fn.decorated_fn.__code__.co_names
@@ -339,9 +338,8 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
                     materialization_date="2026-05-28",
                     reason="silver_stock_basic stale",
                 ),
-            ):
-                with self.assertRaises(dg.Failure):
-                    _call_silver_asset(lake_root, instance=object())
+            ), self.assertRaises(dg.Failure):
+                _call_silver_asset(lake_root, instance=object())
 
             self.assertFalse(target_path.exists())
 
@@ -366,9 +364,8 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
                     materialization_date="2026-05-28",
                     reason="silver_stock_basic stale",
                 ),
-            ):
-                with self.assertRaises(dg.Failure):
-                    _call_silver_asset(lake_root, instance=object())
+            ), self.assertRaises(dg.Failure):
+                _call_silver_asset(lake_root, instance=object())
 
             self.assertEqual(_target_ts_codes(target_path), ["999999.SZ"])
 

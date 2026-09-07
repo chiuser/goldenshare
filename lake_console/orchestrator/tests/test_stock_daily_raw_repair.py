@@ -3,6 +3,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_resource,
+)
+
 from orchestrator.defs.assets.stock_daily import (
     STOCK_DAILY_RAW_COLUMN_TYPES,
 )
@@ -16,7 +20,7 @@ from orchestrator.defs.paths import (
     silver_stock_basic_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource, TushareResult
+from orchestrator.defs.resources import TushareResult
 from orchestrator.defs.sensors.stock_daily_raw_repair import (
     MAX_STOCK_DAILY_REPAIR_ATTEMPTS,
     StockDailyMissingCodeLocatorResult,
@@ -26,7 +30,6 @@ from orchestrator.defs.sensors.stock_daily_raw_repair import (
 from orchestrator.defs.tushare_api_io import (
     fetch_tushare_stock_daily_missing_codes_to_raw,
 )
-
 
 PARTITION_KEY = "2026-05-29"
 COMPACT_TRADE_DATE = "20260529"
@@ -60,7 +63,7 @@ def _write_rows(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = tuple(column_types)
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         column_defs = ", ".join(
             f'"{column}" {column_types[column]}' for column in columns
         )
@@ -158,7 +161,7 @@ def _write_suspend(lake_root: Path, rows: list[dict[str, object]] | None = None)
 
 
 def _raw_codes(path: Path) -> list[str]:
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         rows = connection.execute(
             f"SELECT ts_code FROM {read_parquet(path)} ORDER BY ts_code"
         ).fetchall()
@@ -175,7 +178,7 @@ class StockDailyRawRepairTests(unittest.TestCase):
 
             locator = locate_stock_daily_missing_codes(
                 lake_root_path=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 trade_date=PARTITION_KEY,
             )
 
@@ -205,7 +208,7 @@ class StockDailyRawRepairTests(unittest.TestCase):
 
             locator = locate_stock_daily_missing_codes(
                 lake_root_path=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 trade_date=PARTITION_KEY,
             )
 
@@ -219,7 +222,7 @@ class StockDailyRawRepairTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             locator = locate_stock_daily_missing_codes(
                 lake_root_path=Path(directory),
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 trade_date=PARTITION_KEY,
             )
 
@@ -316,7 +319,7 @@ class StockDailyRawRepairTests(unittest.TestCase):
 
             metadata = fetch_tushare_stock_daily_missing_codes_to_raw(
                 tushare=tushare,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 ts_codes=["000002.SZ", "000003.SZ"],
                 fields=STOCK_DAILY_RAW_REQUIRED_COLUMNS,
                 column_types=STOCK_DAILY_RAW_COLUMN_TYPES,
@@ -346,7 +349,7 @@ class StockDailyRawRepairTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "returned 0 rows"):
                 fetch_tushare_stock_daily_missing_codes_to_raw(
                     tushare=tushare,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     ts_codes=["000002.SZ"],
                     fields=STOCK_DAILY_RAW_REQUIRED_COLUMNS,
                     column_types=STOCK_DAILY_RAW_COLUMN_TYPES,
@@ -368,7 +371,7 @@ class StockDailyRawRepairTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "outside the requested"):
                 fetch_tushare_stock_daily_missing_codes_to_raw(
                     tushare=tushare,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     ts_codes=["000002.SZ"],
                     fields=STOCK_DAILY_RAW_REQUIRED_COLUMNS,
                     column_types=STOCK_DAILY_RAW_COLUMN_TYPES,

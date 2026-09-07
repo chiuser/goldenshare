@@ -3,7 +3,9 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import duckdb
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_connection,
+)
 
 from orchestrator.audits.stk_mins_silver_strict_audit import (
     build_stk_mins_silver_audit_dry_run,
@@ -17,7 +19,6 @@ from orchestrator.defs.paths import (
     silver_stock_identity_map_path,
     silver_stock_suspend_daily_path,
 )
-
 
 PARTITION_KEY = "2026-05-29"
 
@@ -110,7 +111,7 @@ def _write_complete_fixture(lake_root: Path) -> None:
 
 def _write_raw_fixture(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(":memory:") as connection:
+    with consumer_duckdb_connection() as connection:
         connection.execute(
             f"""
             COPY (
@@ -139,7 +140,7 @@ def _write_empty_raw_files_for_other_freqs(lake_root: Path) -> None:
     for freq in (5, 15, 30, 60):
         path = raw_stk_mins_path(lake_root, freq, PARTITION_KEY)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with duckdb.connect(":memory:") as connection:
+        with consumer_duckdb_connection() as connection:
             connection.execute(
                 f"""
                 COPY (
@@ -163,7 +164,7 @@ def _write_empty_raw_files_for_other_freqs(lake_root: Path) -> None:
 
 def _write_stock_identity_map(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(":memory:") as connection:
+    with consumer_duckdb_connection() as connection:
         connection.execute(
             f"""
             COPY (
@@ -193,7 +194,7 @@ def _write_stock_identity_map(path: Path) -> None:
 
 def _write_stock_basic(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(":memory:") as connection:
+    with consumer_duckdb_connection() as connection:
         connection.execute(
             f"""
             COPY (
@@ -214,7 +215,7 @@ def _write_stock_basic(path: Path) -> None:
 
 def _write_namechange(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(":memory:") as connection:
+    with consumer_duckdb_connection() as connection:
         connection.execute(
             f"""
             COPY (
@@ -232,7 +233,7 @@ def _write_namechange(path: Path) -> None:
 
 def _write_stock_daily(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(":memory:") as connection:
+    with consumer_duckdb_connection() as connection:
         connection.execute(
             f"""
             COPY (
@@ -253,7 +254,7 @@ def _write_stock_daily(path: Path) -> None:
 
 def _write_suspend(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(":memory:") as connection:
+    with consumer_duckdb_connection() as connection:
         connection.execute(
             f"""
             COPY (

@@ -3,6 +3,10 @@ import unittest
 from pathlib import Path
 
 import dagster as dg
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_resource,
+    consumer_test_instance,
+)
 
 from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.bootstrap.stk_mins_silver_bootstrap_events import (
@@ -28,13 +32,11 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     asset_readiness_status,
 )
-
 
 PARTITION_KEY = "2014-06-03"
 
@@ -48,7 +50,7 @@ def _write_rows(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = tuple(column_types)
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         column_defs = ", ".join(
             f'"{column}" {column_types[column]}' for column in columns
         )
@@ -212,7 +214,7 @@ def _write_valid_silver_history(lake_root: Path) -> None:
     _write_common_inputs(lake_root)
     generate_stk_mins_silver_history(
         lake_root=lake_root,
-        duckdb=DuckDBResource(),
+        duckdb=consumer_duckdb_resource(),
         partition_keys=[PARTITION_KEY],
     )
 
@@ -262,12 +264,12 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
 
             first = generate_stk_mins_silver_history(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 partition_keys=[PARTITION_KEY],
             )
             second = generate_stk_mins_silver_history(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 partition_keys=[PARTITION_KEY],
                 skip_existing=True,
             )
@@ -288,7 +290,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_valid_silver_history(lake_root)
-            instance = dg.DagsterInstance.ephemeral()
+            instance = self.enterContext(consumer_test_instance())
             instance.add_dynamic_partitions(
                 cn_a_stock_mins_silver_trade_days.name,
                 [PARTITION_KEY],
@@ -297,7 +299,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
             report = report_stk_mins_silver_bootstrap_events(
                 instance=instance,
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 partition_keys=[PARTITION_KEY],
                 dry_run=True,
             )
@@ -322,13 +324,13 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_valid_silver_history(lake_root)
-            instance = dg.DagsterInstance.ephemeral()
+            instance = self.enterContext(consumer_test_instance())
 
             with self.assertRaisesRegex(ValueError, "not aligned"):
                 report_stk_mins_silver_bootstrap_events(
                     instance=instance,
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     partition_keys=[PARTITION_KEY],
                     dry_run=True,
                 )
@@ -337,7 +339,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_valid_silver_history(lake_root)
-            instance = dg.DagsterInstance.ephemeral()
+            instance = self.enterContext(consumer_test_instance())
             instance.add_dynamic_partitions(
                 cn_a_stock_mins_silver_trade_days.name,
                 [PARTITION_KEY],
@@ -346,7 +348,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
             report = report_stk_mins_silver_bootstrap_events(
                 instance=instance,
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 partition_keys=[PARTITION_KEY],
                 dry_run=False,
             )
@@ -358,7 +360,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
             second = report_stk_mins_silver_bootstrap_events(
                 instance=instance,
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 partition_keys=[PARTITION_KEY],
                 dry_run=False,
                 skip_existing_materialized=True,
@@ -400,7 +402,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
                 ],
                 order_by="ts_code, trade_time",
             )
-            instance = dg.DagsterInstance.ephemeral()
+            instance = self.enterContext(consumer_test_instance())
             instance.add_dynamic_partitions(
                 cn_a_stock_mins_silver_trade_days.name,
                 [PARTITION_KEY],
@@ -408,7 +410,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
 
             audit = audit_stk_mins_silver_bootstrap_partition(
                 lake_root=lake_root,
-                duckdb=DuckDBResource(),
+                duckdb=consumer_duckdb_resource(),
                 freq=1,
                 partition_key=PARTITION_KEY,
             )
@@ -416,7 +418,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
                 report_stk_mins_silver_bootstrap_events(
                     instance=instance,
                     lake_root=lake_root,
-                    duckdb=DuckDBResource(),
+                    duckdb=consumer_duckdb_resource(),
                     partition_keys=[PARTITION_KEY],
                     dry_run=True,
                 )
@@ -424,7 +426,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
         self.assertIn("silver_stk_mins_value_domain_check", audit.failed_check_names)
 
     def test_registers_silver_partitions_with_dry_run(self) -> None:
-        instance = dg.DagsterInstance.ephemeral()
+        instance = self.enterContext(consumer_test_instance())
 
         dry_run = register_stock_mins_silver_partitions(
             instance=instance,

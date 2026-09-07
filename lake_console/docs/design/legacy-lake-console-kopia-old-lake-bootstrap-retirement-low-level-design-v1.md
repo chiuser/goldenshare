@@ -2724,7 +2724,7 @@ M8 再独立提交精确清单；**不以清遗留文件为由删除或顺手重
 
 ### 16.11 TODO-SUSPEND-001：消除停牌修正规则的运行时 CSV 隐性依赖
 
-- [ ] **S0完成；S1部分实现未验收，测试隔离失误触发正式健康探针后停止，详见独立LLD §17；指定Silver sensor保持暂停，未迁移停牌数据或删除CSV，TODO未关闭。** 2026-09-05 用户明确要求：停牌修正规则后续不能再靠读取
+- [ ] **S0、S1完成（2026-09-08）；S1总对账见独立LLD §18.27。正式迁移、发布/切换及CSV删除未执行，指定Silver sensor未恢复，TODO未关闭；早期隔离事故证据仍保留在§17。** 2026-09-05 用户明确要求：停牌修正规则后续不能再靠读取
   文件承载，要消除隐性依赖。§16.10 的“保留”仅指当前防误删，不代表认可这套长期实现。
 
 **2026-09-06 后续决策与主案入口**
@@ -2741,7 +2741,7 @@ CSV 旁路依赖，不是禁止一切文件存储。
 [配套 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md)，已获认可；
 [S0 清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)已完成来源、现有效果、实际逻辑指纹及运行边界核验。
 后续S1已执行获准的指定Silver sensor暂停，Raw和其他入口不变；SDK关联窄修正已获用户确认。
-部分代码已编写，但测试资源误配触发正式健康探针后停止，影响核验与待确认处置见
+早期测试资源误配曾触发正式健康探针并停止，历史影响核验见
 [独立LLD §17](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md)。
 本节不复制第二份方案；未迁移停牌数据、发布正式事件或删除CSV，不自动恢复暂停入口。
 

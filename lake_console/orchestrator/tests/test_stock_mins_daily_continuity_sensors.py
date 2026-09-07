@@ -7,7 +7,10 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import dagster as dg
-import duckdb
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_connection,
+    require_isolated_context,
+)
 
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
@@ -114,13 +117,13 @@ class _Instance:
 
 class _LakeRoot:
     def root(self) -> Path:
-        return Path("/tmp/goldenshare-test-lake-root")
+        return require_isolated_context() / "sensor-lake"
 
 
 class _DuckDBResource:
     @contextmanager
     def connect(self):
-        with duckdb.connect(":memory:") as connection:
+        with consumer_duckdb_connection() as connection:
             yield connection
 
 

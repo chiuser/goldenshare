@@ -3,6 +3,8 @@ import pkgutil
 import re
 import unittest
 
+import dagster as dg
+
 import orchestrator.defs.checks as checks_pkg
 from orchestrator.defs.assets.adj_factor import (
     ADJ_FACTOR_COLUMNS,
@@ -132,6 +134,9 @@ from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
     gold_stock_return_distribution,
+)
+from orchestrator.defs.assets.stock_suspend_confirmed import (
+    silver_stock_suspend_confirmed,
 )
 from orchestrator.defs.assets.suspend_d import (
     SUSPEND_D_RAW_COLUMN_TYPES,
@@ -266,6 +271,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_suspend_d,
     silver_stock_suspend_daily,
     raw_tushare_stock_daily,
+    silver_stock_suspend_confirmed,
     raw_tushare_stk_nineturn,
     silver_stock_nineturn_daily,
     silver_stock_daily,
@@ -332,6 +338,9 @@ def _asset_specs_and_definitions_by_key():
     specs = {}
     definitions = {}
     for asset_definition in ACTIVE_ASSET_DEFINITIONS:
+        if isinstance(asset_definition, dg.AssetSpec):
+            specs[asset_definition.key.to_user_string()] = asset_definition
+            continue
         for asset_key in asset_definition.keys:
             key = asset_key.to_user_string()
             specs[key] = asset_definition.get_asset_spec(asset_key)
@@ -400,6 +409,36 @@ def _blocking_check_names_by_asset_key() -> dict[str, set[str]]:
 
 
 class AssetGovernanceContractTests(unittest.TestCase):
+    def test_confirmed_external_spec_has_no_writer_or_partition(self) -> None:
+        from stock_suspend_confirmed_test_support import (
+            make_confirmed_test_resources,
+            require_isolated_context,
+        )
+
+        from orchestrator.defs.assets import stock_suspend_confirmed
+        from orchestrator.defs.checks import stock_suspend_confirmed_checks
+
+        allowed = require_isolated_context()
+        discovered = dg.load_definitions_from_modules(
+            [stock_suspend_confirmed, stock_suspend_confirmed_checks],
+            resources=make_confirmed_test_resources(lake_root=allowed / "definition-lake", work_root=allowed),
+        )
+        # The checks module imports the same spec: verify resolved keys, not import aliases.
+        graph = discovered.resolve_asset_graph()
+        self.assertEqual(graph.get_all_asset_keys(), {silver_stock_suspend_confirmed.key})
+        self.assertFalse(graph.get(silver_stock_suspend_confirmed.key).is_materializable)
+        self.assertEqual(
+            {spec.name for check in discovered.asset_checks for spec in check.check_specs},
+            set(get_lake_asset_catalog_entry("silver_stock_suspend_confirmed").blocking_check_names),
+        )
+        key = silver_stock_suspend_confirmed.key.to_user_string()
+        self.assertIn(key, ACTIVE_ASSET_SPECS_BY_KEY)
+        self.assertNotIn(key, ACTIVE_ASSETS_BY_KEY)
+        self.assertNotIn(key, CONTRACT_ONLY_CATALOG_ASSET_KEYS)
+        self.assertIsNone(silver_stock_suspend_confirmed.partitions_def)
+        self.assertIsNone(silver_stock_suspend_confirmed.automation_condition)
+        self.assertEqual(silver_stock_suspend_confirmed.deps, [])
+
     def test_build_asset_tags_returns_dagster_legal_values(self) -> None:
         tags = build_asset_tags(
             layer=AssetLayer.RAW,
@@ -447,8 +486,8 @@ class AssetGovernanceContractTests(unittest.TestCase):
             for asset_key, entry in catalog_entries.items()
             if asset_key not in CONTRACT_ONLY_CATALOG_ASSET_KEYS
         }
-        self.assertEqual(len(active_catalog_entries), len(ACTIVE_ASSETS_BY_KEY))
-        self.assertEqual(set(active_catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
+        self.assertEqual(len(active_catalog_entries), len(ACTIVE_ASSET_SPECS_BY_KEY))
+        self.assertEqual(set(active_catalog_entries), set(ACTIVE_ASSET_SPECS_BY_KEY))
 
         for asset_key, entry in active_catalog_entries.items():
             with self.subTest(asset=asset_key):
@@ -500,14 +539,14 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertIsInstance(entries, tuple)
         self.assertEqual(
             len(entries),
-            len(ACTIVE_ASSETS_BY_KEY) + len(CONTRACT_ONLY_CATALOG_ASSET_KEYS),
+            len(ACTIVE_ASSET_SPECS_BY_KEY) + len(CONTRACT_ONLY_CATALOG_ASSET_KEYS),
         )
         self.assertEqual(
             tuple(entry.asset_key for entry in entries), list_lake_asset_keys()
         )
         self.assertEqual(
             set(list_lake_asset_keys()),
-            set(ACTIVE_ASSETS_BY_KEY) | CONTRACT_ONLY_CATALOG_ASSET_KEYS,
+            set(ACTIVE_ASSET_SPECS_BY_KEY) | CONTRACT_ONLY_CATALOG_ASSET_KEYS,
         )
         self.assertIs(
             get_lake_asset_catalog_entry("lake_root_health"),
@@ -644,7 +683,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         }
         self.assertEqual(
             set(schemas_by_asset_key) | ASSETS_WITHOUT_COLUMN_SCHEMA,
-            set(ACTIVE_ASSETS_BY_KEY),
+            set(ACTIVE_ASSET_SPECS_BY_KEY),
         )
 
         for asset_key, expected_schema in schemas_by_asset_key.items():
@@ -680,7 +719,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         active_check_names = _blocking_check_names_by_asset_key()
         actual_check_names = {
             asset_key: active_check_names.get(asset_key, set())
-            for asset_key in ACTIVE_ASSETS_BY_KEY
+            for asset_key in ACTIVE_ASSET_SPECS_BY_KEY
         }
 
         self.assertEqual(actual_check_names, expected_check_names)

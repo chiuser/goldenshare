@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import pkgutil
 import re
 import unittest
@@ -52,7 +53,14 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     major_index_mins_technical_state_asset_key,
     major_index_mins_technical_state_checks,
 )
-from orchestrator.defs.sensors.readiness import AssetReadinessSpec
+from orchestrator.defs.sensors.readiness import (
+    AssetReadinessSpec,
+    stock_suspend_confirmed_readiness,
+)
+from orchestrator.defs.stock_suspend_confirmed_contract import (
+    STOCK_SUSPEND_CONFIRMED_ASSET_KEY,
+    STOCK_SUSPEND_CONFIRMED_CHECKS,
+)
 
 DEFS_DIR = Path("src/orchestrator/defs")
 JOBS_DIR = DEFS_DIR / "jobs"
@@ -594,6 +602,13 @@ def _stk_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
 
 
 ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
+    STOCK_SUSPEND_CONFIRMED_ASSET_KEY: _rules(
+        STOCK_SUSPEND_CONFIRMED_CHECKS,
+        category=KEEP_BLOCKING_DAGSTER,
+        phase="SUSPEND_CONFIRMED_S1",
+        readiness=True,
+        retention_allowed=False,
+    ),
     "raw_tushare_trade_calendar": _rules(
         RAW_TRADE_CALENDAR_CHECKS,
         category=MERGE_BLOCKING_DAGSTER,
@@ -967,7 +982,8 @@ def _iter_readiness_specs(value: object) -> tuple[AssetReadinessSpec, ...]:
 
 
 def _readiness_check_pairs() -> set[tuple[str, str]]:
-    pairs: set[tuple[str, str]] = set()
+    # The fixed-input adapter is deliberately not the date/freshness spec adapter.
+    pairs = {(STOCK_SUSPEND_CONFIRMED_ASSET_KEY, name) for name in STOCK_SUSPEND_CONFIRMED_CHECKS}
     sensor_modules = tuple(
         importlib.import_module(f"orchestrator.defs.sensors.{module_info.name}")
         for module_info in pkgutil.iter_modules(sensors_pkg.__path__)
@@ -982,6 +998,22 @@ def _readiness_check_pairs() -> set[tuple[str, str]]:
 
 
 class AssetCheckIncrementalGovernanceTests(unittest.TestCase):
+    def test_fixed_input_readiness_and_retention_are_explicit(self) -> None:
+        from orchestrator.defs.bootstrap.asset_check_event_retention import (
+            ASSET_CHECK_RETENTION_ASSET_KEYS,
+        )
+
+        source = inspect.getsource(stock_suspend_confirmed_readiness)
+        self.assertIn("confirmed_contract.STOCK_SUSPEND_CONFIRMED_CHECKS", source)
+        self.assertIn("confirmed_contract.STOCK_SUSPEND_CONFIRMED_ASSET_KEY", source)
+        self.assertNotIn(STOCK_SUSPEND_CONFIRMED_ASSET_KEY, PLANNED_CATALOG_ASSET_KEYS)
+        self.assertTrue(all(STOCK_SUSPEND_CONFIRMED_ASSET_KEY not in key
+                            for key in ASSET_CHECK_RETENTION_ASSET_KEYS))
+        for rule in ASSET_CHECK_GOVERNANCE[STOCK_SUSPEND_CONFIRMED_ASSET_KEY].values():
+            self.assertTrue(rule.participates_in_sensor_readiness)
+            self.assertFalse(rule.retention_allowed)
+            self.assertEqual(rule.category, KEEP_BLOCKING_DAGSTER)
+
     def test_all_catalog_blocking_checks_have_incremental_governance_rule(
         self,
     ) -> None:

@@ -60,9 +60,9 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
    [独立技术方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)
    及配套 LLD 已获认可，后续 S0 只读审计已完成，见
    [S0 清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。
-   后续 S1 已获授权，事件关联窄修正亦获确认；部分代码已编写但未验收。测试资源误配触发正式健康探针后停止，
-   影响核验及待确认处置见 [LLD §17](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md)。
-   未迁移停牌数据或发布正式事件；指定Silver sensor保持暂停，CSV保护边界不变，TODO未关闭。
+   2026-09-08 S1实现、消费者及治理隔离回归已完成，见[LLD §18.27总对账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation)；
+   早期隔离事故影响核验仍保留在LLD §17，不用本轮通过覆盖历史。S2真实候选/全范围比较尚未执行，
+   未迁移停牌数据或发布正式事件；指定Silver sensor未恢复，CSV保护边界不变，TODO未关闭。
 
 ### 0.4 新增拍板结果
 

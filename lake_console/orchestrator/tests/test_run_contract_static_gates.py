@@ -390,6 +390,69 @@ def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
 
 
 class RunContractStaticGateTests(unittest.TestCase):
+    def test_confirmed_input_has_only_declared_physical_readers(self) -> None:
+        expected = {
+            "assets/suspend_d.py", "checks/stock_suspend_confirmed_checks.py",
+            "sensors/readiness.py", "bootstrap/stock_suspend_confirmed.py",
+        }
+        readers = set()
+        writers = []
+        for path in sorted(DEFS_DIR.rglob("*.py")):
+            for node in ast.walk(_parse_python_file(path)):
+                if isinstance(node, ast.Call) and _call_name(node.func) in {
+                    "load_confirmed_relation", "inspect_confirmed_file",
+                }:
+                    readers.add(path.relative_to(DEFS_DIR).as_posix())
+                if isinstance(node, ast.FunctionDef) and node.name == "write_silver_stock_suspend_daily_partition":
+                    writers.append(path.relative_to(DEFS_DIR).as_posix())
+        self.assertEqual(readers, expected)
+        self.assertEqual(writers, ["assets/suspend_d.py"])
+        for directory in (SENSORS_DIR, JOBS_DIR, ASSETS_DIR):
+            for path in directory.glob("*.py"):
+                self.assertNotIn("publish_confirmed_file", path.read_text())
+                self.assertNotIn("register_confirmed_events", path.read_text())
+
+    def test_confirmed_path_has_no_csv_or_git_fallback(self) -> None:
+        for path in sorted(DEFS_DIR.rglob("*.py")):
+            if path == DEFS_DIR / "corrections/suspend_full_day.py":
+                continue  # S5 deletes the now-unreferenced source, not S1.
+            source = path.read_text()
+            self.assertNotIn("suspend_full_day_ranges.csv", source, str(path))
+            self.assertNotIn("from orchestrator.defs.corrections.suspend_full_day", source, str(path))
+        for relative in (
+            "stock_suspend_confirmed_contract.py", "bootstrap/stock_suspend_confirmed.py",
+            "bootstrap/stock_suspend_confirmed_cli.py", "bootstrap/stock_suspend_confirmed_events.py",
+            "checks/stock_suspend_confirmed_checks.py",
+        ):
+            tree = _parse_python_file(DEFS_DIR / relative)
+            calls = {_call_name(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+            self.assertTrue(calls.isdisjoint({"read_csv", "read_csv_auto", "DictReader", "TushareResource",
+                                             "ProdPostgresResource", "check_output", "Popen"}), relative)
+
+    def test_confirmed_external_spec_uses_registered_metadata(self) -> None:
+        tree = _parse_python_file(ASSETS_DIR / "stock_suspend_confirmed.py")
+        specs = [node for node in ast.walk(tree) if _is_call_named(node, "AssetSpec")]
+        self.assertEqual(len(specs), 1)
+        metadata = _keyword_value(specs[0], "metadata")
+        self.assertTrue(_is_call_named(metadata, "build_asset_definition_metadata"))
+        self.assertTrue(_is_call_named(_keyword_value(specs[0], "tags"), "build_asset_tags"))
+        self.assertIsNotNone(_keyword_value(metadata, "column_schema"))
+        self.assertTrue(_is_call_named(_keyword_value(metadata, "path_template"), "lake_path_template"))
+        self.assertIsNone(_keyword_value(specs[0], "partitions_def"))
+        self.assertIsNone(_keyword_value(specs[0], "automation_condition"))
+        self.assertFalse(any(_is_call_named(node, "asset") for node in ast.walk(tree)))
+
+    def test_confirmed_writer_and_cli_keep_date_and_connection_boundaries(self) -> None:
+        source = _function_source(ASSETS_DIR / "suspend_d.py", "write_silver_stock_suspend_daily_partition")
+        self.assertIn("raw_partition_date_mismatch", source)
+        self.assertIn("trade_date IS NULL OR trade_date <> ?::DATE", source)
+        self.assertLess(source.index("raw_partition_date_mismatch"), source.index("copy_query_to_parquet"))
+        cli_tree = _parse_python_file(DEFS_DIR / "bootstrap/stock_suspend_confirmed_cli.py")
+        calls = [node for node in ast.walk(cli_tree) if _is_call_named(node, "connect_configured_duckdb")]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(ast.literal_eval(_keyword_value(calls[0], "temp_policy")), "existing_no_spill")
+        self.assertTrue(calls[0].args)  # Explicit settings, not the default production factory.
+
     def test_major_index_nineturn_history_checks_are_recent_twenty_only(self) -> None:
         contract_source = (
             DEFS_DIR / "run_contracts" / "major_index_nineturn.py"

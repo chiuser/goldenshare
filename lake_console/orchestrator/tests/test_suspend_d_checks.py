@@ -2,13 +2,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from stock_suspend_confirmed_test_support import (
+    consumer_duckdb_resource,
+)
+
 from orchestrator.defs.checks import stock_partition_checks
 from orchestrator.defs.checks import suspend_d_checks as checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.paths import raw_suspend_d_path, silver_stock_suspend_daily_path
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.sensors import readiness
-
 
 PARTITION_KEY = "2026-06-05"
 
@@ -41,7 +44,7 @@ def _check_name(check_definition) -> str:
     return node_def.name
 
 
-def _metadata_value(value):  # noqa: ANN001
+def _metadata_value(value):
     return getattr(value, "value", value)
 
 
@@ -54,7 +57,7 @@ def _write_rows(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = tuple(column_types)
-    with DuckDBResource().connect() as connection:
+    with consumer_duckdb_resource().connect() as connection:
         column_defs = ", ".join(
             f'"{column}" {column_types[column]}' for column in columns
         )
@@ -152,7 +155,7 @@ class SuspendDCheckTests(unittest.TestCase):
             _write_raw_suspend_file(root, [])
             context = _PartitionContext()
             lake_root = LakeRootResource(root_path=str(root))
-            duckdb_resource = DuckDBResource()
+            duckdb_resource = consumer_duckdb_resource()
 
             check_definitions = (
                 checks.raw_suspend_d_contract_check,
@@ -198,7 +201,7 @@ class SuspendDCheckTests(unittest.TestCase):
             )
             context = _PartitionContext()
             lake_root = LakeRootResource(root_path=str(root))
-            duckdb_resource = DuckDBResource()
+            duckdb_resource = consumer_duckdb_resource()
             check_fn = _check_function(checks.raw_suspend_d_required_columns)
 
             result = check_fn(context, lake_root, duckdb_resource)
@@ -219,7 +222,7 @@ class SuspendDCheckTests(unittest.TestCase):
             )
             context = _PartitionContext()
             lake_root = LakeRootResource(root_path=str(root))
-            duckdb_resource = DuckDBResource()
+            duckdb_resource = consumer_duckdb_resource()
             check_fn = _check_function(checks.raw_suspend_d_contract_check)
 
             result = check_fn(context, lake_root, duckdb_resource)
@@ -240,7 +243,7 @@ class SuspendDCheckTests(unittest.TestCase):
             root = Path(temp_dir)
             context = _PartitionContext()
             lake_root = LakeRootResource(root_path=str(root))
-            duckdb_resource = DuckDBResource()
+            duckdb_resource = consumer_duckdb_resource()
             check_fn = _check_function(checks.raw_suspend_d_required_columns)
 
             result = check_fn(context, lake_root, duckdb_resource)
@@ -267,7 +270,7 @@ class SuspendDCheckTests(unittest.TestCase):
             )
             context = _PartitionContext()
             lake_root = LakeRootResource(root_path=str(root))
-            duckdb_resource = DuckDBResource()
+            duckdb_resource = consumer_duckdb_resource()
             check_fn = _check_function(checks.raw_suspend_d_partition_date_matches)
 
             result = check_fn(context, lake_root, duckdb_resource)
@@ -280,7 +283,7 @@ class SuspendDCheckTests(unittest.TestCase):
             _write_silver_suspend_file(root, [])
             context = _PartitionContext()
             lake_root = LakeRootResource(root_path=str(root))
-            duckdb_resource = DuckDBResource()
+            duckdb_resource = consumer_duckdb_resource()
 
             check_definitions = (
                 checks.silver_suspend_d_key_integrity_check,

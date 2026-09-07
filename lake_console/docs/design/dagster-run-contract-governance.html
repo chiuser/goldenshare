@@ -380,6 +380,17 @@
 
   <section>
     <h2>4. 命名空间规则</h2>
+    <div class="callout">
+      <strong>2026-09-08 停牌固定事实代码口径（尚未正式发布）：</strong>
+      在 <code>defs/run_contracts/metadata.py</code> 统一登记 <code>goldenshare/confirmed_fact_</code>
+      前缀下的 <code>version</code>、<code>logical_sha256</code>、<code>source_revision</code>、
+      <code>source_sha256</code>、<code>calendar_sha256</code>、<code>operation_id</code>、
+      <code>event_token</code>、<code>stats</code> 八项键。版本和内容摘要连接文件、发布与检查；
+      operation/token 只用于人工发布对账，不改变现有 run key 或业务字段。
+      日常输出退出旧 full-day patch 统计，保留独立时段修正统计；异常样本最多20条。
+      固定检查必须关联真实无分区发布，文件提交与事件失败独立，不回滚正确数据。
+      <a href="dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation">验收与未发布边界见停牌 LLD</a>。
+    </div>
     <table>
       <thead>
       <tr>

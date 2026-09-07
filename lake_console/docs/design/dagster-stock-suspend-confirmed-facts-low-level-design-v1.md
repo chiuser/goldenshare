@@ -1,8 +1,8 @@
 # 本地 DG 停牌历史确认事实持久化与统一消费 LLD v1
 
-更新时间：2026-09-07
+更新时间：2026-09-08
 
-状态：**S0已完成；文件侧已提交`617266b9`，未推送。§18.26补齐audit-events/register-events、受限本地PG实例取得与事件续跑，新增42例＋原文件侧62例，共104例隔离验收通过。本轮事件增量未提交；S1仍剩消费者/治理全套回归，S2未执行。本轮仅只读查看正式配置的类别与非敏感路径，未构造正式instance、连接正式数据库或操作正式Lake/event；没有删除CSV、恢复sensor、安装套件或启动服务。测试产物最终按§18.11精确清理。**
+状态：**S0、S1已完成；§18.26事件侧已提交`65599e67`，未推送。本轮完成剩余消费者/治理291例及645个原有subTest，根清退13例覆盖4,019文件，复跑核心348个有效断言及隔离自检通过。S1总对账见§18.27；本轮新增测试/文档尚未提交。S2真实候选、生产C01/C05与3,083日期全范围比较尚未执行，正式发布/切换、CSV删除及最终清理均未完成。没有操作正式数据/实例、恢复sensor、安装套件或启动服务。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -653,7 +653,7 @@ S0 已核验当前两个停牌目录的 3,083 个日期全部属于正式 SSE �
 | `defs/catalog/name_mapping.py` | 修改 | 只登记新 dataset 中文名 | C |
 | `defs/run_contracts/asset_column_schemas.py` | 修改 | 新五列常量；现有 Raw/Silver 四列不变 | C |
 | `defs/run_contracts/metadata.py` | 修改 | 登记 §7 key，复用既有 helper；不修改 `ColumnContract` | C、G |
-| `defs/checks/suspend_d_checks.py` | 保留/测试适配 | 原 2 Raw＋3 Silver checks 名称/语义不变，不换名字清历史 | D、G |
+| `defs/checks/suspend_d_checks.py` | 保留判断；补已批准的声明 | 原Raw/Silver checks名称和函数体不变；本文件两个Silver checks按§18.22绑定已有交易日分区，第三个声明在stock_partition_checks.py；不换名字清历史 | D、G |
 | `defs/jobs/suspend_update.py` | 修改 | 仅 Silver selection 增加固定两 checks；Raw job 不改 | D |
 | `defs/sensors/suspend_d_sensor.py` | 修改 | candidate 非空后共享 readiness 一次；原 Raw sensor、窗口、2 个上限、run key 不变 | R |
 | `defs/sensors/readiness.py` | 修改 | 新无分区固定输入专用 adapter；不改变其他 spec 的 freshness/历史扫描语义 | R、G |
@@ -667,7 +667,7 @@ S0 已核验当前两个停牌目录的 3,083 个日期全部属于正式 SSE �
 | `defs/bootstrap/stk_mins_silver_replace_from_raw.py` | 保留 | 恢复输入指纹仍跟踪实际消费的最终停牌 Silver，不追加固定源直接依赖 | G |
 | `defs/bootstrap/stk_mins_bse_history_recovery.py` | 保留 | 同日 `S+NULL` 和 BSE 1m fallback 语义、CLI 不改 | G |
 | `audits/stk_mins_silver_strict_audit.py` | 保留 | 覆盖诊断读全部停/复牌代码，不改成只取全日停牌 | G |
-| `defs/checks/stock_partition_checks.py` | 保留 | 原最终 Silver 分区检查；无分区新输入不加入日期检查 | D |
+| `defs/checks/stock_partition_checks.py` | 保留判断；补已批准的声明 | 原最终 Silver 分区检查函数体不变；按§18.22补绑定已有交易日分区，新固定输入仍无分区 | D |
 | `defs/bootstrap/historical_materialization_reconciliation.py` | 保留 | 不自动给 1,857 历史日期补新事件、不扩其写入白名单 | G、E |
 | `defs/bootstrap/asset_check_event_retention.py` | 保留 | 不清理/重写历史事件，也不顺手纳入新资产清理 | G、E |
 
@@ -728,6 +728,36 @@ test_asset_check_incremental_governance.py
 
 ### 10.4 全部必跑测试的资源处理矩阵
 
+2026-09-08 收尾执行细化：本轮完成本表剩余消费者与三项治理 suite，不改消费者正式代码。
+既有 unittest suite 按实际收集的 test method 分批（每批最多8个，参数化例独立计数），
+方法内 subTest 是原有行/资产/规则断言，完整执行并单列计数，不把数百个 catalog 行拆成数百次实例启动。
+单方法30秒、单批60秒、100MiB工作区、64KiB单输出流上限保持；计数不符、skip/xfail仍失败。
+日线fixture≤10代码/2日期；分钟fixture≤10代码/3日期/5原生频度，单代码日最多242个源时点，
+保留原先完整240点与缺点反例，单例输入上界20,000行；SQL集合式扫描/写临时文件，零真实源请求。
+历史分钟事件测试保留原55事件/单日期语义，只换成既有工厂的显式隔离实例，全部文件与事件在allowed内。
+治理只解析/发现当前源码，不执行asset/sensor；完整源码逐文件只读清单固化在runner常量，
+不存在目录级递归放行，旧full-day CSV继续不允许读取。分钟自身价格修正seed属于既有在用消费者，
+只允许该精确CSV，不能误当成本专项要删除的停牌CSV。
+全量治理发现还会由既有`assets/dc_industry_hierarchy.py`定义metadata读取
+`seeds/board/eastmoney_dc_industry_hierarchy.cn_a.v1.csv`的版本，并校验同名`.source.png`证据摘要；只读放行这两个精确仓库文件，
+不改其内容、不运行行业层级writer，也不把治理import需要的seed与停牌CSV混为一谈。
+既有静态门禁还核对`dagster-event-history-retention-governance-plan.md`的Prod ClickHouse边界，
+仅增加该精确文档及`tests/test_asset_check_event_retention.py`源码只读权限，不删除原断言。
+根清退护栏使用父进程实际Git源码清单的冻结只读结果（含当前非ignored新文件），子进程只对该清单做原有审计；
+不在隔离内运行Git/读取用户Git配置。清单按排序后每1,000个文件切片，片间无遗漏/重复，
+每片执行全部原13例断言；跨片并集覆盖整个清单。这样约束系统策略大小，不扩大任何读取范围。
+每片只对原断言会读的代码后缀给精确literal只读权限，其余清单项仅作路径名称审计；
+十个保留锚点另外允许精确存在性检查，停牌CSV不允许读取内容。没有仓库目录递归权限，根护栏代码与全部原断言不改。
+R/N测试显式使用support临时连接工厂；C类在消费者import前绑定统一入口，collection后只核验并报告实际别名，
+不动态改写全仓对象。严格审计器当前用的是其模块内裸DuckDB连接（不是统一连接），
+仅在该测试中将模块连接替身指向同一受限工厂，不改审计SQL或业务默认实现。
+BSE现有CLI在合法参数路径内自行构造DuckDBResource；其测试setUp必须显式注入同一受限resource工厂，
+不能只替换测试直接传入的resource。首次CLI回归由默认连接拒绝保护拦下，未触碰正式目录；
+失败证据 `/private/tmp/stock-suspend-isolated-ry1yreyo` 保留，修测试注入后全suite重跑，业务expected及CLI源码不改。
+新增测试治理：固定AssetSpec完整进入catalog/metadata/schema/check集合，两固定checks不进入历史retention；
+专用readiness按真实函数消费登记，不能因为它不是通用AssetReadinessSpec便漏计。
+本轮临时静态分析目录 `/private/tmp/stock-suspend-s1-reconcile-ko4x1c` 纳入§18.11最终清理。
+
 §18先实施隔离和adapter，不代表其余回归可以在保护外运行。本表连同§10.2/10.3是固定白名单。原S1恢复后，runner新增显式 `--scope regression --suite <表内测试名>`，精确映射到一个文件，禁止任意路径、`-k`或额外参数透传。一个suite所有case分批完整对账，不挑过失败项；一个suite结束即退出报告，不串联S2。
 
 全部suite在业务import/collection前启用同一OS限制。临时Lake、staging、instance、DuckDB、报告、TemporaryDirectory均在本次allowed下；拒绝正式根、实例和网络。根架构护栏仅只读仓库，不访问物理Lake。
@@ -777,7 +807,7 @@ test_asset_check_incremental_governance.py
 | 阶段 / 风险 | 明确产出与顺序 | 进入下一步的条件 |
 | --- | --- | --- |
 | S0 / 低，已完成 | LLD 已认可；来源/日历/文件集合已刷新；批准 hash 已实算；隔离验证设计已固定 | 来源一致，见 S0 清单；后续已取得 S1 开发及本地维护安排授权 |
-| S1 / 中，隔离、C/D及SQL核心小样本已验收；余项未完成 | §18独立隔离→合同分类/两个checks验收→§10.4全部合成/消费者/连接回归及原S1剩余实现 | 只证明隔离与实现机制；生产C01/C05明确待S2，不能声称全合同已验收；不自动重载/恢复入口 |
+| S1 / 中，已完成（§18.27） | §18隔离、合同/合并、实际writer/check/job/readiness、五CLI、连接、消费者及全量治理回归均已完成 | 只证明隔离与实现机制；生产C01/C05明确待S2，不能声称正式全量数据已验收；不自动重载/恢复入口 |
 | S2 / 中 | 获准准备staging后，使用未修改的生产合同完成C01/C05，再冻结plan并全既有日期分批比较 | 生产批准集合与全范围EXCEPT ALL均通过，输入未漂移；任一未过禁止S3 |
 | S3 / 高 | 先单固定文件发布，再另行批准事件登记；准备代码不启动正式新链 | 文件正确＋E1/E2/E3 完整匹配；正式 Raw 0 写，历史最终 Silver 0 批量写 |
 | S4 / 高 | 精确维护窗口、确认旧 writer 已结束、切换代码；运行少量 Silver-only 验收；恢复指定触发器并观察正常日更 | 两覆盖日期＋一补缺日期＋一无修正日期等价；5 checks 通过；下一次正常链通过 |
@@ -916,7 +946,7 @@ D 组必须使用显式临时 instance、临时 Lake/staging、测试动态分�
 
 ## 14. 文档同步与本轮交付状态
 
-本轮新增本文，并回写技术方案中的 LLD 入口、细化后的执行边界和下一步；`docs/README.md` 与清退 LLD TODO 添加导航。没有提前修改“当前架构”图或把 CSV 标记成已清退。
+首次设计轮新增本文与导航；2026-09-08收尾已同步下表资产目录、拓扑、readiness、run contract治理、架构快照和主索引，说明当前代码与尚未正式发布的区别，没有把CSV标记为已清退。
 
 实施同轮文档矩阵：
 
@@ -930,12 +960,12 @@ D 组必须使用显式临时 instance、临时 Lake/staging、测试动态分�
 | `lake_console/AGENTS.md`、`lake_console/orchestrator/AGENTS.md` | S5核对当前CSV保护说明；只更新实际存在且已获准替换的条目，不扩大改规则 |
 | 原清退方案/LLD/M0 TODO记录与主索引 | 保留历史审计语境；完整验收后再关闭TODO，不重写清退历史 |
 
-根子系统依赖矩阵不变。CodeGraph 架构快照是否更新，以实际实施时正式依赖/入口变化为准，本轮不提前声称已发生。
+根子系统依赖矩阵不变。CodeGraph架构快照已同步S1现有调用链，正式发布仍未执行。
 
-S0 已完成，没有新增业务数据范围；§15.3 框架窄修正已确认，§17事故后又发生§18.7隔离启动失败，尚无安全恢复实施的验收证据；不是业务方向仍待拍板。当前进展及剩余项：
+当前进展及剩余项（2026-09-08）：§15框架问题、§17事故和§18中各次失败/修正保留为历史证据，不能将旧小轮“尚未完成”当作当前阻断。
 
 1. S0：真实展开逻辑 hash、源/日历/Raw/Silver 清单身份和当前部署边界均已刷新，见 S0 清单。
-2. S1：已有部分固定合同/AssetSpec/check/catalog 代码；首轮 adapter 测试越界，未验收。2026-09-07只修订六项设计缺口；隔离、合同分类、adapter及回归尚未完成。§15 的 5 项机制实验不等于实际 adapter 验收。
+2. S1：合同/AssetSpec/catalog、两个固定检查、纯合并、每日writer、job/readiness/sensor、五CLI及全部计划消费者/治理回归完成；§18.27逐条列出H01–H13实现、测试及正式验收边界，不用早期替身结果冒充实际模块回归。
 3. S2–S5：staging 准备、文件发布、事件登记、本地切换、精确删除均未执行；不能合并成一次默许授权。
 
 S0 增加了真实物理只读核验和现有运行状态核验，但没有执行新代码测试或正式迁移验收。后续执行记录须在对应阶段补齐，缺一项不能标记本专项完成。
@@ -2619,3 +2649,241 @@ CodeGraph `explore`、`impact(connect_configured_duckdb, depth=1)`覆盖统一�
 ```
 
 下一步按§10.3/10.4完成剩余消费者、catalog/Definitions及static-governance回归和S1逐项对账；不再开发额外测试框架。通过后才单独申请S2正式候选/全范围比较；S3/S4文件与事件正式发布、sensor恢复及S5 CSV退场仍按原批准边界处理。本轮无新的业务拍板项，S1还未整体完成。
+
+<a id="s1-total-reconciliation"></a>
+
+### 18.27 S1总对账与剩余消费者/治理回归（2026-09-08）
+
+**结论：S1完成，S2未执行。** 本轮先将§18.26八文件提交为`65599e67`，未推送；随后只修改测试、测试资源适配与文档，不修改消费者业务源码。以下是当前验收口径；§15–18.26保留各阶段历史状态，不能再用旧记录中的“下一步”覆盖本节。
+
+#### A. 全部剩余消费者与治理结果
+
+§10.3/10.4的16份消费者/治理suite共**291个test method，645个原有subTest**，完整通过。没有删用例、放宽业务expected或用skip/xfail跳过失败项。固定AssetSpec进入实际catalog/schema/metadata/check全量对账，不再假定所有登记项都有可执行writer；专用readiness纳入增量检查治理，固定输入两个checks不加入历史retention。
+
+下表报告路径统一为`/private/tmp/stock-suspend-isolated-<后缀>/allowed/resource-result.json`。耗时包含每批解释器/框架启动，仅是合成回归耗时，不是正式历史处理性能。
+
+| suite | 方法数 | 原subTest数 | 总秒数 | 最终通过证据后缀 |
+| --- | ---: | ---: | ---: | --- |
+| `test_asset_check_incremental_governance.py` | 6 | 160 | 1.91 | `i527b8vr` |
+| `test_asset_governance_contracts.py` | 12 | 453 | 3.045 | `nf50cxxy`、`wpjwx31b` |
+| `test_run_contract_static_gates.py` | 112 | 0 | 18.692 | `t1y468ks`、`owgipu59`、`za7sr52_`、`lp_tjeko`、`0pg4fdiv`、`tjodl7xx`、`9xpo541e`、`49vm5dp1`、`fyd_d1z7`、`r77p2bt_`、`a0pfi0u8`、`p42qeex3`、`la9gdbii`、`nvsh9aid` |
+| `test_stk_mins_bse_history_recovery.py` | 26 | 0 | 11.174 | `___bm4sw`、`dpxy4ubv`、`rvy34bfj`、`0tjjvvvl` |
+| `test_stk_mins_lake_readiness.py` | 20 | 0 | 8.288 | `9ik16k8o`、`j_i05sn_`、`ms08gy1m` |
+| `test_stk_mins_silver_m5b_contracts.py` | 20 | 16 | 5.821 | `9ugtz4hq`、`xmqba0cm`、`p8ns62qr` |
+| `test_stk_mins_silver_m5e_job_contracts.py` | 2 | 0 | 1.079 | `v0yj_pu4` |
+| `test_stk_mins_silver_m6_history.py` | 8 | 0 | 5.485 | `i4jeu7h8` |
+| `test_stk_mins_silver_m6g_sensor_contracts.py` | 8 | 4 | 1.13 | `_vded1ao` |
+| `test_stk_mins_silver_replace_from_raw.py` | 7 | 0 | 1.188 | `usjycwhe` |
+| `test_stk_mins_silver_strict_audit.py` | 2 | 0 | 1.243 | `edus5l_p` |
+| `test_stock_daily_freshness_guard.py` | 5 | 4 | 1.518 | `td6zcfh7` |
+| `test_stock_daily_raw_checks.py` | 22 | 0 | 5.136 | `zb5rq6gz`、`iczj87js`、`4v1u8cw8` |
+| `test_stock_daily_raw_repair.py` | 8 | 3 | 1.587 | `bl9di09o` |
+| `test_stock_mins_daily_continuity_sensors.py` | 26 | 0 | 4.852 | `8wgu10vm`、`ux52vg1p`、`ne88nhk0`、`rbow72uu` |
+| `test_suspend_d_checks.py` | 7 | 5 | 1.892 | `s38bwfgs` |
+
+根`tests/architecture/test_lake_console_retirement_guardrails.py`原13例全部保留。冻结本次Git实际4,019个非ignored文件，排序后按1,000/1,000/1,000/1,000/19切为5片，全部原断言在每片执行，合计65次执行；这仍是**13个逻辑用例，不计成65个新增覆盖**。五片并集就是完整清单，没有按业务结果筛选文件。Ops snapshot、Local Lake readers、ClickHouse工具、CSV存在性保护全部通过；CSV内容不读取。证据为`t6ys03bo/uivfja8q/yfa3dwod/dawtaddm/0sfns9tb`，总8.722秒。
+
+实际Definitions验证使用当前SDK模块发现与resolved AssetGraph：新固定键只有一个、不可materialize、无分区/自动化，两个check完整登记。checks模块重导出的同一个AssetSpec对象不能按“列表出现两次”误判成两个资产；最终解析的资产键集合才是验收对象。实际每日job与全部五checks的执行关系由下述D组覆盖，没有运行全量正式Definitions中的其他任务。
+
+#### B. 核心回归、隔离与未改动的代码
+
+因为本轮扩展了测试资源适配，又完整复跑原专项adapter、合并、writer、实际job、readiness、原sensor、连接合同及文件/事件工具：共**348个有效断言**，其中原sensor的18包含13个方法及5个既有subTest；不与上表方法数混淆，也不把历史重复运行累加。全部通过。
+
+| 回归组 | 有效断言数 | 另计subTest | 总秒数 | 本轮通过证据后缀 |
+| --- | ---: | ---: | ---: | --- |
+| `B` | 62 | 0 | 12.001 | `v6hgru5w`、`2_ul7u0b`、`ruyu9jek`、`t06dq_zs`、`socllps6`、`iui9c39h` |
+| `B06` | 27 | 0 | 2.688 | `g72krhi9`、`r27zus3h`、`ro5pinry` |
+| `B07` | 10 | 0 | 1.778 | `68wgj6_i` |
+| `D` | 10 | 0 | 9.358 | `okw5qggf` |
+| `E` | 32 | 0 | 15.886 | `wph35cho`、`zzfc1ie3`、`8i1rg5ne` |
+| `M` | 42 | 0 | 5.132 | `835xzebs`、`lcx9jr78`、`bfy8uji8`、`ng8a9by3` |
+| `R` | 48 | 0 | 5.845 | `jzyn5dz1`、`wotjf86g`、`e6pyamdc`、`a1ru5qqh`、`5mwtjfsq` |
+| `W` | 58 | 0 | 8.271 | `j953sd_7`、`5ih328oc`、`939wx36d`、`71vme10u`、`t9w7qfst` |
+| `adapter` | 59 | 0 | 28.029 | `846adsgq`、`m_n1z66q`、`im3qg6aw`、`faje02ls`、`5vzq3wrn`、`k8nwz496` |
+
+B=文件/五CLI文件分支62；B06=真实连接合同27；B07=受限PG构造10；E=事件读回/续跑32；D=实际job集成10；M=合并42；R=固定readiness30＋原sensor18；W=实际临时writer58；adapter=C/D合同与原生关联59。
+
+I03–I06/I08重新通过，I07启动门禁15项通过（含故意缺保护、收集越界、skip/xfail的拒绝反例）。I07汇总`bubnjdk7/allowed/startup-result.json`；其余批次见下方清理登记及`1t5g2e48/bh50qiie/1ykanqnt/01hjg781`。业务回归均为零skip/xfail、禁止哨兵无变化，未突破case30秒/batch60秒/workspace100MiB/单输出流64KiB门禁。最长核心批次9.358秒；无正式Lake、正式staging、默认实例发现或网络放行。I07故意拒绝的stderr不是未解决业务失败。
+
+相对首次方案基线`b324ec48`逐项复核：
+
+- §10.1保留的消费者、十四条时段修正、Tushare IO及所有现存`*stk_mins*cli.py`合计28份源码逐字相同；没有改CLI参数、分区选择、退出码、恢复入口或分钟/日线业务判断。
+- Raw asset含decorator、Raw job、两个原路径helper、原Raw/Silver schema六个对象AST一致。
+- 三个旧Silver checks的业务函数体仍不变；只有此前已批准的日期分区声明增量。原§10.1“保留/测试适配”的笼统字样已补准，避免掩盖实际声明变更。
+- 全部运行源码中旧full-day引用只剩待S5删除的孤立模块自身，日常SQL/检查/工具无CSV回退；14条独立timing清洗不在删除范围。
+
+#### C. H01–H13逐项对账
+
+| 硬口径 | 当前代码落点 | 已通过的验收 | 正式阶段仍须完成 |
+| --- | --- | --- | --- |
+| H01 Raw不动 | `assets/suspend_d.py::raw_tushare_suspend_d`、原Raw job/`tushare_api_io.py` | AST/逐字冻结；B/G无源请求、无Raw写路径 | S2读取实际Raw时复核输入指纹，不重抓取 |
+| H02 单文件、人工唯一发布 | `assets/stock_suspend_confirmed.py` AssetSpec；`bootstrap/stock_suspend_confirmed.py::publish_confirmed_file` | Definitions/catalog发现、B文件拒绝/复用、G无自动publisher | S3获准后才创建正式固定文件 |
+| H03 四列/路径/原名称不变 | 原schema/path；`silver_stock_suspend_daily_select`；原job及checks | M/W/D及原停牌checks；schema/path AST冻结 | S2全日期四列结果比较 |
+| H04 4,022键/两个覆盖键 | `stock_suspend_confirmed_contract.py`批准身份＋合并SQL | C08/C09机制、M覆盖正反例；未替换生产常量 | **C01/C05仅S2**；真实集合/同数换键反例未执行 |
+| H05 其余冲突失败、14时段不变 | `stock_suspend_confirmed_conflicts_select`、writer顺序、`suspend_timing.py` | M冲突/顺序金样本、W失败不提升；文件逐字相同 | S2保留真实冲突/空分区验证 |
+| H06 无旧输入旁路 | contract加载、三关系SQL、writer | C输入错误/漂移、M/W；G直接调用白名单与无CSV/Git回退 | S5获准删除孤立两文件，不留兼容 |
+| H07 所有业务仍读最终Silver | §10.1日线/分钟/readiness/恢复/审计保留矩阵 | 上表消费者回归、28文件冻结、13根护栏 | S4用正式切换后的最终Silver只读复验 |
+| H08 候选校验/原子提升/续跑 | 每日writer＋文件publisher独立checkpoint | W58、B文件62：提交后中断、候选丢失、输入漂移、不重复覆盖 | S3正式固定文件提升与读回；S4日频实际分区 |
+| H09 文件/事件两次确认 | 三文件命令与两事件命令、`stock_suspend_confirmed_events.py` | E32＋B07构造10；事件失败保留文件，pending不盲重发 | S3正式PG联机事件查询/登记尚未验收 |
+| H10 不碰Prod/Web/ClickHouse/Ops/旧湖 | 固定输入四类直接读取方；原保留源码 | G/根护栏、禁网络与正式路径、白名单diff | 后续各阶段仍不扩范围 |
+| H11 历史比较有界集合式 | `compare_confirmed_migration`、`_batch_partitions` | B比较预算、集合式比对、超限拒绝 | S2测真实3,083日期耗时/资源，不用小样本替代 |
+| H12 两文件删除后置 | §11阶段；根护栏CSV锚点仍在 | 根护栏通过；没有删除/恢复旧Console | S3/S4之后单独确认S5两文件删除 |
+| H13 测试隔离先验收 | runner/support固定suite、临时资源工厂 | 本轮I自检及全部C/M/W/B/E/D/R/G受同一保护 | 专项收尾按§18.11清理所有临时实例/文件 |
+
+因此“S1完成”只关闭编码和计划内隔离回归。它不宣称已经验证真实4,022行候选、3,083个日期的全量等价、正式PG事件事务、实际生产性能或正式切换。
+
+#### D. 本轮问题的真实原因与处理
+
+首次消费者/治理回归中遇到的问题均在测试适配或审计工具层，没有通过修改业务结果让测试变绿：
+
+1. BSE CLI合法路径会自己构造resource：测试必须同时注入该入口，默认资源被隔离保护拒绝；补fixture后完整26例通过。
+2. 全量资产发现读取现行行业seed CSV及来源图片；静态门禁还读取既有retention文档及其测试源码。读当前调用代码后只补这些精确仓库文件的只读权限，没有开放停牌CSV、目录子树、数据源或数据库。
+3. 新发现测试最初按SDK返回列表数统计AssetSpec，误把相同对象重导出判成重复；按真实resolved graph的唯一键与不可执行属性验收，全部catalog/check断言保留。
+4. 根护栏一次装入所有路径超过系统编译策略65,535字节限制；中间压缩表示还遇到策略字符串语法限制，均在业务导入前拒绝。最终**不保留正则权限方案**，只将同一冻结清单按每1,000文件切片，继续精确literal权限和全部原断言。没有放宽安全预算或读写范围。
+
+失败/中间现场全部纳入下方清理清单，不冒充通过结果。重复执行的时间成本属于本轮测试适配问题，不能据此推导正式业务慢或数据损坏。
+
+#### E. 文档、提交边界与下一步
+
+本轮新增增量为16份测试/支持文件及原方案、LLD、资产目录/拓扑、readiness/run contract治理、架构快照、主索引和原清退TODO进度；业务src、Wealth未改。开发intake、lake性能与文档治理技能使本轮保持同一批准资源边界，并把实际代码变化和未发布状态同步回原文档；没有新增架构层、依赖、配置或通用测试框架。
+
+CodeGraph `explore` 覆盖固定readiness及消费者，`impact(_asset_specs_and_definitions_by_key)`覆盖资产治理收集入口，结束`sync/status`已确认最新；图外调用用当前源码补核。子系统依赖矩阵不变。测试目录自身配置下完整Ruff、全src/tests致命错误检查、文档完整性三项及diff空白检查通过；不把静态检查当作真实数据验收。
+
+**下一步只有S2：** 取得本阶段授权后，在指定staging准备一次真实候选/冻结plan，核对未改动的生产批准身份，执行C01/C05及3,083日期全范围等价，交付差异为零和实际资源证据。只读审计不等于获准创建staging候选；不提前写正式固定文件/最终Silver、不登记正式事件、不恢复sensor、不删CSV。S3文件与事件发布仍分别确认，S4验收后再进入S5及所有临时产物清理。不存在新增业务拍板项，仍需遵守原阶段写入批准边界。
+
+#### F. 本轮最终清理登记（当前未删除）
+
+下列129个精确隔离根及`/private/tmp/stock-suspend-s1-reconcile-ko4x1c`（静态审计/对账脚本目录）补入§18.11，包含本轮失败、重复、最终通过及I07子现场。不是新的安装项；临时实例使用原有Python/Dagster SQLite后端，没有安装SQLite或其他套件。仅保留至本需求收尾，不能遗漏删除，也不能卸载既有共享依赖。
+
+```text
+/private/tmp/stock-suspend-isolated-01hjg781
+/private/tmp/stock-suspend-isolated-0pg4fdiv
+/private/tmp/stock-suspend-isolated-0sfns9tb
+/private/tmp/stock-suspend-isolated-0tjjvvvl
+/private/tmp/stock-suspend-isolated-0yk9qavj
+/private/tmp/stock-suspend-isolated-0zwi5ndn
+/private/tmp/stock-suspend-isolated-1jlu4hre
+/private/tmp/stock-suspend-isolated-1t5g2e48
+/private/tmp/stock-suspend-isolated-1uu4tb9q
+/private/tmp/stock-suspend-isolated-1ykanqnt
+/private/tmp/stock-suspend-isolated-2_ul7u0b
+/private/tmp/stock-suspend-isolated-2ed0a3ph
+/private/tmp/stock-suspend-isolated-2xn_4zle
+/private/tmp/stock-suspend-isolated-42fcgq9a
+/private/tmp/stock-suspend-isolated-49vm5dp1
+/private/tmp/stock-suspend-isolated-4v1u8cw8
+/private/tmp/stock-suspend-isolated-4vdvmgvu
+/private/tmp/stock-suspend-isolated-5ih328oc
+/private/tmp/stock-suspend-isolated-5mwtjfsq
+/private/tmp/stock-suspend-isolated-5vzq3wrn
+/private/tmp/stock-suspend-isolated-68wgj6_i
+/private/tmp/stock-suspend-isolated-6lviujh8
+/private/tmp/stock-suspend-isolated-71vme10u
+/private/tmp/stock-suspend-isolated-76iqx9cn
+/private/tmp/stock-suspend-isolated-835xzebs
+/private/tmp/stock-suspend-isolated-846adsgq
+/private/tmp/stock-suspend-isolated-8i1rg5ne
+/private/tmp/stock-suspend-isolated-8wgu10vm
+/private/tmp/stock-suspend-isolated-939wx36d
+/private/tmp/stock-suspend-isolated-9ik16k8o
+/private/tmp/stock-suspend-isolated-9pfz_pl5
+/private/tmp/stock-suspend-isolated-9ugtz4hq
+/private/tmp/stock-suspend-isolated-9xpo541e
+/private/tmp/stock-suspend-isolated-___bm4sw
+/private/tmp/stock-suspend-isolated-_vded1ao
+/private/tmp/stock-suspend-isolated-a0pfi0u8
+/private/tmp/stock-suspend-isolated-a1eir84l
+/private/tmp/stock-suspend-isolated-a1ru5qqh
+/private/tmp/stock-suspend-isolated-a81c5yyw
+/private/tmp/stock-suspend-isolated-b2tfzvu9
+/private/tmp/stock-suspend-isolated-b_74wncp
+/private/tmp/stock-suspend-isolated-bfy8uji8
+/private/tmp/stock-suspend-isolated-bh50qiie
+/private/tmp/stock-suspend-isolated-bl9di09o
+/private/tmp/stock-suspend-isolated-bubnjdk7
+/private/tmp/stock-suspend-isolated-d9a6mh71
+/private/tmp/stock-suspend-isolated-dawtaddm
+/private/tmp/stock-suspend-isolated-dpxy4ubv
+/private/tmp/stock-suspend-isolated-e6pyamdc
+/private/tmp/stock-suspend-isolated-edus5l_p
+/private/tmp/stock-suspend-isolated-f43m0rn3
+/private/tmp/stock-suspend-isolated-faje02ls
+/private/tmp/stock-suspend-isolated-fyd_d1z7
+/private/tmp/stock-suspend-isolated-g72krhi9
+/private/tmp/stock-suspend-isolated-g9zpf65l
+/private/tmp/stock-suspend-isolated-gcrqtest
+/private/tmp/stock-suspend-isolated-i4jeu7h8
+/private/tmp/stock-suspend-isolated-i527b8vr
+/private/tmp/stock-suspend-isolated-iczj87js
+/private/tmp/stock-suspend-isolated-iee_8wv6
+/private/tmp/stock-suspend-isolated-il_9m08i
+/private/tmp/stock-suspend-isolated-im3qg6aw
+/private/tmp/stock-suspend-isolated-inlyvmic
+/private/tmp/stock-suspend-isolated-iui9c39h
+/private/tmp/stock-suspend-isolated-j2p2_404
+/private/tmp/stock-suspend-isolated-j7jgqlnz
+/private/tmp/stock-suspend-isolated-j953sd_7
+/private/tmp/stock-suspend-isolated-j_i05sn_
+/private/tmp/stock-suspend-isolated-jzyn5dz1
+/private/tmp/stock-suspend-isolated-k8nwz496
+/private/tmp/stock-suspend-isolated-kqsd_fep
+/private/tmp/stock-suspend-isolated-la9gdbii
+/private/tmp/stock-suspend-isolated-lcx9jr78
+/private/tmp/stock-suspend-isolated-lp_tjeko
+/private/tmp/stock-suspend-isolated-m_n1z66q
+/private/tmp/stock-suspend-isolated-ms08gy1m
+/private/tmp/stock-suspend-isolated-n3ed6e43
+/private/tmp/stock-suspend-isolated-ne88nhk0
+/private/tmp/stock-suspend-isolated-nf50cxxy
+/private/tmp/stock-suspend-isolated-ng8a9by3
+/private/tmp/stock-suspend-isolated-nvsh9aid
+/private/tmp/stock-suspend-isolated-ok5mscth
+/private/tmp/stock-suspend-isolated-okw5qggf
+/private/tmp/stock-suspend-isolated-owgipu59
+/private/tmp/stock-suspend-isolated-p0u2mrsv
+/private/tmp/stock-suspend-isolated-p42qeex3
+/private/tmp/stock-suspend-isolated-p8ns62qr
+/private/tmp/stock-suspend-isolated-qzy56q0e
+/private/tmp/stock-suspend-isolated-r27zus3h
+/private/tmp/stock-suspend-isolated-r77p2bt_
+/private/tmp/stock-suspend-isolated-rbow72uu
+/private/tmp/stock-suspend-isolated-ro5pinry
+/private/tmp/stock-suspend-isolated-ruyu9jek
+/private/tmp/stock-suspend-isolated-rvy34bfj
+/private/tmp/stock-suspend-isolated-ry1yreyo
+/private/tmp/stock-suspend-isolated-s38bwfgs
+/private/tmp/stock-suspend-isolated-socllps6
+/private/tmp/stock-suspend-isolated-t06dq_zs
+/private/tmp/stock-suspend-isolated-t1y468ks
+/private/tmp/stock-suspend-isolated-t6ys03bo
+/private/tmp/stock-suspend-isolated-t9w7qfst
+/private/tmp/stock-suspend-isolated-t_6o7l_e
+/private/tmp/stock-suspend-isolated-td6zcfh7
+/private/tmp/stock-suspend-isolated-teresnaz
+/private/tmp/stock-suspend-isolated-tjodl7xx
+/private/tmp/stock-suspend-isolated-uivfja8q
+/private/tmp/stock-suspend-isolated-usjycwhe
+/private/tmp/stock-suspend-isolated-uwucv68g
+/private/tmp/stock-suspend-isolated-ux52vg1p
+/private/tmp/stock-suspend-isolated-v0yj_pu4
+/private/tmp/stock-suspend-isolated-v6hgru5w
+/private/tmp/stock-suspend-isolated-v8bqn8v1
+/private/tmp/stock-suspend-isolated-wctffmv4
+/private/tmp/stock-suspend-isolated-wde75vj7
+/private/tmp/stock-suspend-isolated-wmu7jisa
+/private/tmp/stock-suspend-isolated-wotjf86g
+/private/tmp/stock-suspend-isolated-wph35cho
+/private/tmp/stock-suspend-isolated-wpjwx31b
+/private/tmp/stock-suspend-isolated-x4zbehfm
+/private/tmp/stock-suspend-isolated-xmqba0cm
+/private/tmp/stock-suspend-isolated-xqo2u6c2
+/private/tmp/stock-suspend-isolated-xxqtcqi6
+/private/tmp/stock-suspend-isolated-yfa3dwod
+/private/tmp/stock-suspend-isolated-yhk2go2j
+/private/tmp/stock-suspend-isolated-za7sr52_
+/private/tmp/stock-suspend-isolated-zb5rq6gz
+/private/tmp/stock-suspend-isolated-zeqsvony
+/private/tmp/stock-suspend-isolated-zyty0jaf
+/private/tmp/stock-suspend-isolated-zzfc1ie3
+/private/tmp/stock-suspend-s1-reconcile-ko4x1c
+```

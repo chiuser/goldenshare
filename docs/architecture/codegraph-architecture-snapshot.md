@@ -2,7 +2,7 @@
 
 生成日期：2026-08-22
 局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分、M2B 入口安全门禁、M3 旧 migration 主体退出、M4 旧适配器退出/Raw 恢复重构及 M6 旧产品原子清退；未重审其它模块，下面索引规模仍是原生成日记录。
-局部更新：2026-09-07，仅补入停牌确认事实与每日writer调用链（S1小样本，未发布）；未重审其他模块。
+局部更新：2026-09-08，仅校准停牌确认事实调用链与S1总对账（代码/隔离回归完成，未正式发布）；未重审其他模块。
 索引根：`/Users/congming/github/goldenshare`
 索引结果：2,508 files，44,388 nodes，101,669 edges，DB 110.44 MB
 
@@ -143,7 +143,7 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 
 `orchestrator/defs/**` 包含 stock_basic、stock_daily、stk_mins、adj_factor、index_daily、market_breadth、ClickHouse serving 等资产、检查、任务、传感器和 run contract。
 
-停牌链当前源码（2026-09-07）：`assets/suspend_d.py::silver_stock_suspend_daily` 依赖原Raw与外部固定资产 `silver_stock_suspend_confirmed`，调用同文件唯一 `write_silver_stock_suspend_daily_partition`；后者读Raw＋通过完整批准内容校验的固定Silver输入，调用三关系纯SQL接口，在独立staging校验候选并通过prepared/committed checkpoint原子提升。它不读CSV、实例事件或其他run staging；最终四列、14条时段修正及Raw抓取不变。固定资产只有AssetSpec，没有自动writer。job/check/readiness集成与人工发布尚未完成，不能据此认定正式链已启用。CodeGraph explore/impact已分析原Silver入口及替换helper，跨模块引用另经全仓搜索核对；SQL唯一正式调用方已同步迁移，无Foundation/Ops/Biz/Wealth边界变更。实施证据见[停牌LLD §18.21](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-confirmed-writer-acceptance)。
+停牌链当前源码（2026-09-08）：`assets/suspend_d.py::silver_stock_suspend_daily` 依赖原Raw与外部固定资产 `silver_stock_suspend_confirmed`，调用同文件唯一 `write_silver_stock_suspend_daily_partition`；后者读Raw＋通过完整批准内容校验的固定Silver输入，调用三关系纯SQL接口，在独立staging校验候选并通过prepared/committed checkpoint原子提升。它不读CSV、实例事件或其他run staging；最终四列、14条时段修正及Raw抓取不变。固定资产只有AssetSpec，没有自动writer。现有job明确一writer、五checks；专用readiness读取最新固定发布及两个checks，不增加日更freshness。人工五CLI已实现，文件侧与事件侧分离。S1实现和全部计划隔离回归完成，但正式候选、发布/切换仍未执行，不能认定正式链已启用。CodeGraph explore/impact覆盖writer/readiness/治理消费者，图外引用经源码补核，无Foundation/Ops/Biz/Wealth边界变更。实施和未完成项见[停牌LLD §18.27](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation)。
 
 ### 分钟历史 CLI（2026-09-05 M2A / M2B / M3）
 
