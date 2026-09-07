@@ -1,4 +1,4 @@
-"""Task-local, stdlib-only launcher for I03-I05 isolation tests in fixed batches.
+"""Task-local, stdlib-only launcher for I03-I06 isolation tests in fixed batches.
 
 No Dagster imports, environment discovery, dependency installation or cleanup.
 The adapter gate remains closed until the complete I group is accepted.
@@ -10,11 +10,14 @@ import argparse
 import hashlib
 import json
 import os
+import select
 import selectors
 import signal
+import socket
 import subprocess
 import tempfile
 import time
+from contextlib import ExitStack
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -29,6 +32,11 @@ ISOLATION_BATCHES = (
     ("I05", 14, (
         "test_i05_real_duckdb_resource", "test_i05_rejects_wrong_effective_setting",
         "test_i05_rejects_bad_connection_arguments", "test_i05_rejects_formal_connection_entry",
+    )),
+    ("I06", 16, (
+        "test_i06_real_instance_persistence", "test_i06_rejects_local_instance_arguments",
+        "test_i06_rejects_instance_discovery", "test_i06_python_network_guard",
+        "test_i06_native_network_denial",
     )),
 )
 # Actual import closure of resources.py, not permission for all defs or CSV data.
@@ -112,6 +120,42 @@ def run_isolation_batch(batch: str, expected_count: int, case_names: tuple[str, 
     allowed, denied = root / "allowed", root / "denied-fixture"
     allowed.mkdir()
     denied.mkdir()
+    with ExitStack() as endpoints:
+        listeners = {}
+        if batch == "I06":
+            for kind, family in (("tcp", socket.AF_INET), ("unix", socket.AF_UNIX)):
+                listener = endpoints.enter_context(socket.socket(family, socket.SOCK_STREAM))
+                listener.settimeout(1)
+                listener.bind(("127.0.0.1", 0) if kind == "tcp" else str(allowed / "network.sock"))
+                listener.listen(1)
+                listeners[kind] = listener
+        return run_isolation_child(root, batch, expected_count, case_names, listeners)
+
+
+def verify_parent_network_endpoints(listeners: dict) -> dict:
+    """A live synthetic endpoint control, not a service or a database probe."""
+    observed = {}
+    for kind, listener in listeners.items():
+        if select.select([listener], [], [], 0)[0]:
+            raise RuntimeError(f"unexpected_child_network_connection:{kind}")
+        with socket.socket(listener.family, socket.SOCK_STREAM) as client:
+            client.settimeout(1)
+            client.connect(listener.getsockname())
+            with listener.accept()[0] as accepted:
+                accepted.settimeout(1)
+                client.sendall(b"x")
+                assert accepted.recv(1) == b"x"
+                accepted.sendall(b"y")
+                assert client.recv(1) == b"y"
+        observed[kind] = {"reachable": True, "request_bytes": 1, "response_bytes": 1}
+    return observed
+
+
+def run_isolation_child(root: Path, batch: str, expected_count: int,
+                        case_names: tuple[str, ...], listeners: dict) -> int:
+    allowed, denied = root / "allowed", root / "denied-fixture"
+    network_targets = {kind: listener.getsockname() for kind, listener in listeners.items()}
+    network_before = verify_parent_network_endpoints(listeners)
     (denied / "sentinel.txt").write_text("synthetic denied resource fixture\n")
     policy = allowed / "capability.sb"
     policy.write_text(policy_for(root))
@@ -123,7 +167,8 @@ def run_isolation_batch(batch: str, expected_count: int, case_names: tuple[str, 
         "sys.modules[spec.name] = module\n"
         "spec.loader.exec_module(module)\n"
         f"raise SystemExit(module.run({str(root)!r}, {digest(policy)!r}, {str(TEST)!r}, "
-        f"batch={batch!r}, case_names={case_names!r}, expected_count={expected_count!r}))\n"
+        f"batch={batch!r}, case_names={case_names!r}, expected_count={expected_count!r}, "
+        f"network_targets={network_targets!r}))\n"
     )
     argv = [
         "/opt/homebrew/bin/uv", "run", "--offline", "--no-sync", "--no-env-file",
@@ -138,6 +183,7 @@ def run_isolation_batch(batch: str, expected_count: int, case_names: tuple[str, 
     report = {
         "scope": "isolation", "implemented_slice": batch, "all_isolation_accepted": False,
         "case_names": list(case_names), "expected_count": expected_count,
+        "network_targets": network_targets, "network_before": network_before,
         "root": str(root), "cwd": str(PROJECT), "argv": argv, "env_keys": sorted(env),
         "policy_sha256": digest(policy), "policy": policy.read_text(),
         "test_source_sha256": {str(p): digest(p) for p in (Path(__file__), SUPPORT, TEST)},
@@ -178,12 +224,14 @@ def run_isolation_batch(batch: str, expected_count: int, case_names: tuple[str, 
                     outputs[key.data].extend(data)
                     print(data.decode(errors="replace"), end="", flush=True)
     code = process.wait(timeout=5)
+    network_after = verify_parent_network_endpoints(listeners)
     after = inventory(denied)
     result = allowed / "pytest-result.json"
     observed = json.loads(result.read_text()) if result.is_file() else None
     passed = code == 0 and stop_reason is None and before == after and observed is not None
     passed = passed and observed.get("passed") is True and observed.get("completed") == expected_count
     report.update({"passed": passed, "after": after, "denied_unchanged": before == after,
+                   "network_after": network_after,
                    "exit_code": code, "stop_reason": stop_reason, "pytest": observed,
                    "elapsed_ms": round(1000 * (time.monotonic() - started)),
                    **{name: data.decode(errors="replace") for name, data in outputs.items()}})
@@ -197,13 +245,13 @@ def main() -> int:
     parser.add_argument("--scope", choices=("isolation", "adapter"), required=True)
     args = parser.parse_args()
     if args.scope != "isolation":
-        parser.error("adapter is not accepted: complete I06-I08 and independent review first")
+        parser.error("adapter is not accepted: complete I07-I08 and independent review first")
     if Path.cwd() != PROJECT:
         parser.error(f"Run from {PROJECT}")
     for batch, expected_count, case_names in ISOLATION_BATCHES:
         if run_isolation_batch(batch, expected_count, case_names) != 0:
             return 1
-    print(json.dumps({"I03_I04_I05_passed": True, "all_isolation_accepted": False}), flush=True)
+    print(json.dumps({"I03_I04_I05_I06_passed": True, "all_isolation_accepted": False}), flush=True)
     return 0
 
 

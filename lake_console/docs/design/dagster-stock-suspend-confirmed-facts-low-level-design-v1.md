@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**I04测试及文档已提交为`c8ab3bb4`，未推送。2026-09-07 18:03 I05的14例及I03–I04的16例回归全部通过，见§18.15；权限未扩展，I05增量未提交。I01–I05已通过，I06–I08、实际adapter和S1全套回归未验收；本轮未改正式数据或恢复指定Silver sensor，未创建新DG实例、安装依赖。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时产物按§18.11最终清理。**
+状态：**I05测试及文档已提交为`73de21f1`，未推送。2026-09-07 18:59 I06的16例及原30例回归一次通过，见§18.16；权限未扩展，I06增量未提交。I01–I06已通过，I07–I08、实际adapter和S1全套回归未验收。本轮只在隔离临时实例写入1条虚构事件，没有操作正式实例/数据、恢复指定Silver sensor或安装依赖；无新DG服务。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时实例及产物按§18.11最终清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -1076,7 +1076,7 @@ S0 增加了真实物理只读核验和现有运行状态核验，但没有执�
 
 <a id="s1-test-isolation-repair"></a>
 
-## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I05已通过）
+## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I06已通过）
 
 ### 18.1 范围、事实依据与本轮停止点
 
@@ -1714,3 +1714,50 @@ CodeGraph `explore/impact`及当前源码确认：`DuckDBResource.connect()`调�
 交付检查：orchestrator全量`src/tests`的Ruff致命错误基线及三份测试文件的默认Ruff均通过；文档完整性三项、三份文档315个本地链接及17个显式锚点、围栏和`git diff --check`均通过。补充链接校验首次把`:行号`当成路径的一部分而报错，修正校验器解析后通过，没有为此改动源链接或放宽文件存在性要求。
 
 验收分项：文档/静态检查通过；隔离I01–I05通过；I06–I08、实际adapter、S1实现/合成全套回归、S2生产批准集合及S2全范围等价仍未完成。下一步仅I06：临时实例身份、默认实例发现拒绝及网络/Unix socket隔离，仍限本机虚构端点与临时实例，不安装套件，不操作正式实例；本轮不自动启动。I05增量未提交、未推送。
+
+<a id="s1-isolation-i06-instance-network"></a>
+
+### 18.16 I06：临时实例身份和网络拒绝
+
+本轮指令为“提交修改，然后推进下一步”。I05六文件已提交为`73de21f1`，未推送；仅推进§18.5 I06，仍不修改业务源码或运行实际checks/Definitions。代码、文档白名单沿用§18.15的六文件，不安装依赖，不改变正式Lake/实例/网络配置、共享资源及隔离profile。
+
+#### A. 编码前约束、真实调用链和验收矩阵
+
+CodeGraph `explore/impact/node`核对专项runner/support和消费者；同名`run`的图结果混入无关模块，已用精确文件的`node`校正，不据此扩大范围。当前既有Dagster 1.13.18源码确认：`DagsterInstance.local_temp → factory.create_local_temp_instance → InstanceRef.from_dir → create_instance_from_ref`；默认`get → create_instance_from_dagster_home`会读取环境。`from_config`也会读取配置并实例化存储。因此保护在collection之前安装，只允许明确临时根及固定关闭遥测的local_temp调用；无默认根回退。
+
+| 硬约束 | 代码落点 / 验收 |
+| --- | --- |
+| 唯一专项临时实例工厂 | support新增`make_confirmed_test_instance(*, instance_root)`，调用真实`DagsterInstance.local_temp`；子进程包装SDK的`create_local_temp_instance`，先检查显式根在allowed内、无符号链接、overrides恰为关闭遥测、根内无`dagster.yaml`，再创建临时目录及实例。保护仅存在于受限进程，不修改安装包 |
+| 不能只核对传入的路径 | 创建后先核真实类型、persistent标志、root、telemetry，以及实际event/run/schedule存储类型与连接路径；全部静态路径匹配才依次打开三个真实连接，用`PRAGMA database_list`读回main路径。任一不符立即dispose，不把实例交给测试 |
+| 真正的本地持久化正例 | 一处临时instance，两次打开；写一条明确synthetic的无分区runless materialization，不选择业务asset/job、不注册动态分区。关闭后重新打开，同key、limit=2读回恰好一条、相同storage_id和metadata。三种存储main路径分别为`history/runs/index.db`、`history/runs.db`、`schedules/schedules.db`；逐种错误路径故障注入在打开连接前被拒绝，原连接调用0 |
+| 反例必须在副作用前拒绝 | 5例local_temp参数/配置错误：缺根、错参数名、正式home字符串、错误overrides、根内已有配置文件；4例默认入口：实际`get`、factory默认home入口、实际`from_config`、实际`from_ref`。默认入口拒绝函数和local_temp路径包装在collection前生效；用例内再以spy核验拒绝前无IO，正式home仅作字符串，文件/配置内容读取和实例创建0 |
+| Python网络调用提前拒绝 | socket `connect`、`connect_ex`、`create_connection`、`getaddrinfo`在collection前拒绝；4例覆盖TCP connect/connect_ex/create_connection和Unix connect。无DNS、无真实数据库地址 |
+| 原生网络不能被Python替身掩盖 | runner标准库父进程只为I06建立一个随机loopback TCP监听和一个当次allowed内Unix socket；父进程前后各一次同端点握手、收发固定一字节，证明端点可达。子进程保存原生socket连接方法，只在两个独立OS反例调用，要求EPERM/EACCES，不能用connection refused/timeout当隔离成功；父进程确认无意外待接受连接，finally关闭两个监听，不启动服务/线程、不放宽子进程网络权限 |
+| 保留单批规模和停止门 | 固定三批：I03–I04 16例、I05 14例、I06 16例，各自全新根。父runner不导入业务/数据库库，listener FD不继承；support只接收该批父进程给出的虚构端点，不新增CLI参数。任一失败即停，不进入I07/I08或adapter |
+
+配置审计：新增的instance_root由专项用例在本批allowed下显式给出，无env来源和默认home；唯一overrides为`telemetry.enabled=false`，support设置并实际读回；不允许用户透传storage/DSN等配置。TCP端口由loopback的端口0绑定分配、Unix路径由随机根派生，仅在同批报告与子进程内部传递；无固定端口、无系统配置和持久服务。已有正式SDK默认值不变。
+
+预算：只有1个synthetic事件、0业务对象/日期/分区、0源请求/分页、0Parquet/正式文件读写；最多1个临时实例目录、2次创建/关闭，读回每次limit=2。默认三库及runless事件库由SDK按需建立，含WAL/SHM和日志预计低于10MiB，硬上限仍为单批100MiB/fixture1MiB、每例30秒/批次60秒；失败不扩空间/权限重试。TCP/Unix父正向各前后1次一字节往返，连接超时1秒；子原生拒绝各1次。新16例及原30例预计秒级，无DuckDB新增扫描/join/COPY/spill，无数据库配额影响；临时写入由SQLite短事务管理，不做正式迁移或数据库清理。所有临时实例、测试库、Unix socket节点和报告纳入§18.11最终清理。
+
+依据：[Dagster实例API](https://docs.dagster.io/api/dagster/internals)、[实例配置与遥测](https://docs.dagster.io/deployment/oss/oss-instance-configuration)，结合当前安装包`instance/instance.py`、`instance/factory.py`、`instance/ref.py`及三种SQLite storage实现核验。网上当前版本较本机新，不据其改变依赖；以本机源码和本轮受限实测为准。
+
+#### B. 2026-09-07 18:59 实测与计划对账
+
+按§18.13 B固定父入口一次执行三个固定批次，无失败重试或权限追加。I03–I04为16/16、1.293秒；I05为14/14、0.940秒；I06为16/16、1.692秒（其中用例本体0.70秒）。均退出码0、stderr空，无skip/xfail、超时/空间/输出限制触发。三批启动时均重新通过原生正向及7项拒绝自检，禁止哨兵身份和内容前后相同。
+
+| I06计划项 | 当前代码和实际结果 |
+| --- | --- |
+| 实例身份及持久化 | `make_confirmed_test_instance`调用真实SDK工厂，三类存储的真实连接读回路径均在本批`allowed/instance`；遥测关闭。同一临时目录关闭后重开，仍只有1条synthetic事件，storage_id=1，metadata一致、无分区，job run记录0 |
+| 三种错误存储路径 | 逐种注入错误连接路径，核验函数均准确拒绝；三个存储连接入口调用均0，没有生成wrong.db。故障只改变路径声明，不把实际数据库搬到错误路径 |
+| 5例错误参数/配置、4例默认发现 | 缺根/错误关键字/正式home字符串/错误overrides/根内配置分别报出规定原因；实际get/from_config、默认home工厂和from_ref均在环境与文件读取、实例创建前拒绝。已有配置反例只允许检查文件是否存在，不读配置内容 |
+| 4例Python网络拒绝 | TCP connect/connect_ex/create_connection及Unix connect均提前抛出network_forbidden_in_test；DNS调用0。保护只安装在受限子进程，不改共享库或安装包 |
+| 2例OS原生网络拒绝 | 对同批虚构TCP/Unix端点，保存的原生socket连接方法均返回EPERM(errno=1)；不是connection refused或timeout。父进程在子进程前后都能向同端点完成一字节往返，且无意外待接连接。结束后两个监听均关闭；只读lsof未见该端口或socket的占用 |
+| 预算与剩余现场 | 三处根磁盘占用分别92KiB、60KiB、492KiB；I06实例含4个SQLite文件共428KiB，无残留WAL/SHM。第四个是SDK以空RUNLESS_RUN_ID命名的`history/runs/.db`，不是额外业务实例。没有Parquet、正式对象/日期/分区或源请求 |
+
+报告：[I03–I04回归](/private/tmp/stock-suspend-isolated-ltxrw1xe/allowed/resource-result.json)、[I05回归](/private/tmp/stock-suspend-isolated-3rbse6pc/allowed/resource-result.json)、[I06验收](/private/tmp/stock-suspend-isolated-tb6gs2o4/allowed/resource-result.json)。三份报告包含完整argv、策略、源码哈希、逐例原因、网络正向控制及禁止区前后清单。将随机根归一后，三份profile与§18.15逐字相同，源码读取白名单不变；I06策略SHA256为`2f2c001f6c6ac954751f313067cfc65d774015b0b064a062573dc7a4050e38da`。
+
+验收源码SHA256：runner为`1186516ce3b2e6dcbf9e754a27e4cc29858c854567de9b463f35e746cf0bac7e`；support为`7b1582854b2a89016fd0f7988a6319c437971611bc79d54347517a744d396f1b`；isolation用例为`16b5949efaf3cf27dd37acc1bcd993e06abd5b72091730ad6655e4e9f76211ee`。运行后再次核对与磁盘源码一致；既有业务差异哈希及五份未跟踪专项文件哈希未变。I05回归仍有8条既有Dagster/Pydantic弃用警告，I06没有新增警告；未屏蔽警告或升级依赖。
+
+本轮三个新增根`/private/tmp/stock-suspend-isolated-ltxrw1xe`、`/private/tmp/stock-suspend-isolated-3rbse6pc`、`/private/tmp/stock-suspend-isolated-tb6gs2o4`均登记为§18.11最终精确清理对象，含临时实例、4个数据库、配置反例、socket节点、报告和缓存；本轮保留证据，不提前删除，也不永久保留测试实例。没有创建DG webserver/daemon、安装或卸载套件、恢复sensor或操作正式数据。
+
+仅修改三份测试文件及本LLD/技术方案/主索引；CodeGraph分析覆盖专项入口、SDK工厂调用、资源及测试消费者，已sync/status确认最新。无子系统边界或依赖矩阵变化。交付检查：三份测试的默认Ruff、全量src/tests致命错误基线、文档完整性三项、三份文档319个本地链接/18个显式锚点、围栏及git diff --check均通过，不将静态检查替代运行验收。下一步仅I07的提前保护、策略/scope错误及导入期越界验证，仍不进入I08或实际adapter。本轮I06增量未提交、未推送，I07–I08、S1业务验收和后续生产阶段仍未完成。

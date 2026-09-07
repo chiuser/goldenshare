@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import signal
+import socket
 import stat
 import sys
 import time
@@ -21,6 +22,9 @@ _allowed: Path | None = None
 _completed = 0
 _failures = 0
 _started = 0.0
+_local_instance_factory = None
+_network_targets: dict = {}
+_native_socket_connect = socket.socket.connect
 
 
 def require_isolated_context() -> Path:
@@ -142,6 +146,114 @@ def _reject_formal_duckdb_connection(*args, **kwargs):
     raise RuntimeError("formal_duckdb_connection_forbidden_in_test")
 
 
+def verify_confirmed_test_instance(instance, *, expected_root: Path) -> dict:
+    from dagster import DagsterInstance
+    from dagster._core.storage.event_log import SqliteEventLogStorage
+    from dagster._core.storage.runs import SqliteRunStorage
+    from dagster._core.storage.schedules import SqliteScheduleStorage
+    from sqlalchemy.engine import make_url
+
+    checked_test_path(expected_root, allowed=require_isolated_context())
+    if (type(instance) is not DagsterInstance or not instance.is_persistent
+            or instance.root_directory != str(expected_root) or instance.telemetry_enabled is not False):
+        raise RuntimeError("test_instance_identity_mismatch")
+    stores = {"event": (instance.event_log_storage, SqliteEventLogStorage),
+              "run": (instance.run_storage, SqliteRunStorage),
+              "schedule": (instance.schedule_storage, SqliteScheduleStorage)}
+    for name, (storage, expected_type) in stores.items():
+        if type(storage) is not expected_type:
+            raise RuntimeError(f"test_instance_storage_type_mismatch:{name}")
+    expected = {"event": expected_root / "history/runs/index.db",
+                "run": expected_root / "history/runs.db",
+                "schedule": expected_root / "schedules/schedules.db"}
+    urls = {"event": instance.event_log_storage.conn_string_for_shard("index"),
+            "run": instance.run_storage._conn_string,
+            "schedule": instance.schedule_storage._conn_string}
+    # Verify every declared path before opening even the first storage connection.
+    for name, url in urls.items():
+        parsed = make_url(url)
+        if parsed.drivername != "sqlite" or parsed.database != str(expected[name]):
+            raise RuntimeError(f"test_instance_storage_path_mismatch:{name}")
+        checked_test_path(expected[name], allowed=require_isolated_context())
+    connectors = {"event": instance.event_log_storage.index_connection,
+                  "run": instance.run_storage.connect, "schedule": instance.schedule_storage.connect}
+    observed = {}
+    for name, connect in connectors.items():
+        with connect() as connection:
+            rows = connection.exec_driver_sql("PRAGMA database_list").fetchall()
+            main_paths = [row[2] for row in rows if row[1] == "main"]
+            if main_paths != [str(expected[name])]:
+                raise RuntimeError(f"test_instance_storage_readback_mismatch:{name}")
+            observed[name] = main_paths[0]
+    return observed
+
+
+def _create_confirmed_local_instance(tempdir=None, overrides=None):
+    if tempdir is None:
+        raise ValueError("test_instance_root_required")
+    if overrides != {"telemetry": {"enabled": False}}:
+        raise ValueError("test_instance_overrides_mismatch")
+    root = checked_test_path(Path(tempdir), allowed=require_isolated_context())
+    if (root / "dagster.yaml").exists():
+        raise ValueError("test_instance_config_file_forbidden")
+    if _local_instance_factory is None:
+        raise RuntimeError("test_instance_factory_not_initialized")
+    root.mkdir(parents=True, exist_ok=True)
+    instance = _local_instance_factory(tempdir=str(root), overrides=overrides)
+    try:
+        observed = verify_confirmed_test_instance(instance, expected_root=root)
+        print(json.dumps({"instance_storage_paths": observed, "telemetry_enabled": False}), flush=True)
+    except BaseException:
+        instance.dispose()
+        raise
+    return instance
+
+
+@contextmanager
+def make_confirmed_test_instance(*, instance_root: Path):
+    require_isolated_context()
+    from dagster import DagsterInstance
+
+    with DagsterInstance.local_temp(str(instance_root), overrides={"telemetry": {"enabled": False}}) as instance:
+        yield instance
+
+
+def _reject_instance_discovery(*args, **kwargs):
+    raise RuntimeError("instance_discovery_forbidden_in_test")
+
+
+def _reject_test_network(*args, **kwargs):
+    raise RuntimeError("network_forbidden_in_test")
+
+
+def confirmed_test_network_address(kind: str):
+    allowed = require_isolated_context()
+    if kind not in ("tcp", "unix"):
+        raise ValueError("test_network_kind_invalid")
+    if set(_network_targets) != {"tcp", "unix"}:
+        raise RuntimeError("test_network_endpoints_missing")
+    host, port = _network_targets["tcp"]
+    if host != "127.0.0.1" or not isinstance(port, int) or not 0 < port < 65536:
+        raise ValueError("test_network_endpoint_invalid")
+    if _network_targets["unix"] != str(allowed / "network.sock"):
+        raise ValueError("test_network_endpoint_invalid")
+    return (host, port) if kind == "tcp" else _network_targets["unix"]
+
+
+def verify_native_test_network_denial(kind: str) -> int:
+    """Call the saved CPython C socket method, bypassing only the Python guard."""
+    address = confirmed_test_network_address(kind)
+    with socket.socket(socket.AF_INET if kind == "tcp" else socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.settimeout(1)
+        try:
+            _native_socket_connect(client, address)
+        except OSError as error:
+            if error.errno not in (errno.EPERM, errno.EACCES):
+                raise
+            return error.errno
+    raise RuntimeError(f"native_network_isolation_failed:{kind}")
+
+
 def _os_self_check(root: Path) -> None:
     """Fresh native allow/deny proof, not a reused I01/I02 success marker."""
     allowed, denied = root / "allowed", root / "denied-fixture"
@@ -208,8 +320,8 @@ def pytest_runtest_logfinish(nodeid, location):
 
 
 def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
-        case_names: tuple[str, ...], expected_count: int) -> int:
-    global _allowed
+        case_names: tuple[str, ...], expected_count: int, network_targets: dict) -> int:
+    global _allowed, _local_instance_factory, _network_targets
     root = Path(root_name)
     if root.parent != Path("/private/tmp") or not root.name.startswith("stock-suspend-isolated-"):
         raise RuntimeError("invalid_work_root")
@@ -225,9 +337,13 @@ def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
         raise RuntimeError("policy_mismatch")
     _os_self_check(root)
     _allowed = allowed
+    _network_targets = network_targets
+    from contextlib import ExitStack
     from unittest.mock import patch
 
+    import dagster
     import pytest
+    from dagster._core.instance import factory
 
     from orchestrator.defs import duckdb_connection, resources
 
@@ -238,8 +354,21 @@ def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
             "--import-mode=importlib", "--basetemp", str(allowed / "pytest"),
             "-x", "-v", "-s", *(f"{test_name}::{name}" for name in case_names)]
     print(json.dumps({"pytest_argv": args, "implemented_slice": batch}), flush=True)
-    with patch.object(resources, "connect_configured_duckdb", _reject_formal_duckdb_connection), \
-            patch.object(duckdb_connection, "connect_configured_duckdb", _reject_formal_duckdb_connection):
+    _local_instance_factory = factory.create_local_temp_instance
+    with ExitStack() as guards:
+        for owner, name, replacement in (
+            (resources, "connect_configured_duckdb", _reject_formal_duckdb_connection),
+            (duckdb_connection, "connect_configured_duckdb", _reject_formal_duckdb_connection),
+            (factory, "create_local_temp_instance", _create_confirmed_local_instance),
+            (factory, "create_instance_from_dagster_home", _reject_instance_discovery),
+            (factory, "create_instance_from_config", _reject_instance_discovery),
+            (dagster.DagsterInstance, "from_ref", staticmethod(_reject_instance_discovery)),
+            (socket.socket, "connect", _reject_test_network),
+            (socket.socket, "connect_ex", _reject_test_network),
+            (socket, "create_connection", _reject_test_network),
+            (socket, "getaddrinfo", _reject_test_network),
+        ):
+            guards.enter_context(patch.object(owner, name, replacement))
         result = int(pytest.main(args, plugins=[sys.modules[__name__]]))
     (allowed / "pytest-result.json").write_text(json.dumps({
         "slice": batch, "completed": _completed, "failures": _failures,

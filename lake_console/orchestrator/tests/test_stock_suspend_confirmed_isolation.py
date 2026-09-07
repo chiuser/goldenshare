@@ -1,26 +1,34 @@
-"""I03-I05 resource, input-path and DuckDB tests; no actual checks/jobs."""
+"""I03-I06 resource, path, DuckDB, instance and network tests; no actual checks/jobs."""
 
 from stock_suspend_confirmed_test_support import (
     checked_test_input_file,
+    confirmed_test_network_address,
     connect_confirmed_test_duckdb,
+    make_confirmed_test_instance,
     make_confirmed_test_resources,
     require_isolated_context,
+    verify_confirmed_test_instance,
     verify_lake_resource,
+    verify_native_test_network_denial,
 )
 
 # This must precede business imports and fail under an ordinary pytest invocation.
 ALLOWED = require_isolated_context()
 
+import errno
 import hashlib
 import json
 import os
+import socket
 import stat
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch
 
+import dagster as dg
 import duckdb
 import pytest
+from dagster._core.instance import factory
 
 from orchestrator.defs import duckdb_connection, resources
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -289,3 +297,148 @@ def test_i05_rejects_formal_connection_entry(entry):
             spy.assert_not_called()
     print(json.dumps({"case_evidence": "I05_formal_entry_rejected", "entry": entry,
                       "path_io": 0, "native_connect": 0}), flush=True)
+
+
+def test_i06_real_instance_persistence():
+    root = ALLOWED / "instance"
+    key = dg.AssetKey(["synthetic", "confirmed_suspend_isolation"])
+    materialization = dg.AssetMaterialization(
+        asset_key=key, metadata={"synthetic": True, "fixture": "I06"},
+    )
+    with make_confirmed_test_instance(instance_root=root) as instance:
+        observed = verify_confirmed_test_instance(instance, expected_root=root)
+        assert observed == {
+            "event": str(root / "history/runs/index.db"),
+            "run": str(root / "history/runs.db"),
+            "schedule": str(root / "schedules/schedules.db"),
+        }
+        # Corrupt only the declared connection path; never connect to the wrong one.
+        for kind, storage, attribute in (
+            ("event", instance.event_log_storage, "conn_string_for_shard"),
+            ("run", instance.run_storage, "_conn_string"),
+            ("schedule", instance.schedule_storage, "_conn_string"),
+        ):
+            wrong_url = f"sqlite:///{root / 'wrong.db'}"
+            fault = patch.object(storage, attribute, return_value=wrong_url) if kind == "event" \
+                else patch.object(storage, attribute, wrong_url)
+            with ExitStack() as stack:
+                stack.enter_context(fault)
+                spies = [stack.enter_context(patch.object(owner, name, side_effect=AssertionError(name)))
+                         for owner, name in (
+                             (instance.event_log_storage, "index_connection"),
+                             (instance.run_storage, "connect"),
+                             (instance.schedule_storage, "connect"),
+                         )]
+                with pytest.raises(RuntimeError, match=f"^test_instance_storage_path_mismatch:{kind}$"):
+                    verify_confirmed_test_instance(instance, expected_root=root)
+                for spy in spies:
+                    spy.assert_not_called()
+            print(json.dumps({"case_evidence": "I06_storage_path_rejected", "storage": kind,
+                              "storage_connections": 0}), flush=True)
+        instance.report_runless_asset_event(materialization)
+        first = instance.fetch_materializations(key, limit=2).records
+        assert len(first) == 1
+        assert first[0].asset_materialization == materialization
+        storage_id = first[0].storage_id
+        assert first[0].partition_key is None
+        assert instance.get_run_records(limit=2) == []
+    with make_confirmed_test_instance(instance_root=root) as reopened:
+        second = reopened.fetch_materializations(key, limit=2).records
+        assert len(second) == 1
+        assert second[0].storage_id == storage_id
+        assert second[0].asset_materialization == materialization
+        assert second[0].partition_key is None
+        assert reopened.get_run_records(limit=2) == []
+    assert not (root / "wrong.db").exists()
+    print(json.dumps({"case_evidence": "I06_real_instance", "storage_paths": observed,
+                      "reopened": True, "event_count": 1, "storage_id": storage_id,
+                      "synthetic": True, "job_runs": 0}), flush=True)
+
+
+@pytest.mark.parametrize(("variant", "reason"), [
+    ("missing_root", "test_instance_root_required"),
+    ("wrong_keyword", None),
+    ("formal_home", "outside_test_root"),
+    ("unsafe_overrides", "test_instance_overrides_mismatch"),
+    ("config_file", "test_instance_config_file_forbidden"),
+])
+def test_i06_rejects_local_instance_arguments(variant, reason):
+    root = ALLOWED / f"instance-rejected-{variant}"
+    kwargs = {"tempdir": str(root), "overrides": {"telemetry": {"enabled": False}}}
+    if variant == "missing_root":
+        del kwargs["tempdir"]
+    elif variant == "wrong_keyword":
+        kwargs["directory"] = kwargs.pop("tempdir")
+    elif variant == "formal_home":
+        kwargs["tempdir"] = "/Users/congming/.goldenshare/dagster_home"
+    elif variant == "unsafe_overrides":
+        kwargs["overrides"] = {"telemetry": {"enabled": True}}
+    else:
+        root.mkdir()
+        (root / "dagster.yaml").write_text("telemetry:\n  enabled: false\n")
+    forbidden = [(factory, "create_instance_from_ref"), (Path, "open"), (os, "open"), (os, "mkdir")]
+    if variant != "config_file":
+        forbidden.extend([(Path, "stat"), (Path, "lstat"), (os, "stat")])
+    with ExitStack() as stack:
+        spies = [stack.enter_context(patch.object(owner, name, side_effect=AssertionError(name)))
+                 for owner, name in forbidden]
+        with pytest.raises(TypeError if reason is None else ValueError,
+                           match=None if reason is None else f"^{reason}$"):
+            dg.DagsterInstance.local_temp(**kwargs)
+        for spy in spies:
+            spy.assert_not_called()
+    print(json.dumps({"case_evidence": "I06_instance_arguments_rejected", "variant": variant,
+                      "reason": reason or "TypeError", "content_reads": 0,
+                      "instance_creations": 0, "mkdir_calls": 0}), flush=True)
+
+
+@pytest.mark.parametrize("entry", ["get", "factory_home", "from_config", "from_ref"])
+def test_i06_rejects_instance_discovery(entry):
+    forbidden = ((os, "getenv"), (os, "stat"), (os, "open"), (os, "mkdir"),
+                 (Path, "stat"), (Path, "lstat"), (Path, "open"),
+                 (factory, "create_instance_from_ref"))
+    with ExitStack() as stack:
+        spies = [stack.enter_context(patch.object(owner, name, side_effect=AssertionError(name)))
+                 for owner, name in forbidden]
+        with pytest.raises(RuntimeError, match="^instance_discovery_forbidden_in_test$"):
+            if entry == "get":
+                dg.DagsterInstance.get()
+            elif entry == "factory_home":
+                factory.create_instance_from_dagster_home()
+            elif entry == "from_config":
+                dg.DagsterInstance.from_config("/Users/congming/.goldenshare/dagster_home")
+            else:
+                dg.DagsterInstance.from_ref(None)
+        for spy in spies:
+            spy.assert_not_called()
+    print(json.dumps({"case_evidence": "I06_default_instance_rejected", "entry": entry,
+                      "environment_reads": 0, "path_io": 0, "instance_creations": 0}), flush=True)
+
+
+@pytest.mark.parametrize("entry", ["tcp_connect", "tcp_connect_ex", "create_connection", "unix_connect"])
+def test_i06_python_network_guard(entry):
+    kind = "unix" if entry == "unix_connect" else "tcp"
+    address = confirmed_test_network_address(kind)
+    with patch.object(socket, "getaddrinfo", side_effect=AssertionError("DNS attempted")) as dns:
+        with pytest.raises(RuntimeError, match="^network_forbidden_in_test$"):
+            if entry == "create_connection":
+                socket.create_connection(address, timeout=1)
+            else:
+                with socket.socket(socket.AF_UNIX if kind == "unix" else socket.AF_INET,
+                                   socket.SOCK_STREAM) as client:
+                    client.settimeout(1)
+                    if entry == "tcp_connect_ex":
+                        client.connect_ex(address)
+                    else:
+                        client.connect(address)
+        dns.assert_not_called()
+    print(json.dumps({"case_evidence": "I06_python_network_rejected", "entry": entry,
+                      "dns_calls": 0}), flush=True)
+
+
+@pytest.mark.parametrize("kind", ["tcp", "unix"])
+def test_i06_native_network_denial(kind):
+    observed_errno = verify_native_test_network_denial(kind)
+    assert observed_errno in (errno.EPERM, errno.EACCES)
+    print(json.dumps({"case_evidence": "I06_native_network_rejected", "kind": kind,
+                      "errno": observed_errno, "permission_denied": True}), flush=True)
