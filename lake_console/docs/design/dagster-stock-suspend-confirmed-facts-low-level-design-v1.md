@@ -2,9 +2,11 @@
 
 更新时间：2026-09-07
 
-状态：**六项执行缺口已修订并提交为 a0361fc4。管理员批准 §18.8 的根目录精确只读例外后，2026-09-07 15:50 单次 I01 能力预检通过：正常启动、允许区正向操作及11类权限拒绝均有实证，详见 §18.9。I02–I08、实际 adapter 和 S1 全套回归仍未验收；不恢复业务实施或指定 Silver sensor。S2 真实批准集合验收、正式文件/事件发布、切换及两文件删除仍分别按阶段授权。**
+状态：**管理员已批准§18.10 D的四项目录属性精确权限修订。2026-09-07 16:36 I01复验通过，I02样本准备及31组原生IO正反例全部通过，完整证据见§18.12；此前SQLite准备失败已通过该最小修订解决，未增加其它权限或安装依赖。I03–I08、实际adapter和S1全套回归仍未验收；本轮不恢复业务实施或指定Silver sensor。S2真实批准集合、正式文件/事件发布、切换及两文件删除仍分别按阶段授权；专项临时实例/运行残留及本需求新增安装项的收尾清理按§18.11执行。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
+
+2026-09-07管理员新增约束：未经明确允许不得安装本机套件；本需求完成后必须彻底清理专项临时测试实例和运行残留，清理属于收尾验收，不得长期保留。前置验收不得继续扩展为独立通用测试工程。落实范围与SQLite来源见§18.11；权限修订和复验的后续独立批准及结果见§18.12。
 
 上位依据：[技术方案 v1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)。本文细化该方案，不另起业务口径；原清退专项的 `TODO-SUSPEND-001` 仍未关闭。
 
@@ -1365,3 +1367,154 @@ I组验收后，adapter只运行§13列明的S1编码/拒绝和C08/C09机制测�
 3. I02若需要新增启动/导入读取例外，必须先核验具体依赖并按原门禁确认，不能把这次 `/` 的批准解释为任意系统或仓库目录读取授权。I01成功也不取消I02–I08独立验收和进入adapter前的报告停止点。
 4. 本次预检临时脚本由当前任务负责，仅用于能力验证，不注册到Definitions。完整隔离支持验收并提取必要证据后，再按精确清单确认清理本次临时目录；本轮不删除现场，不把临时脚本变成业务兼容入口。
 5. 本轮仓库仅续写LLD、技术方案和主索引；既有未提交源码及其他文档不变，依赖矩阵不变。未提交、未推送；业务代码及S2批准集合/全范围等价验收均未推进。
+
+<a id="s1-isolation-i02-native-io"></a>
+
+### 18.10 I02：原生 IO 与路径绕过的有界验证
+
+#### A. 执行前固定的范围与判据
+
+管理员本轮指令为“继续推进I02”。基线为 `dev-interface@a77b51e7` 加保留的未提交内容；本轮不修改那些业务文件，不执行I03–I08、adapter、业务测试或正式资源操作。
+
+1. 新工作根为 `/private/tmp/stock-suspend-isolated-paqWh57w`，只使用其中 `allowed/` 和同次 `denied-fixture/`。父启动器逐字比较策略：只把I01策略的临时根换为本次根，读取/写入/网络权限零增加。保留既有 `/dev/null` 写设备例外，不把临时目录当正式数据源；不清理前次或本次现场。
+2. 原生依赖静态核验：项目虚拟环境使用CPython 3.13.5；DuckDB 1.5.2的 `_duckdb.cpython-313-darwin.so` 链接 `/usr/lib` 的 libc++/libSystem；`_sqlite3` 和 `_ctypes` 经 `@loader_path/../../` 解析到已有读取白名单中的 `/Users/congming/miniconda3/lib`（SQLite/ffi）。未发现需要追加读取权限的依赖。项目site目录的4份 `.pth` 已逐份审查：editable只登记源码路径，另外为virtualenv/distutils初始化及受环境变量控制的coloredlogs；不设置该变量，不导入业务包。
+3. I01使用 `-S` 只加载标准库；I02需要实际已安装DuckDB，因此使用同一项目解释器 `-I -B`，不加 `-S`，不改 `sys.path/PYTHONPATH`、不安装依赖。OS隔离仍在解释器及site初始化之前生效，项目源码未加入读取白名单。运行中核验实际 `sys.prefix`、原生模块位置与版本，并断言没有加载orchestrator/Dagster/pytest。
+4. 分四个独立受限子进程：prepare仅创建/读回2行虚构SQLite和Parquet；native为10组；SQLite为12组；DuckDB为9组。后三批共31组，每组必须先在允许目录完成同类正向操作，再证明拒绝；每批最多12组，未超过§18.6的16例上限。一批失败就停止，不自动重试、不调整权限或验收断言。
+
+| 批次 | 精确操作与路径 | 判据 |
+| --- | --- | --- |
+| prepare，1例 | 2行SQLite建表/提交/读回/关闭；DuckDB内存连接COPY并读回2行Parquet | 两种样本可用，原生模块真实加载；关闭后父进程只复制两份小文件至同次禁止区，并逐份核验SHA256一致，父进程不导入数据库或业务库 |
+| native，10组 | C `open`读取/新建 × canonical、`/tmp`别名、`..`、symlink四种路径；C `openat`从 `/` 的FD读取/新建各一组 | 实际libSystem调用，禁止项只能是EPERM/EACCES；`ctypes.use_errno=True`，Apple ARM64变参仅声明固定参数类型，排除错误调用签名假失败 |
+| SQLite，12组 | 读现有库、改现有库、建新库 × 四种路径 | 允许区真实SQL完成并读回；禁止区只认可SQLITE_CANTOPEN/SQLITE_READONLY且同一路径C open权限拒绝。写现有库使用rw，不用只读连接制造假拒绝；每次显式close |
+| DuckDB，9组 | `read_parquet`、`COPY`新文件 × 四种路径，加1组glob读取 | 允许区COPY后读回精确两行；禁止区必须为IOException，且同一目标文件的C open拒绝。glob可包装成“没有匹配文件”，必须结合父进程证明同内容文件确实存在及原生权限证据，不能只认任意SQL异常 |
+
+DuckDB使用显式 `:memory:`、512MB、2线程、本次允许目录temp、0B spill，关闭扩展自动安装/自动加载；读回设置核验。保持 `enable_external_access=true`，避免把DuckDB自身禁外部IO误当OS隔离有效。Parquet支持若不能在此配置下正常工作就停止，不临场INSTALL/LOAD或放开网络。正反同内容种子、禁止目录文件集合/大小/mode/dev/inode/mtime_ns/SHA256必须保持一致；允许区写例只改各自虚构副本，不改种子。
+
+每例30秒、每批60秒、fixture合计1MiB、工作区100MiB、stdout/stderr各64KiB上限；父启动器只终止自身创建的子进程组。每批保存启动、当前例、实际完成数、耗时及前后身份，失败保留报告，绝不把超时或导入失败算作成功。
+
+执行目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`。父进程只用Node标准库，向uv仅传 `PATH/LANG/TMPDIR`；不透传业务凭据，不设置HOME/CODEX_HOME，不继承业务FD。父入口与四批完整argv为：
+
+```text
+/usr/bin/env -u NODE_OPTIONS /opt/homebrew/bin/node /private/tmp/stock-suspend-isolated-paqWh57w/allowed/run_native_io.mjs
+
+# 以下完整命令各执行一次，末尾phase依次为prepare、native、sqlite、duckdb；失败即停止后续批次。
+/opt/homebrew/bin/uv run --offline --no-sync --no-env-file --no-config --no-python-downloads --cache-dir /private/tmp/stock-suspend-isolated-paqWh57w/allowed/uv-cache /usr/bin/sandbox-exec -f /private/tmp/stock-suspend-isolated-paqWh57w/allowed/capability.sb /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python -I -B /private/tmp/stock-suspend-isolated-paqWh57w/allowed/native_io_probe.py prepare
+/opt/homebrew/bin/uv run --offline --no-sync --no-env-file --no-config --no-python-downloads --cache-dir /private/tmp/stock-suspend-isolated-paqWh57w/allowed/uv-cache /usr/bin/sandbox-exec -f /private/tmp/stock-suspend-isolated-paqWh57w/allowed/capability.sb /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python -I -B /private/tmp/stock-suspend-isolated-paqWh57w/allowed/native_io_probe.py native
+/opt/homebrew/bin/uv run --offline --no-sync --no-env-file --no-config --no-python-downloads --cache-dir /private/tmp/stock-suspend-isolated-paqWh57w/allowed/uv-cache /usr/bin/sandbox-exec -f /private/tmp/stock-suspend-isolated-paqWh57w/allowed/capability.sb /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python -I -B /private/tmp/stock-suspend-isolated-paqWh57w/allowed/native_io_probe.py sqlite
+/opt/homebrew/bin/uv run --offline --no-sync --no-env-file --no-config --no-python-downloads --cache-dir /private/tmp/stock-suspend-isolated-paqWh57w/allowed/uv-cache /usr/bin/sandbox-exec -f /private/tmp/stock-suspend-isolated-paqWh57w/allowed/capability.sb /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python -I -B /private/tmp/stock-suspend-isolated-paqWh57w/allowed/native_io_probe.py duckdb
+```
+
+临时实现及报告归本次能力验证，不注册Definitions、不成为业务兼容入口；后续隔离support仍须按§18.2正式实现和独立验收。本节先固定执行约束，下面仅在实际执行后登记结果。
+
+API校验依据：[Python ctypes的Apple ARM64变参约束](https://docs.python.org/3.13/library/ctypes.html#calling-variadic-functions)、[SQLite连接URI与显式关闭](https://docs.python.org/3.13/library/sqlite3.html)、[DuckDB设置](https://duckdb.org/docs/current/configuration/overview)、[Parquet读写](https://duckdb.org/docs/current/data/parquet/overview)。这些资料用于校准调用方法，不能代替本次OS实测。
+
+#### B. 2026-09-07 16:10 实测：准备批次失败，I02未通过
+
+| 验收项 | 实际结果 |
+| --- | --- |
+| 启动与原生导入 | 受限Python PID `65078`（父runner启动的uv PID `65076`）；CPython 3.13.5、SQLite 3.50.2、DuckDB 1.5.2均真实加载，实际prefix为项目`.venv`，源码读取被OS拒绝，没有业务模块加载 |
+| 正向样本准备 | 创建允许区的24字节虚构文本后，首次 `sqlite3.connect(file:…/allowed/fixtures/toy.sqlite?mode=rwc)` 抛 `OperationalError: unable to open database file`；没有进入建表SQL |
+| 停止情况 | prepare退出码1、无signal，170毫秒；0个完整case。后三批未启动，31组正反例均未执行；没有重新运行或改策略 |
+| 实际生成范围 | `allowed/fixtures/`只有 `sentinel.txt`，SQLite文件、SQLite journal、Parquet均未生成；父进程尚未执行复制样本步骤。DuckDB仅导入，尚未创建显式连接或读回设置 |
+| 虚构禁止目录 | 前后只有24字节 `sentinel.txt`；dev `16777234`、inode `99214256`、mode `33188`、mtime_ns `1788768431420790474`、SHA256 `4d18a51647b7cde7bcbc872065f6811fa6507b260d675fa909c8e38222b8ad94`全部一致 |
+| 预算与正式边界 | 没有超时/超空间/超输出；报告定稿时整个临时根磁盘占用60KiB。没有正式Lake/staging/数据库、Dagster实例、事件、调度或源接口操作；没有读取正式文件作样本 |
+| 策略SHA256 | `b15bdeb9b34f6f5f282202f9a54f1ca01dde37781e384d81994d82dcc0d4c77d`；与I01仅临时根字符串不同 |
+| 原生用例SHA256 | `955426d93fb20c325b6f8f20b8cb415afdbffa78cf21422a6efe0cf98290a94f` |
+| 父启动器SHA256 | `d9611016106864eed374c832cc4c7b3e5f12f24a875e03bb83f01d535324eab2` |
+
+完整[执行报告](/private/tmp/stock-suspend-isolated-paqWh57w/allowed/native-io-result.json)、[策略](/private/tmp/stock-suspend-isolated-paqWh57w/allowed/capability.sb)、[原生用例](/private/tmp/stock-suspend-isolated-paqWh57w/allowed/native_io_probe.py)、[父启动器](/private/tmp/stock-suspend-isolated-paqWh57w/allowed/run_native_io.mjs)保留，不覆盖失败记录。报告中的 `imports_passed` 仅表示导入及路径核验完成，不是数据库IO成功；预算配置也不是已读回的DuckDB设置。禁止把该失败登记为权限反例成功或S1验收通过。
+
+#### C. 失败后的只读定位：目录属性权限缺口
+
+没有再次启动测试子进程、打开数据库、改变权限或修改用例断言。只读查询本次PID的系统日志，并检查本机实际加载的SQLite动态库及对应版本源码：
+
+1. 系统日志在 `2026-09-07 16:10:27.611` 明确记录：`Sandbox: python3.13(65078) deny(1) file-read-metadata /private`。它出现在库加载成功后、首次SQLite连接失败时；不是从泛化错误文本猜路径。
+2. SQLite 3.50.2的 `unixFullPathname → appendAllPathElements → appendOnePathElement` 对绝对路径逐段调用 `lstat`。非ENOENT错误会设置SQLITE_CANTOPEN；已知目标位于允许目录也不会省略父目录检查。[对应版本源码，6248–6355行](https://raw.githubusercontent.com/sqlite/sqlite/version-3.50.2/src/os_unix.c)。
+3. 对实际 `/Users/congming/miniconda3/lib/libsqlite3.3.50.2.dylib` 的只读符号/反汇编核验也有相同分支：`_appendAllPathElements` 位于 `0x2a2c8`；`0x2a428`调用lstat，随后比较errno是否为2（ENOENT），其他错误进入日志并设置14（CANTOPEN）。这与本次 `/private` 拒绝和Python连接异常吻合，不仅依据线上源码或库名下结论。
+4. 现策略允许 `allowed/` 子树及根目录 `/`，但没有允许其祖先 `/private`、`/private/tmp`、当次工作根本身的元数据读取。动态日志证明首先卡在 `/private`；其余祖先及 `/tmp` 别名的需要来自逐段检查实现，尚未在修订权限后实测。
+5. 同一PID更早还有Cryptex、Data、`/etc`、`/var`、dtracehelper、editable源码路径的拒绝日志，但解释器及三个原生模块随后加载成功。不能把这些日志全部视为必要权限，更不能据此追加系统目录或仓库读权限。
+
+结论：**本轮暴露的是专项测试隔离策略未覆盖SQLite路径解析所需的父目录属性读取，不是停牌业务字段/合并方案错误，也不是现有正式SQLite数据损坏。** 当前无法据此证明修订后所有原生IO都会通过；I02仍须完整实测。
+
+#### D. 最小修订建议（提出时待确认；后续批准与复验见§18.12）
+
+只建议在下次全新临时根的策略中增加以下**目录元数据**精确例外，既有权限不变：
+
+```text
+(allow file-read-metadata
+  (literal "/private")
+  (literal "/private/tmp")
+  (literal "/tmp")
+  (literal "<下次runner生成并核验的完整临时工作根>"))
+```
+
+其中前三项为确定路径，最后一项必须绑定当次真实随机根，不能改成 `/private/tmp` 的subpath或通配符。权限意图仅为检查这些目录/链接对象的属性；不开放目录列表/文件内容读取，不增加任何写权限，也不放开兄弟禁止区、正式Lake、正式实例、仓库源码或网络。本段是待批准策略设计，不是可直接执行的成品profile；当前失败现场profile保持原样。
+
+获批后先核对策略差异与元数据例外范围，在全新虚构目录复验I01，再重跑I02的prepare/native/SQLite/DuckDB四批；必须同时证明允许路径可用、越界路径被拒绝、禁止区和种子不变。I01/I02仍按独立门禁报告；若还有其他权限或库能力缺口，先核验事实再请求确认，不能自动扩大白名单。未获批准前不启动重跑，不推进I03–I08或实际adapter。
+
+本轮仅修改LLD、上位技术方案和主索引；临时文件由本专项持有供review。原有12项未提交文件、共享资源默认值及依赖矩阵不变；文档完整性和差异检查与I02运行状态分开报告，不以文档检查通过替代测试验收。没有提交、推送或删除现场。
+
+#### E. 本轮交付核验
+
+- 文档完整性检查三项全部通过；`git diff --check`通过。它们不证明原生隔离、adapter或S1业务回归通过。
+- 排除本轮三份文档后，已跟踪差异的SHA256前后均为 `f94f46dae3117fa76d1bb8ac6a280edc5c43eb9a379ec70eeb56f6b61d09a4d2`；五份未跟踪专项源码/测试的逐文件SHA256也与开工前一致。既有未提交工作没有被本轮覆盖。
+- 分项状态：文档检查通过；隔离为I01历史通过、I02准备失败；I03–I08、实际adapter、S1实现/合成回归、S2生产批准集合、S2全范围等价均未新增验收结果。下一动作仅为确认§18.10 D的最小权限修订，不能进入下一业务阶段。
+
+<a id="s1-test-cleanup-and-install-boundary"></a>
+
+### 18.11 管理员要求：前置验收收敛、完成后清理、禁止擅自安装
+
+2026-09-07管理员指出前置验收过重，明确要求本需求完成后彻底删除测试DG实例，并卸载本任务自行安装的本地SQLite；未经允许不得在本地安装套件。按以下口径执行，不新增独立清理项目或常驻服务：
+
+1. **收敛范围。** 后续只围绕本需求的数据正确性、关键失败阻断及不误触正式资源做必要验收，不继续扩展通用隔离功能。该要求不等于已有失败项通过，也不授权无保护运行、安装依赖或放宽权限。本轮仅登记约束，没有重跑测试或更改I组验收判据。
+2. **收尾清理是完成条件。** 本需求的业务验收完成后、最终交付前，清除本专项创建的所有临时DG实例目录及其运行/事件/调度数据库、日志、虚构数据、临时探测脚本/profile和专项缓存。不因早前“保留现场供review”永久保留；清理结束后再宣布本需求完成。
+3. **按归属精确删除。** 从本专项实际执行记录提取完整路径，确认无活动进程占用、内容确属本任务后执行本次已授权的收尾清理。共享pytest根只清理可归属本专项的子目录，不按目录名前缀扫删；不删除正式DG实例、正式Lake/staging数据、其他任务实例、项目既有`.venv`或整个Miniconda环境。归属不清的对象先说明，不能猜测删除。
+4. **保留结论，不保留运行实例。** 必要结论、哈希和删除清单落回本方案；临时路径链接在删除后改为已清理的历史记录。交付列清实际删除路径、已不存在的路径、未删除项及原因，并验证测试实例/专项残留不存在。这里只清理运行产物，不把项目测试源码或正式固定停牌事实列入清理。
+5. **禁止未经批准安装。** 适用根AGENTS的本机套件安装限制。测试或缺库不是安装授权；不得通过uv自动同步、pip/Conda/Homebrew/npm安装、下载解释器或数据库扩展来绕过。任何以后获批且仅为本需求安装的独立套件，登记准确包名/位置，并纳入收尾卸载；共享依赖不能冒充专项安装项卸载。
+
+SQLite来源核验（本轮只读）：I02报告实际使用CPython 3.13.5和SQLite 3.50.2；项目`.venv/pyvenv.cfg`指向已有 `/Users/congming/miniconda3/bin`。该环境的 `conda-meta/sqlite-3.50.2-h79febb2_1.json`登记实际 `lib/libsqlite3.3.50.2.dylib`，`python-3.13.5-h2eb94d5_100_cp313.json`同时登记 `_sqlite3` 模块并显式依赖 `sqlite >=3.45.3,<4.0a0`。因此当前使用的是既有Python环境的SQLite组件，不是I02单独安装的服务或套件；I01/I02命令为 `uv run --offline --no-sync --no-python-downloads`，没有执行安装。
+
+要删除的是本任务生成的测试数据库和实例；不能把卸载SQLite原有运行库当成删除数据库文件。当前未核实到本需求新增的独立SQLite安装项，故不存在已确认可卸载的专项SQLite套件；不能承诺卸载已有共享运行库。I02本身没有创建成功SQLite文件，早前S1测试已产生的临时实例仍须按上述归属清单一并清理，不因I02失败而漏掉。
+
+本轮只更新根AGENTS、本LLD及上位技术方案；没有安装/卸载/删除任何内容，没有改业务代码或依赖矩阵，没有继续测试、修改权限、提交或推送。收尾清理尚未执行，必须保留为未完成项。
+
+<a id="s1-isolation-parent-metadata-retest"></a>
+
+### 18.12 四项目录属性权限获批后的I01复验与I02重跑
+
+管理员明确确认：本需求新增安装项必须在完成后卸载；按§18.10 D最小修订修改、复验、重跑，执行前读AGENTS。本轮已重读根AGENTS（含安装限制）、AGENTS.local及src/docs/lake_console/orchestrator目录规则；继续遵守已读的架构、编码、schema与性能基线。不安装、升级或自动同步依赖，不更改业务源码、共享资源或正式环境。
+
+执行前固定：全新根 `/private/tmp/stock-suspend-isolated-CXgYldhn`，复验I01后才运行I02；两阶段分别留报告。只在新策略增加 `/private`、`/private/tmp`、`/tmp`、当次完整临时根四个literal的 `file-read-metadata`，不增加内容读取/写入/网络权限，既有设备例外不变。父启动器逐字比对批准差异；I02额外核验同次I01已通过且策略哈希一致。旧失败现场和脚本不修改。
+
+用例内容、SQL、预期结果和预算沿用§18.9、§18.10：I01正向与11个拒绝反例；I02两行虚构样本准备后，原生10组、SQLite12组、DuckDB9组。两个Python用例只替换本次临时根，不改断言或扩大范围。每例30秒、每批60秒、fixture1MiB/工作区100MiB上限不变，失败停止；不进入I03–I08、adapter或S1业务开发。
+
+工作目录仍为 `/Users/congming/github/goldenshare/lake_console/orchestrator`，现有项目`.venv`解释器、uv离线/禁止同步下载、受控PATH/LANG/TMPDIR及不继承业务FD不变。允许写目录只为本次 `allowed/` 与既有 `/dev/null` 例外；拒绝样本只为同次 `denied-fixture/`。完整子进程argv由已核对的父启动器在启动前输出并逐批写入报告。两个父入口依次单独执行，不自动进入其它阶段：
+
+```text
+/usr/bin/env -u NODE_OPTIONS /opt/homebrew/bin/node /private/tmp/stock-suspend-isolated-CXgYldhn/allowed/run_preflight.mjs
+/usr/bin/env -u NODE_OPTIONS /opt/homebrew/bin/node /private/tmp/stock-suspend-isolated-CXgYldhn/allowed/run_native_io.mjs
+```
+
+#### 实测结果与收尾边界
+
+执行时间：I01为2026-09-07 16:36:34，I02为16:36:51–16:36:52（北京时间）。两阶段均使用策略SHA256 `604fd5431d57920de7ba72ed80efc0181440651c0ee3a4b43a18f79270c76818`；没有新增其它读取例外。所有批次退出码0、无signal、stderr为空，未触发超时/空间/输出限制。
+
+| 阶段 | 实际结果 | 耗时 |
+| --- | --- | --- |
+| I01复验 | 正向操作通过；11类禁止操作全部EPERM(errno=1)，哨兵身份/内容不变 | 111毫秒 |
+| I02 prepare | 2行SQLite建表/提交/读回/关闭成功，2行Parquet COPY/读回成功；父进程复制至禁止区并核验同内容 | 539毫秒 |
+| I02 native | 10/10组正向与权限拒绝通过，含C open/openat、根FD、四种路径 | 94毫秒 |
+| I02 SQLite | 12/12组通过；禁止项均SQLITE_CANTOPEN(14)，同目标原生调用均EPERM；不是只读连接制造的拒绝 | 94毫秒 |
+| I02 DuckDB | 9/9组通过；COPY越界返回Operation not permitted；read_parquet/glob包装为No files found，但父进程证明目标存在且同内容，原生调用为EPERM | 371毫秒 |
+
+I02全程约1.1秒，31组全部有同类正向成功与禁止项失败证据。实际版本仍为CPython 3.13.5、SQLite 3.50.2、DuckDB 1.5.2。显式内存连接设置读回：`memory_limit=488.2 MiB`（512MB的格式化显示）、`threads=2`、`max_temp_directory_size=0 bytes`、temp位于当次allowed；扩展自动安装/加载均false，external access为true，故不是靠DuckDB禁外部IO假通过。
+
+fixture种子合计8,535字节：文本24字节、SQLite8,192字节、Parquet319字节。原始允许区种子以及禁止区复制完成后的文件集合、dev/inode/mode/mtime_ns/size/SHA256，在全部测试前后保持一致；写入正例仅改各自虚构副本。Parquet SHA256为 `a6ee7d93afa1a109583a1f976d5dd239f873bbc3c7edb8eff34ab3b9edf9403f`，SQLite SHA256为 `d43a30ebddcf79505d1489ac4f397a1951c734595821f7bd34c1ef004cc0584f`。报告定稿后当次临时根磁盘占用236KiB，远低于100MiB预算。
+
+证据：[I01报告](/private/tmp/stock-suspend-isolated-CXgYldhn/allowed/capability-result.json)、[I02报告](/private/tmp/stock-suspend-isolated-CXgYldhn/allowed/native-io-result.json)、[精确策略](/private/tmp/stock-suspend-isolated-CXgYldhn/allowed/capability.sb)。I01用例SHA256 `77c158d4bf3eff40ce834bce27fcaae304d7925f686064749b3ee785ae24c1d6`；I02用例SHA256 `484c430c25167ae9b39befcf0ebd47191323f08f9e3631ad311712d71429664f`；I02父启动器SHA256 `876a80c8b51e402e9952a8633e49dfaadb22f8cdc8e0d317d265ea49c9b495a0`。两份Python用例除当次根字符串外与原用例一致。
+
+本轮只证明I01/I02能力验证通过；没有导入orchestrator、Dagster或pytest，没有创建新DG实例/服务，也没有访问正式Lake/staging/数据库、修改正式事件或恢复sensor。SQLite文件只是本次原生IO虚构样本。I03–I08、实际adapter、S1实现/合成回归、S2生产批准集合与全范围等价均未新增验收结果；按§18.11收敛后续必要测试，不把本次通过当成整体安全验收结束。
+
+本需求新增安装项完成后必须卸载的要求已再次确认；本轮安装/升级/同步/卸载次数为0。本目录及以前本任务生成的实例/文件均纳入§18.11最终清理，不作为长期本机环境保留；当前需求尚未完成，因此本轮不删除证据或现有共享运行库。仓库仅同步本LLD、技术方案及主索引，业务源码与依赖矩阵不变；未提交、未推送。
+
+交付核验：文档完整性三项与 `git diff --check` 均通过。排除本轮三份文档后的已跟踪差异SHA256前后均为 `783a4185f391fb709eaf89ae539bab23e839480bc6f75c45ce916159f2892d4e`，五份未跟踪专项源码/测试哈希前后一致；已有AGENTS变更与其它未提交内容均保留。

@@ -2,9 +2,11 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成；六项审计修订已提交为 a0361fc4。管理员批准根目录精确只读例外后，2026-09-07 15:50 单次I01能力预检通过，启动与11类权限拒绝证据见LLD §18.9。I02–I08、实际adapter和S1全套回归仍未验收；生产4,022行批准集合的C01/C05仍在S2。正式文件/事件、切换、删除分别授权，指定Silver sensor未自行恢复。**
+状态：**S0已完成。管理员批准四项目录属性精确权限后，2026-09-07 16:36 I01复验通过，I02样本准备及31组原生IO正反例全部通过，见LLD §18.12；原SQLite准备阻塞已解决，没有安装依赖或增加其它权限。I03–I08、实际adapter和S1全套回归仍未验收；生产4,022行批准集合的C01/C05仍在S2。正式文件/事件、切换、删除分别授权，指定Silver sensor未自行恢复；专项临时实例、运行残留和本需求新增安装项在最终收尾清理。**
 
 首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
+
+管理员新增收尾约束（2026-09-07）：未经明确允许不得在本机安装套件；前置验收只保留与本需求直接相关的必要范围，不继续扩展通用测试工程。本需求业务验收后、最终交付前，必须彻底清除专项临时DG实例、测试库、日志和运行残留；本任务新增的独立套件纳入卸载，不误卸载既有共享依赖。范围及完成条件见[LLD §18.11](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-test-cleanup-and-install-boundary)。当前使用的SQLite属于既有Miniconda Python依赖，I01/I02没有安装SQLite；没有已确认的专项独立SQLite套件可卸载。后续管理员再次确认清理要求并独立批准最小权限修订和复验，结果见§18.12；清理尚未执行。
 
 需求来源：清退 LLD §16.11 的 `TODO-SUSPEND-001`。本方案是该 TODO 的独立实施主案，不重开清退 M0–M8。
 
@@ -452,3 +454,7 @@ CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为�
 2026-09-07提交后继续诊断：上段文档随后按用户要求提交为 `a0361fc4`。本轮只读比对崩溃记录与相同UUID的本机系统加载器，确认 `boot_boot + 228` 对应只读打开根目录失败的分支，不再停留在笼统的“dyld崩溃”。仅建议为测试策略增加 `(allow file-read* (literal "/"))`，不是允许读取整个文件系统；禁止 `subpath "/"`，并增加根目录FD访问虚构禁止文件的反例。具体边界、可能可见的根目录信息、证据限制和单次预检门禁见[LLD §18.8](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-startup-diagnosis)。该读取例外按原LLD要求等待管理员确认，尚未执行；也不能承诺它已经覆盖全部后续启动依赖。本轮没有修改业务源码、现有隔离策略或正式资源，未提交/推送。
 
 2026-09-07 15:50 获批执行：管理员回复“同意。继续吧”后，在全新虚构目录只执行一次I01，策略仅追加根目录对象的精确读取例外。解释器正常启动，正向操作通过，11类禁止操作均返回权限拒绝，哨兵前后不变，耗时121毫秒。原启动阻塞已经通过实测修正；此结果不是DuckDB/SQLite、网络、pytest或实际资源隔离通过。报告、哈希、预算及下一步I02范围见[LLD §18.9](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-i01-passed)。本轮没有改业务代码、运行业务测试或操作正式资源；未提交/推送。
+
+2026-09-07 16:10 I02执行：管理员要求继续I02后，先固定两行虚构样本、四批共31组正反例、完整argv及预算，再在新临时根沿用I01权限启动。CPython 3.13.5/SQLite 3.50.2/DuckDB 1.5.2真实导入成功，但prepare首次SQLite连接失败，170毫秒退出；未生成数据库或Parquet，父进程未复制样本，后三批未运行，禁止哨兵身份/内容不变。只读系统日志和实际SQLite动态库确认：逐级路径检查被 `/private` 的 `file-read-metadata` 拒绝。本次暴露的是测试隔离策略的目录属性权限缺口，不是停牌业务方案或正式数据损坏。最小建议仅补 `/private`、`/private/tmp`、`/tmp` 和下次精确临时根的元数据读取，必须确认后再复验I01/I02，不自行放开目录内容/写入/网络。证据、状态和审批边界见[LLD §18.10](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-i02-native-io)。本轮没有继续业务代码、实际checks、writer或正式资源操作；没有提交/推送/删除。
+
+2026-09-07 16:36获批复验：先重读AGENTS，按上述四个literal只增加目录属性权限，在全新虚构根复验I01并重跑I02，未改用例断言或增加其它权限。I01正向与11项拒绝通过；I02两行样本准备、原生10组、SQLite12组、DuckDB9组全部通过，I02约1.1秒，禁止区和原始样本前后不变，临时根236KiB。未安装依赖、创建新DG实例、导入业务模块或访问正式数据。结果及精确报告见[LLD §18.12](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-parent-metadata-retest)。只收口本次I01/I02，I03–I08和业务验收不自动计通过；本任务新增安装项完成后卸载，临时运行产物按§18.11清理，当前未执行清理/提交/推送。
