@@ -475,7 +475,10 @@ def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
             # Its explicit temp settings remain inside the OS-enforced test root;
             # all resource/default aliases and every other suite stay guarded.
             if (owner is duckdb_connection and scope == "regression"
-                    and Path(test_name) == Path(__file__).with_name("test_duckdb_connection.py")):
+                    and Path(test_name) in (
+                        Path(__file__).with_name("test_duckdb_connection.py"),
+                        Path(__file__).with_name("test_stock_suspend_confirmed_bootstrap.py"),
+                    )):
                 continue
             guards.enter_context(patch.object(owner, name, replacement))
         plugins = [sys.modules[__name__]]

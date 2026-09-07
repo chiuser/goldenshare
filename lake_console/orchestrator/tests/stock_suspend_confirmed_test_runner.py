@@ -105,6 +105,18 @@ INTEGRATION_SOURCE_FILES = (
     "defs/run_contracts/sensor_tags.py",
 )
 REGRESSION_SUITES = {
+    "test_stock_suspend_confirmed_bootstrap.py": (
+        ("B-plan", 12, ("test_complete_comparison_is_readonly_and_uses_shared_normalization", "test_plan_rejections",
+                        "test_year_batch_boundary_is_bounded")),
+        ("B-compare", 11, ("test_comparison_detects_content_and_partition_errors", "test_input_drift_refused",
+                           "test_comparison_counts_all_differences_but_limits_samples")),
+        ("B-report", 6, ("test_report_scope_rejected", "test_report_is_immutable_and_not_implicitly_created")),
+        ("B-publish", 12, ("test_file_publication_states", "test_publication_resume",
+                            "test_missing_candidate_and_checkpoint_recognizes_correct_target")),
+        ("B-boundaries", 16, ("test_unsafe_publication_refused", "test_cli_help_and_bad_arguments_have_no_io")),
+        ("B-cli", 5, ("test_cli_readonly_full_chain", "test_cli_save_and_confirmed_publish_are_separate",
+                       "test_cli_wrong_hash_does_not_connect")),
+    ),
     "test_duckdb_connection.py": (
         ("B06-existing-contract", 6, (
             "DuckDBConnectionTests::test_default_settings_are_fixed_contract",
@@ -181,7 +193,10 @@ REGRESSION_SUITES = {
 
 def source_files_for_scope(scope: str) -> tuple[str, ...]:
     additions = {"isolation": (), "adapter": ADAPTER_SOURCE_FILES,
-                 "regression": tuple(dict.fromkeys(MERGE_SOURCE_FILES + ADAPTER_SOURCE_FILES + WRITER_SOURCE_FILES + INTEGRATION_SOURCE_FILES))}
+                 "regression": tuple(dict.fromkeys(MERGE_SOURCE_FILES + ADAPTER_SOURCE_FILES + WRITER_SOURCE_FILES + INTEGRATION_SOURCE_FILES + (
+                     "defs/bootstrap/__init__.py", "defs/bootstrap/stock_suspend_confirmed.py",
+                     "defs/bootstrap/stock_suspend_confirmed_cli.py",
+                 )))}
     if scope not in additions:
         raise ValueError("invalid_scope")
     return RESOURCE_SOURCE_FILES + additions[scope]
@@ -605,7 +620,7 @@ def main() -> int:
                                    test_file=PROJECT / "tests" / args.suite):
                 return 1
         print(json.dumps({"regression_suite_passed": args.suite, "S1_complete": False,
-                          "writer_executed": args.suite in ("test_stock_suspend_confirmed_writer.py", "test_stock_suspend_confirmed_integration.py"),
+                          "writer_executed": args.suite in ("test_stock_suspend_confirmed_writer.py", "test_stock_suspend_confirmed_integration.py", "test_stock_suspend_confirmed_bootstrap.py"),
                           "identity_profile": "synthetic", "formal_writer_executed": False,
                           "S2_executed": False}), flush=True)
         return 0

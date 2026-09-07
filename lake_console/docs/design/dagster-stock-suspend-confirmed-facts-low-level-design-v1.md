@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成；前序增量已提交`630ba12a`、`4887cfac`、`1f054599`，未推送。§18.23的job/check/readiness/sensor集成已提交；本轮§18.24完成统一连接受限模式，27例测试通过，现有239处调用保持原默认行为。受限连接增量未提交；S1的人工CLI、文件/事件发布及其余全套回归仍待完成。没有操作正式数据/实例、删除CSV、恢复sensor、安装套件或启动DG服务。S2未执行；临时产物最终按§18.11精确清理。**
+状态：**S0已完成；前序实现及受限连接已提交，最新提交`d59b7980`，未推送。§18.25完成文件侧inspect/compare/publish-file：62例通过，另重跑原42例合并与58例日常writer回归通过，共162例有效验收。本轮文件工具增量未提交；S1仍缺事件CLI/实例只读取得、事件故障测试及其余全套回归。没有操作正式数据/实例、删除CSV、恢复sensor、安装套件或启动DG服务。S2未执行；临时产物最终按§18.11精确清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -506,7 +506,7 @@ plan 的 hash 为其实际 UTF-8 文件 bytes SHA-256，文件不包含自身 ha
 
 ### 8.2 CLI 命令与参数合同
 
-以下命令均**尚不可执行**；以后入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。
+入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25已实现并隔离验收`inspect`、`compare`、`publish-file`三个文件命令；`audit-events`、`register-events`仍为待实现设计，尚未注册。**现在没有获准的正式plan/候选，不得据此在正式根执行命令；S2/S3另行批准。**
 
 | 子命令 | 必填参数 | 可选参数 / 缺省行为 | 可变更的内容 |
 | --- | --- | --- | --- |
@@ -524,7 +524,7 @@ read-only 命令（含两个发布命令未确认的分支）不得顺便mkdir�
 
 ### 8.2A 连接与实例取得：先分命令，再取得必要资源
 
-代码依据：实施前 `defs/duckdb_connection.py::connect_configured_duckdb` 首先调用默认移动盘temp目录的mkdir；`DuckDBResource.connect` 委托它。只换SQL不能使CLI只读。本次选择**在统一入口增加显式受限初始化策略，默认分支不变**，不在bootstrap私建裸连接。该连接策略现已按§18.24实现并通过B06；本节五命令及实例取得仍是后续设计。
+代码依据：实施前 `defs/duckdb_connection.py::connect_configured_duckdb` 首先调用默认移动盘temp目录的mkdir；`DuckDBResource.connect` 委托它。只换SQL不能使CLI只读。本次选择**在统一入口增加显式受限初始化策略，默认分支不变**，不在bootstrap私建裸连接。该连接策略已按§18.24实现并通过B06，§18.25三个文件命令已接入；两个事件命令及实例取得仍是后续设计。
 
 已实现的连接签名：
 
@@ -538,7 +538,7 @@ connect_configured_duckdb(
 | 策略 | 初始化与配置 | 消费者 |
 | --- | --- | --- |
 | managed（默认） | 原mkdir、settings.config、连接校验与关闭行为保持；默认目录/16GB/4线程/512GB spill不变 | 当前全部日常asset/check/sensor/bootstrap与DuckDBResource，不批量改调用方 |
-| existing_no_spill（显式） | settings指定temp必须是无“..”的绝对路径，从根到叶逐级lstat确认已有普通目录、无symlink；缺失即失败，不mkdir。连接配置覆写max_temp_directory_size=0B、autoinstall_known_extensions=false、autoload_known_extensions=false；其余设置保持。连接建立后按有效配置读回上述值，不符即关闭并失败 | 当前只有专项连接验收显式使用；未来本专项CLI五命令使用，不是运营开关，也不等于数据库层禁止任意COPY |
+| existing_no_spill（显式） | settings指定temp必须是无“..”的绝对路径，从根到叶逐级lstat确认已有普通目录、无symlink；缺失即失败，不mkdir。连接配置覆写max_temp_directory_size=0B、autoinstall_known_extensions=false、autoload_known_extensions=false；其余设置保持。连接建立后按有效配置读回上述值，不符即关闭并失败 | 当前三个文件CLI命令及专项连接验收显式使用；未来两个事件命令同样使用。不是运营开关，也不等于数据库层禁止任意COPY |
 
 专项CLI固定使用现有统一temp路径作为**仅校验、不创建、不写入**的工作路径，最大内存/线程沿用默认；目录未准备好就报告缺失，不能自建。显式apply也用同一无spill连接；获准的候选/报告/checkpoint写入由命令自己的白名单控制，不通过切回managed取得额外权限。无spill内存不足即停，不自动增内存或借临时目录兜底。
 
@@ -2433,3 +2433,88 @@ CodeGraph `explore`、`impact(connect_configured_duckdb, depth=1)`覆盖统一�
 ```
 
 本轮7份专项文件：统一连接、原连接测试、runner/support，以及本LLD、技术方案、主索引；技能要求使受限策略保持显式、测试不触正式资源、方案状态同步。无子系统边界、依赖矩阵变化；Wealth工作未修改。增量未提交、未推送。下一步实现§8冻结计划读取、有界compare、单文件发布和专用CLI，再接§9事件对账；两条发布链仍分开，正式S2–S5分别批准。B06通过不表示五命令CLI、实例只读取得或整个S1完成；没有新增需要管理员拍板的业务项。
+
+<a id="s1-confirmed-file-bootstrap"></a>
+
+### 18.25 文件侧人工工具（2026-09-07）
+
+§18.24的7份文件已按管理员要求提交为`d59b7980`，未推送，不含Wealth。继续原§8文件侧实现，不操作正式数据；§9事件侧仍单独推进。
+
+#### A. 本轮实施口径
+
+| 文件 | 实施内容 / 保持项 |
+| --- | --- |
+| `defs/bootstrap/stock_suspend_confirmed.py`（新增） | 验证后的PublicationPaths/FrozenMigrationPlan、严格JSON读回、按年比较、报告保存、单文件发布及checkpoint；不import资产、Dagster instance或CSV |
+| `defs/bootstrap/stock_suspend_confirmed_cli.py`（新增） | 先实现inspect/compare/publish-file三个完整文件命令；无参help、确认前只读、固定路径、统一受限连接；事件命令待§9实现后再登记，不设置假成功或占位执行分支 |
+| `defs/duckdb_sql.py` | 抽取原四列Raw标准化投影为共用内部SQL，保留原路径函数签名/结果，新增简单关系名入口供批读使用；不修改合并、14条时段修正或业务字段 |
+| `tests/test_stock_suspend_confirmed_bootstrap.py`（新增） | B01/B02/B03/B04/B05文件侧正反验收；真实统一受限连接＋synthetic批准事实；文件/SQL故障注入，无instance |
+| 专项runner/support | 固定suite和精确两bootstrap源码、空bootstrap包标记读取；本suite同B06只不替换被测统一连接函数，仍拒绝resource默认别名/正式路径/网络，不开放任意路径或选择 |
+
+计划JSON字段在本轮固定为：schema_version=1、operation_id、code_revision；source中的CSV revision/blob/sha256和展开日历sha256；calendar_dates及calendar_sha256；confirmed中的version/logical_sha256/counts/override_keys/candidate指纹；partitions中的逐日期Raw/Silver指纹；target_path；instance中的home_path和非敏感storage_identity。文件指纹为path/device/inode/size/mtime_ns/sha256。所有对象严格拒绝未知/缺失/重复key、非法类型/日期/hash，不接受宽松草稿兼容。
+
+`source.expansion_calendar_sha256`保留S0用于展开事实的相关窗口指纹；`calendar_dates/calendar_sha256`是本次冻结的SSE有效日期集合，须覆盖比较日期和确认事实日期，两者不混用。比较日期只能来自完整冻结partitions列表，不开放日期参数；外部expected-plan-sha256锁定实际plan bytes。code_revision作为审定代码来源记录，不在运行中读Git或CSV。instance字段只存审计身份，文件侧不检查实例存储、更不构造实例。
+
+比较报告锁定plan hash、固定逻辑hash、全部批次日期和每批Raw/Silver/生成行数、双向EXCEPT ALL差异及最多20条总样本、实际耗时。发布必须重新读取指定hash的完整通过报告，拒绝少日期/重复日期/错误年或批次、非零差异及旧plan。所有输入在批前/后核验身份与物理hash，发布前再次复核；目标等价也先通过完整报告，不拿文件相同替代范围验收。
+
+批读通过`parquet_schema`一次取得当批每层全部文件的原始schema（参考仓库现行`stock_daily_trend_channel_lake_readiness._load_parquet_schemas`），不靠多文件自动类型提升掩盖单文件类型错误；随后显式文件列表、hive_partitioning=false、filename=true读取，各行日期必须匹配文件路径，空文件仍核验schema。Raw标准化复用原投影；合并前先执行既有冲突SQL，输出四列保持重复。
+
+只有确认publish-file且全部前置通过，才可创建唯一固定目标缺失的父目录、原子提升一个候选、更新本operation的file-checkpoint。只读路径不mkdir；plan/report所在operation目录必须已存在。报告/checkpoint临时JSON仅在该operation目录，fsync后原子替换；遗留临时文件保留，不做备份或自动清场。新目标发布前后重新校验；已存在合格目标复用而不替换，错误目标拒绝。候选已移动且checkpoint丢失时，实际目标加批准plan/report足以补记录；不会要求补回候选或重复覆盖。
+
+性能预算：S0历史证据为每层3083文件、两层共约9.1MB、Raw386240行/Silver390259行；这不是本轮正式实测。本轮每例3个日期跨2年、固定2行、Raw/Silver各≤32行/文件；批次边界例只造日期元数据，不造366份大文件。生产每年≤366日期，每批固定一次解码、Raw/Silver各一次行解码＋一次批量schema，Python只处理文件清单/指纹和≤20样本；无源请求/分页/事件。沿用100MiB单文件/准备报告上界和测试512MB/2线程/0spill、case30秒/batch60秒/最多16例、工作区100MiB、输出64KiB。单文件提升、逐次checkpoint，不承诺跨文件事务；失败不扩预算、不修改输入。新增执行的精确临时根在结果节登记，需求结束统一清理。
+
+#### B. 验收结果
+
+| 最终固定批次 | 通过例数 | 完整启动耗时 | 证据目录后缀 |
+| --- | --- | --- | --- |
+| B-plan | 12 | 1.667秒 | `obajtrdf` |
+| B-compare | 11 | 1.668秒 | `77zrxx22` |
+| B-report | 6 | 1.509秒 | `jc4b9wei` |
+| B-publish | 12 | 2.150秒 | `clf76qyb` |
+| B-boundaries | 16 | 1.709秒 | `_sjbsrq5` |
+| B-cli | 5 | 1.472秒 | `1d6dd5d7` |
+
+文件侧共**62例**，6批均零失败、零skip/xfail、零超限；每批原生7项拒绝自检通过，禁止哨兵前后不变。报告为`/private/tmp/stock-suspend-isolated-<后缀>/allowed/resource-result.json`。前两次开发中分别56/61例全绿，随后补齐边界并重跑当前全部62例；不累加重复通过次数。
+
+已实际覆盖：原始单文件schema、空Raw、两年完整日期、闰年366日期上界；四列双向EXCEPT ALL包含重复行，29条差异只取20样本；Raw冲突/内外日期错放/单文件类型错立即拒绝；批前/批后/发布前/prepared后输入漂移；不完整或旧hash报告拒绝；报告不隐式创建、不覆盖不同报告；目标缺失发布、不同压缩等价复用、错误/损坏/schema错目标不覆盖；候选/目标链接、跨设备、错checkpoint、bool冒充版本、超大目标拒绝。
+
+续跑实测包括prepared后中断、原子移动后进程退出、移动已成功但调用方收到OSError、移动失败、checkpoint失败、目标读回失败、候选和checkpoint都已不在但目标正确。已移动的文件不回滚、不再次提升；不确定结果返回5并保留文件。只读CLI全链的mkdir/replace调用为0，文件集合/内容/inode/mtime不变；显式save-report只存报告，确认publish-file才发布目标与checkpoint；无实例目录、SQLite库、事件和源调用。参数不接受缩写或额外开关；无参数/help/坏操作标识/缺参数/坏hash在资源前退出。
+
+复用影响回归：原SQL合并42例（9/7/10/16四批，合计5.468秒），原日常writer58例（9/11/12/13/13五批，合计8.293秒）重新全部通过。当前Raw标准化SQL字面投影与提交`d59b7980`完全一致；四个原合并/冲突/统计函数体AST不变，日常writer与所有既有调用方未改。CodeGraph explore/impact核查标准化入口，影响图指向唯一日常writer；新bootstrap只复用SQL/contract/paths，不import asset或instance。**本轮有效验收合计162例，不是整个S1或生产C01/C05通过。**
+
+静态与权限对账：6份Python完整Ruff和全src/tests致命错误基线通过；isolation/adapter策略与`d59b7980`逐字一致，regression只增三个bootstrap文件、本测试文件及bootstrap目录对象的精确读取，未放行目录子树/正式路径/网络/写权限。原标准化路径API签名保持，分钟CLI、Raw请求、十四条时段修正、schema/catalog/日常metadata不改；无新配置项、依赖、子系统边界或依赖矩阵变化。LLD/技术方案/主索引同步，文档完整性和差异检查交付前复验。全量Definitions/catalog/static-governance与其它消费者G组仍按原S1后续矩阵完成，不由本轮100例复用回归替代。
+
+#### C. 产物与下一步
+
+本轮代码/测试6份（两bootstrap、duckdb_sql、新测试、runner/support）加原三份文档，共9份专项增量；未提交、未推送，Wealth改动保留。以下全部27个本轮精确临时根追加到§18.11最终清理；仅synthetic文件和内存连接，没有新DG实例/SQLite库，不安装套件。当前保留证据，需求结束后按既定要求彻底清理。
+
+```text
+/private/tmp/stock-suspend-isolated-zocqstjg
+/private/tmp/stock-suspend-isolated-di9mdme0
+/private/tmp/stock-suspend-isolated-ywna5xtq
+/private/tmp/stock-suspend-isolated-2lrfg1fn
+/private/tmp/stock-suspend-isolated-x3qwmu14
+/private/tmp/stock-suspend-isolated-spz1et9o
+/private/tmp/stock-suspend-isolated-m9dv77mi
+/private/tmp/stock-suspend-isolated-tgzg_6fi
+/private/tmp/stock-suspend-isolated-pqalfcc2
+/private/tmp/stock-suspend-isolated-776kqqks
+/private/tmp/stock-suspend-isolated-rwr__jb4
+/private/tmp/stock-suspend-isolated-5tz5vy7p
+/private/tmp/stock-suspend-isolated-obajtrdf
+/private/tmp/stock-suspend-isolated-77zrxx22
+/private/tmp/stock-suspend-isolated-jc4b9wei
+/private/tmp/stock-suspend-isolated-clf76qyb
+/private/tmp/stock-suspend-isolated-_sjbsrq5
+/private/tmp/stock-suspend-isolated-1d6dd5d7
+/private/tmp/stock-suspend-isolated-s66jy98o
+/private/tmp/stock-suspend-isolated-6460cjzn
+/private/tmp/stock-suspend-isolated-g_5b3v87
+/private/tmp/stock-suspend-isolated-htsftlh2
+/private/tmp/stock-suspend-isolated-c5a0e1bf
+/private/tmp/stock-suspend-isolated-6h6oqvzh
+/private/tmp/stock-suspend-isolated-a06vb2nt
+/private/tmp/stock-suspend-isolated-n8hkhp8q
+/private/tmp/stock-suspend-isolated-lme_7z6j
+```
+
+下一步是原§9事件侧：核实不初始化存储的实例取得路径，实现audit-events/register-events和E/B07隔离测试；文件工具不接入该实例。随后完成其余S1消费者/治理回归，再单独申请S2正式候选与全范围验收。**本轮未正式发布文件或事件，未运行正式job、删除CSV、恢复sensor或重载服务；没有新增业务拍板项。**

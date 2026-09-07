@@ -357,6 +357,15 @@ WHERE normalized.trade_date >= stock_lifecycle.list_date
 
 
 def suspend_d_normalized_select(raw_path: Path) -> str:
+    return _suspend_d_normalized_from_sql(read_parquet(raw_path, hive_partitioning=False))
+
+
+def suspend_d_normalized_relation_select(relation_name: str) -> str:
+    """The same Raw normalization for a caller's validated, batch-loaded relation."""
+    return _suspend_d_normalized_from_sql(suspend_relation_identifier(relation_name))
+
+
+def _suspend_d_normalized_from_sql(source_sql: str) -> str:
     return f"""
 SELECT
   CAST(ts_code AS VARCHAR) AS ts_code,
@@ -366,7 +375,7 @@ SELECT
     ELSE CAST(suspend_timing AS VARCHAR)
   END AS suspend_timing,
   CAST(suspend_type AS VARCHAR) AS suspend_type
-FROM {read_parquet(raw_path, hive_partitioning=False)}
+FROM {source_sql}
 """
 
 
