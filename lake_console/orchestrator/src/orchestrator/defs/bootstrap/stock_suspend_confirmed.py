@@ -86,6 +86,10 @@ class PublicationPaths:
     def checkpoint(self):
         return self.operation_dir / "file-checkpoint.json"
 
+    @property
+    def events_checkpoint(self):
+        return self.operation_dir / "events-checkpoint.json"
+
     def check(self):
         for path, root in ((self.operation_dir, self.staging_root), (self.target, self.lake_root)):
             contract.assert_suspend_path(path, root=root)
@@ -484,7 +488,7 @@ def _sync_directory(path):
 
 
 def _save_json(paths, path, payload):
-    if path not in (paths.comparison, paths.checkpoint):
+    if path not in (paths.comparison, paths.checkpoint, paths.events_checkpoint):
         _fail("unexpected_output_path", path, 2)
     paths.check()
     contract.assert_suspend_path(path, root=paths.operation_dir)

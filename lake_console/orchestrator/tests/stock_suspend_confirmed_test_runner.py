@@ -116,6 +116,11 @@ REGRESSION_SUITES = {
         ("B-boundaries", 16, ("test_unsafe_publication_refused", "test_cli_help_and_bad_arguments_have_no_io")),
         ("B-cli", 5, ("test_cli_readonly_full_chain", "test_cli_save_and_confirmed_publish_are_separate",
                        "test_cli_wrong_hash_does_not_connect")),
+        ("E-roundtrip", 11, ("test_event_roundtrip_and_existing_prefix", "test_event_reuses_daily_checks_without_token",
+                              "test_event_uncertainty_and_recovery")),
+        ("E-conflicts", 13, ("test_event_conflicts_never_write", "test_event_cli_readonly_and_apply")),
+        ("B07-instance", 10, ("test_event_native_instance_construction",)),
+        ("E-resume-boundaries", 8, ("test_event_additional_resume_boundaries",)),
     ),
     "test_duckdb_connection.py": (
         ("B06-existing-contract", 6, (
@@ -196,6 +201,7 @@ def source_files_for_scope(scope: str) -> tuple[str, ...]:
                  "regression": tuple(dict.fromkeys(MERGE_SOURCE_FILES + ADAPTER_SOURCE_FILES + WRITER_SOURCE_FILES + INTEGRATION_SOURCE_FILES + (
                      "defs/bootstrap/__init__.py", "defs/bootstrap/stock_suspend_confirmed.py",
                      "defs/bootstrap/stock_suspend_confirmed_cli.py",
+                     "defs/bootstrap/stock_suspend_confirmed_events.py",
                  )))}
     if scope not in additions:
         raise ValueError("invalid_scope")

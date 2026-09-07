@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成；前序实现及受限连接已提交，最新提交`d59b7980`，未推送。LLD §18.25完成文件侧inspect/compare/publish-file，62例通过；重跑原42例合并与58例日常writer回归，共162例有效验收。本轮文件工具增量未提交；S1仍缺事件CLI/实例只读取得、事件故障测试及其余全套回归。S2未执行，没有操作正式数据/实例、删除CSV、恢复sensor、安装套件或启动DG服务；最终按LLD §18.11及各轮精确清单清理测试产物。**
+状态：**S0已完成；文件侧已提交`617266b9`，未推送。LLD §18.26补齐事件两命令、受限本地PG实例取得和事件续跑，新增42例＋原文件侧62例，共104例隔离验收通过；事件增量未提交。S1还剩消费者/治理全套回归，S2未执行。本轮仅只读查看正式配置的存储类别与非敏感路径，未构造正式instance、连接正式数据库或操作正式Lake/event；没有删除CSV、恢复sensor、安装套件或启动服务。最终按LLD §18.11及精确清单清理测试产物。**
 
 首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
 
@@ -292,9 +292,9 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 ### S1：隔离实现与测试——中风险，隔离与实际adapter小样本通过，剩余实现待推进
 
 1. 原模型D06关联失败与探针越权的历史记录保留。I01–I08完成后管理员已要求继续；LLD §18.19按白名单落实合同分类、两个新checks及受限测试，59例C/D通过。无正式数据/实例访问，不改共享健康函数、SDK或业务字段。
-2. 已完成writer与唯一公开SQL接口同轮切换，已提交`4887cfac`、未推送，不保留旧签名/CSV回退；58例实际临时writer及42例SQL回归通过，见LLD §18.21。prepared/committed先按文件事实续跑，输入漂移不得覆盖，等价目标不重写；Raw和最终四列合同不变。随后job/check/readiness/sensor集成、受限连接与三个文件CLI已依次通过；最新文件侧验收见[LLD §18.25](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-confirmed-file-bootstrap)。下一步为事件CLI/实例取得与剩余全套回归；这不是正式发布或S1完成，生产C01/C05仍待S2独立授权。
+2. 已完成writer与唯一公开SQL接口同轮切换，已提交`4887cfac`、未推送，不保留旧签名/CSV回退；58例实际临时writer及42例SQL回归通过，见LLD §18.21。prepared/committed先按文件事实续跑，输入漂移不得覆盖，等价目标不重写；Raw和最终四列合同不变。随后job/check/readiness/sensor集成、受限连接与五个CLI已依次通过；最新事件与实例验收见[LLD §18.26](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-confirmed-event-bootstrap)。下一步为剩余消费者/治理回归；这不是正式发布或S1完成，生产C01/C05仍待S2独立授权。
 
-   集成前曾发现三个原最终Silver检查缺少日期声明，而替身测试显式设置了日期，未覆盖真实定义差异。管理员了解两类资产的区别后要求继续，已仅给三个日频检查绑定现有`cn_a_stock_trade_days`；检查业务判断、四列数据、Raw与新固定事实无分区语义不变。job一writer五checks、正确日期归属、真实发布关联及专用readiness/sensor接入已在隔离环境通过。审计经过见[LLD §18.22](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-daily-check-partition-audit)，53例＋5subtests、实际逐文件落点、首轮测试问题和12处清理登记见[LLD §18.23](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-confirmed-integration-acceptance)。三个检查声明、受限连接和文件CLI已完成；当前继续项仅事件侧及剩余回归，不再将已完成项列为待拍板。
+   集成前曾发现三个原最终Silver检查缺少日期声明，而替身测试显式设置了日期，未覆盖真实定义差异。管理员了解两类资产的区别后要求继续，已仅给三个日频检查绑定现有`cn_a_stock_trade_days`；检查业务判断、四列数据、Raw与新固定事实无分区语义不变。job一writer五checks、正确日期归属、真实发布关联及专用readiness/sensor接入已在隔离环境通过。审计经过见[LLD §18.22](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-daily-check-partition-audit)，53例＋5subtests、实际逐文件落点、首轮测试问题和12处清理登记见[LLD §18.23](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-confirmed-integration-acceptance)。三个检查声明、受限连接和五CLI已完成；当前继续项为剩余消费者/治理回归，不再将已完成项列为待拍板。
 
    2026-09-07实施澄清：先只读核验路径，再优先恢复已有checkpoint；不得让后来丢失的Raw挡住已提交文件的认定。当前writer不调用健康canary、不读instance；checkpoint严格两阶段、内部JSON上界1MiB，冻结实际统计和时段元数据。首次非等价写入输入hash各4轮、reuse各2轮，额外字节IO已计入LLD §12，不改日常连接默认。临时故障注入＋新连接续跑通过，不等于正式进程中断/完整job验收；没有新建DG实例/数据库、安装套件、改正式数据或恢复sensor。具体文件矩阵、100例有效集合及14处最终清理登记见[LLD §18.21](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-confirmed-writer-acceptance)。旧历史小轮状态仍保留为证据，当前状态以本文文首及该节为准。
 3. 本阶段只允许临时虚构数据测试，不准备真实迁移候选。实际候选放在 `/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=<批准的运行标识>/`，按 LLD §11 归 S2 的独立 staging 授权，不将 S1 开发批准当写入批准。

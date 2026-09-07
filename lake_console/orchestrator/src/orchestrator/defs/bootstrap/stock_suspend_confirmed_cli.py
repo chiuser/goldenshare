@@ -1,7 +1,7 @@
-"""Inspect, compare, and publish approved suspension facts, by manual operation.
+"""Inspect, compare, publish files and register approved suspension facts manually.
 
-No CSV conversion, arbitrary path option, asset execution or event registration.
-File and event approval are separate; these commands never construct an instance.
+No CSV conversion, arbitrary path option or asset execution.
+File and event approval are separate; file commands never construct an instance.
 """
 
 import argparse
@@ -13,16 +13,18 @@ from pathlib import Path
 def _parser():
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     commands = parser.add_subparsers(dest="command", required=True)
-    for command in ("inspect", "compare", "publish-file"):
+    for command in ("inspect", "compare", "publish-file", "audit-events", "register-events"):
         child = commands.add_parser(command, allow_abbrev=False)
         child.add_argument("--operation-id", required=True)
-        if command != "inspect":
+        if command not in ("inspect", "audit-events"):
             child.add_argument("--expected-plan-sha256", required=True)
         if command == "compare":
             child.add_argument("--save-report", action="store_true")
         if command == "publish-file":
             child.add_argument("--expected-comparison-sha256", required=True)
             child.add_argument("--confirm-file-publish", action="store_true")
+        if command == "register-events":
+            child.add_argument("--confirm-event-publish", action="store_true")
     return parser
 
 
@@ -58,7 +60,8 @@ def main(argv=None, *, lake_root=None, staging_root=None, connection_settings=No
     from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
 
     mode = "apply" if (getattr(args, "save_report", False) or
-                       getattr(args, "confirm_file_publish", False)) else "readonly"
+                       getattr(args, "confirm_file_publish", False) or
+                       getattr(args, "confirm_event_publish", False)) else "readonly"
     applied = False
     try:
         paths = publication.PublicationPaths(
@@ -77,7 +80,27 @@ def main(argv=None, *, lake_root=None, staging_root=None, connection_settings=No
                 plan=plan, expected_comparison_sha256=args.expected_comparison_sha256)
         settings = connection_settings if connection_settings is not None else DEFAULT_DUCKDB_CONNECTION_SETTINGS
         with connect_configured_duckdb(settings, temp_policy="existing_no_spill") as connection:
-            if args.command == "inspect":
+            if args.command in ("audit-events", "register-events"):
+                from orchestrator.defs.bootstrap import (
+                    stock_suspend_confirmed_events as events,
+                )
+
+                # File validation precedes instance construction, not just event IO.
+                if publication._inspect_file(connection, paths.target) != "approved":
+                    publication._fail("published_file_missing", exit_code=3)
+                with events.open_confirmed_event_instance(plan=plan) as instance:
+                    audit = events.audit_confirmed_events(instance, connection, plan=plan)
+                    if getattr(args, "confirm_event_publish", False):
+                        result = asdict(events.register_confirmed_events(instance, connection, plan=plan, audit=audit))
+                        applied = True
+                    else:
+                        result = {**asdict(audit), "events_complete": audit.complete,
+                                  "planned_events": sum(record is None for record in audit.records),
+                                  "file_committed": True}
+                        if audit.uncertain:
+                            _emit(mode, False, **result, reason_code="event_result_uncertain")
+                            return 5
+            elif args.command == "inspect":
                 result = asdict(publication.inspect_confirmed_publication(connection, paths=paths))
             elif args.command == "compare":
                 comparison = publication.compare_confirmed_migration(connection, plan=plan)
@@ -106,6 +129,9 @@ def main(argv=None, *, lake_root=None, staging_root=None, connection_settings=No
         return 2
     except (OSError, RuntimeError, DuckDBError) as error:
         _emit(mode, applied, reason_code="io_or_query_failed", message=type(error).__name__)
+        return 6
+    except Exception as error:  # noqa: BLE001 -- never print credential-bearing DB/config errors.
+        _emit(mode, applied, reason_code="instance_or_configuration_failed", message=type(error).__name__)
         return 6
 
 

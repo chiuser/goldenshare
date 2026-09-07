@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成；前序实现及受限连接已提交，最新提交`d59b7980`，未推送。§18.25完成文件侧inspect/compare/publish-file：62例通过，另重跑原42例合并与58例日常writer回归通过，共162例有效验收。本轮文件工具增量未提交；S1仍缺事件CLI/实例只读取得、事件故障测试及其余全套回归。没有操作正式数据/实例、删除CSV、恢复sensor、安装套件或启动DG服务。S2未执行；临时产物最终按§18.11精确清理。**
+状态：**S0已完成；文件侧已提交`617266b9`，未推送。§18.26补齐audit-events/register-events、受限本地PG实例取得与事件续跑，新增42例＋原文件侧62例，共104例隔离验收通过。本轮事件增量未提交；S1仍剩消费者/治理全套回归，S2未执行。本轮仅只读查看正式配置的类别与非敏感路径，未构造正式instance、连接正式数据库或操作正式Lake/event；没有删除CSV、恢复sensor、安装套件或启动服务。测试产物最终按§18.11精确清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -506,7 +506,7 @@ plan 的 hash 为其实际 UTF-8 文件 bytes SHA-256，文件不包含自身 ha
 
 ### 8.2 CLI 命令与参数合同
 
-入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25已实现并隔离验收`inspect`、`compare`、`publish-file`三个文件命令；`audit-events`、`register-events`仍为待实现设计，尚未注册。**现在没有获准的正式plan/候选，不得据此在正式根执行命令；S2/S3另行批准。**
+入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25实现三个文件命令；§18.26补齐`audit-events`、`register-events`并完成五命令隔离验收。**现在没有获准的正式plan/候选，不得据此在正式根执行命令；S2/S3另行批准。**
 
 | 子命令 | 必填参数 | 可选参数 / 缺省行为 | 可变更的内容 |
 | --- | --- | --- | --- |
@@ -524,7 +524,7 @@ read-only 命令（含两个发布命令未确认的分支）不得顺便mkdir�
 
 ### 8.2A 连接与实例取得：先分命令，再取得必要资源
 
-代码依据：实施前 `defs/duckdb_connection.py::connect_configured_duckdb` 首先调用默认移动盘temp目录的mkdir；`DuckDBResource.connect` 委托它。只换SQL不能使CLI只读。本次选择**在统一入口增加显式受限初始化策略，默认分支不变**，不在bootstrap私建裸连接。该连接策略已按§18.24实现并通过B06，§18.25三个文件命令已接入；两个事件命令及实例取得仍是后续设计。
+代码依据：实施前 `defs/duckdb_connection.py::connect_configured_duckdb` 首先调用默认移动盘temp目录的mkdir；`DuckDBResource.connect` 委托它。只换SQL不能使CLI只读。本次选择**在统一入口增加显式受限初始化策略，默认分支不变**，不在bootstrap私建裸连接。该连接策略已按§18.24实现并通过B06；§18.25/26五命令均已接入，实例取得详见§18.26。
 
 已实现的连接签名：
 
@@ -538,7 +538,7 @@ connect_configured_duckdb(
 | 策略 | 初始化与配置 | 消费者 |
 | --- | --- | --- |
 | managed（默认） | 原mkdir、settings.config、连接校验与关闭行为保持；默认目录/16GB/4线程/512GB spill不变 | 当前全部日常asset/check/sensor/bootstrap与DuckDBResource，不批量改调用方 |
-| existing_no_spill（显式） | settings指定temp必须是无“..”的绝对路径，从根到叶逐级lstat确认已有普通目录、无symlink；缺失即失败，不mkdir。连接配置覆写max_temp_directory_size=0B、autoinstall_known_extensions=false、autoload_known_extensions=false；其余设置保持。连接建立后按有效配置读回上述值，不符即关闭并失败 | 当前三个文件CLI命令及专项连接验收显式使用；未来两个事件命令同样使用。不是运营开关，也不等于数据库层禁止任意COPY |
+| existing_no_spill（显式） | settings指定temp必须是无“..”的绝对路径，从根到叶逐级lstat确认已有普通目录、无symlink；缺失即失败，不mkdir。连接配置覆写max_temp_directory_size=0B、autoinstall_known_extensions=false、autoload_known_extensions=false；其余设置保持。连接建立后按有效配置读回上述值，不符即关闭并失败 | 当前五个专项CLI命令及连接验收显式使用。不是运营开关，也不等于数据库层禁止任意COPY |
 
 专项CLI固定使用现有统一temp路径作为**仅校验、不创建、不写入**的工作路径，最大内存/线程沿用默认；目录未准备好就报告缺失，不能自建。显式apply也用同一无spill连接；获准的候选/报告/checkpoint写入由命令自己的白名单控制，不通过切回managed取得额外权限。无spill内存不足即停，不自动增内存或借临时目录兜底。
 
@@ -554,7 +554,7 @@ connect_configured_duckdb(
 | audit-events / register-events无确认 | 参数与文件校验→受限连接→核定plan中的本地实例配置→只读取得已有实例→有界事件读取；无事件/checkpoint写入 |
 | register-events有确认 | 同上只读前置完成后，单独进入§9事件写入与event checkpoint；没有Lake写入能力 |
 
-实例构造也是被审计的IO入口，不因方法名是get就假定只读。取得前核验既有home/config与plan身份，取得后核验存储身份；禁止创建home、存储表、SQLite库、日志目录或迁移schema。E/B测试覆盖构造阶段的mkdir/DDL/事件写入拦截，以及错误身份在查询前被拒绝。当前本文**不声称已验证SDK构造零副作用**；若实际配置/构造做不到，事件CLI不得进入正式试跑，应先补充具体只读取得路径的代码证据和设计，不以构造后的身份检查掩盖提前写入。
+实例构造也是被审计的IO入口，不因方法名是get就假定只读。取得前核验既有home/config与plan身份，取得后核验存储身份；禁止创建home、存储表、SQLite库、日志目录或迁移schema。§18.26已在隔离范围验证当前三个真实PG构造器关闭autocreate后零连接/DDL/mkdir，并校验错误身份在查询前拒绝。此结论**不表示正式PG查询/写入已经验收**；不支持的配置直接拒绝，不调用常规get/from_ref兜底。
 
 以上资源能力在同一CLI测试中从参数解析到退出全链记录：文件变更集合、mkdir/COPY/replace/checkpoint/event计数、连接设置和instance调用次数。只读分支不能借save-report或确认参数测试的授权写入。读取可能产生系统atime，不将其等同于业务内容写入；文件校验比较内容、集合、size/inode/mtime。
 
@@ -682,11 +682,12 @@ S0 已核验当前两个停牌目录的 3,083 个日期全部属于正式 SSE �
 | `src/orchestrator/defs/assets/stock_suspend_confirmed.py` | 一个 AssetSpec；无 IO、writer、动态读取或自动化 |
 | `src/orchestrator/defs/stock_suspend_confirmed_contract.py` | 版本/hash、inspection与loader分工、schema/content/资源失败分类；统一新签名；不import duckdb_sql、不藏CSV |
 | `src/orchestrator/defs/checks/stock_suspend_confirmed_checks.py` | 两 check adapter；纯逻辑复用 contract |
-| `src/orchestrator/defs/bootstrap/stock_suspend_confirmed.py` | §8/9 专用计划、比较、文件/事件 adapter；无源接口和每日调度 |
+| `src/orchestrator/defs/bootstrap/stock_suspend_confirmed.py` | §8计划、比较、文件adapter及固定JSON路径；不import事件模块、Dagster/instance，无源接口和每日调度 |
+| `src/orchestrator/defs/bootstrap/stock_suspend_confirmed_events.py` | §9事件adapter及受限实例取得；只由两个事件CLI分支加载；不调用文件发布/Parquet writer |
 | `src/orchestrator/defs/bootstrap/stock_suspend_confirmed_cli.py` | 五个专用子命令、确认/错误码；不接入 stk_mins CLI |
 | `tests/test_stock_suspend_confirmed_contracts.py` | C 组；类型、编码、路径、批准内容身份 |
 | `tests/test_stock_suspend_confirmed_merge.py` | M/W 组；独立 expected 与每日 writer 故障注入 |
-| `tests/test_stock_suspend_confirmed_bootstrap.py` | B/E 组；CLI、文件发布、事件中断 |
+| `tests/test_stock_suspend_confirmed_bootstrap.py` | B/E组104例；五CLI、文件发布、真实临时事件关联/中断和原生PG构造；事件存储替身与构造验收分开说明 |
 | `tests/test_stock_suspend_confirmed_dagster.py` | D 组；自动发现、外部检查与分区 job、真实隔离事件关联 |
 | `tests/stock_suspend_confirmed_test_runner.py` | isolation/adapter独立停止；原S1恢复后§10.4固定regression清单；不开放任意命令/路径，不进入正式defs |
 | `tests/stock_suspend_confirmed_test_support.py` | 专项提前加载的测试插件、临时资源工厂、目录/连接断言；只供本专项测试 |
@@ -2518,3 +2519,103 @@ CodeGraph `explore`、`impact(connect_configured_duckdb, depth=1)`覆盖统一�
 ```
 
 下一步是原§9事件侧：核实不初始化存储的实例取得路径，实现audit-events/register-events和E/B07隔离测试；文件工具不接入该实例。随后完成其余S1消费者/治理回归，再单独申请S2正式候选与全范围验收。**本轮未正式发布文件或事件，未运行正式job、删除CSV、恢复sensor或重载服务；没有新增业务拍板项。**
+
+<a id="s1-confirmed-event-bootstrap"></a>
+
+### 18.26 事件侧人工工具（2026-09-07）
+
+§18.25九文件已提交为`617266b9`，未推送，不含Wealth。本轮继续原§9，仍是S1代码与隔离验收，不是正式事件登记授权。
+
+#### A. 编码前的实例与事件约束
+
+只读查看了正式配置的存储类别及非敏感路径：统一PostgreSQL存储，artifact/log分别在既有本机目录；未构造正式instance或连接数据库。安装版本SDK的三个Postgres存储构造器均支持`should_autocreate_tables=False`，此分支只创建延迟连接的engine；建表/迁移均在True分支。`DagsterInstance`支持已给定存储、ref及延迟组件；`LocalArtifactStorage`构造不mkdir。依据为本项目`.venv/lib/python3.13/site-packages/`下对应源码，并对照[Dagster instance API](https://docs.dagster.io/api/dagster/internals)、[checks API](https://docs.dagster.io/api/dagster/asset-checks)。不执行常规`get/from_ref`来试探副作用。
+
+| 落点 | 硬约束与验收 |
+| --- | --- |
+| 新`bootstrap/stock_suspend_confirmed_events.py` | 集中§9事件adapter和受限实例取得；文件模块仍不import Dagster/instance。先严格校验plan、正式目标合同，再核对既有home/config/三存储身份；不加载用户自定义实例/存储类，不创建存储表、日志、schema或临时实例 |
+| 受限实例取得 | 只支持当前已批准的统一本地PostgreSQL；先解析已有配置，拒绝自定义instance/分拆或非PG存储、远程host和非预期URL参数。存储标识为不含密码的`postgresql://用户@host:port/database`，三项与plan逐字相等；三个真实存储构造均显式关闭autocreate。只装配本地artifact对象与已有存储，不加载scheduler、launcher、coordinator、secrets/defs-state或compute logs；配置前后指纹与实例实际存储URL均复核 |
+| 事件audit | 一个固定文件完整schema/content读回，不扫描Raw或其他Silver。每类事件最多10条，只判断当前最新状态并在此窗口核对pending/token；materialization只能有一个，check可复用日常无token的有效最新记录。不把check execution id冒充event storage id |
+| 事件register | 唯一人工发布者；先重新audit，不信调用方传入旧结果。最多E1/E2/E3；每条先原子持久化pending，再调用一次SDK，读回相同token和原生target关联后confirmed。任何不确定结果停止；pending查不到不重发；已确认或真实读回的事件不重发；不同身份/失败/重复token均拒绝，不删event |
+| `PublicationPaths`与专用JSON保存 | 仅新增当前operation的`events-checkpoint.json`；复用原子JSON写入，不放开任意路径。事件helper不能调用文件发布、COPY或目标replace；checkpoint不作为文件或事件事实源 |
+| 专用CLI | 补全audit-events/register-events；无确认全链只读；文件三个命令不取得instance。只通过显式event确认进入登记，不新增运营参数、远程地址、实例配置或安装项 |
+| 隔离测试 | 固定新增事件suite，精确新增源码白名单；默认实例发现、正式路径和网络拒绝保持。事件round-trip用已批准临时实例工厂；构造门禁另以真实PG构造器＋禁止engine.connect/mkdir/DDL验证，不用SQLite构造冒充PG零副作用。合成事件测试的临时存储身份由测试工厂核验，不能当正式PG联机验收 |
+
+性能/写入预算：正式初次最多1个文件（4,022行、读取上限100MiB）、3类事件×最多10条/次audit、3次事件写API，无分区、日期、频度扩张；每次audit最多3次历史调用，续写最多初检＋每条前后各一次，成功至多7轮/21次历史调用。每轮固定事实至多一次行解码，CLI在取得实例前另校验一次，写前后另做文件身份/字节hash核对，不重扫历史目录；checkpoint≤1MiB。构造3个lazy engine，不在构造时连接/建表，正常使用每类有界读取，不持有跨事件长事务。测试固定2行/3日期、每例最多30条微型事件、case30秒、每批≤16例/60秒、工作区100MiB、输出64KiB；沿用512MB/2线程/0spill。失败不扩预算或安装/开网络重试。所有新增临时根在验收后登记到本节，并按§18.11最终清理。
+
+#### B. 验收结果与限制
+
+最终固定suite共**104例**（本轮事件/实例42例＋原文件62例），10批全通过，零skip/xfail、零超限，禁止哨兵均不变。所有结果使用原隔离启动器，没有放宽网络/正式路径或默认实例发现保护；regression源码白名单只新增一个事件模块，support和隔离策略生成逻辑未改。
+
+| 批次 | 例数 | 完整启动耗时 | 证据目录后缀 |
+| --- | ---: | ---: | --- |
+| B-plan | 12 | 2.158秒 | `zz7tfyh7` |
+| B-compare | 11 | 2.302秒 | `skly5esx` |
+| B-report | 6 | 2.565秒 | `19056yzd` |
+| B-publish | 12 | 2.512秒 | `mui7safn` |
+| B-boundaries | 16 | 2.042秒 | `wns_beuq` |
+| B-cli | 5 | 1.907秒 | `lwfv3h61` |
+| E-roundtrip | 11 | 6.330秒 | `cwmo040f` |
+| E-conflicts | 13 | 6.581秒 | `el149y_d` |
+| B07-instance | 10 | 1.841秒 | `g_q3pi9d` |
+| E-resume-boundaries | 8 | 4.199秒 | `nvik501v` |
+
+各报告为`/private/tmp/stock-suspend-isolated-<后缀>/allowed/resource-result.json`。10批完整启动耗时合计32.437秒，不是正式PG/全历史迁移性能。每个事件例只用虚构实例，未启动服务、创建job run或接触正式存储。
+
+验收对账：
+
+- E01/E02：零事件、已有E1、已有E1/E2、完整三条均能正确登记/复用；每类最终恰好一条、再次写入为0。原生check target的storage_id/run_id/timestamp来自真实E1；两check无分区、ERROR、blocking/passed。实际`stock_suspend_confirmed_readiness`在这些记录上返回ready；Lake内容/inode/mtime不变。
+- E03：第一/第二/最后事件调用后退出、写入后超时、事件读回失败、confirmed checkpoint失败均能只读找回真实token，并只补从未尝试的缺项。pending查不到（含check pending）阻止全部后续写入；API最多调用一次，不盲重试。checkpoint完全丢失而事件齐全时直接reuse，无需重建文件或重复登记。
+- E04：不同发布、失败检查、错误target/分区、重复token、批准内容/来源/行数或token缺失、已确认记录退出10条窗口、checkpoint身份错误、过期audit和文件改变均拒绝；不删事件，不补绿。日常最新正确check没有人工token时仍复用，不因正常日常记录新增人工事件。
+- B01/B02/B07：两个事件CLI无确认时mkdir/replace/event调用均为0，目标与staging文件集合/内容/inode/mtime一致；有event确认才登记三条及checkpoint。实际PG构造器在禁止Engine.connect和mkdir的环境成功，证明无连接/DDL/目录创建；错home、缺配置、远程host、URL query参数、错存储身份、自定义instance、非PG存储、未知artifact类在取得前拒绝。故意让构造器mkdir的反例被准确识别。
+- 生产路径和测试实例身份不混用：PG构造测试真实执行三个PG构造器、没有DB连接；事件写/读回测试真实使用既有隔离工厂的SQLite后端，测试替换的仅是本地存储身份核验/取得入口，仍逐项读回三类临时库位置。**正式PG联机查询、事务行为和实际正式事件发布尚未执行，不用替身结论冒充。**
+
+首轮`E-roundtrip`前4例通过后，测试修改Dagster record时错误使用`_replace`，SDK拒绝迭代。已读本机`AssetCheckEvaluation.with_metadata`和`dagster_shared.record.copy`实现，仅修正测试构造方法；失败现场`qzn_1c_j`保留。随后96例全过，再补完整发布metadata、部分check中断/遗失checkpoint及实际readiness断言，最终104例全过；重复运行不累加为新的有效用例。
+
+具体实现补充：实例ref仅从已核验字段构造惰性描述，不调用会再次读取配置并可能导入自定义类的`InstanceRef.from_dir`。存储URL显式移除密码；artifact目录与三个实际存储身份在audit前再次核验。materialization复用要求完整URI、实际批准行列、版本/hash、来源指纹、合法operation与确定性token；日常check不要求人工token。events checkpoint只记录三个kind的pending/confirmed/uncertain及原生record身份；schema版本、plan、home、storage与目标必须一致。没有retry/force开关，不承诺跨发布者exactly-once。
+
+#### C. 改动、清理与下一步
+
+本轮8份增量：新增事件模块，修改文件工具（仅checkpoint路径/JSON白名单）、CLI、原bootstrap测试、runner及本LLD/技术方案/主索引；尚未提交、未推送。CodeGraph explore/impact覆盖固定readiness、PublicationPaths及CLI/文件工具消费者，结束sync/status；日常writer、SQL、assets/checks/sensor、schema/catalog、分钟CLI、共享默认连接和子系统依赖矩阵未改。五份Python默认Ruff及全src/tests致命错误基线通过；文档检查在交付前复验。
+
+以下36处完整路径纳入§18.11最终清理，包含失败/中间/最终测试现场和本轮临时实例库；没有安装项，不卸载原有共享SQLite/Python/Dagster。当前只保留到本需求收尾验收，未执行删除：
+
+```text
+/private/tmp/stock-suspend-isolated-zv0bse54
+/private/tmp/stock-suspend-isolated-4hqd0orx
+/private/tmp/stock-suspend-isolated-1lyiyp3w
+/private/tmp/stock-suspend-isolated-fqnl0o40
+/private/tmp/stock-suspend-isolated-fzjcbeup
+/private/tmp/stock-suspend-isolated-ghi8qr6j
+/private/tmp/stock-suspend-isolated-qzn_1c_j
+/private/tmp/stock-suspend-isolated-hmvhw964
+/private/tmp/stock-suspend-isolated-qp8wjst4
+/private/tmp/stock-suspend-isolated-cp6apt56
+/private/tmp/stock-suspend-isolated-ju_elnrs
+/private/tmp/stock-suspend-isolated-1w76rj26
+/private/tmp/stock-suspend-isolated-_j3zg1sx
+/private/tmp/stock-suspend-isolated-opxt3iyh
+/private/tmp/stock-suspend-isolated-yzexwvhb
+/private/tmp/stock-suspend-isolated-2vtb543e
+/private/tmp/stock-suspend-isolated-qffdray5
+/private/tmp/stock-suspend-isolated-u73bggdc
+/private/tmp/stock-suspend-isolated-rrjrlp01
+/private/tmp/stock-suspend-isolated-_08kg4nj
+/private/tmp/stock-suspend-isolated-yh9cm8wx
+/private/tmp/stock-suspend-isolated-rwjhe756
+/private/tmp/stock-suspend-isolated-14rrttj3
+/private/tmp/stock-suspend-isolated-twocop8s
+/private/tmp/stock-suspend-isolated-tjtckxfz
+/private/tmp/stock-suspend-isolated-i_mjd50j
+/private/tmp/stock-suspend-isolated-zz7tfyh7
+/private/tmp/stock-suspend-isolated-skly5esx
+/private/tmp/stock-suspend-isolated-19056yzd
+/private/tmp/stock-suspend-isolated-mui7safn
+/private/tmp/stock-suspend-isolated-wns_beuq
+/private/tmp/stock-suspend-isolated-lwfv3h61
+/private/tmp/stock-suspend-isolated-cwmo040f
+/private/tmp/stock-suspend-isolated-el149y_d
+/private/tmp/stock-suspend-isolated-g_q3pi9d
+/private/tmp/stock-suspend-isolated-nvik501v
+```
+
+下一步按§10.3/10.4完成剩余消费者、catalog/Definitions及static-governance回归和S1逐项对账；不再开发额外测试框架。通过后才单独申请S2正式候选/全范围比较；S3/S4文件与事件正式发布、sensor恢复及S5 CSV退场仍按原批准边界处理。本轮无新的业务拍板项，S1还未整体完成。
