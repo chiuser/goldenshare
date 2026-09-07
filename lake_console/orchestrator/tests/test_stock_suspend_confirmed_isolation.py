@@ -1,7 +1,8 @@
-"""I03-I06 resource, path, DuckDB, instance and network tests; no actual checks/jobs."""
+"""I03-I06 and I08 isolated resource tests; I07 runs separate startup fixtures."""
 
 from stock_suspend_confirmed_test_support import (
     checked_test_input_file,
+    checked_test_path,
     confirmed_test_network_address,
     connect_confirmed_test_duckdb,
     make_confirmed_test_instance,
@@ -21,7 +22,7 @@ import json
 import os
 import socket
 import stat
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -442,3 +443,104 @@ def test_i06_native_network_denial(kind):
     assert observed_errno in (errno.EPERM, errno.EACCES)
     print(json.dumps({"case_evidence": "I06_native_network_rejected", "kind": kind,
                       "errno": observed_errno, "permission_denied": True}), flush=True)
+
+
+@contextmanager
+def _record_i08_path_io(case_root: Path):
+    """Observe this helper's real Path operations, including transient files."""
+    checked_test_path(case_root, allowed=ALLOWED)
+    originals = {name: getattr(Path, name) for name in ("mkdir", "write_text", "read_text", "unlink")}
+    events = []
+
+    def observed_method(name):
+        def call(path, *args, **kwargs):
+            checked_test_path(Path(path), allowed=case_root)
+            entry = {"operation": name, "path": str(path), "completed": False}
+            events.append(entry)
+            try:
+                result = originals[name](path, *args, **kwargs)
+                if name in ("write_text", "read_text"):
+                    content = args[0] if name == "write_text" else result
+                    encoded = content.encode("utf-8")
+                    entry.update(bytes=len(encoded), sha256=hashlib.sha256(encoded).hexdigest())
+                if name == "write_text":
+                    entry["file_size_after"] = path.stat().st_size
+                elif name == "unlink":
+                    entry["exists_after"] = path.exists()
+                entry["completed"] = True
+                return result
+            except BaseException as error:
+                entry["error_type"] = type(error).__name__
+                raise
+        return call
+
+    try:
+        with ExitStack() as observers:
+            for name in originals:
+                observers.enter_context(patch.object(Path, name, observed_method(name)))
+            yield events
+    finally:
+        assert all(getattr(Path, name) is original for name, original in originals.items())
+        # Persist evidence after restoring methods, including on a test failure.
+        (ALLOWED / f"{case_root.name}-io.json").write_text(json.dumps(events, indent=2) + "\n")
+
+
+def test_i08_readonly_input_has_no_side_effects():
+    root = ALLOWED / "i08-readonly"
+    root.mkdir()
+    target = root / "synthetic.txt"
+    target.write_text("synthetic readonly input\n", encoding="utf-8")
+    before = _input_fixture_inventory(root)
+    with _record_i08_path_io(root) as events:
+        checked = checked_test_input_file(target, lake_root=root)
+        assert checked.read_text(encoding="utf-8") == "synthetic readonly input\n"
+    assert [entry["operation"] for entry in events] == ["read_text"]
+    assert events[0]["completed"] is True and events[0]["path"] == str(target)
+    assert _input_fixture_inventory(root) == before
+    print(json.dumps({"case_evidence": "I08_readonly_input", "events": events,
+                      "mutation_calls": 0, "fixture_unchanged": True}), flush=True)
+
+
+@pytest.mark.parametrize("layout", ["first_probe", "existing_probe_directory"])
+def test_i08_health_probe_side_effects(layout):
+    root = ALLOWED / f"i08-{layout}"
+    root.mkdir()
+    for layer in ("raw", "silver", "gold"):
+        (root / layer).mkdir()
+    (root / "silver/unchanged.txt").write_text("synthetic unchanged fact\n", encoding="utf-8")
+    probe_directory = root / "_tmp/lake_root_health"
+    if layout == "existing_probe_directory":
+        probe_directory.mkdir(parents=True)
+    resource = make_confirmed_test_resources(lake_root=root, work_root=ALLOWED)["lake_root"]
+    assert type(resource) is LakeRootResource and resource.root() == root
+    before = _input_fixture_inventory(root)
+
+    # No replacement of ensure_available_for_run or any shared health function.
+    with _record_i08_path_io(root) as events:
+        resource.ensure_available_for_run()
+
+    assert [entry["operation"] for entry in events] == ["mkdir", "mkdir", "write_text", "read_text", "unlink"]
+    assert all(entry["completed"] for entry in events)
+    assert [entry["path"] for entry in events[:2]] == [str(root / "_tmp"), str(probe_directory)]
+    written, read, deleted = events[2:]
+    canary = Path(written["path"])
+    assert canary.parent == probe_directory and canary.name.startswith("canary-") and canary.suffix == ".txt"
+    token = canary.stem.removeprefix("canary-")
+    assert len(token) == 32 and all(char in "0123456789abcdef" for char in token)
+    expected = f"goldenshare-lake-root-health:{token}\n".encode()
+    assert written["bytes"] == read["bytes"] == written["file_size_after"] == len(expected)
+    assert written["sha256"] == read["sha256"] == hashlib.sha256(expected).hexdigest()
+    assert read["path"] == deleted["path"] == str(canary)
+    assert deleted["exists_after"] is False and not canary.exists()
+
+    after = _input_fixture_inventory(root)
+    assert [row for row in before if stat.S_ISREG(row[3])] == [row for row in after if stat.S_ISREG(row[3])]
+    before_dirs = {row[0] for row in before if stat.S_ISDIR(row[3])}
+    after_dirs = {row[0] for row in after if stat.S_ISDIR(row[3])}
+    added_dirs = after_dirs - before_dirs
+    assert before_dirs <= after_dirs
+    assert added_dirs == ({"_tmp", "_tmp/lake_root_health"} if layout == "first_probe" else set())
+    print(json.dumps({"case_evidence": "I08_real_health_probe", "layout": layout,
+                      "root": str(root), "events": events, "helper_calls": 1,
+                      "added_directories": sorted(added_dirs), "regular_files_unchanged": True,
+                      "probe_deleted": True, "readonly_contract_passed": False}), flush=True)

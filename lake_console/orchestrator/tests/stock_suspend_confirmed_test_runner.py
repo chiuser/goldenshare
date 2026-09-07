@@ -1,4 +1,4 @@
-"""Task-local, stdlib-only launcher for I03-I07 isolation tests in fixed batches.
+"""Task-local, stdlib-only launcher for I03-I08 isolation tests in fixed batches.
 
 No Dagster imports, environment discovery, dependency installation or cleanup.
 The adapter gate remains closed until the complete I group is accepted.
@@ -430,7 +430,7 @@ def main() -> int:
     parser.add_argument("--scope", choices=("isolation", "adapter"), required=True)
     args = parser.parse_args()
     if args.scope != "isolation":
-        parser.error("adapter is not accepted: complete I08 and independent review first")
+        parser.error("adapter is not accepted: complete independent isolation review first")
     if Path.cwd() != PROJECT:
         parser.error(f"Run from {PROJECT}")
     for batch, expected_count, case_names in ISOLATION_BATCHES:
@@ -438,7 +438,12 @@ def main() -> int:
             return 1
     if run_startup_gate_batch() != 0:
         return 1
-    print(json.dumps({"I03_I04_I05_I06_I07_passed": True, "all_isolation_accepted": False}), flush=True)
+    if run_isolation_batch("I08", 3, (
+        "test_i08_readonly_input_has_no_side_effects", "test_i08_health_probe_side_effects",
+    )) != 0:
+        return 1
+    print(json.dumps({"I03_I04_I05_I06_I07_I08_passed": True,
+                      "all_isolation_accepted": False, "independent_review_required": True}), flush=True)
     return 0
 
 

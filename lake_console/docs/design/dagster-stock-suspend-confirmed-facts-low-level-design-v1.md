@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**I06测试及文档已提交为`99e73ccf`，未推送。2026-09-07 19:20 I07的15项检查及原46例回归一次通过，见§18.17；权限未扩展，I07增量未提交。I01–I07已通过，I08、实际adapter和S1全套回归未验收。I07不创建实例/数据库，原I06回归仍仅在自己的临时实例写入1条虚构事件；没有操作正式实例/数据、恢复指定Silver sensor或安装依赖，无新DG服务。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时实例及产物按§18.11最终清理。**
+状态：**I07五文件已提交为`8bf5a54b`，未推送。2026-09-07 19:39 I08三例及原46例、I07十五项回归一次通过，见§18.18；权限未扩展，I08增量未提交。I01–I08分项验证证据齐全，待管理员独立review；实际adapter和S1全套回归未验收。I08仅在临时目录调用真实探针，不创建实例/数据库；原I06回归仍仅在自己的临时实例写入1条虚构事件。没有操作正式实例/数据、恢复指定Silver sensor或安装依赖，无新DG服务；专项临时产物按§18.11最终清理，真实候选与正式阶段仍分别授权。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -1076,7 +1076,7 @@ S0 增加了真实物理只读核验和现有运行状态核验，但没有执�
 
 <a id="s1-test-isolation-repair"></a>
 
-## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I07已通过）
+## 18. 测试隔离与新检查安全修正 LLD（I01–I08分项通过，待独立review）
 
 ### 18.1 范围、事实依据与本轮停止点
 
@@ -1831,3 +1831,81 @@ I07的11处根共592KiB磁盘占用，普通文件合计232,567字节；四个�
 交付静态检查：两个变更测试支持文件默认Ruff、全量src/tests致命错误基线、文档完整性三项、三份文档324个本地链接/19个显式锚点、围栏及git diff --check均通过；CodeGraph sync/status为最新。上述检查不替代15项真实启动验证与46例回归。
 
 本轮仅改runner/support两个测试支持文件及本LLD/技术方案/主索引，未改实际业务代码、生产字段、子系统边界或依赖矩阵；不安装套件、不创建DG服务、不操作正式实例/数据或恢复sensor。下一步仅I08：在当次虚构临时范围调用真实共享健康helper，核验其探针副作用可被准确记录；不选择实际checks，不修改全局健康函数。I08及后续adapter仍未运行，不能把I07通过当S1业务验收完成；本轮增量未提交、未推送。
+
+<a id="s1-isolation-i08-health-side-effects"></a>
+
+### 18.18 I08：共享健康探针副作用识别
+
+I07五文件已按管理员指令提交为`8bf5a54b`，未推送。本轮只推进§18.5的I08，完成后报告并停止；不自动打开adapter入口、不运行实际checks、不推进原S1业务实现。
+
+#### A. 编码前核对、逐项实施与预算
+
+当前真实调用链：`LakeRootResource.ensure_available_for_run()` → `assert_lake_root_available_for_run()` → `evaluate_lake_root_health(check_disk_space=False, check_duckdb_temp=False)`。它检查root/raw/silver/gold，创建`_tmp`和`_tmp/lake_root_health`，在后者写入、读回、删除一个随机`canary-<uuid>.txt`。因此这不是只读路径：即使已有目录、最终文件列表相同，仍发生探针写入与删除；首次调用还会留下两级目录。该入口不执行磁盘空间检查或DuckDB temp探针，不能把完整平台health的另一分支扩大进本轮。
+
+CodeGraph `explore`泛化名称返回了无关health/check，已排除；以精确源码核验真实链，再用`impact(assert_lake_root_available_for_run, depth=2)`确认共享入口有资源、资产、sensor和测试消费者（图返回133个相关符号，非调用次数）。本轮不改该共享实现、正式默认值或其他消费者。
+
+| 硬口径 | 代码落点 / 验收判据 |
+| --- | --- |
+| 只读正例1项 | isolation测试构造一个微型普通文本，调用现有`checked_test_input_file`后读回。记录器应只见1次成功read_text；mkdir/write/unlink均0，完整fixture身份及内容前后相同。这是测试输入预检，不冒充尚未修改的实际checks验收 |
+| 真实健康helper反例2项 | 分别使用尚无健康目录、已存在健康目录的两个新临时lake；均由既有工厂构造实际LakeRootResource并核对root，调用真实ensure_available_for_run一次。精确记录2次mkdir调用、1次write_text、1次read_text、1次unlink；每次均真正执行原Path方法，不替换健康函数或伪造成功返回 |
+| 写完删除也必须识别 | write/read记录实际字节数与SHA256一致，并核对内容为规定前缀加该探针文件名中的32位十六进制token；unlink返回后目标确实不存在。最终普通文件清单/身份相同，但写入与删除证据仍保留。首次调用新增目录恰为上述两级，已有目录场景不新增目录 |
+| 所有副作用仅在本case临时根 | 记录器仅在测试调用期间包装Path.mkdir/write_text/read_text/unlink；每次先用现有checked_test_path核定路径在该case root下且无链接，再调用保存的真实方法。异常记录后原样抛出，不转成通过。OS策略仍是底层边界，不依赖这个Python记录器保证隔离 |
+| 不污染其他测试或正式链 | 上下文退出恢复Path方法，记录器不修改共享健康函数、资源默认值、安装包或正式文件；保存逐case JSON及stdout证据。runner沿用46例、I07十五项，再用全新子进程跑I08三例，失败即停；adapter仍无条件拒绝 |
+
+本轮文件白名单：`tests/stock_suspend_confirmed_test_runner.py`、`tests/test_stock_suspend_confirmed_isolation.py`及本文/技术方案/主索引；support不需改动。runner仅增加固定I08选择与阶段报告，不新增CLI/环境/生产配置、文件读取白名单或权限。记录器只服务I08三个固定样例，不扩展为通用审计框架。参考[Python测试上下文替换与恢复](https://docs.python.org/3.13/library/unittest.mock.html#patch-object)、[Dagster资源职责](https://docs.dagster.io/guides/build/external-resources)，并以当前resources及health源码确定实际IO。
+
+预算：I08只有3个case、1个新受限子进程/根、每case各自独立小目录；2次真实helper调用、2个微型canary写/读/删，3份小型证据。业务对象/日期/分区/枚举、源请求/分页/行数、Parquet文件和DuckDB scan/join/COPY/spill、实例/数据库/事件均0，无提交事务或原子提升。文本合计低于1KiB，整体fixture上限1MiB；I08预计低于5秒/现场1MiB，仍按每case30秒/批次60秒/工作区100MiB/输出各64KiB硬门禁，失败不放宽重试。原46例与I07回归使用各自既有预算，I06仍仅创建自己的1处临时实例并写1条synthetic事件。所有本轮精确根和运行残留均按§18.11最终清理，不安装套件或启动新DG服务。
+
+执行沿用§18.13 B唯一入口和现有项目环境；启动时输出精确根、argv、完整profile与预期case，结束核验禁止哨兵及源码哈希。I08通过也须与后续adapter、S1、S2分别标注，不能自动认定业务验收完成。
+
+#### B. 2026-09-07 19:39 实测与计划对账
+
+一次执行完成，无失败重试或权限追加：I03–I04为16/16、1.195秒；I05为14/14、0.923秒；I06为16/16、1.620秒；I07为15/15、4.094秒；I08为3/3、0.868秒（用例本体0.04秒）。正常pytest批次无skip/xfail，I07的两项故意样例仍准确使资源验收失败而不是假通过；无超时/空间/输出门禁触发。
+
+| 计划项 / 文件 | 实际证据 |
+| --- | --- |
+| 真实IO记录：isolation测试`_record_i08_path_io` | 仅在调用期间包装四个Path方法，核验case根后真正调用原方法；每项记录路径、是否完成，文本记录字节数/摘要，删除后记录不存在。退出后四个方法恢复原对象，三个独立JSON保存证据；没有替换健康函数 |
+| 只读正例：`test_i08_readonly_input_has_no_side_effects` | 只有1次25字节成功读；没有mkdir/write/unlink，完整fixture身份及内容不变。证明记录器不会把只读输入误判成写入，不声称两个实际checks已只读 |
+| 首次探针：`test_i08_health_probe_side_effects[first_probe]` | 真实资源调用1次；2次mkdir，新增目录恰为`_tmp`、`_tmp/lake_root_health`。随后写入62字节、读回同内容/摘要并删除canary，删除后目标不存在，既有普通文件身份与内容不变 |
+| 已有目录探针：同函数的`existing_probe_directory` | 2次mkdir调用不新增目录，仍发生62字节写入、读回及删除；最终普通文件完全相同，但`readonly_contract_passed=false`，不能把自动清理误当作没有副作用 |
+| 固定入口：runner.main | 46例→I07→I08，阶段各自新根；I08只选择两个函数展开3例。adapter继续无条件拒绝，最终`independent_review_required=true`、`all_isolation_accepted=false`表示尚待人工review，不代表本轮测试失败 |
+| 共享代码及权限不变 | 14份子进程报告的正常profile随机根归一后均与§18.17逐字相同；读取白名单和env不变。正式health/resources/duckdb_connection哈希、既有业务差异哈希和五份未跟踪业务文件哈希均未变；没有改support、生产默认值或业务字段 |
+
+报告：[I08验收](/private/tmp/stock-suspend-isolated-b2ll8jes/allowed/resource-result.json)、[只读IO记录](/private/tmp/stock-suspend-isolated-b2ll8jes/allowed/i08-readonly-io.json)、[首次探针IO记录](/private/tmp/stock-suspend-isolated-b2ll8jes/allowed/i08-first_probe-io.json)、[已有目录探针IO记录](/private/tmp/stock-suspend-isolated-b2ll8jes/allowed/i08-existing_probe_directory-io.json)。回归：[I03–I04](/private/tmp/stock-suspend-isolated-66cyka68/allowed/resource-result.json)、[I05](/private/tmp/stock-suspend-isolated-o_k8q9n6/allowed/resource-result.json)、[I06](/private/tmp/stock-suspend-isolated-gw__u2qr/allowed/resource-result.json)、[I07汇总及十个子报告](/private/tmp/stock-suspend-isolated-jqad3xyz/allowed/startup-result.json)。所有禁止哨兵前后身份/内容相同；I05保留8条既有依赖弃用警告，未屏蔽或升级，I08无警告。
+
+验收源码SHA256：runner为`c78c41c0009a0f45b754f2a785e0489bf819feb55298927cbd12bd6950188246`；support为`10e766fa6587c690a5f0018d6d0a5bf67e600d58db51a862282e55001f59f1a0`；isolation测试为`1b53bc79599939e69802afbd8ffd220caccfc03751e22ebee381eaca11893ec3`。逐报告均与当前磁盘源码一致。未改的共享health/resources/duckdb_connection分别为`09550c89f3d11a2b8479e695a3d2f6987f88382c9c991795b8de67e65ee880ac`、`190df73d9afc5df9db45c5bc80aef6daf7f5cb5a11d759dc4e6ad5a034a8fca1`、`896b360665fa0882b3e98508947d3135810a30492192f7d79a7743e6da70d994`。
+
+I08现场84KiB，三个输入文本各25字节，两次canary各62字节且已由真实helper自行删除；没有Parquet、数据库、实例或事件。原前三批现场分别96/64/496KiB，I06临时实例属于原回归范围，结束后端口56608、Unix socket和instance均无lsof占用。没有新DG服务、安装项、正式资源操作或sensor恢复。
+
+本次15处根作为§18.11最终精确清理对象登记，包括报告、虚构样本、健康目录、I06临时数据库/socket和缓存；不按前缀通配删除，本轮保留证据：
+
+```text
+/private/tmp/stock-suspend-isolated-66cyka68
+/private/tmp/stock-suspend-isolated-o_k8q9n6
+/private/tmp/stock-suspend-isolated-gw__u2qr
+/private/tmp/stock-suspend-isolated-jqad3xyz
+/private/tmp/stock-suspend-isolated-d7a_8mfs
+/private/tmp/stock-suspend-isolated-v8m4idde
+/private/tmp/stock-suspend-isolated-_nqo15l8
+/private/tmp/stock-suspend-isolated-yn6y_r_x
+/private/tmp/stock-suspend-isolated-ydhmeuid
+/private/tmp/stock-suspend-isolated-stzgexid
+/private/tmp/stock-suspend-isolated-vc8s1wlq
+/private/tmp/stock-suspend-isolated-jwjvlvt1
+/private/tmp/stock-suspend-isolated-28brhxiz
+/private/tmp/stock-suspend-isolated-oyyoo4ks
+/private/tmp/stock-suspend-isolated-b2ll8jes
+```
+
+#### C. 本轮停止点与后续边界
+
+| 验收层次 | 当前状态 |
+| --- | --- |
+| 文档与静态检查 | 两个变更Python文件默认Ruff、全量src/tests致命错误基线、文档完整性三项、三文档333个本地链接/20个显式锚点、围栏和git diff --check均通过；CodeGraph sync/status为最新。不替代运行证据 |
+| 独立隔离I01–I08 | 分项运行证据齐全：I01/I02沿用§18.12已获批复验，本轮重跑I03–I08；按§18.6报告后等待管理员review |
+| 实际adapter及C/D小样本 | 未验收；两个新checks取消探针、合同schema/content分类和受限测试改造仍是下一步，不由本轮正例代替 |
+| 原S1实现/合成全套回归 | 未完成，writer/readiness/CLI等仍按原矩阵推进 |
+| S2生产批准集合C01/C05 | 未执行，不以小样本代替真实4,022键验收 |
+| S2全范围等价及正式发布/切换 | 未执行，真实staging与正式写入分别授权；不自动恢复sensor、删除CSV或清理环境 |
+
+本轮只改A节五文件，未改子系统边界、依赖矩阵或正式路径。I08增量未提交、未推送；I07提交不包含既有未验收业务改动。管理员review隔离结果后，下一轮按§18.2/§18.4修改合同分类、两个新checks和C/D测试，不扩展共享健康函数或继续增加前置隔离工程。
