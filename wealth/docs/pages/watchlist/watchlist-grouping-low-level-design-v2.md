@@ -1,6 +1,6 @@
 # 财势乾坤｜我的自选分组能力低层设计 v2（LLD）
 
-> 状态：十项评审修订已获用户确认并回填；本轮仅修订、提交文档；尚未进入业务代码、数据库迁移、部署或验收
+> 状态：首轮十项及复审七项修订已获用户确认并回填；本轮仅修改文档，不提交；尚未进入业务代码、数据库迁移、部署或验收
 >
 > 日期：2026-09-08（初稿 2026-09-07）
 >
@@ -26,9 +26,9 @@
 6. 游标是无签名、版本化、严格校验的 base64url JSON。它不是授权凭证；资源所有权始终由认证用户和 group 条件校验。
 7. 所有批量写、详情页最终集合替换和删除分组均为单事务；提交前构造完整 DTO，提交后不回读。数据库修改保持原子性；明确回滚、结果未知、成功后刷新失败分别处理，不能混为一类错误。
 8. 首页 `summary` 路径与响应不变，只统计默认组。`useWatchlistSummary`、首页入口和 `MarketShortcutBar` 不需要重写。
-9. 用户已确认十项修订，逐项回填见第 21.1 节；本次授权仅为文档修改和提交。获得后续开发授权后按第 18 节三个完整阶段推进，不再按原五个 Slice 拆开相互依赖的后端替换。
+9. 用户已确认首轮十项及复审七项修订，逐项回填见第 21.1～21.2 节；本次仅修改文档，不提交。获得后续开发授权后按第 18 节三个完整阶段推进，不再按原五个 Slice 拆开相互依赖的后端替换。
 
-初稿代码审计事实快照（2026-09-07；不是本次文档提交的 HEAD）：
+初稿代码审计事实快照（2026-09-07；不是本次修订时的 HEAD）：
 
 | 项目 | 审计结论 |
 |---|---|
@@ -157,7 +157,7 @@ MarketOverviewPage
 |---|---|---|---|
 | 默认组唯一、首位、无色、不可删除/改名/改色 | group 约束、Initializer、Policy、GroupQuery | Groups Controller、Tabs、Toolbar | 构造第二默认组；对默认组 DELETE/PATCH |
 | 总组数最多 10，自定义最多 9 | 默认组行锁 + count + 约束 | rules 驱动创建按钮 | 第 10 个自定义组；并发越界 |
-| 名称 trim、1～6、用户内不重名、禁用“我的自选” | `normalize_group_name` + `name_key` 唯一 | 创建弹窗即时提示 | 空白、7 字、控制字符、trim 后冲突 |
+| 名称 trim、1～6、用户内不重名、禁用“我的自选” | `normalize_group_name` + `(user_id, name)` 唯一 | 创建弹窗即时提示 | 空白、7 字、控制字符、trim 后冲突 |
 | 自定义组不可改名、可改色、颜色可重复 | 无 name PATCH；color 白名单 | 只有改色弹层 | 伪造改名路由；非法颜色；同色两组不得冲突 |
 | 一个股票可属于多组 | `(group_id, ts_code)` 唯一 | 目标多选、详情多选 | 同组重复；跨组被错误去重 |
 | 首页只数默认组 | SummaryQuery | 现有 Summary hook | 只改自定义组时徽标变化 |
@@ -270,7 +270,6 @@ class WealthWatchlistGroup(TimestampMixin, Base):
     id: Mapped[int]                       # bigint / sqlite integer PK
     user_id: Mapped[int]                  # FK app.app_user.id CASCADE
     name: Mapped[str]                     # Text, NFC + 统一 trim 后展示值
-    name_key: Mapped[str]                 # Text, 本期等于 name
     is_default: Mapped[bool]              # server_default=false
     color: Mapped[str | None]             # String(7)
 ```
@@ -279,13 +278,13 @@ class WealthWatchlistGroup(TimestampMixin, Base):
 
 | 名称 | 定义 |
 |---|---|
-| `uq_wealth_watchlist_group_user_name_key` | `UNIQUE(user_id, name_key)` |
+| `uq_wealth_watchlist_group_user_name` | `UNIQUE(user_id, name)` |
 | `uq_wealth_watchlist_group_user_default` | `UNIQUE(user_id) WHERE is_default` |
 | `idx_wealth_watchlist_group_user_id_id` | `(user_id, id)` |
-| `ck_wealth_watchlist_group_name_nonempty` | `length(name) > 0 AND name_key = name`；不使用码点长度约束替代可见字符校验 |
-| `ck_wealth_watchlist_group_identity` | 默认组 name/key 均为“我的自选”且 color IS NULL；自定义组 key 非默认名且 color IS NOT NULL 且属于八色 |
+| `ck_wealth_watchlist_group_name_nonempty` | `length(name) > 0`；不使用码点长度约束替代可见字符校验 |
+| `ck_wealth_watchlist_group_identity` | 默认组 name 为“我的自选”且 color IS NULL；自定义组 name 非默认名且 color IS NOT NULL 且属于八色 |
 
-部分唯一索引在 ORM 同时声明 `postgresql_where` 与 `sqlite_where`，使真实 PostgreSQL 和 SQLite 模型测试保持同一不变量。最多 10 组不能靠单行 CHECK 表达，由事务锁和计数实现。
+名称只保存一个规范化后的 `name`，展示和重名判断使用同一值，不另存规范化键。部分唯一索引在 ORM 同时声明 `postgresql_where` 与 `sqlite_where`，使真实 PostgreSQL 和 SQLite 模型测试保持同一不变量。最多 10 组不能靠单行 CHECK 表达，由事务锁和计数实现。
 
 保护边界：唯一索引只保证“最多一个”，不保证存在，也不阻止 DELETE。迁移与用户开通事务保证每用户至少一个默认组；Service 拒绝默认组删除、改名和改色；查询发现缺失报错，不懒创建。不新增数据库删除触发器，删除用户时仍允许级联清理。名称 1～6 个字素簇由 Policy 校验，数据库 Text 避免合法组合字符被短 varchar 或 length<=6 二次误拒；输入有界保护见第 7.2 节。
 
@@ -373,6 +372,7 @@ old(...)
 5. sequence 的下一次值不会与已有 ID 冲突。
 6. 逐用户比较旧 `ORDER BY id` 和新默认组 `ORDER BY membership.id` 的 `(id, ts_code)` 完整有序序列；两边必须完全相等，集合对账不能替代此项。
 7. 迁移测试包含旧 ID 递增但 created_at 倒序、同时间、ID 跳号样本；迁移后默认顺序以及 pin/unpin 恢复结果都必须保持原 ID 序，不改写历史时间来凑顺序。
+8. 迁移保留的成员 ID 和新建组 ID 均在第 7.3 节 API 安全整数范围内；超界则中止迁移，不重排历史 ID，也不继续删除旧表。
 
 任一断言失败直接抛错，让 Alembic 事务 rollback；不得记录 warning 后继续 drop。
 
@@ -406,7 +406,7 @@ class WatchlistGroupInitializer:
 规则：
 
 1. 只构造默认组并 `session.flush()`，不 commit、不 rollback。
-2. 名称和 key 使用 Policy 的 `DEFAULT_GROUP_NAME`；`is_default=true`、`color=None`。
+2. 名称使用 Policy 的 `DEFAULT_GROUP_NAME`；`is_default=true`、`color=None`。
 3. 唯一约束是错误兜底，不把重复初始化吞成正常流程；正式用户创建只能调用一次。
 4. 初始化器不 import `AppUser`，不做认证、角色、token 或审计逻辑。
 
@@ -452,6 +452,7 @@ MAX_GROUP_NAME_UTF8_BYTES = 1024
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 200
 MAX_BATCH_MEMBERSHIPS = 200
+MAX_API_ID = 9007199254740991
 PALETTE = (
     "#F7C76B", "#5AA7FF", "#A78BFA", "#2DD4BF",
     "#FB923C", "#F472B6", "#A3E635", "#22D3EE",
@@ -478,7 +479,7 @@ SORT_FIELDS = (
 4. 按扩展字素簇分段；每个非空白段必须含 Unicode 类别 L/N/P/S 的正常可见内容，
    独立连接符或孤立组合符不能充当名称；内部普通空格算一段。
 5. 字素簇数必须为 1..6。
-6. 自定义组 value == "我的自选" 时拒绝；name = name_key = value。
+6. 自定义组 value == "我的自选" 时拒绝；name = value。
 ```
 
 `TRIM_CODEPOINTS` 固定为下面的 ECMAScript trim 空白集合，后端不能直接用默认 `str.strip()`：
@@ -525,17 +526,30 @@ SORT_FIELDS = (
 
 ### 7.3 其它规范化
 
-1. `tsCode` 沿用 trim + uppercase + 1..16，并在写入时重新查当前上市 A 股资格。
-2. `groupId/membershipId` 为 `1..2^63-1` 正整数。
+1. `tsCode` 沿用 trim + uppercase + 1..16。单股添加、move、add-to-groups、详情最终集合替换统一先计算实际缺失的目标关系；仅对需要新增关系的股票重新查询当前上市 A 股资格。不合格则整次请求失败，不能先移除源关系。仅保留或移除已有关系，以及 pin/unpin，不受该资格校验阻挡；这明确调整了 v1 重复添加也复检资格的行为。
+2. API 中所有分组/成员 ID 为 `1..9007199254740991`（`Number.MAX_SAFE_INTEGER`）的安全正整数，数据库仍用 bigint，不改为前端 BigInt。JSON 请求 ID 必须严格为整数，拒绝布尔值、数字字符串和浮点数；路径/query 的十进制整数字符串显式解析后校验同一范围。cursor 的 `g/i` 也遵守此界限。
 3. ID 数组长度必须在合法范围，且输入自身无重复；禁止静默去重。
 4. move 仅一个目标；add-to-groups 为 1..9 个目标；详情最终集合为 1..10 个组。
 5. `sortBy` 只接受注册表；存在 `sortBy` 时 `direction` 必须显式为 `desc|asc`，二者均不传才表示默认顺序。
+
+资格查询复用当前证券候选条件：`security_type=EQUITY`、`list_status=L`、`curr_type=CNY`、交易所属于 SSE/SZSE/BSE。在取得相关组锁并确认当前关系后，对实际待新增股票去重，用一次有界集合查询校验；不是逐条调用单股 Service。已有目标关系保留原 ID、时间和置顶，不能因股票退市而被重建或强制删除。
 
 ## 8. API 与 DTO LLD
 
 统一前缀：`/api/v1/wealth/market/watchlist`。所有字段保持 lowerCamel，所有 Pydantic DTO 使用 `ConfigDict(extra="forbid")`。
 
 ### 8.1 公共 DTO
+
+请求体 ID 及 ID 数组元素、响应中的分组/成员 ID 统一复用以下类型；仅 `extra="forbid"` 不会阻止 Pydantic 自动转换类型：
+
+```python
+from typing import Annotated
+from pydantic import Field, StrictInt
+
+ApiId = Annotated[StrictInt, Field(ge=1, le=MAX_API_ID)]
+```
+
+下表所有 ID 位置的 `int` 均指 `ApiId`，包括 group 的 `id`、`groupId`、`membershipId`、删除响应 ID、`nextGroupId`、最终归属 ID 和颜色标记 ID。URL 参数先校验十进制数字形式，再转整数并检查范围，不能直接用 StrictInt 拒绝合法 URL 字符串。请求体类型/范围错误沿用 `422 / validation_error`；cursor 错误使用 `WL_CURSOR_INVALID`。响应在 commit 前构造并验证，数据库分配超界 ID 时回滚，不返回会被 JS 舍入的数字；GET 超界按查询错误处理。计数是非负安全整数，前端继续使用 `Number.isSafeInteger` 校验 ID 和计数，不接受隐式转换。
 
 ```text
 WatchlistGroupDto
@@ -705,6 +719,7 @@ find_right_neighbor_or_default(locked_groups, current_id)
 2. 组内搜索：复用 `StockSearchPolicy/StockSearchQuery` 候选池，一次查询当前 group 对候选代码的 membership，生成 `ADDED|AVAILABLE`。
 3. 单股归属：一次读取全部用户分组并左连接该 tsCode 的 membership；最多 10 行。
 4. 颜色标记：只返回自定义组；默认组不制造透明色或伪色。
+5. 写前资格集合查询放在 `watchlist_item_query.py`：`load_eligible_ts_codes(session, ts_codes)` 返回满足第 7.3 节条件的代码集合，最多 200 只；空输入不查 SQL。Command 比较实际待新增代码集合，缺任一股票即整批拒绝；不保留旧的逐股资格查询循环。
 
 ## 10. 排序与游标 LLD
 
@@ -829,6 +844,13 @@ OR (
 
 前端收到该错误时只自动清空 cursor 并重载首批一次；首批没有 cursor，若仍失败则进入正常 error，不循环重试。
 
+### 10.6 跨页一致性边界
+
+1. 成员集合、置顶状态和参与排序的行情值在翻页期间不变时，保证完整遍历无重复、无遗漏。
+2. 本页面写成功后，取消旧列表请求并清空 cursor，从当前排序的首批重载；不把写前、写后页面直接拼接。
+3. 其它会话增删成员、调整置顶或同一 observed date 的行情值原地更新，可能让行越过旧 cursor，产生重复或遗漏。例如首批返回未置顶的 1、2 后，另一会话把 3 置顶，后续页可能看不到 3；刷新首批后重新收敛到当前事实。
+4. 日期绑定不等于行情/成员快照。前端按 membershipId 去重只能避免重复展示，不能补回遗漏；本期不承诺跨请求快照一致性，不增加快照表、结果缓存、版本状态或实时订阅。外部变化在用户刷新时重新读取。
+
 ## 11. 写事务与锁顺序
 
 ### 11.1 通用纪律
@@ -841,7 +863,7 @@ OR (
 5. 当前成员一次 `WHERE group_id=:current AND id IN (...) FOR UPDATE`，返回数必须等于输入数，否则整批 `WL_SELECTION_STALE`。
 6. membership ID 和 group ID 都不能脱离认证用户上下文直接更新。
 7. 集合上限 200、目标上限 9，因此单次笛卡尔候选最多 1800，常驻内存有界。
-8. 批量幂等插入由 dialect helper 生成：PostgreSQL 使用命名约束的 `ON CONFLICT DO NOTHING`，SQLite 测试使用相同 `(group_id, ts_code)` index elements；锁与并发结论只由真实 PostgreSQL 测试证明。
+8. 单股和批量新增统一调用 CommandService 内部的 `_insert_missing_memberships`，不增加新服务文件。PostgreSQL 使用 `on_conflict_do_nothing(constraint="uq_wealth_watchlist_membership_group_stock")`；SQLite 使用 `(group_id, ts_code)` index elements。通过 `RETURNING id` 计算真实 createdCount；helper 不 commit、不建 savepoint、不做资格校验、不吞其它 IntegrityError。调用者先锁组、求缺失关系并完成资格校验；FK/check/其它唯一约束错误均让整个事务失败。锁与并发结论只由真实 PostgreSQL 测试证明。
 9. DTO 必须是提交前物化的值，不能保留需要在 commit 后读取的 ORM 属性。提交失败时丢弃预构造 DTO，不返回假成功。
 10. 新 ID 只能在取得目标组锁后由数据库分配；同批 source 以源 membership ID 升序输入 INSERT，多个目标以 group ID 升序处理。禁止在锁外预分配 ID。目标已有关系不变更 ID，默认组迁移继续保留原 ID。
 
@@ -854,7 +876,7 @@ OR (
 | 已收到合法成功 DTO，后续 GET 失败 | 保持成功结论，只提示“操作已成功，列表刷新失败”；只重试 GET，不重放写入 |
 | 前端写请求超时/响应丢失/成功响应校验失败，或不能证明回滚的错误 | mutation outcome=`UNKNOWN`；先读取最新事实，禁止原请求一键重试或自动重放 |
 
-未知结果回读范围：组动作读 groups，成员动作读 groups 和当前组首批，详情动作读该股票 groups。成功回读后清除失效选择，让用户基于最新状态重新操作；若回读失败，只允许继续重试读。回读不是原请求的成功证明，不补造成功 toast。本期不新增幂等键、后台任务或跨端状态自动合并。
+未知结果回读范围：组动作读 groups，成员动作读 groups 和当前组首批，详情动作读该股票 groups；单股添加还必须刷新当前搜索结果的组内归属，不能因股票未出现在首批就认定未添加。成功回读后清除失效选择，让用户基于最新状态重新操作；若回读失败，只允许继续重试读。回读不是原请求的成功证明，不补造成功 toast。本期不新增幂等键、后台任务或跨端状态自动合并。
 
 ### 11.2 创建组
 
@@ -864,7 +886,7 @@ count all groups for user
 if total >= 10 -> WL_GROUP_LIMIT_REACHED
 normalize name/color
 insert custom group
-flush; map unique(name_key) -> WL_GROUP_NAME_CONFLICT
+flush; map uq_wealth_watchlist_group_user_name -> WL_GROUP_NAME_CONFLICT
 read count and build response DTO
 commit
 return prebuilt DTO
@@ -897,9 +919,9 @@ return prebuilt DTO (do not read next.id from ORM after commit)
 ### 11.4 单股组内添加
 
 1. 锁定当前 owned group，避免与删除并发。
-2. 再次校验证券资格。
-3. nested transaction 插入 membership；只把指定唯一约束冲突识别为 `created=false`。
-4. 其它 FK/检查/提交失败不得误判为幂等。
+2. 查询目标关系；已存在则直接作为幂等成功，不复检资格，也不重置 ID、时间或 pin。
+3. 仅当目标关系缺失时校验证券资格，再调用统一 `_insert_missing_memberships`；以实际返回行数决定 `created`，不沿用 v1 的 nested transaction/异常兜底路径。
+4. 只有指定组内股票唯一冲突可以忽略；其它 FK/检查/提交失败不得误判为幂等。
 5. flush 后查询当前组真实 count 并构造添加响应 DTO，再 commit，直接返回 DTO；提交后零 SQL。
 
 ### 11.5 Move
@@ -908,17 +930,17 @@ return prebuilt DTO (do not read next.id from ORM after commit)
 validate target != current
 lock [current,target] sorted
 lock and validate source memberships
-INSERT target(group_id, ts_code)
-  SELECT target_id, source.ts_code
-  ORDER BY source.id ASC
-  ON CONFLICT(group_id, ts_code) DO NOTHING
+read existing target memberships for selected tsCodes
+to_add = missing target pairs, ordered by source.id ASC
+validate eligibility once for unique tsCodes in to_add; failure aborts whole request
+_insert_missing_memberships(to_add)
 DELETE all validated source memberships
 flush + count groups + build batch DTO
 commit
 return prebuilt DTO
 ```
 
-即使目标已存在某股票，也必须删除其源关系；已有目标成员的 createdAt/pin 不变。
+即使目标已存在某股票，也必须删除其源关系；已有目标成员的 ID/createdAt/pin 不变。若没有待新增关系，不查资格；若任一待新增股票不合格，源关系全部保留。
 
 ### 11.6 Add to groups
 
@@ -926,14 +948,16 @@ return prebuilt DTO
 validate 1..9 unique targets; none is current
 lock current + targets sorted
 lock and validate source memberships
-bulk build/select source tsCodes × target IDs, ordered by target.id/source.id ASC
-INSERT ... ON CONFLICT DO NOTHING
+read existing target memberships for selected tsCodes
+to_add = missing source tsCodes × target IDs, ordered by target.id/source.id ASC
+validate eligibility once for unique tsCodes in to_add; failure aborts whole request
+_insert_missing_memberships(to_add)
 flush + count groups + build batch DTO
 commit
 return prebuilt DTO
 ```
 
-源关系不删除。任一目标越权、消失或非法，整批失败。
+源关系不删除。任一目标越权、消失、非法，或实际待新增股票资格不合格，整批失败。最多 1800 个候选关系、200 只待校验股票；已存在关系不参与资格复检和 createdCount。
 
 ### 11.7 Remove、Pin、Unpin
 
@@ -950,18 +974,18 @@ normalize tsCode and nonempty groupIds
 lock default group first
 read and lock remaining user groups ordered by id
 validate every requested group belongs to user
-validate current-listed A-share eligibility
 load existing memberships for user + tsCode FOR UPDATE
 to_add    = requested - existing
 to_remove = existing - requested
-bulk insert to_add ordered by group id ASC
+if to_add is nonempty: validate current-listed A-share eligibility
+_insert_missing_memberships(to_add ordered by group id ASC)
 bulk delete to_remove
 flush; build DTO(ordered final ids, actual createdCount, removedCount)
 commit
 return prebuilt DTO
 ```
 
-请求不包含默认组时不自动加入。空集合在任何 SQL 写入前返回 `WL_MEMBERSHIP_REQUIRED`。
+请求不包含默认组时不自动加入。空集合在任何 SQL 写入前返回 `WL_MEMBERSHIP_REQUIRED`。仅保留/移除既有关系时不复检资格；保留关系不改 ID、时间或 pin，新增不合格则连同移除一起回滚。
 
 ## 12. 前端 API 与 Controller LLD
 
@@ -976,6 +1000,10 @@ return prebuilt DTO
 5. 保留后端 `code/message`；GET 响应合同失败为 `WL_QUERY_FAILED`。写成功响应无法解析、网络超时/响应丢失使用前端 `outcome="UNKNOWN"`，不伪造 `WL_WRITE_FAILED` 或“已回滚”；后端 `WL_WRITE_OUTCOME_UNKNOWN` 同样进入回读流程。
 6. 删除 `itemUrl`、`fetchWatchlistMembership`、旧 `addWatchlistItem/removeWatchlistItem`。
 
+写状态统一约定：每个写动作只有一个 Controller 所有者，持有一个带动作上下文的判别联合，形态为 `idle | pending(action) | succeeded(action, result) | failed(action, error) | unknown(action)`。组内动作记录发起时的组 ID，单股添加再记录 tsCode；详情动作记录 tsCode 和提交的最终集合，创建动作记录提交的名称/颜色。结果与错误只能出现在对应分支。只在 `watchlistTypes.ts` 共享必要类型，不引入通用 mutation 框架、额外 Controller 或队列。
+
+`pending`、禁用状态和成功提示均从这一对象派生，不再平行保存 `pendingAction/writeOutcome/reconcilePending` 等同义字段。列表、分组和 picker 已有的 GET loading/error 独立保留：写成功但刷新失败是合法组合，不是新的写失败。unknown 保留动作上下文，通过既有读取状态显示回读进度；必要回读全部完成后转 idle，不补造原动作成功。Page 只负责一次协调刷新，不能与各 Controller 重复触发同一组 GET。
+
 ### 12.2 Groups Controller
 
 状态：
@@ -987,7 +1015,7 @@ type GroupsState =
   | { kind: "error"; message: string; canRetry: boolean };
 ```
 
-组级 mutation 另外持有第 12.4 节同义的 `writeOutcome/refreshError/reconcilePending`，不能把成功后的刷新错误写入 mutation error。
+独占 create/color/delete 的 mutation 状态与提交入口。Edit 只展示组级按钮/弹层并调用 Groups，不再持有第二份组级写状态。成功后的刷新错误归属于 GET 状态，不覆盖成功的 mutation。
 
 规则：
 
@@ -1001,7 +1029,7 @@ type GroupsState =
 
 ### 12.3 Items Controller
 
-持有：`groupId`、`sortState|null`、items、total、page/data status、cursor、initial/more/error、generation、AbortController、scrollResetKey。
+持有：`groupId`、`sortState|null`、items、total、page/data status、cursor、initial/more/error、generation、AbortController、scrollResetKey；独占单股添加 `addToCurrentGroup(tsCode)` 的 mutation，动作绑定发起时的 groupId/tsCode。添加弹窗每次只提交一个添加请求，pending 禁止重复提交，不保留旧控制器的 mutation queue。
 
 规则：
 
@@ -1011,20 +1039,26 @@ type GroupsState =
 4. load more 一次只允许一个请求，按 `membershipId` 去重只作为竞态防线，不替代服务端稳定排序。
 5. observed date 改变或 cursor invalid 时重载首批。
 6. 所有写成功后 cancel 旧读并重载首批；禁止本地猜测移动后的排序位置。
+7. `addToCurrentGroup` 调用当前组 PUT；收到合法成功 DTO 后，Page 统一协调 groups 和当前排序首批刷新，不调用旧 `appendAddedItem`，不重置当前数值排序、不向末尾直接追加。刷新失败只重试读，不再次 PUT。
+8. 添加请求的组/股票上下文不可被后来的切组覆盖；旧组写响应不能改变新组搜索状态、列表或弹窗。写请求 pending 时锁住添加弹窗交互；已经发出的写入不能靠关闭或 abort 当作撤销。
+
+#### 12.3.1 搜索与单股添加接线
+
+1. `WatchlistPage -> AddWatchlistDialog` 显式传入当前 groupId/name、`onAdd=Items.addToCurrentGroup` 和该动作派生的 pending/结果；旧 `useWatchlistController` 的 `appendAddedItem/pendingCodes/memberships` 接线全部删除。
+2. 保留并修改 `useWatchlistSearchController(groupId, open)`。请求键至少含 groupId、keyword 和 generation，调用 `/groups/{groupId}/search`；切组、关闭、关键词改变或卸载都 abort 旧 GET 并提升 generation，重置对应结果。接受响应前核验请求上下文仍有效；搜索 DTO 若未携带 groupId，不凭空添加字段，使用捕获的请求键检查归属。
+3. `ADDED` 只来自当前组搜索事实或当前组单股添加的合法成功结果。成功结果可立即标记这只股票，再刷新搜索；不得把其它组的状态复用过来，也不能把当前组首批中找不到的股票当成未添加。
+4. 添加成功提示改为“已添加到「分组名」”，删除现有“已添加到列表末尾”。搜索刷新由现有 Search Controller 执行，groups/items 由 Page 协调一次；每类请求只有一个发起者。
+5. 结果未知时，回读 groups、当前组首批和当前搜索归属，必要读取完成后才恢复添加；搜索关闭或股票不在当前结果中时，用 `GET /stocks/{tsCode}/groups` 只读核验原组归属，不新增查询接口或新 Controller。若待核验组已消失，以 groups 事实清除旧上下文，不向失效组继续搜索。没有合法成功响应，不显示添加成功提示。
 
 ### 12.4 Edit Controller
 
 持有：
 
-```ts
+```text
 isEditing: boolean
 selectedIds: Set<number>
 dialog: null | move | add | remove | color | delete
-pendingAction: null | action key
-error: string | null
-writeOutcome: "idle" | "pending" | "succeeded" | "failed" | "unknown"
-refreshError: string | null
-reconcilePending: boolean
+mutation: 第 12.1 节判别联合，仅覆盖 move/add-to-groups/remove/pin/unpin
 ```
 
 规则：
@@ -1034,26 +1068,28 @@ reconcilePending: boolean
 3. 股票级操作在 `selectedIds.size===0` 时 disabled；组级改色/删除不依赖选择。
 4. 成功：用服务端计数显示反馈，清选择、关当前弹层、保持编辑态并 reload groups/items。
 5. 删除组成功是例外：当前组已不存在，退出编辑态并切到响应 next group。
-6. 明确回滚的失败：保留选择、弹层和输入，解除 pending；stale selection 则清选择并 reload。成功后的 GET 失败只设置独立 refreshError，不恢复原选择或重试写入；未知结果进入第 11.1 节回读流程。
+6. 明确回滚的失败：保留选择、弹层和输入，mutation 转 failed；stale selection 则清选择并 reload。成功后的 GET 失败只进入对应读取错误状态，不恢复原选择或重试写入；未知结果进入第 11.1 节回读流程。
 7. “完成”只清选择并退出，不发写请求。
 8. 达到 `rules.maxBatchMemberships` 后，未选行的 checkbox 和 row toggle 都禁止新增选择，提示“单次最多选择 {上限} 只”；已选行始终可取消，加载更多和浏览不受影响。解除一个选择后立即允许补选。提交时再次校验，后端仍拒绝 201 条及超限请求。
-9. 写请求与成功后的 GET 使用分开的错误处理，不能共用一个 catch 把刷新失败判为写失败。`unknown` 时保留提示并暂停当前写入口，设置 `reconcilePending` 执行回读；读取失败只允许重试读取，成功后清旧选择并基于当前事实恢复操作，不报告原请求成功。
+9. 写请求与成功后的 GET 使用分开的错误处理，不能共用一个 catch 把刷新失败判为写失败。`unknown` 时保留提示并暂停当前写入口，由既有 GET 状态表达回读进度；读取失败只允许重试读取，成功后清旧选择并基于当前事实恢复操作，不报告原请求成功。
+10. 改色/删除只调用 Groups 的提交函数并消费其 mutation；不在 Edit 中再次请求或复制 outcome。由 Page 按唯一写结果协调清选择、退编辑及刷新，避免一个点击触发两次 mutation 或两轮重载。
 
 ### 12.5 详情页 Controller
 
 `useStockWatchlistGroups(tsCode, enabled)` 分离 committed 与 draft：
 
-```ts
-status: "idle" | "loading" | "ready" | "saving" | "error"
+```text
+status: "idle" | "loading" | "ready" | "error"  // 只描述读取
 groups: StockGroupDto[]
 committedIds: Set<number>
 draftIds: Set<number>
 open: boolean
-writeOutcome: "idle" | "pending" | "succeeded" | "failed" | "unknown"
-reconcilePending: boolean
+mutation: 第 12.1 节判别联合，仅覆盖当前股票最终集合 PUT
 generation: number
 abortController: AbortController | null
 ```
+
+提交中（saving）只由 `mutation.kind === "pending"` 派生，不再放入读取 status。committed 与 draft 分别表示服务器事实和未提交选择，二者不是重复写状态。
 
 1. enabled 后 GET 决定按钮“+自选/已添加”，两者都可点击；缓存仅用于按钮，不作为下一次打开的真实预选。
 2. 每次 open 增加请求 generation 并 GET 最新 groups/selected；显示 loading，读取成功才更新 committed 和本次 draft。加载中和失败时不可勾选/提交；失败在 picker 内提供读取重试。
@@ -1215,18 +1251,20 @@ toast/status
 3. 创建 9 个成功、第 10 个失败；并发创建不越界。
 4. 名称向量、trim 冲突、默认禁名、非法颜色、重复颜色。
 5. 默认组 delete/color 拒绝；不存在改名路由。
-6. 当前组 search 和 PUT 幂等资格复检。
+6. 当前组 search 资格过滤；单股 PUT 新关系复检资格，既有关系幂等成功（含已退市股票）。move/add-to-groups/详情 diff 同测：无新增时可保留/移除；任一待新增股票不合格则整批零变化，移动源关系不得先删除。
 7. move/add/remove/pin/unpin 的正常、幂等、越权、stale 和故障注入 rollback。
 8. 删除右邻/最右默认回退和仅当前组关系删除。
 9. 详情预选、最终 diff、非空、无默认强加。
 10. summary 只统计默认组。
 11. 颜色标记顺序、同色不合并、默认无标记。
-12. 八列 desc/asc、pin 两分区、null 后置、同值 tie、cursor 跨页无重复/遗漏。
+12. 八列 desc/asc、pin 两分区、null 后置、同值 tie；数据不变的 fixture 上验证 cursor 跨页无重复/遗漏。另测外部置顶/同日行情变化可越过旧 cursor、刷新首批后恢复当前事实，不伪造跨请求快照保证。
 13. cursor 损坏、版本、group/sort/date 不匹配。
 14. 空组不查行情；v1 同日、DELAYED/PARTIAL、zero/null 回归。
 15. 创建/删除先锁默认组再读清单；验证并发交错时 nextGroupId 和组数正确。新增关系在组锁内分配 ID，批量目标关系分配顺序稳定。
 16. 每个写动作提交后 SQL 数量为 0；提交前计数或 DTO 失败全部回滚；已知回滚与提交通信失败的未知结果返回不同 code。
 17. Policy 和真实数据库共测名称共享向量；1～6 字素边界、普通标点、trim 控制字符、1024 字节保护、NFC 重名一致；后端拒绝 0/201 条批量输入。
+18. JSON ID 覆盖 1、安全整数上界通过；上界加一、0、负数、true、数字字符串、浮点数拒绝；数组元素同样严格且重复拒绝。URL 十进制整数按同一范围验证，cursor g/i 超界拒绝；迁移超界不得 drop，响应 ID 超界在提交前失败回滚。
+19. 单股、移动、多组添加及详情新增都走同一插入 helper；验证空集合、已存在关系、实际 createdCount、目标已有 ID/pin 不变。SQLite 与 PostgreSQL 均验证只忽略指定唯一冲突，其它完整性错误整批失败；资格校验只查询实际待新增股票一次。
 
 PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不能把 FK/check/commit 故障误判为幂等。
 
@@ -1239,6 +1277,9 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 5. Detail Controller：每次打开都有新 GET、真实预选、任意组 isAdded、draft/committed、读取失败禁用提交、关闭后旧 GET 无效、零选择禁用、取消/外点/Escape 零 PUT、明确失败保留。
 6. 写失败已回滚、成功后刷新失败、网络超时/响应丢失/响应校验失败三组样本：成功不变失败、未知不假称回滚、未知先回读且无自动写重放，回读失败只重试 GET。
 7. pytest/Vitest 共读名称 JSON；目标浏览器分段/trim 与后端结果一致，不用两个语言各写一份测试向量。
+8. 单股添加端到端接线：Page/Dialog/Items/Search 不依赖旧 Controller；当前组 ADDED 隔离、关键词/关闭/切组旧响应丢弃、成功在当前排序重载而非末尾追加。写成功但任一刷新失败不重发 PUT；结果未知且目标股票不在首批/搜索结果时只读核验归属。
+9. 一个点击只触发一个写请求，groups/items/search 各只刷新一次；改色/删除状态由 Groups 独占。pending 与禁用从 mutation 派生，success + GET error 可同时表达，unknown + GET error 只能重试读。ID 响应超过安全整数范围即合同失败，不可舍入后进入 Set。
+10. 本页添加、批量与详情写成功后的列表更新均清除旧 cursor/请求，使用当前排序首批；外部变化只在刷新时重新读取，不把按 ID 去重当作补漏机制。
 
 ### 16.5 组件与页面
 
@@ -1297,10 +1338,10 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 
 | Gate | 当前状态 | 通过条件 |
 |---|---|---|
-| 产品需求 | 已确认 | 保持 v2.5 的加入顺序与评审修订 |
+| 产品需求 | 已确认 | 保持 v2.6 的加入顺序、资格及一致性边界 |
 | 交互/Figma | 已确认 | 节点 `1383:82` 及 comment 修订有效 |
-| 技术方案 | 十项修订已确认并回填 | v2.2 与本文一致 |
-| LLD | 十项修订已确认并回填 | 本次只提交文档；后续开发须另获明确授权 |
+| 技术方案 | 两轮修订已确认并回填 | v2.3 与本文一致 |
+| LLD | 两轮修订已确认并回填 | v2.2；本次仅修改文档，不提交；后续开发须另获明确授权 |
 | 名称分段依赖 | 已确定算法；安装未授权 | 按第 7.2 节报批、锁定依赖、验证浏览器/后端共享向量；不得退回码点计数 |
 | Alembic head | 当前已核验 | 编码迁移前再次核验 |
 | 当前代码/消费者 | 已审计 | 开发开始前 CodeGraph 状态无 stale |
@@ -1386,6 +1427,10 @@ npm --prefix wealth run build
 | 名称前后端计数漂移 | NFC + 同一 trim 集合 + 扩展字素簇；共享 JSON、依赖/浏览器版本验证；数据库不按码点限六 |
 | 历史基础顺序变化 | ID 稳定序，时间仅展示/审计；逐用户有序序列对账 |
 | 游标与排序漂移 | 单一 SortSpec 生成 order/cursor/predicate |
+| 翻页期间外部数据变化 | 不承诺跨请求快照；本页写后重载，外部变化刷新收敛 |
+| JS ID 舍入或请求类型被转换 | 全链路安全整数边界；JSON StrictInt、URL 显式解析、DTO 提交前校验 |
+| 添加入口资格或幂等语义分叉 | 缺失目标关系统一资格校验；一个插入 helper，真实计数 |
+| 单股添加断链或写状态重复 | Items 独占单股 PUT、Search 按组隔离；动作唯一所有者、Page 单次刷新协调 |
 | 并发批量部分成功 | 组/成员锁、集合 SQL、单 commit、故障注入 |
 | 删除后切错组 | 先锁默认组再读并锁清单；提交前构造 nextGroupId DTO |
 | 详情过期预选或误清空 | 每次打开 GET，读取成功才建 draft；disabled + nonempty + 单事务 diff |
@@ -1396,7 +1441,7 @@ npm --prefix wealth run build
 
 ## 21. 待拍板与版本记录
 
-十项修订已获用户确认。第 7 项把基础排序实现由创建时间改为不可变成员 ID，属于明确批准的技术调整；其它项统一既有规则和错误边界。本轮仅回填、检查、提交文档，不把方案批准或文档检查通过表述成业务功能完成。
+首轮十项及复审七项修订均已获用户确认。首轮第 7 项把基础排序由创建时间改为不可变成员 ID；复审进一步统一资格、安全整数与分页边界，并删去重复设计。本轮仅回填、检查文档，不提交，不把文档检查通过表述成业务功能完成。
 
 ### 21.1 十项修订对账
 
@@ -1415,9 +1460,24 @@ npm --prefix wealth run build
 
 上表是设计和计划测试对账，不是测试已执行记录。后续开发授权、名称依赖安装准入与生产操作授权仍分别管理。
 
-### 21.2 版本记录
+### 21.2 复审七项修订对账
+
+| 编号 | 已确认处理 | 技术方案章节 | 本 LLD 落点 | 后续开发必须验证 |
+|---|---|---|---|---|
+| 1 | 只对实际新增目标关系复检资格，不合格整批回滚 | 5.4～5.6、7.3～7.4 | 7.3、11.4～11.8 | 退市既有关系可保留/移除；新增拒绝、源不丢失 |
+| 2 | Items 接管单股添加；现有 Search 按组隔离 | 8.1 | 12.3、16.4 | 旧接线清零、当前排序刷新、搜索与未知回读 |
+| 3 | JSON 严格整数，API ID 上限与 JS 安全整数一致 | 5、11.3 | 5.3、7.3、8.1、16.3 | 类型/上下界、迁移超界中止、提交前 DTO 校验 |
+| 4 | 分页完整性以数据不变为前提，不引入快照机制 | 6.3、11～12 | 10.6、16.3～16.4 | 静态完整遍历、本页写后重载、外部变化刷新收敛 |
+| 5 | 只存规范化 name，用 user_id/name 唯一约束 | 3.1 | 4.1、6.1、7.2 | NFC/trim 同名约束与默认身份一致 |
+| 6 | 每个动作一个所有者、一个判别联合写状态 | 8.1、8.4 | 12、16.4 | 无重复提交/刷新，成功与读取失败可并存 |
+| 7 | 单股/批量共用窄插入 helper，不另建 savepoint 路径 | 7.3 | 11.1、11.4～11.8、16.3 | 指定唯一冲突幂等，其它错误回滚，真实计数 |
+
+以上是已确认的设计修订与待实施测试，不是代码或运行验收结果。不新增产品功能、兼容层、运行配置或依赖安装授权。
+
+### 21.3 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v2.2 | 2026-09-08 | 回填复审七项：统一新增关系资格与插入路径，补齐单股添加链路，冻结严格安全整数及分页边界，删除重复名称字段和写状态 | 用户 / Codex |
 | v2.1 | 2026-09-08 | 回填用户确认的十项修订，同步 ID 排序/游标、名称算法与存储、锁/写结果、前端状态、三阶段和逐项验证门禁 | 用户 / Codex |
 | v2 | 2026-09-07 | 初稿：基于当前代码、CodeGraph 影响面、PRD/交互和技术方案形成低层设计；当时的五 Slice 安排由 v2.1 三阶段替代 | Codex |

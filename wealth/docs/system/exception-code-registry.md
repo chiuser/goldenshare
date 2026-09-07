@@ -170,20 +170,20 @@
 
 > 2026-09-03：v1 六个接口及前端局部错误处理已实现，开发自测通过；未部署、未正式验收。证据见 [我的自选 LLD 第 17 节](../pages/watchlist/watchlist-low-level-design-v1.md#17-开发交付记录2026-09-03)。
 >
-> 2026-09-08：分组能力 v2 已完成代码审计，十项评审修订已确认并回填，新增错误码先行登记；当前运行代码仍只实现 v1 四个错误码，v2 登记不能作为代码已开发证据。实现依据见[我的自选分组能力 LLD v2](../pages/watchlist/watchlist-grouping-low-level-design-v2.md#15-异常安全与日志)。
+> 2026-09-08：分组能力 v2 已完成代码审计，两轮评审修订已确认并回填，新增错误码先行登记；当前运行代码仍只实现 v1 四个错误码，v2 登记不能作为代码已开发证据。实现依据见[我的自选分组能力 LLD v2](../pages/watchlist/watchlist-grouping-low-level-design-v2.md#15-异常安全与日志)。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `WL_REQUEST_INVALID` | `watchlist` | warn | false | false | 自选请求不符合冻结合同 | tsCode、groupId、limit、tradeDate、sort、名称、颜色或批量参数非法 | 当前页面或弹窗保留输入并提示修正；不执行宽松回退 | biz-api | Phase-8 | active |
 | `WL_CURSOR_INVALID` | `watchlist` | warn | false | false | 分组列表游标损坏或已不适用于当前查询 | cursor 版本、字段、group、sort、方向或 observed date 不匹配 | 清除 cursor 并只从首批自动重载一次 | biz-api | Phase-8 | active |
 | `WL_GROUP_NOT_FOUND` | `watchlist` | warn | false | false | 当前分组不存在或不属于认证用户 | URL groupId 无法在认证用户范围内命中 | 刷新分组；当前组失效时回到默认组 | biz-api | Phase-8 | active |
-| `WL_GROUP_NAME_CONFLICT` | `watchlist` | warn | false | false | 用户内已有相同规范化分组名 | NFC + trim 后 name_key 唯一约束冲突 | 创建弹窗保留名称与颜色，提示修改名称 | biz-api | Phase-8 | active |
+| `WL_GROUP_NAME_CONFLICT` | `watchlist` | warn | false | false | 用户内已有相同规范化分组名 | NFC + trim 后 (user_id, name) 唯一约束冲突 | 创建弹窗保留名称与颜色，提示修改名称 | biz-api | Phase-8 | active |
 | `WL_GROUP_LIMIT_REACHED` | `watchlist` | warn | false | false | 用户已达到 10 个总分组或 9 个自定义分组 | 默认组行锁内计数达到上限 | 刷新分组和 rules，禁用创建 | biz-api | Phase-8 | active |
 | `WL_DEFAULT_GROUP_IMMUTABLE` | `watchlist` | warn | false | false | 尝试修改默认组不可变属性 | 删除、改色或改名默认组 | 刷新分组，提示默认组不可执行该操作 | biz-api | Phase-8 | active |
 | `WL_SELECTION_STALE` | `watchlist` | warn | false | false | 编辑态选中成员已不再全部属于当前组 | 锁定 membership 后返回数量少于请求数量 | 清空选择、刷新当前组并提示列表已变化 | biz-api | Phase-8 | active |
 | `WL_TARGET_GROUP_INVALID` | `watchlist` | warn | false | false | 批量动作目标分组集合非法 | 目标为空、重复、包含当前组、不存在或越权 | 保留动作弹层并刷新可选分组 | biz-api | Phase-8 | active |
 | `WL_MEMBERSHIP_REQUIRED` | `watchlist` | warn | false | false | 股票详情页最终分组集合为空 | PUT stock groups 的 groupIds 为空 | 保持选择器打开并禁用空集合确认 | biz-api | Phase-8 | active |
-| `WL_STOCK_NOT_ELIGIBLE` | `watchlist` | warn | false | false | 添加目标不是当前上市 A 股 | security 不满足 EQUITY、L、CNY、SSE/SZSE/BSE 四项条件 | 保留列表和弹窗；提示仅支持当前上市 A 股 | biz-api | Phase-8 | active |
+| `WL_STOCK_NOT_ELIGIBLE` | `watchlist` | warn | false | false | 待新增分组关系的股票不是当前上市 A 股 | 实际缺失目标关系涉及的 security 不满足 EQUITY、L、CNY、SSE/SZSE/BSE；仅保留/移除已有关系不触发 | 保留列表和弹窗；整批不变，提示新增关系仅支持当前上市 A 股 | biz-api | Phase-8 | active |
 | `WL_QUERY_FAILED` | `watchlist` | error | false | false | 分组、列表、数量、搜索或归属查询失败 | 数据库查询、页面上下文、默认组不变量或 DTO 组合发生未恢复异常 | 只让对应列表、徽标、弹层或详情动作进入 error；不回退 mock | biz-api | Phase-8 | active |
 | `WL_WRITE_FAILED` | `watchlist` | error | false | false | 分组或成员写事务明确失败 | 写入、flush、提交前 DTO 构造失败并确认回滚，或提交明确拒绝且确认未生效；HTTP 500 | 保留操作前 UI 事实和选择，解除 pending，允许重试；不用于结果未知或成功后读取失败 | biz-api | Phase-8 | active |
 | `WL_WRITE_OUTCOME_UNKNOWN` | `watchlist` | error | false | false | 分组或成员提交结果待确认 | commit 阶段连接异常，服务端无法确定是否提交且仍能返回响应；HTTP 503 | 暂停当前写入口并读取实际分组/成员状态；只重试读取，不自动重放或一键重交旧写请求 | biz-api | Phase-8 | active |
