@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**I05测试及文档已提交为`73de21f1`，未推送。2026-09-07 18:59 I06的16例及原30例回归一次通过，见§18.16；权限未扩展，I06增量未提交。I01–I06已通过，I07–I08、实际adapter和S1全套回归未验收。本轮只在隔离临时实例写入1条虚构事件，没有操作正式实例/数据、恢复指定Silver sensor或安装依赖；无新DG服务。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时实例及产物按§18.11最终清理。**
+状态：**I06测试及文档已提交为`99e73ccf`，未推送。2026-09-07 19:20 I07的15项检查及原46例回归一次通过，见§18.17；权限未扩展，I07增量未提交。I01–I07已通过，I08、实际adapter和S1全套回归未验收。I07不创建实例/数据库，原I06回归仍仅在自己的临时实例写入1条虚构事件；没有操作正式实例/数据、恢复指定Silver sensor或安装依赖，无新DG服务。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时实例及产物按§18.11最终清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -1076,7 +1076,7 @@ S0 增加了真实物理只读核验和现有运行状态核验，但没有执�
 
 <a id="s1-test-isolation-repair"></a>
 
-## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I06已通过）
+## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I07已通过）
 
 ### 18.1 范围、事实依据与本轮停止点
 
@@ -1761,3 +1761,73 @@ CodeGraph `explore/impact/node`核对专项runner/support和消费者；同名`r
 本轮三个新增根`/private/tmp/stock-suspend-isolated-ltxrw1xe`、`/private/tmp/stock-suspend-isolated-3rbse6pc`、`/private/tmp/stock-suspend-isolated-tb6gs2o4`均登记为§18.11最终精确清理对象，含临时实例、4个数据库、配置反例、socket节点、报告和缓存；本轮保留证据，不提前删除，也不永久保留测试实例。没有创建DG webserver/daemon、安装或卸载套件、恢复sensor或操作正式数据。
 
 仅修改三份测试文件及本LLD/技术方案/主索引；CodeGraph分析覆盖专项入口、SDK工厂调用、资源及测试消费者，已sync/status确认最新。无子系统边界或依赖矩阵变化。交付检查：三份测试的默认Ruff、全量src/tests致命错误基线、文档完整性三项、三份文档319个本地链接/18个显式锚点、围栏及git diff --check均通过，不将静态检查替代运行验收。下一步仅I07的提前保护、策略/scope错误及导入期越界验证，仍不进入I08或实际adapter。本轮I06增量未提交、未推送，I07–I08、S1业务验收和后续生产阶段仍未完成。
+
+<a id="s1-isolation-i07-startup-collection"></a>
+
+### 18.17 I07：启动拒绝与导入期隔离
+
+I06已按管理员指令提交为`99e73ccf`，未推送。本轮“继续推进”只进入§18.5 I07；不运行I08、尚未修正的两份业务测试或正式Definitions，不安装依赖、不扩大隔离权限。沿用前三批46例回归，再执行以下15项I07验证；没有任意脚本或pytest参数透传入口。
+
+#### A. 编码前核对与实施约束
+
+CodeGraph `explore/impact`及精确文件`node`核对runner → support.run → OS自检 → 资源导入 → pytest collection的顺序；图中泛化同名run误连无关研究模块，已排除。当前`require_isolated_context`在未初始化时直接报错；`run`先核导入时机、继承环境、解释器标志、profile哈希并执行当次原生自检，随后才设置允许根。现有runner同时要求退出码、完成数、pytest判据和禁止区不变，不能只读历史passed标志。
+
+| 验证项 | 精确实施 / 判据 |
+| --- | --- |
+| scope错误5项 | 在标准库父进程调用实际main/parser，分别传缺scope、缺值、未知值、尚未开放的adapter、额外pytest参数。捕获实际SystemExit(2)及对应原因；临时目录创建、mkdir、Popen调用spy均0。不是运行业务测试或启动嵌套runner |
+| guard_missing | 新受限子进程只加载标准库support，直接导入现有isolation测试文件，必须在require_isolated_context处拒绝；Dagster/DuckDB/orchestrator/pytest均未导入 |
+| guard_late | 新受限子进程先真实导入pytest，再调用实际support.run；必须报protection_loaded_too_late，允许根未设置，Dagster/DuckDB/orchestrator未导入。不是用假模块冒充晚加载 |
+| policy_missing / policy_invalid | 分别以不存在的profile、仅含版本及故意未定义规则I07_INVALID_PROFILE的文件调用真实sandbox-exec。必须在解释器payload启动前失败，stderr对应精确文件缺失/未定义规则；不接受任意非零退出、信号或超时。payload仅标准库及虚构标记，绝不在策略失败后回退启动 |
+| policy_mismatch | OS仍使用正常profile，调用support.run时传错误哈希；必须在资源/pytest导入前报policy_mismatch。不是修改实际权限 |
+| selfcheck_failed_stale | 在新根预放明确虚构的passed=true旧结果，再仅对本次support的自检函数注入固定失败；实际run必须拒绝且允许根仍未初始化，资源/pytest未导入，正常资源验收判据仍为false。该项证明失败传播和旧标记无效，不冒充真实OS权限反例 |
+| collection_allowed / collection_denied | 父进程在各自新根生成同结构微型pytest文件和同内容文本；真实support/pytest完成导入。正例读allowed后执行1个空业务测试体；反例在模块导入期读本次denied哨兵，记录真实OSError.errno/路径并重新抛出，pytest collection失败，导入完成标记与测试体标记均不存在。只能认可EPERM/EACCES和对应目标；不选择实际asset/check/job |
+| skip / xfail | 两个明确故障样例分别被pytest跳过/标记预期失败；即使pytest返回0，实际完成数0、失败/跳过计数1，专项资源验收仍必须false，不能冒充正常通过。只作为验证拒绝判据的反例，不用它们替代缺失的正常用例 |
+
+仅改`tests/stock_suspend_confirmed_test_runner.py`、`tests/stock_suspend_confirmed_test_support.py`及本文/技术方案/主索引；已有isolation测试文件保持不变但参与回归与提前保护验证。runner复用既有有界子进程执行和报告逻辑，增加内部固定I07清单、微型collection样例及精确判据；support提供仅标准库的提前拒绝验证入口，collection仍走实际run，不能替换pytest收集或OS文件IO。所有新增设置只在专项测试内部，不增加CLI选项、env、共享配置或生产字段。启动器在每个子进程前输出完整argv、profile、真实根和本项预期，不只报最终绿灯。
+
+预算：I07共15项，其中5项纯标准库参数验证、10个串行新子进程；每个子进程独立新根，另有1处汇总根，绝不复用旧pytest目录。每个collection样例最多1个测试体、1个微型文本读，业务对象/日期/分区、源请求/分页、Parquet/DuckDB查询、新实例/数据库/事件写入均0；原I06回归仍只使用自己的1处临时实例/1条synthetic事件。I07预计低于15秒、总现场低于2MiB；每个子例30秒，整个I07批次60秒，全部I07根合计100MiB、虚构fixture合计1MiB、单子进程stdout/stderr各64KiB。超限或不符即停，保留失败证据，不放宽权限/判据重跑。标准回归仍按16/14/16分批和既有预算执行。临时标记、故意错误profile、测试样例及报告全部登记§18.11最终清理，无新常驻服务。
+
+本机sandbox-exec手册明确-f读取指定策略并在策略下执行命令；已核当前pytest的main与ExitCode实现，并参考[pytest调用及早期插件机制](https://docs.pytest.org/en/stable/how-to/usage.html#calling-pytest-from-python-code)、[退出码说明](https://docs.pytest.org/en/stable/reference/exit-codes.html)。collection错误可能通过pytest的中断或节点选择错误出口报告；必须结合准确的权限错误、导入阶段标记和零测试体执行，而不是仅接受某个退出码。
+
+#### B. 2026-09-07 19:20 实测与计划对账
+
+按§18.13 B固定父入口一次运行，无失败重试或权限追加。原I03–I04为16/16、1.223秒，I05为14/14、0.929秒，I06为16/16、1.654秒；I07为15/15、4.103秒。这里的15项指“启动拒绝与验收判据检查通过”，不把其中故意失败/跳过的子pytest算作正常资源验收通过；报告分别记录`passed`与`resource_gate_passed`。
+
+| I07硬口径 / 代码点 | 实际证据 |
+| --- | --- |
+| `run_startup_gate_batch`：错误scope不启动 | 缺参数、缺值、未知值、adapter、额外参数5项均实际SystemExit(2)，原因准确，mkdir/mkdtemp/Popen调用均0 |
+| `probe_startup_gate`：保护先于资源与collection | 缺保护报`isolation_not_initialized_before_collection`；真实pytest先导入报`protection_loaded_too_late`。两项均退出1、允许根未初始化，前者无四类模块导入，后者仅pytest；无业务执行 |
+| `run_isolation_child`：真实策略加载失败不能回退 | 缺失/无效profile均由sandbox-exec返回65，分别为精确missing.sb缺失、invalid.sb第2行未定义规则；payload启动标记、pytest结果和proof均不存在，非崩溃或超时 |
+| `run`：错误哈希、自检失败不能被旧记录掩盖 | 错哈希准确报`policy_mismatch`；明确故障注入自检恰好调用1次后失败。两者均在资源/pytest导入前退出1；后者即使保留虚构passed=true旧JSON，`resource_gate_passed`仍false |
+| `prepare_startup_fixture` → 实际`run/pytest`：导入期IO边界 | 正例读allowed，collection和测试体标记齐全、完成1例，退出0、资源验收true；反例真实读取当次denied哨兵返回EPERM(errno=1)，退出4、完成0例，collection结束及测试体标记均不存在，资源验收false。没有用任意非零退出代替权限证据 |
+| `evaluate_startup_probe`与实际pytest计数：不接受skip/xfail | 两个故意样例均退出0，但实际完成数0、失败/跳过计数1，测试体未运行，资源验收false；stdout分别确认1 skipped/1 xfailed。只有对这一拒绝行为的I07检查为true |
+| 原有安全范围不变 | 13份子进程报告的正常profile随机根归一后均与§18.16基线逐字相同，读取白名单、环境白名单和生产默认值不变；两项策略加载反例另存实际选用的错误profile，绝无回退。全部禁止哨兵内容、身份、时间前后相同，无时间/空间/输出超限 |
+
+汇总报告：[I07全部15项及精确子报告路径](/private/tmp/stock-suspend-isolated-xd177k63/allowed/startup-result.json)。原回归报告：[I03–I04](/private/tmp/stock-suspend-isolated-w8vslr4i/allowed/resource-result.json)、[I05](/private/tmp/stock-suspend-isolated-f7wo9vlx/allowed/resource-result.json)、[I06](/private/tmp/stock-suspend-isolated-iuxuac53/allowed/resource-result.json)。10个I07子进程逐个保存实际argv、policy、预期判据、stdout/stderr及proof；汇总在每项完成后落盘，不只保留末尾绿灯。
+
+验收源码SHA256：runner为`55086e62a25f849bfb3e786131f4aaded7e4eee75300fa0945b64e87f19aa2e7`；support为`10e766fa6587c690a5f0018d6d0a5bf67e600d58db51a862282e55001f59f1a0`；未修改的isolation用例为`16b5949efaf3cf27dd37acc1bcd993e06abd5b72091730ad6655e4e9f76211ee`。运行后逐报告核对源码哈希一致；既有业务差异哈希及五份未跟踪专项文件哈希均未变。I05仍有8条既有依赖弃用警告，未屏蔽或升级环境。
+
+I07的11处根共592KiB磁盘占用，普通文件合计232,567字节；四个生成测试文件共2,754字节，没有Parquet/数据库/实例/事件。原I06回归单独占496KiB，仍只有1条synthetic事件、0 job run，实例关闭重开后读回一致，4个SQLite文件共428KiB，无WAL/SHM残留。loopback端口55193、Unix socket及instance文件的只读lsof复核均无占用；不复连端点、不启动服务。
+
+本次新增14处根逐一登记为§18.11最终精确清理对象；此处是穷举清单，不授权按通配符删除。清理包括其中的故意错误profile、微型测试、标记、报告、临时实例/数据库、socket节点及缓存，本轮不提前删除证据：
+
+```text
+/private/tmp/stock-suspend-isolated-w8vslr4i
+/private/tmp/stock-suspend-isolated-f7wo9vlx
+/private/tmp/stock-suspend-isolated-iuxuac53
+/private/tmp/stock-suspend-isolated-xd177k63
+/private/tmp/stock-suspend-isolated-43e714fe
+/private/tmp/stock-suspend-isolated-e9ypg9ti
+/private/tmp/stock-suspend-isolated-8keu73ft
+/private/tmp/stock-suspend-isolated-6t9odx0p
+/private/tmp/stock-suspend-isolated-myaqc7_5
+/private/tmp/stock-suspend-isolated-m2fpa63_
+/private/tmp/stock-suspend-isolated-ts2oql0v
+/private/tmp/stock-suspend-isolated-0_o59hck
+/private/tmp/stock-suspend-isolated-2_c32rg7
+/private/tmp/stock-suspend-isolated-zbr5tqrk
+```
+
+交付静态检查：两个变更测试支持文件默认Ruff、全量src/tests致命错误基线、文档完整性三项、三份文档324个本地链接/19个显式锚点、围栏及git diff --check均通过；CodeGraph sync/status为最新。上述检查不替代15项真实启动验证与46例回归。
+
+本轮仅改runner/support两个测试支持文件及本LLD/技术方案/主索引，未改实际业务代码、生产字段、子系统边界或依赖矩阵；不安装套件、不创建DG服务、不操作正式实例/数据或恢复sensor。下一步仅I08：在当次虚构临时范围调用真实共享健康helper，核验其探针副作用可被准确记录；不选择实际checks，不修改全局健康函数。I08及后续adapter仍未运行，不能把I07通过当S1业务验收完成；本轮增量未提交、未推送。

@@ -1,4 +1,4 @@
-"""Task-local, stdlib-only launcher for I03-I06 isolation tests in fixed batches.
+"""Task-local, stdlib-only launcher for I03-I07 isolation tests in fixed batches.
 
 No Dagster imports, environment discovery, dependency installation or cleanup.
 The adapter gate remains closed until the complete I group is accepted.
@@ -15,6 +15,7 @@ import selectors
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 from contextlib import ExitStack
@@ -38,6 +39,10 @@ ISOLATION_BATCHES = (
         "test_i06_rejects_instance_discovery", "test_i06_python_network_guard",
         "test_i06_native_network_denial",
     )),
+)
+STARTUP_PROBES = (
+    "guard_missing", "guard_late", "policy_missing", "policy_invalid", "policy_mismatch",
+    "selfcheck_failed_stale", "collection_allowed", "collection_denied", "skip", "xfail",
 )
 # Actual import closure of resources.py, not permission for all defs or CSV data.
 RESOURCE_SOURCE_FILES = (
@@ -115,11 +120,17 @@ def inventory(directory: Path) -> list[dict]:
     return result
 
 
-def run_isolation_batch(batch: str, expected_count: int, case_names: tuple[str, ...]) -> int:
+def create_isolation_root() -> Path:
     root = Path(tempfile.mkdtemp(prefix="stock-suspend-isolated-", dir="/private/tmp"))
     allowed, denied = root / "allowed", root / "denied-fixture"
     allowed.mkdir()
     denied.mkdir()
+    return root
+
+
+def run_isolation_batch(batch: str, expected_count: int, case_names: tuple[str, ...]) -> int:
+    root = create_isolation_root()
+    allowed = root / "allowed"
     with ExitStack() as endpoints:
         listeners = {}
         if batch == "I06":
@@ -152,7 +163,9 @@ def verify_parent_network_endpoints(listeners: dict) -> dict:
 
 
 def run_isolation_child(root: Path, batch: str, expected_count: int,
-                        case_names: tuple[str, ...], listeners: dict) -> int:
+                        case_names: tuple[str, ...], listeners: dict, *,
+                        startup_probe: str | None = None, batch_deadline: float | None = None,
+                        budget_roots: tuple[Path, ...] = ()) -> int:
     allowed, denied = root / "allowed", root / "denied-fixture"
     network_targets = {kind: listener.getsockname() for kind, listener in listeners.items()}
     network_before = verify_parent_network_endpoints(listeners)
@@ -160,20 +173,40 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     policy = allowed / "capability.sb"
     policy.write_text(policy_for(root))
     bootstrap = allowed / "bootstrap.py"
-    bootstrap.write_text(
+    source = (
         "import importlib.util, sys\n"
         f"spec = importlib.util.spec_from_file_location('stock_suspend_confirmed_test_support', {str(SUPPORT)!r})\n"
         "module = importlib.util.module_from_spec(spec)\n"
         "sys.modules[spec.name] = module\n"
         "spec.loader.exec_module(module)\n"
-        f"raise SystemExit(module.run({str(root)!r}, {digest(policy)!r}, {str(TEST)!r}, "
-        f"batch={batch!r}, case_names={case_names!r}, expected_count={expected_count!r}, "
-        f"network_targets={network_targets!r}))\n"
     )
+    selected_policy = policy
+    if startup_probe is None:
+        source += (
+            f"raise SystemExit(module.run({str(root)!r}, {digest(policy)!r}, {str(TEST)!r}, "
+            f"batch={batch!r}, case_names={case_names!r}, expected_count={expected_count!r}, "
+            f"network_targets={network_targets!r}))\n"
+        )
+    else:
+        if startup_probe not in STARTUP_PROBES:
+            raise ValueError("unknown_startup_probe")
+        source = "print('I07_PAYLOAD_STARTED', flush=True)\n" + source
+        fixture = prepare_startup_fixture(root, startup_probe)
+        source += f"raise SystemExit(module.probe_startup_gate({startup_probe!r}, {str(root)!r}, {digest(policy)!r}, {str(fixture)!r}))\n"
+        if startup_probe == "policy_missing":
+            selected_policy = allowed / "missing.sb"
+        elif startup_probe == "policy_invalid":
+            selected_policy = allowed / "invalid.sb"
+            selected_policy.write_text("(version 1)\n(I07_INVALID_PROFILE)\n")
+        elif startup_probe == "selfcheck_failed_stale":
+            (allowed / "pytest-result.json").write_text(json.dumps({
+                "passed": True, "completed": 1, "failures": 0, "synthetic_stale": True,
+            }) + "\n")
+    bootstrap.write_text(source)
     argv = [
         "/opt/homebrew/bin/uv", "run", "--offline", "--no-sync", "--no-env-file",
         "--no-config", "--no-python-downloads", "--cache-dir", str(allowed / "uv-cache"),
-        "/usr/bin/sandbox-exec", "-f", str(policy), str(PROJECT / ".venv/bin/python"),
+        "/usr/bin/sandbox-exec", "-f", str(selected_policy), str(PROJECT / ".venv/bin/python"),
         "-I", "-B", str(bootstrap),
     ]
     env = {"PATH": "/opt/homebrew/bin:/usr/bin:/bin", "LANG": "en_US.UTF-8",
@@ -183,9 +216,13 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     report = {
         "scope": "isolation", "implemented_slice": batch, "all_isolation_accepted": False,
         "case_names": list(case_names), "expected_count": expected_count,
+        "startup_probe": startup_probe,
+        "expected_resource_gate": startup_probe in (None, "collection_allowed"),
         "network_targets": network_targets, "network_before": network_before,
         "root": str(root), "cwd": str(PROJECT), "argv": argv, "env_keys": sorted(env),
         "policy_sha256": digest(policy), "policy": policy.read_text(),
+        "selected_policy": str(selected_policy),
+        "selected_policy_text": selected_policy.read_text() if selected_policy.exists() else None,
         "test_source_sha256": {str(p): digest(p) for p in (Path(__file__), SUPPORT, TEST)},
         "source_files": list(RESOURCE_SOURCE_FILES),
         "before": before, "passed": False,
@@ -203,9 +240,12 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
         selector.register(process.stderr, selectors.EVENT_READ, "stderr")
         while selector.get_map():
             if stop_reason is None:
-                if time.monotonic() - started > 60:
+                if batch_deadline is not None and time.monotonic() > batch_deadline:
                     stop_reason = "batch_timeout_60s"
-                elif sum(p.lstat().st_size for p in root.rglob("*") if p.is_file()) > 100 * 1024**2:
+                elif time.monotonic() - started > (30 if startup_probe else 60):
+                    stop_reason = "case_timeout_30s" if startup_probe else "batch_timeout_60s"
+                elif sum(p.lstat().st_size for directory in (budget_roots or (root,))
+                         for p in directory.rglob("*") if p.is_file()) > 100 * 1024**2:
                     stop_reason = "workspace_budget_100MiB"
                 if stop_reason and process.poll() is None:
                     os.killpg(process.pid, signal.SIGKILL)
@@ -230,7 +270,14 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     observed = json.loads(result.read_text()) if result.is_file() else None
     passed = code == 0 and stop_reason is None and before == after and observed is not None
     passed = passed and observed.get("passed") is True and observed.get("completed") == expected_count
-    report.update({"passed": passed, "after": after, "denied_unchanged": before == after,
+    resource_gate_passed = passed
+    probe_evidence = None
+    if startup_probe is not None:
+        probe_evidence = evaluate_startup_probe(root, startup_probe, code, outputs, observed)
+        passed = stop_reason is None and before == after and probe_evidence["passed"] \
+            and resource_gate_passed == (startup_probe == "collection_allowed")
+    report.update({"passed": passed, "resource_gate_passed": resource_gate_passed,
+                   "startup_evidence": probe_evidence, "after": after, "denied_unchanged": before == after,
                    "network_after": network_after,
                    "exit_code": code, "stop_reason": stop_reason, "pytest": observed,
                    "elapsed_ms": round(1000 * (time.monotonic() - started)),
@@ -240,18 +287,158 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     return 0 if passed else 1
 
 
+def prepare_startup_fixture(root: Path, case: str) -> Path:
+    """Create only fixed synthetic collection sources; never a business test."""
+    if case not in ("collection_allowed", "collection_denied", "skip", "xfail"):
+        return TEST
+    allowed = root / "allowed"
+    (allowed / "sentinel.txt").write_text("synthetic denied resource fixture\n")
+    target = (root / "denied-fixture" if case == "collection_denied" else allowed) / "sentinel.txt"
+    source = (
+        "import json\nfrom pathlib import Path\nimport pytest\n"
+        "from stock_suspend_confirmed_test_support import require_isolated_context\n"
+        "allowed = require_isolated_context()\n"
+        "(allowed / 'collection-entered.txt').write_text('synthetic')\n"
+        f"target = Path({str(target)!r})\n"
+        "try:\n    assert target.read_bytes() == b'synthetic denied resource fixture\\n'\n"
+        "except OSError as error:\n"
+        "    (allowed / 'collection-denial.json').write_text(json.dumps({'errno': error.errno, 'target': str(target)}))\n"
+        "    raise\n"
+        "(allowed / 'collection-finished.txt').write_text('synthetic')\n"
+    )
+    if case == "skip":
+        source += "@pytest.mark.skip(reason='I07_synthetic_skip')\n"
+    source += "def test_body():\n"
+    if case == "xfail":
+        source += "    pytest.xfail('I07_synthetic_xfail')\n"
+    source += "    (allowed / 'test-body.txt').write_text('synthetic')\n"
+    fixture = allowed / "test_startup_fixture.py"
+    fixture.write_text(source)
+    return fixture
+
+
+def evaluate_startup_probe(root: Path, case: str, code: int, outputs: dict, observed) -> dict:
+    import errno
+
+    allowed = root / "allowed"
+    stdout, stderr = (outputs[name].decode(errors="replace") for name in ("stdout", "stderr"))
+    proof_path = allowed / "startup-proof.json"
+    proof = json.loads(proof_path.read_text()) if proof_path.exists() else None
+    if case.startswith("policy_") and case != "policy_mismatch":
+        reason = (str(allowed / "missing.sb") in stderr and "No such file or directory" in stderr) \
+            if case == "policy_missing" else "I07_INVALID_PROFILE" in stderr and "unbound variable" in stderr
+        passed = code > 0 and reason and "I07_PAYLOAD_STARTED" not in stdout and proof is None and observed is None
+    elif case in ("guard_missing", "guard_late", "policy_mismatch", "selfcheck_failed_stale"):
+        reasons = {"guard_missing": "isolation_not_initialized_before_collection",
+                   "guard_late": "protection_loaded_too_late", "policy_mismatch": "policy_mismatch",
+                   "selfcheck_failed_stale": "synthetic_self_check_failed"}
+        passed = code == 1 and proof is not None and proof.get("reason") == reasons[case] \
+            and proof.get("context_initialized") is False \
+            and proof.get("loaded_modules") == (["pytest"] if case == "guard_late" else [])
+        passed = passed and (observed == {"passed": True, "completed": 1, "failures": 0, "synthetic_stale": True}
+                             if case == "selfcheck_failed_stale" else observed is None)
+    else:
+        entered = (allowed / "collection-entered.txt").exists()
+        finished = (allowed / "collection-finished.txt").exists()
+        body = (allowed / "test-body.txt").exists()
+        passed = entered and proof is not None and proof.get("business_modules") == [] and observed is not None
+        if case == "collection_allowed":
+            passed = passed and code == 0 and finished and body and observed.get("passed") is True \
+                and observed.get("completed") == 1
+        elif case == "collection_denied":
+            denial_path = allowed / "collection-denial.json"
+            denial = json.loads(denial_path.read_text()) if denial_path.exists() else {}
+            passed = passed and code in (2, 4) and not finished and not body \
+                and observed.get("passed") is False and observed.get("completed") == 0 \
+                and denial.get("errno") in (errno.EPERM, errno.EACCES) \
+                and denial.get("target") == str(root / "denied-fixture/sentinel.txt")
+            proof = {**(proof or {}), "denial": denial}
+        else:
+            passed = passed and code == 0 and finished and not body and observed.get("passed") is False \
+                and observed.get("completed") == 0 and observed.get("failures") == 1 \
+                and ("1 skipped" if case == "skip" else "1 xfailed") in stdout
+        proof = {**(proof or {}), "collection_entered": entered, "collection_finished": finished,
+                 "test_body_executed": body}
+    return {"passed": bool(passed), "case": case, "proof": proof}
+
+
+def run_startup_gate_batch() -> int:
+    import io
+    from contextlib import redirect_stderr
+    from unittest.mock import patch
+
+    root = create_isolation_root()
+    roots = [root]
+    started = time.monotonic()
+    results = []
+    report_path = root / "allowed/startup-result.json"
+
+    def save_report(passed=False):
+        report_path.write_text(json.dumps({
+            "slice": "I07", "passed": passed, "expected_count": 15, "completed": len(results),
+            "elapsed_ms": round(1000 * (time.monotonic() - started)),
+            "roots": [str(path) for path in roots], "results": results,
+        }, indent=2) + "\n")
+
+    save_report()
+    for name, args, reason in (
+        ("scope_missing", [], "required: --scope"),
+        ("scope_value_missing", ["--scope"], "expected one argument"),
+        ("scope_unknown", ["--scope", "unknown"], "invalid choice"),
+        ("scope_adapter", ["--scope", "adapter"], "adapter is not accepted"),
+        ("scope_extra", ["--scope", "isolation", "-k", "synthetic"], "unrecognized arguments"),
+    ):
+        errors = io.StringIO()
+        with ExitStack() as guards:
+            guards.enter_context(patch.object(sys, "argv", [str(Path(__file__)), *args]))
+            guards.enter_context(redirect_stderr(errors))
+            spies = [guards.enter_context(patch.object(owner, key, side_effect=AssertionError(key)))
+                     for owner, key in ((tempfile, "mkdtemp"), (Path, "mkdir"), (subprocess, "Popen"))]
+            try:
+                main()
+            except SystemExit as error:
+                passed = error.code == 2 and reason in errors.getvalue() and not any(spy.called for spy in spies)
+            else:
+                passed = False
+        results.append({"case": name, "passed": passed, "argv": args, "stderr": errors.getvalue(),
+                        "mkdir_or_process_calls": sum(spy.call_count for spy in spies)})
+        save_report()
+        print(json.dumps(results[-1]), flush=True)
+        if not passed:
+            return 1
+    for case in STARTUP_PROBES:
+        if time.monotonic() - started > 60:
+            save_report()
+            return 1
+        child_root = create_isolation_root()
+        assert child_root not in roots
+        roots.append(child_root)
+        code = run_isolation_child(child_root, f"I07:{case}", 1, ("test_body",), {},
+                                   startup_probe=case, batch_deadline=started + 60, budget_roots=tuple(roots))
+        results.append({"case": case, "passed": code == 0,
+                        "report": str(child_root / "allowed/resource-result.json")})
+        save_report()
+        if code:
+            return 1
+    save_report(passed=True)
+    print(json.dumps({"batch": "I07", "passed": True, "completed": len(results), "report": str(report_path)}), flush=True)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scope", choices=("isolation", "adapter"), required=True)
     args = parser.parse_args()
     if args.scope != "isolation":
-        parser.error("adapter is not accepted: complete I07-I08 and independent review first")
+        parser.error("adapter is not accepted: complete I08 and independent review first")
     if Path.cwd() != PROJECT:
         parser.error(f"Run from {PROJECT}")
     for batch, expected_count, case_names in ISOLATION_BATCHES:
         if run_isolation_batch(batch, expected_count, case_names) != 0:
             return 1
-    print(json.dumps({"I03_I04_I05_I06_passed": True, "all_isolation_accepted": False}), flush=True)
+    if run_startup_gate_batch() != 0:
+        return 1
+    print(json.dumps({"I03_I04_I05_I06_I07_passed": True, "all_isolation_accepted": False}), flush=True)
     return 0
 
 

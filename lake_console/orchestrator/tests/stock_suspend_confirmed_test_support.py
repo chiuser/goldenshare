@@ -319,6 +319,66 @@ def pytest_runtest_logfinish(nodeid, location):
                       "elapsed_ms": round(1000 * (time.monotonic() - _started))}), flush=True)
 
 
+def probe_startup_gate(case: str, root_name: str, policy_hash: str, test_name: str) -> int:
+    """Fixed I07 probes; the parent has already applied the OS policy."""
+    import importlib.util
+    from unittest.mock import patch
+
+    root = Path(root_name)
+    allowed = root / "allowed"
+    if case in ("collection_allowed", "collection_denied", "skip", "xfail"):
+        result = run(root_name, policy_hash, test_name, batch=f"I07:{case}",
+                     case_names=("test_body",), expected_count=1, network_targets={})
+        forbidden = [name for name in sys.modules if name == "orchestrator.definitions"
+                     or name.startswith(("orchestrator.defs.assets.", "orchestrator.defs.checks."))]
+        assert not forbidden
+        (allowed / "startup-proof.json").write_text(json.dumps({
+            "case": case, "business_modules": forbidden, "pytest_exit": result,
+        }) + "\n")
+        return result
+
+    reasons = {"guard_missing": "isolation_not_initialized_before_collection",
+               "guard_late": "protection_loaded_too_late", "policy_mismatch": "policy_mismatch",
+               "selfcheck_failed_stale": "synthetic_self_check_failed"}
+    if case not in reasons:
+        raise ValueError("unknown_startup_probe")
+    self_check_calls = []
+
+    def failed_self_check(observed_root):
+        assert observed_root == root
+        self_check_calls.append(str(observed_root))
+        raise RuntimeError("synthetic_self_check_failed")
+
+    try:
+        if case == "guard_missing":
+            spec = importlib.util.spec_from_file_location("i07_unprotected_test", test_name)
+            spec.loader.exec_module(importlib.util.module_from_spec(spec))
+        else:
+            if case == "guard_late":
+                import pytest  # noqa: F401 -- real early import is the deliberate fault.
+            if case == "policy_mismatch":
+                policy_hash = "0" * 64
+            if case == "selfcheck_failed_stale":
+                with patch.object(sys.modules[__name__], "_os_self_check", failed_self_check):
+                    run(root_name, policy_hash, test_name, batch="I07", case_names=("test_body",),
+                        expected_count=1, network_targets={})
+            else:
+                run(root_name, policy_hash, test_name, batch="I07", case_names=("test_body",),
+                    expected_count=1, network_targets={})
+    except RuntimeError as error:
+        assert str(error) == reasons[case]
+        assert _allowed is None
+        loaded = [name for name in ("dagster", "duckdb", "orchestrator", "pytest") if name in sys.modules]
+        assert loaded == (["pytest"] if case == "guard_late" else [])
+        assert len(self_check_calls) == (1 if case == "selfcheck_failed_stale" else 0)
+        proof = {"case": case, "reason": str(error), "context_initialized": False,
+                 "loaded_modules": loaded, "self_check_calls": self_check_calls}
+        (allowed / "startup-proof.json").write_text(json.dumps(proof) + "\n")
+        print(json.dumps(proof), flush=True)
+        return 1  # The attempted execution really failed; the parent checks why.
+    raise AssertionError("startup_gate_did_not_reject")
+
+
 def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
         case_names: tuple[str, ...], expected_count: int, network_targets: dict) -> int:
     global _allowed, _local_instance_factory, _network_targets
