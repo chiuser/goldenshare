@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成，I01/I02证据及规则已提交为`0f2bbbf9`。管理员确认两个包标记只读例外后，2026-09-07 17:05 I03八例全部通过，原pytest收集阻塞已解决，见LLD §18.13 D。I04–I08、实际adapter和S1全套回归未验收；本轮无正式数据操作、新DG实例或依赖安装。生产批准集合、正式发布、切换、删除仍分别授权，指定Silver sensor未自行恢复；专项临时产物按最终收尾要求清理。**
+状态：**S0已完成，I03测试及文档已提交为`ff72d48f`。2026-09-07 17:27 I04八例与I03八例回归全部通过，见LLD §18.14；权限未扩展，本轮增量未提交。I01–I04已通过，I05–I08、实际adapter和S1全套回归未验收；本轮无正式数据操作、新DG实例或依赖安装。生产批准集合、正式发布、切换、删除仍分别授权，指定Silver sensor未自行恢复；专项临时产物按最终收尾要求清理。**
 
 首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
 
@@ -34,7 +34,7 @@ silver_stock_suspend_confirmed ─────┘
 5. 固定事实独立保存，Silver 可以从 Raw 与该事实重新生成，不依赖上一次 Silver 输出。
 6. 低频人工维护，不建管理后台、规则引擎、数据库表或自动更新任务。
 
-最初“出技术方案”仅授权文档；随后用户已批准 S0、S1 开发与隔离测试，以及仅暂停 `silver_suspend_d_update_job_sensor` 的维护安排。本文的新增文件、资产、字段、checks、迁移步骤是目标设计，部分已有代码但不代表全部实现或验收。当前批准不含正式 Lake/staging 写入、正式 materialization/check 事件、服务重载、删除或 Git 提交；S1 结束不自行恢复该 sensor。用户另行要求的文档提交已完成为 `f003a3c5`，不代表业务代码已验收。原维护/框架实验见 [LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)；事故后当前顺序以 [LLD §18 安全实施补充](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-test-isolation-repair) 为准，本次停止于 §18.7 的隔离启动失败。
+最初“出技术方案”仅授权文档；随后用户已批准 S0、S1 开发与隔离测试，以及仅暂停 `silver_suspend_d_update_job_sensor` 的维护安排。本文的新增文件、资产、字段、checks、迁移步骤是目标设计，部分已有代码但不代表全部实现或验收。当前批准不含正式 Lake/staging 写入、正式 materialization/check 事件、服务重载、删除或 Git 提交；S1 结束不自行恢复该 sensor。用户另行要求的提交按各轮记录执行，不代表业务代码已验收。原维护/框架实验见 [LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)；事故后当前顺序以 [LLD §18 安全实施补充](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-test-isolation-repair) 为准。§18.7启动失败属于历史记录；当前I04结果及停止点见§18.14。
 
 ## 2. 为什么选择这条路
 
@@ -462,3 +462,5 @@ CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为�
 `0f2bbbf9`提交后的I03增量（前两次执行记录）：仅新增专项runner/support/隔离测试三文件，不改共享资源和业务链路。当时八例均未执行；第一次pytest误将`/dev`作为测试根，已通过显式rootdir/confcutdir修正且没有增加权限；第二次收集检查`tests/__init__.py`被拒绝，按门禁停止。基于当前pytest源码提出“忽略非显式兄弟项＋只读空tests包标记＋精确检查项目根包标记不存在”的最小修订，提出时尚未实施，详见[LLD §18.13 C](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-i03-real-resource)。两次禁止哨兵均不变，无新DG实例/数据库/依赖安装或正式操作；增量未提交。
 
 2026-09-07 17:05获批复验：只落实上述两个精确读取例外及固定ignore-glob，启动前核验包标记内容/不存在性；策略差异严格对账，八例断言未改。全新根中OS自检七项拒绝及正向通过，I03实际收集并完成8/8，反例文件操作和健康探针调用均为0；整体1.108秒，禁止哨兵前后不变，现场52KiB。四条既有Dagster/Pydantic弃用警告保留，未安装依赖或改共享库。没有创建DG实例/数据库、正式读写或恢复sensor。证据与源码哈希见LLD §18.13 D；只收口I03，下一个隔离项为I04，I04–I08和业务验收仍待后续完成。结果同步原方案及索引，未提交/推送；临时产物最终按§18.11清理。
+
+2026-09-07 17:27 I04：I03增量已按指令提交为`ff72d48f`，本轮在相同权限下补齐测试输入的只读前置检查。I04八例及I03八例回归一次通过，整批1.214秒；缺根/文件、错误类型、`..`和文件/父目录链接均准确拒绝，零补建/探针/内容读取，虚构样本前后不变。只改三份测试文件和方案/索引，不改实际checks/合同或正式资源，不创建DG实例/数据库、不安装依赖；具体方案、原因及证据见[LLD §18.14](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-i04-input-paths)。现场92KiB纳入最终清理；I05–I08和实际adapter/业务验收未完成，下一步为I05。本轮未提交、未推送。

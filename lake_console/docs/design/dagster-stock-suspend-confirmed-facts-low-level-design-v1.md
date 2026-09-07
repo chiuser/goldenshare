@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**I01/I02证据及规则已提交为`0f2bbbf9`；管理员确认两个包标记只读例外后，2026-09-07 17:05 I03八例全部通过，见§18.13 D。原pytest收集阻塞已解决，八例断言未改，未增加其他权限。I04–I08、实际adapter和S1全套回归未验收；本轮未改正式数据或恢复指定Silver sensor，未创建新DG实例、安装依赖。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时产物按§18.11最终清理。**
+状态：**I03测试及文档已提交为`ff72d48f`。2026-09-07 17:27 I04八例与I03八例回归全部通过，见§18.14；权限未扩展，本轮增量未提交。I01–I04已通过，I05–I08、实际adapter和S1全套回归未验收；本轮未改正式数据或恢复指定Silver sensor，未创建新DG实例、安装依赖。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时产物按§18.11最终清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -1076,7 +1076,7 @@ S0 增加了真实物理只读核验和现有运行状态核验，但没有执�
 
 <a id="s1-test-isolation-repair"></a>
 
-## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I03已通过）
+## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I04已通过）
 
 ### 18.1 范围、事实依据与本轮停止点
 
@@ -1611,3 +1611,53 @@ resource工厂本次只返回真实Lake资源；DuckDB设置和临时instance支
 I03收口后停在独立验收点；下一步为I04的缺失文件/错误类型/路径越界测试，不自动推进业务adapter。当前没有新增待拍板项；本次临时根和前两次失败现场继续纳入§18.11最终精确清理，当前尚未执行清理。未提交、未推送。
 
 交付检查：orchestrator全量`src/tests`的Ruff致命错误基线、三份专项测试文件默认Ruff检查、文档完整性三项及`git diff --check`均通过；这些静态结果与I03实际8/8结果分别记录，不替代未运行阶段的验收。
+
+<a id="s1-isolation-i04-input-paths"></a>
+
+### 18.14 I04：测试输入的文件与路径边界
+
+管理员要求继续I04；起点为`dev-interface@ff72d48f`及原有未验收业务改动。本轮只修改§18.2前三个测试文件并同步方案/索引，不修改正式合同、checks、共享资源、writer或消费者。I04验证的是测试侧输入保护；真实checks的`input_path`失败阶段及instance/连接/writer零调用仍须在adapter阶段独立验收，不能用I04替代。
+
+#### A. 实施约束与代码落点
+
+| 约束 | 精确落点及验收 |
+| --- | --- |
+| 保留I03资源构造可指向尚未创建的临时根 | `make_confirmed_test_resources`行为不变，原八例完整回归；不把“构造资源”改成自动建目录或必须有输入文件 |
+| 读取测试输入前必须存在普通根目录及普通文件 | support增加`checked_test_input_file(path, *, lake_root)`，先做纯路径范围检查，再检查根和文件的存在性/类型；缺根、缺文件、根为文件、目标为目录分别给出准确错误 |
+| 不接受`..`、越界或符号链接 | 复用`checked_test_path`，提取纯词法检查供两个入口使用；在任何路径IO前拒绝词法越界，逐组件检查原路径的链接身份，不调用`resolve`把链接洗成合法路径 |
+| 只验证拒绝，不修复现场 | 检查期间open、mkdir、rename/replace、unlink、resolve及健康探针均用失败spy拦截；允许真实lstat读取合法组件，不允许沿链接访问禁止目标。检查前后虚构文件集合、身份、内容一致 |
+| 固定且有界的测试清单 | I04恰好8例：普通文件正向、缺根、缺文件、根为文件、目标为目录、`..`越界、目标文件链接、父目录链接。链接和越界只指向本次虚构禁止目录；I03八例不改断言，总计16例 |
+| 不扩大隔离能力 | runner沿用I03的同一profile/源码白名单/环境和启动argv，仅报告改为I03–I04及16例；源码之外没有新增读取、写入或网络权限。adapter仍硬拒绝 |
+
+测试只在当前`allowed/`生成少量文本和链接样本；不是Parquet字段检查、不建DG实例/SQLite、不连接DuckDB、不发源请求、不读取CSV或正式Lake。每例30秒、批次60秒、fixture总量1MiB及工作区100MiB上限不变，预计秒级；业务对象/日期/分区/请求/分页/扫描/业务写入/事件/spill均为0。全部临时产物按§18.11最终精确清理，不安装套件。
+
+CodeGraph `explore/search/callers/impact`核对了测试路径入口；开工时`checked_test_path`只有测试资源工厂调用，本轮新增测试输入前置检查调用，影响局限于support及测试，不涉及前端/API或跨子系统依赖。`explore`对宽泛名称返回的无关同名图边未作为依据，已用精确符号和当前源码补核。真实资源继续按[Dagster官方资源测试文档](https://docs.dagster.io/guides/build/external-resources/testing-configurable-resources)直接构造，不修改正式资源初始化方式。
+
+执行目录和父入口沿用§18.13 B；runner在受限子进程启动前输出完整argv/profile及当次随机根。先做当次OS小型自检，再完整执行I03/I04；失败即停止，不自动加权限或推进I05/adapter。实际结果在运行后记录，当前不能将本段设计算作通过。
+
+#### B. 2026-09-07 17:27 实测与对账
+
+本次仅启动一次，全新根为`/private/tmp/stock-suspend-isolated-zxqbe2iy`。I04 **8/8**，I03回归 **8/8**，合计16 passed、0 failed、0 skipped；pytest耗时0.81秒，整批1,214毫秒、退出码0、stderr为空。四条既有Dagster/Pydantic弃用警告保留。当前源码SHA256与运行报告逐一匹配；I03三个测试函数及参数化与`ff72d48f`的AST完全一致，没有改断言。
+
+| I04样例 | 真实结果 | 不跟随链接的属性读取次数 |
+| --- | --- | ---: |
+| 普通文件 | 返回原路径，不读取内容或改变现场 | 9 |
+| 缺根 | `test_lake_root_missing` | 4 |
+| 缺文件 | `test_input_file_missing` | 9 |
+| 根是文件 | `test_lake_root_not_directory` | 4 |
+| 目标是目录 | `test_input_not_regular_file` | 9 |
+| `..`指向虚构禁止目录 | `outside_test_root`，任何路径IO前拒绝 | 0 |
+| 目标文件为链接 | `symlink_not_allowed`，停在链接对象 | 8 |
+| 父目录为链接 | `symlink_not_allowed`，不访问链接下的目标 | 8 |
+
+上述八例的open、mkdir、rename/replace、unlink、resolve和健康探针调用均为0；每例虚构文件集合及dev/inode/mode/size/mtime_ns/内容或链接文本前后相同。当前CPython 3.13的`Path.lstat()`实际委托`os.stat(follow_symlinks=False)`，因此测试在这个真实入口计数并要求不跟随链接，不能把所有`stat`一律禁止后让合法lstat也失败。此处仅核验调用边界，没有修改标准库或业务健康函数。
+
+当次OS小型自检为允许区Python读写/C open成功、禁止区七项拒绝成功；不是完整I01/I02重跑。与上次I03成功profile替换随机根后逐字相同，源码白名单和权限没有变化。禁止区34字节哨兵身份/内容不变；整个现场92KiB，没有超时或空间/输出超限。无Parquet、DG实例或SQLite库，无正式Lake/staging读写、事件写入、sensor恢复、依赖安装/升级/卸载。
+
+证据：[完整运行报告](/private/tmp/stock-suspend-isolated-zxqbe2iy/allowed/resource-result.json)、[16例汇总](/private/tmp/stock-suspend-isolated-zxqbe2iy/allowed/pytest-result.json)、[实际策略](/private/tmp/stock-suspend-isolated-zxqbe2iy/allowed/capability.sb)。策略SHA256为`8662865953c9f307c3e1eabdf183abfbdd8eaf4f1fc71369147f297ef641f66f`；三份测试源码哈希及逐例原因/调用路径在报告中。该精确临时根纳入§18.11最终清理；本轮不提前清理证据或其他任务环境。
+
+交付范围为三个测试文件、本文、技术方案和主索引。原有业务已跟踪差异SHA256仍为`f94f46dae3117fa76d1bb8ac6a280edc5c43eb9a379ec70eeb56f6b61d09a4d2`，五个原有未跟踪业务源码/测试保持原哈希；Wealth及其他专项文件未改。无依赖矩阵、正式资产/资源/check/分区或数据字段变化。
+
+交付检查：orchestrator全量`src/tests`的Ruff致命错误基线、三份专项测试文件默认Ruff检查、文档完整性三项及`git diff --check`均通过；CodeGraph同步后确认索引已是最新。未运行正式Definitions加载或业务测试。
+
+验收状态分开记录：文档及静态检查通过；隔离I01–I04已通过；I05–I08、实际adapter、S1实现/合成全套回归、S2生产批准集合和S2全范围等价均未完成。下一步仅I05临时DuckDB设置与默认资源误用测试，不自动推进；本轮未提交、未推送。

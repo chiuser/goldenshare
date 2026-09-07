@@ -1,4 +1,4 @@
-"""Task-local, stdlib-only launcher; currently accepts the I03 resource slice.
+"""Task-local, stdlib-only launcher for I03 resource and I04 input-path tests.
 
 No Dagster imports, environment discovery, dependency installation or cleanup.
 The adapter gate remains closed until the complete I group is accepted.
@@ -132,7 +132,7 @@ def main() -> int:
     before = inventory(denied)
     started = time.monotonic()
     report = {
-        "scope": "isolation", "implemented_slice": "I03", "all_isolation_accepted": False,
+        "scope": "isolation", "implemented_slice": "I03-I04", "all_isolation_accepted": False,
         "root": str(root), "cwd": str(PROJECT), "argv": argv, "env_keys": sorted(env),
         "policy_sha256": digest(policy), "policy": policy.read_text(),
         "test_source_sha256": {str(p): digest(p) for p in (Path(__file__), SUPPORT, TEST)},
@@ -177,13 +177,13 @@ def main() -> int:
     result = allowed / "pytest-result.json"
     observed = json.loads(result.read_text()) if result.is_file() else None
     passed = code == 0 and stop_reason is None and before == after and observed is not None
-    passed = passed and observed.get("passed") is True and observed.get("completed") == 8
+    passed = passed and observed.get("passed") is True and observed.get("completed") == 16
     report.update({"passed": passed, "after": after, "denied_unchanged": before == after,
                    "exit_code": code, "stop_reason": stop_reason, "pytest": observed,
                    "elapsed_ms": round(1000 * (time.monotonic() - started)),
                    **{name: data.decode(errors="replace") for name, data in outputs.items()}})
     report_path.write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps({"I03_passed": passed, "report": str(report_path)}), flush=True)
+    print(json.dumps({"I03_I04_passed": passed, "report": str(report_path)}), flush=True)
     return 0 if passed else 1
 
 

@@ -1,4 +1,4 @@
-"""Early protection for the confirmed-suspension tests, initially the I03 slice.
+"""Early protection for the confirmed-suspension resource and input-path tests.
 
 Only stdlib at import time. No resource or pytest import before the OS self-check.
 """
@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import signal
+import stat
 import sys
 import time
 from pathlib import Path
@@ -27,16 +28,46 @@ def require_isolated_context() -> Path:
     return _allowed
 
 
+def _assert_test_path_scope(path: Path, *, allowed: Path) -> None:
+    if not path.is_absolute() or ".." in path.parts or not path.is_relative_to(allowed):
+        raise ValueError("outside_test_root")
+
+
 def checked_test_path(path: Path, *, allowed: Path) -> Path:
     """Reject lexical escapes before any path IO; never repair a path."""
     path = Path(path)
-    if not path.is_absolute() or ".." in path.parts or not path.is_relative_to(allowed):
-        raise ValueError("outside_test_root")
+    _assert_test_path_scope(path, allowed=allowed)
     current = allowed
     for part in ("", *path.relative_to(allowed).parts):
         current = current / part
         if current.is_symlink():
             raise ValueError("symlink_not_allowed")
+    return path
+
+
+def checked_test_input_file(path: Path, *, lake_root: Path) -> Path:
+    """Read-only test input preflight, not the production check adapter."""
+    allowed = require_isolated_context()
+    path, lake_root = Path(path), Path(lake_root)
+    # Validate both lexical inputs before statting either one.
+    _assert_test_path_scope(lake_root, allowed=allowed)
+    _assert_test_path_scope(path, allowed=allowed)
+    if not path.is_relative_to(lake_root):
+        raise ValueError("outside_test_lake_root")
+    checked_test_path(lake_root, allowed=allowed)
+    try:
+        root_stat = lake_root.lstat()
+    except FileNotFoundError as error:
+        raise ValueError("test_lake_root_missing") from error
+    if not stat.S_ISDIR(root_stat.st_mode):
+        raise ValueError("test_lake_root_not_directory")
+    checked_test_path(path, allowed=allowed)
+    try:
+        file_stat = path.lstat()
+    except FileNotFoundError as error:
+        raise ValueError("test_input_file_missing") from error
+    if not stat.S_ISREG(file_stat.st_mode):
+        raise ValueError("test_input_not_regular_file")
     return path
 
 
@@ -151,10 +182,10 @@ def run(root_name: str, policy_hash: str, test_name: str) -> int:
             "--noconftest", "-p", "no:cacheprovider",
             "--import-mode=importlib", "--basetemp", str(allowed / "pytest"),
             "-x", "-v", "-s", test_name]
-    print(json.dumps({"pytest_argv": args, "implemented_slice": "I03"}), flush=True)
+    print(json.dumps({"pytest_argv": args, "implemented_slice": "I03-I04"}), flush=True)
     result = int(pytest.main(args, plugins=[sys.modules[__name__]]))
     (allowed / "pytest-result.json").write_text(json.dumps({
-        "slice": "I03", "completed": _completed, "failures": _failures,
-        "passed": result == 0 and _completed == 8 and _failures == 0,
+        "slice": "I03-I04", "completed": _completed, "failures": _failures,
+        "passed": result == 0 and _completed == 16 and _failures == 0,
     }) + "\n")
     return result
