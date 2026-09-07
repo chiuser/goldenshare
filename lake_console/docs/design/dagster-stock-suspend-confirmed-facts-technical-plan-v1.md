@@ -1,10 +1,10 @@
 # 本地 DG 停牌历史确认事实持久化与统一消费技术方案 v1
 
-更新时间：2026-09-06
+更新时间：2026-09-07
 
-状态：**S0 已完成；LLD §15.3 窄修正已获批准。S1 部分代码因测试越权事故停止，未验收。用户已同意先补原 LLD review，再修隔离与两个新检查、独立验收后继续 S1；本轮仅补齐 LLD §18，未恢复代码修改或测试。未迁移停牌数据或发布正式事件，Silver sensor 未自行恢复。**
+状态：**S0已完成；2026-09-07依据代码审计修订LLD及本文，见LLD §14.1。S1部分代码仍未验收，隔离启动失败尚未解决，本轮只改文档、不恢复实施。生产4,022行批准集合的C01/C05明确在S2验收；小样本通过不能替代。正式文件/事件、切换、删除仍分别授权，指定Silver sensor未自行恢复。历史事故与启动证据见LLD §17/§18.7。**
 
-代码审计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。
+首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
 
 需求来源：清退 LLD §16.11 的 `TODO-SUSPEND-001`。本方案是该 TODO 的独立实施主案，不重开清退 M0–M8。
 
@@ -32,7 +32,7 @@ silver_stock_suspend_confirmed ─────┘
 5. 固定事实独立保存，Silver 可以从 Raw 与该事实重新生成，不依赖上一次 Silver 输出。
 6. 低频人工维护，不建管理后台、规则引擎、数据库表或自动更新任务。
 
-最初“出技术方案”仅授权文档；随后用户已批准 S0、S1 开发与隔离测试，以及仅暂停 `silver_suspend_d_update_job_sensor` 的维护安排。本文的新增文件、资产、字段、checks、迁移步骤是目标设计，部分已有代码但不代表全部实现或验收。当前批准不含正式 Lake/staging 写入、正式 materialization/check 事件、服务重载、删除或 Git 提交；S1 结束不自行恢复该 sensor。原维护/框架实验见 [LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)；事故后当前顺序以 [LLD §18 安全实施补充](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-test-isolation-repair) 为准，本轮停在文档 review。
+最初“出技术方案”仅授权文档；随后用户已批准 S0、S1 开发与隔离测试，以及仅暂停 `silver_suspend_d_update_job_sensor` 的维护安排。本文的新增文件、资产、字段、checks、迁移步骤是目标设计，部分已有代码但不代表全部实现或验收。当前批准不含正式 Lake/staging 写入、正式 materialization/check 事件、服务重载、删除或 Git 提交；S1 结束不自行恢复该 sensor。用户另行要求的文档提交已完成为 `f003a3c5`，不代表业务代码已验收。原维护/框架实验见 [LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)；事故后当前顺序以 [LLD §18 安全实施补充](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-test-isolation-repair) 为准，本次停止于 §18.7 的隔离启动失败。
 
 ## 2. 为什么选择这条路
 
@@ -105,7 +105,7 @@ silver_stock_suspend_confirmed ─────┘
 | 唯一写入方 | 经人工批准的专用发布 helper / CLI；日常 asset、sensor、下游任务均只读 |
 | 写策略 | 复用 `SINGLE_FILE_ATOMIC_REPLACE` 表达单文件提升；本版本实际只允许“目标缺失时发布 / 内容等价时复用 / 内容不等时停止” |
 | 事件策略 | `SUPPORTS_RUNLESS_EVENT_BACKFILL`；文件发布与事件补录分开，正常日常不产生固定资产更新事件 |
-| 资源 | 复用 `LakeRootResource`、`DuckDBResource`；不新增连接、数据库或环境变量 |
+| 资源 | 复用LakeRootResource及统一DuckDB连接；默认配置不变。仅专项CLI按LLD §8.2A使用显式受限初始化策略，无新数据库/env或运营开关 |
 | 当前规模 | 4,022 行、29 个代码、1 个正式文件；不是 1,857 个小文件 |
 
 ### 4.2 固定事实的字段
@@ -155,7 +155,7 @@ silver_stock_suspend_confirmed ─────┘
 目标实现：
 
 1. 将合并逻辑抽成接收 Raw 标准化关系、已校验固定事实关系的纯 SQL helper，日常与批量审计共用。
-2. 日常固定事实只加载到本次连接的有界临时关系，校验和合并复用；不保留跨进程、无版本的 `@cache`。
+2. 固定文件先做物理头信息inspection，再按schema/行数决定是否解码，校验和合并复用本连接TEMP TABLE；不保留跨进程cache。头信息查询与行解码分别计数，不能笼统声称只打开一次文件。
 3. 保留现有冲突先失败、后写入的边界；冲突查询仍使用时段修正前的 normalized Raw，不调换次序。不将冲突降为 WARN，不以自动去重掩盖冲突；冲突总数与最多 20 条样本分开统计。
 4. 保留 `suspend_timing.py` 及对应 SQL 清洗，不将“删除 CSV”扩大成删除整个 corrections 目录。
 5. 旧 CSV 加载、区间 VALUES 构造、独立覆盖元组和旧统计实现同轮退出，以固定事实的数据和统一 helper 承接，不留双轨兜底。
@@ -182,13 +182,15 @@ silver_stock_suspend_confirmed ─────┘
 | `silver_stock_suspend_confirmed_schema_check` | 文件可读、五列物理类型及字段合同 | blocking；缺失/错误明确报错 |
 | `silver_stock_suspend_confirmed_approved_content_check` | 内容属于批准版本：逻辑哈希、键唯一性、4,022 行及合并模式范围一致 | blocking；不自动修数据或回退 CSV |
 
-checks 绑定固定资产的 `AssetKey`，无日期分区，不套用每日 freshness。它们与只读 readiness、发布完整性校验复用纯校验 helper，不分别实现三套判断。
+checks绑定固定AssetKey、无日期分区、不套每日freshness；与readiness和发布共用纯合同。schema只由物理五列决定：0行/少行/多行而schema正确时，字段检查仍可通过，content必须失败；超过批准行数不解码以算hash。缺文件/损坏/资源超限/漂移作为明确的前置或IO失败，不混成schema错误。LLD §4.1已规定inspection、loader、唯一schema比较和各分支；现有草稿共同loader过早拒绝行数的实现须重构，不能改expected掩盖。
 
 S1 隔离实测：Dagster 1.13.18 的 `AssetCheckResult` 在日期 job 内自动按 job 日期查固定发布，因此两个检查虽通过，却缺少无分区发布的原生 target，不能满足 readiness。**不降低关联要求。**已批准仅在两个固定检查的 adapter 显式产出关联真实发布的原生 `AssetCheckEvaluation` 和依赖完成输出，保持 ERROR blocking；不做日常 runless 补录，不改 SDK。框架可行性样例 5 项通过，但实际 adapter 部分实现尚未验收，不能用该实验替代；完整设计见 LLD §15.3。
 
 两个新 checks 的文件前置核验采用只读路径/普通文件检查，取消现有部分实现中会写探针的健康 helper 调用；不改其他资产共用的健康函数、Lake/DuckDB 默认配置。Dagster 正常 check event 仍保留。测试必须先证明进程级文件隔离覆盖原生 DuckDB/SQLite IO，再验证实际 check，不以网络 mock 或任意失败充数，详见 LLD §18。
 
-最终 Silver 保留原 checks。合并公式由独立字面 expected 测试和一次性迁移对账证明，日常生产 check 不全量重算整个历史结果。
+最终Silver保留原checks。现有Silver分区检查只核对任务日期，而Raw行内日期检查不在Silver-only job selection中；因此新writer须在已加载Raw关系上明确拒绝NULL/非目标日期，不能靠sensor保证，也不能过滤错行后继续写。该窄输入校验不改Raw数据、字段或check名称。合并公式仍由独立expected及S2等价对账证明，日常checks不重算全历史。
+
+每日writer还须绑定同一输入版本：身份→SQL加载→身份→物理hash→身份，提升前再复核身份/hash。checkpoint保存Raw和固定文件的物理身份/hash、批准逻辑身份、候选/目标前态及结果统计。续跑先识别已提交，再决定能否继续提交；已提交但当前输入漂移时保留文件并失败，不能重复覆盖或声称当前ready。具体优先级和故障注入见LLD §5/§13。
 
 ### 6.3 更新入口和安全边界
 
@@ -212,7 +214,8 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 | 当前文件 | 实际用途 | 本轮处理 |
 | --- | --- | --- |
 | `defs/assets/suspend_d.py` | 生成 Raw/Silver，执行全日补充、冲突检查与统计 | Raw 不动；Silver 增加显式上游，改读固定事实和统一合并 helper；本文件 Silver 写入改用独立 staging |
-| `defs/duckdb_sql.py` | Raw 标准化、14 条时段修正、CSV 补充与两条覆盖 | 修改全日补充输入；保留标准化及时段修正 |
+| `defs/duckdb_sql.py` | Raw标准化、14条时段修正及旧全日补充 | 修改全日输入；标准化/时段修正保留，错日期不静默过滤 |
+| `defs/duckdb_connection.py` | 统一连接及默认temp目录初始化 | 原S1后段增加CLI显式existing_no_spill策略；默认managed、默认值及其他调用方保持；不是本轮改代码 |
 | `defs/corrections/suspend_full_day.py` | CSV 读取、范围 SQL、两条覆盖元组和样本 | 等价迁移验收并获准后删除整文件，不保留 import 兼容 |
 | `defs/corrections/suspend_full_day_ranges.csv` | 当前 31 条运行时范围规则 | 固定事实发布、切换、验收并获准后删除；此前继续保护 |
 | `defs/corrections/suspend_timing.py` | 14 条独立停牌时段清洗 | 保留，不扩大本轮范围 |
@@ -250,7 +253,7 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 | 拟新增文件（相对 orchestrator 工程） | 单一职责 |
 | --- | --- |
 | `src/orchestrator/defs/assets/stock_suspend_confirmed.py` | 固定资产 `AssetSpec`、中文说明和 definition metadata；不在 import 时读盘 |
-| `src/orchestrator/defs/stock_suspend_confirmed_contract.py` | 唯一批准版本、逻辑哈希合同、合并模式及有界纯校验/SQL 关系 helper；不复制 31 条明细到代码 |
+| `src/orchestrator/defs/stock_suspend_confirmed_contract.py` | 唯一批准身份、inspection/loader和字段/内容分类；调用方统一新签名；不复制31条明细 |
 | `src/orchestrator/defs/checks/stock_suspend_confirmed_checks.py` | 两个固定事实 blocking checks |
 | `src/orchestrator/defs/bootstrap/stock_suspend_confirmed.py` | 专用候选核验、等价比较、人工发布及状态对账，不承担每日同步 |
 | `src/orchestrator/defs/bootstrap/stock_suspend_confirmed_cli.py` | 专用人工操作入口；不接入现有 `stk_mins` CLI，不增加其参数或命令 |
@@ -270,7 +273,7 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 4. `tests/test_suspend_d_checks.py`：保留当前三个 Silver checks 和两个 Raw checks 的名字与合法空分区行为。
 5. 仓库根 `tests/architecture/test_lake_console_retirement_guardrails.py` 当前断言 CSV 必须存在。删除阶段必须精确替换此锚点为新正式资产代码与禁止旧加载的检查；其余 Local Lake、Ops snapshot、ClickHouse 保护全部保留。根测试不能访问移动盘来检查新物理文件。
 
-回归集合还包括当前 `test_stock_daily_raw_checks.py`、`test_stock_daily_raw_repair.py`、`test_stock_daily_freshness_guard.py`、`test_stk_mins_silver_m5b_contracts.py`、`test_stk_mins_silver_m5e_job_contracts.py`、`test_stk_mins_lake_readiness.py`、`test_stk_mins_silver_m6_history.py`、`test_stk_mins_silver_replace_from_raw.py`、`test_stk_mins_bse_history_recovery.py`、`test_stk_mins_silver_strict_audit.py`，以及相关日常连续性/增量 check 治理测试。实施时按实际差异冻结测试文件清单，不把关键分钟回归删掉来通过新来源切换。
+回归集合还包括当前 `test_stock_daily_raw_checks.py`、`test_stock_daily_raw_repair.py`、`test_stock_daily_freshness_guard.py`、`test_stk_mins_silver_m5b_contracts.py`、`test_stk_mins_silver_m5e_job_contracts.py`、`test_stk_mins_lake_readiness.py`、`test_stk_mins_silver_m6_history.py`、`test_stk_mins_silver_replace_from_raw.py`、`test_stk_mins_bse_history_recovery.py`、`test_stk_mins_silver_strict_audit.py`，以及相关日常连续性/增量 check 治理测试。LLD §10.4已逐文件列出资源矩阵，并纳入test_duckdb_connection.py：覆盖资源注入、直接统一连接别名、测试裸连接和collection期副作用。原S1全部测试经同一受限runner执行，不只保护两份新测试；只能修fixture，不删除分钟回归或改业务expected。连接合同suite保留真实默认/受限分支验收，不用替身自证。
 
 ## 9. 迁移与切换：先具备新输入，再退出旧输入
 
@@ -284,10 +287,10 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 
 2026-09-06 S0 完成：上述输入已刷新，真实逻辑哈希已回填，4,022 键的现有 Silver 效果全部通过；两层各 3,083 文件，无非开市日分区、错放日期或输入漂移。S0 时工作区被正式 code location 直接加载、两个停牌 sensor 均 RUNNING，因此提出 S1 开发前先批准维护安排。明细见 S0 清单；本阶段不创建候选或执行新 helper 全范围对账。后续批准与暂停事实见 S1，不覆盖 S0 历史快照。
 
-### S1：隔离实现与测试——中风险，事故后安全修正待 review
+### S1：隔离实现与测试——中风险，隔离启动验证阻塞
 
-1. 原模型 D06 关联失败后的 LLD §15.3 窄修正已确认，部分代码已写；实际 adapter 测试发生正式湖探针越权，当前不是等待再次确认框架方案。先 review LLD §18，再只实现并独立验收测试隔离；不能直接重跑业务测试。
-2. 隔离验收后，只修两个新 checks 和 C/D 测试，核对实际失败原因、阶段、原生发布关联和临时目标不变；报告后继续原 S1 的合同、专用发布入口、纯合并 helper、writer 和 readiness 等剩余项。安全修正通过不等于 S1 完成。
+1. 原模型 D06 关联失败后的 LLD §15.3 窄修正已确认，部分代码已写；实际 adapter 测试发生正式湖探针越权。§18 安全方案提交后已按要求尝试首个能力预检，但解释器在启动阶段异常退出；目前等待定位并修订隔离启动条件，不是等待再次确认业务框架方案。隔离未验收，不能直接重跑业务测试。
+2. 隔离独立验收后，只修LLD §18.2列明的合同分类、两个checks及C/D测试，核对真实失败原因、target和临时目标不变；报告后继续原S1的merge/writer/readiness/CLI、受限连接模式及全套回归。安全修正不等于S1完成；S1完成只证明实现/合成机制，生产C01/C05仍待S2。
 3. 本阶段只允许临时虚构数据测试，不准备真实迁移候选。实际候选放在 `/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=<批准的运行标识>/`，按 LLD §11 归 S2 的独立 staging 授权，不将 S1 开发批准当写入批准。
 4. 一次性 CSV 展开脚本仅用于后续获准的迁移准备，存放在审计临时区，不注册进 Definitions、不成为日常依赖。长期发布 CLI 只接收经过校验的 Parquet 候选，不提供 CSV 回退模式。
 
@@ -295,7 +298,7 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 
 ### S2：全范围只读等价验证——中风险，不写正式结果
 
-先取得真实 staging 准备授权，生成一次性候选并校验 schema、主键、模式、计数、逻辑哈希、来源指纹，冻结候选与 plan；此步骤有 staging 写入，不以“只读等价验证”之名隐含授权。后续对正式 Raw/Silver 的比较保持只读：
+先取得真实staging准备授权，生成候选并用未修改的生产合同完成C01（真实4,022行通过）与C05（等计数换键/扩大覆盖范围必须拒绝）；反例只改内存TEMP TABLE，不改候选/批准常量，不复制正式Raw/Silver。随后冻结候选与plan；有staging写入，不以“只读”之名隐含授权。S1最多32行的synthetic样本不计这两项；生产合同未通过禁止发布。后续对正式Raw/Silver的比较保持只读：
 
 1. 验证全部 1,857 个受影响日期，而不只抽两只股票。
 2. 按年度或有界日期批，读取所选 Raw 与当前 Silver，以新合并 helper 得出候选关系；最终四列进行双向 `EXCEPT ALL`，必须零差异。
@@ -344,10 +347,10 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 | 正式文件 | 新固定资产 1 个；既有 Raw 不写；历史最终 Silver 不批量重写 |
 | 候选文件 | 固定事实 1 个，加有限样本候选；全范围等价用关系查询，不强制生成上千份候选 |
 | 历史扫描 | 上限为 S0 冻结的两个停牌目录文件清单；前序基线两层各 3,083 文件；按年度/有界批读，每批固定事实只加载一次 |
-| SQL / DuckDB | 纯 SQL 展开、合并和集合对账；复用统一连接。每批记录真实 SQL 数和读入文件数，不做逐日 Dagster 调用 |
+| SQL / DuckDB | 纯SQL、统一连接；日常默认不变，专项CLI显式禁目录初始化/禁spill/禁自动扩展。记录metadata查询、行解码、hash字节读取，不做逐日Dagster调用 |
 | 日常新增读取 | 生成器读固定事实 1 次；两个固定 checks 各最多 1 次；sensor 有候选时每 tick 1 次固定事实校验，不按日期重复 |
 | 日常事件读取 | 固定资产最多 1 次有界 materialization 查询、2 次有界 check 查询，整 tick 复用；不读取全部历史 |
-| 内存 / spill | 固定事实只有 4,022 行，新增关系预期远低于 512 MiB；既有 DuckDB 默认 16GB / 4 threads 等配置不改，本固定事实路径预期不 spill |
+| 内存 / spill | 固定4,022行新增关系预期远低于512MiB；日常默认16GB/4threads等保持。专项CLI强制0spill，内存不足明确停止；测试分阶段预算见LLD §10.4/§18，不缩小业务fixture迎合32行限制 |
 | 空间 | 新固定 Parquet 预计不足 1 MiB，准备/报告预算 100 MiB；均为估算，S0/S1 实测后登记。空间不足或范围扩大停止，不扩配额兜底 |
 | 耗时 | 前序目标读审约 0.4 秒/层，仅作参考。新增日常开销目标不超过约 1 秒；人工整体验证目标分钟级，超过 5 分钟记录慢阶段，不因单次略慢取消正确性验收 |
 | 超预算处置 | 额外网络请求、超出批准文件集合、错误写入层、无界日期循环是硬拒绝；低频耗时属于诊断/人工复核，不设苛刻倍率门禁 |
@@ -365,9 +368,12 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 | 固定事实正式路径 | 新路径 helper，由定义、checks、生成器和发布工具共用；不得另加 env 或任意目标路径输入 |
 | 批准版本、逻辑哈希、schema、合并模式 | 唯一 `stock_suspend_confirmed_contract.py` 合同与批准记录；不是运营手填参数，变更须评审并重新发布 |
 | 人工 CLI 参数 | 仅候选标识/路径、操作阶段和明确执行意图；候选必须位于本专项 staging，不能透传任意 SQL、Raw 路径、合并开关或目标表 |
-| 其他连接/资源/前端设置 | 不新增、不修改 |
+| 统一连接内部temp_policy | LLD §8.2A：managed默认保持，existing_no_spill仅专项CLI显式选择；唯一入口定义，非env/持久配置/运营参数；默认合同与受限分支分别测试 |
+| 其他资源/前端设置 | 不新增、不修改 |
 
-CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为未实现接口：`inspect`、`compare`、`publish-file`、`audit-events`、`register-events`。文件发布和事件登记分开确认；只读模式不写报告或 checkpoint，显式保存报告属于另获准的 staging 写入。不改现有 `stk_mins` CLI。
+CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为未实现接口：`inspect`、`compare`、`publish-file`、`audit-events`、`register-events`。文件发布与事件登记分开确认；未确认分支同样只读。LLD §8.2A已按命令列清连接/实例初始化：help/参数错误无资源，文件命令无instance，事件命令先核定实例；只读全链不得mkdir/写checkpoint/发event/初始化存储。受限连接只核验既有temp目录，不创建，不自动扩展，不spill；显式save-report才可写批准报告。不改stk_mins CLI。
+
+以上是目标行为，不是SDK构造已验证零副作用；正式事件CLI前仍须完成构造期副作用与实例身份验收，缺依据时不能先连正式实例试跑。
 
 ### 11.2 人能看懂的运行信息
 
@@ -392,17 +398,17 @@ CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为�
 
 | 验收项 | 必须证明的结果 |
 | --- | --- |
-| 固定输入身份 | 31 个范围准确展开，4,022 键、29 代码、1,857 日期及两个覆盖键一致；无非批准项 |
+| 固定输入身份 | S2用未修改的生产validator完成C01/C05，31范围、4,022键/29代码/1,857日期及覆盖键一致；S1合成通过不代替此项 |
 | 迁移等价 | 全部批准日期范围新结果与当前正确 Silver 双向 `EXCEPT ALL` 为零；既有其他日期不变 |
 | Raw 重抓场景 | 隔离测试用原源镜像替换 Raw 后重建 Silver，历史修正仍存在；正式验收不为此重抓 Raw |
 | Silver 重建场景 | 隔离测试删除临时 Silver 后能用 Raw＋固定事实重建，不读旧输出；不删除正式 Silver 做试验 |
 | 补缺 / 覆盖 | 缺失补齐、正确不重添、两个明确覆盖、未批准冲突失败、正常交易日不误标 |
 | 边界保持 | 14 条时段清洗保持；盘中停牌、复牌不被全日化；既有合法空分区仍合法 |
 | 非法输入 | 文件缺失、错误 schema、重复键、错误内容哈希、未知模式、越界候选路径均失败且无正式写入 |
-| 测试隔离 | LLD §18 I 组先行，实际生效路径/临时实例/原生 IO 拒绝均有证据；不以任意失败、skip 或修改全局默认值通过 |
+| 测试隔离 | I组先行；§10.4全部suite覆盖资源/直接连接/裸连接/collection；实际路径、实例与原生IO拒绝有证据；不以任意失败/skip/改expected通过 |
 | Dagster 集成 | AssetSpec 被发现并纳管、固定 checks 正确绑定、无日更 freshness、失败阻断下游、日常不写固定资产 |
 | 绕过 sensor | 手动 job / 直接生成路径不能在固定输入缺失或错误时产出正式文件 |
-| 中断与复用 | 原子提升后 checkpoint 丢失可识别完成；同内容复用；不同内容拒绝；事件失败不撤回正确文件 |
+| 中断与复用 | 已提升但未记committed可确认；输入变化不重复提升；冻结输入指纹与统计，字段缺失/现场不明即停；事件失败不撤回正确文件 |
 | 本地消费者 | 日线缺口与补拉集合、五频分钟过滤、BSE fallback、严格审计结果保持；不要求不同用途使用相同过滤谓词 |
 | CLI / 边界 | 原 `stk_mins` CLI 行为不变；Prod、远程 Web、ClickHouse、Ops snapshot、其他数据集零改动 |
 | 旧依赖退出 | 最终运行代码无 CSV 加载/旧 import/区间 VALUES/旧覆盖元组兜底；清退护栏精确更新，时段修正保留 |
@@ -439,4 +445,6 @@ CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为�
 
 后续确认与实际偏离：用户已批准 LLD §15.3，已开始固定合同/AssetSpec/check/catalog代码。首次测试误用资源参数，回落到正式 Lake 并触发现有健康检查的探针写入/删除；该动作未经批准，不能再声称实际“正式环境零写入”。已停止并只读核实探针目录无残留，未进入停牌writer或正式事件发布；完整范围、证据限制和修复建议落在LLD §17。纯合同测试通过不代表整体S1验收。
 
-当前下一步：用户已同意先补方案供 review。本轮补齐 LLD §18 的逐文件矩阵、资源构造、文件/网络隔离、失败证据和执行门；文档 review 后才修隔离并单独验收，再修两个新 checks、验证 D06/D07，最后继续原 S1。隔离需要覆盖 DuckDB 原生 IO；本机 sandbox-exec 只查阅了路径与手册，其弃用状态和未验证可用性已披露，能力失败即停，不降级运行。原字段、合并规则和其他业务范围不变；S2–S5 仍按阶段批准。Silver 自动入口未自行恢复，本轮未重跑任何测试。
+前序启动阻塞记录（2026-09-06）：§18安全方案曾提交，用户随后要求继续推进。2026-09-06 23:10:38（北京时间）首次 I01 能力预检启动返回134；系统诊断显示 Python 在加载阶段 SIGABRT，没有进入虚构文件用例，哨兵前后内容和身份相同。已按门禁停止，没有放宽策略或降级重试，I02–I08 及 C/D 未运行。命令、策略、证据和后续修订门见 [LLD §18.7](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-capability-blocked)。先只读定位必要启动依赖与实际拒绝原因，最小修订策略交管理员确认，再从 I01 重新验收；不能把启动失败推断为系统隔离机制不可用。原字段、合并规则和其他业务范围不变；S2–S5 仍按阶段批准。Silver 自动入口未自行恢复，本次没有业务源码修改、正式资源操作、提交或推送。
+
+2026-09-07文档修订：用户要求先按六项代码审计结论修正LLD。本轮同步资源覆盖、只读初始化、Raw行内日期、生产C01/C05阶段、输入指纹/续跑及schema/content分工；明细和待验证条件统一见[LLD §14.1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#audit-fixes-20260907)。只改文档，没有修业务代码、重跑隔离/业务测试、操作正式数据/事件/调度或提交。下一实施步骤仍先解决并验证隔离启动条件，不能直接进入adapter。
