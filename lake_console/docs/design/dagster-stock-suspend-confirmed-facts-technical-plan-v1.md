@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成；I08已提交`79476407`，未推送。LLD §18.19合同与检查59例C/D通过；本轮§18.20纯SQL核心及冲突/统计接口42例通过，隔离回归46＋15＋3项通过。旧公开SQL接口和writer未切换、CSV未删；当前增量未提交。无正式实例/数据操作、依赖安装、DG服务启动或sensor恢复。原S1的writer/readiness/CLI、公开SQL切换及全套回归未完成，S2未执行；临时产物最终精确清理。**
+状态：**S0已完成；既有合同/check/纯SQL增量已提交`630ba12a`，未推送。本轮§18.21完成writer与唯一公开SQL接口同步切换，58例实际临时writer＋42例SQL回归通过；本轮增量未提交。正式数据/实例未操作、CSV未删、sensor未恢复、无套件安装或DG服务启动。S1的job/check/readiness集成、CLI与全套回归仍待完成；S2未执行，临时产物最终按§18.11精确清理。**
 
 首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
 
@@ -292,7 +292,9 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 ### S1：隔离实现与测试——中风险，隔离与实际adapter小样本通过，剩余实现待推进
 
 1. 原模型D06关联失败与探针越权的历史记录保留。I01–I08完成后管理员已要求继续；LLD §18.19按白名单落实合同分类、两个新checks及受限测试，59例C/D通过。无正式数据/实例访问，不改共享健康函数、SDK或业务字段。
-2. 当前已完成纯SQL核心与42例金样本/边界测试，见LLD §18.20；旧公开SQL接口与唯一writer必须在下一步同轮切换，不单改签名破坏调用方，不加兼容wrapper。随后按原S1矩阵推进readiness/CLI、受限连接模式及全套回归。算法小样本不等于writer或S1完成，生产C01/C05仍待S2独立授权。
+2. 已完成writer与唯一公开SQL接口同轮切换，不保留旧签名/CSV回退；58例实际临时writer及42例SQL回归通过，见LLD §18.21。prepared/committed先按文件事实续跑，输入漂移不得覆盖，等价目标不重写；Raw和最终四列合同不变。接下来按原S1矩阵推进job/check/readiness集成、CLI、受限连接模式及全套回归。这不是正式发布或S1完成，生产C01/C05仍待S2独立授权。
+
+   2026-09-07实施澄清：先只读核验路径，再优先恢复已有checkpoint；不得让后来丢失的Raw挡住已提交文件的认定。当前writer不调用健康canary、不读instance；checkpoint严格两阶段、内部JSON上界1MiB，冻结实际统计和时段元数据。首次非等价写入输入hash各4轮、reuse各2轮，额外字节IO已计入LLD §12，不改日常连接默认。临时故障注入＋新连接续跑通过，不等于正式进程中断/完整job验收；没有新建DG实例/数据库、安装套件、改正式数据或恢复sensor。具体文件矩阵、100例有效集合及14处最终清理登记见[LLD §18.21](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-confirmed-writer-acceptance)。旧历史小轮状态仍保留为证据，当前状态以本文文首及该节为准。
 3. 本阶段只允许临时虚构数据测试，不准备真实迁移候选。实际候选放在 `/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=<批准的运行标识>/`，按 LLD §11 归 S2 的独立 staging 授权，不将 S1 开发批准当写入批准。
 4. 一次性 CSV 展开脚本仅用于后续获准的迁移准备，存放在审计临时区，不注册进 Definitions、不成为日常依赖。长期发布 CLI 只接收经过校验的 Parquet 候选，不提供 CSV 回退模式。
 

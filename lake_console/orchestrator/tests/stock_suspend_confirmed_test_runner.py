@@ -80,9 +80,13 @@ ADAPTER_BATCHES = (
 )
 MERGE_SOURCE_FILES = (
     "defs/duckdb_sql.py", "defs/corrections/__init__.py",
-    "defs/corrections/suspend_full_day.py", "defs/corrections/suspend_timing.py",
+    "defs/corrections/suspend_timing.py",
     "defs/stock_suspend_confirmed_contract.py", "defs/run_contracts/asset_column_schemas.py",
     "defs/run_contracts/column_schema.py",
+)
+WRITER_SOURCE_FILES = (
+    "defs/assets/suspend_d.py", "defs/partitions.py", "defs/tushare_api_io.py",
+    "utils/__init__.py", "utils/dg_log_helper.py",
 )
 REGRESSION_SUITES = {
     "test_stock_suspend_confirmed_merge.py": (
@@ -94,11 +98,24 @@ REGRESSION_SUITES = {
                                 "test_null_conflict_semantics", "test_pure_builders")),
         ("M-input-boundaries", 16, ("test_relation_names", "test_runner_selection_rejected")),
     ),
+    "test_stock_suspend_confirmed_writer.py": (
+        ("W-success", 9, ("test_writer_literal_results", "test_writer_rebuild_and_reuse",
+                           "test_writer_public_signature", "test_writer_asset_dependency")),
+        ("W-reject", 11, ("test_writer_conflict", "test_writer_wrong_raw_date", "test_writer_invalid_fixed",
+                           "test_writer_candidate_failure")),
+        ("W-resume", 12, ("test_writer_resume", "test_writer_committed_input_drift",
+                           "test_writer_prepared_drift")),
+        ("W-checkpoint", 13, ("test_writer_corrupt_checkpoint", "test_writer_committed_target_changed",
+                               "test_writer_checkpoint_write_failure", "test_writer_orphan_candidate")),
+        ("W-identity", 13, ("test_writer_load_drift", "test_writer_prepared_window_drift",
+                             "test_writer_invalid_paths")),
+    ),
 }
 
 
 def source_files_for_scope(scope: str) -> tuple[str, ...]:
-    additions = {"isolation": (), "adapter": ADAPTER_SOURCE_FILES, "regression": MERGE_SOURCE_FILES}
+    additions = {"isolation": (), "adapter": ADAPTER_SOURCE_FILES,
+                 "regression": tuple(dict.fromkeys(MERGE_SOURCE_FILES + ADAPTER_SOURCE_FILES + WRITER_SOURCE_FILES))}
     if scope not in additions:
         raise ValueError("invalid_scope")
     return RESOURCE_SOURCE_FILES + additions[scope]
@@ -124,7 +141,7 @@ def policy_for(root: Path, *, scope: str = "isolation") -> str:
     if scope == "adapter":
         files.extend(PROJECT / f"tests/test_stock_suspend_confirmed_{name}.py" for name in ("contracts", "dagster"))
     elif scope == "regression":
-        files.append(PROJECT / "tests/test_stock_suspend_confirmed_merge.py")
+        files.extend(PROJECT / "tests" / name for name in REGRESSION_SUITES)
     directories = {PROJECT, PROJECT / "src", PROJECT / "tests"}
     for path in source_files:
         directories.update(p for p in path.parents if p == SOURCE or SOURCE in p.parents)
@@ -522,7 +539,9 @@ def main() -> int:
                                    test_file=PROJECT / "tests" / args.suite):
                 return 1
         print(json.dumps({"regression_suite_passed": args.suite, "S1_complete": False,
-                          "writer_executed": False, "S2_executed": False}), flush=True)
+                          "writer_executed": args.suite == "test_stock_suspend_confirmed_writer.py",
+                          "identity_profile": "synthetic", "formal_writer_executed": False,
+                          "S2_executed": False}), flush=True)
         return 0
     if args.scope == "adapter":
         for batch, file_kind, expected, cases in ADAPTER_BATCHES:

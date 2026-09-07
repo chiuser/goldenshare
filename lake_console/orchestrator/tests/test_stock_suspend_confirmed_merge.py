@@ -37,8 +37,7 @@ def _inputs(connection, *, raw=(), facts=(), dates=("2020-01-02",)):
 
 
 def _merged_select():
-    # This is the permanent shared CTE, not a second public merge entrypoint.
-    return sql._stock_suspend_confirmed_ctes(**RELATIONS) + "SELECT * FROM suspend_merged"
+    return sql.silver_stock_suspend_daily_select(**RELATIONS)
 
 
 def _rows(connection):
@@ -248,7 +247,7 @@ def test_null_conflict_semantics(connection, timing, total):
 @pytest.mark.parametrize("invalid", ["", "a.b", "x; DROP TABLE normalized", "x" * 81])
 def test_relation_names(argument, invalid):
     arguments = {**RELATIONS, argument: invalid}
-    for helper in (sql._stock_suspend_confirmed_ctes, sql.stock_suspend_confirmed_conflicts_select,
+    for helper in (sql.silver_stock_suspend_daily_select, sql.stock_suspend_confirmed_conflicts_select,
                    sql.stock_suspend_confirmed_stats_select):
         with pytest.raises(ConfirmedFactsError, match="非法停牌关系名") as error:
             helper(**arguments)
@@ -261,10 +260,9 @@ def test_pure_builders(monkeypatch):
 
     for name in ("open", "stat", "mkdir", "replace"):
         monkeypatch.setattr(Path, name, forbidden)
-    for name in ("suspend_full_day_ranges_values_sql", "suspend_full_day_raw_overrides_values_sql",
-                 "silver_stock_suspend_daily_select"):
-        monkeypatch.setattr(sql, name, forbidden)
-    for helper in (sql._stock_suspend_confirmed_ctes, sql.stock_suspend_confirmed_conflicts_select,
+    assert not hasattr(sql, "suspend_full_day_ranges_values_sql")
+    assert not hasattr(sql, "suspend_full_day_raw_overrides_values_sql")
+    for helper in (sql.silver_stock_suspend_daily_select, sql.stock_suspend_confirmed_conflicts_select,
                    sql.stock_suspend_confirmed_stats_select):
         query = helper(**RELATIONS)
         assert isinstance(query, str)

@@ -1,56 +1,60 @@
+import json
 import os
+import re
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.corrections.suspend_full_day import (
-    SUSPEND_FULL_DAY_PATCH_SOURCE,
-    SUSPEND_FULL_DAY_PATCH_VERSION,
-    SUSPEND_FULL_DAY_RAW_OVERRIDE_SOURCE,
-    SUSPEND_FULL_DAY_RAW_OVERRIDE_VERSION,
-    suspend_full_day_raw_override_samples,
-    suspend_full_day_raw_overrides_values_sql,
-    suspend_full_day_ranges_values_sql,
-)
+from orchestrator.defs import stock_suspend_confirmed_contract as confirmed_contract
 from orchestrator.defs.corrections.suspend_timing import (
     SUSPEND_TIMING_CORRECTION_VERSION,
     suspend_timing_correction_samples,
     suspend_timing_corrections_values_sql,
 )
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     SUSPEND_D_RAW_REQUIRED_COLUMNS,
     copy_query_to_parquet,
-    count_parquet_query,
     describe_parquet_query,
     read_parquet,
-    suspend_d_normalized_select,
     silver_stock_suspend_daily_select,
+    stock_suspend_confirmed_conflicts_select,
+    stock_suspend_confirmed_stats_select,
+    suspend_d_normalized_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import (
+    DEFAULT_LAKE_STAGING_ROOT,
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
     raw_suspend_d_path,
+    silver_stock_suspend_confirmed_path,
     silver_stock_suspend_daily_path,
+    silver_stock_suspend_daily_staging_path,
 )
 from orchestrator.defs.resources import (
     DuckDBResource,
     LakeRootResource,
     TushareResource,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
+    SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.asset_column_schemas import (
-    RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
-    SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
-)
 from orchestrator.defs.run_contracts.metadata import (
+    CONFIRMED_FACT_LOGICAL_SHA256_METADATA_KEY,
+    CONFIRMED_FACT_STATS_METADATA_KEY,
+    CONFIRMED_FACT_VERSION_METADATA_KEY,
     SourceSystem,
     build_asset_definition_metadata,
     build_materialization_metadata,
@@ -58,37 +62,9 @@ from orchestrator.defs.run_contracts.metadata import (
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
-
 SUSPEND_D_RAW_COLUMN_TYPES = {
     column.name: column.type for column in RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA
 }
-
-
-def _column_names(
-    connection, path: Path, *, hive_partitioning: bool = False
-) -> list[str]:
-    rows = connection.execute(
-        describe_parquet_query(path, hive_partitioning=hive_partitioning)
-    ).fetchall()
-    return [row[0] for row in rows]
-
-
-def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
-    return int(
-        connection.execute(
-            count_parquet_query(path, hive_partitioning=hive_partitioning)
-        ).fetchone()[0]
-    )
-
-
-def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) -> None:
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
-    if temporary_path.exists():
-        temporary_path.unlink()
-
-    connection.execute(copy_query_to_parquet(select_sql, temporary_path))
-    os.replace(temporary_path, target_path)
 
 
 def _human_materialization_metadata(
@@ -113,208 +89,374 @@ def _human_materialization_metadata(
     return metadata
 
 
-def _suspend_timing_correction_count(connection, target_path: Path) -> int:
-    return int(
-        connection.execute(
-            f"""
-            WITH corrections(ts_code, trade_date, corrected_suspend_timing) AS (
-              {suspend_timing_corrections_values_sql()}
-            )
-            SELECT count(*) AS correction_count
-            FROM {read_parquet(target_path, hive_partitioning=False)} silver
-            INNER JOIN corrections
-              ON silver.ts_code = corrections.ts_code
-             AND silver.trade_date = corrections.trade_date
-             AND silver.suspend_timing = corrections.corrected_suspend_timing
-            """
-        ).fetchone()[0]
+
+# One-file state only: no backup, global lock, instance or cross-run discovery.
+_SUSPEND_CHECKPOINT_MAX_BYTES = 1024 * 1024
+_SUSPEND_STATS = (
+    "selected_fact_keys", "add_missing_inserted_keys", "add_missing_reused_keys",
+    "replace_confirmed_keys", "replace_confirmed_matched_raw_keys", "removed_raw_rows",
+    "conflict_rows", "output_rows",
+)
+_SUSPEND_RELATIONS = {
+    "normalized_relation": "suspend_normalized", "confirmed_relation": "suspend_confirmed",
+    "dates_relation": "suspend_dates",
+}
+
+
+@dataclass(frozen=True)
+class SuspendDailyWriteResult:
+    target_path: Path
+    status: str
+    output: dict
+    confirmed_version: str
+    confirmed_logical_sha256: str
+
+
+def _writer_failure(reason: str, details: Any = None) -> None:
+    raise confirmed_contract.ConfirmedFactsError(
+        f"停牌 Silver 未完成：{reason}；{details}", reason, 4,
     )
 
 
-def _full_day_patch_ctes(raw_path: Path, partition_key: str) -> str:
-    return f"""
-    WITH normalized AS (
-      {suspend_d_normalized_select(raw_path)}
-    ),
-    full_day_patch_ranges(ts_code, name, start_date, end_date) AS (
-      {suspend_full_day_ranges_values_sql()}
-    ),
-    full_day_raw_overrides(
-      ts_code,
-      name,
-      trade_date,
-      corrected_suspend_type,
-      corrected_suspend_timing
-    ) AS (
-      {suspend_full_day_raw_overrides_values_sql()}
-    ),
-    full_day_patches AS (
-      SELECT
-        ts_code,
-        name,
-        DATE '{partition_key}' AS trade_date,
-        NULL::VARCHAR AS suspend_timing,
-        'S'::VARCHAR AS suspend_type
-      FROM full_day_patch_ranges
-      WHERE DATE '{partition_key}' BETWEEN start_date AND end_date
+def _identity_or_absent(path: Path) -> dict | None:
+    # Missing is distinct from broken, symlink, or inaccessible.
+    try:
+        return asdict(confirmed_contract.suspend_file_identity(path))
+    except FileNotFoundError:
+        return None
+
+
+def _file_evidence(path: Path, expected_identity: dict | None = None) -> dict:
+    identity = asdict(confirmed_contract.suspend_file_identity(path))
+    if expected_identity is not None and identity != expected_identity:
+        _writer_failure("input_drift", path)
+    digest = confirmed_contract.suspend_file_sha256(path)
+    if identity != asdict(confirmed_contract.suspend_file_identity(path)):
+        _writer_failure("input_drift", path)
+    return {"path": str(path), "file_identity": identity, "physical_sha256": digest}
+
+
+def _verify_evidence(evidence: dict) -> None:
+    actual = _file_evidence(Path(evidence["path"]), evidence["file_identity"])
+    if actual["physical_sha256"] != evidence["physical_sha256"]:
+        _writer_failure("input_drift", evidence["path"])
+
+
+def _silver_schema() -> list[list[str]]:
+    return [[column.name, column.type] for column in SILVER_STOCK_SUSPEND_DAILY_SCHEMA]
+
+
+def _load_silver_file(connection, path: Path) -> tuple[dict, int]:
+    before = asdict(confirmed_contract.suspend_file_identity(path))
+    columns = connection.execute(describe_parquet_query(path, hive_partitioning=False)).fetchall()
+    if [[row[0], row[1]] for row in columns] != _silver_schema():
+        _writer_failure("silver_schema_mismatch", path)
+    # Full decode once, no casts to hide a corrupt physical contract.
+    connection.execute(
+        f"CREATE OR REPLACE TEMP TABLE suspend_verified AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
     )
-    """
+    count = connection.execute("SELECT count(*) FROM suspend_verified").fetchone()[0]
+    return _file_evidence(path, before), count
 
 
-def _full_day_patch_conflict_rows(
-    connection,
-    raw_path: Path,
-    partition_key: str,
-) -> list[dict[str, str | None]]:
-    rows = connection.execute(
-        f"""
-        {_full_day_patch_ctes(raw_path, partition_key)}
-        SELECT
-          full_day_patches.ts_code,
-          full_day_patches.name,
-          full_day_patches.trade_date,
-          normalized.suspend_type AS raw_suspend_type,
-          normalized.suspend_timing AS raw_suspend_timing
-        FROM full_day_patches
-        INNER JOIN normalized
-          ON full_day_patches.ts_code = normalized.ts_code
-         AND full_day_patches.trade_date = normalized.trade_date
-        WHERE NOT (
-          normalized.suspend_type = 'S'
-          AND normalized.suspend_timing IS NULL
+def _silver_matches_output(connection) -> bool:
+    return connection.execute("""
+        SELECT NOT EXISTS (SELECT * FROM suspend_verified EXCEPT ALL SELECT * FROM suspend_output)
+           AND NOT EXISTS (SELECT * FROM suspend_output EXCEPT ALL SELECT * FROM suspend_verified)
+    """).fetchone()[0]
+
+
+def _sync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _save_suspend_checkpoint(path: Path, checkpoint: dict) -> None:
+    checkpoint["updated_at"] = datetime.now(UTC).isoformat()
+    payload = json.dumps(checkpoint, ensure_ascii=False, allow_nan=False, sort_keys=True).encode("utf-8")
+    if len(payload) > _SUSPEND_CHECKPOINT_MAX_BYTES:
+        _writer_failure("checkpoint_size_exceeded")
+    confirmed_contract.assert_suspend_path(path, root=path.parent)
+    # Failed temporary JSON is evidence; a retry never overwrites it.
+    temporary = path.with_name(f"checkpoint.{uuid4().hex}.tmp")
+    with temporary.open("xb") as stream:
+        stream.write(payload)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+    _sync_directory(path.parent)
+
+
+def _checkpoint_keys(value: Any, keys: set[str]) -> None:
+    if type(value) is not dict or set(value) != keys:
+        raise ValueError("checkpoint fields mismatch")
+
+
+def _checkpoint_identity(value: Any, path: Path) -> None:
+    _checkpoint_keys(value, {"path", "device", "inode", "size", "mtime_ns"})
+    if value["path"] != str(path):
+        raise ValueError("checkpoint identity path mismatch")
+    if any(type(value[key]) is not int or value[key] < 0 for key in ("device", "inode", "size", "mtime_ns")):
+        raise ValueError("checkpoint identity type mismatch")
+
+
+def _checkpoint_hash(value: Any) -> None:
+    if not isinstance(value, str) or not re.fullmatch("[0-9a-f]{64}", value):
+        raise ValueError("checkpoint hash mismatch")
+
+
+def _unique_json_object(pairs: list[tuple]) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate checkpoint key")
+        result[key] = value
+    return result
+
+
+def _read_suspend_checkpoint(path: Path, paths: dict, run_id: str, trade_date: str) -> dict:
+    try:
+        before = confirmed_contract.suspend_file_identity(path)
+        if before.size > _SUSPEND_CHECKPOINT_MAX_BYTES:
+            raise ValueError("oversized checkpoint")
+        with path.open("rb") as stream:
+            payload = stream.read(_SUSPEND_CHECKPOINT_MAX_BYTES + 1)
+        if len(payload) > _SUSPEND_CHECKPOINT_MAX_BYTES or before != confirmed_contract.suspend_file_identity(path):
+            raise ValueError("checkpoint changed during read")
+        value = json.loads(payload, object_pairs_hook=_unique_json_object)
+        _checkpoint_keys(value, {"schema_version", "run_id", "trade_date", "raw", "confirmed",
+                                 "candidate", "target", "output", "stage", "updated_at", "error"})
+        if (type(value["schema_version"]) is not int or value["schema_version"] != 1
+                or value["run_id"] != run_id or value["trade_date"] != trade_date
+                or value["stage"] not in ("prepared", "committed")):
+            raise ValueError("checkpoint run/day/stage mismatch")
+        datetime.fromisoformat(value["updated_at"])
+        if value["error"] is not None:
+            _checkpoint_keys(value["error"], {"reason_code", "message"})
+            if any(not isinstance(v, str) for v in value["error"].values()):
+                raise ValueError("checkpoint diagnostic mismatch")
+        for key in ("raw", "confirmed", "candidate"):
+            entry = value[key]
+            fields = {"path", "file_identity", "physical_sha256"}
+            if key == "confirmed":
+                fields |= {"version", "logical_sha256"}
+            _checkpoint_keys(entry, fields)
+            if entry["path"] != str(paths[key]):
+                raise ValueError("checkpoint input path mismatch")
+            _checkpoint_identity(entry["file_identity"], paths[key])
+            _checkpoint_hash(entry["physical_sha256"])
+        if (value["confirmed"]["version"] != confirmed_contract.STOCK_SUSPEND_CONFIRMED_VERSION
+                or value["confirmed"]["logical_sha256"]
+                != confirmed_contract.STOCK_SUSPEND_CONFIRMED_APPROVED_LOGICAL_SHA256):
+            raise ValueError("checkpoint approval mismatch")
+        target_fields = {"path", "before"}
+        if value["stage"] == "committed":
+            target_fields.add("committed_identity")
+        _checkpoint_keys(value["target"], target_fields)
+        if value["target"]["path"] != str(paths["target"]):
+            raise ValueError("checkpoint target mismatch")
+        for key in target_fields - {"path"}:
+            identity = value["target"][key]
+            if key == "before" and identity is None:
+                continue
+            _checkpoint_identity(identity, paths["target"])
+        output = value["output"]
+        _checkpoint_keys(output, {"schema", "row_count", "stats", "timing_count", "timing_version", "timing_samples"})
+        if output["schema"] != _silver_schema():
+            raise ValueError("checkpoint output schema mismatch")
+        for key in ("row_count", "timing_count"):
+            if type(output[key]) is not int or output[key] < 0:
+                raise ValueError("checkpoint output count mismatch")
+        stats = output["stats"]
+        _checkpoint_keys(stats, {*_SUSPEND_STATS, "samples"})
+        if any(type(stats[key]) is not int or stats[key] < 0 for key in _SUSPEND_STATS):
+            raise ValueError("checkpoint statistics type mismatch")
+        if (stats["conflict_rows"] != 0 or stats["output_rows"] != output["row_count"]
+                or output["timing_count"] > output["row_count"]
+                or stats["selected_fact_keys"] != sum(stats[key] for key in _SUSPEND_STATS[1:4])
+                or stats["replace_confirmed_matched_raw_keys"] > stats["replace_confirmed_keys"]):
+            raise ValueError("checkpoint statistics mismatch")
+        if type(stats["samples"]) is not list or len(stats["samples"]) > 20:
+            raise ValueError("checkpoint sample budget mismatch")
+        for sample in stats["samples"]:
+            _checkpoint_keys(sample, {"category", "ts_code", "trade_date"})
+            if (sample["category"] not in ("add_missing_inserted", "add_missing_reused", "replace_confirmed")
+                    or not isinstance(sample["ts_code"], str) or sample["trade_date"] != trade_date):
+                raise ValueError("checkpoint sample mismatch")
+        if not isinstance(output["timing_version"], str) or not output["timing_version"]:
+            raise ValueError("checkpoint timing version mismatch")
+        if type(output["timing_samples"]) is not list or len(output["timing_samples"]) > 20:
+            raise ValueError("checkpoint timing sample budget mismatch")
+        for sample in output["timing_samples"]:
+            _checkpoint_keys(sample, {"trade_date", "ts_code", "suspend_timing"})
+            if any(not isinstance(v, str) for v in sample.values()):
+                raise ValueError("checkpoint timing sample mismatch")
+        return value
+    except (ValueError, TypeError, KeyError, OverflowError) as exc:
+        raise confirmed_contract.ConfirmedFactsError(
+            f"checkpoint损坏或不属于本次操作：{exc}", "checkpoint_invalid", 4,
+        ) from exc
+
+
+def _write_result(checkpoint: dict, status: str) -> SuspendDailyWriteResult:
+    return SuspendDailyWriteResult(
+        Path(checkpoint["target"]["path"]), status, checkpoint["output"],
+        checkpoint["confirmed"]["version"], checkpoint["confirmed"]["logical_sha256"],
+    )
+
+
+def _finish_suspend_commit(connection, checkpoint_path: Path, checkpoint: dict) -> SuspendDailyWriteResult:
+    target = Path(checkpoint["target"]["path"])
+    _sync_directory(target.parent)
+    actual, count = _load_silver_file(connection, target)
+    if (actual["physical_sha256"] != checkpoint["candidate"]["physical_sha256"]
+            or count != checkpoint["output"]["row_count"]):
+        _writer_failure("committed_target_mismatch", target)
+    checkpoint["stage"] = "committed"
+    checkpoint["target"]["committed_identity"] = actual["file_identity"]
+    checkpoint["error"] = None
+    _save_suspend_checkpoint(checkpoint_path, checkpoint)
+    try:
+        _verify_evidence(checkpoint["raw"])
+        _verify_evidence(checkpoint["confirmed"])
+    except (OSError, confirmed_contract.ConfirmedFactsError) as exc:
+        checkpoint["error"] = {"reason_code": "committed_input_drift", "message": str(exc)}
+        _save_suspend_checkpoint(checkpoint_path, checkpoint)
+        _writer_failure("committed_input_drift", "文件已提交；当前输入已变化，须用新run重新计算")
+    return _write_result(checkpoint, "written")
+
+
+def _promote_suspend_candidate(connection, checkpoint_path: Path, checkpoint: dict) -> SuspendDailyWriteResult:
+    target, candidate = Path(checkpoint["target"]["path"]), Path(checkpoint["candidate"]["path"])
+    _verify_evidence(checkpoint["raw"])
+    _verify_evidence(checkpoint["confirmed"])
+    _verify_evidence(checkpoint["candidate"])
+    if _identity_or_absent(target) != checkpoint["target"]["before"]:
+        _writer_failure("target_drift", target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    confirmed_contract.assert_suspend_path(target, root=target.parent)
+    if candidate.stat().st_dev != target.parent.stat().st_dev:
+        _writer_failure("cross_device")
+    with candidate.open("rb") as stream:
+        os.fsync(stream.fileno())
+    _save_suspend_checkpoint(checkpoint_path, checkpoint)
+    # Checkpoint fsync can take time; reject drift during it before file promotion.
+    _verify_evidence(checkpoint["raw"])
+    _verify_evidence(checkpoint["confirmed"])
+    _verify_evidence(checkpoint["candidate"])
+    if _identity_or_absent(target) != checkpoint["target"]["before"]:
+        _writer_failure("target_drift", target)
+    # No pre-delete and no claimed compare-and-swap guarantee.
+    os.replace(candidate, target)
+    return _finish_suspend_commit(connection, checkpoint_path, checkpoint)
+
+
+def _resume_suspend_write(connection, checkpoint_path: Path, checkpoint: dict) -> SuspendDailyWriteResult:
+    target = Path(checkpoint["target"]["path"])
+    observed = _identity_or_absent(target)
+    if observed is not None:
+        actual = _file_evidence(target, observed)
+        if actual["physical_sha256"] == checkpoint["candidate"]["physical_sha256"]:
+            return _finish_suspend_commit(connection, checkpoint_path, checkpoint)
+    if checkpoint["stage"] == "committed":
+        _writer_failure("committed_target_mismatch", target)
+    candidate, count = _load_silver_file(connection, Path(checkpoint["candidate"]["path"]))
+    if candidate != checkpoint["candidate"] or count != checkpoint["output"]["row_count"]:
+        _writer_failure("candidate_drift")
+    return _promote_suspend_candidate(connection, checkpoint_path, checkpoint)
+
+
+def write_silver_stock_suspend_daily_partition(
+    connection, *, lake_root: Path, staging_root: Path, trade_date: str, run_id: str,
+) -> SuspendDailyWriteResult:
+    """Write one day under manual same-day exclusion; LLD §5 is the contract."""
+    candidate = silver_stock_suspend_daily_staging_path(staging_root, run_id, trade_date)
+    for root in (lake_root, staging_root):
+        confirmed_contract.assert_suspend_path(root, root=root)
+    if lake_root.is_relative_to(staging_root) or staging_root.is_relative_to(lake_root):
+        _writer_failure("overlapping_roots")
+    if lake_root.stat().st_dev != staging_root.stat().st_dev:
+        _writer_failure("cross_device")
+    paths = {
+        "raw": raw_suspend_d_path(lake_root, trade_date),
+        "confirmed": silver_stock_suspend_confirmed_path(lake_root),
+        "target": silver_stock_suspend_daily_path(lake_root, trade_date),
+        "candidate": candidate,
+    }
+    for key, path in paths.items():
+        confirmed_contract.assert_suspend_path(path, root=staging_root if key == "candidate" else lake_root)
+    checkpoint_path = candidate.with_name("checkpoint.json")
+    confirmed_contract.assert_suspend_path(checkpoint_path, root=staging_root)
+    if checkpoint_path.exists():
+        checkpoint = _read_suspend_checkpoint(checkpoint_path, paths, run_id, trade_date)
+        return _resume_suspend_write(connection, checkpoint_path, checkpoint)
+    if candidate.exists():
+        _writer_failure("unprepared_candidate", candidate)
+    before = _identity_or_absent(paths["target"])
+    inspection = confirmed_contract.inspect_confirmed_file(connection, paths["confirmed"])
+    confirmed_contract.load_confirmed_relation(connection, inspection, relation_name="suspend_confirmed")
+    validation = confirmed_contract.validate_confirmed_content(connection, "suspend_confirmed")
+    if not validation.passed:
+        _writer_failure(validation.reason_code, validation.samples)
+    fixed = _file_evidence(paths["confirmed"], asdict(inspection.file_identity))
+    fixed.update(version=confirmed_contract.STOCK_SUSPEND_CONFIRMED_VERSION, logical_sha256=validation.logical_sha256)
+    raw_identity = asdict(confirmed_contract.suspend_file_identity(paths["raw"]))
+    connection.execute(f"CREATE OR REPLACE TEMP TABLE suspend_normalized AS {suspend_d_normalized_select(paths['raw'])}")
+    raw = _file_evidence(paths["raw"], raw_identity)
+    connection.execute("CREATE OR REPLACE TEMP TABLE suspend_dates AS SELECT ?::DATE AS trade_date", [trade_date])
+    misplaced = "SELECT * FROM suspend_normalized WHERE trade_date IS NULL OR trade_date <> ?::DATE"
+    misplaced_count = connection.execute(f"SELECT count(*) FROM ({misplaced})", [trade_date]).fetchone()[0]
+    if misplaced_count:
+        samples = connection.execute(f"SELECT * FROM ({misplaced}) ORDER BY ts_code LIMIT 20", [trade_date]).fetchall()
+        _writer_failure("raw_partition_date_mismatch", {"count": misplaced_count, "samples": samples})
+    conflicts = stock_suspend_confirmed_conflicts_select(**_SUSPEND_RELATIONS)
+    conflict_count = connection.execute(f"SELECT count(*) FROM ({conflicts})").fetchone()[0]
+    if conflict_count:
+        samples = connection.execute(f"SELECT * FROM ({conflicts}) ORDER BY ts_code LIMIT 20").fetchall()
+        _writer_failure("confirmed_raw_conflict", {"count": conflict_count, "samples": samples})
+    connection.execute(f"CREATE OR REPLACE TEMP TABLE suspend_output AS {silver_stock_suspend_daily_select(**_SUSPEND_RELATIONS)}")
+    stats_row = connection.execute(stock_suspend_confirmed_stats_select(**_SUSPEND_RELATIONS)).fetchone()
+    stats = dict(zip(_SUSPEND_STATS, stats_row[:8], strict=True))
+    stats["samples"] = [{**sample, "trade_date": sample["trade_date"].isoformat()} for sample in stats_row[8]]
+    count = connection.execute("SELECT count(*) FROM suspend_output").fetchone()[0]
+    if count != stats["output_rows"]:
+        _writer_failure("output_count_mismatch")
+    timing_count = connection.execute(f"""
+        WITH corrections(ts_code, trade_date, corrected_suspend_timing) AS (
+          {suspend_timing_corrections_values_sql()}
         )
-          AND NOT EXISTS (
-            SELECT 1
-            FROM full_day_raw_overrides
-            WHERE full_day_raw_overrides.ts_code = full_day_patches.ts_code
-              AND full_day_raw_overrides.trade_date = full_day_patches.trade_date
-          )
-        ORDER BY full_day_patches.ts_code
-        LIMIT 20
-        """
-    ).fetchall()
-    return [
-        {
-            "ts_code": row[0],
-            "name": row[1],
-            "trade_date": row[2].isoformat()
-            if hasattr(row[2], "isoformat")
-            else row[2],
-            "raw_suspend_type": row[3],
-            "raw_suspend_timing": row[4],
-        }
-        for row in rows
-    ]
-
-
-def _full_day_patch_metadata(
-    connection,
-    raw_path: Path,
-    partition_key: str,
-) -> tuple[int, list[dict[str, str | None]]]:
-    row = connection.execute(
-        f"""
-        {_full_day_patch_ctes(raw_path, partition_key)}
-        SELECT count(*) AS patch_count
-        FROM full_day_patches
-        WHERE NOT EXISTS (
-          SELECT 1
-          FROM normalized
-          WHERE normalized.ts_code = full_day_patches.ts_code
-            AND normalized.trade_date = full_day_patches.trade_date
-            AND normalized.suspend_type = 'S'
-            AND normalized.suspend_timing IS NULL
-        )
-        """
-    ).fetchone()
-    sample_rows = connection.execute(
-        f"""
-        {_full_day_patch_ctes(raw_path, partition_key)}
-        SELECT
-          full_day_patches.ts_code,
-          full_day_patches.name,
-          full_day_patches.trade_date,
-          full_day_patches.suspend_type,
-          full_day_patches.suspend_timing
-        FROM full_day_patches
-        WHERE NOT EXISTS (
-          SELECT 1
-          FROM normalized
-          WHERE normalized.ts_code = full_day_patches.ts_code
-            AND normalized.trade_date = full_day_patches.trade_date
-            AND normalized.suspend_type = 'S'
-            AND normalized.suspend_timing IS NULL
-        )
-        ORDER BY full_day_patches.ts_code
-        LIMIT 20
-        """
-    ).fetchall()
-    samples = [
-        {
-            "ts_code": sample[0],
-            "name": sample[1],
-            "trade_date": sample[2].isoformat()
-            if hasattr(sample[2], "isoformat")
-            else sample[2],
-            "suspend_type": sample[3],
-            "suspend_timing": sample[4],
-        }
-        for sample in sample_rows
-    ]
-    return int(row[0]), samples
-
-
-def _full_day_raw_override_metadata(
-    connection,
-    raw_path: Path,
-    partition_key: str,
-) -> tuple[int, int, list[dict[str, str | None]]]:
-    row = connection.execute(
-        f"""
-        {_full_day_patch_ctes(raw_path, partition_key)}
-        SELECT
-          count(DISTINCT full_day_raw_overrides.ts_code) AS override_key_count,
-          count(*) AS removed_raw_row_count
-        FROM normalized
-        INNER JOIN full_day_raw_overrides
-          ON normalized.ts_code = full_day_raw_overrides.ts_code
-         AND normalized.trade_date = full_day_raw_overrides.trade_date
-        """
-    ).fetchone()
-    sample_rows = connection.execute(
-        f"""
-        {_full_day_patch_ctes(raw_path, partition_key)}
-        SELECT
-          full_day_raw_overrides.ts_code,
-          full_day_raw_overrides.name,
-          full_day_raw_overrides.trade_date,
-          normalized.suspend_type AS raw_suspend_type,
-          normalized.suspend_timing AS raw_suspend_timing,
-          full_day_raw_overrides.corrected_suspend_type,
-          full_day_raw_overrides.corrected_suspend_timing
-        FROM normalized
-        INNER JOIN full_day_raw_overrides
-          ON normalized.ts_code = full_day_raw_overrides.ts_code
-         AND normalized.trade_date = full_day_raw_overrides.trade_date
-        ORDER BY full_day_raw_overrides.ts_code, normalized.suspend_type
-        LIMIT 20
-        """
-    ).fetchall()
-    samples = [
-        {
-            "ts_code": sample[0],
-            "name": sample[1],
-            "trade_date": sample[2].isoformat()
-            if hasattr(sample[2], "isoformat")
-            else sample[2],
-            "raw_suspend_type": sample[3],
-            "raw_suspend_timing": sample[4],
-            "corrected_suspend_type": sample[5],
-            "corrected_suspend_timing": sample[6],
-        }
-        for sample in sample_rows
-    ]
-    return int(row[0]), int(row[1]), samples
+        SELECT count(*) FROM suspend_output silver JOIN corrections
+          ON silver.ts_code=corrections.ts_code AND silver.trade_date=corrections.trade_date
+         AND silver.suspend_timing=corrections.corrected_suspend_timing
+    """).fetchone()[0]
+    checkpoint = {
+        "schema_version": 1, "run_id": run_id, "trade_date": trade_date, "raw": raw, "confirmed": fixed,
+        "target": {"path": str(paths["target"]), "before": before},
+        "output": {"schema": _silver_schema(), "row_count": count, "stats": stats,
+                   "timing_count": timing_count, "timing_version": SUSPEND_TIMING_CORRECTION_VERSION,
+                   "timing_samples": suspend_timing_correction_samples()},
+        "stage": "prepared", "updated_at": datetime.now(UTC).isoformat(), "error": None,
+    }
+    if before is not None:
+        target_evidence, _ = _load_silver_file(connection, paths["target"])
+        if target_evidence["file_identity"] != before:
+            _writer_failure("target_drift")
+        if _silver_matches_output(connection):
+            _verify_evidence(raw)
+            _verify_evidence(fixed)
+            _verify_evidence(target_evidence)
+            return _write_result(checkpoint, "reused")
+    candidate.parent.mkdir(parents=True, exist_ok=True)
+    confirmed_contract.assert_suspend_path(candidate, root=staging_root)
+    connection.execute(copy_query_to_parquet("SELECT * FROM suspend_output", candidate))
+    evidence, candidate_count = _load_silver_file(connection, candidate)
+    if candidate_count != count or not _silver_matches_output(connection):
+        _writer_failure("candidate_mismatch")
+    checkpoint["candidate"] = evidence
+    return _promote_suspend_candidate(connection, checkpoint_path, checkpoint)
 
 
 @dg.asset(
@@ -397,7 +539,7 @@ def raw_tushare_suspend_d(
 
 @dg.asset(
     name="silver_stock_suspend_daily",
-    deps=[raw_tushare_suspend_d],
+    deps=[raw_tushare_suspend_d, dg.AssetKey(confirmed_contract.STOCK_SUSPEND_CONFIRMED_ASSET_KEY)],
     partitions_def=cn_a_stock_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
@@ -413,7 +555,7 @@ def raw_tushare_suspend_d(
             )
         ),
         extra_metadata={
-            "correction_policy": "Apply suspend timing corrections and full-day suspend patches."
+            "correction_policy": "Apply timing corrections and the approved fixed Silver suspension facts."
         },
     ),
     description="股票日频停复牌 silver 标准事实，按交易日记录停牌类型和停牌时段，并应用已确认的停牌时段修正和全日停牌补充规则。",
@@ -423,141 +565,40 @@ def silver_stock_suspend_daily(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.MaterializeResult:
-    lake_root.ensure_available_for_run()
     partition_key = context.partition_key
-    raw_path = raw_suspend_d_path(lake_root.root(), partition_key)
-    target_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
+    root = lake_root.root()
     log = DgStdoutLogger("suspend_d")
-    log.stdout(
-        "silver_suspend_d_started",
-        partition_key=partition_key,
-        raw_exists=raw_path.exists(),
-    )
-    if not raw_path.exists():
-        raise FileNotFoundError(f"Missing raw suspend_d file: {raw_path}")
-
+    log.stdout("silver_suspend_d_started", partition_key=partition_key)
     with connect_configured_duckdb() as connection:
-        full_day_patch_conflict_rows = _full_day_patch_conflict_rows(
-            connection,
-            raw_path,
-            partition_key,
+        result = write_silver_stock_suspend_daily_partition(
+            connection, lake_root=root, staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
+            trade_date=partition_key, run_id=context.run_id,
         )
-        if full_day_patch_conflict_rows:
-            log.stdout(
-                "silver_suspend_d_validation_failed",
-                partition_key=partition_key,
-                conflict_count=len(full_day_patch_conflict_rows),
-            )
-            raise dg.Failure(
-                description=(
-                    "Full-day suspend patch conflicts with existing raw suspend_d rows."
-                ),
-                metadata=build_materialization_metadata(
-                    extra_metadata={
-                        **_human_materialization_metadata(
-                            summary="未写入停复牌 silver：全日停牌补充规则与 raw 源事实冲突。",
-                            next_action="先核对 raw_tushare_suspend_d 和全日停牌补充规则，再重新触发 silver_stock_suspend_daily。",
-                            result_status="failed_validation",
-                            input_summary={
-                                "source_asset": "raw_tushare_suspend_d",
-                                "partition_key": partition_key,
-                            },
-                            diagnostic_ref="完整冲突样本看本次 Failure metadata；修复后等待下一次 silver run。",
-                        ),
-                        "raw_file_path": str(raw_path),
-                        "partition_key": partition_key,
-                        "full_day_suspend_patch_conflict_count": len(
-                            full_day_patch_conflict_rows
-                        ),
-                        "full_day_suspend_patch_conflict_sample_rows": (
-                            full_day_patch_conflict_rows
-                        ),
-                    }
-                ),
-            )
-
-        full_day_patch_count, full_day_patch_sample_rows = _full_day_patch_metadata(
-            connection,
-            raw_path,
-            partition_key,
-        )
-        (
-            full_day_raw_override_key_count,
-            full_day_raw_override_removed_row_count,
-            full_day_raw_override_sample_rows,
-        ) = _full_day_raw_override_metadata(
-            connection,
-            raw_path,
-            partition_key,
-        )
-        _replace_parquet_from_query(
-            connection,
-            silver_stock_suspend_daily_select(raw_path, partition_key),
-            target_path,
-        )
-        columns = _column_names(connection, target_path, hive_partitioning=False)
-        row_count = _row_count(connection, target_path, hive_partitioning=False)
-        correction_count = _suspend_timing_correction_count(connection, target_path)
-
+    output = result.output
     log.stdout(
-        "silver_suspend_d_completed",
-        partition_key=partition_key,
-        output_row_count=row_count,
-        timing_correction_count=correction_count,
-        full_day_patch_count=full_day_patch_count,
+        "silver_suspend_d_completed", partition_key=partition_key, result_status=result.status,
+        output_row_count=output["row_count"], timing_correction_count=output["timing_count"],
+        selected_fact_keys=output["stats"]["selected_fact_keys"],
     )
-    return dg.MaterializeResult(
-        metadata=build_materialization_metadata(
-            uri=target_path,
-            row_count=row_count,
-            observed_columns=columns,
-            extra_metadata={
-                **_human_materialization_metadata(
-                    summary="已写入停复牌 silver 标准事实分区。",
-                    next_action="等待 silver blocking checks 全部通过；通过后股票日线 silver 可以消费停复牌事实。",
-                    result_status="written",
-                    input_summary={
-                        "source_asset": "raw_tushare_suspend_d",
-                        "partition_key": partition_key,
-                        "raw_file_exists": raw_path.exists(),
-                    },
-                    filter_summary={
-                        "output_row_count": row_count,
-                        "suspend_timing_correction_count": correction_count,
-                        "full_day_suspend_patch_count": full_day_patch_count,
-                        "full_day_suspend_raw_override_key_count": (
-                            full_day_raw_override_key_count
-                        ),
-                        "full_day_suspend_raw_override_removed_row_count": (
-                            full_day_raw_override_removed_row_count
-                        ),
-                    },
-                    diagnostic_ref="完整诊断看 silver suspend_d checks、修正规则 metadata 和 run stdout。",
-                ),
-                "raw_file_path": str(raw_path),
-                "partition_key": partition_key,
-                "suspend_timing_correction_count": correction_count,
-                "suspend_timing_correction_version": SUSPEND_TIMING_CORRECTION_VERSION,
-                "suspend_timing_correction_sample_rows": suspend_timing_correction_samples(),
-                "full_day_suspend_patch_count": full_day_patch_count,
-                "full_day_suspend_patch_rule_version": SUSPEND_FULL_DAY_PATCH_VERSION,
-                "full_day_suspend_patch_source": SUSPEND_FULL_DAY_PATCH_SOURCE,
-                "full_day_suspend_patch_sample_rows": full_day_patch_sample_rows,
-                "full_day_suspend_patch_conflict_count": 0,
-                "full_day_suspend_raw_override_key_count": full_day_raw_override_key_count,
-                "full_day_suspend_raw_override_removed_row_count": (
-                    full_day_raw_override_removed_row_count
-                ),
-                "full_day_suspend_raw_override_rule_version": (
-                    SUSPEND_FULL_DAY_RAW_OVERRIDE_VERSION
-                ),
-                "full_day_suspend_raw_override_source": SUSPEND_FULL_DAY_RAW_OVERRIDE_SOURCE,
-                "full_day_suspend_raw_override_sample_rows": (
-                    full_day_raw_override_sample_rows
-                ),
-                "full_day_suspend_raw_override_rule_sample_rows": (
-                    suspend_full_day_raw_override_samples()
-                ),
-            },
-        )
-    )
+    return dg.MaterializeResult(metadata=build_materialization_metadata(
+        uri=result.target_path, row_count=output["row_count"],
+        observed_columns=[column[0] for column in output["schema"]],
+        extra_metadata={
+            **_human_materialization_metadata(
+                summary="已核验并完成停复牌 Silver 分区；等价已有文件不重复覆盖。",
+                next_action="等待原三个 Silver blocking checks；通过后本地日线/分钟链可消费。",
+                result_status=result.status,
+                input_summary={"source_asset": "raw_tushare_suspend_d", "partition_key": partition_key,
+                               "confirmed_asset": confirmed_contract.STOCK_SUSPEND_CONFIRMED_ASSET_KEY},
+                filter_summary=output["stats"],
+                diagnostic_ref="失败时查看本run staging checkpoint；最终质量查看Silver checks。",
+            ),
+            "raw_file_path": str(raw_suspend_d_path(root, partition_key)), "partition_key": partition_key,
+            "suspend_timing_correction_count": output["timing_count"],
+            "suspend_timing_correction_version": output["timing_version"],
+            "suspend_timing_correction_sample_rows": output["timing_samples"],
+            CONFIRMED_FACT_VERSION_METADATA_KEY: result.confirmed_version,
+            CONFIRMED_FACT_LOGICAL_SHA256_METADATA_KEY: result.confirmed_logical_sha256,
+            CONFIRMED_FACT_STATS_METADATA_KEY: output["stats"],
+        },
+    ))

@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**I08已提交`79476407`，未推送。§18.19合同与检查的59例C/D通过；本轮§18.20新增纯SQL核心及冲突/统计接口，42例金样本和边界测试通过，隔离回归46＋15＋3项通过。旧公开合并接口及writer未切换，CSV仍保留；当前增量未提交。没有操作正式实例/数据、恢复sensor、安装套件或启动DG服务。原S1的writer/readiness/CLI、公开SQL接口切换及全套回归未完成，S2未执行；临时产物最终按§18.11精确清理。**
+状态：**S0已完成；既有合同/check/纯SQL增量已提交`630ba12a`，未推送。本轮§18.21完成writer与唯一公开SQL接口同步切换，58例实际临时writer＋42例SQL回归通过；本轮增量未提交。正式数据/实例未操作、CSV未删、sensor未恢复、无套件安装或DG服务启动。S1的job/check/readiness集成、CLI与全套回归仍待完成；S2未执行，临时产物最终按§18.11精确清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -313,7 +313,7 @@ write_silver_stock_suspend_daily_partition(
 
 执行顺序：
 
-1. 核验挂载、根路径、trade_date/run_id、同日 Raw 存在及无同日另一个 writer；首先按 §5.2 处理本 run 已有 checkpoint。恢复分支不能落到首次计算分支后再判断。
+1. 先只读核验根目录存在、路径无 symlink/越界、Lake 与 staging 分离且同设备、trade_date/run_id；首先按 §5.2 处理本 run 已有 checkpoint，再要求首次计算的同日 Raw 存在。已提交现场必须先认定文件提交，不能被后来缺失的 Raw 提前挡住。无同日另一个 writer 是人工维护前提，不新增实例查询或排它锁；不调用会落盘的健康探针。
 2. 在读取/比较前记录目标身份（或 absent），不把比较后才取得的身份当作比较前态。
 3. 对固定输入：记身份 F0 → inspection/一次加载 → 完整 schema/content 校验 → 记身份 F1 → 计算物理 SHA-256（其内部也检查读前/读后）→ 记身份 F2。F0/F1/F2必须相同；保存实际 logical hash/version/物理hash。
 4. 对 Raw：记身份 R0 → 一次加载 normalized TEMP TABLE → 记身份 R1 → 计算物理 SHA-256 → 记身份 R2。R0/R1/R2必须相同。不得先算出结果，再用被替换的新文件 hash 给旧结果签名。
@@ -332,6 +332,8 @@ write_silver_stock_suspend_daily_partition(
 checkpoint 位于候选同目录 `checkpoint.json`，临时写入文件亦只在staging；采用临时JSON→fsync→replace→父目录fsync。仅 `prepared` / `committed` 两个持久阶段，不新增队列、锁服务或备份。
 
 prepared 必须包含：schema_version、run_id、trade_date；Raw path/file_identity/physical_sha256；confirmed path/file_identity/physical_sha256/version/logical_sha256；候选path/file_identity/physical_sha256；目标path、写前身份或absent；本次输出schema/row_count及§4.3全部统计（samples≤20）；阶段、更新时间、错误摘要。committed另记提升后的目标身份。缺必填字段或身份不匹配即拒绝续跑，不为未发布的草稿格式保留兼容分支。
+
+序列化细节：checkpoint 为 UTF-8 JSON，内部格式 `schema_version=1`，最大1MiB（不是 env/运营配置，仅 writer 读写共同采用的损坏文件拒绝上界）。严格核验字段集合、类型、路径与当前 run/day、schema、计数及样本；拒绝重复 JSON key。输出同时冻结既有时段修正的计数、版本和规则样本，续跑元数据不读取新输入重算。每次原子保存使用同目录独立临时 JSON，失败临时文件留存，不覆盖旧诊断；有效 prepared 不因无关失败临时 JSON 而丢失续跑能力。
 
 恢复按以下优先级执行，先判“已经提交”，再判“是否允许继续提交”：
 
@@ -803,7 +805,7 @@ S4 中固定输入依赖与旧 import 清理是**同一交付版本**，没有�
 | 日常开销 | 新增计算/读取目标约1秒，须分别计 writer、checks、sensor；不是本轮实测结论 |
 | 全范围耗时 | 分钟级目标；超过5分钟输出慢阶段/已完成批次，人工复核，不用严苛倍率跳过正确性 |
 
-writer的Raw和固定文件各在加载后、提升/复用前计算物理hash（每文件正常两轮字节读取），阶段之间核对身份；候选和目标读回hash另记，恢复路径按§5.2计数。hash不替代跨SQL身份绑定，mtime不是内容唯一证明。所有额外字节IO单列，不藏在“一次行解码”预算中。
+writer首次非等价写入的Raw/固定文件各4轮物理hash：加载后、prepared前、prepared落盘后紧邻提升前、提交后。后两次用于识别checkpoint落盘窗口漂移及“文件已提交但输入已变”，仍不重新解码输入；等价reuse各2轮。候选正常3轮hash（读回、prepared前/后），已有目标等价比较1轮、提升后的目标1轮；reuse目标另复核1轮。恢复路径按§5.2计数，不与首次合并混算。hash不替代跨SQL身份绑定，mtime不是内容唯一证明；新增的是字节读取，不新增源请求、进程cache或备份，所有字节IO不藏在“一次行解码”预算中。
 
 进度以每批实际完成量、日期批、文件数、差异数、耗时输出。发布只有一个文件，不建 ETA/进度数据库；长批比较至少每完成一批报告，单批异常慢时报告阶段而不虚构完成量。
 
@@ -854,6 +856,10 @@ expected 必须是手写字面行，不调用被测 helper 生成 expected。C01
 S2用已获准候选执行C01/C05及完整schema验证，变体只在TEMP TABLE中，不复制正式Raw/Silver、不改候选/批准常量；将生产验收前移S1须另行明确数据范围授权，当前不执行。
 
 ### W/B/E：文件、CLI 和事件故障注入
+
+writer 小轮范围与预算（2026-09-07，开工约束）：同轮替换唯一公开 SQL 接口及 `assets/suspend_d.py` 的唯一调用方，Raw 函数/请求、14条时段修正、其他 SQL 与最终三个 checks 不变；job/readiness/人工工具与正式发布仍属后续验收。S1 每例固定事实2行 synthetic、Raw≤32行、仅1个日期、输出≤33行；每文件≤1MiB、单批≤16例/60秒，沿用单例30秒、工作区100MiB和受限 DuckDB。正常非等价路径固定/Raw各一次行解码、输出TEMP一次构造、候选一次完整读回；如已有目标，至多一次等价读回；提升后目标一次完整读回。输入/候选的阶段 hash 为字节读取而非重复行解码，计入报告耗时与文件预算。零API/分页、零instance/event、零正式Lake操作、零安装；每次只提升一个临时日期目标。
+
+新增测试入口固定为 `test_stock_suspend_confirmed_writer.py`。精确补入只读源码：`defs/assets/suspend_d.py`、`defs/assets/__init__.py`、`defs/partitions.py`、`defs/tushare_api_io.py`、`utils/__init__.py`、`utils/dg_log_helper.py`及已核验 adapter/resource 闭包；删除 SQL 已不再引用的 `defs/corrections/suspend_full_day.py` 权限。只调用实际内部 writer、显式临时连接/Lake/staging；不放开默认连接、不调用真实 asset job、不新增SDK实例，不放行CSV/源码目录/网络/正式路径。原三个 checks 的实际执行与完整D组仍待下一轮，不以本轮关系/文件测试代替。
 
 | 编号 | 用例 | 必须结果 |
 | --- | --- | --- |
@@ -2114,3 +2120,78 @@ SQL四根合计264KiB，未生成Parquet或数据库文件，未创建DG实例�
 ```
 
 下一步是§5唯一writer：按完整输入校验、候选验证、原子提升、checkpoint续跑的设计实施，同时切换旧公开SQL接口和调用方，跑真实临时writer的M/W用例。本轮不自动进入这一步，也不进入readiness/CLI、正式发布、CSV删除或sensor恢复。本轮共7文件增量，未提交、未推送；S1未完成、S2未执行。
+
+<a id="s1-confirmed-writer-acceptance"></a>
+
+### 18.21 writer 与公开 SQL 同轮切换及临时文件验收（2026-09-07）
+
+#### A. 提交边界与本轮实现
+
+按管理员“提交修改，然后继续推进”，先将此前合同、checks、SQL核心、测试及关联文档19文件提交为 `630ba12a`，未推送；未纳入Wealth文件。随后在同一 `dev-interface` 工作区实施本节。§18.19/18.20的“writer未切换/未提交”是对应历史小轮状态，当前以本节和文首状态为准。
+
+CodeGraph explore覆盖原 `silver_stock_suspend_daily`、原replace helper和冲突helper；impact只返回本模块，并不能代替跨模块审计。全仓核验确认：旧两参数SQL唯一正式调用方是本asset；旧patch/override metadata没有独立业务调用方。实际变更仍在orchestrator内部，无Foundation/Ops/Biz/Wealth或子系统依赖方向变化；同步局部架构快照，未重审其他模块。
+
+| 硬口径 | 当前落点 | 本轮验证 |
+| --- | --- | --- |
+| Raw与最终字段不变 | Raw函数/列类型不变；输出仍四列；唯一公开SQL改为三个keyword-only关系名 | Raw函数含decorator AST逐项相等；除公开入口外23个SQL函数AST相等；42例字面金样本 |
+| 固定事实是完整批准输入，不读CSV | writer调用原inspection/load/content合同；SQL与asset移除旧范围模块import | synthetic固定文件真实校验；缺文件/坏文件拒绝；OS策略未放行CSV或旧模块 |
+| 原业务规则保留 | 不去重；冲突先拒绝；原14条时段修正；两覆盖键仍按键替换 | SQL覆盖全部14条和两覆盖键，writer覆盖重复保留、冲突、空表和真实文件重建；原最终checks的实际运行仍待D组 |
+| 先校验输入日期，再COPY | normalized一次加载，NULL/错日聚合拒绝，不过滤坏行 | 错日、NULL、解析失败均不能覆盖；旧目标字节不变 |
+| 候选校验后原子提升 | staging COPY、四列schema、完整读回、行数与双向EXCEPT ALL；fsync后替换 | COPY失败、坏候选、内容差异均拒绝；没有预删、备份、其他run扫描 |
+| 续跑先看真实目标 | checkpoint字段/身份/路径严格校验；prepared和committed两阶段 | 替换前/后中断、新DuckDB连接续跑；已提交但输入漂移先记提交再失败；目标被后来替换不能重放 |
+| 版本必须绑定参与计算的文件 | 加载前后身份＋实际物理hash；prepared落盘后再次核验 | SQL后文件改写、落盘窗口漂移，以及保持大小/mtime但改内容均被拒绝 |
+| 元数据不重算旧结果 | `SuspendDailyWriteResult(target_path,status,output,confirmed_version,confirmed_logical_sha256)`，output冻结schema/count/stats/时段元数据 | 续跑返回与prepared完全相同的output；旧patch metadata不再新写，历史事件不变 |
+| 等价即复用 | 新run当前输入重新计算，与目标多重集等价返回reused，不建新run候选 | Raw重抓后重建；目标换Parquet编码后仍复用且身份不变 |
+
+实现分布：`assets/suspend_d.py` 新内部writer和checkpoint helper，同时改原Silver adapter依赖/调用及metadata；`duckdb_sql.py` 删除旧签名体，复用已通过金样本的关系核心，不留wrapper；`test_stock_suspend_confirmed_merge.py` 改测新的唯一公开入口；新增 `test_stock_suspend_confirmed_writer.py`，固定runner登记5个小批次及准确源码闭包。共享resources/连接默认、Raw、原时段修正文件、原最终checks、job/sensor均未改动。
+
+§5.1顺序已澄清为“只读路径前置→已有checkpoint恢复→首次计算输入检查”，避免已提交但Raw后来丢失时提前退出；不调用会写canary的健康探针。checkpoint最大1MiB是本writer内部读写合同，不是新增可调配置。§12同步实际hash次数：首次非等价写入Raw/固定各4轮，等价reuse各2轮；不把额外字节IO说成零成本或新增行解码。
+
+#### B. 实际验收与证据限制
+
+只运行既有隔离父入口，分别指定 `--scope regression --suite test_stock_suspend_confirmed_writer.py` 与 `test_stock_suspend_confirmed_merge.py`；完整启动参数沿用§13的offline/no-sync/no-env/no-config/no-download约束。每批先通过原生OS自检；无跳过、xfail、超时、放宽权限或正式路径访问。
+
+首次54例全部通过，随后加强“新连接续跑、committed checkpoint落盘失败、内容漂移但大小/mtime未变”并复验。最终有效集合是**58例writer＋42例SQL，共100例**；首次54例与最终重叠，不相加冒充154个独立case。
+
+| 最终批次 | 例数 / 总耗时 | 精确报告 |
+| --- | --- | --- |
+| W-success | 9 / 1.995秒 | [报告](/private/tmp/stock-suspend-isolated-aiogcdex/allowed/resource-result.json) |
+| W-reject | 11 / 1.443秒 | [报告](/private/tmp/stock-suspend-isolated-9sibr7h5/allowed/resource-result.json) |
+| W-resume | 12 / 1.799秒 | [报告](/private/tmp/stock-suspend-isolated-qn8gb4_8/allowed/resource-result.json) |
+| W-checkpoint | 13 / 1.764秒 | [报告](/private/tmp/stock-suspend-isolated-or5c3wgf/allowed/resource-result.json) |
+| W-identity | 13 / 1.599秒 | [报告](/private/tmp/stock-suspend-isolated-qv2q7x2z/allowed/resource-result.json) |
+| M-add-conflict | 9 / 1.401秒 | [报告](/private/tmp/stock-suspend-isolated-90elx2nj/allowed/resource-result.json) |
+| M-override | 7 / 1.399秒 | [报告](/private/tmp/stock-suspend-isolated-be2snnea/allowed/resource-result.json) |
+| M-order-stats | 10 / 1.367秒 | [报告](/private/tmp/stock-suspend-isolated-du0m18b8/allowed/resource-result.json) |
+| M-input-boundaries | 16 / 0.885秒 | [报告](/private/tmp/stock-suspend-isolated-elxwxe4w/allowed/resource-result.json) |
+
+writer五批合计8.600秒，SQL四批5.052秒。这是临时小样本总测试耗时，不是正式4,022行writer性能结论。使用既有512MB/2线程/0spill连接、显式临时Lake/staging；没有SDK实例、SQLite文件或其他数据库文件，没有安装任何依赖、启动DG服务或读取真实数据。原59例C/D及64项隔离回归本轮不重复计入；静态执行stdlib runner并比较渲染结果，isolation/adapter的OS策略与提交基线逐字相等，regression只增删事先审计的精确源码文件。
+
+中断测试使用实际writer在replace边界注入BaseException，磁盘现场保留，续跑另开内存DuckDB连接；不是杀死正式DG进程，也不宣称已完成完整job/D/R验收。首次父入口末尾沿用了SQL小轮的 `writer_executed=false` 摘要，已在最终运行修正为按固定suite真实填值，并分别标记synthetic和formal_writer_executed=false；逐case实际writer执行及54例结果并未缺失。
+
+五个变更Python文件完整Ruff通过；全量src/tests致命错误基线通过；两suite共35个测试函数全部登记且无重复，固定case计数匹配。文档完整性和diff空白检查通过。CodeGraph sync/status最新（2,959files）；不运行dg发现命令或正式reload。
+
+#### C. 清理登记与尚未执行范围
+
+本轮14个临时根如下；合计约1.14MiB，全部纳入§18.11最终精确清理，现在保留review证据。前5个是首轮54例，后9个是最终100例。交付前逐根执行lsof复核，14处均无打开句柄（退出码1、无输出），未删除任何现场。
+
+```text
+/private/tmp/stock-suspend-isolated-rnrlplak
+/private/tmp/stock-suspend-isolated-4qx3tr3o
+/private/tmp/stock-suspend-isolated-pjfi692r
+/private/tmp/stock-suspend-isolated-9ioeljdy
+/private/tmp/stock-suspend-isolated-db3424ja
+/private/tmp/stock-suspend-isolated-aiogcdex
+/private/tmp/stock-suspend-isolated-9sibr7h5
+/private/tmp/stock-suspend-isolated-qn8gb4_8
+/private/tmp/stock-suspend-isolated-or5c3wgf
+/private/tmp/stock-suspend-isolated-qv2q7x2z
+/private/tmp/stock-suspend-isolated-90elx2nj
+/private/tmp/stock-suspend-isolated-be2snnea
+/private/tmp/stock-suspend-isolated-du0m18b8
+/private/tmp/stock-suspend-isolated-elxwxe4w
+```
+
+下一小轮先做§6的Silver-only job/check选择与readiness集成：核验只写最终Silver一个asset、固定两个blocking checks先行、最终三个checks保留，补D/R矩阵；M02实际原key check、D组真实job和readiness、后续人工CLI/B/E/G/P全套回归仍未完成。直接内部writer不读事件/实例这一边界不变。
+
+**本轮新9文件增量尚未提交、未推送；S1未全部完成、S2及正式发布未执行。固定正式文件未发布，CSV及旧修正模块仍保留待S5；没有恢复已暂停的sensor。不能手动启动依赖新固定文件的正式Silver job来“试试看”。** 同日写入依旧依赖人工错峰，本轮没有新增锁、调度或后台自动维护。
