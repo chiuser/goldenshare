@@ -1,19 +1,28 @@
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import dagster as dg
+import duckdb
 from dagster._core.event_api import PartitionKeyFilter
 from dagster._core.storage.asset_check_execution_record import (
     AssetCheckExecutionRecordStatus,
 )
 
+from orchestrator.defs import stock_suspend_confirmed_contract as confirmed_contract
+from orchestrator.defs.paths import silver_stock_suspend_confirmed_path
 from orchestrator.defs.run_contracts.dc_daily_technical import (
     DC_DAILY_TECHNICAL_CHECKS,
 )
 from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
     CH_DC_DAILY_TECHNICAL_CHECKS,
     PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
+)
+from orchestrator.defs.run_contracts.metadata import (
+    CONFIRMED_FACT_LOGICAL_SHA256_METADATA_KEY,
+    CONFIRMED_FACT_VERSION_METADATA_KEY,
+    DAGSTER_URI_METADATA_KEY,
 )
 
 CN_A_SENSOR_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -1116,6 +1125,96 @@ def gold_market_major_indices_daily_ready_for_trade_date(
         GOLD_MARKET_MAJOR_INDICES_DAILY_READINESS_SPEC,
         partition_key=trade_date,
     )
+
+
+@dataclass(frozen=True)
+class ConfirmedReadinessStatus:
+    ready: bool
+    reason_code: str
+    reason: str
+    version: str | None = None
+    physical_logical_sha256: str | None = None
+    materialization_storage_id: int | None = None
+    check_results: dict[str, bool | None] | None = None
+
+
+def stock_suspend_confirmed_readiness(
+    instance: dg.DagsterInstance,
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    lake_root: Path,
+) -> ConfirmedReadinessStatus:
+    """Validate the file once, then the latest publication/checks; never seek old green events."""
+    version = confirmed_contract.STOCK_SUSPEND_CONFIRMED_VERSION
+    physical_hash = None
+    materialization_id = None
+    check_results = dict.fromkeys(confirmed_contract.STOCK_SUSPEND_CONFIRMED_CHECKS)
+
+    def result(code: str, reason: str) -> ConfirmedReadinessStatus:
+        return ConfirmedReadinessStatus(
+            code == "ok", code, reason, version, physical_hash, materialization_id,
+            check_results,
+        )
+
+    path = silver_stock_suspend_confirmed_path(lake_root)
+    try:
+        confirmed_contract.assert_suspend_path(path, root=lake_root)
+        inspection = confirmed_contract.inspect_confirmed_file(connection, path)
+        loaded = confirmed_contract.load_confirmed_relation(
+            connection, inspection, relation_name="confirmed_readiness",
+        )
+        validation = confirmed_contract.validate_confirmed_content(connection, loaded.relation_name)
+        physical_hash = validation.logical_sha256
+        if not validation.passed:
+            return result(validation.reason_code, "历史固定停牌事实未通过批准内容校验。")
+    except (OSError, duckdb.Error, confirmed_contract.ConfirmedFactsError) as error:
+        return result(getattr(error, "reason_code", "physical_read_failed"),
+                      f"历史固定停牌事实无法校验：{type(error).__name__}。")
+
+    asset_key = dg.AssetKey(confirmed_contract.STOCK_SUSPEND_CONFIRMED_ASSET_KEY)
+    identity_metadata = {
+        CONFIRMED_FACT_VERSION_METADATA_KEY: version,
+        CONFIRMED_FACT_LOGICAL_SHA256_METADATA_KEY: physical_hash,
+    }
+    try:
+        records = instance.fetch_materializations(dg.AssetRecordsFilter(asset_key=asset_key), limit=1).records
+        if not records:
+            return result("publication_missing", "历史固定停牌事实尚无发布记录。")
+        record = records[0]
+        materialization_id = record.storage_id
+        materialization = record.asset_materialization
+        if materialization.asset_key != asset_key or materialization.partition is not None:
+            return result("publication_partition_mismatch", "固定事实最新发布记录不是该无分区资产。")
+        for key, expected in {**identity_metadata, DAGSTER_URI_METADATA_KEY: str(path)}.items():
+            if getattr(materialization.metadata.get(key), "value", None) != expected:
+                return result("publication_identity_mismatch", "固定事实最新发布身份与当前文件不一致。")
+        for name in confirmed_contract.STOCK_SUSPEND_CONFIRMED_CHECKS:
+            history = instance.event_log_storage.get_asset_check_execution_history(
+                dg.AssetCheckKey(asset_key, name), limit=1,
+            )
+            if not history:
+                continue
+            latest = history[0]
+            event = latest.event.dagster_event if latest.event else None
+            evaluation = event.event_specific_data if event else None
+            target = getattr(evaluation, "target_materialization_data", None)
+            check_results[name] = bool(
+                latest.status == AssetCheckExecutionRecordStatus.SUCCEEDED
+                and evaluation is not None
+                and evaluation.asset_key == asset_key
+                and evaluation.check_name == name
+                and evaluation.passed and evaluation.blocking
+                and evaluation.partition is None
+                and target is not None and target.storage_id == materialization_id
+                and all(getattr(evaluation.metadata.get(key), "value", None) == expected
+                        for key, expected in identity_metadata.items())
+            )
+    except Exception as error:  # noqa: BLE001 -- storage observation fails closed without writes.
+        # Event storage is an observation gate; do not repair it or write an event here.
+        return result("event_read_failed", f"固定事实发布/检查记录暂不可读：{type(error).__name__}。")
+    if not all(value is True for value in check_results.values()):
+        return result("checks_not_ready", "固定事实最新检查缺失、未通过、进行中或不属于当前发布。")
+    return result("ok", "固定停牌事实的文件、发布和最新检查一致；无每日刷新要求。")
 
 
 def status_payload(status: DatasetReadinessStatus) -> list[dict[str, object]]:

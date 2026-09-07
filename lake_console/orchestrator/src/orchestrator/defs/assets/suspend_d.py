@@ -570,10 +570,15 @@ def silver_stock_suspend_daily(
     log = DgStdoutLogger("suspend_d")
     log.stdout("silver_suspend_d_started", partition_key=partition_key)
     with connect_configured_duckdb() as connection:
-        result = write_silver_stock_suspend_daily_partition(
-            connection, lake_root=root, staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
-            trade_date=partition_key, run_id=context.run_id,
-        )
+        try:
+            result = write_silver_stock_suspend_daily_partition(
+                connection, lake_root=root, staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
+                trade_date=partition_key, run_id=context.run_id,
+            )
+        except confirmed_contract.ConfirmedFactsError as error:
+            log.stdout("silver_suspend_d_validation_failed", partition_key=partition_key,
+                       reason_code=error.reason_code)
+            raise
     output = result.output
     log.stdout(
         "silver_suspend_d_completed", partition_key=partition_key, result_status=result.status,

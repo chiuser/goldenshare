@@ -1,17 +1,19 @@
 import ast
 import unittest
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityExpectedDateWindow,
+    build_registered_gap_status,
+)
 from orchestrator.defs.assets.suspend_d import (
     _human_materialization_metadata,
     raw_tushare_suspend_d,
     silver_stock_suspend_daily,
-)
-from orchestrator.defs.asset_guards.bounded_continuity import (
-    ContinuityExpectedDateWindow,
-    build_registered_gap_status,
 )
 from orchestrator.defs.jobs import suspend_update as suspend_jobs
 from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
@@ -22,20 +24,20 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 )
 from orchestrator.defs.sensors import suspend_d_sensor as suspend_sensor_module
 from orchestrator.defs.sensors.readiness import (
-    AssetReadinessStatus,
     RAW_SUSPEND_D_CHECKS,
     SILVER_SUSPEND_D_CHECKS,
+    AssetReadinessStatus,
+    ConfirmedReadinessStatus,
 )
 from orchestrator.defs.sensors.suspend_d_sensor import (
     raw_suspend_d_update_job_sensor,
     silver_suspend_d_update_job_sensor,
 )
 
-
 ASSET_PATH = Path("src/orchestrator/defs/assets/suspend_d.py")
 
 
-def _asset_description(asset_definition) -> str:  # noqa: ANN001
+def _asset_description(asset_definition) -> str:
     descriptions = tuple(asset_definition.descriptions_by_key.values())
     return descriptions[0] if descriptions else ""
 
@@ -62,17 +64,23 @@ class _FakeInstance:
 class _FakeContext:
     def __init__(self, *, partitions: tuple[str, ...]) -> None:
         self.instance = _FakeInstance(partitions)
+        # This suite freezes existing selection behavior with a ready fixed-input gate.
+        # Real file/event gates are covered by test_stock_suspend_confirmed_readiness.py.
+        self.resources = SimpleNamespace(
+            duckdb=SimpleNamespace(connect=lambda: nullcontext(None)),
+            lake_root=SimpleNamespace(root=lambda: Path("/synthetic-not-opened")),
+        )
 
 
 class _FixedDateTime(datetime):
     @classmethod
-    def now(cls, tz=None):  # noqa: ANN001
+    def now(cls, tz=None):
         return datetime(2026, 6, 7, 10, 0, tzinfo=tz or UTC)
 
 
 class _FixedDateTimeAfterGap(datetime):
     @classmethod
-    def now(cls, tz=None):  # noqa: ANN001
+    def now(cls, tz=None):
         return datetime(2026, 6, 17, 10, 0, tzinfo=tz or UTC)
 
 
@@ -130,6 +138,12 @@ def _silver_sensor_result(context: _FakeContext):
 
 class SuspendDSensorTests(unittest.TestCase):
     def setUp(self) -> None:
+        confirmed = patch(
+            "orchestrator.defs.sensors.suspend_d_sensor.stock_suspend_confirmed_readiness",
+            return_value=ConfirmedReadinessStatus(True, "ok", "虚构固定输入已就绪"),
+        )
+        confirmed.start()
+        self.addCleanup(confirmed.stop)
         self._registered_gap_patcher = patch(
             "orchestrator.defs.sensors.suspend_d_sensor._stock_trade_day_registered_gap",
             side_effect=lambda _context, evaluated_at, registered_keys: _registered_gap(

@@ -1,4 +1,3 @@
-from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -17,7 +16,7 @@ from orchestrator.defs.assets.suspend_d import (
     silver_stock_suspend_daily,
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
-
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
 STOCK_TRADE_DAY_MIN_DATE = "2014-01-01"
@@ -72,7 +71,7 @@ def raw_suspend_d_partition_allowed_check(
     return raw_suspend_d_stock_partition_key_allowed(context)
 
 
-@dg.asset_check(asset=silver_stock_suspend_daily, blocking=True)
+@dg.asset_check(asset=silver_stock_suspend_daily, partitions_def=cn_a_stock_trade_days, blocking=True)
 def silver_suspend_d_partition_allowed_check(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:

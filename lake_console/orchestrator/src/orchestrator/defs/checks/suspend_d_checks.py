@@ -4,11 +4,11 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.suspend_d import (
     raw_tushare_suspend_d,
     silver_stock_suspend_daily,
 )
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     SUSPEND_D_KNOWN_TYPE_VALUES,
     SUSPEND_D_RAW_REQUIRED_COLUMNS,
@@ -17,10 +17,10 @@ from orchestrator.defs.duckdb_sql import (
     describe_parquet_query,
     read_parquet,
 )
+from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import raw_suspend_d_path, silver_stock_suspend_daily_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
-
 
 RAW_SUSPEND_D_EXPECTED_SCHEMA = {
     "ts_code": "VARCHAR",
@@ -444,6 +444,7 @@ def raw_suspend_d_contract_check(
 
 @dg.asset_check(
     asset=silver_stock_suspend_daily,
+    partitions_def=cn_a_stock_trade_days,
     blocking=True,
 )
 def silver_suspend_d_key_integrity_check(
@@ -456,6 +457,7 @@ def silver_suspend_d_key_integrity_check(
 
 @dg.asset_check(
     asset=silver_stock_suspend_daily,
+    partitions_def=cn_a_stock_trade_days,
     blocking=True,
 )
 def silver_suspend_d_suspend_type_domain_check(

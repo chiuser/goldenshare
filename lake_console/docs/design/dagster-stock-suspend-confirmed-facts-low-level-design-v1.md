@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成；既有合同/check/纯SQL增量已提交`630ba12a`，未推送。本轮§18.21完成writer与唯一公开SQL接口同步切换，58例实际临时writer＋42例SQL回归通过；本轮增量未提交。正式数据/实例未操作、CSV未删、sensor未恢复、无套件安装或DG服务启动。S1的job/check/readiness集成、CLI与全套回归仍待完成；S2未执行，临时产物最终按§18.11精确清理。**
+状态：**S0已完成；前序增量已提交`630ba12a`、`4887cfac`，未推送。管理员确认最小日期声明修正后，§18.23完成job/check/readiness/sensor集成：53例测试＋5个既有subtests通过，其中真实job使用实际writer和三个现行最终检查。当前增量未提交；S1的人工CLI、受限连接模式及其余全套回归仍待完成。没有操作正式数据/实例、删除CSV、恢复sensor、安装套件或启动DG服务。S2未执行；临时产物最终按§18.11精确清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -384,7 +384,7 @@ check 绑定 `AssetKey`，不是把 `AssetSpec` 直接传给本机 decorator；�
 
 schema check 使用 `CheckScope.SCHEMA`；内容 check 使用 `CheckScope.RECONCILIATION`，复用 §4.1。schema 检查失败，内容 check 也不得尝试 cast 后通过。每个 check 最多读取固定文件一次，结果记录批准身份及实际检查范围；成功结果能与该固定资产 materialization 建立关联。
 
-**S1 验证状态：**上述关联要求不变，不能依赖 `AssetCheckResult` 自动填写原生 target。§15.2 已复现关联为空；§15.3 的显式原生 evaluation 已在§18.19通过实际adapter合成小样本及存储读回，完整readiness与writer仍未验收。原三个最终 Silver checks 不作此变更。
+**S1 验证状态：**上述关联要求不变，不能依赖 `AssetCheckResult` 自动填写原生 target。§15.2 已复现关联为空；§15.3 的显式原生evaluation在§18.19通过实际adapter小样本，§18.23进一步通过实际writer/job与readiness的隔离集成。原三个最终Silver checks仍返回`AssetCheckResult`，不改成显式evaluation；只按已确认§18.22补齐日频检查分区声明。
 
 两个新 checks 的文件前置检查必须只读：按 §18.4 核验根、目标路径和文件，不调用 `LakeRootResource.ensure_available_for_run()` 或底层健康探针。不修改现行全局健康 helper 或其他资产；Dagster 当前 run 的正常 check 事件仍按 §15.3 产生，不能把“文件只读”理解为取消检查事件。
 
@@ -403,6 +403,8 @@ dg.AssetSelection.assets(silver_stock_suspend_daily) \
 目标解析集合：可写资产恰好 `{silver_stock_suspend_daily}`，checks 恰好原 3 个 Silver checks＋新 2 个固定 checks。不能使用 `.upstream()` 拉入 Raw 写入；固定 AssetSpec 没有可执行 writer。
 
 要求执行次序：两个固定检查通过 → 最终 Silver writer → 原三个最终 checks。不能仅画依赖图后假定执行顺序成立；Dagster blocking check 的说明见[官方检查文档](https://docs.dagster.io/guides/test/asset-checks)，本项目还必须通过 §13 D 组隔离集成验证。
+
+2026-09-07实际定义复核曾发现三个原最终checks缺少显式日期分区，原替身检查却声明了测试分区，导致D03未覆盖真实定义差异。管理员确认最小改法后，只给三个日频检查增加现有`cn_a_stock_trade_days`声明，业务判断不改；实际definition/evaluation/storage三层日期归属已在§18.23通过，D03未放宽为允许空分区。审计与确认经过见[§18.22](#s1-daily-check-partition-audit)。
 
 本机源码基线为 Dagster 1.13.18，线上当前文档版本可能更高；实际实现以锁定版本为准。隔离验证若发现 non-partitioned checks 与 partitioned job 无法按上式阻断，**先停止 S1 并回修本节和技术方案**，不能移除 checks、假造 partition 或默认退回 sensor-only 门禁。
 
@@ -1006,7 +1008,7 @@ S0 增加了真实物理只读核验和现有运行状态核验，但没有执�
 1. 每个 check 至多一次 `fetch_materializations(..., limit=1)` 读取固定资产最新真实发布记录；不按每日 job 日期查找。记录必须无 partition，URI/version/批准 logical hash 与合同一致。缺失或不符时抛可解释 `Failure`，不编造发布、target 或绿灯；下游 writer 不执行。
 2. 纯 validator 仍不读 instance，schema/content 判断不合并。文件检查 metadata 记录**实际** digest，不能用批准常量替代；schema 合格而内容错误时，schema 可通过、内容必须失败。发布记录存在只是检查执行前提，不代替物理校验。
 3. 从真实记录取得 `storage_id/run_id/timestamp`，显式 `yield AssetCheckEvaluation(..., partition=None, target_materialization_data=..., blocking=True, severity=ERROR)`，随后 `yield dg.Output(None)` 完成依赖输出。结果仍是**本次 job 的原生检查事件**，失败由 Dagster 阻断，不调用日常 `report_runless_asset_event()` 补录。
-4. 不改变两个 check 名称、绑定 AssetKey、无分区合同、一 writer 五 checks 集合或执行顺序；原三个最终 checks 不变。不升级/修改 SDK、不 monkeypatch、不新增分区、额外 job、sensor 或配置。
+4. 不改变两个 check 名称、绑定 AssetKey、无分区合同、一 writer 五 checks 集合或执行顺序；原三个最终checks业务判断和自动target关联不变，仅按随后确认的§18.22补齐其已有交易日分区声明。不升级/修改SDK、不在生产代码monkeypatch、不新增分区、额外job、sensor或配置。
 5. `AssetCheckEvaluation` 及 target 类型在当前安装版本的内部模块，使用仅封装在这两个 checks 的事件 adapter 和原 bootstrap adapter；纯合同/SQL/writer 不引入该依赖。锁定版本并以实际存储读回测试约束；这是本建议需披露的框架 API 风险。
 6. 每 job 两次有界 mat 查询取代 SDK 原先的自动查找，不新增扫描历史或逐日回溯。sensor 原有 1 mat＋2 check 预算不变；SQL/writer 不查 instance。文件与事件发布仍只在获准的人工窗口完成。
 
@@ -2195,3 +2197,117 @@ writer五批合计8.600秒，SQL四批5.052秒。这是临时小样本总测试�
 下一小轮先做§6的Silver-only job/check选择与readiness集成：核验只写最终Silver一个asset、固定两个blocking checks先行、最终三个checks保留，补D/R矩阵；M02实际原key check、D组真实job和readiness、后续人工CLI/B/E/G/P全套回归仍未完成。直接内部writer不读事件/实例这一边界不变。
 
 **本轮新9文件增量尚未提交、未推送；S1未全部完成、S2及正式发布未执行。固定正式文件未发布，CSV及旧修正模块仍保留待S5；没有恢复已暂停的sensor。不能手动启动依赖新固定文件的正式Silver job来“试试看”。** 同日写入依旧依赖人工错峰，本轮没有新增锁、调度或后台自动维护。
+
+后续提交记录：管理员要求“提交吧。然后继续推进”后，上述9文件以 `4887cfac` 提交，提交说明为 `feat(lake): make suspension Silver writes recoverable`；未推送，未纳入Wealth任务文件。上段“尚未提交”是§18.21交付时的历史状态。
+
+<a id="s1-daily-check-partition-audit"></a>
+
+### 18.22 集成前审计：原三个日分区检查的定义缺口（已确认修正，保留审计经过）
+
+**本轮做到哪里：**已完成上述提交，随后用CodeGraph `explore` / `impact`及源码核对Silver job、固定checks、三个原最终checks、readiness、sensor和现有测试。图的impact仅返回检查定义文件，未覆盖字符串登记；另用源码搜索核实catalog、readiness、sensor/check测试及增量治理测试。不改跨子系统依赖或依赖矩阵。本轮后半段仅更新本文、技术方案和主索引；未改生产/测试Python、测试权限白名单或资源绑定，未创建临时实例、执行作业或访问正式数据。
+
+#### A. 事实、影响与此前遗漏原因
+
+| 核验位置 | 当前代码事实 | 对方案的影响 |
+| --- | --- | --- |
+| `defs/checks/suspend_d_checks.py` 的 `silver_suspend_d_key_integrity_check`、`silver_suspend_d_suspend_type_domain_check` | decorator只传资产对象和`blocking=True`，未传`partitions_def`；函数仍按`context.partition_key`检查对应文件 | 能按日期读取文件，不等于生成的检查事件带有该日期 |
+| `defs/checks/stock_partition_checks.py` 的 `silver_suspend_d_partition_allowed_check` | 同样未传`partitions_def`；函数核验注册日期、起始日期和非未来日期 | 合法分区检查本身，也缺少事件日期归属声明 |
+| 本机Dagster 1.13.18 `asset_check_decorator.py:225`、`asset_check_result.py:214` | decorator将参数原样写入check spec；生成evaluation时，只有step有日期且spec分区非空才写入日期，否则为None | 不能假定绑定资产对象后自动继承日期分区；[官方说明](https://docs.dagster.io/guides/test/asset-checks#partitioned-asset-checks)与安装源码一致 |
+| `tests/test_stock_suspend_confirmed_dagster.py` 的 `make_final_check` | 三个最终检查是替身，并显式传了`partitions_def=PARTITIONS` | §18.19通过证明了两个新固定adapter的关联/阻断机制，**没有证明原三个实际检查的日期归属**；先前证据仍有效，但范围不足以覆盖D03 |
+| `tests/test_suspend_d_checks.py` 的合法空Silver用例 | 直接调用实际check函数，断言`result.passed`；没有通过job写入后读回日期字段 | 可以验证业务判断，不能覆盖Dagster事件分区 |
+| 本LLD §13 D03、§15.3第4项 | 前者要求最终检查有当天日期，后者仍写“原三个最终checks不变” | 若按“定义完全不改”执行，两个条件不能同时通过，必须先确认窄修正，不得改expected让测试通过 |
+
+这是**现行检查定义的事件分区缺口，以及LLD未将其列入修改矩阵的遗漏**，不是新合并SQL产生的停牌事实错误，也不同于§15.2两个固定检查的target关联问题。源代码足以确认上述分区生成分支；本轮没有执行实际job或读取正式历史事件，因此不声称已新复现存储结果、生产故障或数据损坏。
+
+当前通用readiness的`_check_result_for_materialization_ids()`仍按原生target的storage_id关联结果，并不检查evaluation.partition。因此不能仅凭本缺口就断言所有既有下游被阻断；本轮也不修改通用readiness去掩盖缺口。此次直接阻碍的是D03及目录规则要求的正确日期归属验收。
+
+此前遗漏的具体原因是：设计要求保留三个现行检查，却只在提前实验中给三个替身检查声明了日期分区，没有把同一属性核对到三个真实decorator。补救必须是实际定义＋真实job＋存储读回，不能再增加替身正例来替代。
+
+#### B. 最小修改矩阵（随后已确认并按§18.23落实）
+
+| 文件 | 建议修改 | 明确保留 |
+| --- | --- | --- |
+| `defs/checks/suspend_d_checks.py` | 引入现有`cn_a_stock_trade_days`；只给上述两个Silver decorator增加`partitions_def=cn_a_stock_trade_days` | 业务函数、SQL、空分区通过规则、检查名称、blocking/severity、返回`AssetCheckResult`的方式及Raw检查全部不变 |
+| `defs/checks/stock_partition_checks.py` | 复用文件已有的`cn_a_stock_trade_days`；只给`silver_suspend_d_partition_allowed_check`增加同一参数 | 注册日/日期范围判断及本文件其他资产、Raw检查全部不变 |
+| 本LLD §6 / §15.3及技术方案 | 确认后明确“保留三项业务判断及自动target关联，仅补齐最终Silver检查的日期归属声明” | 新固定资产及其两checks继续无分区；不把显式原生evaluation方案扩到原三个检查 |
+| 原S1 D组及现行检查回归 | 使用三个实际检查定义验收，不再用最终检查替身证明D03；给definition、evaluation、存储记录分别断言日期 | 名称集合仍为一writer五checks；固定两项partition=None，最终三项partition=测试交易日 |
+
+本建议不新增日期分区、不注册正式动态分区、不改四列事实、数据路径、请求参数、作业名称或日期选择，不重写旧事件，也不修改SDK。不是全仓分区check治理；其他check即使有类似情况，也不因本次发现自动纳入。
+
+#### C. 确认后的执行顺序与验收
+
+1. 先同步上述窄修正口径到原方案并修改三处decorator；保留check函数体前后静态对账，证明没有夹带业务判断修改。
+2. 继续原§6 Silver-only job/readiness/sensor集成；通用readiness不改，只给新固定事实增加专用有界校验。没有候选不新增IO，有候选每tick固定校验一次；Raw就绪筛选、最多两个请求、run key及连续性信息保持原行为。
+3. 按既有隔离方案审计实际模块的精确import闭包及连接/临时staging绑定，再经固定runner运行小批次，不开放整个源码目录或正式路径、不安装依赖。当前没有为此提前扩权限或启动测试。
+4. D03通过必须同时具备：实际job只写最终Silver；两个固定检查先行；三个原最终检查真实执行；三层日期属性/事件/存储读回一致；固定发布数量不增加、固定检查仍关联原无分区发布。重复键失败、合法空分区通过、固定输入失败writer不执行等反例一并保留。
+5. 通过后再进行CLI/连接模式及原S1消费者全套回归；S2–S5、正式发布、恢复sensor、删除和最终测试环境清理仍按原阶段批准，不能因本窄修正自动执行。
+
+上轮停止点是确认三个日频检查的日期声明。管理员在明确区分“已有日频资产有分区、新固定事实无分区”和三处最小改法后要求“你赶紧继续推进”，本窄修正及原§6集成进入实施；不再将其列为待拍板。历史100例不计作新运行数。
+
+本次开工约束：原三个检查仅增加与已有资产相同的分区声明，业务判断和自动target关联不变；§6.2/§15.3所说“不变”不再指遗漏的日期声明。新固定两检查保持无分区。性能/资源上界如下，生产配置不新增、不修改。
+
+| 范围 | 数量与IO上界 | 拒绝/验收 |
+| --- | --- | --- |
+| 固定readiness | 有候选tick：单个固定文件校验1次、最新mat查询1次、最新check查询各1次；无候选新增IO为0 | 物理失败、查询失败或最新记录不合格即阻断；不查老绿灯、不加每日freshness |
+| 原sensor | 日期集合/窗口/Raw判断不变；最多2个RunRequest，零源请求或分页 | 只对前2个候选评估，不因阻断扩大窗口；cursor固定摘要只有一份 |
+| D/R隔离回归 | 固定事实2行synthetic、Raw≤32行、每次job一个日期/一个目标文件，sensor≤3候选；每文件≤1MiB | 沿用单例30秒、批≤16例/60秒、工作区100MiB、DuckDB512MB/2线程/0spill、零网络；每次原子提升一个临时目标 |
+| 新测试入口 | 固定runner登记`test_stock_suspend_confirmed_integration.py`和`test_stock_suspend_confirmed_readiness.py`；真实job/三实际最终checks | 显式临时Lake/staging/instance；只绑定实际Silver adapter及两个最终check所在模块的连接别名到既有测试工厂，其他默认连接保持拒绝；不改生产默认根 |
+
+只读源码权限按实际import闭包精确增加：`defs/jobs/{__init__,suspend_update}.py`、`defs/checks/{suspend_d_checks,stock_partition_checks}.py`、`defs/sensors/{__init__,suspend_d_sensor,cn_a_trade_day_sensor,stock_trade_day_sensor,readiness}.py`、`defs/asset_guards/{__init__,bounded_continuity,stock_daily}.py`、`defs/assets/{market_breadth,stock_basic,stock_daily,stock_lifecycle,stock_return_distribution}.py`、`defs/catalog/lake_assets.py`、`defs/run_contracts/{cursor_payloads,cursors,dc_board,dc_daily_technical,dc_daily_technical_serving,index_global,requests,run_keys,sensor_tags}.py`。这些模块因现有导入关系被加载，不选择或执行其他资产；原CSV、其他源码目录、正式数据和网络仍不放行。当前sensor原有日历健康探针不在本轮修改：R用例替换既有日历窗口读取为虚构窗口，单独真实执行新增固定readiness；不把它计为全sensor物理日历验收。
+
+现行`test_suspend_d_sensor.py`同轮纳入固定runner（13例）：只补固定输入ready的测试上下文，既有日期、run key、检查名称、cursor、Raw及stdout断言不放宽。复核发现上一轮writer adapter遗漏了原`silver_suspend_d_validation_failed`日志事件，按原观测合同补回：捕获已有合同错误，输出日期和reason_code后原样抛出，不打印全量行、不改失败/写入结果；内部writer与SQL不改。新真实job反例同时验证这一事件。该文件仅stdout adapter有变化，不把日志补齐变成新状态机或恢复规则。
+
+<a id="s1-confirmed-integration-acceptance"></a>
+
+### 18.23 job/check/readiness/sensor集成验收（2026-09-07）
+
+本轮完成原§6与§18.22已确认的窄修正，不再停留在检查清单。开发审查、数据湖和Dagster技能约束代码/测试范围，文档治理技能用于同步原方案状态；没有另建测试框架。CodeGraph `explore`覆盖sensor调用链，`impact(asset_readiness_status)`显示36项相关符号，因而保留通用函数不改，新增固定事实专用判断。跨子系统依赖和依赖矩阵不变。
+
+| 硬口径 | 实际修改 | 验证 |
+| --- | --- | --- |
+| 三个日频检查有日期，固定两检查无日期 | `checks/suspend_d_checks.py`两处、`checks/stock_partition_checks.py`一处补声明 | 实际定义、evaluation、storage.partition同时读回；原检查所有函数体AST不变 |
+| 只写最终Silver、先固定检查后写入 | `jobs/suspend_update.py`只增加固定检查selection | 实际job解析：一个可写资产、五checks；真实事件顺序及固定失败writer=0 |
+| 当前物理文件＋最新发布＋最新两检查 | `sensors/readiness.py`新增`ConfirmedReadinessStatus`及专用函数 | 文件坏时事件查询0；正常单次1文件＋1mat＋2check；不加日期freshness；两检查分别单独失败也阻断；不回退老绿灯 |
+| 原sensor选择行为保留 | `sensors/suspend_d_sensor.py`仅在非空前两候选处加一次固定检查和紧凑cursor摘要 | 无候选/登记缺口新增IO=0；原Raw阻断、run key、最多2请求、连续性字段不变；连接错误保守跳过 |
+| 业务规则不变 | 原最终检查、内部writer、Raw asset/sensor、通用readiness全部函数体AST对照通过 | 合法空文件通过；重复行保留并被原key检查判失败；Raw冲突拒绝，目标不变；绕过checks时writer仍拒绝坏固定事实 |
+| 观测与数据分离 | `assets/suspend_d.py`仅补回合同失败日志，原样抛错 | 冲突/绕过门禁反例输出原失败事件名称及当前reason_code；没有重新引入旧CSV专属的conflict_count日志拼装或状态写入 |
+
+文件分布：生产代码6份（上述两checks、job、readiness、sensor、Silver adapter日志）；测试4份（固定runner、现行sensor fixture、新integration、新readiness）；文档3份（本文、技术方案、主索引），共13份专项文件。其他任务的Wealth改动保留，不纳入本轮。
+
+#### 有效结果及性能
+
+| 固定批次 | 有效测试 | 启动到结束耗时 | 证据目录后缀 |
+| --- | --- | --- | --- |
+| D-actual-job | 10：9个实际job场景＋catalog唯一登记 | 10.379秒 | `kxj8p4gt` |
+| R-file-publication | 11 | 1.867秒 | `8u1z16x4` |
+| R-latest-checks | 11 | 1.389秒 | `r1lxsxew` |
+| R-sensor | 8 | 1.339秒 | `wqf_wv02` |
+| R-existing-contract | 6＋2个subtests | 1.259秒 | `pyw3xa73` |
+| R-existing-selection | 7＋3个subtests | 0.935秒 | `ysflhk2d` |
+
+合计**53例测试＋5个既有subtests**，不是58个独立测试方法。每个证据位于 `/private/tmp/stock-suspend-isolated-<后缀>/allowed/resource-result.json`；D组各用例另有`integration-evidence.json`，记录run_id、五项检查的实际日期/通过状态/target ID和writer调用数。六批原生隔离自检均通过，虚构禁止目录前后不变，零超时/资源中止。全部是临时synthetic数据和实例，不计作生产4,022行身份验收或正式发布证据。
+
+修改Python文件完整Ruff、全src/tests致命错误扫描及函数体静态对照通过；文档完整性和diff空白检查在交付前复验。本轮未重跑§18.21的58＋42例，内部writer/SQL未改，不能将历史100例重复计为本轮新结果。全仓Definitions发现/catalog治理测试、人工CLI、受限连接模式、剩余B/E/G/P与正式全范围验收仍待原S1后续阶段，不能据本节标记整个S1完成。
+
+#### 首轮失败与保留现场
+
+实际job首轮已成功执行，但测试读取事件时使用了本机SDK不存在的`is_asset_check_evaluation`属性，导致测试失败；改为已有`get_asset_check_evaluations()`及实际事件类型字段后重跑通过，没有改生产结果或放宽期望。现行sensor首轮13例和5个subtests均通过，但固定runner按13登记、实际成功报告计18，导致总计核验不通过；将原测试完整拆为8/10报告的小批次重跑，不改support计数规则、不跳过subtests、不提高单批16上限。
+
+以下**全部12个本轮创建的精确目录**追加到§18.11最终清理登记，包括失败/中间通过及最终六批。现在不清理或重用；需求完成后按既定要求彻底清除，不卸载现有共享SQLite/Python：
+
+```text
+/private/tmp/stock-suspend-isolated-jbyr_nds
+/private/tmp/stock-suspend-isolated-v0_d_yc9
+/private/tmp/stock-suspend-isolated-rrkv8poo
+/private/tmp/stock-suspend-isolated-0y_1m42a
+/private/tmp/stock-suspend-isolated-1lrn7ro8
+/private/tmp/stock-suspend-isolated-kxj8p4gt
+/private/tmp/stock-suspend-isolated-ngbmiu1d
+/private/tmp/stock-suspend-isolated-8u1z16x4
+/private/tmp/stock-suspend-isolated-r1lxsxew
+/private/tmp/stock-suspend-isolated-wqf_wv02
+/private/tmp/stock-suspend-isolated-pyw3xa73
+/private/tmp/stock-suspend-isolated-ysflhk2d
+```
+
+当前增量未提交、未推送。没有正式Lake/staging/instance访问、服务重载、sensor恢复、CSV删除或套件安装。下一步是原§8–9的人工CLI/文件与事件发布分离、受限连接模式及B/E验收；继续只在隔离环境实现，正式S2–S5仍分别批准。

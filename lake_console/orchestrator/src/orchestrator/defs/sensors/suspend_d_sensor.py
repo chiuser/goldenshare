@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime
 
 import dagster as dg
@@ -14,14 +15,14 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
-from orchestrator.defs.run_contracts.cursors import (
-    SensorCursorDecision,
-    build_sensor_cursor,
-)
 from orchestrator.defs.run_contracts.cursor_payloads import (
     build_cursor_details,
     compact_asset_readiness_status,
     compact_continuity_frontier,
+)
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
@@ -31,18 +32,19 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
     build_sensor_tags,
 )
+from orchestrator.defs.sensors.cn_a_trade_day_sensor import STOCK_TRADE_DAY_MIN_DATE
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     RAW_SUSPEND_D_ASSET_KEY,
     SILVER_STOCK_SUSPEND_DAILY_ASSET_KEY,
+    ConfirmedReadinessStatus,
     materialized_partition_keys,
     raw_tushare_suspend_d_ready_for_trade_date,
+    stock_suspend_confirmed_readiness,
 )
-from orchestrator.defs.sensors.cn_a_trade_day_sensor import STOCK_TRADE_DAY_MIN_DATE
 from orchestrator.defs.sensors.stock_trade_day_sensor import (
     STOCK_TRADE_DAY_REGISTER_START,
 )
-
 
 MAX_RUN_REQUESTS_PER_TICK = 2
 
@@ -244,6 +246,11 @@ def _silver_cursor_summary_and_next_action(
             f"未触发：{target_date} 的停复牌 raw 还没有 ready，silver 不能继续。",
             "先修复 raw_tushare_suspend_d 的 materialization 或 blocking checks，再等待下一次 tick。",
         )
+    if reason_code == "confirmed_not_ready":
+        return (
+            "未触发：历史固定停牌事实的文件、发布或最新检查未就绪。",
+            "人工核验固定事实及发布检查记录；不自动发布、回退旧记录或重写数据。",
+        )
     if reason_code == "pending_silver":
         return (
             f"未触发：停复牌 silver 仍有 {pending_count} 个待生成分区，但本 tick 没有提交 run。",
@@ -264,6 +271,7 @@ def _silver_sensor_cursor(
     blocked_keys: tuple[str, ...],
     gate_statuses_by_trade_date: dict[str, dict[str, object]],
     continuity_details: dict[str, object] | None,
+    confirmed_status: ConfirmedReadinessStatus | None = None,
 ) -> str:
     decision = (
         SensorCursorDecision.REQUEST_RUNS
@@ -282,7 +290,10 @@ def _silver_sensor_cursor(
     reason_code = "request_run" if selected_keys else "all_ready"
     blocked_component = "none"
     if not selected_keys:
-        if blocked_keys:
+        if confirmed_status is not None and not confirmed_status.ready:
+            reason_code = "confirmed_not_ready"
+            blocked_component = "silver_stock_suspend_confirmed"
+        elif blocked_keys:
             if gate_statuses_by_trade_date:
                 reason_code = "raw_not_ready"
                 blocked_component = "raw_tushare_suspend_d"
@@ -318,7 +329,10 @@ def _silver_sensor_cursor(
                 continuity_details,
                 selected_trade_date=target_date,
             ),
-            gate_statuses=gate_statuses_by_trade_date.get(target_date or "", {}),
+            gate_statuses={
+                **gate_statuses_by_trade_date.get(target_date or "", {}),
+                **({"stock_suspend_confirmed": {key: value for key, value in asdict(confirmed_status).items() if key != "reason"}} if confirmed_status is not None else {}),
+            },
             evidence={
                 "registered_count": registered_count,
                 "pending_count": len(pending_keys),
@@ -470,6 +484,28 @@ def silver_suspend_d_update_job_sensor(
     blocked_keys: list[str] = []
     gate_statuses_by_trade_date: dict[str, dict[str, object]] = {}
 
+    confirmed_status = None
+    if candidate_keys:
+        try:
+            with context.resources.duckdb.connect() as connection:
+                confirmed_status = stock_suspend_confirmed_readiness(
+                    context.instance, connection, lake_root=context.resources.lake_root.root(),
+                )
+        except Exception as error:  # noqa: BLE001 -- a failed observation blocks this tick, never repairs data.
+            confirmed_status = ConfirmedReadinessStatus(
+                False, "connection_unavailable", f"固定事实校验资源不可用：{type(error).__name__}。",
+            )
+        if not confirmed_status.ready:
+            return dg.SensorResult(
+                skip_reason=confirmed_status.reason,
+                cursor=_silver_sensor_cursor(
+                    evaluated_at=evaluated_at, registered_count=len(registered_keys),
+                    pending_keys=pending_keys, selected_keys=(), blocked_keys=candidate_keys,
+                    gate_statuses_by_trade_date={}, continuity_details=continuity_details,
+                    confirmed_status=confirmed_status,
+                ),
+            )
+
     for trade_date in candidate_keys:
         raw_status = raw_tushare_suspend_d_ready_for_trade_date(
             context.instance,
@@ -494,6 +530,7 @@ def silver_suspend_d_update_job_sensor(
         blocked_keys=tuple(blocked_keys),
         gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         continuity_details=continuity_details,
+        confirmed_status=confirmed_status,
     )
 
     if not selected_tuple:

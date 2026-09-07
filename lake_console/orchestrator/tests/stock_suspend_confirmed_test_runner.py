@@ -88,7 +88,50 @@ WRITER_SOURCE_FILES = (
     "defs/assets/suspend_d.py", "defs/partitions.py", "defs/tushare_api_io.py",
     "utils/__init__.py", "utils/dg_log_helper.py",
 )
+INTEGRATION_SOURCE_FILES = (
+    "defs/jobs/__init__.py", "defs/jobs/suspend_update.py",
+    "defs/checks/suspend_d_checks.py", "defs/checks/stock_partition_checks.py",
+    "defs/sensors/__init__.py", "defs/sensors/suspend_d_sensor.py",
+    "defs/sensors/cn_a_trade_day_sensor.py", "defs/sensors/stock_trade_day_sensor.py",
+    "defs/sensors/readiness.py", "defs/asset_guards/__init__.py",
+    "defs/asset_guards/bounded_continuity.py", "defs/asset_guards/stock_daily.py",
+    "defs/assets/market_breadth.py", "defs/assets/stock_basic.py",
+    "defs/assets/stock_daily.py", "defs/assets/stock_lifecycle.py",
+    "defs/assets/stock_return_distribution.py", "defs/catalog/lake_assets.py",
+    "defs/run_contracts/cursor_payloads.py", "defs/run_contracts/cursors.py",
+    "defs/run_contracts/dc_board.py", "defs/run_contracts/dc_daily_technical.py",
+    "defs/run_contracts/dc_daily_technical_serving.py", "defs/run_contracts/index_global.py",
+    "defs/run_contracts/requests.py", "defs/run_contracts/run_keys.py",
+    "defs/run_contracts/sensor_tags.py",
+)
 REGRESSION_SUITES = {
+    "test_suspend_d_sensor.py": (
+        ("R-existing-contract", 8, (
+            "SuspendDSensorTests::test_job_and_sensor_names_follow_split_rule",
+            "SuspendDSensorTests::test_sensor_tags_are_layer_specific",
+            "SuspendDSensorTests::test_asset_descriptions_explain_business_purpose",
+            "SuspendDSensorTests::test_suspend_d_stdout_events_are_small_and_named",
+            "SuspendDSensorTests::test_human_materialization_metadata_uses_namespaced_operator_fields",
+            "SuspendDSensorTests::test_existing_suspend_d_check_names_are_not_renamed",
+        )),
+        ("R-existing-selection", 10, (
+            "SuspendDSensorTests::test_raw_sensor_submits_run_when_raw_missing",
+            "SuspendDSensorTests::test_raw_sensor_skips_registered_gap_before_materialization_scan",
+            "SuspendDSensorTests::test_raw_sensor_does_not_rerun_materialized_partition",
+            "SuspendDSensorTests::test_silver_sensor_submits_only_when_raw_ready_and_silver_missing",
+            "SuspendDSensorTests::test_silver_sensor_skips_registered_gap_before_readiness_scan",
+            "SuspendDSensorTests::test_silver_sensor_skips_when_raw_missing_or_checks_not_ready",
+            "SuspendDSensorTests::test_silver_sensor_does_not_rerun_materialized_partition",
+        )),
+    ),
+    "test_stock_suspend_confirmed_integration.py": (
+        ("D-actual-job", 10, ("test_actual_silver_job", "test_actual_catalog_registration")),
+    ),
+    "test_stock_suspend_confirmed_readiness.py": (
+        ("R-file-publication", 11, ("test_physical_gate", "test_publication_gate")),
+        ("R-latest-checks", 11, ("test_latest_checks_gate",)),
+        ("R-sensor", 8, ("test_sensor_bounded_gate",)),
+    ),
     "test_stock_suspend_confirmed_merge.py": (
         ("M-add-conflict", 9, ("test_add_missing", "test_raw_duplicates", "test_conflict",
                                "test_unmatched_raw", "test_empty")),
@@ -115,7 +158,7 @@ REGRESSION_SUITES = {
 
 def source_files_for_scope(scope: str) -> tuple[str, ...]:
     additions = {"isolation": (), "adapter": ADAPTER_SOURCE_FILES,
-                 "regression": tuple(dict.fromkeys(MERGE_SOURCE_FILES + ADAPTER_SOURCE_FILES + WRITER_SOURCE_FILES))}
+                 "regression": tuple(dict.fromkeys(MERGE_SOURCE_FILES + ADAPTER_SOURCE_FILES + WRITER_SOURCE_FILES + INTEGRATION_SOURCE_FILES))}
     if scope not in additions:
         raise ValueError("invalid_scope")
     return RESOURCE_SOURCE_FILES + additions[scope]
@@ -539,7 +582,7 @@ def main() -> int:
                                    test_file=PROJECT / "tests" / args.suite):
                 return 1
         print(json.dumps({"regression_suite_passed": args.suite, "S1_complete": False,
-                          "writer_executed": args.suite == "test_stock_suspend_confirmed_writer.py",
+                          "writer_executed": args.suite in ("test_stock_suspend_confirmed_writer.py", "test_stock_suspend_confirmed_integration.py"),
                           "identity_profile": "synthetic", "formal_writer_executed": False,
                           "S2_executed": False}), flush=True)
         return 0
