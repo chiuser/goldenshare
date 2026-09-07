@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成。管理员批准四项目录属性精确权限后，2026-09-07 16:36 I01复验通过，I02样本准备及31组原生IO正反例全部通过，见LLD §18.12；原SQLite准备阻塞已解决，没有安装依赖或增加其它权限。I03–I08、实际adapter和S1全套回归仍未验收；生产4,022行批准集合的C01/C05仍在S2。正式文件/事件、切换、删除分别授权，指定Silver sensor未自行恢复；专项临时实例、运行残留和本需求新增安装项在最终收尾清理。**
+状态：**S0已完成，I01/I02证据及规则已提交为`0f2bbbf9`。管理员确认两个包标记只读例外后，2026-09-07 17:05 I03八例全部通过，原pytest收集阻塞已解决，见LLD §18.13 D。I04–I08、实际adapter和S1全套回归未验收；本轮无正式数据操作、新DG实例或依赖安装。生产批准集合、正式发布、切换、删除仍分别授权，指定Silver sensor未自行恢复；专项临时产物按最终收尾要求清理。**
 
 首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
 
@@ -458,3 +458,7 @@ CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为�
 2026-09-07 16:10 I02执行：管理员要求继续I02后，先固定两行虚构样本、四批共31组正反例、完整argv及预算，再在新临时根沿用I01权限启动。CPython 3.13.5/SQLite 3.50.2/DuckDB 1.5.2真实导入成功，但prepare首次SQLite连接失败，170毫秒退出；未生成数据库或Parquet，父进程未复制样本，后三批未运行，禁止哨兵身份/内容不变。只读系统日志和实际SQLite动态库确认：逐级路径检查被 `/private` 的 `file-read-metadata` 拒绝。本次暴露的是测试隔离策略的目录属性权限缺口，不是停牌业务方案或正式数据损坏。最小建议仅补 `/private`、`/private/tmp`、`/tmp` 和下次精确临时根的元数据读取，必须确认后再复验I01/I02，不自行放开目录内容/写入/网络。证据、状态和审批边界见[LLD §18.10](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-i02-native-io)。本轮没有继续业务代码、实际checks、writer或正式资源操作；没有提交/推送/删除。
 
 2026-09-07 16:36获批复验：先重读AGENTS，按上述四个literal只增加目录属性权限，在全新虚构根复验I01并重跑I02，未改用例断言或增加其它权限。I01正向与11项拒绝通过；I02两行样本准备、原生10组、SQLite12组、DuckDB9组全部通过，I02约1.1秒，禁止区和原始样本前后不变，临时根236KiB。未安装依赖、创建新DG实例、导入业务模块或访问正式数据。结果及精确报告见[LLD §18.12](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-parent-metadata-retest)。只收口本次I01/I02，I03–I08和业务验收不自动计通过；本任务新增安装项完成后卸载，临时运行产物按§18.11清理，当前未执行清理/提交/推送。
+
+`0f2bbbf9`提交后的I03增量（前两次执行记录）：仅新增专项runner/support/隔离测试三文件，不改共享资源和业务链路。当时八例均未执行；第一次pytest误将`/dev`作为测试根，已通过显式rootdir/confcutdir修正且没有增加权限；第二次收集检查`tests/__init__.py`被拒绝，按门禁停止。基于当前pytest源码提出“忽略非显式兄弟项＋只读空tests包标记＋精确检查项目根包标记不存在”的最小修订，提出时尚未实施，详见[LLD §18.13 C](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-i03-real-resource)。两次禁止哨兵均不变，无新DG实例/数据库/依赖安装或正式操作；增量未提交。
+
+2026-09-07 17:05获批复验：只落实上述两个精确读取例外及固定ignore-glob，启动前核验包标记内容/不存在性；策略差异严格对账，八例断言未改。全新根中OS自检七项拒绝及正向通过，I03实际收集并完成8/8，反例文件操作和健康探针调用均为0；整体1.108秒，禁止哨兵前后不变，现场52KiB。四条既有Dagster/Pydantic弃用警告保留，未安装依赖或改共享库。没有创建DG实例/数据库、正式读写或恢复sensor。证据与源码哈希见LLD §18.13 D；只收口I03，下一个隔离项为I04，I04–I08和业务验收仍待后续完成。结果同步原方案及索引，未提交/推送；临时产物最终按§18.11清理。

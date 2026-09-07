@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**管理员已批准§18.10 D的四项目录属性精确权限修订。2026-09-07 16:36 I01复验通过，I02样本准备及31组原生IO正反例全部通过，完整证据见§18.12；此前SQLite准备失败已通过该最小修订解决，未增加其它权限或安装依赖。I03–I08、实际adapter和S1全套回归仍未验收；本轮不恢复业务实施或指定Silver sensor。S2真实批准集合、正式文件/事件发布、切换及两文件删除仍分别按阶段授权；专项临时实例/运行残留及本需求新增安装项的收尾清理按§18.11执行。**
+状态：**I01/I02证据及规则已提交为`0f2bbbf9`；管理员确认两个包标记只读例外后，2026-09-07 17:05 I03八例全部通过，见§18.13 D。原pytest收集阻塞已解决，八例断言未改，未增加其他权限。I04–I08、实际adapter和S1全套回归未验收；本轮未改正式数据或恢复指定Silver sensor，未创建新DG实例、安装依赖。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时产物按§18.11最终清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -1076,7 +1076,7 @@ S0 增加了真实物理只读核验和现有运行状态核验，但没有执�
 
 <a id="s1-test-isolation-repair"></a>
 
-## 18. 测试隔离与新检查安全修正 LLD（已按审计修订，尚未恢复验证）
+## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I03已通过）
 
 ### 18.1 范围、事实依据与本轮停止点
 
@@ -1518,3 +1518,96 @@ fixture种子合计8,535字节：文本24字节、SQLite8,192字节、Parquet319
 本需求新增安装项完成后必须卸载的要求已再次确认；本轮安装/升级/同步/卸载次数为0。本目录及以前本任务生成的实例/文件均纳入§18.11最终清理，不作为长期本机环境保留；当前需求尚未完成，因此本轮不删除证据或现有共享运行库。仓库仅同步本LLD、技术方案及主索引，业务源码与依赖矩阵不变；未提交、未推送。
 
 交付核验：文档完整性三项与 `git diff --check` 均通过。排除本轮三份文档后的已跟踪差异SHA256前后均为 `783a4185f391fb709eaf89ae539bab23e839480bc6f75c45ce916159f2892d4e`，五份未跟踪专项源码/测试哈希前后一致；已有AGENTS变更与其它未提交内容均保留。
+
+<a id="s1-isolation-i03-real-resource"></a>
+
+### 18.13 I03：真实 Lake 资源参数保护，独立增量实施
+
+管理员要求“提交一下，然后继续推进”。先按四文件白名单提交规则、方案和I01/I02证据，提交为 `0f2bbbf9`；原有十二项未验收业务代码/测试及其他文档保留。随后按§18.2启动测试支持的最小增量：**本次只实现和验收I03，不把其余I组或adapter串入同轮。** 三个测试支持文件此前不存在，本次新增；现有两个业务测试、新checks、合同和共享资源均不修改。
+
+#### A. 当前代码及影响面
+
+CodeGraph `explore` 与实际源码核验覆盖 `LakeRootResource`、`DuckDBResource`、新checks及健康函数。`root()`只返回`Path(self.root_path)`；未知`lake_root`参数会回落默认根。`ensure_available_for_run()`实际进入写/读/删canary，默认DuckDB连接也先创建正式temp目录，故本轮不调用这两条链。不修改资源默认值、共享健康函数、依赖矩阵或业务字段。
+
+实际资源导入链为 `resources → paths → 12个run_contracts模块/tushare_request_policy/major_indices`，另有`health/lake_root`、`notifications/feishu`及既有第三方库。`major_indices.py`只定义CSV读取函数，不在本轮调用；飞书与ClickHouse模块是资源声明所需的既有依赖，本轮不调用其连接或发送方法。
+
+必须区分“资源声明对象”和“正式执行图”：`resources.py`尾部确有顶层`defs = dg.Definitions(resources=...)`，正常导入实际类会同时构造该资源声明及EnvVar占位，不能声称只定义类、绝不构造任何Definitions对象。本测试不读取/调用该`defs`，不调用资源setup/connect/探针，不导入`orchestrator.definitions`、执行`load_from_defs_folder`或构造完整正式执行图。若后续导入过程中实际触发配置解析、连接或额外IO，仍应由保护拒绝并停止，而非把声明当成运行授权。本次实际运行在测试文件导入前已经失败，因此真实资源及这些声明均尚未进入执行。
+
+I01/I02的能力profile刻意不开放源码，因此不能直接用它来证明真实资源可测。I03按§18.2已经批准的实际类测试范围生成独立profile：保留原运行库、设备和四项目录属性规则，仅增加runner内固定的26份资源依赖Python源码、三个专项测试支持文件，以及Python导入所需目录对象的精确读取。**没有整个仓库或src/defs子树读取许可**；不开放CSV、`.env`、配置、正式实例、Lake/staging、网络或任何新增持久写目录。目录literal只涵盖目录对象，不递归开放子项。这是从无业务导入的能力验证进入计划内真实资源测试，不改写或重跑旧I02现场；完整源码白名单、profile及哈希在每次启动前输出并保存。若发现额外库/文件权限缺口，停止核验，不自动加权限重试。
+
+#### B. 文件—约束—测试对账
+
+| 文件 | 本次落地 | 验证 |
+| --- | --- | --- |
+| `tests/stock_suspend_confirmed_test_runner.py` | stdlib父进程；安全生成独立根；固定测试文件、禁止任意参数透传；受控环境/关闭继承FD；60秒、100MiB、64KiB输出预算；保存证据不清理 | scope仅isolation/adapter且必须指定；adapter明确拒绝，不能因为I03成功开放；父进程核对禁止目录前后身份 |
+| `tests/stock_suspend_confirmed_test_support.py` | pytest及业务import前做当次OS自检；显式插件，无conftest/自动插件/缓存；资源工厂无默认值/`**kwargs`；核验实际`.root()`；30秒case上限 | 允许区正常读写和C open；C拒绝读及六项Python越界写拒绝。这里只是当前profile小型自检，不冒充完整I01/I02重新验收 |
+| `tests/test_stock_suspend_confirmed_isolation.py` | 顶部保护断言早于业务import；仅I03八例 | 正确真实资源1例；错误工厂参数/缺根/正式根/错误工作根4例；实际类错误参数、隐式默认、显式正式根3例。反例stat/lstat/open/mkdir/健康probe调用均为0 |
+
+resource工厂本次只返回真实Lake资源；DuckDB设置和临时instance支持分别留到I05/I06，不预建不用的库或实例。I04/I07/I08尚未实现，不能因runner存在就声称覆盖完整路径/实例/导入门禁矩阵。
+
+执行目录为当前orchestrator工作区；现有项目`.venv`、uv禁同步/禁下载/禁`.env`，父入口使用`-I -B -S`，受限子进程使用`-I -B`。父启动前命令为：
+
+```text
+/opt/homebrew/bin/uv --no-cache run --offline --no-sync --no-env-file --no-config --no-python-downloads .venv/bin/python -I -B -S tests/stock_suspend_confirmed_test_runner.py --scope isolation
+```
+
+当次随机根由runner生成，完整子进程argv、策略及精确目录必须在启动子进程前输出。测试只构造真实资源，不建Dagster实例、不运行checks/job、不生成湖文件。正式路径仅为反例字符串；禁止用实际正式文件验证拒绝。合成哨兵不足1KiB，八例、单批60秒/100MiB；预计秒级，无源请求、分页、业务提交或spill。全部临时产物纳入§18.11收尾清理，不安装任何套件。
+
+以下结果只有实际运行后登记；当前设计/静态检查不能算I03通过。
+
+首次运行根 `/private/tmp/stock-suspend-isolated-1rbe3d6i`：OS自检七项拒绝及正向通过，但pytest因`-c /dev/null`把rootdir推导为`/dev`，collection尚未开始就因读取该目录属性被拒绝；I03为0/8，未构造资源、未创建实例。已核对当前pytest 9.1.1的`determine_setup`、`Session.collect`及`_get_directory`：需显式固定rootdir和confcutdir，不能把禁用配置文件的位置当成测试根。修订仅给pytest增加 `--rootdir <项目/tests> --confcutdir <项目/tests>`，均为原profile已允许的目录对象；**不增加任何文件/目录权限**，也不加载conftest。失败现场保留，修正后的复验使用新根。
+
+#### C. 前两次复验结果与当时停止原因（后续获批复验见D）
+
+| 运行 | 实际结果 | 禁止区与预算 |
+| --- | --- | --- |
+| `1rbe3d6i` | 291毫秒，pytest退出3；错误为`/dev`属性读取，0/8 | 34字节哨兵及文件集合/身份不变，52KiB现场 |
+| `nizsicff` | 288毫秒，pytest退出4；测试根已正确，但目录收集检查`tests/__init__.py`属性被OS拒绝，0/8 | 同内容哨兵及身份不变，48KiB现场 |
+
+两轮当次OS自检均为正向成功、七项拒绝成功；第二轮profile除随机根外与第一轮逐字相同，没有为首次失败增加`/dev`权限。第二轮策略SHA256为`d1338b74aa7b64f57704e4eb628b97f036c812ccf8969a2e6f191c1da9c170ec`。完整证据：[首次报告](/private/tmp/stock-suspend-isolated-1rbe3d6i/allowed/resource-result.json)、[第二次报告](/private/tmp/stock-suspend-isolated-nizsicff/allowed/resource-result.json)。均未进入八例资源构造/检查，不把任何一次collection失败当作预期负例成功。
+
+这是本轮对pytest收集/import行为审计不完整造成的测试入口问题，不是固定停牌事实或正式业务数据失败。当前pytest源码证明两条额外行为：
+
+1. `Dir.collect → pytest_ignore_collect`会遍历指定文件所在目录，对不是初始指定文件的兄弟项做目录属性判断；仅传一个文件并不等于不检查兄弟项。
+2. `resolve_package_path`会逐级检查`__init__.py`以确定包边界；本仓库`tests/__init__.py`确实存在，为1字节换行，SHA256 `01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`；项目根的`orchestrator/__init__.py`路径当前不存在。后者必须允许属性检查返回“不存在”，不能用PermissionError冒充不存在。
+
+**最小修订建议（提出时待确认；管理员随后确认，实施与复验见D）：**
+
+- 固定增加`--ignore-glob <项目/tests>/*`，利用当前pytest对初始显式文件先豁免ignore的实现，仅排除所有非显式兄弟项；不新增自定义collector、复制测试源码或修改pytest库。
+- 增加精确`file-read*`：`/Users/congming/github/goldenshare/lake_console/orchestrator/tests/__init__.py`，只读这个已核验的空包文件。
+- 增加精确`file-read-metadata`：`/Users/congming/github/goldenshare/lake_console/orchestrator/__init__.py`，只为识别当前不存在的包标记。启动前须确认该路径仍不存在，若新增则重新审计，不能默许执行新包初始化代码。
+- 不开放tests目录子树或所有文件元数据，不修改正式配置/业务源码、不加系统目录、写权限或网络权限。新根先自检，再验证必须恰好收集并完成八例；任何skip/xfail、0例或提前失败均不通过。这里是基于当前源码的建议，不保证未执行的后续导入已经通过。
+
+第二次失败后已停止运行；上面两项权限和ignore参数未加入当前代码，也没有第三次重跑。I03未验收，adapter硬拒绝、I04–I08未实施。下一步只需核准上述测试收集边界修订，不涉及业务字段、正式资源写入或安装套件的拍板。
+
+本轮只新增三个测试支持文件并回写原LLD、技术方案及主索引；I03增量未提交/推送。原有已跟踪差异SHA256仍为`f94f46dae3117fa76d1bb8ac6a280edc5c43eb9a379ec70eeb56f6b61d09a4d2`，五个原有未跟踪业务源码/测试哈希与开工前一致。没有创建新Dagster实例或SQLite库、没有修改正式文件/事件/调度、没有安装/卸载套件。两个临时根纳入既有收尾清单；需求未完成，本轮保留现场。
+
+#### D. 两个精确只读例外获批后的修订与复验
+
+管理员回复“确认”，批准C段的两个精确只读例外和限定收集后的I03重跑。本轮先复核AGENTS、技能和当前runner/support/八个用例；工作区仍为`dev-interface`，其他专项和wealth文档改动不纳入本轮。
+
+执行硬口径不变：只改runner/support；新增权限只有`tests/__init__.py`的精确读取及项目根`__init__.py`的精确属性读取，既有文件/写入/网络限制不变。runner启动前检查tests包标记仍为单个换行且不是链接，并用lstat确认项目根包标记不存在；若内容改变、出现目录/文件/链接或检查权限错误，立即失败，不进入受限子进程。pytest仅增加固定ignore-glob，不改八个用例断言；必须实际收集并完成八例才算I03通过。
+
+沿用B段完整父入口和工作目录，子进程完整argv/profile及精确随机根在启动前输出；报告补记当次三份测试源码SHA256。全新临时根，先做原生/写入拒绝自检再收集I03，case30秒、批次60秒、100MiB上限。没有新增DG实例、正式运行状态查询、业务数据操作或依赖安装授权；I04–I08、adapter仍不进入。以下只在实测后登记结果。
+
+**2026-09-07 17:05:39–17:05:40（北京时间）实测通过。** 当次根为`/private/tmp/stock-suspend-isolated-nafmpdxm`；整体1,108毫秒、退出码0、stderr为空，pytest八例耗时0.74秒。结果不是前两次0例失败的沿用，也不是修改断言后的假通过。
+
+| 验收项 | 实际证据 |
+| --- | --- |
+| 权限差异 | 启动前将新策略与上次profile逐字对账，新增内容恰为批准的两个literal，无其他权限变化；包标记改变/新出现的两个注入反例均在策略生成阶段拒绝，无文件写入或业务导入 |
+| 当次隔离自检 | 允许路径Python读写与C open成功；禁止路径C读取及六项Python写操作全部拒绝，共七项；这只是本次小型自检，不冒充完整I01/I02重跑 |
+| I03正向1例 | 实际`LakeRootResource`，`root_path`及`.root()`等于临时Lake路径；资源构造后该目录仍不存在，没有mkdir或探针 |
+| 工厂反例4例 | 错误参数名、缺根、正式根字符串、错误工作根全部拒绝；每例stat/lstat/open/mkdir/健康probe调用均为0 |
+| 实际资源反例3例 | 错误参数、隐式默认和显式正式根均真实回落/指向正式根字符串，测试侧核验立即拒绝；每例上述五类调用均为0，未访问该正式路径 |
+| 收集与结果 | 恰好八例，8 passed、0 failed、0 skipped；四条既有Dagster/Pydantic弃用警告未隐藏，不改库或升级依赖来消除 |
+| 现场与预算 | 禁止区34字节哨兵的文件集合、dev/inode/mode/size/mtime_ns/SHA256前后相同；整个现场52KiB，无超时、空间或输出超限 |
+
+证据：[完整运行报告](/private/tmp/stock-suspend-isolated-nafmpdxm/allowed/resource-result.json)、[八例汇总](/private/tmp/stock-suspend-isolated-nafmpdxm/allowed/pytest-result.json)、[当次策略](/private/tmp/stock-suspend-isolated-nafmpdxm/allowed/capability.sb)。策略SHA256为`9cfa5e2d8dd30d8ced661d69fa806986601a68da741fb398659d670fb6a3bfd4`；用例文件SHA256仍为`cfebba6825b2b2f640f7db1b9ad7258624a76b02582783521e9ec92bc4c0b3b8`，与本轮修改前完全一致。runner/support两份源码哈希已记录在完整报告中。
+
+目录清单仅包含本次profile、启动脚本、报告、微型哨兵和uv专项缓存；没有生成Lake文件、DG实例或SQLite数据库。已导入真实资源及其模块级资源声明，但没有调用正式执行图、资源连接、健康探针、job或checks；没有读取正式运行状态、恢复sensor或安装/卸载依赖。不得把本次I03通过推广为I04–I08、实际adapter、S1全套回归或S2真实数据验收通过。
+
+交付范围：本轮修改runner/support及原LLD、技术方案、主索引；既有八例文件未改。CodeGraph `explore`核对了测试工厂/路径核验/策略入口，通用`run`的同名图边以本次实际源码为准；没有跨子系统依赖或业务接口变更。原有业务已跟踪差异SHA256仍为`f94f46dae3117fa76d1bb8ac6a280edc5c43eb9a379ec70eeb56f6b61d09a4d2`，五份原有未跟踪业务源码/测试哈希也保持一致；wealth及其他任务文档未修改。
+
+I03收口后停在独立验收点；下一步为I04的缺失文件/错误类型/路径越界测试，不自动推进业务adapter。当前没有新增待拍板项；本次临时根和前两次失败现场继续纳入§18.11最终精确清理，当前尚未执行清理。未提交、未推送。
+
+交付检查：orchestrator全量`src/tests`的Ruff致命错误基线、三份专项测试文件默认Ruff检查、文档完整性三项及`git diff --check`均通过；这些静态结果与I03实际8/8结果分别记录，不替代未运行阶段的验收。
