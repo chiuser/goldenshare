@@ -2,7 +2,7 @@
 
 更新时间：2026-09-08
 
-状态：**S0、S1已完成；§18.26事件侧已提交`65599e67`，未推送。本轮完成剩余消费者/治理291例及645个原有subTest，根清退13例覆盖4,019文件，复跑核心348个有效断言及隔离自检通过。S1总对账见§18.27；本轮新增测试/文档尚未提交。S2真实候选、生产C01/C05与3,083日期全范围比较尚未执行，正式发布/切换、CSV删除及最终清理均未完成。没有操作正式数据/实例、恢复sensor、安装套件或启动服务。**
+状态：**S0–S2已完成；S1收尾27文件已提交`d43bed1a`，未推送。S2真实4,022行候选通过生产C01/C05，3,083日期双向比较零差异，执行及冻结身份见§18.28。本轮仅新增专项staging候选/计划/证据并修改文档，增量未提交。正式文件/事件发布、切换、CSV删除及最终清理未完成；未恢复sensor、安装套件或启动服务。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -489,7 +489,7 @@ stock_suspend_confirmed_readiness(
 
 一次性转换使用获准的临时审计脚本：从**固定 Git/CSV 来源**和正式 SSE 开市日展开。该脚本人工执行、接受审查，不注册 Definitions，不成为长期日常依赖；长期 CLI **没有 CSV 参数、Git checkout、规则更新或隐式转换功能**。
 
-候选目录固定结构（均为目标设计，尚未创建）：
+候选目录固定结构（S2准备，创建及验收状态见§18.28）：
 
 ```text
 data_lake_staging/stock_suspend_confirmed/run_id=<operation_id>/
@@ -506,7 +506,7 @@ plan 的 hash 为其实际 UTF-8 文件 bytes SHA-256，文件不包含自身 ha
 
 ### 8.2 CLI 命令与参数合同
 
-入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25实现三个文件命令；§18.26补齐`audit-events`、`register-events`并完成五命令隔离验收。**现在没有获准的正式plan/候选，不得据此在正式根执行命令；S2/S3另行批准。**
+入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25实现三个文件命令；§18.26补齐`audit-events`、`register-events`并完成五命令隔离验收。**管理员已批准S2候选/plan准备及比较；S3文件发布与事件登记仍分别批准，不得因S2通过执行发布命令。**
 
 | 子命令 | 必填参数 | 可选参数 / 缺省行为 | 可变更的内容 |
 | --- | --- | --- | --- |
@@ -808,7 +808,7 @@ BSE现有CLI在合法参数路径内自行构造DuckDBResource；其测试setUp�
 | --- | --- | --- |
 | S0 / 低，已完成 | LLD 已认可；来源/日历/文件集合已刷新；批准 hash 已实算；隔离验证设计已固定 | 来源一致，见 S0 清单；后续已取得 S1 开发及本地维护安排授权 |
 | S1 / 中，已完成（§18.27） | §18隔离、合同/合并、实际writer/check/job/readiness、五CLI、连接、消费者及全量治理回归均已完成 | 只证明隔离与实现机制；生产C01/C05明确待S2，不能声称正式全量数据已验收；不自动重载/恢复入口 |
-| S2 / 中 | 获准准备staging后，使用未修改的生产合同完成C01/C05，再冻结plan并全既有日期分批比较 | 生产批准集合与全范围EXCEPT ALL均通过，输入未漂移；任一未过禁止S3 |
+| S2 / 中，已完成（§18.28） | 真实4,022行候选、未修改生产合同的C01/C05、冻结plan及3,083日期/13年度比较均通过 | 双向EXCEPT ALL零差异，输入未漂移；只具备申请S3条件，不等于批准发布 |
 | S3 / 高 | 先单固定文件发布，再另行批准事件登记；准备代码不启动正式新链 | 文件正确＋E1/E2/E3 完整匹配；正式 Raw 0 写，历史最终 Silver 0 批量写 |
 | S4 / 高 | 精确维护窗口、确认旧 writer 已结束、切换代码；运行少量 Silver-only 验收；恢复指定触发器并观察正常日更 | 两覆盖日期＋一补缺日期＋一无修正日期等价；5 checks 通过；下一次正常链通过 |
 | S5 / 中 | 最后确认删除两个旧文件，更新护栏与当前引用文档 | 无旧 import/旁路/双读；保留 timing.py；TODO 方可关闭 |
@@ -844,7 +844,7 @@ writer首次非等价写入的Raw/固定文件各4轮物理hash：加载后、pr
 
 硬拒绝项是多源请求、超出批准文件清单、错误根、无界循环、错误写入/事件、数据不等价。轻微耗时偏慢不改变业务标准，也不顺手调全局资源。
 
-S0 实测已落清单：主审计 3,024 ms，15 次有界 DuckDB 调用、13 个年度批次，两层各 3,083 文件；真实逻辑 hash 见 §3.3。配置 512 MB/2 threads、禁止 spill，未测峰值 RSS。S1/S2 的候选物理 hash、新 helper 全范围差异、writer/check/sensor 开销、测试及内存证据仍待执行；不得把 S0 耗时或前序约0.4秒的审计当新链路性能。
+S0实测见原清单；S1隔离实现/回归见§18.27。S2真实执行见§18.28：全流程9,333ms、其中13年度比较4,101ms，双向零差异，峰值RSS为585,285,632字节；统一连接512MB/2线程/0spill。候选物理hash、批准身份和输入复核均已落证。正式每日writer/check/sensor的运行开销和S4四日验收仍未执行；不能用S0或S2批量比较耗时替代日常链性能。
 
 ## 13. 测试和验收用例矩阵
 
@@ -2654,7 +2654,7 @@ CodeGraph `explore`、`impact(connect_configured_duckdb, depth=1)`覆盖统一�
 
 ### 18.27 S1总对账与剩余消费者/治理回归（2026-09-08）
 
-**结论：S1完成，S2未执行。** 本轮先将§18.26八文件提交为`65599e67`，未推送；随后只修改测试、测试资源适配与文档，不修改消费者业务源码。以下是当前验收口径；§15–18.26保留各阶段历史状态，不能再用旧记录中的“下一步”覆盖本节。
+**当轮结论：S1完成，当时S2未执行；后续S2结果见§18.28。** 本轮先将§18.26八文件提交为`65599e67`，未推送；随后只修改测试、测试资源适配与文档，不修改消费者业务源码。以下保留S1验收口径；§15–18.26保留各阶段历史状态，不能再用旧记录中的“下一步”覆盖后续执行记录。S1收尾27文件随后提交为`d43bed1a`。
 
 #### A. 全部剩余消费者与治理结果
 
@@ -2887,3 +2887,88 @@ CodeGraph `explore` 覆盖固定readiness及消费者，`impact(_asset_specs_and
 /private/tmp/stock-suspend-isolated-zzfc1ie3
 /private/tmp/stock-suspend-s1-reconcile-ko4x1c
 ```
+
+---
+
+<a id="s2-real-candidate-reconciliation"></a>
+
+### 18.28 S2真实候选和全范围等价对账（2026-09-08）
+
+#### A. 执行前约束与预算
+
+管理员指令“提交，并继续推进S2”。先提交S1的27份测试/文档为`d43bed1a`，不含Wealth。本阶段只运行一次性来源转换及既有文件侧helper，不修改业务代码，不构造Dagster实例、不发事件、不启动job/check/sensor；S3–S5不随本轮授权。
+
+2026-09-08 02:42只读复核：S0 manifest自身hash正确，所列CSV/规则/时段/日历及6,166份Raw/Silver文件的device/inode/size/mtime/hash全部未变。Raw目录新增`2026-09-07`，Silver无该日；这是冻结范围以外的正常新增日期，仅登记名称、不解码、不纳入本次plan。S2仍完整比较2014-01-02至2026-09-04的3,083个已有配对日期。该新增日期须在后续日更验收处理，不宣称本轮覆盖它。
+
+| 项目 | 本轮明确上界/方法 |
+| --- | --- |
+| 来源/候选 | 固定CSV commit/blob/hash；31范围与正式SSE日历集合式展开；4,022行、29代码、1,857日期、2种模式；仅1个五列候选，预期<1MiB、拒绝>100MiB |
+| 输入集合 | S0精确6,166文件，合计9,103,615字节；386,240 Raw行/390,259 Silver行；另1份89,590字节日历与小型CSV；不复制正式Raw/Silver |
+| 查询/内存 | 13年度批次、每批≤366日期（实际最多245）；每批Raw/Silver各一次批量schema及一次行解码、固定候选一次加载，复用正式compare及合并SQL。一次性脚本显式512MB/2线程，统一existing_no_spill连接、0spill、禁扩展安装/加载；不是修改CLI或全局默认配置 |
+| 写入范围 | operation_id=`s2_20260908_d43bed1a`；只在`/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/`新增candidate、plan、comparison及来源/验收证据；总准备输出≤100MiB；原始来源临时读取不成为运行时依赖 |
+| 正式写入/调用 | 正式Parquet/数据库/事件/job/sensor/源请求/分页均0；脚本使用现有Python/DuckDB和OS写入限制，不创建测试DG实例，不安装/同步依赖 |
+| 持久化/失败 | 新candidate仅COPY一次并fsync读回；plan新建冻结、不原地改；比较报告复用既有原子保存；不执行正式replace/checkpoint。失败保留现场，不提高资源、不改批准hash、不改输入重试 |
+| 性能证据 | 记录查询数、每年日期/行数/双向差异、运行时间、峰值RSS和实际输出字节；目标分钟级，5分钟仍未完成停止扩大执行并报告慢阶段；hash字节读取单列，不算行解码 |
+
+C01使用未修改的生产validator核验完整候选。C05在内存分别保持计数换键、增加一个覆盖键，必须schema通过而content拒绝；候选文件不变。计划日历集合覆盖全部3,083比较日期，来源展开窗口hash仍单独保存S0的2,929日历日期身份。instance只从现有配置冻结home和去密码存储标识，文件侧不连数据库。
+
+本轮临时脚本/OS限制与资源证据目录为`/private/tmp/stock-suspend-s2-20260908.KOoJUj`，连同本operation staging按§18.11纳入最终精确清理，当前不删除。以下记录实际结果，不把前置通过或S1样本当S2证据。
+
+#### B. 真实执行结果与冻结身份
+
+**S2通过，未发布。** 实际时间为北京时间2026-09-08 02:48:09–02:48:18，首次执行成功，没有失败重跑或放宽预算。一次性脚本仅复用`stock_suspend_confirmed_contract`、统一受限连接、`bootstrap.stock_suspend_confirmed`的plan/compare/save/inspect与真实合并SQL；没有改生产常量、helper或业务消费者。
+
+| 门禁 | 实际结果 |
+| --- | --- |
+| C01完整批准内容 | 4,022行/键、29代码、1,857日期、4,020补缺/2覆盖；五列物理schema正确，生产逻辑hash等于§3.3批准值 |
+| C05同计数换键 | 内存反例仍为`4022/4022/29/1857/4020/2`，两个覆盖键不变；schema通过，content以`approved_content_mismatch`拒绝；逻辑hash变为`79f0aa3584ede48630a7946a7bd5e6f6392ea806af8aab443b95648a27b55a2f` |
+| C05扩大覆盖范围 | 内存反例保留4,022行/键、29代码、1,857日期，改为4,019补缺/3覆盖，多出`000155.SZ / 2016-05-10`；schema通过、content拒绝。两类反例均未改候选文件，不是真实数据损坏 |
+| 全历史四列比较 | 3,083配对日期全部进入13年度批次，包括1,857受影响日和1,226其余日；Raw386,240行，新输出与当前Silver均390,259行；双向EXCEPT ALL新增/缺失均0，保留重复语义 |
+| schema/冲突/分区 | 每年度每层全部文件的物理schema均通过；未批准冲突为0；行内日期均匹配所在文件日期；空文件也参加schema核验；比较日和确认事实日均属于冻结SSE开市集合 |
+| 输入与边界 | 来源CSV/规则/时段/日历、6,166输入、配置及7份关键源码前后身份/hash不变；候选在反例及比较后身份/hash不变；额外9月7日Raw未纳入/未解码 |
+| 正式结果 | 正式固定文件仍缺失；file/events checkpoint均未创建。系统策略拒绝全部网络和白名单外写入；正式Raw/Silver写入、DB/事件/instance/job/sensor调用均0，没有恢复入口或安装套件 |
+
+所有staging产物都位于唯一[本轮operation目录](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a)。该目录共5个文件、**2,372,026字节**；其中plan较大是逐文件指纹，不是业务数据副本。来源报告只保留非敏感instance标识，不含密码。
+
+| 冻结产物 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| [candidate/part-000.parquet](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/candidate/part-000.parquet) | 5,615 | `042aefca909199afce62f207b9fa44e031ab92d4b0029f239e3d87566c23d360` |
+| [plan.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/plan.json) | 2,312,204 | `a4b3e088b9ad55d3fdd965883d7f76980de3154c37b3788ee6e93da869a0fbc4` |
+| [comparison.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/comparison.json) | 45,458 | `5e204fe91d2e30aa4c725876254782833fb657ccf2e980f65fbf2b237ce1ea6a` |
+| [source-and-gates.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/source-and-gates.json) | 6,207 | `44a7db9f283baecd0a798f5d2764782307d26515115b1d3e6adfa2de3032285f` |
+| [s2-result.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/s2-result.json) | 2,542 | `507d79f7a660df48c24dca765df502e7c64887eb2fc2430f0c077add1bbc640b` |
+
+计划代码revision为`d43bed1aeb3f8754177abe05d11481b19f194c08`；CSV commit/blob与S0相同，展开窗口hash仍为`89883315e8d91b654d261d859028683fc198152845f5e77f0aac521277d7019a`。plan另外冻结覆盖3,083比较日的完整日期集合/hash，不把它与2,929日的来源展开窗口混用。后续正式发布须使用上表plan/comparison精确hash并重新核验输入，不能仅引用本节“通过”字样。
+
+#### C. 年度对账与性能
+
+| 年份 | 日期 | Raw行 | Silver/新输出行 | 新增/缺失 | 批次ms |
+| --- | ---: | ---: | ---: | --- | ---: |
+| 2014 | 245 | 51,514 | 51,965 | 0 / 0 | 324 |
+| 2015 | 244 | 99,057 | 99,359 | 0 / 0 | 401 |
+| 2016 | 244 | 64,668 | 65,182 | 0 / 0 | 349 |
+| 2017 | 244 | 60,244 | 61,041 | 0 / 0 | 344 |
+| 2018 | 243 | 42,976 | 43,294 | 0 / 0 | 313 |
+| 2019 | 244 | 5,752 | 6,024 | 0 / 0 | 252 |
+| 2020 | 243 | 9,418 | 10,133 | 0 / 0 | 262 |
+| 2021 | 243 | 10,875 | 11,279 | 0 / 0 | 262 |
+| 2022 | 242 | 19,189 | 19,360 | 0 / 0 | 336 |
+| 2023 | 242 | 12,095 | 12,136 | 0 / 0 | 308 |
+| 2024 | 242 | 3,740 | 3,754 | 0 / 0 | 297 |
+| 2025 | 243 | 4,053 | 4,073 | 0 / 0 | 313 |
+| 2026（至9月4日） | 164 | 2,659 | 2,659 | 0 / 0 | 222 |
+| 合计 | 3,083 | 386,240 | 390,259 | 0 / 0 | 3,983 |
+
+整个脚本实测9,333ms（不含初次模块导入）；`compare_confirmed_migration`为4,101ms，包含计划前后复核，年度自身计时合计3,983ms。测量包装记录438次SQL调用，其中compare为351次（27次/年，包括临时关系、schema、聚合与校验，**不是351次全历史扫描**）；统一连接初始化设置查询不在该计数内。Raw/Silver每层每年一次行解码、一次批量schema查询；固定候选每年一次加载。
+
+实际连接读回512MB（DuckDB显示488.2MiB）/2线程/0bytes spill、扩展自动安装与加载均false。macOS进程峰值RSS为585,285,632字节（约558MiB），包含解释器、框架导入和DuckDB之外的内存，**不把512MB连接限制说成进程RSS上限**。执行脚本对6,166输入各做4轮物理hash，共36,414,460字节；本轮更早的只读前置另读一轮9,103,615字节，不混入行解码量。挂载真实存在、正式根/staging/candidate同设备16777244，执行前可用空间约2.99TB；没有借用spill或提高资源。
+
+#### D. 交付与停止点
+
+真实来源转换脚本和OS策略为[execute_s2.py](/private/tmp/stock-suspend-s2-20260908.KOoJUj/execute_s2.py)、[s2.sb](/private/tmp/stock-suspend-s2-20260908.KOoJUj/s2.sb)。使用已有项目`.venv/bin/python3 -B`，未运行uv同步、包管理器、安装或DG服务。CodeGraph explore核查plan/compare调用链，再逐段阅读当前contract、SQL、bootstrap、CLI、连接和S0证据；本轮不改业务源码、模块边界、依赖矩阵或架构快照。
+
+下一步是**S3先申请单文件发布**：唯一正式目标`/Volumes/datasource/data_lake/silver/quote/stock_suspend_confirmed/full/part-000.parquet`；批准后再复核本plan/report、输入、维护窗口和同设备条件，原子提升一个候选。**事件登记仍另行批准，S4验收/恢复sensor、S5两文件删除及最终环境清理均未执行。** 9月7日新增Raw的正常Silver更新需随后续日更验收安排，不能把本轮历史零差异当作它已生成。
+
+S1提交已完成；本轮S2增量只有文档与上述staging/临时证据，尚未提交、未推送。原清退TODO仍保持未关闭；不因S2通过提前删除CSV或清理候选/测试现场。
+
+交付复核：独立标准库读回5个产物hash、plan/report日期集合、候选数量与正式目标缺失均通过；文档中的每个产物hash与实物一致。6份专项文档329个本地链接、既有S1及新增S2锚点有效，`check_docs_integrity.py`三项、`git diff --check`及一次性脚本Ruff F/E9检查通过；CodeGraph sync/status确认索引已是最新。未重复运行已经通过且源码未变的S1全套回归，没有把文档检查当作数据等价证据；Wealth未提交修改原样保留。

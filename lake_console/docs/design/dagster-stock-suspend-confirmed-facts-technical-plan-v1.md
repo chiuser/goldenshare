@@ -2,7 +2,7 @@
 
 更新时间：2026-09-08
 
-状态：**S0、S1已完成；事件侧已提交`65599e67`，未推送。本轮完成剩余消费者/治理291例及645个原有subTest、覆盖4,019文件的根清退护栏，并复跑核心348个有效断言和隔离自检。S1总对账见LLD §18.27；本轮新增测试/文档尚未提交。S2真实候选/生产C01/C05/全范围比较及S3–S5正式发布、切换、CSV删除和最终清理仍未完成。本轮无正式数据/实例操作、sensor恢复、套件安装或服务启动。**
+状态：**S0–S2已完成；S1收尾27文件已提交`d43bed1a`，未推送。S2真实4,022行候选通过生产C01/C05；3,083日期双向比较零差异，完整执行9.333秒。冻结plan、候选、报告及年度结果见LLD §18.28。本轮仅专项staging/临时证据及文档增量，未提交；未写正式数据/事件、运行job、恢复sensor或安装套件。S3–S5正式发布、切换、CSV删除与最终清理仍待执行。**
 
 首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
 
@@ -34,7 +34,7 @@ silver_stock_suspend_confirmed ─────┘
 5. 固定事实独立保存，Silver 可以从 Raw 与该事实重新生成，不依赖上一次 Silver 输出。
 6. 低频人工维护，不建管理后台、规则引擎、数据库表或自动更新任务。
 
-最初“出技术方案”仅授权文档；随后用户已批准 S0、S1 开发与隔离测试，以及仅暂停 `silver_suspend_d_update_job_sensor` 的维护安排。本文的新增文件、资产、字段、checks、迁移步骤是目标设计，部分已有代码但不代表全部实现或验收。当前批准不含正式 Lake/staging 写入、正式 materialization/check 事件、服务重载、删除或 Git 提交；S1 结束不自行恢复该 sensor。用户另行要求的提交按各轮记录执行，不代表业务代码已验收。原维护/框架实验见 [LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)；事故后当前顺序以 [LLD §18 安全实施补充](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-test-isolation-repair) 为准。§18.7启动失败属于历史记录；当前实际adapter小样本结果及停止点见§18.19。
+最初“出技术方案”仅授权文档；随后用户已批准S0、S1开发与隔离测试，以及仅暂停`silver_suspend_d_update_job_sensor`的维护安排。2026-09-08用户明确要求“提交，并继续推进S2”，已据此提交S1并完成指定staging候选/计划/报告准备和正式输入只读比较。该批准不含正式Lake写入、materialization/check事件、服务重载、恢复sensor或删除；提交也不等于上线。原维护/框架实验见[LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)，历史事故及隔离修订保留于§17–18；当前S1总对账见§18.27、S2真实结果与下一停止点见[§18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)，不能用早期未通过状态覆盖后续验收，也不能以本次通过抹去历史事故。
 
 ## 2. 为什么选择这条路
 
@@ -304,7 +304,7 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 
 维护历史记录：2026-09-06 17:47:27（北京时间）仅停牌 Silver sensor 变为 STOPPED；88 个 sensor 中其他 87 个状态不变，Raw 仍 RUNNING，暂停前后无活动 run。该维护步骤本身无业务源码修改、正式文件/事件写入、删除、服务重载或提交；不代表后续事故没有越权写入。维护期间不手工启动停牌 Silver job；S1 结束不自动恢复入口。
 
-### S2：全范围只读等价验证——中风险，不写正式结果
+### S2：全范围等价验证——已完成，中风险，仅staging写入
 
 先取得真实staging准备授权，生成候选并用未修改的生产合同完成C01（真实4,022行通过）与C05（等计数换键/扩大覆盖范围必须拒绝）；反例只改内存TEMP TABLE，不改候选/批准常量，不复制正式Raw/Silver。随后冻结候选与plan；有staging写入，不以“只读”之名隐含授权。S1最多32行的synthetic样本不计这两项；生产合同未通过禁止发布。后续对正式Raw/Silver的比较保持只读：
 
@@ -315,6 +315,10 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 5. 新合并结果与当前正确 Silver 等价时，**不为了迁移重新覆盖全部历史 Silver**。只记录等价审计，不伪造新的历史 materialization。
 6. 独立字面金样本测试证明算法；物理对账证明迁移等价。两者不能用同一 helper 生成 expected 后自证。
 7. CSV 原逻辑按日期区间判断，新固定集合按开市日展开；若现有非交易日文件也受到原规则影响，必须列差异并停止，不能默认两者等价。批读还需核对行内日期与文件分区，避免跨分区错放在总集合比较中抵消。
+
+2026-09-08实际执行：operation_id=`s2_20260908_d43bed1a`，仅1个5,615字节候选及冻结plan/比较/来源证据/汇总，共5文件2,372,026字节。真实4,022行批准内容通过；同计数换键和扩大覆盖键两个内存反例均被未修改的生产validator拒绝，候选未改动。S0的6,166输入及来源/日历前后无漂移；13年度覆盖全部3,083配对日期（含1,226无修正日），Raw386,240行，新输出/当前Silver各390,259行，四列双向EXCEPT ALL零差异。
+
+完整执行9,333ms，其中compare4,101ms；连接512MB/2线程/0spill，进程峰值RSS约558MiB，后者包含Python/框架，不等于DuckDB内存限额。Raw目录新出现`2026-09-07`，按S0冻结边界仅登记、不解码、不纳入本次比较；Silver该日尚未生成，留后续日更验收。正式固定目标仍不存在，正式文件/事件/实例/job/sensor写入及安装均0。详见[LLD §18.28（含精确hash与证据）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)。S2通过只满足申请S3的前置，不自动发布或删除。
 
 ### S3：固定事实发布与登记——高风险，逐项批准
 
