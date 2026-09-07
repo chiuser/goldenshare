@@ -1,15 +1,15 @@
 from pathlib import Path
 
 from orchestrator.defs.corrections.suspend_full_day import (
-    suspend_full_day_raw_overrides_values_sql,
     suspend_full_day_ranges_values_sql,
+    suspend_full_day_raw_overrides_values_sql,
 )
 from orchestrator.defs.corrections.suspend_timing import (
     suspend_timing_corrections_values_sql,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
-    RAW_STK_MINS_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
+    RAW_STK_MINS_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
@@ -22,12 +22,16 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
-    SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
+    SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_LIFECYCLE_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
+)
+from orchestrator.defs.stock_suspend_confirmed_contract import (
+    CONFIRMED_SAMPLE_LIMIT,
+    suspend_relation_identifier,
 )
 
 STOCK_DAILY_MIN_TRADE_DATE = "2014-01-01"
@@ -367,6 +371,124 @@ SELECT
   END AS suspend_timing,
   CAST(suspend_type AS VARCHAR) AS suspend_type
 FROM {read_parquet(raw_path, hive_partitioning=False)}
+"""
+
+
+def _stock_suspend_confirmed_ctes(
+    *, normalized_relation: str, confirmed_relation: str, dates_relation: str
+) -> str:
+    """Build merge relations only; the caller validates inputs and rejects conflicts.
+
+    Input relations belong to one connection. Confirmed facts must already pass
+    the full-file contract; dates are a set. Never filter misplaced Raw rows here.
+    """
+    normalized = suspend_relation_identifier(normalized_relation)
+    confirmed = suspend_relation_identifier(confirmed_relation)
+    dates = suspend_relation_identifier(dates_relation)
+    return f"""
+WITH suspend_selected_confirmed AS (
+  SELECT f.ts_code, f.trade_date, f.suspend_timing, f.suspend_type, f.merge_mode
+  FROM {confirmed} f JOIN {dates} d USING (trade_date)
+), suspend_conflicts AS (
+  SELECT n.ts_code, n.trade_date, n.suspend_type, n.suspend_timing
+  FROM {normalized} n
+  JOIN suspend_selected_confirmed f USING (ts_code, trade_date)
+  WHERE f.merge_mode = 'add_missing'
+    AND NOT (n.suspend_type = 'S' AND n.suspend_timing IS NULL)
+), suspend_timing_corrections(ts_code, trade_date, corrected_suspend_timing) AS (
+  {suspend_timing_corrections_values_sql()}
+), suspend_timing_corrected AS (
+  SELECT n.ts_code, n.trade_date,
+         COALESCE(c.corrected_suspend_timing, n.suspend_timing) AS suspend_timing,
+         n.suspend_type
+  FROM {normalized} n
+  LEFT JOIN suspend_timing_corrections c USING (ts_code, trade_date)
+), suspend_retained AS (
+  SELECT n.ts_code, n.trade_date, n.suspend_timing, n.suspend_type
+  FROM suspend_timing_corrected n
+  WHERE NOT EXISTS (
+    SELECT 1 FROM suspend_selected_confirmed f
+    WHERE f.merge_mode = 'replace_confirmed'
+      AND f.ts_code = n.ts_code AND f.trade_date = n.trade_date
+  )
+), suspend_additions AS (
+  SELECT f.ts_code, f.trade_date, f.suspend_timing, f.suspend_type, f.merge_mode
+  FROM suspend_selected_confirmed f
+  WHERE f.merge_mode = 'replace_confirmed'
+     OR (f.merge_mode = 'add_missing' AND NOT EXISTS (
+       SELECT 1 FROM suspend_retained n
+       WHERE n.ts_code = f.ts_code AND n.trade_date = f.trade_date
+         AND n.suspend_type = 'S' AND n.suspend_timing IS NULL
+     ))
+), suspend_merged AS (
+  SELECT ts_code, trade_date, suspend_timing, suspend_type FROM suspend_retained
+  UNION ALL
+  SELECT ts_code, trade_date, suspend_timing, suspend_type FROM suspend_additions
+)
+"""
+
+
+def stock_suspend_confirmed_conflicts_select(
+    *, normalized_relation: str, confirmed_relation: str, dates_relation: str
+) -> str:
+    """Return all conflicts; aggregate the total before taking bounded samples."""
+    return f"""
+{_stock_suspend_confirmed_ctes(normalized_relation=normalized_relation,
+                             confirmed_relation=confirmed_relation,
+                             dates_relation=dates_relation)}
+SELECT ts_code, trade_date, suspend_type, suspend_timing FROM suspend_conflicts
+"""
+
+
+def stock_suspend_confirmed_stats_select(
+    *, normalized_relation: str, confirmed_relation: str, dates_relation: str
+) -> str:
+    """Return one count row and bounded key samples, not a write-success claim."""
+    normalized = suspend_relation_identifier(normalized_relation)
+    return f"""
+{_stock_suspend_confirmed_ctes(normalized_relation=normalized_relation,
+                             confirmed_relation=confirmed_relation,
+                             dates_relation=dates_relation)}
+, suspend_classified_keys AS (
+  SELECT f.ts_code, f.trade_date,
+    CASE
+      WHEN f.merge_mode = 'replace_confirmed' THEN 'replace_confirmed'
+      WHEN EXISTS (
+        SELECT 1 FROM suspend_additions a
+        WHERE a.ts_code = f.ts_code AND a.trade_date = f.trade_date
+      ) THEN 'add_missing_inserted'
+      ELSE 'add_missing_reused'
+    END AS category
+  FROM suspend_selected_confirmed f
+), suspend_key_samples AS (
+  SELECT category, ts_code, trade_date FROM suspend_classified_keys
+  ORDER BY category, ts_code, trade_date
+  LIMIT {CONFIRMED_SAMPLE_LIMIT}
+)
+SELECT
+  (SELECT count(*) FROM suspend_selected_confirmed) AS selected_fact_keys,
+  (SELECT count(*) FROM suspend_classified_keys
+   WHERE category = 'add_missing_inserted') AS add_missing_inserted_keys,
+  (SELECT count(*) FROM suspend_classified_keys
+   WHERE category = 'add_missing_reused') AS add_missing_reused_keys,
+  (SELECT count(*) FROM suspend_selected_confirmed
+   WHERE merge_mode = 'replace_confirmed') AS replace_confirmed_keys,
+  (SELECT count(*) FROM suspend_selected_confirmed f
+   WHERE f.merge_mode = 'replace_confirmed' AND EXISTS (
+     SELECT 1 FROM {normalized} n
+     WHERE n.ts_code = f.ts_code AND n.trade_date = f.trade_date
+   )) AS replace_confirmed_matched_raw_keys,
+  (SELECT count(*) FROM {normalized} n WHERE EXISTS (
+    SELECT 1 FROM suspend_selected_confirmed f
+    WHERE f.merge_mode = 'replace_confirmed'
+      AND f.ts_code = n.ts_code AND f.trade_date = n.trade_date
+  )) AS removed_raw_rows,
+  (SELECT count(*) FROM suspend_conflicts) AS conflict_rows,
+  (SELECT count(*) FROM suspend_merged) AS output_rows,
+  (SELECT COALESCE(list(struct_pack(category := category, ts_code := ts_code,
+                                  trade_date := trade_date)
+                        ORDER BY category, ts_code, trade_date), [])
+   FROM suspend_key_samples) AS samples
 """
 
 

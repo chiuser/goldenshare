@@ -54,7 +54,15 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 8. 对旧湖路径和 Kopia 的禁止性规则、负向测试：保留并按新事实更新。
 9. 现行 `suspend_full_day_ranges.csv` 及读取链当前保留只是防误删措施，不是长期设计认可。用户已要求
    记录后续治理 TODO：消除停牌修正规则的运行时文件隐性依赖。详见 LLD §16.11 `TODO-SUSPEND-001`；
-   本轮仅登记，不改规则/数据，不自动扩充本专项实施范围，替代方案验收前不得先删该 CSV。
+   清退阶段仅登记，不自动扩充本专项实施范围，替代方案验收前不得先删该 CSV。
+   2026-09-06 用户已确认后续方向：Raw 不变，历史确认事实独立持久化为正式 Silver 输入资产，
+   由现有停牌 Silver 统一供本地 DG 链路消费；不改 Prod 与远程部署链路。
+   [独立技术方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)
+   及配套 LLD 已获认可，后续 S0 只读审计已完成，见
+   [S0 清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。
+   后续 S1 已获授权，事件关联窄修正亦获确认；部分代码已编写但未验收。测试资源误配触发正式健康探针后停止，
+   影响核验及待确认处置见 [LLD §17](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md)。
+   未迁移停牌数据或发布正式事件；指定Silver sensor保持暂停，CSV保护边界不变，TODO未关闭。
 
 ### 0.4 新增拍板结果
 

@@ -752,6 +752,15 @@ SHA-256 仍为 `d0f3778dab3fabb0992d92322dce3b3209d318e80f98b40c2a16d225f33f02bf
 
 本次登记仅修改三份专项文档，不改变子系统边界、依赖矩阵或现行运行行为；未提交、未推送。
 
+2026-09-06 后续进展：用户已确认“Raw 不变、历史确认事实独立持久化、现有停牌 Silver 统一供本地 DG
+消费”的方向，原 Prod 与远程部署链路不动。已形成
+[独立技术方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)
+及配套 LLD 已获认可；后续
+[S0 只读审计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)
+已完成来源、实际逻辑指纹、现有效果及部署边界核验。后续S1开发/维护及事件关联窄修正已获确认，部分代码已编写；
+测试资源误配触发正式健康探针后停止，详见 [独立LLD §17](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md)。
+指定Silver sensor保持暂停，未迁移停牌数据、发布正式事件或删除CSV。上述M0登记保持历史语境，TODO仍未关闭。
+
 ## 20. 2026-09-05 继续旧湖逐数据集与恢复遗留只读核验
 
 用户要求继续审计；本轮不含删除、代码清退、迁移或修复授权。依据及详细逐项矩阵见 LLD §16.12–16.13，

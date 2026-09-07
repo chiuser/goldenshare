@@ -26,6 +26,17 @@ _local_instance_factory = None
 _network_targets: dict = {}
 _native_socket_connect = socket.socket.connect
 
+GOLDEN_BYTES = (
+    b"stock_suspend_confirmed|v1\n"
+    b"000001.SZ\t2020-01-02\t\\N\tS\tadd_missing\n"
+    b"688005.SH\t2026-01-16\t\\N\tS\treplace_confirmed\n"
+)
+GOLDEN_HASH = "dc7dde4185854a5c36d1fdc7a6da7e02405272fd688488bb3904f732a9914099"
+FACTS_SQL = """SELECT * FROM (VALUES
+    ('000001.SZ', DATE '2020-01-02', NULL::VARCHAR, 'S', 'add_missing'),
+    ('688005.SH', DATE '2026-01-16', NULL::VARCHAR, 'S', 'replace_confirmed')
+) t(ts_code, trade_date, suspend_timing, suspend_type, merge_mode)"""
+
 
 def require_isolated_context() -> Path:
     if _allowed is None:
@@ -297,6 +308,37 @@ def _deadline(signum, frame):
     raise TimeoutError("case_timeout_30s")
 
 
+def _confirmed_contract_fixtures():
+    """Register shared synthetic fixtures only after the OS/instance guards exist."""
+    require_isolated_context()
+    import pytest
+
+    from orchestrator.defs import stock_suspend_confirmed_contract as contract
+    from orchestrator.defs.paths import silver_stock_suspend_confirmed_path
+
+    class SyntheticFixtures:
+        @pytest.fixture
+        def connection(self, tmp_path):
+            with connect_confirmed_test_duckdb(temp_directory=tmp_path / "duckdb") as connection:
+                yield connection
+
+        @pytest.fixture
+        def approved_sample(self, monkeypatch):
+            monkeypatch.setattr(contract, "STOCK_SUSPEND_CONFIRMED_COUNTS", (2, 2, 2, 2, 1, 1))
+            monkeypatch.setattr(contract, "STOCK_SUSPEND_CONFIRMED_OVERRIDE_KEYS", (("688005.SH", "2026-01-16"),))
+            monkeypatch.setattr(contract, "STOCK_SUSPEND_CONFIRMED_APPROVED_LOGICAL_SHA256", GOLDEN_HASH)
+
+        @pytest.fixture
+        def fixed_lake(self, connection, tmp_path, approved_sample):
+            root = checked_test_path(tmp_path / "lake", allowed=require_isolated_context())
+            path = checked_test_path(silver_stock_suspend_confirmed_path(root), allowed=require_isolated_context())
+            path.parent.mkdir(parents=True)
+            connection.execute(f"COPY ({FACTS_SQL}) TO ? (FORMAT PARQUET)", [str(path)])
+            return root
+
+    return SyntheticFixtures()
+
+
 def pytest_runtest_logstart(nodeid, location):
     global _started
     _started = time.monotonic()
@@ -380,7 +422,8 @@ def probe_startup_gate(case: str, root_name: str, policy_hash: str, test_name: s
 
 
 def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
-        case_names: tuple[str, ...], expected_count: int, network_targets: dict) -> int:
+        case_names: tuple[str, ...], expected_count: int, network_targets: dict,
+        scope: str = "isolation") -> int:
     global _allowed, _local_instance_factory, _network_targets
     root = Path(root_name)
     if root.parent != Path("/private/tmp") or not root.name.startswith("stock-suspend-isolated-"):
@@ -429,7 +472,12 @@ def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
             (socket, "getaddrinfo", _reject_test_network),
         ):
             guards.enter_context(patch.object(owner, name, replacement))
-        result = int(pytest.main(args, plugins=[sys.modules[__name__]]))
+        plugins = [sys.modules[__name__]]
+        if scope in ("adapter", "regression"):
+            plugins.append(_confirmed_contract_fixtures())
+        elif scope != "isolation":
+            raise ValueError("invalid_scope")
+        result = int(pytest.main(args, plugins=plugins))
     (allowed / "pytest-result.json").write_text(json.dumps({
         "slice": batch, "completed": _completed, "failures": _failures,
         "passed": result == 0 and _completed == expected_count and _failures == 0,

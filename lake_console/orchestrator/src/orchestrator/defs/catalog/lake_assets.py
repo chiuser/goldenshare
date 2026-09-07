@@ -73,6 +73,7 @@ from orchestrator.defs.paths import (
     silver_stock_identity_map_path,
     silver_stock_lifecycle_path,
     silver_stock_nineturn_daily_path,
+    silver_stock_suspend_confirmed_path,
     silver_stock_suspend_daily_path,
     silver_trade_calendar_path,
 )
@@ -144,6 +145,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_LIFECYCLE_SCHEMA,
     SILVER_STOCK_NINETURN_DAILY_SCHEMA,
+    SILVER_STOCK_SUSPEND_CONFIRMED_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
@@ -244,6 +246,7 @@ class PartitionPhysicalLayout(str, Enum):
 
 
 class PartitionModel(str, Enum):
+    FULL_FILE_SILVER_STOCK_SUSPEND_CONFIRMED = "full_file_silver_stock_suspend_confirmed"
     FULL_FILE_RAW_TRADE_CALENDAR = "full_file_raw_trade_calendar"
     FULL_FILE_SILVER_TRADE_CALENDAR = "full_file_silver_trade_calendar"
     FULL_FILE_RAW_STOCK_BASIC = "full_file_raw_stock_basic"
@@ -678,6 +681,12 @@ def _model(
 
 
 PARTITION_MODEL_DEFINITIONS = (
+    _model(
+        PartitionModel.FULL_FILE_SILVER_STOCK_SUSPEND_CONFIRMED,
+        PartitionModelFamily.FULL_FILE, AssetLayer.SILVER, "stock_suspend_confirmed",
+        None, PartitionPhysicalLayout.SINGLE_FILE,
+        notes="固定历史事实；人工单文件发布，无每日freshness。",
+    ),
     _model(
         PartitionModel.FULL_FILE_RAW_TRADE_CALENDAR,
         PartitionModelFamily.FULL_FILE,
@@ -1586,6 +1595,29 @@ LAKE_ASSET_CATALOG = (
             ),
         ),
         notes="分类事实来自版本化东财行业层级 seed；silver_dc_index 仅补齐当前 BK 代码。",
+    ),
+    _entry(
+        asset_key="silver_stock_suspend_confirmed", dataset_id="stock_suspend_confirmed",
+        layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA, group_name="quote",
+        source_system=SourceSystem.SEED,
+        data_contract="confirmed_stock_full_day_suspend_v1",
+        data_contract_source=DataContractSource.SEED_CONTRACT,
+        column_schema=SILVER_STOCK_SUSPEND_CONFIRMED_SCHEMA,
+        path_template=lake_path_template(silver_stock_suspend_confirmed_path(PATH_TEMPLATE_LAKE_ROOT)),
+        partition_model=PartitionModel.FULL_FILE_SILVER_STOCK_SUSPEND_CONFIRMED,
+        source_api=None, source_doc=None, ingestion_sources=(IngestionSource.SEED_FILE,),
+        default_daily_ingestion_source=None, bootstrap_sources=(IngestionSource.SEED_FILE,),
+        blocking_check_names=(
+            "silver_stock_suspend_confirmed_schema_check",
+            "silver_stock_suspend_confirmed_approved_content_check",
+        ),
+        write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="one_confirmed_file", compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="none", notes="4,022行固定事实；每次完整校验，无源请求。",
+        ),
+        notes="人工单writer；只允许缺失发布、等价复用、不等停止。仅最终停牌Silver业务消费。",
     ),
     _tushare_raw_entry(
         asset_key="raw_tushare_suspend_d",

@@ -11,7 +11,6 @@ from orchestrator.defs.run_contracts.column_schema import (
     build_column_schema_metadata,
 )
 
-
 DAGSTER_URI_METADATA_KEY = "dagster/uri"
 DAGSTER_ROW_COUNT_METADATA_KEY = "dagster/row_count"
 DAGSTER_COLUMN_SCHEMA_METADATA_KEY = "dagster/column_schema"
@@ -43,6 +42,15 @@ FILE_PATH_METADATA_KEY = "goldenshare/file_path"
 INPUT_FILE_PATHS_METADATA_KEY = "goldenshare/input_file_paths"
 MISSING_FILE_PATHS_METADATA_KEY = "goldenshare/missing_file_paths"
 FAILURE_SAMPLES_METADATA_KEY = "goldenshare/failure_samples"
+
+CONFIRMED_FACT_VERSION_METADATA_KEY = "goldenshare/confirmed_fact_version"
+CONFIRMED_FACT_LOGICAL_SHA256_METADATA_KEY = "goldenshare/confirmed_fact_logical_sha256"
+CONFIRMED_FACT_SOURCE_REVISION_METADATA_KEY = "goldenshare/confirmed_fact_source_revision"
+CONFIRMED_FACT_SOURCE_SHA256_METADATA_KEY = "goldenshare/confirmed_fact_source_sha256"
+CONFIRMED_FACT_CALENDAR_SHA256_METADATA_KEY = "goldenshare/confirmed_fact_calendar_sha256"
+CONFIRMED_FACT_OPERATION_ID_METADATA_KEY = "goldenshare/confirmed_fact_operation_id"
+CONFIRMED_FACT_EVENT_TOKEN_METADATA_KEY = "goldenshare/confirmed_fact_event_token"
+CONFIRMED_FACT_STATS_METADATA_KEY = "goldenshare/confirmed_fact_stats"
 
 _LEGACY_METADATA_ALIASES = {
     "path",

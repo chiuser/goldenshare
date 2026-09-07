@@ -734,6 +734,14 @@ SILVER_STOCK_SUSPEND_DAILY_SCHEMA = (
     ColumnContract("suspend_type", "VARCHAR", "停复牌类型，S 表示停牌，R 表示复牌"),
 )
 
+SILVER_STOCK_SUSPEND_CONFIRMED_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "已确认历史证券代码，不做身份重映射"),
+    ColumnContract("trade_date", "DATE", "历史全日停牌事实发生日，非发布日期"),
+    ColumnContract("suspend_timing", "VARCHAR", "全日停牌，必须为空值"),
+    ColumnContract("suspend_type", "VARCHAR", "固定为 S，表示停牌"),
+    ColumnContract("merge_mode", "VARCHAR", "add_missing 补缺；replace_confirmed 明确覆盖"),
+)
+
 SILVER_INDEX_BASIC_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "指数代码"),
     ColumnContract("name", "VARCHAR", "指数简称"),

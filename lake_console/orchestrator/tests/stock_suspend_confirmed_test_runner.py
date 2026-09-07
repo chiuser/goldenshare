@@ -1,7 +1,7 @@
 """Task-local, stdlib-only launcher for I03-I08 isolation tests in fixed batches.
 
 No Dagster imports, environment discovery, dependency installation or cleanup.
-The adapter gate remains closed until the complete I group is accepted.
+Adapter execution is separately selected after the approved I01-I08 review.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ import select
 import selectors
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -60,13 +61,54 @@ RESOURCE_SOURCE_FILES = (
     "defs/run_contracts/cn_a_derived_minute_bars.py",
     "seeds/__init__.py", "seeds/market/__init__.py", "seeds/market/major_indices.py",
 )
+ADAPTER_SOURCE_FILES = (
+    "defs/stock_suspend_confirmed_contract.py", "defs/assets/__init__.py",
+    "defs/assets/stock_suspend_confirmed.py", "defs/checks/__init__.py",
+    "defs/checks/stock_suspend_confirmed_checks.py", "defs/run_contracts/asset_column_schemas.py",
+    "defs/run_contracts/column_schema.py", "defs/run_contracts/asset_tags.py",
+    "defs/run_contracts/metadata.py", "defs/catalog/__init__.py", "defs/catalog/name_mapping.py",
+)
+ADAPTER_BATCHES = (
+    ("C-encoding", "contracts", 11, ("test_literal_encoding_and_real_approval_rejection",
+        "test_sample_approval_and_same_count_changed_key", "test_content_negative_cases")),
+    ("C-schema-path", "contracts", 12, ("test_physical_schema_rejected_before_cast",
+        "test_reordered_compressed_file_has_same_logical_identity", "test_invalid_operation_paths", "test_path_rejections")),
+    ("C08-C09", "contracts", 11, ("test_c08_inspection_separates_schema_and_count", "test_c09_inspection_io_and_identity")),
+    ("D-path-publication", "dagster", 11, ("test_external_spec", "test_path_and_publication_failures")),
+    ("D-validation", "dagster", 9, ("test_validation_and_storage",)),
+    ("D-input-errors", "dagster", 5, ("test_input_error_classification",)),
+)
+MERGE_SOURCE_FILES = (
+    "defs/duckdb_sql.py", "defs/corrections/__init__.py",
+    "defs/corrections/suspend_full_day.py", "defs/corrections/suspend_timing.py",
+    "defs/stock_suspend_confirmed_contract.py", "defs/run_contracts/asset_column_schemas.py",
+    "defs/run_contracts/column_schema.py",
+)
+REGRESSION_SUITES = {
+    "test_stock_suspend_confirmed_merge.py": (
+        ("M-add-conflict", 9, ("test_add_missing", "test_raw_duplicates", "test_conflict",
+                               "test_unmatched_raw", "test_empty")),
+        ("M-override", 7, ("test_replace_confirmed", "test_original_override_rows")),
+        ("M-order-stats", 10, ("test_timing_corrections", "test_timing_overlap", "test_selected_dates",
+                                "test_no_date_filter", "test_conflict_stats", "test_bounded_classification_samples",
+                                "test_null_conflict_semantics", "test_pure_builders")),
+        ("M-input-boundaries", 16, ("test_relation_names", "test_runner_selection_rejected")),
+    ),
+}
+
+
+def source_files_for_scope(scope: str) -> tuple[str, ...]:
+    additions = {"isolation": (), "adapter": ADAPTER_SOURCE_FILES, "regression": MERGE_SOURCE_FILES}
+    if scope not in additions:
+        raise ValueError("invalid_scope")
+    return RESOURCE_SOURCE_FILES + additions[scope]
 
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def policy_for(root: Path) -> str:
+def policy_for(root: Path, *, scope: str = "isolation") -> str:
     """Allow exact source files and import directory objects, never repo subtrees."""
     package_init = PROJECT / "tests/__init__.py"
     if package_init.is_symlink() or package_init.read_bytes() != b"\n":
@@ -77,8 +119,12 @@ def policy_for(root: Path) -> str:
         pass
     else:
         raise RuntimeError("project_package_marker_present: re-audit before importing")
-    source_files = [SOURCE / name for name in RESOURCE_SOURCE_FILES]
+    source_files = [SOURCE / name for name in source_files_for_scope(scope)]
     files = [*source_files, SUPPORT, TEST, Path(__file__).resolve(), package_init]
+    if scope == "adapter":
+        files.extend(PROJECT / f"tests/test_stock_suspend_confirmed_{name}.py" for name in ("contracts", "dagster"))
+    elif scope == "regression":
+        files.append(PROJECT / "tests/test_stock_suspend_confirmed_merge.py")
     directories = {PROJECT, PROJECT / "src", PROJECT / "tests"}
     for path in source_files:
         directories.update(p for p in path.parents if p == SOURCE or SOURCE in p.parents)
@@ -128,6 +174,20 @@ def create_isolation_root() -> Path:
     return root
 
 
+def workspace_size(roots: tuple[Path, ...]) -> int:
+    """Count regular files once, without following pytest's replaceable aliases."""
+    size = 0
+    for root in roots:
+        for path in root.rglob("*"):
+            try:
+                observed = path.lstat()
+            except FileNotFoundError:
+                continue  # A transient test file was removed during the walk.
+            if stat.S_ISREG(observed.st_mode):
+                size += observed.st_size
+    return size
+
+
 def run_isolation_batch(batch: str, expected_count: int, case_names: tuple[str, ...]) -> int:
     root = create_isolation_root()
     allowed = root / "allowed"
@@ -165,13 +225,14 @@ def verify_parent_network_endpoints(listeners: dict) -> dict:
 def run_isolation_child(root: Path, batch: str, expected_count: int,
                         case_names: tuple[str, ...], listeners: dict, *,
                         startup_probe: str | None = None, batch_deadline: float | None = None,
-                        budget_roots: tuple[Path, ...] = ()) -> int:
+                        budget_roots: tuple[Path, ...] = (), scope: str = "isolation",
+                        test_file: Path = TEST) -> int:
     allowed, denied = root / "allowed", root / "denied-fixture"
     network_targets = {kind: listener.getsockname() for kind, listener in listeners.items()}
     network_before = verify_parent_network_endpoints(listeners)
     (denied / "sentinel.txt").write_text("synthetic denied resource fixture\n")
     policy = allowed / "capability.sb"
-    policy.write_text(policy_for(root))
+    policy.write_text(policy_for(root, scope=scope))
     bootstrap = allowed / "bootstrap.py"
     source = (
         "import importlib.util, sys\n"
@@ -183,9 +244,9 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     selected_policy = policy
     if startup_probe is None:
         source += (
-            f"raise SystemExit(module.run({str(root)!r}, {digest(policy)!r}, {str(TEST)!r}, "
+            f"raise SystemExit(module.run({str(root)!r}, {digest(policy)!r}, {str(test_file)!r}, "
             f"batch={batch!r}, case_names={case_names!r}, expected_count={expected_count!r}, "
-            f"network_targets={network_targets!r}))\n"
+            f"network_targets={network_targets!r}, scope={scope!r}))\n"
         )
     else:
         if startup_probe not in STARTUP_PROBES:
@@ -214,7 +275,7 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     before = inventory(denied)
     started = time.monotonic()
     report = {
-        "scope": "isolation", "implemented_slice": batch, "all_isolation_accepted": False,
+        "scope": scope, "implemented_slice": batch,
         "case_names": list(case_names), "expected_count": expected_count,
         "startup_probe": startup_probe,
         "expected_resource_gate": startup_probe in (None, "collection_allowed"),
@@ -223,8 +284,9 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
         "policy_sha256": digest(policy), "policy": policy.read_text(),
         "selected_policy": str(selected_policy),
         "selected_policy_text": selected_policy.read_text() if selected_policy.exists() else None,
-        "test_source_sha256": {str(p): digest(p) for p in (Path(__file__), SUPPORT, TEST)},
-        "source_files": list(RESOURCE_SOURCE_FILES),
+        "test_source_sha256": {str(p): digest(p) for p in (Path(__file__), SUPPORT, TEST, test_file)},
+        "source_files": list(source_files_for_scope(scope)),
+        "source_sha256": {name: digest(SOURCE / name) for name in source_files_for_scope(scope)},
         "before": before, "passed": False,
     }
     report_path = allowed / "resource-result.json"
@@ -235,7 +297,24 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
                                close_fds=True, start_new_session=True)
     outputs = {"stdout": bytearray(), "stderr": bytearray()}
     stop_reason = None
-    with selectors.DefaultSelector() as selector:
+
+    def finish_child(exc_type, error, traceback):
+        # The parent owns this process group; do not leave it running on a monitor error.
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+        process.wait(timeout=5)
+        process.stdout.close()
+        process.stderr.close()
+        if exc_type is not None:
+            report.update(passed=False, exit_code=process.returncode, stop_reason="parent_monitor_error",
+                          monitor_error_type=exc_type.__name__, monitor_error=str(error),
+                          elapsed_ms=round(1000 * (time.monotonic() - started)),
+                          child_reaped=True)
+            report_path.write_text(json.dumps(report, indent=2) + "\n")
+        return False
+
+    with ExitStack() as lifetime, selectors.DefaultSelector() as selector:
+        lifetime.push(finish_child)
         selector.register(process.stdout, selectors.EVENT_READ, "stdout")
         selector.register(process.stderr, selectors.EVENT_READ, "stderr")
         while selector.get_map():
@@ -244,8 +323,7 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
                     stop_reason = "batch_timeout_60s"
                 elif time.monotonic() - started > (30 if startup_probe else 60):
                     stop_reason = "case_timeout_30s" if startup_probe else "batch_timeout_60s"
-                elif sum(p.lstat().st_size for directory in (budget_roots or (root,))
-                         for p in directory.rglob("*") if p.is_file()) > 100 * 1024**2:
+                elif workspace_size(budget_roots or (root,)) > 100 * 1024**2:
                     stop_reason = "workspace_budget_100MiB"
                 if stop_reason and process.poll() is None:
                     os.killpg(process.pid, signal.SIGKILL)
@@ -385,13 +463,15 @@ def run_startup_gate_batch() -> int:
         ("scope_missing", [], "required: --scope"),
         ("scope_value_missing", ["--scope"], "expected one argument"),
         ("scope_unknown", ["--scope", "unknown"], "invalid choice"),
-        ("scope_adapter", ["--scope", "adapter"], "adapter is not accepted"),
+        ("wrong_cwd", ["--scope", "adapter"], "Run from"),
         ("scope_extra", ["--scope", "isolation", "-k", "synthetic"], "unrecognized arguments"),
     ):
         errors = io.StringIO()
         with ExitStack() as guards:
             guards.enter_context(patch.object(sys, "argv", [str(Path(__file__)), *args]))
             guards.enter_context(redirect_stderr(errors))
+            if name == "wrong_cwd":
+                guards.enter_context(patch.object(Path, "cwd", return_value=root))
             spies = [guards.enter_context(patch.object(owner, key, side_effect=AssertionError(key)))
                      for owner, key in ((tempfile, "mkdtemp"), (Path, "mkdir"), (subprocess, "Popen"))]
             try:
@@ -427,12 +507,30 @@ def run_startup_gate_batch() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scope", choices=("isolation", "adapter"), required=True)
+    parser.add_argument("--scope", choices=("isolation", "adapter", "regression"), required=True)
+    parser.add_argument("--suite", choices=tuple(REGRESSION_SUITES))
     args = parser.parse_args()
-    if args.scope != "isolation":
-        parser.error("adapter is not accepted: complete independent isolation review first")
+    if args.scope == "regression" and args.suite is None:
+        parser.error("regression requires --suite")
+    if args.scope != "regression" and args.suite is not None:
+        parser.error("--suite is only allowed with regression")
     if Path.cwd() != PROJECT:
         parser.error(f"Run from {PROJECT}")
+    if args.scope == "regression":
+        for batch, expected, cases in REGRESSION_SUITES[args.suite]:
+            if run_isolation_child(create_isolation_root(), batch, expected, cases, {}, scope="regression",
+                                   test_file=PROJECT / "tests" / args.suite):
+                return 1
+        print(json.dumps({"regression_suite_passed": args.suite, "S1_complete": False,
+                          "writer_executed": False, "S2_executed": False}), flush=True)
+        return 0
+    if args.scope == "adapter":
+        for batch, file_kind, expected, cases in ADAPTER_BATCHES:
+            if run_isolation_child(create_isolation_root(), batch, expected, cases, {}, scope="adapter",
+                                   test_file=PROJECT / f"tests/test_stock_suspend_confirmed_{file_kind}.py"):
+                return 1
+        print(json.dumps({"synthetic_adapter_passed": True, "S1_complete": False, "S2_executed": False}), flush=True)
+        return 0
     for batch, expected_count, case_names in ISOLATION_BATCHES:
         if run_isolation_batch(batch, expected_count, case_names) != 0:
             return 1
@@ -443,7 +541,7 @@ def main() -> int:
     )) != 0:
         return 1
     print(json.dumps({"I03_I04_I05_I06_I07_I08_passed": True,
-                      "all_isolation_accepted": False, "independent_review_required": True}), flush=True)
+                      "adapter_executed": False}), flush=True)
     return 0
 
 

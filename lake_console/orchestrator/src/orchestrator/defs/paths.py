@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from pathlib import Path
 from uuid import UUID
@@ -726,6 +727,31 @@ def silver_stock_suspend_daily_path(root: Path, partition_key: str) -> Path:
         "stock_suspend_daily",
         f"trade_date={partition_key}",
         "part-000.parquet",
+    )
+
+
+def silver_stock_suspend_confirmed_path(root: Path) -> Path:
+    return lake_path(root, SILVER, "quote", "stock_suspend_confirmed", "full", "part-000.parquet")
+
+
+def _validate_suspend_operation_id(operation_id: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", operation_id):
+        raise ValueError("停牌操作标识须为1–80位字母、数字、下划线或连字符")
+    return operation_id
+
+
+def stock_suspend_confirmed_staging_dir(staging_root: Path, operation_id: str) -> Path:
+    return staging_root / "stock_suspend_confirmed" / f"run_id={_validate_suspend_operation_id(operation_id)}"
+
+
+def silver_stock_suspend_daily_staging_path(
+    staging_root: Path, run_id: str, trade_date: str,
+) -> Path:
+    if date.fromisoformat(trade_date).isoformat() != trade_date:
+        raise ValueError("停牌交易日必须为 YYYY-MM-DD")
+    return (
+        staging_root / "stock_suspend_daily" / f"run_id={_validate_suspend_operation_id(run_id)}"
+        / f"trade_date={trade_date}" / "part-000.parquet"
     )
 
 
