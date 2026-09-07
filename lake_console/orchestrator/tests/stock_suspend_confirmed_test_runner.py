@@ -1,4 +1,4 @@
-"""Task-local, stdlib-only launcher for I03 resource and I04 input-path tests.
+"""Task-local, stdlib-only launcher for I03-I05 isolation tests in fixed batches.
 
 No Dagster imports, environment discovery, dependency installation or cleanup.
 The adapter gate remains closed until the complete I group is accepted.
@@ -21,6 +21,16 @@ PROJECT = Path(__file__).resolve().parents[1]
 SUPPORT = PROJECT / "tests/stock_suspend_confirmed_test_support.py"
 TEST = PROJECT / "tests/test_stock_suspend_confirmed_isolation.py"
 SOURCE = PROJECT / "src/orchestrator"
+ISOLATION_BATCHES = (
+    ("I03-I04", 16, (
+        "test_i03_actual_resource_root", "test_i03_factory_rejects_before_path_io",
+        "test_i03_detects_real_resource_default_without_io", "test_i04_input_path_preflight",
+    )),
+    ("I05", 14, (
+        "test_i05_real_duckdb_resource", "test_i05_rejects_wrong_effective_setting",
+        "test_i05_rejects_bad_connection_arguments", "test_i05_rejects_formal_connection_entry",
+    )),
+)
 # Actual import closure of resources.py, not permission for all defs or CSV data.
 RESOURCE_SOURCE_FILES = (
     "__init__.py", "defs/__init__.py", "defs/resources.py",
@@ -97,14 +107,7 @@ def inventory(directory: Path) -> list[dict]:
     return result
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scope", choices=("isolation", "adapter"), required=True)
-    args = parser.parse_args()
-    if args.scope != "isolation":
-        parser.error("adapter is not accepted: complete I03-I08 and independent review first")
-    if Path.cwd() != PROJECT:
-        parser.error(f"Run from {PROJECT}")
+def run_isolation_batch(batch: str, expected_count: int, case_names: tuple[str, ...]) -> int:
     root = Path(tempfile.mkdtemp(prefix="stock-suspend-isolated-", dir="/private/tmp"))
     allowed, denied = root / "allowed", root / "denied-fixture"
     allowed.mkdir()
@@ -119,7 +122,8 @@ def main() -> int:
         "module = importlib.util.module_from_spec(spec)\n"
         "sys.modules[spec.name] = module\n"
         "spec.loader.exec_module(module)\n"
-        f"raise SystemExit(module.run({str(root)!r}, {digest(policy)!r}, {str(TEST)!r}))\n"
+        f"raise SystemExit(module.run({str(root)!r}, {digest(policy)!r}, {str(TEST)!r}, "
+        f"batch={batch!r}, case_names={case_names!r}, expected_count={expected_count!r}))\n"
     )
     argv = [
         "/opt/homebrew/bin/uv", "run", "--offline", "--no-sync", "--no-env-file",
@@ -132,7 +136,8 @@ def main() -> int:
     before = inventory(denied)
     started = time.monotonic()
     report = {
-        "scope": "isolation", "implemented_slice": "I03-I04", "all_isolation_accepted": False,
+        "scope": "isolation", "implemented_slice": batch, "all_isolation_accepted": False,
+        "case_names": list(case_names), "expected_count": expected_count,
         "root": str(root), "cwd": str(PROJECT), "argv": argv, "env_keys": sorted(env),
         "policy_sha256": digest(policy), "policy": policy.read_text(),
         "test_source_sha256": {str(p): digest(p) for p in (Path(__file__), SUPPORT, TEST)},
@@ -177,14 +182,29 @@ def main() -> int:
     result = allowed / "pytest-result.json"
     observed = json.loads(result.read_text()) if result.is_file() else None
     passed = code == 0 and stop_reason is None and before == after and observed is not None
-    passed = passed and observed.get("passed") is True and observed.get("completed") == 16
+    passed = passed and observed.get("passed") is True and observed.get("completed") == expected_count
     report.update({"passed": passed, "after": after, "denied_unchanged": before == after,
                    "exit_code": code, "stop_reason": stop_reason, "pytest": observed,
                    "elapsed_ms": round(1000 * (time.monotonic() - started)),
                    **{name: data.decode(errors="replace") for name, data in outputs.items()}})
     report_path.write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps({"I03_I04_passed": passed, "report": str(report_path)}), flush=True)
+    print(json.dumps({"batch": batch, "passed": passed, "report": str(report_path)}), flush=True)
     return 0 if passed else 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--scope", choices=("isolation", "adapter"), required=True)
+    args = parser.parse_args()
+    if args.scope != "isolation":
+        parser.error("adapter is not accepted: complete I06-I08 and independent review first")
+    if Path.cwd() != PROJECT:
+        parser.error(f"Run from {PROJECT}")
+    for batch, expected_count, case_names in ISOLATION_BATCHES:
+        if run_isolation_batch(batch, expected_count, case_names) != 0:
+            return 1
+    print(json.dumps({"I03_I04_I05_passed": True, "all_isolation_accepted": False}), flush=True)
+    return 0
 
 
 if __name__ == "__main__":

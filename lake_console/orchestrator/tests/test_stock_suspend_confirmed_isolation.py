@@ -1,7 +1,8 @@
-"""I03 resource and I04 input-path tests; no actual checks/jobs."""
+"""I03-I05 resource, input-path and DuckDB tests; no actual checks/jobs."""
 
 from stock_suspend_confirmed_test_support import (
     checked_test_input_file,
+    connect_confirmed_test_duckdb,
     make_confirmed_test_resources,
     require_isolated_context,
     verify_lake_resource,
@@ -18,9 +19,11 @@ from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch
 
+import duckdb
 import pytest
 
-from orchestrator.defs.resources import LakeRootResource
+from orchestrator.defs import duckdb_connection, resources
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 
 
 def test_i03_actual_resource_root():
@@ -161,3 +164,128 @@ def test_i03_detects_real_resource_default_without_io(variant):
             verify_lake_resource(resource, expected_root=ALLOWED / "lake")
         for spy in (stat, lstat, mkdir, opened, probe):
             spy.assert_not_called()
+
+
+def test_i05_real_duckdb_resource():
+    test_resources = make_confirmed_test_resources(lake_root=ALLOWED / "lake", work_root=ALLOWED)
+    resource = test_resources["duckdb"]
+    assert isinstance(resource, DuckDBResource)
+    assert resource.directory == str(ALLOWED / "duckdb-temp")
+    assert not Path(resource.directory).exists()
+    with resource.connect() as connection:
+        observed = dict(connection.execute(
+            "SELECT name,value FROM duckdb_settings() WHERE name IN "
+            "('memory_limit','threads','max_temp_directory_size','temp_directory',"
+            "'autoinstall_known_extensions','autoload_known_extensions')"
+        ).fetchall())
+        assert observed == {
+            "memory_limit": "488.2 MiB", "threads": "2", "max_temp_directory_size": "0 bytes",
+            "temp_directory": str(ALLOWED / "duckdb-temp"),
+            "autoinstall_known_extensions": "false", "autoload_known_extensions": "false",
+        }
+        assert connection.execute("SELECT n FROM (VALUES (1),(2)) t(n) ORDER BY n").fetchall() == [(1,), (2,)]
+    with pytest.raises(duckdb.ConnectionException, match="closed"):
+        connection.execute("SELECT 1")
+    assert list(Path(resource.directory).iterdir()) == []
+    print(json.dumps({"case_evidence": "I05_real_resource", "observed": observed,
+                      "closed": True, "spill_files": 0}), flush=True)
+
+
+@pytest.mark.parametrize(("setting", "wrong_value", "mode"), [
+    ("threads", "1", "native_configuration"),
+    ("memory_limit", "256MB", "native_configuration"),
+    ("temp_directory", "wrong-directory", "readback_fault"),
+    ("max_temp_directory_size", "1 MiB", "readback_fault"),
+    ("autoinstall_known_extensions", "true", "readback_fault"),
+    ("autoload_known_extensions", "true", "readback_fault"),
+])
+def test_i05_rejects_wrong_effective_setting(setting, wrong_value, mode):
+    temp = ALLOWED / f"duckdb-wrong-{setting}"
+    native_connect = duckdb.connect
+    connections = []
+
+    class ReadbackFault:
+        """Deliberately corrupt a real settings read, never enable unsafe settings."""
+        def __init__(self, connection):
+            self.connection = connection
+
+        def execute(self, sql):
+            rows = dict(self.connection.execute(sql).fetchall())
+            assert setting in rows
+            rows[setting] = wrong_value
+            self.rows = list(rows.items())
+            return self
+
+        def fetchall(self):
+            return self.rows
+
+        def close(self):
+            self.connection.close()
+
+    def open_faulty(*, database, config):
+        assert database == ":memory:"
+        assert config["max_temp_directory_size"] == "0B"
+        assert config["autoinstall_known_extensions"] == "false"
+        assert config["autoload_known_extensions"] == "false"
+        assert config["temp_directory"] == str(temp)
+        actual_config = {**config, setting: wrong_value} if mode == "native_configuration" else config
+        connection = native_connect(database=database, config=actual_config)
+        connections.append(connection)
+        return connection if mode == "native_configuration" else ReadbackFault(connection)
+
+    with patch.object(duckdb, "connect", side_effect=open_faulty) as connect_spy:
+        with pytest.raises(RuntimeError, match=f"^test_duckdb_setting_mismatch:{setting}$"), \
+                connect_confirmed_test_duckdb(temp_directory=temp):
+            pytest.fail("Invalid connection reached the caller")
+        connect_spy.assert_called_once()
+    assert len(connections) == 1
+    with pytest.raises(duckdb.ConnectionException, match="closed"):
+        connections[0].execute("SELECT 1")
+    assert list(temp.iterdir()) == []
+    print(json.dumps({"case_evidence": "I05_setting_rejected", "setting": setting,
+                      "mode": mode, "closed": True, "yielded": False, "spill_files": 0}), flush=True)
+
+
+@pytest.mark.parametrize("variant", ["missing_temp", "wrong_keyword", "formal_temp"])
+def test_i05_rejects_bad_connection_arguments(variant):
+    kwargs = {"temp_directory": ALLOWED / "duckdb-temp"}
+    expected = TypeError
+    if variant == "missing_temp":
+        kwargs = {}
+    elif variant == "wrong_keyword":
+        kwargs = {"directory": ALLOWED / "duckdb-temp"}
+    else:
+        kwargs["temp_directory"] = Path("/Volumes/datasource/.goldenshare_duckdb_tmp")
+        expected = ValueError
+    with patch.object(duckdb, "connect") as connect_spy, \
+            patch.object(Path, "stat") as stat_spy, patch.object(Path, "lstat") as lstat_spy, \
+            patch.object(Path, "mkdir") as mkdir_spy, patch.object(Path, "open") as open_spy:
+        with pytest.raises(expected), connect_confirmed_test_duckdb(**kwargs):
+            pytest.fail("Invalid arguments reached the caller")
+        for spy in (connect_spy, stat_spy, lstat_spy, mkdir_spy, open_spy):
+            spy.assert_not_called()
+    print(json.dumps({"case_evidence": "I05_arguments_rejected", "variant": variant,
+                      "path_io": 0, "native_connect": 0}), flush=True)
+
+
+@pytest.mark.parametrize("entry", ["resource", "resource_wrong_keyword", "connection_helper", "resource_helper"])
+def test_i05_rejects_formal_connection_entry(entry):
+    with patch.object(duckdb, "connect") as connect_spy, \
+            patch.object(Path, "stat") as stat_spy, patch.object(Path, "lstat") as lstat_spy, \
+            patch.object(Path, "mkdir") as mkdir_spy, patch.object(Path, "open") as open_spy:
+        if entry.startswith("resource") and entry != "resource_helper":
+            kwargs = {"temp_directory": str(ALLOWED / "duckdb-temp")} if entry == "resource_wrong_keyword" else {}
+            resource = DuckDBResource(**kwargs)
+            assert type(resource) is DuckDBResource
+            assert "temp_directory" not in resource.model_dump()
+            connect = resource.connect
+        elif entry == "connection_helper":
+            connect = duckdb_connection.connect_configured_duckdb
+        else:
+            connect = resources.connect_configured_duckdb
+        with pytest.raises(RuntimeError, match="^formal_duckdb_connection_forbidden_in_test$"), connect():
+            pytest.fail("Formal connection reached the caller")
+        for spy in (connect_spy, stat_spy, lstat_spy, mkdir_spy, open_spy):
+            spy.assert_not_called()
+    print(json.dumps({"case_evidence": "I05_formal_entry_rejected", "entry": entry,
+                      "path_io": 0, "native_connect": 0}), flush=True)

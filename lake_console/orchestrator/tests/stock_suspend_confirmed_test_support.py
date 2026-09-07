@@ -14,6 +14,7 @@ import signal
 import stat
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 _allowed: Path | None = None
@@ -80,16 +81,65 @@ def verify_lake_resource(resource, *, expected_root: Path) -> None:
 
 
 def make_confirmed_test_resources(*, lake_root: Path, work_root: Path) -> dict:
-    """I03: construct and verify the real Lake resource. No **kwargs or defaults."""
+    """Construct verified test resources, without directory creation or connection."""
     allowed = require_isolated_context()
     if Path(work_root) != allowed:
         raise ValueError("work_root_mismatch")
     checked = checked_test_path(lake_root, allowed=allowed)
-    from orchestrator.defs.resources import LakeRootResource
+    from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+
+    class ConfirmedTestDuckDBResource(DuckDBResource):
+        directory: str
+
+        @contextmanager
+        def connect(self):
+            with connect_confirmed_test_duckdb(temp_directory=Path(self.directory)) as connection:
+                yield connection
 
     resource = LakeRootResource(root_path=str(checked))
     verify_lake_resource(resource, expected_root=checked)
-    return {"lake_root": resource}
+    return {"lake_root": resource,
+            "duckdb": ConfirmedTestDuckDBResource(directory=str(allowed / "duckdb-temp"))}
+
+
+def confirmed_test_duckdb_config(*, temp_directory: Path) -> dict[str, str]:
+    checked = checked_test_path(temp_directory, allowed=require_isolated_context())
+    return {"temp_directory": str(checked), "memory_limit": "512MB", "threads": "2",
+            "max_temp_directory_size": "0B", "autoinstall_known_extensions": "false",
+            "autoload_known_extensions": "false"}
+
+
+def verify_confirmed_test_duckdb_connection(connection, *, expected: dict[str, str]) -> dict:
+    observed = dict(connection.execute(
+        "SELECT name, value FROM duckdb_settings() WHERE name IN "
+        "('temp_directory','memory_limit','threads','max_temp_directory_size',"
+        "'autoinstall_known_extensions','autoload_known_extensions')"
+    ).fetchall())
+    # DuckDB 1.5.2 display units, already measured in I02; do not use a loose tolerance.
+    displayed = {**expected, "memory_limit": "488.2 MiB", "max_temp_directory_size": "0 bytes"}
+    for name, value in displayed.items():
+        if observed.get(name) != value:
+            raise RuntimeError(f"test_duckdb_setting_mismatch:{name}")
+    return observed
+
+
+@contextmanager
+def connect_confirmed_test_duckdb(*, temp_directory: Path):
+    config = confirmed_test_duckdb_config(temp_directory=temp_directory)
+    Path(config["temp_directory"]).mkdir(parents=True, exist_ok=True)
+    import duckdb
+
+    connection = duckdb.connect(database=":memory:", config=config)
+    try:
+        observed = verify_confirmed_test_duckdb_connection(connection, expected=config)
+        print(json.dumps({"duckdb_settings": observed}), flush=True)
+        yield connection
+    finally:
+        connection.close()
+
+
+def _reject_formal_duckdb_connection(*args, **kwargs):
+    raise RuntimeError("formal_duckdb_connection_forbidden_in_test")
 
 
 def _os_self_check(root: Path) -> None:
@@ -157,7 +207,8 @@ def pytest_runtest_logfinish(nodeid, location):
                       "elapsed_ms": round(1000 * (time.monotonic() - _started))}), flush=True)
 
 
-def run(root_name: str, policy_hash: str, test_name: str) -> int:
+def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
+        case_names: tuple[str, ...], expected_count: int) -> int:
     global _allowed
     root = Path(root_name)
     if root.parent != Path("/private/tmp") or not root.name.startswith("stock-suspend-isolated-"):
@@ -174,18 +225,24 @@ def run(root_name: str, policy_hash: str, test_name: str) -> int:
         raise RuntimeError("policy_mismatch")
     _os_self_check(root)
     _allowed = allowed
+    from unittest.mock import patch
+
     import pytest
+
+    from orchestrator.defs import duckdb_connection, resources
 
     test_directory = str(Path(test_name).parent)
     args = ["-c", "/dev/null", "--rootdir", test_directory, "--confcutdir", test_directory,
             "--ignore-glob", str(Path(test_directory) / "*"),
             "--noconftest", "-p", "no:cacheprovider",
             "--import-mode=importlib", "--basetemp", str(allowed / "pytest"),
-            "-x", "-v", "-s", test_name]
-    print(json.dumps({"pytest_argv": args, "implemented_slice": "I03-I04"}), flush=True)
-    result = int(pytest.main(args, plugins=[sys.modules[__name__]]))
+            "-x", "-v", "-s", *(f"{test_name}::{name}" for name in case_names)]
+    print(json.dumps({"pytest_argv": args, "implemented_slice": batch}), flush=True)
+    with patch.object(resources, "connect_configured_duckdb", _reject_formal_duckdb_connection), \
+            patch.object(duckdb_connection, "connect_configured_duckdb", _reject_formal_duckdb_connection):
+        result = int(pytest.main(args, plugins=[sys.modules[__name__]]))
     (allowed / "pytest-result.json").write_text(json.dumps({
-        "slice": "I03-I04", "completed": _completed, "failures": _failures,
-        "passed": result == 0 and _completed == 16 and _failures == 0,
+        "slice": batch, "completed": _completed, "failures": _failures,
+        "passed": result == 0 and _completed == expected_count and _failures == 0,
     }) + "\n")
     return result

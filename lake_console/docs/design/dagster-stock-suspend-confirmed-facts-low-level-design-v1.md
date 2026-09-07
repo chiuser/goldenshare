@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**I03测试及文档已提交为`ff72d48f`。2026-09-07 17:27 I04八例与I03八例回归全部通过，见§18.14；权限未扩展，本轮增量未提交。I01–I04已通过，I05–I08、实际adapter和S1全套回归未验收；本轮未改正式数据或恢复指定Silver sensor，未创建新DG实例、安装依赖。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时产物按§18.11最终清理。**
+状态：**I04测试及文档已提交为`c8ab3bb4`，未推送。2026-09-07 18:03 I05的14例及I03–I04的16例回归全部通过，见§18.15；权限未扩展，I05增量未提交。I01–I05已通过，I06–I08、实际adapter和S1全套回归未验收；本轮未改正式数据或恢复指定Silver sensor，未创建新DG实例、安装依赖。S2真实批准集合、正式发布、切换及删除仍分别授权；专项临时产物按§18.11最终清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -1076,7 +1076,7 @@ S0 增加了真实物理只读核验和现有运行状态核验，但没有执�
 
 <a id="s1-test-isolation-repair"></a>
 
-## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I04已通过）
+## 18. 测试隔离与新检查安全修正 LLD（分段实施，I01–I05已通过）
 
 ### 18.1 范围、事实依据与本轮停止点
 
@@ -1661,3 +1661,56 @@ CodeGraph `explore/search/callers/impact`核对了测试路径入口；开工时
 交付检查：orchestrator全量`src/tests`的Ruff致命错误基线、三份专项测试文件默认Ruff检查、文档完整性三项及`git diff --check`均通过；CodeGraph同步后确认索引已是最新。未运行正式Definitions加载或业务测试。
 
 验收状态分开记录：文档及静态检查通过；隔离I01–I04已通过；I05–I08、实际adapter、S1实现/合成全套回归、S2生产批准集合和S2全范围等价均未完成。下一步仅I05临时DuckDB设置与默认资源误用测试，不自动推进；本轮未提交、未推送。
+
+<a id="s1-isolation-i05-duckdb-settings"></a>
+
+### 18.15 I05：临时DuckDB设置与默认资源拒绝
+
+管理员要求先提交I04、再推进I05。I04六文件已提交为`c8ab3bb4`，没有推送；其他未验收业务改动保留。本轮仍仅修改三个专项测试文件及LLD/技术方案/索引，不进入I06、adapter或正式运行。
+
+#### A. 代码事实、实施矩阵与预算
+
+CodeGraph `explore/impact`及当前源码确认：`DuckDBResource.connect()`调用`resources.connect_configured_duckdb()`；实际统一函数先执行默认temp的`mkdir`，再连接数据库。它有大量现行消费者，I05不改生产函数、默认16GB/4线程/512GB spill及其配置来源。当前两份未验收业务测试另有直接`:memory:`连接和`IsolatedDuckDBResource`，仍留待adapter阶段归并，不在I05运行或修改。
+
+| 硬约束 | 本轮落点及测试 |
+| --- | --- |
+| 测试资源集中且延迟构造 | support的`make_confirmed_test_resources`保留原签名及真实Lake根核验，增加DuckDB测试子类对象；只在受限上下文中定义/构造，不在父进程导入业务，不因构造资源而mkdir/连接 |
+| 六项设置必须实际生效 | `connect_confirmed_test_duckdb(*, temp_directory)`只接受显式当前临时路径；配置固定`:memory:`、512MB、2线程、0B spill、自动安装/加载扩展均false。路径检查后仅创建该临时temp；连接后通过`duckdb_settings()`精确读取六项，全部匹配才yield，失败或退出均close |
+| 不把显示单位差异误判成配置错误 | 当前既有DuckDB 1.5.2及I02实测将512MB显示为`488.2 MiB`、0B显示为`0 bytes`；测试侧按这两个已核显示值精确对账，不采用宽范围数值容差。若环境变化导致表示不同，先核验再调整，不能跳过设置校验 |
+| 默认正式入口在副作用前拒绝 | OS自检后、collection前，只在受限子进程替换`resources`及`duckdb_connection`两个模块的统一连接引用为显式拒绝函数；实际默认资源的connect仍执行到这个保护。0个正式默认目录IO、0次原生connect；不是改生产源码或默认资源行为 |
+| 正常连接必须真实，错误必须准确 | 正向用工厂返回的DuckDB子类，读回六项、执行两行虚构VALUES、确认退出后连接关闭且temp无文件。线程1/内存256MB的错误用真实低配连接注入；temp/spill/两项扩展开关错误仅注入真实settings查询后的读回行，不真的开放危险设置。六例必须在yield前报出具体错误字段并关闭连接 |
+| 参数与入口反例 | 临时连接的缺参数、错参数名、正式temp字符串3例均在IO/原生connect前拒绝；默认资源、实际类忽略错误temp参数、两个统一函数引用共4例准确拒绝，路径IO及原生connect均0 |
+| 单批不超16例，不开放任意选择 | runner把已存在执行体提取为固定批次函数，顺序执行I03–I04的16例和I05的14例；每批全新随机根、独立受限进程/报告/OS自检。测试节点清单和数量只在runner声明，传给support；不新增CLI选项、不接受任意路径/SQL/pytest参数，不用`-k`挑过失败项。前批失败不启动后批 |
+
+两批沿用§18.13 B的同一父入口和profile白名单，不新增权限、依赖或源码文件。每批启动前展示完整argv、精确根、profile和测试节点；每例30秒、每批60秒、工作区100MiB及fixture1MiB上限不变。I05最多7个串行内存连接，验证查询只读取六个设置及两行虚构值，无业务对象/日期/分区、源请求/分页、Parquet扫描/写入、事件或spill；预计秒级，只留下空temp目录与报告。所有本轮临时根纳入§18.11最终清理。
+
+依据：[DuckDB配置及设置读回](https://duckdb.org/docs/current/configuration/overview)、[Python连接配置](https://duckdb.org/docs/current/clients/python/overview)、[Dagster资源测试](https://docs.dagster.io/guides/build/external-resources/testing-configurable-resources)。DuckDB文档技能包含安装扩展步骤，本轮依管理员禁止安装要求未执行，直接查阅官方文档和现有I02证据；没有安装/升级或自动下载授权。
+
+没有新增业务拍板项；若遇到额外权限、库能力或正式边界冲突，立即停止，不临场放宽。以下实际结果只覆盖本节，不把隔离验收扩大为业务验收。
+
+#### B. 实测结果与证据
+
+2026-09-07 18:03（北京时间），按§18.13 B固定父入口一次运行两个固定批次。I03–I04收集并通过16/16，I05收集并通过14/14；没有跳过、xfail或失败后放宽重试。两个子进程都先通过原生正向及7项拒绝自检，退出码0、stderr空、无超时/空间/输出限制触发；禁止哨兵的文件身份和内容前后相同。
+
+| 批次 | 结果与关键证据 | 整批耗时 / 现场占用 |
+| --- | --- | --- |
+| I03–I04回归 | 16/16；新增DuckDB资源和默认入口拒绝保护未破坏原有根校验、输入路径和零探针断言 | 1,234毫秒 / 92KiB |
+| I05正常连接 | 工厂返回真实DuckDBResource子类；六项实际设置全部一致，两行VALUES准确读回，退出后查询报连接已关闭，temp为空 | I05共923毫秒 / 60KiB；pytest用例本体0.10秒，不把启动开销漏掉 |
+| I05设置错误6例 | 线程/内存的实际低配连接，以及其他四项明确标记的读回故障，均报出对应字段；没有yield给调用方，底层7个连接（含正向）均关闭，7个temp目录均无文件 | 纳入上述I05批次 |
+| I05参数错误3例、正式入口4例 | 缺参数/错参数/正式temp，以及真实默认资源、被忽略的错误配置参数、两个统一函数入口，均准确拒绝；stat/lstat/mkdir/open和原生connect调用均0 | 纳入上述I05批次 |
+
+正常连接实际值：`memory_limit=488.2 MiB`、`threads=2`、`max_temp_directory_size=0 bytes`、`temp_directory=/private/tmp/stock-suspend-isolated-_jxmnpwc/allowed/duckdb-temp`、两项扩展自动安装/加载均`false`。实际使用既有DuckDB 1.5.2，没有安装或升级。8条Dagster/Pydantic弃用警告来自默认空字段资源触发既有`pydantic_compat_layer.py:74`的`__fields__`读取；已核当前源码，保留警告，不改或升级共享库。
+
+报告：[I03–I04回归](/private/tmp/stock-suspend-isolated-owijtk9c/allowed/resource-result.json)、[I05验收](/private/tmp/stock-suspend-isolated-_jxmnpwc/allowed/resource-result.json)。两份报告包含完整argv、策略、源码哈希、逐例原因与调用计数、禁止区前后清单。对应策略SHA256分别为`871fe9ceb9f0e5eeba9664b2cf03b1f1c409ac19796bd897f2c94254a684054e`、`72bc81efcd6726aa543a8964a0f97d6ba3c2b17f134d0aa49d9ff7477ae5481e`；除各自随机根字符串外，与§18.14通过的策略逐字一致，源码读取白名单不变。
+
+本轮验收源码SHA256：
+
+- `stock_suspend_confirmed_test_runner.py`：`d217f498ab39801b4f7f38bdd802adc62ba14afbea5233f33f4a5eaa89665831`
+- `stock_suspend_confirmed_test_support.py`：`2ae30dce3542e21785078051a097d7684766e38e4c4510f084b2595385917db6`
+- `test_stock_suspend_confirmed_isolation.py`：`145440bc0be40c7d4e6cc0b6e6e570d96fce4b8965837cf41686db60b1729332`
+
+验收后再次比对上述源码与报告哈希一致；既有业务源码差异及五份未跟踪专项文件的哈希保持不变。本轮只改三份测试文件和LLD/技术方案/索引；CodeGraph `explore/impact`覆盖共享连接、真实资源与测试工厂，`sync/status`确认最新，不改变子系统边界或依赖矩阵。没有运行正式Definitions加载、实际checks/业务测试、文件发布或sensor恢复；没有创建DG实例、SQLite数据库或Parquet文件，没有依赖安装/自动下载。两处新增现场纳入§18.11最终精确清理，本轮不提前删除证据。
+
+交付检查：orchestrator全量`src/tests`的Ruff致命错误基线及三份测试文件的默认Ruff均通过；文档完整性三项、三份文档315个本地链接及17个显式锚点、围栏和`git diff --check`均通过。补充链接校验首次把`:行号`当成路径的一部分而报错，修正校验器解析后通过，没有为此改动源链接或放宽文件存在性要求。
+
+验收分项：文档/静态检查通过；隔离I01–I05通过；I06–I08、实际adapter、S1实现/合成全套回归、S2生产批准集合及S2全范围等价仍未完成。下一步仅I06：临时实例身份、默认实例发现拒绝及网络/Unix socket隔离，仍限本机虚构端点与临时实例，不安装套件，不操作正式实例；本轮不自动启动。I05增量未提交、未推送。
