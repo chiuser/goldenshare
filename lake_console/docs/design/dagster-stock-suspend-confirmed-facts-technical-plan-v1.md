@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成；2026-09-07依据代码审计修订LLD及本文，见LLD §14.1。S1部分代码仍未验收，隔离启动失败尚未解决，本轮只改文档、不恢复实施。生产4,022行批准集合的C01/C05明确在S2验收；小样本通过不能替代。正式文件/事件、切换、删除仍分别授权，指定Silver sensor未自行恢复。历史事故与启动证据见LLD §17/§18.7。**
+状态：**S0已完成；六项审计修订已提交为 a0361fc4。管理员批准根目录精确只读例外后，2026-09-07 15:50 单次I01能力预检通过，启动与11类权限拒绝证据见LLD §18.9。I02–I08、实际adapter和S1全套回归仍未验收；生产4,022行批准集合的C01/C05仍在S2。正式文件/事件、切换、删除分别授权，指定Silver sensor未自行恢复。**
 
 首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
 
@@ -448,3 +448,7 @@ CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为�
 前序启动阻塞记录（2026-09-06）：§18安全方案曾提交，用户随后要求继续推进。2026-09-06 23:10:38（北京时间）首次 I01 能力预检启动返回134；系统诊断显示 Python 在加载阶段 SIGABRT，没有进入虚构文件用例，哨兵前后内容和身份相同。已按门禁停止，没有放宽策略或降级重试，I02–I08 及 C/D 未运行。命令、策略、证据和后续修订门见 [LLD §18.7](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-capability-blocked)。先只读定位必要启动依赖与实际拒绝原因，最小修订策略交管理员确认，再从 I01 重新验收；不能把启动失败推断为系统隔离机制不可用。原字段、合并规则和其他业务范围不变；S2–S5 仍按阶段批准。Silver 自动入口未自行恢复，本次没有业务源码修改、正式资源操作、提交或推送。
 
 2026-09-07文档修订：用户要求先按六项代码审计结论修正LLD。本轮同步资源覆盖、只读初始化、Raw行内日期、生产C01/C05阶段、输入指纹/续跑及schema/content分工；明细和待验证条件统一见[LLD §14.1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#audit-fixes-20260907)。只改文档，没有修业务代码、重跑隔离/业务测试、操作正式数据/事件/调度或提交。下一实施步骤仍先解决并验证隔离启动条件，不能直接进入adapter。
+
+2026-09-07提交后继续诊断：上段文档随后按用户要求提交为 `a0361fc4`。本轮只读比对崩溃记录与相同UUID的本机系统加载器，确认 `boot_boot + 228` 对应只读打开根目录失败的分支，不再停留在笼统的“dyld崩溃”。仅建议为测试策略增加 `(allow file-read* (literal "/"))`，不是允许读取整个文件系统；禁止 `subpath "/"`，并增加根目录FD访问虚构禁止文件的反例。具体边界、可能可见的根目录信息、证据限制和单次预检门禁见[LLD §18.8](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-startup-diagnosis)。该读取例外按原LLD要求等待管理员确认，尚未执行；也不能承诺它已经覆盖全部后续启动依赖。本轮没有修改业务源码、现有隔离策略或正式资源，未提交/推送。
+
+2026-09-07 15:50 获批执行：管理员回复“同意。继续吧”后，在全新虚构目录只执行一次I01，策略仅追加根目录对象的精确读取例外。解释器正常启动，正向操作通过，11类禁止操作均返回权限拒绝，哨兵前后不变，耗时121毫秒。原启动阻塞已经通过实测修正；此结果不是DuckDB/SQLite、网络、pytest或实际资源隔离通过。报告、哈希、预算及下一步I02范围见[LLD §18.9](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-isolation-i01-passed)。本轮没有改业务代码、运行业务测试或操作正式资源；未提交/推送。
