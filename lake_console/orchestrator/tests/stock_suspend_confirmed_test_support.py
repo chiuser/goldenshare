@@ -471,6 +471,12 @@ def run(root_name: str, policy_hash: str, test_name: str, *, batch: str,
             (socket, "create_connection", _reject_test_network),
             (socket, "getaddrinfo", _reject_test_network),
         ):
+            # Only this fixed suite tests the actual unified connection function.
+            # Its explicit temp settings remain inside the OS-enforced test root;
+            # all resource/default aliases and every other suite stay guarded.
+            if (owner is duckdb_connection and scope == "regression"
+                    and Path(test_name) == Path(__file__).with_name("test_duckdb_connection.py")):
+                continue
             guards.enter_context(patch.object(owner, name, replacement))
         plugins = [sys.modules[__name__]]
         if scope in ("adapter", "regression"):

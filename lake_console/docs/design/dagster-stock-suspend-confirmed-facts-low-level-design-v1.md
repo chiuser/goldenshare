@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07
 
-状态：**S0已完成；前序增量已提交`630ba12a`、`4887cfac`，未推送。管理员确认最小日期声明修正后，§18.23完成job/check/readiness/sensor集成：53例测试＋5个既有subtests通过，其中真实job使用实际writer和三个现行最终检查。当前增量未提交；S1的人工CLI、受限连接模式及其余全套回归仍待完成。没有操作正式数据/实例、删除CSV、恢复sensor、安装套件或启动DG服务。S2未执行；临时产物最终按§18.11精确清理。**
+状态：**S0已完成；前序增量已提交`630ba12a`、`4887cfac`、`1f054599`，未推送。§18.23的job/check/readiness/sensor集成已提交；本轮§18.24完成统一连接受限模式，27例测试通过，现有239处调用保持原默认行为。受限连接增量未提交；S1的人工CLI、文件/事件发布及其余全套回归仍待完成。没有操作正式数据/实例、删除CSV、恢复sensor、安装套件或启动DG服务。S2未执行；临时产物最终按§18.11精确清理。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -524,9 +524,9 @@ read-only 命令（含两个发布命令未确认的分支）不得顺便mkdir�
 
 ### 8.2A 连接与实例取得：先分命令，再取得必要资源
 
-代码依据：当前 `defs/duckdb_connection.py::connect_configured_duckdb` 首先调用默认移动盘temp目录的mkdir；`DuckDBResource.connect` 委托它。只换SQL不能使CLI只读。本次选择**在统一入口增加显式受限初始化策略，默认分支不变**，不在bootstrap私建裸连接。
+代码依据：实施前 `defs/duckdb_connection.py::connect_configured_duckdb` 首先调用默认移动盘temp目录的mkdir；`DuckDBResource.connect` 委托它。只换SQL不能使CLI只读。本次选择**在统一入口增加显式受限初始化策略，默认分支不变**，不在bootstrap私建裸连接。该连接策略现已按§18.24实现并通过B06；本节五命令及实例取得仍是后续设计。
 
-目标签名：
+已实现的连接签名：
 
 ```python
 connect_configured_duckdb(
@@ -538,7 +538,7 @@ connect_configured_duckdb(
 | 策略 | 初始化与配置 | 消费者 |
 | --- | --- | --- |
 | managed（默认） | 原mkdir、settings.config、连接校验与关闭行为保持；默认目录/16GB/4线程/512GB spill不变 | 当前全部日常asset/check/sensor/bootstrap与DuckDBResource，不批量改调用方 |
-| existing_no_spill（显式） | 先验证settings指定temp是现存普通目录、无symlink；缺失即失败，不mkdir。连接配置覆写max_temp_directory_size=0B、autoinstall_known_extensions=false、autoload_known_extensions=false；其余设置保持。连接建立后按有效配置读回上述值，不符即关闭并失败 | 仅本专项CLI的五个命令及专项bootstrap验收；不是运营开关，也不等于数据库层禁止任意COPY |
+| existing_no_spill（显式） | settings指定temp必须是无“..”的绝对路径，从根到叶逐级lstat确认已有普通目录、无symlink；缺失即失败，不mkdir。连接配置覆写max_temp_directory_size=0B、autoinstall_known_extensions=false、autoload_known_extensions=false；其余设置保持。连接建立后按有效配置读回上述值，不符即关闭并失败 | 当前只有专项连接验收显式使用；未来本专项CLI五命令使用，不是运营开关，也不等于数据库层禁止任意COPY |
 
 专项CLI固定使用现有统一temp路径作为**仅校验、不创建、不写入**的工作路径，最大内存/线程沿用默认；目录未准备好就报告缺失，不能自建。显式apply也用同一无spill连接；获准的候选/报告/checkpoint写入由命令自己的白名单控制，不通过切回managed取得额外权限。无spill内存不足即停，不自动增内存或借临时目录兜底。
 
@@ -2311,3 +2311,125 @@ writer五批合计8.600秒，SQL四批5.052秒。这是临时小样本总测试�
 ```
 
 当前增量未提交、未推送。没有正式Lake/staging/instance访问、服务重载、sensor恢复、CSV删除或套件安装。下一步是原§8–9的人工CLI/文件与事件发布分离、受限连接模式及B/E验收；继续只在隔离环境实现，正式S2–S5仍分别批准。
+
+<a id="s1-confirmed-restricted-connection"></a>
+
+### 18.24 人工工具受限连接：实施与验收（2026-09-07）
+
+管理员要求“提交修改。继续推进”后，先将§18.23的13份专项文件提交为 `1f054599`，未推送；Wealth改动未纳入。本节推进§8.2A连接部分，不将尚未编写的五命令CLI或文件/事件发布标为完成。
+
+#### A. 配置、影响面与实现约束
+
+CodeGraph `explore`、`impact(connect_configured_duckdb, depth=1)`覆盖统一入口、DuckDBResource、资产、检查、sensor、bootstrap和测试。图中240个受影响符号不是调用次数；以提交`1f054599`的源码AST补齐实参清单：**62份文件、239处直接调用，其中226处无参数、13处传单个settings**，没有额外位置参数、未知关键字或可变实参。下表列全直接调用文件，均不修改调用方式；间接资源调用仍由`DuckDBResource.connect`委托原默认入口，没有前端/API契约变化。
+
+| 硬口径 | 本轮落点 | 反例/保持项 |
+| --- | --- | --- |
+| 默认行为不变 | 仅在`duckdb_connection.py`增加keyword-only `temp_policy`；默认managed保留mkdir→config→连接→原校验→关闭 | 原6例函数体不改；不改默认路径、16GB、4线程、512GB spill及已有settings |
+| 显式受限初始化 | existing_no_spill先lstat从根到叶逐级校验，绝对路径且无“..”、无symlink、全部为已有目录；不resolve穿越链接、不mkdir | 缺失、文件、父目录文件、叶/祖先链接、相对/父级路径均在connect前失败 |
+| 受限设置单点生成 | 只覆写0B spill与两个自动扩展开关为false；其它config保持，冻结settings不变 | 真实连接读回8个设置；受限三项逐个错报、公共temp错报均拒绝且关闭 |
+| 无自动兜底 | 未知policy在目录IO前拒绝；初始化/消费者/OOM失败不重试、不切managed、不增内存 | native connect次数、原异常、连接关闭、temp目录仍空 |
+| 测试不绕过真实入口 | 固定runner只新增`test_duckdb_connection.py`三个批次；support仅对该精确suite不替换被测函数 | 资源默认别名、其它suite的两个默认入口拒绝保持；OS正式路径/网络拒绝不变 |
+| 不扩生产范围 | 无新env/Settings/持久配置或CLI性能开关；策略为内部函数参数，未来五命令显式选择 | 本轮没有正式连接、instance、事件、Parquet、源请求、COPY、发布或删除 |
+
+配置来源/生效：`temp_policy`只存在统一连接函数参数、默认managed、单次连接生效、不持久化；有效设置由同文件生成并读回，供今后CLI输出。当前仅新增测试显式采用受限模式，生产调用方全部保持managed。shared默认校验函数体不变，没有顺带收紧历史消费者的memory/spill校验。
+
+预算：原6例保留1GB内存/1GB spill的已有设置测试；新例512MB/2线程/0spill。OOM反例仅1MB：原计划初始化后尝试不超过20,000行、约2.6MB字符串数据，实测初始化设置查询已经OOM，最终直接验收这个真实失败点，不提高预算也不生成样本表。单批6/8/13例，沿用case30秒、batch60秒、workspace100MiB、stdout/stderr各64KiB；预计每批低于5秒。无业务日期/分区/源分页/文件扫描/实例存储/提交事务。临时根仅本次allowed；全部产物纳入§18.11最终清理，无新安装。
+
+#### B. 实施前完整直接调用方清单
+
+行号固定对应`1f054599`；路径相对orchestrator工程。13处显式settings中11处为正式代码、2处为原连接测试；其他业务settings来源均是现有内存/线程策略或上层明确传入，不因新增默认参数改变。
+
+| 文件 | 调用数 | 显式settings实参 |
+| --- | --- | --- |
+| `src/orchestrator/defs/asset_guards/stk_mins_stock_universe.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/adj_factor.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/calendar.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/clickhouse_serving.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/dc_industry_hierarchy.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/index_basic.py` | 2 | 无，原默认 |
+| `src/orchestrator/defs/assets/index_mins.py` | 3 | 无，原默认 |
+| `src/orchestrator/defs/assets/index_mins_silver.py` | 2 | 无，原默认 |
+| `src/orchestrator/defs/assets/index_mins_silver_repair.py` | 2 | 无，原默认 |
+| `src/orchestrator/defs/assets/market_breadth.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/market_major_indices.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/namechange.py` | 2 | 无，原默认 |
+| `src/orchestrator/defs/assets/stk_mins.py` | 9 | 无，原默认 |
+| `src/orchestrator/defs/assets/stock_basic.py` | 2 | 无，原默认 |
+| `src/orchestrator/defs/assets/stock_daily.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/stock_identity_map.py` | 3 | 无，原默认 |
+| `src/orchestrator/defs/assets/stock_return_distribution.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/assets/suspend_d.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/cn_a_minute_gold_p9_events.py` | 3 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/etf_mins_raw_decision.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/historical_materialization_reconciliation.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/major_index_nineturn_events.py` | 1 | 560: `connect_configured_duckdb(settings)` |
+| `src/orchestrator/defs/bootstrap/major_index_nineturn_history.py` | 2 | 139: `connect_configured_duckdb(settings)`；350: `connect_configured_duckdb(settings)` |
+| `src/orchestrator/defs/bootstrap/major_index_nineturn_history_audit.py` | 1 | 200: `connect_configured_duckdb(settings)` |
+| `src/orchestrator/defs/bootstrap/stk_mins_name_timeline_check_events_cli.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_bootstrap_events.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_derived_bootstrap_events.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_history.py` | 1 | 260: `connect_configured_duckdb(connection_settings)` |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_baseline_events.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_history.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/stk_mins_raw_replace_from_prod.py` | 2 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/stk_mins_silver_bootstrap_events.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/bootstrap/stock_daily_trend_channel_history.py` | 5 | 1033: `connect_configured_duckdb(duckdb_settings)`；1285: `connect_configured_duckdb(duckdb_settings)`；1642: `connect_configured_duckdb(duckdb_settings)`；206: `connect_configured_duckdb(duckdb_settings)`；745: `connect_configured_duckdb(duckdb_settings)` |
+| `src/orchestrator/defs/checks/adj_factor_checks.py` | 14 | 无，原默认 |
+| `src/orchestrator/defs/checks/calendar_checks.py` | 4 | 无，原默认 |
+| `src/orchestrator/defs/checks/clickhouse_serving_checks.py` | 4 | 无，原默认 |
+| `src/orchestrator/defs/checks/dc_industry_hierarchy_checks.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/checks/index_basic_checks.py` | 9 | 无，原默认 |
+| `src/orchestrator/defs/checks/index_daily_checks.py` | 9 | 无，原默认 |
+| `src/orchestrator/defs/checks/market_breadth_checks.py` | 7 | 无，原默认 |
+| `src/orchestrator/defs/checks/market_major_indices_checks.py` | 8 | 无，原默认 |
+| `src/orchestrator/defs/checks/namechange_checks.py` | 18 | 无，原默认 |
+| `src/orchestrator/defs/checks/stk_mins_checks.py` | 20 | 无，原默认 |
+| `src/orchestrator/defs/checks/stk_mins_qfq_macd_kdj_checks.py` | 4 | 无，原默认 |
+| `src/orchestrator/defs/checks/stock_basic_checks.py` | 9 | 无，原默认 |
+| `src/orchestrator/defs/checks/stock_daily_checks.py` | 18 | 无，原默认 |
+| `src/orchestrator/defs/checks/stock_identity_map_checks.py` | 10 | 无，原默认 |
+| `src/orchestrator/defs/checks/stock_return_distribution_checks.py` | 5 | 无，原默认 |
+| `src/orchestrator/defs/checks/suspend_d_checks.py` | 5 | 无，原默认 |
+| `src/orchestrator/defs/resources.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/sensors/gold_major_index_mins_technical_daily_update_job_sensor.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py` | 2 | 无，原默认 |
+| `src/orchestrator/defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py` | 2 | 无，原默认 |
+| `src/orchestrator/defs/sensors/gold_stock_daily_trend_channel_repair_job_sensor.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/sensors/market_major_indices_input_readiness.py` | 1 | 无，原默认 |
+| `src/orchestrator/defs/stk_mins_qfq.py` | 4 | 无，原默认 |
+| `src/orchestrator/defs/stk_mins_qfq_macd_kdj.py` | 1 | 929: `connect_configured_duckdb(duckdb_settings)` |
+| `src/orchestrator/defs/tushare_api_io.py` | 4 | 无，原默认 |
+| `tests/test_batch_readiness_hotpath_performance.py` | 4 | 无，原默认 |
+| `tests/test_duckdb_connection.py` | 2 | 51: `connect_configured_duckdb(settings)`；81: `connect_configured_duckdb(settings)` |
+| `tests/test_market_breadth_lake_readiness.py` | 6 | 无，原默认 |
+| `tests/test_market_major_indices_lake_readiness.py` | 7 | 无，原默认 |
+
+#### C. 验收结果
+
+| 批次 | 有效测试数 | 启动到结束 | 证据目录后缀 |
+| --- | --- | --- | --- |
+| B06-existing-contract | 原6例，函数体AST与`1f054599`完全一致 | 1.195秒 | `e0umk_vt` |
+| B06-paths | 8 | 0.840秒 | `qhpchlrf` |
+| B06-real-settings | 13 | 0.919秒 | `mczqp1r9` |
+
+合计**27例通过**，每批实际完成数与固定清单一致。证据路径为`/private/tmp/stock-suspend-isolated-<后缀>/allowed/resource-result.json`；均无超时/资源中止，原生七项拒绝自检通过，虚构禁止目录前后不变。真实受限连接读回512MB显示值`488.2 MiB`、2线程、0 bytes spill和两个false扩展开关；四种设置错报均关闭真实底层连接，初始化OOM与消费者错误均不重试。原Dagster/Pydantic弃用警告保留，未安装或升级依赖。
+
+失败记录如实保留：首次收集因新测试使用`tests.stock_suspend_confirmed_test_support`另载了一份未初始化模块而被提前保护拒绝，0例执行；改成runner既有的唯一模块名后恢复。第二次原6例与路径8例通过，但OOM测试错误地假设1MB足够初始化；实际在统一入口的设置查询阶段OOM。最终改为捕获这一真实初始化失败、验证实际连接已关闭/只尝试一次/设置未放宽，不修改业务实现、不增加权限或内存。第三次三批全部通过；不把中间重复通过例数累加。
+
+静态对账：原6例测试、公共`_validate_connection_settings`函数体AST不变，`DuckDBResource`及全部既有生产调用方未修改。隔离策略渲染与`1f054599`逐字比较：isolation/adapter完全一致，regression只增加本测试文件的精确读取，没有新增目录子树/写入/网络权限。4份Python完整Ruff、全src/tests致命错误基线通过；文档和diff检查交付前复验。未在本轮重复执行所有消费者、C/D/M/W/R/G/E测试，不能将历史通过计作本轮全套验收。
+
+#### D. 收尾与下一步
+
+本轮7个精确临时根全部纳入§18.11最终删除清单（含两次失败与中间通过现场）；没有创建DG实例、SQLite库、服务或正式数据，当前不提前删除验收证据：
+
+```text
+/private/tmp/stock-suspend-isolated-4e0tqs1g
+/private/tmp/stock-suspend-isolated-xutgafdm
+/private/tmp/stock-suspend-isolated-3xldpwdk
+/private/tmp/stock-suspend-isolated-8lw05icw
+/private/tmp/stock-suspend-isolated-e0umk_vt
+/private/tmp/stock-suspend-isolated-qhpchlrf
+/private/tmp/stock-suspend-isolated-mczqp1r9
+```
+
+本轮7份专项文件：统一连接、原连接测试、runner/support，以及本LLD、技术方案、主索引；技能要求使受限策略保持显式、测试不触正式资源、方案状态同步。无子系统边界、依赖矩阵变化；Wealth工作未修改。增量未提交、未推送。下一步实现§8冻结计划读取、有界compare、单文件发布和专用CLI，再接§9事件对账；两条发布链仍分开，正式S2–S5分别批准。B06通过不表示五命令CLI、实例只读取得或整个S1完成；没有新增需要管理员拍板的业务项。

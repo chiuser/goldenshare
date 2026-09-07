@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import duckdb
-
 
 DEFAULT_DUCKDB_TEMP_DIRECTORY = Path("/Volumes/datasource/.goldenshare_duckdb_tmp")
 DEFAULT_DUCKDB_MAX_TEMP_DIRECTORY_SIZE = "512GB"
@@ -47,14 +48,73 @@ DEFAULT_DUCKDB_CONNECTION_SETTINGS = DuckDBConnectionSettings()
 @contextmanager
 def connect_configured_duckdb(
     settings: DuckDBConnectionSettings = DEFAULT_DUCKDB_CONNECTION_SETTINGS,
+    *,
+    temp_policy: Literal["managed", "existing_no_spill"] = "managed",
 ) -> Iterator[duckdb.DuckDBPyConnection]:
-    settings.temp_directory.mkdir(parents=True, exist_ok=True)
-    connection = duckdb.connect(database=":memory:", config=settings.config())
+    """Open the shared connection; restricted callers must opt in explicitly.
+
+    The restricted policy prevents implicit temp-directory creation, disk spill
+    and automatic extensions. It does not prohibit explicit SQL file writes.
+    """
+    if temp_policy == "managed":
+        settings.temp_directory.mkdir(parents=True, exist_ok=True)
+        config = settings.config()
+    elif temp_policy == "existing_no_spill":
+        _validate_existing_temp_directory(settings.temp_directory)
+        config = {
+            **settings.config(),
+            "max_temp_directory_size": "0B",
+            "autoinstall_known_extensions": "false",
+            "autoload_known_extensions": "false",
+        }
+    else:
+        raise ValueError(f"Unknown DuckDB temp policy: {temp_policy!r}.")
+    connection = duckdb.connect(database=":memory:", config=config)
     try:
         _validate_connection_settings(connection, settings)
+        if temp_policy == "existing_no_spill":
+            _validate_no_spill_settings(connection)
         yield connection
     finally:
         connection.close()
+
+
+def _validate_existing_temp_directory(directory: Path) -> None:
+    if not directory.is_absolute() or ".." in directory.parts:
+        raise ValueError("DuckDB existing temp directory must be an absolute path without '..'.")
+    # Check ancestors before the leaf; never resolve through a symbolic link.
+    for part in (*reversed(directory.parents), directory):
+        mode = part.lstat().st_mode
+        if stat.S_ISLNK(mode):
+            raise ValueError(f"DuckDB temp directory cannot contain a symlink: {part}.")
+        if not stat.S_ISDIR(mode):
+            raise NotADirectoryError(str(part))
+
+
+def _validate_no_spill_settings(connection: duckdb.DuckDBPyConnection) -> None:
+    current_settings = dict(
+        connection.execute(
+            """
+            SELECT name, value FROM duckdb_settings()
+            WHERE name IN (
+              'max_temp_directory_size',
+              'autoinstall_known_extensions',
+              'autoload_known_extensions'
+            )
+            """
+        ).fetchall()
+    )
+    expected = {
+        "max_temp_directory_size": "0 bytes",
+        "autoinstall_known_extensions": "false",
+        "autoload_known_extensions": "false",
+    }
+    for name, value in expected.items():
+        if current_settings.get(name) != value:
+            raise RuntimeError(
+                f"DuckDB restricted setting {name!r} was not applied: "
+                f"expected {value!r}, got {current_settings.get(name)!r}."
+            )
 
 
 def _validate_connection_settings(

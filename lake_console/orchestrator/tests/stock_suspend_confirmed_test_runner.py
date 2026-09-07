@@ -105,6 +105,29 @@ INTEGRATION_SOURCE_FILES = (
     "defs/run_contracts/sensor_tags.py",
 )
 REGRESSION_SUITES = {
+    "test_duckdb_connection.py": (
+        ("B06-existing-contract", 6, (
+            "DuckDBConnectionTests::test_default_settings_are_fixed_contract",
+            "DuckDBConnectionTests::test_connect_configured_duckdb_applies_runtime_settings",
+            "DuckDBConnectionTests::test_connect_configured_duckdb_rejects_invalid_temp_directory",
+            "DuckDBConnectionTests::test_duckdb_resource_uses_configured_connection",
+            "DuckDBConnectionTests::test_duckdb_resource_exits_connection_on_consumer_error",
+            "DuckDBConnectionTests::test_duckdb_resource_propagates_connection_factory_error",
+        )),
+        ("B06-paths", 8, (
+            "test_existing_no_spill_rejects_paths_before_connect",
+            "test_unknown_policy_rejected_before_any_path_io",
+        )),
+        ("B06-real-settings", 13, (
+            "test_existing_no_spill_uses_real_connection_without_directory_writes",
+            "test_explicit_managed_preserves_config_and_creates_directory",
+            "test_real_connection_closed_on_consumer_error",
+            "test_setting_mismatch_closes_real_connection_without_fallback",
+            "test_invalid_settings_do_not_connect",
+            "test_memory_exhaustion_does_not_enable_spill_or_retry",
+            "test_connection_failure_propagates_without_retry",
+        )),
+    ),
     "test_suspend_d_sensor.py": (
         ("R-existing-contract", 8, (
             "SuspendDSensorTests::test_job_and_sensor_names_follow_split_rule",
