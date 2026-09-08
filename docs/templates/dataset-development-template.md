@@ -2,12 +2,14 @@
 
 > 使用说明：
 > - 写数据集开发文档之前，必须先阅读仓库根目录 `AGENTS.md`，确认当前硬约束和禁止项。
-> - 每新增一个数据集，先复制本模板生成独立文档，放在 `docs/datasets/` 目录。
+> - 适用范围：通过 `DatasetDefinition / Ingestion / Ops TaskRun` 主线开发的 Prod 数据集；本模板不是所有数据集链路的通用模板。
+> - 本地 DG / Dagster 数据湖链路使用 [Dagster 数据集资产接入综合模板](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html) 及其目录规则，不套用本模板的 ORM、Alembic、TaskRun 等整套要求；不只是免填 0.3.5。
+> - 每新增一个适用范围内的数据集，先复制本模板生成独立文档，放在 `docs/datasets/` 目录。
 > - 文档命名建议：`<dataset-key>-dataset-development.md`。
 > - 未完成本文档，不得进入编码、发版或远程同步。
 > - 本模板以当前新架构为准：数据集事实源是 `DatasetDefinition`，执行主链是 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor`，任务观测主链是 Ops TaskRun。
 > - 只有目标为 Prod 数据集的任务，预计或实测超过 60 秒，或执行规模会随日期、对象、分页、分区持续增长且无法静态约束时，才必须同时完成 0.3.5；数据湖、Dagster、DuckDB／Parquet 数据集任务不适用 0.3.5，遵守其自身专项规则。
-> - 如果本数据集还要接入 Dagster sensor，必须同时使用 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 的 sensor cursor 规范；本模板不允许为 Dagster sensor 另起一套 cursor 字段。
+> - 同一需求同时涉及两条链路时，分别使用对应模板并相互引用；本模板说明 Prod 主线及交接边界，Dagster 侧设计遵守其接入模板。涉及 Dagster sensor 的 cursor 仍以该模板为准，不在这里另起一套字段。
 
 ---
 
@@ -216,7 +218,7 @@
 - 数据集 key：
 - 中文显示名：
 - 所属定义文件：`src/foundation/datasets/definitions/<domain>.py`
-- 所属域：`reference_master` / `market_equity` / `market_fund` / `index_series` / `board_hotspot` / `moneyflow` / `low_frequency` / 其他（新增域需先评审）
+- 所属域：填写当前 `DatasetDefinition.domain.domain_key`，以 [definitions 注册入口](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/__init__.py) 中实际注册的定义为准，并与 [领域校验矩阵](/Users/congming/github/goldenshare/tests/architecture/test_dataset_runtime_registry_guardrails.py) 核对；本模板不重复维护领域枚举，新增域仍须先评审。
   - 说明：这里是 `DatasetDefinition.domain` 的底层领域事实，不等于前端或 Ops 的用户可见展示分组。
 - 数据源：`tushare` / `biying` / 其他
 - 源站 API 名称：
@@ -829,7 +831,8 @@
 - 后端输出结构化 token，Ops 层负责转换为用户可读展示。
 - 不得在前端按 dataset_key 写专用文案分支。
 - 进度只能在业务持久化边界完成后增加，且必须单调；心跳和当前阶段不能冒充已完成量。
-- 若复用现有 ETA 页面能力，ETA 由浏览器按 10 秒样本窗口从已提交 unit 进度推算；样本不足或速度不稳定时显示“暂无法估算”。
+- 当前 ETA 页面每 10 秒采样，以相邻两次 `unit_done` 增量及实际间隔估算剩余时间；首次采样、节点或总量变化、进度回退时重新预热。总量无效、采样间隔无效或没有新增完成 unit 时不估算。
+- 预热时页面显示“正在计算”，无法估算时显示“暂不可估算”。当前实现没有速度波动判定，不能把它描述成已有能力；ETA 可靠性要求仍需按本数据集验证，不因复用页面而自动视为满足。实现与测试见 [ETA 计算](/Users/congming/github/goldenshare/frontend/src/pages/ops-task-detail-eta.ts)、[ETA 测试](/Users/congming/github/goldenshare/frontend/src/pages/ops-task-detail-eta.test.ts) 和 [任务详情页](/Users/congming/github/goldenshare/frontend/src/pages/ops-task-detail-page.tsx)。
 
 ### 7.4 数据状态、数据源卡片与 freshness
 
