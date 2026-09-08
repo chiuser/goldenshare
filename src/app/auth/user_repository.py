@@ -32,31 +32,6 @@ class UserRepository:
         rows = list(session.scalars(stmt))
         return rows, int(total or 0)
 
-    def create_user(
-        self,
-        session: Session,
-        *,
-        username: str,
-        password_hash: str,
-        display_name: str | None = None,
-        email: str | None = None,
-        account_state: str = "active",
-        is_admin: bool = False,
-        is_active: bool = True,
-    ) -> AppUser:
-        user = AppUser(
-            username=username,
-            password_hash=password_hash,
-            display_name=display_name,
-            email=email,
-            account_state=account_state,
-            is_admin=is_admin,
-            is_active=is_active,
-        )
-        session.add(user)
-        session.flush()
-        return user
-
     def update_last_login(self, session: Session, user: AppUser, ts: datetime) -> AppUser:
         user.last_login_at = ts
         session.flush()

@@ -14,7 +14,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 from fastapi import FastAPI
-from sqlalchemy import create_engine, insert
+from sqlalchemy import create_engine, insert, text
 from sqlalchemy.orm import Session
 
 from src.app.auth.jwt_service import JWTService
@@ -26,7 +26,6 @@ from src.app.models.auth_role_permission import AuthRolePermission
 from src.app.models.auth_permission import AuthPermission
 from src.app.models.auth_user_role import AuthUserRole
 from src.biz.api.wealth.market import watchlist
-from src.biz.models.wealth.watchlist_item import WealthWatchlistItem
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
@@ -207,7 +206,19 @@ def seed_watchlist_fixture(engine):
                 for i in range(1, counts.get(owner, 200) + 1)
             ]
             if rows:
-                connection.execute(insert(WealthWatchlistItem), rows)
+                connection.execute(
+                    text(
+                        "INSERT INTO app.wealth_watchlist_item(user_id,ts_code) VALUES (:user_id,:ts_code)"
+                    ),
+                    rows,
+                )
+        migration = (
+            ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
+            .get_revision("20260907_000170")
+            .module
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
         connection.exec_driver_sql("ANALYZE")
 
 

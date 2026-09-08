@@ -1,6 +1,6 @@
 # 财势乾坤｜我的自选分组能力低层设计 v2（LLD）
 
-> 状态：两轮修订已确认；开发准入两项已处理（名称依赖准入、搜索合同勘误）；尚未进入业务代码、数据库迁移、部署或功能验收
+> 状态：第一阶段后端已实现，开发自测与边界见第 22 节，待用户阶段验收；前端未开发，未提交、未部署、未迁移正式数据库
 >
 > 日期：2026-09-08（初稿 2026-09-07）
 >
@@ -26,7 +26,7 @@
 6. 游标是无签名、版本化、严格校验的 base64url JSON。它不是授权凭证；资源所有权始终由认证用户和 group 条件校验。
 7. 所有批量写、详情页最终集合替换和删除分组均为单事务；提交前构造完整 DTO，提交后不回读。数据库修改保持原子性；明确回滚、结果未知、成功后刷新失败分别处理，不能混为一类错误。
 8. 首页 `summary` 路径与响应不变，只统计默认组。`useWatchlistSummary`、首页入口和 `MarketShortcutBar` 不需要重写。
-9. 用户已确认两轮修订及开发准入两项处理，逐项回填见第 21.1～21.3 节；本次仅处理文档、名称依赖安装/锁定和验证样本，不提交、不进入业务编码。获得后续开发授权后按第 18 节三个完整阶段推进。
+9. 用户已确认两轮修订及开发准入两项处理，逐项回填见第 21.1～21.3 节；随后授权按第 18 节推进第一阶段后端。当前实现及验证见第 22 节；不自动进入前端、不提交、不执行生产操作。
 
 初稿代码审计事实快照（2026-09-07；不是本次修订时的 HEAD）：
 
@@ -40,6 +40,8 @@
 | 初稿及前两轮修订范围 | watchlist 文档、相关索引与异常码注册表；本次新增依赖准入结果另见第 21.3 节 |
 
 ## 1. 当前代码审计与影响面
+
+本节保留开发前的审计快照，不把已删除的 v1 文件或创建方法当成当前实现。第 22 节记录本次替换后的代码及消费者边界。
 
 ### 1.1 审计方法
 
@@ -322,13 +324,15 @@ class WealthWatchlistMembership(TimestampMixin, Base):
 
 ### 5.1 Revision 门禁
 
-当前真实 head 是 `20260903_000169`。开发开始时必须再次执行：
+初稿记录的 head 是 `20260903_000169`。开发开始时必须再次执行：
 
 ```bash
 alembic heads
 ```
 
 若 head 仍为 `20260903_000169`，候选 revision 可使用 `20260907_000170`；若已经变化，文件名、`revision` 和 `down_revision` 必须连接当时真实单 head，禁止沿用本文候选值。
+
+第一阶段实际执行：编码前仍为单 head `20260903_000169`，已新增 `20260907_000170_upgrade_wealth_watchlist_groups.py`；编码后单 head 为 `20260907_000170`。仅在新建临时 PostgreSQL 执行迁移，无正式数据库变更。
 
 ### 5.2 Upgrade 顺序
 
@@ -1341,10 +1345,10 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 |---|---|---|
 | 产品需求 | 已确认 | 保持 v2.6 的加入顺序、资格及一致性边界 |
 | 交互/Figma | 已确认 | 节点 `1383:82` 及 comment 修订有效 |
-| 技术方案 | 两轮修订及准入勘误已回填 | v2.4 与本文一致 |
-| LLD | 两轮修订及准入勘误已回填 | v2.3；后续业务开发须另获明确授权 |
-| 名称分段依赖 | 本机准入已完成 | regex 已安装锁定，51 个跨运行时样本通过；正式模块测试在开发阶段补齐 |
-| Alembic head | 当前已核验 | 编码迁移前再次核验 |
+| 技术方案 | 第一阶段状态已回填 | v2.5 与本文一致 |
+| LLD | 第一阶段后端已获授权并实现 | v2.4；开发自测与阶段边界见第 22 节 |
+| 名称分段依赖 | 本机准入与正式后端测试通过 | 共享 JSON 已接入 Policy、SQLite 和 PostgreSQL 测试；前端模块回归在阶段二执行 |
+| Alembic head | 编码前后均已核验 | 实际链为 20260903_000169 → 20260907_000170 |
 | 当前代码/消费者 | 已审计 | 开发开始前 CodeGraph 状态无 stale |
 | 数据库/部署授权 | 未授权 | 本期开发不等于生产迁移授权 |
 
@@ -1496,7 +1500,94 @@ npm --prefix wealth run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v2.4 | 2026-09-08 | 回填第一阶段后端逐条实现与开发自测、实际迁移 revision、回归跳过项及用户追加授权的 Ops 测试基线修正；不改变产品合同 | Codex |
 | v2.3 | 2026-09-08 | 完成 regex 本机准入和 51 例跨运行时验证，新增共享名称样本；明确搜索 groupId 必填/匹配与 generation 双重检查 | 用户 / Codex |
 | v2.2 | 2026-09-08 | 回填复审七项：统一新增关系资格与插入路径，补齐单股添加链路，冻结严格安全整数及分页边界，删除重复名称字段和写状态 | 用户 / Codex |
 | v2.1 | 2026-09-08 | 回填用户确认的十项修订，同步 ID 排序/游标、名称算法与存储、锁/写结果、前端状态、三阶段和逐项验证门禁 | 用户 / Codex |
 | v2 | 2026-09-07 | 初稿：基于当前代码、CodeGraph 影响面、PRD/交互和技术方案形成低层设计；当时的五 Slice 安排由 v2.1 三阶段替代 | Codex |
+
+## 22. 第一阶段后端实现与开发自测（2026-09-08）
+
+### 22.1 范围与当前事实
+
+本轮依据技术方案 v2.4、LLD v2.3 及用户确认的第一阶段计划实施；上文 v2.5/v2.4 版本更新仅回填交付事实，不改变产品合同。
+
+1. 在原 `dev-interface` 工作区开发，未创建分支或 worktree，未提交、推送或部署；用户原有 Lake、交易助手等无关脏文件保留。
+2. 第 3.1 节的后端替换已落地：两个新模型、GroupQuery/ItemQuery、Policy/Cursor/Initializer、Query/Command、DTO 和 15 个路由；App 只做用户开通组合与模型登记。
+3. 旧 `watchlist_item.py`、`watchlist_query.py` 和 `UserRepository.create_user()` 已删除。精确搜索 `src`/`tests` 未发现旧 ORM/Query/仓储创建方法调用。历史迁移及隔离迁移种子中的旧表 SQL 保留，用于一次性转换与对账，不是运行时兼容层。
+4. 新迁移为 `20260907_000170_upgrade_wealth_watchlist_groups.py`，接编码前真实单 head `20260903_000169`；编码后 `alembic heads` 仅返回 `20260907_000170`。所有迁移写入仅发生在本任务新建临时 PostgreSQL 集群，不接受已有数据库 URL。
+5. CodeGraph 已使用 explore、callers、impact、status 分析 watchlist 入口、服务、三种用户创建入口、测试与前端消费者；编码后执行 `codegraph sync`、`codegraph status`，索引无 stale。精确 import、SQL 和路由搜索补充核验动态装配。
+6. 未修改 Foundation、Ops、QTF、Lake、行情来源、配置或依赖矩阵；未新增缓存、签名配置、兼容 API。App → Biz 的 provisioning 组合遵守既有边界，三个架构护栏已执行。
+7. 用户另行授权修正 `tests/web/test_ops_catalog_api.py` 的无关历史测试基线：原固定 98 项断言落后于已存在的板块分析单日生成动作。改为明确断言“单日生成可调度、历史回补不可调度”，保留全部 catalog 条目的能力/开关一致性检查；未修改 Ops 功能或目录数据。
+
+### 22.2 硬口径、实现与测试对账
+
+下表均为已执行测试，不把前端待开发项列为后端通过。测试名称位于表内指定文件；一行可能对应参数化正反例集合。
+
+| LLD 硬口径 | 实现落点 | 正向及反向测试证据 |
+|---|---|---|
+| §2/4 默认组唯一、无色、身份合法、默认不可改删 | Group 部分唯一索引/identity CHECK；Command `_mutable`；无改名路由 | `test_wealth_watchlist_model.py::test_group_constraint_rejections`；API `test_groups_rules_constraints_and_delete_neighbors`、`test_old_contracts_and_rename_routes_are_absent` |
+| §4 跨组允许、同组唯一；用户/组级联；ID 不复用 | Group/Membership FK、唯一约束、SQLite autoincrement | 模型 `test_cross_group_members_and_user_cascade_id_nonreuse`、`test_group_id_is_not_reused`；PG `test_postgres_user_delete_cascades_groups_and_members` |
+| §5 先建组、回填默认、迁移全部 ID/时间、校准 sequence、对账后删旧表 | 000170 的 `upgrade/_reconcile/_sequence/_check_defaults` | PG `test_migrated_schema_defaults_and_sequence`、`test_isolated_migration_roundtrip_and_abort`：空用户、无自选用户、ID 跳号/时间倒序/同时间、超界整次回滚 |
+| §5 downgrade 无损门禁 | 000170 `downgrade` | PG `test_downgrade_refuses_v2_facts`：custom 与 pin 分别使用独立初始集群验证；无 v2 事实的 roundtrip 保留全部字段 |
+| §6 三个入口用户与默认组同事务；不保留仓储创建旁路 | UserProvisioningService → WatchlistGroupInitializer；注册/管理员/CLI 调用 | 真实注册 `test_register_public_verify_and_refresh_flow`、管理员 `test_admin_user_management_flow` 均查到唯一默认组；provisioning 测试覆盖 CLI 成功、初始化/角色/audit/明确提交故障及 rollback/close 后无半套数据 |
+| §7 名称 NFC、指定 trim、1～6 字素、1024 字节、禁名/用户内重名 | Policy `normalize_group_name`，Text 存储 | 模型 `test_shared_name_vectors` 直接读取共享 JSON，`test_exact_trim_codepoints`、`test_name_bytes_and_normalization_conflict`；PG `test_shared_name_vectors_are_stored_exactly_in_postgres` 含 1023 字节组合字符；API NFC 冲突测试 |
+| §7/8 严格安全整数、extra forbid、分页/批量上限、重复拒绝 | ApiId/SafeCount、请求 DTO、Policy、URL `_integer` | 模型 ID 边界测试；API `test_json_ids_are_strict`、`test_invalid_batch_size_or_duplicate`、`test_invalid_page_inputs`、`test_allocated_unsafe_id_is_server_failure_and_rolls_back` |
+| §8 全部 15 个 method/path，鉴权与旧 5 个接口清退 | `src/biz/api/wealth/market/watchlist.py`，保留原 router 装配和 summary | API `test_all_fifteen_routes_require_identity`；分组/生命周期/搜索/详情/summary 正向测试；`test_old_contracts_and_rename_routes_are_absent` 验证旧接口 404/405 |
+| §9 默认组首位、真实 counts/rules；summary 仅默认；搜索当前组；归属 selected/isAdded | GroupQuery、QueryService、现有 StockSearchPolicy/Query | API `test_groups_rules_constraints_and_delete_neighbors`、`test_batch_lifecycle_counts_marks_and_detail_diff`、`test_search_eligibility_and_only_new_relations_recheck` |
+| §9 空组上下文完整且不查行情；默认组缺失不补建；v1 同日/缺失语义保留 | QueryService、ItemQuery 同日 JOIN、FieldMapper | API `test_empty_no_quote_sql_and_missing_default_is_error`、`test_same_day_fields_zero_missing_and_delayed` |
+| §9 多组颜色按组 ID、默认无色、同色不合并；有界集合查询 | ItemQuery `group_marks` | API 生命周期颜色断言；PG `test_real_api_payload_timings_and_no_n_plus_one` 比较 1/200 行 SQL 数 |
+| §10 八列双向、置顶优先、NULL 恒后、同值稳定、先排序再分页 | WatchlistSortSpec 的 ORDER BY、cursor、seek 共用同一排序定义 | API `test_all_sort_fields_pin_null_ties_and_seek`：默认及八列双向、pin 两区、同值/NULL/零值/负值、逐页无重复遗漏，时间逆序不影响 ID 顺序 |
+| §10 游标 exact keys/类型/版本/上下文/Decimal，拒绝非法输入 | WatchlistCursor | 模型 `test_cursor_rejects_invalid_fields`、`test_cursor_rejects_invalid_json_shape`、`test_cursor_binds_all_context`、`test_cursor_roundtrip_keeps_decimal_and_safe_id_precision`；API 损坏和跨组/排序反例 |
+| §10 不承诺跨请求快照；外部变更后刷新首批 | 仅 seek，不存快照/分页缓存 | API `test_cursor_context_and_external_pin_refresh_boundary`、`test_same_day_quote_change_needs_first_page_refresh` |
+| §11 建组/删组/详情先锁默认，其他多组锁按 ID；上限与 nextGroupId 在锁内计算 | GroupQuery 锁方法；Command 创建/删除/批量/diff | PG 并发创建上限/同名、`test_delete_reads_group_list_after_waiting_for_default_lock`、`test_opposing_moves_lock_groups_in_the_same_order` |
+| §11 选中成员任一 stale 则全批不动；目标所有权隔离 | Command batch 的 owned group + membership 锁与数量校验 | API `test_isolation_and_stale_selection`；PG `test_maximum_batch_real_counts_order_and_atomic_stale` |
+| §7/11 仅实际缺失关系复检资格，一次集合查询；不合格全批失败 | `_validate_eligible`、ItemQuery `load_eligible_ts_codes` | API `test_search_eligibility_and_only_new_relations_recheck`、`test_existing_target_keeps_id_pin_when_delisted_move`、`test_batch_mixed_eligibility_is_checked_once_and_is_atomic` |
+| §11 所有新增共享 helper，只忽略组内股票唯一冲突；新增 ID 顺序固定 | `_insert_missing_memberships`；组 ID × 源成员 ID 有序分配 | 模型 `test_sqlite_insert_helper_only_ignores_membership_uniqueness`；PG helper FK/NOT NULL 反例、8 并发添加唯一关系、最大批量 1800 条顺序/计数/重复幂等 |
+| §11 move 先补目标再删源，add 保留源，remove 仅本组，pin/unpin 不重建 ID，详情非空 diff 不强加默认 | Command `batch/replace_stock_groups` | API 生命周期/退市保留测试、八列排序/取消置顶测试；PG move 原子故障测试 |
+| §11/15 一次 commit；flush/计数/DTO 提交前完成，提交后零 SQL；明确失败与结果未知区分 | Command `_write` 与预构造响应 | PG `test_postcommit_sql_is_zero_for_every_write`、`test_mid_move_failure_and_dto_failure_rollback_real_database`、`test_move_sql_or_confirmed_commit_rejection_is_atomic`、`test_committed_but_response_lost_returns_unknown_without_replay` |
+| §15 13 个 WL 错误码/HTTP；日志带动作、用户、分组、数量、异常类型，不泄漏凭据 | API `_respond/ERROR_STATUS`；既有 WebAppError handler | 真实路由错误断言及 `test_error_logs_have_context_but_no_credentials`；500/503 响应不泄漏内部异常内容 |
+
+### 22.3 执行命令与结果
+
+运行时使用已有 `.venv`、已锁定的 regex 与现有 PostgreSQL 18；本阶段没有安装/升级套件。全局 Web 测试使用既有临时 SQLite fixture；FK 级联和 PostgreSQL 锁/事务/迁移另由独立真实数据库测试证明，不把 SQLite 默认关闭外键的 fixture 当成 FK 证据。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -xq -p no:cacheprovider \
+  tests/test_wealth_watchlist_model.py tests/test_wealth_watchlist_postgres.py \
+  tests/web/test_wealth_market_watchlist_api.py tests/web/test_user_provisioning_service.py \
+  tests/web/test_auth_registration_api.py tests/web/test_admin_user_management_api.py \
+  tests/web/test_user_repository.py tests/web/test_auth_services.py
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -xq -rs -p no:cacheprovider \
+  tests/web tests/architecture/test_subsystem_dependency_matrix.py \
+  tests/architecture/test_platform_legacy_guardrails.py \
+  tests/architecture/test_operations_legacy_guardrails.py
+
+.venv/bin/alembic heads
+codegraph sync
+codegraph status
+.venv/bin/python scripts/check_docs_integrity.py
+git diff --check
+```
+
+上述功能测试：**232 passed**（48.99 秒，0 跳过）；未发现失败。随后 SQL 探针补计 WITH 查询，重新运行 `tests/test_wealth_watchlist_postgres.py`：**21 passed**（8.68 秒，0 跳过）。已有 Starlette/Alembic 弃用警告不在本轮扩大修复。F 级静态检查、模型与完整应用装配加载、单 Alembic head、CodeGraph 状态、文档完整性和 `git diff --check` 均通过。文档完整性只验证其脚本覆盖的结构/链接，不代替本节的语义与合同测试。
+
+全量 Web + 三个护栏：**1082 passed，1 skipped**（297.26 秒，无失败）。随后补充的 CLI 故障两例和同日行情变更一例分别已单独执行通过，并纳入上述功能测试最终运行。唯一跳过项为原有 `test_wealth_market_streak_ladder_real_db_check.py`，要求 `WEALTH_REAL_DB_CHECK=1` 并加载 `.env.web.local`；未设置该开关、未访问其真实库，明确不计入通过或本功能验收证据。
+
+隔离 PostgreSQL 最小性能证据（不是完整发布性能报告）：54 个合成用户、5000 个证券、超过一万条历史关系；正式 route、Service、SQL 与数据库执行，没有 mock Watchlist Service。
+
+| 检查 | 本轮实测 |
+|---|---|
+| 单次最大批量 | 200 只 × 9 个目标组，实际新增 1800 条，复验 133.14 ms（前次 72.95 ms）；重复执行新增 0，均低于 800 ms 门禁 |
+| 列表 1 行 / 200 行 SQL | **6 / 6**，包括 WITH 开头的公共交易日查询；组、数量、上下文、observed date、主列表、颜色各一条。初次 SELECT-only 探针漏计公共上下文，已修正，不再报告 5 条总 SQL |
+| 列表 API 100 行 / 200 行 | 各 30 次；复验 P95 11.14 / 13.00 ms；payload 44,823 / 89,021 bytes |
+| EXPLAIN ANALYZE BUFFERS | 主成员查询使用 group/pin/id 索引；同日事实 JOIN 使用既有复合主键；200 行数值排序 quicksort 73 kB，主查询约 0.87 ms，无需改 Foundation 事实索引 |
+| 写后零 SQL | 建组、改色、删组、单股添加、五种批量动作、详情替换全部验证；响应序列化包含在提交后检查中 |
+
+### 22.4 未执行项与下一阶段边界
+
+1. `wealth/src/features/watchlist/api/watchlistApi.ts`、控制器、自选页、股票详情及前端测试仍消费 v1，按用户计划留到阶段二；没有用兼容层让混合版本可运行。**当前工作区不能单独部署后端。**
+2. 展示/编辑态、禁用切组、两列选择器、取消草稿、首次降序、悬停颜色提示、写成功后刷新等 UI 门禁尚未实施，本阶段不声称它们通过。
+3. 浏览器联调、完整性能报告、整套发布顺序演练属于阶段三；此前的名称跨运行时准入只证明共享样本，不等于分组页面浏览器验收。
+4. 无正式数据库迁移、生产数据清理、部署、提交或推送；不自动开始下一阶段。后端开发自测结果交用户阶段验收，唯一既有真实库跳过项保持明确未验证状态。

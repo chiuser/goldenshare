@@ -9,6 +9,7 @@ from src.biz.schemas.wealth.market.watchlist import (
     WatchlistActivityDto,
     WatchlistDataStatusDto,
     WatchlistDirection,
+    WatchlistGroupMarkDto,
     WatchlistItemDto,
     WatchlistMoneyFlowDto,
     WatchlistQuoteDto,
@@ -23,7 +24,9 @@ def resolve_direction(value: Decimal | float | None) -> WatchlistDirection:
     return "UP" if value > 0 else "DOWN" if value < 0 else "FLAT"
 
 
-def build_watchlist_item(row: Mapping[str, Any]) -> WatchlistItemDto:
+def build_watchlist_item(
+    row: Mapping[str, Any], group_marks: list[WatchlistGroupMarkDto]
+) -> WatchlistItemDto:
     fields = {
         "stock.name": row["name"],
         "stock.industry": row["industry"],
@@ -41,8 +44,10 @@ def build_watchlist_item(row: Mapping[str, Any]) -> WatchlistItemDto:
     if added_at.tzinfo is None:
         added_at = added_at.replace(tzinfo=timezone.utc)
     return WatchlistItemDto(
-        id=row["id"],
+        membershipId=row["id"],
         addedAt=added_at,
+        isPinned=row["is_pinned"],
+        groupMarks=group_marks,
         stock=WatchlistStockDto(
             tsCode=row["ts_code"],
             name=row["name"] or "--",

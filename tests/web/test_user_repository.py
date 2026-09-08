@@ -3,11 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from src.app.auth.user_repository import UserRepository
+from src.app.user_provisioning_service import UserProvisioningService
 
 
-def test_user_repository_create_and_get(db_session) -> None:
+def test_user_repository_get(db_session) -> None:
     repository = UserRepository()
-    user = repository.create_user(
+    user = UserProvisioningService().create_user(
         db_session,
         username="admin",
         password_hash="hashed",
@@ -27,7 +28,7 @@ def test_user_repository_create_and_get(db_session) -> None:
 
 def test_user_repository_update_last_login(db_session) -> None:
     repository = UserRepository()
-    user = repository.create_user(db_session, username="admin", password_hash="hashed")
+    user = UserProvisioningService().create_user(db_session, username="admin", password_hash="hashed")
     db_session.commit()
 
     ts = datetime.now(timezone.utc)

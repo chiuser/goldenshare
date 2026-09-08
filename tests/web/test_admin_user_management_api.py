@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from sqlalchemy import select
 
-def test_admin_user_management_flow(app_client, user_factory) -> None:
+from src.biz.models.wealth.watchlist_group import WealthWatchlistGroup
+
+
+def test_admin_user_management_flow(app_client, user_factory, db_session) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -22,6 +26,9 @@ def test_admin_user_management_flow(app_client, user_factory) -> None:
     payload = create.json()
     assert payload["username"] == "managed_user"
     user_id = payload["id"]
+    groups = db_session.scalars(select(WealthWatchlistGroup).where(WealthWatchlistGroup.user_id == user_id)).all()
+    assert len(groups) == 1
+    assert groups[0].is_default and groups[0].name == "我的自选" and groups[0].color is None
 
     listed = app_client.get("/api/v1/admin/users", headers=headers)
     assert listed.status_code == 200

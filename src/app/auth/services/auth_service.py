@@ -22,6 +22,7 @@ from src.app.auth.constants import (
 from src.app.auth.domain import AuthenticatedUser
 from src.app.auth.security_utils import generate_raw_token, hash_raw_token, normalize_email, normalize_username
 from src.app.auth.user_repository import UserRepository
+from src.app.user_provisioning_service import UserProvisioningService
 from src.app.exceptions import WebAppError
 from src.app.models.app_user import AppUser
 from src.app.models.auth_action_token import AuthActionToken
@@ -212,7 +213,7 @@ class AuthService:
         role_key = invite.role_key if invite else self._default_role()
         is_admin = role_key == ROLE_ADMIN
         account_state = ACCOUNT_STATE_PENDING_VERIFICATION if require_verify else ACCOUNT_STATE_ACTIVE
-        user = self.user_repository.create_user(
+        user = UserProvisioningService().create_user(
             session,
             username=normalized_username,
             password_hash=self.password_service.hash_password(password),

@@ -9,6 +9,7 @@ from src.app.auth.constants import ACCOUNT_STATE_ACTIVE, ACCOUNT_STATE_SUSPENDED
 from src.app.auth.password_service import PasswordService
 from src.app.auth.security_utils import generate_raw_token, hash_raw_token, normalize_email, normalize_username
 from src.app.auth.user_repository import UserRepository
+from src.app.user_provisioning_service import UserProvisioningService
 from src.app.auth.services.auth_service import AuthService
 from src.app.exceptions import WebAppError
 from src.app.models.app_user import AppUser
@@ -72,7 +73,7 @@ class AdminUserService:
         role_keys = sorted(set(roles)) if roles else [ROLE_ADMIN if is_admin else ROLE_VIEWER]
         if ROLE_ADMIN in role_keys:
             is_admin = True
-        user = self.user_repository.create_user(
+        user = UserProvisioningService().create_user(
             session,
             username=normalized_username,
             password_hash=self.password_service.hash_password(password),

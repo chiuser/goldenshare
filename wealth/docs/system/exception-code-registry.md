@@ -170,7 +170,7 @@
 
 > 2026-09-03：v1 六个接口及前端局部错误处理已实现，开发自测通过；未部署、未正式验收。证据见 [我的自选 LLD 第 17 节](../pages/watchlist/watchlist-low-level-design-v1.md#17-开发交付记录2026-09-03)。
 >
-> 2026-09-08：分组能力 v2 已完成代码审计，两轮评审修订已确认并回填，新增错误码先行登记；当前运行代码仍只实现 v1 四个错误码，v2 登记不能作为代码已开发证据。实现依据见[我的自选分组能力 LLD v2](../pages/watchlist/watchlist-grouping-low-level-design-v2.md#15-异常安全与日志)。
+> 2026-09-08：分组能力 v2 后端已实现下列 13 个错误码及 HTTP 映射，真实路由验证见[LLD 第一阶段记录](../pages/watchlist/watchlist-grouping-low-level-design-v2.md#22-第一阶段后端实现与开发自测2026-09-08)。前端仍为 v1，下表的 v2 frontendAction 尚待阶段二实现；未部署、未正式验收。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|

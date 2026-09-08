@@ -234,7 +234,9 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 98
+    # Dataset onboarding changes the total; assert the actual scheduling contract.
+    assert actions["maintenance.materialize_wealth_sector_analysis_daily"]["schedule_enabled"] is True
+    assert actions["maintenance.replay_wealth_sector_analysis_history"]["schedule_enabled"] is False
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items

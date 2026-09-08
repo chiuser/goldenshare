@@ -15,6 +15,9 @@ from qtf.adapters.persistence.models.runtime import ExperimentRun, InputPrefligh
 from src.foundation.config.settings import get_settings
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.app.models.app_user import AppUser
+from src.app.user_provisioning_service import UserProvisioningService
+from src.biz.models.wealth.watchlist_group import WealthWatchlistGroup
+from src.biz.models.wealth.watchlist_membership import WealthWatchlistMembership
 from src.app.models.auth_action_token import AuthActionToken
 from src.app.models.auth_audit_log import AuthAuditLog
 from src.app.models.auth_invite_code import AuthInviteCode
@@ -101,6 +104,8 @@ def web_engine(configured_web_env) -> Generator:
         InputPreflightIssue.__table__.create(connection)
         ExperimentRun.__table__.create(connection)
         AppUser.__table__.create(connection)
+        WealthWatchlistGroup.__table__.create(connection)
+        WealthWatchlistMembership.__table__.create(connection)
         AuthRole.__table__.create(connection)
         AuthPermission.__table__.create(connection)
         AuthUserRole.__table__.create(connection)
@@ -180,7 +185,8 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
         is_admin: bool = False,
         is_active: bool = True,
     ) -> AppUser:
-        user = AppUser(
+        user = UserProvisioningService().create_user(
+            db_session,
             username=username,
             password_hash=PasswordService().hash_password(password),
             display_name=display_name,
@@ -189,7 +195,6 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
             is_admin=is_admin,
             is_active=is_active,
         )
-        db_session.add(user)
         db_session.commit()
         db_session.refresh(user)
         return user

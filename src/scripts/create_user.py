@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from src.db import SessionLocal
 from src.app.auth.password_service import PasswordService
-from src.app.auth.user_repository import UserRepository
+from src.app.user_provisioning_service import UserProvisioningService
 
 
 def main() -> None:
@@ -19,11 +19,11 @@ def main() -> None:
     args = parser.parse_args()
 
     password_hash = PasswordService().hash_password(args.password)
-    repository = UserRepository()
+    provisioning = UserProvisioningService()
 
     with SessionLocal() as session:
         try:
-            repository.create_user(
+            provisioning.create_user(
                 session,
                 username=args.username.strip(),
                 password_hash=password_hash,

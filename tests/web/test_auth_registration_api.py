@@ -5,6 +5,8 @@ from sqlalchemy import select
 from src.foundation.config.settings import get_settings
 from src.app.auth.security_utils import hash_raw_token
 from src.app.models.auth_refresh_token import AuthRefreshToken
+from src.app.models.app_user import AppUser
+from src.biz.models.wealth.watchlist_group import WealthWatchlistGroup
 
 
 def _set_auth_mode(monkeypatch, *, mode: str, require_email_verification: bool = True) -> None:
@@ -13,7 +15,7 @@ def _set_auth_mode(monkeypatch, *, mode: str, require_email_verification: bool =
     get_settings.cache_clear()
 
 
-def test_register_public_verify_and_refresh_flow(app_client, monkeypatch) -> None:
+def test_register_public_verify_and_refresh_flow(app_client, monkeypatch, db_session) -> None:
     _set_auth_mode(monkeypatch, mode="public", require_email_verification=True)
 
     register = app_client.post(
@@ -24,6 +26,10 @@ def test_register_public_verify_and_refresh_flow(app_client, monkeypatch) -> Non
     register_payload = register.json()
     assert register_payload["account_state"] == "pending_verification"
     assert register_payload["verification_token_debug"]
+    user_id = db_session.scalar(select(AppUser.id).where(AppUser.username == "new_user"))
+    groups = db_session.scalars(select(WealthWatchlistGroup).where(WealthWatchlistGroup.user_id == user_id)).all()
+    assert len(groups) == 1
+    assert groups[0].is_default and groups[0].name == "我的自选" and groups[0].color is None
 
     verify = app_client.post(
         "/api/v1/auth/register/verify",
