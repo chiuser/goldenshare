@@ -33,8 +33,8 @@
 
 | 输入 | 大小（字节） | SHA-256 |
 | --- | ---: | --- |
-| [全日停牌 CSV](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_full_day_ranges.csv) | 1,407 | `3969f5c9ccd177bb4ea389136798b6e28925b2a54b1a583e3a47bca2af8a9e63` |
-| [原范围/覆盖规则](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_full_day.py) | 3,812 | `349a5c9d98ef9c038f6245a61ce5c3178ee25eee0a03e61f9283afbb9b948bc4` |
+| 历史 `defs/corrections/suspend_full_day_ranges.csv`（S5已删除，Git身份见下文） | 1,407 | `3969f5c9ccd177bb4ea389136798b6e28925b2a54b1a583e3a47bca2af8a9e63` |
+| 历史 `defs/corrections/suspend_full_day.py`（S5已删除，blob `4342b6a713c7ea74506c45533f2312d092fbe504`） | 3,812 | `349a5c9d98ef9c038f6245a61ce5c3178ee25eee0a03e61f9283afbb9b948bc4` |
 | [保留的时段修正](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_timing.py) | 2,307 | `c4d2fb1c7fda5a120e7d9b7f55a11d8b3220616105122883ffbb2886a817ee5b` |
 | [正式交易日历](/Volumes/datasource/data_lake/silver/calendar/trade_calendar/full/part-000.parquet) | 89,590 | `0055670758c0365f95f82f629144fe3e24143f6dbf012c728cb0020510107f5a` |
 

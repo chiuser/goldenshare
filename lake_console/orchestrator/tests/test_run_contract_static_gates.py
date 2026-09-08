@@ -413,9 +413,10 @@ class RunContractStaticGateTests(unittest.TestCase):
                 self.assertNotIn("register_confirmed_events", path.read_text())
 
     def test_confirmed_path_has_no_csv_or_git_fallback(self) -> None:
+        for name in ("suspend_full_day.py", "suspend_full_day_ranges.csv"):
+            with self.assertRaises(FileNotFoundError):
+                (DEFS_DIR / "corrections" / name).lstat()
         for path in sorted(DEFS_DIR.rglob("*.py")):
-            if path == DEFS_DIR / "corrections/suspend_full_day.py":
-                continue  # S5 deletes the now-unreferenced source, not S1.
             source = path.read_text()
             self.assertNotIn("suspend_full_day_ranges.csv", source, str(path))
             self.assertNotIn("from orchestrator.defs.corrections.suspend_full_day", source, str(path))

@@ -2,7 +2,7 @@
 
 更新时间：2026-09-08
 
-状态：**S0–S2已完成，S2六份文档已提交`47ae5404`，未推送。S3文件侧已完成：管理员确认最小OS规则修正后，一次重试成功；4,022行固定事实已原子发布，完整读回通过，checkpoint=committed，6,166个既有Raw/Silver文件未变。§18.29保留首次失败及后续成功证据。事件登记尚未批准/执行，S3整体未关闭；切换、CSV删除与最终清理未执行，未恢复sensor、安装套件或启动服务。本轮记录未提交。**
+状态：**S0–S4完成。S5已获准删除D01/D02并完成三份测试配套修改；整仓护栏通过，static-gates第二批在断言通过后发生测试运行器退出收尾错误，后续回归及D03–D09清理已停止。正式数据和8个保留文件未变，TODO尚未关闭；详见§18.34。没有安装/卸载、正式运行操作、提交或推送。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -10,7 +10,7 @@
 
 上位依据：[技术方案 v1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)。本文细化该方案，不另起业务口径；原清退专项的 `TODO-SUSPEND-001` 仍未关闭。
 
-本文未在状态与执行记录中明确标为已实现的“新增”“改为”、函数签名、SQL、命令及测试名，仍是**待实施设计**。用户最初批准 S1 开发、隔离测试及仅暂停 `silver_suspend_d_update_job_sensor` 的维护安排；维护期间不手工启动停牌 Silver job，Raw 和其他入口不动。S1批准本身不包含正式 Lake/staging 写入、正式 materialization/check 事件、服务重载、删除或 Git 提交；后续分阶段批准和实际结果见§18.28–18.29。S1 结束不自动恢复该 sensor；等 S3/S4 验收或另行明确批准。§15保留最初维护与框架实验记录，当前停止点以文首及§18.29为准。
+本文未在状态与执行记录中明确标为已实现的“新增”“改为”、函数签名、SQL、命令及测试名，仍是**待实施设计**。用户最初批准S1开发、隔离测试及仅暂停`silver_suspend_d_update_job_sensor`；S1授权本身不含正式写入、事件、服务重载、删除或提交。后续S2/S3分别获准并执行，见§18.28–18.30；管理员另行“继续推进S4”后，才进行正式日频验收及恢复该sensor，见§18.31。§15保留最初维护与框架实验记录，当前完成点以文首及§18.31为准，历史暂停口径不覆盖已批准的S4恢复结果。
 
 实际证据：[S0 审计清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。以下设计不得与 S0 已完成的只读核验混为一谈。
 
@@ -506,7 +506,7 @@ plan 的 hash 为其实际 UTF-8 文件 bytes SHA-256，文件不包含自身 ha
 
 ### 8.2 CLI 命令与参数合同
 
-入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25实现三个文件命令；§18.26补齐`audit-events`、`register-events`并完成五命令隔离验收。**S2及S3文件侧已完成；首次失败经管理员确认最小OS规则修正后，重试发布成功（§18.29D）。事件登记仍须另行批准，不能随文件发布执行。**
+入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25实现三个文件命令；§18.26补齐`audit-events`、`register-events`并完成五命令隔离验收。**S2及S3已完成；文件发布见§18.29D，单独批准后的3条事件登记、读回及readiness见§18.30E。文件发布授权不包含事件登记，这一分离边界不变。**
 
 | 子命令 | 必填参数 | 可选参数 / 缺省行为 | 可变更的内容 |
 | --- | --- | --- | --- |
@@ -809,9 +809,9 @@ BSE现有CLI在合法参数路径内自行构造DuckDBResource；其测试setUp�
 | S0 / 低，已完成 | LLD 已认可；来源/日历/文件集合已刷新；批准 hash 已实算；隔离验证设计已固定 | 来源一致，见 S0 清单；后续已取得 S1 开发及本地维护安排授权 |
 | S1 / 中，已完成（§18.27） | §18隔离、合同/合并、实际writer/check/job/readiness、五CLI、连接、消费者及全量治理回归均已完成 | 只证明隔离与实现机制；生产C01/C05明确待S2，不能声称正式全量数据已验收；不自动重载/恢复入口 |
 | S2 / 中，已完成（§18.28） | 真实4,022行候选、未修改生产合同的C01/C05、冻结plan及3,083日期/13年度比较均通过 | 双向EXCEPT ALL零差异，输入未漂移；只具备申请S3条件，不等于批准发布 |
-| S3 / 高，文件侧完成、事件待批准（§18.29） | 首次OS规则拒绝后，经确认修正并成功原子发布1个固定文件，完整读回及committed对账通过；事件登记未执行 | 文件已正确；E1/E2/E3匹配仍待验收，不能关闭整个S3；正式Raw 0写，历史最终Silver 0批量写 |
-| S4 / 高 | 精确维护窗口、确认旧 writer 已结束、切换代码；运行少量 Silver-only 验收；恢复指定触发器并观察正常日更 | 两覆盖日期＋一补缺日期＋一无修正日期等价；5 checks 通过；下一次正常链通过 |
-| S5 / 中 | 最后确认删除两个旧文件，更新护栏与当前引用文档 | 无旧 import/旁路/双读；保留 timing.py；TODO 方可关闭 |
+| S3 / 高，已完成（§18.29–18.30） | 固定文件完整读回及committed对账通过；获单独批准后E1/E2/E3登记完成，checkpoint三项confirmed，独立audit与实际readiness均通过 | S3关闭，具备申请S4条件；未重写固定文件，正式Raw 0写，历史最终Silver 0批量写；不自动恢复sensor |
+| S4 / 高，已完成（§18.31） | 当前code location已加载新链、无须reload；四历史日正式job等价复用并通过20 checks；恢复唯一Silver sensor后正常生成9月7日10行，5 checks及实际消费readiness通过 | S4关闭，具备S5前置；旧文件和专项临时环境未删，其他87个sensor状态不变 |
+| S5 / 中 | D01/D02及三份测试修改已实施；整仓护栏通过，运行器退出收尾失败，见§18.34 | 其余回归、D03–D09与新增临时根清理未完成，TODO不关闭 |
 
 S0 时正式 code location 通过 editable 安装直接加载当前工作区，Raw/Silver 停牌 sensor 均为 RUNNING。S1 源代码修改可能影响新的 run 导入，即便尚未重载 code server，也不能假设“写了工作区代码就绝无运行影响”。用户已批准仅暂停停牌 Silver sensor，并在维护期间不手工启动其 job；2026-09-06 17:47:27 已执行并读回确认。Raw 和其他 86 个 sensor 状态不变；S1 不自行恢复 Silver 入口，§15 记录实际状态。本轮不自建分支/worktree 绕过部署边界。
 
@@ -2981,7 +2981,7 @@ S1提交已完成；本轮S2增量只有文档与上述staging/临时证据，�
 
 ### 18.29 S3文件发布：首次失败、确认修正后成功（2026-09-08）
 
-**当前结论：文件侧完成，事件登记待另行批准；A–C保留首次执行与停止的历史记录，D为管理员确认后的成功结果。**
+**本节记录文件侧完成；A–C保留首次执行与停止的历史记录，D为管理员确认后的成功结果。后续事件登记及S3整体完成见§18.30E。**
 
 #### A. 本轮批准、真实调用链与执行前清单
 
@@ -3070,3 +3070,346 @@ CodeGraph explore及当前源码核查入口为`stock_suspend_confirmed_cli.main
 下一步仅是S3事件侧：先只读审计现有事件，列清拟登记的1条无分区materialization及2条check与已有记录差异，再按独立确认执行；本轮未运行事件命令。S4正式日更验收和S5两文件退出/最终环境清理仍后置。按数据湖技能保持文件/事件分离，按文档治理技能同步六份原文档；无业务源码、Dagster定义、架构或依赖矩阵变化，未提交/推送，Wealth修改原样保留。
 
 交付复核：plan/comparison及首次失败报告hash不变；新checkpoint/成功报告hash与本文一致；修正策略精确32字符类且无目录级扩权。文档完整性三项、`git diff --check`、重试脚本Ruff F/E9通过；CodeGraph explore核验发布链后，sync/status确认索引最新。没有重复执行发布，也没有将未运行的事件/日常链验收算作通过。
+
+<a id="s3-confirmed-event-audit"></a>
+
+### 18.30 S3事件侧：只读审计、单独批准与登记完成（2026-09-08）
+
+**当前结论：S3已完成。A–C是批准前审计与停止点，D为本轮明确授权和执行边界，E为正式登记及独立读回结果。**
+
+#### A. 本轮范围和执行前约束
+
+管理员要求“提交，继续推进”，先将§18.29文件发布与失败/修正证据六份文档提交为`050de1d0`，未推送、不含Wealth。继续项仅为上轮明确的事件只读审计；登记事件仍须展示清单后单独确认，不把本轮指令扩成写入授权。
+
+CodeGraph explore覆盖`audit_confirmed_events`、`open_confirmed_event_instance`、CLI分支和文件/checkpoint依赖；当前源码与S2冻结代码相同。实例只允许plan中的既有本地PG，三个存储构造器均`should_autocreate_tables=False`，不调用get/from_ref、不启动job、不建日志或测试实例。已阅读本机SDK的实际PG构造、materialization读取和check history SQL，不能用此前SQLite替身结果代替本次联机证据。
+
+| 项目 | 本轮边界与预算 |
+| --- | --- |
+| 目标 | 仅`silver_stock_suspend_confirmed`，无分区；materialization及两个固定check，每类最多10条，合计最多30条历史记录，不做全湖/逐日事件深扫 |
+| 文件读取 | 读取原plan、比较/文件checkpoint/发布证据及5,615字节正式固定文件；完整生产合同只校验该4,022行文件；不重新读取6,166份历史Raw/Silver，不重跑S2 |
+| 正式CLI | 现有`audit-events --operation-id s2_20260908_d43bed1a`；没有确认/写入参数。3次有界事件历史调用，SDK可能另有连接/版本/schema只读查询，不能混称只有3条SQL |
+| 实例与数据库 | `/Users/congming/.goldenshare/dagster_home`，plan固定本地localhost:5432/goldenshare_dagster；只对本次子进程设置PGOPTIONS的default_transaction_read_only=on、statement_timeout=15s、lock_timeout=3s及连接超时5s，不改持久配置或共享环境 |
+| 文件/事件副作用 | 子进程OS策略禁止全部文件写入；无Dagster event、checkpoint、湖文件、配置或表写入；审计包装器仅向下述临时根写报告 |
+| 资源/停止 | 沿用统一existing_no_spill、0spill/禁扩展策略；CLI≤60秒、stdout/stderr各≤1MiB。失败先保留安全输出和文件状态，不自动换入口、放宽权限或重试 |
+
+工作目录为`/Users/congming/github/goldenshare/lake_console/orchestrator`，使用已有`.venv/bin/python3 -B`；本机`audit-events --help`已核对。临时根`/private/tmp/stock-suspend-s3-events-20260908.kgZFWk`纳入§18.11最终精确清理；仅保存本轮审计脚本、只读策略和报告，不建测试DG或安装套件。文件发布策略不复用于事件审计，避免无意携带Parquet写权限。
+
+#### B. 正式实例只读结果与待登记清单
+
+北京时间2026-09-08 08:12:17–08:12:19，现有`audit-events`第一次执行成功，退出0、`mode=readonly/applied=false`，1,863ms，stderr为空；子进程峰值RSS238,436,352字节。正式PG联机只读审计已完成，不再沿用“尚未查询正式PG”的历史状态；正式事件写入仍未执行。
+
+返回`records=[null,null,null]`、`pending_found=[]`、`uncertain=[]`、`planned_events=3`、`file_committed=true/events_complete=false`。生产validator再次验证正式固定文件，物理身份/hash仍与§18.29一致。审计前后plan、comparison、file checkpoint、成功报告、正式Parquet的device/inode/size/mtime/hash及operation文件集合完全相同；events checkpoint不存在。本轮没有读历史6,166文件，不把此前核验冒充本轮重扫。
+
+| 顺序 | 目标事件 | 当前记录 | 经批准后动作与验收 |
+| --- | --- | --- | --- |
+| E1 | `silver_stock_suspend_confirmed`的无分区`AssetMaterialization` | 不存在 | 登记正式URI、4,022行/五列、批准version/hash、来源commit/hash/日历hash、operation及确定性token；读回真实storage_id/run_id/timestamp |
+| E2 | `silver_stock_suspend_confirmed_schema_check` | 不存在 | 登记`passed=true/blocking=true/severity=ERROR/partition=None`；target必须关联E1真实读回身份，不能预填占位ID |
+| E3 | `silver_stock_suspend_confirmed_approved_content_check` | 不存在 | 同样登记通过，version/hash与已完整校验文件一致，并关联同一E1；不调用日常Silver job重算数据 |
+
+实际只读报告：[event-audit-result.json](/private/tmp/stock-suspend-s3-events-20260908.kgZFWk/event-audit-result.json)，SHA-256=`c8e963d815404166e425a011e7d994609004b7a53c274d93658944cb189ab029`。报告只保存安全CLI输出、子进程只读参数和文件证据，不包含密码或环境变量全集，也未写入staging。OS策略禁止文件写；数据库只读通过子进程PGOPTIONS传入，没有额外执行SHOW来独立测量服务端设置，不将启动参数记录夸大为服务端参数读回证据。当前审计路径源码仅有有界读取，无事件写函数调用。
+
+08:12:57追加一次只读GraphQL：`silver_suspend_d_update_job_sensor=STOPPED`、`raw_suspend_d_update_job_sensor=RUNNING`，活动run为空，无其他文件发布CLI进程；没有改变sensor、服务或运行状态。
+
+#### C. 待确认动作，不在本轮执行
+
+需管理员确认的范围仅为上表三条正式事件及同operation下的`events-checkpoint.json`、其32位UUID临时文件。**不重发文件、不写Raw/每日Silver、不恢复sensor、不重载服务、不删CSV或历史事件。** 已有完整匹配记录时复用；已有异常或pending结果不确定时停止，不能强行补绿。
+
+批准后重新运行同一只读审计，确认清单及文件未变，再运行唯一命令（工作目录同§A）：
+
+```bash
+.venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli register-events --operation-id s2_20260908_d43bed1a --expected-plan-sha256 a4b3e088b9ad55d3fdd965883d7f76980de3154c37b3788ee6e93da869a0fbc4 --confirm-event-publish
+```
+
+该命令仍需独立用户批准，参数本身不构成授权。事件写进程只允许既有本地PG事件API和上述event checkpoint写入，不沿用文件发布白名单；审计的数据库只读参数不用于已获准写入的子进程，也不修改持久配置。每条按`pending→一次API→真实读回→confirmed`推进，失败保留文件及现场，不自动重试。最多3次写API；现有实现从CLI前置到最终校验最多6次audit，加独立收尾一次共7次，每次3个history调用/各limit10，最坏21次有界history读取，另有SDK元数据查询；不按1,857日期发事件。每次CLI仍≤60秒；超时只读核实，不能重发。
+
+完成条件：三类记录身份和target关联全部匹配，event checkpoint三项confirmed，再次只读audit显示`events_complete=true/planned_events=0`；正式文件及file checkpoint不变。S4正式少量日期验收、恢复指定sensor及S5删除/环境清理仍后置。当前停在事件写入确认，不存在新增业务口径或业务代码修改；本轮仅LLD/技术方案/索引与清退TODO状态同步，未提交/推送，Wealth修改保留。
+
+#### D. 管理员批准后的执行约束（2026-09-08）
+
+管理员随后回复“确认”，批准§B三条正式事件及§C所列事件进度文件。本轮据此执行；§A–C的“待确认”是批准前历史状态，不再是当前阻塞。
+
+仍使用原生产CLI，不改业务代码；在同一临时根增加`publish_events.py`、`verify_readiness.py`和`events-only.sb`，保存新命名的preview/apply/verify/readiness证据，不覆盖上次报告。OS文件写权限只包含该operation的`events-checkpoint.json`及精确32个十六进制字符UUID临时文件；不开放Parquet、file checkpoint或目录级写权限。策略沿用已验证的32个字符类写法，不使用此前失败的重复次数语法。报告仅落临时根，最终按§18.11精确清理。
+
+执行顺序：一次新只读preview→一次正式register-events→一次独立只读audit→一次实际`stock_suspend_confirmed_readiness`读取。含新preview最坏8次audit、24次limit10历史调用，readiness另有3次limit1；这些是有界历史API调用数，不是全部SQL数。只校验小型固定文件，不重扫6,166份历史文件。保持单CLI≤60秒、单SQL≤15秒、连接≤5秒、锁等待≤3秒；数据库写子进程不携带审计只读选项。出现不确定结果立即停止，不重复登记。没有新增sensor/job/service/CSV/其他数据写入授权。
+
+<a id="s3-confirmed-event-publication"></a>
+
+#### E. 正式登记、独立读回及S3结论
+
+以下时间均为北京时间2026-09-08。现有CLI及生产函数未修改；全部命令退出0、stderr为空，没有重试写入。
+
+| 步骤 | 实际时间 / 耗时 | 实际结果 |
+| --- | --- | --- |
+| 新只读preview | 08:25:19–08:25:21 / 1,914ms | 三类记录仍缺失，planned_events=3，无pending/uncertain；文件及operation集合未变 |
+| 唯一register-events | 08:25:40–08:25:43 / 2,746ms | status=published、written_events=3、file_committed=true、events_complete=true；逐条完成1/3、2/3、3/3；checkpoint三项confirmed |
+| 独立audit-events | 08:25:58–08:25:59 / 1,311ms | events_complete=true、planned_events=0、pending_found=[]、uncertain=[]；三条真实身份均匹配 |
+| 实际readiness函数 | 08:25:59–08:26:01 / 1,251ms | ready=true、reason_code=ok、两项check_results=true；识别当前文件、最新发布和最新检查属于同一批准身份 |
+
+实际记录如下；**materialization的storage_id与check execution记录ID来自不同表，不能混称同一种event storage_id。** 所有记录的run_id均为SDK真实返回的空字符串（runless），partition=None；不是人为占位。
+
+| 事件 | 实际记录ID | 实际timestamp（Unix秒） | 关联/状态 |
+| --- | --- | --- | --- |
+| E1 materialization | event storage_id=`7326810` | `1788827142.3334458` | 正式URI、4,022行/五列及批准version/hash/来源/token全部匹配 |
+| E2 schema_check | check execution id=`1573784` | `1788827142.602517` | SUCCEEDED、passed/blocking=true、severity=ERROR；target为E1的storage_id/run_id/timestamp |
+| E3 approved_content_check | check execution id=`1573785` | `1788827142.864002` | 同上，关联同一个E1；并非无关历史绿色检查 |
+
+两个check的完整target三元组由生产`audit_confirmed_events`读回验证；`stock_suspend_confirmed_readiness`另外以latest limit=1验证实际消费结果，返回materialization_storage_id=7326810、logical_sha256=`c88a7406ecda31c7dfe92b20b1d9cc719ffd2d049ece93113676ef4e60db4307`。未执行sensor tick、job、materialize或每日Silver写入，也未创建Dagster实例/数据库/表。
+
+文件前后对账：plan、comparison、file-checkpoint、原成功报告和正式固定Parquet的device/inode/size/mtime/hash完全不变；operation文件集合仅增加`events-checkpoint.json`，无UUID临时文件遗留。该checkpoint为1,854字节，device=16777244、inode=16640885、mtime_ns=1788827143056643209，SHA-256=`9b98146735aad7099af302b3dbf259c65c88c8292bf063c647c02b9247172568`；三个条目均confirmed，operation/plan/实例/目标身份全部一致。正式固定文件仍为§18.29的5,615字节及原物理hash；本轮没有重新读取6,166份历史Raw/Silver，历史全量未变证据仍归§18.29，不能冒充本轮新全扫。
+
+本轮证据均在已登记的`/private/tmp/stock-suspend-s3-events-20260908.kgZFWk`，未新增staging报告路径：
+
+| 证据 | SHA-256 |
+| --- | --- |
+| `preview-result.json`（含前后文件/运行状态） | `faf047521e6706886601910855b9341d107745dd86f93fbd8ff6f5c606dd7ad2` |
+| `apply-result.json`（含三条confirmed进度） | `2b2eb4f7e18bfd45c24b3f5eba87631ee165080b88e3af85acf0e2cb7a17435f` |
+| `verify-result.json`（含独立audit与实际readiness） | `28b2bd760c680a91ea0d08412d6cb809b7263f7a277d9f6ff4822076ae297dcb` |
+| `events-only.sb`（仅event checkpoint写权限） | `8c2e3fd553a41ca7d1d3218c1af3cb0087dfef60b382e48c1f64b3cb4dfad192` |
+
+同根四份`*-command.json`记录准确命令、时间、退出码与安全输出；首次08:12只读报告保留。08:26:01最终GraphQL确认Silver sensor仍STOPPED、Raw仍RUNNING，活动run及其他publisher进程为空；没有恢复入口、重载服务、触及Prod/旧湖、删除CSV、安装套件或清理现场。
+
+**S3关闭，下一步是S4的本地正式日更链验收，尚未执行。** 按原§11先准备精确少量日期、实际code location和维护/恢复范围，再获该阶段授权；不能以本次固定事实ready代替日常Silver-only验收或下一次正常日更。S5两旧文件及最终环境清理仍后置，原清退TODO尚不关闭。数据湖/Dagster技能使本轮严格分离文件与事件授权，文档治理技能使结果同步到六份原文档；CodeGraph explore覆盖publisher、CLI、checkpoint、readiness调用面。无业务代码、定义、架构边界或依赖矩阵变化，未提交/推送，其他任务修改保留。
+
+交付验证：文档完整性三项通过，`git diff --check`通过，临时执行/readiness脚本Ruff F/E9通过；CodeGraph sync/status为最新。只进行了本节真实发布/读回和文档检查，不重复运行S1整套测试，也不把文档检查当作代码/数据验收替代。技术方案中残留的“五CLI均未实现”文字已按§18.25–18.26真实实现状态同步纠正，不是本轮新增接口。
+
+<a id="s4-formal-daily-acceptance"></a>
+
+### 18.31 S4正式日更链验收（2026-09-08）
+
+#### A. 授权、执行约束及只读预检
+
+管理员明确要求“继续推进S4”。本轮范围按§11：四类历史日期的正式Silver-only作业、读回验收、通过后恢复唯一指定Silver sensor并观察正常日更；不重抓Raw、不加入下游行情资产、不删CSV或其他文件、不安装依赖、不提交或推送。失败停止后续日期，不自动重试、删事件、覆盖修补或恢复CSV读取。
+
+CodeGraph explore与当前源码核验job→固定checks→writer→三个最终checks、sensor→固定readiness→Raw门禁→RunRequest，以及最终Silver的日线/分钟消费者。正式`orchestrator/__repository__` code location已加载6个预期节点：1个`silver_stock_suspend_daily`、2个固定检查、3个日频检查；无Raw节点、无固定事实writer，故不执行无必要的reload。现有`dg launch --help`已阅读；该入口为本地in-process执行，本轮使用当前UI的localhost:3000 GraphQL正式launcher，避免另建实例。mutation及参数依据本机SDK `dagster_graphql.client.query`、`schema.inputs`；请求前保存精确标签和参数，网络响应不确定时只读核查，不再次launch。
+
+| 类型 / 日期 | Raw行数 | 最终行数 | 实测语义 |
+| --- | ---: | ---: | --- |
+| 覆盖 / 2025-11-26 | 20 | 19 | 688766.SH：两条Raw记录按批准规则归一为一条全天停牌 |
+| 覆盖 / 2026-01-16 | 16 | 16 | 688005.SH：一条Raw记录替换为批准全天停牌事实 |
+| 纯补缺 / 2025-09-22 | 13 | 14 | 补充920961.BJ一条缺失事实 |
+| 无修正 / 2026-09-04 | 8 | 8 | 固定事实选择数为0，结果不变 |
+
+08:50:18预检完成，核心读取/比较627ms：四天双向EXCEPT ALL均0，8份Raw/Silver文件全身份/hash与S2一致，固定文件身份/hash不变、readiness=true。3,084个已注册日期中，唯一尚未materialized的Silver日期为2026-09-07；不扩注册。四历史日预计status=reused，不生成候选/checkpoint、不替换文件；正式job仍各产生1条Silver materialization、5条真实check及常规run/step日志。四天总Raw57行、输出57行，单文件≤1MiB/单日≤10,000行为拒绝上界；固定事实每次4,022行，0源请求/0分页/0Prod访问。串行4个job，最多24条业务mat/check事件，不把框架日志混入此计数。
+
+工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`，正式实例`/Users/congming/.goldenshare/dagster_home`及本地PG保持不变。候选仍只能写正式staging；日常job使用原统一DuckDB16GB/4线程/既有temp配置，不改共享配置或注入测试资源。小文件规模预计不spill，不能将日常managed连接说成S2的512MB/0spill设置。单次GraphQL≤20秒；每job先观察60秒，超时停止提交后续项并只读诊断，不靠超时重发。四天通过后再核对9月7日Raw与目标缺失，恢复`silver_suspend_d_update_job_sensor`，由正常sensor发出该日作业；其他sensor状态不变。恢复后若出现意外历史范围或失败，停止本目标sensor，不处理其他任务。
+
+临时证据根`/private/tmp/stock-suspend-s4-20260908.F43oGf`纳入§18.11最终精确清理。首次只读预检在受限子进程里调用ps被macOS拒绝，尚未读湖；已把进程查询移回父层，未放宽文件权限。第二次计算通过，但JSON未处理SQL样本里的date而写出不完整`preflight.json`；保留失败报告，改为序列化完成后写新名`preflight-complete.json`，第三次全部通过。这两处均为本轮报告包装器错误，不是正式数据/作业失败，失败期间正式写入为0，不掩盖或删除记录。
+
+#### B. 正式四日验收与正常日更结果
+
+正式业务源码与S1冻结版本`d43bed1a`一致，没有现场改源码。四个手工job经UI原生`launchPipelineExecution`串行启动；每次请求以`dagster/partition`明确日期、独立审计tag追溯，不使用runless补绿、临时instance、测试resource或CSV旧读取。每run独立读回全部事件（limit1000，实际各68条、无剩余页），核实只有1条Silver materialization和5条check。两固定检查partition=None，target三元组精确关联S3的storage_id=7326810；三个日频检查partition为本日，target三元组精确关联该run的新materialization。25项检查均passed/blocking=true、severity=ERROR。
+
+| 日期 / 入口 | 正式run_id | Silver materialization storage_id | 行数 / 结果 | 耗时 |
+| --- | --- | ---: | --- | --- |
+| 2025-11-26 / 手工 | `be182ff8-a856-4e92-9ea5-8bca1ced98eb` | 7326849 | 19 / reused；5 checks通过 | 12.581秒 |
+| 2026-01-16 / 手工 | `b7345bfd-dcf0-4e58-b10e-88653ef21312` | 7326917 | 16 / reused；5 checks通过 | 14.593秒 |
+| 2025-09-22 / 手工 | `ae698a15-c0b4-4749-ba2a-9ccc17de7d7f` | 7326985 | 14 / reused；5 checks通过 | 14.443秒 |
+| 2026-09-04 / 手工 | `fe64c411-fa81-4a56-a0a9-677ff40173cb` | 7327053 | 8 / reused；5 checks通过 | 14.461秒 |
+| 2026-09-07 / 正常sensor | `d629b0f0-dcf6-49ce-8256-47fd77da996e` | 7327121 | 10 / written；5 checks通过 | 恢复后18.248秒观察到成功 |
+
+前四项耗时包含提交、排队、执行与轮询，不是纯DuckDB计算时间；正常项还包含等待sensor tick。每run独立事件读回138–150ms。五run均SUCCESS，无重试/取消；四个历史目标的device/inode/size/mtime/hash不变，均未创建run staging或checkpoint，符合writer等价早退语义。合计5条Silver materialization＋25条check，另有原生run/step日志；未新增固定事实materialization、Raw或其他资产的手工执行。
+
+恢复前额外检查：9月7日Raw为10行/819字节，Raw readiness通过，固定事实当日选择0行、无时段修正，目标不存在；所挂设备一致，可用空间2,987,614,584,832字节。只读预检498ms。正式恢复只调用一次`startSensor`，选择`orchestrator/__repository__/silver_suspend_d_update_job_sensor`；88个sensor中仅此一个由STOPPED变RUNNING，其余87个状态逐项相同。正常sensor tick=`1539599`发起上表第五个run，原run_key=`silver_suspend_d_update:2026-09-07`，不是人工launch或改cursor。08:58:37产生该日正式materialization；作业成功后保留sensor RUNNING，未重启/重载服务或改动其他sensor。
+
+正式新增文件仅[2026-09-07 Silver](/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-09-07/part-000.parquet)：800字节/10行，四列`VARCHAR/DATE/VARCHAR/VARCHAR`，物理SHA-256=`f2c69a07d3389c87a04fb1efbc782abbf11a0a09fc15a030b9640a101eea540f`。候选在同设备原子提升，目标inode=16641031、mtime_ns=1788829116953127583，与checkpoint候选身份一致。对应[checkpoint.json](/Volumes/datasource/data_lake_staging/stock_suspend_daily/run_id=d629b0f0-dcf6-49ce-8256-47fd77da996e/trade_date=2026-09-07/checkpoint.json)为3,344字节、stage=committed、error=null、target.before=null，SHA-256=`f04a35a004727303f1dc973c9ebf1a664858b487f5b4332b9aeb47e3365e8926`；原候选路径不存在，未删除异常现场。此run staging checkpoint列入最终精确清理审查，不视为未经确认即可删除的测试数据。
+
+收尾只读对账721ms：9月7日Silver与该日Raw标准化四列双向EXCEPT ALL为0，Raw物理SHA仍为`b92c9a69509019e8f20d86c557de0d03a6037389263585188f73eda1d821d567`。实际`stock_suspend_confirmed_readiness`和下游使用的`suspend_d_ready_for_trade_date`均ready，Raw与Silver所有缺失/失败check列表为空；3,084个已注册日期的Silver待生成集合为空。本次只复验停牌消费门禁，没有启动日线/分钟/Prod下游任务，也不冒称这些下游业务已重算。最终追加复核四日8份历史文件及固定事实身份/hash不变，88个sensor状态与恢复后相同。
+
+本轮只读审计使用原受限实例adapter及子进程PG只读参数；4个run各一次有界日志读回，正常run另一次，共340条。原Raw/最终消费readiness内部仍各check最多5000条历史读取，本轮仅在单个正常日期调用：恢复前2类、收尾5类，理论上限35,000条，不冒充limit1；固定readiness为1 mat＋2 check、各limit1。实测预检和收尾均小于1秒，没有更改生产查询模型或性能配置。第一条help误用了根目录`.venv/bin/dg`，仅报路径不存在；实际帮助随后在orchestrator已有环境读取，未安装工具。
+
+#### C. 证据、阶段结论和下一步
+
+同一临时根内，`run_sample.py`封装精确四日launch/观察，`audit_run.py`只读实际run事件，`daily_readback.py`核实正常日期，`resume_sensor.py`只恢复指定sensor并观察；没有新增通用验收工程或常驻进程。各日期`*-request/launch/terminal/audit.json`记录请求、run与原生target身份；`sensor-resume-request/response.json`及前后状态报告保留唯一状态变化。初次错误报告仍保留。
+
+| 主要证据 | SHA-256 |
+| --- | --- |
+| `preflight-complete.json` | `e41d8f4006ee4e164b08e4210ab5f978126ceff8b4c9867d1591b4c92b800866` |
+| `daily-before.json` | `15041dab7e2f9ff1869ed914f5c9a4b29cc54d4e7f6a91ce12f3db85ad9ebb7c` |
+| `daily-after.json` | `8bdb223d22ff144fc520e695735fa1c76c0b24f7656d60c84caba8455debffc0` |
+| `2026-09-07-audit.json` | `c4f1d3c8638e3051db16b10171f21019bc6ccdbe8d8a247f83b8665877d8b0be` |
+
+**S4通过：四类历史日等价、真实5 checks/日、正常sensor自行更新和实际消费门禁形成闭环。** S5尚未执行：两份旧文件及专项临时环境/运行残留仍需精确清单和删除确认，TODO-SUSPEND-001不提前关闭。六份原文档同步当前状态；没有改业务代码、schema、依赖矩阵、路径合同或配置项，未安装、提交或推送，其他任务脏文件保留。数据湖/Dagster技能约束串行小样本→恢复唯一入口→真实日更读回；文档治理技能保留失败历史并同步原方案，不把旧停止点写成现状。
+
+交付检查：五份临时Python脚本Ruff F/E9通过；文档完整性三项与`git diff --check`通过，CodeGraph sync/status最新。Git对照确认正式writer、job、check、sensor和readiness仍为S1冻结实现；未重跑S1整套隔离测试。本轮正式验收为上表5个真实run，不以临时脚本或文档检查替代。源码搜索中旧CSV读取仅剩待删的`corrections/suspend_full_day.py`自身，现行defs其他Python无该旧入口引用；S5删除仍需按原范围单独确认。
+
+<a id="s5-exact-cleanup-review"></a>
+
+### 18.32 S5删除前清单与配套修改（2026-09-08，原审批记录）
+
+#### A. 本轮结论及范围
+
+管理员要求“继续推进S5”。依据§11、§18.11及技术方案S5，先完成代码引用和精确路径核验，再确认删除；没有执行删除或代码修改。本节不是新的迁移设计，不重跑S1–S4，不重新审计历史文件日期范围或完整性，不访问Prod/Tushare，不启动测试DG或修改正式sensor。
+
+CodeGraph `explore`、`impact(suspend_full_day_ranges, depth=3)`覆盖旧规则、现行writer和测试依赖：旧函数调用仅剩同一旧模块内部。全仓文本/配置补查发现的外部引用均为测试读取白名单、删除前存在性护栏、禁止回退断言或方案历史记录，没有现行业务读取。当前writer读取Raw与固定Silver；下游仍读最终停牌Silver，`suspend_timing.py`的时段修正规则继续使用。源CSV的31项和旧模块两条覆盖均已在S2/S3固定事实验收中覆盖，本轮没有重新解码历史数据。
+
+精确临时根盘点于北京时间09:16开始。只遍历文档登记的精确临时根、只读列出两个已知staging操作目录，并检查小文件身份/hash；没有扫描整盘、整个staging或共享pytest父目录。读取`/private/tmp`一级名称只用于发现漏登记对象，不构成前缀删除授权。
+
+#### B. 待确认删除：9个精确单位
+
+以下目录单位只包含当前核实的普通文件；无子目录、符号链接或其他文件类型。单文件单位均为普通文件。D01–D02必须与C段测试修改同轮交付；D03–D09只在确认后精确清理，不删除它们的共享父目录。
+
+| ID / 风险 | 精确目标 | 实测大小 / 数量 | 删除依据 |
+| --- | --- | --- | --- |
+| D01 / 中 | `/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_full_day.py` | 3,812字节，1文件 | 已无业务调用；旧CSV加载、拼SQL及两条覆盖的承接已完成，须同步移除测试源文件白名单 |
+| D02 / 中 | `/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_full_day_ranges.csv` | 1,407字节，1文件 | 仅D01旧模块还会读取；正式固定Silver已发布并经过S4真实日更验收 |
+| D03 / 低 | `/private/tmp/stock-suspend-s3-20260908.yRJYqu` | 74,932字节，20文件 | S3包装脚本、策略、1字节探针及成功/失败报告；结论与hash已在§18.29落档 |
+| D04 / 低 | `/private/tmp/stock-suspend-s3-events-20260908.kgZFWk` | 45,625字节，13文件 | S3事件审计/发布包装器与报告；真实事件留在正式DG，结论见§18.30 |
+| D05 / 低 | `/private/tmp/stock-suspend-s4-20260908.F43oGf` | 112,339字节，32文件 | S4有限日期验收和恢复sensor的脚本/报告；真实run与数据保留，结论见§18.31 |
+| D06 / 低 | `/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/source-and-gates.json` | 6,207字节，1文件 | S2包装器的预检报告，不是CLI输入；批准来源/日历/hash已在正式plan及本LLD保留 |
+| D07 / 低 | `/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/s2-result.json` | 2,542字节，1文件 | S2执行摘要，不是CLI的comparison合同；数量/耗时/零差异见§18.28 |
+| D08 / 低 | `/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/s3-file-publication-blocked.json` | 12,538字节，1文件 | 已处理的包装策略失败报告，不是待恢复候选；事故与修正保留在§18.29 C/D，不抹掉失败结论 |
+| D09 / 低 | `/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/s3-file-publication.json` | 13,738字节，1文件 | 成功执行摘要，不是file-checkpoint；正式发布合同和checkpoint保留 |
+
+合计71个普通文件、273,140字节（约267KiB），不是清理大体量业务数据。D03–D05逐目录`lsof -nP +D`及D06–D09逐文件`lsof`均无输出、退出码1；进程命令行未发现专项runner/包装脚本。只是核验时点结果，实际删除前必须重新检查。D06–D09在正式源码、测试、脚本中均无读取引用，冻结plan也不引用这四个文件；仅本任务包装器和文档使用它们。
+
+身份与防漂移依据：
+
+| ID | SHA-256 |
+| --- | --- |
+| D01 | `349a5c9d98ef9c038f6245a61ce5c3178ee25eee0a03e61f9283afbb9b948bc4` |
+| D02 | `3969f5c9ccd177bb4ea389136798b6e28925b2a54b1a583e3a47bca2af8a9e63` |
+| D03目录清单 | `398cf11ac2c8b8c536f738a694e785e67a68c3ec91d95133f708ad0c066f6156` |
+| D04目录清单 | `5aa43fd7c5525cda7282974d8fa189746840bd97637162c88768aaa417b219dd` |
+| D05目录清单 | `97ac8d24c30f78ea0808c0633f2d19c50a489984304e3707a1968f3cea3a12f9` |
+| D06 | `44a7db9f283baecd0a798f5d2764782307d26515115b1d3e6adfa2de3032285f` |
+| D07 | `507d79f7a660df48c24dca765df502e7c64887eb2fc2430f0c077add1bbc640b` |
+| D08 | `d0539a5f1e2e71ff1016d46634f1be0c47539f1bb64dc4d166891b62d45e32b6` |
+| D09 | `11441d0fc797844e44e3a49255a49724c32ac41e619e5220a03346e535d63880` |
+
+目录清单hash算法：普通文件名按升序，每行`相对文件名\t字节数\t文件SHA256\n`，UTF-8后SHA256。D03/D04/D05根的device均为16777232，inode分别99467705/99514526/99524676。执行时若对象变成链接、有新增内容、hash改变或被占用，停止该项并解释，不凭同名前缀删除。不保留额外备份/快照；D01/D02可从Git追溯，临时产物删除后不承诺恢复。
+
+#### C. 删除同时必须修改的依赖，不改业务算法
+
+| 文件 / 当前事实 | 精确修改与验收要求 |
+| --- | --- |
+| `tests/architecture/test_lake_console_retirement_guardrails.py`：存在性锚点仍要求CSV存在 | 在原`test_current_lake_consumers_and_clickhouse_tools_are_present`内将CSV正向锚点换成`defs/assets/stock_suspend_confirmed.py`及`defs/stock_suspend_confirmed_contract.py`；加两旧文件不存在断言。其他Foundation Reader、Ops snapshot及ClickHouse锚点一个不删；不新增测试函数而改变当前13例参数化数量 |
+| `lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py`：consumer只读源码闭包包含旧Python，root-guard元数据白名单包含CSV | 从`CONSUMER_SOURCE_FILES`删除旧Python，否则`path.is_file()`预检会在收集测试前失败。root-guard正向元数据锚点同步新文件；在root-guard与consumer两个scope为旧两路径声明精确`file-read-metadata`，分别供根护栏、static-gates验证不存在，不能只给前者而导致后者EPERM。该权限不能读取旧内容；不存在断言应只接受FileNotFoundError，其他错误失败，也拒绝残存链接。保留所有suite/批次/原断言与其余隔离边界，不退回裸pytest或正式instance |
+| `lake_console/orchestrator/tests/test_run_contract_static_gates.py`：跳过旧模块的S5前特例 | 删除`if path == ...suspend_full_day.py: continue`；在原测试中断言两个旧路径不存在，保留对所有现行defs的无CSV/旧import/Git回退检查；原112例数量不变。禁止旧路径/符号的负向断言不是业务引用，不能为追求文本零命中删掉护栏 |
+| `lake_console/AGENTS.md`：保护规则把旧CSV误写为仍有现行读取 | 本轮先纠正为“S4已迁移、旧两文件待确认清理、正式固定Silver必须保留”；实际删除后改为禁止恢复旧读取。`suspend_timing.py`与其他corrections明确保留，不删整目录 |
+| 技术方案、本LLD、清退主案/LLD/M0、主索引 | 本轮标记清单已核验、待删除；删除和回归通过后才关闭TODO。旧清退M0/M8中的“当时保留CSV”保留日期语境，并指向新完成状态 |
+| S0审计清单与两份停牌方案中的旧源码链接 | D01/D02删除时改为Git revision/blob及代码路径文本，避免死链；保留原数量/hash和当时读取事实，不把历史审计改成新链验收 |
+| 资产拓扑、run contract治理、catalog设计、CodeGraph架构快照 | 本轮把残留“尚未发布”校准为S3/S4已完成、S5待删除；架构/metadata语义不变。它们此前只同步到S1，是收尾文档状态漏同步，不是代码还读CSV |
+
+现行业务源码、SQL、schema、catalog登记、readiness键、job selection、sensor及五个发布CLI均不修改。CLI的`source.csv_revision/csv_blob/csv_sha256`是已冻结的来源标识，不打开工作树CSV；不得连这些溯源字段一起删除。
+
+#### D. 明确保留，不混入测试环境
+
+1. 所有正式`raw/`、`silver/`、`gold/`数据与正式DG数据库、事件、run、配置、服务均不在删除清单。尤其保留固定事实`/Volumes/datasource/data_lake/silver/quote/stock_suspend_confirmed/full/part-000.parquet`及最终停牌Silver。只读复核固定文件5,615字节、SHA`042aefca909199afce62f207b9fa44e031ab92d4b0029f239e3d87566c23d360`；9月7日最终Silver800字节、SHA`f2c69a07d3389c87a04fb1efbc782abbf11a0a09fc15a030b9640a101eea540f`，与S3/S4证据一致。
+2. 保留`/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/`内的`plan.json`、`comparison.json`、`file-checkpoint.json`、`events-checkpoint.json`，合计2,360,052字节。这四份不是测试数据库：`read_confirmed_plan`、`read_confirmed_comparison`、`_check_checkpoint`、事件`_read_checkpoint`确实读取，人工inspect/audit/发布续跑仍依赖。只删B段四份附加报告，不删整个正式operation或其空candidate目录。
+3. 保留`/Volumes/datasource/data_lake_staging/stock_suspend_daily/run_id=d629b0f0-dcf6-49ce-8256-47fd77da996e/trade_date=2026-09-07/checkpoint.json`（3,344字节）。它是S4恢复sensor后正常日更形成的已提交记录，`write_silver_stock_suspend_daily_partition`对相同run读取后进入`_resume_suspend_write`；不是测试实例，也不是下游业务事实源。本轮不清理正常运行记录。其他run的staging不扫描、不追加删除。
+4. 保留项目测试源码及其runner/support，删除的是它们生成的实例和探测产物。保留项目`.venv`、既有Miniconda/Python/Dagster/SQLite运行库、系统SQLite、Node与其他共享缓存。§18.11已核实本需求没有独立SQLite安装；本轮也没有安装，因此没有可归属本任务的套件卸载项。不访问或卸载其他任务环境。
+
+#### E. 已不存在的历史对象，不冒称本轮删除
+
+从本LLD既有执行记录按完整随机根去重，排除`stock-suspend-isolated-<random>`等模板，占位符不是路径：共336个精确`/private/tmp`根，其中330个`stock-suspend-isolated-`根全部不存在；另3个已不存在的根为：
+
+```text
+/private/tmp/stock-suspend-s1-20260906.ujj5Ni
+/private/tmp/stock-suspend-s1-reconcile-ko4x1c
+/private/tmp/stock-suspend-s2-20260908.KOoJUj
+```
+
+其余3个就是D03–D05；一级名称核对未发现同专项前缀但未登记的其他对象。上述333条已不存在完整根按升序、每行末尾LF编码UTF-8的清单SHA256为`469dfa8b69af3f4c818e43db57d0b3299c21278c205f89fa2ab2c9c26e48ed64`；330条原始完整路径仍在§18既有执行记录，不复制一份新清单造成漂移。早期事故的`/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-196`也不存在。不删除`pytest-of-congming`父目录或`pytest-current`链接。
+
+这里只能证明核验时对象不存在，不能据此猜测删除者、时间或把这些对象计入本轮清理数量。历史路径和报告引用标记为当时证据，结论/hash留在文档；不为补证据重建旧实例。若实际收尾时同名对象重新出现，重新核归属，不能照旧清单直接删除。
+
+#### F. 确认后的顺序与最小回归
+
+1. 先复核D01–D09目标、身份/hash和占用；任何漂移先停止该项。用精确两文件删除配合C段三份测试修改，不能恢复CSV兼容路径或减少现行消费者检查范围。
+2. 从orchestrator目录使用现有`.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite <固定suite>`运行必要回归：`root-guard`、`test_run_contract_static_gates.py`、`test_asset_governance_contracts.py`、`test_asset_check_incremental_governance.py`及`test_suspend_d_checks.py`。suite均已在现有parser登记；分别验证整仓护栏、无回退、真实定义发现、检查治理和现行停牌检查。保留原预期例数，不重跑I01–I08、S2全历史、S3发布或S4正式job。
+3. 验证通过后精确清理D03–D09，外加本轮最小回归新生成且明确登记的专项临时根（按§18.11既有最终清理授权、无占用后删除）。无需新建测试框架或长期测试实例；不能先清理再运行测试又遗留新实例。未通过则停止收口并说明失败，不能删掉失败现场后宣称完成。
+4. 检查两旧路径/旧业务import不存在、`suspend_timing.py`及当前固定输入源码保留；确认保留文件未变、批准清理目标不存在。同步旧链接与所有当前文档，文档完整性、差异检查及改动Python的Ruff通过后关闭S5和TODO；没有明确提交指令不自动提交。
+
+本轮交付只完成A–E核验和F执行清单，不把尚未实施的删除与回归写成通过。按数据湖/文档治理技能保留独立删除确认点；既有Wealth/Auth并行修改完全不纳入本专项。没有改变子系统边界、依赖矩阵、正式路径、数据字段或运行配置。
+
+本轮验证：文档完整性三项、`git diff --check`通过；CodeGraph sync/status为最新。仅修改11份规则/文档，没有执行任何删除、包安装/卸载、业务测试或正式运行操作，没有新建临时实例/脚本目录，未提交/推送。F段是确认后的执行清单，不是本轮测试结果。
+
+<a id="s5-readonly-index-handle-review"></a>
+
+### 18.33 S5执行前暂停及已批准澄清：CodeGraph只读索引句柄
+
+管理员已明确确认D01–D09删除、三份测试修改与最小回归，不再等待重复删除授权。本轮重新核验全部9项目标的类型与内容hash，均与§18.32一致；同时记录8个保留文件的身份/hash，包括正式固定及9月7日最终Silver、四份发布记录、正常日更checkpoint和`suspend_timing.py`。尚未创建测试实例或更改源码。
+
+执行前`lsof`发现D01/D02仍有打开句柄：PID 4394，进程为仓库现有`codegraph.js serve --mcp --path /Users/congming/github/goldenshare`；两个FD为2802r/2803r，`FILE-FLAG=R`，inode为95285708/95285709。再次检查仍存在。不是Dagster作业、写入进程或新的业务消费者。
+
+当前已安装CodeGraph源码`lib/dist/sync/watcher.js`的`FileWatcher.start()`调用`chokidar.watch(projectRoot)`监听仓库变化；`serve`提供启动时`--no-watch`，当前MCP工具没有暴露运行中释放某两个路径监听的操作。本轮没有停止该共享进程、修改安装包/工具配置、删除索引或尝试绕过占用检查。
+
+问题是§18.32把“任何打开句柄”统一视作删除阻断，未区分业务读写与开发工具的只读索引/监听。这个执行条件过严是方案遗漏，不是停牌数据依赖重新出现。按原条件先停止D01/D02；其余清理必须在源码删除及回归后执行，所以D03–D09也未提前删除。
+
+**管理员已确认的最小澄清（2026-09-08）：** 仅对D01/D02允许已核实为CodeGraph只读索引/监听的句柄，不将它们当作业务占用；删除前复核该进程身份和只读FD，任何其他进程、写句柄或不明用途仍停止。不停CodeGraph、不改共享配置，删除后正常同步索引。此项限定适用于§18.32 B/F的占用检查；D03–D09及新增测试产物继续要求无占用。原精确路径、hash、保留项、三份测试修改与回归顺序完全不变，直接继续原实施，不重新审计S0–S4。
+
+前一轮仅更新LLD、技术方案和主索引的暂停原因，没有删除、代码/测试修改或执行测试；这是历史暂停记录。最新确认后的实际执行结果在后续收尾记录中单独核对，不能把此前未执行记成通过。
+
+<a id="s5-runner-exit-review"></a>
+
+### 18.34 S5部分实施及测试运行器退出收尾错误（2026-09-08）
+
+#### A. 已实施与尚未实施
+
+管理员确认§18.33的限定澄清后，复核D01–D09全部hash无漂移；D01/D02仅有PID4394现有CodeGraph进程的2802r/2803r只读句柄，进程身份与前次一致。按批准范围删除D01/D02两份源码，合计5,219字节，并同轮完成§18.32 C三份测试修改：
+
+- 根护栏改为保护固定资产/合同源码；两个旧路径用仅接受FileNotFoundError的lstat断言验证不存在，其余现行Reader、Ops snapshot、ClickHouse工具保护不变。
+- static-gates取消旧模块跳过特例，并验证两旧路径不存在；现行defs无CSV/import/Git回退断言保留。
+- runner移除旧模块consumer内容读取白名单，更新root-guard正向锚点；只为root-guard/consumer声明旧两路径精确元数据权限，不允许旧内容读取，没有修改子进程生命周期、隔离基线或业务逻辑。
+
+CodeGraph impact显示旧函数只影响旧模块内部4个符号；结合前次explore和现行文本/测试核验，没有新增业务依赖。删除后整仓护栏与无CSV回退测试实际通过，不是只靠图零命中判定。两旧文件可从Git恢复：CSV revision/blob见S0来源记录，旧模块blob为`4342b6a713c7ea74506c45533f2312d092fbe504`。当前没有恢复兼容读取。
+
+**D03–D09未删除，内容和身份仍与§18.32一致。** 后续回归未全部通过，因此按F段停止清理，不删除失败现场，不关闭S5/TODO。其余专项临时产物仍须在修复复验后精确清理，不因本次保留现场永久豁免。
+
+#### B. 实际运行结果，不把断言通过当作整批通过
+
+从orchestrator目录使用现有环境及现有runner运行，命令形式严格为：
+
+```text
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite root-guard
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_run_contract_static_gates.py
+```
+
+首项覆盖当次4,025个Git工作区文件，分5片，每片完整运行原13例（65次执行、13个逻辑用例），全部退出0。static-gates第1批8/8通过、退出0，包含新无CSV回退/不存在检查；第2批pytest 8/8通过，但父运行器在收尾时退出1。第3–14批及其他3个suite没有执行，不能报告112例或150例全部通过。未重试、未改权限、未降级裸pytest。
+
+| 本轮精确临时根（均纳入§18.11最终清理） | 批次 | 结果 | 运行器耗时 |
+| --- | --- | --- | --- |
+| `/private/tmp/stock-suspend-isolated-qul73fmq` | G-retirement:1 | 通过 | 1577ms |
+| `/private/tmp/stock-suspend-isolated-drufw72z` | G-retirement:2 | 通过 | 3573ms |
+| `/private/tmp/stock-suspend-isolated-0a2klvkf` | G-retirement:3 | 通过 | 2413ms |
+| `/private/tmp/stock-suspend-isolated-975cd67r` | G-retirement:4 | 通过 | 1737ms |
+| `/private/tmp/stock-suspend-isolated-2ck1srwc` | G-retirement:5 | 通过 | 875ms |
+| `/private/tmp/stock-suspend-isolated-8nt0sjj6` | test_run_contract_static_gates.py:1 | 通过 | 2089ms |
+| `/private/tmp/stock-suspend-isolated-pwlp4xit` | test_run_contract_static_gates.py:2 | 断言8/8通过，但运行器退出1，整批未通过 | 无完成报告 |
+
+每个根的执行前策略/源文件指纹和执行记录在`allowed/resource-result.json`，断言结果在`allowed/pytest-result.json`。失败根资源报告仍为执行前`passed=false`，没有退出码/耗时最终字段；不得人工改为成功。其SHA256为`4dce025466e794975c542553d35cf603e2df6216c15163398f4cee73f3f51010`，pytest结果SHA256为`c2a2a48faf73878e929e518070b756aeff7f451a633a72fadd3ce5810c14d55c`。7处禁止写入哨兵事后身份/大小/hash均与执行前一致。
+
+#### C. 代码确认的原因与尚不能断言的部分
+
+报错位置是现有`tests/stock_suspend_confirmed_test_runner.py::run_isolation_child.finish_child`：
+
+```python
+if process.poll() is None:
+    os.killpg(process.pid, signal.SIGKILL)
+process.wait(timeout=5)
+```
+
+外层selector在stdout/stderr都EOF后退出，ExitStack会在正常退出与异常退出时都调用finish_child。这里没有先区分正常EOF与监控异常，也没有先等待正常子进程被回收：一次poll暂时返回None，就立即强杀整个自建进程组。本次pytest已经打印8 passed，随后该killpg调用抛出`PermissionError: [Errno 1] Operation not permitted`；因为发生在清理回调本身，后面的wait及资源报告最终写入也没有完成。
+
+可以确定的是**正常输出结束与进程退出回收存在不同步窗口，现有实现没有正确区分正常收尾和故障终止**。具体为何该时刻系统返回EPERM而非其他结果，没有进程级证据，不能凭印象声称是文件白名单缺项、正式业务权限异常或某种macOS机制。检查时未发现残留的本轮runner/失败bootstrap活动进程；不对不存在的进程再次发信号。CodeGraph impact覆盖finish_child→run_isolation_child→隔离/启动/回归入口，影响在测试运行器内部，不进入正式writer/job。
+
+这段生命周期代码本轮没有修改，是已有测试工具的缺陷，不是删除CSV导致业务读取失败。§18.20曾验证“父monitor出现异常时必须回收子进程”，但未覆盖“正常EOF先于poll观察到退出”的反例，先前验收有此遗漏。
+
+#### D. 拟议最小修正，待确认后实施
+
+不重建隔离工程，不添加系统权限，不安装套件，不触碰业务代码：
+
+1. 仅修改runner的finish_child：在**无监控异常且未触发超时/预算门禁**的正常EOF路径，先有界等待子进程自然退出（最多5秒）；已经退出就直接回收，不能先发SIGKILL。
+2. 正常等待超时、监控异常或已触发预算门禁时，继续只终止该runner自己创建的进程组，并有界wait；等待超时或终止失败必须保留失败状态。不能忽略EPERM、伪造退出0或靠扩大权限通过。
+3. 用最小进程替身覆盖“poll暂未退出但wait返回0、不发kill”“已退出非零不能成功”“等待超时必须失败/回收”“监控异常仍终止自有子进程组”。沿用现有测试支持，不增设DG实例、框架工程或永久后台。
+4. 确认后修正并复验该生命周期，再跑原五个suite；测试逻辑数与保护范围不减少。保留本次失败历史，成功后按§18.32 F清理D03–D09、本轮7根及复验新增精确根，再关闭TODO。无需再次申请原删除范围或重做S0–S4。
+
+本轮批准的是三处精确测试依赖调整，没有自行扩展为运行器生命周期修复。当前按计划冲突/失败规则停在此修正确认点，不修改正常运行中的正式服务。
+
+#### E. 正式边界与交付状态
+
+只读复核§18.32 D的8份保留文件，device/inode/大小/mtime/内容SHA256与本轮删除前完全相同：固定Silver、2026-09-07最终Silver、4份发布合同/checkpoint、正常日更checkpoint和suspend_timing.py。D03–D09也未变。没有访问或写入正式DG数据库、调用job/sensor/materialize/runless event、改正式数据/配置/源码算法；没有创建DG服务或安装/卸载套件。
+
+按数据湖与文档治理要求，已同步12份相关规则/文档的实际停止点，并把S0/方案的旧源码链接改为历史Git身份，保留原审计事实。现行调用链和子系统依赖矩阵不变；其他任务的Wealth文件未改动，未提交/推送。尚未完成的回归和清理不能由静态检查替代。
+
+本轮静态核验：三份改动Python默认Ruff、orchestrator全src/tests的E9/F63/F7/F82基线、文档完整性三项及git diff --check通过；CodeGraph sync/status为最新。上述结果不覆盖未完成的回归，也不授权跳过运行器修正或临时产物清理。

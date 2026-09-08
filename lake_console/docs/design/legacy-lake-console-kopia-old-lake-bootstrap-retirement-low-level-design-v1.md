@@ -2724,7 +2724,9 @@ M8 再独立提交精确清单；**不以清遗留文件为由删除或顺手重
 
 ### 16.11 TODO-SUSPEND-001：消除停牌修正规则的运行时 CSV 隐性依赖
 
-- [ ] **S0–S2完成（2026-09-08）；S1总对账见独立LLD §18.27，S2真实候选及3,083日期零差异证据见[§18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)，S2文档已提交`47ae5404`。S3首次OS规则拒绝经确认修正后，已成功发布一个4,022行固定事实文件，完整读回和committed对账通过，6,166个既有Raw/Silver文件未变，见[§18.29D](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s3-confirmed-file-publication)。事件登记仍待另行批准，切换及CSV删除未执行，指定Silver sensor未恢复，TODO未关闭；首次失败及早期隔离事故证据均保留。** 2026-09-05 用户明确要求：停牌修正规则后续不能再靠读取
+- 2026-09-08 S5收尾进展：旧模块/CSV已获准删除，三份测试已修改；整仓护栏通过，static-gates第二批结束时测试运行器收尾失败，其他回归及临时产物清理未完成，TODO未关闭，见[LLD §18.34](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-runner-exit-review)。正式数据、发布记录与suspend_timing.py未变。此当前记录优先于下列清退时期“CSV仍被读取/保留”的历史描述。
+
+- [ ] **S0–S4完成（2026-09-08）。S1/S2/S3证据保留于独立LLD §18.27–18.30；S4四历史日正式job等价复用原文件、20项检查通过，恢复唯一Silver sensor后正常生成9月7日10行，5项检查及实际消费readiness通过，见[§18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。固定文件与Raw未改，指定Silver sensor已RUNNING，其他87个状态不变。S5两旧文件已获准删除，三份测试已修改；运行器收尾错误使剩余回归及临时环境/运行残留清理停止，TODO未关闭，详见独立LLD §18.34；首次失败及早期隔离事故证据均保留。** 2026-09-05 用户明确要求：停牌修正规则后续不能再靠读取
   文件承载，要消除隐性依赖。§16.10 的“保留”仅指当前防误删，不代表认可这套长期实现。
 
 **2026-09-06 后续决策与主案入口**
@@ -3012,9 +3014,10 @@ D04/D05 的既有 run ID 存在性防覆盖检查不读取旧版本数据，不�
 
 1. 正式 `data_lake/raw|silver|gold` 及当前 Foundation Reader/Wealth API 使用的数据保留；本次不审计
    正式数据是否完整，不改生产数据库、Ops Snapshot 或 Dagster 历史。
-2. 当前停牌 `suspend_full_day_ranges.csv` 由 `suspend_full_day_ranges()` 实际读取；当前
-   `stock_identity_mappings.cn_a.csv` 由 `load_stock_identity_mapping_seed()` 实际读取。两者均保留，
-   不与旧湖 manifest 或 reports 混同；停牌 TODO 仍只是后续治理项。
+2. M8清退时，停牌 `suspend_full_day_ranges.csv` 由 `suspend_full_day_ranges()` 实际读取，因此当时保留。
+   后续停牌专项S4已退出该读取，S5已获准删除旧文件，但回归及临时清理未完成，见§16.11；不能再用这条历史结论判断当前依赖。
+   `stock_identity_mappings.cn_a.csv` 仍按身份映射链保留，不属于停牌专项删除目标，
+   不能与旧湖 manifest 或 reports 混同。
 3. reports 目录保留：[正式审计 CLI](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/audits/stk_mins_silver_strict_audit.py:463)
    默认在其子目录输出。该输出路径不等于 D01–D03，不能因为输出目录在用就保留所有历史报告。
 4. BSE/WMT 的 source bundle、actual-changed manifest、checkpoint 和被这些输入指向的候选属于

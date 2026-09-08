@@ -439,7 +439,6 @@ CONSUMER_SOURCE_FILES = (
     "defs/checks/suspend_d_checks.py",
     "defs/checks/wealth_market_turnover_checks.py",
     "defs/corrections/__init__.py",
-    "defs/corrections/suspend_full_day.py",
     "defs/corrections/suspend_timing.py",
     "defs/duckdb_connection.py",
     "defs/duckdb_sql.py",
@@ -865,9 +864,9 @@ def policy_for(root: Path, *, scope: str = "isolation") -> str:
         if not path.is_file() or path.is_symlink():
             raise RuntimeError(f"Source allowlist must contain regular files: {path}")
     literals = "\n".join(f"  (literal {json.dumps(str(p))})" for p in sorted(set(files) | directories))
-    metadata_only = ""
+    metadata_paths = []
     if scope == "root-guard":
-        presence_only = tuple(repo / name for name in (
+        metadata_paths.extend(repo / name for name in (
             "src/foundation/clients/local_lake/stock_mins_reader.py",
             "src/foundation/clients/local_lake/major_index_mins_reader.py",
             "src/foundation/clients/local_lake/stock_nine_turn_reader.py",
@@ -877,10 +876,18 @@ def policy_for(root: Path, *, scope: str = "isolation") -> str:
             "src/ops/models/ops/dataset_status_snapshot.py",
             "lake_console/bin/lake-clickhouse-start",
             "lake_console/bin/lake-prod-clickhouse-tunnel",
-            "lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_full_day_ranges.csv",
+            "lake_console/orchestrator/src/orchestrator/defs/assets/stock_suspend_confirmed.py",
+            "lake_console/orchestrator/src/orchestrator/defs/stock_suspend_confirmed_contract.py",
         ))
+    if scope in ("root-guard", "consumer"):
+        # Only metadata is needed to prove both retired paths are absent.
+        metadata_paths.extend(SOURCE / "defs/corrections" / name for name in (
+            "suspend_full_day.py", "suspend_full_day_ranges.csv",
+        ))
+    metadata_only = ""
+    if metadata_paths:
         metadata_only = "(allow file-read-metadata\n" + "\n".join(
-            f"  (literal {json.dumps(str(path))})" for path in presence_only
+            f"  (literal {json.dumps(str(path))})" for path in metadata_paths
         ) + ")\n"
     # The first block preserves the approved I01/I02 runtime/device permissions.
     return f'''(version 1)

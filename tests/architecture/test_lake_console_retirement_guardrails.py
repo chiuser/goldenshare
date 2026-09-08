@@ -171,6 +171,13 @@ def test_current_lake_consumers_and_clickhouse_tools_are_present():
         "src/ops/models/ops/dataset_status_snapshot.py",
         "lake_console/bin/lake-clickhouse-start",
         "lake_console/bin/lake-prod-clickhouse-tunnel",
-        "lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_full_day_ranges.csv",
+        "lake_console/orchestrator/src/orchestrator/defs/assets/stock_suspend_confirmed.py",
+        "lake_console/orchestrator/src/orchestrator/defs/stock_suspend_confirmed_contract.py",
     ):
         assert (REPO_ROOT / name).is_file(), name
+    for name in (
+        "lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_full_day.py",
+        "lake_console/orchestrator/src/orchestrator/defs/corrections/suspend_full_day_ranges.csv",
+    ):
+        with pytest.raises(FileNotFoundError):
+            (REPO_ROOT / name).lstat()

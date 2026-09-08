@@ -52,7 +52,7 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 7. 历史 Dagster event 中已经写入的旧湖/Kopia 字样：允许保留，不改写既有 event；86 份纯旧 Console
    文档不再留在当前工作树，必要结果摘要迁入现行总账后删除，全文只通过 Git 历史追溯。
 8. 对旧湖路径和 Kopia 的禁止性规则、负向测试：保留并按新事实更新。
-9. 现行 `suspend_full_day_ranges.csv` 及读取链当前保留只是防误删措施，不是长期设计认可。用户已要求
+9. 清退阶段保留 `suspend_full_day_ranges.csv` 及当时读取链只是防误删措施，不是长期设计认可。用户已要求
    记录后续治理 TODO：消除停牌修正规则的运行时文件隐性依赖。详见 LLD §16.11 `TODO-SUSPEND-001`；
    清退阶段仅登记，不自动扩充本专项实施范围，替代方案验收前不得先删该 CSV。
    2026-09-06 用户已确认后续方向：Raw 不变，历史确认事实独立持久化为正式 Silver 输入资产，
@@ -62,7 +62,7 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
    [S0 清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。
    2026-09-08 S1实现、消费者及治理隔离回归已完成，见[LLD §18.27总对账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation)；
    早期隔离事故影响核验仍保留在LLD §17，不用本轮通过覆盖历史。随后S2已完成真实4,022行候选/生产合同反例及3,083日期零差异比较，见[LLD §18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)。
-   S2文档已提交`47ae5404`。S3首次执行因新增OS规则写错而停止，随后获准最小修正，已成功原子发布一个4,022行固定事实文件，完整读回及committed对账通过，6,166个既有Raw/Silver文件未变；[LLD §18.29D](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s3-confirmed-file-publication)保留失败及成功证据。事件登记仍待另行批准，未恢复指定Silver sensor或删除CSV，TODO未关闭。
+   S0–S4已完成：S2全范围零差异及S3文件/事件发布证据保留于独立LLD §18.28–18.30。S4四历史日正式job等价复用原文件，20项检查通过；恢复唯一Silver sensor后，正常链自行生成2026-09-07分区10行，5项检查及实际消费readiness通过，见[§18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。S5已按批准清单删除旧模块及CSV，三份测试已修改；整仓护栏通过，static-gates第二批在断言通过后遇到测试运行器退出收尾错误，其他回归及临时产物清理停止，TODO未关闭，见[LLD §18.34](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-runner-exit-review)。正式数据、发布记录、正常日更checkpoint和时段修正文件未变；没有恢复CSV依赖。
 
 ### 0.4 新增拍板结果
 

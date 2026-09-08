@@ -56,8 +56,11 @@ frontend/backend、Kopia、专属测试、旧入口和示例配置，不得恢�
 6. 物理数据与 ignored 环境、配置、构建产物不随 Git 源码删除。
    清理需按代码直接引用和当前用途给出精确清单，经管理员确认后执行。
 7. reports 不是旧后台专属目录，不可整目录删除。
-   `orchestrator/src/orchestrator/defs/corrections/suspend_full_day_ranges.csv` 仍有现行读取，
-   必须保留；取消文件式隐性依赖的 TODO 单独推进。
+   停牌专项S4已完成：现行链读取固定Silver事实与Raw，不再读取旧CSV。
+   `orchestrator/src/orchestrator/defs/corrections/suspend_full_day.py` 与同目录
+   `suspend_full_day_ranges.csv` 已按停牌LLD §18.32获准删除（S5其他收尾尚未完成）；
+   不得恢复旧运行时读取。正式 `silver_stock_suspend_confirmed`、最终停牌Silver、
+   `suspend_timing.py` 及其他现行corrections必须保留，不能整目录删除。
 
 ## 性能与开发门禁
 

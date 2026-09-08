@@ -332,13 +332,15 @@
   <section>
     <h2>1. 代码事实快照</h2>
     <div class="callout">
-      <strong>2026-09-08 停牌专项代码增量，尚未正式发布：</strong>
+      <strong>2026-09-08 停牌专项：S3已发布，S4正式日更验收完成：</strong>
       <code>raw_tushare_suspend_d</code> 与外部固定输入 <code>silver_stock_suspend_confirmed</code>
       共同生成 <code>silver_stock_suspend_daily</code>。Silver-only job 仍只写一个日期资产，
       先跑固定输入的两项无分区 checks，再写 Silver、跑原三项日期 checks。固定输入没有自动 writer 或新 sensor；
       日线、分钟、历史恢复继续只读最终停牌 Silver。
-      文件发布、事件登记、恢复 Silver sensor 和删除旧 CSV 尚未执行，须按
-      <a href="../design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation">S1 总对账及后续阶段</a>另行批准。
+      固定文件及3条发布事件已落地；四历史日作业等价通过，指定 Silver sensor 已恢复，
+      正常链已生成2026-09-07分区并通过5项检查及消费readiness。
+      S5旧模块与CSV已获准删除；测试运行器退出收尾错误使剩余回归及临时产物清理停止，见停牌LLD §18.34；
+      <a href="../design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-exact-cleanup-review">删除与保留边界见S5清单</a>。
     </div>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。

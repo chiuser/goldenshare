@@ -12,7 +12,7 @@
 
 C1 已按该口径落地为 `orchestrator.defs.catalog.lake_assets`：只做代码内 registry 和 static gates，不新增数据库、不新增 UI、不新增配置项、不改变现有 asset/job/sensor/check 语义。原 C1 review 文档已并回本文，不再单独维护。
 
-### 2026-09-08 停牌固定事实登记（代码已实现，尚未正式发布）
+### 2026-09-08 停牌固定事实登记（S3发布及S4日更验收已完成）
 
 `silver_stock_suspend_confirmed` 已登记为 `quote/silver` 的外部 `AssetSpec`，
 分区模型 `FULL_FILE_SILVER_STOCK_SUSPEND_CONFIRMED` 无日期分区，五列固定合同、两项 blocking checks。
@@ -20,7 +20,7 @@ C1 已按该口径落地为 `orchestrator.defs.catalog.lake_assets`：只做代�
 只有专用人工发布工具可以提升该文件，资产自身没有计算函数、日更或自动 writer。
 最终 `silver_stock_suspend_daily` 读取 Raw 与该固定输入，四列输出与业务消费者不变。
 治理对账合并 executable definitions 与外部 specs；外部输入不得放进 CONTRACT_ONLY 排除集合。
-正式数据/事件迁移仍按[停牌 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md) S2–S5 分阶段批准，登记不表示已经发布。
+S3已完成正式固定文件与3条事件发布，S4四历史日和恢复sensor后的正常日更均通过；这与单纯catalog登记有区别，实际证据见[停牌LLD §18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。S5旧两文件及专项产物的[精确清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-exact-cleanup-review)已批准，两旧文件已删除；回归在测试运行器收尾失败，专项产物清理未完成，见[LLD §18.34](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-runner-exit-review)。固定资产、合同、检查和现行消费者保留。
 
 ## 2. 背景
 
