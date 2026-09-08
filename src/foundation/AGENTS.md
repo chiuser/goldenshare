@@ -63,8 +63,7 @@
 
 1. `/Users/congming/github/goldenshare/AGENTS.md`
 2. `/Users/congming/github/goldenshare/src/AGENTS.md`
-3. `/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md`
-4. `/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md`
+3. `/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md`（含依赖矩阵与护栏）
 
 ---
 

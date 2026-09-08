@@ -977,7 +977,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 ## 10. 相关基线
 
 1. [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
-2. [数据集发布治理规范 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
+2. [Foundation 研发基线](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)（通用数据路径）；涉及多源融合时另见[多源映射与发布规则](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 3. [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
 4. [股票历史分钟行情存储瘦身与滚动冷热治理方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 5. [生产 PostgreSQL raw 直出一期低层设计 v1](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)

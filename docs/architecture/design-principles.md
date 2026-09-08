@@ -2,7 +2,7 @@
 
 > 说明：本文中的目录示例若与当前代码不一致，请以 [subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md) 为准。
 >
-> **文档状态：历史设计原则 / 非当前架构基线。** 本文保留早期产品、前端和工程设计思想；其中 `foundation / web / core / dm` 等历史分层、旧路径和执行归属不作为当前实现依据。当前子系统边界、数据维护主链和 Ops 责任分别以 [subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)、[dependency-matrix.md](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md)、[foundation-current-standards.md](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md) 和 [ops-consolidation-plan.md](/Users/congming/github/goldenshare/docs/architecture/ops-consolidation-plan.md) 为准。
+> **文档状态：历史设计原则 / 非当前架构基线。** 本文保留早期产品、前端和工程设计思想；其中 `foundation / web / core / dm` 等历史分层、旧路径和执行归属不作为当前实现依据。当前子系统边界、依赖方向和 Ops 责任统一见[子系统架构基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)；数据维护主链见 [Foundation 研发基线](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)。
 
 ## Purpose
 

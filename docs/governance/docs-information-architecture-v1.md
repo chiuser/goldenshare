@@ -1,6 +1,6 @@
 # 文档信息架构与待整合清单 v1
 
-更新时间：2026-08-22
+更新时间：2026-09-08（Architecture 基线合并）
 
 ## 1. 目标
 
@@ -61,29 +61,54 @@ docs/
 
 ### 4.1 Architecture 组
 
-当前状态：已完成第一轮整合（建立统一强约束主文档）。
+当前状态：2026-09-08 按用户确认将本组 7 份文档合并为 3 份。只整合文档，不改代码、依赖规则、数据库或 Lake；未全面审计其他架构方案。
 
-主文档：
+1. [子系统架构基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)：目录、职责、依赖矩阵、现存差距、legacy 边界与护栏。
+2. [Foundation 研发基线](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)：Prod 数据分层、研发原则与上手入口。
+3. [多源映射与发布规则](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)：只补充多源语义，不重建通用接入门禁。
 
-1. `foundation-current-standards.md`
+数据集模板继续独立维护设计与验收填写要求；Ops 契约继续维护状态和展示语义。后续修改规则应回到其归属文档，不再同时更新多个相同清单。
 
-专题文档：
+<a id="architecture-consolidation-20260908"></a>
 
-1. `dataset-publish-governance-spec-v1.md`
-2. `foundation-onboarding-and-legacy-checklist-v1.md`
+#### 本轮合并去向与删除清单
 
-整合建议：
+以下旧文件名仅用于追溯，不是当前入口。删除文件均可从合并前提交 `50b00161` 恢复，不另建空壳跳转文档。
 
-1. `foundation-current-standards.md` 继续保持“唯一强约束源”定位。
-2. 专题文档仅保留领域细节，避免再复制主约束。
-3. 后续若发现专题与主文档冲突，先修正文档再改代码。
+| 原文档（均在 docs/architecture） | 处理 | 有效内容去向 |
+| --- | --- | --- |
+| `subsystem-boundary-plan.md` | 保留路径，改为子系统架构基线 | 目录与职责 §2、统一依赖 §3、差距 §4、迁移结论 §5、护栏 §6 |
+| `dependency-matrix.md` | 并入后删除 | 目标矩阵、零白名单的适用边界、App 现存反向依赖与测试清单，归入架构基线 §3/4/6 |
+| `platform-split-plan.md` | 并入后删除 | App 壳/认证/模型/API/Web/静态资源归属、旧试点退出及防回流结论，归入 §5/6 |
+| `ops-consolidation-plan.md` | 并入后删除 | Ops runtime/services/action catalog、数据维护主链、市场情绪服务归属与 facade 边界，归入 §5/6 |
+| `foundation-current-standards.md` | 保留路径，精简为研发基线 | 分层、事实源、长任务与分阶段验证保留；详细交付清单引用数据集模板 |
+| `foundation-onboarding-and-legacy-checklist-v1.md` | 有效入口并入后删除 | 阅读入口与执行授权边界归入研发基线 §2/7；旧遗留事项分类见下表 |
+| `dataset-publish-governance-spec-v1.md` | 保留路径，收窄为多源专题 | 映射、可比性、清洗、来源身份、发布优先级/回退/版本追溯、变更与测试要求 |
+
+#### 未原样搬入的旧内容
+
+| 旧内容 | 处理理由与当前去向 |
+| --- | --- |
+| Platform/Operations 空包删除与外部兼容评估待办 | 当前目录与护栏已证明无 Python 空包，不再列待办；不声称审计了仓库外脚本，仍保留 legacy 禁令 |
+| 新人连跑 init-db、seed/apply、状态重建 | 不作为最小静态验证或默认执行授权；研发基线 §2/7 区分读文档、测试和获准写入，本轮未执行这些命令 |
+| 前端分类硬编码、unknown/skipped/unobserved 与各层独立观测要求 | 状态与展示交回 Ops 当前契约，字段及消费者验收交回数据集模板 §7；不把旧枚举及分层规则另存为第二套现行定义 |
+| 无业务日期时用最近同步日期兜底业务日期 | 与当前模板 §7.4 区分同步迹象的要求冲突，删除旧要求；研发基线 §4 保留明确区分 |
+| 单源也须建立 source_status/resolution_policy/std 规则对象 | 不再要求为单源或 pass-through 补造对象/层；按实际 DatasetDefinition.storage 与模板设计，多源特殊规则由专题承载 |
+| Source 页只看 Raw、旧页面兼容、新增数据集自动 seed | 不作为全局规则；实际来源/目标表与状态投影按模板 §7 验收，正式执行须另获授权 |
+| equity_indicators、adj_factor、fund_adj 及 core 兼容路径旧迁移清单 | 移出新人必做任务；本轮不判定它们全部完成，也不据此下线任何表、字段或消费者。既有 core 保留边界继续由研发基线约束；再处理时须以对应数据集方案及当前实现确认，历史条目可从上述提交追溯 |
+| 全部数据集必须经过 Raw/Std/Serving、所有发布均套多源流程 | 与已确认的 direct-serving、Raw 写入/Serving 视图等路径冲突；多源专题按实际获准路径设计，不强制物理 Std 层 |
+| 多份通用门禁/PR 清单与 Stock Basic“当前口径”示例 | 通用填写归数据集模板；示例只解释规则写法，不把未经本轮核验的具体数据集生产策略写成事实 |
+
+核验依据：先使用 CodeGraph `codegraph_explore` 查护栏上下文（返回混入无关符号，未据此扩范围），再定向读取三个架构护栏、Ops/Biz 入口的 App 导入及 legacy 目录；导航扫描覆盖 AGENTS、Markdown、HTML 与直接引用方。保留“目标约束/代码现状/测试覆盖”的区分，不以整合文档替代代码整改或生产验收。
+
+本轮验证：文档完整性三个检查组与 `git diff --check` 通过；新增/修改的 40 个本地 Markdown/HTML 链接及锚点通过定向检查；三个架构护栏共 16 项测试通过。旧文件名仅留在上述迁移记录，不再作为当前链接或必读入口。未执行数据库、Lake、部署或安装操作，工作区其他任务修改保留。
 
 ### 4.1.1 当前权威入口与专题角色（G1）
 
 Architecture 组按以下顺序判断文档是否具备当前权威性：
 
 1. 当前运行时行为、API 契约和数据字段：以代码、测试、配置与实际运行事实为准。
-2. 系统边界与依赖方向：以 `subsystem-boundary-plan.md`、`dependency-matrix.md` 及对应的当前基线为准。
+2. 系统边界与依赖方向：统一以 `subsystem-boundary-plan.md` 为准，目标、现存差距与护栏覆盖分别阅读。
 3. 数据集静态事实：以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准；执行计划以 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan` 为准。
 4. `dataset-definition-enum-reference-v1.md` 只维护枚举语义和约束边界，不维护易漂移的数量快照；精确数量由代码 registry 与测试提供。
 5. 方案、LLD 与验收记录保留各自角色：方案/LLD 解释设计与局部实现，验收记录提供时点证据，均不能覆盖当前代码事实。
@@ -93,7 +118,7 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 
 本轮 Architecture 入口治理结论：
 
-1. S0 保留仓库上手总览、QTF 方案和 Foundation 当前强约束；S1 不再重复列出这些入口。
+1. S0 保留仓库上手总览、QTF 方案、子系统架构基线与 Foundation 研发基线；S1 不再重复列出这些入口，合并后的专题仅保留多源映射与发布规则。
 2. `Dataset Maintain M-1 到 M8` 仅保留为历史执行索引，不再作为 Architecture 主入口；当前实施状态回到关联主案、代码和测试。
 3. 方案与 LLD 成对保留时，必须分别承担上位方案与落地细节；独立验收记录、审计记录和旧 Local Lake 证据不提升为当前主入口。
 4. `top_list` 版本收口方案已实施，后续未决范围仅限数值冲突业务规则，不再使用无状态标签的“专项方案”表述。

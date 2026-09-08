@@ -76,7 +76,7 @@
 |---|---|---|
 | 仓库根目录 | 已存在正式 `qtf/` 产品域；M1 已建立研究状态，M2 已建立二级行业候选公式内核，M3 已建立 Prod 只读输入门禁和执行主链；旧 M4.1 已增加复杂验证合同和空结果模型 | 当前没有成功率计算、结果写入、结果 API、真实 R2、Wealth 前端或生产发布；旧 M4.1 必须先纠偏 |
 | `pyproject.toml` | 受控发现 `src*` 与 `qtf*`，排除脚本、测试、前端和 Lake Console | M1 wheel 验收已通过，M2 新模块继续受同一包边界保护 |
-| `docs/architecture/dependency-matrix.md` | 已定义 `qtf -> foundation, qtf`，并禁止下层反向依赖 QTF | 依赖方向由自动护栏持续验证 |
+| [子系统架构基线 §3](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md#3-目标依赖方向) | 已定义 `qtf -> foundation, qtf`，并禁止下层反向依赖 QTF | QTF 依赖方向由自动护栏持续验证；原独立矩阵已于 2026-09-08 并入该基线 |
 | `tests/architecture/test_subsystem_dependency_matrix.py` | 已扫描 QTF，禁止现有子系统反向导入 QTF，并禁止 QTF 导入历史研究脚本 | M2 新内核不复用 `scripts.research` 运行时代码 |
 | `src/app/model_registry.py` | App 已显式注册 M1/M3 ORM 及旧 M4.1 四张结果表模型 | Foundation 无反向依赖；纠偏时只调整 App 注册，不改变依赖方向 |
 | `alembic/env.py` | 调用 `register_all_models()`，使用共享 `Base.metadata` | QTF ORM 可继承共享 `Base`，由 App 注册后进入现有 Alembic 链 |
@@ -339,7 +339,7 @@ qtf/
 | 文件 | 目标改动 |
 |---|---|
 | `pyproject.toml` | 发现 `src*` 与 `qtf*` |
-| `docs/architecture/dependency-matrix.md` | 增加 QTF 依赖规则 |
+| [子系统架构基线 §3](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md#3-目标依赖方向) | QTF 依赖规则已纳入；原独立矩阵现合并到此处维护，不因文档整合重做已完成改动 |
 | 根 `AGENTS.md`、`src/AGENTS.md` | 增加 QTF 目录责任和禁止回流规则 |
 | `tests/architecture/test_subsystem_dependency_matrix.py` | 扫描 QTF，并禁止现有三个业务子系统反向导入 QTF |
 | `src/app/model_registry.py` | 由 App 注册 QTF ORM |

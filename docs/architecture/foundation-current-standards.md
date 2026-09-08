@@ -1,6 +1,6 @@
-# Foundation 当前强约束（统一基线）
+# Foundation 研发基线
 
-更新时间：2026-09-08（校准文档口径，不变更现行代码、字段或存储）
+更新时间：2026-09-08（合并旧上手指南，精简重复要求；不变更代码、字段或存储）
 
 ## 1. 文档定位
 
@@ -8,20 +8,18 @@
 
 下文数据集接入、落库和 TaskRun 要求适用于 `DatasetDefinition / Ingestion / Ops TaskRun` 主线的 Prod 数据集。本地 DG 数据湖使用其[接入模板](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html)和目录规则，不套用本文件的数据库分层、ORM 或 TaskRun 要求。
 
-当以下文档出现描述冲突时，以本文件为准：
-
-1. `dataset-publish-governance-spec-v1.md`
-2. `foundation-onboarding-and-legacy-checklist-v1.md`
+本文维护研发原则；[数据集模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)维护具体设计与验收填写要求；[多源映射与发布规则](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)只补充多源专题。不再维护独立的 Foundation 上手指南与通用遗留任务表。
 
 ---
 
 ## 2. 强约束总览（必须遵守）
 
-1. 子系统边界以 [subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md) 为准。
-2. 依赖方向以 [dependency-matrix.md](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md) 为准。
-3. Ops 状态语义以 [ops-contract-current.md](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md) 为准。
-4. 数据集事实以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准。
-5. 数据维护执行计划以 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan` 为准。
+1. 模块归属、依赖方向、现存差距与护栏统一见[子系统架构基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)。
+2. Ops 状态与展示语义见 [Ops 当前契约](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)，不在本文件重定义状态枚举或前端派生规则。
+3. 数据集事实以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准；模型设计见[现行主案](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)。
+4. 执行计划以 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan` 为准；执行设计见[现行主案](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)。
+
+上手时先读上述相关基线，再按模板检查目标数据集及消费者。初始化、seed/apply、状态重建不是阅读文档或静态检查的前置步骤；执行前须明确环境、影响及授权，不沿用旧指南的命令连跑清单。
 
 ---
 
@@ -59,7 +57,7 @@
 ## 4. 同步链路约束
 
 1. 同步主流程必须可观测、可重放、可恢复。
-2. 时间输入能力必须由 `DatasetDefinition.date_model` 与源接口真实行为决定；允许 point、range、month、no-time snapshot 等不同模型，不要求所有数据集同时支持单时间点和时间区间。
+2. 时间输入能力必须由 `DatasetDefinition.date_model` 与源接口真实行为决定；允许 point、range、month、no-time snapshot 等不同模型，不要求所有数据集同时支持单时间点和时间区间。无业务日期时区分最近同步迹象与业务日期，不用同步日期伪造 freshness 的业务日期。
 3. 分页接口必须内部自动循环，不把分页细节暴露为运营常规参数。
 4. 同步任务通过 Ops TaskRun 观测执行，freshness 按数据集已登记的策略判断；交付与写入事实来自 `DatasetDefinition.storage`，不要求另建 `pipeline_mode` 字段。
 5. 旧执行路由不再作为当前用户任务、API 或长期领域模型。
@@ -71,14 +69,9 @@
 
 适用范围内的数据集交付时必须同时满足以下条件。开工前完成事实核验、设计与验收计划，实现和获准执行后再补实际证据，不能要求先执行正式写入来填开工材料：
 
-1. 有按 [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md) 完整填写的独立数据集开发文档（`docs/datasets/*`）。
-2. DatasetDefinition 中的身份、中文名、来源、日期模型、输入能力与表映射明确。
-3. 落库路径与目标表明确（raw/serving/light）。
-4. 幂等写入与去重策略明确。
-5. Ops 交互与状态观测已接入。
-6. DatasetExecutionPlan 能覆盖对应维护动作。
-7. 测试清单完整（单元/集成/回归）。
-8. 长任务已完成内存、持久化、续跑、进度、取消、终态一致以及既有执行入口／并发影响的设计与真实最小验收；不得仅因任务耗时较长就默认新增 Worker 或 lane，非长任务已记录不适用依据。
+使用[数据集模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)形成 `docs/datasets/*` 独立方案：按第 4–7 节落实事实定义、数据路径、幂等写入、执行计划及 Ops 消费；按第 8 节记录测试与本阶段验收。通用明细只在模板填写一次，不再复制一套 DoD/PR 勾选表。
+
+长任务按模板 0.3.5 完成内存、持久化、续跑、进度、取消、终态一致及既有执行入口／并发影响的设计与真实最小验收；不得仅因耗时较长就默认新增 Worker 或 lane，非长任务记录不适用依据。
 
 模板入口：
 
@@ -102,7 +95,7 @@
 | 改动类型 | 验证范围 |
 | --- | --- |
 | 仅文档 | 在仓库根使用现有环境运行 `.venv/bin/python3 -B scripts/check_docs_integrity.py`、`git diff --check`；另核验新增引用和锚点。不要求访问 Web、数据库或执行数据任务。 |
-| Foundation 代码、存储或合同 | 按影响面选择单元/隔离集成测试；边界与执行主链护栏见[依赖矩阵 §3](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md#3-护栏测试清单现行)。数据集验收按模板分阶段执行，静态通过不能代替真实数据验收。 |
+| Foundation 代码、存储或合同 | 按影响面选择单元/隔离集成测试；边界与执行主链护栏见[子系统架构基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md#architecture-guardrails)。数据集验收按模板分阶段执行，静态通过不能代替真实数据验收。 |
 | 获准部署或运行验证 | 先明确环境、权限和范围，再按任务需要检查 Web 健康及 Ops 可见性；不因文档列出接口而自动获得服务访问或部署授权。 |
 
 现行 Web 健康接口为 `GET /api/health`、`GET /api/v1/health`，内部会执行数据库查询。Ops 的 `/api/v1/ops/dataset-cards`、`/api/v1/ops/freshness` 需要管理员身份和数据库访问。这些接口仍有效，但不是文档静态检查，也不能单独证明数据集正确。

@@ -12,14 +12,11 @@
 - 当前数据维护唯一主链为 `DatasetDefinition -> DatasetExecutionPlan -> IngestionExecutor -> TaskRun`。
 - 旧同步架构与历史切换文档已下线，不再保留在主文档目录中。
 
-- [子系统边界基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
-- [子系统依赖矩阵](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md)
+- [子系统架构基线（目录职责、依赖矩阵、现存差距与护栏）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
 - [Goldenshare 仓库整体上手总览 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/goldenshare-repository-onboarding-overview-v1.html)
 - [财势量化平台（QTF）首版系统架构方案 v1（M4.1 开发已收口，下一步 M4.2）](/Users/congming/github/goldenshare/docs/architecture/qtf-quant-platform-architecture-v1.html)
 - [财势量化平台（QTF）首版低层设计 v1（M4.1 开发已收口，下一步 M4.2）](/Users/congming/github/goldenshare/docs/architecture/qtf-quant-platform-low-level-design-v1.md)
-- [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
-- [Platform 拆分与 cleanup 基线](/Users/congming/github/goldenshare/docs/architecture/platform-split-plan.md)
-- [Ops 收敛基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/ops-consolidation-plan.md)
+- [Foundation 研发基线](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
 - [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)
 - [前端当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
 - [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
@@ -29,7 +26,7 @@
 ### 权威入口判定
 
 - 当前运行时行为、API 契约和数据字段：以代码、测试、配置与实际运行事实为准。
-- 系统边界与依赖方向：先看子系统边界基线、依赖矩阵和 Foundation/Ops 当前基线。
+- 系统边界与依赖方向：统一看子系统架构基线；数据研发与 Ops 契约分别看对应基线。
 - 数据集语义与执行事实：分别看 `DatasetDefinition`、`DatasetExecutionPlan` 的现行主案及其代码/测试；枚举参考只解释语义，不维护数量快照。
 - 专题方案与 LLD：用于补充局部设计和决策背景；与当前代码冲突时不能替代当前事实源。
 - 验收记录、研究报告、历史/冻结文档：用于追溯证据，不作为当前实现依据。
@@ -52,12 +49,13 @@ docs/
 
 ## 3. 架构与治理（S1）
 
+2026-09-08：原独立依赖矩阵、Platform 拆分与 Ops 收敛基线已并入“子系统架构基线”；旧 Foundation 上手指南的有效入口并入“Foundation 研发基线”，原发布治理规范收窄为多源专题。[逐项合并去向与旧待办处理](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#architecture-consolidation-20260908)见治理记录；旧全文可从 Git 历史恢复。
+
 - [设计原则（历史参考；当前边界以基线为准）](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
 - [CodeGraph 架构快照（当前代码事实，2026-08-22）](/Users/congming/github/goldenshare/docs/architecture/codegraph-architecture-snapshot.md)
 - [旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2（M1–M8 已提交 / 5 项本机残留已移入废纸篓，记录随本次提交归档）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
 - [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（165 份文档矩阵 / M8 结果 §16.15 / 本机残留清理与恢复映射 §16.16）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
-- [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
-- [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
+- [多源映射与发布规则（仅多源专题）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [DatasetDefinition 单一事实源重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
 - [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md)
 - [Dataset Universe 模型收口方案 v1（已完成）](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)
