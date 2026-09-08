@@ -255,17 +255,22 @@
     <h2>2.1 计算测试与生产 Check 分工</h2>
     <div class="danger">
       <strong>先明确谁证明什么：</strong>
-      计算逻辑正确性只能由受保护的测试金样本证明；production check 只验证本次运行的输入、文件和状态事实。禁止为了证明公式正确，在 asset check 或 sensor readiness 中对全量结果做第二次计算。
+      计算逻辑正确性由受保护的测试金样本验证；production check 负责本次运行的输入、文件和状态事实。默认不得为了证明公式正确，在 asset check 或 sensor readiness 中对全量结果做第二次计算。
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>机制</th><th>必须负责</th><th>禁止承担</th></tr></thead>
         <tbody>
         <tr><td>公式金样本测试</td><td>正常值、边界、空值、异常值、repair 范围、字面 expected 输出。</td><td>读取正式 Lake、Dagster instance 或生产库；用被测 helper 生成 expected 值。</td></tr>
-        <tr><td>production check</td><td>缺代码/缺上游事实、重复/空 key、schema 漂移、分区错位、文件写半截、来源覆盖、状态过期。</td><td>重跑业务转换、从输出反推依据、为了历史全绿伪造验证事实。</td></tr>
+        <tr><td>production check</td><td>缺代码/缺上游事实、重复/空 key、schema 漂移、分区错位、文件写半截、来源覆盖、状态过期。</td><td>默认不得重跑业务转换；不得从输出反推依据或为了历史全绿伪造验证事实。</td></tr>
         <tr><td>sensor/readiness</td><td>只复刻 active production checks，选择是否请求 run。</td><td>修正 failed check、解释历史红色公式 check、做全历史计算。</td></tr>
         </tbody>
       </table>
+    </div>
+    <div class="warning">
+      <strong>计算型对账例外与既有实现：</strong>
+      按<a href="../design/dagster-data-pipeline-performance-governance.md">性能治理 §2.5</a>，只有存在独立外部对账事实、且对账属于明确业务契约时，才可设计计算型 production check；方案须先说明读取量、性能预算及为何测试不足以覆盖该风险。
+      当前 <code>market_breadth_checks.py</code> 和 <code>stock_return_distribution_checks.py</code> 仍有从 Silver 重算的检查，这是既有实现与新增接入规范的差距，不是新数据集默认照搬的示例。模板修订不授权删除、弱化或替换这些现行 checks；整改须另行审计消费者和 readiness 依赖并获批准。
     </div>
     <div class="warning">
       <strong>金样本保护：</strong>
@@ -343,7 +348,7 @@
         <tr>
           <td>checks</td>
           <td>blocking checks、WARN checks、metadata、样本输出。</td>
-          <td>一个 check 验证一个属性，不写大而全 check。metadata 必须通过 <code>build_check_metadata(...)</code> 写入。分区范围、日期边界、资产族归属等门禁应做成正式 blocking asset check，不混入业务 asset 写入函数。</td>
+          <td>一个 check 验证一个属性，不写大而全 check。metadata 必须通过 <code>build_check_metadata(...)</code> 写入。普通质量门禁通过正式 blocking asset check 表达；分区范围按本资产分区模型和权威日历核验，不一律按自然日。已批准的连续性写前门禁和候选提升校验按各自方案保留，不因本模板移动或删除。</td>
         </tr>
         <tr>
           <td>metadata 分层</td>
@@ -406,7 +411,7 @@
         <p>gold 是面向页面、API、serving 或发布的业务结果。它不重复修 raw，也不绕过 silver 质量门禁。</p>
         <ul>
           <li>直接消费标准事实 asset，例如 <code>gold_market_breadth_daily</code> 只消费 <code>silver_stock_daily</code>。</li>
-          <li>gold checks 验证业务公式和输出语义。</li>
+          <li>gold checks 验证上游覆盖、输出粒度、schema、主键、分区和值域；业务公式由金样本测试验证，计算型对账例外见 §2.1。</li>
           <li>Declarative automation 只适合围绕直接上游质量门禁触发。</li>
         </ul>
       </div>
@@ -474,7 +479,7 @@
         <tr>
           <td>RunRequest</td>
           <td>sensor 必须通过 <code>build_run_request(...)</code> 创建 run request；正式 run key 必须由 <code>run_contracts/run_keys.py</code> 的 builder 生成。</td>
-          <td>禁止在 sensor 文件里直接写 <code>dg.RunRequest(...)</code>、手写 run key 模板、<code>tags={...}</code> 或 <code>run_tags={...}</code>；第一版不定义项目自定义 run tags。</td>
+          <td>禁止直接写 <code>dg.RunRequest(...)</code>、手写 run key 模板或未经治理的项目自定义 run tags。此处限制的是运行标签，不禁止 sensor definition 的分类 <code>tags</code>；后者必须通过 <code>build_sensor_tags(...)</code> 构造，见 §13。</td>
         </tr>
         <tr>
           <td>Run config</td>
@@ -626,23 +631,21 @@ data_lake/silver/{domain}/{dataset}/full/part-000.parquet</code></pre>
       </table>
     </div>
 
-    <pre><code>raw asset 调用模式：
-fetch_tushare_partition_to_raw(
-  api_name="daily",
-  api_params={"trade_date": partition_key.replace("-", "")},
-  fields=EXPLICIT_RAW_FIELDS,
-  column_types=RAW_COLUMN_TYPES,
-  allow_empty=False,
-)
-
-full snapshot 调用模式：
-fetch_tushare_full_file_to_raw(
-  api_name="stock_basic",
-  api_params={"list_status": "L,D,P,G"},
-  fields=EXPLICIT_RAW_FIELDS,
-  column_types=RAW_COLUMN_TYPES,
-  allow_empty=False,
-)</code></pre>
+    <h3>既有拉取 helper：能力说明，不是新接入写湖标准</h3>
+    <p>以下按当前 <a href="../../orchestrator/src/orchestrator/defs/tushare_api_io.py">tushare_api_io.py</a> 记录调用契约，用于理解已有消费者；不是可直接执行的完整接入示例。</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>helper</th><th>必传参数</th><th>可选参数</th></tr></thead>
+      <tbody>
+        <tr><td><code>fetch_tushare_partition_to_raw</code></td><td><code>tushare</code>、<code>duckdb</code>、<code>api_name</code>、<code>api_params</code>、<code>fields</code>、<code>column_types</code>、<code>target_path</code>、<code>partition_key</code>、<code>allow_empty</code></td><td><code>limit</code>，默认值来自 <code>TUSHARE_API_PAGE_LIMIT</code></td></tr>
+        <tr><td><code>fetch_tushare_full_file_to_raw</code></td><td><code>tushare</code>、<code>duckdb</code>、<code>api_name</code>、<code>api_params</code>、<code>fields</code>、<code>column_types</code>、<code>target_path</code>、<code>allow_empty</code></td><td><code>limit</code>，默认值来自 <code>TUSHARE_API_PAGE_LIMIT</code></td></tr>
+      </tbody>
+    </table></div>
+    <div class="warning">
+      <strong>当前能力缺口：</strong>
+      两个 helper 都先把全部分页行累积到内存，再由 <code>_write_rows_to_parquet</code> 在目标文件旁写同名 <code>.tmp</code>，已有该临时文件时先删除，最后执行 <code>os.replace()</code>。
+      这只是逐文件原子替换，不等于 §7A 的完整写湖保障：helper 本身没有独立 run-scoped staging、完整候选契约校验、逐文件 checkpoint 和幂等续跑机制，也不能作为大表流式写入实现。
+      新接入不能仅调用它们便宣称满足 §7A；设计必须给出符合 §7A 的完整路径及证据。已有调用链的改造须另行审计、批准和回归，本模板不授权替换现行实现或清理遗留文件。
+    </div>
   </section>
 
   <section>
@@ -1029,12 +1032,20 @@ def raw_tushare_dataset(...) -> dg.MaterializeResult:
         </tr>
         <tr>
           <td>gold</td>
-          <td>业务公式正确、行数符合粒度、关键指标范围、与 silver 重新聚合一致。</td>
+          <td>上游事实覆盖、schema、业务主键、分区匹配、行数符合粒度、关键指标值域。业务公式由金样本测试验证；计算型对账例外按 §2.1 单独论证。</td>
           <td>趋势指标、异常波动、可视化 numeric metadata。</td>
         </tr>
         </tbody>
       </table>
     </div>
+
+    <h3 id="partitioned-check-contract">分区 check 的定义与验收</h3>
+    <ul>
+      <li>对 partitioned asset 新增 check 时，绑定真实资产对象，并显式声明与资产相同的 <code>partitions_def</code>；不能假设仅写 <code>asset=...</code> 会自动继承分区。参考 <a href="../../orchestrator/AGENTS.md">Orchestrator AGENTS：Partitioned Asset Checks API 门禁</a>。</li>
+      <li>当前写法可参考 <a href="../../orchestrator/src/orchestrator/defs/checks/suspend_d_checks.py">停牌 Silver checks</a>：<code>@dg.asset_check(asset=silver_stock_suspend_daily, partitions_def=cn_a_stock_trade_days, blocking=True)</code>。这是声明示意，实际检查函数仍须实现业务规则和 metadata。</li>
+      <li>隔离测试必须加载实际 check 定义，断言其分区定义与目标 asset 一致；通过包含 asset/check 的 job 显式传入 <code>partition_key</code>，同时核验 <code>AssetCheckEvaluation.partition</code> 与 <code>asset_check_executions.partition</code>。不能只用自行补了分区的替身或 metadata 中的日期字段证明事件归属正确。</li>
+      <li>非分区资产不因本模板强行增加日期分区。既有未声明分区的 checks 如需迁移，应单独审计消费语义并获批准，不在模板修订中批量改变其定义或历史事件。</li>
+    </ul>
 
     <h3>metadata 最低要求</h3>
     <ul>
@@ -1066,12 +1077,12 @@ def raw_tushare_dataset(...) -> dg.MaterializeResult:
         <tbody>
         <tr>
           <td>单资产族 raw/silver 更新</td>
-          <td>选择本资产族 raw + silver + checks。</td>
+          <td>Raw、Silver 更新入口分开：Raw job 选择本层写入资产与 checks；Silver job 只选择本层写入资产与 checks，只读消费已就绪的上游，不顺手重拉 Raw。</td>
           <td><code>raw_suspend_d_update_job / silver_suspend_d_update_job</code>、<code>raw_stock_daily_update_job / silver_stock_daily_update_job</code>。</td>
         </tr>
         <tr>
           <td>full snapshot 更新</td>
-          <td>选择 full raw + full silver + checks，并分析并发保护。</td>
+          <td>同样按层分开，并说明唯一 writer 和并发保护。当前 Raw 入口只写原始快照；Silver 入口同时写 <code>silver_stock_basic</code>、<code>silver_stock_lifecycle</code> 及对应 checks，不选择 Raw 写入资产。</td>
           <td><code>raw_stock_basic_update_job / silver_stock_basic_update_job</code>。</td>
         </tr>
         <tr>
@@ -1088,15 +1099,26 @@ def raw_tushare_dataset(...) -> dg.MaterializeResult:
       </table>
     </div>
 
-    <pre><code>推荐 job skeleton：
-dataset_update_job = dg.define_asset_job(
-    name="dataset_update_job",
+    <p>设计须分别列出写入资产、只读依赖及执行的 checks。选择上游 checks 不等于选择上游资产写入：例如当前 <code>silver_suspend_d_update_job</code> 还选择固定停牌事实的 checks，但不重写该固定事实资产。若确需组合 Raw/Silver/Gold 入口，须单独说明写入范围、重复执行影响和并发保护并获批准，不能默认扩大 selection。</p>
+    <pre><code># 分层入口示意：raw_asset / silver_asset 是实际资产定义的占位名。
+raw_dataset_update_job = dg.define_asset_job(
+    name="raw_dataset_update_job",
     selection=(
-        dg.AssetSelection.assets(raw_asset, silver_asset)
-        | dg.AssetSelection.checks_for_assets(raw_asset, silver_asset)
+        dg.AssetSelection.assets(raw_asset)
+        | dg.AssetSelection.checks_for_assets(raw_asset)
     ),
-    description="更新某数据集原始表和标准表。",
+    description="更新某数据集原始表并执行对应检查。",
+)
+
+silver_dataset_update_job = dg.define_asset_job(
+    name="silver_dataset_update_job",
+    selection=(
+        dg.AssetSelection.assets(silver_asset)
+        | dg.AssetSelection.checks_for_assets(silver_asset)
+    ),
+    description="在上游就绪后更新某数据集标准表，不重写上游。",
 )</code></pre>
+    <p>selection 只表达执行范围，不会自动补出完整 readiness 策略；上游准入须按 §13 和该数据集已批准的 checks/readiness 设计实现并验证。</p>
   </section>
 
   <section>
@@ -1134,6 +1156,10 @@ dataset_update_job = dg.define_asset_job(
           <td>默认 <code>STOPPED</code>，人工验证后再启用。</td>
         </tr>
         <tr>
+          <td>Sensor definition 分类标签</td>
+          <td>在 sensor 定义的 <code>tags</code> 中使用 <code>build_sensor_tags(sensor_domain=..., target_layer=..., role=...)</code>，枚举来自 <code>run_contracts/sensor_tags.py</code>。分别声明领域、目标层级、职责；不放日期、分区、行数等动态信息，也不使用 <code>run_tags</code> 承载分类。</td>
+        </tr>
+        <tr>
           <td>输入状态</td>
           <td>dynamic partitions、materialization、blocking checks、freshness、source readiness。</td>
         </tr>
@@ -1169,7 +1195,7 @@ dataset_update_job = dg.define_asset_job(
 
     <div class="danger">
       <strong>sensor 代码门禁：</strong>
-      sensor 文件不得直接构造 <code>RunRequest</code>，不得手写 run key 模板，不得写 <code>tags</code> / <code>run_tags</code>，不得自行 <code>json.dumps</code> / <code>json.loads</code> cursor，且不得裸写深层 <code>ops</code> run config。需要提交 run 时使用 <code>build_run_request(...)</code>，且 run key 必须来自 <code>run_contracts/run_keys.py</code> builder；需要记录诊断时使用 <code>build_sensor_cursor(...)</code>。
+      sensor 文件不得直接构造 <code>RunRequest</code>，不得手写 run key 模板、散落的标签字典或未经治理的项目自定义运行标签，不得自行 <code>json.dumps</code> / <code>json.loads</code> cursor，且不得裸写深层 <code>ops</code> run config。Sensor definition 的分类 <code>tags</code> 必须通过 <code>build_sensor_tags(...)</code> 构造；这与 RunRequest 的运行标签是两回事。需要提交 run 时使用 <code>build_run_request(...)</code>，且 run key 必须来自 <code>run_contracts/run_keys.py</code> builder；需要记录诊断时使用 <code>build_sensor_cursor(...)</code>。
     </div>
 
     <h3>sensor cursor 设计规范</h3>
@@ -1373,17 +1399,19 @@ git status --short</code></pre>
         <tr><td>Tushare</td><td>参数、字段、分页、空结果、权限/配额、样本行数已实测。</td><td>□</td></tr>
         <tr><td>请求范围</td><td>逐对象接口的对象池、请求量、分页量、耗时和不可接受量级已评估；raw 范围与设计文档一致。</td><td>□</td></tr>
         <tr><td>checks</td><td>blocking/WARN 分清；每个 check 都有 <code>build_check_metadata(...)</code>、scope、数量和样本；合并 check 时 metadata 能列出 failed rule、失败数量和少量样本。</td><td>□</td></tr>
+        <tr><td>Check 分区归属</td><td>新增 partitioned asset checks 已按 §11 显式绑定相同分区定义，并在隔离 job 测试中验证实际 definition、检查事件和执行记录的 partition；非分区资产不强加日期。</td><td>□</td></tr>
         <tr><td>deps</td><td>asset deps 表达真实输入；check additional_deps 表达质量依赖。</td><td>□</td></tr>
-        <tr><td>job</td><td>job 只做 selection；共享基础资产有唯一写入口。</td><td>□</td></tr>
+        <tr><td>job</td><td>job 只做 selection；已分别列清写入资产、只读上游和 checks。默认 Raw/Silver 分层入口，组合写入须单独批准；共享基础资产有唯一写入口。</td><td>□</td></tr>
         <tr><td>run config</td><td>手动入口使用 typed config 和业务动作字段；sensor 与 UI 共用 builder，不裸写深层 dict。</td><td>□</td></tr>
         <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义；RunRequest 通过 <code>build_run_request(...)</code> 构造，run key 通过统一 builder 构造，cursor 通过治理 helper 构造；cursor 满足小于 2KB / 3KB / 8KB 分级预算，且能用短中文说明触发或跳过原因和下一步动作。</td><td>□</td></tr>
+        <tr><td>Sensor 分类</td><td>已通过 <code>build_sensor_tags(...)</code> 设置 definition tags 的领域、目标层级和职责，不用 run tags 或动态状态冒充分类。</td><td>□</td></tr>
         <tr><td>日志</td><td>长耗时 asset 已设计 stdout 里程碑日志；日志只记录阶段、数量、目标路径和关键异常上下文，不打印敏感信息、完整 SQL、完整 DataFrame 或全量路径列表。</td><td>□</td></tr>
         <tr><td>诊断入口</td><td>设计文档已列出 sensor 没触发、asset run 失败、check 失败、历史补录异常、是否能重跑时分别先看哪里。</td><td>□</td></tr>
         <tr><td>run tags</td><td>没有新增项目自定义 run tags；如确需新增，已先登记治理文档并补静态门禁。</td><td>□</td></tr>
         <tr><td>bootstrap</td><td>如需历史初始化，来源、范围、完整候选校验、逐文件 checkpoint、幂等续跑及事件补录审批边界已记录；不依赖旧适配器。</td><td>□</td></tr>
         <tr><td>验收</td><td>单日、小批量、全量、UI 可观测、失败恢复计划已列清。</td><td>□</td></tr>
         <tr><td>静态门禁</td><td><code>unittest</code>、<code>ruff</code>、文档完整性检查和 <code>git diff --check</code> 已通过。</td><td>□</td></tr>
-        <tr><td>range 回补</td><td>如使用 dynamic partition range，必须在资产代码里校验实际 <code>partition_keys</code> 与自然日期区间期望一致；不能只凭 CLI 文本判断覆盖范围。</td><td>□</td></tr>
+        <tr><td>range 回补</td><td>按该资产分区模型和权威日历计算期望分区集合，与实际 <code>partition_keys</code> 对账；交易日模型排除休市日，自然日模型才逐自然日，多维分区同时核对其它维度。不得把已注册分区当成完整期望集合，也不能只凭 CLI 文本判断覆盖范围。普通质量门禁用正式 checks；已批准的连续性写前门禁和候选提升校验按原方案保留，不强制把所有范围校验搬进资产写入函数。</td><td>□</td></tr>
         <tr><td>文档同步</td><td>对应 Phase / LLD / topology / AGENTS 如有口径变更已同步。</td><td>□</td></tr>
         </tbody>
       </table>
