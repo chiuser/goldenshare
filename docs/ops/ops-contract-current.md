@@ -1,21 +1,22 @@
 # Ops 当前契约（统一版）
 
-更新时间：2026-04-26
+更新时间：2026-09-09（手动维护专题合并与已核验边界纠偏；不代表全部 Ops 能力重新验收）
 适用范围：`src/ops/*`、`src/app/*`、`src/foundation/*`（Ops 相关）
 
 ---
 
 ## 1. 目的
 
-本文件是 Ops 领域的**单一事实文档**，统一收口以下历史内容：
+本文件是 Ops 职责与行为边界的统一入口，当前实现以代码和对应测试为依据。接口字段由 [API 参考](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)维护，工作流明细由 [Workflow 清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)维护。本文收口：
 
 1. 多源运维契约（页面与对象边界）
 2. 数据源卡片与治理对象查询契约
 3. 数据集 pipeline mode 与层级观测契约
 4. 数据集停用策略（`disabled` 状态语义）
 5. 融合策略中心准备度与上线前置条件
+6. 手动维护的动作来源、时间输入与页面边界
 
-历史分散文档已下线，后续仅维护本文件。
+已合并的历史全文从 Git 追溯，不再维护平行规则或已完成的施工步骤。
 
 ---
 
@@ -65,16 +66,17 @@
 
 后端契约要求：
 
-1. 任务运行 API 以 `/api/v1/ops/task-runs*` 为唯一当前主链
+1. 任务查询、重试、取消使用 `/api/v1/ops/task-runs*`；手动维护提交使用 `/api/v1/ops/manual-actions/{action_key}/task-runs`
 2. 旧任务运行 API 主链已下线，不作为当前契约入口
 3. `/api/v1/ops/runtime/*` 不作为新 UI 的正常执行入口
 
 ### 2.4 审查中心
 
-目标：只读审查视图（指数、板块等领域）。  
+目标：按指数、板块等领域审查数据，并提供明确授权的运营维护入口。
+
 边界：
 
-1. 一期只读，不做写操作
+1. 数据审查查询与维护动作分开；当前支持管理员通过 `POST /api/v1/ops/review/index/active` 添加、通过 `DELETE /api/v1/ops/review/index/active/{ts_code}` 移除活跃指数，不能将整个审查中心描述为只读
 2. 按领域组织路由，避免按技术对象暴露
 
 ---
@@ -135,14 +137,9 @@
 1. `GET /api/v1/ops/dataset-cards`
 2. `GET /api/v1/ops/freshness`
 
-## 5. 模式推导与默认策略
+## 5. 交付模式事实
 
-默认推导（seed）：
-
-1. 多源标准化发布：`multi_source_fusion`
-2. `target_table` 以 `raw_` 开头：`raw_collection`
-3. `target_table` 以 `core_serving.` 开头：`single_source_serving`
-4. 其他核心直写：`core_direct`
+Dataset 卡片的交付模式直接读取 `DatasetDefinition.storage.delivery_mode`，层级计划读取 `storage.layer_plan`；查询层只映射展示标签，不再按 `target_table` 前缀推断模式或执行旧 seed 规则。实现见 [DatasetCardQueryService](/Users/congming/github/goldenshare/src/ops/queries/dataset_card_query_service.py)。
 
 ---
 
@@ -191,7 +188,7 @@
 已具备能力：
 
 1. std 规则 API：`/api/v1/ops/std-rules/*`
-2. release 对象 API：`/api/v1/ops/resolution-releases/*`
+2. release 对象 API：`/api/v1/ops/releases` 及其子路由
 3. dataset card API：`/api/v1/ops/dataset-cards`
 4. 数据源卡片页：`/ops/v21/datasets/tushare`、`/ops/v21/datasets/biying`
 5. DatasetDefinition 派生展示事实与 freshness 健康度模型
@@ -222,7 +219,7 @@
 3. `reconcile-capability-requirements-v1.md`：多源对账专项
 4. `ops-task-run-observability-redesign-plan-v1.md`：TaskRun 执行观测模型
 
-说明：旧 API 语义、旧状态表退场、旧能力审查备忘等过渡文档已下线；当前口径只维护本契约、API 全量说明和 TaskRun 基线。
+说明：旧 API 语义、旧状态表退场、旧能力审查备忘等过渡文档已下线；当前边界由本契约维护，字段及专题细节分别归 API 参考和上述专题。
 
 ---
 
@@ -234,3 +231,37 @@
 4. 审查中心可按领域展示只读审查数据
 5. 停用数据集在页面可见且不计入重点告警
 6. 融合策略中心具备从对象到执行的可观测闭环后再进入正式上线
+
+<a id="manual-maintenance"></a>
+
+## 11. 手动维护：现行规则与回归重点
+
+本节承接原手动动作模型与时间模式升级方案的有效结论。这里的页面操作者是运营人员，不是行情系统终端用户。
+
+### 11.1 动作来源与提交链路
+
+| 动作类型 | 定义与时间输入来源 |
+| --- | --- |
+| `dataset_action` | `DatasetDefinition` 的 maintain action、`date_model`、`input_model` 和 planning 限制共同派生 |
+| `workflow` | `WorkflowDefinition.parameters` 与 `time_regime`；不继承某个步骤的数据集时间能力 |
+| `maintenance_action` | `MaintenanceActionDefinition.parameters` 与 `manual_time_regime`；不伪造 DatasetDefinition 或日期模型 |
+
+手动页读取 `GET /api/v1/ops/manual-actions`，按返回的 `action_key/action_type` 选择动作，提交至对应 `/manual-actions/{action_key}/task-runs`。`catalog` 仍服务自动任务等消费者，不因手动页切换而删除；自动任务仍保存 `target_type/target_key`。
+
+`ManualActionTaskRunResolver` 解析时间和过滤条件；dataset action 在创建 TaskRun 前经 `DatasetActionResolver` 预检，校验不通过不会创建队列任务。通过后进入 TaskRun 队列，worker 再走 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor`。Workflow 和维护动作按各自目标路由创建任务，不把三类动作统称为 DatasetDefinition 执行路径。
+
+### 11.2 时间与表单边界
+
+- `time_form.default_mode + modes[]` 是现行表单结构。每个模式独立声明控件和选择规则；支持 `none` 不等于隐藏整个动作的日期选项。
+- 数据集声明支持哪些模式与每种模式怎样选日期是两层事实；前端消费 API，不根据字段名或数据集名重建规则。通用日期语义、自然月窗口展开及季度锚点见 [日期指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)。
+- `none` 只表示无显式时间输入，按该动作已定义的无日期语义处理；不是最近几天、自动猜日期或统一清空重建。未声明支持 `none` 的数据集动作不得据此绕过校验。
+- **已确认的交易日历口径保留：** `trade_cal.maintain` 默认 `none`，仍可选单日或区间；当前 builder 的无日期分支保留交易所、不附加日期窗口，按分页刷新完整日历。`reference_data_refresh` 不展示日期控件，其帮助语义明确为“交易日历按完整日历刷新”。完整刷新不等于小任务，不能根据无日期输入推断请求量、内存或事务体量很小。
+- `conditional_time_rules`、单次 unit 上限及参数默认值也是表单契约的一部分；页面切换对象过滤后可能需要收紧时间选项，最终仍由后端校验。字段及请求形态只在 [API 手动维护章节](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md#manual-action-time-contract)维护。
+
+### 11.3 变更时必须保护的消费者
+
+实现入口：`src/ops/queries/manual_action_query_service.py`、`src/ops/schemas/manual_action.py`、`src/ops/services/manual_action_service.py`、`frontend/src/shared/api/types.ts` 与 `frontend/src/pages/ops-v21-task-manual-tab.tsx`。
+
+涉及该契约的代码变更时，回归须覆盖：默认模式、模式切换与请求体一致；未支持模式及过滤联动限制被拒绝；日期/月/季度规则与 unit 上限；从数据集、TaskRun、Schedule 预填，复制参数、浏览器返回及草稿恢复。不能只测控件显示而漏测实际提交内容。
+
+后端入口为 `tests/web/test_ops_manual_actions_api.py`、`tests/web/test_ops_task_run_api.py`、`tests/test_dataset_action_resolver.py`、`tests/test_dataset_definition_registry.py`；前端为手动页与任务中心页测试，并同步 `frontend/e2e/support/smoke-fixtures.ts`。前端具体门禁依目录规则执行。以上是后续代码变更的回归范围，不代表本次纯文档整合已重跑这些测试或重新完成生产验收。

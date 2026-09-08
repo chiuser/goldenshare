@@ -1,6 +1,6 @@
 # 文档信息架构与待整合清单 v1
 
-更新时间：2026-09-08（Architecture 基线与数据集专题合并）
+更新时间：2026-09-09（补充 Ops 手动维护文档整合记录）
 
 ## 1. 目标
 
@@ -162,15 +162,31 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 
 ### 4.2 Ops 组
 
-1. `ops-contract-current.md`（主文档）
-2. `ops-workflow-catalog-v1.md`
-3. `reconcile-capability-requirements-v1.md`
+当前职责：`ops-contract-current.md` 维护边界，`ops-api-reference-v1.md` 维护接口，`ops-workflow-catalog-v1.md` 维护工作流清单。TaskRun、自动任务、freshness、多源对账等继续独立承载其专题；本批不代表这些专题已全面审计。
 
-整合建议：
+<a id="ops-manual-consolidation-20260909"></a>
 
-1. 以 `ops-contract-current.md` 为单一契约入口。
-2. 停用策略与融合策略中心准备度已并入主契约，不再保留独立文档。
-3. `ops-workflow-catalog-v1.md` 与 `reconcile-capability-requirements-v1.md` 保持专题定位，不重复定义主契约。
+#### 手动维护与时间模式：5 份收敛为 3 份
+
+2026-09-09，按用户批准的审计建议合并；只修改文档和直接引用，不修改代码、配置、数据库或 Lake。两份删除文档的全文可从合并前提交 `4aad5c34` 恢复，不保留空壳或并行历史入口。
+
+| 原文档（均在 docs/ops） | 处理与有效内容去向 |
+| --- | --- |
+| `ops-contract-current.md` | 保留；修正交付模式来源、审查维护边界、release 路径；§11 承接三类动作、入口、none 语义及回归重点 |
+| `ops-api-reference-v1.md` | 保留；§2.4 承接表单字段含义、各时间请求形态、预检与拒绝行为；§12.1 补齐模型及 Workflow 字段来源 |
+| `ops-workflow-catalog-v1.md` | 保留六个工作流的用途、步骤、参数、合并优先级、失败策略；修正 29 步清单与两个工作流参数；字段表移交 API，不重复维护 |
+| `ops-manual-action-model-alignment-plan-v2.md` | 迁出后删除；动作分工、catalog 保留、TaskRun 主链及防回退规则归总契约 §11，字段与请求示例归 API §2.4/12.1，日期映射引用统一日期指南 |
+| `ops-manual-action-time-mode-upgrade-plan-v1.md` | 迁出后删除；mixed modes、trade_cal 默认 none、完整日历刷新与无日期不等于小任务归总契约 §11，工作流不继承步骤时间能力归总契约/Workflow；草稿、复制、预填及 fixture 回归要求一并保留 |
+
+不原样保留的内容：已完成的里程碑、旧类名/表单结构、手动页仍待切换 catalog、交易日历仍偷跑最近 30 天等旧故障描述。它们是历史实现背景，不是当前待办；不借此变更其他数据集的时间语义、自动任务或执行器事务。
+
+**未被文档精简掩盖的实现限制：**当前 Workflow dispatcher 不执行 `depends_on` 阻塞判断；定义/响应含 `parallel_policy` 不代表已支持依赖并行。其步骤异常没有 dataset action 分支的独立取消异常处理，不能直接承诺返回 canceled。这些限制记录在 Workflow §2，是否改造另行决定，本轮不实现、不宣称已解决。`margin` 仅从错误的工作流文档步骤中移除，不删除数据集或独立任务。
+
+核验依据：CodeGraph `codegraph_explore` 的 dispatcher 源码与定向读取的 action registry、manual query/schema/service、前端表单/API 类型及相关测试断言。新增字段说明描述的是现有契约，不是 API 变更。旧文件引用扫描覆盖仓库及 `.agents`；仅保留本节文件名作追溯，README 的无关研究条目保留。
+
+本轮验收范围为文档完整性、链接/引用、结构与差异检查；未运行同步、源站实测、数据库测试或生产验收。API 校准限于手动动作、目录与提交相关章节，其余端点不借本批升级为“全量已验证”。
+
+校验结果：五份原文共 3,313 行，合并后三份共 2,280 行，减少 1,033 行；有效信息按上表迁移，不以行数为删除依据。只读 AST 对账通过 12 个相关请求/响应模型字段、时间控件与选择规则枚举、六个工作流的全部步骤/顺序/参数；7 个时间输入示例通过 JSON 形态检查。18 个新增本地链接及锚点、文档完整性三个检查组和 `git diff --check` 均通过。这些静态检查不替代真实执行测试。
 
 ### 4.3 Datasets 组
 

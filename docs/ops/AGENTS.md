@@ -34,4 +34,4 @@
 1. [Ops 当前契约](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)
 2. [Ops API 全量说明](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)
 3. [Ops TaskRun 执行观测模型重设计方案](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
-4. [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md)
+4. [Ops 当前契约 §11：手动维护规则与回归重点](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md#manual-maintenance)（原动作模型、时间升级方案已并入；字段查 API 参考 §2.4/12.1）

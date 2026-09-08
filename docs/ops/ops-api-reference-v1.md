@@ -1,7 +1,7 @@
 # Ops 运营后台 API 全量说明 v1
 
 - 版本：v1
-- 日期：2026-04-26
+- 最近校准：2026-09-09（手动动作、目录字段及相关提交说明；其余接口未在本轮全面复核）
 - 状态：当前口径（随代码演进）
 - 代码依据：
   - `/Users/congming/github/goldenshare/src/ops/api/*.py`
@@ -12,10 +12,10 @@
 
 ## 0. 当前重要状态
 
-截至 2026-04-26：
+当前入口边界：
 
 1. 旧任务运行 API 主链已下线，接口说明不再以旧详情、步骤、事件或日志模型为当前口径。
-2. 任务记录、任务详情、重试、停止、手动任务提交统一走 `/api/v1/ops/task-runs*`。
+2. 任务记录、任务详情、重试、停止走 `/api/v1/ops/task-runs*`；手动维护提交入口见下一条。
 3. 手动维护页提交入口为 `POST /api/v1/ops/manual-actions/{action_key}/task-runs`。
 4. 新任务详情页只消费 `GET /api/v1/ops/task-runs/{id}/view`，完整技术诊断只在需要时读取 `GET /api/v1/ops/task-runs/{id}/issues/{issue_id}`。
 5. 自动任务配置表为 `ops.schedule`，调度目标统一使用 `target_type/target_key`。
@@ -144,13 +144,14 @@ curl -H "Authorization: Bearer <TOKEN>" \
 - 返回：`ManualActionListResponse`
   - `groups[]`
   - `groups[].actions[]`
-  - `actions[].date_model` 来自 `DatasetDefinition.date_model`
+  - dataset action 的 `actions[].date_model` 来自 `DatasetDefinition.date_model`；workflow / maintenance action 为 `null`，使用各自定义派生表单
   - `actions[].time_form` 用于前端选择日期 / 月份控件
   - `actions[].filters` 为页面可展示的非时间、非内部参数
 - 关键口径：
   - `time_form` 当前已升级为 `default_mode + modes[]`
-  - 每个 `mode item` 必须显式声明 `mode/label/description/control/selection_rule/date_field`
+  - 每个 `mode item` 声明 `mode/label/description/control/selection_rule`；`date_field` 可为 `null`，不能当成所有模式必填的日期字段
   - `trade_cal.maintain` 正式支持 `none + point + range`；`mode=none` 表示不传日期，按分页拉完整交易日历
+  - 默认值、条件限制、单次 unit 上限及时间请求形态见下文 [手动时间契约](#manual-action-time-contract)；下列 JSON 仅为结构节选，不是完整响应
 - 鉴权：管理员。
 - 示例：
 
@@ -202,7 +203,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 ### 2.4.2 POST /api/v1/ops/manual-actions/{action_key}/task-runs
 
-- 功能：按手动维护动作提交一次任务请求。后端将 `action_key + time_input + filters` 解析为 TaskRun，创建 queued 任务。
+- 功能：按手动维护动作提交一次任务请求。后端先解析并校验 `action_key + time_input + filters`；dataset action 还须通过计划预检，之后才创建 queued TaskRun，不在 Web 请求内执行同步。
 - Path 参数：
   - `action_key`：来自 `GET /api/v1/ops/manual-actions`。
 - Body：`ManualActionTaskRunCreateRequest`
@@ -210,6 +211,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
   - `filters`：对象筛选和附加参数。
 - 返回：`TaskRunViewResponse`。
 - 鉴权：管理员。
+- 拒绝行为：未知动作返回 `404 not_found`；不支持的时间模式、缺必填时间或过滤条件、违反过滤联动规则等返回 `422`。dataset 计划预检的 `IngestionError` 转为 `422`，保留结构化错误 code 和面向运营的说明；预检失败不会创建任务。见 `ManualActionCommandService._preflight_dataset_action`。
 - 示例：
 
 ```bash
@@ -239,6 +241,40 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "actions": {"can_retry": false, "can_cancel": true, "can_copy_params": true}
 }
 ```
+
+<a id="manual-action-time-contract"></a>
+
+### 2.4.3 手动时间、过滤与请求形态
+
+当前类型见 [manual_action schema](/Users/congming/github/goldenshare/src/ops/schemas/manual_action.py)，派生见 [ManualActionQueryService](/Users/congming/github/goldenshare/src/ops/queries/manual_action_query_service.py)。完整字段集中列于 §12.1，不在多个方案维护副本。
+
+| 字段 | 使用语义 |
+| --- | --- |
+| `time_form.default_mode` | 初始选中模式；`trade_cal.maintain` 为 `none` |
+| `time_form.modes[]` | 当前可声明的模式明细，每项为 `none/point/range` 之一；控件属于该模式，不属于整个 action |
+| `time_form.max_units_per_execution` | 单次执行 unit 上限，正整数或 `null`；不是最大行数或统一自然日天数，最终按后端计划校验 |
+| `conditional_time_rules[]` | `filter_key` 对应值非空时，按 `allowed_time_modes` 收紧模式，显示 `help_text`；多个生效规则取共同允许模式，后端也校验 |
+| `filters[]` | 非时间、非内部请求参数；`default_value`、`option_labels`、`select_all_enabled` 分别提供默认值、选项文案和全选能力，前端不自行补造默认策略 |
+
+`control`：`none`、`trade_date`、`trade_date_range`、`calendar_date`、`calendar_date_range`、`month`、`month_range`、`month_window_range`。
+
+`selection_rule`：`none`、`trading_day_only`、`week_last_trading_day`、`month_last_trading_day`、`calendar_day`、`week_friday`、`month_end`、`quarter_end`、`month_key`、`month_window`。来源与输入/执行/审计区别见 [日期指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)；不能仅根据 `trade_date` 字段名判定必须是开市日。
+
+请求外壳始终是 `{"time_input": {...}, "filters": {...}}`。下面只列 `time_input` 形态，使用前须确认动作返回的模式、控件、选择规则和过滤限制；不是所有动作都支持全部行。
+
+| 输入 | `time_input` 示例 |
+| --- | --- |
+| 日期单点 | `{"mode":"point","trade_date":"2026-04-24"}` |
+| 日期区间 | `{"mode":"range","start_date":"2026-04-01","end_date":"2026-04-24"}` |
+| 公告日期单点 | `{"mode":"point","ann_date":"2026-04-24"}` |
+| 公告日期区间 | `{"mode":"range","start_date":"2026-04-01","end_date":"2026-04-24","date_field":"ann_date"}` |
+| 月份单点 | `{"mode":"point","month":"202604"}` |
+| 月份区间或自然月窗口 | `{"mode":"range","start_month":"202604","end_month":"202606"}` |
+| 无显式时间 | `{"mode":"none"}` |
+
+自然月窗口由 resolver 展开，Ops 与页面不把它提前换成月首/月末日期。`none` 不是隐含最近几天或统一清空重建；字段省略时 schema 的 mode 默认值虽为 `none`，仍须通过动作能力校验，调用方应按当前表单明确提交模式。
+
+Workflow 手动动作键为 `workflow:{key}`，与 catalog / schedule 中的 workflow `key/target_key` 区分；调用方消费返回值，不自行拼装或猜测动作类型。表单派生边界及页面回归要求见 [Ops 当前契约 §11](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md#manual-maintenance)。
 
 ### 2.5 GET /api/v1/ops/dataset-cards
 
@@ -1304,7 +1340,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ---
 
-## 11. 请求体模型字段（完整）
+## 11. 请求体模型字段索引
 
 ### 11.1 任务运行与调度
 
@@ -1505,21 +1541,32 @@ ProbeRule 没有对外写入 request；规则只由 `OpsSchedule` 的自动任�
 
 ---
 
-## 12. 响应模型字段（完整）
+## 12. 响应模型字段索引
 
-> 以下为 `src/ops/schemas` 中与 API 直接相关的返回模型字段清单。
+> 以下为返回模型导航；代码演进后须同步对应章节。2026-09-09 补齐手动动作与 ActionParameter 字段，不表示其余模型已逐字段复验，完整类型以 `src/ops/schemas` 为准。
 
 ### 12.1 目录与模式
 
 - `OpsCatalogResponse`：`actions, workflows`
 - `ActionCatalogItem`：`key, action_type, display_name, target_key, target_display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, freshness_policy, date_selection_rule, description, target_tables, manual_enabled, schedule_enabled, automation_capability, retry_enabled, schedule_binding_count, active_schedule_count, parameters`
 - `WorkflowCatalogItem`：`key, display_name, description, group_key, group_label, group_order, domain_key, domain_display_name, parallel_policy, default_schedule_policy, schedule_enabled, automation_capability, manual_enabled, schedule_binding_count, active_schedule_count, parameters, steps`
-- `ActionParameterResponse`：`key, display_name, param_type, description, required, options, multi_value`
+- `ActionParameterResponse`：`key, display_name, param_type, description, required, options, multi_value, default_value, option_labels, select_all_enabled`
 - `WorkflowStepCatalogItem`：`step_key, action_key, dataset_key, display_name, depends_on, default_params`
+- `ManualActionListResponse`：`groups`
+- `ManualActionGroupResponse`：`group_key, group_label, group_order, actions`
+- `ManualActionItemResponse`：`action_key, action_type, display_name, description, resource_key, resource_display_name, date_model, time_form, conditional_time_rules, filters, search_keywords, action_order`
+- `ManualActionDateModelResponse`：`date_axis, bucket_rule, window_mode, input_shape, observed_field, audit_applicable, not_applicable_reason`
+- `ManualActionTimeFormResponse`：`default_mode, modes, max_units_per_execution`
+- `ManualActionTimeModeResponse`：`mode, label, description, control, selection_rule, date_field`
+- `ManualActionConditionalTimeRuleResponse`：`filter_key, allowed_time_modes, help_text`
 - `DatasetCardListResponse`：`total, groups`
 - `DatasetCardGroup`：`group_key, group_label, group_order, items`
 - `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, freshness_policy, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, latest_observed_at, earliest_observed_at, last_sync_date, latest_success_at, expected_business_date, latest_observed_date, latest_observed_date_label, expected_observed_date, expected_observed_date_label, last_success_label, lag_days, freshness_note, primary_action_type, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
   - `primary_action_type/primary_action_key` 必须成对使用：外部数据集维护入口为 `dataset_action`；Biz maintenance producer 为 `maintenance_action`；只读卡片两者均为 `null`。页面不得根据 key 自行猜动作类型。
+
+Workflow 字段由 `catalog_query_service.py` 装配：名称、步骤、参数及默认策略来自 `action_catalog.py` 的定义，绑定/激活数由 `ops.schedule` 按 `target_type=workflow, target_key=workflow.key` 统计，展示分组与能力经查询层投影。步骤的 `depends_on/default_params` 返回定义值，不意味着 dispatcher 已实现依赖调度。
+
+当前 catalog 不返回 `WorkflowDefinition.time_regime/workflow_profile/failure_policy_default/resume_supported`，也不返回步骤的 `failure_policy_override/params_override/max_retry_per_unit`。其中 `time_regime` 会参与手动表单派生；“未暴露”与“未使用”不能混同。运行限制见 [Workflow 清单 §2](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md#2-工作流运行机制代码级)。若未来要新增 API 字段，须先获契约变更批准并同步 schema/query/消费者及测试。
 
 ### 12.2 任务运行
 
