@@ -1,6 +1,6 @@
 # 财势乾坤｜我的自选分组能力低层设计 v2（LLD）
 
-> 状态：前后端代码已实现；第二阶段前端开发自测见第 23 节，停在交互与真实 API 验收之前。本轮前端未提交、未部署、未迁移正式数据库
+> 状态：后端 `a7840e0a`、前端 `532a7b13` 已提交；本轮按用户新分工执行真实接口联调与技术验证，见第 24 节。部署与全部交互测试/验收由用户负责；未部署、未迁移正式数据库
 >
 > 日期：2026-09-08（初稿 2026-09-07）
 >
@@ -26,7 +26,7 @@
 6. 游标是无签名、版本化、严格校验的 base64url JSON。它不是授权凭证；资源所有权始终由认证用户和 group 条件校验。
 7. 所有批量写、详情页最终集合替换和删除分组均为单事务；提交前构造完整 DTO，提交后不回读。数据库修改保持原子性；明确回滚、结果未知、成功后刷新失败分别处理，不能混为一类错误。
 8. 首页 `summary` 路径与响应不变，只统计默认组。`useWatchlistSummary`、首页入口和 `MarketShortcutBar` 不需要重写。
-9. 用户已确认两轮修订及开发准入两项处理，逐项回填见第 21.1～21.3 节；后端阶段记录见第 22 节，随后授权的前端阶段记录见第 23 节。本轮停在交互验收之前，不自动提交或执行生产操作。
+9. 用户已确认两轮修订及开发准入两项处理，逐项回填见第 21.1～21.3 节；后端、前端历史记录分别见第 22、23 节。提交后的接口联调、责任划分及交付证据见第 24 节；需要部署时停止，不自动提交或执行生产操作。
 
 初稿代码审计事实快照（2026-09-07；不是本次修订时的 HEAD）：
 
@@ -1301,7 +1301,7 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 
 ### 16.6 真实 API 浏览器 smoke
 
-更新 `tests/wealth_watchlist_browser_fixture.py`，至少准备两个用户、默认组、三个自定义组、同色组、跨组股票、pin 与 null 行情样本。真实浏览器验证：
+本节保留用户交互验收的参考场景，不再作为 Codex 执行项。用户已明确自行负责全部交互测试和部署；Codex 不更新或运行 `tests/wealth_watchlist_browser_fixture.py` / `wealth/scripts/watchlist-browser-smoke.mjs`。其接口层验收改由第 18、24 节的非浏览器真实 HTTP 测试承担。用户验收可参考两个用户、默认组、三个自定义组、同色组、跨组股票、pin 与 null 行情样本：
 
 1. 首页 → 默认组。
 2. Tab/创建/改色/删除。
@@ -1330,12 +1330,12 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 | 2.14 图表参数优先级 | 否 | 无图表参数 | N/A |
 | 2.15 双图坐标对齐 | 否 | 无双图 | N/A |
 | 2.16 卡片文案单行 | 部分 | Tabs/Toolbar/Toast 控制长文案 | 6 字组名和 10 Tab 溢出测试 |
-| 2.17 核心真实 API + 展示 | 是 | 第 16.3～16.6 节 | 后端路由 + 前端 real smoke |
+| 2.17 核心真实 API + 展示 | 是，责任拆分 | 第 16.3～16.6、17.1、24 节 | Codex 验证正式客户端 + 真实 HTTP/路由/数据库；用户负责真实页面交互与展示验收 |
 | 2.18 跨模块抽象门禁 | 是 | app provisioning 组合 biz；无反向依赖 | import/CodeGraph 复核 |
 
 ### 17.1 例外白名单
 
-当前没有模块例外。
+用户确认的执行责任例外（2026-09-08）：全部浏览器交互测试、真实页面展示验收及部署由用户负责，不作为 Codex 接口联调完成门禁；Codex 必须验证正式前端 API 客户端与真实后端/数据库，不能用 mock 响应替代。此例外仅调整责任和测试入口，不豁免业务合同、数据一致性、类型/构建或相关技术回归。
 
 特别说明：`src.app.user_provisioning_service -> src.biz...WatchlistGroupInitializer` 是 `src.app` 组合业务能力的正式依赖方向，符合依赖矩阵，不是例外；`src.app.auth` 不直接实现 watchlist 规则。
 
@@ -1378,13 +1378,17 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 
 ### 阶段三：真实联调、迁移演练与最终对账
 
-1. 更新 browser fixture，完成双用户真实 API smoke。
+用户在前端提交 `532a7b13` 后重新明确分工：Codex 只负责前后端接口联调与技术验证；全部浏览器交互测试、部署及交互验收由用户负责。下列安排替代此前由 Codex 执行 browser smoke 的计划，不改变任何产品合同。
+
+1. 在新建隔离 PostgreSQL 与仅监听本机的短生命周期测试后端上，使用正式前端 API 客户端完成双用户真实 HTTP 联调；不 mock API 响应或 Service，不访问既有数据库，不启动浏览器。
 2. PostgreSQL EXPLAIN、P95、payload、SQL 数量和最大批量验收。
 3. CodeGraph impact 复核旧消费者清零。
 4. 文档逐条对账并记录未完成项。
-5. 用候选版本完成完整发布顺序的隔离迁移演练，核验用户—默认组、历史序列、详情每次打开刷新、200 只选择上限及三类写结果反馈。
+5. 复用隔离迁移测试验证用户—默认组、历史序列和降级门禁；真实客户端验证分页、200 成员批量边界与三类写结果合同。完整环境部署切换和详情弹层等交互行为由用户验收。
 
-停止条件：只形成候选版本；部署和生产迁移仍需独立授权。
+停止条件：正式前端 API 客户端与真实后端请求链路畅通、合同与数据结果一致、技术回归通过。只形成候选版本；需要部署时停下交用户处理。浏览器脚本升级、点击/布局/截图/焦点检查不属于 Codex 本阶段任务。
+
+本阶段测试落点：`tests/test_wealth_watchlist_frontend_integration.py` 负责新建数据库、迁移种子、真实 HTTP 生命周期和故障注入；`tests/wealth_watchlist_client_integration.mjs` 直接加载正式 TypeScript API/adapter，验证 15 个合同、双用户隔离、排序分页、批量与详情归属。复用 `tests/wealth_watchlist_postgres_support.py`；测试不接受已有数据库地址，不新增产品配置或依赖。迁移/SQL/并发继续由 `tests/test_wealth_watchlist_postgres.py` 验证。
 
 ## 19. 验证命令与证据
 
@@ -1415,7 +1419,7 @@ npm --prefix wealth run typecheck
 npm --prefix wealth run build
 ```
 
-不得因测试路径不存在而把命令成功当成覆盖；开发时先用 `rg --files` 复核实际路径。真实 PostgreSQL、浏览器和性能证据需要记录样本规模、SQL 数、P95、payload、EXPLAIN 摘要、浏览器 URL、network 与 console 结果。
+不得因测试路径不存在而把命令成功当成覆盖；开发时先用 `rg --files` 复核实际路径。Codex 的真实 PostgreSQL/HTTP/性能证据记录样本规模、请求数、SQL 数、P95、payload 和 EXPLAIN 摘要；浏览器 URL、network/console 与交互结果由用户另行验收，不伪造或以接口测试代替。
 
 ## 20. 发布、回滚与风险
 
@@ -1500,6 +1504,7 @@ npm --prefix wealth run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v2.6 | 2026-09-08 | 按用户新分工调整第三阶段和例外白名单，补正式前端客户端真实 HTTP 联调及技术证据；部署、全部交互测试/验收交用户，不改变产品合同 | 用户 / Codex |
 | v2.5 | 2026-09-08 | 回填第二阶段前端实现、自动化证据与旧消费者清理；明确交互、真实 API 浏览器验收及发布演练仍未执行，不改变产品合同 | Codex |
 | v2.4 | 2026-09-08 | 回填第一阶段后端逐条实现与开发自测、实际迁移 revision、回归跳过项及用户追加授权的 Ops 测试基线修正；不改变产品合同 | Codex |
 | v2.3 | 2026-09-08 | 完成 regex 本机准入和 51 例跨运行时验证，新增共享名称样本；明确搜索 groupId 必填/匹配与 generation 双重检查 | 用户 / Codex |
@@ -1597,6 +1602,8 @@ git diff --check
 
 ## 23. 第二阶段前端实现与开发自测（2026-09-08）
 
+本节为前端交付时的历史记录；随后用户授权提交为 `532a7b13`，并将部署与全部交互测试/验收收回自行负责。下文“未提交”和原第三阶段浏览器待办仅描述当时状态，最新分工与接口验证见第 18、24 节。
+
 ### 23.1 范围与当前事实
 
 本轮按用户批准的前端阶段推进，编码依据为技术方案 v2.5、LLD v2.4；本次版本更新仅回填实现和验证事实，不改变产品合同。第一阶段后端基线为 `a7840e0a`。
@@ -1662,3 +1669,77 @@ npm run typecheck && npm run build
 2. 下一阶段需先将既有浏览器 smoke/fixture 更新为 v2，再做真实 API 双用户隔离、操作与详情联动、1～10 组/颜色提示/窄屏溢出、键盘及焦点、截图、console/network 检查。此处仅列待办，不启动服务或擅自执行下一阶段。
 3. 完整性能报告、前后端与迁移整套发布顺序演练、生产迁移及部署均未执行；当前实现不能据此宣称可直接发布。
 4. 未提交或推送本阶段修改。由用户审阅本阶段结果后，另行决定提交与交互验收。
+
+## 24. 提交后真实接口联调与部署交接（2026-09-08）
+
+### 24.1 本轮范围与责任
+
+后端基线 `a7840e0a`、前端基线 `532a7b13`。用户最新决定是：Codex 只确保前后端联调畅通；全部交互测试、部署及交互验收由用户负责，需要部署时停止。本轮没有修改产品合同、前后端运行时代码、依赖或配置；只新增两份非浏览器联调测试，并更新本功能四份文档与 Wealth 文档索引。
+
+新增测试为 `tests/test_wealth_watchlist_frontend_integration.py` 和 `tests/wealth_watchlist_client_integration.mjs`。Python 复用现有隔离 PostgreSQL 工具，在新建临时目录中准备合成数据并执行 000169 → 000170 迁移，启动随机端口、仅监听 `127.0.0.1` 的短生命周期 HTTP 测试后端。Node 用已有 Vite 的内存模块加载能力加载正式 `watchlistApi.ts`、`wealthApiClient.ts`、authStorage 和 adapter；只提供 location/localStorage 等客户端运行环境，不渲染页面、不启动浏览器。
+
+请求经原生 fetch、真实 JWT 鉴权、真实 router/DTO/Service/SQL 进入隔离 PostgreSQL；没有 mock 成功响应或 Watchlist Service。测试 JWT 仅适用于本轮合成用户，通过 stdin 传递，不输出凭据；测试请求限定同一个回环地址。程序退出时停止本轮 HTTP 和 PostgreSQL 进程，不启动或重启任何正式服务，不接受既有数据库 URL。另以完整 App 聚合路由核对 15 个合同实际装配，避免只证明模块 router 可用。
+
+### 24.2 规则、实际链路与证据
+
+| 硬口径 | 本轮直接验证 | 执行证据 |
+|---|---|---|
+| 15 个 method/path 与严格 DTO 一致 | 正式 TS API 校验真实 HTTP 返回；App 聚合路由集合精确比较 | `test_real_frontend_client_all_contracts_and_performance`、`test_watchlist_contracts_are_mounted_in_application_router`；主场景 873 次 HTTP 请求、15 个合同全部成功覆盖 |
+| 鉴权和双用户隔离 | 无 token 返回 401；源组越权返回 group not found，目标越权返回 target invalid，原数据不变 | 两用户源/目标/详情集合反例；继续读取原用户 20 行结果 |
+| 默认组身份、数量和分组写入 | 默认无色且禁删改；名称 trim/重名/保留名/非法色拒绝；同色允许；删空组及含成员组返回正确 nextGroupId | 正式 groups/create/color/delete/summary 请求；默认组数量随关系增删变化，不包含自定义组独有成员 |
+| 添加、移动、移出和置顶 | 重复添加新增 0；移动到已有目标保留成员 ID；移出最后归属允许；pin/unpin 保留基础 ID；stale 全批拒绝 | 五个真实批量接口，写后用正式列表/详情 GET 核验 |
+| 详情最终集合 | 非空 diff，未选默认不强加；空集合拒绝；越权不写 | 正式股票归属 GET/PUT，selected/isAdded 与 summary 一致 |
+| 八列全组排序及分页 | 每列 asc/desc 各遍历 200 行，每批 37 行；置顶优先、NULL 恒后、同值稳定，完整集合无重复遗漏 | 共 16 次完整遍历；跨排序 cursor 和损坏 cursor 被拒绝；取消置顶后恢复原 ID 顺序 |
+| 数值/null 与前端映射 | 真实 price/vol/netAmount、零值、缺失值、EMPTY/PARTIAL；运行正式 adapter | 12.34、1234567 → 123.46、-2189.40、0 → 0.00、null → `--`；其它同日/DELAYED 语义由真实路由回归覆盖 |
+| 10 组及 200 成员上限 | 30 个合成用户各建 9 个自定义组，第 10 个自定义组拒绝；200 × 9 每次确实新增 1800，重复新增 0；0/201 成员拒绝 | 主场景中的最大批量及重放后真实计数断言；不把重复空操作当首次写性能 |
+| 三种写结果不可混淆 | commit 前明确拒绝；真实 commit 后注入通信异常；写成功后注入一次查询故障 | `test_real_frontend_write_outcomes` 三例：FAILED 无持久化；UNKNOWN 已持久化且客户端保持未知分类；刷新失败保留已成功写事实。每例仅 1 次写请求，后续均为 GET |
+| 迁移、锁、原子性、提交后零 SQL | 复用第一阶段真实 PostgreSQL 测试，重新执行而非只引用历史结论 | `tests/test_wealth_watchlist_postgres.py` 21 项，含迁移 roundtrip/超界中止/降级拒绝、并发、最大批量和所有写动作零 SQL |
+
+三种异常的注入仅作用于测试会话提交或一次查询故障，不在运行时代码新增故障开关。真实客户端验证的是错误合同、已存事实和无额外写请求；页面 Toast、按钮状态、弹层关闭、焦点及其它交互由用户验收，不以该测试替代。
+
+### 24.3 性能与回归结果
+
+HTTP 性能计时包含正式前端请求、服务端执行、传输、JSON 解析与 DTO 校验；每项 30 次，P95 使用 nearest-rank。使用 54 个合成用户、5000 个证券的既有种子；最大批量在 30 个不同用户下分别写入 1800 条关系，共新增 54000 条目标关系。这是本机隔离环境证据，不承诺生产网络延迟或生产负载下相同耗时。
+
+| 操作 | 本轮 HTTP P95 | 方案预算 |
+|---|---:|---:|
+| groups / summary / 股票归属 GET | 3.26 / 2.93 / 2.88 ms | 各 ≤ 200 ms |
+| 搜索 | 6.06 ms | ≤ 200 ms |
+| 列表 100 / 200 行 | 9.19 / 11.91 ms | ≤ 300 / 500 ms |
+| 创建 / 改色 / 单股添加 | 5.25 / 4.02 / 4.69 ms | 各 ≤ 300 ms |
+| 批量 200 成员 × 9 目标 | 133.80 ms | ≤ 800 ms |
+
+独立 PG 测试的 100/200 行原始 HTTP payload 为 **44,822 / 89,020 bytes**，低于 256/512 KiB；QueryService 1/200 行 SQL 数均为 **6**（包含 WITH），无 N+1。`EXPLAIN (ANALYZE, BUFFERS)` 主成员查询使用 group/pin/id 索引，同日行情 JOIN 使用既有主键；200 行排序 quicksort 73 kB，主查询约 0.90 ms，无需扩改事实表索引。
+
+本轮实际执行：
+
+```bash
+# 仓库根：真实客户端联调；PG 迁移/并发/SQL 性能
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -xqs -p no:cacheprovider tests/test_wealth_watchlist_frontend_integration.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -xqs -p no:cacheprovider tests/test_wealth_watchlist_postgres.py
+
+# 仓库根：相关模型、真实 API、用户开通和架构回归
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -xq -p no:cacheprovider \
+  tests/test_wealth_watchlist_model.py tests/web/test_wealth_market_watchlist_api.py \
+  tests/web/test_user_provisioning_service.py tests/web/test_auth_registration_api.py \
+  tests/web/test_admin_user_management_api.py tests/web/test_user_repository.py \
+  tests/web/test_auth_services.py tests/architecture/test_subsystem_dependency_matrix.py \
+  tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py
+
+# wealth/：只跑非交互接口/规则/映射回归，不重跑页面交互测试
+npm run typecheck
+npm test -- --maxWorkers=1 src/features/watchlist/api/watchlistApi.test.ts src/features/watchlist/model/watchlistGroupName.test.ts src/features/watchlist/model/watchlistViewModelAdapter.test.ts
+npm run build
+```
+
+结果依次为 **5 passed（11.69 秒）、21 passed（8.37 秒）、227 passed（47.96 秒）、61 passed（1.40 秒）**，均无跳过；typecheck 与 build 通过。之前全量 885 项前端测试保留为第 23 节历史证据，本轮按用户新分工没有重跑其中页面交互测试。构建仍有既有 >500 kB bundle 警告；Alembic/Starlette 弃用警告未扩大修复。
+
+联调测试开发中修正了 stdin 读取方式、目标越权错误码预期和零值种子编号；这些是新增测试自身的问题，均按当前代码/种子/LLD 核验后修正，没有改变业务实现或放宽断言。最终上述命令均通过。
+
+### 24.4 最终审计与交接
+
+1. CodeGraph explore/impact 覆盖前端 API → Groups Controller → Page、认证客户端、后端 router 和 App 装配；sync/status 为 up to date。源码搜索旧 hook、旧 action、旧 URL、afterId 和“已自选”，运行时均清零，仅保留测试禁止 afterId 的反向断言。历史 browser smoke 由用户负责，本轮未更新或执行。
+2. `alembic heads` 当前唯一返回 `20260907_000170`；这是代码迁移 head，不是正式数据库当前 revision。正式库尚未查询或迁移，部署前由用户核对其实际起点。
+3. 迁移模块的隔离 upgrade/downgrade、历史顺序和默认组对账已通过；未执行实际发布脚本、Web/代理服务切换、生产迁移、正式环境端到端验证或浏览器交互测试。部署时须按技术方案第 12.1 节，同窗口切换迁移与 v2 前后端，不能单独发布混合版本；已有自定义组或置顶事实时不可有损 downgrade。
+4. 本轮到部署边界停止：真实客户端接口联调和技术验证已通过，下一步由用户部署并交互验收。接口测试不证明正式域名、反向代理、浏览器跨域、部署环境或页面交互已验收。
+5. 新增两份测试及本次五份文档修改尚未提交或推送；未修改依赖矩阵、运行配置、后端/前端业务代码，未安装套件。工作区无关 Lake、架构和交易助手改动保留。文档完整性、JS 语法和 `git diff --check` 检查通过。
