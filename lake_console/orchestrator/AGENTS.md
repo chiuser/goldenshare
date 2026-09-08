@@ -388,21 +388,12 @@ Check    = 这个资产生成后是否合格
 
 ## Tushare 数据源依据门禁
 
-本目录会逐步承接 Tushare 相关 raw / silver / gold 资产。涉及 Tushare 数据源时，必须区分“资料理解”和“真实接口核验”。
+通用的资料理解、代码与源文档核对、`tushareMcp` 实测、三类字段请求和差异处理，统一遵守[根 AGENTS 的“本地 Tushare 能力”](/Users/congming/github/goldenshare/AGENTS.md#本地-tushare-能力)，不在本目录重复定义。
 
-使用分工：
+本目录追加以下来源约束：
 
-1. 想获取 Tushare 数据源中数据集的相关信息时，可以使用 `tushare-data` skill 辅助理解，例如接口家族、数据域背景、常见字段、可能相关接口、研究路径和自然语言需求到接口能力的映射。skill 路径：`/Users/congming/.codex/skills/tushare-data/SKILL.md`。
-2. 想实测请求接口、验证真实输入输出返回值、确认字段是否真实返回、样本行数、分页行为、日期过滤、权限积分或空结果原因时，必须使用 `tushareMcp` 做真实请求核验。
-3. `tushare-data` skill 只能做理解与选型辅助，不能替代当前代码、`docs/sources/tushare/**`、正式 Lake 上游与获准来源实际样本和 `tushareMcp` 实测。
-4. 设计或实现 `raw_tushare_*` asset、Tushare resource、字段契约、asset checks、分区口径、数据完整性判断前，必须先说明依据来自哪里：当前代码、本地 Tushare 文档、正式 Lake 上游与获准来源样本、`tushare-data` skill、`tushareMcp` 实测。
-5. 若本地文档、正式 Lake 上游与获准来源样本和 `tushareMcp` 实测不一致，必须显式记录差异，并以“当前代码 + 获准来源实际数据 + 实测行为”校准实现；禁止带着未核清口径继续编码。
-
-禁止：
-
-1. 只凭接口名、字段名、历史印象或 `tushare-data` skill 直接写 Dagster asset/check/resource。
-2. 在没有 `tushareMcp` 实测的情况下，断言某个 Tushare 接口真实支持或不支持某种参数、字段、分页、日期过滤或全量/增量模式。
-3. 把一次未显式请求关键字段的返回结果，当成“接口没有该字段”的证据。
+1. 设计或实现 `raw_tushare_*` asset、Tushare resource、字段契约、asset checks、分区口径或数据完整性判断前，必须列清当前代码、本地源文档、正式 Lake 上游与获准来源实际样本、实测的证据；skill 仅作理解辅助，不得凭名称或历史印象编码。
+2. 正式 Lake 上游与获准来源样本也须参与差异核验。其与文档、实测不一致时，先记录并核清，以“当前代码 + 获准来源实际数据 + 实测行为”校准；禁止带着未核清的口径继续编码。
 
 ---
 

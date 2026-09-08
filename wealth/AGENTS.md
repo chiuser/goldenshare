@@ -45,62 +45,33 @@ wealth/
 
 ## 动代码前必读
 
-每次进入 `wealth` 开发前，必须先读：
+### 通用必读
 
-1. `wealth/docs/README.md`
-2. `wealth/docs/reference/README.md`
-3. `wealth/docs/system/wealth-system-baseline.md`
-4. `wealth/docs/system/engineering-architecture.md`
-5. `wealth/docs/system/module-incremental-delivery-spec-v1.md`
-6. `wealth/docs/system/module-delivery-checklist-v1.md`
-7. `wealth/docs/system/design-system-baseline.md`
-8. `wealth/docs/system/component-guidelines-baseline.md`
-9. `wealth/docs/system/exception-code-registry.md`
-10. `wealth/docs/system/strategy-config-center-v1.md`
-11. `wealth/docs/system/strategy-config-center-m1-coding-gate-v1.md`
-12. `wealth/docs/system/strategy-config-consumer-guide-v1.md`
-13. `wealth/docs/pages/market-overview/market-overview-baseline.md`
-14. `wealth/docs/pages/market-overview/api-contract-baseline.md`
-15. `wealth/docs/pages/market-overview/implementation-prompt-baseline.md`
-16. `wealth/docs/pages/market-overview/implementation-architecture-v1.md`
-17. `wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md`
-18. `wealth/docs/pages/market-overview/market-summary-benchmark-requirement-v1.md`
-19. `wealth/docs/pages/market-overview/market-summary-implementation-design-v1.md`
-20. `wealth/docs/pages/market-overview/market-summary-m2-coding-gate-v1.md`
-21. `wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md`
-22. `wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md`
-23. `wealth/docs/pages/market-overview/leaderboard-m2-coding-gate-v1.md`
-24. `wealth/docs/pages/market-overview/major-indices-benchmark-requirement-v1.md`
-25. `wealth/docs/pages/market-overview/major-indices-implementation-design-v1.md`
-26. `wealth/docs/pages/market-overview/major-indices-m2-coding-gate-v1.md`
-27. `wealth/docs/pages/market-overview/breadth-benchmark-requirement-v1.md`
-28. `wealth/docs/pages/market-overview/breadth-implementation-design-v1.md`
-29. `wealth/docs/pages/market-overview/breadth-m2-coding-gate-v1.md`
-30. `wealth/docs/pages/market-overview/market-style-benchmark-requirement-v1.md`
-31. `wealth/docs/pages/market-overview/market-style-implementation-design-v1.md`
-32. `wealth/docs/pages/market-overview/market-style-m2-coding-gate-v1.md`
-33. `wealth/docs/pages/market-overview/turnover-benchmark-requirement-v1.md`
-34. `wealth/docs/pages/market-overview/turnover-implementation-design-v1.md`
-35. `wealth/docs/pages/market-overview/turnover-minute-snapshot-plan-v1.html`
-36. `wealth/docs/pages/market-overview/turnover-minute-snapshot-m2-coding-gate-v1.md`
-37. `wealth/docs/pages/market-overview/turnover-m2-coding-gate-v1.md`
-38. `wealth/docs/pages/market-overview/money-flow-benchmark-requirement-v1.md`
-39. `wealth/docs/pages/market-overview/money-flow-implementation-design-v1.md`
-40. `wealth/docs/pages/market-overview/money-flow-m2-coding-gate-v1.md`
-41. `wealth/docs/pages/market-overview/streak-ladder-benchmark-requirement-v1.md`
-42. `wealth/docs/pages/market-overview/streak-ladder-implementation-design-v1.md`
-43. `wealth/docs/pages/market-overview/streak-ladder-m2-coding-gate-v1.md`
-44. `wealth/docs/pages/market-overview/market-news-implementation-design-v1.md`
-45. `wealth/docs/pages/market-overview/market-news-reader-implementation-design-v1.md`
-46. `wealth/docs/pages/market-overview/market-news-reader-low-level-design-v1.md`
-47. `wealth/docs/templates/benchmark-requirement-template.md`
-48. `wealth/docs/templates/implementation-design-template.md`
-49. `wealth/docs/templates/coding-gate-template.md`
-50. `wealth/docs/pages/market-overview/sector-overview-benchmark-requirement-v2.md`
-51. `wealth/docs/pages/market-overview/sector-overview-implementation-design-v2.md`
-52. `wealth/docs/pages/market-overview/sector-overview-m2-coding-gate-v2.md`
-53. `wealth/docs/pages/market-overview/sector-overview-low-level-design-v2.md`
-54. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
+每次进入 `wealth` 开发前，先读以下基线及目标目录更近的 `AGENTS.md`：
+
+1. `wealth/docs/README.md`：定位本任务资料，不代表其中所有文档都要读取。
+2. `wealth/docs/system/wealth-system-baseline.md`。
+3. `wealth/docs/system/engineering-architecture.md`。
+4. `wealth/docs/system/module-incremental-delivery-spec-v1.md`。
+5. `wealth/docs/system/module-delivery-checklist-v1.md`。
+
+### 按任务追加必读
+
+以下条件可同时触发。只选择本任务及其依赖涉及的材料，不要求每次通读所有市场总览模块方案。
+
+| 本任务涉及 | 必须补读 |
+| --- | --- |
+| 页面或模块开发、修复 | `wealth/docs/pages/<page-key>/` 中对应功能已批准的需求、implementation design、API contract、LLD 与适用门禁；核对当前实现、测试及调用方 |
+| 视觉、组件或交互 | `wealth/docs/system/design-system-baseline.md`、`component-guidelines-baseline.md`，以及本任务已评审的 Figma/页面基准 |
+| 新增、修改或排查异常码 | `wealth/docs/system/exception-code-registry.md` 及对应模块契约 |
+| 策略配置读取或配置中心改动 | `wealth/docs/system/strategy-config-center-v1.md`、`strategy-config-consumer-guide-v1.md`；涉及中心实现时补读其适用设计与门禁 |
+| 市场总览页面装配或跨模块 API | `wealth/docs/pages/market-overview/market-overview-baseline.md`、`api-contract-baseline.md`、`implementation-architecture-v1.md`、`market-overview-api-model-design-v1.md`，以及受影响模块方案 |
+| 新建或修改交付文档 | `wealth/docs/templates/` 中与本次产物对应的模板；按下文“交付事实链”选择产物，不恢复固定文档数量要求 |
+| 历史设计或决策追溯 | `wealth/docs/reference/README.md` 及相关原始材料；不得作为当前 API/数据契约依据 |
+
+从索引定位材料后，须核对文档的适用范围、批准状态与当前代码；不能仅凭文件名版本号或索引状态判断权威。独立 coding-gate 只在本任务仍适用时读取；LLD 内嵌门禁仍是必读内容。
+
+原清单中的模块方案、模板和历史材料仍保留在原目录及索引中；本节只缩小每次任务的必读范围，不删除文档、不免除相关契约或验收要求。
 
 实现市场总览 homepage 前，还必须额外读取当前 `src/pages/market-overview/**`、`src/features/market-overview/**`、`src/shared/ui/top-market-bar/**` 与 `src/styles/**`。以下原始资料只在需要追溯视觉意图或历史评审时按需读取：
 
@@ -115,15 +86,18 @@ wealth/
 
 注意：`wealth/docs/reference/api/**` 不在 homepage 开发必读清单中。只有做历史追溯时才读取，读取后也不得作为当前 API 或数据模型依据。
 
-实现股票详情页前，还必须额外读取当前 `src/pages/stock-detail/**`、`src/features/stock-detail/**`、`src/shared/ui/top-market-bar/**` 与 `src/styles/**`。以下原始资料只在需要追溯视觉意图或历史评审时按需读取：
+实现股票详情页前，还必须额外读取当前 `src/pages/stock-detail/**`、`src/features/stock-detail/**`、`src/shared/ui/top-market-bar/**` 与 `src/styles/**`；按任务核对以下方案的适用内容：
 
 1. `wealth/docs/pages/stock-detail/stock-detail-benchmark-requirement-v1.md`
 2. `wealth/docs/pages/stock-detail/stock-detail-implementation-design-v1.md`
 3. `wealth/docs/pages/stock-detail/stock-detail-m2-coding-gate-v1.md`
-4. `wealth/docs/update/stock-detail-v1.4.3.html`
-5. `wealth/docs/update/03-design-tokens.md`
-6. `wealth/docs/update/04-component-guidelines.md`
-7. `wealth/docs/reference/showcase/component-library-demo-v2.2.html`
+
+以下原始资料只在追溯视觉意图或历史评审时按需读取：
+
+1. `wealth/docs/update/stock-detail-v1.4.3.html`
+2. `wealth/docs/update/03-design-tokens.md`
+3. `wealth/docs/update/04-component-guidelines.md`
+4. `wealth/docs/reference/showcase/component-library-demo-v2.2.html`
 
 市场总览与股票详情页已共同使用 `wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx`。后续修改必须继续复用这个 shared 组件，不再重复抽取，也不得复制、另行重写或引入第二套顶部栏。
 
