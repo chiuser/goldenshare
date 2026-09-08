@@ -12,7 +12,9 @@
 2. 当前任务表为 `ops.task_run`、`ops.task_run_node`、`ops.task_run_issue`。
 3. 当前任务 API 为 `/api/v1/ops/task-runs*` 与 `/api/v1/ops/manual-actions/{action_key}/task-runs`。
 4. 旧 `/api/v1/ops/executions*`、`JobExecution*`、`sync_run_log` 已退场，不再作为页面或 API 当前事实源。
-5. `ops.sync_job_state` 已退场；数据集 freshness/status 只允许依赖 `DatasetDefinition date model + 真实业务表观测 + TaskRun`。
+5. `ops.sync_job_state` 已退场；数据集 freshness/status 的业务口径来自 `DatasetDefinition date model + 真实业务表观测 + TaskRun`。
+   `ops.dataset_status_snapshot` 是现行状态投影：freshness 查询优先读取它，日期完整性规则列表也从中读取已观测数据范围；不能把上述业务口径误写成“查询必须绕过 Snapshot”。
+   该表与 Kopia 备份无关，不属于旧 Console/Kopia 清退对象；状态投影写入仍不得影响业务数据读写与事务提交。
 6. 当前自动任务配置表为 `ops.schedule`，目标对象字段统一为 `target_type/target_key`。
 
 ---

@@ -116,12 +116,13 @@ qtf/             # 财势量化平台正式产品域
 
 1. DG / Dagster orchestrator 的唯一正式 Lake 根目录是 `/Volumes/datasource/data_lake`；正式数据只能位于该根下的 `raw/`、`silver/`、`gold/` 三层。
 2. DG 的 run-scoped 候选文件和执行 staging 只能位于 `/Volumes/datasource/data_lake_staging`，不得写入正式 Lake 根，也不得把 staging 当成正式数据事实源。
-3. `/Volumes/datasource/goldenshare-tushare-lake` 是旧 Lake Console 后端目录，严禁将它用作 DG 的正式根、读取事实源、写入目标、bootstrap 输入或 staging 路径。
-4. `lake_console/config.local.toml` 中的 `lake_root` 属于旧 Lake Console 后端配置，不能用于判断 DG orchestrator 的 Lake 根；DG 路径必须以 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 和当前正式目录为准。
-5. 本仓库的新开发、迁移、历史补录、bootstrap、修复和写湖任务禁止使用 Kopia；不得新增或调用 Kopia snapshot、prewrite backup、restore、recovery 命令或服务。
-6. 旧 `lake_console/backend`、`lake_console/frontend` 及其 Kopia 实现已在清退 M6 同轮删除；不得恢复、import、复用、下沉或重新启用。历史实现只从 Git 追溯，不能作为新主链依据；本机 ignored 遗留环境不代表源码仍受维护。
-7. Codex 禁止运行任何 Kopia 命令。写湖安全必须使用候选文件完整校验、同文件系统 `os.replace()` 原子提升、逐文件 checkpoint、幂等续跑和物理对账，不得以“安全恢复”为由自行引入文件备份或快照。
-8. 若方案、LLD、代码或命令中出现与本节冲突的 Lake 路径或 Kopia 设计，必须先停止并修正文档/方案，禁止继续开发或执行。
+3. `/Volumes/datasource/goldenshare-tushare-lake` 是已退役的旧 Lake 根路径，严禁将它用作 DG 的正式根、读取事实源、写入目标、bootstrap 输入或 staging 路径；目录是否仍在不改变这一边界。
+4. 旧 `lake_console/config.local.toml` 及其 `lake_root` 即使仍有本机遗留，也不能用于判断 DG orchestrator 的 Lake 根；DG 路径必须以 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 和当前正式目录为准。
+5. 禁止运行任何 Kopia 命令；新开发、迁移、历史补录、bootstrap、修复和写湖任务均不得新增或调用 Kopia snapshot、prewrite backup、restore、recovery 命令或服务。
+6. 旧 `lake_console/backend`、`lake_console/frontend`、Kopia 实现及 `OLD_LAKE_BOOTSTRAP` / `old_lake_root` 迁移适配器已清退；不得恢复、import、复用、下沉或重新启用。历史实现只从 Git 追溯，不能作为新主链依据；本机 ignored 遗留环境不代表源码仍受维护。
+7. 写湖安全必须使用候选文件完整校验、同文件系统 `os.replace()` 原子提升、逐文件 checkpoint、幂等续跑和物理对账，不得以“安全恢复”为由自行引入文件备份或快照。
+8. 清退按能力和实际依赖划界，不按 `snapshot` 关键字划界。`ops.dataset_status_snapshot` 是现行状态投影，与 Kopia 备份无关，必须保留；不得把 Kopia 禁令扩展为删除其他现行 snapshot 数据模型或查询能力。
+9. 若方案、LLD、代码或命令中出现与本节冲突的 Lake 路径或 Kopia 设计，必须先停止并修正文档/方案，禁止继续开发或执行。
 
 ---
 

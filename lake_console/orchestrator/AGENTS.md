@@ -23,7 +23,7 @@
 当前边界：
 
 1. 用 Dagster 管理本地数据湖资产、依赖、分区、检查、调度、回填、日志与运行状态。
-2. 旧 Console frontend/backend、Kopia、旧专属入口和测试已在清退 M6 同轮删除；保留本工程、reports 与 ClickHouse 工具。
+2. 旧 Console frontend/backend、Kopia、旧湖迁移适配器、旧专属入口和测试已清退；保留本工程、reports 与 ClickHouse 工具。
 3. 资产事实以当前 catalog、paths、schema、run contract 和消费者为准；旧实现仅从 Git 追溯，不恢复导入或兼容入口。
 
 ---
@@ -63,32 +63,31 @@ https://docs.dagster.io/guides/test/asset-checks
 
 规则：
 
-1. 禁止 Codex 未经用户明确批准自行运行任何 Dagster 执行动作，包括但不限于 `dg`、`dagster`、`uv run dg`、job、sensor、backfill、materialize、asset check、automation evaluation、临时 Python evaluator 或任何会读取/触碰正式 Dagster instance 的脚本。
-2. 禁止把正式 Dagster instance、正式数据湖、正式 PostgreSQL、正式 Tushare token 或正在运行的任务当作 test case 使用。
-3. 允许在不触发 Dagster 执行、不读取正式运行状态、不写正式环境的前提下做静态分析，例如阅读代码、阅读文档、搜索文件和整理方案。
-4. 如确实需要执行任何 Dagster 相关命令，必须先列出完整命令、工作目录、目标 `DAGSTER_HOME`、读写范围、可能影响、回滚方式和为什么必须执行，等待用户明确同意后才能运行。
-5. 即使只是“验证一下 evaluator / check / definitions”，只要会访问正式 instance、正式湖、正式数据库或可能干扰正在运行的任务，也必须按生产操作审批，禁止自行执行。
-6. 用户未明确批准时，任务收口只能说明“未运行验证，原因是正式 Dagster 环境执行门禁”，不能用自行试跑来替代审计。
+1. 静态分析与正式只读审计分开：阅读代码、文档和搜索文件不触发 Dagster 执行；读取已有 instance 状态、只读数据库、workspace/code location 和 Lake 文件，遵守根 AGENTS 的“管理员持续授权”，无需逐次请求业务审批。
+2. 只读审计仅查询已有事实，不得初始化 instance、创建或升级数据库、写探测记录、修改 cursor/event、启停 sensor/schedule、注册动态分区或触发任务；先核对实际入口与查询范围，不能仅凭命令名中的 `check`、`list`、`dry-run` 判定只读。
+3. job、sensor evaluation、backfill、materialize、asset check 执行、automation evaluation、runless event、动态分区写入和其他正式环境变更，仍须按阶段获得明确批准。执行前列出完整命令、工作目录、目标 `DAGSTER_HOME`、读写范围、可能影响、恢复方式与执行理由；已有批准只覆盖当时的精确范围。
+4. 禁止把正式 Dagster instance、正式数据湖、正式 PostgreSQL、正式 Tushare token 或正在运行的任务当作 test case 使用。只读审计的持续授权不包含用正式资源跑测试。
+5. evaluator / check / definitions 验证不能默认视为只读。先检查导入、resource 构造和执行行为；可能写入或干扰正式任务的，必须先隔离或按正式操作审批，禁止自行试跑。
+6. 交付时分别说明静态检查、只读核验、隔离测试与正式执行的实际结果。未获批准的正式执行写明“未执行及原因”，不能把只读通过当作正式执行验收，也不能因未获写入批准而声称所有只读核验都不可做。
 
 ### Python 环境与静态测试命令
 
 `lake_console/orchestrator` 是独立的 `uv` 项目。测试和静态检查必须从本目录运行，并使用本项目 `.venv` 中的解释器与工具；不得依赖仓库根环境、全局 Conda 工具或手工 `PYTHONPATH`。
 
-固定命令：
+确认现有环境可用、目标测试无正式资源访问后，使用以下命令；有专项受保护测试启动器时，按已批准方案使用该启动器，不得绕过它直接运行 pytest：
 
 ```bash
 cd /Users/congming/github/goldenshare/lake_console/orchestrator
-uv sync --group dev
-uv run python -m pytest -q tests/<target_test_file.py>
-uv run ruff check --select E9,F63,F7,F82 src tests
-uv run ruff check <本次修改的 Python 文件>
+.venv/bin/python3 -B -m pytest -q tests/<target_test_file.py>
+.venv/bin/ruff check --no-cache --select E9,F63,F7,F82 src tests
+.venv/bin/ruff check --no-cache <本次修改的 Python 文件>
 ```
 
 规则：
 
-1. 禁止使用裸 `pytest`、裸 `python` 或 `PYTHONPATH=src pytest ...` 运行本项目测试；统一使用 `uv run python -m pytest ...`，确保 pytest 与被测代码绑定同一个解释器。
-2. `orchestrator` 由 `uv` 以 editable package 安装，正常环境不需要设置 `PYTHONPATH`。出现 `ModuleNotFoundError` 时，禁止先追加 `PYTHONPATH` 掩盖环境问题。
-3. import 失败时，先在本目录执行 `uv run python -c "import sys, orchestrator, dagster, pytest; print(sys.executable); print(orchestrator.__file__)"`，确认解释器和项目安装状态；失败时修复 `uv` 环境，不得切换到全局 Conda 继续运行。
+1. 禁止使用裸 `pytest`、裸 `python` 或 `PYTHONPATH=src pytest ...` 运行本项目测试；使用本项目现有 `.venv` 的解释器与工具，确保 pytest 与被测代码绑定同一个解释器。
+2. 正常环境通过 editable package 导入 `orchestrator`，不需要设置 `PYTHONPATH`。出现 `ModuleNotFoundError` 时，先核对解释器和项目安装状态，不得追加 `PYTHONPATH` 或切换全局 Conda 掩盖问题。
+3. 安装授权遵守根 AGENTS：不得把 `uv sync`、依赖安装/升级、隐式同步或下载作为默认验证步骤。缺依赖时说明具体缺项、用途、安装位置与影响，等待明确允许；开发或测试授权不包含修复、重建依赖环境的授权。
 4. 全仓 Ruff 先执行已可通过的致命错误基线 `E9,F63,F7,F82`；本次修改的 Python 文件还必须执行默认规则检查。不得把仓库既存风格债务伪装成本轮回归，也不得因此跳过本次改动文件的完整检查。
 5. `pytest` 与 `ruff` 必须登记在本项目 `pyproject.toml` 的 `dev` dependency group 并进入 `uv.lock`，不得依赖本机额外安装。
 6. 上述 pytest/ruff 命令只允许静态或隔离测试；任何会访问正式 Dagster instance、正式 Lake、数据库或网络的测试，仍受“正式 Dagster 环境执行门禁”约束。
@@ -102,7 +101,7 @@ uv run ruff check <本次修改的 Python 文件>
 1. 涉及 asset、resource、check、job、sensor、partition、backfill、automation、metadata、路径、字段契约、数据质量口径或生产触发逻辑的任何改动，必须先输出设计方案、影响范围、涉及文件、数据读写影响、验收方式和风险点。
 2. 用户明确确认设计方案前，禁止修改正式 Python 代码、配置文件、Dagster definitions、数据湖文件、数据库表或运行入口。
 3. 用户指出现有实现有问题时，默认先做代码审计和方案讨论；不得直接把口头理解落成代码。
-4. 如果需要先做验证来支撑设计，必须把验证方案单独列出并等待用户批准；验证不得触碰正式 Dagster 生产环境，除非用户明确批准并接受影响范围。
+4. 支撑设计的静态分析和正式只读核验按上述执行门禁与持续授权进行；需要运行实验或测试时先列验证方案并等待批准，使用隔离环境。正式执行或写入另须明确批准，不能用“验证设计”绕过审批。
 5. 文档修改也要区分“记录已确认口径”和“提出待确认方案”；未经确认的方案不得写成已实现或已拍板事实。
 6. 紧急修复也不能绕过设计确认；至少必须先说明要恢复什么、为什么恢复、会改哪些文件、是否会影响正在运行任务，并等待用户批准。
 
@@ -367,14 +366,15 @@ Check    = 这个资产生成后是否合格
 
 ### Dynamic Partitions 持久化门禁
 
-注册 dynamic partitions 时，必须使用正式 Dagster instance。
+向正式环境注册 dynamic partitions，必须先获批准并使用正式 Dagster instance。
+以下第 1–5 条约束正式注册及其验收，不要求隔离测试连接正式 instance；隔离测试结果也不能证明正式分区已注册。
 
 规则：
 
-1. 本地验证 dynamic partition 注册时，必须显式使用正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 对应的 `DagsterInstance`。
-2. 若使用 `job.execute_in_process()` 验证注册逻辑，必须传入 `instance=DagsterInstance.get()`。
+1. 执行已批准的正式 dynamic partition 注册时，必须显式使用正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 对应的 `DagsterInstance`。
+2. 若批准的正式注册使用 `job.execute_in_process()`，必须传入 `instance=DagsterInstance.get()`，不得借验收之名额外运行 job。
 3. 验证注册结果时，必须从同一个正式 instance 调用 `get_dynamic_partitions(...)` 读取。
-4. 禁止用默认 `execute_in_process()` 的临时 instance 验证 dynamic partition 注册结果。
+4. 禁止用默认 `execute_in_process()` 的临时 instance 结果冒充正式 dynamic partition 注册结果。
 5. 禁止看到 job `success=True` 就认定 partition keys 已持久注册。
 6. 日频资产不得默认共用全局交易日分区。正式生产资产必须按资产族选择 partition definition，例如股票行情使用 `cn_a_stock_trade_days`，指数行情使用 `cn_a_index_trade_days`。
 7. `cn_a_trade_days` 只作为全量 SSE open day 备份和对照分区集合保留；新增生产 asset、sensor、history backfill 不得依赖它作为正式业务分区。

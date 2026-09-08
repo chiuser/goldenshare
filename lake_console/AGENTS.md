@@ -2,18 +2,21 @@
 
 ## 适用范围与当前结构
 
-适用于 `lake_console/` 及子目录；更近规则优先。2026-09-05 M6 已删除旧 Console
-frontend/backend、Kopia、专属测试、旧入口和示例配置，不得恢复旧产品或兼容入口。
+适用于 `lake_console/` 及子目录；更近规则优先。旧 Console frontend/backend、Kopia、
+旧湖迁移适配器、专属测试、旧入口和示例配置已清退，不得恢复旧产品或兼容入口。
 当前保留 orchestrator、正式 docs、reports 和两项 ClickHouse 工具。
+
+清退过程与逐项证据见[清退专项方案](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
+及[停牌事实治理收口记录](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)。
+这些是已完成专项的追溯依据，不是后续任务必须重跑的阶段清单，也不授权继续清理其他对象。
 
 ## 动手前必读
 
 1. 仓库根 AGENTS.md，以及本机存在时的 AGENTS.local.md。
 2. `lake_console/orchestrator/AGENTS.md`、更近规则、当前实现与已批准方案。
-3. 清退任务遵守专项方案、LLD 和 M0 审计清单。
-4. 管道、数据集、readiness、sensor、check、bootstrap、runless event、DuckDB/Parquet
+3. 管道、数据集、readiness、sensor、check、bootstrap、runless event、DuckDB/Parquet
    任务必须读 `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`。
-5. 接入使用 `lake_console/docs/templates/dagster-dataset-onboarding-template.html`（含 7A）；
+4. 接入使用 `lake_console/docs/templates/dagster-dataset-onboarding-template.html`（含 7A）；
    源请求按根规则读本地源文档并真实验证，不能凭印象编码。
 
 ## 工程与生产边界
@@ -55,12 +58,13 @@ frontend/backend、Kopia、专属测试、旧入口和示例配置，不得恢�
 5. 正式 DG 按生产环境对待。测试使用临时文件、替身和隔离 instance，不得用正式资源试跑。
 6. 物理数据与 ignored 环境、配置、构建产物不随 Git 源码删除。
    清理需按代码直接引用和当前用途给出精确清单，经管理员确认后执行。
-7. reports 不是旧后台专属目录，不可整目录删除。
-   停牌专项S4已完成：现行链读取固定Silver事实与Raw，不再读取旧CSV。
-   `orchestrator/src/orchestrator/defs/corrections/suspend_full_day.py` 与同目录
-   `suspend_full_day_ranges.csv` 已按停牌LLD §18.32获准删除，S5回归及专项清理已完成（§18.35）；
-   不得恢复旧运行时读取。正式 `silver_stock_suspend_confirmed`、最终停牌Silver、
-   `suspend_timing.py` 及其他现行corrections必须保留，不能整目录删除。
+7. reports 不是旧后台专属目录，不可整目录删除；具体废弃报告仍按上述用途清单审批。
+8. 本地 DG 停牌事实由 Raw 与固定事实 `silver_stock_suspend_confirmed` 合成
+   `silver_stock_suspend_daily`；本地 DG 的业务消费者统一读取最终停牌 Silver，
+   不各自叠加历史修正。旧 `orchestrator/src/orchestrator/defs/corrections/suspend_full_day.py`
+   与同目录 `suspend_full_day_ranges.csv` 已删除，不得恢复运行时读取或兜底。
+   固定事实、最终停牌 Silver、发布记录与正常日更 checkpoint 不是废弃测试产物；
+   `suspend_timing.py` 及其他现行 corrections 仍须保留，不能整目录删除。
 
 ## 性能与开发门禁
 
