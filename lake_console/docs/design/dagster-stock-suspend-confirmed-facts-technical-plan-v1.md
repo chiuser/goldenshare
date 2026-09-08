@@ -2,7 +2,7 @@
 
 更新时间：2026-09-08
 
-状态：**S0–S2已完成；S1收尾27文件已提交`d43bed1a`，未推送。S2真实4,022行候选通过生产C01/C05；3,083日期双向比较零差异，完整执行9.333秒。冻结plan、候选、报告及年度结果见LLD §18.28。本轮仅专项staging/临时证据及文档增量，未提交；未写正式数据/事件、运行job、恢复sensor或安装套件。S3–S5正式发布、切换、CSV删除与最终清理仍待执行。**
+状态：**S0–S2已完成，S2六份文档已提交`47ae5404`、未推送。S3文件侧已完成：首次OS规则拒绝后，管理员确认最小修正，一次重试成功发布4,022行固定事实；完整读回通过，checkpoint=committed，6,166个既有Raw/Silver文件未变，详见LLD §18.29D。事件登记尚未批准/执行，S3整体未关闭；切换、CSV删除及最终清理未执行，未恢复sensor或安装套件。本轮记录未提交。**
 
 首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
 
@@ -34,7 +34,7 @@ silver_stock_suspend_confirmed ─────┘
 5. 固定事实独立保存，Silver 可以从 Raw 与该事实重新生成，不依赖上一次 Silver 输出。
 6. 低频人工维护，不建管理后台、规则引擎、数据库表或自动更新任务。
 
-最初“出技术方案”仅授权文档；随后用户已批准S0、S1开发与隔离测试，以及仅暂停`silver_suspend_d_update_job_sensor`的维护安排。2026-09-08用户明确要求“提交，并继续推进S2”，已据此提交S1并完成指定staging候选/计划/报告准备和正式输入只读比较。该批准不含正式Lake写入、materialization/check事件、服务重载、恢复sensor或删除；提交也不等于上线。原维护/框架实验见[LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)，历史事故及隔离修订保留于§17–18；当前S1总对账见§18.27、S2真实结果与下一停止点见[§18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)，不能用早期未通过状态覆盖后续验收，也不能以本次通过抹去历史事故。
+最初“出技术方案”仅授权文档；随后用户已批准S0、S1开发与隔离测试，以及仅暂停`silver_suspend_d_update_job_sensor`的维护安排。2026-09-08用户要求“提交，并继续推进S2”，已提交S1并完成指定staging候选/计划/报告和正式输入只读比较；S2批准本身不包含正式发布。其后“提交，然后推进S3”批准单文件发布；首次失败停止后，管理员回复“确认，马上修正”，已据此修正最小OS规则并成功重试。事件登记仍另行确认。服务重载、恢复sensor或删除未获本轮批准，提交也不等于上线。原维护/框架实验见[LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)，历史事故及隔离修订保留于§17–18；S1总对账见§18.27、S2结果见[§18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)、当前停止点见[§18.29D](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s3-confirmed-file-publication)。历史记录不覆盖当前状态，后续通过也不抹去此前失败。
 
 ## 2. 为什么选择这条路
 
@@ -320,7 +320,7 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 
 完整执行9,333ms，其中compare4,101ms；连接512MB/2线程/0spill，进程峰值RSS约558MiB，后者包含Python/框架，不等于DuckDB内存限额。Raw目录新出现`2026-09-07`，按S0冻结边界仅登记、不解码、不纳入本次比较；Silver该日尚未生成，留后续日更验收。正式固定目标仍不存在，正式文件/事件/实例/job/sensor写入及安装均0。详见[LLD §18.28（含精确hash与证据）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)。S2通过只满足申请S3的前置，不自动发布或删除。
 
-### S3：固定事实发布与登记——高风险，逐项批准
+### S3：固定事实发布与登记——高风险，文件侧完成、事件待批准
 
 正式数据写入目标仅一个：§4.1 的固定事实 Parquet；Raw 写入数为 0，历史最终 Silver 批量写入数为 0。
 
@@ -330,6 +330,10 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 4. 发布后重新读回，保存本 run checkpoint。中断后以正式文件事实为准：文件正确而 checkpoint 未记下，补记完成；文件不符或缺失且候选丢失，保留现场人工处理。
 5. 文件确认后，另行批准外部资产事件登记：本版本首次人工登记最多 1 条 materialization + 2 条通过的 check 事件，不限制日常 job 的正常 check evaluations。已有完整匹配记录不重复写；LLD §9 规定确定性 token、逐条 pending/confirmed 和真实事件身份读回。API 超时或 pending 但无法确认结果时停止人工核验，不能盲目重发，也不承诺事件 API 自带唯一键事务。
 6. 事件写入失败不得撤回或删除已正确发布的文件；先报告“文件已发布、观测未完整”，经批准补齐事件。不能把事件失败当成重新写文件的理由。
+
+2026-09-08首次执行记录：先提交S2文档`47ae5404`，不改生产代码；真实CLI只读预览通过（2.908秒），一次文件发布返回`PermissionError`（退出6、2.107秒）。原因是新增OS白名单用`[0-9a-f]{32}`匹配checkpoint临时名，未被系统按预期匹配；当时仅创建目标两级父目录，未创建checkpoint或提升候选。候选及6,166个既有Raw/Silver文件全身份/hash未变；03:17:02指定Silver sensor仍STOPPED、Raw仍RUNNING、活动run为空，没有事件登记。
+
+后续管理员确认后，已将临时OS策略中的量词展开为32个显式字符类，保持路径和长度范围；此前`/private/tmp`的1字节验证已证明正确32位名可写、33位名仍被拒绝。**03:38:28一次重试发布成功，03:38:36独立读回通过：正式固定文件4,022行、5,615字节，物理hash及inode与原候选一致，checkpoint=committed，6,166个既有Raw/Silver文件不变。** 预览3.135秒、apply3.672秒、inspect0.978秒；没有提高资源、修改业务代码或冻结plan/hash。事件登记未执行，指定Silver sensor仍STOPPED。原失败证据与本次报告均保留，详见[LLD §18.29D](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s3-confirmed-file-publication)。下一步先做事件只读审计、确认拟登记清单，事件写入另行批准；S3整体不能标完成，禁止据此恢复sensor或删除CSV。
 
 ### S4：切换正式读取与验收——高风险，人工维护窗口
 
@@ -445,7 +449,7 @@ CLI 精确参数、默认只读行为和退出码已在 LLD §8 固定，均为�
 - [编码规范](/Users/congming/github/goldenshare/lake_console/orchestrator/CODING_STANDARDS.md)、[字段合同设计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-asset-schema-contract-design.md)、[性能治理](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-data-pipeline-performance-governance.md)。
 - 本文各表对应的当前代码、现有测试及 §3 标记的前序只读审计证据；未用清退文档替代代码核验。
 
-当前状态（2026-09-08）：S1开发及计划隔离回归已完成，逐项见[LLD §18.27](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation)。未完成的是S2真实候选/生产集合及全范围比较、S3文件/事件正式发布、S4本地切换及S5删除/最终清理。此前已执行指定sensor停止、发生过正式健康探针越权写入（LLD §17），业务代码已分批提交，不能笼统写成“未改代码、正式环境从未写入”；本轮收尾仅测试/文档，无正式写入、安装或推送。
+当前状态（2026-09-08）：S1开发及计划隔离回归、S2真实候选/生产集合及全范围比较均已完成，逐项见LLD §18.27–18.28。S3首次失败经确认修正后，已成功原子发布一个固定事实文件，见[LLD §18.29D](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s3-confirmed-file-publication)；事件、S4本地切换和S5删除/最终清理未完成。此前暂停指定sensor及正式健康探针越权写入的记录保留于§17。业务代码未改，6,166个既有Raw/Silver文件未变；本轮仅修改临时执行策略/审计日志名并同步原文档，未提交、安装或推送。
 
 本轮文档验证：仓库文档完整性检查通过；另核本文 15 个本地链接及显式锚点、§7 的 27 个现有文件路径，均存在；已跟踪差异和新文档的空白/差异检查通过。这些检查只证明文档引用与格式，不代表新资产、合并算法或正式迁移已验收。
 

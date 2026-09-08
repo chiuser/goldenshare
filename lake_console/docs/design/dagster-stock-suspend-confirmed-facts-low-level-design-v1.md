@@ -2,7 +2,7 @@
 
 更新时间：2026-09-08
 
-状态：**S0–S2已完成；S1收尾27文件已提交`d43bed1a`，未推送。S2真实4,022行候选通过生产C01/C05，3,083日期双向比较零差异，执行及冻结身份见§18.28。本轮仅新增专项staging候选/计划/证据并修改文档，增量未提交。正式文件/事件发布、切换、CSV删除及最终清理未完成；未恢复sensor、安装套件或启动服务。**
+状态：**S0–S2已完成，S2六份文档已提交`47ae5404`，未推送。S3文件侧已完成：管理员确认最小OS规则修正后，一次重试成功；4,022行固定事实已原子发布，完整读回通过，checkpoint=committed，6,166个既有Raw/Silver文件未变。§18.29保留首次失败及后续成功证据。事件登记尚未批准/执行，S3整体未关闭；切换、CSV删除与最终清理未执行，未恢复sensor、安装套件或启动服务。本轮记录未提交。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
 
@@ -10,7 +10,7 @@
 
 上位依据：[技术方案 v1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)。本文细化该方案，不另起业务口径；原清退专项的 `TODO-SUSPEND-001` 仍未关闭。
 
-本文未在状态与执行记录中明确标为已实现的“新增”“改为”、函数签名、SQL、命令及测试名，仍是**待实施设计**。用户随后已批准 S1 开发、隔离测试及仅暂停 `silver_suspend_d_update_job_sensor` 的维护安排；维护期间不手工启动停牌 Silver job，Raw 和其他入口不动。该批准不包含正式 Lake/staging 写入、正式 materialization/check 事件、服务重载、删除或 Git 提交。S1 结束不自动恢复该 sensor；等 S3/S4 验收或另行明确批准。本次实际执行及新发现的停止条件见 §15。
+本文未在状态与执行记录中明确标为已实现的“新增”“改为”、函数签名、SQL、命令及测试名，仍是**待实施设计**。用户最初批准 S1 开发、隔离测试及仅暂停 `silver_suspend_d_update_job_sensor` 的维护安排；维护期间不手工启动停牌 Silver job，Raw 和其他入口不动。S1批准本身不包含正式 Lake/staging 写入、正式 materialization/check 事件、服务重载、删除或 Git 提交；后续分阶段批准和实际结果见§18.28–18.29。S1 结束不自动恢复该 sensor；等 S3/S4 验收或另行明确批准。§15保留最初维护与框架实验记录，当前停止点以文首及§18.29为准。
 
 实际证据：[S0 审计清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。以下设计不得与 S0 已完成的只读核验混为一谈。
 
@@ -506,7 +506,7 @@ plan 的 hash 为其实际 UTF-8 文件 bytes SHA-256，文件不包含自身 ha
 
 ### 8.2 CLI 命令与参数合同
 
-入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25实现三个文件命令；§18.26补齐`audit-events`、`register-events`并完成五命令隔离验收。**管理员已批准S2候选/plan准备及比较；S3文件发布与事件登记仍分别批准，不得因S2通过执行发布命令。**
+入口为 `python -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli`。§18.25实现三个文件命令；§18.26补齐`audit-events`、`register-events`并完成五命令隔离验收。**S2及S3文件侧已完成；首次失败经管理员确认最小OS规则修正后，重试发布成功（§18.29D）。事件登记仍须另行批准，不能随文件发布执行。**
 
 | 子命令 | 必填参数 | 可选参数 / 缺省行为 | 可变更的内容 |
 | --- | --- | --- | --- |
@@ -809,7 +809,7 @@ BSE现有CLI在合法参数路径内自行构造DuckDBResource；其测试setUp�
 | S0 / 低，已完成 | LLD 已认可；来源/日历/文件集合已刷新；批准 hash 已实算；隔离验证设计已固定 | 来源一致，见 S0 清单；后续已取得 S1 开发及本地维护安排授权 |
 | S1 / 中，已完成（§18.27） | §18隔离、合同/合并、实际writer/check/job/readiness、五CLI、连接、消费者及全量治理回归均已完成 | 只证明隔离与实现机制；生产C01/C05明确待S2，不能声称正式全量数据已验收；不自动重载/恢复入口 |
 | S2 / 中，已完成（§18.28） | 真实4,022行候选、未修改生产合同的C01/C05、冻结plan及3,083日期/13年度比较均通过 | 双向EXCEPT ALL零差异，输入未漂移；只具备申请S3条件，不等于批准发布 |
-| S3 / 高 | 先单固定文件发布，再另行批准事件登记；准备代码不启动正式新链 | 文件正确＋E1/E2/E3 完整匹配；正式 Raw 0 写，历史最终 Silver 0 批量写 |
+| S3 / 高，文件侧完成、事件待批准（§18.29） | 首次OS规则拒绝后，经确认修正并成功原子发布1个固定文件，完整读回及committed对账通过；事件登记未执行 | 文件已正确；E1/E2/E3匹配仍待验收，不能关闭整个S3；正式Raw 0写，历史最终Silver 0批量写 |
 | S4 / 高 | 精确维护窗口、确认旧 writer 已结束、切换代码；运行少量 Silver-only 验收；恢复指定触发器并观察正常日更 | 两覆盖日期＋一补缺日期＋一无修正日期等价；5 checks 通过；下一次正常链通过 |
 | S5 / 中 | 最后确认删除两个旧文件，更新护栏与当前引用文档 | 无旧 import/旁路/双读；保留 timing.py；TODO 方可关闭 |
 
@@ -2894,6 +2894,8 @@ CodeGraph `explore` 覆盖固定readiness及消费者，`impact(_asset_specs_and
 
 ### 18.28 S2真实候选和全范围等价对账（2026-09-08）
 
+以下保留S2交付时的状态；后续提交和正式文件发布结果见§18.29，不能把本节当时“未发布/未提交”当作当前状态。
+
 #### A. 执行前约束与预算
 
 管理员指令“提交，并继续推进S2”。先提交S1的27份测试/文档为`d43bed1a`，不含Wealth。本阶段只运行一次性来源转换及既有文件侧helper，不修改业务代码，不构造Dagster实例、不发事件、不启动job/check/sensor；S3–S5不随本轮授权。
@@ -2932,7 +2934,7 @@ C01使用未修改的生产validator核验完整候选。C05在内存分别保�
 
 | 冻结产物 | 字节 | SHA-256 |
 | --- | ---: | --- |
-| [candidate/part-000.parquet](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/candidate/part-000.parquet) | 5,615 | `042aefca909199afce62f207b9fa44e031ab92d4b0029f239e3d87566c23d360` |
+| S2 `candidate/part-000.parquet`（S3已原子提升至[正式固定文件](/Volumes/datasource/data_lake/silver/quote/stock_suspend_confirmed/full/part-000.parquet)，原候选路径不再存在） | 5,615 | `042aefca909199afce62f207b9fa44e031ab92d4b0029f239e3d87566c23d360` |
 | [plan.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/plan.json) | 2,312,204 | `a4b3e088b9ad55d3fdd965883d7f76980de3154c37b3788ee6e93da869a0fbc4` |
 | [comparison.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/comparison.json) | 45,458 | `5e204fe91d2e30aa4c725876254782833fb657ccf2e980f65fbf2b237ce1ea6a` |
 | [source-and-gates.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/source-and-gates.json) | 6,207 | `44a7db9f283baecd0a798f5d2764782307d26515115b1d3e6adfa2de3032285f` |
@@ -2972,3 +2974,99 @@ C01使用未修改的生产validator核验完整候选。C05在内存分别保�
 S1提交已完成；本轮S2增量只有文档与上述staging/临时证据，尚未提交、未推送。原清退TODO仍保持未关闭；不因S2通过提前删除CSV或清理候选/测试现场。
 
 交付复核：独立标准库读回5个产物hash、plan/report日期集合、候选数量与正式目标缺失均通过；文档中的每个产物hash与实物一致。6份专项文档329个本地链接、既有S1及新增S2锚点有效，`check_docs_integrity.py`三项、`git diff --check`及一次性脚本Ruff F/E9检查通过；CodeGraph sync/status确认索引已是最新。未重复运行已经通过且源码未变的S1全套回归，没有把文档检查当作数据等价证据；Wealth未提交修改原样保留。
+
+---
+
+<a id="s3-confirmed-file-publication"></a>
+
+### 18.29 S3文件发布：首次失败、确认修正后成功（2026-09-08）
+
+**当前结论：文件侧完成，事件登记待另行批准；A–C保留首次执行与停止的历史记录，D为管理员确认后的成功结果。**
+
+#### A. 本轮批准、真实调用链与执行前清单
+
+管理员在S2交付明确“下一步单文件发布、事件另行确认”后，指令“提交，然后推进S3”。本轮先将S2六份文档提交为`47ae5404`（未推送、不含Wealth），再只执行S3文件侧；**不登记事件、不启动job/check/sensor、不重载服务或恢复sensor，不删CSV。S3整体须待事件侧完成后才能关闭。**
+
+CodeGraph explore及当前源码核查入口为`stock_suspend_confirmed_cli.main`→`read_confirmed_plan/read_confirmed_comparison`→统一`existing_no_spill`连接→`validate_confirmed_file_publication`→`publish_confirmed_file`。正式发布复核完整报告、6,166个冻结输入和候选合同；落prepared后紧邻提升前再次执行完整验证；仅`os.replace(candidate,target)`一次，然后完整读回并记committed。file helper没有instance参数，CLI只有事件子命令才import事件adapter。S1对应正反/中断/续跑/只读命令测试已通过，当前实现未改，不重新制造故障或新测试实例。
+
+| 项目 | 本轮硬范围、预算及验收 |
+| --- | --- |
+| 唯一业务目标 | `/Volumes/datasource/data_lake/silver/quote/stock_suspend_confirmed/full/part-000.parquet`；1文件、5,615字节、4,022行/29代码/1,857事实日，2模式；新增正式固定资产文件，不改任何既有Raw/最终Silver |
+| 来源与冻结身份 | 使用§18.28原operation/plan/comparison；精确hash不变。来源、7份关键代码、CLI及6,166输入复核；不重新展开CSV、不重跑3,083日期比较、不重建/修改plan |
+| 正式读写 | dry-run完整输入hash一轮；apply验证两轮；独立收尾再一轮，总Raw/Silver字节读取36,414,460（非行解码）；固定候选/目标有界完整校验。正式业务文件仅原子提升1次，无COPY重算，无源请求/分页/事件 |
+| CLI资源 | 不加配置项、不改默认：既有16GB/4线程上限，existing_no_spill强制0spill与禁扩展自动安装/加载；实际小文件成本单列。每次CLI≤60秒，输出≤1MiB，审计/报告新增≤10MiB，单文件JSON仍遵守原100MiB上界 |
+| 写入白名单 | 仅唯一目标及其缺失父目录；同operation候选移动、`file-checkpoint.json`及其UUID临时文件；专项审计目录。plan/comparison/source/S2报告只读。OS策略拒绝网络及其余所有文件写入；不把正式湖根整体放开 |
+| 维护与权限 | 只读GraphQL核验指定Silver sensor=STOPPED、Raw=RUNNING、活动run=0；正式配置home仍为`/Users/congming/.goldenshare/dagster_home`，文件CLI不取得instance。挂载/无symlink/同设备/空间/访问权限/无其他发布进程在执行前确认；不创建健康探针 |
+| 失败语义 | 任何非零退出不自动重试；只读核验文件与checkpoint，保留现场，不删除目标、不回退CSV、不引入备份。CLI返回5不能误认成“未写入” |
+
+已只读核实运行状态符合维护前提。S0/S2的`/private/tmp`旧临时脚本目录现已不在，原因本轮未判定，不能宣称由本轮清理；staging中的5份核心候选/计划/报告仍完整，继续以精确hash核验。原转换脚本不是日常/发布依赖，不为推进S3重建它；缺失临时证据在最终清理对账时如实标记，不以此把全部测试环境视为已清理。
+
+工作目录固定`/Users/congming/github/goldenshare/lake_console/orchestrator`；使用已有`.venv/bin/python3 -B`（不运行uv sync/下载）。真实`publish-file --help`已核对；两条命令分开执行，第一条返回明确只读计划并复核后才运行第二条：
+
+```bash
+.venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli publish-file --operation-id s2_20260908_d43bed1a --expected-plan-sha256 a4b3e088b9ad55d3fdd965883d7f76980de3154c37b3788ee6e93da869a0fbc4 --expected-comparison-sha256 5e204fe91d2e30aa4c725876254782833fb657ccf2e980f65fbf2b237ce1ea6a
+.venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_suspend_confirmed_cli publish-file --operation-id s2_20260908_d43bed1a --expected-plan-sha256 a4b3e088b9ad55d3fdd965883d7f76980de3154c37b3788ee6e93da869a0fbc4 --expected-comparison-sha256 5e204fe91d2e30aa4c725876254782833fb657ccf2e980f65fbf2b237ce1ea6a --confirm-file-publish
+```
+
+实际命令由本轮审计包装器加OS文件白名单执行并记录stdout、退出码、耗时和资源；不改CLI参数或注入替身。新增临时根`/private/tmp/stock-suspend-s3-20260908.yRJYqu`纳入最终精确清理，本轮不清理。
+
+初次预览在包装器的额外来源检查处停止，尚未运行CLI、更未写正式文件：系统盘device由16777234变为16777232，涉及CSV、旧范围模块、保留时段模块和instance配置四个路径；它们的inode/size/mtime/hash全部相同，移动盘日历和6,166个plan输入的所有身份字段完全相同。这不是内容变化。根因是包装器把S2辅助报告中的系统盘device也当成跨阶段发布合同；原`plan.source`冻结CSV commit/blob/hash，正式工具精确绑定的device属于候选和Raw/Silver输入。按原合同修正包装器：记录四项设备编号差异，其他来源字段仍严格核验，且在本轮preview/apply/后验间绑定完整当前身份；不改plan、生产helper或移动盘身份门禁。该只读诊断多读9,103,615字节；未把首次包装器拒绝记成正式发布失败或一次成功预览。实际全部读取量见下节，不将未执行的第二次提升前验证计入实测。
+
+#### B. 一次真实发布失败及影响核验
+
+**S3未完成；不是候选内容或合并算法失败，是本轮执行时新增的OS保护规则写错。** 没有改生产CLI/helper。实际只读预览在03:12:39结束，退出0、`mode=readonly/applied=false/planned_action=publish`，耗时2,908ms；之后仅执行一次带确认参数的文件发布，2,107ms后退出6，返回`io_or_query_failed / PermissionError / applied=false`。非零退出后立即停止，没有再执行正式发布。
+
+当前`publish_confirmed_file`先创建目标父目录，再写prepared checkpoint，随后才第二次验证并提升候选。其`_save_json`会先创建`file-checkpoint.json.<32位uuid十六进制>.tmp`。本轮`publish.sb`用了`[0-9a-f]{32}`匹配该临时名；系统策略虽能加载，但这个写法没有匹配到合法文件名，拒绝创建checkpoint临时文件。CLI仅返回异常类型，没有完整系统调用栈；定位依据是当前调用顺序、失败后文件现场，以及同一匹配规则在临时目录的独立复现，不把错误码本身当作定位证据。
+
+| 失败后核验项 | 实际结果 |
+| --- | --- |
+| 正式固定文件 | `silver/quote/stock_suspend_confirmed/full/part-000.parquet`仍缺失；未执行候选提升 |
+| 已发生的正式目录变化 | 新建`silver/quote/stock_suspend_confirmed`及其`full`子目录；前者只有`full`，后者为空。不能写成“正式环境零变化”；保留现场，未删除 |
+| 候选及S2证据 | 候选仍为5,615字节，device/inode/size/mtime/hash均不变；原5个S2产物hash全部与§18.28相同，plan/comparison未重建或修改 |
+| 既有停牌数据 | 6,166个冻结Raw/Silver文件的device/inode/size/mtime/hash全部不变；失败后两次只读核验通过。只证明该冻结集合，不外推全湖 |
+| checkpoint | `file-checkpoint.json`及`events-checkpoint.json`均不存在，未生成checkpoint临时文件；不伪造prepared/committed状态 |
+| 正式CLI独立inspect | 933ms，退出0：candidate=approved、target=absent、comparison=passed、next_action=confirm_file_publish；这是只读状态，不是发布成功 |
+| 维护状态 | 03:17:02只读GraphQL：指定Silver sensor=STOPPED、Raw sensor=RUNNING；五类未结束状态的run查询为空，无其他发布CLI进程；本轮未改sensor或登记事件 |
+| 数据与运行边界 | 正式Parquet写入0、事件0、job/check启动0、服务重载0、安装0；未删CSV、候选或现场 |
+
+仅在本轮`/private/tmp`目录做一个文件名权限验证：原`{32}`规则拒绝；将其展开为**32个显式`[0-9a-f]`字符类**后，正确32位名称可创建1字节文件，33位名称仍拒绝。测试策略和1字节文件不进入正式湖或业务运行链；没有在真实`publish.sb`中应用修正，更没有用测试策略重试正式发布。
+
+持久证据：[s3-file-publication-blocked.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/s3-file-publication-blocked.json)，SHA-256=`d0539a5f1e2e71ff1016d46634f1be0c47539f1bb64dc4d166891b62d45e32b6`。
+
+本轮对6,166文件实际hash读取共5轮：额外只读诊断、CLI预览、失败apply的首次验证、失败后核验、最终报告核验，各9,103,615字节，合计45,518,075字节；未做Raw/Silver行解码。原计划apply第二次验证未到达，以失败后的核验替代计数，不能混写成成功执行预算。预览/失败执行的子进程峰值RSS分别为197,132,288 / 183,173,120字节（macOS `RUSAGE_CHILDREN`，含包装器已结束的子进程，不声称是独立DuckDB峰值）；未提高资源或使用spill。
+
+#### C. 最小修正与下一停止点
+
+待管理员确认后，只修改本次临时`publish.sb`中的上述量词写法，展开为32个字符类；路径前后锚定、operation、文件名前缀和`.tmp`后缀不变，不扩大目录权限、不关闭隔离、不改生产代码或plan。随后按原CLI先预览、再重试一次同一单文件发布；重新核实维护状态及原冻结身份，成功后读回目标与checkpoint。任何新失败再次停止核验，不连续试错。
+
+**本轮停在“策略最小修正及正式重试待确认”。文件成功后事件登记仍另行批准；不进入S4/S5，不恢复sensor。** 本次真实OS策略未提前用对应文件名做最小可写性验证，是执行准备遗漏；已有S1功能测试不能替代本轮新增策略的验证。诊断只修正该遗漏，不再扩建测试实例或通用验收框架。
+
+临时根中`execute_s3.py`、`readonly.sb`、`publish.sb`、命令/状态报告、`record_blocked.py`、两个probe策略/脚本与1字节fixture全部纳入§18.11最终精确清理；本轮保留。CodeGraph explore覆盖CLI、验证、checkpoint和提升调用链，未修改业务代码、架构边界或依赖矩阵。S2文档提交`47ae5404`已完成；本节及关联状态同步尚未提交、未推送，Wealth无关修改保持原样。
+
+收尾检查：6份专项文档已同步当前停止点；仓库`check_docs_integrity.py`三项、`git diff --check`及本轮三个临时Python脚本的Ruff F/E9检查通过，持久失败报告SHA已独立读回核对。未重跑源码未改的S1业务测试；文档/静态检查通过不代表S3发布成功。
+
+#### D. 管理员确认后的等价规则修正与重试
+
+管理员回复“确认，马上修正”，已批准§C的最小策略修正及同一单文件重试，事件登记仍不在本轮范围。已将真实`publish.sb`的`[0-9a-f]{32}`展开为32个显式字符类；其余路径白名单、网络禁令、生产代码、CLI参数和plan/hash不变。为保留失败现场，沿用原包装器生成`execute_s3_retry.py`，差异仅为预览/执行/检查日志名加`retry1-`及对应读取路径，不修改验证与发布逻辑。原脚本和失败报告保留，新脚本与日志纳入同一临时根的最终精确清理。
+
+本次仍按§A预算：预览1轮、apply2轮、后验1轮冻结输入hash，共36,414,460字节；仅提升1个5,615字节候选，无Raw/最终Silver重算或重写，每次CLI≤60秒，不提升资源或新增测试实例。执行结果在下方据实补录，不以本段批准代表发布成功。
+
+**文件侧发布成功。** 北京时间03:38:16预览完成，03:38:28一次apply成功，03:38:36独立只读后验完成；未发生本轮失败重跑。使用未改动的正式CLI/helper，系统保护仍拒绝网络及原白名单以外写入。
+
+| 验收项 | 真实结果 |
+| --- | --- |
+| 预览与发布 | 预览退出0、`planned_action=publish`，3,135ms；apply退出0、`status=published/file_committed=true/events_complete=false`，3,672ms |
+| 正式文件 | [part-000.parquet](/Volumes/datasource/data_lake/silver/quote/stock_suspend_confirmed/full/part-000.parquet)为5,615字节，4,022行/29代码/1,857事实日；完整生产合同检查通过；五列及逻辑hash保持§3.3批准值 |
+| 原子提升身份 | 正式文件device=16777244、inode=16639231、mtime_ns=1788806892609293123、物理SHA=`042aefca909199afce62f207b9fa44e031ab92d4b0029f239e3d87566c23d360`，除path外与冻结候选完全一致；staging候选因原子移动不再存在，不是额外删除或重算 |
+| 进度与独立检查 | `file-checkpoint.json`逐字段匹配原plan/report/content/target，stage=committed；正式CLI inspect 978ms退出0，target=approved、candidate=absent、comparison=passed、next_action=audit_events |
+| 既有数据与来源 | 6,166个冻结Raw/Silver文件的device/inode/size/mtime/hash全部不变；来源、日历、关键代码及plan/comparison身份复核通过，无新增源请求或历史Silver批量重写 |
+| 维护状态 | 03:38:36只读GraphQL：指定Silver sensor=STOPPED、Raw=RUNNING、活动run=0、其他发布进程=0；本轮未修改runtime状态 |
+| 下一阶段边界 | 本轮事件写入0，events checkpoint未创建，未运行job/check、重载服务、恢复sensor、删除CSV或安装套件；“文件已发布”不等于Dagster已登记/ready |
+
+证据：[s3-file-publication.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/s3-file-publication.json)，SHA-256=`11441d0fc797844e44e3a49255a49724c32ac41e619e5220a03346e535d63880`；[file-checkpoint.json](/Volumes/datasource/data_lake_staging/stock_suspend_confirmed/run_id=s2_20260908_d43bed1a/file-checkpoint.json)为536字节，SHA-256=`5dc6e28ffbb0551c7294d8aad161ca3ea5651bc291c79cf97dbe4e5efe7e4ed0`。首次失败报告继续保留，未覆盖。修正后的临时OS策略SHA为`fa4f9b3c45d54901cb1a96f27516b386c2cd118c14efa852300a4466490005c4`；重试包装器SHA为`b631c2513c18cb569c39cb3fdeb0871c42cae6a692c65ed890af3a517d30d89f`。
+
+实际冻结输入hash读取4轮，共36,414,460字节，无Raw/Silver行解码；预览/apply/inspect子进程峰值RSS分别189,743,104 / 200,228,864 / 186,056,704字节，测量范围同§B，不冒充DuckDB独立峰值。apply前可用空间2,987,614,588,928字节，沿用原16GB/4线程上限、0spill和禁扩展策略，没有因首次失败扩大资源或范围。
+
+下一步仅是S3事件侧：先只读审计现有事件，列清拟登记的1条无分区materialization及2条check与已有记录差异，再按独立确认执行；本轮未运行事件命令。S4正式日更验收和S5两文件退出/最终环境清理仍后置。按数据湖技能保持文件/事件分离，按文档治理技能同步六份原文档；无业务源码、Dagster定义、架构或依赖矩阵变化，未提交/推送，Wealth修改原样保留。
+
+交付复核：plan/comparison及首次失败报告hash不变；新checkpoint/成功报告hash与本文一致；修正策略精确32字符类且无目录级扩权。文档完整性三项、`git diff --check`、重试脚本Ruff F/E9通过；CodeGraph explore核验发布链后，sync/status确认索引最新。没有重复执行发布，也没有将未运行的事件/日常链验收算作通过。

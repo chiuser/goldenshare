@@ -759,7 +759,7 @@ SHA-256 仍为 `d0f3778dab3fabb0992d92322dce3b3209d318e80f98b40c2a16d225f33f02bf
 [S0 只读审计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)
 已完成来源、实际逻辑指纹、现有效果及部署边界核验。早期测试资源误配触发正式健康探针的历史事故仍见独立LLD §17；
 2026-09-08已完成S1实现与全部计划隔离回归，见[独立LLD §18.27总对账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation)。
-随后S2真实4,022行候选/生产C01/C05及3,083日期零差异比较通过，见[独立LLD §18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)。仅写专项staging；指定Silver sensor未恢复，正式发布/切换及CSV删除未执行。上述M0登记保持历史语境，TODO仍未关闭。
+随后S2真实4,022行候选/生产C01/C05及3,083日期零差异比较通过，见[独立LLD §18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)，文档已提交`47ae5404`。S3首次OS规则拒绝后，经管理员确认最小修正，已成功发布一个4,022行固定事实文件，完整读回及committed对账通过，6,166个既有Raw/Silver文件未变；[§18.29D](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s3-confirmed-file-publication)保留失败与成功证据。指定Silver sensor未恢复，事件登记待另行批准，切换及CSV删除未执行。上述M0登记保持历史语境，TODO仍未关闭。
 
 ## 20. 2026-09-05 继续旧湖逐数据集与恢复遗留只读核验
 

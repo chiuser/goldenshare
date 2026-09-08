@@ -2724,7 +2724,7 @@ M8 再独立提交精确清单；**不以清遗留文件为由删除或顺手重
 
 ### 16.11 TODO-SUSPEND-001：消除停牌修正规则的运行时 CSV 隐性依赖
 
-- [ ] **S0–S2完成（2026-09-08）；S1总对账见独立LLD §18.27，S2真实候选及3,083日期零差异证据见[§18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)。仅staging准备，正式文件/事件发布、切换及CSV删除未执行，指定Silver sensor未恢复，TODO未关闭；早期隔离事故证据仍保留在§17。** 2026-09-05 用户明确要求：停牌修正规则后续不能再靠读取
+- [ ] **S0–S2完成（2026-09-08）；S1总对账见独立LLD §18.27，S2真实候选及3,083日期零差异证据见[§18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)，S2文档已提交`47ae5404`。S3首次OS规则拒绝经确认修正后，已成功发布一个4,022行固定事实文件，完整读回和committed对账通过，6,166个既有Raw/Silver文件未变，见[§18.29D](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s3-confirmed-file-publication)。事件登记仍待另行批准，切换及CSV删除未执行，指定Silver sensor未恢复，TODO未关闭；首次失败及早期隔离事故证据均保留。** 2026-09-05 用户明确要求：停牌修正规则后续不能再靠读取
   文件承载，要消除隐性依赖。§16.10 的“保留”仅指当前防误删，不代表认可这套长期实现。
 
 **2026-09-06 后续决策与主案入口**

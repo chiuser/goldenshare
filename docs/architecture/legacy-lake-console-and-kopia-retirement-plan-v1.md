@@ -62,7 +62,7 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
    [S0 清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。
    2026-09-08 S1实现、消费者及治理隔离回归已完成，见[LLD §18.27总对账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation)；
    早期隔离事故影响核验仍保留在LLD §17，不用本轮通过覆盖历史。随后S2已完成真实4,022行候选/生产合同反例及3,083日期零差异比较，见[LLD §18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)。
-   候选/plan仅在专项staging，未发布正式文件或事件；指定Silver sensor未恢复，CSV保护边界不变，TODO未关闭。
+   S2文档已提交`47ae5404`。S3首次执行因新增OS规则写错而停止，随后获准最小修正，已成功原子发布一个4,022行固定事实文件，完整读回及committed对账通过，6,166个既有Raw/Silver文件未变；[LLD §18.29D](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s3-confirmed-file-publication)保留失败及成功证据。事件登记仍待另行批准，未恢复指定Silver sensor或删除CSV，TODO未关闭。
 
 ### 0.4 新增拍板结果
 
