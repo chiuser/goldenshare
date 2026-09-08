@@ -11,9 +11,10 @@ import { WatchlistPage } from "./WatchlistPage";
 import { AuthProvider } from "../../features/auth/model/AuthProvider";
 import { WealthRouter } from "../../app/routes/WealthRouter";
 import {
-  deferred,
   item,
   page,
+  group,
+  rules,
 } from "../../features/watchlist/test/watchlistFixtures";
 
 let intersect: IntersectionObserverCallback;
@@ -37,7 +38,9 @@ afterEach(() => {
 function mockPage(value = page()) {
   const fetch = vi.fn(
     async (input: RequestInfo | URL, _options?: RequestInit) => {
-      if (new URL(String(input)).pathname === "/api/v1/wealth/market/watchlist")
+      if (new URL(String(input)).pathname === "/api/v1/wealth/market/watchlist/groups")
+        return new Response(JSON.stringify({ groups: [value.group], rules }));
+      if (new URL(String(input)).pathname === "/api/v1/wealth/market/watchlist/groups/1/items")
         return new Response(JSON.stringify(value));
       return new Response("{}", { status: 503 });
     },
@@ -53,8 +56,9 @@ describe("watchlist page", () => {
     expect(
       within(table)
         .getAllByRole("columnheader")
-        .map((cell) => cell.textContent),
+        .map((cell) => cell.textContent?.replace(" ↕", "")),
     ).toEqual([
+      "",
       "股票代码",
       "股票名称",
       "最新价（元）",
@@ -66,10 +70,10 @@ describe("watchlist page", () => {
       "换手率（%）",
       "资金净流入（万）",
       "所属板块",
-      "操作",
     ]);
     const cells = within(table).getAllByRole("cell");
     expect(cells.map((cell) => cell.textContent)).toEqual([
+      "",
       "000001.SZ",
       "股票1",
       "12.34",
@@ -81,21 +85,20 @@ describe("watchlist page", () => {
       "0.92",
       "-2189.40",
       "银行",
-      "移除",
     ]);
-    expect(cells[2]).toHaveClass("up");
     expect(cells[3]).toHaveClass("up");
-    expect(cells[9]).toHaveClass("down");
-    expect(cells[5]).toHaveClass("pe-column");
-    expect(cells[6]).toHaveClass("pb-column");
+    expect(cells[4]).toHaveClass("up");
+    expect(cells[10]).toHaveClass("down");
+    expect(cells[6]).toHaveClass("pe-column");
+    expect(cells[7]).toHaveClass("pb-column");
     expect(
       table.querySelector(".valuation-column, .watchlist-valuation"),
     ).toBeNull();
-    expect(cells[0]).toHaveClass("stock-code-column");
-    expect(cells[1]).toHaveClass("stock-name-column");
-    expect(cells[11]).toHaveClass("action-column");
-    expect(cells[10]).toHaveClass("sector-column");
-    expect(cells[10]).not.toHaveClass("action-column");
+    expect(cells[1]).toHaveClass("stock-code-column");
+    expect(cells[2]).toHaveClass("stock-name-column");
+    expect(table.querySelector(".action-column")).toBeNull();
+    expect(cells[11]).toHaveClass("sector-column");
+    expect(cells[11]).not.toHaveClass("action-column");
     expect(screen.getByLabelText("自选股票滚动区域")).toHaveClass(
       "watchlist-table-scroll",
     );
@@ -152,8 +155,8 @@ describe("watchlist page", () => {
       render(<WatchlistPage />);
       const table = await screen.findByRole("table", { name: "自选股票列表" });
       const cells = within(table).getAllByRole("cell");
-      expect(cells[2]).toHaveClass(className);
       expect(cells[3]).toHaveClass(className);
+      expect(cells[4]).toHaveClass(className);
     },
   );
   it("keeps missing price neutral even with a known rising change", async () => {
@@ -173,12 +176,12 @@ describe("watchlist page", () => {
     render(<WatchlistPage />);
     const table = await screen.findByRole("table", { name: "自选股票列表" });
     const cells = within(table).getAllByRole("cell");
-    expect(cells[2]).toHaveTextContent("--");
-    expect(cells[2]).toHaveClass("watchlist-missing");
-    expect(cells[2]).not.toHaveClass("up");
-    expect(cells[3]).toHaveClass("up");
-    expect(cells[5]).toHaveTextContent("--");
-    expect(cells[6]).toHaveTextContent("0.71");
+    expect(cells[3]).toHaveTextContent("--");
+    expect(cells[3]).toHaveClass("watchlist-missing");
+    expect(cells[3]).not.toHaveClass("up");
+    expect(cells[4]).toHaveClass("up");
+    expect(cells[6]).toHaveTextContent("--");
+    expect(cells[7]).toHaveTextContent("0.71");
   });
   it.each(["DELAYED", "PARTIAL"] as const)(
     "keeps rows for %s and shows missing valuation as --",
@@ -215,70 +218,53 @@ describe("watchlist page", () => {
       );
     },
   );
-  it("covers loading, empty and error with retry; empty opens a blank add dialog", async () => {
-    const pending = deferred<Response>();
-    const fetch = vi
-      .fn()
-      .mockReturnValueOnce(pending.promise)
-      .mockResolvedValue(new Response("{}", { status: 503 }));
-    vi.stubGlobal("fetch", fetch);
+  it("covers groups error with retry, then empty opens a blank add dialog", async () => {
+    const fetch = mockPage(page([]));
+    fetch.mockImplementationOnce(async () => new Response("{}", { status: 500 }));
     render(<WatchlistPage />);
-    expect(screen.getByLabelText("自选加载中")).toBeInTheDocument();
-    await act(async () => pending.resolve(new Response("{}", { status: 500 })));
-    expect(screen.getByRole("alert")).toHaveTextContent("自选列表暂不可用");
-    fetch.mockResolvedValueOnce(new Response(JSON.stringify(page([]))));
-    fireEvent.click(screen.getByRole("button", { name: "重试" }));
-    expect(await screen.findByText("还没有自选股票")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("自选分组暂不可用");
+    fireEvent.click(screen.getByRole("button", { name: "重试读取" }));
+    expect(await screen.findByText("当前分组还没有股票")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "+ 添加第一只自选股" }));
-    expect(screen.getByRole("dialog", { name: "添加自选" })).toHaveAttribute(
-      "open",
-    );
+    expect(screen.getByRole("dialog", { name: "添加自选" })).toHaveAttribute("open");
     expect(screen.getByRole("rowgroup")).toBeEmptyDOMElement();
   });
-  it("loads to the final cursor, removes only after confirmation and does not navigate from removal", async () => {
-    const fetch = mockPage(page([item(1)], { totalCount: 2, nextCursor: 1 }));
+  it("loads cursors, freezes editing tabs, removes only after confirmation and never navigates from an editing row", async () => {
+    let removed = false;
+    const fetch = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/groups")) return new Response(JSON.stringify({ groups: [group(1, { memberCount: removed ? 1 : 2 }), group(2)], rules }));
+      if (url.pathname.endsWith("/actions/remove")) {
+        removed = true;
+        return new Response(JSON.stringify({ action: "REMOVE", requestedCount: 1, createdCount: 0, removedCount: 1, updatedCount: 0, groupCounts: [{ groupId: 1, memberCount: 1 }] }));
+      }
+      if (url.pathname.endsWith("/groups/1/items")) return new Response(JSON.stringify(removed ? page([item(2)]) : url.searchParams.has("cursor") ? page([item(2)], { totalCount: 2 }) : page([item(1)], { totalCount: 2, nextCursor: "opaque" })));
+      return new Response("{}", { status: 503 });
+    });
+    vi.stubGlobal("fetch", fetch);
     render(<WatchlistPage />);
     await screen.findByRole("table", { name: "自选股票列表" });
-    fetch.mockResolvedValueOnce(
-      new Response(JSON.stringify(page([item(2)], { totalCount: 2 }))),
-    );
-    act(() =>
-      intersect(
-        [{ isIntersecting: true }] as IntersectionObserverEntry[],
-        {} as IntersectionObserver,
-      ),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "操作" }));
+    expect(screen.getByRole("tab", { name: "分组2" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "修改颜色" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "删除分组" })).toBeDisabled();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "000001.SZ" }));
+    act(() => intersect([{ isIntersecting: true }] as IntersectionObserverEntry[], {} as IntersectionObserver));
     await screen.findByText("股票2");
-    expect(screen.queryByText("向下滚动加载更多")).not.toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "移除 股票1 000001.SZ" }),
-    );
+    expect(screen.getAllByRole("checkbox")[0]).toBeChecked();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "移出本组" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("将 1 只股票移出「我的自选」");
+    expect(fetch.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "确认移出" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "000001.SZ" })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "编辑中" })).toBeDisabled();
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
     expect(window.location.pathname).not.toContain("/stock/");
-    expect(screen.getByRole("dialog")).toHaveAccessibleName(
-      "确认移除「股票1」？",
-    );
-    expect(
-      fetch.mock.calls.filter(
-        ([, options]) => (options as RequestInit)?.method === "DELETE",
-      ),
-    ).toHaveLength(0);
-    fetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          tsCode: "000001.SZ",
-          isAdded: false,
-          removed: true,
-          totalCount: 1,
-        }),
-      ),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "确认移除" }));
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "000001.SZ" }),
-      ).not.toBeInTheDocument(),
-    );
-    expect(screen.getByText("1 只")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "完成" }));
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(fetch.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
   });
   it("matches the authenticated watchlist route before the homepage fallback", async () => {
     mockPage(page([]));
@@ -288,6 +274,6 @@ describe("watchlist page", () => {
         <WealthRouter />
       </AuthProvider>,
     );
-    expect(await screen.findByText("还没有自选股票")).toBeInTheDocument();
+    expect(await screen.findByText("当前分组还没有股票")).toBeInTheDocument();
   });
 });

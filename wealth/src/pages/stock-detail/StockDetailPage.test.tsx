@@ -307,11 +307,11 @@ describe("StockDetailPage", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const url = String(input);
       if (fail) return new Response(JSON.stringify({ code: "internal_error", message: "接口失败" }), { status: 500 });
-      if (url.includes("/watchlist/items/")) {
+      if (url.includes("/watchlist/stocks/")) {
         if (failWatchlist) return new Response(JSON.stringify({ code: "WL_QUERY_FAILED", message: "自选失败" }), { status: 500 });
         return new Response(JSON.stringify(options?.method === "PUT"
-          ? { tsCode: "603806.SH", isAdded: true, created: !isAdded, totalCount: 1 }
-          : { tsCode: "603806.SH", isAdded }));
+          ? { tsCode: "603806.SH", isAdded: true, groupIds: JSON.parse(String(options.body)).groupIds, createdCount: isAdded ? 0 : 1, removedCount: 0 }
+          : { tsCode: "603806.SH", isAdded, groups: [{ groupId: 1, name: "我的自选", isDefault: true, color: null, selected: isAdded }, { groupId: 2, name: "观察", isDefault: false, color: "#F7C76B", selected: false }] }));
       }
       if (url.includes("/trend-channel") && failTrend) {
         return new Response(JSON.stringify({ code: "STOCK_TREND_CHANNEL_READ_FAILED", message: "趋势通道失败" }), { status: 500 });
@@ -386,9 +386,15 @@ describe("StockDetailPage", () => {
     const fetchMock = mockStockDetailFetch();
     render(<StockDetailPage tsCode="603806.SH" />);
     const button = await screen.findByRole("button", { name: "+自选" });
+    await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
-    expect(await screen.findByRole("button", { name: "已自选" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "已自选" }));
+    const checkbox = await screen.findByRole("checkbox", { name: "观察" });
+    expect(screen.getByRole("button", { name: "确认" })).toBeDisabled();
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole("button", { name: "确认" }));
+    expect(await screen.findByRole("button", { name: "已添加" })).toBeEnabled();
+    const writeCall = fetchMock.mock.calls.find(([url, options]) => String(url).includes("/watchlist/") && options?.method === "PUT");
+    expect(JSON.parse(String(writeCall?.[1]?.body))).toEqual({ groupIds: [2] });
     expect(fetchMock.mock.calls.filter(([url, options]) => String(url).includes("/watchlist/") && options?.method === "PUT")).toHaveLength(1);
     const klineUrl = new URL(String(fetchMock.mock.calls.find(([url]) => String(url).includes("/kline"))![0]));
     expect(klineUrl.searchParams.get("period")).toBe("day"); expect(klineUrl.searchParams.get("adjustment")).toBe("forward");
@@ -396,10 +402,12 @@ describe("StockDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "+交易计划" })); expect(screen.getByText("+交易计划暂未开通")).toBeInTheDocument();
   });
 
-  it("disables already-added stock and keeps membership errors local to the action", async () => {
+  it("allows already-added stock to reopen and keeps membership errors local to the action", async () => {
     mockStockDetailFetch({ isAdded: true });
     const view = render(<StockDetailPage tsCode="603806.SH" />);
-    expect(await screen.findByRole("button", { name: "已自选" })).toBeDisabled();
+    const added = await screen.findByRole("button", { name: "已添加" });
+    expect(added).toBeEnabled(); fireEvent.click(added);
+    expect(await screen.findByRole("checkbox", { name: "我的自选" })).toBeChecked();
     view.unmount();
     mockStockDetailFetch({ failWatchlist: true });
     render(<StockDetailPage tsCode="603806.SH" />);

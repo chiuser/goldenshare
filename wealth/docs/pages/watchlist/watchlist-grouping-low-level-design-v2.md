@@ -1,6 +1,6 @@
 # 财势乾坤｜我的自选分组能力低层设计 v2（LLD）
 
-> 状态：第一阶段后端已实现，开发自测与边界见第 22 节，待用户阶段验收；前端未开发，未提交、未部署、未迁移正式数据库
+> 状态：前后端代码已实现；第二阶段前端开发自测见第 23 节，停在交互与真实 API 验收之前。本轮前端未提交、未部署、未迁移正式数据库
 >
 > 日期：2026-09-08（初稿 2026-09-07）
 >
@@ -26,7 +26,7 @@
 6. 游标是无签名、版本化、严格校验的 base64url JSON。它不是授权凭证；资源所有权始终由认证用户和 group 条件校验。
 7. 所有批量写、详情页最终集合替换和删除分组均为单事务；提交前构造完整 DTO，提交后不回读。数据库修改保持原子性；明确回滚、结果未知、成功后刷新失败分别处理，不能混为一类错误。
 8. 首页 `summary` 路径与响应不变，只统计默认组。`useWatchlistSummary`、首页入口和 `MarketShortcutBar` 不需要重写。
-9. 用户已确认两轮修订及开发准入两项处理，逐项回填见第 21.1～21.3 节；随后授权按第 18 节推进第一阶段后端。当前实现及验证见第 22 节；不自动进入前端、不提交、不执行生产操作。
+9. 用户已确认两轮修订及开发准入两项处理，逐项回填见第 21.1～21.3 节；后端阶段记录见第 22 节，随后授权的前端阶段记录见第 23 节。本轮停在交互验收之前，不自动提交或执行生产操作。
 
 初稿代码审计事实快照（2026-09-07；不是本次修订时的 HEAD）：
 
@@ -41,7 +41,7 @@
 
 ## 1. 当前代码审计与影响面
 
-本节保留开发前的审计快照，不把已删除的 v1 文件或创建方法当成当前实现。第 22 节记录本次替换后的代码及消费者边界。
+本节保留开发前的审计快照，不把已删除的 v1 文件或创建方法当成当前实现。第 22～23 节分别记录后端、前端替换后的代码及消费者边界。
 
 ### 1.1 审计方法
 
@@ -1500,6 +1500,7 @@ npm --prefix wealth run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v2.5 | 2026-09-08 | 回填第二阶段前端实现、自动化证据与旧消费者清理；明确交互、真实 API 浏览器验收及发布演练仍未执行，不改变产品合同 | Codex |
 | v2.4 | 2026-09-08 | 回填第一阶段后端逐条实现与开发自测、实际迁移 revision、回归跳过项及用户追加授权的 Ops 测试基线修正；不改变产品合同 | Codex |
 | v2.3 | 2026-09-08 | 完成 regex 本机准入和 51 例跨运行时验证，新增共享名称样本；明确搜索 groupId 必填/匹配与 generation 双重检查 | 用户 / Codex |
 | v2.2 | 2026-09-08 | 回填复审七项：统一新增关系资格与插入路径，补齐单股添加链路，冻结严格安全整数及分页边界，删除重复名称字段和写状态 | 用户 / Codex |
@@ -1507,6 +1508,8 @@ npm --prefix wealth run build
 | v2 | 2026-09-07 | 初稿：基于当前代码、CodeGraph 影响面、PRD/交互和技术方案形成低层设计；当时的五 Slice 安排由 v2.1 三阶段替代 | Codex |
 
 ## 22. 第一阶段后端实现与开发自测（2026-09-08）
+
+本节保留后端阶段交付时的历史事实。后端已由用户授权提交为 `a7840e0a`；第 22.4 节的“前端未开发、未提交”描述只适用于当时。最新前端状态见第 23 节。
 
 ### 22.1 范围与当前事实
 
@@ -1591,3 +1594,71 @@ git diff --check
 2. 展示/编辑态、禁用切组、两列选择器、取消草稿、首次降序、悬停颜色提示、写成功后刷新等 UI 门禁尚未实施，本阶段不声称它们通过。
 3. 浏览器联调、完整性能报告、整套发布顺序演练属于阶段三；此前的名称跨运行时准入只证明共享样本，不等于分组页面浏览器验收。
 4. 无正式数据库迁移、生产数据清理、部署、提交或推送；不自动开始下一阶段。后端开发自测结果交用户阶段验收，唯一既有真实库跳过项保持明确未验证状态。
+
+## 23. 第二阶段前端实现与开发自测（2026-09-08）
+
+### 23.1 范围与当前事实
+
+本轮按用户批准的前端阶段推进，编码依据为技术方案 v2.5、LLD v2.4；本次版本更新仅回填实现和验证事实，不改变产品合同。第一阶段后端基线为 `a7840e0a`。
+
+1. 在原 `dev-interface` 工作区完成 API 消费、四个控制器、按组搜索、自选页、详情选择器和对应测试。首页业务代码不需要改动：既有 summary 消费链保持默认组数量和原自选页入口，新增回归证明该边界。
+2. 删除旧 `useWatchlistController`、`useStockWatchlist`、`RemoveWatchlistDialog` 及被替代测试；运行时不再消费 v1 接口、整数 afterId 或“已自选”口径。删除内容可从 Git 恢复，不保留运行时兼容层。
+3. 未修改后端、行情来源、认证客户端、Foundation、Ops、QTF、Lake、依赖矩阵、配置或依赖；未新建分支、worktree、缓存、请求队列或公共状态框架。无关交易助手文档修改原样保留。
+4. 只读参考 Figma 文件 `RADlZzREU4lPVviYfkLy6x` 的自选主稿 `1383:82`、编辑态 `1393:135`、分组弹窗 `1399:185`、详情选择器 `1410:185`；沿用项目样式与组件实现，未修改设计源。读取设计稿不等于浏览器交互或像素验收。
+5. CodeGraph 使用 explore、impact、callers、status 分析 API 消费、旧控制器替换、自选页与股票详情接线，并在开发后 sync/status。图谱对部分调用未返回结果时，以当前 import 和完整源码搜索补核；不把空图谱结果当成无消费者证明。
+6. 前端代码和本次文档尚未提交、推送或部署；未启动正式数据库迁移。旧浏览器脚本 `wealth/scripts/watchlist-browser-smoke.mjs` 和 `tests/wealth_watchlist_browser_fixture.py` 的升级留到第三阶段，它们不是运行时兼容实现。
+
+### 23.2 硬口径、实现与测试对账
+
+下表路径以 `wealth/src/` 为根；控制器、API 与 UI 文件分别位于 `features/watchlist/model`、`api`、`ui`。这里的证据是 Vitest、jsdom 和受控 fetch 响应，不将其称为真实后端或浏览器联调通过。
+
+| LLD 硬口径 | 实现落点 | 正向及反向测试证据 |
+|---|---|---|
+| §7/12 名称 NFC、trim、1～6 字素、1024 字节、禁名与重名；规则和色板来自服务端 | `watchlistGroupName.ts`、`CreateWatchlistGroupDialog.tsx`、groups rules | `watchlistGroupName.test.ts` 26 项，直接消费正式共享 JSON 的 24 例，补充字节边界、规范化重名；`WatchlistGrouping.test.tsx` 验证规则刷新后保留草稿 |
+| §8/12 全部 15 个 method/path；安全整数、严格 DTO、搜索 groupId、opaque cursor；无 v1 别名 | `watchlistApi.ts`、`watchlistApiTypes.ts`、adapter | `watchlistApi.test.ts` 24 项，含 15 合同、鉴权/请求体、嵌套非法响应、旧字段、非有限数值、上下文不符等反例 |
+| §12/15 普通请求 5 秒、搜索 2 秒；中止旧读；明确失败与未知分开，禁止自动重放 | API 的请求 deadline、外部 AbortSignal 和错误分类 | API 测试验证传输忽略 AbortSignal 时仍超时、明确回滚错误保留、无分类 500/丢响应按未知处理；不放宽错误合同 |
+| §12.2 默认首位、通过 isDefault 识别；建组/删组按服务端结果选中；编辑态锁定切组 | `useWatchlistGroupsController.ts`、`WatchlistTabs.tsx`、Page | Groups 4 项及 Grouping UI、Page 测试覆盖默认缺失报错、删除后 nextGroupId、旧 GET 丢弃、不可切组/新建、成功写后 GET 失败不重写 |
+| §10/12.3 八列首次降序再升序、切组恢复默认；只消费服务端全组排序，不本地拼接新行 | `useWatchlistItemsController.ts`、`WatchlistTable.tsx` | Items 15 项覆盖八列双向、排序后添加刷新、切组/日期旧响应、A→B→A 旧写响应；表格验证八个排序控件和 aria-sort |
+| §12.3 同一游标只发一次、按成员 ID 去重；上下文失效重读首批 | Items 的分页、generation 和重载 | Items 测试验证 opaque cursor、单飞、去重、游标失效/日期变化；不以客户端重新排序代替后端合同 |
+| §12.4 仅已加载成员可选，0/200/201 边界；无表头全选；完成不写，编辑行不跳转 | `useWatchlistEditController.ts`、Table、Toolbar | Edit 9 项覆盖加载更多保留选择、达上限可取消/继续浏览、五动作、stale 清空、明确失败保留、未知锁定；Page/UI 验证无操作列、无全选和编辑行勾选 |
+| §12.4 移动单选、添加多选，移出/删除确认；删除作用于当前组，默认组禁删改 | Target/Remove/Delete/Color 弹窗及 Page 协调 | `WatchlistGrouping.test.tsx`、`WatchlistPage.test.tsx`、`WatchlistGroupingPage.test.tsx` 覆盖目标基数、确认动作、当前组删除和服务端返回默认组、无需选股票即可改色 |
+| §12/14 每动作一个所有者和判别联合状态；成功与刷新失败独立；未知只重读事实 | 四个控制器及 Page reconciliation | Groups、Items、Edit、Detail 测试和 GroupingPage 验证一次写；groups/items/search 各一次刷新；GET 失败只重试 GET，不重放 PUT/POST |
+| §12.3.1 单股添加归 Items，Search 按组隔离；成功刷新搜索；未知时核验实际归属 | `useWatchlistSearchController.ts`、`AddWatchlistDialog.tsx`、Page | AddDialog 3 项、GroupingPage 协调测试验证分组上下文、延迟旧读；搜索未包含目标时改读单股归属，归属 GET 失败后仍只重试读 |
+| §14 明确失败保留弹窗草稿；规则/分组重读失败不能把草稿丢掉 | Create/Color/Target 保持组件身份；可用性来自 GET 状态 | GroupingPage 的 `retains the create draft when a definite limit failure is followed by a failed groups reread` 验证上限错误、随后 GET 失败/恢复仍保留名称与颜色，POST 仅一次 |
+| §12.5 每次打开新 GET、committed/draft 分离、确认非空最终集合、不强加默认组 | `useStockWatchlistGroups.ts`、`StockWatchlistGroupPicker.tsx`、StockInfoRail | Detail hook/picker 11 项和 `StockDetailPage.test.tsx` 14 项覆盖已添加可点击、取消/外点/Escape 不写、pending 禁关、旧读/旧写隔离、未知回读重建草稿 |
+| §12.5 列表按实际 1～10 行展开，无固定 6 行或内部纵向滚动；选择器关闭焦点返回 | 详情 Picker 和详情页 CSS | Detail 测试验证 1/2/10 行、无固定高度、键盘关闭及焦点；真实宽屏/窄屏布局和浏览器焦点仍待第三阶段 |
+| §12/13 颜色按服务端创建序等分、默认无色、同色不合并、独立提示；保留行情列与单位 | `WatchlistColorMarks.tsx`、Table、adapter、现有数值格式化 | UI 6 项含同色独立标记/可访问提示；adapter 11 项、Page 13 项覆盖单位、零值/缺失值、PE/PB、行业跳转和 EMPTY/PARTIAL/DELAYED |
+| §12 首页只展示默认组数量，入口仍默认自选组 | 既有 `useWatchlistSummary`、MarketOverviewPage 链路不变 | `MarketOverviewPage.test.tsx` 31 项中新增回归验证只取 summary、显示其 count、无 groups 请求及原跳转路径；后端统计事实由 §22 的后端测试证明 |
+| §3/18 旧消费者清零、不跨域扩改 | 自选 API/控制器/页面替换，旧文件删除 | 当前 `wealth/src` 搜索旧控制器、旧操作、旧路径、afterId、已自选，只剩测试中禁止 afterId 的反向断言；`src/frontend/qtf/lake_console` 无本次改动 |
+
+### 23.3 执行命令与结果
+
+使用本机既有依赖，不安装或升级套件。先执行本功能测试，再以单 worker 执行完整 Wealth 回归，避免与其它工作争用大量内存。没有修改测试超时、断言、生产配置或跳过任何测试。
+
+以下命令在 `wealth/` 执行：
+
+```bash
+npm run typecheck
+npm test -- src/features/watchlist src/pages/watchlist
+npm test -- --maxWorkers=1 --reporter=dot
+npm run typecheck && npm run build
+```
+
+| 检查 | 最终结果 |
+|---|---|
+| 功能集中测试 | **11 个文件、127 项通过，0 跳过**；包含最后补充的弹窗草稿保留回归 |
+| 全量 Wealth 回归 | **109 个文件、885 项通过，0 跳过**；2026-09-08 14:20:27 开始，74.40 秒，`--maxWorkers=1` |
+| TypeScript | `tsc --noEmit` 通过；构建中的 `tsc -b` 通过 |
+| Vite 构建 | 334 modules，构建通过；JS 1,003.43 kB / gzip 297.87 kB，CSS 209.98 kB / gzip 33.56 kB |
+| 构建警告 | 存在大于 500 kB 的 bundle 警告；本轮未通过改阈值或扩大公共拆包范围隐藏警告，完整性能验收留到第三阶段 |
+
+保留一次未通过记录：此前默认并发全量运行得到 879 passed / 6 failed（109 文件中的 5 个文件失败），失败为元素等待未完成；当时系统 load averages 为 333.26 / 319.53 / 181.02，随后用户报告内存不足导致程序异常退出。该轮构建没有执行，不能计为通过。恢复后仅降低执行并发，保留原断言和等待超时，得到上表 885 项全部通过；负载是当时的环境证据，不替代测试结果本身。
+
+仓库根目录另执行 `codegraph sync`、`codegraph status`，索引为 up to date（2,987 files / 54,663 nodes / 132,666 edges）；`.venv/bin/python scripts/check_docs_integrity.py` 的三项检查和 `git diff --check` 均通过。文档检查只证明其覆盖的结构/链接，不替代本表业务验证。后端 §22 的 PostgreSQL/Web 结果是上一阶段历史证据，本阶段没有重跑或访问正式数据库。
+
+### 23.4 交付边界与后续工作
+
+1. 前端开发和自动化自测完成，**停在交互验收之前**；没有将 jsdom、fetch fixture 或名称准入探针当成真实 API 浏览器验收。
+2. 下一阶段需先将既有浏览器 smoke/fixture 更新为 v2，再做真实 API 双用户隔离、操作与详情联动、1～10 组/颜色提示/窄屏溢出、键盘及焦点、截图、console/network 检查。此处仅列待办，不启动服务或擅自执行下一阶段。
+3. 完整性能报告、前后端与迁移整套发布顺序演练、生产迁移及部署均未执行；当前实现不能据此宣称可直接发布。
+4. 未提交或推送本阶段修改。由用户审阅本阶段结果后，另行决定提交与交互验收。

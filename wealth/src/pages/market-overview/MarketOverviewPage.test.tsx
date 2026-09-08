@@ -520,6 +520,22 @@ describe("MarketOverviewPage", () => {
     expect(within(screen.getByText("我的自选").closest("button")!).getByText("--")).toBeInTheDocument();
   });
 
+  it("uses only summary's default-group count, never aggregates custom groups or passes a tab in the shortcut", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const fallback = fetchMock.getMockImplementation()!;
+    let defaultCount = 2;
+    fetchMock.mockImplementation((input, options) => toUrlString(input).includes("/watchlist/summary")
+      ? Promise.resolve(responseJson({ totalCount: defaultCount })) : fallback(input, options));
+    const first = render(<MarketOverviewPage />);
+    await waitFor(() => expect(within(screen.getByText("我的自选").closest("button")!).getByText("2")).toBeInTheDocument());
+    expect(fetchMock.mock.calls.filter(([url]) => toUrlString(url).includes("/watchlist/groups"))).toHaveLength(0);
+    first.unmount(); defaultCount = 3;
+    render(<MarketOverviewPage />);
+    await waitFor(() => expect(within(screen.getByText("我的自选").closest("button")!).getByText("3")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("我的自选").closest("button")!);
+    expect(window.location.pathname).toBe("/wealth/market/watchlist"); expect(window.location.search).toBe("");
+  });
+
   it("renders the V1.1 market overview structure", async () => {
     render(<MarketOverviewPage />);
 

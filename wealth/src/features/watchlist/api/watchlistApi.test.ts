@@ -1,130 +1,269 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  addWatchlistItem,
-  fetchWatchlistMembership,
-  fetchWatchlistPage,
-  fetchWatchlistSummary,
-  removeWatchlistItem,
-  searchWatchlistCandidates,
-} from "./watchlistApi";
-import { page } from "../test/watchlistFixtures";
-
+import * as api from "./watchlistApi";
+import { group, page, rules } from "../test/watchlistFixtures";
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 function respond(value: unknown, status = 200) {
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(new Response(JSON.stringify(value), { status }));
+  const fetch = vi.fn().mockImplementation(async () => new Response(JSON.stringify(value), {
+    status
+  }));
   vi.stubGlobal("fetch", fetch);
   return fetch;
 }
-describe("watchlist API", () => {
-  it("uses Wealth auth, bounded list query and all six exact methods", async () => {
-    const fetch = respond(page());
-    await fetchWatchlistPage({
-      tradeDate: "2026-09-02",
-      afterId: 7,
-      limit: 100,
-    });
-    const [url, init] = fetch.mock.calls[0];
-    expect(new URL(url).pathname).toBe("/api/v1/wealth/market/watchlist");
-    expect(new URL(url).searchParams.toString()).toBe(
-      "tradeDate=2026-09-02&afterId=7&limit=100",
-    );
-    expect(new Headers(init.headers).get("Authorization")).toBe(
-      "Bearer test-access-token",
-    );
-    fetch.mockResolvedValueOnce(new Response('{"totalCount":12}'));
-    expect(await fetchWatchlistSummary()).toEqual({ totalCount: 12 });
-    fetch.mockResolvedValueOnce(new Response('{"keyword":"PAYH","items":[]}'));
-    await searchWatchlistCandidates({ keyword: "PAYH", limit: 8 });
-    expect(new URL(fetch.mock.calls[2][0]).searchParams.get("keyword")).toBe(
-      "PAYH",
-    );
-    fetch.mockResolvedValueOnce(
-      new Response('{"tsCode":"000001.SZ","isAdded":false}'),
-    );
-    await fetchWatchlistMembership(" 000001.sz ");
-    fetch.mockResolvedValueOnce(
-      new Response(
-        '{"tsCode":"000001.SZ","isAdded":true,"created":true,"totalCount":1}',
-      ),
-    );
-    await addWatchlistItem(" 000001.sz ");
-    fetch.mockResolvedValueOnce(
-      new Response(
-        '{"tsCode":"000001.SZ","isAdded":false,"removed":true,"totalCount":0}',
-      ),
-    );
-    await removeWatchlistItem("000001.sz");
-    expect(fetch.mock.calls.map(([, options]) => options.method)).toEqual([
-      "GET",
-      "GET",
-      "GET",
-      "GET",
-      "PUT",
-      "DELETE",
-    ]);
-    expect(new URL(fetch.mock.calls[3][0]).pathname).toBe(
-      "/api/v1/wealth/market/watchlist/items/000001.SZ",
-    );
+const stock = {
+  tsCode: "000001.SZ",
+  isAdded: false,
+  groups: [{
+    groupId: 1,
+    name: "我的自选",
+    isDefault: true,
+    color: null,
+    selected: false
+  }]
+};
+describe("watchlist v2 API", () => {
+  it("uses all 15 exact contracts, auth and JSON headers only for bodies", async () => {
+    const cases: [() => Promise<unknown>, unknown, string, string, unknown?][] = [[() => api.fetchWatchlistGroups(), {
+      groups: [group()],
+      rules
+    }, "GET", "/groups"], [() => api.createWatchlistGroup({
+      name: "成长",
+      color: rules.palette[0]
+    }), {
+      group: group(2)
+    }, "POST", "/groups", {
+      name: "成长",
+      color: rules.palette[0]
+    }], [() => api.changeWatchlistGroupColor(2, rules.palette[1]), {
+      group: group(2)
+    }, "PATCH", "/groups/2/color", {
+      color: rules.palette[1]
+    }], [() => api.deleteWatchlistGroup(2), {
+      deletedGroupId: 2,
+      deletedMemberCount: 0,
+      nextGroupId: 1
+    }, "DELETE", "/groups/2"], [() => api.fetchWatchlistPage({
+      groupId: 1,
+      cursor: "opaque",
+      sortBy: "price",
+      direction: "desc"
+    }), page(), "GET", "/groups/1/items"], [() => api.searchWatchlistCandidates({
+      groupId: 1,
+      keyword: "PAYH"
+    }), {
+      groupId: 1,
+      keyword: "PAYH",
+      items: []
+    }, "GET", "/groups/1/search"], [() => api.addWatchlistGroupItem(1, " 000001.sz "), {
+      groupId: 1,
+      tsCode: "000001.SZ",
+      isAdded: true,
+      created: true,
+      memberCount: 1
+    }, "PUT", "/groups/1/items/000001.SZ"], ...(["MOVE", "ADD_TO_GROUPS", "REMOVE", "PIN", "UNPIN"] as const).map((action, i): typeof cases[number] => [() => api.batchWatchlistItems(1, action, [3], [2]), {
+      action,
+      requestedCount: 1,
+      createdCount: 0,
+      removedCount: 0,
+      updatedCount: 0,
+      groupCounts: [{
+        groupId: 1,
+        memberCount: 1
+      }]
+    }, "POST", "/groups/1/actions/" + ["move", "add-to-groups", "remove", "pin", "unpin"][i], {
+      membershipIds: [3],
+      ...(action === "MOVE" ? {
+        targetGroupId: 2
+      } : action === "ADD_TO_GROUPS" ? {
+        targetGroupIds: [2]
+      } : {})
+    }]), [() => api.fetchStockWatchlistGroups("000001.SZ"), stock, "GET", "/stocks/000001.SZ/groups"], [() => api.replaceStockWatchlistGroups("000001.SZ", [2]), {
+      tsCode: "000001.SZ",
+      isAdded: true,
+      groupIds: [2],
+      createdCount: 1,
+      removedCount: 0
+    }, "PUT", "/stocks/000001.SZ/groups", {
+      groupIds: [2]
+    }], [() => api.fetchWatchlistSummary(), {
+      totalCount: 4
+    }, "GET", "/summary"]];
+    expect(cases).toHaveLength(15);
+    for (const [call, payload, method, path, body] of cases) {
+      const fetch = respond(payload);
+      await call();
+      const [input, init] = fetch.mock.calls[0];
+      expect(new URL(input).pathname).toBe("/api/v1/wealth/market/watchlist" + path);
+      expect(init.method).toBe(method);
+      expect(new Headers(init.headers).get("Authorization")).toBe("Bearer test-access-token");
+      expect(new Headers(init.headers).get("Content-Type")).toBe(body === undefined ? null : "application/json");
+      expect(init.body).toBe(body === undefined ? undefined : JSON.stringify(body));
+      expect(new URL(input).searchParams.has("afterId")).toBe(false);
+    }
   });
-  it("encodes path identity and preserves business errors", async () => {
-    const fetch = respond(
-      { code: "WL_REQUEST_INVALID", message: "股票代码非法" },
-      400,
-    );
-    await expect(addWatchlistItem(" a/b? ")).rejects.toMatchObject({
-      code: "WL_REQUEST_INVALID",
-      message: "股票代码非法",
+  it.each([0, -1, 1.5, true, "1", Number.MAX_SAFE_INTEGER + 1])("rejects invalid response membership ID %s", async id => {
+    const payload = page();
+    (payload.items[0] as unknown as {
+      membershipId: unknown;
+    }).membershipId = id;
+    respond(payload);
+    await expect(api.fetchWatchlistPage({
+      groupId: 1
+    })).rejects.toMatchObject({
+      code: "WL_QUERY_FAILED"
     });
-    expect(fetch.mock.calls[0][0]).toContain("/items/A%2FB%3F");
   });
-  it("rejects invalid/missing values instead of accepting a mock shape", async () => {
+  it.each([(v: ReturnType<typeof page>) => ({
+    ...v,
+    extra: true
+  }), (v: ReturnType<typeof page>) => ({
+    ...v,
+    nextCursor: 3
+  }), (v: ReturnType<typeof page>) => ({
+    ...v,
+    items: [{
+      ...v.items[0],
+      id: 1
+    }]
+  }), (v: ReturnType<typeof page>) => ({
+    ...v,
+    items: [{
+      ...v.items[0],
+      quote: {
+        ...v.items[0].quote,
+        extra: true
+      }
+    }]
+  }), (v: ReturnType<typeof page>) => ({
+    ...v,
+    dataStatus: {
+      ...v.dataStatus,
+      status: "BAD"
+    }
+  }), (v: ReturnType<typeof page>) => ({
+    ...v,
+    group: group(2)
+  })])("rejects malformed nested v2 data", async malformed => {
+    respond(malformed(page()));
+    await expect(api.fetchWatchlistPage({
+      groupId: 1
+    })).rejects.toMatchObject({
+      code: "WL_QUERY_FAILED"
+    });
+  });
+  it.each([undefined, "1", 0, 2])("rejects missing, invalid or mismatched search group %s", async groupId => {
     respond({
-      ...page(),
-      items: [
-        { ...page().items[0], moneyFlow: { netAmount: "3", direction: "UP" } },
-      ],
+      groupId,
+      keyword: "A",
+      items: []
     });
-    await expect(fetchWatchlistPage()).rejects.toMatchObject({
-      code: "WL_QUERY_FAILED",
-    });
-    respond({});
-    await expect(fetchWatchlistSummary()).rejects.toMatchObject({
-      code: "WL_QUERY_FAILED",
+    await expect(api.searchWatchlistCandidates({
+      groupId: 1,
+      keyword: "A"
+    })).rejects.toMatchObject({
+      code: "WL_QUERY_FAILED"
     });
   });
-  it("propagates cancellation and has a 2 second search timeout", async () => {
+  it("preserves definite errors and distinguishes uncertain writes without replay", async () => {
+    respond({
+      code: "WL_GROUP_NAME_CONFLICT",
+      message: "同名"
+    }, 409);
+    await expect(api.createWatchlistGroup({
+      name: "A",
+      color: rules.palette[0]
+    })).rejects.toMatchObject({
+      code: "WL_GROUP_NAME_CONFLICT",
+      message: "同名",
+      outcome: "FAILED"
+    });
+    const fetch = respond({});
+    await expect(api.addWatchlistGroupItem(1, "000001.SZ")).rejects.toMatchObject({
+      outcome: "UNKNOWN"
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    fetch.mockRejectedValue(new TypeError("network"));
+    await expect(api.deleteWatchlistGroup(2)).rejects.toMatchObject({
+      outcome: "UNKNOWN"
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    respond({
+      code: "WL_WRITE_OUTCOME_UNKNOWN",
+      message: "提交待确认"
+    }, 503);
+    await expect(api.deleteWatchlistGroup(2)).rejects.toMatchObject({
+      outcome: "UNKNOWN"
+    });
+  });
+  it("uses 2s search and 5s write timeouts and propagates external read cancellation", async () => {
     vi.useFakeTimers();
-    const signals: AbortSignal[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        (_url, options) =>
-          new Promise((_resolve, reject) => {
-            signals.push(options.signal);
-            options.signal.addEventListener("abort", () =>
-              reject(new DOMException("Aborted", "AbortError")),
-            );
-          }),
-      ),
-    );
+    const fetch = vi.fn((_input, init) => new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))));
+    vi.stubGlobal("fetch", fetch);
+    const read = expect(api.searchWatchlistCandidates({
+      groupId: 1,
+      keyword: "A"
+    })).rejects.toMatchObject({
+      code: "WL_QUERY_FAILED"
+    });
+    await vi.advanceTimersByTimeAsync(2000);
+    await read;
+    const write = expect(api.deleteWatchlistGroup(2)).rejects.toMatchObject({
+      outcome: "UNKNOWN"
+    });
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(fetch.mock.calls[1][1].signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await write;
     const controller = new AbortController();
-    const cancelled = expect(
-      fetchWatchlistSummary({ signal: controller.signal }),
-    ).rejects.toMatchObject({ name: "AbortError" });
+    const cancelled = expect(api.fetchWatchlistSummary({
+      signal: controller.signal
+    })).rejects.toMatchObject({
+      name: "AbortError"
+    });
     controller.abort();
     await cancelled;
-    expect(signals[0].aborted).toBe(true);
-    const timedOut = expect(
-      searchWatchlistCandidates({ keyword: "PAYH" }),
-    ).rejects.toMatchObject({ message: "请求超时，请重试" });
-    await vi.advanceTimersByTimeAsync(1999);
-    expect(signals[1].aborted).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    await timedOut;
+  });
+  it.each([NaN, Infinity, -Infinity])("rejects non-finite numeric responses %s without converting them to null", async value => {
+    const payload = page();
+    payload.items[0].quote.price = value;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => payload
+    }));
+    await expect(api.fetchWatchlistPage({
+      groupId: 1
+    })).rejects.toMatchObject({
+      code: "WL_QUERY_FAILED"
+    });
+  });
+  it("does not claim rollback for an unclassified 500 and preserves explicit rollback codes", async () => {
+    respond({
+      code: "internal_error",
+      message: "服务异常"
+    }, 500);
+    await expect(api.deleteWatchlistGroup(2)).rejects.toMatchObject({
+      code: "internal_error",
+      message: "服务异常",
+      outcome: "UNKNOWN"
+    });
+    respond({
+      code: "WL_WRITE_FAILED",
+      message: "已回滚"
+    }, 500);
+    await expect(api.deleteWatchlistGroup(2)).rejects.toMatchObject({
+      outcome: "FAILED"
+    });
+  });
+  it("enforces deadline even when the transport ignores AbortSignal", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const pending = expect(api.deleteWatchlistGroup(2)).rejects.toMatchObject({
+      outcome: "UNKNOWN"
+    });
+    await vi.advanceTimersByTimeAsync(5000);
+    await pending;
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

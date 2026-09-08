@@ -30,6 +30,7 @@
   background: var(--cs-color-bg-panel);
 }
 .watchlist-panel > .section-header {
+  position: relative;
   min-height: 66px;
   margin-bottom: 0;
   flex-shrink: 0;
@@ -39,6 +40,7 @@
   gap: 10px;
 }
 .watchlist-panel .section-title {
+  padding-left: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -46,13 +48,8 @@
   font-weight: 700;
   white-space: nowrap;
 }
-.watchlist-panel .section-title::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--cs-color-brand);
-}
+.watchlist-panel.is-default-group .section-title { padding-left: 0; }
+.watchlist-header-meta > .watchlist-group-dot { position: absolute; left: 16px; }
 .watchlist-header-meta {
   flex: 1;
   min-width: 0;

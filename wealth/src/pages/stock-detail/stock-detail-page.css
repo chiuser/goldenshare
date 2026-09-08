@@ -369,6 +369,17 @@
 
 .stock-header-action:disabled { cursor: default; opacity: .6; }
 
+.stock-watchlist-anchor { position: relative; min-width: 0; }
+.stock-watchlist-anchor > .stock-header-action { width: 100%; }
+.stock-watchlist-picker { position: absolute; top: calc(100% + 8px); left: 0; width: min(352px, calc(300% + 16px)); z-index: 20; padding: 12px; border: 1px solid var(--cs-color-border-strong); border-radius: 8px; background: var(--cs-color-bg-panel); box-shadow: var(--cs-shadow-panel); color: var(--cs-color-text-primary); }
+.stock-watchlist-picker h3 { margin: 0 0 8px; font-size: 15px; }
+.stock-watchlist-picker p { margin: 8px 0; font-size: 12px; color: var(--cs-color-text-secondary); }
+.stock-watchlist-picker footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+.stock-watchlist-picker button { height: 32px; padding: 0 14px; border: 1px solid var(--cs-color-border-default); border-radius: 6px; background: var(--cs-color-bg-panel-soft); color: var(--cs-color-text-secondary); cursor: pointer; }
+.stock-watchlist-picker button:disabled { opacity: .42; cursor: default; }
+.stock-watchlist-picker footer button:last-child { color: var(--cs-color-brand); background: var(--cs-color-brand-weak); border-color: var(--cs-color-border-strong); }
+.stock-watchlist-picker label:has(input:checked) { background: var(--cs-color-surface-card-hover); }
+
 .right-tabs {
   align-items: center;
   border-bottom: 1px solid rgba(148, 163, 184, 0.14);

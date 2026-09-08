@@ -1,28 +1,53 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  searchWatchlistCandidates,
-  WatchlistApiError,
-} from "../api/watchlistApi";
-import type { WatchlistCandidateDto } from "../api/watchlistApiTypes";
-
+import { useCallback, useEffect, useRef, useState } from "react";
+import { searchWatchlistCandidates, WatchlistApiError } from "../api/watchlistApi";
+import type { WatchlistCandidateDto, WatchlistSearchResponseDto } from "../api/watchlistApiTypes";
 export const WATCHLIST_SEARCH_DEBOUNCE_MS = 500;
-export function useWatchlistSearchController(open: boolean) {
+export function useWatchlistSearchController(groupId: number, open: boolean) {
   const [keyword, setKeyword] = useState("");
   const [items, setItems] = useState<WatchlistCandidateDto[]>([]);
-  const [status, setStatus] = useState<
-    "idle" | "debouncing" | "loading" | "ready" | "empty" | "error"
-  >("idle");
+  const [status, setStatus] = useState<"idle" | "debouncing" | "loading" | "ready" | "empty" | "error">("idle");
   const [error, setError] = useState("");
   const [canRetry, setCanRetry] = useState(true);
-  const [retryKey, setRetryKey] = useState(0);
-  const version = useRef(0);
-  const activeRequest = useRef<AbortController | null>(null);
   const [composing, setComposing] = useState(false);
-
-  useEffect(() => {
-    const requestVersion = ++version.current;
+  const version = useRef(0);
+  const active = useRef<AbortController | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const cancel = useCallback(() => {
+    version.current++;
+    active.current?.abort();
+    window.clearTimeout(timer.current);
+  }, []);
+  const refresh = useCallback(async (): Promise<WatchlistSearchResponseDto | null> => {
+    cancel();
+    if (!open || !keyword.trim() || composing) return null;
+    const requestVersion = version.current;
     const controller = new AbortController();
-    activeRequest.current = controller;
+    active.current = controller;
+    setStatus("loading");
+    setError("");
+    setCanRetry(true);
+    try {
+      const response = await searchWatchlistCandidates({
+        groupId,
+        keyword: keyword.trim()
+      }, {
+        signal: controller.signal
+      });
+      if (controller.signal.aborted || version.current !== requestVersion) return null;
+      if (response.groupId !== groupId) throw new WatchlistApiError("搜索分组数据异常", "WL_QUERY_FAILED");
+      setItems(response.items);
+      setStatus(response.items.length ? "ready" : "empty");
+      return response;
+    } catch (failure) {
+      if (controller.signal.aborted || version.current !== requestVersion) return null;
+      setError(failure instanceof Error ? failure.message : "搜索失败，请重试");
+      setCanRetry(!(failure instanceof WatchlistApiError && failure.code === "WL_REQUEST_INVALID"));
+      setStatus("error");
+      return null;
+    }
+  }, [cancel, composing, groupId, keyword, open]);
+  useEffect(() => {
+    cancel();
     setItems([]);
     setError("");
     setCanRetry(true);
@@ -32,55 +57,26 @@ export function useWatchlistSearchController(open: boolean) {
         setKeyword("");
         setComposing(false);
       }
-      return () => controller.abort();
+    } else {
+      setStatus("debouncing");
+      timer.current = window.setTimeout(() => void refresh(), WATCHLIST_SEARCH_DEBOUNCE_MS);
     }
-    setStatus("debouncing");
-    const timer = window.setTimeout(async () => {
-      setStatus("loading");
-      try {
-        const response = await searchWatchlistCandidates(
-          { keyword: keyword.trim() },
-          { signal: controller.signal },
-        );
-        if (controller.signal.aborted || version.current !== requestVersion)
-          return;
-        setItems(response.items);
-        setStatus(response.items.length ? "ready" : "empty");
-      } catch (failure) {
-        if (controller.signal.aborted || version.current !== requestVersion)
-          return;
-        setError(
-          failure instanceof Error ? failure.message : "搜索失败，请重试",
-        );
-        setCanRetry(
-          !(
-            failure instanceof WatchlistApiError &&
-            failure.code === "WL_REQUEST_INVALID"
-          ),
-        );
-        setStatus("error");
-      }
-    }, WATCHLIST_SEARCH_DEBOUNCE_MS);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [composing, keyword, open, retryKey]);
-
+    return cancel;
+  }, [cancel, refresh, composing, groupId, keyword, open]);
   return {
     keyword,
     items,
     status,
     error,
     canRetry,
+    refresh,
     setComposing,
     setKeyword: (value: string) => {
-      version.current += 1;
-      activeRequest.current?.abort();
+      cancel();
       setKeyword(value);
       setItems([]);
       setStatus(value.trim() ? "debouncing" : "idle");
     },
-    retry: () => setRetryKey((key) => key + 1),
+    retry: () => void refresh()
   };
 }

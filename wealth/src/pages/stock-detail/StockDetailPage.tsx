@@ -16,7 +16,7 @@ import { StockChartToolbar } from "../../features/stock-detail/layout/StockChart
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
 import { StockDetailToast } from "../../features/stock-detail/ui/StockDetailToast";
 import { useStockTrendChannel } from "../../features/stock-detail/trend-channel/controller/useStockTrendChannel";
-import { useStockWatchlist } from "../../features/watchlist/model/useStockWatchlist";
+import { useStockWatchlistGroups } from "../../features/watchlist/model/useStockWatchlistGroups";
 import {
   buildIndexDetailPath,
   navigateWealth,
@@ -61,7 +61,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
   const activePageInit = pageInit?.stock.tsCode === tsCode ? pageInit : null;
-  const watchlist = useStockWatchlist(tsCode, activePageInit?.capabilities.userActions.watchlist === true);
+  const watchlist = useStockWatchlistGroups(tsCode, activePageInit?.capabilities.userActions.watchlist === true);
   useEffect(() => { if (watchlist.error) setToast(watchlist.error); }, [watchlist.error]);
   const trendChannel = useStockTrendChannel({
     enabled: activePageInit?.capabilities.supportsTrendChannel ?? false,
@@ -264,7 +264,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
             }}
           />
         )}
-        <StockInfoRail onAction={showToast} viewModel={viewModel} watchlistState={watchlist.status} onAddToWatchlist={() => void watchlist.add()} />
+        <StockInfoRail onAction={showToast} viewModel={viewModel} watchlist={watchlist} />
       </main>
       <StockDetailToast message={toast} />
     </div>

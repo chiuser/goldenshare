@@ -1,8 +1,9 @@
 .watchlist-table-scroll {
   --wl-code-width: 125px;
   --wl-name-width: 135px;
-  --wl-action-width: 110px;
-  --wl-table-width: 1768px;
+  --wl-color-width: 4px;
+  --wl-select-width: 0px;
+  --wl-table-width: 1662px;
   --wl-cell-padding: 12px;
   flex: 1;
   min-height: 0;
@@ -51,9 +52,6 @@
 .watchlist-table .sector-column {
   width: 134px;
 }
-.watchlist-table .action-column {
-  width: var(--wl-action-width);
-}
 .watchlist-table th,
 .watchlist-table td {
   text-align: left;
@@ -82,27 +80,18 @@
 .watchlist-table th.stock-code-column,
 .watchlist-table td.stock-code-column {
   position: sticky;
-  left: 0;
+  left: calc(var(--wl-color-width) + var(--wl-select-width));
   z-index: 1;
 }
 .watchlist-table th.stock-name-column,
 .watchlist-table td.stock-name-column {
   position: sticky;
-  left: var(--wl-code-width);
+  left: calc(var(--wl-color-width) + var(--wl-select-width) + var(--wl-code-width));
   z-index: 1;
   border-right: 1px solid var(--cs-color-border-default);
 }
-.watchlist-table th.action-column,
-.watchlist-table td.action-column {
-  position: sticky;
-  right: 0;
-  z-index: 1;
-  text-align: center;
-  border-left: 1px solid var(--cs-color-border-default);
-}
 .watchlist-table th.stock-code-column,
-.watchlist-table th.stock-name-column,
-.watchlist-table th.action-column {
+.watchlist-table th.stock-name-column {
   z-index: 3;
 }
 .watchlist-table td.stock-name-column {
@@ -145,7 +134,6 @@
   color: var(--cs-color-text-secondary);
   font-size: 12px;
 }
-.watchlist-remove,
 .watchlist-dialog button,
 .watchlist-load-more button {
   background: var(--cs-color-surface-card);
@@ -154,14 +142,6 @@
   color: var(--cs-color-text-secondary);
   cursor: pointer;
 }
-.watchlist-remove {
-  width: 72px;
-  height: 28px;
-  padding: 0 12px;
-  color: var(--cs-color-danger-system);
-  font-size: 12px;
-}
-.watchlist-remove,
 .watchlist-dialog .watchlist-plus {
   display: inline-flex;
   align-items: center;
@@ -169,10 +149,6 @@
   vertical-align: middle;
   line-height: 1;
   text-align: center;
-}
-.watchlist-remove:hover:not(:disabled) {
-  border-color: var(--cs-color-danger-system);
-  background: var(--cs-color-surface-card-hover);
 }
 .watchlist-table button:focus-visible,
 .watchlist-dialog button:focus-visible {
@@ -215,8 +191,7 @@
   font: inherit;
   font-size: 12px;
 }
-.watchlist-dialog button:disabled,
-.watchlist-remove:disabled {
+.watchlist-dialog button:disabled {
   opacity: 0.55;
   cursor: wait;
 }
@@ -365,27 +340,6 @@
 .watchlist-add-dialog footer button {
   min-width: 84px;
 }
-.watchlist-remove-dialog {
-  width: 380px;
-  min-height: 168px;
-  border-radius: 10px;
-  margin: auto;
-}
-.watchlist-remove-dialog::backdrop {
-  background: transparent;
-}
-.watchlist-remove-dialog .watchlist-dialog-shell {
-  padding: 20px;
-}
-.watchlist-remove-dialog h2 {
-  font-size: 14px;
-}
-.watchlist-remove-dialog p {
-  margin: 14px 0 30px;
-}
-.watchlist-remove-dialog footer button {
-  min-width: 82px;
-}
 .watchlist-dialog .watchlist-remove-confirm {
   border-color: var(--cs-color-danger-system);
   color: var(--cs-color-danger-system);
@@ -395,3 +349,48 @@
   margin: 8px 0;
   color: var(--cs-color-danger-system);
 }
+
+/* Grouping V2: fixed marks, optional selection, then existing identity columns. */
+.watchlist-table-scroll.is-editing { --wl-select-width: 64px; --wl-table-width: 1726px; }
+.watchlist-table .color-marks-column { width: var(--wl-color-width); padding: 0; position: sticky; left: 0; z-index: 1; }
+.watchlist-table .selection-column { width: var(--wl-select-width); position: sticky; left: var(--wl-color-width); z-index: 1; text-align: center; }
+.watchlist-table th.color-marks-column, .watchlist-table th.selection-column { z-index: 3; }
+.watchlist-table tr.is-selected td { background: var(--cs-color-surface-card-hover); }
+.watchlist-color-marks { display: grid; height: 60px; width: 4px; }
+.watchlist-sort { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.watchlist-sort span { margin-left: 4px; }
+.watchlist-table th[aria-sort="descending"], .watchlist-table th[aria-sort="ascending"] { color: var(--cs-color-brand); }
+.watchlist-group-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.watchlist-tabs { display: flex; align-items: center; gap: 6px; min-height: 40px; flex-shrink: 0; }
+.watchlist-tabs [role="tablist"] { display: flex; gap: 6px; min-width: 0; }
+.watchlist-tabs button { display: inline-flex; gap: 8px; align-items: center; height: 36px; padding: 0 14px; border: 1px solid var(--cs-color-border-default); border-radius: 8px; background: var(--cs-color-bg-panel-soft); color: var(--cs-color-text-secondary); font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.watchlist-tabs [aria-selected="true"], .watchlist-tabs .watchlist-create-button { color: var(--cs-color-brand); border-color: var(--cs-color-border-strong); background: var(--cs-color-brand-weak); }
+.watchlist-tabs button:disabled, .watchlist-edit-toolbar button:disabled, .watchlist-page button:disabled { opacity: .42; cursor: default; }
+.watchlist-edit-toolbar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; height: 52px; padding: 0 16px; border-bottom: 1px solid var(--cs-color-border-default); background: var(--cs-color-bg-panel-soft); white-space: nowrap; font-size: 13px; }
+.watchlist-edit-toolbar button, .watchlist-operation-button { height: 32px; padding: 0 14px; border: 1px solid var(--cs-color-border-default); border-radius: 6px; background: var(--cs-color-surface-card); color: var(--cs-color-text-secondary); cursor: pointer; font: inherit; font-size: 13px; }
+.watchlist-edit-toolbar .watchlist-danger { color: var(--cs-color-danger-system); border-color: var(--cs-color-danger-system); }
+.watchlist-selection-count { color: var(--cs-color-brand); }
+.watchlist-edit-toolbar .watchlist-done { margin-left: auto; color: var(--cs-color-brand); border-color: var(--cs-color-border-strong); background: var(--cs-color-brand-weak); }
+.watchlist-group-dialog { width: 500px; border-radius: var(--cs-radius-panel); margin: auto; }
+.watchlist-group-dialog-create { width: 600px; }
+.watchlist-group-dialog-move { width: 480px; }
+.watchlist-group-dialog-remove, .watchlist-group-dialog-color { width: 450px; }
+.watchlist-group-dialog .watchlist-dialog-shell { display: flex; flex-direction: column; gap: 14px; padding: 22px; min-height: 430px; }
+.watchlist-group-dialog p { margin: 0; }
+.watchlist-group-dialog .watchlist-confirm { color: var(--cs-color-brand); background: var(--cs-color-brand-weak); border-color: var(--cs-color-border-strong); }
+.watchlist-warning { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; color: var(--cs-color-danger-system); background: color-mix(in srgb, var(--cs-color-danger-system) 18%, var(--cs-color-bg-panel)); font-size: 20px; }
+.watchlist-group-dialog footer { margin-top: auto; padding-top: 14px; }
+.watchlist-group-dialog label { font-size: 13px; }
+.watchlist-group-dialog .watchlist-search-input { margin-top: 10px; }
+.watchlist-palette { display: flex; gap: 12px; padding: 10px 0; }
+.watchlist-palette label { position: relative; display: block; width: 34px; height: 34px; border-radius: 50%; }
+.watchlist-palette input { position: absolute; inset: 0; opacity: 0; margin: 0; width: 100%; height: 100%; cursor: pointer; }
+.watchlist-palette span { position: absolute; inset: -4px; border-radius: 50%; pointer-events: none; }
+.watchlist-palette input:checked + span, .watchlist-palette input:focus-visible + span { border: 2px solid var(--cs-color-text-primary); }
+.watchlist-group-options { display: flex; flex-direction: column; gap: 4px; }
+.watchlist-group-options label { display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 10px; min-height: 43px; padding: 8px; background: var(--cs-color-bg-panel-soft); border-radius: 6px; cursor: pointer; }
+.watchlist-group-options label > span { display: flex; align-items: center; gap: 10px; }
+.watchlist-group-options input, .selection-column input { accent-color: var(--cs-color-brand); width: 18px; height: 18px; margin: 0; }
+.watchlist-group-dialog .watchlist-group-options { gap: 8px; }
+.watchlist-group-dialog .watchlist-group-options label { min-height: 46px; border: 1px solid var(--cs-color-border-default); }
+.watchlist-group-dialog .watchlist-group-options label:has(input:checked) { border-color: var(--cs-color-brand); background: var(--cs-color-surface-card-hover); }
