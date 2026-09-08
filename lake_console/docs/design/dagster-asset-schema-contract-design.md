@@ -2,9 +2,11 @@
 
 更新时间：2026-05-29
 
-## 1. 背景
+文档口径校准：2026-09-08。本文保留原专项背景、实施记录和历史验收；它们不代表当前待办或本轮重新验收。现行编码约束见 [编码规范](../../orchestrator/CODING_STANDARDS.md)，验证方式见 [接入模板验收章节](../templates/dagster-dataset-onboarding-template.html#acceptance)。
 
-当前 Dagster UI 的 asset columns 表中，部分资产字段 `type` 显示为 `unknown`，字段描述为空。
+## 1. 背景（治理启动前）
+
+治理启动前，Dagster UI 的 asset columns 表中，部分资产字段 `type` 显示为 `unknown`，字段描述为空。
 
 历史原因是早期代码主要把字段 schema 放在 materialization metadata 中。该口径已经退场，后续禁止继续使用：
 
@@ -13,7 +15,7 @@ build_materialization_metadata(columns=...)  # 历史旧口径，已禁止
   -> dagster/column_schema
 ```
 
-如果传入的是纯列名字符串，当前 helper 会把字段类型兜底成 `unknown`。字段描述为空，是因为当前 helper 没有给 `dagster.TableColumn` 注册 description。
+当时传入纯列名字符串时，旧 helper 会把字段类型兜底成 `unknown`；字段描述为空，是因为旧 helper 没有给 `dagster.TableColumn` 注册 description。这不是现行 helper 的行为说明。
 
 这导致两个问题：
 
@@ -86,9 +88,9 @@ asset checks
 
 当前 active asset 事实以 `orchestrator.defs.catalog.lake_assets.LAKE_ASSET_CATALOG` 为准；资产数量不得在本文手写固定数字，必须由 `list_lake_asset_catalog_entries()` 与 `tests/test_asset_governance_contracts.py` 在当前代码基线生成。除 `lake_root_health` 是 platform health asset、没有 table column schema 外，其余 table-like / serving active assets 都必须注册 definition column schema。
 
-当前覆盖范围：
+原专项覆盖记录（历史范围，不是当前完整资产清单）：
 
-| 资产族 | 数量 | 当前状态 |
+| 资产族 | 原专项数量 | 原专项完成记录 |
 |---|---:|---|
 | raw / silver / gold 基础与日频股票资产 | 15 | `trade_calendar`、`stock_basic`、`stock_lifecycle`、`namechange`、`stock_identity_map`、`suspend_d`、`stock_daily`、`adj_factor`、`gold_stock_daily_qfq` 均已注册 definition column schema |
 | raw / silver 指数资产 | 4 | `raw_tushare_index_basic`、`silver_index_basic`、`raw_index_daily`、`silver_index_daily` 均已注册 definition column schema |
@@ -385,13 +387,13 @@ raw_index_daily（当前指数 raw，按交易日 by-date）
 2. `dagster/column_schema` 只允许由 `build_asset_definition_metadata(..., column_schema=...)` 写入 asset definition metadata。
 3. `build_check_metadata(...)` 不再接受裸 `columns` runtime metadata；如需记录字段观察结果，必须使用 `observed_columns` 或显式 `goldenshare/observed_columns`。
 4. Bootstrap 通用迁移 helper 已改为通过 `build_materialization_metadata(uri=..., row_count=..., observed_columns=...)` 返回 metadata。
-5. 静态门禁已固化：正式 `@dg.asset` 必须显式注册 `column_schema`，任何 `build_materialization_metadata(columns=...)` callsite 都会失败。
+5. 静态门禁已固化：正式表格型 / Parquet / serving `@dg.asset` 必须显式注册 `column_schema`；`lake_root_health` 等平台健康资产遵守第 4 节的无表结构例外。任何 `build_materialization_metadata(columns=...)` callsite 都会失败。
 6. 开发模板已更新，新增数据集和 bootstrap 迁移模板不再传播旧 `columns` 口径。
 
 目标：
 
 1. 更新 `CODING_STANDARDS.md`。
-2. 明确新增 asset 必须带 definition column schema。
+2. 明确新增表格型 / Parquet / serving asset 必须带 definition column schema，平台健康资产不制造占位字段。
 3. 清理旧 helper 参数中容易误用的 `columns` 语义。
 4. 文档记录最终口径。
 
@@ -408,21 +410,21 @@ raw_index_daily（当前指数 raw，按交易日 by-date）
 
 ### 8.1 静态验收
 
-每个 Slice 至少执行：
+后续文档修改在仓库根使用现有环境执行：
 
 ```text
-uv run dg check defs  # 需单独批准后执行
-python3 scripts/check_docs_integrity.py
+.venv/bin/python3 -B scripts/check_docs_integrity.py
 git diff --check
 git status --short
 ```
 
 说明：
 
-1. `uv run dg check defs` 属于 Dagster definitions 加载验证，执行前仍需按正式环境门禁确认。
+1. 代码改动另按 [接入模板验收章节](../templates/dagster-dataset-onboarding-template.html#acceptance) 选择定向测试。definitions 加载不是普通文档静态检查，须先核验导入及资源初始化副作用，再按目录规则确认执行边界；使用现有环境，不自动同步或安装依赖。
 2. 本改造不要求运行 job / sensor / backfill。
 3. 如需单日 materialize 验证 UI，必须单独列命令并获得确认。
 4. 2026-05-29 已由用户自行完成 definitions 与 UI 验收；本轮文档只记录验收状态，不重复执行正式 Dagster 命令。
+5. 根文档完整性脚本不覆盖本目录全部 HTML 链接与锚点，修改相关引用时须另行核验；第 7 节的旧命令仅保留为历史执行记录，不作为当前执行入口。
 
 ### 8.2 UI 验收
 

@@ -139,7 +139,7 @@ Dagster orchestrator 是正式项目，不接受“先跑通再说”的默认�
 规则：
 
 1. job 名称固定为 `layer + asset name + mode + job`，例如 `raw_stock_daily_update_job`。
-2. sensor 名称固定 follow job，即 `job name + sensor`。
+2. 数据更新 sensor 名称 follow 目标 job，即 `job name + sensor`；分区注册器按注册对象命名，通知器按事件与渠道命名。具体例子见编码规范，不因整理规则批量改名现有入口。
 3. 新增 check 名称固定为 `asset name + function + check`。
 4. 已存在 check 禁止仅为了符合新命名规则而改名；确需改名必须先单独评估历史 check event、readiness、sensor、job selection、UI 状态和补跑成本，并等待用户确认。
 5. 不得新增一个同语义新名 check 来替代旧 check。

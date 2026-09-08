@@ -193,14 +193,14 @@
   <header>
     <h1>Dagster 数据集人类可读治理建议</h1>
     <p class="lead">
-      本文不是新增一套机器契约，而是补齐数据集接入模板中“给人看”的部分。
+      本文保留原审计建议及其设计理由，不新增一套机器契约；相关要求已纳入数据集接入模板中“给人看”的部分。
       目标是让资产、任务、传感器、cursor、日志、metadata 和 check 在 Dagster UI 里像清楚的工作说明，而不是内部对象转储。
     </p>
     <p>
       <span class="tag">适用范围：lake_console/orchestrator 数据集接入</span>
       <span class="tag">不改代码</span>
       <span class="tag">不触碰 Dagster DB</span>
-      <span class="tag">后续纳入模板</span>
+      <span class="tag">已纳入接入模板</span>
     </p>
     <p class="small">
       审计依据：
@@ -242,7 +242,7 @@
   </section>
 
   <section>
-    <h2>当前模板做得对的部分</h2>
+    <h2>原审计中模板已有的内容</h2>
     <ul>
       <li>已经要求 asset、job、sensor、check 的命名和 description 用稳定业务语义表达，不用临时阶段名。</li>
       <li>已经区分 definition metadata、materialization metadata、check metadata，避免把定义事实和运行事实混在一起。</li>
@@ -259,13 +259,14 @@
   </section>
 
   <section>
-    <h2>九个需要补充或纠偏的部分</h2>
+    <h2>原审计的九项补充与纠偏建议</h2>
+    <p>以下保留当时的问题及建议，不代表现行模板仍有九项遗漏；新接入任务以现行模板为执行清单，也不据此宣称所有存量数据集已完成治理。</p>
     <table>
       <thead>
       <tr>
         <th>#</th>
         <th>部分</th>
-        <th>现在容易出的问题</th>
+        <th>原审计发现的风险</th>
         <th>建议口径</th>
       </tr>
       </thead>
@@ -635,9 +636,9 @@
   </section>
 
   <section>
-    <h2>建议纳入模板的新增章节</h2>
+    <h2>已纳入模板的检查入口</h2>
     <p>
-      后续可以把下面几项直接补进 <code>dagster-dataset-onboarding-template.html</code>，作为新数据集接入的必填项。
+      下列建议已汇入现行模板的 <a href="dagster-dataset-onboarding-template.html#human-readable">人类可读说明</a>、<a href="dagster-dataset-onboarding-template.html#sensor-cursor">Sensor Cursor</a> 和 <a href="dagster-dataset-onboarding-template.html#checklist">接入检查清单</a>。直接填写对应章节，不另建重复清单，也不重复实施历史建议。
     </p>
     <ol>
       <li><strong>人类可读说明卡：</strong>asset/job/sensor/check 的中文说明、读者问题、主要消费者、失败时看哪里。</li>

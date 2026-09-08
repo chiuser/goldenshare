@@ -436,7 +436,7 @@
       Asset tags 第一版只定义两个字段：层级和数据域。标签只服务 UI 过滤、资产组织和低基数分类，不承载具体数据集名称、运行日期、批次状态或质量统计。数据域取值学习 <code>docs/sources/tushare/**</code> 的目录语言，但 tag value 必须使用 Dagster 允许的英文枚举；中文数据集名称进入 definition metadata，不进入 tag。
     </p>
     <div class="warning">
-      <strong>Dagster 版本约束：</strong>当前 Dagster 1.13.6 会严格校验 asset tag value，只允许英数字、<code>_</code>、<code>-</code>、<code>.</code>。中文 tag value 会导致 code location 加载失败，因此 M5 正式口径改为英文 tags + 中文 metadata。
+      <strong>版本与项目口径：</strong>M5 历史验证基于 Dagster 1.13.6；当前依赖版本以 <a href="../../orchestrator/pyproject.toml">pyproject.toml</a> 和 <a href="../../orchestrator/uv.lock">uv.lock</a> 为准，不沿用历史版本号描述当前环境。项目继续使用英文枚举 tags + 中文 metadata；不得把中文名称写入 asset tag value。
     </div>
 
     <table>
@@ -452,16 +452,16 @@
       <tbody>
       <tr>
         <td><code>goldenshare/layer</code></td>
-        <td>是，正式数据资产必填</td>
-        <td><code>raw</code>、<code>silver</code>、<code>gold</code>、<code>serving</code></td>
-        <td>所有正式数据资产，包括落到 <code>data_lake/raw|silver|gold</code> 的 Lake asset，以及同步到 ClickHouse 的 serving asset。</td>
-        <td>Lake 三层是本项目硬边界；ClickHouse serving 是查询副本层，不伪装成 gold。值使用英文是 Dagster tag 校验要求；中文含义由文档和 metadata 表达。</td>
+        <td>是，正式资产必填</td>
+        <td><code>raw</code>、<code>silver</code>、<code>gold</code>、<code>serving</code>、<code>platform</code></td>
+        <td>正式 Lake 数据资产、ClickHouse serving asset，以及平台健康资产。</td>
+        <td>Lake 物理目录仍只有 raw/silver/gold 三层；serving 表达查询副本，platform 表达平台健康资产，都不是新增 Lake 物理层。</td>
       </tr>
       <tr>
         <td><code>goldenshare/data_domain</code></td>
-        <td>是，正式数据资产必填</td>
-        <td><code>basic_data</code>、<code>quote_data</code>、<code>index_topic</code>、<code>project_config</code>、<code>derived_metric</code></td>
-        <td>所有正式数据资产</td>
+        <td>是，正式资产必填</td>
+        <td><code>basic_data</code>、<code>quote_data</code>、<code>index_topic</code>、<code>project_config</code>、<code>derived_metric</code>、<code>platform_observability</code></td>
+        <td>正式数据资产及平台观测资产</td>
         <td>该字段用于少量稳定的数据域过滤。英文值用于满足 Dagster tag 校验；中文业务含义来自 Tushare 本地文档目录和本治理文档。</td>
       </tr>
       </tbody>
@@ -1114,10 +1114,10 @@ ops:
         <td>Dagster 标准 metadata key，行数是排错、质量检查和历史对比的核心事实。</td>
       </tr>
       <tr>
-        <td><code>dagster/column_schema</code></td>
-        <td>正式表格型产物推荐</td>
-        <td>Dagster column schema metadata</td>
-        <td>schema 是资产产物事实，适合放 metadata；不适合用 tag 表达。</td>
+        <td><code>goldenshare/observed_columns</code></td>
+        <td>记录本次观察列时使用</td>
+        <td>本次产物的列名列表</td>
+        <td>通过 <code>build_materialization_metadata(observed_columns=...)</code> 记录；稳定字段契约只放在 definition metadata 的 <code>dagster/column_schema</code>，不在运行时重复注册。</td>
       </tr>
       <tr>
         <td><code>goldenshare/source_row_count</code></td>

@@ -1,10 +1,12 @@
 # Dagster 数据管道性能治理规范
 
-更新时间：2026-09-05（M5 合并只读导出检查项，不调整既有热路径预算）
+更新时间：2026-09-08（校准适用范围、证据来源与验收阶段；不调整现行代码或测试阈值）
 
 本文是 `lake_console/orchestrator` 的长期性能治理规范，适用于 Dagster 资产、asset check、sensor、run-status sensor、continuity selector、readiness helper、bootstrap、runless event 补录、DuckDB/Parquet 计算和数据集接入设计。
 
 本文不是某个专项方案的替代品。新增或修改具体链路时，仍需按对应专项文档、`AGENTS.md`、`lake_console/orchestrator/CODING_STANDARDS.md` 执行；本文只定义通用设计规则和性能门禁。
+
+本文维护通用成本模型与性能验收；[编码规范](../../orchestrator/CODING_STANDARDS.md)维护代码写法和 helper 使用，专项保存具体窗口、测量及例外，[接入模板](../templates/dagster-dataset-onboarding-template.html#checklist)汇总分阶段核验点。不重复把同一份预算或执行记录抄成另一份“当前事实”。
 
 ---
 
@@ -50,7 +52,7 @@
 
 ### 2.3 先优化读取模型，再讨论新增状态实体
 
-新增 status manifest、readiness asset、summary asset、数据库表、缓存文件或配置项前，必须先证明以下方案都不可行：
+新增 status manifest、readiness asset、summary asset、数据库表、缓存文件，或使用配置保存另一份运行状态事实前，必须先证明以下替代方案不能满足本次正确性或性能要求：
 
 1. Dagster metadata 按 asset/check/partition 做有界批量读取。
 2. DuckDB 直接读取 lake Parquet 文件事实。
@@ -58,6 +60,8 @@
 4. 通过 cursor 记录小型 frontier，而不是完整明细。
 
 新增实体会引入一致性、回补、写失败、schema 演进和退出成本。不能因为当前实现慢，就默认新建一个状态资产。
+
+普通批次上限、执行预算等配置不属于另一份状态事实源，无需机械证明上述四条都不可行；仍必须按根 AGENTS 完成配置名、默认值、来源/持久化、消费者、依赖、生效方式、运维可见性和测试审计。不能用“普通配置”的名字绕过状态实体审查，本节也不授权新增任何具体配置。
 
 ### 2.4 热路径和离线路径必须分开设计
 
@@ -119,7 +123,7 @@ sensor 必须按从轻到重的顺序执行：
 
 ### 4.2 日常热路径默认窗口为 10 个 expected trade dates
 
-日常 continuity 和 readiness sensor 的默认回看窗口是最近 10 个 expected trade dates。
+日常日期型 continuity 和 readiness sensor 的通用默认回看窗口是最近 10 个 expected trade dates；已批准的专项例外优先。例如当前 `stock_mins_qfq_daily_sensor` 为 5 个交易日，依据见 [qfq 热路径专项](dagster-stk-mins-qfq-sensor-hotpath-performance-fix-plan.md) 与代码中的 `STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT`。这不是要求其它 sensor 统一改为 5 天或 10 天。
 
 60 天窗口只能用于：
 
@@ -173,13 +177,16 @@ sensor 热路径禁止：
 
 ### 5.1 Ready 的最低定义
 
-一个上游资产 ready，至少满足：
+先按该链路已批准合同说明证据来源，不能把下面两种模式混写：
 
-1. 目标 asset 或 partition 已 materialized。
-2. 所有关联 blocking checks 已通过。
-3. full snapshot 资产满足 freshness 或当日可用口径。
-4. 分区资产按同一 partition_key 判断。
-5. WARN checks 只记录观测，不阻断生产。
+| 模式 | ready 的证据 | 不能证明什么 |
+| --- | --- | --- |
+| Dagster 事件模式 | 目标资产/分区的 materialization 及与该目标一致的 blocking check 记录；按现行 freshness、事件关联与分区合同判断。 | 事件记录不能代替合同要求的实际文件核验。 |
+| Lake 文件模式 | 核对实际文件，并复用完整 blocking check 语义、必要的注册/覆盖/freshness 条件计算 readiness。 | 不证明正式 Dagster materialization/check event 已存在，不直接构成 UI 或事件补录验收。 |
+
+例如 `defs/asset_guards/stk_mins_lake_readiness.py` 的 `materialized` 表达该 helper 的文件事实，`checks_passed` 表达文件校验结果；不要只凭字段名推断读取过 Dagster 事件。两种模式不是可随意替换的选项，文档校准不改变现行消费者或字段语义。
+
+full snapshot 仍须满足 freshness 或当日可用口径；分区资产按相同 partition 判断，WARN 不阻断生产。不能只看文件存在或行数，也不能为统一措辞向文件模式强加事件深扫。
 
 ### 5.2 DuckDB readiness 必须复刻正式 check 语义
 
@@ -244,11 +251,11 @@ sensor 热路径禁止：
 
 写 lake 文件时必须考虑：
 
-1. 临时路径。
-2. 原子替换。
-3. 写前 preflight。
-4. 写后 row count、schema、sample、checksum 或必要 metadata。
-5. 失败后不留下半成品。
+1. 候选与执行 staging 位于正式 Lake 外的 `data_lake_staging`，使用 run-scoped 路径。
+2. 正式提升前完成所有候选的当前契约校验及同文件系统确认，再逐文件 `os.replace()`；不声称多文件整体原子。
+3. 写前 preflight，明确范围、挂载、空间、目标冲突及恢复依据。
+4. 写后按合同读回 row count、schema、sample、checksum 或必要 metadata，保存逐文件 checkpoint 并核验实际文件续跑。
+5. 正式目标不得出现半写文件；失败候选、checkpoint 与审计证据不是必须清除的“半成品”。保留异常现场，清理必须另行确认，不引入备份或 Kopia。
 
 大范围 bootstrap 必须先 dry-run，再 sample，再 batch，再 final audit。
 
@@ -348,14 +355,16 @@ continuity selector 必须遵守：
 
 ### 9.1 新数据集
 
-新增数据集或修改数据集口径前，必须先完成：
+开发前必须明确范围和验证计划：
 
 1. 源接口请求量、分页次数、字段投影、限流影响测算。
-2. 写入行数、reject 行数、失败 reason code 样本。
+2. 基于获准来源样本估算写入规模，列出清洗/reject 规则、reason code 和最小真实验收方案；不要求先写正式数据来填表。
 3. Parquet 文件大小、分区策略、预计文件数。
 4. 下游消费者审计。
 5. blocking checks 和 readiness 语义。
-6. 大量历史数据的 bootstrap 策略。
+6. 需要历史初始化时列 bootstrap 策略；不需要则说明不适用，不能为填模板增加历史执行。
+
+实施后按获批范围记录实际读取、转换、写入、reject/过滤原因与样本、目标读回及性能结果。设计值、隔离测试和正式执行证据分开，未执行项不得预填通过；详见接入模板 §7A、§18。
 
 ### 9.2 新 Sensor
 
@@ -378,9 +387,11 @@ continuity selector 必须遵守：
 
 1. 与正式 check 语义的映射表。
 2. SQL 数量和文件扫描模型。
-3. 10 天和 60 天性能样本，60 天可作为容量测试，不代表日常窗口。
+3. 按实际运行窗口和最大获批工作量设计性能样本，包含 SQL/API 调用数、文件扫描数和耗时；容量样本根据历史恢复或规模增长需求另选并说明理由。日期型可使用 10/60 天样本，非日期型按对象/文件/批次建模，不机械要求每个新 helper 都跑 10 天和 60 天。
 4. 单元测试覆盖全 ready、缺文件、文件存在但 checks failed、未知日期 fail closed。
 5. 静态门禁防止回流逐日 Dagster readiness。
+
+现有 `tests/test_stk_mins_continuity_performance.py` 等 10/60 天回归和耗时阈值继续保留，不因本节调整删除或放宽。实际运行窗口验收、调用次数门禁、离线容量测试分别说明；人工低频恢复可按 §6.4 记录慢操作告警，但正确性、只读和范围边界不放宽。
 
 ---
 

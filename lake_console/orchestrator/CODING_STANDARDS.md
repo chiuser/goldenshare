@@ -2,6 +2,8 @@
 
 本文档是 `lake_console/orchestrator` 的长期编码规范入口。后续新增编码规则优先追加到本文档；`AGENTS.md` 只保留硬门禁和指向关系。
 
+文档分工：本文维护代码组织、命名和 helper 使用；[性能治理规范](../docs/design/dagster-data-pipeline-performance-governance.md)维护通用成本模型、readiness 证据与性能验收；具体数据集窗口、历史测量和批准例外保留在对应专项。接入填写[模板](../docs/templates/dagster-dataset-onboarding-template.html)，执行与安装授权遵守 [AGENTS.md](AGENTS.md)。本轮文档校准不改变现行代码、测试阈值或生产触发行为。
+
 ## 命名与组织原则
 
 正式代码命名必须表达长期业务含义和稳定技术职责，禁止表达临时阶段、开发过程、个人理解或一次性任务。
@@ -14,7 +16,7 @@
 
 1. asset 名称必须表达稳定事实身份，通常采用 `layer + asset name`。raw 层如源系统是事实身份的一部分，可以包含 source，例如 `raw_tushare_stock_daily`；silver/gold/serving 层优先使用业务事实名，例如 `silver_stock_daily`、`gold_market_breadth_daily`。
 2. job 名称固定采用 `layer + asset name + mode + job`，例如 `raw_stock_daily_update_job`、`silver_stock_daily_update_job`、`prod_ch_share_fact_market_breadth_sync_job`。job 名称必须表达写入层级、资产族和执行模式。
-3. sensor 名称固定 follow job，采用 `job name + sensor`，例如 `raw_stock_daily_update_job_sensor`、`silver_stock_daily_update_job_sensor`。
+3. 数据更新 sensor 名称 follow 目标 job，采用 `job name + sensor`，例如 `raw_stock_daily_update_job_sensor`。分区注册器按注册对象命名，例如 `cn_a_trade_day_sensor`；通知器按事件与渠道命名，例如 `feishu_run_failed_sensor`。不为套用单一模板批量改名现有入口。
 4. 新增 check 名称固定采用 `asset name + function + check`，例如 `raw_tushare_stock_daily_source_contract_check`。`function` 必须表达单一质量属性，不得写成宽泛的 `quality`、`validate`、`daily`。
 5. 已存在的 check 名称禁止仅因不符合新命名规则而改名；确需改名时必须先单独评估历史 check event、readiness helper、sensor、job selection、UI 状态和补跑成本，并等待用户确认。
 6. 不得新增一个同语义新名 check 来替代旧 check；新增 check 必须代表新增质量语义。
@@ -55,20 +57,18 @@ MACD/KDJ 连续性已落地规则：
 
 ## Sensor Hot Path Batch Readiness 规范
 
-日常 sensor、run-status sensor、continuity selector 和 readiness gate 属于 Dagster user-code gRPC 热路径。热路径优化必须优先减少读取次数和读取模型复杂度，禁止靠调大 Dagster timeout 掩盖问题。
+通用要求统一见 [性能治理规范](../docs/design/dagster-data-pipeline-performance-governance.md) §4（窗口、轻重顺序与批量读取）、§5（完整 readiness 语义）、§9.3（性能样本）和 §10（门禁）。本文只保留具体代码约束与回归入口，不另设一套通用预算。
 
-已落地规则：
+现行专项约束：
 
-1. 日常 sensor hot path 的连续性回看窗口默认固定为最近 10 个 expected trade dates；60 天只允许作为离线审计、容量评估或长停机恢复方案参考，不得作为日常 sensor 默认窗口。`stock_mins_qfq_daily_sensor` 是已确认例外：2026-06-26 只读 dry-run 证明最近 5 个交易日仍约 17 秒，其中 gold qfq readiness 约 14 秒，因此该 sensor 正式窗口收敛为最近 5 个 expected trade dates；超过 5 个交易日的 qfq 缺口必须走显式 continuity audit / recovery。
-2. 窗口型 sensor 必须先判断运行窗口；窗口未到时只能返回轻量 `SkipReason` / cursor，禁止提前执行 DuckDB batch readiness、Dagster event history 查询或其它重扫描。
-3. `batch_*_readiness` 命名只允许用于真正窗口级读取模型：一次接收完整窗口日期集合，集中规划路径或查询分区集合，再按 `trade_date` / `freq` fan-out 状态。
-4. 禁止把 `for trade_date in expected_dates` 里的逐日重 SQL、逐日 Dagster check history 查询、逐日 ClickHouse 查询包装成 `batch_*_readiness`。
-5. sensor hot path batch helper 禁止依赖 Dagster instance；需要判断文件事实时优先使用 DuckDB / lake Parquet 的批量读取，ClickHouse readiness 必须按 partition set 批量读取。
-6. 完整 blocking check 语义不得降级；文件存在、row count 只能作为粗筛或失败快速路径，不能冒充 ready。
-7. `batch_gold_stk_mins_qfq_lake_readiness(...)` 已完成窗口级 true batch 改造，正式 batch body 不得回调 `_gold_qfq_status_for_trade_date(...)`、`_gold_qfq_native_counts_for_trade_date(...)` 或 `_gold_qfq_derived_counts_for_trade_date(...)` 这类单日 helper。
-8. qfq daily sensor 必须保持 silver -> adj factor -> gold qfq 的分层短路；silver 或 adj factor 已阻断时，不得继续加载 gold qfq batch。
-9. qfq factor repair sensor 只能在 gold qfq selected target ready 后读取 factor repair status，且 hot path 必须传入 `include_event_storage_ids=False`。
-10. 所有 sensor hot path batch helper 必须有性能回归或 fake-client 调用次数测试，并由静态门禁防止回流逐日深扫；当前统一覆盖落点为 `tests/test_stk_mins_continuity_performance.py`、`tests/test_batch_readiness_hotpath_performance.py` 和 `tests/test_run_contract_static_gates.py`。
+1. `stock_mins_qfq_daily_sensor` 的正式窗口为最近 5 个 expected trade dates；超过窗口的 qfq 缺口必须走显式 continuity audit / recovery。专项设计见 [qfq 热路径方案](../docs/design/dagster-stk-mins-qfq-sensor-hotpath-performance-fix-plan.md)。
+2. sensor hot path batch helper 禁止依赖 Dagster instance；需要判断文件事实时使用 DuckDB / lake Parquet 的批量读取，ClickHouse readiness 按 partition set 批量读取。这是文件事实型 batch helper 的边界，不是要求所有事件型 sensor 删除 instance 依赖。
+3. `batch_gold_stk_mins_qfq_lake_readiness(...)` 已完成窗口级 true batch 改造，正式 batch body 不得回调 `_gold_qfq_status_for_trade_date(...)`、`_gold_qfq_native_counts_for_trade_date(...)` 或 `_gold_qfq_derived_counts_for_trade_date(...)` 这类单日 helper。
+4. qfq daily sensor 必须保持 silver -> adj factor -> gold qfq 的分层短路；silver 或 adj factor 已阻断时，不得继续加载 gold qfq batch。
+5. qfq factor repair sensor 只能在 gold qfq selected target ready 后读取 factor repair status，且 hot path 必须传入 `include_event_storage_ids=False`。
+6. 所有 sensor hot path batch helper 必须有性能回归或 fake-client 调用次数测试，并由静态门禁防止回流逐日深扫；当前统一覆盖落点为 `tests/test_stk_mins_continuity_performance.py`、`tests/test_batch_readiness_hotpath_performance.py` 和 `tests/test_run_contract_static_gates.py`。现有测试与阈值不因文档去重而删除或放宽。
+
+历史测量说明：2026-06-26 的 5 个交易日只读 dry-run 约 17 秒，其中 gold qfq readiness 约 14 秒，是当时收紧窗口的依据，不是当前耗时承诺或新的验收阈值。
 
 ## Asset Schema Contract 与 Metadata 规范
 
@@ -76,7 +76,7 @@ MACD/KDJ 连续性已落地规则：
 
 规则：
 
-1. 新增或修改正式 asset 时，必须在 `build_asset_definition_metadata(...)` 中显式传入 `column_schema=...`。
+1. 新增或修改表格型、Parquet 或 serving asset 时，必须在 `build_asset_definition_metadata(...)` 中显式传入 `column_schema=...`；`lake_root_health` 等不产生表格数据的平台健康资产沿用无 schema 的已批准合同，不制造占位字段。
 2. 字段契约统一定义在 `defs/run_contracts/asset_column_schemas.py`，使用 `ColumnContract(name, type, description)` 表达字段名、类型和中文说明。
 3. `dagster/column_schema` 只允许出现在 definition metadata 中，表示“这个资产应该是什么字段契约”。
 4. materialization metadata 只记录本次运行观察结果，例如 `dagster/uri`、`dagster/row_count`、`goldenshare/observed_columns`、样本和统计。
@@ -107,10 +107,17 @@ MACD/KDJ 连续性已落地规则：
 
 1. 只有 `orchestrator.defs.duckdb_connection.connect_configured_duckdb(...)` 可以直接创建 DuckDB 连接。
 2. asset、check、bootstrap helper、qfq helper、repair op/helper、sensor readiness helper 必须通过 `DuckDBResource` 或统一连接 helper 获取连接。
-3. DuckDB 默认连接参数固定为：`temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp`、`max_temp_directory_size=512GB`、`memory_limit=16GB`、`threads=4`、`preserve_insertion_order=false`。
+3. 默认 `DuckDBConnectionSettings` 为：`temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp`、`max_temp_directory_size=512GB`、`memory_limit=16GB`、`threads=4`、`preserve_insertion_order=false`；当前定义见 `defs/duckdb_connection.py`。受限连接策略会覆盖部分参数，见下表，不把默认值理解为所有调用的唯一实际配置。
 4. 正式输出排序必须由 SQL `ORDER BY` 显式保证，不能依赖 DuckDB insertion order。
 5. 测试文件可以直接创建临时 DuckDB 连接；离线 `audits/**` 工具暂不纳入本规则强制范围，但如果未来写正式 lake 或正式 Dagster event，必须改走统一连接 helper。
 6. 新增 DuckDB 配置项前必须先做配置项审计；不得把 DuckDB 参数临时散落到 env、run config、脚本常量或文档口径中。
+
+| 连接策略 | 当前行为与使用边界 |
+| --- | --- |
+| `managed`（默认） | 会尝试创建临时目录，使用默认 spill 配额；不能仅凭走了统一 helper 就认定没有文件副作用。目录创建、扩展安装与执行仍受授权约束。 |
+| `existing_no_spill` | 要求目录已存在且路径不含符号链接，设置 spill 配额 `0B`，关闭扩展自动安装和自动加载；现有停牌固定事实 CLI 使用此模式。它仍允许显式 SQL 写文件，不等于数据库或 Lake 只读保证。 |
+
+按实际调用及获批方案选择策略，不能自行把全部消费者切换到受限模式，也不能据此扩展正式写入权限。
 
 ## Asset 写前 Guard 规范
 

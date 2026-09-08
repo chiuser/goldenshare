@@ -215,15 +215,16 @@
   <header>
     <h1>Dagster Sensor Cursor 治理专项方案</h1>
     <p class="lead">
-      本文解决一个具体问题：现在很多 sensor cursor 写得像机器诊断报告，字段混乱、内容重复、很难一眼看出为什么触发或为什么跳过。
+      本文记录治理启动前的问题：当时很多 sensor cursor 写得像机器诊断报告，字段混乱、内容重复、很难一眼看出为什么触发或为什么跳过。
       治理目标是把 cursor 统一成“调度路标”，让运维人员打开 cursor 后先看到结论，再看到最少证据。
     </p>
     <p>
       <span class="tag">适用范围：lake_console/orchestrator sensors</span>
       <span class="tag">不改数据湖</span>
-      <span class="tag">不写 Dagster DB</span>
-      <span class="tag">先设计后实施</span>
+      <span class="tag">本文不授权正式环境写入</span>
+      <span class="tag">设计与历史审计记录</span>
     </p>
+    <p>当前已落地合同见 <a href="dagster-sensor-cursor-governance-low-level-design.html">Cursor LLD 的“已落地口径”</a>及现行 builder、消费者与测试。本次仅校准文档状态，不重新执行 sensor 或验收正式环境；下文历史问题与实施路线不能直接当作当前缺陷或待办。</p>
   </header>
 
   <section>
@@ -287,13 +288,13 @@
   </section>
 
   <section>
-    <h2>当前问题审计</h2>
+    <h2>治理启动前问题（历史基线）</h2>
     <p>
-      当前仓库已经有统一入口 <code>build_sensor_cursor(...)</code>，顶层字段相对稳定：
+      治理启动前仓库已有统一入口 <code>build_sensor_cursor(...)</code>，顶层字段相对稳定：
       <code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、
       <code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、
       <code>sample_keys</code>、<code>details</code>。
-      真正混乱的是 <code>details</code>。
+      当时的问题主要集中在 <code>details</code>；现行 builder 已要求非空 details 带 summary / next_action，并校验禁止字段与长度上限。
     </p>
     <table>
       <thead>
@@ -677,7 +678,7 @@
   </section>
 
   <section>
-    <h2>实施路线</h2>
+    <h2>原专项实施路线（历史记录）</h2>
     <ol>
       <li>
         <strong>C0 审计冻结。</strong>

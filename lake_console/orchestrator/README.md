@@ -50,31 +50,37 @@ Before changing Dagster definitions or formal Dagster design documents, read:
 
 ## Execution Gate
 
-The local Dagster instance is treated as a formal environment. Do not casually
-run `dg`, Dagster jobs, sensors, backfills, materializations, automation
-evaluations, or scripts that read the formal Dagster instance.
+The local Dagster instance is a formal environment, not a test sandbox.
+Static inspection and queries of existing formal facts follow the standing
+read-only authorization in the root AGENTS; do not initialize an instance,
+migrate storage, write probes, or trigger evaluations under that authorization.
 
-Any Dagster execution must first list the exact command, working directory,
-`DAGSTER_HOME`, read/write scope, expected impact, and rollback plan, then wait
-for explicit approval.
+Tests use an approved isolated validation plan, not formal Lake files, databases,
+tokens, or active tasks. Formal jobs, checks/evaluations, backfills, events,
+partition registration, and sensor/schedule state changes require stage-specific
+approval with the command, working directory, DAGSTER_HOME, read/write scope,
+impact, recovery approach, and reason. Inspect import/resource side effects
+before treating a command such as `dg check defs` as read-only.
 
-Static code and documentation checks are allowed.
+The detailed authority and environment rules live in [AGENTS.md](AGENTS.md).
 
 ## Common Static Checks
 
-From this directory:
+For Python changes, after verifying the existing environment and test isolation,
+run from this directory. Use the approved protected test launcher when a task
+provides one; do not bypass it with a direct pytest command.
 
 ```bash
-uv sync --group dev
-uv run python -m pytest -q tests
-uv run ruff check --select E9,F63,F7,F82 src tests
-uv run ruff check <changed Python files>
+.venv/bin/python3 -B -m pytest -q tests/<target_test_file.py>
+.venv/bin/ruff check --no-cache --select E9,F63,F7,F82 src tests
+.venv/bin/ruff check --no-cache <changed Python files>
 ```
 
 Do not add `PYTHONPATH=src` to work around import failures. The project is
-installed as an editable package in its own `.venv`; use `uv run python -m
-pytest` so the test runner and application imports always use the same Python
-environment.
+installed as an editable package in its own `.venv`; use that environment's
+interpreter. Missing dependencies must be reported; do not run `uv sync`,
+implicitly download dependencies, or rebuild the environment without installation
+approval. Documentation-only changes do not require business tests or Dagster execution.
 
 The repository-wide Ruff command is the current critical-error baseline. Run
 the default Ruff rules against every Python file changed by the task; broader
@@ -88,5 +94,8 @@ git diff --check
 git status --short
 ```
 
-These checks do not replace Dagster runtime validation. They are the safe
-default for code/documentation governance work.
+The docs script checks the root `docs/` surface, not `lake_console/docs/**` HTML.
+For those documents also check local links and structure; see the
+[onboarding template validation section](../docs/templates/dagster-dataset-onboarding-template.html#acceptance).
+Report static checks, read-only audits, isolated tests, and approved formal
+execution separately; none substitutes for another.
