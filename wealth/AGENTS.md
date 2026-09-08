@@ -125,7 +125,7 @@ wealth/
 6. `wealth/docs/update/04-component-guidelines.md`
 7. `wealth/docs/reference/showcase/component-library-demo-v2.2.html`
 
-股票详情页的顶部 `TopMarketBar` 必须完全复用市场总览页当前顶部栏。实现前必须先把当前 `TopMarketBar` 抽象为 shared 组件，并保证市场总览与股票详情页消费同一个组件；禁止复制、重写或引入第二套顶部栏。
+市场总览与股票详情页已共同使用 `wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx`。后续修改必须继续复用这个 shared 组件，不再重复抽取，也不得复制、另行重写或引入第二套顶部栏。
 
 ---
 
@@ -226,7 +226,7 @@ wealth/
 5. API 未实现前，只允许 mock，不允许偷偷调用 ops 后台接口凑数据。
 6. 格式化必须集中到 formatter，不允许页面各处手写金额、百分比、涨跌色规则。
 7. 异常码必须在 `wealth/docs/system/exception-code-registry.md` 登记后才能进入契约和代码；禁止散落定义。
-8. 本期仅榜单模块启用结构化异常码；其他模块后续分期接入，不允许提前扩散到计划外范围。
+8. 结构化异常码已用于榜单、成交额洞察、板块分析等模块。各模块按已批准的 implementation design/LLD 和现行契约使用；不得借规则校准给尚未接入的模块新增异常码能力。
 9. 后续接真实后端 API 时，`src/biz` 必须按模块目录组织（`api/queries/schemas/services` 四层都要按 `wealth/market/<module>` 分层），禁止扁平堆文件；规范见 `wealth/docs/system/engineering-architecture.md`。
 10. 模块接口只返回模块对象；整页聚合对象必须独立接口与独立 DTO 文件，不允许混在模块 schema 中。
 11. 禁止把 `wealth/docs/reference/api/**`、旧 Codex prompt、旧产品稿中的 `/api/market/home-overview`、`/api/moneyflow/market`、`/api/index/summary` 等旧路径作为新方案依据。

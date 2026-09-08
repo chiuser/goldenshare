@@ -26,12 +26,15 @@
 6. `scripts/goldenshare-ops-stk-mins-worker.service`
 7. `scripts/goldenshare-ops-index-mins-worker.service`
 8. `scripts/goldenshare-realtime-collector.service`
+9. `scripts/goldenshare-qtf-worker.service`
 
-当以上任一文件改动时，**必须**同步到服务器 `/etc/systemd/system` 并执行 `systemctl daemon-reload`，否则部署可能成功但服务启动失败（常见于 `ExecStart` 漂移）。
+获准部署且包含以上 unit 变更时，必须在批准范围内同步相应模板到服务器 `/etc/systemd/system`，并执行 `systemctl daemon-reload`，避免 `ExecStart` 等配置漂移。修改文件或提交代码本身不构成部署授权，不得据此同步服务器、reload、enable 或 restart 服务。
 
 ---
 
 ## 推荐流程
+
+以下流程与分层部署约束仅适用于已获管理员明确批准的部署；仅修改文件时做本地静态检查，不执行部署步骤。
 
 1. 先运行部署脚本 `--help` 与 shell 语法检查。
 2. 审计当前服务器生效 unit（`systemctl cat ...`）。
@@ -44,14 +47,16 @@
 2. `goldenshare-date-completeness-worker.service` 只要 `DEPLOY_OPS=1` 就必须 enable + restart。
 3. `goldenshare-ops-task-completion-worker.service` 只要 `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 就必须 enable + restart。
 4. `goldenshare-ops-stk-mins-worker.service` 和 `goldenshare-ops-index-mins-worker.service` 只要 `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 就必须 enable + restart。
-5. 需要在非全量部署中同时处理实时采集服务时，必须显式传 `--with-realtime`。
+5. 需要在 `--platform-only` / `--ops-only` / `--foundation-only` 部署中同时处理实时采集服务时，必须显式传 `--with-realtime`。
 6. 全量部署默认处理实时采集服务；如需跳过，显式传 `--skip-realtime`。
+7. `goldenshare-qtf-worker.service` 由 `DEPLOY_QTF` 控制：值为 `1` 时 enable + restart；全量部署默认包含 QTF，上述三种单层部署不包含 QTF。
+8. `--qtf-only` 安装后端、执行数据库迁移，并仅同步及启用/重启 QTF worker；不构建前端、不执行默认数据初始化、不重启其他服务，也不因 `--with-realtime` 启用实时采集服务。该模式不能与 `--maintenance-migration` 同用。
 
 ---
 
 ## 权限最小化
 
-若使用 `goldenshare` 用户部署，应在 sudoers 中仅放行：
+若使用 `goldenshare` 用户部署，应在 sudoers 中仅放行以下精确操作；本节是权限核对依据，不构成修改服务器权限的授权：
 
 1. `systemctl daemon-reload/restart/status`（受部署脚本管理的服务）
 2. `systemctl enable goldenshare-date-completeness-worker.service`（日期完整性审计 worker 是常驻服务，必须开机自启动）
@@ -59,6 +64,7 @@
 4. `systemctl enable goldenshare-ops-stk-mins-worker.service` 和 `systemctl enable goldenshare-ops-index-mins-worker.service`（分钟线专用 worker 是常驻服务，必须开机自启动）
 5. `systemctl enable goldenshare-realtime-collector.service`（实时 collector 是常驻服务，必须开机自启动）
 6. 受部署脚本管理的 unit 模板到 `/etc/systemd/system` 的 `install -m 644`
+7. `systemctl enable/restart/status goldenshare-qtf-worker.service`；QTF unit 同步仅允许将 `scripts/goldenshare-qtf-worker.service` 模板安装到对应目标文件，不放宽为任意源文件或目标路径。实际绝对路径按部署目录核对；缺少权限时停止部署并报明缺项，不自动修改 sudoers。
 
 不要给无边界的 root 命令白名单。
 

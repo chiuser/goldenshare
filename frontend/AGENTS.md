@@ -24,12 +24,12 @@
 - `typecheck + test + build + smoke/visual gate` 基础门禁
 - `Frontend Quality Gate`
 
-当前主要问题不是“没有前端”，而是：
+交付流程、交互与视觉 token 规则、自动检查均已建立；这不代表所有页面已完成治理。当前维护重点是：
 
-1. 缺少完整的前端交付流程
-2. 缺少统一的交互与视觉 token 规则
+1. 按现有前端交付流程执行任务，不另建一套流程
+2. 维护统一的交互与视觉 token 基线，在新页面和被修改页面中落实
 3. 已有共享组件与试点页成果还需要更稳的门禁保护
-4. 缺少更多可执行的前端规则自动检查
+4. 维护现有 `check:rules`、smoke / visual gate；具体缺口以 `docs/frontend/frontend-phase6-rollout-summary-v1.md` 的残留清单为依据
 5. `DataTable v1` 与 `TradeDateField v2` 这类试点基线仍需要在后续推广中守住边界
 
 因此，当前阶段的默认目标是：

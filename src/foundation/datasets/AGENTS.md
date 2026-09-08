@@ -2,19 +2,19 @@
 
 ## Scope
 
-This directory owns the dataset single-source model. It defines dataset identity and stable facts, not UI labels assembled in Ops or execution branches hidden in old implementations.
+This directory owns dataset identity and stable data facts. Ops presentation grouping and sorting belong to `src/ops/catalog`, not this model; legacy execution branches must not define dataset facts.
 
 ## Current Source Of Truth
 
 1. `DatasetDefinition` is the canonical dataset fact model.
-2. Dataset key, Chinese display name, source scope, table mapping, date model, filters, and user-facing grouping must converge here.
+2. Dataset key, dataset Chinese display name, data domain (`DatasetDefinition.domain`), source scope, table mapping, date model, and filters must converge here. Ops display groups, group labels, sorting, and default views belong to `src/ops/catalog`; see its `AGENTS.md`.
 3. Derived registries must be DatasetDefinition-shaped facts and must not read legacy execution contracts.
 
 ## Constraints
 
 1. Keep this layer foundation-only. Do not import `src.ops`, `src.biz`, `src.app`, `src.platform`, or `src.operations`.
 2. Define what a dataset is, not how Ops schedules or displays it.
-3. New user-facing facts must converge here; do not create parallel display-name, date-model, or input-schema maps in Ops or frontend.
+3. Dataset facts exposed to consumers must come from `DatasetDefinition`; do not create parallel dataset-name, date-model, or input-schema maps in Ops or frontend. This does not move Ops presentation configuration into Foundation.
 4. Do not hardcode execution branches such as legacy daily/backfill/history paths.
 5. Do not expose internal route keys, `job_name`, or legacy route names as user-facing dataset identity.
 6. Do not infer the dataset time model from source parameter names alone. Optional source parameters such as `start_date`, `end_date`, `ann_date`, or `trade_date` are not automatically user-facing time inputs.
