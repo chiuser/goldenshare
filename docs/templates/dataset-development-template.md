@@ -130,7 +130,7 @@
 强约束：
 
 1. 源站输出字段必须逐列对账，不能只对默认显示字段。源文档里“默认显示=N”的字段，如果业务需要保留，也必须进入 `source_fields`、ORM、迁移和导出白名单。
-2. `DatasetDefinition.source_fields` 是 `DatasetSourceClient -> connector.call(..., fields=definition.source.source_fields)` 的字段白名单，不是 request builder 返回值的一部分。测试不能只看 `request_params`，还要覆盖 connector payload 的 `fields`。
+2. `definition.source.source_fields` 是 `DatasetSourceClient -> connector.call(..., fields=definition.source.source_fields)` 的字段白名单，不是 request builder 返回值的一部分。测试不能只看 `request_params`，还要覆盖 connector payload 的 `fields`。
 3. raw 层字段名默认保留源站输出字段名；不要因为觉得名字难看就改名。确需改名时，必须在文档写清楚映射，并说明不会破坏 Lake raw 或源站审计。
 4. Goldenshare 自增字段如 `api_name/fetched_at/raw_payload/source/created_at/updated_at` 不是源站输出字段；可以用于生产表内部治理，但不得混入 `source_fields` 或 Lake raw 字段白名单。
 5. 如果源字段参与业务身份，例如 `category/type/freq/market/hot_type/is_new`，必须用真实样本验证它是否应进入主键、`conflict_columns`、`raw_conflict_columns` 或 `row_identity_filters`。不得默认使用 `(ts_code, trade_date)`。
@@ -199,7 +199,7 @@
 2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”、“0.3.3 源字段端到端对账表”和“0.3.4 硬需求追溯账本”；仅目标为 Prod 数据集时判断是否触发 0.3.5 长任务门禁。
 3. 新增源站文档，或在真实验证改变已知源端事实时更新 `docs/sources/**`；Tushare 文档新增/修改必须同步 `docs/sources/tushare/docs_index.csv`。已有且未变化的源文档要在方案中引用并记录已核验，不重复新建。
 4. 完成本文档，明确 `DatasetDefinition` 完整事实合同和执行/落库/观测方案；Prod 数据集长任务同时明确内存、持久化、续跑、进度和取消。
-5. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
+5. 按实际存储形态新增或复用 SQLAlchemy ORM 模型、DAO，并为数据库结构变更新增 Alembic 迁移；普通只读视图按 5.1 C 填写，不新增独立写入链路。新增 ORM 必须能被 `table_model_registry()` 自动发现。
 6. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
 7. 补齐 ingestion 能力：request builder、unit builder、row transform、writer 路径、分页、reject reason、codebook。
 8. 确认 Ops 派生能力：manual actions、catalog、workflow、freshness、dataset cards、TaskRun 详情；新增数据集必须配置 `src/ops/catalog/dataset_catalog_views.py`。
@@ -653,33 +653,46 @@
 
 #### C. `core` / `core_serving` / `core_serving_light`（如启用）
 
-- ORM 模型路径：
+- 存储形态：物理表 / 普通只读视图
+- ORM 映射 / 查询入口（按实际使用填写）：
 - 对外字段口径：
-- 主键：
-- upsert 冲突列：
-- 索引：
-- 是否分区：
+- 一行代表的业务事实及唯一业务键：
+- Alembic 迁移路径：
+
+物理表填写：
+
+- 数据库主键：
+- 实际写入路径及 upsert 冲突列（非 upsert 写入说明对应策略）：
+- 索引与分区：
+
+普通只读视图填写：
+
+- 视图 SQL、依赖表及字段映射：
+- 读取方及其 ORM / DAO 映射（如使用）：
+- 底层数据的实际写入路径：
+
+普通视图没有独立的物理主键、索引或分区，本层写入与 upsert 填“不适用”；ORM 如需标识键，应说明其对应的唯一业务键，不得把它写成视图上的数据库主键约束。只写 Raw、Serving 通过视图读取时，写入仍归属 Raw，不为填模板新增 Serving 写入 DAO、复制表或同步任务。
 
 ### 5.2 工程硬约束
 
 1. 数值类型默认使用 `DOUBLE PRECISION`；若使用 `NUMERIC`，必须逐字段说明理由。
 2. 对于源站中语义明确、格式稳定的日期字符串（例如 `YYYYMMDD`），raw 层允许直接落 PostgreSQL `date`；字段名保持不变，不额外保留第二份字符串镜像。
 3. 有 `trade_date` 且数据量较大的表，必须评估分区；默认年分区，超大表可月分区。
-4. 有 `ts_code + trade_date` 语义时，默认主键为 `(ts_code, trade_date)`，并评估 `trade_date` 方向索引。
+4. 先说明一行代表的业务事实，再按 0.3.3 的身份字段核验确定完整业务键及对应主键、冲突列；不得仅因存在 `ts_code`、`trade_date` 就默认采用两列主键。`trade_date` 方向索引按实际查询与数据规模单独评估。
 5. 新 ORM 模型必须能被 `src.foundation.models.table_model_registry.table_model_registry()` 发现；freshness 观测依赖该 registry。
 6. 新表必须有 Alembic 迁移，迁移和 ORM 模型字段必须一致。
 7. 新增 Alembic 迁移前必须先执行 `alembic heads`，`down_revision` 只能接真实 head。
 8. 重建、清空或删除业务表必须有明确确认；迁移文件中要把 destructive rebuild 的确认来源写清楚。
-9. 字段扩表不是只改 ORM；必须同步 `DatasetDefinition.source_fields`、raw/core ORM、Alembic 迁移、测试、Lake prod-raw-db 白名单（如适用）和相关文档。
+9. 字段扩表不是只改 ORM；必须同步 `definition.source.source_fields`、受影响的 raw/core ORM 或视图 SQL、Alembic 迁移、测试、Lake prod-raw-db 白名单（如适用）和相关文档。
 10. 如果源站输出字段全量落 raw，raw 表业务字段必须与源站输出字段逐列对齐；系统字段单独说明。
 
 ### 5.3 DAO
 
 - Raw DAO：
-- Core/Serving DAO：
+- Core/Serving DAO（注明读 / 写用途；普通只读视图不新增写入 DAO）：
 - 是否需要新增 DAOFactory 属性：
-- `bulk_upsert` / `insert` / 特殊写入策略：
-- 幂等策略：
+- 实际写入层的 `bulk_upsert` / `insert` / 特殊写入策略：
+- 实际写入层的幂等策略：
 
 ---
 
@@ -689,7 +702,9 @@
 
 - `request_builder_key`：
 - 函数位置：`src/foundation/ingestion/request_builders.py`
-- 输入来自 `DatasetActionRequest.time_input` / `filters` / `base_params`：
+- 运营意图：`DatasetActionRequest.time_input` / `filters`，经 resolver 归一化为 `ValidatedDatasetActionRequest`：
+- builder 输入：归一化请求，以及 unit planner 传入的日期锚点、对象 / 枚举值；输出源端 `request_params`：
+- 源端固定参数：来自 `definition.source.base_params`，不是 `DatasetActionRequest` 的字段。`DatasetSourceClient` 在发请求前依次合并固定参数、`request_params`、分页参数，同名参数由后者覆盖；说明本数据集涉及的参数及覆盖关系：
 - 是否需要源端字段名转换：
 - 是否需要默认参数：
 - 是否只做源接口格式化，不承担业务日期语义判断：
@@ -741,7 +756,10 @@
 - 是否先删后写：
 - 幂等写入策略：
 - 冲突列：
-- 事务边界：每个 unit 一个业务数据事务
+- 事务边界：按 4.10 的 `transaction.commit_policy` 和实际 `write_path` 填写，不能统一假定每个 unit 只有一次提交：
+  - `unit`：说明 unit 的业务提交边界；如采用 `staged_stream`，另列隔离 stage 的持久化边界，不能将 stage 提交视为业务发布。
+  - `raw_then_serving`：当前仅允许 `fund_daily` 专用两阶段 write path，先提交 Raw，再写入并提交 Serving；Serving 失败不能回滚已提交 Raw，不得将该模式自行扩展到其他数据集。
+- 各阶段失败后的已提交事实、读回依据与重试 / 续跑处理：
 - 已提交 unit 的读回与续跑判定：
 - 取消后保留 / 清理边界：
 
@@ -847,7 +865,7 @@
   - 时间参数映射
   - filter / enum 参数映射
   - 不产生非法 ALL sentinel
-  - connector payload 中的 `fields` 等于 `DatasetDefinition.source_fields`
+  - connector payload 中的 `fields` 等于 `definition.source.source_fields`
   - 对分页接口，真实 connector 或等价测试替身覆盖第二页、short page 和页合并唯一键对账
 - Normalizer：
   - date / decimal / required fields
@@ -904,7 +922,7 @@ cd frontend && npm run typecheck && npm run test && npm run build
 
 - [ ] 0.3.4 硬需求追溯账本已填写；本阶段所有关联行均为“已验证”，不存在空白或未解释的“不适用”
 - [ ] 每次里程碑 / 提交前已将追溯账本与实际 `git diff`、前序提交和测试文件对账；不存在未覆盖消费者
-- [ ] 源站文档与 docs index 已更新
+- [ ] 新增或事实变化的源站文档已更新，并按第 1 节同步相关索引；已有且事实未变化的文档已引用并记录核验结果，不要求无变化也修改文档或索引
 - [ ] 0.3.3 源字段端到端对账表已填完，源文档、真实样本、`source_fields`、ORM、迁移、真实表、Lake 白名单口径一致
 - [ ] DatasetDefinition 完整事实合同已填写，与当前模型和 linter 一致
 - [ ] 新数据集没有旧执行术语或旧路由
