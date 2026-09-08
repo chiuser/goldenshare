@@ -191,7 +191,7 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 规则：
 
 1. `stock_basic`、`trade_calendar`、`suspend_d` 这类会被其它资产消费的上游事实资产，必须有明确且唯一的正式更新入口。
-2. 下游业务 job 只能通过 readiness / blocking checks 确认基础资产已 materialized、checks 已通过、freshness 满足当日生产条件。
+2. 下游业务 job 必须通过该链路已批准的 readiness / blocking check 合同确认基础资产可用，且 freshness 满足当日生产条件。证据采用事件模式还是文件模式，遵守性能规范 §5.1；文件校验通过不能冒充正式事件已补齐，也不能向既有文件模式强加事件深扫。
 3. 下游业务 job 不得为了“省一步”把 `raw_tushare_stock_basic`、`silver_stock_basic`、`raw_tushare_trade_calendar`、`silver_trade_calendar` 等共享基础资产放入自己的 selection。
 4. 如果某个下游业务确实需要从 raw 到 silver 到 gold 的组合入口，必须在方案文档中单独说明该 job 的写入范围、只读依赖范围、重复执行影响和并发保护；不能默认扩大 selection。
 5. `stock_basic` 虽然是 full snapshot、不是 `trade_date` 分区资产，但新股上市会影响当日日线标准化和完整性检查，因此应按“日更全量快照基础资产”设计 freshness，不应简单归为低频资产。
@@ -204,9 +204,9 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 
 规则：
 
-1. ready 必须至少包含目标上游 asset 已 materialized，且该 asset 对应的 blocking checks 全部通过。
+1. ready 必须满足该链路已批准的完整 blocking check 语义；事件模式检查 materialization/check 记录，文件模式核对实际文件并复用完整校验语义。证据边界统一见 [性能规范 §5.1](../docs/design/dagster-data-pipeline-performance-governance.md#51-ready-的最低定义)，不得自行切换模式或改动现行字段与消费者。
 2. full snapshot 资产还必须额外判断 freshness，例如 `stock_basic` 是否满足当日生产需要；不能因为历史上 materialized 过就永久视为 ready。
-3. partitioned 上游资产必须按同一个 `partition_key` 判断 materialization 和 checks，例如 `silver_stock_suspend_daily[trade_date]`。
+3. partitioned 上游资产必须按同一个 `partition_key` 判断数据可用性与检查结果；事件模式核对对应分区事件，文件模式核对对应分区文件及完整校验条件，不能把两种证据混为一谈。
 4. WARN checks 只作为观测信号，不阻断生产；但 WARN metadata 必须可见，不能被静默吞掉。
 5. sensor 只能提交满足门禁的 `RunRequest`；门禁不满足时返回清晰 `SkipReason` 或不请求下游，不得在下游 job 内部补上游。
 6. 禁止解析 `run_key` 生成 `run_config`；`run_key` 只用于幂等去重。执行参数只能来自显式 `run_config`、`partition_key`、上游 metadata/status，或正式定义的 `upstream_batch_id`。
@@ -300,7 +300,7 @@ Sensor definition tags 是 Automation 页面筛选和运维分类的一部分，
 2. 禁止把分钟线、日线或分区明细拉回 Python 后，用 `for` 循环、list/dict 拼装、逐行计算、逐行 merge 或逐行写文件来生成正式 lake parquet。
 3. Python 只允许做编排、参数校验、路径发现、批次规划、少量样本收集和结果汇总；不得承载正式数据集的大体量业务计算逻辑。
 4. 若确需在 Python 中处理数据，必须证明数据规模很小且不会随历史分区、股票数量、分钟行数或日常新增量增长；方案文档必须写清行数上界和为什么 DuckDB 不适用。
-5. 写正式 Parquet 时，必须使用临时文件加原子替换，例如 `.tmp + os.replace`；禁止直接覆盖目标文件导致半写入状态。
+5. 写正式 Parquet 时，候选必须位于正式 Lake 外的 run-scoped `data_lake_staging`，完整校验后同文件系统逐文件 `os.replace()`；保存 checkpoint 并保留异常现场，不声称多文件整体原子。仅在目标文件旁写 `.tmp` 不是完整安全机制；既有实现差距见性能规范 §2.6，不能据此自行清理文件或改造运行链路。
 6. 历史批量写入必须先说明物理文件冲突维度，例如 `freq/ts_code/year`，并设计串行或等价互斥保护；禁止多个任务同时写同一个目标 Parquet 文件。
 7. 正式 `src/orchestrator/defs/**` 中的 DuckDB 连接必须通过 `DuckDBResource` 或 `connect_configured_duckdb(...)` 统一入口创建；禁止 asset、check、bootstrap、qfq、repair、sensor readiness helper 自行 `duckdb.connect()`，测试文件除外。
 8. 代码评审时，一旦发现新增 helper 在正式路径上用 Python 手工计算大体量数据、写 Parquet，或绕过统一 DuckDB 连接入口，必须停止开发，改回 DuckDB/SQL/统一连接方案后才能继续。
@@ -409,7 +409,7 @@ data_lake/gold
 
 规则：
 
-1. 资产分类只认 `raw` / `silver` / `gold`。
+1. 本节约束 Lake 物理目录，只允许 `raw` / `silver` / `gold`；不是限制所有资产标签。当前 `AssetLayer` 还包含 `serving` 和 `platform`，分别用于查询副本与平台资产，不对应新增 Lake 物理层。
 2. 旧数据湖路径不再作为任何新 Dagster asset 的正式 path。
 3. 新 Dagster asset path 禁止出现旧路径概念，包括但不限于：
 

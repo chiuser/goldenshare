@@ -81,6 +81,17 @@ sensor、run-status sensor、AutomationCondition 替代 sensor、日常 readines
 4. 不能为了让历史 check 变绿，从输出结果反推“依据”再用该依据证明输出正确。这最多是内部一致性审计，不是源头正确性证明。
 5. 公式金样本不得随意删除、弱化或跳过。业务公式确实变更时，必须同时更新设计口径、fixture 输入、字面 expected 输出、测试说明和静态门禁。
 
+### 2.6 已核实的实现差距（不是本轮代码整改授权）
+
+2026-09-08 对照当前代码确认下列差距仍存在。本文规定后续设计要求，不代表所有存量链路已满足规范；本次没有运行正式 DG、测量生产耗时或完成代码整改。
+
+| 项目 | 当前代码事实 | 后续处理边界 |
+| --- | --- | --- |
+| Gold 与 Silver 重算对账 | [market_breadth_checks.py](../../orchestrator/src/orchestrator/defs/checks/market_breadth_checks.py) 和 [stock_return_distribution_checks.py](../../orchestrator/src/orchestrator/defs/checks/stock_return_distribution_checks.py) 的正式 reconciliation checks 仍调用同日 Silver 重算逻辑，再与该日 Gold 比较；不是全历史扫描。 | 先审计 checks、readiness、job selection 与测试中的依赖，区分应保留的数据对账与可迁往金样本测试的公式验证，再提出方案。未经批准，不删除、弱化或改名现行检查，也不把它们作为新接入默认示例。 |
+| 通用 Tushare 拉取与文件写入 | [tushare_api_io.py](../../orchestrator/src/orchestrator/defs/tushare_api_io.py) 的 `_fetch_all_pages` 累积分页行；`_write_rows_to_parquet` 在目标旁生成同名 `.tmp`，若已有则先删除，再写入并 `os.replace()`。这不具备 §6.3 的完整 staging/checkpoint 机制，也不是大表流式写入。 | 改造前审计全部调用方的规模、空数据、字段、覆盖与失败重跑行为，单独设计等价迁移及隔离回归；不因本次文档调整自动替换 helper、迁移数据或清理遗留文件。 |
+
+与[接入模板 §2.1“计算测试与生产 Check 分工”](../templates/dagster-dataset-onboarding-template.html)、[§7 既有拉取 helper 能力说明](../templates/dagster-dataset-onboarding-template.html#tushare-source) 对照阅读。这里记录的是已核实的两项差距，不是全仓实现合规清单。
+
 ---
 
 ## 3. 开发前性能设计清单
