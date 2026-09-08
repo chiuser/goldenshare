@@ -7,9 +7,9 @@
 1. 周线使用自然周周五作为 `trade_date`。
 2. 月线使用自然月最后一天作为 `trade_date`。
 
-对应修正方案见：
+统一日期口径见：
 
-1. [股票周/月线自然锚点日期模型修正方案 v1](/Users/congming/github/goldenshare/docs/architecture/stk-period-calendar-anchor-date-model-fix-plan-v1.md)
+1. [日期指南：股票与指数周期线](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)
 
 ---
 

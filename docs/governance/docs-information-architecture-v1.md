@@ -1,6 +1,6 @@
 # 文档信息架构与待整合清单 v1
 
-更新时间：2026-09-08（Architecture 基线合并）
+更新时间：2026-09-08（Architecture 基线与数据集专题合并）
 
 ## 1. 目标
 
@@ -61,7 +61,7 @@ docs/
 
 ### 4.1 Architecture 组
 
-当前状态：2026-09-08 按用户确认将本组 7 份文档合并为 3 份。只整合文档，不改代码、依赖规则、数据库或 Lake；未全面审计其他架构方案。
+基线批次状态：2026-09-08 按用户确认将下列 7 份文档合并为 3 份。数据集专题另按下文第二批记录收敛为 4 份。只整合文档，不改代码、依赖规则、数据库或 Lake；未全面审计其他架构方案。
 
 1. [子系统架构基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)：目录、职责、依赖矩阵、现存差距、legacy 边界与护栏。
 2. [Foundation 研发基线](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)：Prod 数据分层、研发原则与上手入口。
@@ -110,7 +110,7 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 1. 当前运行时行为、API 契约和数据字段：以代码、测试、配置与实际运行事实为准。
 2. 系统边界与依赖方向：统一以 `subsystem-boundary-plan.md` 为准，目标、现存差距与护栏覆盖分别阅读。
 3. 数据集静态事实：以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准；执行计划以 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan` 为准。
-4. `dataset-definition-enum-reference-v1.md` 只维护枚举语义和约束边界，不维护易漂移的数量快照；精确数量由代码 registry 与测试提供。
+4. 枚举语义已分别并入 DatasetDefinition 与日期指南；完整字段、可用组合和数量由模型、linter、registry 与测试提供，不另维护手工快照。
 5. 方案、LLD 与验收记录保留各自角色：方案/LLD 解释设计与局部实现，验收记录提供时点证据，均不能覆盖当前代码事实。
 6. 清退专项 M5 的 86 份纯旧 Local Lake 文档与 3 份旧模板退出当前工作树，不建立 archive/tombstone。必要历史结果归入 [单一初始化与修复总账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-bootstrap-legacy-links.md)，全文通过 Git 历史追溯；当前正式设计与混合文档只局部纠偏，不连带删除。
 
@@ -118,10 +118,47 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 
 本轮 Architecture 入口治理结论：
 
-1. S0 保留仓库上手总览、QTF 方案、子系统架构基线与 Foundation 研发基线；S1 不再重复列出这些入口，合并后的专题仅保留多源映射与发布规则。
-2. `Dataset Maintain M-1 到 M8` 仅保留为历史执行索引，不再作为 Architecture 主入口；当前实施状态回到关联主案、代码和测试。
+1. S0 保留仓库上手总览、QTF 方案、子系统架构基线与 Foundation 研发基线；S1 不再重复列出这些入口；多源专题及下述四份数据集专题各自承担独立职责。
+2. `Dataset Maintain M-1 到 M8` 已在第二批提取有效要求后删除；旧阶段记录从 Git 追溯，当前实施状态回到执行专题、代码和测试。
 3. 方案与 LLD 成对保留时，必须分别承担上位方案与落地细节；独立验收记录、审计记录和旧 Local Lake 证据不提升为当前主入口。
 4. `top_list` 版本收口方案已实施，后续未决范围仅限数值冲突业务规则，不再使用无状态标签的“专项方案”表述。
+
+
+<a id="dataset-topics-consolidation-20260908"></a>
+
+### 4.1.2 数据集架构专题：11 份收敛为 4 份
+
+2026-09-08，按用户确认的“正确性 + 简洁性”审计建议实施。只改四份承接文档、索引和直接引用，删除以下七份旧文档；没有代码、配置、数据、服务或架构边界变更。合并前全文可从提交 `bf608b7c` 恢复，不另建 archive 或空壳跳转文档。
+
+| 原文档（均在 docs/architecture） | 处理与关键内容去向 |
+| --- | --- |
+| `dataset-definition-single-source-refactor-plan-v1.md` | 保留路径，现行定义专题：字段归属、输入/来源、对象池例外、存储与观测、消费者 |
+| `dataset-definition-enum-reference-v1.md` | 删除；非日期语义并入定义 §2–5，日期枚举并入日期指南 §2，分页/提交规则并入执行 §4–5；全量列表回到代码 |
+| `dataset-universe-model-refactor-plan-v1.md` | 删除；对象池来源、覆盖与空池边界并入定义 §4，展开与 Plan 字段关系并入执行 §3 |
+| `dataset-definition-input-filter-cleanup-plan-v1.md` | 删除；无效 exchange 的污染原因、已完成结论、合法参数例外和回归入口并入定义 §3 |
+| `dataset-execution-plan-refactor-plan-v1.md` | 保留路径，现行执行专题；实际 Plan 字段、分页/stage、unit 与 fund_daily 两阶段提交、进度、历史事故及目标边界 |
+| `dataset-maintenance-refactor-m-1-to-m8-execution-index-v1.md` | 删除；主链、状态隔离、枚举哨兵、验收要求并入执行 §1/3/5/8；施工阶段不再单独保留 |
+| `dataset-date-model-consumer-guide-v1.md` | 保留路径，日期唯一专题入口；输入/执行/审计三层、字段、特殊锚点、Workflow 和消费者 |
+| `workflow-time-shape-vs-time-regime-analysis-v1.md` | 删除；时间形状与制度、默认日期、输入边界并入日期 §5；五个数据集及 workflow 的专项进度仍归参考数据任务组索引 |
+| `stk-period-calendar-anchor-date-model-fix-plan-v1.md` | 删除；股票/指数差异、周期无交易的规则排除、共表 freq、空计划边界及测试入口并入日期 §4/6 |
+| `weekly-monthly-trade-date-anchor-confirmation-v1.md` | 删除；被推翻的“全部最后交易日”不再作为规则，修正原因并入日期 §4 |
+| `core-serving-light-design-v1.md` | 保留路径；实际开关、局部路由、日线 upsert 刷新、视图与实体差异、已知局限及待建设方向 |
+
+四份现行入口：[定义](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)、[执行](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)、[日期](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)、[Serving Light](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)。
+
+#### 没有随精简消失的关键边界
+
+- index_weight 与 index_mins 的显式代码规则不同；index_daily 请求池与 Serving 池不同；dc_member/ths_member 的本地前置依赖保留。
+- 输入日期不等于连续完整性；自然周五/月末不等于最后交易日；季度锚点不自动启用连续审计。
+- stage 页持久化不等于业务发布；SQL batch 不等于提交；unit commit 不等于已证明持久化续跑。
+- 历史 stk_mins 大事务事故的原因与防回归要求保留；不重新执行旧停机清空、seed 或迁移步骤。
+- Foundation 只发结构化进度、Ops 统一格式化仍是方向，当前 executor 生成中文 message 的事实保留；不借本轮改造代码。
+- 原状态 outcome/coverage/队列及 Light 指标、巡检、通用刷新任务的拟议名称不冒充现行 API；对应安全/观测目标保留，不宣称已验收。
+- 源端并发专题、TaskRun 专题和参考数据任务组继续承接各自进度；本文不自动关闭它们。
+
+核验使用 CodeGraph `codegraph_explore` 后定向读取模型、resolver/planner、linter、日期定义/审计、Workflow 默认输入、Light 设置/查询/刷新/CLI 及对应测试。CodeGraph 返回的无关符号未作为判断依据。按文档治理技能先迁入有效信息、区分事实与目标，再更新引用与删除；本轮不增加新的治理体系。
+
+本批结果：11 份专题原有 4,494 行，合并后四份共 493 行；不是按行数目标删规则，重要信息去向按上表对账。文档完整性三个检查组、382 个本地 Markdown 链接及锚点的定向检查、`git diff --check` 均通过；七个旧文件名只保留在本节追溯表，不再作为活跃引用。未运行代码测试或生产验收，未修改代码和数据；其他任务的 README 条目及未跟踪文件保留。文档精简不等于完成文中仍注明的运行态目标。
 
 ### 4.2 Ops 组
 

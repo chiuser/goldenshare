@@ -20,12 +20,12 @@
 
 对应文档：
 
-1. [Workflow 时间形状与时间制度分析 v1](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)
+1. [日期指南：Workflow 时间形状与默认制度](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#workflow-time)
 2. [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 
 说明：
 
-1. 上位架构分析负责讲清“时间形状 vs 时间制度”与 M2 允许改动面
+1. 日期指南维护“时间形状 vs 时间制度”的现行规则；本文的 M2 步骤仅供历史追溯
 2. `reference_data_natural_day_maintenance` 已归档；当前 `st` 不再按自然日 point/range 维护
 
 ### B. 五个新数据集开发接入
@@ -107,7 +107,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 产物：
 
-1. `workflow-time-shape-vs-time-regime-analysis-v1.md`
+1. [日期指南 §5（承接原 Workflow 时间分析）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#workflow-time)
 2. `ops-workflow-catalog-v1.md`
 
 目标：
@@ -305,4 +305,4 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 1. [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 2. [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
-3. [Workflow 时间形状与时间制度分析 v1](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)
+3. [日期指南：Workflow 时间形状与默认制度](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#workflow-time)

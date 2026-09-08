@@ -27,7 +27,7 @@
 
 - 当前运行时行为、API 契约和数据字段：以代码、测试、配置与实际运行事实为准。
 - 系统边界与依赖方向：统一看子系统架构基线；数据研发与 Ops 契约分别看对应基线。
-- 数据集语义与执行事实：分别看 `DatasetDefinition`、`DatasetExecutionPlan` 的现行主案及其代码/测试；枚举参考只解释语义，不维护数量快照。
+- 数据集语义与执行事实：分别看数据集定义、执行计划、日期语义专题及其代码/测试；不维护手工数量快照。
 - 专题方案与 LLD：用于补充局部设计和决策背景；与当前代码冲突时不能替代当前事实源。
 - 验收记录、研究报告、历史/冻结文档：用于追溯证据，不作为当前实现依据。
 
@@ -49,6 +49,8 @@ docs/
 
 ## 3. 架构与治理（S1）
 
+2026-09-08：数据集架构专题由 11 份收敛为 4 份，保留定义、执行、日期、Serving Light；七份旧枚举/专项/索引的有效内容已并入，不再保留重复入口。[逐文件去向与未完成目标边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#dataset-topics-consolidation-20260908)见治理记录。
+
 2026-09-08：原独立依赖矩阵、Platform 拆分与 Ops 收敛基线已并入“子系统架构基线”；旧 Foundation 上手指南的有效入口并入“Foundation 研发基线”，原发布治理规范收窄为多源专题。[逐项合并去向与旧待办处理](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#architecture-consolidation-20260908)见治理记录；旧全文可从 Git 历史恢复。
 
 - [设计原则（历史参考；当前边界以基线为准）](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
@@ -56,15 +58,10 @@ docs/
 - [旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2（M1–M8 已提交 / 5 项本机残留已移入废纸篓，记录随本次提交归档）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
 - [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（165 份文档矩阵 / M8 结果 §16.15 / 本机残留清理与恢复映射 §16.16）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
 - [多源映射与发布规则（仅多源专题）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
-- [DatasetDefinition 单一事实源重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
-- [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md)
-- [Dataset Universe 模型收口方案 v1（已完成）](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)
-- [DatasetDefinition 输入筛选契约清理方案 v1（已实施）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-input-filter-cleanup-plan-v1.md)
-- [DatasetExecutionPlan 执行计划模型重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
-- [Dataset Maintain 重构 M-1 到 M8 执行索引 v1（历史执行索引）](/Users/congming/github/goldenshare/docs/architecture/dataset-maintenance-refactor-m-1-to-m8-execution-index-v1.md)
+- [DatasetDefinition 数据集定义与职责](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
+- [DatasetExecutionPlan 执行计划与可靠执行](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
 - [数据集源端拉取并发执行方案 v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/architecture/dataset-fetch-concurrency-execution-plan-v1.md)
 - [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
-- [Workflow 时间形状与时间制度分析 v1（M2 已落地）](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)
 - [实时行情流架构方案 v1（HTML，日线/分钟已接入，端到端验收已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)
 - [股票实时日线流技术落地方案 v1（日线已上线 / 统一 collector 已承载分钟 feed / 端到端验收已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-technical-plan-v1.md)
 - [A股实时分钟流架构方案 v1（HTML，M7/M8 已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)
@@ -89,9 +86,7 @@ docs/
 - [股票日线趋势通道 M0 只读规模与性能验证报告（M0 已通过）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md)
 - [ETF 激活池历史设计与退场记录 v1（代码与生产物理表均已退场）](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-design-plan-v1.md)
 - [ETF 激活池历史 LLD 与退场实现记录 v1（P3-P8 代码退场与 P11 生产 drop 均已完成）](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-low-level-design-v1.md)
-- [股票周/月线自然锚点日期模型修正方案 v1（已实施）](/Users/congming/github/goldenshare/docs/architecture/stk-period-calendar-anchor-date-model-fix-plan-v1.md)
-- [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
-- [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
+- [Serving Light 现行读取与刷新边界](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
 - [新闻—个股关联技术方案 v1（已实现并结案，2026-09-01）](/Users/congming/github/goldenshare/docs/architecture/news-stock-linking-technical-solution-v1.md)
 - [新闻—个股关联低层设计 LLD v1（已实现并结案，2026-09-01）](/Users/congming/github/goldenshare/docs/architecture/news-stock-linking-low-level-design-v1.md)
 - [`top_list` 业务身份与来源版本收口方案 V1（已实施；后续数值规则待决策）](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)

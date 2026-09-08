@@ -1,446 +1,117 @@
-# DatasetDefinition 单一事实源重构方案 v1
+# DatasetDefinition 数据集定义与职责
 
-- 状态：已落地到现行主链；`DatasetDefinition` 静态事实与执行静态事实已收口到 `src/foundation/datasets/**`
-- 日期：2026-04-25
-- 适用范围：`src/foundation/**`、`src/ops/**`、Ops Web API、任务中心前端、CLI
-- 关联方案：[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
+更新时间：2026-09-08。状态：现行代码合同说明。本文承接原定义主案、枚举参考、Universe 与输入筛选清理方案的有效内容；旧迁移过程通过 Git 历史追溯，不作为当前操作指令。
 
----
+## 1. 职责与入口
 
-## 0. 当前落地状态（2026-05-16）
+`DatasetDefinition` 定义“数据集是什么”，`DatasetExecutionPlan` 表达“一次维护如何执行”。二者不是并列的静态事实源。
 
-1. `src/foundation/datasets/models.py` 与 `registry.py` 已建立 DatasetDefinition 主模型与查询入口。
-2. `src/foundation/datasets/definitions/**` 已按领域落下数据集的静态事实；`registry.py` 不再运行时遍历旧 contract 生成 DatasetDefinition。
-3. [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md) 只维护枚举语义与约束边界；完整数据集清单和数量以 `src/foundation/datasets/registry.py::list_dataset_definitions()` 与测试为准，不再维护手工事实矩阵。
-4. `dc_index`、`dc_daily`、`dc_member` 的 `idx_type` 已收口为东方财富板块类型枚举：`行业板块 / 概念板块 / 地域板块`。
-5. 执行静态事实已随 Definition 收口：source request builder、planning page_limit/unit builder、transaction policy 不再由旧 contract 持有。
-6. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从旧任务规格、旧执行契约或前端 formatter 反推。
-7. 历史同步实现目录已从代码仓物理删除；本文后续章节不再以旧路径作为当前依据。
+- 定义、构建与查询：[models.py](/Users/congming/github/goldenshare/src/foundation/datasets/models.py)、[registry.py](/Users/congming/github/goldenshare/src/foundation/datasets/registry.py)、[definitions](/Users/congming/github/goldenshare/src/foundation/datasets/definitions)。
+- 请求解析与执行：[执行计划专题](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)。
+- 日期字段、锚点及消费者：[日期消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)。
+- 分层、数据类型与开发门禁：[Foundation 研发基线](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)、[数据集模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)。
 
----
+完整字段看模型；完整数据集清单从 `list_dataset_definitions()` 读取。本文不维护手工数量快照，也不复制全量 Python 类定义。
 
-## 1. 一句话结论
+## 2. 字段归属
 
-后续只能由 `DatasetDefinition` 定义“一个数据集是什么”。中文名、英文标识、数据域、来源 API、日期模型、输入参数、写入目标、观测字段、可维护能力，都必须从 `DatasetDefinition` 派生。
+| 部分 | 负责的事实与边界 |
+| --- | --- |
+| `identity` | dataset key、名称、别名、逻辑数据集身份与来源优先级；旧任务路由不是数据集身份 |
+| `domain` | 底层数据域；不等于 Ops 展示分组、更新频率或 freshness 策略 |
+| `source` | 默认/允许来源、adapter、API、显式源字段、源文档、request builder 与基础参数 |
+| `date_model` | 时间输入、执行锚点、观测字段与日期审计语义 |
+| `input_model` | 时间字段、业务筛选、必填组、互斥组与字段依赖 |
+| `storage` | 目标、Raw/Std/Serving/observation/stage、DAO、冲突键、行归属与替换范围 |
+| `planning` | 对象池、枚举扇出、请求变体、分页、unit builder、批量上限、拉取并发 |
+| `normalization` | 日期/数值转换、必需字段与行转换器 |
+| `capabilities` | 动作、手动/自动/重试能力、支持的时间模式及动作级调度日期策略 |
+| `observability` | 进度标签、freshness 策略及现有观测投影字段；执行计划的观测日期/审计适用性取自 `date_model` |
+| `quality` | 拒绝、空结果、重复键、必需值集合、写前校验等质量要求 |
+| `transaction` | 提交策略、幂等要求、写入量评估 |
+| `completeness` | 完整性范围、对象身份、预期对象来源与生命周期；不能仅用日期桶存在代替对象完整性 |
 
-旧执行路由不再作为领域概念、API 概念、UI 概念或长期代码主语存在。迁移完成后，它们应从活跃代码中消失。
+模型中的字符串默认值不自动成为允许的新业务语义。取值及组合要经过 definition 构建、linter、实现注册表与消费者核验。
 
----
+## 3. 输入、枚举与来源
 
-## 2. 已确认决策
+### 输入必须对应真实意图
 
-| 决策 | 结论 |
-|---|---|
-| 用户主动作 | 统一叫“维护”，后端 action 使用 `maintain` |
-| 旧执行名 | 最终直接消失，不再作为当前事实源 |
-| 迁移策略 | 停机式直接重构，不做兼容，不做双读双写 |
-| 前端心智 | 只展示维护对象、处理范围、发起方式、状态，不展示底层执行路径 |
-| 日期事实源 | 以 `DatasetDefinition.date_model` 为唯一事实源 |
-| 目录与命名 | 后续目录/文件命名必须与新架构一致，历史同步目录与契约文件命名不作为目标结构保留 |
+源接口支持一个可选参数，不代表应该向运营开放。新增或修改输入，按根 AGENTS 与数据集模板完成源文档、真实行为和全量消费者核验。
 
----
+- `time_fields` 表达时间输入；`filters` 表达有明确用途的业务过滤。分页参数不是运营常规输入。
+- `enum_values` 是实际业务取值；`option_labels` 只解释已声明取值，不能新增值。
+- 多选/全选须展开真实枚举集合。`__ALL__` 不得进入源请求、查询上下文或业务落库字段。
+- `enum_fanout_fields/defaults` 表示不同组合生成不同 unit；`request_variant_fields/defaults` 表示同一 unit 内的请求变体，不能互换。
+- `required_groups`、`mutually_exclusive_groups`、`dependencies` 由模型声明、validator 消费；页面不另造契约。
 
-## 3. 历史审计结论与当前处理
+历史输入清理保留的教训：无效字段即使被 request builder 丢弃，也会污染动作目录、TaskRun 意图和计划参数/身份。原六个数据集的 `exchange` 清理已完成，不能继续按“待修复问题”推进；当前拒绝用例还覆盖后续新增的 `cyq_chips`。有效的其他数据集 `exchange` 不在删除范围，见 [resolver 回归](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py) 的 `rejects_removed_exchange_filter` 及合法 exchange 用例。
 
-### 3.1 M0 前事实源分散
+### 来源与 selector 不混用
 
-M0 前最接近数据集事实源的是旧数据集执行契约：
+`source_key_default/source_keys` 表示来源选择，`adapter_key` 选择客户端，`request_builder_key` 选择参数构造器，`unit_builder_key` 选择规划器，`row_transform_name` 选择归一化转换。这些是不同职责，不能用一个名称替代其他字段。
 
-- 数量：57 个 contract
-- 已包含：数据集标识、展示名、运行画像、日期模型、输入模型、规划策略、来源策略、写入策略、观测策略
+新增 selector 必须有实现、注册与测试。当前入口见 [request_builders.py](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)、[unit_planner.py](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)；不得把字符串写进 Definition 就当作能力已经实现。
 
-说明：旧数据集执行契约是历史运行投影位置，不是目标事实源位置。当前 DatasetDefinition 静态事实已落到 `src/foundation/datasets/definitions/**`；运行投影由 `src/foundation/ingestion/**` 从 Definition 派生。
+<a id="universe-contract"></a>
 
-M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在 ops 或其他目录：
+## 4. 对象池定义与特殊边界
 
-| 信息 | 当前位置 | 问题 |
-|---|---|---|
-| 中文名、底层领域、freshness policy | 旧 ops 规格注册表中的 freshness metadata | foundation 数据集事实被 ops 反向补全 |
-| 可调度/可手动运行能力 | 旧任务规格中的 schedule/manual flag | 执行路径和用户能力混在一起 |
-| 参数展示名与枚举 | 旧任务规格中的参数定义 | 与旧执行契约 input schema 重叠 |
-| 手动维护动作 | `ManualActionQueryService` 从旧任务规格拼装 | action 是由旧执行路径反推出来的 |
-| 任务名称 | 旧任务规格 display name、前端 formatter | 同一对象多处命名，容易不一致 |
-| freshness 投影 | `DatasetDefinition` 派生的 `DatasetFreshnessProjection` | 是有价值投影，但只能从 definition 派生 |
-| `/ops/catalog` | 旧任务规格 + 旧工作流规格输出 | 暴露系统内部 spec，不是用户级数据集模型 |
+`planning.universe_policy` 的现行业务值为 `pool/no_pool`；`none` 是历史未定义占位，不作为新数据集的业务含义。模型仍有该默认值，不代表允许依赖默认值省略审计。
 
-### 3.2 M0 前旧任务规格膨胀
+`planning.universe` 描述请求字段 `request_field`、显式选择字段 `override_fields`、有序来源 `sources(type/resource)`。这里的字段属于 Definition；Plan 已保存展开后的 units，并不包含 `plan.planning.universe`。
 
-M0 前旧数据集与旧任务规格统计明细已随历史文档下线。
+`override_fields` 不能被概括为“有输入就无条件绕过对象池”。代表性边界如下，真实行为必须连同 planner 与测试读取：
 
-这说明旧任务规格已经不只是“任务规格”，而是在表达“数据集 + 时间模式 + 执行切片方式 + 调度能力 + UI 展示名”。这是维护成本和 UI 心智混乱的主要来源。
-
-### 3.3 日期模型处理
-
-M0 前旧执行契约曾沉淀过日期语义；当前已上移为 `DatasetDefinition.date_model`，见：
-
-- [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
+| 数据集/场景 | 必须保留的边界 |
+| --- | --- |
+| `index_weight` | 显式 `index_code` 不查默认池；默认先查 `index_weight` active 池，空时查未终止的 `index_basic`，全部为空报 `universe_empty` |
+| `stk_mins` | 默认 active equity 池优先使用 Tushare 来源；显式 `ts_code` 不扫描默认池；频率与窗口仍由现行 builder 处理 |
+| `biying_equity_daily/moneyflow` | 默认读本地 Biying stock_basic 的 `dm/mc`；显式 `ts_code` 转为 `dm`；保留日线复权类型扇出、资金流 100 天窗口 |
+| `index_mins` | 默认用 `index_mins` active 池；显式代码仍须在该池内，不回退到 `index_basic` |
+| `dc_member` | 默认来源为按日期读取的本地 `dc_index`；不得恢复规划阶段远程 fallback；显式板块/成分过滤仍遵守 builder |
+| `ths_member` | 默认来源为本地 `ths_index` 快照；来源与空池失败语义不能隐藏在旧 selector 中 |
+| `index_daily` | 请求池 `index_daily_raw` 与 Serving 的 `index_daily` active 池是两件事；Raw 保存本次返回，Serving 再筛选，不能因字段标记或通用规则改变范围 |
 
-M2 后这部分已上移到 `DatasetDefinition.date_model` 的静态定义中。后续 M3 只允许从 Definition 派生运行投影，不应再由 ops 侧单独定义或猜测。
-
----
-
-## 4. 目标模型
-
-### 4.1 核心关系
-
-```mermaid
-flowchart LR
-  A["DatasetDefinition<br/>数据集单一事实源"] --> B["DatasetExecutionPlan<br/>执行计划投影"]
-  A --> C["DatasetOpsDescriptor<br/>Ops 展示投影"]
-  A --> D["DatasetActionCatalog<br/>用户动作目录"]
-  A --> E["DatasetFreshnessProjection<br/>状态观测投影"]
-  A --> F["DatasetSourceDocProjection<br/>源接口/字段文档投影"]
-```
-
-只有 `DatasetDefinition` 是事实源；其他都是投影或派生模型。
-
-### 4.2 建议代码归属
-
-| 模型 | 建议目录 | 原因 |
-|---|---|---|
-| `DatasetDefinition` | `src/foundation/datasets/**` | foundation 定义底层数据能力，不依赖 ops |
-| `DatasetExecutionPlan` | `src/foundation/ingestion/**` | 执行引擎消费的运行投影，替代历史同步实现命名 |
-| `DatasetActionCatalog` | `src/ops/queries/**` 或 `src/ops/services/**` | ops 面向用户动作和任务中心 |
-| `DatasetFreshnessProjection` | `src/ops/queries/**` | freshness 是 ops 观测投影，只能从 definition 派生 |
-| `WorkflowDefinition` | `src/ops/action_catalog.py` | 工作流属于运维编排，不是数据集事实 |
-
-评审关注点：是否接受新增 `src/foundation/datasets/**` 作为数据集定义主目录。我的建议是接受，避免继续把主模型塞在历史同步实现目录里。
-
-### 4.2.1 目标目录与命名原则
-
-历史同步实现目录命名带有明显阶段性：它表达的是某一版同步链路，不是稳定领域模型。新架构应按长期领域职责命名，而不是按版本号或历史命令命名。
-
-建议目标结构：
-
-```text
-src/
-  foundation/
-    datasets/
-      models.py              # DatasetDefinition 及其子模型
-      registry.py            # definition 查询入口
-      definitions/
-        market_equity.py
-        market_fund.py
-        index_series.py
-        board_hotspot.py
-        moneyflow.py
-        reference_master.py
-        low_frequency.py
-    ingestion/
-      execution_plan.py      # foundation 可理解的计划结构
-      resolver.py            # DatasetActionRequest -> DatasetExecutionPlan
-      unit_planner.py
-      executor.py
-      source_client.py
-      normalizer.py
-      writer.py
-      progress.py
-  ops/
-    actions/
-      resolver.py            # DatasetActionRequest -> DatasetExecutionPlan
-      catalog.py             # 面向用户的 action catalog
-    execution/
-      dispatcher.py
-      schedules.py
-      workflows.py
-```
-
-命名原则：
-
-1. `datasets` 表达“数据集是什么”，不表达怎么执行。
-2. `ingestion` 表达“从外部源取数、归一化、写入”，不再按历史同步版本命名。
-3. `execution_plan` 表达标准计划，不再叫旧任务规格。
-4. `ops/actions` 表达用户动作和后端解析，不再从旧执行路径反推 action。
-5. 版本号如 `v2` 只允许出现在迁移文档或历史归档中，不应出现在长期主目录名中。
-
-### 4.3 `DatasetDefinition` 当前字段结构
-
-```python
-@dataclass(frozen=True, slots=True)
-class DatasetDefinition:
-    identity: DatasetIdentity
-    domain: DatasetDomain
-    source: DatasetSourceDefinition
-    date_model: DatasetDateModel
-    input_model: DatasetInputModel
-    storage: DatasetStorageDefinition
-    planning: DatasetPlanningDefinition
-    normalization: DatasetNormalizationDefinition
-    capabilities: DatasetCapabilities
-    observability: DatasetObservability
-    quality: DatasetQualityPolicy
-    transaction: DatasetTransactionDefinition
-```
-
-建议字段分组：
-
-| 分组 | 主要字段 | 说明 |
-|---|---|---|
-| `identity` | `dataset_key`、`display_name`、`description`、`aliases` | 只表达数据集身份 |
-| `domain` | `domain_key`、`domain_display_name` | 只表达底层领域事实，不表达页面分组或 freshness 策略 |
-| `source` | `source_key_default`、`adapter_key`、`api_name`、`source_fields`、`source_doc_id` | 对接源接口事实 |
-| `date_model` | 现有 `DatasetDateModel` | 日期语义唯一来源 |
-| `input_model` | 时间输入以外的过滤参数、枚举、默认值、校验规则 | 替代 ops 侧重复参数定义 |
-| `storage` | raw/core/serving 表、DAO 名、冲突键、写入路径 | 替代分散 target table 推断 |
-| `planning` | universe、fanout、pagination、unit builder | 表达请求拆分和 unit 规划 |
-| `normalization` | date/decimal/required fields、row transform | 表达行归一化规则 |
-| `capabilities` | 支持的 action、是否可手动、是否可自动、默认计划策略 | 表达“能做什么”，不表达“怎么走旧路径” |
-| `observability` | progress label、observed field、audit flag、freshness policy | 生成 freshness/status 投影；`freshness_policy` 由集中映射注入 |
-| `quality` | reject policy、必填字段、数据质量门禁 | 生成 validator/linter 规则 |
-| `transaction` | commit policy、幂等要求、写入量评估 | 表达业务数据事务边界 |
-
-### 4.4 完整结构示例
-
-以下示例用 `dc_hot`，因为它同时包含交易日时间模型、筛选项、枚举扇出、默认值、写入目标和观测规则。字段名是目标结构草案，用于评审模型颗粒度，不代表最终代码已落地。
-
-当前口径：热榜美股市场默认关闭。仅当 env `TUSHARE_ENABLE_US_HOT_MARKETS=true` 时，`dc_hot` 追加 `美股市场`，`ths_hot` 追加 `美股` 到可选枚举和默认扇出。
-
-```python
-{
-    "identity": {
-        "dataset_key": "dc_hot",
-        "display_name": "东方财富热榜",
-        "description": "维护东方财富热榜数据。",
-        "aliases": (),
-    },
-    "domain": {
-        "domain_key": "board_theme",
-        "domain_display_name": "板块 / 题材",
-    },
-    "date_model": {
-        "date_axis": "trade_open_day",
-        "bucket_rule": "every_open_day",
-        "window_mode": "point_or_range",
-        "input_shape": "trade_date_or_start_end",
-        "observed_field": "trade_date",
-        "audit_applicable": True,
-    },
-    "planning": {
-        "universe_policy": "no_pool",
-        "enum_fanout_fields": ("market", "hot_type", "is_new"),
-        "enum_fanout_defaults": {
-            "market": ("A股市场", "ETF基金", "港股市场"),
-            "hot_type": ("人气榜", "飙升榜"),
-            "is_new": ("Y",),
-        },
-        "pagination_policy": "offset_limit",
-        "page_limit": 5000,
-        "unit_builder_key": "generic",
-    },
-    "observability": {
-        "progress_label": "dc_hot",
-        "observed_field": "trade_date",
-        "audit_applicable": True,
-    },
-    "transaction": {
-        "commit_policy": "unit",
-        "idempotent_write_required": False,
-        "write_volume_assessment": "按交易日和枚举组合生成 unit，每个 unit 独立提交。",
-    },
-}
-```
-
-补充：`freshness_policy="continuous_open_day"` 不写入 `DATASET_ROWS`，而是在 `src/foundation/datasets/freshness_policies.py` 集中登记，并由 builder 注入 `DatasetObservability`。
-
-这个示例有两个重点：
-
-1. `market/hot_type/is_new` 的默认扇出属于数据集定义和执行计划，不应该散落在手动任务 service 或旧执行分支里。
-2. `DatasetDefinition` 定义事实和能力，但不定义“这次具体执行哪些 unit”；具体 unit 仍由 `DatasetExecutionPlan` 在运行时生成。
-
----
-
-## 5. 派生模型职责
-
-### 5.1 `DatasetExecutionPlan`
-
-`DatasetExecutionPlan` 是执行引擎消费的投影，由 `DatasetActionResolver` 从 `DatasetDefinition` 派生。
-
-它只回答：
-
-1. 如何校验请求。
-2. 如何生成执行单元。
-3. 如何调用来源 API。
-4. 如何归一化与写入。
-5. 如何上报进度和错误。
-
-它不再承担：
-
-1. 用户任务名称。
-2. 自动任务展示。
-3. Ops 任务筛选名称。
-4. 工作流步骤展示。
-
-### 5.2 `DatasetOpsDescriptor`
-
-Ops 展示投影只回答：
-
-1. 维护对象叫什么。
-2. 属于哪个领域。
-3. 支持什么时间输入。
-4. 可展示哪些筛选项。
-5. 当前 freshness / lag / 状态如何。
-
-它不能包含旧执行路径名。
-
-### 5.3 `DatasetActionCatalog`
-
-动作目录从 `DatasetDefinition.capabilities.actions` 派生。
-
-目标响应形态：
-
-```json
-{
-  "actions": [
-    {
-      "action_key": "daily.maintain",
-      "dataset_key": "daily",
-      "action": "maintain",
-      "display_name": "维护股票日线",
-      "resource_display_name": "股票日线",
-      "time_form": {
-        "control": "trade_date_or_range",
-        "allowed_modes": ["point", "range"],
-        "selection_rule": "trading_day_only"
-      },
-      "filters": []
-    }
-  ]
-}
-```
-
-当前字段为 `route_keys`，只表达动作入口的回填匹配键。不得恢复旧路由字段，也不得让前端自行从旧路径推导执行事实。
-
----
-
-## 6. 对现有模型的处理
-
-| 现有模型 | 处理方式 |
-|---|---|
-| 历史数据集执行契约 | 历史模型已退场；事实迁入 `DatasetDefinition`，运行投影迁入 `DatasetExecutionPlan` |
-| `DatasetDateModel` | 保留语义，上移为 `DatasetDefinition.date_model` |
-| `InputSchema/InputField` | 合入 `DatasetInputModel`，并派生 API/前端参数展示 |
-| `PlanningSpec` | 保留为执行计划输入，但从 definition 派生；对象池语义已收口到 `universe_policy=no_pool|pool` 与 `planning.universe`，`none` 已清零且不得作为业务语义 |
-| `SourceSpec/WriteSpec/ObserveSpec` | 合入 definition 的 source/storage/observability |
-| `DatasetFreshnessProjection` | 从 definition 生成的 ops 投影，不得作为独立事实源维护 |
-| 旧任务规格 | 已退出用户/调度主模型；动作目录改由 `DatasetDefinition` 与 `src/ops/action_catalog.py` 派生 |
-| 旧工作流规格 | 已重建为引用 action 的 `WorkflowDefinition`，不再引用旧任务 key |
-| `/ops/catalog` | 重做为数据集/动作/工作流目录，不再输出旧 spec catalog |
-
----
-
-## 7. API 影响
-
-### 7.1 新接口方向
-
-推荐新增或替换为：
-
-```text
-GET  /api/v1/ops/datasets
-GET  /api/v1/ops/datasets/{dataset_key}
-GET  /api/v1/ops/dataset-actions
-POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
-```
-
-### 7.2 废弃方向
-
-停机切换后，下列接口不再以旧语义存在：
-
-| 当前接口 | 处理方式 |
-|---|---|
-| `GET /api/v1/ops/catalog` | 替换为新目录，或改为输出新模型 |
-| 旧任务运行 API 直接提交旧执行规格 | 改为提交 `DatasetActionRequest` |
-| `GET /api/v1/ops/manual-actions` | 可保留路径，但响应必须由 `DatasetDefinition` 派生，且不含旧路线 |
-
----
-
-## 8. 数据库影响
-
-由于已确认停机、不兼容，建议直接重塑 ops 运行表语义。
-
-### 8.1 任务运行观测表
-
-当前任务运行观测已收敛到 `ops.task_run`、`ops.task_run_node`、`ops.task_run_issue`：
-
-| 新字段 | 说明 |
-|---|---|
-| `task_type` | `dataset_action` / `workflow` / `maintenance_action` |
-| `resource_key` | 单数据集 action 对应的数据集 key |
-| `action` | 当前主值 `maintain` |
-| `request_payload_json.target_key` | workflow 或 maintenance action 的目标 key |
-| `time_input_json` | 标准处理范围 |
-| `filters_json` | 用户筛选输入 |
-| `plan_snapshot_json` | resolver 生成的 plan 快照 |
-
-`dataset_action` 和 `action=maintain` 不是同一层含义：
-
-| 字段 | 层级 | 含义 | 示例 |
-|---|---|---|---|
-| `task_type=dataset_action` | 执行对象类型 | 这次 task run 作用在某个数据集动作上 | `resource_key=daily` |
-| `action=maintain` | 用户动作/业务意图 | 对该数据集执行“维护”动作 | 维护股票日线 |
-| `task_type=maintenance_action` | 执行对象类型 | 不属于单一数据集的系统维护动作 | 重建物化视图、重建派生服务表 |
-
-因此为避免和 `maintain/维护` 混淆，系统维护动作统一表达为 `maintenance_action`，不再使用模糊的 job/system job 命名。
-
-### 8.2 `ops.schedule`
-
-当前自动任务调度目标统一为：
-
-| 新字段 | 说明 |
-|---|---|
-| `target_type` | `dataset_action` / `workflow` / `maintenance_action` |
-| `target_key` | 数据集动作 key、工作流 key 或系统维护动作 key |
-| `params_json` | 固定时间输入和筛选条件 |
-| `trigger_mode` | `schedule` / `probe` / `schedule_probe_fallback` |
-| `probe_config_json` | 探测触发配置 |
-
-### 8.3 迁移策略
-
-因为当前未正式上线，建议：
-
-1. 停机前导出当前 ops execution/schedule 快照，作为人工核对备份。
-2. 停机窗口内执行 schema migration。
-3. 清空或重建旧运行观测历史记录。
-4. 自动任务按新 `target_type/target_key` 模型重新 seed。
-5. 不保留旧调度兼容字段。
-
-评审关注点：是否允许清空历史 execution。我的建议是允许，当前阶段历史任务记录价值低于模型干净度。
-
----
-
-## 9. 里程碑
-
-| 里程碑 | 目标 | 主要产物 | 门禁 |
-|---|---|---|---|
-| M0 设计冻结 | 冻结术语和边界 | 两份方案已标注当前落地状态与后续边界 | 不允许再新增旧三件套引用 |
-| M1 Definition 审计 | 建立 registry 覆盖与枚举语义参考 | 当前 DatasetDefinition 覆盖测试与枚举语义参考 | dataset key 覆盖当前 DatasetDefinition |
-| M2 Definition 独立化 | DatasetDefinition 不再运行时投影旧 contract | `src/foundation/datasets/definitions/**`、独立 registry、输入字段枚举事实 | registry 不导入旧 contract；definition tests |
-| M3 Runtime 投影生成 | 从 definition 生成 runtime/freshness/action 投影 | `DatasetExecutionPlan`、Ops descriptor、freshness projection | 无重复元数据表 |
-| M4 Ops API 切换 | API 不再输出旧执行路径 | manual-actions、task-runs、catalog/schedule 结构化展示字段 | Web API 测试 |
-| M5 前端切换 | 任务中心只消费新模型 | 手动/记录/详情/自动任务页调整 | 前端单测、smoke、截图 |
-| M6 DB 停机迁移 | 清理旧字段和旧状态表残留 | migration、seed、清理脚本 | 本地重建、远程演练 |
-| M7 删除旧模型 | 删除旧三件套和旧 dispatcher 分支 | 引用清零、守护测试 | `rg` 旧名活跃代码为 0 |
-
----
-
-## 10. 风险与控制
-
-| 风险 | 控制方式 |
-|---|---|
-| 一次性改动过大 | 按 M0-M6 分轮实施，但每轮不做兼容双轨 |
-| 执行路径行为变化 | 每个 dataset 的旧路径到新 plan 建审计矩阵 |
-| 自动任务丢失 | 停机前导出 schedule，切换后按新 seed 重建 |
-| 前端字段变化导致空显示 | API 契约测试 + 前端类型测试 + smoke |
-| definition 再次膨胀 | definition 只定义事实，执行 plan 细节放关联方案 |
-
----
-
-## 11. 验收标准
-
-最终完成时必须满足：
-
-1. 活跃代码不再出现旧执行路由作为执行模型主语。
-2. 新增数据集只需要新增一个 `DatasetDefinition`，不能再同时改多张元数据表。
-3. 手动任务、自动任务、任务记录、任务详情的名称全部来自同一个 dataset display source。
-4. 日期控件和处理范围全部从 `DatasetDefinition.date_model` 派生。
-5. 执行器只消费 `DatasetExecutionPlan`，不再按旧任务规格类别分支。
-6. `python3 scripts/check_docs_integrity.py`、架构依赖测试、ingestion 定义/计划测试、ops API 测试、frontend smoke 全部通过。
+对象池契约收口不代表所有专用 builder 已可被一个通用算法替换。`no_pool` 也不能作为“整个链路绝不读取任何对象集合”的证明；对既有特殊路径须核验实际实现，不在本轮文档整理中重构它。
+
+行为依据：[DatasetUnitPlanner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)、[registry 测试](/Users/congming/github/goldenshare/tests/test_dataset_definition_registry.py)、[resolver 测试](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)。这些路径解释现行行为，不授权改变对象池数据。
+
+## 5. 存储、质量与观测语义
+
+### 存储与执行分别表达
+
+`delivery_mode` 表达交付方式，`layer_plan` 表达经过的层，`write_path` 选择具体 writer。以 [Foundation 基线 §3](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md#3-foundation-分层与数据路径)为准，不要求所有数据集物理走完 Raw/Std/Serving，也不要求为 Serving 视图增加 writer。
+
+例如 `raw_only_upsert` 只说明写 Raw；是否通过 Serving/Light 视图提供查询，须读 storage 与实际消费者。`serving_direct_upsert` 及 observation/scope/stage 等专用路径已有独立限制，不得漏列后反推“必须写 Raw”。
+
+完整写入组合、质量规则与事务限制统一查 [linter.py](/Users/congming/github/goldenshare/src/foundation/ingestion/linter.py)、[writer.py](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)及数据集模板 §4–6。不要复制一份容易遗漏新策略的全量枚举表。
+
+`row_identity_filters` 表达共表数据集的行归属；`replacement_scope_fields` 表达替换范围；`conflict_columns` 表达写入冲突身份，三者不能互相替代。质量拒绝必须解释原因和样本；声明 `record_rejections` 不是允许忽略大量拒绝。
+
+### Freshness 策略单处维护
+
+策略从 [freshness_policies.py](/Users/congming/github/goldenshare/src/foundation/datasets/freshness_policies.py)登记并构建到 Definition，不放回已退场的 `domain.cadence`，也不在 Ops、前端、报表复制映射。
+
+| 策略 | 判断口径 |
+| --- | --- |
+| `continuous_open_day` | 连续开市日的业务日期 |
+| `continuous_natural_day` | 连续自然日的业务日期 |
+| `period_bucket` | 周、月、月份窗口等周期桶 |
+| `event_run_trace` | 事件维护迹象及真实观测值，不要求每天有事件 |
+| `snapshot_run_trace` | 快照维护迹象及真实观测值，不用同步日期伪造业务日期 |
+
+事件/快照未确认维护状态的 `unconfirmed` 与技术事实缺失的 `unknown` 不混用。观测要求不改变“状态写失败不得回滚业务数据”的边界。
+
+## 6. 派生消费者与变更范围
+
+- Ops 的动作、catalog、cards、freshness、snapshot、完整性审计消费 Definition 投影；展示分组/排序归 [dataset_catalog_views.py](/Users/congming/github/goldenshare/src/ops/catalog/dataset_catalog_views.py)，不反写底层 domain。
+- Ops 保存意图，Resolver 负责日期归一化与计划生成；API/前端只消费派生能力，不能另建事实映射。
+- 主任务与详情使用 TaskRun；现行 API 见 [Ops 当前契约](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)。原方案拟建的 URL 和投影类名不是现行 API 定义。
+- 修改 Definition 必须覆盖所有实现方与消费者，并同步数据集模板；输入、日期、对象池、写入身份和配置的变更分别遵守根 AGENTS，不能以“内部整理”为由改现行 CLI/API 行为。
+
+## 7. 维护与历史边界
+
+定义/解析变更至少核对 registry、resolver、freshness 与相应架构护栏；按 [数据集模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)选择测试与获准的真实验收。文档整合本身只运行文档检查，不执行同步、重建或迁移。
+
+旧单一事实源与对象池迁移已形成当前入口，原阶段计划不再是待办。旧运行历史的导出、清空、重建建议已撤销为当前操作指导；任何实际数据清理都需新的明确授权。历史方案全文可从 Git 追溯，本文件不宣称所有运行态目标已验收。
