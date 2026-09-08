@@ -1,6 +1,6 @@
 # 财势乾坤｜我的自选分组能力低层设计 v2（LLD）
 
-> 状态：首轮十项及复审七项修订已获用户确认并回填；本轮仅修改文档，不提交；尚未进入业务代码、数据库迁移、部署或验收
+> 状态：两轮修订已确认；开发准入两项已处理（名称依赖准入、搜索合同勘误）；尚未进入业务代码、数据库迁移、部署或功能验收
 >
 > 日期：2026-09-08（初稿 2026-09-07）
 >
@@ -26,7 +26,7 @@
 6. 游标是无签名、版本化、严格校验的 base64url JSON。它不是授权凭证；资源所有权始终由认证用户和 group 条件校验。
 7. 所有批量写、详情页最终集合替换和删除分组均为单事务；提交前构造完整 DTO，提交后不回读。数据库修改保持原子性；明确回滚、结果未知、成功后刷新失败分别处理，不能混为一类错误。
 8. 首页 `summary` 路径与响应不变，只统计默认组。`useWatchlistSummary`、首页入口和 `MarketShortcutBar` 不需要重写。
-9. 用户已确认首轮十项及复审七项修订，逐项回填见第 21.1～21.2 节；本次仅修改文档，不提交。获得后续开发授权后按第 18 节三个完整阶段推进，不再按原五个 Slice 拆开相互依赖的后端替换。
+9. 用户已确认两轮修订及开发准入两项处理，逐项回填见第 21.1～21.3 节；本次仅处理文档、名称依赖安装/锁定和验证样本，不提交、不进入业务编码。获得后续开发授权后按第 18 节三个完整阶段推进。
 
 初稿代码审计事实快照（2026-09-07；不是本次修订时的 HEAD）：
 
@@ -37,7 +37,7 @@
 | Alembic head | `20260903_000169`，于 2026-09-07 实际执行 `alembic heads` 核验 |
 | 当前后端 | 单用户—股票表、整数 `afterId`、六个 v1 路由 |
 | 当前前端 | 单 Panel、行内移除、详情页直接 PUT、已添加后按钮禁用 |
-| 本次修订写入 | 只修改 watchlist 文档、相关索引与异常码注册表；不修改业务代码、迁移或数据 |
+| 初稿及前两轮修订范围 | watchlist 文档、相关索引与异常码注册表；本次新增依赖准入结果另见第 21.3 节 |
 
 ## 1. 当前代码审计与影响面
 
@@ -210,8 +210,8 @@ src/app/auth/services/auth_service.py                            [改走 provisi
 src/app/auth/services/admin_user_service.py                      [改走 provisioning]
 src/scripts/create_user.py                                       [改走 provisioning]
 
-pyproject.toml / uv.lock                                         [阶段一依赖批准后登记字素簇库；本轮不修改]
-tests/fixtures/wealth_watchlist_group_names.json                  [新增共享名称向量]
+pyproject.toml / uv.lock                                         [准入已登记 regex==2025.7.34]
+tests/fixtures/wealth_watchlist_group_names.json                  [准入已新增共享名称向量]
 ```
 
 `src/app/api/v1/router.py` 不改；仍组合同一个 watchlist router。`src.foundation`、`src.ops`、`qtf` 不改。
@@ -493,9 +493,9 @@ SORT_FIELDS = (
 
 不做大小写折叠、NFKC 全角折叠、拼音或内部空格折叠；`AI` 与 `ai`、`A股` 与 `A 股` 分别视为不同名称。同名只比较完全相同的 NFC + trim 结果。
 
-实现落点：后端 Policy 调用 `normalize_group_name` / `count_visible_graphemes`，计划采用 `regex` 的 `\X`；前端 `watchlistGroupName.ts` 使用 `Intl.Segmenter("zh", {granularity:"grapheme"})` 做即时提示。二者按同一扩展字素簇规则和共享 JSON 向量校验，后端最终裁决，不能默默退回码点长度。依据：[Unicode UAX #29](https://www.unicode.org/reports/tr29/)、[regex 官方字素匹配说明](https://github.com/mrabarnett/mrab-regex#matching-a-single-grapheme-x)。
+实现落点：后端 Policy 调用 `normalize_group_name` / `count_visible_graphemes`，采用已锁定 `regex==2025.7.34` 的 `\X`；字符类别 L/N/P/S、Cc/Cf/Zl/Zp 等也用该库 Unicode 属性判断。当前 Python `unicodedata` 为 Unicode 15.1，不能用其 `category()` 代替 Unicode 16 的类别判断；NFC 仍使用 `unicodedata.normalize`。前端 `watchlistGroupName.ts` 使用 `Intl.Segmenter("zh", {granularity:"grapheme"})` 和 Unicode 属性正则。共享向量验证后端最终裁决，不能退回码点长度。依据：[Unicode UAX #29](https://www.unicode.org/reports/tr29/)、[regex 2025.7.34 发布说明](https://pypi.org/project/regex/2025.7.34/)。
 
-环境门禁：当前根 pyproject.toml/uv.lock 未登记 regex；本轮只确定算法与拟用依赖，不安装、不改锁文件。阶段一使用前须报批依赖安装，在现有项目虚拟环境完成版本/Unicode 规则验证后锁入 pyproject.toml/uv.lock；同时验证目标浏览器 Intl.Segmenter。若能力不足，不得自行简化产品口径或手写不完整的 Unicode 分段器。
+环境门禁：2026-09-08 用户已授权处理依赖准入；`regex==2025.7.34` 已登记至根 pyproject.toml/uv.lock 并安装到现有 `.venv`，未升级或卸载其它包。该版本支持 Unicode 16.0，无额外运行依赖，有 Python 3.13/macOS arm64 wheel。51 个样本在 Python、Node 与本机 Chrome 上通过，具体证据见第 21.3 节。该结论只证明本机依赖和样本可用，正式 Policy、API、数据库和目标浏览器页面回归仍在开发阶段执行；不得因此声称全部 Unicode 或所有浏览器已验证。
 
 技术输入保护与业务长度分开：原始名称最多 1024 UTF-8 字节，先于分段执行，规范值同样不超过该上限；前后端使用同一规则。它用于防止单个字素含异常大量组合符，不能宣传成“最多 1024 字”。该固定保护上限通过 groups.rules 返回 `nameMaxUtf8Bytes`，不另设运行配置；数据库存 Text，不再用码点数截断。字段、Policy、前端提示与反例测试必须同时落地。
 
@@ -1045,7 +1045,7 @@ type GroupsState =
 #### 12.3.1 搜索与单股添加接线
 
 1. `WatchlistPage -> AddWatchlistDialog` 显式传入当前 groupId/name、`onAdd=Items.addToCurrentGroup` 和该动作派生的 pending/结果；旧 `useWatchlistController` 的 `appendAddedItem/pendingCodes/memberships` 接线全部删除。
-2. 保留并修改 `useWatchlistSearchController(groupId, open)`。请求键至少含 groupId、keyword 和 generation，调用 `/groups/{groupId}/search`；切组、关闭、关键词改变或卸载都 abort 旧 GET 并提升 generation，重置对应结果。接受响应前核验请求上下文仍有效；搜索 DTO 若未携带 groupId，不凭空添加字段，使用捕获的请求键检查归属。
+2. 保留并修改 `useWatchlistSearchController(groupId, open)`。请求键至少含 groupId、keyword 和 generation，调用 `/groups/{groupId}/search`；切组、关闭、关键词改变或卸载都 abort 旧 GET 并提升 generation，重置对应结果。响应必须按第 8.2 节携带合法 `groupId`；接受前同时核验 `response.groupId === request.groupId` 和 generation/请求上下文仍有效。缺失、非法或不匹配的 groupId 按 `WL_QUERY_FAILED` 合同错误处理，不使用 URL、本地状态或 v1 响应兜底补字段；已过期的请求直接丢弃，不污染新组结果或错误态。
 3. `ADDED` 只来自当前组搜索事实或当前组单股添加的合法成功结果。成功结果可立即标记这只股票，再刷新搜索；不得把其它组的状态复用过来，也不能把当前组首批中找不到的股票当成未添加。
 4. 添加成功提示改为“已添加到「分组名」”，删除现有“已添加到列表末尾”。搜索刷新由现有 Search Controller 执行，groups/items 由 Page 协调一次；每类请求只有一个发起者。
 5. 结果未知时，回读 groups、当前组首批和当前搜索归属，必要读取完成后才恢复添加；搜索关闭或股票不在当前结果中时，用 `GET /stocks/{tsCode}/groups` 只读核验原组归属，不新增查询接口或新 Controller。若待核验组已消失，以 groups 事实清除旧上下文，不向失效组继续搜索。没有合法成功响应，不显示添加成功提示。
@@ -1280,6 +1280,7 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 8. 单股添加端到端接线：Page/Dialog/Items/Search 不依赖旧 Controller；当前组 ADDED 隔离、关键词/关闭/切组旧响应丢弃、成功在当前排序重载而非末尾追加。写成功但任一刷新失败不重发 PUT；结果未知且目标股票不在首批/搜索结果时只读核验归属。
 9. 一个点击只触发一个写请求，groups/items/search 各只刷新一次；改色/删除状态由 Groups 独占。pending 与禁用从 mutation 派生，success + GET error 可同时表达，unknown + GET error 只能重试读。ID 响应超过安全整数范围即合同失败，不可舍入后进入 Set。
 10. 本页添加、批量与详情写成功后的列表更新均清除旧 cursor/请求，使用当前排序首批；外部变化只在刷新时重新读取，不把按 ID 去重当作补漏机制。
+11. 搜索响应的 groupId 正确时才接受；缺失、越界、类型非法或与请求不一致均拒绝。另测“groupId 正确但 generation 过期”仍丢弃，禁止只有一层检查；不得恢复 v1 无 groupId 合同。
 
 ### 16.5 组件与页面
 
@@ -1340,9 +1341,9 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 |---|---|---|
 | 产品需求 | 已确认 | 保持 v2.6 的加入顺序、资格及一致性边界 |
 | 交互/Figma | 已确认 | 节点 `1383:82` 及 comment 修订有效 |
-| 技术方案 | 两轮修订已确认并回填 | v2.3 与本文一致 |
-| LLD | 两轮修订已确认并回填 | v2.2；本次仅修改文档，不提交；后续开发须另获明确授权 |
-| 名称分段依赖 | 已确定算法；安装未授权 | 按第 7.2 节报批、锁定依赖、验证浏览器/后端共享向量；不得退回码点计数 |
+| 技术方案 | 两轮修订及准入勘误已回填 | v2.4 与本文一致 |
+| LLD | 两轮修订及准入勘误已回填 | v2.3；后续业务开发须另获明确授权 |
+| 名称分段依赖 | 本机准入已完成 | regex 已安装锁定，51 个跨运行时样本通过；正式模块测试在开发阶段补齐 |
 | Alembic head | 当前已核验 | 编码迁移前再次核验 |
 | 当前代码/消费者 | 已审计 | 开发开始前 CodeGraph 状态无 stale |
 | 数据库/部署授权 | 未授权 | 本期开发不等于生产迁移授权 |
@@ -1353,7 +1354,7 @@ PostgreSQL 并发测试还要证明 unique conflict 只识别目标约束，不�
 
 ### 阶段一：完整后端闭环
 
-1. 完成名称依赖准入，先定义 Policy、异常和 v2 DTO，供后续服务引用。
+1. 复核已完成的名称依赖准入，先定义 Policy、异常和 v2 DTO，供后续服务引用；将共享样本接入正式模块测试。
 2. 新增 group/membership ORM、迁移脚本、Initializer、UserProvisioningService，接好三种用户创建入口与测试 fixture。
 3. 完成 GroupQuery、ItemQuery、Cursor、FieldMapper、QueryService/CommandService、v2 router 和错误映射。
 4. 在这一完整阶段内替换所有后端消费者并删除旧模型、查询、DTO 和五个旧接口；不得以临时 alias 让中间状态通过测试。
@@ -1441,7 +1442,7 @@ npm --prefix wealth run build
 
 ## 21. 待拍板与版本记录
 
-首轮十项及复审七项修订均已获用户确认。首轮第 7 项把基础排序由创建时间改为不可变成员 ID；复审进一步统一资格、安全整数与分页边界，并删去重复设计。本轮仅回填、检查文档，不提交，不把文档检查通过表述成业务功能完成。
+两轮修订及本次两项准入处理均已获用户确认。本次仅完成名称依赖准入、共享样本及搜索合同勘误，不提交，不把准入验证表述成业务功能完成。
 
 ### 21.1 十项修订对账
 
@@ -1458,7 +1459,7 @@ npm --prefix wealth run build
 | 9 | 详情每次打开 GET，成功后建立 draft | 8.4 | 12.5、14、16.4 | 重复打开、读取失败、旧响应、无额外 PUT |
 | 10 | 数据库约束/初始化/Service 各负其责，不增触发器 | 3.1、3.4、9.3 | 4.1、6、16.1 | 默认组禁删改、用户级联、缺组报错 |
 
-上表是设计和计划测试对账，不是测试已执行记录。后续开发授权、名称依赖安装准入与生产操作授权仍分别管理。
+上表是设计和计划测试对账，不是测试已执行记录。名称依赖准入现已完成，见第 21.3 节；后续业务开发与生产操作仍分别授权。
 
 ### 21.2 复审七项修订对账
 
@@ -1472,12 +1473,30 @@ npm --prefix wealth run build
 | 6 | 每个动作一个所有者、一个判别联合写状态 | 8.1、8.4 | 12、16.4 | 无重复提交/刷新，成功与读取失败可并存 |
 | 7 | 单股/批量共用窄插入 helper，不另建 savepoint 路径 | 7.3 | 11.1、11.4～11.8、16.3 | 指定唯一冲突幂等，其它错误回滚，真实计数 |
 
-以上是已确认的设计修订与待实施测试，不是代码或运行验收结果。不新增产品功能、兼容层、运行配置或依赖安装授权。
+以上是已确认的设计修订与待实施测试，不是代码或运行验收结果。七项修订本身不包含安装授权；后续用户单独授权的名称依赖准入记录如下。
 
-### 21.3 版本记录
+### 21.3 开发准入处理记录（2026-09-08）
+
+| 项目 | 实际结果 |
+|---|---|
+| 授权与范围 | 用户要求处理审计两项；仅依赖准入、文档勘误和验证样本，不含业务编码、生产操作或提交 |
+| 安装位置 | 仓库现有 `.venv`，Python 3.13.5；未创建新环境 |
+| 版本选择 | regex 2025.7.34，官方标明 Unicode 16.0；与当前 Node Unicode 16.0 基线对齐，固定版本避免无审计升级 |
+| 安装与锁定 | `uv lock --no-python-downloads`；`uv pip install --python .venv/bin/python --no-deps --only-binary :all: regex==2025.7.34`；环境前后对账仅新增 regex，锁文件既有包版本不变 |
+| 共享样本 | `tests/fixtures/wealth_watchlist_group_names.json` 已新增 24 例；raw/normalized/graphemeCount/accepted/reason 为测试预期，reason 不是新增 API 错误码 |
+| 准入探针 | 24 例 + 25 个 trim 字符 + 1024/1025 字节边界，共 51 例；Python regex、Node Intl.Segmenter、本机真实 Chrome 三端全部匹配预期，覆盖 NFC、组合字素、标点、控制字符、孤立连接符/组合符、emoji、Unicode 16 新字母及非法 surrogate |
+| 运行时 | Python 3.13.5 / unicodedata 15.1.0；regex Unicode 16.0；Node 24.5.0 / Unicode 16.0；Chrome 152.0.7977.82，console/pageerror 为 0 |
+| 搜索合同 | 第 8.2、12.3.1、16.4 节一致要求 groupId 必填且匹配请求；generation 检查同时保留 |
+| 安装后回归 | 现有 watchlist 模型、三个架构护栏、自选 API、用户仓储及三组认证/管理员测试共 63 项通过；仅有既有 Starlette/Alembic 弃用警告。`uv lock --check --offline`、文档完整性和 `git diff --check` 通过 |
+| 验证边界 | 准入探针不是正式业务实现；模块代码、API groupId 校验、数据库名称写入及完整页面 smoke 均待开发，不宣称 v2 功能验收 |
+
+本次临时探针位于 `/private/tmp/watchlist-name-admission.GjCkZh/probe.py` 和 `probe.mjs`，执行 `node /private/tmp/watchlist-name-admission.GjCkZh/probe.mjs`。它们只是本机准入证据，不作为生产依赖或永久测试入口；开发时 pytest/Vitest 必须消费工作区中的同一份 JSON 验证正式实现。
+
+### 21.4 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v2.3 | 2026-09-08 | 完成 regex 本机准入和 51 例跨运行时验证，新增共享名称样本；明确搜索 groupId 必填/匹配与 generation 双重检查 | 用户 / Codex |
 | v2.2 | 2026-09-08 | 回填复审七项：统一新增关系资格与插入路径，补齐单股添加链路，冻结严格安全整数及分页边界，删除重复名称字段和写状态 | 用户 / Codex |
 | v2.1 | 2026-09-08 | 回填用户确认的十项修订，同步 ID 排序/游标、名称算法与存储、锁/写结果、前端状态、三阶段和逐项验证门禁 | 用户 / Codex |
 | v2 | 2026-09-07 | 初稿：基于当前代码、CodeGraph 影响面、PRD/交互和技术方案形成低层设计；当时的五 Slice 安排由 v2.1 三阶段替代 | Codex |

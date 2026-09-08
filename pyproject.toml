@@ -17,6 +17,7 @@ dependencies = [
   "PyJWT>=2.10.1",
   "psycopg[binary]>=3.2.0",
   "redis>=5.2.0",
+  "regex==2025.7.34",
   "requests>=2.32.0",
   "sqlalchemy>=2.0.36",
   "tushare>=1.4.20",
