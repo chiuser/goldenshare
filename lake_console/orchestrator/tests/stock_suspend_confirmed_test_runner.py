@@ -705,6 +705,9 @@ def consumer_batches(suite: str):
 
 REGRESSION_SUITES = {
     **dict.fromkeys(CONSUMER_SUITES),
+    "test_stock_suspend_confirmed_isolation.py": (
+        ("G-runner-exit", 6, ("test_runner_child_exit",)),
+    ),
     "root-guard": (("G-retirement", 13, (
         "test_retired_console_has_no_versioned_or_new_source_files",
         "test_current_python_sources_do_not_import_retired_backend",
@@ -1057,6 +1060,13 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     stop_reason = None
 
     def finish_child(exc_type, error, traceback):
+        nonlocal stop_reason
+        # Pipe EOF can precede process exit; normal completion is not a monitor error.
+        if exc_type is None and stop_reason is None:
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                stop_reason = "child_exit_timeout_5s"
         # The parent owns this process group; do not leave it running on a monitor error.
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGKILL)

@@ -2,15 +2,15 @@
 
 更新时间：2026-09-08
 
-状态：**S0–S4完成。S5已获准删除D01/D02并完成三份测试配套修改；整仓护栏通过，static-gates第二批在断言通过后发生测试运行器退出收尾错误，后续回归及D03–D09清理已停止。正式数据和8个保留文件未变，TODO尚未关闭；详见§18.34。没有安装/卸载、正式运行操作、提交或推送。**
+状态：**S0–S5全部完成（2026-09-08），TODO-SUSPEND-001关闭。旧CSV/模块已删除；测试运行器正常退出收尾已修正，156个逻辑用例全部通过。批准的D03–D09及31个测试根已精确清理；正式数据、发布合同/checkpoint、suspend_timing.py和共享环境保留。最终对账见 §18.35；本轮没有正式DG操作、套件安装/卸载、提交或推送。**
 
-首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。六项修订依据为 `dev-interface@f003a3c5` 加现有未提交专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加保留的未提交内容。未提交实现不是正式验收结果。
+首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。早期六项修订依据为 `dev-interface@f003a3c5` 加当时未提交的专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加当时保留的未提交内容。上述历史基线不是正式验收结果；当前完成状态以文首及§18.35为准。
 
 2026-09-07管理员新增约束：未经明确允许不得安装本机套件；本需求完成后必须彻底清理专项临时测试实例和运行残留，清理属于收尾验收，不得长期保留。前置验收不得继续扩展为独立通用测试工程。落实范围与SQLite来源见§18.11；权限修订和复验的后续独立批准及结果见§18.12。
 
-上位依据：[技术方案 v1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)。本文细化该方案，不另起业务口径；原清退专项的 `TODO-SUSPEND-001` 仍未关闭。
+上位依据：[技术方案 v1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)。本文细化该方案，不另起业务口径；原清退专项的 `TODO-SUSPEND-001` 已随S0–S5完成关闭，见§18.35。
 
-本文未在状态与执行记录中明确标为已实现的“新增”“改为”、函数签名、SQL、命令及测试名，仍是**待实施设计**。用户最初批准S1开发、隔离测试及仅暂停`silver_suspend_d_update_job_sensor`；S1授权本身不含正式写入、事件、服务重载、删除或提交。后续S2/S3分别获准并执行，见§18.28–18.30；管理员另行“继续推进S4”后，才进行正式日频验收及恢复该sensor，见§18.31。§15保留最初维护与框架实验记录，当前完成点以文首及§18.31为准，历史暂停口径不覆盖已批准的S4恢复结果。
+本文设计正文保留最初方案，实际实现、验收、清理及设计调整以§18逐阶段执行记录为准，不把历史“待实施”表述作为当前未完成项。用户最初批准S1开发、隔离测试及仅暂停`silver_suspend_d_update_job_sensor`；S1授权本身不含正式写入、事件、服务重载、删除或提交。后续S2/S3分别获准并执行，见§18.28–18.30；管理员另行“继续推进S4”后，才进行正式日频验收及恢复该sensor，见§18.31。§15保留最初维护与框架实验记录，当前完成点以文首及§18.35为准，历史暂停口径不覆盖已批准的S4恢复及S5收尾结果。
 
 实际证据：[S0 审计清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。以下设计不得与 S0 已完成的只读核验混为一谈。
 
@@ -810,8 +810,8 @@ BSE现有CLI在合法参数路径内自行构造DuckDBResource；其测试setUp�
 | S1 / 中，已完成（§18.27） | §18隔离、合同/合并、实际writer/check/job/readiness、五CLI、连接、消费者及全量治理回归均已完成 | 只证明隔离与实现机制；生产C01/C05明确待S2，不能声称正式全量数据已验收；不自动重载/恢复入口 |
 | S2 / 中，已完成（§18.28） | 真实4,022行候选、未修改生产合同的C01/C05、冻结plan及3,083日期/13年度比较均通过 | 双向EXCEPT ALL零差异，输入未漂移；只具备申请S3条件，不等于批准发布 |
 | S3 / 高，已完成（§18.29–18.30） | 固定文件完整读回及committed对账通过；获单独批准后E1/E2/E3登记完成，checkpoint三项confirmed，独立audit与实际readiness均通过 | S3关闭，具备申请S4条件；未重写固定文件，正式Raw 0写，历史最终Silver 0批量写；不自动恢复sensor |
-| S4 / 高，已完成（§18.31） | 当前code location已加载新链、无须reload；四历史日正式job等价复用并通过20 checks；恢复唯一Silver sensor后正常生成9月7日10行，5 checks及实际消费readiness通过 | S4关闭，具备S5前置；旧文件和专项临时环境未删，其他87个sensor状态不变 |
-| S5 / 中 | D01/D02及三份测试修改已实施；整仓护栏通过，运行器退出收尾失败，见§18.34 | 其余回归、D03–D09与新增临时根清理未完成，TODO不关闭 |
+| S4 / 高，已完成（§18.31） | 当前code location已加载新链、无须reload；四历史日正式job等价复用并通过20 checks；恢复唯一Silver sensor后正常生成9月7日10行，5 checks及实际消费readiness通过 | S4关闭，具备S5前置；S4当时保留的旧文件和专项临时环境后续已由S5清理，其他87个sensor状态不变 |
+| S5 / 中，已完成（§18.35） | 两旧文件及三份测试依赖已在77c99989提交；正常退出收尾修正及156个逻辑用例通过，批准临时产物已清理 | 无旧读取/兼容旁路；正式数据及运行记录保留，TODO-SUSPEND-001关闭 |
 
 S0 时正式 code location 通过 editable 安装直接加载当前工作区，Raw/Silver 停牌 sensor 均为 RUNNING。S1 源代码修改可能影响新的 run 导入，即便尚未重载 code server，也不能假设“写了工作区代码就绝无运行影响”。用户已批准仅暂停停牌 Silver sensor，并在维护期间不手工启动其 job；2026-09-06 17:47:27 已执行并读回确认。Raw 和其他 86 个 sensor 状态不变；S1 不自行恢复 Silver 入口，§15 记录实际状态。本轮不自建分支/worktree 绕过部署边界。
 
@@ -3342,7 +3342,7 @@ CodeGraph `explore`、`impact(suspend_full_day_ranges, depth=3)`覆盖旧规则�
 
 <a id="s5-runner-exit-review"></a>
 
-### 18.34 S5部分实施及测试运行器退出收尾错误（2026-09-08）
+### 18.34 S5部分实施及测试运行器退出收尾错误（2026-09-08历史停止点，已由§18.35修复收尾）
 
 #### A. 已实施与尚未实施
 
@@ -3395,7 +3395,7 @@ process.wait(timeout=5)
 
 这段生命周期代码本轮没有修改，是已有测试工具的缺陷，不是删除CSV导致业务读取失败。§18.20曾验证“父monitor出现异常时必须回收子进程”，但未覆盖“正常EOF先于poll观察到退出”的反例，先前验收有此遗漏。
 
-#### D. 拟议最小修正，待确认后实施
+#### D. 最小修正（2026-09-08管理员已确认）
 
 不重建隔离工程，不添加系统权限，不安装套件，不触碰业务代码：
 
@@ -3404,7 +3404,9 @@ process.wait(timeout=5)
 3. 用最小进程替身覆盖“poll暂未退出但wait返回0、不发kill”“已退出非零不能成功”“等待超时必须失败/回收”“监控异常仍终止自有子进程组”。沿用现有测试支持，不增设DG实例、框架工程或永久后台。
 4. 确认后修正并复验该生命周期，再跑原五个suite；测试逻辑数与保护范围不减少。保留本次失败历史，成功后按§18.32 F清理D03–D09、本轮7根及复验新增精确根，再关闭TODO。无需再次申请原删除范围或重做S0–S4。
 
-本轮批准的是三处精确测试依赖调整，没有自行扩展为运行器生命周期修复。当前按计划冲突/失败规则停在此修正确认点，不修改正常运行中的正式服务。
+上一轮只批准三处精确测试依赖调整，故当时未扩展修复；该停止点及代码已提交为`77c99989`。管理员随后明确“继续推进吧。确认”，本次按上述最小修正实施，不再等待此确认，也不修改正常运行中的正式服务。
+
+本次代码点限定为`tests/stock_suspend_confirmed_test_runner.py::finish_child`和既有`tests/test_stock_suspend_confirmed_isolation.py`。后者用进程/selector/kill替身检查上述四种路径，另覆盖已有预算中断与终止被拒绝不吞错；共6例，复用原OS隔离support和runner，作为一个精确命名的regression suite入口，不改原五组suite的断言或预期数量。测试中的子进程全部为替身，不建立DG实例、不发送真实信号、不访问网络；写入仅在本次精确临时根内。正常等待最多5秒，既有批次60秒/100MiB/输出64KiB上限和隔离权限不变。随后原五组最小回归仍逐组运行，正式业务写入和DG访问均为0；仅在清理前后读取8份已知小文件身份/hash，保留原数据与发布记录。
 
 #### E. 正式边界与交付状态
 
@@ -3413,3 +3415,105 @@ process.wait(timeout=5)
 按数据湖与文档治理要求，已同步12份相关规则/文档的实际停止点，并把S0/方案的旧源码链接改为历史Git身份，保留原审计事实。现行调用链和子系统依赖矩阵不变；其他任务的Wealth文件未改动，未提交/推送。尚未完成的回归和清理不能由静态检查替代。
 
 本轮静态核验：三份改动Python默认Ruff、orchestrator全src/tests的E9/F63/F7/F82基线、文档完整性三项及git diff --check通过；CodeGraph sync/status为最新。上述结果不覆盖未完成的回归，也不授权跳过运行器修正或临时产物清理。
+
+<a id="s5-final-closeout"></a>
+
+### 18.35 S5确认修正、完整最小回归及最终清理（2026-09-08）
+
+#### A. 实现与计划对账
+
+用户确认后，沿用§18.34 D，没有修改业务源码、配置、依赖矩阵或隔离权限：
+
+| 已确认口径 | 当前代码与验证 |
+| --- | --- |
+| 正常EOF先等待，不误杀 | runner的finish_child先wait(timeout=5)，正常替身poll尚未退出但wait返回0，全程kill调用0次 |
+| 非零、等待超时不能冒充通过 | 非零2保留失败；等待超时记child_exit_timeout_5s，只终止自有进程组，退出-9，绿色pytest报告不能覆盖进程失败 |
+| 监控异常/已有预算中断继续终止 | 两种替身均先kill再wait，保存parent_monitor_error或workspace_budget_100MiB；异常不吞掉 |
+| 终止被拒绝不能扩大权限或忽略 | PermissionError替身向外抛出，资源报告保留passed=false，无权限增补 |
+| 不建设新框架/实例 | 在原isolation测试文件新增一个6例参数化函数，复用原runner/support；子进程/selector/信号全用替身，不创建DG实例；原五suite未减项 |
+
+本轮只有runner和原isolation测试两个Python文件修改。没有提取新的生产helper、增加锁/服务/配置或改变任何asset/check/job/sensor。CodeGraph explore/impact结合当前源码覆盖finish_child、run_isolation_child及三个启动/隔离/回归入口；影响留在测试运行器内。前次未覆盖正常EOF竞态和父回调报错的历史证据继续保留在§18.34，不把失败报告改绿。
+
+#### B. 本次完整最小回归
+
+均从orchestrator目录使用既有环境执行：
+
+```text
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_stock_suspend_confirmed_isolation.py
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite root-guard
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_run_contract_static_gates.py
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_asset_governance_contracts.py
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_asset_check_incremental_governance.py
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_suspend_d_checks.py
+```
+
+| Suite | 批次数 | 实际执行例数 | 额外子断言 | 各批运行器耗时合计 |
+| --- | ---: | ---: | ---: | ---: |
+| 收尾替身 | 1 | 6 | 0 | 1.026秒 |
+| 整仓护栏 | 5 | 65 | 0 | 8.102秒 |
+| test_run_contract_static_gates.py | 14 | 112 | 0 | 17.290秒 |
+| test_asset_governance_contracts.py | 2 | 12 | 453 | 2.475秒 |
+| test_asset_check_incremental_governance.py | 1 | 6 | 160 | 1.540秒 |
+| test_suspend_d_checks.py | 1 | 7 | 5 | 1.479秒 |
+
+六个suite全部退出0，24个批次资源报告passed=true、stop_reason=null、完成量等于预期，禁止哨兵前后未变。整仓护栏覆盖本次冻结的4,041个Git工作区文件，5片各13例，所以是13个逻辑用例/65次执行；其余137个原用例加6个收尾用例，总计**156个逻辑用例、208次执行、618项子断言**。运行器耗时合计31.912秒；这是逐批实测合计，不是从编码开始到收尾的墙钟时间。
+
+治理与停牌check测试的45条既有框架警告保留，没有屏蔽或升级依赖。未重跑I01–I08全套、S2全历史、S3发布、S4正式job；本轮没有正式DG动作或网络请求。原失败批次的8项断言虽曾通过，整批仍按§18.34记失败，本次完整复验结果独立记录。
+
+#### C. 删除前冻结的精确临时根
+
+以下T01–T24为本轮24个回归根，T25–T31为§18.34已登记的上轮7根。均核为本任务生成的普通文件/目录，无符号链接；31根合计443个普通文件、10,536,101字节。只删除表内根，不根据前缀删除其它目录。
+
+| ID | 精确根 | 来源与批次 | 文件数 / 字节 | 目录清单SHA256 |
+| --- | --- | --- | ---: | --- |
+| T01 | `/private/tmp/stock-suspend-isolated-0qdhalaj` | 本轮 G-runner-exit | 43 / 209731 | `29caae768774f149d55f03f0c4b72af26d231a670c822d529ad37b6ed16c2674` |
+| T02 | `/private/tmp/stock-suspend-isolated-mctwhaid` | 本轮 G-retirement:1 | 14 / 262706 | `1b7f6353fa47dc52f0901f8a097dc8971e7d638023b93a738689eabbaca65ee0` |
+| T03 | `/private/tmp/stock-suspend-isolated-zg00m8ky` | 本轮 G-retirement:2 | 14 / 498849 | `c3f6c9144666a35191394e14de3e984b4370b3d02f81b23f0b8a4f42f8cad037` |
+| T04 | `/private/tmp/stock-suspend-isolated-ej5is398` | 本轮 G-retirement:3 | 14 / 428198 | `fd57e3f74e12a9e764ad82c256861dd9a8474a741b360ca8ca27b5c7586c6042` |
+| T05 | `/private/tmp/stock-suspend-isolated-19ou6b20` | 本轮 G-retirement:4 | 14 / 383101 | `24ea6e9c1a617051be1b2357d213951a8b09f9a182ea23f0542ab8865ede6ec0` |
+| T06 | `/private/tmp/stock-suspend-isolated-2jo4ud91` | 本轮 G-retirement:5 | 14 / 52358 | `e000cab447a642155a37c196c555611b4e2c9608cf9cb204137788489a3a1243` |
+| T07 | `/private/tmp/stock-suspend-isolated-4_dyx7yt` | 本轮 test_run_contract_static_gates.py:1 | 13 / 353832 | `ed6822965e2693e8836b13cb39335322f2063f686601115cd06d1f7e9192bf75` |
+| T08 | `/private/tmp/stock-suspend-isolated-5n4qkwjb` | 本轮 test_run_contract_static_gates.py:2 | 13 / 354023 | `e43379c4045a34734c923519d58b47a69d825c9bbe0d222547b533f7ff3184ba` |
+| T09 | `/private/tmp/stock-suspend-isolated-vyo9apfy` | 本轮 test_run_contract_static_gates.py:3 | 13 / 354019 | `e0e950de9d23d25772c59a36fb84c8ba2d636bf83d4cd1cba67367898b553e13` |
+| T10 | `/private/tmp/stock-suspend-isolated-_kf89g2f` | 本轮 test_run_contract_static_gates.py:4 | 13 / 354096 | `b06fec1a56b892ea67444590e031145fdbf09f05e58e2beac86de44ef0bbfd07` |
+| T11 | `/private/tmp/stock-suspend-isolated-76wdtq78` | 本轮 test_run_contract_static_gates.py:5 | 13 / 353790 | `d218001c562a14bf950f0a00298b3f30222e91b72d0e2cfe8f118ac9767543e4` |
+| T12 | `/private/tmp/stock-suspend-isolated-kcyzy5us` | 本轮 test_run_contract_static_gates.py:6 | 13 / 353577 | `d99944783c06a3003a73550a8fc567679079fda67ecdd0ea7ec4c0c81ff3acaf` |
+| T13 | `/private/tmp/stock-suspend-isolated-_08ut45r` | 本轮 test_run_contract_static_gates.py:7 | 13 / 353695 | `0c5cfed7615468afc80d89d1bba4af8dfae4e10aac1538964027950b4be953ba` |
+| T14 | `/private/tmp/stock-suspend-isolated-sxbhi11y` | 本轮 test_run_contract_static_gates.py:8 | 13 / 353906 | `3e5f1245409a88cf871129ec6a94f590edcf19b799a9c698faf5c5e956ddb740` |
+| T15 | `/private/tmp/stock-suspend-isolated-uqxuqqv2` | 本轮 test_run_contract_static_gates.py:9 | 13 / 353680 | `b24e736794fe3cc4b89e11209f1b50f508fdbccbbbf748ab4bb741e6eb0aada5` |
+| T16 | `/private/tmp/stock-suspend-isolated-4nk47cj_` | 本轮 test_run_contract_static_gates.py:10 | 13 / 353809 | `319f96adde780ee8a12d239c75a172c17c0c9326b710f812f9ee8df509a2f5fa` |
+| T17 | `/private/tmp/stock-suspend-isolated-hlc_xq1e` | 本轮 test_run_contract_static_gates.py:11 | 13 / 354102 | `3cdab61fcd76cc10a1a91d81cf9f5a7d68dd3f5abe917ca23a5c905953b88699` |
+| T18 | `/private/tmp/stock-suspend-isolated-zcdxwzj_` | 本轮 test_run_contract_static_gates.py:12 | 13 / 353990 | `e7dadf6595628bdb68f8afc08429d3ef0af9bedb3f9510738ed4cafe55dae284` |
+| T19 | `/private/tmp/stock-suspend-isolated-_rsoy91m` | 本轮 test_run_contract_static_gates.py:13 | 13 / 353882 | `b0236b58f7a61d0896b57c45a00de0895d1d77af8811af8645c48d261e0419b2` |
+| T20 | `/private/tmp/stock-suspend-isolated-e9xy1mg1` | 本轮 test_run_contract_static_gates.py:14 | 13 / 353963 | `ba48ef158564d7db13e74b660305ab5ad73f9dfa0342f57124aa3950a479c77c` |
+| T21 | `/private/tmp/stock-suspend-isolated-xwmv20sx` | 本轮 test_asset_governance_contracts.py:1 | 13 / 356959 | `b95a1d8bc3a59fa288e59b268f02b534389bc606911ca7b2df9bc8aef698ba19` |
+| T22 | `/private/tmp/stock-suspend-isolated-5oh47bik` | 本轮 test_asset_governance_contracts.py:2 | 13 / 354847 | `4247f262ec0d4afac701a8022a103ab11d119f190e55cdd6f60f14ccdfe6f2b5` |
+| T23 | `/private/tmp/stock-suspend-isolated-lnfjy7d8` | 本轮 test_asset_check_incremental_governance.py:1 | 13 / 361288 | `133e5efd29f155038bae3d4c00ed2a73b2411a10613bf6422c510b198dc1f0fa` |
+| T24 | `/private/tmp/stock-suspend-isolated-lt7xhyd6` | 本轮 test_suspend_d_checks.py:1 | 13 / 353771 | `0d12b17dadbefe9ed1e89b3e9f83b6aeeb0f0bc65e199bc7ae28640b1723157f` |
+| T25 | `/private/tmp/stock-suspend-isolated-qul73fmq` | 上轮 G-retirement:1 | 14 / 262706 | `83f7c2e0ef2f21b70e94e25bd2affb5f33a7059fed74fc360137dbea9a1cdd3e` |
+| T26 | `/private/tmp/stock-suspend-isolated-drufw72z` | 上轮 G-retirement:2 | 14 / 498849 | `1b8ed7f2e14ef1b1440fdb1fe922fe25b578dd529d8270cdeab67816165a923b` |
+| T27 | `/private/tmp/stock-suspend-isolated-0a2klvkf` | 上轮 G-retirement:3 | 14 / 428199 | `e871e8e6d867f840aec7152d28bad7f9edba07051cfb7befd8297e8381225251` |
+| T28 | `/private/tmp/stock-suspend-isolated-975cd67r` | 上轮 G-retirement:4 | 14 / 381226 | `479bfc9293dde400b460b56da8560a3724ead29c11a8415563b03aa6244a3aa2` |
+| T29 | `/private/tmp/stock-suspend-isolated-2ck1srwc` | 上轮 G-retirement:5 | 14 / 47001 | `37f0ec6a36d35a4d6c701c84499f704023f70fc66a0d549ad5f01e21be2c6794` |
+| T30 | `/private/tmp/stock-suspend-isolated-8nt0sjj6` | 上轮 test_run_contract_static_gates.py:1 | 13 / 353832 | `5b4f78818d26a309503c702392897c3001e9b915b0dd0aa227c19014cee77970` |
+| T31 | `/private/tmp/stock-suspend-isolated-pwlp4xit` | 上轮 test_run_contract_static_gates.py:2 | 13 / 348116 | `ef0fcec184807cf506aa1ca01788381c349d3e5758cc4ee43f853375c97d4a48` |
+
+目录清单指纹按逐层文件名升序遍历，记录每个目录/普通文件的`相对路径\t类型(dir/file)\t字节数\t文件SHA256或空\n`后UTF-8 SHA256。实际清理前复核根device/inode、普通文件类型、完整清单hash和lsof无占用；只对已核实的具体普通文件unlink，再逐级rmdir，不跨根或跟随链接。
+
+D03–D09继续使用§18.32原精确目标与hash，本轮复核全部一致；合计69个普通文件、267,921字节。连同本表，总清理范围为38个单位（34目录、4单文件）、512个普通文件、10,804,022字节；D01/D02已在77c99989删除，不重复计入本轮物理清理。
+
+上述回归摘要、完整根及指纹先落本节，再执行清理。§18.32已不存在的333个历史根与早期pytest-196不冒称由本轮删除；清理后所有旧临时报告链接仅为历史来源位置，本LLD中的结论、来源Git身份、真实run/event ID和hash继续保存。正式发布所需四份合同/checkpoint另行保留，不作为测试文件删除。
+
+#### D. 实际清理与保留项对账
+
+北京时间2026-09-08 15:10:13完成全部精确清理。D03–D09及T01–T31共38个单位逐项通过lsof无占用、根身份及完整内容指纹检查后删除，实际512个普通文件、10,804,022字节（约10.3MiB），38个目标逐一lstat均返回ENOENT。未删除共享父目录或其它任务目录，没有备份/快照，临时产物不承诺恢复；来源代码仍可从Git追溯。
+
+清理前后8份保留文件的device/inode/大小/mtime/内容SHA256完全相同：固定Silver、2026-09-07最终Silver、4份正式发布合同/checkpoint、正常日更checkpoint、suspend_timing.py。正式operation目录及其空candidate目录保留。本轮未进行正式DG数据库、事件或调度操作，也未写正式raw/silver/gold。
+
+本专项登记的临时实例、执行脚本/策略、报告和专项缓存已清理；现有项目.venv、Miniconda/Python/Dagster/SQLite和其它共享工具未删除。没有本需求新增的安装项，因此没有套件卸载；“卸载本需求新安装SQLite”不适用于原有共享SQLite运行库。保留测试源码不是保留测试实例。
+
+**S0–S5完成，TODO-SUSPEND-001关闭。** 失败过程仍保留于§17、§18既有记录，旧临时报告路径是历史位置，不再作为当前可打开的文件链接验收。数据湖/Dagster技能约束正式数据和实例边界，文档治理技能要求同步原方案及TODO；本轮不增加架构、配置或契约，也不继续扩展任务。尚未提交/推送本轮两个测试文件和收尾文档。
+
+最终只读复核：本LLD登记的367个精确`/private/tmp`根（原336＋上轮7＋本轮24）全部不存在；一级名称核对无本专项未登记残留，早期pytest-196也不存在。正式operation只剩`plan.json`、`comparison.json`、`file-checkpoint.json`、`events-checkpoint.json`及空`candidate/`。这4份仍被现行发布工具读取的记录不是测试实例，不能随临时报告删除。
+
+最终验证：两个改动Python默认Ruff、全src/tests的E9/F63/F7/F82基线、文档完整性三项及git diff --check通过；CodeGraph sync/status最新。验收源码SHA256：runner=`5222a28c4c336cf62ea1d36811dbab6e75740fbcaed9e4f2d07502178df52204`，isolation测试=`94a62bb8e1f40c5c6f240a8d6174804d4e472c53894ac640f2fa51a8c55b9d2d`。本轮共2份测试源码与11份原规则/文档修改；其它任务的Wealth修改未纳入，也没有新建分支/worktree或提交。

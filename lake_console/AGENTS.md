@@ -58,7 +58,7 @@ frontend/backend、Kopia、专属测试、旧入口和示例配置，不得恢�
 7. reports 不是旧后台专属目录，不可整目录删除。
    停牌专项S4已完成：现行链读取固定Silver事实与Raw，不再读取旧CSV。
    `orchestrator/src/orchestrator/defs/corrections/suspend_full_day.py` 与同目录
-   `suspend_full_day_ranges.csv` 已按停牌LLD §18.32获准删除（S5其他收尾尚未完成）；
+   `suspend_full_day_ranges.csv` 已按停牌LLD §18.32获准删除，S5回归及专项清理已完成（§18.35）；
    不得恢复旧运行时读取。正式 `silver_stock_suspend_confirmed`、最终停牌Silver、
    `suspend_timing.py` 及其他现行corrections必须保留，不能整目录删除。
 

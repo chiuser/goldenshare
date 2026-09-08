@@ -2,11 +2,11 @@
 
 更新时间：2026-09-08
 
-状态：**S0–S4完成。S5已获准删除D01/D02并完成三份测试配套修改；整仓护栏通过，static-gates第二批在断言通过后发生测试运行器退出收尾错误，后续回归及D03–D09清理已停止。正式数据和8个保留文件未变，TODO尚未关闭；详见§18.34。没有安装/卸载、正式运行操作、提交或推送。**
+状态：**S0–S5全部完成（2026-09-08），TODO-SUSPEND-001关闭。旧CSV/模块已删除；测试运行器正常退出收尾已修正，156个逻辑用例全部通过。批准的D03–D09及31个测试根已精确清理；正式数据、发布合同/checkpoint、suspend_timing.py和共享环境保留。最终对账见LLD §18.35；本轮没有正式DG操作、套件安装/卸载、提交或推送。**
 
-首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；本次文档修订依据为`dev-interface@f003a3c5`及现有未提交专项代码，未将其视为已验收实现。
+首次设计基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`；早期修订依据为`dev-interface@f003a3c5`及当时未提交的专项代码，该历史基线不代表验收结果。当前完成状态以文首及LLD §18.35为准。
 
-管理员新增收尾约束（2026-09-07）：未经明确允许不得在本机安装套件；前置验收只保留与本需求直接相关的必要范围，不继续扩展通用测试工程。本需求业务验收后、最终交付前，必须彻底清除专项临时DG实例、测试库、日志和运行残留；本任务新增的独立套件纳入卸载，不误卸载既有共享依赖。范围及完成条件见[LLD §18.11](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-test-cleanup-and-install-boundary)。当前使用的SQLite属于既有Miniconda Python依赖，I01/I02没有安装SQLite；没有已确认的专项独立SQLite套件可卸载。后续管理员再次确认清理要求并独立批准最小权限修订和复验，结果见§18.12；清理尚未执行。
+管理员新增收尾约束（2026-09-07）：未经明确允许不得在本机安装套件；前置验收只保留与本需求直接相关的必要范围，不继续扩展通用测试工程。本需求业务验收后、最终交付前，必须彻底清除专项临时DG实例、测试库、日志和运行残留；本任务新增的独立套件纳入卸载，不误卸载既有共享依赖。范围及完成条件见[LLD §18.11](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-test-cleanup-and-install-boundary)。当前使用的SQLite属于既有Miniconda Python依赖，I01/I02没有安装SQLite；没有已确认的专项独立SQLite套件可卸载。后续管理员再次确认清理要求并独立批准最小权限修订和复验，结果见§18.12；专项清理现已完成，最终结果见LLD §18.35。
 
 需求来源：清退 LLD §16.11 的 `TODO-SUSPEND-001`。本方案是该 TODO 的独立实施主案，不重开清退 M0–M8。
 
@@ -34,7 +34,7 @@ silver_stock_suspend_confirmed ─────┘
 5. 固定事实独立保存，Silver 可以从 Raw 与该事实重新生成，不依赖上一次 Silver 输出。
 6. 低频人工维护，不建管理后台、规则引擎、数据库表或自动更新任务。
 
-授权按阶段区分：最初技术方案仅文档；S1开发/隔离及暂停唯一Silver sensor；S2真实候选/比较；S3单文件发布与3条事件分别确认，首次文件发布失败及确认修正证据保留于LLD §18.29。管理员随后“继续推进S4”，本轮才执行四历史日正式Silver-only验收、恢复指定sensor及正常日更读回。S5经独立确认后已删除两旧文件，最终清理尚未完成，当前停止点见LLD §18.34，阶段推进不包含套件安装或Git提交。原维护/框架实验见[LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)，S1总对账§18.27、S2/S3证据§18.28–18.30、当前S4完成点见[§18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。历史失败和停止点保留日期语境，不覆盖已批准后的实际结果。
+授权按阶段区分：最初技术方案仅文档；S1开发/隔离及暂停唯一Silver sensor；S2真实候选/比较；S3单文件发布与3条事件分别确认，首次文件发布失败及确认修正证据保留于LLD §18.29。管理员随后“继续推进S4”，本轮才执行四历史日正式Silver-only验收、恢复指定sensor及正常日更读回。S5经独立确认后删除两旧文件，随后获准修正运行器收尾并完成剩余回归、最终清理，收口见LLD §18.35，阶段推进不包含套件安装或Git提交。原维护/框架实验见[LLD §15](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-dagster-gate)，S1总对账§18.27、S2/S3证据§18.28–18.30、当前S4完成点见[§18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。历史失败和停止点保留日期语境，不覆盖已批准后的实际结果。
 
 ## 2. 为什么选择这条路
 
@@ -51,7 +51,7 @@ silver_stock_suspend_confirmed ─────┘
 
 ### 3.1 首次设计基线的运行方式
 
-本节保留首次设计基线`b324ec48`与S0审计的来源事实，用于说明为什么重构，不是现行调用链。固定事实已于S3正式发布，旧CSV及旧模块已于S5获准删除；当前未完成项见文首及[LLD §18.34](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-runner-exit-review)。
+本节保留首次设计基线`b324ec48`与S0审计的来源事实，用于说明为什么重构，不是现行调用链。固定事实已于S3正式发布，旧CSV及旧模块已于S5获准删除；最终完成状态见文首及[LLD §18.35](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)。
 
 | 事实 | 当前代码依据 |
 | --- | --- |
@@ -349,16 +349,16 @@ S1 提前验证的原模型共 8 项：selection、执行顺序、错误阻断�
 
 2026-09-08实际结果：当前code location已加载新链，未执行reload。四个指定历史日2025-11-26、2026-01-16、2025-09-22、2026-09-04的正式job全部SUCCESS，20项检查通过，原文件全身份/hash不变，没有创建候选/checkpoint。恢复指定Silver sensor后，正常tick 1539599自行触发2026-09-07，run_id=`d629b0f0-dcf6-49ce-8256-47fd77da996e`成功，新增800字节/10行Silver，checkpoint=committed，5项检查及实际停牌消费readiness通过。3,084个已注册日期的待生成集合为空，其他87个sensor状态不变。四历史job含排队/观察耗时12.581–14.593秒，恢复到观察正常成功18.248秒；未重抓Raw、未写其他数据集。详见[LLD §18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。S4关闭，不等于获准S5删除。
 
-### S5：退出旧读取链与文档收口——中风险，删除需明确确认
+### S5：退出旧读取链与文档收口——中风险，已完成
 
-当前执行点（2026-09-08）：CodeGraph只读句柄例外已经确认，D01/D02删除及三份测试修改已实施。整仓护栏通过，static-gates第2批测试结束时运行器收尾失败；没有放宽权限或删除失败现场。原因、拟议最小修正与剩余任务见[LLD §18.34](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-runner-exit-review)。
+实际完成点（2026-09-08）：旧CSV/模块与三份测试依赖已在77c99989提交；随后按确认修正正常EOF收尾竞态，6个替身测试及原五suite全部通过，共156个逻辑用例。D03–D09及31个精确测试根全部清理，正式数据和8份保留文件身份/hash不变，TODO关闭，详见[LLD §18.35](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)。此前失败与确认边界保留在LLD §18.34。
 
 1. 审查后删除精确两文件：`defs/corrections/suspend_full_day.py`、`defs/corrections/suspend_full_day_ranges.csv`；不删除 `suspend_timing.py` 或目录中的其他内容。
 2. 最终代码切换与旧 import 清理必须同一交付版本完成。物理删除仓库 CSV 可以放在最后确认，但正式执行代码不得保留双读取逻辑。
 3. 更新根清退护栏、直接引用文档、资产图、readiness 登记与本 TODO 状态；历史审计文字保留其日期语境，不假装过去从未读过 CSV。
 4. staging、审计报告和异常现场不自动删除，另列清单确认。完成技术迁移不代表授权清理其他数据。
 
-删除范围仍为[LLD §18.32精确清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-exact-cleanup-review)的9个单位、71个普通文件、273,140字节。已删除其中D01/D02两文件（5,219字节），D03–D09未动。三份测试已同步存在性锚点、consumer源码白名单与无回退断言；现行业务代码不变。正式固定/最终Silver、四份发布合同/checkpoint、正常日更checkpoint及suspend_timing.py共8份保留文件身份/hash不变。原已不存在历史实例不计入删除；本轮7个隔离根保留失败现场，完整路径见§18.34，最终仍须按§18.11精确清理。
+删除边界仍按[LLD §18.32精确清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-exact-cleanup-review)。两份旧源码此前已删除（5,219字节）；本轮清理剩余7项及31个测试根，实际512个普通文件、10,804,022字节。正式固定/最终Silver、4份发布合同/checkpoint、正常日更checkpoint、suspend_timing.py与原有共享环境全部保留。已不存在的更早历史实例不计入本轮删除，没有安装/卸载套件或重跑正式发布。
 
 ## 10. 执行预算与性能验收
 
@@ -457,7 +457,7 @@ CLI 精确参数、默认只读行为和退出码在 LLD §8 固定，五个命�
 - [编码规范](/Users/congming/github/goldenshare/lake_console/orchestrator/CODING_STANDARDS.md)、[字段合同设计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-asset-schema-contract-design.md)、[性能治理](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-data-pipeline-performance-governance.md)。
 - 本文各表对应的当前代码、现有测试及 §3 标记的前序只读审计证据；未用清退文档替代代码核验。
 
-当前状态（2026-09-08）：**S0–S4完成，S5部分实施，未完成。** 真实业务验收保持LLD §18.31结论；本轮只删旧模块与CSV、更新三份测试和原文档，没有修改正式生成逻辑或运行配置。测试运行器收尾失败导致剩余回归和临时产物清理停止，见[LLD §18.34](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-runner-exit-review)；TODO未关闭，未提交/推送。
+当前状态（2026-09-08）：**S0–S5完成，TODO-SUSPEND-001关闭。** 正式数据链验收保持LLD §18.31证据；本轮修正测试运行器收尾，原五suite及6个替身测试全部通过，精确清理完成，见[LLD §18.35](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)。没有更改正式生成逻辑、运行配置或依赖矩阵；本轮尚未提交/推送，后续仅按管理员指令提交。
 
 本轮文档验证：仓库文档完整性检查通过；另核本文 15 个本地链接及显式锚点、§7 的 27 个现有文件路径，均存在；已跟踪差异和新文档的空白/差异检查通过。这些检查只证明文档引用与格式，不代表新资产、合并算法或正式迁移已验收。
 

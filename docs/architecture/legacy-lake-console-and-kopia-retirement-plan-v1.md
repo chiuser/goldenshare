@@ -62,7 +62,7 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
    [S0 清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。
    2026-09-08 S1实现、消费者及治理隔离回归已完成，见[LLD §18.27总对账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation)；
    早期隔离事故影响核验仍保留在LLD §17，不用本轮通过覆盖历史。随后S2已完成真实4,022行候选/生产合同反例及3,083日期零差异比较，见[LLD §18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)。
-   S0–S4已完成：S2全范围零差异及S3文件/事件发布证据保留于独立LLD §18.28–18.30。S4四历史日正式job等价复用原文件，20项检查通过；恢复唯一Silver sensor后，正常链自行生成2026-09-07分区10行，5项检查及实际消费readiness通过，见[§18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。S5已按批准清单删除旧模块及CSV，三份测试已修改；整仓护栏通过，static-gates第二批在断言通过后遇到测试运行器退出收尾错误，其他回归及临时产物清理停止，TODO未关闭，见[LLD §18.34](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-runner-exit-review)。正式数据、发布记录、正常日更checkpoint和时段修正文件未变；没有恢复CSV依赖。
+   S0–S4已完成：S2全范围零差异及S3文件/事件发布证据保留于独立LLD §18.28–18.30。S4四历史日正式job等价复用原文件，20项检查通过；恢复唯一Silver sensor后，正常链自行生成2026-09-07分区10行，5项检查及实际消费readiness通过，见[§18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。S5已删除旧CSV/模块、完成测试运行器收尾修正与156个逻辑用例回归，并精确清理批准的临时产物，TODO-SUSPEND-001关闭，见[LLD §18.35](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)。正式数据、发布记录、正常日更checkpoint与suspend_timing.py未变，不恢复CSV依赖。
 
 ### 0.4 新增拍板结果
 
@@ -1096,6 +1096,6 @@ Ops Dataset Status Snapshot、正式 orchestrator、ClickHouse、正式 DuckDB/P
 reports 不整删；旧湖和本专项遗留数据纳入 M8，以代码实际使用作为唯一用途依据，不再做内容替代证明。本机
 ignored 环境/配置中独立获批的五项已在 2026-09-06 清理，详见 LLD §16.16；其余未列入本批批准的环境、配置和目录保留。
 
-### 10.5 下一步
+### 10.5 收口状态
 
-M7 已提交 `3b94c48a`，M8 本批记录已提交 `db4c3137`，未推送；111 项物理清退结果见 LLD §16.15。2026-09-06 用户另行批准五项旧 Console 本机残留删除，已移入废纸篓并核验原路径不存在，见 §16.16。用户随后要求提交，本次仅按五份文档白名单归档执行记录，提交结果以 Git 记录为准；不推送，不再操作废纸篓、物理数据或共享根。后续不自动追加删除。停牌 CSV 隐性依赖治理单独安排，涨跌停全历史来源待该数据集开工前另审计；当前字段、`vwap` 差异和日常链路保持不变。
+M7 已提交 `3b94c48a`，M8 本批记录已提交 `db4c3137`，未推送；111 项物理清退结果见 LLD §16.15。2026-09-06 用户另行批准五项旧 Console 本机残留删除，已移入废纸篓并核验原路径不存在，见 §16.16；该批执行记录已按五份文档白名单归档，提交结果以 Git 记录为准。停牌 CSV 隐性依赖治理随后独立完成S0–S5，`TODO-SUSPEND-001` 已关闭，最终对账见[停牌LLD §18.35](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)。截至2026-09-08，已批准专项范围没有剩余开发、验收、清理或待拍板事项；不自动追加删除、清空废纸篓或处理共享根。涨跌停全历史来源属于该数据集未来开工前的独立审计，不是本专项未完成项；当前字段、`vwap` 差异和日常链路保持不变。

@@ -18,13 +18,15 @@ ALLOWED = require_isolated_context()
 
 import errno
 import hashlib
+import importlib.util
+import io
 import json
 import os
 import socket
 import stat
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import dagster as dg
 import duckdb
@@ -33,6 +35,85 @@ from dagster._core.instance import factory
 
 from orchestrator.defs import duckdb_connection, resources
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+
+
+@pytest.mark.parametrize("variant", (
+    "normal_eof", "nonzero_exit", "exit_timeout", "monitor_error",
+    "budget_stopped", "termination_denied",
+))
+def test_runner_child_exit(variant):
+    runner_path = Path(__file__).with_name("stock_suspend_confirmed_test_runner.py")
+    spec = importlib.util.spec_from_file_location("confirmed_runner_exit_test", runner_path)
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    root = ALLOWED / f"runner-exit-{variant}"
+    (root / "allowed").mkdir(parents=True)
+    (root / "denied-fixture").mkdir()
+    (root / "denied-fixture/sentinel.txt").write_text("synthetic unchanged input")
+    # Deliberately green assertions: process failure must still fail the batch.
+    (root / "allowed/pytest-result.json").write_text(json.dumps({
+        "passed": True, "completed": 1, "failures": 0,
+    }))
+    process = MagicMock(pid=123456789, returncode=2 if variant == "nonzero_exit" else None)
+    process.stdout, process.stderr = io.BytesIO(), io.BytesIO()
+    process.poll.side_effect = lambda: process.returncode
+    calls = []
+
+    def wait(*, timeout):
+        calls.append("wait")
+        assert timeout == 5
+        if variant in ("exit_timeout", "termination_denied") and len(calls) == 1:
+            raise runner.subprocess.TimeoutExpired("synthetic-child", timeout)
+        if process.returncode is None:
+            process.returncode = 0
+        return process.returncode
+
+    def kill(pid, sig):
+        calls.append("kill")
+        assert (pid, sig) == (process.pid, runner.signal.SIGKILL)
+        if variant == "termination_denied":
+            raise PermissionError(errno.EPERM, "synthetic termination denied")
+        process.returncode = -9
+
+    process.wait.side_effect = wait
+    selector = MagicMock()
+    selector.get_map.return_value = {}
+    if variant == "monitor_error":
+        selector.get_map.side_effect = RuntimeError("synthetic monitor error")
+    elif variant == "budget_stopped":
+        selector.get_map.side_effect = ({1: object()}, {})
+        selector.select.return_value = []
+    with patch.object(runner.subprocess, "Popen", return_value=process) as popen, \
+            patch.object(runner.selectors, "DefaultSelector") as selector_factory, \
+            patch.object(runner.os, "killpg", side_effect=kill) as killpg, \
+            patch.object(runner, "workspace_size", return_value=101 * 1024**2), \
+            redirect_stdout(io.StringIO()):
+        selector_factory.return_value.__enter__.return_value = selector
+        if variant in ("monitor_error", "termination_denied"):
+            error = RuntimeError if variant == "monitor_error" else PermissionError
+            with pytest.raises(error, match="synthetic"):
+                runner.run_isolation_child(root, "synthetic-exit", 1, ("synthetic",), {})
+        else:
+            code = runner.run_isolation_child(root, "synthetic-exit", 1, ("synthetic",), {})
+            assert code == (0 if variant == "normal_eof" else 1)
+        assert popen.call_args.kwargs["start_new_session"] is True
+        assert killpg.call_count == (0 if variant in ("normal_eof", "nonzero_exit") else 1)
+    report = json.loads((root / "allowed/resource-result.json").read_text())
+    assert report["passed"] is (variant == "normal_eof")
+    if variant == "exit_timeout":
+        assert calls[:2] == ["wait", "kill"]
+        assert report["stop_reason"] == "child_exit_timeout_5s"
+        assert report["exit_code"] == -9
+    elif variant == "monitor_error":
+        assert calls[:2] == ["kill", "wait"]
+        assert report["stop_reason"] == "parent_monitor_error"
+        assert report["child_reaped"] is True
+    elif variant == "budget_stopped":
+        assert calls[:2] == ["kill", "wait"]
+        assert report["stop_reason"] == "workspace_budget_100MiB"
+    elif variant in ("normal_eof", "nonzero_exit"):
+        assert calls[0] == "wait"
+        assert report["exit_code"] == (0 if variant == "normal_eof" else 2)
 
 
 def test_i03_actual_resource_root():
