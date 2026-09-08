@@ -1,6 +1,6 @@
 # 文档维护基线 v1
 
-更新时间：2026-04-20
+更新时间：2026-09-08（补齐现有完整性检查说明）
 
 ## 1. 目标
 
@@ -45,11 +45,15 @@
 python3 scripts/check_docs_integrity.py
 ```
 
-当前脚本会检查：
+当前脚本包含以下四项主要检查内容，执行结果合并为三个检查组：
 
-1. `docs/*.md` 绝对路径链接死链；
+1. `docs/**` 中 Markdown 文件的仓库绝对路径链接死链；
 2. `docs/**/.DS_Store` 噪音文件；
-3. `docs/sources/tushare/docs_index.csv` 的 `local_path` 一致性。
+3. `docs/sources/tushare/docs_index.csv` 的 `local_path` 一致性；
+4. 同一索引的 `doc_id` 与 Markdown 文件名四位数字前缀一致性。
+
+第 3、4 项同属 `tushare-index-consistency` 检查组，因此输出三个 PASS 不代表漏跑第四项。
+具体覆盖范围以 `scripts/check_docs_integrity.py` 为准；这些检查不证明文档内容与代码语义一致，也不覆盖全部 AGENTS 中的裸路径、相对链接或锚点。
 
 ---
 

@@ -22,7 +22,7 @@
 ## 硬约束
 
 1. 不在本目录新增 biz/ops/foundation 业务逻辑。
-2. 变更时优先保持路由、middleware 顺序和入口行为兼容。
+2. 入口演进遵守[根 AGENTS 的硬约束](/Users/congming/github/goldenshare/AGENTS.md#硬约束)：未获明确批准保持现行路由、middleware 顺序和入口行为；获准变更时同步迁移受影响消费者，不新增旧入口兼容层。
 3. 非必要不改变启动参数语义。
 
 ---

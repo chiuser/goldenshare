@@ -15,9 +15,9 @@
 当前已经存在：
 
 - `features/auth`
+- `features/trade-calendar`
 
 后续应优先把真正属于某个领域的前端逻辑收敛到这里，而不是继续堆在页面里。
-当前已存在 `features/trade-calendar`。
 后续若继续推广任务中心模式，应优先把真正跨页面复用的 ops 领域逻辑继续收敛到这里，而不是回流到页面层。
 
 ---
@@ -82,7 +82,7 @@
 
 ## 当前目录的发展方向
 
-当前 `features` 只有 `auth`，说明 feature 层还偏弱。
+现有 feature 清单见“当前目录职责”；目录数量本身不构成新建 feature 的理由。
 
 后续若出现以下信号，应优先考虑新建 feature 子目录：
 
@@ -95,7 +95,6 @@
 - `features/ops-task-*`
 - `features/ops-review-*`
 - `features/market-*`
-- `features/trade-calendar`
 
 当前门禁深化与推广准备期的额外口径：
 
