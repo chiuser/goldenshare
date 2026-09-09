@@ -109,7 +109,7 @@ docs/
 - [股票分钟行情源站探测说明（现行样本、日期与配置边界；历史生产验收待核实）](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-remote-source-probe-plan-v1.md)
 - [指数日线源站探测说明（已合并 LLD；保留样本池、日志修复和历史验收）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-remote-source-probe-plan-v1.md)
 - [分钟线任务执行隔离与运维说明（已合并 LLD；领取、取消、CLI 与部署边界）](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-dedicated-worker-execution-lane-plan-v1.md)
-- [`kpl_list` 次日发布适配与自动维护方案 v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/ops/ops-kpl-list-next-day-release-plan-v1.md)
+- [`kpl_list` 次日发布适配与自动维护方案 v1（现行链路与配置缺口；历史生产验收待核实）](/Users/congming/github/goldenshare/docs/ops/ops-kpl-list-next-day-release-plan-v1.md)
 - [指数日线完整性审计、补漏与激活池说明（现行机制；历史生产验收未独立核实）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md)
 - [Prod 每日筹码分布 HDD Tablespace 迁移方案 v1（已执行）](/Users/congming/github/goldenshare/docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md)
 - [股票历史分钟行情 tablespace 冷热分层执行记录 v1（2026-04-26 历史快照；年度规则已被两个月滚动热窗口取代）](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
