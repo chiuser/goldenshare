@@ -1,7 +1,7 @@
 # Ops 运营后台 API 全量说明 v1
 
 - 版本：v1
-- 最近校准：2026-09-09（手动动作、目录字段及相关提交说明；其余接口未在本轮全面复核）
+- 最近校准：2026-09-09（手动/自动任务契约、目录字段及相关提交说明；其余接口与专用探测算法未在本轮全面复核）
 - 状态：当前口径（随代码演进）
 - 代码依据：
   - `/Users/congming/github/goldenshare/src/ops/api/*.py`
@@ -379,12 +379,12 @@ data: {"schedule_updated_at":"2026-04-23T09:02:00","task_run_requested_at":"2026
 
 - 功能：创建调度。
 - Body：`CreateScheduleRequest`
-  - 关键字段：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json`
-  - `calendar_policy` 当前支持：
-    - `monthly_last_day`：只允许用于 `DatasetDefinition.date_model.bucket_rule=month_last_calendar_day` 的数据集维护动作，且不能与固定 `trade_date` 混用。
-    - `monthly_last_trading_day`：只允许用于 `DatasetDefinition.date_model.bucket_rule=month_last_open_day` 的数据集维护动作，且不能与固定 `trade_date` 混用。
-    - `monthly_window_current_month`：只允许用于 `month_window + month_window_has_data + start_end_month_window` 的数据集维护动作。运行时按计划触发时间所属月份生成 `start_month/end_month` 自然月窗口意图，`DatasetActionResolver` 再展开为自然月首尾日期；不能与固定维护日期或固定窗口混用。
-    - `trigger_day_point`：只允许用于 `news.maintain` / `major_news.maintain`。`cron_expr` 必须是 `*/N * * * *`，且 `N >= 3`。运行时按计划触发时间所在北京时间自然日生成 `time_input.mode=point + trade_date`，不能与固定维护日期或固定窗口混用。
+  - 关键字段：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, next_run_at, timezone, calendar_policy, probe_config, params_json`
+  - 目标允许哪些 trigger/schedule type、日期策略和重复方式，以 Catalog 的 `automation_capability` 为准；workflow/maintenance 仅支持普通 schedule，不派生 ProbeRule。
+  - `calendar_policy` 当前枚举为 `monthly_last_day / monthly_last_trading_day / monthly_window_current_month / trigger_day_single_range / trigger_day_point / latest_completed_calendar_quarter / since_last_success_day_range`。不是每个目标都支持全部策略；显式动作声明优先于 date_model 派生，详见[日期策略表](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md#calendar-policies)。
+  - `trigger_day_point` 不再限于新闻：news/major_news 仅日内重复，fund_share 还支持每日/每周/每月，fund_div 仅每日/每周/每月且生成 ann_date。只有日内方式要求 `*/N * * * *` 且 N ≥ 3，不能把这个限制套到所有 point 策略。
+  - 固定日期/窗口是否允许，读取规则的 `explicit_time_input`；声明 forbidden 时不能混用。策略参数由 `policy_parameters` 声明，实际提交到 `params_json.schedule_policy_params`，如成功窗口策略的 `initial_start_date`。
+  - 纯 `trigger_mode=probe` 必须为 `schedule_type=cron`，但 `cron_expr/next_run_at` 均为空；非空时间字段返回 `422 probe_schedule_timing.forbidden`，once 返回 `422 schedule_type.forbidden`。它依靠探测窗口，不计算定时触发。Fallback 仍保留真实定时字段。
 - 返回：`ScheduleDetailResponse`
 - 示例：
 
@@ -566,7 +566,8 @@ curl -H "Authorization: Bearer <TOKEN>" \
   - `calendar_policy=monthly_last_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在自然月最后一天。
   - `calendar_policy=monthly_last_trading_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在当月最后一个开市交易日（按 `core_serving.trade_calendar` 计算）。
   - `calendar_policy=monthly_window_current_month` 时，`cron_expr` 同样只作为执行时分载体，返回时间落在自然月最后一天；真正维护窗口意图在调度到点创建 TaskRun 时按计划触发时间生成，日期展开由 `DatasetActionResolver` 完成。
-  - `calendar_policy=trigger_day_point` 时，`cron_expr` 使用 `*/N * * * *` 表达日内分钟间隔；预览只返回触发时间，真正维护日期在调度到点创建 TaskRun 时按触发时间所在北京时间自然日生成。
+  - `trigger_day_single_range / trigger_day_point / latest_completed_calendar_quarter / since_last_success_day_range` 的周期预览使用普通 cron；季末策略还支持 once。业务日期/窗口在创建 TaskRun 时按计划触发时间与时区生成，规则见[日期策略](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)。
+  - 纯 probe 不调用此接口。此请求不包含 target_type/target_key，不校验目标 capability；预览成功只代表可以计算时间，不代表该目标允许保存或源端已就绪。
 - 返回：`SchedulePreviewResponse`
 - 示例：
 
@@ -1364,6 +1365,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 7. `remote_margin_ready`：仅用于 `margin.maintain`。在下一个开市日 `09:00~09:30` 验证 SSE、SZSE、BSE 是否均返回前一开市日数据；三者齐备才创建一个 `margin.maintain(point=D)` TaskRun。此条件只能使用纯探测、空维护参数、无日期策略、固定 `300` 秒间隔与每日一次触发；09:30 前 freshness 保持 `unconfirmed`。
 8. `remote_margin_detail_ready`：仅用于 `margin_detail.maintain`。与融资融券汇总相同，在下一个开市日 `09:00~09:30` 验证三个市场的代表证券；三者齐备才创建一个全市场 `margin_detail(point=D)` TaskRun。只能使用纯探测、空维护参数、无日期策略、固定 `300` 秒间隔与每日一次触发。
 
+以下纯 probe 示例的 cron/next-run 均为空；其他窗口、频率与来源限制仍由目标 capability 校验。示例不是本轮生产配置或源站实测结果。
+
 `remote_stk_mins_ready` 示例：
 
 ```json
@@ -1373,7 +1376,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "display_name": "股票分钟行情源站就绪后同步",
   "schedule_type": "cron",
   "trigger_mode": "probe",
-  "cron_expr": "*/5 15-18 * * 1-5",
+  "cron_expr": null,
+  "next_run_at": null,
   "timezone": "Asia/Shanghai",
   "probe_config": {
     "window_start": "15:20",
@@ -1402,7 +1406,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "display_name": "指数日线源站就绪后同步",
   "schedule_type": "cron",
   "trigger_mode": "probe",
-  "cron_expr": "*/5 16-20 * * 1-5",
+  "cron_expr": null,
+  "next_run_at": null,
   "timezone": "Asia/Shanghai",
   "calendar_policy": null,
   "probe_config": {
@@ -1430,7 +1435,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "display_name": "指数技术因子源站就绪后同步",
   "schedule_type": "cron",
   "trigger_mode": "probe",
-  "cron_expr": "*/5 16-20 * * 1-5",
+  "cron_expr": null,
+  "next_run_at": null,
   "timezone": "Asia/Shanghai",
   "calendar_policy": null,
   "probe_config": {
@@ -1458,7 +1464,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "display_name": "指数分钟行情源站就绪后同步",
   "schedule_type": "cron",
   "trigger_mode": "probe",
-  "cron_expr": "*/5 15-18 * * 1-5",
+  "cron_expr": null,
+  "next_run_at": null,
   "timezone": "Asia/Shanghai",
   "calendar_policy": null,
   "probe_config": {
@@ -1483,7 +1490,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "target_key": "kpl_list.maintain",
   "trigger_mode": "probe",
   "schedule_type": "cron",
-  "cron_expr": "*/30 * * * *",
+  "cron_expr": null,
+  "next_run_at": null,
   "timezone": "Asia/Shanghai",
   "probe_config": {
     "window_start": "08:35",
@@ -1507,7 +1515,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "target_key": "margin.maintain",
   "schedule_type": "cron",
   "trigger_mode": "probe",
-  "cron_expr": "*/5 9 * * 1-5",
+  "cron_expr": null,
+  "next_run_at": null,
   "timezone": "Asia/Shanghai",
   "probe_config": {
     "window_start": "09:00",
@@ -1543,7 +1552,7 @@ ProbeRule 没有对外写入 request；规则只由 `OpsSchedule` 的自动任�
 
 ## 12. 响应模型字段索引
 
-> 以下为返回模型导航；代码演进后须同步对应章节。2026-09-09 补齐手动动作与 ActionParameter 字段，不表示其余模型已逐字段复验，完整类型以 `src/ops/schemas` 为准。
+> 以下为返回模型导航；代码演进后须同步对应章节。2026-09-09 补齐手动动作、ActionParameter 与自动任务 capability 字段，不表示其余模型已逐字段复验，完整类型以 `src/ops/schemas` 为准。
 
 ### 12.1 目录与模式
 
@@ -1567,6 +1576,35 @@ ProbeRule 没有对外写入 request；规则只由 `OpsSchedule` 的自动任�
 Workflow 字段由 `catalog_query_service.py` 装配：名称、步骤、参数及默认策略来自 `action_catalog.py` 的定义，绑定/激活数由 `ops.schedule` 按 `target_type=workflow, target_key=workflow.key` 统计，展示分组与能力经查询层投影。步骤的 `depends_on/default_params` 返回定义值，不意味着 dispatcher 已实现依赖调度。
 
 当前 catalog 不返回 `WorkflowDefinition.time_regime/workflow_profile/failure_policy_default/resume_supported`，也不返回步骤的 `failure_policy_override/params_override/max_retry_per_unit`。其中 `time_regime` 会参与手动表单派生；“未暴露”与“未使用”不能混同。运行限制见 [Workflow 清单 §2](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md#2-工作流运行机制代码级)。若未来要新增 API 字段，须先获契约变更批准并同步 schema/query/消费者及测试。
+
+<a id="automation-capability-schema"></a>
+
+#### 自动任务能力字段
+
+代码：`src/ops/schemas/catalog.py`。字段来自现有响应，不是本轮新增 API。不可排程目标的 `automation_capability` 为 null；可排程目标返回以下模型。
+
+| 响应模型 | 完整字段 |
+| --- | --- |
+| `AutomationCapabilityResponse` | `version, default_trigger_mode, trigger_options, probe_conditions, calendar_policy_rules, time_input_contract, fixed_schedule, repeat_policy` |
+| `TriggerModeCapabilityResponse` | `mode, allowed_schedule_types` |
+| `ProbeConditionCapabilityResponse` | `kind, label, description, allowed_trigger_modes, calendar_policy, time_input, filters, probe` |
+| `FilterCapabilityResponse` | `mode, required_fields, allowed_values, require_complete_allowed_values` |
+| `ProbeConfigCapabilityResponse` | `source, source_label, window, probe_interval_seconds, max_triggers_per_day` |
+| `ProbeWindowCapabilityResponse` | `mode, start, end` |
+| `ProbeIntegerCapabilityResponse` | `mode, value` |
+| `CalendarPolicyCapabilityResponse` | `policy, schedule_types, cron_repeat_modes, explicit_time_input, generated_time_mode, generated_time_field, policy_parameters` |
+| `AutomationTimeInputContractResponse` | `supported_modes, point_field, range_start_field, range_end_field, granularity` |
+| `FixedScheduleCapabilityResponse` | `cron_expr, timezone, display_text` |
+| `RepeatPolicyCapabilityResponse` | `allowed_modes, default_mode, default_interval_minutes, minimum_interval_minutes, timezone` |
+
+消费规则：
+
+- `trigger_options` 给出触发方式及允许的 cron/once；`probe_conditions` 只能用于各自的 `allowed_trigger_modes`，不能任意组合。纯 probe 的 cron 分类不代表有 cron 表达式。
+- Probe filters 的 mode 为 dataset_default/forbidden/required_allowed_values；完整频率集合要求由 `require_complete_allowed_values` 表达。window 的 mode 为 operator_default/fixed；间隔/上限的 mode 为 operator_default/minimum/fixed，不能忽略固定值或最小值。
+- Probe 来源 `source=system_default`；`source_label` 只作说明，不提供来源选择。condition 的 `calendar_policy/time_input` 为 dataset_default 或 forbidden。
+- `calendar_policy_rules` 同时表达允许的 schedule types、cron 重复方式、固定时间能否输入、生成 point/range 以及生成字段。生成字段枚举为 trade_date/ann_date/start_date_end_date，不能硬编码为 trade_date。`policy_parameters` 为 ActionParameterResponse 列表，参数值保存到 `params_json.schedule_policy_params`。
+- `time_input_contract` 指明普通时间输入模式、point/range 字段与 day/month/none 粒度；不等同于日历策略。`fixed_schedule` 限定固定 cron/时区，`repeat_policy` 表达日内重复的允许方式、默认/最小分钟与时区。三者均可为空，维护动作不能一律当作自由 cron/once。
+- 前端缺能力时禁止保存；更完整的目标、绑定与 runtime 边界见[自动任务能力契约](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)。
 
 ### 12.2 任务运行
 

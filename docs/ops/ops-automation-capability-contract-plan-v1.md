@@ -1,227 +1,131 @@
-# Ops 自动任务能力契约收敛方案 v1
+# Ops 自动任务能力契约 v1
 
-状态：P1–P4 已完成；P5 代码与本地验证已完成，生产迁移待独立维护窗口
-日期：2026-08-24
-适用范围：`src/ops/**`、`frontend/src/pages/ops-v21-task-auto-tab.tsx`、`GET /api/v1/ops/catalog`。
-配套 LLD：[Ops 自动任务能力契约 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-lld-v1.md)。
+状态：当前代码契约；P1–P4 历史验收已完成。**P5 生产迁移与验收尚无本轮证据，不作完成判断**，最后记录为 2026-08-24 待独立维护窗口，见 [§5](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md#p5-production-acceptance)。
+校准日期：2026-09-09。适用：Ops 自动任务、Catalog 和自动任务页；不授权创建任务、修改生产配置或执行迁移。
 
----
+## 1. 契约归属
 
-## 1. 一句话结论
+自动任务“能配置什么”由 `ScheduleAutomationCapabilityResolver.resolve(target_type, target_key)` 统一解析，Catalog 投影，前端消费，保存与 binding 再校验。不能用页面 action-key 白名单或直接 ProbeRule 写 API 绕过。
 
-自动任务的配置能力必须由 Ops 后端统一定义并随 Catalog 返回；前端只渲染该契约，不能再按 `action_key` 维护 condition、固定窗口、日期、filters 或来源的特殊白名单。
+| 内容 | 维护位置 |
+| --- | --- |
+| 触发方式、绑定、探测安全与未完成验收 | 本文（已吸收原能力 LLD 的有效内容） |
+| 日期策略、日期生成与数据集声明优先级 | [自动任务日期策略](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md) |
+| 请求、响应及完整 capability 字段 | [Ops API §3/11/12.1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md#automation-capability-schema) |
+| 工作流步骤与执行限制 | [Workflow 清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md) |
 
-`probe` 是**自动任务目标的触发能力**，不是数据集永久拥有的执行方式：
+所有 Catalog action/workflow item 均包含 `automation_capability`；不可排程时为 null，可排程时必须非空。内部 `AutomationCapability` 是 dataclass，API 的 `AutomationCapabilityResponse` 是 Pydantic 响应模型，不能混写。当前不仅有 trigger/probe，还包含日期规则、时间输入契约、固定排程与重复策略；字段只在 API 参考维护。
 
-1. 单独配置为 `dataset_action` 自动任务的数据集，可以有 source-ready probe。
-2. 工作流只能按普通 `schedule` 触发，不能使用 `probe` 或 `schedule_probe_fallback`，也不能派生 `ops.probe_rule`。
-3. 支持 source-ready probe 的数据集可以作为工作流步骤存在；在工作流中它和其他步骤一样按工作流的时间/参数直接执行，不继承或调用 probe。
-4. probe 的来源由系统按目标数据集和 condition 决定；运营端不可选择、不可覆盖来源。
+工作流和 maintenance action 都只能普通 schedule，但不代表所有 maintenance 都允许 cron/once：固定时刻或重复策略由其自身 capability 限制。前端缺 capability 时不能保存，不能回退本地白名单；condition 只能组合其声明的 trigger mode，不能把两个列表任意组合。
 
-## 2. 已拍板的语义边界
+## 2. 触发方式与目标上下文
 
-| 场景 | 是否允许 probe | 实际行为 |
+| trigger_mode | 时序与持久化 | 允许目标 |
 | --- | --- | --- |
-| 单独的 dataset action 自动任务 | 按该目标 capability 决定 | 允许时先确认源端就绪，再创建一条该数据集的 TaskRun |
-| 工作流自动任务 | 否 | 到点直接创建工作流 TaskRun，由工作流逐步执行 |
-| 工作流中的 source-ready 数据集步骤 | 否 | 使用工作流传入的日期和 filters 直接执行，不等待源端 probe |
-| maintenance action 自动任务 | 否 | 到点直接执行维护动作 |
-| 手动 dataset action / 手动工作流 | 否 | 用户显式提交后直接执行；本方案不改变手动任务契约 |
+| `schedule` | 按真实 cron/once 到点创建 TaskRun | 由目标能力决定；workflow/maintenance 只允许这一种 |
+| `probe` | 在 ProbeRule 窗口内探测，命中后创建 dataset TaskRun；`schedule_type=cron` 仅表示持续型生命周期，`cron_expr/next_run_at=NULL` | 仅 capability 允许的独立 dataset action |
+| `schedule_probe_fallback` | 先探测，另保留真实定时兜底及同日已成功跳过逻辑 | 仅 capability 允许的独立 dataset action |
 
-因此，`index_daily` 继续保留在 `index_extension_maintenance` 和 `index_kline_maintenance_pipeline` 两个工作流中；两者不会产生 `remote_index_daily_ready` ProbeRule。只有运营单独配置 `index_daily.maintain` 自动任务时，才可选择其 source-ready probe。
+`probe` 是**自动任务目标的触发能力**，不是数据集在所有调用环境中的执行方式：
 
-### 2.1 系统默认来源
+- Workflow 不派生 ProbeRule，不等待 source-ready；其中的数据集按工作流下传日期与 filters 直接执行。
+- `index_daily` 仍是 `index_extension_maintenance` 和 `index_kline_maintenance_pipeline` 的步骤；独立 `index_daily.maintain` 的探测限制不能套到这两个工作流。
+- 手动动作/手动工作流仍是显式发起的直接执行，不改变其契约。
+- Workflow 的 probe、fallback、探测配置和 `workflow_dataset_keys` 输入必须被拒绝；不得展开 workflow 生成 dataset 探测规则。
 
-source-ready probe 的来源不是运营配置项：
+### 2.1 纯 probe 不得伪装成定时任务
 
-1. Catalog 只返回“系统默认来源”，不返回可选择来源列表。
-2. 自动任务创建/编辑请求不接受可写 `source_key`；直接 API 携带该字段返回 `422 source_key.operator_forbidden`。
-3. `ProbeRule.source_key` 继续仅作运行诊断记录，但只能由后端依据 `DatasetDefinition.source.source_key_default` 和 condition 生成。
-4. Runtime 不得以请求或 ProbeRule 中的运营输入选择 connector；各 source-ready service 继续使用其系统默认 source。
+Create/Update 拒绝非空 cron 或 next-run（`422 probe_schedule_timing.forbidden`），拒绝 once（`422 schedule_type.forbidden`）。Update 将纯 probe 的遗留无效时间归空；Resume 固定为 cron 分类并清空两时间字段，不计算 next-run；Pause 仅移除活动规则，不改时间字段。
 
-## 3. 已核验基线与根因
+Resolver/audit 同样检查这个不变量，ORM 和迁移声明数据库 CheckConstraint。**约束代码存在不证明生产约束已部署。**前端纯 probe 不调用预览、不生成定时字段；列表/详情显示持续探测或按探测窗口。Fallback 仍显示真实兜底时间，不能随纯 probe 一起清空。
 
-当前规则分散在三处：
+## 3. 探测条件与绑定安全
 
-1. `ScheduleProbeBindingService` 校验并派生 `ops.probe_rule`。
-2. `ProbeRuntimeService` 按 condition 调用真实探测器，并在命中后创建 TaskRun。
-3. 自动任务前端页按 action key 硬编码默认 condition、可选项、固定窗口、filters/日期清空和提交校验。
+### 3.1 source-ready 条件
 
-第三处导致新增数据集容易漏接；`margin_detail` 的表单遗漏正是这个结构性问题。本轮逐行审计还确认：
-
-1. 当前 binding 会把 workflow 的 probe 配置展开到步骤，甚至接受 `workflow_dataset_keys`；该路径必须删除。
-2. `WorkflowDefinition.probe_trigger_enabled` 没有运行消费者，是历史死字段，必须删除。
-3. 当前有 76 个可排程数据集动作、1 个维护动作、4 个工作流，共 81 个目标；7 个 source-ready condition 都对应精确的 dataset action。
-4. 2026-08-03 生产只读审计得到 28 条 `ops.schedule`、6 条 `ops.probe_rule`；没有 workflow ProbeRule，也没有 `margin_detail` 自动任务。实现时仍须正式只读预检。
-
-## 4. 目标与非目标
-
-### 4.1 目标
-
-1. 建立 `src/ops` 内唯一的自动任务能力事实源。
-2. 每个 Catalog 目标都返回 `automation_capability`；不可排程目标返回 `null`。
-3. 前端只按 Catalog 契约决定触发方式、condition、日期、filters、窗口、频率和来源展示。
-4. 后端在创建、更新、恢复和预检时使用同一 resolver；直接 API 不能绕过限制。
-5. workflow probe、workflow ProbeRule、`workflow_dataset_keys` 和 `probe_trigger_enabled` 退出主链。
-6. 存量配置只读预检为零 mismatch 后发布；不重配、不重建、不自动修复。
-
-### 4.2 非目标
-
-1. 不改变 `DatasetDefinition`、数据维护执行计划、源接口请求或业务数据写入。
-2. 不合并 7 个 source-ready 探测器，不改变其完成判定、去重或 TaskRun 语义。
-3. 不把手动维护表单并入自动任务 capability。
-4. P1–P4 不新增数据库表、迁移、seed 排程或批量重建 ProbeRule；P5 仅允许增加一次存量纯 probe 时间字段归一化迁移，不新建表、不重建 ProbeRule。
-5. 不从工作流中移除 `index_daily` 等步骤；只禁止 workflow 的 probe 触发。
-
-## 5. 目标架构
-
-```mermaid
-flowchart LR
-    R[ScheduleAutomationCapabilityResolver]
-    C[Ops Catalog API]
-    U[自动任务页面]
-    B[ScheduleProbeBindingService]
-    P[ops.probe_rule: dataset_action only]
-    X[ProbeRuntimeService]
-    T[TaskRun]
-
-    R --> C
-    C --> U
-    R --> B
-    B --> P
-    P --> X
-    X --> T
-    B --> T
-```
-
-| 组件 | 负责 | 不承担 |
-| --- | --- | --- |
-| `ScheduleAutomationCapabilityResolver` | 按 `target_type + target_key` 给出配置能力 | 调用源端、创建 TaskRun |
-| Catalog Query | 投影 resolver 结果 | 推导特殊白名单 |
-| Binding Service | 校验保存意图；仅为 dataset probe 派生 rule | 展开 workflow 探测步骤 |
-| 前端 | 渲染契约并构造合法请求 | 根据 action key 识别特例 |
-| Probe Runtime | 运行已保存的 dataset ProbeRule | 决定工作流/UI 能配置什么 |
-
-## 6. 能力覆盖策略
-
-### 6.1 Context-first capability
-
-能力由自动任务**目标上下文**决定：
-
-```text
-resolve(target_type, target_key) -> AutomationCapability | null
-```
-
-同一个 `index_daily.maintain` 作为单独 dataset action 时可有 `remote_index_daily_ready`；作为 workflow 的步骤时只接受直接执行请求，不读取该 condition。
-
-### 6.2 契约形状
-
-可排程目标采用“触发方式 + probe 条件”两层结构，避免把两个列表误组合：
-
-```json
-{
-  "version": 1,
-  "default_trigger_mode": "schedule",
-  "trigger_options": [
-    {"mode": "schedule", "allowed_schedule_types": ["cron", "once"]}
-  ],
-  "probe_conditions": []
-}
-```
-
-工作流和 maintenance action 永远采用上例。具备 probe 的 dataset action 则只在 `probe` / `schedule_probe_fallback` option 下引用允许的 `probe_conditions`。
-
-### 6.3 七类 source-ready condition
+下表是当前 resolver 的专用条件映射，不是生产配置数量或新建任务清单。
 
 | condition | 精确 dataset action | 允许触发方式 | 关键限制 |
 | --- | --- | --- | --- |
-| `remote_stk_mins_ready` | `stk_mins.maintain` | probe / fallback | 禁日期；`freq` 必填且受限 |
-| `remote_index_daily_ready` | `index_daily.maintain` | probe / fallback | 禁日期与 calendar policy |
-| `remote_index_mins_ready` | `index_mins.maintain` | probe / fallback | 禁日期；五个分钟频率完整；最小 300 秒 |
-| `remote_kpl_list_ready` | `kpl_list.maintain` | 仅 probe | 禁日期与 calendar policy |
-| `remote_idx_factor_pro_ready` | `idx_factor_pro.maintain` | probe / fallback | 禁 filters、日期；最小 300 秒、每日一次 |
-| `remote_margin_ready` | `margin.maintain` | 仅 probe | 禁 filters、日期；固定 09:00–09:30、300 秒、每日一次 |
-| `remote_margin_detail_ready` | `margin_detail.maintain` | 仅 probe | 与 margin 相同，但独立 condition/service |
+| `remote_stk_mins_ready` | `stk_mins.maintain` | probe / fallback | 禁固定日期；freq 必填且受限 |
+| `remote_index_daily_ready` | `index_daily.maintain` | probe / fallback | 禁固定日期与 calendar policy |
+| `remote_index_mins_ready` | `index_mins.maintain` | probe / fallback | 禁固定日期；五个分钟频率须完整；最小 300 秒 |
+| `remote_kpl_list_ready` | `kpl_list.maintain` | 仅 probe | 禁固定日期与 calendar policy |
+| `remote_idx_factor_pro_ready` | `idx_factor_pro.maintain` | probe / fallback | 禁 filters、固定日期；最小 300 秒、每日一次 |
+| `remote_margin_ready` | `margin.maintain` | 仅 probe | 禁 filters、固定日期；固定 09:00–09:30、300 秒、每日一次 |
+| `remote_margin_detail_ready` | `margin_detail.maintain` | 仅 probe | 同 margin 配置边界，但独立 condition/service |
 
-`freshness_latest_open` 也必须由 resolver 明确给出。`index_mins`、`idx_factor_pro`、`margin`、`margin_detail` 作为单独 dataset action 自动任务时，不能用普通 `schedule + freshness_latest_open` 绕过 source-ready 规则；不得把这一限制误用于 workflow 的直接步骤。
+`freshness_latest_open` 也须由 resolver 明确提供。`index_mins`、`idx_factor_pro`、`margin`、`margin_detail` 独立自动任务不能以普通 schedule 或本地 freshness 绕过其 source-ready 约束。
 
-## 7. 存量配置、风险与发布
+来源固定为系统默认：请求显式写 `source_key` 返回 `422 source_key.operator_forbidden`，Catalog 只显示来源说明，无来源选项。`ProbeRule.source_key` 由服务端按 condition 与数据集默认 source 生成，保留用于诊断。
 
-新增只读 capability audit，稳定排序分页扫描 schedule 和 ProbeRule（`goldenshare ops-audit-schedule-automation-capability` 在 `REPEATABLE READ, READ ONLY` 事务中运行，完成后 rollback）：
+### 3.2 Binding 与 runtime
 
-1. 目标、trigger、condition、日期/日历、filters、窗口、间隔和上限必须符合 capability。
-2. 仅 dataset probe/fallback schedule 可以有正确的一条 ProbeRule。
-3. workflow/maintenance schedule 不能有 ProbeRule；否则报告 `probe_rule.target_forbidden`。
-4. ProbeRule 的来源、on-success action 与系统默认/精确 dataset action 一致。
+1. Active schedule 创建/更新/恢复时，先 `validate_schedule()`，通过后才删除旧 rule，并按 validated intent 派生 dataset probe rule；校验失败不能先删旧规则。
+2. 普通 schedule 也校验，但不建 rule。非 active（含暂停）清除规则，不让历史无效配置阻止暂停。
+3. `on_success_action_json`、source、日期及 filters 来自已验证意图；不得重新从原始请求拼装。正常更新/恢复可能重建规则；**仅 P5 数据迁移承诺保留原 rule id**。
+4. Probe Runtime 保留七类 source-ready 显式 dispatch；检查 condition 与 dataset action 精确匹配、系统来源、业务日期来自 probe payload。`margin_detail` 强制全市场单日 point=D、空 filters。
+5. 遗留/篡改的 workflow ProbeRule 必须报受控配置错误，不能创建 TaskRun。同日去重、失败/取消后的重试与 ProbeRunLog 仍按现有运行规则。
+6. Probe API 只读查询规则及运行日志；不恢复旧 CRUD、`workflow_dataset_keys`、`probe_trigger_enabled`、可写来源或前端 fallback。
 
-生产 28 条 schedule、6 条 ProbeRule 必须零 mismatch；不一致时逐条评审，禁止自动修复。
+相关实现位于 `src/ops/services/schedule_automation_capability_resolver.py`、`schedule_probe_binding_service.py`、`operations_probe_runtime_service.py`；契约装配不引入 foundation → ops 反向依赖，也不改业务表。
 
-2026-08-03 首次正式预检读到 28 / 6（分页各一页），发现 `ops.probe_rule` 的 10（父 schedule 31，`index_mins.maintain`）和 12（父 schedule 33，`margin.maintain`）的 `source_key` 为 `NULL`，而两个数据集的系统默认来源均为 `tushare`。经运营明确授权后，使用 `id + schedule_id + dataset_key + source_key IS NULL` 乐观条件，在一个事务内仅将这两条规则回填为 `tushare`，并断言受影响行数恰为 2；未改 schedule、TaskRun 或业务数据。随后以同一 `REPEATABLE READ, READ ONLY` 门禁重跑：28 / 6、各一页、零 mismatch，P4 通过。
+## 4. 只读预检与历史数量
 
-发布顺序：先实现 resolver、Catalog、binding 和预检；只读预检通过后，前端完全切为 contract 驱动；最后复核 Catalog、持久化配置和浏览器表单。全程不创建 TaskRun、不修改存量自动任务。`margin_detail` 的第一条自动任务仍属于 M5b 的独立授权。
+`goldenshare ops-audit-schedule-automation-capability` 在 `REPEATABLE READ, READ ONLY` 事务中执行，结束 rollback。服务对白名单字段做稳定 id keyset 分页；不提交、不修复，不调用 binding 写链（会复用只读模板生成）。
 
-| 风险 | 控制 |
+- 默认 batch_size=100、每类 max_records=100，硬上限 1000；截断或数量不符均不能算通过。
+- 校验目标 capability、trigger/type、日期/日历、filters、窗口、间隔、上限、系统 source、on-success action，以及 rule 缺失、孤儿与父子关系；active/paused 纯 probe 都检查时间不变量。
+- `--expected-schedule-count` / `--expected-probe-rule-count` 是可选门禁。若使用，填写**当次有界只读盘点的基线**，不能机械复制历史 28/6；问题逐条评审，禁止自动重绑或批量 PATCH 来凑数。
+
+历史证据（不是当前规模）：
+
+- 原 P1 验证 81 个可排程目标（76 dataset、1 maintenance、4 workflow）；新增目标后按当次 Catalog 全量覆盖，81 不是固定门禁。
+- 2026-08-03 P4 预检为 28 schedule / 6 ProbeRule，各一页；首次发现 rule 10（schedule 31、index_mins）与 rule 12（schedule 33、margin）的 source_key 为 NULL。
+- 当时经授权，以 id + schedule_id + dataset_key + source_key IS NULL 乐观条件，在单事务中仅将两条来源回填为 tushare，断言影响 2 行；未改 schedule、TaskRun、业务数据或重绑。再次只读检查为 28/6、零 mismatch，P4 通过。这不是本轮修复授权。
+- 原专项禁止顺带 seed `margin_detail` 的首条自动任务，其首次配置另需授权；本次没有核实现在是否已有该配置，不把旧“0 条”写成现状。
+
+<a id="p5-production-acceptance"></a>
+
+## 5. P5：保留生产迁移验收事项
+
+### 5.1 已知证据与状态边界
+
+2026-08-24 只读核验曾发现生产 Schedule #33 自创建起就是纯 probe，却保存了 `0 19 * * *` 与 next-run；运行时排除纯 probe，所以它们是无效配置而非真实兜底。旧表单默认值与通用 next-run 计算造成持久化/界面语义错误。
+
+当日记录：代码及本地验证完成，生产迁移待独立维护窗口。2026-09-09 本次只核验代码与文档，**未连接生产核实迁移版本、约束或 #33 当前字段**；后续先核实是否已执行，不能直接重跑，也不能将待验收项删除。
+
+### 5.2 迁移边界及验收清单
+
+`alembic/versions/20260824_000150_normalize_pure_probe_schedule_timing.py` 仅处理 PostgreSQL：把不符合不变量的纯 probe schedule 归一为 cron 分类、清空 cron/next-run，再建立 `ck_ops_schedule_pure_probe_has_no_schedule_timing`。
+
+它不重建 Schedule/ProbeRule，不修改 ProbeRule id、TaskRun、ConfigRevision 或业务数据。Downgrade 只删除约束，不恢复已清空的无效时间。该迁移的 down_revision 为当时的 `20260824_000149`，不代表今天的 Alembic head。
+
+如仍需生产执行：先按当前部署与迁移 head 制定维护窗口并独立获准，原方案要求暂停 Web、scheduler/worker 后迁移，验收再恢复服务。本文不提供即刻执行授权。迁移前后必须对账：
+
+1. 所有纯 probe 行满足 cron 分类、cron_expr/next_run_at 均为 NULL，数据库约束存在。
+2. 普通 schedule 与 fallback 的真实定时字段不变。
+3. Schedule、ProbeRule 数量、rule id、父子关系及规则配置不变，不以常规 binding 重建代替迁移。
+4. 对历史 #33 先重新核实当前身份/状态；原验收基线为 active、原 ProbeRule、09:00–09:30 窗口，不擅自恢复成旧配置。
+5. 当次只读 capability audit 零 mismatch；恢复服务后分别核验普通 schedule、fallback、纯 probe 的契约。该只读验收不主动触发业务 TaskRun，真实运行验证另需授权。
+
+### 5.3 历史本地验证
+
+2026-08-24 记录为后端定向 292 passed，前端 typecheck/规则检查/149 项单测/构建通过，浏览器 smoke/visual 13 passed 且未更新截图基线，文档检查通过。以上为历史证据，不是本轮重跑结果，也不能替代生产验收。
+
+## 6. 回归与维护入口
+
+原 LLD 的 AC-001～015 硬口径合并为以下检查组；不再维护第二份字段模型和已完成的逐阶段改文件清单。
+
+| 原追溯项 | 保留的正反例与当前测试入口 |
 | --- | --- |
-| workflow probe 被直接 API 绕过 | workflow capability 仅 `schedule`；API/binding 反例测试 |
-| dataset probe 误作用于 workflow 步骤 | target-context resolver；workflow 从不展开 ProbeRule |
-| 来源字段仍被篡改 | 请求拒绝 `source_key`；规则来源服务端生成 |
-| 前端继续漏改 | 无 action-key fallback；缺 capability 失败关闭 |
-| 存量受影响 | 上线前全量只读预检 |
+| AC-001/002/006 | Catalog 所有可排程目标非空、字段完整、按 target context 解析；无 action-key fallback；`tests/test_ops_automation_capability.py`、`tests/web/test_ops_catalog_api.py`、前端自动任务页测试 |
+| AC-003/004/007 | Workflow 仅 schedule、步骤直接执行不建 rule；独立 remote-only action 绕过被拒；`tests/web/test_ops_schedule_api.py`、`tests/web/test_ops_runtime.py` |
+| AC-005/008 | 七类条件与来源、日期、filters、窗口、上限防篡改；margin_detail 全市场单日；`tests/web/test_ops_probe_api.py`、`tests/web/test_margin_detail_remote_probe.py` |
+| AC-009/010 | 只读 audit 正常/missing/orphan/mismatch、校验失败不删旧 rule、pause 可清理；不 seed/批量重绑；`tests/web/test_schedule_automation_capability_audit_service.py`、`tests/test_cli_ops_schedule_automation_audit.py` 及 binding/API 回归 |
+| AC-011/012/013/015 | 纯 probe create/update/resume 空时间；非空 cron、next-run、once 拒绝；不预览；fallback 定时/同日跳过保留；Schedule API/runtime 与前端测试 |
+| AC-014 | ORM 约束与迁移一致、只改 schedule 时间、不重建规则；`tests/test_ops_pure_probe_schedule_timing_migration.py`；生产对账见 §5 |
 
-## 8. 实施阶段与验收
+前端入口：`frontend/src/pages/ops-v21-task-auto-tab.tsx` 及同名测试；API 模型：`src/ops/schemas/catalog.py`；只读 CLI：`src/cli_parts/ops_handlers.py`。页面回归仍覆盖 workflow 无 probe/source、直接 index_daily 有 probe、margin_detail 固定约束、纯 probe 与 fallback 显示差异。
 
-| 阶段 | 交付 | 验收 |
-| --- | --- | --- |
-| P1（已完成） | capability 类型、resolver、workflow probe 旧字段/路径清理 | 81 个目标可解析；workflow 仅 schedule；7 条规则逐项断言 |
-| P2（已完成） | Catalog API 的只读 capability 投影、前端 API 类型 | 所有目标字段完整；API 契约测试通过 |
-| P3（已完成） | 请求 schema、binding/runtime 收口、前端删除白名单与旧 ProbeRule 写链 | `source_key` 422；workflow probe 422；workflow 内 `index_daily` 直接执行回归；直接绕过 422；Probe API 只读 |
-| P4（已完成） | 只读预检与发布验证 | 两条经授权的历史 `source_key=NULL` rule 已定点回填为 `tushare`；重跑确认 28 schedule / 6 ProbeRule、零 mismatch；无 TaskRun |
-| P5（代码与本地验证已完成） | 清除纯 probe 的伪 cron/next-run 语义 | 新建、编辑、恢复均保持 `cron_expr/next_run_at=NULL`；fallback 不变；存量迁移和生产验收待维护窗口 |
-
-`source_key` 的拒绝与来源控件删除不得拆入 P2：它同时涉及 request schema、binding 持久化语义和自动任务页。P2 只先发布向后兼容的只读 capability 字段；P3 再以一个可运行闭环删除可写来源和前端白名单。这样任何已提交阶段都不会出现“页面仍提交 source、API 已拒绝”的断链。
-
-P3 实现补充：旧 `/ops/probes` 的规则 CRUD 已删除，仅保留规则和运行日志的只读查询。这样 `ProbeRule.source_key`、condition、on-success action 只能由 `ScheduleProbeBindingService` 从已验证 intent 派生，不能通过遗留 direct API 绕过自动任务 capability。
-
-开发开始前必须按 LLD 的追溯账本逐条映射实现、正反测试和浏览器验证；任一硬约束没有落点时不得进入 P4。
-
-## 9. P5：纯 probe 时间契约修复
-
-### 9.1 发现与结论
-
-2026-08-24 对生产 Schedule `#33` 及其首次配置修订做只读核验后确认：该任务创建时已经是 `trigger_mode=probe`，但同时保存了 `cron_expr=0 19 * * *` 与相应 `next_run_at`。`last_triggered_at` 为空，运行时扫描也明确排除纯 probe，因此这两个字段不是兜底时间，只是创建链遗留的无效配置。
-
-根因是旧自动任务表单和服务以 `cron/once` 为基础模型，新增 probe 时只隐藏了定时输入，却仍由表单默认值生成 cron，并由通用 Schedule 服务计算 next-run。运行时防重保护正确，但持久化契约与界面语义不正确。
-
-### 9.2 固定契约
-
-1. `trigger_mode=probe` 表示持续按 ProbeRule 窗口探测；`schedule_type=cron` 只保留为现有 Schedule 生命周期分类，不具有 cron 执行含义。
-2. 纯 probe 必须满足 `schedule_type=cron`、`cron_expr=NULL`、`next_run_at=NULL`。
-3. Create/Update API 显式提交非空 `cron_expr` 或 `next_run_at` 必须返回 `422 probe_schedule_timing.forbidden`；提交 `schedule_type=once` 返回 `422 schedule_type.forbidden`。
-4. 暂停不改变时间字段；恢复只恢复 ProbeRule，不计算 `next_run_at`。
-5. `schedule_probe_fallback` 仍保存并执行自己的 cron/next-run；P5 不改变任何兜底触发语义。
-6. Catalog 中 `probe.allowed_schedule_types` 固定为 `cron`；fallback 继续按目标能力返回允许的 schedule types。
-7. 前端纯 probe 不生成、不提交、不预览定时字段；列表显示“持续探测 / 按探测窗口”，不再显示为普通周期任务。
-
-### 9.3 存量与发布边界
-
-迁移 `20260824_000150` 只更新 `ops.schedule` 中 `trigger_mode=probe` 且时间字段不符合契约的行：将 `schedule_type` 归一为 `cron`，并清空 `cron_expr/next_run_at`，随后建立数据库 CheckConstraint。它不修改 `ops.probe_rule`、ProbeRun、TaskRun、业务数据或历史 ConfigRevision。
-
-生产发布必须另选维护窗口，停止 Web scheduler/worker 后执行；今天不执行生产迁移。迁移后需要核验：
-
-1. 所有纯 probe 行的三个字段满足固定契约。
-2. 所有 fallback 行的 cron/next-run 前后不变。
-3. Schedule 与 ProbeRule 数量、父子关系和 rule id 不变。
-4. Schedule `#33` 仍为 active，ProbeRule 仍为原规则，09:00–09:30 窗口不变。
-5. 只读 capability audit 零 mismatch；恢复服务后普通 schedule、fallback 和 probe 各做一次非写入契约验收。
-
-### 9.4 本地验证证据
-
-2026-08-24 已完成：
-
-1. 后端 Schedule/Catalog/Probe/Runtime/audit/migration 定向回归 `292 passed`。
-2. 前端 `typecheck`、规则检查、`149` 项单测和生产构建通过。
-3. 浏览器 smoke/visual gate `13 passed`，未刷新截图基线。
-4. Alembic 唯一 head 为 `20260824_000150`，其 `down_revision` 为实施时真实 head `20260824_000149`。
-5. 文档完整性检查和 `git diff --check` 通过。
-
-上述证据只代表代码与本地验证完成，不代表生产 migration 已执行，也不代表生产 Schedule `#33` 已被清理。
+本轮仅做文档整合与静态核验；没有运行以上数据库/浏览器测试、生产预检、探测或调度，不改变架构依赖和运行行为。

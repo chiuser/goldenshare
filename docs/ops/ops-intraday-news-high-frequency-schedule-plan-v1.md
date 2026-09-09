@@ -4,7 +4,7 @@
 创建日期：2026-05-14  
 适用范围：仅 `news` 新闻快讯、`major_news` 新闻通讯的自动任务高频维护。
 
-结案说明：本文第 3 节保留开发前代码审计，第 4～7 节保留当时的目标设计与实施记录；当前运行事实以现有代码、配置和 TaskRun/Schedule 记录为准。
+结案说明：本文第 1～7 节保留原专项范围、开发前审计及实施记录，不是当前全局自动任务规则。2026-09-09 校准：`trigger_day_point` 已由 DatasetDefinition 动作声明复用，fund_share/fund_div 也使用；“仅两个新闻数据集”只限定本专项，不禁止其他已声明能力的数据集。通用规则统一见[自动任务日期策略](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)，字段见[API capability](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md#automation-capability-schema)。当前运行事实以代码、配置和 TaskRun/Schedule 记录为准，本文不证明线上配置已运行。
 
 ## 1. 目标
 
@@ -88,7 +88,7 @@ daily / weekly / monthly
 
 结论：新增策略只需要把自动任务触发时的自然日传给 `DatasetTimeInput.trade_date`，不要在 Ops 层生成源接口时间参数。
 
-## 4. 最终口径
+## 4. 本专项确认口径（历史范围）
 
 新增 `calendar_policy`：
 
@@ -189,7 +189,9 @@ sequenceDiagram
     Source->>DB: raw upsert / serving_light view
 ```
 
-## 7. 修改范围
+## 7. 修改范围（历史实施记录）
+
+以下保留当时实施定位；当前服务、表单按 capability 判断目标和重复方式，不再按新闻 action key 维护全局白名单。后续回归以 §8 和通用日期策略为准。
 
 ### 7.1 后端
 
@@ -240,7 +242,7 @@ sequenceDiagram
 
 1. 自动任务页选择“新闻快讯”时，可选“每 N 分钟”，默认 3。
 2. 自动任务页选择“新闻通讯”时，可选“每 N 分钟”，默认 3。
-3. 其它数据集不出现“每 N 分钟”。
+3. 未声明日内重复能力的对象不出现“每 N 分钟”；其他已声明该能力的数据集（如 fund_share）不受本新闻专项排除。
 4. N 小于 3 时不能保存。
 5. 保存后的 `ops.schedule`：
    - `cron_expr=*/3 * * * *`
@@ -278,9 +280,9 @@ python3 scripts/check_docs_integrity.py
 
 | 风险 | 控制 |
 | --- | --- |
-| 高频任务打爆请求额度 | V1 最小间隔 3 分钟，且只开放两个新闻数据集 |
+| 高频任务打爆请求额度 | 本新闻专项最小间隔 3 分钟；其他数据集按各自已声明能力，不从本专项推导全局禁令 |
 | 当天窗口重复拉取导致重复数据 | 依赖现有 `row_key_hash` 与 upsert 幂等写入 |
-| 误把策略开放给其它数据集 | 后端 target_key 硬校验，前端只做辅助展示 |
+| 未声明能力的数据集误用策略 | 后端按 Definition 与 capability 校验，前端消费同一能力，不维护新闻名称白名单 |
 | 固定日期与触发日策略混用 | 后端拒绝固定时间边界参数 |
 | 前端自行展开源接口参数 | 禁止；前端只保存意图，日期展开由 TaskRun/Resolver/Builder 完成 |
 
@@ -302,4 +304,4 @@ python3 scripts/check_docs_integrity.py
 - DatasetActionResolver 负责把 point 请求归一化为执行计划。
 - request builder 只负责把执行计划中的日期格式化成源接口参数。
 
-本轮没有待决策或待验收事项。已确认口径为：仅 `news` / `major_news`，最小 3 分钟，触发日 point，全日窗口，幂等去重；后续配置变更按既有 Ops 自动任务能力管理。
+本新闻专项已结案，无本专项遗留待决策或待验收事项；不代表其他专项（例如纯 probe 的 P5 生产迁移）已验收。新闻链路口径仍为：news/major_news 最小 3 分钟、按计划触发时间与 schedule 时区生成当日 point、全日窗口、幂等去重。通用 trigger_day_point 的适用目标、重复方式与生成字段以动作声明为准；后续配置变更按现行自动任务能力管理。
