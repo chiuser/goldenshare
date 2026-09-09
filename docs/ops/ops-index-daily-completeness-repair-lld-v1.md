@@ -52,7 +52,7 @@ index_daily 首次同步
 | `src/foundation/datasets/AGENTS.md` | `DatasetDefinition` 是数据集事实源 |
 | `src/foundation/ingestion/AGENTS.md` | 请求参数由 resolver / planner / request builder 生成 |
 | `docs/ops/ops-index-daily-completeness-repair-plan-v1.md` | 本需求的主方案与拍板项 |
-| `docs/ops/ops-index-daily-remote-source-probe-lld-v1.md` | `remote_index_daily_ready` 已实现，只负责源站样本就绪探测 |
+| [指数日线源站探测说明](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-remote-source-probe-plan-v1.md) | 原探测 LLD 已并入；remote_index_daily_ready 只负责源站样本就绪探测，不代替完整性补漏 |
 | `docs/datasets/index-series-active-sync-mechanism.md` | `index_daily_raw` 是源站请求池，`index_daily` 是 serving active 门禁 |
 
 ### 2.2 CodeGraph 审计范围

@@ -1366,15 +1366,17 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 `ScheduleProbeConfig.condition_kind` 当前支持：
 
 1. `freshness_latest_open`：读取本地 freshness，判断本地最新业务日是否命中最新开市日。
-2. `remote_stk_mins_ready`：仅用于 `stk_mins.maintain`，在探测窗口内请求 Tushare 分钟行情样本；源站返回最新开市日分钟行情后，再创建正式 `stk_mins.maintain` TaskRun。
-3. `remote_index_daily_ready`：仅用于 `index_daily.maintain`，在探测窗口内请求 Tushare 指数日线样本；源站返回最新开市日指数日线后，再创建正式 `index_daily.maintain` TaskRun。
+2. `remote_stk_mins_ready`：仅用于 `stk_mins.maintain`；上海当天经交易日历确认开市后，每个所选频率至少一个样本命中当天数据才创建 TaskRun。正常配置只接受 freq，不接受额外 ts_code；休市或缺日历不回退前一交易日。抽样与调用上限见[分钟探测说明](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-remote-source-probe-plan-v1.md)。
+3. `remote_index_daily_ready`：仅用于 `index_daily.maintain`；上海当天经交易日历确认开市后，全部所选样本命中当天数据才创建 TaskRun。默认五个样本须在 index_daily_raw 请求池，显式 ts_code 最多选前五个作探测；休市或缺日历直接跳过。见[指数探测说明](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-remote-source-probe-plan-v1.md)。
 4. `remote_index_mins_ready`：仅用于 `index_mins.maintain`。自动任务必须显式选择 `1min/5min/15min/30min/60min`，探测按 15 个固定代表指数和五个频率串行验证；任一组合未返回目标交易日数据即停止本轮，全部 75 项命中后才创建 TaskRun。最小探测间隔为 300 秒；不支持本地 freshness 作为该数据集的探测条件。
 5. `remote_idx_factor_pro_ready`：仅用于 `idx_factor_pro.maintain`，在探测窗口内请求 Tushare 当日指数技术因子的一条最小样本；样本具有非空 `ts_code` 且 `trade_date` 命中最新开市日后，才创建正式全市场单日维护 TaskRun。必须使用空 `filters`、point 时间意图、无 `calendar_policy`；最小探测间隔为 300 秒、每日最多触发一次。此条件不以本地 freshness 代替源站就绪判断。
 6. `remote_kpl_list_ready`：仅用于 `kpl_list.maintain`，以“竞价”样本确认源站已在次日 08:30 发布前一开市日榜单；命中后只为该目标交易日创建一次有效的 `kpl_list.maintain` TaskRun。此条件只支持探测触发，不支持定时兜底。
 7. `remote_margin_ready`：仅用于 `margin.maintain`。在下一个开市日 `09:00~09:30` 验证 SSE、SZSE、BSE 是否均返回前一开市日数据；三者齐备才创建一个 `margin.maintain(point=D)` TaskRun。此条件只能使用纯探测、空维护参数、无日期策略、固定 `300` 秒间隔与每日一次触发；09:30 前 freshness 保持 `unconfirmed`。
 8. `remote_margin_detail_ready`：仅用于 `margin_detail.maintain`。与融资融券汇总相同，在下一个开市日 `09:00~09:30` 验证三个市场的代表证券；三者齐备才创建一个全市场 `margin_detail(point=D)` TaskRun。只能使用纯探测、空维护参数、无日期策略、固定 `300` 秒间隔与每日一次触发。
 
-以下纯 probe 示例的 cron/next-run 均为空；其他窗口、频率与来源限制仍由目标 capability 校验。示例不是本轮生产配置或源站实测结果。
+<a id="remote-source-probe-examples"></a>
+
+以下纯 probe 示例的 cron/next-run 均为空；其他窗口、频率与来源限制仍由目标 capability 校验。示例不是本轮生产配置或源站实测结果。日志状态、日限额与兜底去重的边界见[自动任务契约 §3.3](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md#probe-runtime-observation)，不能把一次命中等同于全量完整或全局只触发一次。
 
 `remote_stk_mins_ready` 示例：
 

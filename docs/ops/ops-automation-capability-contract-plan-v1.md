@@ -24,7 +24,7 @@
 | --- | --- | --- |
 | `schedule` | 按真实 cron/once 到点创建 TaskRun | 由目标能力决定；workflow/maintenance 只允许这一种 |
 | `probe` | 在 ProbeRule 窗口内探测，命中后创建 dataset TaskRun；`schedule_type=cron` 仅表示持续型生命周期，`cron_expr/next_run_at=NULL` | 仅 capability 允许的独立 dataset action |
-| `schedule_probe_fallback` | 先探测，另保留真实定时兜底及同日已成功跳过逻辑 | 仅 capability 允许的独立 dataset action |
+| `schedule_probe_fallback` | 窗口内探测并保留真实定时兜底；同日已有有效 probe 任务时跳过兜底，细则见 §3.3 | 仅 capability 允许的独立 dataset action |
 
 `probe` 是**自动任务目标的触发能力**，不是数据集在所有调用环境中的执行方式：
 
@@ -47,7 +47,7 @@ Resolver/audit 同样检查这个不变量，ORM 和迁移声明数据库 CheckC
 
 | condition | 精确 dataset action | 允许触发方式 | 关键限制 |
 | --- | --- | --- | --- |
-| `remote_stk_mins_ready` | `stk_mins.maintain` | probe / fallback | 禁固定日期；freq 必填且受限 |
+| `remote_stk_mins_ready` | `stk_mins.maintain` | probe / fallback | 禁固定日期；只接受 freq，可选允许频率的子集，不接受额外 ts_code |
 | `remote_index_daily_ready` | `index_daily.maintain` | probe / fallback | 禁固定日期与 calendar policy |
 | `remote_index_mins_ready` | `index_mins.maintain` | probe / fallback | 禁固定日期；五个分钟频率须完整；最小 300 秒 |
 | `remote_kpl_list_ready` | `kpl_list.maintain` | 仅 probe | 禁固定日期与 calendar policy |
@@ -69,6 +69,25 @@ Resolver/audit 同样检查这个不变量，ORM 和迁移声明数据库 CheckC
 6. Probe API 只读查询规则及运行日志；不恢复旧 CRUD、`workflow_dataset_keys`、`probe_trigger_enabled`、可写来源或前端 fallback。
 
 相关实现位于 `src/ops/services/schedule_automation_capability_resolver.py`、`schedule_probe_binding_service.py`、`operations_probe_runtime_service.py`；契约装配不引入 foundation → ops 反向依赖，也不改业务表。
+
+<a id="probe-runtime-observation"></a>
+
+### 3.3 样本专题、运行日志与去重边界
+
+抽样及请求规则分别归 [股票分钟探测](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-remote-source-probe-plan-v1.md) 和 [指数日线探测](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-remote-source-probe-plan-v1.md)，不把两者改成通用探测器。二者的 source-ready 分支不刷新本地 freshness；本地 freshness_latest_open 分支仍会刷新，不能把“不刷新”扩大为所有 Probe 的规则。
+
+共同观测规则（按当前 runtime/query 核验）：
+
+- 未到窗口、未到间隔或达到日限额时，直接跳过本轮规则，不产生一次实际探测日志。完成但未命中通常为 status=success、condition_matched=false、result_code=miss；status=success 不等于源站就绪。
+- 被捕获异常为 failed/error，payload 使用 error 字段，并补 dataset_key/source_key；不承诺 source_error 或完整源站错误 JSON。异常后的日志提交不在该捕获内，不能据此承诺任何数据库故障都继续下一规则。
+- 新 ProbeRunLog 写 schedule_id；查询按 log.schedule_id、尚存 rule.schedule_id、关联 TaskRun.schedule_id 顺序解析，并使用 left join。页面按 schedule_id + dataset_key 看历史；无法关联的旧日志不会被凭空恢复。字段归 [API 参考 §5/12.4](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)，不另复制模型。
+- `_should_probe` 按当前 rule.id、规则时区当天的 condition_matched=true 日志数检查 max_triggers_per_day；不是按业务日期的任务唯一键。正常 binding 会重建 rule，因此这个计数不保证跨规则重建连续。
+
+**分钟与指数日线的“只触发一次”不能写成全局保证。**当前 `_has_effective_target_task` 的按目标日期去重不覆盖 stk_mins/index_daily。它们依靠规则日限额等现有机制，不能据此承诺跨重建或多个进程严格唯一；本轮只澄清，不新增去重实现。
+
+Fallback 使用另一项检查：`OperationsScheduleService._has_effective_probe_task_for_schedule_day` 查同一 schedule、requested_at 位于 schedule 时区当天、trigger_source=probe，且状态为 queued/running/canceling/success/partial_success 的任务；不是只查成功，也不是按 time_input.trade_date 去重。failed/canceled 和前一日任务不阻止当天兜底。跳过时不改 last_triggered_at；cron 推进 next_run_at，once 暂停并清空 next_run_at。
+
+Scheduler 单轮实际先处理到期 schedule，再运行 probe；不能将业务描述“先探测再兜底”误读为每轮一定优先探测。现有跳过逻辑只说明已有有效 probe 任务时如何处理兜底，不保证反向场景、规则重建或并发下只有一个任务。核验与防回退入口：`tests/web/test_ops_runtime.py`、`tests/web/test_ops_probe_api.py`、`tests/web/test_ops_schedule_api.py` 及前端自动任务页测试；未因此执行生产调度。
 
 ## 4. 只读预检与历史数量
 
