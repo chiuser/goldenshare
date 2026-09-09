@@ -683,6 +683,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 ### 4.3 POST /api/v1/ops/task-runs
 
 - 功能：创建一次通用 TaskRun 请求。
+- 成功状态码：200（路由默认值），不是 202。
 - Body：`CreateTaskRunRequest`
   - `task_type`：默认 `dataset_action`
   - `resource_key`：数据集 key
@@ -705,6 +706,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 ### 4.4 GET /api/v1/ops/task-runs/{task_run_id}/view
 
 - 功能：查询任务详情主视图。任务详情页只消费这个聚合 view，不再拼接 steps/events/logs。
+- 节点按 sequence_no/id 排序，最多返回 200 个；`node_total/nodes_truncated` 表达总数与截断，不保证返回全部节点，也不是增量响应。
+- 执行、计数、3 秒轮询与浏览器 ETA 见 [TaskRun 契约](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)；ETA 不新增 API 字段。
 - Path 参数：`task_run_id:int`
 - 返回：`TaskRunViewResponse`
 - 示例：
@@ -722,7 +725,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
   "nodes": [],
   "node_total": 0,
   "nodes_truncated": false,
-  "actions": {"can_retry": false, "can_cancel": false, "can_copy_params": true}
+  "actions": {"can_retry": true, "can_cancel": false, "can_copy_params": true}
 }
 ```
 
@@ -794,6 +797,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" \
 ### 4.7 POST /api/v1/ops/task-runs/{task_run_id}/cancel
 
 - 功能：请求停止 queued/running 任务。
+- queued 直接转 canceled，运行中转 canceling；已经标记取消的活动任务重复请求幂等返回，终态请求返回 409。响应仍是 TaskRunCreateResponse，不额外返回 cancel_requested_at。
 - Path 参数：`task_run_id:int`
 - 返回：`TaskRunCreateResponse`
 - 示例：
@@ -1557,7 +1561,7 @@ ProbeRule 没有对外写入 request；规则只由 `OpsSchedule` 的自动任�
 
 ## 12. 响应模型字段索引
 
-> 以下为返回模型导航；代码演进后须同步对应章节。2026-09-09 补齐手动动作、ActionParameter 与自动任务 capability 字段，不表示其余模型已逐字段复验，完整类型以 `src/ops/schemas` 为准。
+> 以下为返回模型导航；代码演进后须同步对应章节。2026-09-09 补齐手动动作、ActionParameter、自动任务 capability 及 TaskRun 字段，不表示其余模型已逐字段复验，完整类型以 `src/ops/schemas` 为准。
 
 ### 12.1 目录与模式
 
@@ -1611,22 +1615,37 @@ Workflow 字段由 `catalog_query_service.py` 装配：名称、步骤、参数�
 - `time_input_contract` 指明普通时间输入模式、point/range 字段与 day/month/none 粒度；不等同于日历策略。`fixed_schedule` 限定固定 cron/时区，`repeat_policy` 表达日内重复的允许方式、默认/最小分钟与时区。三者均可为空，维护动作不能一律当作自由 cron/once。
 - 前端缺能力时禁止保存；更完整的目标、绑定与 runtime 边界见[自动任务能力契约](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)。
 
+<a id="task-run-schemas"></a>
+
 ### 12.2 任务运行
 
+2026-09-09 按 `src/ops/schemas/task_run.py` 逐字段校准；这里是响应字段索引，类型、可空性和默认值查 schema。创建请求见 §4.3，执行与计数语义见 TaskRun 契约。
+
 - `TaskRunCreateResponse`：`id, status, title, resource_key, created_at`
+- `TaskRunTimeScope`：`kind, start, end, label`
+- `TaskRunListItem`：`id, task_type, resource_key, action_key, action, title, trigger_source, trigger_source_label, status, status_reason_code, requested_by_username, requested_at, started_at, ended_at, time_scope, time_scope_label, schedule_display_name, unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, rows_deduplicated, primary_issue_id, primary_issue_title`
 - `TaskRunListResponse`：`items, total`
-- `TaskRunListItem`：`id, task_type, resource_key, action, title, trigger_source, trigger_source_label, status, status_reason_code, requested_by_username, requested_at, started_at, ended_at, time_scope, time_scope_label, schedule_display_name, unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, primary_issue_id, primary_issue_title`
 - `TaskRunSummaryResponse`：`total, queued, running, success, failed, canceled`
-- `TaskRunViewResponse`：`run, progress, primary_issue, nodes, node_total, nodes_truncated, actions`
-- `TaskRunInfo`：`id, task_type, resource_key, action, title, trigger_source, trigger_source_label, status, status_reason_code, requested_by_username, schedule_display_name, time_input, filters, time_scope, time_scope_label, requested_at, queued_at, started_at, ended_at, cancel_requested_at, canceled_at`
-- `TaskRunProgress`：`unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reasons, current_object, period_source_summary`
+- `TaskRunInfo`：`id, task_type, resource_key, source_key, action_key, action, title, trigger_source, trigger_source_label, status, status_reason_code, requested_by_username, schedule_display_name, time_input, filters, time_scope, time_scope_label, requested_at, queued_at, started_at, ended_at, cancel_requested_at, canceled_at`
+- `TaskRunDisplayField`：`label, value`
+- `TaskRunDisplayObject`：`title, description, fields`
+- `TaskRunRejectionSampleItem`：`field, value, message, row`
 - `TaskRunRejectionReasonItem`：`reason_key, reason_code, field, count, label, suggested_action, samples`
-- `TaskRunRejectionSampleItem`：`unit_id, field, value, message, row`；最多返回每个拒绝原因的少量样本，用于定位原始异常行，不作为业务数据事实源。
-- `TaskRunPeriodSourceSummary`：`total_rows, api_rows, derived_daily_rows, other_rows, start_date, end_date`；仅 `index_weekly/index_monthly` 这类周期指数任务按最终 serving 表来源返回。
-- `TaskRunNodeItem`：`id, parent_node_id, node_key, node_type, sequence_no, title, resource_key, status, time_input, context, rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reasons, issue_id, started_at, ended_at, duration_ms`
+- `TaskRunPeriodSourceSummary`：`total_rows, api_rows, derived_daily_rows, other_rows, start_date, end_date`
+- `TaskRunPagedUnitTime`：`field, point`
+- `TaskRunPagedUnitActive`：`unit_id, unit_index, unit_total, time, phase, current_page_number, completed_page_count, page_limit, unit_rows_fetched, unit_rows_normalized_before_dedupe, unit_rows_staged_unique, unit_rows_deduplicated, unit_rows_rejected, retry_count, observed_short_page, terminal_page_rows`
+- `TaskRunPagedUnitResult`：`unit_id, unit_index, time, page_count, retry_count, terminal_page_rows, observed_short_page, rows_fetched, rows_normalized_before_dedupe, rows_staged_unique, rows_deduplicated, rows_rejected, rows_inserted_new, rows_matched_existing, rows_committed, final_scope_count`
+- `TaskRunPagedUnitProgress`：`active, completed, completed_truncated`
+- `TaskRunProgress`：`unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, rows_deduplicated, ingestion_diagnostics, rejected_reason_counts, rejected_reasons, current_object, period_source_summary, paged_unit_progress`
 - `TaskRunIssueSummary`：`id, severity, code, title, operator_message, suggested_action, object, has_technical_detail, occurred_at`
-- `TaskRunIssueDetailResponse`：`id, task_run_id, node_id, severity, code, title, operator_message, suggested_action, object, technical_message, technical_payload, source_phase, occurred_at`
+- `TaskRunNodeItem`：`id, parent_node_id, node_key, node_type, sequence_no, title, resource_key, status, time_input, context, rows_fetched, rows_saved, rows_rejected, rows_deduplicated, ingestion_diagnostics, rejected_reason_counts, rejected_reasons, issue_id, started_at, ended_at, duration_ms`
 - `TaskRunActions`：`can_retry, can_cancel, can_copy_params`
+- `TaskRunViewResponse`：`run, progress, primary_issue, nodes, node_total, nodes_truncated, actions`
+- `TaskRunIssueDetailResponse`：`id, task_run_id, node_id, severity, code, title, operator_message, suggested_action, object, technical_message, technical_payload, source_phase, occurred_at`
+
+拒绝样本只用于定位异常行，不是业务事实源；TaskRunRejectionSampleItem 没有 unit_id 字段。period_source_summary 仅为 index_weekly/index_monthly 日期范围内当前 Serving 数据来源统计，不证明本任务写入来源。
+
+paged_unit_progress 为可空强类型投影：active 最多一个，completed 最多 16 个并用 completed_truncated 标记截断；无分页诊断时为空。current_node_id 是内部模型字段，当前 view 不暴露它；页面从 nodes 的 running 状态定位当前节点。
 
 ### 12.3 调度
 

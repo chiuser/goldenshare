@@ -1,510 +1,109 @@
-# Ops 任务完成副作用 Worker 方案 v1
+# Ops 任务完成后处理 Worker 运行契约
 
-状态：本地实现完成，待部署验收
+- 校准日期：2026-09-09。
+- 性质：当前代码、配置与部署入口说明；不是部署指令或生产验收报告。
+- 历史状态：2026-05-30 原方案记录本地实现完成、待部署验收。本轮确认实现仍在，未据此断言服务当前已运行或仍未部署。
+- 与 [TaskRun 主契约](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md) 分工：本文只描述任务终态后的后处理，不重复任务模型、API 或页面 ETA。
 
-日期：2026-05-30  
-适用范围：Ops TaskRun 完成后状态刷新、飞书群通知、生产 systemd 运行服务
+## 1. 为什么独立运行
 
----
+主任务 Worker 负责业务执行与 TaskRun 终态提交，随后可以领取下一任务；完成 Worker 扫描已结束的 TaskRun，执行以下后处理：
 
-## 1. 背景
+1. 刷新关联数据集状态投影。
+2. 符合条件时创建 index_daily 日期完整性审计。
+3. 尝试发送飞书完成通知。
 
-当前 `ops-worker` 在任务最终状态写入后，会同步刷新 `ops.dataset_status_snapshot`。这会带来一个实际问题：如果 freshness 刷新需要扫描大表，例如 `raw_tushare.stk_mins`，任务本体已经完成，但 worker 仍会被刷新动作卡住，导致后续排队任务迟迟得不到执行。
+主任务当前已经不再同步刷新 snapshot；旧文中的“主 Worker 仍被同步刷新阻塞”是拆分前背景。后处理不改变原任务成败，不为通知失败写 TaskRun issue，不应回滚已经提交的业务数据。
 
-同时，新增“任务完成后发送飞书群通知”能力也属于任务完成后的外部副作用。飞书 webhook 是外部网络调用，存在超时、失败、限流等风险，不能放进任务执行主链路。
+入口与实现：`src/cli.py` → `src/cli_parts/ops_handlers.py` → `src/ops/runtime/task_completion_worker.py`；查询、摘要和触发策略在 `src/ops/services/task_run_completion_service.py`，消息在 `src/ops/services/feishu_task_notification_service.py`。
 
-因此本方案把任务完成后的副作用统一收敛到一个轻量独立 worker：
+## 2. 扫描、游标与失败边界
 
-1. 异步刷新 `ops.dataset_status_snapshot`。
-2. 异步发送飞书任务完成通知。
+- 扫描 TaskRun，而不是 node。终态范围 success/partial_success/failed/canceled，且 ended_at 非空；Workflow 按整个任务处理一次，不按步骤通知。
+- 第一次 run_cycle 只把内存游标初始化到当前最新终态 `(ended_at, id)`，返回 0，不执行后处理。没有历史终态时用空游标。
+- 后续按 `ended_at ASC, id ASC` 取游标后的有限批次；每个任务处理函数正常返回后推进游标。
+- 不新增 outbox、通知表或持久化确认，不回放启动前历史，不提供自动失败重试或 exactly-once 保证；重启后重新定位最新终态，停机期间的后处理可能被跳过。
+- 一个任务内三项操作串行，任务之间也串行。慢 snapshot 刷新不会占住主任务 Worker，但会延迟本 Worker 的审计创建、通知和后续任务；不能写成“只延迟 snapshot”。
+- snapshot、审计创建、发送通知各有异常捕获并记日志；审计创建异常还回滚其 Session。正常返回后即使其中某项失败，也推进游标，不自动补发。
+- **摘要构建位于上述 try/catch 之外**；批次查询、摘要构建等异常可能逃出 run_cycle，游标尚未推进。CLI 外层没有统一捕获，进程可能退出。不能承诺“任何异常都继续处理后续任务”；systemd 重启也不等于补做遗漏后处理。
 
----
+因此“不补历史”的边界影响通知、状态投影刷新和审计创建三者。要求可靠重放或独立并发时需另立方案，本轮不改变已接受的轻量 Worker 设计。
 
-## 2. 目标与非目标
+## 3. 三项后处理的实际范围
 
-## 2.1 目标
+### 3.1 状态投影
 
-1. `ops-worker` 只负责执行任务、写入 TaskRun 最终状态，不再同步刷新 freshness，也不直接调用飞书 webhook。
-2. 新增一个轻量 `ops-task-completion-worker`，专门处理任务完成后的副作用。
-3. 任务完成通知覆盖所有终态：`success`、`partial_success`、`failed`、`canceled`。
-4. workflow 只通知整个 workflow 顶层任务完成，不通知内部步骤。
-5. 飞书通知使用自定义机器人 webhook，必须启用签名 secret。
-6. V1 采用普通富文本消息，不做飞书交互卡片。
-7. 通知和状态刷新失败只写日志，不影响任务状态，不阻塞后续任务。
+dataset_action 根据 resource_key/action 解析正式动作；workflow 根据 request_payload.target_key 解析目标；目标无效、缺失或其他任务类型不刷新。maintenance_action 不能直接当成可刷新目标。
 
-## 2.2 非目标
+刷新在独立 Session 中调用 `DatasetStatusSnapshotService.refresh_for_target(strict=False)`，不使用业务执行事务。投影本身的策略和页面回退限制见 [Freshness 现行契约](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)。`ops.dataset_status_snapshot` 必须保留，不属于 Kopia 清退对象。
 
-1. 不新增 outbox 表。
-2. 不保证通知必达。
-3. 不做失败重试。
-4. 不补发 worker 停止期间错过的历史通知。
-5. 不在 TaskRun issue 中记录飞书发送失败，避免污染任务诊断。
-6. 不改任务详情页，不新增通知管理页面。
+### 3.2 index_daily 完成审计
 
----
+须同时满足以下条件才创建审计，并非所有任务结束都触发：
 
-## 3. 核心口径
+- task_type=dataset_action、resource_key=index_daily、action=maintain、status=success。
+- request_payload.run_scope 不是 `index_daily_gap_repair`，避免修复任务再次触发同一链路。
+- time_input.mode=point 且 trade_date 可解析；该日期等于**后处理时**上海时区的当天，不只是任务开始或完成的日期。
+- 配置的 default_exchange 在本地交易日历对应日期明确 is_open=True。
+- 同日不存在 queued/running 的 index_daily、date_subject_matrix 审计。
 
-## 3.1 主链路口径
+满足条件后调用 DateCompletenessRunCommandService.create_system_run 写入系统审计请求；这里只创建，不在完成 Worker 内执行完整审计。不覆盖历史区间、Workflow 或补缺修复任务，也不承诺并发进程间的严格去重。
 
-任务完成的主链路只到 TaskRun 最终状态提交为止：
+### 3.3 飞书通知
 
-```text
-ops-worker
-  -> 领取 queued 任务
-  -> 执行业务同步或 workflow
-  -> 写入 ops.task_run 最终状态
-  -> commit
-  -> 返回，继续领取下一个任务
-```
+- 由开关控制；启用但 webhook URL 或 secret 缺失时记警告并跳过。
+- 使用带签名的富文本 `post`，不是 interactive card。签名以 timestamp、换行、secret 组成的字节串作 HMAC-SHA256 key，对空消息求摘要后 Base64；实际实现及回归见通知 service/test。
+- 摘要含任务 ID/名称、类型、状态、触发来源、时间范围、耗时、成功 unit 数/总数、读取/写入/拒绝数；失败原因只对 failed/partial_success 加入。摘要是服务对原始字段的展示映射，不等于 API 字段全集。
+- 问题摘要优先 operator_message，其次 title/technical_message，上限 500 字符；整段文本上限 3,500 字符。配置 public base URL 后追加 `/app/ops/tasks/{id}` 链接，但当前是追加后整体截断，不能保证超长文本仍保留链接。
+- 不发送完整技术 payload、token、请求头或敏感配置。HTTP/业务返回失败抛给 Worker 记录日志，不改变业务任务结果。
 
-禁止在这条链路中做：
+## 4. 配置、来源与生效
 
-1. 扫业务大表刷新 freshness。
-2. 请求飞书 webhook。
-3. 等待外部网络调用。
-4. 因通知或 freshness 失败改变任务最终状态。
+配置定义在 `src/foundation/config/settings.py`，使用既有 Settings/environment 机制；通知 service 缓存构造时的 Settings，不承诺热更新。正式服务通过 GOLDENSHARE_ENV_FILE 指向 `/etc/goldenshare/web.env`；配置管理入口为 `scripts/remote-web-env.sh`。变更配置、生效重启及密钥设置均需独立授权，本文不含真实密钥。
 
-## 3.2 副作用 worker 口径
-
-副作用 worker 只读 `ops.task_run` 中已经完成的顶层任务：
-
-```text
-ops-task-completion-worker
-  -> 初始化游标
-  -> 轮询已完成 TaskRun
-  -> 对每个完成任务刷新相关 dataset_status_snapshot
-  -> 对每个完成任务发送飞书通知
-  -> 无论成功失败，推进内存游标
-  -> sleep 后继续
-```
-
-V1 不落地持久化游标。worker 重启时以当前数据库中最新完成任务作为起点，不补发历史任务。
-
-这意味着：
-
-1. worker 正常运行期间，任务完成后会被处理。
-2. worker 停止期间完成的任务可能不会通知。
-3. worker 处理失败的通知不会重试。
-4. 这是 V1 明确接受的“尽力通知”语义。
-
----
-
-## 4. 总体流程
-
-```mermaid
-flowchart TD
-    A["ops-worker 领取任务"] --> B["执行任务"]
-    B --> C["写入 TaskRun 最终状态"]
-    C --> D["commit 后结束本任务"]
-    D --> E["继续领取下一个 queued 任务"]
-
-    F["ops-task-completion-worker"] --> G["扫描已完成 TaskRun"]
-    G --> H["刷新 dataset_status_snapshot"]
-    G --> I["发送飞书通知"]
-    H --> J["失败只打日志"]
-    I --> K["失败只打日志"]
-    J --> L["推进内存游标"]
-    K --> L
-    L --> M["sleep 后继续轮询"]
-```
-
----
-
-## 5. 配置项审计
-
-新增配置统一放在 `src.foundation.config.settings.Settings`，生产值写入 `/etc/goldenshare/web.env`。远程环境只通过 `scripts/remote-web-env.sh` 管理。
-
-| 配置名 | 默认值 | 来源 | 持久化位置 | 作用范围 | 消费者 | 说明 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `OPS_TASK_COMPLETION_WORKER_POLL_SECONDS` | `5` | env / Settings | `/etc/goldenshare/web.env` | completion worker | `ops-task-completion-worker-serve` | 轮询完成任务的间隔 |
-| `OPS_TASK_COMPLETION_WORKER_BATCH_SIZE` | `20` | env / Settings | `/etc/goldenshare/web.env` | completion worker | `TaskRunCompletionWorker` | 每轮最多处理的完成任务数 |
-| `OPS_TASK_NOTIFY_FEISHU_ENABLED` | `false` | env / Settings | `/etc/goldenshare/web.env` | 飞书通知 | `FeishuTaskNotificationService` | 是否启用飞书通知 |
-| `GOLDENSHARE_FEISHU_WEBHOOK_URL` | 空 | env / Settings | `/etc/goldenshare/web.env` | 飞书通知 | `FeishuTaskNotificationService` | 飞书自定义机器人 webhook URL |
-| `GOLDENSHARE_FEISHU_WEBHOOK_SECRET` | 空 | env / Settings | `/etc/goldenshare/web.env` | 飞书通知 | `FeishuTaskNotificationService` | 飞书签名 secret；启用通知时必须配置 |
-| `OPS_TASK_NOTIFY_TIMEOUT_SECONDS` | `5` | env / Settings | `/etc/goldenshare/web.env` | 飞书通知 | `FeishuTaskNotificationService` | 单次 webhook 超时时间 |
-| `OPS_PUBLIC_BASE_URL` | 空 | env / Settings | `/etc/goldenshare/web.env` | 通知链接 | `FeishuTaskNotificationService` | 用于拼接任务详情链接；为空则不展示链接 |
-
-本机 `~/.bash_profile` 已存在：
-
-```text
-GOLDENSHARE_FEISHU_WEBHOOK_URL
-GOLDENSHARE_FEISHU_WEBHOOK_SECRET
-```
-
-上线时不能依赖本机 profile，必须把生产值写入远程 `/etc/goldenshare/web.env`。
-
----
-
-## 6. 飞书消息设计
-
-## 6.1 消息类型
-
-V1 使用飞书自定义机器人普通富文本消息，不使用交互卡片。
-
-消息标题：
-
-```text
-任务完成：{任务标题}（{状态中文}）
-```
-
-消息正文字段：
-
-| 字段 | 示例 | 说明 |
+| 环境变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| 任务 ID | `#1642` | `ops.task_run.id` |
-| 任务名称 | `股票历史分钟行情` | `task_run.title` |
-| 任务类型 | `数据维护` / `工作流` / `维护动作` | 根据 `task_type` 转中文 |
-| 最终状态 | `成功` / `部分成功` / `失败` / `已取消` | 根据 `status` 转中文 |
-| 发起方式 | `手动` / `自动` / `系统` | 根据 `trigger_source` 转中文 |
-| 处理范围 | `2026-05-01 ~ 2026-05-29` | 从 `time_input_json` 解析 |
-| 执行耗时 | `12分35秒` | `ended_at - started_at` |
-| 处理进度 | `200/200` | `unit_done/unit_total` |
-| 数据量 | `读取 7118638，写入 7118638，拒绝 0` | TaskRun 行数统计 |
-| 问题摘要 | `Tushare API error...` | 仅失败或部分成功时展示 |
-| 任务详情 | URL | `OPS_PUBLIC_BASE_URL` 存在时展示 |
+| OPS_TASK_COMPLETION_WORKER_POLL_SECONDS | 5 | 每轮后休眠秒数 |
+| OPS_TASK_COMPLETION_WORKER_BATCH_SIZE | 20 | 每轮扫描数量上限 |
+| OPS_TASK_NOTIFY_FEISHU_ENABLED | false | 是否尝试通知 |
+| GOLDENSHARE_FEISHU_WEBHOOK_URL | 空 | 飞书入口；启用通知时需要 |
+| GOLDENSHARE_FEISHU_WEBHOOK_SECRET | 空 | 签名密钥；启用通知时需要 |
+| OPS_TASK_NOTIFY_TIMEOUT_SECONDS | 5 | 通知 HTTP 超时秒数 |
+| OPS_PUBLIC_BASE_URL | 空 | 任务详情链接前缀；为空不加链接 |
 
-## 6.2 飞书签名
+这些是配置默认值，不是本机或生产当前有效值。本轮未读取密钥文件，也未修改设置。
 
-签名算法沿用仓库内 lake_console 已验证实现口径：
+## 5. CLI 与部署入口
 
-```python
-string_to_sign = f"{timestamp}\n{secret}".encode("utf-8")
-sign = base64.b64encode(hmac.new(string_to_sign, digestmod=hashlib.sha256).digest()).decode("utf-8")
-```
+CLI：`goldenshare ops-task-completion-worker-serve`。
 
-请求 payload 包含：
+- `--batch-size`：默认 20，CLI 限制 1..1000。
+- `--sleep-seconds`：默认 5，至少 1。
+- `--max-cycles`：默认无限循环，指定时至少 1。**真实 Worker 的 --max-cycles 1 只验证游标初始化，不能验证刷新、审计或通知。**
+- CLI 默认值来自 Settings；每轮开新 Session，但同一进程复用 Worker 的内存游标。
+- 本地验证只能在明确的隔离测试环境中有限运行；连接正式数据库后该命令可能写状态投影、创建审计、发送通知，绝不是只读探测。使用现有环境，不借测试隐式安装依赖。
 
-```json
-{
-  "timestamp": "1717040000",
-  "sign": "...",
-  "msg_type": "post",
-  "content": {
-    "post": {
-      "zh_cn": {
-        "title": "任务完成：股票日线（成功）",
-        "content": [[{"tag": "text", "text": "..."}]]
-      }
-    }
-  }
-}
-```
+部署单元为 `scripts/goldenshare-ops-task-completion-worker.service`：
 
-如果 `OPS_TASK_NOTIFY_FEISHU_ENABLED=true` 但缺少 webhook URL 或 secret：
-
-1. 不发送通知。
-2. 打 warning 日志。
-3. 不影响 completion worker 继续处理后续任务。
-
----
-
-## 7. 实现设计
-
-## 7.1 新增服务
-
-建议新增：
-
-```text
-src/ops/runtime/task_completion_worker.py
-src/ops/services/task_run_completion_service.py
-src/ops/services/feishu_task_notification_service.py
-```
-
-职责：
-
-| 文件 | 职责 |
+| 项目 | 仓库定义 |
 | --- | --- |
-| `task_completion_worker.py` | completion worker 主循环、游标、异常隔离 |
-| `task_run_completion_service.py` | 查询已完成 TaskRun、解析刷新目标、格式化任务摘要 |
-| `feishu_task_notification_service.py` | 飞书签名、消息构造、webhook 调用 |
+| 工作目录 | /opt/goldenshare/goldenshare |
+| 配置入口 | GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env |
+| 进程 | /opt/goldenshare/goldenshare/.venv/bin/goldenshare ops-task-completion-worker-serve |
+| 重启策略 | Restart=always；RestartSec=3 |
+| 安装目标 | multi-user.target |
 
-## 7.2 从主 worker 移除同步刷新
+`scripts/deploy-layered-systemd.sh` 负责同步 unit；Foundation 或 Ops 发布分支会启用/重启该服务，仅 Platform 发布不会。因此不能把任意一次分层部署都当成此 Worker 已部署的证明，也不能把脚本中条件步骤写成无条件执行。本文不执行部署、重启或通知测试。
 
-当前 `OperationsWorker._finalize_task_run()` 中同步调用 snapshot 刷新。实现时需要改为：
+## 6. 回归与验收边界
 
-1. 保留 TaskRun 最终状态写入。
-2. 删除或停用 `_refresh_snapshot_for_task_run()` 的主链调用。
-3. 不再从 `src.ops.runtime.worker` 直接调用 `DatasetStatusSnapshotService`。
+既有测试入口：
 
-刷新目标解析逻辑不能复制散落，建议迁到 `TaskRunCompletionService.resolve_snapshot_refresh_target(task_run)`，completion worker 复用。
+- `tests/web/test_ops_task_completion_worker.py`：首次启动不补历史、终态顺序、刷新/通知异常隔离、index_daily 审计触发及修复任务排除。
+- `tests/test_feishu_task_notification_service.py`：签名、消息构造、缺 secret 跳过及业务失败。
+- `tests/test_cli_ops_runtime.py`：有限循环和参数传递；其中替身返回处理数量，不替代真实首次循环行为验证。
+- `tests/web/test_ops_runtime.py`：主任务不再同步刷新 snapshot 的防回退。
 
-## 7.3 完成任务扫描规则
+正式运行验收仍需独立授权和证据：先确认服务/有效配置，再观察**初始化以后**新结束的任务，核对三项适用后处理、失败日志及主任务可继续执行；不得为验收回放历史、擅自触发真实通知或增加生产任务。历史“待部署”不自动关闭，也不作为今天必须重新部署的理由。
 
-终态集合：
-
-```text
-success
-partial_success
-failed
-canceled
-```
-
-查询规则：
-
-```sql
-select *
-from ops.task_run
-where status in ('success', 'partial_success', 'failed', 'canceled')
-  and ended_at is not null
-  and (
-    ended_at > :last_seen_ended_at
-    or (ended_at = :last_seen_ended_at and id > :last_seen_id)
-  )
-order by ended_at asc, id asc
-limit :batch_size;
-```
-
-启动规则：
-
-1. 启动时查询当前最大 `(ended_at, id)` 作为游标。
-2. 不处理启动前已经完成的历史任务。
-3. 运行中按游标向前推进。
-4. 每个任务无论刷新和通知成功与否，都推进游标。
-
-## 7.4 dataset status 刷新规则
-
-对每个完成任务：
-
-1. `dataset_action`：刷新该数据集对应的 `dataset_status_snapshot`。
-2. `workflow`：刷新 workflow 中涉及的数据集。
-3. `maintenance_action`：不刷新数据集状态，除非未来明确配置 target。
-
-刷新调用：
-
-```text
-DatasetStatusSnapshotService.refresh_for_target(strict=False)
-```
-
-异常处理：
-
-1. 捕获异常。
-2. 打 warning 日志。
-3. 不写 TaskRun issue。
-4. 不影响飞书通知发送。
-5. 不影响游标推进。
-
-## 7.5 飞书通知规则
-
-对每个完成任务：
-
-1. `OPS_TASK_NOTIFY_FEISHU_ENABLED=false` 时跳过。
-2. `OPS_TASK_NOTIFY_FEISHU_ENABLED=true` 时检查 webhook URL 和 secret。
-3. 构造富文本消息。
-4. 请求飞书 webhook。
-5. 请求失败只打 warning 日志，不重试。
-
-workflow 只处理顶层 `task_run.task_type='workflow'` 的最终完成事件，不扫描或通知 workflow 内部步骤。
-
----
-
-## 8. CLI 与 systemd
-
-## 8.1 CLI
-
-新增命令：
-
-```bash
-goldenshare ops-task-completion-worker-serve
-```
-
-建议参数：
-
-```text
---sleep-seconds
---batch-size
---max-cycles
-```
-
-`--max-cycles` 只用于测试和一次性验收，生产 systemd 不传。
-
-## 8.2 systemd
-
-新增 unit：
-
-```text
-scripts/goldenshare-ops-task-completion-worker.service
-```
-
-内容结构与现有 worker 类似：
-
-```ini
-[Unit]
-Description=Goldenshare Ops Task Completion Worker
-After=network.target
-
-[Service]
-WorkingDirectory=/opt/goldenshare/goldenshare
-Environment=GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-ExecStart=/opt/goldenshare/goldenshare/.venv/bin/goldenshare ops-task-completion-worker-serve
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-```
-
-部署脚本需要同步和展示该服务：
-
-1. `scripts/deploy-layered-systemd.sh` 增加 unit 源文件变量。
-2. `sync_units_if_needed()` 同步新 unit。
-3. `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 时 enable + restart 该 worker。
-4. 发布后 `print_service_status()` 展示该 worker 状态。
-
-## 8.3 部署链路无感接入口径
-
-新增 completion worker 后，现有“一键编译、发版、重启、验收”链路必须对调用者无感。也就是说，执行现有发布命令：
-
-```bash
-bash scripts/deploy-systemd.sh dev-interface
-```
-
-或远程默认发布命令时，必须自动完成：
-
-1. 拉取代码。
-2. 安装后端依赖。
-3. 构建前端。
-4. 同步新增 systemd unit。
-5. `systemctl daemon-reload`。
-6. 执行数据库迁移。
-7. 重启原 `goldenshare-ops-worker.service`。
-8. 重启原 `goldenshare-ops-scheduler.service`。
-9. 重启原 `goldenshare-date-completeness-worker.service`。
-10. 若 `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1`，自动 enable + restart 新增 `goldenshare-ops-task-completion-worker.service`。
-11. 发布后状态检查展示新增 worker。
-
-用户不需要单独记住新增 worker，也不需要额外执行单独启动命令。
-
-## 8.4 具体脚本改动清单
-
-实现时必须覆盖以下文件和点位：
-
-| 文件 | 必须修改项 |
-| --- | --- |
-| `src/cli.py` | 导入 `TaskRunCompletionWorker`；新增 `ops-task-completion-worker-serve` 命令 |
-| `src/cli_parts/ops_handlers.py` | 新增 `run_ops_task_completion_worker_serve()` 主循环 handler |
-| `scripts/goldenshare-ops-task-completion-worker.service` | 新增 systemd unit |
-| `scripts/deploy-layered-systemd.sh` | 增加 `TASK_COMPLETION_WORKER_SERVICE` 与 `TASK_COMPLETION_WORKER_UNIT_SRC` |
-| `scripts/deploy-layered-systemd.sh` | `sync_units_if_needed()` 同步新 unit |
-| `scripts/deploy-layered-systemd.sh` | `ensure_sudo_ready()` sudo 权限提示加入新服务 |
-| `scripts/deploy-layered-systemd.sh` | 新增独立重启判断：`DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 时 enable + restart 新 worker |
-| `scripts/deploy-layered-systemd.sh` | 发布末尾 `print_service_status()` 展示新 worker 状态 |
-| `scripts/deploy-layered-systemd.sh` | enable 常驻自启动必须与 restart 同步执行，不依赖人工首次启用 |
-| `scripts/deploy-systemd.sh` | 如帮助文案列出服务层含义，需要补充 completion worker |
-
-## 8.5 systemd 自启动口径
-
-新增 worker 必须随服务器重启自动启动。实现时采用固定口径：只要本次发布包含 Foundation 或 Ops 任一层，就执行 enable + restart。
-
-部署脚本口径：
-
-```bash
-if [[ "${DEPLOY_FOUNDATION}" == "1" || "${DEPLOY_OPS}" == "1" ]]; then
-  sudo_systemctl enable "${TASK_COMPLETION_WORKER_SERVICE}" >/dev/null
-  sudo_systemctl restart "${TASK_COMPLETION_WORKER_SERVICE}"
-fi
-```
-
-原因：
-
-1. `DEPLOY_FOUNDATION=1` 时，主任务 worker 或共用运行时可能变更，completion worker 作为 TaskRun 完成后的异步下游也必须重启。
-2. `DEPLOY_OPS=1` 时，通知、freshness、副作用 worker 自身代码可能变更，也必须重启。
-3. `DEPLOY_PLATFORM=1` 且 Foundation/Ops 都为 `0` 时，不重启 completion worker。
-4. 新机器、重建机器、首次上线都不需要人工记忆额外 enable。
-
-`ensure_sudo_ready()` 的提示必须同步增加以下权限说明：
-
-```text
-systemctl restart/status/enable goldenshare-ops-task-completion-worker.service
-```
-
-## 8.6 本地与生产启动命令
-
-本地只允许一次性验证，不允许长期运行：
-
-```bash
-GOLDENSHARE_ENV_FILE=.env.web.local uv run goldenshare ops-task-completion-worker-serve --max-cycles 1
-```
-
-生产由 systemd 常驻：
-
-```bash
-sudo systemctl status goldenshare-ops-task-completion-worker.service
-sudo systemctl restart goldenshare-ops-task-completion-worker.service
-```
-
-Codex 在本地不得启动无 `--max-cycles` 的常驻 worker。
-
----
-
-## 9. 测试计划
-
-## 9.1 单元测试
-
-新增或调整测试：
-
-1. `OperationsWorker` 完成任务后不调用 `DatasetStatusSnapshotService`。
-2. completion worker 能扫描 `success/partial_success/failed/canceled` 终态任务。
-3. completion worker 启动时初始化游标，不补发历史任务。
-4. completion worker 运行中只处理游标之后的新完成任务。
-5. snapshot 刷新失败不阻断飞书通知，也不抛出 worker 主循环。
-6. 飞书通知失败不影响游标推进。
-7. workflow 顶层任务只通知一次，不对 workflow step 单独通知。
-8. 飞书签名生成符合现有 lake_console 口径。
-9. 缺少 webhook URL 或 secret 时跳过发送并打 warning。
-
-## 9.2 CLI 测试
-
-1. `ops-task-completion-worker-serve --max-cycles 1` 能启动并退出。
-2. CLI 参数能覆盖 Settings 默认值。
-3. systemd unit 文件指向正确命令。
-4. 部署脚本会同步新增 unit。
-5. `DEPLOY_FOUNDATION=1` 时会 enable + restart 新增 worker。
-6. `DEPLOY_OPS=1` 时会 enable + restart 新增 worker。
-7. `DEPLOY_PLATFORM=1` 且 Foundation/Ops 都为 `0` 时不会 restart 新增 worker。
-8. 发布末尾服务状态检查包含新增 worker。
-
-## 9.3 回归测试
-
-建议运行：
-
-```bash
-uv run ruff check src/ops src/foundation/config/settings.py tests/test_cli_ops_runtime.py tests/web/test_ops_runtime.py
-uv run pytest -q tests/web/test_ops_runtime.py tests/test_cli_ops_runtime.py
-uv run pytest -q tests/test_dataset_status_snapshot_service.py
-uv run python scripts/check_docs_integrity.py
-```
-
----
-
-## 10. 验收口径
-
-本需求完成后应满足：
-
-1. 提交一个任务后，`ops-worker` 在 TaskRun final commit 后立即返回，不等待 freshness 刷新。
-2. `ops-worker` 日志和 DB 活动中不再出现任务完成后同步扫描大表刷新 snapshot 的阻塞链路。
-3. `ops-task-completion-worker` 独立运行。
-4. 标准发版脚本会自动同步新 worker unit。
-5. 发布后服务状态输出包含 `goldenshare-ops-task-completion-worker.service`。
-6. `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 时会自动 enable + restart 新 worker。
-7. `DEPLOY_PLATFORM=1` 且 Foundation/Ops 都为 `0` 时不会重启新 worker。
-8. 服务器重启后新 worker 会随 systemd 自动启动。
-9. 任务完成后，飞书群收到一条顶层任务完成通知。
-10. workflow 完成后只收到一条 workflow 通知。
-11. 飞书 webhook 失败不会改变 TaskRun 状态。
-12. snapshot 刷新失败不会改变 TaskRun 状态。
-13. 数据源页 freshness 允许有轻微延迟，但不影响任务队列继续消费。
-
----
-
-## 11. 风险与后续
-
-| 风险 | V1 处理 |
-| --- | --- |
-| worker 停止期间完成的任务不通知 | 接受，不补发 |
-| 飞书 webhook 短暂失败 | 接受，不重试 |
-| completion worker 重启导致游标丢失 | 启动时跳到当前最新完成任务，不补发历史 |
-| freshness 刷新仍然慢 | 慢只影响数据状态页，不影响任务队列 |
-| 飞书消息太长 | 消息正文截断，保留任务详情链接 |
-
-后续如果需要“通知必达、失败重试、补发历史”，再单独设计 outbox 表或持久化事件模型。V1 不做。
+本轮仅核对源码、测试定义、CLI 和 unit 文件，未执行 Worker、数据库回归、部署或网络通知。已知局限保留在 §2–3；信息去向见 [本批治理记录](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#ops-taskrun-consolidation-20260909)。

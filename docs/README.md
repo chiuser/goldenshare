@@ -98,9 +98,8 @@ docs/
 2026-09-09：手动维护与时间模式两份旧方案的有效内容已并入 [Ops 当前契约 §11](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md#manual-maintenance) 与 API 参考；Workflow 保留独立清单。五份收敛为三份的去向见 [整合记录](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#ops-manual-consolidation-20260909)。
 
 - [Ops 运营后台 API 全量说明 v1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)
-- [Ops TaskRun 执行观测模型重设计方案 v1（主链已上线，长分页已部署，待运行态验收）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
-- [Ops 任务完成副作用 Worker 方案 v1（本地实现完成，待部署验收）](/Users/congming/github/goldenshare/docs/ops/ops-task-completion-side-effect-worker-plan-v1.md)
-- [Ops 任务详情实时 Unit 预计完成时间 LLD v1（已实现，待发版验收）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-live-unit-eta-display-lld-v1.md)
+- [Ops TaskRun 执行与观测契约（已并入分页进度与 ETA；历史运行验收待核实）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
+- [Ops 任务完成后处理 Worker 运行契约（刷新、条件审计、通知及失败边界）](/Users/congming/github/goldenshare/docs/ops/ops-task-completion-side-effect-worker-plan-v1.md)
 - [Ops 自动任务日期策略 v1（现行七种策略与日期传导）](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)
 - [Ops 自动任务能力契约 v1（已合并 LLD；P5 生产迁移验收待核实）](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)
 - [Ops 新闻日内高频自动任务方案 v1（已实现并结案，2026-09-01）](/Users/congming/github/goldenshare/docs/ops/ops-intraday-news-high-frequency-schedule-plan-v1.md)
