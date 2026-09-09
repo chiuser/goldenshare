@@ -106,8 +106,7 @@ docs/
 - [Ops 新闻日内高频自动任务方案 v1（已实现并结案，2026-09-01）](/Users/congming/github/goldenshare/docs/ops/ops-intraday-news-high-frequency-schedule-plan-v1.md)
 - [Ops 数据集展示目录 v1（现行来源与消费边界；分组最终确认待核实）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
 - [Ops Biz 数据集投影契约 v1（合并一期与 LLD；部署验收待核实）](/Users/congming/github/goldenshare/docs/ops/ops-biz-dataset-auto-projection-plan-v1.md)
-- [Ops Freshness 单一事实源与旧分层观测退场计划 v1（已完成）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-single-source-layer-snapshot-retirement-plan-v1.md)
-- [Ops Freshness Policy 显式映射方案 v1（已实施）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)
+- [Ops Freshness 现行契约（策略、状态投影、查询边界与退场结论）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)
 - [`stk_mins` 远程源站探测触发方案 v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-remote-source-probe-plan-v1.md)
 - [`index_daily` 远程源站探测触发方案 v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-remote-source-probe-plan-v1.md)
 - [`index_daily` 远程源站探测触发 LLD v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-remote-source-probe-lld-v1.md)
@@ -131,7 +130,6 @@ docs/
 - [数据集日期完整性审计设计 v2（独立审计系统，M7 已完成本地验证）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
 - [数据集日期对象矩阵完整性审计方案 v1（HTML，待评审）](/Users/congming/github/goldenshare/docs/ops/dataset-subject-completeness-audit-plan-v1.html)
 - [日期对象矩阵审计性能与可观测性专项优化方案 v1（M0/M1 已进入落地）](/Users/congming/github/goldenshare/docs/ops/date-subject-matrix-audit-performance-optimization-plan-v1.md)
-- [Ops 新鲜度按 Date Model 收口方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [Tushare 全量数据集请求执行口径 v1（仅 Tushare）](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
 

@@ -80,6 +80,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 ### 2.3 GET /api/v1/ops/freshness
 
 - 功能：返回按领域分组的数据新鲜度视图。
+- 状态与查询边界见 [Freshness 现行契约](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)；`fresh` 不代表最近任务无失败，也不证明全历史完整。
 - Query 参数：无。
 - 返回：`OpsFreshnessResponse`
   - `summary`（总体计数）

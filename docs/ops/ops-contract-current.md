@@ -103,15 +103,17 @@
 
 ### 3.2 `ops.dataset_status_snapshot`
 
-用途：作为 freshness 计算结果缓存。
-来源：`DatasetDefinition.date_model + 真实业务表观测 + TaskRun 成功/失败信息`。
+用途：保存 freshness 观测与状态投影，并向日期完整性规则列表提供已观测范围；不是业务数据事实源，与 Kopia 备份无关。
+来源：`DatasetDefinition` 的日期模型、显式 freshness Policy、源端发布策略，加上真实目标表观测与 TaskRun 成功/失败信息。
 约束：
 
-1. 该表不是业务数据事实源，只是页面读取加速缓存。
+1. 该表是现行共享状态投影，必须保留；读取范围不等于已经完成该范围的完整性审计。
 2. 页面查询层只能读取缓存中的观测事实，并按当前北京时间业务日轻量重算 `expected_business_date / lag_days / freshness_status`。
-3. 页面查询层不得因为缓存日期不一致或字段缺失而同步扫描真实业务表；真实业务表观测只能由状态重建或任务完成后的资源刷新链路写回缓存。
+3. 页面查询不得因为缓存日期不一致或字段缺失而同步扫描真实业务表。后台状态重建、任务完成后的资源刷新及本地 freshness 探测承担观测；页面不扫描是设计要求，空快照/读取异常仍有实时回退的实现差距见[Freshness 查询边界](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md#query-safety-gap)，本轮不改代码、不放宽要求。
 4. 不再保存 raw/std/resolution/serving 分层状态。
 5. 不再由已退场的分层观测旧表推导页面健康度。
+
+策略、阈值、失败展示与退场证据统一见 [Freshness 现行契约](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)。
 
 ### 3.3 相关运行对象
 
