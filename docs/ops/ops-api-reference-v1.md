@@ -1187,7 +1187,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" \
   - `latest_raw_trade_date`：raw 源站日线最新业务日。
   - `source_serviceability_status`：后端统一判定的 public 状态。
   - `source_serviceability_label`、`source_serviceability_action`：页面直接展示的中文状态与下一步建议。
-  - `serviceability_reference_date`：本次判断使用的最近已结束开市日。
+  - `serviceability_reference_date`：上海本地今天之前最近一个开市日；今天即使已经收盘也不作为参考日。
   - `source_serviceability_reason`：仅供 API 诊断；页面不展示。
 - 示例：
 
@@ -1204,7 +1204,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 - 功能：搜索不在指定指数激活池中的候选。
 - Query 参数：`resource`（默认 `index_daily`）、`keyword`（必填）、`limit`（默认 20，`1..50`）。
-- 当 `resource=index_daily` 时，每个候选额外返回 `eligible_for_activation`、`eligibility_message`、`latest_raw_trade_date`、`serviceability_reference_date`。候选必须在最近已结束开市日及之前连续 3 个开市日都已有 raw 日线，才可加入。
+- 当 `resource=index_daily` 时，每个候选额外返回 `eligible_for_activation`、`eligibility_message`、`latest_raw_trade_date`、`serviceability_reference_date`。资格按[指数日线说明 §5](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md#5-审查中心与人工改池)判断，不把当天盘后数据自动计入连续供数窗口。
 
 ### 8.3 POST /api/v1/ops/review/index/active
 
