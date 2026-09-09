@@ -1173,6 +1173,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" \
 
 ## 8. Review Center 接口
 
+本节接口要求管理员权限。页面与板块统计口径见[审查中心说明](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)；完整响应类型以 [review_center schema](/Users/congming/github/goldenshare/src/ops/schemas/review_center.py)为准。以下列表 JSON 是节选示意，不是完整响应样本。
+
 ### 8.1 GET /api/v1/ops/review/index/active
 
 - 功能：查询激活指数池（按资源池）。
@@ -1218,6 +1220,15 @@ curl -H "Authorization: Bearer <TOKEN>" \
 - Query 参数：`resource`，默认 `index_daily`。
 - 只删除 `ops.index_series_active` 对应行；不会删除 raw 或 serving 历史数据。
 
+### 8.5 GET /api/v1/ops/review/index/active/summary
+
+- 功能：统计指定资源的整个激活池，不应用列表的关键词、行情状态或供数状态筛选。
+- Query 参数：`resource`，默认 `index_daily`。
+- 返回：`ReviewActiveIndexSummaryResponse`，字段为 `active_count/daily_available_count/weekly_available_count/monthly_available_count/pending_count`。
+- `active_count` 为池内指数数；三个 available 数分别表示对应日／周／月 Serving 中有记录的指数数；`pending_count` 为至少一层无记录的指数数。不是目标日期完整性、freshness 或源站供数合格率。
+
+<a id="review-board-apis"></a>
+
 ### 9.2 GET /api/v1/ops/review/board/ths
 
 - 功能：查询同花顺板块及成分股。
@@ -1227,7 +1238,8 @@ curl -H "Authorization: Bearer <TOKEN>" \
   - `include_members` 默认 true
   - `page` 默认 1
   - `page_size` 默认 30（`1..200`）
-- 返回：`ReviewThsBoardListResponse`
+- 返回：`ReviewThsBoardListResponse`：`total/items`；每项为 `board_code/board_name/exchange/board_type/constituent_count/members`。
+- `members` 元素统一为 `ts_code/name/in_date/out_date`，不是数据库列名 `con_code/con_name`。计数按当前有效成分的不同代码计算；`include_members=false` 只省略成员内容，不改变成分计数。
 - 示例：
 
 ```bash
@@ -1249,7 +1261,8 @@ curl -H "Authorization: Bearer <TOKEN>" \
   - `include_members` 默认 true
   - `page` 默认 1
   - `page_size` 默认 30（`1..200`）
-- 返回：`ReviewDcBoardListResponse`
+- 返回：`ReviewDcBoardListResponse`：`trade_date/idx_type_options/total/items`；每项为 `board_code/board_name/idx_type/constituent_count/members`。
+- 不传日期时取 `dc_index` 最大交易日，两表按同日读取；默认日期不代表成分数据已经完整。成员沿用 `ts_code/name/in_date/out_date`，当前进出日期为空；`include_members=false` 不改变计数。
 - 示例：
 
 ```bash
@@ -1271,7 +1284,8 @@ curl -H "Authorization: Bearer <TOKEN>" \
   - `provider` 默认 `all`
   - `page` 默认 1
   - `page_size` 默认 30（`1..200`）
-- 返回：`ReviewEquityBoardMembershipListResponse`
+- 返回：`ReviewEquityBoardMembershipListResponse`：`dc_trade_date/total/items`；每项为 `ts_code/equity_name/board_count/boards`，板块元素为 `provider/board_code/board_name`。
+- 日期只约束 DC，THS 仍为当前有效成分；按来源＋板块代码去重计数，不合并跨来源同名板块。分页单位是股票，不是板块明细。`provider` 支持 all/ths/dc，当前服务将其他值按 all 处理，不返回非法枚举错误。
 - 示例：
 
 ```bash

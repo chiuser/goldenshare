@@ -120,9 +120,9 @@ docs/
 - [ETF 实时成交额异动监控重构方案 v1（上游范围须重新基线 / 现有生产监控不变 / 当前不可开工）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
 - [ETF 实时成交额异动监控重构 LLD v1（旧池实现设计已撤销 / 当前不可作为编码依据）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-lld-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
-- [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
+- [审查中心使用与查询说明（指数激活池、板块口径与审计导航）](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [日期完整性与日期对象矩阵审计说明（已合并对象矩阵及性能专项；区分现行机制、限制和历史验收）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
-- [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
+- [多源对账工具与后续需求（现行 CLI、阈值边界及未实施平台设想）](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [Tushare 全量数据集请求执行口径 v1（仅 Tushare）](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
 
 说明：旧任务 API、旧状态表退场、任务显示名收口等过渡方案已并入 [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)、[Ops API 全量说明](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md) 与 TaskRun 当前基线，主索引不再保留独立历史文档。

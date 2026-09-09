@@ -1,640 +1,77 @@
-# Ops 审查中心设计方案 v1
+# Ops 审查中心使用与查询说明
 
-状态说明：
+- 状态：现行代码说明；不代表生产验收。
+- 核对日期：2026-09-09。保留原文路径，合并旧只读 V1 与激活池升级章节；整理去向见[治理记录](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#ops-review-reconcile-consolidation-20260909)。
+- 范围：指数激活池、板块与成分审查及数据集审计导航；不是融合策略中心、发布中心或多源对账平台。
 
-1. 审查中心板块页仍按只读审查能力维护。
-2. 审查中心指数页进入下一轮设计：从“只读激活指数列表”升级为“指数激活池管理”。
-3. 指数激活池管理只围绕 `ops.index_series_active` 这一类放行池能力展开，不顺手改同步链路、TaskRun、数据源页面或板块审查页。
+## 1. 页面入口与权限
 
-## 1. 阶段边界（按产品目标收敛）
+页面面向运营；接口要求管理员权限。浏览器路径含 Router 的 `/app` 基路径，前端内部导航省略该前缀。
 
-V1 只做读取展示，不做任何写操作。
+| 浏览器路径 | 现行能力 | 写入边界 |
+|---|---|---|
+| `/app/ops/v21/review/index` | 指数激活池查询、概览、候选搜索、加入与移出 | 只修改激活池配置，不同时同步或删除行情 |
+| `/app/ops/v21/review/board` | THS 板块、DC 板块、股票所属板块三个 Tab | 只读 |
+| `/app/ops/v21/review/dataset-audit` | 日期桶／日期对象矩阵审计 | 有独立审计运行和结果，不能称整座审查中心只读 |
 
-必须覆盖的页面与能力：
+数据集审计规则及其后处理边界归[日期完整性审计说明](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)。本页文档不授权实际改池、发起审计或写数据。
 
-1. 审查中心-指数-激活指数  
-2. 审查中心-板块-同花顺板块与成分股  
-3. 审查中心-板块-东方财富板块与成分股  
-4. 审查中心-板块-股票所属板块（聚合 THS + DC）
+## 2. 指数激活池
 
-明确不做：
+当前页面固定操作 `resource=index_daily`；主对象为 `ops.index_series_active`，键为 `resource/ts_code`。它是服务层放行池，不是 Raw 请求池、TaskRun 状态表或 freshness 结果。完整准入、供数状态、补漏和时间规则统一归[指数日线说明 §5](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md#5-审查中心与人工改池)，不在本文复制第二套规则。
 
-1. 不新增“维护/启停/导入/导出”操作。  
-2. 不新增审查写表（如 `review_list/review_entry`）。  
-3. 不改动现有同步执行逻辑（仅展示当前真实状态）。  
-4. 不做融合策略中心、发布中心能力扩展。
+页面展示：
 
----
+- “激活池管理”卡片提供加入入口和问号说明；列表展示代码、名称、市场、发布方、行情状态、最近日／周／月日期、源站供数状态及移出操作。
+- 搜索、行情状态、供数状态和分页通过 URL 参数传递；技术原因不在主列表展开。
+- 概览统计指定资源池总体，不跟随列表关键词和状态筛选。日／周／月可用分别读取对应的 `core_serving.index_daily_serving/index_weekly_serving/index_monthly_serving`。
+- `complete` 只表示上述三层各有记录；`pending_count` 是至少一层没有记录的指数数。它们不检查中间缺日、不证明已更新到应到日期，也不是源站供数状态。日期缺口应查看独立审计结果。
 
-## 2. 信息架构与路由
+操作边界：
 
-## 2.1 菜单结构
+1. 候选来自 `core_serving.index_basic`，排除已在指定池的代码；加入时除检查代码存在、未重复，还需通过指数专题规定的 Raw 连续供数资格，不能仅凭基础信息存在就放行。
+2. 加入只写池记录，不自动补历史行情；需要补数时走标准维护流程。移出只删对应池行，不删除 Raw 或 Serving 历史；不存在记录返回明确错误。
+3. 页面加入／移出有确认步骤，需说明影响；不提供任意字段编辑、批量导入、批量移出或用户自定义多套池。API 支持资源参数不等于页面开放资源选择器。
+4. 主列表不展示 `resource`、首次观测／检查时间或 TaskRun 技术状态；这些后端字段存在不等于应铺满页面。没有独立单指数详情抽屉。
+5. 池配置写入不能影响业务数据事务。本文描述的是现行服务的单独池操作，不据此承诺所有并发维护均与池变更原子协调。
 
-一级菜单：`审查中心`  
-二级领域：`指数`、`板块`
+API 的分页、候选、写入响应及错误见 [API 参考 §8](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md#8-review-center-接口)。
 
-## 2.2 页面路由建议
+## 3. 板块事实与统计
 
-1. `/app/ops/v21/review/index`  
-   - Tab：`激活指数`
+实现入口为 [ReviewCenterQueryService](/Users/congming/github/goldenshare/src/ops/queries/review_center_query_service.py)，不另建 review_list/review_entry 写表。
 
-2. `/app/ops/v21/review/board`  
-   - Tab：`同花顺板块与成分股`  
-   - Tab：`东方财富板块与成分股`  
-   - Tab：`股票所属板块`
+| 查询 | 事实来源 | 日期与计数口径 |
+|---|---|---|
+| THS 板块／成分 | `core_serving.ths_index/ths_member` | 成分按 `out_date IS NULL` 取当前有效记录；按板块统计不同 `con_code` |
+| DC 板块／成分 | `core_serving.dc_index/dc_member` | 不传日期时取 dc_index 的最大 trade_date；两表使用同一日期，成分计数为不同 con_code |
+| 股票所属板块 | 上述 THS 当前成分＋DC 指定日成分 | 按股票分页，板块数按不同 `provider:board_code` 统计；不是把两源同名板块融合成一个 |
 
-交互要求：
+需保留的限制：
 
-1. 先选领域，再在领域内切 Tab。  
-2. Tab 切换不丢筛选条件（前端 URL query 持久化）。
+- THS 没有在此查询中重建历史成分；股票所属板块选择历史日期只影响 DC，不能把混合结果称为“两源同日历史快照”。
+- DC 默认日期来自板块信息表，不证明成分表该日完整。指定日期没有数据可返回空结果，不自动回退其他日期。
+- 股票名称优先证券基础表 `core_serving.security_serving.name`，缺失时回退成分名称。输入可按代码／名称搜索，当前还支持证券 symbol／拼音匹配及候选联想。
+- 成分数量在 SQL 子查询聚合后过滤，不要求固定使用 HAVING；股票所属板块聚合使用 HAVING。板块列表默认按成分数降序，股票列表按板块数降序，再按代码排序。
+- 板块计数是 distinct 数，成员数组按当前查询返回，不应把数组行数当作独立的去重计数来源。
 
----
+板块 API 参数及响应归 [API 参考板块小节](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md#review-board-apis)。返回的成员统一使用 `ts_code/name/in_date/out_date`，不是原数据库列名 `con_code/con_name`；DC 不提供的进出日期为空。
 
-## 3. 数据来源设计（V1 不新增业务写表）
+## 4. 板块页面交互
 
-V1 直接读取现有表，不新增写入链路。
+[页面实现](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-board-page.tsx)将已应用的筛选项存入 URL；Tab 切换保留各 Tab 筛选，重置页码。输入框尚未提交的文字不等于已保存的筛选。
 
-## 3.1 指数领域
+- THS：类型、关键词和最小成分数；DC：日期、类型、关键词和最小成分数；股票：关键词／候选、来源、DC 日期和最小板块数。
+- 成分列表先展示最多 5 个预览，更多内容打开抽屉，每页展示 20 个；股票所属板块先展示最多 8 个标签，更多内容打开详情。
+- 当前成员抽屉对已取回数组做前端分页，不是按抽屉页码再次请求服务端；主列表分页也不等于成员数据总量有独立上限。
+- 保留加载、空态和错误态；不把旧“展开行”草图当作现行交互，不因本文整理新增控件或改分页机制。
 
-主表：
+## 5. 验证入口与未实施设想
 
-1. `ops.index_series_active`（激活指数池）  
+代码：[API](/Users/congming/github/goldenshare/src/ops/api/review_center.py)、[响应模型](/Users/congming/github/goldenshare/src/ops/schemas/review_center.py)、[池写入服务](/Users/congming/github/goldenshare/src/ops/services/review_center_service.py)、[指数页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-index-page.tsx)。
 
-关键字段：
+回归入口：[后端测试](/Users/congming/github/goldenshare/tests/web/test_ops_review_center_api.py)、[指数页面测试](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-index-page.test.tsx)、[板块页面测试](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-board-page.test.tsx)。重点为管理员权限、分页／筛选、池操作不改行情、候选资格、THS 有效成分、DC 默认日期、跨来源计数、URL 状态和抽屉。存在测试文件不等于本轮已完成运行或生产验收。
 
-1. `resource`
-2. `ts_code`
-3. `first_seen_date`
-4. `last_seen_date`
-5. `last_checked_at`
+旧设计中的池备注／加入原因／操作人字段、单指数详情、可选 `ops_review` 查询视图仍只是备选，不能直接作为新增表或字段的依据。需实际需求和独立评审后才能实施。
 
-用途：
-
-1. 展示“当前已纳入同步池的指数代码列表”。
-
-## 3.2 板块领域（同花顺）
-
-主表：
-
-1. `core_serving.ths_index`（板块基本信息）  
-2. `core_serving.ths_member`（板块成分）
-
-关键字段：
-
-1. `ths_index.ts_code`, `name`, `exchange`, `type`, `list_date`
-2. `ths_member.ts_code`, `con_code`, `con_name`, `in_date`, `out_date`
-
-V1 默认统计口径（用于“成分个数”）：
-
-1. 仅统计当前有效成分：`out_date is null`。  
-2. 成分个数：`count(distinct con_code)`。
-
-## 3.3 板块领域（东方财富）
-
-主表：
-
-1. `core_serving.dc_index`（板块信息，按交易日快照）  
-2. `core_serving.dc_member`（成分信息，按交易日快照）
-
-关键字段：
-
-1. `dc_index.trade_date`, `ts_code`, `name`, `idx_type`
-2. `dc_member.trade_date`, `ts_code`, `con_code`, `name`
-
-V1 默认统计口径：
-
-1. 默认使用 `dc_index` 最新交易日（`max(trade_date)`）的快照。  
-2. 支持运营手动切换 `trade_date` 查看历史快照。  
-3. 成分个数：在同一 `trade_date` 下 `count(distinct con_code)`。
-
-## 3.4 股票所属板块聚合
-
-来源：
-
-1. THS 当前有效成分（`ths_member.out_date is null`）  
-2. DC 指定交易日成分（默认最新交易日）  
-3. 股票名称优先取 `core_serving.security_serving.name`，缺失时回退成分表名称
-
-输出维度：
-
-1. 股票代码
-2. 股票名称
-3. 所属板块列表（THS + DC，去重后聚合）
-4. 所属板块数量
-
----
-
-## 4. API 设计（只读）
-
-前缀统一：`/api/v1/ops/review`
-
-## 4.1 指数-激活指数
-
-`GET /api/v1/ops/review/index/active`
-
-查询参数：
-
-1. `resource`（默认 `index_daily`）
-2. `keyword`（匹配 `ts_code`）
-3. `page` / `page_size`
-
-返回字段（建议）：
-
-1. `resource`
-2. `ts_code`
-3. `first_seen_date`
-4. `last_seen_date`
-5. `last_checked_at`
-
-## 4.2 同花顺板块与成分股
-
-`GET /api/v1/ops/review/board/ths`
-
-查询参数：
-
-1. `keyword`（匹配板块代码/板块名称）
-2. `min_constituent_count`（筛选成分个数大于等于 N）
-3. `page` / `page_size`
-4. `include_members`（默认 `true`）
-
-返回字段（建议）：
-
-1. `board_code`
-2. `board_name`
-3. `exchange`
-4. `board_type`
-5. `constituent_count`
-6. `members[]`（`con_code`, `con_name`, `in_date`, `out_date`）
-
-## 4.3 东方财富板块与成分股
-
-`GET /api/v1/ops/review/board/dc`
-
-查询参数：
-
-1. `trade_date`（可空，默认最新交易日）
-2. `idx_type`（可空）
-3. `keyword`（匹配板块代码/板块名称）
-4. `min_constituent_count`
-5. `page` / `page_size`
-6. `include_members`（默认 `true`）
-
-返回字段（建议）：
-
-1. `trade_date`
-2. `board_code`
-3. `board_name`
-4. `idx_type`
-5. `constituent_count`
-6. `members[]`（`con_code`, `name`）
-
-## 4.4 股票所属板块（聚合）
-
-`GET /api/v1/ops/review/board/equity-membership`
-
-查询参数：
-
-1. `trade_date`（DC 快照日期，可空，默认最新）
-2. `keyword`（匹配股票代码/股票名称）
-3. `min_board_count`（所属板块数量下限）
-4. `provider`（`all`/`ths`/`dc`，默认 `all`）
-5. `page` / `page_size`
-
-返回字段（建议）：
-
-1. `ts_code`
-2. `equity_name`
-3. `board_count`
-4. `boards[]`（`provider`, `board_code`, `board_name`）
-
----
-
-## 5. 查询实现建议（后端）
-
-## 5.1 查询服务组织
-
-新增查询服务：
-
-1. `src/ops/queries/review_center_query_service.py`
-
-按领域拆函数：
-
-1. `list_active_indexes(...)`
-2. `list_ths_boards_with_members(...)`
-3. `list_dc_boards_with_members(...)`
-4. `list_equity_board_membership(...)`
-
-## 5.2 SQL 口径要点
-
-1. 所有“成分个数”都在 SQL 层聚合，避免前端二次计算。  
-2. `min_constituent_count` 在 SQL `HAVING` 阶段处理。  
-3. 股票所属板块聚合先做统一明细流（THS UNION DC），再按 `ts_code` 聚合。  
-4. 分页在股票级别做，不在 `boards[]` 明细级别分页。
-
-## 5.3 可选只读视图（非必需）
-
-如果查询复杂度偏高，可加只读 SQL View（不落业务写数据）：
-
-1. `ops_review.v_ths_board_member_current`
-2. `ops_review.v_dc_board_member_latest`
-3. `ops_review.v_equity_board_membership`
-
-说明：V1 可以先不用视图，直接 Query Service 里写 SQL；性能不足再补视图。
-
----
-
-## 6. 前端交互设计（V1）
-
-## 6.1 审查中心-指数-激活指数
-
-列表字段：
-
-1. 指数代码
-2. 首次观测日期
-3. 最近观测日期
-4. 最近检查时间
-
-筛选区：
-
-1. 资源（默认 `index_daily`）
-2. 关键词（代码）
-
-## 6.2 审查中心-板块-同花顺板块与成分股
-
-筛选区：
-
-1. 板块关键词
-2. 成分个数 >= N
-
-列表区：
-
-1. 板块代码、板块名称、成分个数
-2. 展开行查看成分股
-
-## 6.3 审查中心-板块-东方财富板块与成分股
-
-筛选区：
-
-1. 交易日期（默认最新）
-2. 板块类型（可选）
-3. 板块关键词
-4. 成分个数 >= N
-
-列表区：
-
-1. 板块代码、板块名称、成分个数
-2. 展开行查看成分股
-
-## 6.4 审查中心-板块-股票所属板块
-
-筛选区：
-
-1. 股票关键词（代码/名称）
-2. 所属板块数 >= N
-3. 来源（全部/THS/DC）
-4. DC 快照交易日（默认最新）
-
-列表区：
-
-1. 股票代码、股票名称、所属板块数
-2. 所属板块标签列表（展示来源标记 THS/DC）
-
----
-
-## 7. 测试范围（V1）
-
-后端：
-
-1. 指数列表接口分页/筛选。  
-2. 板块接口 `min_constituent_count` 筛选正确性。  
-3. 东方财富 `trade_date` 默认最新逻辑。  
-4. 股票所属板块聚合去重正确性。
-
-前端：
-
-1. 菜单与二级路由结构正确。  
-2. 板块页面筛选联动正确。  
-3. 三个 Tab 切换不丢筛选条件。  
-4. 空态、错误态展示正确。
-
----
-
-## 8. 交付清单（V1）
-
-1. 文档：本设计文档。  
-2. 后端：只读 API 4 组。  
-3. 前端：审查中心 2 个领域 + 4 个页面能力。  
-4. 测试：接口与页面基础回归用例。  
-
----
-
-## 9. 结论
-
-V1 以“领域化只读审查”为目标，不引入维护写操作，不改动同步链路。  
-
-先让运营人员能稳定回答三件事：
-
-1. 当前激活指数到底有哪些。  
-2. 同花顺/东财板块及其成分当前是什么。  
-3. 某只股票到底出现在哪些板块里。  
-
-在这套只读能力稳定后，再进入 V2 的可维护改造。
-
----
-
-## 10. 指数激活池管理升级方案
-
-本节是审查中心-指数页的下一轮设计方案，用于替换原“激活指数只读列表”的产品方向。
-
-第一期只实现用户最关心的闭环：
-
-1. 看清当前激活池里有哪些指数。
-2. 看清这些指数的日线、周线、月线是否可用。
-3. 能把指数加入激活池。
-4. 能把指数移出激活池。
-
-第一期不追求把所有技术细节都铺到页面上。页面默认只展示运营判断和操作所需的重点信息，细节放到问号说明、详情抽屉或后续版本。
-
-### 10.1 页面定位
-
-页面路由保持：
-
-1. `/app/ops/v21/review/index`
-
-页面标题固定为：
-
-1. `审查中心 · 指数激活池`
-
-页面顶部主卡片标题固定为：
-
-1. `激活池管理`
-
-标题右侧放一个问号说明入口，不在页面顶部平铺长说明。
-
-问号说明内容：
-
-1. 激活池决定哪些指数可以进入服务层。
-2. 加入后需要重新维护行情，历史数据才会补齐。
-3. 移出后不会自动删除历史数据。
-
-说人话：
-
-1. 这个页面不是“看一眼有哪些指数”。
-2. 这个页面是运营人员管理“哪些指数允许对外服务”的地方。
-
-### 10.2 核心对象与职责
-
-主对象：
-
-1. `ops.index_series_active`
-
-当前主键：
-
-1. `resource`
-2. `ts_code`
-
-当前关键字段：
-
-1. `first_seen_date`
-2. `last_seen_date`
-3. `last_checked_at`
-
-职责边界：
-
-1. 激活池是服务层放行名单。
-2. 激活池不是 TaskRun 观测表。
-3. 激活池不是 freshness 结果表。
-4. 激活池不是 raw 源站事实表。
-5. 激活池写入失败不得影响任何 raw/core/core_serving 业务数据事务。
-
-### 10.3 第一期页面信息架构
-
-页面建议分为三块：
-
-1. 激活池管理
-2. 数据可用概览
-3. 指数列表
-
-#### 10.3.1 激活池管理
-
-展示内容：
-
-1. 当前激活池总数。
-2. 操作入口：加入指数。
-
-交互要求：
-
-1. 顶部只写 `激活池管理`。
-2. 说明统一收进标题右侧问号。
-3. 不在页面顶部堆大段解释文字。
-4. 所有按钮文案必须使用运营能理解的说法，不暴露底层技术词。
-
-推荐按钮文案：
-
-1. `加入指数`
-2. `移出激活池`
-
-不推荐文案：
-
-1. `新增 resource`
-2. `删除 active row`
-3. `同步池配置`
-4. `core_serving 门禁`
-5. `resource=index_daily`
-
-#### 10.3.2 数据可用概览
-
-运营要能快速回答：
-
-1. 当前放行了多少指数。
-2. 日线、周线、月线是否基本可用。
-3. 有没有需要处理的数据缺口。
-
-第一期概览卡片只保留：
-
-1. `激活指数`
-2. `日线可用`
-3. `周线可用`
-4. `月线可用`
-
-如果存在缺口，再显示 `待处理`。没有缺口时不强行展示异常卡。
-
-口径：
-
-1. 覆盖统计只看 `core_serving` 服务层，不看 raw。
-2. 日线覆盖来自 `core_serving.index_daily_serving`。
-3. 周线覆盖来自 `core_serving.index_weekly_serving`。
-4. 月线覆盖来自 `core_serving.index_monthly_serving`。
-5. 周线/月线来源构成第一期不放在概览卡片里，最多在详情抽屉展示。
-
-### 10.4 第一期指数列表设计
-
-列表每行表达一个指数代码。
-
-第一期主列表只展示：
-
-1. 指数代码
-2. 指数名称
-3. 市场
-4. 发布方
-5. 数据状态
-6. 最近行情
-7. 操作
-
-字段说明：
-
-1. `数据状态` 用标签表达，不展开技术原因。
-2. `最近行情` 合并展示日线、周线、月线最近日期。
-
-数据状态标签：
-
-1. `完整`
-2. `缺日线`
-3. `缺周线`
-4. `缺月线`
-5. `未同步`
-
-最近行情展示示例：
-
-```text
-日 2026/04/30 · 周 2026/04/24 · 月 2026/04/30
-```
-
-操作：
-
-1. 移出激活池
-
-详情抽屉不进入第一期实现。后续如果需要查看单指数细节，再单独补充，并且只在用户点击后展示，不在主列表铺开：
-
-1. 指数基本信息。
-2. 日线、周线、月线覆盖情况。
-3. 周线/月线来源构成。
-4. 最近相关任务入口。
-
-第一期主列表不要展示：
-
-1. `resource`
-2. raw/core/serving 技术词。
-3. `first_seen_date`、`last_checked_at` 这类技术审计字段。
-4. 周线来源、月线来源的细分数字。
-5. TaskRun 技术状态。
-
-### 10.5 CRUD 语义
-
-#### 10.5.1 查询
-
-查询能力必须覆盖：
-
-1. 按代码/名称搜索。
-2. 按数据状态筛选。
-3. 分页。
-
-查询结果的事实字段必须由后端返回，前端不得自行拼装覆盖状态。
-
-#### 10.5.2 新增
-
-用户动作叫：
-
-1. `加入指数`
-
-新增流程：
-
-1. 用户输入代码或名称。
-2. 系统从 `core_serving.index_basic` 搜索候选指数。
-3. 用户选择一个指数。
-4. 系统展示确认信息。
-5. 用户确认后写入 `ops.index_series_active`。
-
-确认信息必须写清楚：
-
-1. 加入后，该指数后续可以进入服务层。
-2. 加入不会自动补历史行情。
-3. 如果需要历史行情，需要单独发起日线、周线、月线维护任务。
-
-#### 10.5.3 删除
-
-用户动作叫：
-
-1. `移出激活池`
-
-删除流程：
-
-1. 用户点击移出。
-2. 系统展示确认弹窗。
-3. 用户确认后删除 `ops.index_series_active` 对应行。
-
-确认信息必须写清楚：
-
-1. 移出后，该指数后续不会再写入服务层。
-2. raw 源站数据不受影响。
-3. 已存在的服务层历史数据不会在本操作中自动删除。
-
-#### 10.5.4 修改
-
-当前表模型没有适合运营直接编辑的业务字段，因此第一期不强行实现“编辑字段”。
-
-如果后续需要完整编辑能力，应先评审是否为 `ops.index_series_active` 增加以下字段：
-
-1. 备注
-2. 加入原因
-3. 最后操作人
-4. 最后操作时间
-
-这些字段没有评审前，不为了满足“改”这个字而做无意义编辑。
-
-### 10.6 API 设计方向
-
-现有接口保留为查询基础：
-
-1. `GET /api/v1/ops/review/index/active`
-
-下一轮建议新增：
-
-1. `GET /api/v1/ops/review/index/active/summary`
-2. `GET /api/v1/ops/review/index/active/candidates`
-3. `POST /api/v1/ops/review/index/active`
-4. `DELETE /api/v1/ops/review/index/active/{ts_code}`
-
-第一期 API 只服务页面重点信息：
-
-1. 概览卡片数字。
-2. 主列表字段。
-3. 候选指数搜索。
-4. 加入激活池。
-5. 移出激活池。
-
-API 返回要求：
-
-1. 后端返回页面所需事实字段。
-2. 前端不得基于多个字段自行拼装“是否覆盖”“最近同步”等事实。
-3. 写接口只修改激活池配置，不触发行情同步，不删除业务数据。
-
-### 10.7 测试要求
-
-后端测试：
-
-1. 查询激活池分页/搜索。
-2. 查询覆盖统计。
-3. 加入指数时必须校验候选存在。
-4. 重复加入应返回清晰结果。
-5. 移出指数只删除激活池行，不影响 raw/core/core_serving 数据。
-
-前端测试：
-
-1. 页面标题显示 `审查中心 · 指数激活池`。
-2. 顶部卡片标题显示 `激活池管理`。
-3. 说明收进问号入口。
-4. 主列表只展示重点字段，不展示技术字段。
-5. 加入、移出操作有明确确认文案。
-6. 激活池列表、覆盖统计、空态、错误态展示正确。
-
-### 10.8 本轮不做
-
-1. 不自动补历史行情。
-2. 不自动清理服务层历史数据。
-3. 不改 raw / serving 写入链路。
-4. 不改周线/月线派生算法。
-5. 不扩展到板块审查页。
-6. 不实现用户自定义多套指数池。
-7. 不做批量导入、批量移出。
-8. 不在主列表展示来源构成、任务技术状态或底层资源字段。
+本轮仅整理文档，保留有效操作边界与查询规则，删除重复分期施工单及过时状态；未修改代码、数据库、数据同步或部署。旧方案全文可从提交 `39d957f4` 追溯。

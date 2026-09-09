@@ -217,8 +217,8 @@ Dataset 卡片的交付模式直接读取 `DatasetDefinition.storage.delivery_mo
 以下文档保留为专题补充，不再重复定义主契约：
 
 1. `ops-workflow-catalog-v1.md`：工作流目录与实现清单
-2. `ops-review-center-design-v1.md`：审查中心设计
-3. `reconcile-capability-requirements-v1.md`：多源对账专项
+2. [审查中心使用与查询说明](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)：页面导航、板块统计及人工改池边界；指数资格与补漏规则归指数专题，字段归 API 参考
+3. [多源对账工具与后续需求](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)：现行 CLI、退出码边界及未实施平台设想，不等于已建成统一对账平台
 4. `ops-task-run-observability-redesign-plan-v1.md`：TaskRun 执行观测模型
 
 说明：旧 API 语义、旧状态表退场、旧能力审查备忘等过渡文档已下线；当前边界由本契约维护，字段及专题细节分别归 API 参考和上述专题。
