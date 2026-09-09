@@ -559,28 +559,7 @@ goldenshare realtime-collector-serve --max-cycles 1
 
 实时流配置中心是配置治理页面，不是实时流监控页面。
 
-当前 showcase 口径见 [Ops 实时流配置中心 Showcase v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html)。
-
-页面层级：
-
-1. 页面级：实时流配置中心。
-2. 对象级：股票实时日线、股票实时分钟、单股当日分时序列等“实时流对象”。
-3. 配置级：当前对象的采集策略、频率范围、采集窗口、限速保护、Redis 策略、状态判断和配置项明细。
-
-交互模式：
-
-1. 默认进入查看态：左侧对象列表，右侧展示当前对象配置详情。
-2. 点击左侧实时流对象，只切换右侧对象配置，不进入编辑。
-3. 点击“进入编辑模式”后，同一页面切到编辑态，只编辑当前对象。
-4. 编辑态才展示可编辑字段、草稿差异、校验结果、发布影响和发布确认。
-5. 查看态不得混入发布校验、草稿差异或提交发布按钮，避免只读信息和编辑流程混排。
-
-控件规则：
-
-1. 集合型值在查看态用标签展示，例如分钟频率 `1MIN/5MIN/15MIN/30MIN/60MIN`。
-2. `enabled_freqs` 在编辑态必须用多选控件，不允许让运营手填逗号字符串。
-3. 高风险配置如源站通配符、Token、Redis key 默认锁定，不在页面上开放普通编辑。
-4. 页面只消费服务端配置读取层输出的事实，不自行拼装配置来源或运行事实。
+当前只管理股票实时日线、股票实时分钟、ETF 实时日线；单股当日分时序列不是已接入对象。查看/编辑、完整字段、草稿校验、发布修订及 collector 版本确认统一见 [Ops 实时流配置中心说明](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md)。旧 Showcase 已退出，不再作为当前页面依据。
 
 ### 8.3 Collector 循环
 
@@ -1106,11 +1085,11 @@ REDIS_URL=redis://127.0.0.1:6379/0
 
 ### D4 Ops 菜单位置
 
-已确认：在数据运营后台新增一级菜单“实时流监控”，当前页面展示“股票实时日线”和“股票实时分钟”两个分组。页面设计稿见 [Ops 实时流监控页面设计 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.html)。
+实时流监控已是独立菜单，当前展示股票实时日线、股票实时分钟、ETF 实时日线三个分组。接口、轮询和异常边界见 [Ops 实时流监控说明](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.md)。
 
 ### D5 交易时段外文案
 
-已确认源站请求窗口：交易日 9:30-11:30、13:00-15:00。非采集时段页面应显示“非采集时段/空闲”，非交易日显示 `market_closed`；页面展示当前 Redis 可读批次和源端 `trade_time`，不能把非采集时段误报为采集失败。
+已确认源站请求窗口：交易日 9:30-11:30、13:00-15:00。正常非采集时段不误报滞后；`collection_status` 与健康 `status` 分开，Redis 异常或已记录降级不因休市自动变成正常。页面字段与判定顺序以监控说明为准，不将源端 `trade_time` 当作所有健康响应的字段。
 
 开市验证已完成：全市场通配符请求方案可用，开市时段字段完整性与耗时满足 V1 采集口径。
 

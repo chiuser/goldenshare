@@ -3,7 +3,7 @@
 状态：源接口开市实测完成 / 代码主线已接入 / 生产配置已启用 / 开市批次验收已完成
 源接口事实：[Tushare 0400 ETF实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0400_ETF实时日线.md)  
 关联上位方案：[实时行情流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
-关联配置中心：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)  
+关联配置中心：[Ops 实时流配置中心说明](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md)
 适用范围：Tushare `rt_etf_k` ETF 实时日线 V1
 
 ---

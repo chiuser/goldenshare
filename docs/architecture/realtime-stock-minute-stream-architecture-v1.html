@@ -779,7 +779,7 @@ fields = [
         </table>
 
         <div class="callout">
-          <b>后续配置中心边界：</b>数据运营后台“实时流配置中心”独立于“实时流监控”。当前配置中心管理已接入 collector 的实时流对象，包括股票实时日线、股票实时分钟、ETF 实时日线；单股当日分时序列属于按需查询能力，不是当前配置中心对象。监控页只展示当前运行健康。配置中心的最新交互参考见 <a href="/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html">Ops 实时流配置中心 Showcase v1</a>。
+          <b>配置中心边界：</b>配置中心独立于实时流监控，当前管理股票实时日线、股票实时分钟、ETF 实时日线；单股当日分时序列不是已接入对象。当前字段、交互与发布生效机制统一见 <a href="/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md">Ops 实时流配置中心说明</a>。
         </div>
         <div class="callout">
           <b>配置中心交互口径：</b>默认是查看态：左侧为实时流对象列表，点击对象后右侧展示该对象配置详情和配置项明细。编辑态必须通过“进入编辑模式”切换，同一页面状态内展示可编辑字段、草稿差异、校验结果和发布影响；查看态不得混入发布确认或草稿校验。分钟频率属于集合型配置，查看态用标签展示 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code>，编辑态用多选控件，不允许让运营手填逗号字符串。

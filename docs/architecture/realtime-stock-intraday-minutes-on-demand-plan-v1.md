@@ -351,7 +351,7 @@ flowchart TD
 5. 发布校验只在编辑态展示，查看态不混入草稿差异或发布确认。
 6. 若实时流配置中心先于 `rt_min_daily` 开发完成，该对象最多只作为“待接入/只读规划”展示；不能开放编辑和发布。
 
-当前交互参考：[Ops 实时流配置中心 Showcase v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html)。
+现行配置中心交互见 [Ops 实时流配置中心说明](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md)。本节为按需查询对象的后续设计，不代表该对象已注册或出现在当前页面；旧 Showcase 不再作为当前依据。
 
 ---
 
