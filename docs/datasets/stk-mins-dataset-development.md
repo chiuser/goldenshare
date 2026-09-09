@@ -537,8 +537,8 @@ CLI 行为：
   - 本方案。
 - `docs/README.md`
   - 增加本方案入口。
-- `docs/ops/tushare-request-execution-policy-v1.md`
-  - 实现时补充 `stk_mins` 请求执行口径。
+- [Tushare 请求执行规则阅读入口](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
+  - 仅维护导航；`stk_mins` 的请求范围、频率、窗口与分页在本开发文档及对应实现中维护，不再向入口复制逐数据集规则。
 - `docs/architecture/dataset-date-model-consumer-guide-v1.md`
   - 如日期模型消费方需要区分分钟策略，补充消费说明。
 
