@@ -1,727 +1,192 @@
-# 数据集日期完整性审计设计 v2（独立审计系统）
+# 日期完整性与日期对象矩阵审计说明
 
-- 版本：v2
-- 状态：M7 已完成本地验证（手动审计、独立 worker、自动审计配置与 tick 已接入；股票周/月线长假规则排除已接入；M8 远程验证待做）
-- 更新时间：2026-05-03
-- 适用范围：`src/ops` 审查中心的数据日期完整性审计能力
-- 前置事实源：`src/foundation/datasets/**` 的 `DatasetDefinition.date_model`
-- 说明：前序 v1 历史稿已删除，当前以本文作为日期完整性审计唯一方案文档。
-- 相关基线：[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
+- 状态：现行代码机制说明；不是生产验收结论。
+- 核对日期：2026-09-09。
+- 范围：Ops 审查中心的数据集审计；不涉及 DG Lake 审计。
+- 本文合并原日期桶方案、对象矩阵方案及性能专项，保留原主文档路径。内容去向及历史恢复方式见[整合记录](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#ops-date-completeness-consolidation-20260909)。
 
----
+## 1. 查什么，事实从哪里来
 
-## 0. 本版核心决策
-
-本版与 v1 最大区别：日期完整性审计是独立的数据观测系统，不复用 TaskRun，不混入数据维护任务链路，不混入 freshness/status/snapshot。
-
-硬口径：
-
-1. 审计任务模型独立，不写 `ops.task_run`、`ops.task_run_node`、`ops.task_run_issue`。
-2. 审计执行器独立，可以由单独 worker 进程消费审计队列。
-3. 审计结果独立，只写日期完整性审计自己的结果表和缺口表。
-4. 审计只读业务目标表，不写业务数据表。
-5. 审计不刷新 freshness，不写 dataset status snapshot，不影响同步任务状态。
-6. 审计规则只来自 `DatasetDefinition.date_model`，不得在 ops、API、前端复制第二套规则。
-7. 同步任务正在运行时同时触发审计的并发一致性问题，本期不处理；后续通过统一运维协调机制解决。
-8. 股票周/月线这类自然锚点数据集，候选桶是否应纳入检查必须由 `DatasetDefinition` 的日期桶可产出规则决定；不得用节假日白名单或审计 SQL 特判隐藏缺口。
-
----
-
-## 1. 目标与非目标
-
-### 1.1 目标
-
-建立一个确定性的日期完整性审计能力，用于回答：
-
-1. 某个数据集在指定时间范围内，按它的日期模型应该有哪些日期桶。
-2. 业务目标表里实际有哪些日期桶。
-3. 缺哪些日期桶，缺口能否压缩成区间。
-4. 审计结论是通过、不通过，还是审计执行错误。
-
-本期能力的检查粒度是“日期桶”。例如 `adj_factor` 会判断 `core.equity_adj_factor` 在某个交易日是否存在数据，但不会判断每个 `ts_code` 在该交易日是否都有一行。证券、指数、板块等对象维度的矩阵完整性属于后续专项能力，不能用本期 `passed` 结论替代。
-
-审计 run 结论只允许三类；不适用数据集不创建 run，只在规则列表展示原因：
-
-| 结论 | 含义 |
-|---|---|
-| `passed` | 范围内期望桶均有数据 |
-| `failed` | 范围内存在缺失桶 |
-| `error` | 审计执行失败，例如目标表不可读、规则缺失、SQL 失败 |
-
-### 1.2 非目标
-
-1. 不替代 freshness。freshness 看“最新日期是否滞后”，完整性审计看“范围中间是否缺桶”。
-2. 不做字段级质量校验。
-3. 不做多源逐字段对账。
-4. 不做分钟级完整性审计。`stk_mins` 第一版保持不可审计。
-5. 不协调同步任务与审计任务之间的并发关系。
-6. 不复用 TaskRun，不改数据维护执行链路。
-7. 不做证券 / 指数 / 板块等对象维度的逐对象完整性审计。
-
----
-
-## 2. 系统边界
-
-```mermaid
-flowchart LR
-  A["DatasetDefinition.date_model"] --> B["DateCompletenessRuleView"]
-  A --> C["ExpectedBucketPlanner"]
-  D["业务目标表"] --> E["ActualBucketReader"]
-  C --> F["GapDetector"]
-  E --> F
-  F --> G["ops.dataset_date_completeness_run"]
-  F --> H["ops.dataset_date_completeness_gap"]
-  G --> I["审查中心页面"]
-  H --> I
-```
-
-允许读取：
-
-1. `DatasetDefinition`：数据集身份、展示名、目标表、日期模型、可审计标记。
-2. 交易日历表：生成交易日期望桶。
-3. 业务目标表：读取实际日期桶。
-4. 审计自己的表：读取历史任务、结果、缺口。
-
-禁止读取或写入作为事实源：
-
-1. `ops.task_run` / `ops.task_run_node` / `ops.task_run_issue`
-2. `ops.dataset_status_snapshot`
-3. 旧任务观测链路、旧分层观测链路和旧同步状态表
-
-说明：审计页面可以在 UI 上与 freshness 并列展示，但两者不能共享状态表，也不能互相覆盖结论。
-
----
-
-## 3. 规则模型
-
-### 3.1 单一事实源
-
-审计规则只消费 `DatasetDefinition.date_model`：
-
-| 字段 | 用途 |
-|---|---|
-| `date_axis` | 决定日期集合来源 |
-| `bucket_rule` | 决定期望桶抽取规则 |
-| `window_mode` | 用于审计表单输入说明 |
-| `input_shape` | 用于审计表单控件推导 |
-| `observed_field` | 决定业务目标表实际桶读取字段 |
-| `audit_applicable` | 决定是否允许审计 |
-| `not_applicable_reason` | 不适用时展示原因 |
-| `bucket_window_rule` | 决定自然锚点对应的业务窗口 |
-| `bucket_applicability_rule` | 决定候选桶是否应纳入 expected bucket |
-
-硬规则：
-
-1. `audit_applicable=true` 时必须有 `observed_field`。
-2. `audit_applicable=false` 时必须有 `not_applicable_reason`。
-3. `DatasetDefinition.observability.observed_field` 与 `date_model.observed_field` 若不一致，视为 Definition 配置错误，审计模块不得兜底。
-4. `dividend` / `stk_holdernumber` 等低频事件型数据，也以 Definition 的 date model 为准；如果业务口径要变，必须先改 Definition。
-5. 多个逻辑数据集共用同一目标表与同一观测字段时，必须由 `DatasetDefinition.storage.row_identity_filters` 显式声明行级归属条件；审计 SQL 不得按 `dataset_key` 硬编码。
-6. 候选桶是否因为业务窗口内无开市日而排除，必须由 `DatasetDefinition` 的日期桶可产出规则表达；审计模块只消费规则，不维护节假日列表。
-
-`row_identity_filters` 是存储事实，不是审计专用规则。第一版只允许简单等值过滤，例如股票周/月线共用 `core_serving.stk_period_bar` 时：
-
-| 数据集 | 目标表 | 观测字段 | 实际桶过滤 |
-|---|---|---|---|
-| `stk_period_bar_week` | `core_serving.stk_period_bar` | `trade_date` | `freq=week` |
-| `stk_period_bar_month` | `core_serving.stk_period_bar` | `trade_date` | `freq=month` |
-| `stk_period_bar_adj_week` | `core_serving.stk_period_bar_adj` | `trade_date` | `freq=week` |
-| `stk_period_bar_adj_month` | `core_serving.stk_period_bar_adj` | `trade_date` | `freq=month` |
-
-约束：
-
-1. 过滤字段必须是合法列名。
-2. 过滤值只允许字符串、整数、布尔值。
-3. 过滤条件必须通过 SQL 参数绑定消费，不允许拼接 raw SQL。
-
-### 3.1.1 规则排除桶
-
-股票周/月线当前使用自然锚点：
-
-| 数据集 | 候选桶规则 | 行归属过滤 | 可产出规则 |
-|---|---|---|---|
-| `stk_period_bar_week` | `natural_day + week_friday` | `freq=week` | ISO 周内至少有 1 个开市交易日 |
-| `stk_period_bar_adj_week` | `natural_day + week_friday` | `freq=week` | ISO 周内至少有 1 个开市交易日 |
-| `stk_period_bar_month` | `natural_day + month_last_calendar_day` | `freq=month` | 自然月内至少有 1 个开市交易日 |
-| `stk_period_bar_adj_month` | `natural_day + month_last_calendar_day` | `freq=month` | 自然月内至少有 1 个开市交易日 |
-
-审计计算必须拆成三类：
-
-| 类型 | 含义 | 是否算缺失 |
+| 审计类型 | 回答的问题 | 规则和读取来源 |
 |---|---|---|
-| 候选桶 | `bucket_rule` 生成的自然周五/自然月末 | 不直接进入结果 |
-| 应检查桶 | 候选桶通过 `bucket_applicability_rule` 后得到的 expected bucket | 参与缺失判断 |
-| 规则排除桶 | 候选桶对应窗口内没有开市日 | 不算缺失，需要在详情中展示排除原因 |
-| 非预期实际桶 | 目标表实际存在、但不属于应检查桶的日期桶 | 不影响本期 passed/failed，但必须在页面中提示，避免误读 |
+| `date_bucket` | 指定范围应有的日期桶是否都有数据 | `DatasetDefinition.date_model` 规划日期；`storage.target_table/row_identity_filters` 和 `observed_field` 确定目标记录 |
+| `date_subject_matrix` | 每个期望日期、每个期望对象是否都有记录 | 在日期规则之上，按 `DatasetDefinition.completeness` 读取对象池并与目标表比对 |
+| Freshness（另一能力） | 最新数据是否滞后 | 见 [Freshness 契约](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)，不能替代范围缺口检查 |
 
-展示建议：
+审计不检查字段值是否正确，也不证明数据源本身完整。不适用的数据集只在规则列表显示原因，正常提交入口拒绝创建 run。日期输入语义、预期日期和 freshness 不能混为一谈，基础定义见[日期模型消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)。
 
-```text
-应检查日期桶 835 / 实际日期桶 836 / 缺失日期桶 0 / 规则排除 17
-存在 1 个非预期日期桶
-```
+“独立审计”指审计 run 和结果使用自己的模型，不是禁止与其他 Ops 能力交互：
 
-约束：
+- 规则列表从 `ops.dataset_status_snapshot` 获取已观测范围用于展示；这不是本次审计通过与否的证据，也不是 Kopia 备份。
+- 审计执行器只读业务目标表，写审计状态和缺口表，不主动刷新 freshness 或 snapshot。
+- worker 完成审计后存在指数补漏后处理，可创建标准维护 TaskRun；详见[指数日线完整性、补漏与激活池说明](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md)。不能把整条 worker 链路称为“纯只读、绝不创建维护任务”。
 
-1. 排除原因必须是结构化原因，例如 `bucket_has_no_open_trade_day`。
-2. 不允许把春节、国庆日期写成白名单。
-3. 不允许在 `ActualBucketReader` 或 SQL 中按数据集 key 特判。
-4. 第一版只作用在四个股票周/月线数据集上。
+截至核对日，注册表有 94 个数据集，52 个声明日期审计适用、42 个不适用，其中 6 个配置对象矩阵。数字是代码盘点，不是新增数据集准入条件；实际清单由注册表和规则 API 提供，不维护第二份全量名单。
 
-### 3.2 日期桶规则
+## 2. 日期桶规则
 
-| `date_axis` | `bucket_rule` | 期望桶生成方式 |
+实现入口：[ExpectedBucketPlanner、ActualBucketReader、GapDetector](/Users/congming/github/goldenshare/src/ops/services/date_completeness_audit_service.py)。
+
+| `date_axis` | 支持的 `bucket_rule` | 含义 |
 |---|---|---|
-| `trade_open_day` | `every_open_day` | 范围内每个开市交易日 |
-| `trade_open_day` | `week_last_open_day` | 范围内每周最后一个开市交易日 |
-| `trade_open_day` | `month_last_open_day` | 范围内每月最后一个开市交易日 |
+| `trade_open_day` | `every_open_day` | 范围内各开市日 |
+| `trade_open_day` | `week_last_open_day` / `month_last_open_day` | 输入范围内按周／月分组的最后一个开市日 |
 | `natural_day` | `every_natural_day` | 范围内每个自然日 |
-| `natural_day` | `week_friday` | 范围内每个自然周周五 |
-| `natural_day` | `month_last_calendar_day` | 范围内每个自然月最后一天 |
-| `month_key` | `every_natural_month` | 范围内每个自然月键 `YYYYMM` |
-| `month_window` | `month_window_has_data` | 范围内每个自然月窗口至少存在一条数据 |
-| `none` | `not_applicable` | 不生成期望桶 |
+| `natural_day` | `week_friday` / `month_last_calendar_day` | 自然周五／自然月末，不是最后交易日 |
+| `month_key` | `every_natural_month` | 范围所覆盖的月份，标签为 YYYYMM |
+| `month_window` | `month_window_has_data` | 范围所覆盖的月份，窗口内有记录即覆盖 |
+| `none` 或 `not_applicable` | 不生成期望桶 | 正常创建入口还会检查 `audit_applicable` 和观测字段；不能据此推出“不支持时间输入” |
 
-交易日历第一版使用系统默认交易所口径。若未来要支持多交易所审计，必须在 `DatasetDefinition` 或审计请求协议中显式建模，不允许在 SQL 内写死临时规则。
+重要边界：
 
----
+1. 周／月范围不完整时，交易日分组只在输入范围内取最后一天，不自动承诺完整自然周／月的末交易日。
+2. `bucket_window_rule=iso_week/natural_month` 配合 `requires_open_trade_day_in_bucket`，会用完整周／月日历判断是否可产出；没有开市日的候选桶记为排除，原因 `bucket_has_no_open_trade_day`，不是缺口。
+3. 股票周／月线及复权周／月线通过 Definition 的频率过滤区分共用表。不能丢掉 `row_identity_filters`，也不能用节假日白名单掩盖缺失。
+4. 实际记录按请求起止范围读取；`month_key` 按 YYYYMM 比较，`month_window` 则把范围内读到的日期归入月份。后者不会自动扩大目标表读取范围到整月。
+5. 日期缺口按“期望桶序列中的连续位置”压缩，不按自然日相邻压缩；区间样本最多 20 个。额外日期不导致当前日期桶审计失败，也不等于已完成异常日期集合审计。
 
-## 4. 独立审计任务模型
+目标标识符校验、参数绑定及行身份过滤由读取器处理，运营输入不能自行指定表名、SQL 或规则。
 
-### 4.1 表：`ops.dataset_date_completeness_run`
+## 3. 对象矩阵与计数
 
-一条 run 是一次审计任务实例，同时保存本次审计的运行状态、规则快照和结果摘要。
+当前六项配置如下；五个股票数据集共用执行方式，指数使用独立对象池，不能用 `ts_code` 同名推导池语义。
 
-| 字段 | 类型 | 含义 |
+| 数据集 | 当前审计目标表 | 对象池策略 |
 |---|---|---|
-| `id` | bigint PK | 审计任务 ID |
-| `dataset_key` | varchar(96) | 数据集键 |
-| `display_name` | varchar(160) | 数据集展示名快照 |
-| `target_table` | varchar(160) | 本次审计读取的目标表快照 |
-| `run_mode` | varchar(16) | `manual` / `scheduled` |
-| `run_status` | varchar(24) | `queued` / `running` / `succeeded` / `failed` / `canceled` |
-| `result_status` | varchar(24) | `passed` / `failed` / `error`，运行中为空 |
-| `start_date` | date | 审计范围起点 |
-| `end_date` | date | 审计范围终点 |
-| `date_axis` | varchar(32) | `date_model.date_axis` 快照 |
-| `bucket_rule` | varchar(32) | `date_model.bucket_rule` 快照 |
-| `window_mode` | varchar(32) | `date_model.window_mode` 快照 |
-| `input_shape` | varchar(32) | `date_model.input_shape` 快照 |
-| `observed_field` | varchar(64) | 实际桶观测字段快照 |
-| `bucket_window_rule` | varchar(32) | 日期桶窗口规则快照 |
-| `bucket_applicability_rule` | varchar(64) | 日期桶可产出规则快照 |
-| `row_identity_filters_json` | json | 目标表行级归属过滤条件快照 |
-| `audit_scope` | varchar(32) | 审计粒度，`date_bucket` 或 `date_subject_matrix` |
-| `subject_kind` | varchar(32) nullable | 对象矩阵审计的对象类型，例如 `stock`；日期桶审计为空 |
-| `expected_bucket_count` | int | 期望桶数量 |
-| `actual_bucket_count` | int | 实际桶数量；可能大于 `expected_bucket_count`，表示目标表存在非预期日期桶 |
-| `missing_bucket_count` | int | 缺失桶数量 |
-| `excluded_bucket_count` | int | 规则排除桶数量 |
-| `gap_range_count` | int | 压缩后的缺口区间数量 |
-| `expected_cell_count` | bigint | 对象矩阵审计的期望日期 × 对象单元数；日期桶审计为 0 |
-| `actual_cell_count` | bigint | 对象矩阵审计的实际命中单元数；日期桶审计为 0 |
-| `missing_cell_count` | bigint | 对象矩阵审计的缺失单元数；日期桶审计为 0 |
-| `affected_bucket_count` | int | 对象矩阵审计中受影响日期桶数量；日期桶审计为 0 |
-| `affected_subject_count` | int | 对象矩阵审计中受影响对象数量；日期桶审计为 0 |
-| `detail_truncated` | boolean | 对象缺失明细是否因安全上限被截断 |
-| `processed_bucket_count` | int | 已处理日期桶数量；用于运行中进度展示，不参与审计结论 |
-| `current_bucket_value` | date nullable | 当前或最近处理的日期桶值；用于定位长任务进度 |
-| `current_bucket_label` | varchar(64) nullable | 当前或最近处理的日期桶展示标签 |
-| `progress_message` | text nullable | 给运营看的进度说明；只保存当前进度快照，不做流水日志 |
-| `heartbeat_at` | timestamptz nullable | worker 最近一次心跳时间；用于判断运行中任务是否停滞 |
-| `current_stage` | varchar(64) | 当前阶段，如 `planning`、`reading_actual`、`detecting_gap`、`persisting` |
-| `operator_message` | text | 给运营看的短消息 |
-| `technical_message` | text | 技术诊断；只保存在本审计模型内，不复制到 TaskRun |
-| `requested_by_user_id` | bigint | 手动发起人 |
-| `schedule_id` | bigint | 自动审计配置 ID，可空 |
-| `requested_at` | timestamptz | 创建时间 |
-| `started_at` | timestamptz | 开始执行时间 |
-| `finished_at` | timestamptz | 结束时间 |
-| `created_at` | timestamptz | 行创建时间 |
-| `updated_at` | timestamptz | 行更新时间 |
+| `adj_factor` | `core.equity_adj_factor` | `stock_basic_active_lifecycle` |
+| `daily` | `core_serving.equity_daily_bar` | 同上 |
+| `daily_basic` | `core_serving.equity_daily_basic` | 同上 |
+| `stk_factor_pro` | `core_serving.equity_factor_pro` | 同上 |
+| `stk_limit` | `raw_tushare.stk_limit` | 同上 |
+| `index_daily` | `core_serving.index_daily_serving` | `ops_index_series_active` |
 
-约束：
+- 股票池从现行证券基础表按配置状态筛选，再按每桶的上市／退市日期判断。当前配置为上市状态 L；生命周期边界允许为空，非空时要求上市日不晚于桶日期、退市日不早于桶日期。这是“当前池加生命周期”，不是历史时点全市场池。
+- 指数池取 `index_daily` 当前激活对象；不套用股票上市状态和生命周期。请求池、Serving 激活池及补漏选择区别见指数专题。
+- 当前只支持单字段对象键和上述两种策略。事件表不能因为有对象代码就启用矩阵；ETF、基金、板块、复合键需要分别确认对象池及产出语义。
+- 股票矩阵没有自动排除停牌、源端不产出、上市首日等例外。发现缺口后要区分数据缺失与规则适配问题，不能直接认定必须补写业务数据。
 
-1. `run_status=succeeded` 时 `result_status` 必须非空。
-2. `result_status=passed` 时 `missing_bucket_count=0` 且 `missing_cell_count=0`。
-3. `result_status=failed` 时 `missing_bucket_count>0` 或 `missing_cell_count>0`。
-4. `start_date <= end_date`。
-5. `processed_bucket_count` 和所有计数字段不得为负数。
-6. `actual_bucket_count > expected_bucket_count` 时，页面必须提示“存在非预期日期桶”；本期不因额外日期桶改变 `result_status`。
+SQL 按单个日期桶连接期望对象与目标表去重对象，返回该桶的检查行；Python 汇总覆盖与缺失计数，不构造全范围日期×对象笛卡尔积。跨桶仍保留受影响对象集合，内存不是绝对常量。
 
-### 4.2 表：`ops.dataset_date_completeness_gap`
+计数含义：
 
-记录压缩后的缺失区间。
+- `expected_cell_count`：各桶期望对象数之和；`actual_cell_count`：这些期望对象中已覆盖的数量，不是目标表总行数；`missing_cell_count`：两者差。
+- `affected_bucket_count/affected_subject_count`：有缺对象的桶数／全范围去重缺失对象数；`actual_bucket_count`：至少覆盖一个期望对象的桶数。
+- 当前矩阵结果按缺失 cell 判定；日期桶缺失数和日期缺口区间数写 0，不再独立跑一次日期桶缺口判断。因此期望对象池为空也可能 passed，不能把它解释成目标表已有数据。
 
-| 字段 | 类型 | 含义 |
-|---|---|---|
-| `id` | bigint PK | 缺口 ID |
-| `run_id` | bigint FK | 关联 `dataset_date_completeness_run.id` |
-| `dataset_key` | varchar(96) | 数据集键，便于检索 |
-| `bucket_kind` | varchar(32) | `trade_date` / `natural_date` / `month_key` / `month_window` |
-| `range_start` | date | 缺口起点 |
-| `range_end` | date | 缺口终点 |
-| `missing_count` | int | 区间内缺失桶数量 |
-| `sample_values_json` | jsonb | 可选样本，如月份键列表 |
-| `created_at` | timestamptz | 创建时间 |
+对象明细包含日期、对象键／名称、目标键、生命周期、目标表及 `missing_subject_bucket` 原因。全 run 最多持久化 5,000 条明细，无独立“每桶明细上限”；完整缺失计数不受此预算截断。桶摘要样本最多 20 个，但取自剩余明细预算：预算耗尽后的桶仍有缺失计数，样本可以为空。`detail_truncated` 只表示服务端明细截断，不代表页面已显示全部已存明细。
 
-### 4.2.1 表：`ops.dataset_date_completeness_exclusion`
+## 4. 执行、进度与安全限制
 
-记录因为规则明确不可产出而被排除的候选桶。
+入口为[创建服务](/Users/congming/github/goldenshare/src/ops/services/date_completeness_run_service.py)和[审计执行器／worker](/Users/congming/github/goldenshare/src/ops/services/date_completeness_audit_service.py)。
 
-| 字段 | 类型 | 含义 |
-|---|---|---|
-| `id` | bigint PK | 排除明细 ID |
-| `run_id` | bigint FK | 关联 `dataset_date_completeness_run.id` |
-| `dataset_key` | varchar(96) | 数据集键，便于检索 |
-| `bucket_kind` | varchar(32) | `trade_date` / `natural_date` / `month_key` / `month_window` |
-| `bucket_value` | date | 被排除的候选桶日期 |
-| `window_start` | date | 候选桶对应业务窗口起点 |
-| `window_end` | date | 候选桶对应业务窗口终点 |
-| `reason_code` | varchar(64) | 结构化排除原因，例如 `bucket_has_no_open_trade_day` |
-| `reason_message` | text | 给运营看的排除原因说明 |
-| `created_at` | timestamptz | 创建时间 |
+正常过程：创建 queued → worker 取队列 → running、规划日期 → 日期桶读取或逐桶矩阵 → 保存结果。审计状态与数据结论是两层：
 
-### 4.3 表：`ops.dataset_date_completeness_schedule`
-
-自动审计配置独立于 `ops.schedule`。
-
-| 字段 | 类型 | 含义 |
-|---|---|---|
-| `id` | bigint PK | 审计计划 ID |
-| `dataset_key` | varchar(96) | 数据集键 |
-| `display_name` | varchar(160) | 计划名称 |
-| `status` | varchar(16) | `active` / `paused` |
-| `window_mode` | varchar(32) | `fixed_range` / `rolling` |
-| `start_date` | date | 固定窗口起点 |
-| `end_date` | date | 固定窗口终点 |
-| `lookback_count` | int | 滚动窗口数量 |
-| `lookback_unit` | varchar(32) | `calendar_day` / `open_day` / `month` |
-| `calendar_scope` | varchar(32) | `default_cn_market` / `cn_a_share` / `hk_market` / `custom_exchange` |
-| `calendar_exchange` | varchar(32) | 具体交易所代码，可空 |
-| `cron_expr` | varchar(64) | 定时表达式 |
-| `timezone` | varchar(64) | 默认 `Asia/Shanghai` |
-| `next_run_at` | timestamptz | 下次运行时间 |
-| `last_run_id` | bigint | 最近一次审计 run |
-| `created_by_user_id` | bigint | 创建人 |
-| `updated_by_user_id` | bigint | 更新人 |
-| `created_at` | timestamptz | 创建时间 |
-| `updated_at` | timestamptz | 更新时间 |
-
-窗口语义：
-
-1. `window_mode=fixed_range`：每次自动审计都使用固定 `start_date/end_date`，适合历史专项核查。
-2. `window_mode=rolling`：每次自动审计按运行时刻动态计算审计窗口，适合日常巡检。
-3. `lookback_count=10, lookback_unit=open_day`：表示回看最近 10 个开市交易日。
-4. `lookback_count=30, lookback_unit=calendar_day`：表示回看最近 30 个自然日。
-5. `lookback_count=6, lookback_unit=month`：表示回看最近 6 个自然月窗口。
-
-交易日历语义：
-
-1. 第一版默认 `calendar_scope=default_cn_market`，使用系统默认 A 股交易日历。
-2. 若未来支持港股，新增 `calendar_scope=hk_market` 或 `custom_exchange + calendar_exchange=HKEX`，不改表结构。
-3. 审计 SQL 不允许临时写死交易所；交易所口径必须来自 schedule 或请求协议。
-
-说明：自动审计第一版必须使用本独立 schedule 表，不挂到 `ops.schedule`。
-
----
-
-## 5. 执行流程
-
-```mermaid
-sequenceDiagram
-  participant UI as 审查中心页面
-  participant API as DateCompleteness API
-  participant DB as ops 审计表
-  participant Worker as DateCompletenessAuditWorker
-  participant Def as DatasetDefinition
-  participant Biz as 业务目标表
-
-  UI->>API: POST /ops/review/date-completeness/runs
-  API->>Def: 读取 DatasetDefinition.date_model
-  API->>DB: 创建 run_status=queued
-  API-->>UI: 返回 run_id
-  Worker->>DB: claim queued run
-  Worker->>DB: run_status=running, current_stage=planning
-  Worker->>Def: 读取规则快照
-  Worker->>Worker: 生成 expected buckets
-  Worker->>Worker: 记录规则排除 buckets
-  Worker->>DB: current_stage=reading_actual
-  Worker->>Biz: 范围查询 actual buckets
-  Worker->>Worker: diff expected - actual
-  Worker->>DB: 写 run summary + gap rows
-  Worker-->>UI: 页面轮询 run/detail 展示结果
-```
-
-阶段说明：
-
-1. `planning`：读取 Definition，校验可审计性，生成期望桶。
-2. `reading_actual`：按目标表和 observed_field 范围读取实际桶。
-3. `detecting_gap`：计算缺失桶并压缩区间。
-4. `persisting`：写 run 结果和 gap 明细。
-5. `finished`：更新最终状态。
-
-事务边界：
-
-1. 审计 run/gap 写入使用 ops 审计事务。
-2. 业务目标表只读，不参与审计写事务。
-3. 审计状态写入失败不得影响业务数据。
-4. 审计失败只影响本次审计 run，不影响同步链路。
-
----
-
-## 6. 核心模块
-
-建议落位在 `src/ops/**`，因为它是运维审查能力，不是数据维护执行主链。
-
-| 模块 | 职责 |
+| `run_status / result_status` | 解释 |
 |---|---|
-| `DateCompletenessRuleService` | 从 `DatasetDefinition` 投影规则视图 |
-| `ExpectedBucketPlanner` | 根据 `date_axis + bucket_rule + range` 生成期望桶 |
-| `ActualBucketReader` | 从业务目标表读取实际桶 |
-| `GapDetector` | 计算缺失桶并压缩区间 |
-| `DateCompletenessRunService` | 创建、查询、取消审计 run |
-| `DateCompletenessAuditExecutor` | 执行单个 run |
-| `DateCompletenessAuditWorker` | 独立消费 queued run |
-| `DateCompletenessScheduleService` | 管理自动审计计划，若第一版启用自动审计 |
+| `queued或running / null` | 尚未形成最终结论 |
+| `succeeded / passed` | 执行完成，按该审计口径未发现缺口 |
+| `succeeded / failed` | 执行完成，发现缺口，不是程序执行失败 |
+| `failed / error` | 执行异常，不能把已写部分结果当完整结论 |
 
-禁止事项：
+当前保护措施及其边界：
 
-1. 不调用 `TaskRunCommandService`。
-2. 不调用 `TaskRunDispatcher`。
-3. 不写 `ops.task_run*`。
-4. 不写 freshness/status/snapshot 表。
-5. 不从前端传入 `date_axis`、`bucket_rule`、`observed_field`。
+1. 矩阵上限为 **400 个期望日期桶**，不适用于普通日期桶审计。手动创建时先检查；调度／系统创建不在入队前执行同一范围门禁，但执行器会在读取目标数据前检查。400 不是 cell 数、总耗时或内存上限。
+2. 矩阵在每桶开始时提交当前桶、已完成量和心跳，在每桶完成时提交缺口、累计计数、进度和心跳；不是每 5–10 桶才提交。单条 SQL 内没有持续心跳线程。
+3. PostgreSQL 矩阵每桶使用事务局部 `statement_timeout='60s'`；其他数据库分支不设置。它限制单条语句，不承诺整个桶／整个任务在 60 秒内结束。
+4. 普通异常走回滚当前事务、记录 failed/error 的路径；已提交桶保留。业务读取与审计写入使用同一个 Session，不能写成“完全不占用数据库事务”；审计不写业务表，也不撤销同步任务已经提交的数据。
+5. 创建 run 保存日期规则、目标表、行过滤、审计 scope 等，但执行矩阵时仍读取当前 Definition 的 completeness 和当前对象池；不是所有规则和池的不可变快照，也不是整个审计期间冻结业务数据。并发同步或配置变化可能影响跨桶一致性。
+6. **未实现可靠取消／断点续跑。** 模型允许 canceled 不代表已有取消 API；强杀进程不保证进入终态。worker 只领取 queued，不自动接管遗留 running；再次直接执行同一 run 会清理旧结果重算，不是从已完成桶接着跑。
+7. queued 领取没有原子抢占／排他领取保证，不能因存在独立 worker 就默认允许多实例并发消费同一队列。
 
----
+第 5–7 项是当前限制，不是批准的目标设计。本文不把它们写成“已解决”，也不借文档整理实施改造；若后续改执行机制，需另行确认方案并遵守根规则中的长任务门禁。
 
-## 7. API 设计
+## 5. API、持久化与调度
 
-前缀：`/api/v1/ops/review/date-completeness`
+[路由](/Users/congming/github/goldenshare/src/ops/api/date_completeness.py)统一位于 `/api/v1/ops/review/date-completeness`，要求管理员权限；完整字段以[请求／响应模型](/Users/congming/github/goldenshare/src/ops/schemas/date_completeness.py)为准，不再复制整份 DDL。
 
-### 7.1 `GET /rules`
-
-返回全量数据集审计能力。审计规则来自 `DatasetDefinition`；数据时间范围来自 `ops.dataset_status_snapshot` 的当前状态快照，由服务端组装为 `data_range` 后返回，前端不得自行拼接 freshness 字段。
-
-返回重点字段：
-
-1. `dataset_key`
-2. `display_name`
-3. `domain_key`
-4. `domain_display_name`
-5. `target_table`
-6. `date_axis`
-7. `bucket_rule`
-8. `input_shape`
-9. `observed_field`
-10. `audit_applicable`
-11. `not_applicable_reason`
-12. `data_range`
-
-`data_range` 结构：
-
-| 字段 | 含义 |
+| 接口（省略前缀） | 有效输入／响应要点 |
 |---|---|
-| `range_type` | `business_date` / `observed_time` / `sync_date` / `none` |
-| `start_date` / `end_date` | 业务日期范围或最近同步日期 |
-| `start_at` / `end_at` | 无业务日期时的观测时间范围 |
-| `label` | 给页面直接展示的时间范围文案 |
+| GET `/rules` | 分组规则、支持原因和已观测范围 |
+| POST `/runs` | `dataset_key/start_date/end_date`；创建响应为 `id/run_status/dataset_key/display_name/start_date/end_date/requested_at`，不是 `run_id` |
+| GET `/runs` | 可筛 `dataset_key/run_status/result_status`；`limit=20`、最大 200，`offset=0`；没有日期过滤或 `page/page_size` |
+| GET `/runs/{run_id}` | 单次运行、汇总、进度、错误信息 |
+| GET `/runs/{run_id}/gaps或exclusions或subject-gaps或subject-gap-details` | 四个独立子资源；`limit=200`、最大 500，`offset=0` |
+| GET／POST `/schedules` | 列表／创建；列表筛 `status/dataset_key`，`limit=50`、最大 200，`offset=0` |
+| GET／PATCH／DELETE `/schedules/{schedule_id}` | 查询／修改／删除自动审计配置 |
+| POST `/schedules/{schedule_id}/pause或resume` | 两个独立操作；不取消已入队或运行中的审计 |
+| POST `/schedules/tick` | `limit=100`、最大 1,000；响应 `scheduled/run_ids` |
 
-取值顺序：
+持久化在 `ops` 下的六张专用表：`dataset_date_completeness_run` 保存运行，`dataset_date_completeness_gap` 保存日期缺口区间，`dataset_date_completeness_exclusion` 保存排除日期，`dataset_subject_completeness_gap` 保存每桶对象缺口摘要，`dataset_subject_completeness_gap_detail` 保存对象明细，`dataset_date_completeness_schedule` 保存自动审计配置。
 
-1. 优先展示 `earliest_business_date ~ latest_business_date`。
-2. 没有业务日期时，展示 `earliest_observed_at ~ latest_observed_at`。
-3. 只有 `last_sync_date` 时，展示最近同步日期。
-4. 都没有则展示 `—`。
+自动审计配置是现行专用对象，**不等于数据维护的 `ops.schedule`**。其[服务实现](/Users/congming/github/goldenshare/src/ops/services/date_completeness_schedule_service.py)支持：
 
-### 7.2 `POST /runs`
+- 固定范围：按 cron 重复审计相同起止日期。
+- 滚动范围：正整数 `lookback_count` 配合 `calendar_day/open_day/month`；按调度时区计算当天，月窗口覆盖整月，末月可包含当天之后日期。
+- 当前只接受 `default_cn_market/cn_a_share`，且 `calendar_exchange` 必须为空，使用设置中的默认交易所。底层虽有 custom_exchange 分支，正常创建／更新入口会拒绝它，不能宣传支持自定义交易所。
+- tick 计算窗口、查询必要日历并入队，不读取目标数据表。它已接入常规 OperationsScheduler，不需要另造一套调度进程。index_daily 的当天开市单日约束及系统再审计由指数专题说明。
 
-创建手动审计 run。
+CLI 保持现行入口，命令都不是只读预览：
 
-请求体：
-
-```json
-{
-  "dataset_key": "moneyflow_ind_dc",
-  "start_date": "2026-04-01",
-  "end_date": "2026-04-24"
-}
-```
-
-返回：
-
-```json
-{
-  "run_id": 1001,
-  "run_status": "queued"
-}
-```
-
-规则：
-
-1. API 不接受前端传入 `date_axis`、`bucket_rule`、`observed_field`。
-2. `audit_applicable=false` 的数据集不可创建 run，后端返回 422，前端不展示创建入口。
-3. 范围参数按 `input_shape` 校验。
-
-### 7.3 `GET /runs`
-
-查询审计 run 列表，支持：
-
-1. `dataset_key`
-2. `run_status`
-3. `result_status`
-4. `start_date/end_date`
-5. `page/page_size`
-
-### 7.4 `GET /runs/{run_id}`
-
-查询单次审计 run 摘要。
-
-### 7.5 `GET /runs/{run_id}/gaps`
-
-查询单次审计缺口区间。
-
-### 7.5.1 `GET /runs/{run_id}/exclusions`
-
-查询单次审计的规则排除明细。
-
-### 7.6 自动审计 API
-
-第一版包含自动审计，新增：
-
-1. `GET /schedules`
-2. `POST /schedules`
-3. `GET /schedules/{schedule_id}`
-4. `PATCH /schedules/{schedule_id}`
-5. `POST /schedules/tick`
-6. `POST /schedules/{schedule_id}/pause`
-7. `POST /schedules/{schedule_id}/resume`
-8. `DELETE /schedules/{schedule_id}`
-
-自动审计必须使用 `ops.dataset_date_completeness_schedule`，不得复用 `ops.schedule` 作为临时方案。
-
-调度入口：
-
-1. API tick：`POST /schedules/tick`，用于一次性扫描 due schedule 并创建 `run_mode=scheduled` 的审计 run。
-2. CLI tick：`goldenshare ops-date-completeness-scheduler-tick --limit N`，用于独立调度进程或系统定时器调用。
-3. 审计执行仍由 `DateCompletenessAuditWorker` 消费 queued run；调度只创建 run，不直接读取业务表。
-
----
-
-## 8. 页面设计
-
-新增页面：`审查中心 -> 数据集审计`
-
-说明：页面名称为“数据集审计”，本方案是该页面第一期能力“日期完整性审计”的技术设计。后续其他审计能力不得与本期日期完整性结果表混写。
-
-Tab：
-
-1. `手动审计`
-2. `审计记录`
-3. `自动审计`，可后置
-
-页面数据源：
-
-| 区域 | 数据源 |
+| `goldenshare` 子命令 | 默认参数与作用 |
 |---|---|
-| 数据集选择、可审计说明与数据时间范围 | `GET /rules` |
-| 创建审计 | `POST /runs` |
-| 运行状态轮询 | `GET /runs/{run_id}` |
-| 缺口明细 | `GET /runs/{run_id}/gaps` |
-| 规则排除明细 | `GET /runs/{run_id}/exclusions` |
-| 历史记录 | `GET /runs` |
-| 自动审计配置 | `/schedules*`，若启用 |
+| `ops-date-completeness-worker-run` | `--limit 1`，消费队列 |
+| `ops-date-completeness-scheduler-tick` | `--limit 100`，到期配置入队 |
+| `ops-date-completeness-worker-serve` | 每轮 `--limit 5`、`--sleep-seconds 10`；可用 `--max-cycles` 限制轮数 |
 
-展示原则：
+参数定义见 [CLI](/Users/congming/github/goldenshare/src/cli.py)。`--limit 1` 不是按某个 run 隔离测试，会领取队列中的任务；执行前必须确认环境、队列及业务授权。已有 [systemd 单元](/Users/congming/github/goldenshare/scripts/goldenshare-date-completeness-worker.service)只是部署入口证据，不证明当前服务器已经部署或正在运行；进程自动重启也不等于业务断点恢复。
 
-1. 页面只表达日期完整性，不混入 freshness。
-2. 结果用“通过 / 不通过 / 执行错误”；不适用只在规则列表展示，不进入审计记录。
-3. 重点展示审计范围、应检查日期桶数、实际日期桶数、缺失日期桶数、缺失区间。
-4. 当实际日期桶数大于应检查日期桶数时，页面必须提示存在非预期日期桶，避免运营把 `passed` 误读为全表无异常。
-5. 不展示 TaskRun 信息，不跳转任务详情页。
-6. 不适用数据集展示原因，不展示创建按钮。
-7. 若存在规则排除桶，应弱化展示“规则排除 N 个”，详情说明例如“该自然周内无开市日，不应产出周线数据”。
-8. 审计数据集列表展示“数据时间范围”列，直接消费 `GET /rules` 的 `data_range.label`。
+## 6. 页面现状
 
----
+入口：审查中心 → 数据集审计；[页面实现](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-dataset-audit-page.tsx)有“审计数据集、审计记录、自动审计”三个 Tab。规则分组、审计类型、时间范围、汇总和缺口都消费后端口径，不在页面复制对象池或日期规划规则。
 
-## 9. 当前数据集规则快照
+当前展示边界：
 
-说明：
+- 审计记录只请求最近 50 条；这批记录中有 queued/running 时每 3 秒刷新列表。
+- 打开的详情保存的是点击时选中的记录；缺口按所选 run 加载，未配置轮询。列表轮询不会同步更新已选记录；查询库可能触发缺口重新请求，也不能据此承诺抽屉持续展示最新汇总。
+- 缺口接口支持分页，但当前详情每类只请求首批 200 条，没有完整翻页加载；不能因 `detail_truncated=false` 就认为画面展示了全部明细。
+- 心跳超过 5 分钟的 running 记录会显示警告，不会自动清理运行态或恢复任务；没有可信 ETA 承诺。
+- 页面“额外日期”取 `max(actual_bucket_count - expected_bucket_count, 0)`，不是实际桶减期望桶的集合。它不能完整识别“同时有额外日期和缺失日期”的情况。
+- 当前表单初始日期是固定的 2026-04-20 至 2026-04-24，不是自动取今天或已采纳的滚动默认窗口；执行前应核对实际选择范围。
 
-1. 本表来自当前 `DatasetDefinition`，用于评审，不是第二套规则源。
-2. 代码实现必须运行时读取 Definition，不得复制本表。
-3. 当前共 70 个数据集，47 个可审计，23 个不可审计。
+原[页面设计](/Users/congming/github/goldenshare/docs/frontend/frontend-date-completeness-audit-page-design-v1.md)保留第一期交互历史，不能再用其“只查日期桶”或刷新承诺代替以上事实。
 
-| 组合 | 数量 |
-|---|---:|
-| `month_key + every_natural_month + month` | 1 |
-| `month_window + month_window_has_data + trade_date` | 1 |
-| `natural_day + every_natural_day + date` | 1 |
-| `natural_day + every_natural_day + trade_date` | 1 |
-| `natural_day + month_last_calendar_day + trade_date` | 2 |
-| `natural_day + not_applicable + ann_date`，不可审计 | 3 |
-| `natural_day + not_applicable + news_time`，不可审计 | 1 |
-| `natural_day + not_applicable + pub_time`，不可审计 | 3 |
-| `natural_day + not_applicable + trade_date`，不可审计 | 1 |
-| `natural_day + week_friday + trade_date` | 2 |
-| `none + not_applicable + -`，不可审计 | 12 |
-| `trade_open_day + every_open_day + trade_date` | 37 |
-| `trade_open_day + every_open_day + trade_date`，不可审计 | 1 |
-| `trade_open_day + every_open_day + trade_time`，不可审计 | 2 |
-| `trade_open_day + month_last_open_day + trade_date` | 1 |
-| `trade_open_day + week_last_open_day + trade_date` | 1 |
+## 7. 历史证据与后续验收边界
 
-不可审计数据集：
+以下是从原文迁入的**历史记录，未在本轮连接数据库重验**；原文全文可从合并前提交 `1fa6dd1a` 追溯。
 
-| dataset_key | 数据集 | 原因 |
+| 日期／记录 | 当时证据 | 不能据此推出什么 |
 |---|---|---|
-| `anns_d` | 上市公司公告 | 上市公司公告按公告日期和收录时间采集，不按连续交易日或连续自然日做完整性审计。 |
-| `block_trade` | 大宗交易 | 大宗交易是交易日事件数据，仍按交易日维护执行，但不要求每个交易日都有事件。 |
-| `bse_mapping` | 北交所新旧代码对照 | snapshot/master dataset |
-| `dividend` | 分红送股 | 分红送股是事件型低频披露，仍支持按公告日期区间维护，但不按连续自然日做 freshness/audit 判断。 |
-| `etf_basic` | ETF 基础信息 | snapshot/master dataset |
-| `etf_index` | ETF 跟踪指数 | snapshot/master dataset |
-| `hk_basic` | 港股基础信息 | snapshot/master dataset |
-| `index_basic` | 指数基础信息 | snapshot/master dataset |
-| `index_mins` | 指数历史分钟行情 | minute completeness audit requires trading-session and frequency rules |
-| `irm_qa_sh` | 上证E互动问答 | 上证E互动问答按问答发布时间采集，不按连续交易日或连续自然日做完整性审计。 |
-| `irm_qa_sz` | 深证互动易问答 | 深证互动易问答按问答发布时间采集，不按连续交易日或连续自然日做完整性审计。 |
-| `major_news` | 新闻通讯 | 新闻通讯按来源与发布时间采集，不保证每个自然日或每个来源都有数据。 |
-| `namechange` | 股票曾用名 | 股票曾用名是历史区间事实，维护时按源接口默认全集分页刷新，不按公告日或自然日扇出。 |
-| `news` | 新闻快讯 | 新闻快讯按来源和发布时间采集，不保证每个来源每天都有新闻。 |
-| `research_report` | 券商研究报告 | 券商研究报告按研报发布日采集，但不要求按连续自然日做完整性审计。 |
-| `st` | ST 风险警示事件 | ST 风险警示事件按源接口默认全集分页刷新，不按发布日期或实施日期扇出。 |
-| `stk_holdernumber` | 股东户数 | 股东户数是不定期披露数据，仍支持按公告日期区间维护，但不按连续自然日做 freshness/audit 判断。 |
-| `stk_mins` | 股票历史分钟行情 | minute completeness audit requires trading-session calendar |
-| `stock_basic` | 股票主数据 | snapshot/master dataset |
-| `stock_company` | 上市公司基本信息 | snapshot/master dataset |
-| `ths_index` | 同花顺板块列表 | snapshot/master dataset |
-| `ths_member` | 同花顺板块成分 | snapshot/master dataset |
-| `us_basic` | 美股基础信息 | snapshot/master dataset |
+| 2026-05-03，原日期桶 M7 | 记录了本地手动、worker、自动配置／tick、股票周月长假排除验证；原 M8 远程验证待做 | 不能推定远程验收已完成 |
+| 2026-05-17，run 27 | 本地代码连接远程 DB，stk_limit 审计 2026-05-15；期望 5,517、覆盖 5,517、缺失 0，passed | 池外额外对象不参与该缺失判断；不是当前 Raw 目标的性能实测 |
+| 2026-05-17，run 28 | 同样环境，stk_factor_pro 审计 2026-05-15；期望 5,517、覆盖 5,493、缺失 24，明细未截断 | 未解释完缺口原因；不是源端必定应产出 24 行的证据 |
+| 2026-05-17，run 29 | stk_factor_pro 范围 2025-01-02 至 2026-05-15，328 个交易日，估计 1,778,629 cell、目标范围 1,823,978 行；运行超过 77 分钟后取消数据库 SQL，终态 failed/error、QueryCanceled | 这是旧大矩阵事故，不是当前逐桶实现耗时，也不是正常取消 API 验收 |
 
----
+原方案从重复计算全范围矩阵改为逐桶计算，临时 30 桶门禁现为 400 桶。原性能专项文首写“M4 待评审”，正文却写“M4 本轮落地”；本轮以代码确认 400 桶机制已存在，但原文未提供可独立确认的改造后年度全流程耗时，不能补写已验收。
 
-## 10. 计算细节
+原 M3 在 2026-05-17 对 2026-05-15 单桶执行生产只读 EXPLAIN 的记录如下；均为当时 trade_date 索引加 heap 的访问路径，不是本轮测量：
 
-### 10.1 期望桶生成
+| 数据集 | 当时表大小 | 单表对象读取 | 单桶矩阵查询 |
+|---|---:|---:|---:|
+| adj_factor | 2,028 MB | 3.237 ms | 16.431 ms |
+| daily | 3,468 MB | 3.399 ms | 16.517 ms |
+| daily_basic | 4,320 MB | 3.543 ms | 16.885 ms |
+| stk_limit（旧 `core_serving.equity_stk_limit`） | 541 MB | 5.081 ms | 18.782 ms |
+| stk_factor_pro | 5,131 MB | 6.460 ms | 19.529 ms |
 
-1. `trade_open_day + every_open_day`：读取开市交易日。
-2. `trade_open_day + week_last_open_day`：按 ISO 周分组，取该周最后一个开市交易日。
-3. `trade_open_day + month_last_open_day`：按自然月分组，取该月最后一个开市交易日。
-4. `natural_day + every_natural_day`：生成自然日序列。
-5. `natural_day + week_friday`：生成范围内所有自然周周五；若配置可产出规则，还要排除 ISO 周内没有开市日的候选桶。
-6. `natural_day + month_last_calendar_day`：生成范围内所有自然月最后一天；若配置可产出规则，还要排除自然月内没有开市日的候选桶。
-7. `month_key + every_natural_month`：生成连续月份键。
-8. `month_window + month_window_has_data`：每个自然月窗口一个桶，判断窗口内是否至少存在数据。
+当时未新增索引；stk_factor_pro 读取涉及 2,077 个 heap block，覆盖索引只是候选。当前 stk_limit 的审计目标已是 Raw，不能把旧 Serving 表的测量改名复用。原“年度 1–5 分钟”是优化目标，不是已经实现的 SLA 或本轮新增门禁。
 
-### 10.2 实际桶读取
+若后续重启性能／可靠性改造，应先解释 run 28 类缺口的池与源端语义，再做受控代表性范围运行和年度测量；不直接扩大队列。只有实测需要时才评估覆盖索引／物化对象池：前者需单独审批、核对迁移 head、空间和非阻塞建索引方式，后者是未实施备选，不是现行事实源。本轮不创建新性能指标、不批准执行或索引变更。
 
-统一读取策略：
+## 8. 核对入口与回归重点
 
-1. 从 Definition 获取 `storage.target_table`。
-2. 从 Definition 获取 `date_model.observed_field`。
-3. 根据审计范围生成 where 条件。
-4. 只查询 distinct bucket，不扫描非范围数据。
-5. 大表必须确认日期字段索引；缺索引不得开放自动审计。
+代码依据：前述服务、API 和页面，以及[规则查询](/Users/congming/github/goldenshare/src/ops/queries/date_completeness_query_service.py)、[结果查询](/Users/congming/github/goldenshare/src/ops/queries/date_completeness_run_query_service.py)、[注册表](/Users/congming/github/goldenshare/src/foundation/datasets/registry.py)。
 
-特例：
+现有测试入口：
 
-1. `broker_recommend`：读取 `month`，按 `YYYYMM` 比较。
-2. `index_weight`：读取 `trade_date`，按自然月窗口归并。
-3. `dividend` / `stk_holdernumber`：读取 `ann_date`，按 Definition 当前规则审计。
-4. `trade_cal`：读取 `trade_date`，第一版按默认交易所口径处理。
-5. `stk_mins`：不可审计，不读取实际桶。
+- [规划器与缺口测试](/Users/congming/github/goldenshare/tests/test_date_completeness_audit_service.py)：开市日／自然日／月桶、范围边界、长假排除、缺口压缩。
+- [模型测试](/Users/congming/github/goldenshare/tests/test_date_completeness_models.py)：独立审计模型及约束。
+- [API 与执行测试](/Users/congming/github/goldenshare/tests/web/test_ops_date_completeness_api.py)：创建／查询／调度、矩阵／计数／明细／范围保护，覆盖程度以实际测试为准。
 
-### 10.3 缺口压缩
+后续改造还应核验当前 Definition 目标和过滤、空池／生命周期边界、实际单桶查询、5,000 条预算后的摘要、400 桶创建与执行边界、异常后部分结果以及页面刷新。存在模型字段或替身测试不能证明取消、强杀续跑、多 worker 抢占和生产运行安全已经实现。
 
-1. 先得到排序后的缺失桶。
-2. 按桶类型判断连续性：
-   - 自然日：下一天
-   - 交易日：下一个开市交易日
-   - 月份键：下一个自然月
-   - 月窗口：下一个自然月窗口
-3. 连续缺失桶压缩为一个 gap range。
-
----
-
-## 11. 并发与一致性
-
-本期明确不处理同步任务与审计任务之间的协调。
-
-当前口径：
-
-1. 审计只看查询时已提交的业务数据。
-2. 如果同步正在运行，审计可能读到“部分已提交”的状态。
-3. 这种结果不代表同步失败，只代表审计时刻的已提交视图。
-4. 页面需要展示审计开始时间和结束时间，避免把审计结果理解成永久事实。
-
-后续可选方案：
-
-1. 审计前读取数据维护状态，提示相关数据集当前可能正在维护。
-2. 引入数据集级维护窗口协调。
-3. 审计基于指定快照版本或数据批次。
-
-这些都不进入第一版，避免过早复杂化。
-
----
-
-## 12. 风险与门禁
-
-当前门禁：
-
-1. Definition 全量投影测试：当前 70 个数据集均能生成规则视图。
-2. `audit_applicable=true` 必须有 observed field。
-3. `audit_applicable=false` 必须有 not applicable reason。
-4. 目标表和 observed field 必须可解析。
-5. 大表日期字段索引必须确认。
-
-实现后门禁：
-
-1. 每种 `date_axis + bucket_rule` 至少一个单测。
-2. `passed / failed / error` 三类 run 结果路径都有测试；不适用数据集必须覆盖 422 校验路径。
-3. API 不允许前端传规则字段。
-4. 前端不允许复制规则常量。
-5. 审计执行不写 TaskRun、freshness、snapshot 表。
-6. 文档和 AGENTS 不得描述“日期完整性审计接入 TaskRun”。
-7. 股票周/月线长假排除必须有测试证明“整周无开市日”的自然周五不进入缺失桶，而进入规则排除桶。
-
----
-
-## 13. Milestone
-
-| Milestone | 目标 | 产物 | 验收 |
-|---|---|---|---|
-| M0 | 方案评审定稿 | 本文档状态进入可开发 | 独立模型、不复用 TaskRun 的口径确认 |
-| M1 | 规则投影 | Rule service + `/rules` schema | 当前 70 个 Definition 全覆盖 |
-| M2 | 核心审计引擎 | Expected planner、actual reader、gap detector | 所有 date model 组合有单测 |
-| M3 | 独立审计表 | run/gap ORM + Alembic | 不依赖 TaskRun，不写 freshness |
-| M4 | 手动审计 API | 创建 run、查询 run/gap | 不适用数据集返回 422，API 不接受前端传规则字段 |
-| M5 | 独立 worker | 执行 run、`DateCompletenessAuditWorker` 与一次性消费命令 | queued -> running -> succeeded/failed，PASS/FAIL/ERROR 路径 |
-| M6 | 审查中心页面 | 手动审计 + 审计记录 | 页面不读取 TaskRun view |
-| M7 | 自动审计 | 独立 schedule 表、schedule API、scheduler tick、前端自动审计 Tab | 可配置、可暂停/恢复/删除、可查看最近结果 |
-| M8 | 远程验证 | 小窗口真实执行验证 | 覆盖交易日、月份键、月窗口、不适用路径 |
-
-建议第一批验证数据集：
-
-1. `moneyflow_ind_dc`：交易日连续模型。
-2. `broker_recommend`：月份键模型。
-3. `index_weight`：月窗口模型。
-4. `stock_basic`：不可审计模型。
-
----
-
-## 14. 决策点
-
-### 14.1 已确认决策
-
-1. `audit_applicable=false` 时不可创建审计 run；前端不展示创建入口，后端收到请求直接返回校验错误。
-2. 第一版创建独立 `DateCompletenessAuditWorker`，不使用 TaskRun，不使用数据维护 worker。
-3. 第一版包含自动审计。
-4. 第一版创建 `ops.dataset_date_completeness_schedule`，它就是自动审计配置表。
-5. 第一版使用默认交易所口径；表结构保留 `calendar_scope/calendar_exchange`，为未来港股或自定义交易所留扩展口。
-
-### 14.2 剩余待确认
-
-1. 自动审计默认推荐窗口：例如交易日数据默认 `lookback_count=10, lookback_unit=open_day`，月度数据默认 `lookback_count=6, lookback_unit=month`。
-2. 审计详情页是否默认展开全部缺口区间，还是只展示摘要并按需展开。
+本次治理仅合并并纠正文档；验证文档结构、链接、引用和静态代码口径，不执行审计 worker、调度、业务同步、数据库写入或部署，也不把文档检查作为生产验收。

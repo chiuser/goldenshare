@@ -1,10 +1,10 @@
-# 前端数据集审计页面设计 v1
+# 前端数据集审计页面设计 v1（第一期历史设计）
 
 - 版本：v1
-- 状态：M7 已完成本地验证（审计数据集、审计记录、自动审计配置已接入；远程验证待做）
-- 更新时间：2026-04-30
+- 状态：历史设计；原记录为 M7 本地验证完成、远程验证待做，不代表当前页面全量契约或生产验收。
+- 原记录日期：2026-04-30；历史标记：2026-09-09。
 - 适用范围：运营后台审查中心新增“数据集审计”页面
-- 技术方案：[数据集日期完整性审计设计 v2](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
+- 现行说明：[日期完整性与日期对象矩阵审计说明](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)。当前已支持对象矩阵；正文中的“只检查日期桶”、未来功能及刷新设计保留作第一期历史，不作为当前运行承诺。当前页面范围与刷新限制见现行说明 §6。
 - 设计依据：[前端设计 Tokens 与组件目录 v2](/Users/congming/github/goldenshare/docs/frontend/frontend-design-tokens-and-component-catalog-v1.md)、[前端组件 Showcase v1](/Users/congming/github/goldenshare/docs/frontend/frontend-component-showcase-v1.html)
 
 ---
