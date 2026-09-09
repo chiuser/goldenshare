@@ -282,11 +282,11 @@ Workflow 手动动作键为 `workflow:{key}`，与 catalog / schedule 中的 wor
 - 口径：页面不得再自行拼装数据集来源、raw 表名、层级状态、最近同步日期和卡片去重结果；这些展示事实由本接口统一返回。
 - 静态事实来源：外部数据集身份、名称、底层领域、来源、raw 表、目标表、交付模式和维护入口从 `DatasetDefinition` 派生；用户可见展示分组来自 Ops 默认展示目录；健康度只来自统一 freshness 事实。`source_key=biz_tableset` 的身份、表、分组、观测策略和生产入口来自 Ops `BizDatasetDefinition`，不进入外部数据集的 `DatasetDefinition`。其中 maintenance producer 复用现有 `MaintenanceActionDefinition` 提供维护入口，Dagster producer 保持只读。
 - Query 参数：
-  - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片；传入 `biz_tableset` 时，返回 15 张 Biz 自建业务数据集卡片。
+  - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片；传入 `biz_tableset` 时进入独立 Biz 分支。当前注册 15 张 Biz 卡片，实际返回量受 limit 限制。
   - `limit`：默认 2000，范围 `1..2000`。
 - 返回：`DatasetCardListResponse`
-  - `total`
-  - `groups[]`（按 Ops 默认展示目录分组）
+  - `total`：截取前完整卡片数，不一定等于返回 items 数；当前 Biz 查询先完成全部卡片观测再截取，limit 不限制查询工作量。
+  - `groups[]`：外部数据集按 Ops 默认展示目录；Biz 按 BizDatasetDefinition 的独立分组，当前为数据集市、板块分析、内容关联、技术指标。
   - `groups[].items[]`（`DatasetCardItem`）
 - 示例（字段节选）：
 
@@ -301,6 +301,10 @@ Biz 数据集示例：
 curl -H "Authorization: Bearer <TOKEN>" \
   "http://127.0.0.1:8000/api/v1/ops/dataset-cards?source_key=biz_tableset&limit=2000"
 ```
+
+Biz 的 11 张 maintenance producer 卡片可提供维护入口，4 张 Dagster producer 卡片保持 Ops 只读；具体观测、排序、错误隔离范围及部署验收见 [Biz 投影契约](/Users/congming/github/goldenshare/docs/ops/ops-biz-dataset-auto-projection-plan-v1.md)。这里仅描述代码，不证明线上已有这些卡片。
+
+下列 JSON 是外部股票日线卡片的字段节选，不是上面 Biz 请求的响应；total=56 仅为历史示例值。
 
 ```json
 {

@@ -88,7 +88,7 @@
 
 ### 3.1 生产入口
 
-- `producer_type`：`maintenance_action` / `dagster_asset` / `materialized_view` / 其他（需评审）
+- `producer_type`：当前 Biz 注册表仅支持 `maintenance_action` / `dagster_asset`；其他类型先评审并实现，不能直接填写 `materialized_view`（它是物理对象类型，不是生产入口类型）
 - `producer_key`：
 - 真实代码入口：
 - 上游数据：
@@ -263,7 +263,7 @@ Biz definition 不得复制以下事实：
 MaintenanceActionDefinition(manual_enabled=True)
   -> ManualActionQueryService
   -> POST /api/v1/ops/manual-actions/{action_key}/task-runs
-  -> TaskRun(target_type=maintenance_action)
+  -> TaskRun(task_type=maintenance_action, request_payload_json.target_key=<action key>)
   -> TaskRunDispatcher
   -> app composition root 中注册的 executor
 ```
@@ -320,7 +320,7 @@ MaintenanceActionDefinition(schedule_enabled=True)
 
 ### 8.2 投影规则
 
-1. 注册合法 `BizDatasetDefinition` 后，`source_key=biz_tableset` 自动返回卡片。
+1. 注册合法 `BizDatasetDefinition` 并接通对应观测查询后，`source_key=biz_tableset` 自动投影卡片；仅通过 linter 不足以证明新表可查询。`direct_trade_date` 当前还需 `_DIRECT_TABLES` 映射，固定模型查询不能换表名后直接复用；须更新注册集合测试。详见 [Biz 投影契约 §2](/Users/congming/github/goldenshare/docs/ops/ops-biz-dataset-auto-projection-plan-v1.md#2-定义注册与新增边界)。
 2. 前端只消费服务端字段，不维护数据集名单、分组、状态或动作映射。
 3. action 字段为空时显示只读，不出现“去操作”。
 4. action 类型和 key 均来自后端；前端不得固定按 `dataset_action` 跳转。
