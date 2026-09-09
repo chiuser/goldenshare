@@ -5,7 +5,7 @@
 - 文档类型：低层设计（LLD）
 - 依据方案：[新闻—个股关联技术方案 v1](./news-stock-linking-technical-solution-v1.md)
 - 审计基准：2026-08-23 当前工作区代码、测试和数据模型
-- 当前状态：关联物化主链已结案；股票详情新闻事件合并已完成本地开发与回归，待部署验收
+- 当前状态：已结案（2026-09-09 用户确认）；关联物化主链与股票详情新闻事件合并均已实现并验收
 - 本文目的：记录最终实现事实、文件落点、调用链、事务边界和验收契约
 
 本文记录已实现代码合同和后续改造边界；生产迁移、回填、Schedule 状态和部署事实仍以实际运行记录为准，不由文档状态推断。
@@ -724,35 +724,38 @@ GET /api/v1/wealth/market/stock-detail/news
 SELECT
     n.row_key_hash AS news_id,
     n.news_time AS publish_time,
-    COALESCE(NULLIF(BTRIM(n.title), ''), SUBSTRING(BTRIM(n.content) FROM 1 FOR 80)) AS display_title,
-    s.ts_code,
-    s.name,
+    n.title,
+    n.content,
+    n.src,
     l.match_method
 FROM core_serving.news_stock_link AS l
 JOIN core_serving_light.news AS n
   ON n.row_key_hash = l.news_id
-JOIN core_serving.security_serving AS s
-  ON s.ts_code = l.ts_code
 WHERE l.ts_code = :ts_code
   AND n.news_time >= :start_at
   AND n.news_time < :end_at
+  AND (
+    :cursor_time IS NULL
+    OR n.news_time < :cursor_time
+    OR (n.news_time = :cursor_time AND n.row_key_hash > :cursor_news_id)
+  )
 ORDER BY n.news_time DESC, n.row_key_hash ASC
-LIMIT :limit;
+LIMIT :candidate_batch_size;
 ```
 
 实现要求：
 
 1. `news_time` 直接以带时区完整时间戳排序，精度保留到秒；不得 cast 成 date、截断到日或按展示字符串排序。
 2. `row_key_hash ASC` 只在完整 `news_time` 完全相同时作为稳定 tie-breaker。
-3. 上述 SQL 是当前代码基线：`LIMIT` 在源新闻排序后立即执行，因此同一事件的多来源转载会占用多个展示名额。
-4. 旧的“两个不同 `news_id` 必须分别返回”要求已被 2026-09-05 的事件合并决策取代；后续实现必须在 Biz 查询层合并同一事件。
+3. 候选查询按 `news_time + row_key_hash` keyset 分批读取，每批最多 500 条、单次 API 最多扫描 10,000 条；事件合并和代表记录排序完成后才应用 API `limit`。
+4. 旧的“两个不同 `news_id` 必须分别返回”要求已被 2026-09-05 的事件合并决策取代；当前实现由 Biz 查询层合并同一事件。
 5. 关系表的 `(news_id, ts_code)` 只保证来源新闻关联不重复，不能替代展示事件合并。
 6. API 输出的 `publishTime` 保留完整时间和 `Asia/Shanghai` 偏移，例如 `2026-08-22T10:30:05+08:00`。
 7. API 只读取 `news_id/news_time/title/content/ts_code/name/match_method` 所需字段；`content` 只用于统一展示标题和事件事实签名，不重新执行股票关联识别。
 
 ### 8.4 Response schema
 
-建议 schema：
+当前 schema：
 
 ```python
 class StockDetailNewsDebugInfoDto(BaseModel):
@@ -777,9 +780,9 @@ class StockDetailNewsResponseDto(BaseModel):
 
 错误语义与现有股票详情保持一致：股票不存在或不是股票证券返回 404；时间、时区、范围和 limit 参数错误返回 400；查询异常返回 500，页面只让新闻 Tab 进入错误态。
 
-### 8.5 事件合并增强的编码门禁
+### 8.5 事件合并当前编码门禁
 
-目标调用链固定为：
+当前调用链固定为：
 
 ```text
 StockDetailNewsQuery 分批读取候选源新闻
@@ -952,7 +955,7 @@ Tab 顺序固定为：
 9. payload 中出现旧 `mode/overlap_seconds`、`window_field != news_time`、naive datetime 或无限窗口时明确失败，不做兼容转换。
 10. 单篇识别不包含逐股票循环；本地 benchmark 只衡量内存识别，不混入数据库时间。
 
-### 10.3 API（当前基线及事件合并目标）
+### 10.3 API（当前实现）
 
 当前测试已覆盖或必须保持：
 
@@ -960,7 +963,7 @@ Tab 顺序固定为：
 2. 完全相同 `news_time` 的 tie-breaker 按 `row_key_hash ASC`。
 3. `publishTime` 保留完整时间和上海时区偏移。
 4. 默认最近 2 个自然月；显式时间窗口为半开区间。
-5. `limit` 默认 50，超过 2000 截断到 2000，不生成分页游标；事件合并落地后必须在事件排序之后截断，不能在候选源新闻阶段截断。
+5. `limit` 默认 50，超过 2000 截断到 2000，不生成分页游标；当前实现只在事件排序之后截断，不在候选源新闻阶段截断。
 6. 不按 `channels` 二次过滤；事件合并后，同一事件的多来源转载只返回一条代表新闻。
 7. 普通响应不含 debug 字段，`debug=1` 只含 `matchMethod`。
 8. 空结果、股票不存在、参数错误和查询异常符合约定 HTTP 语义。
@@ -1086,4 +1089,5 @@ Tab 顺序固定为：
 
 关联物化主链没有新的业务口径需要拍板，本地验证结果已记录在第 11.3 节。2026-09-01 用户确认的是该主链结案；
 股票详情新闻事件合并已于 2026-09-05 完成本地开发与回归：新增纯事件合并器，股票详情查询按 keyset 分批读取并在事件合并后应用 `limit`，
-上海电力脱敏样本从 11 条源记录稳定收敛为 2 个事件。后端事件/API、市场新闻、依赖边界和 Wealth 新闻消费者回归均通过；未执行部署、生产写入或数据库变更，生产效果待运营部署后验收。
+上海电力脱敏样本从 11 条源记录稳定收敛为 2 个事件。后端事件/API、市场新闻、依赖边界和 Wealth 新闻消费者回归均通过；本轮未新增数据库结构或生产数据写入。
+2026-09-09 用户确认部署后的事件合并效果正确，关联物化主链与股票详情新闻事件合并均已验收结案，本文没有待开发或待验收事项。
