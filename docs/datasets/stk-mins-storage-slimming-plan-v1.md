@@ -433,7 +433,7 @@ comment 更新失败不回滚已完成的数据 relation；记录为独立元数
 
 1. [生产 PostgreSQL 存储空间优化治理专项 v1](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)
 2. [股票历史分钟行情 tablespace 冷热分层执行记录 v1（2026-04-26 历史快照）](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
-3. [分钟线数据集独立执行车道 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-minute-datasets-dedicated-worker-execution-lane-lld-v1.md)
+3. [分钟线任务执行隔离与运维说明](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-dedicated-worker-execution-lane-plan-v1.md)
 4. [股票历史分钟行情数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
 5. [Prod 每日筹码分布 HDD Tablespace 迁移方案 v1（同实例历史执行证据）](/Users/congming/github/goldenshare/docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md)
 6. [PostgreSQL 16 `ALTER TABLE`](https://www.postgresql.org/docs/16/sql-altertable.html)
