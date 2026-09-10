@@ -316,6 +316,23 @@
 5. `SA_FACT_VERSION_MISMATCH` 只用于双动量和相对轮动 Results 的页面级层级版本冲突；前端只丢弃并重载当前方法的 Meta/Results。它与成员局部请求使用的 `SA_MEMBER_FACT_MISMATCH` 恢复范围不同，不得互相替代。版本不一致必须在行业行情查询前返回 409。
 6. `SA_BREADTH_SOURCE_EMPTY/SA_BREADTH_QUERY_FAILED` 只作用于成员广度 Details 或当前 Rankings；个别股票和单项指标缺失只返回覆盖率与原因，不升级成技术异常。`SA_BREADTH_FACT_MISMATCH` 只重载成员广度事实，不清空其它板块分析方法。
 
+## 11.1 交易助手保存与恢复（设计登记，尚未实现）
+
+依据 [交易助手产品 §14.1.1](../pages/trading-assistant/trading-assistant-benchmark-requirement-v1.md) 与 [技术方案 §4.17](../pages/trading-assistant/trading-assistant-implementation-design-v1.md)。本表 active 仅表示码的语义已登记，不表示 API 已上线或设计已通过整体评审。只覆盖保存／恢复公共异常；费用、行情、计划检查、飞书异常另行登记。用户看到安全文案，不显示技术码。
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `TA_REQUEST_INVALID` | tradingAssistant | warn | false | false | 当前请求参数不合法 | 恢复范围组合、UUID、必填字段或类型非法；HTTP 400 | 定位原字段或局部请求错误；不将对当前报文的拒绝解释为原操作未保存 | biz | Phase-1-design | active |
+| `TA_REQUEST_ID_CONFLICT` | tradingAssistant | warn | false | false | 原请求身份被不同内容复用 | 同 owner/requestId 的操作、范围或规范化内容不同；HTTP 409 | 不覆盖旧内容、不换键自动保存；核对原操作 | biz | Phase-1-design | active |
+| `TA_SCOPE_WRITE_PENDING` | tradingAssistant | warn | false | false | 同一业务范围已有未决写入 | 已认证范围占用属于另一未决请求；HTTP 409 | 返回本人原待确认入口；不阻断无关范围，不新增任务页面 | biz | Phase-1-design | active |
+| `TA_RECOVERY_UNAVAILABLE` | tradingAssistant | warn | false | false | 本次无法取得可访问的恢复对象 | 请求不存在或不属于本人统一 HTTP 404；不区分他人对象存在性 | 保留最后已知结果；查无记录不判为未保存、不自动重交 | biz | Phase-1-design | active |
+| `TA_RECOVERY_STATE_CHANGED` | tradingAssistant | warn | false | false | 恢复编辑或新尝试所依据的状态已变化 | 当前尝试非明确未保存、stateVersion 已变或输入暂不能按该状态读取；HTTP 409 | 重新核对原操作，不覆盖当前表单、不自动创建尝试 | biz | Phase-1-design | active |
+| `TA_RECOVERY_QUERY_FAILED` | tradingAssistant | error | false | false | 恢复读取或响应构造失败 | 数据库读取、唯一性不变量或 DTO 校验失败；服务端 HTTP 500，前端读取解析失败也按此分类 | 仅重试读取；不降级成功结果、不生成未保存结论 | biz | Phase-1-design | active |
+| `TA_WRITE_OUTCOME_UNKNOWN` | tradingAssistant | error | false | false | 原业务保存结果尚不能确定 | 提交阶段断连等无法证明接纳结果；可返回时 HTTP 503，网络中断也可无响应 | R11 核对结果，禁止重复保存；inputRetained 未有证明时不得显示输入已保留 | biz | Phase-1-design | active |
+| `TA_WRITE_FAILED` | tradingAssistant | error | false | false | 本次保存尝试已确定未生效 | 有同尝试回滚／拒绝及停止证明，旧执行者不能迟到提交；HTTP 500 | 关联原请求和尝试后才按 R11 未保存处理，由用户再次保存；普通 500 不足以使用此结论 | biz | Phase-1-design | active |
+
+401／403 继续归认证层，不新增同义码。PROCESSING、SAVED、NOT_SAVED、UNKNOWN 和 inputRetained 是业务响应字段，不登记为异常。字段错误、当前请求被拒绝、原尝试明确未保存必须分开，不依据 HTTP 数字或单个 code 绕过请求身份与停止证明。
+
 ## 12. 变更规则
 
 1. 已上线的 `code` 不允许重用为新语义。
