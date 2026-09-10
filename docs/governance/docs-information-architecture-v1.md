@@ -244,6 +244,30 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 
 不把本地测试或文档链接检查当成真实源请求、今日生产状态或最终拓扑性能验证。后续工程问题仅记录，不在文档治理中隐式实施。
 
+<a id="onboarding-qtf-retirement-docs-20260910"></a>
+
+#### 2026-09-10 上手入口、QTF 与清退收口三批
+
+用户批准连续审计并修订三批，统一 review；本轮不提交。七份主文档均保留原路径，不为减少文件数而删除独有设计或历史证据；旧全文可从修改前的 `94c42a0e` 追溯。
+
+| 批次 | 文档 | 处理与理由 |
+| --- | --- | --- |
+| A | [仓库上手 HTML](../architecture/goldenshare-repository-onboarding-overview-v1.html) | 移除已清退 CLI/脚本、过期迁移号与索引规模；补 QTF；重复门禁/命令表改为现行规则导航 |
+| A | [CodeGraph 快照](../architecture/codegraph-architecture-snapshot.md) | 补 App/QTF 装配，纠正 ingestion 多分支；当前链路与历史工具/停牌执行记录分开 |
+| A | [设计动机摘要](../architecture/design-principles.md) | 548 行旧规则精简为动机与规则入口；删除过时两层模型和重复规范，不恢复新的泛化约束 |
+| B | [QTF 架构](../architecture/qtf-quant-platform-architecture-v1.html) | 修正“尚未打包/建护栏”；状态机、目录草图与字段表不再复制 LLD；产品方向和非目标保留 |
+| B | [QTF LLD](../architecture/qtf-quant-platform-low-level-design-v1.md#implemented-map) | 九个真实 API 与待实施 M4R/页面分开；补齐原有零行门禁遗漏的 preflight_issue 清单；历史生产/Figma 不冒充今日验收 |
+| C | [清退方案](../architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md#retirement-closeout) | 已完成状态前置，施工期说明标历史；重复停牌进展收敛为独立 S5 对账链接 |
+| C | [清退 LLD](../../lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md) | 保留代码/文档矩阵、原批准清单、hash、事故追溯和恢复映射；仅校准头部状态与阅读导航 |
+
+关键事实依据：`pyproject.toml`、`src/app/api/v1/qtf.py`、App worker factory/executor、QTF research/runtime 合同与旧 validation 实现、`IngestionExecutor.run`、正式 suspend writer、WealthRouter/routerState/Shell，以及架构和旧 Console 清退护栏。使用 CodeGraph status/query/impact 后读源码补核；同名节点扩散不作为真实调用证据。
+
+同步修正索引中“QTF 下一步 M4.2”的错误引导。M1–M3 基础代码有效不等于简化回测完成；QTF 迁移、R2、前端、发布仍不在本轮。Wealth 已有板块分析方法页，不再描述为空占位；本轮没有修改它的实现或补造页面验收。
+
+文档治理技能要求修改前记录发现，本轮记录在 `/private/tmp/goldenshare-docs-three-batches-20260910-audit.md`；稳定处理结论以本节为准，不依赖临时报告长期存在。前端 QA 仅用于静态路由核对，Dagster 技能用于正式环境边界；没有 UI 代码改动，不启动服务、浏览器或正式 DG。
+
+验证：现有环境下四组架构/清退护栏 **29 项通过**，文档完整性三组、377 个本地链接及锚点、`git diff --check` 通过；CodeGraph sync/status 为最新。七份主文档从 9,210 行减至 8,593 行，净减 617 行；行数只说明精简规模，不代表信息价值。清退 LLD §1 起的历史正文逐字对照不变，不删逐项证据。没有改代码、配置、依赖矩阵、数据库、Lake 或安装依赖；其他任务工作区改动保留。历史空表、服务状态及废纸篓恢复可用性未重验，不能据此执行删除或迁移。
+
 ### 4.2 Ops 组
 
 当前职责：`ops-contract-current.md` 维护边界，`ops-api-reference-v1.md` 维护接口，`ops-workflow-catalog-v1.md` 维护工作流清单。TaskRun、自动任务、freshness、多源对账等继续独立承载其专题；本批不代表这些专题已全面审计。

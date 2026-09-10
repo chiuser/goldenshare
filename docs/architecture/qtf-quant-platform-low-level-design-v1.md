@@ -6,14 +6,42 @@
 |---|---|
 | 文档性质 | 代码级 LLD 与内嵌编码门禁矩阵 |
 | 当前状态 | M0-M3 保持有效；旧 M4.0/M4.1 复杂验证方向已被否决，当前只完成文档纠偏，下一步必须先安全删除错误合同与空结果模型，不能直接进入 M4.2 |
-| 审计日期 | 2026-08-25 |
+| 审计日期 | 原方案 2026-08-25；2026-09-10 静态复核实现边界，不复验生产或 Figma |
 | 目标产品 | 财势乾坤 / 财势探查 / 量化研究工作台 |
 | 首个垂直切片 | 东财二级行业统一参数研究 |
 | 本文是否批准 R2 回测 | 否。R2 仍处于事前计划待评审状态 |
 | 本文是否授权生产写入或发布 | 否 |
-| 当前 Alembic 口径 | 2026-08-25 本地单一 head 为 `20260824_000150`；旧 M4.1 迁移 `20260824_000149` 已随生产 head `20260824_000150` 部署。实施纠偏迁移前必须重新确认真实 head，禁止修改已执行迁移 |
+| 历史 Alembic 证据 | 2026-08-25 本地单一 head 为 `20260824_000150`；旧 M4.1 迁移 `20260824_000149` 已随生产 head `20260824_000150` 部署。实施纠偏迁移前必须重新确认真实 head，禁止修改已执行迁移 |
 
-本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现并完成生产部署验收。旧 M4.1 只实现了过度复杂的验证合同、PLAN 字段、四张空结果表模型和相关测试，没有实现成功率计算、结果写入、结果 API 或真实研究；该方向已被最新产品口径否决。本轮只修正文档并给出安全删除步骤，不修改代码。任何 M4.2 开发都必须等待错误合同和空模型完成代码纠偏后再单独批准。
+本文把已经确认的 QTF 系统架构、2026-08-25 记录的 Figma 六页设计、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现并完成生产部署验收。旧 M4.1 只实现了过度复杂的验证合同、PLAN 字段、四张空结果表模型和相关测试，没有实现成功率计算、结果写入、结果 API 或真实研究；该方向已被最新产品口径否决。本轮只修正文档并给出安全删除步骤，不修改代码。任何 M4.2 开发都必须等待错误合同和空模型完成代码纠偏后再单独批准。
+
+<a id="implemented-map"></a>
+
+### 当前实现与目标设计分界（2026-09-10）
+
+| 类别 | 当前代码事实 | 阅读与执行边界 |
+| --- | --- | --- |
+| M1–M3 基础 | `pyproject.toml` 已包含 qtf；Research/Revision、preflight/Run、管理员 API、App 装配和 QTF lane 已存在 | 生产验收保持 §15 的原日期，本轮不证明线上状态 |
+| 旧 M4 遗留 | `qtf/contracts/validation.py`、`modules/sector/validation_contract.py`、旧结果 ORM 和 API 的 validation 字段仍存在 | 被否决的设计尚未从代码清零，不能进入旧 M4.2 |
+| 简化 M4R | 双时段、四格结果、`backtest_spec/resultStatus` 是本文目标 | §5–10 的新字段、SQL 模型和接口不能当成现行合同；先按 §6.8 独立获批纠偏 |
+| 前端、结果及后续平台 | 本文页面、results、overview、完整 registry 与候选/发布不是现有九个 API 的能力 | §11 是后续页面设计，§13/16 中 OPEN 是未来验收，不是本轮完成项 |
+| 数据和授权 | 本轮仅核源码，未查询 QTF 表或启动 worker | “空表”“active”“head”只保留历史日期；实施前必须重新审计。文档治理不授权迁移、停服或 R2 |
+
+当前 `src/app/api/v1/qtf.py` 通过 `src/app/api/v1/router.py` 挂载以下九个管理员接口。这里只列已有入口，不复制 DTO；实际字段以 `qtf/api/schemas/research.py`、`run.py` 和路由映射为准，尤其不能提前把 validation 字段改读为 backtest 字段。
+
+| 方法 | /api/v1/qtf 下的路径 | 作用 |
+| --- | --- | --- |
+| GET | /templates | 模板列表 |
+| POST | /researches | 创建研究 |
+| GET | /researches/{research_key} | 研究与草稿 |
+| PUT | /researches/{research_key}/draft | 保存草稿 |
+| POST | /researches/{research_key}/input-preflights | 有界输入预检/计划 |
+| POST | /researches/{research_key}/freeze | 冻结已确认计划 |
+| POST | /revisions/{revision_key}/runs | 创建运行 |
+| GET | /runs/{run_key} | 运行详情 |
+| POST | /runs/{run_key}/cancel | 请求取消 |
+
+状态也不能串成一条通用“实验生命周期”：`ExperimentRevisionStatus` 是 DRAFT/FROZEN/RETIRED；`ExperimentRunStatus` 是 PLANNED/QUEUED/EXECUTING/COMPLETED/FAILED/CANCELED/BLOCKED；现行 `ValidationStatus` 仍是旧合同，未来结果状态按 M4R 迁移。来源：`qtf/contracts/research.py`、`runtime.py`，接线测试见 `tests/web/test_qtf_api.py` 与 `tests/architecture/test_subsystem_dependency_matrix.py`。
 
 ### 0.1 依据与优先级
 
@@ -116,19 +144,19 @@ M2 已把“历史探索中实际使用过的候选公式语义”重新实现�
 ### 2.3 前端现状
 
 1. `WealthRouter` 是自有 History API 路由，不使用 React Router。
-2. 当前正式路径只有市场总览、股票详情、指数详情和 `/wealth/exploration`。
-3. `WealthExplorationPage` 已复用 `TopMarketBar`、`PageBreadcrumb`、公共市场时间上下文和主要指数 ticker。
-4. 页面当前只装配成交额洞察，另有空的 `data-module-slot="sector-radar"`；没有 QTF 路由、页面或 API client。
+2. `wealth/src/app/routes/WealthRouter.tsx` 已装配市场总览、股票/指数详情、自选、探查入口、成交额洞察和板块分析方法页；不能再把探查描述成一个空占位页。
+3. 探查页面通过 `WealthExplorationShell` 复用 `TopMarketBar`、`PageBreadcrumb` 和公共市场上下文；未来 QTF 接入前须按现行 Shell 核对，不照抄早期单页结构。
+4. 当前路由及 `wealth/src` 没有 QTF 页面/API client；已有板块分析不是 QTF 工作台。路由存在也不代替各模块自己的交付验收。
 5. 认证存储能携带 token，但当前前端路由不做管理员权限判断；最终权限仍必须由后端 `require_admin` 决定。
 6. Wealth 的正式数据流是 `API DTO -> feature adapter -> view model -> component`，页面不得拼装研究事实。
 7. 当前 Design System 事实源为 `wealth/src/styles/design-tokens.css`；数字样式 `.num` 位于 `wealth/src/styles/global.css`。`TopMarketBar` 和 `PageBreadcrumb` 与 Figma 合同一致，可直接复用。
 8. 现有 `DataStatusBadge` 只有 `ready/delayed`，不能表达 QTF 的五种系统 tone；现有 `SkeletonBlock` 带固定 `loading` 文案。它们不能被强行复用成 QTF 组件，也不能为了 QTF 擅自扩大共享 contract。`Panel` 只在标题/meta DOM 与 Figma 一致时复用。
 9. 现有 `wealthFetch` 已统一处理 access token、401 refresh 和重新登录通知；QTF client 必须复用它。403 由 QTF 页面转换为 forbidden 状态，不增加前端角色或权限判断。
-10. `routerState.isWealthRoute()` 当前只把精确 `/wealth/exploration` 当成探查页。增加 QTF 子路由时必须同时扩展内部路由识别，否则从 QTF 页面导航时的返回语义会丢失。
+10. `routerState` 已有探查子路由识别。增加 QTF 时仍须核对 `isWealthRoute()`、路径解析、内部 referrer、登录跳转和返回语义；不能以旧“只识别一个精确路径”作为改造依据。
 
 ### 2.4 Figma 页面映射
 
-Figma 当前存在六个 `1600 × 1200` 画板，根节点为纵向 Auto Layout，并复用当前 TopMarketBar 与页面 Shell；当前开发合同只保留前五页。候选评审是已被推迟的历史设计，不建立路由。
+2026-08-25 审计记录了六个 `1600 × 1200` Figma 画板；下面节点和差距是当时证据，本轮未重新读取 Figma。计划交付保留前五页，候选评审已推迟，不建立路由；M7 前重新核对设计与现行 Shell，不能把历史截图当成今日视觉验收。
 
 | Figma 节点 | 页面 | 目标前端路由 |
 |---|---|---|
@@ -255,7 +283,7 @@ QTF 需要任务能力时，定义自身的 `RunObserver` 端口；App 用 Ops T
 
 ### 3.3 包发现
 
-M1 开工第一步把固定 `packages = ["src"]` 改为受控包发现：
+M1 已完成受控包发现，当前 `pyproject.toml` 如下；这是现状，不是再次修改配置的任务：
 
 ```toml
 [tool.setuptools.packages.find]
@@ -270,7 +298,9 @@ exclude = ["tests", "tests.*", "scripts", "scripts.*", "wealth", "wealth.*", "fr
 
 ## 4. 目标目录与文件级落点
 
-### 4.1 新增 QTF 产品域
+### 4.1 QTF 产品域：已有结构与目标补齐
+
+下面是目标布局，不是逐项新建清单。M1–M3 包、合同、服务和 adapter 已存在；`signal_engine.py` 也已存在，不能按文件名认定回测实现完成。`evaluator.py`、overview 服务/DTO、run query 服务等图中目标文件尚未建立，按 M4R/M6 推进。新合同的精确替换清单仍见 §6.8，不在此重复。
 
 ```text
 qtf/
@@ -686,7 +716,7 @@ M4 纠偏迁移只调整回测结果表，不创建 candidate、candidate_action
 1. 重新读取根、`src`、`qtf`、迁移和测试目录规则，确认仍在 `dev-interface`，记录工作区并使用文件白名单。
 2. 重新执行 CodeGraph status、`ValidationContractDefinition`、`ExecutionPlan`、`RunParameterResult`、`SectorSignalEvent`、App QTF API 和模型注册影响面；若出现当前审计之外的新消费者，立即停止。
 3. 重新确认本地与生产 Alembic 单一 head；新迁移的 `down_revision` 只能连接实施日真实 head。不得修改、删除或重写已经执行的 `20260824_000149`。
-4. 只读检查 `qtf.research`、`qtf.experiment_revision`、`qtf.input_preflight`、`qtf.experiment_run`、`qtf.run_gate_result`、`qtf.run_parameter_result`、`qtf.sector_signal_event` 和 `qtf.run_conclusion` 的数量与状态。
+4. 只读检查 `qtf.research`、`qtf.experiment_revision`、`qtf.input_preflight`、`qtf.input_preflight_issue`、`qtf.experiment_run`、`qtf.run_gate_result`、`qtf.run_parameter_result`、`qtf.sector_signal_event` 和 `qtf.run_conclusion` 的数量与状态。
 5. 必须同时满足：`research/revision/preflight/preflight_issue/run` 五张基础状态表和四张旧 M4.1 结果表全部为 0 行，且不存在任何可领取的 QTF TaskRun。2026-08-24 的零行结果只作为历史证据，不能替代实施日检查。
 6. 任一条件不满足时停止，不 drop 表、不自动改写 revision JSON、不把旧研究解释成新合同；先提交逐条数据处置方案给用户拍板。
 
@@ -784,7 +814,9 @@ TaskRun success 只表示执行完成。QTF `result_status` 只说明回测结�
 
 ---
 
-## 8. QTF API 契约
+## 8. QTF API 目标契约
+
+本节是分阶段设计，不是已上线接口清单。当前入口见 §0 实现地图；涉及 backtest/result 的新 DTO 与 results API 等待 M4R，overview/完整 registry 等待 M6。不得让现有消费者按未迁移字段开发。
 
 ### 8.1 通用规则
 
@@ -825,7 +857,7 @@ TaskRun success 只表示执行完成。QTF `result_status` 只说明回测结�
 {
   "draftVersion": 4,
   "inputPreflightKey": "PREFLIGHT-QTF-...",
-  "approvedPlanHash": "sha256:...",
+  "approvedPlanHash": "<服务端返回的64位小写十六进制planHash>",
   "acknowledgedExclusions": true
 }
 ```
@@ -1156,7 +1188,7 @@ M5 执行时，这些字段必须先由正式 QTF application service 生成可�
 
 ---
 
-## 11. Wealth 前端低层设计
+## 11. Wealth 前端目标设计（M7 待实施）
 
 ### 11.1 路由解析
 
@@ -1200,7 +1232,7 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 5. 示例数据和 mock 不得进入 real API error fallback。
 6. 所有请求经 `wealthFetch` 发出；401 沿用统一 refresh/登录流程，403 留在页面稳定骨架内显示 forbidden。
 
-### 11.4 当前五页行为
+### 11.4 计划交付五页的行为
 
 #### 研究总览 `778:52`
 
@@ -1445,7 +1477,7 @@ sourceStatementTimeoutMs
 1. 已评审 QTF 架构方案、本 LLD、Figma 差距 F01–F06 和门禁 G01–G26。
 2. 已冻结顶层 `qtf/`、只读上游、现有管理员、独立 QTF worker、业务审核动作和二级行业首切片。
 3. M0 收口时 F01–F06 和 G01–G26 均未通过；此后只有 G01、G02 随 M1 完成，其余差距和门禁仍按各自后续里程碑处理。
-4. 当前代码中尚无顶层 `qtf/`；M0 未改代码、未建表、未读 Prod、未执行研究，也未授权 R2 回测或生产发布。
+4. M0 收口当时尚无顶层 `qtf/`；M0 未改代码、未建表、未读 Prod、未执行研究，也未授权 R2 回测或生产发布。
 5. M0 当时只批准进入 M1；当前后续顺序以紧邻的 M1 状态为准，仍不得越级进入 Prod 接入、TaskRun、真实回测、前端或发布工作。
 
 ### M1：QTF 平台基础与研究状态
@@ -1481,7 +1513,7 @@ sourceStatementTimeoutMs
 6. 已增加计划规定的 9 个最小管理员 API、QTF worker CLI、独立 systemd unit、`--qtf-only`、精确 sudo 白名单和发布 commit 门禁；部署安全纠偏后，QTF unit 以 `goldenshare` 运行，commit 由 worker 启动时从部署仓库一次性解析，不再使用 release 环境文件；默认 Ops API 仍拒绝创建 `qtf_experiment`。
 7. 本地自动化已覆盖输入正反例、启动原子性、幂等与版本冲突、每 Run 重读、同 Run 单次读取、预算增长阻断、安全取消、非法 commit 零来源读取、管理员认证、敏感信息屏蔽、worker 启动版本冻结、降权 unit 和部署权限前置失败。M3 不创建 M4 结果表；现有 `validationStatus=PENDING` 字段按第 6.8 节改为只表示结果生成状态的 `resultStatus`，不产生 Candidate。
 8. “预检过期”在 M3 中指当前草稿 hash 已变化，或同一 revision 已生成更新的 DRAFT_PREVIEW；不引入未经批准的墙钟 TTL 或全局资源配置。
-9. 2026-08-24 生产只读验收确认：`dev-interface` 已包含 M3；Web、Ops Worker、Scheduler 与 QTF Worker 均为 `active`；QTF unit 以 `goldenshare:goldenshare` 运行；`/api/v1/qtf/templates` 已挂载并由登录门禁保护；生产 Alembic 当前为 `20260824_000147 (head)`，五张 QTF 状态表均存在。当前五张表记录数均为 0，符合尚未创建研究、运行真实 R2 的边界。旧失败发布残留的 `.qtf-release.env.next` 已移出远程仓库并保留于 `/var/backups`，远程 Git 工作区已恢复干净。
+9. 2026-08-24 生产只读验收确认：`dev-interface` 已包含 M3；Web、Ops Worker、Scheduler 与 QTF Worker 均为 `active`；QTF unit 以 `goldenshare:goldenshare` 运行；`/api/v1/qtf/templates` 已挂载并由登录门禁保护；生产 Alembic 当前为 `20260824_000147 (head)`，五张 QTF 状态表均存在。当日五张表记录数均为 0，符合当时尚未创建研究、运行真实 R2 的边界；不是实施日空表证明。旧失败发布残留的 `.qtf-release.env.next` 已移出远程仓库并保留于 `/var/backups`，远程 Git 工作区已恢复干净。
 
 ### M4：简单双时段转热回测
 
@@ -1619,4 +1651,4 @@ M4.0R 代码纠偏除既有回归外还必须验证：实施日 Alembic 单一 h
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，当前唯一允许的下一步是 **M4.0R：按第 6.8 节安全删除旧 M4.1 合同、测试、模型和已部署空表，并把 M3 PLAN 收缩为简单双时段合同**。本轮仅完成文档，不修改代码；M4.0R 完成并验收前，不得开发新的回测内核、执行真实 R2、进入前端、创建 Candidate 或发布。
+因此，若另获 QTF 实施授权，阶段顺序必须先进入 **M4.0R：按第 6.8 节安全删除旧 M4.1 合同、测试、模型和已部署空表，并把 M3 PLAN 收缩为简单双时段合同**。本次文档治理不执行该阶段，不迁移或删除任何表；实施前仍须满足 §6.8 的当日逐表门禁。M4.0R 完成并验收前，不得开发新的回测内核、执行真实 R2、进入前端、创建 Candidate 或发布。

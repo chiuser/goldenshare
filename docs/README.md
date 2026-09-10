@@ -14,8 +14,8 @@
 
 - [子系统架构基线（目录职责、依赖矩阵、现存差距与护栏）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
 - [Goldenshare 仓库整体上手总览 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/goldenshare-repository-onboarding-overview-v1.html)
-- [财势量化平台（QTF）首版系统架构方案 v1（M4.1 开发已收口，下一步 M4.2）](/Users/congming/github/goldenshare/docs/architecture/qtf-quant-platform-architecture-v1.html)
-- [财势量化平台（QTF）首版低层设计 v1（M4.1 开发已收口，下一步 M4.2）](/Users/congming/github/goldenshare/docs/architecture/qtf-quant-platform-low-level-design-v1.md)
+- [财势量化平台（QTF）架构方案（M1–M3 基础已实现；旧 M4 已否决，纠偏待实施）](/Users/congming/github/goldenshare/docs/architecture/qtf-quant-platform-architecture-v1.html)
+- [QTF 低层设计（含九个现行 API 与 M4R 目标分界；不授权迁移或真实研究）](/Users/congming/github/goldenshare/docs/architecture/qtf-quant-platform-low-level-design-v1.md)
 - [Foundation 研发基线](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
 - [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)
 - [前端当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
@@ -55,9 +55,9 @@ docs/
 
 2026-09-08：原独立依赖矩阵、Platform 拆分与 Ops 收敛基线已并入“子系统架构基线”；旧 Foundation 上手指南的有效入口并入“Foundation 研发基线”，原发布治理规范收窄为多源专题。[逐项合并去向与旧待办处理](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#architecture-consolidation-20260908)见治理记录；旧全文可从 Git 历史恢复。
 
-- [设计原则（历史参考；当前边界以基线为准）](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
+- [早期设计动机摘要与现行规则入口（非规范）](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
 - [CodeGraph 架构快照（当前代码事实，2026-08-22）](/Users/congming/github/goldenshare/docs/architecture/codegraph-architecture-snapshot.md)
-- [旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2（M1–M8 已提交 / 5 项本机残留已移入废纸篓，记录随本次提交归档）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
+- [旧 Lake Console/Kopia 清退收口与历史方案（已批准范围完成；不再作为待办）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
 - [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（165 份文档矩阵 / M8 结果 §16.15 / 本机残留清理与恢复映射 §16.16）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
 - [多源映射与发布规则（仅多源专题）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [DatasetDefinition 数据集定义与职责](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)

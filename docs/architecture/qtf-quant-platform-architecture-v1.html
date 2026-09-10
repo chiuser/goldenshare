@@ -631,6 +631,10 @@
         </div>
       </header>
 
+      <div class="section-note" style="margin:16px 0">
+        <strong>2026-09-10 阅读边界：</strong>本页负责产品定位、已确认取舍和非目标；精确字段、状态、迁移顺序及验收集中在 <a href="./qtf-quant-platform-low-level-design-v1.md">LLD</a>。M1–M3 基础代码已存在，旧 M4 合同仍待纠偏；回测结果、工作台和发布不是已交付能力。生产与 Figma 数字保留原验收日期，本轮未复验，也不授权继续实施。实际九个 API 见 <a href="./qtf-quant-platform-low-level-design-v1.md#implemented-map">实现地图</a>。
+      </div>
+
       <section class="section" id="summary">
         <div class="section-head">
           <div><h2>0. 方案摘要</h2><p>先打通二级行业真实研究闭环，再从真实闭环中提炼平台能力。</p></div>
@@ -807,7 +811,7 @@
               </div>
             </div>
           </div>
-          <div class="section-note" style="margin-top:10px"><strong>需要先确认的结构变化：</strong><code>qtf/</code> 是新的顶层产品域。现有 Python 打包只包含 <code>src</code>，现有依赖矩阵也没有 QTF；因此进入开发前必须正式补充包配置、依赖方向和 AGENTS 边界，不能直接把 QTF 代码塞进 <code>biz</code> 或脚本目录。</div>
+          <div class="section-note" style="margin-top:10px"><strong>M1 已落地的结构：</strong><code>qtf/</code> 已是顶层产品域；<code>pyproject.toml</code> 受控发现 <code>src*</code> 与 <code>qtf*</code>，依赖矩阵与自动护栏已覆盖 QTF。由 App 装配，QTF 只依赖自身与 Foundation，不能把主实现塞入 Biz 或脚本目录。</div>
         </div>
       </section>
 
@@ -837,7 +841,7 @@
       </section>
 
       <section class="section" id="subsystems">
-        <div class="section-head"><div><h2>5. QTF 能力框架</h2><p>当前先实现六组研究能力；生产发布仍是下游目标，但不提前设计合同。</p></div><span class="badge proposal">模块化单体</span></div>
+        <div class="section-head"><div><h2>5. QTF 能力框架</h2><p>目标能力分阶段交付，不代表均已实现；生产发布仍是下游目标，合同不在此提前冻结。</p></div><span class="badge proposal">模块化单体</span></div>
         <div class="section-body">
           <div class="table-wrap">
             <table>
@@ -916,33 +920,9 @@
             <div class="card"><h3>ParameterBacktestResult</h3><p>某参数在前段或后段的四格数量、分子、分母、绝对百分比和不可评价数量；不保存 Lift、置信区间或综合分。</p></div>
           </div>
 
-          <h3 style="margin:18px 0 8px">公式生命周期</h3>
-          <div class="diagram-wrap"><div class="state-line">
-            <div class="state"><strong>DRAFT</strong><small>定义中</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>REGISTERED</strong><small>合同冻结</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>ACTIVE</strong><small>允许实验引用</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>DEPRECATED</strong><small>禁止新实验，保留追溯</small></div>
-          </div></div>
-
-          <h3 style="margin:14px 0 8px">实验生命周期</h3>
-          <div class="diagram-wrap"><div class="state-line">
-            <div class="state"><strong>DRAFT</strong><small>可编辑</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>FROZEN</strong><small>合同不可变</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>PLANNED</strong><small>成本已确认</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>EXECUTING</strong><small>TaskRun 运行中</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>COMPLETED / FAILED</strong><small>产物或错误已固定</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>REVIEWED</strong><small>已形成研究结论</small></div>
-          </div></div>
-
-          <h3 style="margin:14px 0 8px">回测结果生成状态</h3>
-          <div class="diagram-wrap"><div class="state-line">
-            <div class="state"><strong>PENDING</strong><small>结果尚未生成</small></div><span class="state-arrow">→</span>
-            <div class="state"><strong>READY</strong><small>前后段完整结果已生成</small></div>
-            <div class="state"><strong>INSUFFICIENT</strong><small>可评价样本不足</small></div>
-            <div class="state"><strong>BLOCKED</strong><small>输入或计划不合格</small></div>
-          </div></div>
-          <div class="section-note" style="margin-top:10px"><strong>状态不得混用：</strong>TaskRun 的 <code>success</code> 只表示程序执行完成；<code>READY</code> 只表示回测结果完整生成。算法优劣必须读取每个参数的实际数量和百分比，不能从状态名推断。</div>
-
+          <h3 style="margin:18px 0 8px">对象状态分开管理</h3>
+          <p>Revision 管冻结，Run 管一次执行，结果状态管回测产物；不能把 DRAFT、FROZEN、PLANNED、REVIEWED 串成同一状态机。当前枚举与接口见<a href="./qtf-quant-platform-low-level-design-v1.md#implemented-map">LLD 实现地图</a>。</p>
+          <p>TaskRun success 只表示执行完成，不代表算法有效。本文的 PredictionResult、ParameterBacktestResult 和 READY/INSUFFICIENT 是简化 M4R 的目标，旧代码仍使用 validation 合同；公式管理、候选和评审也不能据示意图提前开发。</p>
           <div class="section-note" style="margin-top:10px">候选与发布生命周期不在当前领域模型中预定义；真实 R2 后若继续推进，再根据实际结果重新设计。</div>
         </div>
       </section>
@@ -950,44 +930,9 @@
       <section class="section" id="trust">
         <div class="section-head"><div><h2>8. 简单双时段转热回测</h2><p>当前只回答一个问题：量化规则给出“会转热/不会转热”预测后，未来实际结果分别是什么。</p></div><span class="badge gate">统一评价口径</span></div>
         <div class="section-body">
-          <h3 style="margin-bottom:8px">8.1 冻结的回测合同</h3>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>合同部分</th><th>必须冻结的内容</th><th>二级行业首个用例</th></tr></thead>
-              <tbody>
-                <tr><td>研究问题</td><td>预测对象、转热预测含义、实际转热定义和当前非目标。</td><td>在同一一级父行业的直属二级行业中，预测尚未上榜的行业未来 1/3/5 日是否转热；不做续热或个体行业专属参数。</td></tr>
-                <tr><td>数据范围</td><td>来源、字段、日期、as_of、对象池、层级、父级内比较范围、排除规则和内容指纹。</td><td>复用已确认的 Prod 交易日、行业层级和板块日行情；不做跨父级二级行业比较。</td></tr>
-                <tr><td>公式与参数</td><td>公式版本、输入输出、实际历史长度、候选维度、候选值和全部最终生效值。</td><td>使用 M2 价格/成交候选公式；60/120 等候选由具体 R2 PLAN 逐项批准，不按行业自动选择参数。</td></tr>
-                <tr><td>双时段</td><td>前段起止日、后段起止日、公式历史前缀、未来结果尾部和每段交易日数。</td><td>前段在先、后段紧随其后；没有第三个校准段，不随机打乱。后段不得参与前段参数计算。</td></tr>
-                <tr><td>实际转热</td><td>future horizon 和未来上榜次数门槛。</td><td>未来 1/3/5 日分别按至少 1/1、2/3、3/5 个完整父级内客观上榜日判断；缺未来事实记为不可评价。</td></tr>
-                <tr><td>执行预算</td><td>组合数、扫描量、预计预测结果行数、时间/内存估算、取消点和停止条件。</td><td>每轮有限尝试；看到结果后不得在同一 Run 追加参数或改变成功定义。</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h3 style="margin:18px 0 8px">8.2 每个样本只有四种可评价结果</h3>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>算法预测</th><th>未来实际结果</th><th>记录结果</th><th>人话解释</th></tr></thead>
-              <tbody>
-                <tr><td>会转热</td><td>真的转热</td><td><code>PREDICTED_HOT_ACTUAL_HOT</code></td><td>系统报出了转热，后来确实转热，预测正确。</td></tr>
-                <tr><td>会转热</td><td>没有转热</td><td><code>PREDICTED_HOT_ACTUAL_NOT_HOT</code></td><td>系统报出了转热，但后来没转热，是误报。</td></tr>
-                <tr><td>不会转热</td><td>真的转热</td><td><code>PREDICTED_NOT_HOT_ACTUAL_HOT</code></td><td>系统没有报出转热，但后来转热了，是漏报。</td></tr>
-                <tr><td>不会转热</td><td>没有转热</td><td><code>PREDICTED_NOT_HOT_ACTUAL_NOT_HOT</code></td><td>系统没有报出转热，后来也没转热，预测正确。</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="section-note" style="margin-top:10px">未来事实缺失时单独记为 <code>UNEVALUABLE</code>，不放进任何成功率分母。当前已经热的行业不属于“转热预测”母体，也不计算续热。</div>
-
-          <h3 style="margin:18px 0 8px">8.3 每次算法调整都必须输出同一组结果</h3>
-          <div class="grid-3">
-            <div class="card blue"><h3>预测会热</h3><p>总数、正确数、错误数、预测会热正确率、误报率。</p></div>
-            <div class="card gold"><h3>预测不会热</h3><p>总数、正确数、错误数、预测不会热正确率、漏报占比。</p></div>
-            <div class="card purple"><h3>实际转热</h3><p>总数、成功发现数、漏报数、发现率、漏报率。</p></div>
-            <div class="card green"><h3>实际未转热</h3><p>总数、正确排除数、误报数、正确排除率、误报率。</p></div>
-            <div class="card"><h3>总体</h3><p>可评价总数、正确总数、错误总数、总体准确率、不可评价数量。</p></div>
-            <div class="card"><h3>展示规则</h3><p>每个数量和百分比都逐项列出；分母为 0 显示“--”，不伪造 0%。</p></div>
-          </div>
+          <p>冻结的核心口径：同一父级内比较二级行业，只预测尚未上榜行业的转热；前段在先、后段紧随，同一参数在两段使用同一评价尺子。未来 1/3/5 日按至少 1/1、2/3、3/5 个客观上榜日评价，缺失记为不可评价，不作为预测失败。</p>
+          <p>每个参数、时段与 horizon 都应展示预测正确、误报、漏报、正确排除的四格数量，以及全部分子、分母、绝对百分比和不可评价数量；零分母显示“--”。不只报告一个最高成功率，不自动选优。</p>
+          <p>字段、四格枚举、各百分比分母与双时段边界统一维护在 <a href="./qtf-quant-platform-low-level-design-v1.md">LLD §5.5–5.6、§10.5</a>。架构页不再复制另一份字段表；这些仍是 M4R 待实现合同。</p>
 
           <h3 style="margin:18px 0 8px">8.4 保留的技术安全条件</h3>
           <div class="grid-2">
@@ -1026,42 +971,10 @@
         <div class="section-head"><div><h2>10. 运行、代码与部署形态</h2><p>首版用同仓模块化单体降低复杂度；高耗时计算通过独立 worker lane 与 Web 请求隔离。</p></div><span class="badge fact">形态已确认</span></div>
         <div class="section-body">
           <div class="grid-2">
-            <pre class="tree">goldenshare/
-├── qtf/                         # 新的量化产品域
-│   ├── AGENTS.md                # QTF 边界与研究门禁
-│   ├── contracts/               # 跨能力稳定合同
-│   │   ├── research_template.py
-│   │   ├── input_preflight.py
-│   │   ├── formula.py
-│   │   ├── parameters.py
-│   │   ├── experiment.py
-│   │   └── backtest.py
-│   ├── engine/                  # 同核计算与双时段回测
-│   │   ├── time_frontier.py
-│   │   ├── planner.py
-│   │   ├── executor.py
-│   │   └── backtest/
-│   ├── modules/
-│   │   └── sector/              # 首个真实垂直能力
-│   │       ├── templates.py
-│   │       ├── data.py
-│   │       ├── formulas.py
-│   │       └── evaluation.py
-│   ├── application/
-│   │   ├── services/
-│   │   └── ports/
-│   ├── adapters/
-│   │   ├── lake/
-│   │   ├── prod/
-│   │   ├── persistence/
-│   │   └── artifacts/
-│   ├── api/
-│   └── tests/
-├── src/app/                     # 组合 QTF、Ops、DB、API
-├── src/ops/                     # TaskRun / worker / schedule
-├── src/foundation/              # 数据与基础契约
-├── src/biz/                     # 行情模块读取 serving
-└── wealth/                      # 工作台与行情前端</pre>
+            <div class="card"><h3>代码职责地图</h3>
+              <p><code>qtf/contracts</code> 定义合同；<code>engine/modules</code> 承载计算与具体能力；<code>application</code> 定义业务服务和端口；<code>adapters</code> 接入持久化及只读来源；<code>api</code> 保存 DTO。</p>
+              <p>App 负责 API、管理员认证、QTF/Ops 组合；Ops 提供通用运行时；Foundation 提供数据基座。当前文件和待建文件分界见 LLD，不将架构草图中的 Lake adapter、回测引擎或工作台当成现成模块。</p>
+            </div>
             <div>
               <div class="lane">
                 <div class="lane-name">Web / API 进程</div>
@@ -1186,7 +1099,7 @@
             </table>
           </div>
           <div class="grid-2" style="margin-top:10px">
-            <div class="card blue"><h3>首版直接复用现有管理员</h3><p>不创建分析员、操作员、QTF 管理员或行情用户等新角色，不新增 QTF 权限键、数据库账号或角色管理页面。当前管理员可以创建、冻结、运行、取消和阅读结果。</p></div>
+            <div class="card blue"><h3>首版直接复用现有管理员</h3><p>不创建分析员、操作员、QTF 管理员或行情用户等新角色，不新增 QTF 权限键、数据库账号或角色管理页面。已实现的管理员 API 支持创建、冻结、运行和取消；阅读回测结果属于 M4R 待实现能力，不是今日接口。</p></div>
             <div class="card purple"><h3>研究与生产仍分离</h3><p>本轮回测只生成研究结果，不自动形成候选或生产版本。候选、审批和发布若后续推进，必须基于真实结果重新设计准入流程。</p></div>
           </div>
           <div class="flow" style="margin-top:10px">
@@ -1238,7 +1151,7 @@
             <table>
               <thead><tr><th>决策项</th><th>已确认结论</th><th>状态</th><th>落地时点</th></tr></thead>
               <tbody>
-                <tr><td>QTF 顶层子系统</td><td>仓库根目录新增 <code>qtf/</code> 正式产品域；量化工作台继续放在现有 <code>wealth/</code> 前端工程，由 <code>src/app</code> 组合。</td><td><span class="badge fact">已确认</span></td><td>M1 同步依赖矩阵、包配置和目录规则。</td></tr>
+                <tr><td>QTF 顶层子系统</td><td>仓库根目录新增 <code>qtf/</code> 正式产品域；量化工作台继续放在现有 <code>wealth/</code> 前端工程，由 <code>src/app</code> 组合。</td><td><span class="badge fact">已确认</span></td><td>M1 已完成；当前边界见子系统基线。</td></tr>
                 <tr><td>QTF 平台状态存储</td><td>Research、Revision、Run 等平台业务状态使用现有 Prod PostgreSQL 的独立 <code>qtf</code> schema，复用现有 <code>DATABASE_URL</code>、engine 与 session；它不是来源数据元数据，不新增数据库、登录账号或专用连接。</td><td><span class="badge fact">已确认</span></td><td>M1 建立最小研究状态，后续里程碑按需增加运行与发布状态。</td></tr>
                 <tr><td>开源经验范围</td><td>只吸收 Freqtrade 的类型化参数、配置留痕和后台任务经验，以及 LEAN 的同核、时间有序和前后段分离原则；不借鉴 Qlib，不引入任何外部平台作为依赖，也不照搬复杂统计验证。</td><td><span class="badge fact">已确认</span></td><td>本架构稿；实现时以本地合同和测试为准。</td></tr>
                 <tr><td>输入数据责任</td><td>Data Lake / Prod 负责采集、清洗、修复、回填、完整性与正式发布；既有来源与覆盖结论直接复用，不在 M1/M2 重做。QTF 仅在单次 Run 输入门禁不合格时阻断运行，并把问题交回对应上游修复。</td><td><span class="badge fact">已确认</span></td><td>M3 写入输入门禁合同与正反例。</td></tr>
@@ -1256,13 +1169,13 @@
                 <tr><td>身份与业务流程</td><td>首版只复用现有管理员认证与 <code>require_admin</code>，不新增角色、权限键、数据库账号或角色页面。当前回测阶段只需要创建、冻结、运行、取消和阅读结果；候选与发布等待后续重新设计。</td><td><span class="badge fact">已确认</span></td><td>M3 管理员 API 与 M7 工作台按此验收。</td></tr>
                 <tr><td>运行版本追溯与部署权限</td><td>QTF worker 必须显式以现有 <code>goldenshare</code> 用户运行。进程启动时由 App 组合根从当前部署仓库读取一次并校验 40 位 Git commit，作为该进程生命周期内不可变的运行版本注入实验执行器；不得通过部署用户可写、root 进程读取的环境文件传递版本，也不得为此增加环境文件安装或移动权限。部署脚本在拉代码、安装依赖、构建和迁移前逐项只读检查本次范围所需的精确 sudo 命令，缺项立即停止且不得留下临时文件。</td><td><span class="badge fact">已纠偏</span></td><td>M3 部署安全纠偏；远程只验收 unit、精确 sudo 和 Run 指纹。</td></tr>
                 <tr><td>单次计算规模</td><td>不设置全平台统一的组合数、日期跨度、耗时或内存上限。每项回测能力根据真实复杂度决定 PLAN、并发、取消点和拒绝阈值。</td><td><span class="badge gate">Case by case</span></td><td>每项回测能力进入开发前的 benchmark、技术方案与 LLD。</td></tr>
-                <tr><td>发布与回滚</td><td>公式和参数 release 不可变；新版本默认下一交易日生效，正式结果完整计算并校验成功后才原子切换。失败保留旧版本，回滚通过重新激活旧版本完成，不删除版本、不静默改写历史。</td><td><span class="badge fact">已确认</span></td><td>M8 细化日切、原子发布和修复契约。</td></tr>
+                <tr><td>发布与回滚（未来方向）</td><td>公式和参数 release 不可变；新版本默认下一交易日生效，正式结果完整计算并校验成功后才原子切换。失败保留旧版本，回滚通过重新激活旧版本完成，不删除版本、不静默改写历史。</td><td><span class="badge fact">已确认</span></td><td>保留早期方向；M8 暂缓，重启时须重新冻结日切、原子发布和修复契约，当前不开发。</td></tr>
                 <tr><td>公式管理方式</td><td>公式通过代码注册、测试和版本发布；工作台只查看、选择、激活、废弃和追踪版本，不允许网页提交或执行任意 Python。</td><td><span class="badge fact">已确认</span></td><td>M2 建立 Formula Contract，M6 提供管理视图。</td></tr>
                 <tr><td>研究与生产计算方式</td><td>回测研究按需直读上游并现算，不预计算全部参数组合，也不自动复用历史 Run；生产只按已发布参数定时计算，不在生产任务中搜索参数。</td><td><span class="badge fact">已确认</span></td><td>M3 实现研究执行合同，M8 实现生产执行合同。</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、既有数据源审计直接复用、QTF 直接读取且不保存输入副本。M1/M2/M3 继续有效；旧 M4.0/M4.1 的复杂评价方向已经否决，虽然其合同、测试和四张空结果表已进入代码/生产，但尚无真实结果数据或前端消费者。下一步只能先按 LLD 完成 M4.0R 安全删除与双时段合同纠偏，完成后停止；不得直接进入旧 M4.2、真实 R2 或前端开发。</div>
+          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、既有数据源审计直接复用、QTF 直接读取且不保存输入副本。M1/M2/M3 继续有效；旧 M4.0/M4.1 的复杂评价方向已经否决，虽然其合同、测试和四张空结果表已进入代码/生产，但尚无真实结果数据或前端消费者。若另获实施授权，必须先按 LLD §6.8 完成 M4.0R；原“空表/无真实数据”仅为 2026-08-25 的历史判断，迁移前重新检查。此次文档治理不删除代码或表，不启动研究，也不进入旧 M4.2、真实 R2 或前端开发。</div>
         </div>
       </section>
 

@@ -1,8 +1,21 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2
 
-状态：M1–M7 已提交（各阶段见正文） / M8 获批 111 项删除记录已提交 `db4c3137` / 2026-09-06 另获批准的 5 项旧 Console 本机残留已移入废纸篓，执行记录随本次提交归档（LLD §16.16） / 清单外对象保留
+状态：M1–M7 已提交（各阶段见正文） / M8 获批 111 项删除记录已提交 `db4c3137` / 2026-09-06 另获批准的 5 项旧 Console 本机残留已移入废纸篓，执行记录已归档（LLD §16.16） / 清单外对象保留
 
-最新补充：此前“ignored 环境另轮处理”指 M0–M8 的阶段边界。用户在用途审计后已单独确认五项精确对象，本轮已从工作区移除，可在废纸篓清空前取回；不扩大到其他 ignored 目录、本机配置或共享目录。原阶段记录不回写为当时已经清理。
+<a id="retirement-closeout"></a>
+
+## 阅读结论（2026-09-10 整理）
+
+本专项已批准范围已完成。本文保留清退理由、范围和决策；LLD 保存代码拆分、逐文件矩阵与执行证据。下文“先迁后删”“待 M4/M8”等是施工阶段的原设计，不是当前待办，也不能作为再次删除授权。
+
+| 要核实的内容 | 唯一详细记录 |
+| --- | --- |
+| M1–M7 代码迁移与回归 | [清退 LLD §11](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md) |
+| M8 获批 111 项数据删除 | [LLD §16.15](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md#retirement-m8-results) |
+| 独立获批 5 项本机残留及恢复映射 | [LLD §16.16](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md#retirement-local-env-results) |
+| 停牌 CSV 后续独立治理 | [停牌 LLD S5 最终对账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout) |
+
+本轮只整理文档，不重新核验物理删除或废纸篓可恢复性，不清空废纸篓，也不处理清单外对象。历史执行结果保持原日期；事故影响核验仍在停牌 LLD §17。当前开发遵守根 AGENTS、正式 paths.py 和现行专题，不从清退时的旧路径/符号示例恢复实现。
 
 初审日期：2026-08-28；本次复审基线：2026-09-05，`dev-interface@10521877`
 
@@ -10,7 +23,7 @@
 
 > 本文替代本文件的 v1 结论。v1 错误地把 `OLD_LAKE_BOOTSTRAP` / `old_lake_root` 留在本次范围之外，也没有完成两份旧模板的内容价值审计。代码范围仍为 Kopia、旧 `lake_console/frontend + backend` 和旧湖/历史备份迁移适配器；现行 Dagster、ClickHouse、DuckDB/Parquet、Ops Dataset Status Snapshot 保留。按 2026-09-05 用户更新，物理数据不再一律延期：与本专项相关且审计证实不再使用的数据，纳入 M8 精确清退；仍在使用或证据不足的保留。reports 不整目录删除；ignored 依赖环境和本机配置仍另轮处理。
 
-代码实施细节以 [`legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md`](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md) 为准。LLD 已把混合文件逐段拆分、CLI 命令归属、catalog 精确值、测试迁移和原子删除顺序落实到符号级；若本文概括与 LLD 的代码级结论冲突，以当前代码复核后的 LLD 为准并同步修正本文。
+原代码实施细节见 [`legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md`](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md) 。LLD 已把混合文件逐段拆分、CLI 命令归属、catalog 精确值、测试迁移和原子删除顺序落实到符号级；若本文概括与 LLD 的代码级结论冲突，以当前代码复核后的 LLD 为准并同步修正本文。
 
 ---
 
@@ -52,17 +65,7 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 7. 历史 Dagster event 中已经写入的旧湖/Kopia 字样：允许保留，不改写既有 event；86 份纯旧 Console
    文档不再留在当前工作树，必要结果摘要迁入现行总账后删除，全文只通过 Git 历史追溯。
 8. 对旧湖路径和 Kopia 的禁止性规则、负向测试：保留并按新事实更新。
-9. 清退阶段保留 `suspend_full_day_ranges.csv` 及当时读取链只是防误删措施，不是长期设计认可。用户已要求
-   记录后续治理 TODO：消除停牌修正规则的运行时文件隐性依赖。详见 LLD §16.11 `TODO-SUSPEND-001`；
-   清退阶段仅登记，不自动扩充本专项实施范围，替代方案验收前不得先删该 CSV。
-   2026-09-06 用户已确认后续方向：Raw 不变，历史确认事实独立持久化为正式 Silver 输入资产，
-   由现有停牌 Silver 统一供本地 DG 链路消费；不改 Prod 与远程部署链路。
-   [独立技术方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)
-   及配套 LLD 已获认可，后续 S0 只读审计已完成，见
-   [S0 清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。
-   2026-09-08 S1实现、消费者及治理隔离回归已完成，见[LLD §18.27总对账](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s1-total-reconciliation)；
-   早期隔离事故影响核验仍保留在LLD §17，不用本轮通过覆盖历史。随后S2已完成真实4,022行候选/生产合同反例及3,083日期零差异比较，见[LLD §18.28](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s2-real-candidate-reconciliation)。
-   S0–S4已完成：S2全范围零差异及S3文件/事件发布证据保留于独立LLD §18.28–18.30。S4四历史日正式job等价复用原文件，20项检查通过；恢复唯一Silver sensor后，正常链自行生成2026-09-07分区10行，5项检查及实际消费readiness通过，见[§18.31](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s4-formal-daily-acceptance)。S5已删除旧CSV/模块、完成测试运行器收尾修正与156个逻辑用例回归，并精确清理批准的临时产物，TODO-SUSPEND-001关闭，见[LLD §18.35](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)。正式数据、发布记录、正常日更checkpoint与suspend_timing.py未变，不恢复CSV依赖。
+9. 停牌 CSV 当时有真实消费者，因此清退时保留并登记 `TODO-SUSPEND-001`。后续独立专项已完成 S0–S5：Raw 不变，确认事实持久化为正式 Silver 输入，本地 DG 消费停牌 Silver，旧 CSV/模块已退出，TODO 已关闭；不改 Prod 与远程链路。唯一最终记录见上方停牌 LLD S5，历史事故与逐阶段验收保留在该 LLD，不在本文逐次追加。
 
 ### 0.4 新增拍板结果
 
@@ -93,7 +96,7 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 
 旧“不处理物理数据”口径来自用户此前“物理旧湖本次先不删”“其它物理旧湖、ignored 环境等清退后
 再处理”的决定，曾落在本节、§1.4、§4.6、M8 和 §9；2026-09-05 的决定替代其中物理数据的延期口径，
-没有把 ignored 依赖环境/本机配置自动变成数据删除对象。除 §0.4 第 9 项获单独批准的备份外，当前仍是审计和文档更新，不执行代码清退或其他数据删除。
+没有把 ignored 依赖环境/本机配置自动变成数据删除对象。该段记录 2026-09-05 审计阶段的授权边界；后续代码和数据执行结果见顶部收口导航，不再表示当前尚未清退。
 具体物理对象的删除资格仍须由 LLD §16 的清单证明，不能把原则拍板写成所有对象已可删除。
 
 ---
@@ -237,6 +240,8 @@ CodeGraph 对 enum member 字符串和动态 CLI 分支覆盖有限，因此又�
 ---
 
 ## 3. 当前代码事实
+
+> 本节“当前”指清退前审计基线，保留用于解释为何拆分和防误删；旧目录、迁移符号和命令现已退出，不能按本节作为今日操作入口。
 
 ### 3.1 旧 Console 与 Kopia 是闭合旧产品
 
@@ -749,6 +754,8 @@ adj_factor 路径已全覆盖但只做 5 分区内容取样，仍待核；只有
 ---
 
 ## 6. 实施顺序
+
+> 历史实施顺序与验收记录。已批准 M1–M8 的完成情况见顶部导航；不重新开启这些阶段。
 
 ### M0：删除前复核和精确白名单
 

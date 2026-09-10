@@ -1,12 +1,8 @@
 # CodeGraph 架构快照
 
-生成日期：2026-08-22
-局部更新：2026-09-05，清退 M2A 当前分钟历史 CLI 拆分、M2B 入口安全门禁、M3 旧 migration 主体退出、M4 旧适配器退出/Raw 恢复重构及 M6 旧产品原子清退；未重审其它模块，下面索引规模仍是原生成日记录。
-局部更新：2026-09-08，仅校准停牌确认事实调用链与S1总对账（代码/隔离回归完成，未正式发布）；未重审其他模块。
-索引根：`/Users/congming/github/goldenshare`
-索引结果：2,508 files，44,388 nodes，101,669 edges，DB 110.44 MB
+初始生成：2026-08-22；局部复核：2026-09-10（QTF 装配、执行分支、清退与停牌收口）。索引根：`/Users/congming/github/goldenshare`。
 
-本文是基于 CodeGraph 根索引生成的当前事实快照，不是新的重构方案。后续做架构分析、重构、依赖边界调整、共享 contract 修改、dispatcher/worker/service 修改前，应先回到 CodeGraph 做上下文和影响面分析。
+这是代码入口快照，不是规范或全仓合规证明。未逐项重验的历史链路不能据此认定今日生产状态；下方既往工具记录保留原阶段含义。目录与依赖规则统一见[子系统架构基线](./subsystem-boundary-plan.md)，工具流程见根 AGENTS；不在此维护易过期的索引规模。
 
 ## 模块分层
 
@@ -17,8 +13,23 @@
 1. `src/foundation/**`：数据基座。事实源是 `src/foundation/datasets/**` 的 `DatasetDefinition`，执行计划是 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan`。源请求、normalizer、writer、DAO、模型和 serving 发布都在这一层。
 2. `src/ops/**`：运维治理与 TaskRun 主链。包括 Ops API/query/service、runtime dispatcher/worker/scheduler、TaskRun 观测、manual actions、freshness、schedule、probe、dataset cards。
 3. `src/biz/**`：对上业务 API 与查询服务。当前包含 quote、market、realtime，以及 `src/biz/api/wealth/**` 的财势乾坤行情系统 API。
-4. `src/app/**`：组合根。`src/app/api/v1/router.py` 聚合 auth、Ops、Biz、Wealth API；`src/app/web/app.py` 是 Web 应用装配入口。
+4. `src/app/**`：组合根。`src/app/api/v1/router.py` 聚合 auth、Ops、Biz、Wealth 与 QTF API；`src/app/web/app.py` 是 Web 应用装配入口。
 5. `src/platform/**`、`src/operations/**`：legacy 冻结目录，不承接新主实现。
+
+### 独立产品域：`qtf/`
+
+QTF 已进入受控 Python 包发现；只依赖自身与 Foundation，由 App 装配，Ops 不导入 QTF。当前入口：
+
+```text
+/api/v1/qtf（src/app/api/v1/qtf.py）
+  -> QTF application / persistence / Prod 只读 adapter
+Run 启动意图 -> App QtfTaskRunIntentStager -> Ops TaskRun
+独立 QTF lane -> App QtfTaskExecutor -> SectorExperimentExecutor
+  -> QTF 业务 session；Ops 进度经独立 session 观察
+```
+
+核验点：`pyproject.toml`、`src/app/runtime/ops_worker_factory.py`、
+`src/app/runtime/qtf_task_executor.py` 与依赖矩阵测试。基础链存在不等于回测结果能力完成：旧 M4 合同仍在，简化方案待实施；九个当前 API 和未来能力边界见 [QTF LLD 实现地图](./qtf-quant-platform-low-level-design-v1.md#implemented-map)。不据本快照推断生产表为空或 worker 今日运行状态。
 
 ### 数据运营后台：`frontend/`
 
@@ -52,7 +63,7 @@ src.app.web.run
   -> src.biz.api.* / src.biz.api.wealth.*
 ```
 
-`src/app/api/v1/router.py` 是当前 API 聚合点：它包含健康检查、auth/admin、Ops API、quote/market/realtime，以及 Wealth market 模块。
+`src/app/api/v1/router.py` 是当前 API 聚合点：它包含健康检查、auth/admin、Ops API、quote/market/realtime，以及 Wealth market 模块与 App 装配的 QTF 管理员 API。
 
 ### TaskRun 数据维护主链
 
@@ -74,7 +85,7 @@ CodeGraph 确认 `TaskRunDispatcher._dispatch_dataset_action` 会从 TaskRun 构
 
 `_run_dataset_action_plan` 创建 `DatasetMaintainService`，把 `_plan` 与 `_action_request` 传入 `maintain`。因此 TaskRun 只承载用户或调度意图；计划归一化仍由 `DatasetActionResolver` 负责。
 
-`IngestionExecutor.run` 按 unit 循环执行 `fetch -> normalize -> write -> session.commit()`，异常时 rollback，并通过 progress reporter 上报 unit、行数、reject reason 和 current object。
+`IngestionExecutor.run` 根据计划选择普通 unit、并发抓取或显式 opt-in 的 staged-stream 路径，不是统一的串行 fetch/commit 循环。普通业务提交、Raw/Serving 两阶段与 staged 分页的边界见[执行计划基线](./dataset-execution-plan-refactor-plan-v1.md)，以 `executor.py`、`writer.py`、`staged_stream.py` 为实现证据。进度报告不能替代业务提交事实。
 
 ### DatasetDefinition 到运营前端的契约链
 
@@ -120,7 +131,7 @@ MarketOverviewPage / TopMarketBar
 
 ```text
 正式 Dagster Lake 文件
-  -> src.foundation.clients.local_lake 的 6 类 Reader / 12 个文件
+  -> src.foundation.clients.local_lake Readers
   -> Biz 查询服务与 API
   -> Wealth 股票／指数详情页面
 ```
@@ -143,7 +154,7 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 
 `orchestrator/defs/**` 包含 stock_basic、stock_daily、stk_mins、adj_factor、index_daily、market_breadth、ClickHouse serving 等资产、检查、任务、传感器和 run contract。
 
-停牌链当前源码（2026-09-08）：`assets/suspend_d.py::silver_stock_suspend_daily` 依赖原Raw与外部固定资产 `silver_stock_suspend_confirmed`，调用同文件唯一 `write_silver_stock_suspend_daily_partition`；后者读Raw＋通过完整批准内容校验的固定Silver输入，调用三关系纯SQL接口，在独立staging校验候选并通过prepared/committed checkpoint原子提升。它不读CSV、实例事件或其他run staging；最终四列、14条时段修正及Raw抓取不变。固定资产只有AssetSpec，没有自动writer。现有job明确一writer、五checks；专用readiness读取最新固定发布及两个checks，不增加日更freshness。人工五CLI已实现，文件侧与事件侧分离。S0–S4现已完成：固定文件与3条事件已发布，四历史日等价通过，恢复指定sensor后的正常日更已生成9月7日10行，5项检查及消费readiness通过。S5旧模块/CSV已获准删除，测试运行器正常退出收尾已修正；156个逻辑用例通过，批准专项产物已精确清理，TODO关闭（停牌LLD §18.35）；现行源码、正式数据及被发布CLI读取的合同/checkpoint保留。CodeGraph explore/impact覆盖writer/readiness/治理消费者及旧模块内部调用，图外测试/文档引用经源码补核，无Foundation/Ops/Biz/Wealth边界变更。完成对账见[停牌LLD §18.35](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)。
+停牌日更由 `assets/suspend_d.py::write_silver_stock_suspend_daily_partition` 读取 Raw 与固定 Silver 确认事实，在独立 staging 校验并原子提升；当前不读取旧 CSV。固定确认事实与日更资产的发布/检查边界见[停牌专项 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md)。S0–S5、实际日期/行数、临时产物清理和事故核验只保留在该 LLD 的最终对账与历史章节，避免本快照维护第二份运行日志。
 
 ### 分钟历史 CLI（2026-09-05 M2A / M2B / M3）
 
@@ -181,9 +192,7 @@ stk_mins_raw_replace_from_prod_cli.py plan/apply（人工维护窗口）
 中断后按同 run 的目标/候选物理指纹续跑；部分提升后候选丢失是人工停止点。只有单文件原子性，没有
 五文件事务；操作前须人工协调同日 writer，未引入常驻服务或锁文件。
 
-M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式 path/partition、当前日常计算和上述
-21 CLI 命令契约不变。旧 enum/exports/七项 SQL 退出；历史 event 不改写。M4 实现与隔离回归记录随本次提交归档，
-不是正式恢复或部署验收；旧 Console 随 M6 退出，物理数据仍须按精确清单单独确认。
+清退时的 catalog/CLI 数量、逐文件迁移、M4 隔离回归与 M8 精确清单统一见[清退 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)；历史数量不作为当前目录规模。恢复工具存在不等于本轮获准写湖。
 
 ## 关键 Contract 与 Adapter
 
@@ -247,6 +256,8 @@ M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式
 
 ## 本次 CodeGraph 调用记录
 
+> 下列是初始快照及历次清退阶段的工具记录，“本次”指各自原执行轮次；保留点时证据，不代表 2026-09-10 重新执行全部专项。今日局部复核范围见文末。
+
 1. `codegraph_status`：确认根索引状态、文件数、节点数、边数。
 2. `codegraph_files`：查看 `src`、`frontend/src`、`wealth/src`、`lake_console`、`lake_console/orchestrator/src/orchestrator/defs` 的结构。
 3. `codegraph_explore`：分析 API 装配、TaskRun/ingestion 主链、DatasetDefinition contract、运营前端 manual actions、Wealth API、Lake Console sync center。
@@ -265,9 +276,9 @@ M4 校准 17 个 catalog 来源声明，159 个资产仍保留；字段、正式
 
 14. 清退 M6：codegraph_explore/impact/callers 覆盖旧 Kopia → API/CLI/UI/测试及当前 6 类 Reader 的 Biz/API 消费者。用全仓 2,410 份保留 Python 的 AST 导入、动态导入和 tracked 配置/脚本/TS 引用补扫弥补索引空结果；旧产品删除清单固定为 263 文件。正式运行源码、21 CLI fixture、Foundation/Biz/Ops、现行前端、reports、两项 ClickHouse 工具共 2,140 文件逐内容对照不变。调用图只作静态证据，不代表正式环境已部署或停服。根 sync/status 完成：2,949 files / 53,540 nodes / 129,954 edges，索引最新（M6 点时值）。
 
-## 仍需人工确认
+## 使用边界
 
-1. 旧 Console 代码已清退；物理旧湖和 ignored 环境仍须按精确用途清单由管理员确认清理，不能凭当前快照自行删除。
-2. `lake_console` 允许访问生产库只读导出的白名单边界，需要在具体改动前结合对应 Lake 文档和当前配置逐项确认。
-3. `wealth` 与生产后端 API 的版本化策略是否要单独出 contract 文档；当前快照只记录代码事实，不新增策略。
-4. `DatasetDefinition` 修改的测试门禁是否要沉淀为固定命令清单；当前已有架构护栏，但不同数据集仍需按计划口径补真实验证。
+1. 清退已批准范围的完成记录见专项；清单外物理对象没有因本快照获得删除授权。
+2. 数据库读取白名单、恢复维护窗口和真实执行需按具体任务核验；本轮未访问生产数据库或正式 DG instance。
+3. API 合同与数据集测试回到对应专题和接入模板，不再把已有规范写成新的待拍板事项。
+4. 本轮使用 CodeGraph status/query/impact 核查 QTF，并以 router、factory、executor、合同与架构测试补核实际调用；图中同名符号扩散不视为调用证据。没有改变代码、依赖方向或运行合同。
