@@ -630,6 +630,49 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 审计阶段定向离线测试 98 passed（另 141 项未选中），文档完整性检查通过；测试替身和内存数据库不代表生产验收。本次编辑后复核链接、引用、差异及范围，不执行源端实测或生产动作。通用设计规则仍引用现行架构基线与模板，不新增一套治理门禁。
 
+<a id="moneyflow-news-reference-docs-consolidation-20260910"></a>
+
+#### 2026-09-10 资金流、新闻资讯与基础资料：21 份整理为 20 份
+
+按用户批准的三批审计结论修改文档；本轮没有代码、配置、源请求、数据库、Lake 或部署变更。20 份主说明保留原路径；不是按文件名或数据集使用频率删除能力。
+
+以下文件均位于 `docs/datasets/`：
+
+| 原文件 | 处理与去向 |
+| --- | --- |
+| `moneyflow-ths-dataset-development.md` | 保留；当前 Raw/view 合同与完整历史验收分列，撤下现行章节的旧暂停/迁移步骤 |
+| `moneyflow-dc-dataset-development.md` | 保留；消除双物理表与已迁移状态矛盾，完整保留历史故障、ANALYZE 与验收证据 |
+| `moneyflow-cnt-ths-dataset-development.md` | 保留；补 limit/offset 5000 分页，金额按本地源文档标亿元并声明实测边界 |
+| `moneyflow-ind-ths-dataset-development.md` | 保留；纠正金额单位说明及旧双表路径 |
+| `moneyflow-ind-dc-dataset-development.md` | 保留；纠正 content_type 来源和比例字段含义，保留 name 参与的真实主键 |
+| `moneyflow-mkt-dc-dataset-development.md` | 保留；Raw/view 与现行行情消费者对齐 |
+| `news-dataset-development.md` | 保留；整日×来源 unit、来源注入与真实进度键对齐 |
+| `cctv-news-dataset-development.md` | 保留；改为专用自然日 planner，保留无稳定段落序号及自然日审计边界 |
+| `major-news-dataset-development.md` | 保留；撤下当前清表重建指令，旧 hash 迁移只作历史说明 |
+| `anns-d-dataset-development.md` | 保留；完整区间、rec_time 必填与历史源端样本分列 |
+| `irm-qa-sh-dataset-development.md` | 保留；压缩重复设计，保留日期参数歧义、可空 pub_time 与哈希合同 |
+| `irm-qa-sz-dataset-development.md` | 保留；保留深市 industry 不参与哈希及历史空日样本，不混同上证 |
+| `research-report-dataset-development.md` | 保留；修正类型多选 unit 数及可空/合法性区别，保留 2026-05-14 实测记录 |
+| `broker-recommend-dataset-development.md` | 保留；真实 schema、月份观测、域与分组对齐，保留 Raw/Serving 双写及 14/4 字段证据差异 |
+| `bak-basic-dataset-development.md` | 保留；校准现行工作流、日期/代码过滤与 unit ID；无日期全历史仍不在范围 |
+| `bse-mapping-dataset-development.md` | 保留；无日期快照、双代码身份，来源历史规模不写成永久容量保证 |
+| `namechange-dataset-development.md` | 保留；1000 分页配置与未知源上限分开，补充 end_date 参与内容 hash 的含义 |
+| `stock-company-dataset-development.md` | 保留；代码优先、多代码逐 unit 和三交易所默认展开对齐 |
+| `st-dataset-development.md` | 保留；承接字段修复 LLD 的根因、迁移安全、消费者和未核验生产边界 |
+| `stock-st-dataset-development.md` | 保留；撤掉不存在的 2016 年自动裁剪与旧测试覆盖承诺，保留每日名单双写及业务消费者 |
+| `st-source-field-contract-repair-lld-v1.md` | 删除；有效内容并入 [st 维护说明 §6](/Users/congming/github/goldenshare/docs/datasets/st-dataset-development.md#st-source-field-repair)，旧全文可从 Git 历史恢复 |
+
+保留和纠偏边界：
+
+1. 六个资金流数据集的字段、单位、主键和请求维度不同，分别保留；THS/DC 历史 M0–M3b 正文仅调整标题层级，并统一声明当时状态不代表今天。视图没有自己的物理主键/索引；业务查询、旧审计时间不透明边界和迁移护栏不删除。
+2. 同花顺行业/概念三项金额的万元/亿元冲突只按本地源文档校准文字并标来源；没有缩放数据或修改 normalizer。本轮没有新源端实测；券商荐股 14 个代码请求字段与本地文档 4 字段的证据差异显式保留，不擅自删字段。
+3. 新闻、公告、问答、研报不混为同一种日期展开；新闻联播保留自然日完整性审计，其余事件类 not_applicable 不等于禁止日期输入。buffer_all/unit 提交与页级持久化分开，不宣称所有长任务门禁已满足。
+4. ST 事故保留 TaskRun 8080、4147 行拒绝、当时 4126 行既有事实、2026-08-12 新旧字段三类实测、两条重命名 DDL、哈希不重算和禁止 downgrade；旧静态导出不再是当前消费者或验收项。没有新生产证据，不把原“待部署验收”升级为已完成。
+5. `st` 事件与 `stock_st` 日名单不合并；后者和 broker_recommend 仍是 Raw/Serving 双物理写入，不能套用 Raw-only/view。后端支持多代码不等于新增前端控件；源端起始日期不等于实现自动裁剪。
+6. 撤下重复 Definition/DDL 副本、旧施工清单和不真实测试路径，保留源字段表、特殊身份规则、已确认决策、现行代码/测试入口及历史样本。不改 source 文档或 Tushare 索引，避免将本仓决策写进源事实目录。
+
+验证：21 份原主体共 5,791 行，整理为 20 份 1,446 行；减少行数不是删除依据。六个资金流及 ST 迁移定向离线回归 45 passed，resolver/normalizer/source-client 相关选择 57 passed（110 deselected）；20 份说明覆盖当前全部 source_fields 名称，链接文件目标检查通过，THS/DC 历史验收正文逐字比较一致。文档完整性三个检查组和差异检查通过；这些不证明源端现况、生产部署或业务数据完整。README 的无关交易助手条目及其他任务改动保留。
+
 ### 4.4 Frontend 组
 
 当前状态：已完成第一轮整合（建立统一强约束主文档）。

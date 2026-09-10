@@ -217,9 +217,9 @@ docs/
 - [股票历史基础列表](/Users/congming/github/goldenshare/docs/datasets/bak-basic-dataset-development.md)
 - [北交所新旧代码对照](/Users/congming/github/goldenshare/docs/datasets/bse-mapping-dataset-development.md)
 - [股票曾用名](/Users/congming/github/goldenshare/docs/datasets/namechange-dataset-development.md)
-- [ST 风险警示事件](/Users/congming/github/goldenshare/docs/datasets/st-dataset-development.md)
-- [ST 风险警示事件源字段契约收口专项 LLD v1](/Users/congming/github/goldenshare/docs/datasets/st-source-field-contract-repair-lld-v1.md)
+- [ST 风险警示事件维护说明（已合并字段修复 LLD；历史事故、迁移边界与验收证据分列）](/Users/congming/github/goldenshare/docs/datasets/st-dataset-development.md)
 - [上市公司基本信息](/Users/congming/github/goldenshare/docs/datasets/stock-company-dataset-development.md)
+- 2026-09-10：资金流、新闻资讯与基础资料三批共 21 份整理为 20 份；ST 字段修复 LLD 已并入事件维护说明，其余保留独立合同。[逐文件处理与证据边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#moneyflow-news-reference-docs-consolidation-20260910)见治理记录。
 
 ## 6. 前端、业务与发布（S4）
 

@@ -1,55 +1,35 @@
-# Tushare 个股资金流向（THS）（`moneyflow_ths`）数据集开发说明
+# 个股资金流向（THS）（`moneyflow_ths`）维护说明
 
-## 0. 当前架构基线（必须遵守）
+状态：当前代码说明；2026-09-10 文档治理核对。历史生产验收单列，不代表本轮重新核验了部署、数据或 schedule 状态。
 
-本数据集结论：
+## 1. 范围与依据
 
-- 该数据集是否对外服务：是
-- 当前是否多源：否（仅 `tushare`）
-- 是否已具备 std 映射与融合策略：否
-- 当前代码 target_table：`raw_tushare.moneyflow_ths`
-- 当前生产路径：`raw_tushare.moneyflow_ths` 唯一物理事实表、`raw_only_upsert`；`core_serving.equity_moneyflow_ths` 为 0 B 只读 view
-- raw 直出专项目标：`raw_tushare.moneyflow_ths` 唯一物理事实表，原 `core_serving.equity_moneyflow_ths` 名称保留为只读 view
-- 当前阶段：`P1-B3-moneyflow_ths-M0/M1/M2/M3a/M3b` 全部通过并结案；生产为 Raw 唯一物理事实表与 0 B Serving view
+单源 Tushare 数据集，属于资金流向域；不做 Std 映射或多源融合。本文只保留本数据集合同；通用接入、日期与运行门禁见[开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)和[日期模型消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)。
 
----
+- 来源：Tushare `moneyflow_ths`，doc_id=348；[本地接口说明](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/资金流向数据/0348_个股资金流向（THS）.md)。
+- 事实源：[moneyflow Definition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/moneyflow.py)。
+- 执行：[DatasetActionResolver](/Users/congming/github/goldenshare/src/foundation/ingestion/resolver.py) → [unit planner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py) → [request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py) → SourceClient / Normalizer / Writer。
 
-## 1. 标准交付流程（本数据集）
+## 2. 输入、执行与观测
 
-1. 固定上游接口 `moneyflow_ths`（doc_id=348）。
-2. 明确输入输出参数与历史回补推进口径。
-3. 设计 `raw_tushare.moneyflow_ths` 与 `core_serving.equity_moneyflow_ths`。
-4. 打通 Ops 手动/自动任务、数据状态观测。
-5. 完成单测、集成测试与回归。
+| 维度 | 当前口径 |
+| --- | --- |
+| 维护入口 | `moneyflow_ths.maintain`；支持手动、定时与重试 |
+| 时间输入 | point 单日；range 开始/结束日期。日期模型为 `trade_open_day / every_open_day` |
+| unit | 单日生成一个 unit；区间按交易日历开市日逐日生成 |
+| 对象选择 | `no_pool`；可选 `ts_code` 定向过滤，不按股票/板块池展开 |
+| 源请求 | 每个 unit 发送 `trade_date=YYYYMMDD`及可选 `ts_code`；不把运营区间原样传给源接口 |
+| 分页 | `offset_limit`，`page_limit=6000`；SourceClient 注入 `limit/offset`，空页或短页结束 |
+| 持久化 | `commit_policy=unit`；一个 unit 读取完成后归一化、写入并提交，不是每页独立提交 |
+| 观测 | 资金流向分组；`observed_field=trade_date`，启用日期完整性审计 |
 
----
+每日资金流向维护工作流 `daily_moneyflow_maintenance` 已包含本数据集，定义见 [action_catalog](/Users/congming/github/goldenshare/src/ops/action_catalog.py)。保留“独立资金流向工作流、不并入其他工作流”的已确认边界；工作流定义不等于某台机器的 schedule 正在启用。
 
-## 2. 基本信息
+已确认的默认运营口径：自动资金流工作流不附带单股筛选，手动维护保留 `ts_code` 定向补数。Definition 的可选 filter 不等于工作流自动配置了该筛选，也不表示已核验所有自定义自动任务页面的字段可见性。
 
-- 数据集名称：个股资金流向（THS）
-- 资源 key：`moneyflow_ths`
-- 所属域：股票
-- 数据源：`tushare`
-- 官方文档链接：<https://tushare.pro/document/2?doc_id=348>
-- API 名称：`moneyflow_ths`
-- 文档抓取日期：`2026-04-17`
+## 3. 字段与质量
 
----
-
-## 3. 接口分析
-
-### 3.1 输入参数（上游原生）
-
-| 参数名 | 类型 | 必填 | 说明 | 类别 | 是否暴露给运营 | 前端控件 | 执行层映射 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `ts_code` | str | 否 | 股票代码 | 代码 | 是（可选） | 代码输入 | 直传 |
-| `trade_date` | str | 否 | 交易日期（YYYYMMDD） | 时间 | 是 | 单日日期选择器 | 直传 |
-| `start_date` | str | 否 | 开始日期（YYYYMMDD） | 时间 | 是 | 区间选择器 | 直传 |
-| `end_date` | str | 否 | 结束日期（YYYYMMDD） | 时间 | 是 | 区间选择器 | 直传 |
-| `limit` | int | 否 | 单次返回数据长度 | 分页 | 否 | 不暴露 | 执行层自动注入 |
-| `offset` | int | 否 | 请求数据开始位移 | 分页 | 否 | 不暴露 | 执行层自动注入 |
-
-### 3.2 输出字段（上游原生）
+以下按本地源文档列出业务字段；实际显式请求列表以 Definition 的 `source_fields` 为准。
 
 | 字段名 | 类型 | 含义 | 是否落库 |
 | --- | --- | --- | --- |
@@ -67,144 +47,28 @@
 | `buy_sm_amount` | float | 今日小单净流入额（万元） | 是 |
 | `buy_sm_amount_rate` | float | 今日小单净流入占比（%） | 是 |
 
-### 3.3 同步策略结论
+日期和数值解析、必填字段拒绝由现行 normalizer 执行；异常应查看实际 reason code 与样本，不以日志示例代替数据对账。
 
-- 是否支持单次时间点：是
-- 是否支持区间回补：是
-- 时间粒度：日
-- 时间推进策略：交易日历逐日推进
-- 是否需要分页循环：是（接口支持 `limit` / `offset`）
-- 是否有级联依赖：否
+## 4. 存储与查询边界
 
-推荐最省力拉取方式：
+- 唯一物理事实表及 `target_table`：`raw_tushare.moneyflow_ths`；写入 `raw_only_upsert`。
+- Raw 主键：`(trade_date, ts_code)`。审计字段为 `api_name/fetched_at/raw_payload`；物理索引以 [Raw ORM](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_moneyflow_ths.py)及实际数据库 catalog 为准。
+- 读取出口：`core_serving.equity_moneyflow_ths` 普通视图，直接投影 Raw 业务字段，并将 `fetched_at` 投影为 `created_at/updated_at`。
+- `delivery_mode=raw_with_serving_view`；没有第二份 Serving 物理写入，也不是待建的临时双表方案。
+- 普通 view 不自带主键或实体索引；ORM 的身份列用于查询映射，访问依赖 Raw 索引。迁移不承诺 relation OID、relkind、旧 index catalog 或历史 `created_at` 值透明。
+- 历史切换实现：[revision 20260829_000159](/Users/congming/github/goldenshare/alembic/versions/20260829_000159_make_moneyflow_ths_raw_view.py)。原子迁移的依赖、权限、全字段对账和拒写护栏保留在迁移代码，不作为现在重建或回退表的授权。
 
-- 日常：按 `trade_date` 单日请求。
-- 历史：按区间映射交易日历逐日请求。
-- 分页：当单次返回触达上限时，使用 `limit` + `offset` 翻页补齐当日数据。
-- 保留 `ts_code` 作为定向补数入口（默认不填，走全市场）。
+## 5. 回归与运行边界
 
----
+- 专项回归：[test_moneyflow_ths_raw_view_m1.py](/Users/congming/github/goldenshare/tests/test_moneyflow_ths_raw_view_m1.py)：存储合同、请求计划、writer、模型及迁移护栏。
+- 本轮只校准文档，不修改字段、日期、分页、API/CLI 或 schedule；不执行生产迁移、全量回补或真实源请求。
+- unit 提交不等于分页持久化或已经满足长任务门禁；扩大日期范围前仍需按开发模板核对请求量、单 unit 内存和恢复证据，不能凭本说明认定全历史执行安全。
 
-## 4. 参数与交互设计（Ops）
+## 6. 历史迁移与验收证据
 
-### 4.1 手动任务交互
+以下保留 2026-08-29 至 2026-08-31 的阶段记录。文中的“当前生产”“下一步”“必须”等均指当时阶段；最终 M3b 已记载结案，早期待办不再是当前任务。旧 Lake Console 消费者描述仅是迁移时历史，不代表已退役实现仍受维护。commit、revision、schedule ID、临时报告路径与行数不是本轮实时状态证明，临时文件存在性也未复核。不得照录重跑迁移或启停服务。
 
-1. 第一步：选择要维护的数据  
-数据分组：股票  
-维护对象：个股资金流向（THS）
-2. 第二步：时间参数  
-支持单日、区间
-3. 第三步：其他输入条件  
-`ts_code`（可选）
-
-### 4.2 自动任务交互
-
-- 资源：`moneyflow_ths.maintain`
-- 默认参数：仅 `trade_date`（由调度注入）
-- 可选扩展：`ts_code`
-
----
-
-## 5. 落库与发布设计
-
-### 5.1 路径选择
-
-- 切换前路径：同一 normalized batch 同时 upsert `raw_tushare.moneyflow_ths` 与 `core_serving.equity_moneyflow_ths`
-- 当前路径：只 upsert Raw，原 Serving 名称已由 revision 159 改为显式列投影的只读 view
-- 选择理由：M0 已证明两层全部 13 个业务字段、主键和 21 个自然月数据完全一致，当前没有 Serving 专属业务转换
-- 不在本次范围：引入 std、多源融合、修改 Tushare fields/分页/日期模型、修改 Ops 输入或自动任务时间
-
-### 5.2 表设计
-
-#### A. `raw_tushare.moneyflow_ths`
-
-- 主键：`(trade_date, ts_code)`
-- 审计字段：`api_name`, `fetched_at`, `raw_payload`
-- 索引：
-  - `idx_raw_tushare_moneyflow_ths_trade_date(trade_date)`
-  - `idx_raw_tushare_moneyflow_ths_ts_code_trade_date(ts_code, trade_date)`
-
-#### B. `core_serving.equity_moneyflow_ths`
-
-- 主键：`(trade_date, ts_code)`
-- 对外口径：与上游业务字段一致（不含审计字段）
-- 当前形态：保留原 relation 名的 0 B 普通只读 view；13 个业务字段同名投影，`fetched_at AS created_at/updated_at`
-- 索引：
-  - `idx_equity_moneyflow_ths_trade_date(trade_date)`
-  - `idx_equity_moneyflow_ths_ts_code_trade_date(ts_code, trade_date)`
-- 透明边界：业务字段、名称和查询结果保持；不承诺 OID、relkind、view 自身约束/index catalog 与历史 `created_at` 值透明
-
----
-
-## 6. 维护实现设计
-
-- IngestionExecutor / SourceClient：`moneyflow_ths` 数据集维护链路
-- 当前代码 `target_table`：`raw_tushare.moneyflow_ths`；Serving 仍通过原名称读取
-- 当前生产部署为 commit `754f6c78`、revision 159 和 `raw_only_upsert`；Serving 原名称继续透明承载只读查询
-- 参数构建：
-  - `moneyflow_ths.maintain`：`trade_date` 或 `start_date+end_date` + 可选 `ts_code`
-- 幂等：按主键 upsert
-- 异常策略：上游异常按现有重试；参数异常中文提示
-- 进度日志示例：
-  - `moneyflow_ths: 12/82 trade_date=2026-04-16 fetched=5210 written=5210`
-
----
-
-## 7. 数据状态与健康度观测
-
-- 数据状态分组：资金流向
-- 健康度口径：日期范围（`trade_date`）
-- 展示名称：个股资金流向（THS）
-- 异常文案：中文摘要 + 原始错误可追溯
-
----
-
-## 8. 测试与验收
-
-### 8.1 测试清单
-
-- 单元测试：
-  - 参数映射（单日/区间/可选 `ts_code`）
-  - 交易日历推进
-  - upsert 幂等
-- 集成测试：
-  - `moneyflow_ths.maintain`（单日/区间）
-  - Ops 手动/自动任务链路
-- 回归测试：
-  - 不影响既有 `moneyflow` / `moneyflow_dc` 等数据集
-
-### 8.2 验收勾选
-
-- [x] 输出字段全量显式请求并落入当前 Raw/Serving
-- [x] Ops 手动/自动任务、分页和日期推进合同已存在
-- [x] 数据状态页可按 `trade_date` 展示
-- [x] M0 已完成 21 月、2,077,033 行、13 字段生产只读等价审计
-- [x] M1 raw-only Definition、ORM metadata、独立 migration 和自动化测试
-- [x] M2 隔离 PostgreSQL 验证
-- [x] M3a 生产切换与即时验收
-- [x] M3b 首个自然工作流验收
-
----
-
-## 9. raw 直出后续发布与回滚
-
-- M1：只修改本数据集 storage contract、Raw ORM 的既存索引 metadata、独立 migration 和测试。
-- M2：在隔离 PostgreSQL 验证 150,000/150,001 行容量、全字段/身份差异、依赖、ACL/comment、三类 DML、回滚、writer 与查询计划。
-- M3a：实时暂停 schedule #4、停止 generic worker、最终对账后使用维护迁移模式切换；回收连接池、执行最小 TaskRun 后恢复 schedule。
-- 自动 downgrade 禁止；DDL 提交前失败由同一事务原子回滚，提交后的物理回退必须另行授权并从 Raw 重建。
-
----
-
-## 10. 已拍板结论（本数据集）
-
-1. 自动任务默认不暴露 `ts_code`，仅保留手动页定向补数。
-2. 单次返回触顶（6000）时，优先走 `limit` + `offset` 自动分页补齐，不启用 `ts_code` 二级扇出。
-3. 纳入独立工作流：每日资金流向同步，不并入其它工作流。
-4. 数据状态分组归属：资金流向。
-
----
-
-## 11. 2026-08-29 `P1-B3-moneyflow_ths-M0` 只读审计结论
+### 历史阶段 11：2026-08-29 `P1-B3-moneyflow_ths-M0` 只读审计结论
 
 1. 当前生产 Raw/Serving 各 2,077,033 行，日期范围 `2024-12-19..2026-08-28`，21 个自然月全部 13 个业务字段双向 `EXCEPT ALL` 为 0；身份空值和 Raw `api_name` 异常均为 0。
 2. 两层主键都是 `(trade_date, ts_code)`，日期与 `(ts_code, trade_date)` 索引等价。Raw ORM 漏声明两个生产既存二级索引，M1 只补 metadata，不重建索引。
@@ -216,7 +80,7 @@
 
 ---
 
-## 12. 2026-08-29 `P1-B3-moneyflow_ths-M1` 实施结论
+### 历史阶段 12：2026-08-29 `P1-B3-moneyflow_ths-M1` 实施结论
 
 1. Definition 只修改 storage delivery contract：Raw/`target_table`/freshness 统一指向 `raw_tushare.moneyflow_ths`，写路径改为 `raw_only_upsert`；13 个 source fields、交易日逐 unit、可选 `ts_code`、6,000 行分页、手动/定时/重试能力均保持不变。
 2. Raw ORM 只补生产已存在的 `trade_date` 与 `(ts_code, trade_date)` 两个索引 metadata；revision 159 不创建、删除或重建 Raw 表和索引。
@@ -226,7 +90,7 @@
 
 ---
 
-## 13. 2026-08-29 `P1-B3-moneyflow_ths-M2` 隔离 PostgreSQL 验收结论
+### 历史阶段 13：2026-08-29 `P1-B3-moneyflow_ths-M2` 隔离 PostgreSQL 验收结论
 
 1. M2 使用本轮新建的 PostgreSQL 18.4 一次性实例，`listen_addresses=''`，只允许随机 Unix socket 连接；应用 migration 的角色为非超级用户。每次 Alembic 调用前均核对最终配置 URL、数据库、用户、socket、端口、`inet_server_addr=NULL`、恢复状态和 data directory，并把 `gs_raw_cold_hdd` 映射到临时目录用于身份门禁。本轮没有连接 Prod、请求 Tushare、部署、创建 TaskRun 或修改 schedule #4。
 2. 150,000 行/月正向场景从 revision 158 成功应用 159。Raw relation OID `16392` 及主键、日期索引、`(ts_code, trade_date)` 索引 OID/定义/valid/ready 状态保持不变，全部继续位于 `pg_default`；Serving 从物理表变为 0 B 普通 view。Raw/view 都是 150,000 行和 150,000 个唯一身份，13 个业务字段双向差异为 0。
@@ -238,7 +102,7 @@
 
 ---
 
-## 14. 2026-08-29 `P1-B3-moneyflow_ths-M3a` 生产切换与即时验收结论
+### 历史阶段 14：2026-08-29 `P1-B3-moneyflow_ths-M3a` 生产切换与即时验收结论
 
 1. M3a 于 `18:47..18:57+08` 按维护合同完成。切换前生产为 commit `fe3caa3b`、revision 158；schedule #4 active 且下一次触发为 `2026-08-31 20:00+08`。开放 TaskRun、目标 node、目标 relation 锁、等待锁和 30 秒以上事务均为 0，Web、generic worker、scheduler、日期完整性和 TaskRun 收尾服务均 active，两个健康端点为 200。
 2. 切换前 Raw/Serving 各 2,077,033 行和同数唯一 `(trade_date, ts_code)`，日期范围 `2024-12-19..2026-08-28`；21 个自然月逐月 13 字段双向 `EXCEPT ALL` 全为 0，月峰值 116,993。对象依赖门禁全部为 0，Raw/Serving 均为 `pg_default` 物理表，原 Serving 大小为 490,921,984 B。
@@ -251,7 +115,7 @@
 9. M3a 结论：**通过**。生产已经是 Raw 唯一物理事实表和读取透明的 0 B Serving view；`P1-B3-moneyflow_ths-M3b` 只待 schedule #4 下一次自然工作流观察，不创建额外任务、不重复请求源端。
 10. `2026-08-29 19:07+08` 再次只读核对生产 `ops.schedule#4`：状态为 `active`，触发规则为工作日 `0 20 * * 1-5`、时区 `Asia/Shanghai`，上次触发为 `2026-08-28 20:00:21+08`，下一次为 `2026-08-31 20:00+08`。2026-08-29 为周六，当日不会出现自然运行；手工补造任务不能替代 M3b，且 M3b 尚未到触发时刻不阻塞下一数据集独立 M0。
 
-## 15. 2026-08-31 `P1-B3-moneyflow_ths-M3b` 自然工作流验收与结案
+### 历史阶段 15：2026-08-31 `P1-B3-moneyflow_ths-M3b` 自然工作流验收与结案
 
 1. schedule #4 于 `20:00+08` 创建 TaskRun `10359`，父任务为 `success`、workflow step `7/7/0` 完成。
 2. `moneyflow_ths` node `16110` 成功处理 `2026-08-31`：1 页短页读取/保存 `5,210/5,210`，reject、去重、重试均为 0，未截断。

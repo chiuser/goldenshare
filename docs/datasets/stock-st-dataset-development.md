@@ -1,129 +1,52 @@
-# Tushare ST股票列表（`stock_st`）数据集开发说明
+# ST 股票列表（`stock_st`）维护说明
 
-## 1. 目标与边界
+状态：当前代码说明；2026-09-10 文档治理核对。本文只描述现行日名单维护，不执行历史重建、不宣称生产数据已补齐。
 
-- 目标：新增 `stock_st` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 运维打通。
-- 本期边界：
-  - 按交易日期维度同步，区间模式必须按交易日历扇出，不按自然日遍历。
-  - `stock_st.maintain` 必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
-  - 数据起点受上游限制为 `2016-01-01`，更早日期不做补齐。
+## 1. 范围与依据
 
-## 2. 上游接口信息
+Tushare `stock_st`，doc_id=397，[本地源说明](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/基础数据/0397_ST股票列表.md)。源文档描述每天约 09:20 更新、数据从 2016-01-01 起，属于来源说明，不是本轮时效或数据完整性证明。
 
-- 接口文档：<https://tushare.pro/document/2?doc_id=397>
-- API：`stock_st`
-- 描述：获取 ST 股票列表，可按交易日期获取历史每日 ST 列表。
-- 权限：3000 积分起。
-- 更新频率：每天约 `09:20` 更新。
-- 限量：单次最多 `1000` 行，可分页循环提取。
+与 [st 风险警示事件](/Users/congming/github/goldenshare/docs/datasets/st-dataset-development.md)不同：`stock_st` 表示每日名单，`st` 表示事件历史，两者类型字段、时间模型、写入路径均不能互换。事实定义见 [market_equity Definition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/market_equity.py)，公共流程见 [开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)。
 
-## 3. 参数设计
+## 2. 日期输入与执行
 
-### 3.1 上游输入参数
+- 入口 `stock_st.maintain` 必须显式提供 point 单日或 range 起止日期；不支持无时间全量。
+- point 生成该日期一个 unit；range 按交易日历开市日逐日展开。不要把“区间查日历”外推为所有 point 都会另做开市日过滤。
+- 每个源请求只发送 `trade_date=YYYYMMDD` 和可选 `ts_code`；区间不原样传给源端，不按股票池展开。
+- `generic / no_pool / offset_limit`；SourceClient 注入 `limit=1000/offset`，空页或短页结束。当前 `buffer_all + commit_policy=unit`，每个交易日全部分页读完后归一化、写入并提交。
+- **当前没有自动裁剪到 2016-01-01 的逻辑。** 源端历史起点与本仓保护行为必须区分；模拟交易日历返回 2015-12-31 时，现行规划器仍生成 `trade_date=20151231`。这是离线规划证据，不表示源端能返回该日数据。
+- 日历返回空集合时 planner 生成零 unit；本文不把它扩大承诺为所有任务入口一定“不报错且有特定提示”。
 
-- `ts_code`（可选）
-- `trade_date`（可选）
-- `start_date`（可选）
-- `end_date`（可选）
-- `limit`（可选，分页）
-- `offset`（可选，分页）
+代码依据：[Resolver](/Users/congming/github/goldenshare/src/foundation/ingestion/resolver.py)、[unit planner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)、[request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)。本次只撤掉不存在的自动裁剪承诺，不新增裁剪或放开输入合同。
 
-### 3.2 运维侧参数策略（面向用户）
+## 3. 字段、身份与存储
 
-- `stock_st.maintain`
-  - 参数：`trade_date` 或 `start_date + end_date`，可选 `ts_code`
-- 分页参数 `limit/offset` 不暴露给用户，服务内部固定循环分页。
-- 历史同步不允许无时间参数启动。
+| 字段 | 含义与约束 |
+| --- | --- |
+| `ts_code` | 股票代码，必填 |
+| `trade_date` | 名单日期，必填并转 Date |
+| `type` | 风险类型，必填，不自行映射为事件字段 st_type |
+| `name` | 股票名称，可空 |
+| `type_name` | 类型名称，可空，保留源口径 |
 
-### 3.3 输出字段（全量落库）
+- 五个业务字段显式请求，Raw 与 Serving 主键均为 `(ts_code, trade_date, type)`，避免覆盖同一股票同一天不同类型记录。
+- Raw 物理表 `raw_tushare.stock_st`，保留 `api_name/fetched_at/raw_payload`；[Raw ORM](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_stock_st.py)。
+- Serving 物理表及 `target_table` 为 `core_serving.equity_stock_st`，含 `created_at/updated_at`；[Serving ORM](/Users/congming/github/goldenshare/src/foundation/models/core/equity_stock_st.py)。
+- **仍为 `raw_core_upsert` 双物理写入**，不是 Raw-backed view。物理索引以现行模型/数据库为准，不保留旧“建议索引”作为建库指令。
 
-- `ts_code`
-- `name`
-- `trade_date`
-- `type`
-- `type_name`
+## 4. 工作流、观测与消费者
 
-## 4. 落库设计
+- 已纳入 `daily_market_close_maintenance` 的 `stock_st` 步骤，见 [action_catalog](/Users/congming/github/goldenshare/src/ops/action_catalog.py)；支持手动、定时、重试，不代表本轮确认了 schedule 开关。
+- 日期模型为 `trade_open_day / every_open_day`，观测 `trade_date`，freshness 为 `continuous_open_day`，日期完整性审计适用。
+- 当前消费者包括 [市场情绪](/Users/congming/github/goldenshare/src/biz/services/market_mood_calculator.py)、[涨停摘要](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/limit_up/limit_up_summary_query.py)和 [涨停结构](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/limit_up/limit_up_structure_query.py)；不能因为文档过期而删除服务表或改变类型口径。
 
-### 4.1 原始层
+## 5. 历史缺失日期专题与回归
 
-- 表：`raw_tushare.stock_st`
-- 主键建议：`(ts_code, trade_date, type)`
-  - 设计原因：同一标的同一交易日理论上可能存在不同风险类型状态，保守采用三列主键避免覆盖。
-- 字段：`name`, `type`, `type_name`
-- 审计字段：`api_name`, `fetched_at`, `raw_payload`
-- 索引建议：
-  - `idx_raw_tushare_stock_st_trade_date(trade_date)`
-  - `idx_raw_tushare_stock_st_ts_code(ts_code)`
+原接入记录指出源站某些历史日快照为空；相关处理仍单列在 [历史缺失日期重建方案](/Users/congming/github/goldenshare/docs/datasets/stock-st-missing-date-reconstruction-plan-v1.md)，对应 [重建服务](/Users/congming/github/goldenshare/src/foundation/services/migration/stock_st_missing_date_repair/service.py)和独立 CLI。它不是普通 `stock_st.maintain` 的自动回退，本轮不执行，也不根据方案标题判断当前生产是否已修复。
 
-### 4.2 服务层
+当前回归入口：
 
-- 表：`core_serving.equity_stock_st`
-- 主键：`(ts_code, trade_date, type)`
-- 字段：`name`, `type`, `type_name`
-- 系统字段：`created_at`, `updated_at`
-- 索引建议：
-  - `idx_equity_stock_st_trade_date(trade_date)`
-  - `idx_equity_stock_st_ts_code(ts_code)`
+- [Definition 注册](/Users/congming/github/goldenshare/tests/test_dataset_definition_registry.py)、[Ops 工作流](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)、[五字段清单](/Users/congming/github/goldenshare/tests/test_fields_constants.py)、[Serving 主键与索引](/Users/congming/github/goldenshare/tests/test_extended_models.py)。
+- 独立修复工具：[服务回归](/Users/congming/github/goldenshare/tests/test_stock_st_missing_date_repair_service.py)、[CLI 回归](/Users/congming/github/goldenshare/tests/test_cli_repair_stock_st_missing_dates.py)；这些不证明普通同步具有 2016 年自动裁剪。
 
-## 5. 维护实现策略
-
-### 5.1 单日维护
-
-- 必传 `trade_date`。
-- 请求参数：`trade_date (+ ts_code 可选)`。
-- 单日请求内部使用 `limit=1000, offset` 分页，直到不足 1000 或无数据。
-
-### 5.2 区间维护
-
-- 允许：
-  - 单日（`trade_date`）
-  - 区间（`start_date + end_date`）
-- 区间模式按交易日历开市日扇出（`trade_calendar.is_open=1`），逐交易日请求。
-- 区间会裁剪到接口最早日期 `2016-01-01`。
-- 若区间内无交易日，返回可读提示，不报错中断。
-
-## 6. Ops 打通设计
-
-- DatasetDefinition action：
-  - `stock_st.maintain`
-- Freshness 元数据建议：
-  - `dataset_key`: `stock_st`
-  - `display_name`: `ST股票列表`
-  - `domain`: `股票`
-  - `freshness_policy`: `continuous_open_day`，在 `src/foundation/datasets/freshness_policies.py` 集中登记
-  - `observed_date_column`: `trade_date`
-
-### 6.1 工作流接入
-
-- 已纳入 `daily_market_close_maintenance` 工作流，步骤键：`stock_st`，动作键：`stock_st.maintain`。
-
-## 7. 测试覆盖清单
-
-- `tests/test_sync_stock_st_service.py`
-  - 增量参数校验（`trade_date` 必填）
-  - 单日分页循环（`limit/offset`）
-  - 维护动作显式时间约束
-  - 区间按交易日历扇出
-  - 起始日期裁剪到 `2016-01-01`
-- `tests/test_sync_registry.py`
-  - 注册表包含 `stock_st`
-- `tests/test_ops_action_catalog.py`
-  - `stock_st.maintain` 参数契约
-- `tests/test_fields_constants.py`
-  - `STOCK_ST_FIELDS` 字段常量
-- `tests/test_extended_models.py`
-  - `raw_tushare.stock_st` 与 `core_serving.equity_stock_st` 主键/索引校验
-
-## 8. 风险与注意事项
-
-- 上游单日返回量可能触发分页，必须严格分页直到拉完，避免截断。
-- `type/type_name` 口径属于业务语义字段，必须原样落库，不做值映射。
-- 若区间很大，按交易日扇出会产生较多请求，应复用现有取消信号与进度上报机制，保证可中断、可观测。
-
-## 9. 历史缺失日期补数专题
-
-`stock_st` 已确认存在“源站日快照为空，导致历史交易日整日缺失”的专题问题。  
-该问题不通过常规 `stock_st.maintain` 主链修复，而通过单独的历史重建方案处理，详见：
-
-- [ST 股票列表历史缺失日期重建方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/stock-st-missing-date-reconstruction-plan-v1.md)
+旧 `tests/test_sync_stock_st_service.py`、`tests/test_sync_registry.py` 已不存在，撤下其覆盖承诺。大范围任务的请求量、内存、取消、提交与续跑仍按开发模板独立验收；本轮未请求 Tushare、修改业务表或验证历史完整性。

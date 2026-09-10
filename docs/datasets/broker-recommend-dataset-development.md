@@ -1,34 +1,32 @@
-# 券商每月荐股（`broker_recommend`）数据集开发说明
+# 券商月度金股推荐（`broker_recommend`）维护说明
 
-状态：当前实现。2026-08-01 已确认单月和月份区间维护均由 `DatasetActionResolver` 按 `DatasetDefinition.date_model.input_shape=month_or_range` 生成执行计划。
+状态：当前代码说明；2026-09-10 文档治理核对。2026-08-01 已确认单月和月份区间由 DatasetActionResolver 生成计划；本轮没有重新核验源端、生产数据或部署状态。
 
-## 1. 背景与目标
+## 1. 依据与范围
 
-- 数据集名称：券商每月荐股
-- 资源 key：`broker_recommend`
-- 所属域：基础主数据
-- 本次目标（新增/扩展/修复）：新增数据集，完成 raw/core 全字段落库，并打通运营后台（可执行、可观测、可诊断）
+- Tushare `broker_recommend`，doc_id=267；[本地源说明](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/特色数据/0267_券商每月荐股.md)。
+- [market_equity Definition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/market_equity.py)：底层域为 `equity_market / 股票行情`，不是基础主数据；Ops 展示分组为 `broker_recommendation / 券商推荐`。
+- 通用规则见 [开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)和 [日期模型消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)。
 
-## 2. 接口来源
+## 2. 月份输入与执行
 
-- 数据源平台：Tushare Pro
-- 官方文档链接（必须可访问）：<https://tushare.pro/document/2?doc_id=267>
-- API 名称：`broker_recommend`
-- 文档版本/抓取日期：2026-04-06（按 doc_id=267 页面内容核对）
+| 维度 | 当前合同 |
+| --- | --- |
+| 动作 | `broker_recommend.maintain`；支持手动、定时、重试 |
+| 时间输入 | `month_or_range`：point 使用月份；range 使用开始/结束月份 |
+| 日期模型 | `month_key / every_natural_month`；观测字段 `month`，日期完整性审计适用 |
+| 规划 | Resolver 归一化月份，planner 每自然月一个 unit，不查询交易日历 |
+| 源请求 | builder 逐 unit 生成 `month=YYYYMM`，不是 Ops/TaskRun 自行拼月份序列 |
+| 分页 | SourceClient 注入 `limit=1000/offset`，空页或短页结束；无对象池和业务过滤 |
+| 提交 | `buffer_all + commit_policy=unit`；读完该月全部分页后写入、提交，不是每页一个事务 |
 
-## 3. 接口能力分析
+例如运营选 `2026-06..2026-08`，生成 `month=202606/202607/202608` 三个 unit。月份存为六位字符串，不转业务 Date；输出中的 `trade_date` 是行字段，不是“按日维护”入口。
 
-### 3.1 输入参数（上游原生）
+## 3. 字段合同与来源证据缺口
 
-| 参数名 | 类型 | 是否必填 | 说明 | 是否纳入运营筛选 |
-| --- | --- | --- | --- | --- |
-| `month` | `str` | 是 | 月度，格式 `YYYYMM` | 是（用户侧以 `YYYY-MM` 选择，系统自动归一化） |
-| `limit` | `int` | 否 | 单次返回条数（文档约束单次最多 1000） | 否（系统内部分页参数） |
-| `offset` | `int` | 否 | 分页起始偏移 | 否（系统内部分页参数） |
+当前代码显式请求以下 14 字段，按 Raw 和 Serving 模型保存：
 
-### 3.2 输出字段（上游原生）
-
-| 字段名 | 类型（文档） | 业务含义 | 是否全量落库 |
+| 字段名 | 当前类型说明 | 业务含义 | 是否全量落库 |
 | --- | --- | --- | --- |
 | `month` | `str` | 月度 | 是 |
 | `currency` | `str` | 币种 | 是 |
@@ -45,131 +43,29 @@
 | `recom_type` | `str` | 评级类型 | 是 |
 | `reason` | `str` | 推荐理由 | 是 |
 
-### 3.3 同步策略结论
+**来源覆盖与实现合同须分开看**：本地 doc_id=267 只列 `month/broker/ts_code/name` 四个输出字段；另外十个字段存在于当前 Definition 和 ORM，但不能冒称全部来自该本地文档或已获本轮实测。本轮保留实现字段，不删列、不改 fields；如需修改其语义或请求合同，须先补源端验证。
 
-- 是否支持单日维护：否（该接口为月度接口，无 `trade_date`）
-- 是否支持月份区间维护：是（按月份序列循环调用）
-- 默认调度策略（如有）：建议“每月 1~3 日自动执行一次当月同步”（接口文档描述该时段更新）
-- 需要的级联依赖（例如先同步 A 再同步 B）：无
-- 分页策略：每个月份调用时，按 `limit=1000` + `offset` 分页循环，直到返回为空或少于 `limit`
+Raw/Serving ORM 还存在 `offset` 列；它不在当前 `source_fields`，不能将请求分页偏移当成源业务事实，或保证每行均回填了该值。
 
-## 4. 表设计（Raw/Core）
+必填 `month/ts_code/broker`；`name` 等可空。`trade_date` 按日期解析，`close/pct_change/target_price` 按数值解析；其他合法性以实际 normalizer 拒绝记录为准，不笼统承诺所有字符串都有额外清洗。
 
-## 4.1 `raw.broker_recommend`
+## 4. 存储与查询
 
-- 主键策略：组合主键（`month`, `ts_code`, `broker`）
-- 字段清单：
-  - 业务字段：`month`, `currency`, `name`, `ts_code`, `trade_date`, `close`, `pct_change`, `target_price`, `industry`, `broker`, `broker_mkt`, `author`, `recom_type`, `reason`, `offset`
-  - 审计字段：`api_name`, `fetched_at`, `raw_payload`
+- Raw：`raw_tushare.broker_recommend`，[Raw ORM](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_broker_recommend.py)。
+- Serving：`core_serving.broker_recommend`，[Serving ORM](/Users/congming/github/goldenshare/src/foundation/models/core/broker_recommend.py)；同时是 Definition 的 `target_table`。
+- **两张都是物理表，当前仍为 `raw_core_upsert`**；writer 对同一 normalized batch 按模型字段分别写入。不套用研究报告或新闻的 Raw-only/view 合同。
+- 两层主键均为 `(month, ts_code, broker)`；Raw 保留 `api_name/fetched_at/raw_payload`，Serving 有 `created_at/updated_at`。
+- 索引与真实类型以 ORM 和实际 catalog 为准，不执行旧文档“新增 raw/core 表”的过时指令。
 
-## 4.2 `core.broker_recommend`
+## 5. 运营与观测
 
-- 主键策略：组合主键（`month`, `ts_code`, `broker`）
-- 字段清单：与 raw 业务字段一致，另含 `created_at`, `updated_at`
-- 索引策略：
-  - `idx_broker_recommend_month`
-  - `idx_broker_recommend_trade_date`
-  - `idx_broker_recommend_ts_code_month`
-- 与其他核心表关联关系（如有）：
-  - `ts_code` 可关联 `core.security.ts_code`（逻辑关联，非强制外键）
+- 页面使用月份选择，不让运营填写 `limit/offset`。分组通过 [Ops 目录](/Users/congming/github/goldenshare/src/ops/catalog/dataset_catalog_views.py)投影，不为 UI 分组改底层域。
+- freshness 使用 `period_bucket`，按月份事实观测与审计；不是仅显示 `last_sync_date`，也不要求每个交易日都有荐股。
+- 源文档称一般月初 1–3 日更新。“月初同步一次”是原运营建议，不证明已有对应 cron 或源端已经更新；本轮不创建、启停自动任务。
+- 原接入未要求新增专属业务 API 或研报联动主题视图，本轮同样不新增这些能力。
 
-## 5. 同步实现设计
+## 6. 验证与后续边界
 
-- IngestionExecutor / SourceClient：`broker_recommend` 数据集维护链路
-- 参数构建规则（UI意图 -> 执行参数）：
-  - 单月维护：`month=YYYYMM`
-  - 月份区间维护：`start_month/end_month` 在任务层转换为月份序列，逐月调用 `month=YYYYMM`
-  - 每个月份内部再执行分页：`limit=1000, offset=0,1000,2000...`
-- 日期/数值/枚举归一化规则：
-  - `month` 统一存 `YYYYMM` 字符串（不转 `date`）
-  - 字段去空格、空字符串转 `NULL`
-- 幂等写入策略（upsert key）：`(month, ts_code, broker)`
-- 失败重试与异常分类：
-  - 复用现有 HTTP 重试与限流
-  - 上游错误透传摘要（避免长堆栈污染页面）
+[Resolver 月份回归](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)覆盖单月、月份范围和不访问交易日历；[Definition 回归](/Users/congming/github/goldenshare/tests/test_dataset_definition_registry.py)、[字段清单回归](/Users/congming/github/goldenshare/tests/test_fields_constants.py)及 [Ops 目录回归](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)作为合同核验入口。
 
-## 6. 运维接入设计（Ops）
-
-- 维护动作：
-  - `broker_recommend.maintain`：单月维护（参数 `month`）或月份区间维护（`start_month` + `end_month`）
-- 是否支持：手动执行 / 自动调度 / 重试 / 停止
-  - 手动执行：是
-  - 自动调度：是（建议月频）
-  - 重试：是
-  - 停止：是
-- 手动表单字段（用户视角，不暴露底层内部参数）：
-  - 模式：`单月维护` / `月份区间维护`
-  - 单月维护：`月份选择器（YYYY-MM）`（仅年/月，不可选具体日）
-  - 月份区间维护：`开始月份`、`结束月份`（均为年/月选择器，不可选具体日）
-  - 不向用户暴露 `limit/offset`，由系统自动分页
-- 数据状态归类：基础主数据
-- 新鲜度观测方式：
-  - 业务日期范围：该数据集不按日观测，页面展示“最近同步日期”
-  - 最近同步日期：`last_sync_date`
-
-## 7. 对外接口影响（Biz/API）
-
-- 是否新增业务接口：本期否（先入基座与运维）
-- 是否影响现有接口字段：否
-- 兼容性说明：增量新增，不影响现有数据集与 API 行为
-
-## 8. 数据质量与校验
-
-- 字段完整性校验：
-  - `month`、`broker`、`ts_code` 必须非空
-- 主键冲突与去重策略：
-  - 按 `(month, ts_code, broker)` upsert
-- 空值策略（允许/不允许）：
-  - `name` 允许为空（上游偶发缺失时保留记录）
-- 与上游对账方式：
-  - 按月统计条数对账（接口返回行数 vs core upsert 影响行）
-  - 抽样核对券商与股票代码组合
-
-## 9. 测试与验收
-
-### 9.1 测试清单
-
-- 单元测试：
-  - 参数构建（`month`）
-  - 月份序列生成（回补）
-  - upsert 主键幂等
-- 集成测试：
-  - 单月同步任务可执行
-  - 月度回补任务可执行
-  - 任务停止/重试状态正确
-- 回归测试：
-  - 运营页任务列表可见
-  - 数据状态页可见且新鲜度计算正确
-
-### 9.2 验收标准
-
-- [ ] raw/core 全字段落库完成
-- [ ] 任务可在运营台可见并可执行
-- [ ] 数据状态页可观测
-- [ ] 失败可诊断，日志可读
-- [ ] 文档与实现一致
-
-## 10. 发布与回滚
-
-- 迁移脚本：
-  - 新建 `raw.broker_recommend`
-  - 新建 `core.broker_recommend`
-  - 新增索引与唯一约束
-- 发布顺序：
-  - 数据库迁移 -> DatasetDefinition 接入 -> 维护动作接入 -> 前端表单接入 -> 验证
-- 回滚策略：
-  - 回滚代码到前一版本
-  - 保留新表（不删历史数据）；必要时停用对应维护动作
-- 风险点与应对：
-  - 风险：接口月初更新延迟
-  - 应对：状态页标记“月频数据”，避免误判为日频滞后
-
-## 11. 当前支持范围（交付快照）
-
-- 当前已支持能力：
-  - 单月维护：生成一个 `month=YYYYMM` 请求。
-  - 月份区间维护：按所选自然月逐月生成 `month=YYYYMM` 请求；例如 `202606~202608` 生成三条执行单元，不请求交易日历。
-- 暂不支持能力（及原因）：
-  - 暂不提供业务侧消费 API（先完成基座与运维）
-- 后续迭代计划：
-  - 与研究报告类数据联动，形成券商观点主题视图
+现行实现存在不等于原空白验收清单全部通过；本轮未补生产写入、行数、取消/续跑或性能验收。扩大月份范围前按开发模板核对单月返回量、事务和恢复边界。源端 14 字段完整性需新实测时再独立执行，不在文档治理中猜测。

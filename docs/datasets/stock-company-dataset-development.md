@@ -1,37 +1,31 @@
-# 上市公司基本信息（`stock_company`）数据集开发说明（已落地）
+# 上市公司基本信息（`stock_company`）维护说明
 
-## 0. 架构基线与目标
+状态：当前代码说明；2026-09-10 文档治理核对。本文不证明生产部署、最新数据或自动任务状态；原接入阶段结论不因此重新打开，也不升级为本轮生产验收。
 
-本数据集是典型的按交易所分批抓取的主数据快照：
+## 1. 范围与依据
 
-1. Raw 层精确复刻源字段名；对语义明确、格式稳定的日期字符串字段允许直接落 `date`。
-2. 维护动作统一为 `stock_company.maintain`。
-3. 当用户未指定 `ts_code` / `exchange` 时，必须按交易所拆成多个 unit，而不是赌单请求一定装得下。
-4. 不重复落一份 serving 物理表，采用 `raw -> core_serving_light view`。
+- Tushare `stock_company`，doc_id=112；[本地源说明](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/基础数据/0112_上市公司基本信息.md)。
+- 当前事实源为 [reference_master Definition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/reference_master.py)；底层域 `reference_data / 基础主数据`，Ops 展示分组 `reference_data / A股基础数据`。
+- 通用规则引用 [开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)与 [日期模型消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)，不重复粘贴完整 Definition、建表 SQL 或施工清单。
 
-参考模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
+## 2. 输入与执行
 
----
+- 动作为 `stock_company.maintain`，`time_input.mode=none`。过滤为代码字符串 `ts_code`、交易所多选 `exchange`。
+- 使用专用 `build_stock_company_units`，按下表选择请求；默认交易所顺序由当前 planner 执行，不由页面另造列表。
 
-## 1. 源站事实
+| 输入 | 实际展开 |
+| --- | --- |
+| 一个代码 | 一个代码 unit，只传 `ts_code` |
+| 逗号分隔多个代码 | 代码去空白、大写、去重排序后逐代码 unit |
+| 代码与 exchange 同时填写 | 优先代码路径，源请求不再附带 exchange |
+| 仅选 exchange | 按 `SSE/SZSE/BSE` 固定顺序展开所选项 |
+| 二者均不填 | 默认三个交易所分别生成 unit |
 
-- 源站接口：Tushare `stock_company`
-- 本地源站文档：[0112_上市公司基本信息.md](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/基础数据/0112_上市公司基本信息.md)
-- `docs_index.csv` 记录：`doc_id=112`，`api_name=stock_company`
-- 单次限制：最大 `4500` 条
-- 源站建议：可按交易所分批提取
-- 交易所枚举：`SSE` / `SZSE` / `BSE`
+多代码支持来自后端解析现状，不是本轮新增多选控件。`page_limit=4500` 是当前配置，与本地来源描述对应；本轮不宣称已重新核验源端最大容量。
 
-### 1.1 输入参数
+`universe_policy=no_pool`；分页由 [SourceClient](/Users/congming/github/goldenshare/src/foundation/ingestion/source_client.py)注入 `limit=4500/offset`，空页或短页结束。[request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)只生成业务参数。当前 `buffer_all + commit_policy=unit`，分页不切事务，也不代表页级持久化或中断后从任意页续跑。
 
-| 参数名 | 类型 | 必填 | 源站含义 | 类别 | 运营侧是否填写 | 接入设计 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `ts_code` | string | 否 | 股票代码 | 代码 | 是 | 精确拉单个公司 |
-| `exchange` | string | 否 | 交易所 | 枚举 | 是 | 不填时按 `SSE/SZSE/BSE` 默认扇出 |
-| `limit` | integer | 否 | 单页行数 | 分页 | 否 | 固定传 `4500` |
-| `offset` | integer | 否 | 分页偏移量 | 分页 | 否 | 自动递增 |
-
-### 1.2 输出字段
+## 3. 字段与身份
 
 | 字段名 | 源类型 | 是否落 raw | 备注 |
 | --- | --- | --- | --- |
@@ -42,11 +36,11 @@
 | `chairman` | string | 是 | 法人代表 |
 | `manager` | string | 是 | 总经理 |
 | `secretary` | string | 是 | 董秘 |
-| `reg_capital` | float | 是 | 注册资本 |
+| `reg_capital` | float | 是 | 注册资本（万元，源文档口径） |
 | `setup_date` | string | 是 | 注册日期；源站为 `YYYYMMDD` 字符串，raw 层直接落 `date` |
 | `province` | string | 是 |  |
 | `city` | string | 是 |  |
-| `introduction` | string | 是 | 长文本，建议 `text` |
+| `introduction` | string | 是 | 长文本 |
 | `website` | string | 是 |  |
 | `email` | string | 是 |  |
 | `office` | string | 是 | 长文本 |
@@ -55,293 +49,21 @@
 | `business_scope` | string | 是 | 长文本 |
 | `ann_date` | string | 是 | 公告日期；源站为 `YYYYMMDD` 字符串，raw 层直接落 `date` |
 
-### 1.3 源端行为判断
+- 显式请求 19 个源字段，包括 `introduction/office/main_business/business_scope/ann_date` 等非默认字段。
+- `ts_code/exchange` 必填，清理首尾空白并大写；`setup_date/ann_date` 直接转日期，`reg_capital` 做数值解析。
+- `com_id` 不作主键或唯一约束；不能根据“统一社会信用代码”这个名字假设源返回全量非空、绝对唯一。长文本字段不删减。
 
-1. 源文档明确说“可以根据交易所分批提取”，这意味着无条件全量请求不应直接做成单个 unit。
-2. 当用户明确传 `ts_code` 时，应当直接拉单个公司，不需要再按交易所扇出。
-3. 当用户未传 `ts_code` 但传了一个或多个 `exchange` 时，按 `exchange` 扇出。
-4. 当用户两个都没传时，按 `SSE/SZSE/BSE` 默认扇出。
+具体解析和哈希见 [normalizer](/Users/congming/github/goldenshare/src/foundation/ingestion/normalizer.py)及 [row_transforms](/Users/congming/github/goldenshare/src/foundation/ingestion/row_transforms.py)。
 
----
+## 4. 存储与观测
 
-## 2. 基本信息
+- 写入 `raw_tushare.stock_company`，`raw_only_upsert`；幂等冲突列为 `ts_code`。冲突列同时为 Raw 主键。
+- [Raw ORM](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_stock_company.py)定义真实类型、可空性、物理索引及审计字段 `api_name/fetched_at/raw_payload`，不执行旧文档中“建议新增”的 DDL。
+- `target_table=core_serving_light.stock_company`；[Light 模型](/Users/congming/github/goldenshare/src/foundation/models/core_serving_light/stock_company.py)对应 Raw 普通读取视图，不复制第二份物理数据，也不是 writer 的 DML 目标。
+- 日期模型 `none / not_applicable`，无运营时间输入、无业务日期 observed field；`snapshot_run_trace` 关注最近成功维护，不做连续日期完整性判断。
+- 已纳入 `reference_data_refresh`，见 [action_catalog](/Users/congming/github/goldenshare/src/ops/action_catalog.py)；手动、定时、重试是能力，不等于实时 schedule 状态已核验。
 
-- 数据集 key：`stock_company`
-- 中文显示名：`上市公司基本信息`
-- 所属定义文件：建议新增到 `src/foundation/datasets/definitions/reference_master.py`
-- 所属域：`reference_data`
-- 所属域中文名：`基础主数据`
-- 数据源：`tushare`
-- 源站 API：`stock_company`
-- 是否对外服务：是
-- 是否多源融合：否
-- 是否纳入自动任务：是，已纳入 `reference_data_refresh`
-- 是否纳入日期完整性审计：否
-- Ops 展示分组 key：`reference_data`
-- Ops 展示分组名称：`A股基础数据`
-- Ops 展示分组顺序：`1`
+## 5. 回归与运行边界
 
----
-
-## 3. DatasetDefinition 设计
-
-### 3.1 `identity`
-
-```python
-"identity": {
-    "dataset_key": "stock_company",
-    "display_name": "上市公司基本信息",
-    "description": "维护 Tushare 上市公司基本信息数据。",
-    "aliases": (),
-}
-```
-
-### 3.2 `domain`
-
-```python
-"domain": {
-    "domain_key": "reference_data",
-    "domain_display_name": "基础主数据",
-}
-```
-
-`freshness_policy`：`snapshot_run_trace`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
-
-### 3.3 `source`
-
-```python
-"source": {
-    "source_key_default": "tushare",
-    "source_keys": ("tushare",),
-    "adapter_key": "tushare",
-    "api_name": "stock_company",
-    "source_fields": (
-        "ts_code",
-        "com_name",
-        "com_id",
-        "exchange",
-        "chairman",
-        "manager",
-        "secretary",
-        "reg_capital",
-        "setup_date",
-        "province",
-        "city",
-        "introduction",
-        "website",
-        "email",
-        "office",
-        "employees",
-        "main_business",
-        "business_scope",
-        "ann_date",
-    ),
-    "source_doc_id": "tushare.stock_company",
-    "request_builder_key": "_stock_company_params",
-    "base_params": {},
-}
-```
-
-### 3.4 `date_model`
-
-```python
-"date_model": {
-    "date_axis": "none",
-    "bucket_rule": "not_applicable",
-    "window_mode": "none",
-    "input_shape": "none",
-    "observed_field": None,
-    "audit_applicable": False,
-    "not_applicable_reason": "主数据快照，不按业务日期判断新鲜度。",
-}
-```
-
-### 3.5 `input_model`
-
-| 字段 | 类型 | 是否必填 | 默认值 | 枚举值 | 是否多选 | 中文名 | 说明 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `ts_code` | string | 否 | 无 | 无 | 否 | 股票代码 | 精确抓单个公司 |
-| `exchange` | list | 否 | 无 | `SSE/SZSE/BSE` | 是 | 交易所 | 不填时按三交易所默认扇出 |
-
-### 3.6 `storage`
-
-```python
-"storage": {
-    "raw_dao_name": "raw_stock_company",
-    "core_dao_name": "raw_stock_company",
-    "target_table": "core_serving_light.stock_company",
-    "delivery_mode": "raw_with_serving_light_view",
-    "layer_plan": "raw->serving_light_view",
-    "std_table": None,
-    "serving_table": "core_serving_light.stock_company",
-    "raw_table": "raw_tushare.stock_company",
-    "conflict_columns": ("ts_code",),
-    "write_path": "raw_only_upsert",
-}
-```
-
-### 3.7 `planning`
-
-```python
-"planning": {
-    "universe_policy": "none",
-    "enum_fanout_fields": (),
-    "enum_fanout_defaults": {},
-    "pagination_policy": "offset_limit",
-    "page_limit": 4500,
-    "chunk_size": None,
-    "max_units_per_execution": None,
-    "unit_builder_key": "build_stock_company_units",
-}
-```
-
-说明：使用自定义 unit builder，而不是直接依赖 `enum_fanout_defaults`，原因是“`ts_code` 已给定时不应再按交易所扇出”。
-
-### 3.8 `normalization`
-
-```python
-"normalization": {
-    "date_fields": ("setup_date", "ann_date"),
-    "decimal_fields": ("reg_capital",),
-    "required_fields": ("ts_code", "exchange"),
-    "row_transform_name": "_stock_company_row_transform",
-}
-```
-
-### 3.9 `capabilities`
-
-```python
-"capabilities": {
-    "actions": (
-        {
-            "action": "maintain",
-            "manual_enabled": True,
-            "schedule_enabled": True,
-            "retry_enabled": True,
-            "supported_time_modes": ("none",),
-        },
-    ),
-}
-```
-
-### 3.10 `observability` / `quality` / `transaction`
-
-```python
-"observability": {
-    "progress_label": "stock_company",
-    "observed_field": None,
-    "audit_applicable": False,
-},
-"quality": {
-    "reject_policy": "record_rejections",
-    "required_fields": ("ts_code", "exchange"),
-},
-"transaction": {
-    "commit_policy": "unit",
-    "idempotent_write_required": True,
-    "write_volume_assessment": "单个事务只覆盖一个交易所快照或一个明确 ts_code 请求，避免把三交易所全集压成一个 unit。",
-}
-```
-
----
-
-## 4. 表结构、索引与 DAO 设计
-
-### 4.1 Raw 表：`raw_tushare.stock_company`
-
-- ORM：建议新增 `src/foundation/models/raw/raw_stock_company.py`
-- DAO：建议新增 `raw_stock_company`
-- 主键：`ts_code`
-
-| 字段 | PostgreSQL 类型 | 可空 | 说明 |
-| --- | --- | --- | --- |
-| `ts_code` | varchar(16) | 否 | 股票代码 |
-| `com_name` | varchar(256) | 是 | 公司全称 |
-| `com_id` | varchar(32) | 是 | 统一社会信用代码 |
-| `exchange` | varchar(8) | 否 | 交易所代码 |
-| `chairman` | varchar(128) | 是 |  |
-| `manager` | varchar(128) | 是 |  |
-| `secretary` | varchar(128) | 是 |  |
-| `reg_capital` | double precision | 是 |  |
-| `setup_date` | date | 是 | 注册日期直接落 `date` |
-| `province` | varchar(64) | 是 |  |
-| `city` | varchar(64) | 是 |  |
-| `introduction` | text | 是 |  |
-| `website` | varchar(256) | 是 |  |
-| `email` | varchar(256) | 是 |  |
-| `office` | text | 是 |  |
-| `employees` | integer | 是 |  |
-| `main_business` | text | 是 |  |
-| `business_scope` | text | 是 |  |
-| `ann_date` | date | 是 | 公告日期直接落 `date` |
-
-索引建议：
-
-```sql
-create unique index uq_raw_tushare_stock_company_ts_code
-on raw_tushare.stock_company(ts_code);
-
-create index idx_raw_tushare_stock_company_exchange
-on raw_tushare.stock_company(exchange);
-
-create index idx_raw_tushare_stock_company_com_id
-on raw_tushare.stock_company(com_id);
-```
-
-说明：`com_id` 不建议做唯一索引，因为源文档没有给出“全量必填且绝对唯一”的事实保证。
-
-### 4.2 Target View：`core_serving_light.stock_company`
-
-- ORM：建议新增 `src/foundation/models/core_serving_light/stock_company.py`
-- 与 raw 保持相同字段名；`setup_date`、`ann_date` 继续使用 `date`
-
----
-
-## 5. 执行链路设计
-
-### 5.1 请求构造
-
-- `request_builder_key`：`_stock_company_params`
-- 透传 `ts_code`
-- 透传单个 `exchange`
-
-### 5.2 Unit 规划
-
-- `unit_builder_key`：`build_stock_company_units`
-- 规则：
-  - 如果给了 `ts_code`：1 个 unit，不按交易所扇出
-  - 如果没给 `ts_code` 但给了 `exchange`：按选中的交易所逐个 unit
-  - 如果都没给：默认扇出 `SSE`、`SZSE`、`BSE`
-
-### 5.3 分页
-
-- `limit=4500`
-- `offset=0/4500/...`
-- 结束条件：返回 `< 4500`
-
-### 5.4 Writer
-
-- `write_path`：`raw_only_upsert`
-- 冲突列：`ts_code`
-
----
-
-## 6. Ops 派生
-
-1. 手动任务不显示时间控件。
-2. `exchange` 应表现为可多选枚举。
-3. 如果用户未选择交易所，后端默认按三交易所扇出，而不是让前端写死。
-4. 数据源页、手动任务页、自动任务页统一展示到 `reference_data / A股基础数据`。
-5. freshness 只展示最近成功任务迹象。
-
----
-
-## 7. 测试与验收清单
-
-1. `DatasetDefinition` 注册
-2. `request_builder` 透传 `ts_code/exchange`
-3. `unit_planner`：
-   - `ts_code` 模式只生成 1 个 unit
-   - 无 `ts_code` 且无 `exchange` 时默认生成 `SSE/SZSE/BSE`
-4. `writer`：按 `ts_code` 幂等 upsert
-5. `manual-actions` / `catalog` 正确展示 `exchange` 多选过滤项
+- [Definition 回归](/Users/congming/github/goldenshare/tests/test_dataset_definition_registry.py)、[Resolver 回归](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)、[Ops 目录与工作流回归](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)覆盖注册、输入及当前展开路径；日期/哈希相关样本见 [normalizer 回归](/Users/congming/github/goldenshare/tests/test_dataset_normalizer.py)。
+- 本轮未新增源端调用或生产验收；不能从“已有实现”推出全部历史完整。扩大范围前，按开发模板核对真实请求量、单 unit 内存、提交量、取消和续跑证据，不把单页 4500 行当成整个任务上限。

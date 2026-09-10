@@ -1,36 +1,22 @@
-# 北交所新旧代码对照（`bse_mapping`）数据集开发说明（已落地）
+# 北交所新旧代码对照（`bse_mapping`）维护说明
 
-## 0. 架构基线与目标
+状态：当前代码说明；2026-09-10 文档治理核对。本文不证明生产部署、最新数据或自动任务状态；原接入阶段结论不因此重新打开，也不升级为本轮生产验收。
 
-本数据集是小体量基础快照数据，按当前主链接入：
+## 1. 范围与依据
 
-1. `DatasetDefinition` 定义事实。
-2. 动作统一为 `bse_mapping.maintain`。
-3. Raw 层精确复刻源字段名；对语义明确、格式稳定的日期字符串字段允许直接落 `date`。
-4. 不单独复制 core 物理表，采用 `raw -> core_serving_light view`。
+- Tushare `bse_mapping`，doc_id=375；[本地源说明](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/基础数据/0375_北交所新旧代码对照表.md)。
+- 当前事实源为 [reference_master Definition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/reference_master.py)；底层域 `reference_data / 基础主数据`，Ops 展示分组 `reference_data / A股基础数据`。
+- 通用规则引用 [开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)与 [日期模型消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)，不重复粘贴完整 Definition、建表 SQL 或施工清单。
 
-参考模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
+## 2. 输入与执行
 
----
+- 动作为 `bse_mapping.maintain`，`time_input.mode=none`；无日期控件，不按代码池或月份展开。
+- 可选 `o_code/n_code`，request builder 只传实际填写的过滤；都不填时业务参数为 `{}`。
+- generic planner 生成一个无日期 unit，内部继续分页。源文档“总量 300 以内”是抓取时的来源描述，不是永久容量门禁，也不能据此取消分页或断言任何规模都安全。
 
-## 1. 源站事实
+`universe_policy=no_pool`；分页由 [SourceClient](/Users/congming/github/goldenshare/src/foundation/ingestion/source_client.py)注入 `limit=1000/offset`，空页或短页结束。[request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)只生成业务参数。当前 `buffer_all + commit_policy=unit`，分页不切事务，也不代表页级持久化或中断后从任意页续跑。
 
-- 源站接口：Tushare `bse_mapping`
-- 本地源站文档：[0375_北交所新旧代码对照表.md](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/基础数据/0375_北交所新旧代码对照表.md)
-- `docs_index.csv` 记录：`doc_id=375`，`api_name=bse_mapping`
-- 单次限制：最大 `1000` 条
-- 源站总量说明：总数据量 `300` 条以内
-
-### 1.1 输入参数
-
-| 参数名 | 类型 | 必填 | 源站含义 | 类别 | 运营侧是否填写 | 接入设计 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `o_code` | string | 否 | 旧代码 | 过滤 | 是 | 可选过滤 |
-| `n_code` | string | 否 | 新代码 | 过滤 | 是 | 可选过滤 |
-| `limit` | integer | 否 | 单页行数 | 分页 | 否 | 固定传 `1000` |
-| `offset` | integer | 否 | 分页偏移量 | 分页 | 否 | 自动递增 |
-
-### 1.2 输出字段
+## 3. 字段与身份
 
 | 字段名 | 源类型 | 是否落 raw | 备注 |
 | --- | --- | --- | --- |
@@ -39,243 +25,20 @@
 | `n_code` | string | 是 | 新代码 |
 | `list_date` | string | 是 | 上市日期；源站为 `YYYYMMDD` 字符串，raw 层直接落 `date` |
 
-### 1.3 源端行为判断
+- 必填 `o_code/n_code`，两个代码去首尾空白并大写。`list_date` 直接转 `date`，可空；`name` 可空。
+- 主键为旧码、新码二元组，不能把旧代码或新代码单独当作已获保证的唯一键。Raw 主键已承担唯一约束，不重复执行旧文档的建唯一索引示例。
 
-1. 虽然总量很小，仍然按 `offset_limit` 统一实现分页链。
-2. 不需要按日期、代码池或月份扇出。
-3. 单次全量快照安全，可作为 `none` 模式数据集。
+具体解析和哈希见 [normalizer](/Users/congming/github/goldenshare/src/foundation/ingestion/normalizer.py)及 [row_transforms](/Users/congming/github/goldenshare/src/foundation/ingestion/row_transforms.py)。
 
----
+## 4. 存储与观测
 
-## 2. 基本信息
+- 写入 `raw_tushare.bse_mapping`，`raw_only_upsert`；幂等冲突列为 `(o_code, n_code)`。冲突列同时为 Raw 主键。
+- [Raw ORM](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_bse_mapping.py)定义真实类型、可空性、物理索引及审计字段 `api_name/fetched_at/raw_payload`，不执行旧文档中“建议新增”的 DDL。
+- `target_table=core_serving_light.bse_mapping`；[Light 模型](/Users/congming/github/goldenshare/src/foundation/models/core_serving_light/bse_mapping.py)对应 Raw 普通读取视图，不复制第二份物理数据，也不是 writer 的 DML 目标。
+- 日期模型 `none / not_applicable`，无运营时间输入、无业务日期 observed field；`snapshot_run_trace` 关注最近成功维护，不做连续日期完整性判断。
+- 已纳入 `reference_data_refresh`，见 [action_catalog](/Users/congming/github/goldenshare/src/ops/action_catalog.py)；手动、定时、重试是能力，不等于实时 schedule 状态已核验。
 
-- 数据集 key：`bse_mapping`
-- 中文显示名：`北交所新旧代码对照`
-- 所属定义文件：建议新增到 `src/foundation/datasets/definitions/reference_master.py`
-- 所属域：`reference_data`
-- 所属域中文名：`基础主数据`
-- 数据源：`tushare`
-- 源站 API：`bse_mapping`
-- 是否对外服务：是
-- 是否多源融合：否
-- 是否纳入自动任务：是，已并入 `reference_data_refresh`
-- 是否纳入日期完整性审计：否
-- Ops 展示分组 key：`reference_data`
-- Ops 展示分组名称：`A股基础数据`
-- Ops 展示分组顺序：`1`
+## 5. 回归与运行边界
 
----
-
-## 3. DatasetDefinition 设计
-
-### 3.1 `identity`
-
-```python
-"identity": {
-    "dataset_key": "bse_mapping",
-    "display_name": "北交所新旧代码对照",
-    "description": "维护 Tushare 北交所新旧代码对照数据。",
-    "aliases": (),
-}
-```
-
-### 3.2 `domain`
-
-```python
-"domain": {
-    "domain_key": "reference_data",
-    "domain_display_name": "基础主数据",
-}
-```
-
-`freshness_policy`：`snapshot_run_trace`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
-
-### 3.3 `source`
-
-```python
-"source": {
-    "source_key_default": "tushare",
-    "source_keys": ("tushare",),
-    "adapter_key": "tushare",
-    "api_name": "bse_mapping",
-    "source_fields": ("name", "o_code", "n_code", "list_date"),
-    "source_doc_id": "tushare.bse_mapping",
-    "request_builder_key": "_bse_mapping_params",
-    "base_params": {},
-}
-```
-
-### 3.4 `date_model`
-
-```python
-"date_model": {
-    "date_axis": "none",
-    "bucket_rule": "not_applicable",
-    "window_mode": "none",
-    "input_shape": "none",
-    "observed_field": None,
-    "audit_applicable": False,
-    "not_applicable_reason": "小体量快照主数据，不按业务日期判断新鲜度。",
-}
-```
-
-### 3.5 `input_model`
-
-| 字段 | 类型 | 是否必填 | 默认值 | 是否多选 | 中文名 | 说明 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `o_code` | string | 否 | 无 | 否 | 旧代码 | 可选过滤 |
-| `n_code` | string | 否 | 无 | 否 | 新代码 | 可选过滤 |
-
-### 3.6 `storage`
-
-```python
-"storage": {
-    "raw_dao_name": "raw_bse_mapping",
-    "core_dao_name": "raw_bse_mapping",
-    "target_table": "core_serving_light.bse_mapping",
-    "delivery_mode": "raw_with_serving_light_view",
-    "layer_plan": "raw->serving_light_view",
-    "std_table": None,
-    "serving_table": "core_serving_light.bse_mapping",
-    "raw_table": "raw_tushare.bse_mapping",
-    "conflict_columns": ("o_code", "n_code"),
-    "write_path": "raw_only_upsert",
-}
-```
-
-### 3.7 `planning`
-
-```python
-"planning": {
-    "universe_policy": "none",
-    "enum_fanout_fields": (),
-    "enum_fanout_defaults": {},
-    "pagination_policy": "offset_limit",
-    "page_limit": 1000,
-    "chunk_size": None,
-    "max_units_per_execution": None,
-    "unit_builder_key": "generic",
-}
-```
-
-### 3.8 `normalization`
-
-```python
-"normalization": {
-    "date_fields": ("list_date",),
-    "decimal_fields": (),
-    "required_fields": ("o_code", "n_code"),
-    "row_transform_name": "_bse_mapping_row_transform",
-}
-```
-
-### 3.9 `capabilities`
-
-```python
-"capabilities": {
-    "actions": (
-        {
-            "action": "maintain",
-            "manual_enabled": True,
-            "schedule_enabled": True,
-            "retry_enabled": True,
-            "supported_time_modes": ("none",),
-        },
-    ),
-}
-```
-
-### 3.10 `observability` / `quality` / `transaction`
-
-```python
-"observability": {
-    "progress_label": "bse_mapping",
-    "observed_field": None,
-    "audit_applicable": False,
-},
-"quality": {
-    "reject_policy": "record_rejections",
-    "required_fields": ("o_code", "n_code"),
-},
-"transaction": {
-    "commit_policy": "unit",
-    "idempotent_write_required": True,
-    "write_volume_assessment": "全量只有数百行，单事务为一个快照 unit，写入规模很小。",
-}
-```
-
----
-
-## 4. 表结构、索引与 DAO 设计
-
-### 4.1 Raw 表：`raw_tushare.bse_mapping`
-
-- ORM：建议新增 `src/foundation/models/raw/raw_bse_mapping.py`
-- DAO：建议新增 `raw_bse_mapping`
-- 主键：`(o_code, n_code)`
-
-| 字段 | PostgreSQL 类型 | 可空 | 说明 |
-| --- | --- | --- | --- |
-| `o_code` | varchar(16) | 否 | 原代码 |
-| `n_code` | varchar(16) | 否 | 新代码 |
-| `name` | varchar(128) | 是 | 股票名称 |
-| `list_date` | date | 是 | 源站 `YYYYMMDD` 日期直接落 `date` |
-
-索引建议：
-
-```sql
-create unique index uq_raw_tushare_bse_mapping_o_code_n_code
-on raw_tushare.bse_mapping(o_code, n_code);
-
-create index idx_raw_tushare_bse_mapping_n_code
-on raw_tushare.bse_mapping(n_code);
-```
-
-### 4.2 Target View：`core_serving_light.bse_mapping`
-
-- ORM：建议新增 `src/foundation/models/core_serving_light/bse_mapping.py`
-- 与 raw 保持同名字段，`list_date` 继续使用 `date`
-
----
-
-## 5. 执行链路设计
-
-### 5.1 请求构造
-
-- `request_builder_key`：`_bse_mapping_params`
-- 只透传 `o_code` / `n_code`
-
-### 5.2 Unit 规划
-
-- `unit_builder_key`：`generic`
-- 只生成 1 个 snapshot unit
-
-### 5.3 分页
-
-- `limit=1000`
-- `offset=0/1000/...`
-- 结束条件：返回 `< 1000`
-
-### 5.4 Writer
-
-- `write_path`：`raw_only_upsert`
-- 冲突列：`(o_code, n_code)`
-
----
-
-## 6. Ops 派生
-
-1. 手动任务使用 `none` 模式，不展示时间控件。
-2. 筛选项只展示 `o_code`、`n_code`。
-3. 数据源页、手动任务页、自动任务页统一展示到 `reference_data / A股基础数据`。
-4. freshness 只展示最近一次任务成功迹象，不按业务日期判断新鲜/滞后。
-
----
-
-## 7. 测试与验收清单
-
-1. `DatasetDefinition` 注册
-2. `request_builder` 透传 `o_code` / `n_code`
-3. `manual-actions` / `catalog` 只暴露两个过滤项
-4. `writer` 对 `(o_code, n_code)` 幂等 upsert
-5. `ops-rebuild-dataset-status` 后数据状态能正确显示最近运行迹象
+- [Definition 回归](/Users/congming/github/goldenshare/tests/test_dataset_definition_registry.py)、[Resolver 回归](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)、[Ops 目录与工作流回归](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)覆盖注册、输入及当前展开路径；日期/哈希相关样本见 [normalizer 回归](/Users/congming/github/goldenshare/tests/test_dataset_normalizer.py)。
+- 本轮未新增源端调用或生产验收；不能从“已有实现”推出全部历史完整。扩大范围前，按开发模板核对真实请求量、单 unit 内存、提交量、取消和续跑证据，不把单页 1000 行当成整个任务上限。
