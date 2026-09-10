@@ -82,7 +82,8 @@ docs/
 
 - [财势天下登录页视觉改版与鉴权接入技术方案 v1（开发完成，待用户部署验收）](./pages/login/login-page-auth-design-v1.md)
 - [财势天下登录页视觉改版低层设计 v1（修订 v1.2，含登录校验脱敏与开发对账）](./pages/login/login-page-auth-low-level-design-v1.md)
-- [财势乾坤交易助手标杆需求 v1（v1.16，曲线与日历已同步；资金转出交互已评审通过，状态与验收约束已明确；技术方案核验中）](./pages/trading-assistant/trading-assistant-benchmark-requirement-v1.md)
+- [财势乾坤交易助手标杆需求 v1（v1.18，R7 飞书机器人配置已通过并合入正式交互；既有核算口径不变）](./pages/trading-assistant/trading-assistant-benchmark-requirement-v1.md)
+- [财势乾坤交易助手技术实施方案 v1（草稿修订 2；已同步 R7，完整性审计及缺项已列明，可继续编写方案，未编码）](./pages/trading-assistant/trading-assistant-implementation-design-v1.md)
 - [财势乾坤板块分析产品交互基线文档 v1](./pages/wealth-exploration/sector-analysis-product-interaction-baseline-v1.md)
 - [财势探查｜板块分析技术实施方案 v1（五方法已完成；每日洞察 M22 代码完成，待远程验收）](./pages/wealth-exploration/sector-analysis-implementation-design-v1.md)
 - [财势探查｜板块分析低层设计 v1（每日洞察 M22 代码完成，待远程验收）](./pages/wealth-exploration/sector-analysis-low-level-design-v1.md)
