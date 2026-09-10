@@ -202,6 +202,48 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 
 本轮验证：执行进度/linter、ETF Basic DAO/快照/分钟 Preview 与 plan、新闻 linker/service/runtime/事件去重及详情 API 共 132 项测试通过；仅有既有 Starlette/httpx 弃用告警，未安装套件。文档完整性三个检查组、293 个本地 Markdown 链接与锚点、`git diff --check` 通过；Basic 历史 64 位 hash 无丢失。目标测试清单逐路径核验，移除不存在的 `test_etf_basic_dataset.py`，定义合同继续由列出的 registry 测试承载；四个删除文件名只保留在上表追溯。CodeGraph sync/status 确认索引为最新。
 
+<a id="realtime-trend-three-batches-20260910"></a>
+
+#### 实时行情、ETF/按需分钟、趋势通道：12 份收敛为 9 份
+
+2026-09-10，用户批准连续审计三批并按结论修订，统一 review；本轮不提交、不改代码/配置/数据、不安装或部署。以当前实现及消费者核验现状，历史请求和性能证据保留原日期。合并前版本可从 `a49054b2` 追溯。
+
+| 批次 | 文件（均在 docs/architecture） | 处理及保留落点 |
+| --- | --- | --- |
+| A | realtime-market-data-stream-architecture-v1.html | 删除；公共边界、Redis、日线 D1–D10、历史上线事实并入下行维护说明 |
+| A | realtime-stock-minute-stream-architecture-v1.html | 删除；分钟 D1–D8、显式 freq、五频率请求、旧时间与 5/17 样本并入维护说明 §3/8 |
+| A | realtime-market-data-stream-technical-plan-v1.md | 统一主入口；公共规则、两类股票差异、真实发布/调度边界、历史 M1/收口记录 |
+| A | realtime-stock-minute-m3-open-market-validation-2026-06-01.md | 保留历史原表；修正为每频率各一次请求，共五次，不改数字 |
+| B | realtime-etf-daily-stream-plan-v1.md | 精简为差异维护；保留 SH/SZ、零值/旧时间、显式字段、6/03 测量和 6/18 配置历史 |
+| B | realtime-etf-minute-stream-plan-v1.md | 保留不可开工状态，承接撤销 LLD 的有效技术约束、全链路重入清单和六项输出要求 |
+| B | realtime-etf-minute-stream-low-level-design-v1.md | 删除；不恢复旧池，也不默认换 Basic，非阻塞/单 HTTP/重复身份/维护隔离等约束移至 plan §7–8 |
+| B | realtime-etf-minute-r0b-open-market-validation-2026-08-26.md | 保留完整实测；候选调度不冒充冻结运行值，重新基线链接改至 plan |
+| B | realtime-stock-intraday-minutes-on-demand-plan-v1.md | 保留未实施的 API/缓存候选合同和源证据；校准配置待拍板、20 秒候选与时段验证；去重 M0 步骤 |
+| C | sse-daily-trend-channel-realtime-computation-plan-v1.md | 决策与范围入口保留；六项用户决定、选型理由、未来临时通道及物化评审阈值不丢失 |
+| C | sse-daily-trend-channel-realtime-computation-low-level-design-v1.md | 现行实现合同；D01–D12、公式、API、缓存、消费者、金标/测试及性能要求集中此处 |
+| C | sse-daily-trend-channel-m4-readonly-performance-validation-2026-08-10.md | 原文不动；保留 hash、测量及 9/05 管理员关闭记录，不补造生产 P95 |
+
+核心纠偏与证据：
+
+| 问题 | 代码/事实依据 | 文档处理 |
+| --- | --- | --- |
+| 已实现与待安装/Settings/env 混写 | collector_service、config_catalog/runtime_config、systemd/deploy | 移除过时任务；配置默认值与今日启用值分开 |
+| 异常隔离被写成耗时隔离 | 同步 run_cycle、CLI 监控、Tushare retry/limiter | 明确慢调用仍延迟其他 feed；不改服务 |
+| 任意发布失败都保留旧 current 的承诺过强 | state_store 的 execute 后 cleanup、独立 health | 报错时 current 可能已变；原维护隔离要求保留为实现缺口 |
+| “API 只读 Redis”忽略辅助 DB；清洗/事件示例失真 | snapshot_reader、schemas、normalizer、state_store | 行情来源与配置/日历分开；hash、整行 delta、重复覆盖和坏行跳过如实描述 |
+| ETF 两段成功等于全市场完整、历史旧池量等于当前资格 | etf_rt_daily、Health 的 Basic requestability snapshot | 分清源覆盖与请求成功、当前资格与历史批次，保留零值和旧时间 |
+| ETF 分钟候选与冻结冲突；按需方案自称无阻塞 | 原 plan/LLD/R0B、当前 catalog | 不可开工继续保留；不替用户决定范围或配置存储 |
+| 趋势通道已接入却写无实现/无前端 | quote route/service、Wealth controller/adapter/geometry | 统一实现状态；state 合同与 close/lower 着色分开 |
+| 热/冷 DB 次数低估、任意修订检测承诺过强 | build_response + _load_consistent_series | 正常完整请求 2/5 次；水位不是全表 checksum；输出切片不裁剪输入 |
+| 未声明参数等同主动拒绝、日志/tooltip 被写成已实现 | API、service 无专用 logger、绘图 adapter | 真实 400/422/额外参数处理分开；未落地观测与展示要求不抹掉 |
+| 旧测量冒充当前验收 | 原 M0/M4、9/05 关闭记录 | 历史样本/门禁与本轮验证分开，不重开已拍板公式或伪造 P95 |
+
+本轮使用文档治理/开发入口/源合同/前端核验技能；CodeGraph CLI status/query/impact 后读代码，不用图或命名替代审计。只改架构文档及直接索引，不变更依赖矩阵。DG 与 Wealth 其他任务的脏文件及 README 交易助手条目保留。
+
+本轮验证：118 项 collector/配置/批次/reader/ETF/趋势计算与缓存/业务 API 测试通过；3 条既有 Starlette/httpx 与 HTTP 422 名称弃用告警，未安装依赖。文档完整性三个检查组、260 个本地 Markdown 链接及锚点、git diff --check 通过；三份历史报告共 179 行表格的数值及全部 SHA-256 保留，M4 报告全文未动。CodeGraph sync/status 为最新。原 7138 行收敛为约 1880 行（包含 HTML 样式删除，不能把行数当信息量指标）。
+
+不把本地测试或文档链接检查当成真实源请求、今日生产状态或最终拓扑性能验证。后续工程问题仅记录，不在文档治理中隐式实施。
+
 ### 4.2 Ops 组
 
 当前职责：`ops-contract-current.md` 维护边界，`ops-api-reference-v1.md` 维护接口，`ops-workflow-catalog-v1.md` 维护工作流清单。TaskRun、自动任务、freshness、多源对账等继续独立承载其专题；本批不代表这些专题已全面审计。

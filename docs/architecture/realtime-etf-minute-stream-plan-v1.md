@@ -2,7 +2,7 @@
 
 状态：重新基线阻塞；只保留已验证源端事实，当前不可开工
 创建日期：2026-08-24
-最近更新：2026-08-29
+最近文档审计：2026-09-10；旧 LLD 的有效约束已并入 §7–8。
 验证记录：[ETF 实时分钟流 R0B 开市验证](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-r0b-open-market-validation-2026-08-26.md)
 源站文档：[Tushare 0416 ETF 实时分钟](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0416_ETF实时分钟.md)
 
@@ -23,7 +23,7 @@ freq=1MIN|5MIN|15MIN|30MIN|60MIN
 fields=ts_code,freq,time,open,close,high,low,vol,amount
 ```
 
-请求不需要 `topic`。固定事实：
+当时请求不需要 `topic`。历史验证事实（非本轮新测）：
 
 | 项 | 验证结果 |
 | --- | --- |
@@ -79,3 +79,44 @@ fields=ts_code,freq,time,open,close,high,low,vol,amount
 3. 不在 P8 中默认改成 Basic Serving 驱动。
 4. 不先写 provider/Redis key，再把选择范围留到上线时决定。
 5. 不运行 Redis 容量写入、生产 collector 或新的 Tushare 验证请求。
+
+## 7. 重新基线时必须保留的实现约束
+
+以下是未来实现要求，不是现行 stock_rt_min 或 ETF 日线已具备的能力。
+
+1. 一个 scheduler attempt 只发一次 HTTP 请求，transport retry 为 0，避免自动重试跨槽。
+2. 多频率共同到期时顺序固定，一次 unified cycle 至多处理一个 due 频率，防止阻塞其他 realtime 对象。
+3. lease、限速和 due state 必须非阻塞；不能在 collector 循环中 sleep 等待下一重试时点。
+4. 一次响应中同一业务身份重复时整批失败，不能由 Redis 后写覆盖前写。
+5. 部分代码仍停留旧分钟时不能发布为完整目标批次。
+6. Redis current pointer 原子切换；发布后维护清理与事实提交隔离。
+
+候选调度证据为 `+15/+30/+45s` 尝试、`+55s` 截止、8 秒 timeout、70 秒 lease、每槽最多 3 次、接口初始预算 20/min。这些数值在重新基线时仍需结合最终范围、统一 collector 公平性和配置审计重新验收。
+
+
+## 8. 重新进入 LLD 的代码审计与交付
+
+用户重新拍板范围后，必须从当前代码重新做 CodeGraph 和配置审计，至少覆盖：
+
+```text
+runtime_config / config_catalog / config seed
+collector_service / realtime CLI handler
+Tushare provider / HTTP retry / limiter
+RedisRealtimeStateStore / lease / cleanup
+RealtimeSnapshotReader
+Ops config command/query / Health API
+frontend config / monitor consumers
+tests and systemd deployment
+```
+
+新的 LLD 必须给出：
+
+1. 范围事实源与固定时点。
+2. 源端全市场结果、就绪集合、Redis 保存集合三者的精确关系。
+3. 每槽冻结、hash、batch meta 和 Health 合同。
+4. 配置项来源、默认值、发布校验、所有消费者和生效方式。
+5. Redis 真实容量报告及不可接受量级的停止策略。
+6. 正向、负向、时序、限速、lease、发布原子性和失败隔离测试。
+
+
+旧池 store/DAO/resource、成员管理、池数量容量公式、seed/API/页面以及依赖旧池的槽 hash、batch meta、空池行为均已撤销。不把旧 LLD 的类名或文件清单作为新实现白名单。当前不得新增代码、迁移、配置对象、Redis key、页面、生产请求或容量写入；下一次开发先形成重新批准的完整 LLD。

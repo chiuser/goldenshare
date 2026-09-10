@@ -1,44 +1,43 @@
-# ETF 实时日线流接入方案 v1
+# ETF 实时日线维护说明
 
-状态：源接口开市实测完成 / 代码主线已接入 / 生产配置已启用 / 开市批次验收已完成
-源接口事实：[Tushare 0400 ETF实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0400_ETF实时日线.md)  
-关联上位方案：[实时行情流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
-关联配置中心：[Ops 实时流配置中心说明](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md)
-适用范围：Tushare `rt_etf_k` ETF 实时日线 V1
+状态：代码已接入；生产启用与开市验收是下文带日期记录，本轮未查询今日开关或生产批次。
+最近代码审计：2026-09-10。
+源事实：[0400 ETF 实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0400_ETF实时日线.md)。
+公共链路：[实时行情流维护说明](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-technical-plan-v1.md)。
+配置与生效：[配置中心](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md)。
 
----
+## 1. 已确认范围
 
-## 1. 目标
+在交易日连续竞价时段按默认 60 秒间隔读取 rt_etf_k，保存源通配符结果，不用 ETF Basic 或旧池过滤采集范围。复用统一 collector 和 Redis 批次；不新增第二个服务、实时历史行情表、DatasetDefinition、TaskRun、freshness 或 date audit。当前没有 ETF 对外快照查询端点；WebSocket 也不在本轮范围。
 
-接入 Tushare `rt_etf_k`，在交易日交易时段内采集全市场 ETF 实时日线快照，并按时间批次写入 Redis。
+“行情不落库”不等于整条 CLI 无 DB 写入：成功 ETF feed 后，CLI 会在独立 Session 调用现行业务异动监控。监控规则/统计是另一职责，不能据本文件删除。
 
-V1 目标用一句话描述：
+## 2. 实现与失败边界
 
-> 每 60 秒拉取一次源端全市场 ETF 实时日线，沪深两段都成功后合并为一个 Redis 批次快照，再原子切换 current pointer。
+代码落点为 `src/foundation/realtime/etf_rt_daily.py`、collector_service、state_store 和 runtime_config；Ops health 在 `src/ops/queries/realtime_feed_health_query_service.py`。
 
-本方案只处理实时源采集与 Redis 快照，不处理离线数据集同步。
-
-## 2. 非目标
-
-1. 不落库，不建 raw/core/serving 表。
-2. 不创建 `DatasetDefinition`，不进入 TaskRun、freshness、date audit。
-3. 不做 ETF 类型二次过滤，V1 保存源端通配符返回的完整事实。
-4. 不新增独立 systemd 服务，继续使用现有 `goldenshare-realtime-collector.service` 统一 collector。
-5. 不在本轮实现业务快照 API，除非后续页面或业务调用方明确需要。
-6. 不实现 WebSocket；若后续需要，复用 Redis stream 另行设计。
-
-## 3. 已拍板口径
-
-| 事项 | 结论 |
+| 步骤 | 当前行为 |
 | --- | --- |
-| 采集间隔 | `60` 秒 |
-| Redis 保留策略 | `snapshot_ttl_seconds=259200`，即 72 小时；`keep_recent_batches=3` |
-| 全市场范围 | 不做二次过滤，完整保存源端返回事实 |
-| 发布完整性 | 沪深两段都成功才发布新 current batch；任一段失败不发布半市场快照 |
-| 采集时段 | 交易日 `09:30-11:30,13:00-15:00` |
-| 存储方式 | Redis `batch_id + current pointer`，按时间批次保存全市场快照 |
+| 请求 | 先 SH：topic=HQ_FND_TICK、ts_code=5*.SH；再 SZ：topic 为空、ts_code=1*.SZ；都用显式 fields |
+| 合并 | 两次调用都返回后合并并附 request_segment；任一调用抛错不发布部分结果 |
+| 标准化 | trim，缺代码跳过并计数；旧 trade_time 和 OHLC 全 0 保留；没有按 ETF 类型二次过滤 |
+| 保存 | feed_key=tushare_etf_rt_k；沿用公共 batch/current/stream/health/lease 模型 |
+| 发布完整性 | 两段调用成功不是完整市场覆盖证明；空段成功返回也没有独立完整性失败门禁；重复代码最终按公共 store 后写覆盖 |
+| 异常隔离 | 独立捕获 feed 异常，但统一循环串行，慢请求仍延迟其他工作 |
 
-## 4. 开市真实验证记录
+发布后清理发生在 Redis execute 之后；清理抛错时 current 可能已切换，health 也是独立写。不能把“源分段失败不发布”扩大成“任意异常都会保持旧批次”。发布后维护与事实提交彻底隔离仍是公共说明中记录的实现缺口，本轮不改代码。
+
+## 3. 配置、消费者与维护
+
+- 当前配置对象是 etf_rt_daily，不是“建议新增”；源请求段、feed_key、source_api_name 是锁定身份，不提供运营编辑。
+- 默认 enabled=false；poll=60 秒、source timeout=20 秒、lease=120 秒、stale=180 秒、TTL=259200 秒、最近 3 批。完整默认值与发布校验只在配置中心维护，这些默认值不等于今日生产值；timeout 不包含全部重试/排队墙钟。
+- CLI 启动加载配置，应用版本回报不等于热加载。部署由既有统一服务承载，不增加新安装步骤。
+- Health 的 source_snapshot_count 是源批次保存范围；eligible_etf_count 是同次调用固定日期下 ETF Basic 当前可请求集合，eligible_snapshot_count 是该集合与批次的交集。这不是采集时冻结的 Basic 集合，三者不能强制相等。
+- Ops 页面三组 Health/配置入口与轮询规则见[实时流监控](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.md)，不重复维护 JSON 样例或旧池字段。
+- 回归入口：tests/test_realtime_etf_rt_daily.py、test_realtime_runtime_config.py、test_realtime_collector_service.py、tests/web/test_realtime_api.py、test_ops_realtime_config_api.py。若改到页面另跑对应前端测试；仅文档变更不自动安装或启动服务。
+- 维护必须保护：SZ 使用 1*.SZ 而非 15*.SZ；SH topic、显式 trade_time/买卖字段；零值/旧时间保留；分段异常不发布；配置版本与受控生效；源覆盖与 Basic 资格分离。历史约 2200 行不是运行容量上限或永久全集。
+
+## 4. 历史开市真实验证记录（2026-06-03）
 
 验证时间：2026-06-03 10:03-10:26 CST，A 股连续竞价时段。
 
@@ -76,7 +75,7 @@ ts_code,name,trade_time,pre_close,open,high,low,close,vol,amount,num,ask_price1,
 | 沪深拼接 + 上海 topic | `topic="HQ_FND_TICK", ts_code="5*.SH,15*.SZ"` | 只观测到上海侧 | 不能作为全市场请求 |
 | 沪深拼接 + 空 topic | `topic="", ts_code="5*.SH,15*.SZ"` | 只观测到深圳侧 | 不能作为全市场请求 |
 
-最终请求方式：
+当时验证后采用的分段描述如下；market 是内部段标签，不向 Tushare 发送：
 
 ```json
 [
@@ -101,209 +100,8 @@ ts_code,name,trade_time,pre_close,open,high,low,close,vol,amount,num,ask_price1,
 2. 深圳存在旧 `trade_time` 样本，这是源端返回事实。V1 不把单行旧时间判为整个 feed 失败，只在页面/health 中展示源端时间和批次时间。
 3. 合计约 2200 行，60 秒一次、每轮 2 次源请求，适合 Redis 快照，不需要分页，不适合落库。
 
-## 5. Redis 存储模型
 
-复用现有实时状态层，不新增 Redis key 模型。
-
-建议 feed key：
-
-```text
-tushare_etf_rt_k
-```
-
-关键 Redis key 形态：
-
-```text
-rt:feed:tushare_etf_rt_k:current_batch
-rt:feed:tushare_etf_rt_k:batch:{batch_id}:snapshot:{ts_code}
-rt:feed:tushare_etf_rt_k:batch:{batch_id}:index
-rt:feed:tushare_etf_rt_k:batch:{batch_id}:meta
-rt:feed:tushare_etf_rt_k:batches
-rt:feed:tushare_etf_rt_k:stream:batch
-rt:feed:tushare_etf_rt_k:stream:delta
-rt:feed:tushare_etf_rt_k:health
-rt:feed:tushare_etf_rt_k:lease
-```
-
-写入顺序：
-
-1. 请求上海段。
-2. 请求深圳段。
-3. 两段都成功后合并 rows。
-4. normalizer 生成 snapshots。
-5. 读取上一批 current batch，计算 delta snapshots。
-6. `publish_batch()` 写入新批次 snapshot/index/meta/stream。
-7. 原子切换 `current_batch`。
-8. 写 health。
-
-一致性口径：
-
-1. API 读取永远只读 current pointer 指向的同一个 `batch_id`。
-2. 不加前端读锁，不扫描散 key，不读半新半旧数据。
-3. 如果本轮任一分段失败，不调用 `publish_batch()`，只写 degraded health，保留上一批 current batch。
-
-## 6. Runtime Config 设计
-
-新增 realtime 配置对象，建议：
-
-| 字段 | 建议值 |
-| --- | --- |
-| `object_key` | `etf_rt_daily` |
-| `object_kind` | `collector_feed` |
-| `display_name` | `ETF 实时日线` |
-| `source_api_name` | `rt_etf_k` |
-| `feed_key` | `tushare_etf_rt_k` |
-| `collection_sessions` | `09:30-11:30,13:00-15:00` |
-
-可编辑配置：
-
-| 配置项 | 默认值 | 说明 |
-| --- | ---: | --- |
-| `enabled` | `false` | 初始不自动启用，由配置中心发布 |
-| `poll_interval_seconds` | `60` | 已拍板 |
-| `max_calls_per_minute` | `10` | 每轮 2 次请求，60 秒一次，10/min 足够覆盖并留余量 |
-| `lease_ttl_seconds` | `120` | 覆盖一次采集周期和偶发慢请求；当前代码默认值见 `DEFAULT_ETF_RT_DAILY_RUNTIME_CONFIG` |
-| `stale_after_seconds` | `180` | 大于 60 秒采集间隔，避免轻微抖动误报 |
-| `snapshot_ttl_seconds` | `259200` | 72 小时，已拍板 |
-| `keep_recent_batches` | `3` | 已拍板 |
-| `batch_stream_maxlen` | `5000` | 沿用现有实时 feed 默认 |
-| `delta_stream_maxlen` | `200000` | 沿用现有实时 feed 默认 |
-| `source_timeout_seconds` | `20` | 与现有实时分钟源请求超时口径一致 |
-
-锁定配置：
-
-| 锁定项 | 值 | 原因 |
-| --- | --- | --- |
-| `request_segments` | `SH: HQ_FND_TICK + 5*.SH`，`SZ: "" + 1*.SZ` | 防止配置中心误改导致漏市场或漏代码段 |
-| `source_api_name` | `rt_etf_k` | 源接口事实 |
-| `feed_key` | `tushare_etf_rt_k` | Redis key 事实 |
-| `collection_sessions` | `09:30-11:30,13:00-15:00` | 与现有实时主线一致 |
-
-## 7. Collector 与健康状态
-
-collector 继续由 `RealtimeCollectorService` 统一调度。
-
-新增 ETF collector 后，调度规则为：
-
-1. `etf_rt_daily.enabled=false` 时不请求源站，只展示 disabled/idle。
-2. 非交易日、午休、收盘后不请求源站，只写 idle/market_closed。
-3. 交易日交易时段内，每 60 秒执行一次 ETF feed。
-4. ETF feed 失败不影响股票实时日线和股票实时分钟。
-5. ETF feed 写入 `realtime_config_apply_state`，即使 disabled 也要上报已应用版本，避免配置中心误判“待重启”。
-
-health 建议字段：
-
-```json
-{
-  "status": "ok",
-  "feed_key": "tushare_etf_rt_k",
-  "enabled": true,
-  "collector_running": true,
-  "collector_id": "...",
-  "collection_status": "open",
-  "last_request_at": "...",
-  "last_success_at": "...",
-  "current_batch_id": "...",
-  "current_batch_received_at": "...",
-  "current_batch_published_at": "...",
-  "source_row_count": 2206,
-  "snapshot_count": 2206,
-  "source_snapshot_count": 2206,
-  "eligible_etf_count": 1395,
-  "eligible_snapshot_count": 1320,
-  "segment_counts": {"SH": 1055, "SZ": 1151},
-  "invalid_count": 0,
-  "invalid_reason_counts": {},
-  "request_count_last_minute": 2,
-  "source_elapsed_ms": 1680,
-  "write_elapsed_ms": 0,
-  "last_error_message": null
-}
-```
-
-## 8. Ops 与页面接入
-
-V1 最小闭环建议接入两个页面：
-
-1. 实时流配置中心：新增 `ETF 实时日线` 对象，可查看、编辑、校验、发布、重启 collector。
-2. 实时流监控：新增 `ETF 实时日线` 分组，展示采集状态、当前批次、快照数量、分段行数、源端耗时、Redis 状态、错误信息。
-
-页面仍只读 Ops API：
-
-```http
-GET /api/v1/ops/realtime/etf-rt-daily/health
-GET /api/v1/ops/realtime/config/objects
-GET /api/v1/ops/realtime/config/objects/etf_rt_daily
-```
-
-页面禁止事项：
-
-1. 不请求 Tushare。
-2. 不直接读 Redis。
-3. 不自行拼 feed key。
-4. 不自行计算 stale、交易日、交易时段。
-
-业务快照 API 暂不作为 V1 必需项。若后续行情页面需要读取单个或多个 ETF 当前快照，再新增：
-
-```http
-GET /api/v1/realtime/etf-rt-daily?ts_codes=510300.SH,159919.SZ
-```
-
-## 9. 开发里程碑
-
-| Milestone | 目标 | 边界 |
-| --- | --- | --- |
-| M0 | 本方案评审与口径冻结 | 不改代码 |
-| M1 | 配置模型接入 | 已完成：扩展 `runtime_config.py`、`config_catalog.py`、seed、apply state；不请求源站 |
-| M2 | Provider / normalizer / publisher | 已完成：实现 `rt_etf_k` 两段请求、字段归一化、全量批次发布；补单元测试 |
-| M3 | Collector 调度 | 已完成：接入统一 collector；保证独立 due time、独立 lease、独立 health |
-| M4 | Ops health / 配置中心接入 | 已完成：新增 health API，配置中心对象列表/detail/validate/publish 支持 ETF |
-| M5 | 前端实时流监控与配置中心展示 | 已完成：新增 ETF 分组和配置对象；不改股票日线/分钟现有展示 |
-| M6 | 生产部署与开市验收 | 已完成：生产已 seed `etf_rt_daily`、发布启用并重启 collector，并已完成开市批次验收 |
-| M7 | 可选业务 API | 只有出现明确业务消费页面时再做 |
-
-## 10. 测试与验收
-
-### 10.1 必测项
-
-1. `rt_etf_k` provider 必须按两段请求：`5*.SH + HQ_FND_TICK`、`1*.SZ + 空 topic`。
-2. provider 不得使用 `15*.SZ` 作为全市场深市范围。
-3. explicit fields 必须包含 `trade_time`、`ask_price1`、`bid_price1`、`ask_volume1`、`bid_volume1`。
-4. 两段都成功才 publish；任一段失败不切 current pointer。
-5. normalizer 保留源端 `trade_time`，旧时间行不判 feed 失败。
-6. OHLC 全 0 行保留，不拒绝。
-7. Redis TTL 为 72 小时，只保留最近 3 批。
-8. 配置中心可编辑项不得包含 `request_segments`、`feed_key`、`source_api_name`。
-9. collector apply state 必须包含 `etf_rt_daily.version`。
-10. ETF feed 异常不得影响股票实时日线和股票实时分钟。
-
-### 10.2 验收命令建议
-
-持续回归至少执行：
-
-```bash
-uv run pytest -q tests/test_realtime_etf_rt_daily.py
-uv run pytest -q tests/test_realtime_runtime_config.py tests/test_realtime_collector_service.py
-uv run pytest -q tests/web/test_realtime_api.py tests/web/test_ops_realtime_config_api.py
-uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py
-cd frontend && npm run typecheck
-cd frontend && npm run test -- ops-realtime-monitor-page
-cd frontend && npm run test -- ops-realtime-config-center-page
-python3 scripts/check_docs_integrity.py
-```
-
-## 11. 风险与处理
-
-| 风险 | 影响 | 处理 |
-| --- | --- | --- |
-| `15*.SZ` 被误用 | 深市源端事实漏取 | 文档和测试必须断言 V1 使用 `1*.SZ` |
-| 单段失败后发布半市场 | 页面误认为当前批次是全市场 | all-or-nothing publish |
-| 源端返回旧 `trade_time` | 页面可能误解单只 ETF stale | 保留源端时间，由页面展示；feed stale 以批次发布时间判断 |
-| 源端返回 OHLC 全 0 | 被误拒绝导致快照不完整 | 作为源端事实保留 |
-| 新 feed 绕过配置中心 | 运行配置再次分散 | 必须接 `foundation.realtime_runtime_config` 和配置中心 |
-| Redis 批次过多 | 内存上涨 | V1 只保留最近 3 批，TTL 72 小时 |
-
-## 12. 生产配置收口记录
+## 5. 历史生产配置收口记录（2026-06-18）
 
 2026-06-18 已完成生产配置收口：
 
@@ -314,7 +112,7 @@ python3 scripts/check_docs_integrity.py
 5. collector 已上报 `etf_rt_daily.applied_version=2`，配置中心应显示“已应用”。
 6. 当时收盘后 health 符合预期且未请求源站。该次历史验收使用旧池字段记录 1,395；当前契约已改为按 API 调用时固定日期动态读取 ETF Basic，返回 `eligible_etf_count/eligible_snapshot_count`，不再把该数量固化为运行门禁。
 
-开市验收已完成：
+原记录记载开市验收已完成；其批次存在/分段结果是历史证据，后续 Basic 资格迁移不能倒写成 6 月 18 日的原始实测。以下按当前合同列出维护时应核验的项目（不是本轮新验收）：
 
 1. `tushare_etf_rt_k` 产生 current batch。
 2. `segment_counts` 同时包含 `SH` 与 `SZ`。

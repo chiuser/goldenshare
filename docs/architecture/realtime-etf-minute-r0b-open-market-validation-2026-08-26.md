@@ -6,7 +6,7 @@
 
 对应方案：[ETF 实时分钟流接入方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-plan-v1.md)
 
-对应 LLD：[ETF 实时分钟流接入 LLD v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-low-level-design-v1.md)
+重新基线入口：[ETF 实时分钟方案与重入约束](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-plan-v1.md)
 
 ---
 
@@ -200,13 +200,13 @@ fields=ts_code,freq,time,open,close,high,low,vol,amount
 6. 2026-08-26 下午与 2026-08-28 早盘的 1,395 个历史参考代码最终都完整切换，没有观察到持续旧时间代码。它只能证明该测量集合的传播行为；未来生产就绪集合、槽内冻结和 Health 口径尚未重新基线，不能从本记录直接推导。
 7. 普通请求约 `0.5-0.8s`，已观测最大值为早盘 `4.449s`；一分钟槽内具备有界重试空间，但生产请求预算仍必须按滚动60秒模拟，不得只用平均耗时估算。
 
-## 6. 验证后冻结的调度口径
+## 6. 历史验证形成的候选调度口径
 
 开市源端时序验证已经完成，不需要为了确认源端传播再重复相同请求。`+15/+30/+45s` 尝试和 `+55s` 截止仍可作为未来调度候选证据；但“哪些代码必须完整到达才允许发布”尚未重新基线，因此本文不再冻结生产就绪集合、current pointer 或 Health 的最终合同。
 
-依据本记录，调度口径冻结为：
+依据本记录保留以下候选值；最终范围、统一调度公平性与配置审计完成后，须由新 LLD 重新验收，不能直接当作现行运行配置：
 
-| 项目 | 冻结值 | 证据与约束 |
+| 项目 | 历史候选值 | 证据与约束 |
 | --- | --- | --- |
 | 首次尝试 | `expected_bar_time + 15s` | 普通边界通常已经完整；`09:30 +15s` 仍可能不完整，因此必须继续校验和重试。 |
 | 后续尝试 | 不早于 `+30s/+45s` | 覆盖 `15:00 +35.571s` 和 `14:00 +45.992s` 才完整的样本。 |
