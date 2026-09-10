@@ -1,6 +1,6 @@
 # 文档信息架构与待整合清单 v1
 
-更新时间：2026-09-09（补充 Ops 实时流监控与配置中心整合记录）
+更新时间：2026-09-10（补充指数技术因子文档整合记录）
 
 ## 1. 目标
 
@@ -539,6 +539,23 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 依据：CodeGraph status/query/impact 与当前 planner、builder、Definition、ORM、source client、executor、workflow 和测试。代码现状与生产验收分列，Raw 起点依赖及单 unit 分页全量缓存等限制保留，不扩展为本轮开发任务。旧文档全文可在 Git 提交 `08216be3` 中追溯；本次删除的是重复文档，不是功能或数据。
 
 验证：`stk_factor_pro` 的 resolver、Definition 和 writer 定向离线测试共 11 项通过（156 项未选）；文档完整性检查和 `git diff --check` 通过，含括号的来源文件路径另行核实存在。正文从三份共 500 行收敛为一份 99 行，减少 401 行；旧路径只保留在上述合并去向表。
+
+<a id="idx-factor-docs-consolidation-20260910"></a>
+
+#### 2026-09-10 指数技术因子接入方案与 LLD 整合
+
+本批只整理 `idx_factor_pro` 文档和直接索引，不改代码、字段、依赖矩阵、自动任务配置或生产数据。
+
+| 原文档 | 处理与去向 |
+| --- | --- |
+| `docs/datasets/idx-factor-pro-dataset-development.md` | 保留为[统一维护说明](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-dataset-development.md)，承接现行合同、实现入口及带日期的历史证据 |
+| `docs/datasets/idx-factor-pro-low-level-design-v1.md` | 删除；输入与日期归入 §1–2，存储与事务归入 §3，探测已确认决策与职责归入 §4，性能/测试/验收边界归入 §5–6；字段重复表、过时伪代码与已完成施工清单不再独立维护 |
+
+纠偏：手动 point/range 与自动 probe/fallback 分开；配置校验归统一 capability resolver、页面消费后端能力；writer 会取得 view DAO 元数据，但不向其写入，不能据此声称数据库拒写已验证；source client 方法名更新，满页后结束探测请求纳入请求数。2026-08-01 的 head、源端行数、激活池/DG 覆盖与测试结果仅作历史证据；后续 TaskRun#7924 成功记录纠正“生产从未同步”，但不冒充该数据集完整生产验收。
+
+依据：CodeGraph query/impact、当前 Definition、builder/source client、ORM/迁移、writer、capability/binding/probe/schedule、页面消费者与定向测试。保留无对象池过滤、89 源字段、Raw-only/view、单 unit 缓存限制、探测只证明开始发布，以及不加入工作流/不接入 Lake/不预置任务等边界。旧全文可在 Git 提交 `a0df5e1a` 中追溯。
+
+验证：Foundation 的 idx_factor_pro 定向离线测试 12 项通过（219 项未选），远程条件与精确动作绑定测试 1 项通过；文档完整性与差异检查通过。两份共 1,100 行收敛为一份 136 行，减少 964 行；不运行 Web/API 全套测试、源端实测、生产查询或部署。旧路径仅在本合并去向表保留为非链接历史说明。
 
 ### 4.4 Frontend 组
 

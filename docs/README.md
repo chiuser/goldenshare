@@ -194,8 +194,8 @@ docs/
 - [股票历史分钟行情存储瘦身与滚动冷热治理方案 v1（表结构已实施；P0 安全复审完成，备份门禁 No-Go，生产迁移待单独授权）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子维护说明（已合并 Raw 直出与历史重刷方案；区分存在性门禁、规划顺序和恢复限制）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
 - 原复权变化重刷、Raw 直出两份方案已并入以上说明，不再作为独立执行指引；[合并去向与保留边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#stk-factor-docs-consolidation-20260910)见治理记录。
-- [指数技术因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-dataset-development.md)
-- [指数技术因子（专业版）低层设计 LLD v1](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-low-level-design-v1.md)
+- [指数技术因子维护说明（已合并接入方案与 LLD；区分手动/自动输入、轻量探测与历史验收）](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-dataset-development.md)
+- 原指数技术因子 LLD 已并入以上说明；[合并去向与保留边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#idx-factor-docs-consolidation-20260910)见治理记录。
 - [每日停复牌信息](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
 - [本地 DG 停牌历史确认事实持久化与统一消费技术方案 v1（S0–S5完成；旧CSV退出、回归及专项环境清理完成）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)
 - [本地 DG 停牌历史确认事实持久化与统一消费 LLD v1（§18.35：156个逻辑用例通过、精确清理及保留项对账；TODO关闭）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)
