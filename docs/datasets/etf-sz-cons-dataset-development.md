@@ -1,8 +1,7 @@
-# ETF 每日持仓组合（深市）（`etf_sz_cons`）数据集接入方案
+# ETF 每日持仓组合（深市）（`etf_sz_cons`）维护说明
 
 状态：已完成生产接入；对象来源已切换为 ETF Basic Serving
-最近更新：2026-08-29
-LLD：[ETF 每日持仓组合（深市）LLD v1](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-low-level-design-v1.md)
+最近更新：2026-09-10；原 LLD 的执行、错误码与回归要求已并入本文。
 源站文档：[0472 ETF 每日持仓组合（深市）](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0472_ETF每日持仓组合(深市）.md)
 
 ## 1. 当前结论
@@ -45,4 +44,22 @@ sub_flag, cpr, rdr, sub_cc, red_cc, exchange
 
 支持手动和普通定时 `maintain`，不加入既有 workflow，不新增专用 probe。V1 使用 `trade_date` 做 freshness，不构造日期 × ETF 完整性矩阵。
 
-旧实现曾 seed 726 个候选，并在源端复核后形成 720 行运营池；2026-08-29 退场审计时旧表仍为 720 行。这只是历史证据，不再控制请求，也不能作为当前深市 ETF 固定数量。P3 已迁移 planner，P8 已删除旧基础设施并准备生产待执行的 drop migration。
+旧实现曾 seed 726 个候选，并在源端复核后形成 720 行运营池；2026-08-29 退场审计时旧表仍为 720 行。这只是历史证据，不再控制请求，也不能作为当前深市 ETF 固定数量。后续 2026-08-29 P11 记录已确认旧池表不存在，见 [ETF 专项历史记录](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。不能继续安排生产 drop，也不把该记录当成本轮生产复验。
+
+## 6. 执行落点（合并原 LLD）
+
+[market_fund Definition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/market_fund.py)声明 `trade_open_day + every_open_day + point_or_range`；universe 为 pool 技术形状，source 为 `core_serving_etf_basic`、无 resource；completeness scope 为 not_applicable，date_model.audit_applicable 为 False。它不表示没有日期输入，也不恢复持久化运营池。
+
+[planner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)的 `_build_etf_sz_cons_units` 调用公共 selector，再执行 `_resolve_effective_etf_start` 和 `_split_calendar_month_windows`。每次 plan 固定一个中国自然日作为资格日期；[EtfBasicDAO](/Users/congming/github/goldenshare/src/foundation/dao/etf_basic_dao.py)的显式 target / 全量 snapshot 入口各最多调用一次，不在 ETF 循环中重新查主数据。
+
+unit 进度保留代码、日期窗口及 `eligibility_as_of/master_list_date/requested_start_date/effective_start_date`。[builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)的 `_etf_sz_cons_params` 只生成第 2 节源参数；[source client](/Users/congming/github/goldenshare/src/foundation/ingestion/source_client.py)追加分页，满页继续、短页停止。一个 unit 不是一个页面。
+
+trade_date 转日期；qty/cpr/rdr/sub_cc/red_cc 按 Decimal 归一化，三字段身份必填。当前质量策略为 record_rejections，不承诺任一拒绝都使整个 unit 失败；页拉取失败则不能将部分页当作完整 unit 发布。Serving view 不重复筛选 Basic、不因资格变化删除历史事实。
+
+## 7. 回归与维护边界
+
+保留 .SH/.OF、P/D、空/未来上市日、exchange 冲突等反例；显式多代码在 Basic 查询前拒绝；验证单代码/全量查询次数、固定资格日、先裁上市日再切月窗、空集合和越界错误。
+
+入口：[resolver](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)、[Basic DAO](/Users/congming/github/goldenshare/tests/test_etf_basic_dao.py)、[分页](/Users/congming/github/goldenshare/tests/test_dataset_source_client.py)、[归一化](/Users/congming/github/goldenshare/tests/test_dataset_normalizer.py)、[模型](/Users/congming/github/goldenshare/tests/test_etf_sz_cons_model.py)、[writer](/Users/congming/github/goldenshare/tests/test_dataset_writer_etf_sz_cons.py)、[workflow 边界](/Users/congming/github/goldenshare/tests/test_etf_sz_cons_ops_contract.py)。
+
+本次不恢复旧 resource/DAO/seed、不新增 fallback，不删除或重建现行 Raw/view，不修改其他数据集、workflow 或实时链。历史代码与原 LLD 全文从 Git 追溯。

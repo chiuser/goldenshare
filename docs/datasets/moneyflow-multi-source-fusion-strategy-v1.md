@@ -1,232 +1,102 @@
-# 资金流数据集（`moneyflow`）多源融合策略设计 V1
+# 资金流多源融合与对账说明
 
-## 1. 目标与边界
+更新时间：2026-09-10。状态：现行代码说明；原策略草案已校准，未来质量建议与已实现能力分列。本文不证明生产当前策略配置或源端覆盖范围已重新验收。
 
-- 目标：在不影响现有对上服务稳定性的前提下，为 `moneyflow` 建立可持续的多源融合策略（Tushare + BIYING）。
-- 当前边界：
-  - BIYING 已接入 `raw_biying.moneyflow`，本阶段先完成策略设计，不改业务代码。
-  - Serving 口径继续保持现有 `core_serving.equity_moneyflow` 结构。
-  - 暂不做字段级“拼接融合”（同一行来自多个源的混拼），先采用行级主备融合。
+## 1. 当前链路与职责
 
-## 2. 两个数据源字段结构对比
+Tushare `moneyflow` 和 BIYING `biying_moneyflow` 都已接入 Raw → Std → Serving，不是“BIYING 仅写 Raw、等待融合开发”。
 
-## 2.1 Tushare（当前 serving 直系字段）
+```text
+两源各自的 maintain 请求 → DatasetDefinition / DatasetExecutionPlan
+  → 各自 Raw → NormalizeMoneyflowService → core_multi.moneyflow_std
+  → 本次受影响的 (ts_code, trade_date)
+  → ServingPublishService → core_serving.equity_moneyflow
+```
 
-- 来源表：`raw_tushare.moneyflow`
-- 对上目标表：`core_serving.equity_moneyflow`
-- 核心字段：
-  - 分档买卖成交量/成交额：`buy_sm/md/lg/elg_*`, `sell_sm/md/lg/elg_*`
-  - 净流入：`net_mf_vol`, `net_mf_amount`
+- 来源事实分别保存于 `raw_tushare.moneyflow`、`raw_biying.moneyflow`。
+- Std 是已存在的物理模型，主键为 `(source_key, ts_code, trade_date)`；包含标准 18 个量额字段及时间戳。当前没有草案中的 `raw_row_hash/source_fetched_at/extra_json`。
+- 发布会按受影响业务键读取各源 Std 候选，再选择、upsert Serving；不是每次同步重建整个 Serving，也不会因某来源只覆盖较短历史就主动截断既有历史。
+- BIYING 请求对象、100 天窗口及 Raw 归一化详见 [BIYING 维护说明](/Users/congming/github/goldenshare/docs/datasets/biying-moneyflow-dataset-development.md)。通用配置职责见 [多源映射与发布规则](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)，不在本文重写一套。
 
-## 2.2 BIYING（当前 raw 全量落库）
+依据：[Definition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/moneyflow.py)、[writer](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)、[按键发布](/Users/congming/github/goldenshare/src/foundation/ingestion/moneyflow_publish.py)、[Std 模型](/Users/congming/github/goldenshare/src/foundation/models/core_multi/moneyflow_std.py)。
 
-- 来源表：`raw_biying.moneyflow`
-- 特点：
-  - 字段更丰富（主动/被动、成交额/成交量/占比及增量）
-  - 命名体系与 Tushare 不一致（`zmb*`, `zms*`, `bdm*` 等）
-  - 分档规则（接口说明）：
-    - 特大单：成交额 `>=100万` 或成交量 `>=5000手`
-    - 大单：成交额 `>=20万` 或成交量 `>=1000手`
-    - 中单：成交额 `>=4万` 或成交量 `>=200手`
-    - 小单：其余成交
+## 2. 已实现映射与不可忽略的口径差异
 
-## 2.3 可对齐字段（建议作为第一批标准融合字段）
+[NormalizeMoneyflowService](/Users/congming/github/goldenshare/src/foundation/services/transform/normalize_moneyflow_service.py)把 BIYING 主买/主卖字段映射如下；Tushare 保留同名标准字段。
 
-以下映射为“候选标准映射”，上线前需做抽样校验确认口径一致：
+| 标准档位 | 买入额 / 卖出额 | 买入量 / 卖出量 |
+| --- | --- | --- |
+| 小单 `sm` | `zmbxdcje / zmsxdcje` | `zmbxdcjl / zmsxdcjl` |
+| 中单 `md` | `zmbzdcje / zmszdcje` | `zmbzdcjl / zmszdcjl` |
+| 大单 `lg` | `zmbddcje / zmsddcje` | `zmbddcjl / zmsddcjl` |
+| 特大单 `elg` | `zmbtdcje / zmstdcje` | `zmbtdcjl / zmstdcjl` |
 
-| 标准语义 | Tushare 字段 | BIYING 候选字段 |
-|---|---|---|
-| 超大单买入额 | `buy_elg_amount` | `zmbtdcje` |
-| 大单买入额 | `buy_lg_amount` | `zmbddcje` |
-| 中单买入额 | `buy_md_amount` | `zmbzdcje` |
-| 小单买入额 | `buy_sm_amount` | `zmbxdcje` |
-| 超大单卖出额 | `sell_elg_amount` | `zmstdcje` |
-| 大单卖出额 | `sell_lg_amount` | `zmsddcje` |
-| 中单卖出额 | `sell_md_amount` | `zmszdcje` |
-| 小单卖出额 | `sell_sm_amount` | `zmsxdcje` |
-| 超大单买入量 | `buy_elg_vol` | `zmbtdcjl` |
-| 大单买入量 | `buy_lg_vol` | `zmbddcjl` |
-| 中单买入量 | `buy_md_vol` | `zmbzdcjl` |
-| 小单买入量 | `buy_sm_vol` | `zmbxdcjl` |
-| 超大单卖出量 | `sell_elg_vol` | `zmstdcjl` |
-| 大单卖出量 | `sell_lg_vol` | `zmsddcjl` |
-| 中单卖出量 | `sell_md_vol` | `zmszdcjl` |
-| 小单卖出量 | `sell_sm_vol` | `zmsxdcjl` |
+目标名分别为 `buy_<档位>_amount/sell_<档位>_amount` 和 `buy_<档位>_vol/sell_<档位>_vol`。BIYING 净流入量/额由四档买入合计减四档卖出合计生成；Tushare 使用自身 `net_mf_vol/net_mf_amount`。当前求和跳过空值，全空的一侧在另一侧有值时按零参与相减；这不是“完整字段已通过质量门禁”的证明。量字段必须能表示为整数，金额转 Decimal。
 
-净流入建议：
+字段名对齐不代表两源统计严格等价：
 
-- `net_mf_amount = (buy 四档金额合计) - (sell 四档金额合计)`
-- `net_mf_vol = (buy 四档成交量合计) - (sell 四档成交量合计)`
+- [Tushare doc 170](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/资金流向数据/0170_个股资金流向.md)按主动买卖金额分档：小单 5 万以下、中单 5～20 万、大单 20～100 万、特大单不低于 100 万；量以手、额以万元计。
+- 原方案引用的 BIYING 接口说明为：中单门槛 4 万或 200 手、大单 20 万或 1,000 手、特大单 100 万或 5,000 手，小单为其余成交。此处保留原口径依据，不作为本轮重新实测。
+- 4～5 万的分档差异，以及 BIYING“金额或成交量”的并列条件，都可能产生差额。不得把字段映射成功或测试通过当成源端统计等价。
+- BIYING `dddx/zddy/ddcf`、`bdm*`、总额/增量与计数字段继续留在 Raw，不自动扩展现有 Serving。
 
-## 2.5 分档口径一致性结论（基于当前信息）
+旧方案“BIYING 最近约一年、Tushare 十年以上”的覆盖描述仅是当时背景，不作为当前可请求日期范围或固定验收数量。
 
-Tushare 说明（你补充的口径）：
+## 3. 主备选择：当前实现与设计边界
 
-- 小单：`<5万`
-- 中单：`5万~20万`
-- 大单：`20万~100万`
-- 特大单：`>=100万`
-- 且数据基于主动买卖单统计
+本数据集采用整行主备的设计口径，避免同一日买卖字段混用不同统计来源。Seed 从现行 Definition 优先级得到 `primary=tushare, fallback=[biying]`。
 
-对比 BIYING 后的结论：
+实际发布由 [ServingPublishService](/Users/congming/github/goldenshare/src/foundation/serving/publish_service.py)读取启用的数据库 policy；没有启用 policy 时使用代码默认策略（`mode=primary`，Tushare 主、BIYING 备）。因此不能只读本文或 Definition 就断言生产此刻的 policy 值。
 
-1. **大单 / 特大单金额阈值基本一致**
-- `20万` 与 `100万` 两个关键边界一致，具备较高可比性。
+[ResolutionPolicyEngine](/Users/congming/github/goldenshare/src/foundation/resolution/policy_engine.py)的优先级路径：
 
-2. **中单 / 小单边界不完全一致**
-- BIYING 中单下限是 `4万`，Tushare 是 `5万`。
-- 因此 `4万~5万` 区间会出现分档归类差异（BIYING 归中单，Tushare 归小单）。
+1. 按传入的活跃来源集合筛候选；当前调用链将空集合视为不限制来源，不能将“无 active 行”描述成可靠的全停发布开关。
+2. 按主源、备源顺序选第一条存在的整行；主源行存在时，即使个别金额为空，也不因本文的质量建议自动回退。
+3. 优先链均未命中但还有候选时，当前通用实现按来源键排序选首个候选。
+4. 通用引擎还支持字段合并和新鲜度优先；这些能力存在不代表本数据集已获准改用它们。
 
-3. **BIYING 多了“成交量阈值并列条件”**
-- BIYING 使用“金额阈值 **或** 成交量阈值”判档。
-- Tushare 当前口径描述主要是金额分档（且基于主动买卖）。
-- 这会导致在“金额不达标但成交量达标”的样本上，两源分档结果可能不同。
+发布链没有接入“关键字段完整才取主源”“异常阈值触发备用源”或“方向一致率达到 95% 才放行”。不得把这些旧建议写成现行保护，也不在文档治理中改变策略。
 
-4. **主动买卖统计语义整体接近，但仍需实证校验**
-- 两源都体现主买/主卖方向统计，但具体成交归类实现细节可能不同。
-- 结论是“可近似对齐”，但不是“严格等价口径”。
+<a id="53-已落地的对账命令mvp"></a>
 
-## 2.4 暂不纳入第一批 serving 融合的 BIYING 字段
+## 4. 现行只读对账 CLI
 
-- 趋势/动向类：`dddx`, `zddy`, `ddcf`
-- 被动买卖全套：`bdm*`
-- 成交总额与增量：`*cjzl`, `*cjzlv`
-- 统计计数类：`zmbzds`, `zmszds`, `zmbzdszl`, `zmszdszl`, `cjbszl`
+`goldenshare reconcile-moneyflow` 读取两源 Raw 做比较，不写业务表、不修改 policy，也不自动触发发布。实现见 [CLI](/Users/congming/github/goldenshare/src/cli.py)、[handler](/Users/congming/github/goldenshare/src/cli_parts/ops_handlers.py)、[MoneyflowReconcileService](/Users/congming/github/goldenshare/src/ops/services/operations_moneyflow_reconcile_service.py)。
 
-处理建议：先保留在 raw；后续如有业务需求，进入“扩展指标”数据集而不是直接挤进现有 `equity_moneyflow`。
+| 参数 / 输出 | 实际含义 |
+| --- | --- |
+| `--start-date / --end-date` | ISO 日期闭区间；未填结束日取两源最大日期中的较晚者，两源均空才用本机当天 |
+| `--range-days` | 未填起点时回看自然日，默认 5，CLI 范围 1～120；不是最近 5 个交易日或共同有数据日 |
+| `--sample-limit` | 默认 20，范围 0～200；限制输出样例，不限制读取规模 |
+| `--abs-tol / --rel-tol` | 默认 1.0 / 0.03，用于金额比较 |
+| 差异输出 | `only_tushare/only_biying/comparable_diff/direction_mismatch`；比较八档买卖金额及净流入额，不是完整成交量对账 |
+| `--threshold-only-tushare / --threshold-only-biying / --threshold-comparable-diff` | 默认 -1 不检查；配置非负数后，超过阈值退出码为 1 |
 
-## 3. 推荐融合策略（V1）
+样例分为仅 Tushare、仅 BIYING、可比差异三类；`direction_mismatch` 是统计值，没有独立样例组或 CLI 阈值。该 CLI 的非零退出码只有被外部流程明确接入时才构成流程门禁。
 
-## 3.1 策略总览
+## 5. Seed：会修改什么
 
-1. `raw -> std`：做字段标准化映射（两源都映射到同一标准列）。
-2. `std -> serving`：做“行级主备融合”。
-3. 默认策略：`primary=tushare`, `fallback=biying`。
+`goldenshare ops-seed-moneyflow-multi-source` 默认 dry-run，展示预计新增/修改计数；`--apply` 才写库并 commit。它是有副作用的配置初始化/校准工具，不是同步或对账命令。
 
-## 3.2 为什么先不用字段级混拼
+[MoneyflowMultiSourceSeedService](/Users/congming/github/goldenshare/src/ops/services/operations_moneyflow_multi_source_seed_service.py)读取 Definition 的逻辑分组、交付方式和优先级，得到来源顺序；不写 Definition，也不写旧模式配置表。
 
-- 两源口径存在潜在差异（主动/被动定义、量纲、阈值边界，尤其 `4万~5万` 与“金额或成交量”并列判档）。
-- 同行混拼容易出现“同一日买卖金额来自不同源导致不自洽”。
-- 行级主备可解释性更强，排障更简单，回滚成本低。
+| 对象 | apply 行为 |
+| --- | --- |
+| `ops.std_mapping_rule` | 某来源无 active 规则才新增通配 identity 骨架；不重写已有 active 规则 |
+| `ops.std_cleansing_rule` | 某来源无 active 规则才新增 builtin/pass-through 骨架 |
+| `foundation.dataset_source_status` | 缺行才新增 active；已有 inactive 行保持不变 |
+| `foundation.dataset_resolution_policy` | 缺失则建立启用的 `primary_fallback`；已有策略若模式、主备或 enabled 不同，校准这些字段并递增版本；保留已有 field rules |
 
-## 3.3 行级主备规则（建议）
+规则骨架不是 §2 字段映射算法的替代品。重复运行不重复创建同类有效骨架，但可能覆盖人工调整的 policy；正式 apply 仍需明确授权。命令也不自动重发全历史 Serving。
 
-键：`(ts_code, trade_date)`（BIYING 的 `dm` 需标准化为 `ts_code`）
+## 6. 未实现建议与验证入口
 
-- 已知现状：BIYING 资金流当前仅覆盖最近约一年历史；Tushare 覆盖十年以上。
-- 因此 V1 必须固定为：`primary=tushare`、`fallback=biying`，避免 serving 历史被截断到一年窗口。
-- 若主源（tushare）存在且关键字段完整：取主源整行。
-- 若主源缺失：取备用源（biying）整行。
-- 若主源存在但关键字段异常（可配置阈值）：允许回退备用源。
+原方案的分层抽样（不同规模、行业、换手率、波动日）、量纲/分档/净流入比较仍有分析价值。方向一致率 95%、P95/P99 动态阈值、异常自动回退和额外 Std 追溯字段保留为历史建议，尚未成为本数据集自动发布合同；后续采用须另行评审，不是本轮待开发项。
 
-关键字段完整性判定建议（最小集合）：
+变更代码时至少核对：
 
-- `buy_sm_amount`, `sell_sm_amount`, `buy_lg_amount`, `sell_lg_amount`, `net_mf_amount`
+- [映射测试](/Users/congming/github/goldenshare/tests/test_normalize_moneyflow_service.py)、[策略引擎测试](/Users/congming/github/goldenshare/tests/test_resolution_policy_engine.py)、[发布测试](/Users/congming/github/goldenshare/tests/test_serving_publish_service.py)。
+- [对账 service 测试](/Users/congming/github/goldenshare/tests/test_moneyflow_reconcile_service.py)、[对账 CLI 测试](/Users/congming/github/goldenshare/tests/test_cli_reconcile_moneyflow.py)。
+- [Seed service 测试](/Users/congming/github/goldenshare/tests/test_moneyflow_multi_source_seed_service.py)、[Seed CLI 测试](/Users/congming/github/goldenshare/tests/test_cli_ops_seed_moneyflow_multi_source.py)。
 
-## 4. 标准层（std）建议字段模型
-
-为避免 `equity_moneyflow` 被过早扩列，建议：
-
-- `core_multi.moneyflow_std`（实体或逻辑层，按团队当前落地策略选择）
-- 核心字段：
-  - `source_key`, `ts_code`, `trade_date`
-  - 标准 18 列（与 `core_serving.equity_moneyflow`一致）
-  - `raw_row_hash`（可选，便于追溯）
-  - `source_fetched_at`（可选）
-- BIYING 额外字段先不入主 std，可放 `extra_json`（可选）。
-
-## 5. 数据质量与对账策略
-
-## 5.1 上线前抽样校验（必须）
-
-按股票、日期分层抽样，至少覆盖：
-
-- 大盘蓝筹 / 中小盘 / 高换手
-- 平稳日 / 极端波动日
-- 不同行业
-
-校验项：
-
-1. 量纲一致性：金额与成交量数量级是否匹配。
-2. 分档一致性：四档买卖额占比结构是否同向。
-3. 净流入一致性：方向（正负）与绝对值误差是否在阈值内。
-
-## 5.2 误差阈值建议
-
-- 方向一致率：>= 95%
-- 绝对误差：按分位值设定动态阈值（P95/P99）
-- 超阈值样本进入人工复核清单
-
-## 5.3 已落地的对账命令（MVP）
-
-已实现 CLI：`goldenshare reconcile-moneyflow`
-
-- 默认行为：
-  - 未传日期时，自动取双源最新日期并回看最近 `5` 天（可用 `--range-days` 调整）。
-- 输出内容：
-  - `only_tushare / only_biying / comparable_diff / direction_mismatch`
-  - 每类差异可输出样例（`--sample-limit`）
-- 门禁能力：
-  - 支持 `--threshold-only-tushare / --threshold-only-biying / --threshold-comparable-diff`
-  - 超阈值返回非 0，便于发版前卡口
-- 容差参数：
-  - `--abs-tol`（绝对误差阈值）
-  - `--rel-tol`（相对误差阈值）
-
-## 6. OPS 配置与发布建议
-
-- 初始模式：`moneyflow` 维持单源（tushare）对外。
-- 预演阶段：
-  - BIYING 同步持续跑 raw。
-  - 先做对账报告，不切 serving。
-- 切换阶段：
-  - 发布 `std mapping` + `resolution policy`。
-  - 先灰度到“缺失回退”模式（仅主源缺失时启用备用源）。
-  - 稳定后再评估是否开启“主源异常回退”。
-
-## 6.1 已落地的配置骨架 Seed（当前阶段）
-
-已新增命令：`goldenshare ops-seed-moneyflow-multi-source [--apply]`
-
-- `dry-run`：仅展示将写入内容，不改库。
-- `--apply`：写入/修正如下对象（可重复执行）：
-  - DatasetDefinition 派生投影：`moneyflow -> multi_source_fusion`（`tushare,biying`），不再写旧数据集模式配置表
-  - `ops.std_mapping_rule`：`moneyflow+tushare` 与 `moneyflow+biying` 默认映射骨架
-  - `ops.std_cleansing_rule`：`moneyflow+tushare` 与 `moneyflow+biying` 默认清洗骨架
-  - `foundation.dataset_source_status`：`moneyflow` 的 `tushare/biying` 均置为 active
-  - `foundation.dataset_resolution_policy`：强制主备口径 `primary=tushare`, `fallback=[biying]`
-
-## 7. 分阶段落地计划
-
-### Phase A（已完成）
-
-- BIYING 资金流向 raw 接入：`raw_biying.moneyflow`
-
-### Phase B（已完成）
-
-- 定义并落地 `moneyflow` 标准层实体：`core_multi.moneyflow_std`
-- 两源同步链路已接入标准化写入：
-  - `sync_moneyflow`（tushare）写入 `moneyflow_std`
-  - `sync_biying_moneyflow`（biying）写入 `moneyflow_std`
-- 对账脚本（按“可对齐字段”）已完成 MVP：`reconcile-moneyflow`
-
-### Phase C（已完成首版）
-
-- 已接入 `resolution -> serving` 发布链路，`moneyflow` 支持从 `std` 按策略发布到 `core_serving.equity_moneyflow`
-- 已支持 `primary_fallback` 策略模式（`primary=tushare`，`fallback=biying`）
-- 已新增骨架初始化命令：`ops-seed-moneyflow-multi-source`（可重复执行）
-
-### Phase D（持续优化）
-
-- 观测期保留快速回滚能力
-- 根据线上对账结果迭代关键字段校验阈值与回退条件
-
-## 8. 风险清单
-
-- 口径定义风险：主动/被动、阈值分档可能与 Tushare 不完全等价（已确认存在 `4万~5万` 归档差异及“金额或成交量”并列判档差异）。
-- 代码归一风险：BIYING `dm` 与系统 `ts_code` 归一失败会引发错配。
-- 时间对齐风险：`quote_time` 到 `trade_date` 的边界需确认（时区/夜间更新）。
-
----
-
-本设计遵循“先可解释、再精细化”的路线：先把可对齐字段稳定融合，再考虑扩展字段与更复杂的策略。
+本次只纠正文档，不运行 Seed、同步、重发布、源端取样或生产对账。源端口径与运行配置需要时另做有界核验，不把静态检查作为实测。

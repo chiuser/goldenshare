@@ -599,6 +599,37 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 验证：10 份主体共 2,805 行收敛为 7 份 599 行；行数不是删除依据。三表 Prod 验收正文与合并前逐字对照一致，7 份主体的 74 个唯一代码/文档链接及显式锚点通过检查，旧 LLD 文件名全仓引用只剩本节非链接追溯表。财务/筹码专项 53 项、resolver 筹码/BIYING 14 项定向离线测试通过（92 项未选），文档完整性三个检查组与差异检查通过。未运行生产、源站或浏览器验收；README 的无关条目和其他任务修改保留。
 
+<a id="moneyflow-financial-etf-docs-consolidation-20260910"></a>
+
+#### 2026-09-10 资金流、剩余财务与 ETF：10 份收敛为 6 份
+
+用户批准三批只读审计建议后实施，仅修改文档、索引和本记录；不改代码、契约、运行配置、源请求、数据库或生产状态。以现行 Definition、planner/request builder、normalizer/writer、DAO、策略与 Seed/CLI 实现校准，不把旧计划当成今天的待办。
+
+以下文件均位于 `docs/datasets/`：
+
+| 原文件 | 处理与去向 |
+| --- | --- |
+| `moneyflow-multi-source-fusion-strategy-v1.md` | 保留；改为当前融合与对账说明，质量建议与现行发布分列 |
+| `fina-indicator-dataset-development.md` | 保留；作为财务指标维护主文档 |
+| `fina-indicator-low-level-design-v1.md` | 删除；字段身份、宽表批次、安全边界与历史验收并入财务指标主文档 |
+| `equity-express-low-level-design-v1.md` | 保留原路径；当前修订写入与历史证据分列，撤下旧施工步骤 |
+| `etf-sh-cons-dataset-development.md` | 保留；合入执行、错误码和回归入口 |
+| `etf-sh-cons-low-level-design-v1.md` | 删除；并入上交所申赎清单主文档 |
+| `etf-sz-cons-dataset-development.md` | 保留；合入执行、进度字段和回归入口 |
+| `etf-sz-cons-low-level-design-v1.md` | 删除；并入深市持仓组合主文档 |
+| `etf-share-size-dataset-development.md` | 保留；明确每日一个 unit，不保证只请求一次 |
+| `etf-share-size-low-level-design-v1.md` | 删除；并入份额规模主文档 |
+
+保留和纠偏边界：
+
+1. Moneyflow 两源均已 Raw→Std→Serving；按优先级选择存在行，不谎称已有字段质量异常回退。Seed 不写 Definition、不重新激活已有 inactive 行，可能覆盖 policy；对账 CLI 不自动控制发布。两源分档差异、未来质量建议和现行入口均保留。
+2. Fina_indicator 保留 167 源字段、四字段身份、flag=0/1、Raw/view、自然日与无任意跨度上限；不套用财务三表的七字段版本规则。5000 满页继续、短页结束；385 行 SQL batch 不是事务拆分。2026-08-29 原接入验收关闭结论不被重新打开，也不升级为所有后续长任务门禁已验收。
+3. Express 保留三元身份、33 字段、GenericDAO、范围锁和当前修订覆盖；ingested_at 是当前内容版本入库时间。配置优先级误迁移事故、M2 隔离证明、M3 #7923/#7928、其他任务 #7924/#7925 旁证、17 批历史回补、M4c 当时未验收与 #10110 修订原因均保留。未知的当前部署/排程状态不猜测、不标完成。
+4. ETF 三数据集分别保留半年/月/交易日 unit 策略，上市日裁剪、错误码和无 Basic 的份额规模边界不混同。旧池物理删除引用 2026-08-29 P11 记录，不冒充本轮生产核验；不再安排重复 drop。
+5. 原 Ops 对账文档与指数因子文档使用的 Moneyflow §5.3、Express §20.6 锚点保留，分别指向当前 CLI 说明和 M3 历史摘要；四份删除文档的入口已从主索引与正文移除。旧全文可从 Git 历史恢复，不留重复占位页。
+
+审计阶段定向离线测试 98 passed（另 141 项未选中），文档完整性检查通过；测试替身和内存数据库不代表生产验收。本次编辑后复核链接、引用、差异及范围，不执行源端实测或生产动作。通用设计规则仍引用现行架构基线与模板，不新增一套治理门禁。
+
 ### 4.4 Frontend 组
 
 当前状态：已完成第一轮整合（建立统一强约束主文档）。

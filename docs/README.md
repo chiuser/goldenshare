@@ -134,7 +134,7 @@ docs/
 - [指数基础信息维护说明（当前输入、日期存储与权重回退；market 来源口径差异单列）](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)
 - [板块日线字段与存储说明（合并 DC 主键与 THS 估值方案；区分 Raw 视图与双层写入）](/Users/congming/github/goldenshare/docs/datasets/board-daily-fields-and-storage.md)
 - [股票周/月线维护说明（已并入日期指南 §4，含接口来源与执行入口）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)
-- [资金流多源融合策略设计 v1](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
+- [资金流多源融合与对账说明（现行发布、CLI/Seed 副作用与未实现质量建议分列）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
 
 说明：资金流 6 数据集的拍板结论已并入各自正式开发文档（不再维护独立拍板清单）。
 
@@ -143,9 +143,9 @@ docs/
 - [Tushare 数据集接入盘点（2026-05-03）](/Users/congming/github/goldenshare/docs/datasets/tushare-dataset-integration-audit-2026-05-03.md)
 
 主要数据集开发说明：
-- [A股业绩快报 `express` LLD v1（M1–M4b 已完成；M4c 自动任务已正确配置，待首次触发与对账验收）](/Users/congming/github/goldenshare/docs/datasets/equity-express-low-level-design-v1.md)
-- [A股财务指标 `fina_indicator` 接入技术方案 v1（已完成生产验收，需求关闭）](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-dataset-development.md)
-- [A股财务指标 `fina_indicator` LLD v1（已完成生产验收，需求关闭）](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-low-level-design-v1.md)
+
+- [A股业绩快报 `express` 当前设计与维护说明（可修订事实；事故、历史验收与当时未闭环证据分列）](/Users/congming/github/goldenshare/docs/datasets/equity-express-low-level-design-v1.md)
+- [A股财务指标 `fina_indicator` 维护说明（已合并 LLD；保留 2026-08-29 生产验收关闭结论）](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-dataset-development.md)
 - [A股利润表 `income` 维护说明与财务三表共用规则（已合并 LLD；保留 2026-08-30 初始范围 Prod 验收）](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md)
 - [A股资产负债表 `balancesheet` 维护说明（已合并 LLD；保留 2026-08-30 初始范围 Prod 验收）](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)
 - [A股现金流量表 `cashflow` 维护说明（已合并 LLD；保留 2026-08-30 初始范围 Prod 验收）](/Users/congming/github/goldenshare/docs/datasets/cashflow-dataset-development.md)
@@ -163,12 +163,10 @@ docs/
 - [BIYING 资金流向维护说明（Raw→Std→共享 Serving 发布）](/Users/congming/github/goldenshare/docs/datasets/biying-moneyflow-dataset-development.md)
 - [ETF 基准指数列表](/Users/congming/github/goldenshare/docs/datasets/etf-index-dataset-development.md)
 - [ETF 日线行情](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
-- [ETF 申赎清单（已由 ETF Basic Serving 驱动）](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-dataset-development.md)
-- [ETF 申赎清单低层设计 LLD v1（Basic 资格与上市日裁剪为当前基线）](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-low-level-design-v1.md)
-- [ETF 份额规模接入方案（按交易日源端全集 / raw 直出 serving）](/Users/congming/github/goldenshare/docs/datasets/etf-share-size-dataset-development.md)
-- [ETF 份额规模低层设计 LLD v1（不读取 Basic 或持久化对象池）](/Users/congming/github/goldenshare/docs/datasets/etf-share-size-low-level-design-v1.md)
-- [ETF 每日持仓组合（深市）接入方案（已由 ETF Basic Serving 驱动）](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-dataset-development.md)
-- [ETF 每日持仓组合（深市）低层设计 LLD v1（Basic 资格与上市日裁剪为当前基线）](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-low-level-design-v1.md)
+- [ETF 申赎清单维护说明（已合并 LLD；Basic 资格、上市日裁剪与半年窗口）](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-dataset-development.md)
+- [ETF 份额规模维护说明（已合并 LLD；交易日 unit 内分页，不读 Basic）](/Users/congming/github/goldenshare/docs/datasets/etf-share-size-dataset-development.md)
+- [ETF 每日持仓组合（深市）维护说明（已合并 LLD；Basic 资格、上市日裁剪与月窗口）](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-dataset-development.md)
+- 2026-09-10：资金流、剩余财务与 ETF 三批共 10 份收敛为 6 份；四份重复 LLD 已并入对应维护说明。[逐文件去向、保留证据与验证边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#moneyflow-financial-etf-docs-consolidation-20260910)见治理记录。
 - [基金复权因子维护说明（Prod Raw/Core 双写、可选代码过滤）](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
 - [融资融券汇总维护与源端探测说明（Raw-only/view、时间规则与运行限制）](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [融资融券交易明细低层设计 LLD v1（M0–M4 与 HDD 落盘已完成，待 M5a 手工历史回补 / M5b 自动增量授权）](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
