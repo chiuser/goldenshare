@@ -1,9 +1,8 @@
-# ETF 历史分钟行情数据集接入方案 v1
+# ETF 历史分钟行情维护说明（含 Preview 与历史验收）
 
 状态：Basic 驱动、Preview 和普通手动任务多代码扇开已落地；旧 alignment Submit 已删除；2026 年指定区间生产补拉与对账已完成
 创建日期：2026-08-24
-最近更新：2026-08-29
-LLD：[ETF 历史分钟行情数据集 LLD v1](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-low-level-design-v1.md)
+最近更新：2026-09-10。原 LLD 已并入本文；代码状态与 2026-08-29 的生产记录分开陈述，本轮未复跑生产。
 源站文档：[Tushare 0387 ETF 历史分钟行情](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0387_ETF历史分钟行情.md)
 
 ## 1. 当前结论
@@ -109,44 +108,76 @@ ts_code / freq / window
 
 这些字段用于解释本 unit 为什么从该日期开始，不扩展公共执行计划或 TaskRun schema。
 
-## 7. 历史机制与当前边界
+## 7. Preview：只检查指定区间首尾
 
-旧实现曾以 `ops.etf_series_active(resource='etf_mins')` 的 1,395 个代码展开请求。该数量只是一份历史 seed/生产快照，不是当前 ETF 全集。P3 已迁移 planner，P8 已删除旧池代码基础设施并准备 drop migration，P11 已完成生产物理表删除和 Basic 正式重建。
-
-明确不做：
-
-1. 不恢复激活池、seed、Review 页面或兼容读取。
-2. 不因当前 `D`、代码消失或 `list_date` 变晚而删除历史分钟事实。
-3. 不在普通计划中自动请求 Tushare 补齐全历史。
-4. 不把停牌或源端空日自动判定为内部分钟缺口。
-5. P9A 不请求 Tushare、不创建 TaskRun、不写数据库，也不提供 submit/apply 入口。
-6. raw 首尾边界按自然月执行 `ts_code + freq + COUNT/MIN/MAX` 集合统计；每条 SQL 只访问该月分区，再与同一次 Basic snapshot 在内存中求交。禁止跨全部分区聚合、ETF×频率 N+1，以及月度超时后自动改成周度重复扫描。
-
-2026-08-29 首次 Prod 只读 Preview 得到 252 个 action、1,774 个 unit。旧 Submit 随后以“一 action 一 TaskRun”执行：首批 10 个任务成功；后续队列在 61 个成功、181 个取消时按用户指令停止，开放任务归零。取消任务 `9923` 在停止前已完成 3/8 unit，证明对齐不能依赖 TaskRun 最终汇总行判断物理覆盖。
-
-停止后只读 Preview 以 raw 事实重算得到：1,647 个当前可请求 ETF，181 个待补代码，182 个 action，1,333 个 unit，源请求下界 1,333、分页上界 5,332。`159539.SZ` 因部分 unit 已提交而形成一个已知例外：四个非 `1min` 频率需要从 `2026-01-05` 补，`1min` 只需从 `2026-07-01` 补。
-
-## 8. 普通手动任务多代码扇开方案
-
-运营直接在现有 `etf_mins` 手动维护页面提交一个普通任务：
+入口：
 
 ```text
-ETF 代码：以逗号分隔输入多个代码
-开始日期：2026-01-05
-结束日期：2026-08-28
-分钟周期：1min / 5min / 15min / 30min / 60min
+goldenshare ops-preview-etf-minute-alignment --alignment-start-date YYYY-MM-DD --alignment-end-date YYYY-MM-DD [--output plan.json]
 ```
 
-`DatasetDefinition` 将 `ts_code` 标记为多值。现有手动表单把逗号文本提交为字符串数组，现有手动动作服务把该数组保存在一个普通 TaskRun 的 `filters_json.ts_code` 中；planner 再统一转大写、去重和排序。不增加专用 API、页面、TaskRun 类型、数据库字段或执行 payload。
+[CLI handler](/Users/congming/github/goldenshare/src/cli_parts/ops_handlers.py)先建立 `REPEATABLE READ + READ ONLY` 事务、设置每条语句 `180s` timeout，再调用 [build_plan()](/Users/congming/github/goldenshare/src/ops/services/etf_minute_history_alignment_plan_service.py)，最后 rollback。只读事务不是 service 自行设置的；直接调用 service 的调用方必须先建立同等边界。
 
-planner 在一次 plan 中固定中国自然日。一个代码时继续调用一次 `get_requestable_target()`；两个及以上代码时只加载一次 Basic requestability snapshot，并对全部输入做整体验证。之后按“代码 × 所选频率 × 经上市日裁剪后的日期窗口”生成 unit。request builder 看到的仍是单个标量 `ts_code`，不会把数组或逗号字符串传给 Tushare。
+一次事务固定 UTC 时钟、中国资格日期、SSE 开市日和 Basic snapshot。全部当前可请求 ETF 进入 `request_target_hash`，上市日晚于截止日的对象单独计数，不生成区间。其余对象从不早于 `max(alignment_start_date, list_date)` 的首个 SSE 开市日开始计算。
 
-一个 TaskRun 仍按现有执行链运行多个 unit：每 unit 独立提交、抓取并发 2、幂等 raw upsert、既有失败/取消/重试语义全部不变。旧 `ops-submit-etf-minute-alignment` service、CLI 和专属测试删除；P9A Preview 保留为只读审计和生成待补代码清单的工具，但不再承担提交。
+查询与判定：
 
-P9A 对成功 TaskRun 的覆盖解析同步兼容历史单代码字符串和新的代码数组，后者按代码 × 频率还原请求区间。这样，即使某个成功 unit 因源端空结果没有 raw 行，下一次 Preview 仍能知道它已经请求过；无代码全量任务和非法数组继续不作为覆盖证据。
+1. 从最早有效起点所在月到截止月，逐月执行 `ts_code/freq/COUNT/MIN/MAX` 集合统计，日期为左闭右开月区间；SQL 不关联 Basic，服务在内存中按目标区间裁剪。
+2. 查询数只随月份增长，不随 ETF×频率增长。每条 SQL 必须只访问当月分区；跨月扫描或单月超 180 秒应停止，不自动改成周扫描、不提高超时或顺手建索引。
+3. 只生成 prefix/suffix；不审计内部日期或分钟空洞。缺口不含 SSE 开市日时丢弃，其他缺口复用正式切窗函数计算 unit。
+4. 成功 TaskRun 的显式单代码字符串或全部合法的代码数组，可按代码×频率还原请求区间。无代码全量任务、空数组或非法数组不猜覆盖，任务总行数也不分摊成代码证据。
+5. 只有成功 TaskRun、没有 Raw 行时记为 `successful_task_only_covered_target_frequency_count`；这证明请求完成，不能证明源端返回了零行。
+6. 输出摘要和可选 JSON；不请求 Tushare，不调用 writer，不创建 TaskRun，不提交数据库，不提供 submit/apply 参数。
 
-本轮选择“一个普通手动任务”意味着接受一个已知的小额重复请求：`159539.SZ` 的 `1min` 会从 `2026-01-05` 开始，重复请求此前已覆盖的 2026 年上半年三个 2 个月窗口；幂等 upsert 不会产生重复事实，预计总 unit 从精确 Preview 的 1,333 增至 1,336。若要求完全不重复，只能把该代码拆成额外手动任务，这与本轮单任务目标冲突。
+该工具不是分钟完整性审计，也不是冻结后可直接执行的计划。普通手动任务不读取 Preview JSON，不保存它的 hash。
 
-生产执行记录：门禁确认开放 `etf_mins` TaskRun 为 0，schedule 39 不与本轮重叠，181 个代码全部当前可请求。普通手动 TaskRun `10117` 以一个任务展开 1,336 个 unit，全部成功，抓取并保存 7,606,095 行，失败、拒绝、去重和 issue 均为 0。补后 Preview 确认 1,647 个当前可请求 ETF 的 8,235 个代码/频率组合全部由 raw 覆盖，prefix/suffix 缺口、action 和 unit 均为 0。本结论不包括区间内部空洞审计。
+## 8. 正式执行与实现入口
 
-实施验收：Definition/manual API/catalog 已统一暴露多值 `ts_code`；单代码仍查单 target，多代码仅查一次 snapshot，任一无效代码整单拒绝；每个 unit 仍使用标量代码和现有切窗。Preview 兼容历史单代码与新数组覆盖，旧 Submit 命令和 service 已删除。详细文件、测试数和 CodeGraph 证据见主 LLD 的“R1-R4 实施记录”。
+正式维护使用现有 Ops 手动动作；页面的逗号文本会转为代码数组：
+
+```text
+POST /api/v1/ops/manual-actions/etf_mins/task-runs
+time_input = {mode: range, start_date, end_date}
+filters = {ts_code: [多个代码], freq: [多个频率]}
+```
+
+一次提交只创建一个普通 `dataset_action / etf_mins / maintain` TaskRun。数组保存在 `filters_json.ts_code`，planner 按规范化代码、Definition 频率、窗口时间顺序展开；每个源请求仍是一个标量代码和频率。Definition 同时供 schedule 使用，不另设“仅手动可多选”合同。
+
+[Definition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/market_fund.py) → [unit planner 的模块函数 _build_etf_mins_units](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py) → Basic selector → [窗口模块](/Users/congming/github/goldenshare/src/foundation/ingestion/etf_minute_windows.py) → [request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py) → source client/normalizer/writer。planner 查对象并切窗，builder 只映射 `ts_code/freq/window_start/window_end`，分页由 source client 追加。
+
+窗口从有效起点开始，终点取对应自然月月末并裁到请求末日，下窗从前窗结束次日开始；单日只生成一窗。抓取并发为 2，归一化和写入由执行主线程处理；逐 unit 提交、幂等 upsert 和现行失败/取消/重试语义不因多代码变化。已提交 unit 不随取消回滚；这些事实不等于已具备精准断点续跑。
+
+旧 `ops-submit-etf-minute-alignment`、`--batch-size`、“一 action 一 TaskRun”、Submit service 和两个专属测试均已删除，不保留 alias 或专用 payload。Preview service/CLI/测试仍保留。禁止恢复旧激活池、seed、Review 页面或异常回退；当前主数据资格变化也不授权删除历史分钟事实。
+
+## 9. 2026-08-29 历史验收
+
+以下是指定区间 `2026-01-01..2026-08-28`、资格日期 `2026-08-29` 的记录，不是当前全历史或未来区间的完整保证。旧池曾有 1,395 个代码，仅属历史快照。P3 迁移 planner；P8 删除旧池代码并准备 migration；P11 执行生产旧表删除与 Basic 重建；P12 完成此次补拉。详细上位记录见 [Basic 重建 LLD](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
+
+| 步骤 | 当时证据 |
+| --- | --- |
+| 首次 Preview | 约 32 秒，无单月超时；1,647 个 ETF、8,235 个代码/频率，Raw 覆盖 6,975；252 个 ETF 的 prefix 缺口 1,260，suffix 和 TaskRun-only 均为 0 |
+| 初始计划 | 252 action、1,774 unit，请求 1,774–7,096；167 action 从 1 月 5 日开始，85 按更晚上市日开始 |
+| 旧 Submit 停止 | 首批 10 任务成功；后续队列 61 成功、181 取消，开放任务归零。取消任务 9923 已提交 3/8 unit，不能凭取消状态推断无物理写入 |
+| 停止后重算 | 181 个代码、182 action、1,333 unit，请求 1,333–5,332 |
+| 单普通任务取舍 | 五频统一输入 1 月 5 日至 8 月 28 日；159539.SZ 的 1min 实际只缺 7 月起，接受上半年三个额外幂等 unit，合计 1,336，请求 1,336–5,344 |
+| 正式 TaskRun 10117 | 执行前 open 任务为 0，schedule 39 不重叠、未暂停，181 代码均可请求；完成 1,336/1,336 unit，抓取并保存 7,606,095 行；失败、拒绝、去重和 issue 均为 0 |
+| 补后 Preview | 8,235 个组合均由 Raw 首尾覆盖，TaskRun-only、prefix/suffix 缺口、action、unit 均为 0；`interior_gap_not_audited=true` |
+
+身份与内容证据：
+
+- `request_target_hash=8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`，与停止后 Preview 一致。
+- 补后 `plan_content_hash=ec836cc7722f22b44ad13266eeace59a334ebd459d910c3c95207e1253b7ca72`。
+- 当时后端目标测试 247、架构护栏 61、前端 147 项及 Ruff/typecheck/rules/build 通过；全量 CLI 留有 P8–P10 已记录的无关 progress reporter 旧失败。这不是本轮对该失败现状的复验结论。
+- 当时 CodeGraph 后置核对确认多代码开关只在 ETF 分钟开启，沪深申赎未放宽。上述生产阶段已经关闭；未来区间需重新 Preview、审查和独立授权，不重放旧历史输入。
+
+## 10. 回归重点
+
+当前 [ETF 分钟测试](/Users/congming/github/goldenshare/tests/test_etf_mins_dataset.py)与 [Preview 测试](/Users/congming/github/goldenshare/tests/test_etf_minute_history_alignment_plan_service.py)是主要入口。维护时至少核对：
+
+- SH/SZ、L、有效上市日正例；P/D、空或未来上市日、OF、后缀与 exchange 冲突负例。
+- 单代码只查一个 target，多代码/无代码只查一次 snapshot；任一坏代码整单失败。共享 selector 的多代码开关仅 ETF 分钟开启，沪深申赎仍拒绝多代码。
+- 上市日裁剪、全量跳过/显式拒绝、五频月末/闰年边界、连续不重叠和标量源参数。
+- 8,000 分页、24,000 unit 上限、任意 rejection/源端重复身份失败、空结果允许及幂等。
+- 普通 API 一任务保存代码数组；Preview 合法字符串/数组覆盖、非法数组不算覆盖及只读边界。
+
+通用执行合同与长任务门禁引用[执行计划说明](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)，不在本说明复制另一套运行时设计。

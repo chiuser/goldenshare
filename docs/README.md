@@ -72,8 +72,7 @@ docs/
 - [ETF 实时分钟流接入 LLD v1（旧池实现设计已撤销 / 当前不可作为编码依据）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-low-level-design-v1.md)
 - [ETF 基础信息重建与下游数据审计清理技术方案 v1（M0-M12 开发与既定生产动作已完成 / SH 与 fund daily 补充验收已通过 / SZ 与实时待验）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 - [ETF 基础信息重建与下游数据审计清理 LLD v1（P0-P12 / R1-R5 已完成 / 最终关闭补充验收执行中）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
-- [ETF 历史分钟行情数据集接入方案 v1（Basic 驱动、Preview、多代码手动任务与 2026 年指定区间生产对账已完成）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
-- [ETF 历史分钟行情数据集 LLD v1（多代码扇开与生产补拉验收已完成）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-low-level-design-v1.md)
+- [ETF 历史分钟维护说明（已合并 LLD；Basic 资格、只读 Preview 与 2026-08-29 指定区间验收）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
 - [ETF 日线与复权因子 DG 数据湖接入技术方案 v1（已结案，历史与日常链验收及治理门禁已闭环）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-plan-v1.md)
 - [ETF 日线与复权因子 DG 数据湖接入 LLD v1（已结案，固定治理回归与事后修复证据已补齐）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-low-level-design-v1.md)
 - [ETF 日线与复权因子 DG 接入 P0 真实验证报告（开发门禁已通过，21:00 复验转为启用前门禁）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md)
@@ -140,7 +139,6 @@ docs/
 
 2026-09-10：DC 主键修复、THS 估值扩表两份旧方案已合入板块日线说明；index_basic 原路径保留并改为现行说明。历史迁移不是再次清表或重跑的授权，[合并去向与验证边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#dataset-field-repairs-consolidation-20260910)见治理记录。
 
-- [Tushare 数据集接入盘点（2026-05-03）](/Users/congming/github/goldenshare/docs/datasets/tushare-dataset-integration-audit-2026-05-03.md)
 
 主要数据集开发说明：
 
@@ -161,15 +159,15 @@ docs/
 - 公募基金七份已接入发现审计已并入以上 LLD，不再保留重复正文；[合并去向与保留证据](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#sw-public-fund-docs-consolidation-20260910)见治理记录。未接入的[基金净值](/Users/congming/github/goldenshare/docs/datasets/fund-nav-onboarding-discovery-audit.md)与[基金技术面因子](/Users/congming/github/goldenshare/docs/datasets/fund-factor-pro-onboarding-discovery-audit.md)继续保留发现审计。
 - [BIYING 股票日线维护说明（Raw-only；表名元数据差异单列）](/Users/congming/github/goldenshare/docs/datasets/biying-equity-daily-dataset-development.md)
 - [BIYING 资金流向维护说明（Raw→Std→共享 Serving 发布）](/Users/congming/github/goldenshare/docs/datasets/biying-moneyflow-dataset-development.md)
-- [ETF 基准指数列表](/Users/congming/github/goldenshare/docs/datasets/etf-index-dataset-development.md)
-- [ETF 日线行情](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
+- [ETF 基准指数维护说明（现行过滤器、表与日期模型）](/Users/congming/github/goldenshare/docs/datasets/etf-index-dataset-development.md)
+- [ETF 日线维护说明（Raw/Serving 两阶段与 Basic 发布筛选）](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
 - [ETF 申赎清单维护说明（已合并 LLD；Basic 资格、上市日裁剪与半年窗口）](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-dataset-development.md)
 - [ETF 份额规模维护说明（已合并 LLD；交易日 unit 内分页，不读 Basic）](/Users/congming/github/goldenshare/docs/datasets/etf-share-size-dataset-development.md)
 - [ETF 每日持仓组合（深市）维护说明（已合并 LLD；Basic 资格、上市日裁剪与月窗口）](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-dataset-development.md)
 - 2026-09-10：资金流、剩余财务与 ETF 三批共 10 份收敛为 6 份；四份重复 LLD 已并入对应维护说明。[逐文件去向、保留证据与验证边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#moneyflow-financial-etf-docs-consolidation-20260910)见治理记录。
 - [基金复权因子维护说明（Prod Raw/Core 双写、可选代码过滤）](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
 - [融资融券汇总维护与源端探测说明（Raw-only/view、时间规则与运行限制）](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
-- [融资融券交易明细低层设计 LLD v1（M0–M4 与 HDD 落盘已完成，待 M5a 手工历史回补 / M5b 自动增量授权）](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
+- [融资融券明细维护与低层设计（direct-serving、独立 probe；正式响应缺字段校验仍有缺口；生产记录截至 2026-08-03）](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
 - [每日涨跌停价格维护说明（Raw-only/view、业务消费者与完整性审计）](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
 - [股票开盘与收盘集合竞价维护说明（已合并两份接入文档；Raw-only/view、独立迁移与历史验收）](/Users/congming/github/goldenshare/docs/datasets/stk-auction-dataset-development.md)
 - 原开盘、收盘说明已并入以上文档；[合并去向与保留边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#stk-auction-docs-consolidation-20260910)见治理记录。
@@ -177,8 +175,8 @@ docs/
 - [神奇九转指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-prod-raw-db-lake-export-plan.md)
 - [Dagster 神奇九转数据集接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-plan.md)
 - [Dagster 神奇九转数据集接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-low-level-design.md)
-- [股票历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
-- [指数历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
+- [股票历史分钟维护说明（九列模型、整窗 unit 与 CLI 限制）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
+- [指数历史分钟维护说明（激活池、默认五频与存在性探测；后续生产验收未复核）](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
 - [主要指数历史分钟线数据集开发说明（Lake/Dagster，开发完成，待独立运维验收）](/Users/congming/github/goldenshare/docs/datasets/major-index-mins-dataset-development.md)
 - [指数四浪反弹失效与趋势反转量化回测方案 v1（独立专项案例，暂缓实施）](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
 - [波浪浪型识别开源源码学习与 Goldenshare 适配审计 v1（通用波浪主线，G2 第一轮已执行）](/Users/congming/github/goldenshare/lake_console/docs/design/elliott-wave-source-study-and-goldenshare-adaptation-audit-v1.md)
@@ -197,7 +195,8 @@ docs/
 - [本地 DG 停牌历史确认事实持久化与统一消费 LLD v1（§18.35：156个逻辑用例通过、精确清理及保留项对账；TODO关闭）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)
 - [本地 DG 停牌历史确认事实 S0 审计清单 v1（来源、日历、6,166 个输入文件及现有效果已核验；仅只读）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)
 - [ST 股票列表](/Users/congming/github/goldenshare/docs/datasets/stock-st-dataset-development.md)
-- [ST 股票列表历史缺失日期重建方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/stock-st-missing-date-reconstruction-plan-v1.md)
+- [ST 历史缺日修复工具（已实现；apply 重算、整日审查与双表写入边界）](/Users/congming/github/goldenshare/docs/datasets/stock-st-missing-date-reconstruction-plan-v1.md)
+- 2026-09-10：ETF、Prod 分钟与历史修复三批共 10 份收敛为 8 份；[逐文件去向与保留边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#etf-minute-repair-docs-consolidation-20260910)见治理记录，不改变代码或生产数据。
 - [个股资金流向（THS）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ths-dataset-development.md)
 - [个股资金流向（DC）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-dc-dataset-development.md)
 - [概念板块资金流向（THS）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-cnt-ths-dataset-development.md)

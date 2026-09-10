@@ -2,13 +2,15 @@
 
 - 版本：v1
 - 状态：表结构瘦身已实施；P0 生产物理迁移方案已完成第二轮安全复审，但当前仍为 **No-Go**，须先关闭可恢复性门禁并另行获得生产执行授权
-- 更新时间：2026-08-23
+- 更新时间：2026-09-10（文档校准；生产物理/任务快照仍为 2026-08-23）
 - 数据集：`stk_mins`
 - 物理父表：`raw_tushare.stk_mins`
 - 服务入口：`core_serving.equity_minute_bar`
 - P0 目标：将 2026-01～2026-06 已关闭月份的 6 个叶分区和 6 个物理主键索引从 `pg_default` 迁至 `gs_raw_cold_hdd`
 
 权威边界：当前代码、PostgreSQL 16 官方语义、生产 catalog 和同一时点只读运行证据决定现状。本文固定 P0 执行契约和后续滚动规则，但不构成暂停任务、执行 DDL、修改排程或创建备份的授权。2026-04-27 的空表 drop/recreate 方案已经完成其历史使命，禁止再次用于当前非空生产表。
+
+本文所有容量、备份、排程和会话状态均为 2026-08-23 历史基线，后续生产状态本轮未复核。No-Go 未凭文档修订解除；P0 仍只限 1～6 月十二个对象，7～8 月是当时的负向白名单，不因今天月份变化自动扩围。两个月热窗口是治理目标，不是已运行的自动滚动任务。
 
 ---
 
@@ -20,8 +22,8 @@
 
 但当前不能直接进入生产迁移，原因如下：
 
-1. **可恢复性证据尚未闭环。** 生产主机安装了 `pg_basebackup@.service/.timer` 模板，但没有启用实例、没有运行中的 base backup，也未在 `/var/backups` 发现 PostgreSQL 备份；`archive_mode=off`，因此本机没有可见的 PITR 链。外部云盘快照或异地备份是否存在，当前只读审计无法证明。在确认一个可恢复、覆盖 PGDATA 和全部 tablespace 的独立备份前，P0 必须保持 No-Go。
-2. **当前不是维护窗口。** 审计时有运行和排队中的普通 TaskRun，并存在超过 1 小时的数据库事务；`stk_mins` 自动任务 `stk_mins.maintain` 仍为 active，对应 `ops.probe_rule` 也仍为 active。它们不是方案缺陷，但说明不能沿用当前状态直接执行。
+1. **可恢复性证据尚未闭环。** 历史证据集中见 §2.2；未证明覆盖 PGDATA、全部 tablespace 和所需 WAL 的独立可恢复备份前，保持 No-Go，不重复用旧主机检查替代执行前核验。
+2. **历史快照不满足维护窗口。** §2.3 记录了任务、排程与长事务；不能从历史状态推导今天可执行或已冻结。
 3. **原验收方式过重。** 六个月迁移前后各做一次全量 `count(*)` 会额外扫描约 2.63 亿行，并污染缓存、增加根盘和 HDD I/O；行数相同也不能证明字段内容完全相同。P0 改为依赖 PostgreSQL 单关系事务原子性，并用 OID、main fork 原始字节、tablespace、filepath、索引有效性和确定性索引样本做前后对账。全量逻辑扫描不再是迁移门禁。
 4. **运行隔离必须落到真实执行车道。** `stk_mins` 已有独立的 `goldenshare-ops-stk-mins-worker.service`，通用 worker 不会领取该数据集。正式维护窗口应先通过 Ops 暂停 schedule、确认 probe rule 已删除、等待开放任务清零，再停止分钟线专用 worker；为避免其它大任务争用根盘/WAL/I/O，还应临时停止 scheduler、通用 worker 和 index-mins worker。Web/API 保持在线。
 5. **迁移没有原生百分比进度。** PostgreSQL 16 的 progress views 不覆盖 `ALTER ... SET TABLESPACE`。执行时只能通过独立观察会话监控后台 PID、运行时长、等待事件、WAL LSN、`pg_wal` 和两个文件系统水位；页面或 SQL 不得伪造“已完成百分比”。
@@ -35,7 +37,7 @@
 3. 当前 `wal_level=replica`。官方文档只对 `wal_level=minimal` 承诺 relation rewrite 的最小 WAL 优化，因此本机迁移必须按 WAL 密集操作规划，不能把 `max_wal_size=1GB` 当作硬上限。
 4. 同一生产实例曾在 2026-06-01 将约 32 GiB 的 `cyq_chips` heap 和索引迁入相同 HDD tablespace，实际耗时约 6 分钟。该记录只能证明路径可行，不能作为本次 12 个关系的 SLA；本次真实速度和 WAL 峰值必须由 2026-02 先导批次重新测量。
 
-## 2. 当前事实
+## 2. 代码合同与历史基线
 
 ### 2.1 代码与业务契约
 
@@ -61,7 +63,7 @@
 
 ### 2.2 2026-08-23 生产物理快照
 
-| 项目 | 当前事实 |
+| 项目 | 2026-08-23 事实 |
 | --- | --- |
 | PostgreSQL | 16.13，`fsync=on`、`synchronous_commit=on`、`full_page_writes=on`、`data_checksums=off` |
 | 父表 | `raw_tushare.stk_mins`，按 `trade_time` 月分区 |
@@ -94,7 +96,7 @@
 
 P0 六个月合计 30,340,677,632 bytes，约 28.3 GiB。执行时必须重新读取原始字节，不能只使用本表或 `pg_size_pretty` 的格式化值。
 
-### 2.3 当前任务快照与正确判断方式
+### 2.3 2026-08-23 任务快照与判断方式
 
 1. 2026-08-23 审计时有普通 TaskRun 运行/排队，并存在长事务，因此当前时点不满足维护门禁。
 2. `stk_mins.maintain` schedule 当前为 active，`trigger_mode=probe`；其 `next_run_at` 为历史值，但对应 active probe rule 仍在持续探测并创建 `stk_mins` TaskRun。
@@ -204,7 +206,7 @@ raw_tushare.stk_mins_2026_01 ... raw_tushare.stk_mins_2026_06
 
 以下全部为 Go 才能开始第一条 DDL；任何一项为 No-Go 都必须停止。
 
-| 门禁 | Go 标准 | 当前状态 |
+| 门禁 | Go 标准 | 2026-08-23 状态（执行时全部重验） |
 | --- | --- | --- |
 | 授权 | 明确授权 12 个关系、服务暂停、DDL 及紧急 `pg_cancel_backend`；不包含其它表 | 未授权执行 |
 | 可恢复性 | 有迁移前完成、异地或独立故障域、覆盖 PGDATA + 全部 tablespace 的成功备份；记录 backup ID、完成时间、范围、校验和恢复验证 | **No-Go：本机未发现有效证据，外部状态未知** |
@@ -258,15 +260,17 @@ raw_tushare.stk_mins_2026_01 ... raw_tushare.stk_mins_2026_06
 
 1. 通过 Ops API/UI 暂停 `target_key=stk_mins.maintain` 的自动任务；禁止直接更新 `ops.schedule`。
 2. 只读验证 schedule 为 `paused`，且该 schedule 对应的 `ops.probe_rule` 已被删除。`next_run_at` 不作为暂停证据。
-3. 等待 `stk_mins` 的 `queued/running/canceling` TaskRun 清零，然后停止 `goldenshare-ops-stk-mins-worker.service`。通用 worker 不会领取该数据集，停止后即形成目标表写入冻结。
-4. 在目标写入已冻结的状态下创建本次迁移的最终 recovery point；验证 backup/snapshot 完成时间晚于最后一次 `stk_mins` 成功 TaskRun，且早于第一条 DDL。再次确认其覆盖 PGDATA、全部 tablespace 和所需 WAL，并记录 backup/snapshot ID。
+3. 等待 `stk_mins` 的 `queued/running/canceling` TaskRun 清零，然后停止 `goldenshare-ops-stk-mins-worker.service`。这只冻结已核实的调度/worker 入口，不是数据库级拒写。另核验人工直调 `DatasetMaintainService`、脚本、直接 SQL 等入口没有写目标，并协调维护窗口内不得触发；入口无法确认时 No-Go。本轮未断言存在正在运行的旁路写入。
+4. 确认上述全部目标写入入口已冻结后，创建最终 recovery point；它须覆盖最后一次实际已提交的目标写入，完成于第一条 DDL 前，并在此期间保持冻结。不能只比较“最后成功 TaskRun”时间：失败或取消任务也可能已经提交 unit。再次确认备份覆盖 PGDATA、全部 tablespace 和所需 WAL，记录 ID、冻结证据与完成时间。
 5. 等待所有其它 `queued/running/canceling` TaskRun 清零，并确认没有日期完整性、回补、迁移或大规模分页任务。
 6. 停止 `goldenshare-ops-scheduler.service`，防止维护窗口产生新自动任务。
-7. 停止 `goldenshare-ops-worker.service` 和 `goldenshare-ops-index-mins-worker.service`，防止普通或指数分钟线任务争用 PostgreSQL/WAL/I/O。Web/API 和 PostgreSQL 保持在线。
+7. 按授权停止 `goldenshare-ops-worker.service` 和 `goldenshare-ops-index-mins-worker.service`。这是原窗口的服务清单，不是全实例 I/O 隔离证明；当前代码还存在 QTF 车道及其他可能运行的进程，须按执行时实际负载核验。若需新增停服对象，先补授权和恢复清单，不自行扩大停服范围。Web/API 和 PostgreSQL 保持在线。
 8. 再次查询 TaskRun。若维护窗口中有人提交手工任务，即使 worker 已停、任务只会 queued，也必须暂停 P0 并先协调处理。
 9. 核验目标关系无锁；数据库不存在超过 30 秒的非 idle 事务或大查询。不能终止现有会话来强行获得维护窗口。
 
 停止服务前必须先等当前任务自然结束。禁止通过 stop 服务中断正在提交业务事务。
+
+职责依据：[worker_lane](/Users/congming/github/goldenshare/src/ops/runtime/worker_lane.py)限制 TaskRun 领取；[DatasetMaintainService](/Users/congming/github/goldenshare/src/foundation/ingestion/service.py)可被直接调用，不以车道是否停止作为业务写入锁。
 
 ### P0-4：生成不可变白名单和基线
 
@@ -375,7 +379,7 @@ comment 更新失败不回滚已完成的数据 relation；记录为独立元数
 ### P0-9：恢复服务和排程
 
 1. 先检查维护窗口内是否产生新的 queued TaskRun。存在则保持 worker stopped，逐项确认，不自动消费。
-2. 依次启动通用 worker、index-mins worker、stk-mins worker，确认各服务 active 且没有错误循环。
+2. 依次启动通用 worker、index-mins worker、stk-mins worker，确认各服务 active 且没有错误循环；若另获批准暂停其他进程，按同轮冻结的恢复清单逐项恢复，不遗漏也不启动原本停止的服务。
 3. 启动 scheduler。
 4. 通过 Ops API/UI 恢复 `stk_mins.maintain` schedule；验证 schedule active 且只重建 1 条 active probe rule。
 5. 观察下一次正常 probe/TaskRun。它应只写当前热月；本步骤不授权人工创建一次额外同步，也不重复请求 Tushare。

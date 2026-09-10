@@ -9,9 +9,7 @@
 
 上游已落地 LLD：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
-Prod 分钟方案：[ETF 历史分钟行情数据集接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
-
-Prod 分钟 LLD：[ETF 历史分钟行情数据集 LLD v1](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-low-level-design-v1.md)
+Prod 分钟维护说明（含原 LLD）：[ETF 历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
 
 DG 接入 LLD：[ETF Basic 与历史分钟 DG 接入低层设计 v1](./dagster-etf-market-data-prod-db-onboarding-low-level-design-v1.md)
 

@@ -719,6 +719,39 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 验证边界：按当前 Definition、planner/request、writer/DAO、Ops 状态投影和消费者代码校正文义；CodeGraph 查询用于定位 staged publisher，最终以实现核验为准。仅迁移既有带日期的源端/数据库验收证据；测试使用替身与内存数据库，没有 Tushare 请求、正式数据库读写、生产部署、数据清理或新任务，不代表今日生产验收。代码、配置及依赖矩阵未改，工作区原有其他修改未纳入治理。
 
+<a id="etf-minute-repair-docs-consolidation-20260910"></a>
+
+#### 2026-09-10 ETF、Prod 分钟与历史修复：10 份收敛为 8 份
+
+按用户批准的三批审计结论实施，只修改文档。独有证据先迁入保留文档，再删除两份旧正文；原文可从 Git 历史恢复，不删除源资料、代码、工具或业务数据。
+
+| 原文件（docs/datasets） | 处理 / 审计项 | 保留与纠偏落点 |
+| --- | --- | --- |
+| etf-index-dataset-development.md | 保留，F01 | §1–2：实际 Raw/Serving schema、三个过滤器、无时间模式与日期过滤的区别；代码标签仍有不准确之处，不改输入行为 |
+| etf-fund-daily-dataset-development.md | 保留，F02 | §1–2：可选单代码、Raw 先提交、Basic 筛选、Serving 独立发布和排除诊断；不要求两层等行数 |
+| etf-mins-dataset-development.md | 主文档，F03 | §1–6 保留资格/切窗/分页，§7–10 承接 Preview、正式多代码任务、历史验收与测试 |
+| etf-mins-dataset-low-level-design-v1.md | 合并后删除，F03 | 独有内容并入主文档：CLI 建立只读事务、180 秒月查询门禁、hash、测试记录、首尾而非内部完整性、旧 Submit 删除 |
+| stk-mins-dataset-development.md | 保留，F04–F05 | §1–5：不可用的通用 CLI 推荐撤销，真实池来源、整窗 unit、planner/builder/client 职责、九列与现存 Raw 消费者保留 |
+| index-mins-dataset-development.md | 保留，F06–F08 | §1–5：撤掉失真伪代码/测试路径；无 Serving、默认五频、池内限定、75 样本存在性探测；不以旧 checkpoint 禁令覆盖现行长任务要求 |
+| stk-mins-storage-slimming-plan-v1.md | 独立保留，F09 | §2 历史基线，P0-3/P0-9 补写入入口核验、最后实际写入与服务恢复清单；十二关系白名单、No-Go、容量/锁/WAL/恢复门禁不变 |
+| margin-detail-low-level-design-v1.md | 保留，F10–F12 | §1–6 按现行 direct-serving、已有桶单代码补录、独立 probe 校准；§2 显式保留正式缺键校验未实现；§7 保存 M0/M3/M4/HDD、16 年规模证据 |
+| stock-st-missing-date-reconstruction-plan-v1.md | 保留，F13–F15 | §1–5：工具已实现、apply 重算/整日跳过/整次拒绝、一次双表提交、真实 namechange 与同日事件算法；§6 保留 25 日预测和边界排除 |
+| tushare-dataset-integration-audit-2026-05-03.md | 删除，F16 | 同名映射与 0315–0317 既有失效确认并入[请求阅读入口 §4](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md#4-源资料定位不要只按同名-api-算接入)，不重建另一套手工数量清单 |
+
+删除与合并核对：
+
+1. ETF 原 LLD §1–8 合同/测试/阶段边界→主文档 §1–6/§8–10；§9 只读事务、逐月查询及首尾判定→§7/§9；§10 多代码提交和旧 Submit 退场→§8/§9；§11 hash/测试证据→§9。2026-08-29 的任务 10117、1,336 unit、7,606,095 行、两个完整 hash 和内部空洞未审计均保留。
+2. 旧接入盘点不再维护失效数量，唯一资料定位说明已转交既有入口；不改变 registry、source index 或任何源文档。两份 DG ETF 文档只合并导航链接，不修改 DG 方案正文。
+3. 股票分钟保留独立存储专项及 90 分钟不混 Raw 的已确认方向；不把待设计的派生表写成已有实现。停车道只约束 TaskRun 领取，不能证明数据库无人写入。
+4. 两融的 671 万行/8,009 次请求归回 2010–2025 十六年估计，不当作单年或单区间页数；name 可空不等于允许源端缺字段键。正式同步缺键校验目标不撤销，代码缺口也不掩盖。
+5. ST 的旧 CSV 不是执行输入、空桶查询不是互斥锁、applied=True 不是全量完成证据；历史 3,613 行仍是预测，不改成生产已补齐。
+
+边界：CLI 扩展、两融正式字段完整性校验、ST 审批冻结/并发保护及分钟精准续跑均未在本轮实施。源端与数据库的历史证据标日期，不推断今天生产状态；无生产任务、源请求、数据清理、安装或依赖矩阵变更。原有其他任务改动不纳入本轮。
+
+验证：原十份主体 4,349 行收敛为八份 1,150 行；先核对唯一合同、历史数字/日期/hash 和安全门禁再删冗余，不以减行数作为删除依据。定向离线测试 124 passed（117 项 ETF/两阶段/两融/ST，5 项分钟 resolver，2 项 source client）；13 份保留与入口文档及其入链核验 386 个本地链接、35 个锚点通过，删除文件只剩本节处理记录。文档完整性三个检查组和差异检查通过，不代表源端或生产数据验收。
+
+CodeGraph 使用 status/query/impact 定位 ETF planner、Basic selector、RawStkMins、指数 probe 和 ST 服务，再以当前实现/测试核验调用与消费者；后置 status 为 up-to-date。代码缺口保留在各主文档，未扩成实现任务；本轮使用文档治理、开发范围核验和 Tushare 契约核验技能区分当前行为、原定目标与带日期证据。
+
 ### 4.4 Frontend 组
 
 当前状态：已完成第一轮整合（建立统一强约束主文档）。

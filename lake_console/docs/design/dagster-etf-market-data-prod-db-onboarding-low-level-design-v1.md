@@ -12,9 +12,7 @@
 
 上游 Prod LLD：[ETF 基础信息重建与下游数据审计清理 LLD v1](../../../docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
-Prod 分钟方案：[ETF 历史分钟行情数据集接入方案 v1](../../../docs/datasets/etf-mins-dataset-development.md)
-
-Prod 分钟 LLD：[ETF 历史分钟行情数据集 LLD v1](../../../docs/datasets/etf-mins-dataset-low-level-design-v1.md)
+Prod 分钟维护说明（含原 LLD）：[ETF 历史分钟行情](../../../docs/datasets/etf-mins-dataset-development.md)
 
 Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF专题/0385_ETF基础信息.md)
 
