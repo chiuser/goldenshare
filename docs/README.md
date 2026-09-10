@@ -196,7 +196,7 @@ docs/
 - 原复权变化重刷、Raw 直出两份方案已并入以上说明，不再作为独立执行指引；[合并去向与保留边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#stk-factor-docs-consolidation-20260910)见治理记录。
 - [指数技术因子维护说明（已合并接入方案与 LLD；区分手动/自动输入、轻量探测与历史验收）](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-dataset-development.md)
 - 原指数技术因子 LLD 已并入以上说明；[合并去向与保留边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#idx-factor-docs-consolidation-20260910)见治理记录。
-- [每日停复牌信息](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
+- [每日停复牌维护说明（Prod Raw-only/view、事实身份与消费者边界）](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
 - [本地 DG 停牌历史确认事实持久化与统一消费技术方案 v1（S0–S5完成；旧CSV退出、回归及专项环境清理完成）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-technical-plan-v1.md)
 - [本地 DG 停牌历史确认事实持久化与统一消费 LLD v1（§18.35：156个逻辑用例通过、精确清理及保留项对账；TODO关闭）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md#s5-final-closeout)
 - [本地 DG 停牌历史确认事实 S0 审计清单 v1（来源、日历、6,166 个输入文件及现有效果已核验；仅只读）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)

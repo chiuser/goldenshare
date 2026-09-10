@@ -1,156 +1,81 @@
-# Tushare 每日停复牌信息（`suspend_d`）数据集开发说明
+# 每日停复牌（`suspend_d`）维护说明
 
-- 当前状态（2026-08-29）：raw 直出 M0/M1/M2/M3a/M3b 已完成并结案；生产 revision 155 已将 `core_serving.equity_suspend_d` 切为 0 B raw-backed view，最小 TaskRun `9717` 与自然 TaskRun `9747/9773` 均通过。
+- 状态：当前为 Raw-only 写入、Serving view 查询；Raw 直出专项已于 2026-08-29 记录结案。
+- 更新时间：2026-09-10（按当前代码校准；未重新请求源端或核验生产）。
+- 范围：Prod `suspend_d` 维护及数据库消费者。本文不替代本地 DG 停牌事实专题，不改变两条链路各自的读取口径。
 
-## 1. 目标与边界
+## 1. 当前维护合同
 
-- 目标：维护 `suspend_d` 数据集，并在不改变下游读取合同的前提下，以 `raw_tushare.suspend_d` 作为唯一物理事实表、`core_serving.equity_suspend_d` 作为只读兼容 view。
-- 本期边界：
-  - 先做 `tushare` 单源，不做多源融合。
-  - 已纳入 `daily_market_close_maintenance` 工作流；手动任务和自动工作流共用同一 Definition/planner/request 契约。
-  - `suspend_d.maintain` 必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
+事实源：[DatasetDefinition：`suspend_d`](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/market_equity.py)。日期与执行通则见 [日期模型指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) 和 [执行计划基线](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)。
 
-## 2. 上游接口
+| 项目 | 当前实现 |
+| --- | --- |
+| 动作与入口 | `suspend_d.maintain`；支持手动、调度及重试，已纳入 `daily_market_close_maintenance` |
+| 运营目录 | `reference_data / A股基础数据`；这是目录分类，不是 Definition 的业务域 |
+| 时间输入 | 单日 `trade_date` 或区间 `start_date + end_date`，禁止无时间全量 |
+| 日期模型 | `trade_open_day / every_open_day / point_or_range`；区间按默认交易所日历展开，`DEFAULT_EXCHANGE` 默认 SSE，不是本数据集硬编码 SSE |
+| 代码过滤 | 可选 `ts_code`；builder 去首尾空格并转大写，不是原样传递；无对象池扇出 |
+| 类型过滤 | 可选多选 `suspend_type`：S 停牌、R 复牌；不选时不传，选择后由 planner 展开为合法单值 unit |
+| 分页 | 每个 unit 内按 `limit=5000 / offset` 分页；满页继续、短页结束，不设置任意最大页数 |
+| 写入与进度 | 只写 Raw，按 unit 提交；进度计数为执行单元而非日期数，另报读取、写入和拒绝数量 |
 
-- 文档：<https://tushare.pro/document/2?doc_id=214>
-- API：`suspend_d`
-- 描述：按日期获取股票每日停复牌信息（不定期更新）。
-- 文档抓取日期：`2026-04-16`
+类型选择的实际展开：单日不选类型为 1 个无类型过滤 unit；单日同时选 S/R 为 2 个 unit；两个开市日同时选 S/R 为 4 个 unit。非法类型在规划前拒绝；[_suspend_d_params](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py) 遇到未展开列表会报错，不能将列表字符串直接发送给源端。区间日期与类型规则对手动和工作流维护共用。
 
-## 3. 参数与字段
+采集使用现有日历和通用 ingestion；没有因本文新增采集前置步骤。“无额外采集级联”不代表没有下游消费者，见 §3。自动任务配置按现行 [Ops 自动化合同](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md) 使用，不在本篇重复定义页面控件及调度模式。
 
-### 3.1 输入参数（上游原生）
+## 2. 源字段、存储与幂等
 
-| 参数名 | 类型 | 必填 | 说明 | 类别 | 是否暴露给用户 | 前端控件 | 执行层映射 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `ts_code` | str | 否 | 股票代码（如 `000001.SZ`） | 代码 | 是（可选） | 文本输入 | 原样传递 |
-| `trade_date` | str | 否 | 交易日期（YYYYMMDD） | 时间 | 是 | 日期选择器（单日） | UI 日期 -> YYYYMMDD |
-| `suspend_type` | str | 否 | 停复牌类型（`S` 停牌 / `R` 复牌） | 枚举 | 是（可选） | 多选下拉 | 未选时不传；选择一个或多个值时由 planner 按合法单值扇出，源端永远只接收 `S` 或 `R` 字符串 |
+本地来源：Tushare **doc_id=214**，[每日停复牌信息](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md)。当前每页显式请求四字段：`ts_code, trade_date, suspend_timing, suspend_type`；源资料标注不定期更新。本轮未重新实测源接口，不将源文档样例代替当前字段映射。
 
-### 3.2 输出字段（上游原生，全量落库）
+| 对象 | 当前合同 |
+| --- | --- |
+| [`raw_tushare.suspend_d`](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_suspend_d.py) | 唯一物理事实表；自增 `id` 为物理主键；四个源字段、`row_key_hash` 及 `api_name / fetched_at / raw_payload` |
+| Raw 索引 | `uq_raw_tushare_suspend_d_row_key_hash` 唯一索引，以及 `idx_raw_tushare_suspend_d_trade_date`、`idx_raw_tushare_suspend_d_ts_code_trade_date` |
+| [`core_serving.equity_suspend_d`](/Users/congming/github/goldenshare/src/foundation/models/core/equity_suspend_d.py) | 只读普通 view；显式投影 `id, row_key_hash, ts_code, trade_date, suspend_timing, suspend_type, created_at, updated_at`，不保存第二份数据 |
+| 时间与字段长度 | view 两个系统时间均来自 Raw `fetched_at`，不承诺旧 Serving 历史 `created_at` 不变；两层 `suspend_timing` 为 varchar(128)、`suspend_type` 为 varchar(16) |
 
-| 字段名 | 类型 | 含义 | 是否落库 |
-| --- | --- | --- | --- |
-| `ts_code` | str | 股票代码 | 是 |
-| `trade_date` | str/date | 交易日期 | 是 |
-| `suspend_timing` | str | 停牌时段 | 是 |
-| `suspend_type` | str | 停复牌类型（S 停牌 / R 复牌） | 是 |
+`suspend_timing` 可能包含多个日内时段，例如 `09:30-10:31,10:31-13:02,13:42-14:57`，不得截断。view 没有物理主键或索引，查询使用 Raw 底层索引；Serving ORM 的主键、索引元数据仍用于映射，不能据此认为旧物理表尚存，也不能删除当前读取入口。
 
-### 3.3 同步策略结论
+幂等身份由 [build_suspend_d_row_key_hash](/Users/congming/github/goldenshare/src/foundation/services/transform/suspend_hash.py) 生成：
 
-- 是否支持单次时间点：是（`trade_date`）
-- 是否支持区间回补：是（`start_date+end_date`，执行层按日扇出）
-- 时间粒度：日
-- 时间推进策略：交易日历（按开市日期推进）
-- 是否需要分页循环：是；按现有通用 `offset/limit` 分页，`page_limit=5000`，短页结束，不设置任意最大页数
-- 是否有级联依赖：否
+- 按 `ts_code, trade_date, suspend_timing, suspend_type` 的固定顺序序列化，以 `|` 拼接后计算 SHA-256；None 序列化为空串，日期对象使用 ISO 日期。
+- `row_key_hash` 是写入冲突键，**不是物理主键 id，也不是“股票代码＋日期”**。相同序列化事实重跑按同一 hash upsert；时段或类型改变会形成不同 hash。
+- 因此同一股票同一天可以有多条不同事实。当前 Raw-only writer 不按股票/日期清除旧记录，不能承诺“源端改过时段后自动覆盖旧事实”，也不能把同日多条直接判成重复并删除。
 
-2026-08-28 使用 `tushareMcp` 对 `trade_date=20260827`、显式四个 source fields 做了最小真实验证：不传 `suspend_type` 返回 4 行，`S` 返回 3 行，`R` 返回 1 行，且 `S/R` 多重集并集与无过滤结果一致；把列表错误转换为 `"['S', 'R']"` 时源端返回 `50101`。因此多选是运营意图，不能直接作为源参数；必须先在 planner 中拆成单值 unit。
+Definition 两个 DAO 名均为 `raw_suspend_d`，`write_path=raw_only_upsert`，`conflict_columns=(row_key_hash,)`；view 在同一事务内反映 Raw 更新。独立拒写 trigger 对 Serving INSERT/UPDATE/DELETE 返回 SQLSTATE `55000`，不通过 view 修数。
 
-## 4. 参数与交互设计（Ops）
+## 3. 当前消费者与观测边界
 
-### 4.1 手动任务
+以下均是当前读取 Serving view 的代码，不能与本地 Silver 消费者混为一条链路：
 
-1. 第一步：选择要维护的数据（股票 -> 每日停复牌信息）。
-2. 第二步：时间参数
-  - 单日：选择一个日期（映射 `trade_date`）
-  - 区间：开始日期 + 结束日期（执行层按交易日历逐日映射为 `trade_date` 请求）
-3. 第三步：其他输入条件
-  - `股票代码`（可选）
-  - `停复牌类型`（可选多选；不选表示全部，选择 `S/R` 时分别形成合法源请求）
+| 消费者 | 当前查询口径 |
+| --- | --- |
+| [市场情绪计算](/Users/congming/github/goldenshare/src/biz/services/market_mood_calculator.py) | 按日期/代码关联去重后的停复牌记录，生成 `is_suspend` 并在统计中排除；当前未筛选 `suspend_type=S` |
+| [指数详情](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/index_detail/index_detail_query.py) | 以 S 记录判断停牌；优先使用日线涨跌幅，缺日线涨跌幅且命中停牌时取 0 |
+| [板块成员](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/sector_overview/sector_member_query.py) | 对当日 S 记录对应的股票隐藏涨跌幅 |
+| [有效 A 股池](/Users/congming/github/goldenshare/src/biz/services/wealth/market/sector_overview/effective_a_stock_pool_query.py) | 按成员股票/日期构造 S 类型停牌集合，用于有效池筛选 |
+| [板块热度数据源](/Users/congming/github/goldenshare/src/biz/services/wealth/market/sector_overview/sector_heat_source_query.py) | 读取计算日期和股票范围内的 S 记录，按日期/代码去重，并结合完成证据检查日期 |
+| [连板梯队](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/streak_ladder/streak_ladder_query.py) | 对缺行情的股票检查当日 S 记录，区分 `SUSPENDED` 与 `MISSING` |
 
-### 4.2 自动任务
+这些是现行实现差异，不表示本文批准统一过滤或重新定义“全天停牌”。涉及消费者语义调整须单独审计并确认，本轮不改查询。
 
-- 保持统一模型：单次 / 每日 / 每周 / 每月 + 时间选择器。
-- 业务化配置，不向用户暴露底层字段名。
+Ops 的 [freshness 投影](/Users/congming/github/goldenshare/src/ops/dataset_definition_projection.py) 从 Definition 取 `raw_tushare.suspend_d / trade_date`；当前 freshness 策略仍为 `continuous_open_day`。任务成功时间、业务记录日期和数据完整性不是同一件事，不用“显示最小/最大日期”代替健康度合同，也不在本轮擅自修改日期审计策略。
 
-## 5. 落库设计
+## 4. 历史迁移与验收摘要
 
-### 5.1 路径选择
+以下保留原文的历史证据，不是今天的生产数据、开关状态或执行授权。原全文可从 Git `e38f5dfe:docs/datasets/suspend-d-dataset-development.md` 追溯；跨数据集背景见 [Raw 直出一期 LLD](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)。
 
-- 路径类型：`raw_tushare.suspend_d -> core_serving.equity_suspend_d view`（raw 直出）
-- 唯一物理事实表：`raw_tushare.suspend_d`；ingestion 只执行 `raw_only_upsert`。
-- 对下游合同：保留 `core_serving.equity_suspend_d` 名称和显式列投影，view 禁止三类 DML；查询由 PostgreSQL 下推到 raw 的等价索引。
-- 存储边界：raw heap 与索引继续位于 SSD `pg_default`，本项不迁 HDD；切换只释放原 serving 物理表。
+- **类型实测（2026-08-28）：**目标日 `20260827`、显式四字段，不筛类型返回 4 行，S 为 3 行，R 为 1 行，多重集并集与无过滤结果一致；列表字符串 `"['S', 'R']"` 返回源端 `50101`。该记录支持单值展开设计，不代替本次源端实测。
+- **M0/M1：**当时 Raw/Serving 各 640,504 行，320 个自然月按 `id, row_key_hash` 与四个源字段双向差异为 0，月峰值 17,074。Definition 切至 Raw-only，独立 [revision 20260828_000155](/Users/congming/github/goldenshare/alembic/versions/20260828_000155_make_suspend_d_raw_view.py) 接 revision 154，保留源字段、日期、类型展开、分页和工作流合同。
+- **迁移门禁：**20,000 行/层/月是该次迁移的有界对账容量，**不是日常同步上限**。超限、字段/双身份差异、对象/索引/权限/依赖漂移在 Serving DDL 前拒绝；不执行 CASCADE，不修改 Raw 数据或索引，禁止自动 downgrade。该次 Raw heap/索引保持 SSD `pg_default`，不迁 HDD。
+- **M2：**隔离 PostgreSQL 验证了 20,000/20,001 边界、字段及双身份差异、未知依赖、ACL/comment、DML 拒写、正式 writer、Raw/view 即时可见、事务回滚和三类查询计划；没有连接 Prod 或请求 Tushare。
+- **M3a：**生产 revision 154→155，Raw/view 各 640,504 行、六字段差异为 0，旧 Serving relation 的 catalog 毛释放量为 222,199,808 B。拒写、消费者查询、连接池回收和 TaskRun **9717** 验收通过，当时 schedule #2/#24 原样恢复。
+- **M3b：**TaskRun **9747/9773** 中两个目标节点均维护 `2026-08-28`，各一页短页、读取/保存 `7/7`，reject/去重/重试为 0。最终 Raw/view 各 7 行，hash 与源事实唯一，六字段差异为 0，最终 `fetched_at` 来自 21:02 第二轮更新，未制造重复；本数据集迁移结案。
 
-### 5.2 表设计
+## 5. 回归与后续修改
 
-#### A. `raw_tushare.suspend_d`
+- [类型过滤合同测试](/Users/congming/github/goldenshare/tests/test_suspend_d_filter_contract.py)：无类型、单选、多选、日期×类型展开、非法值及未展开列表拒绝。
+- [hash 测试](/Users/congming/github/goldenshare/tests/test_suspend_hash.py)：长度稳定、时段变更和多时段参与身份。
+- [Raw/view 合同测试](/Users/congming/github/goldenshare/tests/test_suspend_d_raw_view_m1.py)：Definition、过滤、模型、索引、迁移容量/顺序/禁止项、离线 SQL 与 downgrade 拒绝。
 
-- 审计字段：`api_name`, `fetched_at`, `raw_payload`
-- 业务字段：`ts_code`, `trade_date`, `suspend_timing`, `suspend_type`
-- 字段长度：
-  - `suspend_timing`：`varchar(128)`，源端可能返回多个日内停牌时段，例如 `09:30-10:31,10:31-13:02,13:42-14:57`，禁止截断。
-  - `suspend_type`：`varchar(16)`，当前枚举为 `S` / `R`。
-- 索引：
-  - `uq_raw_tushare_suspend_d_row_key_hash(row_key_hash)`
-  - `idx_raw_tushare_suspend_d_trade_date(trade_date)`
-  - `idx_raw_tushare_suspend_d_ts_code_trade_date(ts_code, trade_date)`
-
-#### B. `core_serving.equity_suspend_d`
-
-- 对象类型：只读普通 view，不再保存第二份物理数据。
-- 对外字段显式固定为：`id`, `row_key_hash`, `ts_code`, `trade_date`, `suspend_timing`, `suspend_type`, `created_at`, `updated_at`。
-- `created_at/updated_at` 均映射 raw `fetched_at`；已登记消费者不读取这两个审计字段，不承诺保留旧 serving 历史 `created_at` 的差异。
-- 字段长度与 raw 保持一致，`suspend_timing` 为 `varchar(128)`，不得截断日内多时段信息。
-- view 本身没有物理索引；原有查询依赖 raw 的唯一索引、`trade_date` 索引和 `(ts_code, trade_date)` 索引完成下推。
-- 独立 `INSTEAD OF INSERT OR UPDATE OR DELETE` trigger 统一以 SQLSTATE `55000` 拒绝写入。
-
-### 5.3 幂等与切换门禁
-
-- 写入冲突键固定为 `row_key_hash`；raw 物理主键继续为自增 `id`，不修改共享 upsert。
-- migration 按自然月对比 `id, row_key_hash, ts_code, trade_date, suspend_timing, suspend_type` 的双向 `EXCEPT ALL`，并验证每月 `id/row_key_hash` 均无重复。
-- 月容量上限固定为 20,000 行；任一层超限、任一字段差异、身份重复、对象/索引/权限/依赖漂移都必须在 serving DDL 前失败。
-- migration 不执行 `CASCADE`、不修改 raw 数据或索引、不提供自动 downgrade。
-
-## 6. 维护实现设计
-
-- IngestionExecutor / SourceClient：`suspend_d` 数据集维护链路
-- `target_table`：`raw_tushare.suspend_d`
-- 参数构建规则：
-  - `suspend_d.maintain`：`trade_date` 或 `start_date+end_date`
-  - 区间模式：按 SSE 开市日逐日调用上游（每次传 `trade_date`）
-  - `suspend_type`：未填写时不传；单选生成 1 个单值 unit；多选按去重后的 `S/R` 分别生成 unit；request builder 遇到未展开列表必须 fail-closed，禁止字符串化后请求源端
-- 写入规则：
-  - 只 upsert `raw_tushare.suspend_d`
-  - `core_serving.equity_suspend_d` 由 view 同事务即时可见，不再发生 serving DAO 写入
-- 进度事件（用户可读）：
-  - `suspend_d: 3/15 date=2026-04-10 fetched=xx written=xx`
-  - 明确展示当前日期推进进度与读写统计。
-
-## 7. 数据状态与健康度观测
-
-- 数据状态页分组：`股票`
-- 健康度口径：
-  - 展示日期范围：`trade_date` 最小~最大
-  - 同时展示最近同步日期（来自任务成功时间）
-- 异常展示：中文摘要 + 原始错误可展开
-
-## 8. 测试与验收（计划）
-
-- 单元测试：
-  - 参数映射（单日/区间/可选枚举）
-  - 无类型单 unit、单选单 unit、多选按日期和类型笛卡尔展开、非法枚举拒绝、request builder 拒绝未展开列表
-  - 区间 SSE 开市日推进
-  - raw-only writer 只调用 `raw_suspend_d` DAO，冲突键为 `row_key_hash`
-  - ORM 字段、主键和三组 raw/serving 现存索引合同
-  - migration 顺序、20,001 行超限、全字段/双身份差异、未知依赖、三类拒写、事务回滚和离线 PostgreSQL SQL
-- 集成测试：
-  - `suspend_d.maintain`（单日/区间）
-  - Ops 手动任务参数链路
-- 回归测试：
-  - 不影响现有股票日频数据集（`moneyflow/limit_list_d/stk_limit/stk_nineturn`）
-
-## 9. 风险与讨论点（请你 review）
-
-1. 主键与幂等策略：采用 `row_key_hash`（已拍板）。
-2. 数据状态分组：归到“股票”（已拍板）。
-3. 自动任务：默认开放创建（已拍板）。
-
-## 10. raw 直出阶段验收状态
-
-- M0：生产只读证明 raw/serving 各 640,504 行，320 个自然月按 `id, row_key_hash, ts_code, trade_date, suspend_timing, suspend_type` 双向差异为 0；月峰值 17,074，容量门禁固定为 20,000 行。
-- M1：Definition 已切到 `raw_only_upsert`，独立 revision 155 与专项自动化测试完成；没有修改源字段、日期/unit、分页或 workflow 合同。
-- M2：PostgreSQL 18.4 隔离实例已通过 20,000/20,001 行边界、字段及双身份差异、未知依赖、ACL/comment、三类 DML `55000`、正式 writer、raw/view 即时可见、事务回滚和三类查询计划验收。未连接 Prod、未请求 Tushare。
-- M3a：生产 revision 154→155，raw/view 各 640,504 行且六字段差异为 0；原 serving 物理 relation 释放 222,199,808 B。三类 DML、真实消费者查询、连接池回收与 TaskRun `9717` 五段对账均通过，schedule #2/#24 已原样恢复。
-- M3b：schedule #24 的 TaskRun `9747` 与 schedule #2 的 TaskRun `9773` 均成功处理 `2026-08-28`；两个 `suspend_d` 节点均为 1 页短页、读取/保存 `7/7`，reject、去重、重试为 0。最终 Raw/view 各 7 行，`row_key_hash` 和四字段源事实均唯一，包含 `id/row_key_hash` 的六字段双向差异为 0；最终 `fetched_at` 来自 21:02 第二轮原位更新，未制造重复。`P1-B2-suspend_d-M3b` 据此通过，本数据集结案。
+本次文档治理只使用现有离线测试和文档检查，不重跑历史迁移、不写生产或 Lake。涉及字段、身份、消费者或长任务改造时按 [开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md) 重新明确影响面；旧验收不证明所有后续变更安全，也不证明已经支持进程退出后的持久化续跑。
