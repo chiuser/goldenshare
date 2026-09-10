@@ -172,7 +172,7 @@ docs/
 - [ETF 每日持仓组合（深市）接入方案（已由 ETF Basic Serving 驱动）](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-dataset-development.md)
 - [ETF 每日持仓组合（深市）低层设计 LLD v1（Basic 资格与上市日裁剪为当前基线）](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-low-level-design-v1.md)
 - [基金复权因子维护说明（Prod Raw/Core 双写、可选代码过滤）](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
-- [融资融券交易汇总](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
+- [融资融券汇总维护与源端探测说明（Raw-only/view、时间规则与运行限制）](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [融资融券交易明细低层设计 LLD v1（M0–M4 与 HDD 落盘已完成，待 M5a 手工历史回补 / M5b 自动增量授权）](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
 - [每日涨跌停价格维护说明（Raw-only/view、业务消费者与完整性审计）](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
 - [股票开盘与收盘集合竞价维护说明（已合并两份接入文档；Raw-only/view、独立迁移与历史验收）](/Users/congming/github/goldenshare/docs/datasets/stk-auction-dataset-development.md)
