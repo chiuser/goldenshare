@@ -272,6 +272,7 @@
       <span class="pill gold">gold: qfq 分钟线</span>
     </div>
     <h1>Dagster stk_mins 资产落地设计</h1>
+    <div class="note"><strong>2014+ 分钟缺口恢复（2026-09-10，B2首批20窗口完成）：</strong>B0/B1已完成；本批25次请求、19.54秒，2,755个单元中1,912个源数据完整、843个源返回空，具体范围与耗时见 <a href="dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md#minute-gap-b2-first20">canonical LLD §14.17</a>。Raw保留来源代码、Silver起统一新身份。本轮仅保存源缓存到staging，未聚合、未写正式数据或事件；B2剩余批次、B3及下游尚未执行。两请求并行与批清单读取已通过隔离验证，见 <a href="dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md#minute-gap-source-execution-optimization">§14.19</a>；优化后未追加取源。</div>
     <div class="note"><strong>M5 清退边界（2026-09-05）：</strong>旧 backup/clean_next 输入、M2 spec 与 M3 初始化步骤仅是历史记录，相关适配器已在 M3/M4 删除，不能照做。当前 Raw/Silver/QFQ/指标、停牌和身份映射口径不变；现行 CLI 已拆成 Silver history、QFQ history、MACD/KDJ history、events 四个模块，21 命令合同保留，见清退 LLD §4/§11。</div>
     <p class="subtitle">
       本文定义股票分钟线 <code>stk_mins</code> 在新 Dagster lake 中的正式分层、分区、资产拆分、历史导入和后续增量路线。
