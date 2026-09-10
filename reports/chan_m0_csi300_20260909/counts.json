@@ -1,0 +1,178 @@
+{
+  "evaluation": {
+    "B1": 8,
+    "B2": 7,
+    "B3": 3,
+    "S1": 11,
+    "S2": 12,
+    "S3": 2
+  },
+  "initialization": 1,
+  "annual": [
+    {
+      "year": "2011",
+      "group": "B1",
+      "events": 1
+    },
+    {
+      "year": "2011",
+      "group": "B2",
+      "events": 1
+    },
+    {
+      "year": "2014",
+      "group": "S1",
+      "events": 2
+    },
+    {
+      "year": "2015",
+      "group": "S2",
+      "events": 1
+    },
+    {
+      "year": "2016",
+      "group": "S1",
+      "events": 2
+    },
+    {
+      "year": "2016",
+      "group": "S2",
+      "events": 1
+    },
+    {
+      "year": "2017",
+      "group": "S1",
+      "events": 1
+    },
+    {
+      "year": "2017",
+      "group": "S2",
+      "events": 3
+    },
+    {
+      "year": "2018",
+      "group": "B1",
+      "events": 3
+    },
+    {
+      "year": "2018",
+      "group": "B2",
+      "events": 1
+    },
+    {
+      "year": "2019",
+      "group": "B2",
+      "events": 1
+    },
+    {
+      "year": "2019",
+      "group": "B3",
+      "events": 1
+    },
+    {
+      "year": "2020",
+      "group": "S1",
+      "events": 3
+    },
+    {
+      "year": "2020",
+      "group": "S2",
+      "events": 3
+    },
+    {
+      "year": "2020",
+      "group": "S3",
+      "events": 1
+    },
+    {
+      "year": "2021",
+      "group": "B1",
+      "events": 1
+    },
+    {
+      "year": "2021",
+      "group": "B2",
+      "events": 1
+    },
+    {
+      "year": "2021",
+      "group": "S2",
+      "events": 1
+    },
+    {
+      "year": "2022",
+      "group": "B1",
+      "events": 1
+    },
+    {
+      "year": "2022",
+      "group": "B2",
+      "events": 1
+    },
+    {
+      "year": "2023",
+      "group": "B1",
+      "events": 1
+    },
+    {
+      "year": "2023",
+      "group": "B2",
+      "events": 1
+    },
+    {
+      "year": "2023",
+      "group": "B3",
+      "events": 1
+    },
+    {
+      "year": "2023",
+      "group": "S1",
+      "events": 1
+    },
+    {
+      "year": "2023",
+      "group": "S2",
+      "events": 1
+    },
+    {
+      "year": "2023",
+      "group": "S3",
+      "events": 1
+    },
+    {
+      "year": "2024",
+      "group": "B1",
+      "events": 1
+    },
+    {
+      "year": "2024",
+      "group": "B2",
+      "events": 1
+    },
+    {
+      "year": "2024",
+      "group": "B3",
+      "events": 1
+    },
+    {
+      "year": "2025",
+      "group": "S1",
+      "events": 1
+    },
+    {
+      "year": "2025",
+      "group": "S2",
+      "events": 1
+    },
+    {
+      "year": "2026",
+      "group": "S1",
+      "events": 1
+    },
+    {
+      "year": "2026",
+      "group": "S2",
+      "events": 1
+    }
+  ]
+}

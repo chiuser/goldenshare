@@ -1,0 +1,141 @@
+{
+  "date": "2026-09-09",
+  "purpose": "Index research directory consolidation; no backtest rerun",
+  "files": [
+    {
+      "old_path": "scripts/research/index_probability_backtest.py",
+      "new_path": "scripts/research/index_market/statistics/index_probability_backtest.py",
+      "role": "statistics",
+      "new_sha256": "639760e369cc5d3e076634356e263e153ca70c3dcf579125381786862350fbf6",
+      "old_sha256": "87dba1072492279564a2e5faaf8aa2e5973105b1d06f9accdec6eeda6279ca20"
+    },
+    {
+      "old_path": "scripts/research/index_condition_statistics.py",
+      "new_path": "scripts/research/index_market/statistics/index_condition_statistics.py",
+      "role": "statistics",
+      "new_sha256": "dd7436006e9e0a27b0605fdb1801e8263d661ebc3676ff6cdf75046e3a6e01e7",
+      "old_sha256": "bbb7a150e050218288157be24f4168c5e6b8c286f71dbacab640a6cb59346c92"
+    },
+    {
+      "old_path": "scripts/research/index_single_condition_backtest.py",
+      "new_path": "scripts/research/index_market/statistics/index_single_condition_backtest.py",
+      "role": "statistics",
+      "new_sha256": "7dff09e5f6d2c2da8d0056ad2454c84cd269570a5cb9eecb022d5f8e4a28f055",
+      "old_sha256": "ae0e611506b8aaf27d65d8fc1a3e65446f9873b250b2f37be0a61f4df094b9c6"
+    },
+    {
+      "old_path": "scripts/research/index_risk_baseline_backtest.py",
+      "new_path": "scripts/research/index_market/statistics/index_risk_baseline_backtest.py",
+      "role": "statistics",
+      "new_sha256": "e02eaed277be2f95a1787c062d925fb1ae8c5f758c336d71a8c9a8724731ea8c",
+      "old_sha256": "c7dd357fa25659f3d8606287f323ba7316e3d448b5bf9e1997db2540be4abe02"
+    },
+    {
+      "old_path": "tests/test_index_probability_backtest.py",
+      "new_path": "scripts/research/index_market/tests/test_index_probability_backtest.py",
+      "role": "test",
+      "new_sha256": "882927a1e810e48829919bf76a15209470c0b8982db60a42b0081e1d929737d6",
+      "old_sha256": "8eb3709bf4f9242434994d1c7c2925013fdc7aa8c8f1d184a585c4168c97e9fb"
+    },
+    {
+      "old_path": "tests/test_index_condition_statistics.py",
+      "new_path": "scripts/research/index_market/tests/test_index_condition_statistics.py",
+      "role": "test",
+      "new_sha256": "bef615a8398e9347eeb33f43d469912efdb8f5852317689f1dd39ab0760cd31c",
+      "old_sha256": "f2c373d6982d78fcceadbe79f0d2e4bfdb07ca88e097f0fc5b34f6e26690dc4a"
+    },
+    {
+      "old_path": "tests/test_index_single_condition_backtest.py",
+      "new_path": "scripts/research/index_market/tests/test_index_single_condition_backtest.py",
+      "role": "test",
+      "new_sha256": "b8dac2eecd7b61b4b83283f4256fcdfbde26788102de9e64770f4b31cd00e5a7",
+      "old_sha256": "884439cbb960f63eb1479afba511dcdc42297c3aee714838b9143dcc5f5e7810"
+    },
+    {
+      "old_path": "tests/test_index_risk_baseline_backtest.py",
+      "new_path": "scripts/research/index_market/tests/test_index_risk_baseline_backtest.py",
+      "role": "test",
+      "new_sha256": "6179f4bdefad8d606e93de631dde43842bf22c70bcb7941557bac3c397dd83cf",
+      "old_sha256": "f30a7e537bb09ace0f24d532325adb5519dd6e73938aebe994fef8be293823e8"
+    },
+    {
+      "old_path": "reports/chan_theory_csi300_teaching_20260908/build_cases.py",
+      "new_path": "scripts/research/index_market/chan/build_cases.py",
+      "role": "chan",
+      "new_sha256": "cc1663a82f83ae3c1ad49d6a4d298108da0d9168606aec9d87df8f4c0c15fdec",
+      "old_sha256": "95e9054c4d56ae148507dee9f46eebf6f0e32d64ff010923b6dfa846bfa1770e"
+    }
+  ],
+  "algorithm_ast_checks": [
+    {
+      "path": "scripts/research/index_market/statistics/index_probability_backtest.py",
+      "unchanged_declarations": 14
+    },
+    {
+      "path": "scripts/research/index_market/statistics/index_condition_statistics.py",
+      "unchanged_declarations": 17
+    },
+    {
+      "path": "scripts/research/index_market/statistics/index_single_condition_backtest.py",
+      "unchanged_declarations": 9
+    },
+    {
+      "path": "scripts/research/index_market/statistics/index_risk_baseline_backtest.py",
+      "unchanged_declarations": 9
+    },
+    {
+      "path": "scripts/research/index_market/chan/build_cases.py",
+      "unchanged_declarations": 6
+    }
+  ],
+  "historical_artifacts_sha256": {
+    "reports/chan_theory_csi300_teaching_20260908/evidence.json": "e11882b3716cbfdaa10b9ebc5f15a3846ae811b86cfae96f87b0f6c78c124eaa",
+    "reports/chan_theory_csi300_teaching_20260908/source.json": "0fae6a9a7efe8b96c648646ef57eecb98d4b67b30f88e6d81b1eea1390a42228",
+    "reports/chan_theory_csi300_teaching_20260908/README.md": "20b04472998b0211016c3204b77493db7823735577f7e4104192e2f73622a10e",
+    "reports/chan_theory_csi300_teaching_20260908/endpoint_replay.png": "130f9ccd82a2d8ed0b0d0a7f146cd34d82ccad7f46a08ef0a39275a5ac6b5f19",
+    "reports/chan_theory_csi300_teaching_20260908/frames.json": "b98d048db894b2c405a1281b9dbbf2cca13eda51c3fad2e3dad38e182e2ac4c4",
+    "reports/chan_theory_csi300_teaching_20260908/manifest.json": "3996931380e7f2312727003d5c48b0664519852c9441ed7d9d3e3b98a2ecba15",
+    "reports/chan_theory_csi300_teaching_20260908/csi300_structure.png": "17eb2b2d1e14ff069f85c1465e6a765358cf8f1ae172fd6f1e0322ea355de395",
+    "reports/index_condition_statistics_v1_20260908/coverage.csv": "e072eb7f6e76e34db313ceeca748ad77bf9305dacc8a188492418487efb07ed9",
+    "reports/index_condition_statistics_v1_20260908/group_statistics.csv": "2a8415e03ddfdd5b95c6b41654bddb9045021ca059ee85b15c83e8977f34aa9f",
+    "reports/index_condition_statistics_v1_20260908/conditional_observations.csv": "b5c709e779ebf7e998b1f6b2674282d36f899a63f0c21c1323b9158d8ab66685",
+    "reports/index_condition_statistics_v1_20260908/source_manifest.json": "b4d3c5f2b4aecf9cc2aac782b49999ebd521efa75c0b9c738219db2c9f5c1a8e",
+    "reports/index_condition_statistics_v1_20260908/report.md": "9c98603d3810287fc488644ad247e331d54b7754be8146ebb8125a6ce9479e52",
+    "reports/index_condition_statistics_v1_20260908/results.json": "3b9de5805bd6c386a1b2f8ca604d84832b4db927f73931beee88e603ac2eeb91",
+    "reports/index_condition_statistics_v1_20260908/screening.csv": "43c3c9ae006587f8ed934619bfdb0dad62ef24d4ac6f1290cf61705c786bde87",
+    "reports/index_condition_statistics_v1_20260908/thresholds.json": "2f32d472c2672ba51b9fa4b9e2b658aa901b4d390bebdee4b720219fb30d57bc",
+    "reports/index_condition_statistics_v1_20260908/contrasts.csv": "c5fbddeb67a0e887b04905726ca42f937c9590e2cbaf4f806cc310aaec44ba3d",
+    "reports/index_condition_statistics_v1_20260908/run_manifest.json": "e72e27339fc8e88ee1e638d798826c39aa7f17d458dec29a2cb8a9ec8369aacc",
+    "reports/index_condition_statistics_v1_20260908/excluded_boundaries.csv": "6d3eb9c9b83315140223f8899923393a1cdfd049cab0f516474968be18ae15f6",
+    "reports/index_probability_backtest_v1_20260908/blocked_report.md": "d7ccaf9c0aec8dda0e51b024bf22b91c1253eace5b8068c4fa6a486d31524598",
+    "reports/index_probability_backtest_v1_20260908/run_manifest.json": "dc314c2b49f277275b538f7c069a204bf18c99cfc1ab251f6d5d5c71779f8b96",
+    "reports/index_probability_backtest_v1_20260908_approved/calibration.csv": "2ed562776c02280427853e97f31a68f9dba3f9713959a44ac82a0b8f9f306be9",
+    "reports/index_probability_backtest_v1_20260908_approved/source_manifest.json": "ce1b7c90331e7d094ce917d2652d9ed1d2dde9405a506141a6c49945bb9584bc",
+    "reports/index_probability_backtest_v1_20260908_approved/report.md": "57798448f03cbba3e3ced744275e6b79657261edc9123e77e10f15a930ad9189",
+    "reports/index_probability_backtest_v1_20260908_approved/predictions.csv": "88cd30c1063997368631ec66c52f39d87556cd22cadb2abf7dc15f4976143120",
+    "reports/index_probability_backtest_v1_20260908_approved/results.json": "971d10bdd44deea5dd036501cc054445ad946d5c0054f5e658c9f45517ef348d",
+    "reports/index_probability_backtest_v1_20260908_approved/yearly_metrics.csv": "66b24e8ce4a90f8499078edbd6b532ec440123aeade25c54a5ff12e31f952037",
+    "reports/index_probability_backtest_v1_20260908_approved/run_manifest.json": "0d8257072e931d7fdd0191f33b06b810869f2e451c4e8675391e04359e93e098",
+    "reports/index_risk_baseline_v1_20260908/models.json": "c127df448c8324d4d858c24adfa9c44868a486fdcac0ad94a60be835ed4fa4b9",
+    "reports/index_risk_baseline_v1_20260908/source_manifest.json": "b4d3c5f2b4aecf9cc2aac782b49999ebd521efa75c0b9c738219db2c9f5c1a8e",
+    "reports/index_risk_baseline_v1_20260908/report.md": "3c138f6351b8e066ad06265a812fb446bdd86cba82be7de60fb4507f5d2be54c",
+    "reports/index_risk_baseline_v1_20260908/predictions.csv": "b75389eb2f28a5d11037a66b156c3b8762cdb5b57260d684274b4c851d865f2b",
+    "reports/index_risk_baseline_v1_20260908/results.json": "2ead184cb57bbb6a85952476fca5c4a89150d1fcd733f69af8fa8ed31fa14695",
+    "reports/index_risk_baseline_v1_20260908/scores.csv": "bb9850d7ef77d8ae355439ad172c52031242dfc75aefdcbe6bcb665246e7430a",
+    "reports/index_risk_baseline_v1_20260908/run_manifest.json": "a852d0fbce1de3d58602b9ebd954f7727a15acd4b718a32db061d1b4177cfd80",
+    "reports/index_risk_baseline_v1_20260908/excluded_boundaries.csv": "6d3eb9c9b83315140223f8899923393a1cdfd049cab0f516474968be18ae15f6",
+    "reports/index_single_condition_v1_20260908/groups.csv": "08e24c4c629bcf68e7635c886867bd91aabeea9d17badd27d9849f8c4b03abaf",
+    "reports/index_single_condition_v1_20260908/coverage.csv": "154c76e752aba540ed39e2cae647ccfb9496eb6cb5b8540e3e77113dfdc12fd5",
+    "reports/index_single_condition_v1_20260908/models.json": "c127df448c8324d4d858c24adfa9c44868a486fdcac0ad94a60be835ed4fa4b9",
+    "reports/index_single_condition_v1_20260908/tests.json": "1df7a3faf12cf424725bcd9dd4de98f6dbcf69ec4c8b52b9b7ecb11e8201e648",
+    "reports/index_single_condition_v1_20260908/source_manifest.json": "b4d3c5f2b4aecf9cc2aac782b49999ebd521efa75c0b9c738219db2c9f5c1a8e",
+    "reports/index_single_condition_v1_20260908/report.md": "ceeb4602a50deed4734531a61c782f061db145ed0bd8dd8df5770d94e69df6d7",
+    "reports/index_single_condition_v1_20260908/predictions.csv": "177ea76b3cf4566406dab75074933edeb9d702c2d870aa49d1fa2046ed2d34e4",
+    "reports/index_single_condition_v1_20260908/results.json": "a5034db10f0fc00bbf1aa844bce137f00c533e0d1838fe987bac1120b79747e5",
+    "reports/index_single_condition_v1_20260908/screening.csv": "1749cf6f1d99dd5e9ab4a7a1ea7f97ecf64d956d0fa685ae9a057991d7aa9dd0",
+    "reports/index_single_condition_v1_20260908/scores.csv": "cf4215086d6f0386d759aad18001a015aaed9e88281764332c60eda2c79c5762",
+    "reports/index_single_condition_v1_20260908/coverage.json": "bce240cf76b6c26656410ed171d79e764fb867525d8d17a1552ffc58175d0651",
+    "reports/index_single_condition_v1_20260908/run_manifest.json": "b59b732847fb1c391f0946e63cf73a271842bef5fa51acc4b039dfca8add4c67",
+    "reports/index_single_condition_v1_20260908/excluded_boundaries.csv": "6d3eb9c9b83315140223f8899923393a1cdfd049cab0f516474968be18ae15f6"
+  }
+}

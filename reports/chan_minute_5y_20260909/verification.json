@@ -1,0 +1,62 @@
+[
+  {
+    "code": "000001.SH",
+    "frequency": 30,
+    "prefix": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "future_perturbation": true,
+    "independent_duckdb_next_day": true
+  },
+  {
+    "code": "000001.SH",
+    "frequency": 60,
+    "prefix": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "future_perturbation": true,
+    "independent_duckdb_next_day": true
+  },
+  {
+    "code": "000300.SH",
+    "frequency": 30,
+    "prefix": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "future_perturbation": true,
+    "independent_duckdb_next_day": true
+  },
+  {
+    "code": "000300.SH",
+    "frequency": 60,
+    "prefix": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "future_perturbation": true,
+    "independent_duckdb_next_day": true
+  },
+  {
+    "code": "000905.SH",
+    "frequency": 30,
+    "prefix": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "future_perturbation": true,
+    "independent_duckdb_next_day": true
+  },
+  {
+    "code": "000905.SH",
+    "frequency": 60,
+    "prefix": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "future_perturbation": true,
+    "independent_duckdb_next_day": true
+  }
+]

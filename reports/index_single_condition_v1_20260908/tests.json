@@ -1,0 +1,506 @@
+[
+  {
+    "ts_code": "000001.SH",
+    "phase": "D",
+    "kind": "direction_gap",
+    "effect": -0.005712258616141719,
+    "ci95": [
+      -0.06844013145782159,
+      0.0510526034040398
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 446,
+    "p_approximate": 0.8543145685431457,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "D",
+    "kind": "risk_gap",
+    "effect": 0.0014627322388836364,
+    "ci95": [
+      0.00042241119154202484,
+      0.0024430419191477704
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 469,
+    "p_approximate": 0.0047995200479952005,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "D",
+    "kind": "brier_gain",
+    "effect": 8.13703747770991e-06,
+    "ci95": [
+      -0.00015799305238628811,
+      0.00018246758865239163
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 446,
+    "p_approximate": 0.9258074192580742,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "D",
+    "kind": "mse_gain",
+    "effect": 5.348957940169754e-07,
+    "ci95": [
+      -2.0148399045773493e-07,
+      1.2542682645648332e-06
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 469,
+    "p_approximate": 0.14428557144285573,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V1",
+    "kind": "direction_gap",
+    "effect": -0.010774835364999236,
+    "ci95": [
+      -0.06946745890318325,
+      0.051783608765702205
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 390,
+    "p_approximate": 0.7377262273772622,
+    "holm_p": 1.0
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V1",
+    "kind": "risk_gap",
+    "effect": 0.010609968703479784,
+    "ci95": [
+      0.007235497558213868,
+      0.014169891693899182
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 360,
+    "p_approximate": 9.999000099990002e-05,
+    "holm_p": 0.0023997600239976003
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V1",
+    "kind": "brier_gain",
+    "effect": -6.517179445169988e-05,
+    "ci95": [
+      -0.0002703179738565838,
+      0.00011305272376182562
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 390,
+    "p_approximate": 0.5050494950504949,
+    "holm_p": 1.0
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V1",
+    "kind": "mse_gain",
+    "effect": 6.4641714180645144e-06,
+    "ci95": [
+      4.435078451561125e-06,
+      8.865022879840415e-06
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 360,
+    "p_approximate": 9.999000099990002e-05,
+    "holm_p": 0.0023997600239976003
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V2",
+    "kind": "direction_gap",
+    "effect": -0.06813794732276274,
+    "ci95": [
+      -0.13911236568915294,
+      -0.01464709038558569
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 443,
+    "p_approximate": 0.0367963203679632,
+    "holm_p": 0.36796320367963203
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V2",
+    "kind": "risk_gap",
+    "effect": 0.0027976397900760707,
+    "ci95": [
+      0.00144811152993217,
+      0.004045823407034558
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 334,
+    "p_approximate": 9.999000099990002e-05,
+    "holm_p": 0.0023997600239976003
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V2",
+    "kind": "brier_gain",
+    "effect": 0.00017300264031697526,
+    "ci95": [
+      1.1430598323364057e-05,
+      0.0003809572841568649
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 443,
+    "p_approximate": 0.07219278072192781,
+    "holm_p": 0.6497350264973503
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V2",
+    "kind": "mse_gain",
+    "effect": 1.5808859742416383e-06,
+    "ci95": [
+      6.478673792138238e-07,
+      2.390322469548155e-06
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 334,
+    "p_approximate": 0.00029997000299970003,
+    "holm_p": 0.0047995200479952005
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "D",
+    "kind": "direction_gap",
+    "effect": 0.0023743156250851105,
+    "ci95": [
+      -0.062047050866910994,
+      0.06105055205342144
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 457,
+    "p_approximate": 0.9407059294070593,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "D",
+    "kind": "risk_gap",
+    "effect": 0.0009859778408840818,
+    "ci95": [
+      -0.00035130091839026653,
+      0.002200550881186999
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 469,
+    "p_approximate": 0.1314868513148685,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "D",
+    "kind": "brier_gain",
+    "effect": 1.4083446712805567e-06,
+    "ci95": [
+      -7.217261736922176e-05,
+      7.295524265614291e-05
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 457,
+    "p_approximate": 0.9692030796920308,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "D",
+    "kind": "mse_gain",
+    "effect": 2.4303780003803326e-07,
+    "ci95": [
+      -3.9348220233715346e-07,
+      8.517038233747802e-07
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 469,
+    "p_approximate": 0.44025597440255976,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V1",
+    "kind": "direction_gap",
+    "effect": -0.032428292954608806,
+    "ci95": [
+      -0.09859145554638159,
+      0.03250473002964441
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 399,
+    "p_approximate": 0.34826517348265174,
+    "holm_p": 1.0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V1",
+    "kind": "risk_gap",
+    "effect": 0.011158656802721094,
+    "ci95": [
+      0.00774440594042122,
+      0.015015246701874015
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 308,
+    "p_approximate": 9.999000099990002e-05,
+    "holm_p": 0.0023997600239976003
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V1",
+    "kind": "brier_gain",
+    "effect": -1.3571613611102941e-05,
+    "ci95": [
+      -9.781038823503867e-05,
+      7.04815472102235e-05
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 399,
+    "p_approximate": 0.7615238476152385,
+    "holm_p": 1.0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V1",
+    "kind": "mse_gain",
+    "effect": 4.64681758233721e-06,
+    "ci95": [
+      3.40803676881794e-06,
+      6.147422863492377e-06
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 308,
+    "p_approximate": 9.999000099990002e-05,
+    "holm_p": 0.0023997600239976003
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V2",
+    "kind": "direction_gap",
+    "effect": -0.0468070742043345,
+    "ci95": [
+      -0.10205118641611448,
+      0.0047274976298303595
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 429,
+    "p_approximate": 0.0866913308669133,
+    "holm_p": 0.6935306469353064
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V2",
+    "kind": "risk_gap",
+    "effect": 0.0026361178320713566,
+    "ci95": [
+      0.0010997832671300438,
+      0.004059229180843428
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 350,
+    "p_approximate": 0.0005999400059994001,
+    "holm_p": 0.008399160083991601
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V2",
+    "kind": "brier_gain",
+    "effect": -4.634751298780036e-05,
+    "ci95": [
+      -0.00011371136301782688,
+      1.8049187788387203e-05
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 429,
+    "p_approximate": 0.16668333166683333,
+    "holm_p": 1.0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V2",
+    "kind": "mse_gain",
+    "effect": 1.1211590784601968e-06,
+    "ci95": [
+      3.9654828443767893e-07,
+      1.7633233158592481e-06
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 350,
+    "p_approximate": 0.0010998900109989002,
+    "holm_p": 0.013198680131986803
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "D",
+    "kind": "direction_gap",
+    "effect": 0.06592292089249496,
+    "ci95": [
+      0.003668490045128123,
+      0.12068505592507468
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 446,
+    "p_approximate": 0.027197280271972803,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "D",
+    "kind": "risk_gap",
+    "effect": 0.0013733002205790126,
+    "ci95": [
+      1.9274774949599238e-05,
+      0.0029451408452577555
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 469,
+    "p_approximate": 0.0648935106489351,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "D",
+    "kind": "brier_gain",
+    "effect": 0.0010837359417964606,
+    "ci95": [
+      -0.0008916246418725342,
+      0.0029491248437579737
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 446,
+    "p_approximate": 0.27277272272772723,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "D",
+    "kind": "mse_gain",
+    "effect": 4.7148783922412253e-07,
+    "ci95": [
+      -4.2206895092699865e-07,
+      1.555133254259761e-06
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 469,
+    "p_approximate": 0.35026497350264973,
+    "holm_p": null
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V1",
+    "kind": "direction_gap",
+    "effect": 0.0020283687943262185,
+    "ci95": [
+      -0.0526420317766009,
+      0.05910512444236806
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 375,
+    "p_approximate": 0.9399060093990601,
+    "holm_p": 1.0
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V1",
+    "kind": "risk_gap",
+    "effect": 0.011262506636020733,
+    "ci95": [
+      0.006951242059288451,
+      0.01590297511741739
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 354,
+    "p_approximate": 9.999000099990002e-05,
+    "holm_p": 0.0023997600239976003
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V1",
+    "kind": "brier_gain",
+    "effect": -0.0006315511546884933,
+    "ci95": [
+      -0.0024089503555263865,
+      0.0013473941057720563
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 375,
+    "p_approximate": 0.5053494650534947,
+    "holm_p": 1.0
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V1",
+    "kind": "mse_gain",
+    "effect": 6.652589931976113e-06,
+    "ci95": [
+      4.38397872125152e-06,
+      9.401985748019917e-06
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 354,
+    "p_approximate": 9.999000099990002e-05,
+    "holm_p": 0.0023997600239976003
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V2",
+    "kind": "direction_gap",
+    "effect": -0.06736829668407113,
+    "ci95": [
+      -0.12950588770442684,
+      -0.01428981599152515
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 441,
+    "p_approximate": 0.0230976902309769,
+    "holm_p": 0.25407459254074594
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V2",
+    "kind": "risk_gap",
+    "effect": 0.0032749936678688734,
+    "ci95": [
+      0.0015616050757907751,
+      0.00496078438548675
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 281,
+    "p_approximate": 0.00039996000399960006,
+    "holm_p": 0.005999400059994001
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V2",
+    "kind": "brier_gain",
+    "effect": -0.0033007277997333883,
+    "ci95": [
+      -0.005293656889283416,
+      -0.001536576406810702
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 441,
+    "p_approximate": 0.0005999400059994001,
+    "holm_p": 0.008399160083991601
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V2",
+    "kind": "mse_gain",
+    "effect": 2.433269828836931e-06,
+    "ci95": [
+      1.2328970763180817e-06,
+      3.58135601410888e-06
+    ],
+    "valid_fraction": 1.0,
+    "min_group": 281,
+    "p_approximate": 9.999000099990002e-05,
+    "holm_p": 0.0023997600239976003
+  }
+]

@@ -1,0 +1,184 @@
+{
+  "status": "verified",
+  "trash_path": "/Users/congming/.Trash/goldenshare-research-cleanup-20260910-CShEmk",
+  "removed_report_files": 17,
+  "removed_report_bytes": 1645888,
+  "retained_report_files": 299,
+  "retained_report_directories": 15,
+  "retained_manifest_checks": [
+    {
+      "report": "chan_m0_csi300_20260909",
+      "verified_artifacts": 13
+    },
+    {
+      "report": "chan_minute_5y_20260909",
+      "verified_artifacts": 32
+    },
+    {
+      "report": "chan_minute_background_f1_20260909",
+      "verified_artifacts": 26
+    },
+    {
+      "report": "chan_minute_comparison_c1_20260909",
+      "verified_artifacts": 44
+    },
+    {
+      "report": "chan_minute_diagnostics_20260909",
+      "verified_artifacts": 3
+    },
+    {
+      "report": "chan_minute_nonoverlap_c2_20260910",
+      "verified_artifacts": 26
+    },
+    {
+      "report": "chan_minute_roundtrip_b0_20260910",
+      "verified_artifacts": 22
+    },
+    {
+      "report": "chan_minute_structure_s1_20260909",
+      "verified_artifacts": 21
+    },
+    {
+      "report": "chan_minute_variant_a_20260909",
+      "verified_artifacts": 32
+    },
+    {
+      "report": "chan_theory_csi300_teaching_20260908",
+      "verified_artifacts": 0
+    },
+    {
+      "report": "stock_chan_shsz_r1_source5_20260910",
+      "verified_artifacts": 10
+    }
+  ],
+  "narrative_edits": [
+    {
+      "path": "reports/stock_chan_shsz_r1_source5_20260910/report.md",
+      "before": "4b0467879e1e203bfaa9b849c58f090544d1fde8096c0b197dbd346c1f458224",
+      "after": "7ba3a828743c4abfbe3015fe23473b835f5177d2a2cba071ab772ffcbd38c112",
+      "change": "dead historical link replaced; scientific numbers unchanged"
+    }
+  ],
+  "functions_ast_unchanged": [
+    "authenticate",
+    "select_windows"
+  ],
+  "reference_defaults_unchanged": [
+    "report",
+    "manifest_sha256",
+    "code",
+    "frequency",
+    "asof",
+    "windows"
+  ],
+  "rank_import_only": {
+    "before": "a7d6208910969c690067d5e215d245d7dce1aabe260559a19fd08e40ee38b394",
+    "after": "1a508331de3514de9236fd468dcda86e4da3b324712601bcd54bde966ced979d"
+  },
+  "other_python_sources_unchanged": true,
+  "migration_hash_unchanged": true,
+  "saved_B0_authenticated_artifacts": 22,
+  "saved_A_audit": {
+    "artifact_hashes": 32,
+    "cells": [
+      {
+        "code": "000001.SH",
+        "frequency": 30,
+        "events": 136,
+        "reconstructed": true
+      },
+      {
+        "code": "000001.SH",
+        "frequency": 60,
+        "events": 53,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 30,
+        "events": 129,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 60,
+        "events": 59,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 30,
+        "events": 151,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 60,
+        "events": 57,
+        "reconstructed": true
+      }
+    ]
+  },
+  "saved_baseline_audit": {
+    "artifact_hashes": 32,
+    "cells": [
+      {
+        "code": "000001.SH",
+        "frequency": 30,
+        "events": 117,
+        "reconstructed": true
+      },
+      {
+        "code": "000001.SH",
+        "frequency": 60,
+        "events": 46,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 30,
+        "events": 115,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 60,
+        "events": 51,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 30,
+        "events": 138,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 60,
+        "events": 52,
+        "reconstructed": true
+      }
+    ]
+  },
+  "three_windows_unchanged": [
+    "2026-02-26",
+    "2026-04-09",
+    "2026-08-12"
+  ],
+  "markdown_file_links_checked": 375,
+  "lake_access": false,
+  "research_replayed": false,
+  "tests": {
+    "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py",
+    "passed": 285,
+    "seconds": 10.58,
+    "change_from_previous": "Removed 3 obsolete G0-only tests; retained 5 window/auth tests and moved reader allowlist test to current rank connection."
+  },
+  "checks": {
+    "ruff": "passed: two current stock modules and two stock test files",
+    "docs_integrity": "passed",
+    "git_diff_check": "passed",
+    "current_rank_help": "passed",
+    "codegraph": "sync/status reported up to date; graph was partial, supplemented with source/import/reference audit"
+  }
+}

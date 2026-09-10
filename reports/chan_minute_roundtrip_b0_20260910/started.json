@@ -1,0 +1,108 @@
+{
+  "spec": {
+    "variant": "B0-roundtrip-feasibility",
+    "source_report": "reports/chan_minute_variant_a_20260909",
+    "source_manifest": "631e7cecffc4df6bf7784d11b81c5a13c4dc0af114e042d83500f9a0cd7ef089",
+    "codes": [
+      "000001.SH",
+      "000300.SH",
+      "000905.SH"
+    ],
+    "frequencies": [
+      30,
+      60
+    ],
+    "buy_groups": [
+      "B1",
+      "B2",
+      "B3"
+    ],
+    "sell_groups": [
+      "S1",
+      "S2",
+      "S3"
+    ],
+    "start": "2021-09-09",
+    "end": "2026-09-08",
+    "evaluation_start": "2022-01-01",
+    "execution": "next_actual_bar_open",
+    "cases": "earliest_B3_natural_and_earliest_terminal_per_cell",
+    "min_exits": 30,
+    "min_years": 5,
+    "prefix_dates": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "max_rows": 50000,
+    "max_bars": 10000,
+    "max_events": 1000,
+    "total_seconds": 600,
+    "max_output_bytes": 67108864,
+    "reserve_bytes": 134217728
+  },
+  "source_audit": {
+    "artifact_hashes": 32,
+    "cells": [
+      {
+        "code": "000001.SH",
+        "frequency": 30,
+        "events": 136,
+        "reconstructed": true
+      },
+      {
+        "code": "000001.SH",
+        "frequency": 60,
+        "events": 53,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 30,
+        "events": 129,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 60,
+        "events": 59,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 30,
+        "events": 151,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 60,
+        "events": 57,
+        "reconstructed": true
+      }
+    ]
+  },
+  "source_sha256": "f35edbf5d90e7883207f4d39dfb7b6369209376b8a46108d059e43b0dcbb8225",
+  "code_sha256": {
+    "minute_diagnostics.py": "1b2590ed112b75264b3532850b7392363762aa83c104e10ac37712a929c4bbaa",
+    "run_m0.py": "1500b3a2146e3aa9b6a00f024af7333bad379c6bfb8c26033ca96c8a97c9e741",
+    "minute_roundtrip.py": "896b3953628649135abb1c8b10f466f2a0de39f3c85fd88f22a004ef836714d6",
+    "m0_data.py": "ecbaf1ca789f7a6e06f5966e99eb1b936309da59c6fb8d89de35e31a1fd56279",
+    "minute_structure.py": "297b426c16a19f773ecd68546f6bdb19c523a19e4c13f4aad73ec9963ca8ee3e",
+    "verify_minute.py": "971174aae983b2458427774f98e96d28deb85132f9972a43118eb8dc96f752d0",
+    "build_cases.py": "cc1663a82f83ae3c1ad49d6a4d298108da0d9168606aec9d87df8f4c0c15fdec",
+    "run_minute.py": "d1ebbeb65ade9b57b17c759fc5cd8d7105347f16075bc706964111d41b444503",
+    "minute_data.py": "223f2f119c4ca11eef67396d744da6b9583f3185f2222bede79c7b2d6b615e2b",
+    "__init__.py": "7933d6d05f12bf9f575664c41fba158dfc1cf3a0c666b76b4011a0f09008afb2",
+    "verify_comparison.py": "f3d69eef70835b443b7068dc33894b280b87cc5b972fb1b522de569c57cc4326",
+    "minute_comparison.py": "02030fd73a68cfc548d8c0c763af6288b7d0dc456bf5f8ee6197656ae54ed7e0",
+    "minute_score.py": "36a024cb90d2e57d86248f406ac9e0b475c0fde51f51407a850499d9a56bcec9",
+    "minute_variant_a.py": "73fa09f890df1885098204232c1b60a09f3f54ed421801efc91b08da099687c6",
+    "event_ledger.py": "4abd465348b66276ddef03b3a8b18acb8b15f777db8fec04ecbb5774cc9f4717",
+    "minute_replay.py": "9af17c91aa55c2cffcbbb24903a9c67f915f6675d20cb77159f8e11017a93e44",
+    "minute_background.py": "78ac33db8c59786e8451638d22a7f1c017d72dec760b1e499b7aaa913b94be26",
+    "minute_nonoverlap.py": "b4a494795dccd847015b1a6fb4f87538b6a9694cf412483a5659caf42d770c9a",
+    "verify_m0.py": "9c37e4707eaa76564a89ea0fe12313116198be13fd519df21a46c24eb9018a80"
+  },
+  "plan_sha256_before_run": "7d8f691914d9e7e7cb44d1bc3465cb1cf63ae65d5ccc0a21b32d6f0426112f01",
+  "created_at_utc": "2026-09-09T17:29:04.885193+00:00"
+}

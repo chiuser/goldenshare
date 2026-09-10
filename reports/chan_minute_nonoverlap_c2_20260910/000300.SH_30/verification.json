@@ -1,0 +1,51 @@
+{
+  "sql_background_bars": 9072,
+  "sql_label_paths": 9072,
+  "sql_supported_and_common_estimates": true,
+  "independent_candidates": 208,
+  "independent_simple_triggers": 104,
+  "prefix_and_future_perturbation": [
+    {
+      "cutoff": "2022-12-31",
+      "bars": 2536,
+      "unchanged": true
+    },
+    {
+      "cutoff": "2024-12-31",
+      "bars": 6408,
+      "unchanged": true
+    }
+  ],
+  "selection": {
+    "simple": {
+      "sql_selected": 87,
+      "ledger_rows": 102,
+      "recursive_selection_equal": true,
+      "prefixes": [
+        {
+          "cutoff": "2022-12-31",
+          "unchanged": true
+        },
+        {
+          "cutoff": "2024-12-31",
+          "unchanged": true
+        }
+      ]
+    },
+    "chan": {
+      "sql_selected": 18,
+      "ledger_rows": 19,
+      "recursive_selection_equal": true,
+      "prefixes": [
+        {
+          "cutoff": "2022-12-31",
+          "unchanged": true
+        },
+        {
+          "cutoff": "2024-12-31",
+          "unchanged": true
+        }
+      ]
+    }
+  }
+}

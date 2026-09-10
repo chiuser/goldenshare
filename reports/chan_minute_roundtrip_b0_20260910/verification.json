@@ -1,0 +1,181 @@
+{
+  "cells": {
+    "000001.SH_30": {
+      "B1": {
+        "independent_pairs": 16,
+        "sql_prices": 16,
+        "prefix_natural_exits": {
+          "2022-12-31": 4,
+          "2024-12-31": 11
+        },
+        "reconciled": true
+      },
+      "B2": {
+        "independent_pairs": 8,
+        "sql_prices": 8,
+        "prefix_natural_exits": {
+          "2022-12-31": 2,
+          "2024-12-31": 6
+        },
+        "reconciled": true
+      },
+      "B3": {
+        "independent_pairs": 18,
+        "sql_prices": 18,
+        "prefix_natural_exits": {
+          "2022-12-31": 4,
+          "2024-12-31": 11
+        },
+        "reconciled": true
+      }
+    },
+    "000001.SH_60": {
+      "B1": {
+        "independent_pairs": 6,
+        "sql_prices": 6,
+        "prefix_natural_exits": {
+          "2022-12-31": 2,
+          "2024-12-31": 4
+        },
+        "reconciled": true
+      },
+      "B2": {
+        "independent_pairs": 3,
+        "sql_prices": 3,
+        "prefix_natural_exits": {
+          "2022-12-31": 0,
+          "2024-12-31": 2
+        },
+        "reconciled": true
+      },
+      "B3": {
+        "independent_pairs": 6,
+        "sql_prices": 6,
+        "prefix_natural_exits": {
+          "2022-12-31": 0,
+          "2024-12-31": 3
+        },
+        "reconciled": true
+      }
+    },
+    "000300.SH_30": {
+      "B1": {
+        "independent_pairs": 13,
+        "sql_prices": 13,
+        "prefix_natural_exits": {
+          "2022-12-31": 4,
+          "2024-12-31": 9
+        },
+        "reconciled": true
+      },
+      "B2": {
+        "independent_pairs": 9,
+        "sql_prices": 9,
+        "prefix_natural_exits": {
+          "2022-12-31": 3,
+          "2024-12-31": 6
+        },
+        "reconciled": true
+      },
+      "B3": {
+        "independent_pairs": 18,
+        "sql_prices": 18,
+        "prefix_natural_exits": {
+          "2022-12-31": 4,
+          "2024-12-31": 10
+        },
+        "reconciled": true
+      }
+    },
+    "000300.SH_60": {
+      "B1": {
+        "independent_pairs": 8,
+        "sql_prices": 8,
+        "prefix_natural_exits": {
+          "2022-12-31": 1,
+          "2024-12-31": 3
+        },
+        "reconciled": true
+      },
+      "B2": {
+        "independent_pairs": 7,
+        "sql_prices": 7,
+        "prefix_natural_exits": {
+          "2022-12-31": 1,
+          "2024-12-31": 3
+        },
+        "reconciled": true
+      },
+      "B3": {
+        "independent_pairs": 7,
+        "sql_prices": 7,
+        "prefix_natural_exits": {
+          "2022-12-31": 1,
+          "2024-12-31": 2
+        },
+        "reconciled": true
+      }
+    },
+    "000905.SH_30": {
+      "B1": {
+        "independent_pairs": 18,
+        "sql_prices": 18,
+        "prefix_natural_exits": {
+          "2022-12-31": 5,
+          "2024-12-31": 13
+        },
+        "reconciled": true
+      },
+      "B2": {
+        "independent_pairs": 14,
+        "sql_prices": 14,
+        "prefix_natural_exits": {
+          "2022-12-31": 3,
+          "2024-12-31": 9
+        },
+        "reconciled": true
+      },
+      "B3": {
+        "independent_pairs": 21,
+        "sql_prices": 21,
+        "prefix_natural_exits": {
+          "2022-12-31": 5,
+          "2024-12-31": 14
+        },
+        "reconciled": true
+      }
+    },
+    "000905.SH_60": {
+      "B1": {
+        "independent_pairs": 8,
+        "sql_prices": 8,
+        "prefix_natural_exits": {
+          "2022-12-31": 2,
+          "2024-12-31": 4
+        },
+        "reconciled": true
+      },
+      "B2": {
+        "independent_pairs": 7,
+        "sql_prices": 7,
+        "prefix_natural_exits": {
+          "2022-12-31": 2,
+          "2024-12-31": 3
+        },
+        "reconciled": true
+      },
+      "B3": {
+        "independent_pairs": 9,
+        "sql_prices": 9,
+        "prefix_natural_exits": {
+          "2022-12-31": 1,
+          "2024-12-31": 3
+        },
+        "reconciled": true
+      }
+    }
+  },
+  "input_unchanged": true,
+  "code_unchanged": true,
+  "total_source_events": 585
+}

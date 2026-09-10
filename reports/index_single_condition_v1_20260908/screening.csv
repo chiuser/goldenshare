@@ -1,0 +1,7 @@
+ts_code,view,enough_samples,stable_gap,association_candidate,forecast_candidate
+000001.SH,direction,True,True,False,False
+000001.SH,risk,True,True,True,True
+000300.SH,direction,True,False,False,False
+000300.SH,risk,True,True,True,True
+000905.SH,direction,True,False,False,False
+000905.SH,risk,True,True,True,True

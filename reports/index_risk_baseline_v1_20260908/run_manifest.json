@@ -1,0 +1,63 @@
+{
+  "spec": {
+    "window": 20,
+    "block_days": 20,
+    "bootstrap_samples": 10000,
+    "bootstrap_batch": 100,
+    "family_size": 6,
+    "minimum_days": 50,
+    "seed": 20260908,
+    "alpha": 0.05,
+    "max_seconds": 180
+  },
+  "source_and_split_spec": {
+    "experiment_id": "index-condition-statistics-v1",
+    "source_end": "2021-09-07",
+    "signal_start": "2010-02-01",
+    "signal_end": "2021-09-06",
+    "expected_training_days": 2820,
+    "phases": [
+      "D",
+      "V1",
+      "V2"
+    ],
+    "low_quantile": 0.3333333333333333,
+    "high_quantile": 0.6666666666666666,
+    "volatility_quantile": 0.5,
+    "block_days": 20,
+    "bootstrap_samples": 10000,
+    "bootstrap_batch": 100,
+    "minimum_group_size": 50,
+    "minimum_valid_bootstrap": 0.99,
+    "seed": 20260908,
+    "family_size": 48,
+    "alpha": 0.05,
+    "max_files": 3000,
+    "max_bytes": 268435456,
+    "max_rows": 9000,
+    "max_seconds": 180,
+    "metrics": [
+      "up_rate",
+      "mean_return",
+      "mean_abs_return",
+      "mean_downside"
+    ],
+    "tested_metrics": [
+      "up_rate",
+      "mean_abs_return"
+    ]
+  },
+  "prior_script_hashes": {
+    "index_probability_backtest.py": "87dba1072492279564a2e5faaf8aa2e5973105b1d06f9accdec6eeda6279ca20",
+    "index_condition_statistics.py": "bbb7a150e050218288157be24f4168c5e6b8c286f71dbacab640a6cb59346c92",
+    "index_single_condition_backtest.py": "ae0e611506b8aaf27d65d8fc1a3e65446f9873b250b2f37be0a61f4df094b9c6"
+  },
+  "script_sha256": "c7dd357fa25659f3d8606287f323ba7316e3d448b5bf9e1997db2540be4abe02",
+  "frozen_plan_sha256": "c7f7941e62ebe77d33841aaec3bcb18b91424e68c413c6b2fa795f8f632092a5",
+  "created_at": "2026-09-08T14:38:55.678072+00:00",
+  "versions": {
+    "duckdb": "1.5.5",
+    "numpy": "2.4.6",
+    "pandas": "3.0.3"
+  }
+}

@@ -1,0 +1,403 @@
+{
+  "spec": {
+    "version": "S1-asof-upper-structure",
+    "cutoffs": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "tail_count": 3,
+    "omit_year": "2024"
+  },
+  "signal_spec": {
+    "codes": [
+      "000001.SH",
+      "000300.SH",
+      "000905.SH"
+    ],
+    "frequencies": [
+      30,
+      60
+    ],
+    "start": "2021-09-09",
+    "end": "2026-09-08",
+    "evaluation_start": "2022-01-01",
+    "commit": "429d6ed3043e27c93a003ba2b10e70a05575e1f5",
+    "horizons": [
+      1,
+      3,
+      5,
+      10,
+      20
+    ],
+    "cooldown_days": 20,
+    "blocks": [
+      60,
+      20,
+      120
+    ],
+    "repetitions": 10000,
+    "seed": 20260909,
+    "main_comparisons": 12,
+    "min_events": 50,
+    "min_years": 5,
+    "max_files": 2600,
+    "max_bytes": 33554432,
+    "max_rows": 50000,
+    "max_calendar_rows": 2000,
+    "max_bars": 10000,
+    "max_points": 5000,
+    "max_events": 10000,
+    "max_changes": 100000,
+    "query_seconds": 60,
+    "replay_seconds": 180,
+    "total_seconds": 600,
+    "max_output_bytes": 134217728,
+    "reserve_bytes": 268435456,
+    "variant": "A-buy-B3-no-follow1",
+    "bsp3_follow_1_buy": false,
+    "baseline": "reports/chan_minute_5y_20260909",
+    "baseline_manifest_sha256": "69f15a64ed34475c2c0002b3ee6f64b3e4e0fc95ed6de54a84a62c282c9a4f83"
+  },
+  "source": {
+    "path": "/private/tmp/chan-teaching-NsJijU/chan.py",
+    "commit": "429d6ed3043e27c93a003ba2b10e70a05575e1f5",
+    "tracked_python_sha256": {
+      "App/ashare_bsp_scanner_gui.py": "a4d78d404559cc84326784a6672a8c735a0043e495b14b935324cf33545dcb99",
+      "Bi/Bi.py": "9e7231c7376df8c29edd9616b1fde99928064b24031cda84daaa7329dcc70ad4",
+      "Bi/BiConfig.py": "14ac8f13578207acf2681d0ccf5c1a3deb4bc230332cba2db8cfc9e4c72c18ca",
+      "Bi/BiList.py": "d8386099f71a27fb86b4ee17a5f6b4f6dd805a9f4ad4ec29e9fcc76594114a65",
+      "BuySellPoint/BSPointConfig.py": "d30580f5aefa8b2abe9f7a92ce73bbbf914e2338317ec9cf13ddd2ef5b75e824",
+      "BuySellPoint/BSPointList.py": "71a7047ada743f91493c6d6f71eeda6fbc275099dc4cb01d29531b4abdc2461e",
+      "BuySellPoint/BS_Point.py": "7b9eb6e6c0ab3a2a6f2e862a37cfdea0d862713371950c968406d16d5ba811a7",
+      "BuySellPoint/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "Chan.py": "124222303ceceed0e4450f5e93e82c1b873a9222f3c3265ddbd3d90d0bb16315",
+      "ChanConfig.py": "bff01933dae1420548e4b5b9f65e8aa385c69d01d09aea6a6caa545f0564b2e2",
+      "ChanModel/Features.py": "457ed7e581b36b8be7ba497143ba41c973d15f199456e5a16f642681896f71bf",
+      "Combiner/Combine_Item.py": "d25ae4ca8fc6545ef457a0aeb0597915e818981f818e6bb149eccdd6f69d70b9",
+      "Combiner/KLine_Combiner.py": "260b1ca210a81fbd0cf1acd9cbbf3eb14be7972652bbfe0c19a4eda3e0895bbb",
+      "Combiner/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "Common/CEnum.py": "f08c6a321c6b52b9156761f7aac59b287f800a5094b32a416f1d50ad419afbab",
+      "Common/CTime.py": "1219b484bf269d70fd9ce612dd2dc5f7553745cac6af044e3113c934f548955a",
+      "Common/ChanException.py": "a135bf74a795ca59f342f5793771dab3abe977c2ada9ef56c0b3c1fa0dad59bd",
+      "Common/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "Common/cache.py": "608e151adfebaa5a6c75439be0d0a0f169100c72b7ee4aebfefb2e68666431bf",
+      "Common/func_util.py": "a3440f16ce8e1ded8e973f568a331969c8e54922e411fd8928425e0949d30740",
+      "DataAPI/AkshareAPI.py": "9841ac0990f9d4546399e5cf25c844810aba332810e27a6dcd98eb3f999cdaea",
+      "DataAPI/BaoStockAPI.py": "6c690fe6e7f11000f24868729dc6e1ad66e85266950cedfc432330be2f4c0530",
+      "DataAPI/CommonStockAPI.py": "92f9e4529eb7dad32a948f33682c447c9458dd336932cbf9141f4d1bbe32b06e",
+      "DataAPI/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "DataAPI/ccxt.py": "98ae41fa89b4b51d0de4a495919b9432e1e93f6fef9062c2a6fb46c7b01b7664",
+      "DataAPI/csvAPI.py": "49f64dfe2e965f14a9c50292895628848ffca48f1c498ae74416e68f276e9533",
+      "Debug/strategy_demo.py": "ed11bac8ccf61a87912307e5f5d4429596eb460376b2cf3e4a7a85a6945ff691",
+      "Debug/strategy_demo2.py": "6174036b467f30fddd85a9f2d092e949512402a546e40944e7cbfd16ad97e6c8",
+      "Debug/strategy_demo3.py": "c3567adef4588823fb2020771efd4d8cc94a6b4747f52599bcc2298f1f786192",
+      "Debug/strategy_demo4.py": "0032a63e999235be9c45ec6e711505831c6d16babee1d5835c5999e5d4c89851",
+      "Debug/strategy_demo5.py": "72092bc769ab927aff1e86877a414c1ef82fc60b271a252fa8161e9e705d8b93",
+      "Debug/strategy_demo6.py": "2ca9e3f61e79cc4da4c6613d87c2e05fb8150bd9aa64211ffe94dc5f553ec55e",
+      "KLine/KLine.py": "ff2be1d0311d33154efac817facdb1f6e9eb864afb42b0ec048169019417d93e",
+      "KLine/KLine_List.py": "ab518c1664e2dc8f3e359ac344eac3fc7c5d0758f13976d7b337fb4275d7d0fc",
+      "KLine/KLine_Unit.py": "b46ee1e61286059696b13d09cdae2a78d6ff563a113a64e01a890a4688fe9838",
+      "KLine/TradeInfo.py": "bd0bf8015d3369a6021c5f00c419f29708f0b53a88a695931b1304802cc85325",
+      "KLine/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "Math/BOLL.py": "79cbdf1fe94ec04c012edebacc37dd2ac8a841fc827b6a6e2358fe9f9ddce57d",
+      "Math/Demark.py": "7c042c2d18de68866f3629d622f517c4d8cc87e474e7c12d7a0dd0f79a821d88",
+      "Math/KDJ.py": "e80574b46986861de8ca3bc047f9cc163b575fde67a0025a314d2b20fcbf8df6",
+      "Math/MACD.py": "7f303f2b686deaa1d7f0d0bbbf3593f817ea355e2427d569fc43b2bdccddf268",
+      "Math/RSI.py": "8f0aaa54634ebcd2e3d24f1aace04d9221dfa28e07391865e64bf2b975ac12bc",
+      "Math/TrendLine.py": "8b862ef26eaf29796b1076c82e553e60b0b8265be49b22e490e447b8fde62235",
+      "Math/TrendModel.py": "10dd50d7a552a57a72ada55fb0a8a8c35356a1b73d2eb58517724b48387f4c88",
+      "Math/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "Plot/AnimatePlotDriver.py": "961ce1ae0ac37194e65612ab8da423a71244a7e20639782d1f917d44f0ddcf1e",
+      "Plot/PlotDriver.py": "2b426764c1fae6b509d2553d5fea4371941ccdc954f7b57db3cfc184d2e21301",
+      "Plot/PlotMeta.py": "cb915d93d74f23f2b385c44781f32681324e5e5328aa5cdbf1f64021b8b8ada1",
+      "Plot/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "Seg/Eigen.py": "3b45589347fe1e4369597dde9919df059a4ee3b0b90eeb126179caf015fb595d",
+      "Seg/EigenFX.py": "f98f87f8cdf5ce59b059e7a8ed6406f6f5be5e68fd9f4b66fca9c6f860ede06f",
+      "Seg/Seg.py": "d54059efdc64e29baea9bfee6e2dbac6057d93e87d2fc6bbdf4c4a6a475b28ef",
+      "Seg/SegConfig.py": "4ffa9974f01c4801c6083784205b3ef973e3d88cbf34d236fa327d4f7ddac94e",
+      "Seg/SegListChan.py": "49719e6843d424768ae6295c87617c2c72f22c478deac74067ef40aaf531c5c9",
+      "Seg/SegListComm.py": "fa89e9f9f1161192c9adce4b76b4103f12e7ffbdaf029a5ca247394666b7e482",
+      "Seg/SegListDYH.py": "688cf070b38d76e89dd428b8d2c5cbeaf0985102c8faa3741b6571e14b3bed1d",
+      "Seg/SegListDef.py": "1cf3f8e5aabc24e459b24eadd0f1ac62057b4f283d53fc3e6ba9c6fa9eafb991",
+      "Seg/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ZS/ZS.py": "c08a6c1f1be038c8f77703678dd5c62f0e91a3c66ba210c7e3e4d8c6fe2d7e9b",
+      "ZS/ZSConfig.py": "592c3a1c22a4f873e25270a22e28d11bd0b42a42bdefc24d7dc114d03ae2984e",
+      "ZS/ZSList.py": "e0cba975e6a3b73c2e09102c80d8daca26adb3c8f0bc742f6c0fc526703a86ee",
+      "ZS/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "main.py": "fb00a3fcdd5dce8999dca67c09666e7b97d09eaee77774158030cc670bcb738d"
+    },
+    "expanded_config": {
+      "bi_conf": {
+        "bi_algo": "normal",
+        "is_strict": true,
+        "bi_fx_check": 1,
+        "gap_as_kl": false,
+        "bi_end_is_peak": true,
+        "bi_allow_sub_peak": true
+      },
+      "seg_conf": {
+        "seg_algo": "chan",
+        "left_method": 2
+      },
+      "zs_conf": {
+        "need_combine": true,
+        "zs_combine_mode": "zs",
+        "one_bi_zs": false,
+        "zs_algo": "normal"
+      },
+      "trigger_step": true,
+      "skip_step": 0,
+      "kl_data_check": true,
+      "max_kl_misalgin_cnt": 2,
+      "max_kl_inconsistent_cnt": 5,
+      "auto_skip_illegal_sub_lv": false,
+      "print_warning": true,
+      "print_err_time": true,
+      "mean_metrics": [],
+      "trend_metrics": [],
+      "macd_config": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "cal_demark": false,
+      "cal_rsi": false,
+      "cal_kdj": false,
+      "rsi_cycle": 14,
+      "kdj_cycle": 9,
+      "demark_config": {
+        "demark_len": 9,
+        "setup_bias": 4,
+        "countdown_bias": 2,
+        "max_countdown": 13,
+        "tiaokong_st": true,
+        "setup_cmp2close": true,
+        "countdown_cmp2close": true
+      },
+      "boll_n": 20,
+      "bs_point_conf": {
+        "b_conf": {
+          "divergence_rate": 1.0,
+          "min_zs_cnt": 1,
+          "bsp1_only_multibi_zs": true,
+          "max_bs2_rate": 0.9999,
+          "macd_algo": 2,
+          "bs1_peak": true,
+          "tmp_target_types": [
+            "1",
+            "1p",
+            "2",
+            "2s",
+            "3a",
+            "3b"
+          ],
+          "target_types": [
+            "1",
+            "1p",
+            "2",
+            "2s",
+            "3a",
+            "3b"
+          ],
+          "bsp2_follow_1": true,
+          "bsp3_follow_1": false,
+          "bsp3_peak": false,
+          "bsp2s_follow_2": false,
+          "max_bsp2s_lv": null,
+          "strict_bsp3": false,
+          "bsp3a_max_zs_cnt": 1
+        },
+        "s_conf": {
+          "divergence_rate": 1.0,
+          "min_zs_cnt": 1,
+          "bsp1_only_multibi_zs": true,
+          "max_bs2_rate": 0.9999,
+          "macd_algo": 2,
+          "bs1_peak": true,
+          "tmp_target_types": [
+            "1",
+            "1p",
+            "2",
+            "2s",
+            "3a",
+            "3b"
+          ],
+          "target_types": [
+            "1",
+            "1p",
+            "2",
+            "2s",
+            "3a",
+            "3b"
+          ],
+          "bsp2_follow_1": true,
+          "bsp3_follow_1": true,
+          "bsp3_peak": false,
+          "bsp2s_follow_2": false,
+          "max_bsp2s_lv": null,
+          "strict_bsp3": false,
+          "bsp3a_max_zs_cnt": 1
+        }
+      },
+      "seg_bs_point_conf": {
+        "b_conf": {
+          "divergence_rate": 1.0,
+          "min_zs_cnt": 1,
+          "bsp1_only_multibi_zs": false,
+          "max_bs2_rate": 0.9999,
+          "macd_algo": 5,
+          "bs1_peak": true,
+          "tmp_target_types": [
+            "1",
+            "1p",
+            "2",
+            "2s",
+            "3a",
+            "3b"
+          ],
+          "target_types": [
+            "1",
+            "1p",
+            "2",
+            "2s",
+            "3a",
+            "3b"
+          ],
+          "bsp2_follow_1": true,
+          "bsp3_follow_1": true,
+          "bsp3_peak": false,
+          "bsp2s_follow_2": false,
+          "max_bsp2s_lv": null,
+          "strict_bsp3": false,
+          "bsp3a_max_zs_cnt": 1
+        },
+        "s_conf": {
+          "divergence_rate": 1.0,
+          "min_zs_cnt": 1,
+          "bsp1_only_multibi_zs": false,
+          "max_bs2_rate": 0.9999,
+          "macd_algo": 5,
+          "bs1_peak": true,
+          "tmp_target_types": [
+            "1",
+            "1p",
+            "2",
+            "2s",
+            "3a",
+            "3b"
+          ],
+          "target_types": [
+            "1",
+            "1p",
+            "2",
+            "2s",
+            "3a",
+            "3b"
+          ],
+          "bsp2_follow_1": true,
+          "bsp3_follow_1": true,
+          "bsp3_peak": false,
+          "bsp2s_follow_2": false,
+          "max_bsp2s_lv": null,
+          "strict_bsp3": false,
+          "bsp3a_max_zs_cnt": 1
+        }
+      }
+    },
+    "single_config_change": {
+      "bs_point_conf.b_conf.bsp3_follow_1": [
+        true,
+        false
+      ]
+    },
+    "baseline_manifest_sha256": "69f15a64ed34475c2c0002b3ee6f64b3e4e0fc95ed6de54a84a62c282c9a4f83"
+  },
+  "source_audit": {
+    "artifact_hashes": 32,
+    "cells": [
+      {
+        "code": "000001.SH",
+        "frequency": 30,
+        "events": 136,
+        "reconstructed": true
+      },
+      {
+        "code": "000001.SH",
+        "frequency": 60,
+        "events": 53,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 30,
+        "events": 129,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 60,
+        "events": 59,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 30,
+        "events": 151,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 60,
+        "events": 57,
+        "reconstructed": true
+      }
+    ]
+  },
+  "source_manifest_sha256": "631e7cecffc4df6bf7784d11b81c5a13c4dc0af114e042d83500f9a0cd7ef089",
+  "source_sha256": "f35edbf5d90e7883207f4d39dfb7b6369209376b8a46108d059e43b0dcbb8225",
+  "plan_sha256_before_run": "ba2acb96688703eb94f165ccc264eaa390cbe6560b953df7617cbfe490bf4331",
+  "created_at_utc": "2026-09-09T15:01:35.817243+00:00",
+  "code_sha256": {
+    "minute_diagnostics.py": "1b2590ed112b75264b3532850b7392363762aa83c104e10ac37712a929c4bbaa",
+    "run_m0.py": "1500b3a2146e3aa9b6a00f024af7333bad379c6bfb8c26033ca96c8a97c9e741",
+    "m0_data.py": "ecbaf1ca789f7a6e06f5966e99eb1b936309da59c6fb8d89de35e31a1fd56279",
+    "minute_structure.py": "297b426c16a19f773ecd68546f6bdb19c523a19e4c13f4aad73ec9963ca8ee3e",
+    "verify_minute.py": "971174aae983b2458427774f98e96d28deb85132f9972a43118eb8dc96f752d0",
+    "build_cases.py": "cc1663a82f83ae3c1ad49d6a4d298108da0d9168606aec9d87df8f4c0c15fdec",
+    "run_minute.py": "d1ebbeb65ade9b57b17c759fc5cd8d7105347f16075bc706964111d41b444503",
+    "minute_data.py": "223f2f119c4ca11eef67396d744da6b9583f3185f2222bede79c7b2d6b615e2b",
+    "__init__.py": "7933d6d05f12bf9f575664c41fba158dfc1cf3a0c666b76b4011a0f09008afb2",
+    "minute_score.py": "36a024cb90d2e57d86248f406ac9e0b475c0fde51f51407a850499d9a56bcec9",
+    "minute_variant_a.py": "73fa09f890df1885098204232c1b60a09f3f54ed421801efc91b08da099687c6",
+    "event_ledger.py": "4abd465348b66276ddef03b3a8b18acb8b15f777db8fec04ecbb5774cc9f4717",
+    "minute_replay.py": "9af17c91aa55c2cffcbbb24903a9c67f915f6675d20cb77159f8e11017a93e44",
+    "minute_background.py": "78ac33db8c59786e8451638d22a7f1c017d72dec760b1e499b7aaa913b94be26",
+    "verify_m0.py": "9c37e4707eaa76564a89ea0fe12313116198be13fd519df21a46c24eb9018a80"
+  },
+  "status": "complete",
+  "seconds": 46.63704070801032,
+  "artifacts_sha256": {
+    "metrics.json": "ea3934fabe49df886515972decc2bdf6921be1853cf584e97c233f8706a35a48",
+    "events.json": "36734ebe75a53fb22a89145d494c6ad6d519febbc7b8bcdbc5a160f8c96b1a2a",
+    "started.json": "a69bc95cc222289fd2821a9bab00f5b9dbbea6a4d44654037c18cac5a0bbd48f",
+    "000300.SH_60/metrics.json": "141d7893c7248a6a094e9f9239d7a1c871bb353a9b2ecd43fbdb8e2953bb0eff",
+    "000300.SH_60/events.json": "5213325e05e1ee9c3ce116a3cb337f07c8c7e985e56678961d98272edc397e1a",
+    "000300.SH_60/verification.json": "0ef40516d2d7a09f3be90e331f910fee18cc12ea6ef0a1a29352bcd92b73515c",
+    "000001.SH_60/metrics.json": "1a5df872dcf0515ff23bc9d641872571f33326d6cae27e2a84f4d58fef899982",
+    "000001.SH_60/events.json": "306565d1974e82454afacfd3d49eb8ad9ebb781728633a5cbc779cbdeb15bb0d",
+    "000001.SH_60/verification.json": "b5111d1f33f6ef9f82af8d1c2438f91478e314f51056d022087b75e417d4583f",
+    "000905.SH_60/metrics.json": "474cb54b9fd67126a453ee42ce8569b77f5d56b6335c60f77179b78b9752aba1",
+    "000905.SH_60/events.json": "b1564b2aef123aacf4c4c165723e35bb5f4931ecd667fac811575bfd055bf0d7",
+    "000905.SH_60/verification.json": "4eb43b5ad024d1a5083fe372b4cc1d8fb46a491abfcc69e8c83ba5f1004a02ba",
+    "000001.SH_30/metrics.json": "0e13cdae91bb05075a28158f95591367f489d7bf8daf7257b9950938e0d21088",
+    "000001.SH_30/events.json": "68158bd79200df5b76cea837725f9799eeeb30a0058920e097f4de42538f99b9",
+    "000001.SH_30/verification.json": "79ac6fb480776817a050d01b1f6cf127983b24ed8c876ceeab6ad3fc690cd94f",
+    "000300.SH_30/metrics.json": "0b3fbe1f375b8b8acbe1ba765c9c3b8590f6d45ecfb0720cd8d211c0e7790573",
+    "000300.SH_30/events.json": "e3e8afe3645a9cc2c5a657042aca4036b00a5459497f7f09049df5177f440e97",
+    "000300.SH_30/verification.json": "5e561deea3d486c579c7ea1f5880932cebae41c2bd69dc9e9602eaa7abfed982",
+    "000905.SH_30/metrics.json": "c28a25dbf40d134bafd32580a56b07ee45ba008d3813bf46acc035cbd72d90ec",
+    "000905.SH_30/events.json": "f511e4877802e620a3fbece322f94ad878fc4727897ceb80f6c464dff9a6b12b",
+    "000905.SH_30/verification.json": "818be71e05bef6f227c92957d59ee11ebd7216f7d9b8b38252a016e11fde49b2"
+  }
+}

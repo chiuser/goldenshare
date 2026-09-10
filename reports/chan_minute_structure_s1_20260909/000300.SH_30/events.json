@@ -1,0 +1,4772 @@
+[
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2022-05-31 15:00:00|B3",
+    "index": 1375,
+    "day": 171,
+    "date": "2022-06-01",
+    "stratum": "2022|15:00:00",
+    "signal_time": "2022-06-01 15:00:00",
+    "entry_bar_end": "2022-06-02 10:00:00",
+    "entry": 4064.0,
+    "target_time": "2022-06-02 15:00:00",
+    "r": 0.001565202782049413,
+    "q": 0.006291338582677275,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.001497539370078682,
+    "mfe": 0.0066811023622046495,
+    "baseline_up": 0.4628099173553719,
+    "baseline_q": 3.325842797332227e-05,
+    "lift_up": 0.5371900826446281,
+    "lift_q": 0.006258080154703953,
+    "structure": {
+      "as_of": "2022-06-01 15:00:00",
+      "signal_index": 1375,
+      "bi_index": 81,
+      "declared_seg_index": 14,
+      "owner": {
+        "index": 14,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 81,
+        "end_element": 81,
+        "begin": {
+          "index": 1367,
+          "time": "2022-05-31 15:00:00"
+        },
+        "end": {
+          "index": 1373,
+          "time": "2022-06-01 14:00:00"
+        },
+        "begin_value": 4096.197,
+        "end_value": 4058.847,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 14,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 81,
+        "end_element": 81,
+        "begin": {
+          "index": 1367,
+          "time": "2022-05-31 15:00:00"
+        },
+        "end": {
+          "index": 1373,
+          "time": "2022-06-01 14:00:00"
+        },
+        "begin_value": 4096.197,
+        "end_value": 4058.847,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 14,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 81,
+        "end_element": 81,
+        "begin": {
+          "index": 1367,
+          "time": "2022-05-31 15:00:00"
+        },
+        "end": {
+          "index": 1373,
+          "time": "2022-06-01 14:00:00"
+        },
+        "begin_value": 4096.197,
+        "end_value": 4058.847,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 11,
+        "direction": "UP",
+        "sure": true,
+        "start_element": 48,
+        "end_element": 50,
+        "begin": {
+          "index": 763,
+          "time": "2022-02-08 11:30:00"
+        },
+        "end": {
+          "index": 787,
+          "time": "2022-02-11 11:30:00"
+        },
+        "begin_value": 4522.471,
+        "end_value": 4662.596,
+        "member_count": 3,
+        "sure_members": 3
+      },
+      "latest_higher_segment": {
+        "index": 3,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 13,
+        "end_element": 13,
+        "begin": {
+          "index": 1192,
+          "time": "2022-04-27 10:00:00"
+        },
+        "end": {
+          "index": 1367,
+          "time": "2022-05-31 15:00:00"
+        },
+        "begin_value": 3757.086,
+        "end_value": 4096.197,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 12,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 51,
+          "end_element": 71,
+          "begin": {
+            "index": 787,
+            "time": "2022-02-11 11:30:00"
+          },
+          "end": {
+            "index": 1192,
+            "time": "2022-04-27 10:00:00"
+          },
+          "begin_value": 4662.596,
+          "end_value": 3757.086,
+          "member_count": 21,
+          "sure_members": 21
+        },
+        {
+          "index": 13,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 72,
+          "end_element": 80,
+          "begin": {
+            "index": 1192,
+            "time": "2022-04-27 10:00:00"
+          },
+          "end": {
+            "index": 1367,
+            "time": "2022-05-31 15:00:00"
+          },
+          "begin_value": 3757.086,
+          "end_value": 4096.197,
+          "member_count": 9,
+          "sure_members": 9
+        },
+        {
+          "index": 14,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 81,
+          "end_element": 81,
+          "begin": {
+            "index": 1367,
+            "time": "2022-05-31 15:00:00"
+          },
+          "end": {
+            "index": 1373,
+            "time": "2022-06-01 14:00:00"
+          },
+          "begin_value": 4096.197,
+          "end_value": 4058.847,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "UP",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "MISSING",
+        "higher_centers_relation": "INSUFFICIENT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2022-08-15 10:00:00|B3",
+    "index": 1806,
+    "day": 225,
+    "date": "2022-08-17",
+    "stratum": "2022|14:30:00",
+    "signal_time": "2022-08-17 14:30:00",
+    "entry_bar_end": "2022-08-17 15:00:00",
+    "entry": 4217.664,
+    "target_time": "2022-08-18 15:00:00",
+    "r": -0.008941128717922853,
+    "q": -0.008906351952170488,
+    "up": 0.0,
+    "q_up": 0.0,
+    "mae": -0.010461478202151597,
+    "mfe": 0.0,
+    "baseline_up": 0.45454545454545453,
+    "baseline_q": -0.0008089120363839574,
+    "lift_up": -0.45454545454545453,
+    "lift_q": -0.008097439915786531,
+    "structure": {
+      "as_of": "2022-08-17 14:30:00",
+      "signal_index": 1806,
+      "bi_index": 115,
+      "declared_seg_index": 17,
+      "owner": {
+        "index": 17,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 112,
+        "end_element": 116,
+        "begin": {
+          "index": 1727,
+          "time": "2022-08-03 15:00:00"
+        },
+        "end": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "begin_value": 4058.179,
+        "end_value": 4222.787,
+        "member_count": 5,
+        "sure_members": 4
+      },
+      "parent_pointer": {
+        "index": 17,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 112,
+        "end_element": 116,
+        "begin": {
+          "index": 1727,
+          "time": "2022-08-03 15:00:00"
+        },
+        "end": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "begin_value": 4058.179,
+        "end_value": 4222.787,
+        "member_count": 5,
+        "sure_members": 4
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 17,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 112,
+        "end_element": 116,
+        "begin": {
+          "index": 1727,
+          "time": "2022-08-03 15:00:00"
+        },
+        "end": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "begin_value": 4058.179,
+        "end_value": 4222.787,
+        "member_count": 5,
+        "sure_members": 4
+      },
+      "last_confirmed_segment": {
+        "index": 16,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 107,
+        "end_element": 111,
+        "begin": {
+          "index": 1690,
+          "time": "2022-07-28 11:00:00"
+        },
+        "end": {
+          "index": 1727,
+          "time": "2022-08-03 15:00:00"
+        },
+        "begin_value": 4267.918,
+        "end_value": 4058.179,
+        "member_count": 5,
+        "sure_members": 5
+      },
+      "latest_higher_segment": {
+        "index": 3,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 13,
+        "end_element": 17,
+        "begin": {
+          "index": 1192,
+          "time": "2022-04-27 10:00:00"
+        },
+        "end": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "begin_value": 3757.086,
+        "end_value": 4222.787,
+        "member_count": 5,
+        "sure_members": 4
+      },
+      "owner_higher_segment": {
+        "index": 3,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 13,
+        "end_element": 17,
+        "begin": {
+          "index": 1192,
+          "time": "2022-04-27 10:00:00"
+        },
+        "end": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "begin_value": 3757.086,
+        "end_value": 4222.787,
+        "member_count": 5,
+        "sure_members": 4
+      },
+      "segment_tail": [
+        {
+          "index": 15,
+          "direction": "UP",
+          "sure": true,
+          "start_element": 104,
+          "end_element": 106,
+          "begin": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          },
+          "end": {
+            "index": 1690,
+            "time": "2022-07-28 11:00:00"
+          },
+          "begin_value": 4201.919,
+          "end_value": 4267.918,
+          "member_count": 3,
+          "sure_members": 3
+        },
+        {
+          "index": 16,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 107,
+          "end_element": 111,
+          "begin": {
+            "index": 1690,
+            "time": "2022-07-28 11:00:00"
+          },
+          "end": {
+            "index": 1727,
+            "time": "2022-08-03 15:00:00"
+          },
+          "begin_value": 4267.918,
+          "end_value": 4058.179,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 17,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 112,
+          "end_element": 116,
+          "begin": {
+            "index": 1727,
+            "time": "2022-08-03 15:00:00"
+          },
+          "end": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          },
+          "begin_value": 4058.179,
+          "end_value": 4222.787,
+          "member_count": 5,
+          "sure_members": 4
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 1552,
+            "time": "2022-07-05 10:00:00"
+          },
+          "end": {
+            "index": 1727,
+            "time": "2022-08-03 15:00:00"
+          },
+          "begin_element": 14,
+          "end_element": 16,
+          "low": 4201.919,
+          "high": 4267.918,
+          "peak_low": 4058.179,
+          "peak_high": 4530.325,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 1552,
+            "time": "2022-07-05 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "UP_PROVISIONAL",
+        "latest_segment_state": "UP_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "INSIDE",
+        "higher_centers_relation": "INSUFFICIENT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2022-08-17 14:30:00|B3",
+    "index": 1814,
+    "day": 226,
+    "date": "2022-08-18",
+    "stratum": "2022|14:30:00",
+    "signal_time": "2022-08-18 14:30:00",
+    "entry_bar_end": "2022-08-18 15:00:00",
+    "entry": 4178.769,
+    "target_time": "2022-08-19 15:00:00",
+    "r": -0.006612811092043702,
+    "q": -0.006627549883709949,
+    "up": 0.0,
+    "q_up": 0.0,
+    "mae": -0.006627549883709949,
+    "mfe": 0.001648571624801587,
+    "baseline_up": 0.45454545454545453,
+    "baseline_q": -0.0008089120363839574,
+    "lift_up": -0.45454545454545453,
+    "lift_q": -0.005818637847325991,
+    "structure": {
+      "as_of": "2022-08-18 14:30:00",
+      "signal_index": 1814,
+      "bi_index": 117,
+      "declared_seg_index": 18,
+      "owner": {
+        "index": 18,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 117,
+        "end_element": 117,
+        "begin": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "end": {
+          "index": 1812,
+          "time": "2022-08-18 13:30:00"
+        },
+        "begin_value": 4222.787,
+        "end_value": 4173.541,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 18,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 117,
+        "end_element": 117,
+        "begin": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "end": {
+          "index": 1812,
+          "time": "2022-08-18 13:30:00"
+        },
+        "begin_value": 4222.787,
+        "end_value": 4173.541,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 18,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 117,
+        "end_element": 117,
+        "begin": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "end": {
+          "index": 1812,
+          "time": "2022-08-18 13:30:00"
+        },
+        "begin_value": 4222.787,
+        "end_value": 4173.541,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 16,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 107,
+        "end_element": 111,
+        "begin": {
+          "index": 1690,
+          "time": "2022-07-28 11:00:00"
+        },
+        "end": {
+          "index": 1727,
+          "time": "2022-08-03 15:00:00"
+        },
+        "begin_value": 4267.918,
+        "end_value": 4058.179,
+        "member_count": 5,
+        "sure_members": 5
+      },
+      "latest_higher_segment": {
+        "index": 3,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 13,
+        "end_element": 17,
+        "begin": {
+          "index": 1192,
+          "time": "2022-04-27 10:00:00"
+        },
+        "end": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "begin_value": 3757.086,
+        "end_value": 4222.787,
+        "member_count": 5,
+        "sure_members": 4
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 16,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 107,
+          "end_element": 111,
+          "begin": {
+            "index": 1690,
+            "time": "2022-07-28 11:00:00"
+          },
+          "end": {
+            "index": 1727,
+            "time": "2022-08-03 15:00:00"
+          },
+          "begin_value": 4267.918,
+          "end_value": 4058.179,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 17,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 112,
+          "end_element": 116,
+          "begin": {
+            "index": 1727,
+            "time": "2022-08-03 15:00:00"
+          },
+          "end": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          },
+          "begin_value": 4058.179,
+          "end_value": 4222.787,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 18,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 117,
+          "end_element": 117,
+          "begin": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          },
+          "end": {
+            "index": 1812,
+            "time": "2022-08-18 13:30:00"
+          },
+          "begin_value": 4222.787,
+          "end_value": 4173.541,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 1552,
+            "time": "2022-07-05 10:00:00"
+          },
+          "end": {
+            "index": 1727,
+            "time": "2022-08-03 15:00:00"
+          },
+          "begin_element": 14,
+          "end_element": 16,
+          "low": 4201.919,
+          "high": 4267.918,
+          "peak_low": 4058.179,
+          "peak_high": 4530.325,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 1552,
+            "time": "2022-07-05 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "BELOW",
+        "higher_centers_relation": "INSUFFICIENT"
+      }
+    },
+    "cooled": false,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2022-11-14 10:00:00|B3",
+    "index": 2265,
+    "day": 283,
+    "date": "2022-11-15",
+    "stratum": "2022|10:30:00",
+    "signal_time": "2022-11-15 10:30:00",
+    "entry_bar_end": "2022-11-15 11:00:00",
+    "entry": 3825.495,
+    "target_time": "2022-11-16 15:00:00",
+    "r": 0.002387551999774029,
+    "q": 0.0023251892892293125,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.0016261947800219057,
+    "mfe": 0.013640849092731777,
+    "baseline_up": 0.48760330578512395,
+    "baseline_q": -0.0008754339230333378,
+    "lift_up": 0.5123966942148761,
+    "lift_q": 0.0032006232122626503,
+    "structure": {
+      "as_of": "2022-11-15 10:30:00",
+      "signal_index": 2265,
+      "bi_index": 135,
+      "declared_seg_index": 20,
+      "owner": {
+        "index": 20,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 135,
+        "end_element": 135,
+        "begin": {
+          "index": 2256,
+          "time": "2022-11-14 10:00:00"
+        },
+        "end": {
+          "index": 2264,
+          "time": "2022-11-15 10:00:00"
+        },
+        "begin_value": 3848.412,
+        "end_value": 3775.499,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 20,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 135,
+        "end_element": 135,
+        "begin": {
+          "index": 2256,
+          "time": "2022-11-14 10:00:00"
+        },
+        "end": {
+          "index": 2264,
+          "time": "2022-11-15 10:00:00"
+        },
+        "begin_value": 3848.412,
+        "end_value": 3775.499,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 20,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 135,
+        "end_element": 135,
+        "begin": {
+          "index": 2256,
+          "time": "2022-11-14 10:00:00"
+        },
+        "end": {
+          "index": 2264,
+          "time": "2022-11-15 10:00:00"
+        },
+        "begin_value": 3848.412,
+        "end_value": 3775.499,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 18,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 117,
+        "end_element": 129,
+        "begin": {
+          "index": 1806,
+          "time": "2022-08-17 14:30:00"
+        },
+        "end": {
+          "index": 2177,
+          "time": "2022-10-31 10:30:00"
+        },
+        "begin_value": 4222.787,
+        "end_value": 3495.951,
+        "member_count": 13,
+        "sure_members": 13
+      },
+      "latest_higher_segment": {
+        "index": 3,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 19,
+        "end_element": 19,
+        "begin": {
+          "index": 2177,
+          "time": "2022-10-31 10:30:00"
+        },
+        "end": {
+          "index": 2256,
+          "time": "2022-11-14 10:00:00"
+        },
+        "begin_value": 3495.951,
+        "end_value": 3848.412,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 18,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 117,
+          "end_element": 129,
+          "begin": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          },
+          "end": {
+            "index": 2177,
+            "time": "2022-10-31 10:30:00"
+          },
+          "begin_value": 4222.787,
+          "end_value": 3495.951,
+          "member_count": 13,
+          "sure_members": 13
+        },
+        {
+          "index": 19,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 130,
+          "end_element": 134,
+          "begin": {
+            "index": 2177,
+            "time": "2022-10-31 10:30:00"
+          },
+          "end": {
+            "index": 2256,
+            "time": "2022-11-14 10:00:00"
+          },
+          "begin_value": 3495.951,
+          "end_value": 3848.412,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 20,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 135,
+          "end_element": 135,
+          "begin": {
+            "index": 2256,
+            "time": "2022-11-14 10:00:00"
+          },
+          "end": {
+            "index": 2264,
+            "time": "2022-11-15 10:00:00"
+          },
+          "begin_value": 3848.412,
+          "end_value": 3775.499,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 763,
+            "time": "2022-02-08 11:30:00"
+          },
+          "end": {
+            "index": 1552,
+            "time": "2022-07-05 10:00:00"
+          },
+          "begin_element": 11,
+          "end_element": 13,
+          "low": 4522.471,
+          "high": 4530.325,
+          "peak_low": 3757.086,
+          "peak_high": 4662.596,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 763,
+            "time": "2022-02-08 11:30:00"
+          },
+          "outgoing_end": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          },
+          "end": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          },
+          "begin_element": 15,
+          "end_element": 17,
+          "low": 4201.919,
+          "high": 4222.787,
+          "peak_low": 4058.179,
+          "peak_high": 4267.918,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          },
+          "outgoing_end": {
+            "index": 2177,
+            "time": "2022-10-31 10:30:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "BELOW",
+        "higher_centers_relation": "DOWN_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2022-12-09 15:00:00|B3",
+    "index": 2425,
+    "day": 303,
+    "date": "2022-12-13",
+    "stratum": "2022|10:30:00",
+    "signal_time": "2022-12-13 10:30:00",
+    "entry_bar_end": "2022-12-13 11:00:00",
+    "entry": 3952.499,
+    "target_time": "2022-12-14 15:00:00",
+    "r": 0.0007345679371595359,
+    "q": 0.0006039217214224291,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.004233271153262774,
+    "mfe": 0.0051205579052644445,
+    "baseline_up": 0.48760330578512395,
+    "baseline_q": -0.0008754339230333378,
+    "lift_up": 0.5123966942148761,
+    "lift_q": 0.0014793556444557669,
+    "structure": {
+      "as_of": "2022-12-13 10:30:00",
+      "signal_index": 2425,
+      "bi_index": 145,
+      "declared_seg_index": 22,
+      "owner": {
+        "index": 22,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 145,
+        "end_element": 145,
+        "begin": {
+          "index": 2415,
+          "time": "2022-12-09 15:00:00"
+        },
+        "end": {
+          "index": 2424,
+          "time": "2022-12-13 10:00:00"
+        },
+        "begin_value": 4003.318,
+        "end_value": 3945.242,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 22,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 145,
+        "end_element": 145,
+        "begin": {
+          "index": 2415,
+          "time": "2022-12-09 15:00:00"
+        },
+        "end": {
+          "index": 2424,
+          "time": "2022-12-13 10:00:00"
+        },
+        "begin_value": 4003.318,
+        "end_value": 3945.242,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 22,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 145,
+        "end_element": 145,
+        "begin": {
+          "index": 2415,
+          "time": "2022-12-09 15:00:00"
+        },
+        "end": {
+          "index": 2424,
+          "time": "2022-12-13 10:00:00"
+        },
+        "begin_value": 4003.318,
+        "end_value": 3945.242,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 20,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 137,
+        "end_element": 139,
+        "begin": {
+          "index": 2273,
+          "time": "2022-11-16 10:30:00"
+        },
+        "end": {
+          "index": 2297,
+          "time": "2022-11-21 10:30:00"
+        },
+        "begin_value": 3877.678,
+        "end_value": 3733.995,
+        "member_count": 3,
+        "sure_members": 3
+      },
+      "latest_higher_segment": {
+        "index": 4,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 22,
+        "end_element": 22,
+        "begin": {
+          "index": 2415,
+          "time": "2022-12-09 15:00:00"
+        },
+        "end": {
+          "index": 2424,
+          "time": "2022-12-13 10:00:00"
+        },
+        "begin_value": 4003.318,
+        "end_value": 3945.242,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": {
+        "index": 4,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 22,
+        "end_element": 22,
+        "begin": {
+          "index": 2415,
+          "time": "2022-12-09 15:00:00"
+        },
+        "end": {
+          "index": 2424,
+          "time": "2022-12-13 10:00:00"
+        },
+        "begin_value": 4003.318,
+        "end_value": 3945.242,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "segment_tail": [
+        {
+          "index": 20,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 137,
+          "end_element": 139,
+          "begin": {
+            "index": 2273,
+            "time": "2022-11-16 10:30:00"
+          },
+          "end": {
+            "index": 2297,
+            "time": "2022-11-21 10:30:00"
+          },
+          "begin_value": 3877.678,
+          "end_value": 3733.995,
+          "member_count": 3,
+          "sure_members": 3
+        },
+        {
+          "index": 21,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 140,
+          "end_element": 144,
+          "begin": {
+            "index": 2297,
+            "time": "2022-11-21 10:30:00"
+          },
+          "end": {
+            "index": 2415,
+            "time": "2022-12-09 15:00:00"
+          },
+          "begin_value": 3733.995,
+          "end_value": 4003.318,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 22,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 145,
+          "end_element": 145,
+          "begin": {
+            "index": 2415,
+            "time": "2022-12-09 15:00:00"
+          },
+          "end": {
+            "index": 2424,
+            "time": "2022-12-13 10:00:00"
+          },
+          "begin_value": 4003.318,
+          "end_value": 3945.242,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 763,
+            "time": "2022-02-08 11:30:00"
+          },
+          "end": {
+            "index": 1552,
+            "time": "2022-07-05 10:00:00"
+          },
+          "begin_element": 11,
+          "end_element": 13,
+          "low": 4522.471,
+          "high": 4530.325,
+          "peak_low": 3757.086,
+          "peak_high": 4662.596,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 763,
+            "time": "2022-02-08 11:30:00"
+          },
+          "outgoing_end": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          },
+          "end": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          },
+          "begin_element": 15,
+          "end_element": 17,
+          "low": 4201.919,
+          "high": 4222.787,
+          "peak_low": 4058.179,
+          "peak_high": 4267.918,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          },
+          "outgoing_end": {
+            "index": 2177,
+            "time": "2022-10-31 10:30:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "BELOW",
+        "higher_centers_relation": "DOWN_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2023-01-11 11:00:00|B3",
+    "index": 2592,
+    "day": 324,
+    "date": "2023-01-12",
+    "stratum": "2023|10:00:00",
+    "signal_time": "2023-01-12 10:00:00",
+    "entry_bar_end": "2023-01-12 10:30:00",
+    "entry": 4028.773,
+    "target_time": "2023-01-13 15:00:00",
+    "r": 0.011323842893439018,
+    "q": 0.011319575463794918,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.0062711401213223494,
+    "mfe": 0.011319575463794918,
+    "baseline_up": 0.4669421487603306,
+    "baseline_q": -0.0007973878382770054,
+    "lift_up": 0.5330578512396694,
+    "lift_q": 0.012116963302071923,
+    "structure": {
+      "as_of": "2023-01-12 10:00:00",
+      "signal_index": 2592,
+      "bi_index": 155,
+      "declared_seg_index": 24,
+      "owner": {
+        "index": 24,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 155,
+        "end_element": 155,
+        "begin": {
+          "index": 2586,
+          "time": "2023-01-11 11:00:00"
+        },
+        "end": {
+          "index": 2591,
+          "time": "2023-01-11 15:00:00"
+        },
+        "begin_value": 4043.399,
+        "end_value": 4008.015,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 24,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 155,
+        "end_element": 155,
+        "begin": {
+          "index": 2586,
+          "time": "2023-01-11 11:00:00"
+        },
+        "end": {
+          "index": 2591,
+          "time": "2023-01-11 15:00:00"
+        },
+        "begin_value": 4043.399,
+        "end_value": 4008.015,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 24,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 155,
+        "end_element": 155,
+        "begin": {
+          "index": 2586,
+          "time": "2023-01-11 11:00:00"
+        },
+        "end": {
+          "index": 2591,
+          "time": "2023-01-11 15:00:00"
+        },
+        "begin_value": 4043.399,
+        "end_value": 4008.015,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 20,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 137,
+        "end_element": 139,
+        "begin": {
+          "index": 2273,
+          "time": "2022-11-16 10:30:00"
+        },
+        "end": {
+          "index": 2297,
+          "time": "2022-11-21 10:30:00"
+        },
+        "begin_value": 3877.678,
+        "end_value": 3733.995,
+        "member_count": 3,
+        "sure_members": 3
+      },
+      "latest_higher_segment": {
+        "index": 4,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 24,
+        "end_element": 24,
+        "begin": {
+          "index": 2586,
+          "time": "2023-01-11 11:00:00"
+        },
+        "end": {
+          "index": 2591,
+          "time": "2023-01-11 15:00:00"
+        },
+        "begin_value": 4043.399,
+        "end_value": 4008.015,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": {
+        "index": 4,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 24,
+        "end_element": 24,
+        "begin": {
+          "index": 2586,
+          "time": "2023-01-11 11:00:00"
+        },
+        "end": {
+          "index": 2591,
+          "time": "2023-01-11 15:00:00"
+        },
+        "begin_value": 4043.399,
+        "end_value": 4008.015,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "segment_tail": [
+        {
+          "index": 22,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 145,
+          "end_element": 149,
+          "begin": {
+            "index": 2415,
+            "time": "2022-12-09 15:00:00"
+          },
+          "end": {
+            "index": 2488,
+            "time": "2022-12-23 10:00:00"
+          },
+          "begin_value": 4003.318,
+          "end_value": 3805.949,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 23,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 150,
+          "end_element": 154,
+          "begin": {
+            "index": 2488,
+            "time": "2022-12-23 10:00:00"
+          },
+          "end": {
+            "index": 2586,
+            "time": "2023-01-11 11:00:00"
+          },
+          "begin_value": 3805.949,
+          "end_value": 4043.399,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 24,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 155,
+          "end_element": 155,
+          "begin": {
+            "index": 2586,
+            "time": "2023-01-11 11:00:00"
+          },
+          "end": {
+            "index": 2591,
+            "time": "2023-01-11 15:00:00"
+          },
+          "begin_value": 4043.399,
+          "end_value": 4008.015,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          },
+          "end": {
+            "index": 1806,
+            "time": "2022-08-17 14:30:00"
+          },
+          "begin_element": 15,
+          "end_element": 17,
+          "low": 4201.919,
+          "high": 4222.787,
+          "peak_low": 4058.179,
+          "peak_high": 4267.918,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 1669,
+            "time": "2022-07-25 14:00:00"
+          },
+          "outgoing_end": {
+            "index": 2177,
+            "time": "2022-10-31 10:30:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 2273,
+            "time": "2022-11-16 10:30:00"
+          },
+          "end": {
+            "index": 2488,
+            "time": "2022-12-23 10:00:00"
+          },
+          "begin_element": 20,
+          "end_element": 22,
+          "low": 3805.949,
+          "high": 3877.678,
+          "peak_low": 3733.995,
+          "peak_high": 4003.318,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 1,
+          "incoming_end": {
+            "index": 2273,
+            "time": "2022-11-16 10:30:00"
+          },
+          "outgoing_end": {
+            "index": 2586,
+            "time": "2023-01-11 11:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "ABOVE",
+        "higher_centers_relation": "DOWN_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2023-07-31 10:00:00|B3",
+    "index": 3655,
+    "day": 456,
+    "date": "2023-08-01",
+    "stratum": "2023|15:00:00",
+    "signal_time": "2023-08-01 15:00:00",
+    "entry_bar_end": "2023-08-02 10:00:00",
+    "entry": 3985.695,
+    "target_time": "2023-08-02 15:00:00",
+    "r": -0.007030013249121336,
+    "q": -0.003964176887594317,
+    "up": 0.0,
+    "q_up": 0.0,
+    "mae": -0.0068199648994716755,
+    "mfe": 0.005680113505925455,
+    "baseline_up": 0.4380165289256198,
+    "baseline_q": -0.0005672441410051046,
+    "lift_up": -0.4380165289256198,
+    "lift_q": -0.003396932746589213,
+    "structure": {
+      "as_of": "2023-08-01 15:00:00",
+      "signal_index": 3655,
+      "bi_index": 207,
+      "declared_seg_index": 32,
+      "owner": {
+        "index": 32,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 207,
+        "end_element": 207,
+        "begin": {
+          "index": 3640,
+          "time": "2023-07-31 10:00:00"
+        },
+        "end": {
+          "index": 3654,
+          "time": "2023-08-01 14:30:00"
+        },
+        "begin_value": 4064.362,
+        "end_value": 3983.0273,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 32,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 207,
+        "end_element": 207,
+        "begin": {
+          "index": 3640,
+          "time": "2023-07-31 10:00:00"
+        },
+        "end": {
+          "index": 3654,
+          "time": "2023-08-01 14:30:00"
+        },
+        "begin_value": 4064.362,
+        "end_value": 3983.0273,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 32,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 207,
+        "end_element": 207,
+        "begin": {
+          "index": 3640,
+          "time": "2023-07-31 10:00:00"
+        },
+        "end": {
+          "index": 3654,
+          "time": "2023-08-01 14:30:00"
+        },
+        "begin_value": 4064.362,
+        "end_value": 3983.0273,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 30,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 195,
+        "end_element": 197,
+        "begin": {
+          "index": 3258,
+          "time": "2023-05-22 11:00:00"
+        },
+        "end": {
+          "index": 3360,
+          "time": "2023-06-08 10:00:00"
+        },
+        "begin_value": 3985.403,
+        "end_value": 3777.7751,
+        "member_count": 3,
+        "sure_members": 3
+      },
+      "latest_higher_segment": {
+        "index": 5,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 31,
+        "end_element": 31,
+        "begin": {
+          "index": 3360,
+          "time": "2023-06-08 10:00:00"
+        },
+        "end": {
+          "index": 3640,
+          "time": "2023-07-31 10:00:00"
+        },
+        "begin_value": 3777.7751,
+        "end_value": 4064.362,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 30,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 195,
+          "end_element": 197,
+          "begin": {
+            "index": 3258,
+            "time": "2023-05-22 11:00:00"
+          },
+          "end": {
+            "index": 3360,
+            "time": "2023-06-08 10:00:00"
+          },
+          "begin_value": 3985.403,
+          "end_value": 3777.7751,
+          "member_count": 3,
+          "sure_members": 3
+        },
+        {
+          "index": 31,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 198,
+          "end_element": 206,
+          "begin": {
+            "index": 3360,
+            "time": "2023-06-08 10:00:00"
+          },
+          "end": {
+            "index": 3640,
+            "time": "2023-07-31 10:00:00"
+          },
+          "begin_value": 3777.7751,
+          "end_value": 4064.362,
+          "member_count": 9,
+          "sure_members": 9
+        },
+        {
+          "index": 32,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 207,
+          "end_element": 207,
+          "begin": {
+            "index": 3640,
+            "time": "2023-07-31 10:00:00"
+          },
+          "end": {
+            "index": 3654,
+            "time": "2023-08-01 14:30:00"
+          },
+          "begin_value": 4064.362,
+          "end_value": 3983.0273,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 2273,
+            "time": "2022-11-16 10:30:00"
+          },
+          "end": {
+            "index": 2488,
+            "time": "2022-12-23 10:00:00"
+          },
+          "begin_element": 20,
+          "end_element": 22,
+          "low": 3805.949,
+          "high": 3877.678,
+          "peak_low": 3733.995,
+          "peak_high": 4003.318,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 2273,
+            "time": "2022-11-16 10:30:00"
+          },
+          "outgoing_end": {
+            "index": 2648,
+            "time": "2023-01-30 10:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 2712,
+            "time": "2023-02-09 10:00:00"
+          },
+          "end": {
+            "index": 3040,
+            "time": "2023-04-10 10:00:00"
+          },
+          "begin_element": 25,
+          "end_element": 27,
+          "low": 4064.749,
+          "high": 4132.295,
+          "peak_low": 3935.016,
+          "peak_high": 4167.9,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 2712,
+            "time": "2023-02-09 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "BELOW",
+        "higher_centers_relation": "UP_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2024-02-23 10:00:00|B3",
+    "index": 4733,
+    "day": 591,
+    "date": "2024-02-23",
+    "stratum": "2024|14:00:00",
+    "signal_time": "2024-02-23 14:00:00",
+    "entry_bar_end": "2024-02-23 14:30:00",
+    "entry": 3486.0266,
+    "target_time": "2024-02-26 15:00:00",
+    "r": -0.009380278346439619,
+    "q": -0.009371184947355227,
+    "up": 0.0,
+    "q_up": 0.0,
+    "mae": -0.011657283395370532,
+    "mfe": 0.0026643801283672275,
+    "baseline_up": 0.4793388429752066,
+    "baseline_q": 0.00042674987817643416,
+    "lift_up": -0.4793388429752066,
+    "lift_q": -0.009797934825531662,
+    "structure": {
+      "as_of": "2024-02-23 14:00:00",
+      "signal_index": 4733,
+      "bi_index": 251,
+      "declared_seg_index": 38,
+      "owner": {
+        "index": 38,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 251,
+        "end_element": 251,
+        "begin": {
+          "index": 4728,
+          "time": "2024-02-23 10:00:00"
+        },
+        "end": {
+          "index": 4732,
+          "time": "2024-02-23 13:30:00"
+        },
+        "begin_value": 3507.559,
+        "end_value": 3472.968,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 38,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 251,
+        "end_element": 251,
+        "begin": {
+          "index": 4728,
+          "time": "2024-02-23 10:00:00"
+        },
+        "end": {
+          "index": 4732,
+          "time": "2024-02-23 13:30:00"
+        },
+        "begin_value": 3507.559,
+        "end_value": 3472.968,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 38,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 251,
+        "end_element": 251,
+        "begin": {
+          "index": 4728,
+          "time": "2024-02-23 10:00:00"
+        },
+        "end": {
+          "index": 4732,
+          "time": "2024-02-23 13:30:00"
+        },
+        "begin_value": 3507.559,
+        "end_value": 3472.968,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 35,
+        "direction": "UP",
+        "sure": true,
+        "start_element": 240,
+        "end_element": 242,
+        "begin": {
+          "index": 4416,
+          "time": "2023-12-21 10:00:00"
+        },
+        "end": {
+          "index": 4465,
+          "time": "2023-12-29 10:30:00"
+        },
+        "begin_value": 3283.9883,
+        "end_value": 3432.5413,
+        "member_count": 3,
+        "sure_members": 3
+      },
+      "latest_higher_segment": {
+        "index": 5,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 37,
+        "end_element": 37,
+        "begin": {
+          "index": 4571,
+          "time": "2024-01-18 11:30:00"
+        },
+        "end": {
+          "index": 4728,
+          "time": "2024-02-23 10:00:00"
+        },
+        "begin_value": 3171.6328,
+        "end_value": 3507.559,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 36,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 243,
+          "end_element": 245,
+          "begin": {
+            "index": 4465,
+            "time": "2023-12-29 10:30:00"
+          },
+          "end": {
+            "index": 4571,
+            "time": "2024-01-18 11:30:00"
+          },
+          "begin_value": 3432.5413,
+          "end_value": 3171.6328,
+          "member_count": 3,
+          "sure_members": 3
+        },
+        {
+          "index": 37,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 246,
+          "end_element": 250,
+          "begin": {
+            "index": 4571,
+            "time": "2024-01-18 11:30:00"
+          },
+          "end": {
+            "index": 4728,
+            "time": "2024-02-23 10:00:00"
+          },
+          "begin_value": 3171.6328,
+          "end_value": 3507.559,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 38,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 251,
+          "end_element": 251,
+          "begin": {
+            "index": 4728,
+            "time": "2024-02-23 10:00:00"
+          },
+          "end": {
+            "index": 4732,
+            "time": "2024-02-23 13:30:00"
+          },
+          "begin_value": 3507.559,
+          "end_value": 3472.968,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 2712,
+            "time": "2023-02-09 10:00:00"
+          },
+          "end": {
+            "index": 3040,
+            "time": "2023-04-10 10:00:00"
+          },
+          "begin_element": 25,
+          "end_element": 27,
+          "low": 4064.749,
+          "high": 4132.295,
+          "peak_low": 3935.016,
+          "peak_high": 4167.9,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 2712,
+            "time": "2023-02-09 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          },
+          "end": {
+            "index": 3640,
+            "time": "2023-07-31 10:00:00"
+          },
+          "begin_element": 29,
+          "end_element": 31,
+          "low": 3923.0317,
+          "high": 3985.403,
+          "peak_low": 3777.7751,
+          "peak_high": 4064.362,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          },
+          "outgoing_end": {
+            "index": 3992,
+            "time": "2023-10-09 10:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "UP",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "BELOW",
+        "higher_centers_relation": "DOWN_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2024-04-29 11:30:00|B3",
+    "index": 5089,
+    "day": 636,
+    "date": "2024-04-30",
+    "stratum": "2024|10:30:00",
+    "signal_time": "2024-04-30 10:30:00",
+    "entry_bar_end": "2024-04-30 11:00:00",
+    "entry": 3624.6128,
+    "target_time": "2024-05-06 15:00:00",
+    "r": 0.009088920337771977,
+    "q": 0.009177228530451664,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.005578113060793699,
+    "mfe": 0.012040955105604656,
+    "baseline_up": 0.4793388429752066,
+    "baseline_q": 0.0010371511016173721,
+    "lift_up": 0.5206611570247934,
+    "lift_q": 0.008140077428834292,
+    "structure": {
+      "as_of": "2024-04-30 10:30:00",
+      "signal_index": 5089,
+      "bi_index": 271,
+      "declared_seg_index": 40,
+      "owner": {
+        "index": 40,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 271,
+        "end_element": 271,
+        "begin": {
+          "index": 5083,
+          "time": "2024-04-29 11:30:00"
+        },
+        "end": {
+          "index": 5088,
+          "time": "2024-04-30 10:00:00"
+        },
+        "begin_value": 3645.823,
+        "end_value": 3617.0317,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 40,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 271,
+        "end_element": 271,
+        "begin": {
+          "index": 5083,
+          "time": "2024-04-29 11:30:00"
+        },
+        "end": {
+          "index": 5088,
+          "time": "2024-04-30 10:00:00"
+        },
+        "begin_value": 3645.823,
+        "end_value": 3617.0317,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 40,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 271,
+        "end_element": 271,
+        "begin": {
+          "index": 5083,
+          "time": "2024-04-29 11:30:00"
+        },
+        "end": {
+          "index": 5088,
+          "time": "2024-04-30 10:00:00"
+        },
+        "begin_value": 3645.823,
+        "end_value": 3617.0317,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 38,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 259,
+        "end_element": 265,
+        "begin": {
+          "index": 4865,
+          "time": "2024-03-19 10:30:00"
+        },
+        "end": {
+          "index": 4999,
+          "time": "2024-04-12 15:00:00"
+        },
+        "begin_value": 3610.739,
+        "end_value": 3470.061,
+        "member_count": 7,
+        "sure_members": 7
+      },
+      "latest_higher_segment": {
+        "index": 6,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 40,
+        "end_element": 40,
+        "begin": {
+          "index": 5083,
+          "time": "2024-04-29 11:30:00"
+        },
+        "end": {
+          "index": 5088,
+          "time": "2024-04-30 10:00:00"
+        },
+        "begin_value": 3645.823,
+        "end_value": 3617.0317,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": {
+        "index": 6,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 40,
+        "end_element": 40,
+        "begin": {
+          "index": 5083,
+          "time": "2024-04-29 11:30:00"
+        },
+        "end": {
+          "index": 5088,
+          "time": "2024-04-30 10:00:00"
+        },
+        "begin_value": 3645.823,
+        "end_value": 3617.0317,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "segment_tail": [
+        {
+          "index": 38,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 259,
+          "end_element": 265,
+          "begin": {
+            "index": 4865,
+            "time": "2024-03-19 10:30:00"
+          },
+          "end": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          },
+          "begin_value": 3610.739,
+          "end_value": 3470.061,
+          "member_count": 7,
+          "sure_members": 7
+        },
+        {
+          "index": 39,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 266,
+          "end_element": 270,
+          "begin": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          },
+          "end": {
+            "index": 5083,
+            "time": "2024-04-29 11:30:00"
+          },
+          "begin_value": 3470.061,
+          "end_value": 3645.823,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 40,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 271,
+          "end_element": 271,
+          "begin": {
+            "index": 5083,
+            "time": "2024-04-29 11:30:00"
+          },
+          "end": {
+            "index": 5088,
+            "time": "2024-04-30 10:00:00"
+          },
+          "begin_value": 3645.823,
+          "end_value": 3617.0317,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 2712,
+            "time": "2023-02-09 10:00:00"
+          },
+          "end": {
+            "index": 3040,
+            "time": "2023-04-10 10:00:00"
+          },
+          "begin_element": 25,
+          "end_element": 27,
+          "low": 4064.749,
+          "high": 4132.295,
+          "peak_low": 3935.016,
+          "peak_high": 4167.9,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 2712,
+            "time": "2023-02-09 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          },
+          "end": {
+            "index": 3640,
+            "time": "2023-07-31 10:00:00"
+          },
+          "begin_element": 29,
+          "end_element": 31,
+          "low": 3923.0317,
+          "high": 3985.403,
+          "peak_low": 3777.7751,
+          "peak_high": 4064.362,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          },
+          "outgoing_end": {
+            "index": 3992,
+            "time": "2023-10-09 10:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "BELOW",
+        "higher_centers_relation": "DOWN_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2024-09-25 10:30:00|B3",
+    "index": 5897,
+    "day": 737,
+    "date": "2024-09-26",
+    "stratum": "2024|10:30:00",
+    "signal_time": "2024-09-26 10:30:00",
+    "entry_bar_end": "2024-09-26 11:00:00",
+    "entry": 3440.059,
+    "target_time": "2024-09-27 15:00:00",
+    "r": 0.07678828354643774,
+    "q": 0.07663409261294629,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.006245764970891576,
+    "mfe": 0.0780323825841358,
+    "baseline_up": 0.4793388429752066,
+    "baseline_q": 0.0010371511016173721,
+    "lift_up": 0.5206611570247934,
+    "lift_q": 0.07559694151132892,
+    "structure": {
+      "as_of": "2024-09-26 10:30:00",
+      "signal_index": 5897,
+      "bi_index": 307,
+      "declared_seg_index": 45,
+      "owner": null,
+      "parent_pointer": null,
+      "pointer_live": false,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 44,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 301,
+        "end_element": 305,
+        "begin": {
+          "index": 5688,
+          "time": "2024-08-19 10:00:00"
+        },
+        "end": {
+          "index": 5852,
+          "time": "2024-09-18 13:30:00"
+        },
+        "begin_value": 3375.9622,
+        "end_value": 3145.7908,
+        "member_count": 5,
+        "sure_members": 5
+      },
+      "last_confirmed_segment": {
+        "index": 43,
+        "direction": "UP",
+        "sure": true,
+        "start_element": 296,
+        "end_element": 300,
+        "begin": {
+          "index": 5621,
+          "time": "2024-08-06 14:00:00"
+        },
+        "end": {
+          "index": 5688,
+          "time": "2024-08-19 10:00:00"
+        },
+        "begin_value": 3318.625,
+        "end_value": 3375.9622,
+        "member_count": 5,
+        "sure_members": 5
+      },
+      "latest_higher_segment": {
+        "index": 4,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 24,
+        "end_element": 44,
+        "begin": {
+          "index": 2648,
+          "time": "2023-01-30 10:00:00"
+        },
+        "end": {
+          "index": 5852,
+          "time": "2024-09-18 13:30:00"
+        },
+        "begin_value": 4268.152,
+        "end_value": 3145.7908,
+        "member_count": 21,
+        "sure_members": 20
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 42,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 279,
+          "end_element": 295,
+          "begin": {
+            "index": 5176,
+            "time": "2024-05-20 10:00:00"
+          },
+          "end": {
+            "index": 5621,
+            "time": "2024-08-06 14:00:00"
+          },
+          "begin_value": 3703.0288,
+          "end_value": 3318.625,
+          "member_count": 17,
+          "sure_members": 17
+        },
+        {
+          "index": 43,
+          "direction": "UP",
+          "sure": true,
+          "start_element": 296,
+          "end_element": 300,
+          "begin": {
+            "index": 5621,
+            "time": "2024-08-06 14:00:00"
+          },
+          "end": {
+            "index": 5688,
+            "time": "2024-08-19 10:00:00"
+          },
+          "begin_value": 3318.625,
+          "end_value": 3375.9622,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 44,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 301,
+          "end_element": 305,
+          "begin": {
+            "index": 5688,
+            "time": "2024-08-19 10:00:00"
+          },
+          "end": {
+            "index": 5852,
+            "time": "2024-09-18 13:30:00"
+          },
+          "begin_value": 3375.9622,
+          "end_value": 3145.7908,
+          "member_count": 5,
+          "sure_members": 5
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 4416,
+            "time": "2023-12-21 10:00:00"
+          },
+          "end": {
+            "index": 4865,
+            "time": "2024-03-19 10:30:00"
+          },
+          "begin_element": 35,
+          "end_element": 37,
+          "low": 3283.9883,
+          "high": 3432.5413,
+          "peak_low": 3171.6328,
+          "peak_high": 3610.739,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 4416,
+            "time": "2023-12-21 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          },
+          "end": {
+            "index": 5176,
+            "time": "2024-05-20 10:00:00"
+          },
+          "begin_element": 39,
+          "end_element": 41,
+          "low": 3624.002,
+          "high": 3674.609,
+          "peak_low": 3470.061,
+          "peak_high": 3703.0288,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          },
+          "outgoing_end": {
+            "index": 5621,
+            "time": "2024-08-06 14:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "MISSING",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "UP",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "BELOW",
+        "higher_centers_relation": "UP_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2024-11-08 10:00:00|B3",
+    "index": 6115,
+    "day": 764,
+    "date": "2024-11-11",
+    "stratum": "2024|11:30:00",
+    "signal_time": "2024-11-11 11:30:00",
+    "entry_bar_end": "2024-11-11 13:30:00",
+    "entry": 4100.0117,
+    "target_time": "2024-11-12 15:00:00",
+    "r": -0.0031044051771268455,
+    "q": -0.0034801608005167184,
+    "up": 0.0,
+    "q_up": 0.0,
+    "mae": -0.009565338557448455,
+    "mfe": 0.01992623582025388,
+    "baseline_up": 0.4214876033057851,
+    "baseline_q": 0.00034305397400172634,
+    "lift_up": -0.4214876033057851,
+    "lift_q": -0.0038232147745184447,
+    "structure": {
+      "as_of": "2024-11-11 11:30:00",
+      "signal_index": 6115,
+      "bi_index": 319,
+      "declared_seg_index": 48,
+      "owner": {
+        "index": 48,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 319,
+        "end_element": 319,
+        "begin": {
+          "index": 6104,
+          "time": "2024-11-08 10:00:00"
+        },
+        "end": {
+          "index": 6114,
+          "time": "2024-11-11 11:00:00"
+        },
+        "begin_value": 4200.908,
+        "end_value": 4048.039,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 48,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 319,
+        "end_element": 319,
+        "begin": {
+          "index": 6104,
+          "time": "2024-11-08 10:00:00"
+        },
+        "end": {
+          "index": 6114,
+          "time": "2024-11-11 11:00:00"
+        },
+        "begin_value": 4200.908,
+        "end_value": 4048.039,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 48,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 319,
+        "end_element": 319,
+        "begin": {
+          "index": 6104,
+          "time": "2024-11-08 10:00:00"
+        },
+        "end": {
+          "index": 6114,
+          "time": "2024-11-11 11:00:00"
+        },
+        "begin_value": 4200.908,
+        "end_value": 4048.039,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 46,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 309,
+        "end_element": 311,
+        "begin": {
+          "index": 5920,
+          "time": "2024-10-08 10:00:00"
+        },
+        "end": {
+          "index": 5985,
+          "time": "2024-10-18 10:30:00"
+        },
+        "begin_value": 4450.3677,
+        "end_value": 3765.1616,
+        "member_count": 3,
+        "sure_members": 3
+      },
+      "latest_higher_segment": {
+        "index": 5,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 45,
+        "end_element": 47,
+        "begin": {
+          "index": 5852,
+          "time": "2024-09-18 13:30:00"
+        },
+        "end": {
+          "index": 6104,
+          "time": "2024-11-08 10:00:00"
+        },
+        "begin_value": 3145.7908,
+        "end_value": 4200.908,
+        "member_count": 3,
+        "sure_members": 2
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 46,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 309,
+          "end_element": 311,
+          "begin": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "end": {
+            "index": 5985,
+            "time": "2024-10-18 10:30:00"
+          },
+          "begin_value": 4450.3677,
+          "end_value": 3765.1616,
+          "member_count": 3,
+          "sure_members": 3
+        },
+        {
+          "index": 47,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 312,
+          "end_element": 318,
+          "begin": {
+            "index": 5985,
+            "time": "2024-10-18 10:30:00"
+          },
+          "end": {
+            "index": 6104,
+            "time": "2024-11-08 10:00:00"
+          },
+          "begin_value": 3765.1616,
+          "end_value": 4200.908,
+          "member_count": 7,
+          "sure_members": 7
+        },
+        {
+          "index": 48,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 319,
+          "end_element": 319,
+          "begin": {
+            "index": 6104,
+            "time": "2024-11-08 10:00:00"
+          },
+          "end": {
+            "index": 6114,
+            "time": "2024-11-11 11:00:00"
+          },
+          "begin_value": 4200.908,
+          "end_value": 4048.039,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 4416,
+            "time": "2023-12-21 10:00:00"
+          },
+          "end": {
+            "index": 4865,
+            "time": "2024-03-19 10:30:00"
+          },
+          "begin_element": 35,
+          "end_element": 37,
+          "low": 3283.9883,
+          "high": 3432.5413,
+          "peak_low": 3171.6328,
+          "peak_high": 3610.739,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 4416,
+            "time": "2023-12-21 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          },
+          "end": {
+            "index": 5176,
+            "time": "2024-05-20 10:00:00"
+          },
+          "begin_element": 39,
+          "end_element": 41,
+          "low": 3624.002,
+          "high": 3674.609,
+          "peak_low": 3470.061,
+          "peak_high": 3703.0288,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          },
+          "outgoing_end": {
+            "index": 5621,
+            "time": "2024-08-06 14:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "ABOVE",
+        "higher_centers_relation": "UP_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2025-02-24 10:00:00|B3",
+    "index": 6663,
+    "day": 832,
+    "date": "2025-02-24",
+    "stratum": "2025|15:00:00",
+    "signal_time": "2025-02-24 15:00:00",
+    "entry_bar_end": "2025-02-25 10:00:00",
+    "entry": 3933.636,
+    "target_time": "2025-02-25 15:00:00",
+    "r": -0.011100640730845157,
+    "q": -0.0020300810751172627,
+    "up": 0.0,
+    "q_up": 0.0,
+    "mae": -0.004571699059089385,
+    "mfe": 0.005541336310731282,
+    "baseline_up": 0.5596707818930041,
+    "baseline_q": 0.0012433565556366258,
+    "lift_up": -0.5596707818930041,
+    "lift_q": -0.0032734376307538885,
+    "structure": {
+      "as_of": "2025-02-24 15:00:00",
+      "signal_index": 6663,
+      "bi_index": 345,
+      "declared_seg_index": 52,
+      "owner": {
+        "index": 52,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 345,
+        "end_element": 345,
+        "begin": {
+          "index": 6656,
+          "time": "2025-02-24 10:00:00"
+        },
+        "end": {
+          "index": 6662,
+          "time": "2025-02-24 14:30:00"
+        },
+        "begin_value": 3995.9456,
+        "end_value": 3949.231,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 52,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 345,
+        "end_element": 345,
+        "begin": {
+          "index": 6656,
+          "time": "2025-02-24 10:00:00"
+        },
+        "end": {
+          "index": 6662,
+          "time": "2025-02-24 14:30:00"
+        },
+        "begin_value": 3995.9456,
+        "end_value": 3949.231,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 52,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 345,
+        "end_element": 345,
+        "begin": {
+          "index": 6656,
+          "time": "2025-02-24 10:00:00"
+        },
+        "end": {
+          "index": 6662,
+          "time": "2025-02-24 14:30:00"
+        },
+        "begin_value": 3995.9456,
+        "end_value": 3949.231,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 48,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 319,
+        "end_element": 325,
+        "begin": {
+          "index": 6104,
+          "time": "2024-11-08 10:00:00"
+        },
+        "end": {
+          "index": 6198,
+          "time": "2024-11-25 14:30:00"
+        },
+        "begin_value": 4200.908,
+        "end_value": 3812.3179,
+        "member_count": 7,
+        "sure_members": 7
+      },
+      "latest_higher_segment": {
+        "index": 5,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 45,
+        "end_element": 51,
+        "begin": {
+          "index": 5852,
+          "time": "2024-09-18 13:30:00"
+        },
+        "end": {
+          "index": 6656,
+          "time": "2025-02-24 10:00:00"
+        },
+        "begin_value": 3145.7908,
+        "end_value": 3995.9456,
+        "member_count": 7,
+        "sure_members": 4
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 50,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 331,
+          "end_element": 339,
+          "begin": {
+            "index": 6280,
+            "time": "2024-12-10 10:00:00"
+          },
+          "end": {
+            "index": 6464,
+            "time": "2025-01-13 10:00:00"
+          },
+          "begin_value": 4098.3804,
+          "end_value": 3704.1074,
+          "member_count": 9,
+          "sure_members": 9
+        },
+        {
+          "index": 51,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 340,
+          "end_element": 344,
+          "begin": {
+            "index": 6464,
+            "time": "2025-01-13 10:00:00"
+          },
+          "end": {
+            "index": 6656,
+            "time": "2025-02-24 10:00:00"
+          },
+          "begin_value": 3704.1074,
+          "end_value": 3995.9456,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 52,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 345,
+          "end_element": 345,
+          "begin": {
+            "index": 6656,
+            "time": "2025-02-24 10:00:00"
+          },
+          "end": {
+            "index": 6662,
+            "time": "2025-02-24 14:30:00"
+          },
+          "begin_value": 3995.9456,
+          "end_value": 3949.231,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          },
+          "end": {
+            "index": 5176,
+            "time": "2024-05-20 10:00:00"
+          },
+          "begin_element": 39,
+          "end_element": 41,
+          "low": 3624.002,
+          "high": 3674.609,
+          "peak_low": 3470.061,
+          "peak_high": 3703.0288,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 4999,
+            "time": "2024-04-12 15:00:00"
+          },
+          "outgoing_end": {
+            "index": 5621,
+            "time": "2024-08-06 14:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "end": {
+            "index": 6464,
+            "time": "2025-01-13 10:00:00"
+          },
+          "begin_element": 46,
+          "end_element": 50,
+          "low": 3812.3179,
+          "high": 4200.908,
+          "peak_low": 3704.1074,
+          "peak_high": 4450.3677,
+          "sure": false,
+          "member_count": 5,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 6656,
+            "time": "2025-02-24 10:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "INSIDE",
+        "higher_centers_relation": "UP_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2025-03-17 10:00:00|B3",
+    "index": 6784,
+    "day": 848,
+    "date": "2025-03-18",
+    "stratum": "2025|10:00:00",
+    "signal_time": "2025-03-18 10:00:00",
+    "entry_bar_end": "2025-03-18 10:30:00",
+    "entry": 4008.9749,
+    "target_time": "2025-03-19 15:00:00",
+    "r": 0.00034898493777024697,
+    "q": 0.00029760725117045084,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.004854832091864658,
+    "mfe": 0.004071888801299162,
+    "baseline_up": 0.5637860082304527,
+    "baseline_q": 0.001451999576555836,
+    "lift_up": 0.43621399176954734,
+    "lift_q": -0.0011543923253853853,
+    "structure": {
+      "as_of": "2025-03-18 10:00:00",
+      "signal_index": 6784,
+      "bi_index": 353,
+      "declared_seg_index": 54,
+      "owner": {
+        "index": 54,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 353,
+        "end_element": 353,
+        "begin": {
+          "index": 6776,
+          "time": "2025-03-17 10:00:00"
+        },
+        "end": {
+          "index": 6783,
+          "time": "2025-03-17 15:00:00"
+        },
+        "begin_value": 4021.7278,
+        "end_value": 3992.2563,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 54,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 353,
+        "end_element": 353,
+        "begin": {
+          "index": 6776,
+          "time": "2025-03-17 10:00:00"
+        },
+        "end": {
+          "index": 6783,
+          "time": "2025-03-17 15:00:00"
+        },
+        "begin_value": 4021.7278,
+        "end_value": 3992.2563,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 54,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 353,
+        "end_element": 353,
+        "begin": {
+          "index": 6776,
+          "time": "2025-03-17 10:00:00"
+        },
+        "end": {
+          "index": 6783,
+          "time": "2025-03-17 15:00:00"
+        },
+        "begin_value": 4021.7278,
+        "end_value": 3992.2563,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 52,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 345,
+        "end_element": 347,
+        "begin": {
+          "index": 6656,
+          "time": "2025-02-24 10:00:00"
+        },
+        "end": {
+          "index": 6704,
+          "time": "2025-03-04 10:00:00"
+        },
+        "begin_value": 3995.9456,
+        "end_value": 3855.7253,
+        "member_count": 3,
+        "sure_members": 3
+      },
+      "latest_higher_segment": {
+        "index": 8,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 54,
+        "end_element": 54,
+        "begin": {
+          "index": 6776,
+          "time": "2025-03-17 10:00:00"
+        },
+        "end": {
+          "index": 6783,
+          "time": "2025-03-17 15:00:00"
+        },
+        "begin_value": 4021.7278,
+        "end_value": 3992.2563,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": {
+        "index": 8,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 54,
+        "end_element": 54,
+        "begin": {
+          "index": 6776,
+          "time": "2025-03-17 10:00:00"
+        },
+        "end": {
+          "index": 6783,
+          "time": "2025-03-17 15:00:00"
+        },
+        "begin_value": 4021.7278,
+        "end_value": 3992.2563,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "segment_tail": [
+        {
+          "index": 52,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 345,
+          "end_element": 347,
+          "begin": {
+            "index": 6656,
+            "time": "2025-02-24 10:00:00"
+          },
+          "end": {
+            "index": 6704,
+            "time": "2025-03-04 10:00:00"
+          },
+          "begin_value": 3995.9456,
+          "end_value": 3855.7253,
+          "member_count": 3,
+          "sure_members": 3
+        },
+        {
+          "index": 53,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 348,
+          "end_element": 352,
+          "begin": {
+            "index": 6704,
+            "time": "2025-03-04 10:00:00"
+          },
+          "end": {
+            "index": 6776,
+            "time": "2025-03-17 10:00:00"
+          },
+          "begin_value": 3855.7253,
+          "end_value": 4021.7278,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 54,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 353,
+          "end_element": 353,
+          "begin": {
+            "index": 6776,
+            "time": "2025-03-17 10:00:00"
+          },
+          "end": {
+            "index": 6783,
+            "time": "2025-03-17 15:00:00"
+          },
+          "begin_value": 4021.7278,
+          "end_value": 3992.2563,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          },
+          "end": {
+            "index": 3640,
+            "time": "2023-07-31 10:00:00"
+          },
+          "begin_element": 29,
+          "end_element": 31,
+          "low": 3923.0317,
+          "high": 3985.403,
+          "peak_low": 3777.7751,
+          "peak_high": 4064.362,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          },
+          "outgoing_end": {
+            "index": 3992,
+            "time": "2023-10-09 10:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "end": {
+            "index": 6704,
+            "time": "2025-03-04 10:00:00"
+          },
+          "begin_element": 46,
+          "end_element": 52,
+          "low": 3812.3179,
+          "high": 4200.908,
+          "peak_low": 3704.1074,
+          "peak_high": 4450.3677,
+          "sure": false,
+          "member_count": 7,
+          "sure_members": 7,
+          "incoming_end": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 6776,
+            "time": "2025-03-17 10:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "INSIDE",
+        "higher_centers_relation": "OVERLAP"
+      }
+    },
+    "cooled": false,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2025-04-23 10:00:00|B3",
+    "index": 6996,
+    "day": 874,
+    "date": "2025-04-24",
+    "stratum": "2025|13:30:00",
+    "signal_time": "2025-04-24 13:30:00",
+    "entry_bar_end": "2025-04-24 14:00:00",
+    "entry": 3788.0022,
+    "target_time": "2025-04-25 15:00:00",
+    "r": -0.0002882722531858395,
+    "q": -0.0002662353258400252,
+    "up": 0.0,
+    "q_up": 0.0,
+    "mae": -0.0019073906556864584,
+    "mfe": 0.0035834720476140003,
+    "baseline_up": 0.5267489711934157,
+    "baseline_q": 0.0011545042218455758,
+    "lift_up": -0.5267489711934157,
+    "lift_q": -0.001420739547685601,
+    "structure": {
+      "as_of": "2025-04-24 13:30:00",
+      "signal_index": 6996,
+      "bi_index": 361,
+      "declared_seg_index": 56,
+      "owner": {
+        "index": 56,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 361,
+        "end_element": 361,
+        "begin": {
+          "index": 6984,
+          "time": "2025-04-23 10:00:00"
+        },
+        "end": {
+          "index": 6995,
+          "time": "2025-04-24 11:30:00"
+        },
+        "begin_value": 3807.9536,
+        "end_value": 3775.207,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 56,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 361,
+        "end_element": 361,
+        "begin": {
+          "index": 6984,
+          "time": "2025-04-23 10:00:00"
+        },
+        "end": {
+          "index": 6995,
+          "time": "2025-04-24 11:30:00"
+        },
+        "begin_value": 3807.9536,
+        "end_value": 3775.207,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 56,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 361,
+        "end_element": 361,
+        "begin": {
+          "index": 6984,
+          "time": "2025-04-23 10:00:00"
+        },
+        "end": {
+          "index": 6995,
+          "time": "2025-04-24 11:30:00"
+        },
+        "begin_value": 3807.9536,
+        "end_value": 3775.207,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 53,
+        "direction": "UP",
+        "sure": true,
+        "start_element": 348,
+        "end_element": 352,
+        "begin": {
+          "index": 6704,
+          "time": "2025-03-04 10:00:00"
+        },
+        "end": {
+          "index": 6776,
+          "time": "2025-03-17 10:00:00"
+        },
+        "begin_value": 3855.7253,
+        "end_value": 4021.7278,
+        "member_count": 5,
+        "sure_members": 5
+      },
+      "latest_higher_segment": {
+        "index": 8,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 54,
+        "end_element": 56,
+        "begin": {
+          "index": 6776,
+          "time": "2025-03-17 10:00:00"
+        },
+        "end": {
+          "index": 6995,
+          "time": "2025-04-24 11:30:00"
+        },
+        "begin_value": 4021.7278,
+        "end_value": 3775.207,
+        "member_count": 3,
+        "sure_members": 0
+      },
+      "owner_higher_segment": {
+        "index": 8,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 54,
+        "end_element": 56,
+        "begin": {
+          "index": 6776,
+          "time": "2025-03-17 10:00:00"
+        },
+        "end": {
+          "index": 6995,
+          "time": "2025-04-24 11:30:00"
+        },
+        "begin_value": 4021.7278,
+        "end_value": 3775.207,
+        "member_count": 3,
+        "sure_members": 0
+      },
+      "segment_tail": [
+        {
+          "index": 54,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 353,
+          "end_element": 355,
+          "begin": {
+            "index": 6776,
+            "time": "2025-03-17 10:00:00"
+          },
+          "end": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "begin_value": 4021.7278,
+          "end_value": 3514.1165,
+          "member_count": 3,
+          "sure_members": 3
+        },
+        {
+          "index": 55,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 356,
+          "end_element": 360,
+          "begin": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "end": {
+            "index": 6984,
+            "time": "2025-04-23 10:00:00"
+          },
+          "begin_value": 3514.1165,
+          "end_value": 3807.9536,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 56,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 361,
+          "end_element": 361,
+          "begin": {
+            "index": 6984,
+            "time": "2025-04-23 10:00:00"
+          },
+          "end": {
+            "index": 6995,
+            "time": "2025-04-24 11:30:00"
+          },
+          "begin_value": 3807.9536,
+          "end_value": 3775.207,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          },
+          "end": {
+            "index": 3640,
+            "time": "2023-07-31 10:00:00"
+          },
+          "begin_element": 29,
+          "end_element": 31,
+          "low": 3923.0317,
+          "high": 3985.403,
+          "peak_low": 3777.7751,
+          "peak_high": 4064.362,
+          "sure": true,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 3219,
+            "time": "2023-05-15 11:30:00"
+          },
+          "outgoing_end": {
+            "index": 3992,
+            "time": "2023-10-09 10:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "end": {
+            "index": 6704,
+            "time": "2025-03-04 10:00:00"
+          },
+          "begin_element": 46,
+          "end_element": 52,
+          "low": 3812.3179,
+          "high": 4200.908,
+          "peak_low": 3704.1074,
+          "peak_high": 4450.3677,
+          "sure": false,
+          "member_count": 7,
+          "sure_members": 7,
+          "incoming_end": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 6776,
+            "time": "2025-03-17 10:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "UP",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "BELOW",
+        "higher_centers_relation": "OVERLAP"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2025-07-09 11:00:00|B3",
+    "index": 7400,
+    "day": 925,
+    "date": "2025-07-10",
+    "stratum": "2025|10:00:00",
+    "signal_time": "2025-07-10 10:00:00",
+    "entry_bar_end": "2025-07-10 10:30:00",
+    "entry": 3994.8992,
+    "target_time": "2025-07-11 15:00:00",
+    "r": 0.0051207795165213454,
+    "q": 0.004983304710166392,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": 0.0,
+    "mfe": 0.017783377362813102,
+    "baseline_up": 0.5637860082304527,
+    "baseline_q": 0.001451999576555836,
+    "lift_up": 0.43621399176954734,
+    "lift_q": 0.003531305133610556,
+    "structure": {
+      "as_of": "2025-07-10 10:00:00",
+      "signal_index": 7400,
+      "bi_index": 381,
+      "declared_seg_index": 60,
+      "owner": {
+        "index": 60,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 381,
+        "end_element": 381,
+        "begin": {
+          "index": 7394,
+          "time": "2025-07-09 11:00:00"
+        },
+        "end": {
+          "index": 7399,
+          "time": "2025-07-09 15:00:00"
+        },
+        "begin_value": 4016.7434,
+        "end_value": 3987.4268,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 60,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 381,
+        "end_element": 381,
+        "begin": {
+          "index": 7394,
+          "time": "2025-07-09 11:00:00"
+        },
+        "end": {
+          "index": 7399,
+          "time": "2025-07-09 15:00:00"
+        },
+        "begin_value": 4016.7434,
+        "end_value": 3987.4268,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 60,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 381,
+        "end_element": 381,
+        "begin": {
+          "index": 7394,
+          "time": "2025-07-09 11:00:00"
+        },
+        "end": {
+          "index": 7399,
+          "time": "2025-07-09 15:00:00"
+        },
+        "begin_value": 4016.7434,
+        "end_value": 3987.4268,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 58,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 373,
+        "end_element": 375,
+        "begin": {
+          "index": 7232,
+          "time": "2025-06-11 10:00:00"
+        },
+        "end": {
+          "index": 7296,
+          "time": "2025-06-23 10:00:00"
+        },
+        "begin_value": 3911.6106,
+        "end_value": 3827.083,
+        "member_count": 3,
+        "sure_members": 3
+      },
+      "latest_higher_segment": {
+        "index": 9,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 59,
+        "end_element": 59,
+        "begin": {
+          "index": 7296,
+          "time": "2025-06-23 10:00:00"
+        },
+        "end": {
+          "index": 7394,
+          "time": "2025-07-09 11:00:00"
+        },
+        "begin_value": 3827.083,
+        "end_value": 4016.7434,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 58,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 373,
+          "end_element": 375,
+          "begin": {
+            "index": 7232,
+            "time": "2025-06-11 10:00:00"
+          },
+          "end": {
+            "index": 7296,
+            "time": "2025-06-23 10:00:00"
+          },
+          "begin_value": 3911.6106,
+          "end_value": 3827.083,
+          "member_count": 3,
+          "sure_members": 3
+        },
+        {
+          "index": 59,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 376,
+          "end_element": 380,
+          "begin": {
+            "index": 7296,
+            "time": "2025-06-23 10:00:00"
+          },
+          "end": {
+            "index": 7394,
+            "time": "2025-07-09 11:00:00"
+          },
+          "begin_value": 3827.083,
+          "end_value": 4016.7434,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 60,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 381,
+          "end_element": 381,
+          "begin": {
+            "index": 7394,
+            "time": "2025-07-09 11:00:00"
+          },
+          "end": {
+            "index": 7399,
+            "time": "2025-07-09 15:00:00"
+          },
+          "begin_value": 4016.7434,
+          "end_value": 3987.4268,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "end": {
+            "index": 6704,
+            "time": "2025-03-04 10:00:00"
+          },
+          "begin_element": 46,
+          "end_element": 52,
+          "low": 3812.3179,
+          "high": 4200.908,
+          "peak_low": 3704.1074,
+          "peak_high": 4450.3677,
+          "sure": true,
+          "member_count": 7,
+          "sure_members": 7,
+          "incoming_end": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 6776,
+            "time": "2025-03-17 10:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "end": {
+            "index": 7232,
+            "time": "2025-06-11 10:00:00"
+          },
+          "begin_element": 55,
+          "end_element": 57,
+          "low": 3829.2542,
+          "high": 3911.6106,
+          "peak_low": 3514.1165,
+          "peak_high": 3960.5227,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "outgoing_end": {
+            "index": 7296,
+            "time": "2025-06-23 10:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "ABOVE",
+        "higher_centers_relation": "OVERLAP"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2025-12-08 14:00:00|B3",
+    "index": 8223,
+    "day": 1027,
+    "date": "2025-12-09",
+    "stratum": "2025|15:00:00",
+    "signal_time": "2025-12-09 15:00:00",
+    "entry_bar_end": "2025-12-10 10:00:00",
+    "entry": 4586.254,
+    "target_time": "2025-12-10 15:00:00",
+    "r": -0.0013909721211867732,
+    "q": 0.001215152933091046,
+    "up": 0.0,
+    "q_up": 1.0,
+    "mae": -0.008105612990471078,
+    "mfe": 0.0026781333960135267,
+    "baseline_up": 0.5596707818930041,
+    "baseline_q": 0.0012433565556366258,
+    "lift_up": -0.5596707818930041,
+    "lift_q": -2.820362254557984e-05,
+    "structure": {
+      "as_of": "2025-12-09 15:00:00",
+      "signal_index": 8223,
+      "bi_index": 427,
+      "declared_seg_index": 64,
+      "owner": {
+        "index": 64,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 427,
+        "end_element": 427,
+        "begin": {
+          "index": 8213,
+          "time": "2025-12-08 14:00:00"
+        },
+        "end": {
+          "index": 8222,
+          "time": "2025-12-09 14:30:00"
+        },
+        "begin_value": 4640.6255,
+        "end_value": 4584.254,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 64,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 427,
+        "end_element": 427,
+        "begin": {
+          "index": 8213,
+          "time": "2025-12-08 14:00:00"
+        },
+        "end": {
+          "index": 8222,
+          "time": "2025-12-09 14:30:00"
+        },
+        "begin_value": 4640.6255,
+        "end_value": 4584.254,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 64,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 427,
+        "end_element": 427,
+        "begin": {
+          "index": 8213,
+          "time": "2025-12-08 14:00:00"
+        },
+        "end": {
+          "index": 8222,
+          "time": "2025-12-09 14:30:00"
+        },
+        "begin_value": 4640.6255,
+        "end_value": 4584.254,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 62,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 413,
+        "end_element": 421,
+        "begin": {
+          "index": 7994,
+          "time": "2025-10-30 11:00:00"
+        },
+        "end": {
+          "index": 8131,
+          "time": "2025-11-24 11:30:00"
+        },
+        "begin_value": 4761.834,
+        "end_value": 4421.8125,
+        "member_count": 9,
+        "sure_members": 9
+      },
+      "latest_higher_segment": {
+        "index": 10,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 62,
+        "end_element": 64,
+        "begin": {
+          "index": 7994,
+          "time": "2025-10-30 11:00:00"
+        },
+        "end": {
+          "index": 8222,
+          "time": "2025-12-09 14:30:00"
+        },
+        "begin_value": 4761.834,
+        "end_value": 4584.254,
+        "member_count": 3,
+        "sure_members": 1
+      },
+      "owner_higher_segment": {
+        "index": 10,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 62,
+        "end_element": 64,
+        "begin": {
+          "index": 7994,
+          "time": "2025-10-30 11:00:00"
+        },
+        "end": {
+          "index": 8222,
+          "time": "2025-12-09 14:30:00"
+        },
+        "begin_value": 4761.834,
+        "end_value": 4584.254,
+        "member_count": 3,
+        "sure_members": 1
+      },
+      "segment_tail": [
+        {
+          "index": 62,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 413,
+          "end_element": 421,
+          "begin": {
+            "index": 7994,
+            "time": "2025-10-30 11:00:00"
+          },
+          "end": {
+            "index": 8131,
+            "time": "2025-11-24 11:30:00"
+          },
+          "begin_value": 4761.834,
+          "end_value": 4421.8125,
+          "member_count": 9,
+          "sure_members": 9
+        },
+        {
+          "index": 63,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 422,
+          "end_element": 426,
+          "begin": {
+            "index": 8131,
+            "time": "2025-11-24 11:30:00"
+          },
+          "end": {
+            "index": 8213,
+            "time": "2025-12-08 14:00:00"
+          },
+          "begin_value": 4421.8125,
+          "end_value": 4640.6255,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 64,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 427,
+          "end_element": 427,
+          "begin": {
+            "index": 8213,
+            "time": "2025-12-08 14:00:00"
+          },
+          "end": {
+            "index": 8222,
+            "time": "2025-12-09 14:30:00"
+          },
+          "begin_value": 4640.6255,
+          "end_value": 4584.254,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "end": {
+            "index": 6704,
+            "time": "2025-03-04 10:00:00"
+          },
+          "begin_element": 46,
+          "end_element": 52,
+          "low": 3812.3179,
+          "high": 4200.908,
+          "peak_low": 3704.1074,
+          "peak_high": 4450.3677,
+          "sure": true,
+          "member_count": 7,
+          "sure_members": 7,
+          "incoming_end": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 6776,
+            "time": "2025-03-17 10:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "end": {
+            "index": 7232,
+            "time": "2025-06-11 10:00:00"
+          },
+          "begin_element": 55,
+          "end_element": 57,
+          "low": 3829.2542,
+          "high": 3911.6106,
+          "peak_low": 3514.1165,
+          "peak_high": 3960.5227,
+          "sure": true,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "outgoing_end": {
+            "index": 7296,
+            "time": "2025-06-23 10:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "ABOVE",
+        "higher_centers_relation": "OVERLAP"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2025-12-23 11:30:00|B3",
+    "index": 8304,
+    "day": 1038,
+    "date": "2025-12-24",
+    "stratum": "2025|10:00:00",
+    "signal_time": "2025-12-24 10:00:00",
+    "entry_bar_end": "2025-12-24 10:30:00",
+    "entry": 4612.455,
+    "target_time": "2025-12-25 15:00:00",
+    "r": 0.006497075793407525,
+    "q": 0.006521602920787295,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.002235360561783195,
+    "mfe": 0.008389957191994313,
+    "baseline_up": 0.5637860082304527,
+    "baseline_q": 0.001451999576555836,
+    "lift_up": 0.43621399176954734,
+    "lift_q": 0.005069603344231459,
+    "structure": {
+      "as_of": "2025-12-24 10:00:00",
+      "signal_index": 8304,
+      "bi_index": 433,
+      "declared_seg_index": 66,
+      "owner": null,
+      "parent_pointer": null,
+      "pointer_live": false,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 65,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 432,
+        "end_element": 432,
+        "begin": {
+          "index": 8261,
+          "time": "2025-12-16 14:00:00"
+        },
+        "end": {
+          "index": 8299,
+          "time": "2025-12-23 11:30:00"
+        },
+        "begin_value": 4484.27,
+        "end_value": 4644.5347,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 63,
+        "direction": "UP",
+        "sure": true,
+        "start_element": 422,
+        "end_element": 426,
+        "begin": {
+          "index": 8131,
+          "time": "2025-11-24 11:30:00"
+        },
+        "end": {
+          "index": 8213,
+          "time": "2025-12-08 14:00:00"
+        },
+        "begin_value": 4421.8125,
+        "end_value": 4640.6255,
+        "member_count": 5,
+        "sure_members": 5
+      },
+      "latest_higher_segment": {
+        "index": 10,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 62,
+        "end_element": 64,
+        "begin": {
+          "index": 7994,
+          "time": "2025-10-30 11:00:00"
+        },
+        "end": {
+          "index": 8261,
+          "time": "2025-12-16 14:00:00"
+        },
+        "begin_value": 4761.834,
+        "end_value": 4484.27,
+        "member_count": 3,
+        "sure_members": 2
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 63,
+          "direction": "UP",
+          "sure": true,
+          "start_element": 422,
+          "end_element": 426,
+          "begin": {
+            "index": 8131,
+            "time": "2025-11-24 11:30:00"
+          },
+          "end": {
+            "index": 8213,
+            "time": "2025-12-08 14:00:00"
+          },
+          "begin_value": 4421.8125,
+          "end_value": 4640.6255,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 64,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 427,
+          "end_element": 431,
+          "begin": {
+            "index": 8213,
+            "time": "2025-12-08 14:00:00"
+          },
+          "end": {
+            "index": 8261,
+            "time": "2025-12-16 14:00:00"
+          },
+          "begin_value": 4640.6255,
+          "end_value": 4484.27,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 65,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 432,
+          "end_element": 432,
+          "begin": {
+            "index": 8261,
+            "time": "2025-12-16 14:00:00"
+          },
+          "end": {
+            "index": 8299,
+            "time": "2025-12-23 11:30:00"
+          },
+          "begin_value": 4484.27,
+          "end_value": 4644.5347,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "end": {
+            "index": 6704,
+            "time": "2025-03-04 10:00:00"
+          },
+          "begin_element": 46,
+          "end_element": 52,
+          "low": 3812.3179,
+          "high": 4200.908,
+          "peak_low": 3704.1074,
+          "peak_high": 4450.3677,
+          "sure": true,
+          "member_count": 7,
+          "sure_members": 7,
+          "incoming_end": {
+            "index": 5920,
+            "time": "2024-10-08 10:00:00"
+          },
+          "outgoing_end": {
+            "index": 6776,
+            "time": "2025-03-17 10:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "end": {
+            "index": 7232,
+            "time": "2025-06-11 10:00:00"
+          },
+          "begin_element": 55,
+          "end_element": 57,
+          "low": 3829.2542,
+          "high": 3911.6106,
+          "peak_low": 3514.1165,
+          "peak_high": 3960.5227,
+          "sure": true,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "outgoing_end": {
+            "index": 7296,
+            "time": "2025-06-23 10:00:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "MISSING",
+        "latest_segment_state": "UP_PROVISIONAL",
+        "last_confirmed_direction": "UP",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "ABOVE",
+        "higher_centers_relation": "OVERLAP"
+      }
+    },
+    "cooled": false,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2026-01-07 10:30:00|B3",
+    "index": 8377,
+    "day": 1047,
+    "date": "2026-01-08",
+    "stratum": "2026|10:30:00",
+    "signal_time": "2026-01-08 10:30:00",
+    "entry_bar_end": "2026-01-08 11:00:00",
+    "entry": 4751.706,
+    "target_time": "2026-01-09 15:00:00",
+    "r": 0.0015044910604946615,
+    "q": 0.0015186124730779405,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.007301945869546689,
+    "mfe": 0.0041504461765942136,
+    "baseline_up": 0.5333333333333333,
+    "baseline_q": -0.00017847144142526394,
+    "lift_up": 0.4666666666666667,
+    "lift_q": 0.0016970839145032043,
+    "structure": {
+      "as_of": "2026-01-08 10:30:00",
+      "signal_index": 8377,
+      "bi_index": 437,
+      "declared_seg_index": 66,
+      "owner": {
+        "index": 66,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 437,
+        "end_element": 437,
+        "begin": {
+          "index": 8369,
+          "time": "2026-01-07 10:30:00"
+        },
+        "end": {
+          "index": 8376,
+          "time": "2026-01-08 10:00:00"
+        },
+        "begin_value": 4802.603,
+        "end_value": 4741.32,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 66,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 437,
+        "end_element": 437,
+        "begin": {
+          "index": 8369,
+          "time": "2026-01-07 10:30:00"
+        },
+        "end": {
+          "index": 8376,
+          "time": "2026-01-08 10:00:00"
+        },
+        "begin_value": 4802.603,
+        "end_value": 4741.32,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 66,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 437,
+        "end_element": 437,
+        "begin": {
+          "index": 8369,
+          "time": "2026-01-07 10:30:00"
+        },
+        "end": {
+          "index": 8376,
+          "time": "2026-01-08 10:00:00"
+        },
+        "begin_value": 4802.603,
+        "end_value": 4741.32,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 64,
+        "direction": "DOWN",
+        "sure": true,
+        "start_element": 427,
+        "end_element": 431,
+        "begin": {
+          "index": 8213,
+          "time": "2025-12-08 14:00:00"
+        },
+        "end": {
+          "index": 8261,
+          "time": "2025-12-16 14:00:00"
+        },
+        "begin_value": 4640.6255,
+        "end_value": 4484.27,
+        "member_count": 5,
+        "sure_members": 5
+      },
+      "latest_higher_segment": {
+        "index": 10,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 66,
+        "end_element": 66,
+        "begin": {
+          "index": 8369,
+          "time": "2026-01-07 10:30:00"
+        },
+        "end": {
+          "index": 8376,
+          "time": "2026-01-08 10:00:00"
+        },
+        "begin_value": 4802.603,
+        "end_value": 4741.32,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": {
+        "index": 10,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 66,
+        "end_element": 66,
+        "begin": {
+          "index": 8369,
+          "time": "2026-01-07 10:30:00"
+        },
+        "end": {
+          "index": 8376,
+          "time": "2026-01-08 10:00:00"
+        },
+        "begin_value": 4802.603,
+        "end_value": 4741.32,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "segment_tail": [
+        {
+          "index": 64,
+          "direction": "DOWN",
+          "sure": true,
+          "start_element": 427,
+          "end_element": 431,
+          "begin": {
+            "index": 8213,
+            "time": "2025-12-08 14:00:00"
+          },
+          "end": {
+            "index": 8261,
+            "time": "2025-12-16 14:00:00"
+          },
+          "begin_value": 4640.6255,
+          "end_value": 4484.27,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 65,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 432,
+          "end_element": 436,
+          "begin": {
+            "index": 8261,
+            "time": "2025-12-16 14:00:00"
+          },
+          "end": {
+            "index": 8369,
+            "time": "2026-01-07 10:30:00"
+          },
+          "begin_value": 4484.27,
+          "end_value": 4802.603,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 66,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 437,
+          "end_element": 437,
+          "begin": {
+            "index": 8369,
+            "time": "2026-01-07 10:30:00"
+          },
+          "end": {
+            "index": 8376,
+            "time": "2026-01-08 10:00:00"
+          },
+          "begin_value": 4802.603,
+          "end_value": 4741.32,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "end": {
+            "index": 7232,
+            "time": "2025-06-11 10:00:00"
+          },
+          "begin_element": 55,
+          "end_element": 57,
+          "low": 3829.2542,
+          "high": 3911.6106,
+          "peak_low": 3514.1165,
+          "peak_high": 3960.5227,
+          "sure": true,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 6894,
+            "time": "2025-04-07 14:30:00"
+          },
+          "outgoing_end": {
+            "index": 7296,
+            "time": "2025-06-23 10:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 7874,
+            "time": "2025-10-09 11:00:00"
+          },
+          "end": {
+            "index": 8261,
+            "time": "2025-12-16 14:00:00"
+          },
+          "begin_element": 60,
+          "end_element": 64,
+          "low": 4509.329,
+          "high": 4726.3447,
+          "peak_low": 4421.8125,
+          "peak_high": 4761.834,
+          "sure": false,
+          "member_count": 5,
+          "sure_members": 5,
+          "incoming_end": {
+            "index": 7874,
+            "time": "2025-10-09 11:00:00"
+          },
+          "outgoing_end": {
+            "index": 8369,
+            "time": "2026-01-07 10:30:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "DOWN",
+        "higher_segment_state": "DOWN_PROVISIONAL",
+        "higher_center_position": "ABOVE",
+        "higher_centers_relation": "UP_DISJOINT"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  },
+  {
+    "group": "B3",
+    "mode": "raw",
+    "event_id": "000300.SH|K_30M|buy|2026-04-15 10:00:00|B3",
+    "index": 8880,
+    "day": 1110,
+    "date": "2026-04-16",
+    "stratum": "2026|10:00:00",
+    "signal_time": "2026-04-16 10:00:00",
+    "entry_bar_end": "2026-04-16 10:30:00",
+    "entry": 4715.1655,
+    "target_time": "2026-04-17 15:00:00",
+    "r": 0.0028529745914240845,
+    "q": 0.0028643533296974777,
+    "up": 1.0,
+    "q_up": 1.0,
+    "mae": -0.000571453960629964,
+    "mfe": 0.005101666102706126,
+    "baseline_up": 0.5151515151515151,
+    "baseline_q": -0.0004244813724199371,
+    "lift_up": 0.48484848484848486,
+    "lift_q": 0.0032888347021174146,
+    "structure": {
+      "as_of": "2026-04-16 10:00:00",
+      "signal_index": 8880,
+      "bi_index": 471,
+      "declared_seg_index": 72,
+      "owner": {
+        "index": 72,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 471,
+        "end_element": 471,
+        "begin": {
+          "index": 8872,
+          "time": "2026-04-15 10:00:00"
+        },
+        "end": {
+          "index": 8879,
+          "time": "2026-04-15 15:00:00"
+        },
+        "begin_value": 4731.273,
+        "end_value": 4672.556,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "parent_pointer": {
+        "index": 72,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 471,
+        "end_element": 471,
+        "begin": {
+          "index": 8872,
+          "time": "2026-04-15 10:00:00"
+        },
+        "end": {
+          "index": 8879,
+          "time": "2026-04-15 15:00:00"
+        },
+        "begin_value": 4731.273,
+        "end_value": 4672.556,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "pointer_live": true,
+      "pointer_matches_owner": true,
+      "latest_segment": {
+        "index": 72,
+        "direction": "DOWN",
+        "sure": false,
+        "start_element": 471,
+        "end_element": 471,
+        "begin": {
+          "index": 8872,
+          "time": "2026-04-15 10:00:00"
+        },
+        "end": {
+          "index": 8879,
+          "time": "2026-04-15 15:00:00"
+        },
+        "begin_value": 4731.273,
+        "end_value": 4672.556,
+        "member_count": 1,
+        "sure_members": 1
+      },
+      "last_confirmed_segment": {
+        "index": 69,
+        "direction": "UP",
+        "sure": true,
+        "start_element": 456,
+        "end_element": 460,
+        "begin": {
+          "index": 8665,
+          "time": "2026-03-09 10:30:00"
+        },
+        "end": {
+          "index": 8713,
+          "time": "2026-03-17 10:30:00"
+        },
+        "begin_value": 4548.969,
+        "end_value": 4720.861,
+        "member_count": 5,
+        "sure_members": 5
+      },
+      "latest_higher_segment": {
+        "index": 11,
+        "direction": "UP",
+        "sure": false,
+        "start_element": 71,
+        "end_element": 71,
+        "begin": {
+          "index": 8753,
+          "time": "2026-03-24 10:30:00"
+        },
+        "end": {
+          "index": 8872,
+          "time": "2026-04-15 10:00:00"
+        },
+        "begin_value": 4394.2944,
+        "end_value": 4731.273,
+        "member_count": 1,
+        "sure_members": 0
+      },
+      "owner_higher_segment": null,
+      "segment_tail": [
+        {
+          "index": 70,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 461,
+          "end_element": 465,
+          "begin": {
+            "index": 8713,
+            "time": "2026-03-17 10:30:00"
+          },
+          "end": {
+            "index": 8753,
+            "time": "2026-03-24 10:30:00"
+          },
+          "begin_value": 4720.861,
+          "end_value": 4394.2944,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 71,
+          "direction": "UP",
+          "sure": false,
+          "start_element": 466,
+          "end_element": 470,
+          "begin": {
+            "index": 8753,
+            "time": "2026-03-24 10:30:00"
+          },
+          "end": {
+            "index": 8872,
+            "time": "2026-04-15 10:00:00"
+          },
+          "begin_value": 4394.2944,
+          "end_value": 4731.273,
+          "member_count": 5,
+          "sure_members": 5
+        },
+        {
+          "index": 72,
+          "direction": "DOWN",
+          "sure": false,
+          "start_element": 471,
+          "end_element": 471,
+          "begin": {
+            "index": 8872,
+            "time": "2026-04-15 10:00:00"
+          },
+          "end": {
+            "index": 8879,
+            "time": "2026-04-15 15:00:00"
+          },
+          "begin_value": 4731.273,
+          "end_value": 4672.556,
+          "member_count": 1,
+          "sure_members": 1
+        }
+      ],
+      "higher_centers": [
+        {
+          "begin": {
+            "index": 7874,
+            "time": "2025-10-09 11:00:00"
+          },
+          "end": {
+            "index": 8261,
+            "time": "2025-12-16 14:00:00"
+          },
+          "begin_element": 60,
+          "end_element": 64,
+          "low": 4509.329,
+          "high": 4726.3447,
+          "peak_low": 4421.8125,
+          "peak_high": 4761.834,
+          "sure": true,
+          "member_count": 5,
+          "sure_members": 5,
+          "incoming_end": {
+            "index": 7874,
+            "time": "2025-10-09 11:00:00"
+          },
+          "outgoing_end": {
+            "index": 8400,
+            "time": "2026-01-13 10:00:00"
+          }
+        },
+        {
+          "begin": {
+            "index": 8522,
+            "time": "2026-02-03 11:00:00"
+          },
+          "end": {
+            "index": 8713,
+            "time": "2026-03-17 10:30:00"
+          },
+          "begin_element": 67,
+          "end_element": 69,
+          "low": 4578.2085,
+          "high": 4720.861,
+          "peak_low": 4548.969,
+          "peak_high": 4766.5586,
+          "sure": false,
+          "member_count": 3,
+          "sure_members": 3,
+          "incoming_end": {
+            "index": 8522,
+            "time": "2026-02-03 11:00:00"
+          },
+          "outgoing_end": {
+            "index": 8753,
+            "time": "2026-03-24 10:30:00"
+          }
+        }
+      ],
+      "classes": {
+        "owner_state": "DOWN_PROVISIONAL",
+        "latest_segment_state": "DOWN_PROVISIONAL",
+        "last_confirmed_direction": "UP",
+        "higher_segment_state": "UP_PROVISIONAL",
+        "higher_center_position": "INSIDE",
+        "higher_centers_relation": "OVERLAP"
+      }
+    },
+    "cooled": true,
+    "code": "000300.SH",
+    "frequency": 30
+  }
+]

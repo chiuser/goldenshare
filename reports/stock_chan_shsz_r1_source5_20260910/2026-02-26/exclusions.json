@@ -1,0 +1,222 @@
+[
+  {
+    "ts_code": "000711.SZ",
+    "name": "京蓝科技",
+    "exchange": "SZSE",
+    "entry_open": 3.64,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 322902328.2385,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "000793.SZ",
+    "name": "ST华闻",
+    "exchange": "SZSE",
+    "entry_open": 2.8726551814342836,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 56989056.103,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "001285.SZ",
+    "name": "瑞立科密",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 120538364.6475,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "002228.SZ",
+    "name": "合兴包装",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": null,
+    "complete_days": 0,
+    "eligibility": "unexplained_entry_missing"
+  },
+  {
+    "ts_code": "002231.SZ",
+    "name": "*ST奥维",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": null,
+    "complete_days": 13,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "002445.SZ",
+    "name": "中南文化",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 204161148.41,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "300344.SZ",
+    "name": "*ST立方",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": null,
+    "complete_days": 8,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "300391.SZ",
+    "name": "*ST长药",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": null,
+    "complete_days": 17,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "300828.SZ",
+    "name": "锐新科技",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": 27.25142404506249,
+    "gross_change": null,
+    "prior_amount": 266232940.45999998,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "300999.SZ",
+    "name": "金龙鱼",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": null,
+    "complete_days": 0,
+    "eligibility": "unexplained_entry_missing"
+  },
+  {
+    "ts_code": "301057.SZ",
+    "name": "汇隆新材",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 128947751.6375,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "301075.SZ",
+    "name": "多瑞医药",
+    "exchange": "SZSE",
+    "entry_open": null,
+    "exit_open": 69.88,
+    "gross_change": null,
+    "prior_amount": 59412832.7495,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "600355.SH",
+    "name": "*ST精伦",
+    "exchange": "SSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": null,
+    "complete_days": 0,
+    "eligibility": "unexplained_entry_missing"
+  },
+  {
+    "ts_code": "600438.SH",
+    "name": "通威股份",
+    "exchange": "SSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 1435525541.1,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "600673.SH",
+    "name": "东阳光",
+    "exchange": "SSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 1773926942.65,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "600735.SH",
+    "name": "ST新华锦",
+    "exchange": "SSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 127309926.95,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "601877.SH",
+    "name": "正泰电器",
+    "exchange": "SSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": null,
+    "complete_days": 0,
+    "eligibility": "unexplained_entry_missing"
+  },
+  {
+    "ts_code": "603056.SH",
+    "name": "德邦股份",
+    "exchange": "SSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 0.0,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "603121.SH",
+    "name": "华培动力",
+    "exchange": "SSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 229701504.15,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  },
+  {
+    "ts_code": "603966.SH",
+    "name": "法兰泰克",
+    "exchange": "SSE",
+    "entry_open": null,
+    "exit_open": null,
+    "gross_change": null,
+    "prior_amount": 237828860.7,
+    "complete_days": 20,
+    "eligibility": "suspended_endpoint"
+  }
+]

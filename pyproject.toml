@@ -49,4 +49,4 @@ exclude = ["tests", "tests.*", "scripts", "scripts.*", "wealth", "wealth.*", "fr
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["tests"]
+testpaths = ["tests", "scripts/research/index_market/tests"]

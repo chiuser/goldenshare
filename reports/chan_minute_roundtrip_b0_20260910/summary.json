@@ -1,0 +1,417 @@
+{
+  "000001.SH_30": {
+    "B1": {
+      "raw_buys": 19,
+      "entries": 16,
+      "natural_exits": 16,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 16,
+        "holding": 3
+      },
+      "exit_year_counts": {
+        "2022": 4,
+        "2023": 4,
+        "2024": 3,
+        "2025": 1,
+        "2026": 4
+      },
+      "min_holding_bars": 9,
+      "median_holding_bars": 65.5,
+      "max_holding_bars": 550,
+      "sample_gate": false
+    },
+    "B2": {
+      "raw_buys": 11,
+      "entries": 8,
+      "natural_exits": 8,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 8,
+        "holding": 3
+      },
+      "exit_year_counts": {
+        "2022": 2,
+        "2023": 2,
+        "2024": 2,
+        "2025": 1,
+        "2026": 1
+      },
+      "min_holding_bars": 46,
+      "median_holding_bars": 87.5,
+      "max_holding_bars": 672,
+      "sample_gate": false
+    },
+    "B3": {
+      "raw_buys": 20,
+      "entries": 18,
+      "natural_exits": 18,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 18,
+        "holding": 2
+      },
+      "exit_year_counts": {
+        "2022": 4,
+        "2023": 3,
+        "2024": 4,
+        "2025": 4,
+        "2026": 3
+      },
+      "min_holding_bars": 2,
+      "median_holding_bars": 26.0,
+      "max_holding_bars": 355,
+      "sample_gate": false
+    }
+  },
+  "000001.SH_60": {
+    "B1": {
+      "raw_buys": 9,
+      "entries": 6,
+      "natural_exits": 6,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 6,
+        "holding": 3
+      },
+      "exit_year_counts": {
+        "2022": 2,
+        "2023": 1,
+        "2024": 1,
+        "2025": 1,
+        "2026": 1
+      },
+      "min_holding_bars": 9,
+      "median_holding_bars": 401.5,
+      "max_holding_bars": 719,
+      "sample_gate": false
+    },
+    "B2": {
+      "raw_buys": 5,
+      "entries": 3,
+      "natural_exits": 3,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 3,
+        "holding": 2
+      },
+      "exit_year_counts": {
+        "2023": 1,
+        "2024": 1,
+        "2025": 1
+      },
+      "min_holding_bars": 419,
+      "median_holding_bars": 512,
+      "max_holding_bars": 906,
+      "sample_gate": false
+    },
+    "B3": {
+      "raw_buys": 9,
+      "entries": 6,
+      "natural_exits": 6,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 6,
+        "holding": 3
+      },
+      "exit_year_counts": {
+        "2023": 1,
+        "2024": 2,
+        "2025": 3
+      },
+      "min_holding_bars": 14,
+      "median_holding_bars": 212.5,
+      "max_holding_bars": 680,
+      "sample_gate": false
+    }
+  },
+  "000300.SH_30": {
+    "B1": {
+      "raw_buys": 22,
+      "entries": 13,
+      "natural_exits": 13,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 13,
+        "holding": 9
+      },
+      "exit_year_counts": {
+        "2022": 4,
+        "2023": 1,
+        "2024": 4,
+        "2025": 1,
+        "2026": 3
+      },
+      "min_holding_bars": 14,
+      "median_holding_bars": 80,
+      "max_holding_bars": 1852,
+      "sample_gate": false
+    },
+    "B2": {
+      "raw_buys": 21,
+      "entries": 9,
+      "natural_exits": 9,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 9,
+        "holding": 12
+      },
+      "exit_year_counts": {
+        "2022": 3,
+        "2024": 3,
+        "2025": 2,
+        "2026": 1
+      },
+      "min_holding_bars": 46,
+      "median_holding_bars": 146,
+      "max_holding_bars": 1858,
+      "sample_gate": false
+    },
+    "B3": {
+      "raw_buys": 19,
+      "entries": 18,
+      "natural_exits": 18,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 18,
+        "holding": 1
+      },
+      "exit_year_counts": {
+        "2022": 4,
+        "2023": 2,
+        "2024": 4,
+        "2025": 5,
+        "2026": 3
+      },
+      "min_holding_bars": 2,
+      "median_holding_bars": 52.5,
+      "max_holding_bars": 1117,
+      "sample_gate": false
+    }
+  },
+  "000300.SH_60": {
+    "B1": {
+      "raw_buys": 13,
+      "entries": 8,
+      "natural_exits": 8,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 8,
+        "holding": 5
+      },
+      "exit_year_counts": {
+        "2022": 1,
+        "2023": 2,
+        "2025": 2,
+        "2026": 3
+      },
+      "min_holding_bars": 18,
+      "median_holding_bars": 204.5,
+      "max_holding_bars": 1356,
+      "sample_gate": false
+    },
+    "B2": {
+      "raw_buys": 13,
+      "entries": 7,
+      "natural_exits": 7,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 7,
+        "holding": 6
+      },
+      "exit_year_counts": {
+        "2022": 1,
+        "2023": 2,
+        "2025": 2,
+        "2026": 2
+      },
+      "min_holding_bars": 3,
+      "median_holding_bars": 168,
+      "max_holding_bars": 2036,
+      "sample_gate": false
+    },
+    "B3": {
+      "raw_buys": 12,
+      "entries": 7,
+      "natural_exits": 7,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 7,
+        "holding": 5
+      },
+      "exit_year_counts": {
+        "2022": 1,
+        "2023": 1,
+        "2025": 3,
+        "2026": 2
+      },
+      "min_holding_bars": 9,
+      "median_holding_bars": 63,
+      "max_holding_bars": 1690,
+      "sample_gate": false
+    }
+  },
+  "000905.SH_30": {
+    "B1": {
+      "raw_buys": 25,
+      "entries": 18,
+      "natural_exits": 18,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 18,
+        "holding": 7
+      },
+      "exit_year_counts": {
+        "2022": 5,
+        "2023": 5,
+        "2024": 3,
+        "2025": 1,
+        "2026": 4
+      },
+      "min_holding_bars": 5,
+      "median_holding_bars": 137.5,
+      "max_holding_bars": 772,
+      "sample_gate": false
+    },
+    "B2": {
+      "raw_buys": 22,
+      "entries": 14,
+      "natural_exits": 14,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 14,
+        "holding": 8
+      },
+      "exit_year_counts": {
+        "2022": 3,
+        "2023": 3,
+        "2024": 3,
+        "2025": 2,
+        "2026": 3
+      },
+      "min_holding_bars": 63,
+      "median_holding_bars": 146.0,
+      "max_holding_bars": 780,
+      "sample_gate": false
+    },
+    "B3": {
+      "raw_buys": 22,
+      "entries": 21,
+      "natural_exits": 21,
+      "terminal_marks": 0,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 21,
+        "holding": 1
+      },
+      "exit_year_counts": {
+        "2022": 5,
+        "2023": 5,
+        "2024": 4,
+        "2025": 4,
+        "2026": 3
+      },
+      "min_holding_bars": 10,
+      "median_holding_bars": 38,
+      "max_holding_bars": 536,
+      "sample_gate": false
+    }
+  },
+  "000905.SH_60": {
+    "B1": {
+      "raw_buys": 10,
+      "entries": 8,
+      "natural_exits": 7,
+      "terminal_marks": 1,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 8,
+        "holding": 2
+      },
+      "exit_year_counts": {
+        "2022": 2,
+        "2023": 1,
+        "2024": 1,
+        "2025": 3
+      },
+      "min_holding_bars": 26,
+      "median_holding_bars": 204.5,
+      "max_holding_bars": 524,
+      "sample_gate": false
+    },
+    "B2": {
+      "raw_buys": 9,
+      "entries": 7,
+      "natural_exits": 6,
+      "terminal_marks": 1,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 7,
+        "holding": 2
+      },
+      "exit_year_counts": {
+        "2022": 2,
+        "2023": 1,
+        "2025": 3
+      },
+      "min_holding_bars": 46,
+      "median_holding_bars": 200,
+      "max_holding_bars": 622,
+      "sample_gate": false
+    },
+    "B3": {
+      "raw_buys": 11,
+      "entries": 9,
+      "natural_exits": 8,
+      "terminal_marks": 1,
+      "pending_entries": 0,
+      "pending_exits": 0,
+      "dispositions": {
+        "entered": 9,
+        "holding": 2
+      },
+      "exit_year_counts": {
+        "2022": 1,
+        "2023": 1,
+        "2024": 1,
+        "2025": 4,
+        "2026": 1
+      },
+      "min_holding_bars": 22,
+      "median_holding_bars": 117,
+      "max_holding_bars": 410,
+      "sample_gate": false
+    }
+  }
+}

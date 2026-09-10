@@ -1,0 +1,29 @@
+{
+  "B1": {
+    "independent_pairs": 6,
+    "sql_prices": 6,
+    "prefix_natural_exits": {
+      "2022-12-31": 2,
+      "2024-12-31": 4
+    },
+    "reconciled": true
+  },
+  "B2": {
+    "independent_pairs": 3,
+    "sql_prices": 3,
+    "prefix_natural_exits": {
+      "2022-12-31": 0,
+      "2024-12-31": 2
+    },
+    "reconciled": true
+  },
+  "B3": {
+    "independent_pairs": 6,
+    "sql_prices": 6,
+    "prefix_natural_exits": {
+      "2022-12-31": 0,
+      "2024-12-31": 3
+    },
+    "reconciled": true
+  }
+}

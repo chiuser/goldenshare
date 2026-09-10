@@ -1,0 +1,109 @@
+{
+  "rows": 43560,
+  "natural_days": 1826,
+  "open_days": 1210,
+  "issues": {
+    "missing": 0,
+    "unexpected": 0,
+    "duplicates": 0,
+    "identity": 0,
+    "values": 0
+  },
+  "formal_dagster_checks_executed": false,
+  "historical_revisions_available": false,
+  "seconds": 0.0,
+  "files": 0,
+  "bytes": 0,
+  "schema": {
+    "ts_code": "VARCHAR",
+    "freq": "INTEGER",
+    "trade_date": "DATE",
+    "trade_time": "TIMESTAMP",
+    "open": "DOUBLE",
+    "high": "DOUBLE",
+    "low": "DOUBLE",
+    "close": "DOUBLE",
+    "vol": "DOUBLE",
+    "amount": "DOUBLE",
+    "exchange": "VARCHAR",
+    "partition_date": "VARCHAR",
+    "partition_freq": "INTEGER"
+  },
+  "input_mode": "authenticated_saved_projection",
+  "lake_files_read_this_run": 0,
+  "inherited_quality": {
+    "rows": 43560,
+    "natural_days": 1826,
+    "open_days": 1210,
+    "issues": {
+      "missing": 0,
+      "unexpected": 0,
+      "duplicates": 0,
+      "identity": 0,
+      "values": 0
+    },
+    "formal_dagster_checks_executed": false,
+    "historical_revisions_available": false,
+    "seconds": 0.632778541999869,
+    "files": 2421,
+    "bytes": 10835153,
+    "schema": {
+      "ts_code": "VARCHAR",
+      "freq": "INTEGER",
+      "trade_date": "DATE",
+      "trade_time": "TIMESTAMP",
+      "open": "DOUBLE",
+      "high": "DOUBLE",
+      "low": "DOUBLE",
+      "close": "DOUBLE",
+      "vol": "DOUBLE",
+      "amount": "DOUBLE",
+      "exchange": "VARCHAR",
+      "partition_date": "VARCHAR",
+      "partition_freq": "INTEGER"
+    }
+  },
+  "baseline_audit": {
+    "artifact_hashes": 32,
+    "cells": [
+      {
+        "code": "000001.SH",
+        "frequency": 30,
+        "events": 117,
+        "reconstructed": true
+      },
+      {
+        "code": "000001.SH",
+        "frequency": 60,
+        "events": 46,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 30,
+        "events": 115,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 60,
+        "events": 51,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 30,
+        "events": 138,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 60,
+        "events": 52,
+        "reconstructed": true
+      }
+    ]
+  },
+  "baseline": "/Users/congming/github/goldenshare/reports/chan_minute_5y_20260909",
+  "baseline_manifest_sha256": "69f15a64ed34475c2c0002b3ee6f64b3e4e0fc95ed6de54a84a62c282c9a4f83"
+}

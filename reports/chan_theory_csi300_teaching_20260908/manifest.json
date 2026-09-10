@@ -1,0 +1,2468 @@
+{
+  "symbol": "000300.SH",
+  "frequency": "daily",
+  "window": [
+    "2024-01-02",
+    "2025-12-31"
+  ],
+  "rows": 485,
+  "files": 485,
+  "source_bytes": 26058635,
+  "source_sha256": "1c8240108a6807dcc687f9dec1c435148cfc003e376e5524dd98e2d3d3714f18",
+  "chan_commit": "429d6ed3043e27c93a003ba2b10e70a05575e1f5",
+  "config": {
+    "trigger_step": true,
+    "bi_algo": "normal",
+    "bi_strict": true,
+    "bi_fx_check": "strict",
+    "gap_as_kl": false,
+    "bi_end_is_peak": true,
+    "bi_allow_sub_peak": true,
+    "seg_algo": "chan",
+    "left_seg_method": "peak",
+    "zs_algo": "normal",
+    "zs_combine": true,
+    "zs_combine_mode": "zs",
+    "one_bi_zs": false,
+    "divergence_rate": 1.0,
+    "macd_algo": "peak",
+    "max_bs2_rate": 0.9999
+  },
+  "query_seconds": 0.13229833300283644,
+  "replay_seconds": 0.1521398750046501,
+  "prefix_consistency_passes": [
+    "2025-01-10",
+    "2025-03-31",
+    "2025-06-30",
+    "2025-09-30",
+    "2025-12-31"
+  ],
+  "calendar_coverage": "One row per observed partition; no independent exchange-calendar completeness assertion",
+  "source_files": [
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-02/part-000.parquet",
+      "bytes": 60108,
+      "sha256": "9eb369a281f314c384377ba42a091631b584f6be7410e762cd66dec95561ef92"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-03/part-000.parquet",
+      "bytes": 59464,
+      "sha256": "3870bf91338c9d80309145e9676eb5f43ce9dcb2788280cd38d15af9626300fd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-04/part-000.parquet",
+      "bytes": 61221,
+      "sha256": "0a3f980980ee0183a5c69a7e6e5de6e06e13fcdb7e65f424e11cea02a60e997e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-05/part-000.parquet",
+      "bytes": 59745,
+      "sha256": "5ccff84b4251f43d2df6261b7d2fb4d347861df8a9f6e447fc66dab6edb5739a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-08/part-000.parquet",
+      "bytes": 59205,
+      "sha256": "f5bcf9c5217c002cf738cb90b682a86d0863ff2046af1ee57160ec68e92fa4b9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-09/part-000.parquet",
+      "bytes": 59648,
+      "sha256": "d967b3bdf43f3ce05e07faa81cec73a04edf77f6762cf9e68cb19f9e0fe623d0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-10/part-000.parquet",
+      "bytes": 58731,
+      "sha256": "4ec8367aef00d8fb328fdec5f41af2eedf609762c310080d65e1ff3b26527638"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-11/part-000.parquet",
+      "bytes": 58158,
+      "sha256": "d54cde45293467873cbadfa9c3730c4754198ebe266a3ee6a9bef6793a4f0106"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-12/part-000.parquet",
+      "bytes": 57999,
+      "sha256": "1d6dfb2534594719df2c8fee1fe30339a3aaeaa97e981c8d6fc252b8a5171948"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-15/part-000.parquet",
+      "bytes": 58308,
+      "sha256": "bd18a652ef45cb26acf9dc5371ec2f8b41d0f4b446a4d233cc349211dcdfa604"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-16/part-000.parquet",
+      "bytes": 58797,
+      "sha256": "c29e22eac5a071c02f102fcf67656a06a680de33f8bcd57a533f1ad9bae38bd0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-17/part-000.parquet",
+      "bytes": 58284,
+      "sha256": "b24dcf3d5678aa5d7477ccfad57b42eddd3fa9c52bdadccffdfcadc7f785b77e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-18/part-000.parquet",
+      "bytes": 58581,
+      "sha256": "8bedc11e94123c78f210c47e80d04284cacbafc786ab294e1791140b620ec15d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-19/part-000.parquet",
+      "bytes": 59500,
+      "sha256": "c300f22d908238ff1aebaa17f4bec28d481942322e826ecb4f17eb70316a4954"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-22/part-000.parquet",
+      "bytes": 59407,
+      "sha256": "59c1f37a2733d6820d7b8868d39018865e81d2fda089c9fb982ac37d8920a72f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-23/part-000.parquet",
+      "bytes": 59087,
+      "sha256": "0d34a94fed2b4885983de2ff8277a570c1a7724c3bfc4c649b4458c111561109"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-24/part-000.parquet",
+      "bytes": 59329,
+      "sha256": "ef8e5deea8f942c43c0190fb466e70d8db98e8508d3f284d38148702353badda"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-25/part-000.parquet",
+      "bytes": 59157,
+      "sha256": "486c9911f35b91691e688b38f899db53b491b0922aa8af3b0195504706c15e36"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-26/part-000.parquet",
+      "bytes": 58826,
+      "sha256": "9ee07979ebeb155874470ab8e22e9d7557243a12c7709a62509fafebf6e730fe"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-29/part-000.parquet",
+      "bytes": 57555,
+      "sha256": "f82c9cf2294aeae544c9b836ef3b8a2df56e7e6bc09450f6412fec2d4c46cb77"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-30/part-000.parquet",
+      "bytes": 59573,
+      "sha256": "3d60d3ea98eb0d31fc7802e470ff1c5a7a1dab5f24f2e067c077c25c7274258c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-01-31/part-000.parquet",
+      "bytes": 59805,
+      "sha256": "cdb2389de7e1b42a4801b902d4ec5302c896c85c1448077d2c46d4eea6fee599"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-01/part-000.parquet",
+      "bytes": 59060,
+      "sha256": "07557aa13924be1b3564698c11ccaaa7cc167067fc58b194450dc863fd09f65c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-02/part-000.parquet",
+      "bytes": 59950,
+      "sha256": "4400cc3d0a278c7dc4bce076bdb6c79b64d80e4cce767ae6a0fe2e3d40ade6cb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-05/part-000.parquet",
+      "bytes": 59624,
+      "sha256": "478897cfd55f4bdefa9f719ea1e63ab6291866501b342e40b75d7bb7897717a0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-06/part-000.parquet",
+      "bytes": 59329,
+      "sha256": "71d5f5ff7a7181c0cbdf7e88da3d169a0e3fbb6c4c9746c966e16cc1b5a0d77e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-07/part-000.parquet",
+      "bytes": 60187,
+      "sha256": "29543453b76f76def08e3861d165ceba9295b60df40c910093a5db75905f4a28"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-08/part-000.parquet",
+      "bytes": 59352,
+      "sha256": "ac569230ae49b346a86bac72f2611c8db1ed27a46aa4456c02b105d1b4ac1d61"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-19/part-000.parquet",
+      "bytes": 59689,
+      "sha256": "d1c4ba04b8fc7b2b609a1b6aad8dfd0fb4527fce52426a62ecbe3f2e60764b5b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-20/part-000.parquet",
+      "bytes": 59173,
+      "sha256": "d74eada98cfa14f641a15ae56dd0173b97381cb1881978f1670eae9aaab90f7b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-21/part-000.parquet",
+      "bytes": 60068,
+      "sha256": "91f0e21127546ac282f8dcd5a70e742bc9fde117a0da9905bce2ae851a8b0661"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-22/part-000.parquet",
+      "bytes": 60079,
+      "sha256": "ef34a4398d63c01ce6ddcdd03df0f4a78d8ac1c15a1b075c2fa3db10d91f656f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-23/part-000.parquet",
+      "bytes": 58298,
+      "sha256": "ba83a7481819909252f6b92d7750b6f94a4a829edf61fddc17866b9f23fa88fa"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-26/part-000.parquet",
+      "bytes": 59091,
+      "sha256": "dd9cb26357f88961b363f2a9585aca370c6180df20eedb6233d07eddbafe636f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-27/part-000.parquet",
+      "bytes": 59838,
+      "sha256": "941adc2a0eac9802d7b18be023fbf185e1c760690ef97c0da4a9b895bc97d7a1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-28/part-000.parquet",
+      "bytes": 58803,
+      "sha256": "aff37e30cf14613d8e42b2b454dce9eacf23a0a58c0ec26b7f6fbaf49ee1ca00"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-02-29/part-000.parquet",
+      "bytes": 59143,
+      "sha256": "1c30429cca8c2c15363f5b41f68062d7224bb6afb12eea676905c22aec15602c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-01/part-000.parquet",
+      "bytes": 60517,
+      "sha256": "90807da7fec7e53fd28937338ea8aba5334969c62952857fcdb0e2ae1628d2ef"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-04/part-000.parquet",
+      "bytes": 58817,
+      "sha256": "ad901b9a8c8a4071f5cee97e731b4df83bc442d5943e6e078d56893d8ad61e11"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-05/part-000.parquet",
+      "bytes": 58888,
+      "sha256": "fa94fbc7718a28fc4f0aa2049a5377f3b58c9d1d7dbba02b650fb7380380d36c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-06/part-000.parquet",
+      "bytes": 60568,
+      "sha256": "e955a5cf9646cab4ae548a55076ef462ef99294dd30b4408d28cce054350cf7e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-07/part-000.parquet",
+      "bytes": 59387,
+      "sha256": "e9c2ee963e1cfb81360b06776861aaaeea7941f540c4f061114921464b75b808"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-08/part-000.parquet",
+      "bytes": 60553,
+      "sha256": "9e2d619f4b082eb05a1ffbd31f3c01bfecf41028ced5f59a5b6cfe8906b5749f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-11/part-000.parquet",
+      "bytes": 59751,
+      "sha256": "3554d7fba76a5a978d39ec61243464d2f0c86b0e27a1ddc96c58c226d741f643"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-12/part-000.parquet",
+      "bytes": 59338,
+      "sha256": "e003479d680af55cae6e70ca03dbabb7af49ecb3426d56c3b10490a786dfdec0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-13/part-000.parquet",
+      "bytes": 59496,
+      "sha256": "e35a2e600fca2e73cc48a320b26c47359990359ec3129ff7fdfd8fca05f04980"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-14/part-000.parquet",
+      "bytes": 58712,
+      "sha256": "2387bf3b0791dfd2f2c020035bf72a8659e1a69f47a7c2bef73efb2feed718a7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-15/part-000.parquet",
+      "bytes": 59243,
+      "sha256": "bbc024add19d9669b9f9a1e405acd08cb61091d23f4f839efe3bc47f05f881b9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-18/part-000.parquet",
+      "bytes": 59880,
+      "sha256": "041f756d89bbd2929f7dc8ec6a2eed1da26e77979869173ee8b48bcf9975108c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-19/part-000.parquet",
+      "bytes": 58728,
+      "sha256": "ce1ce2b638d1840f2f89c22bbd9106cacff64b9488e951f3aef2e2b147826762"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-20/part-000.parquet",
+      "bytes": 59212,
+      "sha256": "248ff1510a121f4740bebb5e2cbb924b91866d95bf7106bebf942ad4120c02bc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-21/part-000.parquet",
+      "bytes": 58674,
+      "sha256": "8aa7e86797048fc34d07360209d9cc6347aa029c82b0df37a2d600bb1d8a2d10"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-22/part-000.parquet",
+      "bytes": 60356,
+      "sha256": "281a243a236cc2c6f820d87babfb239c7e26a41a1b90dd643d4096b71ce1d7f6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-25/part-000.parquet",
+      "bytes": 60835,
+      "sha256": "08f48b67525986d0cadf95555fe09d7cca93f7e3923a39dd3e1c099d6e7eb8bc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-26/part-000.parquet",
+      "bytes": 58883,
+      "sha256": "900ad9d32dc4872c44dafe13a2ab96a1565bcfd1886c33f443a327aaaa761b8f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-27/part-000.parquet",
+      "bytes": 59249,
+      "sha256": "40a280e76fa46beb48f2fe2c7759e8d882972bbd4e19a84b20f9761ea2368187"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-28/part-000.parquet",
+      "bytes": 59089,
+      "sha256": "a1f419ef6d449c8e448b0cdb7ff8cd69599a034960dbef4bc652051e0a220004"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-03-29/part-000.parquet",
+      "bytes": 59714,
+      "sha256": "af9711aae4e317bd3b3e4a6fb72b73d60891df2a794f88d51ff95cb764d301ec"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-01/part-000.parquet",
+      "bytes": 59324,
+      "sha256": "b18d0c298c02842bafb739668f998d83fa72df4a64e2b68943fc0871f7e821ab"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-02/part-000.parquet",
+      "bytes": 59511,
+      "sha256": "18c99d923f53551d5129c10f3b3ce5453df6fbc9da490d45ce5f0bab51c4a83a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-03/part-000.parquet",
+      "bytes": 59672,
+      "sha256": "593eca011ebf207338279c197d1d80f243d5e0ab40d21fe71e111dcab33b3b19"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-08/part-000.parquet",
+      "bytes": 59773,
+      "sha256": "0f625174cc782625da85249e1c3ac8b1e102fa09262ce55c7541bb4731bebccd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-09/part-000.parquet",
+      "bytes": 59229,
+      "sha256": "2809183cbb38f5dc89ea2bac46888208dc7731e52f1dbdec508ecda9b60c080f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-10/part-000.parquet",
+      "bytes": 59244,
+      "sha256": "d02c8cbd9a70b1260fe986f5cad5f4eae290e990702517e47de120f44b742079"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-11/part-000.parquet",
+      "bytes": 59485,
+      "sha256": "4d0171715eccff9e20741bde1b1d445f6ac6222f68b2255ba934360d3529fb43"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-12/part-000.parquet",
+      "bytes": 59744,
+      "sha256": "9a96e12ac24111c10566fe6f06ee3821fa0a8b49f18362e26280d0e662e0850d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-15/part-000.parquet",
+      "bytes": 59579,
+      "sha256": "8ba4ecd53283b9cee0449918161b1fa338aef73ab7a29bd937f6a265f2b69239"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-16/part-000.parquet",
+      "bytes": 59973,
+      "sha256": "af8063d5458583ed7b37aa1b1a26b2d38024fc0d98d78e746d1eded1f9868db3"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-17/part-000.parquet",
+      "bytes": 59187,
+      "sha256": "1a44eb04df199068093ad31ba6f88fcd47619af4c0f10a13969ea3991c6abb1d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-18/part-000.parquet",
+      "bytes": 59559,
+      "sha256": "26c00a5ebfd09c9d57354019f1d66a511b62e166e3cf952a1bac366d5e606c56"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-19/part-000.parquet",
+      "bytes": 58916,
+      "sha256": "932975e8f2ba6da39b196a86a3b2ffe008725a80725167c3e632a25f5c99e344"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-22/part-000.parquet",
+      "bytes": 59929,
+      "sha256": "e28dfcef679055cb66a8a17fa4486f52c8b5b4c394291131a84d030b6b613e2b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-23/part-000.parquet",
+      "bytes": 59551,
+      "sha256": "3ad104f57e43325c36c88b50eac7e3275fe8ca793c421f83884efef152f065ce"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-24/part-000.parquet",
+      "bytes": 59873,
+      "sha256": "c3b20c28ebb414e70b0b35911e9108b71ed4d3ab6fb5fc87f4fd5bf14df52404"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-25/part-000.parquet",
+      "bytes": 59229,
+      "sha256": "9886328a585b18e3c3d426f12c823d93ed35a56220eaec5bfcddc087aed97c75"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-26/part-000.parquet",
+      "bytes": 60021,
+      "sha256": "6c7421096f277cd8d73a9769518707bebbc153b0a93dca069729ae7062666ceb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-29/part-000.parquet",
+      "bytes": 60593,
+      "sha256": "8f09b9f995d4c51207a01c978cbf9e84b2f982c9c2afc349677d6430994fc2c4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-04-30/part-000.parquet",
+      "bytes": 59325,
+      "sha256": "d9339bf4bbd76fd2fe7f52cf12c6ba78c94ec58765d767511034a71e88b4094c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-06/part-000.parquet",
+      "bytes": 59204,
+      "sha256": "6044acdc22836390a5feae87b0cc8f218abbf23cf5f2087a414cb0a2f2c64a49"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-07/part-000.parquet",
+      "bytes": 59665,
+      "sha256": "51c07411cc6c727bdb32c691c865cf27d6e1c56738b99ddaef693e73090b89d1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-08/part-000.parquet",
+      "bytes": 59611,
+      "sha256": "d8da00b053cf1f21759eeb4ef2189a96706f484724563d9e3559f78055c60d22"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-09/part-000.parquet",
+      "bytes": 59928,
+      "sha256": "535c93101be606429893bb7165510f4b712f4f5f94c9b9a4f59530f3659f51bd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-10/part-000.parquet",
+      "bytes": 60221,
+      "sha256": "032ec55df0f4cf5cb066156f65a88fb57e73f7705d16abb4728065a62c161e54"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-13/part-000.parquet",
+      "bytes": 60213,
+      "sha256": "1cac2995d2a61afefaa3aea0d73ad95066922a87d6828d88dc5a9cac07284e99"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-14/part-000.parquet",
+      "bytes": 58562,
+      "sha256": "51d008dfa0587f96f17513260a6ca161c389e1b3aa2243bdb94b3e33170b19a4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-15/part-000.parquet",
+      "bytes": 58009,
+      "sha256": "f7b4ba95bb1556e61218ad859a92abd073e09de820276addb55d0903031a0236"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-16/part-000.parquet",
+      "bytes": 59910,
+      "sha256": "8bb4c66ff413410e5f935e66cac8896ef9e704a29ba6b130d809f14f42e86bc9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-17/part-000.parquet",
+      "bytes": 59053,
+      "sha256": "513fadef3c54efbf333f914faf8c04490ad77843d37cde778726117c6e1c2554"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-20/part-000.parquet",
+      "bytes": 59895,
+      "sha256": "043d5175b6e82e9d00baff81a45aede7fd980cb47dd931718e6ad3484f9ca723"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-21/part-000.parquet",
+      "bytes": 58488,
+      "sha256": "dea98034212850086233472994fb7a7b8289eb79339157ef49db7947d7b9bc08"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-22/part-000.parquet",
+      "bytes": 59842,
+      "sha256": "a74abca29b7e3ab6d675afbd187148427783ecbca04f5dd3042b5234c8cf61af"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-23/part-000.parquet",
+      "bytes": 59516,
+      "sha256": "a676a9fc5b29c49a7a07566b0f78d374e15118c90eab158bf93e73a2f3e1afaa"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-24/part-000.parquet",
+      "bytes": 59896,
+      "sha256": "fbba3952150187bf5b3f237da1e0225461dbce6ca8f06ce1289f8be39cab86e9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-27/part-000.parquet",
+      "bytes": 58963,
+      "sha256": "1a8581eee19474d1086507fa314c8612ab876c695af6f0e733a6950d979f0372"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-28/part-000.parquet",
+      "bytes": 59333,
+      "sha256": "f7211b9b5464242791720b9af9d3017893ba1be2a98a3f248ae90be7c0a1e049"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-29/part-000.parquet",
+      "bytes": 58857,
+      "sha256": "d096fbbd3238a6cf2b89bb5136b81a73d9ac3d086a3bf98c7972512672c133e7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-30/part-000.parquet",
+      "bytes": 59176,
+      "sha256": "5b6aa2f1d518bdd2487a08438405b407de1f72e1d7c08e1e8c9d440df10eb4db"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-05-31/part-000.parquet",
+      "bytes": 59125,
+      "sha256": "9f0043476fcb8c3f4e3ef415eae7f93bee809563bd851fe8159d78f2f7439b34"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-03/part-000.parquet",
+      "bytes": 59296,
+      "sha256": "3a46b15b4288b40415bba9b1e7a36fad02613b1757e3b60e7cc59d1c11316a6a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-04/part-000.parquet",
+      "bytes": 58580,
+      "sha256": "c196895b68d71e9c0bdeadb64f53cf1284a0d7a284fae2b037b2c5745676d261"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-05/part-000.parquet",
+      "bytes": 58886,
+      "sha256": "d88ad58f5f3074b16c0cb3c0451ea49324a40e90dd654bbbf46a94afbebeb228"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-06/part-000.parquet",
+      "bytes": 58312,
+      "sha256": "a34fd860110cd8b33a042dc6731b3e58bd260e23889c9cca75e706d17ef037b9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-07/part-000.parquet",
+      "bytes": 59996,
+      "sha256": "e5fd71b5a8e6d7d8eb7f019ceb6ba463442a33178b4f8a40dbb77f9a0cd11827"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-11/part-000.parquet",
+      "bytes": 59179,
+      "sha256": "45ef645dbf1e6507603c683caf9a71903c44e66dcd365f5e9ac572e682877a54"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-12/part-000.parquet",
+      "bytes": 59847,
+      "sha256": "34690b46cecaac5a65be20bfb9ece2389196dc8259227417007c970235b9e1aa"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-13/part-000.parquet",
+      "bytes": 60491,
+      "sha256": "c179c346975da04a76ad329271057f24e4254d84f8fbd75a36810a30fd7dcfdf"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-14/part-000.parquet",
+      "bytes": 58851,
+      "sha256": "a9c63795c526b2f49c8f49a472087698e163fb7c07f92872fa41e987b764516e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-17/part-000.parquet",
+      "bytes": 59401,
+      "sha256": "10a8d316f365d35ac8683f360ae099646a84f83eba1e43101178b2c24a414217"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-18/part-000.parquet",
+      "bytes": 59345,
+      "sha256": "26fdecead9a995a2c5498eb2ef0d12f0b8675712875a8758b5cab3f4dcd03283"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-19/part-000.parquet",
+      "bytes": 59834,
+      "sha256": "99c083604ca16187a9eb660519533b6b40316ca2f414298d63a3ec4e97e296fd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-20/part-000.parquet",
+      "bytes": 60368,
+      "sha256": "2258acc0b2b98c94ce4c3fbd26649732a47bed0893b6a2d863804e65c52a065b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-21/part-000.parquet",
+      "bytes": 60711,
+      "sha256": "79cebda6172666319f6f7b4ddc7b592f21c6524ca80a0051019bb21d5c739c72"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-24/part-000.parquet",
+      "bytes": 59985,
+      "sha256": "f2b610b0ac2caeeea9a2473a7aab64159276efba87ce66e176a2b429d38383b1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-25/part-000.parquet",
+      "bytes": 60155,
+      "sha256": "588f5934efe3ae4763a554d431eb10d835bc3a8189b5794717b96d6861d0e2fe"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-26/part-000.parquet",
+      "bytes": 59268,
+      "sha256": "aeb4169bb9d5c4965661ffee998362b568aec6e9ac55638ba0e35a69834bb01a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-27/part-000.parquet",
+      "bytes": 59571,
+      "sha256": "a6cce14360125dc45284857732d4c69cb4446c99fd97c262a10e2544091f8ff6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-06-28/part-000.parquet",
+      "bytes": 59371,
+      "sha256": "fbc70e07f614ae061dbc0cf05647d118bd1cec0f1a37065b12b38b821a81e04e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-01/part-000.parquet",
+      "bytes": 60070,
+      "sha256": "bcd0728f23b7587eae87754ca97c77fb4e1d4a5cedcf4b304aad2f602b648ac5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-02/part-000.parquet",
+      "bytes": 59477,
+      "sha256": "248be17e1746b0381eccb76eff5692ace315969e7e972d11f5fc24543a712d5d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-03/part-000.parquet",
+      "bytes": 59508,
+      "sha256": "ed7b9b978489ab1898148977e98d19124b54513376cae2ee08c689e984f8c0d8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-04/part-000.parquet",
+      "bytes": 59079,
+      "sha256": "0195ca4b57dc7a87f261be49b36402f8e559642e2027b02e374f12a858dff42e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-05/part-000.parquet",
+      "bytes": 59803,
+      "sha256": "d36413dd6dfd1be550a551a64a60caf19a42d391743deb03472a53f222aa7353"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-08/part-000.parquet",
+      "bytes": 59487,
+      "sha256": "48395fcda8bf6848d058b78d455a003f973bd6d8a08fd714eb13d21e4873937c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-09/part-000.parquet",
+      "bytes": 59338,
+      "sha256": "e4c4c90bb771431013f622f6fedbf19da1dd423de9f10cd9f71fc1f599c74b24"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-10/part-000.parquet",
+      "bytes": 59935,
+      "sha256": "0d5b8f5c2c832e302df33b95ed517725fb7a86363521a74758433e65baeca81a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-11/part-000.parquet",
+      "bytes": 60152,
+      "sha256": "685cbff19a995ea76b68a4de1ae0f2648e27158229d448b4732980da142ca6d3"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-12/part-000.parquet",
+      "bytes": 59923,
+      "sha256": "0c997491f5d4b78632ee6f6e23e4bd0f2273f8c39bc5017a3e04c932a83e8925"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-15/part-000.parquet",
+      "bytes": 60117,
+      "sha256": "8957e1d545c789bf4eb7b75d88b5c88ccf62ba02c5208fb884d8068e19a731f7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-16/part-000.parquet",
+      "bytes": 59291,
+      "sha256": "d56adb55d7934d11603b6167e4ba46b6adc413cdfb105478b9837c8302feadee"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-17/part-000.parquet",
+      "bytes": 58982,
+      "sha256": "569a0fb6d8a04764a9b92517ace270093238d84534212803eda03fb25f16ea9e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-18/part-000.parquet",
+      "bytes": 60684,
+      "sha256": "767a47d6d176b907ea5639325c6e7dbe9e5bb0a7921d9daa7d32bb569fb5be95"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-19/part-000.parquet",
+      "bytes": 58822,
+      "sha256": "377187488a047c522a2ae804e558c5b70af545074694262f217e8808b06c4ae0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-22/part-000.parquet",
+      "bytes": 59519,
+      "sha256": "420739cb891a63fb9abbc90471536d39a2d3698d0a2c6741c6bfa0f2cabb7fec"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-23/part-000.parquet",
+      "bytes": 59284,
+      "sha256": "051ab9c1786ebf8aa227f710dea1b797ac644a80302892215dc4b8b194513aba"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-24/part-000.parquet",
+      "bytes": 58661,
+      "sha256": "676747fa92d7d904209ae0cb4f1871f57f7b2e97dc3256d9212a312f24881864"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-25/part-000.parquet",
+      "bytes": 58643,
+      "sha256": "ed624a1c7682dab0b60edf0a6a51ad80e92bb315ca84ab035ee3df8c000abd2f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-26/part-000.parquet",
+      "bytes": 59034,
+      "sha256": "059701b29e60e594036903da2d2ff4c440ae7f75e17ce2203996f98930b0dbc8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-29/part-000.parquet",
+      "bytes": 59102,
+      "sha256": "40c7b10a568dbaf9fcc6c3f699ede9525594a6b651f5471b43a861d967678df3"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-30/part-000.parquet",
+      "bytes": 60352,
+      "sha256": "9a8073841bad8c2cf8d1a5c99bfbf07ed4f6d19278ab5cc37866fe8d081f0a28"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-07-31/part-000.parquet",
+      "bytes": 60124,
+      "sha256": "807445a4c87026bd8bb0992b290f0a4b07b92679d25ea98587535c90038252fa"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-01/part-000.parquet",
+      "bytes": 59949,
+      "sha256": "2e1a5a7befacf4e147ab68bb30ed9fdcfe6c0ac61ed269190a8fbcd0084e4a95"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-02/part-000.parquet",
+      "bytes": 59194,
+      "sha256": "ae7237689ddae144b6aa960730056bc7f282334ae395b4c95baf8130a5f9295b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-05/part-000.parquet",
+      "bytes": 59699,
+      "sha256": "d720043bdf13d6937ec7d475d1f9cf36bc29f52fd08715d3b8457962360d71fd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-06/part-000.parquet",
+      "bytes": 60327,
+      "sha256": "5ea11abe659b077504229e57f17af81acb4fa012f2c6d700f52a4e6d37f68e39"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-07/part-000.parquet",
+      "bytes": 59455,
+      "sha256": "5c95ec380d599417704f5639a9ce286d4d9552cebd76b9b1a77fd1832dea9713"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-08/part-000.parquet",
+      "bytes": 59103,
+      "sha256": "e89231ee06b28baf34010697353dd59754f3f55247818347d5855efd3ab84987"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-09/part-000.parquet",
+      "bytes": 60093,
+      "sha256": "435a869b5a4f9543b87a331b2b0963f5146200074dd0a357ce389a46822f0c28"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-12/part-000.parquet",
+      "bytes": 59752,
+      "sha256": "be734e904d27f2914c27bf372e12f8043bc2a4adb9cfcc99d3e8bc1fc4a3abff"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-13/part-000.parquet",
+      "bytes": 59438,
+      "sha256": "f1830b763f5dd9367d3a9f2e242980c69e6090e69a615fec5936e47f3e9831b7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-14/part-000.parquet",
+      "bytes": 58832,
+      "sha256": "c4cfb88919365b90ce6cfb99f844bb7ec9c2266400417f110e00ec448afc1c65"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-15/part-000.parquet",
+      "bytes": 60858,
+      "sha256": "b10353bccdd78afab94fba77398050c0f77fd45a68a5393d5ba5d8b842f0c54d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-16/part-000.parquet",
+      "bytes": 59667,
+      "sha256": "1449265baab8dcfbfabfb0d68783a1ab47a063076eba6db7396ec45eec3b8c6c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-19/part-000.parquet",
+      "bytes": 59790,
+      "sha256": "42ae212cfa52d73b2fa2c389b34f1ec33f6f056e0bed90c04611db217b5e9142"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-20/part-000.parquet",
+      "bytes": 58680,
+      "sha256": "1c44afd510315fe931e0dc334d356216b04c79ffd63e42018eae643994929b4e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-21/part-000.parquet",
+      "bytes": 59091,
+      "sha256": "86a28b63339c7af75fdf672eaa802f2987747e1892819ec4a8090a29f522bc26"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-22/part-000.parquet",
+      "bytes": 60278,
+      "sha256": "f517840e2ae86e47cc0c51eb443aa4fc19f51f3fcc5f5b4aa11a14f1a963cb69"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-23/part-000.parquet",
+      "bytes": 59550,
+      "sha256": "c0059dcc851267e783395ddaf43ff8d5d9d24de59e720f4a401baebc1a2e5486"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-26/part-000.parquet",
+      "bytes": 59328,
+      "sha256": "19841c37aa947cf812a2643749b962e494f51f6132c3d668982c89af1830f112"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-27/part-000.parquet",
+      "bytes": 59771,
+      "sha256": "7306c9b41eea87317a9dba36f7d7ad040c2b43d996336013ef0feee645f068a0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-28/part-000.parquet",
+      "bytes": 58916,
+      "sha256": "09dd46bb6ea6f698983af8f00a3c156954e46ec5671658285989c85fb8f5cfca"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-29/part-000.parquet",
+      "bytes": 59813,
+      "sha256": "19b41cde0722330d52814be1f981fc8909e773b27f6d79212d5b6baa634246d5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-08-30/part-000.parquet",
+      "bytes": 59209,
+      "sha256": "fc4906bd691dc6de38c15b93146837297daf2fc84062a15431bfd7530cf9add1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-02/part-000.parquet",
+      "bytes": 60749,
+      "sha256": "9fc53c271c8b66441ef1e80b348ce839728bac114ff0a28065350535c20e12cd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-03/part-000.parquet",
+      "bytes": 58635,
+      "sha256": "b2a56bf307191d03af55f44733dc1daf8f748f7dc2c0c974c223552413cfc2b9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-04/part-000.parquet",
+      "bytes": 59423,
+      "sha256": "f53b3a0985b9faead377de4e7a9b1bdb87edd4a3bcebe50e56c76cb4b4605bb1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-05/part-000.parquet",
+      "bytes": 59921,
+      "sha256": "693ab1ff9183d425defda2dfe31fdfa1df082e01bb0a6a9f0d3c56086f9f615d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-06/part-000.parquet",
+      "bytes": 59513,
+      "sha256": "5432e952066dfb91335835c58bf2dc8643428dbb228ee2dcbffcd1b2a2e61fd7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-09/part-000.parquet",
+      "bytes": 58904,
+      "sha256": "5baedbb981432017a0d6d42e6aad4dccefce4304e0d794f79c881becff2578b5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-10/part-000.parquet",
+      "bytes": 58209,
+      "sha256": "447b0ea330f15de9886c25a7a597b697be8beabea7667d11ff2480a053652624"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-11/part-000.parquet",
+      "bytes": 58573,
+      "sha256": "b8710b5995842c6dd17aebd1fb7ad971b8a2534043f0ef5de2e8d3750cfbdbd1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-12/part-000.parquet",
+      "bytes": 60279,
+      "sha256": "4e9d9c0d5ba5e8f1fe3dee9a276b24f514f0240b51567c247c5813cacc4cc662"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-13/part-000.parquet",
+      "bytes": 59334,
+      "sha256": "bf1d51c10e25321f1f3a95c8849c44521bf0c41472457f96edf361ff215345a9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-18/part-000.parquet",
+      "bytes": 59978,
+      "sha256": "2a540306aae7417ce2b6014a081597378ecec6b84b807747abcc465fd7104779"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-19/part-000.parquet",
+      "bytes": 59823,
+      "sha256": "8fe7024d63fd7d0f909decf9cb6913493fd48a01ff01cd38281dcafb1c532d39"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-20/part-000.parquet",
+      "bytes": 59473,
+      "sha256": "c816c2ce564d569e4c93871d7b84a5f87139289ae12f48a91e2c2884434b43b9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-23/part-000.parquet",
+      "bytes": 59017,
+      "sha256": "f693dc184ab2679e065b68f618f33be58c5ec8d901f355683ab3480534835954"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-24/part-000.parquet",
+      "bytes": 60520,
+      "sha256": "1aca420e5a4126553907a272ec44f369c2c8cc680ee041bcf2cd9efbca4a9b3d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-25/part-000.parquet",
+      "bytes": 60646,
+      "sha256": "09550e3fed12a8a89977f20c44d9d4f505007d23e3f540843c83e56cf4094ca6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-26/part-000.parquet",
+      "bytes": 59430,
+      "sha256": "43bae17f08eb6e3305ba0f49d0d0a8a7c0c7be4b12a82bf19aac8022ce3b1305"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-27/part-000.parquet",
+      "bytes": 60163,
+      "sha256": "0107588de527cf01825a12fb171f5e9acd81cdaa191c85132b8863d7b8cb3e0b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-09-30/part-000.parquet",
+      "bytes": 60428,
+      "sha256": "69194d5686f004d4cd64e40f7cb80d4ddd7d79e8e9d607965e8e18de52129432"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-08/part-000.parquet",
+      "bytes": 61221,
+      "sha256": "708988f423474e5e4f434c0f3e14c38a6978dfc100dbd0cc683bf23c10e6175c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-09/part-000.parquet",
+      "bytes": 60544,
+      "sha256": "6de039e35aaeda0d4332f49020891b59bf184f9841a02b8b7d7611635a750594"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-10/part-000.parquet",
+      "bytes": 60097,
+      "sha256": "dace3ed156290c24b2eaa1ad395b618e2dffbccf61b00115383374daf7bd17bd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-11/part-000.parquet",
+      "bytes": 60060,
+      "sha256": "88f6a826042a0a0a68036026eccf39fa6261aea9dbda10415d1743fc2ae71647"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-14/part-000.parquet",
+      "bytes": 60343,
+      "sha256": "653a74a1ef724016b5f12c72096ff3ac9c4f9b58ef0b28ec625959075f4036d0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-15/part-000.parquet",
+      "bytes": 60950,
+      "sha256": "bb3e2133b8217a46afb5b4f98a369e1a5f934e9660fdd13cc1e9af1198e925d1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-16/part-000.parquet",
+      "bytes": 58949,
+      "sha256": "b9bd16f30d1c36aeff62ec64e0273d1db6e217b4ad149c2fbcdf1998f095cbb4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-17/part-000.parquet",
+      "bytes": 59200,
+      "sha256": "c87df75a1be880b9b6b204505458bb6ec3ed0e90be31129b2c7e81d3ea519276"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-18/part-000.parquet",
+      "bytes": 59758,
+      "sha256": "ae48cca00255fb316c1227bcf58533f4f441a1832c7d1dd3745dc402e3a8f380"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-21/part-000.parquet",
+      "bytes": 59797,
+      "sha256": "386f1c07c2c2491e20ce22f8fda9650a821969aaf7a9ee544ee8ea85279fbb47"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-22/part-000.parquet",
+      "bytes": 59163,
+      "sha256": "25fd1e711915281f9913545421ebd128b56064f4322d9cd45de0091a1757705c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-23/part-000.parquet",
+      "bytes": 60008,
+      "sha256": "3daa40d0edc367ea6d8e96621e6872bb4e84f433245269822677691a75d8065f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-24/part-000.parquet",
+      "bytes": 59772,
+      "sha256": "b71dfa311ef40302e34483db7a7c68fe86a4272499d1e4b487ea618426ada68f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-25/part-000.parquet",
+      "bytes": 61785,
+      "sha256": "18523cf23dcda3a937ba35d1902d34e2db83d2069336f63ac4f2fee3fb95b2bc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-28/part-000.parquet",
+      "bytes": 59924,
+      "sha256": "7a2366049734e6ef922d6943ffec301ce84fcac3e6fe101de18e6b842019c536"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-29/part-000.parquet",
+      "bytes": 59465,
+      "sha256": "75834e244b1af1503456920492d4f8f6b282943b972cce22cd6e00ada64deb69"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-30/part-000.parquet",
+      "bytes": 59243,
+      "sha256": "792f833630c49b56d8b1d2871f7e4648c6a7be3e575734f308561e96e0b54350"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-10-31/part-000.parquet",
+      "bytes": 60016,
+      "sha256": "7d6126c74119db2318485e45b84b162148a23f45285c5eb67098c5cc4af41733"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-01/part-000.parquet",
+      "bytes": 60714,
+      "sha256": "7a177f24f15dbe325aee8d44cbba2cfc027e353c2317c16abfdacca74537e8f3"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-04/part-000.parquet",
+      "bytes": 59549,
+      "sha256": "48cc843ecf767deee1eb0884150ec8876b1e1d27844c17e9c3305f8b13022a3b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-05/part-000.parquet",
+      "bytes": 61737,
+      "sha256": "0d9becb1a05dbe2571a1844ae2285a8688239b97c76b627b587d7d481ebd0932"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-06/part-000.parquet",
+      "bytes": 60621,
+      "sha256": "135d9655dab0c46efd8deb42dc252590ef8485fe2d9850a74f385035c6d49308"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-07/part-000.parquet",
+      "bytes": 59805,
+      "sha256": "a01857b526eca5d885b11ac649dce964f9f6e435839b435da36ca37cfa4765b1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-08/part-000.parquet",
+      "bytes": 60044,
+      "sha256": "85a4f792f46775a7ba43299634b8e290dd2e6fcc0eadff5904202e20a5e9de3d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-11/part-000.parquet",
+      "bytes": 60417,
+      "sha256": "a192583f00e89ce27a8fdd92999111af6eb39deafa16f52b8b82f35c806e5748"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-12/part-000.parquet",
+      "bytes": 60147,
+      "sha256": "68daa97fb9d21afe78a0284f2fcc6db5b907e761b543e6802e18e741bb3c583e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-13/part-000.parquet",
+      "bytes": 59732,
+      "sha256": "232b066eb5c9187d47ca7d362515fd82d008bf2e35d0d3bda6d77896820016fa"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-14/part-000.parquet",
+      "bytes": 59070,
+      "sha256": "ddbb68f204660b931273c8be7ff6672b187a3968a900f1bcf3afea4fe7d09011"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-15/part-000.parquet",
+      "bytes": 59955,
+      "sha256": "fbd7e7d4e48565d3ea648bfaec35fb98b261477cfb6e51a04afda52dafb06296"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-18/part-000.parquet",
+      "bytes": 61303,
+      "sha256": "1522b5108130a7f4f5196842473ee28bbe57c2580d04d5b14163e6d779fb7ede"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-19/part-000.parquet",
+      "bytes": 60420,
+      "sha256": "ef4a4c0e6b3b61e5af2180a7d237209df6759620074a286ac21b4d7cb5dbf57e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-20/part-000.parquet",
+      "bytes": 59469,
+      "sha256": "d6dd6314cd0fd736784a158bb5e97be813833c1bc52d86715d9f9591d5c45bed"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-21/part-000.parquet",
+      "bytes": 60057,
+      "sha256": "8820f2b63cc9f3b638610b974520601b1a307f165c886c781938da4fc686abc2"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-22/part-000.parquet",
+      "bytes": 59783,
+      "sha256": "25a5f496cef10615cb1ebda43db98ae04f404a94392ffa4947e4834b4829d54d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-25/part-000.parquet",
+      "bytes": 59298,
+      "sha256": "2d7bc36879e80e68c4ff53283774ccd296f4699f51f73f1cb1200ca8d9f82dc1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-26/part-000.parquet",
+      "bytes": 59384,
+      "sha256": "cbeea6f00e144ac1c1f5796aa5f773daf2ad8548bcf08836a57e8a1360ea01b6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-27/part-000.parquet",
+      "bytes": 59715,
+      "sha256": "e0f05d549b989d68fb5beeb6576c108b939af559da147c9cf4d5363ddaae23f5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-28/part-000.parquet",
+      "bytes": 60419,
+      "sha256": "df95b2026e397c86078957eb2c9ce1a30a8aedc529dfb7fe1058957de90df889"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-11-29/part-000.parquet",
+      "bytes": 60173,
+      "sha256": "c9104683922b31d07ee4b639353aa73483cd25d1af9528ba1c97a7283dd0a75b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-02/part-000.parquet",
+      "bytes": 61159,
+      "sha256": "d99c9eab8f3f4b025f938b767f971dfb936bbf1961a24b76819fcafdd0448396"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-03/part-000.parquet",
+      "bytes": 60348,
+      "sha256": "bbb737809105d9a67cd13c7e77c0cad072550a8b350db6d6a9fc18cc355e03ec"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-04/part-000.parquet",
+      "bytes": 60269,
+      "sha256": "1864e43ad69ccd5d9c866f2ab64413601e35f1e00635c24d8278b667e6e0b28e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-05/part-000.parquet",
+      "bytes": 59982,
+      "sha256": "d779df0c10586dbf73b91f5f720b44895597d09106440b8b29caeb7b014880bf"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-06/part-000.parquet",
+      "bytes": 60288,
+      "sha256": "7342e45a20a1c5d393f5ba23c25710ab5a9484cf2dc1011fd86a792f6cab798a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-09/part-000.parquet",
+      "bytes": 59508,
+      "sha256": "b0289b5c21388f36e506db8724a39d1c1aafe83013c376fc61ffebab521031c9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-10/part-000.parquet",
+      "bytes": 61080,
+      "sha256": "81841045414de80298805ff9bc98afecd2504ea8341ca161eaf956df3927e45e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-11/part-000.parquet",
+      "bytes": 60009,
+      "sha256": "9c3bbafebb6f83684866924966124f87984061cbeab8e7a71af6afa496a0f945"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-12/part-000.parquet",
+      "bytes": 59834,
+      "sha256": "bbcf327f2c22b8dd8202fbd0fb192af27180482406166b74fca023581a126d43"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-13/part-000.parquet",
+      "bytes": 61009,
+      "sha256": "ae453e9d1a6c14eae5d9ac07f9209369f54ee28ac6a9840dd0a4a1e80520072d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-16/part-000.parquet",
+      "bytes": 59231,
+      "sha256": "d31699b1490fd4ebb4eb37271d526558b9816443e538fd3240a3810bacfacf7f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-17/part-000.parquet",
+      "bytes": 59706,
+      "sha256": "ce0bc319d00411c1825b57783b478b3949e05b35f491cab84c1e8a02c84686b1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-18/part-000.parquet",
+      "bytes": 60740,
+      "sha256": "4bb2889bcea633a0b8406193a16b2ba8486c459e649f7cf8833b6523789ea51c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-19/part-000.parquet",
+      "bytes": 59493,
+      "sha256": "639f0b2d9d90084721b98f7417d38fd6f7a64833b6f440ec4194b3956c6b1c87"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-20/part-000.parquet",
+      "bytes": 60014,
+      "sha256": "eb6f62f929da67b8a94d4368933e7de904ff6b2bda7b225b3ab884e55590bc71"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-23/part-000.parquet",
+      "bytes": 60823,
+      "sha256": "88ab17613ce1725dbbbe8102eab422cc28a56286efb5cec8b6271f794e338f96"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-24/part-000.parquet",
+      "bytes": 59117,
+      "sha256": "93381cffff51b98b9b9f4ae039273ae4378b7d8b46b3eca0964cbc227535b3eb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-25/part-000.parquet",
+      "bytes": 60244,
+      "sha256": "5d1dac385bedfbf5ba714d284ef9922c75f3f354544f1fda19e403325f6c93d0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-26/part-000.parquet",
+      "bytes": 59749,
+      "sha256": "120ef63391c2d02a55d90e9ea6a690c5836ba0f32d75f53435a167ed24a54ffc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-27/part-000.parquet",
+      "bytes": 59974,
+      "sha256": "ee30ecc50eb1533b50b2029d0c976b4fe1df1ce6d06aa07d53bec63f755f888d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-30/part-000.parquet",
+      "bytes": 60156,
+      "sha256": "f265ba0d49b2ba4fa93a4ec897c4775bc0a75f82fa90ebd5e0689b3e3a460125"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2024-12-31/part-000.parquet",
+      "bytes": 60575,
+      "sha256": "9717c20a3b6d8d87d8ca308a5b77a9eb056b96bed8057422aed349ed01ed6bf0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-02/part-000.parquet",
+      "bytes": 60213,
+      "sha256": "5038d02f5594d0f297f143051a65060418e809df4bd6b76cfa93335e762d6fb2"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-03/part-000.parquet",
+      "bytes": 60219,
+      "sha256": "4fb1c5c9f824778dd0d8ff128ff61d0f4348768b97813369a2f1601a2825e746"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-06/part-000.parquet",
+      "bytes": 59990,
+      "sha256": "ce0e10259920000221822a9831452104530f15796bae4701942b30862e776ccf"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-07/part-000.parquet",
+      "bytes": 59612,
+      "sha256": "74ede3b6795690a757c513420881a60b89848213a84e4f3c2d329c498403963f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-08/part-000.parquet",
+      "bytes": 59578,
+      "sha256": "3aed05eaa97281c02c510d03964b54d82a88a12507b9104e24ac1bd454459ff9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-09/part-000.parquet",
+      "bytes": 60365,
+      "sha256": "2b684d10f994248b142fca49a9cefbac053adc237d5f17ec3cbc4a37958828b8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-10/part-000.parquet",
+      "bytes": 60905,
+      "sha256": "7062e5c7dc504ba7634613bbb2428a0ba18ac8de771a220b5b52c12b97111552"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-13/part-000.parquet",
+      "bytes": 60137,
+      "sha256": "8466f79ad6e4e04d2b6655a1940d8e78b1ecc5a00f999f8a5777c1a5ad53215d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-14/part-000.parquet",
+      "bytes": 61566,
+      "sha256": "3c5c71a0532f9603b61f0919358d8751ed2769a53207c5558ee13586c5922cf4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-15/part-000.parquet",
+      "bytes": 59661,
+      "sha256": "14abfeb928904ac1aa534bcda06a732351d1b65109263b985ff20088ca4c5fe0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-16/part-000.parquet",
+      "bytes": 59330,
+      "sha256": "c9c60e0bfb78f15da052764e4440949a93a01f9197fbc9f2940e92c63140b891"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-17/part-000.parquet",
+      "bytes": 46781,
+      "sha256": "84fdc40d7183acb1ae92d924e1afd24e8d360cb4426ca610ce587664d42a73ae"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-20/part-000.parquet",
+      "bytes": 46900,
+      "sha256": "84604717911b1b9e8551c8380666a99446f8d62205af847500f099c02649f106"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-21/part-000.parquet",
+      "bytes": 46928,
+      "sha256": "b158b5efa7bd6d82ddb0942fa045a8bf07d9952baa669fb7c05fe8aaf8d95257"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-22/part-000.parquet",
+      "bytes": 46821,
+      "sha256": "7508f8365135036342bb0cb16c6153ad289fe4c63669cc213cbf1c72e1c4ae68"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-23/part-000.parquet",
+      "bytes": 47057,
+      "sha256": "d935ab8976fdbf7fb572ff6ef71c9715ea9469519ed5bb800709b5cc8d22c8a8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-24/part-000.parquet",
+      "bytes": 46905,
+      "sha256": "8c2413eb205784083dffbedeaf82367f7323e33717645452cfca0c6076f5a299"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-01-27/part-000.parquet",
+      "bytes": 47060,
+      "sha256": "92da61579b970fb4b2c3267ad47b253bed8b2643bf9184311be5508a8875f260"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-05/part-000.parquet",
+      "bytes": 47043,
+      "sha256": "aeae0fa51b7ca41706fa10cc8f3d3c73dfb1b1c27aabd93fce6a2a06836ed154"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-06/part-000.parquet",
+      "bytes": 46962,
+      "sha256": "0819843efd3e995d34a2e3becacaf7d2e6d4341774581d08b137769f60115925"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-07/part-000.parquet",
+      "bytes": 46963,
+      "sha256": "6f826fc0da1c193f86db080d1464539d488eea477a8ba3820aa94a7bcef4cc94"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-10/part-000.parquet",
+      "bytes": 47173,
+      "sha256": "b923fa8d04d7de2526d27b0699fc55f579eca0fe802a1767b75b9d3f0ff09cf8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-11/part-000.parquet",
+      "bytes": 46856,
+      "sha256": "a9329e9a4198f5648555b8bd93ef1dd77f22b05acc8e2fbd0c111ca584f70fa8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-12/part-000.parquet",
+      "bytes": 46851,
+      "sha256": "940e294c71e13dfe68abd42199ab354195e19cd9258d424d334d568b1ad69f84"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-13/part-000.parquet",
+      "bytes": 47117,
+      "sha256": "1c6c0d2e301f1bc4a55a4ab4f3be442fc8e4d0f831a2f90ff090af737db5ff5d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-14/part-000.parquet",
+      "bytes": 47022,
+      "sha256": "dc24e734000489f4b38bc6ced1834ccbde5c31ed00ad230efc9e5207f757391c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-17/part-000.parquet",
+      "bytes": 47028,
+      "sha256": "4c5ff00dc773091b352ea5cfbccfb6103d7465c7e6a7cef16e83ae8eadc70325"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-18/part-000.parquet",
+      "bytes": 47004,
+      "sha256": "d322baec26ec92d4a75883e44bc32a0651e8dc54cc43b0b5f842e34c47df5eb6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-19/part-000.parquet",
+      "bytes": 47049,
+      "sha256": "b95509dfac6799ddaeb89a9348014d2ec77c443874245527347e05b2ed63e876"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-20/part-000.parquet",
+      "bytes": 47028,
+      "sha256": "daa3f441d4f528d7030c3f57f2797670780e9d60b50c5be3edc2b07f74984f06"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-21/part-000.parquet",
+      "bytes": 47161,
+      "sha256": "114cf81192ee2eded53456c5768d0f993d001e58ab6d6bf2648ed9b3f0de225c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-24/part-000.parquet",
+      "bytes": 46918,
+      "sha256": "4b16b3f71d37cf47829f8b250764ccfb105320488c8e7f5f4cb585e5b2023949"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-25/part-000.parquet",
+      "bytes": 46922,
+      "sha256": "c5f3dacbd0f18b54fb853fccf8f099ccbfbb57ae9b5a61ba081cbe5a65fa01ea"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-26/part-000.parquet",
+      "bytes": 46749,
+      "sha256": "436fac9f0687868be44fbc2d06e9a1b61a698ed22ce76124be93c9e1b4ff5eee"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-27/part-000.parquet",
+      "bytes": 47228,
+      "sha256": "418466124c0dde51841ce404d66ac8fe3a119a0bed10fe138551c337765e8d00"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-02-28/part-000.parquet",
+      "bytes": 47363,
+      "sha256": "f1bc255b557e1139d529258ac73bfe12f12331e3f5b71f3e09b63477a02cb99a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-03/part-000.parquet",
+      "bytes": 47218,
+      "sha256": "08aaf2328a8112402230a0522f2849779ad2dca1e0b13c26f343749ff9ce76ab"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-04/part-000.parquet",
+      "bytes": 47135,
+      "sha256": "29f662a4587e6668d14c42e6518d5af3b95eeb24d737c4521a9f8996f07dbc67"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-05/part-000.parquet",
+      "bytes": 46964,
+      "sha256": "b205d227dab6ac4063d19cd3044efbb242de5627317fa5bda8fb584b73d16645"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-06/part-000.parquet",
+      "bytes": 47087,
+      "sha256": "f427bd8ddade39cce4be6086ca160b59d6aef1b43aa1c1be16a316cffa7465c7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-07/part-000.parquet",
+      "bytes": 46974,
+      "sha256": "02ca5929257d73a40dfd5c87c31c9a8c5d4547030a4c05d4d807ebe08778bee4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-10/part-000.parquet",
+      "bytes": 47123,
+      "sha256": "8461c2fb7fa0a9f6c137e218ed7ecae09c925a6807e66da1869693439b546f69"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-11/part-000.parquet",
+      "bytes": 47047,
+      "sha256": "e1ef49b4b4faf5da270be789383bbd4e559fc39b90891ed194491dcb81bc6d8e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-12/part-000.parquet",
+      "bytes": 46938,
+      "sha256": "4935ffe536c8668a6f048512ff0356a3c7126a84fe879a3d670c2a05ecae93a6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-13/part-000.parquet",
+      "bytes": 47029,
+      "sha256": "2e94899b47b1141e3a0ad14e23f7f72398cd224be9cb13336b1c28eec0993025"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-14/part-000.parquet",
+      "bytes": 46954,
+      "sha256": "675b5c0d6e99e4bce4c3fabdef73140f56852840af2f1a47deb8d21cd4ca991c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-17/part-000.parquet",
+      "bytes": 46967,
+      "sha256": "0905a573cbdeda7ca5abb61602e58ec7823552ed0d8b5e1c0ab5817932b75a33"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-18/part-000.parquet",
+      "bytes": 46910,
+      "sha256": "a99dc4ad4efa7b9f7626a3ad581a3c2ad3d90adb6d6c872c6e2c87e133ea5819"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-19/part-000.parquet",
+      "bytes": 47056,
+      "sha256": "cf94a6ba906be3694788472865042305eccfcda06b9e9a1184a9674ef5fc2033"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-20/part-000.parquet",
+      "bytes": 46989,
+      "sha256": "cd8ee8c93a9a253ef535d3a0d031a6bdb00158d40bf229710d990bd91ab83972"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-21/part-000.parquet",
+      "bytes": 47115,
+      "sha256": "d592cdef5c77995ed36c31200aa6eabcb7ae64d2d6942d2469401f93b729c0e0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-24/part-000.parquet",
+      "bytes": 46977,
+      "sha256": "2d5425953cda5f4ebf45fb02269f2a314322aa06049f3e2d6a357e5c74b387a6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-25/part-000.parquet",
+      "bytes": 47103,
+      "sha256": "00b79945d2ddabc8228ec73ced7aadea2aeb3de6ac5dc6996de7cae21ef98874"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-26/part-000.parquet",
+      "bytes": 46988,
+      "sha256": "c831ec91862face5db189f08c2c8b591e7bd34dd03f8dec03c6748b2f414a3cd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-27/part-000.parquet",
+      "bytes": 47086,
+      "sha256": "35e8ffb87a2aa7971f72524ca5048243c3651478d877d23343e5ab9bf64e6cf8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-28/part-000.parquet",
+      "bytes": 46699,
+      "sha256": "b208e4adc92f2a040db1eca6042c8414040480b3beb57758b59297298b154438"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-03-31/part-000.parquet",
+      "bytes": 46769,
+      "sha256": "790b6ee9febfe16f2a18581531d5a592dfe85987a41a06b2f831ba9f0c8a7d9b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-01/part-000.parquet",
+      "bytes": 47138,
+      "sha256": "6adc821e181ad5c231752bdb396e189b925995c5a516c905f2d81b6ac3383b61"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-02/part-000.parquet",
+      "bytes": 46873,
+      "sha256": "2ac64fe2d36b5242006047798c1b19cbb39cb919d8decbf148037b2b541ee241"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-03/part-000.parquet",
+      "bytes": 47121,
+      "sha256": "f1628bcede45c56a4e186fd9c8502148a0035a5d00ba2c6142ae70a9856512b8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-07/part-000.parquet",
+      "bytes": 47560,
+      "sha256": "570431170a69e2214ae69f6627fdcf750f6a1d673b60f04e987a7772c42815dd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-08/part-000.parquet",
+      "bytes": 47390,
+      "sha256": "77dd6ca8656da12e2ca7cee39cadf3141a8548dc522db16d0c2eac6da3b60491"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-09/part-000.parquet",
+      "bytes": 47418,
+      "sha256": "d9022f66cc12863f70fe213863d01df366762bef2c21b39069f9ef086ab6359a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-10/part-000.parquet",
+      "bytes": 47216,
+      "sha256": "bacdf1bec92f782021be55bcc634eda24463fb836f8b4be661f5a2f7ac336b99"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-11/part-000.parquet",
+      "bytes": 47154,
+      "sha256": "e20e1d9717550a8c99e5b88e1119b181b788ad5e385da25f030d5fee0f561271"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-14/part-000.parquet",
+      "bytes": 46841,
+      "sha256": "b563145a6a03d4addb869b20ab04ebe0f7fa04937b58167a902b75d32a5e3123"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-15/part-000.parquet",
+      "bytes": 46898,
+      "sha256": "afad318afe6d1d32fdc2ac555ecb9a68ef65014e71c7fba9743fecd900b107d7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-16/part-000.parquet",
+      "bytes": 47056,
+      "sha256": "03092768d08e5e6016593cf08b72c8525b1d64af55fdf46bf74ee5aacdd7af40"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-17/part-000.parquet",
+      "bytes": 46922,
+      "sha256": "0e6c1551413a3c1001150da594ffabe735a84c15167b0b0b641c50ae4649273a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-18/part-000.parquet",
+      "bytes": 46994,
+      "sha256": "ff865b6dca169896d9a78afa64707f11abe3942ba0cc4093bc5b012096a54227"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-21/part-000.parquet",
+      "bytes": 47149,
+      "sha256": "bf3b4b0a6bd95c2bfad806e3f09ef1113ad456c995acbe27215d7d86bdb404ba"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-22/part-000.parquet",
+      "bytes": 47022,
+      "sha256": "a4bc6a4d928ec5d7be4a0a299b82321fa70aaea420d960e108b5e558f4b17b8b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-23/part-000.parquet",
+      "bytes": 47120,
+      "sha256": "b130a38b1d76cee44aeaad6d03c96463c3f5c533990cb7db04d27deb51659853"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-24/part-000.parquet",
+      "bytes": 46991,
+      "sha256": "89c4e50c0ef6f49c65476ce713a1cbe6281c9403a9835366bd79474272f14675"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-25/part-000.parquet",
+      "bytes": 46874,
+      "sha256": "82ee9dc0e32bc3c471e55b17253d804cc9aeb58328ac294f7c0948d5c3549270"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-28/part-000.parquet",
+      "bytes": 46821,
+      "sha256": "2a50417af4058a9a5fddaa38206ae30f5b6bbd17e68e3e155e492d388aabe57f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-29/part-000.parquet",
+      "bytes": 46943,
+      "sha256": "a74eed1acd96cbb8685827bd18bf4bd91910e198fefc3b26c1f1a61ff76a52bd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-04-30/part-000.parquet",
+      "bytes": 47031,
+      "sha256": "5406f6fc261b68a243eb761988fe377c0dcbbfe5317618960ddac73a982806f4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-06/part-000.parquet",
+      "bytes": 47179,
+      "sha256": "3c02acddac3174c8ffda12b5a0b9a95c6d2f1dcd3a2042620605b4a749b1f72c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-07/part-000.parquet",
+      "bytes": 46977,
+      "sha256": "7fc58179af0167e06f3043d86e5575f10b582eed10f4608a3caa4c374a5211a2"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-08/part-000.parquet",
+      "bytes": 46924,
+      "sha256": "c5478d164148e762eb83e05692fa2ca341b83234f91314ce7a0c84cd97e816fe"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-09/part-000.parquet",
+      "bytes": 47004,
+      "sha256": "a41ad8dcd12064ea8d220555ae5970cc3108ce6819419e84fc04e947646c781b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-12/part-000.parquet",
+      "bytes": 47032,
+      "sha256": "b71b64a6922935dc28eb86a045b74e8945607ca3936446a0835f07a98053f99c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-13/part-000.parquet",
+      "bytes": 47092,
+      "sha256": "4ece7ff08ff499dd4c56c8b1881ab912ef7dd1a3906f0c463e18a538ec482385"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-14/part-000.parquet",
+      "bytes": 47067,
+      "sha256": "1842d869dddce3b484f293ffab053bb4d9c0c8b9338f6f14c6c62c985b2879cd"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-15/part-000.parquet",
+      "bytes": 47040,
+      "sha256": "bfd6ec5638c83d46cc0af23be8e17e35da8741584d3b223b73f4afdcc785f5b0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-16/part-000.parquet",
+      "bytes": 46896,
+      "sha256": "5ffa7da57014ead6c3d64735e637a5b986a43b9296f7b48cb3558fd15a2d9e95"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-19/part-000.parquet",
+      "bytes": 46820,
+      "sha256": "a377618e69bd5015b95dad09e6275afb4bfad39630a4d7f88f4ee1568a5313f9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-20/part-000.parquet",
+      "bytes": 46772,
+      "sha256": "21f7569fc9c1bbaa67e27bbb8bb425889c22b8a9f74cbc4eed89aa3e0d2bfec0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-21/part-000.parquet",
+      "bytes": 46967,
+      "sha256": "eb82d747a3548b67783ce4e77143bdf2f3e2c5871b701b5bc59becceb55a25af"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-22/part-000.parquet",
+      "bytes": 46796,
+      "sha256": "93ec4285c19f87178d19eac901cf73bd07d09db5b6e0c4ebc62a7f00e40bd0a2"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-23/part-000.parquet",
+      "bytes": 46777,
+      "sha256": "9f27609e8a044fb52d06a0acf1fc3a62286e0a43d55b0a4ac4eb12cdb69cb9f8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-26/part-000.parquet",
+      "bytes": 47050,
+      "sha256": "381bc9a5468dcde364523d144505dc1ab06c6fc6d2014eff64dfc6a597923e08"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-27/part-000.parquet",
+      "bytes": 47009,
+      "sha256": "b7116521a679fb2b8c9294864cb5ddbb01762001be7e3e4ff069540dfc369bf5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-28/part-000.parquet",
+      "bytes": 46908,
+      "sha256": "b8a162b152b92a7fdc2c61b499ec88aa938cfd7d76f295caf76d4492d9422aab"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-29/part-000.parquet",
+      "bytes": 47025,
+      "sha256": "704ac6149cd896ffd792c661e607d07f5248b0b506131341583da99dcdca2bb9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-05-30/part-000.parquet",
+      "bytes": 46932,
+      "sha256": "da79efb73c1a9996ea1e0a9bc63ed8e135c6481c1ce0ee5a07b95a4199b201cb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-03/part-000.parquet",
+      "bytes": 47129,
+      "sha256": "dd7fa9ff63e4af27ffcb8ee6e25728ed869ed50a8bc635c5eb89970f27aa862d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-04/part-000.parquet",
+      "bytes": 46778,
+      "sha256": "7667c322ef304ac3603d48abbf97dd11fdf0a109076751ecb388f65edfadedfb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-05/part-000.parquet",
+      "bytes": 47125,
+      "sha256": "d1325a3adddd575c9bee5cc5333c6fe9f6e4d0c9358d9cac8ae7854ff8d6fcf5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-06/part-000.parquet",
+      "bytes": 46892,
+      "sha256": "4da120837549ef73cfca4384f45a35e52ef27f89e9ac04fcf0ba5187bf6e1541"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-09/part-000.parquet",
+      "bytes": 46788,
+      "sha256": "21fe1453d3df34a92a82dc333a874f882743f62371077531ee4138f9f1e610f5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-10/part-000.parquet",
+      "bytes": 46870,
+      "sha256": "933cc0b59afc29e7751f4aba8e67bfd7f689a2c6b38921bd7d6ac2018e3e6532"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-11/part-000.parquet",
+      "bytes": 46931,
+      "sha256": "bc424a731dace0831e8a7ae29e173908f5f360df54b02bc66bce7bd1b858f5e3"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-12/part-000.parquet",
+      "bytes": 47134,
+      "sha256": "1554ba1d2c1d17979ffbdd45f56c22d2c6daa8770dbe9e5ff4fe1e8afa582f49"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-13/part-000.parquet",
+      "bytes": 47135,
+      "sha256": "670733a0739c6d0a5a747df0bf621afd507f17ecb416a45352a7494d55ea357f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-16/part-000.parquet",
+      "bytes": 47167,
+      "sha256": "0a290c2175a4dc698663e5aba6d1eda6a3102a8b58f26ff472dc532d500f6a1f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-17/part-000.parquet",
+      "bytes": 47032,
+      "sha256": "585877317435c7c05e672b8e0e394b960d24f5dab30ca1b734d66964198e0cbc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-18/part-000.parquet",
+      "bytes": 46968,
+      "sha256": "1f7465a6f2cf0e04a92d6e1edd632911f67f82e6680392ba4e7b8a5cfba7f435"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-19/part-000.parquet",
+      "bytes": 46818,
+      "sha256": "e31a4580b0c7550a979c6b7e260d9a98d1e8fc0c90fe7c3c55b4433dd190eb11"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-20/part-000.parquet",
+      "bytes": 47034,
+      "sha256": "0033d48da66f7caf825f763eb942500a5c69ec6e0ce1498b3e2d62b86d95d9d1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-23/part-000.parquet",
+      "bytes": 46995,
+      "sha256": "8c000d4645b17e8839f808db7f4a408ad1df412072ff5062f04cf0c7797e73c5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-24/part-000.parquet",
+      "bytes": 47136,
+      "sha256": "8d3107fb7e8e95e8b9369a93f3742d3825a163ad44ce6bb2f14f1b3ccf26c57c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-25/part-000.parquet",
+      "bytes": 47301,
+      "sha256": "43b93186cefa326e166504f7a2c674bec41e47264ad727461c62d2118fcb303d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-26/part-000.parquet",
+      "bytes": 47017,
+      "sha256": "bd4dae8baa40984e390be99a572c635b5aa33c3a9b46d7af9d84a1b5574c5552"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-27/part-000.parquet",
+      "bytes": 47330,
+      "sha256": "7177abb62cf578aca0bb7fba77bd25663538b9409cb5ef9288a9c29bf6bb04f0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-06-30/part-000.parquet",
+      "bytes": 47282,
+      "sha256": "d365ed564614ff16e1c46c9e1f082722b0743eebbf1371539891b1096c872fde"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-01/part-000.parquet",
+      "bytes": 47171,
+      "sha256": "08131ae91e210853e573bd2320d364b851bf945f0ffc164f461c835167e15dd0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-02/part-000.parquet",
+      "bytes": 47142,
+      "sha256": "47a59e4aad9a3f66f697eb81ececb9b3802d13e8fd991f180a46f670d7cb2ba9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-03/part-000.parquet",
+      "bytes": 47211,
+      "sha256": "58da52aa71ab368d3f6dd850d603a05789371db46e832b92bcb53b37663b6834"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-04/part-000.parquet",
+      "bytes": 47219,
+      "sha256": "4446c956f26ff6784eeab89f8105a1c9484ca2d9693442bd3a12aae2c3e590bf"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-07/part-000.parquet",
+      "bytes": 47175,
+      "sha256": "422bf99a0e440bb4d4e5bf1fdbee1aa6b559f80474e361e29ee6541c84821fc8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-08/part-000.parquet",
+      "bytes": 47114,
+      "sha256": "17f56da52cc91cf1515f8792f95ddc09e881407f04f19c6ae51dcffd29bde7fb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-09/part-000.parquet",
+      "bytes": 47199,
+      "sha256": "b343b8d661f3f303b2e3b7c60ed53963e02538991dd153bf74dc6f66099ac0d5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-10/part-000.parquet",
+      "bytes": 47175,
+      "sha256": "d614c3f605921c2580e3872b44bc1f4fa1657bec156ef0d745933c3c989f3091"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-11/part-000.parquet",
+      "bytes": 47264,
+      "sha256": "e00f79e49d28f70df708b7edf1ba452dc2239b883c3f302d7a22bbf29ea6543d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-14/part-000.parquet",
+      "bytes": 47163,
+      "sha256": "25ccba525428d48bb37a539b4e8ba15fe125b40b488904041f96b9e26397f34a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-15/part-000.parquet",
+      "bytes": 47451,
+      "sha256": "56afa489073ceb74e4d05656949df4ecfe0e358de13553774682b64f7fac9aa0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-16/part-000.parquet",
+      "bytes": 47085,
+      "sha256": "1e72acb4b20c15643ca65d88b2cda2433732ffb0e60adbc01d44c8fe63af0a4e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-17/part-000.parquet",
+      "bytes": 47235,
+      "sha256": "050002dbbcbacf566d77d6f16c474d8e5eabde5797ec379ade4925b9bdeea3e8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-18/part-000.parquet",
+      "bytes": 47257,
+      "sha256": "fa8e1cd15bb1ca0bf2d88976169ad7acbe4fe414b4285b1c172327b84bdb1c4c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-21/part-000.parquet",
+      "bytes": 47415,
+      "sha256": "d9c15e5325040842021a647f47ecbf53e048273bac6a4a887158318dfdb201f2"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-22/part-000.parquet",
+      "bytes": 47427,
+      "sha256": "c6c765d47e2a9ec0ed1058b1154ab4087e68489770006750425899cc0110d20b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-23/part-000.parquet",
+      "bytes": 47431,
+      "sha256": "df3a74b5f5c76213e3dbc6a94b516575dc164f331354e5369c07ae4cd0c095ed"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-24/part-000.parquet",
+      "bytes": 47310,
+      "sha256": "6b012b15687977415d300cbe208bb75e4db23b75476484733816c4075d006d41"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-25/part-000.parquet",
+      "bytes": 47378,
+      "sha256": "7ec57d7411d47b10b3b0ca286a03bef5bdd39a4146e606ba6e571cfca1070941"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-28/part-000.parquet",
+      "bytes": 47473,
+      "sha256": "aae81631306bfcccb4e2aa8ae049b595f4d70b90ffa2423e81fac8156b1d6630"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-29/part-000.parquet",
+      "bytes": 47491,
+      "sha256": "9dabe8053a6e0e23e0a4278fd495143049507d1bb498c5abf70c5120adfe69ee"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-30/part-000.parquet",
+      "bytes": 47449,
+      "sha256": "d7353ab4f0247a8b48ea6bba9c1417716166de39b6acba3492119bd49d8678f5"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-07-31/part-000.parquet",
+      "bytes": 47605,
+      "sha256": "71d67621de7604a9fa4e75cfbcc0e03940710995908d3421f78df25e76c834e1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-01/part-000.parquet",
+      "bytes": 47445,
+      "sha256": "0b84cb0aa4c879385b3b1c4a75b3397f6f10398d4ab634500d09c685155f2d73"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-04/part-000.parquet",
+      "bytes": 47218,
+      "sha256": "753e053c663f99db954f652fe798f2ed641bc9be5bb7626c03e1dc1f0135fcce"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-05/part-000.parquet",
+      "bytes": 47083,
+      "sha256": "cb12d408fbdee6e0fe85cd63d573f6ff88817acfafe63624c1933a258c3b0dcf"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-06/part-000.parquet",
+      "bytes": 47252,
+      "sha256": "e6b37e951e01ec851eef4a9bd3fe1698aa96a9ec1b674ad5dce401006a87c3dc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-07/part-000.parquet",
+      "bytes": 47299,
+      "sha256": "6f1a2eff9d628274c15674dd730454d482d46f73042279e85d58649f5828faaa"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-08/part-000.parquet",
+      "bytes": 47391,
+      "sha256": "af125a3862bf748416a7b3ac8f4464992357394c0601e7e89bd7be8b8bb555a3"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-11/part-000.parquet",
+      "bytes": 47317,
+      "sha256": "42106f37a7b13184835cb33ac243d45b11a69e0cacc1a13230eb590bcfc741bb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-12/part-000.parquet",
+      "bytes": 47361,
+      "sha256": "05ee2482be05eac16f9af5eeaf92e24d331729333485b3dd95dc9f8993469c7a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-13/part-000.parquet",
+      "bytes": 47614,
+      "sha256": "1ff7f27c2e16ef8a77609f49f611a06089365fe00e8e68a20a808c22b0f91e7a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-14/part-000.parquet",
+      "bytes": 47422,
+      "sha256": "ef35c02a3b1284ac13cbe6d077bef007a82a76242c1b2ea6b8116e6849a1186b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-15/part-000.parquet",
+      "bytes": 47346,
+      "sha256": "8d3f00f52b067c8dcd442f0ed53e90d549df102c15c80170f00e2148b8dd3f59"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-18/part-000.parquet",
+      "bytes": 47643,
+      "sha256": "66cc0df87330dbb6d64c156065b61abbe6a58556ab67a6d9a55a7f2fdf02d2be"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-19/part-000.parquet",
+      "bytes": 47565,
+      "sha256": "28550fc0c27a9aa4002821fd5a82e7bde1a00898be3f62ba3eedb65ce15a29f4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-20/part-000.parquet",
+      "bytes": 47412,
+      "sha256": "13d3c33edca861322dd9e5ce2254624d05b2e83926744ed50f34eeb0a0b63606"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-21/part-000.parquet",
+      "bytes": 47471,
+      "sha256": "0ce24d1460afdd4a692068d4cd51c9069248a36e893490751654388b876f7efc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-22/part-000.parquet",
+      "bytes": 47655,
+      "sha256": "6d7c586a15ddc5ef5139f1ae5d1fb05cd3aeffeab95b3f5ebccc0dcb4aaaf21b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-25/part-000.parquet",
+      "bytes": 47730,
+      "sha256": "7c2592738e2161135a279a0b72bd0f6bc59f72f6b6caa0a84da6ed2b73006a26"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-26/part-000.parquet",
+      "bytes": 47553,
+      "sha256": "ca343578277a63e7b14a804f0efd6e52ae35d2398f04791a846aff84cbe941ca"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-27/part-000.parquet",
+      "bytes": 47607,
+      "sha256": "4a68bb82e9d62da939c88be6dd653852eb9234f7da9cf647f2a8ed2deea8a8ac"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-28/part-000.parquet",
+      "bytes": 47778,
+      "sha256": "14b246f2cb8f93c0a2ed4caf45c13966dfcabd07ae1a647b716117dba0c3d785"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-08-29/part-000.parquet",
+      "bytes": 47699,
+      "sha256": "e199081205d1ad282ec7c39f41d7b0a2c538174024270b5b4b77f0b8afc9d443"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-01/part-000.parquet",
+      "bytes": 47648,
+      "sha256": "66f0393644433a86903804be4782d154479237f0caa9182383d9393beec6f2af"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-02/part-000.parquet",
+      "bytes": 47918,
+      "sha256": "ab330eb8722f56252991e72e55d3c50d53ccf478be3b45df34712932ebecbc93"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-03/part-000.parquet",
+      "bytes": 47675,
+      "sha256": "d960881943710b4299c6c86e6357b417b167dc42882cf3e78581a1d1415721ce"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-04/part-000.parquet",
+      "bytes": 47878,
+      "sha256": "0793abb0e5a974de9488a1dc46581f6e4296421f3c6a00fcab8779644c7cea77"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-05/part-000.parquet",
+      "bytes": 47883,
+      "sha256": "8330bbdeb254059491f5e455f1f1e5f972f14e119a636ee0f32f9f5001c61c3c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-08/part-000.parquet",
+      "bytes": 47494,
+      "sha256": "174e70ca4e6ce53310ea794baaea7d8d72b73a92e897631c653dd3952ab75664"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-09/part-000.parquet",
+      "bytes": 47598,
+      "sha256": "9f290f9ac743773ea0687b944c5c15e29849a3c475bb2ddd96c065eb90ebe2f4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-10/part-000.parquet",
+      "bytes": 47678,
+      "sha256": "8b23c0b0e53ef65c5ed40741f551a3b33e35c47b1e1ddfa4ebac3b7a6dda38b6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-11/part-000.parquet",
+      "bytes": 47806,
+      "sha256": "316e50de291a26f6435ace30a36e46a4b5a6fc4727ed4e24e942a1014d9a4589"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-12/part-000.parquet",
+      "bytes": 47127,
+      "sha256": "81d83668962663ec7499657cf4e59da35a6ceed8d5c40b8284a3e7be8439cbf9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-15/part-000.parquet",
+      "bytes": 47076,
+      "sha256": "2899287278dc068d7e7f7bc5f3182182d6ab87c3362a6c5cb2abd424bd18ab10"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-16/part-000.parquet",
+      "bytes": 47538,
+      "sha256": "04396775cc4efe80c762a936c5c49cfc5486008a86afcba868726464aac551e9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-17/part-000.parquet",
+      "bytes": 47508,
+      "sha256": "853a181cfdd9dd4d59c3291cda06508174d06b46ba844bf3d3b8a4934c90c391"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-18/part-000.parquet",
+      "bytes": 47604,
+      "sha256": "80ecfc9bd215a59dc913232675f2e5df7bc41bf8917561081bcf6f0927aee1d7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-19/part-000.parquet",
+      "bytes": 47615,
+      "sha256": "ac271c0f8c9e7560dcbb13b6c3aef577ad9c9d4252acbdff03187d6dc074d199"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-22/part-000.parquet",
+      "bytes": 47696,
+      "sha256": "fa06e6731510ccb88abaec6954f28e0a339f1119c426e8955472b21994a9acb9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-23/part-000.parquet",
+      "bytes": 47254,
+      "sha256": "76cbecfd38831c5a6d78ac45288cd92070c1b2774572234cc221413aa481f03d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-24/part-000.parquet",
+      "bytes": 47626,
+      "sha256": "078ec860d4174ef5dc0f85eaeacc3d5a72206a163411e6def9055f48bcdd7ffe"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-25/part-000.parquet",
+      "bytes": 47599,
+      "sha256": "2c524cfffa205b11f8e5dc01cea8da88bd5666eece5a2593879f84c3013735bf"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-26/part-000.parquet",
+      "bytes": 47769,
+      "sha256": "fd4a1774d1e6b53b3c1d054f7a91e449ae901fb65b4b8f1751e7ca1d5f3e47db"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-29/part-000.parquet",
+      "bytes": 47507,
+      "sha256": "ee175da9a35b1ccabb51e84c352416c5cfb4de8c4e49570789608b4a89d54a84"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-09-30/part-000.parquet",
+      "bytes": 47488,
+      "sha256": "d8122c9d67c839935a6d512051dc617c9976b22e942ed315528443529b37e8d1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-09/part-000.parquet",
+      "bytes": 47734,
+      "sha256": "6fb0e029207d7a39f467cb130b769053e0e5750e495327a83bcba9dc4338246c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-10/part-000.parquet",
+      "bytes": 47921,
+      "sha256": "ccb399900c9747d310a3ff1868c210265bad24730e02b7cdc5f34cd7e9c17614"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-13/part-000.parquet",
+      "bytes": 47634,
+      "sha256": "d392103980454b40a80200b55ea42c1b1b1d32cf2784e037d37b8071a75d74cb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-14/part-000.parquet",
+      "bytes": 47969,
+      "sha256": "127e8caaebaa373161a4af330705472251e9d10df701116620fa1e20f3499ae2"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-15/part-000.parquet",
+      "bytes": 47486,
+      "sha256": "a57d9a459cce2534d8c76e85a0f70b88885f36e7355e1519198f9d1646f6b826"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-16/part-000.parquet",
+      "bytes": 47483,
+      "sha256": "93450117e4f87ea216d31b2b26b1f07f60ed462c8c24b018735a197d88adb971"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-17/part-000.parquet",
+      "bytes": 47758,
+      "sha256": "b754a3b8dac33b4f23c32b3fdc27ea1a215bab942fca964d92bb11d5f6d2e88d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-20/part-000.parquet",
+      "bytes": 47333,
+      "sha256": "36269304934cdd7fe032302765618f7e50055915401f8ee7ca203b2dbd76d072"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-21/part-000.parquet",
+      "bytes": 47433,
+      "sha256": "04d41536714346ee5e8ef169b3fe4e794aeb0abcc1bb1a7a45b06a651dee58c3"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-22/part-000.parquet",
+      "bytes": 47349,
+      "sha256": "de408dc46213f0bf2ccee7d029b0056567cdfd3d7abb83c2452a9b9632823871"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-23/part-000.parquet",
+      "bytes": 47449,
+      "sha256": "10181aa70f018f6e5a5fe3c008232334375b70170ecb30920c15171e816a1544"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-24/part-000.parquet",
+      "bytes": 47813,
+      "sha256": "23299aa7c0b4adf3d4270000243e54cd1cbb5c6fb81d8cc2ee82828fcb92bac8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-27/part-000.parquet",
+      "bytes": 47521,
+      "sha256": "918b990769fe8f8f656239b6239b17179c9ae4a4335e7f4c24051b475b8a0aa8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-28/part-000.parquet",
+      "bytes": 47546,
+      "sha256": "3fb6e3bf0114609e65e8a2064665ba983a7c0e0d728396691e724db23ad906a9"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-29/part-000.parquet",
+      "bytes": 47700,
+      "sha256": "e2467e4a46b8e0b81201c903a32c103d7cac535eff98afcd403fa550d196df71"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-30/part-000.parquet",
+      "bytes": 47622,
+      "sha256": "f75b9e86cc3412deb78abbc0eec943e917f28ba8f35068cae43f81bcc6f1b895"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-10-31/part-000.parquet",
+      "bytes": 47650,
+      "sha256": "184009f15ea38facde90176e9260d24ee0c15f8a479e2277d3458a29e6261551"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-03/part-000.parquet",
+      "bytes": 47510,
+      "sha256": "7ca057c6f79be8f6322190cc5b31362492431c41720d0c62277c61ee5f06a11d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-04/part-000.parquet",
+      "bytes": 47472,
+      "sha256": "69d163c4b0135dc0689ff40ef27dba2c0c7b21d2bab91efa51a5f376c2da1404"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-05/part-000.parquet",
+      "bytes": 47526,
+      "sha256": "9f4ac745dab3a96625cd21baa1e7d396bd8f4a992bac170ab209105ab88fb72a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-06/part-000.parquet",
+      "bytes": 47422,
+      "sha256": "980de421454163ef92dad23520746a017e7648af83c0b639f2d2da521a386127"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-07/part-000.parquet",
+      "bytes": 47613,
+      "sha256": "33172bf54eeff86a6cd658989fcc385a38ed853a4a9682ba2d68a998b52fba3e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-10/part-000.parquet",
+      "bytes": 47596,
+      "sha256": "a47d9a0f4d8c5fb91ebf087b232bba824fc8469560d31e1e4405b3d6135a2f4d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-11/part-000.parquet",
+      "bytes": 47402,
+      "sha256": "84727d617d13fb074c51cd73c5dd4f5e90349f9ce65625846ff4b010d7940735"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-12/part-000.parquet",
+      "bytes": 47465,
+      "sha256": "9e82e3d6a57244ecfbb522a262a8e5302a8ae55e14f94416df04d41ec49739d4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-13/part-000.parquet",
+      "bytes": 47444,
+      "sha256": "1442d5cb905b790c79e0a63acb3263538139b8ab251438b3f07716c621dc550b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-14/part-000.parquet",
+      "bytes": 47540,
+      "sha256": "e8cd0ccf98fc6f440a4bbaa0c54ffeecb0ae7c2a353f6a58e6fb87f0e58bb943"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-17/part-000.parquet",
+      "bytes": 47590,
+      "sha256": "4699ea167c4c389dd46bd5ebf7b1ff9a5bf63904e9742ebafdb7987e9f261afe"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-18/part-000.parquet",
+      "bytes": 47505,
+      "sha256": "8f746a4fe4f8dd53fd50fd25d1fd8115543d1e77e2bf32a021eff1e3254e1d01"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-19/part-000.parquet",
+      "bytes": 47620,
+      "sha256": "848ed93cd73d93dc1c9afe241e40d69180576c47582df3c4a3625da2e764d314"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-20/part-000.parquet",
+      "bytes": 47293,
+      "sha256": "fb09174399098832992e63bf5c5b0ee8c7b59ea25e21eac2a94143170ada631a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-21/part-000.parquet",
+      "bytes": 47597,
+      "sha256": "e2edd61850861f9c0d3c457a70b493e237707ee402565c9ab33cf117b8d6644e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-24/part-000.parquet",
+      "bytes": 47531,
+      "sha256": "7b9f9448a4456e40f2943b0bdf590e8c78019db45cb5ed6cead896dfc8b9b777"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-25/part-000.parquet",
+      "bytes": 47400,
+      "sha256": "2c369d3211315f2d1be8b364f2721e068aaa867c743c6a4a7b8627aac6e62616"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-26/part-000.parquet",
+      "bytes": 47531,
+      "sha256": "c96de23ecc0f6374a8261332a6d17d7313555e7ee3ab10f882c00a699c10118f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-27/part-000.parquet",
+      "bytes": 47469,
+      "sha256": "e8de8420f8a1eb3783003a58346a0e54ca1b6a087b4b915243899ac441806750"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-11-28/part-000.parquet",
+      "bytes": 47393,
+      "sha256": "ddf7605ee160c31eb3a5170181899b32c3aaa6d9fbbe33512c8530ed57339ddc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-01/part-000.parquet",
+      "bytes": 47256,
+      "sha256": "b2c0830da794ba4360f5866ebddb6adc12cc328391da14ecefca00c30bab51dc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-02/part-000.parquet",
+      "bytes": 47281,
+      "sha256": "45af20594fadec7af68d35378f41784152de9f2afcd65b4be68af4c42f057210"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-03/part-000.parquet",
+      "bytes": 47337,
+      "sha256": "c7f0da0787ffe9c6d8392736f840639c584b43104c6378bb1a0c337fc1fb7801"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-04/part-000.parquet",
+      "bytes": 47399,
+      "sha256": "9cf9b05cadc8dd489d4ccc7af3b8634536f62992f87ad751511c537ce9a75572"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-05/part-000.parquet",
+      "bytes": 47419,
+      "sha256": "595e069f200a35b07e41b086c7bbb50e0cb0370c7a05b3824fd715145c3cfc5e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-08/part-000.parquet",
+      "bytes": 47593,
+      "sha256": "b2df435f74cd726614d583230cbc26a94125e1b38981a9f580fd4f9cb1534222"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-09/part-000.parquet",
+      "bytes": 47635,
+      "sha256": "a28019c86b5a64945aceaffcdd3ff95da57d0a5b3e1490404d5d1780263a6689"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-10/part-000.parquet",
+      "bytes": 47466,
+      "sha256": "2983f2f48b412cb3e38cf0e063dce8d2ee954aea82a1935e3871a2a69d37a502"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-11/part-000.parquet",
+      "bytes": 47295,
+      "sha256": "85eac61457e34d719419bc84ca4bfb08718418a59566a76dfa0d76a59040152c"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-12/part-000.parquet",
+      "bytes": 47296,
+      "sha256": "484feb3f20f99ad2505bbd1927ff1624c7d368cb1d1f3f16b741952d3c71f8b6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-15/part-000.parquet",
+      "bytes": 47528,
+      "sha256": "40fee6661caa30435750b9c2e92934f5a7929be0cda11576a1b76c59b96c725e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-16/part-000.parquet",
+      "bytes": 47404,
+      "sha256": "e84e35b0833924f2212b85eb886efb4c54142ffd8d76845577ac306fbd15a87a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-17/part-000.parquet",
+      "bytes": 47383,
+      "sha256": "69a481701531fed95db3604ed230e86e1f8f3116d90bcf416f7f68dd403237b7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-18/part-000.parquet",
+      "bytes": 47596,
+      "sha256": "1edfd4026f5f00479baae94971850fd4aefe1bebd92578c0656fa49785337414"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-19/part-000.parquet",
+      "bytes": 47311,
+      "sha256": "0418770a06ee8238e6be30f93d4866e515611cdb4cf2a711119a83bf4063d472"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-22/part-000.parquet",
+      "bytes": 47632,
+      "sha256": "7cad4a6abf98cd21d7a8a789391846f64d339471a8e0127b56cb93f0e271f4a1"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-23/part-000.parquet",
+      "bytes": 47639,
+      "sha256": "b2bd2270320b7f22bbd3d8671d3e39b974b317b1d87078c96950f83135b70799"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-24/part-000.parquet",
+      "bytes": 47484,
+      "sha256": "ef40d32697a0e0e320a33d588448c94a874f6d063d2022fbd8432f581d7508f8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-25/part-000.parquet",
+      "bytes": 47229,
+      "sha256": "946b05478447ad435442e051de552cef5341d53a9b2ced80397fd625d3e8f0bb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-26/part-000.parquet",
+      "bytes": 47543,
+      "sha256": "206db1013c071599c8972daf3995b0ceadba17b5ec537d59f483092bf3b465f0"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-29/part-000.parquet",
+      "bytes": 47402,
+      "sha256": "7e0ad902f254c48a582c74b4cb277beeb582aef0b89df177c10bf79b82bef43f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-30/part-000.parquet",
+      "bytes": 47517,
+      "sha256": "f08b343f585af912e0840e20744084f5131ec2f3dba83fb29b214cb900fbe2a6"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2025-12-31/part-000.parquet",
+      "bytes": 47424,
+      "sha256": "a68b02f650443433ae69e4ae85f1232bf279ab25c503636f929a5ba03417cdf2"
+    }
+  ]
+}

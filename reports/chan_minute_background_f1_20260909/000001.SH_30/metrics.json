@@ -1,0 +1,1964 @@
+{
+  "code": "000001.SH",
+  "frequency": 30,
+  "all_bars": 9072,
+  "eligible_bars": 4243,
+  "modes": {
+    "raw": {
+      "before": {
+        "signals": 20,
+        "n": 20,
+        "tail_excluded": 0,
+        "up": 0.55,
+        "q_up": 0.6,
+        "r": 0.00080314501023529,
+        "q": 0.0012047857516738758,
+        "mae": -0.00531112366118554,
+        "mfe": 0.008393927247465172,
+        "baseline_up": 0.533245417134306,
+        "baseline_q": 0.00035091742015644925,
+        "lift_up": 0.01675458286569398,
+        "lift_q": 0.0008538683315174267,
+        "median_q": 0.000918745818534572,
+        "year_counts": {
+          "2022": 5,
+          "2023": 3,
+          "2024": 4,
+          "2025": 5,
+          "2026": 3
+        },
+        "yearly": {
+          "2022": {
+            "n": 5,
+            "q": -0.0009544161119374062,
+            "lift_q": -0.00036969283639939725
+          },
+          "2023": {
+            "n": 3,
+            "q": 0.002321645139765849,
+            "lift_q": 0.0025158127274929575
+          },
+          "2024": {
+            "n": 4,
+            "q": 0.0020765259098192435,
+            "lift_q": 0.0013302159709128432
+          },
+          "2025": {
+            "n": 5,
+            "q": 0.0015224965290419501,
+            "lift_q": 0.0001595582349828872
+          },
+          "2026": {
+            "n": 3,
+            "q": 0.0019947579631267587,
+            "lift_q": 0.0017532458571002786
+          }
+        }
+      },
+      "after": {
+        "signals": 19,
+        "n": 19,
+        "tail_excluded": 0,
+        "up": 0.5263157894736842,
+        "q_up": 0.5789473684210527,
+        "r": 0.0005724885226898911,
+        "q": 0.0009933751437769534,
+        "mae": -0.0055483218056844655,
+        "mfe": 0.008231741932021124,
+        "baseline_up": 0.527220745607681,
+        "baseline_q": 0.0008044486235566769,
+        "lift_up": -0.0009049561339967061,
+        "lift_q": 0.0001889265202202763,
+        "median_q": 0.00032609559912577524,
+        "year_counts": {
+          "2022": 5,
+          "2023": 3,
+          "2024": 4,
+          "2025": 5,
+          "2026": 2
+        },
+        "yearly": {
+          "2022": {
+            "n": 5,
+            "q": -0.0009544161119374062,
+            "lift_q": -0.0014747915044734058
+          },
+          "2023": {
+            "n": 3,
+            "q": 0.002321645139765849,
+            "lift_q": 0.0031908259699249906
+          },
+          "2024": {
+            "n": 4,
+            "q": 0.0020765259098192435,
+            "lift_q": -0.0002449595518209599
+          },
+          "2025": {
+            "n": 5,
+            "q": 0.0015224965290419501,
+            "lift_q": 8.244058824023723e-05
+          },
+          "2026": {
+            "n": 2,
+            "q": 0.0003813432938324368,
+            "lift_q": 0.0009793593814299809
+          }
+        }
+      },
+      "effect": {
+        "before": {
+          "n": 20,
+          "q": 0.0012047857516738758,
+          "median_q": 0.000918745818534572,
+          "positive": 12,
+          "negative": 8,
+          "flat": 0
+        },
+        "after": {
+          "n": 19,
+          "q": 0.0009933751437769534,
+          "median_q": 0.00032609559912577524,
+          "positive": 11,
+          "negative": 8,
+          "flat": 0
+        },
+        "removed": {
+          "n": 1,
+          "q": 0.005221587301715402,
+          "median_q": 0.005221587301715402,
+          "positive": 1,
+          "negative": 0,
+          "flat": 0
+        },
+        "missed_positive_q_sum": 0.005221587301715402,
+        "avoided_negative_q_sum": 0,
+        "fixed_opportunity_q": 0.0009437063865881057,
+        "fixed_opportunity_delta": -0.0002610793650857701,
+        "conditional_mean_delta": -0.00021141060789692245
+      },
+      "yearly": {
+        "2022": {
+          "before": {
+            "n": 5,
+            "q": -0.0009544161119374062,
+            "median_q": 0.00032609559912577524,
+            "positive": 3,
+            "negative": 2,
+            "flat": 0
+          },
+          "after": {
+            "n": 5,
+            "q": -0.0009544161119374062,
+            "median_q": 0.00032609559912577524,
+            "positive": 3,
+            "negative": 2,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": -0.0009544161119374062,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2023": {
+          "before": {
+            "n": 3,
+            "q": 0.002321645139765849,
+            "median_q": 0.0015113960379433689,
+            "positive": 2,
+            "negative": 1,
+            "flat": 0
+          },
+          "after": {
+            "n": 3,
+            "q": 0.002321645139765849,
+            "median_q": 0.0015113960379433689,
+            "positive": 2,
+            "negative": 1,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.002321645139765849,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2024": {
+          "before": {
+            "n": 4,
+            "q": 0.0020765259098192435,
+            "median_q": -0.00047376976840390883,
+            "positive": 2,
+            "negative": 2,
+            "flat": 0
+          },
+          "after": {
+            "n": 4,
+            "q": 0.0020765259098192435,
+            "median_q": -0.00047376976840390883,
+            "positive": 2,
+            "negative": 2,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0020765259098192435,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2025": {
+          "before": {
+            "n": 5,
+            "q": 0.0015224965290419501,
+            "median_q": 0.00011552302804362924,
+            "positive": 3,
+            "negative": 2,
+            "flat": 0
+          },
+          "after": {
+            "n": 5,
+            "q": 0.0015224965290419501,
+            "median_q": 0.00011552302804362924,
+            "positive": 3,
+            "negative": 2,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0015224965290419501,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2026": {
+          "before": {
+            "n": 3,
+            "q": 0.0019947579631267587,
+            "median_q": 0.004456991788239328,
+            "positive": 2,
+            "negative": 1,
+            "flat": 0
+          },
+          "after": {
+            "n": 2,
+            "q": 0.0003813432938324368,
+            "median_q": 0.0003813432938324368,
+            "positive": 1,
+            "negative": 1,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.00025422886255495786,
+          "fixed_opportunity_delta": -0.0017405291005718009,
+          "conditional_mean_delta": -0.0016134146692943219
+        }
+      },
+      "without_2024": {
+        "before": {
+          "n": 16,
+          "q": 0.000986850712137534,
+          "median_q": 0.000918745818534572,
+          "positive": 10,
+          "negative": 6,
+          "flat": 0
+        },
+        "after": {
+          "n": 15,
+          "q": 0.0007045349394990093,
+          "median_q": 0.00032609559912577524,
+          "positive": 9,
+          "negative": 6,
+          "flat": 0
+        },
+        "removed": {
+          "n": 1,
+          "q": 0.005221587301715402,
+          "median_q": 0.005221587301715402,
+          "positive": 1,
+          "negative": 0,
+          "flat": 0
+        },
+        "missed_positive_q_sum": 0.005221587301715402,
+        "avoided_negative_q_sum": 0,
+        "fixed_opportunity_q": 0.0006605015057803212,
+        "fixed_opportunity_delta": -0.00032634920635721265,
+        "conditional_mean_delta": -0.00028231577263852455
+      },
+      "without_known_failure_date": {
+        "before": {
+          "n": 20,
+          "q": 0.0012047857516738758,
+          "median_q": 0.000918745818534572,
+          "positive": 12,
+          "negative": 8,
+          "flat": 0
+        },
+        "after": {
+          "n": 19,
+          "q": 0.0009933751437769534,
+          "median_q": 0.00032609559912577524,
+          "positive": 11,
+          "negative": 8,
+          "flat": 0
+        },
+        "removed": {
+          "n": 1,
+          "q": 0.005221587301715402,
+          "median_q": 0.005221587301715402,
+          "positive": 1,
+          "negative": 0,
+          "flat": 0
+        },
+        "missed_positive_q_sum": 0.005221587301715402,
+        "avoided_negative_q_sum": 0,
+        "fixed_opportunity_q": 0.0009437063865881057,
+        "fixed_opportunity_delta": -0.0002610793650857701,
+        "conditional_mean_delta": -0.00021141060789692245
+      },
+      "leave_date_out": {
+        "2022-03-03": {
+          "before": {
+            "n": 19,
+            "q": 0.0019302711984640532,
+            "median_q": 0.0015113960379433689,
+            "positive": 12,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0017474203038389782,
+            "median_q": 0.000918745818534572,
+            "positive": 11,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0016554508141632424,
+          "fixed_opportunity_delta": -0.00027482038430081085,
+          "conditional_mean_delta": -0.000182850894625075
+        },
+        "2022-05-24": {
+          "before": {
+            "n": 19,
+            "q": 0.0012510326018079863,
+            "median_q": 0.0015113960379433689,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0010304462295909077,
+            "median_q": 0.000813459532993499,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0009762122175071757,
+          "fixed_opportunity_delta": -0.0002748203843008105,
+          "conditional_mean_delta": -0.0002205863722170786
+        },
+        "2022-05-31": {
+          "before": {
+            "n": 19,
+            "q": 0.0006819587991174945,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0004297572156398329,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0004071384148166838,
+          "fixed_opportunity_delta": -0.0002748203843008107,
+          "conditional_mean_delta": -0.0002522015834776616
+        },
+        "2022-11-15": {
+          "before": {
+            "n": 19,
+            "q": 0.0010943257035166936,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0008650333925056541,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0008195053192158829,
+          "fixed_opportunity_delta": -0.00027482038430081074,
+          "conditional_mean_delta": -0.00022929231101103949
+        },
+        "2022-12-07": {
+          "before": {
+            "n": 19,
+            "q": 0.0016345514722029626,
+            "median_q": 0.0015113960379433689,
+            "positive": 12,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.001435271703896716,
+            "median_q": 0.000918745818534572,
+            "positive": 11,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.001359731087902152,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.00019927976830624665
+        },
+        "2023-01-17": {
+          "before": {
+            "n": 19,
+            "q": 0.0011886483681860078,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0009645962052121525,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0009138279838851971,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.0002240521629738553
+        },
+        "2023-06-19": {
+          "before": {
+            "n": 19,
+            "q": 0.0015313383120192604,
+            "median_q": 0.0015113960379433689,
+            "positive": 12,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0013263244792583635,
+            "median_q": 0.000918745818534572,
+            "positive": 11,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0012565179277184498,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.0002050138327608969
+        },
+        "2023-08-03": {
+          "before": {
+            "n": 19,
+            "q": 0.0007180243556439425,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0004678264141955281,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0004432039713431319,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.0002501979414484144
+        },
+        "2024-02-27": {
+          "before": {
+            "n": 19,
+            "q": 0.0016813227188443287,
+            "median_q": 0.0015113960379433689,
+            "positive": 12,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0014846413531292692,
+            "median_q": 0.000918745818534572,
+            "positive": 11,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0014065023345435181,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.00019668136571505956
+        },
+        "2024-04-19": {
+          "before": {
+            "n": 19,
+            "q": 0.0017344051897965063,
+            "median_q": 0.0015113960379433689,
+            "positive": 12,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0015406728502454564,
+            "median_q": 0.000918745818534572,
+            "positive": 11,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0014595848054956956,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.00019373233955104988
+        },
+        "2024-05-08": {
+          "before": {
+            "n": 19,
+            "q": 0.0009049388392484527,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0006651250357780666,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0006301184549476421,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.0002398138034703861
+        },
+        "2024-11-07": {
+          "before": {
+            "n": 19,
+            "q": 0.000314952014986138,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 4.236116572340107e-05,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 4.013163068532733e-05,
+          "fixed_opportunity_delta": -0.0002748203843008107,
+          "conditional_mean_delta": -0.0002725908492627369
+        },
+        "2025-02-24": {
+          "before": {
+            "n": 19,
+            "q": 0.0012621153687070467,
+            "median_q": 0.0015113960379433689,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.001042144705762138,
+            "median_q": 0.000918745818534572,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.000987294984406236,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.0002199706629449087
+        },
+        "2025-04-28": {
+          "before": {
+            "n": 19,
+            "q": 0.0013533881300753796,
+            "median_q": 0.0015113960379433689,
+            "positive": 12,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0011384881760953783,
+            "median_q": 0.000918745818534572,
+            "positive": 11,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.001078567745774569,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.00021489995398000128
+        },
+        "2025-07-31": {
+          "before": {
+            "n": 19,
+            "q": 0.00175323374189298,
+            "median_q": 0.0015113960379433689,
+            "positive": 12,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0015605474330139565,
+            "median_q": 0.000918745818534572,
+            "positive": 11,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0014784133575921695,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.00019268630887902356
+        },
+        "2025-10-24": {
+          "before": {
+            "n": 19,
+            "q": 0.0004497638260826796,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.00018466252188086162,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0001749434417818689,
+          "fixed_opportunity_delta": -0.0002748203843008107,
+          "conditional_mean_delta": -0.00026510130420181793
+        },
+        "2025-10-31": {
+          "before": {
+            "n": 19,
+            "q": 0.0011218195923039052,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0008940547195588221,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0008469992080030946,
+          "fixed_opportunity_delta": -0.0002748203843008105,
+          "conditional_mean_delta": -0.0002277648727450831
+        },
+        "2026-02-26": {
+          "before": {
+            "n": 19,
+            "q": 0.001033617012907273,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.000800951996862377,
+            "median_q": 0.00022080931358470224,
+            "positive": 10,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0007587966286064624,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.00023266501604489605
+        },
+        "2026-04-09": {
+          "before": {
+            "n": 19,
+            "q": 0.0009933751437769534,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "after": {
+            "n": 19,
+            "q": 0.0009933751437769534,
+            "median_q": 0.00032609559912577524,
+            "positive": 11,
+            "negative": 8,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0009933751437769534,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2026-08-12": {
+          "before": {
+            "n": 19,
+            "q": 0.0014626326438974722,
+            "median_q": 0.0015113960379433689,
+            "positive": 12,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 18,
+            "q": 0.0012538018295742538,
+            "median_q": 0.000918745818534572,
+            "positive": 11,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0011878122595966616,
+          "fixed_opportunity_delta": -0.00027482038430081063,
+          "conditional_mean_delta": -0.00020883081432321836
+        }
+      },
+      "original_best": {
+        "event_id": "000001.SH|K_30M|buy|2024-11-06 10:30:00|B3",
+        "index": 6097,
+        "day": 762,
+        "date": "2024-11-07",
+        "stratum": "2024|10:30:00",
+        "signal_time": "2024-11-07 10:30:00",
+        "entry_bar_end": "2024-11-07 11:00:00",
+        "entry": 3390.8826,
+        "target_time": "2024-11-08 15:00:00",
+        "r": 0.01797229991259819,
+        "q": 0.018111626748740894,
+        "up": 1.0,
+        "q_up": 1.0,
+        "mae": -0.0007450567589688539,
+        "mfe": 0.0350750568598277,
+        "baseline_up": 0.47107438016528924,
+        "baseline_q": 0.0008701495847675907,
+        "lift_up": 0.5289256198347108,
+        "lift_q": 0.017241477163973305,
+        "keep": true,
+        "atr20": 69.9013600000001,
+        "reference_high": 3420.9985,
+        "drawdown_atr": 0.4241948940621478
+      },
+      "sample_gate": false
+    },
+    "cooldown": {
+      "before": {
+        "signals": 16,
+        "n": 16,
+        "tail_excluded": 0,
+        "up": 0.5,
+        "q_up": 0.5625,
+        "r": 0.00014690086415627968,
+        "q": 0.0006396850158844336,
+        "mae": -0.00534308860987158,
+        "mfe": 0.00880548034301977,
+        "baseline_up": 0.533447479848995,
+        "baseline_q": 0.0004169916098558485,
+        "lift_up": -0.033447479848994995,
+        "lift_q": 0.0002226934060285851,
+        "median_q": 0.00022080931358470224,
+        "year_counts": {
+          "2022": 3,
+          "2023": 3,
+          "2024": 3,
+          "2025": 4,
+          "2026": 3
+        },
+        "yearly": {
+          "2022": {
+            "n": 3,
+            "q": -0.0029832718238511267,
+            "lift_q": -0.0024197495046038137
+          },
+          "2023": {
+            "n": 3,
+            "q": 0.002321645139765849,
+            "lift_q": 0.0025158127274929575
+          },
+          "2024": {
+            "n": 3,
+            "q": 0.00046807551717335344,
+            "lift_q": -0.0004020740675942369
+          },
+          "2025": {
+            "n": 4,
+            "q": 0.0012078349663766086,
+            "lift_q": -0.0001946526351820489
+          },
+          "2026": {
+            "n": 3,
+            "q": 0.0019947579631267587,
+            "lift_q": 0.0017532458571002786
+          }
+        }
+      },
+      "after": {
+        "signals": 15,
+        "n": 15,
+        "tail_excluded": 0,
+        "up": 0.4666666666666667,
+        "q_up": 0.5333333333333333,
+        "r": -0.00018901362980649298,
+        "q": 0.00033422486349570234,
+        "mae": -0.005645670589482621,
+        "mfe": 0.00862748248316095,
+        "baseline_up": 0.5184044205433358,
+        "baseline_q": 0.0006913780140100142,
+        "lift_up": -0.05173775387666917,
+        "lift_q": -0.0003571531505143117,
+        "median_q": 0.00011552302804362924,
+        "year_counts": {
+          "2022": 3,
+          "2023": 3,
+          "2024": 3,
+          "2025": 4,
+          "2026": 2
+        },
+        "yearly": {
+          "2022": {
+            "n": 3,
+            "q": -0.0029832718238511267,
+            "lift_q": -0.0034998098148700265
+          },
+          "2023": {
+            "n": 3,
+            "q": 0.002321645139765849,
+            "lift_q": 0.0031908259699249906
+          },
+          "2024": {
+            "n": 3,
+            "q": 0.00046807551717335344,
+            "lift_q": -0.0018205581390992216
+          },
+          "2025": {
+            "n": 4,
+            "q": 0.0012078349663766086,
+            "lift_q": -0.00023184751711046716
+          },
+          "2026": {
+            "n": 2,
+            "q": 0.0003813432938324368,
+            "lift_q": 0.0009793593814299809
+          }
+        }
+      },
+      "effect": {
+        "before": {
+          "n": 16,
+          "q": 0.0006396850158844336,
+          "median_q": 0.00022080931358470224,
+          "positive": 9,
+          "negative": 7,
+          "flat": 0
+        },
+        "after": {
+          "n": 15,
+          "q": 0.00033422486349570234,
+          "median_q": 0.00011552302804362924,
+          "positive": 8,
+          "negative": 7,
+          "flat": 0
+        },
+        "removed": {
+          "n": 1,
+          "q": 0.005221587301715402,
+          "median_q": 0.005221587301715402,
+          "positive": 1,
+          "negative": 0,
+          "flat": 0
+        },
+        "missed_positive_q_sum": 0.005221587301715402,
+        "avoided_negative_q_sum": 0,
+        "fixed_opportunity_q": 0.00031333580952722095,
+        "fixed_opportunity_delta": -0.00032634920635721265,
+        "conditional_mean_delta": -0.00030546015238873127
+      },
+      "yearly": {
+        "2022": {
+          "before": {
+            "n": 3,
+            "q": -0.0029832718238511267,
+            "median_q": 0.00032609559912577524,
+            "positive": 2,
+            "negative": 1,
+            "flat": 0
+          },
+          "after": {
+            "n": 3,
+            "q": -0.0029832718238511267,
+            "median_q": 0.00032609559912577524,
+            "positive": 2,
+            "negative": 1,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": -0.0029832718238511267,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2023": {
+          "before": {
+            "n": 3,
+            "q": 0.002321645139765849,
+            "median_q": 0.0015113960379433689,
+            "positive": 2,
+            "negative": 1,
+            "flat": 0
+          },
+          "after": {
+            "n": 3,
+            "q": 0.002321645139765849,
+            "median_q": 0.0015113960379433689,
+            "positive": 2,
+            "negative": 1,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.002321645139765849,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2024": {
+          "before": {
+            "n": 3,
+            "q": 0.00046807551717335344,
+            "median_q": -0.007849416624564731,
+            "positive": 1,
+            "negative": 2,
+            "flat": 0
+          },
+          "after": {
+            "n": 3,
+            "q": 0.00046807551717335344,
+            "median_q": -0.007849416624564731,
+            "positive": 1,
+            "negative": 2,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.00046807551717335344,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2025": {
+          "before": {
+            "n": 4,
+            "q": 0.0012078349663766086,
+            "median_q": -0.0007515682049555328,
+            "positive": 2,
+            "negative": 2,
+            "flat": 0
+          },
+          "after": {
+            "n": 4,
+            "q": 0.0012078349663766086,
+            "median_q": -0.0007515682049555328,
+            "positive": 2,
+            "negative": 2,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0012078349663766086,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2026": {
+          "before": {
+            "n": 3,
+            "q": 0.0019947579631267587,
+            "median_q": 0.004456991788239328,
+            "positive": 2,
+            "negative": 1,
+            "flat": 0
+          },
+          "after": {
+            "n": 2,
+            "q": 0.0003813432938324368,
+            "median_q": 0.0003813432938324368,
+            "positive": 1,
+            "negative": 1,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.00025422886255495786,
+          "fixed_opportunity_delta": -0.0017405291005718009,
+          "conditional_mean_delta": -0.0016134146692943219
+        }
+      },
+      "without_2024": {
+        "before": {
+          "n": 13,
+          "q": 0.0006792872078946829,
+          "median_q": 0.00032609559912577524,
+          "positive": 8,
+          "negative": 5,
+          "flat": 0
+        },
+        "after": {
+          "n": 12,
+          "q": 0.00030076220007628957,
+          "median_q": 0.00022080931358470224,
+          "positive": 7,
+          "negative": 5,
+          "flat": 0
+        },
+        "removed": {
+          "n": 1,
+          "q": 0.005221587301715402,
+          "median_q": 0.005221587301715402,
+          "positive": 1,
+          "negative": 0,
+          "flat": 0
+        },
+        "missed_positive_q_sum": 0.005221587301715402,
+        "avoided_negative_q_sum": 0,
+        "fixed_opportunity_q": 0.0002776266462242673,
+        "fixed_opportunity_delta": -0.0004016605616704156,
+        "conditional_mean_delta": -0.00037852500781839334
+      },
+      "without_known_failure_date": {
+        "before": {
+          "n": 16,
+          "q": 0.0006396850158844336,
+          "median_q": 0.00022080931358470224,
+          "positive": 9,
+          "negative": 7,
+          "flat": 0
+        },
+        "after": {
+          "n": 15,
+          "q": 0.00033422486349570234,
+          "median_q": 0.00011552302804362924,
+          "positive": 8,
+          "negative": 7,
+          "flat": 0
+        },
+        "removed": {
+          "n": 1,
+          "q": 0.005221587301715402,
+          "median_q": 0.005221587301715402,
+          "positive": 1,
+          "negative": 0,
+          "flat": 0
+        },
+        "missed_positive_q_sum": 0.005221587301715402,
+        "avoided_negative_q_sum": 0,
+        "fixed_opportunity_q": 0.00031333580952722095,
+        "fixed_opportunity_delta": -0.00032634920635721265,
+        "conditional_mean_delta": -0.00030546015238873127
+      },
+      "leave_date_out": {
+        "2022-03-03": {
+          "before": {
+            "n": 15,
+            "q": 0.001520959866099362,
+            "median_q": 0.00032609559912577524,
+            "positive": 9,
+            "negative": 6,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.0012566293349839306,
+            "median_q": 0.00022080931358470224,
+            "positive": 8,
+            "negative": 6,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.001172854045985002,
+          "fixed_opportunity_delta": -0.00034810582011436013,
+          "conditional_mean_delta": -0.0002643305311154315
+        },
+        "2022-05-24": {
+          "before": {
+            "n": 15,
+            "q": 0.0006605909770016775,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.0003348055252364114,
+            "median_q": -0.0007515682049555328,
+            "positive": 7,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.00031248515688731736,
+          "fixed_opportunity_delta": -0.0003481058201143602,
+          "conditional_mean_delta": -0.00032578545176526613
+        },
+        "2022-11-15": {
+          "before": {
+            "n": 15,
+            "q": 0.00046209557249937325,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.00012213187755537116,
+            "median_q": -0.0007515682049555328,
+            "positive": 7,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.00011398975238501308,
+          "fixed_opportunity_delta": -0.0003481058201143602,
+          "conditional_mean_delta": -0.00033996369494400207
+        },
+        "2023-01-17": {
+          "before": {
+            "n": 15,
+            "q": 0.0005815709477471712,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.0002501412081780119,
+            "median_q": -0.0007515682049555328,
+            "positive": 7,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0002334651276328111,
+          "fixed_opportunity_delta": -0.00034810582011436013,
+          "conditional_mean_delta": -0.00033142973956915933
+        },
+        "2023-06-19": {
+          "before": {
+            "n": 15,
+            "q": 0.0010156448766026245,
+            "median_q": 0.00032609559912577524,
+            "positive": 9,
+            "negative": 6,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.0007152204176659975,
+            "median_q": 0.00022080931358470224,
+            "positive": 8,
+            "negative": 6,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0006675390564882643,
+          "fixed_opportunity_delta": -0.00034810582011436013,
+          "conditional_mean_delta": -0.00030042445893662696
+        },
+        "2023-08-03": {
+          "before": {
+            "n": 15,
+            "q": -1.4552801472778043e-05,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": -0.00038856280884336236,
+            "median_q": -0.0007515682049555328,
+            "positive": 7,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": -0.00036265862158713823,
+          "fixed_opportunity_delta": -0.0003481058201143602,
+          "conditional_mean_delta": -0.0003740100073705843
+        },
+        "2024-02-27": {
+          "before": {
+            "n": 15,
+            "q": 0.0012056251252477112,
+            "median_q": 0.00032609559912577524,
+            "positive": 9,
+            "negative": 6,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.0009187706840714476,
+            "median_q": 0.00022080931358470224,
+            "positive": 8,
+            "negative": 6,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0008575193051333511,
+          "fixed_opportunity_delta": -0.00034810582011436,
+          "conditional_mean_delta": -0.0002868544411762636
+        },
+        "2024-04-19": {
+          "before": {
+            "n": 15,
+            "q": 0.001272862921787136,
+            "median_q": 0.00032609559912577524,
+            "positive": 9,
+            "negative": 6,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.0009908111803636885,
+            "median_q": 0.00022080931358470224,
+            "positive": 8,
+            "negative": 6,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0009247571016727759,
+          "fixed_opportunity_delta": -0.00034810582011436013,
+          "conditional_mean_delta": -0.00028205174142344755
+        },
+        "2024-11-07": {
+          "before": {
+            "n": 15,
+            "q": -0.0005251110996393304,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": -0.0009355895568789542,
+            "median_q": -0.0007515682049555328,
+            "positive": 7,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": -0.0008732169197536906,
+          "fixed_opportunity_delta": -0.00034810582011436024,
+          "conditional_mean_delta": -0.0004104784572396238
+        },
+        "2025-02-24": {
+          "before": {
+            "n": 15,
+            "q": 0.0006746291484071539,
+            "median_q": 0.00032609559912577524,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.0003498464231708504,
+            "median_q": -0.0006462819194144598,
+            "positive": 7,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0003265233282927937,
+          "fixed_opportunity_delta": -0.0003481058201143602,
+          "conditional_mean_delta": -0.0003247827252363035
+        },
+        "2025-04-28": {
+          "before": {
+            "n": 15,
+            "q": 0.0007902413128070422,
+            "median_q": 0.00032609559912577524,
+            "positive": 9,
+            "negative": 6,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.00047371659931358785,
+            "median_q": 0.00022080931358470224,
+            "positive": 8,
+            "negative": 6,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.00044213549269268203,
+          "fixed_opportunity_delta": -0.0003481058201143602,
+          "conditional_mean_delta": -0.00031652471349345436
+        },
+        "2025-07-31": {
+          "before": {
+            "n": 15,
+            "q": 0.0012967124211093362,
+            "median_q": 0.00032609559912577524,
+            "positive": 9,
+            "negative": 6,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.00101636421535176,
+            "median_q": 0.00022080931358470224,
+            "positive": 8,
+            "negative": 6,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.000948606600994976,
+          "fixed_opportunity_delta": -0.00034810582011436024,
+          "conditional_mean_delta": -0.00028034820575757627
+        },
+        "2025-10-24": {
+          "before": {
+            "n": 15,
+            "q": -0.0003543494722503778,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": -0.0007526306703907906,
+            "median_q": -0.0007515682049555328,
+            "positive": 7,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": -0.0007024552923647379,
+          "fixed_opportunity_delta": -0.00034810582011436013,
+          "conditional_mean_delta": -0.0003982811981404128
+        },
+        "2026-02-26": {
+          "before": {
+            "n": 15,
+            "q": 0.0003851978977274406,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 3.974151172830049e-05,
+            "median_q": -0.0007515682049555328,
+            "positive": 7,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 3.7092077613080456e-05,
+          "fixed_opportunity_delta": -0.00034810582011436013,
+          "conditional_mean_delta": -0.0003454563859991401
+        },
+        "2026-04-09": {
+          "before": {
+            "n": 15,
+            "q": 0.00033422486349570234,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "after": {
+            "n": 15,
+            "q": 0.00033422486349570234,
+            "median_q": 0.00011552302804362924,
+            "positive": 8,
+            "negative": 7,
+            "flat": 0
+          },
+          "removed": {
+            "n": 0,
+            "q": null,
+            "median_q": null,
+            "positive": 0,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.00033422486349570234,
+          "fixed_opportunity_delta": 0.0,
+          "conditional_mean_delta": 0.0
+        },
+        "2026-08-12": {
+          "before": {
+            "n": 15,
+            "q": 0.0009286176969816928,
+            "median_q": 0.00032609559912577524,
+            "positive": 9,
+            "negative": 6,
+            "flat": 0
+          },
+          "after": {
+            "n": 14,
+            "q": 0.000621977010929285,
+            "median_q": 0.00022080931358470224,
+            "positive": 8,
+            "negative": 6,
+            "flat": 0
+          },
+          "removed": {
+            "n": 1,
+            "q": 0.005221587301715402,
+            "median_q": 0.005221587301715402,
+            "positive": 1,
+            "negative": 0,
+            "flat": 0
+          },
+          "missed_positive_q_sum": 0.005221587301715402,
+          "avoided_negative_q_sum": 0,
+          "fixed_opportunity_q": 0.0005805118768673327,
+          "fixed_opportunity_delta": -0.00034810582011436013,
+          "conditional_mean_delta": -0.00030664068605240776
+        }
+      },
+      "original_best": {
+        "event_id": "000001.SH|K_30M|buy|2024-11-06 10:30:00|B3",
+        "index": 6097,
+        "day": 762,
+        "date": "2024-11-07",
+        "stratum": "2024|10:30:00",
+        "signal_time": "2024-11-07 10:30:00",
+        "entry_bar_end": "2024-11-07 11:00:00",
+        "entry": 3390.8826,
+        "target_time": "2024-11-08 15:00:00",
+        "r": 0.01797229991259819,
+        "q": 0.018111626748740894,
+        "up": 1.0,
+        "q_up": 1.0,
+        "mae": -0.0007450567589688539,
+        "mfe": 0.0350750568598277,
+        "baseline_up": 0.47107438016528924,
+        "baseline_q": 0.0008701495847675907,
+        "lift_up": 0.5289256198347108,
+        "lift_q": 0.017241477163973305,
+        "keep": true,
+        "atr20": 69.9013600000001,
+        "reference_high": 3420.9985,
+        "drawdown_atr": 0.4241948940621478
+      },
+      "sample_gate": false
+    }
+  },
+  "intervals": {
+    "60": {
+      "valid_repetitions": 10000,
+      "empty_repetitions": 0,
+      "full_calendar_days": 1134,
+      "eligible_days": 595,
+      "lift_up": {
+        "ci95": [
+          -0.30002149309672016,
+          0.16796873467339055
+        ],
+        "simultaneous": [
+          -0.4172923490682644,
+          0.2850879197603577
+        ]
+      },
+      "lift_q": {
+        "ci95": [
+          -0.004723997024155992,
+          0.003450240216830079
+        ],
+        "simultaneous": [
+          -0.006641613981254743,
+          0.005726744298770307
+        ]
+      }
+    },
+    "20": {
+      "valid_repetitions": 10000,
+      "empty_repetitions": 0,
+      "full_calendar_days": 1134,
+      "eligible_days": 595,
+      "lift_up": {
+        "ci95": [
+          -0.31854972191169234,
+          0.1855826669401339
+        ],
+        "simultaneous": [
+          -0.44286680787994964,
+          0.3112060281111301
+        ]
+      },
+      "lift_q": {
+        "ci95": [
+          -0.004903415746360444,
+          0.0043701139703392275
+        ],
+        "simultaneous": [
+          -0.00694947923410237,
+          0.006927175817065422
+        ]
+      }
+    },
+    "120": {
+      "valid_repetitions": 10000,
+      "empty_repetitions": 0,
+      "full_calendar_days": 1134,
+      "eligible_days": 595,
+      "lift_up": {
+        "ci95": [
+          -0.22257943104893838,
+          0.11979011640376581
+        ],
+        "simultaneous": [
+          -0.2875500730252166,
+          0.2052327843848775
+        ]
+      },
+      "lift_q": {
+        "ci95": [
+          -0.0033421439026859877,
+          0.00256932451077182
+        ],
+        "simultaneous": [
+          -0.004566134285943255,
+          0.0037346604772199735
+        ]
+      }
+    }
+  }
+}

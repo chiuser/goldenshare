@@ -1,0 +1,40 @@
+{
+  "daily_state_reconstruction": true,
+  "first_trigger_reconstruction": true,
+  "events": 44,
+  "prefix_checks": [
+    {
+      "cutoff": "2011-12-30",
+      "bars": 486,
+      "events": 3,
+      "passed": true
+    },
+    {
+      "cutoff": "2015-12-31",
+      "bars": 1456,
+      "events": 6,
+      "passed": true
+    },
+    {
+      "cutoff": "2020-12-31",
+      "bars": 2674,
+      "events": 26,
+      "passed": true
+    },
+    {
+      "cutoff": "2025-12-31",
+      "bars": 3886,
+      "events": 42,
+      "passed": true
+    },
+    {
+      "cutoff": "2026-09-07",
+      "bars": 4051,
+      "events": 44,
+      "passed": true
+    }
+  ],
+  "future_perturbation_passed": true,
+  "future_perturbation_cutoff": "2020-12-31",
+  "anchor_end_mismatches": 0
+}

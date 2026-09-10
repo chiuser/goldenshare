@@ -275,6 +275,10 @@ docs/
 
 ## 9. 产品原始材料
 
+- [三指数次日上涨概率回测小方案 v1](/Users/congming/github/goldenshare/docs/product/index-next-day-probability-backtest-plan-v1.md)
+- [缠论教学：沪深300结构与逐日确认案例 v1](/Users/congming/github/goldenshare/docs/product/chan-theory-csi300-teaching-guide-v1.md)
+- [缠论买点预判与买卖区间盈利验证方案 v1（分钟基准已完成，单变量A对照见第14节；账户回测未执行）](/Users/congming/github/goldenshare/docs/product/chan-signal-prediction-and-profit-experiment-plan-v1.md)
+- [个股缠论研究方案 v1（沪深A股、最近五年；数据修复期间暂停，8月排名保留、个股回放未执行）](/Users/congming/github/goldenshare/docs/product/stock-chan-index-window-research-plan-v1.md)
 - [东财行业财务统计分析报表方案 v2（待评审）](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v2.md)
 - [申万行业财务景气分析报表方案 v1（正式版已生成）](/Users/congming/github/goldenshare/docs/product/sw2021-industry-financial-analysis-report-plan-v1.md)
 - [申万行业周期拐点雷达方案 v1（方法原型已生成）](/Users/congming/github/goldenshare/docs/product/sw2021-industry-turning-point-radar-plan-v1.md)

@@ -1,0 +1,164 @@
+[
+  {
+    "ts_code": "000001.SH",
+    "phase": "D",
+    "view": "direction",
+    "total": 939,
+    "n0": 493,
+    "n1": 446,
+    "flat": 0
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "D",
+    "view": "risk",
+    "total": 939,
+    "n0": 470,
+    "n1": 469,
+    "flat": 0
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V1",
+    "view": "direction",
+    "total": 939,
+    "n0": 390,
+    "n1": 549,
+    "flat": 0
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V1",
+    "view": "risk",
+    "total": 939,
+    "n0": 579,
+    "n1": 360,
+    "flat": 0
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V2",
+    "view": "direction",
+    "total": 940,
+    "n0": 443,
+    "n1": 497,
+    "flat": 0
+  },
+  {
+    "ts_code": "000001.SH",
+    "phase": "V2",
+    "view": "risk",
+    "total": 940,
+    "n0": 606,
+    "n1": 334,
+    "flat": 0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "D",
+    "view": "direction",
+    "total": 939,
+    "n0": 482,
+    "n1": 457,
+    "flat": 0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "D",
+    "view": "risk",
+    "total": 939,
+    "n0": 470,
+    "n1": 469,
+    "flat": 0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V1",
+    "view": "direction",
+    "total": 939,
+    "n0": 399,
+    "n1": 540,
+    "flat": 0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V1",
+    "view": "risk",
+    "total": 939,
+    "n0": 631,
+    "n1": 308,
+    "flat": 0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V2",
+    "view": "direction",
+    "total": 940,
+    "n0": 429,
+    "n1": 511,
+    "flat": 0
+  },
+  {
+    "ts_code": "000300.SH",
+    "phase": "V2",
+    "view": "risk",
+    "total": 940,
+    "n0": 590,
+    "n1": 350,
+    "flat": 0
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "D",
+    "view": "direction",
+    "total": 939,
+    "n0": 446,
+    "n1": 493,
+    "flat": 0
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "D",
+    "view": "risk",
+    "total": 939,
+    "n0": 470,
+    "n1": 469,
+    "flat": 0
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V1",
+    "view": "direction",
+    "total": 939,
+    "n0": 375,
+    "n1": 564,
+    "flat": 0
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V1",
+    "view": "risk",
+    "total": 939,
+    "n0": 585,
+    "n1": 354,
+    "flat": 0
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V2",
+    "view": "direction",
+    "total": 940,
+    "n0": 441,
+    "n1": 499,
+    "flat": 0
+  },
+  {
+    "ts_code": "000905.SH",
+    "phase": "V2",
+    "view": "risk",
+    "total": 940,
+    "n0": 659,
+    "n1": 281,
+    "flat": 0
+  }
+]

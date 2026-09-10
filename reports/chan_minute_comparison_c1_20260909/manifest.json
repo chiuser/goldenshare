@@ -1,0 +1,178 @@
+{
+  "spec": {
+    "codes": [
+      "000001.SH",
+      "000300.SH",
+      "000905.SH"
+    ],
+    "frequencies": [
+      30,
+      60
+    ],
+    "start": "2021-09-09",
+    "end": "2026-09-08",
+    "evaluation_start": "2022-01-01",
+    "commit": "429d6ed3043e27c93a003ba2b10e70a05575e1f5",
+    "horizons": [
+      1,
+      3,
+      5,
+      10,
+      20
+    ],
+    "cooldown_days": 20,
+    "blocks": [
+      60,
+      20,
+      120
+    ],
+    "repetitions": 10000,
+    "seed": 20260909,
+    "main_comparisons": 36,
+    "min_events": 50,
+    "min_years": 5,
+    "max_files": 2600,
+    "max_bytes": 33554432,
+    "max_rows": 50000,
+    "max_calendar_rows": 2000,
+    "max_bars": 10000,
+    "max_points": 5000,
+    "max_events": 10000,
+    "max_changes": 100000,
+    "query_seconds": 60,
+    "replay_seconds": 180,
+    "total_seconds": 600,
+    "max_output_bytes": 134217728,
+    "reserve_bytes": 268435456,
+    "variant": "C1-breakout-retest-vs-A",
+    "breakout_days": 5,
+    "wait_days": 1,
+    "atr_days": 20,
+    "tolerance_atr": 0.25,
+    "trend_days": 20,
+    "volatility_days": 60,
+    "min_baseline_bars": 20,
+    "match_days": 1,
+    "prefix_dates": [
+      "2022-12-31",
+      "2024-12-31"
+    ],
+    "omit_year": "2024",
+    "common_weight": "pooled_signal_counts_fixed",
+    "comparison_epsilon": 1e-12
+  },
+  "source_report": "/Users/congming/github/goldenshare/reports/chan_minute_variant_a_20260909",
+  "source_audit": {
+    "artifact_hashes": 32,
+    "cells": [
+      {
+        "code": "000001.SH",
+        "frequency": 30,
+        "events": 136,
+        "reconstructed": true
+      },
+      {
+        "code": "000001.SH",
+        "frequency": 60,
+        "events": 53,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 30,
+        "events": 129,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 60,
+        "events": 59,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 30,
+        "events": 151,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 60,
+        "events": 57,
+        "reconstructed": true
+      }
+    ]
+  },
+  "source_manifest_sha256": "631e7cecffc4df6bf7784d11b81c5a13c4dc0af114e042d83500f9a0cd7ef089",
+  "source_sha256": "f35edbf5d90e7883207f4d39dfb7b6369209376b8a46108d059e43b0dcbb8225",
+  "plan_sha256_before_run": "b2441c042a6258b325a9a378435550b6f154e40c717fcf4f56bf421dfaab5190",
+  "created_at_utc": "2026-09-09T15:33:32.803638+00:00",
+  "code_sha256": {
+    "minute_diagnostics.py": "1b2590ed112b75264b3532850b7392363762aa83c104e10ac37712a929c4bbaa",
+    "run_m0.py": "1500b3a2146e3aa9b6a00f024af7333bad379c6bfb8c26033ca96c8a97c9e741",
+    "m0_data.py": "ecbaf1ca789f7a6e06f5966e99eb1b936309da59c6fb8d89de35e31a1fd56279",
+    "minute_structure.py": "297b426c16a19f773ecd68546f6bdb19c523a19e4c13f4aad73ec9963ca8ee3e",
+    "verify_minute.py": "971174aae983b2458427774f98e96d28deb85132f9972a43118eb8dc96f752d0",
+    "build_cases.py": "cc1663a82f83ae3c1ad49d6a4d298108da0d9168606aec9d87df8f4c0c15fdec",
+    "run_minute.py": "d1ebbeb65ade9b57b17c759fc5cd8d7105347f16075bc706964111d41b444503",
+    "minute_data.py": "223f2f119c4ca11eef67396d744da6b9583f3185f2222bede79c7b2d6b615e2b",
+    "__init__.py": "7933d6d05f12bf9f575664c41fba158dfc1cf3a0c666b76b4011a0f09008afb2",
+    "verify_comparison.py": "f3d69eef70835b443b7068dc33894b280b87cc5b972fb1b522de569c57cc4326",
+    "minute_comparison.py": "02030fd73a68cfc548d8c0c763af6288b7d0dc456bf5f8ee6197656ae54ed7e0",
+    "minute_score.py": "36a024cb90d2e57d86248f406ac9e0b475c0fde51f51407a850499d9a56bcec9",
+    "minute_variant_a.py": "73fa09f890df1885098204232c1b60a09f3f54ed421801efc91b08da099687c6",
+    "event_ledger.py": "4abd465348b66276ddef03b3a8b18acb8b15f777db8fec04ecbb5774cc9f4717",
+    "minute_replay.py": "9af17c91aa55c2cffcbbb24903a9c67f915f6675d20cb77159f8e11017a93e44",
+    "minute_background.py": "78ac33db8c59786e8451638d22a7f1c017d72dec760b1e499b7aaa913b94be26",
+    "verify_m0.py": "9c37e4707eaa76564a89ea0fe12313116198be13fd519df21a46c24eb9018a80"
+  },
+  "status": "complete",
+  "seconds": 14.443043292005314,
+  "source_unchanged": true,
+  "artifacts_sha256": {
+    "metrics.json": "6eaa6af8c43e76badac077ac48bf534e49b1f5e33e7f0b955f3e46f2daf7ed53",
+    "started.json": "e93d259f13219e2e8625ab4ebcfccacd9b71dcd97aee31c1ce59a782c2fd8208",
+    "000300.SH_60/candidates.json": "1f98ddabccadce4cdc13d7862510001cbf7baf6635dc37a64aa6db83908ccf7c",
+    "000300.SH_60/metrics.json": "11167afadea457c1a4a45a514df98c09e527949a0cdf4266a88b44b4249678ab",
+    "000300.SH_60/labels.json": "7328e875d2f31ce93e772f5249195f55247d2f257ba2290a65357c1f4a5ed8f9",
+    "000300.SH_60/pairs.json": "fa6c65e7454756c400ee103604d1a97c4476c56b368b8a0c0aa9e76971746c02",
+    "000300.SH_60/events.json": "a96266d7fcff55fd753a04d781382b3994da7d32fb4d808750d93b95b2381264",
+    "000300.SH_60/contexts.json": "4072e71f77fc1d1b98ac681124a02ffb0ae6529570867960ec2d6d75efb36193",
+    "000300.SH_60/verification.json": "64b2c441cd60f72dacb78588f09baf03290ea5759eaca6885803779f866cecc0",
+    "000001.SH_60/candidates.json": "e986ef68e7fa4f17166ef92955eed3ac3f044263f6fa6ff2aca89fe716086f59",
+    "000001.SH_60/metrics.json": "34257c419af0315c5b17cddf7fbc44e56ccd1d85b0b5a35e8b220fe7f4dab02d",
+    "000001.SH_60/labels.json": "3d561c7a6639fb182e482b66201bffecd9e409025d0cdfebd905516b5df2c3a1",
+    "000001.SH_60/pairs.json": "655c1813235eeda3e0d554bbbb2f1778ce25e452fc9c95f7934192b392b90f73",
+    "000001.SH_60/events.json": "79214c86034da2aa84b9a12d6de211ca2f73cdf3e044b4e2aecb187dc854a3aa",
+    "000001.SH_60/contexts.json": "775c140298e09863bba5e3acd1b26d06946feb4f26601870417a017dc90eb502",
+    "000001.SH_60/verification.json": "d3347c02faa18ac310288c2bca800eb25069f03874c24e658708908c9a85e07e",
+    "000905.SH_60/candidates.json": "b9f5d78f538241178802c0ddcf2dd670e21d8464c7bc3b04a84c53a3c4a7efec",
+    "000905.SH_60/metrics.json": "17ef054680cda212aa469517d209a44e977950949e1459f817620b0388d1d014",
+    "000905.SH_60/labels.json": "58d1edacd368f064bc6cb1e6e9e2f2636b4eb2eba9c02e9b128b0e36e06545e9",
+    "000905.SH_60/pairs.json": "11d9064ba766f84c621c5f4db14ba1f0584cae6c56916d226e1cf70ce63d38bd",
+    "000905.SH_60/events.json": "40baa955ec776a4e5886d23248c1a5abb61c7854269b184e3fc685cf807bab96",
+    "000905.SH_60/contexts.json": "45043e7f3295ee1efed27f43b2990cd7b89b278d618fbbc693da30cee745c4ae",
+    "000905.SH_60/verification.json": "cb9683a20bb5c6fb87652cbd8fba60afa0fc1b78473d0b2ef48bb0ed217a9cb6",
+    "000001.SH_30/candidates.json": "b542a757240cb2270fc73c6d9c497956d05b1a07018764050d85de219a9c2368",
+    "000001.SH_30/metrics.json": "3612d6ef6a17086b5a350d3d518b58ff7e1fb82107846ec428cb3cf1d9cc5369",
+    "000001.SH_30/labels.json": "9bf50a17a963a5db38cbb20ab05c670a34cdbeecb2b0b0c0a52a562b6de4e5a7",
+    "000001.SH_30/pairs.json": "c22155ef696c69d9de4508d3610dd6fee58d194628f0269a9e6301c34bb1c3c7",
+    "000001.SH_30/events.json": "44963bf6e93981ac63b0ea0003679d14b0abbad66221bccdde87e6bdecef3361",
+    "000001.SH_30/contexts.json": "7eba3310cfc9344210a232b1307b06b3cd15c71607e4cc67c693f967939621d4",
+    "000001.SH_30/verification.json": "948fa4924027cae272ac6c460e460be5324ed8d45698d84012fc03aa34ad1c22",
+    "000300.SH_30/candidates.json": "b07265d0ce0494260d8548eebc2a0d57c222208ea1c64e5cf994f5faa4e23574",
+    "000300.SH_30/metrics.json": "83c447a2e03bffcb4531ca5955c9724b9a09de67bba92da1ad81568896dd21bb",
+    "000300.SH_30/labels.json": "00ab0cddc26340a0b1b85242640ba452ebfeb67b3763e6db1a91b277d59deb54",
+    "000300.SH_30/pairs.json": "4759bfe25fef04aa3578c535e068a94bd317389e9bef618942835bb869455fe1",
+    "000300.SH_30/events.json": "6593db0e90f3c421a7db0f95ba9e5f23408a67378d17ae444fe5ea865b23deaf",
+    "000300.SH_30/contexts.json": "53ac55c352b4391c647115e5044c7f92d9de10a53bc14768791d7fc1a59e8bdb",
+    "000300.SH_30/verification.json": "2885b375a5f925e30143e53bc7be8eeef94742651d3f11d3629369df1cacc704",
+    "000905.SH_30/candidates.json": "6447a83a342d34da21788a19dbdfcd5bfd31a339be9faca4a7892678580859ef",
+    "000905.SH_30/metrics.json": "68e6527cf9cb7c3f71ff32ab0b3036dae94492d347e19a91b60a0e01bc7d9503",
+    "000905.SH_30/labels.json": "2ff3d5033d2c5252a415be56e37c3f00e6ae0c89705468c6729e2c19266b1cb4",
+    "000905.SH_30/pairs.json": "af53e3a04e11c9001324dcc6cc5372a234463747c7c94f422989a7b2d20c7dcc",
+    "000905.SH_30/events.json": "6031468346ed9c1c827c208d901a8d3531dda43249075b79b61f7ce5d6fa6fb6",
+    "000905.SH_30/contexts.json": "173c90b073720764f1d89ac06f652aa505a8dc9be416ce81c29caf65aa0f46b2",
+    "000905.SH_30/verification.json": "e319ff676e83b072b7246221546be6728de0095d90ecd4a48f80da0578e64bb1"
+  }
+}

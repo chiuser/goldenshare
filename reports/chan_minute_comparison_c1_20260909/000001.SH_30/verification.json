@@ -1,0 +1,19 @@
+{
+  "sql_background_bars": 9072,
+  "sql_label_paths": 9072,
+  "sql_supported_and_common_estimates": true,
+  "independent_candidates": 246,
+  "independent_simple_triggers": 117,
+  "prefix_and_future_perturbation": [
+    {
+      "cutoff": "2022-12-31",
+      "bars": 2536,
+      "unchanged": true
+    },
+    {
+      "cutoff": "2024-12-31",
+      "bars": 6408,
+      "unchanged": true
+    }
+  ]
+}

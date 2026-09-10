@@ -1,0 +1,100 @@
+{
+  "spec": {
+    "experiment_id": "index-next-day-probability-v1",
+    "codes": [
+      "000001.SH",
+      "000300.SH",
+      "000905.SH"
+    ],
+    "names": [
+      "上证指数",
+      "沪深300",
+      "中证500"
+    ],
+    "start": "2010-01-04",
+    "end": "2026-09-07",
+    "train_fraction": 0.7,
+    "ridge": 0.01,
+    "max_iterations": 100,
+    "gradient_tolerance": 1e-08,
+    "block_days": 20,
+    "bootstrap_samples": 5000,
+    "seed": 20260908,
+    "family_comparisons": 6,
+    "max_files": 6000,
+    "max_bytes": 536870912,
+    "max_rows": 18000,
+    "max_seconds": 120,
+    "price_tolerance": 0.001,
+    "pct_tolerance": 0.001,
+    "approved_pre_close_warnings": [
+      [
+        "000001.SH",
+        "2011-03-01",
+        2905.197,
+        2905.053
+      ],
+      [
+        "000001.SH",
+        "2014-06-30",
+        2036.408,
+        2036.51
+      ],
+      [
+        "000300.SH",
+        "2010-01-26",
+        3325.691,
+        3328.014
+      ]
+    ],
+    "price_features": [
+      "r1",
+      "r5",
+      "r20",
+      "sigma20"
+    ],
+    "amount_features": [
+      "a20",
+      "r5_a20"
+    ],
+    "volume_features": [
+      "v20",
+      "r5_v20"
+    ]
+  },
+  "model_features": {
+    "price": [
+      "r1",
+      "r5",
+      "r20",
+      "sigma20"
+    ],
+    "price_amount": [
+      "r1",
+      "r5",
+      "r20",
+      "sigma20",
+      "a20",
+      "r5_a20"
+    ],
+    "price_amount_volume": [
+      "r1",
+      "r5",
+      "r20",
+      "sigma20",
+      "a20",
+      "r5_a20",
+      "v20",
+      "r5_v20"
+    ]
+  },
+  "plan_sha256_before_run": "fb2a436b5f277c1e7bde5f117e14a22a4933ea53f64f204cb9abe50bfc7a4486",
+  "frozen_method_sha256": "3face32e7bcbfc9b072d62208499fe285193f11b9f46124b3a1015a67a417953",
+  "script_sha256": "87dba1072492279564a2e5faaf8aa2e5973105b1d06f9accdec6eeda6279ca20",
+  "created_at_utc": "2026-09-08T13:50:29.121223+00:00",
+  "versions": {
+    "duckdb": "1.5.5",
+    "numpy": "2.4.6",
+    "pandas": "3.0.3"
+  }
+}

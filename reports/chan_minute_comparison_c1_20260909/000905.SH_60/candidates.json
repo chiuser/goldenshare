@@ -1,0 +1,1784 @@
+[
+  {
+    "breakout_index": 84,
+    "breakout_time": "2021-10-19 10:30:00",
+    "level": 7079.705,
+    "tolerance": 32.8099875,
+    "status": "triggered",
+    "end_index": 86,
+    "end_time": "2021-10-19 14:00:00"
+  },
+  {
+    "breakout_index": 89,
+    "breakout_time": "2021-10-20 11:30:00",
+    "level": 7127.236,
+    "tolerance": 32.53863749999999,
+    "status": "failed",
+    "end_index": 90,
+    "end_time": "2021-10-20 14:00:00"
+  },
+  {
+    "breakout_index": 153,
+    "breakout_time": "2021-11-11 11:30:00",
+    "level": 7087.023,
+    "tolerance": 21.731687499999953,
+    "status": "expired",
+    "end_index": 157,
+    "end_time": "2021-11-12 11:30:00"
+  },
+  {
+    "breakout_index": 180,
+    "breakout_time": "2021-11-22 10:30:00",
+    "level": 7176.77,
+    "tolerance": 21.630837499999963,
+    "status": "expired",
+    "end_index": 184,
+    "end_time": "2021-11-23 10:30:00"
+  },
+  {
+    "breakout_index": 217,
+    "breakout_time": "2021-12-03 11:30:00",
+    "level": 7281.134,
+    "tolerance": 17.769424999999966,
+    "status": "triggered",
+    "end_index": 219,
+    "end_time": "2021-12-03 15:00:00"
+  },
+  {
+    "breakout_index": 220,
+    "breakout_time": "2021-12-06 10:30:00",
+    "level": 7310.275,
+    "tolerance": 17.819012499999964,
+    "status": "failed",
+    "end_index": 222,
+    "end_time": "2021-12-06 14:00:00"
+  },
+  {
+    "breakout_index": 241,
+    "breakout_time": "2021-12-13 11:30:00",
+    "level": 7331.584,
+    "tolerance": 18.393799999999978,
+    "status": "triggered",
+    "end_index": 242,
+    "end_time": "2021-12-13 14:00:00"
+  },
+  {
+    "breakout_index": 255,
+    "breakout_time": "2021-12-16 15:00:00",
+    "level": 7371.31,
+    "tolerance": 17.231462499999985,
+    "status": "failed",
+    "end_index": 256,
+    "end_time": "2021-12-17 10:30:00"
+  },
+  {
+    "breakout_index": 296,
+    "breakout_time": "2021-12-31 10:30:00",
+    "level": 7339.941,
+    "tolerance": 18.096337499999983,
+    "status": "triggered",
+    "end_index": 299,
+    "end_time": "2021-12-31 15:00:00"
+  },
+  {
+    "breakout_index": 384,
+    "breakout_time": "2022-02-09 10:30:00",
+    "level": 6799.813,
+    "tolerance": 27.272450000000028,
+    "status": "expired",
+    "end_index": 388,
+    "end_time": "2022-02-10 10:30:00"
+  },
+  {
+    "breakout_index": 416,
+    "breakout_time": "2022-02-21 10:30:00",
+    "level": 6835.203,
+    "tolerance": 26.72890000000001,
+    "status": "failed",
+    "end_index": 420,
+    "end_time": "2022-02-22 10:30:00"
+  },
+  {
+    "breakout_index": 426,
+    "breakout_time": "2022-02-23 14:00:00",
+    "level": 6871.857,
+    "tolerance": 27.036175000000004,
+    "status": "triggered",
+    "end_index": 428,
+    "end_time": "2022-02-24 10:30:00"
+  },
+  {
+    "breakout_index": 608,
+    "breakout_time": "2022-05-05 10:30:00",
+    "level": 5656.394,
+    "tolerance": 38.50806250000001,
+    "status": "triggered",
+    "end_index": 610,
+    "end_time": "2022-05-05 14:00:00"
+  },
+  {
+    "breakout_index": 624,
+    "breakout_time": "2022-05-11 10:30:00",
+    "level": 5728.616,
+    "tolerance": 40.22057500000004,
+    "status": "triggered",
+    "end_index": 627,
+    "end_time": "2022-05-11 15:00:00"
+  },
+  {
+    "breakout_index": 652,
+    "breakout_time": "2022-05-20 10:30:00",
+    "level": 5855.723,
+    "tolerance": 37.58575000000004,
+    "status": "expired",
+    "end_index": 656,
+    "end_time": "2022-05-23 10:30:00"
+  },
+  {
+    "breakout_index": 658,
+    "breakout_time": "2022-05-23 14:00:00",
+    "level": 5929.542,
+    "tolerance": 38.03950000000005,
+    "status": "failed",
+    "end_index": 660,
+    "end_time": "2022-05-24 10:30:00"
+  },
+  {
+    "breakout_index": 681,
+    "breakout_time": "2022-05-31 11:30:00",
+    "level": 5967.233,
+    "tolerance": 29.809550000000023,
+    "status": "expired",
+    "end_index": 685,
+    "end_time": "2022-06-01 11:30:00"
+  },
+  {
+    "breakout_index": 689,
+    "breakout_time": "2022-06-02 11:30:00",
+    "level": 6042.372,
+    "tolerance": 28.03072500000003,
+    "status": "expired",
+    "end_index": 693,
+    "end_time": "2022-06-06 11:30:00"
+  },
+  {
+    "breakout_index": 697,
+    "breakout_time": "2022-06-07 11:30:00",
+    "level": 6194.426,
+    "tolerance": 27.458212500000023,
+    "status": "failed",
+    "end_index": 698,
+    "end_time": "2022-06-07 14:00:00"
+  },
+  {
+    "breakout_index": 700,
+    "breakout_time": "2022-06-08 10:30:00",
+    "level": 6199.723,
+    "tolerance": 27.146562500000027,
+    "status": "failed",
+    "end_index": 701,
+    "end_time": "2022-06-08 11:30:00"
+  },
+  {
+    "breakout_index": 710,
+    "breakout_time": "2022-06-10 14:00:00",
+    "level": 6227.329,
+    "tolerance": 25.915137500000025,
+    "status": "failed",
+    "end_index": 712,
+    "end_time": "2022-06-13 10:30:00"
+  },
+  {
+    "breakout_index": 719,
+    "breakout_time": "2022-06-14 15:00:00",
+    "level": 6250.681,
+    "tolerance": 27.068362500000024,
+    "status": "triggered",
+    "end_index": 723,
+    "end_time": "2022-06-15 15:00:00"
+  },
+  {
+    "breakout_index": 748,
+    "breakout_time": "2022-06-24 10:30:00",
+    "level": 6359.0,
+    "tolerance": 29.552787500000022,
+    "status": "failed",
+    "end_index": 749,
+    "end_time": "2022-06-24 11:30:00"
+  },
+  {
+    "breakout_index": 752,
+    "breakout_time": "2022-06-27 10:30:00",
+    "level": 6378.498,
+    "tolerance": 28.681362500000013,
+    "status": "triggered",
+    "end_index": 754,
+    "end_time": "2022-06-27 14:00:00"
+  },
+  {
+    "breakout_index": 758,
+    "breakout_time": "2022-06-28 14:00:00",
+    "level": 6449.338,
+    "tolerance": 28.469487500000003,
+    "status": "triggered",
+    "end_index": 760,
+    "end_time": "2022-06-29 10:30:00"
+  },
+  {
+    "breakout_index": 775,
+    "breakout_time": "2022-07-04 15:00:00",
+    "level": 6506.665,
+    "tolerance": 29.050250000000005,
+    "status": "triggered",
+    "end_index": 776,
+    "end_time": "2022-07-05 10:30:00"
+  },
+  {
+    "breakout_index": 820,
+    "breakout_time": "2022-07-20 10:30:00",
+    "level": 6347.243,
+    "tolerance": 26.6370275,
+    "status": "expired",
+    "end_index": 824,
+    "end_time": "2022-07-21 10:30:00"
+  },
+  {
+    "breakout_index": 877,
+    "breakout_time": "2022-08-09 11:30:00",
+    "level": 6324.34,
+    "tolerance": 25.73641500000001,
+    "status": "failed",
+    "end_index": 878,
+    "end_time": "2022-08-09 14:00:00"
+  },
+  {
+    "breakout_index": 885,
+    "breakout_time": "2022-08-11 11:30:00",
+    "level": 6362.291,
+    "tolerance": 24.855527500000004,
+    "status": "expired",
+    "end_index": 889,
+    "end_time": "2022-08-12 11:30:00"
+  },
+  {
+    "breakout_index": 896,
+    "breakout_time": "2022-08-16 10:30:00",
+    "level": 6463.067,
+    "tolerance": 23.631375000000013,
+    "status": "triggered",
+    "end_index": 897,
+    "end_time": "2022-08-16 11:30:00"
+  },
+  {
+    "breakout_index": 903,
+    "breakout_time": "2022-08-17 15:00:00",
+    "level": 6492.54,
+    "tolerance": 23.485412500000006,
+    "status": "failed",
+    "end_index": 904,
+    "end_time": "2022-08-18 10:30:00"
+  },
+  {
+    "breakout_index": 960,
+    "breakout_time": "2022-09-07 10:30:00",
+    "level": 6292.532,
+    "tolerance": 21.77113750000001,
+    "status": "failed",
+    "end_index": 961,
+    "end_time": "2022-09-07 11:30:00"
+  },
+  {
+    "breakout_index": 971,
+    "breakout_time": "2022-09-09 15:00:00",
+    "level": 6314.118,
+    "tolerance": 20.773024999999997,
+    "status": "triggered",
+    "end_index": 972,
+    "end_time": "2022-09-13 10:30:00"
+  },
+  {
+    "breakout_index": 973,
+    "breakout_time": "2022-09-13 11:30:00",
+    "level": 6321.823,
+    "tolerance": 21.032849999999996,
+    "status": "failed",
+    "end_index": 974,
+    "end_time": "2022-09-13 14:00:00"
+  },
+  {
+    "breakout_index": 1041,
+    "breakout_time": "2022-10-13 11:30:00",
+    "level": 5856.16,
+    "tolerance": 28.512312499999997,
+    "status": "triggered",
+    "end_index": 1042,
+    "end_time": "2022-10-13 14:00:00"
+  },
+  {
+    "breakout_index": 1044,
+    "breakout_time": "2022-10-14 10:30:00",
+    "level": 5876.476,
+    "tolerance": 28.997249999999987,
+    "status": "expired",
+    "end_index": 1048,
+    "end_time": "2022-10-17 10:30:00"
+  },
+  {
+    "breakout_index": 1050,
+    "breakout_time": "2022-10-17 14:00:00",
+    "level": 5996.044,
+    "tolerance": 30.526362499999983,
+    "status": "expired",
+    "end_index": 1054,
+    "end_time": "2022-10-18 14:00:00"
+  },
+  {
+    "breakout_index": 1098,
+    "breakout_time": "2022-11-02 14:00:00",
+    "level": 6020.893,
+    "tolerance": 31.756512499999985,
+    "status": "failed",
+    "end_index": 1099,
+    "end_time": "2022-11-02 15:00:00"
+  },
+  {
+    "breakout_index": 1104,
+    "breakout_time": "2022-11-04 10:30:00",
+    "level": 6028.767,
+    "tolerance": 30.854562499999997,
+    "status": "expired",
+    "end_index": 1108,
+    "end_time": "2022-11-07 10:30:00"
+  },
+  {
+    "breakout_index": 1109,
+    "breakout_time": "2022-11-07 11:30:00",
+    "level": 6157.428,
+    "tolerance": 31.74186249999999,
+    "status": "failed",
+    "end_index": 1110,
+    "end_time": "2022-11-07 14:00:00"
+  },
+  {
+    "breakout_index": 1116,
+    "breakout_time": "2022-11-09 10:30:00",
+    "level": 6166.191,
+    "tolerance": 30.192287499999985,
+    "status": "failed",
+    "end_index": 1117,
+    "end_time": "2022-11-09 11:30:00"
+  },
+  {
+    "breakout_index": 1125,
+    "breakout_time": "2022-11-11 11:30:00",
+    "level": 6182.338,
+    "tolerance": 27.694449999999982,
+    "status": "failed",
+    "end_index": 1127,
+    "end_time": "2022-11-11 15:00:00"
+  },
+  {
+    "breakout_index": 1136,
+    "breakout_time": "2022-11-16 10:30:00",
+    "level": 6249.349,
+    "tolerance": 28.270525,
+    "status": "failed",
+    "end_index": 1137,
+    "end_time": "2022-11-16 11:30:00"
+  },
+  {
+    "breakout_index": 1180,
+    "breakout_time": "2022-12-01 10:30:00",
+    "level": 6175.682,
+    "tolerance": 21.60236249999998,
+    "status": "triggered",
+    "end_index": 1181,
+    "end_time": "2022-12-01 11:30:00"
+  },
+  {
+    "breakout_index": 1192,
+    "breakout_time": "2022-12-06 10:30:00",
+    "level": 6229.834,
+    "tolerance": 20.079162499999985,
+    "status": "failed",
+    "end_index": 1193,
+    "end_time": "2022-12-06 11:30:00"
+  },
+  {
+    "breakout_index": 1268,
+    "breakout_time": "2023-01-03 10:30:00",
+    "level": 5895.981,
+    "tolerance": 16.29282500000004,
+    "status": "expired",
+    "end_index": 1272,
+    "end_time": "2023-01-04 10:30:00"
+  },
+  {
+    "breakout_index": 1276,
+    "breakout_time": "2023-01-05 10:30:00",
+    "level": 5970.576,
+    "tolerance": 16.868312500000048,
+    "status": "expired",
+    "end_index": 1280,
+    "end_time": "2023-01-06 10:30:00"
+  },
+  {
+    "breakout_index": 1284,
+    "breakout_time": "2023-01-09 10:30:00",
+    "level": 6050.887,
+    "tolerance": 17.135500000000047,
+    "status": "failed",
+    "end_index": 1285,
+    "end_time": "2023-01-09 11:30:00"
+  },
+  {
+    "breakout_index": 1304,
+    "breakout_time": "2023-01-16 10:30:00",
+    "level": 6070.448,
+    "tolerance": 17.475812500000053,
+    "status": "expired",
+    "end_index": 1308,
+    "end_time": "2023-01-17 10:30:00"
+  },
+  {
+    "breakout_index": 1317,
+    "breakout_time": "2023-01-19 11:30:00",
+    "level": 6168.745,
+    "tolerance": 15.765737500000046,
+    "status": "expired",
+    "end_index": 1321,
+    "end_time": "2023-01-20 11:30:00"
+  },
+  {
+    "breakout_index": 1324,
+    "breakout_time": "2023-01-30 10:30:00",
+    "level": 6253.269,
+    "tolerance": 14.967187500000046,
+    "status": "expired",
+    "end_index": 1328,
+    "end_time": "2023-01-31 10:30:00"
+  },
+  {
+    "breakout_index": 1335,
+    "breakout_time": "2023-02-01 15:00:00",
+    "level": 6342.449,
+    "tolerance": 14.65211250000002,
+    "status": "expired",
+    "end_index": 1339,
+    "end_time": "2023-02-02 15:00:00"
+  },
+  {
+    "breakout_index": 1360,
+    "breakout_time": "2023-02-10 10:30:00",
+    "level": 6354.803,
+    "tolerance": 15.731175000000007,
+    "status": "failed",
+    "end_index": 1361,
+    "end_time": "2023-02-10 11:30:00"
+  },
+  {
+    "breakout_index": 1364,
+    "breakout_time": "2023-02-13 10:30:00",
+    "level": 6368.488,
+    "tolerance": 15.979775000000018,
+    "status": "failed",
+    "end_index": 1365,
+    "end_time": "2023-02-13 11:30:00"
+  },
+  {
+    "breakout_index": 1368,
+    "breakout_time": "2023-02-14 10:30:00",
+    "level": 6386.724,
+    "tolerance": 15.954887500000018,
+    "status": "failed",
+    "end_index": 1369,
+    "end_time": "2023-02-14 11:30:00"
+  },
+  {
+    "breakout_index": 1376,
+    "breakout_time": "2023-02-16 10:30:00",
+    "level": 6408.551,
+    "tolerance": 15.689362500000016,
+    "status": "failed",
+    "end_index": 1378,
+    "end_time": "2023-02-16 14:00:00"
+  },
+  {
+    "breakout_index": 1413,
+    "breakout_time": "2023-03-01 11:30:00",
+    "level": 6397.145,
+    "tolerance": 18.386825000000034,
+    "status": "failed",
+    "end_index": 1414,
+    "end_time": "2023-03-01 14:00:00"
+  },
+  {
+    "breakout_index": 1472,
+    "breakout_time": "2023-03-22 10:30:00",
+    "level": 6254.486,
+    "tolerance": 17.005150000000015,
+    "status": "failed",
+    "end_index": 1473,
+    "end_time": "2023-03-22 11:30:00"
+  },
+  {
+    "breakout_index": 1476,
+    "breakout_time": "2023-03-23 10:30:00",
+    "level": 6271.523,
+    "tolerance": 16.81371250000001,
+    "status": "failed",
+    "end_index": 1477,
+    "end_time": "2023-03-23 11:30:00"
+  },
+  {
+    "breakout_index": 1481,
+    "breakout_time": "2023-03-24 11:30:00",
+    "level": 6305.759,
+    "tolerance": 16.71076250000001,
+    "status": "failed",
+    "end_index": 1482,
+    "end_time": "2023-03-24 14:00:00"
+  },
+  {
+    "breakout_index": 1502,
+    "breakout_time": "2023-03-31 14:00:00",
+    "level": 6331.558,
+    "tolerance": 16.5020125,
+    "status": "expired",
+    "end_index": 1506,
+    "end_time": "2023-04-03 14:00:00"
+  },
+  {
+    "breakout_index": 1512,
+    "breakout_time": "2023-04-06 10:30:00",
+    "level": 6423.306,
+    "tolerance": 16.24868749999998,
+    "status": "failed",
+    "end_index": 1513,
+    "end_time": "2023-04-06 11:30:00"
+  },
+  {
+    "breakout_index": 1516,
+    "breakout_time": "2023-04-07 10:30:00",
+    "level": 6428.722,
+    "tolerance": 16.26487499999997,
+    "status": "expired",
+    "end_index": 1520,
+    "end_time": "2023-04-10 10:30:00"
+  },
+  {
+    "breakout_index": 1583,
+    "breakout_time": "2023-05-04 15:00:00",
+    "level": 6260.54,
+    "tolerance": 17.271012499999983,
+    "status": "failed",
+    "end_index": 1584,
+    "end_time": "2023-05-05 10:30:00"
+  },
+  {
+    "breakout_index": 1660,
+    "breakout_time": "2023-06-01 10:30:00",
+    "level": 6063.1924,
+    "tolerance": 17.619156250000003,
+    "status": "triggered",
+    "end_index": 1662,
+    "end_time": "2023-06-01 14:00:00"
+  },
+  {
+    "breakout_index": 1664,
+    "breakout_time": "2023-06-02 10:30:00",
+    "level": 6094.24,
+    "tolerance": 18.12210000000001,
+    "status": "triggered",
+    "end_index": 1666,
+    "end_time": "2023-06-02 14:00:00"
+  },
+  {
+    "breakout_index": 1696,
+    "breakout_time": "2023-06-14 10:30:00",
+    "level": 6047.06,
+    "tolerance": 16.412018750000037,
+    "status": "failed",
+    "end_index": 1698,
+    "end_time": "2023-06-14 14:00:00"
+  },
+  {
+    "breakout_index": 1700,
+    "breakout_time": "2023-06-15 10:30:00",
+    "level": 6064.2896,
+    "tolerance": 16.208063750000044,
+    "status": "failed",
+    "end_index": 1701,
+    "end_time": "2023-06-15 11:30:00"
+  },
+  {
+    "breakout_index": 1704,
+    "breakout_time": "2023-06-16 10:30:00",
+    "level": 6100.2334,
+    "tolerance": 16.250668750000045,
+    "status": "expired",
+    "end_index": 1708,
+    "end_time": "2023-06-19 10:30:00"
+  },
+  {
+    "breakout_index": 1741,
+    "breakout_time": "2023-07-03 11:30:00",
+    "level": 6016.446,
+    "tolerance": 16.619245000000024,
+    "status": "expired",
+    "end_index": 1745,
+    "end_time": "2023-07-04 11:30:00"
+  },
+  {
+    "breakout_index": 1774,
+    "breakout_time": "2023-07-13 14:00:00",
+    "level": 6042.295,
+    "tolerance": 15.293669999999997,
+    "status": "triggered",
+    "end_index": 1777,
+    "end_time": "2023-07-14 11:30:00"
+  },
+  {
+    "breakout_index": 1817,
+    "breakout_time": "2023-07-28 11:30:00",
+    "level": 6017.6704,
+    "tolerance": 14.716841249999993,
+    "status": "expired",
+    "end_index": 1821,
+    "end_time": "2023-07-31 11:30:00"
+  },
+  {
+    "breakout_index": 1838,
+    "breakout_time": "2023-08-04 14:00:00",
+    "level": 6133.718,
+    "tolerance": 15.531123749999995,
+    "status": "failed",
+    "end_index": 1839,
+    "end_time": "2023-08-04 15:00:00"
+  },
+  {
+    "breakout_index": 2054,
+    "breakout_time": "2023-10-27 14:00:00",
+    "level": 5473.211,
+    "tolerance": 15.916321250000044,
+    "status": "expired",
+    "end_index": 2058,
+    "end_time": "2023-10-30 14:00:00"
+  },
+  {
+    "breakout_index": 2076,
+    "breakout_time": "2023-11-06 10:30:00",
+    "level": 5559.7847,
+    "tolerance": 17.54584125000006,
+    "status": "expired",
+    "end_index": 2080,
+    "end_time": "2023-11-07 10:30:00"
+  },
+  {
+    "breakout_index": 2082,
+    "breakout_time": "2023-11-07 14:00:00",
+    "level": 5609.258,
+    "tolerance": 18.07689750000005,
+    "status": "triggered",
+    "end_index": 2083,
+    "end_time": "2023-11-07 15:00:00"
+  },
+  {
+    "breakout_index": 2104,
+    "breakout_time": "2023-11-15 10:30:00",
+    "level": 5639.188,
+    "tolerance": 17.517437500000064,
+    "status": "triggered",
+    "end_index": 2106,
+    "end_time": "2023-11-15 14:00:00"
+  },
+  {
+    "breakout_index": 2229,
+    "breakout_time": "2023-12-28 11:30:00",
+    "level": 5366.2344,
+    "tolerance": 17.097257500000012,
+    "status": "triggered",
+    "end_index": 2231,
+    "end_time": "2023-12-28 15:00:00"
+  },
+  {
+    "breakout_index": 2232,
+    "breakout_time": "2023-12-29 10:30:00",
+    "level": 5400.2363,
+    "tolerance": 18.02813625,
+    "status": "triggered",
+    "end_index": 2233,
+    "end_time": "2023-12-29 11:30:00"
+  },
+  {
+    "breakout_index": 2340,
+    "breakout_time": "2024-02-07 10:30:00",
+    "level": 4832.401,
+    "tolerance": 39.18106874999997,
+    "status": "expired",
+    "end_index": 2344,
+    "end_time": "2024-02-08 10:30:00"
+  },
+  {
+    "breakout_index": 2375,
+    "breakout_time": "2024-02-27 15:00:00",
+    "level": 5255.3613,
+    "tolerance": 45.00102249999999,
+    "status": "triggered",
+    "end_index": 2377,
+    "end_time": "2024-02-28 11:30:00"
+  },
+  {
+    "breakout_index": 2391,
+    "breakout_time": "2024-03-04 15:00:00",
+    "level": 5387.7837,
+    "tolerance": 43.04508874999999,
+    "status": "failed",
+    "end_index": 2392,
+    "end_time": "2024-03-05 10:30:00"
+  },
+  {
+    "breakout_index": 2411,
+    "breakout_time": "2024-03-11 15:00:00",
+    "level": 5405.4907,
+    "tolerance": 40.982173749999994,
+    "status": "triggered",
+    "end_index": 2412,
+    "end_time": "2024-03-12 10:30:00"
+  },
+  {
+    "breakout_index": 2428,
+    "breakout_time": "2024-03-18 10:30:00",
+    "level": 5473.29,
+    "tolerance": 26.944968750000008,
+    "status": "triggered",
+    "end_index": 2429,
+    "end_time": "2024-03-18 11:30:00"
+  },
+  {
+    "breakout_index": 2513,
+    "breakout_time": "2024-04-18 11:30:00",
+    "level": 5376.0483,
+    "tolerance": 23.46936125,
+    "status": "failed",
+    "end_index": 2514,
+    "end_time": "2024-04-18 14:00:00"
+  },
+  {
+    "breakout_index": 2539,
+    "breakout_time": "2024-04-26 15:00:00",
+    "level": 5369.954,
+    "tolerance": 23.878719999999987,
+    "status": "expired",
+    "end_index": 2543,
+    "end_time": "2024-04-29 15:00:00"
+  },
+  {
+    "breakout_index": 2548,
+    "breakout_time": "2024-05-06 10:30:00",
+    "level": 5488.278,
+    "tolerance": 23.335372499999995,
+    "status": "triggered",
+    "end_index": 2550,
+    "end_time": "2024-05-06 14:00:00"
+  },
+  {
+    "breakout_index": 2561,
+    "breakout_time": "2024-05-09 11:30:00",
+    "level": 5543.125,
+    "tolerance": 23.360293749999993,
+    "status": "triggered",
+    "end_index": 2562,
+    "end_time": "2024-05-09 14:00:00"
+  },
+  {
+    "breakout_index": 2739,
+    "breakout_time": "2024-07-11 15:00:00",
+    "level": 4935.6055,
+    "tolerance": 20.081274999999994,
+    "status": "failed",
+    "end_index": 2740,
+    "end_time": "2024-07-12 10:30:00"
+  },
+  {
+    "breakout_index": 2792,
+    "breakout_time": "2024-07-31 10:30:00",
+    "level": 4744.4536,
+    "tolerance": 18.555835000000013,
+    "status": "expired",
+    "end_index": 2796,
+    "end_time": "2024-08-01 10:30:00"
+  },
+  {
+    "breakout_index": 2880,
+    "breakout_time": "2024-08-30 10:30:00",
+    "level": 4577.792,
+    "tolerance": 17.484275000000014,
+    "status": "triggered",
+    "end_index": 2884,
+    "end_time": "2024-09-02 10:30:00"
+  },
+  {
+    "breakout_index": 2941,
+    "breakout_time": "2024-09-24 11:30:00",
+    "level": 4565.39,
+    "tolerance": 17.975232500000015,
+    "status": "expired",
+    "end_index": 2945,
+    "end_time": "2024-09-25 11:30:00"
+  },
+  {
+    "breakout_index": 2950,
+    "breakout_time": "2024-09-26 14:00:00",
+    "level": 4847.2036,
+    "tolerance": 21.506853750000015,
+    "status": "expired",
+    "end_index": 2954,
+    "end_time": "2024-09-27 14:00:00"
+  },
+  {
+    "breakout_index": 2956,
+    "breakout_time": "2024-09-30 10:30:00",
+    "level": 5227.9575,
+    "tolerance": 26.576901250000013,
+    "status": "expired",
+    "end_index": 2960,
+    "end_time": "2024-10-08 10:30:00"
+  },
+  {
+    "breakout_index": 2994,
+    "breakout_time": "2024-10-18 14:00:00",
+    "level": 5661.0747,
+    "tolerance": 53.522762500000034,
+    "status": "failed",
+    "end_index": 2995,
+    "end_time": "2024-10-18 15:00:00"
+  },
+  {
+    "breakout_index": 3005,
+    "breakout_time": "2024-10-23 11:30:00",
+    "level": 5797.881,
+    "tolerance": 59.29168000000003,
+    "status": "failed",
+    "end_index": 3007,
+    "end_time": "2024-10-23 15:00:00"
+  },
+  {
+    "breakout_index": 3017,
+    "breakout_time": "2024-10-28 11:30:00",
+    "level": 5855.2646,
+    "tolerance": 60.31645250000004,
+    "status": "triggered",
+    "end_index": 3018,
+    "end_time": "2024-10-28 14:00:00"
+  },
+  {
+    "breakout_index": 3020,
+    "breakout_time": "2024-10-29 10:30:00",
+    "level": 5883.72,
+    "tolerance": 60.73926000000004,
+    "status": "failed",
+    "end_index": 3021,
+    "end_time": "2024-10-29 11:30:00"
+  },
+  {
+    "breakout_index": 3040,
+    "breakout_time": "2024-11-05 10:30:00",
+    "level": 5935.1826,
+    "tolerance": 50.02186375000002,
+    "status": "expired",
+    "end_index": 3044,
+    "end_time": "2024-11-06 10:30:00"
+  },
+  {
+    "breakout_index": 3050,
+    "breakout_time": "2024-11-07 14:00:00",
+    "level": 6204.533,
+    "tolerance": 40.08924625000001,
+    "status": "triggered",
+    "end_index": 3053,
+    "end_time": "2024-11-08 11:30:00"
+  },
+  {
+    "breakout_index": 3054,
+    "breakout_time": "2024-11-08 14:00:00",
+    "level": 6240.7573,
+    "tolerance": 38.99813250000001,
+    "status": "failed",
+    "end_index": 3055,
+    "end_time": "2024-11-08 15:00:00"
+  },
+  {
+    "breakout_index": 3060,
+    "breakout_time": "2024-11-12 10:30:00",
+    "level": 6333.679,
+    "tolerance": 36.01742375,
+    "status": "failed",
+    "end_index": 3062,
+    "end_time": "2024-11-12 14:00:00"
+  },
+  {
+    "breakout_index": 3116,
+    "breakout_time": "2024-12-02 10:30:00",
+    "level": 5899.873,
+    "tolerance": 36.589219999999976,
+    "status": "triggered",
+    "end_index": 3118,
+    "end_time": "2024-12-02 14:00:00"
+  },
+  {
+    "breakout_index": 3133,
+    "breakout_time": "2024-12-06 11:30:00",
+    "level": 5956.598,
+    "tolerance": 33.16083124999999,
+    "status": "triggered",
+    "end_index": 3134,
+    "end_time": "2024-12-06 14:00:00"
+  },
+  {
+    "breakout_index": 3140,
+    "breakout_time": "2024-12-10 10:30:00",
+    "level": 6011.769,
+    "tolerance": 32.766646249999994,
+    "status": "triggered",
+    "end_index": 3141,
+    "end_time": "2024-12-10 11:30:00"
+  },
+  {
+    "breakout_index": 3237,
+    "breakout_time": "2025-01-14 11:30:00",
+    "level": 5501.6553,
+    "tolerance": 27.108374999999988,
+    "status": "triggered",
+    "end_index": 3240,
+    "end_time": "2025-01-15 10:30:00"
+  },
+  {
+    "breakout_index": 3244,
+    "breakout_time": "2025-01-16 10:30:00",
+    "level": 5582.835,
+    "tolerance": 28.05882999999998,
+    "status": "failed",
+    "end_index": 3245,
+    "end_time": "2025-01-16 11:30:00"
+  },
+  {
+    "breakout_index": 3252,
+    "breakout_time": "2025-01-20 10:30:00",
+    "level": 5633.8545,
+    "tolerance": 28.70422249999998,
+    "status": "failed",
+    "end_index": 3253,
+    "end_time": "2025-01-20 11:30:00"
+  },
+  {
+    "breakout_index": 3264,
+    "breakout_time": "2025-01-23 10:30:00",
+    "level": 5665.183,
+    "tolerance": 27.985812499999998,
+    "status": "failed",
+    "end_index": 3265,
+    "end_time": "2025-01-23 11:30:00"
+  },
+  {
+    "breakout_index": 3282,
+    "breakout_time": "2025-02-06 14:00:00",
+    "level": 5717.6885,
+    "tolerance": 28.5499775,
+    "status": "expired",
+    "end_index": 3286,
+    "end_time": "2025-02-07 14:00:00"
+  },
+  {
+    "breakout_index": 3299,
+    "breakout_time": "2025-02-12 15:00:00",
+    "level": 5895.4053,
+    "tolerance": 25.51518625000001,
+    "status": "triggered",
+    "end_index": 3300,
+    "end_time": "2025-02-13 10:30:00"
+  },
+  {
+    "breakout_index": 3308,
+    "breakout_time": "2025-02-17 10:30:00",
+    "level": 5957.5796,
+    "tolerance": 24.546092499999997,
+    "status": "failed",
+    "end_index": 3309,
+    "end_time": "2025-02-17 11:30:00"
+  },
+  {
+    "breakout_index": 3324,
+    "breakout_time": "2025-02-21 10:30:00",
+    "level": 5985.3643,
+    "tolerance": 23.121212500000002,
+    "status": "expired",
+    "end_index": 3328,
+    "end_time": "2025-02-24 10:30:00"
+  },
+  {
+    "breakout_index": 3378,
+    "breakout_time": "2025-03-12 14:00:00",
+    "level": 6067.348,
+    "tolerance": 24.02527624999998,
+    "status": "failed",
+    "end_index": 3379,
+    "end_time": "2025-03-12 15:00:00"
+  },
+  {
+    "breakout_index": 3387,
+    "breakout_time": "2025-03-14 15:00:00",
+    "level": 6098.2354,
+    "tolerance": 23.959107499999995,
+    "status": "triggered",
+    "end_index": 3389,
+    "end_time": "2025-03-17 11:30:00"
+  },
+  {
+    "breakout_index": 3392,
+    "breakout_time": "2025-03-18 10:30:00",
+    "level": 6129.8545,
+    "tolerance": 24.036234999999987,
+    "status": "triggered",
+    "end_index": 3393,
+    "end_time": "2025-03-18 11:30:00"
+  },
+  {
+    "breakout_index": 3464,
+    "breakout_time": "2025-04-14 10:30:00",
+    "level": 5631.595,
+    "tolerance": 31.667118749999997,
+    "status": "failed",
+    "end_index": 3466,
+    "end_time": "2025-04-14 14:00:00"
+  },
+  {
+    "breakout_index": 3516,
+    "breakout_time": "2025-05-06 10:30:00",
+    "level": 5661.587,
+    "tolerance": 29.589615000000027,
+    "status": "expired",
+    "end_index": 3520,
+    "end_time": "2025-05-07 10:30:00"
+  },
+  {
+    "breakout_index": 3523,
+    "breakout_time": "2025-05-07 15:00:00",
+    "level": 5740.334,
+    "tolerance": 30.28931250000003,
+    "status": "triggered",
+    "end_index": 3526,
+    "end_time": "2025-05-08 14:00:00"
+  },
+  {
+    "breakout_index": 3596,
+    "breakout_time": "2025-06-04 10:30:00",
+    "level": 5724.5186,
+    "tolerance": 16.04017124999998,
+    "status": "triggered",
+    "end_index": 3598,
+    "end_time": "2025-06-04 14:00:00"
+  },
+  {
+    "breakout_index": 3602,
+    "breakout_time": "2025-06-05 14:00:00",
+    "level": 5744.454,
+    "tolerance": 15.303999999999984,
+    "status": "triggered",
+    "end_index": 3604,
+    "end_time": "2025-06-06 10:30:00"
+  },
+  {
+    "breakout_index": 3608,
+    "breakout_time": "2025-06-09 10:30:00",
+    "level": 5778.0957,
+    "tolerance": 14.239464999999985,
+    "status": "triggered",
+    "end_index": 3612,
+    "end_time": "2025-06-10 10:30:00"
+  },
+  {
+    "breakout_index": 3656,
+    "breakout_time": "2025-06-25 10:30:00",
+    "level": 5766.019,
+    "tolerance": 14.674485000000027,
+    "status": "expired",
+    "end_index": 3660,
+    "end_time": "2025-06-26 10:30:00"
+  },
+  {
+    "breakout_index": 3661,
+    "breakout_time": "2025-06-26 11:30:00",
+    "level": 5866.5244,
+    "tolerance": 15.42898875000002,
+    "status": "failed",
+    "end_index": 3662,
+    "end_time": "2025-06-26 14:00:00"
+  },
+  {
+    "breakout_index": 3664,
+    "breakout_time": "2025-06-27 10:30:00",
+    "level": 5885.251,
+    "tolerance": 15.652218750000031,
+    "status": "failed",
+    "end_index": 3666,
+    "end_time": "2025-06-27 14:00:00"
+  },
+  {
+    "breakout_index": 3671,
+    "breakout_time": "2025-06-30 15:00:00",
+    "level": 5905.6963,
+    "tolerance": 15.402163750000023,
+    "status": "failed",
+    "end_index": 3673,
+    "end_time": "2025-07-01 11:30:00"
+  },
+  {
+    "breakout_index": 3674,
+    "breakout_time": "2025-07-01 14:00:00",
+    "level": 5918.3066,
+    "tolerance": 15.404491250000024,
+    "status": "triggered",
+    "end_index": 3675,
+    "end_time": "2025-07-01 15:00:00"
+  },
+  {
+    "breakout_index": 3694,
+    "breakout_time": "2025-07-08 14:00:00",
+    "level": 5969.3027,
+    "tolerance": 15.461628750000022,
+    "status": "triggered",
+    "end_index": 3697,
+    "end_time": "2025-07-09 11:30:00"
+  },
+  {
+    "breakout_index": 3704,
+    "breakout_time": "2025-07-11 10:30:00",
+    "level": 6000.686,
+    "tolerance": 15.358628750000014,
+    "status": "expired",
+    "end_index": 3708,
+    "end_time": "2025-07-14 10:30:00"
+  },
+  {
+    "breakout_index": 3722,
+    "breakout_time": "2025-07-17 14:00:00",
+    "level": 6061.199,
+    "tolerance": 16.073761250000008,
+    "status": "triggered",
+    "end_index": 3726,
+    "end_time": "2025-07-18 14:00:00"
+  },
+  {
+    "breakout_index": 3727,
+    "breakout_time": "2025-07-18 15:00:00",
+    "level": 6082.4644,
+    "tolerance": 15.811346250000009,
+    "status": "expired",
+    "end_index": 3731,
+    "end_time": "2025-07-21 15:00:00"
+  },
+  {
+    "breakout_index": 3733,
+    "breakout_time": "2025-07-22 11:30:00",
+    "level": 6162.44,
+    "tolerance": 15.539267500000017,
+    "status": "expired",
+    "end_index": 3737,
+    "end_time": "2025-07-23 11:30:00"
+  },
+  {
+    "breakout_index": 3741,
+    "breakout_time": "2025-07-24 11:30:00",
+    "level": 6256.1514,
+    "tolerance": 14.779215000000011,
+    "status": "expired",
+    "end_index": 3745,
+    "end_time": "2025-07-25 11:30:00"
+  },
+  {
+    "breakout_index": 3746,
+    "breakout_time": "2025-07-25 14:00:00",
+    "level": 6293.5986,
+    "tolerance": 15.365827500000012,
+    "status": "failed",
+    "end_index": 3748,
+    "end_time": "2025-07-28 10:30:00"
+  },
+  {
+    "breakout_index": 3750,
+    "breakout_time": "2025-07-28 14:00:00",
+    "level": 6311.1685,
+    "tolerance": 14.957106250000015,
+    "status": "failed",
+    "end_index": 3752,
+    "end_time": "2025-07-29 10:30:00"
+  },
+  {
+    "breakout_index": 3755,
+    "breakout_time": "2025-07-29 15:00:00",
+    "level": 6329.0303,
+    "tolerance": 14.988627500000018,
+    "status": "failed",
+    "end_index": 3758,
+    "end_time": "2025-07-30 14:00:00"
+  },
+  {
+    "breakout_index": 3788,
+    "breakout_time": "2025-08-11 10:30:00",
+    "level": 6366.214,
+    "tolerance": 16.589218749999997,
+    "status": "triggered",
+    "end_index": 3791,
+    "end_time": "2025-08-11 15:00:00"
+  },
+  {
+    "breakout_index": 3794,
+    "breakout_time": "2025-08-12 14:00:00",
+    "level": 6404.833,
+    "tolerance": 17.215897499999993,
+    "status": "expired",
+    "end_index": 3798,
+    "end_time": "2025-08-13 14:00:00"
+  },
+  {
+    "breakout_index": 3805,
+    "breakout_time": "2025-08-15 11:30:00",
+    "level": 6519.794,
+    "tolerance": 17.875556249999978,
+    "status": "expired",
+    "end_index": 3809,
+    "end_time": "2025-08-18 11:30:00"
+  },
+  {
+    "breakout_index": 3819,
+    "breakout_time": "2025-08-20 15:00:00",
+    "level": 6709.7812,
+    "tolerance": 20.455848749999983,
+    "status": "triggered",
+    "end_index": 3822,
+    "end_time": "2025-08-21 14:00:00"
+  },
+  {
+    "breakout_index": 3825,
+    "breakout_time": "2025-08-22 11:30:00",
+    "level": 6767.3223,
+    "tolerance": 21.178343749999975,
+    "status": "expired",
+    "end_index": 3829,
+    "end_time": "2025-08-25 11:30:00"
+  },
+  {
+    "breakout_index": 3833,
+    "breakout_time": "2025-08-26 11:30:00",
+    "level": 6967.7964,
+    "tolerance": 23.333711249999986,
+    "status": "failed",
+    "end_index": 3835,
+    "end_time": "2025-08-26 15:00:00"
+  },
+  {
+    "breakout_index": 3836,
+    "breakout_time": "2025-08-27 10:30:00",
+    "level": 7008.963,
+    "tolerance": 23.517732499999987,
+    "status": "failed",
+    "end_index": 3838,
+    "end_time": "2025-08-27 14:00:00"
+  },
+  {
+    "breakout_index": 3850,
+    "breakout_time": "2025-09-01 14:00:00",
+    "level": 7078.923,
+    "tolerance": 26.288392499999997,
+    "status": "failed",
+    "end_index": 3852,
+    "end_time": "2025-09-02 10:30:00"
+  },
+  {
+    "breakout_index": 3881,
+    "breakout_time": "2025-09-11 11:30:00",
+    "level": 6999.731,
+    "tolerance": 35.71692249999999,
+    "status": "expired",
+    "end_index": 3885,
+    "end_time": "2025-09-12 11:30:00"
+  },
+  {
+    "breakout_index": 3897,
+    "breakout_time": "2025-09-17 11:30:00",
+    "level": 7200.156,
+    "tolerance": 35.79279749999999,
+    "status": "expired",
+    "end_index": 3901,
+    "end_time": "2025-09-18 11:30:00"
+  },
+  {
+    "breakout_index": 3920,
+    "breakout_time": "2025-09-25 10:30:00",
+    "level": 7350.977,
+    "tolerance": 37.21716,
+    "status": "triggered",
+    "end_index": 3922,
+    "end_time": "2025-09-25 14:00:00"
+  },
+  {
+    "breakout_index": 3932,
+    "breakout_time": "2025-09-30 10:30:00",
+    "level": 7379.611,
+    "tolerance": 36.83908625,
+    "status": "triggered",
+    "end_index": 3934,
+    "end_time": "2025-09-30 14:00:00"
+  },
+  {
+    "breakout_index": 3936,
+    "breakout_time": "2025-10-09 10:30:00",
+    "level": 7428.031,
+    "tolerance": 35.300418750000006,
+    "status": "triggered",
+    "end_index": 3940,
+    "end_time": "2025-10-10 10:30:00"
+  },
+  {
+    "breakout_index": 3983,
+    "breakout_time": "2025-10-24 15:00:00",
+    "level": 7254.5786,
+    "tolerance": 38.03175749999999,
+    "status": "expired",
+    "end_index": 3987,
+    "end_time": "2025-10-27 15:00:00"
+  },
+  {
+    "breakout_index": 3989,
+    "breakout_time": "2025-10-28 11:30:00",
+    "level": 7391.212,
+    "tolerance": 37.068937500000004,
+    "status": "failed",
+    "end_index": 3990,
+    "end_time": "2025-10-28 14:00:00"
+  },
+  {
+    "breakout_index": 3993,
+    "breakout_time": "2025-10-29 11:30:00",
+    "level": 7404.756,
+    "tolerance": 37.2402,
+    "status": "triggered",
+    "end_index": 3996,
+    "end_time": "2025-10-30 10:30:00"
+  },
+  {
+    "breakout_index": 4084,
+    "breakout_time": "2025-12-01 10:30:00",
+    "level": 7045.8447,
+    "tolerance": 29.809283749999974,
+    "status": "triggered",
+    "end_index": 4086,
+    "end_time": "2025-12-01 14:00:00"
+  },
+  {
+    "breakout_index": 4104,
+    "breakout_time": "2025-12-08 10:30:00",
+    "level": 7104.021,
+    "tolerance": 27.34181625,
+    "status": "expired",
+    "end_index": 4108,
+    "end_time": "2025-12-09 10:30:00"
+  },
+  {
+    "breakout_index": 4144,
+    "breakout_time": "2025-12-22 10:30:00",
+    "level": 7197.068,
+    "tolerance": 25.740499999999987,
+    "status": "expired",
+    "end_index": 4148,
+    "end_time": "2025-12-23 10:30:00"
+  },
+  {
+    "breakout_index": 4149,
+    "breakout_time": "2025-12-23 11:30:00",
+    "level": 7277.386,
+    "tolerance": 25.733091249999994,
+    "status": "failed",
+    "end_index": 4150,
+    "end_time": "2025-12-23 14:00:00"
+  },
+  {
+    "breakout_index": 4153,
+    "breakout_time": "2025-12-24 11:30:00",
+    "level": 7297.7036,
+    "tolerance": 24.726559999999996,
+    "status": "expired",
+    "end_index": 4157,
+    "end_time": "2025-12-25 11:30:00"
+  },
+  {
+    "breakout_index": 4160,
+    "breakout_time": "2025-12-26 10:30:00",
+    "level": 7426.1367,
+    "tolerance": 24.933500000000002,
+    "status": "failed",
+    "end_index": 4161,
+    "end_time": "2025-12-26 11:30:00"
+  },
+  {
+    "breakout_index": 4176,
+    "breakout_time": "2026-01-05 10:30:00",
+    "level": 7495.0605,
+    "tolerance": 24.897537499999988,
+    "status": "expired",
+    "end_index": 4180,
+    "end_time": "2026-01-06 10:30:00"
+  },
+  {
+    "breakout_index": 4184,
+    "breakout_time": "2026-01-07 10:30:00",
+    "level": 7814.6504,
+    "tolerance": 26.520269999999993,
+    "status": "triggered",
+    "end_index": 4186,
+    "end_time": "2026-01-07 14:00:00"
+  },
+  {
+    "breakout_index": 4189,
+    "breakout_time": "2026-01-08 11:30:00",
+    "level": 7909.656,
+    "tolerance": 26.515723749999996,
+    "status": "triggered",
+    "end_index": 4190,
+    "end_time": "2026-01-08 14:00:00"
+  },
+  {
+    "breakout_index": 4192,
+    "breakout_time": "2026-01-09 10:30:00",
+    "level": 7938.5947,
+    "tolerance": 26.618876249999992,
+    "status": "expired",
+    "end_index": 4196,
+    "end_time": "2026-01-12 10:30:00"
+  },
+  {
+    "breakout_index": 4204,
+    "breakout_time": "2026-01-14 10:30:00",
+    "level": 8270.423,
+    "tolerance": 29.33645375000002,
+    "status": "failed",
+    "end_index": 4206,
+    "end_time": "2026-01-14 14:00:00"
+  },
+  {
+    "breakout_index": 4228,
+    "breakout_time": "2026-01-22 10:30:00",
+    "level": 8351.454,
+    "tolerance": 32.33640750000002,
+    "status": "failed",
+    "end_index": 4229,
+    "end_time": "2026-01-22 11:30:00"
+  },
+  {
+    "breakout_index": 4232,
+    "breakout_time": "2026-01-23 10:30:00",
+    "level": 8396.133,
+    "tolerance": 32.210871250000025,
+    "status": "expired",
+    "end_index": 4236,
+    "end_time": "2026-01-26 10:30:00"
+  },
+  {
+    "breakout_index": 4282,
+    "breakout_time": "2026-02-10 14:00:00",
+    "level": 8313.469,
+    "tolerance": 46.120997500000044,
+    "status": "failed",
+    "end_index": 4283,
+    "end_time": "2026-02-10 15:00:00"
+  },
+  {
+    "breakout_index": 4284,
+    "breakout_time": "2026-02-11 10:30:00",
+    "level": 8331.985,
+    "tolerance": 44.99624750000004,
+    "status": "triggered",
+    "end_index": 4286,
+    "end_time": "2026-02-11 14:00:00"
+  },
+  {
+    "breakout_index": 4288,
+    "breakout_time": "2026-02-12 10:30:00",
+    "level": 8373.503,
+    "tolerance": 42.91578875000006,
+    "status": "triggered",
+    "end_index": 4292,
+    "end_time": "2026-02-13 10:30:00"
+  },
+  {
+    "breakout_index": 4300,
+    "breakout_time": "2026-02-25 10:30:00",
+    "level": 8444.128,
+    "tolerance": 43.880083750000054,
+    "status": "expired",
+    "end_index": 4304,
+    "end_time": "2026-02-26 10:30:00"
+  },
+  {
+    "breakout_index": 4305,
+    "breakout_time": "2026-02-26 11:30:00",
+    "level": 8551.534,
+    "tolerance": 43.353741250000056,
+    "status": "failed",
+    "end_index": 4306,
+    "end_time": "2026-02-26 14:00:00"
+  },
+  {
+    "breakout_index": 4308,
+    "breakout_time": "2026-02-27 10:30:00",
+    "level": 8582.764,
+    "tolerance": 42.56555375000005,
+    "status": "failed",
+    "end_index": 4309,
+    "end_time": "2026-02-27 11:30:00"
+  },
+  {
+    "breakout_index": 4340,
+    "breakout_time": "2026-03-11 10:30:00",
+    "level": 8412.933,
+    "tolerance": 42.32582125000009,
+    "status": "failed",
+    "end_index": 4341,
+    "end_time": "2026-03-11 11:30:00"
+  },
+  {
+    "breakout_index": 4416,
+    "breakout_time": "2026-04-08 10:30:00",
+    "level": 7788.8926,
+    "tolerance": 44.18605875000007,
+    "status": "expired",
+    "end_index": 4420,
+    "end_time": "2026-04-09 10:30:00"
+  },
+  {
+    "breakout_index": 4424,
+    "breakout_time": "2026-04-10 10:30:00",
+    "level": 7947.678,
+    "tolerance": 47.70761500000005,
+    "status": "triggered",
+    "end_index": 4425,
+    "end_time": "2026-04-10 11:30:00"
+  },
+  {
+    "breakout_index": 4433,
+    "breakout_time": "2026-04-14 11:30:00",
+    "level": 8070.6484,
+    "tolerance": 47.06862750000003,
+    "status": "failed",
+    "end_index": 4434,
+    "end_time": "2026-04-14 14:00:00"
+  },
+  {
+    "breakout_index": 4436,
+    "breakout_time": "2026-04-15 10:30:00",
+    "level": 8088.569,
+    "tolerance": 46.34182750000002,
+    "status": "triggered",
+    "end_index": 4437,
+    "end_time": "2026-04-15 11:30:00"
+  },
+  {
+    "breakout_index": 4441,
+    "breakout_time": "2026-04-16 11:30:00",
+    "level": 8150.622,
+    "tolerance": 45.570515000000036,
+    "status": "expired",
+    "end_index": 4445,
+    "end_time": "2026-04-17 11:30:00"
+  },
+  {
+    "breakout_index": 4446,
+    "breakout_time": "2026-04-17 14:00:00",
+    "level": 8189.1753,
+    "tolerance": 45.540431250000026,
+    "status": "triggered",
+    "end_index": 4447,
+    "end_time": "2026-04-17 15:00:00"
+  },
+  {
+    "breakout_index": 4448,
+    "breakout_time": "2026-04-20 10:30:00",
+    "level": 8230.107,
+    "tolerance": 43.38909750000003,
+    "status": "triggered",
+    "end_index": 4449,
+    "end_time": "2026-04-20 11:30:00"
+  },
+  {
+    "breakout_index": 4457,
+    "breakout_time": "2026-04-22 11:30:00",
+    "level": 8310.944,
+    "tolerance": 39.04244000000002,
+    "status": "triggered",
+    "end_index": 4460,
+    "end_time": "2026-04-23 10:30:00"
+  },
+  {
+    "breakout_index": 4484,
+    "breakout_time": "2026-05-06 10:30:00",
+    "level": 8375.193,
+    "tolerance": 34.69789875000002,
+    "status": "expired",
+    "end_index": 4488,
+    "end_time": "2026-05-07 10:30:00"
+  },
+  {
+    "breakout_index": 4489,
+    "breakout_time": "2026-05-07 11:30:00",
+    "level": 8621.346,
+    "tolerance": 35.74735000000002,
+    "status": "triggered",
+    "end_index": 4492,
+    "end_time": "2026-05-08 10:30:00"
+  },
+  {
+    "breakout_index": 4496,
+    "breakout_time": "2026-05-11 10:30:00",
+    "level": 8706.333,
+    "tolerance": 35.48201375000001,
+    "status": "expired",
+    "end_index": 4500,
+    "end_time": "2026-05-12 10:30:00"
+  },
+  {
+    "breakout_index": 4506,
+    "breakout_time": "2026-05-13 14:00:00",
+    "level": 8863.769,
+    "tolerance": 33.15199500000002,
+    "status": "failed",
+    "end_index": 4508,
+    "end_time": "2026-05-14 10:30:00"
+  },
+  {
+    "breakout_index": 4596,
+    "breakout_time": "2026-06-15 10:30:00",
+    "level": 8258.908,
+    "tolerance": 51.152487499999964,
+    "status": "triggered",
+    "end_index": 4597,
+    "end_time": "2026-06-15 11:30:00"
+  },
+  {
+    "breakout_index": 4600,
+    "breakout_time": "2026-06-16 10:30:00",
+    "level": 8406.779,
+    "tolerance": 53.23488749999996,
+    "status": "triggered",
+    "end_index": 4602,
+    "end_time": "2026-06-16 14:00:00"
+  },
+  {
+    "breakout_index": 4604,
+    "breakout_time": "2026-06-17 10:30:00",
+    "level": 8538.194,
+    "tolerance": 52.17112499999995,
+    "status": "failed",
+    "end_index": 4605,
+    "end_time": "2026-06-17 11:30:00"
+  },
+  {
+    "breakout_index": 4608,
+    "breakout_time": "2026-06-18 10:30:00",
+    "level": 8630.516,
+    "tolerance": 52.790974999999946,
+    "status": "triggered",
+    "end_index": 4609,
+    "end_time": "2026-06-18 11:30:00"
+  },
+  {
+    "breakout_index": 4614,
+    "breakout_time": "2026-06-22 14:00:00",
+    "level": 8716.342,
+    "tolerance": 49.594399999999965,
+    "status": "failed",
+    "end_index": 4618,
+    "end_time": "2026-06-23 14:00:00"
+  },
+  {
+    "breakout_index": 4625,
+    "breakout_time": "2026-06-25 11:30:00",
+    "level": 8895.34,
+    "tolerance": 52.81381249999996,
+    "status": "failed",
+    "end_index": 4626,
+    "end_time": "2026-06-25 14:00:00"
+  },
+  {
+    "breakout_index": 4637,
+    "breakout_time": "2026-06-30 11:30:00",
+    "level": 8940.959,
+    "tolerance": 52.46065,
+    "status": "expired",
+    "end_index": 4641,
+    "end_time": "2026-07-01 11:30:00"
+  },
+  {
+    "breakout_index": 4740,
+    "breakout_time": "2026-08-05 10:30:00",
+    "level": 7645.4756,
+    "tolerance": 71.64415500000001,
+    "status": "expired",
+    "end_index": 4744,
+    "end_time": "2026-08-06 10:30:00"
+  },
+  {
+    "breakout_index": 4748,
+    "breakout_time": "2026-08-07 10:30:00",
+    "level": 7868.855,
+    "tolerance": 69.37443875000001,
+    "status": "expired",
+    "end_index": 4752,
+    "end_time": "2026-08-10 10:30:00"
+  },
+  {
+    "breakout_index": 4755,
+    "breakout_time": "2026-08-10 15:00:00",
+    "level": 7983.1724,
+    "tolerance": 68.61993125000002,
+    "status": "triggered",
+    "end_index": 4756,
+    "end_time": "2026-08-11 10:30:00"
+  },
+  {
+    "breakout_index": 4757,
+    "breakout_time": "2026-08-11 11:30:00",
+    "level": 8031.156,
+    "tolerance": 65.15265625000004,
+    "status": "triggered",
+    "end_index": 4758,
+    "end_time": "2026-08-11 14:00:00"
+  },
+  {
+    "breakout_index": 4764,
+    "breakout_time": "2026-08-13 10:30:00",
+    "level": 8078.361,
+    "tolerance": 61.75176125000003,
+    "status": "triggered",
+    "end_index": 4765,
+    "end_time": "2026-08-13 11:30:00"
+  },
+  {
+    "breakout_index": 4774,
+    "breakout_time": "2026-08-17 14:00:00",
+    "level": 8142.3267,
+    "tolerance": 56.26311250000002,
+    "status": "failed",
+    "end_index": 4776,
+    "end_time": "2026-08-18 10:30:00"
+  },
+  {
+    "breakout_index": 4807,
+    "breakout_time": "2026-08-27 15:00:00",
+    "level": 7923.911,
+    "tolerance": 47.988865,
+    "status": "triggered",
+    "end_index": 4809,
+    "end_time": "2026-08-28 11:30:00"
+  }
+]
