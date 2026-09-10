@@ -4,8 +4,10 @@
 日期：2026-08-06
 上游总览：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)、[B1 基金管理人与业绩基准库 LLD](public-fund-b1-static-reference-low-level-design-v1.md)
-源端发现审计：[公募基金列表接入发现审计](fund-basic-onboarding-discovery-audit.md)
+源端证据：原发现审计已合并至[§2](#b2-source-evidence)。
 源接口文档：[公募基金列表](../sources/tushare/公募基金/0019_公募基金列表.md)
+
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
 
 ## 0. 结论与实施边界
 
@@ -34,7 +36,11 @@ B2 只接入 Tushare `fund_basic`，采用 B0 已实现的“current 完整快�
 7. Ops 归入既有“公募基金”分组；支持手动、普通 cron/once schedule 和重试；不支持 probe/workflow。
 8. 任一 source field 缺失、任一 normalize reject、空快照、完全重复源行或缺少 E/O 任一市场，都必须在删除 current 前使整个 unit 失败。
 
+<a id="b2-source-evidence"></a>
+
 ## 2. 源接口真实行为验证
+
+原发现审计（2026-08-03 首审、2026-08-06 复审）的独有证据已归入本节：默认样本已有全部 25 字段，但无参数单页 15,000 行触顶；正式主链仍显式请求全部字段，并用无 market 分页与 E/O 并集对账证明范围。身份和生产接入证据分别见 §4、§9。
 
 验证日期：2026-08-06。业务行数是当次基线，不是永久 SLA。
 
@@ -206,7 +212,7 @@ current 额外保存 `observed_at`；observation 保存 `first_observed_at`、`l
 
 | 消费方 | 影响与处理 | 已核验代码 |
 | --- | --- | --- |
-| manual actions | Definition 自动派生一个无时间、无 filters 的 `fund_basic.maintain`。 | `src/ops/services/manual_action_query_service.py`、现有 B1 API tests |
+| manual actions | Definition 自动派生一个无时间、无 filters 的 `fund_basic.maintain`。 | `src/ops/queries/manual_action_query_service.py`、现有 B1 API tests |
 | Catalog | 在既有 `public_fund` 分组新增排序 30 的 `fund_basic`；不得静默归到其他组。 | `src/ops/catalog/dataset_catalog_views.py` |
 | workflow | 不新增 workflow step；工作流无法选择该动作。 | `src/ops/action_catalog.py` 与 workflow registry tests |
 | resolver / planner | no-time 请求生成一个 unit，`request_params={}`；不做 E/O fan-out。 | `src/foundation/ingestion/resolver.py`、`unit_planner.py` |

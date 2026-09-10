@@ -4,8 +4,10 @@
 日期：2026-08-06
 上游总览：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)、[B2 基金列表 LLD](public-fund-b2-fund-basic-low-level-design-v1.md)
-源端发现审计：[基金经理接入发现审计](fund-manager-onboarding-discovery-audit.md)
+源端证据：原发现审计（首次 2026-08-03）已合并至[§2](#b3-source-evidence)。
 源接口文档：[基金经理](../sources/tushare/公募基金/0208_基金经理.md)
+
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
 
 ## 0. 结论与实施边界
 
@@ -13,7 +15,7 @@ B3 只接入 Tushare `fund_manager`。它是“基金经理任职及简历源事
 
 源端实测已经证明：显式请求全部 10 个字段，以 `limit=5000` 翻页至 short page，共 `16×5000 + 4357 = 84,357` 行；改用 `limit=4000` 得到 `21×4000 + 357 = 84,357` 行，两次完整行多重集相同。84,357 只是 2026-08-06 的容量基线，不是固定行数 SLA、请求上限或截断阈值。
 
-B3 不是零新增语义。B0 writer 只能拒绝同一 `(source_entity_key, source_content_hash)` 的完全重复行，允许同一实体键带不同内容版本；这对 B1 的机构源事实是有意行为，不能全局改变。B3 必须新增一个默认关闭、仅本数据集启用的声明式“批内唯一键”质量门禁，保证一个完整快照内每个任职实体只出现一次。
+B3 不是零新增语义。B0 writer 只能拒绝同一 `(source_entity_key, source_content_hash)` 的完全重复行，允许同一实体键带不同内容版本；这对 B1 的机构源事实是有意行为，不能全局改变。B3 首次引入了默认关闭、由各 Definition 显式启用的“批内唯一键”质量门禁，保证一个完整快照内每个任职实体只出现一次。
 
 本批不做以下事项：
 
@@ -41,6 +43,8 @@ B3 不是零新增语义。B0 writer 只能拒绝同一 `(source_entity_key, sou
 11. 84,357 行必须通过 B0 writer 的内存、事务耗时、原子回滚和全量对账门禁；不允许以固定页数、固定行数或分页分段提交规避容量问题。
 12. Ops 归入既有“公募基金”分组，支持手动、普通 cron/once schedule 与重试；无 probe、无 workflow、无自动任务 seed。
 
+<a id="b3-source-evidence"></a>
+
 ## 2. 源接口真实行为与容量基线
 
 验证日期：2026-08-06。以下行数与分布是当次真实证据，不是永久 SLA。
@@ -58,6 +62,18 @@ B3 不是零新增语义。B0 writer 只能拒绝同一 `(source_entity_key, sou
 | 未文档化日期区间 | `start_date/end_date` | 与无参前 100 行相同，98 行落在区间外 | 参数被静默忽略，禁止进入 request builder。 |
 
 MCP 小样本的默认字段与显式 10 字段一致；生产仍必须显式请求 fields。项目 connector 的整数 offset 已实测生效；本地文档 `offset` 类型写成 `intint` 是文档拼写问题，不改变实现的整数分页契约。
+
+补充保留原发现审计的 2026-08-06 证据（不新增运营过滤参数）：
+
+| 核验 | 当次结果及边界 |
+| --- | --- |
+| 对象/日期过滤 | `000001.OF` 19 行；`ann_date=20251231` 139 行；`000001.OF,070003.OF` 38 行，均与无参全集相应子集的完整行多重集一致。 |
+| 公告不等于生效 | `20260617` 的 89 行中，5 行 begin_date 为空，另 5 行晚于公告日。 |
+| 区间反例 | `20260101..20260131,limit=100` 的 98 行在区间外；参数不能用于主同步。 |
+| 请求成本 | 5,000 行页的 17 请求为 4.840 秒；4,000 行页的 22 请求为 5.359 秒。仅为源请求耗时，非端到端 SLA。 |
+| 全集日期分布 | 84,357 行，32,288 个基金代码、7,032 个姓名；公告 1999-04-22..2026-08-05，开始 1998-03-27..2026-08-05，结束 1999-06-30..2026-08-06。 |
+| 备选身份 | `(ts_code,name,begin_date)` 当次也无冲突，但丢失公告事实，不采用。 |
+| 跨基金聚合边界 | 5,802 行可生成 738 个非空人员辅助身份；605 个跨多基金，最多关联 73 只。不能把其余缺出生年份的记录按姓名强行合并。 |
 
 ### 2.2 字段、唯一性与空值
 
@@ -145,7 +161,7 @@ manager_identity_key = manager:<sha256>
 batch_unique_key_fields: tuple[str, ...] = ()
 ```
 
-只有 B3 配置 `("source_entity_key",)`。normalizer 在逐行转换、required field 校验完成后，在返回 batch 之前检查该键：
+B3 配置 `("source_entity_key",)`；当前 `fund_share`、`fund_div`、`fund_portfolio` 也已显式启用该共享能力，不能将 B3 的首次引入范围误写成永久独占。未启用的 B1 同实体多内容变体仍被允许。normalizer 在逐行转换、required field 校验完成后，在返回 batch 之前检查该键：
 
 - 首次出现：记录键与全部 source fields 的内容签名；
 - 同键且全部 source fields 相同：抛出 `normalize.batch_unique_key_duplicate`；
@@ -313,7 +329,7 @@ B3 不新增配置项。
 | 消费方 | B3 处理 | 已审计代码 / 预期改动 |
 | --- | --- | --- |
 | Definition registry | 注册 `fund_manager` 为 `public_fund` 数据集事实源。 | `definitions/public_fund.py`、`definitions/__init__.py`、runtime registry guard tests |
-| manual actions | 自动派生一个无时间、无 filters 的 `fund_manager.maintain`。 | `src/ops/services/manual_action_query_service.py`；只更新精确集合测试 |
+| manual actions | 自动派生一个无时间、无 filters 的 `fund_manager.maintain`。 | `src/ops/queries/manual_action_query_service.py`；只更新精确集合测试 |
 | Catalog | 在既有“公募基金”分组新增排序 40 的“基金经理”。 | `src/ops/catalog/dataset_catalog_views.py` |
 | workflow | 不新增 workflow step；任何工作流中都不存在该 action。 | workflow registry / API negative tests |
 | resolver / planner | 一个 no-time unit、`request_params={}`；无基金、姓名或公告日 fan-out。 | 既有 resolver/unit planner；新增 Definition 计划测试，不改生产代码 |
@@ -397,4 +413,4 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 
 B3-M2 已通过本机隔离 PostgreSQL 验收。无参单 unit 全量快照、5,000 行 short-page 分页、四字段任职身份与批内唯一性 fail-closed、全部显式字段落库、84,357/100,000 行容量和单事务原子性均有真实数据库证据。隔离验证没有发现需要修改 B0 writer 或其他共享主链的问题。
 
-B3-M0 至 B3-M3 已全部通过，隔离与生产证据均已闭环；未发现需要修改 B0 共享主链的问题。B3 只剩延后的运营决策：是否以及何时手工创建普通 cron/once schedule。若继续本专项开发，下一批为 B4，先从 `fund_share` 的 LLD 与实现门禁开始。
+B3-M0 至 B3-M3 已全部通过，隔离与生产证据均已闭环；未发现需要修改 B0 共享主链的问题。B3 只剩延后的运营决策：是否以及何时手工创建普通 cron/once schedule。后续 B4 的 `fund_share`、`fund_div` 已完成首次生产接入，B7 也已推进；剩余批次及授权边界统一见总计划，不再把 B4 接入列为下一步。

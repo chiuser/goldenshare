@@ -4,8 +4,10 @@
 设计日期：2026-08-07
 上游接口：Tushare `fund_share`
 源文档：[基金规模数据](../sources/tushare/公募基金/0207_基金规模数据.md)（doc_id=207）
-发现审计：[基金规模接入发现审计](fund-share-onboarding-discovery-audit.md)
+源端证据：原发现审计（首次 2026-08-03）已合并至[§2](#b4-share-source-evidence)。
 总计划：[公募基金九数据集接入总览与分批推进计划](public-fund-nine-dataset-onboarding-program-plan-v1.md)
+
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
 
 ## 1. 结论与范围
 
@@ -20,7 +22,11 @@ B4 先只实现 `fund_share`，不同时实现 `fund_div`。`fund_share` 是按�
 
 B4-FS-M1 的代码范围不包含：`fund_div`、历史回补、生产迁移、首次生产同步、自动创建 schedule、workflow、probe、Lake/Dagster 或业务查询 API。生产迁移与首次最小同步随后经独立授权在 B4-FS-M3 完成；其余边界保持不变，实际 cron 时间和历史回补起止范围继续延后。
 
+<a id="b4-share-source-evidence"></a>
+
 ## 2. 设计依据与已验证事实
+
+证据为 2026-08-07 复审及所引历史样本；原发现审计已并入本节。隔离与生产完整对账继续保留于 §13.2/§13.3。
 
 ### 2.1 源端请求与分页
 
@@ -31,12 +37,18 @@ B4-FS-M1 的代码范围不包含：`fund_div`、历史回补、生产迁移、�
 | 无业务参数、显式六字段 | 返回 2,000 行并命中单次上限 | 不能把无参返回当成完整快照。 |
 | 单日 `20260616` | 1,664 行，`limit=1000` 为 `1000/664` | 单日 point 可完整分页。 |
 | 单日 `20260617` | 1,652 行，`limit=1000` 为 `1000/652` | 单日 point 可完整分页。 |
-| 两日区间 | 3,316 行，`1000/1000/1000/316` | 区间请求本身支持分页。 |
-| 七个自然日区间 | 8,393 行，`1000`×8+`393` | 分页并集与七个 point 行多重集完全一致。 |
+| 两日区间 `20260616..17` | 3,316 行；页长 `1000/1000/1000/316`，另以 777 得 `777/777/777/777/208`，均等于逐日多重集 | 区间请求本身支持分页。 |
+| 七个自然日区间 `20260701..07` | 8,393 行，`1000`×8+`393` | 分页并集与七个 point 行多重集完全一致。 |
 | 周六 `20260704` | 0 行 | 零行是合法源状态。 |
 | 周日 `20260705` | 6 行，全部为 O | 必须按自然日展开，不能用交易日历裁剪。 |
 
 逐日 unit 不是为了规避一个已经被证明不存在的“区间无法分页”问题，而是为了把内存、事务、失败回滚和单日补录限制在一个自然日。
+
+补充样本边界：
+
+- 无参 2,000 行样本记录日期为 `20260805..20260812`；这是原审计保留的返回范围，不能据此推断今日覆盖或最晚可用日。单基金 `510300.SH` 的 2,000 行为 `20180528..20260806`，同样触顶。
+- `trade_date=20260617,market=O` 为 7 行，等于无 market 结果的 O 子集；主链不传 market。
+- 七日 `fund_type` 还包含 `(带固定封闭期)`，不能设为 ETF 枚举。单日峰值样本 1,696 行约 0.20 MB，七日约 1.00 MB；历年同日抽样从 2011 年 66 行到 2026 年 1,673 行，不是历史总量。
 
 ### 2.2 输入参数决策
 
@@ -57,7 +69,7 @@ Definition 必须按以下顺序显式请求并保存全部字段：
 ts_code, trade_date, fd_share, total_share, fund_type, market
 ```
 
-不传 `fields` 的当前默认返回实际包含五列，源文档与 MCP 元数据又只列出三列；三者存在差异，因此生产代码不得依赖默认字段。七日样本中 `total_share` 全部为空，`fund_type` 有 473 行为空；它们仍必须逐页请求、显式建列和原值保存。
+不传 `fields` 的样本默认五列为 `ts_code,trade_date,fd_share,fund_type,market`；显式只请求文档三列会丢失其他已知字段，而显式请求全部六列成功。源文档与 MCP 元数据当时只列三列；三者存在差异，因此生产代码不得依赖默认字段。七日样本中 `total_share` 全部为空，`fund_type` 有 473 行为空；它们仍必须逐页请求、显式建列和原值保存。
 
 `fd_share` 的真实样本最大绝对值为 `8,960,544`，小数位最多为 4；设计使用 `NUMERIC(30,10)`，避免浮点改写源内容，并为后续数值增长和更多小数位保留余量。
 
@@ -151,13 +163,13 @@ build_natural_day_point_units(request, definition)
 
 ### 6.1 身份派生
 
-在 `src/foundation/datasets/definitions/public_fund_contracts.py` 增加字段 tuple 与纯身份函数，在 `src/foundation/ingestion/row_transforms.py` 增加 normalizer 动态加载的 row transform。不得把 B4 逻辑写进 normalizer 主链。
+在 `src/foundation/datasets/public_fund_contracts.py` 增加字段 tuple 与纯身份函数，在 `src/foundation/ingestion/row_transforms.py` 增加 normalizer 动态加载的 row transform。不得把 B4 逻辑写进 normalizer 主链。
 
 派生规则：
 
 1. `ts_code` 仅在计算身份时去首尾空格并转大写；源列保存原值。
 2. `trade_date` 使用 normalizer 已归一化的 ISO 日期。
-3. `source_entity_key = "share:" + sha256(normalized_ts_code + "|" + trade_date)`。
+3. 复用 `build_fund_share_identity()`：将 `(normalized_ts_code, trade_date_iso)` 以 `json.dumps(parts, ensure_ascii=False, separators=(",", ":"))` 序列化成 JSON 数组，按 UTF-8 编码计算 SHA-256，再加 `"share:"` 前缀。不是用竖线连接字符串；本次只校正文档，不重算或改写既有身份键。
 4. `identity_basis = "ts_code_trade_date"`。
 5. `source_content_hash` 由 writer 对全部六个 source fields 的规范内容计算。
 
@@ -186,7 +198,7 @@ build_natural_day_point_units(request, definition)
 | `write.source_field_missing` | 请求契约中的 source field 未出现。 |
 | `write.source_entity_key_missing` | 派生实体键缺失。 |
 
-新增错误码须同步维护 `docs/operations/dataset-error-codebook.md`，并有稳定测试断言。
+新增错误码须同步维护 `src/foundation/ingestion/codebook.py`，并有稳定测试断言。
 
 ## 7. 写入协议：观察型时序事实按日期作用域替换
 
@@ -614,10 +626,9 @@ M3 不等于获准回补历史或创建自动任务。两者分开授权：
 
 - 实际自动任务频率、cron 时间、相对日期和滚动修订窗口；
 - 历史回补起止日期、批量大小和磁盘/WAL 停止阈值；
-- 是否以及何时进入 B4 的 `fund_div`。
 
 ### 15.3 当前判断
 
 LLD 已覆盖 source contract、三层时间语义、unit/request、身份/完整性、事务/current/observation、表/索引/HDD、Ops/UI、schedule 能力、配置、性能和分阶段验收。M2 已关闭隔离环境的容量、事务回滚和并发风险；M3 又以正式 TaskRun 与独立只读复核关闭了生产 migration、物理 placement和单日完整同步风险。
 
-因此，**B4-FS-M3 已通过，`fund_share` 的首次生产接入闭环。当前停止在 B4-FS-M4 / `fund_div` 之前；历史回补、schedule 创建与 `fund_div` 均须分别获得后续授权。**
+因此，**B4-FS-M3 已通过，`fund_share` 的首次生产接入闭环。`fund_div` 后续也已完成 M0–M3（见其 LLD）；`fund_share` 的剩余事项是独立授权的历史回补与 schedule 创建。**

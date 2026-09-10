@@ -5,6 +5,8 @@
 截图菜单：基金净值
 源文档：[公募基金净值](../sources/tushare/公募基金/0119_公募基金净值.md)
 
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
+
 ## 结论
 
 `fund_nav` 是基金净值的明确接口，支持按基金或净值日查询；单基金 `000001.OF` 返回 5,984 个历史净值且 `(ts_code, nav_date)` 唯一。场外单日分页已验证：`market=O, nav_date=20260617`、10 个显式字段、`limit=2000` 共 12 页，末页 598 行，共 **22,598 个唯一 `(ts_code, nav_date)`**。此前 10,500 只是单页结果，不是场外总量。
@@ -35,7 +37,7 @@ total_netasset, adj_nav, update_flag
 
 | 维度 | 当前建议 |
 | --- | --- |
-| 时间输入 | `nav_date` point/range；范围是 resolver 层意图，必须展开为逐个自然日的 `nav_date` point unit，不能生成全市场 `start_date/end_date` 源端请求。`every_natural_day` 的 range 展开必须成为通用 planner 能力，不能写成 `fund_nav` 特判。 |
+| 时间输入 | `nav_date` point/range；范围是 resolver 层意图，必须展开为逐个自然日的 `nav_date` point unit，不能生成全市场 `start_date/end_date` 源端请求。当前已有 `build_natural_day_point_units`；后续须由 Definition 显式选择并验证 E/O 分片组合，不能仅填 `natural_day` 就假定通用分支会逐日展开。 |
 | 执行 / 完整性 | 暂不做连续日 audit：场外基金非交易日、公告滞后和修订均可能存在。 |
 | 分页 / 范围 | E/O 各自按 `nav_date` 分页；O 是不可降级的全市场范围。 |
 | 更新时机 | 两个普通定时自动任务：每日最新净值日更新，以及每周最近 90 个自然日修订；本期不接 source/freshness probe。 |
@@ -45,8 +47,8 @@ total_netasset, adj_nav, update_flag
 
 1. **范围**：E/O 全市场均保存；O 分页完整性已验证，不能退回 ETF 池。
 2. **逻辑身份**：`(source_market_scope, ts_code, nav_date)`；`ann_date` 是内容字段，不是身份字段。
-3. **修订保存**：维护当前记录和观察版本。每个观察版本保存 10 个源字段、`source_market_scope`、内容散列和首次/最后一次观察时间；同一逻辑身份内容变化时关闭旧观察版本、写入新版本。`update_flag` 原样保存并进入内容散列，但在未核实业务语义前，不得单独决定覆盖、去重或修订。
+3. **修订保存**：维护当前记录和观察版本。每个观察版本保存 10 个源字段、`source_market_scope`、内容散列和首次/最后一次观察时间；同一逻辑身份内容变化时保留旧观察版本、记录新版本并更新 current 成员；这不预设 `is_current` 列，具体范围替换与键设计由 LLD 明确。`update_flag` 原样保存并进入内容散列，但在未核实业务语义前，不得单独决定覆盖、去重或修订。
 4. **建议的自动化相对时间策略**：两个同一 `maintain` action 的独立普通 schedule 均由后端在触发时解析，前端和 `params_json` 不保存固定日期。以 Asia/Shanghai 触发日 `D` 计算：日任务为 `[D-1, D-1]`；周修订为 `[D-90, D-1]`（含首尾共 90 个自然日）。这是“上一个已完成自然日”策略，不是 probe，也不声明源端某个时刻一定发布当日数据。
-5. **建议的系统管理策略契约**：相对时间策略应新增为 schedule-side 的共享、受校验、不可由页面自由拼装的 `time_policy`；现有 `calendar_policy` 只承载月末/触发日旧策略，不能继续堆叠成数据集特例。TaskRun 只落本次已解析的绝对时间输入与 plan snapshot，保证可审计、可重试。
+5. **调度契约待 LLD 细化**：当前 `calendar_policy` 已有触发自然日、季度末、从上次成功日延伸等策略，并非只能保存静态时间。后续先评估既有 Definition/schedule resolver 对 D-1 与 90 日范围的表达能力，再决定所需共享扩展；本发现审计不预定新增 `time_policy`。页面不得自行拼日期，TaskRun 保留本次解析后的绝对输入与 plan snapshot。
 6. **建议的重叠防护**：创建 TaskRun 前必须先解析 `DatasetExecutionPlan`，以其规范化 E/O `nav_date` unit 建立活动租约。`queued`、`running`、`canceling` 的租约均视为占用；日任务和 90 日任务有交集时，后到的自动触发跳过并记录 `duplicate_active_unit_scope`，手工/重试请求返回冲突，不能再生成一个排队任务。终态任务自然释放占用。该 admission contract 是共享能力，不能依赖当前只存不执行的 `concurrency_policy_json`。
-7. **LLD 前实现门禁**：现有 schedule 只能保存静态时间输入，`concurrency_policy_json` 没有运行时消费者，且 `natural_day` range 会退化为一个整段源请求。因此必须先落共享相对时间策略、通用逐自然日 unit 展开、按解析 unit 的活动租约和版本化 direct-serving writer；否则不能创建两条自动任务。
+7. **进入实现前的门禁**：B0/B4 已有观察版本写入、显式自然日 point builder 和相对日期调度基础，不需从零重建。NAV 尚无 Definition、迁移或主链；LLD 仍须核清 E/O 来源身份、日期×市场 unit、D-1/90 日调度、活动 unit 防重和局部范围 current/observation 语义。通用自然日分支并不自动等价于逐日 builder；既有 `concurrency_policy_json` 也不能充当已实现租约的证据。完成这些契约与验收前，不创建两条自动任务。

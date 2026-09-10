@@ -4,7 +4,9 @@
 日期：2026-08-05
 上游：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)
-发现审计：[基金管理人](fund-company-onboarding-discovery-audit.md)、[基金业绩基准库](fund-performance-benchmark-onboarding-discovery-audit.md)
+源端证据：原两份发现审计已合并至[§2](#b1-source-evidence)。
+
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
 
 ## 1. 范围与冻结决策
 
@@ -31,7 +33,11 @@
 | B1-06 | 所有表及索引固定 HDD，WAL 不迁移 | `20260805_000125` migration | tablespace 缺失 fail-closed、DDL 与 catalog 验证。 |
 | B1-07 | Ops 仅手动/cron/once/retry，无 probe/workflow/seed | Definition、Ops catalog、既有 capability resolver | manual/schedule 正向，probe 触发方式拒绝。 |
 
+<a id="b1-source-evidence"></a>
+
 ## 2. 源端契约与实测证据
+
+证据来自 2026-08-03 首审、2026-08-05 复审；原两份发现审计已合并于本节。曾认为“基金业绩基准没有独立接口”的早期判断已由 `mkt_idx_bmk` 实测纠正。MCP 将其归在 ETF 工具类别，不决定本项目公募基金产品域；基金自由文本基准与独立指数库不能混同。
 
 ### 2.1 `fund_company`
 
@@ -77,7 +83,7 @@ ts_code, symbol, name, fullname, bmk_level, bmk_type, bmk_src, idx_type
 | pagination | `offset_limit`，`page_limit=64`，`no_pool`，concurrency=1 | 同左 |
 | freshness / completeness | `snapshot_run_trace`；不做连续日期或对象矩阵审计 | 同左 |
 
-每页请求仅由通用 source client 生成：`fields=<全部字段>`、`limit=64`、`offset=0,64,...`。禁止配置最大页数；当页长 `<64` 成功结束，若前页恰好 64 则必须继续请求下一页（包括可能的空终止页）。B1 体量至多四页，现有 source client 全页累积后归一化/写入不会造成内存风险；不得借此声称 B7 无需页流式写入。
+每页请求仅由通用 source client 生成：`fields=<全部字段>`、`limit=64`、`offset=0,64,...`。禁止配置最大页数；当页长 `<64` 成功结束，若前页恰好 64 则必须继续请求下一页（包括可能的空终止页）。2026-08-05 样本分别为四页、三页，不是未来页数上限；当时体量适合现有 source client 全页累积后归一化/写入，后续增长仍需容量复核；不得借此声称 B7 无需页流式写入。
 
 无 filters 不是 UI 缺失：它防止任何一次单公司/单基准请求把不在局部结果中的当前记录误标为非当前。以后若需要局部源查询，必须另立不改变全量 current snapshot 的读取/补录设计，不能给本维护 action 偷加参数。
 
@@ -230,7 +236,7 @@ Catalog resolver 已对所有 registry dataset 强制要求显式项目，缺失
 
 两项 TaskRun 均为 `success`，`unit_total=unit_done=1`、`unit_failed=0`，且 plan snapshot 显示 `snapshot_refresh`、一个 `none` unit、`request_params={}`。两对 current/observation 的 `(source_entity_key, source_content_hash)` 集合双向差集均为 0。`fund_company` 有 204 条源记录、203 个实体键，证明同一信用代码的不同 source-content 变体没有被合并或丢弃。四张实际写入表仍全部位于 `gs_raw_cold_hdd`。
 
-这只是当次生产源端基线，不将 204/141 固化为未来同步的成功阈值；后续完整快照仍以当次 fetched、accepted、written、reject 与两表行数五段对账为准。
+这只是当次生产源端基线，不将 204/141 固化为未来同步的成功阈值；后续以当次 fetched、accepted、written、reject 与 current 的本次完整集合对账，并确认本次全部 `(source_entity_key, source_content_hash)` 已在 observation 中保存且观察时间正确。observation 累积历史版本，其全表行数可以大于本次源行数，不能继续要求两表总行数永远相等。
 
 ## 8. 风险与拒绝策略
 

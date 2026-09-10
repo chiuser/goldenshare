@@ -4,6 +4,8 @@
 编写日期：2026-08-07
 适用范围：`fund_div / 基金分红` 接入 Goldenshare Prod
 
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
+
 ## 1. 结论先行
 
 `fund_div` 应设计成“按公告自然日维护的全市场不可变事件事实”：运营可输入一个 `ann_date`，也可输入自然日起止范围；range 在平台内部逐日展开。每个公告日完成全部分页、归一化、去重和既有事实对照后，在一个事务内只插入尚不存在的新事实，不更新或删除旧事实。
@@ -20,7 +22,7 @@
 6. 业务表、主键索引和二级索引全部落 `gs_raw_cold_hdd`；共享 WAL 保持 SSD。
 7. Ops 归入“公募基金”，支持手动、普通 cron/once 与 retry；无 probe、无 workflow、无自动 schedule seed。
 
-历史源端存在 16 字段完全相同的重复行。业务已拍板：完全重复只保留一条业务事实，不保存逐行 `source_occurrence_count`，也不生成平台 occurrence 身份。运行级 `rows_deduplicated` 只用于解释“源端行数与唯一事实行数”的差额，不进入业务表。不可变事实、单表直出与去重口径已在 B4-FD-M1 按本文实现；真实 PostgreSQL/HDD/源端同步结论仍必须由 M2 独立验证。
+历史源端存在 16 字段完全相同的重复行。业务已拍板：完全重复只保留一条业务事实，不保存逐行 `source_occurrence_count`，也不生成平台 occurrence 身份。运行级 `rows_deduplicated` 只用于解释“源端行数与唯一事实行数”的差额，不进入业务表。不可变事实、单表直出与去重口径已在 B4-FD-M1 按本文实现；真实 PostgreSQL/HDD/源端同步结论已由独立 M2/M3 验收补齐，见 §16；M1 本地测试本身不能替代这些证据。
 
 ## 2. 目标、范围与明确不做
 
@@ -48,7 +50,7 @@
 
 - [数据集开发模板](../templates/dataset-development-template.md)
 - [基金分红源文档](../sources/tushare/公募基金/0120_公募基金分红.md)
-- [基金分红发现审计](fund-div-onboarding-discovery-audit.md)
+- [源端复审与合并证据](#b4-div-source-evidence)
 - [公募基金九数据集总计划](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 - [B4 基金规模 LLD](public-fund-b4-fund-share-low-level-design-v1.md)
 - [Dataset 日期模型消费者指南](../architecture/dataset-date-model-consumer-guide-v1.md)
@@ -73,11 +75,15 @@ DatasetDefinition
   -> core_serving.fund_div
 ```
 
-编码前 Alembic head 在 2026-08-07 只读核验为 `20260807_000128`。M1 已据此生成线性 revision：`20260807_000129` 增加有界 ingestion diagnostics，`20260807_000130` 增加 `core_serving.fund_div`；本地 migration graph 当前唯一 head 为 `20260807_000130`。本轮没有应用 migration，数据库真实 head、HDD placement 与升级原子性仍由 M2 核验。
+编码前 Alembic head 在 2026-08-07 只读核验为 `20260807_000128`。M1 已据此生成线性 revision：`20260807_000129` 增加有界 ingestion diagnostics，`20260807_000130` 增加 `core_serving.fund_div`；M1 当时的本地唯一 head 为 `20260807_000130`，该阶段未应用 migration。后续 M2/M3 已完成数据库与 HDD 验收，见 §16；这里不是今日仓库或生产 head。
 
-工作区已有与本专项无关的脏文件，本轮不得触碰或纳入提交。
+<a id="b4-div-source-evidence"></a>
 
 ## 4. 源端契约复审
+
+以下为 2026-08-07 源端复审证据，已吸收原发现审计。不可变身份与 exact duplicate 判定见 §5，隔离及生产完整对账见 §16；不据此证明今日返回或排程状态。
+
+首次审计 2026-08-03，复审 2026-08-05/07，生产验收补记 2026-08-08。早期“全日期签名无重复”仅适用于 20260617；历史 exact duplicate 反例及最终处理见 §5。
 
 ### 4.1 输入参数矩阵
 
@@ -90,6 +96,8 @@ DatasetDefinition
 | `pay_date` | 一个派息日聚合多个公告日 | 不作为完整维护 unit。 |
 | 多参数 | 按 AND 缩小结果 | 局部结果不得冒充完整公告日集合。 |
 | `start_date/end_date` | 不支持 | range 只能由 planner 扇出。 |
+
+组合过滤的历史反例：`ts_code+ann_date` 匹配样本为 2 行/1 条唯一事实，不匹配组合为 0；`ann_date+ex_date` 为 22 行。这些都是 AND 子集，不是额外全集。
 
 `ex_date/pay_date` 不是额外完整性通道。抽样结果中的每条记录都能在其 `ann_date` 全市场结果中复现；若同时维护多个日期轴，会产生重叠请求和无法证明完整性的局部集合。
 
@@ -118,13 +126,14 @@ ear_distr, ear_amount, account_date, base_year
 | `20260617` | 50 / 50 / 22 / 0 | 122 | 0 |
 | `20201215` | 50 / 50 / 41 / 0 | 141 | 0 |
 
+上表尾部 0 行是 M0 额外手工探测记录；正式 client 在 22/41 行短页即可结束，不要求短页后再发一次空页请求。
+
 MCP schema 未公开 `limit/offset`，但运行时和项目 connector 实测生效。该差异必须保留在源文档。实现契约为：
 
 - `pagination_mode=offset_limit`；
 - `page_limit=2000`；
 - 每页都传完全相同的 16 个 `fields`；
 - 满页后 offset 按固定 `page_limit` 递增；短页直接结束；
-- 短页才结束；
 - 不设置最大页数；
 - 任一页失败则整个公告日 unit 失败，不得发布部分结果。
 
@@ -133,7 +142,7 @@ MCP schema 未公开 `limit/offset`，但运行时和项目 connector 实测生�
 - `20260617` 共 122 行：OF 116、SZ 2、SH 4；所有市场后缀都必须保留。
 - `000001.OF` 的 29 行历史，与其 25 个公告日全市场结果筛选后的多重集完全一致。
 - `500001.SH` 的 12 行历史，与其 10 个公告日全市场结果筛选后的多重集完全一致。
-- `ex_date=20260617` 的 130 行、`pay_date=20260618` 的 137 行，均能在各自公告日结果中复现。
+- `ex_date=20260617` 的 130 行覆盖 4 个公告日，`pay_date=20260618` 的 137 行覆盖 6 个公告日，均能在各自公告日结果中复现。
 
 这是有界 A/B 证据，不是源端永久 SLA。M2 最小真实同步仍须保留 A/B 差集验收。
 
@@ -141,7 +150,7 @@ MCP schema 未公开 `limit/offset`，但运行时和项目 connector 实测生�
 
 - 周六 `20260613` 返回 40 行；周六 `20070414` 返回 7 行；
 - `20260614` 返回 0 行；
-- 2026-08-07 15:26 实测，`20260807` 当日已经有 3 行，但尚不能证明当日已完整。
+- 2026-08-07 15:26（Asia/Shanghai）实测：`20260805=24`、`20260806=23`、`20260807=3` 行；当日已有记录，但尚不能证明已完整。
 
 因此：
 
@@ -203,7 +212,18 @@ source_rows_fetched
 
 以 `20201215` 首次同步为验收样本：`141 = 74 + 67 + 0`，成功确认保存 74 条唯一事实，目标日期范围内为 74 行。完全重复的两行没有可区分字段，保留一条不会丢失可用业务信息；源端重复次数仅在本次运行汇总中体现，不成为可查询的业务事实。
 
-禁止把 exact duplicate 计为 reject、为副本制造 occurrence 身份，或沿用 B0 当前“批内重复实体即失败”的默认行为。
+禁止把 exact duplicate 计为 reject 或为副本制造 occurrence 身份。本路径已声明去重，不沿用 B0 对同一 `(source_entity_key, source_content_hash)` 完全重复记录报错的规则；B0 本身仍允许同实体的不同内容变体。
+
+原发现审计的可复核反例补充（源字段顺序见 §4.2）：
+
+- 短键相同的 `159816.SZ / 20260617` 两行分别为 `net_ex_date=null,base_unit=null` 与 `net_ex_date=20260623,base_unit=9353.7484`；必须保留为不同事实。
+- `20201215` 的下列完整源行出现两次，连续三次请求保持 141 行/74 唯一事实；这是 exact duplicate，不是新公告：
+
+```text
+000001.OF, 20201215, 20201215, 20201211, 实施, 20201217,
+20201217, 20201218, null, 20201217, 0.05, 360248.1274,
+1270430885.82, null, 20201218, 20201217
+```
 
 ## 6. 三层时间语义
 
@@ -299,7 +319,7 @@ M1 新增的路径只能做“核验后插入”：不更新、不删除、不�
 
 不能复用股票 `dividend` 的 `_build_dividend_units`，它的输入和错误语义不同。
 
-单 TaskRun 最大自然日数固定为 `366`：一个平年或闰年的闭区间可以作为一个运维批次，`367` 日及以上必须在 resolver/planner 前拒绝。该值只控制一次执行包含的基础 unit 数，不表示源端支持区间参数；历史回补仍由平台按公告自然日逐个请求，并按自然年拆成多个 TaskRun。M2 必须验证 366 个串行 unit 的实际耗时、配额和失败恢复；如结果不可接受，只能通过重新审计并修订本文下调上限，不能运行时静默截断。
+单 TaskRun 最大自然日数固定为 `366`：一个平年或闰年的闭区间可以作为一个运维批次，`367` 日及以上必须在 resolver/planner 前拒绝。该值只控制一次执行包含的基础 unit 数，不表示源端支持区间参数；历史回补仍由平台按公告自然日逐个请求，并按自然年拆成多个 TaskRun。M1/M2 使用 fixture 验证 366/367 边界、串行聚合与失败路径；真实整年请求量、耗时、配额和恢复预算属于独立授权的 M4a，不是 M2 最小同步的未完成门禁。如 M4a 证明上限不可接受，须另行评审修订，不能静默截断。
 
 ### 8.2 request builder
 
@@ -646,7 +666,7 @@ M1 编码前必须用 CodeGraph 再复核这些共享 contract 的全部调用�
 | foundation 运行统计 | 只有 fetched/saved/rejected 主计数 | 统一增加 `rows_deduplicated`；`rows_written` 保持“唯一事实已成功对照存在”；pagination/persistence diagnostics 走受限结构化摘要 | 首次与重跑均 141=74+67+0；inserted/matched 分别 74/0 与 0/74；全部调用方构造回归 |
 | TaskRun/TaskRunNode 统计 | 只有 fetched/saved/rejected 与 reject JSON | 两模型、ingestion context、dispatcher、query schema/API 增加 `rows_deduplicated` 与 pagination/immutable persistence diagnostics | API、节点/主任务一致、状态失败隔离、幂等重跑不触发“拉取非零但保存为零”健康异常 |
 | freshness/cards | event trace 可用 | 注册不连续审计 | 空日不报缺数 |
-| snapshot rebuild | 不应参与连续日期重建 | 明确排除 | 负向测试 |
+| snapshot rebuild | 仍参与 `ops.dataset_status_snapshot` 状态投影；不做连续公告日缺口推断 | 保留事件日期/运行轨迹投影，仅排除连续日期 completeness | 空日不报缺数；状态快照仍含本数据集 |
 | TaskRun create schema | `src/ops/schemas/task_run.py::TaskRunTimeInput` 无 ann_date，可能静默丢字段 | 增加 ann_date 并按 Definition 校验 date_field/point field | ann_date 不丢失；非法 trade_date 绕过拒绝 |
 | schedule capability / binding | capability 无 point 字段 contract；`operations_schedule_service.py` 有分散的 ann/trade_date 检查 | schema/query/resolver 返回统一 time contract；create/update/resume/runtime 全部消费同一 contract | once/cron、持久化意图、绕过拒绝、既有 schedule 快照 |
 | schedule TaskRun runtime | `task_run_service.py` 的 trigger-day point 固定 trade_date | 按 `generated_time_field` 生成 ann_date | fund_div ann_date、fund_share trade_date 双回归 |
@@ -880,7 +900,7 @@ M3 未创建 schedule、未执行历史回补，也未修改共享 WAL。
 | FD-010 | 业务修订以新公告形成新事实；单表不可变保存 | storage Definition、writer、model | 只建 `core_serving.fund_div`；新公告普通 INSERT，旧公告永久保留；不建 current/observation | 数据状态显示源端公告事实，不伪造观察版本 | `public_fund.py`、fund_div model、`writer.py` | 新公告同步后新旧事实并存 | migration 不得创建 current/observation；不得 UPDATE/DELETE 旧事实 | M2 定向两公告日对账 | M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
 | FD-011 | 按 ann_date 原子对照并只插入新事实，同日加 advisory lock | writer、`ImmutableFactDAO`、PostgreSQL | 新 `serving_immutable_fact_insert`；同 hash 幂等；不同 hash、scope regression、持久化不完整均 fail-closed；单 unit 单事务 | TaskRun 只显示提交后的保存与 inserted/matched 计数 | `writer.py`、`definitions/_builder.py`、`immutable_fact_dao.py` | 首次 INSERT、相同源重跑幂等、异日隔离 | 禁止 update/delete/upsert/ignore conflict；跨日行、reject、内容冲突、源端回退、DB 异常均回滚 | M2 并发锁、SQL 路径与表集合对账 | M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
 | FD-012 | 真空公告日成功 no-op；既有事实不能因空/缩减源结果消失 | writer、DAO | 空源+空目标成功；空源+非空目标或源集合少 identity 均 `write.immutable_scope_regression` | 真空日显示成功 0；回退显示结构化失败 | `writer.py`、`immutable_fact_dao.py`、codebook | `20260614` 空源空目标成功 | 空响应或缩减集合删除/忽略既有事实必须失败 | M2 空日与回退 fixture 回查 | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
-| FD-013 | 事件型数据不做连续自然日 completeness | freshness、cards、date audit、snapshot rebuild | `bucket_rule=not_applicable/audit=false`，排除连续桶审计/重建 | 卡片显示事件运行轨迹，不报“缺一天” | Definition/freshness projection、audit/rebuild guards、dataset card | 非空/空日均生成正确运行轨迹 | 空日不得生成缺数告警或连续桶 | M1 API/UI fixture；M2 真实空日/非空日；M3 生产状态快照显示真实事件日期与事件型 freshness note | M1/M2/M3 | M1/M2/M3 全部验证完成 |
+| FD-013 | 事件型数据不做连续自然日 completeness | freshness、cards、date audit、snapshot rebuild | `bucket_rule=not_applicable/audit=false`，排除连续桶缺口审计，保留事件型状态快照重建 | 卡片显示事件运行轨迹，不报“缺一天” | Definition/freshness projection、audit/rebuild guards、dataset card | 非空/空日均生成正确运行轨迹 | 空日不得生成缺数告警或连续桶 | M1 API/UI fixture；M2 真实空日/非空日；M3 生产状态快照显示真实事件日期与事件型 freshness note | M1/M2/M3 | M1/M2/M3 全部验证完成 |
 | FD-014 | 表、主键和全部索引在 HDD；共享 WAL 留 SSD | ORM/migration/DB | migration 先断言 `gs_raw_cold_hdd`，不回退默认盘 | Ops 不提供存储位置编辑项 | fund_div models、`alembic/versions/<fund_div migration>` | migration metadata/placement | tablespace 缺失时零建表；禁止默认 SSD | M2 隔离 placement；M3 生产 4 relation 均在 `/dev/vdb` 的 `gs_raw_cold_hdd` | M1/M2/M3 | M1/M2/M3 全部验证完成 |
 | FD-015 | 单 TaskRun 最多 366 个自然日 unit | Definition、validator、resolver、planner | `max_units_per_execution=366`，执行前完整拒绝超限 | 手动/自动表单显示后端错误，不静默截断 | `public_fund.py`、validator/resolver | 365/366 日范围允许 | 367 日拒绝且零 source 请求 | M1 验证 366/367 边界；M4a 量化真实年度耗时/配额/恢复 | M1/M4a | M1 边界门禁完成；真实年度预算未授权，不属于 M2 最小同步 |
 | FD-016 | Ops 归入“公募基金”，排序紧随 fund_share | Catalog、manual/auto lists | Catalog view + Definition 注册是权威 | 手动/自动页均显示基金分红，分组不进 ETF基金 | `dataset_catalog_views.py`、Catalog query、两类任务页 | 顺序/唯一性 API 测试 | 不得出现重复分组或旧组 | 浏览器核对两个入口 | M1 | M1 本地实现与自动化门禁完成 |

@@ -4,23 +4,25 @@
 确认日期：2026-08-10；代码与文档对账：2026-08-10；B7-M3.1 Prod 部署：用户确认于 2026-08-10
 适用范围：Tushare 公募基金菜单的九个数据集接入 Prod
 
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
+
 ## 1. 目标与边界
 
 本专项将九个公募基金数据集接入 Goldenshare Prod。目标不是一次性上线九个接口，而是在每一批的源端契约、存储、Ops/UI、最小真实同步和对账都闭环后，再推进下一批。
 
-本文件只记录整体顺序、依赖、已定口径和批次门禁；它不是任何数据集的 LLD，也不替代下列各自的发现审计与后续 LLD。
+本文件只记录整体顺序、依赖、已定口径和批次门禁；它不是任何数据集的 LLD，也不替代下列各自 LLD；未接入的 NAV/factor 仍保留发现审计。
 
-| 数据集 | 接口 | 本专项内角色 | 发现审计 |
+| 数据集 | 接口 | 本专项内角色 | 维护入口 |
 | --- | --- | --- | --- |
-| 基金管理人 | `fund_company` | 静态机构主数据 | [审计](fund-company-onboarding-discovery-audit.md) |
-| 基金业绩基准 | `mkt_idx_bmk` | 静态指数参考库 | [审计](fund-performance-benchmark-onboarding-discovery-audit.md) |
-| 基金列表 | `fund_basic` | 全市场基金主数据、持仓对象池前置 | [审计](fund-basic-onboarding-discovery-audit.md) |
-| 基金经理 | `fund_manager` | 任职事实快照 | [审计](fund-manager-onboarding-discovery-audit.md) / [B3 LLD](public-fund-b3-fund-manager-low-level-design-v1.md) |
-| 基金规模 | `fund_share` | 自然日规模事实 | [审计](fund-share-onboarding-discovery-audit.md) / [B4 LLD](public-fund-b4-fund-share-low-level-design-v1.md) |
-| 基金分红 | `fund_div` | 公告日事件事实 | [审计](fund-div-onboarding-discovery-audit.md) / [B4 LLD](public-fund-b4-fund-div-low-level-design-v1.md) |
+| 基金管理人 | `fund_company` | 静态机构主数据 | [LLD 与源证据](public-fund-b1-static-reference-low-level-design-v1.md#b1-source-evidence) |
+| 基金业绩基准 | `mkt_idx_bmk` | 静态指数参考库 | [LLD 与源证据](public-fund-b1-static-reference-low-level-design-v1.md#b1-source-evidence) |
+| 基金列表 | `fund_basic` | 全市场基金主数据、B7 批次前置（非运行时对象池） | [LLD 与源证据](public-fund-b2-fund-basic-low-level-design-v1.md#b2-source-evidence) |
+| 基金经理 | `fund_manager` | 任职事实快照 | [B3 LLD](public-fund-b3-fund-manager-low-level-design-v1.md) |
+| 基金规模 | `fund_share` | 自然日规模事实 | [B4 LLD](public-fund-b4-fund-share-low-level-design-v1.md) |
+| 基金分红 | `fund_div` | 公告日事件事实 | [B4 LLD](public-fund-b4-fund-div-low-level-design-v1.md) |
 | 基金净值 | `fund_nav` | 高优先级日度净值与修订 | [审计](fund-nav-onboarding-discovery-audit.md) |
 | 基金技术面因子（专业版） | `fund_factor_pro` | 宽表日度技术因子 | [审计](fund-factor-pro-onboarding-discovery-audit.md) |
-| 基金持仓 | `fund_portfolio` | 季度持仓明细 | [审计](fund-portfolio-onboarding-discovery-audit.md) / [B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md) |
+| 基金持仓 | `fund_portfolio` | 季度持仓明细 | [B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md) |
 
 ### 1.1 当前代码与生产接入状态
 
@@ -52,7 +54,7 @@
 
 - **由简单到复杂**：先静态小快照，再全市场分页主数据，再日度/事件模型，最后高量宽表和季度持仓。
 - **每批只引入一种新的共享复杂度**：不在同一批同时引入新分页语义、新时间调度和大规模历史回补。
-- **先建立上游再使用下游**：`fund_basic` 完整对象池验收后，才可启动 `fund_portfolio`。
+- **批次前置不等于运行依赖**：B2 的完整主数据验收是 B7 的批次进入条件；已实现的 B7 主请求按全市场 period 拉取，不读取或过滤 fund_basic 对象池。
 - **不以代码特例解决共性问题**：版本化直出、自然日展开、相对时间、活动 unit 防重和页流式处理，若进入实现，必须是有契约和回归测试的显式 opt-in 能力。分页流式化只降低内存，不得把源分页擅自变成业务提交边界。
 - **LLD 按批编写**：只为当前获准推进的批次编写 LLD；其他未进入批次不得提前用猜测冻结实施细节。
 
@@ -73,20 +75,22 @@ flowchart LR
 
 `B3` 与 `B4` 在 B2 验收后可分别排期，但默认串行推进，避免同时扩大迁移、Ops/UI 和真实同步排查面。
 
-2026-08-08 已批准 B7 在 B5/B6 前推进。B7 只依赖已生产验收的 B0/B2；B6 与 B7 的限制仍只是大历史回补不得并发，不构成当前 M0/LLD 阻塞。
+2026-08-08 已批准 B7 在 B5/B6 前推进。B7 的批次前置只有已生产验收的 B0/B2；B6 与 B7 的限制仍只是大历史回补不得并发，不构成当前 M0/LLD 阻塞。
 
 ## 5. 分批推进计划
 
-| 批次 | 数据集与范围 | 本批新增复杂度 | 进入条件 | 退出门禁 |
-| --- | --- | --- | --- | --- |
-| B0 | 无业务数据集；仅最小共享能力 | 仅“完整无时间快照的当前源记录 + 观察版本”直出写入协议；不含 HDD、Catalog、分页或基金身份 | 本专项确认 | LLD、全量消费者审计、正反向测试；不允许产生业务表写入 |
-| B1 | `fund_company`、`mkt_idx_bmk` | 小型无时间分页快照、观察版本、HDD 物理表与公募基金 Ops 条目 | B0 验收 | ✅ 项目 connector 实测全量/短页行为、全部字段、身份与版本、迁移、Ops/API、两次隔离真实同步及生产首次完整同步五段对账闭环；尚未创建 schedule；两表不做文本关联 |
-| B2 | `fund_basic` | E/O 全市场分页主数据、25 字段 | ✅ B1 生产迁移与首次生产同步对账通过 | ✅ LLD、M1/M2/M3 验收通过：生产单个无 market 完整分页 unit、25 字段、17 页、32,342 行、0 reject，source/current/observation 六向差集为 0，6 个 relation 位于生产 HDD；B7 批次前置已满足，但 `fund_portfolio` 全市场主请求不以该对象池过滤源结果；尚未创建 schedule |
-| B3 | `fund_manager` | 任职事实、分页快照、跨基金聚合辅助字段 | ✅ B2 验收；✅ M0 源端复审；✅ [LLD](public-fund-b3-fund-manager-low-level-design-v1.md)；✅ M1 Definition、身份/唯一性、显式表/HDD migration、Ops 与本地回归；✅ M2 隔离 migration、真实 84,357 行和 100,000 行容量/原子性验收；✅ M3 生产部署、migration、真实 HDD、TaskRun `#7515` 首次同步与完整对账 | ✅ fetched/normalized/written/current/observation 均为 84,357，reject 0，source/current/observation 哈希摘要一致；schedule 频率延后 |
-| B4 | 先 `fund_share`，后 `fund_div` | Definition 显式 opt-in 的自然日 point fan-out；`fund_share` 按日期作用域刷新 current/observation，`fund_div` 单表不可变只插入；Definition/API 单一事实驱动的自动任务 calendar-policy；逐日分页、事件散列与 exact duplicate 去重 | ✅ B2 验收；✅ `fund_share` M0/LLD/M1；✅ M2 隔离 migration、10 个 HDD relation、真实 `0/6/1,673` 行五段对账、10,000 行容量/回滚/advisory lock；✅ M3 migration `20260807_000128`、10 个生产 HDD relation、TaskRun `#7556` 首次 1,673 行完整对账、三方摘要一致；✅ `fund_div` M0 请求/字段/分页/自然日/exact duplicate 复审；✅ 不可变事实方案与 LLD；✅ M1 Definition、单表 ORM/DAO、writer、Ops/API/UI 与本地门禁；✅ M2 migration `000129/000130`、4 个隔离 HDD relation、真实 `122/141→74/40/0` 对账、10,000 行容量/回滚/advisory lock；✅ M3 生产 4 个 HDD relation、TaskRun `#7653/#7654` 首次 `74 inserted` 与幂等 `74 matched`、源端/目标摘要和三类差集闭环 | `fund_share` 与 `fund_div` 均已完成生产首次同步验收，均未做历史回补或 schedule。`fund_div` 下一边界为 M4a 历史只读预算；历史回补与 schedule 继续分别授权 |
-| B5 | `fund_nav` | E/O 来源分片身份、相对时间、日任务与 90 日修订、按 unit 活动租约防重 | B4 验收 | 通用逐自然日展开、相对时间策略、重叠拒绝/跳过均有后端和前端验证；E/O 全源分页、版本修订和两条自动任务分别验收 |
-| B6 | `fund_factor_pro` | 90 列宽表、交易日历史、容量与限流治理 | B5 验收；HDD/WAL 容量预检通过 | 90 字段和双日期字段校验；历史任务限速、分页、HDD/WAL 水位、停止阈值与最小真实同步对账闭环；不与 B7 大回补并发 |
-| B7 | `fund_portfolio` | 季度报告期、全市场单遍分页、2,000 行页流式处理、UNLOGGED 非服务中间态、整期原子发布、fail-closed 单事实表与大规模历史治理 | ✅ B2/B0；✅ M0 显式 8 字段、113 个连续非空季度、生产背景池 32,342、HDD/WAL 与当前代码影响面；✅ [LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)；✅ M1 Definition、staged stream、final/stage ORM/DAO/migration、Ops/UI/schedule contract 与本地测试门禁；✅ M2 隔离 migration/HDD、1,312,798 行容量/幂等/回滚/锁、`19980630` 真实 42 行五段对账；✅ M3 生产 migration `20260810_000131`、全部 relation 物理 HDD、TaskRun `#7813/#7814` 的 42 行首次同步与幂等复跑；✅ M3.1 页级进度编码、后端/前端门禁、延迟 fixture 浏览器验收与 Prod 部署 | 生产单报告期的源端/归一化/提交/reject/目标集合已对账，0 reject、0 issue、stage 0、摘要一致；M3.1 已部署但尚未用新的生产长分页 TaskRun 做页面运行验收；未回补历史或创建 schedule，M3.1 与独立授权的 M4a 可分别排期 |
+以下只保留顺序与差异；历史数量见 §1.1，详细验收、性能与失败门禁集中在对应 LLD，避免总表重复维护全部证据。
+
+| 批次 | 核心职责 / 状态 | 前置与剩余边界 |
+| --- | --- | --- |
+| [B0](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md) | 无时间完整快照的 current/observation 共享写入；已实现 | 本批不建业务表；由 B1 首次消费验收。 |
+| [B1](public-fund-b1-static-reference-low-level-design-v1.md) | 基金管理人、独立业绩基准库；首次生产验收完成 | B0；不做基金基准文本自动关联。 |
+| [B2](public-fund-b2-fund-basic-low-level-design-v1.md) | E/O 全市场基金列表；首次生产验收完成 | B1；B7 批次前置已满足，主请求不读其对象池。 |
+| [B3](public-fund-b3-fund-manager-low-level-design-v1.md) | 任职快照、批内唯一性与容量；M0–M3 完成 | B2；不推断全局人员主表。 |
+| B4：[share](public-fund-b4-fund-share-low-level-design-v1.md) → [div](public-fund-b4-fund-div-low-level-design-v1.md) | 自然日逐日 unit；前者日期作用域观察版本，后者不可变单事实表；两者 M0–M3 完成 | B2；历史预算/回补、schedule 分别授权，div 真实年度预算属 M4a。 |
+| B5 `fund_nav` | 仅发现审计；E/O 分片、D-1/90 日修订、防重与范围版本需 LLD | B4；复用已有基础前逐项核验，不从零重建自然日/观察版本能力。 |
+| B6 `fund_factor_pro` | 仅发现审计；90 源字段、双日期、交易日与容量需 LLD | B5；全市场历史范围与容量场景尚非精确总量。 |
+| [B7](public-fund-b7-fund-portfolio-low-level-design-v1.md) | 全市场季度单遍、页流式 stage、整期发布；M0–M3 完成，M3.1 已部署 | B0/B2；生产长分页页面验收、历史预算/回补、schedule 各有独立边界，不与 B6 大回补并行。 |
 
 ## 6. 各批 LLD 的最低交付物
 
@@ -104,10 +108,10 @@ flowchart LR
 - 未完成对应批次 LLD 和门禁前，不创建 Definition、表、迁移、自动任务或远程回补。
 - 不把 `fund_nav` 的相对时间/重叠规则复制为数据集 key 特例；不把 `fund_portfolio` 的页流式逻辑复制成单接口私有实现。
 - `fund_portfolio` 已确认 `19980630..20260630` 连续 113 个非空季度；该结果只证明报告期清单，不等于逐期精确行数。禁止重新使用样本基金起点、“固定 57 个季度”或把 2025Q2 行数冒充所有季度精确规模。
-- B0/B1/B2/B3 已完成实现、生产迁移与首次完整生产同步五段对账；B4 `fund_share` 与 `fund_div` 也均已完成 M0 至 M3。`fund_share` TaskRun `#7556` 为 1,673 行且 reject 0；`fund_div` TaskRun `#7653/#7654` 为 `141 fetched / 74 saved / 67 deduplicated / 0 reject`，首次 `74 inserted`、重跑 `74 matched`，目标摘要与源端一致。B7 `fund_portfolio` 也已完成 M0 至 M3，TaskRun `#7813/#7814` 为 `42 fetched / 42 saved / 0 deduplicated / 0 reject`，首次 `42 inserted`、重跑 `42 matched`；B7-M3.1 已完成本地开发、自动化验收并部署 Prod，但本轮没有新的生产长分页 TaskRun 可用于页面运行验收。各数据集的历史预算/回补和 schedule 继续分别受独立授权边界约束。所有 schedule 均需运营明确给出频率与 cron/once 意图后手工创建。
+- 已完成与未完成项统一见 §1.1、§5。首次生产验收不自动授权历史回补或 schedule；所有 schedule 仍需运营明确频率与 cron/once 意图。B7-M3.1 部署不等于已经完成生产长分页页面验收。
 
 ## 8. 依据与维护规则
 
-- 每个数据集的源端参数、字段、样本行数和分页事实，以其发现审计引用的本地 Tushare 源文档与 `tushareMcp` 实测为准。
-- 代码、迁移、测试和真实同步结果必须反向更新对应单数据集审计及其 LLD；本专项只维护批次状态、跨数据集依赖和全局门禁。
+- 每个数据集的源端参数、字段、样本行数和分页事实，以对应 LLD（未接入项为发现审计）引用的本地源文档、带日期的 MCP/项目 connector 实测为证据；历史证据不代替实施日前复核。
+- 代码、迁移、测试和真实同步结果只更新对应单数据集 LLD；NAV/factor 在进入 LLD 前维护发现审计；本专项只维护批次状态、跨数据集依赖和全局门禁。
 - 本文状态不得领先代码和真实验证；未完成的批次一律写“待进入”，不写“完成”。

@@ -8,6 +8,8 @@
 
 ---
 
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
+
 ## 0. 2026-08-18 最终拍板
 
 以下两项由用户按推荐方案确认，已成为三份申万数据集 LLD 的共同硬约束，不再列为待拍板项：
@@ -291,7 +293,7 @@ M1 已将 `empty_result_policy/pre_write_validator_key`、`replacement_scope_fie
 
 三张申万服务表可由同一个线性迁移创建，迁移只建表、约束和索引，不 seed、不回填、不创建账号或模块专属 GRANT。
 
-M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线性迁移 `20260818_000138`，其 `down_revision` 为该真实 head。M1 只生成和测试迁移，未连接 Prod、未执行 DDL；M5 实施前仍须重新核验仓库与 Prod 唯一 head。
+M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线性迁移 `20260818_000138`，其 `down_revision` 为该真实 head。M1 当时只生成和测试迁移，未执行 Prod DDL；M5 后续已重新核验 head 并于 2026-08-19 应用迁移，2026-08-20 关闭验收。上述 revision 是该次发布记录，不是今日 head。
 
 ---
 
@@ -411,6 +413,8 @@ business_840401_rows = 0
 | IC-009 | 服务表可观测且不伪造 Raw | freshness/card/snapshot | SNAPSHOT_RUN_TRACE | target fallback | freshness、Ops query | 显示最近成功和服务表 | 日期滞后/伪 Raw 失败 | rebuild snapshot | M2/M5 | M2/M5 已通过 |
 
 ---
+
+<a id="sw2021-milestones"></a>
 
 ## 10. 三数据集统一开发里程碑与停止条件
 

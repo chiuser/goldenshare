@@ -3,7 +3,9 @@
 状态：**实现完成，B0 定向单元/SQLite 事务集成验证通过；已由 B1 在生产完成迁移与两项首次完整快照验收。B0 自身不单独创建业务表、任务或排程。**
 日期：2026-08-05
 上游总览：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
-首个消费者：B1 `fund_company`、`mkt_idx_bmk`；已确认的后续消费者：B2 `fund_basic`
+完整快照消费者：B1 `fund_company`、`mkt_idx_bmk`，B2 `fund_basic`，B3 `fund_manager`。`fund_share` 复用 DAO，但走独立的日期作用域 writer，不属于本节完整快照路径。
+
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
 
 ## 1. 目标、非目标与结论
 
@@ -31,7 +33,7 @@
 
 ### 1.3 审计结论
 
-当前实现已有 `serving_direct_upsert`，但它只向一个 `core_dao_name` 做覆盖式 upsert，不能保存观察版本；`DatasetStorageDefinition` 也没有第二张观察表的声明。`BaseDAO.bulk_upsert` 会更新全部非冲突列，不能保证观察表的 `first_observed_at` 在冲突时保持不变。因此不能把 B1 直接塞进已有路径，也不能用两个基金专用 writer 绕开问题。
+B0 实施前（2026-08-05），`serving_direct_upsert` 只向一个 `core_dao_name` 做覆盖式 upsert，不能保存观察版本，当时 `DatasetStorageDefinition` 尚无观察表声明。B0 已补齐 `observation_dao_name/observation_table` 与独立观察快照路径；下文保留这项设计的动机，不表示当前仍缺能力。`BaseDAO.bulk_upsert` 会更新全部非冲突列，不能保证观察表的 `first_observed_at` 在冲突时保持不变。因此不能把 B1 直接塞进已有路径，也不能用两个基金专用 writer 绕开问题。
 
 保留一个最小共享能力是合理的：B1 两个数据集和已确认的 B2 `fund_basic` 都需要“完整快照 + 当前源记录 + 内容观察历史”，而协议只依赖固定元数据列、显式字段列表和数据集提供的 `source_entity_key`。除此以外的原 B0 设想全部移出。
 
@@ -70,7 +72,7 @@ observation_dao_name: str | None = None
 observation_table: str | None = None
 ```
 
-仅当 `write_path == "serving_observed_snapshot_refresh"` 时 builder 强制二者非空，并强制 `raw_dao_name/raw_table/std_table` 为空。`PlanWriting` 同步增加只读快照字段，记录观察 DAO 和观察表；已有路径采用 `None`，不改变既有构造调用。
+本路径 `write_path == "serving_observed_snapshot_refresh"` 的 builder 强制二者非空，并强制 `raw_dao_name/raw_table/std_table` 为空。后续 `fund_share` 的日期作用域观察事实路径也要求观察表声明，不能把这里的条件解读为其他 write path 一律禁止使用 observation。`PlanWriting` 同步增加只读快照字段，记录观察 DAO 和观察表；已有路径采用 `None`，不改变既有构造调用。
 
 ### 3.2 固定元数据列与哈希
 
@@ -96,7 +98,7 @@ writer 对一个完整 normalized batch 的顺序如下：
 3. 观察 DAO 对每个键执行“插入新版本；冲突时仅更新 `last_observed_at`”，永不改写首次观察时间或历史源字段。
 4. 当前 DAO 在同一 session 内只对该数据集的 current 表执行一次有界 replace：删除旧 current projection，再插入本次完整快照中的全部版本并写入 `observed_at`。删除的只是可再生 current projection；所有源字段和历史版本已由上一步保存在 observation 表。若后续失败，executor rollback 会恢复旧 current projection。
 5. 返回的 `WriteResult.rows_written` 等于本次持久化的唯一源记录数，而不是两张表的物理 DML 行数。这样 TaskRun 的 `rows_saved` 能与 fetched/normalized 行数对账。
-6. executor 在 writer 返回后统一 commit；任一步异常由 executor rollback，旧 `is_current` 状态和观察历史均保持不变。
+6. executor 在 writer 返回后统一 commit；任一步异常由 executor rollback，旧 current 表成员集合及 `observed_at`、observation 历史均保持不变；协议没有 `is_current` 列。
 
 当前表是最近一次完整源快照的精确投影；observation 表是版本事实表。同步只会删除可再生 current projection，绝不删除 observation 记录。这样既能直接查询当前源快照，也不会因源端撤回或短暂异常丢失已保存事实。
 
@@ -145,7 +147,7 @@ writer 对一个完整 normalized batch 的顺序如下：
 | 新环境变量/数据库配置 | 无。 |
 | page limit/调度时间 | 不属于 B0；由各 DatasetDefinition 与既有 Ops Schedule 保存。 |
 | 事务 | 复用 executor 的 unit 事务；DAO 不 commit。 |
-| 内存 | B0 不改变 source client 的全页累积；只允许小型完整快照消费者。B7 的页流式写入另行设计。 |
+| 内存 | B0 的 `buffer_all` 路径仍先累积完整 unit；新消费者必须单独验证容量，不能只凭复用协议获准。B3 已完成 84,357/100,000 行容量验收；B7 已实现独立 `staged_stream`，不经过本路径。 |
 | Ops 状态 | TaskRun 继续只写意图与观测；状态写失败不得回滚业务表，遵循现有隔离边界。 |
 | HDD/WAL | B0 不触碰。具体表的 tablespace 在 B1 migration 强制验证；PostgreSQL 集群 WAL 仍在现有 SSD。 |
 
@@ -154,6 +156,6 @@ writer 对一个完整 normalized batch 的顺序如下：
 1. ✅ 共享 writer 的正反向测试全部通过，且没有 dataset-key 特例。
 2. ✅ Definition/plan 的既有消费者审计完成；Catalog、manual、schedule、workflow、freshness、date-completeness、snapshot rebuild 和前端 API consumer 均确认无需 B0 改造。
 3. ✅ 未提前创建模型、迁移、业务表、自动任务、probe 或远程写入。
-4. ⏳ 业务评审仍须确认“当前源记录”是源快照成员语义，不是源端生效历史或业务实体唯一记录；该语义已按本 LLD 实现。
+4. ✅ current 的源快照成员语义已由 B1 首次完整同步验收：同实体可保留不同内容变体；不是源端生效历史，也不强制一实体一行。
 
-通过 B0 代码与测试门禁后，B1 才能创建两组实际表并接入 Ops；B1 不得把尚未实现的 B0 路径改写为两套基金专用 writer。
+B0 门禁及 B1 接入均已完成。后续消费者继续通过 Definition 复用协议，并完成自身的身份、容量与真实同步验收；不得另造业务专用 writer 绕开共享契约。

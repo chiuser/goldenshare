@@ -673,6 +673,52 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 验证：21 份原主体共 5,791 行，整理为 20 份 1,446 行；减少行数不是删除依据。六个资金流及 ST 迁移定向离线回归 45 passed，resolver/normalizer/source-client 相关选择 57 passed（110 deselected）；20 份说明覆盖当前全部 source_fields 名称，链接文件目标检查通过，THS/DC 历史验收正文逐字比较一致。文档完整性三个检查组和差异检查通过；这些不证明源端现况、生产部署或业务数据完整。README 的无关交易助手条目及其他任务改动保留。
 
+<a id="sw-public-fund-docs-consolidation-20260910"></a>
+
+#### 2026-09-10 申万与公募基金：20 份收敛为 13 份
+
+按用户确认的三批审计结论实施，只修改文档。保留申万三份专属 LLD、基金总计划、B0/B1/B2/B3/B4-share/B4-div/B7 七份 LLD，以及尚未接入的 NAV/factor 两份发现审计。已接入七份发现审计的独有证据先迁入下表落点，再删除旧正文；旧文件可从 Git 历史恢复。
+
+| 删除的重复发现审计（docs/datasets） | 合并去向 | 保留的独有证据与验收落点 |
+| --- | --- | --- |
+| `fund-company-onboarding-discovery-audit.md` | [基金管理人源证据](../datasets/public-fund-b1-static-reference-low-level-design-v1.md#b1-source-evidence) | 18 字段/分页、同信用代码多变体、空码回退；B1 §7 保留生产验收。 |
+| `fund-performance-benchmark-onboarding-discovery-audit.md` | [业绩基准源证据](../datasets/public-fund-b1-static-reference-low-level-design-v1.md#b1-source-evidence) | 独立 API 纠偏、8 字段/筛选/分页、不做基金文本映射；B1 §7 保留验收。 |
+| `fund-basic-onboarding-discovery-audit.md` | [基金列表源证据](../datasets/public-fund-b2-fund-basic-low-level-design-v1.md#b2-source-evidence) | 25 字段、无 market 与 E/O 全集对账、状态/空值及范围保护；B2 §9 保留生产验收。 |
+| `fund-manager-onboarding-discovery-audit.md` | [基金经理源证据](../datasets/public-fund-b3-fund-manager-low-level-design-v1.md#b3-source-evidence) | 过滤与日期反例、两页大小性能、四字段身份与人员辅助键覆盖率；B3 §6/§9 保留容量和生产证据。 |
+| `fund-share-onboarding-discovery-audit.md` | [基金规模源证据](../datasets/public-fund-b4-fund-share-low-level-design-v1.md#b4-share-source-evidence) | 两种页大小与逐日多重集、O/周日样本、默认/显式字段、峰值场景；§13 保留隔离/生产验收。 |
+| `fund-div-onboarding-discovery-audit.md` | [基金分红源证据](../datasets/public-fund-b4-fund-div-low-level-design-v1.md#b4-div-source-evidence) | 公告轴 A/B、组合过滤、短键与完整重复反例、字段剖面、发布时间；§5/§16 保留判定与验收。 |
+| `fund-portfolio-onboarding-discovery-audit.md` | [基金持仓源证据](../datasets/public-fund-b7-fund-portfolio-low-level-design-v1.md#b7-source-evidence) | 历史 113 期存在性、源参数反例、119 次请求预算、路径成本、HDD/WAL 场景；§16/§25 保留发布与进度验收。 |
+
+逐节迁移核对（以下章节号均指各自行文，不是执行步骤）：
+
+- company：旧“结论/源端事实”→B1 §1/§2；“接入轮廓/身份版本/批次约束”→§3～§6/§8；生产记录→§7。默认字段、同码多变体与分页反例保留。
+- benchmark：旧“结论/源端事实”→B1 §1/§2；“接入轮廓”→§3～§6；“实施验收”→§7/§9。早期“无独立接口”判断已被源证据替代。
+- basic：旧“结论/源端事实”→B2 §0～§2；“接入轮廓/已定口径”→§3～§8；“已关闭前置”→源证据与验收章节。不保留已完成事项的旧待办措辞。
+- manager：旧 §1～§4→B3 §0～§2/§5/§6；旧 §5→§4；旧 §6～§7→§8～§11；旧 §8～§9→§0/§11～§12。过滤与人员覆盖率新增迁入；“下一步接入 B4”由总计划的已完成状态替代。
+- share：旧 §1～§2→规模 LLD §1～§2；旧 §3→§3；旧 §4～§5→§4～§12/§14；旧 §6→§13/§15。两种分页大小、O 自然日与字段反例保留；不再等待 fund_div 接入。
+- div：旧 §1～§4→分红 LLD §1/§4/§9；旧 §5→§5/§9；旧 §6→§4.5/§12.3；旧 §7 的验收→§16，其能力边界→§6～§14；旧 §8→§17～§20。旧错误码拼写不搬入，沿用当前 LLD 的 `write.immutable_content_conflict`。
+- portfolio：旧“结论/源端事实/M0预算”→B7 §3/§4.1.1；“接入轮廓/完整请求/已定口径/身份边界”→§4～§13/§19～§20；“M2/M3验收”→§16，进度增强→§25。已被实现取代的“主链只支持完整 list”限定为 §3.2 编码前背景，不保留为当前缺口。
+
+十三组纠偏落点：
+
+1. B4-share §6.1：身份键改为当前 JSON 数组序列化 + UTF-8 SHA-256 的真实算法，非竖线连接；不重算数据。
+2. SW daily §5/§9.7/SD-008：空响应 no-op 保留既有日期桶，原无桶才仍缺失；桶存在不证明代码集合完整。
+3. B0 §1/§3/§6：补已实现观察表声明与实际消费者，去掉不存在的 `is_current`，区分完整快照与作用域 writer。
+4. B3 §0/§4.4：批内唯一性为显式 opt-in，非 B3 永久独占；不改变 B1 多变体语义。
+5. B7 §3/§6/§7/§14/§25：generic→季度末实际调用、`staged_stream.py` 及进度组件落点；旧缺能力描述限定为编码前。
+6. NAV：已有自然日 builder、观察版本和相对日期基础；尚需 E/O unit、90 日策略与活动租约的 LLD，不预定新增 time_policy。
+7. factor：90 是源字段总数（含代码和双日期）；历史范围/峰值未证实，行数/流量仅容量场景，不称上界或九项最大。
+8. B4-div §8.1/FD-015：366/367 fixture 门禁与 M4a 真实年度预算分开，不重开已完成 M2。
+9. 基金总计划、B3、B4-share：去掉“下一步接入已完成数据集”；B2 是 B7 批次前置，不是运行时对象池。
+10. B2/B3/share/B7：修正 manual query、错误码本、identity helper 与 staged publisher 路径。
+11. 申万 M0～M7 总表只在分类 LLD 维护，保留各数据集停止条件；基金总表与 B7 重复结论改为引用；迁移 head、生产状态和旧验收设计均限定日期。
+12. B1 §3/§7.3：四页仅历史样本；current 与当次完整集合对账，observation 保留累积历史，不要求永远与源总行数相等。
+13. B4-div §14/FD-013：只退出连续缺口审计，不退出 `ops.dataset_status_snapshot` 状态投影。
+
+验证结果：文档完整性三个检查项、15 份保留/入口文档的 310 个链接及 41 个锚点、删除引用与 `git diff --check` 均通过。现有环境复跑 11 份定向测试，128 passed；19 条既有 SQLite 日期适配器弃用警告，无新增安装或常驻测试实例。
+
+验证边界：按当前 Definition、planner/request、writer/DAO、Ops 状态投影和消费者代码校正文义；CodeGraph 查询用于定位 staged publisher，最终以实现核验为准。仅迁移既有带日期的源端/数据库验收证据；测试使用替身与内存数据库，没有 Tushare 请求、正式数据库读写、生产部署、数据清理或新任务，不代表今日生产验收。代码、配置及依赖矩阵未改，工作区原有其他修改未纳入治理。
+
 ### 4.4 Frontend 组
 
 当前状态：已完成第一轮整合（建立统一强约束主文档）。

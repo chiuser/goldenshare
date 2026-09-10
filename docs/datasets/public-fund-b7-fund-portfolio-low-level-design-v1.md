@@ -4,6 +4,8 @@
 
 确认日期：2026-08-08；M1 实现与本地验收：2026-08-10；M2 隔离验收：2026-08-10；M3 生产验收：2026-08-10；M3.1 进度增强方案确认与本地验收：2026-08-10；M3.1 Prod 部署：用户确认于 2026-08-10
 
+> 文档校准：2026-09-10。下列源端样本、生产验收、迁移 head 和排程状态均保留原记录日期；本次只核对代码与文档，不重新证明今日生产状态，也不授权后续执行。
+
 ## 1. 结论先行
 
 B7 的 M1/M2/M3 已完成，实现并验证了 `fund_portfolio` 的季度报告期接入，以及它必需的两项显式 opt-in 能力：
@@ -48,7 +50,7 @@ M3 生产首次小窗验收已通过。下列事项继续后置，不影响当�
 ### 3.1 文档与源端依据
 
 - [数据集接入开发模板](../templates/dataset-development-template.md)
-- [B7 发现审计](fund-portfolio-onboarding-discovery-audit.md)
+- [源端复审与合并证据](#b7-source-evidence)
 - [公募基金九数据集总计划](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 - [本地 Tushare 接口文档](../sources/tushare/公募基金/0121_公募基金持仓数据.md)
 - `src/AGENTS.md`、`src/foundation/AGENTS.md`、`src/foundation/datasets/AGENTS.md`、`src/foundation/ingestion/AGENTS.md`、`src/foundation/dao/AGENTS.md`
@@ -66,7 +68,7 @@ B7-M0 已有实测证据：
 
 ### 3.2 M1 编码前代码依据
 
-CodeGraph 索引根为仓库根，当前为 2,123 个文件、36,288 个节点、82,257 条边。已审计：
+以下为 2026-08-08～10 的 M0/M1 编码前背景，不是当前能力缺口。当前已实现的代码落点见 §14，M2/M3 验收见 §16。CodeGraph 当时覆盖：
 
 - `DatasetDateModel.selection_rule` -> Ops Catalog/API -> 手动/自动任务前端日期控件。
 - `DatasetUnitPlanner` -> resolver -> `PlanUnitSnapshot` -> request builder。
@@ -81,8 +83,10 @@ M1 编码前事实：
 - `IngestionExecutor` 只接受完整 `SourceFetchResult`，随后整批 normalize/write/commit。
 - `serving_immutable_fact_insert` 要求完整批次在内存中，只支持既有自然日不可变事实；不能直接复用。
 - normalizer 已支持 `source_multiplicity_policy=deduplicate_identical` 和 batch unique 冲突，但只能发现当前内存批次内的冲突；跨页冲突必须由暂存表约束补齐。
-- 当前 `DateField` 只支持自然日、自然周五和月末；当前 planner/schedule resolver 没有季度末语义。
+- 当时 `DateField`、planner/schedule resolver 尚无季度末语义；M1 已补齐，当前 B7 使用共享季度末规则。
 - M1 编码前重新确认 Alembic head 为 `20260807_000130`；新 migration `20260810_000131` 已线性连接该真实 head。本文不把 migration 文本检查冒充 PostgreSQL 应用验收。
+
+<a id="b7-source-evidence"></a>
 
 ## 4. 源端请求契约
 
@@ -97,6 +101,28 @@ M1 编码前事实：
 | 禁止 | `symbol` | 缩小全市场事实范围。 |
 | 禁止 | 逗号拼接多个 `ts_code` | 实测无批量语义，已知两个有效代码拼接返回空集。 |
 | 禁止 | 无 `period` 的单基金历史 | 可能触发单页上限，且不能成为报告期原子发布 scope。 |
+
+### 4.1.1 历史源端与容量证据（原发现审计合并）
+
+以下记录来自 2026-08-03、2026-08-05、2026-08-08，不是本次重新请求或生产水位认证。
+
+| 证据 | 当次结果与限制 |
+| --- | --- |
+| 单基金历史 | `000001.OF` 6,317 行/98 季度（2002Q1..2026Q2）；`001753.OF` 43 季度（2015Q4 起）；`015477.OF` 15 季度（2022Q4 起）；`510300.SH` 49 季度但正好 8,000 行，不能当作完整历史。 |
+| 报告期与公告批次 | `period=20250630`：上述 000001/015477/510300 分别 187/274/340 行；公告日分别为 20250721 与 20250830/20250831/20250830。只加 `ann_date=20250721` 时为 10/13/15 行；同报告期的后续公告不能丢。 |
+| 区间反例 | 三个代码请求 `20250101..20251231` 均包含 `end_date=20241231/20250331/20250630/20250930`，不含 20251231；实际过滤公告窗口，不是报告期。 |
+| 全市场分页定位 | 2025Q2 以 2,000 行页取得 offset 0..660000 的 662,000 行；另以 limit=8000 在 offset=1307500 得 5,298 行，定位当时总量 1,312,798。不是本次重拉，也不是所有季度规模。 |
+| 身份与数值 | 单基金历史 1,598 行和季度 8,000 行样本四字段身份无重复；不等于全源唯一性证明。`stk_float_ratio=95,349,496.79` 原值保留，单位未核清，不按百分比缩放。 |
+| 不可用的切片 | 两个有效代码逗号拼接为 0 行；季度首 8,000 行可全属公告日 20250831，因此公告日也未被证明是有界 unit。 |
+| 默认/显式字段 | `000001.OF+20250630` 默认与显式 8 字段均为 187 行，完整行多重集一致；正式请求仍显式传 fields。 |
+| 历史清单与预算 | 2026-08-08 预算最多 120 次，实际 119：5 次 MCP 字段核验 + 114 次 HTTP `limit=1,offset=0` 季度存在性盘点；两次导入失败未发请求。19980331 空，19980630..20260630 连续 113 期非空；MCP 当日签名未暴露分页，不能冒称 MCP 分页复验。 |
+| 批次背景 | 当次生产 fund_basic current 为 E 2,883 + O 29,459 = 32,342；代码/实体无重复或空代码。B2 仅是批次前置，不是 B7 运行时对象池。 |
+
+请求方案保留当时的比较依据：逐基金主路径在 113 期至少 3,654,646 请求；按每期均为 2025Q2 的全市场单遍场景是 74,241，约少 49.2 倍。按 200/500 次每分钟，理论下界分别为 304.6/121.8 小时（12.7/5.1 天）与 6.2/2.5 小时，未含网络、重试和写入；实际配额须执行前核验，不默认高档。
+
+2026-08-08 HDD/WAL 样本：`/data/disk` 为 `/dev/vdb` ext4，总 422,549,692,416 B、可用 342,549,856,256 B，表空间约用 54 GiB；`gs_raw_cold_hdd` 路径为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。以 1,312,798×113=148,346,174 行作容量场景，表+索引按 400/600/800 B/行估为 55.3/82.9/110.5 GiB；187 行 JSON 平均 181.3 B/行只表示传输量，不能代替数据库行宽，也不能据此声称历史上界。
+
+当时集群配置为 `max_wal_size=1 GiB`、`checkpoint_timeout=300s`、`full_page_writes=on`、`wal_compression=off`、`wal_level=replica`；应用角色无权读取 `pg_ls_waldir/data_directory`。后续 M2/M3 已另以真实 PostgreSQL 物理落点、主机水位及事务 LSN 差量验收（§16）；这些历史值不能替代未来回补前的实时预检。
 
 ### 4.2 显式字段
 
@@ -177,7 +203,7 @@ audit_applicable = false
 | filter | 可选单个 `ts_code`，只用于 point 定向补录 |
 | universe | `no_pool`；主路径不读取 `fund_basic` 对象池 |
 | pagination | `offset_limit` / 2,000 / short page / 无最大页数 |
-| unit builder | `build_calendar_quarter_end_units` |
+| unit builder | `unit_builder_key="generic"`；`_build_generic_units` 按季度末规则规划 |
 | page processing | `staged_stream`，显式 opt-in |
 | delivery | `single_source_serving` / direct-serving |
 | serving | `core_serving.fund_portfolio` |
@@ -222,7 +248,7 @@ B7 专属内容保持专属：字段、身份、表、分区、SQL、DAO、报�
 
 ### 7.1 季度 unit builder
 
-在 `src/foundation/ingestion/unit_planner.py` 注册 `build_calendar_quarter_end_units`：
+当前 Definition 使用 `unit_builder_key="generic"`；`src/foundation/ingestion/unit_planner.py` 的 `_build_generic_units` 调用 `_resolve_anchors`，其 `calendar_quarter_end` 分支委派 `_expand_calendar_quarter_ends`。没有单独注册 `build_calendar_quarter_end_units`：
 
 - point 必须是自然季度末，否则 `planning.quarter_end_required`。
 - range 只枚举闭区间内的季度末，稳定升序。
@@ -507,6 +533,8 @@ B7-M1 不新增 env/Settings/数据库运行配置。
 
 现有 source retry 仍为共享行为；本期不擅自增加“B7 专用限速配置”。M2 先测真实请求速率，再决定是否需要独立配置审计。
 
+<a id="b7-code-map"></a>
+
 ## 14. 代码改动清单与影响边界
 
 ### 14.1 Foundation
@@ -521,7 +549,7 @@ B7-M1 不新增 env/Settings/数据库运行配置。
 - `src/foundation/ingestion/row_transforms.py`
 - `src/foundation/ingestion/source_client.py`
 - `src/foundation/ingestion/executor.py`
-- `src/foundation/ingestion/writer.py` 或新建同目录的 `staged_scope_publisher.py`
+- `src/foundation/ingestion/staged_stream.py`：`StagedStreamPublisher`；由 executor 的 `staged_stream` 路径调用，不是在 `writer.py` 中新增业务分支
 - `src/foundation/ingestion/codebook.py`
 - `src/foundation/dao/fund_portfolio_dao.py`
 - `src/foundation/dao/factory.py`
@@ -638,6 +666,8 @@ npm --prefix frontend run build
 
 ## 16. 隔离与生产验收
 
+<a id="b7-m2-evidence"></a>
+
 ### 16.1 B7-M2 隔离 PostgreSQL（2026-08-10 已通过）
 
 本轮使用全新的本地 PostgreSQL 18.4 隔离集群，未连接生产库。隔离 tablespace `gs_raw_cold_hdd` 的真实路径为 `/private/tmp/goldenshare_b7_m2.d1Oasv/hdd_tablespace`。从全量历史 migration 建空库时，旧迁移触发 PostgreSQL `max_locks_per_transaction` 不足；仅对该临时集群调到 `2048` 后完成，未修改本机正式实例或生产配置。生产 M3 仍必须从当时真实 head 独立预检。
@@ -674,6 +704,8 @@ npm --prefix frontend run build
 - stage/finalize scope 42 行；写入并提交 42 行；正式目标表 42 行；发布后 stage 清理为 0 行。
 - 源身份与 final 身份双向差集均为 0；final 42 行按规范算法只读重算 `source_content_hash`，不一致 0 行。
 - 初版审计脚本曾直接读取 normalizer 行中的不存在的 `source_content_hash`，产生 42/42 的伪差集；该指标已判为验证脚本错误，不作为数据结论，并由上述只读重算结果纠正。未为纠正脚本再次请求源站。
+
+<a id="b7-m3-evidence"></a>
 
 ### 16.2 B7-M3 生产（2026-08-10 已通过）
 
@@ -773,24 +805,15 @@ npm --prefix frontend run build
 
 ## 21. B7-M1 实现对账（2026-08-10）
 
-M1 已逐项落地：
-
-- `DatasetDefinition` 固定季度末 point/range、单任务最多八期、显式 8 fields、`limit=2000`、单个可选 `ts_code` 定向补录与 `staged_stream` opt-in。
-- 通用 source page iterator 保留既有 `fetch()` 聚合行为；B7 executor 逐页归一化，只把当前页交给 stage，不累计完整报告期 Python list。
-- B7 专属 DAO 负责跨页 exact duplicate、同身份异内容拒绝、既有 scope 回退、内容冲突、集合发布与最终行数对账；共享 publisher 只负责专用连接、session advisory lock、页级 stage commit、unit 最终事务和清理。
-- final/stage 显式列 ORM、DAO factory、table registry 与 migration 已完成；migration 定义 32 个 HDD hash leaves、HDD indexes 和 HDD UNLOGGED stage，缺 tablespace fail-closed，downgrade 不删事实。
-- Ops Catalog、手动报告期控件、通用 `quarter_end` 前端规则、Definition 驱动的 weekly/monthly cron 与 once 能力已经接入；没有数据集 action-key 白名单、probe、workflow 或 schedule seed。
-- 定向后端测试覆盖分页、planner、normalizer、executor、DAO、迁移文本、Catalog/manual/schedule API 与既有公募基金回归；前端 typecheck、规则检查、全量 Vitest 与 production build 通过。PostgreSQL DDL、真实 HDD placement、advisory lock 并发、131 万行容量和真实源五段对账已在 B7-M2 独立完成。
+已完成。当前文件清单统一见 [§14](#b7-code-map)，逐项硬口径与回归映射见 §18。保留既有 buffer-all 行为；B7 显式选择页流式 stage、整期发布，不新增 probe/workflow/schedule seed。
 
 ## 22. B7-M2 验收结论（2026-08-10）
 
-B7-M2 通过。M1 的 staged stream、集合发布、不可变冲突、事务回滚、advisory lock、HDD fail-closed 与物理落点均获得真实 PostgreSQL 证据；最小真实同步的五段数量一致且没有 reject。M2 在当时只放行独立授权的 B7-M3，不曾授权生产 migration、生产同步、历史回补或 schedule 创建；M3 后续已在独立授权下完成，见第 23 节。
+已通过，真实 PostgreSQL 的容量、回滚、锁、HDD 与 42 行最小源 scope 证据统一见 [§16.1](#b7-m2-evidence)。隔离验收不授权生产操作，后续 M3 单独获准。
 
 ## 23. B7-M3 生产验收结论（2026-08-10）
 
-B7-M3 通过。生产 migration 已到达 `20260810_000131`，final parent/32 leaves/66 个 final indexes 与 UNLOGGED stage/2 个 stage indexes 全部物理落于 `gs_raw_cold_hdd`。TaskRun `#7813/#7814` 完成了 42 行单页 scope 的首次写入和幂等复跑：源端、归一化、业务提交、reject 和目标表对账一致，无 reject、无 TaskRun issue、无 hash 不一致，stage 最终为 0。
-
-本结论只放行已部署的单季度同步能力，不授权历史规模扫描、历史回补或 schedule 创建。长分页 offset 漂移、生产历史行宽/容量和 SSD/WAL 水位仍是 M4a/M4b 的独立门禁。
+已通过，migration、全部 relation 的 HDD 落点及 TaskRun `#7813/#7814` 首次/幂等完整对账统一见 [§16.2](#b7-m3-evidence)。42 行单页 scope 不证明长分页稳定性，也不授权历史扫描、回补或 schedule；剩余风险与决策见 §19～20。
 
 ## 24. TaskRun `#7817` 暴露的规划契约加固（2026-08-10）
 
@@ -988,22 +1011,22 @@ progress.paged_unit_progress.completed_truncated: boolean
 - failed/canceled 保留季度、最后处理页、已完成页数和累计读取量，并使用 warning/error 语义；失败原因仍只在唯一失败原因区展示，不在进度条复制技术错误。
 - 若 active 与 completed 同时存在，先显示 active，再显示 completed。
 - 旧的任务级“源端分页/不可变事实核对”聚合条只作为最终任务汇总保留，不能替代逐季度卡；页面必须避免对同一数字重复展示两次。具体实现优先把 completed unit result 作为主阅读路径，任务聚合放在全部 unit 结束后的结果概览或折叠摘要。
-- 页面现有文件已超过 600 行。实现时应把纯展示和格式化拆到相邻的任务进度组件/helper；不新增全局组件，除非审计证明第二个页面也需要同一模式。
+- 纯展示已拆到相邻 `ops-task-paged-unit-progress.tsx`；本次不再以旧页面行数发起新的组件拆分。
 - 继续复用 Mantine、`AlertBar`、`MetricPanel` 和现有 3 秒 TanStack Query 轮询；不引入第二套 UI 或实时通信依赖。
 
 ### 25.7 代码落点与影响边界
 
-预计改动：
+当前实现与消费者清单（2026-09-10 静态核对；不是新的改造授权）：
 
 | 层 | 文件/职责 | 改动 |
 | --- | --- | --- |
-| Foundation contract | `src/foundation/ingestion/progress.py` | 继续承载覆盖式 snapshot；如新增 helper/dataclass，只允许中性 paged-unit 结构，不出现 Ops/UI 文案。 |
+| Foundation contract | `src/foundation/ingestion/progress.py` | 以 `ingestion_diagnostics` 承载覆盖式 snapshot，不包含 Ops/UI 文案。 |
 | Foundation executor | `src/foundation/ingestion/executor.py` | staged-stream 页循环前/季度边界上报；维护 unit-local 计数；其他 `buffer_all` 路径行为不变。 |
-| Foundation -> Ops adapter | `src/foundation/ingestion/service.py`、`src/foundation/kernel/contracts/ingestion_run_context.py`、`src/foundation/ingestion/null_runtime.py` | 优先复用现有 diagnostics 参数；只有强类型 contract 确有必要时才扩签名，并同步全部实现/调用方。 |
+| Foundation -> Ops adapter | `src/foundation/ingestion/service.py`、`src/foundation/kernel/contracts/ingestion_run_context.py`、`src/foundation/ingestion/null_runtime.py` | 通过现有 `ingestion_diagnostics` 参数传递进度，service、contract、Null 实现与 Ops adapter 保持一致。 |
 | Ops persistence | `src/ops/services/task_run_ingestion_context.py` | 独立事务覆盖写、paged-unit sanitizer/16 KiB 门禁；状态失败不影响业务事务。 |
 | Ops schema/query | `src/ops/schemas/task_run.py`、`src/ops/queries/task_run_query_service.py` | 从 JSON 投影 typed `paged_unit_progress`，旧任务返回 null。 |
 | 前端 API | `frontend/src/shared/api/types.ts` | 增加明确类型，不让页面直接猜 diagnostics JSON。后续若 types 文件继续膨胀，按现行治理评估拆出 Ops types，但本轮不顺手做无关大拆分。 |
-| 前端页面 | `frontend/src/pages/ops-task-detail-page.tsx` 及相邻 helper/component | 当前季度、已完成季度、终态/失败态展示；无 action-key 特判。 |
+| 前端页面 | `frontend/src/pages/ops-task-detail-page.tsx`、`frontend/src/pages/ops-task-paged-unit-progress.tsx` | 当前季度、已完成季度、终态/失败态展示；无 action-key 特判。 |
 | 测试 | `tests/test_public_fund_b7_fund_portfolio_dataset.py`、`tests/web/test_ops_runtime.py`、TaskRun query/API tests、`frontend/src/pages/ops-task-detail-page.test.tsx` | 覆盖快照序列、事务边界、sanitize、API projection 和页面状态。 |
 
 不需要 Alembic migration，不改变 DatasetDefinition、planner、request builder、source client 请求参数、DAO、final/stage 表、HDD/WAL 或 schedule capability。
