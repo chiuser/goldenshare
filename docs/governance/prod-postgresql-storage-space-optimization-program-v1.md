@@ -457,8 +457,8 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 
 ## 8. 相关文档
 
-1. [Prod 每日筹码分布 HDD Tablespace 迁移方案 v1（已执行）](/Users/congming/github/goldenshare/docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md)
-2. [股票历史分钟行情 tablespace 冷热分层记录 v1（2026-04-26 历史快照）](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
+1. [HDD 历史迁移记录：筹码分布（2026-06-01）](/Users/congming/github/goldenshare/docs/ops/prod-postgresql-hdd-migration-history-v1.md#cyq-chips-20260601)
+2. [HDD 历史迁移记录：股票分钟线（2026-04-26）](/Users/congming/github/goldenshare/docs/ops/prod-postgresql-hdd-migration-history-v1.md#stk-mins-20260426)
 3. [股票历史分钟行情存储瘦身与滚动冷热治理方案 v1（当前 P0 执行依据）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 4. [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
 5. [融资融券交易明细 LLD v1](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)

@@ -459,6 +459,19 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 校验：三对象 9/11/10 项编辑字段及全部 seed 默认值与 AST 静态提取结果一致，6 条配置路由和 3 条健康路由匹配；涉及文档的 260 个唯一仓库链接存在，新增治理锚点存在。文档完整性三个检查组、`git diff --check` 通过；旧文件名仅存本节追溯表，无活跃引用。未运行应用测试、安装、生产操作；README 与其他目录的无关改动保留。
 
+<a id="ops-hdd-history-consolidation-20260910"></a>
+
+#### HDD 迁移历史：2 份收敛为 1 份
+
+2026-09-10：分钟线与筹码分布历史迁移合并为[生产 PostgreSQL HDD 历史迁移记录](/Users/congming/github/goldenshare/docs/ops/prod-postgresql-hdd-migration-history-v1.md)，保留时间、对象、验收结果、表空间名称与目录映射；旧施工、回迁命令和年度审计 SQL 不再作为当前操作入口。
+
+| 已移除原文档（Git 历史可查） | 内容去向 |
+| --- | --- |
+| `docs/ops/stk-mins-tablespace-layout-v1.md` | 新记录 §2：192 个分区、576 个索引等 4 月证据；区分次日瘦身与后续滚动规则 |
+| `docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md` | 新记录 §3：6 月表空间改名、四对象迁移、约 32G 空间释放及最小读验证 |
+
+原全文可在提交 `c6bb2ec4` 中追溯。主索引、存储治理专项与分钟线滚动方案的引用同步迁移。后两份方案仅改引用，不改 P0 白名单、No-Go 门禁、恢复要求或执行授权；本轮没有数据库与物理数据操作。
+
 ### 4.3 Datasets 组
 
 当前状态：已完成第一轮整合（拍板结论回填并下线总览拍板单）。

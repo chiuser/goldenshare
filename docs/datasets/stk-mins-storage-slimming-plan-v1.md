@@ -432,10 +432,10 @@ comment 更新失败不回滚已完成的数据 relation；记录为独立元数
 ## 12. 相关文档
 
 1. [生产 PostgreSQL 存储空间优化治理专项 v1](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)
-2. [股票历史分钟行情 tablespace 冷热分层执行记录 v1（2026-04-26 历史快照）](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
+2. [HDD 历史迁移记录：股票分钟线（2026-04-26 快照）](/Users/congming/github/goldenshare/docs/ops/prod-postgresql-hdd-migration-history-v1.md#stk-mins-20260426)
 3. [分钟线任务执行隔离与运维说明](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-dedicated-worker-execution-lane-plan-v1.md)
 4. [股票历史分钟行情数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
-5. [Prod 每日筹码分布 HDD Tablespace 迁移方案 v1（同实例历史执行证据）](/Users/congming/github/goldenshare/docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md)
+5. [HDD 历史迁移记录：筹码分布（同实例 2026-06-01 执行证据）](/Users/congming/github/goldenshare/docs/ops/prod-postgresql-hdd-migration-history-v1.md#cyq-chips-20260601)
 6. [PostgreSQL 16 `ALTER TABLE`](https://www.postgresql.org/docs/16/sql-altertable.html)
 7. [PostgreSQL 16 `ALTER INDEX`](https://www.postgresql.org/docs/16/sql-alterindex.html)
 8. [PostgreSQL 16 Tablespaces](https://www.postgresql.org/docs/16/manage-ag-tablespaces.html)
