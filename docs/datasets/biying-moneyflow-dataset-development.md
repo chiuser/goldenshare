@@ -1,82 +1,49 @@
-# BIYING 资金流向数据集开发说明
+# BIYING 资金流向维护说明
 
-## 1. 目标与边界
+更新时间：2026-09-10。已实现；本轮只校准文档，不执行同步、发布或生产验收。旧“仅写 Raw、没有 Std/Serving”的阶段边界已过时。
 
-- 目标：接入 BIYING 资金流向接口，完成 `raw_biying.moneyflow` 的建表、拉取、落库与运维可触发能力。
-- 本期边界（严格）：
-  - 仅实现 BIYING 源拉取与 raw 层存储。
-  - 不做和 Tushare `moneyflow` 的字段对齐、融合、std、serving。
-  - 不改变现有 Tushare 资金流向链路。
+## 1. 当前写入影响面
 
-## 2. 上游接口
+`biying_moneyflow.maintain` → BIYING 请求 → `raw_biying.moneyflow` → 标准化并写 `core_multi.moneyflow_std` → 按触及的证券/日期调用共享发布逻辑 → `core_serving.equity_moneyflow`。
 
-- 接口：`/hsstock/history/transaction/{dm}/{token}?st=YYYYMMDD&et=YYYYMMDD&lt=...`
-- 股票池来源：`raw_biying.stock_basic(dm, mc)`。
-- 请求参数：
-  - `dm`：BIYING 股票代码（本期直接使用 `dm` 原值）。
-  - `st` / `et`：区间日期。
-  - `lt`：本期不用于历史回补，避免结果截断风险。
-- 无数据返回：`{"error":"数据不存在"}`，按空结果处理，不视作任务失败。
+- [moneyflow.py](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/moneyflow.py)声明 `write_path=raw_std_publish_moneyflow_biying`、`delivery_mode=multi_source_fusion`。
+- [writer.py](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)的 `_write_moneyflow_std_publish_biying` 依次 upsert Raw、Std，再调用 [moneyflow_publish.py](/Users/congming/github/goldenshare/src/foundation/ingestion/moneyflow_publish.py) 的 `publish_moneyflow_serving_for_keys`。
+- 共享发布读取触及键的各来源 Std，再按发布逻辑选择；因此本任务会影响共享 Serving，不是一个与 Tushare 完全隔离的 Raw 收集动作，也不是无条件用 BIYING 覆盖其他来源。
+- `WriteResult.rows_written/rows_upserted` 返回的是 Serving 写入数，不能把任务“写入行数”直接当作 Raw 行数。
+- 本轮不改变多源优先级、mapping、配置或其他来源行为；共享发布的设计边界见[多源映射与发布规则](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)。
 
-## 3. 表设计
+## 2. 输入与执行
 
-### 3.1 Raw 表
+股票范围沿用[BIYING 共用股票选择](/Users/congming/github/goldenshare/docs/datasets/biying-equity-daily-dataset-development.md#biying-universe)：默认从 raw_biying.stock_basic 读取 dm/mc，支持显式 ts_code，不要求显式代码已在池中。
 
-- 表：`raw_biying.moneyflow`
-- 主键：`(dm, trade_date)`
-- 审计字段：`api_name`, `fetched_at`, `raw_payload`
-- 数据字段：按 BIYING 返回字段全量落库（保留原字段名），包含：
-  - 主买/主卖统计：`zmbzds`, `zmszds`, `zmbzdszl`, `zmszdszl`, `cjbszl`
-  - 动向指标：`dddx`, `zddy`, `ddcf`
-  - 各档位成交金额/成交量/成交总额/成交量增量（`...cje`, `...cjl`, `...cjzl`, `...cjzlv` 全量）
+- 单日输入 trade_date，源端 st=et；区间输入 start_date/end_date。
+- `_build_biying_moneyflow_units` 按股票 × **最多 100 个自然日闭区间**生成 units，不读取交易日历逐日扇出。
+- `_biying_moneyflow_params` 生成 dm、YYYYMMDD 格式的 st/et；不传 lt，不带复权选择。
+- 请求路径为 `/hsstock/history/transaction/{dm}/{token}?st=...&et=...`；规划分页策略为 none，靠切窗控制范围，不使用 offset 翻页。
+- connector 将 `{"error":"数据不存在"}` 作为空结果处理；切窗与不传 lt 本身不能证明任意范围均无源端截断。
 
-### 3.2 数值类型
+实现：[unit_planner.py](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)、[request_builders.py](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)。
 
-- 计数字段：`BIGINT`
-- 金额/比例字段：`NUMERIC(30, 4)`（动向指标 `dddx/zddy/ddcf` 使用 `NUMERIC(18,4)`）
-- 时间字段：
-  - `quote_time`：来自接口 `t`
-  - `trade_date`：`quote_time.date()`
+## 3. Raw 与标准化
 
-### 3.3 索引
+[Raw 模型](/Users/congming/github/goldenshare/src/foundation/models/raw_multi/raw_biying_moneyflow.py)：
 
-- `idx_raw_biying_moneyflow_trade_date(trade_date)`
-- `idx_raw_biying_moneyflow_dm_trade_date(dm, trade_date)`
+- 表 `raw_biying.moneyflow`，主键 `(dm, trade_date)`。
+- quote_time 来自接口 t，trade_date 取其日期；保留 api_name、fetched_at、raw_payload。
+- 原字段包括主买/主卖统计 zmbzds、zmszds、zmbzdszl、zmszdszl、cjbszl，动向指标 dddx、zddy、ddcf，以及各档金额/成交量/总额/增量字段。完整列及各列数值精度以模型为准，不把所有比例或数量概括为同一种类型。
+- 索引为 `idx_raw_biying_moneyflow_trade_date` 和 `idx_raw_biying_moneyflow_dm_trade_date`。
 
-## 4. 维护逻辑
+[NormalizeMoneyflowService](/Users/congming/github/goldenshare/src/foundation/services/transform/normalize_moneyflow_service.py) 的 `to_std_from_biying_raw` 将 dm 映射为 ts_code，将四档主买/主卖金额与数量映射到 Std buy/sell 字段，并计算净额。Raw 原字段仍保留；这里说明现有转换，不据此认定不同源的原始统计口径天然完全等价。
 
-### 4.1 区间维护
+## 4. 观测、回归与验收
 
-- 动作：`biying_moneyflow.maintain`
-- 入参：`start_date`, `end_date`
-- 策略：
-  1. 从 `raw_biying.stock_basic` 读取股票池；
-  2. 区间按 100 天窗口拆分；
-  3. 按 `dm × 窗口` 扇出请求并 upsert；
-  4. 窗口内不传 `lt`。
+数据集 key 为 biying_moneyflow，业务日期为 trade_date；planner 的 progress_context 只有 ts_code、start_date、end_date，不承诺已经输出“代码+名称+窗口+获取+写入”的固定文本。核验需分清 fetched/normalized、Raw、Std 和 Serving 行数及拒绝原因。
 
-### 4.2 单日维护
+现有回归入口：
 
-- 动作：`biying_moneyflow.maintain`
-- 入参：`trade_date`
-- 策略：把 `trade_date` 映射为 `st=et` 单日，按股票池扇出请求。
+- [connector](/Users/congming/github/goldenshare/tests/test_biying_connector.py)：请求拼装与空响应。
+- [resolver](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)：100 日切窗及空池拒绝。
+- [标准化](/Users/congming/github/goldenshare/tests/test_normalize_moneyflow_service.py)：BIYING → Std 与净额。
+- [Raw 映射](/Users/congming/github/goldenshare/tests/test_raw_multi_schema_mapping.py)、[Ops catalog](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)。
 
-## 5. 运维展示约定
-
-- 进度文案：
-  - `证券={dm} {mc} 窗口={start}~{end} 获取={fetched} 写入={written}`
-- 数据状态：
-  - 数据集 key：`biying_moneyflow`
-  - 展示名：`BIYING 资金流向`
-  - 观测日期列：`trade_date`
-
-## 6. 测试覆盖
-
-- `tests/test_biying_connector.py`
-  - 覆盖 `moneyflow` URL 拼装、空数据响应处理。
-- `tests/test_sync_biying_moneyflow_service.py`
-  - 覆盖区间维护路径、单日参数校验、字段归一化。
-- `tests/test_raw_multi_schema_mapping.py`
-  - 覆盖 `raw_biying.moneyflow` 的 schema 与主键。
-- `tests/test_ops_action_catalog.py`
-  - 覆盖 `biying_moneyflow.maintain` 维护动作。
+上述测试不替代真实 Raw→Std→Serving 联合对账。[本地 BIYING 资料目录](/Users/congming/github/goldenshare/docs/sources/biying/README.md)尚非完整源接口归档，本轮未新增源行为结论或生产验收记录。

@@ -1,6 +1,6 @@
 # 文档信息架构与待整合清单 v1
 
-更新时间：2026-09-10（补充股票开盘与收盘集合竞价文档整合记录）
+更新时间：2026-09-10（补充筹码、BIYING 与财务三表文档整合记录）
 
 ## 1. 目标
 
@@ -573,6 +573,31 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 历史边界：开盘提前迁移的流程偏差及历史性能对照不删除；两个独立 160,000/160,001 迁移容量验证、时间戳投影变化、空间释放依据、已有日期幂等重跑和早空晚非空的自然运行分别保留。原始过程可从 Git 提交 `8bc1fb44` 追溯，旧迁移阶段不再是当前待办。Lake 清退 M0 清单 §2.1 中的开盘文件名仅表示 2026-08-28 当时的无关脏文件排除项，保留历史原文，不改写成新路径。
 
 依据与验证：CodeGraph query/impact 追踪共用 builder，结合当前 Definition、请求/归一化、writer、ORM、迁移与工作流及前轮消费者审计；专项离线测试 15 项、Raw-only writer 定向测试 2 项通过（12 项未选），文档完整性、差异与引用检查通过。两份共 914 行收敛为一份 127 行，减少 787 行；未请求 Tushare、访问生产、运行 Web/API 全套测试、安装套件或执行迁移。源资料与真实运行证据均按历史时间保留，不重新认证今天的权限、schedule、revision 或数据。
+
+<a id="cyq-biying-financial-docs-consolidation-20260910"></a>
+
+#### 2026-09-10 筹码、BIYING 与财务三表：10 份收敛为 7 份
+
+按管理员统一 review 后的批准实施。仅修改本组文档、README 与本记录，不改代码、接口、字段、依赖矩阵、配置、源资料或物理数据，不执行部署、迁移、同步或安装。原文可从提交 `2129d0f8` 追溯，不保留 archive 或跳转空壳。
+
+| 原文档（均在 docs/datasets） | 处理与有效内容去向 |
+| --- | --- |
+| `cyq-perf-dataset-development.md` | 保留；现行主链/日期分页/Raw view/观测归 §1–3，2026 年 4 月测量与源说明差异归 §4，回归边界归 §5；删除旧 Sync V1 开发路线 |
+| `cyq-chips-dataset-development.md` | 保留；股票×1095 自然日窗口、三字段身份、只接 freshness、不入每日工作流保留；源分页历史与生产验收区分，已完成 builder 等不再写成待新增 |
+| `biying-equity-daily-dataset-development.md` | 保留；Raw-only、共用股票选择、3000 日切窗与复权选择、元数据差异、当前测试入口 |
+| `biying-moneyflow-dataset-development.md` | 保留；纠正为 Raw→Std→共享 Serving 发布，补 100 日切窗及写入计数含义，复用日线说明的股票选择章节 |
+| `income-low-level-design-v1.md` | 有效内容并入 income 主文档后删除；共享输入/单位/身份/规范化/存储/调度/消费者归 §2，迁移沿革归 §3，专属字段及源证据归 §4，测试矩阵归 §5 |
+| `balancesheet-low-level-design-v1.md` | 并入 balancesheet 主文档后删除；专属合同、f_ann_date 双版本反例、迁移与测试归 §1–4，共享细节链接 income §2–5 |
+| `cashflow-low-level-design-v1.md` | 并入 cashflow 主文档后删除；97/89 字段、is_calc 边界、迁移和测试归 §1–4，共享细节链接 income §2–5；修正组件/模型注册路径，删除过时 unit/SQL 草图 |
+| 三表 `*-dataset-development.md` | 保留路径；各自初始 Prod 验收和异常样本原文分别归 income §6、balancesheet/cashflow §5；README 不再写待开发 |
+
+保留的历史证据：三表 2026-08-30 验收日期范围、TaskRun 10214/10219、10215/10218、10220，7,296 units/表、206,707/115,177/220,448 行、6,334 codes/表、零拒绝/质量异常、Serving 双向差集与 HDD 位置；4920017.BJ、000583.SZ 及现金流 20260831 提前返回 925 行/146 代码的解释。TaskRun 10189、116 行/空表中间审计与 000163～000167 演进保留为历史，不作为当前 head 或重跑指令。
+
+**两项代码差异没有借合并关闭：**[cyq_chips 股票池回退](/Users/congming/github/goldenshare/docs/datasets/cyq-chips-dataset-development.md#pool-source-deviation)与[BIYING 日线 raw_table 元数据](/Users/congming/github/goldenshare/docs/datasets/biying-equity-daily-dataset-development.md#raw-table-metadata-deviation)分别在原专题列出证据、影响和独立处理边界。文档纠偏不等于批准回退策略或执行代码修复。
+
+依据：文档治理 skill、Tushare 契约核验；CodeGraph query 定位两个专用 planner，结合当前 Definition、builder、分页、writer、模型、迁移与 Ops 消费者；全选组件沿用前轮 frontend-qa 静态核验并复查现行组件/页面引用。本轮没有重新请求源接口或验证生产状态。删除的是重复施工清单和失效草图，不是源字段、SQL 迁移、代码或验收证据。
+
+验证：10 份主体共 2,805 行收敛为 7 份 599 行；行数不是删除依据。三表 Prod 验收正文与合并前逐字对照一致，7 份主体的 74 个唯一代码/文档链接及显式锚点通过检查，旧 LLD 文件名全仓引用只剩本节非链接追溯表。财务/筹码专项 53 项、resolver 筹码/BIYING 14 项定向离线测试通过（92 项未选），文档完整性三个检查组与差异检查通过。未运行生产、源站或浏览器验收；README 的无关条目和其他任务修改保留。
 
 ### 4.4 Frontend 组
 

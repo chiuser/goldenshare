@@ -1,70 +1,37 @@
-# A 股利润表（`income`）数据集接入技术方案 v1
+# A 股利润表（income）维护说明与财务三表共用规则
 
-状态：**Prod 验收完成，数据集开发关闭**
-编写日期：2026-08-29
-适用范围：Tushare `income_vip` 接入 Goldenshare Prod
+更新时间：2026-09-10。已实现；2026-08-30 已完成下文所列初始范围的 Prod 验收，原开发需求关闭。本次将 LLD 有效细节并入本文，不重新认证当前生产数据、源接口或部署状态。
 
-详细编码设计：[A 股利润表数据集接入 LLD v1](/Users/congming/github/goldenshare/docs/datasets/income-low-level-design-v1.md)
+## 1. 范围与阅读入口
 
-## 1. 结论先行
+`income.maintain` 按公告自然日维护全市场利润表，使用 `income_vip`，不是按证券池调用普通 income 接口。
 
-`income` 建模为“按公告自然日维护的全市场利润表源站事实”。运营选择一个公告日或公告自然日区间，同时选择需要维护的报表类型；默认维护全部 12 种真实 `report_type`。
+`Ops 手动/普通自动任务 → DatasetActionResolver → 公告自然日×report_type units → VIP 分页 → 规范化与身份校验 → Raw upsert → Serving 普通 view`。
 
-```text
-Ops 手动任务 / 普通自动任务
-  -> DatasetActionRequest(dataset_key=income, action=maintain)
-  -> DatasetActionResolver
-  -> 公告自然日 x 已选择 report_type 的 planned units
-  -> Tushare income_vip 分页
-  -> raw_tushare.income                       # HDD 唯一物理表，保留全部版本与类型
-  -> core_serving.equity_income               # 普通 view，每公司每报告期唯一最新合并报表
-```
+本文 §2 集中说明 income、[balancesheet](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)、[cashflow](/Users/congming/github/goldenshare/docs/datasets/cashflow-dataset-development.md) 共用规则；各表字段、源端样本和验收证据分别维护，不复制三套共享实现。变更门禁仍见[数据集模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)及[执行计划说明](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)，本文不是再次部署、迁移或全量同步授权。
 
-已确认的硬口径：
+<a id="financial-statement-shared-rules"></a>
 
-1. raw 保存全部源字段、全部 `report_type` 和全部修订版本。
-2. 默认报表类型是 `1..12` 全部真实值；页面“全部”只是交互控件，不进入请求、执行计划或数据库。
-3. `comp_type` 不对运营开放；源端返回什么就保存什么，不把它限制为文档中的 `1..4`。
-4. serving 只选 `report_type=1`；优先 `update_flag=1`，否则选 `0`，再取最新 `f_ann_date`。
-5. raw 表、主键和全部二级索引必须位于 `gs_raw_cold_hdd`；serving 是普通 view，不复制物理数据。
-6. 支持手动任务与普通自动任务，不加入 workflow，不新增 probe。
-7. 初始历史维护范围由运营后续决定，本文不设拍脑袋的日期跨度上限。
+## 2. 财务三表共用规则
 
-## 2. 依据与源端事实
+### 2.1 时间、输入与执行单元
 
-### 2.1 依据
-
-- [仓库根规则](/Users/congming/github/goldenshare/AGENTS.md)
-- [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
-- [Tushare 利润表源文档](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0033_利润表.md)
-- [A 股财务指标接入方案](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-dataset-development.md)
-- [数据集日期模型消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
-
-### 2.2 已核验的接口事实
-
-1. 普通 `income` 以单只股票历史查询为主；全市场维护应使用 `income_vip`。
-2. 项目 connector 对 2026 半年报范围实测分页为 `5000 + 5000 + 409 = 10409` 行，说明必须使用 `limit/offset` 拉到短页结束。
-3. 源文档共列出 94 个输出字段；默认响应只有 84 个，实施必须显式请求完整 94 字段。
-4. `2026-08-28` 返回 1,442 行，八个前置字段均无空值；但 `2026-01-09` 的真实源站响应中，`601112.SH / 2024-09-30 / report_type=1` 的 `end_type` 为 `NULL`。同公司其他报告期与 `600000.SH / 2024-09-30` 交叉验证确认映射为：`03-31→1`、`06-30→2`、`09-30→3`、`12-31→4`，因此该缺失值应规范化为 `3`。
-5. 同日实测 `comp_type` 出现 `1/2/3/4/7`；值 `7` 的样本为 `002961.SZ 瑞达期货`。本地源文档仅说明 `1..4`，因此不得把 `comp_type` 建成封闭枚举。
-6. 对 `600000.SH, period=20260630` 显式请求各报表类型时，`1/2/6/7` 有数据，其他类型可以为空。所选类型空结果是合法源端事实，不能使 unit 失败。
-7. `update_flag=0/1` 都真实存在；只请求或只保存其中一个都会漏源站版本。
-
-## 3. 三层时间语义
-
-| 语义层 | 设计结论 |
+| 维度 | 当前事实 |
 | --- | --- |
-| 时间输入 | 运营输入 `ann_date`，或公告自然日闭区间 `start_date/end_date`；含义是公告日期，不是报告期。 |
-| 执行 / unit | range 按每个自然日展开；每个公告日再按已选择的真实 `report_type` 展开，一个 unit 对应“一个公告日 + 一种报表类型”。 |
-| freshness / audit | 使用 `event_run_trace`；公告属于事件数据，不要求每个自然日都有记录，不进入日期完整性审计。 |
+| 日期输入 | 单公告日 ann_date，或公告自然日 start_date/end_date 闭区间；不是报告期 end_date |
+| 日期模型 | natural_day / not_applicable / point_or_range / ann_date_or_start_end；observed_field=ann_date |
+| 股票范围 | no_pool；不读证券池，不用交易日历过滤周末或节假日 |
+| 类型输入 | report_type 必填、多值，真实值为字符串 1..12；缺失时用 enum_fanout_defaults，显式空拒绝 |
+| unit | 已注册的 build_financial_statement_units；日期为外层，类型按 1..12 顺序为内层 |
+| 请求 | 三个 VIP builder 共用 _financial_statement_vip_params，只生成 ann_date=YYYYMMDD 与单个 report_type |
+| 源字段/分页 | Definition 显式 fields；source client 追加 limit/offset，page_limit=5000，短页结束 |
+| 不向源端传递 | 股票过滤、comp_type、period、is_calc、原始 start/end 区间或任何 ALL 哨兵；分页不在 builder 手写 |
 
-周末和节假日可能有公告，因此 planner 不读取交易日历。`bucket_rule=not_applicable` 只表示不做连续日期完整性判断，不表示不支持日期输入。
+两个自然日默认 24 units；选择 1/6 时每天 2 units。unit 的现行字段为 trade_date、request_params、progress_context 等，不另定义 anchor_date/enum_values 的对外计划结构。完整结构和生成算法见[unit_planner.py](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)与[plan_helpers.py](/Users/congming/github/goldenshare/src/foundation/ingestion/plan_helpers.py)。
 
-## 4. 输入模型与报表类型交互
+单日 12、三表 36 是**各 unit 至少请求一次的基础量，不是实际请求上限**；365 天三表约 13,140 次基础请求，分页、满页后终止探测和重试另计。不能通过只取类型 1 缩减已选范围。当前 fetch_concurrency=1，无总日期跨度硬上限；这些不等于已证明任意长任务的内存、耗时或强制退出续跑达标。
 
-### 4.1 后端事实
-
-`report_type` 是必填、多值、显式枚举输入：
+### 2.2 通用多选与消费者
 
 | 值 | 页面名称 |
 | --- | --- |
@@ -81,188 +48,129 @@ Ops 手动任务 / 普通自动任务
 | `11` | 母公司调整前合并报表 |
 | `12` | 母公司调整前报表（源站代码 12） |
 
-`DatasetDefinition` 目标配置：
+标签和全选元数据已由 `DatasetInputField.option_labels/select_all_enabled` 投影到 Ops 参数与前端，**不是待新增能力**：
 
-```text
-input filter:
-  name                = report_type
-  field_type          = list
-  required            = true
-  multi_value         = true
-  enum_values         = ("1", ..., "12")
-  select_all_enabled  = true
+- 模型检查标签 key 属于 enum_values，启用全选要求多值且枚举非空；未配标签的普通枚举可回退显示原值。
+- 手动与自动页面共用 [OpsEnumMultiSelect](/Users/congming/github/goldenshare/frontend/src/shared/ui/ops-enum-multi-select.tsx)，只消费 options、标签、value 等元数据，不按数据集 key 写分支。
+- 默认完整数组使“全部”选中，真实选项选中且禁用；取消全部写回空数组并恢复选择；再次全选写回真实 1..12。
+- 缺失 report_type 使用 Definition 默认值；显式空、非法值或 all/ALL/__ALL__ 必须拒绝，不能丢掉空输入再补默认。手动/自动 API 对无效提交返回 422。
+- TaskRun filters_json、schedule params_json.filters 保存真实值数组，不保存虚拟全选值。
+- comp_type 必须非空，但不限制为 1..4、不向运营开放；不同公司类型适用的科目不同，宽表字段集合固定，不适用数值为 NULL，不能填 0。
 
-planning:
-  enum_fanout_fields  = ("report_type",)
-  enum_fanout_defaults= {"report_type": ("1", ..., "12")}
-```
+### 2.3 Raw 身份、规范化与修订
 
-实现前需要以最小、通用、向后兼容的 additive contract 为 `DatasetInputField -> Ops catalog -> frontend` 增加枚举显示名与 `select_all_enabled`。禁止按 `dataset_key=income` 在页面写私有分支。
+共享身份直接来自 [financial_statement_contracts.py](/Users/congming/github/goldenshare/src/foundation/datasets/financial_statement_contracts.py)：
 
-### 4.2 页面行为
+`(ts_code, ann_date, f_ann_date, end_date, report_type, comp_type, update_flag)`。
 
-1. 初始默认选中“全部”，同时显示 12 个选项已选中且禁用。
-2. 取消“全部”后，12 个选项全部清空并恢复可选。
-3. 再次选择“全部”时，页面把实际值数组设置为 `1..12`。
-4. 未选择任何真实类型时禁止提交，服务端也必须拒绝。
-5. 请求体和 schedule `params_json` 只保存真实值数组，例如 `{"report_type":["1","2","6"]}`；严禁保存 `all`、`ALL` 或 `__ALL__`。
+七字段身份不能与源字段列表的前七列混淆：源字段前部还含 end_type，而身份含 update_flag。三表保留全部不同身份和已选择类型；同身份的内容修正允许覆盖，不是无限保留每次拉取副本。
 
-### 4.3 `comp_type`
+1. 标准 normalizer 转 Date/Decimal；共享 row transform 清 NUL、代码 trim/upper，校验三个日期、非空身份、report_type=1..12 和 update_flag=0/1。
+2. end_type 不入身份：按 end_date 的 03-31/06-30/09-30/12-31 映射为 1/2/3/4，缺失补齐，非空值必须匹配。
+3. 非季度末报 `normalize.financial_statement_end_date_invalid`，非法 end_type 报 `normalize.invalid_enum:end_type`，矛盾报 `normalize.end_type_mismatch`；禁止静默覆盖矛盾值。
+4. 对全部规范化源字段计算 SHA-256 source_content_hash；先 NULL、后正确 end_type 得到同一指纹。
+5. `deduplicate_identical` 和批次唯一检查优先使用规范化 source_content_hash，未提供时才回退隐藏原始指纹。同批同身份同内容去重，异内容报 `normalize.batch_unique_key_conflicting` 并使 unit 失败。
+6. 跨任务同身份修订由 Raw upsert 更新业务列、指纹及 fetched_at；不因本次响应少了旧身份而删除历史行。
+7. Raw 逐列保存源字段，另存 source_content_hash、api_name、fetched_at，不重复保存整行 raw_payload。三个日期为 Date，数值列 nullable Numeric；七个身份字段和规范化后的 end_type 非空。
 
-`comp_type` 表示公司采用的报表科目体系，不改变响应字段集合。接口仍返回同一套固定宽表，只是不同公司类型适用字段有值，其他字段为空。
+质量设置为 `fail_unit_on_any_rejection`、`empty_result_policy=allow`、`unit_date_field=ann_date`，身份字段同时用于 batch_unique_key_fields。每个 unit 完整获取分页后再归一化、校验、写 Raw 并按 unit 提交；中间页错误不能拿已获取的部分结果冒充完整成功。合法空类型可零行成功。
 
-V1 不把它暴露为运营输入：默认请求所有公司类型，raw 原样保存该字段。数据库使用字符串字段，不设置 `1..4` CHECK；未来源端出现新值时不会静默丢数。
+raw/core DAO 名均指向各表的 Raw GenericDAO；`raw_only_upsert` 实际不调用 Serving DAO、不做第二次写入。Ops 状态写入不得回滚已经提交的业务事务。详细的持久化、取消和恢复能力边界归执行计划说明；不把幂等 upsert 等同于已证明进程退出后无损续跑。
 
-## 5. DatasetDefinition 目标设计
+### 2.4 Serving 与物理存储
 
-| 维度 | 目标值 |
+三张 Raw 表、主键及两个二级索引均要求位于 `gs_raw_cold_hdd`。二级索引分别为公告日/类型/代码，以及类型/代码/报告期/更新标志/实际公告日/公告日。Serving 是普通 view，无独立物理数据。
+
+每个 view 对 `(ts_code, end_date)` 使用 DISTINCT ON：
+
+1. 仅 `WHERE report_type='1'`。
+2. `CASE update_flag WHEN '1' THEN 0 ELSE 1 END` 优先更新版本；正常入库 flag 已限制为 0/1。
+3. 再依次按 f_ann_date、ann_date、fetched_at、comp_type、end_type、source_content_hash 降序消除并列。
+4. 输出全部源字段和 source_content_hash/api_name/fetched_at。选择规则归数据库 view，页面和查询服务不复制算法。
+
+准确 SQL 见各表初始迁移，不再复制易漂移的 SQL 草图。例如较旧 f_ann_date 的 flag=1 优先于较新 f_ann_date 的 flag=0，不是单纯取最大公告日。
+
+### 2.5 Ops 与调度
+
+- 支持 manual、regular schedule、retry；没有 workflow/probe，不新增财务专用 API。
+- 普通 schedule 使用 `since_last_success_day_range`，策略参数 initial_start_date 必填；日期由策略生成，不在 schedule 手填 point/range 日期。类型数组按配置保存。
+- 修改 schedule 的类型选择不追溯补历史；需要补过去的新类型，仍用同一手动 maintain 区间。
+- freshness 为 event_run_trace，日期完整性审计关闭。not_applicable 只是不要求每日有公告，不是无日期输入；空公告日成功维护也有运行迹象。
+- Policy 从 Definition projection 获取，不另存 snapshot Policy 副本；现行状态 snapshot 本身仍保留。卡片不能仅用 max(ann_date) 与今天比较后判滞后。
+- 默认 Ops 展示组 equity_financial（A股财务数据），income/balancesheet/cashflow 顺序为 30/40/50。
+
+<a id="financial-statement-implementation"></a>
+
+### 2.6 当前文件与消费者索引
+
+以下是**已存在的实现位置**，替代三份 LLD 的“待新增文件”清单：
+
+| 责任 | 位置 |
 | --- | --- |
-| `dataset_key` | `income` |
-| `display_name` | `利润表` |
-| domain | `low_frequency / 低频数据` |
-| source API | `income_vip` |
-| source fields | 源文档完整 94 字段，固定顺序显式请求 |
-| date model | `natural_day + point_or_range + ann_date_or_start_end` |
-| universe | `no_pool` |
-| pagination | `offset_limit`, `page_limit=5000` |
-| unit builder | 通用自然日 builder + `report_type` enum fan-out |
-| write path | `raw_only_upsert` |
-| delivery mode | `raw_with_serving_view` |
-| freshness | `event_run_trace` |
-| audit | `False` |
-| capability | manual + schedule，禁止 workflow/probe |
+| 字段、定义与输入合同 | [共享财务合同](/Users/congming/github/goldenshare/src/foundation/datasets/financial_statement_contracts.py)、各表 contracts、[low_frequency.py](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/low_frequency.py)、[models.py](/Users/congming/github/goldenshare/src/foundation/datasets/models.py) |
+| 默认/显式空、规划与请求 | [validator.py](/Users/congming/github/goldenshare/src/foundation/ingestion/validator.py)、[unit_planner.py](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)、[request_builders.py](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py) |
+| 分页与质量 | [source_client.py](/Users/congming/github/goldenshare/src/foundation/ingestion/source_client.py)、[row_transforms.py](/Users/congming/github/goldenshare/src/foundation/ingestion/row_transforms.py)、[normalizer.py](/Users/congming/github/goldenshare/src/foundation/ingestion/normalizer.py)、[codebook.py](/Users/congming/github/goldenshare/src/foundation/ingestion/codebook.py) |
+| 写入、模型注册 | [writer.py](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)、[factory.py](/Users/congming/github/goldenshare/src/foundation/dao/factory.py)、[all_models.py](/Users/congming/github/goldenshare/src/foundation/models/all_models.py)、[table_model_registry.py](/Users/congming/github/goldenshare/src/foundation/models/table_model_registry.py) |
+| Ops 参数与响应 | [action_catalog.py](/Users/congming/github/goldenshare/src/ops/action_catalog.py)、[catalog schema](/Users/congming/github/goldenshare/src/ops/schemas/catalog.py)、[catalog query](/Users/congming/github/goldenshare/src/ops/queries/catalog_query_service.py)、[manual query](/Users/congming/github/goldenshare/src/ops/queries/manual_action_query_service.py) |
+| 提交消费者 | [manual_action_service.py](/Users/congming/github/goldenshare/src/ops/services/manual_action_service.py)、[task_run_service.py](/Users/congming/github/goldenshare/src/ops/services/task_run_service.py) |
+| 观测与展示组 | [freshness_policies.py](/Users/congming/github/goldenshare/src/foundation/datasets/freshness_policies.py)、[dataset_catalog_views.py](/Users/congming/github/goldenshare/src/ops/catalog/dataset_catalog_views.py) |
+| 前端参数与页面 | [types.ts](/Users/congming/github/goldenshare/frontend/src/shared/api/types.ts)、[手动页](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-manual-tab.tsx)、[自动页](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-auto-tab.tsx)、§2.2 共享组件 |
 
-Request builder 每个 unit 只生成：
+<a id="financial-statement-migration-history"></a>
 
-```json
-{"ann_date":"YYYYMMDD","report_type":"1"}
-```
+## 3. 财务三表迁移沿革（历史，不是重跑清单）
 
-`fields` 来自 Definition；`limit/offset` 由 `DatasetSourceClient` 追加。不得向源端传 `comp_type`、`period`、`start_date/end_date`、`is_calc` 或业务哨兵值。
-
-## 6. Raw 存储、身份与修订
-
-### 6.1 关系与字段
-
-| Relation | 类型 | 位置 | 用途 |
-| --- | --- | --- | --- |
-| `raw_tushare.income` | 物理宽表 | `gs_raw_cold_hdd` | 全部 94 个源字段、类型和版本 |
-| `core_serving.equity_income` | 普通 view | 无独立存储 | 每公司每报告期唯一最新合并报表 |
-
-raw 逐列保存全部源字段，数值字段使用 nullable `NUMERIC`，日期字段使用 `DATE`。`end_type` 是唯一需要按报告期日期规范化的源字段，落库值必须为 `1..4`；其他字符串空值仍保留 `NULL`。额外保存：
-
-- `source_content_hash VARCHAR(64) NOT NULL`
-- `api_name VARCHAR NOT NULL DEFAULT 'income_vip'`
-- `fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-
-不保存重复的整行 `raw_payload`，因为源字段已经完整逐列落库。
-
-### 6.2 Raw 身份
-
-主键 / conflict columns：
-
-```text
-(ts_code, ann_date, f_ann_date, end_date,
- report_type, comp_type, update_flag)
-```
-
-规则：
-
-1. 七字段身份不同即保留为不同源站版本；`end_type` 可由身份中的 `end_date` 唯一推导，不重复进入身份。
-2. 源站 `end_type` 为空时按 `end_date` 补齐；非空时必须与推导值一致，否则整个 unit 失败，禁止静默覆盖冲突值。
-3. `source_content_hash` 必须在 `end_type` 规范化后计算；源站先返回 `NULL`、后来修正为正确代码时，两次规范化结果和指纹必须相同。
-4. 同一七字段身份、同一规范化内容指纹是幂等重复，只保留一行；同身份其他业务内容变化表示源端修正，upsert 覆盖旧内容。
-5. 同一批次出现同身份不同规范化内容时整个 unit 失败，禁止依赖输入顺序决定结果。
-6. `update_flag` 只接受源文档定义的 `0/1`；缺失或其他值使 unit 失败，不造默认值。
-7. 不因某次源响应缺少旧身份而删除 raw 既有行。
-
-### 6.3 索引与 HDD 门禁
-
-首版索引：
-
-1. 上述七字段主键。
-2. `(ann_date, report_type, ts_code)`，服务 unit 对账与公告日查询。
-3. `(report_type, ts_code, end_date, update_flag DESC, f_ann_date DESC, ann_date DESC)`，服务 serving 选择和单公司报告期查询。
-
-table heap、主键与两个二级索引全部显式放入 `gs_raw_cold_hdd`。初始建表 migration 为 `20260830_000163`。Prod 已执行 `20260830_000166`：三张财务报表主键已收敛为七字段，同时 `end_type` 已放开为 nullable；这是已生效的历史 migration，不得改写。
-
-后续新增 `20260830_000167`（`down_revision=20260830_000166`）完成最终收口：
-
-1. 在 DDL 前检查三表已是七字段主键，且 `end_date` 只落在四个自然季度末。
-2. 检查非空 `end_type` 只能是 `1..4` 且必须与 `end_date` 推导值一致；有矛盾时 fail closed，不得静默覆盖。
-3. 仅将空 `end_type` 按 `03-31/06-30/09-30/12-31 -> 1/2/3/4` 补齐，再设置 `NOT NULL`。
-4. 不重建主键、不移动 tablespace、不删除或清空任何业务行。
-
-2026-08-30 只读审计确认：Prod 已位于 `20260830_000166`，三表均为七字段主键且 `end_type` nullable；`income` 当时共 116 行，现有 `end_type` 全部与季度末匹配，`balancesheet/cashflow` 当时为空表。
-
-## 7. Serving 唯一报表规则
-
-`core_serving.equity_income` 使用普通 view，按 `(ts_code, end_date)` 唯一选择：
-
-1. 只保留 `report_type='1'`。
-2. `update_flag='1'` 优先于 `'0'`。
-3. 同优先级取最新 `f_ann_date`。
-4. 再按 `ann_date`、`fetched_at`、`comp_type`、`end_type`、`source_content_hash` 做稳定排序，保证结果确定。
-
-建议使用 `DISTINCT ON (ts_code, end_date)` 实现，不在应用层拼装。view 输出源字段及必要的内容指纹/拉取时间，不新增第二次写入。
-
-## 8. 执行、事务与性能
-
-1. 一个 unit 是一个 `ann_date + report_type`；该类型全部分页拉完后再 normalize、校验、raw upsert、commit。
-2. 某个报表类型返回 0 行是合法完成；分页错误、字段缺失、身份冲突或 reject 会使该 unit 失败。
-3. `fetch_concurrency=1`，V1 不增加并发；不要用并发掩盖请求量问题。
-4. 单数据集、单公告日、默认全部类型最多产生 12 次基础请求；分页超过 5,000 行时按类型继续翻页。
-5. 三张表同时按全部类型维护时，单公告日最多 36 次基础请求；一年约 `365 x 36 = 13,140` 次基础请求。该成本是完整保存所有报表类型的已确认取舍。
-6. TaskRun 进度使用真实 unit 数，运营可看到公告日和报表类型；业务提交完成后才计入 unit 完成。
-7. Ops/TaskRun 状态失败不得回滚已提交 raw 业务事务。
-
-## 9. Ops、自动任务与边界
-
-1. 加入 `A股财务数据` 展示分组，建议顺序 30。
-2. 手动任务支持单公告日、公告日区间及报表类型多选。
-3. 普通自动任务复用 `since_last_success_day_range`；`report_type` 选择随 schedule 保存，默认显式 `1..12`。
-4. 不加入任何 workflow，不注册 probe，不新增专用 API。
-5. freshness 使用 `event_run_trace`；空公告日成功执行也算有效维护。
-6. 不进入日期完整性审计；页面不得把 `max(ann_date)` 与当前自然日直接比较后判滞后。
-7. 后续修改既有 schedule 的报表类型只影响未来触发日期，不自动回头补齐新增加的类型；历史新增类型仍通过同一手动 `maintain` 区间补齐，不引入另一套补数系统。
-
-## 10. 消费者影响面与测试门禁
-
-| 消费方 | 影响与门禁 |
+| Revision | 当时作用与保留边界 |
 | --- | --- |
-| DatasetDefinition / resolver | 新增 Definition；日期与报表类型全部由 resolver 展开 |
-| request builder / source client | 只传 `ann_date + report_type`；显式 94 fields；分页到短页 |
-| normalizer / writer / DAO | 七字段身份、`end_type` 推导与一致性校验、规范化内容指纹、raw-only、HDD |
-| manual/catalog/schedule | 新增必填多选；默认真实 `1..12` |
-| frontend | 通用“全部”交互，不按 dataset key 写分支 |
-| freshness/cards/snapshot | 直接读取 Definition 的 `event_run_trace` 与 raw/view 事实 |
-| workflow/probe/audit | 必须有负向测试证明未接入 |
-| Biz/downstream | 新增 serving view，不在本轮新增业务 API |
+| [000163](/Users/congming/github/goldenshare/alembic/versions/20260830_000163_add_income_dataset.py) / [000164](/Users/congming/github/goldenshare/alembic/versions/20260830_000164_add_balancesheet_dataset.py) / [000165](/Users/congming/github/goldenshare/alembic/versions/20260830_000165_add_cashflow_dataset.py) | 依次创建三表与 view；初版含 end_type 的八字段主键。建表前检查 PostgreSQL 和 HDD tablespace，heap/PK/二级索引显式落 HDD |
+| [000166](/Users/congming/github/goldenshare/alembic/versions/20260830_000166_allow_financial_statement_end_type_null.py) | 三表改为七字段主键，end_type 暂时允许 NULL；保留已部署迁移原意，不改写 |
+| [000167](/Users/congming/github/goldenshare/alembic/versions/20260830_000167_enforce_financial_statement_end_type.py) | 前向校验并仅补齐空 end_type，再恢复 NOT NULL；不重建 PK/索引、不移动 tablespace、不改 view、不删除业务行 |
 
-自动化测试至少覆盖：
+修正动因：TaskRun 10189 暴露源站 end_type=NULL，后续交叉验证确认季度映射。000166 后的中间只读审计记录 income 为 116 行、另外两表为空；那不是今天的行数。000167 在执行时检查三表、七字段主键、季度末和非空值一致性，拒绝非法/矛盾数据，再补空值并复核，不用历史空表结论跳过检查；自动 downgrade 被拒绝。
 
-1. 94 字段显式请求与默认字段缺失的负向护栏。
-2. point/range 含周末逐自然日展开。
-3. 默认 12 类型、任意子集、多选去重、空选择拒绝、非法类型拒绝、禁止 `ALL/__ALL__`。
-4. 某个类型空结果合法；分页短页闭合；不能返回半页集合后标成功。
-5. `comp_type=7` 可保存，非适用财务字段可为空。
-6. raw 七字段身份、四类报告期映射、缺失补齐、非空不一致拒绝、规范化前后指纹幂等、批次冲突失败。
-7. serving 对 `report_type/update_flag/f_ann_date` 的选择顺序。
-8. migration tablespace fail-closed 与全部索引 HDD 位置。
-9. 手动/自动可见，workflow/probe/date completeness 不出现。
+原 N0～N5 是这次已完成收口的施工顺序，不再要求后续运维把生产退回 000166。未来迁移仍要重新确认真实 head、并发写入与数据风险并取得授权；原部署要求避免三表任务与迁移并发写入，不是本轮停 worker 或重跑迁移指令。
 
-## 11. 实施里程碑
+## 4. income 专属合同与历史源端证据
 
-| 里程碑 | 内容 |
+- 来源：doc_id=33，[本地利润表说明](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0033_利润表.md)。
+- [income_contracts.py](/Users/congming/github/goldenshare/src/foundation/datasets/income_contracts.py)：94 个显式源字段、86 个数值字段，日期为 ann_date/f_ann_date/end_date；字段顺序及数量由合同和测试固定，不从默认响应猜测。
+- [RawIncome](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_income.py) 与 DAO raw_income：`raw_tushare.income`；view 为 `core_serving.equity_income`，api_name 默认 income_vip。
+- Definition 调用共享 helper，使用 `_income_vip_params`、`_income_row_transform`；不是再次新增独立 planner/writer。
+
+以下为原 2026-08-29～30 接入记录中的源端证据，本轮未重新请求：
+
+1. 普通 `income` 以单只股票历史查询为主；全市场维护应使用 `income_vip`。
+2. 项目 connector 对 2026 半年报范围实测分页为 `5000 + 5000 + 409 = 10409` 行，说明必须使用 `limit/offset` 拉到短页结束。
+3. 源文档共列出 94 个输出字段；默认响应只有 84 个，实施必须显式请求完整 94 字段。
+4. `2026-08-28` 返回 1,442 行，八个前置字段均无空值；但 `2026-01-09` 的真实源站响应中，`601112.SH / 2024-09-30 / report_type=1` 的 `end_type` 为 `NULL`。同公司其他报告期与 `600000.SH / 2024-09-30` 交叉验证确认映射为：`03-31→1`、`06-30→2`、`09-30→3`、`12-31→4`，因此该缺失值应规范化为 `3`。
+5. 同日实测 `comp_type` 出现 `1/2/3/4/7`；值 `7` 的样本为 `002961.SZ 瑞达期货`。本地源文档仅说明 `1..4`，因此不得把 `comp_type` 建成封闭枚举。
+6. 对 `600000.SH, period=20260630` 显式请求各报表类型时，`1/2/6/7` 有数据，其他类型可以为空。所选类型空结果是合法源端事实，不能使 unit 失败。
+7. `update_flag=0/1` 都真实存在；只请求或只保存其中一个都会漏源站版本。
+
+<a id="financial-statement-regression"></a>
+
+## 5. 回归与验收要求
+
+三表共用 [test_financial_statement_datasets.py](/Users/congming/github/goldenshare/tests/test_financial_statement_datasets.py)；测试使用替身、内存样本与迁移调用记录，不能当成今天的生产 SQL 或端到端验收。
+
+| 维度 | 必须保留的正向/负向检查 |
 | --- | --- |
-| M0 | 冻结 94 字段、报表类型标签、身份空值与分页实测；重新读取 Alembic head |
-| M1 | 增加 raw ORM/DAO、HDD migration、serving view |
-| M2 | 增加 Definition、request builder、normalizer、writer 注册 |
-| M3 | 增加通用枚举标签与“全部”选择 contract，接入手动/自动页面 |
-| M4 | 完成测试、Definition lint、架构和文档检查 |
-| M5 | 由运营执行部署、migration、初始范围同步和页面验收 |
+| 字段与定义 | 94/86、158/150、97/89 的源/数值字段数和固定顺序；no_pool、raw/view、event freshness |
+| 输入和 planner | 缺省全部、子集去重、周末保留、显式空/非法/sentinel 拒绝；负例不产生有效计划或源请求 |
+| 分页 | 满页继续、短页结束、空类型合法；中间页错误不能写半套数据 |
+| 规范化 | comp_type=7、nullable 科目、四类季度、缺失 end_type 补齐、规范化指纹一致；非法/矛盾/同身份异内容失败且不进入 DAO |
+| 写入与 view | 只调 Raw DAO、跨任务修订覆盖；不同 f_ann_date 的版本保留，Serving 按 flag 优先再日期和稳定并列规则选择 |
+| 迁移 | HDD 缺失拒绝；000167 对空值补齐、非法现状在写入前失败、不扩大到 PK/索引/tablespace/删表，downgrade 拒绝 |
+| Ops/UI | 中文标签、全选/取消/子集、真实数组、空输入拒绝；手动/自动一致，无数据集私有分支 |
+| 排除边界 | 不接 workflow/probe/date completeness，不改变 fina_indicator 等其他数据集行为 |
 
-## 12. Prod 验收结论
+相关回归位置：`tests/test_dataset_action_resolver.py`、`tests/test_dataset_definition_registry.py`、`tests/test_foundation_table_model_registry.py`；Web catalog/manual/schedule 三项 API 测试；runtime/codebook/子系统架构护栏；`frontend/src/shared/ui/ops-enum-multi-select.test.tsx` 和两张任务页测试。共享 normalizer 改动仍须回归 fina_indicator 及其他 deduplicate_identical 消费者。
+
+只运行与变更有关、已确认不访问正式资源的测试；使用既有环境，不用可能自动同步依赖的命令。真实部署/迁移/同步与页面验收单独授权，并对账 unit、fetched/normalized/written/rejected、Raw 身份/字段/行数、view 双向差集与唯一性、HDD 位置。长任务恢复门禁按根规则与模板验收，不由本次文档合并追加实现或假定已通过。
+
+<a id="income-prod-acceptance-20260830"></a>
+
+## 6. income 初始范围 Prod 验收（历史）
 
 2026-08-30 已完成 `2025-01-01 ~ 2026-08-31` 初始范围验收：
 
@@ -272,4 +180,4 @@ table heap、主键与两个二级索引全部显式放入 `gs_raw_cold_hdd`。�
 4. 源站仅在利润表返回异常代码 `4920017.BJ`，证券主数据和另外两张财务报表均无此代码。raw 按既定职责保留该源站事实，不将其误判为同步丢失。
 5. migration 已到 `20260830_000167`，表、主键及索引继续位于 `gs_raw_cold_hdd`；页面验收由运营确认通过。
 
-本数据集开发完成，不再保留待开发或待验收事项。
+该记录证明当时所列范围已验收；不证明全历史覆盖，也不证明此后每个公告日或当前生产状态已重新核验。
