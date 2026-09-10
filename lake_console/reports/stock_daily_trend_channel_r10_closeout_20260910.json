@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "report_type": "stock_daily_trend_channel_r10_closeout",
+  "audited_at": "2026-09-10T13:51:23.227002+00:00",
+  "audit_mode": "read_only",
+  "formal_lake_root": "/Volumes/datasource/data_lake",
+  "target_partition": "2026-09-02",
+  "conclusion": {
+    "functional_requirement_closed": true,
+    "r10_point_in_time_reconciliation_closed": true,
+    "current_physical_audits_passed": true,
+    "current_file_hash_matches_r10_event": false,
+    "repeat_event_reconciliation_required": false
+  },
+  "authority": {
+    "r10_event_meaning": "Point-in-time runless event fact appended on 2026-09-05 for the then-current 2026-09-02 files.",
+    "current_physical_correctness": "Exact-batch repair completion checks plus a current physical audit.",
+    "later_repair_behavior": "Successful qfq-triggered trend repair may rewrite historical partitions and emits batch completion checks instead of per-partition materializations and ordinary checks."
+  },
+  "r10_frozen_identity": {
+    "plan_id": "stock-trend-event-reconciliation-2026-09-02-04a1691cdca4",
+    "plan_hash": "04a1691cdca4805dffddab5340a1511da694ed950a637c94f087b21ad4c5887a",
+    "incident_run_id": "959c5a30-b2a7-468e-8f74-fdef09ac13b3",
+    "as_of_plan_file_producer_run_id": "de048557-a0b0-4c90-ae50-93a317bc7055"
+  },
+  "r10_historical_events": {
+    "historical_event_identity_ok": true,
+    "materializations": [
+      {
+        "asset_key": "gold_stock_daily_trend_channel_state",
+        "storage_id": 7322603,
+        "event_file_sha256": "480a8e6db8d9bf59dd9bd6fa174956caa028a999f20250e7358e4d0dd7c690d2"
+      },
+      {
+        "asset_key": "gold_stock_daily_trend_channel",
+        "storage_id": 7322604,
+        "event_file_sha256": "2d0f28250f31f975ba41a5fabbfdd356fb3560933c675438beaafa1a25a2996e"
+      }
+    ],
+    "checks": [
+      {
+        "check_name": "gold_stock_daily_trend_channel_state_contract_check",
+        "storage_id": 1573478,
+        "status": "SUCCEEDED",
+        "passed": true,
+        "blocking": true,
+        "target_materialization_storage_id": 7322603
+      },
+      {
+        "check_name": "gold_stock_daily_trend_channel_contract_check",
+        "storage_id": 1573479,
+        "status": "SUCCEEDED",
+        "passed": true,
+        "blocking": true,
+        "target_materialization_storage_id": 7322604
+      },
+      {
+        "check_name": "gold_stock_daily_trend_channel_input_coverage_check",
+        "storage_id": 1573480,
+        "status": "SUCCEEDED",
+        "passed": true,
+        "blocking": true,
+        "target_materialization_storage_id": 7322604
+      }
+    ]
+  },
+  "current_target_partition": {
+    "files": {
+      "gold_stock_daily_trend_channel": {
+        "row_count": 5547,
+        "size_bytes": 266172,
+        "sha256": "f81271fcdd572485f6dddc8435d0ecd8e1a463fab0c73c8a06ccab368fc1e309",
+        "mtime_utc": "2026-09-10T11:08:48.043694+00:00"
+      },
+      "gold_stock_daily_trend_channel_state": {
+        "row_count": 5554,
+        "size_bytes": 209776,
+        "sha256": "ecdcc6e3f171be7265e4fd10c053246e3efff89d076bb6f234f76e2b6bb5b0dd",
+        "mtime_utc": "2026-09-10T11:08:48.047397+00:00"
+      }
+    },
+    "physical_audits": {
+      "result_contract": {
+        "passed": true,
+        "checked_row_count": 5547,
+        "failed_row_count": 0
+      },
+      "state_contract": {
+        "passed": true,
+        "checked_row_count": 5554,
+        "failed_row_count": 0
+      },
+      "input_coverage": {
+        "passed": true,
+        "checked_row_count": 5554,
+        "failed_row_count": 0,
+        "qfq_observed_count": 5547,
+        "actual_observed_state_count": 5547,
+        "actual_carry_state_count": 7,
+        "uninitialized_count": 0
+      }
+    }
+  },
+  "current_operational_health": {
+    "latest_common_partition": "2026-09-10",
+    "latest_daily_run_id": "f3b0543e-bfe8-4510-9a6b-528d12d87a3f",
+    "latest_materializations": {
+      "gold_stock_daily_trend_channel_state": 7339723,
+      "gold_stock_daily_trend_channel": 7339725
+    },
+    "latest_ordinary_checks": {
+      "gold_stock_daily_trend_channel_contract_check": 1574988,
+      "gold_stock_daily_trend_channel_input_coverage_check": 1574989,
+      "gold_stock_daily_trend_channel_state_contract_check": 1574990
+    },
+    "latest_repair": {
+      "run_id": "931d004d-6dce-4d85-a58d-1a9644d4bc5f",
+      "qfq_factor_repair_trade_date": "2026-09-10",
+      "repair_start_trade_date": "2014-01-02",
+      "repair_end_trade_date": "2026-09-09",
+      "repair_required_code_count": 21,
+      "selected_partition_count": 3086,
+      "result_completion_check_storage_id": 1574980,
+      "state_completion_check_storage_id": 1574981,
+      "completion_checks_succeeded": true
+    },
+    "sensor_states": {
+      "stock_daily_trend_channel_trade_day_sensor": "RUNNING",
+      "gold_stock_daily_trend_channel_update_job_sensor": "RUNNING",
+      "gold_stock_daily_trend_channel_repair_job_sensor": "RUNNING"
+    }
+  },
+  "closeout_decision": "Do not rewrite the five R10 events after later valid historical repairs. They remain immutable point-in-time evidence; current correctness is established by repair completion checks and physical audits.",
+  "evidence_retention": {
+    "durable_report": "lake_console/reports/stock_daily_trend_channel_r10_closeout_20260910.json",
+    "former_private_tmp_reports": "Ephemeral execution reports were removed with temporary-file cleanup. Their frozen plan identity, event ids, counts, bindings and elapsed times remain preserved in the technical plan and LLD."
+  },
+  "verification": {
+    "r10_targeted_tests": "6 passed",
+    "docs_integrity": "passed",
+    "stale_r10_private_tmp_links": 0,
+    "stale_r10_incomplete_statuses": 0
+  }
+}

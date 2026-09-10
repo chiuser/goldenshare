@@ -1,8 +1,8 @@
 # 股票日线趋势通道 Lake 数据集接入技术方案 v1
 
-状态：M0～M8 的首次交付已于 2026-09-02 完成并关闭；当次历史 result/state 覆盖 `2014-01-02～2026-09-01`，物理审计、runless event、Sensor 启用和本地 Wealth 验收结论作为历史记录保留。M9 自动提交协议、首日边界修正、历史 repair 和 9 月 3 日日更恢复已于 2026-09-04 关闭。2026-09-05 审计确认 9 月 2 日 result/state 当前物理文件及覆盖规则正确、9 月 3 日和 4 日日更正常。M10/R10.1～R10.8 已全部完成并关闭：9 月 2 日已补齐两个 materialization 和三个 successful ordinary check，最终只读审计通过。远程环境继续按合同不挂载本地 Lake 能力
+状态：M0～M8 的首次交付已于 2026-09-02 完成并关闭；当次历史 result/state 覆盖 `2014-01-02～2026-09-01`，物理审计、runless event、Sensor 启用和本地 Wealth 验收结论作为历史记录保留。M9 自动提交协议、首日边界修正、历史 repair 和 9 月 3 日日更恢复已于 2026-09-04 关闭。M10/R10.1～R10.8 已于 2026-09-05 全部完成并关闭：9 月 2 日补齐的两个 materialization 和三个 successful ordinary check 是当时文件的时点事件事实。2026-09-10 持久结案复核确认，后续合法 repair 虽已重写该历史分区，但当前物理审计、repair completion、最新日更和三个 Sensor 均正常，不需要重复补记 R10 事件。远程环境继续按合同不挂载本地 Lake 能力
 
-首次交付日期：2026-09-02；本次控制面核对方案更新：2026-09-05
+首次交付日期：2026-09-02；控制面核对方案更新：2026-09-05；持久结案复核：2026-09-10
 
 适用范围：A 股股票日线、前复权、Gold Lake、Dagster 日常增量与历史 repair、本地 Wealth 消费
 
@@ -1316,13 +1316,13 @@ M9.5 随后提交为 `ba464143`。管理员确认本地已加载，并批准先�
 
 ### M10：2026-09-02 单日控制面事件核对
 
-状态：已完成并关闭。LLD R10.1～R10.8、两次独立批准、五条正式事件追加和最终只读审计均已完成。
+状态：已完成并关闭。LLD R10.1～R10.8、两次独立批准、五条正式事件追加和最终只读审计均已完成；五条事件按追加式 event log 保留为 2026-09-05 的时点事实。
 
 #### M10.1 问题边界
 
 2026-09-02 日更 run `959c5a30-b2a7-468e-8f74-fdef09ac13b3` 在 result/state 文件落地后，因为旧 materialization metadata 字段 `stock_basic_path` 被拒绝而失败。因此该分区没有产生两个正式 materialization，三个 ordinary check 只留下原失败 run 的 `PLANNED` 历史记录。
 
-2026-09-04 的成功历史 repair run `de048557-a0b0-4c90-ae50-93a317bc7055` 随后重写并审计了 `2014-01-02～2026-09-02` 的完整 result/state 分区。故当前 9 月 2 日文件的最新生产来源是该 repair run；最初失败日更 run 只用于解释控制面缺口原因，不能冒充当前文件生产者。2026-09-03 和 2026-09-04 日更已经成功，禁止为了补控制面事件重新计算或覆盖 9 月 2 日文件。
+2026-09-04 的成功历史 repair run `de048557-a0b0-4c90-ae50-93a317bc7055` 随后重写并审计了 `2014-01-02～2026-09-02` 的完整 result/state 分区。它是 R10 于 2026-09-05 冻结计划时的文件生产来源；最初失败日更 run 只用于解释控制面缺口原因，不能冒充该时点的文件生产者。2026-09-03 和 2026-09-04 日更已经成功，禁止为了补控制面事件重新计算或覆盖 9 月 2 日文件。
 
 #### M10.2 解决方式
 
@@ -1349,6 +1349,8 @@ materialization assets       = 2
 ordinary checks              = 3
 maximum event writes         = 5
 ```
+
+`current_file_producer_run_id` 是已冻结 CLI wire contract 的字段名，其准确语义是“R10 计划生成时的当前文件生产 run”，不是未来永久指向最新 repair 的可变指针。后续正常 repair 重写历史分区时，不回写或替换这五条历史事件。
 
 两个 materialization 必须记录当前 result/state 文件路径、行数、observed columns、字节数、SHA-256、公式版本、计划身份、事故原因和上述两条 run 身份。不得补造原失败 run 没有可靠冻结的 metadata，也不得把当前 `silver_stock_basic` 快照写成历史生产依据。
 
@@ -1386,7 +1388,7 @@ orchestrator 全量回归沿用既有 RSS 隔离口径：主套件排除 `test_m
 
 #### M10.7 R10.3 正式只读计划结果
 
-2026-09-05 09:21（Asia/Shanghai）使用正式 Lake 与正式 Dagster instance 完成零事件只读计划，报告为 [stock_daily_trend_channel_event_reconciliation_plan_20260902.json](/private/tmp/stock_daily_trend_channel_event_reconciliation_plan_20260902.json)：
+2026-09-05 09:21（Asia/Shanghai）使用正式 Lake 与正式 Dagster instance 完成零事件只读计划。原 `/private/tmp` 执行报告已随临时文件清理；冻结身份和执行结果已汇总到 [R10 持久结案报告](../../reports/stock_daily_trend_channel_r10_closeout_20260910.json)：
 
 ```text
 plan_id   = stock-trend-event-reconciliation-2026-09-02-04a1691cdca4
@@ -1409,7 +1411,7 @@ gold_stock_daily_trend_channel_state | 2026-09-02 -> 7322603
 gold_stock_daily_trend_channel       | 2026-09-02 -> 7322604
 ```
 
-[R10.4 写入报告](/private/tmp/stock_daily_trend_channel_event_reconciliation_materializations_20260902.json) 显示写前 0、写后 2、跳过 0、状态 `applied`，内部耗时 `28760.529 ms`，没有超过两条事件上限。随后 [R10.5 独立只读审计报告](/private/tmp/stock_daily_trend_channel_event_reconciliation_materialization_audit_20260902.json) 以同一计划重新核验正式文件、run provenance、活动 run、邻接 guard 与最新 materialization，状态为 `passed`，两个 storage id 与写入报告一致，耗时 `24979.488 ms`。
+R10.4 写入报告显示写前 0、写后 2、跳过 0、状态 `applied`，内部耗时 `28760.529 ms`，没有超过两条事件上限。随后 R10.5 独立只读审计以同一计划重新核验正式文件、run provenance、活动 run、邻接 guard 与最新 materialization，状态为 `passed`，两个 storage id 与写入报告一致，耗时 `24979.488 ms`。原临时报告已经清理，精确结果持久保留在 [R10 持久结案报告](../../reports/stock_daily_trend_channel_r10_closeout_20260910.json) 和本节中。
 
 两个阶段均未修改 Parquet、动态分区、原失败 run、历史 `PLANNED` check 或 9 月 3/4 邻接事件。当时的停止点为 R10.6 第二次独立批准前；后续 check 写入使用了新的独立批准，详见 M10.9。
 
@@ -1423,11 +1425,23 @@ gold_stock_daily_trend_channel_contract_check       -> 1573479
 gold_stock_daily_trend_channel_input_coverage_check -> 1573480
 ```
 
-[R10.6 check 写入报告](/private/tmp/stock_daily_trend_channel_event_reconciliation_checks_20260902.json) 显示写前 0、写后 3、跳过 0、状态 `applied`，内部耗时 `26069.899 ms`。state contract check 精确绑定 state materialization `7322603`；result contract 和 input coverage check 精确绑定 result materialization `7322604`。原失败 run 留下的三条 `PLANNED` 历史记录继续作为追加日志保留，没有被删除或改写。
+R10.6 check 写入报告显示写前 0、写后 3、跳过 0、状态 `applied`，内部耗时 `26069.899 ms`。state contract check 精确绑定 state materialization `7322603`；result contract 和 input coverage check 精确绑定 result materialization `7322604`。原失败 run 留下的三条 `PLANNED` 历史记录继续作为追加日志保留，没有被删除或改写。
 
-[R10.7 最终只读审计报告](/private/tmp/stock_daily_trend_channel_event_reconciliation_final_audit_20260902.json) 状态为 `passed`，内部耗时 `26821.578 ms`。目标分区本计划新增事件总数为 5：state/result materialization 分别为 `7322603/7322604`，三个 check 分别为 `1573478/1573479/1573480`；所有 latest check 均成功且 target 绑定正确。9 月 3 日和 4 日的 materialization/check 邻接 storage id 与 R10.3 冻结值完全一致。
+R10.7 最终只读审计状态为 `passed`，内部耗时 `26821.578 ms`。目标分区本计划新增事件总数为 5：state/result materialization 分别为 `7322603/7322604`，三个 check 分别为 `1573478/1573479/1573480`；所有 latest check 均成功且 target 绑定正确。9 月 3 日和 4 日的 materialization/check 邻接 storage id 与 R10.3 冻结值完全一致。原临时报告已经清理，精确事件身份与绑定见 [R10 持久结案报告](../../reports/stock_daily_trend_channel_r10_closeout_20260910.json)。
 
-R10.6 与 R10.7 均低于 `30 s` fail-closed 硬门禁，但高于 `<5 s` 工程目标；该差异只影响本次一次性离线控制面修复工具，不改变正式数据生产链或日常调度。两个阶段均未修改 Parquet、创建 Dagster run、注册动态分区、推进 sensor cursor 或改写任何历史事件。R10.8 已把最终事实回填至原技术方案和 LLD，M10/R10 至此完成并关闭，不再存在待执行的数据补跑或控制面事件补记。
+R10.6 与 R10.7 均低于 `30 s` fail-closed 硬门禁，但高于 `<5 s` 工程目标；该差异只影响本次一次性离线控制面修复工具，不改变正式数据生产链或日常调度。两个阶段均未修改 Parquet、创建 Dagster run、注册动态分区、推进 sensor cursor 或改写任何历史事件。R10.8 已把最终事实回填至原技术方案和 LLD，M10/R10 至此完成并关闭。
+
+#### M10.10 2026-09-10 持久结案复核
+
+正式 Lake 与正式 Dagster instance 的只读复核确认：
+
+1. R10 五条事件仍按原 `plan_id/plan_hash` 存在，三条 check 均为 `SUCCEEDED/passed=true/blocking=true`，并精确绑定 `7322603/7322604`。它们是 2026-09-05 对当时文件的不可变时点事实。
+2. 9 月 2 日当前 result/state 已被后续 qfq 触发的合法趋势 repair 重写，当前 SHA-256 因此不再等于 R10 事件中的时点指纹；这不是数据错误，也不要求再次补记五条分区事件。
+3. 当前 result/state 分别为 `5547/5554` 行，result contract、state contract 和 input coverage 均通过，失败行均为 0；state 为 `5547 observed + 7 carry + 0 uninitialized`。
+4. 最新共同分区为 `2026-09-10`，两个 materialization 和三个普通 check 均成功；最新趋势 repair run `931d004d-6dce-4d85-a58d-1a9644d4bc5f` 的两条 exact-batch completion check 也均成功；三个相关 Sensor 均为 `RUNNING`。
+5. 后续历史 repair 的当前正确性由 exact-batch repair completion check 与按需物理审计共同证明。不得把 R10 离线 CLI 接入日常 repair，也不得在每次正常 repair 后重复改写 R10 历史事件。
+
+完整机器可读证据见 [R10 持久结案报告](../../reports/stock_daily_trend_channel_r10_closeout_20260910.json)。股票趋势通道需求已正式关闭，没有待执行的数据补跑、事件补记或代码阶段。
 
 ---
 
