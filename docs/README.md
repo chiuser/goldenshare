@@ -192,9 +192,8 @@ docs/
 - [Dagster 股票分钟线连续性治理专项方案（HTML，M1-M8 已落地 / 后续 M9-M10 待收口）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-continuity-governance.html)
 - [Dagster 股票分钟线连续性治理 LLD（HTML，M1-M8 已落地 / 后续 M9-M10 待收口）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-continuity-governance-low-level-design.html)
 - [股票历史分钟行情存储瘦身与滚动冷热治理方案 v1（表结构已实施；P0 安全复审完成，备份门禁 No-Go，生产迁移待单独授权）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
-- [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
-- [股票技术面因子基于复权因子变化的历史重刷方案 v1（已落地）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-adj-factor-driven-refresh-plan-v1.md)
-- [股票技术面因子 raw 直出与复权因子门禁方案 v1（已落地）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-raw-view-adj-factor-gate-plan-v1.md)
+- [股票技术面因子维护说明（已合并 Raw 直出与历史重刷方案；区分存在性门禁、规划顺序和恢复限制）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
+- 原复权变化重刷、Raw 直出两份方案已并入以上说明，不再作为独立执行指引；[合并去向与保留边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#stk-factor-docs-consolidation-20260910)见治理记录。
 - [指数技术因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-dataset-development.md)
 - [指数技术因子（专业版）低层设计 LLD v1](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-low-level-design-v1.md)
 - [每日停复牌信息](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)

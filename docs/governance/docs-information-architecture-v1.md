@@ -522,6 +522,24 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 本批验证：上述三个数据集的定向离线测试加 writer 日期转换用例共 18 项通过（210 项未选）；文档完整性三个检查组及 `git diff --check` 通过。三份正文原 742 行，合并后两份共 160 行，减少 582 行。旧文件名仅留在合并去向表与清退历史矩阵，不保留失效的现行导航链接。
 
+<a id="stk-factor-docs-consolidation-20260910"></a>
+
+#### 2026-09-10 股票技术面因子三份说明整合
+
+本批仅整理 `stk_factor_pro` 文档和直接索引，三份收敛为一份；不改代码、字段、依赖矩阵、配置或生产数据。
+
+| 原文档 | 处理与去向 |
+| --- | --- |
+| `docs/datasets/stk-factor-pro-dataset-development.md` | 保留为[统一维护说明](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)，以 Definition 为字段依据，描述真实输入、存储、工作流与验证边界 |
+| `docs/datasets/stk-factor-pro-adj-factor-driven-refresh-plan-v1.md` | 删除；变化判定、交易日历、Raw 历史起点、例外与不先删规则合入 §2–4；按 unit 提交和既有重跑限制合入 §5，原“不做续跑”不再作为现行长任务门禁的豁免 |
+| `docs/datasets/stk-factor-pro-raw-view-adj-factor-gate-plan-v1.md` | 删除；存在性门禁、Raw-only/view 及仍保留的 DAO/target 元数据合入 §3–4；迁移和验证合入 §6；整表 TRUNCATE 操作指引退出维护 |
+
+纠偏：字段数旧写 227，本轮 Definition 实读 261，正文不再维护数量常量；复权门禁只检查目标日至少一行，不保证全市场或指定股票齐备；历史 units 在本次写入前规划，不是当天落库后再发现变化；已提交 unit 与未提交写入分开；区间缺复权因子可导致规划失败，删除“早于可用起点一定只提示”的承诺；限速改为带积分条件的本地来源资料，不宣称当前账户配额。
+
+依据：CodeGraph status/query/impact 与当前 planner、builder、Definition、ORM、source client、executor、workflow 和测试。代码现状与生产验收分列，Raw 起点依赖及单 unit 分页全量缓存等限制保留，不扩展为本轮开发任务。旧文档全文可在 Git 提交 `08216be3` 中追溯；本次删除的是重复文档，不是功能或数据。
+
+验证：`stk_factor_pro` 的 resolver、Definition 和 writer 定向离线测试共 11 项通过（156 项未选）；文档完整性检查和 `git diff --check` 通过，含括号的来源文件路径另行核实存在。正文从三份共 500 行收敛为一份 99 行，减少 401 行；旧路径只保留在上述合并去向表。
+
 ### 4.4 Frontend 组
 
 当前状态：已完成第一轮整合（建立统一强约束主文档）。
