@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-06-10
+更新时间：2026-09-11（文档分类与退役边界校准，未重做历史生产验收）
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -25,7 +25,13 @@
 
 ---
 
-## 3. 当前未关闭风险
+## 3. 当前风险状态
+
+本登记簿现有 12 项均登记为 Closed，当前没有已登记的未关闭项；这不等于全仓没有风险，也不替其他专题的待验收项结案。
+
+### 已关闭风险索引
+
+下表风险描述与 §4–15 的处理要求、命令、数量和关闭证据均是各事故发生时的历史记录，不是当前施工清单或执行授权。仍适用的通用要求以根 AGENTS、现行执行计划及 Freshness 契约为准。旧 Console/clean/backup 设计不得据此恢复。
 
 | ID | 等级 | 风险 | 影响范围 | 状态 | 依据 |
 |---|---|---|---|---|---|
@@ -33,7 +39,7 @@
 | RISK-2026-04-25-002 | P0 | 数据维护请求链存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Closed | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
 | RISK-2026-04-26-003 | P1 | 主数据/快照类 `not_applicable` 数据集被伪装成业务日期 freshness，或为修正该问题新增重复状态表/字段，导致状态口径膨胀和一致性风险 | `stock_basic`、`index_basic`、`ths_member`、`ths_index`、`etf_basic`、`etf_index`、`hk_basic`、`us_basic` 等主数据/快照类，以及 Ops freshness/status 页面 | Closed | [Ops Freshness Policy 显式映射方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)、[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) |
 | RISK-2026-04-26-004 | P1 | 旧同步状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Freshness 已退场内容与不可回退边界](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md#retired-observation) |
-| RISK-2026-05-05-005 | P1 | `cadence` 作为低价值节奏标签仍残留在 Ops freshness/status/card 链路和前端展示中，容易制造语义误导，并阻碍 `date_model` 成为唯一时间事实源 | `DatasetDefinition.domain`、Ops freshness/status snapshot、数据源卡片 API、前端数据源页、相关报表导出 | Closed | [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md)、[Ops Freshness Policy 显式映射方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md) |
+| RISK-2026-05-05-005 | P1 | `cadence` 作为低价值节奏标签仍残留在 Ops freshness/status/card 链路和前端展示中，容易制造语义误导，并阻碍 `date_model` 成为唯一时间事实源 | `DatasetDefinition.domain`、Ops freshness/status snapshot、数据源卡片 API、前端数据源页、相关报表导出 | Closed | [cadence 退场边界](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md#cadence-retirement)、[Ops Freshness Policy 显式映射方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md) |
 | RISK-2026-05-08-006 | P1 | 指数日线存在双表并行语义（`core.index_daily_bar` 遗留表 与 `core_serving.index_daily_serving` 现行表），易被误读/误用，导致查询口径漂移、页面数据不一致和后续扩展错接表 | Wealth 市场总览（主要指数）、Biz 指数查询、Ops review/状态核查、文档与开发认知 | Closed | [市场总览数据对象与 API 设计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md)、[index series 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) |
 | RISK-2026-05-11-007 | P0 | Lake `stk_mins` 旧单股票补数路径曾整分区替换 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*`，已确认 `freq=1` 大面积 raw 分区被覆盖为单股票数据，`freq=5` 局部受损 | 本地 Lake `raw_tushare/stk_mins_by_date`，重点 `freq=1`、`freq=5`；后续 MACD/研究层计算依赖的分钟线事实 | Closed | [历史事故与修复摘要](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-bootstrap-legacy-links.md)（旧 Console 事件，不是当前字段缺口；当前 Silver 不补回 vwap） |
 | RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Closed | [历史事故与修复摘要](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-bootstrap-legacy-links.md)（旧 Console 事件，不是当前字段缺口；当前 Silver 不补回 vwap） |
@@ -46,31 +52,9 @@
 
 ## 4. RISK-2026-04-25-001 处理要求
 
-立即止血：
+历史根因是任务级最终提交和状态事务耦合；已提交业务数据不得因 Ops 写入失败而回滚，UI 也不得把未提交 written 当成最终落库结果。事务写入量必须有真实测算，分页大小不能代替事务边界评估。
 
-1. 开发时必须评估单个事务的写入量，做真实的计算。
-2. 必须做真实评估。
-3. UI/进度文案不得把未提交的 `written` 表述成已落库。
-
-正式修复：
-
-1. 在 DatasetExecutionPlan 单一模型中正式表达 data transaction policy。
-2. 执行层拆分 data transaction 与 ops state transaction。
-3. 只做 `per_unit` data transaction，不引入分页级提交策略。
-4. 开发时必须评估单个事务的写入量，做真实的计算。
-5. 单事务写入量评估必须有真实计算依据，不允许用分页或批量大小替代事务边界评估。
-6. 删除主链分裂状态写入，改为单一成功状态写入接口。
-7. 旧运行日志与旧同步状态必须退出主链，状态失败不得回滚业务数据。
-8. 所有 Ops 状态写入必须与业务数据表读写和提交隔离；状态失败不得阻塞业务数据提交，也不得污染已提交业务数据。
-
-关闭门禁：
-
-1. 第 N 个 unit 失败时，前 N-1 个 unit 已提交且可观测。
-2. ops state 写入失败时，业务数据不回滚。
-3. 单个事务写入量评估必须有真实计算依据。
-4. point/range/none 成功只写一次资源状态，且不得丢失业务日期。
-5. 任务详情只把已提交数据展示为最终处理结果。
-6. 测试必须模拟 Ops 状态写入失败，并证明业务数据表写入已提交、可读取、未被回滚。
+原“只做 per_unit、不引入分页级提交”的表述限定于当时修复，不是禁止现行两阶段/staging 设计的通用规则。执行合同及当前差距统一见[执行计划基线](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)。下列记录不代表本轮重新验证全部事务路径。
 
 处理记录（2026-05-04）：
 
@@ -223,7 +207,7 @@
 2. freshness / snapshot / dataset card API 不再返回 `cadence`。
 3. `ops.dataset_status_snapshot` 不再保存 `cadence`。
 4. `DatasetDefinition.domain` 不再包含 `cadence`。
-5. `rg "\\bcadence\\b" src frontend docs tests` 只允许命中历史归档文档或本专项退场文档。
+5. 现行代码不恢复 cadence 字段；历史迁移、退场说明和防回流负向测试可保留该词，不能用关键词零命中替代语义审计。
 
 ---
 
@@ -297,17 +281,11 @@
 3. 禁止清理 `_tmp`、`_recovery`、raw 损坏分区和 research 层，直到恢复方案完成并通过校验。
 4. 单股票补数路径不得再使用整分区替换；任何修复必须证明不会删除同分区其他股票。
 
-正式修复：
+修复与退役边界：
 
-1. 新增 `audit-stk-mins-raw-integrity` 只读命令，按 `freq/trade_date` 统计 raw 行数、缺失分区、严重低行数分区和 research 可恢复行数。
-2. 历史上新增 raw 恢复 dry-run 命令，只生成恢复计划，不写 `_tmp` 或正式分区；该命令已在事故恢复完成后下线。
-3. dry-run 必须明确：哪些分区可从 research 恢复、哪些分区缺少 research 源、会合并多少 patch `ts_code` 行、预计恢复后的行数。
-4. 历史 raw 恢复 apply 曾作为 `stk_mins` 单点恢复能力落地；事故恢复完成后该入口已下线。后续不得继续复制新的 ad-hoc apply 路径；恢复 apply 必须重新评审，并并轨到通用持久 backup、统一恢复账本和前端 Recovery 管理体系。
-5. 恢复后必须补充 raw/research 双向校验，确认受损日期不再只有单股票行。
-6. 所有正式 Lake replace 写入必须统一接入持久 backup 机制，成功后不得立即删除旧版本。
-7. 必须新增 `manifest/write_recovery_log.jsonl` 作为恢复主索引，并允许从 `_recovery/**/metadata.json` 重建。
-8. Lake 管理台前端必须新增 Recovery / Write Safety 页面，能查询恢复记录、backup 路径、before/after 行数和 restore dry-run 结果。
-9. `stk_mins` 的专项恢复能力后续必须并轨到通用恢复账本与前端管理体系，不再长期维持独立恢复孤岛。
+事故当时通过只读审计、dry-run、受控恢复及 Raw/research 双向核验收口，恢复数量见下列带日期记录。原“新增持久 backup、write_recovery_log、前端 Recovery / Write Safety 页面”的后续设计已撤销，不能继续排期。旧 Console 及事故恢复入口已清退，不是当前工具。
+
+现行写湖安全遵守[根规则](/Users/congming/github/goldenshare/AGENTS.md)：候选完整校验、同文件系统原子提升、逐文件 checkpoint、幂等续跑与物理对账；不恢复旧 Lake 读取、Kopia、备份或旧后台。单股票修复不得覆盖同分区其他股票。下列备份路径仅记载当时操作，不构成新备份要求。
 
 关闭门禁：
 
@@ -339,7 +317,7 @@
 5. 全量复审剩余风险：
    - `2026-05-08` 在 `freq=1,5,15,30,60` 均为 missing，且 research 也无当日数据，不能通过本恢复命令修复；应作为后续普通补数任务处理。
    - 若干历史 `underfilled` 分区仍存在，属于数据完整性审计议题，不得用本次事故恢复工具硬修。
-   - 通用持久 backup、统一恢复账本、前端 Recovery / Write Safety 页面尚未完成，已拆分为后续治理议题；本 P0 按表格状态关闭，不再保留单点恢复命令。
+   - 当时列为后续议题的通用持久 backup、统一恢复账本、前端 Recovery / Write Safety 页面，现已随旧设计撤销，不再是待办；本 P0 按表格状态关闭，不保留旧单点恢复命令。
 6. 当时已通过本地代码门禁：旧 stk_mins_raw_recovery_service、CLI 和 tushare_stk_mins_sync_service
    的编译与定向测试，以及文档和 diff 检查。2026-09-05 M6 已删除这些旧后台文件和测试，
    不再保留可复制的旧执行命令；以上事故数量、恢复结果和残余差异仅作历史证据。
@@ -376,6 +354,8 @@
 ---
 
 ## 11. RISK-2026-05-12-008 处理要求
+
+本节只记载 2026-05 的旧 clean 修复，后续已完成清退。`exchange/vwap`、物理 `trade_date` 和 `clean_next` 的当时要求不适用于当前 Silver；不得据此补字段、恢复旧路径或重跑修复。
 
 风险说明：
 
@@ -449,7 +429,7 @@
    `/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet`。
 7. 旧错误 schema clean 已按用户决策删除：
    `/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean`。
-8. 后续 derived、symbol-month、indicator 只能基于 `research/stk_mins_by_date_clean_next` 继续推进，不得再引用已删除的错误 clean。
+8. 当时要求 derived、symbol-month、indicator 使用 `research/stk_mins_by_date_clean_next`，不再引用错误 clean；该旧路径后续也已清退，不是当前消费者入口。
 
 ---
 
@@ -610,7 +590,7 @@
 风险说明：
 
 1. 冻结 plan 已记录日级主要指数 seed 的绝对路径、SHA256、当前行数和目标行数。
-2. `run_gold_batch(...)` 当前只比较 plan 内的 `current_count` 与 `target_count`，没有重新读取并核验执行时的 seed 文件。
+2. 修复前 `run_gold_batch(...)` 只比较 plan 内的 `current_count` 与 `target_count`，没有重新读取并核验执行时的 seed 文件。
 3. Gold writer 会通过 `load_major_indices_seed()` 读取执行时的当前 seed；如果 plan 冻结后 seed 内容、路径或行数漂移，实际写入对象池可能与审批时冻结对象池不同。
 4. M5 最多会重建 1599 个 Gold 分区，因此该缺口可能造成批量事实污染，不能依赖事后对账发现。
 

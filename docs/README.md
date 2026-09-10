@@ -83,7 +83,7 @@ docs/
 - [股票日线趋势通道 M0 只读规模与性能验证报告（M0 已通过）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md)
 - [Serving Light 现行读取与刷新边界](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
 - [新闻关联与股票详情事件展示维护说明（已合并技术方案；2026-09-01/09-09 两阶段结案）](/Users/congming/github/goldenshare/docs/architecture/news-stock-linking-low-level-design-v1.md)
-- [`top_list` 业务身份与来源版本收口方案 V1（已实施；后续数值规则待决策）](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)
+- [`top_list` 维护说明（当前批次版本选择；历史迁移不可重跑）](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)
 > 本节中涉及旧 `lake_console/backend`、Kopia 或旧 Lake Root 的条目，均保留作历史实现/方案证据；不作为当前 Dagster Lake、新开发、迁移、bootstrap、修复或写湖依据。当前正式 Lake 规则以根目录 `AGENTS.md` 和 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准，禁止新增或调用 Kopia。
 
 
@@ -108,8 +108,7 @@ docs/
 - [生产 PostgreSQL HDD 历史迁移记录（分钟线与筹码迁移合并；非当前操作手册）](/Users/congming/github/goldenshare/docs/ops/prod-postgresql-hdd-migration-history-v1.md)
 - [Ops 实时流监控：页面与健康状态（三组接口、轮询及异常边界）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.md)
 - [Ops 实时流配置中心：配置、发布与生效（已合并 M1–M8 有效清单与原型要求；历史验收单列）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md)
-- [ETF 实时成交额异动监控重构方案 v1（上游范围须重新基线 / 现有生产监控不变 / 当前不可开工）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
-- [ETF 实时成交额异动监控重构 LLD v1（旧池实现设计已撤销 / 当前不可作为编码依据）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-lld-v1.md)
+- [ETF 异动监控重入方案（已合并撤销 LLD；保留现行监控/归档，不可开工）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心使用与查询说明（指数激活池、板块口径与审计导航）](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [日期完整性与日期对象矩阵审计说明（已合并对象矩阵及性能专项；区分现行机制、限制和历史验收）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
@@ -261,7 +260,6 @@ docs/
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
 - [基础数据工作流与数据集三线推进索引 v1（已完成）](/Users/congming/github/goldenshare/docs/governance/reference-data-workstreams-rollout-index-v1.md)
-- [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md)
 
 ## 9. 产品原始材料
 

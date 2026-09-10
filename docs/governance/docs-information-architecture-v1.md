@@ -902,6 +902,31 @@ CodeGraph 使用 status/query/impact 定位 ETF planner、Basic selector、RawSt
 
 ---
 
+<a id="top-list-etf-risk-docs-20260911"></a>
+
+#### 2026-09-11 龙虎榜、ETF 异动监控、风险与 cadence 三批
+
+范围：用户批准连续审计并修改三批，统一 review；不改代码、配置、生产数据或 DG，不提交。本轮未重复验证历史生产状态。
+
+| 批次/原文档 | 处理与有效内容去向 |
+| --- | --- |
+| top-list-business-identity-and-source-version-plan-v1.md | 保留为[现行维护说明](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)；双 hash、字段顺序、V1 选择、四表历史迁移、样本窗口与数值规则未决全部保留 |
+| ops-etf-realtime-volume-anomaly-monitor-plan-v1.md | 保留为[唯一重入方案](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)，区分现行监控与未批准重构 |
+| ops-etf-realtime-volume-anomaly-monitor-lld-v1.md | 删除；现有四表/服务/CLI → 主方案 §1，故障隔离、采样锚点、升级去重与新 LLD 七类问题 → §6；旧文件级设计不恢复 |
+| engineering-risk-register.md | [登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)保留全部 12 个风险 ID、Closed 状态及带日期恢复/关闭证据；已关闭项退出“当前未关闭”标题，撤销旧备份/Recovery 设计，旧 clean 规则不得套用当前 Silver |
+| cadence-deprecation-checklist-v1.md | 删除；原因、传播链、M1–M5 已完成记录、Policy 分工、防回流和回归入口 → [Freshness §5](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md#cadence-retirement)；关闭索引继续由风险登记簿承载 |
+
+代码对账纠偏：
+
+1. top_list 定义/模型/迁移已经是 Raw 四列身份、Serving reason_hash 唯一性；writer 仅在当前 batch 中择优，variant_count 不是历史累计，reason 不做业务同义归一。删除重复 M1–M4 开发步骤，保留破坏性历史迁移不可重跑的警告。
+2. ETF collector 仍调用监控；Basic 资格只用于下游子集。Monitor/ArchiveService、四张表和归档 CLI 均不因撤销 LLD 而退出。本轮不替上游范围、数值规则、表清理或新配置拍板。
+3. cadence 旧文档“freshness 只看 date_model”不完整，承接时纠正为日期模型、显式 Policy、真实观测与运行事实分工；负向测试可含退役词，不要求关键词零命中。
+4. 风险历史中的 backup/Recovery 是已撤销设计，不是遗漏待办；事故日期、恢复分区数、行数、审计残余差异保留，不据 Closed 宣称当前全仓无风险。
+
+证据来源：CodeGraph status/query/impact，当前 Definition、ORM、normalizer、writer、monitor/collector/API/CLI 及测试、历史迁移；图结果再以代码核验，不把工具未列出的消费者视为不存在。文档治理、开发入口及 Dagster 技能用于约束当前/历史/待批准状态，未触发运行态操作。
+
+验证：定向离线测试 83 passed（top_list 8，ETF 监控/归档及架构防回流 75），仅一条既有 Starlette/httpx 弃用告警；使用既有环境，未安装套件，测试仅使用进程内测试数据，不接生产数据库。文档完整性三个检查组、六份保留文档的 235 个链接目标/38 处锚点和 git diff --check 通过。12 个风险 ID、等级、状态及历史恢复数字/日期保留；两个删除文件名只剩本节追溯，无活动入链。CodeGraph status 为最新。README 中其他任务条目和其余 Lake/Wealth 改动未处理。
+
 ## 5. 执行规则
 
 1. 每轮只整合一个文档组（Architecture/Ops/Datasets/Frontend），避免扩散。

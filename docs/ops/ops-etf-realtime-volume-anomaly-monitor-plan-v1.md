@@ -1,8 +1,8 @@
 # ETF 实时成交额异动监控重构方案 v1
 
-状态：重新基线阻塞；现有生产监控继续运行，本重构方案当前不可开工
+状态：重新基线阻塞；保留现行监控与归档实现，本重构当前不可开工
 创建日期：2026-08-22
-最近更新：2026-08-29
+最近更新：2026-09-11（合并已撤销 LLD 的有效边界；未核验生产启停）
 上游事实档案：[ETF 实时分钟流接入方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-plan-v1.md)
 
 ## 1. 当前边界
@@ -13,7 +13,13 @@
 运行对象 = enabled monitor pool ∩ 当前可请求 ETF
 ```
 
-这些现行能力不属于本文重构，不因 P8 删除旧激活池而删除、清表或改 schema。
+这些现行能力不因本重构阻塞或 P8 删除旧激活池而删除、清表或改 schema：
+
+- 四张表：`ops.etf_realtime_monitor_pool / etf_realtime_monitor_rule / etf_realtime_alert / etf_realtime_minute_stat`。
+- 服务：`EtfRealtimeMonitorPoolService / EtfRealtimeMonitorRuleService / EtfRealtimeMonitorService`；现有 API 和配置页不变，候选路由为 `/eligible-etfs`。
+- [collector 后处理](/Users/congming/github/goldenshare/src/cli_parts/realtime_handlers.py)在 ETF 日线 feed 返回 ok 且有 batch_id 后，用独立 session 调用监控。监控每批按当前中国日期读取 Basic 可请求资格；监控计算日期参数不改变这个资格日期。
+- [监控服务](/Users/congming/github/goldenshare/src/ops/services/etf_realtime_monitor_service.py)当前从 RealtimeStateStore 构造分钟采样、聚合 1/5/15 窗口并读取已有统计基准；不是调用未来 final/valid reader。告警先 commit，再发送 Feishu 并回写投递状态。
+- [EtfRealtimeMinuteArchiveService](/Users/congming/github/goldenshare/src/ops/services/etf_realtime_minute_archive_service.py)和 [CLI](/Users/congming/github/goldenshare/src/cli.py) 的 `ops-archive-etf-realtime-minute-stats` 仍存在。本轮不执行、不扩展、不删除；原“按专门 LLD 退场”的表述不能作为删除授权，因为该设计已撤销。未来清退必须重新审计消费者、数据用途并取得授权。
 
 本文原计划用尚未实现的 ETF 实时分钟流重做“成交额异动”的分钟事实与基准。由于实时分钟流的生产覆盖范围尚未重新基线，本文也不能继续给出可执行开发顺序或表迁移。P8 只校准文档，不修改监控代码。
 
@@ -49,6 +55,8 @@ delivery 表结构
 4. 在实时分钟范围未定前规划清表、重建规则/告警表或新增 delivery 表。
 5. 旧阶段表、文件白名单和迁移顺序。
 
+旧 LLD 的独有原则和重入问题已并入下节，不保留第二份阻塞说明。不能只把 active 改名为 eligible 后照旧编码，也不能把 Basic 资格自动当成实时分钟上游选择范围。
+
 ## 5. 重新开工门禁
 
 重新设计前必须先完成：
@@ -60,3 +68,16 @@ delivery 表结构
 5. 配置项、请求预算、窗口时序、事务与通知失败隔离全部写入新 LLD 和测试矩阵。
 
 在此之前，不执行 migration、清表、实时分钟开发、Feishu 改造或页面改造。
+
+## 6. 新 LLD 必须补齐的合同
+
+以下是未来重构的设计输入，不是现行实现已全部满足的验收结论：
+
+1. final/valid reader 的类型、批次、时间、质量字段；监控池是否仍是计算子集，以及与上游覆盖如何求交。
+2. 1/5/15 窗口、开盘/09:30、午休、收盘、上一开市日基准和事件键的精确算法；采样中断后重建锚点，累计金额按交易窗口重置。
+3. 基准缺失或质量无效时不告警，不按零值；同一事件可升级严重度，同级不重复通知，cooldown 与重启续算必须有测试。
+4. 现有 rule/alert/minute stat 的演进方案；逐表保留/迁移/删除清单，不能默认重建。Feishu 是否需要独立 delivery 表、告警提交/发送/回写顺序须另行设计。
+5. 实时采集、监控计算、告警提交和通知的故障隔离；Ops 状态失败不得污染行情事实，监控不得写标准分钟表或自行补数。
+6. 每批读取量、Redis 状态量、历史查询量、运行耗时及限流预算；API/前端、配置来源、负向测试和生产切换顺序。
+
+当前不新增 monitor schema、不清历史数据、不扩归档 CLI、不实现分钟 reader、不改页面或发源请求。上游合同拍板且重新完成 CodeGraph 影响面审计后，再另行形成可执行 LLD。

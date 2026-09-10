@@ -1,375 +1,97 @@
-# `top_list` 业务身份与来源版本收口方案 V1
+# top_list 业务身份与来源版本维护说明
 
-状态：V1 已实施；后续数值冲突业务规则另行决策
+状态：V1 已实施；后续数值冲突规则未决。更新时间：2026-09-11。
+本文按当前定义、模型、normalizer 和 writer 校准；不代表本轮核验了源端或生产数据，不授权重新迁移或回补。
 
-## 1. 背景
+## 1. 两种身份不要混用
 
-近期对 `tushare.top_list` 做真实源站审计后，已经确认下面两类问题同时存在：
+同一股票、日期、上榜原因可以收到不同数值版本。业务身份回答“是哪条上榜事件”，来源版本回答“收到了哪份内容”；不能把金额、涨幅、流通市值拼入 reason 来逃避冲突。
 
-1. 同一个 `ts_code + trade_date + 上榜原因`，源站会返回多个版本。
-2. 多个版本之间，有时只是 `float_values=nan/None` 这样的伪空值漂移；有时会出现 `l_sell / l_amount / net_amount / net_rate / amount_rate` 等数值差异。
+| 层 | 当前身份与作用 |
+| --- | --- |
+| Raw `raw_tushare.top_list` | 主键 `(ts_code, trade_date, reason, payload_hash)`，保留不同来源内容；`reason_hash` 非空 |
+| Serving `core_serving.equity_top_list` | ORM/迁移主键仍为 `(ts_code, trade_date, reason)`；唯一约束及 writer 冲突列是 `(ts_code, trade_date, reason_hash)`，每个业务身份发布一行 |
 
-现状实现里：
+模型目录名 `models/core` 不表示 SQL schema 是 `core`。Raw 不是抓取日志：相同 payload 重复抓取按同一身份 upsert，不为每次请求新增一个版本。
 
-- raw 层主键是 `(ts_code, trade_date, reason)`，见 [raw_top_list.py](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_top_list.py)
-- serving 层唯一键是 `(ts_code, trade_date, reason_hash)`，见 [equity_top_list.py](/Users/congming/github/goldenshare/src/foundation/models/core/equity_top_list.py)
-- writer/DAO 会先按冲突键在内存里折叠，再 upsert，见 [writer.py](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py) 与 [base_dao.py](/Users/congming/github/goldenshare/src/foundation/dao/base_dao.py)
+依据：[定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/market_equity.py)、[Raw 模型](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_top_list.py)、[Serving 模型](/Users/congming/github/goldenshare/src/foundation/models/core/equity_top_list.py)。
 
-这会带来两个问题：
+## 2. 两种 hash 的实际算法
 
-1. raw 层无法保留“同一 `reason` 下的多个来源版本”。
-2. serving 层把“业务身份”和“来源版本”混成了一件事，后续没法稳妥地做口径判定。
+### reason_hash：业务原因身份
 
----
+[normalize_top_list_reason](/Users/congming/github/goldenshare/src/foundation/services/transform/top_list_reason.py) 先做 Unicode NFKC，再去首尾空白、把连续空白压成一个空格；空值/空字符串不生成 hash，其余按 UTF-8 SHA-256。
 
-## 2. 本方案的核心结论
+这只处理 Unicode 兼容形式与空白，不做原因同义匹配，也不承诺任意标点等价。业务字段不参与 reason hash，原 reason 不因生成 hash 而被改写成新业务描述。
 
-**不要把更多数值列直接并入 `reason_hash`。**
+### payload_hash：来源内容身份
 
-原因很直接：
+[build_top_list_payload_hash](/Users/congming/github/goldenshare/src/foundation/services/transform/top_list_payload.py) 按以下固定顺序取值，用 `\x1f` 分隔后做 SHA-256：
 
-- `reason_hash` 现在表达的是“这只股票在这一天，因某个上榜原因发生了一条龙虎榜事件”
-- 如果把 `l_sell / net_amount / amount_rate / float_values` 等数值列也并进去，`reason_hash` 的含义就从“业务事件身份”变成了“某个来源版本的具体行”
-- 这样会把“同一个龙虎榜事件的多个来源版本”错误拆成多条业务事件，语义会直接变脏
+`ts_code, trade_date, reason, name, close, pct_change, turnover_rate, amount, l_sell, l_buy, l_amount, net_amount, net_rate, amount_rate, float_values`。
 
-正确方向是：
+- `pct_change` 键不存在时才取 `pct_chg` 别名；存在但为空不会回退。
+- None、数值 NaN，以及去空白后大小写不敏感的空串/nan/nat/none/null，统一为文本 `null`。
+- Decimal/float 以十进制文本去多余尾零，负零归零；普通数值字符串不保证获得同样的数值规范化。
+- 日期用 ISO；trade_date 的 datetime 取日期。reason/name 文本保留原样，其他文本去首尾空白。
+- 抓取时刻不参与内容 hash；这不是“最新抓取版本”的排序键。
 
-1. 保留现有 `reason_hash` 作为 **业务身份键**
-2. 新增 `payload_hash` 作为 **来源版本键**
+[行转换](/Users/congming/github/goldenshare/src/foundation/ingestion/row_transforms.py) 先规范 float_values，再生成两个 hash。Raw/Serving 字段别名对应时应得到同一 payload hash。
 
-一句话概括：
-
-- `reason_hash` 回答：是不是同一个龙虎榜事件
-- `payload_hash` 回答：这个事件是不是来了多个来源版本
-
----
-
-## 3. 目标与非目标
-
-### 3.1 目标
-
-1. 让 raw 层尽可能保留 `top_list` 的不同来源版本，不再因为 raw 主键过窄而覆盖丢失。
-2. 让 serving 层继续保持“一条业务事件一条事实”的模型，不因为版本保留而把业务身份打散。
-3. 为后续的版本选择策略提供单一事实源，不再靠运行时猜测或临时补丁。
-
-### 3.2 非目标
-
-1. 本方案不把所有 `top_list` 数值冲突一次性定成最终业务规则。
-2. 本方案不扩展到其它数据集。
-3. 本方案不引入双写兼容或长期过渡层；按停机重建思路设计。
-
----
-
-## 4. 当前问题分类
-
-基于 `tests/integration/test_tushare_top_list_reason_audit.py` 的真实审计样本，目前至少存在三类情况：
-
-### 4.1 展示字段漂移
-
-- `reason` 标点差异
-- `name` 文本差异
-
-业务身份通常不变。
-
-### 4.2 可空数值字段伪空值漂移
-
-- 典型是 `float_values = nan / None / 空字符串`
-
-这类通常不是“另一条业务数据”，而是同一版本的坏值变体。
-
-### 4.3 数值口径冲突
-
-- `l_sell`
-- `l_amount`
-- `net_amount`
-- `net_rate`
-- `amount_rate`
-
-这类不能简单说“大值更对”或“小值更对”，必须保留版本后再做业务判定。
-
----
-
-## 5. 目标模型
-
-### 5.1 概念拆分
-
-#### 业务身份（Business Identity）
-
-表示“同一个龙虎榜事件”：
-
-- `ts_code`
-- `trade_date`
-- `reason_hash`
-
-#### 来源版本（Source Variant）
-
-表示“源站对这个业务事件返回的某一个具体版本”：
-
-- `payload_hash`
-
----
-
-## 6. Hash 设计
-
-### 6.1 `reason_hash`
-
-保持现义不变：
-
-- 输入：`normalize_top_list_reason(reason)`
-- 目的：把同义原因文案的标点/空白波动收口成同一个业务身份
-
-当前实现位置：
-
-- [top_list_reason.py](/Users/congming/github/goldenshare/src/foundation/services/transform/top_list_reason.py)
-
-### 6.2 `payload_hash`
-
-新增字段，表示来源版本。
-
-建议按“归一化后的来源 payload”计算，字段顺序固定为：
-
-1. `ts_code`
-2. `trade_date`
-3. `reason`
-4. `name`
-5. `close`
-6. `pct_change`
-7. `turnover_rate`
-8. `amount`
-9. `l_sell`
-10. `l_buy`
-11. `l_amount`
-12. `net_amount`
-13. `net_rate`
-14. `amount_rate`
-15. `float_values`
-
-### 6.3 `payload_hash` 的归一化规则
-
-1. 日期统一转 ISO 文本
-2. `Decimal` 统一转规范字符串
-3. `None / "" / "nan" / "nat" / "none" / "null"` 统一视为 `null`
-4. `reason` 保留原始文本，不走 `reason_hash` 的收口逻辑
-5. `name` 保留原始文本
-
-这样设计的目的：
-
-1. 同一个原始 `reason` 下，只要数值不同，就能保留成两个版本
-2. `float_values=nan` 与 `float_values=None` 这类伪空值不会被人为扩大成多个无意义版本
-3. `reason` 标点差异仍会形成不同 `payload_hash`，因为它们确实是不同来源文本版本
-
----
-
-## 7. 数据模型调整方案
-
-### 7.1 raw 层
-
-目标表：`raw_tushare.top_list`
-
-### 现状
-
-- 主键：`(ts_code, trade_date, reason)`
-
-### 调整后
-
-新增字段：
-
-- `reason_hash`
-- `payload_hash`
-
-建议主键/唯一键收口为：
-
-- `PRIMARY KEY (ts_code, trade_date, reason, payload_hash)`
-
-补充索引：
-
-- `INDEX (ts_code, trade_date, reason_hash)`
-- `INDEX (trade_date)`
-
-### 为什么不是只用 `payload_hash` 当主键
-
-可以，但不建议。
-
-原因：
-
-1. 当前查询与排查天然会按 `ts_code / trade_date / reason_hash` 看问题
-2. 复合主键更直观，便于人工审计
-3. `payload_hash` 更适合作为“版本维度”，不必单独承担全部行身份语义
-
-### 7.2 serving 层
-
-目标表：`core_serving.equity_top_list`
-
-### 现状
-
-- 唯一键：`(ts_code, trade_date, reason_hash)`
-
-### 调整后
-
-继续保留一行一个业务事件的模型：
-
-- `UNIQUE (ts_code, trade_date, reason_hash)`
-
-新增溯源字段：
-
-- `selected_payload_hash`
-- `variant_count`
-- `resolution_policy_version`
-
-说明：
-
-- `selected_payload_hash`：当前 serving 行来自哪个 raw 版本
-- `variant_count`：这个业务身份下 raw 层一共有几个版本
-- `resolution_policy_version`：便于以后切换选择规则时回溯
-
----
-
-## 8. 写入与收口流程
+## 3. 当前写入和版本选择
 
 ```text
-source row
-  -> row_transform
-  -> 计算 reason_hash（业务身份）
-  -> 计算 payload_hash（来源版本）
-  -> raw 写入：按 (ts_code, trade_date, reason, payload_hash) 保留版本
-  -> 按 (ts_code, trade_date, reason_hash) 对 raw 版本分组
-  -> resolution policy 选出一个版本
-  -> serving 写入：1 个业务身份对应 1 行
+当前 NormalizedBatch
+  → 构造 Raw 行和 Serving 候选
+  → 候选按 (ts_code, trade_date, reason_hash) 分组、按 payload_hash 去重
+  → 按现行策略选择每组一行
+  → Raw upsert → Serving upsert
 ```
 
----
+定义选择 `raw_core_upsert` 和 `top_list_variant_resolution_v1`；算法见 [DatasetWriter](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py) 的 `_write_raw_and_core`、`_apply_serving_conflict_resolution`。
 
-## 9. Resolution Policy 设计
+V1 已确认并实现的选择规则：
 
-### 9.1 第一阶段必须明确的规则
+1. 有效非空 float_values 优先于空值；不是取最大 float_values。
+2. 两者都非空或都为空时，以遍历中后到的候选为准。这是确定性去重策略，不证明该版本业务上更正确。
+3. 同一 payload 重复出现会更新该 hash 对应的候选，但不会把它的首次出现顺序移到队尾。因此不能概括成“原始最后一行无条件获胜”。
+4. 缺少分组键或 payload hash 的行在此函数中按单行透传并标记版本数 1；此函数不是完整合法性校验器，不能把它写成统一拒绝缺字段。
 
-### 规则 A：伪空值优先级
+**候选范围只有本次 writer batch，不查询 Raw 历史再全局择优。** 后一批只有空 float_values 时，也不会在此处读回较早批次的非空值保护它。保留这个实现边界，不在文档治理中悄悄改变算法。
 
-当同一业务身份下出现：
+Serving 的追溯字段：
 
-- 一条 `float_values` 为有效值
-- 一条 `float_values` 为 `null`
+| 字段 | 当前含义 |
+| --- | --- |
+| `selected_payload_hash` | 本批选中的 payload hash |
+| `variant_count` | 本批同业务身份的不同 payload 数，至少为 1；不是 Raw 历史累计数 |
+| `resolution_policy_version` | `top_list_variant_resolution_v1` |
 
-则优先保留非空值版本。
+后续批次可更新这些字段，variant_count 不保证单调增长。数据库有追溯字段，也不等于页面/API 已提供版本切换或差异展示。
 
-这条已经在当前代码里作为止血规则落地，但只作用在 serving 批内冲突上，后续应迁移为正式版本选择策略。
+## 4. 已完成迁移，不是待执行步骤
 
-### 9.2 第二阶段待业务判定的规则
+[20260507_000099](/Users/congming/github/goldenshare/alembic/versions/20260507_000099_preserve_top_list_source_variants.py) 的 down_revision 是 `20260506_000098`；迁移仅适用于 PostgreSQL，重建 Raw/Serving 身份与追溯字段，并建立相应索引。
 
-对下面这类数值冲突，本方案不在 V1 里拍板：
+**该历史迁移包含删除表和数据，不可作为日常修复命令重跑。** 涉及：
 
-- `l_sell`
-- `l_amount`
-- `net_amount`
-- `net_rate`
-- `amount_rate`
+- `core_serving.equity_top_list`
+- `raw_tushare.top_list`
+- `core.equity_top_list`
+- `raw.top_list`
 
-建议做法：
+历史实施口径是不回填旧表，改按目标日期窗口重新同步；迁移本身不执行同步，也不等于完成历史数据回补。本轮只读代码，未核实生产迁移版本、表数量或回补完整性。downgrade 同样不是无损恢复手段。
 
-1. raw 保留全部版本
-2. serving 先走明确规则，再保留溯源字段
-3. 对仍无法判定的版本，允许输出 issue 或审计样本，而不是在 raw 层先丢数据
+## 5. 回归与尚未决策的内容
 
----
+现有离线回归入口：
 
-## 10. API / 下游影响
+- [normalizer 测试](/Users/congming/github/goldenshare/tests/test_dataset_normalizer.py)：reason 兼容形式、空值和 Raw/Serving payload 一致。
+- [writer 测试](/Users/congming/github/goldenshare/tests/test_dataset_writer_stock_basic.py)：Raw/Serving 分别使用的冲突键、非空优先、版本去重计数。
+- [registry 测试](/Users/congming/github/goldenshare/tests/test_dataset_definition_registry.py)：定义合同与策略版本。
 
-### 10.1 不变的部分
+原方案列出的 `2017-03-29` 新泉股份/绝味食品及 `2026-01-01 ~ 2026-04-30` 是历史验收候选窗口，不是本文已证明的生产通过记录。
 
-以下用户面语义不应改变：
+仍未决定的是多个非空数值（如 l_sell/l_amount/net_amount/net_rate/amount_rate）冲突时如何判断业务正确性，以及是否需要跨批历史择优、历史版本差异查询。争议可通过审计样本说明，但本文不宣称 writer 已自动生成 issue。V1 现行后到候选规则不因此自动失效；未来变更须先明确业务依据、全量消费者及回归，不能擅自选择 max/min、拼接原因或新增版本 UI。
 
-- `top_list` 仍是一个数据集
-- TaskRun / Ops / catalog / audit 仍按 `trade_date` 和数据集维度看它
-- 对外业务读取仍从 `core_serving.equity_top_list` 取“单条业务事实”
-
-### 10.2 新增的能力
-
-后续若需要排查争议样本，可以支持：
-
-- 按 `ts_code + trade_date + reason_hash` 查看所有 raw 版本
-- 查看 serving 当前选中了哪个 `payload_hash`
-
----
-
-## 11. 实施步骤
-
-### M1. 引入双 hash 模型
-
-1. 新增 `payload_hash` 计算函数
-2. `top_list` row transform 产出 `payload_hash`
-3. 补单元测试，覆盖：
-   - 相同 `reason_hash`、不同 payload
-   - 相同 payload、伪空值归一
-
-### M2. 重建 raw 层模型
-
-1. 调整 `raw_tushare.top_list` ORM 与 DDL
-2. raw 写入改按 `(ts_code, trade_date, reason, payload_hash)`
-3. 验证不会再因 raw 主键过窄而覆盖版本
-
-### M3. 重建 serving 收口逻辑
-
-1. 在 writer 或 dedicated resolver 中按 `reason_hash` 分组版本
-2. 增加 `selected_payload_hash / variant_count / resolution_policy_version`
-3. 先实现明确规则：
-   - 非空 `float_values` 优先
-
-### M4. 数据重建与验证
-
-1. 停机重建 `top_list` raw 与 serving
-2. `20260507_000099` 迁移直接删除并重建：
-   - `raw_tushare.top_list`
-   - `core_serving.equity_top_list`
-   - legacy `raw.top_list`
-   - legacy `core.equity_top_list`
-3. 不做旧数据回填；迁移完成后必须按目标日期窗口重新同步 `top_list`
-4. 以真实日期窗口做抽样对账
-5. 核验：
-   - raw 版本保留数
-   - serving 最终行数
-   - variant_count 分布
-   - 争议样本是否可追溯
-
----
-
-## 12. 验证门禁
-
-至少需要：
-
-1. `payload_hash` 单测
-2. raw 保留多版本写入测试
-3. serving 版本选择测试
-4. 真实样本对账：
-   - `2017-03-29 新泉股份`
-   - `2017-03-29 绝味食品`
-   - 近期稳定窗口 `2026-01-01 ~ 2026-04-30`
-
----
-
-## 13. 本方案的取舍
-
-### 选这个方案的原因
-
-1. 不会污染 `reason_hash` 的业务语义
-2. 可以最大化保留源站版本信息
-3. 后续即使业务判定规则升级，也不用再回头追“被覆盖掉的版本”
-
-### 不选“直接把更多数值列并进 `reason_hash`”的原因
-
-1. 会把“同一业务事件的多个来源版本”误拆成多条事件
-2. 会污染下游对 `reason_hash` 的身份认知
-3. 会让 `top_list` 的业务口径和别的数据集越来越不统一
-
----
-
-## 14. 已确认点
-
-### D1. serving 对“非 `float_values` 的数值冲突版本”，V1 先保守保留当前最后一条口径
-
-已确认。
-
-理由：
-
-1. 当前最重要的是先把版本保留下来，避免 raw 层继续丢信息
-2. 版本一旦保留下来，后续再调 resolution policy 就不会丢历史依据
-3. 这次先不要在没有稳定业务规律前，强行定义“大值优先”或“小值优先”
+保持用户面边界：top_list 仍是一个数据集，TaskRun/Ops/catalog/audit 仍按数据集与 trade_date 观测，对外业务读取仍取 Serving 的单条事实。本轮仅纠正文档，无新业务规则、表迁移或接口行为变更。
