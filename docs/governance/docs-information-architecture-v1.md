@@ -160,6 +160,48 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 
 本批结果：11 份专题原有 4,494 行，合并后四份共 493 行；不是按行数目标删规则，重要信息去向按上表对账。文档完整性三个检查组、382 个本地 Markdown 链接及锚点的定向检查、`git diff --check` 均通过；七个旧文件名只保留在本节追溯表，不再作为活跃引用。未运行代码测试或生产验收，未修改代码和数据；其他任务的 README 条目及未跟踪文件保留。文档精简不等于完成文中仍注明的运行态目标。
 
+<a id="architecture-three-batches-20260910"></a>
+
+#### 2026-09-10 抓取并发、ETF Basic/旧池、新闻关联三批合并
+
+按用户批准的 16 组审计结论实施。7 份专题共 5,708 行，收敛为 3 份专题并补充已有执行计划基线；只改文档及相关索引，不改代码、API/CLI、配置、迁移、业务数据、依赖矩阵或生产状态。被合并全文从 Git 历史恢复，不留空壳入口。
+
+| 原文件（docs/architecture） | 处理与独有内容去向 |
+| --- | --- |
+| dataset-fetch-concurrency-execution-plan-v1.md | 并入执行计划基线 §4.1–4.2 后删除；保留线程/事务/限速/取消边界、首期 D1–D4、三个任务耗时与 M6 缺证据状态 |
+| dataset-execution-plan-refactor-plan-v1.md | 保留，承接并发专题；普通缓冲与 staged-stream、当前 stk/etf 分钟=2 和首期 scope 分开 |
+| etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md | 保留为业务身份与 D1–D20 入口；重复实现流程归 LLD，不再称旧池消费者尚存 |
+| etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md | 保留当前合同、代码点、事务、回归与历史账本；分钟操作引用既有 ETF 分钟维护文档 |
+| etf-active-pool-design-plan-v1.md | 迁入 Basic LLD §11–13 后删除；保留起因、5,708 行资源分布、两份 CSV 当时不存在、迁移和指数池保护 |
+| etf-active-pool-low-level-design-v1.md | 迁入 Basic LLD §11–14 后删除；保留逐文件退场、create/drop migration、不可逆性、负向测试与通用词不可机械清零 |
+| news-stock-linking-technical-solution-v1.md | 迁入新闻 LLD 后删除；规则理由与源身份归 §1/4/5，事件身份/读取归 §8，两次结案与独有验证归 §11 |
+| news-stock-linking-low-level-design-v1.md | 保留稳定路径作为唯一维护说明；当前合同、历史证据和已接受限制分开 |
+
+| 审计项 | 完成的文档纠偏 |
+| --- | --- |
+| A1 | 执行基线 §4：串行是改造前状态；首期 stk_mins 和后来 etf_mins 启用分开 |
+| A2 | §4.1：staged-stream 先行、多 unit 条件、完成集合无严格时序、运行中 fetch 无立即取消保证 |
+| A3 | §4.1–4.2：现有并发/linter/limiter 测试入口；不自动同步依赖；旧性能目标不冒充生产实测 |
+| B1 | Basic 主案 §1/4、LLD §11：只描述最终消费者，旧步骤集中到带日期历史 |
+| B2 | LLD §3.1/10：只读/180 秒 timeout/rollback 归 CLI，不归 service；单语句与全程时长分开 |
+| B3 | LLD §4.2–4.4：SQL predicates 与内存 classifier 两种实现须同义，固定日期不等于全局 DB snapshot |
+| B4 | LLD §14：现行测试改为 Preview CLI、plan、planner、retirement；不恢复已退场 Submit 测试 |
+| B5 | 主案 §1/6、LLD 文首/§13/16：生产证据截至 8/29；保留当时 SZ/实时缺证据，分钟前后缀非内部完整性 |
+| B6 | 旧池历史只保留一份；主案保留决策，LLD 保留实现/历史；不复制第三份分钟操作指南 |
+| C1 | 新闻 §8.2：路由类型/范围校验 422，缺时区/倒置区间 400，非股票 404；不改 API |
+| C2 | §8.3–8.4：标题先提取开头【...】，再 title/正文 80 字；不承诺双空输入非空 |
+| C3 | §2：总览 briefs/communications 与详情 news 分开，旧 news/stocks 不再称当前入口 |
+| C4 | §5–7：一次 materialize 一个 linker；service 累计 stats 与 reporter 补齐的 payload 字段分开 |
+| C5 | §8.5/11：limit 用于事件，候选另受 500/10000 上限；0.09 秒独立样本不是端到端或最坏 SLA |
+| C6 | §11.1：物理索引属于 Raw，serving-light 是 view；旧 EXPLAIN 保留原日期 |
+| C7 | 新闻一份维护说明，9/01 物化与 9/09 事件合并结案分别保留，不重开任务 |
+
+防误删对账：Basic D1–D20、单事务完整快照与 fund daily 两阶段提交、基金全集与合法 .OF、指数池/业务监控池/告警统计、旧池不可恢复、P12 失败/取消后的已提交事实与最终 TaskRun/hash、新闻全部来源记录与关联、自然日/自动游标/迟到手动补跑、数字冲突与事件扫描上限均有保留落点。P11 实际 drop 早于 Basic 维护窗口的顺序未被倒写。
+
+本轮 CodeGraph CLI status/query/impact 定位 executor、EtfBasicDAO、StockNewsLinker，随后读实现；图的同名/宽泛命中不作为删除依据。没有源端实测、生产 EXPLAIN、部署或物理清理；历史验证数字不冒充本轮结果。README 他人交易助手条目留在工作区，不并入本次提交。
+
+本轮验证：执行进度/linter、ETF Basic DAO/快照/分钟 Preview 与 plan、新闻 linker/service/runtime/事件去重及详情 API 共 132 项测试通过；仅有既有 Starlette/httpx 弃用告警，未安装套件。文档完整性三个检查组、293 个本地 Markdown 链接与锚点、`git diff --check` 通过；Basic 历史 64 位 hash 无丢失。目标测试清单逐路径核验，移除不存在的 `test_etf_basic_dataset.py`，定义合同继续由列出的 registry 测试承载；四个删除文件名只保留在上表追溯。CodeGraph sync/status 确认索引为最新。
+
 ### 4.2 Ops 组
 
 当前职责：`ops-contract-current.md` 维护边界，`ops-api-reference-v1.md` 维护接口，`ops-workflow-catalog-v1.md` 维护工作流清单。TaskRun、自动任务、freshness、多源对账等继续独立承载其专题；本批不代表这些专题已全面审计。

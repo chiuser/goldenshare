@@ -49,6 +49,8 @@ docs/
 
 ## 3. 架构与治理（S1）
 
+2026-09-10：抓取并发并入执行计划基线；旧 ETF 激活池两份历史归入 Basic LLD；新闻方案并入新闻 LLD。七份专题收敛为三份，独有决策与历史验收保留，[逐项去向](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#architecture-three-batches-20260910)见治理记录。
+
 2026-09-08：数据集架构专题由 11 份收敛为 4 份，保留定义、执行、日期、Serving Light；七份旧枚举/专项/索引的有效内容已并入，不再保留重复入口。[逐文件去向与未完成目标边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#dataset-topics-consolidation-20260908)见治理记录。
 
 2026-09-08：原独立依赖矩阵、Platform 拆分与 Ops 收敛基线已并入“子系统架构基线”；旧 Foundation 上手指南的有效入口并入“Foundation 研发基线”，原发布治理规范收窄为多源专题。[逐项合并去向与旧待办处理](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#architecture-consolidation-20260908)见治理记录；旧全文可从 Git 历史恢复。
@@ -59,8 +61,7 @@ docs/
 - [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（165 份文档矩阵 / M8 结果 §16.15 / 本机残留清理与恢复映射 §16.16）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
 - [多源映射与发布规则（仅多源专题）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [DatasetDefinition 数据集定义与职责](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
-- [DatasetExecutionPlan 执行计划与可靠执行](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
-- [数据集源端拉取并发执行方案 v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/architecture/dataset-fetch-concurrency-execution-plan-v1.md)
+- [DatasetExecutionPlan 执行计划与可靠执行（含源端并发与历史 M6 验收边界）](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
 - [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 - [实时行情流架构方案 v1（HTML，日线/分钟已接入，端到端验收已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)
 - [股票实时日线流技术落地方案 v1（日线已上线 / 统一 collector 已承载分钟 feed / 端到端验收已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-technical-plan-v1.md)
@@ -70,8 +71,8 @@ docs/
 - [ETF 实时日线流接入方案 v1（代码已接入 / 生产已启用 / 开市批次验收已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-daily-stream-plan-v1.md)
 - [ETF 实时分钟流接入方案 v1（仅保留源端与调度证据 / 覆盖范围须重新基线 / 当前不可开工）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-plan-v1.md)
 - [ETF 实时分钟流接入 LLD v1（旧池实现设计已撤销 / 当前不可作为编码依据）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-low-level-design-v1.md)
-- [ETF 基础信息重建与下游数据审计清理技术方案 v1（M0-M12 开发与既定生产动作已完成 / SH 与 fund daily 补充验收已通过 / SZ 与实时待验）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
-- [ETF 基础信息重建与下游数据审计清理 LLD v1（P0-P12 / R1-R5 已完成 / 最终关闭补充验收执行中）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
+- [ETF 基础信息与下游身份边界（D1–D20；生产证据截至 2026-08-29）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
+- [ETF Basic 治理 LLD（含旧池退场账本；保留当时 SZ/实时待验证据）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 - [ETF 历史分钟维护说明（已合并 LLD；Basic 资格、只读 Preview 与 2026-08-29 指定区间验收）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
 - [ETF 日线与复权因子 DG 数据湖接入技术方案 v1（已结案，历史与日常链验收及治理门禁已闭环）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-plan-v1.md)
 - [ETF 日线与复权因子 DG 数据湖接入 LLD v1（已结案，固定治理回归与事后修复证据已补齐）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-low-level-design-v1.md)
@@ -83,11 +84,8 @@ docs/
 - [股票日线趋势通道 Lake 数据集接入技术方案 v1（M0 已通过，待开发）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-plan-v1.md)
 - [股票日线趋势通道 Lake 数据集接入 LLD v1（M0 已通过，待开发）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md)
 - [股票日线趋势通道 M0 只读规模与性能验证报告（M0 已通过）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md)
-- [ETF 激活池历史设计与退场记录 v1（代码与生产物理表均已退场）](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-design-plan-v1.md)
-- [ETF 激活池历史 LLD 与退场实现记录 v1（P3-P8 代码退场与 P11 生产 drop 均已完成）](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-low-level-design-v1.md)
 - [Serving Light 现行读取与刷新边界](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
-- [新闻—个股关联技术方案 v1（已实现并结案，2026-09-01）](/Users/congming/github/goldenshare/docs/architecture/news-stock-linking-technical-solution-v1.md)
-- [新闻—个股关联低层设计 LLD v1（已实现并结案，2026-09-01）](/Users/congming/github/goldenshare/docs/architecture/news-stock-linking-low-level-design-v1.md)
+- [新闻关联与股票详情事件展示维护说明（已合并技术方案；2026-09-01/09-09 两阶段结案）](/Users/congming/github/goldenshare/docs/architecture/news-stock-linking-low-level-design-v1.md)
 - [`top_list` 业务身份与来源版本收口方案 V1（已实施；后续数值规则待决策）](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)
 > 本节中涉及旧 `lake_console/backend`、Kopia 或旧 Lake Root 的条目，均保留作历史实现/方案证据；不作为当前 Dagster Lake、新开发、迁移、bootstrap、修复或写湖依据。当前正式 Lake 规则以根目录 `AGENTS.md` 和 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准，禁止新增或调用 Kopia。
 

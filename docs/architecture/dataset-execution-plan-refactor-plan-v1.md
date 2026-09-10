@@ -1,6 +1,6 @@
 # DatasetExecutionPlan 执行计划与可靠执行
 
-更新时间：2026-09-08。状态：现行模型与执行约束说明。原重构主案和 M-1～M8 索引中的有效规则归入本文；历史步骤不是当前实施计划。本文区分代码事实与尚须按需求验证的可靠性目标。
+更新时间：2026-09-10。状态：现行模型与执行约束说明。原重构主案和 M-1～M8 索引中的有效规则归入本文；历史步骤不是当前实施计划。本文区分代码事实与尚须按需求验证的可靠性目标。
 
 ## 1. 主链与职责
 
@@ -80,7 +80,40 @@ Plan 没有 `planning.universe`、`enum_fanout` 或 `enum_defaults` 字段。对
 
 `pagination_policy=offset_limit` 表示通用 offset/limit 分页；`none` 表示不使用该通用分页策略，不保证单请求一定覆盖全集。结束条件、上限和分页一致性须按 source client 与数据集合同验证。
 
-拉取并发不等于多线程共享写库 session；当前 linter 对 `fetch_concurrency` 限定 1～4，专用路径还有更严格约束。具体并发设计与未完成验收留在 [源端拉取并发专题](/Users/congming/github/goldenshare/docs/architecture/dataset-fetch-concurrency-execution-plan-v1.md)，本次合并不将其升级为生产已验收。
+<a id="fetch-concurrency"></a>
+
+### 4.1 源端拉取并发：现行实现
+
+`DatasetPlanningDefinition.fetch_concurrency` 默认 1，并投影到 Plan。2026-09-10 核对：`stk_mins`、`etf_mins` 均显式配置 2；linter 的总范围为 1～4，`staged_stream`、Basic 完整快照等专用路径另有单并发限制。新增适用数据集仍需单独评估，不自动全仓开启。
+
+[executor](/Users/congming/github/goldenshare/src/foundation/ingestion/executor.py) 先判断 staged-stream；普通缓冲路径只有多 unit 且并发值>1 才进入 `_run_units_with_concurrent_fetch()`：
+
+| 环节 | 当前执行边界 |
+| --- | --- |
+| 提交 | 按 unit 序列提交，in-flight 数不超过并发值；提交新 fetch 前检查取消 |
+| Fetch | 线程池只调用 source client；connector 在源端拉取调用内创建，不共享 DB Session |
+| 消费结果 | `FIRST_COMPLETED` 返回已完成集合；主线程逐个 normalize/write/commit/report，再补入任务 |
+| 顺序 | 不强制原 unit 顺序，也不保证同批完成集合内部按精确完成时间排序 |
+| 失败 | 停止补入任务、回滚当前未提交事务，尽力取消未启动 future；既有业务提交保留 |
+| 取消限制 | 运行中的 fetch 不能被 `Future.cancel()` 强制终止，线程池退出可能等待它结束；不承诺立即/逐页取消或 30 秒内退出 |
+
+[Tushare client](/Users/congming/github/goldenshare/src/foundation/clients/tushare_client.py) 对共享 limiter 初始化字典加锁，limiter 自身也保护请求间隔。它是**进程内**共享，不是跨进程配额协调；不能靠增加 Worker 进程绕开限流。并发不改变源参数、unit 粒度、writer 事务、API 或 UI，也不提高源端额度。
+
+维护时使用现有环境运行 [并发与线程测试](/Users/congming/github/goldenshare/tests/test_dataset_progress.py)、[linter 测试](/Users/congming/github/goldenshare/tests/test_ingestion_linter.py)、[共享 limiter 测试](/Users/congming/github/goldenshare/tests/test_tushare_client.py)，并补 registry/resolver/source-client 和实际数据集回归。不要因旧命令使用 `uv run` 而自动下载或同步依赖。
+
+### 4.2 首期性能记录（2026-06-04，非当前生产验收）
+
+原并发专题的 D1–D4 确认：首期只给 stk_mins 配 2、总范围 1～4、投影到 Plan、优先消费已完成结果。首期代码及 fake-source/线程/失败/限速器回归已完成；ETF 分钟的后续启用不是当时 D1 的一部分。
+
+| 当时 TaskRun | units | 耗时 | 原文估算请求速率 |
+| --- | ---: | ---: | ---: |
+| 1880 | 29,250 | 约 153 分钟 | 约 191 次/分钟 |
+| 1797 | 29,250 | 约 108 分钟 | 约 271 次/分钟 |
+| 1704 | 29,250 | 约 135 分钟 | 约 217 次/分钟 |
+
+当时配置额度为 500 次/分钟，计划目标为单日约 60～80 分钟；**配置和上述估算不足以证明当前源端配额、瓶颈原因或已实现生产加速**。原 M6 还要求比对 unit、请求参数、写入行数、reject、限速错误、耗时及 TaskRun 进度；现有专题记录未提供 M6 完成证据，本次不补跑生产或自动关闭它。
+
+若获准的生产验收不符合预期，原回退策略是将对应 Definition 的并发改回 1，不清表、不迁移、不改 TaskRun 数据。本节是保留的处理依据，不是本轮执行授权。
 
 ## 5. 提交、幂等与取消
 
