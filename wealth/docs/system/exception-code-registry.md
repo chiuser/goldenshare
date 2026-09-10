@@ -333,6 +333,17 @@
 
 401／403 继续归认证层，不新增同义码。PROCESSING、SAVED、NOT_SAVED、UNKNOWN 和 inputRetained 是业务响应字段，不登记为异常。字段错误、当前请求被拒绝、原尝试明确未保存必须分开，不依据 HTTP 数字或单个 code 绕过请求身份与停止证明。
 
+## 11.2 交易助手账户费用（设计登记，尚未实现）
+
+依据交易助手产品 §6.4、技术方案 §4.20。沿用 §11.1 的参数非法、保存未知及请求恢复异常，不增加新的用户操作。active 仅表示语义登记，不表示已上线。
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `TA_ACCOUNT_NOT_FOUND` | tradingAssistant | warn | false | false | 当前账户不可访问 | 账户不存在或不属于本人统一 HTTP 404，不泄露他人账户存在性 | 提示账户不可访问，重新读取本人账户；不向其他账户重发保存 | biz | Phase-1-design | active |
+| `TA_FEE_VERSION_CONFLICT` | tradingAssistant | warn | false | false | 费用配置已变化 | 最终保存复核 expectedFeeVersionId 与当前引用不一致；HTTP 409 | 保留候选，重新读取并核对；不自动覆盖，不清空输入 | biz | Phase-1-design | active |
+
+上述报文拒绝不自动证明原未决尝试已停止；保存恢复仍必须关联 requestId／attemptId 并遵守 §11.1 的停止证明。401／403 仍由认证层处理，不借账户不存在绕过认证。
+
 ## 12. 变更规则
 
 1. 已上线的 `code` 不允许重用为新语义。
