@@ -1,6 +1,6 @@
 # 财势乾坤｜交易助手技术实施方案 v1
 
-> 状态：核验草稿修订 56，尚未完成整体方案。修订 40—44 已随 `64258a76`、45—50 随 `e356a998`、51—52 随 `a918358f` 提交，均未推送。修订 53—56 未提交、未编码。§8.15 已由用户确认并关闭：成交数量为正整数，不限整手倍数或最低下单股数；可继续流水合同设计，不扩展其他输入丢失场景。
+> 状态：核验草稿修订 60，尚未完成整体方案。修订 40—44 已随 `64258a76`、45—50 随 `e356a998`、51—52 随 `a918358f`、53—56 随 `96848f68` 提交，均未推送。修订 57—58 补账户、期初、流水修订、校验候选及派生发布的物理合同；修订 60 按用户确认关闭 §8.16 停牌持仓估值产品边界，R13-A 已通过并合入正式状态稿。修订 57—60 未提交、未编码；其余门禁见 §4.24.1。不扩展其他输入丢失场景。
 > 依据：[交易助手产品需求 v1.38](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。 R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2。
 > 本文不改变已确认收益公式和交互，不代表方案已评审、代码已实现或数据源已验收。未确认的建议不得进入实现。
 
@@ -127,7 +127,7 @@
 
 ### 4.2 账户账务逻辑模型与唯一性
 
-下表明确要保存的事实、关系和约束；对象名是方案用语，最终表名、SQL 类型和索引 DDL 留给 LLD。本轮先展开账户账务，计划、提醒及机器人仅明确归属关系，不声称其完整模型已完成。
+下表明确要保存的事实、关系和约束；物理表名、类型及索引设计由 §4.17、§4.20—4.24 继续展开，完整 DDL 仍待统一核验。本节先展开账户账务，计划、提醒及机器人仅明确归属关系，不声称其完整模型已完成。
 
 | 对象 | 必须保存的信息及关系 | 唯一性 / 修改边界 |
 | --- | --- | --- |
@@ -325,7 +325,7 @@
 | 历史行情被修正 | 从最早受影响估值日重建，包含后续增量所依赖的前值；来源与新旧估值依据可追溯 | 覆盖底层价格却保留旧日收益，导致相邻日期累计差与日收益加总不一致 |
 | 当前账户税费配置改变 | 更新当前估值的预计卖出费用依据；历史实际成交费用和历史估值当时采用的费用依据不套用新配置 | 因修改当前费率重新给过去每笔成交收费，或悄悄重写所有历史快照的预计费用 |
 
-只有行情完整性与交易日依据满足对应日计算要求，才能形成正式日终快照，不以“已到收盘时间”代替数据就绪。当前交易日估算与正式日终快照分开标识；未完成周 / 月只计算到实际截止，不生成未来快照。缺数及停牌等具体估值取价仍须在行情章节核验，本节不擅自规定用前收盘价补齐。
+只有行情完整性与交易日依据满足对应日计算要求，才能形成正式日终快照，不以“已到收盘时间”代替数据就绪。当前交易日估算与正式日终快照分开标识；未完成周 / 月只计算到实际截止，不生成未来快照。已确认全天停牌的取价例外按 PRD §7.6 和本文 §8.16 执行；普通缺数不允许前值补齐，实际来源证据仍须核验。
 
 初始化基线独立于日终快照保存；初始化发生在休市日期时，不把该日期伪造成交易日。日期清单覆盖已确定的有效快照日期，非交易日的日历格继续按 PRD §12.4 表达；不因它显示“待计算”就调度一个永远无法完成的交易日重算任务。
 
@@ -1456,7 +1456,7 @@ commissionRateWan 的 "3.00" 表示万三，计算比例为 Decimal("3.00") / 10
 
 | 字段／关系 | 存储与约束 |
 | --- | --- |
-| fee_version_id、account_id | 稳定版本身份及所属账户；版本主键唯一，并提供 (account_id, fee_version_id) 复合唯一键供引用。ID SQL 类型与账户主表一并冻结，不仿造自选整数 ID 上限 |
+| fee_version_id、account_id | 稳定版本身份及所属账户；版本主键唯一，并提供 (account_id, fee_version_id) 复合唯一键供引用。SQL 类型按 §4.21 采用 UUID，不仿造自选整数 ID 上限 |
 | commission_rate、stamp_tax_rate | 精确 NUMERIC 比例，不存万分数／百分数展示文本；从输入分别精确除以 10000／100；不再保存第二套可变展示单位值。税率 CHECK 在 0—1，输入精度另由服务端校验；佣金输入边界沿用产品，不借 SQL 容量擅加产品上限 |
 | minimum_commission | 精确 NUMERIC 元金额，非负且精确到分；0.00 合法。禁止 float，禁止 NULL 代替必填配置 |
 | created_at | 非空 TIMESTAMPTZ，服务端接纳时间；只作审计，不用其排序代替版本引用或锁顺序 |
@@ -1464,7 +1464,7 @@ commissionRateWan 的 "3.00" 表示万三，计算比例为 Decimal("3.00") / 10
 | 交易首次费用引用 | (account_id, fee_version_id) 指向本账户版本，同时保存已确认的三项配置快照及实际费用；更正保留该原引用与快照，禁止因账户指针变化改写 |
 | 不可变与删除 | 业务服务不更新或删除已接纳费用版本；不存在费用历史清理接口，不设置账户删除级联清除账务的路径。外键不能只校验版本存在而放过跨账户引用 |
 
-数值容量、精确 ID 类型及账户循环外键 DDL 随账户主表统一冻结；本节不宣称迁移已可执行。不创建 Alembic revision，不猜 head，不查询或修改业务数据库。
+ID 类型、数值存储及账户循环外键设计由 §4.21 承接；输入容量、完整 DDL 及迁移验证仍待完成，本节不宣称迁移已可执行。不创建 Alembic revision，不猜 head，不查询或修改业务数据库。
 
 #### 4.20.3 异常与验收
 
@@ -1479,6 +1479,158 @@ commissionRateWan 的 "3.00" 表示万三，计算比例为 Decimal("3.00") / 10
 | FEE-CONTRACT-05 | 费用设置成功不创建历史重算、不改旧流水／现金／闭环／快照；预计卖出使用新估值配置但不得回写旧估值；前端成功后仍走费率成功提示，不进入 R12 历史更正进度 |
 
 本轮 CodeGraph 核对 WatchlistCommandService._write 的提交前构造 DTO 及提交不确定处理；其分组去重、删除和数值上限不复用到交易账户。仅补文档目标合同和异常登记，未修改当前 API／消费者；上述费用接口、SQL 约束及测试尚未实施，依赖矩阵不变。产品与正式交互已有这组行为，本轮无新产品待拍板项、不改 Figma。
+
+### 4.21 账户与期初资产的物理模型（修订 57，目标设计）
+
+承接 PRD §6、本文 §4.2、§4.11、§4.18、§4.20 及 R8／R12。物理表仍归 Biz、使用 Foundation Base、放 PostgreSQL app schema；不新增系统分层或用户操作。以下是拟定表合同，不是已创建模型或可直接执行的迁移脚本。
+
+#### 4.21.1 身份、版本与字段
+
+账户、期初版本、费用版本采用 UUID 身份，API 返回 UUID 字符串；与现有用户身份区分，owner_id 仍为 INTEGER，引用当前 app.app_user.id。修订号、事实版本、计算目标版本采用 BIGINT，API 继续返回精确整数字符串；UUID 负责身份，版本号负责并发比较，created_at 不替代二者。此处不改现有自选或认证 API 的整数 ID。
+
+| 表及字段 | SQL 类型／非空要求 | 约束及用途 |
+| --- | --- | --- |
+| app.wealth_ta_account：account_id、owner_id | UUID 主键；INTEGER 非空 | owner_id 外键 RESTRICT；额外唯一 (owner_id, account_id)，供所有权复合引用；不级联删除账务 |
+| name、broker_name、initialized_on、created_at | TEXT、TEXT、DATE、TIMESTAMPTZ，均非空 | 名称 trim 后非空；不加同名／同券商唯一约束。初始化日期来自首次接纳的北京时间日期，不可更正；没有资金账号字段 |
+| current_initialization_id、current_fee_version_id | UUID，均非空 | 必须分别指向本账户已接纳期初、费用版本；不能提交半个初始化账户 |
+| fact_version、calculation_target_version | BIGINT，非空且 ≥ 1 | 初始化从 1 开始，按既有命令推进；费用设置不推进账务事实／历史计算目标。版本递增在账户短锁内执行 |
+| published_generation_id | UUID，可空 | 无完整发布时为 null，不能用 0 或随机代次伪造就绪；派生表建立时加同账户复合外键，见 §4.6 |
+| app.wealth_ta_initialization：initialization_id、account_id、revision、accepted_fact_version | UUID 主键；UUID、BIGINT、BIGINT 非空 | 账户外键 RESTRICT；revision 与 accepted_fact_version 均 ≥ 1；唯一 (account_id, revision) 及 (account_id, initialization_id) |
+| initial_cash、created_at、source_initialization_id | NUMERIC 非空、TIMESTAMPTZ 非空、UUID 可空 | 初始现金非负且精确到分；第一版来源为空，更正版必须指向本账户旧期初版本；不另存当前现金 |
+| app.wealth_ta_initial_position：account_id、initialization_id、ts_code | UUID、UUID、TEXT，均非空 | 主键 (initialization_id, ts_code)；(account_id, initialization_id) 引用本账户期初版本；股票身份由既有证券解析合同校验，不按名称去重 |
+| client_row_id、quantity、available_quantity、cost_price | TEXT、BIGINT、BIGINT、NUMERIC，均非空 | 同期初版本 client_row_id 唯一且非空；quantity > 0，0 ≤ available_quantity ≤ quantity，cost_price > 0 且精确到分；无整手倍数限制 |
+
+初始化日期只存账户主表，期初版本通过账户引用读取；不在每个新期初版本再留一个可被改成不同日期的字段。initializationRevision 映射 initialization.revision，initialCash 映射 initial_cash，initialPositions 行按 §4.18 映射；stockName 查询解析，不是可修改期初事实。costAmount 从 quantity × cost_price 精确生成，不再存第二份可漂移的输入金额，初始化不可卖量同样由差额得出。
+
+NUMERIC 在本组输入表不指定会自动截断／舍入的 scale，约束检查有限数值、业务正负范围及 value = trunc(value, 2)，服务端在入库前执行同样校验。不能让 NaN／Infinity 或多余小数位被数据库转换成合法金额。费用版本的比例精度分别为佣金六位、印花税四位，来自输入两位再除以 10000／100，不错误地把存储比例限为两位。完整输入字节预算及股数 JSON 安全整数上界仍须在统一接口容量合同中闭合，不把 BIGINT 全范围当作浏览器能够精确承载的范围。
+
+#### 4.21.2 外键、初始化及更正事务
+
+账户 → 当前期初、当前费用，以及期初 → 来源期初均使用包含 account_id 的复合外键，禁止只检查 UUID 存在；账户与第一版期初／费用的循环引用使用 DEFERRABLE INITIALLY DEFERRED，在同一事务提交时完整验证。删除策略为 RESTRICT，不使用 ON DELETE CASCADE 清除版本。费用表 fee_version_id／account_id 类型同步采用上述 UUID，消除 §4.20 的身份类型待定项。
+
+首次接纳的事务次序：确定服务端日期与新身份 → 插入账户、第一版费用、第一版期初及全部股票行 → 写入业务重算需求和成功回执／尝试状态 → 构造并校验响应 → 一次提交。插入次序不意味着中间状态可见；任何必填、股票重复、引用、回执构造或提交前错误均不得留下有效账户。无期初股票时合法保存零行，不插空股票占位。
+
+更正期初的最终短事务：锁本人账户 → 复核 expectedRevision、校验依据事实版本与有效尝试 → 新增期初版本及完整股票集合 → 指向原版本作为来源 → 切 current_initialization_id、推进事实／计算目标、保存重算需求及回执 → 提交。新增／移除股票通过新版本集合表达，不更新或删除旧版本股票。候选校验失败、中断或结果未知继续遵守 §4.7、R11／R12，不用新增期初版本承载未接纳候选。
+
+一份期初版本整体不可变。数据库普通 CHECK 不负责检查所有后续交易是否合法，也不负责跨表证明当前指针就是最新成功版本；这些条件由账户锁内服务复验、复合外键及真实事务测试共同守护。已发布派生数据保留旧审计引用，但不能因新期初已保存就提前变成 Ready。
+
+索引保留最小集合：账户按 (owner_id, created_at, account_id) 支持既有列表顺序；期初唯一 (account_id, revision) 支持读取版本及并发去重；股票主键支持整版本读取，同版本 client_row_id 唯一支持稳定字段定位。不存在账户删除／重命名接口，不为未要求的历史搜索建立附加索引或配置项。
+
+#### 4.21.3 必须实施的数据库与接口验收
+
+| 编号 | 验收条件 |
+| --- | --- |
+| ACCOUNT-DB-01 | 同用户同名同券商可创建不同账户；同请求重放只一账户；他人账户读取／更正被拒绝；不以名称代替身份 |
+| ACCOUNT-DB-02 | 零现金、零股票可成功；重复 tsCode 或 clientRowId、可卖量超额、非正成本拒绝且无半个账户；非整手期初数量不被整手规则拒绝 |
+| ACCOUNT-DB-03 | 故意让 A 账户引用 B 的期初或费用，复合外键拒绝；事务内循环引用合法，提交时缺任一必须版本失败 |
+| ACCOUNT-DB-04 | 更正新增／移除股票形成完整新版本，旧版逐行仍可读；initializedOn 不变，不生成买入或入金；后续超卖／负现金仍阻止整次更正 |
+| ACCOUNT-DB-05 | 期初版本插入后、指针切换后、回执构造时分别注入失败，读回仍为完整旧状态；提交断连按恢复协议确定，不自动再建账户 |
+| ACCOUNT-DB-06 | 金额多余小数位、非有限数值不被静默舍入；输入→数据库→DTO 的 0.00、成本和数量精确一致；更新费用不推进账务版本 |
+
+当前证据：本轮先使用 CodeGraph 查看模型关联及相邻 schema／客户端消费者；工具未展示目标模型体，随后直接读取 watchlist_group.py、app_user.py，确认 Foundation Base、app schema 与 INTEGER 用户主键。自选的同名唯一及删除级联未沿用；其整数 ID／浮点行情 DTO 不作为账务字段模板。没有改当前实现、数据库或依赖矩阵，未运行上述功能验收；迁移前仍须检查真实 Alembic head。产品规则和正式交互无新增变化，本轮不改 PRD 或 Figma。
+
+### 4.22 原始流水及不可变修订的物理合同（修订 58）
+
+依据 §4.2—4.3、§4.7、§4.11、§8.15；以下只定义账务事实，不把闭环、期初资产、规则触发或通知混入流水。所有表位于 app schema，身份 UUID、版本 BIGINT、日期 DATE、时间 TIMESTAMPTZ，沿用 §4.21；API tradeId／cashFlowId 分别是对应类型的 ledger_id，不另建映射身份。
+
+| 表 | 字段与约束 |
+| --- | --- |
+| wealth_ta_ledger | ledger_id 主键、account_id 非空外键、kind 非空 TEXT（TRADE／CASH_FLOW）、created_at 非空；唯一 (account_id, ledger_id, kind)。账户及类型在创建后不变，买卖方向不是 kind，不限制同价同量同日重复事实 |
+| wealth_ta_ledger_revision | 主键 (ledger_id, revision)；account_id、kind、revision、accepted_fact_version、occurred_on、status、accepted_at 非空，note 可空；revision 与 accepted_fact_version ≥ 1，status 仅 ACTIVE／VOID；source_revision 第一版空、后续指向同流水前版 |
+| 修订的成交分支 | ts_code、direction（BUY／SELL）、price、quantity、gross_amount、fee_version_id、commission_rate、minimum_commission、stamp_tax_rate、commission_amount、stamp_tax_amount、net_cash_change 均非空；cash_amount 为空 |
+| 修订的资金分支 | direction 仅 IN／OUT，cash_amount 为正且精确到分，net_cash_change 非空；股票、价格、股数、成交额及全部费用字段均为空，不以 0 假装适用 |
+
+修订以 (account_id, ledger_id, kind) 复合外键引用流水；(account_id, fee_version_id) 引用本账户费用版本。每条流水的 source_revision 必须是同一 ledger_id 的既有修订，新增序号在账户锁内确定为前版 + 1；普通外键只能证明来源存在，不能代替顺序和状态检查。一个账户事实版本只接纳一次原始业务命令；初始化更正也消耗事实版本，故流水 accepted_fact_version 允许有间隔，不把缺少流水的版本号判断为数据缺失。
+
+**分支 CHECK：**kind=TRADE 与 kind=CASH_FLOW 的字段组合互斥。成交 quantity 为 BIGINT 正整数，不加整手约束；price 为有限正 NUMERIC，金额／费用为有限 NUMERIC 且精确到分，费用非负、买入印花税为零。gross_amount = price × quantity；BUY 的 net_cash_change = -(gross_amount + commission_amount + stamp_tax_amount)，SELL 为 gross_amount - commission_amount - stamp_tax_amount；资金 IN／OUT 分别为 cash_amount／-cash_amount。不增加“卖出净入账必须为正”限制，仍由总现金合法性校验决定能否接纳。佣金及税率的合法范围、快照精度沿用费用合同，服务端计算，不接受用户覆盖。
+
+VOID 修订保存目标最后一份量价、费用及备注供审计，status 决定它不再参与有效集合，不把金额改为零也不创建反向资金流水。当前产品未提供作废后恢复功能，不因保存了旧内容而新增恢复命令。用户更正交易方向时可 BUY↔SELL，但不能把 TRADE 改成 CASH_FLOW；更正沿用首次费用引用和快照，只有系统金额随新事实重新计算。
+
+#### 4.22.1 固定事实版本查询
+
+以下是服务端查询语义示意，不是生产执行 SQL：
+
+```sql
+WITH versions AS (
+  SELECT r.*,
+         row_number() OVER (PARTITION BY ledger_id ORDER BY revision DESC) AS rn
+  FROM app.wealth_ta_ledger_revision r
+  WHERE r.account_id = :owned_account_id
+    AND r.accepted_fact_version <= :fact_version
+)
+SELECT * FROM versions
+WHERE rn = 1 AND status = 'ACTIVE';
+-- 股票、日期、方向过滤以及展示游标只允许接在有效集合之后。
+```
+
+账户所有权在进入该查询前及同一读上下文核验，SQL 参数不是来自客户端未经校验的 owner。原始记录读取固定 factVersion；多账户按各自版本分别取有效集合后汇总。不能把时间过滤推到 versions 内，否则将交易从 A 日改到 B 日时，查 A 日会错误复活前版。
+
+索引：修订主键支持单笔审计；(account_id, ledger_id, accepted_fact_version DESC) 支持固定版本选取；账户下版本写入可建立 (account_id, accepted_fact_version) 唯一约束，保证同版本不出现两笔原始命令修订。日期分页只能作用于已选中的有效集合，不能为了走日期索引改坏语义。实际长历史查询计划及批次内存仍须测量，不以这段全量示意替代 §4.7 的有界扫描。
+
+#### 4.22.2 命令与读回验收
+
+| 验收 | 必须证明 |
+| --- | --- |
+| LEDGER-01 | 两个请求同日同股同价同量产生两个 ledger_id；同 requestId 重放只有一个；不以行情业务键去重用户成交 |
+| LEDGER-02 | 将日期 A 改为 B、股票 X 改为 Y：最新查询不复活 A／X；旧 factVersion 可追溯旧版；作废后不参与当前合计 |
+| LEDGER-03 | 60／40 股独立保存及逐笔费用；日组只是查询汇总；卖出来源保持两条，跨页仍可一一对应闭环 |
+| LEDGER-04 | TRADE 携带资金专属字段或 CASH_FLOW 携带费用字段被拒；跨账户费率／来源修订引用失败；VOID 不伪造反向流水 |
+| LEDGER-05 | 更正原量价时锁定首次费用配置；更新指针／事实版本、重算需求与成功回执在同一事务；失败读回无半份修订 |
+
+### 4.23 校验候选与恢复输入的唯一来源（修订 58）
+
+候选不是流水，不能引用“当前持仓”作为已校验余额，也不能在后台查询时自动接纳。候选采用 UUID candidate_id，owner_id INTEGER 非空，account_id UUID 可空仅用于首次建账户；purpose 区分 PREVIEW／SAVE。PREVIEW 用于只读业务预览，不生成保存回执；SAVE 与 owner/requestId 绑定并按 §4.17 的尝试执行权校验。预览成功不能凭 candidate_id 绕过最终保存复验。
+
+拟定 app.wealth_ta_validation_candidate 保存 candidate_id、owner_id、account_id、purpose、request_id、input_schema_version、input_digest、input_payload、basis、created_at。规范化输入为唯一不可变 JSONB，basis 固定基础事实、目标修订、期初、费用、交易日和校验规则版本；input_digest 为 SHA-256 的 32 字节 BYTEA。SAVE 的 (owner_id, request_id) 唯一且引用原请求；PREVIEW 的 request_id 为空，不冒充已提交业务命令。候选的账户引用包含 owner_id，非空账户必须属于该用户。
+
+已经用候选留存输入的请求只保存 candidate_id，write_request.input_payload 为空；不使用候选的轻量请求才直接保存在 write_request，二者互斥。候选与请求循环引用延迟到同一事务提交检查，不能提交请求后才尝试留存输入。恢复接口从这一唯一来源读取，修改表单不原位改旧候选，而是按既有请求身份规则产生新内容及重新核对。成功候选不变成正式事实表，不参与现金、数量或收益查询。
+
+校验进度单独存 app.wealth_ta_validation_checkpoint：checkpoint_id UUID、candidate_id、validation_run_id UUID、attempt_id（SAVE 适用）、stage、stock_key、page_key、basis_digest、cursor、accumulator、completed_range、checked_row_count、updated_at。stage／stock_key／page_key 非空规范化值，现金阶段 stock_key 使用空字符串而非 NULL，保证唯一 (candidate_id, validation_run_id, stage, stock_key, page_key) 真正防重；同批累计器与游标同事务提交。accumulator 仅保存本阶段现金／数量及当前日累计量，不保存新收益或闭环。换依据产生新的 validation_run_id，不能用不同输入继续旧累计器。
+
+完成证明必须明确现金扫描结束及所有受影响股票扫描结束、已读数量、范围和 basis_digest；只有依据与当前事实仍一致且尝试执行权有效才进入接纳事务。NOT_SAVED 后的新尝试可以按 §4.7 验证并复用兼容检查点，但不能复活旧执行权。预览的检查点只服务本次预览，不增加用户可见的预览恢复入口；清理周期未获明确策略前不设置自动删除或 TTL。
+
+验收至少覆盖候选和请求同事务留存、两处输入不能同时存在、跨用户候选不可读、相同页重放不重复累计、半日不算完成、依据变化禁止续用、预览成功后事实变化必须重验、查询候选不接纳、旧尝试迟到提交被拒。物理引用与业务锁同时验证，不宣称普通 CHECK 可以核对 JSON 中的全历史合法性。
+
+本轮 CodeGraph 读取相邻命令提交链作事务参照；未复用自选去重／删除行为，未改现有 API、模型、数据库或依赖边界。§4.22—4.23 为目标合同，完整 DDL、查询性能和真实数据库故障注入尚未执行。
+
+### 4.24 派生结果、日封存和发布清单（修订 58）
+
+本节把 §4.6 的既定执行语义落到表关系，沿用 §4.8 的有界 Web 执行及 §4.18 的进度。所有以下表使用 app.wealth_ta_ 前缀，归 Biz；不是 Ops 任务表，不新增状态平台。账户／代次／日结果身份 UUID，版本／计数 BIGINT，业务日期 DATE，业务更新时间 TIMESTAMPTZ。所有结果引用包含 account_id，跨账户关联由复合外键拒绝。
+
+| 表后缀 | 关键字段、唯一性及职责 |
+| --- | --- |
+| recalculation | account_id 主键；target_version、affected_from_date、next_attempt_at、executor_id、fence、lease_until、transient_failure_count、updated_at。每账户一条待办，合并最早受影响日；fence 单调递增，领取／续租／提交均复验；不复制原始流水 |
+| calculation_generation | generation_id 主键；account_id、target_version、fact_version、initialization_id、rule_version、from_date、through_date、stage、resume_stage、completed_trade_date_count、total_trade_date_count、last_completed_trade_date、last_business_updated_at、reason。唯一 (account_id, target_version)，同目标恢复同代次；总数准备完成前可空，其余进度遵守 §4.18 |
+| valuation_basis | basis_id 主键；account_id、generation_id、ts_code、trade_date、valuation_at、price、source_ref、source_version、quality、fee_version_id。保存实际使用的可读价格与状态或可读回的不可变来源引用；不能仅存 hash；缺数价格为空，不填前收盘价或零 |
+| calculation_batch | account_id、generation_id、trade_date、stage、stock_key、page_key 唯一；cursor、accumulator、input_digest、row_count、completed_at。空股票键使用非空规范化值；重复批次只读回核验，不重复累计；候选业务输出与本批记录同事务提交 |
+| day_result | day_result_id 主键；account_id、origin_generation_id、trade_date、input_digest、status、sealed_at。唯一 (account_id, origin_generation_id, trade_date)；仅全部股票、费用、闭环及账户对账通过后 SEALED；封存之后不可改 |
+| position_state | account_id、day_result_id、ts_code、round_id 唯一；开始／结束日期、quantity、remaining_buy_cost、cumulative_buy_input、cumulative_sell_net、动态成本依据。保存日末数量与成本累计器，可重建轮次；不保存单股当日／当前收益率 |
+| closed_trade | account_id、day_result_id、sell_ledger_id、sell_revision 唯一；round_id、quantity、allocated_cost、net_proceeds、profit_amount、return_pct。只引用有效卖出修订；一个日结果每笔卖出恰好一条，部分卖出仍生成 |
+| account_snapshot | 主键 (account_id, day_result_id)，trade_date、valuation_at、cash_amount、stock_market_value、total_assets、cash_in_amount、cash_out_amount；current_buy_input、current_sell_net、dynamic_cost_amount、estimated_sell_commission、estimated_stamp_tax、estimated_net_proceeds、holding_profit_amount、holding_return_pct；day_profit_amount、day_capital_amount、day_return_pct、closed_trade_count、closed_profit_amount |
+| publication_day | 主键 (account_id, generation_id, trade_date)，day_result_id 非空，直接引用同账户同日期已封存日结果；可复用经过兼容核验的旧日结果，不递归引用另一发布清单 |
+| publication_receipt | 唯一 (account_id, generation_id)，target_version、published_at、manifest_digest、day_count。与账户发布指针原子提交，提交断连后提供核验依据，不是原始记账回执 |
+
+快照 current_*、holding_* 只覆盖日末仍持有的轮次；day_* 覆盖当天全部参与，包括已清仓股票；closed_* 是对应卖出闭环的累计持有期间结果，不能再加到 day_profit_amount。无股票期间结果时金额／率的空值按 PRD 和 §4.19 表达，现金快照仍可存在。金额为有限精确 NUMERIC，最终金额到分；原始行情 price 保存源精度不强制两位，前端显示精度不得倒灌估值依据。单股动态成本可为负，不能套用初始化成本正数 CHECK；闭环分摊成本与剩余买入成本非负，分币以 §4.5.1 为准。
+
+**轮次与跨代复用：**round_id 是派生身份，按账户、股票及建仓来源确定并在固定输入下稳定重建；同日卖出又买回而日末仍持仓不结束轮次。历史更正可能改变轮次划分，旧轮次只在原发布上下文解释，不能仅凭相同股票代码将旧轮次详情接到新代次。position_state 保存数量／成本的日期状态，不是新增单股收益率快照。初始估值基线独立保存并引用 initialization_id／valuation_basis，不把休市初始化日伪造成交易日 day_result。
+
+**发布约束：**日数全部完成后仍须读回核验：每笔有效卖出恰一条闭环；数量／成本分配守恒；快照现金和有效原始事实一致；所有有效日期清单完整且与固定截止对应；每条引用同账户、同日期，且为 SEALED。最后短事务复验账户目标和执行权，插入 publication_receipt 并更新 published_generation_id。清单或回执写失败不切指针；旧代次恢复不能发布到新目标。查询只从账户发布指针及清单进入，不按各表最大 created_at／generation_id 自行拼接。
+
+**最小索引：**recalculation 按 (next_attempt_at, account_id) 查到期待办；generation 按账户目标唯一定位；valuation_basis 按 (account_id, generation_id, trade_date, ts_code) 读取；批次唯一键用于续跑；日结果、股票状态、闭环按 day_result_id 有序分页；发布清单按账户／代次／日期读取。发布阶段不遍历嵌套代次链，不以新建周表、月表或单股收益率表换取查询方便。数据不删除、不设置未经批准的清理任务。
+
+| 必须实施的验收 | 对账／故障断言 |
+| --- | --- |
+| DERIVED-01 | 11 只股票分批处理，原始两笔卖出产生两条闭环；每页成本分币合计与全组一致；未完成批不计业务进度 |
+| DERIVED-02 | 输入齐备→封存→核对→发布，各阶段读者均看不到半份新收益；9/9 未发布仍占位；发布后四视图和日历同上下文 |
+| DERIVED-03 | 重算前缀复用只引用已证明兼容的日结果；不形成递归代次链；改初始成本后不能复用不兼容前缀 |
+| DERIVED-04 | 旧执行权恢复、账户目标更新、发布断连分别注入故障；无旧代覆盖、重复闭环或重复发布；恢复从持久化检查点开始 |
+| DERIVED-05 | 初始化休市、纯现金日、持续持仓无交易日、清仓日各自正确；不伪造行情／单股收益率表／周月快照 |
+
+#### 4.24.1 本轮覆盖收敛与剩余门禁
+
+§4.21—4.24 已覆盖账户、费用、期初、流水修订、校验候选、恢复输入、重算批次、日结果、快照和发布清单的表关系与事务设计。完整可执行 DDL 仍须统一核对每个约束名、所有复合外键候选唯一键、数值／输入容量及模型注册；其中包含明确范围的工程补全，不应重新询问已拍板收益或数量口径。
+
+仍未覆盖：规则／检查记录及通知相关物理表的完整约束，市场数据适配器的真实字段和样本依据，精确 API 全字段与异常、执行函数接线、性能实测及完整编码门禁。飞书专项继续按用户授权延后，不删除一期通知。现有篇章里的 MODEL／VAL／SNAP／READ 等都是待实施验收，文档检查不能替代这些测试。未有新产品冲突，本轮无须改 PRD 或 Figma；不把这组数据库设计写完当作整个技术方案完成。
 
 ## 5. 未冻结的技术内容
 
@@ -2147,13 +2299,43 @@ PRD §4.3 明确当前需求不含记录导出；本方案不新增导出接口�
 
 **当前边界：**未修改产品规则、Figma 或代码，未引入股数倍数 CHECK；暂停该项数量合同及依赖它的流水约束定稿，等待 Review。既有正数、T+1、超卖与现金规则不受本问题质疑。未查询交易所规则或声称已验证市场规则；若用户选择执行申报规则，须另行核验市场／板块／申报与成交区别，不可硬编码“全部 A 股一律 100 股”。
 
+### 8.16 已确认：已确认停牌、没有当日新收盘价时的持仓估值
+
+**修订 60 最新结论：**用户采纳下述建议，已落入 PRD v1.39 §7.6。本项产品问题关闭；下文修订 59 的提问及“尚未采纳”属于历史审计过程，不再是当前等待项。R13-A 已通过视觉 Review，正式状态为第 19 页 `1881:5995`、第 20 页 `1881:6000`；第 21 页 `1878:2170` 保留为已通过样例。两份正式卡已截图核对；本次仅合入静态状态，不宣称实际行情或功能测试通过。
+
+**实现承接：**估值依据增加明确的 `valuationMethod`（`SAME_DAY_CLOSE`／`CONFIRMED_SUSPENSION_CARRY`），并分别保存目标 `valuationDate`、原始 `priceDate`、实际价格及可读回的停牌证据引用。沿用价不得复制成当日市场行情记录；连续停牌始终追溯原始价格日，不每天把前一天生成的估值当成新价格。`valuation_basis` 的来源／版本证据必须覆盖停牌事实、原价和公司行动影响核验，无法证明则保持未就绪。持仓 DTO 及详情返回这两个日期和估值方式；页面消费统一文案，不从两日期不等自行推断停牌。账户同一目标估值日可以包含两种合法估值方式，不能因源价格日不同自动判为缺数，也不能忽略其中真正缺数的股票。
+
+费用后估值继续使用该估值时点固定的费用版本；当天收益按两端净价值及实际流水计算，禁止 `if suspended: profit = 0`。累计值、当前持仓分母及期间本金均沿用原规则。来源更正或停牌证明被纠正时按 §4.6.1 产生新计算目标，不覆盖已冻结旧依据；复牌使用有效当日价。以上为设计合同，来源实证与真实测试仍未执行。
+
+**验收补充：**SUSP-01：1000 股、10.00 元、无其他变化时当日 0.00／0.00%，累计不归零；SUSP-02：普通缺数、停牌未确认、原价缺失、公司行动影响未处理均不得沿用；SUSP-03：连续停牌保留原始价格日期，复牌切回当日价；SUSP-04：停牌与正常股票共同汇总且周／月本金不遗漏；SUSP-05：费用变化按两端估值计算、不硬编码零；SUSP-06：持仓沿用价不进入计划分钟检查；SUSP-07：停牌证据修正触发版本化重算，旧执行者不得发布。全部为待实施测试。
+
+以下保留修订 59 的发现过程：
+
+**审计依据：**PRD §7.6 要求盘后使用“同一交易日最终有效收盘价”形成正式日快照；§14.2 要求同一估值时点，缺数不能冒充正常结果。PRD §13.3 对计划检查明确停牌、无成交和数据缺失必须区分，禁止前值填充制造触发，但没有定义持仓估值是否允许在确认停牌后沿用旧价。本文 §4.6.1 已明确将停牌取价留待核验，不能把未定项当成已批准的兜底。
+
+**需要决定的用户结果：**例如账户持有 A 股票 1000 股，周一有效收盘价 10.00 元，周二确认全天停牌且没有新的收盘价；数量、费用配置及其他账务均未变化，也没有公司行动影响。周二是继续按 10000.00 元市值计算，A 当天价格变化贡献为 0，还是因为没有周二新收盘价而令相关收益待计算？这会影响当前持仓、全仓汇总、日历、周／月收益和日快照，不只是接口空值处理。
+
+**建议，尚未采纳：**仅在有可靠全天停牌证据、最后有效价格可追溯且无未处理公司行动影响时，持仓估值沿用停牌前最后有效收盘价。页面分别表达本次估值日期和原始价格日期，标明“停牌，沿用最后有效收盘价”；不能把旧价格标为当天新行情。上述例子中股票市值不变，费用后净价值也不变，因此当天新增收益为 0；历史累计收益仍保留，不归零。其他股票的当天收益正常进入账户汇总。
+
+此建议不覆盖行情延迟、接口失败、无法确认停牌、最后有效价缺失或公司行动影响无法处理的情形；这些继续按未就绪处理，不能静默前值填充。不新增公司行动计算功能，不以停牌名义绕过其后续开发边界。计划／提醒依然只验证真实完整分钟，不复用估值旧价构造触发点。
+
+**证据与实施界限：**本轮使用 CodeGraph `codegraph_explore` 检查分钟读取及其调用／测试关系，读到 `StockMinsLakeReader` 使用 `stk_mins_qfq` 路径、空路径返回空页；这不是交易助手停牌估值规则，也不证明实际停牌数据可用。本项是产品取价边界缺失，不是认定源接口没有停牌能力。未执行外部源或 Lake 样本核验，不冻结数据适配器。批准后先同步 PRD，再按实际展示差异补 Figma 局部评审，最后补来源证明、估值合同和正反例；批准前不改 PRD／Figma、不将建议纳入正式计算。
+
+---
+
 ## 9. 恢复推进与交付状态
 
 1. 第 6 节原待拍板项、第 8.1 节初始化可卖量、第 8.2 节单股范围和第 8.3 节分币问题均已关闭；PRD v1.21 同步分币原则，原单股 / 全仓规则不变，R7、R8 已通过并合入。可以继续第 8 节剩余方案；不重问此前已确定的产品案例，也不将局部对账当作全方案完成。
 2. 历史阶段记录：修订 8 随 `a851e899` 提交，修订 9—17 随 `ca562557` 提交；修订 25 补 §4.12，修订 26 撤销导出分支；修订 27—31 完成 R9 产品、正式交互与范围复盘合同。后续 R10／R11 已正式合入，自然周已确认，不再将这些历史下一步列为待拍板事项。飞书技术项单列延后；不恢复 Ops 接入或扩大基础设施范围。
 3. 修订 18—31 随 `1fbfd12c` 提交；修订 32—35 随 `034afde3` 提交；修订 36—38、PRD v1.32—v1.33 及索引随 `2d506a57` 提交；修订 39 随 `64924d1a` 提交，均未推送。修订 40 已补 §4.15 认证发送策略、已登记请求的恢复存储职责与执行尝试防重；修订 42 将完整自然周落入 PRD v1.34、正式 Figma 与 §4.10.4，关闭 §8.11。修订 40—42 的文档更新尚未提交，未编码。下一步先闭合服务器尚未登记请求时的输入保留和迟到请求边界，再登记精确异常与恢复 DTO；不宣称整体完整。
 4. 用户最新允许本文直接补齐并复用为 LLD，不再重复编写已有低层内容；后续补齐剩余细节及[模块交付清单](../../system/module-delivery-checklist-v1.md)内嵌编码门禁并统一评审，未经评审不编码。
-5. 修订 40—44 已随 `64258a76`、45—50 随 `e356a998`、51—52 随 `a918358f` 提交，均未推送；修订 53—56 未提交。§4.18 已补字段映射，§8.14 冲突及 §8.15 数量边界均已关闭，§4.19 已补六模块读取状态，§4.20 已补费用接口、存储约束及异常登记。下一步继续账户主表、期初资产与流水的完整 DTO／物理约束，以及预算与门禁审计；真实验证仍未执行。不再研究范围外填写数据丢失，整体不能作为编码开工依据。
+5. 修订 40—44 已随 `64258a76`、45—50 随 `e356a998`、51—52 随 `a918358f`、53—56 随 `96848f68` 提交，均未推送；修订 57—58 未提交。§8.14 冲突及 §8.15 数量边界均已关闭；§4.21—4.24 完成账户账务相关物理关系及事务设计，完整 DDL、规则检查物理表、数据源实证、输入容量／完整 DTO、预算和编码门禁仍待补齐。真实验证未执行，不再研究范围外填写数据丢失，整体不能作为编码开工依据。
+
+6. 修订 59：连续收敛过程中发现 §8.16 停牌持仓取价边界未定义，暂停等待用户确认；未改产品、Figma、业务代码或依赖矩阵。仅技术方案与索引更新，修订 57—59 未提交，整体仍未完成。
+
+7. 修订 60：用户确认停牌估值例外，已同步 PRD v1.39、本文 §4.6.1／§8.16 和 R13-A 局部样例。规则不再待拍板，局部展示待 Review；未覆盖正式页、未编码、未提交，不改变依赖矩阵。
+
+8. R13-A 用户 Review 通过后，已合入第 19／20 页正式状态稿，节点及范围见 PRD §7.6；停牌估值无剩余产品／视觉等待项。前述第 7 项为合入前记录。技术方案剩余设计与来源验证仍须继续，整体未完成；本次未编码、未提交。
 
 ## 10. 版本记录
 
@@ -2216,3 +2398,8 @@ PRD §4.3 明确当前需求不含记录导出；本方案不新增导出接口�
 | v1 草稿修订 54 | 2026-09-11 | 补 §4.20 费用 DTO、同账户选版与持久化约束，登记账户不存在／费用版本冲突及五项验收 | 不改产品／Figma，未编码、未提交；账户主表类型及完整 DDL 仍待补齐 |
 | v1 草稿修订 55 | 2026-09-11 | 流水数量约束续审发现登记股数与下单数量规则的边界未明确，记录 §8.15 建议及影响 | 等待用户 Review，未修改产品／Figma／代码，未提交 |
 | v1 草稿修订 56 | 2026-09-11 | 用户确认正整数股登记；同步 PRD v1.38，补数量校验／数据库禁止约束及 QTY-01—04，关闭 §8.15 | 正式及组件页文案无整手限制，无需改 Figma；未编码、未提交 |
+| v1 草稿修订 57 | 2026-09-11 | 提交修订 53—56；补 §4.21 账户／期初物理字段、复合外键、循环引用与事务及六项验收 | 不改产品／Figma，未编码；本修订未提交，流水和其余物理合同仍待补齐 |
+| v1 草稿修订 58 | 2026-09-11 | 连续补 §4.22 流水修订、§4.23 校验候选、§4.24 日封存／快照／发布清单及验收；汇总剩余门禁 | 未改产品／Figma／代码、未提交；文档检查不代表数据库约束与性能已验证 |
+| v1 草稿修订 59 | 2026-09-11 | 核对 PRD 同日收盘价要求与停牌边界，记录 §8.16 具体场景、建议及适用限制 | 等待用户确认；未改产品／Figma／代码，未提交；不将建议视为正式取价规则 |
+| v1 草稿修订 60 | 2026-09-11 | 用户确认停牌估值例外；同步 PRD v1.39，补双日期／证据／连续停牌／费用／触发隔离及七项验收 | R13-A 局部样例待 Review，未覆盖正式页；未编码、未提交 |
+| v1 草稿修订 60 交互合入 | 2026-09-11 | 用户通过 R13-A，合入两份正式状态稿并更新节点映射 | 静态截图通过；整体方案未完成，未编码、未提交 |
