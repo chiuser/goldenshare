@@ -504,6 +504,24 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 同步主索引、Datasets 必读链接、日期指南与源请求阅读指南。原全文可在提交 `bdc6522f` 中追溯；历史事故、251 项开发回归等原证据与本次 24 项离线定向回归明确分列，不把文档精简当作数据修复或代码问题结案。
 
+<a id="dataset-field-repairs-consolidation-20260910"></a>
+
+#### 2026-09-10 指数基础信息与板块日线修复文档整合
+
+三份旧修复方案收敛为两份现行说明，仅改文档与索引，不改代码、合同、依赖矩阵或生产状态。
+
+| 原文档 | 处理与去向 |
+| --- | --- |
+| `docs/datasets/index-basic-source-alignment-fix-plan-v1.md` | 原路径保留为[指数基础信息维护说明](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)：修正已实现字段仍写缺失、Raw 索引、index_weight 回退与旧验收对象；market 来源冲突单列，不改现行参数 |
+| `docs/datasets/dc-daily-category-identity-fix-plan-v1.md` | 删除；完整三字段身份、分类缺失拒绝、216 组历史碰撞证据及后续 Serving 视图切换，合入[板块日线说明](/Users/congming/github/goldenshare/docs/datasets/board-daily-fields-and-storage.md) §1–2、§4–5 |
+| `docs/datasets/ths-daily-valuation-fields-rebuild-plan-v1.md` | 删除；估值可空、两层模型与两字段主键、历史迁移及验证边界合入同一说明 §1、§3–5；旧 Console 白名单/Parquet 验收与分区清理步骤退出当前指引 |
+
+保留历史迁移链接，删除重复字段表、待开发清单和过期清表操作指令。旧全文在 Git 提交 `b8811098` 可追溯；清退 LLD 历史矩阵中保留的 THS 旧路径是当时处理对象，不是当前文档入口。
+
+依据：当前 Definition、builder、planner、DAO、normalizer/writer、ORM、迁移与定向测试；CodeGraph status/query/impact 用于确认有效指数 DAO 到 index_weight 的影响面。DC 2026-08-28/29 生产记录与本轮代码核对分列，不将 THS/index_basic 的已有字段外推为全历史补齐。本轮不请求 Tushare、不执行迁移、同步或物理清理；market 不传值的全集覆盖仍需独立实测，旧重建批准不复用为新授权。
+
+本批验证：上述三个数据集的定向离线测试加 writer 日期转换用例共 18 项通过（210 项未选）；文档完整性三个检查组及 `git diff --check` 通过。三份正文原 742 行，合并后两份共 160 行，减少 582 行。旧文件名仅留在合并去向表与清退历史矩阵，不保留失效的现行导航链接。
+
 ### 4.4 Frontend 组
 
 当前状态：已完成第一轮整合（建立统一强约束主文档）。
