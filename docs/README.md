@@ -175,8 +175,8 @@ docs/
 - [融资融券交易汇总](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [融资融券交易明细低层设计 LLD v1（M0–M4 与 HDD 落盘已完成，待 M5a 手工历史回补 / M5b 自动增量授权）](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
 - [每日涨跌停价格](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
-- [股票开盘集合竞价](/Users/congming/github/goldenshare/docs/datasets/stk-auction-o-dataset-development.md)
-- [股票收盘集合竞价](/Users/congming/github/goldenshare/docs/datasets/stk-auction-c-dataset-development.md)
+- [股票开盘与收盘集合竞价维护说明（已合并两份接入文档；Raw-only/view、独立迁移与历史验收）](/Users/congming/github/goldenshare/docs/datasets/stk-auction-dataset-development.md)
+- 原开盘、收盘说明已并入以上文档；[合并去向与保留边界](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#stk-auction-docs-consolidation-20260910)见治理记录。
 - [神奇九转指标](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
 - [神奇九转指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-prod-raw-db-lake-export-plan.md)
 - [Dagster 神奇九转数据集接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-plan.md)

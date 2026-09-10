@@ -1,6 +1,6 @@
 # 文档信息架构与待整合清单 v1
 
-更新时间：2026-09-10（补充指数技术因子文档整合记录）
+更新时间：2026-09-10（补充股票开盘与收盘集合竞价文档整合记录）
 
 ## 1. 目标
 
@@ -556,6 +556,23 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 依据：CodeGraph query/impact、当前 Definition、builder/source client、ORM/迁移、writer、capability/binding/probe/schedule、页面消费者与定向测试。保留无对象池过滤、89 源字段、Raw-only/view、单 unit 缓存限制、探测只证明开始发布，以及不加入工作流/不接入 Lake/不预置任务等边界。旧全文可在 Git 提交 `a0df5e1a` 中追溯。
 
 验证：Foundation 的 idx_factor_pro 定向离线测试 12 项通过（219 项未选），远程条件与精确动作绑定测试 1 项通过；文档完整性与差异检查通过。两份共 1,100 行收敛为一份 136 行，减少 964 行；不运行 Web/API 全套测试、源端实测、生产查询或部署。旧路径仅在本合并去向表保留为非链接历史说明。
+
+<a id="stk-auction-docs-consolidation-20260910"></a>
+
+#### 2026-09-10 开盘与收盘集合竞价文档整合
+
+本批仅合并文档，不合并数据集、物理对象或迁移，不修改代码、依赖矩阵、调度、配置或数据。
+
+| 原文档 | 处理与去向 |
+| --- | --- |
+| `docs/datasets/stk-auction-o-dataset-development.md` | 删除；现行合同并入[集合竞价维护说明](/Users/congming/github/goldenshare/docs/datasets/stk-auction-dataset-development.md) §1–5，初始实测、Raw 直出及结案证据并入 §6 |
+| `docs/datasets/stk-auction-c-dataset-development.md` | 删除；与开盘共享规则合并说明，独立身份、迁移、无 VACUUM 切换、节点与父任务状态差异保留在对应差异表及历史摘要中 |
+
+纠偏：移除现行章节中的旧双写流程与收盘旧 storage 示例；区分 Raw 写入/观测目标和 Serving 查询视图，把 Serving 写入行数改为读回对账；请求代码参数清洗不冒充源数据清洗；已经落地的工作流不再要求新增，测试入口改为现存路径。保留每个开市日一个 unit、可选代码、10,000 行分页、9 个源字段、Serving 11 列查询合同、数据库拒写触发器和 ORM metadata/物理对象差异。
+
+历史边界：开盘提前迁移的流程偏差及历史性能对照不删除；两个独立 160,000/160,001 迁移容量验证、时间戳投影变化、空间释放依据、已有日期幂等重跑和早空晚非空的自然运行分别保留。原始过程可从 Git 提交 `8bc1fb44` 追溯，旧迁移阶段不再是当前待办。Lake 清退 M0 清单 §2.1 中的开盘文件名仅表示 2026-08-28 当时的无关脏文件排除项，保留历史原文，不改写成新路径。
+
+依据与验证：CodeGraph query/impact 追踪共用 builder，结合当前 Definition、请求/归一化、writer、ORM、迁移与工作流及前轮消费者审计；专项离线测试 15 项、Raw-only writer 定向测试 2 项通过（12 项未选），文档完整性、差异与引用检查通过。两份共 914 行收敛为一份 127 行，减少 787 行；未请求 Tushare、访问生产、运行 Web/API 全套测试、安装套件或执行迁移。源资料与真实运行证据均按历史时间保留，不重新认证今天的权限、schedule、revision 或数据。
 
 ### 4.4 Frontend 组
 
