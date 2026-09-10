@@ -30,5 +30,5 @@
 1. [数据集日期模型消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 2. [DatasetDefinition 数据集定义与职责](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
 3. [DatasetExecutionPlan 执行计划与可靠执行](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
-4. [股票周/月线同步逻辑说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)
+4. [日期指南 §4：股票与指数周期线、股票接口与执行入口](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)
 5. [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)

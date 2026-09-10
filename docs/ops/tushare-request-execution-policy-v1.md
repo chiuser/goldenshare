@@ -34,8 +34,8 @@
 
 | 专题 | 承接位置与需保留的边界 |
 | --- | --- |
-| 指数日/周/月线 | [现行机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)、[Raw/Serving 分层方案](/Users/congming/github/goldenshare/docs/datasets/index-raw-serving-layer-alignment-plan-v1.md)：日线请求池与 Serving active 池不同；保留 Raw 返回事实、Serving 筛选及周/月线派生来源边界 |
-| 股票周/月线 | [维护说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)：自然周五/自然月末锚点，频率按对应数据集内部固定；不套用指数锚点 |
+| 指数日/周/月线 | [分层与周期线机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)：日线请求池与 Serving active 池不同；Raw 保存通过归一化校验的源站事实，Serving 筛选；周线不能套用月线完整性与来源保护 |
+| 股票周/月线 | [日期指南 §4](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)：自然周五/自然月末锚点，频率按对应数据集内部固定；不套用指数锚点 |
 | 股票分钟线 | [正式开发文档](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)：对象范围、频率、datetime 窗口及分页在该文档与当前 planner 维护；不要在本入口再次抄写 |
 | 指数权重、月度荐股 | [日期指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)、[对象池合同](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md#universe-contract)、[荐股开发文档](/Users/congming/github/goldenshare/docs/datasets/broker-recommend-dataset-development.md)：自然月窗口、月份键和代码池分别处理 |
 | KPL 与停复牌 | [KPL 方案](/Users/congming/github/goldenshare/docs/ops/ops-kpl-list-next-day-release-plan-v1.md)：发布目标日、五标签要求及已知过滤缺口；[停复牌开发文档](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)：S/R 单值扇出与幂等写入 |

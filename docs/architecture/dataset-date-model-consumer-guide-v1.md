@@ -1,6 +1,6 @@
 # 数据集日期模型消费指南
 
-更新时间：2026-09-08。状态：现行日期语义专题。合并日期枚举、Workflow 时间形状/制度和股票周期日期修正的有效结论；不改日期模型或消费者行为，不重新认证源接口行为。
+更新时间：2026-09-10。状态：现行日期语义专题。已合并日期枚举、Workflow 时间形状/制度和股票周期维护说明的有效内容；本次补齐来源与测试入口、区分指数周/月线实现，不改日期模型或消费者行为，不重新认证源接口行为。
 
 ## 1. 先区分三个问题
 
@@ -77,7 +77,7 @@ API/前端消费后端派生的字段与选择规则，不能看到 `trade_date`
 
 ## 4. 股票与指数周期线必须区分
 
-| 数据集 | 日期轴与锚点 | 观测字段 |
+| 数据集 | Definition 声明的日期轴与锚点 | 观测字段 |
 | --- | --- | --- |
 | `stk_period_bar_week`、`stk_period_bar_adj_week` | `natural_day + week_friday` | `trade_date` |
 | `stk_period_bar_month`、`stk_period_bar_adj_month` | `natural_day + month_last_calendar_day` | `trade_date` |
@@ -88,11 +88,24 @@ API/前端消费后端派生的字段与选择规则，不能看到 `trade_date`
 
 - 股票周五休市但周内有开市日时，自然周五仍是锚点；不能回退为周四。
 - 股票自然月末不是开市日时，仍保留自然月末；不能统一改成月末交易日。
-- 指数周/月线仍使用最后开市日；股票修正不授权修改指数。
+- 指数月线按完整月历校验真实月末；指数周线虽声明 `week_last_open_day`，区间 planner 实际只取输入范围内每周最后开市日，仍可产生截断周单元。不能从声明推导出周线已有完整周期校验，也不能把月线派生保护推广给周线；差异见[指数机制 §3–4](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)。本次只说明现状，不授权修改指数。
 - 自然锚点应贯穿输入选择、planner、目标观测、审计和展示；不能只改 UI 文案。
 - 范围内无可执行锚点、计划为空与“预期数据缺失”不是同一结果；保留现行处理与反例测试，不为统一措辞强制报错。
 
-旧“所有周/月线都以最后交易日为准”的确认已经被推翻，不再保留独立规范。股票具体字段与维护逻辑继续见 [股票周/月线维护说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)，源接口依据通过该文档追溯；本文只校准当前代码事实。
+旧“所有周/月线都以最后交易日为准”的确认已经被推翻。股票周/月线的独立维护说明已并入本节，不再另维护重复规则。
+
+### 股票周期接口与执行入口
+
+| 数据集 | 源接口 | builder 固定频率 |
+| --- | --- | --- |
+| `stk_period_bar_week` / `stk_period_bar_month` | `stk_weekly_monthly` | 分别为 `week` / `month` |
+| `stk_period_bar_adj_week` / `stk_period_bar_adj_month` | `stk_week_month_adj` | 分别为 `week` / `month` |
+
+源资料：[doc 336 股票周/月线行情](</Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0336_股票周_月线行情(每日更新).md>)、[doc 365 股票周/月线复权行情](</Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0365_股票周_月线行情(复权--每日更新).md>)。本地资料中 `trade_date` 是周期锚点，返回字段 `end_date` 是计算截至日期；doc 336 样例中前者为 `20251024`、后者为 `20251023`，不能因为锚点已存在就认定完整周期计算已经结束。这里引用既有资料，不作为本次源端实测结论。
+
+手动与自动入口保持 `action=maintain`，point 输入日期，range 输入 `start_date/end_date`，通过 §3 的标准 Resolver/Plan 执行，不恢复历史独立回补服务或旧执行任务名称。[validator](/Users/congming/github/goldenshare/src/foundation/ingestion/validator.py)拒绝非自然周五/自然月末的股票 point；[planner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)按范围展开锚点；[request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)固定 `freq` 并格式化日期，不将源接口可选参数自动开放为运营字段。
+
+已有 [resolver 测试](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)覆盖自然周五（含 5 月 1 日）、自然月末范围展开、实际请求的 `trade_date/freq` 和非法周线 point；动作暴露见 [action catalog 测试](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)。不再把这些现有覆盖写成“后续待补”。
 
 ### 日期桶是否应产出
 

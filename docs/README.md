@@ -130,11 +130,10 @@ docs/
 - [申万 SW2021 行业成员 `index_member_all` Prod 数据集 LLD v1（M0–M5 已完成，M6 历史事实与回补暂缓）](/Users/congming/github/goldenshare/docs/datasets/index-member-all-sw2021-low-level-design-v1.md)
 - [申万 SW2021 行业日行情 `sw_daily` Prod 数据集 LLD v1（M0–M5 已完成，M6 历史事实与回补暂缓）](/Users/congming/github/goldenshare/docs/datasets/sw-daily-sw2021-low-level-design-v1.md)
 - [A股市场温度/情绪与 Walk-forward 指标口径说明 v1](/Users/congming/github/goldenshare/docs/datasets/market-mood-metrics-and-walkforward-spec-v1.md)
-- [指数行情 raw / serving 分层语义对齐改造方案 v1（已实施）](/Users/congming/github/goldenshare/docs/datasets/index-raw-serving-layer-alignment-plan-v1.md)
-- [指数行情 active 池与周/月线派生机制说明（当前实现说明）](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
+- [指数行情分层、对象池与周期线维护说明（已合并分层方案；周/月线差异、来源统计与历史验收分列）](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
 - [指数基础信息源站对齐修复方案 v1（实施中，待真实验收）](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)
 - [东方财富板块日线 category 字段与主键修复方案 v1（已确认）](/Users/congming/github/goldenshare/docs/datasets/dc-daily-category-identity-fix-plan-v1.md)
-- [股票周/月线同步逻辑说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)
+- [股票周/月线维护说明（已并入日期指南 §4，含接口来源与执行入口）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)
 - [资金流多源融合策略设计 v1](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
 - [同花顺板块日线估值字段扩表重建方案 v1（已确认）](/Users/congming/github/goldenshare/docs/datasets/ths-daily-valuation-fields-rebuild-plan-v1.md)
 
