@@ -82,8 +82,8 @@ docs/
 
 - [财势天下登录页视觉改版与鉴权接入技术方案 v1（开发完成，待用户部署验收）](./pages/login/login-page-auth-design-v1.md)
 - [财势天下登录页视觉改版低层设计 v1（修订 v1.2，含登录校验脱敏与开发对账）](./pages/login/login-page-auth-low-level-design-v1.md)
-- [财势乾坤交易助手标杆需求 v1（v1.23；佣金与印花税均自动计算，账户改费率不回算旧交易；正式 Figma 已同步待复核）](./pages/trading-assistant/trading-assistant-benchmark-requirement-v1.md)
-- [财势乾坤交易助手技术实施方案 v1（草稿修订 17；两项税费统一版本与生效规则，补配置审计和验收清单；整体未完成，未编码）](./pages/trading-assistant/trading-assistant-implementation-design-v1.md)
+- [财势乾坤交易助手标杆需求 v1（v1.29；R9 已通过并正式合入，范围复盘与整轮查看节点已对齐；日历及算法不变）](./pages/trading-assistant/trading-assistant-benchmark-requirement-v1.md)
+- [财势乾坤交易助手技术实施方案 v1（草稿修订 31；已补范围复盘、整轮查询及正式状态合同，下一步核验规则维护与未覆盖操作状态；整体仍未完成，未编码）](./pages/trading-assistant/trading-assistant-implementation-design-v1.md)
 - [财势乾坤板块分析产品交互基线文档 v1](./pages/wealth-exploration/sector-analysis-product-interaction-baseline-v1.md)
 - [财势探查｜板块分析技术实施方案 v1（五方法已完成；每日洞察 M22 代码完成，待远程验收）](./pages/wealth-exploration/sector-analysis-implementation-design-v1.md)
 - [财势探查｜板块分析低层设计 v1（每日洞察 M22 代码完成，待远程验收）](./pages/wealth-exploration/sector-analysis-low-level-design-v1.md)
