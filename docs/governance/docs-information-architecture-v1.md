@@ -1,63 +1,36 @@
-# 文档信息架构与待整合清单 v1
+# 文档治理入口与合并记录 v1
 
-更新时间：2026-09-10（补充筹码、BIYING 与财务三表文档整合记录）
+更新时间：2026-09-11。本文维护导航、待办边界和历史去向，不再重复定义日常维护规则。
 
-## 1. 目标
+## 1. 当前入口
 
-本文件用于把 `docs/` 从“历史堆叠”整理为“可持续维护”的结构。
+| 要找什么 | 入口 |
+| --- | --- |
+| 当前文档与专题 | [主索引](/Users/congming/github/goldenshare/docs/README.md) |
+| 分类、改删并、历史标注、提交检查 | [维护基线](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)及各目录 AGENTS |
+| 工程风险与关闭证据 | [风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md) |
+| 已合并文件去了哪里 | 下文 §4：按 Architecture、Ops、Datasets、Frontend、Sources 分组，保留原锚点 |
 
-原则：
+<a id="2-当前目录结构目标态"></a>
 
-1. 先有单一事实，再有专题补充。
-2. 文档按职责分层，不按个人记忆归档。
-3. 删除前先确认是否还有现实价值；保留必须有明确定位。
+## 2. 当前待办边界
 
----
+本轮三批已进入文档修改后 review，不再列为待开工。本文没有登记新的已批准实施批次；这不代表全仓文档都审计完毕。
 
-## 2. 当前目录结构（目标态）
+后续仅在发现具体错误、重复或实现变更时按主题建立范围。业务专题自身的未验收、未拍板和暂缓事项继续由对应主文档维护，不因文档合并而结案，也不自动转成代码开发任务。
 
-```text
-docs/
-  README.md
-  architecture/   # 架构基线、边界、分层方案
-  ops/            # 运维契约、执行与观测专题
-  datasets/       # 数据集开发文档与策略说明
-  frontend/       # 前端治理、流程、视觉与执行
-  platform/       # 对上业务 API 规范
-  release/        # 发布流程
-  product/        # 产品原始材料
-  templates/      # 开发模板
-  sources/        # 数据源接口说明（源站文档摘要）
-  governance/     # 文档治理与整合记录
-```
+<a id="3-分类规则必须遵守"></a>
 
----
+## 3. 本轮与历史记录怎么读
 
-## 3. 分类规则（必须遵守）
+- 本轮处理清单见[基础数据、行业报表与治理自身](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#workflow-reports-governance-20260911)。
+- §4 保存当时的合并去向、验证与遗留边界；“本轮/当前/下一步”按各批记录日期理解，不是今天的新执行授权。
+- 旧文件名只用于 Git 追溯，不是待恢复清单；历史测试通过不代表今天已重新验收。
+- 日期、数量、hash 和既有锚点保留。篇幅主要来自关闭证据，不能为减行数删除唯一证据。
 
-1. `architecture/`
-- 只放“系统级”规则与基线。
-- 一旦收敛完成，文档应写“现状”而不是“迁移流水账”。
+<a id="4-待整合清单下一轮"></a>
 
-2. `ops/`
-- 只放运维平台对象、页面契约、执行流程、专项方案。
-- 与代码状态冲突的旧方案必须下线，不保留并行版本。
-
-3. `datasets/`
-- 一个数据集一份开发文档。
-- 跨数据集策略另建专题文档（如 `moneyflow-*`）。
-
-4. `sources/`
-- 存放“数据源接口说明”的本地摘要与落地约束。
-- 不替代 `datasets/*` 的开发方案文档。
-
-5. `frontend/`
-- 面向前端治理与交付流程。
-- 同一主题多文档并存时，应提供主文档并标注专题关系。
-
----
-
-## 4. 待整合清单（下一轮）
+## 4. 历史整合记录（非待办）
 
 ### 4.1 Architecture 组
 
@@ -927,30 +900,25 @@ CodeGraph 使用 status/query/impact 定位 ETF planner、Basic selector、RawSt
 
 验证：定向离线测试 83 passed（top_list 8，ETF 监控/归档及架构防回流 75），仅一条既有 Starlette/httpx 弃用告警；使用既有环境，未安装套件，测试仅使用进程内测试数据，不接生产数据库。文档完整性三个检查组、六份保留文档的 235 个链接目标/38 处锚点和 git diff --check 通过。12 个风险 ID、等级、状态及历史恢复数字/日期保留；两个删除文件名只剩本节追溯，无活动入链。CodeGraph status 为最新。README 中其他任务条目和其余 Lake/Wealth 改动未处理。
 
-## 5. 执行规则
+<a id="workflow-reports-governance-20260911"></a>
 
-1. 每轮只整合一个文档组（Architecture/Ops/Datasets/Frontend），避免扩散。
-2. 整合动作必须同步更新 `docs/README.md`。
-3. 删除文档前，先确认无代码路径与流程说明依赖。
-4. 文档链接必须可达，禁止保留死链。
-5. P0/P1 工程风险统一登记到 [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)，避免风险只停留在口头讨论或单次事故复盘里。
+### 4.6 2026-09-11 基础数据、行业报表与治理自身
 
-文档维护日常基线见：
+状态：三批文档修改完成，待统一 review，未提交。仅文档；其他任务改动保留。
 
-- [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
+| 原文档 | 处理与承接 |
+| --- | --- |
+| reference-data-workstreams-rollout-index-v1.md | 删除；五项数据集归属、M1–M5 及子阶段完成记录、原回归门禁 → [Workflow 关闭记录](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md#reference-data-closeout)，日期指南入链同步 |
+| dc-industry-financial-analysis-report-plan-v1.md | 删除；旧能力限制、季度算法差异、披露计划与实际日期、指标去重差异 → [东财 v2 §3](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v2.md)，共同方法已由其 §5–14/16 承接 |
+| 东财 v2 | 保留方法、决策、表格及 §17 历史验收；实施步骤标为历史，修正主索引“待评审”状态，不恢复生成器 |
+| 申万财务与雷达两份说明 | 保留独有分类事实、阈值及前视/样本边界，只补可点击产物与归档时间限定，不合并两种研究目的 |
+| 本文与维护基线 | 当前入口、待办边界与历史记录分开；通用改删并规则只在维护基线维护，已有历史正文及锚点保留 |
 
----
+证据：当前 action_catalog 注册表与测试、CodeGraph status/query、原方案与归档决定、三个现存自包含 HTML。只做静态归属和历史保真核验，不查询生产、不重算研究、不改 HTML。文档治理与开发入口技能用于限制范围，未变更 workflow、API 或分层依赖。
 
-## 6. 第二轮收尾检查（已完成）
+验证：11 项工作流目录离线测试通过；文档完整性三个检查组、8 份保留文档的 230 个链接目标及 39 处锚点、git diff --check 通过。三份报告 SHA-256 前后相同；东财 v2 的全部表格和 §17–18、申万两份表格未改；本文原 §4 各批正文逐字保留、原显式锚点全部保留。两个删除文件名仅剩本节追溯，无活动入链。未安装套件、未运行报告生成器、未做生产验收；代码和分层依赖不变。
 
-1. `docs/*.md` 绝对路径链接检查：无死链。
-2. `docs/sources/tushare/docs_index.csv` 与本地 `local_path` 一致性检查：无缺失文件。
-3. 噪音文件清理：已移除 `docs/**/.DS_Store`。
+<a id="5-执行规则"></a>
+<a id="6-第二轮收尾检查已完成"></a>
 
-后续新增源文档时，建议继续执行以上三项检查再提交。
-
-推荐命令：
-
-```bash
-python3 scripts/check_docs_integrity.py
-```
+旧执行规则已归[维护基线](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)。原“第二轮收尾检查”记录链接、源索引、噪音检查通过；该历史结果不替代每次提交前重跑。

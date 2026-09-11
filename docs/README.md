@@ -256,10 +256,9 @@ docs/
 - [生产 PostgreSQL 存储空间优化治理专项 v1（既有专项与 stk_mins 原专项记录；本轮新工作不再追加）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)
 - [生产 PostgreSQL 存储空间优化治理专项 v2（P1-B0、P1-B1、P1-B2 与 `stk_auction_o` 已结案；`stk_auction_c-M0/M1/M2` 已通过，下一阶段生产 M3a；`anns_d` 批内身份冲突另列只读审计 TODO）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - [生产 PostgreSQL raw 直出一期低层设计 v1（P1-B0、P1-B1、P1-B2 与 `stk_auction_o` 的生产切换及自然 M3b 已验收结案）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)
-- [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
+- [文档治理入口与合并记录（当前入口、待办边界、历史去向）](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
-- [基础数据工作流与数据集三线推进索引 v1（已完成）](/Users/congming/github/goldenshare/docs/governance/reference-data-workstreams-rollout-index-v1.md)
 
 ## 9. 产品原始材料
 
@@ -267,8 +266,8 @@ docs/
 - [缠论教学：沪深300结构与逐日确认案例 v1](/Users/congming/github/goldenshare/docs/product/chan-theory-csi300-teaching-guide-v1.md)
 - [缠论买点预判与买卖区间盈利验证方案 v1（分钟基准已完成，单变量A对照见第14节；账户回测未执行）](/Users/congming/github/goldenshare/docs/product/chan-signal-prediction-and-profit-experiment-plan-v1.md)
 - [个股缠论研究方案 v1（沪深A股、最近五年；数据修复期间暂停，8月排名保留、个股回放未执行）](/Users/congming/github/goldenshare/docs/product/stock-chan-index-window-research-plan-v1.md)
-- [东财行业财务统计分析报表方案 v2（待评审）](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v2.md)
-- [申万行业财务景气分析报表方案 v1（正式版已生成）](/Users/congming/github/goldenshare/docs/product/sw2021-industry-financial-analysis-report-plan-v1.md)
-- [申万行业周期拐点雷达方案 v1（方法原型已生成）](/Users/congming/github/goldenshare/docs/product/sw2021-industry-turning-point-radar-plan-v1.md)
+- [东财行业财务分析归档说明（已承接 v1；非实时报告）](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v2.md)
+- [申万行业财务景气报告（正式版已归档）](/Users/congming/github/goldenshare/docs/product/sw2021-industry-financial-analysis-report-plan-v1.md)
+- [申万行业周期拐点雷达（已归档原型，非预测验收）](/Users/congming/github/goldenshare/docs/product/sw2021-industry-turning-point-radar-plan-v1.md)
 - [行情图表页接口需求说明](/Users/congming/github/goldenshare/docs/product/行情图表页接口需求说明_基于当前数据基座.md)
 - [财势乾坤交易系统需求说明（PDF）](/Users/congming/github/goldenshare/docs/product/财势乾坤交易系统需求说明.pdf)

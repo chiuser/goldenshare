@@ -139,7 +139,7 @@ API/前端消费后端派生的字段与选择规则，不能看到 `trade_date`
 
 手动任务的日期控件/标签应消费 workflow 的制度投影，不能把 natural-day workflow 按交易日呈现。workflow 默认日期、dataset 日期模型和源参数分别归属不同层；workflow 的 `time_regime` 不覆盖子数据集的 Definition。
 
-原文夹带的五个新数据集接入、workflow 本体和对接进度不是日期模型合同，不随合并宣称已完成或重新开工。专项进度继续由 [参考数据任务组索引](/Users/congming/github/goldenshare/docs/governance/reference-data-workstreams-rollout-index-v1.md)和 [Workflow 目录](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)维护。Schedule 日期策略另见 [当前 resolver](/Users/congming/github/goldenshare/src/ops/services/dataset_schedule_time_policy_resolver.py)，不能用旧 Workflow 草案覆盖后续动作级策略。
+原文夹带的五个新数据集接入、workflow 本体和对接进度不是日期模型合同，不随合并宣称已完成或重新开工。专项进度继续由 [Workflow 目录与基础数据关闭记录](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md#reference-data-closeout)维护。Schedule 日期策略另见 [当前 resolver](/Users/congming/github/goldenshare/src/ops/services/dataset_schedule_time_policy_resolver.py)，不能用旧 Workflow 草案覆盖后续动作级策略。
 
 ## 6. 消费者核验与测试
 

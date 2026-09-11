@@ -4,7 +4,7 @@
 
 - 状态：正式版 HTML 已归档
 - 生成日期：2026-08-30
-- 报表产物：`reports/sw2021_industry_financial_analysis_2026_h1.html`
+- 报表产物：[归档 HTML](/Users/congming/github/goldenshare/reports/sw2021_industry_financial_analysis_2026_h1.html)
 - 分析方法：[东财行业财务统计分析报表方案 v2](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v2.md)
 
 本报告复用东财版已经验证的财务指标、样本门禁、景气判断与页面结构，只替换行业分类和成员事实。两版结果因此可以用于比较不同分类体系下的行业观察，不维护两套分析算法。
@@ -24,7 +24,7 @@
 | 当前成员股票 | 5,895 |
 | 当前成员重复一级归属 | 0 |
 
-行业分类来自 `core_serving.sw_industry_classification`，当前成员来自 `core_serving.sw_industry_member`，固定过滤条件为 `classification_version='SW2021' and is_new=true`。
+归档时行业分类来自 `core_serving.sw_industry_classification`，成员来自 `core_serving.sw_industry_member`，固定过滤条件为 `classification_version='SW2021' and is_new=true`；本节“当前”均指该次生成快照，不代表今天的成员。
 
 ## 3. 关键口径
 

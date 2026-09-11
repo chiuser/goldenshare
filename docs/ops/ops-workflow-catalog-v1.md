@@ -1,6 +1,6 @@
 # 运维工作流目录与实现清单（Workflow Catalog v1）
 
-> 更新时间：2026-09-09（当前注册表与 dispatcher 静态核验，非生产运行验收）
+> 更新时间：2026-09-11（承接基础数据三线关闭记录；非新增生产运行验收）
 > 代码基线：`src/ops/action_catalog.py`、`src/ops/runtime/task_run_dispatcher.py`、`src/ops/queries/catalog_query_service.py`  
 > 目标：把当前所有复合型任务（workflow）做成可审计实现清单，避免“记忆驱动运维”。
 
@@ -207,6 +207,24 @@
 | 4 | `rebuild_index_serving` | 补齐指数服务表 | `maintenance.rebuild_index_kline_serving` |
 
 ---
+
+<a id="reference-data-closeout"></a>
+
+### 基础数据三线接入关闭记录
+
+原 2026-05-06 三线索引将“workflow 时间架构、五个数据集接入、工作流绑定”分开实施，并记录 M1–M5 及 M3.1/M4.1/M5.1 完成。其价值是避免把框架、数据集、绑定三类问题混在一次改动中，不是当前待执行顺序。
+
+| 数据集 | 当前归属 | 接入说明 |
+| --- | --- | --- |
+| bse_mapping | reference_data_refresh | [北交所映射](/Users/congming/github/goldenshare/docs/datasets/bse-mapping-dataset-development.md) |
+| stock_company | reference_data_refresh | [上市公司信息](/Users/congming/github/goldenshare/docs/datasets/stock-company-dataset-development.md) |
+| namechange | reference_data_refresh | [曾用名](/Users/congming/github/goldenshare/docs/datasets/namechange-dataset-development.md) |
+| st | reference_data_refresh | [ST 事件快照](/Users/congming/github/goldenshare/docs/datasets/st-dataset-development.md) |
+| bak_basic | daily_market_close_maintenance | [历史基础列表](/Users/congming/github/goldenshare/docs/datasets/bak-basic-dataset-development.md) |
+
+历史 M1/M2 区分时间形状与默认时间制度；M3/M3.1 接入并绑定基础快照，M4 收口 st 为 no-time snapshot，M4.1 退出无现行步骤来源的 reference_data_natural_day_maintenance，M5/M5.1 接入并绑定 bak_basic。不能因为保留时间制度能力，重新创建已退出的自然日工作流。
+
+原关闭门禁覆盖定义/存储/请求与写入链、手动/自动 TaskRun、步骤执行及 catalog/schedule/文档一致性。此次仅核验注册表映射与既有回归，不把旧索引的“已完成”升级为今天重新完成生产同步。日期规则见[日期指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#workflow-time)，回归入口见本文 §5；独立旧推进清单已合并，不重复列接入待办。
 
 ## 4. 运维排查建议（面向值守）
 
