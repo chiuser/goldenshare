@@ -272,7 +272,8 @@
       <span class="pill gold">gold: qfq 分钟线</span>
     </div>
     <h1>Dagster stk_mins 资产落地设计</h1>
-    <div class="note"><strong>2014+ 分钟缺口恢复（2026-09-10，B2首批20窗口完成）：</strong>B0/B1已完成；本批25次请求、19.54秒，2,755个单元中1,912个源数据完整、843个源返回空，具体范围与耗时见 <a href="dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md#minute-gap-b2-first20">canonical LLD §14.17</a>。Raw保留来源代码、Silver起统一新身份。本轮仅保存源缓存到staging，未聚合、未写正式数据或事件；B2剩余批次、B3及下游尚未执行。两请求并行与批清单读取已通过隔离验证，见 <a href="dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md#minute-gap-source-execution-optimization">§14.19</a>；优化后未追加取源。</div>
+    <div class="note"><strong>2014+ 分钟缺口恢复（2026-09-11，B2取源收口）：</strong>45,432个冻结窗口全部有交代：45,422个取源流程完成、10个待排查；未取队列为0。2,247,629个频率×股票×日期单元来源齐备，130,878源空、121部分数据、1,230随异常窗口待处理。本轮4小时29分57秒，38,616次请求正常返回；完整清单见冻结目录b2-until-accounted-01/REPORT.md。详情见 <a href="dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md#minute-gap-b2-until-accounted">canonical LLD §14.27</a>。该段为历史B2停点，后续见下条；正式Raw及下游未写，B3未开始。</div>
+    <div class="note"><strong>最新停点：精确补数清单与计算代码验证完成。</strong>只补缺失周期与时间点，已有有效源数据不覆盖。准确新增48,763条、5,117单元；仅3个日期856条样本在staging完成，尚未批量计算或写正式Raw。实施与命令见 <a href="dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md#minute-gap-exact-aggregation">canonical LLD §14.30</a>。旧正式Raw提升入口尚未接入聚合，不以样本通过代表正式数据已修复。</div>
     <div class="note"><strong>M5 清退边界（2026-09-05）：</strong>旧 backup/clean_next 输入、M2 spec 与 M3 初始化步骤仅是历史记录，相关适配器已在 M3/M4 删除，不能照做。当前 Raw/Silver/QFQ/指标、停牌和身份映射口径不变；现行 CLI 已拆成 Silver history、QFQ history、MACD/KDJ history、events 四个模块，21 命令合同保留，见清退 LLD §4/§11。</div>
     <p class="subtitle">
       本文定义股票分钟线 <code>stk_mins</code> 在新 Dagster lake 中的正式分层、分区、资产拆分、历史导入和后续增量路线。

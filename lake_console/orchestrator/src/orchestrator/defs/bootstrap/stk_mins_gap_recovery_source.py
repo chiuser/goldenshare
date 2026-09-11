@@ -19,6 +19,7 @@ from orchestrator.defs.bootstrap.stk_mins_gap_recovery import (
 )
 from orchestrator.defs.bootstrap.stk_mins_gap_recovery_fetch import (
     SOURCE_MAX_IN_FLIGHT,
+    SOURCE_RESPONSE_CONTRACT,
     SourceRequestGate,
     execute_source_steps,
 )
@@ -31,16 +32,30 @@ def expected_clocks(freq):
     return {f"{m // 60:02}:{m % 60:02}:00" for m in minutes}
 
 
-def write_page(run, key, request, rows, *, imported=False):
+def write_page(run, key, request, rows, *, imported=False, observed_columns=None):
     """Normalize only one bounded API page; parquet conversion is columnar."""
     if len(rows) > run.budget["page_limit"]:
         raise ValueError("Response exceeds the reviewed page bound")
     directory = run.root / "responses" / key
     directory.mkdir(parents=True, exist_ok=True)
     raw_path = directory / "response.json"
+    evidence = {}
+    if observed_columns is not None:
+        if tuple(observed_columns) != COLUMNS:
+            raise ValueError("Cannot cache an unverified response schema")
+        evidence = {
+            "observed_columns": list(observed_columns),
+            "response_contract": SOURCE_RESPONSE_CONTRACT,
+        }
     atomic_json(
         raw_path,
-        {"request": request, "rows": rows, "imported": imported, "plan_hash": run.hash},
+        {
+            "request": request,
+            "rows": rows,
+            "imported": imported,
+            "plan_hash": run.hash,
+            **evidence,
+        },
     )
     normalized = []
     seen = set()
@@ -76,6 +91,7 @@ def write_page(run, key, request, rows, *, imported=False):
         "rows": len(rows),
         "raw_sha256": file_digest(raw_path),
         "imported": imported,
+        **evidence,
     }
     run.checkpoint("pages", key, **state)
     return state
@@ -324,13 +340,13 @@ class SourceCache:
                         )
                         not_before = self.clock() + min(2**attempt, 4)
                         continue
-                    if tuple(result.columns) != COLUMNS and (
-                        result.columns or result.rows
-                    ):
-                        raise ValueError(
-                            "Response columns differ from formal Raw contract"
-                        )
-                    page = write_page(self.run, page_key, params, result.rows)
+                    page = write_page(
+                        self.run,
+                        page_key,
+                        params,
+                        result.rows,
+                        observed_columns=result.columns,
+                    )
                     break
                 if page is None:
                     raise RuntimeError(

@@ -49,6 +49,10 @@ class TushareResult:
     metadata: dict[str, Any]
 
 
+class TushareResponseError(RuntimeError):
+    """The SDK did not return a declared response schema; absence is unproven."""
+
+
 class TushareResource(dg.ConfigurableResource):
     token: str
 
@@ -73,12 +77,18 @@ class TushareResource(dg.ConfigurableResource):
         client = ts.pro_api(token)
         api = getattr(client, api_name, None)
         if not callable(api):
-            raise ValueError(f"Unsupported Tushare API: {api_name}")
+            raise ValueError(f"Unsupported Tushare API: {api_name}")  # noqa: TRY004 -- Preserve the invalid-API contract.
 
         request_params = dict(params or {})
         frame = api(**request_params, fields=",".join(field_names))
-        rows = frame.to_dict("records")
         columns = tuple(str(column) for column in frame.columns)
+        if not columns:
+            # Some SDK versions turn unsuccessful HTTP responses into a zero-column
+            # DataFrame. A legitimate empty result must still declare its fields.
+            raise TushareResponseError(
+                "Tushare SDK returned no response fields; cannot accept as empty data"
+            )
+        rows = frame.to_dict("records")
         metadata = {
             "api_name": api_name,
             "params": request_params,

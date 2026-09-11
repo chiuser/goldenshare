@@ -7,6 +7,27 @@ from orchestrator.defs.bootstrap.stk_mins_gap_recovery import COLUMNS, records
 
 # Reviewed execution bound, independent of the frozen data scope and cache keys.
 SOURCE_MAX_IN_FLIGHT = 2
+SOURCE_RESPONSE_CONTRACT = "declared_columns_v1"
+
+
+def assert_verified_empty_pages(run):
+    """Block reuse of legacy empty pages without source response evidence."""
+    unverified = 0
+    examples = []
+    for path in sorted((run.root / "pages").glob("*.json")):
+        page = run.state("pages", path.stem)
+        if page["rows"] == 0 and (
+            page.get("response_contract") != SOURCE_RESPONSE_CONTRACT
+            or tuple(page.get("observed_columns") or ()) != COLUMNS
+        ):
+            unverified += 1
+            if len(examples) < 5:
+                examples.append(path.stem)
+    if unverified:
+        raise RuntimeError(
+            f"Unverified empty source cache: {unverified} pages; "
+            f"review required before fetching or Raw writes; examples={examples}"
+        )
 
 
 def load_source_batch(run, limit, window_ids=()):
@@ -91,11 +112,27 @@ class SourceRequestGate:
             raise RuntimeError(
                 "No source provider; network was not authorized for this action"
             )
-        result = cache.provider.call("stk_mins", params, COLUMNS)
+        try:
+            result = cache.provider.call("stk_mins", params, COLUMNS)
+            if tuple(result.columns) != COLUMNS:
+                raise ValueError("Response columns differ from formal Raw contract")
+        except Exception as error:
+            cache.progress(
+                dict(
+                    stage="source_failure",
+                    error_type=type(error).__name__,
+                    elapsed_seconds=cache.clock() - started,
+                    attempt=page["attempt"],
+                    **params,
+                )
+            )
+            raise
         cache.progress(
             dict(
                 stage="source_response",
                 rows=len(result.rows),
+                observed_columns=list(result.columns),
+                response_contract=SOURCE_RESPONSE_CONTRACT,
                 elapsed_seconds=cache.clock() - started,
                 **params,
             )

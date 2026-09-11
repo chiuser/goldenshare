@@ -12,7 +12,10 @@ from orchestrator.defs.bootstrap.stk_mins_gap_recovery import (
     RecoveryRun,
     freeze_plan,
 )
-from orchestrator.defs.bootstrap.stk_mins_gap_recovery_fetch import load_source_batch
+from orchestrator.defs.bootstrap.stk_mins_gap_recovery_fetch import (
+    assert_verified_empty_pages,
+    load_source_batch,
+)
 from orchestrator.defs.bootstrap.stk_mins_gap_recovery_raw import (
     build_candidate,
     compact_changed_raw,
@@ -68,6 +71,8 @@ def main(argv=None):
         return plan
     run = RecoveryRun(args.plan, args.plan_hash)
     run.require_operational_roots()
+    if args.action in ("fetch", "build-raw", "promote-raw"):
+        assert_verified_empty_pages(run)
     if args.action == "status":
         states = {kind: {} for kind in ("windows", "files")}
         for kind, counts in states.items():
