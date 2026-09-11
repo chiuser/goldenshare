@@ -1,6 +1,6 @@
 # 财势乾坤｜交易助手技术实施方案 v1
 
-> 状态：整体评审稿修订 71。修订 70 已随 `02247d25` 提交；本轮补查询落表／分页／迁移承接、队列字段和行情适配合同，§11.5 将剩余设计与开发后验证分开。PRD v1.40、已通过 Figma 及 §8.18 结论不变。六模块方案和主链低层设计已汇总；未编码、未推送，不以设计索引或源小样本证明生产可用，也不宣称全量可编码。
+> 状态：技术方案整体评审稿编写完成，修订 72，待整体评审；不代表已获开发或上线批准。修订 71 已随 `249eb342` 提交。本轮补齐接口字段总表、报文预算、本地凭据与发送设计及逐项门禁矩阵；已细化部分直接作为 LLD，不另写重复文档。PRD v1.40 和已通过 Figma 不变。用户已允许延后的飞书外部协议、实际行情来源接入证明及部署／真实功能验收仍见 §11.5，未完成这些项目不得宣称全量可编码或上线可用。
 > 依据：[交易助手产品需求 v1.40](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
 > 本文不改变已确认收益公式和交互，不代表方案已评审、代码已实现或数据源已验收。未确认的建议不得进入实现。
 
@@ -1995,15 +1995,118 @@ FeeAmounts、CostAllocation 是核算内部值对象，不直接原样公开 API
 | `read_calendar(market, from_date, through_date, deadline)` | 市场和有界日期窗口 | 每日开闭市事实、完整覆盖说明、来源版本；支持 T+1 与完整分钟窗口，不用周一至周五代替交易日历 |
 | `read_valuation_basis(ts_codes, trade_date, deadline)` | 一批证券、估值日 | 每证券的未复权日收盘价、实际价格日／估值日、源精度、来源与版本、可用性；停牌例外另含可靠全天停牌及无未处理公司行动的依据，缺证不能沿用旧价 |
 | `open_minute_basis(ts_code, trade_date, deadline)` | 单证券单交易日 | 本次固定且可读回的依据身份、市场时段／时间标签规则、价格口径、单位、覆盖及缺口。不能仅凭返回最大日期声明全天完整 |
-| `read_minute_batch(basis_id, after_checkpoint, limit, deadline)` | 上述固定依据、升序位置与批次上限 | 严格升序的检查点、未复权分钟收盘价、该分钟成交股数、下一位置和是否读完；保持同一依据，不把源页游标当作业务检查完成证明 |
+| `read_minute_batch(basis_id, after_checkpoint, required_fields, limit, deadline)` | 上述固定依据、升序位置、启用条件需要的字段与批次上限 | 严格升序的检查点、未复权分钟收盘价及／或该分钟成交股数、下一位置和是否读完；保持同一依据，不把源页游标当作业务检查完成证明 |
 
 这些方法读取期限来自 §4.8.4／§4.29，不各建超时配置。实际原始字段在适配器一处转换：输出金额／价格为精确十进制值、股数为非负整数、检查点为北京时间语义的明确时刻。价格不能先按前端两位显示舍入再比较；源不能证明精度／单位／时间标签时，适配失败而不是自行猜规则。`basis_id` 是内部冻结依据的身份，不能从客户端指定任意文件或数据版本。
 
-规则检查为计算“当日累计量”，须从当日开盘开始读，即使计划下午才生效；只有生效后的完整检查点参与条件判断。跨日累计器归零，同依据重复批次不重复加量。零量源行保留，缺行不补零；09:30 的累计量归属及是否构成可检查点由经核验的时间标签合同决定，不从 241 行样本臆测。读取结束后仍要核对覆盖证据，未覆盖的前缀不能据后缀命中宣布“首次触发”。
+启用成交量时，为计算“当日累计量”，须从当日开盘开始读，即使计划下午才生效；只有生效后的完整检查点参与条件判断。跨日累计器归零，同依据重复批次不重复加量。仅启用价格时不依赖成交量，不为缺量阻塞完整的价格检查；仅启用成交量时也不为未启用价格条件制造价格依赖。required_fields 由服务端条件生成，非用户新输入。零量源行保留，缺行不补零；09:30 的累计量归属及是否构成可检查点由经核验的时间标签合同决定，不从 241 行样本臆测。读取结束后仍要核对启用条件需要的覆盖证据，未覆盖的前缀不能据后缀命中宣布“首次触发”。
 
 **当前绑定结论：**已再次通过 CodeGraph 核对 `StockMinuteQueryService.read_bars` → `StockMinsLakeReader` → `build_stock_mins_qfq_paths`：正式股票详情消费 Gold 前复权分钟，服务的 READY 主要根据日期判断，并非本模块完整分钟覆盖证明。因此不改它现有消费者，也不直接作为上表分钟适配实现。此前 MCP 样本继续仅证明 §4.25 已记录内容；本轮未重复发起源请求或改动行情生产链。
 
 **接入验收责任：**开发方补齐未复权实际读取入口和版本／时段证据，按正常日、午休、真实零量、缺分钟、全天停牌及生效前累计量逐项验收。若需要新建或改变公共数据生产合同，先单独说明影响面并获授权；不能借交易助手文档任务修改现有 Lake／数据集。当前可继续账务设计和隔离测试准备，但分钟计划真值链在上述来源证明完成前不能启用。这个缺口是数据接入证据不足，不是让用户重新定义已经确认的触发条件。
+
+### 4.35 接口字段总表与 schema 编写依据
+
+本节是前文接口的字段收口，不新增端点或用户能力。服务端 schema 按 accounts／records／positions／returns／rules／recovery／robot 文件拆分，前端按同一结构生成类型并执行 §4.30 运行时校验；不维护另一份含别名的手写 API 事实源。以下 `?` 表示键必须出现但可为 null；只有明确写“可省略”的请求项可以不传。对象字段采用下表的组合定义，组合展开后不能留下“其他字段”“任意 JSON”作为对外合同。
+
+#### 4.35.1 公共组合及类型
+
+| 类型 | 字段与规则 |
+| --- | --- |
+| AccountRef | accountId:EntityId、name:string、brokerName:string |
+| StockRef | tsCode:StockCode、name:string；名称取已解析证券／保存快照，不作为身份 |
+| ScopeInput | accountMode:ALL/SINGLE、accountId?:EntityId；SINGLE 必填、ALL 不传。支持单股的端点另带 stockMode:ALL/SINGLE、tsCode?:StockCode；SINGLE 必填、ALL 不传。未显式支持的筛选不接收 |
+| Scope | accountMode、accounts:AccountRef[]、stockMode:ALL/SINGLE、stockRef?:StockRef；只反映本人解析范围。单股必须有 stockRef，全仓为 null |
+| ReadState | Ready/Empty/Delayed/Partial/Error/Recalculating；Loading 仅为客户端状态。reason 为安全说明 string 或 null；完整性判定继续使用 §4.19，不按 HTTP 状态推导 |
+| Coverage | dataStatus:ReadState、reason?:string、isFinal:boolean、accounts:AccountCoverage[]；不新增外部查询或持久化表 |
+| AccountCoverage | accountId、initializedOn:BusinessDate、effectiveStartDate?:BusinessDate、targetThroughDate?:BusinessDate、calculatedThroughDate?:BusinessDate、valuationAt?:Instant、dataStatus、reason；无日期交集时实际起止均 null，不能倒置日期 |
+| ReturnTriple | profitAmount?:Money、capitalAmount?:Money、returnPct?:ReturnPct；完整有效结果三项同时存在且本金正；无收益结果三项 null。部分范围仅在明确允许暂定的块输出，不能推广到日格 |
+| Page<T> | items:T[]、nextCursor?:string；端点声明的 scope／readContext／summary／coverage 为同一响应的兄弟字段，不在每行复制整份账户清单 |
+| Conditions | priceCondition?:§4.28.2 价格分支、volumeCondition?:§4.28.2 量分支；两键必有，不能同时 null。摘要不参与执行 |
+| CommandIdentity | requestId、attemptId:EntityId；expectedRequestStateVersion:Version 仅在 §4.17 明确未保存后的新尝试传入，首次可省略 |
+| MutationReceipt<T> | requestId、attemptId、operationType、acceptedAt:Instant、result:T；结果严格按命令类型展开，成功重放保持原值。§4.16 的 RecoveryStatusDto.receipt 使用此类型；不能内嵌“最新详情”冒充原回执 |
+
+原始字段如 tradeDate／occurredOn 不改成统一的可写 businessDate；businessDate 仅是 §4.31 内部排序键。规则创建的 stockCode 与账务请求 tsCode 保留各自已定名称；两者都映射 StockRef.tsCode，不同时接收两个别名。日期范围键统一 requestedStartDate／requestedEndDate（两端包含），月历为 month；整轮模式不用日期请求项覆盖轮次边界。
+
+所有计数为非负安全整数，全部版本为 Version，所有 ID 为 EntityId；发生时间为 Instant，日期为 BusinessDate；金额／率按 §4.28，不在本表另定义精度。实体引用、已知原始事实非空；派生金额、比例、极值及时间只有明确无值时可空，并附所属块状态。当前状态不得覆盖历史回执、费用版本或规则触发证据。
+
+#### 4.35.2 账户与写入对象
+
+| 对象 | 完整业务字段；公共身份按上表组合 |
+| --- | --- |
+| AccountSummary | AccountRef + initializedOn、factVersion、feeVersionId |
+| InitializationPosition | clientRowId、tsCode、quantity、availableQuantity、costPrice；响应另含 stockRef、costAmount。请求不接受响应专属字段 |
+| Initialization | accountId、initializedOn、initializationId、initializationRevision、initialCash、initialPositions:InitializationPosition[]；响应保留每行原始身份，成本按 §4.18 |
+| CreateAccountInput | name、brokerName、commissionRateWan、minimumCommission、stampTaxRatePct、initialCash、initialPositions（请求行）；不接收初始化日期 |
+| CreateAccountResult | account:AccountSummary、initialization:Initialization、fees:FeeSettingsDto |
+| TradeInput | tsCode、direction:BUY/SELL、tradeDate、price、quantity、note:string 可省略／null |
+| CashFlowInput | direction:IN/OUT、occurredOn、amount、note:string 可省略／null |
+| FeeBreakdown | grossAmount、commissionAmount、stampTaxAmount、netCashChange:Money、feeVersionId；这里是系统输出，不允许覆盖 |
+| EntryContext | accountId、factVersion、occurredOn、cashThrough:Instant、availableCash:Money、stockRef?:StockRef、quantity?:AvailableQuantity、availableQuantity?:AvailableQuantity、fees:FeeSettingsDto、calendarDataStatus、reason；无股票请求三项股票值为空，不把“未请求股票”当作零持仓 |
+| TradeResult | accountId、tradeId、revision、factVersion、FeeBreakdown、affectedFromDate；新增／更正返回实际接受版本，作废结果另带 status:VOID |
+| CashFlowResult | accountId、cashFlowId、revision、factVersion、netCashChange、affectedFromDate；作废另带 status:VOID |
+| InitializationCorrectionResult | accountId、initializationId、initializationRevision、factVersion、affectedFromDate |
+| CorrectionPreview<T> | before:T、after:T、changedFields:{field,clientRowId?}[]、affectedFromDate、factVersion、expectedRevision、fieldErrors:§4.27 数组；期初逐股新增／移除的一侧允许 null，完整账户 before／after 不为空 |
+
+GET accounts 输出 `{items:AccountSummary[]}`；defaults 输出 `{stampTaxRatePct, commissionRateUnit:"WAN", stampTaxRateUnit:"PERCENT", currency:"CNY"}`，佣金与最低佣金仍留空让用户填，不输出猜测默认值。费用 GET／PUT 完整字段沿用 §4.20.1。entry-context 读取不得使用已过期的派生余额，失败时不能以 0 填充 availableCash。
+
+预览不带 CommandIdentity，不登记保存请求；返回费用预览另带 factVersion、calendarDataStatus、fieldErrors。更正输入由 expectedRevision 与完整替换 TradeInput／CashFlowInput／期初输入组成；作废只有 CommandIdentity 与 expectedRevision。所有正式写入结果放入 MutationReceipt，calculation-retries 的结果为 §4.18 已定义的 CalculationStatusDto，不伪装成新流水；无变化费用保存仍返回原 FeeSettingsDto。
+
+#### 4.35.3 记录、持仓与收益输出
+
+| 对象／响应 | 字段集合与引用 |
+| --- | --- |
+| TradeRecord | accountRef、tradeId、revision、tradeDate、recordedAt、acceptedAt、stockRef、direction、quantity、price、FeeBreakdown、note?、status:ACTIVE/VOID。费用依据另含 commissionRateWan、minimumCommission、stampTaxRatePct，沿用原快照 |
+| CashFlowRecord | accountRef、cashFlowId、revision、occurredOn、recordedAt、acceptedAt、direction、amount、netCashChange、note?、status:ACTIVE/VOID；无股票／费用字段 |
+| TradeDayGroup | accountRef、tradeDate、stockRef、direction、quantity、grossAmount、averagePrice、commissionAmount、stampTaxAmount、netCashChange、tradeCount、recordsScope；recordsScope 为同账户／日期／股票／方向定位，不返回任意 URL |
+| ClosedTrade | accountRef、stockRef、tradeId、sellRevision、tradeDate、recordedAt、roundRef、quantity、netProceeds、allocatedCost、profitAmount、returnPct；利润率使用该次分摊成本，非当日收益率 |
+| RecordsResponse<T> | scope、requestedStartDate、requestedEndDate、readContext、coverage、Page<T>；闭环另带 recordsScope、summary:{closedTradeCount?,closedProfitAmount?,dataStatus,reason?}；整轮模式实际范围由服务器返回 |
+| RecordDetail<T> | record:T、revisions:Page<T>、readContext；交易另带 closedTrade?:ClosedTrade、closedDataStatus、reason?；资金不带闭环。修订痕迹按 revision DESC，沿用同详情游标／版本约束，不嵌入无限历史 |
+| RecordsSummary | scope、requestedStartDate、requestedEndDate、readContext、tradeCount、buyCount、sellCount、cashInAmount、cashOutAmount、closedTradeCount?、closedProfitAmount?、closedDataStatus、reason?；事实读取失败整块失败，原始已知零值不置空 |
+| PositionRow | §4.11.4 已列全部行字段 + accountRounds:{accountId,roundId,roundNumber}[]、dataStatus、reason；可卖量只作跨账户显示，不作为单账户卖出许可 |
+| PositionsResponse | scope、readContext、coverage、items:PositionRow[]、summary:{cashAmount?,stockMarketValue?,totalAssets?,holdingProfitAmount?,holdingReturnPct?,dayProfitAmount?,dayReturnPct?,positionCount?,largestPosition?}、allocation:{stockMarketValue?,totalAssets?,stockValueSlices,totalAssetSlices} |
+| AllocationSlice | kind:STOCK/CASH/OTHER、stockRef?、marketValue:Money、weightPct:ReturnPct、members:{stockRef,marketValue,weightPct}[]；OTHER 包含完整第 8 名起成员，其他两类 members=[]；CASH 独立。分母未知时对应 slices=null 而不是空数组伪造无持仓 |
+| PositionDetail | scope、readContext、coverage、stockRef、accountRounds；accountRounds 为数组，每项含 accountRef、roundRef、openedOn、openingSource、quantity、availableQuantity、buyInvestmentAmount、sellNetProceedsAmount、dynamicCostAmount、dynamicCostPrice、price、marketValue、estimatedSellCommission、estimatedStampTax、estimatedNetProceeds、holdingProfitAmount、holdingReturnPct、dayProfitAmount、recordsScope、dataStatus、reason |
+| PositionsAnalysis | scope、readContext、coverage；§4.12.2 的 largestPosition、top3WeightPct、top5WeightPct、cashWeightPct、cashAmount、industries、cumulative、daily。largestPosition 为 {stockRef,marketValue,weightPct} 或 null；贡献极值对象为 {stockRef,profitAmount} 或 null；贡献组另含 unknownCount、dataStatus、reason。行业项完整字段按该节，列表缺分类不缺金额 |
+| CurveResponse | scope、requestedStartDate、requestedEndDate、granularity:DAY/WEEK/MONTH、readContext、coverage、points:CurvePoint[]；点按 periodStartDate 升序，不能依返回顺序猜周期 |
+| CurvePoint | periodStartDate、periodEndDate、isPeriodEnded:boolean、Coverage、ReturnTriple；实际逐账户截止在 Coverage.accounts，点没有有效收益时保留身份与空三元组 |
+| CalendarResponse | §4.30.2 根对象和完整 Day 字段；monthSummary 为 §4.12.3 四摘要，另用 periodCoverage／dailyStatsCoverage／closedCoverage 分别说明完整性；最低率日期键为 minDailyReturnDates:BusinessDate[]，无有效极值为空数组 |
+| DayDetail | scope、date、readContext、coverage、ReturnTriple、closedTradeCount?、closedProfitAmount?、commissionAmount?、stampTaxAmount?、closedDataStatus、feeDataStatus、contributionsScope、recordsScope；三类收益／闭环／实际费用不合为一个总数 |
+| DayContributions | scope、date、readContext、coverage、totalCount?、totalProfitAmount?、Page<{stockRef,profitAmount?,capitalAmount?,returnPct?,accountRounds,dataStatus,reason?}>；完整时全体金额与当天全仓相等，不要求单股成本和等于去重全仓成本 |
+| ReviewResponse | §4.13.1 scope、精确日期、readContext、coverage + §4.13.2 dailyStats／closedTrades／completedRounds 的全部字段；resultKind 为 HAS_VALID_DAYS/NO_VALID_DAYS/UNDETERMINED，极值 dates 全部升序返回 |
+| CompletedRoundsResponse／RoundDetail | §4.13.3 第一／第二行逐项字段全部必需；仅真实无结束事实的 closedOn 可空，已结束列表必须有值。roundRef={accountId,roundId,roundNumber,status:OPEN/CLOSED}；openingSource=INITIALIZATION/TRADE，期初来源含 §4.13.3 的原始期初版本与含费成本事实 |
+
+上述列表是结构定义，不改变既有信息范围：原始列表有效集合仍排除 VOID，直接详情才可读取本人作废对象；当前持仓累计仍排除已结束轮次；日贡献／期间结果包含期内清仓。费用估算与真实费用不共用字段。持仓未知值按对应依赖逐项为空，不能因为接口字段已列出就生成虚构数字。
+
+#### 4.35.4 规则、检查与恢复输出
+
+规则列表、详情、维护、条件历史分别完整组合 §4.9.5 和 §4.9.9：列表根为 `{items,nextCursor,counts}`，counts 为 `{planCount,alertCount}`，按本人及计划适用账户计算；详情另含 stateVersion、serverNow、maintenance、closedAt、endedAt、currentConditionVersion。条件历史返回 Page<§4.9.9 版本行>；检查历史返回 Page<CheckRecord>。source 枚举为 TRADING_ASSISTANT/STOCK_DETAIL，只标记入口，不改变权限。
+
+CheckRecord 字段为 checkId、checkNo、ruleVersionId、tradeDate、requestedFrom、requestedThrough、startedAt、completedAt?、status、checkedThroughAt?、marketObservedAt?、coverageSummary、missingRanges:{from,through}[]、failureReason?、evidenceSummary；status 使用 §4.9 的检查状态，不与 ruleStatus 合并。FinalResult 为 null 或 `{triggered:boolean,decidedAt,ruleVersionId?,firstTriggeredAt?,priceCheck?,volumeCheck?,coverageSummary}`。每个启用项证据含 operator、阈值、actualValue、satisfied:boolean、checkpointAt；未启用项为 null，不要求价格单条件规则具备成交量证据。false 的整个范围覆盖由检查关联证明，末点信息仅供展示。
+
+NotificationSummary 字段为 notificationId?、state、stateVersion?、robotId?、robotName?、canRetry、reason?；状态和可重试资格按第 7 节，不扩展自动重试。无通知时 ID／版本为 null、canRetry=false；NOT_ENABLED／NOT_CREATED 不是持久化发送状态。正式通知详情及配置／测试字段继续精确引用 §7.7、§7.9，不把外部响应原样透传。
+
+恢复接口直接采用 §4.16 的全部必需字段和互斥约束，不新造第二个恢复响应。operationType 按已定义命令一一对应：ACCOUNT_CREATE、INITIALIZATION_CORRECT、FEES_UPDATE、TRADE_CREATE/CORRECT/VOID、CASH_FLOW_CREATE/CORRECT/VOID、CALCULATION_RETRY、PLAN_CREATE、ALERT_CREATE、RULE_CONDITIONS_UPDATE、RULE_CLOSE，以及第 7 节的 ROBOT_CANDIDATE_CREATE／ROBOT_TEST／ROBOT_CONFIRM／NOTIFICATION_RETRY。input 联合按 operationType 静态分支，秘密分支仅返回可安全回填的引用和掩码，不返回 Webhook／密钥。
+
+**接口齐套验证：**每条路由须有请求合法／缺键／额外字段／非法组合、成功响应／合法空值／错误响应 fixture；fixture 的键集合与 schema 比较，真实 API 测试再与这些字段对账。不能只通过 TypeScript 编译就认为字段齐全。依据表的引用按章节号与类型定位，不凭重复的 READ-01 名称串联不同章节用例。
+
+### 4.36 报文容量：验收预算不冒充产品数量上限
+
+本模块不额外限制账户数、期初股票数、可查询历史天数或极值并列日期数。产品已确认的是 §4.28.3 的字段输入边界和既定分页边界；因此不能为了设置 HTTP 上限而静默新增“最多 N 只股票／N 年”。
+
+| 对象 | 首版容量验收预算（UTF-8、未压缩 JSON） | 实现要求 |
+| --- | --- | --- |
+| 单筆记账、更正、费用、规则及恢复状态 | 64 KiB 常规目标 | 不内嵌全历史、行情原文、日志或全部账户版本；结构化字段错误不回显原始输入 |
+| 100 行分页、单月历、完整持仓、曲线及范围复盘 | 每次响应 5 MiB 目标 | 明细按已有游标；月历最多 30 格；完整持仓及完整并列日期不得因预算被截断；摘要只生成一次，不在每行复制 |
+| 多股票初始化／初始化更正 | 请求和响应各 5 MiB 验收目标 | 正常化字段后测量，原输入错误仍保留；不为满足目标拆成多次部分建账，不让前端先丢行 |
+
+这些是性能验收目标和容量预警线，不是 HTTP 拒绝阈值，不产生新的 413 产品行为，也不允许对合法 50 个字素的复杂文字擅自按字节截断。拟集中在 `TradingAssistantPayloadBudgetV1` 的 `small_payload_target_bytes=65536`、`aggregate_payload_target_bytes=5242880`；编译期不可变工程策略，App 注入度量／测试消费者，无用户、env 或数据库开关，变更随方案和版本发布。达到目标只证明对应样本，不能宣称支持无限输入或无限内存。
+
+服务端以实际序列化字节计量；指标仅保存端点、行数、字节数和耗时，不记录正文。现有 HTTP 入口、反向代理、JSON 解析器的硬限制须在部署验收时逐项读回，与合法代表性输入实测；若既有设施拦截正常输入，先调整获准的工程实现并验证，不能声称用户超出一个从未确认的产品上限。需要改变用户可录入范围才另行评审，不预设用户同意减少持仓。
+
+有界历史扫描、5 秒读取／10 秒保存期限与 500 行／1 MiB 后台批次仍分别生效；响应预算不是批次预算。前端数字精度、18 位输入不限制累计值位数。最大合法展示长度要在真实四卡、单行条件和 tooltip 验收，不靠缩小字号或省略必要数字达到传输目标。超出预算的合法样本必须记录资源实测并优化查询／重复字段；不能把超限数据替换为 Empty 或假 Ready。
+
+PAYLOAD-01—05：未压缩 UTF-8 实际字节测量；100 行与全范围摘要不互相截断；持仓第 8 名起和极值并列日期全部保留；初始化整次提交无部分账户；代理／解析／前端在合法大样本下返回完整结果或已确认的错误／核验状态。性能验收不通过不得声称上线可用，本节不安装或修改代理。
 
 ## 5. 历史缺项清单（截至修订 62；最新收口见 §11）
 
@@ -2288,19 +2391,46 @@ PRD §12.1.1 第 13—17 项要求：闲置现金不计本金、同一期资金�
 
 修改已测试的地址、安全项或名称时创建新候选版本，旧测试不复用；KEEP 从指定有效版本安全解析，不从前端掩码恢复秘密。取消只关闭表单，不激活候选、不发送，也不引入删除接口。一个机器人身份固定归属一个用户；数据库 `UNIQUE(owner_user_id)` 与产品当前单机器人设置一致，不新增多机器人列表管理。
 
-**物理关系：**在 `app.wealth_ta_` 下定义 `robot`、`robot_config`、`robot_candidate`、`robot_test`。UUID 主键、INTEGER owner、BIGINT 版本、TIMESTAMPTZ 时刻。robot 持有 current_config_id；config 保存不可变名称／安全配置、candidate_id／成功 test_id／confirmed_at；candidate 保存 expected_config_id、规范化内容摘要和密文；test 保存 candidate_id、attempt_no、开始／结束时刻、结果和脱敏证据。每个外键包含 owner，候选与测试再同时包含 candidate_id；相应被引用组合建立 UNIQUE。每候选至多一个进行中测试；激活同一候选幂等，无隐式多次发送。候选密文引用是恢复输入的唯一来源，通用请求记录只持其 ID 和非敏感摘要。
+**物理关系：**在 `app.wealth_ta_` 下定义 `robot`、`robot_config`、`robot_candidate`、`robot_test`。UUID 主键、INTEGER owner、BIGINT 版本、TIMESTAMPTZ 时刻。robot 持有 current_config_id；config 保存不可变名称／安全配置、candidate_id／成功 test_id／confirmed_at；candidate 保存 expected_config_id、规范化内容摘要和凭据引用；candidate／config 的秘密统一引用 §7.11 credential_blob，不再各存一份密文；test 保存 candidate_id、attempt_no、开始／结束时刻、结果和脱敏证据。每个外键包含 owner，候选与测试再同时包含 candidate_id；相应被引用组合建立 UNIQUE。每候选至多一个进行中测试；激活同一候选幂等，无隐式多次发送。候选凭据引用是恢复输入的唯一秘密来源，通用请求记录只持其 ID 和非敏感摘要。
 
 ### 7.10 凭据、发送边界与延后项
 
 设计采用独立凭据加密能力，由 App 注入，不复用 JWT 密钥、Ops Webhook 或登录密码散列。密文记录 `key_id、nonce、ciphertext、algorithm_version`，认证附加数据绑定 owner／candidate 或 config 身份，防止将另一用户密文搬过来解密；解密只在服务端发送时进行。需要使用成熟的认证加密库，不自己实现密码算法。当前 `pyproject.toml` 未声明凭据加密库，已读的 Settings 也没有专用密钥配置；本轮不安装、不生成密钥、不修改环境。
 
-**配置审计收口：**新增专用密钥来源只属于部署侧秘密配置，用户无输入项；默认无密钥，禁止回退明文。持久化位置必须为部署秘密存储而不是 Git／业务表，App 唯一读取并注入加解密实现；消费者只有机器人候选、激活和发送服务。重启加载，key_id 必须能解开仍被引用的旧配置，禁止直接更换单个密钥后使旧凭据失读。具体部署存储位置、库选型和密钥轮换操作单并入下述延期接入门禁，不以一组未经核验的 env 名称冒充现有能力。
+**配置审计收口：**新增专用密钥来源只属于部署侧秘密配置，用户无输入项；默认无密钥，禁止回退明文。持久化位置必须为部署秘密存储而不是 Git／业务表，App 唯一读取并注入加解密实现；消费者只有机器人候选、激活和发送服务。重启加载，key_id 必须能解开仍被引用的旧配置，禁止直接更换单个密钥后使旧凭据失读。密钥文件配置、库选型、旧密钥保留与发送预算已由 §7.11 完成目标设计；实际部署挂载和依赖安装仍须授权验收，不把拟定配置名称冒充现有能力。
 
 发送适配器只接受已校验的飞书机器人端点，不允许任意主机、userinfo、非 HTTPS、额外端口、查询／片段或跳转。解析一次得到规范化 URL；真实连接也限制到允许目标，禁止借重定向、代理环境或 DNS 变化绕过校验。日志、追踪、异常正文不得带完整 URL 路径、签名、密钥、用户测试原文；HTTP 库默认请求日志亦须关闭敏感输出。
 
 网络只在发送尝试持久化后执行，不占用账户计算事务。明确成功、明确拒绝、结果未知三分；超时、断连和进程退出不能推导未送达。没有远端可查回执时不新增轮询“确认未发送”的假接口，也不让用户确认收到变成伪造远端成功。结果未知保持既定不可盲重试状态，不增加人工改状态按钮。明确失败后的重试只走已有用户动作；不为通知引入自动重试风暴。测试同样不自动重发。
 
-**仍按用户授权延后的外部接入门禁：**官方有效端点／签名和响应合同、各类失败是否明确未送达、超时／速率预算、专用密钥部署和经授权的真实测试。2026-09-11 再次打开[飞书官方自定义机器人指南](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)，当前读取工具返回空正文，因此没有用二手博客的 `code`／`StatusCode` 冻结生产判定。这些不是新的产品问题，也不要求用户提供响应码；接入开发前由开发方补证。通知仍属于一期，不能因为本技术方案提交评审就跳过这些门禁。
+**仍按用户授权延后的外部接入门禁：**官方有效端点／签名和响应合同、各类失败是否明确未送达、外部字段／限流约束与 §7.11 内部预算的匹配、专用密钥实际部署和经授权的真实测试。2026-09-11 再次打开[飞书官方自定义机器人指南](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)，当前读取工具返回空正文，因此没有用二手博客的 `code`／`StatusCode` 冻结生产判定。这些不是新的产品问题，也不要求用户提供响应码；接入开发前由开发方补证。通知仍属于一期，不能因为本技术方案提交评审就跳过这些门禁。
+
+### 7.11 飞书本地安全与发送实施设计
+
+本节补齐我们可以自行确定的实现方案；不把用户允许延期的飞书外部协议核验伪装成已经完成，也不要求用户解释响应码。外部正式接口指南本轮网页提取无结果，浏览器读取超时；没有引用第三方转载去冻结成功判定，没有测试发送。
+
+**凭据能力选型：**目标使用 `cryptography` 的 AESGCM，256 位密钥、12 字节安全随机 nonce、完整认证标签；不自行编写加密算法。AAD 为规范化的 `{schemaVersion:1,ownerId,objectType,objectId}`，字段顺序固定并编码 UTF-8；objectType 区分 CANDIDATE／CONFIG。候选激活时重新加密到新配置身份，不能只复制密文并改 AAD。密文为 `{algorithmVersion:"AES256_GCM_V1",keyId,nonce,ciphertext}`，数据库二进制保存 nonce／ciphertext，不返回前端。依赖依据为 [Cryptography 官方 AEAD 文档](https://cryptography.io/en/latest/hazmat/primitives/aead/)；文档说明了 AESGCM 的密钥、nonce、AAD 和认证失败行为。此为设计选型，安装和版本锁定仍须管理员授权，未安装不得回退明文。
+
+| 配置／能力 | 默认、位置与消费者 | 生效、失败及验收 |
+| --- | --- | --- |
+| 拟新增 `WEALTH_TA_CREDENTIAL_KEY_FILE` | 默认未配置；Settings 只保存部署注入的绝对路径，文件由部署秘密挂载提供、仅服务身份可读，禁止进入 Git 或业务数据库；App 读取并构造 cipher，Biz 仅消费能力 | 启动加载，文件缺失／权限过宽／结构非法则凭据能力不可用，保留原配置、不明文保存、不发送；不影响非通知账户事实读取和记账 |
+| 密钥文件内容 | `{activeKeyId,keys:{keyId:base64Key}}`；每个解码后恰 32 字节，activeKeyId 必须存在。密钥值不得进入 Settings repr、日志、异常或 API | 所有 Web 进程使用同一版本；新增密钥先分发、后切 active，再重启读回；旧密钥只要仍被任一候选／配置引用就保留，不提供页面轮换按钮 |
+| `CredentialCipher.encrypt(owner_id,object_type,object_id,plaintext)`／`decrypt(...)` | App 注入的纯加解密能力，返回密文／仅服务端可见秘密；输入仅包含需要保密的 Webhook 和签名密钥，不把费用或用户密码混入 | 每次加密新 nonce；错 owner／对象／密钥／标签必须失败且无明文结果，异常仅显示凭据处理失败 |
+| `TradingAssistantNotificationPolicyV1` | 不可变工程策略，非用户设置，App 注入测试与正式发送器；与账户计算策略分开命名 | 修改随方案、测试与发布生效，不经页面热改，也不复制 Ops 全局通知参数 |
+
+nonce 禁止同密钥复用：候选／配置保存的 `(key_id,nonce)` 必须在本凭据存储范围唯一；若采用两张内容表，统一由凭据表分配唯一密文记录再引用，不能各自 UNIQUE 却跨表撞用。凭据表 `credential_blob` 为本模块私有存储，含 blob_id、owner_id、object_type、object_id、key_id、nonce、ciphertext、algorithm_version、created_at，唯一 (key_id,nonce) 和 (owner_id,object_type,object_id)，候选／配置复合 FK 绑定本人。一次命令加密冲突回滚重取 nonce，不重复网络发送；不新增用户对象或草稿功能。
+
+**网络与执行初值：**每进程最多 1 个通知网络调用；单次总期限 10 秒，连接阶段至多 3 秒，读取等待至多 5 秒、连接池等待至多 1 秒，均受总期限限制。每机器人两次开始发送至少间隔 1 秒，测试和正式通知共享，机器人记录 `next_send_not_before` 并在短锁内更新，多进程不能各自绕过。这个间隔是内部保守预算，不宣称就是飞书限流上限。自动网络重试次数固定 0，明确失败由既有用户动作重试，UNKNOWN 不获得重试资格。
+
+上述值集中字段为 max_inflight_per_process、total_timeout_ms、connect_timeout_ms、read_timeout_ms、pool_timeout_ms、min_robot_interval_ms、automatic_retry_count；默认分别为 1、10000、3000、5000、1000、1000、0，无独立持久化配置。下一允许发送时刻属于实际发送调度事实，不是用户可调策略。成功领取在短事务记录实际配置版本／发送尝试，再释放锁访问网络；网络调用不放入账户计算槽，不占业务数据库事务。测试 POST 接纳返回 testId 和状态位置，HTTP 接纳不表示已送达，页面沿用 R7 测试中与结果状态。
+
+HTTP transport 使用现有声明的 `httpx` 依赖，明确禁止重定向、环境代理和自动重试，TLS 校验不能关闭。唯一目标主机与路径规则仍以外部协议核验为门禁；通过字面 URL 白名单后也必须阻止私网／环回／链路本地解析结果，连接时保持同一次受检目标及正确 TLS 主机校验，不仅在保存时验一次。没有完成这条网络安全验证不能启用正式发送。解密失败、配置不可用、明确未开始网络属于本地失败；可能已经发送后超时、坏响应或进程退出属于 UNKNOWN，不能靠错误名字猜“肯定没发”。
+
+正式通知内容只包含已批准的股票、计划方向（提醒无方向）、条件摘要、首次触发时间、对应实际值及“盘后验证”说明；不附完整账户资产、资金账号或交易流水。测试文本用固定说明，不采集用户任意消息。关键词按 R7 已设置内容构造测试与正式消息；最终字段长度、关键词数量／匹配规则、有效端点、签名和成功／拒绝响应码继续列入同一个外部协议核验包，不另起产品扩展。
+
+**必须实施 SEC-01—08：**密文篡改／跨用户／跨对象解密拒绝；不同对象 nonce 不复用；KEEP／REPLACE／CLEAR 与旧密钥读回；缺失密钥不落明文且不影响记账；重定向／私网／代理／日志泄密负向检查；双进程同机器人间隔及唯一在途尝试；超时未知无自动补发；真实测试在管理员明确提供测试机器人并授权后执行。成熟库单元测试不能替代应用 AAD、存储约束与脱敏测试。
+
+第 7 节的本地存储、状态、接口和预算设计至此可供整体评审；仍未放行的是飞书外部协议及部署依赖验证，不是遗漏用户已确认的配置页面，也不意味着通知移到二期。
 
 ## 8. 历史完整性审计与已关闭决策（2026-09-10 起）
 
@@ -2851,10 +2981,11 @@ PRD §4.3 明确当前需求不含记录导出；本方案不新增导出接口�
 | v1 评审稿修订 69 | 2026-09-11 | `ba8e2068` 提交修订 68；核对产品未定义的输入长度／位数，记录 §8.18 待确认建议 | 未将建议应用到 PRD、Figma、schema 或数据库；不改既有精度、资金校验和数量规则 |
 | v1 评审稿修订 70 | 2026-09-11 | 用户采纳输入容量建议；同步 PRD v1.40、§4.28.3 与三页 Figma 说明，关闭 §8.18 | 说明卡截图核对，未改业务代码、未运行功能测试 |
 | v1 评审稿修订 71 | 2026-09-11 | `02247d25` 提交修订 70；补 §4.33 查询／索引／迁移映射、§4.34 行情读取合同，修正规则索引方向并补队列 last_claimed_at，分开设计缺项与开发后验证 | 未改变产品、Figma、业务代码或依赖方向；分钟来源证明与飞书延期项未放行 |
+| v1 评审稿修订 72 | 2026-09-11 | `249eb342` 提交修订 71；补 §4.35 完整类型组合／字段清单、§4.36 容量预算、§7.11 本地凭据与发送设计、§11.6 逐项门禁；修正单条件不依赖未启用行情字段 | 整体评审稿编写完成，待整体评审；外部接入与部署验收未放行，未编码、未安装、未发送通知 |
 
-## 11. 当前交付总表：方案评审与编码门禁分开（修订 71）
+## 11. 当前交付总表：方案评审与编码门禁分开（修订 72）
 
-本节取代前文历史轮次的进度判断，不取代其业务合同。方案层已覆盖六个模块及共用写入、核算、恢复、规则和通知流程，可整体评审；**不等于全部 LLD 与编码门禁完成，更不等于可直接全量开工。**已展开的表、函数、DTO 和用例直接作为 LLD，不重写另一套文档。剩余证据集中在 §11.5，不新增产品功能、不重开用户已否决场景。
+本节取代前文历史轮次的进度判断，不取代其业务合同。六个模块及共用写入、核算、恢复、规则和通知流程，连同字段、表关系、查询、预算、安全、交付与验收设计已形成整体评审稿；**不是全部外部依赖已验证、全部 LLD 接入细节已冻结，更不是开发／上线批准。**已展开的表、函数、DTO 和用例直接作为 LLD，不重写另一套文档。当前外部依赖与验证状态只看 §11.5，历史章节“后续补齐”若已被 §4.20—4.36、§7.9—7.11 覆盖，不再作为新增待办；未核验事实仍保持未核验。
 
 ### 11.1 六模块与共用流程的唯一映射
 
@@ -2887,7 +3018,7 @@ PRD §4.3 明确当前需求不含记录导出；本方案不新增导出接口�
 
 拟在 App 新增 `trading_assistant_container.py`，提供 `build_trading_assistant_dependencies(session_factory, market_reader, credential_cipher, notification_transport, clock, execution_policy)`；返回不可变依赖集合。Biz 路由工厂 `create_trading_assistant_router(auth_dependency, dependencies)` 只消费能力，不导入 App。App 显式挂载并注册本模块 ORM；lifespan 创建／停止一个受控运行实例。测试可注入空执行器／固定时钟／故障 transport，导入模块不自动连接数据库或发送消息。
 
-运行器沿用 §4.8.4 已冻结的单进程一个计算槽、500 行／1 MiB／2 秒批次及租约预算。账户和规则按批轮转；等待行情放回持久待办，不占槽睡眠。通知 IO 与计算批次分开管理，不把网络超时塞进 2 秒计算上限。正式发送的并发／时间预算由 §7.10 外部接入门禁冻结，未经冻结不开启发送；不得借此引入新服务或通用队列。
+运行器沿用 §4.8.4 已冻结的单进程一个计算槽、500 行／1 MiB／2 秒批次及租约预算。账户和规则按批轮转；等待行情放回持久待办，不占槽睡眠。通知 IO 与计算批次分开管理，不把网络超时塞进 2 秒计算上限。正式发送的并发／时间预算已在 §7.11 给出目标值；外部协议与接入测试未经核验仍不开启发送，不得借此引入新服务或通用队列。
 
 读取设计目标：常规列表／详情／月历／曲线请求在代表性数据下 5 秒内完成；这是验收目标，不是实测结果。固定事实后以 SQL 完成过滤、分组和游标，按日结果和必要股票累计器算期间本金，不逐股票逐天发 N×D 次查询。一次请求最多固定一份账户版本集合；小请求不扫描全用户历史。复杂期间查询允许分页读取内部日结果，但不能分页聚合后漏掉成本；不得因性能直接增加周表／月表或改分母。
 
@@ -2918,7 +3049,42 @@ A—E 后端命令采用现有环境 `python -m pytest <上述实际已创建文
 
 1. **行情接入：**已有源小样本不等于生产事实源验收。分钟源必须证明未复权价格、时间标签与开盘累计量、午休／停牌／零量点和缺数的区别、完整覆盖及可追溯版本；当前 `StockMinsLakeReader` 的 qfq 不能直接接。日收盘、交易日历、证券身份与全天停牌证明也须绑定实际可用读取入口。适配器未完成证明时返回未就绪，不造 false／0；不接公共行情写入任务，不在用户请求中调用 Tushare 补数据。
 2. **飞书延期项：**按 §7.10 完成官方合同、密钥落位、发送预算、成熟加密依赖和授权实测；不依赖用户回答响应码，不擅自安装或发送。产品侧无需重新评审已通过 R7，若实现必须改变已确认动作再停下来。
-3. **仍需编写的低层设计：**按已定语义完成完整接口字段清单、整体报文字节容量和飞书专项合同；不能将这些尚未写全的内容改称测试任务。本组名称／备注／输入位数已由 §4.28.3 确认；查询落表、稳定分页、最小索引及迁移顺序已补 §4.33，行情消费方法与来源边界已补 §4.34，不再把这些整组列为未设计。§4.26 已明确 rule_result_check 的 owner/rule/result 组合 UNIQUE，以及首次命中检查点的时间／实际价格／累计量同批保存；§4.27 已完成非外部响应的业务异常登记与字段定位。剩余飞书响应码并入第 2 项，不重复列为全模块错误待定。
+3. **本轮文档收尾已完成的项目：**完整接口字段及类型组合见 §4.35，报文容量验收目标／不截断边界见 §4.36，凭据选型／密钥配置／发送预算及测试见 §7.11；外部飞书字段限制、端点、签名和响应仍诚实留在第 2 项。名称／备注／输入位数见 §4.28.3，查询与迁移映射见 §4.33，行情消费接口见 §4.34，通用清单逐项门禁见 §11.6。上述内容已经写入，不再笼统列为“接口／性能／安全未设计”。可执行模型、迁移、OpenAPI 与测试文件在获准编码时按本文生成；不得因此重新选择业务口径。
 4. **开发后验收，不是文档未编写：**按已定合同生成模型、迁移与 OpenAPI，逐个外键和 NULL 分支在隔离 PG 验证；运行并发、进程退出、恢复与真实页面测试。请求预算和代表性容量样本已在 §4.29 明确，实际验证连接等待／中断、响应容量及时间和内存目标；设计常量不是 SLA。生成代码和真实测试通过不是本次纯文档任务的交付条件，但必须在对应模块提测／上线前通过；只读源验证和隔离测试不扩展为生产写权限。
 
-第 1—2 项是依赖接入门禁，第 3 项是有限的文档收尾，第 4 项是实现后的验收，不能混成“代码未测所以文档永远写不完”，也不能将真实未写的合同改名“后续优化”。均在本文维护，不另写重复 LLD。全量可编码状态仍为未放行。§8.18 已按用户决定关闭，当前没有新增产品待拍板项；已结束规则修正、额外输入丢失、导出、群组管理均不再研究。没有新的产品或交互变化，本轮不重复修改 PRD 和 Figma。
+第 1—2 项是依赖接入门禁，第 3 项为本轮已完成的文档设计，第 4 项是实现后的验收。它们不是同一种完成状态；外部接入缺证不能改名“后续优化”后放行，真实测试未执行也不等于设计没写。均在本文维护，不另写重复 LLD。§8.18 已按用户决定关闭，当前没有新增产品待拍板项；已结束规则修正、额外输入丢失、导出、群组管理均不再研究。没有新的产品或交互变化，本轮不重复修改 PRD 和 Figma。
+
+### 11.6 编码门禁矩阵与有限例外
+
+本表逐项承接[模块交付通用清单](../../system/module-delivery-checklist-v1.md)，是本文内嵌 LLD 门禁，不是另一个交付文档。当前只完成设计映射；真实测试均待获准实现后执行，表格本身不等于门禁通过。
+
+| 清单项 | 适用结论与落点 | 验证／放行证据 |
+| --- | --- | --- |
+| 2.1 事实链 | 适用；PRD v1.40、已通过正式 Figma、本文同一事实链 | 整体方案评审；依赖接入缺证项目不放行，不以截图代替实现 |
+| 2.2 后端归一 | 适用；§4.5、§6、§4.35 后端金额／分母／比例 | A/C/E：同日排列、分币守恒、账户去重与单股成本、真页面数值一致 |
+| 2.3 状态机 | 适用；§4.14、§4.19、§4.27—30 | B/C/E：超时→核验、零／空／缺数区分、旧响应不覆盖 |
+| 2.4 显示语义 | 适用；§3、§4.18—19、§4.35 | E：收益红涨绿跌，系统错误用错误色；金额／率两字段切换无重算；无人民币符号 |
+| 2.5 行为过程 | 适用；R5—R13、§11.4 E | E：保存、取消、确认、恢复、条件维护与逐层返回，不只检查静态 JSON |
+| 2.6 同轮同步 | 适用；§1 权威边界 | 每次实现变更对照 PRD／正式稿／本文；偏离先停，不事后倒改需求 |
+| 2.7 渐进替换 | 适用；§11.3 装配及原股票详情 capability | 按六模块分步接真 API；保留各步提交与能力前后证据，禁止失败切 mock；不新增用户 source 开关 |
+| 2.8 契约消费者 | 适用；§4.27—35、§11.2 | A/E：请求白名单、响应必需键／null／枚举、schema 与前端消费逐项对账 |
+| 2.9 坐标说明 | 适用；§3 和已通过 Figma | E：收益金额／率允许负轴，条形权重非负；说明仅按正式稿；切换轴单位一致 |
+| 2.10 SQL 与传输 | 适用；§4.31—33、§4.36 | C/F：有效版本先选后筛、无 N×D IO、真实 PG 查询计划；不用 SQLite 模拟账务并发 |
+| 2.11 策略中心 | 不适用策略中心注册；本模块使用账户费用版本、部署秘密与不可变执行策略 | §4.20、§4.29、§7.11 各自来源／生效／失败测试，不虚构 moduleKey 配置 |
+| 2.12 完整映射 | 适用；本表 | 逐项无空项；不适用有语义理由，不能只写默认继承 |
+| 2.13 例外与断言 | 适用；见下方有限例外 | A/E：负收益不截零、精确结果不由展示值反算；不得添加未登记例外 |
+| 2.14 显式坐标 | 适用；图表消费已批准参数 | E：显式 yMin/yMax/yTickValues 原值生效，自动计算不覆盖硬约束 |
+| 2.15 并排／避让 | 适用布局对齐与标签避让；现有单曲线不虚构双图 | E：四卡与下区边界对齐、长标签不重叠；若真实共享坐标图存在必须同域 |
+| 2.16 单行文案 | 适用；R2 PlanRow／AlertRow 条件列、共享卡片 | E：条件单行垂直居中、按钮等宽、完整 tooltip；不可压窄旁卡凑布局 |
+| 2.17 核心真用例 | 适用；§11.1 六模块字段、§4.35、§11.4 E | 真实路由及隔离库→真实前端 API→页面，不 mock service/query 或 adapter；执行命令见 §11.4 |
+| 2.18 八项原则 | 全部适用；对应本表 2.2／2.8／2.11／2.3／2.10／2.3／2.17 及 §11.4 原八项映射 | A—F 按上述证据验证，排序另按 §4.31／QUERY 用例；配置变更同步消费者／默认值／生效测试 |
+
+有限例外仅解释已确认业务，不扩大需求：①收益有正负，不套用成交额累计图下限 0；②账务事务／精度／锁与 SQL 特性用隔离 PostgreSQL 测试，不增 SQLite 兼容实现；③渐进接入通过既有服务能力和分模块交付证据承接，不为个人账务额外建设策略中心或用户开关。三项均与既有已确认边界一致，随整体技术评审核对；无其他例外。
+
+### 11.7 本轮总审计记录
+
+- 依据：用户最终决定、PRD v1.40 及其正式 Figma 索引、当前相邻代码与本文既有证据。Figma 沿用此前已通过并读回的节点记录，本轮没有重新逐屏读取，不冒充新一轮视觉验收。
+- 纠偏：只启用一项条件不依赖未启用字段；查询游标无签名，不沿用“验签失败”措辞；已完成章节不再作为当前缺项。均为向已确认口径对齐，没有新增产品问题。
+- 覆盖：账户／记账、持仓四视图、收益曲线／日历／复盘、原始／闭环／整轮记录、计划／提醒、配置／通知及保存恢复均有模型、接口、状态、消费者与验收承接；§11.5 保留外部依赖与实测边界。
+- 不在本轮：业务代码、数据库迁移、Lake／Prod 写入、真实机器人发送、安装加密依赖、推送或部署。原有脏文件不纳入本次提交。
+- 文档检查只能验证链接／格式与指定静态规则；金额算法、SQL 约束、真实性能及 API／浏览器交互必须在实现后执行，不以本轮文档通过代替。
