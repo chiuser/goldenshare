@@ -344,6 +344,19 @@
 
 上述报文拒绝不自动证明原未决尝试已停止；保存恢复仍必须关联 requestId／attemptId 并遵守 §11.1 的停止证明。401／403 仍由认证层处理，不借账户不存在绕过认证。
 
+## 11.3 交易助手业务校验与读取（设计登记，尚未实现）
+
+依据交易助手产品 §9.4、§13.4.1、§14.1.1 和技术方案 §4.27。复用 §11.1 的 `TA_REQUEST_INVALID` 承接必填、类型、精度、现金不足、T+1／超额卖出等输入校验，具体原因和输入位置放在 fieldErrors，不为每个输入框另造异常码。账户、费用、保存恢复仍优先使用 §11.1—11.2 的专属码；下表不替换其语义。
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `TA_OBJECT_NOT_FOUND` | tradingAssistant | warn | false | false | 业务对象不可访问 | 流水、轮次、计划／提醒、机器人候选／测试／通知不存在、不属于本人或对象类型不符；HTTP 404 | 关闭该对象的操作资格，保留未提交输入；不得探测他人对象或向其他对象重发；不代替保存恢复专属 404 | biz | Phase-1-design | active |
+| `TA_STATE_CONFLICT` | tradingAssistant | warn | false | false | 本次业务操作的状态前提不再成立 | 流水／期初预期修订变化、规则已结束／关闭／无可修改未来范围、配置激活依据变化、通知不满足重试资格；HTTP 409 | 保留输入并只读刷新本人对象，按当前资格回到既有详情；不自动覆盖、再测试或重发；不代替费用／恢复／请求身份专属冲突 | biz | Phase-1-design | active |
+| `TA_READ_CONTEXT_CHANGED` | tradingAssistant | warn | false | false | 本次读取绑定的事实版本已变化 | 有效且归属本人的分页／下钻上下文与当前要求版本不兼容；HTTP 409 | 丢弃该块旧游标并按原筛选重读首屏，不混合新旧账目；不修改保存状态或清空表单 | biz | Phase-1-design | active |
+| `TA_QUERY_FAILED` | tradingAssistant | error | false | false | 业务读取未能完成 | 查询、只读预览计算、响应构造或不变量校验失败；HTTP 500 | 当前模块／预览错误并可重试读取；其他模块保持可用，原保存成功结论保留；恢复查询使用专属码 | biz | Phase-1-design | active |
+
+游标语法非法、签名不合法或筛选不匹配属于 `TA_REQUEST_INVALID`，不假称版本变化。有效原始记录没有匹配行是合法空列表；缺数、停牌、重算及尚未触发是业务状态，不统一抛 `TA_QUERY_FAILED`。所有业务拒绝只描述当前命令，不凭 HTTP 或异常码单独宣告旧未决尝试已停止。
+
 ## 12. 变更规则
 
 1. 已上线的 `code` 不允许重用为新语义。
