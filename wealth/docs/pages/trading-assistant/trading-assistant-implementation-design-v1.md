@@ -1,7 +1,7 @@
 # 财势乾坤｜交易助手技术实施方案 v1
 
-> 状态：技术方案整体评审稿编写完成，修订 72，待整体评审；不代表已获开发或上线批准。修订 71 已随 `249eb342` 提交。本轮补齐接口字段总表、报文预算、本地凭据与发送设计及逐项门禁矩阵；已细化部分直接作为 LLD，不另写重复文档。PRD v1.40 和已通过 Figma 不变。用户已允许延后的飞书外部协议、实际行情来源接入证明及部署／真实功能验收仍见 §11.5，未完成这些项目不得宣称全量可编码或上线可用。
-> 依据：[交易助手产品需求 v1.40](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
+> 状态：技术方案整体评审稿修订 73，待整体评审；不代表已获开发或上线批准。修订 72 已随 `c02e205d` 提交。本轮按用户同意的三项审计建议补齐闭环响应与详情、买卖备注和费用示例；对应 PRD v1.41 及正式 Figma。已细化部分直接作为 LLD，不另写重复文档。飞书外部协议、实际行情来源接入证明及部署／真实功能验收仍见 §11.5，未完成这些项目不得宣称全量可编码或上线可用。
+> 依据：[交易助手产品需求 v1.41](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
 > 本文不改变已确认收益公式和交互，不代表方案已评审、代码已实现或数据源已验收。未确认的建议不得进入实现。
 
 ## 1. 本轮目标与边界
@@ -2059,7 +2059,7 @@ GET accounts 输出 `{items:AccountSummary[]}`；defaults 输出 `{stampTaxRateP
 | TradeRecord | accountRef、tradeId、revision、tradeDate、recordedAt、acceptedAt、stockRef、direction、quantity、price、FeeBreakdown、note?、status:ACTIVE/VOID。费用依据另含 commissionRateWan、minimumCommission、stampTaxRatePct，沿用原快照 |
 | CashFlowRecord | accountRef、cashFlowId、revision、occurredOn、recordedAt、acceptedAt、direction、amount、netCashChange、note?、status:ACTIVE/VOID；无股票／费用字段 |
 | TradeDayGroup | accountRef、tradeDate、stockRef、direction、quantity、grossAmount、averagePrice、commissionAmount、stampTaxAmount、netCashChange、tradeCount、recordsScope；recordsScope 为同账户／日期／股票／方向定位，不返回任意 URL |
-| ClosedTrade | accountRef、stockRef、tradeId、sellRevision、tradeDate、recordedAt、roundRef、quantity、netProceeds、allocatedCost、profitAmount、returnPct；利润率使用该次分摊成本，非当日收益率 |
+| ClosedTrade | accountRef、stockRef、tradeId、sellRevision、tradeDate、recordedAt、roundRef、quantity、price:Money、grossAmount:Money、commissionAmount:Money、stampTaxAmount:Money、totalFeeAmount:Money、netProceeds:Money、dayOpeningUnitCost:Money、allocatedCost:Money、dayEndQuantity:AvailableQuantity、dayGroup:{accountId,tsCode,tradeDate}、calculationRuleVersion:Version、dayResultId:EntityId、profitAmount:Money、returnPct:ReturnPct；利润率使用该次分摊成本，非当日收益率 |
 | RecordsResponse<T> | scope、requestedStartDate、requestedEndDate、readContext、coverage、Page<T>；闭环另带 recordsScope、summary:{closedTradeCount?,closedProfitAmount?,dataStatus,reason?}；整轮模式实际范围由服务器返回 |
 | RecordDetail<T> | record:T、revisions:Page<T>、readContext；交易另带 closedTrade?:ClosedTrade、closedDataStatus、reason?；资金不带闭环。修订痕迹按 revision DESC，沿用同详情游标／版本约束，不嵌入无限历史 |
 | RecordsSummary | scope、requestedStartDate、requestedEndDate、readContext、tradeCount、buyCount、sellCount、cashInAmount、cashOutAmount、closedTradeCount?、closedProfitAmount?、closedDataStatus、reason?；事实读取失败整块失败，原始已知零值不置空 |
@@ -2077,6 +2077,12 @@ GET accounts 输出 `{items:AccountSummary[]}`；defaults 输出 `{stampTaxRateP
 | CompletedRoundsResponse／RoundDetail | §4.13.3 第一／第二行逐项字段全部必需；仅真实无结束事实的 closedOn 可空，已结束列表必须有值。roundRef={accountId,roundId,roundNumber,status:OPEN/CLOSED}；openingSource=INITIALIZATION/TRADE，期初来源含 §4.13.3 的原始期初版本与含费成本事实 |
 
 上述列表是结构定义，不改变既有信息范围：原始列表有效集合仍排除 VOID，直接详情才可读取本人作废对象；当前持仓累计仍排除已结束轮次；日贡献／期间结果包含期内清仓。费用估算与真实费用不共用字段。持仓未知值按对应依赖逐项为空，不能因为接口字段已列出就生成虚构数字。
+
+**闭环字段来源与展示（修订 73）：**价格、成交额、佣金和印花税通过 closed_trade 指向的同账户 sell_ledger_id／sell_revision 连接原始修订取得，不选该流水任意最新修订；totalFeeAmount 由后端对该笔佣金和印花税求和，不再包含已分摊进买入成本的历史佣金。dayOpeningUnitCost 为当日日初未分摊含费买入成本除以日初数量后的两位展示值，日初来源为同一计算依据的前日 position_state 或初始化版本；实际 allocatedCost 仍按完整比例和 §4.5.1 分币规则计算，禁止由展示单位成本乘数量反算。dayEndQuantity 来自闭环所在 day_result 的同股日终 position_state，0 为真实清仓；同日多笔闭环显示同一个日终量，不按 recordedAt 假造逐笔成交后的数量。dayGroup 是账户／股票／日期的逻辑组，不新增分组表或前端拼接身份；dayResultId 及 calculationRuleVersion 追到该日结果的 origin_generation_id 和 rule_version，不错取复用该日结果的新发布代次规则。全部由后端同上下文组装，缺少这些依据时不返回完整闭环 Ready。
+
+§4.11.4 的闭环列表及交易详情闭环关联统一返回上述 ClosedTrade；前端不得逐行另查来源成交以补价格和费用。闭环列表保留现有列，右侧详情补产品 §9.2 的完整信息，主体局部滚动，收益摘要及原有查看按钮保留。字段是查询展开，不重复落库存储原始价格／费用，也不新增逐笔剩余持仓表。买卖新增表单必须传递选填 note，保存／校验／更正均沿用 §4.28 的 500 字素边界，不再出现只在更正时才能填写备注的入口缺口。
+
+**ALIGN-01—04 待实施验收：**①闭环列表／详情 fixture 逐项包含上述字段，100 行不得发起 100 次来源成交补查；②同日两笔招商卖出分别保留价格 40.20／40.40、费用 60.30／90.90，日终量均为 3500，单位成本显示 40.01，不影响原分摊结果；③全部六个正式闭环选中态和新增买卖备注入口可达，备注 500／501 字素正反例；④万 2.5、最低 5.00 下，1680.00×200 买入佣金 84.00；205.00×300 卖出预览佣金 15.38、印花税 30.75，但 T+1 超卖仍阻止保存。示例费用可算不等于允许保存。接入 §11.4 A／E，不以 Figma 静态数字作为真实 API 验收。
 
 #### 4.35.4 规则、检查与恢复输出
 
@@ -2982,8 +2988,9 @@ PRD §4.3 明确当前需求不含记录导出；本方案不新增导出接口�
 | v1 评审稿修订 70 | 2026-09-11 | 用户采纳输入容量建议；同步 PRD v1.40、§4.28.3 与三页 Figma 说明，关闭 §8.18 | 说明卡截图核对，未改业务代码、未运行功能测试 |
 | v1 评审稿修订 71 | 2026-09-11 | `02247d25` 提交修订 70；补 §4.33 查询／索引／迁移映射、§4.34 行情读取合同，修正规则索引方向并补队列 last_claimed_at，分开设计缺项与开发后验证 | 未改变产品、Figma、业务代码或依赖方向；分钟来源证明与飞书延期项未放行 |
 | v1 评审稿修订 72 | 2026-09-11 | `249eb342` 提交修订 71；补 §4.35 完整类型组合／字段清单、§4.36 容量预算、§7.11 本地凭据与发送设计、§11.6 逐项门禁；修正单条件不依赖未启用行情字段 | 整体评审稿编写完成，待整体评审；外部接入与部署验收未放行，未编码、未安装、未发送通知 |
+| v1 评审稿修订 73 | 2026-09-11 | 按用户采纳的三项审计建议补闭环字段与来源、交易备注和佣金示例，同步 PRD v1.41／正式 Figma | §11.8 对账；未编码，真实验收未放行 |
 
-## 11. 当前交付总表：方案评审与编码门禁分开（修订 72）
+## 11. 当前交付总表：方案评审与编码门禁分开（修订 73）
 
 本节取代前文历史轮次的进度判断，不取代其业务合同。六个模块及共用写入、核算、恢复、规则和通知流程，连同字段、表关系、查询、预算、安全、交付与验收设计已形成整体评审稿；**不是全部外部依赖已验证、全部 LLD 接入细节已冻结，更不是开发／上线批准。**已展开的表、函数、DTO 和用例直接作为 LLD，不重写另一套文档。当前外部依赖与验证状态只看 §11.5，历史章节“后续补齐”若已被 §4.20—4.36、§7.9—7.11 覆盖，不再作为新增待办；未核验事实仍保持未核验。
 
@@ -3081,10 +3088,22 @@ A—E 后端命令采用现有环境 `python -m pytest <上述实际已创建文
 
 有限例外仅解释已确认业务，不扩大需求：①收益有正负，不套用成交额累计图下限 0；②账务事务／精度／锁与 SQL 特性用隔离 PostgreSQL 测试，不增 SQLite 兼容实现；③渐进接入通过既有服务能力和分模块交付证据承接，不为个人账务额外建设策略中心或用户开关。三项均与既有已确认边界一致，随整体技术评审核对；无其他例外。
 
-### 11.7 本轮总审计记录
+### 11.7 修订 72 总审计记录（历史，补充纠偏见 §11.8）
 
 - 依据：用户最终决定、PRD v1.40 及其正式 Figma 索引、当前相邻代码与本文既有证据。Figma 沿用此前已通过并读回的节点记录，本轮没有重新逐屏读取，不冒充新一轮视觉验收。
 - 纠偏：只启用一项条件不依赖未启用字段；查询游标无签名，不沿用“验签失败”措辞；已完成章节不再作为当前缺项。均为向已确认口径对齐，没有新增产品问题。
 - 覆盖：账户／记账、持仓四视图、收益曲线／日历／复盘、原始／闭环／整轮记录、计划／提醒、配置／通知及保存恢复均有模型、接口、状态、消费者与验收承接；§11.5 保留外部依赖与实测边界。
 - 不在本轮：业务代码、数据库迁移、Lake／Prod 写入、真实机器人发送、安装加密依赖、推送或部署。原有脏文件不纳入本次提交。
 - 文档检查只能验证链接／格式与指定静态规则；金额算法、SQL 约束、真实性能及 API／浏览器交互必须在实现后执行，不以本轮文档通过代替。
+
+### 11.8 修订 73：三项审计修正对账
+
+用户同意按审计建议修正，范围仅为既有产品字段与正式交互，不新增业务功能。
+
+| 原问题 | 修正依据及落点 | 验证边界 |
+| --- | --- | --- |
+| 闭环响应缺少表格价格／费用，详情未覆盖产品要求 | PRD v1.41 §9.2；§4.35.3 完整 ClosedTrade、同版本来源映射及 ALIGN 验收；第 19 页六个正式闭环选中态同步，状态参照 `1889:1410` | 收益、单位成本、日终量、费用及示例依据读回；原按钮与表格保留，详情主体局部滚动。没有执行真实 API |
+| 新增交易缺少选填备注 | PRD §7.1、§5.5；TradeInput.note；正式 `1446:795`／`1446:827` 与状态 `1442:79`／`1442:111` | 四处入口均包含选填备注，沿用原字段样式；输入恢复、500 字素和超限行为为实现门禁，不冒充原型动态输入 |
+| 示例佣金错误 | PRD §8.1 与本文 §4.32；买入佣金 84.00，卖出预览佣金 15.38、印花税 30.75 | 独立整数算术与两页显示值核对；卖出仍为超额示例，不撤掉 T+1 错误和保存拦截 |
+
+CodeGraph `query TradingAssistant` 未找到当前实现符号；定向搜索 wealth/src 及 Biz 对应 API／schema 路径无交易助手实现命中。本轮只改目标设计与 Figma，不修改共享 API、业务代码、数据库表或依赖矩阵。闭环价格／费用通过已有设计的原始修订关联读取，不增加冗余事实表；静态文档及视觉验证不代表全量产品、接口和运行时已经验收。修订 72 所称字段收口存在上述遗漏，以本节和更新后的 §4.35.3 为准，不隐去上轮审计限制。
