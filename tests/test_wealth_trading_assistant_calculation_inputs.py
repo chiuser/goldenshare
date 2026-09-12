@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 import textwrap
+from uuid import uuid4
 
 import pytest
 from alembic.config import Config
@@ -17,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from tests.test_wealth_trading_assistant_persistence import database, seed_account
-from src.biz.models.wealth.trading_assistant.accounts import Account
+from src.biz.models.wealth.trading_assistant.accounts import Account, Initialization, InitialPosition
 from src.biz.models.wealth.trading_assistant.calculation import CalculationGeneration, Recalculation
 from src.biz.models.wealth.trading_assistant.calculation_inputs import CalculationBatch, ValuationBasis
 from src.biz.services.wealth.market.trading_assistant.calculation_inputs import CalculationInputs, CalculationInputMismatch
@@ -59,6 +60,65 @@ def setup(engine):
 def fact(code="000001.SZ", price="10.1234"):
     return DailyCloseFact(code,DAY,DAY if price else None,price,"tushare","a"*64,
                           None if price else "当日有效收盘价未就绪")
+
+
+@pytest.mark.parametrize("holding_days", [(), (DAY,), (DAY-timedelta(days=7), DAY-timedelta(days=3))])
+@pytest.mark.parametrize("superseded", [False, True])
+def test_initialization_replay_range_is_derived_and_fixed(migrated, holding_days, superseded):
+    execution = RecalculationExecution(TradingAssistantExecutionPolicyV1())
+    with migrated.begin() as conn:
+        account_id, initialization_id, _ = seed_account(conn)
+        version = 2 if superseded else 1
+        if superseded:
+            conn.execute(insert(InitialPosition).values(account_id=account_id,
+                initialization_id=initialization_id, ts_code="600000.SH", client_row_id="old",
+                opened_on=DAY-timedelta(days=30), quantity=100, available_quantity=100, cost_price="10.00"))
+            replacement_id = uuid4()
+            conn.execute(insert(Initialization).values(initialization_id=replacement_id,
+                account_id=account_id, revision=2, accepted_fact_version=2, initial_cash="100.00",
+                created_at=AT, source_initialization_id=initialization_id))
+            conn.execute(update(Account).where(Account.account_id == account_id).values(
+                current_initialization_id=replacement_id, fact_version=2, calculation_target_version=2))
+            initialization_id = replacement_id
+        conn.execute(insert(Recalculation).values(account_id=account_id, target_version=version,
+            affected_from_date=DAY, next_attempt_at=datetime.now(timezone.utc)-timedelta(days=1),
+            fence=0, transient_failure_count=0, updated_at=datetime.now(timezone.utc)))
+        for index, opened in enumerate(holding_days):
+            conn.execute(insert(InitialPosition).values(account_id=account_id, initialization_id=initialization_id,
+                ts_code=f"00000{index+1}.SZ", client_row_id=str(index), opened_on=opened,
+                quantity=100, available_quantity=100, cost_price="10.00"))
+    with Session(migrated) as session, session.begin():
+        lease = execution.claim(session, executor_id="automatic-range", deadline=deadline())
+        assert lease.account_id == account_id
+    inputs = CalculationInputs(execution)
+    expected_start = min((DAY, *holding_days))
+    from src.biz.services.wealth.market.trading_assistant.calculation_inputs import CalculationDataUnavailable
+    with pytest.raises(CalculationDataUnavailable):
+        with Session(migrated) as session, session.begin():
+            inputs.prepare_from_initialization(session, lease,
+                through_date=expected_start-timedelta(days=1), rule_version=1, deadline=deadline())
+    with pytest.raises(RuntimeError, match="rollback"):
+        with Session(migrated) as session, session.begin():
+            inputs.prepare_from_initialization(session, lease, through_date=DAY, rule_version=1, deadline=deadline())
+            raise RuntimeError("rollback")
+    with Session(migrated) as session, session.begin():
+        assert session.scalar(select(func.count()).select_from(CalculationGeneration).where(
+            CalculationGeneration.account_id == account_id)) == 0
+        identity = inputs.prepare_from_initialization(session, lease, through_date=DAY,
+            rule_version=1, deadline=deadline())
+    with Session(migrated) as session, session.begin():
+        assert CalculationInputs(execution).prepare_from_initialization(session, lease,
+            through_date=DAY, rule_version=1, deadline=deadline()) == identity
+        generation = session.get(CalculationGeneration, identity)
+        assert (generation.from_date, generation.through_date) == (expected_start, DAY)
+        assert generation.initialization_id == initialization_id
+        assert generation.fact_version == version
+        assert session.get(Account, account_id).initialized_on == DAY  # No invented earlier cash.
+    with pytest.raises(CalculationInputMismatch, match="fixed inputs"):
+        with Session(migrated) as session, session.begin():
+            inputs.prepare_from_initialization(session, lease, through_date=DAY+timedelta(days=1),
+                rule_version=1, deadline=deadline())
+    retire(migrated, lease)
 
 
 def save(store, session, lease, generation, fee, facts, after=None):

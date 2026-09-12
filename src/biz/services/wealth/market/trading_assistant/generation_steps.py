@@ -16,6 +16,7 @@ from .calculation_inputs import CalculationInputs, CalculationInputMismatch
 from .cash_date_steps import CashDateSteps
 from .day_calculation_steps import DayCalculationSteps
 from .generation_publication import GenerationPublication
+from .valuation_preparation import ValuationPreparation
 
 
 class GenerationSteps:
@@ -23,6 +24,39 @@ class GenerationSteps:
         self.execution = execution
         self.inputs = CalculationInputs(execution)
         self.calendar = CalendarInputs(execution)
+
+    def prepare_next_inputs(self, session, lease, *, generation_id, business_date,
+                            fee_version_id, valuation_at, deadline):
+        """One input page or date cutoff; caller supplies trusted date-specific bases."""
+        with self.execution.batch(session, lease, deadline=deadline) as account:
+            generation = self.inputs._generation(session, lease, account, generation_id, business_date,
+                stages=("PREPARING", "CALCULATING"))
+            latest = session.scalar(select(CalculationBatch).where(
+                CalculationBatch.account_id == lease.account_id, CalculationBatch.generation_id == generation_id,
+                CalculationBatch.stage == "DATE_COMPLETE", CalculationBatch.stock_key == "")
+                .order_by(CalculationBatch.trade_date.desc()).limit(1))
+            if latest is not None:
+                self._verify_completed(session, lease, generation, latest)
+            expected = latest.trade_date + timedelta(days=1) if latest else generation.from_date
+            if business_date != expected:
+                raise CalculationInputMismatch("Inputs must target the next incomplete date")
+            calendar = self.calendar.read_date(session, lease, generation_id=generation_id,
+                business_date=business_date, deadline=deadline)
+            if calendar["is_open"]:
+                terminal = session.get(CalculationBatch,
+                    (lease.account_id, generation_id, business_date, "VALUATION_END", "", "1"))
+                previous_id = session.scalar(select(DayResult.day_result_id).where(
+                    DayResult.account_id == lease.account_id, DayResult.origin_generation_id == generation_id,
+                    DayResult.trade_date < business_date, DayResult.status == "SEALED")
+                    .order_by(DayResult.trade_date.desc()).limit(1))
+                done = ValuationPreparation(self.execution).step(session, lease, generation_id=generation_id,
+                    business_date=business_date, previous_day_result_id=previous_id,
+                    fee_version_id=fee_version_id, valuation_at=valuation_at, deadline=deadline)
+                if not done or terminal is None:
+                    return "VALUATION_END" if done else "VALUATION"
+            self.prepare_date(session, lease, generation_id=generation_id, business_date=business_date,
+                valuation_at=valuation_at, deadline=deadline)
+            return "DATE_INPUT"
 
     def prepare_date(self, session, lease, *, generation_id, business_date, valuation_at, deadline):
         """Persist the adapter-supplied cutoff, including days with no stocks."""
@@ -117,6 +151,19 @@ class GenerationSteps:
                     return stage
             else:
                 if result is None:
+                    terminal = session.get(CalculationBatch,
+                        (lease.account_id, generation_id, day, "VALUATION_END", "", "1"))
+                    if terminal is None:
+                        raise CalculationInputMismatch("Complete valuation scope is required before starting a date")
+                    previous_id = session.scalar(select(DayResult.day_result_id).where(
+                        DayResult.account_id == lease.account_id, DayResult.origin_generation_id == generation_id,
+                        DayResult.trade_date < day, DayResult.status == "SEALED")
+                        .order_by(DayResult.trade_date.desc()).limit(1))
+                    from uuid import UUID
+                    ValuationPreparation(self.execution).step(session, lease, generation_id=generation_id,
+                        business_date=day, previous_day_result_id=previous_id,
+                        fee_version_id=UUID(terminal.accumulator["feeVersionId"]),
+                        valuation_at=datetime.fromisoformat(prepared.accumulator["valuationAt"]), deadline=deadline)
                     session.add(DayResult(day_result_id=uuid4(), account_id=lease.account_id,
                         origin_generation_id=generation_id, trade_date=day,
                         input_digest=prepared.input_digest, status="BUILDING"))

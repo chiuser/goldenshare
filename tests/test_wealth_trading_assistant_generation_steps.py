@@ -66,11 +66,18 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
             current = DAY + timedelta(days=offset)
             GenerationSteps(inputs.execution).prepare_date(session, lease, **args,
                 business_date=current, valuation_at=AT + timedelta(days=offset), deadline=deadline())
-        if held:
-            for expected in (False, True):
-                assert ValuationPreparation(inputs.execution).step(session, lease, **args,
-                    business_date=DAY, previous_day_result_id=None,
-                    fee_version_id=fee, valuation_at=AT, deadline=deadline()) == expected
+        with pytest.raises(CalculationInputMismatch, match="next incomplete date"):
+            GenerationSteps(inputs.execution).prepare_next_inputs(session, lease, **args,
+                business_date=monday, fee_version_id=fee, valuation_at=AT+timedelta(days=3), deadline=deadline())
+        with pytest.raises(CalculationInputMismatch, match="Complete valuation scope"):
+            GenerationSteps(inputs.execution).advance(session, lease, **args, deadline=deadline())
+        for expected in ((False, True) if held else (True,)):
+            assert ValuationPreparation(inputs.execution).step(session, lease, **args,
+                business_date=DAY, previous_day_result_id=None,
+                fee_version_id=fee, valuation_at=AT, deadline=deadline()) == expected
+            if not expected:
+                with pytest.raises(CalculationInputMismatch, match="Complete valuation scope"):
+                    GenerationSteps(inputs.execution).advance(session, lease, **args, deadline=deadline())
     with pytest.raises(CalculationInputMismatch, match="Prepared date inputs changed"):
         with Session(publication_db) as session, session.begin():
             GenerationSteps(inputs.execution).prepare_date(session, lease, **args,
@@ -109,17 +116,22 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
                         facts=(fact(code="600000.SH"),), fee_version_id=fee, valuation_at=AT,
                         after_stock="000001.SZ", deadline=deadline())
         if stage == "DATE_COMPLETE":
-            # Only after Friday is complete, freeze Monday in a new session.
-            # The generation remains CALCULATING; do not reset its global stage.
+            if stages.count("DATE_COMPLETE") < 4:
+                next_date = DAY + timedelta(days=stages.count("DATE_COMPLETE"))
+                for _ in range(3):
+                    with Session(publication_db) as session, session.begin():
+                        prepared_stage = GenerationSteps(inputs.execution).prepare_next_inputs(session, lease,
+                            **args, business_date=next_date, fee_version_id=fee,
+                            valuation_at=AT + (next_date - DAY), deadline=deadline())
+                    if prepared_stage == "DATE_INPUT":
+                        break
+                else:
+                    pytest.fail("Next date inputs did not complete")
+            # Preparing later dates must preserve Friday's frozen inputs and
+            # must not reset the generation's CALCULATING stage.
             if held and stages.count("DATE_COMPLETE") == 1:
                 with Session(publication_db) as session, session.begin():
                     assert session.get(CalculationGeneration, generation_id).stage == "CALCULATING"
-                    previous_id = session.scalar(select(DayResult.day_result_id).where(
-                        DayResult.origin_generation_id == generation_id, DayResult.trade_date == DAY))
-                    for expected in (False, True):
-                        assert ValuationPreparation(inputs.execution).step(session, lease, **args,
-                            business_date=monday, previous_day_result_id=previous_id,
-                            fee_version_id=fee, valuation_at=AT + (monday - DAY), deadline=deadline()) == expected
                     old = inputs.read_valuation_page(session, lease, **args, trade_date=DAY,
                         page_key="000001.SZ", deadline=deadline())
                     assert old.facts[0].price_text == "11.0000"  # Preserve source column precision.

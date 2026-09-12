@@ -1,7 +1,8 @@
 """M3 input freezing in short fenced transactions, design §§4.6, 4.24.
 
-The caller selects the fixed range and fee version. These methods never choose
-the current fee for historical valuations or declare a day complete.
+The caller supplies a trusted cutoff and fee version; full replay can derive
+its start from current initialization facts. These methods never choose the
+current fee for historical valuations or declare a day complete.
 """
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
@@ -13,6 +14,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import select, func
 
 from src.biz.models.wealth.trading_assistant.calculation import CalculationGeneration, DayResult
+from src.biz.models.wealth.trading_assistant.accounts import InitialPosition
 from src.biz.models.wealth.trading_assistant.calculation_inputs import CalculationBatch, ValuationBasis
 from .recalculation_execution import CalculationExecutionLost
 from .valuation_facts import DailyCloseFact
@@ -73,6 +75,25 @@ class CalculationInputs:
                   or generation.through_date != through_date):
                 raise CalculationInputMismatch("Existing target has different fixed inputs")
             return generation.generation_id
+
+    def prepare_from_initialization(self, session, lease, *, through_date, rule_version, deadline):
+        """Full replay when no compatible prefix is available; cutoff is supplied.
+
+        Read only the earliest current holding date, never deserialize all
+        positions or infer pre-initialization cash/trades. Reuse still goes
+        through prepare_generation's fixed-target consistency checks.
+        """
+        with self.execution.batch(session, lease, deadline=deadline) as account:
+            first_holding = session.scalar(select(func.min(InitialPosition.opened_on)).where(
+                InitialPosition.account_id == lease.account_id,
+                InitialPosition.initialization_id == account.current_initialization_id))
+            start = min(account.initialized_on, first_holding) if first_holding else account.initialized_on
+            if type(through_date) is not date:
+                raise ValueError("A confirmed business-date cutoff is required")
+            if through_date < start:
+                raise CalculationDataUnavailable("Confirmed cutoff precedes the account's history")
+            return self.prepare_generation(session, lease, from_date=start, through_date=through_date,
+                rule_version=rule_version, deadline=deadline)
 
     def _generation(self, session, lease, account, generation_id, trade_date, *, stages=("PREPARING",)):
         generation = session.scalar(select(CalculationGeneration).where(
