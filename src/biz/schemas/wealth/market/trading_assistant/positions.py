@@ -5,6 +5,7 @@ from typing import Literal
 
 from .common import AccountRef, Contract, Coverage, ReadContext, ReadState, Scope, StockRef
 from .records import RoundRef
+from .value_types import AggregateQuantity, PositiveAggregateQuantity, compare_share_quantities
 from .scopes import RecordsScope
 from .value_types import (AvailableQuantity, BusinessDate, Count, EntityId, Instant, Money, NonnegativeMoney,
                           Quantity, ReturnPct, WeightPct, decimal_cents)
@@ -18,8 +19,8 @@ class AccountRound(Contract):
 
 class PositionRow(Contract):
     stockRef: StockRef
-    quantity: Quantity
-    availableQuantity: AvailableQuantity
+    quantity: PositiveAggregateQuantity
+    availableQuantity: AggregateQuantity
     dynamicCostPrice: Money | None
     dynamicCostAmount: Money | None
     price: NonnegativeMoney | None
@@ -40,7 +41,7 @@ class PositionRow(Contract):
 
     @model_validator(mode="after")
     def quantities(self):
-        if self.availableQuantity > self.quantity:
+        if compare_share_quantities(self.availableQuantity, self.quantity) > 0:
             raise ValueError("Available quantity exceeds holding quantity")
         identities = [(item.accountId, item.roundId) for item in self.accountRounds]
         if not identities or len(identities) != len(set(identities)):
@@ -190,8 +191,8 @@ class PositionAccountRound(Contract):
     roundRef: RoundRef
     openedOn: BusinessDate
     openingSource: Literal["INITIALIZATION", "TRADE"]
-    quantity: Quantity
-    availableQuantity: AvailableQuantity
+    quantity: PositiveAggregateQuantity
+    availableQuantity: AggregateQuantity
     buyInvestmentAmount: NonnegativeMoney
     sellNetProceedsAmount: Money
     dynamicCostAmount: Money
@@ -212,7 +213,7 @@ class PositionAccountRound(Contract):
     def current_round(self):
         if self.roundRef.status != "OPEN" or self.roundRef.accountId != self.accountRef.accountId:
             raise ValueError("Position must refer to its account's open round")
-        if self.availableQuantity > self.quantity:
+        if compare_share_quantities(self.availableQuantity, self.quantity) > 0:
             raise ValueError("Available quantity exceeds held quantity")
         return self
 

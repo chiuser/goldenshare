@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 
 from src.app.web.logging import configure_web_logging, get_web_logger
 from src.app.web.settings import get_web_settings
+from src.foundation.config.settings import get_settings
+from src.app.runtime.trading_assistant_lifespan import trading_assistant_lifespan
 
 
 @asynccontextmanager
@@ -18,5 +20,6 @@ async def web_lifespan(_app):  # type: ignore[no-untyped-def]
         settings.web_port,
         settings.web_debug,
     )
-    yield
+    async with trading_assistant_lifespan(_app, database_url=get_settings().database_url, logger=logger):
+        yield
     logger.info("stopping goldenshare web")

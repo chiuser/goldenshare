@@ -1,6 +1,7 @@
 """Generate JSON Schema from the actual models, not a second handwritten spec."""
 
-from pydantic.json_schema import models_json_schema
+from pydantic import TypeAdapter
+from pydantic.json_schema import GenerateJsonSchema
 
 from . import (accounts, calculation_status, common, errors, positions, previews, receipts,
                records, recovered_inputs, recovery, returns, robot, rules, scopes)
@@ -20,8 +21,11 @@ def contract_models() -> tuple[type[common.Contract], ...]:
 
 def json_schema_bundle() -> dict:
     """Serializable schema metadata only; no model instances, IO or route setup."""
-    _, bundle = models_json_schema(
-        [(model, "validation") for model in contract_models()],
-        title="TradingAssistant M1 contracts", by_alias=True,
-    )
-    return bundle
+    # Generate named unions together with models so colliding class names use
+    # the same reference map (not independently generated/merged definitions).
+    roots, definitions = GenerateJsonSchema(by_alias=True).generate_definitions([
+        *((model, "validation", model.__pydantic_core_schema__) for model in contract_models()),
+        ("RecoveryInputResponse", "validation", TypeAdapter(recovered_inputs.RecoveryInputResponse).core_schema),
+    ])
+    definitions["RecoveryInputResponse"] = roots[("RecoveryInputResponse", "validation")]
+    return {"title": "TradingAssistant contracts", "$defs": definitions}

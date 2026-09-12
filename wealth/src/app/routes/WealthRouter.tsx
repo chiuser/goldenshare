@@ -6,6 +6,7 @@ import { MarketOverviewPage } from "../../pages/market-overview/MarketOverviewPa
 import { IndexDetailPage } from "../../pages/index-detail/IndexDetailPage";
 import { StockDetailPage } from "../../pages/stock-detail/StockDetailPage";
 import { WatchlistPage } from "../../pages/watchlist/WatchlistPage";
+import { TradingAssistantPage } from "../../pages/trading-assistant/TradingAssistantPage";
 import { SectorAnalysisPage } from "../../pages/wealth-exploration/SectorAnalysisPage";
 import { TurnoverInsightPage } from "../../pages/wealth-exploration/TurnoverInsightPage";
 import { WealthExplorationLandingPage } from "../../pages/wealth-exploration/WealthExplorationLandingPage";
@@ -44,6 +45,7 @@ export function WealthRouter() {
   }
 
   if (isWatchlistPath(location.pathname)) return <WatchlistPage search={location.search} />;
+  if (location.pathname === "/wealth/market/trading-assistant") return <TradingAssistantPage />;
 
   const stockDetailTsCode = parseStockDetailTsCode(location.pathname);
   if (stockDetailTsCode) {

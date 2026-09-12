@@ -117,27 +117,42 @@ def _stock(value: str) -> str:
     return value  # Identity resolution is deliberately not performed by a wire type.
 
 
-Decimal2Input = Annotated[StrictStr, Field(pattern=DECIMAL_TEXT_PATTERN), BeforeValidator(_decimal)]
-NonnegativeInput = Annotated[Decimal2Input, AfterValidator(_nonnegative)]
-PositiveInput = Annotated[Decimal2Input, AfterValidator(_positive)]
-StampTaxInput = Annotated[Decimal2Input, AfterValidator(_percentage)]
-Money = Annotated[StrictStr, Field(pattern=MONEY_TEXT_PATTERN), BeforeValidator(_output_decimal)]
+Decimal2Input = Annotated[StrictStr, Field(pattern=DECIMAL_TEXT_PATTERN,
+    json_schema_extra={"x-ta-value":"decimal-input", "x-ta-integer-digits":DECIMAL_INPUT_MAX_INTEGER_DIGITS}), BeforeValidator(_decimal)]
+NonnegativeInput = Annotated[Decimal2Input, AfterValidator(_nonnegative), Field(json_schema_extra={"x-ta-min-cents":"0"})]
+PositiveInput = Annotated[Decimal2Input, AfterValidator(_positive), Field(json_schema_extra={"x-ta-min-cents":"1"})]
+StampTaxInput = Annotated[Decimal2Input, AfterValidator(_percentage), Field(json_schema_extra={"x-ta-min-cents":"0", "x-ta-max-cents":"10000"})]
+Money = Annotated[StrictStr, Field(pattern=MONEY_TEXT_PATTERN, json_schema_extra={"x-ta-value":"money"}), BeforeValidator(_output_decimal)]
 SourceDecimal = Annotated[StrictStr, Field(pattern=r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$")]
-NonnegativeMoney = Annotated[Money, AfterValidator(_nonnegative)]
-PositiveMoney = Annotated[Money, AfterValidator(_positive)]
-WeightPct = Annotated[NonnegativeMoney, AfterValidator(_percentage)]
+NonnegativeMoney = Annotated[Money, AfterValidator(_nonnegative), Field(json_schema_extra={"x-ta-min-cents":"0"})]
+PositiveMoney = Annotated[Money, AfterValidator(_positive), Field(json_schema_extra={"x-ta-min-cents":"1"})]
+WeightPct = Annotated[NonnegativeMoney, AfterValidator(_percentage), Field(json_schema_extra={"x-ta-max-cents":"10000"})]
 ReturnPct = Money
-EntityId = Annotated[StrictStr, BeforeValidator(_uuid)]
-Version = Annotated[StrictStr, BeforeValidator(_version)]
-PositiveVersion = Annotated[Version, AfterValidator(_positive_version)]
+EntityId = Annotated[StrictStr, BeforeValidator(_uuid), Field(json_schema_extra={"x-ta-value":"uuid"})]
+Version = Annotated[StrictStr, BeforeValidator(_version), Field(json_schema_extra={"x-ta-value":"version", "x-ta-min-integer":"0", "x-ta-max-integer":"9223372036854775807"})]
+PositiveVersion = Annotated[Version, AfterValidator(_positive_version), Field(json_schema_extra={"x-ta-min-integer":"1"})]
 Quantity = Annotated[StrictInt, Field(ge=1, le=MAX_SAFE_QUANTITY)]
 AvailableQuantity = Annotated[StrictInt, Field(ge=0, le=MAX_SAFE_QUANTITY)]
 Count = AvailableQuantity
-BusinessDate = Annotated[StrictStr, BeforeValidator(_date)]
-Month = Annotated[StrictStr, BeforeValidator(_month)]
-Instant = Annotated[StrictStr, BeforeValidator(_instant)]
-DeadlineAt = Annotated[Instant, AfterValidator(_deadline)]
-StockCode = Annotated[StrictStr, AfterValidator(_stock)]
-AccountName = Annotated[StrictStr, AfterValidator(lambda v: validate_graphemes(v, ACCOUNT_NAME_MAX_GRAPHEMES, required=True))]
-BrokerName = Annotated[StrictStr, AfterValidator(lambda v: validate_graphemes(v, BROKER_NAME_MAX_GRAPHEMES, required=True))]
-Note = Annotated[StrictStr, AfterValidator(lambda v: validate_graphemes(v, NOTE_MAX_GRAPHEMES))]
+# Derived share counts are exact text, including small values; never a number|string union.
+AggregateQuantity = Annotated[StrictStr, Field(pattern=r"^(?:0|[1-9][0-9]*)$")]
+PositiveAggregateQuantity = Annotated[StrictStr, Field(pattern=r"^[1-9][0-9]*$")]
+
+
+def compare_share_quantities(left: str, right: str) -> int:
+    """Compare canonical nonnegative integers without float or digit-limit parsing."""
+    a, b = (len(left), left), (len(right), right)
+    return (a > b) - (a < b)
+
+
+BusinessDate = Annotated[StrictStr, BeforeValidator(_date), Field(json_schema_extra={"x-ta-value":"date"})]
+Month = Annotated[StrictStr, BeforeValidator(_month), Field(json_schema_extra={"x-ta-value":"month"})]
+Instant = Annotated[StrictStr, BeforeValidator(_instant), Field(json_schema_extra={"x-ta-value":"instant"})]
+DeadlineAt = Annotated[Instant, AfterValidator(_deadline), Field(json_schema_extra={"x-ta-value":"deadline"})]
+StockCode = Annotated[StrictStr, AfterValidator(_stock), Field(json_schema_extra={"x-ta-value":"stock-code"})]
+AccountName = Annotated[StrictStr, AfterValidator(lambda v: validate_graphemes(v, ACCOUNT_NAME_MAX_GRAPHEMES, required=True)),
+    Field(json_schema_extra={"x-ta-max-graphemes":ACCOUNT_NAME_MAX_GRAPHEMES, "x-ta-required-text":True})]
+BrokerName = Annotated[StrictStr, AfterValidator(lambda v: validate_graphemes(v, BROKER_NAME_MAX_GRAPHEMES, required=True)),
+    Field(json_schema_extra={"x-ta-max-graphemes":BROKER_NAME_MAX_GRAPHEMES, "x-ta-required-text":True})]
+Note = Annotated[StrictStr, AfterValidator(lambda v: validate_graphemes(v, NOTE_MAX_GRAPHEMES)),
+    Field(json_schema_extra={"x-ta-max-graphemes":NOTE_MAX_GRAPHEMES})]

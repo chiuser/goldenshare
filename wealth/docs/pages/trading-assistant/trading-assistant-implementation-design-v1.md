@@ -1,7 +1,7 @@
 # 财势乾坤｜交易助手技术实施方案 v1
 
-> 状态：技术方案修订 78；M1 实现与限定范围内本地自动化验收完成，等待独立 Review，未进入 M2。最终实现／测试对账见 §11.10.3，首轮与续作证据作为历史保留。M2—M8 未开始；当前 M1 变更未提交、未推送。前复权口径修订 74、PRD v1.42 及索引已随 `ceefc2d6` 提交。已细化部分直接作为 LLD，不另写重复文档；飞书外部协议、实际行情来源接入证明及部署／真实功能验收仍见 §11.5。
-> 依据：[交易助手产品需求 v1.42](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
+> 状态：技术方案修订 85；M2 本地实现及本阶段验收完成，待用户独立 Review，最终对账见 §11.11.10。账户／记账／更正／恢复真实 API、页面接线、跨进程故障、并发、容量及浏览器验收均已完成；不代表已部署或已通过用户验收。M1 已提交 `af0046ac`，未推送；M2 改动尚未提交。M3—M8 未开始。§11.10 及此前修订的执行记录保留为历史证据。已细化部分直接作为 LLD，不另写重复文档；外部接入及部署验收仍见 §11.5。
+> 依据：[交易助手产品需求 v1.43](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
 > 本文不改变已确认收益公式和交互，不代表方案已评审、代码已实现或数据源已验收。未确认的建议不得进入实现。
 
 ## 1. 本轮目标与边界
@@ -1222,7 +1222,7 @@ dailyStats、closedTrades、completedRounds 的完整性分别判定。例如已
 | --- | --- | --- |
 | `GET /write-requests/{requestId}` | 返回本人请求的当前恢复状态，字段见下节 | 原保存后的核对、R11 重新核对；不重交、不续验、不终止执行、不创建尝试 |
 | `GET /write-requests/pending` | 必填 scopeType 及该类型的范围字段；响应 `{ pendingRequest: RecoveryStatusDto \| null }` | 原入口及跨入口防重复提示；不是所有请求历史列表。静态 pending 路由优先于动态 requestId，或使用 UUID 路径类型避免误匹配 |
-| `GET /write-requests/{requestId}/input` | 返回 `{ requestId, operationType, inputSchemaVersion, input }`；input 为该操作原提交字段的类型化对象 | 本人明确未保存后恢复原表单；不返回执行权、密钥或服务器可直接执行的任意命令。状态未允许编辑时拒绝此编辑用途，不通过读取接口改变状态 |
+| `GET /write-requests/{requestId}/input` | 返回 `{ requestId, operationType, inputSchemaVersion, target, input }`；target 按 §11.11.6，input 为该操作原提交字段的类型化对象 | 本人明确未保存后恢复原表单；不返回执行权、密钥或服务器可直接执行的任意命令。状态未允许编辑时拒绝此编辑用途，不通过读取接口改变状态 |
 
 scopeType 使用有限联合：ACCOUNT_LEDGER（accountId，包含初始化更正）、ACCOUNT_FEES（accountId）、RULE（ruleType、ruleId）、ACCOUNT_CREATE（无目标 ID）、RULE_CREATE（ruleType、tsCode、适用 accountId 可空）。参数组合必须精确匹配类型，不能省略范围扫描全部本人请求，也不能传宽泛字符串前缀。同一范围最多返回一个未决请求，由 §4.15.2 的唯一约束保证；数据库出现多条时报告不变量异常，不任取一条。规则与账户身份在后端核验，名称不参与身份识别。机器人配置的范围与输入合同按第 7 节继续后置，不借此接口回传地址或安全密钥。
 
@@ -1234,6 +1234,7 @@ scopeType 使用有限联合：ACCOUNT_LEDGER（accountId，包含初始化更�
 | --- | --- | --- |
 | requestId、attemptId | UUID 字符串；attemptId 为当前已登记尝试 | 客户端绑定原请求；旧 attempt 响应不得覆盖新尝试；详情查询返回当前状态，旧尝试原回执由命令重放处理 |
 | operationType、scope | 操作类型及上述类型化范围 | 从服务端不可变请求记录构建，不能直接照抄查询参数；未授权不返回摘要 |
+| target | LedgerTarget 或 null，键必需 | 更正／作废必须绑定相同账户的原交易／资金记录，其他操作 null；精确定义见 §11.11.6，不是用户可编辑字段 |
 | stateVersion | 非负整数字符串 | 同一 requestId 每次可见状态或当前尝试变化时递增；以精确整数比较，不能转成不安全 JS number |
 | outcome | `PROCESSING / SAVED / NOT_SAVED / UNKNOWN` | 已登记执行、成功回执、停止证明、尚无确定结论分别映射；UNKNOWN 是可证明信息不足，不是数据库故障时凭空生成的请求记录 |
 | inputRetained | boolean | 仅存在可读回的服务端输入才为 true，不根据 HTTP 成功、页面内存或 outcome 猜测 |
@@ -1283,7 +1284,7 @@ scopeType 使用有限联合：ACCOUNT_LEDGER（accountId，包含初始化更�
 | 拟定表 | 字段与类型 | 关键约束 |
 | --- | --- | --- |
 | `app.wealth_ta_write_scope` | owner_id INTEGER、scope_key TEXT、holder_request_id UUID 可空 | 主键 (owner_id, scope_key)；scope_key 为服务端按 §4.16 有限范围生成的规范化身份，非客户端自由文本。空 holder 表示无未决操作；范围行保留以提供稳定短事务锁，不是用户草稿 |
-| `app.wealth_ta_write_request` | owner_id INTEGER、request_id UUID、scope_key TEXT、operation_type TEXT、input_schema_version INTEGER、input_digest BYTEA、input_payload JSONB 可空、candidate_id UUID 可空、current_attempt_id UUID、state_version BIGINT、created_at/updated_at TIMESTAMPTZ | 主键 (owner_id, request_id)；另唯一 (owner_id, scope_key, request_id)，提供同范围 holder 复合外键；state_version ≥ 0、input_schema_version > 0；input_digest 为 SHA-256 固定 32 字节。输入直接存本表或引用既有候选，禁止两份可变事实 |
+| `app.wealth_ta_write_request` | owner_id INTEGER、request_id UUID、scope_key TEXT、operation_type TEXT、target JSONB 可空（§11.11.6）、input_schema_version INTEGER、input_digest BYTEA、input_payload JSONB 可空、candidate_id UUID 可空、current_attempt_id UUID、state_version BIGINT、created_at/updated_at TIMESTAMPTZ | 主键 (owner_id, request_id)；另唯一 (owner_id, scope_key, request_id)，提供同范围 holder 复合外键；state_version ≥ 0、input_schema_version > 0；input_digest 为 SHA-256 固定 32 字节。输入直接存本表或引用既有候选，禁止两份可变事实；target 单独留存且纳入摘要，按操作及范围检查分支 |
 | `app.wealth_ta_write_attempt` | owner_id INTEGER、request_id/attempt_id UUID、status TEXT、fence BIGINT、executor_id TEXT 可空、lease_until TIMESTAMPTZ 可空、basis JSONB、checkpoint_ref UUID 可空、receipt JSONB 可空、rejection JSONB 可空、started_at/finished_at TIMESTAMPTZ | 主键 (owner_id, request_id, attempt_id)；status 仅 PROCESSING/SAVED/NOT_SAVED，fence ≥ 1。SAVED 必须有 receipt 和 finished_at；NOT_SAVED 必须有 rejection、finished_at 且无 receipt；PROCESSING 无终态字段 |
 
 UNKNOWN 是查询／传输的不确定结论，不作为可覆盖成功事实的持久化终态。inputRetained 从唯一输入存储实际可读性导出，不再保存一份可漂移布尔值。input_payload 与 candidate_id 不能同时非空；已登记待恢复请求必须恰有一个有效输入来源，终态输入的后续处理不得破坏回执和幂等证据。候选 ID 类型及复合所有权外键在候选表物理合同中一同校准，不将此处拟定 UUID 当成既有模型事实。机器人秘密不放普通 JSON，后续专门安全合同不得借本表绕过。
@@ -1294,7 +1295,7 @@ UNKNOWN 是查询／传输的不确定结论，不作为可覆盖成功事实的
 
 #### 4.17.2 原尝试、用户新尝试与迟到报文
 
-所有既有保存命令在 §4.9／§4.11 的业务字段外统一带 requestId、attemptId；明确未保存后同输入再存还带 expectedRequestStateVersion。它们是隐藏协议字段，不增加表单输入。input_digest 包含操作类型、服务端规范化范围、业务输入及预期业务版本，不包含 attemptId、重试时间或展示文案。不同序列化格式归一后可以相同，但两笔独立相同成交仍使用不同 requestId。输入或预期业务版本改变须新 requestId。
+所有既有保存命令在 §4.9／§4.11 的业务字段外统一带 requestId、attemptId；明确未保存后同输入再存还带 expectedRequestStateVersion。它们是隐藏协议字段，不增加表单输入。input_digest 包含操作类型、服务端规范化范围、目标引用 target（§11.11.6）、业务输入及预期业务版本，不包含 attemptId、重试时间或展示文案。不同序列化格式归一后可以相同，但两笔独立相同成交仍使用不同 requestId。输入、目标或预期业务版本改变须新 requestId。
 
 1. 首次登记：鉴权并验证范围，在单事务创建或锁住 scope 行，再创建请求和首次尝试、记录唯一输入来源、设置 holder。登记不等于接纳交易。已存在相同请求先比对范围和摘要，不允许更换 scope 绕过锁；同范围其他 holder 返回原待确认入口。
 2. 相同 attemptId 的重复或迟到副本：只返回该尝试已存在状态／原回执，不再次运行、不递增执行权。请求已经成功时返回原成功回执；不同摘要返回身份冲突，不能把它当作原请求失败。
@@ -1595,7 +1596,7 @@ WHERE rn = 1 AND status = 'ACTIVE';
 
 ### 4.24 派生结果、日封存和发布清单（修订 58）
 
-本节把 §4.6 的既定执行语义落到表关系，沿用 §4.8 的有界 Web 执行及 §4.18 的进度。所有以下表使用 app.wealth_ta_ 前缀，归 Biz；不是 Ops 任务表，不新增状态平台。账户／代次／日结果身份 UUID，版本／计数 BIGINT，业务日期 DATE，业务更新时间 TIMESTAMPTZ。所有结果引用包含 account_id，跨账户关联由复合外键拒绝。
+本节把 §4.6 的既定执行语义落到表关系，沿用 §4.8 的有界 Web 执行及 §4.18 的进度。所有以下表使用 app.wealth_ta_ 前缀，归 Biz；不是 Ops 任务表，不新增状态平台。账户／代次／日结果身份 UUID，版本／记录计数 BIGINT，累计股数使用精确整数 NUMERIC（见 §4.28.1），业务日期 DATE，业务更新时间 TIMESTAMPTZ。所有结果引用包含 account_id，跨账户关联由复合外键拒绝。
 
 | 表后缀 | 关键字段、唯一性及职责 |
 | --- | --- |
@@ -1746,7 +1747,17 @@ WHERE rn = 1 AND status = 'ACTIVE';
 | `Instant`／`DeadlineAt` | 带时区 ISO 时刻；截止输入须上海时间、秒和小数秒为 0；服务端创建／生效时间保留实际精度 | SQL TIMESTAMPTZ；展示北京时间，不对 createdAt 向下取整冒充分钟起点 |
 | `StockCode` | 字符串 trim／转大写后必须通过实际证券身份解析；不能仅用名称或正则证明是允许股票 | 标准代码 TEXT；名称由服务端解析；历史已保存名称只作快照，不反向改变身份 |
 
-Quantity 上界只约束单个公开 JSON 数量值；数据库聚合和中间计算不得先转不安全 number。若聚合输出也超过安全范围，不能截断或四舍五入，必须在 DTO 构造时报告不可安全表达的错误，并阻止输出错误数字；是否扩展为数量字符串另行作为契约变更处理。数量实际业务范围仍由现金／T+1／持仓约束决定。
+2026-09-12 用户已确认累计／汇总数量改用精确文本：`AggregateQuantity` 为非负规范十进制整数字符串（含 "0"），`PositiveAggregateQuantity` 为正整数字符串；拒绝 JSON number、正负号、前导零、小数及指数形式，不保留 number|string 双轨。原始成交／期初／单笔闭环数量、输入恢复及计数不改变原类型。累计／汇总数量不套用输入安全整数上界或 BIGINT 上界；内部用精确整数，派生持仓存储用有限、非负、整值 NUMERIC，不能先过 float。数量比较使用整数语义而非字符串字典序，页面不得转 JavaScript number 后再格式化。
+
+| 累计／汇总字段 | 确定类型 |
+| --- | --- |
+| EntryContext.quantity／availableQuantity | AggregateQuantity 或 null，缺数仍是 null，不是 "0" |
+| PositionRow、PositionAccountRound.quantity／availableQuantity | PositiveAggregateQuantity／AggregateQuantity |
+| ClosedTrade.dayEndQuantity | AggregateQuantity；单笔 ClosedTrade.quantity 仍为 Quantity |
+| TradeDayGroup.quantity | PositiveAggregateQuantity |
+| RoundDetail.buyQuantity／sellQuantity | PositiveAggregateQuantity／AggregateQuantity |
+
+普通小数量和超过安全整数的累计值采用同一合同；不为避免响应错误拒绝本来合法的买入，不因跨账户合计增加账户间记账依赖。类型扩展已确认，不再把可精确表达的合计视作内部错误；字段非法仍按响应校验处理。
 
 Decimal2Input 的正负取现行条款：成交价、期初成本、资金录入金额、价格／市场量阈值均 >0；初始现金、最低佣金允许 0；印花税百分数在 0—100。佣金率沿用费用章节，不借数值类型新增券商费率上限。输入整数位数已按 §4.28.3 确认；整体报文字节预算仍见 §11.5，不从自选名称限制推导本模块限制。
 
@@ -1810,7 +1821,7 @@ CAP-01—06 纳入 §11.4 A／B／E：名称 50／51；备注 500／501；组合
 #### 4.29.2 首期缓存与一致读取
 
 1. 首期不新增 Redis 账务缓存、跨请求 ORM 缓存或第二份收益物化层。已有日结果／快照／发布清单是业务派生记录，不视为可以按 TTL 随意丢弃的缓存。
-2. 服务端只允许在单次请求内复用已读取的固定上下文；私有 API 响应使用 `Cache-Control: no-store`，不允许 CDN／共享代理缓存个人持仓、记录和机器人配置。前端只有当前页面内存状态，不做 localStorage／IndexedDB 账务或表单草稿持久化。
+2. 服务端只允许在单次请求内复用已读取的固定上下文；私有 API 响应使用 `Cache-Control: no-store`，不允许 CDN／共享代理缓存个人持仓、记录和机器人配置。前端账务和表单仅保留当前页面内存状态，不做 localStorage／IndexedDB 账务或表单草稿持久化。仅允许 §11.11.9 已批准的当前浏览器、按认证用户隔离的最近具体账户 ID 偏好，不将其当作授权或账务缓存。
 3. 前端请求身份至少包含当前登录身份、账户选择、模块、日期／粒度、股票、筛选和请求序号；返回后再核对当前选择。已取消请求的晚到响应不得覆盖新选择；退出／换用户清空本 feature 私有状态，不能只换 Authorization 而保留上个用户的收益。
 4. 同一份已就绪 positions 数据可切列表／条形／两种饼／地图，不为切视图另算收益；金额率切换使用同响应的两个字段。日期、账户或发布上下文变化必须重新读取，不拿旧值推断新范围。
 5. 保存成功后使受影响读取失效：交易／资金／期初更正刷新原始事实及计算状态，依赖新结果的块按 R12 占位；费用更新不触发历史重算，但当前费用预览／估值需读取新依据；规则维护刷新该规则及列表，机器人激活刷新配置展示。不通过清空所有模块掩盖依赖范围，也不把失效当作保存失败。
@@ -1991,8 +2002,8 @@ FeeAmounts、CostAllocation 是核算内部值对象，不直接原样公开 API
 
 | 拟定方法 | 输入 | 必须返回的证据与用途 |
 | --- | --- | --- |
-| `resolve_security(ts_code, deadline)` | 规范证券身份、读取期限 | 唯一证券代码、名称、市场和来源版本；用于录入身份校验，不通过股票名称猜代码，不要求用户提供数据源参数 |
-| `read_calendar(market, from_date, through_date, deadline)` | 市场和有界日期窗口 | 每日开闭市事实、完整覆盖说明、来源版本；支持 T+1 与完整分钟窗口，不用周一至周五代替交易日历 |
+| `resolve_security(ts_code, deadline)` | 规范证券身份、读取期限 | 唯一证券代码、名称、市场和来源版本；用于录入身份校验，不通过股票名称猜代码，不要求用户提供数据源参数。落实既有 A 股边界时同时核对 EQUITY、SSE／SZSE／BSE 与 curr_type=CNY；币种缺失属于来源资料不完整，非人民币证券拒绝登记，不能仅靠交易所和 EQUITY 判定 |
+| `read_calendar(market, from_date, through_date, deadline)` | 股票所属市场和有界日期窗口 | 按 2026-09-12 用户确认，SSE／SZSE／BSE 统一读取 SSE 日历；返回请求市场、实际日历来源 SSE、每日开闭市事实、完整覆盖说明和来源版本。支持 T+1 与完整分钟窗口，不用周一至周五代替日历；SSE 缺日期仍返回未就绪，不回退猜测 |
 | `read_valuation_basis(ts_codes, trade_date, deadline)` | 一批证券、估值日 | 每证券的未复权日收盘价、实际价格日／估值日、源精度、来源与版本、可用性；停牌例外另含可靠全天停牌及无未处理公司行动的依据，缺证不能沿用旧价 |
 | `open_minute_basis(ts_code, trade_date, deadline)` | 单证券单交易日 | 本次固定且可读回的依据身份、市场时段／时间标签规则、价格口径、单位、覆盖及缺口。不能仅凭返回最大日期声明全天完整 |
 | `read_minute_batch(basis_id, after_checkpoint, required_fields, limit, deadline)` | 上述固定依据、升序位置、启用条件需要的字段与批次上限 | 严格升序的检查点、前复权分钟收盘价及／或该分钟成交股数、下一位置和是否读完；保持同一依据，不把源页游标当作业务检查完成证明 |
@@ -2021,6 +2032,7 @@ FeeAmounts、CostAllocation 是核算内部值对象，不直接原样公开 API
 | ReadContext | contextToken:string、accounts:ReadContextAccount[]、targetThrough:Instant；严格按 §4.31 传输与校验，不重复新增估值标识 |
 | ReadContextAccount | accountId:EntityId、factVersion:Version、calculationTargetVersion:Version、publishedGenerationId:EntityId 或 null；四键必需，账户升序唯一 |
 | RecoverySummary | title:string、lines:string[]；按 §4.16.2 和 §11.10.1 从原操作生成非空纯文本标题和说明行，仅用于原弹窗识别 |
+| LedgerTarget | accountId:EntityId、kind:TRADE/CASH_FLOW、recordId:EntityId；恢复状态和恢复输入都以 target 必需键承载，适用操作及摘要绑定见 §11.11.6 |
 | Coverage | dataStatus:ReadState、reason?:string、isFinal:boolean、accounts:AccountCoverage[]；不新增外部查询或持久化表 |
 | AccountCoverage | accountId、initializedOn:BusinessDate、effectiveStartDate?:BusinessDate、targetThroughDate?:BusinessDate、calculatedThroughDate?:BusinessDate、valuationAt?:Instant、dataStatus、reason；无日期交集时实际起止均 null，不能倒置日期 |
 | ReturnTriple | profitAmount?:Money、capitalAmount?:Money、returnPct?:ReturnPct；完整有效结果三项同时存在且本金正；无收益结果三项 null。部分范围仅在明确允许暂定的块输出，不能推广到日格 |
@@ -3032,7 +3044,7 @@ PRD §4.3 明确当前需求不含记录导出；本方案不新增导出接口�
 ### 11.2 API、输入和错误的横向约束
 
 1. 本文接口共用前缀 `/api/v1/wealth/market/trading-assistant`。所有权由 App 认证注入；路径对象、关联对象、游标及恢复范围逐项校验。账户不可访问沿用集中登记的 `TA_ACCOUNT_NOT_FOUND`；其他对象不可访问、版本变化、查询失败已按 §4.27 和注册表 §11.3 登记，不私造 `WL_*` 或把读取失败用作未保存证明。飞书外部响应分类仍按 §7.10 延后核验。
-2. 金额、价格、费率使用十进制定点文本传输，前端只格式化，不用 JavaScript number 做金额乘除；股数和计数只接收安全范围内整数，ID／大版本使用文本。精确公共类型、数量安全上界及命令组合见 §4.28；数值有限、未知字段拒绝。实际行情保存源精度，展示按两位，分币按 §4.5.1，不让展示舍入改写源数据。
+2. 金额、价格、费率使用十进制定点文本传输；原始单笔股数和计数采用安全整数，累计／汇总股数按 §4.28.1 使用精确整数文本，ID／大版本使用文本。前端不以 JavaScript number 重新计算金额或累计股数。数值有限、未知字段拒绝；实际行情保存源精度，分币按 §4.5.1，不让展示舍入改写源数据。
 3. DATE 用 YYYY-MM-DD，时间带明确时区；业务边界统一上海时区，落库时刻 TIMESTAMPTZ。用户只填交易日期；计划截止输入到分钟，不拿 created_at 的先后充当当天成交先后。月参数只能一个自然年月，范围 from≤through；周／月实际点范围由后端回传。
 4. 请求身份／尝试身份和 expectedRevision 是不同字段，不互相替代。每个写接口均必须生成规范化输入摘要、留存策略和确定性回执；设置保存也适用。预览无业务副作用，不是成功接纳；重试计算不重放交易，重试通知不重判规则。
 5. 普通列表默认 20、最大 100 的稳定游标分页沿用 §4.9.5；游标绑定本人、筛选和事实／发布版本。持仓四视图不能套此限制截掉第 101 只股票。全仓收益率使用各账户金额／本金合计再相除，不平均账户百分比；无权限账户不能先汇总再脱敏。
@@ -3259,3 +3271,197 @@ git diff --check
 131 项包括核算 38、合同 77、既有架构护栏 16；参数化测试内另有字段逐项删减、固定种子与网格循环，数量不重复计入 pytest 项数。CodeGraph `codegraph_explore` 用于合同／相关调用分析，批量新增后执行 sync／status；定向核验未修改现有 API／页面消费者。源代码未引入 App／Ops 或真实资源依赖，当前分支 dev-interface，其他任务脏文件保留。本轮没有安装工具或依赖、运行生产写入、发送通知、修改 PRD／Figma、提交或推送。
 
 **交付边界与下一步：**M1 本地实现／测试完成不等于用户独立 Review 已通过。M2 开始前等待本轮 Review；M2 负责账户身份／T+1 真实交易日历、事务与持久化、有效版本选择、输入留存与恢复查询、真实 API；M3 负责一致估值／token 摘要核验、分页检查点、后台重算和日快照。M4—M8 继续按 §11.9。结构化安全文案的生成、凭据加密和飞书实际发送在其接入阶段验证；结构校验本身不能证明任意文本不含秘密，也不构成飞书送达证明。
+
+### 11.11 M2 已批准详细实施计划与开发对账（修订 79）
+
+用户在 M1 交付后要求提交并推进 M2，评审详细计划后明确要求实施。本节是执行约束，不是完成证明；§11.9／§11.10 中“未开始／待 Review”是此前阶段记录，以本节当前状态为准。
+
+**已确认的阶段边界：**M2 完成闭环表及关联存储、M1 结果隔离落库／读回；M3 接通真实账务的自动闭环生成、日快照、历史重算与统一发布。M2 保存只接纳合法事实、推进版本、写待办与回执，不建临时闭环生成流程，不发布半份派生结果。M2 包含账户设置和录入抽屉真实 API 接通；完整 TA-01—05 展示与图表仍按 M4／M5，规则和飞书按 M6／M7。保存恢复维护须在 M2 接通现有 Web 生命周期，只核实并终止失效尝试，不能自动接纳候选；M3 使用同一既定运行框架承接账务重算。
+
+#### 11.11.1 实施步骤及硬口径映射
+
+| 步骤 | 实现落点与依赖 | 必须覆盖的测试／验收 |
+| --- | --- | --- |
+| M2.0 基线 | M1 核算／schema／两份测试及技术方案、索引单独提交；本计划落回原文，不新建 LLD | `af0046ac`；M1＋架构 131 项，文档／diff 检查通过；其他任务脏文件未纳入 |
+| M2.1 隔离环境与读取适配 | 新空临时目录独立 PostgreSQL；App 注入认证、会话、时钟、证券与完整日历、工程策略，Biz 不反向依赖 App；按 §4.34 核验真实只读来源 | 隔离实例不接受既有 DB URL；证券合法性、完整开闭市覆盖、初始化日／下一交易日／假日；不能以开市日子集证明日历齐全 |
+| M2.2 模型／迁移 | Biz 私有 account／initialization／initial_position／fee_version／ledger／revision／write_scope／request／attempt／validation_candidate／checkpoint，及待办、闭环必要关联模型；App 注册 | MODEL／ACCOUNT-DB／FEE-CONTRACT／LEDGER／MIG；复合 FK、循环引用、互斥 NULL、精确 NUMERIC、UUID／版本、不可变修订；升级和回滚失败测试不删既有业务数据 |
+| M2.3 有效事实与合法性 | queries 在固定版本先选修订，再排 VOID，再过滤；services 分页现金与受影响股票校验、候选及完成证明 | VAL 全组；更正替换而非叠加；跨页合完一天再判现金；T+1 不读落后摘要；新旧股票／日期后续全验；输入／依据变化禁止旧证明 |
+| M2.4 命令及真实 API | 按 §4.11 顺序接账户／期初／费用／entry-context／预览／买卖／资金／更正／作废及必要原始详情；复用 M1 类型和算术 | 创建原子、费率首次接纳固定、旧更正沿用原快照、无变化不新增费用版本；事实／版本／待办／回执／DTO 同事务；闭环独立落库测试不冒充自动发布 |
+| M2.5 幂等／恢复 | 请求、尝试与范围占用协议；三种只读恢复入口；有界失效尝试维护 | RECOVERY、MODEL-03／06／07；同 request 同内容幂等，不同内容拒绝；相同真实成交不同请求分别保存；锁序 scope→request→attempt→业务对象；旧 fence 禁止迟到提交；查无记录不证明未保存 |
+| M2.6 页面及共享认证 | Wealth 页面承载、账户选择／三步初始化／费用设置／买卖及资金抽屉／R6／R8／R11／R12；复用 Header、面包屑、按钮、抽屉；只实现本期必要承载 | 正式 Figma 浏览器核对、真 API／隔离 PG；金额字段红字与 clientRowId 定位、零／空区分、全账户不记账、未知不重发、未发布不 Ready；typecheck／vitest／build |
+
+M2.2 创建迁移前重查真实 head；2026-09-11 只读结果 `20260907_000170` 只是当时证据。先基础表及 UNIQUE，再依赖表，最后必要循环 FK；金融事实不级联删除，不用临时简化模型规避关联。原始输入位数规则不限制中间累计值。
+
+M2.3 使用 §4.8.4／§4.29 的单一工程策略：批次 500 行／1 MiB／2 秒，SQL 1 秒、锁 100ms；读取／预览 5 秒、保存 10 秒，单调绝对 deadline 贯穿连接、查询、计算、构造；依据变化至多追加一次重验。检查点与累计器同事务，半日不算完整；保存只判断合法性，不做估值／闭环／分币。预算耗尽要先证明未接纳及执行权撤销才能宣布未保存，提交不明继续核对。不得偷偷提高历史长度限制或自动后台接纳。
+
+M2.4 新交易取最终接纳锁序下的费用版本；旧交易更正取原快照；修改费用不推进账务版本或历史重算。原始事实及回执可读与派生就绪分开，保存后待办合并最早受影响日期。取消预览不写有效事实；作废只写 VOID 修订，不删除、不反向记账。无账户名唯一、账户删除、重命名、批量记账、手工费用等新增功能。
+
+M2.5 原输入从唯一保存来源恢复，核验摘要由后端安全字段生成，不能代替输入／结果。恢复 GET 不续验、不停止、不建新尝试；同输入再次保存要求旧尝试明确 NOT_SAVED 且 stateVersion 匹配。服务重启的维护只处理失效执行权，不自动审核或记账。
+
+M2.6 按 §4.15.1 扩展唯一 `wealthFetch`，独立选项 `replayAfterRefresh` 默认 true，交易助手写入固定 false；既有调用方默认刷新／重发不变。审计 authStorage／AuthProvider 全部会话写入口，防退出／换用户后旧刷新回写；同步登录设计说明，回归现有消费者。前端类型来自后端 schema，运行时校验字段／状态组合；不复制账务算法，不持久化账务草稿，不自动模拟收益进度。读取／保存等待分别 8／12 秒；前端取消不证明服务端停止。
+
+#### 11.11.2 最终验收门禁
+
+1. M1 保持通过；隔离 PG 验证同请求并发 8 次仅一次、不同请求相同成交两次；可卖 600 并发卖 400／现金 1000 并发转出 700 至多一次接纳；跨用户和跨账户引用拒绝。
+2. 真实路由＋认证＋隔离 PG 覆盖手续费竞争、旧快照、更正日期／股票不复活、作废后续合法性、写入任意阶段失败、提交已成响应丢失、未知查询和旧执行者恢复；不能用 mock service 替代事务证明。
+3. 常规、10 万笔、多账户、双进程样本按 §4.29 验证本期路径，记录 SQL 计划、连接等待、行数／字节／峰值内存／中断读回；报文预算仅测量，不额外创建 413 或减少合法股票行。
+4. 页面需真 API 及浏览器验证正式 Figma、字段错误、保留输入、跨入口防重、换用户迟到、认证禁止重发；M3 未完成不演示假计算进度。共享认证、架构护栏、前端构建及文档检查通过。
+5. 每条硬口径标注代码与测试结果，未完成不得默认通过。独立交付 M2 Review 后才进入 M3；不安装依赖、不部署／生产迁移、不推送。真实冲突停止受影响部分并给出例子和建议，其余正常步骤持续推进。
+
+#### 11.11.3 实施首轮证据与数量容量审计（2026-09-12；决策已确认）
+
+**已完成的有限部分，未代表 M2 完成：**已建立不可变 execution_policy 与共享 deadline；账户／费用／期初／流水修订以及保存范围／请求／尝试／候选／检查点的模型草稿；固定事实版本先选修订再过滤的查询；按日现金及 T+1 数量的分页累计器。模型尚未注册到正式 App，未创建 Alembic 迁移，未挂真实 API、未实现完整命令与恢复维护、未修改页面／共享认证或 Figma。
+
+现有 PostgreSQL 18 在新空临时目录中启动隔离实例，测试结束正常停止；没有连接或修改既有业务库。初次真实 DDL 测试发现两个复合 UNIQUE 自动命名冲突，已显式命名并复测。当前新增的 `tests/test_wealth_trading_assistant_persistence.py`、`tests/test_wealth_trading_assistant_validation.py`、`tests/test_wealth_trading_assistant_execution_policy.py` 共 27 项通过：循环 FK、跨账户配置引用、非法 NUMERIC、非整手／零可卖量、缺版本回滚、日期更正不复活、作废与所有权、恢复输入与尝试唯一性、按完整日校验／T+1 及执行预算。直接模型建表测试不等于迁移／命令／真实 API 验收。
+
+**待确认容量边界，不是新规则：**M1 的每笔 TradeInput.quantity 及持仓／EntryContext 响应 Quantity 均采用安全整数上界 9007199254740991，但累计器使用精确整数且没有累计上界。以零费率／零最低佣金、价格 0.01、同日两笔分别买入 9007199254740991 股与 1 股为例：两笔输入均通过；总买入投入 90071992547409.92 元，初始现金 100000000000000.00 可覆盖且符合 18 位规则；无卖出，不触发 T+1 拒绝。calculate_stock_day 得日末数量 9007199254740992，AvailableQuantity 响应校验却以 less_than_equal 拒绝。实测为两个合法输入、正确整数合计、非法响应的组合，不是浮点算术误差。
+
+现有 §4.28 明确单次数量及传输边界，但没有明确累计持仓超过该边界时是否拒绝本次保存。建议：每笔输入仍遵守已定整数范围，累计／汇总输出数量改用精确十进制整数字符串，派生存储使用相应的精确整数 NUMERIC，并同步 M1 schema 与后续前端合同；页面仍展示正常股数，不新增控件。这样不增加累计持仓限制，也不因全部账户合计超界而让账户间互相限制记账，但确实改变已有字段类型，须确认。另一方向是明确这类累计超界不在首期支持范围，并设计一致的接纳／汇总失败边界；不能只限制单账户持仓而漏掉跨账户／日组汇总，也不能静默丢精度或截断。
+
+当前停止受该问题影响的接纳／输出实现，未加入累计上限拒绝，也未改为文本。其余首轮代码保留未提交；最终复测不消除此决策项。用户确认后先对齐产品／技术字段口径，再补对应组合回归，继续 M2.1—M2.6 的未完成工作。
+
+上述停止状态为本轮确认前的历史记录。用户现已同意建议，按 §4.28.1 映射迁移累计／汇总字段、补组合测试后恢复 M2；不新增累计持仓上限，原始单笔数量和既有其他模块合同不变。产品 §5.5 同步；只有传输／存储调整，没有新增 Figma 控件或视觉变化，无需修改交互稿。
+
+最终复测：M1 两份测试、上述 M2 三份测试及三项既有架构护栏合计 **158 passed in 11.42s**；文档完整性与 `git diff --check` 通过。CodeGraph explore 覆盖相邻命令、模型、注册入口，新增后 sync 已更新。未改现有消费者、API 或依赖矩阵；仍未执行迁移、源端真实只读证明、完整保存／恢复／页面验收。
+
+#### 11.11.4 数量合同实施与交易日历接入核验（2026-09-12；修订 80）
+
+**已实施，未提交：**按已确认的 §4.28.1 修改 M1 累计数量字段；单笔输入仍为安全 JSON 整数，累计／汇总响应只接收规范十进制整数字符串，不保留 number/string 双轨。`value_types.py` 的精确比较不转浮点；`persistence_values.py` 用无 Decimal 上下文舍入的整数／NUMERIC 转换。`calculation.py` 的累计持仓数量为精确整数 NUMERIC，增加同账户发布引用及有限金额约束。超安全整数两笔合法买入、超过 BIGINT 的派生数量、低 Decimal 精度、非法小数／非有限值均有组合回归。
+
+`effective_ledger.validation_page` 在固定版本有效集合之后替换或排除目标流水，再分页，旧日期不复活；预览不修改事实。新增 `write_protocol.py` 短事务原语，按 scope→request→attempt 锁序登记、重放、撤销执行权及核验回执；账务输入唯一留存在候选，轻量费用请求直接留存输入。恢复读取不停止尝试，租约过期须经维护锁内撤权才能得到 NOT_SAVED。测试证明重复登记不再执行、不同内容同请求冲突、旧执行权被拒，以及显式新尝试要求状态版本。它仍不是完整的命令服务／维护循环／API；并发与故障矩阵尚待完成。
+
+`market_facts.py` 读取真实证券身份及有界完整开闭市日历，并记录实际读取事实的摘要；摘要不冒充上游不可变版本。隔离 PostgreSQL 验证完整日历与缺日期分支。
+
+**远程只读证据与卡点：**通过当前应用 `.env` 的既有数据库配置连接 `goldenshare`，先执行只读事务、单查询 3 秒超时。只读取 `core_serving.security_serving` 的 ts_code/name/exchange/security_type/source，限定 `000001.SZ`、`600000.SH`、`920002.BJ` 共 3 行，三者均为对应市场 EQUITY。读取 `core_serving.trade_calendar` 的 exchange/trade_date/is_open/pretrade_date，限定 SSE/SZSE/BSE 与 2026-09-11—14，最多 12 行，实际仅 SSE 4 行（11、14 开市；12、13 休市）。随后按三个 exchange 主键前缀各倒序取最近 1 行：SSE 最近日期为 2027-12-31，SZSE 和 BSE 均无记录。没有扫描用户账务，没有写入、迁移或补数。
+
+确认前的审计结论：`TradeCalendarDAO` 按传入 exchange 精确读取，无缺失市场回退；当时本方案 §4.34 尚未定义三市共用日历。其他行情模块的 SSE 日历口径不能自动升级成交易助手的 T+1 规则。该决策缺口现已由下述用户确认关闭；公共 DAO 行为保持不变，仅交易助手适配明确使用共用来源。
+
+**来源决策已确认（2026-09-12）：**用户明确深交所、北交所与上交所日历一致。交易助手 A 股统一使用既有 SSE 日历进行交易日与 T+1 校验，并明确区分股票所属市场与所用日历；缺少该共用日历的日期仍返回未就绪，不猜星期、不补零。不新增日历配置、公共数据同步任务或用户控件，不在保存请求中补数。此前来源卡点关闭，继续 M2，其余未完成任务不视为通过。
+
+修订 80 历史证据：定向 M1／M2 五份测试和三项架构护栏合计 **187 passed in 11.23s**。当时尚未注册模型或创建迁移；后续进展以下节为准。累计数量仅传输／存储类型调整，无新增视觉或控件，Figma 无需修改。
+
+#### 11.11.5 共用日历落地、隔离迁移与事务接线（2026-09-12；修订 81）
+
+**已落实的决定：**`MarketFactsReader.read_calendar` 对 SSE／SZSE／BSE 都读取 SSE；`CalendarBasis.exchange` 保留请求股票市场，`calendar_exchange` 如实记录 SSE，内容摘要只描述所读日历事实。隔离测试证明三市读到相同开闭市事实／摘要、任一市场遇到缺日期均拒绝、非 A 股市场不借用该适配。没有修改公共 DAO、日历表或行情生产合同，也不增加配置项；产品 T+1 含义和 Figma 不变。
+
+| 新增实施 | 实际证据与边界 |
+| --- | --- |
+| M2 基础迁移及模型注册 | 创建前本机 `alembic heads` 为 `20260907_000170`；新增 `20260912_000171` 只接该 head，16 张私有基础／关联表和延迟循环外键使用冻结 DDL。App 注册四个模型模块。不导入可变业务模型执行迁移，downgrade 明确拒绝破坏账务数据；全部运行仅在新建隔离 PostgreSQL |
+| 账户及费用最终接纳事务 | `account_acceptance.py` 复核留存输入摘要；创建账户／期初／费用／重算待办／成功回执同事务，北京日期由传入服务端时间取得；不伪造 BUY／IN。费用同值不新建版本，修改只切费用指针，不推进账务／计算版本。3 项真实事务测试通过；完整请求调度、证券证明装配与 API 尚未接通 |
+| 分页合法性及检查点 | `validation_pages.py` 使用有界游标并计行数／字节／时限，完整页不能冒充 EOF，同日跨页不提前判负。`validation_checkpoints.py` 同事务保存游标、累计器和范围，重复页读回一致性核验不重复累计，依据变化不可沿用，后页必须引用已留存的未完前页；3 项隔离读回／重放测试通过。全量完成证明、所有受影响股票调度及并发门禁仍未完成 |
+| 请求总期限接线草稿 | `transaction_boundary.py` 为 Biz 注入事务入口；App `trading_assistant_transactions.py` 尝试以 SQLAlchemy AsyncSession 使连接等待、SQL、提交一起受绝对 deadline 限制，业务体仍通过同步 Session 复用现有实现。提交已尝试后的异常标记为待核验，不自动重放。未挂正式路由或生命周期，尚不可用 |
+
+**当前阻塞不是产品口径：**当前 `.venv` 为 macOS arm64、SQLAlchemy 2.0.50、psycopg 3.3.4；实际调用 AsyncSession 时提示 `the greenlet library is required ... No module named 'greenlet'`。`pyproject.toml` 只声明 `sqlalchemy>=2.0.36`，未声明 asyncio extra；本机安装元数据明确该 extra 需要 greenlet，而 Darwin arm64 不在基础安装自动要求 greenlet 的平台条件内。仅能创建 AsyncEngine 对象不证明连接可用，本轮实际测试已发现并保留失败，不跳过伪装通过。
+
+已有同步 `src/db.py` 未显式设置连接池等待／建连总期限，直接复用不能证明本方案读取 5 秒、保存 10 秒的整次预算。为避免自行修改共享数据库行为、改写 ORM 或新增自制线程接管框架，建议在项目依赖声明启用 SQLAlchemy 的 asyncio extra，并仅在现有项目 `.venv` 补装缺失的 greenlet，不升级其他已有包。**该依赖变更及安装尚未获准，未修改 pyproject、未安装任何包；异步接线暂停。**批准后先复跑三项接线测试，再继续完整命令／恢复生命周期／API 和 M2 页面。
+
+验证：M1 两份、M2 五份及三项架构护栏合计 **194 passed in 13.59s**，有 4 条既有 Alembic 配置弃用提示；额外 `test_wealth_trading_assistant_transactions.py` 三项因上述缺依赖失败，分别覆盖连接池等待期限、提交已完成但响应丢失、只读事务拒绝写入。不能把 194 项通过写成 M2 验收完成。CodeGraph 覆盖日历适配、请求协议、App 模型注册和既有数据库 Session 链；依赖方向保持 App→Biz→Foundation，未更改已上线 API，未部署、未迁移生产库、未修改页面，也未提交本轮变更。
+
+#### 11.11.6 依赖授权落实与恢复目标遗漏（2026-09-12；修订 82）
+
+**后续确认（修订 83）：用户已批准以下目标身份补齐，修订 82 的待确认和暂停状态仅保留为历史记录。**恢复合同统一新增必需键 `target: LedgerTarget | null`，`LedgerTarget = {accountId: UUID, kind: TRADE | CASH_FLOW, recordId: UUID}`。TRADE_CORRECT／TRADE_VOID 必须是 TRADE，CASH_FLOW_CORRECT／CASH_FLOW_VOID 必须是 CASH_FLOW；其余操作显式 null，不伪造新建 ID。该引用不是可编辑输入，不加入交易表单；HTTP 接线从已校验的路径参数构造。恢复状态的 target.accountId 必须等于 scope.accountId；恢复输入原样返回同一 target。`wealth_ta_write_request.target` 留存该身份，请求摘要覆盖 operation、scope、target、input，重试不允许换目标。注册前检查用户账户所有权及记录所属账户／类型；重新执行仍需按既定版本规则核验目标。不得解析展示摘要猜目标。§4.15.2、§4.16、§4.23、§4.35 的同名合同以此补充为准；不改变 PRD 或 Figma。正反例覆盖同内容不同目标、缺失／错类型／跨账户身份、刷新读回及错目标重放。实施与验收记录在本节后续追加，不将批准等同于完成。
+
+**依赖门槛已关闭：**用户已明确允许补充 SQLAlchemy asyncio 依赖声明和在项目 `.venv` 安装 greenlet。`pyproject.toml` 改为 `sqlalchemy[asyncio]>=2.0.36`；现有 uv 以指定 `.venv/bin/python` 和 `--no-deps` 只安装了 greenlet 3.5.5。SQLAlchemy 仍为 2.0.50、psycopg 仍为 3.3.4，没有升级其他已有包，也没有安装全局套件。三项异步事务测试现 **3 passed in 3.23s**，证明连接池等待到期不进入业务体、提交已成但响应丢失标记未知且不重放、只读事务拒绝写入。上一节的缺依赖失败及待授权状态仅为历史记录。
+
+**继续 M2 时发现的合同遗漏（待确认修正）：**§4.15.2 已要求请求留存“目标 ID（新建可空）”，§4.11.2 更正／作废路径也明确包含 tradeId 或 cashFlowId；但 §4.16／§4.35 具体恢复 DTO 没有相应字段。当前 `RecoveryStatusDto` 只含 ACCOUNT_LEDGER 账户范围，`TradeCorrectInput` 只含 requestId/inputSchemaVersion/operationType/input，input 内没有 tradeId；资金更正及两类作废同样未定义目标身份。实际向恢复 DTO 增加 tradeId 会被 `extra_forbidden` 拒绝。CodeGraph 和当前代码均已核对，不是依据名称推断。
+
+例子：同一账户有两笔同股、同日、同价、同数量的买入，用户要更正第二笔。刷新后从账户入口发现该未决操作，即使原输入完整留存，现有恢复响应也不能告诉前端原来指向哪笔交易。不能从说明文字猜目标，也不能把两个相同事实合并。另一个关联风险是仅对操作类型、账户范围及请求体求摘要，未纳入 URL 里的目标 ID 时，不同目标的同内容可能得到同一身份摘要；完整命令接线前必须补齐。
+
+建议在既有请求留存、恢复状态和恢复输入之间补齐类型化目标引用（账户、交易／资金记录类型及记录 ID），明确更正／作废必须存在且和账户范围一致，并将目标纳入不可变请求摘要。新建操作不伪造尚未创建的记录 ID；已有范围可定位的对象不再从显示文案推断。它是内部定位信息，不增加用户输入、页面或独立恢复入口，Figma 布局无需改变。获准后同步精确字段表、M1 schema、M2 持久化／摘要和全部消费者，补同内容不同目标、跨账户目标、刷新找回和错目标重放反例；当前尚未擅自修改此合同。
+
+本轮全量已实现范围回归：M1 两份、M2 六份及三项架构护栏 **197 passed in 14.12s**，5 条既有 Alembic 配置弃用提示。仍非 M2 完成证明；完整保存／恢复 API、维护循环、页面与并发／容量矩阵尚未交付。依赖安装已完成，暂停原因变为上述字段合同缺口，而不是继续等待安装许可。未提交、未推送、未部署或生产迁移。
+
+#### 11.11.7 目标身份补齐与 M2 后续实施（2026-09-12；修订 83）
+
+用户已明确同意 §11.11.6 的修正并要求继续。以下为本轮实现事实，不以局部通过替代完整 M2 验收。
+
+| 已实现硬口径 | 代码落点 | 验证覆盖 |
+| --- | --- | --- |
+| 更正／作废绑定原目标，创建不伪造 ID | schemas 的 targets／recovered_inputs／recovery；write_request.target 与未发布的 171 迁移同步；write_protocol 的注册、摘要及成功回执核验 | recovery 测试覆盖四类操作必需／类型／账户范围、同内容不同目标摘要不同、跨账户目标拒绝、错记录回执拒绝；M1 全操作输入 fixture 同步。JSON Schema 中更正和作废的 target 为非空专属类型，其他原输入 target 为 null |
+| 刷新后从数据库恢复准确目标和唯一原输入 | queries/write_recovery：status、pending、recoverable_input；请求、当前尝试及候选单条 JOIN 查询，不跨次读取拼状态 | 隔离 PG 新 Session 模拟刷新；交易／资金精确目标读回、PROCESSING 不准返回可编辑输入、NOT_SAVED 才允许恢复、另一用户无权读取、读取不停止或重试；错误／损坏留存不伪造正常结果 |
+| 过期维护仅撤权，不自动保存 | recovery_maintenance：有界扫描，逐尝试短事务；取消前保留已提交单元，忙锁跳过不改结果 | 真实 async 事务验证一笔完成后取消、剩余两笔再处理、第三次零新增；保留原输入且零账务新增。Web 生命周期装配尚未完成 |
+| 同范围只有一个执行者 | write_protocol 既有锁序与唯一约束 | 8 线程同 request／attempt 重放只一条执行；8 个不同请求竞争同范围只一条执行，其余范围占用冲突。尚非两个 Web 进程完整 API 验收 |
+| 候选更正沿用原费用，并检查新旧股票 | ledger_preparation：PreparedLedgerChange、prepare_trade／cash／void | 量价更正仍取原佣金及税率、新单用新费率、买入税为零、超大金额低 Decimal 精度不丢失、新旧日期取早者、新旧股票完整、作废排除原事实而非生成反向现金 |
+| 分页扫描、结束证明与中断续跑 | ledger_validation、validation_completion；复用 validation_pages／checkpoints | 502 条候选视图现金事实分两页；首批持久化后取消，再读回游标继续，累计不重复；现金与新旧每只股票缺一不可、零行扫描仍需明确结束、错依据禁止复用；不生成正式流水或闭环 |
+
+本轮按 CodeGraph 及定向引用审计同步全部现有后端合同消费者／测试；当前尚无交易助手前端恢复消费者或正式 HTTP 路由，因此未手写平行前端类型，也未改共享 API／认证行为。新增实现均在既定 Biz 模块内，沿用 App 注入的事务能力，不新增子系统依赖、依赖包、配置或用户功能。PRD／Figma 无需改版；技术方案的字段表、请求摘要及本节已同步。
+
+**实际回归：**既有 M1 两份、M2 六份测试，加本轮 `tests/test_wealth_trading_assistant_recovery.py`、`tests/test_wealth_trading_assistant_ledger_preparation.py`，以及三项架构护栏，以现有 `.venv/bin/python -m pytest ... -q --tb=short` 执行，最终 **217 passed in 16.33s**，6 条已有 Alembic path_separator 弃用提示。早一轮有两项测试将专属目标子类型与父类型直接比较，已改为比较完整字段值，重跑全套通过，未放宽生产目标校验。模块 compileall、文档完整性和 git diff --check 通过；CodeGraph sync／status 显示索引最新。数据库测试均为新建隔离 PostgreSQL，没有使用应用配置的正式库。
+
+**仍需继续，不能标记 M2 完成：**将已实现的候选算术、分页核验及完成证明接入完整命令服务；固定／复核真实基础版本及来源依据、首次接纳费率、有限重验、最终事实／待办／回执原子提交；初始化更正全股票扫描；完整真实路由、Web 恢复维护装配、前端共享认证与录入交互；全部故障／长历史／跨进程及浏览器验收。当前分批验证对象由上层显式传入，不代表这些最终接纳门禁已自动满足。没有提交、推送、生产迁移或部署。
+
+#### 11.11.8 M2 命令、真实接口与前端接线进展（2026-09-12；修订 84）
+
+本节承接用户“持续推进至 M2 完成，遇到问题再讨论”的授权；是开发对账，不是提前验收。
+
+| 硬口径 | 实现与验证 |
+| --- | --- |
+| 登记／更正／作废的原子接纳 | `account_commands`、`ledger_commands` 组织请求留存、候选、分页校验和最终短事务；`ledger_acceptance`、`initialization_acceptance` 原子写事实、版本、重算待办和成功回执。真实 PG 验证重放只一笔、费用版本冲突、转出不足、历史更正破坏后续现金、作废破坏可卖量、新旧股票均校验及初始化全股票重验 |
+| 费用只影响后续，当前转出错误落字段 | 新交易复核当前费用版本；原交易更正使用原快照。费用更新不推进事实及计算目标。当前现金 1000 转出 2000 返回 `amount` 字段及“转出金额超过当前可用现金，请检查。”；初始化更正返回稳定 clientRowId、字段与受影响日期，不让前端猜行号 |
+| 预览不保存账目 | `ledger_previews`、`initialization_preview` 复用同一候选与校验能力；只保留 PREVIEW 及核验页，不创建账务流水、保存请求或重算待办；输出前后原值、变化字段、费用和校验问题。真实 API 验证预览前后现金／事实版本不变 |
+| 来源变化不复用旧核验 | `validation_basis` 比较证券实际摘要，并在 SQL 内检查本次全部核验页记录的 SSE 日期事实，无需将全部页载入内存。重试前拒用不兼容页；最终接纳再次检查，变化时在原期限内最多一次重验并使用新 runId。预览变化返回已有读取上下文冲突。隔离 PG 覆盖日期开市状态与证券资料变更 |
+| 原始详情不依赖派生完成 | `record_detail` 按本人查询原流水及修订；修订分页按 revision DESC，默认 20、最大 100。游标 queryKind 为 TRADE_REVISIONS／CASH_FLOW_REVISIONS，lastKey 为 revision，摘要绑定账户、原记录及事实上下文；切记录／变版本不可沿用。原始详情的 targetThrough 使用已接纳初始化／流水的最近持久化时间，不使用 HTTP 返回时刻。闭环派生读取与发布仍由 M3 承接 |
+| 真实 HTTP 与应用装配 | Biz 路由工厂不反向导入 App；App 的 `api/v1/trading_assistant` 从既有 get_current_user 取得 owner，再注入生命周期服务。账户、初始化、费用、录入上下文、买卖／资金、预览、更正／作废、原始详情、恢复状态／输入已接线；私有响应 no-store，非法输出与数据库异常不返回原始 SQL 或输入，不把未知保存说成失败 |
+| Web 维护仅终止失效尝试 | `trading_assistant_lifespan` 每进程一个异步恢复循环；沿用 DATABASE_URL 及既有连接池初值，不修改共享同步池。策略唯一来源 execution_policy，补齐 §4.8.4 已有 shutdown_grace_seconds=5；失败安全日志不含私人输入，停止可中断空闲等待。真实隔离数据库测试验证启动可读账户、退出后任务结束、资源释放；未接入 M3 重算 |
+| 共享认证扩展与登录隔离 | wealthFetch 第三个选项 replayAfterRefresh 默认 true 保留既有消费者；交易助手写请求使用 false。登录身份代次防止登出／切用户后的旧刷新覆盖新登录；取消刷新不触发登出，旧重发 401 不清除更新后的凭据。登录两份原方案同步该获准扩展；不增加本地存储键、不存账本或表单 |
+| 前端字段来源 | `scripts/generate_trading_assistant_contracts.py` 从 schema_catalog 机械生成 feature 的 generatedContracts.ts，`--check` 检测漂移，不安装依赖。value_types 的 JSON Schema 补充已有金额、版本、日期和字素限制元数据，未新增字段或更改后端输入边界。运行时先按生成结构验证，再验证 EntryContext、初始化及恢复状态的字段组合；不通过断言强转来接收非法响应 |
+
+当前回归证据：后端定向测试与三项架构护栏 **225 passed in 24.05s**，10 条既有 Alembic 配置弃用提示；此结果在随后 JSON Schema 元数据扩充前取得，扩充后的回归仍继续执行。共享认证 client 最新 **14 项通过**；生成字段运行时 **14 项通过**。这些证据不替代整页真实 API 与浏览器验收。此前 217／222 项记录为当时覆盖，不混作最新完整验收。
+
+下一步继续完成前端账户／向导／设置／录入及 R11、R12，完善真实认证 API、并发／故障／10 万笔容量及浏览器逐项验收；检查点、金额守恒、源变化和字段映射继续审计。未完成事项不划掉、不跨入 M3，也没有执行生产迁移、部署、推送或提交。
+
+**本节后续增量证据（不替代 M2 总体验收）：**
+
+- `test_wealth_trading_assistant_authenticated_api` 使用正式 App 路由、JWTService、get_current_user 与 UserRepository，只把数据库依赖指向新建隔离 PG；未登录／无效 token／停用及不存在用户均拒绝，跨用户账户与恢复请求不可读，同请求成功重放只建一个账户。与原 API 测试合跑 2 项通过；查询额外键、重复键及非整数分页输入拒绝，非法资金金额定位到 amount。
+- `test_wealth_trading_assistant_concurrency` 启动两个独立 Python 进程、每进程四个并发命令；同请求八次提交只记一笔，八个不同账户可分别完成，不靠进程内锁或全局账务锁。2 项通过（7.68 秒）。尚不能代替进程故障与长历史混合交易验收。
+- `test_wealth_trading_assistant_capacity` 在隔离库生成 10 万条资金流水，加入一条候选后累计扫描 100001 行，201 个检查点页，分 3 次原预算调用完成，扫描合计 24.037 秒；最终现金 10000200 分。证明有界分页与断点承接，不证明真实 HTTP 重新保存、10 万笔混合交易／修订或完整容量门禁已经通过。
+- 前端新增 R11 纯状态归并、正式核验弹窗、三步账户向导及共享费用字段／股票选择；仅本 feature 定向 33 项通过，页面挂载与真实保存联调仍未完成。旧用户／页面／版本响应丢弃，版本用 BigInt 比较；同版本矛盾拒绝采用，核对失败不推翻已知成功，只有明确未保存才允许返回编辑。请求超时采用独立中断竞争，传输不响应 abort 时也不无限等待或自动重发。
+- schema_catalog 将既有 RecoveryInputResponse 判别联合与所有模型一起生成，避免同名 InitializationInput 在分开生成时引用错位；生成的联合用于恢复原输入校验，不增加 API 字段。合同 90 项通过。
+- 按生产只读审计流程，用应用现有连接读取 security_serving 的 ts_code/name/exchange/security_type/curr_type/list_status；仅指定五个代码、LIMIT 5、只读事务及 3 秒 SQL 期限，实际返回 000001.SZ、600000.SH、920002.BJ 三行，均为 CNY、EQUITY、L；另外两个指定代码无记录，不能据此宣称现库存在 B 股。实现与隔离反例补齐非人民币证券排除及缺币种拒绝猜测，符合原 A 股范围，不改行情生产或股票搜索。无数据导出、生产写入、PRD／Figma 改动。
+
+#### 11.11.9 账户选择记忆（已获用户批准；实施结论见 11.11.10）
+
+PRD §1 第 26 项要求进入时恢复上次使用的具体账户，全部账户仅手动选择。本文 §4.29.2 当前只约定前端页面内存状态；AccountsResponse 仅返回 items，现行账户表及交易助手接口没有上次选择偏好。页面内存无法跨刷新／重新进入恢复选择，因此不能直接把“默认第一个账户”当作已满足产品要求。
+
+**用户已采纳：**仅在当前浏览器按登录用户记住最后一个具体账户的 ID，不保存账户名称、券商、资金、持仓或表单；不新增后端偏好表／API，不承诺跨设备同步。选择全部账户不覆盖该偏好。进入页面后，必须先读取本人账户列表核验这个 ID；没有偏好、存储不可用或 ID 已不属于当前可读账户时，选列表中创建时间最早的具体账户，无账户则初始化。记忆只影响初始查看范围，不是写入授权。
+
+| 已批准偏好项审计 | 说明 |
+| --- | --- |
+| 名称、默认值与来源 | localStorage 键 `wealth.ta.last-account.v1:<authenticated-user-id>`；无默认 ID，由本人最新账户列表决定；不是 env／Settings／运营配置 |
+| 持久化与范围 | 当前浏览器、当前认证用户；值仅具体账户 UUID；不共享不同用户，不记录 ALL，不同步其他设备 |
+| 消费者与依赖 | 仅交易助手账户选择器。用户身份可通过既有 `/api/v1/auth/me` 获取，账户范围取本模块 accounts 接口；不能从显示名称推断权限或直接信任本地 ID |
+| 生效与失败 | 选择具体账户后记忆，下次进入读取；损坏、禁止存储或越权 ID 不阻塞记账，按上述规则回落；退出清空页面私人数据，不把历史选择拿给下一登录用户 |
+| 必需验证 | 刷新与重新登录恢复、不同用户隔离、ALL 不覆盖具体账户、坏 UUID／不在本人列表、存储不可用、首次无账户；现有 no-store 与禁止持久化账务／草稿均保留 |
+
+本项已获用户确认，同步 PRD §1 第 26 项与 §4.29.2 后实施。现有 Figma 账户选择器外观和操作不变，无需新增交互稿；恢复账户偏好不增加用户配置入口。M2 继续账户选择器／页面挂载及浏览器验收，不跨入 M3。下列暂停回归保留为历史证据，不代表当前仍在等待拍板。
+
+**实施承接：**`accountPreference` 仅保存已核验归属的 UUID；`useTradingAccounts` 通过现有认证 `/auth/me` 与本人账户列表核对用户／账户，旧登录响应丢弃。前端入口为 `/wealth/market/trading-assistant`，由既有 WealthRouter 和 TopMarketBar 导航装配，不新增认证 API。M2 仅承载账户与录入流程，未接入的持仓／收益区明确占位，不填充示例金额或假计算进度；完整视图仍在 M4／M5。期初更正复用初始化字段，服务端预览后才允许确认；初始日期只读，预览失败／取消不保存。上述为当前实施落点，跨入口恢复、完整更正和真实浏览器门禁未全部完成，不能标记 M2 完成。
+
+**暂停时回归：**全部 `test_wealth_trading_assistant_*.py` 与三项架构护栏合计 **232 passed（55.73 秒）**，13 条已有 Alembic path_separator 弃用提示；前端本 feature、共享 client 和 AuthProvider 合计 **59 passed**，TypeScript 检查通过。上述前端测试包含表单／恢复状态与请求行为，但不代替尚未挂载的整页浏览器验收。新费用流程／账户创建流程已消费真实客户端，仍需联调；恢复边界只在明确未保存后取回原输入，费用恢复重新取当前并发版本。生成产物检查、文档完整性和 diff 检查继续作为收尾门禁；没有提交、推送或生产迁移。CodeGraph 已用于影响面分析并同步，依赖方向未改变。
+
+#### 11.11.10 M2 最终实施对账（2026-09-12；修订 85）
+
+本节接续用户对浏览器账户选择记忆的批准及继续完成 M2 的要求。前文“尚未挂载／待实施”保留为各轮历史记录，不再代表当前代码。没有新增产品功能或更改收益口径；PRD 仅补明确已批准的本机账户选择记忆，Figma 外观不因这一偏好新增设置。
+
+| 已批准硬口径 | 实现及验收证据 |
+| --- | --- |
+| 真实多账户、本人归属和初始化 | `useTradingAccounts`、`accountPreference`、`NewAccountFlow`、`AccountSetupDialog`；既有 Header／面包屑及 WealthRouter 挂载 `/wealth/market/trading-assistant`。字段合同验证空值、0、正整数非整手数量、费用必填及稳定 clientRowId；账户偏好六项测试和真实浏览器双账户／ALL／刷新验证。`authenticated_api` 使用真实 JWT 与 UserRepository，证明非法凭据、停用用户、跨用户读写拒绝 |
+| 记账与费用快照 | `account_commands`、`ledger_commands`、`ledger_acceptance`、`RecordMaintenanceForm`。`fee_race` 在真实校验完成与最终接纳之间修改费率，证明仅追加一次重验、新交易使用新配置；随后再改费用并更正旧交易，仍使用原佣金和税率。同内容不同请求保存为两笔，同请求重放只返回原回执 |
+| 股票、现金、T+1 与更正 | 统一 SSE 日历来源的既定口径不变。账户最终保存再次核对股票身份，不信任较早的读取；`source_basis` 用真实隔离库修改证券币种验证拒绝及对应输入行错误。`ledger_commands` 验证期初移除／降低可卖量、股票变更影响后续卖出；不合法期初股票准确映射 `initialPositions.tsCode`／clientRowId。资金不足只在相关输入框下显示小红字，不把失败视作成功 |
+| 预览、确认、作废与最新原始记录 | `AccountLedgerFlow`、`InitializationCorrectionForm`、`RecordMaintenanceForm`、`RecordDetailDialog`；复用字段和按钮，R6／R12 先读服务端更正预览再确认，费用不可手改，比较值左对齐，返回修改不丢输入。作废使用明确危险按钮，只写 VOID 修订，不删除或反向记账。保存后读取本人最新原始详情，闭环未发布时不填虚假收益；完整记录列表、历史分页 UI 仍属 M4 |
+| 保存恢复与跨入口防重 | `useWriteSession`／`AccountingWriteFlow` 在账户同一保存范围内协调所有 M2 记账操作；先只读查询，再按原操作恢复原输入、原目标和并发版本。恢复资金更正时即使从期初入口进入，也切回资金更正而非新增。测试同时覆盖空备注和 null，未修改输入沿用 requestId、新 attemptId；直接回执还要核对目标 recordId。读取失败不重发写入，缺记录不宣称未保存 |
+| 原子性、进程故障及并发 | `process_faults` 在独立子进程内的真实 ASGI／PG 请求中，于登记后、检查点提交后、最终提交前、最终提交后强制退出；重启后 GET 不改变事实，维护仅撤销失效执行权；用户主动重试后事实、版本、待办与回执一致且只有一笔。JWT 边界由独立真实认证测试覆盖，不把注入 owner 的故障测试称作 JWT 测试。`concurrency` 两进程各四并发，覆盖同请求仅一次、不同账户互不占用、1000 现金并发转出 700 及可卖 600 并发卖出 400 均至多一笔接纳 |
+| 10 万笔预算与恢复 | `capacity` 在新空 PG 写入合成历史，100001 行分 201 个持久化页，每页不超过 500 行／1 MiB；逐页验证、期限耗尽后从检查点继续。带 tracemalloc 的样本 5 次调用共 44.116 秒，Python 峰值 4407704 字节；不含 PG 服务端内存。真实 ASGI 保存／维护／同请求重试 3 次共 25.286 秒，最终只新增一笔。记录实际 SQL EXPLAIN，包含有效修订 WindowAgg／排序；未隐瞒每页仍要筛选该账户历史的成本，未提高既定预算或增加输入上限 |
+| 独立闭环存储 | `closed_storage` 将 M1 两笔部分卖出结果分别落到真实闭环表，逐笔读回成本、净回款、利润、收益率；200 股与 300 股两笔共盈利 487.25，剩余 500 股、成本 5000.00。测试数据不自动发布；M3 的自动闭环生成和一致发布未提前实现 |
+| 共享认证与边界 | 仍为 App 装配 → Biz → Foundation，无反向依赖。`wealthFetch` 的禁止刷新后重发只对显式交易助手写入生效；既有消费者保留默认行为。共享认证测试覆盖退出／换用户后的迟到响应；页面私有表单仅在内存中，唯一新持久偏好是按真实用户 ID 隔离的具体账户 UUID |
+
+浏览器使用 `tests.wealth_trading_assistant_browser_fixture` 创建的新空 PostgreSQL 与现有认证／真实交易助手路由；`wealth/scripts/trading-assistant-browser-smoke.mjs` 拒绝非本机地址并核验隔离夹具标识。验证多账户、3 步初始化、费用修改、非整手买入、资金错误后保留输入、资金更正及作废、成交更正、期初预览返回及保存、提交成功但响应丢失后只查原结果，不重复发写请求；同日卖出触发 T+1 字段错误且不提交，跨买入入口恢复原资金录入并沿用原 requestId，切换真实用户后不展示上一用户账户。截图核对正式 R6／R8／R11／R12：等宽按钮、正文滚动、日期／股票字段、左对齐对比值、11px／16px 的字段错误。浏览器无页面异常，控制台仅有故意制造的 400 与断开响应两项预期错误。M2 只交付已批准的必要页面承载，不将持仓／收益占位视作 M4／M5 完成。
+
+**最终回归与交付状态：**
+
+- `.venv/bin/python -m pytest -q tests/test_wealth_trading_assistant_*.py tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py`：**242 passed，123.63 秒**；16 条既有 Alembic 配置弃用提示。
+- `wealth` 下 `npm run build`、`npx --no-install vitest run`：构建通过，**121 个测试文件、953 项通过**。最后调整已取消请求的即时终止后，再执行 `npm run typecheck` 和交易助手／共享 API／AuthProvider 定向回归：**14 个文件、84 项通过**；最新构建及真实浏览器流程通过。
+- 后端合同生成器 `--check`、文档完整性检查和 `git diff --check` 通过。CodeGraph 已分析命令服务、事务装配、路由及共享认证消费者，并执行 sync／status；依赖矩阵不变。
+- **M2 本地实现及本阶段验收完成，待独立 Review。** 没有遗留需用户另拍板的 M2 产品口径；M3 自动派生／发布、M4／M5 完整展示不计入本次完成范围。改动尚未提交，其他任务脏文件保留。
+
+生产迁移、部署、生产账务写入、行情写入、通知发送、推送均未执行；本轮没有安装依赖。M2 交付后停在独立 Review，M3—M8 不自动启动。完整应用 bundle 仍有既有大包警告，保留风险记录，不为消除告警擅改其他模块的分包边界。

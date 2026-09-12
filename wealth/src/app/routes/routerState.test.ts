@@ -113,7 +113,8 @@ describe("wealth exploration route", () => {
   it("maps only released top navigation targets to routes", () => {
     expect(resolveTopMarketNavPath("market")).toBe(DEFAULT_WEALTH_PATH);
     expect(resolveTopMarketNavPath("exploration")).toBe(WEALTH_EXPLORATION_PATH);
-    expect(resolveTopMarketNavPath("assistant")).toBeNull();
+    expect(resolveTopMarketNavPath("assistant")).toBe("/wealth/market/trading-assistant");
+    expect(resolveTopMarketNavPath("training")).toBeNull();
   });
 });
 

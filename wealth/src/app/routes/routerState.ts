@@ -155,6 +155,7 @@ export function resolveWealthExplorationRoute(pathname: string): WealthExplorati
 export function resolveTopMarketNavPath(target: TopMarketNavKey): string | null {
   if (target === "market") return DEFAULT_WEALTH_PATH;
   if (target === "exploration") return WEALTH_EXPLORATION_PATH;
+  if (target === "assistant") return "/wealth/market/trading-assistant";
   return null;
 }
 

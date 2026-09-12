@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { login as loginRequest, logout as logoutRequest } from "../api/authApi";
 import type { LoginRequest } from "../api/authTypes";
 import { WEALTH_AUTH_REQUIRED_EVENT } from "./authEvents";
-import { clearAuthSession, readAuthSession, saveAuthSession, type StoredAuthSession } from "./authStorage";
+import { clearAuthSession, getAuthEpoch, readAuthSession, saveAuthSession, type StoredAuthSession } from "./authStorage";
 import { DEFAULT_LOGIN_TIMEOUT_MS } from "./loginPolicy";
 
 type AuthStatus = "authenticated" | "unauthenticated";
@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       async login(body, { signal }) {
         if (signal.aborted) throw new DOMException("登录已取消", "AbortError");
+        const epoch = getAuthEpoch();
         const deadline = performance.now() + DEFAULT_LOGIN_TIMEOUT_MS;
         const controller = new AbortController();
         let terminalError: DOMException | undefined;
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             cancel("TimeoutError");
             throw terminalError;
           }
+          if (getAuthEpoch() !== epoch) throw new DOMException("会话已变化", "AbortError");
           setSession(saveAuthSession(payload));
         } catch (error) {
           throw terminalError ?? error;

@@ -1,12 +1,16 @@
 import { refreshToken } from "../../features/auth/api/authApi";
 import { notifyAuthRequired } from "../../features/auth/model/authEvents";
-import { clearAuthSession, readAuthSession, saveAuthSession } from "../../features/auth/model/authStorage";
+import { clearAuthSession, getAuthEpoch, readAuthSession, saveAuthSession } from "../../features/auth/model/authStorage";
 
-export async function wealthFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+export async function wealthFetch(input: RequestInfo | URL, init: RequestInit = {},
+  { replayAfterRefresh = true }: { replayAfterRefresh?: boolean } = {}): Promise<Response> {
+  const epoch = getAuthEpoch();
+  const originalSession = readAuthSession();
   const firstResponse = await fetchWithCurrentToken(input, init);
   if (firstResponse.status !== 401) return firstResponse;
+  if (getAuthEpoch() !== epoch) return firstResponse;
 
-  const session = readAuthSession();
+  const session = originalSession;
   if (!session?.refreshToken) {
     clearAuthSession();
     notifyAuthRequired();
@@ -14,16 +18,23 @@ export async function wealthFetch(input: RequestInfo | URL, init: RequestInit = 
   }
 
   try {
-    const refreshed = await refreshToken({ refresh_token: session.refreshToken });
-    saveAuthSession(refreshed);
+    const refreshed = await refreshToken({ refresh_token: session.refreshToken }, init.signal ?? undefined);
+    if (getAuthEpoch() !== epoch || readAuthSession()?.refreshToken !== session.refreshToken) return firstResponse;
+    saveAuthSession(refreshed, "refresh");
   } catch {
+    if (init.signal?.aborted) return firstResponse;
+    if (getAuthEpoch() !== epoch || readAuthSession()?.refreshToken !== session.refreshToken) return firstResponse;
     clearAuthSession();
     notifyAuthRequired();
     return firstResponse;
   }
 
+  if (!replayAfterRefresh || init.signal?.aborted) return firstResponse;
+
+  const replayToken = readAuthSession()?.accessToken;
   const secondResponse = await fetchWithCurrentToken(input, init);
-  if (secondResponse.status === 401) {
+  if (secondResponse.status === 401 && getAuthEpoch() === epoch
+      && readAuthSession()?.accessToken === replayToken) {
     clearAuthSession();
     notifyAuthRequired();
   }
@@ -40,4 +51,3 @@ function fetchWithCurrentToken(input: RequestInfo | URL, init: RequestInit): Pro
     headers,
   });
 }
-

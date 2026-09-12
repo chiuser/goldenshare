@@ -4,6 +4,7 @@ from typing import Generic, Literal, TypeVar
 from pydantic import StrictStr, model_validator
 
 from .accounts import FeeBreakdown, FeeInputs
+from .value_types import AggregateQuantity, PositiveAggregateQuantity, compare_share_quantities
 from .common import AccountRef, Contract, Coverage, Page, ReadContext, ReadState, Scope, StockRef
 from .scopes import RecordsScope
 from .value_types import (AvailableQuantity, BusinessDate, Count, EntityId, Instant, Money,
@@ -88,7 +89,7 @@ class ClosedTrade(Contract):
     netProceeds: Money
     dayOpeningUnitCost: Money
     allocatedCost: NonnegativeMoney
-    dayEndQuantity: AvailableQuantity
+    dayEndQuantity: AggregateQuantity
     dayGroup: DayGroup
     calculationRuleVersion: PositiveVersion
     dayResultId: EntityId
@@ -124,7 +125,7 @@ class TradeDayGroup(Contract):
     tradeDate: BusinessDate
     stockRef: StockRef
     direction: Literal["BUY", "SELL"]
-    quantity: Quantity
+    quantity: PositiveAggregateQuantity
     grossAmount: NonnegativeMoney
     averagePrice: NonnegativeMoney
     commissionAmount: NonnegativeMoney
@@ -264,8 +265,8 @@ class RoundDetail(Contract):
     closedOn: BusinessDate | None
     openingSource: Literal["INITIALIZATION", "TRADE"]
     initializationSource: RoundInitializationSource | None
-    buyQuantity: Quantity
-    sellQuantity: AvailableQuantity
+    buyQuantity: PositiveAggregateQuantity
+    sellQuantity: AggregateQuantity
     buyInvestmentAmount: NonnegativeMoney
     sellNetProceedsAmount: Money
     roundProfitAmount: Money | None
@@ -279,7 +280,7 @@ class RoundDetail(Contract):
             raise ValueError("Mixed round account")
         if (self.openingSource == "INITIALIZATION") != (self.initializationSource is not None):
             raise ValueError("Initialization source must match the opening source")
-        if self.sellQuantity > self.buyQuantity:
+        if compare_share_quantities(self.sellQuantity, self.buyQuantity) > 0:
             raise ValueError("Round cannot sell more shares than it acquired")
         if self.roundRef.status == "CLOSED":
             if self.closedOn is None or self.closedOn < self.openedOn or self.buyQuantity != self.sellQuantity:

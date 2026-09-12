@@ -1,12 +1,13 @@
 """Recoverable original inputs. They are not executable commands or new attempts."""
 
 from typing import Annotated, Generic, Literal, TypeVar
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from . import accounts, robot, rules
 from .calculation_status import CalculationRetryInput
 from .common import Contract
 from .value_types import EntityId, PositiveVersion
+from .targets import TradeTarget, CashFlowTarget, validate_target
 
 
 class InitializationCorrectionInput(accounts.InitializationInput):
@@ -50,6 +51,12 @@ class RecoveredInput(Contract, Generic[InputT]):
     requestId: EntityId
     inputSchemaVersion: PositiveVersion
     input: InputT
+    target: None
+
+    @model_validator(mode="after")
+    def target_matches_operation(self):
+        validate_target(self.operationType, self.target)
+        return self
 
 
 class AccountCreateInput(RecoveredInput[accounts.CreateAccountInput]):
@@ -70,10 +77,12 @@ class TradeCreateInput(RecoveredInput[accounts.TradeInput]):
 
 class TradeCorrectInput(RecoveredInput[TradeCorrectionInput]):
     operationType: Literal["TRADE_CORRECT"]
+    target: TradeTarget
 
 
 class TradeVoidInput(RecoveredInput[VoidInput]):
     operationType: Literal["TRADE_VOID"]
+    target: TradeTarget
 
 
 class CashCreateInput(RecoveredInput[accounts.CashFlowInput]):
@@ -82,10 +91,12 @@ class CashCreateInput(RecoveredInput[accounts.CashFlowInput]):
 
 class CashCorrectInput(RecoveredInput[CashCorrectionInput]):
     operationType: Literal["CASH_FLOW_CORRECT"]
+    target: CashFlowTarget
 
 
 class CashVoidInput(RecoveredInput[VoidInput]):
     operationType: Literal["CASH_FLOW_VOID"]
+    target: CashFlowTarget
 
 
 class CalculationInput(RecoveredInput[CalculationRetryInput]):

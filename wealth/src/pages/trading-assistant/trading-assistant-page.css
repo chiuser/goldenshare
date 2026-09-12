@@ -1,0 +1,17 @@
+.ta-page { min-height: 100dvh; background: var(--cs-color-bg-page); }
+.ta-page-main { padding: 14px 18px var(--cs-space-24); max-width: 1840px; margin: auto; }
+.ta-page-heading { display: grid; grid-template-columns: 380px 480px minmax(280px, 1fr); gap: var(--cs-space-24); align-items: center; margin: var(--cs-space-16) 0 var(--cs-space-20); }
+.ta-page-heading h1 { font-size: 18px; line-height: 28px; margin: 0; }
+.ta-page-heading p { font-size: 11px; color: var(--cs-color-text-muted); margin: 4px 0 0; }
+.ta-page-heading select { justify-self: end; width: 280px; height: 40px; border: 1px solid var(--cs-color-border-subtle); border-radius: 8px;
+  background: var(--cs-color-bg-chip); color: var(--cs-color-text-primary); padding: 0 var(--cs-space-12); font: inherit; font-size: 13px; }
+.ta-module-tabs { height: 40px; padding: 4px; gap: 4px; box-sizing: border-box; }
+.ta-module-tabs button { min-height: 30px; }
+.ta-page-actions { display: flex; gap: var(--cs-space-12); margin-bottom: var(--cs-space-12); }
+.ta-page-actions > .ta-action { min-width: 96px; }
+.ta-action-spacer { flex: 1; }
+.ta-page-status { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 320px;
+  background: var(--cs-color-bg-panel); border: 1px solid var(--cs-color-border-subtle); border-radius: var(--cs-radius-panel);
+  padding: var(--cs-space-24); color: var(--cs-color-text-secondary); gap: var(--cs-space-16); }
+.ta-page-status h2 { color: var(--cs-color-text-primary); font-size: 18px; margin: 0; }
+.ta-page-status p { margin: 0; }

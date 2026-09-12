@@ -8,6 +8,7 @@ from .common import Contract, OperationType
 from .error_codes import ErrorCode
 from .receipts import SuccessReceipt
 from .scopes import RecoveryScope
+from .targets import LedgerTarget, validate_target, validate_target_receipt
 from .value_types import EntityId, Instant, Version
 
 
@@ -37,6 +38,7 @@ class RecoveryStatusDto(Contract):
     attemptId: EntityId
     operationType: OperationType
     scope: RecoveryScope
+    target: LedgerTarget | None
     stateVersion: Version
     outcome: Literal["PROCESSING", "SAVED", "NOT_SAVED", "UNKNOWN"]
     inputRetained: StrictBool
@@ -47,6 +49,7 @@ class RecoveryStatusDto(Contract):
 
     @model_validator(mode="after")
     def confirmed_outcome(self):
+        validate_target(self.operationType, self.target, getattr(self.scope, "accountId", None))
         scope = self.scope.scopeType
         permitted = {
             "ACCOUNT_CREATE": {"ACCOUNT_CREATE"},
@@ -71,6 +74,8 @@ class RecoveryStatusDto(Contract):
             raise ValueError("Receipt does not belong to this operation and attempt")
         if self.rejection is not None and self.outcome != "NOT_SAVED":
             raise ValueError("Only confirmed not-saved requests can have a rejection")
+        if self.receipt is not None:
+            validate_target_receipt(self.target, self.receipt)
         return self
 
 

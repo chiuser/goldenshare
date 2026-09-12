@@ -140,7 +140,7 @@ def test_closed_trade_exact_field_fixture():
                    roundRef={"accountId":ID,"roundId":ID2,"roundNumber":1,"status":"OPEN"},
                    quantity=100,price="34.00",grossAmount="3400.00",commissionAmount="4.00",stampTaxAmount="1.70",
                    totalFeeAmount="5.70",netProceeds="3394.30",dayOpeningUnitCost="33.33",
-                   allocatedCost="3333.34",dayEndQuantity=200,dayGroup={"accountId":ID,"tsCode":"600000.SH","tradeDate":"2026-09-14"},
+                   allocatedCost="3333.34",dayEndQuantity="200",dayGroup={"accountId":ID,"tsCode":"600000.SH","tradeDate":"2026-09-14"},
                    calculationRuleVersion="1",dayResultId=ID2,profitAmount="60.96",returnPct="1.83")
     result = records.ClosedTrade(**fixture)
     assert set(fixture) == set(records.ClosedTrade.model_fields)
@@ -305,14 +305,14 @@ def test_entry_context_cash_only_and_stock_quantity_branches():
                              minimumCommission="5.00", stampTaxRatePct="0.05"),
                    calendarDataStatus="Ready", reason=None)
     assert accounts.EntryContext(**fixture).quantity is None
-    stock = dict(stockRef={"tsCode":"600000.SH", "name":"股票"}, quantity=101, availableQuantity=1)
-    assert accounts.EntryContext(**{**fixture, **stock}).availableQuantity == 1
+    stock = dict(stockRef={"tsCode":"600000.SH", "name":"股票"}, quantity="101", availableQuantity="1")
+    assert accounts.EntryContext(**{**fixture, **stock}).availableQuantity == "1"
     for field in fixture:
         with pytest.raises(ValidationError):
             accounts.EntryContext(**{k: val for k, val in fixture.items() if k != field})
     for patch in ({"quantity":0}, {"availableCash":"-0.01"},
                   {"fees":{**fixture["fees"], "accountId":ID2}},
-                  {**stock, "availableQuantity":102}, {**stock, "quantity":None}):
+                  {**stock, "availableQuantity":"102"}, {**stock, "quantity":None}):
         with pytest.raises(ValidationError):
             accounts.EntryContext(**{**fixture, **patch})
     defaults = dict(stampTaxRatePct="0.05", commissionRateUnit="WAN", stampTaxRateUnit="PERCENT", currency="CNY")
@@ -416,7 +416,9 @@ def test_all_operation_receipts_and_recovery_inputs(operation):
             adapter.validate_python({**fixture, "result":{key: value for key, value in fixture["result"].items() if key != field}})
     with pytest.raises(ValidationError):
         adapter.validate_python({**fixture, "result":{**fixture["result"], "unexpected":"rejected"}})
-    input_fixture = dict(requestId=ID, operationType=operation, inputSchemaVersion="1", input=inputs[operation])
+    target = (dict(accountId=ID, recordId=ID2, kind="TRADE" if operation.startswith("TRADE") else "CASH_FLOW")
+              if operation in {"TRADE_CORRECT", "TRADE_VOID", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID"} else None)
+    input_fixture = dict(requestId=ID, operationType=operation, inputSchemaVersion="1", input=inputs[operation], target=target)
     recovered = TypeAdapter(recovered_inputs.RecoveryInputResponse).validate_python(input_fixture)
     assert recovered.operationType == operation
     assert "attemptId" not in type(recovered.input).model_fields
@@ -426,7 +428,7 @@ def test_all_operation_receipts_and_recovery_inputs(operation):
 
 def test_recovery_does_not_infer_not_saved_or_mix_receipts():
     fixture = dict(requestId=ID, attemptId=ID2, operationType="TRADE_CREATE",
-                   scope=dict(scopeType="ACCOUNT_LEDGER", accountId=ID), stateVersion="1", outcome="UNKNOWN",
+                   scope=dict(scopeType="ACCOUNT_LEDGER", accountId=ID), target=None, stateVersion="1", outcome="UNKNOWN",
                    inputRetained=False, summary=dict(title="买入登记", lines=[]), receipt=None, rejection=None,
                    updatedAt="2026-09-11T16:00:00+08:00")
     assert recovery.PendingRecoveryResponse(pendingRequest=fixture)
@@ -497,7 +499,7 @@ def holding_fixtures():
     account = dict(accountId=ID, name="账户", brokerName="券商")
     stock = dict(tsCode="600000.SH", name="股票")
     light_round = dict(accountId=ID, roundId=ID2, roundNumber=1)
-    row = dict(stockRef=stock, quantity=600, availableQuantity=600, dynamicCostPrice="6.67",
+    row = dict(stockRef=stock, quantity="600", availableQuantity="600", dynamicCostPrice="6.67",
                dynamicCostAmount="4000.00", price="15.00", marketValue="9000.00",
                holdingProfitAmount="5000.00", holdingReturnPct="50.00", dayProfitAmount="0.00",
                stockValueWeightPct="100.00", totalAssetWeightPct="90.00", estimatedSellCommission="0.00",
@@ -524,7 +526,7 @@ def test_positions_complete_values_unknowns_and_pie_members():
     assert_complete_fixture(positions.PositionsSummary, fixture["summary"])
     assert_complete_fixture(positions.Allocation, fixture["allocation"])
     assert_complete_fixture(positions.PositionRow, {**row, "dynamicCostPrice":"-1.00", "dynamicCostAmount":"-600.00"})
-    for patch in ({"quantity":0}, {"availableQuantity":601}, {"accountRounds":[]},
+    for patch in ({"quantity":"0"}, {"availableQuantity":"601"}, {"accountRounds":[]},
                   {"accountRounds":row["accountRounds"] * 2}, {"marketValue":"Infinity"}, {"dayProfitAmount":0.0}):
         with pytest.raises(ValidationError):
             positions.PositionRow(**{**row, **patch})
@@ -605,6 +607,7 @@ def test_generated_schema_bundle_is_repeatable_and_uses_wire_aliases():
     from src.biz.schemas.wealth.market.trading_assistant.schema_catalog import contract_models, json_schema_bundle
     bundle = json_schema_bundle()
     assert bundle == json_schema_bundle()
+    assert "oneOf" in bundle["$defs"]["RecoveryInputResponse"]
     encoded = json.dumps(bundle, allow_nan=False, sort_keys=True)
     assert len(contract_models()) > 100
     assert '"from_"' not in encoded
@@ -619,7 +622,7 @@ def test_round_position_day_and_review_complete_fixtures():
     round_scope = dict(accountId=ID, roundId=ID2)
     round_ref = dict(**round_scope, roundNumber=1, status="OPEN")
     current = dict(accountRef=account, roundRef=round_ref, openedOn="2026-09-01", openingSource="TRADE",
-                   quantity=600, availableQuantity=600, buyInvestmentAmount="10000.00", sellNetProceedsAmount="6000.00",
+                   quantity="600", availableQuantity="600", buyInvestmentAmount="10000.00", sellNetProceedsAmount="6000.00",
                    dynamicCostAmount="4000.00", dynamicCostPrice="6.67", price="15.00", marketValue="9000.00",
                    estimatedSellCommission="0.00", estimatedStampTax="0.00", estimatedNetProceeds="9000.00",
                    holdingProfitAmount="5000.00", holdingReturnPct="50.00", dayProfitAmount="0.00",
@@ -629,10 +632,10 @@ def test_round_position_day_and_review_complete_fixtures():
                             coverage=holdings["coverage"],stockRef=row["stockRef"],accountRounds=[current]))
     closed_round = dict(accountRef=account, stockRef=row["stockRef"], roundRef={**round_ref,"status":"CLOSED"},
                         openedOn="2026-09-01", closedOn="2026-09-11", openingSource="TRADE", initializationSource=None,
-                        buyQuantity=1000, sellQuantity=1000, buyInvestmentAmount="10000.00", sellNetProceedsAmount="11000.00",
+                        buyQuantity="1000", sellQuantity="1000", buyInvestmentAmount="10000.00", sellNetProceedsAmount="11000.00",
                         roundProfitAmount="1000.00", roundReturnPct="10.00", closedTradeCount=2, recordsScope=round_scope)
     assert_complete_fixture(records.RoundDetail, closed_round)
-    for patch in ({"sellQuantity":999},{"closedOn":None},{"roundProfitAmount":"2000.00"},{"openingSource":"INITIALIZATION"}):
+    for patch in ({"sellQuantity":"999"},{"closedOn":None},{"roundProfitAmount":"2000.00"},{"openingSource":"INITIALIZATION"}):
         with pytest.raises(ValidationError):
             records.RoundDetail(**{**closed_round, **patch})
     selection = dict(scope=holdings["scope"],requestedStartDate="2026-09-11",requestedEndDate="2026-09-11")
@@ -750,3 +753,44 @@ def test_original_record_and_history_contracts_reconcile_cash():
     assert_complete_fixture(records.CashFlowDetail,dict(record=cash,revisions=dict(items=[cash],nextCursor=None),readContext=calendar_fixture()["readContext"]))
     with pytest.raises(ValidationError):
         records.CashFlowRecord(**{**cash,"netCashChange":"10.00"})
+
+
+@pytest.mark.parametrize("bad", [0, 1, True, 1.0, "01", "-1", "+1", "1.0", "1e3", "", " 1"])
+def test_aggregate_share_count_rejects_noncanonical_or_old_wire_type(bad):
+    with pytest.raises(ValidationError):
+        TypeAdapter(v.AggregateQuantity).validate_python(bad)
+
+
+def test_aggregate_share_count_schema_and_numeric_comparison():
+    assert TypeAdapter(v.AggregateQuantity).json_schema()["type"] == "string"
+    assert TypeAdapter(v.Quantity).json_schema()["type"] == "integer"
+    for value in ("0", "1", "9007199254740992", "1000000000000000000000000000000000000000"):
+        assert TypeAdapter(v.AggregateQuantity).validate_python(value) == value
+    assert v.compare_share_quantities("9", "10") < 0
+    assert v.compare_share_quantities("100", "99") > 0
+    assert v.compare_share_quantities("0", "0") == 0
+
+
+def test_two_legal_buys_produce_exact_large_position_response():
+    from datetime import date
+    from src.biz.services.wealth.market.trading_assistant.calculation.daily import (
+        PositionState, Trade, calculate_stock_day)
+    from src.biz.services.wealth.market.trading_assistant.calculation.fees import FeeSnapshot
+    from src.biz.services.wealth.market.trading_assistant.persistence_values import quantity_text
+    from src.biz.schemas.wealth.market.trading_assistant import positions
+    maximum = v.MAX_SAFE_QUANTITY
+    facts = [accounts.TradeInput(**{**TRADE, "quantity":q,"price":"0.01"}) for q in (maximum,1)]
+    day = date(2026,9,14)
+    trades = tuple(Trade(str(i), ID, "600000.SH", day,"BUY",f.quantity,1,
+                        FeeSnapshot.from_inputs("0","0","0")) for i,f in enumerate(facts))
+    result = calculate_stock_day(ID,"600000.SH",day,PositionState(0,0,0,0,0),trades)
+    assert result.closing.quantity == maximum + 1
+    row, _ = holding_fixtures()
+    response = positions.PositionRow(**{**row,"quantity":quantity_text(result.closing.quantity),
+                                        "availableQuantity":"0"})
+    assert response.model_dump(mode="json")["quantity"] == "9007199254740992"
+    # No fallback to old numeric wire type, including for ordinary small positions.
+    with pytest.raises(ValidationError):
+        positions.PositionRow(**{**row,"quantity":10,"availableQuantity":0})
+    with pytest.raises(ValidationError):
+        positions.PositionRow(**{**row,"quantity":"9","availableQuantity":"10"})

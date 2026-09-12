@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import StrictStr, model_validator
 
 from .common import AccountRef, CommandIdentity, Contract, ReadState, StockRef
+from .value_types import AggregateQuantity, compare_share_quantities
 from .value_types import (AccountName, AvailableQuantity, BrokerName, BusinessDate, EntityId, Instant,
                           Money, NonnegativeInput, NonnegativeMoney, Note, PositiveInput,
                           PositiveMoney, PositiveVersion, Quantity, StampTaxInput, StockCode)
@@ -186,8 +187,8 @@ class EntryContext(Contract):
     cashThrough: Instant
     availableCash: NonnegativeMoney
     stockRef: StockRef | None
-    quantity: AvailableQuantity | None
-    availableQuantity: AvailableQuantity | None
+    quantity: AggregateQuantity | None
+    availableQuantity: AggregateQuantity | None
     fees: FeeSettingsDto
     calendarDataStatus: ReadState
     reason: StrictStr | None
@@ -201,7 +202,7 @@ class EntryContext(Contract):
                 raise ValueError("Unrequested stock quantities must be null")
         elif (self.quantity is None) != (self.availableQuantity is None):
             raise ValueError("Incomplete stock quantity context")
-        if self.quantity is not None and self.availableQuantity > self.quantity:
+        if self.quantity is not None and compare_share_quantities(self.availableQuantity, self.quantity) > 0:
             raise ValueError("Available quantity exceeds total quantity")
         return self
 

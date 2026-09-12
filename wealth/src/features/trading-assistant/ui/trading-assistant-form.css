@@ -1,0 +1,94 @@
+.ta-dialog {
+  --ta-control-radius: 8px;
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: var(--cs-radius-panel);
+  background: var(--cs-color-bg-panel);
+  color: var(--cs-color-text-primary);
+  padding: var(--cs-space-24);
+  width: 520px;
+  max-width: calc(100vw - var(--cs-space-24) * 2);
+  max-height: calc(100dvh - var(--cs-space-24) * 2);
+  box-sizing: border-box;
+  overflow-y: auto;
+  box-shadow: var(--cs-shadow-panel);
+}
+.ta-dialog::backdrop { background: color-mix(in srgb, var(--cs-color-bg-page) 70%, transparent); }
+.ta-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cs-space-12); }
+.ta-dialog-heading > div { min-width: 0; flex: 1; }
+.ta-dialog h2 { margin: 0; font-size: 18px; line-height: 28px; overflow-wrap: anywhere; }
+.ta-dialog-heading p { margin: var(--cs-space-12) 0 0; font-size: 13px; line-height: 20px; color: var(--cs-color-text-secondary); }
+.ta-dialog-content { display: flex; flex-direction: column; gap: var(--cs-space-16); margin-top: var(--cs-space-16); }
+.ta-dialog-footer { display: flex; gap: var(--cs-space-12); margin-top: var(--cs-space-24); }
+.ta-dialog-footer > .ta-action { flex: 1 1 0; min-width: 0; }
+.ta-close { flex: 0 0 32px; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  padding: 0; border: 1px solid var(--cs-color-border-subtle); border-radius: var(--ta-control-radius);
+  background: var(--cs-color-bg-chip); color: var(--cs-color-text-secondary); font-size: 18px; line-height: 1; cursor: pointer; }
+.ta-field { display: flex; flex-direction: column; gap: var(--cs-space-10); min-width: 0; }
+.ta-field label { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--cs-color-text-secondary); }
+.ta-field input, .ta-field textarea, .ta-field select { height: 42px; box-sizing: border-box; width: 100%; min-width: 0;
+  padding: 0 var(--cs-space-12); background: var(--cs-color-bg-chip); border: 1px solid var(--cs-color-border-default);
+  border-radius: var(--ta-control-radius); color: var(--cs-color-text-primary); font: inherit; font-size: 13px; }
+.ta-field input[aria-invalid="true"] { border-color: var(--cs-color-danger-system); }
+.ta-field input:disabled { color: var(--cs-color-text-secondary); }
+.ta-field input:focus-visible, .ta-action:focus-visible, .ta-close:focus-visible { outline: 2px solid var(--cs-color-brand); outline-offset: 2px; }
+.ta-field .ta-field-error { margin: -2px 0 0; color: var(--cs-color-danger-system); font-size: 11px; line-height: 16px; overflow-wrap: anywhere; }
+.ta-field-hint { margin: 0; color: var(--cs-color-text-muted); font-size: 11px; line-height: 16px; }
+.ta-action { display: flex; align-items: center; justify-content: center; min-height: 44px;
+  padding: var(--cs-space-8) var(--cs-space-16); border: 1px solid var(--cs-color-border-default);
+  border-radius: var(--ta-control-radius, 8px); background: var(--cs-color-bg-chip); color: var(--cs-color-text-secondary);
+  font-family: inherit; font-weight: 700; font-size: 13px; line-height: 18px; cursor: pointer; overflow-wrap: anywhere; }
+.ta-action--primary { background: var(--cs-color-brand); color: var(--cs-color-bg-panel-soft); border-color: var(--cs-color-brand); }
+.ta-action--danger { background: var(--cs-color-bg-panel-soft); color: var(--cs-color-danger-system); border-color: var(--cs-color-danger-system); }
+.ta-action:disabled { cursor: not-allowed; opacity: .5; }
+.ta-dialog--drawer { position: fixed; inset: 0 0 0 auto; margin: 0; padding: 0; max-height: 100dvh; height: 100dvh; border-radius: 0; }
+.ta-dialog--drawer[open] { display: flex; flex-direction: column; }
+.ta-dialog--drawer .ta-dialog-heading { min-height: 82px; box-sizing: border-box; padding: 16px 24px; border-bottom: 1px solid var(--cs-color-border-subtle); }
+.ta-dialog--drawer .ta-dialog-heading p { margin-top: 6px; font-size: 11px; line-height: 16px; }
+.ta-dialog--drawer .ta-dialog-content { flex: 1; overflow-y: auto; min-height: 0; margin: 0; padding: 24px; }
+.ta-dialog--drawer .ta-field input { height: 40px; }
+.ta-dialog--drawer .ta-dialog-footer { margin: 0; padding: 20px 24px; border-top: 1px solid var(--cs-color-border-subtle); }
+.ta-dialog--onboarding { min-height: min(700px, calc(100dvh - 48px)); padding: 28px; border-color: var(--cs-color-border-strong); }
+.ta-dialog--onboarding[open] { display: flex; flex-direction: column; }
+.ta-dialog--onboarding h2, .ta-dialog--assets h2 { font-size: 22px; }
+.ta-dialog--onboarding .ta-dialog-content { flex: 1; }
+.ta-dialog--assets { width: 640px; padding: 28px; border-color: var(--cs-color-border-strong); }
+.ta-note { margin: 0; font-size: 13px; line-height: 20px; color: var(--cs-color-text-secondary); overflow-wrap: anywhere; }
+.ta-notice { padding: var(--cs-space-12); border: 1px solid var(--cs-color-border-strong); border-radius: var(--ta-control-radius);
+  background: var(--cs-color-brand-weak); color: var(--cs-color-text-secondary); font-size: 11px; line-height: 18px; }
+.ta-notice strong { display: block; color: var(--cs-color-brand); font-size: 12px; }
+.ta-form-error { color: var(--cs-color-danger-system); font-size: 13px; line-height: 20px; }
+.ta-dialog--recovery .ta-dialog-heading p { margin-top: var(--cs-space-16); }
+.ta-dialog--recovery .ta-dialog-footer { margin-top: var(--cs-space-16); }
+.ta-recovery-summary { font-size: 18px; line-height: 28px; font-weight: 700; overflow-wrap: anywhere; }
+.ta-recovery-summary p { margin: 0; }
+.ta-stock-picker { position: relative; }
+.ta-stock-selected { display: flex; align-items: center; justify-content: space-between; gap: var(--cs-space-12);
+  min-height: 42px; font-size: 14px; }
+.ta-stock-options { position: absolute; top: 72px; left: 0; right: 0; z-index: 1; max-height: 280px; overflow-y: auto;
+  background: var(--cs-color-bg-panel); border: 1px solid var(--cs-color-border-default); border-radius: 8px; padding: var(--cs-space-8); }
+.ta-stock-options button { display: flex; align-items: center; justify-content: space-between; gap: var(--cs-space-12);
+  width: 100%; padding: var(--cs-space-12); border: 0; background: transparent; color: var(--cs-color-text-primary); cursor: pointer; }
+.ta-stock-options button[aria-selected="true"] { background: var(--cs-color-brand-weak); color: var(--cs-color-brand); }
+.ta-setup-progress { height: 6px; border-radius: 3px; background: var(--cs-color-bg-chip); overflow: hidden; margin: var(--cs-space-12) 0; }
+.ta-setup-progress span { display: block; height: 100%; background: var(--cs-color-brand); }
+.ta-initial-position { display: flex; flex-direction: column; gap: var(--cs-space-16); padding: var(--cs-space-16);
+  border: 1px solid var(--cs-color-border-subtle); border-radius: 8px; }
+.ta-initial-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cs-space-12); }
+.ta-text-action { align-self: flex-end; border: 0; background: transparent; color: var(--cs-color-text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.ta-dialog--fees .ta-dialog-footer .ta-action { min-height: 40px; }
+.ta-change-comparison { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: var(--cs-space-8) var(--cs-space-16);
+  margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; }
+.ta-change-row { display: contents; }
+.ta-record-facts { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: var(--cs-space-8) var(--cs-space-16); margin: 0; font-size: 13px; line-height: 24px; }
+.ta-record-facts dt { color: var(--cs-color-text-secondary); }
+.ta-record-facts dd { margin: 0; font-family: var(--cs-font-family-number); text-align: right; overflow-wrap: anywhere; }
+.ta-record-actions { display: flex; gap: var(--cs-space-12); }
+.ta-record-actions > .ta-action { flex: 1 1 0; min-width: 0; min-height: 40px; }
+.ta-change-comparison dt, .ta-change-comparison dd { margin: 0; text-align: left; overflow-wrap: anywhere; }
+.ta-change-comparison dd { font-family: var(--cs-font-family-number); font-variant-numeric: tabular-nums; }
+.ta-segments { display: flex; gap: var(--cs-space-8); padding: var(--cs-space-8); border: 1px solid var(--cs-color-border-default);
+  border-radius: 8px; background: var(--cs-color-bg-panel-soft); }
+.ta-segments button { flex: 1; min-width: 0; min-height: 32px; border: 1px solid transparent; border-radius: 8px;
+  background: transparent; color: var(--cs-color-text-secondary); font: inherit; font-size: 13px; cursor: pointer; }
+.ta-segments button[aria-pressed="true"] { border-color: var(--cs-color-border-strong); color: var(--cs-color-brand); background: var(--cs-color-brand-weak); }
+.ta-segments button:disabled { cursor: not-allowed; opacity: .5; }

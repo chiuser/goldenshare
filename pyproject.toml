@@ -19,7 +19,7 @@ dependencies = [
   "redis>=5.2.0",
   "regex==2025.7.34",
   "requests>=2.32.0",
-  "sqlalchemy>=2.0.36",
+  "sqlalchemy[asyncio]>=2.0.36",
   "tushare>=1.4.20",
   "typer>=0.15.1",
   "uvicorn>=0.35.0",

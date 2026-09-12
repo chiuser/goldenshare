@@ -690,7 +690,7 @@ describe("MarketOverviewPage", () => {
   it("uses lightweight toast for reserved navigation feedback", async () => {
     render(<MarketOverviewPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "交易助手" }));
+    fireEvent.click(await screen.findByRole("button", { name: "交易训练" }));
     expect(screen.getByText("该入口暂未开放")).toBeInTheDocument();
   });
 

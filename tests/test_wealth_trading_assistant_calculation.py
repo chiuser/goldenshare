@@ -303,7 +303,7 @@ def test_calculation_to_strict_closed_trade_contract():
             quantity=100,price="34.00",grossAmount=format_cents(fee.gross_cents),commissionAmount=format_cents(fee.commission_cents),
             stampTaxAmount=format_cents(fee.stamp_tax_cents),totalFeeAmount=format_cents(fee.commission_cents+fee.stamp_tax_cents),
             netProceeds=format_cents(closed.net_proceeds_cents),dayOpeningUnitCost="33.33",allocatedCost=format_cents(closed.allocated_cost_cents),
-            dayEndQuantity=0,dayGroup=dict(accountId=identity,tsCode="600000.SH",tradeDate=DATES[0].isoformat()),
+            dayEndQuantity="0",dayGroup=dict(accountId=identity,tsCode="600000.SH",tradeDate=DATES[0].isoformat()),
             calculationRuleVersion="1",dayResultId=identity,profitAmount=format_cents(closed.profit_cents),returnPct=closed.return_pct))
     assert sum(parse_money_cents(row.allocatedCost) for row in rows) == 1000000
     assert sum(parse_money_cents(row.profitAmount) for row in rows) == 18290

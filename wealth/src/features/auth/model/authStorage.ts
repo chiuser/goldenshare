@@ -5,6 +5,23 @@ const REFRESH_TOKEN_KEY = "wealth.auth.refresh-token";
 const EXPIRES_AT_KEY = "wealth.auth.expires-at";
 const USERNAME_KEY = "wealth.auth.username";
 const DISPLAY_NAME_KEY = "wealth.auth.display-name";
+let authEpoch = 0;
+let observedCredentials = "";
+
+function credentialFingerprint(): string {
+  const storage = getStorage();
+  return JSON.stringify([storage?.getItem(ACCESS_TOKEN_KEY), storage?.getItem(REFRESH_TOKEN_KEY), storage?.getItem(USERNAME_KEY)]);
+}
+
+/** Identity generation, not an account ID or a persisted business draft. */
+export function getAuthEpoch(): number {
+  const current = credentialFingerprint();
+  if (current !== observedCredentials) {
+    authEpoch += 1;
+    observedCredentials = current;
+  }
+  return authEpoch;
+}
 
 export interface StoredAuthSession {
   accessToken: string;
@@ -33,7 +50,9 @@ export function readAuthSession(): StoredAuthSession | null {
   };
 }
 
-export function saveAuthSession(payload: TokenResponse): StoredAuthSession {
+export function saveAuthSession(payload: TokenResponse, mode: "login" | "refresh" = "login"): StoredAuthSession {
+  getAuthEpoch();
+  if (mode === "login") authEpoch += 1;
   const storage = getStorage();
   const session: StoredAuthSession = {
     accessToken: payload.token,
@@ -48,10 +67,13 @@ export function saveAuthSession(payload: TokenResponse): StoredAuthSession {
   setOrRemove(storage, EXPIRES_AT_KEY, session.expiresAt);
   setOrRemove(storage, USERNAME_KEY, session.username);
   setOrRemove(storage, DISPLAY_NAME_KEY, session.displayName);
+  observedCredentials = credentialFingerprint();
   return session;
 }
 
 export function clearAuthSession() {
+  getAuthEpoch();
+  authEpoch += 1;
   const storage = getStorage();
   if (!storage) return;
   storage.removeItem(ACCESS_TOKEN_KEY);
@@ -59,6 +81,7 @@ export function clearAuthSession() {
   storage.removeItem(EXPIRES_AT_KEY);
   storage.removeItem(USERNAME_KEY);
   storage.removeItem(DISPLAY_NAME_KEY);
+  observedCredentials = credentialFingerprint();
 }
 
 function setOrRemove(storage: Storage, key: string, value?: string | null) {
@@ -68,4 +91,3 @@ function setOrRemove(storage: Storage, key: string, value?: string | null) {
     storage.removeItem(key);
   }
 }
-

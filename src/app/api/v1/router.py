@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from src.app.api.v1 import health, qtf
+from src.app.api.v1 import health, qtf, trading_assistant
 from src.app.auth.api import admin, admin_users, auth, users
 from src.biz.api import market as biz_market
 from src.biz.api import quote as biz_quote
@@ -73,6 +73,7 @@ router.include_router(wealth_market_stock_detail_news.router)
 router.include_router(wealth_market_stock_detail_nine_turn.router)
 router.include_router(wealth_market_stock_search.router)
 router.include_router(wealth_market_watchlist.router)
+router.include_router(trading_assistant.router)
 router.include_router(wealth_market_sector_overview.router)
 router.include_router(wealth_market_sector_analysis.router)
 router.include_router(wealth_market_news_briefs.router)
