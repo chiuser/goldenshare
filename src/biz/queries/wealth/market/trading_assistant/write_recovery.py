@@ -22,6 +22,7 @@ from src.biz.services.wealth.market.trading_assistant.write_protocol import (
 
 
 TITLES = {
+    "CALCULATION_RETRY": "重试计算",
     "ACCOUNT_CREATE": "创建账户", "INITIALIZATION_CORRECT": "更正初始持仓", "FEES_UPDATE": "修改费率",
     "TRADE_CREATE": "交易登记", "TRADE_CORRECT": "更正交易", "TRADE_VOID": "作废交易",
     "CASH_FLOW_CREATE": "资金登记", "CASH_FLOW_CORRECT": "更正资金记录", "CASH_FLOW_VOID": "作废资金记录",

@@ -111,7 +111,7 @@ class WriteProtocol:
         key = scope_key(scope)
         allowed = {"ACCOUNT_CREATE":{"ACCOUNT_CREATE"}, "ACCOUNT_FEES":{"FEES_UPDATE"},
                    "ACCOUNT_LEDGER":{"INITIALIZATION_CORRECT", "TRADE_CREATE", "TRADE_CORRECT", "TRADE_VOID",
-                                     "CASH_FLOW_CREATE", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID"}}
+                                     "CASH_FLOW_CREATE", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID", "CALCULATION_RETRY"}}
         if operation not in allowed[scope.scopeType] or not executor_id or now.tzinfo is None:
             raise ValueError("Invalid trusted operation or clock")
         payload, digest = canonical_input(operation, key, payload, target)
@@ -150,7 +150,7 @@ class WriteProtocol:
                 raise WriteProtocolConflict("TA_RECOVERY_STATE_CHANGED")
             if scope_row.holder_request_id is not None:
                 raise WriteProtocolConflict("TA_SCOPE_WRITE_PENDING")
-            candidate_id = None if operation == "FEES_UPDATE" else uuid4()
+            candidate_id = None if operation in {"FEES_UPDATE", "CALCULATION_RETRY"} else uuid4()
             request = WriteRequest(owner_id=owner_id, request_id=request_id, scope_key=key,
                 operation_type=operation, input_schema_version=1, input_digest=digest,
                 target=target.model_dump(mode="json") if target else None,

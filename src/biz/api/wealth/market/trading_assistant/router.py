@@ -17,7 +17,7 @@ from src.biz.services.wealth.market.trading_assistant.defaults import INITIALIZA
 from src.biz.services.wealth.market.trading_assistant.write_protocol import WriteProtocolConflict
 from .dependencies import TradingAssistantDependencies
 from .errors import TradingAssistantRoute, command_response
-from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationStatus
+from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationStatus, CalculationRetryCommand
 
 
 def create_trading_assistant_router(*, auth_dependency, dependencies_dependency):
@@ -52,6 +52,12 @@ def create_trading_assistant_router(*, auth_dependency, dependencies_dependency)
     @router.put("/accounts/{account_id}/fees", response_model=receipts.FeesUpdateReceipt)
     async def update_fees(account_id: EntityId, command: dto.UpdateFeesCommand, owner_id: int = auth, deps: TradingAssistantDependencies = services):
         return command_response(await deps.accounts.update_fees(owner_id=owner_id,account_id=UUID(account_id),command=command))
+
+    @router.post("/accounts/{account_id}/calculation-retries", response_model=receipts.CalculationRetryReceipt)
+    async def retry_calculation(account_id: EntityId, command: CalculationRetryCommand,
+                                owner_id: int = auth, deps: TradingAssistantDependencies = services):
+        return command_response(await deps.calculation_retries.retry(owner_id=owner_id,
+            account_id=UUID(account_id), command=command))
 
     @router.get("/accounts/{account_id}/entry-context", response_model=dto.EntryContext)
     async def context(account_id: EntityId, occurredOn: BusinessDate, tsCode: StockCode | None = None,

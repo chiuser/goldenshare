@@ -164,6 +164,18 @@ def test_snapshot_composition_requires_completed_inputs(publication_db, held):
         assert page.items[0].fee_version_id == fee
         with pytest.raises(PublishedPositionsUnavailable, match="晚于读取截止"):
             read_positions(cutoff=AT-timedelta(seconds=1))
+    # Retrying an already published target is a readback receipt, not new work.
+    from src.biz.services.wealth.market.trading_assistant.calculation_retries import CalculationRetryService
+    from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationRetryCommand
+    from src.biz.models.wealth.trading_assistant.calculation import Recalculation
+    retry = CalculationRetryService(None, execution.policy, lambda:AT, executor_id="published-retry")
+    with Session(publication_db) as session, session.begin():
+        response = retry.accept(session, owner_id=1, account_id=lease.account_id,
+            command=CalculationRetryCommand(requestId=str(uuid4()),attemptId=str(uuid4()),
+                calculationTargetVersion=str(lease.target_version)), deadline=deadline())
+        assert response.receipt["result"]["stage"] == "PUBLISHED"
+        assert session.get(Recalculation,lease.account_id) is None
+        assert session.get(Account,lease.account_id).published_generation_id == generation
     # Current fees affect a real published holding read, not the historical row.
     updated_fee = uuid4()
     with Session(publication_db) as session, session.begin():
