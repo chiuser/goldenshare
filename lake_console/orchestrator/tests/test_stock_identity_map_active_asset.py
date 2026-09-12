@@ -30,6 +30,27 @@ from orchestrator.seeds.basic.stock_identity_mappings import (
 
 
 class StockIdentityMapActiveAssetTests(unittest.TestCase):
+    def test_360_seed_preserves_identity_and_bounds_old_code(self) -> None:
+        seed = next(
+            row for row in load_stock_identity_mapping_seed()
+            if row.source_ts_code == "601313.SH"
+        )
+        self.assertEqual(seed.latest_ts_code, "601360.SH")
+        self.assertEqual(seed.valid_from, date(2012, 1, 16))
+        self.assertEqual(seed.valid_to, date(2018, 2, 28))
+        result = build_stock_identity_map_rows(
+            lifecycle_rows=({"ts_code": "601360.SH", "list_date": date(2012, 1, 16), "delist_date": None},),
+            seed_rows=(seed,),
+            namechange_codes={"601360.SH"},
+            created_at=datetime(2026, 9, 11, tzinfo=ZoneInfo("Asia/Shanghai")),
+        )
+        by_source = {row["source_ts_code"]: row for row in result.rows}
+        self.assertEqual(set(by_source), {"601313.SH", "601360.SH"})
+        self.assertIsNone(by_source["601360.SH"]["valid_to"])
+        self.assertEqual(by_source["601313.SH"]["effective_list_date"], date(2012, 1, 16))
+        self.assertIsNone(by_source["601313.SH"]["effective_delist_date"])
+        self.assertEqual(seed.confidence, "confirmed")
+
     def test_seed_loader_rejects_duplicate_source_code(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             seed_path = Path(temp_dir) / "stock_identity_mappings.cn_a.csv"

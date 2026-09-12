@@ -1,4 +1,5 @@
 latest_ts_code,source_ts_code,valid_from,valid_to,identity_source,confidence,reason
+601360.SH,601313.SH,2012-01-16,2018-02-28,namechange,confirmed,SSE 601313_20180213_1 code change effective 2018-02-28; preserve identity as 601360.SH
 920000.BJ,832000.BJ,2020-12-23,,bse_mapping,confirmed,bse_mapping o_code=832000.BJ -> n_code=920000.BJ
 920001.BJ,873001.BJ,2022-12-27,,bse_mapping,confirmed,bse_mapping o_code=873001.BJ -> n_code=920001.BJ
 920006.BJ,837006.BJ,2023-05-18,,bse_mapping,confirmed,bse_mapping o_code=837006.BJ -> n_code=920006.BJ
