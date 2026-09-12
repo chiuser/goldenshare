@@ -1,0 +1,25 @@
+{
+  "prefix_equal": true,
+  "future_isolation_equal": true,
+  "uniform_scaling_equal": true,
+  "shorter_initialization_observation_equal": true,
+  "all_passed": true,
+  "seconds_by_replay": {
+    "full": 3.1076277079991996,
+    "prefix": 3.0821265829727054,
+    "future_perturbed": 3.0921962909633294,
+    "scaled": 3.1112832499784417,
+    "shorter_history": 2.0831742080044933
+  },
+  "future_cutoff": "2026-02-26 11:30:00",
+  "shorter_start": "2022-09-22 10:00:00",
+  "g1_return_equal": true,
+  "read_audit": {
+    "files": 32,
+    "bytes": 46263851,
+    "source_hashes_unchanged": true
+  },
+  "rough_batch_engine_seconds": 1042.0053458774437,
+  "estimate_method": "pilot seconds per bar times 10000 bars times 289 stocks; excludes I/O and repeat checks",
+  "batch_engine_estimate_within_total_budget": true
+}

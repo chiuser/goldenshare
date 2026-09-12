@@ -1,0 +1,57 @@
+{
+  "windows": [
+    {
+      "window_id": "2026-02-26",
+      "pool": 5172,
+      "counts": [
+        {
+          "eligibility": "comparable",
+          "n": 5160
+        },
+        {
+          "eligibility": "suspended_endpoint",
+          "n": 12
+        }
+      ],
+      "blocked": false,
+      "ranked": 5160,
+      "paired": 50
+    },
+    {
+      "window_id": "2026-04-09",
+      "pool": 5179,
+      "counts": [
+        {
+          "eligibility": "comparable",
+          "n": 5172
+        },
+        {
+          "eligibility": "suspended_endpoint",
+          "n": 7
+        }
+      ],
+      "blocked": false,
+      "ranked": 5172,
+      "paired": 48
+    },
+    {
+      "window_id": "2026-08-12",
+      "pool": 5208,
+      "counts": [
+        {
+          "eligibility": "comparable",
+          "n": 5203
+        },
+        {
+          "eligibility": "suspended_endpoint",
+          "n": 5
+        }
+      ],
+      "blocked": false,
+      "ranked": 5203,
+      "paired": 50
+    }
+  ],
+  "error": null,
+  "source_unchanged": true
+}

@@ -17,6 +17,8 @@ index_market/
 
 ## 当前研究状态
 
+2026-09-12最新：[首批等价提速](../../../reports/stock_chan_parallel_first10_20260912/report.md)完成：1/2/4进程125.5/66.4/39.8秒，4进程快3.15倍，231项全字段结果比较一致，五项检验全部保留。[原首批10只个股回放](../../../reports/stock_chan_g2b_first10_20260912/report.md)完成11席，真实暂停恢复通过；仅中国天楹有两笔提前买点。全量2189文件超过原2000上限，剩余279只未执行；约59分钟是优化前串行估算，不是当前运行状态。[首只试跑](../../../reports/stock_chan_g2a_replay_20260912/report.md)和[沪深未退市股票排名](../../../reports/stock_chan_shsz_r1_surviving_20260912/report.md)保留；三段对照50/48/50，排除已退市者及北交所，存续池有幸存者偏差。以下旧运行和清理记录是历史，不代表当前仍暂停在G1。
+
 - [个股缠论独立方案](/Users/congming/github/goldenshare/docs/product/stock-chan-index-window-research-plan-v1.md)：沪深A股、最近五年的市场背景共振研究，不研究指数成员关系。[G1修正后报告](/Users/congming/github/goldenshare/reports/stock_chan_shsz_r1_source5_20260910/report.md)已完成8月窗口5203只排名与50对50匹配，2月/4月存在未解释数据缺口，G2未执行。用户正在处理缺数，研究暂停；本轮仅做[废弃代码与报告清理](../../../reports/research_cleanup_20260910/report.md)。
 - [四轮统计研究方案及历史结论](/Users/congming/github/goldenshare/docs/product/index-next-day-probability-backtest-plan-v1.md)：代码已运行过，方法结论以原报告为准。
 - [缠论教学](/Users/congming/github/goldenshare/docs/product/chan-theory-csi300-teaching-guide-v1.md)：只完成结构回放，不是盈利回测。
@@ -35,6 +37,30 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -B -m pytest -q -p no:cachepro
 根 `pyproject.toml` 的 pytest `testpaths` 已纳入本主题测试；默认发现不会因搬离根 `tests/` 而遗漏它们。
 
 ## 实验入口（需要另有执行授权）
+
+首批等价提速测量只消费已封存的G2b输入及其暂停目录引用，不重读Lake；固定1/2/4进程，保留五项检验，不能改股票池或缠论参数。设计及预算见个股方案第13节：
+
+```bash
+.venv/bin/python -B -m scripts.research.index_market.chan.stock_chan_parallel --help
+.venv/bin/python -B -m scripts.research.index_market.chan.stock_chan_parallel --output reports/stock_chan_parallel_reproduction_NEW
+```
+
+输出逐股等价哈希回执、三组耗时和最终manifest。完整旧事件继续引用G2b报告，不复制三套相同大文件。此入口是首批性能实验，不是全量调度器；只完成本轮测量也不等于剩余279只获得执行授权。
+
+G2b仅固定首批10只，不能通过CLI改批次或选股；恢复总是写新目录并校验前序封存结果：
+
+```bash
+.venv/bin/python -B -m scripts.research.index_market.chan.stock_chan_batch --output reports/stock_chan_g2b_pause_NEW --pause-after-first-unit
+.venv/bin/python -B -m scripts.research.index_market.chan.stock_chan_batch --output reports/stock_chan_g2b_resume_NEW --resume-from reports/stock_chan_g2b_pause_NEW
+.venv/bin/python -B -m scripts.research.index_market.chan.stock_chan_batch_audit --report reports/stock_chan_g2b_first10_20260912
+```
+
+个股G2a试跑及只读产物复核（参数固定、不会启动289只批量）：
+
+```bash
+.venv/bin/python -B -m scripts.research.index_market.chan.stock_chan_replay --output reports/stock_chan_g2a_NEW
+.venv/bin/python -B -m scripts.research.index_market.chan.stock_chan_replay_audit --report reports/stock_chan_g2a_replay_20260912
+```
 
 四个统计模块分别为：
 
@@ -75,7 +101,7 @@ python3 -B -m scripts.research.index_market.chan.build_cases --chan-source /abso
 
 只改变离线工具组织、当前命令及相应来源记录，无架构依赖矩阵、API、服务、DG或Lake变更。不重跑历史实验，不产生新策略成绩，不提交推送。其他主题的研究脚本保持原样。
 
-## 个股缠论当前入口（研究暂停）
+## 个股缠论当前入口（G1已复核，G2未执行）
 
 ### 当前沪深G1排名入口
 
@@ -86,7 +112,7 @@ python3 -B -m scripts.research.index_market.chan.build_cases --chan-source /abso
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -B -m scripts.research.index_market.chan.stock_chan_rank --output reports/stock_chan_shsz_r1_reproduction_NEW
 ```
 
-以上为恢复研究后的命令参考，目前不执行，须经用户授权恢复。CLI只接受新报告目录。真实运行读取正式Lake，测试不读取。`blocked_data_quality`不等于程序崩溃，也不等于方法无效：查看summary区分已完成窗口与缺口；禁止自动删股或混源兜底。
+CLI只接受新报告目录。当前版本固定验证日2026-09-12排除已退市股，其余参数见方案；真实运行读取正式Lake，测试不读取。`blocked_data_quality`不等于程序崩溃或方法无效；`rank_complete`也不保证50个对照都齐备，应查看paired和缺席原因。禁止按结果自动删股或混源兜底，不自动进入G2。
 
 G0废弃入口及成员/市值门禁已清理。当前排名仍需的B0认证和时间窗口选择原样保留在`chan/stock_chan_reference.py`，测试在`tests/test_stock_chan_reference.py`；读取白名单反例由现用排名连接的测试覆盖。不留旧入口转发，不修改历史manifest。
 

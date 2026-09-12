@@ -1,0 +1,20 @@
+{
+  "manifest_sha256": "ac7758b69090b47ae4663a1d5a1d963370975632803e904004ac2997a8f67f64",
+  "artifacts": 23,
+  "reconstructed_events": 83,
+  "diagnostics_recomputed": true,
+  "stability_checks": {
+    "prefix": true,
+    "future": true,
+    "scaling": true,
+    "initialization": true
+  },
+  "prefix_compared_events": 83,
+  "initialization_observation_events": 0,
+  "caveat": "Empty observation windows do not establish initialization robustness for actual signals.",
+  "audit_code_sha256": "9d6bf89013ed5151483c058a385b76ca2064509ee424248cd262c1ae4669c362",
+  "tests": "432 research and architecture tests passed",
+  "ruff": "passed",
+  "lake_writes": false,
+  "batch_executed": false
+}

@@ -1,0 +1,348 @@
+[
+  {
+    "winner": "000402.SZ",
+    "control": "300741.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 50901805.419999994,
+    "control_amount": 50914536.132
+  },
+  {
+    "winner": "000967.SZ",
+    "control": "002422.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 634188300.4849999,
+    "control_amount": 635011249.89
+  },
+  {
+    "winner": "001299.SZ",
+    "control": "600130.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 72825818.245,
+    "control_amount": 72699682.45
+  },
+  {
+    "winner": "001309.SZ",
+    "control": "002475.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 6670919138.75,
+    "control_amount": 6558847409.3
+  },
+  {
+    "winner": "002080.SZ",
+    "control": "300296.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1545837913.975,
+    "control_amount": 1544690509.335
+  },
+  {
+    "winner": "002124.SZ",
+    "control": "000498.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 113596509.7,
+    "control_amount": 113658960.4615
+  },
+  {
+    "winner": "002240.SZ",
+    "control": "600711.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1807246610.065,
+    "control_amount": 1805429139.0
+  },
+  {
+    "winner": "002297.SZ",
+    "control": "600500.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 244116528.09,
+    "control_amount": 244346688.85
+  },
+  {
+    "winner": "002328.SZ",
+    "control": "002048.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 377742392.81000006,
+    "control_amount": 377789358.39
+  },
+  {
+    "winner": "002364.SZ",
+    "control": "300762.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 928843244.475,
+    "control_amount": 929039354.65
+  },
+  {
+    "winner": "002580.SZ",
+    "control": "301486.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1138948264.775,
+    "control_amount": 1140288074.3
+  },
+  {
+    "winner": "002943.SZ",
+    "control": "301349.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 297453579.54,
+    "control_amount": 297246436.4150001
+  },
+  {
+    "winner": "003018.SZ",
+    "control": "300378.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 363306750.641,
+    "control_amount": 363890192.52750003
+  },
+  {
+    "winner": "300131.SZ",
+    "control": "002126.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1005210230.025,
+    "control_amount": 1008019119.3149999
+  },
+  {
+    "winner": "300390.SZ",
+    "control": "600722.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 2241761300.125,
+    "control_amount": 2230731916.1
+  },
+  {
+    "winner": "300561.SZ",
+    "control": "300188.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 159813722.85250002,
+    "control_amount": 159956081.8225
+  },
+  {
+    "winner": "300767.SZ",
+    "control": "000795.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 136631596.933,
+    "control_amount": 136458089.9455
+  },
+  {
+    "winner": "300868.SZ",
+    "control": "000751.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 339194288.06799996,
+    "control_amount": 338874124.51
+  },
+  {
+    "winner": "301018.SZ",
+    "control": "002082.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1086910182.9,
+    "control_amount": 1088064456.6200001
+  },
+  {
+    "winner": "301055.SZ",
+    "control": "301121.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 62894316.002,
+    "control_amount": 62856473.951
+  },
+  {
+    "winner": "301095.SZ",
+    "control": "300547.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 325565560.675,
+    "control_amount": 325449749.715
+  },
+  {
+    "winner": "301189.SZ",
+    "control": "300041.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 171711362.88850003,
+    "control_amount": 171973104.305
+  },
+  {
+    "winner": "301219.SZ",
+    "control": "002102.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 355243162.64500004,
+    "control_amount": 355376531.677
+  },
+  {
+    "winner": "301308.SZ",
+    "control": "600089.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 5257612612.35,
+    "control_amount": 5108290691.15
+  },
+  {
+    "winner": "301310.SZ",
+    "control": "300514.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 72498116.6625,
+    "control_amount": 72518680.057
+  },
+  {
+    "winner": "301517.SZ",
+    "control": "300615.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 191049364.29299998,
+    "control_amount": 191040720.68
+  },
+  {
+    "winner": "301667.SZ",
+    "control": "002929.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 790386253.3599999,
+    "control_amount": 789234012.9449999
+  },
+  {
+    "winner": "600152.SH",
+    "control": "000791.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 742858410.1,
+    "control_amount": 741740012.5350001
+  },
+  {
+    "winner": "600480.SH",
+    "control": "002697.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 123041500.75,
+    "control_amount": 123011281.74200001
+  },
+  {
+    "winner": "600743.SH",
+    "control": "301047.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 58793508.55,
+    "control_amount": 58721755.50050001
+  },
+  {
+    "winner": "601588.SH",
+    "control": "002613.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 67474460.6,
+    "control_amount": 67522068.537
+  },
+  {
+    "winner": "601778.SH",
+    "control": "300432.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 2009151032.0,
+    "control_amount": 2014212854.6150002
+  },
+  {
+    "winner": "603026.SH",
+    "control": "002470.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1628969867.1,
+    "control_amount": 1636605291.615
+  },
+  {
+    "winner": "603256.SH",
+    "control": "002165.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1449022890.9,
+    "control_amount": 1451683471.35
+  },
+  {
+    "winner": "603459.SH",
+    "control": null,
+    "reason": "prior_history_unavailable"
+  },
+  {
+    "winner": "603538.SH",
+    "control": "300118.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1385638018.05,
+    "control_amount": 1380207099.725
+  },
+  {
+    "winner": "603800.SH",
+    "control": "300027.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 134697529.85,
+    "control_amount": 134673665.5885
+  },
+  {
+    "winner": "603950.SH",
+    "control": "000796.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 197917606.05,
+    "control_amount": 197914902.81199998
+  },
+  {
+    "winner": "605255.SH",
+    "control": "600998.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 202904390.8,
+    "control_amount": 203039294.45
+  },
+  {
+    "winner": "688048.SH",
+    "control": "600879.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 3094685215.9,
+    "control_amount": 3022458674.05
+  },
+  {
+    "winner": "688081.SH",
+    "control": "002282.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 64003021.35,
+    "control_amount": 64007472.624
+  },
+  {
+    "winner": "688135.SH",
+    "control": "002608.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 255172284.05,
+    "control_amount": 255140394.675
+  },
+  {
+    "winner": "688183.SH",
+    "control": "300850.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 1225345819.4,
+    "control_amount": 1224845031.185
+  },
+  {
+    "winner": "688478.SH",
+    "control": "301156.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 51939778.15,
+    "control_amount": 52047209.787
+  },
+  {
+    "winner": "688525.SH",
+    "control": "601899.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 8845711929.8,
+    "control_amount": 10017960185.3
+  },
+  {
+    "winner": "688552.SH",
+    "control": "300050.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 269035646.65,
+    "control_amount": 269019512.17999995
+  },
+  {
+    "winner": "688667.SH",
+    "control": "603707.SH",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 115783851.15,
+    "control_amount": 115788697.0
+  },
+  {
+    "winner": "688690.SH",
+    "control": "300052.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 97676301.25,
+    "control_amount": 97673526.90699999
+  },
+  {
+    "winner": "688693.SH",
+    "control": "300719.SZ",
+    "rank_distance": 0.0001936108422071636,
+    "winner_amount": 165003750.15,
+    "control_amount": 165030303.71499997
+  },
+  {
+    "winner": "688813.SH",
+    "control": null,
+    "reason": "prior_history_unavailable"
+  }
+]

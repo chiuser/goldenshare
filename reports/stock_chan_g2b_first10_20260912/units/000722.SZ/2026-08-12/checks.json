@@ -1,0 +1,19 @@
+{
+  "prefix_equal": true,
+  "future_isolation_equal": true,
+  "uniform_scaling_equal": true,
+  "shorter_initialization_observation_equal": true,
+  "all_passed": true,
+  "seconds_by_replay": {
+    "full": 2.5518692079931498,
+    "prefix": 2.5313441249891184,
+    "future_perturbed": 2.5425796670024283,
+    "scaled": 2.529234584013466,
+    "shorter_history": 1.4778027920401655
+  },
+  "future_cutoff": "2026-08-12 11:00:00",
+  "shorter_start": "2022-09-22 10:00:00",
+  "reconstructed_events": 54,
+  "g1_return_equal": true,
+  "initialization_observation_events": 0
+}

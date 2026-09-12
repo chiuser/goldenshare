@@ -1,0 +1,75 @@
+{
+  "code": "000551.SZ",
+  "pid": 30268,
+  "status": "equivalent",
+  "seconds": 15.356976333016064,
+  "rss_peak_bytes": 194510848,
+  "engine_calls": [
+    {
+      "mode": "full",
+      "bars": 9531,
+      "seconds": 3.245374249992892
+    },
+    {
+      "mode": "scaled",
+      "bars": 9531,
+      "seconds": 3.231480999966152
+    },
+    {
+      "mode": "shorter_history",
+      "bars": 7531,
+      "seconds": 2.2080180839984678
+    },
+    {
+      "mode": "prefix",
+      "bars": 9523,
+      "seconds": 3.272526749991812
+    },
+    {
+      "mode": "future_perturbed",
+      "bars": 9531,
+      "seconds": 3.3346363750169985
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "000551.SZ/2026-08-12",
+      "bars": 9531,
+      "events": 82,
+      "observation_buys": 0,
+      "expected_sha256": {
+        "full_events": "66f9c4af9deb0af5bb97047f84972d5d0eb9fbb4355a261ace675e5f02dbee40",
+        "prefix_events": "66f9c4af9deb0af5bb97047f84972d5d0eb9fbb4355a261ace675e5f02dbee40",
+        "future_perturbed_events": "66f9c4af9deb0af5bb97047f84972d5d0eb9fbb4355a261ace675e5f02dbee40",
+        "scaled_events": "66f9c4af9deb0af5bb97047f84972d5d0eb9fbb4355a261ace675e5f02dbee40",
+        "shorter_history_events": "d9ee704ee85261fc030cb9509551fdedb93ee0818a042bbd8fc1313f30ff57c8",
+        "changes": "b389c2178a44cf33c1effa3da56776776173755b41c1ba5f38b7b17b492f7f38",
+        "diagnostics": "40fc3fac3f714436878112320926c58a97b6112faed9f39611c035d0fd2acf44"
+      },
+      "actual_sha256": {
+        "full_events": "66f9c4af9deb0af5bb97047f84972d5d0eb9fbb4355a261ace675e5f02dbee40",
+        "scaled_events": "66f9c4af9deb0af5bb97047f84972d5d0eb9fbb4355a261ace675e5f02dbee40",
+        "shorter_history_events": "d9ee704ee85261fc030cb9509551fdedb93ee0818a042bbd8fc1313f30ff57c8",
+        "prefix_events": "66f9c4af9deb0af5bb97047f84972d5d0eb9fbb4355a261ace675e5f02dbee40",
+        "future_perturbed_events": "66f9c4af9deb0af5bb97047f84972d5d0eb9fbb4355a261ace675e5f02dbee40",
+        "changes": "b389c2178a44cf33c1effa3da56776776173755b41c1ba5f38b7b17b492f7f38",
+        "diagnostics": "40fc3fac3f714436878112320926c58a97b6112faed9f39611c035d0fd2acf44"
+      },
+      "exact_equal": {
+        "full_events": true,
+        "scaled_events": true,
+        "shorter_history_events": true,
+        "prefix_events": true,
+        "future_perturbed_events": true,
+        "changes": true,
+        "diagnostics": true
+      },
+      "stability_checks": {
+        "prefix_equal": true,
+        "future_isolation_equal": true,
+        "uniform_scaling_equal": true,
+        "shorter_initialization_observation_equal": true
+      }
+    }
+  ]
+}

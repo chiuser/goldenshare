@@ -1,0 +1,131 @@
+{
+  "scope": "SH/SZ only; three unresolved stocks and four endpoint dates",
+  "files": 9,
+  "bytes": 16503235,
+  "seconds": 0.020604624995030463,
+  "source_unchanged": true,
+  "source_sha256": {
+    "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet": "3742ebc0608bb9c778fb9e9a8d72e306c6a8a32987fc85c3f986b039755d9ca6",
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-02-26/part-000.parquet": "fddf291dcabfd6862dc92480c39da10fbd19d3d379fdc715ee7ea66442fbb49e",
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-02-27/part-000.parquet": "4d06412efd2b0212dbca3c178cda70507088fe14f7244eb4ac1ba6d216ec0377",
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-04-09/part-000.parquet": "5b32e47c2f5b8d57cc91c18fefa4c8ec232c0b2dbca01eae6066b9c6cc11940d",
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-04-14/part-000.parquet": "11e2907fafe7c421c8b6aed50079f0c387b69b4918017f14109563e94721246c",
+    "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-02-26/part-000.parquet": "2178fd6fad66dc46f8bcd86cce186c71aac3674f88a9fb84eed0d70ad71296f6",
+    "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-02-27/part-000.parquet": "8b08d74d964f09b4c36661b14a0e596feafd261ce74756f35751e598a646e1aa",
+    "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-04-09/part-000.parquet": "7bef4f3ead19d9f3abd6d179dac7b42dac457181cbc03ebee0a84d73737a678f",
+    "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-04-14/part-000.parquet": "a0c7e637009ce0e62ec095dd5e0cb4e6062c256418586977d3a49f6d4214e885"
+  },
+  "checks": [
+    {
+      "name": "lifecycle",
+      "sql": "SELECT ts_code,name,exchange,is_cny_stock,CAST(list_date AS VARCHAR) AS list_date,CAST(delist_date AS VARCHAR) AS delist_date FROM read_parquet(?,hive_partitioning=false) WHERE exchange IN ('SSE','SZSE') AND ts_code IN (SELECT unnest(?)) ORDER BY ts_code",
+      "params": [
+        "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+        [
+          "600355.SH",
+          "300344.SZ",
+          "300391.SZ"
+        ]
+      ],
+      "rows": [
+        {
+          "ts_code": "300344.SZ",
+          "name": "*ST立方",
+          "exchange": "SZSE",
+          "is_cny_stock": true,
+          "list_date": "2012-08-01",
+          "delist_date": "2026-04-22"
+        },
+        {
+          "ts_code": "300391.SZ",
+          "name": "*ST长药",
+          "exchange": "SZSE",
+          "is_cny_stock": true,
+          "list_date": "2014-08-01",
+          "delist_date": "2026-04-13"
+        },
+        {
+          "ts_code": "600355.SH",
+          "name": "*ST精伦",
+          "exchange": "SSE",
+          "is_cny_stock": true,
+          "list_date": "2002-06-13",
+          "delist_date": "2026-04-27"
+        }
+      ]
+    },
+    {
+      "name": "source_5m",
+      "sql": "SELECT ts_code,CAST(trade_date AS VARCHAR) AS trade_date,count(*) AS rows FROM read_parquet(?,hive_partitioning=false) WHERE ts_code IN (SELECT unnest(?)) GROUP BY ALL ORDER BY ALL",
+      "params": [
+        [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-02-26/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-02-27/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-04-09/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-04-14/part-000.parquet"
+        ],
+        [
+          "600355.SH",
+          "300344.SZ",
+          "300391.SZ"
+        ]
+      ],
+      "rows": []
+    },
+    {
+      "name": "suspension",
+      "sql": "SELECT ts_code,CAST(trade_date AS VARCHAR) AS trade_date,suspend_type,suspend_timing FROM read_parquet(?,hive_partitioning=false) WHERE ts_code IN (SELECT unnest(?)) ORDER BY ts_code,trade_date",
+      "params": [
+        [
+          "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-02-26/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-02-27/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-04-09/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-04-14/part-000.parquet"
+        ],
+        [
+          "600355.SH",
+          "300344.SZ",
+          "300391.SZ"
+        ]
+      ],
+      "rows": [
+        {
+          "ts_code": "300344.SZ",
+          "trade_date": "2026-02-26",
+          "suspend_type": "S",
+          "suspend_timing": null
+        },
+        {
+          "ts_code": "300344.SZ",
+          "trade_date": "2026-02-27",
+          "suspend_type": "S",
+          "suspend_timing": null
+        },
+        {
+          "ts_code": "300391.SZ",
+          "trade_date": "2026-02-26",
+          "suspend_type": "S",
+          "suspend_timing": null
+        },
+        {
+          "ts_code": "300391.SZ",
+          "trade_date": "2026-02-27",
+          "suspend_type": "S",
+          "suspend_timing": null
+        },
+        {
+          "ts_code": "600355.SH",
+          "trade_date": "2026-04-09",
+          "suspend_type": "S",
+          "suspend_timing": null
+        },
+        {
+          "ts_code": "600355.SH",
+          "trade_date": "2026-04-14",
+          "suspend_type": "S",
+          "suspend_timing": null
+        }
+      ]
+    }
+  ]
+}

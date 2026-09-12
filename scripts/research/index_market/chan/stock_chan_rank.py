@@ -22,9 +22,10 @@ from scripts.research.index_market.chan.stock_chan_reference import (
 
 @dataclass(frozen=True)
 class StockRankSpec:
-    variant: str = 'stock-chan-shsz-R1-G1-source5'
+    variant: str = 'stock-chan-shsz-R1-G1-surviving-source5'
     start: str = '2021-09-09'
     end: str = '2026-09-08'
+    universe_asof: str = '2026-09-12'
     frequency: int = 30
     source_frequency: int = 5
     exchanges: tuple[str, ...] = ('SSE', 'SZSE')
@@ -50,6 +51,7 @@ def historical_pool_sql():
     return """SELECT ts_code,name,exchange,list_date,delist_date FROM life
         WHERE is_cny_stock AND exchange IN ('SSE','SZSE')
         AND list_date <= CAST(? AS DATE)
+        AND (delist_date IS NULL OR CAST(? AS DATE) < delist_date)
         AND (delist_date IS NULL OR CAST(? AS DATE) < delist_date)"""
 
 
@@ -170,7 +172,12 @@ def execute(output, spec=SPEC):
     error = None
     try:
         with connection(paths, spec) as c:
-            query(c, 'CREATE TEMP TABLE life AS SELECT * FROM read_parquet(?,hive_partitioning=false)', [str(life)])
+            query(c, """CREATE TEMP TABLE life AS
+                SELECT ts_code,name,exchange,list_date,delist_date,is_cny_stock
+                FROM read_parquet(?,hive_partitioning=false)
+                WHERE is_cny_stock AND exchange IN ('SSE','SZSE')
+                  AND (delist_date IS NULL OR CAST(? AS DATE)<delist_date)""",
+                [str(life), spec.universe_asof])
             bad = query(c, """SELECT count(*)-count(DISTINCT ts_code) AS duplicates,
                 count(*) FILTER(WHERE ts_code IS NULL OR list_date IS NULL OR
                     (exchange='SSE' AND NOT ends_with(ts_code,'.SH')) OR
@@ -182,7 +189,8 @@ def execute(output, spec=SPEC):
                 query(c, f"""{verb} SELECT ts_code,freq,trade_date,trade_time,open,high,low,close,vol,amount,exchange,
                     regexp_extract(filename,'ts_code=([^/]+)',1) AS path_code
                     FROM read_parquet(?,hive_partitioning=false,filename=true)
-                    WHERE CAST(trade_date AS VARCHAR) IN (SELECT unnest(?))""",
+                    WHERE CAST(trade_date AS VARCHAR) IN (SELECT unnest(?))
+                      AND ts_code IN (SELECT ts_code FROM life)""",
                     [[str(p) for p in gold[i:i+spec.batch_files]], sorted(wanted)])
                 print(f'G1 Gold files {min(i+spec.batch_files,len(gold))}/{len(gold)}', flush=True)
             bad = query(c, """SELECT count(*)-count(DISTINCT(ts_code,trade_time)) AS duplicates,
@@ -205,7 +213,8 @@ def execute(output, spec=SPEC):
                 FROM read_parquet(?,hive_partitioning=false) GROUP BY ALL""", [[str(p) for p in suspension]])
             query(c, endpoint_source_sql(), [[str(p) for p in silver], [str(p) for p in factors]])
             for w in windows:
-                query(c, 'CREATE OR REPLACE TEMP TABLE pool AS '+historical_pool_sql(), [w['signal_time'][:10]]*2)
+                query(c, 'CREATE OR REPLACE TEMP TABLE pool AS '+historical_pool_sql(),
+                      [w['signal_time'][:10]]*2+[spec.universe_asof])
                 query(c, """CREATE OR REPLACE TEMP TABLE prior AS
                     SELECT p.ts_code,
                     count(*) FILTER(WHERE d.bars=8 OR (d.bars IS NULL AND s.full_day)) AS complete_days,

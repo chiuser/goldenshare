@@ -1,0 +1,92 @@
+{
+  "status": "rank_complete",
+  "spec": {
+    "variant": "stock-chan-shsz-R1-G1-surviving-source5",
+    "start": "2021-09-09",
+    "end": "2026-09-08",
+    "universe_asof": "2026-09-12",
+    "frequency": 30,
+    "source_frequency": 5,
+    "exchanges": [
+      "SSE",
+      "SZSE"
+    ],
+    "lookback_days": 20,
+    "top_n": 50,
+    "max_files": 6000,
+    "batch_files": 3000,
+    "max_bytes": 536870912,
+    "max_stocks": 6000,
+    "query_seconds": 60,
+    "total_seconds": 600,
+    "memory": "1GiB",
+    "threads": 4,
+    "basis_tolerance": 1e-08
+  },
+  "created_at_utc": "2026-09-11T23:22:02.237935+00:00",
+  "seconds": 2.7325256660114974,
+  "files": 5312,
+  "bytes": 294759833,
+  "source_audit": {
+    "artifact_hashes": 32,
+    "cells": [
+      {
+        "code": "000001.SH",
+        "frequency": 30,
+        "events": 136,
+        "reconstructed": true
+      },
+      {
+        "code": "000001.SH",
+        "frequency": 60,
+        "events": 53,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 30,
+        "events": 129,
+        "reconstructed": true
+      },
+      {
+        "code": "000300.SH",
+        "frequency": 60,
+        "events": 59,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 30,
+        "events": 151,
+        "reconstructed": true
+      },
+      {
+        "code": "000905.SH",
+        "frequency": 60,
+        "events": 57,
+        "reconstructed": true
+      }
+    ]
+  },
+  "plan_sha256": "1e31453b24cf71304b4943ec4020c4f5a0426d708ce8264a37970ccaf43a9f97",
+  "code_sha256": "65aa362735bcdbd6fab66dd4cfe3dc4c0d9c1821a3aa134cabe2e7ecc6fad965",
+  "artifacts_sha256": {
+    "summary.json": "8f68a7800f17eb1d942cd273c6296ef222c77e77c0cd7d1a62254c13382d18c7",
+    "queries.json": "f5c1ef9d62453b084e20f240d4a9cebe88f759d8abf1e1f5ebd47c36c9366931",
+    "windows.json": "be0ded6e2420373a7e5df5ef7e712ce8ec522972f92db946d0602d99d1c0e110",
+    "source_hashes.json": "4eb398d9a2b59deb43c4714f19d6f551edd78ead779b8f5ab1d682430ff9da2c",
+    "2026-08-12/pairs.json": "ed9e1669547f376ac9c289c502ff32b60519453ee54503f9e7e13e404da9c379",
+    "2026-08-12/exclusions.json": "291579ebc59c959ebbd3a3f5938b37934cbf72cf6f5ad7ad9e7149e681e7c4c9",
+    "2026-08-12/top50.json": "18164ba3a0074adb758c8f73e0cebbcf8f3db476654ed6344f105e108440aea3",
+    "2026-08-12/ranking.json": "f8672f2a5b8840d81ed10d38cc53e2b0170199155c282ef16b270e9dc44e19f8",
+    "2026-04-09/pairs.json": "b88a98b2915d9884c86a417ec3f871aa89de0dac77989f9bab95c33608805382",
+    "2026-04-09/exclusions.json": "f1f9f78a4f52cdf8a4d57fdac9aacf0b74ba490e38b810ad9ecc063b050c92d7",
+    "2026-04-09/top50.json": "f7c3745dfc4276ea975cf113ba869888073edb1d4eb6573002ff9f19195f6e64",
+    "2026-04-09/ranking.json": "63f6f6aa1f2c7175afde85b6c2f31385f189b769d8e65684d606d71ff4954219",
+    "2026-02-26/pairs.json": "74eda279d2f1fa366bebebf38e56c866ce89e6b29ba2145e88096fcd26e4651d",
+    "2026-02-26/exclusions.json": "0ec052249bc0706e072d8485ba158410cd1f45ec3912ca244e1e5f00964dfe08",
+    "2026-02-26/top50.json": "88d9ce680645662a260d684eb2e05bd73a14fa6c851ca58bbce9c8df47226c2c",
+    "2026-02-26/ranking.json": "ef5e6b9f9f1e93e5e46d1f7d2ceaac3e9727b73b2533eec487ba9953305214df"
+  },
+  "stock_replay_executed": false
+}

@@ -1,0 +1,103 @@
+{
+  "status": "ready",
+  "quality": {
+    "bars": 8869,
+    "trading_days": 1109,
+    "history_days_before_observation": 1085,
+    "missing_bars": 0,
+    "unexpected_bars": 0,
+    "first_bar": "2021-09-09 10:00:00",
+    "last_bar": "2026-04-14 13:30:00"
+  },
+  "basis": {
+    "method": "first_and_last_bar_of_each_year_close_vs_Silver5_times_adj_factor",
+    "scope": "sampled_cross_year_anchors_not_all_bar_derivation",
+    "anchors": [
+      {
+        "time": "2021-09-09 10:00:00",
+        "raw_close": 6.45,
+        "adj_factor": 38.85,
+        "gold_close": 6.401882887946451,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2021-12-31 15:00:00",
+        "raw_close": 5.66,
+        "adj_factor": 38.85,
+        "gold_close": 5.6177763016708395,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2022-01-04 10:00:00",
+        "raw_close": 5.68,
+        "adj_factor": 38.85,
+        "gold_close": 5.637627101323386,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2022-12-30 15:00:00",
+        "raw_close": 5.25,
+        "adj_factor": 39.0566,
+        "gold_close": 5.238545552092382,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2023-01-03 10:00:00",
+        "raw_close": 5.28,
+        "adj_factor": 39.0566,
+        "gold_close": 5.268480098104338,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2023-12-29 15:00:00",
+        "raw_close": 3.63,
+        "adj_factor": 39.142,
+        "gold_close": 3.63,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2024-01-02 10:00:00",
+        "raw_close": 3.58,
+        "adj_factor": 39.142,
+        "gold_close": 3.58,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2024-12-31 15:00:00",
+        "raw_close": 3.26,
+        "adj_factor": 39.142,
+        "gold_close": 3.26,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2025-01-02 10:00:00",
+        "raw_close": 3.34,
+        "adj_factor": 39.142,
+        "gold_close": 3.34,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2025-12-31 15:00:00",
+        "raw_close": 2.75,
+        "adj_factor": 39.142,
+        "gold_close": 2.75,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2026-01-05 10:00:00",
+        "raw_close": 2.79,
+        "adj_factor": 39.142,
+        "gold_close": 2.79,
+        "implied_base": 39.142
+      },
+      {
+        "time": "2026-04-14 13:30:00",
+        "raw_close": 3.11,
+        "adj_factor": 39.142,
+        "gold_close": 3.11,
+        "implied_base": 39.142
+      }
+    ]
+  },
+  "gaps": []
+}

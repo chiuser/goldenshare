@@ -8,7 +8,7 @@ from scripts.research.index_market.chan.stock_chan_rank import (
 )
 
 
-def test_historical_scope_not_membership_or_current_status():
+def test_shsz_survivors_exclude_delisted_even_when_listed_at_signal():
     with duckdb.connect(':memory:') as c:
         c.execute('''CREATE TABLE life(ts_code VARCHAR,name VARCHAR,exchange VARCHAR,
             list_date DATE,delist_date DATE,is_cny_stock BOOLEAN)''')
@@ -18,9 +18,11 @@ def test_historical_scope_not_membership_or_current_status():
             ('920001.BJ','c','BSE','2000-01-01',NULL,true),
             ('900001.SH','d','SSE','2000-01-01',NULL,false),
             ('600001.SH','e','SSE','2026-03-01',NULL,true),
-            ('600002.SH','f','SSE','2000-01-01','2026-02-26',true)""")
-        rows = c.execute(historical_pool_sql(), ['2026-02-26']*2).fetchall()
-    assert {r[0] for r in rows} == {'600000.SH','000001.SZ'}
+            ('600002.SH','f','SSE','2000-01-01','2026-02-26',true),
+            ('600003.SH','g','SSE','2000-01-01','2026-09-12',true),
+            ('600004.SH','h','SSE','2000-01-01','2026-09-13',true)""")
+        rows = c.execute(historical_pool_sql(), ['2026-02-26']*2+[SPEC.universe_asof]).fetchall()
+    assert {r[0] for r in rows} == {'000001.SZ','600004.SH'}
 
 
 def test_fixed_matching_ties_missing_and_no_replacement():
@@ -42,7 +44,8 @@ def test_control_distance_does_not_use_future_gain():
 def test_rank_rejects_insufficient_and_changed_scope(tmp_path):
     with pytest.raises(ValueError, match='insufficient'):
         match_controls([], 50)
-    for spec in (replace(SPEC,start='2010-01-01'), replace(SPEC,exchanges=('BSE',)), replace(SPEC,top_n=5)):
+    for spec in (replace(SPEC,start='2010-01-01'), replace(SPEC,exchanges=('BSE',)),
+                 replace(SPEC,top_n=5), replace(SPEC,universe_asof='2026-02-26')):
         with pytest.raises(ValueError, match='unapproved'):
             execute(tmp_path/'out', spec)
 
