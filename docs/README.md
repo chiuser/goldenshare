@@ -228,7 +228,7 @@ docs/
 - [前端数据集审计页面设计 v1（第一期历史设计；现行日期／对象矩阵机制见 Ops 主说明）](/Users/congming/github/goldenshare/docs/frontend/frontend-date-completeness-audit-page-design-v1.md)
 - [前端治理决策与阶段记录（已承接 Phase2、Phase5、Overview 独立卡）](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md)
 - [前端 Phase 6 历史收口与后续边界（已合并计划及四卡）](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)
-- [前端 Ops 事实字段消费审计 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-ops-fact-consumer-audit-v1.md)
+- [前端 Ops 事实消费历史审计（保留 F 编号，附当前字段口径）](/Users/congming/github/goldenshare/docs/frontend/frontend-ops-fact-consumer-audit-v1.md)
 - [前端质量门禁与截图回归（已合并矩阵和 smoke 说明）](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md)
 - [行情主系统接口规范](/Users/congming/github/goldenshare/docs/platform/quote-detail-api-spec-v1.md)
 - [远程部署历史审计（2026-05/06；不代表当前生产状态）](/Users/congming/github/goldenshare/docs/release/remote-server-deployment-overview-v1.html)

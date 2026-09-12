@@ -981,6 +981,22 @@ G2：环境边界、发布步骤和历史证据各保留一个入口，主索引
 
 验证：日期审计、完成后处理和分钟 worker 部署范围的三项静态测试通过（其余十项未运行）；文档完整性三个检查组与 git diff --check 通过。HTML 保留 13 个章节，11 个历史章节的全部表格逐字不变，7 个本地导航有效；维护迁移安全说明及配置审计原样保留。未运行生产脚本、全量预检或浏览器，静态检查不代表生产与视觉验收。
 
+<a id="workflow-biz-consumer-templates-20260912"></a>
+
+### 4.10 2026-09-12 工作流模板、事实消费记录与 Biz 模板
+
+状态：按批准范围修改三批，待统一 review，未提交。三份均保留，不改业务代码、API、数据库或执行器。
+
+| 文档 | 处理 |
+| --- | --- |
+| [工作流模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md) | 补时间/能力字段、step 参数覆盖字段；标明当前串行、不按 depends_on 并行/阻塞，节点与 issue 替代旧事件描述；取消/重试/续跑区分声明与证据，回退链接正式流程 |
+| [前端事实审计](/Users/congming/github/goldenshare/docs/frontend/frontend-ops-fact-consumer-audit-v1.md) | 原 F-001～F-008 表格保留为四月历史；补外部/Biz 两类定义分工及 source 页观测/成功/运行中时间分工，当前合同回链正式文档 |
+| [Biz 模板](/Users/congming/github/goldenshare/docs/templates/biz-dataset-development-template.md) | Definition 只填一次；BIZ-001～007 与测试合并为唯一证据账本，保留模型、生产入口、事务、权限、性能及 §11 全部真实验收；明确“注册且接通观测”前提 |
+
+依据：action_catalog、_dispatch_workflow、source 页三个展示 helper、DatasetCardQueryService Biz 分支及 BizDefinition/观测映射。CodeGraph query 定位后读取实现，文档治理方法用于区分历史与现状。只是模板校准，不增加并行执行、自动恢复或新观测能力；只读审计与测试不构成生产验收。README 其他任务条目与无关代码改动保留。
+
+验证：工作流时间合同与 Biz 定义完整性两项定向离线测试通过，文档完整性三个检查组及 git diff --check 通过。原 F-001～008 修复表与 Biz §11 真实验收逐字保留，BIZ-001～007 编号完整。未运行全量执行器测试、浏览器或生产任务，未安装套件。
+
 <a id="5-执行规则"></a>
 <a id="6-第二轮收尾检查已完成"></a>
 

@@ -1,6 +1,6 @@
 # 前端 Ops 事实字段消费审计 v1
 
-更新时间：2026-04-26
+原审计时间：2026-04-26；2026-09-12 补当前口径。§4 的 F-001～F-008 是历史修复记录，保留原文，不代表今天全量消费者重新验收通过。本文不是独立 API 合同或新改造授权。
 
 ## 1. 目的
 
@@ -28,12 +28,14 @@
 
 ## 3. 权威来源
 
+下表限定为原外部数据集审计范围，当前字段合同以 [Ops API](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)及[数据集目录说明](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)为准。Biz 卡片走 BizDatasetDefinition → BizTableCardQueryService，不能套用“全部来自 DatasetDefinition”；见 [Biz 投影契约](/Users/congming/github/goldenshare/docs/ops/ops-biz-dataset-auto-projection-plan-v1.md)。
+
 | 展示事实 | 前端应消费的权威来源 | 说明 |
 | --- | --- | --- |
 | 数据集卡片名称 | `/api/v1/ops/dataset-cards` 的 `display_name` | 总览页、数据源页、数据集详情页只做展示，不再根据 key 拼中文名。 |
 | 数据集卡片状态 | `/api/v1/ops/dataset-cards` 的 `status/freshness_status` | 页面可以映射颜色和中文标签，但不能重新计算新鲜度或层级健康度。 |
-| 最近同步日期 | `/api/v1/ops/dataset-cards` 的 `last_sync_date` | `latest_success_at` 是任务成功时间，`last_sync_date` 是服务端给出的同步日期口径。 |
-| 最近成功时间 | `/api/v1/ops/dataset-cards` 的 `latest_success_at` | 用于时间戳展示时可以优先显示更精确的成功时间，但不能忽略 `last_sync_date`。 |
+| 观测日期/时间 | dataset-cards 的观测字段 | 当前 source 页先用带 label 的 latest_observed_date，再用 latest_observed_at、latest_business_date，最后才用 last_sync_date；后两类时间可展示 earliest/latest 范围。不是要求始终显示同步日期。 |
+| 最近成功/执行中 | dataset-cards 的任务字段 | queued/running/canceling 时显示执行中及 active_task_run_started_at；否则显示 latest_success_at，缺失为 —。标题优先 last_success_label；与观测日期分开，不用 last_sync_date 冒充成功时间。 |
 | 数据集健康度 | `/api/v1/ops/dataset-cards` 的 `status/freshness_status` | 总览页、数据源页、数据集详情页不得自行计算健康度。 |
 | raw 表名 | `/api/v1/ops/dataset-cards` 的 `raw_table/raw_table_label` | 页面不得根据 `sourceKey + dataset_key` 拼表名。 |
 | 数据源裁决与卡片去重 | `/api/v1/ops/dataset-cards?source_key=...` 返回的结果 | 页面不得用 `dataset_key/raw_table/source_scope` 自己判断某卡片属于哪个数据源。 |
@@ -64,6 +66,8 @@
 
 ## 6. 仍需后续 API 收口的问题
 
+这是原审计的后续方向，不是已批准的新字段清单。G-002 的 DatasetDefinition 限定外部数据集；Biz 使用自身定义。缺口必须对照当前代码及完整消费者后再判断，不因为历史建议直接扩 mode/stage。
+
 | 编号 | 页面/文件 | 现状 | 后续方向 |
 | --- | --- | --- | --- |
 | G-001 | `ops-v21-task-auto-tab.tsx` | 已切到 `target_type/target_key` 调度目标模型，页面显示继续使用后端结构化名称。 | 后续重做自动任务页交互时，继续从用户视角表达维护对象与触发策略，不恢复旧执行规格。 |
@@ -75,3 +79,5 @@
 2. 没有权威字段的，不允许继续在页面层拼；先登记为 API 契约缺口。
 3. 每修一个旧消费点，必须补一个最小回归测试或规则门禁。
 4. 任何“看起来能根据 key 推出来”的字段，都不能当事实字段使用。
+
+本次静态证据：source 页 buildObservedText/buildLastSyncText/resolveTableLabel 与 DatasetCardQueryService 的 Biz 分支。Biz 表名使用 target_table，外部卡片优先 raw_table_label，缺失时可展示服务表；不把旧 raw 表名说明套到所有卡片。通用规则门禁与当前检查范围统一见[前端回归流程](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md)，本记录不再维护第二份现行规则清单。
