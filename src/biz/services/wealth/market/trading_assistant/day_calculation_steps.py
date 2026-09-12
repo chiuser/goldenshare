@@ -12,8 +12,7 @@ from src.biz.models.wealth.trading_assistant.publication import AccountSnapshot
 from src.biz.queries.wealth.market.trading_assistant.calculation_stocks import stock_day_page
 from .account_day_batches import AccountDayBatches
 from .calculation_inputs import CalculationInputMismatch
-from .cash_balances import CashBalances
-from .cash_day_batches import CashDayBatches
+from .cash_date_steps import CashDateSteps
 from .day_scope_verification import DayScopeVerification
 from .day_sealing import DaySealing
 from .snapshot_candidates import SnapshotCandidates
@@ -28,7 +27,7 @@ class DayCalculationSteps:
         self.execution = execution
         self.stocks = StockDayBatches(execution)
         self.account = AccountDayBatches(execution)
-        self.cash = CashDayBatches(execution)
+        self.cash = CashDateSteps(execution)
 
     def _unchecked(self, session, lease, generation_id, day, stages):
         source, checked = aliased(CalculationBatch), aliased(CalculationBatch)
@@ -117,17 +116,9 @@ class DayCalculationSteps:
                     page_key=unchecked.page_key)
                 return "ACCOUNT_STOCKS_CHECK"
             cash_args = dict(generation_id=generation_id, business_date=day.trade_date, deadline=deadline)
-            cash = self.cash._latest(session, lease, generation_id, day.trade_date)
-            if cash is None or not cash.cursor["done"]:
-                self.cash.reduce_page(session, lease, **cash_args)
-                return "ACCOUNT_CASH"
-            unchecked = self._unchecked(session, lease, generation_id, day.trade_date, ("ACCOUNT_CASH",))
-            if unchecked is not None:
-                self.cash.verify_page(session, lease, **cash_args, page_key=unchecked.page_key)
-                return "ACCOUNT_CASH_CHECK"
-            if session.get(CalculationBatch,(lease.account_id,generation_id,day.trade_date,"CASH_BALANCE","","1")) is None:
-                CashBalances(self.execution).close_date(session, lease, **cash_args)
-                return "CASH_BALANCE"
+            cash_stage = self.cash.step(session, lease, **cash_args)
+            if cash_stage != "COMPLETE":
+                return cash_stage
             snapshot = session.get(AccountSnapshot,(lease.account_id,day_result_id))
             if snapshot is None:
                 SnapshotCandidates(self.execution).save(session, lease, **args, valuation_at=valuation_at)
