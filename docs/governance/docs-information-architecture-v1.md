@@ -846,7 +846,7 @@ CodeGraph 使用 status/query/impact 定位 ETF planner、Basic selector、RawSt
 1. `frontend-delivery-workflow-v1.md`
 2. `frontend-design-tokens-and-component-catalog-v1.md`
 3. `frontend-governance-rollout-plan-v1.md`
-4. `frontend-phase2-execution-brief-v1.md`
+4. Phase2 执行简报已于 2026-09-12 并入治理阶段记录（见下文合并去向）
 
 整合建议：
 
@@ -936,6 +936,30 @@ CodeGraph 使用 status/query/impact 定位 ETF planner、Basic selector、RawSt
 依据：当前组件、页面、测试文件、check-rules 脚本、package.json、Playwright 配置与 smoke 用例、CI 工作流及存储治理原始记录。文档治理与前端 QA 技能用于区分当前门禁、历史验收与未实施事项；分层与运行行为不变。
 
 验证：前端 check:rules、文档完整性三个检查组和 git diff --check 通过。未运行浏览器或全量前端测试，不将静态核验当作视觉验收。删除的七份文件可从 Git 恢复；主索引及前端规则入链同步迁移。未安装套件；其他任务的代码、研究产物及索引改动保留。
+
+<a id="frontend-history-design-20260912"></a>
+
+### 4.8 2026-09-12 前端阶段、交付与设计三批
+
+状态：按批准范围审计并修改，待统一 review；未提交。仅文档及 frontend AGENTS 中同一过期事实，未改 UI、API、测试代码、截图或配置。
+
+| 原文档 | 处理与承接 |
+| --- | --- |
+| frontend-phase2-execution-brief-v1.md | 删除；theme/styles 主文件、联动范围、六步顺序、非目标与停手边界 → [治理记录 §3](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md#3-phase2-与-phase5-的有效边界) |
+| frontend-phase5-execution-plan-v1.md | 删除；P5-0～5 顺序和轻量自动化边界 → 治理记录 §2–3，现行命令/覆盖/截图纪律仍只在回归流程维护 |
+| frontend-overview-legacy-visual-cleanup-boundary-card-v1.md | 删除；原页面/测试/截图白名单、非目标、回滚范围及现行代码纠偏 → 治理记录 §5 |
+| 治理总计划 | 压缩为阶段与里程碑、历史数字、DataTable/TradeDateField 支持边界、Overview 记录及新任务入口；旧复用模板/评审勾选不再当作当前开工计划 |
+| 交付流程 | 保留按任务大小分级、需求/交互/技术/验收/上线准备、协作写入边界和待决策；不再复制命令、五项设计决定或阶段待办，修正文末漏掉统一基线的优先级 |
+| 技术选型 | 改为历史决策；保留六候选取舍、五方案原评分、专业能力分工及原官方链接，不作今日库能力/许可测评或新建工程指令 |
+| 组件目录与 Showcase | 目录保留设计数值表和 D1～D5；标出设计/实现差异与候选状态。HTML 有独立设计对照用途，保留不改，不等于 React 组件渲染或运行验收 |
+
+G1 纠偏依据：Overview 代码已使用 AlertBar/中性卡面且有旧类负向断言；theme 主色已切为 brand，glass-card 类名尚在而样式已中性；providers 通知位置与原设计不同，DataTable 没有独立 density/stickyHeader prop，TradeDateField 对未知回调仍有周末/holidayDates 回退。均据当前实现说明，不擅自改行为、设计数值或增加开发任务。
+
+G2 精简依据：已完成阶段的开工模板、重复门禁和主观选型长篇分析不再独立充当当前规则。独有历史数字、评分、边界和设计决定迁入承接文档；旧全文从 Git 可恢复。主索引和统一基线入链同步，其他任务索引改动保留。
+
+本轮使用文档治理与前端 QA 技能；CodeGraph status/query 对照 TradeDateField 及 manual/auto 消费者，再读组件、页面、theme/styles、package、Provider 和测试核实。未重做架构或契约，未安装套件、未触发部署、未查询生产。运行态和视觉验收不在本轮范围。
+
+验证：Overview、DataTable、TradeDateField 三份离线测试共 10 项通过，check:rules 通过；文档完整性三个检查组、8 份保留文件的 280 个本地链接/38 处锚点与 git diff --check 通过。原选型评分和外部资料入口、组件目录设计数值表及 D1～D5 均保留；Showcase 与 HEAD 字节一致。删除文件名仅剩本节追溯。未运行全量前端测试或浏览器，不宣称视觉复验通过。
 
 <a id="5-执行规则"></a>
 <a id="6-第二轮收尾检查已完成"></a>

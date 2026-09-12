@@ -1,6 +1,6 @@
 # 前端当前强约束（统一基线）
 
-更新时间：2026-04-23
+更新时间：2026-09-12（合并历史阶段入口，强约束不变）
 
 ## 1. 文档定位
 
@@ -11,10 +11,8 @@
 1. `frontend-delivery-workflow-v1.md`
 2. `frontend-design-tokens-and-component-catalog-v1.md`
 3. `frontend-governance-rollout-plan-v1.md`
-4. `frontend-phase2-execution-brief-v1.md`
-5. `frontend-phase5-execution-plan-v1.md`
-6. `frontend-phase6-rollout-summary-v1.md`（已完成推广与后续边界）
-7. `frontend-regression-and-baseline-workflow-v1.md`
+4. `frontend-phase6-rollout-summary-v1.md`（已完成推广与后续边界）
+5. `frontend-regression-and-baseline-workflow-v1.md`
 
 ---
 

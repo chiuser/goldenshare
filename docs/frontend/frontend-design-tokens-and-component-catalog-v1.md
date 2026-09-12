@@ -3,6 +3,8 @@
 > 角色说明：本文件是“前端设计 token 与组件目录专题文档”。  
 > 当前前端强约束与统一门禁请以 [frontend-current-standards.md](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md) 为准。
 
+2026-09-12 校准：适用 `frontend/**`。本文区分设计规范、已确认决策和当前实现；建议数值不代表全部已写入代码。§5–6、§8 的设计要求保留，不因实现差异自动修改设计或反向修改代码；§7 与 §11 说明实际落点。历史选型不替代其他产品域的规则。
+
 ## 1. 文档目的
 
 本文用于把当前前端的视觉与交互标准收敛成一份可落地的标准库初稿。
@@ -31,8 +33,8 @@
 说明：
 
 - `design-system.md` 中大量内容可直接吸收，尤其是 token、表格、卡片、空状态、异步任务反馈。
-- `component-catalog.md` 中关于组件边界、默认尺寸、开发流程与 PR 清单的内容，可直接吸收进 `Phase 3`。
-- `component-showcase.html` 提供了真实页面级视觉对照，应作为当前组件样式展示的单一视觉参考。
+- `component-catalog.md` 的组件边界、默认尺寸、开发流程与 PR 清单已在本目录文档吸收，不再作为待启动 Phase3。
+- `component-showcase.html` 是原视觉材料；仓库内的 HTML Showcase 为静态设计对照，不是运行组件或页面验收证据。
 - 对其中过于绝对、与当前实现冲突或仍需产品拍板的部分，本文改写为“默认规范 + 例外条件”。
 
 当前吸收口径：
@@ -185,7 +187,7 @@
 
 ### 5.1.2 品牌色
 
-建议采用深海军蓝系，而不是当前偏紫风格。
+设计采用深海军蓝系；当前 theme.ts 主品牌色已是 brand，不能继续称其为偏紫主题。下表仍保留原建议值：例如 brand.4 建议 #3F73B8，当前实现为 #5C8FC5；差异不在本轮擅自改色。
 
 建议：
 
@@ -412,6 +414,8 @@ Menlo, Consolas, monospace
 
 ### 7.1 通用组件
 
+状态中的“候选”不代表已批准待办；名称并列是设计角色，不保证有同名实现。StatusPill 当前由 StatusBadge 等状态表达承接，未发现独立同名组件。
+
 | 组件 | 级别 | 状态 | 说明 |
 | --- | --- | --- | --- |
 | `AppShell` | 基础 | 已有基础 | 统一 Header / Sidebar 结构与布局秩序 |
@@ -424,7 +428,7 @@ Menlo, Consolas, monospace
 | `DataTable` / `TableShell` | 高 | 已落地 v1 | 当前仓库先以 `TableShell + OpsTable` 作为 v1 基线，并已在任务中心试点页中验证 `columns / rows / emptyState / summary` 外部契约 |
 | `AlertBar` | 中 | 已有基础 | 页面内持续提示，不替代 Toast |
 | `DetailDrawer` | 高 | 已有基础 | 统一详情查看与复杂筛选抽屉 |
-| `AsyncTaskFeedback` | 中 | 需新增 | 提交成功、查看进度、失败重试路径 |
+| `AsyncTaskFeedback` | 中 | 设计候选，未单列实现 | 提交成功、查看进度、失败重试路径；不自动新建组件 |
 | `Timeline` | 中 | 已有基础 | 当前仓库以 `ActivityTimeline` 承接任务步骤与配置变更时间线 |
 | `DateField` | 基础 | 已有 | 标准日期输入 |
 | `MonthField` | 基础 | 已有 | 标准月份输入 |
@@ -436,10 +440,12 @@ Menlo, Consolas, monospace
 | --- | --- | --- | --- |
 | `PriceText` | 高 | 已有最小版本 | 价格值展示，默认不直接染涨跌色 |
 | `ChangeText` | 高 | 已有最小版本 | 涨跌额 / 涨跌幅展示，严格使用 up/down 语义 |
-| `StockBadge` | 中 | 需新增 | 股票代码/市场/板块等轻标识 |
-| `LimitUpChip` / `LimitUpLadder` | 中 | 需新增 | 涨停 / 跌停 / 连板类强化表达 |
+| `StockBadge` | 中 | 设计候选 | 股票代码/市场/板块等轻标识；非自动待办 |
+| `LimitUpChip` / `LimitUpLadder` | 中 | 设计候选 | 涨停 / 跌停 / 连板类强化表达；非自动待办 |
 | `TradeDateField` | 高 | 已升级 v2 | A 股交易日输入，已接入真实交易日历读取层，组件继续保持展示边界 |
-| `KLineChart` | 中 | 需新增 | K 线 / 技术指标图的标准包装 |
+| `KLineChart` | 中 | 设计候选 | K 线 / 技术指标图的标准包装；不据此判断 Wealth 等产品域是否已有图表 |
+
+当前接口以 [DataTable](/Users/congming/github/goldenshare/frontend/src/shared/ui/data-table.tsx) 与 [TradeDateField](/Users/congming/github/goldenshare/frontend/src/shared/ui/trade-date-field.tsx) 为准。DataTable 没有独立 density/stickyHeader prop，OpsTable 默认居中，数字列需显式 align；TradeDateField 不请求日历，注入回调结果未知时仍按周末/holidayDates 判断。设计中的三档密度、自动真实交易日等不能写成所有调用都已实现。
 
 ---
 
@@ -584,7 +590,7 @@ Menlo, Consolas, monospace
 
 ## 8.9 领域组件
 
-以下组件应在 `Phase 3` 作为重点候选：
+以下是原 Phase3 领域组件候选，现行落地/候选状态见 §7.2，不重新排期开工：
 
 - `PriceText`
 - `ChangeText`
@@ -676,23 +682,23 @@ Menlo, Consolas, monospace
 
 ## 10.4 Showcase 口径
 
-当前视觉对照以 [前端组件 Showcase v1](/Users/congming/github/goldenshare/docs/frontend/frontend-component-showcase-v1.html) 为准。
+设计视觉对照使用 [前端组件 Showcase v1](/Users/congming/github/goldenshare/docs/frontend/frontend-component-showcase-v1.html)。它有独立的静态样式和示例，不是对真实 React 组件的直接渲染；暗色切换演示不代表正式支持暗色。
 
 使用方式：
 
-1. 先看组件在真实页面中的组合效果。
-2. 再对照组件目录文档确定边界与实现口径。
-3. 最后再进入具体共享组件实现。
+1. 先看设计示例的组合意图，再核对真实页面和共享组件。
+2. 区分设计要求、组件 props 与实际页面行为，不让静态示例覆盖当前合同。
+3. 展示与实现有差异时记录到任务；是否改设计或代码另行确认，不因本轮文档治理自行改 UI。
 
 ---
 
 ## 11. 从现有实现到新标准的迁移策略
 
-当前已知旧风格包括：
+2026-09-12 静态核对：
 
-- [frontend/src/app/theme.ts](/Users/congming/github/goldenshare/frontend/src/app/theme.ts) 中的紫色品牌梯度
-- [frontend/src/styles.css](/Users/congming/github/goldenshare/frontend/src/styles.css) 中的大面积渐变背景
-- `glass-card` 风格
+- [theme.ts](/Users/congming/github/goldenshare/frontend/src/app/theme.ts) 已采用深海军蓝 brand、neutral/up/down/semantic，不再是旧紫色主题。
+- [styles.css](/Users/congming/github/goldenshare/frontend/src/styles.css) 仍有渐变背景与 header blur；glass-card 类名尚在，但样式是白底、边框、无阴影。类名不能证明仍呈玻璃拟态。
+- 本文尺寸/行为表保留设计目标，不冒充已完成状态：theme Button 默认 size=sm、高度32；Notifications 在 providers.tsx 配置 top-right，与 §8.6 的右下角设计不同。未在本轮修改实现，也未将差异自动升级为待开发任务。
 
 迁移策略：
 
@@ -736,9 +742,4 @@ Menlo, Consolas, monospace
 
 ## 13. 下一步建议
 
-文档定稿后，建议优先落地：
-
-1. 在 `Phase 5` 中把高可见组件与试点页纳入更稳的 smoke / visual gate
-2. 把组件目录、HTML Showcase、测试与门禁要求保持同步
-3. 为 `DataTable v1`、`TradeDateField v2` 这类已落地基线补齐后续演进边界
-4. 进入 `Phase 6` 前，先把组件变更的最小验证流程固化清楚
+Phase5 门禁与第一轮 Phase6 已完成，不再作为未来起点。维护时同步组件目录、HTML Showcase、测试与门禁；DataTable/TradeDateField 的演进按真实问题单独确定范围。新增候选组件、改视觉数值或解决 §11 差异都需要明确任务，不自动启动。
