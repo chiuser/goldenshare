@@ -153,6 +153,41 @@ def test_next_trading_day_uses_sealed_predecessor_over_weekend(publication_db):
         assert snapshot.stock_market_value==12000
         assert snapshot.closed_trade_count==0
         assert session.get(CalculationGeneration,generation).completed_trade_date_count==2
+    from src.biz.services.wealth.market.trading_assistant.generation_publication import GenerationPublication
+    from src.biz.models.wealth.trading_assistant.publication import PublicationDay, PublicationReceipt
+    from src.biz.models.wealth.trading_assistant.calculation import Recalculation
+    with pytest.raises(CalculationExecutionLost):
+        with Session(publication_db) as session, session.begin():
+            session.get(Account,lease.account_id).calculation_target_version+=1
+            session.get(Recalculation,lease.account_id).target_version+=1
+            session.flush()
+            GenerationPublication(inputs.execution).advance(session,lease,
+                generation_id=generation,deadline=deadline())
+    for expected in ["MANIFEST"]*4+["MANIFEST_CHECK"]*4+["PUBLISHED"]:
+        with pytest.raises(RuntimeError,match="publication interrupted"):
+            with Session(publication_db) as session, session.begin():
+                assert GenerationPublication(inputs.execution).advance(session,lease,
+                    generation_id=generation,deadline=deadline())==expected
+                raise RuntimeError("publication interrupted")
+        with Session(publication_db) as session:
+            assert session.get(Account,lease.account_id).published_generation_id is None
+            assert session.get(PublicationReceipt,(lease.account_id,generation)) is None
+            assert session.get(Recalculation,lease.account_id) is not None
+        with Session(publication_db) as session, session.begin():
+            stage=GenerationPublication(inputs.execution).advance(session,lease,
+                generation_id=generation,deadline=deadline())
+            assert stage==expected
+    with Session(publication_db) as session:
+        days=session.scalars(select(PublicationDay.trade_date).where(
+            PublicationDay.account_id==lease.account_id,PublicationDay.generation_id==generation)
+            .order_by(PublicationDay.trade_date)).all()
+        assert days==[DAY,monday]  # Weekend dates prove coverage but are not stock snapshots.
+        assert session.get(Account,lease.account_id).published_generation_id==generation
+        assert session.get(Recalculation,lease.account_id) is None
+        assert GenerationPublication.confirmed(session,owner_id=1,account_id=lease.account_id,
+            generation_id=generation,target_version=lease.target_version)
+        assert not GenerationPublication.confirmed(session,owner_id=2,account_id=lease.account_id,
+            generation_id=generation,target_version=lease.target_version)
     retire(publication_db,lease)
 
 

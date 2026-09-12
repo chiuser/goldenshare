@@ -22,6 +22,41 @@ class GenerationPublication:
             CalculationBatch.generation_id == generation_id, CalculationBatch.stage == "MANIFEST",
             CalculationBatch.stock_key == "").order_by(CalculationBatch.trade_date.desc()).limit(1))
 
+    def advance(self, session, lease, *, generation_id, deadline):
+        """Choose one persisted publication unit; caller commits the transaction.
+
+        Do not wrap publish in execution.batch: publish verifies its fence then
+        deletes the pending row atomically. Lost commit replies use confirmed().
+        """
+        account, _ = self.execution._lock(session, lease, deadline)
+        candidate = session.get(CalculationGeneration, generation_id, populate_existing=True)
+        if candidate is None:
+            raise CalculationInputMismatch("Missing generation")
+        generation = self.inputs._generation(session, lease, account, generation_id, candidate.from_date,
+            stages=("PREPARING", "CALCULATING", "VERIFYING", "PUBLISHING"))
+        if (generation.total_trade_date_count is None
+                or generation.completed_trade_date_count != generation.total_trade_date_count):
+            raise CalculationInputMismatch("All trading dates must be sealed before publication steps")
+        latest = self._latest(session, lease, generation_id)
+        if latest is None or not latest.cursor["done"]:
+            self.append_next(session, lease, generation_id=generation_id, deadline=deadline)
+            return "MANIFEST"
+        source, marker = aliased(CalculationBatch), aliased(CalculationBatch)
+        checked = select(marker.page_key).where(marker.account_id == source.account_id,
+            marker.generation_id == source.generation_id, marker.trade_date == source.trade_date,
+            marker.stage == "MANIFEST_CHECK", marker.stock_key == source.stock_key,
+            marker.page_key == source.page_key, marker.input_digest == source.input_digest,
+            marker.cursor == source.cursor, marker.row_count == source.row_count).exists()
+        unchecked = session.scalar(select(source.trade_date).where(source.account_id == lease.account_id,
+            source.generation_id == generation_id, source.stage == "MANIFEST", source.stock_key == "",
+            ~checked).order_by(source.trade_date).limit(1))
+        if unchecked is not None:
+            self.verify_date(session, lease, generation_id=generation_id,
+                business_date=unchecked, deadline=deadline)
+            return "MANIFEST_CHECK"
+        self.publish(session, lease, generation_id=generation_id, deadline=deadline)
+        return "PUBLISHED"
+
     def append_next(self, session, lease, *, generation_id, deadline):
         with self.execution.batch(session, lease, deadline=deadline) as account:
             candidate = session.get(CalculationGeneration, generation_id)
