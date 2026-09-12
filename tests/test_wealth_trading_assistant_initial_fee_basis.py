@@ -16,6 +16,7 @@ from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountFeesSc
 from src.biz.services.wealth.market.trading_assistant.account_acceptance import AccountAcceptance
 from src.biz.services.wealth.market.trading_assistant.calculation_inputs import CalculationInputs, CalculationInputMismatch
 from src.biz.services.wealth.market.trading_assistant.initial_fee_basis import initial_fee_version
+from src.biz.services.wealth.market.trading_assistant.new_valuation_fees import new_valuation_fee_version
 from src.biz.services.wealth.market.trading_assistant.current_fee_basis import current_fee_basis
 from src.biz.services.wealth.market.trading_assistant.calculation.daily import initialize_position, PositionState
 from src.biz.services.wealth.market.trading_assistant.calculation.returns import value_round
@@ -42,6 +43,8 @@ def test_first_history_freeze_after_fee_update_and_cross_owner_rejected(migrated
         generation = inputs.prepare_generation(session,lease,from_date=DAY,through_date=DAY,rule_version=1,deadline=deadline())
         initial = initial_fee_version(session,owner_id=1,account_id=account,policy=protocol.policy,deadline=deadline())
         assert initial == original and session.get(Account,account).current_fee_version_id != original
+        assert new_valuation_fee_version(session, execution, lease, generation_id=generation,
+            business_date=DAY, deadline=deadline()) == original
         inputs.save_initial_history_page(session,lease,generation_id=generation,facts=(fact(),),
             valuation_at=AT,after_stock=None,deadline=deadline())
     with Session(migrated) as session, session.begin():

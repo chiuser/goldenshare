@@ -11,6 +11,7 @@ from .calculation_interruptions import CalculationInterruptions
 from .execution_policy import Deadline
 from .generation_publication import GenerationPublication
 from .generation_steps import GenerationSteps
+from .generation_dispatch import GenerationDispatch
 from .market_facts import MarketFactsUnavailable, apply_sql_budget
 from .recalculation_execution import CalculationExecutionLost
 
@@ -23,6 +24,11 @@ class GenerationExecution:
     def run(self, lease, *, generation_id):
         return self._execute(lease, generation_id=generation_id, prepare=None)
 
+    def step(self, lease, *, generation_id, resolve_day_inputs):
+        """Choose one next unit from committed state, within its owned transaction."""
+        return self._execute(lease, generation_id=generation_id, prepare=None,
+                             resolve_day_inputs=resolve_day_inputs)
+
     def prepare_inputs(self, lease, *, generation_id, business_date, fee_version_id, valuation_at):
         """Prepare one bounded page under the same failure/lease rules as calculation.
 
@@ -32,7 +38,7 @@ class GenerationExecution:
         return self._execute(lease, generation_id=generation_id, prepare=dict(
             business_date=business_date, fee_version_id=fee_version_id, valuation_at=valuation_at))
 
-    def _execute(self, lease, *, generation_id, prepare):
+    def _execute(self, lease, *, generation_id, prepare, resolve_day_inputs=None):
         owner_id = None
         try:
             with self.sessions() as session, session.begin():
@@ -54,7 +60,10 @@ class GenerationExecution:
                     generation.resume_stage = None
                     generation.reason = None
                     session.flush()
-                if prepare is None:
+                if resolve_day_inputs is not None:
+                    stage = GenerationDispatch(steps, resolve_day_inputs).step(session, lease,
+                        generation=generation, deadline=deadline)
+                elif prepare is None:
                     stage = steps.advance(session, lease, generation_id=generation_id, deadline=deadline)
                 else:
                     stage = steps.prepare_next_inputs(session, lease, generation_id=generation_id,
