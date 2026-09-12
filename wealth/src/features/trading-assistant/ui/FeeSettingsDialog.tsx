@@ -21,7 +21,7 @@ export function FeeSettingsDialog({ account, initial, onClose, onUpdated }: {
         stampTaxRatePct: recovered.input.stampTaxRatePct });
       setVersion(current.feeVersionId); setErrors([]);
     }} onSaved={async () => { await getFees(account.accountId); await onUpdated(); }}>
-    {session => <TradingAssistantDialog variant="fees" title="交易费用设置" subtitle="仅作用于保存后新录入的交易" onClose={onClose}
+    {session => <TradingAssistantDialog variant="fees" title="交易费用设置" subtitle="新交易与当前卖出估算使用新费率" onClose={onClose}
       footer={<><TradingAssistantAction onClick={onClose}>{session.busy && session.recovery ? "稍后查看" : "取消"}</TradingAssistantAction>
         <TradingAssistantAction primary disabled={!session.canSave} onClick={() => {
           const invalid = Object.entries(fees).filter(([field, value]) => !validInputField("FeesUpdateInput", field, value))

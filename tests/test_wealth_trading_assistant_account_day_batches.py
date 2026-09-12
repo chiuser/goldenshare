@@ -39,6 +39,7 @@ def test_account_reduction_restarts_without_duplicating_stock_profit(migrated):
             opening=PositionState(1000, 1000, 1000000, 1000000, 0))
         with Session(migrated) as session, session.begin():
             assert stocks.summarize_page(session, lease, **args, deadline=deadline())
+            assert stocks.prepare_sell_page(session, lease, **args, deadline=deadline())
             assert stocks.close_page(session, lease, **args, round_id=uuid4(), opened_on=DAY, deadline=deadline())
     # A duplicate round at a one-row page boundary must not be silently skipped.
     with pytest.raises(CalculationInputMismatch, match="Multiple rounds"):

@@ -17,6 +17,7 @@ from src.biz.services.wealth.market.trading_assistant.calculation_inputs import 
 from src.biz.services.wealth.market.trading_assistant.execution_policy import TradingAssistantExecutionPolicyV1
 from src.biz.services.wealth.market.trading_assistant.recalculation_execution import RecalculationExecution
 from src.biz.services.wealth.market.trading_assistant.stock_day_batches import StockDayBatches
+from src.biz.services.wealth.market.trading_assistant.stock_day_verification import StockDayVerification
 
 
 def setup(engine):
@@ -46,6 +47,12 @@ def test_batched_summary_costs_restart_and_idempotence(migrated):
         with Session(migrated) as session, session.begin():
             assert service.summarize_page(session, lease, **args, deadline=deadline()) == expected
     kwargs = args | dict(round_id=round_id, opened_on=DAY)
+    with pytest.raises(CalculationInputMismatch, match="persisted sell bases"):
+        with Session(migrated) as session, session.begin():
+            service.close_page(session, lease, **kwargs, deadline=deadline())
+    for expected in (False, False, True):
+        with Session(migrated) as session, session.begin():
+            assert service.prepare_sell_page(session, lease, **args, deadline=deadline()) == expected
     with Session(migrated) as session, session.begin():
         assert not service.close_page(session, lease, **kwargs, deadline=deadline())
     with pytest.raises(RuntimeError, match="crash"):
@@ -73,6 +80,29 @@ def test_batched_summary_costs_restart_and_idempotence(migrated):
         assert state.cumulative_buy_input == 10000 and state.cumulative_sell_net == 300
         assert state.closed_on == DAY
         assert session.get(DayResult, args["day_result_id"]).status == "BUILDING"
+    verifier = StockDayVerification(service.execution)
+    for stage in ("STOCK_SUMMARY", "STOCK_BASE", "STOCK_CLOSED"):
+        for page in (1, 2, 3):
+            with Session(migrated) as session, session.begin():
+                assert verifier.verify_page(session, lease, **kwargs, stage=stage,
+                    page_key=f"{page:020d}", deadline=deadline()) == (page == 3)
+    # Database-valid numeric corruption must fail readback; a saved marker does
+    # not exempt a page from verification when retried.
+    with pytest.raises(CalculationInputMismatch, match="closed sales"):
+        with Session(migrated) as session, session.begin():
+            row = session.scalar(select(ClosedTrade).where(ClosedTrade.day_result_id == args["day_result_id"])
+                                 .order_by(ClosedTrade.sell_ledger_id).limit(1))
+            row.return_pct = 1
+            session.flush()
+            verifier.verify_page(session, lease, **kwargs, stage="STOCK_CLOSED",
+                page_key=f"{1:020d}", deadline=deadline())
+    with pytest.raises(CalculationInputMismatch, match="ending position"):
+        with Session(migrated) as session, session.begin():
+            row = session.get(PositionState, (lease.account_id, args["day_result_id"], args["stock"], round_id))
+            row.cumulative_sell_net += 1
+            session.flush()
+            verifier.verify_page(session, lease, **kwargs, stage="STOCK_CLOSED",
+                page_key=f"{3:020d}", deadline=deadline())
     with migrated.begin() as conn:
         conn.execute(update(Recalculation).where(Recalculation.account_id == lease.account_id)
                      .values(next_attempt_at=datetime.now(timezone.utc)+timedelta(days=2)))

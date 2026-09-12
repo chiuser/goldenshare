@@ -7,9 +7,10 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Numeric, case, cast, func, literal, select
+from sqlalchemy import BigInteger, Numeric, Uuid, case, cast, column, func, literal, select, true
 
 from .effective_ledger import effective_ledger
+from src.biz.models.wealth.trading_assistant.calculation_inputs import CalculationBatch
 from src.biz.services.wealth.market.trading_assistant.calculation.precision import require_integer
 
 
@@ -55,6 +56,10 @@ def allocated_sell_page(*, owner_id, account_id, fact_version, trade_date, stock
                    func.div(product, quantity).label("base_cost_cents"),
                    func.mod(product, quantity).label("remainder")).where(
                        rows.c.direction == "SELL").subquery("sell_bases")
+    return _rank_costs(bases, pool, quantity, limit, after)
+
+
+def _rank_costs(bases, pool, quantity, limit, after):
     ranked = select(bases,
         func.row_number().over(order_by=(bases.c.remainder.desc(), bases.c.ledger_id)).label("cost_rank"),
         func.sum(cast(bases.c.quantity, Numeric())).over().label("total_sold"),
@@ -70,3 +75,31 @@ def allocated_sell_page(*, owner_id, account_id, fact_version, trade_date, stock
     if after is not None:
         query = query.where(ranked.c.ledger_id > after)
     return query.order_by(ranked.c.ledger_id).limit(limit)
+
+
+def sell_source_page(*, owner_id, account_id, fact_version, trade_date, stock, limit, policy, after=None):
+    _limit(limit, policy, after)
+    rows = _scope(owner_id, account_id, fact_version, trade_date, stock)
+    query = select(rows.c.ledger_id, rows.c.revision, rows.c.quantity, rows.c.net_cash_change).where(
+        rows.c.direction == "SELL")
+    if after is not None:
+        query = query.where(rows.c.ledger_id > after)
+    return query.order_by(rows.c.ledger_id).limit(limit)
+
+
+def saved_allocated_sell_page(*, account_id, generation_id, trade_date, stock,
+                              opening_quantity, opening_pool_cents, limit, policy, after=None):
+    """Rank the complete persisted base candidates, never just the current page."""
+    _limit(limit, policy, after)
+    require_integer(opening_quantity, minimum=1)
+    require_integer(opening_pool_cents, minimum=0)
+    entries = func.jsonb_to_recordset(CalculationBatch.accumulator["rows"]).table_valued(
+        column("ledger_id", Uuid), column("revision", BigInteger), column("quantity", BigInteger),
+        column("net_cash_change", Numeric), column("base_cost_cents", Numeric), column("remainder", Numeric)
+    ).render_derived(name="base_entries", with_types=True)
+    bases = select(entries).select_from(CalculationBatch).join(entries, true()).where(
+        CalculationBatch.account_id == account_id, CalculationBatch.generation_id == generation_id,
+        CalculationBatch.trade_date == trade_date, CalculationBatch.stock_key == stock,
+        CalculationBatch.stage == "STOCK_BASE").subquery("persisted_bases")
+    return _rank_costs(bases, literal(Decimal(opening_pool_cents), type_=Numeric()),
+                       literal(Decimal(opening_quantity), type_=Numeric()), limit, after)

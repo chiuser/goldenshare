@@ -14,6 +14,6 @@ export function FeeFields({ value, onChange, errors = [], disabled = false }: {
     <TradingAssistantField required label="卖出印花税率（%）" inputMode="decimal" value={value.stampTaxRatePct} disabled={disabled}
       error={errors.find(error => error.field === "stampTaxRatePct")?.message}
       onChange={event => onChange({ ...value, stampTaxRatePct: event.target.value })} />
-    <div className="ta-notice">仅影响保存后新录入的交易。历史佣金、印花税及历史收益不重算；买入不收印花税。</div>
+    <div className="ta-notice">新交易与当前卖出估算使用当前费率。历史费用、历史快照不变；买入不收印花税。</div>
   </>;
 }

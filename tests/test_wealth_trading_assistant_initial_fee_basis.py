@@ -1,5 +1,6 @@
 """First fee selection survives fee changes; no historical fee guessing."""
 from uuid import UUID, uuid4
+from fractions import Fraction
 
 import pytest
 from sqlalchemy import select, update
@@ -15,6 +16,9 @@ from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountFeesSc
 from src.biz.services.wealth.market.trading_assistant.account_acceptance import AccountAcceptance
 from src.biz.services.wealth.market.trading_assistant.calculation_inputs import CalculationInputs, CalculationInputMismatch
 from src.biz.services.wealth.market.trading_assistant.initial_fee_basis import initial_fee_version
+from src.biz.services.wealth.market.trading_assistant.current_fee_basis import current_fee_basis
+from src.biz.services.wealth.market.trading_assistant.calculation.daily import initialize_position, PositionState
+from src.biz.services.wealth.market.trading_assistant.calculation.returns import value_round
 from src.biz.services.wealth.market.trading_assistant.recalculation_execution import RecalculationExecution
 
 
@@ -48,6 +52,16 @@ def test_first_history_freeze_after_fee_update_and_cross_owner_rejected(migrated
         value = session.scalar(select(ValuationBasis).where(ValuationBasis.generation_id==generation))
         frozen = {column.key:getattr(value,column.key) for column in ValuationBasis.__table__.columns}
         current_fee = session.get(Account,account).current_fee_version_id
+        # No new trade is needed: the original holding immediately uses current
+        # commission AND stamp tax, while the frozen history still uses original.
+        basis = current_fee_basis(session, owner_id=1, account_id=account,
+                                  policy=protocol.policy, deadline=deadline())
+        assert basis.fee_version_id == current_fee
+        holding = initialize_position(1000, 1000, 1000)
+        estimate = value_round(holding, Fraction(10), basis.fees)
+        assert estimate.liquidation.commission_cents == 1000
+        assert estimate.liquidation.stamp_tax_cents == 1000
+        assert estimate.result.profit_cents == -2000
     again = UpdateFeesCommand(requestId=str(uuid4()),attemptId=str(uuid4()),expectedFeeVersionId=str(current_fee),
         commissionRateWan="20.00",minimumCommission="12.00",stampTaxRatePct="0.20")
     state = register(migrated,protocol,again,AccountFeesScope(scopeType="ACCOUNT_FEES",accountId=str(account)),"FEES_UPDATE")
@@ -58,6 +72,21 @@ def test_first_history_freeze_after_fee_update_and_cross_owner_rejected(migrated
         value = session.scalar(select(ValuationBasis).where(ValuationBasis.generation_id==generation))
         assert {column.key:getattr(value,column.key) for column in ValuationBasis.__table__.columns} == frozen
         assert session.get(Account,account).calculation_target_version == lease.target_version
+        basis = current_fee_basis(session, owner_id=1, account_id=account,
+                                  policy=protocol.policy, deadline=deadline())
+        assert basis.fee_version_id != current_fee
+        estimate = value_round(holding, Fraction(10), basis.fees)
+        assert estimate.liquidation.commission_cents == 2000
+        assert estimate.liquidation.stamp_tax_cents == 2000
+        assert estimate.result.profit_cents == -4000
+        # Small holdings use the NEW minimum once; empty holdings charge nothing.
+        small = value_round(initialize_position(1, 1, 1000), Fraction(10), basis.fees)
+        assert small.liquidation.commission_cents == 1200
+        empty = value_round(PositionState(0, 0, 0, 0, 0), None, basis.fees)
+        assert empty.liquidation.commission_cents == empty.liquidation.stamp_tax_cents == 0
+    with pytest.raises(CalculationInputMismatch):
+        with Session(migrated) as session:
+            current_fee_basis(session,owner_id=2,account_id=account,policy=protocol.policy,deadline=deadline())
     with pytest.raises(CalculationInputMismatch):
         with Session(migrated) as session:
             initial_fee_version(session,owner_id=2,account_id=account,policy=protocol.policy,deadline=deadline())

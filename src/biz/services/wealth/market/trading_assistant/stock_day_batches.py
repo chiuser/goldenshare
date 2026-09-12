@@ -11,7 +11,9 @@ from sqlalchemy import func, select
 
 from src.biz.models.wealth.trading_assistant.calculation import DayResult, ClosedTrade, PositionState
 from src.biz.models.wealth.trading_assistant.calculation_inputs import CalculationBatch
-from src.biz.queries.wealth.market.trading_assistant.calculation_ledger import trade_page, allocated_sell_page
+from src.biz.queries.wealth.market.trading_assistant.calculation_ledger import (
+    trade_page, sell_source_page, saved_allocated_sell_page,
+)
 from .calculation.daily import PositionState as OpeningState
 from .calculation.fees import FeeSnapshot, calculate_trade_fees
 from .calculation.precision import CalculationInvariantError, format_return_pct, round_ratio_half_up
@@ -55,7 +57,8 @@ class StockDayBatches:
             CalculationBatch.trade_date == day, CalculationBatch.stock_key == stock,
             CalculationBatch.stage == stage).order_by(CalculationBatch.page_key.desc()).limit(1))
 
-    def _checkpoint(self, session, lease, generation, day, stock, stage, page, previous, opening, totals, binding=None):
+    def _checkpoint(self, session, lease, generation, day, stock, stage, page, previous, opening, totals, binding=None,
+                    candidates=None):
         from hashlib import sha256
         # All numbers use strings in JSON to remain exact for any future reader.
         cursor = {"afterLedger": str(page[-1]["ledger_id"]) if page else
@@ -63,6 +66,8 @@ class StockDayBatches:
         accumulator = {key: str(value) for key, value in totals.items()}
         accumulator["opening"] = {key: str(value) for key, value in asdict(opening).items()}
         accumulator["binding"] = binding
+        if candidates is not None:
+            accumulator["rows"] = candidates
         evidence = {"previous": previous.input_digest.hex() if previous else None,
                     "rows": [{key: str(value) for key, value in row.items()} for row in page],
                     "cursor": cursor, "accumulator": accumulator}
@@ -124,6 +129,39 @@ class StockDayBatches:
             return self._checkpoint(session, lease, generation, day.trade_date, stock,
                                     "STOCK_SUMMARY", page, previous, opening, totals)
 
+    def prepare_sell_page(self, session, lease, *, generation_id, day_result_id, stock, opening, deadline):
+        with self.execution.batch(session, lease, deadline=deadline) as account:
+            day, generation = self._day(session, lease, account, generation_id, day_result_id)
+            summary = self._latest(session, lease, generation_id, day.trade_date, stock, "STOCK_SUMMARY")
+            if summary is None or not summary.cursor["done"]:
+                raise CalculationInputMismatch("Complete summary required before preparing sell bases")
+            expected = self._totals(summary, opening, _empty())
+            previous = self._latest(session, lease, generation_id, day.trade_date, stock, "STOCK_BASE")
+            totals = self._totals(previous, opening, dict(count=0, quantity=0, net=0, base=0))
+            if previous and previous.cursor["done"]:
+                return True
+            after = UUID(previous.cursor["afterLedger"]) if previous and previous.cursor["afterLedger"] else None
+            rows = session.execute(sell_source_page(owner_id=account.owner_id, account_id=lease.account_id,
+                fact_version=generation.fact_version, trade_date=day.trade_date, stock=stock,
+                limit=self.policy.page_rows, policy=self.policy, after=after)).mappings().all()
+            candidates = []
+            for row in rows:
+                deadline.remaining_ms()
+                if opening.quantity <= 0:
+                    raise CalculationInvariantError("Cannot allocate a sale without opening stock")
+                base, remainder = divmod(opening.pool_cents * row["quantity"], opening.quantity)
+                candidates.append({**{key: str(value) for key, value in row.items()},
+                                   "base_cost_cents": str(base), "remainder": str(remainder)})
+                totals["count"] += 1
+                totals["quantity"] += row["quantity"]
+                totals["net"] += numeric_cents(row["net_cash_change"])
+                totals["base"] += base
+            if not rows and (totals["count"], totals["quantity"], totals["net"]) != (
+                    expected["sellCount"], expected["sellQuantity"], expected["sellNet"]):
+                raise CalculationInputMismatch("Persisted sell bases do not cover the whole sell group")
+            return self._checkpoint(session, lease, generation, day.trade_date, stock, "STOCK_BASE",
+                rows, previous, opening, totals, candidates=candidates)
+
     def close_page(self, session, lease, *, generation_id, day_result_id, stock, opening,
                    round_id, opened_on, deadline):
         with self.execution.batch(session, lease, deadline=deadline) as account:
@@ -132,6 +170,10 @@ class StockDayBatches:
             if summary is None or not summary.cursor["done"]:
                 raise CalculationInputMismatch("Complete stock/day summary required before allocation")
             totals = self._totals(summary, opening, _empty())
+            bases = self._latest(session, lease, generation_id, day.trade_date, stock, "STOCK_BASE")
+            if bases is None or not bases.cursor["done"]:
+                raise CalculationInputMismatch("Complete persisted sell bases required before allocation")
+            self._totals(bases, opening, dict(count=0, quantity=0, net=0, base=0))
             previous = self._latest(session, lease, generation_id, day.trade_date, stock, "STOCK_CLOSED")
             binding = {"roundId": str(round_id), "openedOn": opened_on.isoformat()}
             if previous and previous.accumulator.get("binding") != binding:
@@ -139,8 +181,8 @@ class StockDayBatches:
             closed = self._totals(previous, opening, dict(cost=0, net=0, quantity=0, count=0))
             if previous and previous.cursor["done"]:
                 return True
-            page = (session.execute(allocated_sell_page(owner_id=account.owner_id,
-                account_id=lease.account_id, fact_version=generation.fact_version,
+            page = (session.execute(saved_allocated_sell_page(
+                account_id=lease.account_id, generation_id=generation_id,
                 trade_date=day.trade_date, stock=stock, opening_quantity=opening.quantity,
                 opening_pool_cents=opening.pool_cents, limit=self.policy.page_rows, policy=self.policy,
                 after=UUID(previous.cursor["afterLedger"]) if previous and previous.cursor["afterLedger"] else None)

@@ -28,11 +28,13 @@ def test_fee_change_between_validation_and_acceptance_and_original_snapshot(data
         connection.execute(update(Initialization).where(Initialization.initialization_id == initial).values(initial_cash="100000.00"))
         connection.execute(insert(Security).values(ts_code="600003.SH", name="费用测试", exchange="SSE", security_type="EQUITY", curr_type="CNY", source="test"))
         connection.execute(insert(TradeCalendar).values(exchange="SSE", trade_date=date(2026,9,11), is_open=True, pretrade_date=date(2026,9,10)))
+        connection.execute(insert(TradeCalendar).values(exchange="SSE", trade_date=date(2026,9,14), is_open=True, pretrade_date=date(2026,9,11)))
 
     async def run():
         engine = create_async_engine(database.url)
+        clock = [datetime(2026,9,11,8,tzinfo=timezone.utc)]
         deps = build_trading_assistant_dependencies(engine, policy=TradingAssistantExecutionPolicyV1(),
-            now=lambda:datetime(2026,9,11,8,tzinfo=timezone.utc), executor_id="fee-race")
+            now=lambda:clock[0], executor_id="fee-race")
         original = deps.ledger.validator.validate
         runs, next_fee = [], []
         async def interleave(*args, **kwargs):
@@ -65,6 +67,14 @@ def test_fee_change_between_validation_and_acceptance_and_original_snapshot(data
             assert corrected.status == "SAVED", corrected.rejection
             assert corrected.receipt["result"]["commissionAmount"] == "11.00"
             assert corrected.receipt["result"]["feeVersionId"] == next_fee[0]
+            # A real T+1 sale uses today's configuration, not the purchase's.
+            clock[0] = datetime(2026,9,14,8,tzinfo=timezone.utc)
+            sold = await deps.ledger.save(owner_id=1, account_id=account, operation="TRADE_CREATE",
+                command=TradeCommand(**ids(), **{**args, "direction":"SELL", "tradeDate":"2026-09-14"}))
+            assert sold.status == "SAVED", sold.rejection
+            assert sold.receipt["result"]["feeVersionId"] == changed.receipt["result"]["feeVersionId"]
+            assert sold.receipt["result"]["commissionAmount"] == "20.00"
+            assert sold.receipt["result"]["stampTaxAmount"] == "20.00"
             return UUID(target.recordId)
         finally:
             await engine.dispose()
@@ -72,4 +82,4 @@ def test_fee_change_between_validation_and_acceptance_and_original_snapshot(data
     with Session(database) as session:
         old = session.get(LedgerRevision,(first_id,1))
         assert str(old.commission_amount) == "10.00" and str(old.stamp_tax_rate) == "0.0010"
-        assert len(session.scalars(select(LedgerRevision).where(LedgerRevision.account_id == account)).all()) == 3
+        assert len(session.scalars(select(LedgerRevision).where(LedgerRevision.account_id == account)).all()) == 4

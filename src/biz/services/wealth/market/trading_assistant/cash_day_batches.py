@@ -127,4 +127,14 @@ class CashDayBatches:
                 "rows": evidence, "cursor": cursor, "accumulator": accumulator})).digest()
             if (checkpoint.cursor, checkpoint.accumulator, checkpoint.input_digest) != (cursor, accumulator, digest):
                 raise CalculationInputMismatch("Cash page no longer matches its actual source facts")
+            identity = (lease.account_id, generation_id, business_date, "ACCOUNT_CASH_CHECK", "", page_key)
+            checked = session.get(CalculationBatch, identity)
+            if checked is None:
+                now = session.scalar(select(func.clock_timestamp()))
+                session.add(CalculationBatch(account_id=lease.account_id, generation_id=generation_id,
+                    trade_date=business_date, stage="ACCOUNT_CASH_CHECK", stock_key="", page_key=page_key,
+                    cursor=cursor, accumulator={}, input_digest=digest, row_count=len(rows), completed_at=now))
+                generation.last_business_updated_at = now
+            elif (checked.input_digest, checked.row_count, checked.cursor) != (digest, len(rows), cursor):
+                raise CalculationInputMismatch("Persisted cash verification differs from the source page")
             return totals

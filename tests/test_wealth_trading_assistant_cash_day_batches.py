@@ -17,6 +17,7 @@ from src.biz.queries.wealth.market.trading_assistant.calculation_cash import cas
 from src.biz.services.wealth.market.trading_assistant.calculation.cash_day import CashDayTotals
 from src.biz.services.wealth.market.trading_assistant.calculation_inputs import CalculationInputs, CalculationInputMismatch
 from src.biz.services.wealth.market.trading_assistant.cash_day_batches import CashDayBatches
+from src.biz.services.wealth.market.trading_assistant.cash_balances import CashBalances
 from src.biz.services.wealth.market.trading_assistant.execution_policy import TradingAssistantExecutionPolicyV1
 from src.biz.services.wealth.market.trading_assistant.recalculation_execution import RecalculationExecution
 
@@ -92,4 +93,19 @@ def test_revisions_cash_pages_and_restart(migrated):
     with Session(migrated) as session, session.begin():
         assert restarted.completed_totals(session, lease, generation_id=generation,
             business_date=SUNDAY, deadline=deadline()) == CashDayTotals(30000, 0, 0, 0, 1, 0)
+    balances = CashBalances(execution)
+    with pytest.raises(CalculationInputMismatch, match="Every cash source page"):
+        with Session(migrated) as session, session.begin():
+            balances.close_date(session, lease, generation_id=generation, business_date=SUNDAY, deadline=deadline())
+    with Session(migrated) as session, session.begin():
+        for page in range(1, 3):
+            restarted.verify_page(session, lease, generation_id=generation, business_date=SUNDAY,
+                                  page_key=f"{page:020d}", deadline=deadline())
+    with pytest.raises(CalculationInputMismatch, match="skipped"):
+        with Session(migrated) as session, session.begin():
+            balances.close_date(session, lease, generation_id=generation, business_date=SUNDAY, deadline=deadline())
+    for day, expected in ((SATURDAY, 80000), (SATURDAY, 80000), (SUNDAY, 110000), (SUNDAY, 110000)):
+        with Session(migrated) as session, session.begin():
+            assert balances.close_date(session, lease, generation_id=generation,
+                                       business_date=day, deadline=deadline()) == expected
     retire(migrated, lease)

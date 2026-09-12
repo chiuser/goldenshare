@@ -81,6 +81,15 @@ class AccountDayBatches:
                         _scaled(fee.stamp_tax_rate, 10000)))
 
     def reduce_page(self, session, lease, *, generation_id, day_result_id, previous_day_result_id, deadline):
+        return self._process_page(session, lease, generation_id=generation_id, day_result_id=day_result_id,
+            previous_day_result_id=previous_day_result_id, deadline=deadline, verify_page_key=None)
+
+    def verify_page(self, session, lease, *, generation_id, day_result_id, previous_day_result_id, page_key, deadline):
+        return self._process_page(session, lease, generation_id=generation_id, day_result_id=day_result_id,
+            previous_day_result_id=previous_day_result_id, deadline=deadline, verify_page_key=page_key)
+
+    def _process_page(self, session, lease, *, generation_id, day_result_id, previous_day_result_id,
+                      deadline, verify_page_key):
         with self.execution.batch(session, lease, deadline=deadline) as account:
             day, generation = self.stocks._day(session, lease, account, generation_id, day_result_id)
             predecessor = session.get(DayResult, previous_day_result_id) if previous_day_result_id else None
@@ -89,20 +98,37 @@ class AccountDayBatches:
                     or predecessor.trade_date >= day.trade_date):
                 raise CalculationInputMismatch("Previous account day must be an earlier sealed day")
             previous = self.stocks._latest(session, lease, generation_id, day.trade_date, "", "ACCOUNT_STOCKS")
+            current = None
+            if verify_page_key is not None:
+                current = session.get(CalculationBatch,
+                    (lease.account_id, generation_id, day.trade_date, "ACCOUNT_STOCKS", "", verify_page_key),
+                    populate_existing=True)
+                previous = session.scalar(select(CalculationBatch).where(
+                    CalculationBatch.account_id == lease.account_id, CalculationBatch.generation_id == generation_id,
+                    CalculationBatch.trade_date == day.trade_date, CalculationBatch.stage == "ACCOUNT_STOCKS",
+                    CalculationBatch.stock_key == "", CalculationBatch.page_key < verify_page_key)
+                    .order_by(CalculationBatch.page_key.desc()).limit(1))
+                if (current is None or not 0 <= current.row_count <= self.policy.page_rows
+                        or verify_page_key != f"{int(previous.page_key) + 1 if previous else 1:020d}"
+                        or (previous and previous.cursor["done"])):
+                    raise CalculationInputMismatch("Account stock checkpoint chain is incomplete")
             binding = {"dayResultId": str(day_result_id),
                        "previousDayResultId": str(previous_day_result_id) if previous_day_result_id else None,
                        "previousDayDigest": predecessor.input_digest.hex() if predecessor else None}
             if previous and previous.accumulator["binding"] != binding:
                 raise CalculationInputMismatch("Account predecessor changed across pages")
             totals = _totals_value(previous.accumulator["totals"]) if previous else AccountDayTotals()
-            if previous and previous.cursor["done"]:
+            if verify_page_key is None and previous and previous.cursor["done"]:
                 return True
             query = select(PositionState, func.count().over(partition_by=PositionState.ts_code)).where(PositionState.account_id == lease.account_id,
                                                 PositionState.day_result_id == day_result_id)
             if totals.after_stock is not None:
                 query = query.where(PositionState.ts_code > totals.after_stock)
             selected = session.execute(query.order_by(PositionState.ts_code, PositionState.round_id)
-                                       .limit(self.policy.page_rows)).all()
+                                       .limit((current.row_count or 1) if current is not None else self.policy.page_rows)
+                                       .execution_options(populate_existing=True)).all()
+            if current is not None and len(selected) != current.row_count:
+                raise CalculationInputMismatch("Account stock source count changed")
             if any(count != 1 for _, count in selected):
                 raise CalculationInputMismatch("Multiple rounds in one stock-day candidate")
             rows = [row for row, _ in selected]
@@ -174,6 +200,19 @@ class AccountDayBatches:
                 "sources": evidence, "cursor": cursor, "accumulator": accumulator})).digest()
             key = f"{int(previous.page_key) + 1 if previous else 1:020d}"
             now = session.scalar(select(func.clock_timestamp()))
+            if current is not None:
+                if (current.accumulator, current.cursor, current.input_digest) != (accumulator, cursor, digest):
+                    raise CalculationInputMismatch("Account stock page differs from its actual sources")
+                identity = (lease.account_id, generation_id, day.trade_date, "ACCOUNT_STOCKS_CHECK", "", key)
+                marker = session.get(CalculationBatch, identity, populate_existing=True)
+                if marker is None:
+                    session.add(CalculationBatch(account_id=lease.account_id, generation_id=generation_id,
+                        trade_date=day.trade_date, stage="ACCOUNT_STOCKS_CHECK", stock_key="", page_key=key,
+                        cursor=cursor, accumulator={}, input_digest=digest, row_count=len(rows), completed_at=now))
+                    generation.last_business_updated_at = now
+                elif (marker.input_digest, marker.cursor, marker.row_count) != (digest, cursor, len(rows)):
+                    raise CalculationInputMismatch("Account stock verification marker differs from source")
+                return cursor["done"]
             checkpoint = CalculationBatch(account_id=lease.account_id, generation_id=generation_id,
                 trade_date=day.trade_date, stage="ACCOUNT_STOCKS", stock_key="", page_key=key,
                 cursor=cursor, accumulator=accumulator, input_digest=digest, row_count=len(rows),
