@@ -7,6 +7,7 @@ from src.biz.queries.wealth.market.trading_assistant.accounts import AccountQuer
 from src.biz.queries.wealth.market.trading_assistant.entry_context import EntryContextQuery
 from src.biz.queries.wealth.market.trading_assistant.write_recovery import WriteRecoveryQueries
 from src.biz.queries.wealth.market.trading_assistant.record_detail import RecordDetailQuery
+from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.services.wealth.market.trading_assistant.account_commands import AccountCommandService
 from src.biz.services.wealth.market.trading_assistant.ledger_commands import LedgerCommandService
 from src.biz.services.wealth.market.trading_assistant.ledger_previews import LedgerPreviewService
@@ -28,6 +29,7 @@ class TradingAssistantDependencies:
     previews: LedgerPreviewService
     initialization_preview: InitializationPreviewService
     record_detail: RecordDetailQuery
+    calculation_status: CalculationStatusQuery
 
     async def read(self, query):
         deadline = Deadline.after_ms(self.policy.read_request_budget_ms)

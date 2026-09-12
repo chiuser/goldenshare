@@ -17,6 +17,7 @@ from src.biz.services.wealth.market.trading_assistant.defaults import INITIALIZA
 from src.biz.services.wealth.market.trading_assistant.write_protocol import WriteProtocolConflict
 from .dependencies import TradingAssistantDependencies
 from .errors import TradingAssistantRoute, command_response
+from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationStatus
 
 
 def create_trading_assistant_router(*, auth_dependency, dependencies_dependency):
@@ -42,6 +43,11 @@ def create_trading_assistant_router(*, auth_dependency, dependencies_dependency)
     @router.get("/accounts/{account_id}/fees", response_model=dto.FeeSettingsDto)
     async def fees(account_id: EntityId, owner_id: int = auth, deps: TradingAssistantDependencies = services):
         return await deps.read(lambda s,d:deps.account_queries.fees(s,owner_id=owner_id,account_id=UUID(account_id),deadline=d))
+
+    @router.get("/accounts/{account_id}/calculation-status", response_model=CalculationStatus)
+    async def calculation_status(account_id: EntityId, owner_id: int = auth, deps: TradingAssistantDependencies = services):
+        return await deps.read(lambda s,d:deps.calculation_status.read(s,owner_id=owner_id,
+            account_id=UUID(account_id),deadline=d))
 
     @router.put("/accounts/{account_id}/fees", response_model=receipts.FeesUpdateReceipt)
     async def update_fees(account_id: EntityId, command: dto.UpdateFeesCommand, owner_id: int = auth, deps: TradingAssistantDependencies = services):

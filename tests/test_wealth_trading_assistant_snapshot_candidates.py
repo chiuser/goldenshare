@@ -1,13 +1,18 @@
 """Computed stock and cash stages join into a candidate, never an early publication."""
 from datetime import timedelta
 from uuid import uuid4, uuid5
+from decimal import Decimal
 
 import pytest
 from sqlalchemy.orm import Session
 
 from tests.test_wealth_trading_assistant_calculation_inputs import database, migrated, setup, deadline, retire, DAY, AT, fact
 from tests.test_wealth_trading_assistant_publication_storage import publication_db
-from src.biz.models.wealth.trading_assistant.accounts import Account, InitialPosition
+from src.biz.models.wealth.trading_assistant.accounts import Account, InitialPosition, FeeVersion
+from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery
+from src.biz.queries.wealth.market.trading_assistant.current_positions import CurrentPositionsQuery, PublishedPositionsUnavailable
+from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
+from src.biz.services.wealth.market.trading_assistant.write_protocol import WriteProtocolConflict
 from src.biz.models.wealth.trading_assistant.calculation import DayResult
 from src.biz.models.wealth.trading_assistant.publication import AccountSnapshot
 from src.biz.services.wealth.market.trading_assistant.account_day_batches import AccountDayBatches
@@ -138,4 +143,49 @@ def test_snapshot_composition_requires_completed_inputs(publication_db, held):
             generation_id=generation, target_version=lease.target_version)
         assert not publisher.confirmed(session, owner_id=2, account_id=lease.account_id,
             generation_id=generation, target_version=lease.target_version)
+    context_query = CurrentReadContextQuery(execution.policy)
+    position_query = CurrentPositionsQuery(execution.policy)
+    def read_positions(token=None, target_day=DAY, cutoff=AT):
+        with Session(publication_db) as session, session.begin():
+            context = context_query.capture(session, owner_id=1, account_mode="SINGLE", account_id=lease.account_id,
+                target_through=cutoff, context_token=token, deadline=deadline())
+            page = position_query.page(session, basis=context, account_id=lease.account_id,
+                trade_date=target_day, deadline=deadline())
+            return context, page
+    before, page = read_positions()
+    with Session(publication_db) as session:
+        status = CalculationStatusQuery(execution.policy).read(session,owner_id=1,
+            account_id=lease.account_id,deadline=deadline())
+        assert status.stage == "PUBLISHED" and status.publishedGenerationId == str(generation)
+        assert status.progress.completedTradeDateCount == status.progress.totalTradeDateCount == 1
+    assert len(page.items) == int(held) and page.next_stock is None
+    if held:
+        assert page.items[0].valuation.result.profit_cents == 98950
+        assert page.items[0].fee_version_id == fee
+        with pytest.raises(PublishedPositionsUnavailable, match="晚于读取截止"):
+            read_positions(cutoff=AT-timedelta(seconds=1))
+    # Current fees affect a real published holding read, not the historical row.
+    updated_fee = uuid4()
+    with Session(publication_db) as session, session.begin():
+        session.add(FeeVersion(fee_version_id=updated_fee,account_id=lease.account_id,
+            commission_rate=Decimal("0.0020"), minimum_commission=Decimal("0.00"),
+            stamp_tax_rate=Decimal("0.0020"), created_at=AT))
+        session.flush()
+        session.get(Account,lease.account_id).current_fee_version_id = updated_fee
+    with pytest.raises(WriteProtocolConflict, match="TA_READ_CONTEXT_CHANGED"):
+        read_positions(before.context.contextToken)
+    after, page = read_positions()
+    assert before.context.accounts == after.context.accounts
+    assert len(page.items) == int(held)
+    if held:
+        assert page.items[0].fee_version_id == updated_fee
+        assert page.items[0].valuation.result.profit_cents == 95600
+    with Session(publication_db) as session:
+        assert session.get(AccountSnapshot,(lease.account_id,day)).holding_profit_amount == (Decimal("989.50") if held else 0)
+    with pytest.raises(PublishedPositionsUnavailable, match="目标交易日"):
+        read_positions(target_day=DAY+timedelta(days=1))
+    with Session(publication_db) as session, session.begin():
+        session.get(Account,lease.account_id).fact_version += 1
+    with pytest.raises(PublishedPositionsUnavailable, match="当前事实"):
+        read_positions()
     retire(publication_db, lease)

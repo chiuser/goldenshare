@@ -4,6 +4,7 @@ from src.biz.queries.wealth.market.trading_assistant.accounts import AccountQuer
 from src.biz.queries.wealth.market.trading_assistant.entry_context import EntryContextQuery
 from src.biz.queries.wealth.market.trading_assistant.write_recovery import WriteRecoveryQueries
 from src.biz.queries.wealth.market.trading_assistant.record_detail import RecordDetailQuery
+from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.services.wealth.market.trading_assistant.account_commands import AccountCommandService
 from src.biz.services.wealth.market.trading_assistant.ledger_commands import LedgerCommandService
 from src.biz.services.wealth.market.trading_assistant.ledger_previews import LedgerPreviewService
@@ -20,4 +21,4 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
         LedgerCommandService(transactions, market, policy, now, executor_id=executor_id),
         AccountQueries(policy, market), EntryContextQuery(policy, market), WriteRecoveryQueries(policy),
         LedgerPreviewService(transactions, market, policy, now), InitializationPreviewService(transactions, market, policy, now),
-        RecordDetailQuery(policy, market))
+        RecordDetailQuery(policy, market), CalculationStatusQuery(policy))
