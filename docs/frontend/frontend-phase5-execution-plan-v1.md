@@ -91,7 +91,7 @@
 交付物：
 
 1. 更新后的 `frontend-governance-rollout-plan-v1.md`
-2. 更新后的 `frontend-smoke-visual-gate-v1.md`
+2. smoke 说明现已并入 `frontend-regression-and-baseline-workflow-v1.md`
 3. 更新后的 `frontend-design-tokens-and-component-catalog-v1.md`
 4. 更新后的 `frontend-delivery-workflow-v1.md`
 5. 更新后的前端相关 AGENTS

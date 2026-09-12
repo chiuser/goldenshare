@@ -151,7 +151,7 @@
 
 若属于 `Phase 6` 的页面推广批，还应说明：
 
-8. 当前批次是否已在 [frontend-phase6-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md) 中定义
+8. 对照 [Phase 6 收口与边界要求](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)确认本轮目标与文件范围；旧批次已完成，不复用其开工授权
 9. 本轮是否触及已存在的 smoke / visual gate
 
 ### 大改动 / 重构

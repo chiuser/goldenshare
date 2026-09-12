@@ -918,6 +918,25 @@ CodeGraph 使用 status/query/impact 定位 ETF planner、Basic selector、RawSt
 
 验证：11 项工作流目录离线测试通过；文档完整性三个检查组、8 份保留文档的 230 个链接目标及 39 处锚点、git diff --check 通过。三份报告 SHA-256 前后相同；东财 v2 的全部表格和 §17–18、申万两份表格未改；本文原 §4 各批正文逐字保留、原显式锚点全部保留。两个删除文件名仅剩本节追溯，无活动入链。未安装套件、未运行报告生成器、未做生产验收；代码和分层依赖不变。
 
+<a id="frontend-storage-docs-20260912"></a>
+
+### 4.7 2026-09-12 前端 Phase6、质量门禁与存储治理
+
+状态：三批文档修改完成，待统一 review，未提交。不改业务代码、截图基线或生产数据。
+
+| 原文档 | 处理与有效信息去向 |
+| --- | --- |
+| frontend-phase6-execution-plan-v1.md | 删除；阶段顺序、页面范围、完成证据与后续边界合入 [Phase6 记录](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md) |
+| frontend-phase6-p6-1-boundary-card-v1.md、frontend-phase6-p6-2-boundary-card-v1.md、frontend-phase6-p6-3-boundary-card-v1.md、frontend-phase6-p6-4-boundary-card-v1.md | 删除；四批页面、组件、禁止改动范围和剩余问题合入同一记录；已完成批次不作为再次实施授权 |
+| frontend-quality-gate-matrix-v1.md、frontend-smoke-visual-gate-v1.md | 删除；测试分级矩阵、截图更新纪律、六条规则、CI 与验收要求合入[质量门禁与截图回归流程](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) |
+| PostgreSQL 存储优化 v1、v2 与 Raw 直读 Serving 一期 LLD | 三份均保留；仅补状态和导航，保留逐表边界、容量、授权及迁移历史证据，不合并，不执行数据库操作 |
+
+纠偏：Phase6 原“八页”与实际七个文件不一致，明确历史差异而不虚构第八页；规则脚本白名单不代表页面仍有旧样式；截图基线只在预期视觉变化且获批准时更新。存储一期 12 张表的关闭状态限定为 2026-08-31 记录，不宣称今日生产复验，也不将其扩大为 Track A 或外部 SQL 风险全部解决。
+
+依据：当前组件、页面、测试文件、check-rules 脚本、package.json、Playwright 配置与 smoke 用例、CI 工作流及存储治理原始记录。文档治理与前端 QA 技能用于区分当前门禁、历史验收与未实施事项；分层与运行行为不变。
+
+验证：前端 check:rules、文档完整性三个检查组和 git diff --check 通过。未运行浏览器或全量前端测试，不将静态核验当作视觉验收。删除的七份文件可从 Git 恢复；主索引及前端规则入链同步迁移。未安装套件；其他任务的代码、研究产物及索引改动保留。
+
 <a id="5-执行规则"></a>
 <a id="6-第二轮收尾检查已完成"></a>
 

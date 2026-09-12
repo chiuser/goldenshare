@@ -568,7 +568,7 @@ Phase 4 的支持任务要求：
 
 执行基线：
 
-- 具体执行以 [frontend-phase6-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md) 为准
+- 第一轮执行已完成，范围与历史依据见 [Phase 6 收口记录](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)，不再按旧批次重新开工
 
 当前建议批次：
 
@@ -773,7 +773,7 @@ Phase 4 的支持任务要求：
 
 按照以下顺序执行最稳：
 
-1. 以 [frontend-phase6-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md) 为准确认第一批 `P6-1` 的边界卡
+1. 原第一批 P6-1 边界已随推广完成，历史去向见 [Phase 6 收口记录](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)；以下旧顺序不构成新开工授权
 2. 先处理低风险推广批，不并批推进
 3. 每批结束后回看验证结果，再进入下一批
 

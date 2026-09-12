@@ -1,162 +1,55 @@
-# 前端 Phase 6 推广收口总结 v1
+# 前端 Phase 6 推广记录与后续边界
 
-> 角色说明：本文件用于完成 `Phase 6 / P6-5` 的收口，总结第一轮规模化推广的结果、残留清单与后续建议。
-> 当前统一强约束请以 [frontend-current-standards.md](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md) 为准。
+状态：第一轮推广已完成；本文是历史收口说明，不是新页面改造授权。2026-09-12 合并执行计划与四份边界卡。
+现行视觉规则见[前端基线](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)，验证方法见[回归与截图流程](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md)。
 
-## 1. 文档目的
+## 1. 历史目标与范围
 
-本文用于回答 3 个问题：
+2026-04-23 的起点记录为 Phase1 治理骨架、Phase2 主题/token、Phase3 组件、Phase4 任务中心试点、Phase5 门禁均已建立。Phase6 推广已验证模式，不重做任务中心，不新建 UI 体系，不改后端/API、路由、搜索参数、业务按钮或账号流程，不以视觉统一扩大到业务重构。
 
-1. `Phase 6` 第一轮推广到底完成了什么。
-2. 当前还有哪些前端残留点，不适合继续用“顺手推广”去处理。
-3. 下一步应该继续什么，不应该继续什么。
+| 批次 | 当时页面范围（frontend/src/pages） | 主要收敛与允许复用 |
+| --- | --- | --- |
+| P6-1 | platform-check-page.tsx、user-overview-page.tsx | PageHeader、SectionCard、StatCard、StatusBadge、EmptyState；允许连同 status-badge.tsx 及其测试作最小状态映射修正 |
+| P6-2 | ops-v21-review-index-page.tsx、ops-v21-review-board-page.tsx | PageHeader、FilterBar、TableShell、StatusBadge、EmptyState、OpsTable；旧 violet provider tone 退出，审查规则与 tab 不改 |
+| P6-3 | ops-v21-source-page.tsx、ops-v21-dataset-detail-page.tsx | SectionCard、StatusBadge、MetricPanel、DataTable、EmptyState，已有 PriceText/ChangeText；数据卡片、详情卡面、近期执行记录收敛 |
+| P6-4 | ops-v21-account-page.tsx | AlertBar、StatusBadge、TableShell、DetailDrawer、SectionCard；用户/邀请码列表、编辑与重置动作展示收敛，不拆账号业务 |
 
-本文不负责新增页面实现；只做总结、证据归档与下一步建议。
+P6-0 只确认范围、组件与边界卡；P6-1→P6-4 分批实施；P6-5 只汇总结果和遗留，不新增页面任务。原执行计划称“8 页”，但保留下来的四批明细列出 7 个文件，总结另提旧数据源桥接页后续下线；不能据此补造第 8 个页面，也不把历史文件清单当作当前路由全集。
 
----
+共同边界：只做局部展示，不引入复杂状态管理、新领域组件或为单页扩新抽象；不向相邻批次扩散。测试围绕各实际页面，P6-2 可修改 smoke fixtures/spec/截图；P6-3 仅在明确纳入 smoke 后允许进入这些文件。后续任务必须重新确定实际文件白名单，不能复用已完成批次授权。
 
-## 2. 推广范围与结果
+## 2. 当时结果与验收口径
 
-`Phase 6` 第一轮推广按计划完成了 4 个批次；其中旧数据源桥接页已在后续架构收口中下线。
+原收口记录确认四批完成：高可见页面进入统一组件模式，审查中心获得 smoke 保护，账号反馈/状态/列表/抽屉收敛。P6-3、P6-4 已补页级测试，当时评估暂不新增 smoke，避免扩成大规模 fixture 工程；这不是永久豁免。
 
-1. `P6-1` 低风险推广批
-   - `platform-check-page.tsx`
-   - `user-overview-page.tsx`
-2. `P6-2` 审查中心推广批
-   - `ops-v21-review-index-page.tsx`
-   - `ops-v21-review-board-page.tsx`
-3. `P6-3` 数据详情推广批
-   - `ops-v21-source-page.tsx`
-   - `ops-v21-dataset-detail-page.tsx`
-4. `P6-4` 管理配置推广批
-   - `ops-v21-account-page.tsx`
+当时每批基础门禁是 typecheck、check:rules、test、build；P6-2 另跑 smoke，P6-1 按高可见截图影响评估，P6-3/P6-4 按纳入范围评估。预期视觉变化才更新截图，并重跑普通 smoke。完成标准包括页面组件口径、无新增旧入口、明确回归记录、无架构回流，不是只看截图。
 
-本轮推广带来的直接结果：
+历史规模证据保留，但不作为今天的数量：
 
-1. 高可见页面进一步收敛到统一的 `PageHeader / SectionCard / StatusBadge / TableShell / DetailDrawer / DataTable` 模式。
-2. 审查中心页进入统一页头、筛选栏、表格壳与 smoke / visual gate 口径。
-3. 数据详情页与管理配置页不再继续放大页面级旧卡面和旧状态表达。
-4. 管理配置页的用户列表、邀请码列表、编辑动作和重置动作进入统一模式，没有扩大到业务重构。
+- 原总结：34 个测试文件、67 个测试、11 条视觉基线/9 个页面或关键状态。
+- 原计划：review-board 893 行、account 788 行；原总结：task-auto 1618、task-manual 1134、review-board 920、account 851、task-detail 838 行。
+- 文件长度、测试数量均会变化，不能据旧数字直接安排重构或宣称当前覆盖完整。
 
----
+## 3. 2026-09-12 静态复核与未完成边界
 
-## 3. 当前质量基线
+1. Overview、user-overview、source 页当前没有直接写 glass-card；不再把它们列作尚未完成的旧类清理。规则脚本仍保留这些文件的白名单，白名单不是实际命中证据。
+2. SectionCard、StatCard、AuthPageLayout 仍使用 glass-card；这只是代码中的类名事实，不证明当前页面视觉效果，不能据此自行删除 CSS 或宣布兼容层清零。
+3. task-auto 已有独立页级测试；“没有页测”不再是现行结论。smoke 仍是有限代表场景，不等于所有页面/空态/错误态已覆盖。
+4. 旧总结提出的大页控厚、兼容样式清理、smoke 扩面仍是不同议题，必须按实际代码与收益单独评审；不因历史建议而自动启动。
+5. 本轮没有重跑浏览器或全量前端测试；Phase6 完成记录不等于今天所有页面重新验收通过。
 
-截至本轮收口时，前端当前质量基线为：
+依据：[规则脚本](/Users/congming/github/goldenshare/frontend/scripts/check-rules.mjs)、[smoke spec](/Users/congming/github/goldenshare/frontend/e2e/smoke-visual.spec.ts)、[task-auto 测试](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-auto-tab.test.tsx)、[组件](/Users/congming/github/goldenshare/frontend/src/shared/ui/section-card.tsx)。
 
-1. `npm run typecheck`
-2. `npm run check:rules`
-3. `npm run test`
-4. `npm run build`
-5. `npm run test:smoke`
-6. `.github/workflows/frontend-quality-gate.yml`
+## 4. 后续任务如何划界
 
-当前前端测试基线证据：
+不默认开启第二轮推广。先明确是页面推广、大页拆分、旧样式清理还是测试扩面，再复核页面、消费者和回归成本，不把三类专项捆绑实施。
 
-1. 前端共有 `34` 个测试文件。
-2. 当前全量测试为 `67` 个测试。
-3. 当前 smoke / visual gate 已覆盖 `11` 条基线、`9` 个高价值页面入口或关键状态。
+原边界卡的有效内容保留为每次任务说明，而不是继续维护四张过期卡：
 
-结论：
+1. 主目标、非目标、影响文件及允许复用/新增的组件。
+2. 默认验证档位、是否触及 smoke、预期截图变化与更新理由。
+3. 涉及共享组件时，是否同步组件目录和 HTML Showcase。
+4. 回滚边界：先撤局部展示，不动查询/账号逻辑；撤不必要的新增断言不能用来掩盖错误，不靠扩大共享抽象补救失控范围。
+5. 一个清晰主目标；不改未获准的后端契约、业务流程或其他页面。
 
-`Phase 6` 不是只做了页面视觉推广，而是把更多页面拉进了统一组件口径和统一回归纪律。
-
----
-
-## 4. 当前残留清单
-
-以下残留点已经不适合继续通过“顺手推广”处理，应作为后续专项候选单独评估。
-
-### 4.1 页面级旧视觉入口仍有少量残留
-
-当前运行时代码里，页面层明确还保留的 `glass-card` 直写残留点主要是：
-
-1. `frontend/src/pages/ops-v21-overview-page.tsx`
-
-这说明：
-
-- `Phase 6` 已经把大部分推广页拉回统一基线
-- 但 `overview` 这类仍在主链路中的老页，还需要单独立题处理
-
-### 4.2 共享兼容类仍未完全退休
-
-当前共享组件层仍保留 `glass-card` 兼容类入口：
-
-1. `frontend/src/shared/ui/section-card.tsx`
-2. `frontend/src/shared/ui/stat-card.tsx`
-3. `frontend/src/shared/ui/auth-page-layout.tsx`
-
-这不是本轮阻塞问题，但说明：
-
-- 当前视觉兼容层仍存在
-- 后续若要真正清理旧视觉遗留，应单独立题，而不是在页面推广时顺手拆
-
-### 4.3 多个页面仍然明显偏厚
-
-按当前仓库代码统计，以下页面体量仍明显偏大：
-
-1. `frontend/src/pages/ops-v21-task-auto-tab.tsx`：`1618` 行
-2. `frontend/src/pages/ops-v21-task-manual-tab.tsx`：`1134` 行
-3. `frontend/src/pages/ops-v21-review-board-page.tsx`：`920` 行
-4. `frontend/src/pages/ops-v21-account-page.tsx`：`851` 行
-5. `frontend/src/pages/ops-task-detail-page.tsx`：`838` 行
-
-这些页面说明：
-
-- 推广并不等于重构完成
-- 后续若要继续提升可维护性，应转入“大页控厚 / 局部拆分”专项，而不是继续按批次推广思路推进
-
-### 4.4 smoke 覆盖仍然不是全量
-
-当前仍未进入 smoke / visual gate 的高可见页面包括：
-
-1. `platform-check-page.tsx`
-2. `user-overview-page.tsx`
-3. `ops-v21-account-page.tsx`
-4. `ops-v21-source-page.tsx`
-5. `ops-v21-dataset-detail-page.tsx`
-
-这并不代表当前阶段失败，而是说明：
-
-- `Phase 6` 有意控制了 fixture 膨胀
-- 下一步如果要继续加固，应按价值继续补 smoke，而不是平均铺开
-
----
-
-## 5. 结论判断
-
-当前判断：
-
-1. `Phase 6` 第一轮规模化推广已完成。
-2. 继续沿用“批次推广”模式的边际收益正在下降。
-3. 下一步更合适的方向，不是马上开启第二轮大范围推广，而是从残留清单里挑专项。
-
-不建议的下一步：
-
-1. 继续一口气拉更多页面进入推广批。
-2. 把大页控厚、视觉兼容层清理和 smoke 扩面混成一轮。
-3. 为了追求统一视觉，再开启无边界页面修改。
-
-更建议的下一步：
-
-1. `专项 A`：`ops-v21-overview-page.tsx` 收口与旧视觉遗留清理。
-2. `专项 B`：超大页控厚与局部拆分评估。
-3. `专项 C`：高可见但仍未进入 smoke 的页面，按价值继续补最小视觉门禁。
-
----
-
-## 6. 建议出场条件
-
-若后续准备进入下一阶段，建议至少遵守：
-
-1. 不再把“页面推广”当作默认动作。
-2. 新任务先判断属于：
-   - 页面推广
-   - 大页控厚
-   - 旧视觉兼容层清理
-   - smoke 扩面
-3. 仍然沿用边界卡与统一回归档位，不回到口头约定。
-
-结论：
-
-`Phase 6` 当前可以视为已完成第一轮收口，后续应从“批次推广”切换到“专项治理 + 有依据扩面”。
+旧执行计划及 P6-1～P6-4 独立卡已合并删除，完整原文从 Git 追溯。本记录不替代新任务的范围确认。

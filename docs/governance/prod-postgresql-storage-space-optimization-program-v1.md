@@ -1,7 +1,9 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
 状态：一期及既有专项均保留为历史验收记录；2026-08-23 已完成新一轮容量审计与 `stk_mins` P0 第二轮安全复审，生产 DDL 尚未执行；P0 当前因可恢复性证据未闭环保持 No-Go
-更新时间：2026-08-23
+更新时间：2026-08-23；2026-09-12 仅补文档导航，不重验生产状态。
+
+本文保留旧迁移、容量与 stk_mins 原专项记录，不再新增批次。新一轮 raw 直出一期的 12 项已按 [v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)及[一期 LLD](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)的带日期记录结案；它不表示本文 stk_mins No-Go 自动解除，也不授权重跑已完成 DDL。
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层与重复物理存储治理。
 不在范围：删除、清空 raw 业务数据；改变数据集请求语义；修改 API 或前端业务行为。
 

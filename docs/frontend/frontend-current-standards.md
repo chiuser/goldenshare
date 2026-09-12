@@ -13,7 +13,7 @@
 3. `frontend-governance-rollout-plan-v1.md`
 4. `frontend-phase2-execution-brief-v1.md`
 5. `frontend-phase5-execution-plan-v1.md`
-6. `frontend-phase6-execution-plan-v1.md`
+6. `frontend-phase6-rollout-summary-v1.md`（已完成推广与后续边界）
 7. `frontend-regression-and-baseline-workflow-v1.md`
 
 ---

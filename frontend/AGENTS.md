@@ -53,7 +53,7 @@
 5. `docs/frontend/frontend-design-tokens-and-component-catalog-v1.md`
 6. `docs/frontend/frontend-regression-and-baseline-workflow-v1.md`
 7. `docs/frontend/frontend-governance-rollout-plan-v1.md`
-8. `docs/frontend/frontend-phase6-execution-plan-v1.md`
+8. `docs/frontend/frontend-phase6-rollout-summary-v1.md`（执行计划与边界卡已并入历史收口说明）
 9. 当前目标文件及其相邻目录中的已有实现
 
 不要在未确认现有共享组件、页面模式、API 类型和测试方式前直接写页面。

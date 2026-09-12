@@ -8,6 +8,8 @@
 
 ## 0. 文档权威边界
 
+2026-09-12 文档导航校准：一期 12 项已按 2026-08-31 记录结案，执行明细见[一期 LLD](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)。下文各阶段的“当前/下一阶段”按记录日期理解，不重新排期。Track A 与一期外候选仍须独立评审，残余风险见 §9；本文不证明今天磁盘水位、外部消费者或 anns_d 问题状态。
+
 1. 本文只承载 2026-08-23 起的新一轮审计、决策和执行计划，不向 v1 追加新批次。
 2. [生产 PostgreSQL 存储空间优化治理专项 v1](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)继续保留既有迁移和历史验收证据；v2 不修改或覆盖这些历史事实。
 3. 一期全量候选的生产大小、任务和磁盘水位基线来自 2026-08-23；P1-B0 另记录 2026-08-24 的生产执行证据。任何后续批次都必须重新核验，不能复用旧快照作为执行授权。
