@@ -1,12 +1,52 @@
 # 财势乾坤｜交易助手技术实施方案 v1
 
-> 状态：技术方案修订 85；M2 本地实现及本阶段验收完成，待用户独立 Review，最终对账见 §11.11.10。账户／记账／更正／恢复真实 API、页面接线、跨进程故障、并发、容量及浏览器验收均已完成；不代表已部署或已通过用户验收。M1 已提交 `af0046ac`，未推送；M2 改动尚未提交。M3—M8 未开始。§11.10 及此前修订的执行记录保留为历史证据。已细化部分直接作为 LLD，不另写重复文档；外部接入及部署验收仍见 §11.5。
+> 当前状态：修订 87，依据 PRD v1.45；首次持仓以录入建仓日期、数量及含费成本起算，不还原未录入历史。R14 已合入第 19／20 页正式稿，字段与核算承接见 §1.2。M2 已提交 `4449451f`；日期增量尚未改代码、迁移或验收，M3 尚未完成。本轮只变更文档及 Figma，不改变依赖矩阵；原历史基线待拍板项已关闭，后续先完成日期端到端接线，再继续 M3。下方修订 85 状态为历史记录。
+
+> 历史记录（修订 85，后续状态见文首）：M2 本地实现及本阶段验收完成，待用户独立 Review，最终对账见 §11.11.10。账户／记账／更正／恢复真实 API、页面接线、跨进程故障、并发、容量及浏览器验收均已完成；不代表已部署或已通过用户验收。M1 已提交 `af0046ac`，未推送；M2 改动尚未提交。M3—M8 未开始。§11.10 及此前修订的执行记录保留为历史证据。已细化部分直接作为 LLD，不另写重复文档；外部接入及部署验收仍见 §11.5。
 > 依据：[交易助手产品需求 v1.43](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
 > 本文不改变已确认收益公式和交互，不代表方案已评审、代码已实现或数据源已验收。未确认的建议不得进入实现。
 
 ## 1. 本轮目标与边界
 
 目标是将账户、记账、持仓、收益、计划与提醒转成一套可以落地的技术方案，明确事实源、核算职责、用户隔离、查询与重算、交互状态及测试承接关系。
+
+### 1.2 首次持仓建仓日期与核算起点（修订 87，用户已确认）
+
+依据 PRD §6.3.2：首次持仓也逐股填写实际建仓日期。账户提交日期与股票建仓日期是不同事实，禁止用创建时间、服务器今天或最近交易日代填建仓日期。本节是已确认字段变更及后续实施约束，不表示现有 M2 接口已经接受该字段。
+
+| 影响面 | 对齐要求与实施状态 |
+| --- | --- |
+| 请求与响应 | `InitializationPosition` 新增必填、非 null 的 `openedOn:BusinessDate`；创建账户、初始化更正及预览 before/after、详情、回执和既定服务器输入恢复均贯穿该字段。`initializedOn` 仍表示账户首次提交日期，不能充当逐股建仓日期。当前 `InitializationPositionInput` 尚无此字段，待实施 |
+| 校验 | 日期格式、不得晚于接纳时北京时间日期、必须是既定交易日；错误定位到 `initialPositions` 对应 `clientRowId` 的 `openedOn`。没有持仓不要求填日期；日历缺失不伪报为非交易日，沿用现有不可校验状态。不得绕开现金、超卖及 T+1 校验 |
+| 持久化与版本 | 后续为初始化持仓版本记录增加 `opened_on`，更正创建新修订并保留旧值。先审计既有数据及真实迁移 head；不得用账户初始化日自动补造老记录建仓日，也不得擅自清空数据。迁移及已有数据处理未在本次执行 |
+| 消费者 | 账户接纳、期初候选校验、读取组装、变更比较、恢复 payload、生成前端合同、`InitialPositionFields`、初始化及更正／确认表单、整轮初始化来源展示和 M3 重放输入必须同步迁移。禁止仅前端新增字段而服务端丢弃，禁止旧新字段双轨兜底 |
+| Figma | R14 已通过并合入正式 R8/R12，节点见 PRD §6.3.2 第 6 项。第 20 页新增日期缺失正式状态 `1899:2228`；保留原正常入口、导航、可卖量错误及零值状态。日期全宽单独一行，错误就地提示，更正确认右侧值左对齐，保留等宽页脚 |
+| 已确认核算基线 | 逐股采用 openedOn、quantity、costPrice；不能推测此前还有其他数量或交易。600 股、10.00 就以 600 股及 6000.00 含费投入开始；不产生虚构买入／费用／闭环，也不先把它从 initialCash 扣一次。不同股票分别从自己的 openedOn 进入收益计算 |
+
+当前代码核对：`accounts.py` 中期初行无日期、普通 `TradeInput` 已有 `tradeDate`；`AccountAcceptance.create` 按提交当天设账户初始化日；`InitialPositionFields` 目前仅股票及数量／可卖量／成本。已通过 CodeGraph explore 核对初始化合同与路由入口，并读当前表单和接纳链。未改变子系统依赖或共享 API 实现。
+
+#### 1.2.1 计算接线与日期边界
+
+1. **事实与计算分开。**`initializedOn` 保留账户首次接纳日期；`openedOn` 保存逐股建仓日期。M3 在 openedOn 注入该股期初数量和含费成本，来源仍是初始化版本，不插入交易／资金流水。记录列表不得出现伪造买入，不增加未录入历史追溯、推断或配置开关。
+2. **持仓与收益。**在该日建立数量、未分摊成本池 `quantity × costPrice`、轮次累计投入同值、累计卖出净回款 0；首日收盘收益为费用后预计净变现价值减含费投入。后续按有效事实推进及两端累计差计算期间新增收益，不把提交日前累计收益集中记入提交日。无行情按既定缺数规则，不填 0、不改成提交日开算。
+3. **现金与可卖量。**`initialCash` 与 `availableQuantity` 保持首次录入日事实。提交日前只计算已声明持仓的成本、估值及参与本金，不反推历史现金、入金、回款或可卖量。现金从 initializedOn 接入，期初持仓不再扣现有现金；提交日使用所填可卖量，下一交易日释放差额，之后普通买入仍 T+1。既有交易／资金日期不得早于账户初始化日的接纳边界不因收益历史扩展而改变。
+4. **窗口与全仓本金。**单股从自己的 openedOn 开始；账户收益历史起点取其有效期初股票最早 openedOn，无期初股票则从账户初始化开始承接后续事实。`AccountCoverage.effectiveStartDate` 按该起点求窗口交集，不以 initializedOn 截断。初始含费成本在所属建仓日只计入一次参与本金；期初已经持有的成本按既定剩余成本承接。initialCash 在提交日接入闲置资金，不计收益或参与本金；之后继续按 §6.4 复用回款，不重复本金。多账户独立后汇总，日／自然周／自然月窗口不变。
+5. **历史资产字段。**提交日前持仓收益可计算，不等于现金／总资产历史完整。不得用 initialCash 倒填、以 0 冒充未知，也不得因此抹掉已知的持仓收益。M3 编码前需核对日结果模型及响应的现金必填约束：分别表达收益可用与现金历史不可得，同步所有消费者，不自行增加用户输入项。
+6. **更正与重放。**日期更正取旧／新 openedOn 较早者；数量、成本、股票增删取涉及股票的有效建仓日；现金、当前可卖量变更取 initializedOn。整次命令 `affectedFromDate` 取各项最早值。不能复用跨过该日的旧检查点；日期推后须在新发布代次排除不再成立的旧收益点。最终复验全部受影响已录入账务并按既定版本原子发布，不回写推测交易。
+7. **接线顺序。**先补 M2 请求／版本表／读取／更正预览／回执及恢复字段，生成前端合同并接入表单；再接 M3 有界重放、基线及窗口。实施前核验真实迁移 head 和老数据，不以自动填提交日或删除数据绕过日期必填。修订 85 完成记录只证明旧合同，新日期功能另行验收。
+
+#### 1.2.2 新增验收门禁（待实现测试）
+
+| 编号 | 正反例与要求 |
+| --- | --- |
+| INIT-DATE-01 | 周末提交、此前交易日建仓按所填日期起算；空、未来、非法、非交易日拒绝；日历缺失不伪报日期错误；无持仓合法 |
+| INIT-DATE-02 | 600 股 × 10.00，投入仅 6000.00，无未录入的 400 股、回款、虚构流水或额外佣金 |
+| INIT-DATE-03 | 多股、多账户不同日期各自起算；建仓前无该股收益；日／周／月一致，提交日不重复累计收益 |
+| INIT-DATE-04 | 日期提前／推后、数量／成本更正及股票增删：影响日与检查点失效正确，旧日期点不残留；后续超卖、负现金仍拒绝 |
+| INIT-DATE-05 | 创建→读取→更正预览→保存→回执／恢复贯穿 openedOn；按 clientRowId 定位，前后端合同一致；缺键／null 拒绝 |
+| INIT-DATE-06 | 提交日前持仓有收益、现金未知不倒填；提交日现金只进入闲置资金，不产生收益、不重复扣持仓成本或增加参与本金；可卖量及次交易日解锁正确 |
+
+沿用现有 calculation、contracts、ledger_commands、初始化及页面测试入口，并覆盖窗口、修订重放及恢复组合。本轮仅文档与 Figma 审计，未运行业务测试；既有收益及费用公式不另行改写。
 
 产品需求负责业务语义；已通过的 Figma 负责交互与布局；本文负责实现设计，并按用户最新要求继续补代码符号、数据库约束、API 字段与编码门禁，直接复用为 LLD，不另写重复内容。不能拿当前占位代码降低产品范围，也不能拿 Figma 的固定演示值替代真实业务计算。
 
@@ -318,16 +358,16 @@
 
 | 触发 | 最早受影响日与处理范围 | 不允许的处理 |
 | --- | --- | --- |
-| 首次初始化 | 从初始化基线起计算；初始化以前不生成账户收益历史 | 把已有持仓虚构为历史买入，或把初始化之前浮盈记为当天新增收益 |
+| 首次初始化 | 持仓从逐股 openedOn 的数量／含费成本起点计算，现金从 initializedOn 接入，见 §1.2 | 把已有持仓虚构为历史买入，倒造历史现金，或把提交日前累计收益记为提交日新增收益 |
 | 新买卖、资金流水、更正 / 作废 | 从受影响日到本次固定截止日；日期更正取新旧日期较早者，股票更正覆盖新旧股票，现金与汇总覆盖整个账户 | 只重算改动股票当天，遗漏后续现金、轮次、成本分币、期间本金或已清仓闭环 |
-| 初始化更正 | 从初始化基线重新验证和重建后续全部结果 | 沿用旧初始成本 / 可卖量检查点 |
+| 初始化更正 | 按 §1.2 的新旧建仓日及现金基线取最早受影响日，重新验证和重建后续结果 | 沿用跨过影响日的旧检查点，或统一从提交日重算遗漏前段 |
 | 新交易日数据就绪 | 从最后完整日之后推进；当天无买卖但仍持仓，也要估值并计算当天新增收益 | 仅有交易才生成快照，或把无买卖的持仓日计为没有收益 |
 | 历史行情被修正 | 从最早受影响估值日重建，包含后续增量所依赖的前值；来源与新旧估值依据可追溯 | 覆盖底层价格却保留旧日收益，导致相邻日期累计差与日收益加总不一致 |
 | 当前账户税费配置改变 | 更新当前估值的预计卖出费用依据；历史实际成交费用和历史估值当时采用的费用依据不套用新配置 | 因修改当前费率重新给过去每笔成交收费，或悄悄重写所有历史快照的预计费用 |
 
 只有行情完整性与交易日依据满足对应日计算要求，才能形成正式日终快照，不以“已到收盘时间”代替数据就绪。当前交易日估算与正式日终快照分开标识；未完成周 / 月只计算到实际截止，不生成未来快照。已确认全天停牌的取价例外按 PRD §7.6 和本文 §8.16 执行；普通缺数不允许前值补齐，实际来源证据仍须核验。
 
-初始化基线独立于日终快照保存；初始化发生在休市日期时，不把该日期伪造成交易日。日期清单覆盖已确定的有效快照日期，非交易日的日历格继续按 PRD §12.4 表达；不因它显示“待计算”就调度一个永远无法完成的交易日重算任务。
+逐股持仓基线按所填 openedOn 建立，现金基线仍按 initializedOn，均与日终快照分开；提交发生在休市日期时，不把提交日伪造成交易日。日期清单覆盖已确定的有效快照日期，非交易日的日历格继续按 PRD §12.4 表达；不因它显示“待计算”就调度一个永远无法完成的交易日重算任务。
 
 每个账户保存一个递增的**计算目标版本**：已接纳事实变化、有效估值依据变化或计算截止推进，都更新目标并持久化重算需求。它不同于账务事实版本，解决“流水没变但行情已经更正”的旧任务覆盖问题。该版本是技术一致性标识，不是用户配置。连续变更时，最早待重算日取所有尚未被当前完整结果覆盖的变更日期的最小值；不能以最后一次修改日期覆盖较早的待办范围。
 
@@ -780,7 +820,7 @@ R10 的“当前条件与历史生效区间”来自不可变版本与后续版�
 #### 4.10.1 窗口先确定，再算金额与本金
 
 1. 使用北京时间的业务日期。范围控件解析出 `requestedStartDate / requestedEndDate`；月粒度枚举与该范围相交的自然月，每个点保留该月 1 日和最后一日作为 `periodStartDate / periodEndDate`。不得把跨月日期范围生成一个月点，也不得用固定 30 天代替自然月。
-2. 已结束月份使用完整自然月；当前月目标统计到请求的当前业务时点，不包含未来。账户初始化晚于月初时，该账户有效统计起点为初始化日；不同账户分别裁定历史起点，不将最晚初始化日套给全部账户。未来月份不生成虚构收益点。
+2. 已结束月份使用完整自然月；当前月目标统计到请求的当前业务时点，不包含未来。按各账户范围内有效建仓日裁定收益历史起点；首次持仓使用 openedOn，不按 initializedOn 截断，不将最晚账户提交日套给全部账户。未来月份不生成虚构收益点。
 3. 在各账户该月有效窗口内按 §12.1.1 / 本文第 6 节计算金额及对应分母。全仓本金复用只在该月内去重；单股使用其期初未分摊买入成本加本月新增买入投入。筛选从 8 月 22 日开始，不意味着把 8 月本金池也从 22 日重新启动。既有跨轮次、费用及现金转出规则均保留。
 4. 月收益金额与该月有效窗口内同版本日收益金额求和对账，月本金重新按该月计算，不加总每日本金或收益率。已结束月份缺少必要数据时标记缺数，不能悄悄改成“截至最后有数据日”的完整月结果。当前月的已算范围与目标范围不同，也必须明确缺口，不能用正常未结束状态掩盖缺数。
 5. 月初初始化之前没有账务不算缺数，但须展示实际历史起点；月内清仓后仍保留已发生收益。整月只有现金与有持仓 / 交易但收益为零分开，延续 PRD 原状态，不将两者统一成 0.00%。
@@ -815,7 +855,7 @@ R10 的“当前条件与历史生效区间”来自不可变版本与后续版�
 
 #### 4.10.4 完整自然周及验收承接（修订 42，已确认）
 
-PRD v1.34 §12.3 第 10 项为唯一产品依据。使用北京时间的业务日期，周一为 periodStartDate、周日为 periodEndDate；筛选起止仅决定哪些自然周相交，不截断周点。实际起点按各账户初始化日截断，目标截止不超过当前有效截止；数据缺口另用完整性状态表示。跨月／跨年使用实际起止日期作为周期身份，不只用周序号，也不按最近五个交易日滚动。
+PRD v1.34 §12.3 第 10 项为唯一产品依据。使用北京时间的业务日期，周一为 periodStartDate、周日为 periodEndDate；筛选起止仅决定哪些自然周相交，不截断周点。实际起点按各账户的有效持仓历史起点截断（首次持仓用 openedOn，不用提交日），目标截止不超过当前有效截止；数据缺口另用完整性状态表示。跨月／跨年使用实际起止日期作为周期身份，不只用周序号，也不按最近五个交易日滚动。
 
 周点复用 §4.10.2 的上下文、实际范围、金额／本金／收益率和完整性字段。分子与分母均按同一完整周窗口计算；全仓运行 §6.4 的周窗口去重本金，单股运行 §6.6 的期间成本，不从日收益率或日分母相加。复盘查询继续使用 requestedStartDate／requestedEndDate，不被周窗口扩展，月行为不变。
 
@@ -839,7 +879,7 @@ PRD v1.34 §12.3 第 10 项为唯一产品依据。使用北京时间的业务�
 | --- | --- | --- |
 | `GET /accounts` | 本人账户列表：accountId、name、brokerName、initializedOn、factVersion、feeVersionId；按创建时间、accountId 升序稳定返回 | 不采集、不返回资金账号；无账户是合法空列表。“全部账户”是筛选范围，不创建虚构账户 ID。账户状态不冒充持仓已经算完 |
 | `GET /account-initialization/defaults` | 初始化所需的默认印花税率及单位说明；佣金率、最低佣金不猜默认值 | 默认税率来自 §4.3.2 已登记的单一服务端定义；前端不另写默认常量。不创建账户或配置版本 |
-| `POST /accounts` | requestId、name、brokerName、commissionRateWan、minimumCommission、stampTaxRatePct、initialCash、initialPositions；每行含 clientRowId、tsCode、quantity、availableQuantity、costPrice | 三步完成时一次提交，初始化日期取首次成功接纳的北京时间日期，不接受客户端自定历史起点；无持仓可传空数组，空可卖量不能变成 0。返回账户和初始化 / 费用版本及成功回执 |
+| `POST /accounts` | requestId、name、brokerName、commissionRateWan、minimumCommission、stampTaxRatePct、initialCash、initialPositions；每行含 clientRowId、tsCode、openedOn、quantity、availableQuantity、costPrice | 三步完成时一次提交，账户初始化日期取首次成功接纳的北京时间日期；逐股建仓日期由用户必填，不能用提交日代替。无持仓可传空数组，空可卖量不能变成 0。返回账户和初始化／费用版本及成功回执 |
 | `GET /accounts/{accountId}/initialization` | 该账户当前有效初始事实、initializationRevision 及每只股票事实 | 更正初始化的回填来源，不用当前持仓反推期初；历史版本保留审计，不生成虚构交易 |
 | `GET /accounts/{accountId}/fees`、`PUT /accounts/{accountId}/fees` | 读取当前三项费用配置及 feeVersionId；保存带 requestId、expectedFeeVersionId 和三项配置 | 已确认输入校验、无变化不新增版本、失败 / 取消不切版本；成功回执不带历史重算要求。并发旧版本不能覆盖新配置 |
 | `GET /accounts/{accountId}/entry-context` | 输入发生日期及可选 tsCode；返回该账户最新有效事实版本、当前可用现金、指定交易日期的持仓 / 可卖量、当前费率版本及交易日依据状态 | 现金注明业务截止，股数注明校验日期，不把当前股数用于历史卖出；不得读取全部账户余额来放行单账户。重算中也从有效事实验证，不从旧派生结果借余额 |
@@ -1020,7 +1060,7 @@ PRD §12.5 的整轮结果、持平日和最高 / 最低收益日期现已由 R9
 
 1. 复盘输入与曲线共用账户选择、全仓 / 单股选择、requestedStartDate、requestedEndDate。具体账户必须属于当前用户；全部账户由服务端解析为本人账户集合，不接受 userId 或任意账户集合扩大权限。全仓时不带 tsCode，单股时必须带可解析代码；历史已清仓股票不能因不在当前持仓中而被过滤掉。
 2. 起止日期两端包含，复盘不按日 / 周 / 月粒度扩张日期，不接受粒度或金额 / 收益率切换作为计算参数。月曲线仍按自然月查询，不能把月点范围直接传给复盘替代用户所选日期。顶部固定当前 / 本月四卡亦不随复盘范围重新定义。
-3. 响应回显 scope（账户模式、解析后的账户、股票模式与股票引用）及 requestedStartDate / requestedEndDate。按账户返回 initializedOn、effectiveStartDate、targetThroughDate、calculatedThroughDate、valuationAt 与状态，解释初始化截断、未来日期排除和实际截至时间；没有可计算交集时实际范围为 null，不生成倒置日期。多账户同一业务日先各自计算再汇总，一天最多计数一次，不能把两个账户的盈利日相加为两天。
+3. 响应回显 scope（账户模式、解析后的账户、股票模式与股票引用）及 requestedStartDate / requestedEndDate。按账户返回 initializedOn、effectiveStartDate、targetThroughDate、calculatedThroughDate、valuationAt 与状态，解释实际建仓历史起点、未来日期排除和实际截至时间；没有可计算交集时实际范围为 null，不生成倒置日期。多账户同一业务日先各自计算再汇总，一天最多计数一次，不能把两个账户的盈利日相加为两天。
 4. 复用 §4.6.3 的结果上下文，本文统一称 readContext：包括逐账户 factVersion、calculationTargetVersion、publishedGenerationId、估值依据引用及共同截止。复盘、曲线、记录下钻须固定同一份上下文；客户端回传它只用于检查版本一致，不是权限凭证。服务端仍核对所有者与版本，不信任客户端给出的收益、完成状态或轮次。
 5. 第一次读取解析上下文；随后各查询和分页携带 readContext。事实 / 计算目标或已发布结果改变时，不悄悄改读新版本；返回需要刷新上下文的可解释状态，前端保留筛选、清理旧游标后整组重读。当前有效结果未追上接纳事实时显示重算 / 待计算，不用候选日结果凑数。部分结果只允许使用已发布且经兼容性检查仍适用的日期；不能穿透尚未发布的候选清单。
 6. “返回恢复筛选”保存的是页面选择和查看位置，不保证旧数据永远有效。返回时先核对上下文；仍有效可恢复原页 / 选中行，已变化则在原筛选下重新加载，不能以恢复原样为由混用旧头部和新明细。筛选切换清空相关弹层、游标与选中对象，迟到响应丢弃；失败不回退原型 mock。
@@ -1052,7 +1092,7 @@ dailyStats 另带 dataStatus、resultKind（有有效日 / 无有效日 / 尚不
 | 拟定接口 / 复用接口 | 输入与输出 | 正式节点及边界 |
 | --- | --- | --- |
 | `GET /holding-rounds/completed` | 与复盘相同的账户 / 股票 / 精确起止、readContext、limit、cursor；返回 scope、closedStartDate、closedEndDate、coverage、completedRoundCount、items、nextCursor。每行带 accountId / accountName、stockRef、roundId、roundNumber、openedOn、closedOn、openingSource、roundProfitAmount、roundReturnPct | `1807:37368`；只取日终已结束且 closedOn 在范围内的轮次，不先按范围裁断本轮投入或回款。相同代码不同账户 / 轮次保持独立行 |
-| `GET /accounts/{accountId}/holding-rounds/{roundId}` | 携带 readContext；返回轮次身份、起止、状态、起点来源、buyQuantity、sellQuantity、buyInvestmentAmount、sellNetProceedsAmount、roundProfitAmount、roundReturnPct、closedTradeCount 和所属记录查询定位 | `1807:37382`；以账户 + 轮次 + 结果上下文取完整事实，详情不接受父列表起止作为裁断条件。初始化来源含初始化日期、股数、含费成本与对应期初版本，不伪造初始化前成交 |
+| `GET /accounts/{accountId}/holding-rounds/{roundId}` | 携带 readContext；返回轮次身份、起止、状态、起点来源、buyQuantity、sellQuantity、buyInvestmentAmount、sellNetProceedsAmount、roundProfitAmount、roundReturnPct、closedTradeCount 和所属记录查询定位 | `1807:37382`；以账户 + 轮次 + 结果上下文取完整事实，详情不接受父列表起止作为裁断条件。初始化来源含账户提交日期、持仓建仓日期、股数、含费成本与对应期初版本，不伪造初始化前成交 |
 | `GET /records/closed-trades`（扩展 §4.11.4 的同一查询） | 范围模式继承账户 / 股票 / 起止；返回完整范围 summary（closedTradeCount、closedProfitAmount 及状态）和分页 items。另支持 accountId + roundId 的整轮模式；服务端从轮次推导完整起止并返回 recordsScope，不把父层清仓日期范围与之取交集 | `1807:3435` 范围闭环、`1807:37155 / 1816:3788` 整轮闭环；不新建 `/review/closed-trades` 或第二套闭环详情，不按当前页求摘要 |
 | `GET /records/trades/{tradeId}`（沿用） | 在相同 readContext 下返回该卖出事实与闭环，闭环增加 roundRef（accountId、roundId、roundNumber、status） | 既有闭环右侧详情及“查看原始成交 / 所属轮次”；点击所属轮次先核对该上下文的轮次状态，不从当前剩余股数猜测历史轮次 |
 | `GET /positions/{tsCode}`（沿用） | 进行中轮次入口使用具体账户和 roundRef 核对返回的当前轮次；仅渲染现有持仓详情字段 | `1808:3604`；轮次已结束或版本已变时刷新 / 转入整轮详情，不能误开同股新轮次。复用现有持仓表单和记录卖出动作，不从复盘自动成交 |
@@ -1326,7 +1366,7 @@ UNKNOWN 是查询／传输的不确定结论，不作为可覆盖成功事实的
 
 #### 4.18.1 期初回填、预览与确认
 
-`GET /accounts/{accountId}/initialization` 返回 §4.35 的 InitializationDetail：Initialization 全部字段加 name、brokerName、factVersion。每行返回 `{ clientRowId, tsCode, stockRef, quantity, availableQuantity, costPrice, costAmount }`；名称统一使用后续 §4.35 收敛的 stockRef.name，不再同时输出旧 stockName 别名。名称来自服务端证券身份解析，只显示不作为提交事实。读取必须来自同一期初版本，不从 positions 或 entry-context 拼装；创建账户回执中的 Initialization 由外层 account 提供账户显示信息，不重复嵌入。
+`GET /accounts/{accountId}/initialization` 返回 §4.35 的 InitializationDetail：Initialization 全部字段加 name、brokerName、factVersion。每行返回 `{ clientRowId, tsCode, stockRef, openedOn, quantity, availableQuantity, costPrice, costAmount }`；名称统一使用后续 §4.35 收敛的 stockRef.name，不再同时输出旧 stockName 别名。名称来自服务端证券身份解析，只显示不作为提交事实。读取必须来自同一期初版本，不从 positions 或 entry-context 拼装；创建账户回执中的 Initialization 由外层 account 提供账户显示信息，不重复嵌入。
 
 | 正式节点／页面字段 | 请求或返回字段 | 来源与必须验收的边界 |
 | --- | --- | --- |
@@ -1334,12 +1374,13 @@ UNKNOWN 是查询／传输的不确定结论，不作为可覆盖成功事实的
 | B `1866:6112` 初始化日期 | initializedOn | 只读；更正命令不接受该字段，不按更正当天重置 |
 | B 初始现金 | initialCash | 原期初事实；允许 0.00，不是当前现金、不新增入金 |
 | B 股票名称／代码 | initialPositions[].tsCode、stockRef.name | 同一版本同股票唯一；提交白名单不含 stockRef；添加、移除仅改变候选列表 |
+| B 建仓日期（R14 已合入） | initialPositions[].openedOn | 逐股必填实际建仓日；回填、更正、预览及恢复均保留，与只读 initializedOn 分开 |
 | B 总持仓、期初可卖、含费成本 | quantity、availableQuantity、costPrice | 可卖量针对初始化当日；必填与 0 分开；成本已含买入费用，不能追加当前佣金 |
 | B 行定位 | clientRowId | 编辑、排序、删除后仍稳定定位；不以数组下标识别错误股票，不参与核算身份 |
 | B 核对更正 | expectedRevision = initializationRevision；initialCash、initialPositions | 调用既有 correction-preview；取消不调用 corrections，不保存有效事实 |
 | C `1866:6152` 前后值 | before、after、changedFields | 预览由同一初始化版本及候选构造，按 tsCode 对照新增／移除／修改；不从格式化页面文本反算 |
 | C 期初持仓成本 | before／after 行的 costAmount | 后端用 quantity × costPrice 按既有金额精度输出；10.00 × 1000 → 10.20 × 1000 对应 10000.00 → 10200.00；不落作一笔成交 |
-| C 重算起点 | affectedFromDate | 等于原 initializedOn；休市日期的初始化基线不伪造交易日快照 |
+| C 重算起点 | affectedFromDate | 日期更正取新旧 openedOn 较早者；其他字段按 §1.2，不能固定等于 initializedOn；休市提交不伪造交易日快照 |
 | C 确认更正 | requestId、attemptId、expectedRevision、initialCash、initialPositions | 只提交用户核对的候选；遵守公共请求恢复协议；最终重新校验后续历史，不以预览成功跳过并发复验 |
 | D `1866:6165` 可卖量红字 | fieldErrors 的 field、clientRowId、message、受影响业务日期 | field 指向 availableQuantity；示例为初始化日已卖 600、候选可卖 500，拒绝整次更正，不修改原卖出、不保存半份期初 |
 
@@ -1499,9 +1540,10 @@ ID 类型、数值存储及账户循环外键设计由 §4.21 承接；输入容
 | app.wealth_ta_initialization：initialization_id、account_id、revision、accepted_fact_version | UUID 主键；UUID、BIGINT、BIGINT 非空 | 账户外键 RESTRICT；revision 与 accepted_fact_version 均 ≥ 1；唯一 (account_id, revision) 及 (account_id, initialization_id) |
 | initial_cash、created_at、source_initialization_id | NUMERIC 非空、TIMESTAMPTZ 非空、UUID 可空 | 初始现金非负且精确到分；第一版来源为空，更正版必须指向本账户旧期初版本；不另存当前现金 |
 | app.wealth_ta_initial_position：account_id、initialization_id、ts_code | UUID、UUID、TEXT，均非空 | 主键 (initialization_id, ts_code)；(account_id, initialization_id) 引用本账户期初版本；股票身份由既有证券解析合同校验，不按名称去重 |
+| opened_on（修订 87 待实施） | DATE，非空 | 用户提供的逐股建仓日期，服务端检查日期及日历；不以 created_at／initialized_on 默认补齐，更正形成新版本，见 §1.2 |
 | client_row_id、quantity、available_quantity、cost_price | TEXT、BIGINT、BIGINT、NUMERIC，均非空 | 同期初版本 client_row_id 唯一且非空；quantity > 0，0 ≤ available_quantity ≤ quantity，cost_price > 0 且精确到分；无整手倍数限制 |
 
-初始化日期只存账户主表，期初版本通过账户引用读取；不在每个新期初版本再留一个可被改成不同日期的字段。initializationRevision 映射 initialization.revision，initialCash 映射 initial_cash，initialPositions 行按 §4.18 映射；stockRef.name 查询解析，不是可修改期初事实。costAmount 从 quantity × cost_price 精确生成，不再存第二份可漂移的输入金额，初始化不可卖量同样由差额得出。
+账户提交日期 initialized_on 只存账户主表，期初版本通过账户引用读取；逐股建仓日期 opened_on 属于各期初持仓版本，可更正但不可覆盖旧版本，两者不可混用。initializationRevision 映射 initialization.revision，initialCash 映射 initial_cash，initialPositions 行按 §4.18 映射；stockRef.name 查询解析，不是可修改期初事实。costAmount 从 quantity × cost_price 精确生成，不再存第二份可漂移的输入金额，初始化不可卖量同样由差额得出。
 
 NUMERIC 在本组输入表不指定会自动截断／舍入的 scale，约束检查有限数值、业务正负范围及 value = trunc(value, 2)，服务端在入库前执行同样校验。不能让 NaN／Infinity 或多余小数位被数据库转换成合法金额。费用版本的比例精度分别为佣金六位、印花税四位，来自输入两位再除以 10000／100，不错误地把存储比例限为两位。股数 JSON 安全整数上界由 §4.28 明确，不把 BIGINT 全范围当作浏览器能够精确承载的范围；完整输入字节预算仍见 §11.5。
 
@@ -1613,7 +1655,7 @@ WHERE rn = 1 AND status = 'ACTIVE';
 
 快照 current_*、holding_* 只覆盖日末仍持有的轮次；day_* 覆盖当天全部参与，包括已清仓股票；closed_* 是对应卖出闭环的累计持有期间结果，不能再加到 day_profit_amount。无股票期间结果时金额／率的空值按 PRD 和 §4.19 表达，现金快照仍可存在。金额为有限精确 NUMERIC，最终金额到分；原始行情 price 保存源精度不强制两位，前端显示精度不得倒灌估值依据。单股动态成本可为负，不能套用初始化成本正数 CHECK；闭环分摊成本与剩余买入成本非负，分币以 §4.5.1 为准。
 
-**轮次与跨代复用：**round_id 是派生身份，按账户、股票及建仓来源确定并在固定输入下稳定重建；同日卖出又买回而日末仍持仓不结束轮次。历史更正可能改变轮次划分，旧轮次只在原发布上下文解释，不能仅凭相同股票代码将旧轮次详情接到新代次。position_state 保存数量／成本的日期状态，不是新增单股收益率快照。初始估值基线独立保存并引用 initialization_id／valuation_basis，不把休市初始化日伪造成交易日 day_result。
+**轮次与跨代复用：**round_id 是派生身份，按账户、股票及建仓来源确定并在固定输入下稳定重建；同日卖出又买回而日末仍持仓不结束轮次。历史更正可能改变轮次划分，旧轮次只在原发布上下文解释，不能仅凭相同股票代码将旧轮次详情接到新代次。position_state 保存数量／成本的日期状态，不是新增单股收益率快照。逐股初始基线按 opened_on 独立保存并引用 initialization_id／valuation_basis；账户休市提交日不伪造成交易日 day_result，历史收益范围按 §1.2，不再由提交日统一截断。
 
 **发布约束：**日数全部完成后仍须读回核验：每笔有效卖出恰一条闭环；数量／成本分配守恒；快照现金和有效原始事实一致；所有有效日期清单完整且与固定截止对应；每条引用同账户、同日期，且为 SEALED。最后短事务复验账户目标和执行权，插入 publication_receipt 并更新 published_generation_id。清单或回执写失败不切指针；旧代次恢复不能发布到新目标。查询只从账户发布指针及清单进入，不按各表最大 created_at／generation_id 自行拼接。
 
@@ -2050,9 +2092,9 @@ FeeAmounts、CostAllocation 是核算内部值对象，不直接原样公开 API
 | 对象 | 完整业务字段；公共身份按上表组合 |
 | --- | --- |
 | AccountSummary | AccountRef + initializedOn、factVersion、feeVersionId |
-| InitializationPosition | clientRowId、tsCode、quantity、availableQuantity、costPrice；响应另含 stockRef、costAmount。请求不接受响应专属字段 |
+| InitializationPosition | clientRowId、tsCode、openedOn:BusinessDate（必填、非 null，修订 87 待实施）、quantity、availableQuantity、costPrice；响应另含 stockRef、costAmount。请求不接受响应专属字段；日期贯穿范围及核算起点见 §1.2 |
 | Initialization | accountId、initializedOn、initializationId、initializationRevision、initialCash、initialPositions:InitializationPosition[]；响应保留每行原始身份，成本按 §4.18；独立读取 InitializationDetail 另带 name、brokerName、factVersion，不让页面补请求拼装 |
-| CreateAccountInput | name、brokerName、commissionRateWan、minimumCommission、stampTaxRatePct、initialCash、initialPositions（请求行）；不接收初始化日期 |
+| CreateAccountInput | name、brokerName、commissionRateWan、minimumCommission、stampTaxRatePct、initialCash、initialPositions（请求行，各行必填 openedOn）；不接收账户提交日期 initializedOn，不等于禁止填写持仓建仓日期 |
 | CreateAccountResult | account:AccountSummary、initialization:Initialization、fees:FeeSettingsDto |
 | TradeInput | tsCode、direction:BUY/SELL、tradeDate、price、quantity、note:string 可省略／null |
 | CashFlowInput | direction:IN/OUT、occurredOn、amount、note:string 可省略／null |
@@ -2122,7 +2164,7 @@ NotificationSummary 字段为 notificationId?、state、stateVersion?、robotId?
 - 机器人配置／测试／确认的恢复范围固定为 `{scopeType:ROBOT}`，对应本人唯一机器人入口，不新增机器人管理列表；通知重试为 `{scopeType:NOTIFICATION,notificationId}`，只对应原通知。原有账户／规则恢复范围不变。
 - 核算进度 stage 将 §4.6.2 既有阶段编码为 PENDING／PREPARING／CALCULATING／VERIFYING／PUBLISHING／PUBLISHED／WAITING_DATA／FAILED／CANCELLED／SUPERSEDED；仅为内部合同枚举，不增加用户状态或调度平台。
 - 机器人候选恢复 input 使用原请求的 name／maskedWebhook／hasSigningSecret／keywords／expectedConfigVersionId；外层 requestId 定位服务端已留存的凭据引用，不要求失败创建已经有 candidateId，不回传秘密。新命令仍须重新核验，摘要或掩码不能直接恢复成秘密。
-- 整轮详情的期初来源组合名为 initializationSource，包含 initializedOn／initializationId／initializationRevision／quantity／costPrice／costAmount；非期初来源为 null。检查序号 checkNo、发送序号 attemptNo 为正安全整数，版本号仍为 Version 文本；账户事实／计算目标版本按 §4.21 从 1 开始。
+- 整轮详情的期初来源组合名为 initializationSource，包含 initializedOn／openedOn／initializationId／initializationRevision／quantity／costPrice／costAmount；非期初来源为 null。检查序号 checkNo、发送序号 attemptNo 为正安全整数，版本号仍为 Version 文本；账户事实／计算目标版本按 §4.21 从 1 开始。
 - 更正预览 before／after 是候选事实投影，不伪造新修订的 acceptedAt。交易采用 TradeInput＋自动费用，资金采用 CashFlowInput＋netCashChange；期初采用 initialCash／initialPositions，按股票稳定对齐后允许新增／移除侧为 null。备注仍按原 500 字素；预览不接收保存请求身份。
 - 检查证据 actualValue 是保留来源精度的 SourceDecimal 文本，不先格式化为两位再判条件；用户阈值仍最多两位，页面展示仍按既定两位。规则详情的 missingRanges／failureReason 来自该规则实际检查，不靠通知失败反推检查失败。
 
