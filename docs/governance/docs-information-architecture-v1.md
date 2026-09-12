@@ -961,6 +961,26 @@ G2 精简依据：已完成阶段的开工模板、重复门禁和主观选型�
 
 验证：Overview、DataTable、TradeDateField 三份离线测试共 10 项通过，check:rules 通过；文档完整性三个检查组、8 份保留文件的 280 个本地链接/38 处锚点与 git diff --check 通过。原选型评分和外部资料入口、组件目录设计数值表及 D1～D5 均保留；Showcase 与 HEAD 字节一致。删除文件名仅剩本节追溯。未运行全量前端测试或浏览器，不宣称视觉复验通过。
 
+<a id="release-docs-20260912"></a>
+
+### 4.9 2026-09-12 发布流程、环境边界与部署历史
+
+状态：三批修改完成，待统一 review，未提交。保留三份文档，不改部署/启动/预检脚本，不安装、不启停、不迁移、不访问生产。
+
+| 文档 | 处理与信息归属 |
+| --- | --- |
+| [正式发版流程](/Users/congming/github/goldenshare/docs/release/release-process-v1.md) | 校准 dev-interface 与脚本仍默认 main 的区别；七个预检开关、九项服务和普通 only 模式副作用、unit 差异同步、seed 写入、维护/QTF 模式分开；保留维护迁移配置审计 |
+| [本地/生产边界](/Users/congming/github/goldenshare/docs/release/local-prod-operation-boundary-v1.md) | 明确本地进程可能连接生产、缺 node_modules 自动安装、环境变量安装入口与 skip-build 不等于不安装；重复部署步骤归正式流程 |
+| [部署历史 HTML](/Users/congming/github/goldenshare/docs/release/remote-server-deployment-overview-v1.html) | 保留五月/六月主机、磁盘、版本、权限、数据库/缓存、端口和服务证据；撤下重复部署参数和命令，改为当前流程/工具导航；历史自启问题不冒充未决政策 |
+
+G1：旧“切旧 SHA 后重跑部署”不符合 fetch/checkout/pull 行为，已撤销错误指令；现脚本不是固定 SHA 回滚工具，代码回退不自动撤 migration/seed。普通模式不在迁移前自动停服；print_service_status 失败仍返回成功，脚本完成不证明全部服务 active。以上仅写清限制，没有暗中实现新流程或承诺可安全回滚。
+
+G2：环境边界、发布步骤和历史证据各保留一个入口，主索引同步。Quote 验收回链现行 API 合同，不复制周期/复权规则。历史数据不改成今日事实；三份文档均保留，不新建平行发布手册。
+
+依据：完整读取 wrapper、layered、local-build-and-run、release-preflight 相关执行分支及现存测试；文档治理技能用于区分授权、实现和历史证据。文档修订不批准后续脚本改造；其他任务的 README、代码及研究产物未处理。
+
+验证：日期审计、完成后处理和分钟 worker 部署范围的三项静态测试通过（其余十项未运行）；文档完整性三个检查组与 git diff --check 通过。HTML 保留 13 个章节，11 个历史章节的全部表格逐字不变，7 个本地导航有效；维护迁移安全说明及配置审计原样保留。未运行生产脚本、全量预检或浏览器，静态检查不代表生产与视觉验收。
+
 <a id="5-执行规则"></a>
 <a id="6-第二轮收尾检查已完成"></a>
 

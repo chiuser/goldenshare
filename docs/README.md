@@ -231,8 +231,9 @@ docs/
 - [前端 Ops 事实字段消费审计 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-ops-fact-consumer-audit-v1.md)
 - [前端质量门禁与截图回归（已合并矩阵和 smoke 说明）](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md)
 - [行情主系统接口规范](/Users/congming/github/goldenshare/docs/platform/quote-detail-api-spec-v1.md)
-- [远程服务器部署总览 v1（HTML）](/Users/congming/github/goldenshare/docs/release/remote-server-deployment-overview-v1.html)
+- [远程部署历史审计（2026-05/06；不代表当前生产状态）](/Users/congming/github/goldenshare/docs/release/remote-server-deployment-overview-v1.html)
 - [发版流程 v1](/Users/congming/github/goldenshare/docs/release/release-process-v1.md)
+- [本地/生产操作边界（含启动脚本自动安装前提）](/Users/congming/github/goldenshare/docs/release/local-prod-operation-boundary-v1.md)
 
 ## 7. 数据源接口说明
 

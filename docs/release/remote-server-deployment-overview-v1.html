@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Goldenshare 远程服务器部署总览 v1</title>
+  <title>Goldenshare 远程部署历史审计（2026-05/06）</title>
   <style>
     :root {
       color-scheme: light;
@@ -157,8 +157,9 @@
 <body>
 <main>
   <header class="hero">
-    <h1>Goldenshare 远程服务器部署总览 v1</h1>
+    <h1>Goldenshare 远程部署历史审计（2026-05/06）</h1>
     <p class="muted">审计时间：2026-05-15 17:20 CST；实时分钟增量复核：2026-06-02 01:05 CST。审计方式：只读 SSH、systemd、Nginx、PostgreSQL、Redis、健康接口探测。</p>
+    <div class="callout"><strong>历史记录，不是当前运行清单。</strong>2026-09-12 仅整理文档，未连接生产。下文“当前”、active/enabled、版本、容量、权限和暴露面均按原审计时间理解；不证明今天仍相同，也不构成迁移、清理或安装授权。现行操作见 <a href="release-process-v1.md">正式发版流程</a>及 <a href="local-prod-operation-boundary-v1.md">本地/生产边界</a>。原“旧运营后台”指 /app 的运营前端，不是已退役的 lake_console frontend/backend。</div>
     <p><strong>安全口径：</strong>本文档不记录任何密钥、Token、数据库密码、JWT Secret 或完整连接串。涉及敏感值只记录 key 名、用途与脱敏后的事实。</p>
     <div class="grid">
       <div class="card"><strong>公网域名</strong><span>wealthworld.com.cn</span></div>
@@ -277,23 +278,9 @@
   </section>
 
   <section class="section">
-    <h2>6. 部署脚本与发布方式</h2>
-    <p>部署入口仍然是仓库内脚本，远程必须使用 <code>goldenshare</code> 用户执行，避免 Git 目录所有权问题。</p>
-    <pre><code>ssh goldenshare-prod 'sudo -n -u goldenshare /bin/bash -lc "cd /opt/goldenshare/goldenshare &amp;&amp; bash scripts/deploy-systemd.sh dev-interface"'</code></pre>
-    <table>
-      <thead><tr><th>命令/参数</th><th>当前语义</th></tr></thead>
-      <tbody>
-        <tr><td><code>bash scripts/deploy-systemd.sh dev-interface</code></td><td>全量部署：拉代码、安装后端依赖、构建运营后台、构建财富前端、迁移 DB、重启服务、健康检查。</td></tr>
-        <tr><td><code>--platform-only</code></td><td>只发布 Web/API 层；当前已收紧为默认不处理 realtime collector。</td></tr>
-        <tr><td><code>--ops-only</code></td><td>只发布 Ops 调度层。</td></tr>
-        <tr><td><code>--foundation-only</code></td><td>只发布 Foundation worker 层。</td></tr>
-        <tr><td><code>--with-realtime</code></td><td>在非全量部署中显式带上 realtime collector。</td></tr>
-        <tr><td><code>--skip-realtime</code></td><td>全量部署时显式跳过 realtime collector。</td></tr>
-        <tr><td><code>--skip-build</code></td><td>同时跳过 <code>frontend</code> 与 <code>wealth</code> 构建。</td></tr>
-        <tr><td><code>--skip-wealth-build</code></td><td>仅跳过财富系统前端构建。</td></tr>
-      </tbody>
-    </table>
-    <p>本地推送到 GitHub 后，远程 Gitee 镜像通常需要 30 秒到 1 分钟同步。若远程拉不到最新提交，应按最多 3 次重试规则等待，不应手工打 patch。</p>
+    <h2>6. 发布入口与历史说明</h2>
+    <p>部署方式、参数和副作用只维护在 <a href="release-process-v1.md">正式发版流程</a>，不在历史审计里复制可执行部署命令。当前脚本管理的服务已超出下文历史五服务清单；普通 *-only 也不等于跳过构建、迁移或 seed。</p>
+    <p>原记录称 GitHub 到 Gitee 镜像通常需 30 秒到 1 分钟，并建议最多重试 3 次；这是当时经验，不是今日同步保证。实际发布必须核对远程目标分支与 SHA，不在服务器手工打 patch，也不因旧记录自行推送或部署。</p>
   </section>
 
   <section class="section">
@@ -393,22 +380,14 @@
   </section>
 
   <section class="section">
-    <h2>12. 运维命令索引</h2>
-    <table>
-      <thead><tr><th>用途</th><th>命令</th></tr></thead>
-      <tbody>
-        <tr><td>全量部署</td><td><code>ssh goldenshare-prod 'sudo -n -u goldenshare /bin/bash -lc "cd /opt/goldenshare/goldenshare &amp;&amp; bash scripts/deploy-systemd.sh dev-interface"'</code></td></tr>
-        <tr><td>仅部署 Web/API</td><td><code>ssh goldenshare-prod 'sudo -n -u goldenshare /bin/bash -lc "cd /opt/goldenshare/goldenshare &amp;&amp; bash scripts/deploy-systemd.sh dev-interface --platform-only"'</code></td></tr>
-        <tr><td>查看服务状态</td><td><code>ssh goldenshare-prod 'sudo -n systemctl is-active goldenshare-web.service goldenshare-ops-worker.service goldenshare-ops-scheduler.service'</code></td></tr>
-        <tr><td>远程 env 管理</td><td><code>bash scripts/remote-web-env.sh &lt;show|get|set|unset&gt;</code></td></tr>
-        <tr><td>远程 DB 查询</td><td><code>bash scripts/psql-remote.sh -c "select 1;"</code></td></tr>
-        <tr><td>Nginx 配置校验</td><td><code>ssh goldenshare-prod 'sudo -n nginx -t'</code></td></tr>
-      </tbody>
-    </table>
+    <h2>12. 操作导航（不复制命令）</h2>
+    <p>部署和回退见 <a href="release-process-v1.md">正式流程</a>；环境与安装边界见 <a href="local-prod-operation-boundary-v1.md">环境说明</a>。服务状态、Nginx 配置及数据库只读检查须按当次授权与实际连接执行，历史检查通过不保证今日健康。</p>
+    <p>原工具入口保留为代码定位：<a href="../../scripts/remote-web-env.sh">remote-web-env.sh</a>、<a href="../../scripts/psql-remote.sh">psql-remote.sh</a>。env 的 set/unset 是写操作，不能与只读查看混为一谈。</p>
   </section>
 
   <section class="section">
-    <h2>13. 当前已知关注点</h2>
+    <h2>13. 当时的关注点（未在本轮重验）</h2>
+    <p>保留原风险与建议，不据此重新排期：仓库部署脚本现已在 Ops 发布时对日期审计 worker 执行 enable + restart，所以“是否需要自启”不再是未决政策；生产是否实际 enabled 仍需当次核实。容量、数据库暴露面和最小权限也不能仅靠本历史记录宣布仍有问题或已经解决。</p>
     <table>
       <thead><tr><th>级别</th><th>事项</th><th>建议</th></tr></thead>
       <tbody>
