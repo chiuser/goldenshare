@@ -185,7 +185,7 @@ def test_initialization_correction_keeps_origin_and_checks_removed_stock(databas
         conn.execute(pg_insert(TradeCalendar).values(exchange="SSE", trade_date=date(2026,9,11), is_open=True,
             pretrade_date=date(2026,9,10)).on_conflict_do_nothing())
         conn.execute(insert(InitialPosition).values(initialization_id=initial, account_id=account,
-            ts_code="600001.SH", client_row_id="stable-row", quantity=100, available_quantity=100, cost_price=Decimal("10.00")))
+            ts_code="600001.SH", client_row_id="stable-row", opened_on=date(2026,9,11), quantity=100, available_quantity=100, cost_price=Decimal("10.00")))
     async def execute():
         engine = create_async_engine(database.url)
         policy = TradingAssistantExecutionPolicyV1()
@@ -197,11 +197,11 @@ def test_initialization_correction_keeps_origin_and_checks_removed_stock(databas
             assert sold.status == "SAVED", sold.rejection
             invalid_stock = await service.save(owner_id=1, account_id=account, operation="INITIALIZATION_CORRECT",
                 command=CorrectInitializationCommand(**ids(), expectedRevision="1", initialCash="0.00", initialPositions=[dict(
-                    clientRowId="invalid-stock-row", tsCode="999999.SH", quantity=10, availableQuantity=10, costPrice="1.00")]))
+                    clientRowId="invalid-stock-row", tsCode="999999.SH", openedOn="2026-09-11", quantity=10, availableQuantity=10, costPrice="1.00")]))
             assert invalid_stock.status == "NOT_SAVED"
             assert invalid_stock.field_errors[0].field == "initialPositions.tsCode"
             assert invalid_stock.field_errors[0].clientRowId == "invalid-stock-row"
-            row = dict(clientRowId="stable-row", tsCode="600001.SH", quantity=100, availableQuantity=50, costPrice="10.20")
+            row = dict(clientRowId="stable-row", tsCode="600001.SH", openedOn="2026-09-11", quantity=100, availableQuantity=50, costPrice="10.20")
             bad = await service.save(owner_id=1, account_id=account, operation="INITIALIZATION_CORRECT",
                 command=CorrectInitializationCommand(**ids(), expectedRevision="1", initialCash="0.00", initialPositions=[row]))
             assert bad.status == "NOT_SAVED", bad

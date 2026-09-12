@@ -26,7 +26,7 @@ describe("generated TA contract runtime", () => {
     expect(() => parseContract("EntryContext", { ...entry, stockRef: null, quantity: null, availableQuantity: null })).not.toThrow();
   });
   it("rejects unsafe JSON share integers and allows odd lots", () => {
-    const row = { clientRowId: "row-1", tsCode: "000001.SZ", quantity: 13, availableQuantity: 3, costPrice: "10.00" };
+    const row = { clientRowId: "row-1", tsCode: "000001.SZ", openedOn: "2026-09-11", quantity: 13, availableQuantity: 3, costPrice: "10.00" };
     expect(parseContract("InitializationPositionInput", row)).toBe(row);
     expect(() => parseContract("InitializationPositionInput", { ...row, quantity: 9007199254740992 })).toThrow();
     expect(() => parseContract("InitializationPositionInput", { ...row, availableQuantity: 14 })).toThrow();

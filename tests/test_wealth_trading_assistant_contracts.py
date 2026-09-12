@@ -72,7 +72,7 @@ def test_fee_and_derived_fields_cannot_be_written(field):
 
 
 def test_initialization_and_tax_zero():
-    base = dict(clientRowId="row-a",tsCode="600000.SH",quantity=1000,costPrice="10")
+    base = dict(clientRowId="row-a",tsCode="600000.SH",openedOn="2026-09-11",quantity=1000,costPrice="10")
     for qty in (0,600,1000):
         assert accounts.InitializationPositionInput(**base,availableQuantity=qty).availableQuantity == qty
     for qty in (None,-1,1001,1.5,True):
@@ -669,7 +669,7 @@ def test_previews_have_no_save_identity_and_keep_nullable_added_removed_rows():
     assert_complete_fixture(previews.TradeCorrectionPreview,fixture)
     with pytest.raises(ValidationError):
         previews.TradeCorrectionPreview(**fixture,requestId=ID)
-    row = dict(clientRowId="row-a",tsCode="600000.SH",quantity=1,availableQuantity=0,costPrice="10.00",
+    row = dict(clientRowId="row-a",tsCode="600000.SH",openedOn="2026-09-11",quantity=1,availableQuantity=0,costPrice="10.00",
                stockRef=dict(tsCode="600000.SH",name="股票"),costAmount="10.00")
     initial = {**fixture,"before":{"initialCash":"0.00","initialPositions":[None]},
                "after":{"initialCash":"0.00","initialPositions":[row]}}

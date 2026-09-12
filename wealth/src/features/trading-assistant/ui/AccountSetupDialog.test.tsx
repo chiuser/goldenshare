@@ -36,11 +36,13 @@ describe("three-step account initialization", () => {
     fill("持仓数量", "13"); fill("持仓成本价", "10.01");
     fireEvent.click(screen.getByRole("button", { name: "完成初始化" }));
     expect(submit).not.toHaveBeenCalled();
+    expect(screen.getByText("请选择建仓日期。")).toBeInTheDocument();
+    fill("建仓日期", "2026-09-11");
     fill("当日可卖数量", "14"); fireEvent.click(screen.getByRole("button", { name: "完成初始化" }));
     expect(screen.getByText("初始化当日可卖数量不能超过持仓数量")).toBeInTheDocument();
     fill("当日可卖数量", "0"); fireEvent.click(screen.getByRole("button", { name: "完成初始化" }));
     expect(submit.mock.calls[0][0].initialPositions).toEqual([{ clientRowId: expect.any(String), tsCode: "000001.SZ",
-      quantity: 13, availableQuantity: 0, costPrice: "10.01" }]);
+      openedOn: "2026-09-11", quantity: 13, availableQuantity: 0, costPrice: "10.01" }]);
   });
   it("keeps submitted inputs disabled while saving", () => {
     render(<AccountSetupDialog stampTaxRatePct="0.05" saving onClose={vi.fn()} onSubmit={vi.fn()} />);

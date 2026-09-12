@@ -23,7 +23,7 @@ export function InitializationCorrectionForm({ account, initial, restored, sessi
   useEffect(() => () => active.current?.abort(), []);
   async function preview() {
     if (reviewing) return;
-    const checked = validateInitialPositions(rows);
+    const checked = validateInitialPositions(rows, initial.initializedOn);
     if (!validInputField("InitializationCorrectionInput", "initialCash", cash)) checked.errors.push({
       field: "initialCash", clientRowId: null, message: "请填写有效的初始现金金额", affectedOn: null });
     setErrors(checked.errors); setFailure(null);
@@ -54,8 +54,8 @@ export function InitializationCorrectionForm({ account, initial, restored, sessi
           <div className="ta-setup-progress"><span style={{ width: "100%" }} /></div>
           <TradingAssistantField required label="初始现金" inputMode="decimal" value={cash} disabled={disabled}
             error={shown.find(e => e.field === "initialCash")?.message} onChange={e => setCash(e.target.value)} />
-          <InitialPositionFields rows={rows} onChange={setRows} disabled={disabled} errors={shown} />
-          <div className="ta-notice"><strong>确认后从 {initial.initializedOn} 起重新计算</strong>
+          <InitialPositionFields rows={rows} onChange={setRows} disabled={disabled} errors={shown} initializedOn={initial.initializedOn} />
+          <div className="ta-notice"><strong>确认后重新计算受影响的持仓与收益</strong>
             系统会检查全部后续流水；有冲突时不会保存。下一步核对变更内容，尚未保存。</div>
           {failure && <p role="alert" className="ta-form-error">{failure}</p>}
         </TradingAssistantDialog>
@@ -71,6 +71,7 @@ export function InitializationCorrectionForm({ account, initial, restored, sessi
             return <section key={stock.tsCode}>
               <h3>{stock.stockRef.name} <span className="num">{stock.tsCode}</span>{!before ? " · 新增" : !after ? " · 移除" : ""}</h3>
               <dl className="ta-change-comparison">
+                <dt>建仓日期</dt><dd>{comparison(before?.openedOn, after?.openedOn)}</dd>
                 <dt>总持仓数量</dt><dd>{comparison(before?.quantity, after?.quantity)}</dd>
                 <dt>期初可卖数量</dt><dd>{comparison(before?.availableQuantity, after?.availableQuantity)}</dd>
                 <dt>含费成本价</dt><dd>{comparison(before?.costPrice, after?.costPrice)}</dd>
@@ -78,7 +79,7 @@ export function InitializationCorrectionForm({ account, initial, restored, sessi
               </dl>
             </section>;
           })}
-          <p className="ta-note">确认后从 {review.result.affectedFromDate} 起重算现金、持仓、闭环与快照。保存时再次检查后续历史；重算完成前相关收益暂不可用。</p>
+          <p className="ta-note">确认后从 {review.result.affectedFromDate} 起重算受影响的持仓与收益，现金仍按原现金基线核验。保存时再次检查后续历史；重算完成前相关收益暂不可用。</p>
         </TradingAssistantDialog>}
       </>;
 }

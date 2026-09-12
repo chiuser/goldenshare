@@ -1,5 +1,6 @@
 """An initialization replacement changes opening balances, never invents a trade."""
 from dataclasses import dataclass, asdict
+from datetime import date
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, union
@@ -13,12 +14,15 @@ from .ledger_validation import LedgerValidationInput, StockOpening
 from .market_facts import apply_sql_budget, facts_digest
 from .validation import CashValidation, QuantityValidation
 from .write_protocol import WriteProtocolConflict
+from .initialization_dates import validate_opened_on, read_initial_rows, affected_initialization_date
+from .persistence_values import numeric_cents
 
 
 @dataclass(frozen=True, slots=True)
 class InitializationChange:
     account_id: UUID
     affected_stocks: tuple[str, ...]
+    affected_from: date
     replacement: None = None
     replaced_ledger_id: None = None
 
@@ -57,21 +61,27 @@ def prepare_initialization_facts(session, *, owner_id, account_id, candidate, co
         if len(page) < policy.page_rows:
             break
         after = page[-1]
-    openings, securities = [], []
+    openings, securities, initial_dates = [], [], []
     for stock in sorted(affected):
         security = market.resolve_security(session, stock, deadline)
         securities.append(asdict(security))
         row = proposed.get(stock)
+        if row is not None:
+            initial_dates.append(validate_opened_on(session, row, initialized_on=account.initialized_on,
+                market=market, security=security, deadline=deadline))
         openings.append(StockOpening(stock, security.exchange, QuantityValidation(account.initialized_on,
             row.quantity if row else 0, row.availableQuantity if row else 0)))
     basis = dict(accountId=str(account_id), factVersion=str(account.fact_version),
         initializationId=str(initial.initialization_id), inputDigest=candidate.input_digest.hex(),
-        ruleVersion=1, securities=securities)
+        ruleVersion=1, securities=securities, initialDates=initial_dates)
     digest = bytes.fromhex(facts_digest(basis))
     previous_run = session.scalar(select(ValidationCheckpoint.validation_run_id).where(
         ValidationCheckpoint.candidate_id == candidate.candidate_id, ValidationCheckpoint.basis_digest == digest)
         .order_by(ValidationCheckpoint.updated_at.desc()).limit(1))
-    change = InitializationChange(account_id, tuple(sorted(affected)))
+    affected_from = affected_initialization_date(account.initialized_on,
+        read_initial_rows(session, initial.initialization_id, policy=policy, deadline=deadline),
+        command.initialPositions, cash_changed=parse_money_cents(command.initialCash) != numeric_cents(initial.initial_cash))
+    change = InitializationChange(account_id, tuple(sorted(affected)), affected_from)
     job = LedgerValidationInput(owner_id, candidate.candidate_id, previous_run or uuid4(),
         account.fact_version, digest, change, CashValidation(parse_money_cents(command.initialCash)), tuple(openings))
     return job, basis

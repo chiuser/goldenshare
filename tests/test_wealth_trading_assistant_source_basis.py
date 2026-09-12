@@ -82,7 +82,7 @@ def test_initial_account_rechecks_stock_eligibility_after_early_lookup(database)
         try:
             state = await deps.accounts.create(owner_id=1,command=CreateAccountCommand(requestId=str(uuid4()), attemptId=str(uuid4()),
                 name="身份变更测试", brokerName="券商", commissionRateWan="2.35", minimumCommission="5.00", stampTaxRatePct="0.05",
-                initialCash="0.00", initialPositions=[dict(clientRowId="identity-row", tsCode="600004.SH", quantity=10, availableQuantity=10, costPrice="10.00")]))
+                initialCash="0.00", initialPositions=[dict(clientRowId="identity-row", tsCode="600004.SH", openedOn="2026-09-11", quantity=10, availableQuantity=10, costPrice="10.00")]))
             assert state.status == "NOT_SAVED"
             assert state.field_errors[0].field == "initialPositions.tsCode" and state.field_errors[0].clientRowId == "identity-row"
         finally:

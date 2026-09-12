@@ -74,6 +74,7 @@ class AccountQueries:
                 security = self.market.resolve_security(session, row.ts_code, deadline)
                 cost = numeric_cents(row.cost_price)
                 positions.append(dto.InitializationPosition(clientRowId=row.client_row_id, tsCode=row.ts_code,
+                    openedOn=row.opened_on.isoformat(),
                     quantity=row.quantity, availableQuantity=row.available_quantity, costPrice=format_cents(cost),
                     stockRef={"tsCode":row.ts_code, "name":security.name}, costAmount=format_cents(cost * row.quantity)))
             if len(rows) < self.policy.page_rows:

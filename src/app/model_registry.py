@@ -16,6 +16,8 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.biz.models.wealth.trading_assistant.ledger",
     "src.biz.models.wealth.trading_assistant.recovery",
     "src.biz.models.wealth.trading_assistant.calculation",
+    "src.biz.models.wealth.trading_assistant.calculation_inputs",
+    "src.biz.models.wealth.trading_assistant.publication",
     "src.app.models.auth_action_token",
     "src.app.models.auth_audit_log",
     "src.app.models.auth_invite_code",

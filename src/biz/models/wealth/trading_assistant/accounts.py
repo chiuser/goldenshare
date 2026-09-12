@@ -115,6 +115,7 @@ class InitialPosition(Base):
     ts_code: Mapped[str] = mapped_column(Text, primary_key=True)
     account_id: Mapped[UUID] = mapped_column(Uuid)
     client_row_id: Mapped[str] = mapped_column(Text)
+    opened_on: Mapped[date] = mapped_column(Date)
     quantity: Mapped[int] = mapped_column(BigInteger)
     available_quantity: Mapped[int] = mapped_column(BigInteger)
     cost_price: Mapped[Decimal] = mapped_column(Numeric)

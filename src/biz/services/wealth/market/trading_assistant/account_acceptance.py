@@ -3,7 +3,7 @@
 The caller validates securities before this phase and obtains protocol locks first.
 No method commits, reads wall time, installs a fee default, or computes returns.
 """
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
@@ -89,11 +89,13 @@ class AccountAcceptance:
             cost = parse_money_cents(row.costPrice)
             session.add(InitialPosition(initialization_id=initialization_id,account_id=account_id,
                 client_row_id=row.clientRowId,ts_code=row.tsCode,quantity=row.quantity,
+                opened_on=date.fromisoformat(row.openedOn),
                 available_quantity=row.availableQuantity,cost_price=money_numeric(cost)))
             positions.append(dto.InitializationPosition(**row.model_dump(),
                 stockRef={"tsCode":row.tsCode,"name":securities[row.tsCode].name},
                 costAmount=format_cents(cost * row.quantity)))
-        session.add(Recalculation(account_id=account_id,target_version=1,affected_from_date=initialized_on,
+        first_day = min((date.fromisoformat(row.openedOn) for row in command.initialPositions), default=initialized_on)
+        session.add(Recalculation(account_id=account_id,target_version=1,affected_from_date=first_day,
             next_attempt_at=now,fence=0,transient_failure_count=0,updated_at=now))
         receipt = AccountCreateReceipt(requestId=command.requestId,attemptId=command.attemptId,
             operationType="ACCOUNT_CREATE",acceptedAt=timestamp,

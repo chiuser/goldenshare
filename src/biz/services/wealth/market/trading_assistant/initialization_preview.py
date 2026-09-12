@@ -77,11 +77,11 @@ class InitializationPreviewService:
             if before is None or after is None:
                 changed.append(ChangedField(field="initialPositions", clientRowId=(after or before).clientRowId))
             else:
-                for field in ("quantity", "availableQuantity", "costPrice"):
+                for field in ("openedOn", "quantity", "availableQuantity", "costPrice"):
                     if getattr(before, field) != getattr(after, field):
                         changed.append(ChangedField(field=f"initialPositions.{field}", clientRowId=after.clientRowId))
         return InitializationCorrectionPreview(
             before=InitializationPreviewFacts(initialCash=original.initialCash, initialPositions=[before_by_stock.get(s) for s in stocks]),
             after=InitializationPreviewFacts(initialCash=command.initialCash, initialPositions=[after_by_stock.get(s) for s in stocks]),
-            changedFields=changed, affectedFromDate=original.initializedOn, factVersion=original.factVersion,
+            changedFields=changed, affectedFromDate=job.change.affected_from.isoformat(), factVersion=original.factVersion,
             expectedRevision=command.expectedRevision, fieldErrors=errors)

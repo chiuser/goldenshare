@@ -51,6 +51,7 @@ def seed(engine):
         migration = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini"))).get_revision("20260912_000171").module
         with Operations.context(MigrationContext.configure(conn)):
             migration.upgrade()
+            ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini"))).get_revision("20260912_000172").module.upgrade()
         conn.execute(insert(Security), [dict(ts_code="000001.SZ", symbol="000001", name="测试股票", cnspell="CSGP", exchange="SZSE",
             security_type="EQUITY", curr_type="CNY", list_status="L", source="isolated-browser-fixture")])
         previous = date(2026, 8, 31)

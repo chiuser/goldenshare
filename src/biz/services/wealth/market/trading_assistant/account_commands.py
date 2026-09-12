@@ -2,6 +2,7 @@
 import asyncio
 from dataclasses import replace
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryRejection
 from src.biz.schemas.wealth.market.trading_assistant.errors import FieldErrorDto
@@ -9,6 +10,7 @@ from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountCreate
 from .account_acceptance import AccountAcceptance
 from .execution_policy import Deadline
 from .market_facts import SecurityNotEligible
+from .initialization_dates import InvalidInitializationDate, validate_opened_on
 from .transaction_boundary import CommitOutcomeUnknown
 from .write_protocol import WriteProtocol,WriteProtocolConflict
 
@@ -58,6 +60,9 @@ class AccountCommandService:
                     for position in command.initialPositions:
                         client_row_id = position.clientRowId
                         securities[position.tsCode] = self.market.resolve_security(session, position.tsCode, deadline)
+                        validate_opened_on(session, position, initialized_on=now.astimezone(ZoneInfo("Asia/Shanghai")).date(),
+                            market=self.market, security=securities[position.tsCode], deadline=deadline,
+                            upper_bound_message="建仓日期不能晚于今天。")
                     client_row_id = None
                     return self.acceptance.create(session,locked,command,securities=securities,now=now)
                 return self.acceptance.update_fees(session,locked,command,account_id=account_id,now=now)
@@ -65,10 +70,12 @@ class AccountCommandService:
         except (CommitOutcomeUnknown,asyncio.CancelledError):
             raise
         except Exception as error:
+            if isinstance(error, InvalidInitializationDate):
+                client_row_id = error.client_row_id
             rejection = RecoveryRejection(
-                code=error.code if isinstance(error,WriteProtocolConflict) else "TA_REQUEST_INVALID" if isinstance(error,SecurityNotEligible) else "TA_WRITE_FAILED",
-                message="股票资料不支持登记，请检查" if isinstance(error,SecurityNotEligible) else "保存未完成，请重新核对",
-                field="initialPositions.tsCode" if isinstance(error,SecurityNotEligible) else None)
+                code=error.code if isinstance(error,WriteProtocolConflict) else "TA_REQUEST_INVALID" if isinstance(error,(SecurityNotEligible, InvalidInitializationDate)) else "TA_WRITE_FAILED",
+                message=error.message if isinstance(error,InvalidInitializationDate) else "股票资料不支持登记，请检查" if isinstance(error,SecurityNotEligible) else "保存未完成，请重新核对",
+                field=error.field if isinstance(error,InvalidInitializationDate) else "initialPositions.tsCode" if isinstance(error,SecurityNotEligible) else None)
             def stop(session):
                 now = self.now()
                 return self.protocol.stop(session,self.protocol.lock_execution(session,state,now=now,

@@ -11,12 +11,13 @@ from src.biz.services.wealth.market.trading_assistant.transaction_boundary impor
 from src.biz.services.wealth.market.trading_assistant.validation import InvalidLedger
 from src.biz.services.wealth.market.trading_assistant.write_protocol import WriteProtocolConflict
 from src.biz.services.wealth.market.trading_assistant.market_facts import SecurityNotEligible, MarketFactsUnavailable
+from src.biz.services.wealth.market.trading_assistant.initialization_dates import InvalidInitializationDate
 
 
 def validation_fields(error):
     allowed = {"name", "brokerName", "initialCash", "initialPositions", "commissionRateWan", "minimumCommission",
         "stampTaxRatePct", "tsCode", "direction", "tradeDate", "occurredOn", "price", "quantity", "amount", "note",
-        "availableQuantity", "costPrice", "expectedRevision", "expectedFeeVersionId"}
+        "availableQuantity", "costPrice", "openedOn", "expectedRevision", "expectedFeeVersionId"}
     rows = error.body.get("initialPositions") if isinstance(error.body, dict) else None
     row_ids = [row.get("clientRowId") if isinstance(row, dict) else None for row in rows] if isinstance(rows, list) else []
     valid_ids = all(type(value) is str and bool(value) for value in row_ids) and len(set(row_ids)) == len(row_ids)
@@ -32,8 +33,10 @@ def validation_fields(error):
                 names = ["initialPositions"]
             else:
                 row_id = row_ids[path[1]]
-        fields.append(FieldErrorDto(field=".".join(names), clientRowId=row_id,
-            message="请检查必填项、格式和取值范围", affectedOn=None))
+        message = "请检查必填项、格式和取值范围"
+        if names[-1] == "openedOn":
+            message = "请选择建仓日期。" if issue["type"] == "missing" else "请输入有效的建仓日期。"
+        fields.append(FieldErrorDto(field=".".join(names), clientRowId=row_id, message=message, affectedOn=None))
     return fields
 
 
@@ -76,6 +79,9 @@ class TradingAssistantRoute(APIRoute):
                 return error_response("TA_REQUEST_INVALID", "填写内容不符合要求，请检查", fields=validation_fields(error))
             except ResponseValidationError:
                 return error_response("TA_QUERY_FAILED", "读取结果不完整，请重试")
+            except InvalidInitializationDate as error:
+                return error_response("TA_REQUEST_INVALID", error.message, fields=(FieldErrorDto(
+                    field=error.field, clientRowId=error.client_row_id, message=error.message, affectedOn=None),))
             except SecurityNotEligible:
                 return error_response("TA_REQUEST_INVALID", "请选择有效的 A 股股票", fields=(FieldErrorDto(
                     field="tsCode", clientRowId=None, message="请选择有效的 A 股股票", affectedOn=None),))

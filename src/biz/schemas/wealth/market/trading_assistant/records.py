@@ -250,6 +250,7 @@ class CompletedRoundsResponse(Page[CompletedRound]):
 
 class RoundInitializationSource(Contract):
     initializedOn: BusinessDate
+    openedOn: BusinessDate
     initializationId: EntityId
     initializationRevision: PositiveVersion
     quantity: Quantity

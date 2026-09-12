@@ -20,21 +20,48 @@ page.on("pageerror", error => errors.push(error.message));
 page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
 page.on("request", request => { if (request.method() !== "GET" && request.url().includes("trading-assistant")) writes.push(new URL(request.url()).pathname); });
 const fill = (label, value) => page.getByLabel(label, { exact: false }).fill(value);
-async function create(name) {
+async function create(name, withHolding = false) {
   await page.getByRole("button", { name: "新增账户", exact: true }).click();
   await fill("账户名称", name); await fill("券商名称", "测试券商");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await fill("交易佣金率", "2.50"); await fill("单笔最低佣金", "5.00");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await fill("当前现金余额", "1000.00");
+  if (withHolding) {
+    await page.getByRole("button", { name: "添加持仓股票", exact: true }).click();
+    await fill("股票", "000001");
+    await page.getByRole("listbox", { name: "股票搜索结果" }).getByRole("option").first().click();
+    await fill("持仓数量", "600"); await fill("当日可卖数量", "600"); await fill("持仓成本价", "10.00");
+    await page.getByRole("button", { name: "完成初始化", exact: true }).click();
+    await page.getByText("请选择建仓日期。", { exact: true }).waitFor();
+    await fill("建仓日期", "2026-09-10");
+  }
   await page.getByRole("button", { name: "完成初始化", exact: true }).click();
   await page.waitForFunction(() => !document.querySelector("dialog[open]"));
 }
 try {
   await page.goto(base + "/wealth/market/trading-assistant");
   await page.getByRole("button", { name: "新增账户", exact: true }).waitFor();
-  await create("主账户");
+  await create("主账户", true);
   const first = await page.getByLabel("交易账户", { exact: true }).inputValue();
+  await page.getByRole("button", { name: "账户设置", exact: true }).click();
+  await page.getByRole("button", { name: "更正期初资产", exact: true }).click();
+  assert.equal(await page.getByLabel("建仓日期", { exact: false }).inputValue(), "2026-09-10");
+  assert.equal(await page.getByLabel("建仓日期", { exact: false }).getAttribute("max"), "2026-09-11");
+  await fill("建仓日期", "2026-09-14");
+  await page.getByRole("button", { name: "核对更正", exact: true }).click();
+  await page.getByText("建仓日期不能晚于首次录入日期。", { exact: true }).waitFor();
+  assert.equal(await page.getByLabel("持仓数量", { exact: false }).inputValue(), "600");
+  await page.screenshot({ path: output + "-opened-on-error.png" });
+  await fill("建仓日期", "2026-09-09");
+  await page.getByRole("button", { name: "核对更正", exact: true }).click();
+  await page.getByText("2026-09-10 → 2026-09-09", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "确认更正", exact: true }).click();
+  await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+  await page.getByRole("button", { name: "账户设置", exact: true }).click();
+  await page.getByRole("button", { name: "更正期初资产", exact: true }).click();
+  assert.equal(await page.getByLabel("建仓日期", { exact: false }).inputValue(), "2026-09-09");
+  await page.getByRole("button", { name: "取消", exact: true }).click();
   await create("次账户");
   const second = await page.getByLabel("交易账户", { exact: true }).inputValue();
   assert.notEqual(first, second);

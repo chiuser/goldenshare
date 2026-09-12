@@ -48,7 +48,7 @@ def create(database, command=None):
 
 
 def test_creation_atomic_versions_receipt_and_beijing_date(database):
-    protocol,command,saved = create(database,create_command([{"clientRowId":"row-1","tsCode":"000001.SZ",
+    protocol,command,saved = create(database,create_command([{"clientRowId":"row-1","tsCode":"000001.SZ","openedOn":"2026-09-11",
         "quantity":3,"availableQuantity":0,"costPrice":"10.00"}]))
     assert saved.status == "SAVED"
     result = saved.receipt["result"]
@@ -59,7 +59,7 @@ def test_creation_atomic_versions_receipt_and_beijing_date(database):
         account = session.get(Account,account_id)
         assert account.fact_version == account.calculation_target_version == 1
         assert account.published_generation_id is None
-        assert session.get(Recalculation,account_id).affected_from_date.isoformat() == "2026-09-12"
+        assert session.get(Recalculation,account_id).affected_from_date.isoformat() == "2026-09-11"
         assert session.scalar(select(func.count()).select_from(Ledger).where(Ledger.account_id == account_id)) == 0
         request = session.get(WriteRequest,(1,UUID(command.requestId)))
         assert request.input_payload is None
@@ -72,9 +72,15 @@ def test_fees_update_is_prospective_and_same_value_is_noop(database):
     protocol,_,saved = create(database)
     account_id = UUID(saved.receipt["result"]["account"]["accountId"])
     original_fee = saved.receipt["result"]["fees"]["feeVersionId"]
-    for commission,expected_count in (("2.35",1),("5.00",2)):
+    with Session(database) as session:
+        pending = session.get(Recalculation,account_id)
+        before = {column.key:getattr(pending,column.key) for column in Recalculation.__table__.columns}
+    for commission,minimum,tax,expected_count in (("2.35","5.00","0.05",1),("5.00","5.00","0.05",2),
+                                                ("5.00","8.00","0.05",3),("5.00","8.00","0.10",4)):
         command = UpdateFeesCommand(requestId=str(uuid4()),attemptId=str(uuid4()),expectedFeeVersionId=original_fee,
-            commissionRateWan=commission,minimumCommission="5.00",stampTaxRatePct="0.05")
+            commissionRateWan=commission,minimumCommission=minimum,stampTaxRatePct=tax)
+        with Session(database) as session:
+            command = command.model_copy(update={"expectedFeeVersionId":str(session.get(Account,account_id).current_fee_version_id)})
         attempt = register(database,protocol,command,AccountFeesScope(scopeType="ACCOUNT_FEES",accountId=str(account_id)),"FEES_UPDATE")
         with Session(database) as session,session.begin():
             locked = protocol.lock_execution(session,attempt,now=NOW,executor_id="account-test",deadline=Deadline.after_ms(10000))
@@ -85,6 +91,12 @@ def test_fees_update_is_prospective_and_same_value_is_noop(database):
             account = session.get(Account,account_id)
             assert account.fact_version == account.calculation_target_version == 1
             assert session.get(FeeVersion,UUID(original_fee)).commission_rate.as_integer_ratio() == (47,200000)
+            pending = session.get(Recalculation,account_id)
+            assert {column.key:getattr(pending,column.key) for column in Recalculation.__table__.columns} == before
+            assert account.published_generation_id is None
+            from src.biz.services.wealth.market.trading_assistant.initial_fee_basis import initial_fee_version
+            assert initial_fee_version(session,owner_id=1,account_id=account_id,
+                policy=protocol.policy,deadline=Deadline.after_ms(2000)) == UUID(original_fee)
 
 
 def test_create_rollback_retains_input_but_no_half_account(database):

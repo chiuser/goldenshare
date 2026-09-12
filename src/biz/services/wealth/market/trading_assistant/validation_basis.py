@@ -1,4 +1,5 @@
 """Recheck retained source evidence without loading checkpoint history into RAM."""
+from datetime import date
 from sqlalchemy import select, text
 
 from src.biz.models.wealth.trading_assistant.recovery import ValidationCandidate
@@ -18,6 +19,11 @@ def verify_source_basis(session, job, *, market, deadline, basis=None):
             ValidationCandidate.account_id == job.change.account_id))
     if basis is None:
         raise ValueError("Missing retained validation basis")
+    for initial in basis.get("initialDates", []):
+        day = date.fromisoformat(initial["openedOn"])
+        calendar = market.read_calendar(session, initial["exchange"], day, day, deadline)
+        if calendar.source_version != initial["sourceVersion"]:
+            raise ValidationBasisChanged()
     for security in basis["securities"]:
         try:
             current = market.resolve_security(session, security["ts_code"], deadline)

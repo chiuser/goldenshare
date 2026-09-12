@@ -63,7 +63,7 @@ export function AccountSetupDialog({ stampTaxRatePct, saving, errors = [], onClo
       <TradingAssistantField required label="当前现金余额（元）" inputMode="decimal" value={input.initialCash} disabled={saving} error={errorFor("initialCash")}
         onChange={event => setInput({ ...input, initialCash: event.target.value })} />
       <InitialPositionFields rows={positions} onChange={setPositions} disabled={saving} errors={shownErrors} />
-      <p className="ta-note">从初始化当天开始记录，不需要补录此前的买卖历史。当前没有持仓时可以只填写现金。</p>
+      <p className="ta-note">持仓从所填建仓日期起算，不需要补录此前的买卖历史。现金以首次录入当天为准；当前没有持仓时可以只填写现金。</p>
     </>}
     {saving && <p className="ta-note" role="status">正在保存，输入暂不可改，请勿重复提交。输入尚未安全保留，请勿刷新或关闭页面。</p>}
   </TradingAssistantDialog>;

@@ -1,5 +1,6 @@
 """Atomically replace the opening version after all affected history is checked."""
 from uuid import uuid4
+from datetime import date
 
 from sqlalchemy import select, func
 from sqlalchemy.dialects.postgresql import insert
@@ -51,12 +52,13 @@ class InitializationAcceptance:
             deadline.remaining_ms()
             session.add(InitialPosition(initialization_id=new_id, account_id=account.account_id,
                 client_row_id=row.clientRowId, ts_code=row.tsCode, quantity=row.quantity,
+                opened_on=date.fromisoformat(row.openedOn),
                 available_quantity=row.availableQuantity, cost_price=money_numeric(parse_money_cents(row.costPrice))))
         account.current_initialization_id = new_id
         account.fact_version = version
         account.calculation_target_version += 1
         pending = insert(Recalculation).values(account_id=account.account_id,
-            target_version=account.calculation_target_version, affected_from_date=account.initialized_on,
+            target_version=account.calculation_target_version, affected_from_date=job.change.affected_from,
             next_attempt_at=now, fence=0, transient_failure_count=0, updated_at=now)
         session.execute(pending.on_conflict_do_update(index_elements=[Recalculation.account_id], set_={
             "target_version":pending.excluded.target_version,
@@ -65,5 +67,5 @@ class InitializationAcceptance:
         receipt = InitializationCorrectReceipt(requestId=command.requestId, attemptId=command.attemptId,
             operationType="INITIALIZATION_CORRECT", acceptedAt=accepted_time(now), result=dict(
                 accountId=str(account.account_id), initializationId=str(new_id), initializationRevision=str(initial.revision + 1),
-                factVersion=str(version), affectedFromDate=account.initialized_on.isoformat()))
+                factVersion=str(version), affectedFromDate=job.change.affected_from.isoformat()))
         return self.protocol.saved(session, locked, receipt.model_dump(mode="json"), now)

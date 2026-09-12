@@ -40,6 +40,7 @@ def database(tmp_path_factory):
             migration = ScriptDirectory.from_config(Config("alembic.ini")).get_revision("20260912_000171").module
             with Operations.context(MigrationContext.configure(conn)):
                 migration.upgrade()
+                ScriptDirectory.from_config(Config("alembic.ini")).get_revision("20260912_000172").module.upgrade()
             Base.metadata.create_all(conn, tables=[Security.__table__, TradeCalendar.__table__])
         yield engine
 
@@ -103,7 +104,7 @@ def test_non_lot_quantity_and_zero_available(database):
     with database.begin() as conn:
         account, initialization, _ = seed_account(conn)
         conn.execute(insert(InitialPosition).values(account_id=account, initialization_id=initialization,
-            ts_code="000001.SZ", client_row_id="row-a", quantity=3, available_quantity=0, cost_price="0.01"))
+            ts_code="000001.SZ", client_row_id="row-a", opened_on=date(2026,9,11), quantity=3, available_quantity=0, cost_price="0.01"))
     with database.connect() as conn:
         assert conn.scalar(select(InitialPosition.quantity).where(InitialPosition.initialization_id == initialization)) == 3
 
@@ -115,7 +116,7 @@ def test_bad_quantity_rejected(database, quantity, available):
     with pytest.raises(IntegrityError):
         with database.begin() as conn:
             conn.execute(insert(InitialPosition).values(account_id=account, initialization_id=initialization,
-                ts_code="000001.SZ", client_row_id="row-a", quantity=quantity,
+                ts_code="000001.SZ", client_row_id="row-a", opened_on=date(2026,9,11), quantity=quantity,
                 available_quantity=available, cost_price="0.01"))
 
 

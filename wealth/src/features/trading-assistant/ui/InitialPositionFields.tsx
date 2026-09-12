@@ -3,8 +3,9 @@ import type { PositionDraft } from "../model/initialPositionDraft";
 import { TradingAssistantAction, TradingAssistantField } from "./TradingAssistantForm";
 import { TradingAssistantStockPicker } from "./TradingAssistantStockPicker";
 
-export function InitialPositionFields({ rows, onChange, disabled, errors }: {
+export function InitialPositionFields({ rows, onChange, disabled, errors, initializedOn }: {
   rows: PositionDraft[]; onChange: (rows: PositionDraft[]) => void; disabled: boolean; errors: FieldErrorDto[];
+  initializedOn?: string;
 }) {
   const errorFor = (field: string, row?: string) => errors.find(error => error.field === field && (error.clientRowId ?? undefined) === row)?.message;
   const change = (id: string, patch: Partial<PositionDraft>) => onChange(rows.map(row => row.clientRowId === id ? { ...row, ...patch } : row));
@@ -12,6 +13,10 @@ export function InitialPositionFields({ rows, onChange, disabled, errors }: {
     {rows.map(row => <section className="ta-initial-position" key={row.clientRowId} aria-label="期初持仓">
       <TradingAssistantStockPicker value={row.stock} disabled={disabled} error={errorFor("initialPositions.tsCode", row.clientRowId)}
         onChange={stock => change(row.clientRowId, { stock })} />
+      <TradingAssistantField required label="建仓日期" type="date" value={row.openedOn} disabled={disabled} max={initializedOn}
+        hint={initializedOn ? "填写实际建仓日期，不得晚于账户首次录入日期。" : "填写该只持仓的实际建仓日期，不是填写表单的日期。"}
+        error={errorFor("initialPositions.openedOn", row.clientRowId)}
+        onChange={event => change(row.clientRowId, { openedOn: event.target.value })} />
       <div className="ta-initial-numbers">
         <TradingAssistantField required label="持仓数量（股）" inputMode="numeric" value={row.quantity} disabled={disabled}
           error={errorFor("initialPositions.quantity", row.clientRowId)} onChange={event => change(row.clientRowId, { quantity: event.target.value })} />
@@ -24,7 +29,7 @@ export function InitialPositionFields({ rows, onChange, disabled, errors }: {
       <button type="button" className="ta-text-action" disabled={disabled} onClick={() => onChange(rows.filter(item => item.clientRowId !== row.clientRowId))}>移除该持仓</button>
     </section>)}
     <TradingAssistantAction disabled={disabled} onClick={() => onChange([...rows, {
-      clientRowId: crypto.randomUUID(), stock: null, quantity: "", availableQuantity: "", costPrice: "",
+      clientRowId: crypto.randomUUID(), stock: null, openedOn: "", quantity: "", availableQuantity: "", costPrice: "",
     }])}>添加持仓股票</TradingAssistantAction>
     {errorFor("initialPositions") && <p className="ta-form-error" role="alert">{errorFor("initialPositions")}</p>}
   </>;

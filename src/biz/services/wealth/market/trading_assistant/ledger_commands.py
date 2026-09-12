@@ -12,6 +12,7 @@ from .ledger_acceptance import LedgerAcceptance, ValidationBasisChanged
 from .ledger_candidate import prepare_candidate
 from .initialization_candidate import prepare_initialization
 from .initialization_acceptance import InitializationAcceptance
+from .initialization_dates import InvalidInitializationDate
 from .ledger_validation import LedgerValidator
 from .market_facts import MarketFactsUnavailable, SecurityNotEligible
 from .transaction_boundary import CommitOutcomeUnknown
@@ -113,6 +114,9 @@ class LedgerCommandService:
                         else:
                             field = "initialPositions"
                 rejection = RecoveryRejection(code="TA_REQUEST_INVALID",message=message,field=field)
+            elif isinstance(error,InvalidInitializationDate):
+                client_row_id = error.client_row_id
+                rejection = RecoveryRejection(code="TA_REQUEST_INVALID", message=error.message, field=error.field)
             elif isinstance(error,SecurityNotEligible):
                 field = "tsCode"
                 if operation == "INITIALIZATION_CORRECT":

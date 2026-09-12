@@ -115,7 +115,7 @@ def test_competing_sales_cannot_sell_the_same_available_shares(database):
     with database.begin() as connection:
         account, initial, _ = seed_account(connection)
         connection.execute(insert(InitialPosition).values(initialization_id=initial, account_id=account,
-            ts_code="600002.SH", client_row_id="opening", quantity=600, available_quantity=600, cost_price="10.00"))
+            ts_code="600002.SH", client_row_id="opening", opened_on=date(2026,9,11), quantity=600, available_quantity=600, cost_price="10.00"))
         connection.execute(pg_insert(Security).values(ts_code="600002.SH", name="并发测试股票", exchange="SSE",
             security_type="EQUITY", curr_type="CNY", source="test").on_conflict_do_nothing())
         connection.execute(pg_insert(TradeCalendar).values(exchange="SSE", trade_date=date(2026,9,11), is_open=True,

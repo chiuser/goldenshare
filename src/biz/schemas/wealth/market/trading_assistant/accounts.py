@@ -13,6 +13,7 @@ from .value_types import (AccountName, AvailableQuantity, BrokerName, BusinessDa
 class InitializationPositionInput(Contract):
     clientRowId: StrictStr
     tsCode: StockCode
+    openedOn: BusinessDate
     quantity: Quantity
     availableQuantity: AvailableQuantity
     costPrice: PositiveInput
