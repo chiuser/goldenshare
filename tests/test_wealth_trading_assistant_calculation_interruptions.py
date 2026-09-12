@@ -67,13 +67,18 @@ def test_interruption_atomicity_schedule_and_fence(interruptions_db, kind, delay
 def test_transient_backoff_persists_across_new_instances(interruptions_db):
     inputs, lease, generation, _ = setup(interruptions_db)
     last_business_update = None
-    for attempt, delay in enumerate((2, 4, 8, 16, 30, 30), 1):
+    for attempt, delay in enumerate((2, 4, 8, 16, 30, None), 1):
         with Session(interruptions_db) as session, session.begin():
             CalculationInterruptions(inputs.execution).record(session, lease, generation_id=generation,
                 kind="TRANSIENT", reason="数据库暂不可用", deadline=deadline())
         with Session(interruptions_db) as session, session.begin():
             pending = session.get(Recalculation, lease.account_id)
             assert pending.transient_failure_count == attempt
+            if delay is None:
+                assert pending.next_attempt_at is None
+                assert inputs.execution.claim(session, executor_id="exhausted", deadline=deadline()) is None
+                assert "自动重试已达上限" in session.get(CalculationGeneration, generation).reason
+                break
             assert pending.next_attempt_at - pending.updated_at == timedelta(seconds=delay)
             assert session.get(CalculationGeneration, generation).resume_stage == "PREPARING"
             saved = session.get(CalculationGeneration, generation)
@@ -83,6 +88,25 @@ def test_transient_backoff_persists_across_new_instances(interruptions_db):
             pending.next_attempt_at = session.scalar(select(func.clock_timestamp())) - timedelta(seconds=1)
         with Session(interruptions_db) as session, session.begin():
             lease = inputs.execution.claim(session, executor_id=f"retry-{attempt}", deadline=deadline())
+    # The existing explicit command rearms the same generation, without clearing progress.
+    from uuid import uuid4
+    from src.biz.services.wealth.market.trading_assistant.calculation_retries import CalculationRetryService
+    from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationRetryCommand
+    from tests.test_wealth_trading_assistant_calculation_inputs import AT
+    with Session(interruptions_db) as session, session.begin():
+        CalculationRetryService(None, inputs.execution.policy, lambda: AT, executor_id="manual").accept(
+            session, owner_id=1, account_id=lease.account_id,
+            command=CalculationRetryCommand(requestId=str(uuid4()), attemptId=str(uuid4()),
+                calculationTargetVersion=str(lease.target_version)), deadline=deadline())
+        assert session.get(Recalculation, lease.account_id).transient_failure_count == 0
+        assert session.get(CalculationGeneration, generation).stage == "FAILED"
+    with Session(interruptions_db) as session, session.begin():
+        lease = inputs.execution.claim(session, executor_id="manual-resume", deadline=deadline())
+        assert lease is not None
+        next_attempt = CalculationInterruptions(inputs.execution).record(session, lease,
+            generation_id=generation, kind="TRANSIENT", reason="数据库暂不可用", deadline=deadline())
+        pending = session.get(Recalculation, lease.account_id)
+        assert next_attempt - pending.updated_at == timedelta(seconds=2)
     with pytest.raises(CalculationExecutionLost):
         with Session(interruptions_db) as session, session.begin():
             CalculationInterruptions(inputs.execution).record(session, replace(lease, fence=lease.fence + 1),

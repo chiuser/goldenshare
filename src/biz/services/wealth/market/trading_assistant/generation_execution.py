@@ -68,7 +68,7 @@ class GenerationExecution:
                         isinstance(state, str) and state.startswith("08")):
                     kind, reason = "TRANSIENT", "数据库暂时不可用，稍后重试。"
             with self.sessions() as session, session.begin():
-                CalculationInterruptions(self.execution).record(session, lease,
+                next_attempt = CalculationInterruptions(self.execution).record(session, lease,
                     generation_id=generation_id, kind=kind, reason=reason,
                     deadline=Deadline.after_ms(self.execution.policy.batch_budget_ms))
-            return kind
+            return "FAILED" if next_attempt is None else kind

@@ -17,10 +17,12 @@ from src.biz.services.wealth.market.trading_assistant.calculation_inputs import 
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
-@pytest.mark.parametrize("kind", ["TRANSIENT", "FAILED", "WAITING_DATA"])
+@pytest.mark.parametrize("kind", ["TRANSIENT", "EXHAUSTED", "FAILED", "WAITING_DATA"])
 def test_failed_unit_rolls_back_then_revalidates_on_reclaim(interruptions_db, monkeypatch, kind):
     inputs, lease, generation, _ = setup(interruptions_db)
     with Session(interruptions_db) as session, session.begin():
+        if kind == "EXHAUSTED":
+            session.get(Recalculation, lease.account_id).transient_failure_count = 5
         if session.get(TradeCalendar, ("SSE", DAY)) is None:
             session.add(TradeCalendar(exchange="SSE", trade_date=DAY, is_open=True,
                 pretrade_date=DAY - timedelta(days=1)))
@@ -29,14 +31,14 @@ def test_failed_unit_rolls_back_then_revalidates_on_reclaim(interruptions_db, mo
         sqlstate = "55P03"
     def interrupted(self, *args, **kwargs):
         original(self, *args, **kwargs)
-        if kind == "TRANSIENT":
+        if kind in ("TRANSIENT", "EXHAUSTED"):
             raise OperationalError("test", {}, Locked())
         if kind == "WAITING_DATA":
             raise CalculationDataUnavailable("missing valuation")
         raise ValueError("invalid internal state")
     monkeypatch.setattr(GenerationSteps, "advance", interrupted)
     runner = GenerationExecution(inputs.execution, sessionmaker(interruptions_db))
-    assert runner.run(lease, generation_id=generation) == kind
+    assert runner.run(lease, generation_id=generation) == ("FAILED" if kind == "EXHAUSTED" else kind)
     with Session(interruptions_db) as session, session.begin():
         saved = session.get(CalculationGeneration, generation)
         assert saved.stage == ("WAITING_DATA" if kind == "WAITING_DATA" else "FAILED")
@@ -46,7 +48,10 @@ def test_failed_unit_rolls_back_then_revalidates_on_reclaim(interruptions_db, mo
             CalculationBatch.generation_id == generation)) == 0
         assert inputs.execution.claim(session, executor_id="early", deadline=deadline()) is None
         pending = session.get(Recalculation, lease.account_id)
-        assert (pending.next_attempt_at is None) == (kind == "FAILED")
+        assert (pending.next_attempt_at is None) == (kind in ("FAILED", "EXHAUSTED"))
+        if kind == "EXHAUSTED":
+            assert pending.transient_failure_count == 6
+            assert "自动重试已达上限" in saved.reason
         # Simulate the due time or already-tested explicit retry admission.
         pending.next_attempt_at = session.scalar(select(func.clock_timestamp())) - timedelta(seconds=1)
     monkeypatch.setattr(GenerationSteps, "advance", original)

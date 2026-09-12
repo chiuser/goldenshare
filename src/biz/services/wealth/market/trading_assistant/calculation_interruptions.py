@@ -39,7 +39,11 @@ class CalculationInterruptions:
         else:
             pending.transient_failure_count += 1
             delays = self.execution.policy.transient_retry_delays_seconds
-            next_attempt = now + timedelta(seconds=delays[min(pending.transient_failure_count, len(delays)) - 1])
+            if pending.transient_failure_count > len(delays):
+                next_attempt = None
+                reason = "自动重试已达上限，已暂停核算，可点击重新计算。"
+            else:
+                next_attempt = now + timedelta(seconds=delays[pending.transient_failure_count - 1])
         stage = "WAITING_DATA" if kind == "WAITING_DATA" else "FAILED"
         changed = (generation.stage, generation.resume_stage, generation.reason) != (stage, resume, reason)
         generation.resume_stage = resume
