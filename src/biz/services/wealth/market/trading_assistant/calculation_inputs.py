@@ -22,6 +22,10 @@ class CalculationInputMismatch(RuntimeError):
     """Retain the old inputs; the caller must not overwrite a frozen page."""
 
 
+class CalculationDataUnavailable(CalculationInputMismatch):
+    """Required valuation evidence is unavailable, not an accounting imbalance."""
+
+
 @dataclass(frozen=True, slots=True)
 class FrozenValuationPage:
     facts: tuple[DailyCloseFact, ...]

@@ -37,6 +37,7 @@ class RecalculationExecution:
         now = session.scalar(select(func.clock_timestamp()))
         pending = session.scalar(select(Recalculation).join(Account,
             Account.account_id == Recalculation.account_id).where(
+                Recalculation.next_attempt_at.is_not(None),
                 Recalculation.next_attempt_at <= now,
                 Recalculation.target_version == Account.calculation_target_version,
                 or_(Recalculation.lease_until.is_(None), Recalculation.lease_until <= now))
@@ -88,6 +89,7 @@ class RecalculationExecution:
         now = session.scalar(select(func.clock_timestamp()))
         pending.executor_id = None
         pending.lease_until = None
-        pending.next_attempt_at = now
+        if pending.next_attempt_at is not None:
+            pending.next_attempt_at = max(pending.next_attempt_at, now)
         pending.updated_at = now
         session.flush()

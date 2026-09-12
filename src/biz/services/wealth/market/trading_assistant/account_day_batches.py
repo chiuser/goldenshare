@@ -17,7 +17,7 @@ from .calculation.account_day import AccountDayTotals, StockDayContribution, add
 from .calculation.daily import PositionState as KernelPosition
 from .calculation.fees import FeeSnapshot
 from .calculation.returns import value_round
-from .calculation_inputs import CalculationInputMismatch
+from .calculation_inputs import CalculationInputMismatch, CalculationDataUnavailable
 from .persistence_values import numeric_cents, numeric_integer
 from .stock_day_batches import StockDayBatches, _scaled
 
@@ -74,8 +74,10 @@ class AccountDayBatches:
             return None, FeeSnapshot(0, 0, 0)
         pair = valuations.get(code)
         if pair is None:
-            raise CalculationInputMismatch("Held stock is missing its frozen valuation basis")
+            raise CalculationDataUnavailable("Held stock is missing its frozen valuation basis")
         basis, fee = pair
+        if basis.quality != "READY" or basis.price is None:
+            raise CalculationDataUnavailable("Held stock has unavailable frozen valuation basis")
         return (Fraction(basis.price) if basis.quality == "READY" and basis.price is not None else None,
             FeeSnapshot(_scaled(fee.commission_rate, 1000000), numeric_cents(fee.minimum_commission),
                         _scaled(fee.stamp_tax_rate, 10000)))

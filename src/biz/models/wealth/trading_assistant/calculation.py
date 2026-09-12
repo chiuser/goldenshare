@@ -25,7 +25,7 @@ class Recalculation(Base):
     account_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("app.wealth_ta_account.account_id", ondelete="RESTRICT"), primary_key=True)
     target_version: Mapped[int] = mapped_column(BigInteger)
     affected_from_date: Mapped[date] = mapped_column(Date)
-    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     executor_id: Mapped[str | None] = mapped_column(Text)
     fence: Mapped[int] = mapped_column(BigInteger)

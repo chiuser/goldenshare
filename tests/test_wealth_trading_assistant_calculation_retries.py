@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from tests.test_wealth_trading_assistant_calculation_inputs import database, migrated
 from tests.test_wealth_trading_assistant_publication_storage import publication_db
+from tests.test_wealth_trading_assistant_calculation_interruptions import interruptions_db
 from tests.test_wealth_trading_assistant_account_acceptance import create, NOW
 from src.app.runtime.trading_assistant_container import build_trading_assistant_dependencies
 from src.biz.api.wealth.market.trading_assistant.router import create_trading_assistant_router
@@ -27,6 +28,11 @@ def command(target="1"):
     return dict(requestId=str(uuid4()), attemptId=str(uuid4()), calculationTargetVersion=target)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def retry_schema(interruptions_db):
+    return interruptions_db
+
+
 def prepare(engine):
     _, _, saved = create(engine)
     account_id = UUID(saved.receipt["result"]["account"]["accountId"])
@@ -39,7 +45,7 @@ def prepare(engine):
             resume_stage="CALCULATING", completed_trade_date_count=6, total_trade_date_count=9,
             last_completed_trade_date=date(2026,9,8), last_business_updated_at=NOW, reason="核验未通过"))
         pending = session.get(Recalculation, account_id)
-        pending.next_attempt_at = session.scalar(select(func.clock_timestamp())) + timedelta(days=1)
+        pending.next_attempt_at = None
         pending.transient_failure_count = 5
     return account_id, generation_id
 
