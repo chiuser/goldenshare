@@ -107,6 +107,7 @@ INTEGRATION_SOURCE_FILES = (
 )
 # Frozen exact source inventory for full consumer/governance discovery.
 CONSUMER_SOURCE_FILES = (
+    "defs/run_contracts/stk_mins_silver_policy.py",
     "__init__.py",
     "analysis/__init__.py",
     "analysis/index_wave/__init__.py",
@@ -662,6 +663,7 @@ CONSUMER_SOURCE_FILES = (
 
 
 CONSUMER_SUITES = {
+    "test_stk_mins_silver_freeze_policy.py": 4,
     "test_suspend_d_checks.py": 7,
     "test_stock_daily_raw_checks.py": 22,
     "test_stock_daily_raw_repair.py": 8,

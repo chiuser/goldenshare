@@ -1984,7 +1984,9 @@ LAKE_ASSET_CATALOG += tuple(
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
-        notes="Silver source freqs remain limited to 1/5/15/30/60.",
+        notes=("Silver source freqs remain limited to 1/5/15/30/60. "
+               "Approved frozen identities retain existing Silver history under "
+               "stk_mins_silver_policy; new Raw rows do not extend that history."),
     )
     for freq in (1, 5, 15, 30, 60)
 )

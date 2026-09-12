@@ -8,18 +8,18 @@ from typing import Any, Mapping, Sequence
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.asset_guards.stk_mins_prod_readiness import (
+    validate_stk_mins_prod_completion_reference,
+)
+from orchestrator.defs.asset_guards.stk_mins_stock_universe import (
+    load_current_listed_stock_codes_for_stk_mins,
+)
 from orchestrator.defs.assets.adj_factor import silver_adj_factor
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import silver_stock_daily
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
-from orchestrator.defs.asset_guards.stk_mins_stock_universe import (
-    load_current_listed_stock_codes_for_stk_mins,
-)
-from orchestrator.defs.asset_guards.stk_mins_prod_readiness import (
-    validate_stk_mins_prod_completion_reference,
-)
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
@@ -46,13 +46,13 @@ from orchestrator.defs.paths import (
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.prod_db.stk_mins import (
-    PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
     PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS,
+    PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
     PROD_STK_MINS_SOURCE_COLUMNS,
     build_prod_stk_mins_duckdb_source_sql,
     validate_prod_stk_mins_duckdb_attach_options_contract,
-    validate_prod_stk_mins_select_contract,
     validate_prod_stk_mins_duckdb_source_contract,
+    validate_prod_stk_mins_select_contract,
 )
 from orchestrator.defs.resources import (
     DuckDBResource,
@@ -70,10 +70,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import (
-    SourceSystem,
-    build_asset_definition_metadata,
-    build_materialization_metadata,
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    expected_canonical_gold_source_times,
+    expected_gold_minute_times,
 )
 from orchestrator.defs.run_contracts.configs import (
     STOCK_MINS_RAW_CONFIG_SCHEMA,
@@ -82,13 +81,18 @@ from orchestrator.defs.run_contracts.configs import (
     parse_stock_mins_raw_config,
     parse_stock_mins_silver_config,
 )
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_freq,
     normalize_stk_mins_qfq_freq,
 )
-from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
-    expected_canonical_gold_source_times,
-    expected_gold_minute_times,
+from orchestrator.defs.run_contracts.stk_mins_silver_policy import (
+    SILVER_STK_MINS_FREEZE_POLICY_VERSION,
+    SILVER_STK_MINS_FROZEN_CODES,
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_COLUMNS,
@@ -104,7 +108,6 @@ from orchestrator.seeds.quote.stk_mins_price_corrections import (
     load_stk_mins_price_correction_catalog,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 STK_MINS_RAW_COLUMNS = tuple(column.name for column in RAW_STK_MINS_SCHEMA)
 STK_MINS_RAW_COLUMN_TYPES = {column.name: column.type for column in RAW_STK_MINS_SCHEMA}
@@ -256,6 +259,9 @@ class SilverStkMinsWriteResult:
     row_count: int
     observed_columns: tuple[str, ...]
     write_mode: str = "write_new"
+    frozen_source_row_count: int = 0
+    frozen_one_minute_source_row_count: int = 0
+    frozen_preserved_row_count: int = 0
 
     def materialization_extra_metadata(
         self,
@@ -267,6 +273,7 @@ class SilverStkMinsWriteResult:
             "partition_key": partition_key,
             "freq": freq,
             "write_mode": self.write_mode,
+            "silver_freeze_policy_version": SILVER_STK_MINS_FREEZE_POLICY_VERSION,
             "raw_file_path": str(self.raw_file_path),
             "identity_map_file_path": str(self.identity_map_file_path),
             "stock_daily_file_path": str(self.stock_daily_file_path),
@@ -276,6 +283,9 @@ class SilverStkMinsWriteResult:
             metadata.update(
                 {
                     "source_row_count": self.source_row_count,
+                    "frozen_source_row_count": self.frozen_source_row_count,
+                    "frozen_one_minute_source_row_count": self.frozen_one_minute_source_row_count,
+                    "frozen_preserved_row_count": self.frozen_preserved_row_count,
                     "mapped_row_count": self.mapped_row_count,
                     "duplicate_removed_count": self.duplicate_removed_count,
                     "full_day_suspend_deleted_row_count": (
@@ -1573,11 +1583,19 @@ def _create_silver_stk_mins_base_tables(
     filtered_row_count = int(
         connection.execute(f"SELECT count(*) FROM {filtered_table}").fetchone()[0]
     )
+    frozen_codes_sql = ", ".join(map(duckdb_string, SILVER_STK_MINS_FROZEN_CODES))
+    frozen_source_row_count = int(connection.execute(
+        f"SELECT count(*) FROM {filtered_table} WHERE ts_code IN ({frozen_codes_sql})"
+    ).fetchone()[0])
+    connection.execute(
+        f"DELETE FROM {filtered_table} WHERE ts_code IN ({frozen_codes_sql})"
+    )
     return {
         "source_row_count": source_row_count,
         "price_correction_row_count": price_correction_row_count,
         "mapped_row_count": mapped_row_count,
         "full_day_suspend_deleted_row_count": mapped_row_count - filtered_row_count,
+        "frozen_source_row_count": frozen_source_row_count,
     }
 
 
@@ -1925,6 +1943,34 @@ def _create_silver_stk_mins_final_rows(
     }
 
 
+def _preserve_frozen_silver_stk_mins_rows(*, connection, existing_path: Path) -> int:
+    """Retain approved history from the formal partition, including staged rebuilds."""
+    if not existing_path.exists():
+        return 0
+    codes_sql = ", ".join(map(duckdb_string, SILVER_STK_MINS_FROZEN_CODES))
+    columns = ", ".join(f'"{column}"' for column in STK_MINS_SILVER_COLUMNS)
+    connection.execute(f"""
+        CREATE TEMP TABLE frozen_silver_rows AS
+        SELECT {columns}
+        FROM {read_parquet(existing_path, hive_partitioning=False)}
+        WHERE ts_code IN ({codes_sql})
+    """)
+    conflicts = connection.execute("""
+        SELECT count(*) FROM (
+            SELECT ts_code, trade_time FROM frozen_silver_rows
+            GROUP BY ts_code, trade_time HAVING count(*) > 1
+        )
+    """).fetchone()[0]
+    if conflicts:
+        raise RuntimeError("Frozen Silver history has duplicate keys; refusing to alter it")
+    count = int(connection.execute("SELECT count(*) FROM frozen_silver_rows").fetchone()[0])
+    connection.execute(f"""
+        INSERT INTO silver_final_rows BY NAME
+        SELECT {columns} FROM frozen_silver_rows
+    """)
+    return count
+
+
 def _write_distinct_silver_stk_mins_rows(
     *,
     connection,
@@ -2053,7 +2099,7 @@ def write_silver_stk_mins_partition(
             source_prefix="target",
             apply_price_corrections=normalized_freq == 1,
         )
-        one_minute_counts = {"price_correction_row_count": 0}
+        one_minute_counts = {"price_correction_row_count": 0, "frozen_source_row_count": 0}
         if normalized_freq != 1:
             if one_minute_raw_path is None:
                 raise AssertionError("one_minute_raw_path is required for coarse freq.")
@@ -2071,6 +2117,10 @@ def write_silver_stk_mins_partition(
             connection=connection,
             freq=normalized_freq,
         )
+        frozen_preserved_row_count = _preserve_frozen_silver_stk_mins_rows(
+            connection=connection,
+            existing_path=silver_stk_mins_path(lake_root, normalized_freq, partition_key),
+        )
         duplicate_removed_count, row_count, observed_columns = (
             _write_distinct_silver_stk_mins_rows(
                 connection=connection,
@@ -2085,6 +2135,9 @@ def write_silver_stk_mins_partition(
         stock_daily_file_path=stock_daily_path,
         suspend_file_path=suspend_path,
         silver_file_path=target_path,
+        frozen_source_row_count=target_counts["frozen_source_row_count"],
+        frozen_one_minute_source_row_count=one_minute_counts["frozen_source_row_count"],
+        frozen_preserved_row_count=frozen_preserved_row_count,
         source_row_count=target_counts["source_row_count"],
         mapped_row_count=target_counts["mapped_row_count"],
         duplicate_removed_count=duplicate_removed_count,
