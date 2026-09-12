@@ -3,85 +3,41 @@ name: "远程部署技能"
 description: "Use when the user asks to deploy, restart, or verify Goldenshare services on the remote production server."
 ---
 
-# Goldenshare Remote Deploy Skill
+# 远程发布与验收
 
-## When to use
-- User asks to deploy/release to remote server.
-- User asks to restart web/worker/scheduler services.
-- User asks to verify remote deployment health/state.
-- User asks why deploy script fails on remote.
+## 执行前
 
-## Must-read context before actions
-1. `/Users/congming/github/goldenshare/AGENTS.local.md`
-2. `/Users/congming/github/goldenshare/scripts/AGENTS.md`
-3. `/Users/congming/github/goldenshare/scripts/deploy-systemd.sh`
-4. `/Users/congming/github/goldenshare/scripts/deploy-layered-systemd.sh`
+阅读仓库根 AGENTS、AGENTS.local.md、scripts/AGENTS.md，以及：
+- [正式发版流程](/Users/congming/github/goldenshare/docs/release/release-process-v1.md)：模式、副作用、服务矩阵、验收与恢复。
+- [统一入口](/Users/congming/github/goldenshare/scripts/deploy-systemd.sh)和[分层脚本](/Users/congming/github/goldenshare/scripts/deploy-layered-systemd.sh)：核对实际执行分支。
 
-## Deployment defaults
-- Prefer SSH alias: `goldenshare-prod`
-- Remote repo: `/opt/goldenshare/goldenshare`
-- Run deploy as user `goldenshare` (avoid git ownership issues)
-- Main command:
+确认请求是发布、单独重启还是只读检查，不把后两者扩大为全量部署。默认 SSH alias 为 goldenshare-prod，仓库为 /opt/goldenshare/goldenshare；当次核实目标分支、预期 SHA、远程实际 SHA、权限和配置覆盖值，不输出凭据。
+
+## 获准发布
+
+发布使用 goldenshare 用户。只有全量发布及其安装、构建、迁移、seed、unit 同步和服务重启范围获准后，才使用：
 
 ```bash
 ssh goldenshare-prod 'sudo -n -u goldenshare /bin/bash -lc "cd /opt/goldenshare/goldenshare && bash scripts/deploy-systemd.sh dev-interface"'
 ```
 
-## Operation modes
-### Mode A: deploy + verify (default)
-- Use when user says "发版/部署/上线/发布"
-- Execute full deploy flow, then run verification checklist.
+脚本省略分支仍默认 main，必须显式传批准分支。分层、QTF-only、维护迁移按正式流程选择，不自行拼装开关。普通 *-only 不代表只重启一个服务、也不代表跳过安装/迁移/seed。
 
-### Mode B: verify only (no deploy)
-- Use when user says "只验收/只检查/不发版只看状态"
-- Must NOT run pull/install/restart/deploy script.
-- Only run health/state verification:
+发布前按获准测试范围完成预检；部署脚本不自动执行 release-preflight。unit 差异同步和 daemon-reload 仅在批准发布范围执行，不能因模板变更或提交代码就同步生产。
 
-```bash
-ssh goldenshare-prod 'systemctl is-active goldenshare-web.service && systemctl is-active goldenshare-ops-worker.service && systemctl is-active goldenshare-ops-scheduler.service'
-ssh goldenshare-prod 'systemctl cat goldenshare-web.service | grep -n ExecStart'
-ssh goldenshare-prod 'curl -s http://127.0.0.1:8000/api/health'
-ssh goldenshare-prod 'curl -s http://127.0.0.1:8000/api/v1/health'
-```
+## 验收与只读模式
 
-## Safe execution checklist
-1. Confirm remote branch and head.
-2. Confirm sudo whitelist is valid for deploy user.
-3. Run deploy script (main command above).
-4. Verify all services are active:
-   - `goldenshare-web.service`
-   - `goldenshare-ops-worker.service`
-   - `goldenshare-ops-scheduler.service`
-5. Verify web unit entrypoint:
-   - `ExecStart` should be `python -m src.app.web.run`
-6. Verify API health:
-   - `/api/health`
-   - `/api/v1/health`
+**不再把 Web、通用 worker、scheduler 三项当作全部服务。** 当前脚本管理九类服务：Web、通用 worker、scheduler、日期审计、完成后处理、股票分钟、指数分钟、QTF worker、realtime collector。精确名称与模式矩阵只在正式发版流程和 scripts/AGENTS 维护；这是脚本管理范围，不是已核实的生产运行清单。
 
-## Unit sync rule (important)
-- If any file below changed, ensure sync to `/etc/systemd/system` and reload daemon:
-  - `scripts/goldenshare-web.service`
-  - `scripts/goldenshare-ops-worker.service`
-  - `scripts/goldenshare-ops-scheduler.service`
-- Follow repo rule in `/Users/congming/github/goldenshare/scripts/AGENTS.md`.
+按本次有效配置列清应检查的服务及排除理由，逐项记录 active/enabled、实际 unit/ExecStart 和必要日志；不要用短路命令让第一项失败掩盖后续服务状态。脚本状态打印失败仍可能返回成功，退出码不能替代独立验收。
 
-## Guardrails
-- Do not edit unrelated services.
-- Do not skip post-deploy health checks.
-- Do not use interactive sudo in automation commands.
-- Keep behavior compatible: deploy script remains the primary orchestrator.
+- 普通发布核对 /api/health、/api/v1/health，并补受影响页面/API/任务链；健康响应不等于业务验收。
+- QTF-only 和维护迁移不据脚本结束声称 Web 已验证；维护模式不自动恢复服务。
+- “只检查/只验收”仅执行获准的远程只读状态、unit、日志和健康查询，不 pull/install/restart/enable/reload，不运行部署脚本。
+- 单独重启只处理批准的服务，不调用全量发布替代重启。
 
-## Troubleshooting quick map
-- `sudo: a password is required`:
-  - check `/etc/sudoers.d/goldenshare-deploy` and `sudo -n -l` for `goldenshare`.
-- deploy fails at web unit check:
-  - verify `systemctl cat goldenshare-web.service` permission is whitelisted.
-- deploy succeeds but entrypoint still old:
-  - ensure unit sync happened and daemon-reload executed.
+## 失败与交付
 
-## Expected final report to user
-- Command executed
-- Service status summary (3 services)
-- Web entrypoint check result
-- Health endpoint check result
-- Any residual risk and next action
+权限不足先核对受控 sudo 白名单，不自动修改 sudoers；unit 不符先核对源模板与生效配置，不盲目重启。失败时记录实际 SHA、已完成动作及影响，按正式流程取得恢复授权；不得把切旧 SHA 后重跑部署当作可靠回滚。
+
+报告目标/实际 SHA、模式与实际副作用、逐服务结果、unit 与健康/业务检查、失败和未验证项。保留 goldenshare 用户和非交互受控 sudo 边界，不修改无关服务。
