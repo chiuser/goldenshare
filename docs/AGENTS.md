@@ -91,10 +91,12 @@ python3 scripts/check_docs_integrity.py
 
 当前脚本检查：
 
-1. `docs/*.md` 绝对路径死链
+1. 递归检查 `docs/**` 下 Markdown 中匹配脚本规则的仓库绝对路径链接死链
 2. `docs/**/.DS_Store` 噪音文件
 3. `docs/sources/tushare/docs_index.csv` 与 `local_path` 一致性
 4. `docs/sources/tushare/docs_index.csv` 的 `doc_id` 与 Markdown 文件名前缀编号一致性
+
+第 3、4 项合并为一个输出组。脚本不扫描根 README、其他目录或 HTML，也不完整检查相对链接、裸路径和带锚点链接；这些随本轮改动单独核验。检查通过不证明内容与代码一致，完整说明见维护基线 §4。
 
 任何一项失败，不允许提交 docs 改动。
 

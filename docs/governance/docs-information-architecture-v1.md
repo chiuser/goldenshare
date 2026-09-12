@@ -997,6 +997,24 @@ G2：环境边界、发布步骤和历史证据各保留一个入口，主索引
 
 验证：工作流时间合同与 Biz 定义完整性两项定向离线测试通过，文档完整性三个检查组及 git diff --check 通过。原 F-001～008 修复表与 Biz §11 真实验收逐字保留，BIZ-001～007 编号完整。未运行全量执行器测试、浏览器或生产任务，未安装套件。
 
+<a id="root-readme-and-check-scope-20260912"></a>
+
+### 4.11 2026-09-12 根入口、历史修复与检查范围三批
+
+状态：按批准范围修改完成，待统一 review，未提交。仅修改根 README、docs/AGENTS、维护基线及本记录；未改代码、脚本、配置、索引或数据。
+
+| 批次 | 发现与处理 | 当前证据 |
+| --- | --- | --- |
+| 根 README | G1：撤下“只有平台设施、无业务 API”的早期结论和不存在的 dataset-catalog 链接；G2：合并重复启动/迁移说明，架构、数据研发、回归与发版链接主文档，保留启动入口和环境边界 | app/api/v1/router.py、app/web/app.py 与 run.py、frontend/vite.config.ts、CLI init_db、local-build-and-run.sh |
+| 数据集与修复说明 | G0：旧 repair 工具不只是补 hash，而是全表读取、保留最大 id、删除重复行并提交；且硬编码 raw/core，不是当前 raw_tushare/core_serving。撤下默认执行建议，保留风险与追溯。G1：当前 normalizer 先拒绝必填缺失，不能承诺 Raw 全收；top_list 的批内策略回链已有专题 | 两个 repair 脚本全文、low_frequency 定义、四个 ORM 模型、两个 hash helper、row_transforms、normalizer、writer，以及 top_list 迁移的 DROP TABLE 分支 |
+| 检查覆盖范围 | G1：docs/AGENTS 的 docs/*.md 改为实际递归范围；维护基线明确根 README、HTML、相对/裸路径及带锚点链接不在完整覆盖内。本轮不改检查脚本 | check_docs_integrity.py 的 rglob 与 ABS_LINK_RE |
+
+有用信息去向：分红/股东户数的代理键、记录/事件 hash、可空日期及当前必填边界仍在根 README；top_list 身份、版本选择、历史迁移和回补边界仍在既有专题。没有新建平行手册或删除工具。原长文从 Git 追溯；对仓库内相关旧章节锚点检索未发现需迁移的入链。
+
+本轮使用文档治理技能，CodeGraph query 定位 init_db 后核对实现。没有改变架构、依赖矩阵、API/CLI 行为或源接口合同，也未将脚本旧目标当作物理表存在/可删除的证据。是否仍有外部调用及旧表实际状态未核验，不纳入本次清退或改造。无新增待拍板规则。
+
+验证：文档完整性三个检查组、根 README 的 29 个本地链接存在性与 git diff --check 通过。未运行修复、迁移、安装、启动、部署、生产查询或业务测试；静态核验不代表运行验收。其他任务的 docs/README、代码和研究产物均未处理。
+
 <a id="5-执行规则"></a>
 <a id="6-第二轮收尾检查已完成"></a>
 

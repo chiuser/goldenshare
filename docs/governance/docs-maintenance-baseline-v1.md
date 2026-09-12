@@ -55,7 +55,7 @@ python3 scripts/check_docs_integrity.py
 4. 同一索引的 `doc_id` 与 Markdown 文件名四位数字前缀一致性。
 
 第 3、4 项同属 `tushare-index-consistency` 检查组，因此输出三个 PASS 不代表漏跑第四项。
-具体覆盖范围以 `scripts/check_docs_integrity.py` 为准；这些检查不证明文档内容与代码语义一致，也不覆盖全部 AGENTS 中的裸路径、相对链接或锚点。
+具体覆盖范围以 `scripts/check_docs_integrity.py` 实现为准（脚本头部的 `docs/*.md` 简写不代表只扫一层）。脚本递归读取 docs 下 Markdown，不扫描根 README、其他目录或 HTML；当前链接正则也不匹配带 `#` 的链接，因此不能保证其目标文件或锚点有效。裸路径、相对链接及其他未覆盖链接须随本轮改动单独核验。这些检查不证明文档内容与代码语义一致。
 
 ---
 
