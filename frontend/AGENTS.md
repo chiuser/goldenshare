@@ -29,7 +29,7 @@
 1. 按现有前端交付流程执行任务，不另建一套流程
 2. 维护统一的交互与视觉 token 基线，在新页面和被修改页面中落实
 3. 已有共享组件与试点页成果还需要更稳的门禁保护
-4. 维护现有 `check:rules`、smoke / visual gate；具体缺口以 `docs/frontend/frontend-phase6-rollout-summary-v1.md` 的残留清单为依据
+4. 维护现有 `check:rules`、smoke / visual gate；具体缺口以 `docs/frontend/frontend-governance-rollout-plan-v1.md#phase6-history` 的残留清单为依据
 5. `DataTable v1` 与 `TradeDateField v2` 这类试点基线仍需要在后续推广中守住边界
 
 因此，当前阶段的默认目标是：
@@ -46,15 +46,14 @@
 
 进入前端任务前，先阅读并理解以下文件：
 
-1. `docs/architecture/design-principles.md`
+1. `docs/architecture/subsystem-boundary-plan.md#historical-design-motives`
 2. `docs/frontend/frontend-current-standards.md`
 3. `docs/frontend/frontend-technology-and-component-selection.md`
 4. `docs/frontend/frontend-delivery-workflow-v1.md`
 5. `docs/frontend/frontend-design-tokens-and-component-catalog-v1.md`
 6. `docs/frontend/frontend-regression-and-baseline-workflow-v1.md`
-7. `docs/frontend/frontend-governance-rollout-plan-v1.md`
-8. `docs/frontend/frontend-phase6-rollout-summary-v1.md`（执行计划与边界卡已并入历史收口说明）
-9. 当前目标文件及其相邻目录中的已有实现
+7. `docs/frontend/frontend-governance-rollout-plan-v1.md`（含 §7 Phase6 与 §8 Ops 事实消费历史）
+8. 当前目标文件及其相邻目录中的已有实现
 
 不要在未确认现有共享组件、页面模式、API 类型和测试方式前直接写页面。
 

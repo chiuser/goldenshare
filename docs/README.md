@@ -55,7 +55,6 @@ docs/
 
 2026-09-08：原独立依赖矩阵、Platform 拆分与 Ops 收敛基线已并入“子系统架构基线”；旧 Foundation 上手指南的有效入口并入“Foundation 研发基线”，原发布治理规范收窄为多源专题。[逐项合并去向与旧待办处理](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#architecture-consolidation-20260908)见治理记录；旧全文可从 Git 历史恢复。
 
-- [早期设计动机摘要与现行规则入口（非规范）](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
 - [CodeGraph 架构快照（当前代码事实，2026-08-22）](/Users/congming/github/goldenshare/docs/architecture/codegraph-architecture-snapshot.md)
 - [旧 Lake Console/Kopia 清退收口与历史方案（已批准范围完成；不再作为待办）](/Users/congming/github/goldenshare/docs/architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md)
 - [旧 Lake Console、Kopia 与旧湖迁移适配器清退 LLD v1（165 份文档矩阵 / M8 结果 §16.15 / 本机残留清理与恢复映射 §16.16）](/Users/congming/github/goldenshare/lake_console/docs/design/legacy-lake-console-kopia-old-lake-bootstrap-retirement-low-level-design-v1.md)
@@ -75,8 +74,7 @@ docs/
 - [ETF 日线与复权因子 DG 数据湖接入 LLD v1（已结案，固定治理回归与事后修复证据已补齐）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-low-level-design-v1.md)
 - [ETF 日线与复权因子 DG 接入 P0 真实验证报告（开发门禁已通过，21:00 复验转为启用前门禁）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md)
 - [ETF 日线与复权因子 DG 接入 P2 最小真实样本验收（通过，仅写隔离目录）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-p2-real-sample-2026-09-02.md)
-- [上证日线趋势通道：决策与范围（已结案；保留公式与页面六项决定）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
-- [上证日线趋势通道 LLD：现行实现与维护合同（缓存、API、消费者及已知差距）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
+- [上证日线趋势通道维护说明（LLD、六项决定、未来扩展与已知差距）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
 - [上证指数日线趋势通道 M4 只读与性能验收报告（历史验收快照）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-m4-readonly-performance-validation-2026-08-10.md)
 - [股票日线趋势通道 Lake 数据集接入技术方案 v1（M0 已通过，待开发）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-plan-v1.md)
 - [股票日线趋势通道 Lake 数据集接入 LLD v1（M0 已通过，待开发）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md)
@@ -226,9 +224,7 @@ docs/
 - [前端设计 Tokens 与组件目录 v2](/Users/congming/github/goldenshare/docs/frontend/frontend-design-tokens-and-component-catalog-v1.md)
 - [前端组件 Showcase v1（HTML 对照）](/Users/congming/github/goldenshare/docs/frontend/frontend-component-showcase-v1.html)
 - [前端数据集审计页面设计 v1（第一期历史设计；现行日期／对象矩阵机制见 Ops 主说明）](/Users/congming/github/goldenshare/docs/frontend/frontend-date-completeness-audit-page-design-v1.md)
-- [前端治理决策与阶段记录（已承接 Phase2、Phase5、Overview 独立卡）](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md)
-- [前端 Phase 6 历史收口与后续边界（已合并计划及四卡）](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)
-- [前端 Ops 事实消费历史审计（保留 F 编号，附当前字段口径）](/Users/congming/github/goldenshare/docs/frontend/frontend-ops-fact-consumer-audit-v1.md)
+- [前端治理历史记录（Phase0–6、Overview 与 Ops 事实消费审计）](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md)
 - [前端质量门禁与截图回归（已合并矩阵和 smoke 说明）](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md)
 - [行情主系统接口规范](/Users/congming/github/goldenshare/docs/platform/quote-detail-api-spec-v1.md)
 - [远程部署历史审计（2026-05/06；不代表当前生产状态）](/Users/congming/github/goldenshare/docs/release/remote-server-deployment-overview-v1.html)

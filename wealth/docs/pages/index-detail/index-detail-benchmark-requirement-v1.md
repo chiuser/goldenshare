@@ -9,7 +9,7 @@
 1. [指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 2. [指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 3. [主要指数标杆需求 v1](../market-overview/major-indices-benchmark-requirement-v1.md)
-4. [上证指数日线趋势通道实时计算方案 v1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
+4. [上证指数日线趋势通道实时计算方案 v1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#decisions-and-rationale)
 5. [主要指数分钟数据集开发文档](../../../../docs/datasets/major-index-mins-dataset-development.md)
 6. [指数详情页正式 API / DTO 合同 v1](./index-detail-api-contract-v1.md)
 7. [指数详情页 M0 生产因子审计 v1](./index-detail-m0-production-audit-v1.md)

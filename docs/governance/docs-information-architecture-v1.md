@@ -17,7 +17,7 @@
 
 部署技能说明、Wealth README 与治理账本收尾已按用户指令提交 `2daa2f16`，详见 §4.12。此前 §4.6–4.11 也已提交；没有其他已批准待实施批次。用户批准的本机两份技能符号链接已完成路径与读取核验，不宣称当前会话缓存已刷新。
 
-本轮通用治理已收尾，后续按具体错误或实现变更维护，不再自动开启下一轮全仓扫描；不代表全仓每份文档均已验收。
+此前通用纠错已收尾。用户随后批准三组结构合并（§4.13），本次修改待 review、未提交；不自动扩展到其他主题，也不代表全仓每份文档均已验收。
 
 后续仅在发现具体错误、重复或实现变更时按主题建立范围。业务专题自身的未验收、未拍板和暂缓事项继续由对应主文档维护，不因文档合并而结案，也不自动转成代码开发任务。
 
@@ -25,7 +25,7 @@
 
 ## 3. 本轮与历史记录怎么读
 
-- 本轮处理清单见[操作技能与项目入口收尾](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#skills-wealth-governance-closeout-20260912)。
+- 本轮处理清单见[三组结构合并](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#structural-consolidation-20260912)。此前操作技能与项目入口已收尾。
 - §4 保存当时的合并去向、验证与遗留边界；“本轮/当前/下一步”按各批记录日期理解，不是今天的新执行授权。
 - 旧文件名只用于 Git 追溯，不是待恢复清单；历史测试通过不代表今天已重新验收。
 - 日期、数量、hash 和既有锚点保留。篇幅主要来自关闭证据，不能为减行数删除唯一证据。
@@ -229,7 +229,7 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 | --- | --- | --- |
 | A | [仓库上手 HTML](../architecture/goldenshare-repository-onboarding-overview-v1.html) | 移除已清退 CLI/脚本、过期迁移号与索引规模；补 QTF；重复门禁/命令表改为现行规则导航 |
 | A | [CodeGraph 快照](../architecture/codegraph-architecture-snapshot.md) | 补 App/QTF 装配，纠正 ingestion 多分支；当前链路与历史工具/停牌执行记录分开 |
-| A | [设计动机摘要](../architecture/design-principles.md) | 548 行旧规则精简为动机与规则入口；删除过时两层模型和重复规范，不恢复新的泛化约束 |
+| A | [设计动机摘要](../architecture/subsystem-boundary-plan.md#historical-design-motives) | 548 行旧规则精简为动机与规则入口；删除过时两层模型和重复规范，不恢复新的泛化约束 |
 | B | [QTF 架构](../architecture/qtf-quant-platform-architecture-v1.html) | 修正“尚未打包/建护栏”；状态机、目录草图与字段表不再复制 LLD；产品方向和非目标保留 |
 | B | [QTF LLD](../architecture/qtf-quant-platform-low-level-design-v1.md#implemented-map) | 九个真实 API 与待实施 M4R/页面分开；补齐原有零行门禁遗漏的 preflight_issue 清单；历史生产/Figma 不冒充今日验收 |
 | C | [清退方案](../architecture/legacy-lake-console-and-kopia-retirement-plan-v1.md#retirement-closeout) | 已完成状态前置，施工期说明标历史；重复停牌进展收敛为独立 S5 对账链接 |
@@ -928,7 +928,7 @@ CodeGraph 使用 status/query/impact 定位 ETF planner、Basic selector、RawSt
 
 | 原文档 | 处理与有效信息去向 |
 | --- | --- |
-| frontend-phase6-execution-plan-v1.md | 删除；阶段顺序、页面范围、完成证据与后续边界合入 [Phase6 记录](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md) |
+| frontend-phase6-execution-plan-v1.md | 删除；阶段顺序、页面范围、完成证据与后续边界合入 [Phase6 记录](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md#phase6-history) |
 | frontend-phase6-p6-1-boundary-card-v1.md、frontend-phase6-p6-2-boundary-card-v1.md、frontend-phase6-p6-3-boundary-card-v1.md、frontend-phase6-p6-4-boundary-card-v1.md | 删除；四批页面、组件、禁止改动范围和剩余问题合入同一记录；已完成批次不作为再次实施授权 |
 | frontend-quality-gate-matrix-v1.md、frontend-smoke-visual-gate-v1.md | 删除；测试分级矩阵、截图更新纪律、六条规则、CI 与验收要求合入[质量门禁与截图回归流程](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) |
 | PostgreSQL 存储优化 v1、v2 与 Raw 直读 Serving 一期 LLD | 三份均保留；仅补状态和导航，保留逐表边界、容量、授权及迁移历史证据，不合并，不执行数据库操作 |
@@ -992,7 +992,7 @@ G2：环境边界、发布步骤和历史证据各保留一个入口，主索引
 | 文档 | 处理 |
 | --- | --- |
 | [工作流模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md) | 补时间/能力字段、step 参数覆盖字段；标明当前串行、不按 depends_on 并行/阻塞，节点与 issue 替代旧事件描述；取消/重试/续跑区分声明与证据，回退链接正式流程 |
-| [前端事实审计](/Users/congming/github/goldenshare/docs/frontend/frontend-ops-fact-consumer-audit-v1.md) | 原 F-001～F-008 表格保留为四月历史；补外部/Biz 两类定义分工及 source 页观测/成功/运行中时间分工，当前合同回链正式文档 |
+| [前端事实审计](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md#ops-fact-audit-history) | 原 F-001～F-008 表格保留为四月历史；补外部/Biz 两类定义分工及 source 页观测/成功/运行中时间分工，当前合同回链正式文档 |
 | [Biz 模板](/Users/congming/github/goldenshare/docs/templates/biz-dataset-development-template.md) | Definition 只填一次；BIZ-001～007 与测试合并为唯一证据账本，保留模型、生产入口、事务、权限、性能及 §11 全部真实验收；明确“注册且接通观测”前提 |
 
 依据：action_catalog、_dispatch_workflow、source 页三个展示 helper、DatasetCardQueryService Biz 分支及 BizDefinition/观测映射。CodeGraph query 定位后读取实现，文档治理方法用于区分历史与现状。只是模板校准，不增加并行执行、自动恢复或新观测能力；只读审计与测试不构成生产验收。README 其他任务条目与无关代码改动保留。
@@ -1034,6 +1034,25 @@ G2：环境边界、发布步骤和历史证据各保留一个入口，主索引
 用户后续确认只维护仓库版本：本机 `/Users/congming/.codex/skills/goldenshare-local/local-build-run/SKILL.md` 指向仓库 `skills/goldenshare-local-build-run/SKILL.md`，`remote-deploy/SKILL.md` 指向仓库 `skills/goldenshare-remote-deploy/SKILL.md`。已确认原副本与替换时 HEAD 内容一致、无独有内容，可从 Git 恢复；替换后两链接目标存在且读取字节与仓库一致。不再保留独立副本或手动同步步骤。仓库路径移动会使绝对链接失效，未提交修改也会被后续文件读取看到；未验证应用缓存热刷新，不声称当前会话已重新加载。未安装套件或执行部署。
 
 验证：文档完整性三个检查组、四份文件的 52 个本地链接目标与 git diff --check 通过；原账本锚点、技能 frontmatter 及本机副本保真检查通过。quick_validate 在系统 Python 和既有 .venv 中均因缺少 PyYAML 未能运行，未安装依赖，不宣称技能校验器通过。业务构建、浏览器及生产验收不在纯说明修改范围。中文技能 name 为既有调用名称，本轮不重命名或改变触发标识。
+
+<a id="structural-consolidation-20260912"></a>
+
+### 4.13 2026-09-12 三组结构合并
+
+状态：按用户批准完成文档合并，待 review，未提交。七份主体文档收敛为三份，撤下四份原文；只迁移说明与引用，不改代码、API、UI、业务数据或执行授权。
+
+| 撤下原文档 | 承接位置与保留内容 |
+| --- | --- |
+| frontend-phase6-rollout-summary-v1.md | [前端治理记录 §7](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md#phase6-history)：P6 四批页面/组件范围、历史数字、验收与残留边界 |
+| frontend-ops-fact-consumer-audit-v1.md | [前端治理记录 §8](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md#ops-fact-audit-history)：F-001～008、G-001～002 原表及字段口径；历史修复不能覆盖后续日期/Biz 分工 |
+| design-principles.md | [架构基线历史附录](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md#historical-design-motives)：七项动机逐条保留；重复导航撤下，不升级为新规则 |
+| sse-daily-trend-channel-realtime-computation-plan-v1.md | [通道维护说明 §11–13](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#decisions-and-rationale)：理由、六项决定、未实施盘中公式和物化条件；原 §3 限制由现行 §1、§4–7、§10 承接 |
+
+独立 M4 性能验收报告及第一期审计页面历史设计保留不改。前端 AGENTS/页面规则/统一基线/组件目录、主索引、Wealth 指数详情三份方案与 Lake 股票通道方案的入链同步迁移；历史治理记录仅改链接去向，原去向叙述按日期理解。本轮与其他任务共用的 docs/README 只改相关条目，其他脏文件保留。
+
+文档治理技能用于先承接后删除；前端 QA 指引用于保护产品边界。本次 CodeGraph query 定位通道 service/API/测试，再核对 build_response 与 source 页日期/成功/表名 helper；只验证迁移的边界，不宣称全量代码重新验收。现行通道合同与测试矩阵保留，未来盘中仍未实施，旧文档可从本次合并前 Git 历史恢复。
+
+验证：文档完整性三个检查组及 git diff --check 通过；前端两份原文与通道 LLD 的全部表格、七项设计动机、盘中公式代码块保真通过。13 份保留文档中 337 个有效本地链接目标及 51 处锚点核验通过；另发现 Lake 股票通道方案中两个既有 /private/tmp 验收产物链接失效（trend_channel_r9_tests_20260904.xml、trend_channel_r9_daily_final_audit_20260904.json），HEAD 已存在且非本轮迁移产生，保留历史引用、不补造产物，不据此宣称全部链接通过。旧文件名仅剩本账本追溯，无活动入链。未运行浏览器、业务构建、部署或生产验收；不安装依赖。
 
 <a id="5-执行规则"></a>
 <a id="6-第二轮收尾检查已完成"></a>

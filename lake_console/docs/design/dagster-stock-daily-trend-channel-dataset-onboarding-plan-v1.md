@@ -8,7 +8,7 @@
 
 本文是股票日线趋势通道数据集的主技术方案。它不会替代或修改现有上证指数按需计算方案：
 
-- [上证指数日线趋势通道实时计算方案 v1](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
+- [上证指数日线趋势通道实时计算方案 v1](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#decisions-and-rationale)
 - [上证指数日线趋势通道实时计算 LLD v1](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
 
 本方案的实施级设计见：
@@ -1515,7 +1515,7 @@ R10.6 与 R10.7 均低于 `30 s` fail-closed 硬门禁，但高于 `<5 s` 工程
 - [股票日线趋势通道 Lake 数据集接入 LLD v1](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md)
 - [正式 Dagster 接入模板：源契约与预算](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html#source-contract-budget)
 - [M12 Gold 股票分钟前复权 MACD/KDJ 指标资产设计](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md)
-- [上证指数日线趋势通道实时计算方案 v1](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
+- [上证指数日线趋势通道实时计算方案 v1](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#decisions-and-rationale)
 - `lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_qfq.py`
 - `lake_console/orchestrator/src/orchestrator/defs/stock_daily_qfq.py`
 - `lake_console/orchestrator/src/orchestrator/defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py`

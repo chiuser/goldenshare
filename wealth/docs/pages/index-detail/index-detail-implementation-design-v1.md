@@ -161,7 +161,7 @@ src/foundation/clients/local_lake/
 现有文件修改：
 
 1. `src/app/api/v1/router.py`：挂正式 index-detail router；local capability true 时再延迟挂分钟 router。
-2. `docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md`：同步页面绘制颜色和上下轨连线规则，不修改后端计算契约。
+2. `docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#decisions-and-rationale`：同步页面绘制颜色和上下轨连线规则，不修改后端计算契约。
 3. `wealth/docs/system/exception-code-registry.md`：编码前登记已评审的 `ID_*` / `IM_*` 异常码；趋势通道沿用既有 Quote 接口异常，不新增十指数异常码。
 
 ### 5.2 前端

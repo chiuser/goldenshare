@@ -22,7 +22,7 @@
 
 本稿综合以下来源整理而成：
 
-1. `docs/architecture/design-principles.md`
+1. `docs/architecture/subsystem-boundary-plan.md#historical-design-motives`
 2. 已退出当前工作树的历史《前端应用一期设计》（仅通过 Git 历史追溯，不再作为当前必读）
 3. `docs/frontend/frontend-technology-and-component-selection.md`
 4. 用户提供的 `design-system.md`
