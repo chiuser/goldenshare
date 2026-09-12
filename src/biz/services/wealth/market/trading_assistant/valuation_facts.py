@@ -25,6 +25,7 @@ class DailyCloseFact:
     source: str | None
     source_version: str
     reason: str | None
+    suspension_evidence: str | None = None
 
     @property
     def price(self) -> Fraction | None:
@@ -50,8 +51,16 @@ class DailyCloseFactsReader:
             .order_by(EquityDailyBar.ts_code).limit(len(ts_codes))).all()
         deadline.remaining_ms()
         by_code = {row.ts_code: row for row in rows}
+        from .suspension_facts import read_suspension_carries
+        carries = read_suspension_carries(session, tuple(code for code in ts_codes if code not in by_code),
+                                         trade_date, self.policy, deadline)
         facts = []
         for code in sorted(ts_codes):
+            if code in carries:
+                price_date, price_text, evidence, version = carries[code]
+                facts.append(DailyCloseFact(code, trade_date, price_date, price_text,
+                    "tushare", version, None, evidence))
+                continue
             row = by_code.get(code)
             close = row.close if row is not None else None
             source = row.source if row is not None else None

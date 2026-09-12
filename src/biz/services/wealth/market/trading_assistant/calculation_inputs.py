@@ -126,19 +126,36 @@ class CalculationInputs:
             valid = fact.price_text is not None
             if valid and type(fact.price_text) is not str:
                 raise CalculationInputMismatch("Source price must be exact decimal text")
-            if (valid and (fact.price_date != fact.valuation_date or fact.reason is not None
+            carry = fact.suspension_evidence is not None
+            if carry:
+                try:
+                    evidence = json.loads(fact.suspension_evidence)
+                    if (evidence["rule"] != "TA_SUSPENSION_V1" or evidence["tsCode"] != fact.ts_code
+                            or evidence["priceDate"] != fact.price_date.isoformat()
+                            or evidence["valuationDate"] != fact.valuation_date.isoformat()
+                            or evidence["hasEffectiveDividend"] is not False
+                            or evidence["factorDays"] != evidence["tradingDays"]
+                            or evidence["suspendedDays"] != evidence["tradingDays"]-1
+                            or evidence["tradingDays"] < 2
+                            or evidence["calendarDays"] != (fact.valuation_date-fact.price_date).days+1
+                            or not Decimal(evidence["factor"]).is_finite() or Decimal(evidence["factor"]) <= 0):
+                        raise ValueError("Invalid suspension evidence")
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise CalculationInputMismatch("Invalid suspension evidence") from exc
+            date_valid = (fact.price_date is not None and fact.price_date < fact.valuation_date) if carry else fact.price_date == fact.valuation_date
+            if (valid and (not date_valid or fact.reason is not None
                           or fact.source != "tushare" or not Decimal(fact.price_text).is_finite()
                           or Decimal(fact.price_text) <= 0)) or (
-                    not valid and (fact.price_date is not None or not fact.reason)):
+                    not valid and (fact.price_date is not None or not fact.reason or carry)):
                 raise CalculationInputMismatch("Inconsistent daily close fact")
             result.append(dict(ts_code=fact.ts_code, trade_date=fact.valuation_date,
                 valuation_at=valuation_at, price=Decimal(fact.price_text) if valid else None,
                 price_date=fact.price_date, source_ref=json.dumps({"table":"core_serving.equity_daily_bar",
-                    "source":fact.source, "tsCode":fact.ts_code, "tradeDate":fact.valuation_date.isoformat(),
+                    "source":fact.source, "tsCode":fact.ts_code, "tradeDate":(fact.price_date or fact.valuation_date).isoformat(),
                     "reason":fact.reason}, sort_keys=True),
                 source_version=fact.source_version, quality="READY" if valid else "UNAVAILABLE",
-                fee_version_id=fee_version_id, valuation_method="SAME_DAY_CLOSE" if valid else None,
-                suspension_evidence_ref=None))
+                fee_version_id=fee_version_id, valuation_method=("CONFIRMED_SUSPENSION_CARRY" if carry else "SAME_DAY_CLOSE") if valid else None,
+                suspension_evidence_ref=fact.suspension_evidence))
         return result
 
     def _digest(self, facts, fee_version_id, valuation_at, after_stock):
@@ -231,7 +248,7 @@ class CalculationInputs:
                 raise CalculationInputMismatch("Frozen valuation checkpoint is incomplete")
             facts = tuple(DailyCloseFact(row.ts_code,row.trade_date,row.price_date,
                 format(row.price,"f") if row.price is not None else None,json.loads(row.source_ref)["source"],
-                row.source_version,json.loads(row.source_ref)["reason"]) for row in rows)
+                row.source_version,json.loads(row.source_ref)["reason"],row.suspension_evidence_ref) for row in rows)
             if self._digest(facts,rows[0].fee_version_id,rows[0].valuation_at,after)!=batch.input_digest:
                 raise CalculationInputMismatch("Frozen valuation values changed")
             self._verify_rows(session,lease.account_id,generation_id,

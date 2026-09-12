@@ -1,4 +1,4 @@
-"""Execute one prepared-generation unit with owned Sessions and durable failure.
+"""Execute one input or calculation unit with owned Sessions and durable failure.
 
 No loop or automatic input discovery. A caller claims one lease, calls run,
 then returns to fair scheduling. Session factories must target the same database.
@@ -21,6 +21,18 @@ class GenerationExecution:
         self.sessions = sessions
 
     def run(self, lease, *, generation_id):
+        return self._execute(lease, generation_id=generation_id, prepare=None)
+
+    def prepare_inputs(self, lease, *, generation_id, business_date, fee_version_id, valuation_at):
+        """Prepare one bounded page under the same failure/lease rules as calculation.
+
+        Date-specific fee and cutoff remain selected by the source adapter, not
+        by this transaction owner. Already frozen inputs cannot be replaced.
+        """
+        return self._execute(lease, generation_id=generation_id, prepare=dict(
+            business_date=business_date, fee_version_id=fee_version_id, valuation_at=valuation_at))
+
+    def _execute(self, lease, *, generation_id, prepare):
         owner_id = None
         try:
             with self.sessions() as session, session.begin():
@@ -42,7 +54,11 @@ class GenerationExecution:
                     generation.resume_stage = None
                     generation.reason = None
                     session.flush()
-                stage = steps.advance(session, lease, generation_id=generation_id, deadline=deadline)
+                if prepare is None:
+                    stage = steps.advance(session, lease, generation_id=generation_id, deadline=deadline)
+                else:
+                    stage = steps.prepare_next_inputs(session, lease, generation_id=generation_id,
+                        deadline=deadline, **prepare)
                 if stage != "PUBLISHED":
                     pending.transient_failure_count = 0
                     self.execution.release(session, lease, deadline=deadline)

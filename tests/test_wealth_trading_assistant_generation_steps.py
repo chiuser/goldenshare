@@ -20,12 +20,15 @@ from src.biz.services.wealth.market.trading_assistant.generation_publication imp
 from src.biz.services.wealth.market.trading_assistant.calculation_inputs import CalculationInputMismatch
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.biz.services.wealth.market.trading_assistant.valuation_preparation import ValuationPreparation
 
 
-@pytest.mark.parametrize("held", [False, True])
+@pytest.mark.parametrize("held", [False, True, "suspended"])
 def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
     inputs, lease, generation_id, fee = setup(publication_db)
+    code = "000002.SZ" if held == "suspended" else "000001.SZ"
     monday = DAY + timedelta(days=3)
     with publication_db.begin() as conn:
         EquityDailyBar.__table__.create(conn, checkfirst=True)
@@ -36,10 +39,16 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
         account = session.get(Account, lease.account_id)
         account.fact_version = 3
         if held:
-            session.add_all([EquityDailyBar(ts_code="000001.SZ", trade_date=current,
-                close=Decimal(price), source="tushare") for current, price in ((DAY, "11.00"), (monday, "12.00"))])
+            prices = ((DAY, "11.00"),) if held == "suspended" else ((DAY, "11.00"), (monday, "12.00"))
+            session.add_all([EquityDailyBar(ts_code=code, trade_date=current,
+                close=Decimal(price), source="tushare") for current, price in prices])
+            if held == "suspended":
+                session.add_all([EquityAdjFactor(ts_code=code, trade_date=current, adj_factor=1)
+                    for current in (DAY, monday)])
+                session.add(EquitySuspendD(ts_code=code, trade_date=monday, row_key_hash=uuid4().hex,
+                    suspend_type="S", suspend_timing=None))
             session.add(InitialPosition(initialization_id=account.current_initialization_id,
-                account_id=lease.account_id, ts_code="000001.SZ", client_row_id="holding",
+                account_id=lease.account_id, ts_code=code, client_row_id="holding",
                 opened_on=DAY, quantity=1000, available_quantity=1000, cost_price="10.00"))
         for offset in range(4):
             current = DAY + timedelta(days=offset)
@@ -107,14 +116,14 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
             with Session(publication_db) as session, session.begin():
                 assert inputs.save_valuation_page(session, lease, **args,
                     facts=inputs.read_valuation_page(session, lease, **args,
-                        trade_date=DAY, page_key="000001.SZ", deadline=deadline()).facts,
+                        trade_date=DAY, page_key=code, deadline=deadline()).facts,
                     fee_version_id=fee, valuation_at=AT,
-                    after_stock=None, deadline=deadline()) == {"afterStock": "000001.SZ"}
+                    after_stock=None, deadline=deadline()) == {"afterStock": code}
             with pytest.raises(CalculationInputMismatch, match="completed valuation scope"):
                 with Session(publication_db) as session, session.begin():
                     inputs.save_valuation_page(session, lease, **args,
                         facts=(fact(code="600000.SH"),), fee_version_id=fee, valuation_at=AT,
-                        after_stock="000001.SZ", deadline=deadline())
+                        after_stock=code, deadline=deadline())
         if stage == "DATE_COMPLETE":
             if stages.count("DATE_COMPLETE") < 4:
                 next_date = DAY + timedelta(days=stages.count("DATE_COMPLETE"))
@@ -133,14 +142,14 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
                 with Session(publication_db) as session, session.begin():
                     assert session.get(CalculationGeneration, generation_id).stage == "CALCULATING"
                     old = inputs.read_valuation_page(session, lease, **args, trade_date=DAY,
-                        page_key="000001.SZ", deadline=deadline())
+                        page_key=code, deadline=deadline())
                     assert old.facts[0].price_text == "11.0000"  # Preserve source column precision.
-                for changed in (fact(price="99.00"), fact(code="600000.SH")):
+                for changed in (fact(code=code, price="99.00"), fact(code="600000.SH")):
                     with pytest.raises(CalculationInputMismatch):
                         with Session(publication_db) as session, session.begin():
                             inputs.save_valuation_page(session, lease, **args, facts=(changed,),
                                 fee_version_id=fee, valuation_at=AT,
-                                after_stock=None if changed.ts_code == "000001.SZ" else "000001.SZ",
+                                after_stock=None if changed.ts_code == code else code,
                                 deadline=deadline())
             with pytest.raises(CalculationInputMismatch, match="Completed date"):
                 with Session(publication_db) as session, session.begin():
@@ -164,8 +173,8 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
         assert [day.trade_date for day in days] == [DAY, monday]
         snapshot = session.get(AccountSnapshot, (lease.account_id, days[-1].day_result_id))
         assert snapshot.cash_amount == 80
-        assert snapshot.stock_market_value == (12000 if held else 0)
-        assert snapshot.day_profit_amount == (Decimal("999.50") if held else None)
+        assert snapshot.stock_market_value == (11000 if held == "suspended" else 12000 if held else 0)
+        assert snapshot.day_profit_amount == (Decimal("0.00") if held == "suspended" else Decimal("999.50") if held else None)
         assert session.get(Recalculation, lease.account_id) is None
         assert GenerationPublication.confirmed(session, owner_id=1, account_id=lease.account_id,
             generation_id=generation_id, target_version=lease.target_version)

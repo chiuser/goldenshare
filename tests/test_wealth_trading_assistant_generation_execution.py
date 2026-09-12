@@ -152,3 +152,50 @@ def test_superseded_runner_does_not_pause_new_target(interruptions_db):
         assert session.scalar(select(func.count()).select_from(CalculationBatch).where(
             CalculationBatch.generation_id == generation)) == 0
     retire(interruptions_db, lease)
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_input_unit_owns_transaction_and_resumes_without_external_preparation(interruptions_db, monkeypatch, failed):
+    inputs, lease, generation, fee = setup(interruptions_db)
+    with Session(interruptions_db) as session, session.begin():
+        if session.get(TradeCalendar, ("SSE", DAY)) is None:
+            session.add(TradeCalendar(exchange="SSE", trade_date=DAY, is_open=True,
+                pretrade_date=DAY-timedelta(days=1)))
+    runner = GenerationExecution(inputs.execution, sessionmaker(interruptions_db))
+    assert runner.run(lease, generation_id=generation) == "CALENDAR"
+
+    def claim():
+        with Session(interruptions_db) as session, session.begin():
+            result = inputs.execution.claim(session, executor_id="input-unit", deadline=deadline())
+            assert result is not None and result.account_id == lease.account_id
+            return result
+
+    prepare_args = dict(generation_id=generation, business_date=DAY, fee_version_id=fee, valuation_at=AT)
+    if failed:
+        original = GenerationSteps.prepare_next_inputs
+        def interrupted(self, *args, **kwargs):
+            original(self, *args, **kwargs)
+            raise CalculationDataUnavailable("source temporarily unavailable after candidate write")
+        monkeypatch.setattr(GenerationSteps, "prepare_next_inputs", interrupted)
+        assert runner.prepare_inputs(claim(), **prepare_args) == "WAITING_DATA"
+        with Session(interruptions_db) as session, session.begin():
+            assert session.get(CalculationBatch,
+                (lease.account_id, generation, DAY, "VALUATION_END", "", "1")) is None
+            saved = session.get(CalculationGeneration, generation)
+            assert saved.stage == "WAITING_DATA" and saved.resume_stage == "PREPARING"
+            pending = session.get(Recalculation, lease.account_id)
+            assert pending.executor_id is None and pending.next_attempt_at is not None
+            # Advance the stored due time; no wall-clock sleep in the test.
+            pending.next_attempt_at = session.scalar(select(func.clock_timestamp()))-timedelta(seconds=1)
+        monkeypatch.setattr(GenerationSteps, "prepare_next_inputs", original)
+    for expected in ("VALUATION_END", "DATE_INPUT", "DATE_INPUT"):
+        assert GenerationExecution(inputs.execution, sessionmaker(interruptions_db)).prepare_inputs(
+            claim(), **prepare_args) == expected
+    assert runner.run(claim(), generation_id=generation) == "DAY_START"
+    with Session(interruptions_db) as session:
+        saved = session.get(CalculationGeneration, generation)
+        assert saved.stage == "CALCULATING" and saved.reason is None
+        assert session.scalar(select(func.count()).select_from(CalculationBatch).where(
+            CalculationBatch.generation_id == generation,
+            CalculationBatch.stage.in_(("VALUATION_END", "DATE_INPUT")))) == 2
+    retire(interruptions_db, lease)

@@ -23,6 +23,9 @@ from src.biz.models.wealth.trading_assistant.calculation import (
     Recalculation, CalculationGeneration, DayResult, PositionState, ClosedTrade)
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
+from src.foundation.models.core.equity_dividend import EquityDividend
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.biz.queries.wealth.market.trading_assistant.effective_ledger import effective_ledger
 from src.foundation.models.base import Base
 from tests.wealth_watchlist_postgres_support import isolated_postgres, PG_BIN
@@ -35,13 +38,15 @@ def database(tmp_path_factory):
         with engine.begin() as conn:
             conn.execute(text("CREATE SCHEMA app"))
             conn.execute(text("CREATE SCHEMA core_serving"))
+            conn.execute(text("CREATE SCHEMA core"))
             conn.execute(text("CREATE TABLE app.app_user (id INTEGER PRIMARY KEY)"))
             conn.execute(text("INSERT INTO app.app_user VALUES (1), (2)"))
             migration = ScriptDirectory.from_config(Config("alembic.ini")).get_revision("20260912_000171").module
             with Operations.context(MigrationContext.configure(conn)):
                 migration.upgrade()
                 ScriptDirectory.from_config(Config("alembic.ini")).get_revision("20260912_000172").module.upgrade()
-            Base.metadata.create_all(conn, tables=[Security.__table__, TradeCalendar.__table__])
+            Base.metadata.create_all(conn, tables=[Security.__table__, TradeCalendar.__table__,
+                EquitySuspendD.__table__, EquityDividend.__table__, EquityAdjFactor.__table__])
         yield engine
 
 
