@@ -40,8 +40,6 @@ def test_snapshot_composition_requires_completed_inputs(publication_db, held):
     with Session(publication_db) as session, session.begin():
         if session.get(TradeCalendar, ("SSE", DAY)) is None:
             session.add(TradeCalendar(exchange="SSE", trade_date=DAY, is_open=True, pretrade_date=DAY-timedelta(days=1)))
-        session.add(DayResult(day_result_id=day, account_id=lease.account_id, origin_generation_id=generation,
-            trade_date=DAY, input_digest=b"a"*32, status="BUILDING"))
         if held:
             account = session.get(Account, lease.account_id)
             session.add(InitialPosition(initialization_id=account.current_initialization_id,
@@ -50,6 +48,8 @@ def test_snapshot_composition_requires_completed_inputs(publication_db, held):
             inputs.save_valuation_page(session, lease, generation_id=generation,
                 facts=(fact(price="11.00"),), fee_version_id=fee, valuation_at=AT,
                 after_stock=None, deadline=deadline())
+        session.add(DayResult(day_result_id=day, account_id=lease.account_id, origin_generation_id=generation,
+            trade_date=DAY, input_digest=b"a"*32, status="BUILDING"))
         assert CalendarInputs(execution).freeze_next(session, lease, generation_id=generation, deadline=deadline())
     with pytest.raises(CalculationInputMismatch, match="Complete stock and cash"):
         with Session(publication_db) as session, session.begin():

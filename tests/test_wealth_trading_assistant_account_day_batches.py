@@ -25,11 +25,11 @@ def test_account_reduction_restarts_without_duplicating_stock_profit(migrated):
     stocks, service = StockDayBatches(execution), AccountDayBatches(execution)
     day = uuid4()
     with Session(migrated) as session, session.begin():
-        session.add(DayResult(day_result_id=day, account_id=lease.account_id, origin_generation_id=generation,
-            trade_date=DAY, input_digest=b"a"*32, status="BUILDING"))
         inputs.save_valuation_page(session, lease, generation_id=generation,
             facts=(fact("000001.SZ", "11.00"), fact("000002.SZ", "11.00")),
             fee_version_id=fee, valuation_at=AT, after_stock=None, deadline=deadline())
+        session.add(DayResult(day_result_id=day, account_id=lease.account_id, origin_generation_id=generation,
+            trade_date=DAY, input_digest=b"a"*32, status="BUILDING"))
     kwargs = dict(generation_id=generation, day_result_id=day, previous_day_result_id=None)
     with pytest.raises(CalculationInputMismatch, match="earlier sealed"):
         with Session(migrated) as session, session.begin():

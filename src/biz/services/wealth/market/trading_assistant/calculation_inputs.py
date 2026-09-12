@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import select, func
 
-from src.biz.models.wealth.trading_assistant.calculation import CalculationGeneration
+from src.biz.models.wealth.trading_assistant.calculation import CalculationGeneration, DayResult
 from src.biz.models.wealth.trading_assistant.calculation_inputs import CalculationBatch, ValuationBasis
 from .recalculation_execution import CalculationExecutionLost
 from .valuation_facts import DailyCloseFact
@@ -141,7 +141,8 @@ class CalculationInputs:
         desired = self._rows(facts, fee_version_id, valuation_at)
         identity = (lease.account_id, generation_id, trade_date, "VALUATION", "", codes[-1])
         with self.execution.batch(session, lease, deadline=deadline) as account:
-            generation = self._generation(session, lease, account, generation_id, trade_date)
+            generation = self._generation(session, lease, account, generation_id, trade_date,
+                stages=("PREPARING", "CALCULATING"))
             existing = session.get(CalculationBatch, identity)
             if existing is not None:
                 if (existing.input_digest != digest or existing.row_count != len(facts)
@@ -149,6 +150,16 @@ class CalculationInputs:
                     raise CalculationInputMismatch("Frozen page inputs changed")
                 self._verify_rows(session, lease.account_id, generation_id, desired)
                 return existing.cursor.copy()
+            if session.get(CalculationBatch,
+                    (lease.account_id, generation_id, trade_date, "VALUATION_END", "", "1")) is not None:
+                raise CalculationInputMismatch("Cannot append to a completed valuation scope")
+            # A generation can prepare later days while earlier days calculate.
+            # Once this date starts, only exact replay of frozen pages is valid.
+            if session.scalar(select(DayResult.day_result_id).where(
+                    DayResult.account_id == lease.account_id,
+                    DayResult.origin_generation_id == generation_id,
+                    DayResult.trade_date == trade_date).limit(1)) is not None:
+                raise CalculationInputMismatch("Cannot append valuation inputs after this date started")
             previous = session.scalar(select(CalculationBatch).where(
                 CalculationBatch.account_id == lease.account_id, CalculationBatch.generation_id == generation_id,
                 CalculationBatch.trade_date == trade_date, CalculationBatch.stage == "VALUATION",
@@ -172,7 +183,8 @@ class CalculationInputs:
     def read_valuation_page(self, session, lease, *, generation_id, trade_date, page_key, deadline):
         """Recover actual saved values, not a fresh market query or current fees."""
         with self.execution.batch(session, lease, deadline=deadline) as account:
-            self._generation(session, lease, account, generation_id, trade_date)
+            self._generation(session, lease, account, generation_id, trade_date,
+                stages=("PREPARING", "CALCULATING", "VERIFYING", "PUBLISHING", "WAITING_DATA", "FAILED"))
             batch = session.get(CalculationBatch,
                 (lease.account_id,generation_id,trade_date,"VALUATION","",page_key))
             if batch is None:

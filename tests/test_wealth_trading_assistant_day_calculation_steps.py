@@ -30,8 +30,6 @@ def test_day_steps_resume_rollback_seal_and_never_publish(publication_db, held):
     with Session(publication_db) as session, session.begin():
         if session.get(TradeCalendar,("SSE",DAY)) is None:
             session.add(TradeCalendar(exchange="SSE",trade_date=DAY,is_open=True,pretrade_date=DAY-timedelta(days=1)))
-        session.add(DayResult(day_result_id=day_id,account_id=lease.account_id,
-            origin_generation_id=generation,trade_date=DAY,input_digest=b"a"*32,status="BUILDING"))
         if held:
             account = session.get(Account,lease.account_id)
             session.add(InitialPosition(initialization_id=account.current_initialization_id,
@@ -39,6 +37,8 @@ def test_day_steps_resume_rollback_seal_and_never_publish(publication_db, held):
                 quantity=1000,available_quantity=1000,cost_price="10.00"))
             inputs.save_valuation_page(session,lease,generation_id=generation,facts=(fact(price="11.00"),),
                 fee_version_id=fee,valuation_at=AT,after_stock=None,deadline=deadline())
+        session.add(DayResult(day_result_id=day_id,account_id=lease.account_id,
+            origin_generation_id=generation,trade_date=DAY,input_digest=b"a"*32,status="BUILDING"))
         CalendarInputs(execution).freeze_next(session,lease,generation_id=generation,deadline=deadline())
     def count(session):
         return session.scalar(select(func.count()).select_from(CalculationBatch).where(
@@ -125,11 +125,11 @@ def test_next_trading_day_uses_sealed_predecessor_over_weekend(publication_db):
                 session.add(TradeCalendar(exchange="SSE",trade_date=current,is_open=offset in (0,3),
                     pretrade_date=DAY-timedelta(days=1) if offset==0 else DAY))
         for day_id,business_date,price in ((first_id,DAY,"11.00"),(second_id,monday,"12.00")):
-            session.add(DayResult(day_result_id=day_id,account_id=lease.account_id,
-                origin_generation_id=generation,trade_date=business_date,input_digest=b"a"*32,status="BUILDING"))
             inputs.save_valuation_page(session,lease,generation_id=generation,
                 facts=(replace(fact(price=price),valuation_date=business_date,price_date=business_date),),
                 fee_version_id=fee,valuation_at=AT+(business_date-DAY),after_stock=None,deadline=deadline())
+            session.add(DayResult(day_result_id=day_id,account_id=lease.account_id,
+                origin_generation_id=generation,trade_date=business_date,input_digest=b"a"*32,status="BUILDING"))
         assert CalendarInputs(inputs.execution).freeze_next(session,lease,generation_id=generation,deadline=deadline())
     def advance(session,day_id,previous,business_date):
         return DayCalculationSteps(inputs.execution).step(session,lease,generation_id=generation,

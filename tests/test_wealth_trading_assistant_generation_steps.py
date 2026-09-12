@@ -19,12 +19,16 @@ from src.biz.services.wealth.market.trading_assistant.generation_steps import Ge
 from src.biz.services.wealth.market.trading_assistant.generation_publication import GenerationPublication
 from src.biz.services.wealth.market.trading_assistant.calculation_inputs import CalculationInputMismatch
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
+from src.biz.services.wealth.market.trading_assistant.valuation_preparation import ValuationPreparation
 
 
 @pytest.mark.parametrize("held", [False, True])
 def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
     inputs, lease, generation_id, fee = setup(publication_db)
     monday = DAY + timedelta(days=3)
+    with publication_db.begin() as conn:
+        EquityDailyBar.__table__.create(conn, checkfirst=True)
     with Session(publication_db) as session, session.begin():
         generation = session.get(CalculationGeneration, generation_id)
         generation.through_date = monday
@@ -32,6 +36,8 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
         account = session.get(Account, lease.account_id)
         account.fact_version = 3
         if held:
+            session.add_all([EquityDailyBar(ts_code="000001.SZ", trade_date=current,
+                close=Decimal(price), source="tushare") for current, price in ((DAY, "11.00"), (monday, "12.00"))])
             session.add(InitialPosition(initialization_id=account.current_initialization_id,
                 account_id=lease.account_id, ts_code="000001.SZ", client_row_id="holding",
                 opened_on=DAY, quantity=1000, available_quantity=1000, cost_price="10.00"))
@@ -61,10 +67,10 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
             GenerationSteps(inputs.execution).prepare_date(session, lease, **args,
                 business_date=current, valuation_at=AT + timedelta(days=offset), deadline=deadline())
         if held:
-            for current, price in ((DAY, "11.00"), (monday, "12.00")):
-                inputs.save_valuation_page(session, lease, **args,
-                    facts=(replace(fact(price=price), valuation_date=current, price_date=current),),
-                    fee_version_id=fee, valuation_at=AT + (current - DAY), after_stock=None, deadline=deadline())
+            for expected in (False, True):
+                assert ValuationPreparation(inputs.execution).step(session, lease, **args,
+                    business_date=DAY, previous_day_result_id=None,
+                    fee_version_id=fee, valuation_at=AT, deadline=deadline()) == expected
     with pytest.raises(CalculationInputMismatch, match="Prepared date inputs changed"):
         with Session(publication_db) as session, session.begin():
             GenerationSteps(inputs.execution).prepare_date(session, lease, **args,
@@ -90,7 +96,40 @@ def test_window_resumes_one_unit_including_weekend_cash(publication_db, held):
             assert session.scalar(select(func.count()).select_from(DayResult).where(
                 DayResult.origin_generation_id == generation_id, DayResult.status == "BUILDING")) <= 1
         stages.append(stage)
+        if held and stage == "DAY_START" and stages.count("DAY_START") == 1:
+            with Session(publication_db) as session, session.begin():
+                assert inputs.save_valuation_page(session, lease, **args,
+                    facts=inputs.read_valuation_page(session, lease, **args,
+                        trade_date=DAY, page_key="000001.SZ", deadline=deadline()).facts,
+                    fee_version_id=fee, valuation_at=AT,
+                    after_stock=None, deadline=deadline()) == {"afterStock": "000001.SZ"}
+            with pytest.raises(CalculationInputMismatch, match="completed valuation scope"):
+                with Session(publication_db) as session, session.begin():
+                    inputs.save_valuation_page(session, lease, **args,
+                        facts=(fact(code="600000.SH"),), fee_version_id=fee, valuation_at=AT,
+                        after_stock="000001.SZ", deadline=deadline())
         if stage == "DATE_COMPLETE":
+            # Only after Friday is complete, freeze Monday in a new session.
+            # The generation remains CALCULATING; do not reset its global stage.
+            if held and stages.count("DATE_COMPLETE") == 1:
+                with Session(publication_db) as session, session.begin():
+                    assert session.get(CalculationGeneration, generation_id).stage == "CALCULATING"
+                    previous_id = session.scalar(select(DayResult.day_result_id).where(
+                        DayResult.origin_generation_id == generation_id, DayResult.trade_date == DAY))
+                    for expected in (False, True):
+                        assert ValuationPreparation(inputs.execution).step(session, lease, **args,
+                            business_date=monday, previous_day_result_id=previous_id,
+                            fee_version_id=fee, valuation_at=AT + (monday - DAY), deadline=deadline()) == expected
+                    old = inputs.read_valuation_page(session, lease, **args, trade_date=DAY,
+                        page_key="000001.SZ", deadline=deadline())
+                    assert old.facts[0].price_text == "11.0000"  # Preserve source column precision.
+                for changed in (fact(price="99.00"), fact(code="600000.SH")):
+                    with pytest.raises(CalculationInputMismatch):
+                        with Session(publication_db) as session, session.begin():
+                            inputs.save_valuation_page(session, lease, **args, facts=(changed,),
+                                fee_version_id=fee, valuation_at=AT,
+                                after_stock=None if changed.ts_code == "000001.SZ" else "000001.SZ",
+                                deadline=deadline())
             with pytest.raises(CalculationInputMismatch, match="Completed date"):
                 with Session(publication_db) as session, session.begin():
                     marker = session.scalar(select(CalculationBatch).where(
