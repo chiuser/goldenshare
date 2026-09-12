@@ -17,6 +17,8 @@ index_market/
 
 ## 当前研究状态
 
+2026-09-12方向更新：[单股按股数分批买卖回测方案](../../../docs/product/stock-chan-share-position-backtest-plan-v1.md)已起草，尚未编码/运行。独立股票、五年数据，不再使用指数窗口；B1/B2/B3买20%/30%/50%，S1/S2/S3卖50%/30%/20%，比例按固定股数基准。轮次及账户补充规则待确认，首只股票待指定。原指数共振研究暂停扩批，下列记录和命令保留供历史复核，不自动启动原下一批。
+
 2026-09-12最新：[首批等价提速](../../../reports/stock_chan_parallel_first10_20260912/report.md)完成：1/2/4进程125.5/66.4/39.8秒，4进程快3.15倍，231项全字段结果比较一致，五项检验全部保留。[原首批10只个股回放](../../../reports/stock_chan_g2b_first10_20260912/report.md)完成11席，真实暂停恢复通过；仅中国天楹有两笔提前买点。全量2189文件超过原2000上限，剩余279只未执行；约59分钟是优化前串行估算，不是当前运行状态。[首只试跑](../../../reports/stock_chan_g2a_replay_20260912/report.md)和[沪深未退市股票排名](../../../reports/stock_chan_shsz_r1_surviving_20260912/report.md)保留；三段对照50/48/50，排除已退市者及北交所，存续池有幸存者偏差。以下旧运行和清理记录是历史，不代表当前仍暂停在G1。
 
 - [个股缠论独立方案](/Users/congming/github/goldenshare/docs/product/stock-chan-index-window-research-plan-v1.md)：沪深A股、最近五年的市场背景共振研究，不研究指数成员关系。[G1修正后报告](/Users/congming/github/goldenshare/reports/stock_chan_shsz_r1_source5_20260910/report.md)已完成8月窗口5203只排名与50对50匹配，2月/4月存在未解释数据缺口，G2未执行。用户正在处理缺数，研究暂停；本轮仅做[废弃代码与报告清理](../../../reports/research_cleanup_20260910/report.md)。
