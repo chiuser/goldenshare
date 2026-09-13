@@ -61,6 +61,11 @@ class GenerationDispatch:
             basis = DayInputBasis(UUID(terminal.accumulator["feeVersionId"]),
                 datetime.fromisoformat(terminal.accumulator["valuationAt"]))
         else:
+            from .prefix_reuse import PrefixReuse
+            reused = PrefixReuse(self.steps).step(session, lease, generation=generation,
+                business_date=day, deadline=deadline)
+            if reused is not None:
+                return reused
             basis = self.resolve_day_inputs(session, account_id=lease.account_id,
                 business_date=day, deadline=deadline)
         if (not isinstance(basis, DayInputBasis) or not isinstance(basis.fee_version_id, UUID)

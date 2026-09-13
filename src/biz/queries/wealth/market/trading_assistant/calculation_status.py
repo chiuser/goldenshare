@@ -3,6 +3,7 @@ from sqlalchemy import and_, select
 
 from src.biz.models.wealth.trading_assistant.accounts import Account
 from src.biz.models.wealth.trading_assistant.calculation import CalculationGeneration, DayResult, Recalculation
+from src.biz.models.wealth.trading_assistant.calculation_inputs import CutoffPreparation
 from src.biz.models.wealth.trading_assistant.publication import PublicationReceipt
 from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationProgress, CalculationStatus
 from src.biz.services.wealth.market.trading_assistant.account_acceptance import accepted_time
@@ -29,6 +30,19 @@ class CalculationStatusQuery:
         progress = CalculationProgress(completedTradeDateCount=0,totalTradeDateCount=None,
             currentTradeDate=None,lastCompletedTradeDate=None,lastBusinessUpdatedAt=None)
         stage, reason = "PENDING", None
+        if generation is None:
+            preparation = session.get(CutoffPreparation, (account_id, account.calculation_target_version, "INITIAL"))
+            if preparation:
+                if (preparation.fact_version != account.fact_version
+                        or preparation.initialization_id != account.current_initialization_id):
+                    raise ValueError("Current cutoff preparation differs from accepted facts")
+                stage = preparation.state if preparation.state in ("WAITING_DATA", "FAILED") else "PREPARING"
+                reason = preparation.reason if stage in ("WAITING_DATA", "FAILED") else None
+                # Source checks are not sealed accounting days. Do not borrow
+                # the probe's completed date/count as calculation progress.
+                progress = progress.model_copy(update={"lastBusinessUpdatedAt": accepted_time(preparation.updated_at)})
+            elif pending is not None and pending.next_attempt_at is None:
+                stage, reason = "FAILED", "本次核算核验未通过，已停止自动重试。"
         if generation:
             if generation.fact_version != account.fact_version:
                 raise ValueError("Current generation does not match accepted facts")

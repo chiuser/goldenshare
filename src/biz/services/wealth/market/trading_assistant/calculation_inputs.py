@@ -223,37 +223,41 @@ class CalculationInputs:
         with self.execution.batch(session, lease, deadline=deadline) as account:
             self._generation(session, lease, account, generation_id, trade_date,
                 stages=("PREPARING", "CALCULATING", "VERIFYING", "PUBLISHING", "WAITING_DATA", "FAILED"))
-            batch = session.get(CalculationBatch,
-                (lease.account_id,generation_id,trade_date,"VALUATION","",page_key))
-            if batch is None:
-                return None
-            previous = session.scalar(select(CalculationBatch).where(
-                CalculationBatch.account_id==lease.account_id, CalculationBatch.generation_id==generation_id,
-                CalculationBatch.trade_date==trade_date, CalculationBatch.stage=="VALUATION",
-                CalculationBatch.stock_key=="", CalculationBatch.page_key < page_key)
-                .order_by(CalculationBatch.page_key.desc()).limit(1))
-            after = previous.page_key if previous else None
-            query = select(ValuationBasis).where(ValuationBasis.account_id==lease.account_id,
-                ValuationBasis.generation_id==generation_id, ValuationBasis.trade_date==trade_date,
-                ValuationBasis.ts_code<=page_key)
-            if after is not None:
-                query = query.where(ValuationBasis.ts_code>after)
-            rows = session.scalars(query.order_by(ValuationBasis.ts_code).limit(self.policy.page_rows+1)
-                                   .execution_options(populate_existing=True)).all()
-            if (not rows or len(rows)>self.policy.page_rows or len(rows)!=batch.row_count
-                    or batch.cursor!={"afterStock":page_key}
-                    or batch.accumulator!={"stockCount":(previous.accumulator["stockCount"] if previous else 0)+len(rows)}
-                    or rows[-1].ts_code!=page_key
-                    or any((row.fee_version_id,row.valuation_at)!=(rows[0].fee_version_id,rows[0].valuation_at) for row in rows)):
-                raise CalculationInputMismatch("Frozen valuation checkpoint is incomplete")
-            facts = tuple(DailyCloseFact(row.ts_code,row.trade_date,row.price_date,
-                format(row.price,"f") if row.price is not None else None,json.loads(row.source_ref)["source"],
-                row.source_version,json.loads(row.source_ref)["reason"],row.suspension_evidence_ref) for row in rows)
-            if self._digest(facts,rows[0].fee_version_id,rows[0].valuation_at,after)!=batch.input_digest:
-                raise CalculationInputMismatch("Frozen valuation values changed")
-            self._verify_rows(session,lease.account_id,generation_id,
-                              self._rows(facts,rows[0].fee_version_id,rows[0].valuation_at))
-            return FrozenValuationPage(facts,rows[0].fee_version_id,rows[0].valuation_at,after)
+            return self._read_saved_page(session, lease.account_id, generation_id, trade_date, page_key)
+
+    def _read_saved_page(self, session, account_id, generation_id, trade_date, page_key):
+        """Read-only integrity check; caller must fence/authorize the account."""
+        batch = session.get(CalculationBatch,
+            (account_id,generation_id,trade_date,"VALUATION","",page_key))
+        if batch is None:
+            return None
+        previous = session.scalar(select(CalculationBatch).where(
+            CalculationBatch.account_id==account_id, CalculationBatch.generation_id==generation_id,
+            CalculationBatch.trade_date==trade_date, CalculationBatch.stage=="VALUATION",
+            CalculationBatch.stock_key=="", CalculationBatch.page_key < page_key)
+            .order_by(CalculationBatch.page_key.desc()).limit(1))
+        after = previous.page_key if previous else None
+        query = select(ValuationBasis).where(ValuationBasis.account_id==account_id,
+            ValuationBasis.generation_id==generation_id, ValuationBasis.trade_date==trade_date,
+            ValuationBasis.ts_code<=page_key)
+        if after is not None:
+            query = query.where(ValuationBasis.ts_code>after)
+        rows = session.scalars(query.order_by(ValuationBasis.ts_code).limit(self.policy.page_rows+1)
+                               .execution_options(populate_existing=True)).all()
+        if (not rows or len(rows)>self.policy.page_rows or len(rows)!=batch.row_count
+                or batch.cursor!={"afterStock":page_key}
+                or batch.accumulator!={"stockCount":(previous.accumulator["stockCount"] if previous else 0)+len(rows)}
+                or rows[-1].ts_code!=page_key
+                or any((row.fee_version_id,row.valuation_at)!=(rows[0].fee_version_id,rows[0].valuation_at) for row in rows)):
+            raise CalculationInputMismatch("Frozen valuation checkpoint is incomplete")
+        facts = tuple(DailyCloseFact(row.ts_code,row.trade_date,row.price_date,
+            format(row.price,"f") if row.price is not None else None,json.loads(row.source_ref)["source"],
+            row.source_version,json.loads(row.source_ref)["reason"],row.suspension_evidence_ref) for row in rows)
+        if self._digest(facts,rows[0].fee_version_id,rows[0].valuation_at,after)!=batch.input_digest:
+            raise CalculationInputMismatch("Frozen valuation values changed")
+        self._verify_rows(session,account_id,generation_id,
+                          self._rows(facts,rows[0].fee_version_id,rows[0].valuation_at))
+        return FrozenValuationPage(facts,rows[0].fee_version_id,rows[0].valuation_at,after)
 
     @staticmethod
     def _verify_rows(session, account_id, generation_id, desired):

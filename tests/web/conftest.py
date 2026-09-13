@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import pytest
@@ -203,13 +204,22 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
 
 
 @pytest.fixture()
-def app_client(db_session: Session) -> Generator[TestClient, None, None]:
+def app_client(db_session: Session, monkeypatch) -> Generator[TestClient, None, None]:
     from src.app.web.app import app
     from src.app.dependencies.db import get_db_session
     from src.app.dependencies.realtime import get_realtime_state_store
     from src.foundation.realtime import InMemoryRealtimeStateStore
 
     get_settings.cache_clear()
+
+    @asynccontextmanager
+    async def isolated_trading_assistant(_app, **_kwargs):
+        # This shared fixture owns only SQLite/request dependencies. It must
+        # never start recovery/calculation against the configured database.
+        # TA lifecycle and real API tests use their explicit isolated PG.
+        yield
+
+    monkeypatch.setattr("src.app.web.lifespan.trading_assistant_lifespan", isolated_trading_assistant)
 
     def override_db_session():
         yield db_session

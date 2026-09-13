@@ -10,6 +10,7 @@ from src.biz.models.wealth.trading_assistant.calculation_inputs import Calculati
 from src.biz.models.wealth.trading_assistant.publication import PublicationDay, PublicationReceipt
 from .calendar_inputs import CalendarInputs
 from .calculation_inputs import CalculationInputs, CalculationInputMismatch
+from .generation_references import GenerationReferences
 
 
 class GenerationPublication:
@@ -73,8 +74,9 @@ class GenerationPublication:
             current = previous.trade_date + timedelta(days=1) if previous else generation.from_date
             calendar = CalendarInputs(self.execution).read_date(session, lease, generation_id=generation_id,
                 business_date=current, deadline=deadline)
-            results = session.scalars(select(DayResult).where(DayResult.account_id == lease.account_id,
-                DayResult.origin_generation_id == generation_id, DayResult.trade_date == current).limit(2)).all()
+            resolved = GenerationReferences(self.inputs).result(session, account_id=lease.account_id,
+                generation_id=generation_id, business_date=current)
+            results = [resolved] if resolved else []
             evidence = None
             if calendar["is_open"]:
                 if len(results) != 1 or results[0].status != "SEALED":
@@ -170,9 +172,10 @@ class GenerationPublication:
             direct = session.get(PublicationDay, (lease.account_id, generation_id, business_date), populate_existing=True)
             evidence = None
             if calendar["is_open"]:
-                day = session.get(DayResult, direct.day_result_id, populate_existing=True) if direct else None
+                day = GenerationReferences(self.inputs).result(session, account_id=lease.account_id,
+                    generation_id=generation_id, business_date=business_date)
                 if (day is None or day.status != "SEALED" or day.account_id != lease.account_id
-                        or day.trade_date != business_date or day.origin_generation_id != generation_id):
+                        or day.trade_date != business_date or direct is None or direct.day_result_id != day.day_result_id):
                     raise CalculationInputMismatch("Manifest reference does not resolve to this sealed day")
                 evidence = {"id": str(day.day_result_id), "digest": day.input_digest.hex()}
             elif direct is not None:

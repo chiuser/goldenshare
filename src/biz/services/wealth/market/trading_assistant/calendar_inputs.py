@@ -57,21 +57,25 @@ class CalendarInputs:
         with self.execution.batch(session, lease, deadline=deadline) as account:
             self.inputs._generation(session, lease, account, generation_id, business_date,
                                     stages=("PREPARING", "CALCULATING", "VERIFYING", "PUBLISHING"))
-            row = session.scalar(select(CalculationBatch).where(CalculationBatch.account_id == lease.account_id,
-                CalculationBatch.generation_id == generation_id, CalculationBatch.stage == "CALENDAR",
-                CalculationBatch.stock_key == "", CalculationBatch.trade_date <= business_date)
-                .order_by(CalculationBatch.trade_date.desc()).limit(1))
-            if row is None:
-                raise CalculationInputMismatch("Calendar date has not been frozen")
-            previous = session.scalar(select(CalculationBatch).where(CalculationBatch.account_id == lease.account_id,
-                CalculationBatch.generation_id == generation_id, CalculationBatch.stage == "CALENDAR",
-                CalculationBatch.stock_key == "", CalculationBatch.trade_date < row.trade_date)
-                .order_by(CalculationBatch.trade_date.desc()).limit(1))
-            digest = sha256(self.inputs._encoded({"previous": previous.input_digest.hex() if previous else None,
-                "cursor": row.cursor, "accumulator": row.accumulator})).digest()
-            if digest != row.input_digest or row.row_count != len(row.accumulator["rows"]):
-                raise CalculationInputMismatch("Frozen calendar contents changed")
-            for fact in row.accumulator["rows"]:
-                if fact["trade_date"] == business_date.isoformat():
-                    return fact
-            raise CalculationInputMismatch("Calendar date is missing from the frozen page")
+            return self._read_saved_date(session, lease.account_id, generation_id, business_date)
+
+    def _read_saved_date(self, session, account_id, generation_id, business_date):
+        """Read-only integrity check; caller must fence/authorize the account."""
+        row = session.scalar(select(CalculationBatch).where(CalculationBatch.account_id == account_id,
+            CalculationBatch.generation_id == generation_id, CalculationBatch.stage == "CALENDAR",
+            CalculationBatch.stock_key == "", CalculationBatch.trade_date <= business_date)
+            .order_by(CalculationBatch.trade_date.desc()).limit(1))
+        if row is None:
+            raise CalculationInputMismatch("Calendar date has not been frozen")
+        previous = session.scalar(select(CalculationBatch).where(CalculationBatch.account_id == account_id,
+            CalculationBatch.generation_id == generation_id, CalculationBatch.stage == "CALENDAR",
+            CalculationBatch.stock_key == "", CalculationBatch.trade_date < row.trade_date)
+            .order_by(CalculationBatch.trade_date.desc()).limit(1))
+        digest = sha256(self.inputs._encoded({"previous": previous.input_digest.hex() if previous else None,
+            "cursor": row.cursor, "accumulator": row.accumulator})).digest()
+        if digest != row.input_digest or row.row_count != len(row.accumulator["rows"]):
+            raise CalculationInputMismatch("Frozen calendar contents changed")
+        for fact in row.accumulator["rows"]:
+            if fact["trade_date"] == business_date.isoformat():
+                return fact
+        raise CalculationInputMismatch("Calendar date is missing from the frozen page")

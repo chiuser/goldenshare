@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from tests.test_wealth_trading_assistant_calculation_inputs import database, migrated
 from tests.test_wealth_trading_assistant_publication_storage import publication_db
 from tests.test_wealth_trading_assistant_calculation_interruptions import interruptions_db
+from tests.test_wealth_trading_assistant_calculation_work import cutoff_db
 from tests.test_wealth_trading_assistant_account_acceptance import create, NOW
 from src.app.runtime.trading_assistant_container import build_trading_assistant_dependencies
 from src.biz.api.wealth.market.trading_assistant.router import create_trading_assistant_router
@@ -29,8 +30,8 @@ def command(target="1"):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def retry_schema(interruptions_db):
-    return interruptions_db
+def retry_schema(cutoff_db):
+    return cutoff_db
 
 
 def prepare(engine):

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import (BigInteger, CheckConstraint, Date, DateTime, ForeignKeyConstraint,
+from sqlalchemy import (BigInteger, Boolean, Integer, CheckConstraint, Date, DateTime, ForeignKeyConstraint,
                         LargeBinary, Numeric, Text, UniqueConstraint, Uuid)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -63,3 +63,46 @@ class CalculationBatch(Base):
     input_digest: Mapped[bytes] = mapped_column(LargeBinary)
     row_count: Mapped[int] = mapped_column(BigInteger)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CutoffPreparation(Base):
+    """Resumable readiness scan, not immutable calculation or valuation inputs."""
+    __tablename__ = "wealth_ta_cutoff_preparation"
+    __table_args__ = (
+        ForeignKeyConstraint(["account_id", "initialization_id"],
+            ["app.wealth_ta_initialization.account_id", "app.wealth_ta_initialization.initialization_id"], ondelete="RESTRICT"),
+        CheckConstraint("target_version > 0 AND fact_version > 0 AND transient_failure_count >= 0", name="versions"),
+        CheckConstraint("purpose IN ('INITIAL', 'DISCOVERY', 'HISTORY')", name="purpose"),
+        CheckConstraint('from_date <= "current_date" AND (complete_through IS NULL OR '
+            '(complete_through >= from_date AND complete_through < "current_date"))', name="dates"),
+        CheckConstraint("state IN ('SCANNING', 'WAITING_DATA', 'READY', 'FAILED', 'CHANGED') AND "
+            "(state <> 'READY' OR complete_through IS NOT NULL)", name="state"),
+        CheckConstraint("(state = 'CHANGED' AND purpose = 'HISTORY' AND evidence IS NOT NULL) OR "
+            "(state <> 'CHANGED' AND evidence IS NULL)", name="change_evidence"),
+        {"schema": "app"},
+    )
+    account_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    target_version: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    purpose: Mapped[str] = mapped_column(Text, primary_key=True, server_default="INITIAL")
+    fact_version: Mapped[int] = mapped_column(BigInteger)
+    initialization_id: Mapped[UUID] = mapped_column(Uuid)
+    from_date: Mapped[date] = mapped_column(Date)
+    scan_through_date: Mapped[date] = mapped_column(Date)
+    current_date: Mapped[date] = mapped_column(Date)
+    complete_through: Mapped[date | None] = mapped_column(Date)
+    after_stock: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text)
+    evidence: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    transient_failure_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CutoffDiscoveryCursor(Base):
+    __tablename__ = "wealth_ta_cutoff_discovery_cursor"
+    __table_args__ = (CheckConstraint("singleton_id IN (1, 2)", name="singleton"), {"schema": "app"})
+    singleton_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    after_account_id: Mapped[UUID | None] = mapped_column(Uuid)
+    cycle_progress: Mapped[bool] = mapped_column(Boolean)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

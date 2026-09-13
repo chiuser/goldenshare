@@ -1,4 +1,4 @@
-"""M2 process lifecycle uses an isolated database; no configured DB connections."""
+"""M3 process lifecycle uses an isolated database; no configured DB connections."""
 import asyncio
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -6,21 +6,24 @@ from unittest.mock import Mock
 from starlette.datastructures import State
 
 from tests.test_wealth_trading_assistant_persistence import database
+from tests.test_wealth_trading_assistant_calculation_work import migrated, publication_db, interruptions_db, cutoff_db
 from src.app.runtime.trading_assistant_lifespan import trading_assistant_lifespan, maintain_recovery
 from src.biz.services.wealth.market.trading_assistant.execution_policy import TradingAssistantExecutionPolicyV1
 
 
-def test_resources_exist_only_during_lifespan_and_loop_stops(database):
+def test_resources_exist_only_during_lifespan_and_loop_stops(cutoff_db):
     async def run():
         app = SimpleNamespace(state=State())
-        async with trading_assistant_lifespan(app, database_url=database.url, logger=Mock()):
+        async with trading_assistant_lifespan(app, database_url=cutoff_db.url, logger=Mock()):
             assert app.state.trading_assistant is not None
             result = await app.state.trading_assistant.read(
                 lambda s,d:app.state.trading_assistant.account_queries.list(s, owner_id=1, deadline=d))
             assert result.items == []
             assert len([t for t in asyncio.all_tasks() if t.get_name() == "ta-recovery-maintenance"]) == 1
+            assert len([t for t in asyncio.all_tasks() if t.get_name() == "ta-calculation-coordinator"]) == 1
         assert not hasattr(app.state, "trading_assistant")
         assert not [t for t in asyncio.all_tasks() if t.get_name() == "ta-recovery-maintenance"]
+        assert not [t for t in asyncio.all_tasks() if t.get_name() == "ta-calculation-coordinator"]
     asyncio.run(run())
 
 

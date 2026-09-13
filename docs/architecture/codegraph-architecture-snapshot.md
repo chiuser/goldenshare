@@ -1,6 +1,6 @@
 # CodeGraph 架构快照
 
-初始生成：2026-08-22；局部复核：2026-09-10（QTF 装配、执行分支、清退与停牌收口）。索引根：`/Users/congming/github/goldenshare`。
+初始生成：2026-08-22；局部复核：2026-09-13（交易助手 M3 生命周期与核算主链）；QTF 局部复核仍为 2026-09-10。索引根：`/Users/congming/github/goldenshare`。
 
 这是代码入口快照，不是规范或全仓合规证明。未逐项重验的历史链路不能据此认定今日生产状态；下方既往工具记录保留原阶段含义。目录与依赖规则统一见[子系统架构基线](./subsystem-boundary-plan.md)，工具流程见根 AGENTS；不在此维护易过期的索引规模。
 
@@ -64,6 +64,12 @@ src.app.web.run
 ```
 
 `src/app/api/v1/router.py` 是当前 API 聚合点：它包含健康检查、auth/admin、Ops API、quote/market/realtime，以及 Wealth market 模块与 App 装配的 QTF 管理员 API。
+
+### 交易助手 M3 业务核算主链
+
+`src/app/web/lifespan.py` 调用 `trading_assistant_lifespan`。App 先只读验证私有表结构，再创建专属单线程／连接资源及协调循环；核算、补日、历史来源核对各执行一个有界单元轮转。`CalculationWork` 从业务 `Recalculation` 领取账户目标，经 `GenerationExecution`／`GenerationDispatch` 冻结日历、费用及行情依据，逐页核算并封存日结果，最后通过直接日期清单和发布回执更新账户指针。未受影响历史只在核验兼容后由 `PrefixReuse`／`GenerationReferences` 引用原封存结果，不递归串接旧代次。
+
+依赖保持 App → Biz → Foundation；不调用 Ops／TaskRun，不增加服务、共享池配置或反向依赖。请求侧与核算侧使用不同连接资源，进度 API 只读当前目标的业务检查点。源码接线已在隔离 PostgreSQL／应用生命周期验证，不能据此认定正式环境已迁移或启动。CodeGraph query／impact 已核对 CalculationWork、CutoffDiscovery、GenerationSteps 和 lifespan 的调用方，并补读实现及测试；具体产品口径与验收状态以[交易助手原技术方案](../../wealth/docs/pages/trading-assistant/trading-assistant-implementation-design-v1.md)为准。
 
 ### TaskRun 数据维护主链
 

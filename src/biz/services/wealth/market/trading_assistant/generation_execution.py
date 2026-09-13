@@ -3,17 +3,18 @@
 No loop or automatic input discovery. A caller claims one lease, calls run,
 then returns to fair scheduling. Session factories must target the same database.
 """
-from sqlalchemy.exc import DBAPIError
-
 from src.biz.models.wealth.trading_assistant.calculation import CalculationGeneration
-from .calculation_inputs import CalculationInputMismatch, CalculationDataUnavailable
+from .calculation_inputs import CalculationInputMismatch
 from .calculation_interruptions import CalculationInterruptions
 from .execution_policy import Deadline
 from .generation_publication import GenerationPublication
 from .generation_steps import GenerationSteps
-from .generation_dispatch import GenerationDispatch
-from .market_facts import MarketFactsUnavailable, apply_sql_budget
+from .generation_dispatch import DayInputBasis, GenerationDispatch
+from .valuation_fee_selection import valuation_fee_version
+from .valuation_clock import read_valuation_cutoff
+from .market_facts import apply_sql_budget
 from .recalculation_execution import CalculationExecutionLost
+from .calculation_failures import classify_calculation_failure
 
 
 class GenerationExecution:
@@ -24,10 +25,32 @@ class GenerationExecution:
     def run(self, lease, *, generation_id):
         return self._execute(lease, generation_id=generation_id, prepare=None)
 
-    def step(self, lease, *, generation_id, resolve_day_inputs):
+    def step(self, lease, *, generation_id, resolve_day_inputs, deadline=None):
         """Choose one next unit from committed state, within its owned transaction."""
         return self._execute(lease, generation_id=generation_id, prepare=None,
-                             resolve_day_inputs=resolve_day_inputs)
+                             resolve_day_inputs=resolve_day_inputs, deadline=deadline)
+
+    def step_with_valuation_cutoff(self, lease, *, generation_id, resolve_valuation_at, deadline=None):
+        """Source supplies only the cutoff; the account service owns fee selection."""
+        def resolve(session, *, account_id, business_date, deadline):
+            cutoff = resolve_valuation_at(session, account_id=account_id,
+                business_date=business_date, deadline=deadline)
+            fee_id = valuation_fee_version(session, self.execution, lease,
+                generation_id=generation_id, business_date=business_date, deadline=deadline)
+            return DayInputBasis(fee_id, cutoff)
+        return self.step(lease, generation_id=generation_id, resolve_day_inputs=resolve, deadline=deadline)
+
+    def step_from_market(self, lease, *, generation_id, deadline=None):
+        """Frozen calendar + database time + existing account-scoped price reader.
+
+        Passing the close-time check alone never permits publication. The
+        existing valuation scope and all day/manifest checks still run.
+        """
+        def cutoff(session, *, account_id, business_date, deadline):
+            return read_valuation_cutoff(session, self.execution, lease,
+                generation_id=generation_id, business_date=business_date, deadline=deadline)
+        return self.step_with_valuation_cutoff(lease, generation_id=generation_id,
+            resolve_valuation_at=cutoff, deadline=deadline)
 
     def prepare_inputs(self, lease, *, generation_id, business_date, fee_version_id, valuation_at):
         """Prepare one bounded page under the same failure/lease rules as calculation.
@@ -38,11 +61,11 @@ class GenerationExecution:
         return self._execute(lease, generation_id=generation_id, prepare=dict(
             business_date=business_date, fee_version_id=fee_version_id, valuation_at=valuation_at))
 
-    def _execute(self, lease, *, generation_id, prepare, resolve_day_inputs=None):
+    def _execute(self, lease, *, generation_id, prepare, resolve_day_inputs=None, deadline=None):
         owner_id = None
         try:
             with self.sessions() as session, session.begin():
-                deadline = Deadline.after_ms(self.execution.policy.batch_budget_ms)
+                deadline = deadline or Deadline.after_ms(self.execution.policy.batch_budget_ms)
                 account, pending = self.execution._lock(session, lease, deadline)
                 owner_id = account.owner_id
                 generation = session.get(CalculationGeneration, generation_id, populate_existing=True)
@@ -84,14 +107,7 @@ class GenerationExecution:
                             account_id=lease.account_id, generation_id=generation_id,
                             target_version=lease.target_version):
                         return "PUBLISHED"
-            kind, reason = "FAILED", "本次核算核验未通过，已停止自动重试。"
-            if isinstance(error, (MarketFactsUnavailable, CalculationDataUnavailable)):
-                kind, reason = "WAITING_DATA", "核算所需行情或交易日历暂未就绪。"
-            elif isinstance(error, DBAPIError):
-                state = getattr(error.orig, "sqlstate", None)
-                if state in ("40001", "40P01", "55P03", "57014") or (
-                        isinstance(state, str) and state.startswith("08")):
-                    kind, reason = "TRANSIENT", "数据库暂时不可用，稍后重试。"
+            kind, reason = classify_calculation_failure(error)
             with self.sessions() as session, session.begin():
                 next_attempt = CalculationInterruptions(self.execution).record(session, lease,
                     generation_id=generation_id, kind=kind, reason=reason,

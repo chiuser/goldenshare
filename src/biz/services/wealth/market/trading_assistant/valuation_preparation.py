@@ -15,6 +15,7 @@ from src.biz.queries.wealth.market.trading_assistant.calculation_stocks import s
 from .calculation_inputs import CalculationInputs, CalculationInputMismatch
 from .calendar_inputs import CalendarInputs
 from .valuation_facts import DailyCloseFactsReader
+from .generation_references import GenerationReferences
 
 
 class ValuationPreparation:
@@ -40,9 +41,14 @@ class ValuationPreparation:
             previous = session.get(DayResult, previous_day_result_id) if previous_day_result_id else None
             if previous_day_result_id is not None:
                 if (previous is None or previous.account_id != lease.account_id
-                        or previous.origin_generation_id != generation_id or previous.status != "SEALED"
+                        or previous.status != "SEALED"
                         or previous.trade_date != prior_date):
                     raise CalculationInputMismatch("Valuation scope requires the sealed preceding day")
+                if previous.origin_generation_id != generation_id:
+                    reused = GenerationReferences(self.inputs).result(session, account_id=lease.account_id,
+                        generation_id=generation_id, business_date=previous.trade_date)
+                    if reused is None or reused.day_result_id != previous_day_result_id:
+                        raise CalculationInputMismatch("Previous day lacks compatible prefix evidence")
             elif prior_date is not None and prior_date >= generation.from_date:
                 raise CalculationInputMismatch("Missing preceding day for valuation scope")
             latest = session.scalar(select(CalculationBatch).where(

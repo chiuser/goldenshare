@@ -32,6 +32,25 @@ class CalculationInterruptions:
         if resume not in ("PREPARING", "CALCULATING", "VERIFYING", "PUBLISHING"):
             raise CalculationInputMismatch("Interrupted generation has no valid resume stage")
         now = session.scalar(select(func.clock_timestamp()))
+        next_attempt, reason = self.schedule(pending, kind=kind, reason=reason, now=now)
+        stage = "WAITING_DATA" if kind == "WAITING_DATA" else "FAILED"
+        changed = (generation.stage, generation.resume_stage, generation.reason) != (stage, resume, reason)
+        generation.resume_stage = resume
+        generation.stage = stage
+        generation.reason = reason
+        if changed:
+            generation.last_business_updated_at = now
+        session.flush()
+        self.execution._verify(session, lease, account, pending, deadline)
+        pending.executor_id = None
+        pending.lease_until = None
+        session.flush()
+        return next_attempt
+
+    def schedule(self, pending, *, kind, reason, now):
+        """One scheduling policy for failures before and after generation creation."""
+        if kind not in ("FAILED", "WAITING_DATA", "TRANSIENT"):
+            raise ValueError("An explicit interruption classification is required")
         if kind == "FAILED":
             next_attempt = None
         elif kind == "WAITING_DATA":
@@ -44,18 +63,6 @@ class CalculationInterruptions:
                 reason = "自动重试已达上限，已暂停核算，可点击重新计算。"
             else:
                 next_attempt = now + timedelta(seconds=delays[pending.transient_failure_count - 1])
-        stage = "WAITING_DATA" if kind == "WAITING_DATA" else "FAILED"
-        changed = (generation.stage, generation.resume_stage, generation.reason) != (stage, resume, reason)
-        generation.resume_stage = resume
-        generation.stage = stage
-        generation.reason = reason
-        if changed:
-            generation.last_business_updated_at = now
         pending.next_attempt_at = next_attempt
         pending.updated_at = now
-        session.flush()
-        self.execution._verify(session, lease, account, pending, deadline)
-        pending.executor_id = None
-        pending.lease_until = None
-        session.flush()
-        return next_attempt
+        return next_attempt, reason

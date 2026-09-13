@@ -17,6 +17,7 @@ from .cash_date_steps import CashDateSteps
 from .day_calculation_steps import DayCalculationSteps
 from .generation_publication import GenerationPublication
 from .valuation_preparation import ValuationPreparation
+from .generation_references import GenerationReferences
 
 
 class GenerationSteps:
@@ -24,6 +25,7 @@ class GenerationSteps:
         self.execution = execution
         self.inputs = CalculationInputs(execution)
         self.calendar = CalendarInputs(execution)
+        self.references = GenerationReferences(self.inputs)
 
     def prepare_next_inputs(self, session, lease, *, generation_id, business_date,
                             fee_version_id, valuation_at, deadline):
@@ -45,10 +47,8 @@ class GenerationSteps:
             if calendar["is_open"]:
                 terminal = session.get(CalculationBatch,
                     (lease.account_id, generation_id, business_date, "VALUATION_END", "", "1"))
-                previous_id = session.scalar(select(DayResult.day_result_id).where(
-                    DayResult.account_id == lease.account_id, DayResult.origin_generation_id == generation_id,
-                    DayResult.trade_date < business_date, DayResult.status == "SEALED")
-                    .order_by(DayResult.trade_date.desc()).limit(1))
+                previous_id = self.references.previous(session, account_id=lease.account_id,
+                    generation_id=generation_id, before=business_date)
                 done = ValuationPreparation(self.execution).step(session, lease, generation_id=generation_id,
                     business_date=business_date, previous_day_result_id=previous_id,
                     fee_version_id=fee_version_id, valuation_at=valuation_at, deadline=deadline)
@@ -92,8 +92,8 @@ class GenerationSteps:
             (lease.account_id, generation.generation_id, day, "CASH_BALANCE", "", "1"))
         previous = session.get(CalculationBatch, (lease.account_id, generation.generation_id,
             day - timedelta(days=1), "DATE_COMPLETE", "", "1")) if day > generation.from_date else None
-        result = session.scalar(select(DayResult).where(DayResult.account_id == lease.account_id,
-            DayResult.origin_generation_id == generation.generation_id, DayResult.trade_date == day))
+        result = self.references.result(session, account_id=lease.account_id,
+            generation_id=generation.generation_id, business_date=day)
         if prepared is None or cash is None or (day > generation.from_date and previous is None):
             raise CalculationInputMismatch("Completed date lost its saved inputs")
         is_open = prepared.accumulator["calendar"]["is_open"]
@@ -155,10 +155,8 @@ class GenerationSteps:
                         (lease.account_id, generation_id, day, "VALUATION_END", "", "1"))
                     if terminal is None:
                         raise CalculationInputMismatch("Complete valuation scope is required before starting a date")
-                    previous_id = session.scalar(select(DayResult.day_result_id).where(
-                        DayResult.account_id == lease.account_id, DayResult.origin_generation_id == generation_id,
-                        DayResult.trade_date < day, DayResult.status == "SEALED")
-                        .order_by(DayResult.trade_date.desc()).limit(1))
+                    previous_id = self.references.previous(session, account_id=lease.account_id,
+                        generation_id=generation_id, before=day)
                     from uuid import UUID
                     ValuationPreparation(self.execution).step(session, lease, generation_id=generation_id,
                         business_date=day, previous_day_result_id=previous_id,
@@ -171,10 +169,8 @@ class GenerationSteps:
                     generation.last_business_updated_at = session.scalar(select(func.clock_timestamp()))
                     return "DAY_START"
                 if result.status != "SEALED":
-                    previous_id = session.scalar(select(DayResult.day_result_id).where(
-                        DayResult.account_id == lease.account_id, DayResult.origin_generation_id == generation_id,
-                        DayResult.trade_date < day, DayResult.status == "SEALED")
-                        .order_by(DayResult.trade_date.desc()).limit(1))
+                    previous_id = self.references.previous(session, account_id=lease.account_id,
+                        generation_id=generation_id, before=day)
                     return DayCalculationSteps(self.execution).step(session, lease, generation_id=generation_id,
                         day_result_id=result.day_result_id, previous_day_result_id=previous_id,
                         valuation_at=datetime.fromisoformat(prepared.accumulator["valuationAt"]), deadline=deadline)
