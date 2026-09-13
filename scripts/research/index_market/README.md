@@ -17,6 +17,12 @@ index_market/
 
 ## 当前研究状态
 
+2026-09-13取消卖点编号配对验证完成：两股结果（仅本地、暂未提交：`reports/stock_any_sell_20260913/report.md`），原股数方案第30节。保持原A完整配置和57条原事件不变；30次机会3次改善、27次不变，均值-0.49%→-0.08%，实际卖点退出1→3。全部改善来自四川美丰的B3→S2退出；濮耐股份不变，跨股票可靠性未建立。运行5.58秒、4文件约48.5KiB，571项主题测试通过。入口：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_any_sell_study --output reports/stock_any_sell_NEW`；不读取Lake、不叠加第29节参数、不运行分仓账户。原10股同口径复核仅为下一步建议，尚未执行。
+
+2026-09-13三卖关联单变量验证完成：两股结果（仅本地、暂未提交：`reports/stock_sell_linkage_20260913/report.md`），原股数方案第29节。只将笔级卖方`bsp3_follow_1`改为False；新增14个S3，固定30次机会只改变5次退出（3好2差），毛收益均值增量+0.14个百分点，去掉最佳增量后转负，未过扩批筛查。运行7.54秒，仅4文件约53KiB，无新行情副本；550项主题测试通过。复现：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_sell_linkage_study --output reports/stock_sell_linkage_NEW`；只读封存输入，保留原编号配对，不运行分仓账户、不读取Lake。后续取消编号配对须独立授权，不能与本轮变量叠加。
+
+2026-09-13识别链审计完成：两股报告（仅本地、暂未提交：`reports/stock_signal_chain_audit_20260913_serial/report.md`）及六笔案例（仅本地、暂未提交：`reports/stock_signal_chain_audit_20260913_serial/cases.html`），对应单股方案28.11节。冻结源码恢复并核验64文件；30次机会、57条原事件和原执行零差异，18个截断前缀/未来扰动通过。27个无卖点窗口中，23个包含早先已入账身份，1个出现被1p/2s映射排除的确认候选，27个都观测到三卖前置一卖限制的拒绝分支；这些标签可重叠，不等于放开限制就有收益增量。最终运行约234秒、526项主题测试通过。新入口：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_signal_chain_audit --output reports/stock_signal_chain_audit_NEW`，只读封存输入、每股独立进程串行，不自动下载依赖。最终5文件，失败尝试并入同一证据包。此前源码缺失预检（仅本地、暂未提交：`reports/stock_signal_chain_audit_20260913/report.md`）保留历史，阻塞已解除；未运行新策略。
+
 2026-09-13资料清理：[旧实验统一归档](../../../reports/index_market_history_20260913/README.md)。四类旧实验668份原件已封存为四个ZIP，33份原Markdown合并供阅读，教材两张图保留。旧目录移出，仅A目录保留现行source_gate仍需的manifest；下文旧实验的运行/复核命令须先按归档库存恢复完整来源链，不是当前可直接运行的入口。当前十股六轮仍直接读StockResearchStore，无解压或旧路径回退；算法及历史成绩未改。
 
 当前十股资料已统一到[一个目录入口](../../../reports/stock_chan_research_20260912/README.md)：六轮621个散文件收敛为15个文件，人读结论/案例单列，机器证据单包去重。五个依赖入口已改为StockResearchStore直接读取；旧六目录已移入废纸篓，无旧路径回退。旧目录缺失不代表数据缺失，后续从统一入口读取，不重新复制行情。
