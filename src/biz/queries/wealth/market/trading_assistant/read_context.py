@@ -1,8 +1,8 @@
 """Owned current-estimate read bases; design §4.31, no stored read sessions.
 
 The caller supplies a server-validated business cutoff, not a request timestamp.
-Use a fresh read transaction: capture fixes REPEATABLE READ before any SELECT,
-and downstream result queries must use the same session and returned references.
+The transaction runner fixes REPEATABLE READ and READ ONLY before any SELECT.
+Capture and downstream queries share that transaction and returned references.
 """
 import base64
 import json
@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import Field, StrictInt, StrictStr, ValidationError, model_validator
-from sqlalchemy import and_, select, text
+from sqlalchemy import and_, select
 
 from src.biz.models.wealth.trading_assistant.accounts import Account, FeeVersion
 from src.biz.models.wealth.trading_assistant.publication import PublicationReceipt
@@ -78,7 +78,6 @@ class CurrentReadContextQuery:
         # The existing authenticated dependency supplies owner_id. Tokens carry
         # no authorization. Never accept a client cutoff as the trusted cutoff.
         deadline.remaining_ms()
-        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         source_mode = requested.accountMode if requested else account_mode
         source_id = UUID(requested.accountId) if requested and requested.accountId else account_id
         if source_mode == "ALL":

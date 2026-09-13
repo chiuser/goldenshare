@@ -4,6 +4,7 @@ from uuid import uuid4, uuid5
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from tests.test_wealth_trading_assistant_calculation_inputs import database, migrated, setup, deadline, retire, DAY, AT, fact
@@ -147,6 +148,7 @@ def test_snapshot_composition_requires_completed_inputs(publication_db, held):
     position_query = CurrentPositionsQuery(execution.policy)
     def read_positions(token=None, target_day=DAY, cutoff=AT):
         with Session(publication_db) as session, session.begin():
+            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
             context = context_query.capture(session, owner_id=1, account_mode="SINGLE", account_id=lease.account_id,
                 target_through=cutoff, context_token=token, deadline=deadline())
             page = position_query.page(session, basis=context, account_id=lease.account_id,

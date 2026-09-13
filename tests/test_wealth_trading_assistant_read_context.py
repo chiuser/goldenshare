@@ -52,6 +52,7 @@ def test_owned_context_fee_update_paging_and_repeatable_read(publication_db):
     query = CurrentReadContextQuery(replace(TradingAssistantExecutionPolicyV1(), page_rows=1))
     def capture(mode="SINGLE", identity=account, token=None, owner=1, through=NOW):
         with Session(publication_db) as session, session.begin():
+            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
             return query.capture(session,owner_id=owner,account_mode=mode,account_id=identity,
                                  target_through=through,context_token=token,deadline=deadline())
     old = capture()
@@ -79,6 +80,7 @@ def test_owned_context_fee_update_paging_and_repeatable_read(publication_db):
         capture(token=encode_context(tampered))
     # A concurrent fee save cannot change the middle of an existing read response.
     with Session(publication_db) as reading, reading.begin():
+        reading.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
         fixed = query.capture(reading,owner_id=1,account_mode="SINGLE",account_id=account,
                               target_through=NOW,deadline=deadline())
         assert reading.scalar(text("SHOW transaction_read_only")) == "on"
@@ -99,5 +101,6 @@ def test_owned_context_fee_update_paging_and_repeatable_read(publication_db):
     assert refreshed.context.contextToken != old.context.contextToken
     with pytest.raises(DBAPIError):
         with Session(publication_db) as session, session.begin():
+            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
             query.capture(session,owner_id=1,account_mode="SINGLE",account_id=account,target_through=NOW,deadline=deadline())
             session.execute(update(Account).where(Account.account_id==account).values(name="must not write"))

@@ -159,13 +159,36 @@ try {
   assert.equal((await resumedRequest).postDataJSON().requestId, pending.requestId);
   await page.getByRole("heading", { name: "资金流水 · 原始收支", exact: true }).waitFor();
   await page.getByRole("button", { name: "关闭", exact: true }).last().click();
+  // Wait for real M3 publication, then read only its fixed publication references.
+  const published = [];
+  for (const [account, cash, marketValue, profit] of [[first, 1000, 7200, 1191.4], [second, 1002, 156, 2.92]]) {
+    const headers = { Authorization: `Bearer ${session.token}` };
+    const until = Date.now() + 30000;
+    let status;
+    do {
+      const response = await context.request.get(base + `/api/v1/wealth/market/trading-assistant/accounts/${account}/calculation-status`, { headers });
+      assert.equal(response.status(), 200);
+      status = await response.json();
+      if (status.stage === "PUBLISHED") break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } while (Date.now() < until);
+    assert.equal(status.stage, "PUBLISHED", JSON.stringify(status));
+    const response = await context.request.get(base + `/test-publication/${account}`, { headers });
+    assert.equal(response.status(), 200);
+    const facts = await response.json();
+    assert.equal(facts.generationId, status.publishedGenerationId);
+    assert.equal(Number(facts.cash), cash);
+    assert.equal(Number(facts.marketValue), marketValue);
+    assert.equal(Number(facts.holdingProfit), profit);
+    published.push(facts);
+  }
   const other = await (await context.request.get(base + "/test-session?user_id=2")).json();
   await page.evaluate(token => { localStorage.setItem("wealth.auth.access-token", token); window.dispatchEvent(new Event("storage")); }, other.token);
   await page.waitForFunction(() => document.querySelector('select[aria-label="交易账户"]')?.textContent === "暂无账户");
   assert.equal(await page.getByRole("button", { name: "记录买入", exact: true }).isDisabled(), true);
   assert.deepEqual(errors, []);
   assert.deepEqual(consoleErrors.filter(text => !/Failed to load resource.*(400|ERR_FAILED)/.test(text)), []);
-  console.log(JSON.stringify({ passed: true, first, second, writes, errorStyle, lostResponseCount, expectedConsoleErrors: consoleErrors.length }));
+  console.log(JSON.stringify({ passed: true, first, second, published, writes, errorStyle, lostResponseCount, expectedConsoleErrors: consoleErrors.length }));
 } catch (error) {
   await page.screenshot({ path: output + "-failure.png" });
   console.error(JSON.stringify({ errors, responses, dialogs: await page.locator("dialog[open]").allTextContents() }));
