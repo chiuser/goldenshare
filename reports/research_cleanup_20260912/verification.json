@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "retained_files": 1255,
+  "unchanged_files": 1254,
+  "human_reports_updated": [
+    "reports/stock_chan_g2a_replay_20260912/report.md"
+  ],
+  "unchanged_python_files": 83,
+  "artifact_hash_checks": 1235
+}

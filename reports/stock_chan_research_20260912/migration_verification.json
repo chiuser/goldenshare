@@ -1,0 +1,17 @@
+{
+  "timing": {
+    "equal_result_objects": 132
+  },
+  "exits": {
+    "equal_result_objects": 21
+  },
+  "sell_usage": {
+    "equal_result_objects": 21
+  },
+  "status": "passed",
+  "old_directories_absent": true,
+  "no_signal_replay": true,
+  "no_new_strategy": true,
+  "seconds": 9.544414667005185,
+  "validation_outputs_recovery": "/Users/congming/.Trash/goldenshare-stock-consolidation-20260912-yo29mia6/migration_validation_outputs"
+}

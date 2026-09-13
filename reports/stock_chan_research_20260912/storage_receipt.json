@@ -1,0 +1,10 @@
+{
+  "catalog_sha256": "6b091abafe1ebe9c64286e3c3f5150163b9406dde8dd71c4d920a2603c4e3c25",
+  "archive_sha256": "6fc1ebb1bb74abce153f4ef53430b7d46dd1c620d8c1d2bab1ac9ee73a63f76b",
+  "original_files": 621,
+  "unique_objects": 485,
+  "original_bytes": 84829642,
+  "archive_bytes": 5887676,
+  "original_artifact_checks": 538,
+  "all_records_byte_equal": true
+}

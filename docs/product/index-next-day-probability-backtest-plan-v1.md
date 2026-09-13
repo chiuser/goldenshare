@@ -116,7 +116,7 @@
 - 本轮实际改动仅研究脚本、隔离测试、本文、主索引与结果目录；没有架构/依赖矩阵变化。未改DG资产或事件，未安装依赖，未提交推送；其他用户改动保留。
 - 下一步仅供讨论：现有结果更支持“尚未证明次日方向可预测”，不是“所有市场状态或风险判断均无效”；不自动开展下一轮选参。
 
-完整结果：[回测报告](../../reports/index_probability_backtest_v1_20260908_approved/report.md)。结果目录保留预测明细、年度成绩、概率分箱、模型参数、源文件清单、输入摘要哈希和执行前方案/代码哈希；首次失败目录没有覆盖。
+完整结果：[回测报告](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#index_probability_backtest_v1_20260908_approved--report-md)。结果目录保留预测明细、年度成绩、概率分箱、模型参数、源文件清单、输入摘要哈希和执行前方案/代码哈希；首次失败目录没有覆盖。
 
 ## 8. 第二轮计划：先拆开看量价条件，不更换预测模型
 
@@ -218,7 +218,7 @@
 
 改动范围：新增[条件统计脚本](../../scripts/research/index_market/statistics/index_condition_statistics.py)、[隔离测试](../../scripts/research/index_market/tests/test_index_condition_statistics.py)和独立结果目录，更新本文；沿用已有主索引入口。无架构边界或依赖矩阵变化，无提交、推送或部署。
 
-完整结果：[第二轮报告](../../reports/index_condition_statistics_v1_20260908/report.md)。同目录保存分组明细、覆盖、阈值、检验、筛选结果、源清单和脚本/冻结计划哈希；这是研究证据，不是上线验收。
+完整结果：[第二轮报告](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#index_condition_statistics_v1_20260908--report-md)。同目录保存分组明细、覆盖、阈值、检验、筛选结果、源清单和脚本/冻结计划哈希；这是研究证据，不是上线验收。
 
 ### 9.4 下一步建议，尚未执行
 
@@ -301,7 +301,7 @@ V1是2013-12-23—2017-10-27，V2是2017-10-31—2021-09-06；标签分别观察
 - `verify_saved`用DuckDB独立核算36组均值、9组Brier/MSE；交付复核又从D明细独立重建全部阈值、拟合概率与波幅，以及8454行的预测，误差低于1e-12。冻结§10哈希、新旧脚本哈希与运行清单一致。
 - Ruff、文档完整性及差异检查通过；文档技能用于保留历史方案、区分内部候选与独立验证，检查不证明预测有效。
 
-完整报告：[第三轮结果](../../reports/index_single_condition_v1_20260908/report.md)。同目录保存模型、预测、覆盖、分组、得分、全部检验区间/p值、源清单与运行证据。
+完整报告：[第三轮结果](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#index_single_condition_v1_20260908--report-md)。同目录保存模型、预测、覆盖、分组、得分、全部检验区间/p值、源清单与运行证据。
 
 ### 11.4 下一步待讨论，不自动执行
 
@@ -378,7 +378,7 @@ MAE辅助结果中，动态基线六段都较低，但本轮目标是MSE，不�
 - 8454条唯一代码/信号日预测，每指数2818条，另6条边界剔除；每条abs20_count=20，源截止2021-09-07、信号截止2021-09-06。源文件清单及执行前后大小/mtime一致。
 - 保存后DuckDB独立重算27组MSE/MAE通过；62项隔离测试通过（前三轮51＋本轮11），Ruff、文档完整性和`git diff --check`通过。冻结§12哈希与四轮脚本哈希一致。文档技能用于保留历史和限制结论，校验通过不证明未来有效。
 
-完整结果：[第四轮报告](../../reports/index_risk_baseline_v1_20260908/report.md)。预测CSV、得分、模型、源清单、六项检验区间/p与执行哈希均保留供复核。
+完整结果：[第四轮报告](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#index_risk_baseline_v1_20260908--report-md)。预测CSV、得分、模型、源清单、六项检验区间/p与执行哈希均保留供复核。
 
 ## 14. 目录整理记录（2026-09-09）
 

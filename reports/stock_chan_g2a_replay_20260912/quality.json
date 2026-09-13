@@ -1,9 +1,0 @@
-{
-  "bars": 8620,
-  "trading_days": 1078,
-  "history_days_before_observation": 1056,
-  "missing_bars": 0,
-  "unexpected_bars": 0,
-  "first_bar": "2021-09-09 10:00:00",
-  "last_bar": "2026-02-27 11:30:00"
-}

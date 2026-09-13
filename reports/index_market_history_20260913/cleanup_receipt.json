@@ -1,0 +1,58 @@
+{
+  "trash": "/Users/congming/.Trash/goldenshare-history-cleanup-20260913-7nupxa29",
+  "moved": [
+    "reports/index_condition_statistics_v1_20260908",
+    "reports/index_probability_backtest_v1_20260908_approved",
+    "reports/index_risk_baseline_v1_20260908",
+    "reports/index_single_condition_v1_20260908",
+    "reports/chan_m0_csi300_20260909",
+    "reports/chan_minute_5y_20260909",
+    "reports/chan_minute_background_f1_20260909",
+    "reports/chan_minute_comparison_c1_20260909",
+    "reports/chan_minute_diagnostics_20260909",
+    "reports/chan_minute_nonoverlap_c2_20260910",
+    "reports/chan_minute_roundtrip_b0_20260910",
+    "reports/chan_minute_structure_s1_20260909",
+    "reports/chan_minute_variant_a_20260909",
+    "reports/chan_theory_csi300_teaching_20260908",
+    "reports/stock_chan_g2a_replay_20260912",
+    "reports/stock_chan_g2b_first10_20260912",
+    "reports/stock_chan_g2b_pause_20260912",
+    "reports/stock_chan_parallel_first10_20260912",
+    "reports/stock_chan_shsz_r1_recheck_20260912",
+    "reports/stock_chan_shsz_r1_source5_20260910",
+    "reports/stock_chan_shsz_r1_surviving_20260912",
+    "reports/stock_opportunity_002245_30m_20260912",
+    "reports/stock_opportunity_002245_60m_20260912_audited",
+    "reports/stock_opportunity_002245_90m_dg_20260912",
+    "reports/stock_opportunity_filters_002245_30m_20260912",
+    "reports/stock_qfq_002245_30m_20260912",
+    "reports/stock_share_002245_p0_20260912",
+    "reports/stock_share_p1_synthetic_20260912_verified"
+  ],
+  "caches": [
+    "reports/.DS_Store",
+    "reports/__pycache__"
+  ],
+  "preserved_live": [
+    "reports/chan_minute_variant_a_20260909/manifest.json"
+  ],
+  "original_files": 668,
+  "removed_loose_files": 667,
+  "inventory_sha256": "3edad3e1dc48926968a73512c63125ff04f984b7cd3465225d0e658403b08636",
+  "validation": {
+    "research_tests": 500,
+    "links": 533,
+    "old_results_equal": {
+      "timing": 132,
+      "exits": 21,
+      "sell_usage": 21
+    },
+    "current_store_records": 621,
+    "current_entry_help": 5,
+    "source_gate": "A manifest/code checks pass; third-party git rev-parse fails: not a git repository",
+    "seconds": 11.29,
+    "new_signal_replay": false
+  },
+  "validation_recovery": "/Users/congming/.Trash/goldenshare-history-cleanup-20260913-7nupxa29/validation_outputs"
+}

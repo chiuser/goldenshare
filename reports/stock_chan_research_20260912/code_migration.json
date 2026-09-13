@@ -1,0 +1,67 @@
+{
+  "/Users/congming/github/goldenshare/scripts/research/index_market/chan/stock_calendar_run.py": {
+    "before": "5dc3e6eaae025ed1018cab298f776856c61efcb31dfc4904853ecf6d91ac0adb",
+    "after": "a27182869c46d29bca2a6698c7192990e481b22488ec51db3e50855c9a4a837d",
+    "changed_definitions": [
+      "execute"
+    ],
+    "unchanged_definitions": [
+      "validate"
+    ]
+  },
+  "/Users/congming/github/goldenshare/scripts/research/index_market/chan/stock_parameter_study.py": {
+    "before": "efa2c1fdf0a215958d1acf70355c8a3dc7c1cdd2d128d200deb80f70a06e6420",
+    "after": "9e22f505afc71f4043c0f749ab4a578478f476b8a719bd4219a04e8404682d30",
+    "changed_definitions": [
+      "execute"
+    ],
+    "unchanged_definitions": [
+      "ParameterSpec",
+      "aggregate_cells",
+      "config_audit",
+      "observations",
+      "summarize"
+    ]
+  },
+  "/Users/congming/github/goldenshare/scripts/research/index_market/chan/stock_signal_timing.py": {
+    "before": "f523377f877f93097cdaca74729dbf2e5d1cd6838910099b224b269a4b30cee4",
+    "after": "11cc97ee1e0f813e11081257d1d6f1baa3a0b9c215371233551388879b4cd031",
+    "changed_definitions": [
+      "TimingSpec",
+      "execute"
+    ],
+    "unchanged_definitions": [
+      "aggregate",
+      "feature",
+      "keep"
+    ]
+  },
+  "/Users/congming/github/goldenshare/scripts/research/index_market/chan/stock_exit_study.py": {
+    "before": "06a4ed02ce9d957c8d01fc168595d1312953a434be2fd65109c6360daebd7110",
+    "after": "9a97fab8cf22b38a810111e17f843dc202ae71c8aec549a44b73fec6a57b47b5",
+    "changed_definitions": [
+      "ExitSpec",
+      "execute"
+    ],
+    "unchanged_definitions": [
+      "disjoint",
+      "paired",
+      "simulate",
+      "summarize"
+    ]
+  },
+  "/Users/congming/github/goldenshare/scripts/research/index_market/chan/stock_sell_usage_audit.py": {
+    "before": "d41d208b10b12cd55d9b00ce6a1b1588222a03e334a6ad4713d586bc5117a923",
+    "after": "522933bc7a4d5dc8f342057c473bdfa943fdf515ca8fecb412c12bf19c1157c3",
+    "changed_definitions": [
+      "AuditSpec",
+      "execute"
+    ],
+    "unchanged_definitions": [
+      "blocks",
+      "diagnose",
+      "executable",
+      "validate_events"
+    ]
+  }
+}

@@ -331,7 +331,7 @@ DEA(t)   = EMA_9(DIF)(t)
 
 案例按“2025年首次出现的包含、分型及已标sure的笔端点变化”等结构事件选取，不按之后涨跌挑成功样本。图没有绘制买卖箭头，因为这段教学窗口没有足够依据把每个底部解释成某类买点。
 
-这里只使用现存历史文件，不拥有各交易日当年的数据修订快照；没有独立交易日历完整性认证，只验证每个已选日分区恰好有一条沪深300记录。数据与事件均可在[教学附件](/Users/congming/github/goldenshare/reports/chan_theory_csi300_teaching_20260908/README.md)核对。
+这里只使用现存历史文件，不拥有各交易日当年的数据修订快照；没有独立交易日历完整性认证，只验证每个已选日分区恰好有一条沪深300记录。数据与事件均可在[教学附件](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#chan_theory_csi300_teaching_20260908--README-md)核对。
 
 ### 8.2 先手算一个真实底分型
 
@@ -375,7 +375,7 @@ L = max(3749.0581,3731.1887) = 3749.0581
 | 2025-01-13 | 2025-01-13 | 3704.1073 | False |
 | 2025-01-14 | 2025-01-13 | 3704.1073 | True |
 
-![沪深300同一条笔在三个截止日的变化](/Users/congming/github/goldenshare/reports/chan_theory_csi300_teaching_20260908/endpoint_replay.png)
+![沪深300同一条笔在三个截止日的变化](/Users/congming/github/goldenshare/reports/index_market_history_20260913/endpoint_replay.png)
 
 三张图共用坐标，右侧空白表示那些天尚未输入。蓝实线和橙虚线分别表示当帧sure与非sure；不是事后正确、错误的区分。
 
@@ -385,7 +385,7 @@ L = max(3749.0581,3731.1887) = 3749.0581
 
 ### 8.5 再看截至3月31日的局部结构
 
-![沪深300截至2025年3月31日日K笔结构](/Users/congming/github/goldenshare/reports/chan_theory_csi300_teaching_20260908/csi300_structure.png)
+![沪深300截至2025年3月31日日K笔结构](/Users/congming/github/goldenshare/reports/index_market_history_20260913/csi300_structure.png)
 
 这张图只用截至2025-03-31的数据计算，展示2024年12月至2025年3月的局部；不是拿2025年底结构倒贴回来。纵轴为了辨认结构没有从零开始，横轴是等距交易日。
 
@@ -524,11 +524,11 @@ L = max(3749.0581,3731.1887) = 3749.0581
 
 ## 附录C：可复查的本地附件
 
-- [执行边界与复现说明](/Users/congming/github/goldenshare/reports/chan_theory_csi300_teaching_20260908/README.md)
+- [执行边界与复现说明](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#chan_theory_csi300_teaching_20260908--README-md)
 - [生成脚本](/Users/congming/github/goldenshare/scripts/research/index_market/chan/build_cases.py)
-- [原始OHLC教学快照](/Users/congming/github/goldenshare/reports/chan_theory_csi300_teaching_20260908/source.json)
-- [逐日结构快照](/Users/congming/github/goldenshare/reports/chan_theory_csi300_teaching_20260908/frames.json)
-- [结构变化事件](/Users/congming/github/goldenshare/reports/chan_theory_csi300_teaching_20260908/evidence.json)
-- [输入清单、校验值与参数](/Users/congming/github/goldenshare/reports/chan_theory_csi300_teaching_20260908/manifest.json)
+- [原始OHLC教学快照](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#chan_theory_csi300_teaching_20260908)
+- [逐日结构快照](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#chan_theory_csi300_teaching_20260908)
+- [结构变化事件](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#chan_theory_csi300_teaching_20260908)
+- [输入清单、校验值与参数](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md#chan_theory_csi300_teaching_20260908)
 
 本轮只新增教材、研究附件，并增加文档索引入口；不修改产品代码、架构依赖矩阵、数据库或Lake，不安装依赖，不提交或推送。第三方源码仅用于隔离研究，未复制进产品主实现。

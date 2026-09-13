@@ -1,7 +1,0 @@
-ts_code,trade_date,target_date,phase,reason
-000001.SH,2013-12-20,2013-12-23,D,label_crosses_next_phase
-000300.SH,2013-12-20,2013-12-23,D,label_crosses_next_phase
-000905.SH,2013-12-20,2013-12-23,D,label_crosses_next_phase
-000001.SH,2017-10-30,2017-10-31,V1,label_crosses_next_phase
-000300.SH,2017-10-30,2017-10-31,V1,label_crosses_next_phase
-000905.SH,2017-10-30,2017-10-31,V1,label_crosses_next_phase

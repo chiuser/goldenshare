@@ -1,6 +1,7 @@
 from copy import deepcopy
 from dataclasses import asdict, replace
 import json
+from zipfile import ZipFile
 
 import duckdb
 import pytest
@@ -23,8 +24,23 @@ def prices(days=('2026-02-25', '2026-02-26')):
                  open=10., high=12., low=9., close=11., vol=10., amount=100.) for d in days for s in slots(30)]
 
 
-def test_frozen_actual_seats_and_deterministic_pilot():
-    folder = REPO/SPEC.rank_report
+@pytest.fixture
+def frozen_rank_folder(tmp_path):
+    # Restore this test fixture only, never the repository's historical directories.
+    prefix = SPEC.rank_report+'/'
+    with ZipFile(REPO/'reports/index_market_history_20260913/resonance.zip') as archive:
+        for key in archive.namelist():
+            if not key.startswith(prefix):
+                continue
+            path = tmp_path/key.removeprefix(prefix)
+            assert path.resolve().is_relative_to(tmp_path.resolve())
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(archive.read(key))
+    return tmp_path
+
+
+def test_frozen_actual_seats_and_deterministic_pilot(frozen_rank_folder):
+    folder = frozen_rank_folder
     manifest = authenticated_manifest(folder, SPEC.rank_manifest)
     windows, seats, codes, unmatched = freeze_samples(folder, manifest)
     assert len(windows) == 3 and len(seats) == 298 and len(codes) == 289
@@ -165,8 +181,8 @@ def test_reader_rejects_non_lake_before_query(tmp_path):
         Reader().read([path], 'SELECT 1', [], 1)
 
 
-def test_frozen_g1_spec_mismatch():
-    folder = REPO/SPEC.rank_report
+def test_frozen_g1_spec_mismatch(frozen_rank_folder):
+    folder = frozen_rank_folder
     manifest = json.loads((folder/'manifest.json').read_text())
     manifest['spec']['frequency'] = 60
     with pytest.raises(ValueError, match='different scope'):

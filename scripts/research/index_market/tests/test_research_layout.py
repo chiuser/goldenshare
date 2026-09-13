@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tomllib
+from zipfile import ZipFile
 
 import pytest
 
@@ -14,6 +15,7 @@ from scripts.research.index_market.statistics import provenance
 
 ROOT = Path(__file__).resolve().parents[4]
 TOPIC = Path(__file__).resolve().parents[1]
+ARCHIVE = ROOT / "reports/index_market_history_20260913"
 
 
 def test_single_location_roots_and_pytest_discovery():
@@ -42,7 +44,7 @@ def test_chan_help_without_third_party_or_lake():
     assert "--output" in result.stdout and "--chan-source" in result.stdout
 
 
-@pytest.mark.parametrize("target", ["reports", "reports/chan_theory_csi300_teaching_20260908", "src", "/Volumes/datasource/data_lake"])
+@pytest.mark.parametrize("target", ["reports", "reports/stock_chan_research_20260912", "src", "/Volumes/datasource/data_lake"])
 def test_chan_rejects_existing_or_unsafe_output_before_source_access(target, monkeypatch):
     monkeypatch.chdir(ROOT)
     monkeypatch.setattr(sys, "argv", ["build_cases", "--chan-source", "/nonexistent/chan", "--output", target])
@@ -76,6 +78,42 @@ def test_actual_historical_sources_still_verify():
              ("index_risk_baseline_backtest", "index_risk_baseline_v1_20260908")]
     for name, directory in pairs:
         module = importlib.import_module(f"scripts.research.index_market.statistics.{name}")
-        recorded = json.loads((ROOT / "reports" / directory / "run_manifest.json").read_text())
+        with ZipFile(ARCHIVE / "statistics.zip") as archive:
+            recorded = json.loads(archive.read(f"reports/{directory}/run_manifest.json"))
         check = provenance.verify_prior_source(Path(module.__file__), recorded["script_sha256"])
         assert check["mode"] == "directory_migration_20260909"
+
+
+def test_all_archived_evidence_matches_original_inventory():
+    inventory = json.loads((ARCHIVE / "inventory.json").read_text())
+    assert len(inventory["records"]) == inventory["original_files"] == 668
+    actual = set()
+    for name, info in inventory["archives"].items():
+        raw = (ARCHIVE / name).read_bytes()
+        assert len(raw) == info["bytes"]
+        assert hashlib.sha256(raw).hexdigest() == info["sha256"]
+        with ZipFile(ARCHIVE / name) as archive:
+            names = archive.namelist()
+            assert len(names) == len(set(names))
+            for key in names:
+                assert key.startswith("reports/") and ".." not in Path(key).parts
+                assert key not in actual
+                expected = inventory["records"][key]
+                assert expected["archive"] == name
+                data = archive.read(key)
+                assert len(data) == expected["bytes"]
+                assert hashlib.sha256(data).hexdigest() == expected["sha256"]
+                actual.add(key)
+    assert actual == set(inventory["records"])
+
+
+def test_live_source_gate_keeps_exact_archived_manifest(monkeypatch):
+    from scripts.research.index_market.chan import stock_qfq_run
+    key = "reports/chan_minute_variant_a_20260909/manifest.json"
+    with ZipFile(ARCHIVE / "index_chan.zip") as archive:
+        data = archive.read(key)
+    assert (ROOT / key).read_bytes() == data
+    source = json.loads(data)["source"]
+    # No third-party loading or Lake access in the default tests.
+    monkeypatch.setattr(stock_qfq_run, "verify_variant_source", lambda path: source)
+    assert stock_qfq_run.source_gate() == source
