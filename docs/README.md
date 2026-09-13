@@ -214,6 +214,7 @@ docs/
 
 ## 6. 前端、业务与发布（S4）
 
+- [财势乾坤交易助手技术实施方案 v1（核验草稿；本金分配边界已确认，账户期间计算已展开，未编码）](/Users/congming/github/goldenshare/wealth/docs/pages/trading-assistant/trading-assistant-implementation-design-v1.md)
 - [我的自选分组能力技术实施方案 v2（十项评审修订已确认并回填；尚未开发）](/Users/congming/github/goldenshare/wealth/docs/pages/watchlist/watchlist-grouping-implementation-design-v2.md)
 - [我的自选分组能力低层设计 v2（含代码审计、修订对账与三阶段门禁；尚未开发）](/Users/congming/github/goldenshare/wealth/docs/pages/watchlist/watchlist-grouping-low-level-design-v2.md)
 - [财势天下登录页视觉改版与鉴权接入技术方案 v1（开发完成，待用户部署验收）](/Users/congming/github/goldenshare/wealth/docs/pages/login/login-page-auth-design-v1.md)
