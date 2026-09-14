@@ -503,7 +503,7 @@ def holding_fixtures():
                dynamicCostAmount="4000.00", price="15.00", marketValue="9000.00",
                holdingProfitAmount="5000.00", holdingReturnPct="50.00", dayProfitAmount="0.00",
                stockValueWeightPct="100.00", totalAssetWeightPct="90.00", estimatedSellCommission="0.00",
-               estimatedStampTax="0.00", estimatedNetProceeds="9000.00", industry=None,
+               estimatedStampTax="0.00", estimatedTotalFeeAmount="0.00", estimatedNetProceeds="9000.00", industry=None,
                quoteAt="2026-09-11T15:00:00+08:00", accountRounds=[light_round], dataStatus="Ready", reason=None)
     scope = dict(accountMode="ALL", accounts=[account], stockMode="ALL", stockRef=None)
     context = calendar_fixture()["readContext"]
@@ -511,7 +511,8 @@ def holding_fixtures():
     weighted = dict(stockRef=stock, marketValue="9000.00", weightPct="100.00")
     summary = dict(cashAmount="1000.00", stockMarketValue="9000.00", totalAssets="10000.00",
                    holdingProfitAmount="5000.00", holdingReturnPct="50.00", dayProfitAmount="0.00",
-                   dayReturnPct="0.00", positionCount=1, largestPosition=weighted)
+                   dayReturnPct="0.00", positionCount=1, largestPosition=weighted,
+                   top3WeightPct="100.00", cashWeightPct="10.00", stockAssetWeightPct="90.00")
     allocation = dict(stockMarketValue="9000.00", totalAssets="10000.00",
                       stockValueSlices=[dict(kind="STOCK", **weighted, members=[])],
                       totalAssetSlices=[dict(kind="STOCK", **{**weighted,"weightPct":"90.00"}, members=[]),
@@ -533,6 +534,13 @@ def test_positions_complete_values_unknowns_and_pie_members():
     unknown = {**row, "marketValue":None, "holdingProfitAmount":None, "holdingReturnPct":None,
                "dataStatus":"Delayed", "reason":"行情未就绪"}
     assert positions.PositionRow(**unknown).marketValue is None
+    assert positions.PositionRow(**{**unknown, "availableQuantity":None, "accountRounds":[]}).availableQuantity is None
+    with pytest.raises(ValidationError):
+        positions.PositionRow(**{**row, "availableQuantity":None})
+    with pytest.raises(ValidationError):
+        positions.PositionsSummary(**{**fixture["summary"], "totalAssets":None})
+    with pytest.raises(ValidationError):
+        positions.PositionsSummary(**{**fixture["summary"], "stockMarketValue":None})
     members = [dict(stockRef={"tsCode":f"{index:06}.SH", "name":"股票"}, marketValue="100.00", weightPct="1.00") for index in range(8,12)]
     other = dict(kind="OTHER", stockRef=None, marketValue="400.00", weightPct="4.00", members=members)
     assert len(assert_complete_fixture(positions.AllocationSlice, other).members) == 4
@@ -624,7 +632,7 @@ def test_round_position_day_and_review_complete_fixtures():
     current = dict(accountRef=account, roundRef=round_ref, openedOn="2026-09-01", openingSource="TRADE",
                    quantity="600", availableQuantity="600", buyInvestmentAmount="10000.00", sellNetProceedsAmount="6000.00",
                    dynamicCostAmount="4000.00", dynamicCostPrice="6.67", price="15.00", marketValue="9000.00",
-                   estimatedSellCommission="0.00", estimatedStampTax="0.00", estimatedNetProceeds="9000.00",
+                   estimatedSellCommission="0.00", estimatedStampTax="0.00", estimatedTotalFeeAmount="0.00", estimatedNetProceeds="9000.00",
                    holdingProfitAmount="5000.00", holdingReturnPct="50.00", dayProfitAmount="0.00",
                    recordsScope=round_scope, dataStatus="Ready", reason=None)
     assert_complete_fixture(positions.PositionAccountRound, current)

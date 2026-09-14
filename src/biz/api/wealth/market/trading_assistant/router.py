@@ -3,10 +3,13 @@ from datetime import date
 from uuid import UUID
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from pydantic import ValidationError
 
 from src.biz.schemas.wealth.market.trading_assistant import accounts as dto, receipts
 from src.biz.schemas.wealth.market.trading_assistant import previews
+from src.biz.schemas.wealth.market.trading_assistant.positions import PositionsResponse, PositionDetail
+from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountReadQuery
 from src.biz.schemas.wealth.market.trading_assistant.records import TradeDetail, CashFlowDetail
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryStatusDto, PendingRecoveryResponse
 from src.biz.schemas.wealth.market.trading_assistant.recovered_inputs import RecoveryInputResponse
@@ -23,6 +26,26 @@ from src.biz.schemas.wealth.market.trading_assistant.calculation_status import C
 def create_trading_assistant_router(*, auth_dependency, dependencies_dependency):
     router = APIRouter(prefix="/wealth/market/trading-assistant", tags=["trading-assistant"], route_class=TradingAssistantRoute)
     auth, services = Depends(auth_dependency), Depends(dependencies_dependency)
+
+    def position_scope(request):
+        try:
+            return AccountReadQuery.model_validate(dict(request.query_params))
+        except ValidationError as error:
+            raise WriteProtocolConflict("TA_REQUEST_INVALID") from error
+
+    @router.get("/positions", response_model=PositionsResponse)
+    async def positions(request: Request, accountMode: Literal["ALL", "SINGLE"], accountId: EntityId | None = None,
+                        readContext: str | None = None, owner_id: int = auth,
+                        deps: TradingAssistantDependencies = services):
+        query = position_scope(request)
+        return await deps.read_positions(owner_id=owner_id, query=query)
+
+    @router.get("/positions/{ts_code}", response_model=PositionDetail)
+    async def position_detail(ts_code: StockCode, request: Request, accountMode: Literal["ALL", "SINGLE"],
+                              accountId: EntityId | None = None, readContext: str | None = None, owner_id: int = auth,
+                              deps: TradingAssistantDependencies = services):
+        query = position_scope(request)
+        return await deps.read_positions(owner_id=owner_id, query=query, stock_code=ts_code)
 
     @router.get("/accounts", response_model=dto.AccountsResponse)
     async def accounts(owner_id: int = auth, deps: TradingAssistantDependencies = services):

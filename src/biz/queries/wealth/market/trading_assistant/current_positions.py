@@ -34,6 +34,11 @@ class CurrentHoldingValue:
     quantity: int
     fee_version_id: UUID
     valuation: RoundValuation
+    opened_on: date
+    source_price: Fraction
+    quote_at: datetime
+    buy_input_cents: int
+    sell_net_cents: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +100,8 @@ class CurrentPositionsQuery:
             kernel = KernelPosition(quantity, quantity, numeric_cents(state.remaining_buy_cost),
                 numeric_cents(state.cumulative_buy_input), numeric_cents(state.cumulative_sell_net))
             result.append(CurrentHoldingValue(account_id, state.ts_code, state.round_id, quantity,
-                fees.fee_version_id, value_round(kernel, Fraction(price.price), fees.fees)))
+                fees.fee_version_id, value_round(kernel, Fraction(price.price), fees.fees),
+                state.opened_on, Fraction(price.price), price.valuation_at,
+                kernel.buy_investment_cents, kernel.sell_net_cents))
         deadline.remaining_ms()
         return CurrentHoldingPage(tuple(result), result[-1].stock_code if len(rows) > self.policy.page_rows else None)

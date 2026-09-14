@@ -20,7 +20,7 @@ class AccountRound(Contract):
 class PositionRow(Contract):
     stockRef: StockRef
     quantity: PositiveAggregateQuantity
-    availableQuantity: AggregateQuantity
+    availableQuantity: AggregateQuantity | None
     dynamicCostPrice: Money | None
     dynamicCostAmount: Money | None
     price: NonnegativeMoney | None
@@ -32,6 +32,7 @@ class PositionRow(Contract):
     totalAssetWeightPct: WeightPct | None
     estimatedSellCommission: NonnegativeMoney | None
     estimatedStampTax: NonnegativeMoney | None
+    estimatedTotalFeeAmount: NonnegativeMoney | None
     estimatedNetProceeds: Money | None
     industry: StrictStr | None
     quoteAt: Instant | None
@@ -41,18 +42,28 @@ class PositionRow(Contract):
 
     @model_validator(mode="after")
     def quantities(self):
-        if compare_share_quantities(self.availableQuantity, self.quantity) > 0:
+        if self.availableQuantity is not None and compare_share_quantities(self.availableQuantity, self.quantity) > 0:
             raise ValueError("Available quantity exceeds holding quantity")
         identities = [(item.accountId, item.roundId) for item in self.accountRounds]
-        if not identities or len(identities) != len(set(identities)):
+        if len(identities) != len(set(identities)) or (self.dataStatus == "Ready" and not identities):
             raise ValueError("Holding requires unique account round references")
         if self.dataStatus == "Ready" and any(value is None for value in (
-            self.dynamicCostPrice, self.dynamicCostAmount, self.price, self.marketValue,
-            self.estimatedSellCommission, self.estimatedStampTax, self.estimatedNetProceeds,
+            self.availableQuantity, self.dynamicCostPrice, self.dynamicCostAmount, self.price, self.marketValue,
+            self.estimatedSellCommission, self.estimatedStampTax, self.estimatedTotalFeeAmount, self.estimatedNetProceeds,
             self.holdingProfitAmount, self.holdingReturnPct,
         )):
             raise ValueError("Ready holding requires complete current valuation")
+        validate_estimated_fees(self)
         return self
+
+
+def validate_estimated_fees(value):
+    fees = (value.estimatedSellCommission, value.estimatedStampTax, value.estimatedTotalFeeAmount)
+    if any(item is None for item in fees):
+        if value.estimatedTotalFeeAmount is not None:
+            raise ValueError("Fee total requires both fee components")
+    elif decimal_cents(fees[0]) + decimal_cents(fees[1]) != decimal_cents(fees[2]):
+        raise ValueError("Estimated fee total must equal its components")
 
 
 class WeightedStock(Contract):
@@ -93,6 +104,25 @@ class PositionsSummary(Contract):
     dayReturnPct: ReturnPct | None
     positionCount: Count | None
     largestPosition: WeightedStock | None
+    top3WeightPct: WeightPct | None
+    cashWeightPct: WeightPct | None
+    stockAssetWeightPct: WeightPct | None
+
+    @model_validator(mode="after")
+    def weight_denominators(self):
+        if (self.stockMarketValue is None or decimal_cents(self.stockMarketValue) == 0) and (
+            self.top3WeightPct is not None or self.largestPosition is not None
+        ):
+            raise ValueError("Stock concentration requires a positive complete stock value")
+        if (self.totalAssets is None or decimal_cents(self.totalAssets) == 0) and (
+            self.cashWeightPct is not None or self.stockAssetWeightPct is not None
+        ):
+            raise ValueError("Asset weights require positive complete total assets")
+        if self.cashAmount is None and self.cashWeightPct is not None:
+            raise ValueError("Cash weight requires a known cash amount")
+        if self.stockMarketValue is None and self.stockAssetWeightPct is not None:
+            raise ValueError("Stock asset weight requires a known stock value")
+        return self
 
 
 class Allocation(Contract):
@@ -192,7 +222,7 @@ class PositionAccountRound(Contract):
     openedOn: BusinessDate
     openingSource: Literal["INITIALIZATION", "TRADE"]
     quantity: PositiveAggregateQuantity
-    availableQuantity: AggregateQuantity
+    availableQuantity: AggregateQuantity | None
     buyInvestmentAmount: NonnegativeMoney
     sellNetProceedsAmount: Money
     dynamicCostAmount: Money
@@ -201,6 +231,7 @@ class PositionAccountRound(Contract):
     marketValue: NonnegativeMoney | None
     estimatedSellCommission: NonnegativeMoney | None
     estimatedStampTax: NonnegativeMoney | None
+    estimatedTotalFeeAmount: NonnegativeMoney | None
     estimatedNetProceeds: Money | None
     holdingProfitAmount: Money | None
     holdingReturnPct: ReturnPct | None
@@ -213,8 +244,11 @@ class PositionAccountRound(Contract):
     def current_round(self):
         if self.roundRef.status != "OPEN" or self.roundRef.accountId != self.accountRef.accountId:
             raise ValueError("Position must refer to its account's open round")
-        if compare_share_quantities(self.availableQuantity, self.quantity) > 0:
+        if self.availableQuantity is not None and compare_share_quantities(self.availableQuantity, self.quantity) > 0:
             raise ValueError("Available quantity exceeds held quantity")
+        if self.dataStatus == "Ready" and self.availableQuantity is None:
+            raise ValueError("Ready position requires known available quantity")
+        validate_estimated_fees(self)
         return self
 
 

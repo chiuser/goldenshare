@@ -12,6 +12,8 @@ from src.biz.queries.wealth.market.trading_assistant.write_recovery import Write
 from src.biz.queries.wealth.market.trading_assistant.record_detail import RecordDetailQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery, OwnedReadContext
+from src.biz.queries.wealth.market.trading_assistant.positions import PositionsQuery
+from src.biz.queries.wealth.market.trading_assistant.positions_cutoff import resolve_positions_cutoff
 from src.biz.services.wealth.market.trading_assistant.account_commands import AccountCommandService
 from src.biz.services.wealth.market.trading_assistant.calculation_retries import CalculationRetryService
 from src.biz.services.wealth.market.trading_assistant.ledger_commands import LedgerCommandService
@@ -40,6 +42,23 @@ class TradingAssistantDependencies:
     calculation_status: CalculationStatusQuery
     calculation_retries: CalculationRetryService
     read_context: CurrentReadContextQuery
+    positions: PositionsQuery
+
+    async def read_positions(self, *, owner_id, query, stock_code=None):
+        cutoff = None
+
+        def resolve(session, deadline):
+            nonlocal cutoff
+            cutoff = resolve_positions_cutoff(session, market=self.entry_context.market, deadline=deadline)
+            return cutoff.through
+
+        def read(session, deadline, basis):
+            return self.positions.read(session, owner_id=owner_id, account_mode=query.accountMode,
+                basis=basis, cutoff=cutoff, deadline=deadline, stock_code=stock_code)
+
+        return await self.read_current(read, owner_id=owner_id, account_mode=query.accountMode,
+            account_id=UUID(query.accountId) if query.accountId else None,
+            resolve_target_through=resolve, context_token=query.readContext)
 
     async def read(self, query):
         deadline = Deadline.after_ms(self.policy.read_request_budget_ms)

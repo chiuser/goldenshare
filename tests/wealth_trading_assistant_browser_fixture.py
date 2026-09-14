@@ -42,6 +42,8 @@ from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
+from src.foundation.models.core_serving.dc_index import DcIndex
+from src.foundation.models.core_serving.dc_member import DcMember
 from src.biz.api.wealth.market.trading_assistant.errors import TradingAssistantRoute
 from src.biz.schemas.wealth.market.trading_assistant.common import ReadContext
 from src.biz.models.wealth.trading_assistant.publication import AccountSnapshot, PublicationDay
@@ -55,7 +57,7 @@ def seed(engine):
         for schema in ("app", "core", "core_serving"):
             conn.execute(text(f"CREATE SCHEMA {schema}"))
         for model in (AppUser, AuthUserRole, Security, TradeCalendar, IndexBasic, IndexDailyServing,
-                      EquityDailyBar, EquitySuspendD, EquityDividend, EquityAdjFactor):
+                      EquityDailyBar, EquitySuspendD, EquityDividend, EquityAdjFactor, DcIndex, DcMember):
             model.__table__.create(conn)
         conn.execute(insert(AppUser), [dict(id=i, username=f"ta-browser-{i}", password_hash="unused-test-only") for i in (1, 2)])
         scripts = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
