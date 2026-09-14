@@ -78,6 +78,50 @@ def test_real_published_group_revisions_and_owner_isolation(tmp_path):
                     assert closed["profitAmount"] == "319.70"
                     assert closed["roundRef"]["roundNumber"] == 1
                     assert detail.json()["record"]["closedDataStatus"] == "Ready"
+                    statements.clear()
+                    event.listen(engine, "before_cursor_execute", observed)
+                    started = monotonic()
+                    try:
+                        ranged = await client.get(ROOT + "/records/closed-trades", params={**params, "limit":1})
+                    finally:
+                        event.remove(engine, "before_cursor_execute", observed)
+                    elapsed = monotonic() - started
+                    assert elapsed < 5
+                    assert not any(sql.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for sql in statements)
+                    print(dict(closed_sql=len(statements), seconds=elapsed, response_bytes=len(ranged.content)))
+                    assert ranged.status_code == 200, ranged.text
+                    page = ranged.json()
+                    assert page["summary"] == dict(closedTradeCount=2, closedProfitAmount="1398.80", dataStatus="Ready", reason=None)
+                    assert len(page["items"]) == 1 and page["nextCursor"]
+                    tail = await client.get(ROOT + "/records/closed-trades", params={**params, "limit":1,
+                        "cursor":page["nextCursor"], "readContext":page["readContext"]["contextToken"]})
+                    assert tail.status_code == 200, tail.text
+                    assert tail.json()["summary"] == page["summary"]
+                    assert {page["items"][0]["tradeId"], tail.json()["items"][0]["tradeId"]} == set(ids)
+                    round_params = dict(accountId=account, roundId=closed["roundRef"]["roundId"],
+                        readContext=page["readContext"]["contextToken"])
+                    whole = await client.get(ROOT + "/records/closed-trades", params=round_params)
+                    assert whole.status_code == 200, whole.text
+                    assert whole.json()["requestedStartDate"] == "2026-09-10"
+                    assert whole.json()["recordsScope"] == {key:round_params[key] for key in ("accountId", "roundId")}
+                    assert [r["tradeId"] for r in whole.json()["items"]] == [tail.json()["items"][0]["tradeId"], page["items"][0]["tradeId"]]
+                    round_head = await client.get(ROOT + "/records/closed-trades", params={**round_params, "limit":1})
+                    assert round_head.status_code == 200, round_head.text
+                    round_tail = await client.get(ROOT + "/records/closed-trades", params={**round_params, "limit":1,
+                        "cursor":round_head.json()["nextCursor"]})
+                    assert round_tail.status_code == 200, round_tail.text
+                    assert round_tail.json()["nextCursor"] is None
+                    assert round_head.json()["items"] + round_tail.json()["items"] == whole.json()["items"]
+                    assert round_tail.json()["summary"] == whole.json()["summary"]
+                    absent = await client.get(ROOT + "/records/closed-trades", params={**round_params, "roundId":str(uuid4())})
+                    assert absent.status_code == 404, absent.text
+                    owner_token = client.headers["Authorization"]
+                    client.headers["Authorization"] = "Bearer " + (await client.get("/test-session", params={"user_id":2})).json()["token"]
+                    foreign = await client.get(ROOT + "/records/closed-trades", params=round_params)
+                    assert foreign.status_code == 404, foreign.text
+                    client.headers["Authorization"] = owner_token
+                    for patch in ({"accountMode":"ALL"}, {"requestedStartDate":"2026-09-11"}, {"tsCode":"000001.SZ"}, {"cursor":page["nextCursor"]}):
+                        assert (await client.get(ROOT + "/records/closed-trades", params={**round_params, **patch})).status_code == 400
                     response = await client.get(ROOT + "/records/trades", params={**params, "limit": 1,
                         "cursor": first["nextCursor"], "readContext": first["readContext"]["contextToken"]})
                     assert response.status_code == 200, response.text
@@ -122,6 +166,9 @@ def test_real_published_group_revisions_and_owner_isolation(tmp_path):
                     stale_detail = await client.get(ROOT + f"/records/trades/{ids[0]}", params={
                         "readContext":first["readContext"]["contextToken"]})
                     assert stale_detail.status_code == 409, stale_detail.text
+                    stale_closed = await client.get(ROOT + "/records/closed-trades", params={**params,
+                        "cursor":page["nextCursor"], "readContext":page["readContext"]["contextToken"]})
+                    assert stale_closed.status_code == 409, stale_closed.text
                     rows, groups = await read()
                     assert len(rows) == 1 and str(rows[0].ledger_id) == ids[1]
                     await wait_stage(client, account, "PUBLISHED")
@@ -174,6 +221,10 @@ def test_cash_pages_summary_full_scope_and_same_content_kept(tmp_path):
                         ids.add(response.json()["result"]["cashFlowId"])
                     await wait_stage(client, account, "PUBLISHED")
                     params = dict(accountMode="SINGLE", accountId=account, requestedStartDate="2026-09-01", requestedEndDate="2026-09-11")
+                    empty = await client.get(ROOT + "/records/closed-trades", params={**params, "stockMode":"ALL"})
+                    assert empty.status_code == 200, empty.text
+                    assert empty.json()["items"] == [] and empty.json()["nextCursor"] is None
+                    assert empty.json()["summary"] == dict(closedTradeCount=0, closedProfitAmount="0.00", dataStatus="Empty", reason=None)
                     response = await client.get(ROOT + "/records/cash-flows", params=params)
                     assert response.status_code == 200, response.text
                     first = response.json()
@@ -230,6 +281,11 @@ def test_missing_quote_sale_is_readable_but_not_marked_closed(tmp_path):
                     assert detail.status_code == 200, detail.text
                     assert detail.json()["closedTrade"] is None
                     assert detail.json()["record"] == row
+                    closed = await client.get(ROOT + "/records/closed-trades", params=params)
+                    assert closed.status_code == 200, closed.text
+                    assert closed.json()["items"] == []
+                    assert closed.json()["summary"]["closedProfitAmount"] is None
+                    assert closed.json()["summary"]["dataStatus"] == "Delayed"
                     client.headers["Authorization"] = "Bearer " + (await client.get("/test-session", params={"user_id":2})).json()["token"]
                     denied = await client.get(ROOT + f"/records/trades/{trade}", params={
                         "readContext":response.json()["readContext"]["contextToken"]})

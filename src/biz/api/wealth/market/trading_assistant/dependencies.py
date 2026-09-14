@@ -12,6 +12,8 @@ from src.biz.queries.wealth.market.trading_assistant.write_recovery import Write
 from src.biz.queries.wealth.market.trading_assistant.record_detail import RecordDetailQuery
 from src.biz.queries.wealth.market.trading_assistant.record_lists import RecordListsQuery
 from src.biz.queries.wealth.market.trading_assistant.record_summary import RecordSummaryQuery
+from src.biz.queries.wealth.market.trading_assistant.closed_records import ClosedRecordsQuery
+from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountReadQuery, RoundRecordsQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery, OwnedReadContext
 from src.biz.queries.wealth.market.trading_assistant.positions import PositionsQuery
@@ -49,6 +51,13 @@ class TradingAssistantDependencies:
     positions_analysis: PositionsAnalysisQuery
     record_lists: RecordListsQuery
     record_summary: RecordSummaryQuery
+    closed_records: ClosedRecordsQuery
+
+    async def read_closed_records(self, *, owner_id, query):
+        selection = AccountReadQuery(accountMode="SINGLE", accountId=query.accountId, readContext=query.readContext) if isinstance(query, RoundRecordsQuery) else query
+        def execute(session, *, basis, deadline, **unused):
+            return self.closed_records.read(session, owner_id=owner_id, basis=basis, query=query, deadline=deadline)
+        return await self._read_holdings(owner_id=owner_id, query=selection, read=execute)
 
     async def read_record_detail(self, *, owner_id, record_id, kind, cursor=None, limit=20, context_token=None):
         def work(session, deadline):

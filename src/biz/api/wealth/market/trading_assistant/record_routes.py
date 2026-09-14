@@ -6,9 +6,9 @@ from fastapi import Depends, Request
 from pydantic import ValidationError
 
 from src.biz.schemas.wealth.market.trading_assistant.records import (
-    TradeRecordsResponse, CashRecordsResponse, TradeDayGroupsResponse, RecordsSummary,
+    TradeRecordsResponse, CashRecordsResponse, TradeDayGroupsResponse, RecordsSummary, ClosedRecordsResponse,
 )
-from src.biz.schemas.wealth.market.trading_assistant.scopes import TradeRecordsQuery, CashRecordsQuery, RangeQuery
+from src.biz.schemas.wealth.market.trading_assistant.scopes import TradeRecordsQuery, CashRecordsQuery, RangeQuery, RangeRecordsQuery, RoundRecordsQuery
 from src.biz.schemas.wealth.market.trading_assistant.value_types import EntityId, BusinessDate, StockCode
 from src.biz.services.wealth.market.trading_assistant.write_protocol import WriteProtocolConflict
 from .dependencies import TradingAssistantDependencies
@@ -31,6 +31,16 @@ def parse_record_query(request, model):
 
 def register_record_routes(router, *, auth_dependency, dependencies_dependency):
     auth, services = Depends(auth_dependency), Depends(dependencies_dependency)
+
+    @router.get("/records/closed-trades", response_model=ClosedRecordsResponse)
+    async def closed(request: Request, accountMode: Literal["ALL", "SINGLE"] | None = None,
+                     stockMode: Literal["ALL", "SINGLE"] | None = None,
+                     requestedStartDate: BusinessDate | None = None, requestedEndDate: BusinessDate | None = None,
+                     accountId: EntityId | None = None, tsCode: StockCode | None = None, roundId: EntityId | None = None,
+                     limit: int = 20, cursor: str | None = None, readContext: str | None = None,
+                     owner_id: int = auth, deps: TradingAssistantDependencies = services):
+        model = RoundRecordsQuery if "roundId" in request.query_params else RangeRecordsQuery
+        return await deps.read_closed_records(owner_id=owner_id, query=parse_record_query(request, model))
 
     @router.get("/records/summary", response_model=RecordsSummary)
     async def summary(request: Request, accountMode: Literal["ALL", "SINGLE"], stockMode: Literal["ALL", "SINGLE"],
