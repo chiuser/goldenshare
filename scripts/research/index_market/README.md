@@ -17,6 +17,18 @@ index_market/
 
 ## 当前研究状态
 
+2026-09-14提交与清理：用户已批准本研究代码/文档和有用reports一并提交。第28—34节七组正式证据保留，共29文件约12.0MiB；下文“仅本地/暂不提交”为各轮当时状态，已由本次要求替代。源码缺失预检`stock_signal_chain_audit_20260913`的3文件已执行移入废纸篓，受系统读取限制未验证恢复；其30次机会/6笔案例由最终serial报告覆盖，旧阻塞经过仍见方案28.9。删除清单、保留理由和恢复位置见[方案34.11](../../../docs/product/stock-chan-share-position-backtest-plan-v1.md#3411-本研究提交与报告清理2026-09-14)。旧Store/历史归档与七组正式报告字节未改；P0门禁不变，未进入新回测。
+
+2026-09-14 P0完成、停止于设计门禁：原股数方案34.10，本地`reports/stock_expansion_p0_20260914/report.md`（暂不提交）。58次B3回踩低点与旧冻结低位全部相同，不再重复跑收益。现存快照中4279只符合五年前上市的沪深存续口径，其中4037只未进入旧案例/对照名单，但4279只均参加过早期全市场排名，不能称完全未使用的数据；历史个股市值缺失，12层抽样无法执行。60日成交额缺行290股日均由全日停牌解释，未知缺行0；年度分钟文件仅000670.SZ缺2021年两频度文件，原因未核实，其余仅证明文件存在。2.897秒、四文件约197KiB、655项主题测试通过。入口：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_expansion_feasibility --output reports/stock_expansion_p0_NEW`。没有抽股、读新分钟明细或计算收益；先决定市值来源与扩大样本复核定位，再讨论P1。下文34节方案制定时记录保留，最新结论以34.10为准。
+
+2026-09-14后续计划已重整：[原股数方案第34节](../../../docs/product/stock-chan-share-position-backtest-plan-v1.md#34-后续计划重整先排除重复试验再扩大独立股票样本)为下一步执行入口，取代下文各历史轮次的“下一步建议”。原10股及其他已查看结果的股票只作开发/案例集；建议另取分层240股，开发/封存验证各120股，但尚未抽样或运行。当前代码已在第22节实现冻结买点低位退出，须先核对与第33节回踩低点的差异，不能改名再试；新机会池须移除共同闭合及按实际退出筛非重叠的事后选择。下一步仅P0方法去重与样本可行性，不算新收益。具体主对照、封版、相关性处理和停止条件见第34节；跨股票封存不等于未见市场时间。本轮仅更新方案及本README，代码、历史成绩与reports未改。
+
+2026-09-14 B3来源追溯完成：原股数方案第33节，本地报告`reports/stock_b3_origin_audit_20260914/report.md`（暂不提交）。原八股133次机会中的58次B3全部唯一追溯到真实3a/3b生成中枢；55次中枢未标记确认，此标记与段状态有关，不等于假买点。3a确认价到中枢上沿/回踩低点中位距离6.21%/1.67%，3b为5.57%/2.36%；两条失效线必须分开。62.08秒、4文件约180KiB，317条原事件及8次截断/8次未来扰动一致，632项主题测试通过。入口：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_b3_origin_audit --output reports/stock_b3_origin_NEW`。直接读取Store，不依赖未提交reports，不改算法/执行，不计算新退出收益。下一步仅建议检验固定原回踩低点失效，不同时搜索其他止损线；阶段结论及停止条件见33.5。
+
+2026-09-13退出结构审阅完成：原股数方案第32节，本地报告`reports/stock_exit_structure_review_20260913/report.md`（暂不提交）。八股133次原对照摘要精确一致，47次收益改变对应40个不同卖点，固定6个完整案例。卖点笔均确认，但父线段25次未确认、22次尾笔尚未归入段；各类状态在改善和卖早两侧均存在，尚无可靠区分规则。317条原事件、46个当时截面、8次截断/8次未来扰动通过；26.76秒、四文件约145KiB，616项主题测试通过。入口：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_exit_structure_review --output reports/stock_exit_structure_review_NEW`。直接从Store重建并验证第31节逐笔摘要，不依赖未提交reports；不改识别或退出规则、不读Lake。下一步仅建议先定义买入结构失效，不自动启动新策略。
+
+2026-09-13原10股取消编号配对扩批完成：本地结果`reports/stock_any_sell_cohort_20260913/report.md`（暂不提交），原股数方案第31节。原A不变，主要观察其余八股133次：毛收益均值5.27%→5.71%，5股改善/3股下降；后期增量-0.57pp、非重叠后期-0.85pp，未过预设阶段稳定性初筛。全10股163次旧执行、374条原事件一致，20次事件截断/10次未来扰动通过；运行37.97秒，四文件约213KiB，595项主题测试通过。入口：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_any_sell_cohort --output reports/stock_any_sell_cohort_NEW`。每股独立进程串行，直接读原Store，不依赖未提交的两股结果、不读Lake，不改旧两股入口；到此停止扩池与参数搜索，未提交。
+
 2026-09-13取消卖点编号配对验证完成：两股结果（仅本地、暂未提交：`reports/stock_any_sell_20260913/report.md`），原股数方案第30节。保持原A完整配置和57条原事件不变；30次机会3次改善、27次不变，均值-0.49%→-0.08%，实际卖点退出1→3。全部改善来自四川美丰的B3→S2退出；濮耐股份不变，跨股票可靠性未建立。运行5.58秒、4文件约48.5KiB，571项主题测试通过。入口：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_any_sell_study --output reports/stock_any_sell_NEW`；不读取Lake、不叠加第29节参数、不运行分仓账户。原10股同口径复核仅为下一步建议，尚未执行。
 
 2026-09-13三卖关联单变量验证完成：两股结果（仅本地、暂未提交：`reports/stock_sell_linkage_20260913/report.md`），原股数方案第29节。只将笔级卖方`bsp3_follow_1`改为False；新增14个S3，固定30次机会只改变5次退出（3好2差），毛收益均值增量+0.14个百分点，去掉最佳增量后转负，未过扩批筛查。运行7.54秒，仅4文件约53KiB，无新行情副本；550项主题测试通过。复现：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_sell_linkage_study --output reports/stock_sell_linkage_NEW`；只读封存输入，保留原编号配对，不运行分仓账户、不读取Lake。后续取消编号配对须独立授权，不能与本轮变量叠加。
