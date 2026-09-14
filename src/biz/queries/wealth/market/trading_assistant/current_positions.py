@@ -39,6 +39,9 @@ class CurrentHoldingValue:
     quote_at: datetime
     buy_input_cents: int
     sell_net_cents: int
+    valuation_date: date
+    price_date: date
+    valuation_method: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +105,7 @@ class CurrentPositionsQuery:
             result.append(CurrentHoldingValue(account_id, state.ts_code, state.round_id, quantity,
                 fees.fee_version_id, value_round(kernel, Fraction(price.price), fees.fees),
                 state.opened_on, Fraction(price.price), price.valuation_at,
-                kernel.buy_investment_cents, kernel.sell_net_cents))
+                kernel.buy_investment_cents, kernel.sell_net_cents,
+                price.trade_date, price.price_date, price.valuation_method))
         deadline.remaining_ms()
         return CurrentHoldingPage(tuple(result), result[-1].stock_code if len(rows) > self.policy.page_rows else None)

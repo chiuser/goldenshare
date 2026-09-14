@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { AccountSummary, InitializationCorrectionInput, InitializationDetail } from "../api/generatedContracts";
+import type { AccountSummary, InitializationCorrectionInput, InitializationDetail, StockRef } from "../api/generatedContracts";
 import { getCashDetail, getEntryContext, getInitialization, getTradeDetail } from "../api/tradingAssistantApi";
 import { beijingInputDate, type EntryDraft } from "../model/entryDraft";
 import { AccountingWriteFlow } from "./AccountingWriteFlow";
@@ -10,12 +10,12 @@ import { RecordDetailDialog, type SavedRecordDetail } from "./RecordDetailDialog
 
 type LedgerView = { kind: "entry"; draft: EntryDraft } | { kind: "initial"; initial: InitializationDetail; restored?: InitializationCorrectionInput }
   | { kind: "maintenance"; source: MaintenanceRecord; action: "CORRECT" | "VOID"; restored?: EntryDraft };
-export function AccountLedgerFlow({ account, initial, direction = "BUY", onClose, onUpdated }: {
-  account: AccountSummary; initial?: InitializationDetail; direction?: "BUY" | "SELL" | "IN";
+export function AccountLedgerFlow({ account, initial, direction = "BUY", prefillStock, onClose, onUpdated }: {
+  account: AccountSummary; initial?: InitializationDetail; direction?: "BUY" | "SELL" | "IN"; prefillStock?: StockRef;
   onClose: () => void; onUpdated: () => Promise<void>;
 }) {
   const [view, setView] = useState<LedgerView>(() => initial ? { kind: "initial", initial } : { kind: "entry", draft: {
-    kind: direction === "IN" ? "CASH" : "TRADE", direction, stock: null, date: beijingInputDate(), price: "", quantity: "", amount: "", note: "" } });
+    kind: direction === "IN" ? "CASH" : "TRADE", direction, stock: direction === "IN" ? null : prefillStock ?? null, date: beijingInputDate(), price: "", quantity: "", amount: "", note: "" } });
   const [formVersion, setFormVersion] = useState(0);
   const [sessionVersion, setSessionVersion] = useState(0);
   const [detail, setDetail] = useState<SavedRecordDetail | null>(null);

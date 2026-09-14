@@ -82,6 +82,15 @@ def seed(engine):
                 if day <= NOW.date():
                     conn.execute(insert(EquityDailyBar), dict(ts_code="000001.SZ", trade_date=day,
                         close="12.00", source="tushare"))
+        # Market source facts only. Accounts and published results still come
+        # exclusively from the actual command and M3 paths.
+        for index in range(1, 12):
+            code = f"{100 + index:06d}.SZ"
+            conn.execute(insert(Security), dict(ts_code=code, symbol=code[:6], name=f"持仓样本{index:02d}",
+                cnspell=f"CCYB{index}", exchange="SZSE", security_type="EQUITY", curr_type="CNY", list_status="L", source="isolated-browser-fixture"))
+            conn.execute(insert(EquityDailyBar), [dict(ts_code=code, trade_date=date(2026, 9, day), close=str(10 + index), source="tushare") for day in (10, 11)])
+        conn.execute(insert(DcIndex), dict(ts_code="BKTEST", trade_date=date(2026, 9, 11), name="测试三级行业", idx_type="行业板块", level="东财三级行业"))
+        conn.execute(insert(DcMember), [dict(ts_code="BKTEST", trade_date=date(2026, 9, 11), con_code=f"{100 + i:06d}.SZ") for i in range(1, 12)])
 
 def browser_app(database):
     clock = [NOW]

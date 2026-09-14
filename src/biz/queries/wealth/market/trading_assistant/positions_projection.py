@@ -40,6 +40,7 @@ def account_round(part):
         buyInvestmentAmount=format_cents(value.buy_input_cents), sellNetProceedsAmount=format_cents(value.sell_net_cents),
         dynamicCostAmount=format_cents(valuation.dynamic_cost_cents), dynamicCostPrice=valuation.dynamic_cost_price,
         price=exact_price(value.source_price), marketValue=format_cents(fees.gross_cents),
+        valuationDate=value.valuation_date.isoformat(), priceDate=value.price_date.isoformat(), valuationMethod=value.valuation_method,
         estimatedSellCommission=format_cents(fees.commission_cents), estimatedStampTax=format_cents(fees.stamp_tax_cents),
         estimatedTotalFeeAmount=format_cents(fees.commission_cents + fees.stamp_tax_cents),
         estimatedNetProceeds=format_cents(fees.net_cash_change_cents),
@@ -66,9 +67,15 @@ def holding_row(stock, parts, industry):
     reason = next((part.reason for part in parts if part.reason), None)
     if industry.reason:
         status, reason = "Partial", industry.reason
+    endpoints = {(part.published.value.source_price, part.published.value.quote_at,
+                  part.published.value.valuation_date, part.published.value.price_date,
+                  part.published.value.valuation_method) for part in parts if part.published is not None}
+    if known and len(endpoints) != 1:
+        known = False
+        status, reason = "Partial", "分账户估值依据尚未一致，请查看分账户详情或稍后重新读取"
     fields = dict.fromkeys(("dynamicCostPrice", "dynamicCostAmount", "price", "marketValue", "holdingProfitAmount",
         "holdingReturnPct", "dayProfitAmount", "estimatedSellCommission", "estimatedStampTax",
-        "estimatedTotalFeeAmount", "estimatedNetProceeds", "quoteAt"))
+        "estimatedTotalFeeAmount", "estimatedNetProceeds", "quoteAt", "valuationDate", "priceDate", "valuationMethod"))
     if known:
         def total(field):
             values = [getattr(item, field) for item in rounds]
@@ -79,12 +86,9 @@ def holding_row(stock, parts, industry):
             fields[field] = None if value is None else format_cents(value)
         fields["dynamicCostPrice"] = format_cents(round_ratio_half_up(total("dynamicCostAmount"), quantity))
         fields["holdingReturnPct"] = format_return_pct(total("holdingProfitAmount"), total("buyInvestmentAmount"))
-        prices = {part.published.value.source_price for part in parts}
-        dates = {part.published.value.quote_at for part in parts}
-        if len(prices) != 1 or len(dates) != 1:
-            raise ValueError("Same stock has inconsistent published valuation endpoints across accounts")
-        fields["price"] = exact_price(next(iter(prices)))
-        fields["quoteAt"] = next(iter(dates)).isoformat()
+        price, quote_at, valuation_date, price_date, method = next(iter(endpoints))
+        fields.update(price=exact_price(price), quoteAt=quote_at.isoformat(), valuationDate=valuation_date.isoformat(),
+                      priceDate=price_date.isoformat(), valuationMethod=method)
     return PositionRow(stockRef=stock, quantity=str(quantity), availableQuantity=available,
         **fields, stockValueWeightPct=None, totalAssetWeightPct=None,
         industry=industry.name, accountRounds=[dict(accountId=r.accountRef.accountId,

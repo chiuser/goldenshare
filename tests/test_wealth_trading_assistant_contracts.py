@@ -504,7 +504,8 @@ def holding_fixtures():
                holdingProfitAmount="5000.00", holdingReturnPct="50.00", dayProfitAmount="0.00",
                stockValueWeightPct="100.00", totalAssetWeightPct="90.00", estimatedSellCommission="0.00",
                estimatedStampTax="0.00", estimatedTotalFeeAmount="0.00", estimatedNetProceeds="9000.00", industry=None,
-               quoteAt="2026-09-11T15:00:00+08:00", accountRounds=[light_round], dataStatus="Ready", reason=None)
+               quoteAt="2026-09-11T15:00:00+08:00", valuationDate="2026-09-11", priceDate="2026-09-11", valuationMethod="SAME_DAY_CLOSE",
+               accountRounds=[light_round], dataStatus="Ready", reason=None)
     scope = dict(accountMode="ALL", accounts=[account], stockMode="ALL", stockRef=None)
     context = calendar_fixture()["readContext"]
     coverage = dict(dataStatus="Ready", reason=None, isFinal=True, accounts=[])
@@ -528,9 +529,12 @@ def test_positions_complete_values_unknowns_and_pie_members():
     assert_complete_fixture(positions.Allocation, fixture["allocation"])
     assert_complete_fixture(positions.PositionRow, {**row, "dynamicCostPrice":"-1.00", "dynamicCostAmount":"-600.00"})
     for patch in ({"quantity":"0"}, {"availableQuantity":"601"}, {"accountRounds":[]},
-                  {"accountRounds":row["accountRounds"] * 2}, {"marketValue":"Infinity"}, {"dayProfitAmount":0.0}):
+                  {"accountRounds":row["accountRounds"] * 2}, {"marketValue":"Infinity"}, {"dayProfitAmount":0.0},
+                  {"valuationDate":None}, {"priceDate":"2026-09-10"}, {"valuationMethod":"CONFIRMED_SUSPENSION_CARRY"},
+                  {"estimatedTotalFeeAmount":"1.00"}):
         with pytest.raises(ValidationError):
             positions.PositionRow(**{**row, **patch})
+    assert positions.PositionRow(**{**row, "valuationMethod":"CONFIRMED_SUSPENSION_CARRY", "priceDate":"2026-09-10"}).priceDate == "2026-09-10"
     unknown = {**row, "marketValue":None, "holdingProfitAmount":None, "holdingReturnPct":None,
                "dataStatus":"Delayed", "reason":"行情未就绪"}
     assert positions.PositionRow(**unknown).marketValue is None
@@ -632,6 +636,7 @@ def test_round_position_day_and_review_complete_fixtures():
     current = dict(accountRef=account, roundRef=round_ref, openedOn="2026-09-01", openingSource="TRADE",
                    quantity="600", availableQuantity="600", buyInvestmentAmount="10000.00", sellNetProceedsAmount="6000.00",
                    dynamicCostAmount="4000.00", dynamicCostPrice="6.67", price="15.00", marketValue="9000.00",
+                   valuationDate="2026-09-11", priceDate="2026-09-11", valuationMethod="SAME_DAY_CLOSE",
                    estimatedSellCommission="0.00", estimatedStampTax="0.00", estimatedTotalFeeAmount="0.00", estimatedNetProceeds="9000.00",
                    holdingProfitAmount="5000.00", holdingReturnPct="50.00", dayProfitAmount="0.00",
                    recordsScope=round_scope, dataStatus="Ready", reason=None)

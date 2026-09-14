@@ -87,6 +87,10 @@ class PositionsQuery:
         rows, summary, allocation = summarize(rows, cash=cash,
             parts=[part for parts in grouped.values() for part in parts], day_snapshots=snapshots,
             is_today=cutoff.valuation_date == cutoff.today)
+        row_issues = [row for row in rows if row.dataStatus != "Ready"]
+        if row_issues and coverage.dataStatus == "Ready":
+            coverage = coverage.model_copy(update={"dataStatus":"Partial", "isFinal":False,
+                "reason":next((row.reason for row in row_issues if row.reason), "部分持仓数据尚未就绪")})
         if any(item.reason for item in industry.values()):
             coverage = coverage.model_copy(update={"dataStatus":"Partial", "isFinal":False,
                 "reason":"部分股票行业分类存在冲突，持仓金额仍按核算结果展示"})

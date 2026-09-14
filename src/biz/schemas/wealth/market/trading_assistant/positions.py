@@ -36,6 +36,9 @@ class PositionRow(Contract):
     estimatedNetProceeds: Money | None
     industry: StrictStr | None
     quoteAt: Instant | None
+    valuationDate: BusinessDate | None
+    priceDate: BusinessDate | None
+    valuationMethod: Literal["SAME_DAY_CLOSE", "CONFIRMED_SUSPENSION_CARRY"] | None
     accountRounds: list[AccountRound]
     dataStatus: ReadState
     reason: StrictStr | None
@@ -54,6 +57,7 @@ class PositionRow(Contract):
         )):
             raise ValueError("Ready holding requires complete current valuation")
         validate_estimated_fees(self)
+        validate_valuation_dates(self)
         return self
 
 
@@ -64,6 +68,16 @@ def validate_estimated_fees(value):
             raise ValueError("Fee total requires both fee components")
     elif decimal_cents(fees[0]) + decimal_cents(fees[1]) != decimal_cents(fees[2]):
         raise ValueError("Estimated fee total must equal its components")
+
+
+def validate_valuation_dates(value):
+    known = (value.valuationDate, value.priceDate, value.valuationMethod)
+    if any(item is None for item in known):
+        if not all(item is None for item in known) or value.price is not None:
+            raise ValueError("Valuation price requires complete source dates and method")
+    elif value.price is None or (value.valuationMethod == "SAME_DAY_CLOSE" and value.priceDate != value.valuationDate
+            or value.valuationMethod == "CONFIRMED_SUSPENSION_CARRY" and value.priceDate >= value.valuationDate):
+        raise ValueError("Valuation method and price date mismatch")
 
 
 class WeightedStock(Contract):
@@ -228,6 +242,9 @@ class PositionAccountRound(Contract):
     dynamicCostAmount: Money
     dynamicCostPrice: Money
     price: NonnegativeMoney | None
+    valuationDate: BusinessDate | None
+    priceDate: BusinessDate | None
+    valuationMethod: Literal["SAME_DAY_CLOSE", "CONFIRMED_SUSPENSION_CARRY"] | None
     marketValue: NonnegativeMoney | None
     estimatedSellCommission: NonnegativeMoney | None
     estimatedStampTax: NonnegativeMoney | None
@@ -249,6 +266,7 @@ class PositionAccountRound(Contract):
         if self.dataStatus == "Ready" and self.availableQuantity is None:
             raise ValueError("Ready position requires known available quantity")
         validate_estimated_fees(self)
+        validate_valuation_dates(self)
         return self
 
 
