@@ -31,4 +31,12 @@ export async function getCalculationStatus(accountId: string, signal: AbortSigna
   if (result.accountId !== accountId) throw new InvalidTradingAssistantResponse();
   return result;
 }
+export async function getPositionsAnalysis(selected: string, token: string, signal: AbortSignal) {
+  const result = await request("/positions/analysis?" + scopeQuery(selected, token), "PositionsAnalysis", { signal });
+  if (result.readContext.contextToken !== token || result.scope.accountMode !== (selected === "ALL" ? "ALL" : "SINGLE")
+    || (selected !== "ALL" && (result.scope.accounts.length !== 1 || result.scope.accounts[0].accountId !== selected))) {
+    throw new InvalidTradingAssistantResponse();
+  }
+  return result;
+}
 export const positionsReadApi = { positions: getPositions, status: getCalculationStatus, epoch: getAuthEpoch };

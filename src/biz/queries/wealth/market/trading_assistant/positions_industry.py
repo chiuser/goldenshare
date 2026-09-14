@@ -12,6 +12,7 @@ from src.biz.services.wealth.market.trading_assistant.market_facts import apply_
 class IndustryMembership:
     name: str | None
     reason: str | None = None
+    code: str | None = None
 
 
 class PositionsIndustryQuery:
@@ -32,11 +33,11 @@ class PositionsIndustryQuery:
                     DcMember.trade_date == trade_date, DcMember.con_code.in_(batch),
                     DcIndex.idx_type == "行业板块", DcIndex.level == "东财三级行业")
             seen = set()
-            for code, _, name in session.execute(query):
+            for code, industry_code, name in session.execute(query):
                 if code in seen:
                     result[code] = IndustryMembership(None, "东财三级行业存在多重归属，分类待核验")
                 else:
-                    result[code] = IndustryMembership(name)
+                    result[code] = IndustryMembership(name, code=industry_code)
                     seen.add(code)
             deadline.remaining_ms()
         return result

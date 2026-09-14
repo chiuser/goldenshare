@@ -13,6 +13,7 @@ from src.biz.queries.wealth.market.trading_assistant.record_detail import Record
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery, OwnedReadContext
 from src.biz.queries.wealth.market.trading_assistant.positions import PositionsQuery
+from src.biz.queries.wealth.market.trading_assistant.positions_analysis import PositionsAnalysisQuery
 from src.biz.queries.wealth.market.trading_assistant.positions_cutoff import resolve_positions_cutoff
 from src.biz.services.wealth.market.trading_assistant.account_commands import AccountCommandService
 from src.biz.services.wealth.market.trading_assistant.calculation_retries import CalculationRetryService
@@ -43,8 +44,16 @@ class TradingAssistantDependencies:
     calculation_retries: CalculationRetryService
     read_context: CurrentReadContextQuery
     positions: PositionsQuery
+    positions_analysis: PositionsAnalysisQuery
 
     async def read_positions(self, *, owner_id, query, stock_code=None):
+        return await self._read_holdings(owner_id=owner_id, query=query,
+            read=lambda session, **kwargs: self.positions.read(session, **kwargs, stock_code=stock_code))
+
+    async def read_positions_analysis(self, *, owner_id, query):
+        return await self._read_holdings(owner_id=owner_id, query=query, read=self.positions_analysis.read)
+
+    async def _read_holdings(self, *, owner_id, query, read):
         cutoff = None
 
         def resolve(session, deadline):
@@ -52,11 +61,11 @@ class TradingAssistantDependencies:
             cutoff = resolve_positions_cutoff(session, market=self.entry_context.market, deadline=deadline)
             return cutoff.through
 
-        def read(session, deadline, basis):
-            return self.positions.read(session, owner_id=owner_id, account_mode=query.accountMode,
-                basis=basis, cutoff=cutoff, deadline=deadline, stock_code=stock_code)
+        def execute(session, deadline, basis):
+            return read(session, owner_id=owner_id, account_mode=query.accountMode,
+                basis=basis, cutoff=cutoff, deadline=deadline)
 
-        return await self.read_current(read, owner_id=owner_id, account_mode=query.accountMode,
+        return await self.read_current(execute, owner_id=owner_id, account_mode=query.accountMode,
             account_id=UUID(query.accountId) if query.accountId else None,
             resolve_target_through=resolve, context_token=query.readContext)
 

@@ -1,8 +1,19 @@
-import type { Allocation, AllocationSlice, PositionAccountRound, PositionRow, PositionsResponse, PositionsSummary } from "./generatedContracts";
+import type { Allocation, AllocationSlice, HoldingContributions, IndustryAllocation, PositionAccountRound, PositionRow, PositionsResponse, PositionsSummary } from "./generatedContracts";
 import { fixedUnits } from "../model/positionPresentation";
 
 /** Matches backend cross-field validation; assertions only, never response repair. */
 export function validPositionCombination(title: unknown, value: Record<string, unknown>): boolean {
+  if (title === "HoldingContributions") {
+    const row = value as unknown as HoldingContributions;
+    if (row.dataStatus === "Ready" && row.unknownCount) return false;
+    if (row.maxPositive && fixedUnits(row.maxPositive.profitAmount) <= 0n) return false;
+    if (row.maxNegative && fixedUnits(row.maxNegative.profitAmount) >= 0n) return false;
+    if (fixedUnits(row.negativeAmount) > 0n) return false;
+  }
+  if (title === "IndustryAllocation") {
+    const row = value as unknown as IndustryAllocation;
+    if ((row.classificationStatus === "CLASSIFIED") !== (row.industryCode !== null)) return false;
+  }
   if (title === "PositionRow" || title === "PositionAccountRound") {
     const row = value as unknown as PositionRow | PositionAccountRound;
     if (row.availableQuantity !== null && BigInt(row.availableQuantity) > BigInt(row.quantity)) return false;

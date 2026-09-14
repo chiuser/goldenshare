@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from src.biz.schemas.wealth.market.trading_assistant import accounts as dto, receipts
 from src.biz.schemas.wealth.market.trading_assistant import previews
-from src.biz.schemas.wealth.market.trading_assistant.positions import PositionsResponse, PositionDetail
+from src.biz.schemas.wealth.market.trading_assistant.positions import PositionsResponse, PositionDetail, PositionsAnalysis
 from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountReadQuery
 from src.biz.schemas.wealth.market.trading_assistant.records import TradeDetail, CashFlowDetail
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryStatusDto, PendingRecoveryResponse
@@ -39,6 +39,12 @@ def create_trading_assistant_router(*, auth_dependency, dependencies_dependency)
                         deps: TradingAssistantDependencies = services):
         query = position_scope(request)
         return await deps.read_positions(owner_id=owner_id, query=query)
+
+    @router.get("/positions/analysis", response_model=PositionsAnalysis)
+    async def positions_analysis(request: Request, accountMode: Literal["ALL", "SINGLE"],
+                                 accountId: EntityId | None = None, readContext: str | None = None,
+                                 owner_id: int = auth, deps: TradingAssistantDependencies = services):
+        return await deps.read_positions_analysis(owner_id=owner_id, query=position_scope(request))
 
     @router.get("/positions/{ts_code}", response_model=PositionDetail)
     async def position_detail(ts_code: StockCode, request: Request, accountMode: Literal["ALL", "SINGLE"],

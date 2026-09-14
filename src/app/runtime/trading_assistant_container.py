@@ -7,6 +7,7 @@ from src.biz.queries.wealth.market.trading_assistant.record_detail import Record
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery
 from src.biz.queries.wealth.market.trading_assistant.positions import PositionsQuery
+from src.biz.queries.wealth.market.trading_assistant.positions_analysis import PositionsAnalysisQuery
 from src.biz.services.wealth.market.trading_assistant.account_commands import AccountCommandService
 from src.biz.services.wealth.market.trading_assistant.calculation_retries import CalculationRetryService
 from src.biz.services.wealth.market.trading_assistant.ledger_commands import LedgerCommandService
@@ -19,6 +20,7 @@ from .trading_assistant_transactions import TradingAssistantTransactions
 def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
     transactions = TradingAssistantTransactions(engine)
     market = MarketFactsReader(policy)
+    positions = PositionsQuery(policy)
     return TradingAssistantDependencies(transactions, policy, now,
         AccountCommandService(transactions, market, policy, now, executor_id=executor_id),
         LedgerCommandService(transactions, market, policy, now, executor_id=executor_id),
@@ -26,4 +28,4 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
         LedgerPreviewService(transactions, market, policy, now), InitializationPreviewService(transactions, market, policy, now),
         RecordDetailQuery(policy, market), CalculationStatusQuery(policy),
         CalculationRetryService(transactions, policy, now, executor_id=executor_id), CurrentReadContextQuery(policy),
-        PositionsQuery(policy))
+        positions, PositionsAnalysisQuery(positions))

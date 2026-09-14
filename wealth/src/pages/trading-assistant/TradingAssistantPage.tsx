@@ -32,6 +32,7 @@ function TradingAssistantWorkspace() {
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [analysis, setAnalysis] = useState(false);
   const requestNo = useRef(0);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => { ++requestNo.current; controller.current?.abort(); }, []);
@@ -65,7 +66,7 @@ function TradingAssistantWorkspace() {
     <main className="ta-page-main">
       {shell && <PageBreadcrumb items={[{ label: "财势乾坤", path: DEFAULT_WEALTH_PATH }, { label: "交易助手" }]} sessionStatus={shell.sessionStatus} onNavigate={navigateWealth} />}
       <div className="ta-page-heading">
-        <div><h1>持仓列表</h1><p>查看每一笔当前持仓及其动态摊薄成本、收益和可卖数量</p></div>
+        <div><h1>{analysis ? "持仓分析" : "持仓列表"}</h1><p>{analysis ? "查看当前持仓的行业分布、集中度与盈亏贡献" : "查看每一笔当前持仓及其动态摊薄成本、收益和可卖数量"}</p></div>
         <div className="ta-segments ta-module-tabs" role="group" aria-label="交易助手模块">
           <button type="button" aria-pressed="true">持仓股</button><button type="button" disabled>收益分析</button><button type="button" disabled>计划与监控</button>
         </div>
@@ -81,7 +82,7 @@ function TradingAssistantWorkspace() {
         : accounts.loading ? <section className="ta-page-status" role="status">正在读取账户…</section>
           : !accounts.state?.accounts.length ? <section className="ta-page-status"><h2>创建交易账户</h2><p>填写账户、费用和当前资产，开始记录交易。</p>
             <TradingAssistantAction primary disabled={opening} onClick={() => void open("create")}>创建账户</TradingAssistantAction></section>
-            : accounts.state.selected && <PositionsWorkspace key={accounts.state.selected} selected={accounts.state.selected} revision={0} actions={ledgerActions}
+            : accounts.state.selected && <PositionsWorkspace key={accounts.state.selected} selected={accounts.state.selected} revision={0} actions={ledgerActions} analysis={analysis} onAnalysisChange={setAnalysis}
               onSell={(accountId, stock) => setOverlay({ kind: "entry", accountId, direction: "SELL", stock })} />}
       {feedback && <p className="ta-form-error" role="status">{feedback}</p>}
     </main>

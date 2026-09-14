@@ -91,6 +91,8 @@ def seed(engine):
             conn.execute(insert(EquityDailyBar), [dict(ts_code=code, trade_date=date(2026, 9, day), close=str(10 + index), source="tushare") for day in (10, 11)])
         conn.execute(insert(DcIndex), dict(ts_code="BKTEST", trade_date=date(2026, 9, 11), name="测试三级行业", idx_type="行业板块", level="东财三级行业"))
         conn.execute(insert(DcMember), [dict(ts_code="BKTEST", trade_date=date(2026, 9, 11), con_code=f"{100 + i:06d}.SZ") for i in range(1, 12)])
+        from tests.wealth_trading_assistant_analysis_fixture import seed_analysis_sources
+        seed_analysis_sources(conn)
 
 def browser_app(database):
     clock = [NOW]
