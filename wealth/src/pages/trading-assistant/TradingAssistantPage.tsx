@@ -3,6 +3,8 @@ import { buildIndexDetailPath, DEFAULT_WEALTH_PATH, navigateWealth, resolveTopMa
 import { getAuthEpoch } from "../../features/auth/model/authStorage";
 import type { FeeSettingsDto, InitializationDefaults, InitializationDetail, StockRef } from "../../features/trading-assistant/api/generatedContracts";
 import { PositionsWorkspace } from "../../features/trading-assistant/ui/PositionsWorkspace";
+import { RecordsPanel } from "../../features/trading-assistant/ui/RecordsPanel";
+import type { MaintenanceRecord } from "../../features/trading-assistant/ui/RecordMaintenanceForm";
 import { getDefaults, getFees, getInitialization } from "../../features/trading-assistant/api/tradingAssistantApi";
 import { useTradingAccounts } from "../../features/trading-assistant/model/useTradingAccounts";
 import { useAssistantMarketShell } from "../../features/trading-assistant/model/useAssistantMarketShell";
@@ -16,7 +18,8 @@ import "./trading-assistant-page.css";
 
 type Overlay = { kind: "create"; defaults: InitializationDefaults } | { kind: "settings"; accountId: string }
   | { kind: "fees"; accountId: string; fees: FeeSettingsDto } | { kind: "initial"; accountId: string; initial: InitializationDetail }
-  | { kind: "entry"; accountId: string; direction: "BUY" | "SELL" | "IN"; stock?: StockRef };
+  | { kind: "entry"; accountId: string; direction: "BUY" | "SELL" | "IN"; stock?: StockRef }
+  | { kind: "maintenance"; accountId: string; source: MaintenanceRecord; action: "CORRECT" | "VOID" };
 export function TradingAssistantPage() {
   const [, changed] = useState(0);
   useEffect(() => {
@@ -33,6 +36,12 @@ function TradingAssistantWorkspace() {
   const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [analysis, setAnalysis] = useState(false);
+  const [records, setRecords] = useState(false);
+  const [readRevision, setReadRevision] = useState(0);
+  async function refreshAfterWrite() {
+    setReadRevision(value => value + 1);
+    await accounts.refresh();
+  }
   const requestNo = useRef(0);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => { ++requestNo.current; controller.current?.abort(); }, []);
@@ -65,11 +74,12 @@ function TradingAssistantWorkspace() {
       onNavigate={target => { const path = resolveTopMarketNavPath(target); if (path) navigateWealth(path); else setFeedback("该模块暂未开放"); }} />
     <main className="ta-page-main">
       {shell && <PageBreadcrumb items={[{ label: "财势乾坤", path: DEFAULT_WEALTH_PATH }, { label: "交易助手" }]} sessionStatus={shell.sessionStatus} onNavigate={navigateWealth} />}
-      <div className="ta-page-heading">
-        <div><h1>{analysis ? "持仓分析" : "持仓列表"}</h1><p>{analysis ? "查看当前持仓的行业分布、集中度与盈亏贡献" : "查看每一笔当前持仓及其动态摊薄成本、收益和可卖数量"}</p></div>
+      <div className={`ta-page-heading${records ? " ta-page-heading--records" : ""}`}>
+        <div><h1>{records ? "交易与资金记录" : analysis ? "持仓分析" : "持仓列表"}</h1><p>{records ? "逐笔成交、当日汇总、闭环交易和资金流水分开呈现" : analysis ? "查看当前持仓的行业分布、集中度与盈亏贡献" : "查看每一笔当前持仓及其动态摊薄成本、收益和可卖数量"}</p></div>
         <div className="ta-segments ta-module-tabs" role="group" aria-label="交易助手模块">
-          <button type="button" aria-pressed="true">持仓股</button><button type="button" disabled>收益分析</button><button type="button" disabled>计划与监控</button>
+          <button type="button" aria-pressed={!records} onClick={() => setRecords(false)}>持仓股</button><button type="button" aria-pressed={records} onClick={() => setRecords(true)}>收益分析</button><button type="button" disabled>计划与监控</button>
         </div>
+        {records && <div className="ta-segments ta-module-tabs" aria-label="收益视图"><button disabled>曲线</button><button disabled>日历</button><button aria-pressed="true">记录</button></div>}
         <select aria-label="交易账户" value={accounts.state?.selected ?? ""} disabled={accounts.loading || !accounts.state?.accounts.length}
           onChange={event => { close(); accounts.select(event.target.value); }}>
           {!accounts.state?.accounts.length && <option value="">{accounts.loading ? "读取账户中…" : "暂无账户"}</option>}
@@ -77,13 +87,16 @@ function TradingAssistantWorkspace() {
           {!!accounts.state?.accounts.length && <option value="ALL">全部账户</option>}
         </select>
       </div>
-      {(accounts.error || accounts.loading || !accounts.state?.accounts.length) && ledgerActions}
+      {(accounts.error || !accounts.state?.accounts.length) && ledgerActions}
       {accounts.error ? <section className="ta-page-status" role="alert">账户信息暂时无法读取。<TradingAssistantAction onClick={() => void accounts.refresh().catch(() => undefined)}>重新读取</TradingAssistantAction></section>
-        : accounts.loading ? <section className="ta-page-status" role="status">正在读取账户…</section>
+        : accounts.loading && !accounts.state ? <section className="ta-page-status" role="status">正在读取账户…</section>
           : !accounts.state?.accounts.length ? <section className="ta-page-status"><h2>创建交易账户</h2><p>填写账户、费用和当前资产，开始记录交易。</p>
             <TradingAssistantAction primary disabled={opening} onClick={() => void open("create")}>创建账户</TradingAssistantAction></section>
-            : accounts.state.selected && <PositionsWorkspace key={accounts.state.selected} selected={accounts.state.selected} revision={0} actions={ledgerActions} analysis={analysis} onAnalysisChange={setAnalysis}
-              onSell={(accountId, stock) => setOverlay({ kind: "entry", accountId, direction: "SELL", stock })} />}
+            : accounts.state.selected && (records ? <RecordsPanel key={accounts.state.selected} selected={accounts.state.selected} revision={readRevision}
+              onEntry={current ? () => setOverlay({ kind: "entry", accountId: current.accountId, direction: "BUY" }) : undefined}
+              onMaintain={(source, action) => setOverlay({ kind: "maintenance", accountId: source.record.accountRef.accountId, source, action })} />
+              : <PositionsWorkspace key={accounts.state.selected} selected={accounts.state.selected} revision={readRevision} actions={ledgerActions} analysis={analysis} onAnalysisChange={setAnalysis}
+              onSell={(accountId, stock) => setOverlay({ kind: "entry", accountId, direction: "SELL", stock })} />)}
       {feedback && <p className="ta-form-error" role="status">{feedback}</p>}
     </main>
     {overlay?.kind === "create" && <NewAccountFlow defaults={overlay.defaults} onClose={close} onCreated={accounts.refresh} />}
@@ -93,8 +106,9 @@ function TradingAssistantWorkspace() {
       <div className="ta-recovery-summary">交易费率与期初资产分别维护</div><p className="ta-note">费率调整仅影响新录入交易。<br />更正期初资产会从初始化日起重新计算。</p>
       {feedback && <p role="alert" className="ta-form-error">{feedback}</p>}
     </TradingAssistantDialog>}
-    {overlay?.kind === "fees" && overlayAccount && <FeeSettingsDialog key={overlayAccount.accountId} account={overlayAccount} initial={overlay.fees} onClose={close} onUpdated={accounts.refresh} />}
-    {overlay?.kind === "initial" && overlayAccount && <AccountLedgerFlow key={overlayAccount.accountId} account={overlayAccount} initial={overlay.initial} onClose={close} onUpdated={accounts.refresh} />}
-    {overlay?.kind === "entry" && overlayAccount && <AccountLedgerFlow key={overlayAccount.accountId} account={overlayAccount} direction={overlay.direction} prefillStock={overlay.stock} onClose={close} onUpdated={accounts.refresh} />}
+    {overlay?.kind === "fees" && overlayAccount && <FeeSettingsDialog key={overlayAccount.accountId} account={overlayAccount} initial={overlay.fees} onClose={close} onUpdated={refreshAfterWrite} />}
+    {overlay?.kind === "initial" && overlayAccount && <AccountLedgerFlow key={overlayAccount.accountId} account={overlayAccount} initial={overlay.initial} onClose={close} onUpdated={refreshAfterWrite} />}
+    {overlay?.kind === "entry" && overlayAccount && <AccountLedgerFlow key={overlayAccount.accountId} account={overlayAccount} direction={overlay.direction} prefillStock={overlay.stock} onClose={close} onUpdated={refreshAfterWrite} />}
+    {overlay?.kind === "maintenance" && overlayAccount && <AccountLedgerFlow key={overlayAccount.accountId} account={overlayAccount} maintenance={{ source: overlay.source, action: overlay.action }} onClose={close} onUpdated={refreshAfterWrite} />}
   </div>;
 }

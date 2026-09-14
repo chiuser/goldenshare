@@ -10,11 +10,12 @@ import { RecordDetailDialog, type SavedRecordDetail } from "./RecordDetailDialog
 
 type LedgerView = { kind: "entry"; draft: EntryDraft } | { kind: "initial"; initial: InitializationDetail; restored?: InitializationCorrectionInput }
   | { kind: "maintenance"; source: MaintenanceRecord; action: "CORRECT" | "VOID"; restored?: EntryDraft };
-export function AccountLedgerFlow({ account, initial, direction = "BUY", prefillStock, onClose, onUpdated }: {
+export function AccountLedgerFlow({ account, initial, direction = "BUY", prefillStock, maintenance, onClose, onUpdated }: {
   account: AccountSummary; initial?: InitializationDetail; direction?: "BUY" | "SELL" | "IN"; prefillStock?: StockRef;
+  maintenance?: { source: MaintenanceRecord; action: "CORRECT" | "VOID" };
   onClose: () => void; onUpdated: () => Promise<void>;
 }) {
-  const [view, setView] = useState<LedgerView>(() => initial ? { kind: "initial", initial } : { kind: "entry", draft: {
+  const [view, setView] = useState<LedgerView>(() => maintenance ? { kind: "maintenance", ...maintenance } : initial ? { kind: "initial", initial } : { kind: "entry", draft: {
     kind: direction === "IN" ? "CASH" : "TRADE", direction, stock: direction === "IN" ? null : prefillStock ?? null, date: beijingInputDate(), price: "", quantity: "", amount: "", note: "" } });
   const [formVersion, setFormVersion] = useState(0);
   const [sessionVersion, setSessionVersion] = useState(0);

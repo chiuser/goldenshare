@@ -2,6 +2,8 @@
 .ta-page-main { padding: 14px 18px var(--cs-space-24); max-width: 1840px; margin: auto; }
 .ta-page-heading { display: grid; grid-template-columns: 380px 480px minmax(280px, 1fr); gap: var(--cs-space-24); align-items: center; margin: var(--cs-space-16) 0 var(--cs-space-20); }
 .ta-page-heading h1 { font-size: 18px; line-height: 28px; margin: 0; }
+.ta-page-heading--records { grid-template-columns: minmax(240px, 380px) minmax(300px, 480px) minmax(220px, 348px) 280px; }
+@media (max-width: 1250px) { .ta-page-heading--records { grid-template-columns: 1fr 1fr; } }
 .ta-page-heading p { font-size: 11px; color: var(--cs-color-text-muted); margin: 4px 0 0; }
 .ta-page-heading select { justify-self: end; width: 280px; height: 40px; border: 1px solid var(--cs-color-border-subtle); border-radius: 8px;
   background: var(--cs-color-bg-chip); color: var(--cs-color-text-primary); padding: 0 var(--cs-space-12); font: inherit; font-size: 13px; }

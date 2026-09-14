@@ -35,8 +35,16 @@ def cutoff_db(interruptions_db):
     from alembic.script import ScriptDirectory
     revision = ScriptDirectory.from_config(Config("alembic.ini")).get_revision("20260912_000176").module
     assert revision.down_revision == "20260912_000175"
+    def migration_clock(conn, cursor, statement, parameters, context, executemany):
+        # The durable discovery cursor must be created on the same timeline as
+        # these fixed-date tests, not after them when the machine date advances.
+        return statement.replace("clock_timestamp()", f"TIMESTAMPTZ '{AT.isoformat()}'"), parameters
     with interruptions_db.begin() as conn, Operations.context(MigrationContext.configure(conn)):
-        revision.upgrade()
+        event.listen(conn, "before_cursor_execute", migration_clock, retval=True)
+        try:
+            revision.upgrade()
+        finally:
+            event.remove(conn, "before_cursor_execute", migration_clock)
     return interruptions_db
 
 

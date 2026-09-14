@@ -3,8 +3,8 @@ import { useStockSearchController } from "../../stock-search/model/useStockSearc
 import type { StockSearchOption } from "../../stock-search/api/stockSearchAdapter";
 import type { StockRef } from "../api/generatedContracts";
 
-export function TradingAssistantStockPicker({ value, onChange, error, disabled = false }: {
-  value: StockRef | null; onChange: (value: StockRef | null) => void; error?: string; disabled?: boolean;
+export function TradingAssistantStockPicker({ value, onChange, error, disabled = false, optional = false }: {
+  value: StockRef | null; onChange: (value: StockRef | null) => void; error?: string; disabled?: boolean; optional?: boolean;
 }) {
   const id = useId();
   const options = useRef<StockSearchOption[]>([]);
@@ -14,12 +14,12 @@ export function TradingAssistantStockPicker({ value, onChange, error, disabled =
   } });
   if (controller.state.kind === "ready") options.current = controller.state.options;
   return <div className="ta-field ta-stock-picker">
-    <label htmlFor={value ? `${id}-change` : id}>股票 *</label>
+    <label htmlFor={value ? `${id}-change` : id}>{optional ? "股票" : "股票 *"}</label>
     {value ? <div className="ta-stock-selected"><span>{value.name ? `${value.name} · ` : ""}{value.tsCode}</span>
       <button id={`${id}-change`} type="button" className="ta-close" disabled={disabled} aria-label="重新选择股票" onClick={() => onChange(null)}>×</button>
     </div> : <>
       <input id={id} ref={controller.inputRef} role="combobox" autoComplete="off" type="search" maxLength={32} disabled={disabled}
-        placeholder="股票代码 / 拼音首字母" value={controller.inputValue} aria-expanded={controller.menuOpen}
+        placeholder={optional ? "全部股票 · 输入代码搜索" : "股票代码 / 拼音首字母"} value={controller.inputValue} aria-expanded={controller.menuOpen}
         aria-controls={controller.listboxId} aria-activedescendant={controller.activeOptionId} aria-autocomplete="list"
         aria-invalid={!!error} aria-describedby={error ? `${id}-error` : undefined}
         onChange={event => controller.handleInputChange(event.target.value)} onBlur={controller.handleBlur}
