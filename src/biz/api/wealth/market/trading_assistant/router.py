@@ -166,16 +166,16 @@ def create_trading_assistant_router(*, auth_dependency, dependencies_dependency)
         return await deps.read(lambda s,d:deps.recovery.pending(s,owner_id=owner_id,scope=scope,deadline=d))
 
     @router.get("/records/trades/{record_id}", response_model=TradeDetail)
-    async def trade_detail(record_id: EntityId, cursor: str | None = None, limit: int = 20,
+    async def trade_detail(record_id: EntityId, cursor: str | None = None, limit: int = 20, readContext: str | None = None,
                            owner_id: int = auth, deps: TradingAssistantDependencies = services):
-        return await deps.read(lambda s,d:deps.record_detail.read(s, owner_id=owner_id, record_id=UUID(record_id),
-            kind="TRADE", cursor=cursor, limit=limit, deadline=d))
+        return await deps.read_record_detail(owner_id=owner_id, record_id=UUID(record_id),
+            kind="TRADE", cursor=cursor, limit=limit, context_token=readContext)
 
     @router.get("/records/cash-flows/{record_id}", response_model=CashFlowDetail)
-    async def cash_detail(record_id: EntityId, cursor: str | None = None, limit: int = 20,
+    async def cash_detail(record_id: EntityId, cursor: str | None = None, limit: int = 20, readContext: str | None = None,
                           owner_id: int = auth, deps: TradingAssistantDependencies = services):
-        return await deps.read(lambda s,d:deps.record_detail.read(s, owner_id=owner_id, record_id=UUID(record_id),
-            kind="CASH_FLOW", cursor=cursor, limit=limit, deadline=d))
+        return await deps.read_record_detail(owner_id=owner_id, record_id=UUID(record_id),
+            kind="CASH_FLOW", cursor=cursor, limit=limit, context_token=readContext)
 
     @router.get("/write-requests/{request_id}", response_model=RecoveryStatusDto)
     async def status(request_id: EntityId, owner_id: int = auth, deps: TradingAssistantDependencies = services):

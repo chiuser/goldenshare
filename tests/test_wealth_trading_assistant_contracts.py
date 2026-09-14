@@ -752,7 +752,8 @@ def test_original_record_and_history_contracts_reconcile_cash():
                   tradeDate="2026-09-14",recordedAt="2026-09-14T16:00:00+08:00",acceptedAt="2026-09-14T16:00:00+08:00",
                   stockRef=dict(tsCode="600000.SH",name="股票"),direction="BUY",quantity=1,price="10.00",
                   grossAmount="10.00",commissionAmount="5.00",stampTaxAmount="0.00",netCashChange="-15.00",feeVersionId=ID2,
-                  commissionRateWan="2.50",minimumCommission="5.00",stampTaxRatePct="0.05",note=None,status="ACTIVE")
+                  commissionRateWan="2.50",minimumCommission="5.00",stampTaxRatePct="0.05",note=None,status="ACTIVE",
+                  closedDataStatus="Empty",closedReason="买入无闭环")
     assert_complete_fixture(records.TradeRecord,record)
     assert_complete_fixture(records.TradeDetail,dict(record=record,revisions=dict(items=[record],nextCursor=None),
                             readContext=calendar_fixture()["readContext"],closedTrade=None,closedDataStatus="Empty",reason="买入无闭环"))

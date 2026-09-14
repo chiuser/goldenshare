@@ -1,7 +1,21 @@
-import type { TradeDayGroup } from "./generatedContracts";
+import type { TradeDayGroup, TradeRecord, TradeDetail } from "./generatedContracts";
 
 // Validate server facts; never supply calculated values to a consumer.
 export function validRecordCombination(title: unknown, value: Record<string, unknown>): boolean {
+  if (title === "TradeRecord") {
+    const row = value as unknown as TradeRecord;
+    if ((row.direction === "BUY" || row.status === "VOID") && row.closedDataStatus !== "Empty") return false;
+    return row.closedDataStatus === "Ready" ? row.closedReason === null : Boolean(row.closedReason?.trim());
+  }
+  if (title === "TradeDetail") {
+    const detail = value as unknown as TradeDetail;
+    const { record, closedTrade: closed } = detail;
+    if (record.closedDataStatus !== detail.closedDataStatus || record.closedReason !== detail.reason
+      || (closed !== null) !== (detail.closedDataStatus === "Ready")) return false;
+    return closed === null || (record.direction === "SELL" && record.status === "ACTIVE"
+      && closed.tradeId === record.tradeId && closed.sellRevision === record.revision
+      && closed.accountRef.accountId === record.accountRef.accountId && closed.stockRef.tsCode === record.stockRef.tsCode);
+  }
   if (title !== "TradeDayGroup") return true;
   const row = value as unknown as TradeDayGroup;
   const scope = row.recordsScope;

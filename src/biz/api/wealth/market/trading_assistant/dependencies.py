@@ -50,6 +50,17 @@ class TradingAssistantDependencies:
     record_lists: RecordListsQuery
     record_summary: RecordSummaryQuery
 
+    async def read_record_detail(self, *, owner_id, record_id, kind, cursor=None, limit=20, context_token=None):
+        def work(session, deadline):
+            account = self.record_detail.owned_account(session, owner_id=owner_id,
+                record_id=record_id, kind=kind, deadline=deadline)
+            cutoff = resolve_positions_cutoff(session, market=self.entry_context.market, deadline=deadline)
+            basis = self.read_context.capture(session, owner_id=owner_id, account_mode="SINGLE",
+                account_id=account.account_id, target_through=cutoff.through, deadline=deadline, context_token=context_token)
+            return self.record_detail.read(session, owner_id=owner_id, account=account, basis=basis,
+                record_id=record_id, kind=kind, deadline=deadline, cursor=cursor, limit=limit)
+        return await self.read(work)
+
     async def read_records_summary(self, *, owner_id, query):
         def execute(session, *, basis, deadline, **unused):
             return self.record_summary.read(session, owner_id=owner_id, basis=basis, query=query, deadline=deadline)

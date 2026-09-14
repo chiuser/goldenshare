@@ -51,7 +51,7 @@ class RecordListsQuery:
         cursor = RecordCursor(kind="TRADE_DAY_GROUPS" if grouped else kind, filters=filters, context=basis.context)
         after = cursor.decode(query.cursor, validate_key=lambda key: _parse_key(key, grouped))
         source = record_facts(owner_id=owner_id, basis=basis)
-        if grouped:
+        if kind == "TRADE":
             source = with_published_closed(source)
         source = filtered_records(source, kind=kind, start=date.fromisoformat(query.requestedStartDate),
             end=date.fromisoformat(query.requestedEndDate), stock=getattr(query, "tsCode", None), direction=query.direction)
@@ -80,20 +80,24 @@ class RecordListsQuery:
         for row in rows:
             account = accounts[str(row.account_id)]
             stock = StockRef(tsCode=row.ts_code, name=names[row.ts_code]) if kind == "TRADE" else None
-            if not grouped:
+            if kind == "CASH_FLOW":
                 items.append(project_record(row, account_ref=account, stock_ref=stock))
                 continue
             state, reason = "Ready", None
             if row.direction == "BUY":
                 state, reason = "Empty", "买入记录不产生闭环"
-            elif row.closed_count != row.trade_count:
+            elif (row.closed_count != row.trade_count if grouped else row.closed_source_id is None):
                 if row.account_id not in unavailable:
                     progress = self.status.read(session, owner_id=owner_id, account_id=row.account_id, deadline=deadline)
                     unavailable[row.account_id] = ("Error" if progress.stage == "FAILED" else "Delayed"
                         if progress.stage in ("WAITING_DATA", "PUBLISHED") else "Recalculating",
                         progress.reason or "闭环结果尚未完整发布")
                 state, reason = unavailable[row.account_id]
-            items.append(project_trade_day_group(row, account_ref=account, stock_ref=stock, closed_state=state, reason=reason))
+            if grouped:
+                items.append(project_trade_day_group(row, account_ref=account, stock_ref=stock, closed_state=state, reason=reason))
+            else:
+                items.append(project_record(row, account_ref=account, stock_ref=stock,
+                    closed_state=state, closed_reason=reason))
         deadline.remaining_ms()
         if not items:
             coverage = coverage.model_copy(update={"dataStatus": "Empty"})

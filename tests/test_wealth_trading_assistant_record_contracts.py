@@ -1,7 +1,7 @@
 """M4.4 daily groups preserve published closed facts and unknown states."""
 import pytest
 from pydantic import ValidationError
-from src.biz.schemas.wealth.market.trading_assistant.records import TradeDayGroup
+from src.biz.schemas.wealth.market.trading_assistant.records import TradeDayGroup, TradeRecord
 
 ID = "00000000-0000-0000-0000-000000000001"
 GROUP = dict(accountRef=dict(accountId=ID, name="账户", brokerName="券商"), tradeDate="2026-09-07",
@@ -50,3 +50,30 @@ def test_inconsistent_group_rejected(patch):
 def test_new_keys_are_required_even_when_nullable(field):
     with pytest.raises(ValidationError):
         TradeDayGroup(**{key: value for key, value in GROUP.items() if key != field})
+
+
+TRADE = dict(accountRef=GROUP["accountRef"], stockRef=GROUP["stockRef"], tradeId=ID, revision="1",
+    tradeDate="2026-09-07", recordedAt="2026-09-07T16:00:00+08:00", acceptedAt="2026-09-07T16:00:00+08:00",
+    direction="SELL", quantity=1, price="10.00", grossAmount="10.00", commissionAmount="0.00",
+    stampTaxAmount="0.00", netCashChange="10.00", feeVersionId=ID, commissionRateWan="0.00",
+    minimumCommission="0.00", stampTaxRatePct="0.00", note=None, status="ACTIVE", closedDataStatus="Ready", closedReason=None)
+
+
+@pytest.mark.parametrize("state", ["Empty", "Delayed", "Partial", "Error", "Recalculating"])
+def test_raw_trade_retains_amount_while_closed_unavailable(state):
+    record = TradeRecord(**{**TRADE, "closedDataStatus": state, "closedReason": "未关联当前已发布闭环"})
+    assert record.netCashChange == "10.00"
+
+
+@pytest.mark.parametrize("patch", [{"closedDataStatus": "Delayed"}, {"closedReason":"过期原因"},
+    {"closedDataStatus":"Error", "closedReason":" "}, {"status":"VOID"},
+    {"direction":"BUY", "netCashChange":"-10.00"}])
+def test_raw_trade_rejects_inconsistent_closed_state(patch):
+    with pytest.raises(ValidationError):
+        TradeRecord(**{**TRADE, **patch})
+
+
+@pytest.mark.parametrize("field", ["closedDataStatus", "closedReason"])
+def test_trade_closed_keys_required(field):
+    with pytest.raises(ValidationError):
+        TradeRecord(**{key:value for key,value in TRADE.items() if key != field})

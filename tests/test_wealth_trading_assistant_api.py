@@ -3,6 +3,7 @@
 These tests exercise the new router and isolated PG, not the shared JWT boundary.
 """
 import asyncio
+import pytest
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -10,10 +11,20 @@ from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from tests.test_wealth_trading_assistant_persistence import database
+from tests.wealth_trading_assistant_browser_fixture import seed
+from tests.wealth_watchlist_postgres_support import isolated_postgres
+from tests.wealth_trading_assistant_fixture_support import fixed_fixture_clock
 from src.app.runtime.trading_assistant_container import build_trading_assistant_dependencies
 from src.biz.api.wealth.market.trading_assistant.router import create_trading_assistant_router
 from src.biz.services.wealth.market.trading_assistant.execution_policy import TradingAssistantExecutionPolicyV1
+
+
+@pytest.fixture
+def database(tmp_path):
+    # Details consume M3 publications; use the real complete migration chain.
+    with isolated_postgres(tmp_path) as engine:
+        seed(engine)
+        yield engine
 
 
 def test_real_account_cash_api_and_recovery(database):
@@ -93,4 +104,5 @@ def test_real_account_cash_api_and_recovery(database):
                 assert "CreateAccountCommand" in schema["components"]["schemas"]
         finally:
             await engine.dispose()
-    asyncio.run(execute())
+    with fixed_fixture_clock(database, [datetime(2026, 9, 12, 8, tzinfo=timezone.utc)]):
+        asyncio.run(execute())

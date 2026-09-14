@@ -1,7 +1,7 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
 import { getAuthEpoch } from "../../../features/auth/model/authStorage";
 import { InvalidTradingAssistantResponse, parseContract } from "./contractValidation";
-import type { Contracts, TradingAssistantErrorDto, RecoveryStatusDto } from "./generatedContracts";
+import type { Contracts, TradingAssistantErrorDto, RecoveryStatusDto, RecordDetailQuery } from "./generatedContracts";
 
 export const READ_TIMEOUT_MS = 8000;
 export const WRITE_TIMEOUT_MS = 12000;
@@ -52,13 +52,18 @@ export const getAccounts = (signal?: AbortSignal) => request("/accounts", "Accou
 export const getDefaults = (signal?: AbortSignal) => request("/account-initialization/defaults", "InitializationDefaults", { signal });
 export const getFees = (accountId: string, signal?: AbortSignal) => request(accountPath(accountId) + "/fees", "FeeSettingsDto", { signal });
 export const getInitialization = (accountId: string, signal?: AbortSignal) => request(accountPath(accountId) + "/initialization", "InitializationDetail", { signal });
-export async function getTradeDetail(accountId: string, tradeId: string, signal?: AbortSignal) {
-  const detail = await request(`/records/trades/${encodeURIComponent(tradeId)}`, "TradeDetail", { signal });
+function detailQuery(query: RecordDetailQuery): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value !== null && value !== undefined) params.set(key, String(value));
+  return params.size ? `?${params}` : "";
+}
+export async function getTradeDetail(accountId: string, tradeId: string, signal?: AbortSignal, query: RecordDetailQuery = {}) {
+  const detail = await request(`/records/trades/${encodeURIComponent(tradeId)}${detailQuery(query)}`, "TradeDetail", { signal });
   if (detail.record.accountRef.accountId !== accountId || detail.record.tradeId !== tradeId) throw new InvalidTradingAssistantResponse();
   return detail;
 }
-export async function getCashDetail(accountId: string, cashFlowId: string, signal?: AbortSignal) {
-  const detail = await request(`/records/cash-flows/${encodeURIComponent(cashFlowId)}`, "CashFlowDetail", { signal });
+export async function getCashDetail(accountId: string, cashFlowId: string, signal?: AbortSignal, query: RecordDetailQuery = {}) {
+  const detail = await request(`/records/cash-flows/${encodeURIComponent(cashFlowId)}${detailQuery(query)}`, "CashFlowDetail", { signal });
   if (detail.record.accountRef.accountId !== accountId || detail.record.cashFlowId !== cashFlowId) throw new InvalidTradingAssistantResponse();
   return detail;
 }

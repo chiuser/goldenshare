@@ -38,9 +38,18 @@ class TradeRecord(FeeBreakdown, FeeInputs):
     price: PositiveMoney
     note: Note | None
     status: Literal["ACTIVE", "VOID"]
+    closedDataStatus: ReadState
+    closedReason: StrictStr | None
 
     @model_validator(mode="after")
     def ledger_amounts(self):
+        if (self.direction == "BUY" or self.status == "VOID") and self.closedDataStatus != "Empty":
+            raise ValueError("Buy and void records have no effective closed result")
+        if self.closedDataStatus == "Ready":
+            if self.closedReason is not None:
+                raise ValueError("Ready closed record has no unavailable reason")
+        elif not self.closedReason or not self.closedReason.strip():
+            raise ValueError("Unavailable closed record needs a reason")
         gross = decimal_cents(self.price) * self.quantity
         commission, tax = decimal_cents(self.commissionAmount), decimal_cents(self.stampTaxAmount)
         if gross != decimal_cents(self.grossAmount):
@@ -238,6 +247,10 @@ class TradeDetail(Contract):
     @model_validator(mode="after")
     def matching_closed_sale(self):
         closed = self.closedTrade
+        if self.closedDataStatus != self.record.closedDataStatus or self.reason != self.record.closedReason:
+            raise ValueError("Detail closed status differs from its effective record")
+        if (closed is not None) != (self.closedDataStatus == "Ready"):
+            raise ValueError("Ready detail must contain its published closed sale")
         if closed is not None and (
             self.record.direction != "SELL" or self.record.status != "ACTIVE"
             or self.closedDataStatus != "Ready"

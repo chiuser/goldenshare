@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveAuthSession } from "../../auth/model/authStorage";
-import { getAccounts, request, SaveOutcomeUnknown, READ_TIMEOUT_MS, WRITE_TIMEOUT_MS } from "./tradingAssistantApi";
+import { getAccounts, getTradeDetail, request, SaveOutcomeUnknown, READ_TIMEOUT_MS, WRITE_TIMEOUT_MS } from "./tradingAssistantApi";
 
 describe("TA request boundary", () => {
   beforeEach(() => {
@@ -10,6 +10,18 @@ describe("TA request boundary", () => {
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
   it("uses the approved distinct client budgets", () => {
     expect(READ_TIMEOUT_MS).toBe(8000); expect(WRITE_TIMEOUT_MS).toBe(12000);
+  });
+  it("passes the parent read context and revision cursor in a single detail request", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}"));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(getTradeDetail("account", "trade", undefined,
+      { readContext: "parent-token", cursor: "revision-cursor", limit: 1 })).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const path = String(fetchMock.mock.calls[0][0]);
+    expect(path).toContain("/records/trades/trade?");
+    expect(path).toContain("readContext=parent-token");
+    expect(path).toContain("cursor=revision-cursor");
+    expect(path).toContain("limit=1");
   });
   it("enforces the write budget even when transport ignores abort", async () => {
     vi.useFakeTimers();

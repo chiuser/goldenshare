@@ -28,6 +28,6 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
         LedgerCommandService(transactions, market, policy, now, executor_id=executor_id),
         AccountQueries(policy, market), EntryContextQuery(policy, market), WriteRecoveryQueries(policy),
         LedgerPreviewService(transactions, market, policy, now), InitializationPreviewService(transactions, market, policy, now),
-        RecordDetailQuery(policy, market), CalculationStatusQuery(policy),
+        RecordDetailQuery(policy), CalculationStatusQuery(policy),
         CalculationRetryService(transactions, policy, now, executor_id=executor_id), CurrentReadContextQuery(policy),
         positions, PositionsAnalysisQuery(positions), RecordListsQuery(policy), RecordSummaryQuery(policy))
