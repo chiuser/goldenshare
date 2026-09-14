@@ -10,6 +10,8 @@ from src.biz.queries.wealth.market.trading_assistant.accounts import AccountQuer
 from src.biz.queries.wealth.market.trading_assistant.entry_context import EntryContextQuery
 from src.biz.queries.wealth.market.trading_assistant.write_recovery import WriteRecoveryQueries
 from src.biz.queries.wealth.market.trading_assistant.record_detail import RecordDetailQuery
+from src.biz.queries.wealth.market.trading_assistant.record_lists import RecordListsQuery
+from src.biz.queries.wealth.market.trading_assistant.record_summary import RecordSummaryQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery, OwnedReadContext
 from src.biz.queries.wealth.market.trading_assistant.positions import PositionsQuery
@@ -45,6 +47,19 @@ class TradingAssistantDependencies:
     read_context: CurrentReadContextQuery
     positions: PositionsQuery
     positions_analysis: PositionsAnalysisQuery
+    record_lists: RecordListsQuery
+    record_summary: RecordSummaryQuery
+
+    async def read_records_summary(self, *, owner_id, query):
+        def execute(session, *, basis, deadline, **unused):
+            return self.record_summary.read(session, owner_id=owner_id, basis=basis, query=query, deadline=deadline)
+        return await self._read_holdings(owner_id=owner_id, query=query, read=execute)
+
+    async def read_records(self, *, owner_id, query, kind, grouped=False):
+        def execute(session, *, basis, deadline, **unused):
+            return self.record_lists.read(session, owner_id=owner_id, basis=basis,
+                query=query, kind=kind, grouped=grouped, deadline=deadline)
+        return await self._read_holdings(owner_id=owner_id, query=query, read=execute)
 
     async def read_positions(self, *, owner_id, query, stock_code=None):
         return await self._read_holdings(owner_id=owner_id, query=query,

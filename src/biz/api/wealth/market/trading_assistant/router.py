@@ -19,6 +19,7 @@ from src.biz.schemas.wealth.market.trading_assistant.value_types import EntityId
 from src.biz.services.wealth.market.trading_assistant.defaults import INITIALIZATION_DEFAULTS
 from src.biz.services.wealth.market.trading_assistant.write_protocol import WriteProtocolConflict
 from .dependencies import TradingAssistantDependencies
+from .record_routes import register_record_routes
 from .errors import TradingAssistantRoute, command_response
 from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationStatus, CalculationRetryCommand
 
@@ -26,6 +27,7 @@ from src.biz.schemas.wealth.market.trading_assistant.calculation_status import C
 def create_trading_assistant_router(*, auth_dependency, dependencies_dependency):
     router = APIRouter(prefix="/wealth/market/trading-assistant", tags=["trading-assistant"], route_class=TradingAssistantRoute)
     auth, services = Depends(auth_dependency), Depends(dependencies_dependency)
+    register_record_routes(router, auth_dependency=auth_dependency, dependencies_dependency=dependencies_dependency)
 
     def position_scope(request):
         try:

@@ -1,6 +1,6 @@
 # 财势乾坤｜交易助手技术实施方案 v1
 
-> 当前状态：修订 123，依据 PRD v1.49、正式交互稿及用户“提交，然后推进 M4.3”的指令。M4.2 已提交 `c3c631b6`，未推送，本地对账见 §11.13.17。M4.3 当前持仓分析已完成本地实现和验证，执行约束与对账见 §11.13.18—11.13.19；新增修改尚未提交，交付用户独立 Review，M4.4 未启动。不代表生产部署或全模块验收完成。M3 既有生产部署记录仍见 §11.12.32；下方历史修订状态保留为对应阶段记录。
+> 当前状态：修订 124，依据 PRD v1.49、正式交互稿及用户确认。M4.2 已提交 `c3c631b6`，M4.3 已提交 `263bfa25`，均未推送，本地对账见 §11.13.17、§11.13.19。M4.4 正在实施，用户已批准补齐当日汇总的闭环字段，约束见 §11.13.20；尚未完成阶段验收。不代表生产部署或全模块验收完成。M3 既有生产部署记录仍见 §11.12.32；下方历史修订状态保留为对应阶段记录。
 
 > 历史记录（修订 85，后续状态见文首）：M2 本地实现及本阶段验收完成，待用户独立 Review，最终对账见 §11.11.10。账户／记账／更正／恢复真实 API、页面接线、跨进程故障、并发、容量及浏览器验收均已完成；不代表已部署或已通过用户验收。M1 已提交 `af0046ac`，未推送；M2 改动尚未提交。M3—M8 未开始。§11.10 及此前修订的执行记录保留为历史证据。已细化部分直接作为 LLD，不另写重复文档；外部接入及部署验收仍见 §11.5。
 > 依据：[交易助手产品需求 v1.49](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
@@ -2119,7 +2119,7 @@ GET accounts 输出 `{items:AccountSummary[]}`；defaults 输出 `{stampTaxRateP
 | --- | --- |
 | TradeRecord | accountRef、tradeId、revision、tradeDate、recordedAt、acceptedAt、stockRef、direction、quantity、price、FeeBreakdown、note?、status:ACTIVE/VOID。费用依据另含 commissionRateWan、minimumCommission、stampTaxRatePct，沿用原快照 |
 | CashFlowRecord | accountRef、cashFlowId、revision、occurredOn、recordedAt、acceptedAt、direction、amount、netCashChange、note?、status:ACTIVE/VOID；无股票／费用字段 |
-| TradeDayGroup | accountRef、tradeDate、stockRef、direction、quantity、grossAmount、averagePrice、commissionAmount、stampTaxAmount、netCashChange、tradeCount、recordsScope；recordsScope 为同账户／日期／股票／方向定位，不返回任意 URL |
+| TradeDayGroup | accountRef、tradeDate、stockRef、direction、quantity、grossAmount、averagePrice、commissionAmount、stampTaxAmount、netCashChange、tradeCount、recordsScope；另含 allocatedCost:NonnegativeMoney?、closedProfitAmount:Money?、closedReturnPct:ReturnPct?、closedDataStatus:ReadState、reason:string?，所有键必需。闭环三值只在卖出且完整 Ready 时一起非空，买入为 Empty／三值 null；卖出未完整发布时三值 null 并说明状态，不能用 0 代替。recordsScope 为同账户／日期／股票／方向定位，不返回任意 URL |
 | ClosedTrade | accountRef、stockRef、tradeId、sellRevision、tradeDate、recordedAt、roundRef、quantity、price:Money、grossAmount:Money、commissionAmount:Money、stampTaxAmount:Money、totalFeeAmount:Money、netProceeds:Money、dayOpeningUnitCost:Money、allocatedCost:Money、dayEndQuantity:AvailableQuantity、dayGroup:{accountId,tsCode,tradeDate}、calculationRuleVersion:Version、dayResultId:EntityId、profitAmount:Money、returnPct:ReturnPct；利润率使用该次分摊成本，非当日收益率 |
 | RecordsResponse<T> | scope、requestedStartDate、requestedEndDate、readContext、coverage、Page<T>；闭环另带 recordsScope、summary:{closedTradeCount?,closedProfitAmount?,dataStatus,reason?}；整轮模式实际范围由服务器返回 |
 | RecordDetail<T> | record:T、revisions:Page<T>、readContext；交易另带 closedTrade?:ClosedTrade、closedDataStatus、reason?；资金不带闭环。修订痕迹按 revision DESC，沿用同详情游标／版本约束，不嵌入无限历史 |
@@ -4440,3 +4440,40 @@ M4.2 承接持仓业务截止解析、完整状态／coverage、持仓四视图�
 **文档与边界审计：**只对齐本方案及 Wealth 直接索引；原“尚未启动／未提交 M4.2”的当前状态已依据 commit 和上述证据更新，历史修订不抹除，无需另请产品确认。CodeGraph impact／query／sync／status 以及实际 imports 核对查询→Biz 依赖→App container→路由→API client→页面；依赖矩阵不变，无新的跨域共享组件。文档检查、相对索引目标和 `git diff --check` 通过，但这些静态检查不代表生产验收。其他任务启动检查预算、研究文件和报告保持原样；无生产访问／部署／推送，测试数据库均为本轮创建的本机隔离实例。
 
 **下一步：**M4.3 交付独立 Review，新增代码与本节暂未提交，不自动进入 M4.4。通过后再承接 M4.4 记录列表、记录详情的统一读取上下文和真实闭环定位。生产容量、数据及时性与部署仍按原阶段独立验收。
+
+#### 11.13.20 M4.4 执行约束与合同补齐（修订 124）
+
+上述交付记录保留为历史。用户已批准提交 M4.3 并推进 M4.4，又确认按建议补齐日汇总字段。依据 PRD §9.1—9.2、本文 §4.11.4、§4.12.1、§4.13.3、§4.31、§4.35 和正式 TA-05／当日汇总 `1688:35477`。不改 PRD、Figma、费用或收益算法，不新增迁移、依赖、配置、导出或 M5 复盘页面。
+
+| 硬口径 | 代码落点与验收 |
+| --- | --- |
+| 合同先行 | `records.TradeDayGroup` 增加 §4.35.3 五字段；生成前端合同和运行时组合校验同步。Ready 卖出成本为逐笔成本之和，利润为逐笔利润之和，收益率用利润总和／成本总和；禁止平均百分比。测试覆盖买入、真实零、缺键、混合空值、非法分母和未发布伪零 |
+| 原始事实与分页 | `record_lists` 先选上下文 factVersion 内最新有效修订再做日期／股票／方向过滤。原始记录按业务日期、首次记录时间、流水 ID 倒序；日组按日期倒序及账户／股票／方向稳定顺序。服务端游标默认 20、最多 100，绑定查询、过滤及上下文；更正移日、作废不复活旧修订；超过一页样本必须完整无重复 |
+| 全范围聚合 | `record_summary`／日组查询在 SQL 聚合全部匹配事实，不聚合当前页；均价由总成交额／总数量，费用直接求和。月摘要按自然月，资金排除初始化且不受股票筛选影响。真实两笔卖出验证二笔原始／一个日组／二笔闭环；未知闭环不冒充零 |
+| 已发布闭环 | `closed_records` 经上下文固定 PublicationDay、SEALED DayResult、原始卖出修订读取，候选不可见；未发布时原始事实仍可读。ClosedTrade 的日初成本、日末数量、轮次和原始费用必须有真实来源。整轮定位按时间升序，普通范围倒序；不得伪造轮次或借当前费率重算旧交易 |
+| 一致事务与权限 | 所有记录及详情迁入 `read_current`，认证限定完整本人账户集合，同一事务固定截止／费用／发布引用。详情保留修订分页和作废可查，清除独立生成上下文的旧路径；父 token 变更刷新整组，不混版。GET 不触发核算或重试。用真实认证、两用户、旧游标、并发及无 DML 测试验收 |
+| 前端与既有写入 | `RecordsPanel`／`RecordFilters`／`RecordTable` 承接四类记录和四摘要；请求取消与迟到响应校验，未知／重算／失败分开。保留原 RecordDetailDialog、更正／作废和保存恢复链；保存后统一刷新。正式页面没有导出；未交付曲线／日历不伪装可用 |
+| 真实验证与性能 | 复用新建隔离 PG、实际命令与 M3 发布，禁止直接写最终闭环／响应。记录 SQL 次数、分页量、响应字节及耗时，沿用读取 5 秒／SQL 1 秒／锁 100ms；真实浏览器验证字段、布局、分页、下钻、更正和恢复 |
+
+通用交付清单 §2.1—2.8、2.10、2.12—2.13、2.16—2.18 适用，分别映射上述合同／真实查询／状态／交互及回归；§2.9、2.14—2.15 不适用（本切片无图表坐标），§2.11 不适用（无新配置）。§2.7 按本模块既定渐进方式，仅启用记录页面，不新增 mock／real 配置或回退假数据。例外白名单为空。跨模块八原则依次映射后端事实源、五字段冻结、无新配置、显式状态、稳定排序、既有预算、既有错误码和真实用户可见断言；没有新增共享能力。
+
+CodeGraph impact 已核对 TradeDayGroup 的后端声明与生成合同消费者；现有记录详情、有效修订查询及发布模型另以实际代码核验。实施与验收结果另记，不将本约束清单视为功能完成证据。
+
+#### 11.13.21 M4.4 当前实施进展（修订 124，未完成阶段验收）
+
+2026-09-14 本地实现记录；新增修改尚未提交，没有部署或生产写入。此次先落实已批准合同修正，并继续完成记录列表读取基础，不宣称 M4.4 全部完成。
+
+| 已落地内容 | 实现与证据 |
+| --- | --- |
+| 日组闭环五字段 | `records.TradeDayGroup`、前端生成合同及 `recordContractSemantics` 同步；真实零与未知分开，买入无闭环、卖出未完整发布不返回金额／比例。新增 `TradeRecordsResponse`、`CashRecordsResponse`、`TradeDayGroupsResponse` 只是既有 `RecordsResponse<T>` 的三个具体响应类型，不增加业务字段 |
+| 四个正式读取接口 | `record_routes` 注册逐笔成交、资金流水、当日汇总和摘要；App container 装配 `RecordListsQuery`／`RecordSummaryQuery`，Biz 依赖使用现有只读 `read_current` 和服务器截止解析。原始详情尚未迁移，不能据此宣称所有记录已统一上下文 |
+| 有效事实及发布过滤 | `record_sources` 复用 `effective_ledger`，先选当前有效修订再过滤；按上下文固定代次、事实／目标版本、SEALED 日结果和来源卖出修订关联闭环。日组在 SQL 对完整集合汇总；当前页大小不改变费用／利润／均价 |
+| 有界分页和摘要 | `record_cursor` 绑定查询类型、筛选和完整上下文；默认 20、最大 100，原始明细三键倒序，日组日期倒序及账户／股票／方向升序。`record_scope` 批量读账户／证券名称；摘要独立全范围 SQL，资金不含初始化且不受股票条件影响 |
+| 真实链路 | `record_sources` 测试通过真实认证命令及 M3 发布生成两笔卖出，验证均价 40.32、佣金 50.40、税 100.80、净收入 201448.80、成本 200050.00、闭环利润 1398.80、收益率 0.70%；原始两页／日组一行，日期更正和作废不复活旧版本，另一用户不可见 |
+| 超过一页 | 23 笔真实资金流水分 20＋3 返回，无遗漏／重复；相同内容保留不同流水，22 笔转入合计 220.00、1 笔转出 10.00，不把初始现金 1000.00 加入转入；筛选变化拒绝原游标，事实变化返回旧上下文 409 |
+
+**已运行验证：**新增合同＋真实源／正式 API **23 passed，12.55 秒**；游标规范编码／额外键／非法键／筛选与上下文绑定 **12 passed，0.33 秒**；补充 SQL 与空列表状态断言后真实测试复跑 **2 passed，11.43 秒**。原账户 API、M4.1 夹具、只读事务与上下文、持仓和分析 API 七文件回归 **22 passed，80.99 秒**；合同主回归及新字段测试此前 **111 passed，1.06 秒**（与上述合同部分重叠，不相加）。日组代表请求 **13 次 SQL（含预算）、1686 字节、0.01608 秒**，无 DML；不代表全部生产容量已验收。
+
+Wealth 全量 **130 文件／1002 项通过，12.24 秒**，交易助手子集 **21 文件／111 项通过，1.98 秒**，typecheck／build、生成合同 `--check`、三项架构护栏 **16 passed，8.80 秒**、文档及 diff 检查通过。保留既有 bundle 大小提示和 Alembic path_separator 提醒。尚未修改页面布局，因此本轮未运行新的浏览器展示 smoke；不能用合同测试冒充 M4.4 前端验收。
+
+**仍待实施：**闭环列表与完整轮次定位；旧记录详情迁入统一上下文并返回真实闭环；前端记录四视图、摘要、筛选分页、下钻及保存后联动；完整异常状态、分页规模、查询预算和真实浏览器回归。没有新增产品拍板点。依赖矩阵不变，其他任务启动检查预算及研究文件保留，不纳入此次改动。

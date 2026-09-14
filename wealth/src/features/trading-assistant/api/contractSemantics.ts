@@ -1,9 +1,11 @@
 import type { EntryContext, RecoveryStatusDto, InitializationPositionInput, CreateAccountInput, PendingRecoveryResponse } from "./generatedContracts";
 import { validPositionCombination } from "./positionContractSemantics";
+import { validRecordCombination } from "./recordContractSemantics";
 
 // Cross-field invariants after generated structural validation. No response shaping.
 export function validCombination(title: unknown, value: Record<string, unknown>): boolean {
   if (!validPositionCombination(title, value)) return false;
+  if (!validRecordCombination(title, value)) return false;
   if (title === "EntryContext") {
     const row = value as unknown as EntryContext;
     if (row.accountId !== row.fees.accountId) return false;

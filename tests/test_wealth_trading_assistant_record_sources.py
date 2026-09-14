@@ -1,0 +1,165 @@
+"""Real commands and M3 publication exercise record source SQL, not fake profits."""
+import asyncio
+from datetime import date
+from uuid import uuid4
+from time import monotonic
+
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event, select
+
+from src.biz.queries.wealth.market.trading_assistant.record_sources import (
+    record_facts, with_published_closed, filtered_records, trade_day_groups,
+)
+from src.biz.queries.wealth.market.trading_assistant.record_group_projection import project_trade_day_group
+from src.biz.schemas.wealth.market.trading_assistant.common import AccountRef, StockRef
+from tests.test_wealth_trading_assistant_m41_fixture import ROOT, wait_stage
+from tests.wealth_trading_assistant_browser_fixture import NOW, browser_app, seed
+from tests.wealth_watchlist_postgres_support import isolated_postgres
+
+
+def test_real_published_group_revisions_and_owner_isolation(tmp_path):
+    with isolated_postgres(tmp_path) as database:
+        seed(database)
+        app = browser_app(database)
+
+        async def run():
+            async with app.router.lifespan_context(app):
+                async with AsyncClient(transport=ASGITransport(app=app), base_url="http://isolated") as client:
+                    client.headers["Authorization"] = "Bearer " + (await client.get("/test-session")).json()["token"]
+                    identity = lambda: dict(requestId=str(uuid4()), attemptId=str(uuid4()))
+                    app.state.fixture_clock[0] = NOW.replace(day=10)
+                    response = await client.post(ROOT + "/accounts", json=dict(**identity(), name="日汇总", brokerName="券商",
+                        initialCash="1000.00", commissionRateWan="2.50", minimumCommission="5.00", stampTaxRatePct="0.05",
+                        initialPositions=[dict(clientRowId="a", tsCode="000001.SZ", openedOn="2026-09-10",
+                            quantity=6000, availableQuantity=6000, costPrice="40.01")]))
+                    assert response.status_code == 201, response.text
+                    account = response.json()["result"]["account"]["accountId"]
+                    app.state.fixture_clock[0] = NOW
+                    ids = []
+                    for quantity, price in ((2000, "40.20"), (3000, "40.40")):
+                        response = await client.post(ROOT + f"/accounts/{account}/trades", json=dict(**identity(),
+                            tsCode="000001.SZ", tradeDate="2026-09-11", direction="SELL", price=price, quantity=quantity))
+                        assert response.status_code == 201, response.text
+                        ids.append(response.json()["result"]["tradeId"])
+                    await wait_stage(client, account, "PUBLISHED")
+
+                    params = dict(accountMode="ALL", stockMode="ALL", requestedStartDate="2026-09-11", requestedEndDate="2026-09-11")
+                    statements = []
+                    def observed(connection, cursor, statement, parameters, context, executemany):
+                        statements.append(statement)
+                    engine = app.state.trading_assistant.transactions.engine.sync_engine
+                    event.listen(engine, "before_cursor_execute", observed)
+                    started = monotonic()
+                    try:
+                        response = await client.get(ROOT + "/records/trade-day-groups", params=params)
+                    finally:
+                        event.remove(engine, "before_cursor_execute", observed)
+                    elapsed = monotonic() - started
+                    assert elapsed < 5
+                    assert not any(sql.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for sql in statements)
+                    print(dict(day_group_sql=len(statements), seconds=elapsed, response_bytes=len(response.content)))
+                    assert response.status_code == 200, response.text
+                    group = response.json()["items"][0]
+                    assert (group["closedProfitAmount"], group["closedReturnPct"], group["allocatedCost"]) == ("1398.80", "0.70", "200050.00")
+                    response = await client.get(ROOT + "/records/trades", params={**params, "limit": 1})
+                    assert response.status_code == 200, response.text
+                    first = response.json()
+                    assert len(first["items"]) == 1 and first["nextCursor"]
+                    response = await client.get(ROOT + "/records/trades", params={**params, "limit": 1,
+                        "cursor": first["nextCursor"], "readContext": first["readContext"]["contextToken"]})
+                    assert response.status_code == 200, response.text
+                    second = response.json()
+                    assert second["nextCursor"] is None
+                    assert {first["items"][0]["tradeId"], second["items"][0]["tradeId"]} == set(ids)
+                    assert first["readContext"] == second["readContext"]
+                    summary = await client.get(ROOT + "/records/summary", params=params)
+                    assert summary.status_code == 200, summary.text
+                    assert summary.json()["tradeCount"] == summary.json()["closedTradeCount"] == 2
+                    assert summary.json()["closedProfitAmount"] == "1398.80"
+                    assert summary.json()["cashInAmount"] == "0.00"  # Initialization is not a transfer.
+                    for patch in ({"limit":"1.0"}, {"limit":"101"}, {"unknown":"x"}, {"cursor":"garbage"}):
+                        assert (await client.get(ROOT + "/records/trades", params={**params, **patch})).status_code == 400
+
+                    async def read(owner=1, start=date(2026, 9, 11), end=date(2026, 9, 11)):
+                        deps = app.state.trading_assistant
+                        def query(session, deadline, basis):
+                            source = with_published_closed(record_facts(owner_id=owner, basis=basis))
+                            filtered = filtered_records(source, kind="TRADE", start=start, end=end)
+                            rows = session.execute(select(filtered).order_by(filtered.c.ledger_id)).all()
+                            groups = session.execute(select(trade_day_groups(filtered))).all()
+                            return rows, groups
+                        return await deps.read_current(query, owner_id=owner, account_mode="ALL", account_id=None,
+                            resolve_target_through=lambda session, deadline: NOW)
+
+                    rows, groups = await read()
+                    assert len(rows) == 2 and len(groups) == 1 and groups[0].closed_count == 2
+                    dto = project_trade_day_group(groups[0], account_ref=AccountRef(accountId=account, name="日汇总", brokerName="券商"),
+                        stock_ref=StockRef(tsCode="000001.SZ", name="平安银行"), closed_state="Ready", reason=None)
+                    assert (dto.quantity, dto.averagePrice, dto.grossAmount) == ("5000", "40.32", "201600.00")
+                    assert (dto.commissionAmount, dto.stampTaxAmount, dto.netCashChange) == ("50.40", "100.80", "201448.80")
+                    assert (dto.allocatedCost, dto.closedProfitAmount, dto.closedReturnPct) == ("200050.00", "1398.80", "0.70")
+                    assert await read(owner=2) == ([], [])
+                    # Effective selection happens before date filtering: a moved
+                    # sale must not resurrect its revision 1 on the old date.
+                    response = await client.post(ROOT + f"/accounts/{account}/trades/{ids[0]}/corrections", json=dict(**identity(),
+                        expectedRevision="1", tsCode="000001.SZ", tradeDate="2026-09-10", direction="SELL", price="40.20", quantity=2000))
+                    assert response.status_code == 200, response.text
+                    stale = await client.get(ROOT + "/records/trades", params={**params, "cursor":first["nextCursor"]})
+                    assert stale.status_code == 409, stale.text
+                    rows, groups = await read()
+                    assert len(rows) == 1 and str(rows[0].ledger_id) == ids[1]
+                    await wait_stage(client, account, "PUBLISHED")
+                    rows, groups = await read(start=date(2026, 9, 10))
+                    assert len(rows) == 2 and len(groups) == 2
+                    assert all(row.closed_source_id is not None for row in rows)
+                    response = await client.post(ROOT + f"/accounts/{account}/trades/{ids[0]}/voids", json=dict(**identity(), expectedRevision="2"))
+                    assert response.status_code == 200, response.text
+                    rows, groups = await read(start=date(2026, 9, 10))
+                    assert len(rows) == 1 and str(rows[0].ledger_id) == ids[1]
+        asyncio.run(run())
+
+
+def test_cash_pages_summary_full_scope_and_same_content_kept(tmp_path):
+    with isolated_postgres(tmp_path) as database:
+        seed(database)
+        app = browser_app(database)
+
+        async def run():
+            async with app.router.lifespan_context(app):
+                async with AsyncClient(transport=ASGITransport(app=app), base_url="http://isolated") as client:
+                    client.headers["Authorization"] = "Bearer " + (await client.get("/test-session")).json()["token"]
+                    identity = lambda: dict(requestId=str(uuid4()), attemptId=str(uuid4()))
+                    response = await client.post(ROOT + "/accounts", json=dict(**identity(), name="资金分页", brokerName="券商",
+                        initialCash="1000.00", commissionRateWan="0.00", minimumCommission="0.00", stampTaxRatePct="0.00", initialPositions=[]))
+                    assert response.status_code == 201, response.text
+                    account = response.json()["result"]["account"]["accountId"]
+                    ids = set()
+                    for index in range(23):
+                        response = await client.post(ROOT + f"/accounts/{account}/cash-flows", json=dict(**identity(),
+                            occurredOn="2026-09-11", direction="IN" if index < 22 else "OUT", amount="10.00"))
+                        assert response.status_code == 201, response.text
+                        ids.add(response.json()["result"]["cashFlowId"])
+                    await wait_stage(client, account, "PUBLISHED")
+                    params = dict(accountMode="SINGLE", accountId=account, requestedStartDate="2026-09-01", requestedEndDate="2026-09-11")
+                    response = await client.get(ROOT + "/records/cash-flows", params=params)
+                    assert response.status_code == 200, response.text
+                    first = response.json()
+                    assert len(first["items"]) == 20 and first["nextCursor"]
+                    response = await client.get(ROOT + "/records/cash-flows", params={**params, "cursor":first["nextCursor"],
+                        "readContext":first["readContext"]["contextToken"]})
+                    assert response.status_code == 200, response.text
+                    second = response.json()
+                    assert len(second["items"]) == 3 and second["nextCursor"] is None
+                    assert {r["cashFlowId"] for r in first["items"] + second["items"]} == ids
+                    response = await client.get(ROOT + "/records/summary", params={**params, "stockMode":"ALL"})
+                    assert response.status_code == 200, response.text
+                    summary = response.json()
+                    assert (summary["cashInAmount"], summary["cashOutAmount"], summary["tradeCount"]) == ("220.00", "10.00", 0)
+                    assert summary["closedProfitAmount"] == "0.00" and summary["closedDataStatus"] == "Empty"
+                    changed = await client.get(ROOT + "/records/cash-flows", params={**params, "direction":"IN", "cursor":first["nextCursor"]})
+                    assert changed.status_code == 400
+                    client.headers["Authorization"] = "Bearer " + (await client.get("/test-session", params={"user_id":2})).json()["token"]
+                    assert (await client.get(ROOT + "/records/cash-flows", params=params)).status_code == 404
+                    other = await client.get(ROOT + "/records/cash-flows", params={k:v for k,v in {**params, "accountMode":"ALL"}.items() if k != "accountId"})
+                    assert other.status_code == 200 and other.json()["items"] == []
+        asyncio.run(run())

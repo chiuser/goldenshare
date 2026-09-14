@@ -133,6 +133,42 @@ class TradeDayGroup(Contract):
     netCashChange: Money
     tradeCount: Count
     recordsScope: TradeGroupScope
+    allocatedCost: NonnegativeMoney | None
+    closedProfitAmount: Money | None
+    closedReturnPct: ReturnPct | None
+    closedDataStatus: ReadState
+    reason: StrictStr | None
+
+    @model_validator(mode="after")
+    def consistent_group(self):
+        scope = self.recordsScope
+        if (scope.accountId != self.accountRef.accountId or scope.tsCode != self.stockRef.tsCode
+                or scope.tradeDate != self.tradeDate or scope.direction != self.direction):
+            raise ValueError("Mixed trade group references")
+        if self.tradeCount < 1:
+            raise ValueError("A trade group must contain original trades")
+        gross, commission, tax = map(decimal_cents,
+            (self.grossAmount, self.commissionAmount, self.stampTaxAmount))
+        expected = gross - commission - tax if self.direction == "SELL" else -gross - commission
+        if decimal_cents(self.netCashChange) != expected or (self.direction == "BUY" and tax != 0):
+            raise ValueError("Group cash flow or buy-side tax is inconsistent")
+        values = (self.allocatedCost, self.closedProfitAmount, self.closedReturnPct)
+        ready = self.direction == "SELL" and self.closedDataStatus == "Ready"
+        if any((value is not None) != ready for value in values):
+            raise ValueError("Only a complete published sell group has closed values")
+        if self.direction == "BUY" and self.closedDataStatus != "Empty":
+            raise ValueError("Buy group has no closed trades")
+        if self.direction == "SELL" and self.closedDataStatus == "Empty":
+            raise ValueError("An existing sell group cannot have an empty closed result")
+        if ready:
+            cost = decimal_cents(self.allocatedCost)
+            if cost <= 0 or decimal_cents(self.closedProfitAmount) != expected - cost:
+                raise ValueError("Invalid aggregate closed cost or profit")
+            if self.reason is not None:
+                raise ValueError("Ready closed group has no unavailable reason")
+        elif not self.reason or not self.reason.strip():
+            raise ValueError("Unavailable closed group needs a reason")
+        return self
 
 
 class CompletedRound(Contract):
@@ -171,6 +207,18 @@ class RecordsResponse(Page[RecordT], Generic[RecordT]):
         if not self.items and self.nextCursor is not None:
             raise ValueError("Empty page cannot have a next cursor")
         return self
+
+
+class TradeRecordsResponse(RecordsResponse[TradeRecord]):
+    pass
+
+
+class CashRecordsResponse(RecordsResponse[CashFlowRecord]):
+    pass
+
+
+class TradeDayGroupsResponse(RecordsResponse[TradeDayGroup]):
+    pass
 
 
 class CashFlowDetail(Contract):
