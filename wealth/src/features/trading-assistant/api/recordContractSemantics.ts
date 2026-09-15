@@ -1,7 +1,19 @@
-import type { TradeDayGroup, TradeRecord, TradeDetail } from "./generatedContracts";
+import type { TradeDayGroup, TradeRecord, TradeDetail, RoundDetailResponse } from "./generatedContracts";
 
 // Validate server facts; never supply calculated values to a consumer.
 export function validRecordCombination(title: unknown, value: Record<string, unknown>): boolean {
+  if (title === "RoundDetailResponse") {
+    const { readContext, coverage, detail } = value as unknown as RoundDetailResponse;
+    const ids = readContext.accounts.map(a => a.accountId);
+    if (ids.length !== 1 || coverage.accounts.length !== 1 || coverage.accounts[0].accountId !== ids[0]) return false;
+    const ready = coverage.dataStatus === "Ready";
+    if (ready !== (detail !== null)) return false;
+    if (detail === null) return Boolean(coverage.reason?.trim());
+    const scope = detail.recordsScope;
+    return coverage.accounts[0].dataStatus === "Ready" && coverage.reason === null
+      && detail.accountRef.accountId === ids[0] && detail.roundRef.accountId === ids[0]
+      && "roundId" in scope && scope.accountId === ids[0] && scope.roundId === detail.roundRef.roundId;
+  }
   if (title === "TradeRecord") {
     const row = value as unknown as TradeRecord;
     if ((row.direction === "BUY" || row.status === "VOID") && row.closedDataStatus !== "Empty") return false;

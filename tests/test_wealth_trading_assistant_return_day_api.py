@@ -69,6 +69,31 @@ def test_daily_returns_actual_profit_fees_coverage_and_permissions(tmp_path):
                     assert (value["closedTradeCount"], value["closedProfitAmount"]) == (1, "792.60")
                     assert (value["commissionAmount"], value["stampTaxAmount"], value["feeDataStatus"]) == ("5.00", "2.40", "Ready")
                     assert value["recordsScope"]["requestedStartDate"] == "2026-09-11"
+                    contribution_url = endpoint + "/contributions"
+                    contribution_statements = []
+                    def observe_contributions(conn, cursor, statement, parameters, context, executemany):
+                        contribution_statements.append(statement)
+                    started_contributions = monotonic()
+                    event.listen(engine, "before_cursor_execute", observe_contributions)
+                    try:
+                        contributions = await client.get(contribution_url, params=dict(accountMode="ALL", limit=1,
+                            readContext=value["readContext"]["contextToken"]))
+                    finally:
+                        event.remove(engine, "before_cursor_execute", observe_contributions)
+                    contribution_elapsed = monotonic() - started_contributions
+                    assert contribution_elapsed < 5
+                    assert not any(s.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for s in contribution_statements)
+                    print(f"M5 contributions: SQL={len(contribution_statements)}, bytes={len(contributions.content)}, seconds={contribution_elapsed:.5f}")
+                    assert contributions.status_code == 200, contributions.text
+                    parts = contributions.json()
+                    assert (parts["totalCount"], parts["totalProfitAmount"], parts["nextCursor"]) == (1, "-5.00", None)
+                    assert (parts["items"][0]["profitAmount"], parts["items"][0]["capitalAmount"],
+                        parts["items"][0]["returnPct"]) == ("-5.00", "10000.00", "-0.05")
+                    assert parts["items"][0]["accountRounds"][0]["accountId"] == account
+                    assert parts["items"][0]["accountRounds"][0]["roundNumber"] == 1
+                    for bad in ({"limit":"0"}, {"cursor":"bad"}, {"extra":"1"}):
+                        assert (await client.get(contribution_url, params={"accountMode":"ALL", **bad})).status_code == 400
+                    assert (await client.get(contribution_url, params={**params, "readContext":token})).status_code == 409
                     day_sql_count = len(statements)
                     assert not any(s.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for s in statements)
                     curve_params = dict(accountMode="ALL", stockMode="ALL", requestedStartDate="2026-09-11",
@@ -163,6 +188,13 @@ def test_daily_returns_actual_profit_fees_coverage_and_permissions(tmp_path):
                     assert partial.json()["coverage"]["dataStatus"] == "Partial"
                     assert partial.json()["profitAmount"] is None
                     assert partial.json()["commissionAmount"] == "5.00"
+                    missing_parts = await client.get(contribution_url, params={"accountMode":"ALL"})
+                    assert missing_parts.status_code == 200, missing_parts.text
+                    assert missing_parts.json()["totalCount"] == 2
+                    assert missing_parts.json()["totalProfitAmount"] is None
+                    assert missing_parts.json()["items"][1]["stockRef"]["tsCode"] == "000002.SZ"
+                    assert missing_parts.json()["items"][1]["profitAmount"] is None
+                    assert missing_parts.json()["items"][1]["accountRounds"] == []
                     for invalid in ("accountMode=ALL&extra=1", "accountMode=ALL&accountMode=ALL", "accountMode=SINGLE"):
                         assert (await client.get(endpoint + "?" + invalid)).status_code == 400
                     assert (await client.get(ROOT + "/returns/days/2026-02-30", params=params)).status_code == 400

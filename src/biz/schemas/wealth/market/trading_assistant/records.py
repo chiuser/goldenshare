@@ -6,7 +6,7 @@ from pydantic import StrictStr, model_validator
 from .accounts import FeeBreakdown, FeeInputs
 from .value_types import AggregateQuantity, PositiveAggregateQuantity, compare_share_quantities
 from .common import AccountRef, Contract, Coverage, Page, ReadContext, ReadState, Scope, StockRef
-from .scopes import RecordsScope
+from .scopes import RecordsScope, RoundRecordsScope
 from .value_types import (AvailableQuantity, BusinessDate, Count, EntityId, Instant, Money,
                           NonnegativeMoney, Note, PositiveMoney, PositiveVersion, Quantity, ReturnPct, StockCode,
                           decimal_cents)
@@ -353,4 +353,33 @@ class RoundDetail(Contract):
                 raise ValueError("Closed round profit does not reconcile")
         elif self.closedOn is not None:
             raise ValueError("Open round cannot have a closing date")
+        return self
+
+
+class RoundDetailResponse(Contract):
+    """One owned round: unavailable states never carry stale financial details."""
+
+    readContext: ReadContext
+    coverage: Coverage
+    detail: RoundDetail | None
+
+    @model_validator(mode="after")
+    def ready_detail_only(self):
+        ids = [account.accountId for account in self.readContext.accounts]
+        if len(ids) != 1 or [account.accountId for account in self.coverage.accounts] != ids:
+            raise ValueError("Round detail requires one matching account context")
+        ready = self.coverage.dataStatus == "Ready"
+        if ready != (self.detail is not None):
+            raise ValueError("Only Ready round responses contain detail")
+        if ready:
+            if self.coverage.accounts[0].dataStatus != "Ready" or self.coverage.reason is not None:
+                raise ValueError("Ready round requires Ready account coverage")
+            if self.detail.accountRef.accountId != ids[0]:
+                raise ValueError("Round detail does not match read context")
+            scope = self.detail.recordsScope
+            if (not isinstance(scope, RoundRecordsScope) or scope.accountId != ids[0]
+                    or scope.roundId != self.detail.roundRef.roundId):
+                raise ValueError("Round records must identify the same complete round")
+        elif not self.coverage.reason or not self.coverage.reason.strip():
+            raise ValueError("Unavailable round requires a safe explanation")
         return self

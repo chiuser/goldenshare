@@ -648,6 +648,26 @@ def test_round_position_day_and_review_complete_fixtures():
                         buyQuantity="1000", sellQuantity="1000", buyInvestmentAmount="10000.00", sellNetProceedsAmount="11000.00",
                         roundProfitAmount="1000.00", roundReturnPct="10.00", closedTradeCount=2, recordsScope=round_scope)
     assert_complete_fixture(records.RoundDetail, closed_round)
+    round_cover = dict(dataStatus="Ready", reason=None, isFinal=True, accounts=[dict(accountId=ID,
+        initializedOn="2026-09-01", effectiveStartDate="2026-09-01", targetThroughDate="2026-09-11",
+        calculatedThroughDate="2026-09-11", valuationAt="2026-09-11T15:00:00+08:00", dataStatus="Ready", reason=None)])
+    round_context = {**holdings["readContext"], "accounts":[dict(accountId=ID, factVersion="1",
+        calculationTargetVersion="1", publishedGenerationId=ID2)]}
+    envelope = dict(readContext=round_context, coverage=round_cover, detail=closed_round)
+    assert_complete_fixture(records.RoundDetailResponse, envelope)
+    for state in ("Delayed", "Recalculating", "Error", "Partial"):
+        coverage = {**round_cover, "dataStatus":state, "reason":"正在重新计算", "isFinal":False,
+                    "accounts":[{**round_cover["accounts"][0], "dataStatus":state, "reason":"正在重新计算"}]}
+        unavailable = {**envelope, "coverage":coverage, "detail":None}
+        assert_complete_fixture(records.RoundDetailResponse, unavailable)
+        for patch in ({"detail":closed_round}, {"coverage":{**coverage, "reason":" "}}):
+            with pytest.raises(ValidationError):
+                records.RoundDetailResponse(**{**unavailable, **patch})
+    for patch in ({"detail":None}, {"coverage":{**holdings["coverage"], "accounts":[]}},
+                  {"detail":{**closed_round, "accountRef":{**account, "accountId":ID2}}},
+                  {"detail":{**closed_round, "recordsScope":dict(accountId=ID, roundId=ID)}}):
+        with pytest.raises(ValidationError):
+            records.RoundDetailResponse(**{**envelope, **patch})
     for patch in ({"sellQuantity":"999"},{"closedOn":None},{"roundProfitAmount":"2000.00"},{"openingSource":"INITIALIZATION"}):
         with pytest.raises(ValidationError):
             records.RoundDetail(**{**closed_round, **patch})

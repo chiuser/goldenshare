@@ -127,6 +127,22 @@ def test_real_stock_day_pages_include_closed_stocks_and_rebuilt_round(tmp_path):
                     detail = await client.get(ROOT + "/returns/days/2026-09-11", params=dict(accountMode="SINGLE", accountId=str(account)))
                     assert detail.status_code == 200, detail.text
                     assert detail.json()["profitAmount"] == "-5.00"
+                    parts_url = ROOT + "/returns/days/2026-09-11/contributions"
+                    parts_params = dict(accountMode="SINGLE", accountId=str(account), limit=2,
+                        readContext=detail.json()["readContext"]["contextToken"])
+                    first = await client.get(parts_url, params=parts_params)
+                    assert first.status_code == 200, first.text
+                    assert first.json()["totalCount"] == 3 and first.json()["totalProfitAmount"] == "-5.00"
+                    assert first.json()["items"][0]["stockRef"]["tsCode"] == "000001.SZ"  # Closed today is retained.
+                    assert first.json()["items"][0]["profitAmount"] == "0.00"
+                    assert first.json()["nextCursor"]
+                    second = await client.get(parts_url, params={**parts_params, "cursor":first.json()["nextCursor"]})
+                    assert second.status_code == 200, second.text
+                    assert second.json()["totalCount"] == 3 and second.json()["totalProfitAmount"] == "-5.00"
+                    assert second.json()["nextCursor"] is None and len(second.json()["items"]) == 1
+                    wrong_day = await client.get(ROOT + "/returns/days/2026-09-10/contributions",
+                        params={**parts_params, "cursor":first.json()["nextCursor"]})
+                    assert wrong_day.status_code == 400
                     assert sum(x.result.profit_cents for x in rows) == -500
                     assert not any(s.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for s in statements)
                     assert elapsed < 5
@@ -147,6 +163,11 @@ def test_real_stock_day_pages_include_closed_stocks_and_rebuilt_round(tmp_path):
                     assert rebuilt.endpoint.round_id != rows[0].endpoint.round_id
                     assert (rebuilt.opening_cost_cents, rebuilt.initial_cost_cents, rebuilt.buy_input_cents) == (0, 0, 1100500)
                     assert (rebuilt.result.profit_cents, rebuilt.result.return_pct) == (98400, "8.94")
+                    rebuilt_parts = await client.get(ROOT + "/returns/days/2026-09-14/contributions",
+                        params=dict(accountMode="SINGLE", accountId=str(account)))
+                    assert rebuilt_parts.status_code == 200, rebuilt_parts.text
+                    assert rebuilt_parts.json()["items"][0]["accountRounds"][0]["roundNumber"] == 2
+                    assert rebuilt_parts.json()["items"][0]["profitAmount"] == "984.00"
                     async def period(start, end, stock="000001.SZ", page_rows=1, selected_account=account):
                         reader = StockPeriodReturnsQuery(replace(deps.policy, page_rows=page_rows))
                         def query(session, deadline, basis):

@@ -16,6 +16,7 @@ from src.biz.queries.wealth.market.trading_assistant.closed_records import Close
 from src.biz.queries.wealth.market.trading_assistant.return_day_detail import ReturnDayDetailQuery
 from src.biz.queries.wealth.market.trading_assistant.return_curve import ReturnCurveQuery
 from src.biz.queries.wealth.market.trading_assistant.return_calendar import ReturnCalendarQuery
+from src.biz.queries.wealth.market.trading_assistant.return_contributions import ReturnContributionsQuery
 from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountReadQuery, RoundRecordsQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery, OwnedReadContext
@@ -58,6 +59,13 @@ class TradingAssistantDependencies:
     return_day_detail: ReturnDayDetailQuery
     return_curve: ReturnCurveQuery
     return_calendar: ReturnCalendarQuery
+    return_contributions: ReturnContributionsQuery
+
+    async def read_return_contributions(self, *, owner_id, query, day):
+        def execute(session, *, basis, cutoff, deadline, **unused):
+            return self.return_contributions.read(session, owner_id=owner_id, basis=basis,
+                query=query, cutoff=cutoff, deadline=deadline, day=day)
+        return await self._read_holdings(owner_id=owner_id, query=query, read=execute)
 
     async def read_return_calendar(self, *, owner_id, query):
         def execute(session, *, basis, cutoff, deadline, **unused):

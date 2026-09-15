@@ -10,6 +10,7 @@ from src.biz.queries.wealth.market.trading_assistant.closed_records import Close
 from src.biz.queries.wealth.market.trading_assistant.return_day_detail import ReturnDayDetailQuery
 from src.biz.queries.wealth.market.trading_assistant.return_curve import ReturnCurveQuery
 from src.biz.queries.wealth.market.trading_assistant.return_calendar import ReturnCalendarQuery
+from src.biz.queries.wealth.market.trading_assistant.return_contributions import ReturnContributionsQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery
 from src.biz.queries.wealth.market.trading_assistant.positions import PositionsQuery
@@ -35,4 +36,4 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
         RecordDetailQuery(policy), CalculationStatusQuery(policy),
         CalculationRetryService(transactions, policy, now, executor_id=executor_id), CurrentReadContextQuery(policy),
         positions, PositionsAnalysisQuery(positions), RecordListsQuery(policy), RecordSummaryQuery(policy), ClosedRecordsQuery(policy),
-        ReturnDayDetailQuery(policy), ReturnCurveQuery(policy), ReturnCalendarQuery(policy))
+        ReturnDayDetailQuery(policy), ReturnCurveQuery(policy), ReturnCalendarQuery(policy), ReturnContributionsQuery(policy))
