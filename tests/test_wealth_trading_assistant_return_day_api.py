@@ -109,6 +109,7 @@ def test_daily_returns_actual_profit_fees_coverage_and_permissions(tmp_path):
                         event.remove(engine, "before_cursor_execute", observe)
                     assert curve.status_code == 200, curve.text
                     curve_value = curve.json()
+                    assert curve_value["historyStartDate"] == "2026-09-10"
                     point = curve_value["points"][0]
                     assert (point["periodStartDate"], point["periodEndDate"], point["isPeriodEnded"]) == (
                         "2026-09-01", "2026-09-30", False)
@@ -128,10 +129,20 @@ def test_daily_returns_actual_profit_fees_coverage_and_permissions(tmp_path):
                         assert p["profitAmount"] == ("-5.00" if grain == "DAY" else "1984.00")
                     single_curve = await client.get(curve_url, params={**curve_params, "stockMode":"SINGLE", "tsCode":"000001.SZ"})
                     assert single_curve.status_code == 200, single_curve.text
+                    assert single_curve.json()["historyStartDate"] == "2026-09-10"
                     assert single_curve.json()["points"][0]["profitAmount"] == "1984.00"
                     empty_curve = await client.get(curve_url, params={**curve_params, "requestedStartDate":"2026-10-01", "requestedEndDate":"2026-10-31"})
                     assert empty_curve.status_code == 200, empty_curve.text
                     assert empty_curve.json()["points"] == []
+                    assert empty_curve.json()["historyStartDate"] == "2026-09-10"
+                    cash_curve = await client.get(curve_url, params={**curve_params, "accountMode":"SINGLE", "accountId":cash})
+                    assert cash_curve.status_code == 200, cash_curve.text
+                    assert cash_curve.json()["historyStartDate"] == "2026-09-11"
+                    absent_stock = await client.get(curve_url, params={**curve_params, "accountMode":"SINGLE", "accountId":cash,
+                        "stockMode":"SINGLE", "tsCode":"000001.SZ"})
+                    assert absent_stock.status_code == 200, absent_stock.text
+                    assert absent_stock.json()["historyStartDate"] is None
+                    assert all(p["profitAmount"] is None for p in absent_stock.json()["points"])
                     for bad in ({"granularity":"YEAR"}, {"extra":"1"}, {"requestedEndDate":"2026-09-01"}):
                         assert (await client.get(curve_url, params={**curve_params, **bad})).status_code == 400
                     assert (await client.get(curve_url, params={**curve_params, **params, "readContext":token})).status_code == 409

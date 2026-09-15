@@ -290,8 +290,14 @@ def test_curve_null_period_keeps_identity_and_order():
                  periodStartDate="2026-09-01", periodEndDate="2026-09-30", isPeriodEnded=True)
     fixture = dict(scope=dict(accountMode="ALL", accounts=[], stockMode="ALL", stockRef=None),
                    requestedStartDate="2026-09-01", requestedEndDate="2026-09-30", granularity="MONTH",
-                   readContext=context, coverage=coverage, points=[point])
+                   readContext=context, coverage=coverage, points=[point], historyStartDate=None)
     assert returns.CurveResponse(**fixture).points[0].periodStartDate == "2026-09-01"
+    assert returns.CurveResponse(**{**fixture, "historyStartDate":"2020-01-02"}).historyStartDate == "2020-01-02"
+    with pytest.raises(ValidationError):
+        returns.CurveResponse(**{k:v for k,v in fixture.items() if k != "historyStartDate"})
+    for invalid in ("2020-02-30", "20200102", 20200102, ""):
+        with pytest.raises(ValidationError):
+            returns.CurveResponse(**{**fixture, "historyStartDate":invalid})
     for patch in ({"points":[point,point]}, {"requestedEndDate":"2026-08-01"}, {"granularity":"YEAR"}):
         with pytest.raises(ValidationError):
             returns.CurveResponse(**{**fixture, **patch})
@@ -648,6 +654,12 @@ def test_round_position_day_and_review_complete_fixtures():
                         buyQuantity="1000", sellQuantity="1000", buyInvestmentAmount="10000.00", sellNetProceedsAmount="11000.00",
                         roundProfitAmount="1000.00", roundReturnPct="10.00", closedTradeCount=2, recordsScope=round_scope)
     assert_complete_fixture(records.RoundDetail, closed_round)
+    open_round = {**closed_round, "roundRef": {**closed_round["roundRef"], "status": "OPEN"},
+                  "closedOn": None, "sellQuantity": "400", "roundProfitAmount": None, "roundReturnPct": None}
+    assert_complete_fixture(records.RoundDetail, open_round)
+    for patch in ({"roundProfitAmount": "1000.00"}, {"roundReturnPct": "10.00"}):
+        with pytest.raises(ValidationError):
+            records.RoundDetail(**{**open_round, **patch})
     round_cover = dict(dataStatus="Ready", reason=None, isFinal=True, accounts=[dict(accountId=ID,
         initializedOn="2026-09-01", effectiveStartDate="2026-09-01", targetThroughDate="2026-09-11",
         calculatedThroughDate="2026-09-11", valuationAt="2026-09-11T15:00:00+08:00", dataStatus="Ready", reason=None)])

@@ -8,9 +8,10 @@ import { RecordDetailContent, type SavedRecordDetail } from "./RecordDetailDialo
 import type { MaintenanceRecord } from "./RecordMaintenanceForm";
 import { TradingAssistantAction } from "./TradingAssistantForm";
 
-export function RecordDetails({ selection, token, onRefresh, onGroup, onRound, onMaintain }: {
+export function RecordDetails({ selection, token, onRefresh, onGroup, onRound, onRoundDetail, onMaintain }: {
   selection: RecordSelection; token: string; onRefresh: () => void; onGroup: (group: TradeDayGroup) => void;
   onRound: (round: RoundRecordsScope) => void; onMaintain: (source: MaintenanceRecord, action: "CORRECT" | "VOID") => void;
+  onRoundDetail?: (round:RoundRecordsScope)=>void;
 }) {
   const [detail, setDetail] = useState<SavedRecordDetail | null>(null);
   const [error, setError] = useState(false);
@@ -43,6 +44,7 @@ export function RecordDetails({ selection, token, onRefresh, onGroup, onRound, o
     return <><h3>{r.stockRef.name} · 逐笔闭环</h3><p className="ta-note">{r.stockRef.tsCode}</p><div className={`ta-record-profit ta-profit--${profitTone(r.profitAmount)}`}><strong>{money(r.profitAmount, true)}</strong><span>{percent(r.returnPct, true)}</span></div>
       <div className="ta-record-detail-scroll"><dl className="ta-record-facts">{closedFacts(r).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></div>
       <TradingAssistantAction onClick={() => setOriginal(true)}>查看原始成交</TradingAssistantAction>
+      {onRoundDetail && <TradingAssistantAction onClick={()=>onRoundDetail({ accountId:r.roundRef.accountId,roundId:r.roundRef.roundId })}>查看所属轮次</TradingAssistantAction>}
       <TradingAssistantAction onClick={() => onRound({ accountId: r.roundRef.accountId, roundId: r.roundRef.roundId })}>查看第 {r.roundRef.roundNumber} 轮全部闭环</TradingAssistantAction></>;
   }
   return <>{original && <TradingAssistantAction onClick={() => setOriginal(false)}>返回闭环详情</TradingAssistantAction>}

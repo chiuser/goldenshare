@@ -10,6 +10,18 @@ const filter = defaultRecordFilter();
 const totals = (id: string) => ({ scope: { accountMode: "SINGLE", accounts: [{ accountId: id }] }, requestedStartDate: filter.start, requestedEndDate: filter.end, closedTradeCount: 0, readContext: { contextToken: id, accounts: [] } });
 const page = (id: string, nextCursor: string | null = null) => ({ items: [], nextCursor, readContext: { contextToken: id }, coverage: { accounts: [] } });
 describe("records read coordination", () => {
+  it("recaptures the summary when the parent context changes without a write", async () => {
+    mock.summary.mockImplementation(async q => ({ ...totals("one"), readContext:{ contextToken:q.readContext,accounts:[] } }));
+    const onChanged = vi.fn();
+    const hook = renderHook(({ token }) => useRecords("one", "TRADE", filter, null, 0, { token,onChanged }), { initialProps:{ token:"first" } });
+    await waitFor(() => expect(hook.result.current.page).not.toBeNull());
+    hook.rerender({ token:"second" });
+    expect(hook.result.current.summary).toBeNull();
+    await waitFor(() => expect(hook.result.current.summary?.readContext.contextToken).toBe("second"));
+    expect(mock.summary).toHaveBeenCalledTimes(2);
+    expect(mock.trades.mock.calls.at(-1)![0].readContext).toBe("second");
+    hook.unmount();
+  });
   beforeEach(() => { vi.clearAllMocks(); mock.summary.mockImplementation(async q => totals(q.accountId)); mock.trades.mockImplementation(async q => page(q.accountId, q.cursor ? null : "next")); });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
   it("keeps the full-range summary across pagination and resets cursors on new filters", async () => {

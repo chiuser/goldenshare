@@ -11,6 +11,9 @@ from src.biz.queries.wealth.market.trading_assistant.return_day_detail import Re
 from src.biz.queries.wealth.market.trading_assistant.return_curve import ReturnCurveQuery
 from src.biz.queries.wealth.market.trading_assistant.return_calendar import ReturnCalendarQuery
 from src.biz.queries.wealth.market.trading_assistant.return_contributions import ReturnContributionsQuery
+from src.biz.queries.wealth.market.trading_assistant.round_detail import RoundDetailQuery
+from src.biz.queries.wealth.market.trading_assistant.completed_rounds import CompletedRoundsQuery
+from src.biz.queries.wealth.market.trading_assistant.return_review import ReturnReviewQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery
 from src.biz.queries.wealth.market.trading_assistant.positions import PositionsQuery
@@ -36,4 +39,5 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
         RecordDetailQuery(policy), CalculationStatusQuery(policy),
         CalculationRetryService(transactions, policy, now, executor_id=executor_id), CurrentReadContextQuery(policy),
         positions, PositionsAnalysisQuery(positions), RecordListsQuery(policy), RecordSummaryQuery(policy), ClosedRecordsQuery(policy),
-        ReturnDayDetailQuery(policy), ReturnCurveQuery(policy), ReturnCalendarQuery(policy), ReturnContributionsQuery(policy))
+        ReturnDayDetailQuery(policy), ReturnCurveQuery(policy), ReturnCalendarQuery(policy), ReturnContributionsQuery(policy),
+        RoundDetailQuery(policy), CompletedRoundsQuery(policy), ReturnReviewQuery(policy))

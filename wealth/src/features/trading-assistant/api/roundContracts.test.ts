@@ -18,6 +18,12 @@ const ready = { readContext: { contextToken: "test", targetThrough: "2026-09-11T
   coverage: { dataStatus: "Ready", reason: null, isFinal: true, accounts: [cover] }, detail };
 
 describe("round detail state envelope", () => {
+  it("does not accept a final return for an ongoing round",()=>{
+    const open={ ...detail,roundRef:{ ...detail.roundRef,status:"OPEN" },closedOn:null,sellQuantity:"400",roundProfitAmount:null,roundReturnPct:null };
+    expect(parseContract("RoundDetail",open)).toBe(open);
+    expect(()=>parseContract("RoundDetail",{ ...open,roundProfitAmount:"1000.00" })).toThrow();
+    expect(()=>parseContract("RoundDetail",{ ...open,roundReturnPct:"10.00" })).toThrow();
+  });
   it("accepts complete Ready detail", () => {
     expect(parseContract("RoundDetailResponse", ready)).toBe(ready);
   });

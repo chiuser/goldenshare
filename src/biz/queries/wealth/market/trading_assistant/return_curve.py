@@ -1,11 +1,13 @@
 """Approved curve periods and scope coverage within one fixed read context."""
 from datetime import date
+from uuid import UUID
 
 from src.biz.schemas.wealth.market.trading_assistant.common import AccountCoverage, Coverage
 from src.biz.schemas.wealth.market.trading_assistant.returns import CurvePoint, CurveResponse
 from src.biz.services.wealth.market.trading_assistant.calculation.precision import format_cents
 from .record_scope import read_record_scope
 from .return_periods import PeriodReturnsQuery
+from .return_scope import ReturnScopeQuery
 from .return_windows import curve_windows
 
 
@@ -49,11 +51,20 @@ class ReturnCurveQuery:
     def __init__(self, policy):
         self.policy = policy
         self.periods = PeriodReturnsQuery(policy)
+        self.history = ReturnScopeQuery(policy)
 
     def read(self, session, *, owner_id, basis, query, cutoff, deadline):
         scope, _ = read_record_scope(session, owner_id=owner_id, basis=basis, query=query,
                                      deadline=deadline, policy=self.policy)
         start, end = date.fromisoformat(query.requestedStartDate), date.fromisoformat(query.requestedEndDate)
+        history_start = None
+        for reference in basis.context.accounts:
+            deadline.remaining_ms()
+            account_scope = self.history.read(session, owner_id=owner_id, basis=basis,
+                account_id=UUID(reference.accountId), stock=query.tsCode, deadline=deadline)
+            first = account_scope.history_start
+            if first is not None:
+                history_start = first if history_start is None else min(history_start, first)
         points = []
         for window in curve_windows(start, end, granularity=query.granularity, today=cutoff.today):
             deadline.remaining_ms()
@@ -67,5 +78,6 @@ class ReturnCurveQuery:
                 returnPct=result.return_pct))
         deadline.remaining_ms()
         return CurveResponse(scope=scope, requestedStartDate=query.requestedStartDate,
+            historyStartDate=history_start.isoformat() if history_start else None,
             requestedEndDate=query.requestedEndDate, granularity=query.granularity,
             readContext=basis.context, coverage=curve_coverage(points), points=points)

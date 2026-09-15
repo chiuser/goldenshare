@@ -1,7 +1,8 @@
 import type { PositionRow, PositionsSummary as Summary } from "../api/generatedContracts";
+import type { ReactNode } from "react";
 import { positionNumber as number, positionPercent as percent, profitTone } from "../model/positionPresentation";
 
-export function PositionMetric({ title, value, note, tone = "flat" }: { title: string; value: string; note: string; tone?: string }) {
+export function PositionMetric({ title, value, note, tone = "flat" }: { title: string; value: string; note: ReactNode; tone?: string }) {
   return <div className={`ta-position-metric ta-position-metric--${tone}`}><h3>{title}</h3><strong>{value}</strong><small>{note}</small></div>;
 }
 export function PositionsSummary({ summary: s, graphical }: { summary: Summary; graphical: boolean }) {

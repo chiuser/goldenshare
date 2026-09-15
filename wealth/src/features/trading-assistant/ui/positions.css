@@ -37,9 +37,10 @@
 .ta-position-row-actions { display: flex; flex-direction: column; gap: 8px; }
 .ta-position-row-actions > button { min-width: 108px; }
 .ta-position-fees { gap: 0; }
-.ta-position-fees .ta-position-metric { min-height: 132px; border-radius: 0; }
-.ta-position-fees .ta-position-metric strong { margin: auto 0; text-align: center; font-size: 18px; }
-.ta-position-fees .ta-position-metric small { text-align: right; }
+.ta-position-fees .ta-position-metric { min-height: 132px; border-radius: 0; padding: var(--cs-space-16) var(--cs-space-20); }
+.ta-position-fees .ta-position-metric h3 { font-size: 14px; line-height: 22px; color: var(--cs-color-text-secondary); }
+.ta-position-fees .ta-position-metric strong { font-size: 28px; line-height: 36px; }
+.ta-position-fees .ta-position-metric small { font-size: 13px; line-height: 20px; color: var(--cs-color-text-secondary); }
 .ta-position-chart-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 20px; }
 .ta-position-chart-grid--map { grid-template-columns: minmax(0, 3.24fr) minmax(280px, 1fr); }
 .ta-position-chart-grid aside p { font-size: 13px; line-height: 1.8; }

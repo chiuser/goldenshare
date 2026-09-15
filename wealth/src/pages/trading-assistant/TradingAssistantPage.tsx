@@ -4,6 +4,7 @@ import { getAuthEpoch } from "../../features/auth/model/authStorage";
 import type { FeeSettingsDto, InitializationDefaults, InitializationDetail, StockRef } from "../../features/trading-assistant/api/generatedContracts";
 import { PositionsWorkspace } from "../../features/trading-assistant/ui/PositionsWorkspace";
 import { RecordsPanel } from "../../features/trading-assistant/ui/RecordsPanel";
+import { ReturnsWorkspace } from "../../features/trading-assistant/ui/ReturnsWorkspace";
 import type { MaintenanceRecord } from "../../features/trading-assistant/ui/RecordMaintenanceForm";
 import { getDefaults, getFees, getInitialization } from "../../features/trading-assistant/api/tradingAssistantApi";
 import { useTradingAccounts } from "../../features/trading-assistant/model/useTradingAccounts";
@@ -37,6 +38,7 @@ function TradingAssistantWorkspace() {
   const [feedback, setFeedback] = useState("");
   const [analysis, setAnalysis] = useState(false);
   const [records, setRecords] = useState(false);
+  const [returnView, setReturnView] = useState<"CURVE"|"CALENDAR"|"RECORDS">("CURVE");
   const [readRevision, setReadRevision] = useState(0);
   async function refreshAfterWrite() {
     setReadRevision(value => value + 1);
@@ -75,11 +77,11 @@ function TradingAssistantWorkspace() {
     <main className="ta-page-main">
       {shell && <PageBreadcrumb items={[{ label: "财势乾坤", path: DEFAULT_WEALTH_PATH }, { label: "交易助手" }]} sessionStatus={shell.sessionStatus} onNavigate={navigateWealth} />}
       <div className={`ta-page-heading${records ? " ta-page-heading--records" : ""}`}>
-        <div><h1>{records ? "交易与资金记录" : analysis ? "持仓分析" : "持仓列表"}</h1><p>{records ? "逐笔成交、当日汇总、闭环交易和资金流水分开呈现" : analysis ? "查看当前持仓的行业分布、集中度与盈亏贡献" : "查看每一笔当前持仓及其动态摊薄成本、收益和可卖数量"}</p></div>
+        <div><h1>{records ? returnView === "CURVE" ? "收益曲线" : returnView === "CALENDAR" ? "收益日历" : "交易与资金记录" : analysis ? "持仓分析" : "持仓列表"}</h1><p>{records ? returnView === "RECORDS" ? "逐笔成交、当日汇总、闭环交易和资金流水分开呈现" : "按日、周、月查看持仓和交易产生的收益" : analysis ? "查看当前持仓的行业分布、集中度与盈亏贡献" : "查看每一笔当前持仓及其动态摊薄成本、收益和可卖数量"}</p></div>
         <div className="ta-segments ta-module-tabs" role="group" aria-label="交易助手模块">
           <button type="button" aria-pressed={!records} onClick={() => setRecords(false)}>持仓股</button><button type="button" aria-pressed={records} onClick={() => setRecords(true)}>收益分析</button><button type="button" disabled>计划与监控</button>
         </div>
-        {records && <div className="ta-segments ta-module-tabs" aria-label="收益视图"><button disabled>曲线</button><button disabled>日历</button><button aria-pressed="true">记录</button></div>}
+        {records && <div className="ta-segments ta-module-tabs" aria-label="收益视图">{([['CURVE','曲线'],['CALENDAR','日历'],['RECORDS','记录']] as const).map(([key,label])=><button key={key} aria-pressed={returnView===key} onClick={()=>setReturnView(key)}>{label}</button>)}</div>}
         <select aria-label="交易账户" value={accounts.state?.selected ?? ""} disabled={accounts.loading || !accounts.state?.accounts.length}
           onChange={event => { close(); accounts.select(event.target.value); }}>
           {!accounts.state?.accounts.length && <option value="">{accounts.loading ? "读取账户中…" : "暂无账户"}</option>}
@@ -92,8 +94,11 @@ function TradingAssistantWorkspace() {
         : accounts.loading && !accounts.state ? <section className="ta-page-status" role="status">正在读取账户…</section>
           : !accounts.state?.accounts.length ? <section className="ta-page-status"><h2>创建交易账户</h2><p>填写账户、费用和当前资产，开始记录交易。</p>
             <TradingAssistantAction primary disabled={opening} onClick={() => void open("create")}>创建账户</TradingAssistantAction></section>
-            : accounts.state.selected && (records ? <RecordsPanel key={accounts.state.selected} selected={accounts.state.selected} revision={readRevision}
+            : accounts.state.selected && (records ? returnView !== "RECORDS" ? <ReturnsWorkspace key={accounts.state.selected} selected={accounts.state.selected} revision={readRevision} view={returnView}
+              onSell={(accountId, stock) => setOverlay({ kind:"entry",accountId,direction:"SELL",stock })}
+              onMaintain={(source, action) => setOverlay({ kind: "maintenance", accountId: source.record.accountRef.accountId, source, action })} /> : <RecordsPanel key={accounts.state.selected} selected={accounts.state.selected} revision={readRevision}
               onEntry={current ? () => setOverlay({ kind: "entry", accountId: current.accountId, direction: "BUY" }) : undefined}
+              onSell={(accountId, stock) => setOverlay({ kind:"entry",accountId,direction:"SELL",stock })}
               onMaintain={(source, action) => setOverlay({ kind: "maintenance", accountId: source.record.accountRef.accountId, source, action })} />
               : <PositionsWorkspace key={accounts.state.selected} selected={accounts.state.selected} revision={readRevision} actions={ledgerActions} analysis={analysis} onAnalysisChange={setAnalysis}
               onSell={(accountId, stock) => setOverlay({ kind: "entry", accountId, direction: "SELL", stock })} />)}

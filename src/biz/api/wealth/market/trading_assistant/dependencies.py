@@ -17,6 +17,9 @@ from src.biz.queries.wealth.market.trading_assistant.return_day_detail import Re
 from src.biz.queries.wealth.market.trading_assistant.return_curve import ReturnCurveQuery
 from src.biz.queries.wealth.market.trading_assistant.return_calendar import ReturnCalendarQuery
 from src.biz.queries.wealth.market.trading_assistant.return_contributions import ReturnContributionsQuery
+from src.biz.queries.wealth.market.trading_assistant.round_detail import RoundDetailQuery
+from src.biz.queries.wealth.market.trading_assistant.completed_rounds import CompletedRoundsQuery
+from src.biz.queries.wealth.market.trading_assistant.return_review import ReturnReviewQuery
 from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountReadQuery, RoundRecordsQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery, OwnedReadContext
@@ -60,6 +63,27 @@ class TradingAssistantDependencies:
     return_curve: ReturnCurveQuery
     return_calendar: ReturnCalendarQuery
     return_contributions: ReturnContributionsQuery
+    round_detail: RoundDetailQuery
+    completed_rounds: CompletedRoundsQuery
+    return_review: ReturnReviewQuery
+
+    async def read_return_review(self, *, owner_id, query):
+        def execute(session, *, basis, cutoff, deadline, **unused):
+            return self.return_review.read(session, owner_id=owner_id, basis=basis,
+                query=query, cutoff=cutoff, deadline=deadline)
+        return await self._read_holdings(owner_id=owner_id, query=query, read=execute)
+
+    async def read_completed_rounds(self, *, owner_id, query):
+        def execute(session, *, basis, deadline, **unused):
+            return self.completed_rounds.read(session, owner_id=owner_id, basis=basis, query=query, deadline=deadline)
+        return await self._read_holdings(owner_id=owner_id, query=query, read=execute)
+
+    async def read_round_detail(self, *, owner_id, account_id, round_id, context_token=None):
+        query = AccountReadQuery(accountMode="SINGLE", accountId=str(account_id), readContext=context_token)
+        def execute(session, *, basis, cutoff, deadline, **unused):
+            return self.round_detail.read(session, owner_id=owner_id, basis=basis,
+                account_id=account_id, round_id=round_id, cutoff=cutoff, deadline=deadline)
+        return await self._read_holdings(owner_id=owner_id, query=query, read=execute)
 
     async def read_return_contributions(self, *, owner_id, query, day):
         def execute(session, *, basis, cutoff, deadline, **unused):

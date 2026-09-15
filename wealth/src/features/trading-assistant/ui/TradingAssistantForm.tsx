@@ -3,7 +3,7 @@ import "./trading-assistant-form.css";
 
 export function TradingAssistantDialog({ title, subtitle, children, footer, onClose, variant = "dialog", showClose = true }: {
   title: string; subtitle?: string; children: ReactNode; footer: ReactNode; onClose: () => void;
-  variant?: "dialog" | "drawer" | "onboarding" | "assets" | "recovery" | "fees"; showClose?: boolean;
+  variant?: "dialog" | "drawer" | "onboarding" | "assets" | "recovery" | "fees" | "round"; showClose?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();

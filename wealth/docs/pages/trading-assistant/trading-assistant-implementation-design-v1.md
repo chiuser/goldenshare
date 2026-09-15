@@ -2131,7 +2131,7 @@ GET accounts 输出 `{items:AccountSummary[]}`；defaults 输出 `{stampTaxRateP
 | AllocationSlice | kind:STOCK/CASH/OTHER、stockRef?、marketValue:Money、weightPct:ReturnPct、members:{stockRef,marketValue,weightPct}[]；OTHER 包含完整第 8 名起成员，其他两类 members=[]；CASH 独立。分母未知时对应 slices=null 而不是空数组伪造无持仓 |
 | PositionDetail | scope、readContext、coverage、stockRef、accountRounds；accountRounds 为数组，每项含 accountRef、roundRef、openedOn、openingSource、quantity、availableQuantity、buyInvestmentAmount、sellNetProceedsAmount、dynamicCostAmount、dynamicCostPrice、price、marketValue、estimatedSellCommission、estimatedStampTax、estimatedNetProceeds、holdingProfitAmount、holdingReturnPct、dayProfitAmount、recordsScope、dataStatus、reason |
 | PositionsAnalysis | scope、readContext、coverage；§4.12.2 的 largestPosition、top3WeightPct、top5WeightPct、cashWeightPct、cashAmount、industries、cumulative、daily。largestPosition 为 {stockRef,marketValue,weightPct} 或 null；贡献极值对象为 {stockRef,profitAmount} 或 null；贡献组另含 unknownCount、dataStatus、reason。行业项完整字段按该节，列表缺分类不缺金额 |
-| CurveResponse | scope、requestedStartDate、requestedEndDate、granularity:DAY/WEEK/MONTH、readContext、coverage、points:CurvePoint[]；点按 periodStartDate 升序，不能依返回顺序猜周期 |
+| CurveResponse | scope、historyStartDate:BusinessDate 或 null、requestedStartDate、requestedEndDate、granularity:DAY/WEEK/MONTH、readContext、coverage、points:CurvePoint[]；historyStartDate 必须存在，表示当前账户／股票范围不受筛选裁剪的最早历史日期，无历史为 null，供“全部”使用；点按 periodStartDate 升序，不能依返回顺序猜周期 |
 | CurvePoint | periodStartDate、periodEndDate、isPeriodEnded:boolean、Coverage、ReturnTriple；实际逐账户截止在 Coverage.accounts，点没有有效收益时保留身份与空三元组 |
 | CalendarResponse | §4.30.2 根对象和完整 Day 字段；monthSummary 为 §4.12.3 四摘要，另用 periodCoverage／dailyStatsCoverage／closedCoverage 分别说明完整性；最低率日期键为 minDailyReturnDates:BusinessDate[]，无有效极值为空数组 |
 | DayDetail | scope、date、readContext、coverage、ReturnTriple、closedTradeCount?、closedProfitAmount?、commissionAmount?、stampTaxAmount?、closedDataStatus、feeDataStatus、contributionsScope、recordsScope；三类收益／闭环／实际费用不合为一个总数 |
@@ -4714,3 +4714,60 @@ CodeGraph query／impact 核对 `advance_return_period`、`advance_period` 的�
 用户确认“补齐吧”，§11.14.7 的待批准限制解除。`records.RoundDetailResponse` 已按 §4.13.3 新根结构落地，保留 RoundDetail 作为内部完整数据对象；后端严格校验 Ready／detail 互斥、不可用原因、具体账户与轮次定位。机械生成 `generatedContracts.ts`，`recordContractSemantics.ts` 同步校验新根，未手写第二套字段合同。CodeGraph 和定向消费者核查确认此前整轮详情尚未接入生产路由／页面，无平铺网络响应消费者需兼容；未来路由必须消费新根，不能直接返回 RoundDetail。
 
 `test_wealth_trading_assistant_contracts.py` 覆盖完整 Ready、Delayed／Recalculating／Error／Partial 空详情、禁止附旧数据、缺键／额外键、原因空白、账户及记录轮次不一致；合同加三项架构护栏 **106 passed，10.38 秒**。`roundContracts.test.ts` 经实际 parseContract 验证同类分支，连同既有记录及结构校验 **42 passed**。Wealth typecheck、build 通过，构建仍提示大 chunk；本次无页面／布局变更，不运行浏览器来替代尚不存在的整轮接口验收。未修改收益算法、产品功能、Figma 或依赖矩阵，不新增数据库／配置／依赖，不写生产。技术方案按文档治理要求同步当前字段与历史批准状态；尚未提交。M5 的正式整轮查询及页面、曲线／日历页面与完整验收仍待推进。
+
+#### 11.14.9 整轮与范围复盘读取接入
+
+§11.14.7—8 已提交为 `7e0fc307`，未推送。本轮继续 §4.13 的既定接口，不新增字段或核算公式；CodeGraph explore 核对闭环投影、记录详情及生成的合同消费者，人工追到固定发布、有效账务与真实路由。
+
+| 硬口径 | 实现及验收落点 |
+| --- | --- |
+| 列表只按清仓日期筛选，金额覆盖完整轮次 | `round_sources.published_rounds` 先固定相符发布、取每轮最后日结果并编号，再由 `completed_rounds` 筛选范围；不得累加每天重复的累计金额。真实初始化、两笔部分卖出验证整轮投入、回款、利润及闭环成本守恒 |
+| 轮次排序、跨账户和分页独立 | 清仓日期降序，账户／代码／轮次 ID 升序；游标绑定原范围与上下文；默认 20、最多 100。两账户四轮按每页 1 条读回，无漏项、无重复，总数不取当前页 |
+| 完整详情不受父范围裁断 | `round_detail` 从真实初始化来源与轮次日期内有效成交核对数量和累计金额，再核对完整闭环分摊成本／收益；当前费率不参与已结束整轮计算；跨日重建仓不覆盖旧轮次 |
+| 不可用详情不携带旧金额 | 已存在且属于本人账户的轮次，未发布时返回状态与 null 详情；已发布但开放轮次未到服务端截止也返回 Delayed。未找到对象／越权仍拒绝，旧 token 返回上下文变化。不能把仅发布到昨日的代次当作今日完整结果 |
+| 复盘采用精确所选范围 | `return_review` 使用日粒度独立期间结果及既有精确日统计，闭环笔数与已结束轮数分别取既有查询；不接受粒度或金额／率切换参数，不扩张为整月；日历与同范围复盘的统计对账 |
+| 只读与分层 | 通过既有依赖和 App 组合根接入三个 GET；固定同一只读事务，沿用 5 秒／SQL 1 秒预算。只写本次隔离测试库，不接触生产、不新增迁移／配置／依赖 |
+
+整轮处于 OPEN 时仅提供已核对的身份和累计事实，最终整轮利润／率留空；前端接入时须按 §4.13.3 的原规则进入已有持仓详情并核对 roundId，不用 S−B 展示未结束轮次的最终收益。正式 Figma 整轮详情 `1807:37382` 已通过 figma-design-to-code 读取，保留 R5-A 两组双卡、本轮来源、完整闭环入口及返回筛选；本轮只补前端 API 封装和运行时校验，尚未挂载页面。
+
+验证：真实 API 测试 `test_wealth_trading_assistant_rounds_api.py` 和扩展的 `test_wealth_trading_assistant_return_stock_days.py`，连同日统计、合同及三项架构护栏 **146 passed，45.55 秒**，保留两条既有 Alembic 提醒。跨账户四轮每轮投入 10000.00、净回款 11984.00、收益 1984.00／19.84%；单账户旧轮在重新建仓及费率修改后仍为 1989.00／19.89%。代表读取 **85 次 SQL、2018 字节、0.10631 秒**，无 DML；这不是完整长历史容量验收。前端 API／状态合同 **10 passed**，typecheck、build、生成合同 `--check`、文档完整性、diff 检查通过；构建仍有既有大 chunk 提醒。CodeGraph sync/status 已同步，无依赖方向变化。新实现尚未提交，未部署、未修改 Figma；页面和浏览器验收仍未完成，不能据此宣布 M5 完成。
+
+**前端接入待批准的字段补齐：**正式 TA-03 `1436:229` 有“全部”历史范围，但 `CurveQuery` 要求明确起止日期，`CurveResponse` 没有不受当前筛选裁剪的历史起点。`AccountSummary.initializedOn` 是账户提交日期，不能替代更早的初始持仓 openedOn；`AccountCoverage.effectiveStartDate` 又是历史与当前范围的交集。例如 2026 年创建账户时登记了 2020 年建仓的股票，当前近一个月响应不能告诉前端“全部”应从 2020 年开始。不得用账户创建日漏掉历史，也不得硬编码极早日期扫描无关年份，或逐账户拉取全部初始化明细让页面重建业务范围。
+
+建议在 `CurveResponse` 补一个可空 `historyStartDate`，由服务端按既定账户／股票范围及有效历史事实提供，不受当前起止日期裁剪；空历史返回 null。复用已有 `ReturnScopeQuery` 的历史起点口径，全部账户取各自有效起点的最早值。该字段只支撑已批准的“全部”按钮，不新增功能、配置、表或收益公式，但属于公开合同变更，须获确认后同步 schema、生成类型、校验、测试和页面。本轮未自行添加字段。
+
+#### 11.14.10 曲线历史起点合同补齐
+
+用户确认“按建议做吧”，§11.14.9 的字段补齐已获批准。`CurveResponse.historyStartDate` 为必需可空字段，沿用服务端有效历史定义，不能取当前持仓集合、账户提交日期或当前筛选范围的起点来替代。全部账户取本人已解析账户各自历史起点的最早值；单股只计该股票的有效期初与交易历史，无该股历史为 null，纯现金全仓沿用账户初始化起点。字段在同一次只读一致事务中读取，不依赖收益是否已发布，日期范围和日／周／月粒度变化不改变该历史事实；真实事实更正后通过既有上下文失效机制重新取得。
+
+实施范围为曲线 schema、`ReturnCurveQuery`、机械生成的前端类型、运行时校验与测试；不新增数据库、配置、行情调用或收益算法。CodeGraph explore 与当前引用核查覆盖正式曲线路由、读取查询、范围复盘复用、生成合同及 API 封装；页面消费者仍待接入，不保留旧响应兼容分支。验收覆盖早于筛选的历史、未来筛选、单股、空历史、多账户隔离、缺键及非法日期。
+
+#### 11.14.11 M5 页面接入与真实链路验收
+
+本节承接用户对历史起点字段的批准以及持续推进 M5 的要求；上节“页面消费者仍待接入”是接入前的阶段记录。此次复用正式 TA-03／TA-04、R5-A 一体化账本、日期详情、已结束整轮及进行中持仓节点；不修改产品口径或 Figma，不新增配置、依赖、表或导出。
+
+| 硬口径 | 实现与验证 |
+| --- | --- |
+| 全部历史不能用账户创建日替代 | `ReturnCurveQuery` 在同事务按有效账户／股票事实输出必需可空 `historyStartDate`；`returnSelection` 和 `ReturnsWorkspace` 的全部范围使用该值，无该股历史保留 null。真实 API 验证早期建仓、未来筛选、纯现金与无该股历史，合同拒绝缺键和非法日期 |
+| 曲线控件与复盘范围分开 | `ReturnsWorkspace`／`ReturnCurveChart` 接入股票、五种范围、日周月及金额／率；改变展示指标不请求 API。图形只做精确整数到坐标的映射，空值断线，零值留点；tooltip 使用服务端实际周期。顶部当前／本月摘要不随图下筛选改变 |
+| 日历沿用一体化五列布局 | `ReturnCalendarGrid` 消费完整网格，日期和双数值主次切换，未来只显示日期，过去无数显示待计算；44 像素翻月按钮使用正式稿箭头资产。四卡和下方整体齐边，不展示人民币符号。网格、金额大数及零值均有组件测试 |
+| 当天明细和分页不改变当天合计 | `ReturnDayDetail` 读取单日，独立 `DayContributions` 用固定上下文分页，每页 20 只；当天成交、资金和闭环复用记录页，不把闭环利润加到当天增量 |
+| 复盘与整轮读取真实结果 | `ReturnReview` 分别显示日统计、闭环笔数和结束轮数；`ReturnDates` 展开全部并列极值日期，不在前端重选极值。`CompletedRounds` 使用真实游标和总数，详情沿用 R5-A 两组双卡、初始化来源及全轮闭环入口，640 像素详情不塞入所有成交 |
+| 所属轮次不是同股最新仓位 | 闭环详情可查看所属轮次。`HoldingRoundDetail` 先读取固定轮次；OPEN 复用 `PositionDetailDialog`，校验具体账户和 expectedRoundId，错误轮次不展示其数值。CLOSED 展示完整累计投入与净回款。卖出只预填具体账户／股票，沿用原记账流程；前端负例证明不会误开新轮次 |
+| 返回、版本与请求生命周期 | `useReturnRead` 拒绝旧选择及旧登录的迟到响应，页面隐藏中止请求，返回重新读取。父视图保留选择但在下钻时暂停读取。父上下文变化清除记录摘要缓存；终态轮询不因历史缺数反复刷新同一发布代次。相关 hook 测试覆盖取消、账户切换、上下文变化、60 秒等待和终态停止 |
+
+阶段验证：正式收益日、单股日、整轮 API 与合同 **110 passed，44.80 秒**，保留 3 条既有 Alembic 提醒。三项架构护栏 **16 passed，9.55 秒**；生成合同 `--check`、文档检查和差异检查通过。Wealth 全量首轮 **139 文件／1045 项通过，14.75 秒**，随后补充的隐藏视图、轮次保护及并列日期测试需计入最终复跑，不能将重叠批次相加。
+
+`trading-assistant-returns-smoke.mjs` 在本次新建本机隔离库，以真实命令和 M3 发布验收：1000 股 × 10.00 初始化、12.00 全部卖出，整轮 2000.00／20.00%；9 月 10 日收益 2000.00，9 月 11 日新增收益为真实 0，不重复加闭环。全部范围从 9 月 10 日开始，而非 9 月 11 日账户提交日。曲线→结束轮→全轮闭环→返回恢复范围，日历→当天详情→当天记录→返回选中日期均通过；另一个账户卖出 400 股后，从闭环所属轮次正确进入 600 股的当前持仓及全轮闭环。此次浏览器无 console／失败请求，收益 API 读取 12 次；截图前缀 `/private/tmp/m5-returns-final`。这是代表账本验收，不是多年历史容量证明。
+
+CodeGraph explore、sync/status 及当前消费者核查覆盖后端入口、范围／轮次查询、生成合同、收益页面和既有记录／持仓组件；依赖矩阵未变。当前改动未提交、未部署、未写生产；其他任务的启动检查预算、研究与数据湖改动保留。M5 全量后端回归、最终前端及原录入／恢复 smoke 仍在验收，完成前不标记 M5 通过。
+
+**最终收尾（本轮后续验证）：**
+
+- 交易助手全量后端 **576 passed，531.06 秒**，仅按原范围排除另一任务未提交的 `schema_budget` 专项；198 条既有 Alembic 提醒。随后发现 OPEN 响应校验尚可接收“最终整轮收益”，按 §4.13.3 既有规则收紧前后端校验，禁止进行中轮次附最终利润／率；实际查询原本已输出 null，未改变算法或合法业务输入。合同与真实整轮 API 复跑 **96 passed，20.74 秒**，不与全量数量相加。
+- 最终 Wealth 全量 **141 文件／1050 项通过，13.91 秒**；交易助手子集 **32 文件／159 项通过**。typecheck、build、合同生成 `--check`、三项架构护栏、文档和差异检查通过；构建仍有既有大 chunk 提醒，未扩大预算或安装依赖。
+- 原录入／恢复 smoke 顺序通过：首次必填费率／建仓日期、账户切换、交易和资金更正／作废、费用修改、未知结果恢复及真实发布。仅保留预期丢响应 1 次、模拟资源错误 2 条，证据 `/private/tmp/m5-baseline`。
+- 记录 smoke 顺序通过：两筆原始卖出／一个日组／两笔闭环；资金 20＋3 分页，更正后 230.00→235.00。另 23 笔真实闭环按 20＋3 分页，**页面完整范围摘要始终为 23 笔／460.00**，不是本月卡或当前页小计；范围与整轮查询金额一致。无 console／失败请求，证据 `/private/tmp/m5-records-accepted`。
+- 最终收益 smoke 无 console／失败请求，截图 `/private/tmp/m5-returns-complete-{curve,calendar,day,closed-round,open-round}.png` 已核对。浏览器检查四卡整体左右与下方对齐、结束轮详情宽 640、费用卡使用 R5-A 的 14／28／13 像素左对齐样式；修正了复用费用卡残留的旧居中样式。日历截图等待右侧真实详情完成，不将加载瞬间当作最终布局。曲线 tooltip 补齐逐账户实际起点和已算截止，周／月横轴保留周期首尾；复盘明确部分数据为暂定，范围闭环显示独立完整摘要。
+
+**M5 本地实现及上述验收完成，交付独立 Review；不自动进入 M6。** 当前未提交，未推送、部署或修改生产数据。复用 M1 计算、M3 发布与 M4 记账／恢复，产品语义未变，PRD／Figma 无新增待拍板项。本次真实收益读取以代表账本及分页样本为依据，未宣称多年全历史或生产并发容量已经验收；该容量风险和既有构建体积提示保留给后续上线前验收，不靠提高超时或限制用户持仓掩盖。

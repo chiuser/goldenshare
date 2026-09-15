@@ -36,6 +36,7 @@ try {
   await page.goto(base + "/wealth/market/trading-assistant");
   await page.getByLabel("交易账户", { exact: true }).selectOption(account);
   await page.getByRole("button", { name: "收益分析", exact: true }).click();
+  await page.getByRole("button", { name: "记录", exact: true }).click();
   const rows = page.locator(".ta-record-table-scroll tbody tr"), cards = page.getByLabel("本月记录摘要");
   await rows.first().waitFor(); assert.equal(await rows.count(), 2);
   assert.match(await cards.innerText(), /\+500.00/);
@@ -104,6 +105,18 @@ try {
   assert.deepEqual([roundFirst.items.length, roundNext.items.length], [20, 3]);
   assert.deepEqual(roundFirst.summary, first.summary);
   assert.deepEqual([...roundFirst.items, ...roundNext.items].map(r => r.tradeId), [...first.items, ...next.items].reverse().map(r => r.tradeId));
+  await page.reload();
+  await page.getByLabel("交易账户", { exact:true }).selectOption(bulkId);
+  await page.getByRole("button", { name:"收益分析",exact:true }).click();
+  await page.getByRole("button", { name:"记录",exact:true }).click();
+  await page.getByRole("button", { name:"闭环交易",exact:true }).click();
+  await page.waitForFunction(()=>document.querySelectorAll(".ta-record-table-scroll tbody tr").length===20);
+  const completeSummary=await page.getByLabel("当前闭环范围汇总").innerText();
+  assert.match(completeSummary,/23 笔 · 收益 \+460.00/);
+  await page.getByRole("button", { name:"下一页",exact:true }).click();
+  await page.waitForFunction(()=>document.querySelectorAll(".ta-record-table-scroll tbody tr").length===3);
+  assert.equal(await page.getByLabel("当前闭环范围汇总").innerText(),completeSummary);
+  assert.deepEqual(errors,[]);assert.deepEqual(failures,[]);
   console.log(JSON.stringify({ trades: 2, groups: 1, closures: 2, cashPages: [20, 3], closedPages: [20, 3], closedTotal: "460.00", errors, failures }));
 } catch (error) {
   const page = context.pages().at(-1);

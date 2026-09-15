@@ -34,6 +34,7 @@ class CurvePoint(Coverage, ReturnTriple):
 
 class CurveResponse(Contract):
     scope: Scope
+    historyStartDate: BusinessDate | None
     requestedStartDate: BusinessDate
     requestedEndDate: BusinessDate
     granularity: Literal["DAY", "WEEK", "MONTH"]

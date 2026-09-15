@@ -351,8 +351,8 @@ class RoundDetail(Contract):
                 raise ValueError("Closed round requires its fixed return")
             if decimal_cents(self.roundProfitAmount) != decimal_cents(self.sellNetProceedsAmount) - decimal_cents(self.buyInvestmentAmount):
                 raise ValueError("Closed round profit does not reconcile")
-        elif self.closedOn is not None:
-            raise ValueError("Open round cannot have a closing date")
+        elif self.closedOn is not None or self.roundProfitAmount is not None or self.roundReturnPct is not None:
+            raise ValueError("Open round cannot have a closing date or a final return")
         return self
 
 

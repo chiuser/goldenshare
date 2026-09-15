@@ -1,5 +1,7 @@
 import { useState } from "react";
-import type { RoundRecordsScope } from "../api/generatedContracts";
+import type { RoundRecordsScope, StockRef } from "../api/generatedContracts";
+import { HoldingRoundDetail } from "./CompletedRounds";
+import "./returns.css";
 import { defaultRecordFilter, recordCategories, type RecordCategory, type RecordFilter } from "../model/recordsQuery";
 import { useRecords } from "../model/useRecords";
 import { recordTable, recordCellTone, type RecordTableRow } from "../model/recordPresentation";
@@ -11,16 +13,20 @@ import { TradingAssistantAction } from "./TradingAssistantForm";
 import "./positions.css";
 import "./records.css";
 
-export function RecordsPanel({ selected, revision, onEntry, onMaintain }: { selected: string; revision: number; onEntry?: () => void;
+export type ReturnRecordsEntry = { category: RecordCategory; filter: RecordFilter; token: string; round?: RoundRecordsScope };
+export function RecordsPanel({ selected, revision, onEntry, onMaintain, initial, onContextChanged, onSell }: { selected: string; revision: number; onEntry?: () => void;
+  onSell?: (accountId:string,stock:StockRef)=>void;
+  initial?: ReturnRecordsEntry; onContextChanged?: () => void;
   onMaintain: (source: MaintenanceRecord, action: "CORRECT" | "VOID") => void }) {
-  const [category, setCategory] = useState<RecordCategory>("TRADE");
-  const [filter, setFilter] = useState(defaultRecordFilter);
+  const [category, setCategory] = useState<RecordCategory>(initial?.category ?? "TRADE");
+  const [filter, setFilter] = useState(() => initial?.filter ?? defaultRecordFilter());
   const [filterVersion, setFilterVersion] = useState(0);
-  const [round, setRound] = useState<RoundRecordsScope | null>(null);
+  const [round, setRound] = useState<RoundRecordsScope | null>(initial?.round ?? null);
   const [parents, setParents] = useState<{ category: RecordCategory; filter: RecordFilter; round: RoundRecordsScope | null }[]>([]);
   const parent = parents.at(-1);
   const [picked, setPicked] = useState<{ token: string; key: string } | null>(null);
-  const read = useRecords(selected, category, filter, round, revision);
+  const [roundDetail,setRoundDetail] = useState<{ round:RoundRecordsScope;token:string }|null>(null);
+  const read = useRecords(selected, category, filter, round, revision, initial && onContextChanged ? { token:initial.token, onChanged:onContextChanged } : undefined);
   const table = read.page ? recordTable(read.page) : null;
   const token = read.page?.data.readContext.contextToken;
   const chosen: RecordTableRow | undefined = table?.rows.find(r => picked !== null && picked.token === token && r.key === picked.key) ?? table?.rows[0];
@@ -41,6 +47,7 @@ export function RecordsPanel({ selected, revision, onEntry, onMaintain }: { sele
     {parent ? <TradingAssistantAction onClick={back}>返回上级记录</TradingAssistantAction> : <RecordFilters key={`${category}:${filterVersion}`} category={category} initial={filter} onQuery={apply} onReset={() => apply(defaultRecordFilter())} />}
     <p className="ta-record-scope">{round ? "整轮闭环 · 完整轮次日期" : "列表范围"}：{read.page?.data.requestedStartDate ?? filter.start}—{read.page?.data.requestedEndDate ?? filter.end}
       {!round && ` · ${category === "CASH" ? "资金流水" : filter.stock?.name || "全部股票"} · ${{ BUY: "买入", SELL: "卖出", IN: "转入", OUT: "转出" }[filter.direction] || "全部方向"}`}</p>
+    {read.page?.kind === "CLOSED" && <p className="ta-record-scope" aria-label="当前闭环范围汇总">{round ? "本轮" : "所选范围"}闭环 {read.page.data.summary.closedTradeCount ?? "待计算"} 笔 · 收益 {money(read.page.data.summary.closedProfitAmount,true)}{read.page.data.summary.reason ? ` · ${read.page.data.summary.reason}` : " · 完整范围，不随分页变化"}</p>}
     {read.error && <div role="alert" className="ta-position-read-error">记录暂时无法读取，未改变账户数据。<TradingAssistantAction onClick={read.refresh}>重新读取</TradingAssistantAction></div>}
     {read.busy && <p role="status">正在读取记录…</p>}
     {read.page?.data.coverage.reason && <p className="ta-position-coverage" role="status">{read.page.data.coverage.reason}</p>}
@@ -51,8 +58,11 @@ export function RecordsPanel({ selected, revision, onEntry, onMaintain }: { sele
       {table && !table.rows.length && <p role="status">{read.page?.data.coverage.dataStatus === "Empty" || read.page?.data.coverage.dataStatus === "Ready" ? "所选范围暂无记录" : "结果尚未就绪，不能确认为无记录"}</p>}
     </div><div className="ta-record-pagination"><span>第 {read.pageIndex + 1} 页 · 本页 {table?.rows.length ?? 0} 条 · 每页最多 20 条</span><div><TradingAssistantAction disabled={read.busy || !table?.rows.length || read.pageIndex === 0} onClick={read.previous}>上一页</TradingAssistantAction><TradingAssistantAction disabled={read.busy || !read.page?.data.nextCursor} onClick={read.next}>下一页</TradingAssistantAction></div></div></div>
       <aside className="ta-record-detail">{chosen && token ? <RecordDetails key={`${token}:${chosen.key}`} selection={chosen.value} token={token} onRefresh={read.refresh} onMaintain={onMaintain}
+        onRoundDetail={value=>setRoundDetail({ round:value,token })}
         onGroup={group => { rememberParent(); setRound(null); setCategory("TRADE"); apply({ start: group.tradeDate, end: group.tradeDate, stock: group.stockRef, direction: group.direction, accountId: group.accountRef.accountId }); }}
         onRound={value => { rememberParent(); setCategory("CLOSED"); setRound(value); setPicked(null); }} /> : <p className="ta-note">选择一条记录查看详情</p>}</aside>
     </div>
+    {roundDetail && roundDetail.token === token && <HoldingRoundDetail round={roundDetail.round} token={roundDetail.token} onClose={()=>setRoundDetail(null)} onChanged={()=>{setRoundDetail(null);read.refresh();}}
+      onSell={onSell} onRecords={detail=>{rememberParent();setCategory("CLOSED");setRound({ accountId:detail.accountRef.accountId,roundId:detail.roundRef.roundId });setPicked(null);}} />}
   </section>;
 }

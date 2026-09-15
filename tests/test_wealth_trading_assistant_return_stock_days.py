@@ -124,6 +124,32 @@ def test_real_stock_day_pages_include_closed_stocks_and_rebuilt_round(tmp_path):
                     assert [x.endpoint.stock for x in rows] == ["000001.SZ", "000101.SZ", "000102.SZ"]
                     assert rows[0].endpoint.state.quantity == 0 and rows[0].result.profit_cents == 0
                     assert rows[1].result.profit_cents == -500 and rows[2].result.profit_cents == 0
+                    round_url = ROOT + f"/accounts/{account}/holding-rounds/{rows[0].endpoint.round_id}"
+                    round_response = await client.get(round_url)
+                    assert round_response.status_code == 200, round_response.text
+                    whole_round = round_response.json()["detail"]
+                    assert whole_round["roundRef"]["roundNumber"] == 1
+                    assert whole_round["roundRef"]["status"] == "CLOSED"
+                    assert (whole_round["buyQuantity"], whole_round["sellQuantity"]) == ("1000", "1000")
+                    assert (whole_round["buyInvestmentAmount"], whole_round["sellNetProceedsAmount"],
+                        whole_round["roundProfitAmount"], whole_round["roundReturnPct"]) == ("10000.00", "11989.00", "1989.00", "19.89")
+                    assert whole_round["initializationSource"]["openedOn"] == "2026-09-10"
+                    assert whole_round["initializationSource"]["initializedOn"] == "2026-09-11"
+                    completed_url = ROOT + "/holding-rounds/completed"
+                    completed_params = dict(accountMode="SINGLE", accountId=str(account), stockMode="ALL",
+                        requestedStartDate="2026-09-11", requestedEndDate="2026-09-11", limit=1)
+                    completed = await client.get(completed_url, params=completed_params)
+                    assert completed.status_code == 200, completed.text
+                    assert completed.json()["completedRoundCount"] == 1
+                    assert completed.json()["items"][0]["roundProfitAmount"] == "1989.00"
+                    assert completed.json()["items"][0]["openedOn"] == "2026-09-10"
+                    not_closed = await client.get(completed_url, params={**completed_params,
+                        "requestedStartDate":"2026-09-10", "requestedEndDate":"2026-09-10"})
+                    assert not_closed.status_code == 200, not_closed.text
+                    assert not_closed.json()["completedRoundCount"] == 0 and not_closed.json()["items"] == []
+                    assert (await client.get(round_url, params={"requestedStartDate":"2026-09-11"})).status_code == 400
+                    assert (await client.get(round_url, params={"readContext":token})).status_code == 409
+                    assert (await client.get(ROOT + f"/accounts/{account}/holding-rounds/{uuid4()}")).status_code == 404
                     detail = await client.get(ROOT + "/returns/days/2026-09-11", params=dict(accountMode="SINGLE", accountId=str(account)))
                     assert detail.status_code == 200, detail.text
                     assert detail.json()["profitAmount"] == "-5.00"
@@ -168,6 +194,17 @@ def test_real_stock_day_pages_include_closed_stocks_and_rebuilt_round(tmp_path):
                     assert rebuilt_parts.status_code == 200, rebuilt_parts.text
                     assert rebuilt_parts.json()["items"][0]["accountRounds"][0]["roundNumber"] == 2
                     assert rebuilt_parts.json()["items"][0]["profitAmount"] == "984.00"
+                    assert (await client.get(round_url)).json()["detail"] == whole_round
+                    new_round_response = await client.get(ROOT + f"/accounts/{account}/holding-rounds/{rebuilt.endpoint.round_id}")
+                    assert new_round_response.status_code == 200, new_round_response.text
+                    new_round = new_round_response.json()["detail"]
+                    assert new_round["roundRef"]["roundNumber"] == 2 and new_round["roundRef"]["status"] == "OPEN"
+                    assert new_round["initializationSource"] is None and new_round["openingSource"] == "TRADE"
+                    assert new_round["buyInvestmentAmount"] == "11005.00" and new_round["sellQuantity"] == "0"
+                    assert new_round["roundProfitAmount"] is None  # Open navigation uses the existing position detail.
+                    after_rebuy = await client.get(completed_url, params={**completed_params, "requestedEndDate":"2026-09-14"})
+                    assert after_rebuy.status_code == 200, after_rebuy.text
+                    assert after_rebuy.json()["items"] == completed.json()["items"]
                     async def period(start, end, stock="000001.SZ", page_rows=1, selected_account=account):
                         reader = StockPeriodReturnsQuery(replace(deps.policy, page_rows=page_rows))
                         def query(session, deadline, basis):
@@ -202,6 +239,7 @@ def test_real_stock_day_pages_include_closed_stocks_and_rebuilt_round(tmp_path):
                     assert changed.status_code == 200, changed.text
                     after_fees = await period(date(2026, 9, 10), date(2026, 9, 14))
                     assert after_fees == whole
+                    assert (await client.get(round_url)).json()["detail"] == whole_round
                     missing = await client.post(ROOT + "/accounts", json=dict(requestId=str(uuid4()), attemptId=str(uuid4()),
                         name="缺价范围", brokerName="券商", commissionRateWan="3.00", minimumCommission="5.00",
                         stampTaxRatePct="0.05", initialCash="1000.00", initialPositions=[dict(clientRowId="missing",
