@@ -48,6 +48,7 @@ STARTUP_PROBES = (
 )
 # Actual import closure of resources.py, not permission for all defs or CSV data.
 RESOURCE_SOURCE_FILES = (
+    "defs/daily_basic_contract.py",
     "__init__.py", "defs/__init__.py", "defs/resources.py",
     "defs/duckdb_connection.py", "defs/paths.py", "defs/tushare_request_policy.py",
     "defs/health/__init__.py", "defs/health/lake_root.py",
@@ -107,6 +108,15 @@ INTEGRATION_SOURCE_FILES = (
 )
 # Frozen exact source inventory for full consumer/governance discovery.
 CONSUMER_SOURCE_FILES = (
+    "defs/daily_basic_contract.py",
+    "defs/daily_basic_raw_io.py",
+    "defs/source_readiness/daily_basic.py",
+    "defs/asset_guards/daily_basic_readiness.py",
+    "defs/assets/daily_basic.py",
+    "defs/checks/daily_basic_checks.py",
+    "defs/jobs/daily_basic_update.py",
+    "defs/sensors/daily_basic_sensor.py",
+    "defs/sensors/daily_basic_trade_day_sensor.py",
     "defs/run_contracts/stk_mins_silver_policy.py",
     "__init__.py",
     "analysis/__init__.py",

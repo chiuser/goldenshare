@@ -97,6 +97,8 @@ SENSOR_DEFINITION_CALL_NAMES = {
 # Freeze stable identities so additions, removals, and duplicates are diagnosable by name.
 EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
     {
+        "sensors/daily_basic_sensor.py:raw_tushare_daily_basic_update_job_sensor",
+        "sensors/daily_basic_trade_day_sensor.py:daily_basic_trade_day_sensor",
         "sensors/clickhouse_market_breadth_continuity_sensor.py:clickhouse_market_breadth_continuity_sensor",
         "sensors/clickhouse_market_breadth_continuity_sensor.py:prod_clickhouse_market_breadth_continuity_sensor",
         "sensors/cn_a_trade_day_sensor.py:cn_a_trade_day_sensor",
@@ -3059,6 +3061,7 @@ def use_nested_resource(context):
                                     "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
                                     "gold_wealth_market_turnover_sensor.py",
                                     "major_index_mins_sensor.py",
+                                    "daily_basic_sensor.py",
                                 }
                             )
                         ):

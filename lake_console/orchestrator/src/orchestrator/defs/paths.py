@@ -175,6 +175,23 @@ def raw_stock_daily_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def raw_daily_basic_path(root: Path, partition_key: str) -> Path:
+    from orchestrator.defs.daily_basic_contract import daily_basic_trade_date
+
+    if partition_key != PATH_TEMPLATE_PARTITION_KEY:
+        daily_basic_trade_date(partition_key)
+    return lake_path(root, RAW, "tushare", "daily_basic", f"trade_date={partition_key}", "part-000.parquet")
+
+
+def raw_daily_basic_staging_path(staging_root: Path, run_id: str, partition_key: str) -> Path:
+    from orchestrator.defs.daily_basic_contract import daily_basic_trade_date
+
+    daily_basic_trade_date(partition_key)
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", run_id):
+        raise ValueError("Invalid daily_basic run_id")
+    return staging_root / "daily_basic" / f"run_id={run_id}" / f"trade_date={partition_key}" / "part-000.parquet"
+
+
 def raw_stk_nineturn_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

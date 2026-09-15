@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from orchestrator.defs.catalog.name_mapping import get_dataset_chinese_name
+from orchestrator.defs.daily_basic_contract import DAILY_BASIC_ASSET, DAILY_BASIC_CHECKS
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -31,6 +32,7 @@ from orchestrator.defs.paths import (
     gold_wealth_market_turnover_path,
     lake_path_template,
     raw_adj_factor_path,
+    raw_daily_basic_path,
     raw_dc_daily_path,
     raw_dc_index_path,
     raw_dc_member_path,
@@ -102,6 +104,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     PROD_CORE_INDEX_DAILY_NINETURN_SCHEMA,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
     PROD_CORE_WEALTH_SECTOR_HIERARCHY_SCHEMA,
+    RAW_DAILY_BASIC_SCHEMA,
     RAW_ETF_MINS_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
     RAW_INDEX_GLOBAL_SCHEMA,
@@ -262,6 +265,7 @@ class PartitionModel(str, Enum):
     FULL_FILE_SILVER_ETF_BASIC_VERSIONED = "full_file_silver_etf_basic_versioned"
 
     TRADE_DATE_PARTITION_RAW_STOCK_DAILY = "trade_date_partition_raw_stock_daily"
+    TRADE_DATE_PARTITION_RAW_DAILY_BASIC = "trade_date_partition_raw_daily_basic"
     TRADE_DATE_PARTITION_SILVER_STOCK_DAILY = "trade_date_partition_silver_stock_daily"
     TRADE_DATE_PARTITION_RAW_STK_NINETURN = "trade_date_partition_raw_stk_nineturn"
     TRADE_DATE_PARTITION_SILVER_STOCK_NINETURN_DAILY = (
@@ -792,6 +796,14 @@ PARTITION_MODEL_DEFINITIONS = (
         None,
         PartitionPhysicalLayout.SINGLE_FILE,
         notes="每次 materialization 指向与 Raw snapshot_id 对齐的不可变单文件版本。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_DAILY_BASIC,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "daily_basic",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_STOCK_DAILY,
@@ -1438,6 +1450,22 @@ def _derived_entry(
 
 
 LAKE_ASSET_CATALOG = (
+    _tushare_raw_entry(
+        asset_key=DAILY_BASIC_ASSET,
+        dataset_id="daily_basic",
+        group_name="quote",
+        data_domain=DataDomain.QUOTE_DATA,
+        data_contract="tushare_daily_basic_by_date",
+        column_schema=RAW_DAILY_BASIC_SCHEMA,
+        path_template=lake_path_template(raw_daily_basic_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_DAILY_BASIC,
+        source_api="daily_basic",
+        source_doc="docs/sources/tushare/股票数据/行情数据/0032_每日指标.md",
+        blocking_check_names=DAILY_BASIC_CHECKS,
+        batch_grain="trade_date",
+        source_request_policy="6000 rows/page; 1s interval; 12 requests; 60s acceptance deadline",
+        performance_notes="DuckDB逐页转换；外置候选；同日期非阻塞锁；write_new默认，显式replace；readiness最多10日。",
+    ),
     _tushare_raw_entry(
         asset_key="raw_tushare_trade_calendar",
         dataset_id="trade_cal",

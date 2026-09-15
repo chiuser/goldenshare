@@ -1,6 +1,6 @@
 # 股票每日指标接入 DG 代码级 LLD
 
-状态：P0有界核验完成，P1/P2实施计划已批准，待编码验收；历史全量性能未放行。更新：2026-09-15。唯一上层目标见 [技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。本文的“新增”在编码验收前仍是计划代码，不是现有入口。
+状态：P0有界核验完成；P1/P2代码与隔离验证完成，待正式验收；历史全量性能未放行。更新：2026-09-15。唯一上层目标见 [技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。下文P1/P2模块已新增；prod导出及历史bootstrap模块仍是P3以后计划，不是现有入口。
 
 ## 1. 审计依据与可复用边界
 
@@ -109,9 +109,9 @@ Catalog 日更 `source_system` 使用现有 Tushare 枚举；bootstrap materiali
 5. `probe_daily_basic_for_trade_date` 只取该日键字段分页，检查重复/空键/日期和最低代码覆盖。失败不创建 run，下个 tick 可重查。
 6. 通过后以 `daily_basic:<ISO>` 作为稳定 run key，调用新 run config helper。已提交/活动 run 不重复提交；失败 run 无自动 attempt 扩号。
 
-source probe 的键字段分页属于拟新增实现。P0 七日keys-only响应与18字段请求键集合均一致；既有9月14日分页报告验证offset行为。未来若两种字段请求键集不一致，停止该优化，修订请求方案。
+source probe的键字段分页已实现。P0七日keys-only响应与18字段请求键集合均一致；既有9月14日分页报告验证offset行为。未来若两种字段请求键集不一致，停止该优化，修订请求方案。
 
-最低代码覆盖的局限与批准门禁严格沿用方案 §6：只证明同日行情集合中的股票没漏，不保证所有应有指标代码均已发布，也检测不了两个源同时漏同一代码。P0七日两向差集均为空，已覆盖停牌、新股和退市边界，详见方案§11。建议采用最低覆盖而不是强制集合相等；未来额外源代码保留。该建议仍待业务口径确认。
+最低代码覆盖的局限与批准门禁严格沿用方案§6：只证明同日行情集合中的股票没漏，不保证所有应有指标代码均已发布，也检测不了两个源同时漏同一代码。P0七日两向差集均为空，已覆盖停牌、新股和退市边界，详见方案§11。管理员已确认采用最低覆盖而不是强制集合相等；额外源代码保留。
 
 ### 5.2 writer
 
@@ -131,7 +131,7 @@ source probe 的键字段分页属于拟新增实现。P0 七日keys-only响应�
 
 `file_contract_check` 聚合：文件存在可读、非空、列顺序/type、日期、空键、重复键。输出 `failed_rule_names` 为 list；不拆成多条 check。
 
-`source_coverage_check` 聚合：文件 fingerprint 与本次交付证据匹配、行数/代码数匹配、最低覆盖差集为零。当前正式 materialization 的交付证据缺失或过期则失败，不借上一 run 证据；check 不重新联网。bootstrap 分区使用冻结导出版本的 18 字段/键对账，不依赖当年并不存在的 DG stock_daily 状态。
+`source_coverage_check`聚合：文件fingerprint与本次交付证据匹配、行数/代码数匹配、最低覆盖差集为零。当前materialization的交付证据缺失或过期则失败，不借上一run证据；check不重新联网。仅重跑check时读取该分区最新有效交付；运行中若文件或materialization变化则失败。P1/P2只接收`tushare_daily`交付；bootstrap分支尚未实现，P3需使用冻结导出版本的18字段/键对账，不依赖当年并不存在的DG stock_daily状态。
 
 两个 check 均 ERROR/blocking。metadata 记录方法和证据来源，不能使历史分区“按今天股票池通过”。readiness 只接受绑定当前 materialization 的成功 check，并确认文件未变；最多 10 日批量查询，不对全历史逐日扫描 event。
 
@@ -139,7 +139,7 @@ source probe 的键字段分页属于拟新增实现。P0 七日keys-only响应�
 
 definition 设置中文说明、18 个带单位的 ColumnContract、正式路径模板、分区维度 trade_date；materialization 不重复塞完整 schema。
 
-`DgStdoutLogger("daily_basic")` 阶段事件建议为 `daily_basic_started/source_received/validated/completed`；失败用中文说明阶段与修复动作。只输出日期、数量、耗时与少量失败样本，不打印 secret/全表/SQL。
+`DgStdoutLogger("daily_basic")`本轮实际记录`daily_basic_started`和`daily_basic_completed`，输出日期、交付行数与请求数。交付metadata和check提供中文摘要、下一步与失败规则；执行异常由Dagster保留堆栈。没有逐页刷屏，不打印secret、全表或完整SQL。
 
 运行 metadata：`summary`、`next_action`、`result_status`、行数、代码数、来源、文件指纹、交付方法、输入代码 hash、耗时与 diagnostic_ref，按现有 namespaced helper 写入。较长证据放离线报告，不放 cursor；日更无需新增正式 sidecar 数据集。
 
@@ -220,11 +220,11 @@ P0 有界性能取样建议最多 3 个主键位置，每次最多 10,000 行、
 5. 审计JSON单遍估计4.81-4.83GiB，chunk约0.40-0.42GiB，按日正式文件约0.70GiB；年度中间文件另留约0.40-0.42GiB。累计基础文件约1.50-1.54GiB，不含spill、元数据和安全余量。不能声称它就是最大空间需求；年度排序时间/内存峰值尚未测。
 6. 日历候选4,056，范围2010-01-04至2026-09-14；这是P0建议范围，不是生产硬编码，实际prod日期覆盖仍由P3冻结。目标目录不存在，无覆盖冲突；候选状态最多4,056+40条。
 
-P1/P2日更源与类型设计具有技术样本依据；最终口径确认后可以独立推进。P3的keyset实现不因此获准全量执行：先解决IO/重核成本和来源稳定策略，不新增索引或长事务绕过。P0未发生Lake/DB/event写入或任何sensor/job操作。
+P0已为P1/P2日更源与类型设计提供技术样本依据；口径随后获确认并进入编码。P3的keyset实现不因此获准全量执行：先解决IO/重核成本和来源稳定策略，不新增索引或长事务绕过。P0未发生Lake/DB/event写入或任何sensor/job操作。
 
 ## 9. 测试落点与开发顺序
 
-拟新增测试均在 `lake_console/orchestrator/tests/`：
+测试均位于`lake_console/orchestrator/tests/`。下列日更测试已实现；历史及事件工具测试仍为P3/P4计划：
 
 | 文件 | 必须覆盖的正反例 |
 |---|---|
@@ -233,14 +233,14 @@ P1/P2日更源与类型设计具有技术样本依据；最终口径确认后可
 | test_daily_basic_raw_io.py | fixture 列式写、全字段一致、失败不覆盖、目标冲突、并发保护、精度失败、重复 apply |
 | test_daily_basic_checks.py | 两个 check 所有规则、交付证据缺失/文件变化失败、历史不按当前池；failed_rule_names 为 list |
 | test_daily_basic_sensor.py | 19:00 前不请求、同日输入缺失/失败不请求、缺注册日期、每 tick 一 run、稳定 run key、源不齐重查、失败 run 不自动改 key |
-| test_daily_basic_trade_day_sensor.py | 下限、开市日、最多两日注册、不提交 RunRequest、默认 STOPPED |
+| test_daily_basic_sensor.py（注册部分） | 下限、开市日、最多两日注册、不提交RunRequest、默认STOPPED；复用实际注册helper及临时交易日历 |
 | test_daily_basic_history.py | plan 零写、keyset 参数、checkpoint 损坏/源增删改拒绝、跨批重复、schema/值差异；中断续跑和原子提升 |
 | test_daily_basic_events.py | materialization 可全量但 check recent20、目标绑定、幂等、缺分区/冲突拒绝、materialized 不等于 ready |
-| test_daily_basic_performance.py | 10 日固定批量读取、source 有界请求、bootstrap 常驻批次上限、无逐日全表扫描 |
+| test_daily_basic_performance.py | 已验证10日固定文件和查询工作量；source请求上限在source_readiness用例保护。bootstrap内存门禁留P3，不宣称已验证 |
 
 更新现有 `test_run_contract_configs`、`test_sensor_cursor_contracts`、`test_asset_governance_contracts`、`test_asset_check_incremental_governance`、`test_run_contract_static_gates`：确认新对象实际消费链、source/partition/path/schema 一致，禁止 active -> bootstrap/prod history、报告型 cursor、SELECT *、逐行写 Parquet、全历史 check。
 
-实施顺序与方案一致：P0 口径/成本准入 -> P1 纯合同与 IO -> P2 active 编排/治理 -> P3 离线历史工具 -> P4 状态发布 -> P5 真实日更。每阶段测试通过才更新文档状态；本机使用现有 `.venv/bin/python -m unittest ...`，不安装依赖、不自动同步环境。
+实施顺序与方案一致：P0口径/成本准入 -> P1纯合同与IO -> P2 active编排/治理 -> P3离线历史工具 -> P4状态发布 -> P5真实日更。每阶段测试通过才更新状态；本次使用现有`.venv/bin/python -B -m pytest`及受保护治理测试启动器，不安装依赖、不自动同步环境。
 
 正式验证另批准：definitions 加载、历史导出/提升、动态分区、runless events、最小日更 run、启用 sensor。测试使用临时 fixture/ephemeral instance，绝不连接正式资源执行写入测试。
 
@@ -261,7 +261,7 @@ P1/P2日更源与类型设计具有技术样本依据；最终口径确认后可
 | R11 | §8 | 已执行30,000行业务预算内取样；存在IO放大，完整历史性能未放行 |
 | R12 | §2、§9 | scoped diff、默认 STOPPED、生产审批隔离 |
 
-审计结论：两份文档目标均为股票 daily_basic 的 18 字段 Raw 接入；来源、路径、分区、check、状态数量和阶段批准没有双轨口径。code-level 符号是拟新增，不与当前不存在资产混淆。所有测试是待开发验收，不是本轮已通过的测试。
+设计审计结论：两份文档目标均为股票daily_basic的18字段Raw接入；来源、路径、分区、check、状态数量和阶段批准一致。P1/P2实现结果与测试证据记录在末节；P3以后符号和测试仍为待开发计划，不能当作已实现。
 
 P0后结论：完整日数值精度、keys-only及最低覆盖边界样本已验证。对象、时间、Raw-only、最低覆盖局限及P1/P2实施已获确认；只允许代码与隔离测试。历史建议截止为2026-09-14，P3仍需冻结实际源日期/行数、独立事务来源稳定策略及可接受成本；历史全量执行明确不放行。
 
@@ -272,3 +272,56 @@ P0后结论：完整日数值精度、keys-only及最低覆盖边界样本已验
 - 现有共享resource/分页默认值保持不变；若必须改共享接口或预算无法满足，停止并说明，不擅自绕行。
 - source/code、文件指纹和materialization/check身份同时验证；当前run不得误用其它run的交付证据。
 - 不运行正式源/DB/Lake测试，不安装依赖；definitions加载与正式任务另批。完成后标为代码完成、待正式验收，不自动进入P3或启用sensor。
+
+### P1复用审计与已批准修订：60秒预算（2026-09-15）
+
+P0及确认口径已提交`ad0ff5b3`。以下是编码前暂停的审计证据；管理员已批准局部修订并恢复P1/P2。
+
+当前`_BoundedRequestRunner.execute`仅在发请求/等待/重试前检查剩余时间；成功响应返回后直接返回success。`execute_bounded_pages`遇短页结束时不补查时间。隔离假时钟复现：预算60秒，单次请求在第61秒返回短页，结果为`completed=True, elapsed_ms=61000, budget_exceeded=False`。没有真实网络调用，也没有等待61秒。
+
+`TushareResource.call`复用SDK默认30秒网络timeout，没有传递本次剩余额度的接口；网络timeout不等于整个分页调用的硬墙钟截止。不能仅配置`max_elapsed_seconds=60`就宣称超时结果一定被拒绝或进程一定在60秒内返回。
+
+CodeGraph的search/callers/impact与源码核对确认共享分页器还被指数增强因子、DC、全球指数、ETF日线消费。本轮不修改共享实现，已确认以下口径：
+
+- 60秒作为本族成功结果的接收截止。已新增本族请求返回后、页面消费前及最终返回前的elapsed检查，超额直接失败，不提升文件、不提交run；不改变共享接口。
+- 该方案不能强行中断在途同步HTTP请求，实际错误返回可能晚于60秒。若必须保证整个调用60秒内结束，需要另行设计请求级deadline/取消及资源接口，不能本轮临时扩散修改。
+
+上述已落入`source_readiness/daily_basic.py:fetch_daily_basic_pages`，由假时钟的迟到响应、消费后超时、累计请求及网络重试用例保护。没有扩大12次/60秒预算，没有修改共享SDK timeout。
+
+## 13. P1/P2代码级交付对账（2026-09-15）
+
+路径相对`lake_console/orchestrator/`。以下是实际实现，不包括P3以后工具。
+
+| 已确认硬口径 | 实现位置/符号 | 本地验证 |
+| --- | --- | --- |
+| 18字段、精度、单位和历史下限唯一 | `defs/daily_basic_contract.py`、`run_contracts/asset_column_schemas.py:RAW_DAILY_BASIC_SCHEMA` | `test_daily_basic_contracts`锁字段顺序和DECIMAL；raw_io测NULL/负值、超精度和溢出拒绝、2010年前拒绝 |
+| 日更只读Tushare、额外代码保留 | `source_readiness/daily_basic.py:fetch_daily_basic_pages/probe_daily_basic_for_trade_date` | keys-only最低覆盖、重复/空键/错日/字段缺失拒绝、额外代码保留 |
+| 6000行页、1秒间隔、12次/60秒累计预算 | 同上，复用共享`execute_bounded_pages`，本族guard补返回后/消费前/最终截止 | 6001行分页、重试计入12次、间隔、61秒迟到响应不消费、消费后超时不成功 |
+| 安全单文件写入、显式replace | `daily_basic_raw_io.py:write_daily_basic_partition`、`paths.py` | 全18字段读回、同内容幂等、冲突拒绝、提升异常保留原文件、候选清理、上游变化拒绝、锁忙拒绝和子进程退出释放 |
+| 同日Raw日线为最低覆盖 | `asset_guards/daily_basic_readiness.py:load_daily_basic_input_codes` | 先核ready；实际上游文件不存在、字段/日期/空键/重复键异常均拒绝；按日代码聚合读取，不用当前股票池过滤历史 |
+| 2个聚合check，无历史证据兜底 | `checks/daily_basic_checks.py:daily_basic_check_result` | 缺证据或文件变化红；当前run不能借其它run交付；单独重跑check可使用最新有效交付；failed_rule_names为list |
+| Materialized不等于ready | `asset_guards/daily_basic_readiness.py:batch_daily_basic_readiness` | ephemeral instance验证无check不ready、旧check绑定新materialization不ready、文件变化不ready |
+| 最近10日、有界状态读取 | 同上；materialization一次最多100条；每日期一次批取两个check（至多10批） | 超过10日拒绝；查询截断不扩大扫描；10文件fixture记录查询数与耗时 |
+| Raw-only、job不执行上游 | `assets/daily_basic.py`、`jobs/daily_basic_update.py` | 隔离Definitions解析验证专属分区、IdentityPartitionMapping、selection只有本asset与两check；隔离job完整执行全绿 |
+| 17:00注册、19:00更新、15分钟一次、最多1run | 两个`daily_basic*_sensor.py`，配置常量只取contract | 真实临时交易日历验证日期下限/开市日/每次至多2日期；更新测试时段、历史窗口、注册缺口、源不足、上游失败及既有run不自动重试 |
+| v1短中文cursor，无报告型详情 | 两个sensor；注册helper返回的调度请求保持原样，仅本族替换summary/next_action中文 | 普通更新cursor小于2KB；静态禁止报告型`to_cursor_details`；注册/更新均默认STOPPED |
+| catalog和真实readiness/check映射同步 | `catalog/lake_assets.py`、`name_mapping.py`、`partitions.py`、`run_contracts/configs.py`及治理测试 | 新partition model、新source字段schema、新sensor定义ID；两check参与真实sensor readiness，未凭猜测填映射 |
+
+### 13.1 验证结果与证据
+
+从orchestrator现有`.venv`运行，未安装或更新依赖：
+
+```bash
+.venv/bin/python -B -m pytest -q tests/test_daily_basic_contracts.py tests/test_daily_basic_raw_io.py tests/test_daily_basic_checks.py tests/test_daily_basic_source_readiness.py tests/test_daily_basic_sensor.py tests/test_daily_basic_performance.py tests/test_run_contract_static_gates.py tests/test_run_contract_configs.py tests/test_sensor_cursor_contracts.py tests/test_tushare_request_policy.py tests/test_asset_check_incremental_governance.py
+.venv/bin/python -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_asset_governance_contracts.py
+```
+
+- 第一组202项通过、166个子用例通过，约8.48秒。报告`/private/tmp/daily_basic_p1_p2_tests.log`。
+- 受保护catalog验证12项通过；报告`/private/tmp/daily_basic_p2_protected_governance.log`。首次普通入口失败是受保护support未加载；随后按其固定启动器执行。固定源码白名单仅补本次新增模块的精确路径，未开放目录通配、网络或正式文件，未减少断言。
+- 全仓Ruff致命错误门禁通过；所有本次新代码默认规则通过。共享`configs.py`默认规则仍报11条已有DTZ007/TRY004，已对照`git show HEAD:.../configs.py`确认原样存在，不修改历史行为以消除告警。
+- 10日fixture共10,000行，10个输出文件、一次本asset materialization查询、10次两check批次核对，约0.029秒。实例查询和上游代码在该计时用例中为替身；实际源文件和DuckDB核验在临时目录执行。这只证明固定工作量和本地文件成本，不是正式DB/网络p95。
+- `dg check defs`、正式instance读取/执行、真实Tushare/prod日更、正式分区注册和历史导入均未执行。本次ephemeral job/check/event及临时Parquet不属于正式状态。
+
+### 13.2 后续准入
+
+当前可提交P1/P2代码供review；尚未发布或启用新sensor。下一步独立批准definitions加载与正式只读验收。P3需先解决P0的历史IO/重核成本、冻结历史实际日期与行数；本轮未创建prod导出、history/bootstrap或runless发布入口，不把日更编码完成当作历史写入授权。

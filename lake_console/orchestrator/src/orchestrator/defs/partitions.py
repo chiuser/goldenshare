@@ -1,5 +1,9 @@
 import dagster as dg
 
+from orchestrator.defs.daily_basic_contract import DAILY_BASIC_PARTITIONS
+
+cn_a_daily_basic_trade_days = dg.DynamicPartitionsDefinition(name=DAILY_BASIC_PARTITIONS)
+
 # Full SSE open-day backup partition set. Production daily assets should use
 # their asset-family-specific partition definitions below.
 cn_a_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_trade_days")

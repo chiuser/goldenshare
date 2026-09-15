@@ -23,6 +23,7 @@ from orchestrator.defs.assets.clickhouse_serving import (
     ch_share_fact_market_breadth_daily,
     prod_ch_share_fact_market_breadth_daily,
 )
+from orchestrator.defs.assets.daily_basic import raw_tushare_daily_basic
 from orchestrator.defs.assets.dc_daily_technical_serving import (
     ch_dc_daily_technical,
     prod_ch_dc_daily_technical,
@@ -257,6 +258,7 @@ DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 
 
 ACTIVE_ASSET_DEFINITIONS = (
+    raw_tushare_daily_basic,
     raw_tushare_trade_calendar,
     silver_trade_calendar,
     raw_tushare_etf_basic,

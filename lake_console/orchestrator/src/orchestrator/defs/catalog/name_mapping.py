@@ -9,6 +9,7 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "namechange": "股票曾用名",
         "trade_cal": "交易日历",
         "daily": "A股日线行情",
+        "daily_basic": "股票每日指标",
         "stk_nineturn": "神奇九转",
         "stock_nineturn_daily": "股票日线神奇九转",
         "adj_factor": "复权因子",

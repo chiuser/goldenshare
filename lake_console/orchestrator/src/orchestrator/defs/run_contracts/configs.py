@@ -9,7 +9,21 @@ from typing import Literal
 import dagster as dg
 from pydantic import Field
 
+from orchestrator.defs.daily_basic_contract import (
+    DAILY_BASIC_ASSET,
+    daily_basic_trade_date,
+)
 from orchestrator.defs.run_contracts.stk_mins import ProdStkMinsCompletionReference
+
+
+class DailyBasicRawConfig(dg.Config):
+    write_mode: Literal["write_new", "replace"] = "write_new"
+
+
+def build_raw_daily_basic_update_job_run_config(partition_key: str, write_mode: str = "write_new") -> dict:
+    daily_basic_trade_date(partition_key)
+    config = DailyBasicRawConfig(write_mode=write_mode)
+    return {"ops": {DAILY_BASIC_ASSET: {"config": config.model_dump()}}}
 
 
 class IndexDailyRawConfig(dg.Config):

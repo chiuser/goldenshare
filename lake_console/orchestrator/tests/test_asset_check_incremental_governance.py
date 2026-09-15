@@ -602,6 +602,13 @@ def _stk_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
 
 
 ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
+    "raw_tushare_daily_basic": _rules(
+        ("raw_tushare_daily_basic_file_contract_check", "raw_tushare_daily_basic_source_coverage_check"),
+        category=KEEP_BLOCKING_DAGSTER,
+        phase="DAILY_BASIC_P2",
+        readiness=True,
+        retention_allowed=True,
+    ),
     STOCK_SUSPEND_CONFIRMED_ASSET_KEY: _rules(
         STOCK_SUSPEND_CONFIRMED_CHECKS,
         category=KEEP_BLOCKING_DAGSTER,

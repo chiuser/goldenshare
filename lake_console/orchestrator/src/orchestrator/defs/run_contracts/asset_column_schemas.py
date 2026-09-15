@@ -1,5 +1,6 @@
 """Stable column schema contracts for Dagster asset definitions."""
 
+from orchestrator.defs.daily_basic_contract import DAILY_BASIC_COLUMN_SPECS
 from orchestrator.defs.run_contracts.column_schema import ColumnContract
 from orchestrator.defs.run_contracts.etf_daily import (
     FUND_ADJ_RAW_COLUMN_TYPES,
@@ -18,6 +19,8 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMN_SPECS,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMN_SPECS,
 )
+
+RAW_DAILY_BASIC_SCHEMA = tuple(ColumnContract(*spec) for spec in DAILY_BASIC_COLUMN_SPECS)
 
 RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA = tuple(
     ColumnContract(
