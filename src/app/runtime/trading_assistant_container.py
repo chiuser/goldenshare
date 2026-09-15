@@ -7,6 +7,7 @@ from src.biz.queries.wealth.market.trading_assistant.record_detail import Record
 from src.biz.queries.wealth.market.trading_assistant.record_lists import RecordListsQuery
 from src.biz.queries.wealth.market.trading_assistant.record_summary import RecordSummaryQuery
 from src.biz.queries.wealth.market.trading_assistant.closed_records import ClosedRecordsQuery
+from src.biz.queries.wealth.market.trading_assistant.return_day_detail import ReturnDayDetailQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery
 from src.biz.queries.wealth.market.trading_assistant.positions import PositionsQuery
@@ -31,4 +32,5 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
         LedgerPreviewService(transactions, market, policy, now), InitializationPreviewService(transactions, market, policy, now),
         RecordDetailQuery(policy), CalculationStatusQuery(policy),
         CalculationRetryService(transactions, policy, now, executor_id=executor_id), CurrentReadContextQuery(policy),
-        positions, PositionsAnalysisQuery(positions), RecordListsQuery(policy), RecordSummaryQuery(policy), ClosedRecordsQuery(policy))
+        positions, PositionsAnalysisQuery(positions), RecordListsQuery(policy), RecordSummaryQuery(policy), ClosedRecordsQuery(policy),
+        ReturnDayDetailQuery(policy))

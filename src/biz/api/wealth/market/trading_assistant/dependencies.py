@@ -13,6 +13,7 @@ from src.biz.queries.wealth.market.trading_assistant.record_detail import Record
 from src.biz.queries.wealth.market.trading_assistant.record_lists import RecordListsQuery
 from src.biz.queries.wealth.market.trading_assistant.record_summary import RecordSummaryQuery
 from src.biz.queries.wealth.market.trading_assistant.closed_records import ClosedRecordsQuery
+from src.biz.queries.wealth.market.trading_assistant.return_day_detail import ReturnDayDetailQuery
 from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountReadQuery, RoundRecordsQuery
 from src.biz.queries.wealth.market.trading_assistant.calculation_status import CalculationStatusQuery
 from src.biz.queries.wealth.market.trading_assistant.read_context import CurrentReadContextQuery, OwnedReadContext
@@ -52,6 +53,11 @@ class TradingAssistantDependencies:
     record_lists: RecordListsQuery
     record_summary: RecordSummaryQuery
     closed_records: ClosedRecordsQuery
+    return_day_detail: ReturnDayDetailQuery
+
+    async def read_return_day(self, *, owner_id, query, day):
+        return await self._read_holdings(owner_id=owner_id, query=query,
+            read=lambda session, **kwargs: self.return_day_detail.read(session, **kwargs, day=day))
 
     async def read_closed_records(self, *, owner_id, query):
         selection = AccountReadQuery(accountMode="SINGLE", accountId=query.accountId, readContext=query.readContext) if isinstance(query, RoundRecordsQuery) else query
