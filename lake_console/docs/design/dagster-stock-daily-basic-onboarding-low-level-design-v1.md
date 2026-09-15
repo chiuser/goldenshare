@@ -1,6 +1,6 @@
 # 股票每日指标接入 DG 代码级 LLD
 
-状态：P4正式状态补录及最终审计完成；4,056个历史日期已materialized，最近20日40条check通过，待补事件为0。未启用sensor，P5独立推进。更新：2026-09-15。唯一上层目标见[技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。历史materialized不等于全历史ready。
+状态：P4正式状态补录及最终审计完成；4,056个历史日期已materialized，最近20日40条check通过，待补事件为0。两个sensor已正式启用；首个自然日更run结果尚未验收。更新：2026-09-15。唯一上层目标见[技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。历史materialized不等于全历史ready。
 
 ## P4实施约束（2026-09-15，已实现，注册结果见§16）
 
@@ -543,4 +543,10 @@ promote fingerprint=`d02a09e8ce5a0aee3c2f9ad2428e4c15b3fd35a076c293c112dada62206
 - 全部4,056个正式文件hash与P3已审计发布结果一致；最终plan耗时2.914秒。更早日期只发布materialized，不声称具备blocking-check readiness。
 - 本轮Lake/prod写入、job启动、sensor改动均为0，未进入P5。
 
-§16、§17保留注册和样本时点的历史记录，当前P4状态以本节为准。执行结果已回写原两份文档，本次记录尚未提交。
+§16、§17保留注册和样本时点的历史记录，当前P4状态以本节为准。执行结果已回写原两份文档并提交`68feef57`。
+
+## 19. 正式sensor启用记录
+
+2026-09-15管理员批准启用并自行重启DG。只读GraphQL确认`orchestrator / __repository__`已加载`daily_basic_trade_day_sensor`和`raw_tushare_daily_basic_update_job_sensor`，初始状态均STOPPED。通过`http://127.0.0.1:3000/graphql`的`startSensor(sensorSelector:...)`依次启用这两个精确目标，再用`sensorOrError`读回均为RUNNING。
+
+此次只修改两个sensor的正式启停状态，不修改cursor、生产代码、其它sensor，不手动提交run或补发事件。代码默认STOPPED保持不变，实例状态RUNNING控制实际启用。17:00注册、19:00更新、900秒观察间隔与上游/源覆盖门禁保持原样；自动调度可据此注册日期及提交正常日更。开发、P4历史发布及启用已收口；首个自然日更run及其check结果仍需实际运行后确认，不将启用成功声称为日更写入验收成功。
