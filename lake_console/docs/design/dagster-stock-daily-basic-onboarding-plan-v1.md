@@ -1,6 +1,6 @@
 # 股票每日指标接入 DG 技术方案
 
-状态：P3正式文件已发布；P4代码与验证完成，4,056个历史日期已注册，materialization/check补录尚未执行。readiness尚未就绪。更新：2026-09-15。
+状态：P4正式状态补录及最终审计完成；4,056个历史日期已materialized，最近20个交易日40条check通过，待补事件为0。未启用sensor，P5独立推进。更新：2026-09-15。
 
 对应 [代码级 LLD](dagster-stock-daily-basic-onboarding-low-level-design-v1.md)。本文件定义目标和边界；LLD 定义代码、测试与分阶段验收。两份文件共同使用 R01-R12 约束编号。
 
@@ -276,3 +276,17 @@ P2验收记录已提交`c134f056`。本阶段新增离线SQL读取、历史工�
 管理员继续推进后，已刷新plan并通过既有CLI正式注册`cn_a_daily_basic_trade_days`的4,056个历史日期，范围2010-01-04至2026-09-14。注册后只读验收缺注册为0，文件hash一致、无状态冲突；仍待4,056条materialization及最近20日40条check，尚未写事件。
 
 报告：[注册结果](/private/tmp/daily_basic_p4_register_20260915.json)、[注册后审计](/private/tmp/daily_basic_p4_after_register_20260915.json)。本轮不写Lake/prod、不改共享分区、不运行job或启用sensor。下一步单独确认样本事件补录，通过后再补余量并验收；原代码及本轮文档尚未提交。
+
+## 17. 样本状态验收通过
+
+已按管理员要求提交`9a8fdd7d`（本专项12文件，未推送），再补录2026-09-14的1条materialization和2条check。只读验收确认样本ready，两条check均为passed/blocking且绑定同一正确materialization。未改Lake文件、未写prod、未触发job或启用sensor。
+
+[样本验收报告](/private/tmp/daily_basic_p4_sample_audit_20260915.json)。当前还需补4,055条materialization和38条check，共4,093条；样本通过不代表全量状态发布完成。下一步单独批准余量补录及最终审计，P5仍独立。样本结果已回写本文与LLD，提交后的这部分文档更新尚未提交。
+
+## 18. P4全量状态发布完成
+
+管理员继续批准后，按新鲜plan直接补录剩余4,093条事件。连同§17样本，累计4,056条materialization和40条check，共4,096条事件。§16、§17的待执行描述保留为阶段记录，以本节为当前状态。
+
+[最终只读审计](/private/tmp/daily_basic_p4_final_audit_20260915.json)通过：2010-01-04至2026-09-14的4,056个日期全部注册且materialized；缺注册、待materialization、待check均为0。2026-08-18至2026-09-14最近20个交易日全部ready，两条check均绑定对应materialization；窗口外check为0，不把更早日期的materialized表述为ready。
+
+全部4,056个正式文件hash与P3审计发布结果一致。本轮未写Lake或prod、未启动job、未改sensor。P4完成，下一阶段日更正式验收与启用仍单独推进；本次执行记录尚未提交。

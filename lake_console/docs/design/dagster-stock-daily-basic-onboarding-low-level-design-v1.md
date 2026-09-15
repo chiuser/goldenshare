@@ -1,6 +1,6 @@
 # 股票每日指标接入 DG 代码级 LLD
 
-状态：P3正式文件已发布；P4代码与验证完成，4,056个历史日期已正式注册，事件补录尚未执行。更新：2026-09-15。唯一上层目标见[技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。文件存在不等于Dagster ready。
+状态：P4正式状态补录及最终审计完成；4,056个历史日期已materialized，最近20日40条check通过，待补事件为0。未启用sensor，P5独立推进。更新：2026-09-15。唯一上层目标见[技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。历史materialized不等于全历史ready。
 
 ## P4实施约束（2026-09-15，已实现，注册结果见§16）
 
@@ -520,3 +520,27 @@ promote fingerprint=`d02a09e8ce5a0aee3c2f9ad2428e4c15b3fd35a076c293c112dada62206
 - 注册后：`/private/tmp/daily_basic_p4_after_register_20260915.json`，audit-events实测3.305秒，缺注册0、待materialization4,056、待check40、should_stop=false；文件hash全数一致。没有Lake/prod写入、事件写入、job或sensor操作，也没有改共享分区。
 
 下一步是单独批准最近窗口样本事件补录，例如2026-09-14的一条materialization和两条check；新鲜plan后执行，样本ready且绑定正确才推进余量。注册本身不表示materialized或ready。本轮只同步原文档，不自动提交。
+
+## 17. P4提交及样本事件验收
+
+管理员要求“提交，然后继续推进”。已提交`9a8fdd7d`，仅包含本专项12个代码、测试与设计文件，包含此前P3排序/门禁修正；未推送，未混入其它工作区修改。
+
+随后只执行2026-09-14样本，使用原CLI `report-events --apply --sample-date 2026-09-14`，输入同一P3三份报告和新鲜event plan：`/private/tmp/daily_basic_p4_before_sample_20260915.json`，fingerprint=`2eacfab06fb687d09e4ca29401cb217431edce6c0b228edd0f37834353e472d8`。执行报告`/private/tmp/daily_basic_p4_sample_20260915.json`确认恰好写入3条event，没有run、Lake或prod写入。
+
+只读样本验收`/private/tmp/daily_basic_p4_sample_audit_20260915.json`：`batch_daily_basic_readiness`返回ready；materialization storage id=`7352719`；两条ERROR/blocking check均passed，partition均为2026-09-14，target storage id/run id/timestamp与本次materialization一致。注册无缺口，正式文件hash仍全部一致。
+
+剩余plan为`/private/tmp/daily_basic_p4_after_sample_plan_20260915.json`：4,055条materialization、38条check，共4,093条。余量需单独批准并刷新1小时内plan，再执行不带sample-date的report-events，最终全量剩余清单为0并抽查最近窗口readiness。未启用sensor或进入P5。本节样本执行记录为提交后的文档更新，尚未提交。
+
+## 18. P4余量补录与最终验收
+
+管理员批准继续后，刷新`/private/tmp/daily_basic_p4_before_remaining_20260915.json`，fingerprint=`51b8d64d378f2a0261d1f02185223cb816ccd3762e01c0c4263cf9f00f1622c3`。原CLI以`report-events --apply`绑定此plan，跳过已完成样本，写入4,055条materialization和38条check。执行报告`/private/tmp/daily_basic_p4_remaining_20260915.json`记录event_count=4,093，fingerprint=`d067b5d564b474b6dbf4bf4176a85df78090d727061ed01da965ac3804a8e013`。
+
+最终只读报告`/private/tmp/daily_basic_p4_final_audit_20260915.json`及冻结plan`/private/tmp/daily_basic_p4_final_plan_20260915.json`确认：
+
+- 4,056个候选日期全部注册、全部有materialization；缺注册、待materialization、待check均为0。
+- 累计事件4,096条：4,056条materialization、40条check；样本3条、余量4,093条。
+- check仅覆盖2026-08-18至2026-09-14最近20个交易日，窗口外为0；check身份和target materialization一致，按10日批次复核20日readiness全部ready。
+- 全部4,056个正式文件hash与P3已审计发布结果一致；最终plan耗时2.914秒。更早日期只发布materialized，不声称具备blocking-check readiness。
+- 本轮Lake/prod写入、job启动、sensor改动均为0，未进入P5。
+
+§16、§17保留注册和样本时点的历史记录，当前P4状态以本节为准。执行结果已回写原两份文档，本次记录尚未提交。
