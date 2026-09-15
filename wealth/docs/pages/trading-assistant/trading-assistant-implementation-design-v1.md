@@ -4832,3 +4832,13 @@ ACTIVE 对应规则 ACTIVE；TRIGGERED／NOT_TRIGGERED 对应 ENDED 且最终结
 **处理建议／待确认：**保持前复权价格和含边界条件不变，先追溯分钟价格入库至 Gold 的精度转换，确定可证实的精度保留／规范化方案；若需修正公共生产链，列明变更和历史数据影响后另行批准，不能借 M6 自动重建行情。真实价格判断接入暂停；本轮只完成计划及产品筛选口径落档和有界源审计，不宣称 M6.1 或 M6 完成。未发飞书通知、未迁移数据库、未改变公共 API。
 
 本轮回归：`test_wealth_trading_assistant_contracts.py`、`test_wealth_trading_assistant_calculation_loop.py`、`test_stock_mins_reader.py` 共 102 passed（1.88s）；`check_docs_integrity.py` 与 `git diff --check` 通过。前者文档脚本主要检查 docs 目录链接和来源索引，不代替本文语义对账；既有测试通过也不证明新分钟接入已实现。
+
+#### 11.15.6 价格修正提交与规则纯函数（2026-09-15）
+
+`77c17d23` 已提交 DG 新导入价格规范化及已批准的 M6 计划、筛选口径，未推送。其他任务的启动检查预算与研究修改未纳入。
+
+继续实施 §4.26 已定义的 `condition_evaluator.py::evaluate_checkpoint`：输入已校验 Conditions、精确 Decimal 前复权价格及累计整数股数，返回不可变的逐项判定和 AND。未启用字段不要求行情，必需字段缺失／非有限／非法类型抛出错误，不伪装未触发；手转股使用整数转换，不受 Decimal 默认精度影响。这是可独立实施的 M6.3 单点内核，不表示跳过 M6.1／M6.2 门禁。
+
+新增 `tests/test_wealth_trading_assistant_rules.py`，覆盖价格三种运算的含边界、源精度不舍入、同点 AND 不承接前点命中、累计手股转换、合法零量、缺值／bool／float／非有限拒绝和大值低 Decimal 精度。与既有合同、三项架构护栏合计 132 passed（10.29s），无数据库或外部行情依赖。CodeGraph 与当前 schema 消费者核验完成；未修改公开合同、收益计算、API 或依赖方向。
+
+仍待完成：时间版本分段、分钟覆盖与冻结读取、规则表及命令恢复、后台／API／UI。单点 false 只表示该点不满足，不代表整个计划最终未触发。真实来源尚未完成全项验证，新导入修正未部署，历史文件仍不改；不以本次纯函数测试宣称 M6 或来源验收完成。
