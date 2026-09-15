@@ -208,18 +208,44 @@ def test_missing_calendar_day_stops_build(plan):
         history.build_daily_basic_history(plan, apply=True)
 
 
-def test_second_pass_source_change(plan):
+def test_single_pass_and_completed_export_does_not_reread(plan):
     source = Source()
-    fetch = source.fetch_page
+    result = history.export_daily_basic_history(plan, source, apply=True)
+    assert source.calls == 2  # One data page and one terminal page, no second pass.
+    assert result["source_policy"] == history.SOURCE_POLICY
+    completed_source = Source(fail_at=1)
+    assert (
+        history.export_daily_basic_history(plan, completed_source, apply=True) == result
+    )
+    assert completed_source.calls == 0
 
-    def changed(*args):
-        if source.calls == 2:
-            source.values += rows("999999.SZ")
-        return fetch(*args)
 
-    source.fetch_page = changed
-    with pytest.raises(DailyBasicValidationError, match="source_changed"):
-        history.export_daily_basic_history(plan, source, apply=True)
+def test_old_plan_policy_is_rejected_before_source_read(plan):
+    old = {k: v for k, v in plan.items() if k != "source_policy"}
+    source = Source()
+    with pytest.raises(DailyBasicValidationError, match="source_policy_changed"):
+        history.export_daily_basic_history(
+            history.seal_history_report(old), source, apply=True
+        )
+    assert source.calls == 0
+    assert not Path(plan["staging_root"]).exists()
+
+
+def test_cost_estimate_only_budgets_one_source_pass():
+    costs = history.history_cost_estimate(
+        {
+            "row_baseline": 14288011,
+            "row_baseline_asof": "2026-09-14",
+            "one_export_minutes_linear_scenarios": [31.6, 117.8],
+            "estimated_chunk_GiB": [0.4],
+            "estimated_date_files_GiB": [0.7],
+        }
+    )
+    assert costs["source_pass_count"] == 1
+    assert costs["estimated_pages_per_pass"] == 1430
+    assert costs["export_minutes"] == [31.6, 117.8]
+    assert costs["source_recheck_minutes"] == 0
+    assert "export_and_source_recheck_minutes" not in costs
 
 
 def test_stale_report_candidate_and_target_conflict(plan):
@@ -325,7 +351,7 @@ def test_multiple_batches_and_duplicate_at_boundary(plan):
     source = Source(values)
     state = history.export_daily_basic_history(plan, source, apply=True)
     assert [c["rows"] for c in state["chunks"]] == [10000, 2]
-    assert source.calls == 6
+    assert source.calls == 3  # Two data pages and one terminal page, only once.
     assert len(state["chunks"]) == 2
 
 

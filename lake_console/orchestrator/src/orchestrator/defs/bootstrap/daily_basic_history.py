@@ -36,6 +36,7 @@ from orchestrator.defs.paths import raw_daily_basic_path
 from orchestrator.defs.prod_db.daily_basic import HISTORY_BATCH_SIZE
 
 COLUMNS = ", ".join(f'"{name}"' for name in DAILY_BASIC_FIELDS)
+SOURCE_POLICY = "operator_confirmed_stable_single_pass"
 LIMIT_NAMES = (
     "max_source_rows",
     "max_source_seconds",
@@ -180,6 +181,7 @@ def make_history_plan(
             "dates": dates,
             "candidate_calendar_count": len(dates),
             "source_evidence": source_evidence,
+            "source_policy": SOURCE_POLICY,
             "cost_evidence": cost_evidence,
             "limits": limits,
             "existing_targets": targets,
@@ -198,6 +200,8 @@ def _validate_plan(plan, *, apply=False):
     verify_history_report(plan)
     if plan["stage"] != "plan" or plan["stop_reasons"]:
         raise DailyBasicValidationError("history_plan_not_green")
+    if plan.get("source_policy") != SOURCE_POLICY:
+        raise DailyBasicValidationError("history_source_policy_changed")
     _safe_root(plan["lake_root"])
     _safe_root(plan["staging_root"])
     if file_sha256(Path(plan["calendar_path"])) != plan["calendar_sha256"]:
@@ -373,66 +377,59 @@ def export_daily_basic_history(plan, source, *, apply=False):
             )
         )
         _validate_chunks(plan, state)
+        if state["frozen"]:
+            return state
         chunks = state["chunks"]
-        # Re-read from the beginning on every resume, not only from the last key.
-        for pass_number in range(2):
-            last, index, count = None, 0, 0
-            while True:
-                _deadline(started, plan["limits"]["max_source_seconds"])
-                raw = source.fetch_page(plan["start"], plan["end"], last)
-                _deadline(started, plan["limits"]["max_source_seconds"])
-                rows, next_key = _canonical_page(raw, plan, last)
-                count += len(rows)
-                if count > plan["limits"]["max_source_rows"]:
-                    raise DailyBasicValidationError("history_row_budget")
-                if not rows:
-                    if index != len(chunks) or not count:
-                        raise DailyBasicValidationError(
-                            "history_source_deleted_or_empty"
-                        )
-                    break
-                digest = history_fingerprint(rows)
-                if index < len(chunks):
-                    if (
-                        digest != chunks[index]["content_hash"]
-                        or len(rows) != chunks[index]["rows"]
-                    ):
-                        raise DailyBasicValidationError("history_source_changed")
-                elif pass_number or state["frozen"]:
-                    raise DailyBasicValidationError("history_source_added")
-                else:
-                    path = workspace / "chunks" / f"{index:06d}.parquet"
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    candidate = path.with_suffix(".candidate.parquet")
-                    candidate.unlink(missing_ok=True)
-                    _write_chunk(connection, rows, candidate)
-                    os.replace(candidate, path)
-                    chunks.append(
-                        {
-                            "path": str(path),
-                            "rows": len(rows),
-                            "last_key": list(next_key),
-                            "content_hash": digest,
-                            "sha256": file_sha256(path),
-                        }
-                    )
-                    save_history_report(checkpoint, state)
-                last = next_key
-                index += 1
-                print(
-                    f"每日指标历史导出 round={pass_number + 1} batch={index} rows={count}",
-                    flush=True,
+        # Only an interrupted export rechecks its persisted prefix.
+        last, index, count = None, 0, 0
+        while True:
+            _deadline(started, plan["limits"]["max_source_seconds"])
+            raw = source.fetch_page(plan["start"], plan["end"], last)
+            _deadline(started, plan["limits"]["max_source_seconds"])
+            rows, next_key = _canonical_page(raw, plan, last)
+            count += len(rows)
+            if count > plan["limits"]["max_source_rows"]:
+                raise DailyBasicValidationError("history_row_budget")
+            if not rows:
+                if index != len(chunks) or not count:
+                    raise DailyBasicValidationError("history_source_deleted_or_empty")
+                break
+            digest = history_fingerprint(rows)
+            if index < len(chunks):
+                if (
+                    digest != chunks[index]["content_hash"]
+                    or len(rows) != chunks[index]["rows"]
+                ):
+                    raise DailyBasicValidationError("history_source_changed")
+            else:
+                path = workspace / "chunks" / f"{index:06d}.parquet"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                candidate = path.with_suffix(".candidate.parquet")
+                candidate.unlink(missing_ok=True)
+                _write_chunk(connection, rows, candidate)
+                os.replace(candidate, path)
+                chunks.append(
+                    {
+                        "path": str(path),
+                        "rows": len(rows),
+                        "last_key": list(next_key),
+                        "content_hash": digest,
+                        "sha256": file_sha256(path),
+                    }
                 )
+                save_history_report(checkpoint, state)
+            last = next_key
+            index += 1
+            print(f"每日指标历史导出 batch={index} rows={count}", flush=True)
         fresh = source.inspect(plan["start"], plan["end"])
         _deadline(started, plan["limits"]["max_source_seconds"])
         if history_fingerprint(
             {k: fresh[k] for k in expected_schema}
         ) != history_fingerprint(expected_schema):
             raise DailyBasicValidationError("history_source_schema_changed")
-        if state["frozen"]:
-            return state
         state.update(
             frozen=True,
+            source_policy=SOURCE_POLICY,
             rows=count,
             verified_at=datetime.now(UTC).isoformat(),
             elapsed_seconds=monotonic() - started,
@@ -752,9 +749,10 @@ def history_cost_estimate(p0):
         "baseline_rows": rows,
         "baseline_asof": p0["row_baseline_asof"],
         "estimated_pages_per_pass": math.ceil(rows / HISTORY_BATCH_SIZE) + 1,
-        "export_and_source_recheck_minutes": p0[
-            "export_plus_revalidation_minutes_linear_scenarios"
-        ],
+        "source_policy": SOURCE_POLICY,
+        "source_pass_count": 1,
+        "export_minutes": p0["one_export_minutes_linear_scenarios"],
+        "source_recheck_minutes": 0,
         "chunk_gib": p0["estimated_chunk_GiB"],
         "formal_gib": p0["estimated_date_files_GiB"],
         "candidate_gib": p0["estimated_date_files_GiB"],

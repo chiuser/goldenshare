@@ -110,7 +110,7 @@ Tushare 请求为 `trade_date + fields + limit=6000 + offset`，不传 ts_code�
 
 首批 10,000 行实测涉及约 8,668 个 shared read buffer，约 67.7 MiB 页面读取；不能拿 1.827 秒简单外推为全程 SLA。P0 必须比较有界 keyset 样本的服务端 IO、传输字节和候选体量。若成本超预算，暂停修订导出方式，不加 prod 索引、不自行开启长事务快照或全表反复扫描。
 
-每批独立只读事务和 checkpoint 不是全表同一时刻快照。最终以已冻结导出为版本输入；若要求与发布时 prod 完全一致，必须在 source 稳定窗口逐批重核，成本计入 plan。来源有变化就停止受影响批次，重做版本，禁止声称天然一致或混拼不同版本。
+管理员已确认本次历史导出期间，指定范围的prod数据不会被任务修改。因此只导出一遍，以完整落盘的导出作为后续版本输入，不再执行第二遍全量来源读取。每批独立只读事务和checkpoint仍不是数据库一致性快照；来源稳定由本次运营窗口保证，不能宣称工具已检测全部并发增删改。若该前提失效，停止本批执行并重新评审，不自动扩大扫描。
 
 完整候选通过后逐文件原子提升；已成功分区 checkpoint 可续跑，不承诺多个文件整体原子性。旧目标不一致时停止，不自动覆盖；范围内已有数据通过内容对账后跳过。
 
@@ -176,7 +176,7 @@ Raw-only、两个check、最低覆盖及局限、17:00/19:00调度、10日窗口
 - 本轮14次SDK调用加1次MCP取样，共15次，无重试；串行、请求间隔至少1秒。主样本18字段请求约0.20-1.27秒，keys-only约0.07-0.10秒；不声称p95。
 - prod仅两个主键位置：一次EXPLAIN ANALYZE执行10,000行，加两次各10,000行导出，累计业务执行行上限30,000，实际导出20,000行；全部单查询10秒超时。两份非执行计划均为主键Index Scan，无按日全表循环。
 - 首位置实际执行约2.96秒，shared read 10,154个页面，约79.3MiB；说明存在明显heap读取放大。客户端两批导出约1.33/4.95秒，首批已受分析查询预热影响。停止进一步取样，不追加第三位置或放大查询。
-- 每10,000行审计JSON约3.61-3.63MB，Parquet约0.30-0.31MB。按旧14,288,011行线性测算：单遍31.6-117.8分钟，含一遍来源重核63.2-235.6分钟；还不含年度分流、排序、spill。**这是情景测算，不是执行SLA；历史全量方案不放行。**
+- 每10,000行审计JSON约3.61-3.63MB，Parquet约0.30-0.31MB。按旧14,288,011行线性测算：单遍31.6-117.8分钟；P0原两遍方案的63.2-235.6分钟仅保留为历史测算，现已取消第二遍。还不含年度分流、排序、spill。**这是情景测算，不是执行SLA；历史全量方案不放行。**
 - 候选日期4,056；目标目录不存在；最多候选4,056条materialization+40条历史check，实际以P3文件事实为准。正式数据估算约0.70GiB、chunk约0.40-0.42GiB、年度分流另留同量副本；spill与排序峰值未实测。磁盘可用约2.68TiB，空间不是当前主要风险。
 
 P0阶段结论：P1/P2的源行为、字段精度和最低覆盖实现已有样本依据，随后已获管理员确认并进入编码。P3仍需先收敛导出IO与来源重核成本、冻结实际历史日期/行数和并发来源稳定策略，再评审全量窗口。P0当时仅临时文件与两份文档发生写入，无正式Lake/DB/DG状态操作。
@@ -215,14 +215,18 @@ P0阶段结论：P1/P2的源行为、字段精度和最低覆盖实现已有样�
 
 P2验收记录已提交`c134f056`。本阶段新增离线SQL读取、历史工具、CLI及历史测试，不修改日更asset/check/sensor或共享resource。已实现`plan/export/build/audit/promote`；写阶段要求显式`--apply`、plan fingerprint和已冻结执行预算。`register/report-events`及历史交付check分支仍未实现，留P4。
 
-- checkpoint按10,000行源批次落盘，续跑重读既有前缀，导出结束再全范围顺序重核18字段；源增删改或契约改变拒绝冻结。两遍一致是观测稳定证据，不是数据库一致性快照。
+- checkpoint按10,000行源批次落盘；正常完成只读一遍，中断续跑校验已持久化前缀后续出，已完成批次重复执行只校验本地chunk且不读prod业务行。保留源schema前后核验与本地18字段完整对账。plan固定记录`source_policy=operator_confirmed_stable_single_pass`，旧两遍plan不能执行，须重生fingerprint。
 - 候选按年分流，再仅合并同日碎片为一个正式候选；当前日更日期锁同时保护历史提升。同内容跳过、异内容拒绝、逐文件checkpoint续跑，不恢复或覆盖既有异内容数据。
 - 全部运行测试均隔离：历史35项加日更/治理回归合计237项，另有受保护catalog12项通过；没有以正式资源运行测试。默认Ruff、致命错误门禁及文档检查通过。
 - 147万行、245日期合成容量样本：构建1.92秒、对账1.45秒；进程峰值约1.81GiB，chunk约79.1MB、最终候选约80.0MB。spill残留为0，不将残留数当峰值。样本不证明真实最大年度或全历史内存峰值。
 - 通过本机规定的`bash scripts/psql-remote.sh`执行与source helper一致的元数据SQL及两条非执行EXPLAIN。18字段类型/精度、主键及索引计划通过；新增业务行读取0，日历候选4,056，已有目标0，可用空间约2.68TiB。
 
-权威成本plan：[plan_with_capacity.json](/private/tmp/daily_basic_p3_plan_gfmd64o4/plan_with_capacity.json)。`stop_reasons=[]`只表示已审计结构无阻断；`execution_budget_frozen=false`，实际源日期/行数仍为空，不能执行export/build/promote。原始SQL和响应保留同目录。
+历史两遍成本plan：[plan_with_capacity.json](/private/tmp/daily_basic_p3_plan_gfmd64o4/plan_with_capacity.json)，仅保留原始只读证据，已不适用于当前执行策略。新plan必须包含单遍策略与新fingerprint；`stop_reasons=[]`只表示已审计结构无阻断，预算未冻结仍不能执行export/build/promote。原始SQL和响应保留同目录。
 
-成本仍需review：P0导出与来源重核估算63—236分钟；本地10,000行规范化/读回0.37秒，保守按两遍外推约18分钟，不能把它等同真实全历史耗时。包括chunk、年度中间、日期碎片、最终候选、正式增量，基础文件空间估算约2.93GiB，另计spill及保留的中断attempt。全历史审计排序/内存、实际提升元数据耗时未测，未扩大成全量验证。
+当前单遍成本：约1,429个非空页加终止页，来源读取估算31.6—117.8分钟，完整第二遍来源读取为0。本地10,000行规范化/读回实测0.398秒，单遍线性外推约9.5分钟；不得当作全量实测或与网络耗时无条件相加。包括chunk、年度中间、日期碎片、最终候选、正式增量，基础文件空间估算约2.93GiB，另计spill及保留的中断attempt。中断续跑前缀读取另计，全历史审计排序/内存、实际提升元数据耗时未测。
 
 证据：`/private/tmp/daily_basic_p3_tests.log`、`/private/tmp/daily_basic_p3_protected_governance.log`、`/private/tmp/daily_basic_capacity_txpfb54k/performance.json`；容量脚本为`/private/tmp/daily_basic_history_capacity.py`。本阶段未执行正式导出/提升、日期注册、runless event或sensor操作。下一步先review成本并冻结执行预算与源端窗口，再单独批准sample/batch执行。
+
+### 14.1 单遍口径修订与验证
+
+管理员确认本次prod历史范围保持不变，已删除第二遍全量读取。最新成本报告为`/private/tmp/daily_basic_p3_plan_gfmd64o4/plan_single_pass.json`，由原只读证据本地重生，并非新的prod状态审计；预算仍未冻结，不授权执行。单遍回归239项通过（含37项历史工具测试及166项subtests），日志`/private/tmp/daily_basic_p3_single_pass_tests.log`；Ruff通过。保留本地18字段对账、无损转换、文件hash、锁与原子提升。本轮只改离线工具、测试和原两份文档，未改日更链路或正式数据。
