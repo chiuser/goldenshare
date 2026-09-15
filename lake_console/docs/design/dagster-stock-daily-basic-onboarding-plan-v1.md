@@ -1,6 +1,6 @@
 # 股票每日指标接入 DG 技术方案
 
-状态：P0有界核验完成；P1/P2代码与隔离验证完成，待正式验收；历史全量性能门禁未放行。未注册正式分区或写正式Lake。更新：2026-09-15。
+状态：P0有界核验完成；P1/P2代码、隔离验证、definitions与正式只读样本验收通过；正式写入验收未执行，历史全量性能门禁未放行。未注册正式分区或写正式Lake。更新：2026-09-15。
 
 对应 [代码级 LLD](dagster-stock-daily-basic-onboarding-low-level-design-v1.md)。本文件定义目标和边界；LLD 定义代码、测试与分阶段验收。两份文件共同使用 R01-R12 约束编号。
 
@@ -198,4 +198,15 @@ P0阶段结论：P1/P2的源行为、字段精度和最低覆盖实现已有样�
 - 性能fixture：10日合计10,000行，10个输出文件核验约0.029秒。该数字隔离了真实网络及正式DB延迟，上游代码读取也使用替身；不作为正式tick耗时或p95承诺。
 - 全仓致命Ruff门禁通过；新增代码默认Ruff通过。共享`configs.py`仍有HEAD原有的11条DTZ007/TRY004告警，未扩大到本专项之外修复。
 
-边界：没有安装依赖、访问真实Tushare/prod做开发测试、触发正式任务、操作正式分区、启用sensor或写正式Lake/DB。未执行`dg check defs`，未开发prod历史导出/bootstrap，未进入P3。下一步先独立批准definitions及正式只读验收；历史写入仍受P0性能问题和P3计划冻结约束。
+开发阶段边界：没有安装依赖、访问真实Tushare/prod做开发测试、触发正式任务、操作正式分区、启用sensor或写正式Lake/DB。开发阶段未执行`dg check defs`；随后经独立批准完成下述验收。未开发prod历史导出/bootstrap，未进入P3。
+
+### 13.1 提交后只读验收（2026-09-15）
+
+- P1/P2代码与当时文档已提交`bb903dbe`，仅包含本专项27个文件。
+- 使用现有虚拟环境及临时`DAGSTER_HOME`执行`dg check defs --use-active-venv`，全部definitions加载成功；未安装依赖或连接正式instance执行验证。
+- 正式DB只读连接强制`default_transaction_read_only=on`，关闭storage自动建表。读取正式状态后，使用生产上游readiness与代码提取helper核验`2026-09-14`，得到5,550个有效代码。
+- 生产keys-only源probe返回5,550个代码，missing/extra均为0；1次请求，约203毫秒。此为一次样本实测，不是p95或其它日期的完整性保证。
+- 专属日期集合为空，未发现本族sensor持久state，正式目标目录不存在。新资产返回`missing_materialization`符合尚未生产的事实，不标成ready。
+- 证据目录：`/private/tmp/daily_basic_acceptance_LlLBlC/`，包括`definitions.log`及`readonly_audit.json`。
+
+结论：definitions与正式只读样本门禁通过；未执行正式writer/check/job/sensor、注册日期或写入Lake。下一阶段仍需独立确定正式写入窗口；P3先收敛历史导出IO与来源重核成本，不直接全量导入。

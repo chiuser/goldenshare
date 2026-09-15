@@ -1,6 +1,6 @@
 # 股票每日指标接入 DG 代码级 LLD
 
-状态：P0有界核验完成；P1/P2代码与隔离验证完成，待正式验收；历史全量性能未放行。更新：2026-09-15。唯一上层目标见 [技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。下文P1/P2模块已新增；prod导出及历史bootstrap模块仍是P3以后计划，不是现有入口。
+状态：P0有界核验完成；P1/P2代码、隔离验证、definitions与正式只读样本验收通过；正式写入验收未执行，历史全量性能未放行。更新：2026-09-15。唯一上层目标见 [技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。下文P1/P2模块已新增；prod导出及历史bootstrap模块仍是P3以后计划，不是现有入口。
 
 ## 1. 审计依据与可复用边界
 
@@ -320,8 +320,20 @@ CodeGraph的search/callers/impact与源码核对确认共享分页器还被指�
 - 受保护catalog验证12项通过；报告`/private/tmp/daily_basic_p2_protected_governance.log`。首次普通入口失败是受保护support未加载；随后按其固定启动器执行。固定源码白名单仅补本次新增模块的精确路径，未开放目录通配、网络或正式文件，未减少断言。
 - 全仓Ruff致命错误门禁通过；所有本次新代码默认规则通过。共享`configs.py`默认规则仍报11条已有DTZ007/TRY004，已对照`git show HEAD:.../configs.py`确认原样存在，不修改历史行为以消除告警。
 - 10日fixture共10,000行，10个输出文件、一次本asset materialization查询、10次两check批次核对，约0.029秒。实例查询和上游代码在该计时用例中为替身；实际源文件和DuckDB核验在临时目录执行。这只证明固定工作量和本地文件成本，不是正式DB/网络p95。
-- `dg check defs`、正式instance读取/执行、真实Tushare/prod日更、正式分区注册和历史导入均未执行。本次ephemeral job/check/event及临时Parquet不属于正式状态。
+- 上述开发验证阶段未执行`dg check defs`、正式instance读取/执行、真实Tushare/prod日更、正式分区注册和历史导入。后续独立批准的definitions与只读验收见13.2；ephemeral job/check/event及临时Parquet不属于正式状态。
 
 ### 13.2 后续准入
 
-当前可提交P1/P2代码供review；尚未发布或启用新sensor。下一步独立批准definitions加载与正式只读验收。P3需先解决P0的历史IO/重核成本、冻结历史实际日期与行数；本轮未创建prod导出、history/bootstrap或runless发布入口，不把日更编码完成当作历史写入授权。
+P1/P2代码已提交`bb903dbe`（本专项27文件），之后经管理员批准完成以下验收：
+
+| 门禁 | 实际结果 |
+| --- | --- |
+| Definitions | 现有`.venv/bin/dg check defs --use-active-venv`成功；`DAGSTER_HOME=/private/tmp/daily_basic_acceptance_LlLBlC/defs_home`，禁止依赖同步与下载 |
+| 正式只读状态 | PostgreSQL连接强制默认只读及10秒statement timeout，storage设置`should_autocreate_tables=False`，未初始化正式instance；新专属分区0，本族sensor持久state0，正式目标目录不存在 |
+| 同日上游 | `load_daily_basic_input_codes`验证2026-09-14股票Raw readiness及实际文件，5,550代码，hash为`e724ed3ff15cb4f48f084d227026882699e7f88cf1059ec28415e32c10642003` |
+| 源覆盖 | `probe_daily_basic_for_trade_date`仅取`ts_code,trade_date`，5,550代码，missing=0、extra=0，1次请求，202.684毫秒；没有执行sensor evaluation |
+| 未生产状态 | 新asset当日`missing_materialization`，正确保持非ready；没有伪造绿色check或交付证据 |
+
+证据：`/private/tmp/daily_basic_acceptance_LlLBlC/definitions.log`、`readonly_audit.json`及可复核的`audit.py`。正式只读样本通过不等于所有日期或正式写入验收通过，单次源耗时不作为p95。验收未访问prod业务库、未注册日期、未提交run、未启停sensor、未写正式Lake/DB。
+
+下一阶段须独立确定正式写入窗口。P3仍需先解决P0的历史IO/重核成本、冻结历史实际日期与行数；本轮未创建prod导出、history/bootstrap或runless发布入口，不把只读通过当作历史写入授权。
