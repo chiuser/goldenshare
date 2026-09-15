@@ -1,8 +1,10 @@
-"""Offline daily-basic history CLI. No assets, events or partition registration."""
+"""Offline history CLI; file publication and state writes are separate stages."""
 
 import argparse
+import fcntl
 import json
 import os
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from pathlib import Path
 
@@ -38,11 +40,25 @@ def history_parser():
         description="每日指标离线历史工具；默认不写正式数据"
     )
     parser.add_argument(
-        "stage", choices=("plan", "export", "build", "audit", "promote")
+        "stage",
+        choices=(
+            "plan",
+            "export",
+            "build",
+            "audit",
+            "promote",
+            "plan-events",
+            "register",
+            "report-events",
+            "audit-events",
+        ),
     )
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--plan", type=Path)
     parser.add_argument("--audit-report", type=Path)
+    parser.add_argument("--promote-report", type=Path)
+    parser.add_argument("--event-plan", type=Path)
+    parser.add_argument("--sample-date")
     parser.add_argument("--fingerprint")
     parser.add_argument("--start")
     parser.add_argument("--end")
@@ -60,10 +76,18 @@ def run_history_cli(args):
         raise DailyBasicValidationError("history_report_requires_private_tmp")
     if any(
         path is not None and path.resolve() == report.resolve()
-        for path in (args.plan, args.audit_report, args.cost_evidence)
+        for path in (
+            args.plan,
+            args.audit_report,
+            args.cost_evidence,
+            args.promote_report,
+            args.event_plan,
+        )
     ):
         raise DailyBasicValidationError("history_report_must_not_overwrite_input")
-    if args.stage == "plan":
+    if args.stage in ("plan-events", "register", "report-events", "audit-events"):
+        result = _run_event_stage(args)
+    elif args.stage == "plan":
         if args.apply or not all(
             (args.start, args.end, args.batch_id, args.cost_evidence)
         ):
@@ -157,6 +181,75 @@ def run_history_cli(args):
         )
     )
     return result
+
+
+def _run_event_stage(args):
+    from orchestrator.defs.bootstrap.daily_basic_event_instance import (
+        daily_basic_event_instance,
+    )
+    from orchestrator.defs.bootstrap.daily_basic_events import (
+        apply_daily_basic_events,
+        plan_daily_basic_events,
+    )
+
+    writable = args.stage in ("register", "report-events")
+    if not all((args.plan, args.audit_report, args.promote_report)):
+        raise DailyBasicValidationError("history_publication_reports_required")
+    if args.sample_date and args.stage != "report-events":
+        raise DailyBasicValidationError("history_sample_stage")
+    approved = load_history_report(args.event_plan) if args.event_plan else None
+    if writable and (
+        not args.apply
+        or approved is None
+        or args.fingerprint != approved["fingerprint"]
+    ):
+        raise DailyBasicValidationError("history_event_explicit_apply_required")
+    if not writable and args.apply:
+        raise DailyBasicValidationError("history_event_plan_is_readonly")
+    plan = load_history_report(args.plan)
+    if (
+        plan["lake_root"] != DEFAULT_LAKE_ROOT
+        or plan["staging_root"] != DEFAULT_LAKE_STAGING_ROOT
+    ):
+        raise DailyBasicValidationError("history_cli_formal_roots_only")
+    audit = load_history_report(args.audit_report)
+    promote = load_history_report(args.promote_report)
+    settings = replace(
+        DEFAULT_DUCKDB_CONNECTION_SETTINGS, temp_directory=Path("/private/tmp")
+    )
+    with (
+        _event_apply_lock() if writable else nullcontext(),
+        daily_basic_event_instance(writable=writable) as instance,
+        connect_configured_duckdb(
+            settings, temp_policy="existing_no_spill"
+        ) as connection,
+    ):
+        if writable:
+            return apply_daily_basic_events(
+                instance,
+                connection,
+                plan,
+                audit,
+                promote,
+                approved,
+                stage=args.stage,
+                apply=True,
+                sample_date=args.sample_date,
+            )
+        return plan_daily_basic_events(instance, connection, plan, audit, promote)
+
+
+@contextmanager
+def _event_apply_lock():
+    # Keep the inode stable across invocations; never unlink a live lock file.
+    with Path("/private/tmp/daily_basic_event_publication.lock").open("a") as stream:
+        try:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise DailyBasicValidationError(
+                "history_event_publication_locked"
+            ) from error
+        yield
 
 
 def main():

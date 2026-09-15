@@ -320,6 +320,69 @@ def test_keyset_and_readonly_source():
     cursor.fetchmany.assert_called_once_with(10000)
 
 
+@pytest.mark.parametrize("last_key", [None, ("000001.SZ", DAYS[0])])
+def test_history_order_uses_native_date_not_output_alias(last_key):
+    sql, _ = daily_basic_history_query(DAYS[0], DAYS[-1], last_key)
+    assert "to_char(trade_date, 'YYYYMMDD') AS trade_date" in sql
+    assert "ORDER BY daily_basic.ts_code, daily_basic.trade_date LIMIT" in sql
+    assert "ORDER BY ts_code, trade_date" not in sql
+
+
+@pytest.mark.parametrize("node_type", ["Sort", "Incremental Sort", "Seq Scan"])
+def test_plan_rejects_nested_expensive_nodes_even_with_index(plan, node_type):
+    evidence = source_evidence()
+    evidence["explain"] = [
+        [
+            {
+                "Plan": {
+                    "Node Type": "Limit",
+                    "Plans": [
+                        {"Node Type": "Index Scan", "Plans": [{"Node Type": node_type}]}
+                    ],
+                }
+            }
+        ]
+    ] * 2
+    result = history.make_history_plan(
+        **{
+            k: plan[k]
+            for k in (
+                "start",
+                "end",
+                "batch_id",
+                "lake_root",
+                "staging_root",
+                "calendar_path",
+                "dates",
+                "cost_evidence",
+                "limits",
+            )
+        },
+        source_evidence=evidence,
+    )
+    assert "source_plan_io_amplification" in result["stop_reasons"]
+    with pytest.raises(DailyBasicValidationError, match="plan_not_green"):
+        history.export_daily_basic_history(result, Source(), apply=True)
+    assert not Path(plan["staging_root"]).exists()
+
+
+def test_explain_gate_reads_node_types_not_text_values(plan):
+    assert plan["stop_reasons"] == []
+    assert set(
+        history._explain_node_types(
+            [
+                {
+                    "Plan": {
+                        "Node Type": "Limit",
+                        "Output": ["Sort", "Seq Scan"],
+                        "Plans": [{"Node Type": "Index Only Scan"}],
+                    }
+                }
+            ]
+        )
+    ) == {"Limit", "Index Only Scan"}
+
+
 def test_cli_defaults_no_write(plan, tmp_path):
     parser = history_parser()
     args = parser.parse_args(

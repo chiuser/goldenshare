@@ -42,7 +42,7 @@ def daily_basic_history_query(start, end, last_key=None):
         (
             f"SELECT {fields} FROM raw_tushare.daily_basic "
             "WHERE trade_date >= %(start)s AND trade_date <= %(end)s"
-            f"{boundary} ORDER BY ts_code, trade_date LIMIT %(batch_size)s"
+            f"{boundary} ORDER BY daily_basic.ts_code, daily_basic.trade_date LIMIT %(batch_size)s"
         ),
         params,
     )

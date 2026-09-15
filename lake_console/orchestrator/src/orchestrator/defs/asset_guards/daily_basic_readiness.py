@@ -133,12 +133,15 @@ def batch_daily_basic_readiness(
             path = raw_daily_basic_path(lake_root, day)
             audit = audit_daily_basic_file(connection, path, day)
             try:
-                codes = load_daily_basic_input_codes(
-                    instance, connection, lake_root, day
+                evidence = delivery_metadata(record)
+                codes = (
+                    ()
+                    if evidence.get("delivery_method") == "prod_history"
+                    else load_daily_basic_input_codes(
+                        instance, connection, lake_root, day
+                    )
                 )
-                if audit_daily_basic_coverage(
-                    path, audit, codes, delivery_metadata(record)
-                ):
+                if audit_daily_basic_coverage(path, audit, codes, evidence):
                     reason = "file_or_delivery_changed"
             except (DailyBasicValidationError, OSError):
                 reason = "upstream_not_ready"

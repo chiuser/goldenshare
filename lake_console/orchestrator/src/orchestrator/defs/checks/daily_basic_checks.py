@@ -50,13 +50,16 @@ def daily_basic_check_result(context, lake_root, duckdb, *, coverage):
                         and record.event_log_entry.run_id != context.run.run_id
                     ):
                         failed.append("different_run_delivery")
-                    codes = load_daily_basic_input_codes(
-                        context.instance, connection, lake_root.root(), day
+                    evidence = delivery_metadata(record)
+                    codes = (
+                        ()
+                        if evidence.get("delivery_method") == "prod_history"
+                        else load_daily_basic_input_codes(
+                            context.instance, connection, lake_root.root(), day
+                        )
                     )
                     failed.extend(
-                        audit_daily_basic_coverage(
-                            path, audit, codes, delivery_metadata(record)
-                        )
+                        audit_daily_basic_coverage(path, audit, codes, evidence)
                     )
         after = file_sha256(path) if path.is_file() else None
         latest = daily_basic_materializations(context.instance, [day]).get(day)
@@ -107,7 +110,7 @@ def raw_tushare_daily_basic_file_contract_check(
     name=DAILY_BASIC_CHECKS[1],
     partitions_def=cn_a_daily_basic_trade_days,
     blocking=True,
-    description="核对当前交付指纹、行数和同日股票Raw最低代码覆盖，不重拉源数据。",
+    description="核对交付指纹与行数；日更对齐股票Raw最低覆盖，历史对齐冻结导出证据，不重拉源数据。",
 )
 def raw_tushare_daily_basic_source_coverage_check(
     context: dg.AssetCheckExecutionContext,

@@ -3,6 +3,7 @@
 import fcntl
 import hashlib
 import os
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from decimal import Context, Decimal, InvalidOperation
@@ -88,6 +89,27 @@ def audit_daily_basic_coverage(
 ) -> tuple[str, ...]:
     if audit.failed_rules:
         return ("file_contract",)
+    if evidence.get("delivery_method") == "prod_history":
+        expected_evidence = {
+            "file_sha256": file_sha256(path),
+            "source_row_count": audit.row_count,
+            "code_count": len(audit.codes),
+            "source_system": "prod_raw_db",
+            "trade_date": path.parent.name.removeprefix("trade_date="),
+        }
+        rules = [
+            f"delivery_{key}"
+            for key, value in expected_evidence.items()
+            if evidence.get(key) != value
+        ]
+        for key in (
+            "history_plan_fingerprint",
+            "history_export_fingerprint",
+            "history_audit_fingerprint",
+        ):
+            if not re.fullmatch(r"[0-9a-f]{64}", str(evidence.get(key, ""))):
+                rules.append(f"delivery_{key}")
+        return tuple(rules)
     expected = set(expected_codes)
     rules = []
     if not expected or expected - set(audit.codes):

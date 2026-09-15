@@ -1,6 +1,22 @@
 # 股票每日指标接入 DG 代码级 LLD
 
-状态：P2验收记录已提交；P3历史工具与只读计划完成，待全量执行评审。正式写入验收未执行，历史全量性能未放行。更新：2026-09-15。唯一上层目标见 [技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。P1/P2和P3文件工具已实现；P4分区/事件发布及历史交付check分支仍待开发。
+状态：P3正式文件已发布；P4代码与验证完成，4,056个历史日期已正式注册，事件补录尚未执行。更新：2026-09-15。唯一上层目标见[技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。文件存在不等于Dagster ready。
+
+## P4实施约束（2026-09-15，已实现，注册结果见§16）
+
+本轮只实现并验证状态发布能力，正式操作先生成只读plan，注册与event写入单独批准。沿用一个`daily_basic_history_cli`，增加`plan-events/register/report-events/audit-events`；不创建新asset/check/job/sensor。新增离线`bootstrap/daily_basic_events.py`承载发布，不被active代码导入。
+
+1. 历史交付使用`delivery_method=prod_history`，metadata冻结`trade_date/file_sha256/source_row_count/code_count/history_plan_fingerprint/history_export_fingerprint/history_audit_fingerprint/source_system=prod_raw_db`。`daily_basic_raw_io.audit_daily_basic_coverage`验证当前文件与该交付身份；仅该方法不读取股票Raw上游，日更`tushare_daily`原校验不变。check/readiness两个消费者同时切换，未知方法不得绕过门禁。active不读取临时报告或历史chunk。
+2. 离线plan验证P3 plan/audit/promote完整fingerprint关联、全部正式文件hash与候选证据一致；最近20个日期使用现行两个纯校验器，不重读prod或全历史业务行。校验通过后才构造历史交付metadata，不能拿文件存在伪造绿色状态。
+3. 状态查询采用500日期批次和有界分页materialization；check按分区批量取最新索引，完整evaluation只读取最近20日。已有不一致materialization、失败/执行中/失配check、check-only分区或活动本族run均停止，禁止覆盖掩盖。重复执行跳过同一P3证据的现有状态。
+4. register只增加候选缺失日期；report-events要求全部候选已注册。每条check明确绑定同一日期当前materialization的storage id/run id/timestamp。支持显式最近窗口sample日期；默认全量materialization而check始终最多40条。部分API失败即停止，重新plan后续补，不能删除已成功event。
+5. 只读plan/audit从正式配置解析PG连接，禁自动建表且事务默认READ ONLY；写阶段显式`--apply`、新鲜event plan（最多1小时）与fingerprint，通过Dagster API写入，不使用SQL DML。入口不启停sensor、不创建run、不写Lake/prod、不改共享分区。
+
+性能测算：4,056文件共约0.71GiB哈希读取；仅20日扫描键/schema，不扫描全历史18字段。最多9个日期批次读取check索引，materialization分页每500条、总返回上限20,000条，超限停止而不静默截断；实际已有事件0时为9次空materialization分页查询。最多4,056 materialization+40 check；离线内存仅文件清单与有界事件索引。sensor继续最多10日，无新增全历史读取。无可证明p95的样本，不将一次只读plan计时当SLA。
+
+测试落点：`test_daily_basic_events.py`覆盖P3关联/文件变化、注册幂等、recent20、check绑定、冲突/部分失败、只读零写入；`test_daily_basic_checks.py`覆盖历史无需stock_daily、未知方法拒绝、文件变化失效以及日更回归；已有性能/静态/治理测试保持。完成后原两份文档同步实际结果，正式注册及event不随开发执行。
+
+P3文件基线仍为4,056个交易日、14,288,011行；P4实际验收见§15。
 
 ## 1. 审计依据与可复用边界
 
@@ -131,7 +147,7 @@ source probe的键字段分页已实现。P0七日keys-only响应与18字段请�
 
 `file_contract_check` 聚合：文件存在可读、非空、列顺序/type、日期、空键、重复键。输出 `failed_rule_names` 为 list；不拆成多条 check。
 
-`source_coverage_check`聚合：文件fingerprint与本次交付证据匹配、行数/代码数匹配、最低覆盖差集为零。当前materialization的交付证据缺失或过期则失败，不借上一run证据；check不重新联网。仅重跑check时读取该分区最新有效交付；运行中若文件或materialization变化则失败。P1/P2只接收`tushare_daily`交付；bootstrap分支尚未实现，P3需使用冻结导出版本的18字段/键对账，不依赖当年并不存在的DG stock_daily状态。
+`source_coverage_check`聚合：文件fingerprint与本次交付证据匹配、行数/代码数匹配。`tushare_daily`继续要求股票Raw最低覆盖差集为零；`prod_history`核对冻结导出交付身份，不依赖当年并不存在的DG stock_daily状态。当前materialization的交付证据缺失或过期则失败，不借上一run证据；check不重新联网或读取临时报告。仅重跑check时读取该分区最新有效交付；运行中若文件或materialization变化则失败。历史18字段/键全量对账由P3负责，P4发布前逐文件hash确认仍为该版本。
 
 两个 check 均 ERROR/blocking。metadata 记录方法和证据来源，不能使历史分区“按今天股票池通过”。readiness 只接受绑定当前 materialization 的成功 check，并确认文件未变；最多 10 日批量查询，不对全历史逐日扫描 event。
 
@@ -153,7 +169,7 @@ cursor 使用现行 builder，`schema_version=1`；details 的 summary/next_acti
 
 ### P3实施约束（2026-09-15批准，代码完成）
 
-本轮只开发`plan/export/build/audit/promote`及隔离测试，执行有界正式只读plan；不执行正式export/build/promote，不注册日期或补事件。注册、历史交付check分支和事件发布仍属于P4。
+最初开发批次只实现`plan/export/build/audit/promote`及隔离测试、有界正式只读plan，未执行正式export/build/promote。后续获批执行范围与实际结果以§14.6—14.7为准；注册、历史交付check分支和事件发布仍属于P4。
 
 配置与输入统一保存在带SHA-256 fingerprint的plan JSON：显式start/end、batch_id、Lake/staging根、交易日历文件hash和日期集合、schema/索引/非执行EXPLAIN证据、P0测算报告hash。SQL批次固定最多10,000行、单线程、statement timeout固定10秒，不增加env配置。CLI生产根固定为正式Lake及外置staging；隔离测试通过纯函数注入临时根。
 
@@ -183,11 +199,11 @@ SELECT ts_code, to_char(trade_date, 'YYYYMMDD') AS trade_date,
 FROM raw_tushare.daily_basic
 WHERE trade_date >= %(start_date)s AND trade_date <= %(end_date)s
   AND (ts_code, trade_date) > (%(last_code)s, %(last_date)s)
-ORDER BY ts_code, trade_date
+ORDER BY daily_basic.ts_code, daily_basic.trade_date
 LIMIT %(batch_size)s
 ```
 
-WHERE 日期使用原生 DATE 参数，last_date 也是 DATE，不用 SELECT 的字符串别名作比较。每批独立 READ ONLY 事务、statement timeout；不长持全历史事务，不用 OFFSET 翻历史、不按日期重扫。只有执行计划及有界样本证明该条件组合仍有效用索引才准入。
+WHERE日期使用原生DATE参数，last_date也是DATE；ORDER BY显式限定原表列，不使用SELECT的字符串别名。每批独立READ ONLY事务、statement timeout；不长持全历史事务，不用OFFSET翻历史、不按日期重扫。准入要求EXPLAIN走索引且无Sort/Incremental Sort/Seq Scan，不能仅凭出现索引节点就认定通过。
 
 每批写完整 candidate chunk 后原子冻结 checkpoint：batch_id、范围、last_key、行数、内容 hash、文件、完成时间。最多 10,000 行常驻，DuckDB 内存/线程和 spill 采用本工程资源限制。中断仅保留完整 chunk；源导出阶段重启必须重核已有 chunk，不允许只凭 last_key 忽略源补写到较小键的记录。
 
@@ -202,10 +218,11 @@ WHERE 日期使用原生 DATE 参数，last_date 也是 DATE，不用 SELECT 的
 | build --apply | 从冻结 chunk 用 DuckDB 转按日候选，按年批次；一次逻辑读取而非每日重扫全部 chunk | 直接覆盖目标 |
 | audit | 源导出与候选全 18 字段双向 EXCEPT ALL、行数、键、日期/schema、空间/冲突 | 将 check 状态当数据事实 |
 | promote --apply | 新鲜审计后逐文件原子提升、checkpoint | 多文件整体原子承诺、Kopia |
-| register --apply（P4待实现） | 仅注册已批准候选日历集合到专属分区 | 删除共享分区 |
-| report-events --apply（P4待实现） | 全部已核实文件可补 materialization；只给最近 20 个实际交易日补两个 check | 历史全量 checks、job/run |
+| plan-events / audit-events | 当前P3文件及DG状态只读对账，冻结待注册/待补事件清单 | 写任何正式状态 |
+| register --apply | 仅注册已批准候选日历集合到专属分区 | 删除共享分区 |
+| report-events --apply | 全部已核实文件可补 materialization；只给最近 20 个实际交易日补两个 check；可显式sample-date | 历史全量 checks、job/run |
 
-这是一个CLI的分阶段设计；当前仅前五个命令已实现，不增加Dagster asset/job。技术方案中的build包括候选生成与独立提升批准；拆开执行动作，防止生成候选就意外发布。
+以上均在同一个CLI实现，不增加Dagster asset/job。技术方案中的build包括候选生成与独立提升批准；拆开执行动作，防止生成候选就意外发布。P4写阶段额外提供`--event-plan`及其fingerprint（不是P3 plan fingerprint），register后重做plan，再审批report-events；audit-events重算剩余清单，未全部完成时不会自称全量ready。
 
 采用 chunk 一次分流到年度 staging、再逐年按 trade_date 聚合 COPY 的方式；禁止每年反复从 prod 拉相同数据。年度内多 chunk 最终合并为每个交易日一个正式文件，不留下 chunk 作为正式 Lake 数据集。
 
@@ -244,7 +261,7 @@ P0已为P1/P2日更源与类型设计提供技术样本依据；口径随后获�
 
 ## 9. 测试落点与开发顺序
 
-测试均位于`lake_console/orchestrator/tests/`。日更与P3历史文件测试已实现；事件工具测试仍为P4计划：
+测试均位于`lake_console/orchestrator/tests/`。日更、P3历史文件和P4事件工具测试均已实现；最新结果见§15：
 
 | 文件 | 必须覆盖的正反例 |
 |---|---|
@@ -281,7 +298,7 @@ P0已为P1/P2日更源与类型设计提供技术样本依据；口径随后获�
 | R11 | §8 | 已执行30,000行业务预算内取样；存在IO放大，完整历史性能未放行 |
 | R12 | §2、§9 | scoped diff、默认 STOPPED、生产审批隔离 |
 
-设计审计结论：两份文档目标均为股票daily_basic的18字段Raw接入；来源、路径、分区、check、状态数量和阶段批准一致。P1/P2实现结果见13节，P3历史文件工具见14节；P4分区/事件发布仍待开发，不能当作已实现。
+设计审计结论：两份文档目标均为股票daily_basic的18字段Raw接入；来源、路径、分区、check、状态数量和阶段批准一致。P1/P2实现结果见13节，P3历史文件工具见14节；P4代码与只读plan见15节，正式状态写入未执行。
 
 P0后结论：完整日数值精度、keys-only及最低覆盖边界样本已验证。对象、时间、Raw-only、最低覆盖局限及P1/P2实施已获确认；只允许代码与隔离测试。历史建议截止为2026-09-14，P3仍需冻结实际源日期/行数、独立事务来源稳定策略及可接受成本；历史全量执行明确不放行。
 
@@ -400,3 +417,106 @@ P2验收文档提交`c134f056`；P3新增代码不改变共享接口、active依
 - `test_single_pass_and_completed_export_does_not_reread`锁定正常导出仅一遍、完成后不重拉；10,002行跨批测试只允许3次请求（两页数据及终止页），不再是6次。中断前缀增删改、chunk损坏、候选对账、精度与安全提升测试保留。
 - `test_old_plan_policy_is_rejected_before_source_read`拒绝缺单遍策略的旧plan；`test_cost_estimate_only_budgets_one_source_pass`锁定单遍成本、不保留旧合计字段。
 - 239项定向/回归测试及166项subtests通过，含37项历史工具测试；日志`/private/tmp/daily_basic_p3_single_pass_tests.log`。Ruff通过。未执行正式导出/提升、日期注册、事件或sensor/job操作；未自动提交本次修订。
+
+### 14.5 执行前排序漏项与最小修正计划（历史停止记录，已按§14.6修正）
+
+单遍修改已提交`87f7ece0`。管理员明确DG及其离线工具用标准`ProdPostgresResource`，无需套用非DG的命令脚本入口。2026-09-15新鲜plan报告`/private/tmp/daily_basic_p3_current_plan_20260915_101753.json`：4056候选、目标冲突0、业务行读取0，但两处EXPLAIN包含`Incremental Sort`。当前空stop列表是性能门禁漏报，不能用于执行。
+
+根因及修正范围：
+
+1. `defs/prod_db/daily_basic.py::daily_basic_history_query`的输出别名`trade_date`遮蔽原列，`ORDER BY ts_code, trade_date`排序的是格式化字符串，未完全沿用主键顺序。拟仅改排序为`ORDER BY daily_basic.ts_code, daily_basic.trade_date`，其余18字段、日期过滤、keyset、批次上限和类型保持不变。
+2. `defs/bootstrap/daily_basic_history.py::make_history_plan`通过序列化文本精确查`"Sort"`，没有覆盖`"Incremental Sort"`。拟按JSON节点结构递归检查`Node Type`，保留索引与顺序扫描门禁，并拒绝两类排序。
+3. `tests/test_daily_basic_history.py`补充首批/续页SQL原列排序断言，普通Sort、Incremental Sort和嵌套Seq Scan拒绝、直接Index Scan通过的测试，避免仅因树中存在索引节点就误判通过。
+4. 隔离测试通过后再运行相同只读plan；两处都应为`Limit -> Index Scan`，成本预算仍需冻结，不因SQL修正自动提升文件。
+
+已完成纯只读对比（不是代码修改）：`/private/tmp/daily_basic_ordering_explain_20260915.json`，使用相同标准resource、相同参数，仅将ORDER BY限定原表列，两处增量排序消失。没有ANALYZE或业务取样，未获得新的耗时实测。按“发现计划与实现冲突先停止”的规则，本轮未修改生产代码，未执行全量导出或写湖。
+
+### 14.6 获准修正后执行记录
+
+管理员随后批准“修正，然后继续推进”。已将ORDER BY限定原表列，并递归读取EXPLAIN的`Node Type`，拒绝Sort、Incremental Sort、Seq Scan；新增首批/续页及嵌套节点回归。245项测试通过，日志`/private/tmp/daily_basic_p3_ordering_tests.log`，Ruff通过。
+
+本次执行限于2010-01-04至2026-09-14的外置staging导出、按日构建和本地审计；正式promote、注册及事件另行收口。batch_id=`daily_basic_20100104_20260914_20260915_102124`，工作区`/Volumes/datasource/data_lake_staging/daily_basic_history/daily_basic_20100104_20260914_20260915_102124`。资源仍为既有ProdPostgresResource，读取18字段、单线程主键分页，源端不写入。
+
+执行预算显式写入本轮plan：`max_source_rows=15000000`（高于14,288,011旧统计约5%，实际数从导出累计）、`max_source_seconds=10800`（P0单遍最慢估算约118分钟，加本地处理/连接余量；3小时是停止线）、`max_stage_seconds=1800`、`max_spill_bytes=4294967296`。DuckDB仍为既有16GiB/4线程，audit禁spill。基础文件按上限缩放加spill约7.1GiB，移动盘当前约2.7TiB可用。超限停止，不自动扩容或追加预算；不把上限当实测耗时。
+
+### 14.7 Staging执行验收（2026-09-15完成）
+
+| 阶段 | 实际结果 | 报告 |
+|---|---|---|
+| 新鲜plan | 两处均Limit→Index Scan，无排序/顺序扫描；4,056个日历候选，目标冲突0，显式预算已冻结 | `/private/tmp/daily_basic_p3_execution_plan_20260915_102124.json` |
+| 单遍export | 14,288,011行，1,429个非空chunk加终止页；完成冻结，2,427.37秒（40分27秒），schema前后相同 | `/private/tmp/daily_basic_p3_export_20260915_102124.json` |
+| 年度build | 17年、4,056个按日候选、14,288,011行；日期集合等于日历；日志创建至末次输出约20.7秒，非独立函数计时 | `/private/tmp/daily_basic_p3_build_20260915_102124.json` |
+| 本地audit | 18字段双向EXCEPT ALL差异0，schema、空/重复键、文件分区对齐通过；函数17.54秒、CLI墙钟19.18秒；无prod业务重读 | `/private/tmp/daily_basic_p3_audit_20260915_102124.json` |
+| 收口 | 实际范围2010-01-04至2026-09-14；正式目标文件仍0，提升/分区/event/prod业务写入均0 | `/private/tmp/daily_basic_p3_staging_final_audit_20260915_102124.json` |
+
+plan fingerprint=`f9afae0f47fea8ac2bcfd7c675a215fdc00ba76547d79d58f0038b6309709c83`；export=`f56e76189ac0fc017800453f11cd3ec1bdd511c934c2f939096e5b137bbacf86`；build=`bb6982af188fd80c7dc34cf436680e4a0855a4605df131d3c59cba57ea896b17`；audit=`1df165b57aeaea998c565b73c2cf0956b0c58241929cc93caf841b54d7bb4dd7`。后续提升必须重核当前候选和目标，不以这些历史报告直接绕过锁与冲突检查。
+
+实际体量：chunk446,804,795字节，最终按日候选761,591,306字节，整个staging含中间产物/checkpoint共1,678,610,886字节。2025年为最大年度，243日期、1,313,898行，低于先前1,470,000行容量样本。audit `/usr/bin/time -l`报告峰值RSS5,523,177,472字节（约5.14GiB），peak memory footprint6,949,181,056字节，未触发16GiB限制；构建spill残留0但未独立测峰值，不能宣称峰值为0。时间/RSS报告`/private/tmp/daily_basic_p3_audit_20260915_102124.time`，各阶段日志与报告同前缀。
+
+本阶段完成的是staging数据，不是正式Lake发布。未运行promote、job/sensor、注册或runless event；P4也未进入。下一步单独推进正式文件提升及其物理审计，不重拉prod，不增加第二遍来源核验。本轮代码与文档未自动提交。
+
+### 14.8 正式提升与物理验收（2026-09-15完成）
+
+管理员在§14.7结果后批准继续。工作目录为`lake_console/orchestrator`，使用现有虚拟环境执行以下命令；本阶段不加载正式Dagster instance，不需要`DAGSTER_HOME`，不访问prod业务数据：
+
+```bash
+.venv/bin/python -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli promote \
+  --apply \
+  --plan /private/tmp/daily_basic_p3_execution_plan_20260915_102124.json \
+  --fingerprint f9afae0f47fea8ac2bcfd7c675a215fdc00ba76547d79d58f0038b6309709c83 \
+  --audit-report /private/tmp/daily_basic_p3_audit_20260915_102124.json \
+  --report /private/tmp/daily_basic_p3_promote_20260915_102124.json
+```
+
+沿用已完成的隔离样本验证、全量staging构建与聚合审计，不修改plan范围或裁剪audit报告。执行前同卷与空间检查通过；工具持有history锁重新审核全部候选，再以日更同一日期锁逐文件提升，每个文件核hash并记录`promote.json`。任一异常停止，已完成文件由checkpoint与物理文件续跑核验；不承诺跨4,056文件整体原子。此次没有异常或目标冲突。
+
+| 验收项 | 实际结果 |
+|---|---|
+| 正式文件 | `raw/tushare/daily_basic/trade_date=<ISO日期>/part-000.parquet`，4,056个文件，无额外文件 |
+| 范围与行数 | 2010-01-04至2026-09-14，14,288,011行；正式Parquet页脚逐文件计数等于audit |
+| 内容身份 | 所有正式文件SHA-256等于已审计候选；沿用候选18字段/schema/日期/key全量验收，未重复计算业务字段 |
+| 正式体量 | 761,591,306字节，候选保留在原staging，不是原正式文件备份 |
+| 性能 | CLI含全量提升前重审46.70秒，峰值RSS5,476,335,616字节；最终仅文件hash和页脚审计0.83秒 |
+| 执行边界 | 本次prod业务读写0、DG事件写入0、动态分区写入0、job提交0、sensor状态变更0；不是宣称其它并行任务无状态变化 |
+
+promote fingerprint=`d02a09e8ce5a0aee3c2f9ad2428e4c15b3fd35a076c293c112dada622060aef3`；报告`/private/tmp/daily_basic_p3_promote_20260915_102124.json`，日志与时间报告同前缀`.log/.time`。最终审计报告`/private/tmp/daily_basic_p3_publication_final_audit_20260915_102124.json`，脚本`/private/tmp/daily_basic_p3_publication_audit_20260915.py`，只读正式文件并输出临时报告。
+
+本节记录P3发布时点：**当时P3正式物理发布完成、P4尚未进入**。随后P4开发结果见§15。不得仅凭本次文件发布生成绿色状态或自动启用sensor；P3本轮没有新增生产代码修改，原排序/门禁修正及两份文档当时尚未提交。
+
+## 15. P4代码与只读plan验收
+
+2026-09-15按管理员“继续推进P4”完成开发及只读plan，未申请/执行正式状态写入。CodeGraph `query/impact audit_daily_basic_coverage`及代码引用审计确认影响面为本族IO、check、readiness及其sensor消费者；新增离线events和instance适配器只由原CLI调用，active无反向导入。日更来源、最低覆盖、run key、job selection、分区定义、文件schema和路径不变。
+
+| 约束 | 代码与测试证据 |
+|---|---|
+| 历史交付不依赖stock_daily | `daily_basic_raw_io.audit_daily_basic_coverage`新增prod_history身份校验；check/readiness按同一delivery_method决定是否读上游。测试禁止历史调用上游，缺失/错误身份与文件变化拒绝 |
+| 状态范围与幂等 | `bootstrap/daily_basic_events.py`的plan/apply；21日fixture为21条materialization+40条check，sample后全量再跑为0新增。仅有materialization的首日仍不ready |
+| 失败与恢复 | check-only、旧失败、不同交付、未注册、过期/变化plan、文件损坏、活动run拒绝；分别在materialization和check中途模拟API失败，新plan仅补剩余事件 |
+| 绑定与并发 | 绑定storage id/run id/timestamp，批次前复核注册/check索引/materialization，check前核对当前文件与materialization；CLI写阶段使用`/private/tmp/daily_basic_event_publication.lock`非阻塞互斥，锁文件不删除 |
+| 只读入口 | `daily_basic_event_instance.py`读取既有dagster.yaml，限制本机goldenshare_dagster，拒绝自定义storage；Postgres storage禁autocreate、plan默认READ ONLY/10秒timeout；不创建launcher/schedule，不执行DDL |
+| 性能 | plan只hash全部文件，键/schema校验恰好20日；历史事件500日期分组、20,000返回上限。原日更10日fixture仍1次materialization查询、10次check批查询，实测约0.032秒 |
+
+回归270项与166个subtests通过，`/private/tmp/daily_basic_p4_regression.log`；默认Ruff通过。catalog经既有`stock_suspend_confirmed_test_runner.py --scope regression --suite test_asset_governance_contracts.py`隔离启动器验证通过，`/private/tmp/daily_basic_p4_catalog_protected.log`。普通pytest运行该suite时缺少专用插件`stock_suspend_confirmed_test_support`，已改用规定启动器，未改测试预期或共享代码。历史事件夹具曾因同一runless check重复写入触发SQLite唯一约束，已改为先建立一次失败事实再验证拒绝；正常幂等路径从不重复追加已有check。
+
+正式只读命令为原CLI `plan-events`，输入P3三份报告：`--plan /private/tmp/daily_basic_p3_execution_plan_20260915_102124.json --audit-report /private/tmp/daily_basic_p3_audit_20260915_102124.json --promote-report /private/tmp/daily_basic_p3_promote_20260915_102124.json`。输出`/private/tmp/daily_basic_p4_plan_events_20260915.json`，fingerprint=`b5d94c45208f33a9d0dea305b1163dbc1b0884188897b8f40ea2945196bf8181`。
+
+| 正式只读结果 | 数量/状态 |
+|---|---|
+| 文件/历史行数基线 | 4,056文件，P3冻结14,288,011行，所有文件hash一致 |
+| 待注册日期 | 4,056 |
+| 待materialization | 4,056（现有0） |
+| 待check | 40（现有0），2026-08-18至2026-09-14最近20个交易日 |
+| 阻断与耗时 | should_stop=false，4.279秒；无本族活动run/冲突 |
+| 正式写入 | 0；无Lake、prod、分区/event、job或sensor操作 |
+
+**下一步是P4正式状态发布批准，不是继续重复开发历史工具。** 执行前重做一份1小时内plan；先注册，再重做plan并审批sample事件，sample通过再补余量，最后audit-events剩余清单为空并抽查readiness。最多4,096条事件，不补全历史check、不启用sensor。P5真实日更仍独立；当前代码与文档未自动提交。
+
+## 16. P4正式日期注册完成
+
+管理员继续推进授权后，本轮仅执行专属动态分区注册，事件写入仍独立。先重做只读plan，确认待注册4,056、待materialization4,056、待check40、无阻断，使用既有CLI `register --apply`及新鲜event plan fingerprint执行。
+
+- 注册前：`/private/tmp/daily_basic_p4_before_register_20260915.json`，fingerprint=`172057dde6b666a78c49c69b42a172b4cc202acab523de44dfc6370dca5121d0`。
+- 正式操作：仅经`DagsterInstance.add_dynamic_partitions`向`cn_a_daily_basic_trade_days`添加2010-01-04至2026-09-14的4,056个日期；报告`/private/tmp/daily_basic_p4_register_20260915.json`，registered_count=4056、event_count=0。
+- 注册后：`/private/tmp/daily_basic_p4_after_register_20260915.json`，audit-events实测3.305秒，缺注册0、待materialization4,056、待check40、should_stop=false；文件hash全数一致。没有Lake/prod写入、事件写入、job或sensor操作，也没有改共享分区。
+
+下一步是单独批准最近窗口样本事件补录，例如2026-09-14的一条materialization和两条check；新鲜plan后执行，样本ready且绑定正确才推进余量。注册本身不表示materialized或ready。本轮只同步原文档，不自动提交。

@@ -108,6 +108,18 @@ def _parquet_files(paths, *, filename=False):
     )
 
 
+def _explain_node_types(value):
+    if isinstance(value, dict):
+        node_type = value.get("Node Type")
+        if isinstance(node_type, str):
+            yield node_type
+        for child in value.values():
+            yield from _explain_node_types(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _explain_node_types(child)
+
+
 def make_history_plan(
     *,
     start,
@@ -158,10 +170,10 @@ def make_history_plan(
     if len(source_evidence["explain"]) != 2:
         reasons.append("source_explain_missing")
     for explain in source_evidence["explain"]:
-        text = json.dumps(explain)
-        if '"Index Scan"' not in text and '"Index Only Scan"' not in text:
+        node_types = set(_explain_node_types(explain))
+        if not node_types.intersection({"Index Scan", "Index Only Scan"}):
             reasons.append("source_plan_not_indexed")
-        if '"Seq Scan"' in text or '"Sort"' in text:
+        if node_types.intersection({"Seq Scan", "Sort", "Incremental Sort"}):
             reasons.append("source_plan_io_amplification")
     targets = [d for d in dates if raw_daily_basic_path(lake, d).exists()]
     if targets:
