@@ -1013,11 +1013,19 @@ def _write_raw_stk_mins_rows_from_prod_db_source(
 def _prod_db_raw_stk_mins_output_sql(*, freq: int) -> str:
     select_columns = ", ".join(
         f"CAST({column} AS {STK_MINS_RAW_COLUMN_TYPES[column]}) AS {column}"
-        for column in ("ts_code", "freq", "trade_time", "open", "close", "high", "low")
+        for column in ("ts_code", "freq", "trade_time")
+    )
+    # Prod REAL prices carry float32 tails. Normalize original OHLC only,
+    # before any QFQ calculation; keep the existing DOUBLE file contract.
+    price_columns = ", ".join(
+        f"CAST(round(CAST({column} AS DOUBLE), 2) "
+        f"AS {STK_MINS_RAW_COLUMN_TYPES[column]}) AS {column}"
+        for column in ("open", "close", "high", "low")
     )
     return f"""
     SELECT
       {select_columns},
+      {price_columns},
       CAST(vol AS {STK_MINS_RAW_COLUMN_TYPES["vol"]}) AS vol,
       CAST(amount AS {STK_MINS_RAW_COLUMN_TYPES["amount"]}) AS amount,
       CAST(

@@ -510,6 +510,26 @@ git diff --check</pre>
       <code>raw_stk_mins_started</code> 后沉默几十分钟。
     </div>
   </section>
+  <section>
+    <h2>11. Prod 原始价格两位规范化（2026-09-15 用户确认）</h2>
+    <p>只对后续从 Prod 导入并新生成的分钟 Raw，将 open、close、high、low
+      四舍五入为两位小数后按既有 DOUBLE 类型保存。消除 Prod REAL 带来的尾差；
+      不修改 Prod 表，不改 amount、vol、vwap，不修改 Tushare 直拉路径，不对前复权结果取两位。</p>
+    <p>日常 writer 和人工 Prod 导入共用
+      <code>_prod_db_raw_stk_mins_output_sql</code>。已有 Raw 仍按原逻辑复用；
+      本次不运行人工替换、历史修复、回补或任何正式数据任务。
+      此授权不包含本文历史方案中的其它待实施改动或 staging 路径建议。</p>
+    <p>性能与验收：原单频／单日／既定股票集合的请求、扫描、排序、文件数和事务边界不变；
+      只在原投影增加四个 round 表达式，无额外查询、连接、join 或全历史扫描。
+      隔离样本覆盖五个原生频度，各一行真实尾差数值、NULL／零值、金额股数不变、
+      Parquet 写后读回和旧文件不改。已有前复权公式金样本回归，禁止以调整预期值消除失败。
+      新增测试只写 pytest 临时目录，不使用正式 Lake、数据库、网络或 Dagster instance。</p>
+    <p>实施验证：<code>test_stk_mins_prod_price_precision.py</code> 与
+      <code>test_stk_mins_qfq_formula_golden_contracts.py</code> 合计 12 passed、5 subtests passed；
+      新测试默认 Ruff、全项目 E9/F63/F7/F82、文档检查及 diff 检查通过。
+      原 stk_mins.py 默认 Ruff 的 7 项告警经 HEAD 对照全部为既存，未顺手清理。
+      未部署、未触发正式导入；历史文件仍可能携带原尾差，不把新导入修正当作历史修复完成。</p>
+  </section>
 </main>
 </body>
 </html>
