@@ -1,6 +1,6 @@
 # 股票每日指标接入 DG 代码级 LLD
 
-状态：P0有界核验完成；P1/P2代码、隔离验证、definitions与正式只读样本验收通过；正式写入验收未执行，历史全量性能未放行。更新：2026-09-15。唯一上层目标见 [技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。下文P1/P2模块已新增；prod导出及历史bootstrap模块仍是P3以后计划，不是现有入口。
+状态：P2验收记录已提交；P3历史工具与只读计划完成，待全量执行评审。正式写入验收未执行，历史全量性能未放行。更新：2026-09-15。唯一上层目标见 [技术方案](dagster-stock-daily-basic-onboarding-plan-v1.md)。P1/P2和P3文件工具已实现；P4分区/事件发布及历史交付check分支仍待开发。
 
 ## 1. 审计依据与可复用边界
 
@@ -151,6 +151,24 @@ cursor 使用现行 builder，`schema_version=1`；details 的 summary/next_acti
 
 ## 7. 历史工具与状态发布（R03、R05、R07、R10）
 
+### P3实施约束（2026-09-15批准，代码完成）
+
+本轮只开发`plan/export/build/audit/promote`及隔离测试，执行有界正式只读plan；不执行正式export/build/promote，不注册日期或补事件。注册、历史交付check分支和事件发布仍属于P4。
+
+配置与输入统一保存在带SHA-256 fingerprint的plan JSON：显式start/end、batch_id、Lake/staging根、交易日历文件hash和日期集合、schema/索引/非执行EXPLAIN证据、P0测算报告hash。SQL批次固定最多10,000行、单线程、statement timeout固定10秒，不增加env配置。CLI生产根固定为正式Lake及外置staging；隔离测试通过纯函数注入临时根。
+
+`plan`只读，不创建Lake/staging目录，不扫描业务行，不生成可提升清单。来源统计沿用标有时点的P0证据；空间与计划估算和实际导出计数分开。执行预算`max_source_rows/max_source_seconds/max_stage_seconds/max_spill_bytes`须在计划中显式冻结，缺失时允许出只读成本报告，但export/build/promote拒绝执行。正式预算待性能报告review后确定，本轮不以默认宽松上限放行。
+
+export以10,000行为持久化unit；每批Parquet完整后再原子更新checkpoint。续跑从源范围开头重新比较已持久批次，识别较小键补写，再续出；完成后另做一遍完整顺序重核。只保存计数/hash/主键和文件身份，不保存全历史Python列表。两遍一致是观测稳定证据，不是数据库一致性快照；冻结之后prod变更不被自动纳入该版本。
+
+build一次将chunk分流至年度staging，再按年聚合写日期分区，正式字段仍为18列。复用DuckDB连接设置，spill改在本batch外置staging下，按冻结预算限额；不修改共享默认值。audit按年做18字段双向差集、schema/键/日期核验及按日聚合，不能对每个日期重复扫描全年。promote复用日更的`daily_basic/locks/<date>.lock`，核对当前候选hash与报告、目标内容和同卷后逐文件原子提升。保留候选用于中断重核；无备份或Kopia，幂等续跑不能覆盖异内容目标。
+
+硬口径测试映射：SQL字段/原生DATE/keyset/timeout由prod source测试锁定；批次损坏、来源增删改、续跑由history export测试锁定；按年构建/18字段/日历差集由build/audit测试锁定；预算缺失、stale报告、锁竞争、同内容幂等、异内容拒绝及提升中断由promote测试锁定。active定义和日更check/readiness保持不变。
+
+容量样本预先测算：P0年度日历最多245日，近期源最大5,550代码；用245×6,000=1,470,000行合成年度压力包络，147个10,000行chunk、245个按日文件。不是prod实际最大年度。按P0字节系数估算chunk约44–46MB、按日候选约77MB、年度中间约44–46MB，正式增量另约77MB；spill和进程内存单独记录，不拿压缩文件大小当内存。隔离样本source checkpoint由DuckDB生成，不消耗prod查询；另用10,000行分页用例验证Python批次上界。审计对冻结chunk一次读取进入受限DuckDB临时关系，再按年核对；只读audit关闭spill，内存不足即停止。构建允许在本batch staging的spill配额内执行。未完成unit保留在独立attempt目录，续跑重用已冻结年度/年份清单，重新生成未完成unit，不自动删除异常现场。
+
+245日期容量样本发现DuckDB分区写入可能因打开文件数限制而为同日生成多个片段。年度分流后，仅对该日期片段执行一次set-based合并和按code排序，形成`part-000.parquet`；不逐日扫描全年。片段保留为staging执行证据，不提升；空间估算额外计入最多一份日期候选体量。正式文件始终每日期一个，不通过提高共享线程/打开文件默认值绕过验收。
+
 ### 7.1 显式 SQL 与导出版本
 
 `defs/prod_db/daily_basic.py` 仅允许 `raw_tushare.daily_basic` 的 18 列。参数绑定的 keyset 模板如下，首批省略 last-key 条件：
@@ -177,15 +195,15 @@ WHERE 日期使用原生 DATE 参数，last_date 也是 DATE，不用 SELECT 的
 
 | 阶段 | 可执行动作 | 不允许 |
 |---|---|---|
-| plan | 有界只读成本与源范围/日期集合/目标冲突审计，报告 /private/tmp | Lake/事件写入 |
+| plan | 有界只读成本、源schema/索引、日历候选/目标冲突审计，实际源日期/行数尚不冻结；报告 /private/tmp | Lake/事件写入、全历史扫描 |
 | export --apply | 获批后导出到外置 staging、checkpoint、冻结版本 | 正式提升、事件写入 |
 | build --apply | 从冻结 chunk 用 DuckDB 转按日候选，按年批次；一次逻辑读取而非每日重扫全部 chunk | 直接覆盖目标 |
 | audit | 源导出与候选全 18 字段双向 EXCEPT ALL、行数、键、日期/schema、空间/冲突 | 将 check 状态当数据事实 |
 | promote --apply | 新鲜审计后逐文件原子提升、checkpoint | 多文件整体原子承诺、Kopia |
-| register --apply | 仅注册已批准候选日历集合到专属分区 | 删除共享分区 |
-| report-events --apply | 全部已核实文件可补 materialization；只给最近 20 个实际交易日补两个 check | 历史全量 checks、job/run |
+| register --apply（P4待实现） | 仅注册已批准候选日历集合到专属分区 | 删除共享分区 |
+| report-events --apply（P4待实现） | 全部已核实文件可补 materialization；只给最近 20 个实际交易日补两个 check | 历史全量 checks、job/run |
 
-这是一个 CLI 的分阶段命令，不增加 Dagster asset/job。技术方案中的 build 包括候选生成与独立提升批准；此处拆开执行动作，防止生成候选就意外发布。
+这是一个CLI的分阶段设计；当前仅前五个命令已实现，不增加Dagster asset/job。技术方案中的build包括候选生成与独立提升批准；拆开执行动作，防止生成候选就意外发布。
 
 采用 chunk 一次分流到年度 staging、再逐年按 trade_date 聚合 COPY 的方式；禁止每年反复从 prod 拉相同数据。年度内多 chunk 最终合并为每个交易日一个正式文件，不留下 chunk 作为正式 Lake 数据集。
 
@@ -224,7 +242,7 @@ P0已为P1/P2日更源与类型设计提供技术样本依据；口径随后获�
 
 ## 9. 测试落点与开发顺序
 
-测试均位于`lake_console/orchestrator/tests/`。下列日更测试已实现；历史及事件工具测试仍为P3/P4计划：
+测试均位于`lake_console/orchestrator/tests/`。日更与P3历史文件测试已实现；事件工具测试仍为P4计划：
 
 | 文件 | 必须覆盖的正反例 |
 |---|---|
@@ -261,7 +279,7 @@ P0已为P1/P2日更源与类型设计提供技术样本依据；口径随后获�
 | R11 | §8 | 已执行30,000行业务预算内取样；存在IO放大，完整历史性能未放行 |
 | R12 | §2、§9 | scoped diff、默认 STOPPED、生产审批隔离 |
 
-设计审计结论：两份文档目标均为股票daily_basic的18字段Raw接入；来源、路径、分区、check、状态数量和阶段批准一致。P1/P2实现结果与测试证据记录在末节；P3以后符号和测试仍为待开发计划，不能当作已实现。
+设计审计结论：两份文档目标均为股票daily_basic的18字段Raw接入；来源、路径、分区、check、状态数量和阶段批准一致。P1/P2实现结果见13节，P3历史文件工具见14节；P4分区/事件发布仍待开发，不能当作已实现。
 
 P0后结论：完整日数值精度、keys-only及最低覆盖边界样本已验证。对象、时间、Raw-only、最低覆盖局限及P1/P2实施已获确认；只允许代码与隔离测试。历史建议截止为2026-09-14，P3仍需冻结实际源日期/行数、独立事务来源稳定策略及可接受成本；历史全量执行明确不放行。
 
@@ -290,7 +308,7 @@ CodeGraph的search/callers/impact与源码核对确认共享分页器还被指�
 
 ## 13. P1/P2代码级交付对账（2026-09-15）
 
-路径相对`lake_console/orchestrator/`。以下是实际实现，不包括P3以后工具。
+路径相对`lake_console/orchestrator/`。以下表格仅列P1/P2实际实现，P3工具另见14节。
 
 | 已确认硬口径 | 实现位置/符号 | 本地验证 |
 | --- | --- | --- |
@@ -336,4 +354,39 @@ P1/P2代码已提交`bb903dbe`（本专项27文件），之后经管理员批准
 
 证据：`/private/tmp/daily_basic_acceptance_LlLBlC/definitions.log`、`readonly_audit.json`及可复核的`audit.py`。正式只读样本通过不等于所有日期或正式写入验收通过，单次源耗时不作为p95。验收未访问prod业务库、未注册日期、未提交run、未启停sensor、未写正式Lake/DB。
 
-下一阶段须独立确定正式写入窗口。P3仍需先解决P0的历史IO/重核成本、冻结历史实际日期与行数；本轮未创建prod导出、history/bootstrap或runless发布入口，不把只读通过当作历史写入授权。
+P2验收时尚未创建prod导出、history/bootstrap或runless发布入口，未发生正式写入；后续P3工具结果见14节。只读通过不构成历史写入授权，实际源日期/行数与执行预算仍须后续冻结。
+
+上述13节是P2验收时点记录。随后批准的P3实现与验收以本节为准。
+
+## 14. P3代码、测试与只读Plan结果
+
+P2验收文档提交`c134f056`；P3新增代码不改变共享接口、active依赖或日更行为。CodeGraph搜索及callers确认`write_daily_basic_partition`由Raw asset和本族测试调用；本阶段仅离线单向依赖本族精度校验与路径，不让active链路导入历史模块。
+
+| 职责 | 当前实现 | 验证与边界 |
+| --- | --- | --- |
+| 18字段keyset与只读身份检查 | `defs/prod_db/daily_basic.py` | 原生DATE参数，10,000行fetchmany，10秒statement timeout；SQL无OFFSET/通配字段；inspect仅catalog与非执行EXPLAIN |
+| 成本plan、checkpoint、来源冻结 | `defs/bootstrap/daily_basic_history.py` | plan缺预算只能出报告；源schema前后重核，续跑前缀重核、完整第二遍；增删改、损坏、预算耗尽停止 |
+| 年度构建与18字段对账 | 同上 | 一次chunk分流，日期局部碎片合并；audit按日期有序临时关系与年度范围谓词核对，保留zone-map裁剪条件；按文件核对日期，不能只对全年度总数 |
+| 原子提升与续跑 | 同上 | 当前日更日期锁、同内容异编码也可跳过；目标冲突、候选变化、跨卷拒绝。保留候选，复制本日期提升临时文件并核hash后os.replace；不是旧文件备份 |
+| 操作入口与误用防护 | `defs/bootstrap/daily_basic_history_cli.py` | 五阶段；写阶段显式apply+plan fingerprint，正式根/挂载校验，报告仅/private/tmp且不能覆盖输入计划；不调用DG状态写入API |
+| 自动回归 | `tests/test_daily_basic_history.py` | 35项：包含10,002行跨批、源增删改、第二遍变化、精度/键/日期、checkpoint、候选内容、同内容异编码、锁冲突、提升中断/跨卷、碎片合并及active无历史依赖 |
+
+执行预算来自plan，CLI无宽松默认值。`max_source_rows`限制每遍范围行数，`max_source_seconds`限制同次导出含前缀与第二遍的累计耗时；`max_stage_seconds`在构建/审计/提升的unit边界检查，不宣称强制中断正在执行的DuckDB语句。`max_spill_bytes`约束本batch构建spill；只读audit禁spill，内存不足停止。均不修改共享resource默认配置；批次源记录最多10,000行，规范化和DataFrame副本同属该批次，不累计全历史Python数据。
+
+### 14.1 本地验证
+
+- 历史35项与P1/P2/静态/配置/请求策略回归合计237项、166个子用例通过；`/private/tmp/daily_basic_p3_tests.log`。受保护catalog单独12项通过，`/private/tmp/daily_basic_p3_protected_governance.log`。
+- 本次四个Python文件默认Ruff及全仓致命错误门禁通过；原有共享`configs.py`告警没有扩散修改。文档完整性与`git diff --check`通过。
+- 容量最终报告`/private/tmp/daily_basic_capacity_txpfb54k/performance.json`：147万行、147个chunk、245个目标候选；构建1.916秒、audit1.445秒，峰值RSS1,947,877,376字节，chunk79,135,218字节、最终候选79,967,926字节。仅临时合成数据，source查询0、正式写入0。
+- 容量验证先发现测试生成SQL的多参数COPY不受当前DuckDB支持，仅调整临时fixture生成写法；又发现多日期COPY产生碎片，已按本族日期局部合并修正并增加回归。未改共享DuckDB设置、未安装依赖。
+- spill残留0不是峰值；真实全历史audit排序内存与文件提升成本尚未实测。147万行测试不能替代14,288,011旧统计对应的全量验证。
+
+### 14.2 正式只读Plan与后续批准
+
+通过根目录规定的`bash scripts/psql-remote.sh -f ... -- -A -t -q`执行`DailyBasicHistorySource.inspect`生成的同一组SQL。事务为READ ONLY、每SQL10秒timeout；只读18字段的schema/精度、主键/索引及两条非执行EXPLAIN，实际新增业务行读取0。正式日历只读，结果4,056个候选、目标冲突0、可用空间2,945,511,534,592字节。
+
+最终成本plan：`/private/tmp/daily_basic_p3_plan_gfmd64o4/plan_with_capacity.json`，fingerprint=`f4fbf97ec2064d0c7de6079895a895596db29971efa7c9299b87d93a0bb748c6`。该版本在原始只读证据上补入最终容量与空间构成，没有重复prod查询。`stop_reasons=[]`、`execution_budget_frozen=false`、实际source日期/行数为空；不能进入export/build/promote。
+
+来源导出+完整重核仍按P0估算63—236分钟；10,000行本地规范化/Parquet读回0.398秒，按两遍保守外推约19分钟，二者不可伪装成全量实测。基础文件约2.93GiB，包含chunk、年度中间、日期碎片、最终候选及正式增量，另计spill与中断attempt；执行前按冻结max_source_rows同比调整空间预检。
+
+当前结论：**P3工具与只读计划完成，待全量执行评审**。先review成本和冻结`max_source_rows/max_source_seconds/max_stage_seconds/max_spill_bytes`，再单独批准源端窗口与sample/batch；本轮未执行正式export/build/promote、DG分区/事件写入或sensor/job操作。P4注册、materialization与recent-20 check发布仍待后续设计落地。

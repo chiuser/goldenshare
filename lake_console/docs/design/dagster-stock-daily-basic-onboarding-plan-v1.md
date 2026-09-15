@@ -1,6 +1,6 @@
 # 股票每日指标接入 DG 技术方案
 
-状态：P0有界核验完成；P1/P2代码、隔离验证、definitions与正式只读样本验收通过；正式写入验收未执行，历史全量性能门禁未放行。未注册正式分区或写正式Lake。更新：2026-09-15。
+状态：P2验收记录已提交；P3历史工具与只读计划完成，待全量执行评审。正式写入验收未执行，历史全量性能门禁未放行；未注册正式分区或写正式Lake。更新：2026-09-15。
 
 对应 [代码级 LLD](dagster-stock-daily-basic-onboarding-low-level-design-v1.md)。本文件定义目标和边界；LLD 定义代码、测试与分阶段验收。两份文件共同使用 R01-R12 约束编号。
 
@@ -12,7 +12,7 @@
 
 - 只保留 18 个业务字段，不带 prod 的内部系统字段。
 - 日常增量直接请求 Tushare；历史首次从 prod 导入。
-- 当前批准P1/P2代码与隔离测试，不操作正式数据；P3历史导入仍需独立评审。
+- 当前已批准并完成P1/P2及P3工具、隔离验证和有界只读plan；正式历史导出/提升、P4状态发布仍需独立批准。
 
 2026-09-15 已确认第一版只增加 Raw、不增加 Silver，采用专属分区、两个聚合 check、最低覆盖及其局限；17:00注册、19:00更新、900秒观察间隔和最近10日窗口，默认STOPPED。历史实际导出及状态发布仍单独批准。
 
@@ -210,3 +210,19 @@ P0阶段结论：P1/P2的源行为、字段精度和最低覆盖实现已有样�
 - 证据目录：`/private/tmp/daily_basic_acceptance_LlLBlC/`，包括`definitions.log`及`readonly_audit.json`。
 
 结论：definitions与正式只读样本门禁通过；未执行正式writer/check/job/sensor、注册日期或写入Lake。下一阶段仍需独立确定正式写入窗口；P3先收敛历史导出IO与来源重核成本，不直接全量导入。
+
+## 14. P3工具与只读计划收口（2026-09-15）
+
+P2验收记录已提交`c134f056`。本阶段新增离线SQL读取、历史工具、CLI及历史测试，不修改日更asset/check/sensor或共享resource。已实现`plan/export/build/audit/promote`；写阶段要求显式`--apply`、plan fingerprint和已冻结执行预算。`register/report-events`及历史交付check分支仍未实现，留P4。
+
+- checkpoint按10,000行源批次落盘，续跑重读既有前缀，导出结束再全范围顺序重核18字段；源增删改或契约改变拒绝冻结。两遍一致是观测稳定证据，不是数据库一致性快照。
+- 候选按年分流，再仅合并同日碎片为一个正式候选；当前日更日期锁同时保护历史提升。同内容跳过、异内容拒绝、逐文件checkpoint续跑，不恢复或覆盖既有异内容数据。
+- 全部运行测试均隔离：历史35项加日更/治理回归合计237项，另有受保护catalog12项通过；没有以正式资源运行测试。默认Ruff、致命错误门禁及文档检查通过。
+- 147万行、245日期合成容量样本：构建1.92秒、对账1.45秒；进程峰值约1.81GiB，chunk约79.1MB、最终候选约80.0MB。spill残留为0，不将残留数当峰值。样本不证明真实最大年度或全历史内存峰值。
+- 通过本机规定的`bash scripts/psql-remote.sh`执行与source helper一致的元数据SQL及两条非执行EXPLAIN。18字段类型/精度、主键及索引计划通过；新增业务行读取0，日历候选4,056，已有目标0，可用空间约2.68TiB。
+
+权威成本plan：[plan_with_capacity.json](/private/tmp/daily_basic_p3_plan_gfmd64o4/plan_with_capacity.json)。`stop_reasons=[]`只表示已审计结构无阻断；`execution_budget_frozen=false`，实际源日期/行数仍为空，不能执行export/build/promote。原始SQL和响应保留同目录。
+
+成本仍需review：P0导出与来源重核估算63—236分钟；本地10,000行规范化/读回0.37秒，保守按两遍外推约18分钟，不能把它等同真实全历史耗时。包括chunk、年度中间、日期碎片、最终候选、正式增量，基础文件空间估算约2.93GiB，另计spill及保留的中断attempt。全历史审计排序/内存、实际提升元数据耗时未测，未扩大成全量验证。
+
+证据：`/private/tmp/daily_basic_p3_tests.log`、`/private/tmp/daily_basic_p3_protected_governance.log`、`/private/tmp/daily_basic_capacity_txpfb54k/performance.json`；容量脚本为`/private/tmp/daily_basic_history_capacity.py`。本阶段未执行正式导出/提升、日期注册、runless event或sensor操作。下一步先review成本并冻结执行预算与源端窗口，再单独批准sample/batch执行。
