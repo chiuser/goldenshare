@@ -4,7 +4,7 @@ from uuid import UUID
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import ValidationError
+from pydantic import ValidationError, TypeAdapter
 
 from src.biz.schemas.wealth.market.trading_assistant import accounts as dto, receipts
 from src.biz.schemas.wealth.market.trading_assistant import previews
@@ -13,7 +13,7 @@ from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountReadQu
 from src.biz.schemas.wealth.market.trading_assistant.records import TradeDetail, CashFlowDetail
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryStatusDto, PendingRecoveryResponse
 from src.biz.schemas.wealth.market.trading_assistant.recovered_inputs import RecoveryInputResponse
-from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountCreateScope, AccountFeesScope, AccountLedgerScope
+from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountCreateScope, AccountFeesScope, AccountLedgerScope, RuleScope, RuleCreateScope
 from src.biz.schemas.wealth.market.trading_assistant.targets import TradeTarget, CashFlowTarget
 from src.biz.schemas.wealth.market.trading_assistant.value_types import EntityId, BusinessDate, StockCode
 from src.biz.services.wealth.market.trading_assistant.defaults import INITIALIZATION_DEFAULTS
@@ -21,6 +21,7 @@ from src.biz.services.wealth.market.trading_assistant.write_protocol import Writ
 from .dependencies import TradingAssistantDependencies
 from .record_routes import register_record_routes
 from .return_routes import register_return_routes
+from .rule_routes import register_rule_routes
 from .errors import TradingAssistantRoute, command_response
 from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationStatus, CalculationRetryCommand
 
@@ -30,6 +31,7 @@ def create_trading_assistant_router(*, auth_dependency, dependencies_dependency)
     auth, services = Depends(auth_dependency), Depends(dependencies_dependency)
     register_record_routes(router, auth_dependency=auth_dependency, dependencies_dependency=dependencies_dependency)
     register_return_routes(router, auth_dependency=auth_dependency, dependencies_dependency=dependencies_dependency)
+    register_rule_routes(router, auth_dependency=auth_dependency, dependencies_dependency=dependencies_dependency)
 
     def position_scope(request):
         try:
@@ -158,13 +160,16 @@ def create_trading_assistant_router(*, auth_dependency, dependencies_dependency)
         return await deps.initialization_preview.preview(owner_id=owner_id, account_id=UUID(account_id), command=command)
 
     @router.get("/write-requests/pending", response_model=PendingRecoveryResponse)
-    async def pending(scopeType: Literal["ACCOUNT_CREATE","ACCOUNT_FEES","ACCOUNT_LEDGER"], accountId: EntityId | None = None,
+    async def pending(request: Request, scopeType: Literal["ACCOUNT_CREATE","ACCOUNT_FEES","ACCOUNT_LEDGER","RULE","RULE_CREATE"], accountId: EntityId | None = None,
+                      ruleType: Literal["PLAN", "ALERT"] | None = None, ruleId: EntityId | None = None, tsCode: StockCode | None = None,
                       owner_id: int = auth, deps: TradingAssistantDependencies = services):
-        if (scopeType == "ACCOUNT_CREATE") != (accountId is None):
-            raise WriteProtocolConflict("TA_REQUEST_INVALID")
-        scope = AccountCreateScope(scopeType=scopeType) if accountId is None else (
-            AccountFeesScope(scopeType=scopeType,accountId=accountId) if scopeType == "ACCOUNT_FEES"
-            else AccountLedgerScope(scopeType=scopeType,accountId=accountId))
+        values = dict(request.query_params)
+        if scopeType == "RULE_CREATE" and "accountId" not in values:
+            values["accountId"] = None
+        try:
+            scope = TypeAdapter(AccountCreateScope | AccountFeesScope | AccountLedgerScope | RuleScope | RuleCreateScope).validate_python(values)
+        except ValidationError as error:
+            raise WriteProtocolConflict("TA_REQUEST_INVALID") from error
         return await deps.read(lambda s,d:deps.recovery.pending(s,owner_id=owner_id,scope=scope,deadline=d))
 
     @router.get("/records/trades/{record_id}", response_model=TradeDetail)

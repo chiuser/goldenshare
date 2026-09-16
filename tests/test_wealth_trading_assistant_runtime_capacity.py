@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 
 from tests.test_wealth_trading_assistant_calculation_work import database, migrated, publication_db, interruptions_db, cutoff_db, DAY
-from tests.test_wealth_trading_assistant_runtime_acceptance import fixed_clock, OBSERVED
+from tests.test_wealth_trading_assistant_runtime_acceptance import fixed_clock, OBSERVED, current_runtime_schema
+from tests.test_wealth_trading_assistant_lifespan import lifespan_db
 from tests import test_wealth_trading_assistant_account_acceptance as acceptance
 from src.app.runtime.trading_assistant_lifespan import trading_assistant_lifespan
 from src.app.runtime.trading_assistant_execution_resource import TradingAssistantExecutionResource

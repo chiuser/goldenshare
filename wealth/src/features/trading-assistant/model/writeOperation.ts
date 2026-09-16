@@ -2,17 +2,29 @@ import type { RecoveryStatusDto } from "../api/generatedContracts";
 import { accountPath } from "../api/tradingAssistantApi";
 
 export type AccountingOperation = "ACCOUNT_CREATE" | "FEES_UPDATE" | "INITIALIZATION_CORRECT" | "TRADE_CREATE"
-  | "TRADE_CORRECT" | "TRADE_VOID" | "CASH_FLOW_CREATE" | "CASH_FLOW_CORRECT" | "CASH_FLOW_VOID";
-export type AccountingScope = Extract<RecoveryStatusDto["scope"], { scopeType: "ACCOUNT_CREATE" | "ACCOUNT_FEES" | "ACCOUNT_LEDGER" }>;
+  | "TRADE_CORRECT" | "TRADE_VOID" | "CASH_FLOW_CREATE" | "CASH_FLOW_CORRECT" | "CASH_FLOW_VOID"
+  | "PLAN_CREATE" | "ALERT_CREATE" | "RULE_CONDITIONS_UPDATE" | "RULE_CLOSE";
+export type AccountingScope = Extract<RecoveryStatusDto["scope"], { scopeType: "ACCOUNT_CREATE" | "ACCOUNT_FEES" | "ACCOUNT_LEDGER" | "RULE" | "RULE_CREATE" }>;
 
 const contracts = {
   ACCOUNT_CREATE: ["CreateAccountCommand", "AccountCreateReceipt"], FEES_UPDATE: ["UpdateFeesCommand", "FeesUpdateReceipt"],
   INITIALIZATION_CORRECT: ["CorrectInitializationCommand", "InitializationCorrectReceipt"],
   TRADE_CREATE: ["TradeCommand", "TradeCreateReceipt"], TRADE_CORRECT: ["CorrectTradeCommand", "TradeCorrectReceipt"], TRADE_VOID: ["VoidCommand", "TradeVoidReceipt"],
   CASH_FLOW_CREATE: ["CashFlowCommand", "CashCreateReceipt"], CASH_FLOW_CORRECT: ["CorrectCashFlowCommand", "CashCorrectReceipt"], CASH_FLOW_VOID: ["VoidCommand", "CashVoidReceipt"],
+  PLAN_CREATE: ["CreatePlanCommand", "PlanCreateReceipt"], ALERT_CREATE: ["CreateAlertCommand", "AlertCreateReceipt"],
+  RULE_CONDITIONS_UPDATE: ["ReviseConditionsCommand", "ConditionsUpdateReceipt"], RULE_CLOSE: ["CloseRuleCommand", "RuleCloseReceipt"],
 } as const;
 
 export function writeOperation(operation: AccountingOperation, scope: AccountingScope, target: RecoveryStatusDto["target"] = null) {
+  if (scope.scopeType === "RULE" || scope.scopeType === "RULE_CREATE") {
+    if (target || (scope.scopeType === "RULE_CREATE" ? operation !== `${scope.ruleType}_CREATE`
+      : operation !== "RULE_CONDITIONS_UPDATE" && operation !== "RULE_CLOSE")) throw new Error("Incorrect rule scope");
+    const base = scope.ruleType === "PLAN" ? "/plans" : "/alerts";
+    const path = scope.scopeType === "RULE_CREATE" ? base : `${base}/${encodeURIComponent(scope.ruleId)}/${operation === "RULE_CLOSE" ? "close" : "condition-revisions"}`;
+    const [commandModel, receiptModel] = contracts[operation];
+    return { operation, scope, target, path, commandModel, receiptModel, method: "POST" as const };
+  }
+  if (operation.startsWith("RULE_") || operation === "PLAN_CREATE" || operation === "ALERT_CREATE") throw new Error("Incorrect rule scope");
   if ((operation === "ACCOUNT_CREATE") !== (scope.scopeType === "ACCOUNT_CREATE")
     || (operation === "FEES_UPDATE") !== (scope.scopeType === "ACCOUNT_FEES")) throw new Error("Incorrect accounting scope");
   const base = "accountId" in scope ? accountPath(scope.accountId) : "/accounts";

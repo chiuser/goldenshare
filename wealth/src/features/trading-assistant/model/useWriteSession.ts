@@ -31,7 +31,7 @@ export function useWriteSession(scope: AccountingScope) {
     active.current = identity; recoveryRef.current = null; original.current = null; inFlight.current = false;
     setReady(false); setBusy(true); setError(null); setRecovery(null); setReceipt(null); setEditing(false); setFieldErrors([]);
     const selected = JSON.parse(scopeKey) as AccountingScope;
-    getPending(selected.scopeType, "accountId" in selected ? selected.accountId : undefined, controller.signal).then(result => {
+    getPending(selected, controller.signal).then(result => {
       if (!isCurrent(identity)) return;
       if (result.pendingRequest) {
         if (canonicalInput(result.pendingRequest.scope) !== scopeKey) throw new Error("Scope mismatch");
@@ -39,7 +39,7 @@ export function useWriteSession(scope: AccountingScope) {
           status: result.pendingRequest, queryUnavailable: false, inconsistentResponse: false });
       }
       setReady(true);
-    }).catch(() => { if (isCurrent(identity)) setError("暂时无法核对该账户的保存状态，请重新读取"); })
+    }).catch(() => { if (isCurrent(identity)) setError("暂时无法核对保存状态，请重新读取"); })
       .finally(() => { if (isCurrent(identity)) setBusy(false); });
     return () => { controller.abort(); active.current = { epoch: -1, generation: ++generation.current }; };
   }, [scopeKey, lookupVersion]);
@@ -67,6 +67,8 @@ export function useWriteSession(scope: AccountingScope) {
       const restored = await getRecoverableInput(known.status);
       if (!isCurrent(identity)) return null;
       if (restored.inputSchemaVersion !== "1") throw new Error("Unsupported retained input version");
+      if (restored.requestId !== known.requestId || restored.operationType !== known.status.operationType)
+        throw new Error("Retained operation identity mismatch");
       const spec = writeOperation(restored.operationType as AccountingOperation, scope, restored.target);
       original.current = { fingerprint: canonicalInput(restored.input), path: spec.path };
       setEditing(true);
@@ -93,6 +95,10 @@ export function useWriteSession(scope: AccountingScope) {
       const result = await request(spec.path, spec.receiptModel, { method: spec.method, body, write: true });
       if (!isCurrent(identity)) return null;
       if (result.requestId !== requestId || result.attemptId !== attemptId || result.operationType !== operation
+        || (scope.scopeType === "RULE" && (!("ruleId" in result.result) || result.result.ruleId !== scope.ruleId))
+        || (scope.scopeType === "RULE_CREATE" && (!("stockRef" in result.result) || result.result.stockRef.tsCode !== scope.tsCode))
+        || (scope.scopeType === "RULE_CREATE" && scope.ruleType === "PLAN"
+          && (!("accountRef" in result.result) || result.result.accountRef.accountId !== scope.accountId))
         || ("accountId" in scope && "accountId" in result.result && result.result.accountId !== scope.accountId)
         || (target?.kind === "TRADE" && (!("tradeId" in result.result) || result.result.tradeId !== target.recordId))
         || (target?.kind === "CASH_FLOW" && (!("cashFlowId" in result.result) || result.result.cashFlowId !== target.recordId))) throw new SaveOutcomeUnknown();

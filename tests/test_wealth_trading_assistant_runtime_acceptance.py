@@ -17,6 +17,7 @@ from sqlalchemy.dialects.postgresql import insert
 from starlette.datastructures import State
 
 from tests.test_wealth_trading_assistant_calculation_work import database, migrated, publication_db, interruptions_db, cutoff_db, DAY
+from tests.test_wealth_trading_assistant_lifespan import lifespan_db
 from tests import test_wealth_trading_assistant_account_acceptance as acceptance
 from src.app.runtime.trading_assistant_lifespan import trading_assistant_lifespan
 from src.biz.models.wealth.trading_assistant.accounts import Account
@@ -28,6 +29,11 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 
 OBSERVED = datetime(2026, 9, 11, 12, tzinfo=timezone.utc)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def current_runtime_schema(lifespan_db):
+    return lifespan_db
 
 
 def fixed_clock(observed):

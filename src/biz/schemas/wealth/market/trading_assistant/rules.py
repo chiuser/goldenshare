@@ -208,6 +208,14 @@ class CheckRecord(Contract):
     evidenceSummary: StrictStr
 
 
+class CheckHistoryResponse(Page[CheckRecord]):
+    pass
+
+
+class ConditionHistoryResponse(Page[HistoricalConditionVersion]):
+    pass
+
+
 class RuleRow(Contract):
     ruleId: EntityId
     ruleVersionId: EntityId

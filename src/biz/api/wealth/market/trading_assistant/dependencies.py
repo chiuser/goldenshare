@@ -34,6 +34,8 @@ from src.biz.services.wealth.market.trading_assistant.initialization_preview imp
 from src.biz.services.wealth.market.trading_assistant.execution_policy import TradingAssistantExecutionPolicyV1, Deadline
 from src.biz.services.wealth.market.trading_assistant.transaction_boundary import TransactionRunner
 from src.biz.services.wealth.market.trading_assistant.market_facts import apply_sql_budget
+from src.biz.services.wealth.market.trading_assistant.rule_commands import RuleCommandService
+from src.biz.queries.wealth.market.trading_assistant.rule_queries import RuleQueries
 
 T = TypeVar("T")
 
@@ -66,6 +68,8 @@ class TradingAssistantDependencies:
     round_detail: RoundDetailQuery
     completed_rounds: CompletedRoundsQuery
     return_review: ReturnReviewQuery
+    rules: RuleCommandService
+    rule_queries: RuleQueries
 
     async def read_return_review(self, *, owner_id, query):
         def execute(session, *, basis, cutoff, deadline, **unused):

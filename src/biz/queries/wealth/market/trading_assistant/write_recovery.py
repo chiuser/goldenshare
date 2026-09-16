@@ -11,13 +11,13 @@ from src.biz.models.wealth.trading_assistant.recovery import (
 from src.biz.schemas.wealth.market.trading_assistant.recovered_inputs import RecoveryInputResponse
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryStatusDto, PendingRecoveryResponse
 from src.biz.schemas.wealth.market.trading_assistant.scopes import (
-    AccountCreateScope, AccountFeesScope, AccountLedgerScope,
+    RuleScope, RuleCreateScope,
 )
 from src.biz.schemas.wealth.market.trading_assistant.targets import LedgerTarget
 from src.biz.services.wealth.market.trading_assistant.execution_policy import Deadline, TradingAssistantExecutionPolicyV1
 from src.biz.services.wealth.market.trading_assistant.market_facts import apply_sql_budget
 from src.biz.services.wealth.market.trading_assistant.write_protocol import (
-    WriteProtocolConflict, canonical_input, scope_key,
+    WriteProtocolConflict, canonical_input, scope_key, parse_scope_key, verify_rule_scope, WriteScopeInput,
 )
 
 
@@ -26,6 +26,8 @@ TITLES = {
     "ACCOUNT_CREATE": "创建账户", "INITIALIZATION_CORRECT": "更正初始持仓", "FEES_UPDATE": "修改费率",
     "TRADE_CREATE": "交易登记", "TRADE_CORRECT": "更正交易", "TRADE_VOID": "作废交易",
     "CASH_FLOW_CREATE": "资金登记", "CASH_FLOW_CORRECT": "更正资金记录", "CASH_FLOW_VOID": "作废资金记录",
+    "PLAN_CREATE": "创建交易计划", "ALERT_CREATE": "创建提醒",
+    "RULE_CONDITIONS_UPDATE": "修改交易条件", "RULE_CLOSE": "关闭规则",
 }
 
 
@@ -42,14 +44,7 @@ def _statement(owner_id: int):
 
 
 def _scope(key: str):
-    if key == "ACCOUNT_CREATE":
-        return AccountCreateScope(scopeType="ACCOUNT_CREATE")
-    kind, account = key.split(":", 1)
-    if kind == "ACCOUNT_LEDGER":
-        return AccountLedgerScope(scopeType=kind, accountId=account)
-    if kind == "ACCOUNT_FEES":
-        return AccountFeesScope(scopeType=kind, accountId=account)
-    raise ValueError("Unsupported persisted M2 scope")
+    return parse_scope_key(key)
 
 
 def _input(row):
@@ -73,7 +68,8 @@ def _status(row):
     data = original.input
     lines = []
     for key, label in (("name", "名称"), ("tradeDate", "交易日期"),
-                       ("occurredOn", "资金日期"), ("quantity", "数量"), ("amount", "金额")):
+                       ("occurredOn", "资金日期"), ("quantity", "数量"), ("amount", "金额"),
+                       ("stockCode", "股票代码"), ("deadlineAt", "截止时间")):
         value = getattr(data, key, None)
         if value is not None:
             lines.append(f"{label}：{value}")
@@ -96,8 +92,10 @@ class WriteRecoveryQueries:
         return _status(row)
 
     def pending(self, session: Session, *, owner_id: int,
-                scope: AccountCreateScope | AccountFeesScope | AccountLedgerScope, deadline: Deadline):
+                scope: WriteScopeInput, deadline: Deadline):
         apply_sql_budget(session, deadline, self.policy)
+        if isinstance(scope, (RuleScope, RuleCreateScope)):
+            verify_rule_scope(session, owner_id, scope)
         row = session.execute(_statement(owner_id).join(WriteScope, and_(
             WriteScope.owner_id == WriteRequest.owner_id, WriteScope.scope_key == WriteRequest.scope_key,
             WriteScope.holder_request_id == WriteRequest.request_id,

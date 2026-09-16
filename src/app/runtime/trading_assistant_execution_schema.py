@@ -6,6 +6,9 @@ from src.biz.models.wealth.trading_assistant.ledger import Ledger, LedgerRevisio
 from src.biz.models.wealth.trading_assistant.calculation import Recalculation, CalculationGeneration, DayResult, PositionState, ClosedTrade
 from src.biz.models.wealth.trading_assistant.calculation_inputs import ValuationBasis, CalculationBatch, CutoffPreparation, CutoffDiscoveryCursor
 from src.biz.models.wealth.trading_assistant.publication import AccountSnapshot, PublicationDay, PublicationReceipt
+from src.biz.models.wealth.trading_assistant.rules import Rule, RuleVersion, RuleExecution, RobotIdentity
+from src.biz.models.wealth.trading_assistant.rule_checks import RuleCheck, RuleCheckProgress, RuleMarketBasis, RuleResult, RuleResultCheck
+from src.biz.models.wealth.trading_assistant.rule_notifications import TriggerNotification
 from src.biz.services.wealth.market.trading_assistant.execution_policy import Deadline
 from src.biz.services.wealth.market.trading_assistant.market_facts import apply_sql_budget
 
@@ -15,7 +18,9 @@ def verify_execution_schema(sessions, policy):
     models = (Account, FeeVersion, Initialization, InitialPosition, Ledger, LedgerRevision,
         Recalculation, CalculationGeneration, DayResult, PositionState, ClosedTrade,
         ValuationBasis, CalculationBatch, CutoffPreparation, CutoffDiscoveryCursor,
-        AccountSnapshot, PublicationDay, PublicationReceipt)
+        AccountSnapshot, PublicationDay, PublicationReceipt,
+        Rule, RuleVersion, RuleExecution, RuleCheck, RuleCheckProgress, RuleMarketBasis,
+        RuleResult, RuleResultCheck, RobotIdentity, TriggerNotification)
     with sessions() as session, session.begin():
         session.execute(text("SET TRANSACTION READ ONLY"))
         apply_sql_budget(session, deadline, policy)

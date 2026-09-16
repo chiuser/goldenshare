@@ -30,7 +30,7 @@ def iter_condition_intervals(
 
     Storage supplies the complete ordered sequence (possibly paged). Never sort
     by ID or input time: out-of-order versions are an invalid frozen input.
-    Equal saved times have empty intervals, not overlapping minute ownership.
+    Saved times must strictly increase; never silently erase an old interval.
     This function does not grant execution permission to closed/ended rules.
     """
     previous = None
@@ -49,7 +49,7 @@ def iter_condition_intervals(
             deadline = current_deadline
         else:
             if (int(version.versionNo) != int(previous.versionNo) + 1
-                    or start < previous_start or current_deadline != deadline
+                    or start <= previous_start or current_deadline != deadline
                     or version.ruleVersionId == previous.ruleVersionId):
                 raise ValueError("Invalid ordered condition version history")
             yield ConditionInterval(previous.ruleVersionId, previous_start, start)

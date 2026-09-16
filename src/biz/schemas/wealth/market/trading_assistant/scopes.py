@@ -1,7 +1,7 @@
 """Typed query inputs; a round never accepts an overriding date/stock range."""
 
 from typing import Annotated, Literal
-from pydantic import Field, StrictInt, StrictStr, model_validator
+from pydantic import Field, StrictInt, StrictStr, model_validator, field_validator
 
 from .common import AccountScopeInput, Contract, Scope, ScopeInput
 from .value_types import BusinessDate, EntityId, Month, StockCode
@@ -71,11 +71,21 @@ class DayContributionsQuery(AccountReadQuery, Pagination):
     pass
 
 
-class PlansQuery(AccountScopeInput, Pagination):
+class RuleFilters(Contract):
+    status: Literal["ALL", "ACTIVE", "TRIGGERED", "NOT_TRIGGERED", "CLOSED"] = "ALL"
+    keyword: StrictStr | None = None
+
+    @field_validator("keyword")
+    @classmethod
+    def normalize_keyword(cls, value):
+        return (value.strip() or None) if value is not None else None
+
+
+class PlansQuery(AccountScopeInput, Pagination, RuleFilters):
     pass
 
 
-class AlertsQuery(Pagination):
+class AlertsQuery(Pagination, RuleFilters):
     pass
 
 

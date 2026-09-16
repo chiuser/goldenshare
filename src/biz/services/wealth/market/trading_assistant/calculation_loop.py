@@ -5,7 +5,7 @@ import asyncio
 async def run_calculation_loop(run_one, *, policy, stop, logger):
     while not stop.is_set():
         progressed = False
-        for kind in ("CALCULATE", "CUTOFF", "HISTORY"):
+        for kind in ("CALCULATE", "CUTOFF", "HISTORY", "RULE"):
             if stop.is_set():
                 return
             try:

@@ -13,11 +13,13 @@ from src.biz.services.wealth.market.trading_assistant.calculation_work import Ca
 from src.biz.services.wealth.market.trading_assistant.cutoff_discovery import CutoffDiscovery
 from src.biz.services.wealth.market.trading_assistant.cutoff_preparation import AccountCutoffPreparation
 from src.biz.services.wealth.market.trading_assistant.recalculation_execution import RecalculationExecution
+from src.biz.services.wealth.market.trading_assistant.rule_work import RuleWork
 
 
 class TradingAssistantExecutionResource:
-    def __init__(self, database_url, policy, *, rule_version):
+    def __init__(self, database_url, policy, *, rule_version, minute_reader=None):
         self.database_url, self.policy, self.rule_version = database_url, policy, rule_version
+        self.minute_reader = minute_reader
         self.executor_id = str(uuid4())
         self._executor = ThreadPoolExecutor(max_workers=policy.local_concurrency, thread_name_prefix="ta-calculation")
         self._runner = self._engine = self._active = None
@@ -26,7 +28,7 @@ class TradingAssistantExecutionResource:
         self._worker = None
 
     async def run_one(self, kind):
-        if kind not in ("SCHEMA", "CALCULATE", "CUTOFF", "HISTORY"):
+        if kind not in ("SCHEMA", "CALCULATE", "CUTOFF", "HISTORY", "RULE"):
             raise ValueError("Unknown TA execution unit")
         if self._closing:
             raise RuntimeError("TA execution resource is closing")
@@ -70,6 +72,9 @@ class TradingAssistantExecutionResource:
             from .trading_assistant_execution_schema import verify_execution_schema
             return verify_execution_schema(sessions, self.policy)
         if kind != "CALCULATE":
+        if kind == "RULE":
+            self._worker = RuleWork(self.policy, sessions, minute_reader=self.minute_reader)
+            return self._worker.run_once(executor_id=self.executor_id)
             self._worker = CutoffDiscovery(self.policy, sessions, purpose=kind)
             return self._worker.run_once()
         execution = RecalculationExecution(self.policy)

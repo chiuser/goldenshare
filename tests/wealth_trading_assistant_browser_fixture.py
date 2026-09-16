@@ -33,7 +33,8 @@ from src.app.models.auth_user_role import AuthUserRole
 from src.app.runtime.trading_assistant_lifespan import trading_assistant_lifespan
 from src.biz.api.wealth.market import major_indices, stock_search
 from src.biz.services.wealth.market.trading_assistant.execution_policy import Deadline
-from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountLedgerScope
+from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountLedgerScope, RuleScope
+from src.biz.services.wealth.market.trading_assistant.write_protocol import scope_key
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
@@ -49,6 +50,9 @@ from src.biz.schemas.wealth.market.trading_assistant.common import ReadContext
 from src.biz.models.wealth.trading_assistant.publication import AccountSnapshot, PublicationDay
 from tests.wealth_trading_assistant_fixture_support import fixed_fixture_clock
 from tests.wealth_watchlist_postgres_support import ROOT, isolated_postgres
+from src.foundation.clients.local_lake.stock_rule_minute_reader import StockRuleMinuteReader
+from src.biz.models.wealth.trading_assistant.rules import RobotIdentity
+from types import SimpleNamespace
 
 NOW = datetime(2026, 9, 11, 8, tzinfo=timezone.utc)
 
@@ -63,8 +67,8 @@ def seed(engine):
         scripts = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
         with Operations.context(MigrationContext.configure(conn)):
             previous_revision = "20260907_000170"
-            for number in range(171, 177):
-                revision = scripts.get_revision(f"20260912_{number:06d}")
+            for revision_id in (*[f"20260912_{number:06d}" for number in range(171, 177)], "20260915_000177"):
+                revision = scripts.get_revision(revision_id)
                 if revision.down_revision != previous_revision:
                     raise ValueError("Unexpected fixture migration chain")
                 revision.module.upgrade()
@@ -96,11 +100,25 @@ def seed(engine):
 
 def browser_app(database):
     clock = [NOW]
+    qualified_robots = {}
+    class FixtureRobots:
+        def resolve(self, session, owner_id, robot_id, deadline):
+            deadline.remaining_ms()
+            name = qualified_robots.get((owner_id, robot_id))
+            return SimpleNamespace(name=name) if name else None
+        def names(self, session, *, owner_id, robot_ids, deadline):
+            return {rid: qualified_robots[(owner_id, rid)] for rid in robot_ids if (owner_id, rid) in qualified_robots}
     @asynccontextmanager
     async def lifespan(app):
-        with fixed_fixture_clock(database, clock):
+        from tests.test_stock_mins_reader import _write_bars
+        from src.biz.services.wealth.market.trading_assistant.rule_calendar import session_minutes
+        with tempfile.TemporaryDirectory(prefix="ta-rule-minutes-", dir="/private/tmp") as source_root, fixed_fixture_clock(database, clock):
+            rows = [("000001.SZ", 1, day, minute.at.replace(tzinfo=None).isoformat(),
+                9, 9, 9, 9, 100, 900, "SZSE") for day in (date(2026,9,11), date(2026,9,14)) for minute in session_minutes(day)]
+            _write_bars(Path(source_root), code="000001.SZ", freq=1, rows=rows)
             async with trading_assistant_lifespan(app, database_url=database.url,
-                    logger=logging.getLogger("ta-isolated-fixture")):
+                    logger=logging.getLogger("ta-isolated-fixture"), minute_reader=StockRuleMinuteReader(Path(source_root)),
+                    rule_robots=FixtureRobots()):
                 yield
     app = FastAPI(lifespan=lifespan)
     install_exception_handlers(app)
@@ -141,6 +159,22 @@ def browser_app(database):
         return await app.state.trading_assistant.read_current(read, owner_id=owner_id,
             account_mode="SINGLE", account_id=account_id, resolve_target_through=lambda s,d:NOW)
     app.include_router(probe)
+    @app.post("/test-rule-clock")
+    def rule_clock(at: datetime):
+        if at.tzinfo is None or at < clock[0] or at.date() > date(2026, 9, 14):
+            raise ValueError("Only forward fixture time within seeded September facts")
+        clock[0] = at
+        return {"now": at.isoformat()}
+    @app.post("/test-rule-robot")
+    def rule_robot():
+        # Explicit test qualification only; not registered in production APIs.
+        existing = next((rid for (owner_id, rid) in qualified_robots if owner_id == 1), None)
+        if existing is None:
+            existing = uuid4()
+            with database.begin() as conn:
+                conn.execute(insert(RobotIdentity).values(robot_id=existing, owner_user_id=1))
+            qualified_robots[(1, existing)] = "隔离资格机器人"
+        return {"robotId": str(existing)}
     @app.get("/test-session")
     def test_session(user_id: int = 1):
         if user_id not in (1, 2):
@@ -148,6 +182,25 @@ def browser_app(database):
         return {"fixture": "trading-assistant-isolated", "token": JWTService().encode(user_id=user_id, username=f"ta-browser-{user_id}", is_admin=False)}
     # Test-only stopped-worker scenario. These endpoints exist solely in this
     # module's fresh synthetic database app, never in the production router.
+    @app.post("/test-pending-rule/{rule_id}")
+    async def pending_rule(rule_id: UUID):
+        deps = app.state.trading_assistant
+        request_id, attempt_id = uuid4(), uuid4()
+        deadline = Deadline.after_ms(5000)
+        scope = RuleScope(scopeType="RULE", ruleType="PLAN", ruleId=str(rule_id))
+        await deps.transactions.run(lambda s:deps.rules.protocol.register(s, owner_id=1, request_id=request_id,
+            attempt_id=attempt_id, scope=scope, operation="RULE_CLOSE", payload=dict(expectedStateVersion="1"),
+            now=clock[0], executor_id="stopped-rule-fixture", deadline=deadline), deadline=deadline, write=True)
+        return {"requestId":str(request_id)}
+    @app.post("/test-expire-rule/{rule_id}/{request_id}")
+    async def expire_rule(rule_id: UUID, request_id: UUID):
+        deps = app.state.trading_assistant
+        clock[0] += timedelta(minutes=1)
+        deadline = Deadline.after_ms(5000)
+        scope = RuleScope(scopeType="RULE", ruleType="PLAN", ruleId=str(rule_id))
+        await deps.transactions.run(lambda s:deps.rules.protocol.expire(s, owner_id=1, request_id=request_id,
+            key=scope_key(scope), now=clock[0], deadline=deadline), deadline=deadline, write=True)
+        return {"expired":True}
     @app.post("/test-pending-cash/{account_id}")
     async def pending_cash(account_id: UUID):
         deps = app.state.trading_assistant

@@ -1,5 +1,10 @@
 """M3 process lifecycle uses an isolated database; no configured DB connections."""
 import asyncio
+import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -11,10 +16,19 @@ from src.app.runtime.trading_assistant_lifespan import trading_assistant_lifespa
 from src.biz.services.wealth.market.trading_assistant.execution_policy import TradingAssistantExecutionPolicyV1
 
 
-def test_resources_exist_only_during_lifespan_and_loop_stops(cutoff_db):
+@pytest.fixture(scope="module")
+def lifespan_db(cutoff_db):
+    migration = ScriptDirectory.from_config(Config("alembic.ini")).get_revision("20260915_000177").module
+    with cutoff_db.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+    return cutoff_db
+
+
+def test_resources_exist_only_during_lifespan_and_loop_stops(lifespan_db):
     async def run():
         app = SimpleNamespace(state=State())
-        async with trading_assistant_lifespan(app, database_url=cutoff_db.url, logger=Mock()):
+        async with trading_assistant_lifespan(app, database_url=lifespan_db.url, logger=Mock()):
             assert app.state.trading_assistant is not None
             result = await app.state.trading_assistant.read(
                 lambda s,d:app.state.trading_assistant.account_queries.list(s, owner_id=1, deadline=d))

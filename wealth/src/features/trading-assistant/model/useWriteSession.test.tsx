@@ -21,7 +21,7 @@ describe("request-driven accounting form session", () => {
     const { result } = renderHook(() => useWriteSession(scope));
     expect(result.current.canSave).toBe(false);
     await waitFor(() => expect(result.current.canSave).toBe(true));
-    expect(api.getPending).toHaveBeenCalledWith("ACCOUNT_FEES", accountId, expect.any(AbortSignal));
+    expect(api.getPending).toHaveBeenCalledWith(scope, expect.any(AbortSignal));
     expect(api.request).not.toHaveBeenCalled();
   });
   it("unknown remains locked and repeated checks do not resend", async () => {
@@ -64,5 +64,35 @@ describe("request-driven accounting form session", () => {
     await waitFor(() => expect(result.current.canSave).toBe(true));
     await act(async () => { finish({ pendingRequest: makeStatus("old", "old", "PROCESSING") }); });
     expect(result.current.recovery).toBeNull(); expect(result.current.canSave).toBe(true);
+  });
+  it("reopens a rule's original close request without resending or confusing it with an edit", async () => {
+    const ruleScope = { scopeType: "RULE" as const, ruleType: "PLAN" as const, ruleId: accountId };
+    const requestId = crypto.randomUUID(), attemptId = crypto.randomUUID();
+    const pending = { ...makeStatus(requestId, attemptId), operationType: "RULE_CLOSE" as const, scope: ruleScope };
+    vi.mocked(api.getPending).mockResolvedValue({ pendingRequest: pending });
+    vi.mocked(api.getRecoverableInput).mockResolvedValue({ requestId, operationType: "RULE_CLOSE",
+      inputSchemaVersion: "1", target: null, input: { expectedStateVersion: "1" } });
+    vi.mocked(api.request).mockRejectedValue(new api.SaveOutcomeUnknown());
+    vi.mocked(api.getRecovery).mockResolvedValue(pending);
+    const { result } = renderHook(() => useWriteSession(ruleScope));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.canSave).toBe(false); expect(api.request).not.toHaveBeenCalled();
+    await act(async () => { expect((await result.current.restore())?.operationType).toBe("RULE_CLOSE"); });
+    await act(async () => { await result.current.save("RULE_CLOSE", { expectedStateVersion: "1" }); });
+    expect(api.request).toHaveBeenCalledOnce();
+    expect(vi.mocked(api.request).mock.calls[0][0]).toBe(`/plans/${accountId}/close`);
+    expect(vi.mocked(api.request).mock.calls[0][2]?.body).toMatchObject({ requestId, expectedRequestStateVersion: "2" });
+  });
+  it("rejects retained input for a different rule operation", async () => {
+    const ruleScope = { scopeType: "RULE" as const, ruleType: "PLAN" as const, ruleId: accountId };
+    const requestId = crypto.randomUUID();
+    vi.mocked(api.getPending).mockResolvedValue({ pendingRequest: { ...makeStatus(requestId, crypto.randomUUID()),
+      operationType: "RULE_CLOSE", scope: ruleScope } });
+    vi.mocked(api.getRecoverableInput).mockResolvedValue({ requestId, operationType: "RULE_CONDITIONS_UPDATE",
+      inputSchemaVersion: "1", target: null, input: { expectedStateVersion: "1", priceCondition: { operator: "LTE", upper: "10.00" }, volumeCondition: null } });
+    const { result } = renderHook(() => useWriteSession(ruleScope));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => { expect(await result.current.restore()).toBeNull(); });
+    expect(result.current.canSave).toBe(false); expect(api.request).not.toHaveBeenCalled();
   });
 });

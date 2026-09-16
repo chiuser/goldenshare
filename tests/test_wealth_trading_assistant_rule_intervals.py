@@ -38,12 +38,14 @@ def test_exact_revision_checkpoint_belongs_only_to_old_version():
     assert not second.contains(at("15:00:01"))
 
 
-def test_seconds_are_not_rounded_down_and_equal_saved_times_do_not_overlap():
+def test_subsecond_saved_times_are_preserved_without_overlapping_intervals():
     intervals = tuple(iter_condition_intervals([
-        version(1, "10:00:30"), version(2, "10:00:30"),
+        version(1, "10:00:30.000001"), version(2, "10:00:30.000002"),
         version(3, "11:00:30"),
     ]))
     assert not intervals[0].contains(at("10:01:00"))
+    assert intervals[0].contains(at("10:00:30.000002"))
+    assert not intervals[1].contains(at("10:00:30.000002"))
     for clock, owner in [("10:00:00", None), ("10:01:00", 1),
                          ("11:00:00", 1), ("11:01:00", 2)]:
         assert [i for i, interval in enumerate(intervals) if interval.contains(at(clock))] == (
@@ -52,6 +54,8 @@ def test_seconds_are_not_rounded_down_and_equal_saved_times_do_not_overlap():
 
 
 @pytest.mark.parametrize("versions", [[], [version(2, "10:00:00")],
+    [version(1, "10:00:30"), version(2, "10:00:30")],
+    [version(1, "10:00:30.000001"), version(2, "10:00:30.000001")],
     [version(1, "10:00:00"), version(3, "11:00:00")],
     [version(1, "11:00:00"), version(2, "10:00:00")]])
 def test_invalid_history_is_not_silently_sorted_or_filled(versions):

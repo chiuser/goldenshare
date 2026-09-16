@@ -17,14 +17,16 @@ from src.biz.services.wealth.market.trading_assistant.initialization_dates impor
 def validation_fields(error):
     allowed = {"name", "brokerName", "initialCash", "initialPositions", "commissionRateWan", "minimumCommission",
         "stampTaxRatePct", "tsCode", "direction", "tradeDate", "occurredOn", "price", "quantity", "amount", "note",
-        "availableQuantity", "costPrice", "openedOn", "expectedRevision", "expectedFeeVersionId"}
+        "availableQuantity", "costPrice", "openedOn", "expectedRevision", "expectedFeeVersionId",
+        "stockCode", "accountId", "deadlineAt", "priceCondition", "volumeCondition", "operator",
+        "upper", "lower", "thresholdLots", "robotId", "notifyEnabled", "expectedStateVersion"}
     rows = error.body.get("initialPositions") if isinstance(error.body, dict) else None
     row_ids = [row.get("clientRowId") if isinstance(row, dict) else None for row in rows] if isinstance(rows, list) else []
     valid_ids = all(type(value) is str and bool(value) for value in row_ids) and len(set(row_ids)) == len(row_ids)
     fields = []
     for issue in error.errors():
         path = issue["loc"][1:]
-        names = [part for part in path if isinstance(part, str)]
+        names = [part for part in path if isinstance(part, str) and part not in {"LTE", "GTE", "BETWEEN"}]
         if not names or any(name not in allowed for name in names):
             continue
         row_id = None
@@ -56,7 +58,7 @@ def error_response(code, message, *, state=None, fields=()):
 
 def command_response(state):
     if state.status == "SAVED":
-        first_create = state.accepted_now and state.operation in {"ACCOUNT_CREATE", "TRADE_CREATE", "CASH_FLOW_CREATE"}
+        first_create = state.accepted_now and state.operation in {"ACCOUNT_CREATE", "TRADE_CREATE", "CASH_FLOW_CREATE", "PLAN_CREATE", "ALERT_CREATE"}
         return JSONResponse(state.receipt, status_code=201 if first_create else 200)
     if state.status == "NOT_SAVED":
         return error_response(state.rejection["code"], state.rejection["message"], state=state, fields=state.field_errors)

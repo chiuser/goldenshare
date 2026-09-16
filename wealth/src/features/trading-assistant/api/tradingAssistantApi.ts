@@ -87,8 +87,8 @@ export async function getRecoverableInput(status: RecoveryStatusDto, signal?: Ab
       || target.kind !== status.target.kind || target.recordId !== status.target.recordId))) throw new InvalidTradingAssistantResponse();
   return recovered;
 }
-export const getPending = (scopeType: "ACCOUNT_CREATE" | "ACCOUNT_FEES" | "ACCOUNT_LEDGER", accountId?: string, signal?: AbortSignal) => {
-  const query = new URLSearchParams({ scopeType });
-  if (accountId) query.set("accountId", accountId);
+export const getPending = (scope: Extract<RecoveryStatusDto["scope"], { scopeType: "ACCOUNT_CREATE" | "ACCOUNT_FEES" | "ACCOUNT_LEDGER" | "RULE" | "RULE_CREATE" }>, signal?: AbortSignal) => {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(scope)) if (value !== null && value !== undefined) query.set(key, value);
   return request("/write-requests/pending?" + query, "PendingRecoveryResponse", { signal });
 };

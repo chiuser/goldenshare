@@ -11,9 +11,11 @@ interface StockInfoRailProps {
   viewModel: StockDetailViewModel;
   onAction: (message: string) => void;
   watchlist: ReturnType<typeof useStockWatchlistGroups>;
+  onCreatePlan?: () => void;
+  onCreateAlert?: () => void;
 }
 
-export function StockInfoRail({ viewModel, onAction, watchlist }: StockInfoRailProps) {
+export function StockInfoRail({ viewModel, onAction, watchlist, onCreatePlan, onCreateAlert }: StockInfoRailProps) {
   const [activeTab, setActiveTab] = useState<"quote" | "profile" | "news">("quote");
   const quoteDirection = directionClass(viewModel.quote.direction);
 
@@ -43,7 +45,10 @@ export function StockInfoRail({ viewModel, onAction, watchlist }: StockInfoRailP
         <div className="stock-header-actions" aria-label="个股操作">
           <StockWatchlistGroupPicker controller={watchlist} />
           {["+提醒", "+交易计划"].map((label) => (
-            <button className="stock-header-action" key={label} type="button" onClick={() => onAction(`${label}暂未开通`)}>
+            <button className="stock-header-action" key={label} type="button" onClick={() => {
+              const open = label === "+提醒" ? onCreateAlert : onCreatePlan;
+              if (open) open(); else onAction(`${label}暂未开通`);
+            }}>
               {label}
             </button>
           ))}

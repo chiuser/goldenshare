@@ -17,12 +17,13 @@ from sqlalchemy.orm import Session
 from src.biz.models.wealth.trading_assistant.recovery import WriteScope, WriteRequest, WriteAttempt, ValidationCandidate
 from src.biz.models.wealth.trading_assistant.accounts import Account
 from src.biz.models.wealth.trading_assistant.ledger import Ledger
+from src.biz.models.wealth.trading_assistant.rules import Rule
 from src.biz.schemas.wealth.market.trading_assistant.targets import LedgerTarget, validate_target, validate_target_receipt
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryRejection
 from src.biz.schemas.wealth.market.trading_assistant.errors import FieldErrorDto
 from src.biz.schemas.wealth.market.trading_assistant.receipts import SuccessReceipt
 from src.biz.schemas.wealth.market.trading_assistant.scopes import (
-    AccountCreateScope, AccountFeesScope, AccountLedgerScope)
+    AccountCreateScope, AccountFeesScope, AccountLedgerScope, RuleScope, RuleCreateScope)
 from pydantic import TypeAdapter
 from .execution_policy import Deadline, TradingAssistantExecutionPolicyV1
 from .market_facts import apply_sql_budget
@@ -34,12 +35,46 @@ class WriteProtocolConflict(RuntimeError):
         self.code = code
 
 
-def scope_key(scope: AccountCreateScope | AccountFeesScope | AccountLedgerScope) -> str:
+WriteScopeInput = AccountCreateScope | AccountFeesScope | AccountLedgerScope | RuleScope | RuleCreateScope
+
+
+def scope_key(scope: WriteScopeInput) -> str:
     if isinstance(scope, AccountCreateScope):
         return "ACCOUNT_CREATE"
     if isinstance(scope, (AccountFeesScope, AccountLedgerScope)):
         return f"{scope.scopeType}:{scope.accountId}"
-    raise ValueError("M2 only accepts accounting scopes")
+    if isinstance(scope, (RuleScope, RuleCreateScope)):
+        return scope.scopeType + ":" + json.dumps(scope.model_dump(mode="json", exclude={"scopeType"}),
+            ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    raise ValueError("Unsupported write scope")
+
+
+def parse_scope_key(key: str) -> WriteScopeInput:
+    if key == "ACCOUNT_CREATE":
+        return AccountCreateScope(scopeType=key)
+    kind, identity = key.split(":", 1)
+    if kind in ("ACCOUNT_FEES", "ACCOUNT_LEDGER"):
+        model = AccountFeesScope if kind == "ACCOUNT_FEES" else AccountLedgerScope
+        scope = model(scopeType=kind, accountId=identity)
+    elif kind in ("RULE", "RULE_CREATE"):
+        model = RuleScope if kind == "RULE" else RuleCreateScope
+        scope = model.model_validate({"scopeType": kind, **json.loads(identity)})
+    else:
+        raise ValueError("Unsupported persisted write scope")
+    if scope_key(scope) != key:
+        raise ValueError("Noncanonical persisted write scope")
+    return scope
+
+
+def verify_rule_scope(session, owner_id: int, scope: RuleScope | RuleCreateScope):
+    if isinstance(scope, RuleScope):
+        if session.scalar(select(Rule.rule_id).where(Rule.owner_user_id == owner_id,
+                Rule.rule_id == UUID(scope.ruleId), Rule.kind == scope.ruleType)) is None:
+            raise WriteProtocolConflict("TA_OBJECT_NOT_FOUND")
+    elif scope.accountId is not None:
+        if session.scalar(select(Account.account_id).where(Account.owner_id == owner_id,
+                Account.account_id == UUID(scope.accountId))) is None:
+            raise WriteProtocolConflict("TA_ACCOUNT_NOT_FOUND")
 
 
 def canonical_input(operation: str, scope: str, payload: dict,
@@ -104,21 +139,29 @@ class WriteProtocol:
             .with_for_update().execution_options(populate_existing=True)).one()
 
     def register(self, session: Session, *, owner_id: int, request_id: UUID, attempt_id: UUID,
-                 scope: AccountCreateScope | AccountFeesScope | AccountLedgerScope,
+                 scope: WriteScopeInput,
                  operation: str, payload: dict, now: datetime, executor_id: str,
                  deadline: Deadline, expected_state_version: int | None = None,
                  target: LedgerTarget | None = None) -> AttemptState:
         key = scope_key(scope)
         allowed = {"ACCOUNT_CREATE":{"ACCOUNT_CREATE"}, "ACCOUNT_FEES":{"FEES_UPDATE"},
                    "ACCOUNT_LEDGER":{"INITIALIZATION_CORRECT", "TRADE_CREATE", "TRADE_CORRECT", "TRADE_VOID",
-                                     "CASH_FLOW_CREATE", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID", "CALCULATION_RETRY"}}
+                                     "CASH_FLOW_CREATE", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID", "CALCULATION_RETRY"},
+                   "RULE_CREATE": {"PLAN_CREATE", "ALERT_CREATE"},
+                   "RULE": {"RULE_CONDITIONS_UPDATE", "RULE_CLOSE"}}
         if operation not in allowed[scope.scopeType] or not executor_id or now.tzinfo is None:
             raise ValueError("Invalid trusted operation or clock")
         payload, digest = canonical_input(operation, key, payload, target)
         apply_sql_budget(session, deadline, self.policy)
-        if not isinstance(scope, AccountCreateScope) and session.scalar(select(Account.account_id).where(
+        if isinstance(scope, RuleCreateScope) and (
+                operation != scope.ruleType + "_CREATE" or payload.get("stockCode") != scope.tsCode
+                or payload.get("accountId") != scope.accountId):
+            raise ValueError("Rule input does not belong to its trusted scope")
+        if isinstance(scope, (AccountFeesScope, AccountLedgerScope)) and session.scalar(select(Account.account_id).where(
                 Account.owner_id == owner_id, Account.account_id == UUID(scope.accountId))) is None:
             raise WriteProtocolConflict("TA_ACCOUNT_NOT_FOUND")
+        if isinstance(scope, (RuleScope, RuleCreateScope)):
+            verify_rule_scope(session, owner_id, scope)
         if target is not None and session.scalar(select(Ledger.ledger_id).where(
                 Ledger.account_id == UUID(target.accountId), Ledger.ledger_id == UUID(target.recordId),
                 Ledger.kind == target.kind)) is None:
@@ -150,7 +193,8 @@ class WriteProtocol:
                 raise WriteProtocolConflict("TA_RECOVERY_STATE_CHANGED")
             if scope_row.holder_request_id is not None:
                 raise WriteProtocolConflict("TA_SCOPE_WRITE_PENDING")
-            candidate_id = None if operation in {"FEES_UPDATE", "CALCULATION_RETRY"} else uuid4()
+            candidate_id = None if operation in {"FEES_UPDATE", "CALCULATION_RETRY",
+                "PLAN_CREATE", "ALERT_CREATE", "RULE_CONDITIONS_UPDATE", "RULE_CLOSE"} else uuid4()
             request = WriteRequest(owner_id=owner_id, request_id=request_id, scope_key=key,
                 operation_type=operation, input_schema_version=1, input_digest=digest,
                 target=target.model_dump(mode="json") if target else None,
@@ -230,7 +274,9 @@ class WriteProtocol:
                 or attempt.lease_until > now):
             return snapshot(request, attempt)
         return self.stop(session, (scope, request, attempt), RecoveryRejection(
-            code="TA_WRITE_FAILED", message="本次保存已停止，未写入账务记录", field=None), now)
+            code="TA_WRITE_FAILED", message="本次保存已停止，未保存规则修改" if request.operation_type in {
+                "PLAN_CREATE", "ALERT_CREATE", "RULE_CONDITIONS_UPDATE", "RULE_CLOSE"}
+            else "本次保存已停止，未写入账务记录", field=None), now)
 
     def read(self, session: Session, *, owner_id: int, request_id: UUID) -> AttemptState | None:
         request = session.get(WriteRequest, (owner_id, request_id))

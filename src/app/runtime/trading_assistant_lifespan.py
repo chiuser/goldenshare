@@ -3,6 +3,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from uuid import uuid4
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -13,6 +14,9 @@ from src.biz.services.wealth.market.trading_assistant.calculation import CALCULA
 from src.biz.services.wealth.market.trading_assistant.calculation_loop import run_calculation_loop
 from .trading_assistant_container import build_trading_assistant_dependencies
 from .trading_assistant_execution_resource import TradingAssistantExecutionResource
+from src.foundation.config.local_minute_capability import resolve_local_minute_capability
+from src.foundation.config.settings import get_settings
+from src.foundation.clients.local_lake.stock_rule_minute_reader import StockRuleMinuteReader
 
 
 def _log(logger, level, message, *args):
@@ -45,18 +49,26 @@ async def maintain_recovery(maintenance, policy, stop, logger):
 
 
 @asynccontextmanager
-async def trading_assistant_lifespan(app, *, database_url, logger):
+async def trading_assistant_lifespan(app, *, database_url, logger, minute_reader=None, rule_robots=None):
     policy = TradingAssistantExecutionPolicyV1()
+    if minute_reader is None:
+        capability = resolve_local_minute_capability(get_settings())
+        if capability.enabled:
+            if capability.lake_root != Path("/Volumes/datasource/data_lake"):
+                raise RuntimeError("Trading-assistant minutes require the formal Lake root")
+            minute_reader = StockRuleMinuteReader(capability.lake_root)
+    # Resolve the source before allocating resources, including on invalid configuration.
     # Same configured DB and pool defaults as src/db.py; the original pool is untouched.
     engine = create_async_engine(database_url, pool_pre_ping=True, pool_recycle=300, pool_use_lifo=True)
-    resource = TradingAssistantExecutionResource(database_url, policy, rule_version=CALCULATION_RULE_VERSION)
+    resource = TradingAssistantExecutionResource(database_url, policy,
+        rule_version=CALCULATION_RULE_VERSION, minute_reader=minute_reader)
     stop = asyncio.Event()
     tasks, dependencies = [], None
     try:
         if await resource.run_one("SCHEMA") != "READY":
             raise RuntimeError("Trading-assistant execution schema is not ready")
         now = lambda: datetime.now(timezone.utc)
-        dependencies = build_trading_assistant_dependencies(engine, policy=policy, now=now, executor_id=str(uuid4()))
+        dependencies = build_trading_assistant_dependencies(engine, policy=policy, now=now, executor_id=str(uuid4()), rule_robots=rule_robots)
         maintenance = RecoveryMaintenance(dependencies.transactions, WriteProtocol(policy), policy, now)
         app.state.trading_assistant = dependencies
         tasks = [asyncio.create_task(maintain_recovery(maintenance, policy, stop, logger), name="ta-recovery-maintenance"),

@@ -24,13 +24,18 @@ from src.biz.services.wealth.market.trading_assistant.ledger_commands import Led
 from src.biz.services.wealth.market.trading_assistant.ledger_previews import LedgerPreviewService
 from src.biz.services.wealth.market.trading_assistant.initialization_preview import InitializationPreviewService
 from src.biz.services.wealth.market.trading_assistant.market_facts import MarketFactsReader
+from src.biz.services.wealth.market.trading_assistant.rule_commands import RuleCommandService
+from src.biz.services.wealth.market.trading_assistant.rule_access import RuleAccess, RuleRobotAccess
+from src.biz.queries.wealth.market.trading_assistant.rule_queries import RuleQueries
 from .trading_assistant_transactions import TradingAssistantTransactions
 
 
-def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
+def build_trading_assistant_dependencies(engine, *, policy, now, executor_id, rule_robots=None):
     transactions = TradingAssistantTransactions(engine)
     market = MarketFactsReader(policy)
     positions = PositionsQuery(policy)
+    robots = rule_robots if rule_robots is not None else RuleRobotAccess()
+    access = RuleAccess(market, policy, robots)
     return TradingAssistantDependencies(transactions, policy, now,
         AccountCommandService(transactions, market, policy, now, executor_id=executor_id),
         LedgerCommandService(transactions, market, policy, now, executor_id=executor_id),
@@ -40,4 +45,7 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id):
         CalculationRetryService(transactions, policy, now, executor_id=executor_id), CurrentReadContextQuery(policy),
         positions, PositionsAnalysisQuery(positions), RecordListsQuery(policy), RecordSummaryQuery(policy), ClosedRecordsQuery(policy),
         ReturnDayDetailQuery(policy), ReturnCurveQuery(policy), ReturnCalendarQuery(policy), ReturnContributionsQuery(policy),
-        RoundDetailQuery(policy), CompletedRoundsQuery(policy), ReturnReviewQuery(policy))
+        RoundDetailQuery(policy), CompletedRoundsQuery(policy), ReturnReviewQuery(policy),
+        RuleCommandService(transactions, market, policy, now, executor_id=executor_id,
+            resolve_robot=robots.resolve, has_future_checkpoint=access.has_future_checkpoint),
+        RuleQueries(policy, notification_summaries=access.notification_summaries, maintenance=access.maintenance))

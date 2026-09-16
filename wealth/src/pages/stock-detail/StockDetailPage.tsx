@@ -15,6 +15,7 @@ import { StockBreadcrumbActionBar } from "../../features/stock-detail/layout/Sto
 import { StockChartToolbar } from "../../features/stock-detail/layout/StockChartToolbar";
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
 import { StockDetailToast } from "../../features/stock-detail/ui/StockDetailToast";
+import { StockRuleEntry } from "../../features/trading-assistant/ui/StockRuleEntry";
 import { useStockTrendChannel } from "../../features/stock-detail/trend-channel/controller/useStockTrendChannel";
 import { useStockWatchlistGroups } from "../../features/watchlist/model/useStockWatchlistGroups";
 import {
@@ -60,6 +61,8 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
+  const [ruleEntry, setRuleEntry] = useState<"PLAN" | "ALERT" | null>(null);
+  useEffect(() => setRuleEntry(null), [tsCode]);
   const activePageInit = pageInit?.stock.tsCode === tsCode ? pageInit : null;
   const watchlist = useStockWatchlistGroups(tsCode, activePageInit?.capabilities.userActions.watchlist === true);
   useEffect(() => { if (watchlist.error) setToast(watchlist.error); }, [watchlist.error]);
@@ -264,9 +267,12 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
             }}
           />
         )}
-        <StockInfoRail onAction={showToast} viewModel={viewModel} watchlist={watchlist} />
+        <StockInfoRail onAction={showToast} viewModel={viewModel} watchlist={watchlist}
+          onCreatePlan={activePageInit?.capabilities.userActions.tradePlan ? () => setRuleEntry("PLAN") : undefined}
+          onCreateAlert={activePageInit?.capabilities.userActions.alert ? () => setRuleEntry("ALERT") : undefined} />
       </main>
       <StockDetailToast message={toast} />
+      {ruleEntry && <StockRuleEntry key={tsCode} kind={ruleEntry} stock={{ tsCode, name: viewModel.stock.name }} onClose={() => setRuleEntry(null)} />}
     </div>
   );
 }
