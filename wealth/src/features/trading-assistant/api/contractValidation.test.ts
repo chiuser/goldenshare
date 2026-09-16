@@ -8,6 +8,21 @@ const entry = { accountId, factVersion: "1", occurredOn: "2026-09-11", cashThrou
   fees, calendarDataStatus: "Ready", reason: null };
 
 describe("generated TA contract runtime", () => {
+  it.each([0, 10, 11])("validates robot keyword capacity without truncation: %i", (count) => {
+    const keywords = Array.from({ length: count }, (_, i) => `关键词${i}`);
+    const candidate = { requestId: accountId, attemptId: fees.feeVersionId, expectedConfigVersionId: null, name: "机器人", keywords,
+      webhook: { action: "REPLACE", value: "private" }, signingSecret: { action: "CLEAR" } };
+    const response = { name: "机器人", maskedWebhook: "***", hasSigningSecret: false, keywords,
+      robotId: accountId, configVersionId: fees.feeVersionId };
+    if (count <= 10) {
+      expect(parseContract("CandidateCommand", candidate)).toBe(candidate);
+      expect(parseContract("RobotConfig", response)).toBe(response);
+    } else {
+      expect(() => parseContract("CandidateCommand", candidate)).toThrow();
+      expect(() => parseContract("RobotConfig", response)).toThrow();
+    }
+    expect(keywords).toHaveLength(count);
+  });
   it("retains exact strings, zero, null and required keys without reshaping", () => {
     expect(parseContract("EntryContext", entry)).toBe(entry);
   });

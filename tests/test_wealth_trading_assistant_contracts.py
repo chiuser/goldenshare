@@ -19,6 +19,30 @@ ID2 = "00000000-0000-0000-0000-000000000002"
 TRADE = dict(tsCode="600000.SH", direction="BUY", tradeDate="2026-09-14",price="10.00",quantity=1)
 
 
+@pytest.mark.parametrize("count", [0, 10, 11])
+def test_robot_keyword_limit_across_input_output_and_recovery(count):
+    keywords = [f"关键词{i}" for i in range(count)]
+    display = dict(name="机器人", maskedWebhook="***", hasSigningSecret=False, keywords=keywords)
+    input_data = dict(expectedConfigVersionId=None, name="机器人", keywords=keywords,
+                      webhook=dict(action="REPLACE", value="private"), signingSecret=dict(action="CLEAR"))
+    cases = [
+        (robot.CandidateInput, input_data),
+        (robot.CandidateCommand, dict(**input_data, requestId=ID, attemptId=ID2)),
+        (robot.CandidateResult, dict(**display, candidateId=ID, candidateVersion="1")),
+        (robot.RobotConfig, dict(**display, robotId=ID, configVersionId=ID2)),
+        (recovered_inputs.SafeCandidateInput, dict(**display, expectedConfigVersionId=None)),
+    ]
+    for model, data in cases:
+        assert model.model_json_schema()["properties"]["keywords"]["maxItems"] == 10
+        if count <= 10:
+            assert model.model_validate(data).keywords == keywords
+        else:
+            with pytest.raises(ValidationError) as error:
+                model.model_validate(data)
+            assert any(e["loc"] == ("keywords",) and e["type"] == "too_long" for e in error.value.errors())
+        assert len(data["keywords"]) == count  # Never truncate caller input.
+
+
 @pytest.mark.parametrize("value,expected", [("10","10.00"),("10.0","10.00"),("00010.00","10.00"),("-0","0.00")])
 def test_type_normalization(value,expected):
     assert TypeAdapter(v.Decimal2Input).validate_python(value) == expected

@@ -8,6 +8,8 @@ from .rules import NotificationState
 from .value_types import EntityId, Instant, PositiveVersion, Quantity, Version
 
 RobotName = Annotated[StrictStr, Field(min_length=1, pattern=r"\S")]
+MAX_ROBOT_KEYWORDS = 10
+RobotKeywords = Annotated[list[StrictStr], Field(max_length=MAX_ROBOT_KEYWORDS)]
 
 
 class KeepSecret(Contract):
@@ -32,7 +34,7 @@ class CandidateInput(Contract):
     name: RobotName
     webhook: WebhookUpdate
     signingSecret: SigningSecretUpdate
-    keywords: list[StrictStr]
+    keywords: RobotKeywords
 
     @model_validator(mode="after")
     def first_configuration(self):
@@ -75,7 +77,7 @@ class ConfigDisplay(Contract):
     name: RobotName
     maskedWebhook: StrictStr
     hasSigningSecret: StrictBool
-    keywords: list[StrictStr]
+    keywords: RobotKeywords
 
 
 class RobotConfig(ConfigDisplay):
