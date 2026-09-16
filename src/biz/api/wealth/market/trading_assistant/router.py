@@ -22,6 +22,7 @@ from .dependencies import TradingAssistantDependencies
 from .record_routes import register_record_routes
 from .return_routes import register_return_routes
 from .rule_routes import register_rule_routes
+from .robot_routes import register_robot_routes
 from .errors import TradingAssistantRoute, command_response
 from src.biz.schemas.wealth.market.trading_assistant.calculation_status import CalculationStatus, CalculationRetryCommand
 
@@ -32,6 +33,7 @@ def create_trading_assistant_router(*, auth_dependency, dependencies_dependency)
     register_record_routes(router, auth_dependency=auth_dependency, dependencies_dependency=dependencies_dependency)
     register_return_routes(router, auth_dependency=auth_dependency, dependencies_dependency=dependencies_dependency)
     register_rule_routes(router, auth_dependency=auth_dependency, dependencies_dependency=dependencies_dependency)
+    register_robot_routes(router, auth_dependency=auth_dependency, dependencies_dependency=dependencies_dependency)
 
     def position_scope(request):
         try:

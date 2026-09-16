@@ -27,6 +27,7 @@ from src.biz.services.wealth.market.trading_assistant.market_facts import Market
 from src.biz.services.wealth.market.trading_assistant.rule_commands import RuleCommandService
 from src.biz.services.wealth.market.trading_assistant.rule_access import RuleAccess, RuleRobotAccess
 from src.biz.queries.wealth.market.trading_assistant.rule_queries import RuleQueries
+from src.biz.queries.wealth.market.trading_assistant.robot_tests import RobotTestQuery
 from .trading_assistant_transactions import TradingAssistantTransactions
 
 
@@ -48,4 +49,5 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id, ru
         RoundDetailQuery(policy), CompletedRoundsQuery(policy), ReturnReviewQuery(policy),
         RuleCommandService(transactions, market, policy, now, executor_id=executor_id,
             resolve_robot=robots.resolve, has_future_checkpoint=access.has_future_checkpoint),
-        RuleQueries(policy, notification_summaries=access.notification_summaries, maintenance=access.maintenance))
+        RuleQueries(policy, notification_summaries=access.notification_summaries, maintenance=access.maintenance),
+        RobotTestQuery(policy))
