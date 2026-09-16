@@ -58,7 +58,6 @@ class RecoveryStatusDto(Contract):
                                "CASH_FLOW_CREATE", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID", "CALCULATION_RETRY"},
             "RULE": {"RULE_CONDITIONS_UPDATE", "RULE_CLOSE"},
             "RULE_CREATE": {"PLAN_CREATE", "ALERT_CREATE"},
-            "ROBOT": {"ROBOT_CANDIDATE_CREATE", "ROBOT_TEST", "ROBOT_CONFIRM"},
             "NOTIFICATION": {"NOTIFICATION_RETRY"},
         }
         if self.operationType not in permitted[scope]:

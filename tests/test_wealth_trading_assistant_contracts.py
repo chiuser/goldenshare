@@ -30,7 +30,6 @@ def test_robot_keyword_limit_across_input_output_and_recovery(count):
         (robot.CandidateCommand, dict(**input_data, requestId=ID, attemptId=ID2)),
         (robot.CandidateResult, dict(**display, candidateId=ID, candidateVersion="1")),
         (robot.RobotConfig, dict(**display, robotId=ID, configVersionId=ID2)),
-        (recovered_inputs.SafeCandidateInput, dict(**display, expectedConfigVersionId=None)),
     ]
     for model, data in cases:
         assert model.model_json_schema()["properties"]["keywords"]["maxItems"] == 10
@@ -448,9 +447,11 @@ def test_all_operation_receipts_and_recovery_inputs(operation):
         adapter.validate_python({**fixture, "result":{**fixture["result"], "unexpected":"rejected"}})
     target = (dict(accountId=ID, recordId=ID2, kind="TRADE" if operation.startswith("TRADE") else "CASH_FLOW")
               if operation in {"TRADE_CORRECT", "TRADE_VOID", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID"} else None)
-    if operation in {"ROBOT_TEST", "ROBOT_CONFIRM"}:
-        inputs[operation] = dict(**inputs[operation], candidateId=ID2)
     input_fixture = dict(requestId=ID, operationType=operation, inputSchemaVersion="1", input=inputs[operation], target=target)
+    if operation.startswith("ROBOT_"):
+        with pytest.raises(ValidationError):
+            TypeAdapter(recovered_inputs.RecoveryInputResponse).validate_python(input_fixture)
+        return
     recovered = TypeAdapter(recovered_inputs.RecoveryInputResponse).validate_python(input_fixture)
     assert recovered.operationType == operation
     assert "attemptId" not in type(recovered.input).model_fields
@@ -493,9 +494,6 @@ def test_robot_secret_intents_and_output_separation():
         with pytest.raises(ValidationError):
             robot.ConfirmCandidateInput(expectedConfigVersionId=None, testId=ID, receivedConfirmed=confirmed)
     assert robot.RobotResponse(robot=None).robot is None
-    safe = operation_fixtures()[1]["ROBOT_CANDIDATE_CREATE"]
-    with pytest.raises(ValidationError):
-        recovered_inputs.SafeCandidateInput(**safe, webhook="private-address")
 
 
 def test_query_scope_and_pagination_boundaries():

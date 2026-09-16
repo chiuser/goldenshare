@@ -8,18 +8,19 @@ const entry = { accountId, factVersion: "1", occurredOn: "2026-09-11", cashThrou
   fees, calendarDataStatus: "Ready", reason: null };
 
 describe("generated TA contract runtime", () => {
-  it.each(["ROBOT_TEST", "ROBOT_CONFIRM"] as const)("requires original candidate for %s recovery, not command JSON", (operationType) => {
+  it.each(["ROBOT_TEST", "ROBOT_CONFIRM"] as const)("rejects recovery for %s but preserves normal commands", (operationType) => {
     const input = operationType === "ROBOT_TEST" ? { expectedCandidateVersion: "1" } :
       { expectedConfigVersionId: null, testId: accountId, receivedConfirmed: true };
     const recovered = { requestId: accountId, inputSchemaVersion: "1", operationType, target: null,
       input: { ...input, candidateId: fees.feeVersionId } };
-    expect(parseContract("RecoveryInputResponse", recovered)).toBe(recovered);
+    expect(() => parseContract("RecoveryInputResponse", recovered)).toThrow();
     for (const candidateId of [undefined, null, "not-a-uuid"]) {
       expect(() => parseContract("RecoveryInputResponse", { ...recovered, input: { ...input, candidateId } })).toThrow();
     }
     const name = operationType === "ROBOT_TEST" ? "TestCandidateCommand" : "ConfirmCandidateCommand";
     const command = { ...input, requestId: accountId, attemptId: fees.feeVersionId };
     expect(parseContract(name, command)).toBe(command);
+    expect(() => parseContract(name, { ...command, expectedRequestStateVersion: "1" })).toThrow();
     expect(() => parseContract(name, { ...command, candidateId: fees.feeVersionId })).toThrow();
   });
   it.each([0, 10, 11])("validates robot keyword capacity without truncation: %i", (count) => {

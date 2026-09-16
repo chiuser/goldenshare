@@ -1,6 +1,6 @@
 # 财势乾坤｜交易助手技术实施方案 v1
 
-> 当前状态：修订 136，依据 PRD v1.50 及正式交互稿。M7 凭据安全与关键词对齐已提交 `d66a5c71`，配置存储与原候选恢复定位已提交 `4196fb99`，均未推送。现继续接通原测试结果只读接口，见 §11.16.3；本切片尚未提交。配置／测试 POST 和发送循环仍未装配，M7 整体未完成。未部署、未执行正式库迁移或真实飞书发送。M3 既有生产部署记录仍见 §11.12.32；历史状态按对应阶段阅读。
+> 当前状态：修订 137，依据 PRD v1.51。用户最新确认机器人配置失败即结束、下次重新保存，不提供输入恢复或“继续保存”；该决定取代修订 135—136 中机器人保存恢复的设计及实现，见 §11.16.4。原测试结果读取已提交 `0ecf1d0a`，仍保留。当前清退修改尚未提交；配置／测试 POST 和发送循环仍未装配，M7 整体未完成。未推送、部署、执行正式库迁移或真实飞书发送。M3 既有生产部署记录仍见 §11.12.32。
 
 > 历史记录（修订 85，后续状态见文首）：M2 本地实现及本阶段验收完成，待用户独立 Review，最终对账见 §11.11.10。账户／记账／更正／恢复真实 API、页面接线、跨进程故障、并发、容量及浏览器验收均已完成；不代表已部署或已通过用户验收。M1 已提交 `af0046ac`，未推送；M2 改动尚未提交。M3—M8 未开始。§11.10 及此前修订的执行记录保留为历史证据。已细化部分直接作为 LLD，不另写重复文档；外部接入及部署验收仍见 §11.5。
 > 依据：[交易助手产品需求 v1.50](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
@@ -2156,7 +2156,7 @@ CheckRecord 字段为 checkId、checkNo、ruleVersionId、tradeDate、requestedF
 
 NotificationSummary 字段为 notificationId?、state、stateVersion?、robotId?、robotName?、canRetry、reason?；状态和可重试资格按第 7 节，不扩展自动重试。无通知时 ID／版本为 null、canRetry=false；NOT_ENABLED／NOT_CREATED 不是持久化发送状态。正式通知详情及配置／测试字段继续精确引用 §7.7、§7.9，不把外部响应原样透传。
 
-恢复接口直接采用 §4.16 的全部必需字段和互斥约束，不新造第二个恢复响应。operationType 按已定义命令一一对应：ACCOUNT_CREATE、INITIALIZATION_CORRECT、FEES_UPDATE、TRADE_CREATE/CORRECT/VOID、CASH_FLOW_CREATE/CORRECT/VOID、CALCULATION_RETRY、PLAN_CREATE、ALERT_CREATE、RULE_CONDITIONS_UPDATE、RULE_CLOSE，以及第 7 节的 ROBOT_CANDIDATE_CREATE／ROBOT_TEST／ROBOT_CONFIRM／NOTIFICATION_RETRY。input 联合按 operationType 静态分支，秘密分支仅返回可安全回填的引用和掩码，不返回 Webhook／密钥。
+恢复接口直接采用 §4.16 的全部必需字段和互斥约束，不新造第二个恢复响应。operationType 按已定义命令一一对应：ACCOUNT_CREATE、INITIALIZATION_CORRECT、FEES_UPDATE、TRADE_CREATE/CORRECT/VOID、CASH_FLOW_CREATE/CORRECT/VOID、CALCULATION_RETRY、PLAN_CREATE、ALERT_CREATE、RULE_CONDITIONS_UPDATE、RULE_CLOSE，以及第 7 节的 NOTIFICATION_RETRY。input 联合按 operationType 静态分支；修订 137 按用户确认排除机器人配置／测试／确认的保存恢复，不再保留或返回秘密恢复引用。
 
 **接口齐套验证：**每条路由须有请求合法／缺键／额外字段／非法组合、成功响应／合法空值／错误响应 fixture；fixture 的键集合与 schema 比较，真实 API 测试再与这些字段对账。不能只通过 TypeScript 编译就认为字段齐全。依据表的引用按章节号与类型定位，不凭重复的 READ-01 名称串联不同章节用例。
 
@@ -2168,10 +2168,9 @@ NotificationSummary 字段为 notificationId?、state、stateVersion?、robotId?
 - 持仓行 industry 是行业显示名称或 null；分析行业项按已有 industryCode／industryName／marketValue／weightPct／classificationStatus 展开，分类编码为 CLASSIFIED／UNCLASSIFIED，未分类代码为 null，不丢金额。账户轮次轻引用仅含 accountId／roundId／roundNumber；完整 roundRef 另含 status。
 - recordsScope 使用两种结构：范围为 `{scope,requestedStartDate,requestedEndDate}`，整轮为 `{accountId,roundId}`，严格互斥；它只定位已有记录查询，不传任意 URL。日期贡献定位为 `{scope,date}`。父层日期不得覆盖整轮身份。
 - 机器人现有配置读取为 `{robot: RobotConfig|null}`；RobotConfig 使用 robotId／name／configVersionId／maskedWebhook／hasSigningSecret／keywords。候选返回 candidateId／candidateVersion／name／maskedWebhook／hasSigningSecret／keywords；测试返回 testId／state／startedAt／completedAt／reason。它们是应用侧状态与安全回显，不定义飞书外部响应。敏感更新意图为 `{action:KEEP}`、`{action:CLEAR}`、`{action:REPLACE,value}`，地址禁止 CLEAR，首次禁止 KEEP。秘密不进入普通输出或恢复 input。
-- 机器人配置／测试／确认的恢复范围固定为 `{scopeType:ROBOT}`，对应本人唯一机器人入口，不新增机器人管理列表；通知重试为 `{scopeType:NOTIFICATION,notificationId}`，只对应原通知。原有账户／规则恢复范围不变。
+- 机器人配置／测试／确认不进入通用保存恢复范围，不注册 WriteRequest／WriteAttempt，不提供原输入恢复或继续保存；测试证据仍按 testId 只读查询。通知重试为 `{scopeType:NOTIFICATION,notificationId}`，只对应原通知。原有账户／规则恢复范围不变。
 - 核算进度 stage 将 §4.6.2 既有阶段编码为 PENDING／PREPARING／CALCULATING／VERIFYING／PUBLISHING／PUBLISHED／WAITING_DATA／FAILED／CANCELLED／SUPERSEDED；仅为内部合同枚举，不增加用户状态或调度平台。
-- 机器人候选恢复 input 使用原请求的 name／maskedWebhook／hasSigningSecret／keywords／expectedConfigVersionId；外层 requestId 定位服务端已留存的凭据引用，不要求失败创建已经有 candidateId，不回传秘密。新命令仍须重新核验，摘要或掩码不能直接恢复成秘密。
-- 修订 135 用户确认：ROBOT_TEST／ROBOT_CONFIRM 的恢复 input 额外必填 candidateId，来自原请求路径，随原输入参与摘要绑定；它不是用户可编辑字段，原提交 JSON 仍不得包含 candidateId。测试和确认分别用 RobotTestRecoveryInput／RobotConfirmRecoveryInput，生成合同同步；同 requestId 更换原候选必须拒绝。恢复仅返回原操作，不自动执行或发送，已接纳测试只读取原 testId；未知结果不重发。
+- 修订 137 用户确认取代修订 135 的机器人输入恢复设计：删除 SafeCandidateInput、RobotTestRecoveryInput／RobotConfirmRecoveryInput 及对应恢复联合分支。三种机器人命令保留请求标识用于正常操作身份与防重复，不再接受 expectedRequestStateVersion；失败不续跑原请求，下次重新保存。既有加密候选／配置和测试证据仍用于测试及激活，不作为可恢复表单或保存任务。
 - 整轮详情的期初来源组合名为 initializationSource，包含 initializedOn／openedOn／initializationId／initializationRevision／quantity／costPrice／costAmount；非期初来源为 null。检查序号 checkNo、发送序号 attemptNo 为正安全整数，版本号仍为 Version 文本；账户事实／计算目标版本按 §4.21 从 1 开始。
 - 更正预览 before／after 是候选事实投影，不伪造新修订的 acceptedAt。交易采用 TradeInput＋自动费用，资金采用 CashFlowInput＋netCashChange；期初采用 initialCash／initialPositions，按股票稳定对齐后允许新增／移除侧为 null。备注仍按原 500 字素；预览不接收保存请求身份。
 - 检查证据 actualValue 是保留来源精度的 SourceDecimal 文本，不先格式化为两位再判条件；用户阈值仍最多两位，页面展示仍按既定两位。规则详情的 missingRanges／failureReason 来自该规则实际检查，不靠通知失败反推检查失败。
@@ -2467,7 +2466,7 @@ PRD §12.1.1 第 13—17 项要求：闲置现金不计本金、同一期资金�
 
 ### 7.9 配置候选、测试和激活的接口收口
 
-下列均为拟定接口，沿用交易助手前缀；不增加用户操作。配置候选是 R7 表单的服务端保存依据，不新增草稿管理页。轻量写入同样遵守 §4.17 的 requestId／attemptId／范围占用合同；敏感输入留存必须加密，不能直接塞入通用 input_payload。
+下列接口沿用交易助手前缀；不增加用户操作。配置候选仅用于 R7 测试与激活，不新增草稿管理页。修订 137 按用户确认：机器人配置失败就结束本次操作，下次重新保存，不接入 §4.17 的待恢复请求、输入留存或继续保存。正常提交仍需所有权、并发版本校验和防重复；秘密只在本模块凭据表加密存储，不能塞入通用 input_payload。具体实施进度见 §11.16。
 
 | 接口 | 输入／输出和事务 |
 | --- | --- |
@@ -5006,3 +5005,11 @@ M6 仍未完成：保存／恢复协议扩展、规则命令、真实分钟冻�
 改动范围为 Biz 查询／路由、依赖声明和 App 装配，依赖矩阵不变。CodeGraph impact 核对配置服务及测试，再逐项阅读既有读取执行器、路由和消费者；没有引入 Ops 依赖、迁移、配置项、页面或新响应字段。本切片尚未提供 GET /robot、配置／测试／确认 POST；配置回显与候选秘密输入留存仍需一起接线，不能为了回显是否设置密钥而解密整份秘密。没有因此修改 PRD 或 Figma。
 
 验收：新增 `tests/test_wealth_trading_assistant_robot_test_api.py`，连同机器人恢复／配置／存储、规则真实 API、合同及三项架构护栏，合计 **145 passed，17.21 秒**；20 条为既有 Alembic 路径配置弃用警告。合同生成 `--check`、文档完整性和 diff 检查通过。没有前端代码变化，本切片不以浏览器测试替代后续完整配置流程验收。
+
+### 11.16.4 机器人配置失败即结束（修订 137，用户确认）
+
+本节取代 §11.16.1—3 中机器人通用保存恢复的实现方向；原记录仅保留历史证据。依据 PRD v1.51 §13.6.1：配置保存失败结束本次操作，下次重新填写并保存，不保留待恢复状态／输入，不设计恢复秘密引用或继续保存接口。重新打开读取实际有效配置，不凭超时回滚已成功的配置。当前表单中的字段校验和测试失败反馈不因此删除；测试结果及正式通知发送记录仍保留，未知结果不自动重发。
+
+实施映射：从 RecoveryInputResponse、RecoveryScope、恢复 pending 路由和 WriteProtocol 移除机器人分支；删除 robot_recovery_input 绑定器；机器人三种普通命令不再接受 expectedRequestStateVersion。生成前端合同及运行时校验同步迁移，无兼容分支。测试改为证明机器人恢复输入／范围／继续保存版本被拒绝，同时原测试结果 GET、配置激活与账户／规则恢复仍通过。未删除任何业务表或历史测试证据；未来配置 POST 使用本模块短事务保存，不接入账务恢复机制。正常操作身份、防重复、配置并发校验仍保留，不等于新增用户操作。
+
+影响面经 CodeGraph impact WriteProtocol 和全量符号／合同消费者检索核对；依赖矩阵不变。后端隔离 API、存储、合同、原恢复与规则回归及三项架构护栏 **160 passed（20.80 秒）**；前端交易助手 **35 文件、172 passed**，typecheck／build 通过，只有既有大 chunk 提示。无前端页面布局修改；Figma 的配置失败说明仍需同步核对，不能把本轮合同检查视为设计稿已更新。M7 后续继续配置／测试／确认 POST、发送生命周期和页面，不再开发秘密输入恢复。

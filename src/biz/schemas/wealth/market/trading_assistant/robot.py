@@ -45,7 +45,12 @@ class CandidateInput(Contract):
         return self
 
 
-class CandidateCommand(CandidateInput, CommandIdentity):
+class RobotCommandIdentity(Contract):
+    requestId: EntityId
+    attemptId: EntityId
+
+
+class CandidateCommand(CandidateInput, RobotCommandIdentity):
     pass
 
 
@@ -53,7 +58,7 @@ class TestCandidateInput(Contract):
     expectedCandidateVersion: PositiveVersion
 
 
-class TestCandidateCommand(TestCandidateInput, CommandIdentity):
+class TestCandidateCommand(TestCandidateInput, RobotCommandIdentity):
     pass
 
 
@@ -69,7 +74,7 @@ class ConfirmCandidateInput(Contract):
         return self
 
 
-class ConfirmCandidateCommand(ConfirmCandidateInput, CommandIdentity):
+class ConfirmCandidateCommand(ConfirmCandidateInput, RobotCommandIdentity):
     pass
 
 

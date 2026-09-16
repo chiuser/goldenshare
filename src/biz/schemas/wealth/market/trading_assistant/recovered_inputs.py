@@ -38,12 +38,6 @@ class CloseRuleInput(Contract):
     expectedStateVersion: PositiveVersion
 
 
-class SafeCandidateInput(robot.ConfigDisplay):
-    # Outer requestId locates the retained credential reference on the server.
-    # A failed create need not have produced any candidate entity.
-    expectedConfigVersionId: EntityId | None
-
-
 InputT = TypeVar("InputT", bound=Contract)
 
 
@@ -119,27 +113,6 @@ class RuleCloseInput(RecoveredInput[CloseRuleInput]):
     operationType: Literal["RULE_CLOSE"]
 
 
-class CandidateInput(RecoveredInput[SafeCandidateInput]):
-    operationType: Literal["ROBOT_CANDIDATE_CREATE"]
-
-
-class RobotTestRecoveryInput(robot.TestCandidateInput):
-    # Server-retained original route identity, never an editable command field.
-    candidateId: EntityId
-
-
-class RobotConfirmRecoveryInput(robot.ConfirmCandidateInput):
-    candidateId: EntityId
-
-
-class TestInput(RecoveredInput[RobotTestRecoveryInput]):
-    operationType: Literal["ROBOT_TEST"]
-
-
-class ConfirmInput(RecoveredInput[RobotConfirmRecoveryInput]):
-    operationType: Literal["ROBOT_CONFIRM"]
-
-
 class NotificationInput(RecoveredInput[robot.NotificationRetryInput]):
     operationType: Literal["NOTIFICATION_RETRY"]
 
@@ -147,6 +120,6 @@ class NotificationInput(RecoveredInput[robot.NotificationRetryInput]):
 RecoveryInputResponse = Annotated[
     AccountCreateInput | InitializationInput | FeeInput | TradeCreateInput | TradeCorrectInput | TradeVoidInput
     | CashCreateInput | CashCorrectInput | CashVoidInput | CalculationInput | PlanCreateInput | AlertCreateInput
-    | RuleConditionsInput | RuleCloseInput | CandidateInput | TestInput | ConfirmInput | NotificationInput,
+    | RuleConditionsInput | RuleCloseInput | NotificationInput,
     Field(discriminator="operationType"),
 ]

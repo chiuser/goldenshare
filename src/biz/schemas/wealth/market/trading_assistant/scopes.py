@@ -153,16 +153,12 @@ class RuleCreateScope(Contract):
         return self
 
 
-class RobotScope(Contract):
-    scopeType: Literal["ROBOT"]
-
-
 class NotificationScope(Contract):
     scopeType: Literal["NOTIFICATION"]
     notificationId: EntityId
 
 
 RecoveryScope = Annotated[
-    AccountLedgerScope | AccountFeesScope | AccountCreateScope | RuleScope | RuleCreateScope | RobotScope | NotificationScope,
+    AccountLedgerScope | AccountFeesScope | AccountCreateScope | RuleScope | RuleCreateScope | NotificationScope,
     Field(discriminator="scopeType"),
 ]

@@ -35,7 +35,7 @@ export function validCombination(title: unknown, value: Record<string, unknown>)
       ACCOUNT_CREATE: ["ACCOUNT_CREATE"], ACCOUNT_FEES: ["FEES_UPDATE"],
       ACCOUNT_LEDGER: ["INITIALIZATION_CORRECT", "TRADE_CREATE", "TRADE_CORRECT", "TRADE_VOID", "CASH_FLOW_CREATE", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID", "CALCULATION_RETRY"],
       RULE: ["RULE_CONDITIONS_UPDATE", "RULE_CLOSE"], RULE_CREATE: ["PLAN_CREATE", "ALERT_CREATE"],
-      ROBOT: ["ROBOT_CANDIDATE_CREATE", "ROBOT_TEST", "ROBOT_CONFIRM"], NOTIFICATION: ["NOTIFICATION_RETRY"],
+      NOTIFICATION: ["NOTIFICATION_RETRY"],
     };
     if (!allowed[row.scope.scopeType]?.includes(row.operationType)) return false;
     if (row.scope.scopeType === "RULE_CREATE" && row.operationType !== `${row.scope.ruleType}_CREATE`) return false;
