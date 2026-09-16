@@ -123,11 +123,20 @@ class CandidateInput(RecoveredInput[SafeCandidateInput]):
     operationType: Literal["ROBOT_CANDIDATE_CREATE"]
 
 
-class TestInput(RecoveredInput[robot.TestCandidateInput]):
+class RobotTestRecoveryInput(robot.TestCandidateInput):
+    # Server-retained original route identity, never an editable command field.
+    candidateId: EntityId
+
+
+class RobotConfirmRecoveryInput(robot.ConfirmCandidateInput):
+    candidateId: EntityId
+
+
+class TestInput(RecoveredInput[RobotTestRecoveryInput]):
     operationType: Literal["ROBOT_TEST"]
 
 
-class ConfirmInput(RecoveredInput[robot.ConfirmCandidateInput]):
+class ConfirmInput(RecoveredInput[RobotConfirmRecoveryInput]):
     operationType: Literal["ROBOT_CONFIRM"]
 
 

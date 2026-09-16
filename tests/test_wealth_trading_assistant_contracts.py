@@ -448,6 +448,8 @@ def test_all_operation_receipts_and_recovery_inputs(operation):
         adapter.validate_python({**fixture, "result":{**fixture["result"], "unexpected":"rejected"}})
     target = (dict(accountId=ID, recordId=ID2, kind="TRADE" if operation.startswith("TRADE") else "CASH_FLOW")
               if operation in {"TRADE_CORRECT", "TRADE_VOID", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID"} else None)
+    if operation in {"ROBOT_TEST", "ROBOT_CONFIRM"}:
+        inputs[operation] = dict(**inputs[operation], candidateId=ID2)
     input_fixture = dict(requestId=ID, operationType=operation, inputSchemaVersion="1", input=inputs[operation], target=target)
     recovered = TypeAdapter(recovered_inputs.RecoveryInputResponse).validate_python(input_fixture)
     assert recovered.operationType == operation

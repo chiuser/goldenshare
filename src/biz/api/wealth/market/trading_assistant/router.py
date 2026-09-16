@@ -13,7 +13,7 @@ from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountReadQu
 from src.biz.schemas.wealth.market.trading_assistant.records import TradeDetail, CashFlowDetail
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryStatusDto, PendingRecoveryResponse
 from src.biz.schemas.wealth.market.trading_assistant.recovered_inputs import RecoveryInputResponse
-from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountCreateScope, AccountFeesScope, AccountLedgerScope, RuleScope, RuleCreateScope
+from src.biz.schemas.wealth.market.trading_assistant.scopes import AccountCreateScope, AccountFeesScope, AccountLedgerScope, RuleScope, RuleCreateScope, RobotScope
 from src.biz.schemas.wealth.market.trading_assistant.targets import TradeTarget, CashFlowTarget
 from src.biz.schemas.wealth.market.trading_assistant.value_types import EntityId, BusinessDate, StockCode
 from src.biz.services.wealth.market.trading_assistant.defaults import INITIALIZATION_DEFAULTS
@@ -160,14 +160,14 @@ def create_trading_assistant_router(*, auth_dependency, dependencies_dependency)
         return await deps.initialization_preview.preview(owner_id=owner_id, account_id=UUID(account_id), command=command)
 
     @router.get("/write-requests/pending", response_model=PendingRecoveryResponse)
-    async def pending(request: Request, scopeType: Literal["ACCOUNT_CREATE","ACCOUNT_FEES","ACCOUNT_LEDGER","RULE","RULE_CREATE"], accountId: EntityId | None = None,
+    async def pending(request: Request, scopeType: Literal["ACCOUNT_CREATE","ACCOUNT_FEES","ACCOUNT_LEDGER","RULE","RULE_CREATE","ROBOT"], accountId: EntityId | None = None,
                       ruleType: Literal["PLAN", "ALERT"] | None = None, ruleId: EntityId | None = None, tsCode: StockCode | None = None,
                       owner_id: int = auth, deps: TradingAssistantDependencies = services):
         values = dict(request.query_params)
         if scopeType == "RULE_CREATE" and "accountId" not in values:
             values["accountId"] = None
         try:
-            scope = TypeAdapter(AccountCreateScope | AccountFeesScope | AccountLedgerScope | RuleScope | RuleCreateScope).validate_python(values)
+            scope = TypeAdapter(AccountCreateScope | AccountFeesScope | AccountLedgerScope | RuleScope | RuleCreateScope | RobotScope).validate_python(values)
         except ValidationError as error:
             raise WriteProtocolConflict("TA_REQUEST_INVALID") from error
         return await deps.read(lambda s,d:deps.recovery.pending(s,owner_id=owner_id,scope=scope,deadline=d))

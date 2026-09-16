@@ -21,6 +21,7 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.biz.models.wealth.trading_assistant.rules",
     "src.biz.models.wealth.trading_assistant.rule_checks",
     "src.biz.models.wealth.trading_assistant.rule_notifications",
+    "src.biz.models.wealth.trading_assistant.robots",
     "src.app.models.auth_action_token",
     "src.app.models.auth_audit_log",
     "src.app.models.auth_invite_code",

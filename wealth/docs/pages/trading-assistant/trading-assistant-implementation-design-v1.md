@@ -1,6 +1,6 @@
 # 财势乾坤｜交易助手技术实施方案 v1
 
-> 当前状态：修订 133，依据 PRD v1.50 及已确认的 §13.7.1、正式交互稿及用户确认。M6 已提交 `90b99260`，本地验收见 §11.15.10。M7 凭据纯能力和发送安全适配器已完成本地切片；本轮按用户确认统一关键词最多 10 个，产品、字段合同和 Figma 已同步，见 §11.16。M7 整体尚未完成，本轮修改未提交。未推送、未部署、未执行正式库迁移或真实飞书发送，不代表全模块上线。M3 既有生产部署记录仍见 §11.12.32；下方历史状态保留为对应阶段记录。
+> 当前状态：修订 135，依据 PRD v1.50 及正式交互稿。M7 凭据安全与关键词对齐已提交 `d66a5c71`，未推送。用户已确认补齐原候选定位，恢复合同、请求绑定及现有恢复 GET 接口已同步，见 §11.16.2；该项阻塞解除。配置存储和内部切版服务已实施，配置／测试 POST 和发送循环仍未装配。后续修改未提交，M7 整体未完成。未部署、未执行正式库迁移或真实飞书发送。M3 既有生产部署记录仍见 §11.12.32；历史状态按对应阶段阅读。
 
 > 历史记录（修订 85，后续状态见文首）：M2 本地实现及本阶段验收完成，待用户独立 Review，最终对账见 §11.11.10。账户／记账／更正／恢复真实 API、页面接线、跨进程故障、并发、容量及浏览器验收均已完成；不代表已部署或已通过用户验收。M1 已提交 `af0046ac`，未推送；M2 改动尚未提交。M3—M8 未开始。§11.10 及此前修订的执行记录保留为历史证据。已细化部分直接作为 LLD，不另写重复文档；外部接入及部署验收仍见 §11.5。
 > 依据：[交易助手产品需求 v1.50](./trading-assistant-benchmark-requirement-v1.md)及其 §4.5、§18.18—18.19 的 Figma 节点；R9 正式节点见 §12.5.3，R10 正式节点见 §13.4.1，保存恢复规则与 R11 正式及局部节点见 §14.1.1。初始化可卖量见 PRD §6.3、§7.2、§17.1.1；自然周及自然月见 §12.3，其他已确认算法不变，仍不含记录导出。R12 正式交互规则与节点见 PRD §6.3.1、§14.1.2；R13 停牌估值见 §7.6。
@@ -2171,6 +2171,7 @@ NotificationSummary 字段为 notificationId?、state、stateVersion?、robotId?
 - 机器人配置／测试／确认的恢复范围固定为 `{scopeType:ROBOT}`，对应本人唯一机器人入口，不新增机器人管理列表；通知重试为 `{scopeType:NOTIFICATION,notificationId}`，只对应原通知。原有账户／规则恢复范围不变。
 - 核算进度 stage 将 §4.6.2 既有阶段编码为 PENDING／PREPARING／CALCULATING／VERIFYING／PUBLISHING／PUBLISHED／WAITING_DATA／FAILED／CANCELLED／SUPERSEDED；仅为内部合同枚举，不增加用户状态或调度平台。
 - 机器人候选恢复 input 使用原请求的 name／maskedWebhook／hasSigningSecret／keywords／expectedConfigVersionId；外层 requestId 定位服务端已留存的凭据引用，不要求失败创建已经有 candidateId，不回传秘密。新命令仍须重新核验，摘要或掩码不能直接恢复成秘密。
+- 修订 135 用户确认：ROBOT_TEST／ROBOT_CONFIRM 的恢复 input 额外必填 candidateId，来自原请求路径，随原输入参与摘要绑定；它不是用户可编辑字段，原提交 JSON 仍不得包含 candidateId。测试和确认分别用 RobotTestRecoveryInput／RobotConfirmRecoveryInput，生成合同同步；同 requestId 更换原候选必须拒绝。恢复仅返回原操作，不自动执行或发送，已接纳测试只读取原 testId；未知结果不重发。
 - 整轮详情的期初来源组合名为 initializationSource，包含 initializedOn／openedOn／initializationId／initializationRevision／quantity／costPrice／costAmount；非期初来源为 null。检查序号 checkNo、发送序号 attemptNo 为正安全整数，版本号仍为 Version 文本；账户事实／计算目标版本按 §4.21 从 1 开始。
 - 更正预览 before／after 是候选事实投影，不伪造新修订的 acceptedAt。交易采用 TradeInput＋自动费用，资金采用 CashFlowInput＋netCashChange；期初采用 initialCash／initialPositions，按股票稳定对齐后允许新增／移除侧为 null。备注仍按原 500 字素；预览不接收保存请求身份。
 - 检查证据 actualValue 是保留来源精度的 SourceDecimal 文本，不先格式化为两位再判条件；用户阈值仍最多两位，页面展示仍按既定两位。规则详情的 missingRanges／failureReason 来自该规则实际检查，不靠通知失败反推检查失败。
@@ -4928,7 +4929,7 @@ M6 仍未完成：保存／恢复协议扩展、规则命令、真实分钟冻�
 | 切片 | 实现与验证承接 | 本轮状态 |
 | --- | --- | --- |
 | M7.1 凭据和外部协议 | `credential_cipher.py`、App `trading_assistant_credentials.py`、`feishu_protocol.py`、`feishu_transport.py`、`notification_policy.py`、`notification_log_guard.py`；真实加密与离线网络测试 | 已实现本地能力；没有调用真实机器人 |
-| M7.2 配置与测试证据 | §7.9 候选／测试／配置／凭据表；统一写入恢复协议仅留秘密引用；激活重新加密；唯一 `(key_id,nonce)`；本人成功测试与确认原子切版 | 待实施；现有密文随机性测试不能替代数据库唯一约束 |
+| M7.2 配置与测试证据 | §7.9 候选／测试／配置／凭据表；统一写入恢复协议仅留秘密引用；激活重新加密；唯一 `(key_id,nonce)`；本人成功测试与确认原子切版 | 存储与内部配置服务已验证；恢复定位已按用户确认补齐，见 §11.16.2；配置／测试 POST 与实际发送仍未装配 |
 | M7.3 发送与恢复 | §7.5—7.8 固定锁顺序、同版选取、先存尝试再访问网络；测试和正式通知共用每机器人间隔；失败主动重试，未知不重发 | 待实施；适配器本身不宣称已保证跨进程去重 |
 | M7.4 正式页面接入 | 复用 R7 配置组件，接通知设置、规则及股票详情；安全回填、恢复、历史记录和能力放行 | 待实施；当前页面和 capability 不变 |
 | M7.5 验收 | 隔离 PostgreSQL、真实 API／浏览器、并发与中断恢复；最后经授权真实测试 | 未完成，不能宣称 M7 通过 |
@@ -4955,3 +4956,43 @@ M6 仍未完成：保存／恢复协议扩展、规则命令、真实分钟冻�
 **关键词上限已确认并统一（2026-09-16，修订 133）。**用户确认统一为最多 10 个，PRD 升至 v1.50。`robot.RobotKeywords` 同时约束候选输入、命令、候选结果、有效配置及恢复摘要；`MAX_ROBOT_KEYWORDS` 被发送协议复用，生成 JSON Schema／前端运行时合同包含 `maxItems=10`，不手写第二套容量定义。0／10 个通过，11 个拒绝且不改变调用方输入。Figma 第 22 页组件及第 19／20 页正式状态同步上限提示，正式字段错误态复用已有红色错误字段；输入框下文案为“最多填写 10 个关键词。”，保留超限示例，不截断。第 21 页旧评审区继续作为历史记录，不改为正式目标。本项不新增安全方式或机器人能力，M7.2 配置接线的此项阻塞解除；实际配置页面及发送入口仍按 M7.2—4 实施，不能用设计稿同步冒充已上线。
 
 **修订 133 验收。**字段合同与发送协议测试 146 passed，凭据与三项架构护栏 35 passed；前端生成合同运行时测试 18 passed，typecheck、build、合同生成 `--check`、文档完整性与 diff 检查通过。build 仍有既有大 chunk 提示，不属于本次合同变更。CodeGraph `impact CandidateInput`、源码消费者检索及 sync/status 覆盖候选命令、恢复摘要、配置／回执、生成合同与前端校验；同名恢复类另按模块核对，没有改依赖矩阵。Figma 正常组件 `1503:446`、`1504:412`、`1516:1541` 及其正式实例同步；独立正式错误字段 `1740:36806`、`1745:1179` 和说明 `1745:1214` 已更新，并截图确认红字、内容扩展和等宽按钮无重叠。没有真实发送、生产写入或新配置项。本轮未提交；后续为 M7.2 配置持久化与真实 API 接线。
+
+### 11.16.1 M7.2 配置存储与恢复接线审计（2026-09-16；修订 134）
+
+前序 17 文件已按白名单提交 `d66a5c71`；未推送。其他任务的启动检查预算、研究代码与文档未纳入；本节以下为随后新增的未提交切片。
+
+| 已批准硬口径 | 实现点 | 本轮证据 |
+| --- | --- | --- |
+| 凭据仅存密文，候选／配置统一 nonce 唯一范围 | `robots.CredentialBlob`，`RobotConfigurationStore._encrypt`；数据库 UNIQUE(key_id,nonce)，冲突仅重取加密随机值且受原请求截止约束，不做网络重试 | 真实 AES-GCM 读回、跨对象解密拒绝、畸形密文约束、强制一次 nonce 冲突后只保存一个候选 |
+| owner／对象绑定；不搬用另一用户或另一配置的凭据 | candidate／config 到 blob 的复合外键含 owner、类型、对象 ID、blob ID；App 注册模型 | 同用户错对象、跨用户、跨候选测试均拒绝 |
+| 只在同候选的明确成功测试后激活 | `RobotTest`、`RobotConfig`；config 的复合 FK 包含 owner、robot、candidate、test、SUCCEEDED；当前配置指针同 owner／robot | 失败／未知／在途测试不能激活；同候选不能重复生成有效配置；切指针后注入异常，事务回滚保留旧配置 |
+| 候选不激活、不发测试；KEEP／REPLACE／CLEAR 读取指定有效版本 | `RobotConfigurationStore.create_candidate/confirm`，机器人行锁，先复验 expectedConfigVersionId；激活按 CONFIG 身份重新加密 | 创建后当前指针未变、测试行仍为 0；清除新密钥不改旧版；篡改密文或旧候选不能覆盖当前配置 |
+| 关键词上限贯穿存储且不截断 | 候选／有效配置数组约束；返回现有 DTO | 0／10 通过，11 拒绝；输出无 Webhook 令牌或签名密钥 |
+
+**迁移边界。**开工前 `alembic heads` 唯一 head 为 `20260915_000177`；新增冻结迁移 `20260916_000178` 接该 head，增加 credential_blob／robot_candidate／robot_test／robot_config 四表和原 robot 的有效配置复合 FK，不改写旧迁移。自动 downgrade 拒绝删除配置证据。只在每组测试新建的本机隔离 PostgreSQL 执行；未执行现有或生产数据库迁移。ORM 与冻结表字段／可空性读回核对，App 仅增加模型注册。M3 启动检查、发送循环、Settings、HTTP 依赖、公开 schema 和页面尚未接线，本轮没有放行任何新入口。
+
+**测试与依赖。**存储／配置、原规则存储／命令、原字段合同、凭据／外部协议及三项架构护栏合计 243 passed／17.92 秒；随后补测冻结 DDL 与模型读回及指针更新后回滚。CodeGraph `query RobotIdentity`、`impact RuleRobotAccess`、`impact WriteProtocol` 核对 App 注册／运行壳、规则资格、命令、恢复查询及测试，另读生成合同与前端恢复消费者。业务仍在 Biz，App 仅注册，无依赖矩阵变更；不把内部事务测试称为真实 API 或飞书收件验收。通用视觉／图表／新配置项门禁本切片不适用；HTTP／浏览器门禁保留到接线后。
+
+**历史发现（修订 135 已解决）：原候选定位缺失。**§7.9 的测试与确认地址都包含 candidateId；但当时 `recovered_inputs.TestInput` 只返回 expectedCandidateVersion，`ConfirmInput` 只返回 expectedConfigVersionId／testId／receivedConfirmed。它们的 target 固定为空，RobotScope 也没有 candidateId。当时验证 ROBOT_TEST 恢复对象接受 `{input:{expectedCandidateVersion:"1"},target:null}`，给 input 增加 candidateId 则报 extra_forbidden。A、B 两个不同配置都可以是第 1 版，因此刷新后恢复原测试不能按版本号或最新候选猜目标。这不是增加草稿找回范围，而是补足已批准的服务器留存输入恢复。
+
+补充回归：含冻结迁移／模型读回与指针回滚的机器人存储专项 18 passed／2.14 秒；文档完整性、生成合同 `--check`、diff 检查及 CodeGraph sync/status 通过。相关运行只使用新建隔离数据库，无真实通知或生产写入。
+
+**历史建议与暂停记录：**当时建议为 ROBOT_TEST／ROBOT_CONFIRM 的恢复 input 增加原路径 candidateId，并纳入请求内容摘要；不改变原提交 JSON、用户操作或恢复范围。用户随后答复“按照你的建议做吧”，已按下节实施，原暂停不再有效。
+
+### 11.16.2 原候选定位、请求绑定与恢复 GET（2026-09-16；修订 135）
+
+依据本轮明确确认，只补齐既有恢复能力，不增加用户字段、草稿管理、自动重发或新的目标选择。PRD 和正式 Figma 的交互不变，无需为内部定位字段再增加界面。
+
+| 硬口径 | 实现及验证 |
+| --- | --- |
+| 恢复输入必须定位原候选，不猜最新或只比较版号 | `RobotTestRecoveryInput`／`RobotConfirmRecoveryInput` 强制 candidateId；原 TestCandidateCommand／ConfirmCandidateCommand 不接收该字段。`robot_recovery_input.bind_robot_candidate` 从服务端解析的路径 UUID 构造安全输入。生成 TypeScript／运行时 schema 同步；缺失、null、非法 UUID 均拒绝 |
+| 同 requestId 不得改投另一候选 | `canonical_input` 校验专用恢复类型，candidateId 进入既有摘要；WriteProtocol 复用原范围锁、请求和尝试，不另写保存协议。测试／确认各用两份第 1 版候选复现，改投另一候选均拒绝 |
+| 本人候选和测试证据 | ROBOT 范围注册前核验 candidateId 的 owner；确认再核验 testId 属于同一候选和 owner。跨用户与跨候选不得注册，不从浏览器给定 owner 推导权限 |
+| 未接纳的操作可恢复；已接纳测试只能查原记录 | 未保存证明仍由原租约废止流程生成；恢复返回原 candidateId。已保存测试重放返回同一 testId，不创建新测试；后续测试结果变 UNKNOWN 不改变原接纳回执，也不开放原输入重执行 |
+| GET 无副作用，不能成为发送入口 | 现有 pending GET 接纳既定 ROBOT scope；status／input 直接消费新类型。真实路由 + 隔离 PostgreSQL 验证未决发现、原输入、跨用户 404、非法范围参数 400、重复 GET 后测试行数仍为 0 |
+
+本切片只允许 WriteProtocol 的 ROBOT_TEST／ROBOT_CONFIRM 两种已有操作；ROBOT_CANDIDATE_CREATE 的秘密留存尚未接线，不允许通用 payload 接收 Webhook／密钥。暂不添加测试／确认 POST，避免没有持久化发送调度的半成品接口。原账务和规则保存合同、范围、依赖矩阵不变；未修改其他任务的启动检查预算。
+
+**验收。**机器人恢复／配置／存储、原恢复／规则命令／规则 API／字段合同及三项架构护栏共 158 passed（21.77 秒）；其中真实恢复 GET 使用实际路由、应用依赖、读事务及隔离数据库，并非 mock recovery service。前端交易助手 35 文件、172 passed，typecheck 和 build 通过，仍有既有大 chunk 提示。CodeGraph impact WriteProtocol 覆盖调用方与原保存消费者，另读恢复查询、类型目录、生成合同和前端运行时校验；无 UI 布局或页面数据加载改动，本轮不声称机器人浏览器流程完成。所有修改未提交，没有真实 Webhook 调用或生产迁移。
+
+后续继续 M7.2 候选秘密输入的加密留存、配置／测试／确认 POST；再接 M7.3 发送调度及 M7.4 页面。原候选定位问题已关闭，无新增待拍板事项。

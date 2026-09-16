@@ -28,6 +28,7 @@ TITLES = {
     "CASH_FLOW_CREATE": "资金登记", "CASH_FLOW_CORRECT": "更正资金记录", "CASH_FLOW_VOID": "作废资金记录",
     "PLAN_CREATE": "创建交易计划", "ALERT_CREATE": "创建提醒",
     "RULE_CONDITIONS_UPDATE": "修改交易条件", "RULE_CLOSE": "关闭规则",
+    "ROBOT_TEST": "测试飞书机器人", "ROBOT_CONFIRM": "保存飞书机器人配置",
 }
 
 

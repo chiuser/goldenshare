@@ -27,6 +27,10 @@ class RobotIdentity(Base):
     __table_args__ = (
         UniqueConstraint("owner_user_id"),
         UniqueConstraint("owner_user_id", "robot_id", name="uq_ta_robot_identity"),
+        ForeignKeyConstraint(["owner_user_id", "robot_id", "current_config_id"],
+            ["app.wealth_ta_robot_config.owner_user_id", "app.wealth_ta_robot_config.robot_id",
+             "app.wealth_ta_robot_config.config_id"], name="fk_ta_robot_current_config",
+            use_alter=True, deferrable=True, initially="DEFERRED", ondelete="RESTRICT"),
         {"schema": "app"},
     )
     robot_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)

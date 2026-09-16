@@ -18,15 +18,17 @@ from src.biz.models.wealth.trading_assistant.recovery import WriteScope, WriteRe
 from src.biz.models.wealth.trading_assistant.accounts import Account
 from src.biz.models.wealth.trading_assistant.ledger import Ledger
 from src.biz.models.wealth.trading_assistant.rules import Rule
+from src.biz.models.wealth.trading_assistant.robots import RobotCandidate, RobotTest
 from src.biz.schemas.wealth.market.trading_assistant.targets import LedgerTarget, validate_target, validate_target_receipt
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryRejection
 from src.biz.schemas.wealth.market.trading_assistant.errors import FieldErrorDto
 from src.biz.schemas.wealth.market.trading_assistant.receipts import SuccessReceipt
 from src.biz.schemas.wealth.market.trading_assistant.scopes import (
-    AccountCreateScope, AccountFeesScope, AccountLedgerScope, RuleScope, RuleCreateScope)
+    AccountCreateScope, AccountFeesScope, AccountLedgerScope, RuleScope, RuleCreateScope, RobotScope)
 from pydantic import TypeAdapter
 from .execution_policy import Deadline, TradingAssistantExecutionPolicyV1
 from .market_facts import apply_sql_budget
+from .robot_recovery_input import RECOVERY_MODELS
 
 
 class WriteProtocolConflict(RuntimeError):
@@ -35,10 +37,12 @@ class WriteProtocolConflict(RuntimeError):
         self.code = code
 
 
-WriteScopeInput = AccountCreateScope | AccountFeesScope | AccountLedgerScope | RuleScope | RuleCreateScope
+WriteScopeInput = AccountCreateScope | AccountFeesScope | AccountLedgerScope | RuleScope | RuleCreateScope | RobotScope
 
 
 def scope_key(scope: WriteScopeInput) -> str:
+    if isinstance(scope, RobotScope):
+        return "ROBOT"
     if isinstance(scope, AccountCreateScope):
         return "ACCOUNT_CREATE"
     if isinstance(scope, (AccountFeesScope, AccountLedgerScope)):
@@ -50,6 +54,8 @@ def scope_key(scope: WriteScopeInput) -> str:
 
 
 def parse_scope_key(key: str) -> WriteScopeInput:
+    if key == "ROBOT":
+        return RobotScope(scopeType="ROBOT")
     if key == "ACCOUNT_CREATE":
         return AccountCreateScope(scopeType=key)
     kind, identity = key.split(":", 1)
@@ -81,6 +87,8 @@ def canonical_input(operation: str, scope: str, payload: dict,
                     target: LedgerTarget | None = None) -> tuple[dict, bytes]:
     # Serialization is also a defensive deep copy; retained input cannot alias a form dict.
     normalized = json.loads(json.dumps(payload, ensure_ascii=False, allow_nan=False))
+    if operation in RECOVERY_MODELS:
+        normalized = RECOVERY_MODELS[operation].model_validate(normalized).model_dump(mode="json")
     if any(k in normalized for k in ("requestId", "attemptId", "expectedRequestStateVersion")):
         raise ValueError("Protocol identities must be removed from business input")
     validate_target(operation, target, scope.removeprefix("ACCOUNT_LEDGER:")
@@ -148,7 +156,8 @@ class WriteProtocol:
                    "ACCOUNT_LEDGER":{"INITIALIZATION_CORRECT", "TRADE_CREATE", "TRADE_CORRECT", "TRADE_VOID",
                                      "CASH_FLOW_CREATE", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID", "CALCULATION_RETRY"},
                    "RULE_CREATE": {"PLAN_CREATE", "ALERT_CREATE"},
-                   "RULE": {"RULE_CONDITIONS_UPDATE", "RULE_CLOSE"}}
+                   "RULE": {"RULE_CONDITIONS_UPDATE", "RULE_CLOSE"},
+                   "ROBOT": {"ROBOT_TEST", "ROBOT_CONFIRM"}}
         if operation not in allowed[scope.scopeType] or not executor_id or now.tzinfo is None:
             raise ValueError("Invalid trusted operation or clock")
         payload, digest = canonical_input(operation, key, payload, target)
@@ -162,6 +171,16 @@ class WriteProtocol:
             raise WriteProtocolConflict("TA_ACCOUNT_NOT_FOUND")
         if isinstance(scope, (RuleScope, RuleCreateScope)):
             verify_rule_scope(session, owner_id, scope)
+        if isinstance(scope, RobotScope):
+            original_candidate = UUID(payload["candidateId"])
+            if session.scalar(select(RobotCandidate.candidate_id).where(
+                    RobotCandidate.owner_user_id == owner_id,
+                    RobotCandidate.candidate_id == original_candidate)) is None:
+                raise WriteProtocolConflict("TA_OBJECT_NOT_FOUND")
+            if operation == "ROBOT_CONFIRM" and session.scalar(select(RobotTest.test_id).where(
+                    RobotTest.owner_user_id == owner_id, RobotTest.candidate_id == original_candidate,
+                    RobotTest.test_id == UUID(payload["testId"]))) is None:
+                raise WriteProtocolConflict("TA_OBJECT_NOT_FOUND")
         if target is not None and session.scalar(select(Ledger.ledger_id).where(
                 Ledger.account_id == UUID(target.accountId), Ledger.ledger_id == UUID(target.recordId),
                 Ledger.kind == target.kind)) is None:
@@ -194,7 +213,8 @@ class WriteProtocol:
             if scope_row.holder_request_id is not None:
                 raise WriteProtocolConflict("TA_SCOPE_WRITE_PENDING")
             candidate_id = None if operation in {"FEES_UPDATE", "CALCULATION_RETRY",
-                "PLAN_CREATE", "ALERT_CREATE", "RULE_CONDITIONS_UPDATE", "RULE_CLOSE"} else uuid4()
+                "PLAN_CREATE", "ALERT_CREATE", "RULE_CONDITIONS_UPDATE", "RULE_CLOSE",
+                "ROBOT_TEST", "ROBOT_CONFIRM"} else uuid4()
             request = WriteRequest(owner_id=owner_id, request_id=request_id, scope_key=key,
                 operation_type=operation, input_schema_version=1, input_digest=digest,
                 target=target.model_dump(mode="json") if target else None,
@@ -276,6 +296,7 @@ class WriteProtocol:
         return self.stop(session, (scope, request, attempt), RecoveryRejection(
             code="TA_WRITE_FAILED", message="本次保存已停止，未保存规则修改" if request.operation_type in {
                 "PLAN_CREATE", "ALERT_CREATE", "RULE_CONDITIONS_UPDATE", "RULE_CLOSE"}
+            else "本次操作已停止，未保存机器人操作" if request.operation_type in RECOVERY_MODELS
             else "本次保存已停止，未写入账务记录", field=None), now)
 
     def read(self, session: Session, *, owner_id: int, request_id: UUID) -> AttemptState | None:
