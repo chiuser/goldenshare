@@ -52,8 +52,9 @@ class TradingAssistantExecutionResource:
                 pool_timeout=self.policy.batch_budget_ms/1000)
         # Includes pool acquisition, initial connection, all short transactions
         # and source reads. Interrupted commits remain uncertain, not "unsaved".
+        budget_ms = self.policy.schema_check_budget_ms if kind == "SCHEMA" else self.policy.batch_budget_ms
         try:
-            async with asyncio.timeout(self.policy.batch_budget_ms/1000):
+            async with asyncio.timeout(budget_ms/1000):
                 async with self._engine.connect() as connection:
                     return await connection.run_sync(lambda sync: self._unit(
                         sessionmaker(bind=sync, expire_on_commit=False), kind))

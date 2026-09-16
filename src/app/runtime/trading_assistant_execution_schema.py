@@ -16,7 +16,7 @@ from src.biz.services.wealth.market.trading_assistant.market_facts import apply_
 
 
 def verify_execution_schema(sessions, policy):
-    deadline = Deadline.after_ms(policy.batch_budget_ms)
+    deadline = Deadline.after_ms(policy.schema_check_budget_ms)
     models = (Account, FeeVersion, Initialization, InitialPosition, Ledger, LedgerRevision,
         Recalculation, CalculationGeneration, DayResult, PositionState, ClosedTrade,
         ValuationBasis, CalculationBatch, CutoffPreparation, CutoffDiscoveryCursor,

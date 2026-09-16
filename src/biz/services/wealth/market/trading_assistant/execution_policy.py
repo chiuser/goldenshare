@@ -15,6 +15,7 @@ class TradingAssistantExecutionPolicyV1:
     page_rows: int = 500
     page_bytes: int = 1048576
     batch_budget_ms: int = 2000
+    schema_check_budget_ms: int = 3000
     sql_timeout_ms: int = 1000
     lock_timeout_ms: int = 100
     lease_seconds: int = 15
@@ -27,7 +28,7 @@ class TradingAssistantExecutionPolicyV1:
 
     def __post_init__(self):
         positive = (self.idle_poll_seconds, self.page_rows, self.page_bytes,
-                    self.batch_budget_ms, self.sql_timeout_ms, self.lock_timeout_ms,
+                    self.batch_budget_ms, self.schema_check_budget_ms, self.sql_timeout_ms, self.lock_timeout_ms,
                     self.lease_seconds, self.shutdown_grace_seconds, self.data_probe_seconds,
                     self.read_request_budget_ms, self.write_request_budget_ms)
         if any(type(v) is not int or v <= 0 for v in positive):
