@@ -71,10 +71,10 @@ class TradingAssistantExecutionResource:
         if kind == "SCHEMA":
             from .trading_assistant_execution_schema import verify_execution_schema
             return verify_execution_schema(sessions, self.policy)
-        if kind != "CALCULATE":
         if kind == "RULE":
             self._worker = RuleWork(self.policy, sessions, minute_reader=self.minute_reader)
             return self._worker.run_once(executor_id=self.executor_id)
+        if kind != "CALCULATE":
             self._worker = CutoffDiscovery(self.policy, sessions, purpose=kind)
             return self._worker.run_once()
         execution = RecalculationExecution(self.policy)

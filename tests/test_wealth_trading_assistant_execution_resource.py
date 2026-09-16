@@ -5,6 +5,7 @@ from threading import Event, get_ident, enumerate as threads
 from time import monotonic
 
 import pytest
+from unittest.mock import Mock
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -15,6 +16,32 @@ from src.biz.services.wealth.market.trading_assistant.execution_policy import Tr
 
 def policy():
     return replace(TradingAssistantExecutionPolicyV1(), batch_budget_ms=500, sql_timeout_ms=200)
+
+
+@pytest.mark.parametrize("kind,expected", [("RULE", "rule"), ("CUTOFF", "discovery"),
+    ("HISTORY", "discovery"), ("CALCULATE", "calculation")])
+def test_unit_routes_to_exactly_one_worker(monkeypatch, kind, expected):
+    from src.app.runtime import trading_assistant_execution_resource as module
+    factories = {name: Mock() for name in ("rule", "discovery", "calculation")}
+    for name, factory in factories.items():
+        factory.return_value.run_once.return_value = name
+    monkeypatch.setattr(module, "RuleWork", factories["rule"])
+    monkeypatch.setattr(module, "CutoffDiscovery", factories["discovery"])
+    monkeypatch.setattr(module, "CalculationWork", factories["calculation"])
+    monkeypatch.setattr(module, "RecalculationExecution", Mock())
+    monkeypatch.setattr(module, "AccountCutoffPreparation", Mock())
+    # Dispatch needs no engine or thread; isolate this branch regression.
+    resource = object.__new__(TradingAssistantExecutionResource)
+    resource.policy, resource.minute_reader = policy(), object()
+    resource.executor_id, resource.rule_version = "dispatch-test", 1
+    sessions = object()
+    assert resource._unit(sessions, kind) == expected
+    for name, factory in factories.items():
+        assert factory.call_count == (1 if name == expected else 0)
+    if kind == "RULE":
+        factories["rule"].assert_called_once_with(resource.policy, sessions, minute_reader=resource.minute_reader)
+    elif expected == "discovery":
+        factories["discovery"].assert_called_once_with(resource.policy, sessions, purpose=kind)
 
 
 def test_short_transactions_keep_commits_and_rollback_only_failed_unit(database):
