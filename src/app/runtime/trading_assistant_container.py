@@ -28,10 +28,14 @@ from src.biz.services.wealth.market.trading_assistant.rule_commands import RuleC
 from src.biz.services.wealth.market.trading_assistant.rule_access import RuleAccess, RuleRobotAccess
 from src.biz.queries.wealth.market.trading_assistant.rule_queries import RuleQueries
 from src.biz.queries.wealth.market.trading_assistant.robot_tests import RobotTestQuery
+from src.biz.queries.wealth.market.trading_assistant.robot_configuration import RobotConfigurationQuery
+from src.biz.services.wealth.market.trading_assistant.robot_commands import RobotCommandService
+from src.biz.queries.wealth.market.trading_assistant.notifications import NotificationQuery
+from src.biz.services.wealth.market.trading_assistant.notification_commands import NotificationCommands
 from .trading_assistant_transactions import TradingAssistantTransactions
 
 
-def build_trading_assistant_dependencies(engine, *, policy, now, executor_id, rule_robots=None):
+def build_trading_assistant_dependencies(engine, *, policy, now, executor_id, rule_robots=None, credential_cipher=None):
     transactions = TradingAssistantTransactions(engine)
     market = MarketFactsReader(policy)
     positions = PositionsQuery(policy)
@@ -50,4 +54,6 @@ def build_trading_assistant_dependencies(engine, *, policy, now, executor_id, ru
         RuleCommandService(transactions, market, policy, now, executor_id=executor_id,
             resolve_robot=robots.resolve, has_future_checkpoint=access.has_future_checkpoint),
         RuleQueries(policy, notification_summaries=access.notification_summaries, maintenance=access.maintenance),
-        RobotTestQuery(policy))
+        RobotTestQuery(policy), RobotConfigurationQuery(policy),
+        RobotCommandService(transactions, policy, now, credential_cipher), NotificationQuery(policy),
+        NotificationCommands(transactions, policy, now, executor_id))

@@ -37,6 +37,10 @@ from src.biz.services.wealth.market.trading_assistant.market_facts import apply_
 from src.biz.services.wealth.market.trading_assistant.rule_commands import RuleCommandService
 from src.biz.queries.wealth.market.trading_assistant.rule_queries import RuleQueries
 from src.biz.queries.wealth.market.trading_assistant.robot_tests import RobotTestQuery
+from src.biz.queries.wealth.market.trading_assistant.robot_configuration import RobotConfigurationQuery
+from src.biz.services.wealth.market.trading_assistant.robot_commands import RobotCommandService
+from src.biz.queries.wealth.market.trading_assistant.notifications import NotificationQuery
+from src.biz.services.wealth.market.trading_assistant.notification_commands import NotificationCommands
 
 T = TypeVar("T")
 
@@ -72,6 +76,10 @@ class TradingAssistantDependencies:
     rules: RuleCommandService
     rule_queries: RuleQueries
     robot_tests: RobotTestQuery
+    robot_configuration: RobotConfigurationQuery
+    robot_commands: RobotCommandService
+    notification_query: NotificationQuery
+    notification_commands: NotificationCommands
 
     async def read_return_review(self, *, owner_id, query):
         def execute(session, *, basis, cutoff, deadline, **unused):

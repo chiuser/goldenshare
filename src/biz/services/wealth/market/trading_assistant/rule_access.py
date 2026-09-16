@@ -2,24 +2,35 @@
 from sqlalchemy import select
 
 from src.biz.models.wealth.trading_assistant.rule_notifications import TriggerNotification
+from src.biz.models.wealth.trading_assistant.rules import RobotIdentity
+from src.biz.models.wealth.trading_assistant.robots import RobotConfig
+from src.biz.models.wealth.trading_assistant.notification_attempts import NotificationAttempt
 from .rule_calendar import has_future_checkpoint
 from .market_facts import MarketFactsUnavailable, apply_sql_budget
 
 
 class RuleRobotAccess:
-    """No credential/config qualification exists before M7.
-
-    A bare robot identity is not a tested, confirmed configuration. Isolated
-    integration fixtures may inject a qualified source; production must not
-    accept a client-provided ID as proof. No send or credential I/O here.
-    """
+    """Only the current owner-bound confirmed config qualifies; no decryption."""
     def resolve(self, session, owner_id, robot_id, deadline):
         deadline.remaining_ms()
-        return None
+        identity = session.scalar(select(RobotIdentity.current_config_id).where(
+            RobotIdentity.owner_user_id == owner_id, RobotIdentity.robot_id == robot_id))
+        if identity is None:
+            return None
+        return session.scalar(select(RobotConfig).where(RobotConfig.owner_user_id == owner_id,
+            RobotConfig.robot_id == robot_id, RobotConfig.config_id == identity))
 
     def names(self, session, *, owner_id, robot_ids, deadline):
         deadline.remaining_ms()
-        return {}
+        if not robot_ids:
+            return {}
+        ids = session.scalars(select(RobotIdentity.current_config_id).where(
+            RobotIdentity.owner_user_id == owner_id, RobotIdentity.robot_id.in_(robot_ids),
+            RobotIdentity.current_config_id.is_not(None))).all()
+        if not ids:
+            return {}
+        return dict(session.execute(select(RobotConfig.robot_id, RobotConfig.name).where(
+            RobotConfig.owner_user_id == owner_id, RobotConfig.config_id.in_(ids))).all())
 
 
 class RuleAccess:
@@ -50,13 +61,18 @@ class RuleAccess:
             TriggerNotification.rule_id.in_([r.rule_id for r in rules])))}
         robot_ids = {versions[r.current_version_id].robot_id for r in rules} - {None}
         names = self.robots.names(session, owner_id=owner_id, robot_ids=robot_ids, deadline=deadline)
+        attempt_ids = [n.latest_attempt_id for n in records.values() if n.latest_attempt_id is not None]
+        attempts = {a.attempt_id: a for a in session.scalars(select(NotificationAttempt).where(
+            NotificationAttempt.owner_user_id == owner_id, NotificationAttempt.attempt_id.in_(attempt_ids)))} if attempt_ids else {}
         output = {}
         for rule in rules:
             version, record = versions[rule.current_version_id], records.get(rule.rule_id)
+            latest = attempts.get(record.latest_attempt_id) if record else None
             output[rule.rule_id] = dict(notificationId=str(record.notification_id) if record else None,
                 state=record.state if record else "NOT_CREATED" if version.notify_enabled else "NOT_ENABLED",
                 stateVersion=str(record.state_version) if record else None,
                 robotId=str(version.robot_id) if version.robot_id else None,
-                robotName=names.get(version.robot_id), canRetry=False,
-                reason="通知发送能力尚未接入" if record else None)
+                robotName=names.get(version.robot_id), canRetry=bool(record and record.state == "FAILED"
+                    and latest and latest.outcome == "FAILED" and version.robot_id in names),
+                reason=latest.reason if latest else None)
         return output

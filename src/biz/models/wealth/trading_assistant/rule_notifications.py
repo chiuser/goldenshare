@@ -1,7 +1,7 @@
 """One trigger notification intent; credential and network attempts belong to M7."""
 from datetime import datetime
 from uuid import UUID
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKeyConstraint, Integer, Text, UniqueConstraint, Uuid
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKeyConstraint, Index, Integer, Text, UniqueConstraint, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 from src.foundation.models.base import Base
 from .rule_checks import evidence_fk
@@ -16,6 +16,10 @@ class TriggerNotification(Base):
             ["app.wealth_ta_robot.owner_user_id", "app.wealth_ta_robot.robot_id"], ondelete="RESTRICT"),
         UniqueConstraint("owner_user_id", "trigger_id", "purpose", name="uq_ta_notification_trigger"),
         UniqueConstraint("owner_user_id", "notification_id", name="uq_ta_notification_owner"),
+        ForeignKeyConstraint(["owner_user_id", "notification_id", "latest_attempt_id"],
+            ["app.wealth_ta_notification_attempt.owner_user_id", "app.wealth_ta_notification_attempt.notification_id",
+             "app.wealth_ta_notification_attempt.attempt_id"], name="fk_ta_notification_latest_attempt",
+            use_alter=True, deferrable=True, initially="DEFERRED", ondelete="RESTRICT"),
         CheckConstraint("purpose = 'TRIGGER_NOTIFICATION'", name="purpose"),
         CheckConstraint("state IN ('PENDING','SENDING','SUCCEEDED','FAILED','UNKNOWN') AND state_version >= 1", name="state"),
         {"schema": "app"},
@@ -32,3 +36,7 @@ class TriggerNotification(Base):
     state_version: Mapped[int] = mapped_column(BigInteger)
     latest_attempt_id: Mapped[UUID | None] = mapped_column(Uuid)
     accepted_retry_request_id: Mapped[UUID | None] = mapped_column(Uuid)
+
+
+Index("idx_ta_notification_pending", TriggerNotification.created_at, TriggerNotification.notification_id,
+    postgresql_where=text("state = 'PENDING'"))

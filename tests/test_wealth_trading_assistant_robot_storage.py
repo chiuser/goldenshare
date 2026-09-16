@@ -27,6 +27,8 @@ def robot_database(rule_database):
     assert module.down_revision == "20260915_000177"
     with rule_database.begin() as conn, Operations.context(MigrationContext.configure(conn)):
         module.upgrade()
+        scripts.get_revision("20260916_000179").module.upgrade()
+        scripts.get_revision("20260916_000180").module.upgrade()
     return rule_database
 
 

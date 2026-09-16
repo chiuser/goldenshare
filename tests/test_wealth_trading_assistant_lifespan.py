@@ -22,6 +22,9 @@ def lifespan_db(cutoff_db):
     with cutoff_db.begin() as connection:
         with Operations.context(MigrationContext.configure(connection)):
             migration.upgrade()
+            scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+            for number in (178, 179, 180):
+                scripts.get_revision(f"20260916_{number:06d}").module.upgrade()
     return cutoff_db
 
 

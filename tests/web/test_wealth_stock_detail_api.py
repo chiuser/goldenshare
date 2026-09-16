@@ -122,7 +122,7 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
     assert payload["chartDefaults"]["availableMainOverlays"] == ["MA", "BOLL"]
     assert payload["capabilities"]["supportsTrendChannel"] is False
     assert payload["capabilities"]["userActions"] == {
-        "watchlist": True, "alert": False, "tradePlan": False, "diagnosis": False,
+        "watchlist": True, "alert": True, "tradePlan": True, "diagnosis": False,
     }
     assert "supportsUserActions" not in payload["capabilities"]
     assert "unsupportedActions" not in payload["capabilities"]

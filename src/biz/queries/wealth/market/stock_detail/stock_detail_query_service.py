@@ -87,7 +87,7 @@ class StockDetailQueryService:
                 )
             ),
             capabilities=StockDetailCapabilitiesDto(
-                userActions=StockDetailUserActionsDto(),
+                userActions=StockDetailUserActionsDto(alert=True, tradePlan=True),
                 supportsMinute=minute_capability.enabled,
                 minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if minute_capability.enabled else [],
                 supportsNineTurn=True,

@@ -7,6 +7,7 @@ import { TradingAssistantAction, TradingAssistantDialog } from "./TradingAssista
 import { RuleMaintenanceDialog } from "./RuleMaintenanceDialog";
 import { RuleHistoryDialog } from "./RuleHistoryDialog";
 import { AccountingWriteFlow } from "./AccountingWriteFlow";
+import { NotificationDetailDialog } from "./NotificationDetailDialog";
 
 export function RuleDetailDialog({ kind, ruleId, onClose, onUpdated }: { kind: RuleKind; ruleId: string; onClose: () => void; onUpdated: () => void }) {
   const [detail, setDetail] = useState<PlanDetail | AlertDetail | null>(null);
@@ -14,6 +15,7 @@ export function RuleDetailDialog({ kind, ruleId, onClose, onUpdated }: { kind: R
   const [overlay, setOverlay] = useState<"EDIT" | "CLOSE" | "CHECKS" | "VERSIONS" | null>(null);
   const [restored, setRestored] = useState<Conditions | null>(null);
   const [writeGeneration, setWriteGeneration] = useState(0);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
@@ -55,7 +57,7 @@ export function RuleDetailDialog({ kind, ruleId, onClose, onUpdated }: { kind: R
           <p>{result.coverageSummary}</p><p className="ta-note">盘后判定：{ruleTime(result.decidedAt)}</p></section>}
         <p className="ta-note">{detail.coverageSummary}<br />盘后验证：{ruleTime(detail.checkedAt)} · 行情读取：{ruleTime(detail.marketObservedAt)}</p>
         {detail.missingRanges.map(range => <p className="ta-note" key={range.from}>等待数据：{ruleTime(range.from)} — {ruleTime(range.through)}</p>)}
-        <div className="ta-rule-evidence"><h3>飞书通知 · {notificationLabel(detail.notificationSummary)}</h3><p>{detail.notificationSummary.robotName ?? "未配置接收机器人"}</p>{detail.notificationSummary.reason && <p>{detail.notificationSummary.reason}</p>}</div>
+        <div className="ta-rule-evidence"><h3>飞书通知 · {notificationLabel(detail.notificationSummary)}</h3><p>{detail.notificationSummary.robotName ?? "未配置接收机器人"}</p>{detail.notificationSummary.reason && <p>{detail.notificationSummary.reason}</p>}{detail.notificationSummary.notificationId && <TradingAssistantAction onClick={() => setNotificationOpen(true)}>查看通知记录</TradingAssistantAction>}</div>
         <p className="ta-note">这不是成交记录。实际买卖请另行登记，持仓与现金不会自动变化。</p>
         <div className="ta-rule-actions"><TradingAssistantAction onClick={() => setOverlay("VERSIONS")}>条件版本历史</TradingAssistantAction><TradingAssistantAction disabled={!detail.maintenance.canEditConditions} title={detail.maintenance.editUnavailableReason ?? undefined} onClick={() => setOverlay("EDIT")}>修改条件</TradingAssistantAction><TradingAssistantAction danger disabled={!detail.maintenance.canClose} title={detail.maintenance.closeUnavailableReason ?? undefined} onClick={() => setOverlay("CLOSE")}>关闭规则</TradingAssistantAction></div>
         {(detail.maintenance.editUnavailableReason || detail.maintenance.closeUnavailableReason) && <p className="ta-note">{detail.maintenance.editUnavailableReason ?? detail.maintenance.closeUnavailableReason}</p>}
@@ -63,5 +65,6 @@ export function RuleDetailDialog({ kind, ruleId, onClose, onUpdated }: { kind: R
     </TradingAssistantDialog>
     {detail && (overlay === "EDIT" || overlay === "CLOSE") && <RuleMaintenanceDialog kind={kind} detail={detail} action={overlay} onClose={() => setOverlay(null)} session={session} restored={restored} />}
     {(overlay === "CHECKS" || overlay === "VERSIONS") && <RuleHistoryDialog kind={kind} ruleId={ruleId} mode={overlay} onClose={() => setOverlay(null)} />}
+    {notificationOpen && detail?.notificationSummary.notificationId && <NotificationDetailDialog notificationId={detail.notificationSummary.notificationId} onClose={() => { setNotificationOpen(false); setReload(v => v + 1); onUpdated(); }} onUpdated={onUpdated} />}
   </>}</AccountingWriteFlow>;
 }

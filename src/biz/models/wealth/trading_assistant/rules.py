@@ -36,6 +36,7 @@ class RobotIdentity(Base):
     robot_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     owner_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("app.app_user.id", ondelete="RESTRICT"))
     current_config_id: Mapped[UUID | None] = mapped_column(Uuid)
+    next_send_not_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Rule(Base):

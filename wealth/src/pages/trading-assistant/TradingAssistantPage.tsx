@@ -6,6 +6,7 @@ import { PositionsWorkspace } from "../../features/trading-assistant/ui/Position
 import { RecordsPanel } from "../../features/trading-assistant/ui/RecordsPanel";
 import { ReturnsWorkspace } from "../../features/trading-assistant/ui/ReturnsWorkspace";
 import { RulesWorkspace } from "../../features/trading-assistant/ui/RulesWorkspace";
+import { readRuleDeepLink } from "../../features/trading-assistant/model/ruleDeepLink";
 import type { MaintenanceRecord } from "../../features/trading-assistant/ui/RecordMaintenanceForm";
 import { getDefaults, getFees, getInitialization } from "../../features/trading-assistant/api/tradingAssistantApi";
 import { useTradingAccounts } from "../../features/trading-assistant/model/useTradingAccounts";
@@ -39,7 +40,7 @@ function TradingAssistantWorkspace() {
   const [feedback, setFeedback] = useState("");
   const [analysis, setAnalysis] = useState(false);
   const [records, setRecords] = useState(false);
-  const [plans, setPlans] = useState(false);
+  const [plans, setPlans] = useState(() => !!readRuleDeepLink(window.location.search));
   const [returnView, setReturnView] = useState<"CURVE"|"CALENDAR"|"RECORDS">("CURVE");
   const [readRevision, setReadRevision] = useState(0);
   async function refreshAfterWrite() {

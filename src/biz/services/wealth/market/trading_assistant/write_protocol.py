@@ -18,12 +18,13 @@ from src.biz.models.wealth.trading_assistant.recovery import WriteScope, WriteRe
 from src.biz.models.wealth.trading_assistant.accounts import Account
 from src.biz.models.wealth.trading_assistant.ledger import Ledger
 from src.biz.models.wealth.trading_assistant.rules import Rule
+from src.biz.models.wealth.trading_assistant.rule_notifications import TriggerNotification
 from src.biz.schemas.wealth.market.trading_assistant.targets import LedgerTarget, validate_target, validate_target_receipt
 from src.biz.schemas.wealth.market.trading_assistant.recovery import RecoveryRejection
 from src.biz.schemas.wealth.market.trading_assistant.errors import FieldErrorDto
 from src.biz.schemas.wealth.market.trading_assistant.receipts import SuccessReceipt
 from src.biz.schemas.wealth.market.trading_assistant.scopes import (
-    AccountCreateScope, AccountFeesScope, AccountLedgerScope, RuleScope, RuleCreateScope)
+    AccountCreateScope, AccountFeesScope, AccountLedgerScope, RuleScope, RuleCreateScope, NotificationScope)
 from pydantic import TypeAdapter
 from .execution_policy import Deadline, TradingAssistantExecutionPolicyV1
 from .market_facts import apply_sql_budget
@@ -35,10 +36,12 @@ class WriteProtocolConflict(RuntimeError):
         self.code = code
 
 
-WriteScopeInput = AccountCreateScope | AccountFeesScope | AccountLedgerScope | RuleScope | RuleCreateScope
+WriteScopeInput = AccountCreateScope | AccountFeesScope | AccountLedgerScope | RuleScope | RuleCreateScope | NotificationScope
 
 
 def scope_key(scope: WriteScopeInput) -> str:
+    if isinstance(scope, NotificationScope):
+        return f"NOTIFICATION:{scope.notificationId}"
     if isinstance(scope, AccountCreateScope):
         return "ACCOUNT_CREATE"
     if isinstance(scope, (AccountFeesScope, AccountLedgerScope)):
@@ -53,7 +56,9 @@ def parse_scope_key(key: str) -> WriteScopeInput:
     if key == "ACCOUNT_CREATE":
         return AccountCreateScope(scopeType=key)
     kind, identity = key.split(":", 1)
-    if kind in ("ACCOUNT_FEES", "ACCOUNT_LEDGER"):
+    if kind == "NOTIFICATION":
+        scope = NotificationScope(scopeType=kind, notificationId=identity)
+    elif kind in ("ACCOUNT_FEES", "ACCOUNT_LEDGER"):
         model = AccountFeesScope if kind == "ACCOUNT_FEES" else AccountLedgerScope
         scope = model(scopeType=kind, accountId=identity)
     elif kind in ("RULE", "RULE_CREATE"):
@@ -148,7 +153,7 @@ class WriteProtocol:
                    "ACCOUNT_LEDGER":{"INITIALIZATION_CORRECT", "TRADE_CREATE", "TRADE_CORRECT", "TRADE_VOID",
                                      "CASH_FLOW_CREATE", "CASH_FLOW_CORRECT", "CASH_FLOW_VOID", "CALCULATION_RETRY"},
                    "RULE_CREATE": {"PLAN_CREATE", "ALERT_CREATE"},
-                   "RULE": {"RULE_CONDITIONS_UPDATE", "RULE_CLOSE"}}
+                   "RULE": {"RULE_CONDITIONS_UPDATE", "RULE_CLOSE"}, "NOTIFICATION": {"NOTIFICATION_RETRY"}}
         if operation not in allowed[scope.scopeType] or not executor_id or now.tzinfo is None:
             raise ValueError("Invalid trusted operation or clock")
         payload, digest = canonical_input(operation, key, payload, target)
@@ -162,6 +167,10 @@ class WriteProtocol:
             raise WriteProtocolConflict("TA_ACCOUNT_NOT_FOUND")
         if isinstance(scope, (RuleScope, RuleCreateScope)):
             verify_rule_scope(session, owner_id, scope)
+        if isinstance(scope, NotificationScope) and session.scalar(select(TriggerNotification.notification_id).where(
+                TriggerNotification.owner_user_id == owner_id,
+                TriggerNotification.notification_id == UUID(scope.notificationId))) is None:
+            raise WriteProtocolConflict("TA_OBJECT_NOT_FOUND")
         if target is not None and session.scalar(select(Ledger.ledger_id).where(
                 Ledger.account_id == UUID(target.accountId), Ledger.ledger_id == UUID(target.recordId),
                 Ledger.kind == target.kind)) is None:
@@ -194,7 +203,7 @@ class WriteProtocol:
             if scope_row.holder_request_id is not None:
                 raise WriteProtocolConflict("TA_SCOPE_WRITE_PENDING")
             candidate_id = None if operation in {"FEES_UPDATE", "CALCULATION_RETRY",
-                "PLAN_CREATE", "ALERT_CREATE", "RULE_CONDITIONS_UPDATE", "RULE_CLOSE"} else uuid4()
+                "PLAN_CREATE", "ALERT_CREATE", "RULE_CONDITIONS_UPDATE", "RULE_CLOSE", "NOTIFICATION_RETRY"} else uuid4()
             request = WriteRequest(owner_id=owner_id, request_id=request_id, scope_key=key,
                 operation_type=operation, input_schema_version=1, input_digest=digest,
                 target=target.model_dump(mode="json") if target else None,

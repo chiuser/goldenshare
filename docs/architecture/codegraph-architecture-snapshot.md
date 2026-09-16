@@ -1,6 +1,6 @@
 # CodeGraph 架构快照
 
-初始生成：2026-08-22；局部复核：2026-09-13（交易助手 M3 生命周期与核算主链）；QTF 局部复核仍为 2026-09-10。索引根：`/Users/congming/github/goldenshare`。
+初始生成：2026-08-22；局部复核：2026-09-16（交易助手 M7 通知发送装配）；M3 局部复核为 2026-09-13，QTF 为 2026-09-10。索引根：`/Users/congming/github/goldenshare`。
 
 这是代码入口快照，不是规范或全仓合规证明。未逐项重验的历史链路不能据此认定今日生产状态；下方既往工具记录保留原阶段含义。目录与依赖规则统一见[子系统架构基线](./subsystem-boundary-plan.md)，工具流程见根 AGENTS；不在此维护易过期的索引规模。
 
@@ -70,6 +70,12 @@ src.app.web.run
 `src/app/web/lifespan.py` 调用 `trading_assistant_lifespan`。App 先只读验证私有表结构，再创建专属单线程／连接资源及协调循环；核算、补日、历史来源核对各执行一个有界单元轮转。`CalculationWork` 从业务 `Recalculation` 领取账户目标，经 `GenerationExecution`／`GenerationDispatch` 冻结日历、费用及行情依据，逐页核算并封存日结果，最后通过直接日期清单和发布回执更新账户指针。未受影响历史只在核验兼容后由 `PrefixReuse`／`GenerationReferences` 引用原封存结果，不递归串接旧代次。
 
 依赖保持 App → Biz → Foundation；不调用 Ops／TaskRun，不增加服务、共享池配置或反向依赖。请求侧与核算侧使用不同连接资源，进度 API 只读当前目标的业务检查点。源码接线已在隔离 PostgreSQL／应用生命周期验证，不能据此认定正式环境已迁移或启动。CodeGraph query／impact 已核对 CalculationWork、CutoffDiscovery、GenerationSteps 和 lifespan 的调用方，并补读实现及测试；具体产品口径与验收状态以[交易助手原技术方案](../../wealth/docs/pages/trading-assistant/trading-assistant-implementation-design-v1.md)为准。
+
+### 交易助手 M7 飞书发送主链
+
+同一 App 生命周期加载部署密钥、装配 `RobotCommandService` 和 `run_notifications`。Biz 的 `RobotTestDispatcher` 与 `NotificationDispatcher` 共用发送传输及数据库机器人间隔；先提交领取／实际配置版本／业务正文，再离开数据库事务执行网络请求，最后回写原尝试。已开始项退出后只核定 UNKNOWN，不重新领取；明确失败的主动重试通过既有 NOTIFICATION 写入范围接纳。机器人配置本身是单事务保存，不接保存恢复。App 停止时先禁止新领取，再等在途单元退出，最后释放资源。
+
+前端 `RulesWorkspace`／`StockRuleEntry` 复用 `RobotConfigurationDialog`，规则详情接 `NotificationDetailDialog`；通知链接进入本人规则详情，不携带凭据。依赖仍为 App → Biz → Foundation，不复用 Ops 全局机器人。新增部署依据为密钥文件路径和 Wealth HTTPS origin，不能从浏览器 Host 推断。CodeGraph impact 已覆盖 `RobotConfigurationStore`、`RuleRobotAccess`、`WriteProtocol`、`StockDetailQueryService` 和 `NotificationDispatcher`，动态注入和前端合同另读源码并经隔离 API／浏览器验证。真实飞书及生产状态不由本快照证明。
 
 ### TaskRun 数据维护主链
 

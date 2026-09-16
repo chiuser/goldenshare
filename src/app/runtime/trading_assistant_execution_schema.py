@@ -9,6 +9,8 @@ from src.biz.models.wealth.trading_assistant.publication import AccountSnapshot,
 from src.biz.models.wealth.trading_assistant.rules import Rule, RuleVersion, RuleExecution, RobotIdentity
 from src.biz.models.wealth.trading_assistant.rule_checks import RuleCheck, RuleCheckProgress, RuleMarketBasis, RuleResult, RuleResultCheck
 from src.biz.models.wealth.trading_assistant.rule_notifications import TriggerNotification
+from src.biz.models.wealth.trading_assistant.robots import CredentialBlob, RobotCandidate, RobotTest, RobotConfig
+from src.biz.models.wealth.trading_assistant.notification_attempts import NotificationAttempt
 from src.biz.services.wealth.market.trading_assistant.execution_policy import Deadline
 from src.biz.services.wealth.market.trading_assistant.market_facts import apply_sql_budget
 
@@ -20,7 +22,8 @@ def verify_execution_schema(sessions, policy):
         ValuationBasis, CalculationBatch, CutoffPreparation, CutoffDiscoveryCursor,
         AccountSnapshot, PublicationDay, PublicationReceipt,
         Rule, RuleVersion, RuleExecution, RuleCheck, RuleCheckProgress, RuleMarketBasis,
-        RuleResult, RuleResultCheck, RobotIdentity, TriggerNotification)
+        RuleResult, RuleResultCheck, RobotIdentity, TriggerNotification,
+        CredentialBlob, RobotCandidate, RobotTest, RobotConfig, NotificationAttempt)
     with sessions() as session, session.begin():
         session.execute(text("SET TRANSACTION READ ONLY"))
         apply_sql_budget(session, deadline, policy)

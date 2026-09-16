@@ -7,16 +7,22 @@ import { TradingAssistantAction } from "./TradingAssistantForm";
 import { RuleCreateDialog } from "./RuleCreateDialog";
 import { RuleDetailDialog } from "./RuleDetailDialog";
 import "./trading-assistant-rules.css";
+import { useRobot } from "../model/useRobot";
+import { RobotConfigurationDialog } from "./RobotConfigurationDialog";
+import { readRuleDeepLink } from "../model/ruleDeepLink";
 
 export function RulesWorkspace({ accounts, selected }: { accounts: AccountSummary[]; selected: string | null }) {
-  const [kind, setKind] = useState<RuleKind>("PLAN"), [status, setStatus] = useState<AlertsQuery["status"]>("ALL");
+  const [entry] = useState(() => readRuleDeepLink(window.location.search));
+  const [kind, setKind] = useState<RuleKind>(entry?.kind ?? "PLAN"), [status, setStatus] = useState<AlertsQuery["status"]>("ALL");
   const [search, setSearch] = useState(""), [keyword, setKeyword] = useState("");
   const [revision, setRevision] = useState(0);
-  const [overlay, setOverlay] = useState<"CREATE" | { ruleId: string } | null>(null);
+  const [overlay, setOverlay] = useState<"CREATE" | { ruleId: string } | null>(entry ? { ruleId: entry.ruleId } : null);
   const rules = useRules(kind, selected, status, keyword, revision);
+  const robot = useRobot();
+  const [configureRobot, setConfigureRobot] = useState(false);
   const changed = () => setRevision(v => v + 1);
   return <section className="ta-rule-workspace">
-    <div className="ta-rule-toolbar"><div><h2>计划与监控</h2><p className="ta-note">条件是否成立，盘后给你一个可核验的结果。</p></div><div className="ta-rule-actions"><TradingAssistantAction disabled title="机器人配置与通知发送在后续阶段开放">通知设置</TradingAssistantAction><TradingAssistantAction primary disabled={kind === "PLAN" && !accounts.length} onClick={() => setOverlay("CREATE")}>{kind === "PLAN" ? "新建交易计划" : "新建独立提醒"}</TradingAssistantAction></div></div>
+    <div className="ta-rule-toolbar"><div><h2>计划与监控</h2><p className="ta-note">条件是否成立，盘后给你一个可核验的结果。</p></div><div className="ta-rule-actions"><TradingAssistantAction disabled={robot.loading} onClick={() => robot.error ? robot.refresh() : setConfigureRobot(true)}>{robot.error ? "重新读取通知设置" : "通知设置"}</TradingAssistantAction><TradingAssistantAction primary disabled={kind === "PLAN" && !accounts.length} onClick={() => setOverlay("CREATE")}>{kind === "PLAN" ? "新建交易计划" : "新建独立提醒"}</TradingAssistantAction></div></div>
     <div className="ta-segments ta-rule-tabs" role="group" aria-label="规则类型">{([['PLAN','交易计划'],['ALERT','独立提醒']] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={kind === key} onClick={() => { setOverlay(null); setKind(key); }}>{label}{rules.data ? ` ${key === "PLAN" ? rules.data.counts.planCount : rules.data.counts.alertCount}` : ""}</button>)}</div>
     <form className="ta-rule-filters" onSubmit={e => { e.preventDefault(); setKeyword(search); }}><select aria-label="规则状态" value={status} onChange={e => { setOverlay(null); setStatus(e.target.value as typeof status); }}>{([['ALL','全部状态'],['ACTIVE','进行中'],['TRIGGERED','已触发'],['NOT_TRIGGERED','未触发'],['CLOSED','已关闭']] as const).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select><input type="search" aria-label="搜索规则股票" placeholder="搜索名称 / 代码" value={search} onChange={e => { setSearch(e.target.value); if (!e.target.value) setKeyword(""); }} /><TradingAssistantAction type="submit">搜索</TradingAssistantAction></form>
     <div className="ta-rule-table" role="table" aria-label={kind === "PLAN" ? "交易计划" : "独立提醒"}>
@@ -30,7 +36,8 @@ export function RulesWorkspace({ accounts, selected }: { accounts: AccountSummar
     {!rules.loading && !rules.error && !rules.data?.items.length && <p className="ta-note">暂无符合条件的{kind === "PLAN" ? "交易计划" : "独立提醒"}</p>}
     {rules.data?.nextCursor && <TradingAssistantAction disabled={rules.loading} onClick={rules.more}>加载更多</TradingAssistantAction>}
     <p className="ta-note">“已触发”仅表示条件成立，不代表成交。数据不完整时保留“待确认”，不会记为未触发。所有时间均为北京时间。</p>
-    {overlay === "CREATE" && <RuleCreateDialog kind={kind} accounts={accounts} selected={selected} onClose={() => setOverlay(null)} onSaved={async () => { changed(); }} />}
+    {overlay === "CREATE" && <RuleCreateDialog kind={kind} accounts={accounts} selected={selected} robot={robot.robot} onSelectRobot={() => robot.error ? robot.refresh() : !robot.loading && setConfigureRobot(true)} onClose={() => setOverlay(null)} onSaved={async () => { changed(); }} />}
     {overlay && overlay !== "CREATE" && <RuleDetailDialog kind={kind} ruleId={overlay.ruleId} onClose={() => setOverlay(null)} onUpdated={changed} />}
+    {configureRobot && <RobotConfigurationDialog current={robot.robot} onClose={() => { setConfigureRobot(false); robot.refresh(); }} onSaved={value => { robot.setRobot(value); setConfigureRobot(false); changed(); }} />}
   </section>;
 }

@@ -94,13 +94,13 @@ try {
     details = await Promise.all([["plans",original.ruleId],["plans",miss.result.ruleId],["alerts",alert.result.ruleId]].map(async ([kind,id]) => {
       const response = await context.request.get(`${root}/${kind}/${id}`, { headers }); assert.ok(response.ok(), await response.text()); return response.json();
     }));
-    if (details.every(row => row.ruleStatus === "ENDED")) break;
+    if (details.every(row => row.ruleStatus === "ENDED") && details[2].notificationSummary.state === "SUCCEEDED") break;
     await new Promise(resolve => setTimeout(resolve,150));
   }
   assert.deepEqual(details.map(row => row.ruleStatus), ["ENDED","ENDED","ENDED"], JSON.stringify(details));
   assert.deepEqual(details.map(row => row.finalResult.triggered), [true,false,true]);
   assert.equal(details[0].finalResult.firstTriggeredAt,"2026-09-14T09:39:00+08:00");
-  assert.equal(details[2].notificationSummary.state,"PENDING");
+  assert.equal(details[2].notificationSummary.state,"SUCCEEDED");
   await page.reload();
   await page.getByRole("button", { name:"计划与监控",exact:true }).click();
   await page.getByLabel("规则状态").selectOption("TRIGGERED");
@@ -119,10 +119,10 @@ try {
   assert.ok(layout.every(row => row.whiteSpace === "nowrap" && row.height < 40));
   await page.screenshot({ path:output + "-list.png",fullPage:true });
   await page.getByRole("button", { name:/独立提醒 1/ }).click();
-  await page.getByText("待发送",{exact:true}).waitFor();
+  await page.getByText("发送成功",{exact:true}).waitFor();
   assert.equal(await page.getByRole("columnheader",{name:"方向",exact:true}).count(),0);
   assert.deepEqual(errors,[]); assert.deepEqual(failures,[]);
-  console.log(JSON.stringify({ plans:3,alerts:1,result:details.map(row=>row.finalResult.triggered),notification:"PENDING_ONLY",lostRevisionResponse:revisionRequests,layout,errors,failures }));
+  console.log(JSON.stringify({ plans:3,alerts:1,result:details.map(row=>row.finalResult.triggered),notification:"OFFLINE_SUCCEEDED",lostRevisionResponse:revisionRequests,layout,errors,failures }));
 } catch (error) {
   const page = context.pages().at(-1);
   if (page) { await page.screenshot({ path:output + "-failure.png",fullPage:true }); console.error(JSON.stringify({ dialogs:await page.locator("dialog[open]").allTextContents() })); }

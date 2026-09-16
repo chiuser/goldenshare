@@ -10,6 +10,8 @@ from src.biz.schemas.wealth.market.trading_assistant.errors import TradingAssist
 from src.biz.services.wealth.market.trading_assistant.transaction_boundary import CommitOutcomeUnknown
 from src.biz.services.wealth.market.trading_assistant.validation import InvalidLedger
 from src.biz.services.wealth.market.trading_assistant.write_protocol import WriteProtocolConflict
+from src.biz.services.wealth.market.trading_assistant.credential_cipher import CredentialError
+from src.biz.services.wealth.market.trading_assistant.feishu_protocol import FeishuInputError
 from src.biz.services.wealth.market.trading_assistant.market_facts import SecurityNotEligible, MarketFactsUnavailable
 from src.biz.services.wealth.market.trading_assistant.initialization_dates import InvalidInitializationDate
 
@@ -19,7 +21,8 @@ def validation_fields(error):
         "stampTaxRatePct", "tsCode", "direction", "tradeDate", "occurredOn", "price", "quantity", "amount", "note",
         "availableQuantity", "costPrice", "openedOn", "expectedRevision", "expectedFeeVersionId",
         "stockCode", "accountId", "deadlineAt", "priceCondition", "volumeCondition", "operator",
-        "upper", "lower", "thresholdLots", "robotId", "notifyEnabled", "expectedStateVersion"}
+        "upper", "lower", "thresholdLots", "robotId", "notifyEnabled", "expectedStateVersion",
+        "webhook", "signingSecret", "keywords", "value", "action"}
     rows = error.body.get("initialPositions") if isinstance(error.body, dict) else None
     row_ids = [row.get("clientRowId") if isinstance(row, dict) else None for row in rows] if isinstance(rows, list) else []
     valid_ids = all(type(value) is str and bool(value) for value in row_ids) and len(set(row_ids)) == len(row_ids)
@@ -38,6 +41,8 @@ def validation_fields(error):
         message = "请检查必填项、格式和取值范围"
         if names[-1] == "openedOn":
             message = "请选择建仓日期。" if issue["type"] == "missing" else "请输入有效的建仓日期。"
+        if names == ["keywords"] and issue["type"] == "too_long":
+            message = "最多填写 10 个关键词。"
         fields.append(FieldErrorDto(field=".".join(names), clientRowId=row_id, message=message, affectedOn=None))
     return fields
 
@@ -89,6 +94,10 @@ class TradingAssistantRoute(APIRoute):
                     field="tsCode", clientRowId=None, message="请选择有效的 A 股股票", affectedOn=None),))
             except WriteProtocolConflict as error:
                 return error_response(error.code, "记录或状态不可用，请重新核对")
+            except CredentialError:
+                return error_response("TA_WRITE_FAILED", "机器人凭据服务不可用，请稍后重新配置")
+            except FeishuInputError:
+                return error_response("TA_REQUEST_INVALID", "请检查飞书机器人地址和安全配置")
             except InvalidLedger as error:
                 return error_response("TA_REQUEST_INVALID", error.message, fields=(FieldErrorDto(
                     field=error.field, clientRowId=None, message=error.message, affectedOn=error.occurred_on.isoformat()),))

@@ -9,7 +9,7 @@ import { TradingAssistantAction, TradingAssistantDialog, TradingAssistantField }
 import { TradingAssistantStockPicker } from "./TradingAssistantStockPicker";
 import { RuleConditionEditor } from "./RuleConditionEditor";
 
-// Robot selection is supplied by M7. An ID never bypasses server qualification.
+// An ID never bypasses server qualification.
 export function RuleCreateDialog({ kind, accounts, selected, stock: initialStock = null, source = "TRADING_ASSISTANT", robot = null, onSelectRobot, onClose, onSaved }: {
   kind: RuleKind; accounts: AccountSummary[]; selected: string | null; stock?: StockRef | null;
   source?: "TRADING_ASSISTANT" | "STOCK_DETAIL"; robot?: { robotId: string; name: string } | null;
@@ -58,7 +58,7 @@ export function RuleCreateDialog({ kind, accounts, selected, stock: initialStock
       {kind === "PLAN" && <label className="ta-rule-enable"><input type="checkbox" disabled={disabled} checked={notify} onChange={e => setNotify(e.target.checked)} />计划触发后通过飞书通知我</label>}
       <div className="ta-field ta-rule-robot"><label>接收机器人</label><TradingAssistantAction disabled={disabled || !onSelectRobot} onClick={onSelectRobot}>{robot?.name ?? "选择"}</TradingAssistantAction>
         {fieldError("robotId") && <p className="ta-field-error" role="alert">{fieldError("robotId")}</p>}
-        <p className="ta-note">{onSelectRobot ? "选择已验证的飞书机器人。" : "飞书机器人配置与通知发送将在后续阶段开放。"}</p></div>
+        <p className="ta-note">选择并配置飞书机器人，经测试确认后用于盘后通知。</p></div>
       <div className="ta-rule-evidence"><p>从保存生效起，到所选截止时间，逐个完整分钟检查全部启用条件，登记第一次同时满足的结果。</p><p className="ta-note">创建时间由系统记录；不回溯生效前的行情。触发不代表成交。</p></div>
     </TradingAssistantDialog>;
   }

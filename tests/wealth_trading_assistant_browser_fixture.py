@@ -53,6 +53,13 @@ from tests.wealth_watchlist_postgres_support import ROOT, isolated_postgres
 from src.foundation.clients.local_lake.stock_rule_minute_reader import StockRuleMinuteReader
 from src.biz.models.wealth.trading_assistant.rules import RobotIdentity
 from types import SimpleNamespace
+from unittest.mock import patch
+import asyncio
+from time import monotonic
+from tests.test_wealth_trading_assistant_robot_storage import CIPHER
+from src.biz.services.wealth.market.trading_assistant.feishu_protocol import SendOutcome
+from src.app.runtime.trading_assistant_notifications import run_notifications
+from src.biz.schemas.wealth.market.trading_assistant.robot import CandidateCommand, TestCandidateCommand, ConfirmCandidateCommand
 
 NOW = datetime(2026, 9, 11, 8, tzinfo=timezone.utc)
 
@@ -67,7 +74,7 @@ def seed(engine):
         scripts = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
         with Operations.context(MigrationContext.configure(conn)):
             previous_revision = "20260907_000170"
-            for revision_id in (*[f"20260912_{number:06d}" for number in range(171, 177)], "20260915_000177"):
+            for revision_id in (*[f"20260912_{number:06d}" for number in range(171, 177)], "20260915_000177", *[f"20260916_{number:06d}" for number in range(178, 181)]):
                 revision = scripts.get_revision(revision_id)
                 if revision.down_revision != previous_revision:
                     raise ValueError("Unexpected fixture migration chain")
@@ -100,14 +107,16 @@ def seed(engine):
 
 def browser_app(database):
     clock = [NOW]
-    qualified_robots = {}
-    class FixtureRobots:
-        def resolve(self, session, owner_id, robot_id, deadline):
-            deadline.remaining_ms()
-            name = qualified_robots.get((owner_id, robot_id))
-            return SimpleNamespace(name=name) if name else None
-        def names(self, session, *, owner_id, robot_ids, deadline):
-            return {rid: qualified_robots[(owner_id, rid)] for rid in robot_ids if (owner_id, rid) in qualified_robots}
+    class OfflineTransport:
+        outcome = SendOutcome("SUCCEEDED", None, 0)
+        calls = 0
+        async def send(self, webhook, payload):
+            # This object never constructs an HTTP client.
+            self.calls += 1
+            return self.outcome
+    transport = OfflineTransport()
+    async def offline_loop(dependencies, **kwargs):
+        await run_notifications(dependencies, transport=transport, **{**kwargs, "public_base_url": "https://wealth.example"})
     @asynccontextmanager
     async def lifespan(app):
         from tests.test_stock_mins_reader import _write_bars
@@ -116,10 +125,11 @@ def browser_app(database):
             rows = [("000001.SZ", 1, day, minute.at.replace(tzinfo=None).isoformat(),
                 9, 9, 9, 9, 100, 900, "SZSE") for day in (date(2026,9,11), date(2026,9,14)) for minute in session_minutes(day)]
             _write_bars(Path(source_root), code="000001.SZ", freq=1, rows=rows)
-            async with trading_assistant_lifespan(app, database_url=database.url,
-                    logger=logging.getLogger("ta-isolated-fixture"), minute_reader=StockRuleMinuteReader(Path(source_root)),
-                    rule_robots=FixtureRobots()):
-                yield
+            with patch("src.app.runtime.trading_assistant_lifespan.load_credential_cipher", return_value=CIPHER), patch(
+                    "src.app.runtime.trading_assistant_lifespan.run_notifications", offline_loop):
+                async with trading_assistant_lifespan(app, database_url=database.url,
+                        logger=logging.getLogger("ta-isolated-fixture"), minute_reader=StockRuleMinuteReader(Path(source_root))):
+                    yield
     app = FastAPI(lifespan=lifespan)
     install_exception_handlers(app)
     def session():
@@ -166,15 +176,32 @@ def browser_app(database):
         clock[0] = at
         return {"now": at.isoformat()}
     @app.post("/test-rule-robot")
-    def rule_robot():
-        # Explicit test qualification only; not registered in production APIs.
-        existing = next((rid for (owner_id, rid) in qualified_robots if owner_id == 1), None)
-        if existing is None:
-            existing = uuid4()
-            with database.begin() as conn:
-                conn.execute(insert(RobotIdentity).values(robot_id=existing, owner_user_id=1))
-            qualified_robots[(1, existing)] = "隔离资格机器人"
-        return {"robotId": str(existing)}
+    async def rule_robot():
+        deps = app.state.trading_assistant
+        current = await deps.read(lambda s,d: deps.robot_configuration.read(s, owner_id=1, deadline=d))
+        if current.robot:
+            return {"robotId": current.robot.robotId}
+        def ids(): return dict(requestId=str(uuid4()), attemptId=str(uuid4()))
+        candidate = (await deps.robot_commands.create(owner_id=1, command=CandidateCommand(**ids(),
+            name="隔离资格机器人", expectedConfigVersionId=None, keywords=[], signingSecret=dict(action="CLEAR"),
+            webhook=dict(action="REPLACE", value="https://open.feishu.cn/open-apis/bot/v2/hook/isolated-browser")))).result
+        test = (await deps.robot_commands.test(owner_id=1, candidate_id=UUID(candidate.candidateId),
+            command=TestCandidateCommand(**ids(), expectedCandidateVersion=candidate.candidateVersion))).result
+        until = monotonic() + 15
+        while monotonic() < until:
+            result = await deps.read(lambda s,d: deps.robot_tests.read(s, owner_id=1,
+                candidate_id=UUID(candidate.candidateId), test_id=UUID(test.testId), deadline=d))
+            if result.state == "SUCCEEDED":
+                saved = await deps.robot_commands.confirm(owner_id=1, candidate_id=UUID(candidate.candidateId),
+                    command=ConfirmCandidateCommand(**ids(), expectedConfigVersionId=None, testId=test.testId, receivedConfirmed=True))
+                return {"robotId": saved.result.robotId}
+            await asyncio.sleep(.1)
+        raise RuntimeError("Isolated robot test did not finish")
+    @app.post("/test-notification-outcome")
+    def notification_outcome(state: Literal["SUCCEEDED", "FAILED", "UNKNOWN"]):
+        transport.outcome = SendOutcome(state, None if state == "SUCCEEDED" else "隔离发送验证", 0 if state == "SUCCEEDED" else None)
+        clock[0] += timedelta(seconds=2)
+        return {"calls": transport.calls}
     @app.get("/test-session")
     def test_session(user_id: int = 1):
         if user_id not in (1, 2):

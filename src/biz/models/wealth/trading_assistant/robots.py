@@ -6,7 +6,7 @@ test; commands still have to lock the robot and check expected configuration.
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import (BigInteger, CheckConstraint, DateTime, ForeignKey,
+from sqlalchemy import (BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey,
                         ForeignKeyConstraint, Index, Integer, LargeBinary,
                         Text, UniqueConstraint, Uuid, text)
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -70,6 +70,8 @@ class RobotCandidate(Base):
     name: Mapped[str] = mapped_column(Text)
     keywords: Mapped[list[str]] = mapped_column(ARRAY(Text))
     content_digest: Mapped[str] = mapped_column(Text)
+    request_digest: Mapped[str | None] = mapped_column(Text)
+    has_signing_secret: Mapped[bool | None] = mapped_column(Boolean)
     credential_blob_id: Mapped[UUID] = mapped_column(Uuid)
     credential_object_type: Mapped[str] = mapped_column(Text, server_default="CANDIDATE")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -85,6 +87,7 @@ class RobotTest(Base):
         UniqueConstraint("owner_user_id", "robot_id", "candidate_id", "test_id", "state",
                          name="uq_ta_robot_test_evidence"),
         CheckConstraint("attempt_no >= 1", name="attempt"),
+        CheckConstraint("(dispatched_at IS NULL) = (dispatch_token IS NULL)", name="dispatch"),
         CheckConstraint("(state = 'IN_FLIGHT' AND completed_at IS NULL AND reason IS NULL) OR "
                         "(state IN ('SUCCEEDED','FAILED','UNKNOWN') AND completed_at IS NOT NULL "
                         "AND completed_at >= started_at)", name="state"),
@@ -99,10 +102,16 @@ class RobotTest(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reason: Mapped[str | None] = mapped_column(Text)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dispatch_token: Mapped[UUID | None] = mapped_column(Uuid)
 
 
 Index("uq_ta_robot_test_inflight", RobotTest.candidate_id, unique=True,
       postgresql_where=text("state = 'IN_FLIGHT'"))
+Index("idx_ta_robot_test_pending", RobotTest.started_at, RobotTest.test_id,
+      postgresql_where=text("state = 'IN_FLIGHT' AND dispatched_at IS NULL"))
+Index("idx_ta_robot_test_stale", RobotTest.dispatched_at, RobotTest.test_id,
+      postgresql_where=text("state = 'IN_FLIGHT' AND dispatched_at IS NOT NULL"))
 
 
 class RobotConfig(Base):
@@ -131,3 +140,4 @@ class RobotConfig(Base):
     credential_blob_id: Mapped[UUID] = mapped_column(Uuid)
     credential_object_type: Mapped[str] = mapped_column(Text, server_default="CONFIG")
     confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    has_signing_secret: Mapped[bool | None] = mapped_column(Boolean)

@@ -3,8 +3,8 @@ import { accountPath } from "../api/tradingAssistantApi";
 
 export type AccountingOperation = "ACCOUNT_CREATE" | "FEES_UPDATE" | "INITIALIZATION_CORRECT" | "TRADE_CREATE"
   | "TRADE_CORRECT" | "TRADE_VOID" | "CASH_FLOW_CREATE" | "CASH_FLOW_CORRECT" | "CASH_FLOW_VOID"
-  | "PLAN_CREATE" | "ALERT_CREATE" | "RULE_CONDITIONS_UPDATE" | "RULE_CLOSE";
-export type AccountingScope = Extract<RecoveryStatusDto["scope"], { scopeType: "ACCOUNT_CREATE" | "ACCOUNT_FEES" | "ACCOUNT_LEDGER" | "RULE" | "RULE_CREATE" }>;
+  | "PLAN_CREATE" | "ALERT_CREATE" | "RULE_CONDITIONS_UPDATE" | "RULE_CLOSE" | "NOTIFICATION_RETRY";
+export type AccountingScope = Extract<RecoveryStatusDto["scope"], { scopeType: "ACCOUNT_CREATE" | "ACCOUNT_FEES" | "ACCOUNT_LEDGER" | "RULE" | "RULE_CREATE" | "NOTIFICATION" }>;
 
 const contracts = {
   ACCOUNT_CREATE: ["CreateAccountCommand", "AccountCreateReceipt"], FEES_UPDATE: ["UpdateFeesCommand", "FeesUpdateReceipt"],
@@ -13,9 +13,16 @@ const contracts = {
   CASH_FLOW_CREATE: ["CashFlowCommand", "CashCreateReceipt"], CASH_FLOW_CORRECT: ["CorrectCashFlowCommand", "CashCorrectReceipt"], CASH_FLOW_VOID: ["VoidCommand", "CashVoidReceipt"],
   PLAN_CREATE: ["CreatePlanCommand", "PlanCreateReceipt"], ALERT_CREATE: ["CreateAlertCommand", "AlertCreateReceipt"],
   RULE_CONDITIONS_UPDATE: ["ReviseConditionsCommand", "ConditionsUpdateReceipt"], RULE_CLOSE: ["CloseRuleCommand", "RuleCloseReceipt"],
+  NOTIFICATION_RETRY: ["NotificationRetryCommand", "NotificationRetryReceipt"],
 } as const;
 
 export function writeOperation(operation: AccountingOperation, scope: AccountingScope, target: RecoveryStatusDto["target"] = null) {
+  if (scope.scopeType === "NOTIFICATION") {
+    if (operation !== "NOTIFICATION_RETRY" || target) throw new Error("Incorrect notification scope");
+    const [commandModel, receiptModel] = contracts[operation];
+    return { operation, scope, target, path: `/notifications/${encodeURIComponent(scope.notificationId)}/retry`, commandModel, receiptModel, method: "POST" as const };
+  }
+  if (operation === "NOTIFICATION_RETRY") throw new Error("Incorrect notification scope");
   if (scope.scopeType === "RULE" || scope.scopeType === "RULE_CREATE") {
     if (target || (scope.scopeType === "RULE_CREATE" ? operation !== `${scope.ruleType}_CREATE`
       : operation !== "RULE_CONDITIONS_UPDATE" && operation !== "RULE_CLOSE")) throw new Error("Incorrect rule scope");

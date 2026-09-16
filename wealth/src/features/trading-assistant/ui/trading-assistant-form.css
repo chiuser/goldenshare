@@ -13,6 +13,7 @@
   box-shadow: var(--cs-shadow-panel);
 }
 .ta-dialog::backdrop { background: color-mix(in srgb, var(--cs-color-bg-page) 70%, transparent); }
+.ta-dialog--robot { width: 640px; }
 .ta-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cs-space-12); }
 .ta-dialog-heading > div { min-width: 0; flex: 1; }
 .ta-dialog h2 { margin: 0; font-size: 18px; line-height: 28px; overflow-wrap: anywhere; }

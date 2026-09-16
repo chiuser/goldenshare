@@ -14,6 +14,8 @@ from src.biz.services.wealth.market.trading_assistant.calculation import CALCULA
 from src.biz.services.wealth.market.trading_assistant.calculation_loop import run_calculation_loop
 from .trading_assistant_container import build_trading_assistant_dependencies
 from .trading_assistant_execution_resource import TradingAssistantExecutionResource
+from .trading_assistant_credentials import load_credential_cipher
+from .trading_assistant_notifications import run_notifications
 from src.foundation.config.local_minute_capability import resolve_local_minute_capability
 from src.foundation.config.settings import get_settings
 from src.foundation.clients.local_lake.stock_rule_minute_reader import StockRuleMinuteReader
@@ -51,6 +53,7 @@ async def maintain_recovery(maintenance, policy, stop, logger):
 @asynccontextmanager
 async def trading_assistant_lifespan(app, *, database_url, logger, minute_reader=None, rule_robots=None):
     policy = TradingAssistantExecutionPolicyV1()
+    credential_cipher = load_credential_cipher(get_settings().wealth_ta_credential_key_file)
     if minute_reader is None:
         capability = resolve_local_minute_capability(get_settings())
         if capability.enabled:
@@ -68,12 +71,15 @@ async def trading_assistant_lifespan(app, *, database_url, logger, minute_reader
         if await resource.run_one("SCHEMA") != "READY":
             raise RuntimeError("Trading-assistant execution schema is not ready")
         now = lambda: datetime.now(timezone.utc)
-        dependencies = build_trading_assistant_dependencies(engine, policy=policy, now=now, executor_id=str(uuid4()), rule_robots=rule_robots)
+        dependencies = build_trading_assistant_dependencies(engine, policy=policy, now=now, executor_id=str(uuid4()),
+            rule_robots=rule_robots, credential_cipher=credential_cipher)
         maintenance = RecoveryMaintenance(dependencies.transactions, WriteProtocol(policy), policy, now)
         app.state.trading_assistant = dependencies
         tasks = [asyncio.create_task(maintain_recovery(maintenance, policy, stop, logger), name="ta-recovery-maintenance"),
             asyncio.create_task(run_calculation_loop(resource.run_one, policy=policy, stop=stop, logger=logger),
-                name="ta-calculation-coordinator")]
+                name="ta-calculation-coordinator"),
+            asyncio.create_task(run_notifications(dependencies, stop=stop, logger=logger,
+                public_base_url=get_settings().wealth_public_base_url), name="ta-notifications")]
         _log(logger, "info", "trading-assistant execution policy=v1 rule_version=%s batch_ms=%s page_rows=%s lease_seconds=%s",
             CALCULATION_RULE_VERSION, policy.batch_budget_ms, policy.page_rows, policy.lease_seconds)
         yield

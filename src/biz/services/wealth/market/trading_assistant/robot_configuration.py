@@ -79,16 +79,27 @@ class RobotConfigurationStore:
             raise WriteProtocolConflict("TA_STATE_CONFLICT")
 
     @staticmethod
-    def _display(row, secret):
+    def _display(row, secret=None):
         # Never return a usable address or a prefix of the secret token.
+        has_secret = secret["signingSecret"] is not None if secret is not None else row.has_signing_secret
+        if has_secret is None:
+            raise CredentialError()
         return dict(name=row.name, maskedWebhook="https://open.feishu.cn/open-apis/bot/v2/hook/••••",
-                    hasSigningSecret=secret["signingSecret"] is not None, keywords=list(row.keywords))
+                    hasSigningSecret=has_secret, keywords=list(row.keywords))
 
-    def create_candidate(self, session, *, owner_id, command, now, deadline):
+    def create_candidate(self, session, *, owner_id, command, now, deadline, candidate_id=None, request_digest=None):
         require_aware(now)
         if self.cipher is None:
             raise CredentialError()
         robot = self._lock(session, owner_id, deadline, create=True)
+        if candidate_id is not None:
+            existing = session.scalar(select(RobotCandidate).where(RobotCandidate.owner_user_id == owner_id,
+                RobotCandidate.candidate_id == candidate_id))
+            if existing is not None:
+                if request_digest is None or existing.request_digest != request_digest:
+                    raise WriteProtocolConflict("TA_REQUEST_ID_CONFLICT")
+                return dto.CandidateResult(candidateId=str(existing.candidate_id), candidateVersion=str(existing.candidate_version),
+                    **self._display(existing))
         self._expected(robot, command.expectedConfigVersionId)
         previous = None
         if command.webhook.action == "KEEP" or command.signingSecret.action == "KEEP":
@@ -102,13 +113,14 @@ class RobotConfigurationStore:
                    command.signingSecret.value.get_secret_value() if command.signingSecret.action == "REPLACE" else None)
         validate_webhook(webhook)
         secret = dict(webhook=webhook, signingSecret=signing)
-        candidate_id = uuid4()
+        candidate_id = candidate_id or uuid4()
         blob_id = self._encrypt(session, owner_id, "CANDIDATE", candidate_id, secret, now, deadline)
         digest = sha256(json.dumps(dict(name=command.name, keywords=command.keywords, **secret),
             sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
         candidate = RobotCandidate(candidate_id=candidate_id, owner_user_id=owner_id, robot_id=robot.robot_id,
             candidate_version=1, expected_config_id=robot.current_config_id, name=command.name,
-            keywords=list(command.keywords), content_digest=digest, credential_blob_id=blob_id, created_at=now)
+            keywords=list(command.keywords), content_digest=digest, request_digest=request_digest,
+            has_signing_secret=signing is not None, credential_blob_id=blob_id, created_at=now)
         session.add(candidate)
         session.flush()
         deadline.remaining_ms()
@@ -119,11 +131,19 @@ class RobotConfigurationStore:
         if self.cipher is None:
             raise CredentialError()
         robot = self._lock(session, owner_id, deadline)
-        self._expected(robot, command.expectedConfigVersionId)
         candidate = session.scalar(select(RobotCandidate).where(RobotCandidate.owner_user_id == owner_id,
             RobotCandidate.robot_id == robot.robot_id, RobotCandidate.candidate_id == candidate_id))
         if candidate is None:
             raise WriteProtocolConflict("TA_OBJECT_NOT_FOUND")
+        existing = session.scalar(select(RobotConfig).where(RobotConfig.owner_user_id == owner_id,
+            RobotConfig.candidate_id == candidate_id))
+        if existing is not None:
+            if existing.test_id != UUID(command.testId) or candidate.expected_config_id != (
+                    UUID(command.expectedConfigVersionId) if command.expectedConfigVersionId else None):
+                raise WriteProtocolConflict("TA_STATE_CONFLICT")
+            return dto.RobotConfig(robotId=str(robot.robot_id), configVersionId=str(existing.config_id),
+                **self._display(existing))
+        self._expected(robot, command.expectedConfigVersionId)
         if candidate.expected_config_id != robot.current_config_id:
             raise WriteProtocolConflict("TA_STATE_CONFLICT")
         test = session.scalar(select(RobotTest).where(RobotTest.owner_user_id == owner_id,
@@ -136,7 +156,7 @@ class RobotConfigurationStore:
         blob_id = self._encrypt(session, owner_id, "CONFIG", config_id, secret, now, deadline)
         config = RobotConfig(config_id=config_id, owner_user_id=owner_id, robot_id=robot.robot_id,
             candidate_id=candidate_id, test_id=test.test_id, name=candidate.name, keywords=list(candidate.keywords),
-            credential_blob_id=blob_id, confirmed_at=now)
+            credential_blob_id=blob_id, confirmed_at=now, has_signing_secret=secret["signingSecret"] is not None)
         session.add(config)
         session.flush()
         robot.current_config_id = config_id
