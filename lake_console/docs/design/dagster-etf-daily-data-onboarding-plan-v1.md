@@ -414,7 +414,9 @@ approval_ref
 
 不得采用以下做法：修改 ETF Basic 的源端 `L` 值、把因子 coverage 降级为 WARN、删除该代码的期望覆盖、把例外写回 Raw，或无限期无审计地复制上一日因子。
 
-隔离验证已覆盖登记 schema、缺 Raw 注入、Raw 同值恢复、Raw 异值拒绝、Basic 非 `L`、受控 delta 提升、现有 ETF Silver checks/readiness、bootstrap、sensor 和静态门禁。`ETF_DAILY_COVERAGE_POLICY_REVISION` 已升至 `fund_daily_warn__fund_adj_blocking_v3`。正式应用到 2026-09-15 及以后日期仍须另列写 Lake 与重新运行的范围。
+隔离验证已覆盖登记 schema、缺 Raw 注入、Raw 同值恢复、Raw 异值拒绝、Basic 非 `L`、受控 delta 提升、现有 ETF Silver checks/readiness、bootstrap、sensor 和静态门禁。`ETF_DAILY_COVERAGE_POLICY_REVISION` 已升至 `fund_daily_warn__fund_adj_blocking_v3`。
+
+2026-09-21 已完成首个正式恢复：先刷新 ETF Basic 的 Raw/Silver freshness 证据，随后受控重跑 `silver_etf_adj_factor_update_job[2026-09-15]`。现有 Silver 文件仅增加批准的 `512390.SH` 冻结因子行（`1.3094 / NULL`），从 1,649 行变为 1,650 行；写模式为 `promote_terminal_exception_delta`。六条既有 blocking checks 全绿，分区 readiness 已恢复；Raw、历史失败记录、runless event 和 sensor 状态均未改变。
 
 ---
 

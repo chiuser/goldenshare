@@ -637,7 +637,9 @@ Raw 的 `fund_adj` Parquet、字段 schema、Tushare source-row count、分页�
 
 开发验收必须至少证明：Raw 缺 `512390.SH` 时仅 Silver 注入一行；Raw 恢复同值时优先源端且不重复；Raw 恢复异值时不提升；`retired`、过期或 Basic 非 `L` 不注入；未登记缺码依旧使现有 blocking coverage 失败；metadata 有登记 hash/数量但 cursor 不膨胀；既有 bootstrap 日期范围与原物理审计结果不变。
 
-隔离验证已通过：264 个定向 ETF 测试覆盖登记解析、候选注入、源端同值恢复/异值拒绝、Basic 非 `L`、受控 delta 提升、check/readiness、bootstrap、sensor 和静态门禁。当前仍不授权：重跑 2026-09-15 及以后分区、补 Dagster event、清理失败状态，或启停任何 sensor。正式数据恢复须另行批准。
+隔离验证已通过：264 个定向 ETF 测试覆盖登记解析、候选注入、源端同值恢复/异值拒绝、Basic 非 `L`、受控 delta 提升、check/readiness、bootstrap、sensor 和静态门禁。
+
+正式恢复已于 2026-09-21 受控完成：先按现有入口刷新 `raw_etf_basic_update_job` 与 `silver_etf_basic_update_job` 的 freshness 证据，两者内容 hash 均未变化、物理快照按 `reuse_existing` 处理；再运行 `silver_etf_adj_factor_update_job[2026-09-15]`。该分区从 1,649 行提升为 1,650 行，唯一新增 `512390.SH / 2026-09-15 / 1.3094 / NULL`，materialization 写模式为 `promote_terminal_exception_delta`。六条既有 blocking checks 均通过并绑定新 materialization，readiness 为 `ready`。Raw 未被改写，未补 runless event、未清理历史失败记录、未启停 sensor。
 
 本次升级的性能与验收约束：
 
