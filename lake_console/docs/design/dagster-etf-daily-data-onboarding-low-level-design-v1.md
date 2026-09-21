@@ -639,7 +639,7 @@ Raw 的 `fund_adj` Parquet、字段 schema、Tushare source-row count、分页�
 
 隔离验证已通过：264 个定向 ETF 测试覆盖登记解析、候选注入、源端同值恢复/异值拒绝、Basic 非 `L`、受控 delta 提升、check/readiness、bootstrap、sensor 和静态门禁。
 
-正式恢复已于 2026-09-21 受控完成：先按现有入口刷新 `raw_etf_basic_update_job` 与 `silver_etf_basic_update_job` 的 freshness 证据，两者内容 hash 均未变化、物理快照按 `reuse_existing` 处理；再运行 `silver_etf_adj_factor_update_job[2026-09-15]`。该分区从 1,649 行提升为 1,650 行，唯一新增 `512390.SH / 2026-09-15 / 1.3094 / NULL`，materialization 写模式为 `promote_terminal_exception_delta`。六条既有 blocking checks 均通过并绑定新 materialization，readiness 为 `ready`。Raw 未被改写，未补 runless event、未清理历史失败记录、未启停 sensor。
+正式恢复已于 2026-09-21 受控完成：先按现有入口刷新 `raw_etf_basic_update_job` 与 `silver_etf_basic_update_job` 的 freshness 证据，两者内容 hash 均未变化、物理快照按 `reuse_existing` 处理；再依次运行 `silver_etf_adj_factor_update_job[2026-09-15]`、`[2026-09-16]`、`[2026-09-17]`、`[2026-09-18]`。四个分区各从 1,649 行提升为 1,650 行，唯一新增均为对应日期的 `512390.SH / 1.3094 / NULL`，materialization 写模式均为 `promote_terminal_exception_delta`。每个分区的六条既有 blocking checks 均通过并绑定新 materialization，readiness 均为 `ready`。随后 catalog 驱动的物理复审确认 2026-09-15 至 2026-09-18 每日 145/145 个已审计资产存在，零缺文件、零缺 serving 行。Raw 未被改写，未补 runless event、未清理历史失败记录、未启停 sensor。
 
 本次升级的性能与验收约束：
 
