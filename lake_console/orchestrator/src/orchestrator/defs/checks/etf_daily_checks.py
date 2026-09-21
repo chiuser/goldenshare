@@ -13,6 +13,10 @@ from orchestrator.defs.assets.etf_daily import (
     silver_etf_adj_factor,
     silver_etf_daily,
 )
+from orchestrator.defs.corrections.etf_adj_factor_terminal_exceptions import (
+    EtfAdjFactorTerminalExceptionResolution,
+    resolve_etf_adj_factor_terminal_exceptions,
+)
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
     FUND_ADJ_RAW_SPEC,
@@ -78,6 +82,7 @@ class EtfDailySilverFileAudit:
     source_parity: EtfDailySourceParityAudit | None
     domain: EtfDailyDomainAudit | None
     coverage: EtfDailyCoverageAudit | None
+    exception_resolution: EtfAdjFactorTerminalExceptionResolution | None
     materialization_metadata: dict[str, Any] | None
     materialization_errors: tuple[str, ...]
     basic_reference_errors: tuple[str, ...]
@@ -337,6 +342,7 @@ def audit_etf_daily_silver_partition(
             source_parity=None,
             domain=None,
             coverage=None,
+            exception_resolution=None,
             materialization_metadata=metadata,
             materialization_errors=_silver_materialization_errors(
                 metadata=metadata,
@@ -369,6 +375,7 @@ def audit_etf_daily_silver_partition(
     source_parity: EtfDailySourceParityAudit | None = None
     domain: EtfDailyDomainAudit | None = None
     coverage: EtfDailyCoverageAudit | None = None
+    exception_resolution: EtfAdjFactorTerminalExceptionResolution | None = None
     raw_errors: tuple[str, ...] = ()
     error_type: str | None = None
     try:
@@ -400,6 +407,18 @@ def audit_etf_daily_silver_partition(
                     Path(reference.silver_uri),
                     hive_partitioning=False,
                 )
+                if (
+                    spec is FUND_ADJ_SILVER_SPEC
+                    and raw_sql is not None
+                    and check_kind in {None, "source_parity", "coverage"}
+                    and not raw_errors
+                ):
+                    exception_resolution = resolve_etf_adj_factor_terminal_exceptions(
+                        connection,
+                        partition_key=partition_key,
+                        raw_relation_sql=raw_sql,
+                        basic_relation_sql=basic_sql,
+                    )
                 if check_kind in {None, "source_filter"}:
                     source_filter = audit_etf_daily_source_filter(
                         connection,
@@ -418,6 +437,7 @@ def audit_etf_daily_silver_partition(
                         silver_relation_sql=silver_sql,
                         basic_relation_sql=basic_sql,
                         spec=spec,
+                        exception_resolution=exception_resolution,
                     )
                 if (
                     check_kind in {None, "coverage"}
@@ -451,6 +471,7 @@ def audit_etf_daily_silver_partition(
         source_parity=source_parity,
         domain=domain,
         coverage=coverage,
+        exception_resolution=exception_resolution,
         materialization_metadata=metadata,
         materialization_errors=_silver_materialization_errors(
             metadata=metadata,
@@ -867,6 +888,34 @@ def evaluate_etf_daily_silver_check(
                 "silver_row_count": relation.row_count if relation is not None else 0,
                 "reject_reason_counts": (
                     dict(parity.reason_counts) if parity is not None else {}
+                ),
+                "approved_exception_row_count": (
+                    parity.approved_exception_row_count
+                    if parity is not None
+                    else audit.exception_resolution.approved_exception_row_count
+                    if audit.exception_resolution is not None
+                    else 0
+                ),
+                "exception_registry_hash": (
+                    parity.exception_registry_hash
+                    if parity is not None
+                    else audit.exception_resolution.registry_hash
+                    if audit.exception_resolution is not None
+                    else None
+                ),
+                "exception_source_resumption_count": (
+                    parity.exception_source_resumption_count
+                    if parity is not None
+                    else audit.exception_resolution.source_resumption_count
+                    if audit.exception_resolution is not None
+                    else 0
+                ),
+                "exception_sample_codes": (
+                    list(parity.exception_sample_codes)
+                    if parity is not None
+                    else list(audit.exception_resolution.sample_codes)
+                    if audit.exception_resolution is not None
+                    else []
                 ),
                 "domain_failure_counts": (
                     dict(domain.failure_counts) if domain is not None else {}

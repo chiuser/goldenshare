@@ -1,0 +1,10 @@
+schema_version: 1
+entries:
+  - ts_code: 512390.SH
+    effective_from: "2026-09-15"
+    effective_to: null
+    frozen_adj_factor: "1.3094"
+    frozen_discount_rate: null
+    status: active
+    reason_code: terminal_trading_suspension
+    approval_ref: DG_DATA_EXCEPTIONS.md#512390-sh

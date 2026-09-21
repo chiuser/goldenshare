@@ -11,6 +11,9 @@ from typing import Any, cast
 
 import dagster as dg
 
+from orchestrator.defs.corrections.etf_adj_factor_terminal_exceptions import (
+    resolve_etf_adj_factor_terminal_exceptions,
+)
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
     FUND_ADJ_RAW_SPEC,
@@ -419,6 +422,16 @@ def _silver_status(
             silver_relation_sql=silver_sql,
             basic_relation_sql=basic_sql,
             spec=spec,
+            exception_resolution=(
+                resolve_etf_adj_factor_terminal_exceptions(
+                    connection,
+                    partition_key=trade_date,
+                    raw_relation_sql=raw_sql,
+                    basic_relation_sql=basic_sql,
+                )
+                if spec is FUND_ADJ_SILVER_SPEC
+                else None
+            ),
         )
         domain = audit_etf_daily_domain(
             connection,

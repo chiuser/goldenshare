@@ -238,7 +238,7 @@ def test_silver_rejection_reason_contract_is_frozen() -> None:
 
 
 def test_silver_check_names_keep_warn_checks_out_of_blocking_catalog_contract() -> None:
-    assert ETF_DAILY_COVERAGE_POLICY_REVISION == "fund_daily_warn__fund_adj_blocking_v2"
+    assert ETF_DAILY_COVERAGE_POLICY_REVISION == "fund_daily_warn__fund_adj_blocking_v3"
     assert SILVER_ETF_DAILY_BLOCKING_CHECKS == (
         "silver_etf_daily_contract_check",
         "silver_etf_daily_source_filter_check",

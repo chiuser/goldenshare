@@ -575,9 +575,9 @@ discount_rate_nonfinite_count  # null 不计失败
 - `EtfDailyCoverageAudit.error_codes` 统一缺码/多余 Silver 代码的失败事实，日常 check、因子 readiness、Bootstrap 物理验收共用。日线仍只告警。事件补录只有通过当前因子 coverage 验收后才能记录成功。
 - 不改 Raw/Silver 字段、写入原子性或 source filter，不在 writer 内补值/删行/回滚；阻断的是可用性和验收。
 
-### 11.7 待实现：`fund_adj` 终止交易例外登记
+### 11.7 已实现、待正式数据恢复：`fund_adj` 终止交易例外登记
 
-> 状态：**设计冻结，尚未实现。** 本节是对 §11.6 因子 blocking 口径的窄例外，不新增或改名 asset、job、sensor、partition、check、Catalog 条目、Dagster event 或 Lake 路径。
+> 状态：**代码与隔离验证已完成，尚未执行正式数据恢复。** 本节是对 §11.6 因子 blocking 口径的窄例外，不新增或改名 asset、job、sensor、partition、check、Catalog 条目、Dagster event 或 Lake 路径。
 
 #### 11.7.1 问题边界与权威事实
 
@@ -587,7 +587,7 @@ discount_rate_nonfinite_count  # null 不计失败
 
 #### 11.7.2 新的受控输入与解析合同
 
-后续实现新增一个 version-controlled、schema-validated 的登记文件，建议放在 `src/orchestrator/defs/corrections/etf_adj_factor_terminal_exceptions.yaml`。该文件不是 Lake 数据集、不会被 Dagster 定义发现，也不允许在运行时写入。仅 `fund_adj` Silver 的受控 helper 导入它；Raw writer、source publication probe、sensor 和 ETF 日线 (`fund_daily`) 均不得读取它。
+实现已新增 version-controlled、schema-validated 的登记文件：`src/orchestrator/defs/corrections/etf_adj_factor_terminal_exceptions.yaml`，并由唯一解析 helper 加载。该文件不是 Lake 数据集、不会被 Dagster 定义发现，也不允许在运行时写入。仅 `fund_adj` Silver 的受控 helper 导入它；Raw writer、source publication probe、sensor 和 ETF 日线 (`fund_daily`) 均不得读取它。
 
 每一行使用如下固定字段：
 
@@ -602,7 +602,7 @@ discount_rate_nonfinite_count  # null 不计失败
 | `reason_code` | ASCII、稳定枚举 | 终止交易例外的机器可读原因 |
 | `approval_ref` | 非空文本 | 指向人工批准与审计依据 |
 
-解析器必须拒绝未知字段、重复代码、无效日期范围、非正 `frozen_adj_factor`、非有限数、`retired` 后仍被调用，或非 ETF 交易所后缀。解析结果按 `ts_code` 排序并生成内容 hash；不得由 asset、sensor 或 check 自行解析 YAML。
+解析器拒绝未知字段、重复代码、无效日期范围、非正 `frozen_adj_factor`、非有限数或非 ETF 交易所后缀。`retired` 是合法退出状态，但不会出现在 active resolution 中。解析结果按 `ts_code` 排序并生成内容 hash；不得由 asset、sensor 或 check 自行解析 YAML。
 
 #### 11.7.3 分类、写入与退出语义
 
@@ -614,6 +614,8 @@ discount_rate_nonfinite_count  # null 不计失败
 4. 退出不自动改文件：维护者通过一次代码审计后，把记录改为 `retired` 或填写 `effective_to`。之后日常分区不再补值；若 Raw 仍缺码，blocking coverage 重新失败。这保证退出可通过单行版本化变更完成，且不会静默丢失问题。
 
 Raw 的 `fund_adj` Parquet、字段 schema、Tushare source-row count、分页证据和 Raw checks 完全不变。Silver 的文件 schema 与路径也不变；只是允许一个有批准依据的 Silver-only 补充候选。`EtfDailySilverWriteResult` 增加聚合字段：`approved_exception_row_count`、`exception_registry_hash`、`exception_source_resumption_count` 及最多 20 个样本。它们进入 materialization/check metadata，不进入 cursor、run key 或 run config。
+
+若目标 Silver 文件已存在，默认仍只允许内容完全相等的 `reuse_existing`。实现额外允许一种受控修复：候选与现有目标的差异必须是“候选仅新增零到多个当前有效登记的冻结因子行”，现有目标不能含候选没有的行，且其它候选差异为零；只有差异非空时才用同卷 `os.replace()` 提升，写模式记为 `promote_terminal_exception_delta`。这不是一般 `replace`，不能用于 Basic、Raw、公式或其它来源变化。
 
 #### 11.7.4 全消费者同步范围
 
@@ -627,15 +629,15 @@ Raw 的 `fund_adj` Parquet、字段 schema、Tushare source-row count、分页�
 | 历史物理审计 / bootstrap writer 消费者 | `defs/bootstrap/etf_daily_bootstrap_apply.py`、`etf_daily_physical_batch_audit.py` | 共享 writer/audit 语义；既有 2025 至 2026-09-03 历史范围在例外起始日前，验收结果应保持不变。未来覆盖例外日期的受控历史动作才读取登记。 |
 | 测试 | `test_etf_daily_silver_writer.py`、`test_etf_daily_silver_checks.py`、`test_etf_daily_lake_readiness.py`、`test_etf_daily_bootstrap.py`、`test_etf_daily_physical_batch_audit.py` | 覆盖命中、退出、源端恢复一致/不一致、Basic 变更、无登记缺码仍失败、Raw 原样及历史范围不受影响。 |
 
-`SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS` 的名称和数量不变；`ETF_DAILY_COVERAGE_POLICY_REVISION` 只有在实现并通过全消费者回归后才允许更新。Catalog 的 schema、path、source system 与 blocking check 清单不变。
+`SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS` 的名称和数量不变；实现完成后 `ETF_DAILY_COVERAGE_POLICY_REVISION` 已更新为 `fund_daily_warn__fund_adj_blocking_v3`。Catalog 的 schema、path、source system 与 blocking check 清单不变。
 
 #### 11.7.5 性能、验证与正式执行边界
 
-登记预期为个位数，运行时每分区仅一次本地解析/校验和一个内存内按代码索引；不新增网络、Dagster event 查询、Lake 扫描、SQL join 或 sensor 热路径读取。正常没有命中时，DuckDB 分类与现有查询次数保持不变；命中时只增加至多登记行数的候选合并。
+登记预期为个位数，运行时每分区仅一次本地解析/校验和一个内存内按代码索引；不新增网络、Dagster event 查询、额外 Lake 文件扫描或独立 sensor 查询。只在既有 writer/check/readiness 已读取 Raw 与 Basic 的上下文中，对最多登记条目执行一次有界 `VALUES` join。正常没有命中时，DuckDB 分类与现有查询次数保持不变；命中时只增加至多登记行数的候选合并。
 
 开发验收必须至少证明：Raw 缺 `512390.SH` 时仅 Silver 注入一行；Raw 恢复同值时优先源端且不重复；Raw 恢复异值时不提升；`retired`、过期或 Basic 非 `L` 不注入；未登记缺码依旧使现有 blocking coverage 失败；metadata 有登记 hash/数量但 cursor 不膨胀；既有 bootstrap 日期范围与原物理审计结果不变。
 
-本节不授权：创建登记文件、修改生产代码、重跑 2026-09-15 及以后分区、补 Dagster event、清理失败状态，或启停任何 sensor。实施与数据修复须分别获得批准。
+隔离验证已通过：264 个定向 ETF 测试覆盖登记解析、候选注入、源端同值恢复/异值拒绝、Basic 非 `L`、受控 delta 提升、check/readiness、bootstrap、sensor 和静态门禁。当前仍不授权：重跑 2026-09-15 及以后分区、补 Dagster event、清理失败状态，或启停任何 sensor。正式数据恢复须另行批准。
 
 本次升级的性能与验收约束：
 
