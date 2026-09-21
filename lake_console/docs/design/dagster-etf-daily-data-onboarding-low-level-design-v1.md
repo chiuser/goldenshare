@@ -575,6 +575,68 @@ discount_rate_nonfinite_count  # null 不计失败
 - `EtfDailyCoverageAudit.error_codes` 统一缺码/多余 Silver 代码的失败事实，日常 check、因子 readiness、Bootstrap 物理验收共用。日线仍只告警。事件补录只有通过当前因子 coverage 验收后才能记录成功。
 - 不改 Raw/Silver 字段、写入原子性或 source filter，不在 writer 内补值/删行/回滚；阻断的是可用性和验收。
 
+### 11.7 待实现：`fund_adj` 终止交易例外登记
+
+> 状态：**设计冻结，尚未实现。** 本节是对 §11.6 因子 blocking 口径的窄例外，不新增或改名 asset、job、sensor、partition、check、Catalog 条目、Dagster event 或 Lake 路径。
+
+#### 11.7.1 问题边界与权威事实
+
+2026-09-21 只读核验表明，`512390.SH` 在当前 content-addressed ETF Basic Raw/Silver 快照中仍为 `list_status=L`、`exchange=SH`；当前 ETF Basic schema 不含停牌、清算或退市生效字段。`classify_etf_basic_requestability(...)` 因而按既有合同把它作为 Silver 期望代码。Tushare `fund_adj` 在 2026-09-15、2026-09-18 均没有该代码，导致 2026-09-15 的 `silver_etf_adj_factor_basic_coverage_check` 唯一缺码失败。该分区已有文件及失败 check，`_evaluate_silver(...)` 会按最早日期的 `existing_file_check_failed` 停止，不越过它提交后续分区。
+
+这不是 Basic 已改为非上市但消费者未更新；真实冲突是“业务已确认终止交易”尚未被 Tushare Basic 的有限字段表达。根目录 `DG_DATA_EXCEPTIONS.md` 中此前人工补值只覆盖至 2026-09-14，不能作为运行时代码输入。
+
+#### 11.7.2 新的受控输入与解析合同
+
+后续实现新增一个 version-controlled、schema-validated 的登记文件，建议放在 `src/orchestrator/defs/corrections/etf_adj_factor_terminal_exceptions.yaml`。该文件不是 Lake 数据集、不会被 Dagster 定义发现，也不允许在运行时写入。仅 `fund_adj` Silver 的受控 helper 导入它；Raw writer、source publication probe、sensor 和 ETF 日线 (`fund_daily`) 均不得读取它。
+
+每一行使用如下固定字段：
+
+| 字段 | 类型/规则 | 含义 |
+| --- | --- | --- |
+| `ts_code` | 非空、唯一、`.SH`/`.SZ` 后缀 | 唯一 ETF 代码 |
+| `effective_from` | ISO 日期 | 首个允许由冻结值补入 Silver 的交易日 |
+| `effective_to` | ISO 日期或 `null` | 最后适用日；`null` 不等于永久免审计 |
+| `frozen_adj_factor` | 有限正数 | 经批准的冻结复权因子 |
+| `frozen_discount_rate` | 有限数或 `null` | 保持 `NULL`，不填零 |
+| `status` | `active` / `retired` | 只有 `active` 可被运行时使用 |
+| `reason_code` | ASCII、稳定枚举 | 终止交易例外的机器可读原因 |
+| `approval_ref` | 非空文本 | 指向人工批准与审计依据 |
+
+解析器必须拒绝未知字段、重复代码、无效日期范围、非正 `frozen_adj_factor`、非有限数、`retired` 后仍被调用，或非 ETF 交易所后缀。解析结果按 `ts_code` 排序并生成内容 hash；不得由 asset、sensor 或 check 自行解析 YAML。
+
+#### 11.7.3 分类、写入与退出语义
+
+`write_etf_adj_factor_silver_partition(...)` 及其共享分类 SQL/候选层必须在 Raw 与 Basic 分类后合并例外候选，严格遵守：
+
+1. Raw 有同键 `(ts_code, trade_date)` 时一律采用 Raw；若它与 active 例外的冻结数值不同，写入前抛出 `terminal_exception_source_value_changed`，不 promote。
+2. Raw 缺同键时，只有 active、日期命中、Basic 仍为 `L` 且交易所匹配的登记行可生成一条 Silver 候选；生成值精确使用登记值，`discount_rate=null` 保持 null。
+3. Basic 不再为 `L` 或记录为 `retired` / 日期过期时，例外不生成候选；coverage 恢复为通常语义。
+4. 退出不自动改文件：维护者通过一次代码审计后，把记录改为 `retired` 或填写 `effective_to`。之后日常分区不再补值；若 Raw 仍缺码，blocking coverage 重新失败。这保证退出可通过单行版本化变更完成，且不会静默丢失问题。
+
+Raw 的 `fund_adj` Parquet、字段 schema、Tushare source-row count、分页证据和 Raw checks 完全不变。Silver 的文件 schema 与路径也不变；只是允许一个有批准依据的 Silver-only 补充候选。`EtfDailySilverWriteResult` 增加聚合字段：`approved_exception_row_count`、`exception_registry_hash`、`exception_source_resumption_count` 及最多 20 个样本。它们进入 materialization/check metadata，不进入 cursor、run key 或 run config。
+
+#### 11.7.4 全消费者同步范围
+
+以下实现方与消费者必须使用同一 helper，禁止 writer 单独补值、check 再次误判：
+
+| 范围 | 现有代码锚点 | 实施要求 |
+| --- | --- | --- |
+| 日常 Silver writer / asset | `defs/io/etf_daily_silver_writer.py:write_etf_adj_factor_silver_partition`、`defs/assets/etf_daily.py:silver_etf_adj_factor` | 生成受控候选并记录聚合 metadata；不改 Raw。 |
+| Silver checks | `defs/checks/etf_daily_checks.py`、`audit_etf_daily_source_parity`、`audit_etf_daily_basic_coverage` | coverage、parity 和 source filter 识别批准例外；未批准的缺码仍 ERROR。 |
+| readiness / sensor | `defs/asset_guards/etf_daily_lake_readiness.py`、`defs/sensors/etf_daily_sensor.py` | 仅复用检查后的 readiness；不读取登记、不改变最近 10 日、最早缺口或 fail-closed 行为。 |
+| 历史物理审计 / bootstrap writer 消费者 | `defs/bootstrap/etf_daily_bootstrap_apply.py`、`etf_daily_physical_batch_audit.py` | 共享 writer/audit 语义；既有 2025 至 2026-09-03 历史范围在例外起始日前，验收结果应保持不变。未来覆盖例外日期的受控历史动作才读取登记。 |
+| 测试 | `test_etf_daily_silver_writer.py`、`test_etf_daily_silver_checks.py`、`test_etf_daily_lake_readiness.py`、`test_etf_daily_bootstrap.py`、`test_etf_daily_physical_batch_audit.py` | 覆盖命中、退出、源端恢复一致/不一致、Basic 变更、无登记缺码仍失败、Raw 原样及历史范围不受影响。 |
+
+`SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS` 的名称和数量不变；`ETF_DAILY_COVERAGE_POLICY_REVISION` 只有在实现并通过全消费者回归后才允许更新。Catalog 的 schema、path、source system 与 blocking check 清单不变。
+
+#### 11.7.5 性能、验证与正式执行边界
+
+登记预期为个位数，运行时每分区仅一次本地解析/校验和一个内存内按代码索引；不新增网络、Dagster event 查询、Lake 扫描、SQL join 或 sensor 热路径读取。正常没有命中时，DuckDB 分类与现有查询次数保持不变；命中时只增加至多登记行数的候选合并。
+
+开发验收必须至少证明：Raw 缺 `512390.SH` 时仅 Silver 注入一行；Raw 恢复同值时优先源端且不重复；Raw 恢复异值时不提升；`retired`、过期或 Basic 非 `L` 不注入；未登记缺码依旧使现有 blocking coverage 失败；metadata 有登记 hash/数量但 cursor 不膨胀；既有 bootstrap 日期范围与原物理审计结果不变。
+
+本节不授权：创建登记文件、修改生产代码、重跑 2026-09-15 及以后分区、补 Dagster event、清理失败状态，或启停任何 sensor。实施与数据修复须分别获得批准。
+
 本次升级的性能与验收约束：
 
 | 环节 | 数量与读写边界 | 验收与拒绝策略 |

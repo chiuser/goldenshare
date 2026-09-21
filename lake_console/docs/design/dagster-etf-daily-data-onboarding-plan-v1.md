@@ -379,6 +379,41 @@ P0 三日样本：
 
 该 review 已关闭；批准后的代码、Catalog、check 级别、readiness、历史验收/事件和测试必须同步完成，才能生成正式 Silver Plan。仍遵守“检查失败不回滚文件、不自动覆盖”的既有口径。
 
+### 8.4 待实现：终止交易 ETF 因子受控例外
+
+> 状态：**待实现，未授权修改代码或正式数据。** 本节仅冻结 2026-09-21 对 `512390.SH` 的问题分析与建议方案；不将例外当作一般性缺码降级，也不改变 `fund_adj` 的 blocking/ERROR 政策。
+
+`512390.SH`（平安MSCI中国A股低波动ETF）已确认进入清算、不会恢复交易；但当前 Tushare ETF Basic Raw/Silver 快照仍为 `list_status=L`，ETF Basic 合同也没有停牌、清算或退市生效日期字段。因此，它仍进入因子 Silver 的期望集合，而 Tushare `fund_adj` 在 2026-09-15 及之后不再返回该代码。2026-09-15 的 Silver 文件已写出，但 `silver_etf_adj_factor_basic_coverage_check` 因唯一缺码 `512390.SH` 失败；最近窗口 sensor 按最早未 ready 分区 fail-closed，不能越过该日期推进后续 Silver 分区。
+
+此前根目录 `DG_DATA_EXCEPTIONS.md` 仅记录人工批准的 2026-09-08 至 2026-09-14 修复，明确没有延伸到 2026-09-15 及以后。该 Markdown 是人工审计证据，不是生产运行时输入，不能继续靠逐日人工补值维持日常链路。
+
+建议新增一个**版本化、机器可读、仅供 ETF 因子 Silver 使用的终止交易例外登记**。它不是 Dagster asset、动态分区、数据库表或 Lake 文件，不产生额外 check/event；运行时仅加载一个很小的受控登记集合。每条记录至少包含：
+
+```text
+ts_code
+effective_from
+effective_to                 # 可空；空表示尚未人工退役
+frozen_adj_factor
+frozen_discount_rate         # 可空，保留 NULL 语义
+status                       # active 或 retired
+reason_code
+approval_ref
+```
+
+冻结语义如下：
+
+1. Raw 继续逐字保存 Tushare `fund_adj` 返回，不写入、补入或伪造例外行。
+2. 仅当登记为 `active`、日期在有效范围、Basic 仍按现有合同认定为可用、且 Raw 缺少该代码时，Silver 候选才补入登记的冻结因子行。
+3. 若 Raw 恢复返回该代码且数值与登记值相同，优先使用 Raw 行；若任一因子值不同，必须在 promote 前 fail-closed，要求人工复核，禁止静默覆盖源端新事实。
+4. 若 Basic 后续改为非 `L`，既有筛选自然不再要求该代码；运行时不自动修改登记，维护者在只读核验后将其改为 `retired` 或填入 `effective_to`。
+5. `retired` 或过期记录不参与新分区写入。若随后 Raw 仍缺码，原 blocking coverage check 必须重新失败；退出例外不重写历史 Raw/Silver 文件或 Dagster event。
+
+实现必须让 writer、source parity、coverage、check、readiness 和物理审计复用同一例外解析与分类结果。允许的 Silver 行数关系改为：`raw_selected + approved_exception_rows + rejected = raw_row_count + approved_exception_rows`；例外行不得被误报为 Silver extra row。materialization/check metadata 只记录例外数量、有限样本、登记文件内容 hash 和是否命中源端恢复，不写入完整登记内容。Sensor cursor、run key、分区、job、check 名称及数量保持不变。
+
+不得采用以下做法：修改 ETF Basic 的源端 `L` 值、把因子 coverage 降级为 WARN、删除该代码的期望覆盖、把例外写回 Raw，或无限期无审计地复制上一日因子。
+
+代码实施前必须先完成配置项/消费者审计、为登记 schema 写正反用例，并获得单独批准；正式应用到 2026-09-15 及以后日期仍须另列写 Lake 与重新运行的范围。
+
 ---
 
 ## 9. 日常 Dagster 运行
