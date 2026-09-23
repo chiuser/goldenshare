@@ -1,0 +1,326 @@
+# 新闻智能分类、摘要、排序与飞书推送低层设计 v1
+
+状态：**编码前评审稿；尚未开发、迁移、安装模型、执行 M0/M1、部署或发送飞书消息。**
+
+创建日期：2026-09-21。
+
+上位方案：[新闻智能分类、摘要、排序与飞书推送方案 v1](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-plan-v1.md)。本文把已确认的 D1–D17 转成代码、表、API、页面、状态机、测试与阶段门禁。所有依赖真实数据或模型基准的数值均标为 M0/M1 输出，不在 LLD 中猜测。
+
+---
+
+## 1. 开发目标、依据与边界
+
+### 1.1 目标
+
+1. 只处理三个来源各自上次成功 Raw `id` 水位之后的新身份。
+2. 将全候选、事件、分类、重要度、摘要、Top 30、Top 15、影子观察和投递结果持久化到 HDD。
+3. 在现有 `frontend/` 运营后台“审查中心 → 新闻智能”提供桌面端 Debug 与人工反馈。
+4. 为飞书每条事件生成不可枚举的免登录 Wealth 原文详情链接；公开页不显示任何模型或系统字段。
+5. 使用新闻简报专用飞书机器人；任一来源发现不完整或排序未完成时整次不发送。
+
+### 1.2 非目标
+
+- 不读取 `news.score`，不修改三个来源表，不复制完整原文。
+- 不恢复 legacy 目录，不让 Biz 依赖 Ops，不让 Ops 依赖 Biz。
+- 不建设移动端 Debug、模型训练平台、即时飞书告警或个性化推荐。
+- 本文不授权安装依赖、下载模型、迁移数据库、写 Prod、创建 systemd 或发送真实消息。
+
+### 1.3 当前证据
+
+- Raw 三表均有稳定自增 `id` 和唯一 `row_key_hash`；重复 upsert 不产生新 `id`。
+- Serving Light 三表提供业务展示事实；`cctv_news` 只有内容日期，没有日内发布时间。
+- 现有 Reader API 为 `/api/v1/wealth/market/news/items/{content_source}/{news_id}`，带 `require_quote_access`，只支持 `news/major_news`。
+- 现有 Wealth Reader 已有 `URL/HTML/TEXT` 互斥合同和 HTML sanitizer。
+- `wealth/src/app/routes/WealthRouter.tsx` 当前在所有业务路由之前执行登录守卫；公开详情必须在该守卫之前做唯一、显式分流。
+- `frontend/` 是现行“财势乾坤数据运营管理综合平台”，已有“审查中心”；`wealth/` 是独立用户行情产品，二者不共享 Shell。
+- Prod 默认 `pg_default` 在 SSD；HDD tablespace 为 `gs_raw_cold_hdd`。
+
+---
+
+## 2. 架构与依赖
+
+```text
+Raw id discovery + Serving facts
+             │
+             ▼
+src/biz/news_intelligence
+  domain / repositories / pipeline / policies / queries
+             │ ports
+             ▼
+src/app/runtime/news_intelligence
+  scheduler / worker / model adapters / Feishu adapter
+             │
+       ┌─────┴───────────────┐
+       ▼                     ▼
+frontend Ops Debug       wealth Public Detail
+authenticated            anonymous, field-minimized
+```
+
+依赖保持 `App → Biz → Foundation`。模型和飞书是 Biz 定义的端口、App 提供的适配器。Ops 只可接收 App 写入的 TaskRun 观测投影；新闻业务表、评分和投递合同不进入 `src/ops`。
+
+### 2.1 目标目录
+
+```text
+src/biz/models/wealth/news_intelligence/
+  policy.py run.py candidate.py event.py analysis.py delivery.py feedback.py
+src/biz/services/wealth/news_intelligence/
+  canonical_reader.py discovery_service.py clustering_service.py
+  classification_service.py scoring_service.py summary_service.py
+  ranking_service.py delivery_builder.py public_detail_service.py
+src/biz/queries/wealth/news_intelligence/
+  debug_query_service.py public_detail_query_service.py
+src/biz/schemas/wealth/news_intelligence/
+  debug.py public_detail.py delivery.py
+src/app/runtime/news_intelligence/
+  scheduler.py worker.py model_adapters.py feishu_adapter.py lifespan.py
+src/app/api/v1/
+  news_intelligence_debug.py news_public_detail.py
+frontend/src/pages/
+  ops-news-intelligence-page.tsx
+frontend/src/features/news-intelligence/
+wealth/src/pages/news-detail/
+wealth/src/features/news-detail/
+```
+
+`src/app/api/v1` 仅做认证/匿名入口、依赖注入和异常映射，业务查询全部委托 Biz；不得在路由中计算排名、拼 DTO 或读取 ORM。
+
+---
+
+## 3. 数据库低层设计
+
+### 3.1 共同规则
+
+- schema：`app`；前缀：`wealth_news_digest_`。
+- 所有表、TOAST、主键/唯一/普通索引：`gs_raw_cold_hdd`。
+- 迁移先断言 tablespace 存在；缺失时失败，禁止 SSD fallback。
+- JSON 使用 `JSONB`，只存 schema 校验后的有界结构；正文仍从 Serving Light 读取。
+- 所有时间为 `timestamptz`，业务窗口时区固定 `Asia/Shanghai`。
+- 禁止自动 downgrade 删除数据；修订迁移采用前向补偿。
+
+### 3.2 表与关键约束
+
+| 表 | 主键/唯一键 | 关键字段与职责 |
+|---|---|---|
+| `wealth_news_digest_policy` | `policy_id`; `name` unique | enabled、五时点、timezone、delivery/debug 上限、激活版本、专用凭据引用 |
+| `wealth_news_digest_run` | `run_id`; `(policy_id, scheduled_at)` unique | 展示窗口、冻结时点、版本快照、阶段、单调进度、终态、结果计数 |
+| `wealth_news_digest_source_cursor` | `(policy_id, source_type, cursor_kind)` | `last_raw_id`、`frozen_max_raw_id`、成功 Run；FIXED/SHADOW 分离 |
+| `wealth_news_digest_candidate` | `candidate_id`; `(run_id, source_type, source_key)` unique | source_sequence、hash、时间、stage、reason、event、初/终分与排名；不存正文 |
+| `wealth_news_digest_event` | `event_id`; `event_fingerprint` index | 代表来源、首末观察时间、embedding bytes/dim/model、状态 |
+| `wealth_news_digest_event_member` | `(event_id, source_type, source_key)` | 事件成员及新增事实标记；禁止重复来源成员 |
+| `wealth_news_digest_analysis` | `analysis_id`; `(event_id, analysis_version)` unique | 标签、七维评分、证据、摘要、核验、所有版本与输入/输出 hash |
+| `wealth_news_digest_delivery` | `delivery_id`; `(run_id, target_ref, payload_hash)` unique | Top 15 冻结序列、payload、状态、attempt、响应与时间 |
+| `wealth_news_digest_public_detail` | `public_id` unique; `(delivery_id, event_id)` unique | 随机公开 ID、代表 source_type/source_key、created/revoked；只为正式 delivery 建立 |
+| `wealth_news_digest_shadow_observation` | `observation_id` | 触发、延迟、would-send、复核与后续固定窗口结果；无即时 delivery |
+| `wealth_news_digest_feedback` | `feedback_id`; `(event_id, reviewer_id, feedback_type, created_at)` index | 运营人工标记、可选备注、关联版本；不覆盖冻结分析 |
+
+### 3.3 状态与检查约束
+
+- Run：`DISCOVERING → ENRICHING → RANKING → READY → DELIVERING → SUCCEEDED`；允许 `PARTIAL/FAILED/CANCELLED` 终态。
+- Candidate stage：`DISCOVERED/CLEANED/CLUSTERED/CLASSIFIED/DEEP_ANALYZED/RANKED/EXCLUDED/FAILED`。
+- Delivery：`DRAFT/READY/SENDING/SUCCEEDED/RETRYABLE_FAILED/FINAL_FAILED/SUPPRESSED`。
+- `source_type ∈ {NEWS, MAJOR_NEWS, CCTV_NEWS}`；`cursor_kind ∈ {FIXED, SHADOW}`。
+- 进度字段非负、done 不大于 total；final_rank 必须大于 0；公开详情被撤回后仍统一返回 404。
+
+### 3.4 索引
+
+至少建立：
+
+- Run：`(scheduled_at DESC)`、`(status, scheduled_at)`；
+- Candidate：`(run_id, final_rank)`、`(run_id, stage)`、`(source_type, source_key)`；
+- Event member：`(source_type, source_key)`；
+- Analysis：`(event_id, created_at DESC)`；
+- Delivery：`(status, updated_at)`；
+- Feedback：`(event_id, created_at DESC)`；
+- Public detail 只按 `public_id` 精确查询，不建立可浏览时间索引。
+
+迁移测试必须枚举新 schema 的每个 relation，并核验有效 tablespace；只检查 table 不足以通过。
+
+---
+
+## 4. 增量发现、事务与续跑
+
+### 4.1 Run 冻结
+
+每个计划时点以 `(policy_id, scheduled_at)` 幂等创建 Run。在同一短事务中读取三个 FIXED cursor，分别查询 Raw `max(id)` 并写入冻结上界。后续条件固定为：
+
+```text
+last_success_raw_id < raw.id <= frozen_max_raw_id
+```
+
+Raw 只提供身份序列；按 `row_key_hash` 批量读取 Serving Light 事实。任何来源冻结或读取失败，Run 不进入 READY，三个来源 cursor 均不推进，delivery 记 `SUPPRESSED`。
+
+### 4.2 执行 unit
+
+- discovery unit：一个来源的一批 Raw 身份，批量值由 M0 确定，候选写入即提交；
+- embedding/classification unit：一个有界事件批次；
+- deep-analysis unit：单事件；
+- ranking unit：冻结事件集合的一次确定性排序；
+- delivery unit：一个不可变 payload 的一次发送尝试。
+
+每个 unit 前后检查取消。业务写入与观测写入分事务；观测失败不回滚已提交候选/分析。恢复时从持久化 stage 继续，不重新扩大冻结范围。
+
+### 4.3 Cursor 推进
+
+只有三个来源在冻结范围内都达到允许终态且排名成功，才在一个事务中把三个 FIXED cursor 推进到各自 frozen max。飞书失败不回退 cursor。SHADOW cursor 独立推进，永不改变 FIXED cursor。
+
+---
+
+## 5. 模型与策略端口
+
+Biz 只依赖以下端口：`EmbeddingPort.embed()`、`NliClassifierPort.classify()/verify()`、`GenerativeAnalysisPort.analyze()/summarize()`。App 适配器固定 model id、revision、量化格式和预算。
+
+处理顺序：确定性清洗 → 精确去重 → embedding/事件聚类 → mDeBERTa 多标签与初排 → 有界 Qwen → NLI 摘要核验 → 最终排序。
+
+禁止让模型直接写 0–100 分；它只返回 schema 固定的档位、证据和置信度。任意非法 JSON、超长输出、证据越界或 Prompt 注入迹象都转 reason code。
+
+以下值由 M0/M1 回填：batch、embedding 阈值、deep-analysis limit、token/context、RSS/CPU/wall-clock 预算、核心标签阈值、Precision@15 门槛。LLD 评审不等于批准这些占位值。
+
+---
+
+## 6. 排名、失败与投递
+
+1. 原始总分、门禁结果、多样性调整和最终排名分别保存，前端不得重算。
+2. Top 15 是上限，不足不补齐；Top 30 和全部候选均可审查。
+3. 任一来源发现不完整、冻结集合不完整、ranking 未成功或 payload 校验失败：Feishu adapter 调用次数必须为 0。
+4. 单条 Qwen 摘要失败但来源正文有效、可信度合格时，可用抽取式精简句并标记“摘要降级”；分类/聚类/可信度失败不能借此放行。
+5. payload 生成后不可变；重试只发送相同 payload/hash，不重跑模型。
+6. 专用凭据键建议 `NEWS_DIGEST_FEISHU_WEBHOOK_URL/SECRET`，最终命名在实现前配置审计冻结；禁止回退到 `GOLDENSHARE_FEISHU_*`。
+
+---
+
+## 7. API 合同
+
+### 7.1 运营 Debug（需运营登录）
+
+建议入口由 App 做权限装配，Biz 查询返回事实：
+
+- `GET /api/v1/wealth/news-intelligence/debug/runs`
+- `GET /api/v1/wealth/news-intelligence/debug/runs/{run_id}`
+- `GET /api/v1/wealth/news-intelligence/debug/runs/{run_id}/candidates`
+- `GET /api/v1/wealth/news-intelligence/debug/events/{event_id}`
+- `POST /api/v1/wealth/news-intelligence/debug/events/{event_id}/feedback`
+
+列表必须服务端分页，默认 Top 30；“全部候选”仍分页，禁止整窗一次返回。反馈枚举：`CLASSIFICATION_WRONG/IMPORTANCE_WRONG/CLUSTER_WRONG/SUMMARY_FACT_WRONG/SHOULD_TOP15/SHOULD_NOT_TOP15`。写反馈不修改分析、排名或历史 delivery。
+
+### 7.2 公开原文详情（匿名）
+
+- 页面：`GET /wealth/market/news/detail/{public_id}`；
+- API：`GET /api/v1/public/news-details/{public_id}`；
+- `public_id` 为至少 128 bit CSPRNG 生成的 URL-safe 标识，无顺序、无业务语义、不可由 source key 推导；
+- DTO 仅含 `title/source/publishTime/contentDate/readerMode/url/html/content/originalUrl`；payload 仍保持 `URL/HTML/TEXT` 互斥；
+- 不返回 source type/key、Run/event/delivery、分类、摘要、评分、版本、错误内部原因；
+- 无效、撤回、内容不可用统一 404；超大内容使用同一用户文案，不泄露存在性；
+- 响应设置 CSP、`X-Content-Type-Options: nosniff`、`Referrer-Policy`、`X-Robots-Tag: noindex, nofollow, noarchive`，并按 public_id/IP 做有界限流；精确数值由 M0/部署容量确定。
+
+现有鉴权 Reader API 不改权限、不改路径。公开 API 复用 Biz 内容解析器，但使用独立 DTO 和查询入口。
+
+---
+
+## 8. 前端低层设计
+
+### 8.1 运营平台
+
+目标平台是 `frontend/`，不是 Wealth，也不是已退役的 Lake Console UI。导航在现有 `OpsShell` 的“审查中心”下新增“新闻智能”，路由 `/ops/v21/review/news-intelligence`。
+
+桌面页面分为：Run 选择与状态、Top 30、全部候选、单事件抽屉、实际/拟投递、Shadow、人工反馈。使用现有 Mantine、DataTable、SectionCard、StatusBadge；分页和筛选由后端负责。响应式只要求现有运营后台支持范围，不设计移动端 Debug。
+
+### 8.2 公开 Wealth 详情
+
+`WealthRouter` 必须先识别严格正则的公开详情路径，再执行现有登录守卫；其他所有 Wealth 路由行为保持不变。页面无顶层行情导航、账户入口、Debug 信息或后台链接，只展示品牌、原文标题/来源/时间/正文和可选外部来源按钮。
+
+四态：loading、ready、not-found、error。HTML 只能通过现有 `SanitizedHtmlContent`；URL iframe 如受外站策略阻止，显示外部打开动作和明确状态。桌面与移动端都必须完成正文换行、表格横向滚动和长 URL 验收。
+
+---
+
+## 9. 调度、进程与配置
+
+五个固定时点为 `08:00/12:00/16:00/20:00/22:00 Asia/Shanghai`。LLD 不预设复用现有 Ops scheduler 或新建 systemd；M0 前只设计 App-owned scheduler/worker 接口。最终进程入口必须在 M0 后根据单窗口耗时与内存决定，并另获部署批准。
+
+配置分层：业务偏好和版本策略进 policy DB；模型路径/资源、公开 origin、专用飞书凭据进部署 Settings。所有配置在实现前形成“名称、默认、来源、消费者、生效、运维可见性、测试”的最终表，不允许页面常量。
+
+---
+
+## 10. M0 与 M1 合同
+
+### 10.1 M0（LLD 评审后、开发前实测）
+
+只读统计 30 个代表窗口和至少两个极端窗口：各来源新增量、字符分布、空值、重复、迟到、事件估算、HDD 年增长。模型基准另需安装/下载授权，测量单模型 RSS、CPU、P50/P95、最大输入与最短两小时窗口余量。输出回写本文的参数表和开发切片，不写正式业务表。
+
+### 10.2 M1（第一开发切片）
+
+实现离线 replay/标注能力，只读旧日期事实并写隔离输出，不写正式 Run/cursor/delivery。标注工具首轮默认在本地私有部署 Argilla；它只通过稳定 `sample_id` 导入样本、导出版本化标注，不成为生产运行时依赖，也不直接写正式业务表。先完成 100–150 条 taxonomy 定义试标并修订标签边界，再冻结 600–1000 条正式样本，产出人工一致性、分类、聚类、摘要、Top15/30 和资源报告。M1 后回写 taxonomy/scoring/summary/model policy；未过门槛不得进入 Prod 持久化切片。
+
+---
+
+## 11. 编码门禁矩阵
+
+| 门禁 | 落点 | 正向测试 | 负向测试 |
+|---|---|---|---|
+| 禁用 `news.score` | Canonical reader 字段白名单 | 三来源映射 | 静态扫描/spy 证明未读取 |
+| 仅增量 | Raw id cursor | 冻结范围无漏 | 重复 upsert、迟到、同时间不重复 |
+| HDD | migration | 每 relation 有效 tablespace | 缺 tablespace 或任一 SSD relation 失败 |
+| 有界模型 | selector/budget | 选中集合运行 | 预算耗尽不扩大、不 Full |
+| 事实摘要 | verifier | 数字/实体支持 | 幻觉降级且不伪装成功 |
+| 失败不发送 | delivery gate | 完整 Run 可 READY | 任一来源/排序失败 Feishu 零调用 |
+| 专用机器人 | Settings/adapter | 专用凭据成功 | Ops 凭据串用拒绝 |
+| 公开最小化 | Public DTO | 三来源原文可读 | Debug 字段、枚举 ID、列表/搜索不存在 |
+| 公开安全 | route/sanitizer/headers | 移动/桌面正常 | XSS、危险协议、无效 ID、限流 |
+| Debug 归属 | frontend Ops | Top30/全部/反馈 | Wealth 和移动端无 Debug |
+| 留档 | schema/runtime | 90 天容量报告 | 无自动 delete/archive job |
+| 续跑幂等 | unit 状态/唯一键 | 退出后续跑 | 不重复候选、分析、发送 |
+| 分层 | 架构护栏 | App→Biz→Foundation | Biz↔Ops、下层→App/QTF 零新增 |
+
+Wealth 通用清单中图表、涨跌色、累计坐标等条目不适用，因为公开详情无图表或行情计算；真实 API、契约冻结、状态机、安全、性能、响应式和端到端测试适用。无其他例外白名单。
+
+---
+
+## 12. 验证命令与验收证据
+
+计划命令（实现后按切片执行）：
+
+```text
+pytest tests/news_intelligence tests/web/test_news_intelligence_*.py
+pytest tests/architecture/test_subsystem_dependency_matrix.py
+npm --prefix frontend run typecheck
+npm --prefix frontend run test -- news-intelligence
+npm --prefix frontend run build
+npm --prefix wealth run typecheck
+npm --prefix wealth run test -- news-detail
+npm --prefix wealth run build
+python3 scripts/check_docs_integrity.py
+```
+
+页面改动必须浏览器验证运营桌面端、Wealth 桌面/移动端、console/network、XSS 样本和匿名访问。Prod 写入前另做迁移 Preview、HDD relation 清单和最小真实运行—取消—续跑—读回；飞书启用前先测试群。
+
+---
+
+## 13. 建议实施切片
+
+1. L0：评审本文；不运行 M0/M1。
+2. L1：执行 M0 并回写本文参数、容量和进程决定。
+3. L2：实现并运行 M1 离线 replay/反馈样本，冻结策略版本。
+4. L3：HDD migration、ORM/repository、增量 cursor、Run 状态机。
+5. L4：模型端口/适配器、有界 pipeline、排名与 Debug API。
+6. L5：`frontend/` 新闻智能 Debug/反馈页面；固定窗口 shadow delivery。
+7. L6：公开详情表/API、Wealth 免登录页和安全验收。
+8. L7：专用飞书测试群投递；观察通过后再单独批准正式目标。
+9. L8：重大新闻 Shadow，仅观察，不即时发送。
+
+每个切片独立评审与验收，前一切片未通过不自动进入下一切片。
+
+---
+
+## 14. LLD 评审后仍需由证据决定的事项
+
+以下不是当前要求用户凭偏好拍板的产品项：模型 revision/量化、batch、深度分析数、聚类与分类阈值、资源上限、公开限流数值、HDD 年增长、Precision@15 门槛。它们分别由 M0/M1 给出证据并回写本文。
+
+用户已确认：运营 Debug 使用现有运营平台；详情免登录且不展示系统信息；移动端不做 Debug；部分失败不推送；候选/分析一期不自动删除；使用专用飞书机器人并由用户后续提供地址和密钥；Argilla 可部署本地或 Prod，首轮默认本地，后续仅在多人持续协作或远程访问需求明确时评估 Prod。
+
+---
+
+## 15. 版本记录
+
+| 版本 | 日期 | 说明 |
+|---|---|---|
+| v1 | 2026-09-21 | 首版编码前 LLD；冻结已确认产品边界，保留 M0/M1 实测槽位 |
+| v1.1 | 2026-09-24 | 同步 taxonomy v2 两阶段标注合同与 Argilla 首轮本地部署边界 |

@@ -80,6 +80,8 @@ docs/
 - [股票日线趋势通道 Lake 数据集接入 LLD v1（M0 已通过，待开发）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md)
 - [股票日线趋势通道 M0 只读规模与性能验证报告（M0 已通过）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md)
 - [Serving Light 现行读取与刷新边界](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
+- [新闻智能分类、摘要、排序与飞书推送方案 v1（已完成一轮评审并形成 LLD；尚未开发或执行 M0/M1）](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-plan-v1.md)
+- [新闻智能分类、摘要、排序与飞书推送 LLD v1（编码前评审稿；尚未开发或执行 M0/M1）](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-low-level-design-v1.md)
 - [新闻关联与股票详情事件展示维护说明（已合并技术方案；2026-09-01/09-09 两阶段结案）](/Users/congming/github/goldenshare/docs/architecture/news-stock-linking-low-level-design-v1.md)
 - [`top_list` 维护说明（当前批次版本选择；历史迁移不可重跑）](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)
 > 本节中涉及旧 `lake_console/backend`、Kopia 或旧 Lake Root 的条目，均保留作历史实现/方案证据；不作为当前 Dagster Lake、新开发、迁移、bootstrap、修复或写湖依据。当前正式 Lake 规则以根目录 `AGENTS.md` 和 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准，禁止新增或调用 Kopia。
