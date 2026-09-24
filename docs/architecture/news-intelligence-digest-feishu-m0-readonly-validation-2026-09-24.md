@@ -1,6 +1,6 @@
 # 新闻智能简报 M0 只读测量报告（2026-09-24）
 
-状态：**M0 数据、容量与 Prod 资源盘点已完成；`cctv_news` 手动补数已通过当前数据完整性复核，但自动更新尚未恢复；模型实机基准未获安装/下载授权，正式投递门禁未通过。**
+状态：**M0 数据、容量、Prod 资源盘点、模型候选制品冻结和 M0-2 依赖/下载清单已完成；`cctv_news` 手动补数已通过当前数据完整性复核；安装、下载和实机基准仍待单独授权，正式投递门禁未通过。**
 
 依据：[新闻智能简报 LLD v1](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-low-level-design-v1.md) §10.1。观测时间为 2026-09-24 01:03–01:12（Asia/Shanghai）。本次只执行 Prod PostgreSQL `READ ONLY` 查询和服务器只读资源盘点；未写数据库、未安装依赖、未下载模型、未部署、未发送飞书消息。
 
@@ -160,6 +160,135 @@ Prod HDD `/data/disk` 为 394 GiB，总可用 264 GiB；按 10 GiB/年预算具�
 
 结论：Prod 是 CPU-only、小内存余量环境，不能把 embedding、mDeBERTa 和生成模型常驻并发运行。模型实机 benchmark 必须先提交精确的包、模型、revision、量化文件、下载大小和安装位置清单，再单独获批；本次 M0 没有越权安装或下载，因此 RSS、CPU、P50/P95 和 batch 仍待测。
 
+### 6.1 模型候选制品冻结（2026-09-24）
+
+本节只冻结后续安装申请和 CPU benchmark 的输入，不代表模型已下载、能在当前 Python 3.13 环境运行、业务质量已通过，或已获准进入 Prod。所有 revision 均使用完整 commit SHA，禁止运行时解析浮动 `main`。
+
+| 职责 | 冻结候选 | revision / 文件 | 权重大小与校验 | 许可证 | 当前结论 |
+|---|---|---|---|---|---|
+| Embedding / 聚类 | [`Qwen/Qwen3-Embedding-0.6B`](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) | `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3` / `model.safetensors` | 1,191,586,416 bytes；SHA-256 `0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd` | Apache-2.0 | **冻结为主候选**；BF16、0.6B、1024 维，先测 CPU RSS、batch 与窗口吞吐 |
+| 多标签分类 / NLI | [`MoritzLaurer/mDeBERTa-v3-base-mnli-xnli`](https://huggingface.co/MoritzLaurer/mDeBERTa-v3-base-mnli-xnli) | `8adb042d524ecd5c26d3e3ba0e3fbcf7e2d0864c` / `onnx/model_quantized.onnx` | 338,679,133 bytes；SHA-256 `27c39e884c14b03cf46cfc5485971b6db70ff330220d93dfe729c63fde43af0e` | MIT | **冻结为 CPU 主候选**；M1 必须验证中文多标签和摘要句支持度，不能因模型名直接判定合格 |
+| 有界生成 / 摘要 | [`Qwen/Qwen3-4B-GGUF`](https://huggingface.co/Qwen/Qwen3-4B-GGUF) | `bc640142c66e1fdd12af0bd68f40445458f3869b` / `Qwen3-4B-Q4_K_M.gguf` | 2,497,280,256 bytes；SHA-256 `7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5` | Apache-2.0 | **冻结为官方 CPU benchmark 候选**；使用 `llama.cpp` 路径，M1 通过摘要事实性、JSON 合法率和排名增益后才能成为一期模型 |
+
+模型卡和 Hugging Face API 的当前证据同时说明：
+
+1. Embedding 官方模型支持中文、多语言、聚类/分类任务；官方要求 `transformers>=4.51.0`，并提供 Sentence Transformers/Transformers 用法。实际最大输入、instruction、截断和 batch 仍由 M1 冻结。
+2. mDeBERTa 模型明确支持多语言 NLI/零样本分类，原模型仓库同时提供 safetensors 与量化 ONNX；为适配 CPU 和内存约束，首轮只申请量化 ONNX 制品，不同时下载 557 MB 的 safetensors 基线。
+3. 原方案写的 [`Qwen/Qwen3-4B-Instruct-2507`](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507) 官方 revision 为 `cdbee75f17c01a7cc42f958dc650907174af0554`，BF16 三个分片合计 8,044,982,000 bytes（约 8.0 GB），官方仓库没有 4-bit GGUF。它继续作为语义质量参考，**不列入本轮 Prod 下载清单**；未经单独来源、转换过程、校验和与质量验证的社区 GGUF 不准入。
+4. `Qwen3-4B-GGUF` 来源于原始 `Qwen3-4B`，不是 `Instruct-2507` 的同一权重。它只是硬件可行性更高的官方候选，不构成自动换模；若 M1 未通过，就停止生成模型准入并重新提出制品方案。
+
+三个冻结权重主文件合计 4,027,545,805 bytes（约 4.03 GB，十进制）。这不是最终下载总量；tokenizer、配置文件和经审核的推理运行时必须在下一步依赖清单中逐项计算。
+
+### 6.2 M0-2 推理依赖、安装位置与完整下载清单（2026-09-24）
+
+#### 6.2.1 目标平台与隔离边界
+
+2026-09-24 只读复核确认 Prod 为 Ubuntu 24.04、x86_64、glibc 2.39、Python 3.13.12；现有项目虚拟环境有 `pip 26.1` 和可用的标准库 `venv`，没有 `uv`、CMake 或模型运行时。`/data/disk` 是可写挂载的 ext4 HDD，但根目录为 `root:root 0755`，当前只存在 PostgreSQL 目录。
+
+安装合同如下：
+
+| 项目 | 冻结值 | 原因与门禁 |
+|---|---|---|
+| 专用根目录 | `/data/disk/goldenshare/news-intelligence` | 模型、wheelhouse、venv、llama.cpp、cache、tmp 全部落 HDD；不得写入根盘模型缓存 |
+| 目录属主/权限 | `goldenshare:goldenshare` / `0750` | 须由管理员一次性创建；之后只由 `goldenshare` 用户维护，不开放其他用户写入 |
+| Python 解释器 | 复用现有 Python 3.13.12，仅用于创建专用 venv | 不下载新解释器，不修改 `/opt/goldenshare/goldenshare/.venv` |
+| Python venv | `runtime/python-3.13-m0-v1/venv` | 44 个 wheel 全量锁定；只允许 `--require-hashes` 从本地 wheelhouse 安装 |
+| Wheelhouse | `artifacts/wheelhouse-m0-v1` | 先完整下载并校验，再离线安装；禁止边运行边解析 PyPI |
+| llama.cpp | `runtime/llama.cpp/b11146` | 使用官方 Ubuntu x64 CPU 预编译制品，不在 Prod 现场编译 |
+| 模型目录 | `models/<model-id>/<revision>/` | revision 是目录身份；下载后生成本地 SHA-256 manifest，再原子提升 |
+| 临时目录/缓存 | `staging/`、`cache/huggingface/`、`tmp/` | benchmark 时显式设置 `HF_HOME`、`HF_HUB_CACHE`、`TRANSFORMERS_CACHE`、`TMPDIR` 到 HDD；运行阶段启用 HF/Transformers offline |
+| SSD 写入 | 只允许已有仓库代码和少量系统服务定义 | 权重、wheel、venv、模型缓存、运行临时文件不得进入 `/opt`、用户 home 或 `/tmp` |
+
+`/data/disk` 根目录需要管理员创建子目录并授权，这是未来安装审批中的显式系统变更；M0-2 没有执行。M0-2 也不新增环境变量或 Settings。后续若把路径加入服务配置，必须先完成根规则要求的配置项审计。
+
+#### 6.2.2 冻结的直接运行时
+
+| 运行时 | 制品 | bytes | SHA-256 | 来源/用途 |
+|---|---|---:|---|---|
+| PyTorch CPU | `torch-2.14.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl` | 196,253,940 | `160e1bc46aeded3111d2801f8ae10dc9a1b946843a7e126b4dbf5e19c5706e95` | PyTorch 官方 CPU index；Embedding |
+| Transformers | `transformers-5.17.0-py3-none-any.whl` | 12,295,140 | `78ec1ce21579b38dfb83950a0658cd119f87212a2fcfdff478096ce9d6c03801` | PyPI；模型与 tokenizer 合同 |
+| Sentence Transformers | `sentence_transformers-6.1.0-py3-none-any.whl` | 740,560 | `eb8122f4d180f552eda26dc3d77e84e8c11dc2b1d456a406b9f24abb70ceeadd` | PyPI；Embedding pooling/normalize |
+| ONNX Runtime CPU | `onnxruntime-1.30.0-cp313-cp313-manylinux_2_28_x86_64.whl` | 23,585,560 | `86f940afc801ea9681a4da8af84fbe95e1d9ea7d80903952cc1bfad54faad38f` | PyPI；量化 mDeBERTa |
+| llama.cpp | `llama-b11146-bin-ubuntu-x64.tar.gz`，commit `7fe450e19305b828c199d602c23a8337aaa1f03b` | 16,998,357 | `c150306eb16b5ab696f76a8bdf810c35fd98a24e82158742e6fa28f420ff8410` | 官方 GitHub release；Q4_K_M 推理 |
+
+Python 依赖使用 `uv 0.11.14` 只读解析元数据，目标为 CPython 3.13 / `x86_64-manylinux_2_28` / CPU-only / binary-only，并设置统一发布截止时间 `2026-09-20T00:00:00Z`，避免 9 月 20 日之后新发布的传递依赖随时间漂移。`uv` 只是 M0-2 本地解析工具，不进入 Prod 安装清单。
+
+#### 6.2.3 Python wheel 完整锁（44 个）
+
+下表是目标平台唯一选择的 wheel；`bytes` 合计 **318,951,565**。安装时须把相同 filename 与 SHA-256 写成 `--require-hashes` 清单，任意缺失、源码包回退或哈希变化立即停止。
+
+| 包 | 文件 | bytes | SHA-256 |
+|---|---|---:|---|
+| `annotated-doc==0.0.5` | `annotated_doc-0.0.5-py3-none-any.whl` | 5,302 | `117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101` |
+| `anyio==4.15.1` | `anyio-4.15.1-py3-none-any.whl` | 132,079 | `6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101` |
+| `certifi==2026.7.22` | `certifi-2026.7.22-py3-none-any.whl` | 136,983 | `62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775` |
+| `click==8.5.0` | `click-8.5.0-py3-none-any.whl` | 125,251 | `255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360` |
+| `cloudpickle==3.1.2` | `cloudpickle-3.1.2-py3-none-any.whl` | 22,228 | `9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a` |
+| `filelock==4.0.1` | `filelock-4.0.1-py3-none-any.whl` | 106,219 | `481a321a27bef441e23c53371c6abc8d7d16e26b97090074ba44f7538a3fd55a` |
+| `flatbuffers==25.12.19` | `flatbuffers-25.12.19-py2.py3-none-any.whl` | 26,661 | `7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4` |
+| `fsspec==2026.9.0` | `fsspec-2026.9.0-py3-none-any.whl` | 221,738 | `8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f` |
+| `h11==0.16.0` | `h11-0.16.0-py3-none-any.whl` | 37,515 | `63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86` |
+| `hf-xet==1.6.0` | `hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl` | 4,464,663 | `d62671bb130879cef0ee4c9ebe47a14af6c66ec53e6d84dc15936e5ffdfac82f` |
+| `httpcore==1.0.9` | `httpcore-1.0.9-py3-none-any.whl` | 78,784 | `2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55` |
+| `httpx==0.28.1` | `httpx-0.28.1-py3-none-any.whl` | 73,517 | `d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad` |
+| `huggingface-hub==1.32.0` | `huggingface_hub-1.32.0-py3-none-any.whl` | 842,906 | `b0c7c80561969d9cdacdd55fce67ba9584cca0b9d4ea80957a3a5c1445fac5c8` |
+| `idna==3.20` | `idna-3.20-py3-none-any.whl` | 69,583 | `ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c` |
+| `jinja2==3.1.6` | `jinja2-3.1.6-py3-none-any.whl` | 134,899 | `85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67` |
+| `joblib==1.6.0` | `joblib-1.6.0-py3-none-any.whl` | 306,115 | `3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba` |
+| `markdown-it-py==4.2.0` | `markdown_it_py-4.2.0-py3-none-any.whl` | 91,687 | `9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a` |
+| `markupsafe==3.0.3` | `markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl` | 22,980 | `ccfcd093f13f0f0b7fdd0f198b90053bf7b2f02a3927a30e63f3ccc9df56b676` |
+| `mdurl==0.1.2` | `mdurl-0.1.2-py3-none-any.whl` | 9,979 | `84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8` |
+| `mpmath==1.3.0` | `mpmath-1.3.0-py3-none-any.whl` | 536,198 | `a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c` |
+| `narwhals==2.26.0` | `narwhals-2.26.0-py3-none-any.whl` | 474,034 | `29326d74f107c347fd1009bd58e38d9f7c7c5b51e6de97bc93dbc325d9038b54` |
+| `networkx==3.6.1` | `networkx-3.6.1-py3-none-any.whl` | 2,068,504 | `d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762` |
+| `numpy==2.5.3` | `numpy-2.5.3-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl` | 16,708,577 | `a5fa86b80fd24bcd1aff83ad23be44ea323de3f787be8f8b15d4a65621e25321` |
+| `onnxruntime==1.30.0` | `onnxruntime-1.30.0-cp313-cp313-manylinux_2_28_x86_64.whl` | 23,585,560 | `86f940afc801ea9681a4da8af84fbe95e1d9ea7d80903952cc1bfad54faad38f` |
+| `packaging==26.3` | `packaging-26.3-py3-none-any.whl` | 129,956 | `d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c` |
+| `protobuf==7.36.2` | `protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl` | 343,223 | `89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2` |
+| `pygments==2.21.0` | `pygments-2.21.0-py3-none-any.whl` | 1,250,147 | `2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9` |
+| `pyyaml==6.0.3` | `pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl` | 801,626 | `0f29edc409a6392443abf94b9cf89ce99889a1dd5376d94316ae5145dfedd5d6` |
+| `regex==2026.9.10` | `regex-2026.9.10-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl` | 804,578 | `bafa41b0dd63669e5c0f8adf3d24819efeb73c847f492eb011212eb352e69041` |
+| `rich==15.0.0` | `rich-15.0.0-py3-none-any.whl` | 310,654 | `33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb` |
+| `safetensors==0.8.0` | `safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl` | 516,040 | `fd6f3f93c9a0a7cc2788ee63fb763353d4bd2e89b0751bc78fcf7dda00bea774` |
+| `scikit-learn==1.9.1` | `scikit_learn-1.9.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl` | 9,121,732 | `55e79d6e9b0923f1a978179822bd43d7f5543f45e970a00fe861f43486380aba` |
+| `scipy==1.18.1` | `scipy-1.18.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl` | 35,312,578 | `fdaf5ea890a6183d0565f51a61799d67081bd5b1cf03c5f4b3fd3732108625c9` |
+| `sentence-transformers==6.1.0` | `sentence_transformers-6.1.0-py3-none-any.whl` | 740,560 | `eb8122f4d180f552eda26dc3d77e84e8c11dc2b1d456a406b9f24abb70ceeadd` |
+| `setuptools==84.0.0` | `setuptools-84.0.0-py3-none-any.whl` | 818,216 | `51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670` |
+| `shellingham==1.5.4` | `shellingham-1.5.4-py2.py3-none-any.whl` | 9,755 | `7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686` |
+| `sympy==1.14.0` | `sympy-1.14.0-py3-none-any.whl` | 6,299,353 | `e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5` |
+| `threadpoolctl==3.7.0` | `threadpoolctl-3.7.0-py3-none-any.whl` | 26,362 | `cd8b60b5641b45c67bbf73c64c843235fc2d8a480c87389f52f5dbee893b86be` |
+| `tokenizers==0.23.2` | `tokenizers-0.23.2-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl` | 3,386,843 | `41c2f84d172449b4dadb9cdc508e3e364076613c35b16e76ecfe47a60d1e3305` |
+| `torch==2.14.0+cpu` | `torch-2.14.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl` | 196,253,940 | `160e1bc46aeded3111d2801f8ae10dc9a1b946843a7e126b4dbf5e19c5706e95` |
+| `tqdm==4.70.1` | `tqdm-4.70.1-py3-none-any.whl` | 80,199 | `c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73` |
+| `transformers==5.17.0` | `transformers-5.17.0-py3-none-any.whl` | 12,295,140 | `78ec1ce21579b38dfb83950a0658cd119f87212a2fcfdff478096ce9d6c03801` |
+| `typer==0.27.2` | `typer-0.27.2-py3-none-any.whl` | 123,130 | `b3a5fc4342d5fc8fda8fc3010b1cf117e9249aab7fae800c2eff62fd3842d97d` |
+| `typing-extensions==4.16.0` | `typing_extensions-4.16.0-py3-none-any.whl` | 45,571 | `481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8` |
+
+#### 6.2.4 模型文件与总下载量
+
+| 组 | 下载内容 | bytes |
+|---|---|---:|
+| Embedding | §6.1 权重，加 pooling/config/tokenizer/merges/vocab 等 9 个附属文件 | 1,207,470,234 |
+| mDeBERTa | §6.1 量化 ONNX，加 config、SentencePiece、tokenizer 与 special token 文件 | 359,318,185 |
+| Qwen GGUF | §6.1 `Qwen3-4B-Q4_K_M.gguf` | 2,497,280,256 |
+| Python wheelhouse | §6.2.3 的 44 个 wheel | 318,951,565 |
+| llama.cpp | `llama-b11146-bin-ubuntu-x64.tar.gz` | 16,998,357 |
+| **合计** | 不包含已有 Python 解释器，不包含任何 CUDA/ROCm 制品 | **4,400,018,597 bytes（4.40 GB / 约 4.10 GiB）** |
+
+HDD 安装容量门禁设为 **至少 12 GiB 可用**，覆盖压缩包保留、venv 解包、同文件系统 staging、运行缓存和测量误差；这不是模型业务数据的 10 GiB/年容量预算。当前 HDD 余 264 GiB，容量满足，但 M0-3 执行前必须重查。
+
+#### 6.2.5 获批安装时的强制顺序
+
+1. 只创建并授权上述 HDD 根目录；确认真实路径仍位于 `/data/disk`，剩余空间 `>=12 GiB`。
+2. 下载 44 个 wheel、llama.cpp tarball 和三个 revision 的白名单模型文件到 HDD `staging/`；禁止下载整个仓库的非白名单权重，禁止 CUDA/ROCm 包。
+3. 对所有已声明 SHA-256 的制品逐个校验；对 revision 内小型 tokenizer/config 文件生成本地 SHA-256 manifest。任一不一致停止，不安装。
+4. 从现有 Python 3.13.12 创建专用 venv，以 `--no-index --find-links ... --require-hashes` 离线安装；不得修改项目 `.venv`。
+5. 解包 llama.cpp 后先做 `llama-server --version`、动态库检查和本地回环启动；不开放公网端口。
+6. 执行四层 smoke test：imports/版本、Embedding 单条、mDeBERTa 单条 NLI、Qwen GGUF 单条受限 JSON；任何失败先回滚专用目录，不安装 apt 包或切换浮动版本救场。
+7. smoke test 通过后才进入 M0-3 的 RSS、CPU、P50/P95、batch、最大输入和窗口余量 benchmark。
+
+M0-2 不包含 Argilla、Web/Ops 现有依赖、CUDA/ROCm、vLLM、FlashAttention、TEI、Docker 镜像、模型训练包、Reranker 或 `Qwen3-4B-Instruct-2507` BF16。后续如需任何一项，必须重新给出制品、大小、哈希、路径与理由。
+
 ---
 
 ## 7. 回写到实现的参数与门禁
@@ -170,6 +299,8 @@ Prod HDD `/data/disk` 为 394 GiB，总可用 264 GiB；按 10 GiB/年预算具�
 | Raw discovery batch | 初始 500 行；一个 7,800 行上界窗口约 16 批，批批提交、可续跑 |
 | 摘要资格 | 默认正文 `>=800` 字；仍须先通过事件选择和深分析预算，不是所有长文都摘要 |
 | 模型入口 | 严禁直接把全触达候选交给生成模型；先精确去重、规则筛选和事件聚合 |
+| 模型候选制品 | 三个首轮制品的 repo/revision/文件/SHA-256 已冻结；不得解析浮动 `main`，不得直接采用社区 GGUF |
+| M0-2 运行时 | 44 个 Python wheel、llama.cpp b11146、HDD 路径和 4.40 GB 完整下载量已冻结；项目 `.venv` 不变 |
 | 重模型上限 | 未冻结；等待获批模型实机 benchmark 与 M1 Precision@15 结果 |
 | 容量预算 | 新 HDD 业务关系按 10 GiB/年预留；不复制原文 |
 | 历史回放 | 使用业务时间做分层取样，只用于校准；不得声称复原了历史 Raw 净新增窗口 |
@@ -180,9 +311,9 @@ Prod HDD `/data/disk` 为 394 GiB，总可用 264 GiB；按 10 GiB/年预算具�
 
 ## 8. M0 结论与下一门禁
 
-M0 的数据量、长度、HDD、硬件盘点和 `cctv_news` 当前数据完整性通过，足以进入 M1 离线 replay/标注设计；但不能据此进入正式持久化或投递开发。M0 尚余一个任务组：
+M0 的数据量、长度、HDD、硬件盘点、模型候选制品、M0-2 依赖/下载清单和 `cctv_news` 当前数据完整性通过，足以进入 M1 离线 replay/标注设计；但不能据此进入正式持久化或投递开发。M0-2 已完成，尚余一个需要用户另行授权的 M0-3 门禁：
 
-1. 用户审核精确的模型/依赖/下载清单后，另行批准安装和实机 benchmark。
+1. 用户审核 §6.2 后，另行批准在 Prod 创建 HDD 专用目录、下载 4.40 GB 冻结制品、安装专用 venv，并执行 CPU 实机 benchmark；未获批准不得先行执行。
 
 `cctv_news` 自动更新、失败告警和持续 freshness 由用户另行处理；它仍是正式投递前的外部依赖，但不再作为本项目 M0 的未完成项。
 

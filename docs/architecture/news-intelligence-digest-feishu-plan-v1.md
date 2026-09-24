@@ -1,6 +1,6 @@
 # 新闻智能分类、摘要、排序与飞书推送方案 v1
 
-状态：**方案与 LLD 已确认；M0 数据、容量和 Prod 资源盘点已完成，模型实机基准待单独授权；尚未开发、执行 M1、迁移、安装模型、部署或启用生产任务。**
+状态：**方案与 LLD 已确认；M0 数据、容量、Prod 资源盘点、模型候选制品冻结和 M0-2 依赖/下载清单已完成，安装、下载与模型实机基准待单独授权；尚未开发、执行 M1、迁移、安装模型、部署或启用生产任务。**
 
 创建日期：2026-09-21。
 
@@ -634,9 +634,11 @@ Argilla 只是 M1 校准和人工反馈工具，不得成为生产分类、固�
 
 | 模型 | 固定职责 | 不负责 |
 | --- | --- | --- |
-| `Qwen/Qwen3-Embedding-0.6B` | Embedding、相似度、事件聚类、关注度 | 生成摘要或直接决定总分 |
-| `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` | 零样本多标签分类、摘要句 NLI 核验 | 长文生成 |
-| `Qwen/Qwen3-4B-Instruct-2507` 的经验证 4-bit 量化 | 有界深度事实抽取、档位判断、长文摘要、影子复核 | 全候选无边界推理 |
+| `Qwen/Qwen3-Embedding-0.6B`，revision `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3` | Embedding、相似度、事件聚类、关注度 | 生成摘要或直接决定总分 |
+| `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli`，revision `8adb042d524ecd5c26d3e3ba0e3fbcf7e2d0864c`，原仓库量化 ONNX | 零样本多标签分类、摘要句 NLI 核验 | 长文生成 |
+| `Qwen/Qwen3-4B-GGUF`，revision `bc640142c66e1fdd12af0bd68f40445458f3869b`，官方 `Q4_K_M` | CPU benchmark 候选；有界深度事实抽取、档位判断、长文摘要、影子复核 | 未通过 M1 前不得视为最终一期生成模型；不得对全候选无边界推理 |
+
+精确文件、大小、SHA-256、许可证和准入状态见 [M0 只读测量报告 §6.1](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-m0-readonly-validation-2026-09-24.md)。`Qwen/Qwen3-4B-Instruct-2507` 官方仓库没有 4-bit GGUF，约 8.0 GB 的 BF16 权重只保留为语义质量参考，不列入首轮 Prod 下载清单；社区转换的 GGUF 未经独立溯源与质量验证不得准入。官方 `Qwen3-4B-GGUF` 来自原始 `Qwen3-4B` 而非 `Instruct-2507`，因此它只冻结为 CPU benchmark 候选，M1 不通过则停止准入，不能把这次候选冻结解释为自动换模。
 
 一期不启用 Reranker；只有固定模型组合在历史集上的 Top 15 排名不足，才评估 `Qwen3-Reranker-0.6B` 或 `bge-reranker-v2-m3`。模型 revision 必须锁定，不能用浮动 `main` 作为可复现生产版本。
 
@@ -652,11 +654,13 @@ Argilla 只是 M1 校准和人工反馈工具，不得成为生产分类、固�
 
 1. 模型 Worker 与 Web/Ops Worker 分进程，单并发起步；
 2. 三个模型分阶段使用，禁止默认全部常驻造成内存竞争；
-3. Qwen 必须使用经验证的 CPU 4-bit 量化和有限上下文；
+3. Qwen 首轮只 benchmark 已冻结的官方 `Q4_K_M` CPU 制品和有限上下文；只有业务质量与资源门禁同时通过才能进入一期模型策略；
 4. 候选批次、深度分析数、token 和总运行时间均有硬上限；
 5. 不允许依赖 swap 完成正常窗口，不得使现有 Web/Ops 服务出现可测退化；
 6. 安装推理依赖和下载权重必须另获管理员授权；
 7. 若代表性最大窗口不能在 60 分钟内完成，或最短 2 小时间隔没有充足余量，停止 Prod 启用并收缩模型/范围，不能靠增加并发硬顶。
+
+M0-2 已冻结专用 HDD 根目录 `/data/disk/goldenshare/news-intelligence`、Python 3.13 独立 venv、44 个带哈希 CPU wheel、llama.cpp b11146、模型白名单文件及 4,400,018,597 bytes 完整下载量；详细清单见 [M0 报告 §6.2](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-m0-readonly-validation-2026-09-24.md)。禁止修改项目 `.venv`，禁止把模型缓存/venv/tmp 写入 SSD，禁止源码构建或隐式下载 CUDA/ROCm 包。
 
 降级顺序：Qwen 失败时保留轻量初排和原文，不生成式摘要；mDeBERTa 失败时不把 Qwen 单方分类伪装成双模型一致；Embedding 失败时禁止语义合并，宁可保留独立事件。降级必须在 Debug 和飞书中可见。
 
@@ -801,7 +805,7 @@ Debug 页面是运营能力，后端事实仍在 Biz；前端不重新计算分�
 
 数据、容量与 Prod 资源盘点已完成，证据见 [M0 只读测量报告（2026-09-24）](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-m0-readonly-validation-2026-09-24.md)。30 个窗口的抓取触达上界最高为 7,827 条；旧表没有不可变首见时间，历史净新增只能得到约 900 条的下界代理，正式分布必须由 shadow cursor 记录。M0 同时冻结 800 字摘要资格、500 行 Raw discovery batch 和 10 GiB/年 HDD 容量预算。
 
-Prod 当前没有目标模型依赖或模型缓存。CPU 代表性 benchmark 尚未执行；安装/下载仍须列出精确清单另行批准。`cctv_news` 首次观测停在 2026-08-19；用户手动补数后已连续更新到 2026-09-23，Raw/Serving 双向对账为 0 差异。当前数据完整性已恢复；自动更新由用户另行处理，仍是正式投递前的外部依赖，但不计入 M0 剩余任务。
+Prod 当前没有目标模型依赖或模型缓存。三个首轮模型制品以及 M0-2 的 44 个 Python wheel、llama.cpp b11146、HDD 安装路径和 4.40 GB 完整下载量已经冻结；CPU 代表性 benchmark 尚未执行，安装、下载和 benchmark 仍须用户另行授权。`cctv_news` 首次观测停在 2026-08-19；用户手动补数后已连续更新到 2026-09-23，Raw/Serving 双向对账为 0 差异。当前数据完整性已恢复；自动更新由用户另行处理，仍是正式投递前的外部依赖，但不计入 M0 剩余任务。
 
 ### 17.2 M1：离线历史回放
 
@@ -889,7 +893,7 @@ Prod 当前没有目标模型依赖或模型缓存。CPU 代表性 benchmark 尚
 
 审计结论：现有能力可作为事实源、查询和低层传输参考，但没有可直接扩展成本文业务的统一处理合同；尤其不能让 Ops 任务通知服务承接 Biz 新闻内容，也不能把股票详情请求内事件合并当作可持久化的三来源语义事件簇。现有 reader 已有安全内容合同，但仅支持快讯/通讯和弹窗打开，需补新闻联播与可深链页面后才能承接飞书链接。
 
-仍需在获批模型 benchmark、M1 或对应实施门禁中确认：最终 App Worker 进程入口、模型 revision/量化与资源预算、公开详情的限流数值、测试群中 `post` 链接在桌面/移动客户端的真实表现。HDD 余量已核验；现有项目环境确认未安装目标模型栈。运营 Debug 已明确落在 `frontend/` 的“审查中心 → 新闻智能”；新闻机器人使用用户后续提供的专用地址与密钥。
+仍需在获批模型 benchmark、M1 或对应实施门禁中确认：最终 App Worker 进程入口、最终生成模型准入与资源预算、公开详情的限流数值、测试群中 `post` 链接在桌面/移动客户端的真实表现。三个首轮候选制品的 revision/格式已冻结；HDD 余量已核验，现有项目环境确认未安装目标模型栈。运营 Debug 已明确落在 `frontend/` 的“审查中心 → 新闻智能”；新闻机器人使用用户后续提供的专用地址与密钥。
 
 ---
 
@@ -910,4 +914,4 @@ Prod 当前没有目标模型依赖或模型缓存。CPU 代表性 benchmark 尚
 
 ## 21. 下一步
 
-M0 数据、容量与 Prod 资源盘点已经回写方案和 LLD，`cctv_news` 手动补数后的当前数据也已通过复核。M0 唯一剩余任务组是：提交精确模型/依赖/下载清单，获批后做 CPU 实机 benchmark。`cctv_news` 自动更新由用户另行处理，不计入 M0。第一开发切片仍是无 Prod 正式表写入的 M1 离线回放和 Argilla 人工校准，先做 100–150 条 taxonomy 试标，再形成 600–1000 条冻结校准集。M1 结果回写 taxonomy、scoring、summary 与模型策略，之后才进入持久化、Worker、运营 Debug、公开详情和飞书投递。
+M0 数据、容量、Prod 资源盘点、模型候选制品冻结和 M0-2 依赖/下载清单已经回写方案和 LLD，`cctv_news` 手动补数后的当前数据也已通过复核。M0 剩余门禁是：用户审核 M0-2 清单后，另行批准在 Prod 创建 HDD 专用目录、下载/安装冻结制品并做 CPU 实机 benchmark。`cctv_news` 自动更新由用户另行处理，不计入 M0。第一开发切片仍是无 Prod 正式表写入的 M1 离线回放和 Argilla 人工校准，先做 100–150 条 taxonomy 试标，再形成 600–1000 条冻结校准集。M1 结果回写 taxonomy、scoring、summary 与模型策略，之后才进入持久化、Worker、运营 Debug、公开详情和飞书投递。
