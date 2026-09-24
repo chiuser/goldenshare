@@ -1,6 +1,6 @@
 # 新闻智能分类、摘要、排序与飞书推送低层设计 v1
 
-状态：**编码前评审稿；尚未开发、迁移、安装模型、执行 M0/M1、部署或发送飞书消息。**
+状态：**LLD 已确认；M0 数据、容量与 Prod 资源盘点已完成，模型实机基准待单独授权；尚未开发、迁移、安装模型、执行 M1、部署或发送飞书消息。**
 
 创建日期：2026-09-21。
 
@@ -28,12 +28,15 @@
 ### 1.3 当前证据
 
 - Raw 三表均有稳定自增 `id` 和唯一 `row_key_hash`；重复 upsert 不产生新 `id`。
-- Serving Light 三表提供业务展示事实；`cctv_news` 只有内容日期，没有日内发布时间。
+- Raw 三表没有 `created_at/first_seen_at`，且 `fetched_at` 会被 upsert 覆盖；旧数据不能精确复原历史净新增窗口或真实首见延迟。
+- Serving Light 三表是 view，提供业务展示事实；`cctv_news` 只有内容日期，没有日内发布时间。
 - 现有 Reader API 为 `/api/v1/wealth/market/news/items/{content_source}/{news_id}`，带 `require_quote_access`，只支持 `news/major_news`。
 - 现有 Wealth Reader 已有 `URL/HTML/TEXT` 互斥合同和 HTML sanitizer。
 - `wealth/src/app/routes/WealthRouter.tsx` 当前在所有业务路由之前执行登录守卫；公开详情必须在该守卫之前做唯一、显式分流。
 - `frontend/` 是现行“财势乾坤数据运营管理综合平台”，已有“审查中心”；`wealth/` 是独立用户行情产品，二者不共享 Shell。
 - Prod 默认 `pg_default` 在 SSD；HDD tablespace 为 `gs_raw_cold_hdd`。
+- 2026-09-24 首次 M0 观测到 `cctv_news` 最新业务日期停在 2026-08-19；用户手动补数后，18:32 只读复核确认已连续补到 2026-09-23，Raw/Serving 双向对账为 0 差异。当前内容完整性已恢复，但自动更新、失败告警和持续 freshness 尚未验收。
+- Prod 为 8 vCPU/15 GiB 内存、无 GPU 的 CPU-only 环境；HDD 余 264 GiB，项目环境未安装目标模型栈，也未发现 Hugging Face 模型缓存。
 
 ---
 
@@ -104,7 +107,7 @@ wealth/src/features/news-detail/
 | `wealth_news_digest_policy` | `policy_id`; `name` unique | enabled、五时点、timezone、delivery/debug 上限、激活版本、专用凭据引用 |
 | `wealth_news_digest_run` | `run_id`; `(policy_id, scheduled_at)` unique | 展示窗口、冻结时点、版本快照、阶段、单调进度、终态、结果计数 |
 | `wealth_news_digest_source_cursor` | `(policy_id, source_type, cursor_kind)` | `last_raw_id`、`frozen_max_raw_id`、成功 Run；FIXED/SHADOW 分离 |
-| `wealth_news_digest_candidate` | `candidate_id`; `(run_id, source_type, source_key)` unique | source_sequence、hash、时间、stage、reason、event、初/终分与排名；不存正文 |
+| `wealth_news_digest_candidate` | `candidate_id`; `(run_id, source_type, source_key)` unique | source_sequence、hash、业务时间、不可变 discovered_at、stage、reason、event、初/终分与排名；不存正文 |
 | `wealth_news_digest_event` | `event_id`; `event_fingerprint` index | 代表来源、首末观察时间、embedding bytes/dim/model、状态 |
 | `wealth_news_digest_event_member` | `(event_id, source_type, source_key)` | 事件成员及新增事实标记；禁止重复来源成员 |
 | `wealth_news_digest_analysis` | `analysis_id`; `(event_id, analysis_version)` unique | 标签、七维评分、证据、摘要、核验、所有版本与输入/输出 hash |
@@ -151,7 +154,7 @@ Raw 只提供身份序列；按 `row_key_hash` 批量读取 Serving Light 事实
 
 ### 4.2 执行 unit
 
-- discovery unit：一个来源的一批 Raw 身份，批量值由 M0 确定，候选写入即提交；
+- discovery unit：一个来源最多 500 个 Raw 身份，候选写入即提交；
 - embedding/classification unit：一个有界事件批次；
 - deep-analysis unit：单事件；
 - ranking unit：冻结事件集合的一次确定性排序；
@@ -173,7 +176,9 @@ Biz 只依赖以下端口：`EmbeddingPort.embed()`、`NliClassifierPort.classif
 
 禁止让模型直接写 0–100 分；它只返回 schema 固定的档位、证据和置信度。任意非法 JSON、超长输出、证据越界或 Prompt 注入迹象都转 reason code。
 
-以下值由 M0/M1 回填：batch、embedding 阈值、deep-analysis limit、token/context、RSS/CPU/wall-clock 预算、核心标签阈值、Precision@15 门槛。LLD 评审不等于批准这些占位值。
+M0 已冻结 discovery batch 为 500、摘要资格默认阈值为正文 800 字、HDD 一期容量预算为 10 GiB/年。800 字只是进入摘要候选的必要条件，仍须先通过事件选择和重分析预算；不得把全部长文直接交给生成模型。
+
+以下值仍由获批后的模型实机基准和 M1 回填：embedding 阈值、deep-analysis limit、token/context、RSS/CPU/wall-clock 预算、核心标签阈值、Precision@15 门槛。LLD 评审和本次只读 M0 均不授权安装依赖或下载模型。
 
 ---
 
@@ -234,7 +239,7 @@ Biz 只依赖以下端口：`EmbeddingPort.embed()`、`NliClassifierPort.classif
 
 ## 9. 调度、进程与配置
 
-五个固定时点为 `08:00/12:00/16:00/20:00/22:00 Asia/Shanghai`。LLD 不预设复用现有 Ops scheduler 或新建 systemd；M0 前只设计 App-owned scheduler/worker 接口。最终进程入口必须在 M0 后根据单窗口耗时与内存决定，并另获部署批准。
+五个固定时点为 `08:00/12:00/16:00/20:00/22:00 Asia/Shanghai`。LLD 不预设复用现有 Ops scheduler 或新建 systemd；当前只设计 App-owned scheduler/worker 接口。最终进程入口必须在获批的模型实机 benchmark 后根据单窗口耗时与内存决定，并另获部署批准。
 
 配置分层：业务偏好和版本策略进 policy DB；模型路径/资源、公开 origin、专用飞书凭据进部署 Settings。所有配置在实现前形成“名称、默认、来源、消费者、生效、运维可见性、测试”的最终表，不允许页面常量。
 
@@ -242,9 +247,17 @@ Biz 只依赖以下端口：`EmbeddingPort.embed()`、`NliClassifierPort.classif
 
 ## 10. M0 与 M1 合同
 
-### 10.1 M0（LLD 评审后、开发前实测）
+### 10.1 M0（数据/容量已完成；模型实机基准待授权）
 
-只读统计 30 个代表窗口和至少两个极端窗口：各来源新增量、字符分布、空值、重复、迟到、事件估算、HDD 年增长。模型基准另需安装/下载授权，测量单模型 RSS、CPU、P50/P95、最大输入与最短两小时窗口余量。输出回写本文的参数表和开发切片，不写正式业务表。
+完整证据见 [M0 只读测量报告（2026-09-24）](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-m0-readonly-validation-2026-09-24.md)。已完成 30 个代表窗口、两个极端窗口、字符分布、空值、规范化标题重复代理、延迟代理、事件代理、HDD 增长和 Prod 资源盘点；没有写正式业务表。
+
+M0 的硬结论：
+
+1. 08:00 为绝对峰值；抓取触达上界最高为 7,827 条，历史 `id` 净新增只能得到约 900 条的下界代理，正式 shadow cursor 才能产出可信分布。
+2. `news` 只有 48/27,566 条达到 800 字，`major_news` 有 9,764/9,889 条达到 800 字；默认摘要资格阈值冻结为 800 字。
+3. `cctv_news` 首次观测时中断约 36 天；手动补数后当前数据完整性通过。自动更新由用户另行处理，仍须在正式投递前验收，但不计入 M0 剩余任务。
+4. 新库按 10 GiB/年在 `gs_raw_cold_hdd` 预留；Prod HDD 容量满足一期。
+5. Prod 没有目标模型依赖或模型缓存。模型 benchmark 仍须先给出精确安装/下载清单并单独获批，随后测量单模型 RSS、CPU、P50/P95、最大输入与最短两小时窗口余量。
 
 ### 10.2 M1（第一开发切片）
 
@@ -296,8 +309,8 @@ python3 scripts/check_docs_integrity.py
 
 ## 13. 建议实施切片
 
-1. L0：评审本文；不运行 M0/M1。
-2. L1：执行 M0 并回写本文参数、容量和进程决定。
+1. L0：评审本文；**已完成**。
+2. L1：执行 M0 并回写本文参数、容量和进程决定；**数据/容量/资源盘点已完成，模型进程决定待获批 benchmark**。
 3. L2：实现并运行 M1 离线 replay/反馈样本，冻结策略版本。
 4. L3：HDD migration、ORM/repository、增量 cursor、Run 状态机。
 5. L4：模型端口/适配器、有界 pipeline、排名与 Debug API。
@@ -312,7 +325,7 @@ python3 scripts/check_docs_integrity.py
 
 ## 14. LLD 评审后仍需由证据决定的事项
 
-以下不是当前要求用户凭偏好拍板的产品项：模型 revision/量化、batch、深度分析数、聚类与分类阈值、资源上限、公开限流数值、HDD 年增长、Precision@15 门槛。它们分别由 M0/M1 给出证据并回写本文。
+以下不是当前要求用户凭偏好拍板的产品项：模型 revision/量化、模型 batch、深度分析数、聚类与分类阈值、资源上限、公开限流数值、Precision@15 门槛。它们分别由获批的模型 benchmark/M1 给出证据并回写本文。Raw discovery batch、摘要资格默认阈值和 HDD 容量预算已由 M0 回填。
 
 用户已确认：运营 Debug 使用现有运营平台；详情免登录且不展示系统信息；移动端不做 Debug；部分失败不推送；候选/分析一期不自动删除；使用专用飞书机器人并由用户后续提供地址和密钥；Argilla 可部署本地或 Prod，首轮默认本地，后续仅在多人持续协作或远程访问需求明确时评估 Prod。
 
@@ -324,3 +337,4 @@ python3 scripts/check_docs_integrity.py
 |---|---|---|
 | v1 | 2026-09-21 | 首版编码前 LLD；冻结已确认产品边界，保留 M0/M1 实测槽位 |
 | v1.1 | 2026-09-24 | 同步 taxonomy v2 两阶段标注合同与 Argilla 首轮本地部署边界 |
+| v1.2 | 2026-09-24 | 回写 M0 30 窗口、800 字摘要门槛、500 行 discovery batch、HDD/硬件与来源完整性门禁；并补记手动补数后的 Raw/Serving 复核；模型基准仍待授权 |

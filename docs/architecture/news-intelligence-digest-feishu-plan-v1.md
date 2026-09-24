@@ -1,6 +1,6 @@
 # 新闻智能分类、摘要、排序与飞书推送方案 v1
 
-状态：**方案已完成一轮用户评审并形成 LLD 评审稿；尚未开发、执行 M0/M1、迁移、安装模型、部署或启用生产任务。**
+状态：**方案与 LLD 已确认；M0 数据、容量和 Prod 资源盘点已完成，模型实机基准待单独授权；尚未开发、执行 M1、迁移、安装模型、部署或启用生产任务。**
 
 创建日期：2026-09-21。
 
@@ -588,12 +588,11 @@ Argilla 只是 M1 校准和人工反馈工具，不得成为生产分类、固�
 
 | 长度 | 规则 |
 | --- | --- |
-| `<= 240` | 不生成摘要，保留原始精简文本 |
-| `241–800` | 仅当超过 3 个完整句子时生成不超过 80 字的一句话摘要 |
-| `> 800` | 必须生成一句话结论和 2–3 个要点 |
+| `< 800` | 不生成式摘要，使用原始精简文本或确定性抽取句 |
+| `>= 800` | 进入摘要资格；仅对通过事件选择和深分析预算的候选生成一句话结论和 2–3 个要点 |
 | `> 12000` | 分块抽取事实，再对事实集合二次汇总；禁止直接截断后假装覆盖全文 |
 
-即使超过 240 字，正文只有一个完整句子也不摘要。快讯默认不摘要；通讯和新闻联播是主要摘要对象。
+即使达到 800 字，正文只有一个完整句子也不摘要。快讯默认不摘要；通讯和新闻联播是主要摘要对象。M0 六天样本中，`news` 仅 48/27,566 条达到 800 字，`major_news` 有 9,764/9,889 条达到 800 字，因此该默认值能把短快讯排除在生成模型之外；后续调整必须发布新 summary policy 版本。
 
 结构化输出至少包含：`one_sentence/facts/impact/uncertainties/entities/evidence`。数字、比例、日期、公司、机构和政策名必须回查原文；mDeBERTa 对摘要句做 NLI 支持度核验。任何一句不通过时整条摘要不能直接推送：先重试一次约束式生成，仍失败则降级为抽取式要点或原文，不允许编造补全。
 
@@ -765,11 +764,12 @@ Debug 页面是运营能力，后端事实仍在 Biz；前端不重新计算分�
 | debug top n | 30 | policy DB | 单策略 | Debug query | 新查询生效 | 必须 >= delivery max |
 | taxonomy version | news-taxonomy-v2 | versioned policy DB | Run 冻结 | classifier/debug | 发布新版本后新 Run 生效 | 旧 Run 可读、回放对比 |
 | scoring version | news-score-v1 | versioned policy DB | Run 冻结 | scorer/ranker | 依赖 taxonomy/source trust | 七维和总分测试 |
-| summary version | news-summary-v1 | versioned policy DB | Run 冻结 | summarizer/verifier | 含 240/800/12000 阈值 | 边界与失败降级测试 |
+| summary version | news-summary-v1 | versioned policy DB | Run 冻结 | summarizer/verifier | 含 800/12000 阈值 | 边界与失败降级测试 |
 | user interests | 中国资本市场基线；宏观/科技/AI 提权 | policy DB | owner/policy | relevance scorer | 动态更新只影响新 Run | Debug 显示权重 |
 | source trust version | source-trust-v1 | versioned policy DB | Run 冻结 | credibility gate | 来源名单变化建新版本 | 未知来源负向测试 |
 | deep analysis limit | 暂定 60 | model policy DB | Run | Qwen selector | 由 Prod 基准校准 | 预算耗尽 reason code |
-| candidate batch size | 暂定 200 | Settings/模型策略 | Worker | reader | 与内存/SQL预算相关 | keyset/退出续跑测试 |
+| raw discovery batch size | 500 | Settings/模型策略 | Worker | reader | M0 冻结；与短事务/续跑相关 | keyset/退出续跑测试 |
+| model batch size | 待实机基准 | deployment Settings | Worker | adapters | 与模型/RSS/CPU预算相关 | 超限与降批测试 |
 | model ids/revisions | 三个锁定 revision | model policy DB + deployment config | Worker | adapters | 发布模型版本后新 Run | 启动自检/版本回显 |
 | model resource budget | 待基准确定 | deployment Settings | 进程 | Worker | CPU/RSS/token/time上限 | 超限中止与进度测试 |
 | shadow interval | 5 分钟建议值 | policy DB | shadow | shadow scheduler | 依赖上游时延 | 不发送负向测试 |
@@ -799,7 +799,9 @@ Debug 页面是运营能力，后端事实仍在 Biz；前端不重新计算分�
 
 ### 17.1 M0：数据与性能预审
 
-只读统计代表性旧日期和真实窗口：每来源行数、正文长度分布、重复率、迟到分布、空值、最大窗口、预计 Embedding/分类/Qwen 数量。Prod 模型安装前在隔离环境完成 CPU 代表性基准；安装/下载另行批准。
+数据、容量与 Prod 资源盘点已完成，证据见 [M0 只读测量报告（2026-09-24）](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-m0-readonly-validation-2026-09-24.md)。30 个窗口的抓取触达上界最高为 7,827 条；旧表没有不可变首见时间，历史净新增只能得到约 900 条的下界代理，正式分布必须由 shadow cursor 记录。M0 同时冻结 800 字摘要资格、500 行 Raw discovery batch 和 10 GiB/年 HDD 容量预算。
+
+Prod 当前没有目标模型依赖或模型缓存。CPU 代表性 benchmark 尚未执行；安装/下载仍须列出精确清单另行批准。`cctv_news` 首次观测停在 2026-08-19；用户手动补数后已连续更新到 2026-09-23，Raw/Serving 双向对账为 0 差异。当前数据完整性已恢复；自动更新由用户另行处理，仍是正式投递前的外部依赖，但不计入 M0 剩余任务。
 
 ### 17.2 M1：离线历史回放
 
@@ -857,7 +859,7 @@ Debug 页面是运营能力，后端事实仍在 Biz；前端不重新计算分�
 3. 五时点跨日窗口、每来源 Raw-id 水位和重复 upsert 反例；
 4. 迟到、同时间、多批、空窗、失败、取消、续跑、幂等；
 5. 主/副主题、事件类型、`UNRESOLVED/AMBIGUOUS/NOT_APPLICABLE`、低置信度和版本冻结；
-6. 240/800/12000 摘要边界、单句长文本、事实核验失败降级；
+6. 800/12000 摘要边界、单句长文本、事实核验失败降级；
 7. 七维档位映射、低可信重大传闻、来源转载不重复加分；
 8. 全候选留档、Top 30 Debug、Top 15 上限和多样性调整；
 9. Qwen 只处理有界集合、预算耗尽不扩大范围；
@@ -887,7 +889,7 @@ Debug 页面是运营能力，后端事实仍在 Biz；前端不重新计算分�
 
 审计结论：现有能力可作为事实源、查询和低层传输参考，但没有可直接扩展成本文业务的统一处理合同；尤其不能让 Ops 任务通知服务承接 Biz 新闻内容，也不能把股票详情请求内事件合并当作可持久化的三来源语义事件簇。现有 reader 已有安全内容合同，但仅支持快讯/通讯和弹窗打开，需补新闻联播与可深链页面后才能承接飞书链接。
 
-仍需在 M0/M1 或对应实施门禁中确认：最终 App Worker 进程入口、现有模型依赖是否已安装、HDD tablespace 可用容量、公开详情的限流数值、测试群中 `post` 链接在桌面/移动客户端的真实表现。运营 Debug 已明确落在 `frontend/` 的“审查中心 → 新闻智能”；新闻机器人使用用户后续提供的专用地址与密钥。
+仍需在获批模型 benchmark、M1 或对应实施门禁中确认：最终 App Worker 进程入口、模型 revision/量化与资源预算、公开详情的限流数值、测试群中 `post` 链接在桌面/移动客户端的真实表现。HDD 余量已核验；现有项目环境确认未安装目标模型栈。运营 Debug 已明确落在 `frontend/` 的“审查中心 → 新闻智能”；新闻机器人使用用户后续提供的专用地址与密钥。
 
 ---
 
@@ -908,4 +910,4 @@ Debug 页面是运营能力，后端事实仍在 Biz；前端不重新计算分�
 
 ## 21. 下一步
 
-配套 LLD 已形成编码前评审稿，下一步先由用户确认是否将其冻结为 M0 基线，不直接开发或部署。获批后执行 M0，只读测量三来源窗口规模、迟到、长度与 HDD 增长；模型依赖安装和权重下载另行列出清单取得授权后再做基准。M0 结果回写同一 LLD 并确认进程入口与开发切片；第一开发切片是无 Prod 正式表写入的 M1 离线回放和 Argilla 人工校准，先做 100–150 条 taxonomy 试标，再形成 600–1000 条冻结校准集。M1 结果回写 taxonomy、scoring、summary 与模型策略，之后才进入持久化、Worker、运营 Debug、公开详情和飞书投递。
+M0 数据、容量与 Prod 资源盘点已经回写方案和 LLD，`cctv_news` 手动补数后的当前数据也已通过复核。M0 唯一剩余任务组是：提交精确模型/依赖/下载清单，获批后做 CPU 实机 benchmark。`cctv_news` 自动更新由用户另行处理，不计入 M0。第一开发切片仍是无 Prod 正式表写入的 M1 离线回放和 Argilla 人工校准，先做 100–150 条 taxonomy 试标，再形成 600–1000 条冻结校准集。M1 结果回写 taxonomy、scoring、summary 与模型策略，之后才进入持久化、Worker、运营 Debug、公开详情和飞书投递。
