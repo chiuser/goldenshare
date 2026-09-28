@@ -26,7 +26,10 @@ from src.app.runtime.news_intelligence.model_runtime import (
     FrozenModelPaths,
     _model_worker_path,
 )
-from src.app.runtime.news_intelligence.model_worker import _entailment_index
+from src.app.runtime.news_intelligence.model_worker import (
+    _nli_label_indices,
+    _zero_shot_multi_label_scores,
+)
 from src.biz.services.wealth.news_intelligence.sampling import SampleSelection
 from src.biz.services.wealth.news_intelligence.contracts import NewsSourceType
 from tests.news_intelligence.test_replay_contracts import _item
@@ -122,12 +125,35 @@ def test_frozen_model_paths_match_m0_layout(tmp_path: Path) -> None:
     assert _model_worker_path().is_file()
 
 
-def test_nli_entailment_index_comes_from_frozen_model_config(tmp_path: Path) -> None:
+def test_nli_label_indices_come_from_frozen_model_config(tmp_path: Path) -> None:
     (tmp_path / "config.json").write_text(
         '{"id2label":{"0":"entailment","1":"neutral","2":"contradiction"}}',
         encoding="utf-8",
     )
-    assert _entailment_index(tmp_path) == 0
+    assert _nli_label_indices(tmp_path) == (0, 2)
+
+
+def test_nli_label_indices_require_entailment_and_contradiction(tmp_path: Path) -> None:
+    (tmp_path / "config.json").write_text(
+        '{"id2label":{"0":"entailment","1":"neutral"}}', encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="entailment and contradiction"):
+        _nli_label_indices(tmp_path)
+
+
+def test_zero_shot_multi_label_scores_exclude_neutral_logit() -> None:
+    np = pytest.importorskip("numpy")
+    logits = np.asarray(
+        [
+            [2.0, 100.0, 0.0],
+            [0.0, 100.0, 2.0],
+        ]
+    )
+    scores = _zero_shot_multi_label_scores(
+        logits, entailment_index=0, contradiction_index=2
+    )
+    assert scores[0] == pytest.approx(0.880797, rel=1e-5)
+    assert scores[1] == pytest.approx(0.119203, rel=1e-5)
 
 
 def test_prepare_pilot_publishes_exact_annotation_contract(

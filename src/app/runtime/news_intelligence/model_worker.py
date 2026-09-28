@@ -71,7 +71,7 @@ def _run_nli(
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
     session = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
     input_names = {item.name for item in session.get_inputs()}
-    entailment_index = _entailment_index(model_path)
+    entailment_index, contradiction_index = _nli_label_indices(model_path)
     for request in _requests():
         premise = _required_text(request, "premise")
         hypotheses = request.get("hypotheses")
@@ -97,12 +97,16 @@ def _run_nli(
             if name in input_names
         }
         logits = session.run(None, inputs)[0]
-        probabilities = _softmax(logits)
+        entailment_scores = _zero_shot_multi_label_scores(
+            logits,
+            entailment_index=entailment_index,
+            contradiction_index=contradiction_index,
+        )
         _respond(
             {
                 "request_id": request.get("request_id"),
                 "entailment_scores": [
-                    float(value) for value in probabilities[:, entailment_index]
+                    float(value) for value in entailment_scores
                 ],
             }
         )
@@ -138,19 +142,40 @@ def _softmax(values):
     return exponentials / np.sum(exponentials, axis=-1, keepdims=True)
 
 
-def _entailment_index(model_path: Path) -> int:
+def _zero_shot_multi_label_scores(
+    logits, *, entailment_index: int, contradiction_index: int
+):
+    """Match Transformers' multi-label zero-shot NLI normalization.
+
+    Neutral is intentionally excluded: each candidate label is scored by a
+    binary softmax over contradiction versus entailment.
+    """
+    pair_logits = logits[:, [contradiction_index, entailment_index]]
+    return _softmax(pair_logits)[:, 1]
+
+
+def _nli_label_indices(model_path: Path) -> tuple[int, int]:
     config = json.loads((model_path / "config.json").read_text(encoding="utf-8"))
+    labels: dict[str, int] = {}
     label_to_id = config.get("label2id")
     if isinstance(label_to_id, dict):
         for label, index in label_to_id.items():
-            if str(label).casefold() == "entailment" and isinstance(index, int):
-                return index
+            normalized = str(label).casefold()
+            if normalized in {"entailment", "contradiction"} and isinstance(index, int):
+                labels[normalized] = index
     id_to_label = config.get("id2label")
     if isinstance(id_to_label, dict):
         for index, label in id_to_label.items():
-            if str(label).casefold() == "entailment":
-                return int(index)
-    raise ValueError("frozen NLI config does not define an entailment label")
+            normalized = str(label).casefold()
+            if normalized in {"entailment", "contradiction"}:
+                labels.setdefault(normalized, int(index))
+    if set(labels) != {"entailment", "contradiction"}:
+        raise ValueError(
+            "frozen NLI config must define entailment and contradiction labels"
+        )
+    if labels["entailment"] == labels["contradiction"]:
+        raise ValueError("entailment and contradiction labels must use distinct indices")
+    return labels["entailment"], labels["contradiction"]
 
 
 if __name__ == "__main__":
