@@ -1,6 +1,6 @@
 # 新闻智能简报 M1 实施与验收记录
 
-状态：**M1-0/M1-1 已完成，M1-2 的有界代码与模型适配器已实现；Prod HDD 已冻结六个代表日期的37,137条历史业务时间事实和20+120条试标包。尚未运行冻结模型、安装 Argilla、完成人工标注或形成业务质量/性能准入结论。**
+状态：**M1-0/M1-1 已完成；M1-2 已在 Prod HDD 对冻结的20+120条试标样本完成 Embedding、保守聚类和分层 NLI 轻量回放。已冻结六个代表日期的37,137条历史事实，但 Argilla 尚未安装、人工标注未开始，分类质量、摘要、排名和整窗性能仍未准入。**
 
 依据：
 
@@ -67,7 +67,7 @@ python -m src.scripts.news_intelligence_m1 prepare-pilot \
 python -m src.scripts.news_intelligence_m1 verify-artifacts <experiment-directory>
 ```
 
-Embedding 和 mDeBERTa 已通过 `run-calibration-sample` 接入冻结试标样本的串行调度；Qwen loopback server、固定字段 Prompt、显式 GBNF 和应用侧 JSON 校验合同已经实现，但须在人工 taxonomy 试标后才能执行事实性与排名增益验收。当前不得把“适配器可运行”写成“模型或整窗已准入”。mDeBERTa 的 entailment 索引从冻结模型 `config.json` 读取并校验；当前冻结制品实际为 `entailment=0/neutral=1/contradiction=2`，禁止硬编码常见但错误的索引顺序。
+Embedding 和 mDeBERTa 已通过 `run-calibration-sample` 接入冻结试标样本的串行调度；Qwen loopback server、固定字段 Prompt、显式 GBNF 和应用侧 JSON 校验合同已经实现，但须在人工 taxonomy 试标后才能执行事实性与排名增益验收。当前不得把“适配器可运行”写成“模型或整窗已准入”。mDeBERTa 的 entailment/contradiction 索引从冻结模型 `config.json` 读取并校验；当前冻结制品实际为 `entailment=0/neutral=1/contradiction=2`，禁止硬编码常见但错误的索引顺序。多标签 zero-shot 分数按 [Transformers 官方 pipeline](https://github.com/huggingface/transformers/blob/main/src/transformers/pipelines/zero_shot_classification.py) 只对 contradiction/entailment logits 作二分归一化，不得把包含 neutral 的三分类 softmax 中 entailment 一列直接当成多标签概率。
 
 模型样本回放：
 
@@ -82,16 +82,19 @@ python -m src.scripts.news_intelligence_m1 run-calibration-sample \
 
 ## 5. 当前验证
 
-- M1、依赖矩阵和 legacy 护栏：43项通过。
+- M1、依赖矩阵和 legacy 护栏：45项通过。
 - 现有新闻 DAO、页面去重、Wealth 新闻 API/Reader 回归：69项通过，只有既有 Starlette/httpx 弃用警告。
 - Ruff、`compileall`、`git diff --check`：通过。
 - 全仓测试：4,573项通过、10项跳过；当前沙箱禁止测试夹具绑定本机端口，导致345项本地 PostgreSQL类错误；另有33项非 M1 失败。`tests/news_intelligence/**` 无失败或错误，不能把该全仓结果表述为全绿。
 - Prod 只读冻结实验：`m1-pilot-20260918-23-67185a66`，绑定 commit `67185a66`；`news=27,027`、`major_news=10,018`、`cctv_news=92`，共37,137条；来源内精确重复3,252条；试标导入包140条。完整制品为211 MiB，`SHA256SUMS` 复核通过，数据库事务为 `REPEATABLE READ, READ ONLY`。
+- 首次模型回放 `m1-lightweight-pilot-25c08fb4` 暴露了 zero-shot 分数归一化错误：135个事件全部 `UNRESOLVED`。该制品保留为失败证据，不纳入质量评估。
+- 修复后实验 `m1-lightweight-pilot-ec7b1cdf` 绑定 commit `ec7b1cdf`，`SHA256SUMS` 通过；140条候选形成135个事件，聚类规模为131个单条、3个两条、1个三条。临时阈值0.5下主题 `CLASSIFIED=95/UNRESOLVED=40`，事件类型 `CLASSIFIED=62/UNRESOLVED=21/NOT_APPLICABLE=52`；这些只证明推理语义已恢复，没有 gold label 前不构成准确率或阈值结论。
+- 修复后140条轻量回放 wall-clock `511.34s`（约8.52分钟），主进程峰值 RSS `1,097,568 KiB`，模型子进程峰值 RSS `1,852,068 KiB`；结束后无模型进程、锁文件或监听端口残留。这是试标子集性能，不是最大整窗 `<60分钟` 准入证据。
 
 ## 6. 后续门禁
 
-1. 对冻结的140条试标样本运行 Embedding、保守聚类和分层 NLI；不得把37,137条快照整体送入模型。
-2. 在 taxonomy 人工试标后完成 Qwen 摘要、事实核验和资源采样闭环。
-3. 安装 Docker Desktop 必须单独获得管理员授权；随后才能启动本机 Argilla。
-4. 完成20条教学和120条盲标后停止，由用户评审 taxonomy；未确认前不生成800条正式集。
+1. 安装 Docker Desktop 必须单独获得管理员授权；随后才能启动仅绑定 `127.0.0.1:6900` 的本机 Argilla。
+2. 完成20条教学和120条盲标后停止，由用户评审 taxonomy；未确认前不生成800条正式集。
+3. 人工 gold label 导出后才能计算候选召回、Macro-F1 与 PR 曲线，并据此调整当前临时0.5阈值。
+4. 在 taxonomy 人工试标后完成 Qwen 摘要、事实核验和资源采样闭环。
 5. 业务质量与最大窗口60分钟性能门禁未通过前不得进入M2。
