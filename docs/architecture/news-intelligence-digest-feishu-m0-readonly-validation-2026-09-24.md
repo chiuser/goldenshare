@@ -1,8 +1,8 @@
-# 新闻智能简报 M0 只读测量报告（2026-09-24）
+# 新闻智能简报 M0 测量与实机验证报告（2026-09-24—2026-09-28）
 
-状态：**M0 数据、容量、Prod 资源盘点、模型候选制品冻结和 M0-2 依赖/下载清单已完成；`cctv_news` 手动补数已通过当前数据完整性复核；安装、下载和实机基准仍待单独授权，正式投递门禁未通过。**
+状态：**M0-1/M0-2/M0-3 已完成；冻结制品已在 Prod HDD 隔离安装并完成 CPU 单模型基准，`cctv_news` 手动补数已通过当前数据完整性复核；业务质量和整窗 60 分钟门禁仍须 M1 回放验证，尚未开发、迁移、部署服务或发送飞书消息。**
 
-依据：[新闻智能简报 LLD v1](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-low-level-design-v1.md) §10.1。观测时间为 2026-09-24 01:03–01:12（Asia/Shanghai）。本次只执行 Prod PostgreSQL `READ ONLY` 查询和服务器只读资源盘点；未写数据库、未安装依赖、未下载模型、未部署、未发送飞书消息。
+依据：[新闻智能简报 LLD v1](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-low-level-design-v1.md) §10.1。数据观测时间为 2026-09-24 01:03–01:12（Asia/Shanghai）；用户批准 M0-3 后，于 2026-09-25 执行 HDD 隔离安装与实机基准，并于 2026-09-28 完成恢复复核。本阶段没有写数据库、修改项目 `.venv`、新增系统包、部署服务、开放公网端口或发送飞书消息。
 
 ---
 
@@ -158,11 +158,11 @@ Prod HDD `/data/disk` 为 394 GiB，总可用 264 GiB；按 10 GiB/年预算具�
 | 模型依赖 | 目标清单中只匹配到 `numpy==2.4.4`；未发现 Torch、Transformers、Sentence Transformers、ONNX Runtime、llama.cpp、scikit-learn、jieba、FlagEmbedding 或 vLLM |
 | 模型缓存 | 未发现已存在的 Hugging Face 模型缓存目录 |
 
-结论：Prod 是 CPU-only、小内存余量环境，不能把 embedding、mDeBERTa 和生成模型常驻并发运行。模型实机 benchmark 必须先提交精确的包、模型、revision、量化文件、下载大小和安装位置清单，再单独获批；本次 M0 没有越权安装或下载，因此 RSS、CPU、P50/P95 和 batch 仍待测。
+结论：Prod 是 CPU-only、小内存余量环境，不能把 embedding、mDeBERTa 和生成模型常驻并发运行。M0-3 已按 §6.2 冻结清单完成隔离安装和单模型串行 benchmark；结果见 §6.3。
 
 ### 6.1 模型候选制品冻结（2026-09-24）
 
-本节只冻结后续安装申请和 CPU benchmark 的输入，不代表模型已下载、能在当前 Python 3.13 环境运行、业务质量已通过，或已获准进入 Prod。所有 revision 均使用完整 commit SHA，禁止运行时解析浮动 `main`。
+本节记录 M0-2 当时冻结的安装申请和 CPU benchmark 输入；后续下载、运行验证与基准结果见 §6.3。完成 M0-3 仍不代表业务质量已通过或已获准部署生产 Worker。所有 revision 均使用完整 commit SHA，禁止运行时解析浮动 `main`。
 
 | 职责 | 冻结候选 | revision / 文件 | 权重大小与校验 | 许可证 | 当前结论 |
 |---|---|---|---|---|---|
@@ -199,7 +199,7 @@ Prod HDD `/data/disk` 为 394 GiB，总可用 264 GiB；按 10 GiB/年预算具�
 | 临时目录/缓存 | `staging/`、`cache/huggingface/`、`tmp/` | benchmark 时显式设置 `HF_HOME`、`HF_HUB_CACHE`、`TRANSFORMERS_CACHE`、`TMPDIR` 到 HDD；运行阶段启用 HF/Transformers offline |
 | SSD 写入 | 只允许已有仓库代码和少量系统服务定义 | 权重、wheel、venv、模型缓存、运行临时文件不得进入 `/opt`、用户 home 或 `/tmp` |
 
-`/data/disk` 根目录需要管理员创建子目录并授权，这是未来安装审批中的显式系统变更；M0-2 没有执行。M0-2 也不新增环境变量或 Settings。后续若把路径加入服务配置，必须先完成根规则要求的配置项审计。
+`/data/disk` 根目录创建子目录并授权在 M0-2 时只是待审批系统变更，M0-3 获批后已按本表执行。M0-3 没有新增环境变量或 Settings；后续若把路径加入服务配置，必须先完成根规则要求的配置项审计。
 
 #### 6.2.2 冻结的直接运行时
 
@@ -275,9 +275,9 @@ Python 依赖使用 `uv 0.11.14` 只读解析元数据，目标为 CPython 3.13 
 | llama.cpp | `llama-b11146-bin-ubuntu-x64.tar.gz` | 16,998,357 |
 | **合计** | 不包含已有 Python 解释器，不包含任何 CUDA/ROCm 制品 | **4,400,018,597 bytes（4.40 GB / 约 4.10 GiB）** |
 
-HDD 安装容量门禁设为 **至少 12 GiB 可用**，覆盖压缩包保留、venv 解包、同文件系统 staging、运行缓存和测量误差；这不是模型业务数据的 10 GiB/年容量预算。当前 HDD 余 264 GiB，容量满足，但 M0-3 执行前必须重查。
+HDD 安装容量门禁设为 **至少 12 GiB 可用**，覆盖压缩包保留、venv 解包、同文件系统 staging、运行缓存和测量误差；这不是模型业务数据的 10 GiB/年容量预算。M0-3 执行前复核余量约 264 GiB，满足门禁；2026-09-28 恢复复核余 257 GiB。
 
-#### 6.2.5 获批安装时的强制顺序
+#### 6.2.5 获批安装的强制顺序（M0-3 已按此执行）
 
 1. 只创建并授权上述 HDD 根目录；确认真实路径仍位于 `/data/disk`，剩余空间 `>=12 GiB`。
 2. 下载 44 个 wheel、llama.cpp tarball 和三个 revision 的白名单模型文件到 HDD `staging/`；禁止下载整个仓库的非白名单权重，禁止 CUDA/ROCm 包。
@@ -288,6 +288,50 @@ HDD 安装容量门禁设为 **至少 12 GiB 可用**，覆盖压缩包保留、
 7. smoke test 通过后才进入 M0-3 的 RSS、CPU、P50/P95、batch、最大输入和窗口余量 benchmark。
 
 M0-2 不包含 Argilla、Web/Ops 现有依赖、CUDA/ROCm、vLLM、FlashAttention、TEI、Docker 镜像、模型训练包、Reranker 或 `Qwen3-4B-Instruct-2507` BF16。后续如需任何一项，必须重新给出制品、大小、哈希、路径与理由。
+
+### 6.3 M0-3 Prod HDD 安装与 CPU 实机基准（2026-09-25，2026-09-28 复核）
+
+#### 6.3.1 安装与制品验收
+
+- 专用根已创建为 `/data/disk/goldenshare/news-intelligence`，属主/权限为 `goldenshare:goldenshare 0750`；模型、wheelhouse、独立 venv、llama.cpp、cache、tmp 和 benchmark 证据均在 `/data/disk` HDD。项目 `.venv` 未改变。
+- 44 个 CPU wheel、18 个模型文件和 llama.cpp b11146 均按冻结文件名/大小安装；三个主权重与 llama.cpp tarball 的 SHA-256 再验结果与 §6.1/§6.2 一致。专用 venv 离线安装后 `pip check` 返回 `No broken requirements found`。
+- Python 运行时为 3.13.12；实测导入 `torch 2.14.0+cpu`、`transformers 5.17.0`、`sentence-transformers 6.1.0`、`onnxruntime 1.30.0`、`numpy 2.5.3`、`scikit-learn 1.9.1`，`torch.cuda.is_available()` 为 false。
+- Prod 到 `huggingface.co` 的解析结果不可用，而官方 `cdn.hf.co` 可达；因此下载由本地通过官方 HTTPS 流式写入 Prod HDD，再在 Prod 做大小和 SHA-256 验证。它是安装期网络事实，不允许实现运行时联网或解析浮动 revision。
+- 最终目录约 5.6 GiB；2026-09-28 复核 HDD 余 257 GiB。失败 smoke 产生的两份纯重复交互日志已清空，成功输出、4 KiB 摘要和全部 benchmark JSON 保留。
+
+#### 6.3.2 单模型基准
+
+统一条件：CPU-only、4 线程、模型串行运行；延迟是单模型调用耗时，不含数据库读取、清洗、聚类算法、持久化、进程装载/卸载和最终排序。
+
+| 模型/输入 | batch / 次数 | P50 | P95 | 吞吐 | 峰值 RSS | 结论 |
+|---|---:|---:|---:|---:|---:|---|
+| Embedding，128 tokens | 1 / 10 | 1.518 s | 2.416 s | 0.659 条/s | 约 1.37 GiB（该 case） | batch 1 最优；batch 4/8/16 的单条吞吐继续下降 |
+| Embedding，512 tokens | 1 / 5 | 8.379 s | 8.963 s | 0.119 条/s | 全程最高约 1.78 GiB | M1 初始输入硬上限取 512 tokens；不得把全文直接送入 |
+| Embedding，1,024 tokens | 1 / 3 | 15.612 s | 15.638 s | 0.064 条/s | 同上 | 只证明边界可运行，不作为一期默认 |
+| mDeBERTa，124 tokens | 16 / 8 | 1.161 s/批 | 1.195 s/批 | 13.785 对/s | 约 1.33 GiB（该 case） | M1 初始 batch 16 |
+| mDeBERTa，490 tokens | 1 / 8 | 0.549 s | 0.572 s | 1.823 对/s | 全程最高约 1.49 GiB | 模型硬上限 512 tokens |
+| Qwen 4B，120 字/86 prompt tokens | 1 / 10 | 4.963 s | 5.434 s | prompt 26.51、生成 6.83 tokens/s | 全程最高约 4.35 GiB | `threads=4, parallel=1, ctx=2048` 可运行 |
+| Qwen 4B，800 字/427 prompt tokens | 1 / 5 | 19.598 s | 19.696 s | prompt 25.14、生成 5.80 tokens/s | 同上 | 30 次按 P95 约 9.85 分钟 |
+| Qwen 4B，1,400 字/728 prompt tokens | 1 / 3 | 31.264 s | 31.330 s | prompt 25.46、生成 5.09 tokens/s | 同上 | 30 次按 P95 约 15.67 分钟 |
+
+Embedding 全组 wall-clock 为 9:14.52、峰值 RSS 1,864,468 KiB、0 swap；mDeBERTa 全组为 48.33 秒、峰值 RSS 1,559,824 KiB、0 swap。Qwen 由持久 loopback server 顺序承载请求，benchmark 记录峰值 RSS 4,556,420 KiB；只监听 `127.0.0.1`，结束后无残留进程或监听端口。
+
+#### 6.3.3 正确解释与窗口门禁
+
+1. smoke test 证明三条运行链可用，不证明中文分类、聚类、摘要事实性或排序质量。mDeBERTa 单例偏向 neutral；Qwen benchmark 的固定 grammar 允许空摘要字符串，说明 schema 合法也不等于业务有效，必须由 M1 人工样本和非空/证据校验决定准入。
+2. llama.cpp b11146 的 JSON Schema 自动转 grammar 路径在本次 smoke 中失败；显式 GBNF 可产生合法 JSON。M1 只能使用版本化显式 grammar 加应用层 JSON/schema/非空/证据校验，不能依赖自动转换成功。
+3. 一次 SSH 中断曾留下 Qwen 子进程；并发启动第二实例后组合常驻约 8.4 GiB，并出现约 18 MiB swap 增量。进程全部终止后资源恢复。这直接冻结了“单实例、单模型驻留、进程组级超时/取消清理、启动前 singleton 断言”的运行门禁。
+4. 历史最高可靠代理窗口为 906 条、规范化标题代理为 790 组。按 790 个 128-token Embedding 的 P95 估算约 31.8 分钟；若对每组平铺执行 17 个一级主题和 22 个事件类型共 39 个 NLI 假设，按 batch 16 的 P50 仍约 37.2 分钟；再加 30 个 1,400 字 Qwen 调用约 15.7 分钟，单模型部分合计约 84.7 分钟，尚未计入其他阶段。
+5. 因而 M0-3 **没有通过整窗 60 分钟门禁**，也不能从单模型结果宣称最短两小时间隔已有充足余量。M1 必须用真实旧日期回放证明：精确去重后的实际事件数、Embedding 代表文本长度、分层/候选化 NLI 假设数和 Qwen 实际入选数；禁止对 39 个标签做全量平铺，禁止把 7,827 条触达上界直接送入任何模型。
+6. M1 初始运行上限冻结为：Embedding `batch=1, max_tokens=512`；mDeBERTa `batch=16, max_tokens=512`；Qwen `threads=4, parallel=1, ctx=2048`，`deep_analysis_limit=30`。这些是回放安全上限，不是生产准入结论；M1 只能调低，若要调高必须重新证明 60 分钟和不依赖 swap。
+
+#### 6.3.4 进程入口决定
+
+一期目标形态冻结为独立的 App-owned 模型 Worker，不与 Web/Ops Worker 同进程。Worker 按阶段启动并回收单一模型子进程：Embedding 与 ONNX adapter 不同时常驻，Qwen 通过仅绑定 `127.0.0.1` 的 llama-server 提供单并发调用；每次启动记录 PID/进程组、模型 revision 和预算，取消、超时、异常及 Worker 退出均清理完整进程组。当前只冻结设计，M0-3 没有创建 systemd unit、环境变量或常驻服务；实现前仍须完成配置项审计。
+
+#### 6.3.5 恢复与现有服务复核
+
+2026-09-28 复核时没有 `llama-cli/llama-server` 残留，端口 18183 未监听；内存 available 约 9.7 GiB，既有 swap 使用约 1.2 GiB；`goldenshare-web`、`goldenshare-ops-worker`、`goldenshare-ops-scheduler` 均为 active。M0-3 没有变更数据库、项目代码、项目环境、systemd 或业务配置。
 
 ---
 
@@ -300,8 +344,9 @@ M0-2 不包含 Argilla、Web/Ops 现有依赖、CUDA/ROCm、vLLM、FlashAttentio
 | 摘要资格 | 默认正文 `>=800` 字；仍须先通过事件选择和深分析预算，不是所有长文都摘要 |
 | 模型入口 | 严禁直接把全触达候选交给生成模型；先精确去重、规则筛选和事件聚合 |
 | 模型候选制品 | 三个首轮制品的 repo/revision/文件/SHA-256 已冻结；不得解析浮动 `main`，不得直接采用社区 GGUF |
-| M0-2 运行时 | 44 个 Python wheel、llama.cpp b11146、HDD 路径和 4.40 GB 完整下载量已冻结；项目 `.venv` 不变 |
-| 重模型上限 | 未冻结；等待获批模型实机 benchmark 与 M1 Precision@15 结果 |
+| M0-2/M0-3 运行时 | 冻结清单已在 HDD 隔离安装并校验；项目 `.venv` 不变；三模型只能串行、单实例运行 |
+| M1 模型安全上限 | Embedding `batch=1/max_tokens=512`；mDeBERTa `batch=16/max_tokens=512`；Qwen `threads=4/parallel=1/ctx=2048/deep_analysis_limit=30` |
+| 整窗性能 | 单模型可运行，但 790 组保守组合估算约 84.7 分钟；60 分钟门禁未通过，须由 M1 真实回放收缩入口并重新验收 |
 | 容量预算 | 新 HDD 业务关系按 10 GiB/年预留；不复制原文 |
 | 历史回放 | 使用业务时间做分层取样，只用于校准；不得声称复原了历史 Raw 净新增窗口 |
 | 迟到指标 | M0 不产出真实首见 SLA；从 shadow Run 的不可变 `discovered_at` 开始统计 |
@@ -311,10 +356,8 @@ M0-2 不包含 Argilla、Web/Ops 现有依赖、CUDA/ROCm、vLLM、FlashAttentio
 
 ## 8. M0 结论与下一门禁
 
-M0 的数据量、长度、HDD、硬件盘点、模型候选制品、M0-2 依赖/下载清单和 `cctv_news` 当前数据完整性通过，足以进入 M1 离线 replay/标注设计；但不能据此进入正式持久化或投递开发。M0-2 已完成，尚余一个需要用户另行授权的 M0-3 门禁：
-
-1. 用户审核 §6.2 后，另行批准在 Prod 创建 HDD 专用目录、下载 4.40 GB 冻结制品、安装专用 venv，并执行 CPU 实机 benchmark；未获批准不得先行执行。
+M0 的数据、容量、制品、隔离运行时和单模型 CPU 基准均已完成，足以进入 M1 离线 replay/标注；但 M0-3 明确证明整窗 60 分钟门禁尚未通过，不能据此进入正式持久化、常驻 Worker、Shadow 或投递开发。M1 的性能目标不是增加并发，而是通过确定性清洗、精确去重、短代表文本、分层分类和有界 `deep_analysis_limit=30` 缩小模型入口，并用真实冻结窗口重新测量端到端耗时。
 
 `cctv_news` 自动更新、失败告警和持续 freshness 由用户另行处理；它仍是正式投递前的外部依赖，但不再作为本项目 M0 的未完成项。
 
-M1 应先本地部署 Argilla，使用业务时间分层抽取 100–150 条 taxonomy 试标样本；它不依赖历史净新增窗口精确可重建，也不写正式 Run/cursor/delivery。
+M1 应先实现隔离离线 replay 并在本地部署 Argilla，使用业务时间分层抽取 100–150 条 taxonomy 试标样本；它不依赖历史净新增窗口精确可重建，也不写正式 Run/cursor/delivery。M1 必须同时产出分类质量、聚类质量、Qwen 非空/事实性和代表性窗口端到端性能报告；任一门禁失败都停在 M1。

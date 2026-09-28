@@ -1,6 +1,6 @@
 # 新闻智能分类、摘要、排序与飞书推送低层设计 v1
 
-状态：**LLD 已确认；M0 数据、容量、Prod 资源盘点、模型候选制品冻结和 M0-2 依赖/下载清单已完成，安装、下载与模型实机基准待单独授权；尚未开发、迁移、安装模型、执行 M1、部署或发送飞书消息。**
+状态：**LLD 已确认；M0-1/M0-2/M0-3 已完成，冻结模型运行时已在 Prod HDD 隔离安装并完成 CPU 单模型基准；整窗 60 分钟与业务质量门禁仍须 M1 回放验证，尚未开发、迁移、部署常驻服务或发送飞书消息。**
 
 创建日期：2026-09-21。
 
@@ -180,9 +180,11 @@ M0 已冻结 discovery batch 为 500、摘要资格默认阈值为正文 800 字
 
 M0 同时冻结首轮 benchmark 制品：Embedding 使用 `Qwen/Qwen3-Embedding-0.6B@97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3` 的 `model.safetensors`；分类/NLI 使用 `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli@8adb042d524ecd5c26d3e3ba0e3fbcf7e2d0864c` 的原仓库量化 ONNX；生成使用 `Qwen/Qwen3-4B-GGUF@bc640142c66e1fdd12af0bd68f40445458f3869b` 的官方 `Q4_K_M` 作为有条件 CPU 候选。逐文件大小、SHA-256、许可证和准入说明见 M0 报告 §6.1。该生成候选不是 `Qwen3-4B-Instruct-2507` 同权重量化，必须通过 M1 质量门禁后才可进入一期模型策略。
 
-M0-2 进一步冻结 `/data/disk/goldenshare/news-intelligence` 专用 HDD 根、Python 3.13 独立 venv、44 个带哈希 CPU wheel、llama.cpp b11146、模型白名单文件和 4,400,018,597 bytes 完整下载量，见 M0 报告 §6.2。不得修改项目 `.venv`；模型、wheelhouse、venv、cache、staging 和 tmp 不得写入 SSD。该清单只允许用户批准后的下载、安装和 benchmark，不构成当前 Prod 已安装事实。
+M0-2 冻结的 `/data/disk/goldenshare/news-intelligence` 专用 HDD 根、Python 3.13 独立 venv、44 个带哈希 CPU wheel、llama.cpp b11146、模型白名单文件和 4,400,018,597 bytes 下载量，已在 M0-3 按原合同安装和复核，见 M0 报告 §6.2–§6.3。项目 `.venv` 未修改；模型、wheelhouse、venv、cache、staging 和 tmp 均位于 HDD。
 
-以下值仍由获批后的模型实机基准和 M1 回填：最终生成模型准入、embedding 阈值、deep-analysis limit、token/context、RSS/CPU/wall-clock 预算、核心标签阈值、Precision@15 门槛。LLD 评审和本次只读 M0 均不授权安装依赖或下载模型。
+M0-3 冻结 M1 安全上限：Embedding `batch=1/max_tokens=512`；mDeBERTa `batch=16/max_tokens=512`；Qwen `threads=4/parallel=1/ctx=2048/deep_analysis_limit=30`。三模型必须按阶段串行、单实例驻留；独立 App-owned 模型 Worker 负责拉起和回收子进程，Qwen 仅绑定 loopback llama-server，必须做 singleton 断言和进程组级超时/取消清理。M0-3 没有部署该 Worker、systemd 或配置。
+
+单模型可运行不等于整窗准入：以 790 个规范化标题组保守组合测算，128-token Embedding、39 个平铺 NLI 假设和 30 个 1,400 字 Qwen 调用约 84.7 分钟，超过 60 分钟。M1 必须用真实 replay 冻结短代表文本、分层标签候选和实际事件数；禁止全量平铺标签或把触达上界直接交给模型。最终生成模型业务准入、embedding/分类阈值、端到端 RSS/CPU/wall-clock、核心标签阈值和 Precision@15 仍由 M1 回填。
 
 ---
 
@@ -251,9 +253,9 @@ M0-2 进一步冻结 `/data/disk/goldenshare/news-intelligence` 专用 HDD 根�
 
 ## 10. M0 与 M1 合同
 
-### 10.1 M0（数据/容量/候选制品/M0-2 清单已完成；安装下载与模型实机基准待授权）
+### 10.1 M0（M0-1/M0-2/M0-3 已完成）
 
-完整证据见 [M0 只读测量报告（2026-09-24）](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-m0-readonly-validation-2026-09-24.md)。已完成 30 个代表窗口、两个极端窗口、字符分布、空值、规范化标题重复代理、延迟代理、事件代理、HDD 增长和 Prod 资源盘点；没有写正式业务表。
+完整证据见 [M0 测量与实机验证报告（2026-09-24—2026-09-28）](/Users/congming/github/goldenshare/docs/architecture/news-intelligence-digest-feishu-m0-readonly-validation-2026-09-24.md)。已完成 30 个代表窗口、两个极端窗口、字符分布、空值、规范化标题重复代理、延迟代理、事件代理、HDD 增长、Prod 资源盘点、隔离安装和单模型基准；没有写正式业务表。
 
 M0 的硬结论：
 
@@ -261,7 +263,8 @@ M0 的硬结论：
 2. `news` 只有 48/27,566 条达到 800 字，`major_news` 有 9,764/9,889 条达到 800 字；默认摘要资格阈值冻结为 800 字。
 3. `cctv_news` 首次观测时中断约 36 天；手动补数后当前数据完整性通过。自动更新由用户另行处理，仍须在正式投递前验收，但不计入 M0 剩余任务。
 4. 新库按 10 GiB/年在 `gs_raw_cold_hdd` 预留；Prod HDD 容量满足一期。
-5. 三个首轮模型制品以及 M0-2 的 44 个 Python wheel、llama.cpp、HDD 安装位置和 4.40 GB 完整下载量已冻结；Prod 没有目标模型依赖或模型缓存。用户另行批准安装/下载后，才测量单模型 RSS、CPU、P50/P95、最大输入与最短两小时窗口余量。
+5. 三个首轮模型制品、44 个 Python wheel 和 llama.cpp 已在 Prod HDD 隔离安装并通过哈希、离线依赖和 smoke 验收；Embedding/mDeBERTa/Qwen 单模型峰值 RSS 分别约 1.78/1.49/4.35 GiB，现有 Web/Ops 服务保持 active。
+6. 单模型基准通过，但保守整窗组合约 84.7 分钟，60 分钟门禁未通过；M1 必须收缩模型入口并做真实端到端回放，不能以增加并发解决。
 
 ### 10.2 M1（第一开发切片）
 
@@ -314,7 +317,7 @@ python3 scripts/check_docs_integrity.py
 ## 13. 建议实施切片
 
 1. L0：评审本文；**已完成**。
-2. L1：执行 M0 并回写本文参数、容量和进程决定；**数据/容量/资源盘点/模型候选制品/M0-2 清单已完成，安装下载与模型进程决定待获批 benchmark**。
+2. L1：执行 M0 并回写本文参数、容量和进程决定；**已完成**。
 3. L2：实现并运行 M1 离线 replay/反馈样本，冻结策略版本。
 4. L3：HDD migration、ORM/repository、增量 cursor、Run 状态机。
 5. L4：模型端口/适配器、有界 pipeline、排名与 Debug API。
@@ -329,7 +332,7 @@ python3 scripts/check_docs_integrity.py
 
 ## 14. LLD 评审后仍需由证据决定的事项
 
-以下不是当前要求用户凭偏好拍板的产品项：最终生成模型准入、模型 batch、深度分析数、聚类与分类阈值、资源上限、公开限流数值、Precision@15 门槛。它们分别由获批的模型 benchmark/M1 给出证据并回写本文。三个首轮候选制品的 revision/格式、Raw discovery batch、摘要资格默认阈值和 HDD 容量预算已由 M0 回填。
+以下不是当前要求用户凭偏好拍板的产品项：最终生成模型业务准入、聚类与分类阈值、端到端资源上限、公开限流数值、Precision@15 门槛。它们由 M1 或对应实施验证给出证据并回写本文。三个首轮候选制品的 revision/格式、Raw discovery batch、摘要资格默认阈值、HDD 容量预算及 M1 模型安全上限已由 M0 回填。
 
 用户已确认：运营 Debug 使用现有运营平台；详情免登录且不展示系统信息；移动端不做 Debug；部分失败不推送；候选/分析一期不自动删除；使用专用飞书机器人并由用户后续提供地址和密钥；Argilla 可部署本地或 Prod，首轮默认本地，后续仅在多人持续协作或远程访问需求明确时评估 Prod。
 
@@ -344,3 +347,4 @@ python3 scripts/check_docs_integrity.py
 | v1.2 | 2026-09-24 | 回写 M0 30 窗口、800 字摘要门槛、500 行 discovery batch、HDD/硬件与来源完整性门禁；并补记手动补数后的 Raw/Serving 复核；模型基准仍待授权 |
 | v1.3 | 2026-09-24 | 冻结三个首轮模型候选的官方 revision/文件/SHA-256；纠正 Instruct-2507 无官方 4-bit GGUF 的制品事实，改以官方 Qwen3-4B Q4_K_M 作为有条件 CPU benchmark 候选 |
 | v1.4 | 2026-09-24 | 完成 M0-2：冻结 Prod 目标平台、HDD 安装边界、44 个 Python wheel、llama.cpp b11146、模型白名单和 4.40 GB 完整下载量；安装下载仍待单独授权 |
+| v1.5 | 2026-09-28 | 完成 M0-3：Prod HDD 隔离安装和三模型 CPU 基准；冻结串行进程形态与 M1 安全上限，并记录整窗 60 分钟门禁尚未通过 |
