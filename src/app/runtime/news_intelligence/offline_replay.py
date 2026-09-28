@@ -156,6 +156,7 @@ def run_calibration_sample_experiment(
     model_root: Path,
     embedding_timeout_seconds: float,
     nli_timeout_seconds: float,
+    code_commit: str | None = None,
 ) -> Path:
     verify_artifact_directory(input_experiment)
     source_records = _read_jsonl(input_experiment / "source_snapshot.jsonl")
@@ -195,7 +196,7 @@ def run_calibration_sample_experiment(
         **parent_manifest,
         "experiment_id": experiment_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "code_commit": _git_commit(),
+        "code_commit": code_commit or _git_commit(),
         "parent_experiment_id": parent_manifest.get("experiment_id"),
         "stage": "CALIBRATION_SAMPLE_LIGHTWEIGHT_MODELS",
         "parameters": {

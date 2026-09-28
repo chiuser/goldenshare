@@ -39,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_sample.add_argument("--model-root", required=True, type=Path)
     run_sample.add_argument("--embedding-timeout-seconds", type=float, default=3_600.0)
     run_sample.add_argument("--nli-timeout-seconds", type=float, default=3_600.0)
+    run_sample.add_argument("--code-commit")
 
     verify = subparsers.add_parser(
         "verify-artifacts", help="校验冻结制品文件集合和 SHA-256。"
@@ -76,6 +77,7 @@ def main() -> int:
             model_root=args.model_root,
             embedding_timeout_seconds=args.embedding_timeout_seconds,
             nli_timeout_seconds=args.nli_timeout_seconds,
+            code_commit=args.code_commit,
         )
         print(path)
         return 0
