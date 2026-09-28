@@ -22,7 +22,10 @@ from src.app.runtime.news_intelligence.model_process import (
     SerializedModelProcess,
     assert_loopback_url,
 )
-from src.app.runtime.news_intelligence.model_runtime import FrozenModelPaths
+from src.app.runtime.news_intelligence.model_runtime import (
+    FrozenModelPaths,
+    _model_worker_path,
+)
 from src.app.runtime.news_intelligence.model_worker import _entailment_index
 from src.biz.services.wealth.news_intelligence.sampling import SampleSelection
 from src.biz.services.wealth.news_intelligence.contracts import NewsSourceType
@@ -115,6 +118,8 @@ def test_frozen_model_paths_match_m0_layout(tmp_path: Path) -> None:
     assert paths.nli_onnx.name == "model_quantized.onnx"
     assert paths.llama_server.name == "llama-server"
     assert paths.qwen_model.name == "Qwen3-4B-Q4_K_M.gguf"
+    assert _model_worker_path().name == "model_worker.py"
+    assert _model_worker_path().is_file()
 
 
 def test_nli_entailment_index_comes_from_frozen_model_config(tmp_path: Path) -> None:

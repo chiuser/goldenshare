@@ -78,8 +78,7 @@ class FrozenModelRuntime:
         responses = self._process.run(
             (
                 str(self._paths.python),
-                "-m",
-                "src.app.runtime.news_intelligence.model_worker",
+                str(_model_worker_path()),
                 "embedding",
                 "--model-path",
                 str(self._paths.embedding_model),
@@ -121,8 +120,7 @@ class FrozenModelRuntime:
         responses = self._process.run(
             (
                 str(self._paths.python),
-                "-m",
-                "src.app.runtime.news_intelligence.model_worker",
+                str(_model_worker_path()),
                 "nli",
                 "--model-path",
                 str(self._paths.nli_model),
@@ -161,3 +159,7 @@ class FrozenModelRuntime:
             }
         )
         return environment
+
+
+def _model_worker_path() -> Path:
+    return Path(__file__).with_name("model_worker.py")
