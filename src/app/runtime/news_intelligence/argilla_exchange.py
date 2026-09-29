@@ -76,6 +76,7 @@ def normalize_argilla_export(
     *,
     reviewer_id: str,
     annotation_round: int,
+    submitted_at: str | None = None,
 ) -> dict[str, object]:
     metadata = record.get("metadata")
     response = record.get("response")
@@ -93,7 +94,7 @@ def normalize_argilla_export(
         "taxonomy_version": metadata.get("taxonomy_version"),
         "reviewer_id": reviewer_id,
         "annotation_round": annotation_round,
-        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "submitted_at": submitted_at or datetime.now(timezone.utc).isoformat(),
         **dict(response),
     }
     return as_jsonable(normalized)  # type: ignore[return-value]

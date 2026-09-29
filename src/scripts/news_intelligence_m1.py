@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 from datetime import date
+import json
 from pathlib import Path
 
 from src.app.runtime.news_intelligence.artifact_store import verify_artifact_directory
+from src.app.runtime.news_intelligence.argilla_workspace import (
+    ArgillaHttpClient,
+    export_submitted_annotations,
+    import_annotation_tasks,
+)
 from src.app.runtime.news_intelligence.offline_replay import (
     prepare_pilot_experiment,
     run_calibration_sample_experiment,
@@ -13,10 +20,14 @@ from src.db import SessionLocal
 
 
 DEFAULT_OUTPUT_ROOT = Path("/data/disk/goldenshare/news-intelligence/m1")
+DEFAULT_ARGILLA_API_URL = "http://127.0.0.1:6900/api/v1"
+DEFAULT_ARGILLA_WORKSPACE = "news-intelligence-m1"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="新闻智能简报 M1 离线只读回放工具。")
+    parser = argparse.ArgumentParser(
+        description="新闻智能简报 M1 离线只读回放工具。"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     prepare = subparsers.add_parser(
@@ -45,7 +56,33 @@ def build_parser() -> argparse.ArgumentParser:
         "verify-artifacts", help="校验冻结制品文件集合和 SHA-256。"
     )
     verify.add_argument("path", type=Path)
+
+    argilla_import = subparsers.add_parser(
+        "argilla-import",
+        help="将冻结的20+120条试标任务幂等导入本机Argilla。",
+    )
+    _add_argilla_connection_arguments(argilla_import)
+    argilla_import.add_argument("--input", required=True, type=Path)
+
+    argilla_export = subparsers.add_parser(
+        "argilla-export", help="从本机Argilla导出已提交的版本化标注。"
+    )
+    _add_argilla_connection_arguments(argilla_export)
+    argilla_export.add_argument("--dataset-id", required=True)
+    argilla_export.add_argument("--output", required=True, type=Path)
+    argilla_export.add_argument("--annotation-round", required=True, type=int)
     return parser
+
+
+def _add_argilla_connection_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--api-url", default=DEFAULT_ARGILLA_API_URL)
+    parser.add_argument("--api-key-file", required=True, type=Path)
+    parser.add_argument("--workspace", default=DEFAULT_ARGILLA_WORKSPACE)
+
+
+def _argilla_client(args: argparse.Namespace) -> ArgillaHttpClient:
+    api_key = args.api_key_file.read_text(encoding="utf-8").strip()
+    return ArgillaHttpClient(api_url=args.api_url, api_key=api_key)
 
 
 def main() -> int:
@@ -80,6 +117,25 @@ def main() -> int:
             code_commit=args.code_commit,
         )
         print(path)
+        return 0
+    if args.command == "argilla-import":
+        result = import_annotation_tasks(
+            client=_argilla_client(args),
+            input_path=args.input,
+            workspace_name=args.workspace,
+        )
+        print(json.dumps(asdict(result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "argilla-export":
+        result = export_submitted_annotations(
+            client=_argilla_client(args),
+            dataset_id=args.dataset_id,
+            output_path=args.output,
+            annotation_round=args.annotation_round,
+        )
+        payload = asdict(result)
+        payload["output_path"] = str(result.output_path)
+        print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
         return 0
     raise AssertionError(f"unsupported command: {args.command}")
 
