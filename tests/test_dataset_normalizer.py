@@ -1280,6 +1280,77 @@ def test_stk_mins_normalizer_rejects_outside_trading_session() -> None:
     assert batch.rejected_reasons == {"normalize.row_transform_failed": 1}
 
 
+def test_stk_mins_normalizer_retains_post_close_raw_minutes_for_any_exchange() -> None:
+    rows = []
+    for ts_code in ("920000.BJ", "600000.SH", "000001.SZ"):
+        for trade_time in ("2026-04-24 15:01:00", "2026-04-24 15:30:00"):
+            rows.append(
+                {
+                    "ts_code": ts_code,
+                    "freq": "1min",
+                    "trade_time": trade_time,
+                    "open": "10.23",
+                    "close": "10.23",
+                    "high": "10.23",
+                    "low": "10.23",
+                    "vol": "0",
+                    "amount": "0",
+                }
+            )
+
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("stk_mins"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-stk-mins-post-close",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=rows,
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert [row["ts_code"] for row in batch.rows_normalized] == [
+        "920000.BJ",
+        "920000.BJ",
+        "600000.SH",
+        "600000.SH",
+        "000001.SZ",
+        "000001.SZ",
+    ]
+
+
+def test_stk_mins_normalizer_rejects_post_close_minutes_after_raw_retention_window() -> None:
+    rows = [
+        {
+            "ts_code": ts_code,
+            "freq": "1min",
+            "trade_time": "2026-04-24 15:31:00",
+            "open": "10.23",
+            "close": "10.23",
+            "high": "10.23",
+            "low": "10.23",
+            "vol": "0",
+            "amount": "0",
+        }
+        for ts_code in ("920000.BJ", "600000.SH", "000001.SZ")
+    ]
+
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("stk_mins"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-stk-mins-post-close-after-window",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=rows,
+        ),
+    )
+
+    assert batch.rows_normalized == []
+    assert batch.rejected_reasons == {"normalize.row_transform_failed": 3}
+
+
 def test_index_mins_normalizer_keeps_source_freq_string_and_vwap() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("index_mins"),

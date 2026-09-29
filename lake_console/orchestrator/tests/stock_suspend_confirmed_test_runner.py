@@ -673,12 +673,12 @@ CONSUMER_SOURCE_FILES = (
 
 
 CONSUMER_SUITES = {
-    "test_stk_mins_silver_freeze_policy.py": 4,
+    "test_stk_mins_silver_freeze_policy.py": 5,
     "test_suspend_d_checks.py": 7,
     "test_stock_daily_raw_checks.py": 22,
     "test_stock_daily_raw_repair.py": 8,
     "test_stock_daily_freshness_guard.py": 5,
-    "test_stk_mins_silver_m5b_contracts.py": 20,
+    "test_stk_mins_silver_m5b_contracts.py": 22,
     "test_stk_mins_silver_m5e_job_contracts.py": 2,
     "test_stk_mins_lake_readiness.py": 20,
     "test_stk_mins_silver_m6_history.py": 8,

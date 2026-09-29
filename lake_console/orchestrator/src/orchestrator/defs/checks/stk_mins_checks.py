@@ -113,6 +113,7 @@ SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK = "silver_stk_mins_name_timeline_cov
 SILVER_STK_MINS_CONTRACT_CHECK = "silver_stk_mins_contract_check"
 SILVER_STK_MINS_KEY_INTEGRITY_CHECK = "silver_stk_mins_key_integrity_check"
 SILVER_STK_MINS_VALUE_DOMAIN_CHECK = "silver_stk_mins_value_domain_check"
+SILVER_STK_MINS_REGULAR_SESSION_TIME_CHECK = "silver_stk_mins_regular_session_time"
 SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK = "silver_stk_mins_reference_coverage_check"
 
 SILVER_STK_MINS_CHECK_NAMES = (
@@ -2438,6 +2439,58 @@ def _silver_exchange_matches_suffix(
     )
 
 
+def _silver_regular_session_time(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+    silver_path_override: Path | None = None,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
+    if not path.exists():
+        return _missing_file_result(path)
+
+    with connect_configured_duckdb() as connection:
+        relation = read_parquet(path, hive_partitioning=False)
+        row = connection.execute(
+            f"""
+            SELECT
+              count(*) AS checked_count,
+              sum(
+                CASE WHEN CAST(trade_time AS TIME) > TIME '15:00:00'
+                THEN 1 ELSE 0 END
+              ) AS failed_count
+            FROM {relation}
+            """
+        ).fetchone()
+        sample_rows = connection.execute(
+            f"""
+            SELECT ts_code, trade_time
+            FROM {relation}
+            WHERE CAST(trade_time AS TIME) > TIME '15:00:00'
+            ORDER BY ts_code, trade_time
+            LIMIT 5
+            """
+        ).fetchall()
+
+    checked_count = int(row[0])
+    failed_count = int(row[1] or 0)
+    return _check_result(
+        passed=failed_count == 0,
+        check_scope=CheckScope.VALUE_SANITY,
+        file_path=path,
+        checked_row_count=checked_count,
+        failed_row_count=failed_count,
+        extra_metadata={
+            "partition_key": partition_key,
+            "freq": freq,
+            "failure_samples": _sample_dicts(("ts_code", "trade_time"), sample_rows),
+        },
+    )
+
+
 def _silver_codes_exist_in_stock_daily(
     *,
     context: dg.AssetCheckExecutionContext,
@@ -2779,6 +2832,10 @@ def _silver_value_domain_check(
         duckdb=duckdb,
         freq=freq,
         rule_evaluators=(
+            (
+                SILVER_STK_MINS_REGULAR_SESSION_TIME_CHECK,
+                _silver_regular_session_time,
+            ),
             (SILVER_STK_MINS_PRICE_SANITY_CHECK, _silver_price_sanity),
             (SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK, _silver_volume_amount_sanity),
             (
@@ -2897,6 +2954,7 @@ def evaluate_silver_stk_mins_partition_diagnostics(
             SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
             _silver_unique_ts_code_trade_time,
         ),
+        (SILVER_STK_MINS_REGULAR_SESSION_TIME_CHECK, _silver_regular_session_time),
         (SILVER_STK_MINS_PRICE_SANITY_CHECK, _silver_price_sanity),
         (SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK, _silver_volume_amount_sanity),
         (

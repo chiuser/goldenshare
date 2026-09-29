@@ -94,6 +94,33 @@ def check_duplicate_old_history_fails_without_modifying_file(tmp_path):
     assert path.read_bytes() == before
 
 
+def check_frozen_history_does_not_reintroduce_post_close_rows(tmp_path):
+    inputs(tmp_path, 1)
+    path = _write_silver_for_check(
+        tmp_path,
+        DAY,
+        [
+            _silver_row(
+                SILVER_STK_MINS_FROZEN_CODES[0],
+                trade_time=f"{DAY} 15:30:00",
+            )
+        ],
+    )
+    result = stk_mins.write_silver_stk_mins_partition(
+        lake_root=tmp_path,
+        duckdb=consumer_duckdb_resource(),
+        freq=1,
+        partition_key=DAY,
+        overwrite=True,
+    )
+    assert all(
+        row["trade_time"].strftime("%H:%M:%S") <= "15:00:00"
+        for row in _read_rows(result.silver_file_path)
+    )
+    assert result.frozen_preserved_row_count == 0
+    assert path.exists()
+
+
 def check_exact_approved_scope():
     assert set(SILVER_STK_MINS_FROZEN_CODES) == {"600355.SH", "300344.SZ", "300391.SZ"}
 
@@ -114,6 +141,10 @@ class TestSilverFreezePolicy:
     def test_duplicate(self):
         with TemporaryDirectory() as directory:
             check_duplicate_old_history_fails_without_modifying_file(Path(directory))
+
+    def test_post_close_frozen_rows_are_not_preserved(self):
+        with TemporaryDirectory() as directory:
+            check_frozen_history_does_not_reintroduce_post_close_rows(Path(directory))
 
     def test_scope(self):
         check_exact_approved_scope()

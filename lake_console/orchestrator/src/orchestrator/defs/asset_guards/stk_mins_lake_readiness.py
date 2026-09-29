@@ -169,6 +169,7 @@ class _SilverPathMetrics:
     freq_partition_failed_count: int = 0
     duplicate_failed_count: int = 0
     price_failed_count: int = 0
+    post_close_failed_count: int = 0
     volume_amount_failed_count: int = 0
     exchange_failed_count: int = 0
     missing_stock_daily_code_count: int = 0
@@ -181,6 +182,7 @@ class _SilverPathMetrics:
             self.freq_partition_failed_count
             + self.duplicate_failed_count
             + self.price_failed_count
+            + self.post_close_failed_count
             + self.volume_amount_failed_count
             + self.exchange_failed_count
             + self.missing_stock_daily_code_count
@@ -535,6 +537,10 @@ def _silver_path_metrics(
               END
             ) AS price_failed_count,
             sum(
+              CASE WHEN CAST(trade_time AS TIME) > TIME '15:00:00'
+              THEN 1 ELSE 0 END
+            ) AS post_close_failed_count,
+            sum(
               CASE
                 WHEN vol IS NULL OR amount IS NULL
                   OR vol < 0 OR amount < 0
@@ -577,6 +583,7 @@ def _silver_path_metrics(
           coalesce(duplicate_checks.duplicate_failed_count, 0)
             AS duplicate_failed_count,
           coalesce(row_checks.price_failed_count, 0) AS price_failed_count,
+          coalesce(row_checks.post_close_failed_count, 0) AS post_close_failed_count,
           coalesce(row_checks.volume_amount_failed_count, 0)
             AS volume_amount_failed_count,
           coalesce(row_checks.exchange_failed_count, 0) AS exchange_failed_count
@@ -594,8 +601,9 @@ def _silver_path_metrics(
             freq_partition_failed_count=int(row[2] or 0),
             duplicate_failed_count=int(row[3] or 0),
             price_failed_count=int(row[4] or 0),
-            volume_amount_failed_count=int(row[5] or 0),
-            exchange_failed_count=int(row[6] or 0),
+            post_close_failed_count=int(row[5] or 0),
+            volume_amount_failed_count=int(row[6] or 0),
+            exchange_failed_count=int(row[7] or 0),
         )
         for row in rows
     }
@@ -612,6 +620,7 @@ def _merge_silver_metrics(
         "freq_partition_failed_count": current.freq_partition_failed_count,
         "duplicate_failed_count": current.duplicate_failed_count,
         "price_failed_count": current.price_failed_count,
+        "post_close_failed_count": current.post_close_failed_count,
         "volume_amount_failed_count": current.volume_amount_failed_count,
         "exchange_failed_count": current.exchange_failed_count,
         "missing_stock_daily_code_count": current.missing_stock_daily_code_count,
@@ -1003,6 +1012,8 @@ def _silver_status_for_trade_date(
         if full_semantics and metrics.duplicate_failed_count:
             failed_check_names.append(SILVER_STK_MINS_KEY_INTEGRITY_CHECK)
         if full_semantics and metrics.price_failed_count:
+            failed_check_names.append(SILVER_STK_MINS_VALUE_DOMAIN_CHECK)
+        if full_semantics and metrics.post_close_failed_count:
             failed_check_names.append(SILVER_STK_MINS_VALUE_DOMAIN_CHECK)
         if full_semantics and metrics.volume_amount_failed_count:
             failed_check_names.append(SILVER_STK_MINS_VALUE_DOMAIN_CHECK)

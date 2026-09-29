@@ -907,12 +907,20 @@ def _stk_period_bar_adj_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
+def _is_allowed_stk_mins_raw_trade_time(trade_time: datetime) -> bool:
+    """Return whether a source minute belongs to the Raw retention window."""
+    current_time = trade_time.time()
+    return (
+        time(9, 30) <= current_time <= time(11, 30)
+        or time(13, 0) <= current_time <= time(15, 30)
+    )
+
+
 def _stk_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
+    transformed["ts_code"] = str(transformed.get("ts_code") or "").strip().upper()
     trade_time = _parse_quote_time(transformed.get("trade_time"))
-    current_time = trade_time.time()
-    is_trading_session = time(9, 30) <= current_time <= time(11, 30) or time(13, 0) <= current_time <= time(15, 0)
-    if not is_trading_session:
+    if not _is_allowed_stk_mins_raw_trade_time(trade_time):
         raise ValueError(f"股票分钟时间不在交易时段内：{trade_time}")
 
     freq = str(transformed.get("freq") or "").strip()
@@ -920,7 +928,6 @@ def _stk_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     if freq not in freq_map:
         raise ValueError(f"股票分钟频率无效：{freq}")
 
-    transformed["ts_code"] = str(transformed.get("ts_code") or "").strip().upper()
     transformed["freq"] = freq_map[freq]
     transformed["trade_time"] = trade_time
     transformed["open"] = _optional_float(transformed.get("open"), ndigits=2)

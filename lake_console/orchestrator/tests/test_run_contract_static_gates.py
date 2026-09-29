@@ -2331,6 +2331,43 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_silver_filters_post_close_at_the_shared_input_boundary(
+        self,
+    ) -> None:
+        asset_path = ASSETS_DIR / "stk_mins.py"
+        check_path = CHECKS_DIR / "stk_mins_checks.py"
+        readiness_path = ASSET_GUARDS_DIR / "stk_mins_lake_readiness.py"
+        base_tables_source = _function_source(asset_path, "_create_silver_stk_mins_base_tables")
+        preserve_source = _function_source(
+            asset_path,
+            "_preserve_frozen_silver_stk_mins_rows",
+        )
+        issues = []
+
+        for source_name, source in (
+            ("Silver common input", base_tables_source),
+            ("frozen Silver preservation", preserve_source),
+        ):
+            if "CAST(" not in source or "TIME '15:00:00'" not in source:
+                issues.append(f"{source_name} misses the 15:00 session boundary")
+            if "<= TIME '15:00:00'" not in source:
+                issues.append(f"{source_name} must exclude post-close rows")
+
+        check_source = check_path.read_text()
+        for fragment in (
+            "SILVER_STK_MINS_REGULAR_SESSION_TIME_CHECK",
+            "def _silver_regular_session_time(",
+            "SILVER_STK_MINS_VALUE_DOMAIN_CHECK",
+        ):
+            if fragment not in check_source:
+                issues.append(f"Silver value-domain check misses post-close gate: {fragment}")
+
+        readiness_source = readiness_path.read_text()
+        if "post_close_failed_count" not in readiness_source:
+            issues.append("Silver readiness must reject post-close rows")
+
+        self.assertEqual(issues, [])
+
     def test_stk_mins_silver_recovery_is_offline_and_sensor_cannot_select_it(
         self,
     ) -> None:

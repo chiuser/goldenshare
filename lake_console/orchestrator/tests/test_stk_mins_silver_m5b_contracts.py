@@ -356,6 +356,68 @@ def _silver_row(
 
 
 class StkMinsSilverM5BContractTests(unittest.TestCase):
+    def test_silver_filters_post_close_rows_before_identity_and_recompute(self) -> None:
+        partition_key = "2026-05-29"
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_raw(
+                lake_root,
+                1,
+                partition_key,
+                [
+                    _raw_row("600000.SH", f"{partition_key} 15:00:00"),
+                    _raw_row("600000.SH", f"{partition_key} 15:30:00", vol=0, amount=0),
+                ],
+            )
+            _write_common_inputs(
+                lake_root,
+                partition_key,
+                identity_rows=[_identity_row("600000.SH")],
+                daily_codes=("600000.SH",),
+            )
+
+            result = stk_mins.write_silver_stk_mins_partition(
+                lake_root=lake_root,
+                duckdb=consumer_duckdb_resource(),
+                freq=1,
+                partition_key=partition_key,
+            )
+
+            self.assertEqual(result.source_row_count, 2)
+            self.assertEqual(result.post_close_filtered_row_count, 1)
+            self.assertEqual(result.row_count, 1)
+            self.assertEqual(
+                _read_rows(result.silver_file_path)[0]["trade_time"].strftime("%H:%M:%S"),
+                "15:00:00",
+            )
+
+    def test_silver_value_domain_rejects_existing_post_close_rows(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_silver_for_check(
+                lake_root,
+                PARTITION_KEY,
+                [
+                    _silver_row(
+                        "600000.SH",
+                        trade_time=f"{PARTITION_KEY} 15:30:00",
+                    )
+                ],
+            )
+
+            result = stk_mins_checks._silver_value_domain_check(
+                context=_CheckContext(),
+                lake_root=_LakeRoot(lake_root),
+                duckdb=consumer_duckdb_resource(),
+                freq=1,
+            )
+
+            self.assertFalse(result.passed)
+            self.assertEqual(
+                result.metadata["goldenshare/failed_rule_names"].value,
+                ["silver_stk_mins_regular_session_time"],
+            )
+
     def test_complete_one_minute_code_fills_missing_five_minute_source(self) -> None:
         partition_key = "2026-05-29"
         with TemporaryDirectory() as directory:
@@ -1196,7 +1258,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             _check_names(first_asset_check_definitions),
         )
 
-    def test_staging_diagnostics_reuse_the_ten_current_silver_rules(self) -> None:
+    def test_staging_diagnostics_reuse_the_eleven_current_silver_rules(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             code = "600000.SH"
@@ -1241,7 +1303,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             )
 
             self.assertTrue(diagnostics.passed)
-            self.assertEqual(len(diagnostics.rules), 10)
+            self.assertEqual(len(diagnostics.rules), 11)
             self.assertEqual(diagnostics.failed_rule_names, ())
 
     def test_reuse_existing_silver_partition_does_not_modify_parquet(self) -> None:

@@ -249,6 +249,7 @@ class SilverStkMinsWriteResult:
     suspend_file_path: Path
     silver_file_path: Path
     source_row_count: int
+    post_close_filtered_row_count: int
     mapped_row_count: int
     duplicate_removed_count: int
     full_day_suspend_deleted_row_count: int
@@ -283,6 +284,7 @@ class SilverStkMinsWriteResult:
             metadata.update(
                 {
                     "source_row_count": self.source_row_count,
+                    "post_close_filtered_row_count": self.post_close_filtered_row_count,
                     "frozen_source_row_count": self.frozen_source_row_count,
                     "frozen_one_minute_source_row_count": self.frozen_one_minute_source_row_count,
                     "frozen_preserved_row_count": self.frozen_preserved_row_count,
@@ -359,6 +361,9 @@ def _silver_stk_mins_human_metadata(
                 {}
                 if reused_existing
                 else {
+                    "post_close_filtered_row_count": (
+                        write_result.post_close_filtered_row_count
+                    ),
                     "duplicate_removed_count": write_result.duplicate_removed_count,
                     "full_day_suspend_deleted_row_count": (
                         write_result.full_day_suspend_deleted_row_count
@@ -1473,6 +1478,15 @@ def _create_silver_stk_mins_base_tables(
     source_row_count = int(
         connection.execute(f"SELECT count(*) FROM {raw_table}").fetchone()[0]
     )
+    post_close_filtered_row_count = int(
+        connection.execute(
+            f"""
+            SELECT count(*)
+            FROM {raw_table}
+            WHERE CAST(trade_time AS TIME) > TIME '15:00:00'
+            """
+        ).fetchone()[0]
+    )
 
     connection.execute(
         f"""
@@ -1487,6 +1501,7 @@ def _create_silver_stk_mins_base_tables(
           raw_rows.amount
         FROM {raw_table} AS raw_rows
         {correction_join}
+        WHERE CAST(raw_rows.trade_time AS TIME) <= TIME '15:00:00'
         """
     )
     price_correction_row_count = 0
@@ -1600,6 +1615,7 @@ def _create_silver_stk_mins_base_tables(
     )
     return {
         "source_row_count": source_row_count,
+        "post_close_filtered_row_count": post_close_filtered_row_count,
         "price_correction_row_count": price_correction_row_count,
         "mapped_row_count": mapped_row_count,
         "full_day_suspend_deleted_row_count": mapped_row_count - filtered_row_count,
@@ -1962,6 +1978,7 @@ def _preserve_frozen_silver_stk_mins_rows(*, connection, existing_path: Path) ->
         SELECT {columns}
         FROM {read_parquet(existing_path, hive_partitioning=False)}
         WHERE ts_code IN ({codes_sql})
+          AND CAST(trade_time AS TIME) <= TIME '15:00:00'
     """)
     conflicts = connection.execute("""
         SELECT count(*) FROM (
@@ -2107,7 +2124,11 @@ def write_silver_stk_mins_partition(
             source_prefix="target",
             apply_price_corrections=normalized_freq == 1,
         )
-        one_minute_counts = {"price_correction_row_count": 0, "frozen_source_row_count": 0}
+        one_minute_counts = {
+            "price_correction_row_count": 0,
+            "frozen_source_row_count": 0,
+            "post_close_filtered_row_count": 0,
+        }
         if normalized_freq != 1:
             if one_minute_raw_path is None:
                 raise AssertionError("one_minute_raw_path is required for coarse freq.")
@@ -2147,6 +2168,10 @@ def write_silver_stk_mins_partition(
         frozen_one_minute_source_row_count=one_minute_counts["frozen_source_row_count"],
         frozen_preserved_row_count=frozen_preserved_row_count,
         source_row_count=target_counts["source_row_count"],
+        post_close_filtered_row_count=(
+            target_counts["post_close_filtered_row_count"]
+            + one_minute_counts["post_close_filtered_row_count"]
+        ),
         mapped_row_count=target_counts["mapped_row_count"],
         duplicate_removed_count=duplicate_removed_count,
         full_day_suspend_deleted_row_count=(
@@ -2203,6 +2228,7 @@ def reuse_existing_silver_stk_mins_partition(
         suspend_file_path=suspend_path,
         silver_file_path=target_path,
         source_row_count=0,
+        post_close_filtered_row_count=0,
         mapped_row_count=0,
         duplicate_removed_count=0,
         full_day_suspend_deleted_row_count=0,

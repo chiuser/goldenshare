@@ -803,6 +803,11 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 "kwargs": {"exchange": "SSE"},
                 "check": SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
             },
+            {
+                "trade_date": "2026-06-21",
+                "kwargs": {"trade_time": "2026-06-21 15:30:00"},
+                "check": SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
+            },
         )
         with (
             TemporaryDirectory() as directory,

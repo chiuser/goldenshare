@@ -265,6 +265,7 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
             suspend_file_path=Path("/tmp/suspend.parquet"),
             silver_file_path=Path("/tmp/silver.parquet"),
             source_row_count=120,
+            post_close_filtered_row_count=3,
             mapped_row_count=118,
             duplicate_removed_count=2,
             full_day_suspend_deleted_row_count=3,
@@ -290,6 +291,10 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
             "raw_stk_mins_5m",
         )
         self.assertEqual(metadata["goldenshare/filter_summary"]["output_row_count"], 109)
+        self.assertEqual(
+            metadata["goldenshare/filter_summary"]["post_close_filtered_row_count"],
+            3,
+        )
 
     def test_qfq_human_materialization_metadata_uses_operator_fields(self) -> None:
         result = GoldStkMinsQfqPartitionWriteResult(
