@@ -137,6 +137,13 @@
   color: var(--cs-color-text-primary);
 }
 
+.news-reader-html img {
+  display: block;
+  height: auto;
+  margin: var(--cs-space-20) auto;
+  max-width: 100%;
+}
+
 .news-reader-html table {
   border-collapse: collapse;
   width: 100%;

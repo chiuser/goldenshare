@@ -63,6 +63,7 @@ def _add_major_news(
     [
         ("reader-url", "https://example.com/news", "URL", "url"),
         ("reader-html", "<article><h1>标题</h1><p>正文</p></article>", "HTML", "html"),
+        ("reader-image-html", '<img src="https://image.cls.cn/example.png">', "HTML", "html"),
         ("reader-text", "普通新闻正文", "TEXT", "content"),
     ],
 )
@@ -94,6 +95,7 @@ def test_news_reader_endpoint_preserves_news_classification(
     ("news_id", "content", "expected_mode", "payload_key"),
     [
         ("major-html", "<article><p>通讯 HTML 正文</p></article>", "HTML", "html"),
+        ("major-image-html", '<img src="https://image.cls.cn/example.png">', "HTML", "html"),
         ("major-text", "通讯纯文本正文", "TEXT", "content"),
         ("major-url-text", "https://example.com/content-is-not-a-frame", "TEXT", "content"),
     ],

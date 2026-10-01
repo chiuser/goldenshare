@@ -161,12 +161,12 @@ describe("NewsReaderDialog", () => {
   });
 
   it("sanitizes HTML with no attributes or active elements", () => {
-    const { container } = render(
+    render(
       <NewsReaderDialog
         state={readyState(
           readyItem({
             readerMode: "HTML",
-            html: '<article><p onclick="alert(1)" style="color:red">安全正文</p><script>alert(1)</script><style>body{display:none}</style><form><input></form><iframe src="https://bad"></iframe><a href="https://bad">链接文字</a></article>',
+            html: '<article><p onclick="alert(1)" style="color:red" src="https://image.cls.cn/not-an-image.png" data-src="//image.cls.cn/not-an-image.png" alt="错误属性">安全正文</p><script>alert(1)</script><style>body{display:none}</style><form><input></form><iframe src="https://bad"></iframe><a href="https://bad">链接文字</a></article>',
             content: null,
           }),
         )}
@@ -177,17 +177,125 @@ describe("NewsReaderDialog", () => {
 
     expect(screen.getByText("安全正文")).toBeInTheDocument();
     expect(screen.getByText("链接文字")).toBeInTheDocument();
-    expect(container.querySelector("script")).toBeNull();
-    expect(container.querySelector("style")).toBeNull();
-    expect(container.querySelector("form")).toBeNull();
-    expect(container.querySelector("iframe")).toBeNull();
-    expect(container.querySelector("a")).toBeNull();
-    expect(container.querySelector("[onclick]")).toBeNull();
-    expect(container.querySelector("[style]")).toBeNull();
+    const htmlArticle = document.querySelector(".news-reader-html");
+    expect(htmlArticle?.querySelector("script")).toBeNull();
+    expect(htmlArticle?.querySelector("style")).toBeNull();
+    expect(htmlArticle?.querySelector("form")).toBeNull();
+    expect(htmlArticle?.querySelector("iframe")).toBeNull();
+    expect(htmlArticle?.querySelector("a")).toBeNull();
+    expect(htmlArticle?.querySelector("[onclick]")).toBeNull();
+    expect(htmlArticle?.querySelector("[style]")).toBeNull();
+    expect(htmlArticle?.querySelector("p")?.attributes).toHaveLength(0);
+  });
+
+  it("normalizes allowlisted images and rebuilds only safe attributes", () => {
+    render(
+      <NewsReaderDialog
+        state={readyState(
+          readyItem({
+            readerMode: "HTML",
+            html: [
+              '<p>图片正文</p>',
+              '<img src="https://e.thsi.cn/a.jpg" alt=" 图一 " width="120" onerror="alert(1)" srcset="https://evil.example/a.jpg 2x">',
+              '<img src="//u.thsi.cn/b.jpg" style="width:9999px" onload="alert(1)">',
+              '<img src="http://ftapi.10jqka.com.cn/c.png" class="source-image" id="source-image">',
+              '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAUEBA==" data-src="//image.cls.cn/d.png" data-extra="bad">',
+            ].join(""),
+            content: null,
+          }),
+        )}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    const images = [...document.querySelectorAll(".news-reader-html img")];
+    expect(images.map((image) => image.getAttribute("src"))).toEqual([
+      "https://e.thsi.cn/a.jpg",
+      "https://u.thsi.cn/b.jpg",
+      "https://ftapi.10jqka.com.cn/c.png",
+      "https://image.cls.cn/d.png",
+    ]);
+    expect(images[0]).toHaveAttribute("alt", "图一");
+    for (const image of images) {
+      expect(image).toHaveAttribute("loading", "lazy");
+      expect(image).toHaveAttribute("decoding", "async");
+      expect(image).toHaveAttribute("referrerpolicy", "no-referrer");
+      expect(image).not.toHaveAttribute("width");
+      expect(image).not.toHaveAttribute("style");
+      expect(image).not.toHaveAttribute("class");
+      expect(image).not.toHaveAttribute("onerror");
+      expect(image).not.toHaveAttribute("onload");
+      expect(image).not.toHaveAttribute("id");
+      expect(image).not.toHaveAttribute("srcset");
+      expect(image).not.toHaveAttribute("data-src");
+      expect(image).not.toHaveAttribute("data-extra");
+    }
+  });
+
+  it("removes non-allowlisted, relative, private, and dangerous image sources", () => {
+    render(
+      <NewsReaderDialog
+        state={readyState(
+          readyItem({
+            readerMode: "HTML",
+            html: [
+              '<p>危险图片前</p>',
+              '<img src="/relative.png">',
+              '<img src="https://example.com/unknown.png">',
+              '<img src="https://image.cls.cn.evil.example/lookalike.png">',
+              '<img src="https://localhost/local.png">',
+              '<img src="https://127.0.0.1/private.png">',
+              '<img src="https://[::1]/private.png">',
+              '<img src="https://user:password@image.cls.cn/credential.png">',
+              '<img src="https://image.cls.cn:444/custom-port.png">',
+              '<img src="data:image/svg+xml,&lt;svg&gt;&lt;/svg&gt;">',
+              '<img src="blob:https://image.cls.cn/id">',
+              '<img src="javascript:alert(1)">',
+              '<p>危险图片后</p>',
+            ].join(""),
+            content: null,
+          }),
+        )}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(document.querySelector(".news-reader-html img")).toBeNull();
+    expect(screen.getByText("危险图片前")).toBeInTheDocument();
+    expect(screen.getByText("危险图片后")).toBeInTheDocument();
+  });
+
+  it("keeps at most 24 safe images and hides one failed image without removing later text", () => {
+    const imagesHtml = Array.from(
+      { length: 25 },
+      (_, index) => `<img src="https://image.cls.cn/image-${index + 1}.png" alt="图片${index + 1}">`,
+    ).join("");
+    render(
+      <NewsReaderDialog
+        state={readyState(
+          readyItem({
+            readerMode: "HTML",
+            html: `<img src="/invalid-does-not-use-quota.png">${imagesHtml}<p>图片后的正文</p>`,
+            content: null,
+          }),
+        )}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    const images = document.querySelectorAll(".news-reader-html img");
+    expect(images).toHaveLength(24);
+    expect(document.querySelector('[alt="图片25"]')).toBeNull();
+    fireEvent.error(images[0]);
+    expect(images[0]).toHaveAttribute("hidden");
+    expect(screen.getByText("图片后的正文")).toBeInTheDocument();
   });
 
   it("removes malformed self-closing iframes before parsing and preserves following article text", () => {
-    const { container } = render(
+    render(
       <NewsReaderDialog
         state={readyState(
           readyItem({
@@ -202,12 +310,12 @@ describe("NewsReaderDialog", () => {
     );
 
     expect(screen.getByText("iframe 后的完整新闻正文")).toBeInTheDocument();
-    expect(container.querySelector("iframe")).toBeNull();
-    expect(container.querySelector('[src="https://stockpage.example/news"]')).toBeNull();
+    expect(document.querySelector("iframe")).toBeNull();
+    expect(document.querySelector('[src="https://stockpage.example/news"]')).toBeNull();
   });
 
   it("renders HTML-looking text as plain text", () => {
-    const { container } = render(
+    render(
       <NewsReaderDialog
         state={readyState(readyItem({ content: "<script>not executed</script>" }))}
         onClose={vi.fn()}
@@ -216,7 +324,7 @@ describe("NewsReaderDialog", () => {
     );
 
     expect(screen.getByText("<script>not executed</script>")).toBeInTheDocument();
-    expect(container.querySelector("script")).toBeNull();
+    expect(document.querySelector("script")).toBeNull();
   });
 
   it("keeps the PC safe gutter contract without a mobile branch", () => {
@@ -229,6 +337,7 @@ describe("NewsReaderDialog", () => {
     expect(css).toMatch(/\.news-reader-heading\s*{[^}]*padding: 0 52px;[^}]*text-align: center;[^}]*width: 100%;/s);
     expect(css).toMatch(/\.news-reader-meta\s*{[^}]*justify-content: center;/s);
     expect(css).toMatch(/\.news-reader-close\s*{[^}]*position: absolute;[^}]*right: 18px;[^}]*top: 14px;/s);
+    expect(css).toMatch(/\.news-reader-html img\s*{[^}]*height: auto;[^}]*max-width: 100%;/s);
     expect(css).not.toContain("text-overflow: ellipsis");
     expect(css).not.toContain("white-space: nowrap");
     expect(css).not.toContain("@media");

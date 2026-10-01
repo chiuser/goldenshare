@@ -2,7 +2,7 @@
 
 > 稳定文档路径沿用 `market-news-reader-low-level-design-v1.md`，正文版本升级为 v3。
 > 基线状态：已实现并结案（2026-09-01 用户确认）；N01～N19 均已完成。
-> 图片增强状态：N20～N23 已完成方案冻结（2026-10-01），尚未编码、测试、部署。
+> 图片增强状态：N20～N23 已完成本地实现、自动化测试与正式 PostgreSQL 只读校准（2026-10-01）；登录后浏览器含图验收及部署尚未完成。
 > 日期：2026-08-24；标题提取及新闻通讯展示策略确认日期：2026-08-27；基线结案日期：2026-09-01；图片增强方案冻结日期：2026-10-01。
 > 技术方案：[market-news-implementation-design-v1.md](./market-news-implementation-design-v1.md)。
 > 视觉与 modal 合同：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)。
@@ -872,9 +872,9 @@ git diff --check
 | N16-N17 | `news_display_title.py`、`market_news_query.py`、`news_reader_query_service.py`；前端只消费合同 | `test_wealth_market_news_api.py`、`test_wealth_market_news_reader_api.py`、`market-overview-news-real-api.test.tsx` | 已完成：空标题正文开头与非空标题统一提取并参与最终标题去重；畸形回退、正文中部不扫描及 major/stock-detail 作用域隔离保持不变 |
 | N18-N19 | `major_news_display_policy.py`、`major_news_query.py`、`major_news_reader_query.py`、major resolver 调用链 | `test_wealth_market_news_api.py`、`test_wealth_market_news_reader_api.py` | 已完成：新浪列表/观测/详情统一过滤；同花顺固定推广文字按来源清理且正文主体保留 |
 
-本需求已结案。后续若任何正式数据事实与本 LLD 冲突，先停下审计并更新方案，不允许临时回退 URL 或恢复旧 `/stocks` 兜底。
+N01～N19 基线需求已结案。后续若任何正式数据事实与本 LLD 冲突，先停下审计并更新方案，不允许临时回退 URL 或恢复旧 `/stocks` 兜底。
 
-## 14. 图片阅读增量实现门禁（N20～N23，未编码）
+## 14. 图片阅读增量实现门禁（N20～N23，本地实现完成）
 
 ### 14.1 影响面与不变量
 
@@ -963,6 +963,15 @@ image.cls.cn
 1. PostgreSQL 只读校准证明列表 SQL 与 Python resolver 对正反样本一致，并抽查真实 `major_news` 图片正文返回 HTML mode。
 2. 浏览器打开同花顺、财联社各至少一篇含图正文，确认图片成功加载、无横向滚动、失败图片不影响正文，并在 Network/DOM 中确认没有未知域、源事件属性或原文页面请求。
 
-### 14.5 M1 完成口径与下一 milestone
+### 14.5 M2 实施对账与剩余验收
 
-本次 M1 的完成口径仅为三份既有权威文档同步冻结 N20～N23，未修改任何运行时代码。下一 milestone 若获确认，按 N20（后端分类一致性）与 N21～N23（前端图片安全链）实现并执行目标测试；部署和正式 UI 验收仍需单独授权，不得在编码完成时自动宣称上线。
+| 门禁 | 代码与测试 | 结果 |
+|---|---|---|
+| N20 | `news_reader_content_resolver.py`、resolver/list/reader API 测试 | 共享标签边界改为 `(?=\s|/|>)` 并加入 `img`；后端目标 69 项通过；正式 PostgreSQL 7 个正反样本全部符合预期，现库 245,698 条含图片正文可命中新分类 |
+| N21 | `SanitizedHtmlContent.tsx`、`news-reader-dialog.test.tsx` | 四域精确白名单、协议相对补 HTTPS、白名单 HTTP 升级；相对路径、未知/相似 host、私网、凭据、自定义端口和危险 scheme 均拒绝 |
+| N22 | 同上 | 两次 DOMPurify，中间删除并重建图片节点；最终仅保留安全 `src/alt` 和 lazy/async/no-referrer，源事件、样式、class、id、尺寸、srcset 与 data 属性均清零 |
+| N23 | `SanitizedHtmlContent.tsx`、`news-reader.css`、dialog 测试 | 仅前 24 张合规图片进入 DOM；失败单图隐藏且后续正文保留；图片响应式宽度和比例约束已落地 |
+
+验证结果：新闻目标前端 25 项、TypeScript typecheck 和生产 build 通过；Wealth 全量 1,077 项中 1,076 项通过，唯一失败为未改动的交易助手 `useRecords.test.ts` 分页页码断言，单独复跑仍失败，不属于本增量影响面。文档完整性与差异检查在交付前执行。
+
+浏览器已打开本地 `/wealth/market/overview`，但被现有登录页重定向拦截。本轮未获测试账号或鉴权写入授权，未绕过登录；因此同花顺/财联社真实文章的图片成功加载、无横向滚动及 Network/DOM 检查仍为待验收项。部署也未授权。代码完成不等于上线，后续须在可登录环境完成浏览器验收后才能关闭 M2。

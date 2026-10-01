@@ -2,7 +2,7 @@
 
 > 稳定文档路径沿用 `market-news-implementation-design-v1.md`，正文版本升级为 v3。
 > 基线状态：已实现并结案（2026-09-01 用户确认）；双来源新闻、阅读器、标题提取、新闻通讯来源过滤与同花顺尾注清理均已完成。
-> 图片增强状态：M1 方案已冻结（2026-10-01），尚未编码、测试、部署；进入实现前仍需独立确认。
+> 图片增强状态：M2 本地实现、自动化测试与正式 PostgreSQL 只读校准已完成（2026-10-01）；登录后浏览器含图验收及部署尚未完成。
 > 日期：2026-08-24；标题提取及新闻通讯展示策略确认日期：2026-08-27；空标题正文提取补充确认日期：2026-08-28；基线结案日期：2026-09-01；图片增强方案冻结日期：2026-10-01。
 > 代码级设计：[market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md)。
 > 阅读器视觉与交互基线：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)。
@@ -445,4 +445,4 @@ Tushare `major_news` 没有独立 `image/images/pic/picture` 返回字段；图�
 
 允许的后续实现范围仅包括：共享 HTML 分类表达式及其三个现有消费者、`SanitizedHtmlContent` 的图片归一化/清洗/样式、对应后端与前端测试。禁止修改 API、DTO、采集、数据库、DatasetDefinition、阅读器 URL 模式、`originalUrl` UI 暴露、配置中心或股票详情新闻。
 
-M1 只完成方案与 LLD 冻结，不宣称图片已经可见。进入编码前必须以 [market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md) 的 N20～N23 为逐项门禁；实现、真实 PostgreSQL 验收和浏览器图片加载验收均在下一 milestone 独立完成。
+M1 只完成方案与 LLD 冻结。M2 已按 [market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md) 的 N20～N23 完成本地代码、自动化测试和正式 PostgreSQL 只读校准；本地页面被现有登录门禁拦截，未使用测试账号、未绕过鉴权，因此真实文章图片加载、Network/DOM 浏览器验收和部署仍不宣称完成。

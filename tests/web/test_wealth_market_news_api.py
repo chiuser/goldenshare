@@ -264,6 +264,56 @@ def test_market_news_endpoints_use_independent_sources(app_client, db_session) -
     assert app_client.get("/api/v1/wealth/market/news/stocks").status_code == 404
 
 
+def test_market_news_list_classifies_exact_html_tag_boundaries(app_client, db_session) -> None:
+    _ensure_news_tables(db_session)
+    _, in_window_time, _ = _news_window_sample_times()
+    _add_news(
+        db_session,
+        row_key_hash="brief-image-html",
+        news_time=in_window_time + timedelta(minutes=4),
+        title="图片快讯",
+        channels="宏观",
+        content='<img src="https://image.cls.cn/example.png">',
+    )
+    _add_news(
+        db_session,
+        row_key_hash="brief-tag-prefix-text",
+        news_time=in_window_time + timedelta(minutes=3),
+        title="标签前缀普通文本",
+        channels="宏观",
+        content="<imagebox>不是 img 标签</imagebox>",
+    )
+    _add_major_news(
+        db_session,
+        row_key_hash="communication-image-html",
+        pub_time=in_window_time + timedelta(minutes=2),
+        title="图片通讯",
+        content='<img src="https://image.cls.cn/example.png">',
+    )
+    _add_major_news(
+        db_session,
+        row_key_hash="communication-tag-prefix-text",
+        pub_time=in_window_time + timedelta(minutes=1),
+        title="标签前缀通讯",
+        content="<divider>不是 div 标签</divider>",
+    )
+    db_session.commit()
+
+    briefs = app_client.get("/api/v1/wealth/market/news/briefs").json()["newsBriefs"]["items"]
+    communications = app_client.get("/api/v1/wealth/market/news/communications").json()[
+        "newsCommunications"
+    ]["items"]
+
+    assert {item["newsId"]: item["readerMode"] for item in briefs} == {
+        "brief-image-html": "HTML",
+        "brief-tag-prefix-text": "TEXT",
+    }
+    assert {item["newsId"]: item["readerMode"] for item in communications} == {
+        "communication-image-html": "HTML",
+        "communication-tag-prefix-text": "TEXT",
+    }
+
+
 def test_market_news_extracts_leading_bracket_title_before_deduplication(
     app_client,
     db_session,

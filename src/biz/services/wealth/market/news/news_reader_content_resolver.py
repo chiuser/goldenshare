@@ -12,8 +12,8 @@ NewsReaderMode = Literal["URL", "HTML", "TEXT"]
 NEWS_READER_MAX_CONTENT_BYTES = 256 * 1024
 NEWS_READER_URL_PATTERN = r"(?is)^https?://[^\s]+$"
 NEWS_READER_HTML_PATTERN = (
-    r"(?is)<(?:!doctype\s+html|html\b|head\b|body\b|article\b|section\b|"
-    r"div\b|p\b|h[1-6]\b|ul\b|ol\b|li\b|table\b|blockquote\b|br\b)[^>]*>"
+    r"(?is)<(?:!doctype\s+html|html|head|body|article|section|div|p|h[1-6]|"
+    r"ul|ol|li|table|blockquote|br|img)(?=\s|/|>)[^>]*>"
 )
 
 
