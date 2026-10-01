@@ -1,22 +1,23 @@
 # 上市公司公告 PDF 本地归档 LLD v1
 
-更新时间：2026-10-01。状态：设计待评审、尚未实现。需求和范围以[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)为准；本文给出可实施、可测试的细节，不预填开发或真实验收结果。
+更新时间：2026-10-01。状态：M0 设计已提交、M1 已实现并通过基础隔离验证；M2/M3/M4 尚未执行。需求和范围以[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)为准；实现与验证证据见 §11，不能将隔离测试或只读磁盘信息升级为真实下载验收。
 
 ## 1. 改动范围与依赖
 
-拟新增：
+M1 已新增：
 
 | 位置 | 职责 |
 | --- | --- |
 | `src/scripts/download_announcements.py` | argparse 入口、参数校验、信号取消、阶段输出与流程组合 |
+| `src/scripts/announcement_download/core.py` | 唯一参数与策略默认值、取消、进度心跳和安全错误类型 |
 | `src/scripts/announcement_download/volume.py` | 外部卷识别、句柄固定、空间和可写探针、运行期卷核验 |
 | `src/scripts/announcement_download/source.py` | 指定 Raw 表的只读、有界枚举 |
 | `src/scripts/announcement_download/ledger.py` | 本地 SQLite、归档锁、行映射、冷却与文件状态 |
 | `src/scripts/announcement_download/files.py` | 安全命名、流式暂存、校验与原子提交/恢复 |
 | `src/scripts/announcement_download/http.py` | 串行请求、手动重定向、可取消限速、有限重试 |
-| `tests/test_announcement_download_*.py` | 隔离测试与故障注入，不默认连接 Prod 或写外盘 |
+| `tests/test_announcement_download_cli.py` | 基础隔离测试与故障注入，不默认连接 Prod 或写外盘 |
 
-模块目录及 `__init__.py` 是拟新增工具实现，不新增业务子系统。工具可引用现有 Foundation 定义、Settings 和底层数据库依赖，不从 Foundation 反向导入工具。不改 `src/cli.py` 注册、不引入 Ops runtime，不改模型、DatasetDefinition、request builder 或 Alembic。实现时如发现必须改变这些边界，暂停并修订设计。
+模块目录及 `__init__.py` 是独立工具实现，不新增业务子系统。工具引用现有 Foundation 定义、Settings 和底层数据库依赖，不从 Foundation 反向导入工具。未改 `src/cli.py` 注册、未引入 Ops runtime，未改模型、DatasetDefinition、request builder 或 Alembic。后续如发现必须改变这些边界，暂停并修订设计。
 
 使用已声明依赖 SQLAlchemy、psycopg、httpx，以及标准库 argparse/sqlite3/hashlib/subprocess/plistlib；macOS `diskutil` 为系统工具。依赖声明不证明本机已安装，M1 前检查现有环境，不自动安装或同步依赖。
 
@@ -42,11 +43,12 @@
 | --- | --- | --- |
 | 并发 | 1；同归档根单进程锁 | HTTP/ledger；跨进程互斥 |
 | DB 批次/超时 | 500 行 / 每次 15 秒 | source；游标与超时测试 |
+| 外卷信息调用超时 | 每次 diskutil 10 秒 | volume；超时后停止，不回落目录 |
 | 流块大小 | 64 KiB | files；不累积正文测试 |
 | 最大 PDF / 磁盘安全余量 | 512 MiB / 1 GiB | files/volume；header、流式计数、空间反例 |
-| 网络超时 | connect 10s、read 15s、write 15s、pool 5s；单次文件传输硬期限 10 分钟 | HTTP；慢流和取消测试，期限不含冷却 |
+| 网络超时 | connect 10s、read 15s、write 15s、pool 5s；正文传输期限 10 分钟 | HTTP/files；按流块与 EOF 检查期限；阻塞读取最多额外一个 15s read timeout，期限不含冷却 |
 | 单文件请求尝试 | 最多 3 次，含首次；每次最多 5 跳重定向 | HTTP/ledger；次数与循环反例 |
-| 退避 | 初次 30s，随后 60s；服务器要求优先 | limiter；Retry-After 两种格式和时钟测试 |
+| 退避 | 三次尝试后的冷却依次 30s、60s、120s；服务器要求优先 | limiter；Retry-After 两种格式和时钟测试 |
 | 标题文件名预算 | 完整 basename ≤ 200 UTF-8 字节，包含后缀和 `.pdf` | files；中文、碰撞、截断测试 |
 | 进度/取消检查 | 更新 ≤ 5s；等待分片 ≤ 0.5s | runner/HTTP；等待中取消测试 |
 
@@ -62,6 +64,8 @@
 6. 核对空间；用随机且排他创建的本工具探针测试写入与 fsync，移除自身探针，不能清理外部目录。文件和目录同步不支持时停止，不能静默降为不可靠提交。
 7. 在固定外盘目录句柄下创建 `.state/archive.lock` 并取得 `flock`，再打开本机 Application Support 下派生的 SQLite；本机账本目录不可写就退出。采用 DELETE journal、`synchronous=FULL`。SQLite 使用本机路径，不能声称标准 sqlite3 支持任意 `dir_fd` 或依靠重新检查绝对挂载路径消除竞态。锁文件可以保留；以 OS 锁而不是文件存在判断占用。
 8. 此后才建立数据库连接。所有存储写入与每次外部请求前核验 UUID/设备/挂载状态；旧 fd 不得改用系统盘路径重开。
+
+`assert_valid(full=True)` 在每批数据库读取前后、每次 HTTP 请求前和原子提升前查 UUID/设备；流块和文件指纹读取使用便宜的挂载、设备与固定 fd 检查，不逐块启动 diskutil。路径创建仍锚定 fd。实际只读检查确认 datasource 为 APFS、Internal=false，physical store 为 disk6s2，具备 DeviceTreePath；这些标识仅描述本次检查，不硬编码进实现。
 
 拔盘后外盘 fsync/rename 失败统一中止，尽可能将中断原因保存至本机账本；允许保留 `.part` 和可读的已完成成果。进程无法写本机账本时，终端明确最后一个已确认文件，不能伪报本轮全部完成。目录句柄方案与实际磁盘文件系统兼容性必须通过 M3，文档不宣称跨任意文件系统的掉电原子性。
 
@@ -86,7 +90,7 @@ LIMIT :batch_size;
 
 新命令创建新 run，重新枚举同一日期，因此不因旧 high watermark 漏掉新入库记录。下载账本跨 run 复用，旧枚举无需续扫才能保证文件任务续跑。`upper_id` 仅限制本轮读取范围，不保证数据库一致快照；并发事务较晚提交或旧行更新应在下一次重扫纳入。必要时等公告元数据更新完成再启动，不能以一次枚举结果宣称同步完整。
 
-真实查询计划待验证，LIMIT 只限制返回行数。M1/M3 前在窄日期和宽日期分别 EXPLAIN，确认访问路径、耗时与排序开销；若不能满足 15 秒或内存界限，调整批读设计并回写本文，不自行加生产索引、扩大超时或改数据库。
+M1 已执行窄/宽首批 EXPLAIN ANALYZE，证据见 §11。LIMIT 只限制返回行数，首批通过不代表所有游标与日期性能均已验收；M3 仍需核验代表性后续游标。若不能满足 15 秒或内存界限，调整批读设计并回写本文，不自行加生产索引、扩大超时或改数据库。
 
 ## 5. 本地身份与账本
 
@@ -97,13 +101,15 @@ SQLite 设计表：
 | 表 | 关键字段及约束 |
 | --- | --- |
 | archive | 单行 schema_version、volume_uuid、root_relative_path、created_at |
-| runs | run_id、日期范围、间隔、脱敏来源、upper_id、after_id、阶段、计数、终态、更新时间 |
+| runs | run_id、日期范围、间隔、脱敏来源、upper_id、after_id、阶段、原始行数、任务数及成功/跳过/失败/完成计数、终态、更新时间 |
 | source_records | source_scope + row_key_hash 唯一；raw_id、完整元数据、artifact_key、first_seen/last_seen_run |
 | artifacts | artifact_key 主键；原始 URL、首次标题、已分配相对文件路径、状态、错误、attempts、size、sha256、更新时间 |
 | run_artifacts | run_id + artifact_key 唯一；本轮结果和尝试量，限定本轮范围 |
 | cooldown | 单行 last_request_finished_at、next_request_not_before UTC、request_in_flight、原因；请求开始和结束分别落账 |
 
 source_scope 来自脱敏数据库目标及固定 schema/table，不能仅凭 row_key_hash 混合不同来源。source_records 保留同文件的全部行映射。路径分配使用 NFC + casefold 唯一键处理大小写不敏感卷，原始文件名保留中文。
+
+新增唯一 run_artifact 与任务总量在同一枚举事务提交；本轮 outcome 与成功/跳过/失败/完成计数也同事务提交，重复记录相同 outcome 不累加。`stats()` 仅读 runs 单行，不能为每次进度刷新 GROUP BY 全部任务。待下载任务使用 run_id/outcome/artifact_key 索引逐项读取。
 
 states：`pending → downloading → prepared → succeeded`；可转 `failed / blocked`。run 为 `enumerating / downloading / completed / partial_failed / cancelled / blocked`。终态不能由进程退出码反推，必须基于本轮结果。
 
@@ -119,10 +125,10 @@ attempts 累计历史次数与本轮尝试数分开保存；每轮最多 3 次�
 
 下载步骤：
 
-1. 校验目标卷、空间和已分配路径；创建同目录专属 `<basename>.<artifact_key>.part`。仅处理账本归属本工具的暂存文件。
+1. 校验目标卷、空间和已分配路径；创建同目录专属 `.<artifact_key>.part`，防止 200 字节标题叠加哈希超过 NAME_MAX。仅处理账本归属本工具的暂存文件；拒绝符号链接、非普通文件及多硬链接文件。
 2. 响应流块大小 64 KiB；累计 size 和 SHA-256，不把整份正文放进内存。
 3. 检查成功状态、开头允许 PDF 版本标记、Content-Type 未明确为 HTML、长度未超限、可用 Content-Length 与传输字节一致、末尾基本 `%%EOF` 标记。强制 identity 传输编码以便长度对账；仍返回压缩编码时拒绝并记录原因，不混用解码后长度。
-4. fsync `.part`，保存 prepared 的 size/sha256；再次校验卷与最终路径，禁止覆盖非本任务文件；同根独占锁保证本工具无并行提交。
+4. fsync `.part` 与其父目录，保存 prepared 的 size/sha256；再次校验卷与最终路径，禁止覆盖非本任务文件；同根独占锁保证本工具无并行提交。
 5. `os.replace()` 提升并同步父目录，提交 succeeded。SQLite 成功保存前不能报告成功。
 
 自动恢复矩阵：
@@ -163,7 +169,7 @@ SQLite 与文件系统无法组成同一个事务，因此必须保留 prepared 
 
 ## 9. 硬要求与验收映射
 
-以下全部是待实施测试，不能当成已有 PASS。
+以下是完整验收目标；M1 已实现的基础隔离覆盖与证据见 §11。M2 的完整专项验收、M3 真实外盘验证仍未进行，不能由矩阵文字推断为全部验收完成。
 
 | 要求 | 实现位置 | 正向测试 | 反例/故障测试 |
 | --- | --- | --- | --- |
@@ -187,6 +193,19 @@ M3 另获执行授权后，Prod 只读获取最多 5 个 URL，先按实际域�
 
 2026-10-01 使用仓库根 CodeGraph CLI：`status`（索引 up to date）、`query anns_d`、`query SessionLocal`、`impact RawAnnsD`、`callers RawAnnsD`、`callers _anns_d_params`、`callers SessionLocal`、`callees _anns_d_row_transform`。索引 impact 仅返回模型符号，动态 registry 调用未在 callers 完整呈现，不能当作消费者完整证明；补用当前代码搜索与逐项读取覆盖 Definition → request builder/row transform → Raw ORM/DAO → Serving view、Ops action_catalog、CLI、既有测试及 frontend/wealth/qtf/biz/app 消费者。直接前端/API 使用未在这次窄搜索中发现，不外推为不存在仓库外 SQL 消费者。
 
-本轮仅新增两份设计文档并更新 docs 索引，未改变运行入口、契约、分层或依赖矩阵。后续实现保持当前 `dev-interface`，不建分支/worktree，不提交其他未完成工作。
+M0 新增两份设计文档并更新 docs 索引，提交 `45c19af3`；M1 随后新增独立下载工具及专项测试，未改变既有运行入口、契约、分层或依赖矩阵。仍在当前 `dev-interface`，未建分支/worktree，未纳入其他未完成工作。
 
-待记录的实施证据：现有依赖检查、批读 EXPLAIN、真实 URL 最小样本、实际外卷/文件系统识别、rename/fsync/SQLite 故障恢复。当前没有需用户补充的功能选择；若真实证据要求新增认证、改变数据库、路径或依赖，按差异重新评审。
+实际 URL 最小样本、外卷写入/断开/重挂载恢复及后续批读性能仍待 M2/M3；当前没有需用户补充的功能选择。若真实证据要求新增认证、改变数据库、路径或依赖，按差异重新评审。
+
+## 11. M0/M1 实施证据（2026-10-01）
+
+- M0：文档完整性、链接与空白检查通过，设计文件及索引提交 `45c19af3`；用户随后明确授权 M0/M1。
+- 环境：仓库 `.venv/bin/python` 可导入 httpx、SQLAlchemy、psycopg、pytest，未安装或升级依赖。
+- M1：新增 §1 列出的工具与测试，`--help` 可用，参数错误在任何磁盘/数据库动作前退出；外盘失败在配置、账本及数据库连接前退出。
+- 基础专项用例：52 项通过。覆盖日期边界、显式数据库配置及原优先级、URL 去重、新公告重扫、未知文件防覆盖、损坏文件保留重下、准备态恢复、rename 后成功记账失败、取消后续跑、枚举批次回滚/崩溃、重定向/重试/持久冷却、请求 0 间隔、403 与验证码停止、非法 PDF、外盘身份变更、无挂载不建目录、符号链接、互斥锁、空间及 fsync 错误、进度单调和结果幂等。
+- 架构护栏：主体依赖矩阵、Platform 与 Operations legacy 护栏共 16 项通过；不扩展为对全仓功能的回归证明。
+- Prod 只读性能：经既有 psql-remote 入口、READ ONLY、15 秒 statement_timeout 执行两条 EXPLAIN ANALYZE，仅返回计划。2026-09-30 首批返回上限 500 行，执行 310.883ms，Top-N sort 318kB；2025-01-01～2026-09-30 首批上限 500 行，执行 3.616ms。窄范围诊断计划读取大量主键索引条目，不能把 LIMIT 当作访问量上限；本轮未增加生产索引或修改数据库配置。
+- 只读磁盘证据：系统 diskutil 确认 datasource 挂载 APFS 外盘及其物理 store；未执行真实目录创建、可写探针、PDF 下载或拔盘测试。隔离测试使用临时目录和合成卷属性，不替代 M3。
+- M1 与 LLD 的实施校准：增加 core.py 集中策略；暂存 basename 固定为 artifact_key；进度计数改为单行读取；正文期限明确受单次 read timeout 的退出边界约束，未增加新的 CLI 参数或业务能力。
+
+下一阶段为 M2 专项验收，需单独按阶段确认；真实 URL 下载与正式外盘写入仍由 M3 承担。本轮不创建调度、不发起公告元数据维护或全量下载。
