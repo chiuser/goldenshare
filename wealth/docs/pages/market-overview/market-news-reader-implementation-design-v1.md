@@ -1,7 +1,8 @@
-# 市场总览｜新闻弹窗阅读器视觉与安全基线 v2
+# 市场总览｜新闻弹窗阅读器视觉与安全基线 v3
 
-> 稳定文档路径沿用 `market-news-reader-implementation-design-v1.md`，正文版本升级为 v2。
-> 状态：已实现并结案（2026-09-01 用户确认）；阅读器视觉、安全及双来源合同均已完成。
+> 稳定文档路径沿用 `market-news-reader-implementation-design-v1.md`，正文版本升级为 v3。
+> 基线状态：已实现并结案（2026-09-01 用户确认）；阅读器视觉、安全及双来源合同均已完成。
+> 图片增强状态：M1 方案已冻结（2026-10-01），尚未编码、测试、部署。
 > 视觉依据：Figma `RADlZzREU4lPVviYfkLy6x`，`13 News Reader - Components and States`（node `876:2`）。
 > 数据源与 API 方案：[market-news-implementation-design-v1.md](./market-news-implementation-design-v1.md)。
 > 代码级改造：[market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md)。
@@ -39,4 +40,16 @@ HTML 来源容错固定为：进入 DOMPurify 前仅移除源站不规范的自�
 
 ## 4. 不变边界
 
-本轮不修改弹窗尺寸、header 布局、标题样式、正文宽度、关闭图标、动画、Design Token、HTML allowlist 或 iframe sandbox。若未来需要展示“查看原文”，必须单独设计并评审，不得因为 API 已保留 `originalUrl` 就直接增加链接。
+图片增强不修改弹窗尺寸、header 布局、标题样式、正文宽度、关闭图标、动画、Design Token 或 iframe sandbox。HTML allowlist 只按第 5 节开放经过归一化的安全图片，不开放 iframe、链接跳转、源站样式或事件属性。若未来需要展示“查看原文”，必须单独设计并评审，不得因为 API 已保留 `originalUrl` 就直接增加链接。
+
+## 5. 图片显示与失败状态基线（M1 冻结，未实现）
+
+1. 图片是 HTML 正文中的从属内容，不新增 reader mode、不增加图片画廊、轮播、预览层或下载入口。
+2. 合规图片按正文顺序展示，最大宽度为正文容器宽度，高度自动；不得造成横向滚动或撑大 modal。
+3. 浏览器使用 lazy loading 和 async decoding；请求不发送页面 referrer。
+4. 单图失败不得把阅读器切到整体 error，也不得遮挡其后的文本。失败图片隐藏或显示无外链的本地占位即可。
+5. 每篇最多显示 24 张图片。相对路径、未知域名和不安全 scheme 直接移除，不向用户暴露破损 URL，也不尝试访问原文页面补图。
+6. 可访问性使用清洗后的源 `alt`；缺少有效 `alt` 时按装饰图片处理。禁止把文件名、URL 或 host 自动拼成替代文本。
+7. DOM 最终只能保留系统生成的安全图片属性；源站的事件、样式、class、id 不能进入 DOM。
+
+域名白名单、URL 归一化算法和测试门禁以主技术方案第 14 节及 LLD N20～N23 为准。本文只冻结用户可见结果，不另建第二套数据或安全规则。

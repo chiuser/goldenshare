@@ -1,8 +1,9 @@
-# 市场总览｜新闻速览、新闻通讯与阅读器低层设计 v2（LLD）
+# 市场总览｜新闻速览、新闻通讯与阅读器低层设计 v3（LLD）
 
-> 稳定文档路径沿用 `market-news-reader-low-level-design-v1.md`，正文版本升级为 v2。
-> 状态：已实现并结案（2026-09-01 用户确认）；N01～N19 均已完成。
-> 日期：2026-08-24；标题提取及新闻通讯展示策略确认日期：2026-08-27；结案日期：2026-09-01。
+> 稳定文档路径沿用 `market-news-reader-low-level-design-v1.md`，正文版本升级为 v3。
+> 基线状态：已实现并结案（2026-09-01 用户确认）；N01～N19 均已完成。
+> 图片增强状态：N20～N23 已完成方案冻结（2026-10-01），尚未编码、测试、部署。
+> 日期：2026-08-24；标题提取及新闻通讯展示策略确认日期：2026-08-27；基线结案日期：2026-09-01；图片增强方案冻结日期：2026-10-01。
 > 技术方案：[market-news-implementation-design-v1.md](./market-news-implementation-design-v1.md)。
 > 视觉与 modal 合同：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)。
 
@@ -43,6 +44,10 @@ major_news 正文: HTML/TEXT，URL 仅 originalUrl
 | N17 | 标题提取严格回退且不扩散 | title normalizer、major query/reader | 畸形括号回退原逻辑 | `title` 非空时不得检查正文；不得扫描正文中部；不修改 major/stock-detail |
 | N18 | 新闻通讯排除新浪财经 | major list/observed/detail query | 其它来源正常返回 | 新浪记录不进列表、不推进观测时间、详情 404 |
 | N19 | 同花顺固定推广文字仅在展示层移除 | major display policy/resolver | HTML/TEXT 主体保留 | 不回写 DB、不修改其它来源、不按文章尾部截断 |
+| N20 | Python 与 PostgreSQL 使用同一 HTML 标签边界 | `news_reader_content_resolver.py`、两个列表 query | `<div>`、带属性标签、自闭合标签均识别为 HTML | `<divider>` 等前缀、普通文本不得误判 |
+| N21 | 图片 URL 必须归一化后通过精确 host 白名单 | `SanitizedHtmlContent.tsx` | 四个白名单 host 的 HTTPS/协议相对/可升级 HTTP 样本保留 | 相对 URL、未知 host、私网/保留地址和危险 scheme 删除 |
+| N22 | 源图片属性不可信，最终 DOM 只保留系统生成属性 | `SanitizedHtmlContent.tsx` | 安全 src/alt 和 lazy/async/no-referrer 输出 | `on*`、style、class、id、width/height、任意 data 属性不得进入 DOM |
+| N23 | 每篇最多保留 24 张，单图失败不影响正文 | `SanitizedHtmlContent.tsx`、reader CSS | 24 张以内顺序和后续正文保持 | 第 25 张起删除；失败图片不升级为整篇 error |
 
 ## 3. 影响面审计
 
@@ -868,3 +873,96 @@ git diff --check
 | N18-N19 | `major_news_display_policy.py`、`major_news_query.py`、`major_news_reader_query.py`、major resolver 调用链 | `test_wealth_market_news_api.py`、`test_wealth_market_news_reader_api.py` | 已完成：新浪列表/观测/详情统一过滤；同花顺固定推广文字按来源清理且正文主体保留 |
 
 本需求已结案。后续若任何正式数据事实与本 LLD 冲突，先停下审计并更新方案，不允许临时回退 URL 或恢复旧 `/stocks` 兜底。
+
+## 14. 图片阅读增量实现门禁（N20～N23，未编码）
+
+### 14.1 影响面与不变量
+
+CodeGraph 当前索引确认的增量调用链为：
+
+```text
+NEWS_READER_HTML_PATTERN
+  -> MarketNewsQuery / MajorNewsQuery（PostgreSQL 列表 readerMode）
+  -> resolve_news_reader_content / resolve_major_news_reader_content（Python 详情模式）
+
+NewsReaderDialog
+  -> SanitizedHtmlContent
+  -> DOMPurify 后的正文 DOM
+```
+
+只允许修改：
+
+```text
+src/biz/services/wealth/market/news/news_reader_content_resolver.py
+tests/test_wealth_market_news_reader_content_resolver.py
+tests/web/test_wealth_market_news_api.py
+tests/web/test_wealth_market_news_reader_api.py
+wealth/src/shared/ui/news-reader/SanitizedHtmlContent.tsx
+wealth/src/shared/ui/news-reader/news-reader.css
+wealth/src/test/news-reader-dialog.test.tsx
+wealth/src/test/market-news-reader-controller.test.tsx
+wealth/src/test/market-overview-news-real-api.test.tsx
+```
+
+以上路径已按当前仓库核实；实现时不得新增重复测试或样式文件。API DTO、数据库、DatasetDefinition、采集、feature adapter、`originalUrl`、URL iframe 和股票详情新闻均不在影响面；不新增配置项。
+
+### 14.2 N20：跨 Python/PostgreSQL 的 HTML 分类
+
+共享正则继续定义在 `news_reader_content_resolver.py`。标签名边界统一为：
+
+```regex
+(?=\s|/|>)
+```
+
+不得继续使用 `\b`，也不得在 SQL query 内复制另一套 regex。必须覆盖：
+
+| 样本 | 结果 |
+|---|---|
+| `<div>`、`<DIV class="x">`、`<br/>`、`<img src="x">` | HTML |
+| `<divider>`、`<imagebox>`、普通比较符文本 | 非 HTML |
+
+自动化测试至少覆盖 Python resolver、两个列表 query 和详情 API。正式验收还必须通过仓库既有生产只读入口在 PostgreSQL 执行同一组样本；SQLite 的 `REGEXP` 或 Python `re` 结果不能代替 PostgreSQL 证据。
+
+### 14.3 N21～N23：有界图片归一化与清洗
+
+`SanitizedHtmlContent` 采用“两阶段”处理，具体可用 DOMPurify hook 或等价的有界 DOM 变换，但结果必须唯一：
+
+1. 保留现有畸形自闭合 iframe 预处理。
+2. 初次清洗只为读取候选 `img` 及 `src/data-src/data-original/alt`；其它标签继续沿用现有 allowlist，图片的其它源属性不可信。
+3. 候选 URL 优先级固定为 `src`、`data-src`、`data-original`。空值继续下一个候选；不得读取 CSS background 或脚本生成地址。
+4. 使用 URL parser 归一化：`//` 补 `https:`；白名单 host 的 `http:` 改为 `https:`；最终仅接受 `https:` 且 hostname 小写精确属于：
+
+```text
+e.thsi.cn
+u.thsi.cn
+ftapi.10jqka.com.cn
+image.cls.cn
+```
+
+5. 无 scheme 的相对路径直接删除。不得传入 `originalUrl`、不得补 base URL、不得由后端抓取或代理。
+6. 删除原 `img`，仅从验证结果重建节点。输出属性只允许合规 `src`、清洗后 `alt`，并强制 `loading="lazy"`、`decoding="async"`、`referrerpolicy="no-referrer"`；源 `width/height` 不保留，尺寸交给响应式样式。
+7. 按文档顺序只保留前 24 张合规图片。计数发生在 URL 验证之后；不合规图片不占额度。
+8. 最终 DOM 再经过固定 allowlist 校验。禁止 `on*`、`style`、`class`、`id`、`srcset`、任意源 data 属性、SVG/data URL、blob 和脚本 scheme。
+9. 单图加载失败只能影响该节点。实现可绑定由本系统创建的受控 React/DOM 失败处理，但不得保留或执行源 HTML 的事件属性；后续正文必须继续可见。
+
+样式只允许完成正文内响应式约束：`max-width: 100%`、`height: auto`、块级居中和合理上下间距。不得改变 modal 尺寸或引入画廊交互。
+
+### 14.4 必须新增的测试与真实验收
+
+前端单元/组件测试至少覆盖：
+
+1. 四个白名单 host 的 HTTPS、协议相对 URL，以及白名单 HTTP 升级。
+2. 相对 URL、未知 host、相似恶意 host、localhost、IPv4/IPv6 私网或保留地址、`data:`、`blob:`、`javascript:` 删除。
+3. lazy-load 字段中的有效 URL 可被选中，危险的首选字段不能绕过校验。
+4. 源 `onerror/onload/style/class/id/srcset/data-*` 不进入最终 DOM。
+5. 24 张保留、第 25 张删除；失败图片不删除其后正文。
+6. 现有 iframe 容错、TEXT 渲染、URL sandbox、modal 焦点和关闭行为全部回归通过。
+
+真实验收分两部分，缺一不可：
+
+1. PostgreSQL 只读校准证明列表 SQL 与 Python resolver 对正反样本一致，并抽查真实 `major_news` 图片正文返回 HTML mode。
+2. 浏览器打开同花顺、财联社各至少一篇含图正文，确认图片成功加载、无横向滚动、失败图片不影响正文，并在 Network/DOM 中确认没有未知域、源事件属性或原文页面请求。
+
+### 14.5 M1 完成口径与下一 milestone
+
+本次 M1 的完成口径仅为三份既有权威文档同步冻结 N20～N23，未修改任何运行时代码。下一 milestone 若获确认，按 N20（后端分类一致性）与 N21～N23（前端图片安全链）实现并执行目标测试；部署和正式 UI 验收仍需单独授权，不得在编码完成时自动宣称上线。

@@ -1,8 +1,9 @@
-# 市场总览｜新闻速览、新闻通讯与阅读器技术实施方案 v2
+# 市场总览｜新闻速览、新闻通讯与阅读器技术实施方案 v3
 
-> 稳定文档路径沿用 `market-news-implementation-design-v1.md`，正文版本升级为 v2。
-> 状态：已实现并结案（2026-09-01 用户确认）；双来源新闻、阅读器、标题提取、新闻通讯来源过滤与同花顺尾注清理均已完成。
-> 日期：2026-08-24；标题提取及新闻通讯展示策略确认日期：2026-08-27；空标题正文提取补充确认日期：2026-08-28；结案日期：2026-09-01。
+> 稳定文档路径沿用 `market-news-implementation-design-v1.md`，正文版本升级为 v3。
+> 基线状态：已实现并结案（2026-09-01 用户确认）；双来源新闻、阅读器、标题提取、新闻通讯来源过滤与同花顺尾注清理均已完成。
+> 图片增强状态：M1 方案已冻结（2026-10-01），尚未编码、测试、部署；进入实现前仍需独立确认。
+> 日期：2026-08-24；标题提取及新闻通讯展示策略确认日期：2026-08-27；空标题正文提取补充确认日期：2026-08-28；基线结案日期：2026-09-01；图片增强方案冻结日期：2026-10-01。
 > 代码级设计：[market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md)。
 > 阅读器视觉与交互基线：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)。
 
@@ -396,3 +397,52 @@ content 包含 HTML 结构 -> HTML
 新闻通讯来源过滤与尾注清理增量已按后端展示策略落地：复用现有 `/communications` 和来源化详情 API，新浪财经在列表、状态观测和详情查询中统一排除，同花顺固定推广文字在 resolver 返回前清理；未新增参数、字段、配置、迁移或前端字符串处理。
 
 后续维护若发现 `major_news.content` 在正式数据中不再是可读正文，必须停止相关变更并重新审计数据，不允许自动回退 URL 掩盖问题。
+
+## 14. 2026-10-01 图片阅读增量 M1（方案冻结，未编码）
+
+### 14.1 根因与正式数据证据
+
+本增量不改变新闻来源选型。当前 `major_news.content` 已包含图片 HTML，但共享渲染器 `SanitizedHtmlContent.tsx` 的 DOMPurify allowlist 不允许 `img`，因此图片会被清洗掉；`news` 当前样本仍以纯文本为主，也没有独立图片字段。
+
+2026-09-30 正式库只读审计（自然窗口为前一日 00:00 至审计时点）记录如下：
+
+| 口径 | 结果 |
+|---|---:|
+| `major_news` 窗口行数 | 1,693 |
+| 含实际 `<img>` 的 `major_news` | 1,074 |
+| 当前产品精确查询口径（排除新浪、标题去重、`queryLimit=300`） | 300 篇 |
+| 上述 300 篇含图片正文 | 115 篇（38.33%） |
+| 上述 115 篇图片标签数 | 346；每篇 P95=8、最大=21 |
+| `news` 窗口行数 / 含图片正文 | 7,168 / 0 |
+
+Tushare `major_news` 没有独立 `image/images/pic/picture` 返回字段；图片事实位于 `content` HTML。现有 DatasetDefinition 已显式采集 `title/content/pub_time/src/url` 并保留正文，因此本增量不修改采集、DatasetDefinition、数据库结构或 API DTO。
+
+另一个已确认问题是 HTML 分类表达式同时供 Python resolver 与 PostgreSQL 列表 SQL 使用，而 PostgreSQL 正则中的 `\b` 不是 Python 的单词边界。正式 PostgreSQL 校准证明 `<img\b` 不能命中 `<img src=x>`，导致列表 `readerMode` 可误报为 TEXT，而详情 Python resolver 又识别为 HTML。跨运行时的标签边界统一冻结为 `(?=\s|/|>)`。
+
+### 14.2 图片安全与展示合同
+
+1. 首期仅允许以下正式数据已验证的 CDN host，host 按小写精确匹配，不接受后缀模糊匹配：
+   - `e.thsi.cn`
+   - `u.thsi.cn`
+   - `ftapi.10jqka.com.cn`
+   - `image.cls.cn`
+2. 仅输出 HTTPS 图片。协议相对 URL 统一补为 `https:`；白名单 host 的 HTTP URL 升级为 HTTPS。升级或校验失败时删除图片，不降级回 HTTP。
+3. 拒绝 `data:`、`blob:`、`javascript:`、未知 host、localhost、私网/保留地址及相对路径。首期不使用 `originalUrl` 解析相对路径；新华网样本中的相对图片因此按失败关闭处理。
+4. 每篇最多保留前 24 张合规图片，超过部分删除。该上限覆盖正式样本最大 21 张，并为数据波动留出小幅余量；不得把上限做成页面常量或新增配置项。
+5. 源 HTML 的 `on*`、`style`、`class`、`id` 一律不保留。输入阶段只可读取 `src/data-src/data-original/alt`；源 `width/height` 也不进入最终 DOM，图片尺寸统一由响应式样式约束。最终由本系统只输出合规 `src`、清洗后的 `alt` 以及 `loading="lazy"`、`decoding="async"`、`referrerpolicy="no-referrer"`。
+6. 单张图片加载失败只隐藏该图片或显示无外链的本地失败占位，不影响标题和正文继续阅读；不得保留源站内联 `onerror`。
+7. 图片必须限制在正文宽度内并保持原比例，不改变现有 modal 尺寸、header、焦点、关闭和滚动合同。
+8. 首期不新增后端图片代理、缓存或原文抓取。已验证的白名单 CDN 可直接加载；代理会额外引入 SSRF、带宽、缓存失效和版权边界，不属于本轮最短路径。
+
+### 14.3 HTML 分类一致性合同
+
+1. `NEWS_READER_HTML_PATTERN` 仍是列表 SQL 与详情 resolver 的唯一共享事实源，不允许前后端或不同 query 各自复制标签集合。
+2. 所有 HTML 标签名后的 `\b` 改为 PostgreSQL 与 Python 均可解释的 `(?=\s|/|>)`；`<div>`、`<div class=x>`、`<br/>` 必须命中，`<divider>` 必须不命中。
+3. 本修改不改变 `readerMode/url/html/content` DTO 结构，只纠正列表与详情的分类一致性；禁止前端根据正文再次猜测模式。
+4. 自动化测试之外，实施验收必须在真实 PostgreSQL 上执行同一组正反样本，SQLite 或 Python 单元测试不能替代该证据。
+
+### 14.4 增量边界与进入编码条件
+
+允许的后续实现范围仅包括：共享 HTML 分类表达式及其三个现有消费者、`SanitizedHtmlContent` 的图片归一化/清洗/样式、对应后端与前端测试。禁止修改 API、DTO、采集、数据库、DatasetDefinition、阅读器 URL 模式、`originalUrl` UI 暴露、配置中心或股票详情新闻。
+
+M1 只完成方案与 LLD 冻结，不宣称图片已经可见。进入编码前必须以 [market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md) 的 N20～N23 为逐项门禁；实现、真实 PostgreSQL 验收和浏览器图片加载验收均在下一 milestone 独立完成。
