@@ -1,9 +1,9 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期及既有专项均保留为历史验收记录；2026-08-23 已完成新一轮容量审计与 `stk_mins` P0 第二轮安全复审，生产 DDL 尚未执行；P0 当前因可恢复性证据未闭环保持 No-Go
-更新时间：2026-08-23；2026-09-12 仅补文档导航，不重验生产状态。
+状态：一期及既有专项保留为历史记录；2026-10-02 stk_mins P0 的 1～6 月 12 个对象物理迁移与即时验收完成，四项服务已恢复；分钟线 schedule #25 恢复及下一次自然运行观察待完成，7～8 月尚未迁移
+更新时间：2026-10-02（仅同步 stk_mins P0 实际执行证据，不重验其它历史专项）。
 
-本文保留旧迁移、容量与 stk_mins 原专项记录，不再新增批次。新一轮 raw 直出一期的 12 项已按 [v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)及[一期 LLD](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)的带日期记录结案；它不表示本文 stk_mins No-Go 自动解除，也不授权重跑已完成 DDL。
+本文保留旧迁移、容量与 stk_mins 原专项记录，不再新增批次。新一轮 raw 直出一期的 12 项已按 [v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)及[一期 LLD](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)的带日期记录结案。stk_mins 原备份 No-Go 口径已按管理员接受剩余风险的决定修正，并经独立授权实际完成 P0 物理迁移，最新证据见 §2.4；本文不授权重跑任何已完成 DDL。
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层与重复物理存储治理。
 不在范围：删除、清空 raw 业务数据；改变数据集请求语义；修改 API 或前端业务行为。
 
@@ -59,13 +59,15 @@
 
 审计时仍有运行中和排队中的 TaskRun；这只说明当时不能立即执行迁移，正式维护窗口必须重新检查，不能沿用该快照判断。
 
-### 2.2 当前逻辑体积 Top 20 与真实 SSD 占用
+### 2.2 2026-08-23 历史逻辑体积 Top 20 与 SSD 占用
+
+本表为历史快照，不是最新 Top 20；stk_mins 后续迁移和容量变化见 §2.4，本轮未重验其它 19 项。
 
 表按逻辑总大小排序；“SSD 占用”按 heap/TOAST/索引各自真实 tablespace 汇总，避免把已经位于 HDD 的大表误判成 SSD 候选。大小均为约值。
 
 | # | 数据表 | 总大小 | 当前 SSD 占用 | 当前结论 | 优先级 | 风险 |
 | ---: | --- | ---: | ---: | --- | --- | --- |
-| 1 | `raw_tushare.stk_mins` | 38 GiB | 38 GiB | 只迁 2026-01～06 关闭月份，保留 07～08 热窗口；当前备份门禁 No-Go | **P0** | 中（限定叶分区）；整表迁移为高风险 |
+| 1 | `raw_tushare.stk_mins` | 38 GiB | 38 GiB | 当时拟迁 2026-01～06，07～08 为热窗口，备份门禁 No-Go；此后口径与执行结果见 §2.4 | **P0** | 中（限定叶分区）；整表迁移为高风险 |
 | 2 | `raw_tushare.cyq_chips` | 37 GiB | 接近 0 | 已在 HDD | 无动作 | 无新增风险 |
 | 3 | `raw_tushare.index_mins` | 17 GiB | 17 GiB | 未分区，需先设计月分区或专门维护窗口 | P2 | 高 |
 | 4 | `raw_tushare.news` | 7.0 GiB | 0 | 已在 HDD | 无动作 | 无新增风险 |
@@ -86,7 +88,9 @@
 | 19 | `raw_tushare.cyq_perf` | 2.08 GiB | 2.08 GiB | 有 serving view，需先确认外部消费者 | P1-B | 中 |
 | 20 | `core.equity_adj_factor` | 2.01 GiB | 2.01 GiB | 复权行情基础表，保留 SSD | P3 | 高 |
 
-### 2.3 当前优先级
+### 2.3 2026-08-23 历史优先级
+
+以下保留当时容量、备份和批次评估，不作为今天的执行门禁；stk_mins 最新风险口径及进展见 §2.4，其它表须按其现行方案重新核验。
 
 1. **P0**：只处理 `raw_tushare.stk_mins` 的 `2026-01`～`2026-06` 六个月叶分区及其全部物理索引，当前实测为 6 个 heap + 6 个物理主键索引、无 TOAST，预计释放约 28.3 GiB。第二轮安全复审已完成，但生产主机没有可见的有效 base backup/PITR 证据，外部备份状态未知；在可恢复性、任务隔离和观察会话门禁全部关闭前保持 No-Go。详细执行契约见[股票历史分钟行情存储瘦身与滚动冷热治理方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)。
 2. **P1-A**：P0 完成并观察后，若容量仍不足，再评审 `raw_tushare.dc_member/moneyflow/daily/daily_basic`，合计约 14.0 GiB。它们必须各自重新做任务、消费者、锁与写入频率门禁，不能因列入本表直接执行。
@@ -95,6 +99,19 @@
 5. **P3**：核心 serving 表和仅剩少量 SSD 热分区的表不迁移。
 
 P0 单独完成后，根盘理论可用空间将由约 5.5 GiB 提升到约 33.7 GiB，使用率预计由 98% 降至约 84%。实际值受 WAL、并发写入、文件系统保留块和统计时点影响，不能以估算替代逐对象 `df` 复验。该收益估算不构成绕过备份门禁的理由。
+
+### 2.4 2026-10-02 stk_mins P0 实际进展
+
+执行依据为[原方案 §2.8](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md#28-2026-10-02-p0-继续执行记录)。管理员接受无已验证独立备份的剩余风险并明确授权 P0；极端故障不能保证恢复，不把 SSD 扩容、事务回滚或可重拉当作备份。此次只处理原定 1～6 月，不扩到 7～8 月。
+
+1. 生产部署为 `1ceeef5d2a0763874fdd045378531251ff867d5c`，Alembic `20261002_000182`；无部署或新 schema migration。暂停 #25 后 rule=0，四项指定 worker/scheduler 停止。维护中出现手动 queued #14203，按门禁中止；管理员取消后复验 canceled/队列清空，才继续。
+2. 先导 2 月索引/heap 独立事务完成并观察至少 5 分钟；随后按 05→04→03→01→06、每月先索引后 heap 串行执行。20:15，6 个 heap + 6 个主键索引全部位于 gs_raw_cold_hdd；OID、main 字节、边界、约束/索引父级关系及有效性不变。
+3. 六个月含索引/FSM/VM 总大小 30,340,677,632 B（28.26 GiB）与迁移前相同；首末股票频率样本摘要和月窗口 Raw/view 双向差异均通过。7～12 月、default、父表及父级索引未改动，下游表名、view、字段和请求合同不变。
+4. 20:17 SSD 可用 61,966,233,600 B（57.71 GiB）、使用率 78%；HDD 可用 244,534,538,240 B（227.74 GiB）、使用率 40%。相对第一条 DDL 前同口径监测基线，SSD 净增加约 28.13 GiB；不能把文件系统差值当作精确关系字节。对象窗口内实例 WAL LSN 增量合计约 28.53 GiB，但 WAL 目录驻留峰值仅观测到 1 GiB；两种量不同。
+5. 2 月单股单日 view 查询 241 行、主键 Index Scan、2.736 ms；9 月热日成交额聚合读取 1,353,292 个匹配行，12.345 秒，只落仍在 SSD 的 9 月分区。缓存及参数基线不完全同口径，不声称改善或退化，也不顺带改 SQL/索引。
+6. tablespace comment 已由 owner postgres 更新并通过共享 catalog 正确读回；四项原本运行的服务依次恢复为 active，Web/数据库健康，无指定 kernel I/O 错误。恢复 scheduler 后常规 scheduled 任务开始入队，是维护后的正常恢复。
+7. 未完成项：运营经正式 Ops 页面恢复分钟线 schedule #25，再复验仅重建 1 条有效 probe rule，并观察下一次自然 TaskRun。物理迁移验收通过不代表该恢复/观测项已经完成；本轮未额外创建业务 TaskRun、请求 Tushare 或删除/重建源事实。
+8. 7～8 月仍是后续独立授权候选，预计另释放约 10.99 GiB；不自动执行，也不把它混入 v2 raw 直出已结案专项。
 
 ## 3. 一期历史审计事实
 
@@ -443,7 +460,7 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 
 1. 根盘达到 90% 时进入容量预警，达到 95% 时停止新增大规模回补并启动只读 Top 20 审计；阈值只定义运维动作，不授权自动 DDL。
 2. 每月至少复查一次 SSD/HDD 容量、tablespace 分布、WAL、最大关系增长和 TaskRun 写入负载；季度审计不足以覆盖分钟级大表增长。
-3. `stk_mins` 改用“当前自然月 + 上一个自然月留 SSD，更早关闭月份进入 HDD 候选”的两月滚动热窗口，不再执行年度 rollover。每个月份仍需在维护窗口内逐对象迁移并验收；必须先确认独立备份、暂停 schedule 并删除绑定 probe rule、停止真实执行车道、观察 WAL/磁盘水位，当前不自动执行 DDL。
+3. `stk_mins` 使用“当前自然月 + 上一个自然月留 SSD，更早关闭月份进入 HDD 候选”的两月滚动热窗口，不再执行年度 rollover。每个月份仍需独立授权、维护窗口及逐对象验收；恢复保障/无备份风险接受口径以[原方案 §6.1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md#61-恢复保障与无备份执行口径)为准，还须暂停 schedule 并删除绑定 probe rule、隔离真实执行车道、观察 WAL/磁盘水位，不自动执行 DDL。2026-10 时 9～10 月是热月，7～8 月尚属待处理冷月，不是已完成全部滚动治理。
 4. 新增大体量数据集必须在 LLD 中明确：稳定/峰值容量、索引放大、分区、冷热窗口、WAL、tablespace 缺失策略、备份恢复和消费者延迟。
 5. 当前已明确 HDD-first 的数据集包括 `margin_detail`、已接入公募基金业务表以及 `equity_express`；它们是各自 LLD 的显式决策，不代表所有 direct-serving 表默认进入 HDD。
 6. raw/core 字段和索引等价且没有独立业务转换时，继续优先评估 raw-backed serving view，避免重复物理存储；任何收口必须先做全量消费者和数据一致性审计。
