@@ -2,6 +2,9 @@
 
 更新时间：2026-10-01。状态：M0 设计已提交，M1 已实现并通过基础隔离验证；M2 专项验收、M3 真实下载验收和 M4 范围执行尚未进行。用户已确认本地 CLI、日期范围、标题命名、可配置请求间隔、续跑和外部磁盘启动检查，并授权按 LLD 完成 M0/M1。未下载真实公告、未写生产库或正式外盘。
 
+
+2026-10-02 前置依赖更新：公告同步完善 P0 已设计，P1—P4 未实现；见[同步技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)及[同步 LLD](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。本文原 M1 行为及历史证据保留，以下目标读取合同尚未进入代码，M2/M3 等待前置验收。
+
 ## 1. 目标与依据
 
 从已有 Prod `anns_d` 记录读取公告 URL，将 PDF 归档到本机外部磁盘。按公告日期 `ann_date`、上市公司代码 `ts_code` 建目录，以 `title` 生成文件名。相同命令重复执行能够继续未完成下载，并纳入随后更新的公告记录。
@@ -132,3 +135,14 @@ HTTP 200 不能直接证明 PDF 有效。验证 PDF 文件头、大小、响应�
 详细模块、参数、状态恢复和正反例验收见 [LLD](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-low-level-design-v1.md)。
 
 M1 采用固定 artifact_key 暂存文件名以避免超长标题叠加哈希突破文件系统 basename 上限；卷 UUID 查询仅在批次、请求和提交边界执行，流块内做设备/挂载及 fd 检查，避免每 64 KiB 启动系统进程。进度计数与账本结果同事务维护，避免逐文件扫描全任务。这些实施细节已同步进入 LLD。
+
+
+## 公告同步前置完成后的读取合同（目标，尚未实现）
+
+元数据同步仍由既有anns_d主链负责。Raw保留被覆盖源证据；下载枚举继续显式读取Raw id和row_key_hash，但必须加is_current=true条件，不能把证据版本当有效公告。上界id只是该轮枚举边界，不是只靠新增id发现元数据变化：每次新枚举仍从0开始，因此旧id恢复为有效也能重新纳入。源版本ID/指纹保持稳定，完整源版本到来可能换代表行，文件身份仍是日期、代码、URL。
+
+URL NULL/空值：保存该行的本地来源映射，记录skipped_missing_url，并推进同批游标；不创建空URL下载身份、不发HTTP、不让NULL.strip()中断批次。非空但非法URL按既有invalid_url文件失败口径，不丢公告元数据。rec_time为NULL只影响元数据展示，不影响文件任务。
+
+本地source_records.artifact_key在无URL情况下需要允许NULL/无关联；后续新有效URL版本可创建文件任务。新一轮不纳入covered记录及其新下载任务，不删除旧轮次已经验证成功的文件。每次领取文件前复核本轮对应源版本至少一个仍有效，避免枚举后被覆盖继续下载；查询需短只读有界，不自动删除账本映射。跨轮次成功文件按既有日期/代码/URL身份复用。
+
+适配验证：covered版不枚举、缺URL映射/统计/游标同事务、缺时间可下载、代表换ID相同URL不重复下载、旧轮次未完成文件的有效性复核、非完整性快照边界。现行M1没有上述NULL与覆盖适配，不能在新公告合同部署后直接当作已兼容运行。

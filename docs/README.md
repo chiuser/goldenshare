@@ -202,6 +202,8 @@ docs/
 - [新闻联播文字稿](/Users/congming/github/goldenshare/docs/datasets/cctv-news-dataset-development.md)
 - [新闻通讯](/Users/congming/github/goldenshare/docs/datasets/major-news-dataset-development.md)
 - [上市公司公告](/Users/congming/github/goldenshare/docs/datasets/anns-d-dataset-development.md)
+- [上市公司公告同步完善技术方案 v1（P0；缺值保存、完整覆盖及历史任务恢复）](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)
+- [上市公司公告同步完善 LLD v1（P0；身份、持久化、预算、迁移及验收矩阵）](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)
 - [上市公司公告 PDF 本地归档技术方案 v1（M0/M1 完成，尚未真实下载验收）](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)
 - [上市公司公告 PDF 本地归档 LLD v1（M1 实现证据、参数、外盘门禁与续跑）](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-low-level-design-v1.md)
 - [上证E互动问答](/Users/congming/github/goldenshare/docs/datasets/irm-qa-sh-dataset-development.md)

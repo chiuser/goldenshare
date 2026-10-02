@@ -2,6 +2,9 @@
 
 更新时间：2026-10-01。状态：M0 设计已提交、M1 已实现并通过基础隔离验证；M2/M3/M4 尚未执行。需求和范围以[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)为准；实现与验证证据见 §11，不能将隔离测试或只读磁盘信息升级为真实下载验收。
 
+
+2026-10-02 前置依赖更新：公告同步完善 P0 已设计，P1—P4 未实现；见[同步技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)及[同步 LLD](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。本文原 M1 行为及历史证据保留，以下目标读取合同尚未进入代码，M2/M3 等待前置验收。
+
 ## 1. 改动范围与依赖
 
 M1 已新增：
@@ -209,3 +212,14 @@ M0 新增两份设计文档并更新 docs 索引，提交 `45c19af3`；M1 随后
 - M1 与 LLD 的实施校准：增加 core.py 集中策略；暂存 basename 固定为 artifact_key；进度计数改为单行读取；正文期限明确受单次 read timeout 的退出边界约束，未增加新的 CLI 参数或业务能力。
 
 下一阶段为 M2 专项验收，需单独按阶段确认；真实 URL 下载与正式外盘写入仍由 M3 承担。本轮不创建调度、不发起公告元数据维护或全量下载。
+
+
+## 公告同步前置完成后的读取合同（目标，尚未实现）
+
+元数据同步仍由既有anns_d主链负责。Raw保留被覆盖源证据；下载枚举继续显式读取Raw id和row_key_hash，但必须加is_current=true条件，不能把证据版本当有效公告。上界id只是该轮枚举边界，不是只靠新增id发现元数据变化：每次新枚举仍从0开始，因此旧id恢复为有效也能重新纳入。源版本ID/指纹保持稳定，完整源版本到来可能换代表行，文件身份仍是日期、代码、URL。
+
+URL NULL/空值：保存该行的本地来源映射，记录skipped_missing_url，并推进同批游标；不创建空URL下载身份、不发HTTP、不让NULL.strip()中断批次。非空但非法URL按既有invalid_url文件失败口径，不丢公告元数据。rec_time为NULL只影响元数据展示，不影响文件任务。
+
+本地source_records.artifact_key在无URL情况下需要允许NULL/无关联；后续新有效URL版本可创建文件任务。新一轮不纳入covered记录及其新下载任务，不删除旧轮次已经验证成功的文件。每次领取文件前复核本轮对应源版本至少一个仍有效，避免枚举后被覆盖继续下载；查询需短只读有界，不自动删除账本映射。跨轮次成功文件按既有日期/代码/URL身份复用。
+
+适配验证：covered版不枚举、缺URL映射/统计/游标同事务、缺时间可下载、代表换ID相同URL不重复下载、旧轮次未完成文件的有效性复核、非完整性快照边界。现行M1没有上述NULL与覆盖适配，不能在新公告合同部署后直接当作已兼容运行。
