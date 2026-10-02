@@ -1990,3 +1990,46 @@ def test_task_run_dispatcher_does_not_skip_natural_day_point_on_closed_trade_dat
     assert summary_message == "units=1"
     assert len(calls) == 1
     assert calls[0].time_input.trade_date == date(2026, 5, 1)
+
+
+@pytest.mark.parametrize('time_mode', ['point', 'range'])
+def test_worker_executes_announcement_with_current_frozen_storage_budget(
+    db_session, task_run_factory, monkeypatch, time_mode,
+):
+    from src.foundation.ingestion import DatasetActionResolver
+
+    day = date(2023, 6, 9)
+    time_input = (DatasetTimeInput(mode='point', trade_date=day) if time_mode == 'point'
+                  else DatasetTimeInput(mode='range', start_date=day, end_date=date(2023, 6, 11)))
+    request = DatasetActionRequest(dataset_key='anns_d', action='maintain', time_input=time_input)
+    frozen = DatasetActionResolver(db_session).build_plan(request).execution_context
+    assert 'reconciliation_lock_timeout_seconds' not in frozen['policy_snapshot']['storage']
+    task = task_run_factory(resource_key='anns_d', title='上市公司公告',
+        time_input_json=TaskRunDispatcher._dataset_time_input_payload(time_input),
+        request_payload_json={'execution_context': json.loads(json.dumps(frozen))})
+    contexts = []
+
+    class ServiceAtSourceBoundary:
+        def __init__(self, session, *, dataset_key, run_context, **kwargs):
+            assert dataset_key == 'anns_d'
+            contexts.append(run_context)
+
+        def maintain(self, *, run_id, _plan, **kwargs):
+            assert _plan.execution_context == frozen
+            assert contexts[-1].is_cancel_requested(run_id=run_id) is False
+            return SimpleNamespace(rows_fetched=3, rows_written=3, rows_rejected=0,
+                rows_deduplicated=1, rejected_reason_counts={}, rejected_reason_samples={},
+                ingestion_diagnostics={'runtime': {'announcement': {
+                    'phase': 'completed', 'counters': {'processed': 3, 'inserted': 2, 'identical': 1}}}},
+                message='completed')
+
+    monkeypatch.setattr('src.ops.runtime.task_run_dispatcher.DatasetMaintainService', ServiceAtSourceBoundary)
+    record = OperationsWorker(TaskRunDispatcher()).run_task_run(db_session, task.id)
+    assert record.status == 'success', db_session.get(TaskRunIssue, record.primary_issue_id).technical_message if record.primary_issue_id else record.status
+    assert len(contexts) == 1
+    assert contexts[0].independent_cancel is True
+    assert contexts[0].timeout_seconds == frozen['policy_snapshot']['storage']['insert_lock_timeout_seconds'] == 5
+    node = db_session.get(TaskRunNode, record.current_node_id)
+    assert node.status == record.status
+    assert (record.rows_fetched, record.rows_saved, record.rows_rejected, record.rows_deduplicated) == (3, 3, 0, 1)
+    assert (node.rows_fetched, node.rows_saved, node.rows_rejected, node.rows_deduplicated) == (3, 3, 0, 1)

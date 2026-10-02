@@ -927,7 +927,7 @@ class TaskRunDispatcher:
             session,
             dataset_key=plan.dataset_key,
             run_context=TaskRunIngestionContext(session, independent_cancel=plan.execution_context is not None,
-                timeout_seconds=plan.execution_context['policy_snapshot']['storage']['reconciliation_lock_timeout_seconds'] if plan.execution_context else None),
+                timeout_seconds=plan.execution_context['policy_snapshot']['storage']['insert_lock_timeout_seconds'] if plan.execution_context else None),
             run_recorder=NullRunRecorder(),
             result_store=NullIngestionResultStore(),
         )

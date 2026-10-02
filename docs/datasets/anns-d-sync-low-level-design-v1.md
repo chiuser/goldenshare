@@ -14,13 +14,13 @@
 
 ### 配置与影响面审计
 
-storage 三项预算改名为 insert_batch_rows=500、insert_statement_timeout_seconds=25、insert_lock_timeout_seconds=5，默认在 DatasetDefinition，其他数据集为 None；不新增 env/Settings/数据库配置、CLI 参数或页面开关。消费者为 writer、AnnsDDAO、announcement_stream、linter、冻结执行合同和测试；发布后新任务生效，旧合同不得续跑。删除组版本128上限与全部分组消费者。
+storage 三项预算改名为 insert_batch_rows=500、insert_statement_timeout_seconds=25、insert_lock_timeout_seconds=5，默认在 DatasetDefinition，其他数据集为 None；不新增 env/Settings/数据库配置、CLI 参数或页面开关。消费者为 writer、AnnsDDAO、announcement_stream、linter、Ops TaskRunDispatcher/TaskRunIngestionContext、冻结执行合同和测试；发布后新任务生效，旧合同不得续跑。删除组版本128上限与全部分组消费者。
 
 CodeGraph query/impact 已覆盖 transform、DAO、迁移服务及测试，源码补查 writer、stream、Normalizer、DatasetDefinition、工厂、Ops catalog/worker、下载器及视图。manual actions/catalog/workflow/resolver/planner/request builder/freshness/cards/snapshot/date audit/自动日期策略/前端时间控件继续消费既有日期合同，不自行构造分组或哈希。移除旧身份迁移维护动作、执行器及离线脚本，层间依赖不增加；服务视图名称和列名不变，日期/代码/标题允许空值。
 
 ### 数据库切换与验收
 
-新增 Alembic183 接实际182 head，不自动删除任何业务表。旧记录的哈希口径不同，不能直接混写；迁移持表锁检查公告表为空才允许切换，非空则失败并保持原状。生产切换需要先停止公告写入，按管理员明确指令仅清理 raw_tushare.anns_d（管理员已取消备份），再升级183，以新执行合同按历史起止日期重新拉取。旧完成凭证属于旧执行token，保留也不会跳过新任务；禁止重用旧token。不做存量逐行重算或后置清洗。此前备份与恢复演练库按管理员本轮明确指令删除，不再要求备份或恢复演练。本轮按管理员最新明确授权已清空公告表、完成183迁移并删除指定备份；历史重拉尚未启动，服务重启仍需在部署阶段完成。
+新增 Alembic183 接实际182 head，不自动删除任何业务表。旧记录的哈希口径不同，不能直接混写；迁移持表锁检查公告表为空才允许切换，非空则失败并保持原状。生产切换需要先停止公告写入，按管理员明确指令仅清理 raw_tushare.anns_d（管理员已取消备份），再升级183，以新执行合同按历史起止日期重新拉取。旧完成凭证属于旧执行token，保留也不会跳过新任务；禁止重用旧token。不做存量逐行重算或后置清洗。此前备份与恢复演练库按管理员本轮明确指令删除，不再要求备份或恢复演练。本轮按管理员最新明确授权已清空公告表、完成183迁移并删除指定备份；2026-10-03新版服务已部署重启，首个公告任务14431因dispatcher旧配置名读取失败，当前公告表仍为空；本轮dispatcher修复尚未部署。
 
 验收覆盖六字段及额外字段差异、NULL/空串/空格/时间文本、字段顺序、缺字段/非法日期保留、同批/跨批/跨页/并发完全重复、碰撞回滚、取消/退出/续跑、进度单调与状态失败隔离。真实源样本155162.SH/20230609（缺URL、有URL，均缺rec_time）应保存两条；源2=归一化2=首次插入2，重放插入0且完全相同重复2。全量历史完整性需生产重拉后以源分页计数、入库计数和拒绝原因读回对账确认，不能以代码测试宣称已经补齐。
 
@@ -47,6 +47,14 @@ CodeGraph query/impact 已覆盖 transform、DAO、迁移服务及测试，源�
 再次检查无排队/运行公告任务并取得公告维护事务锁后，短事务仅 TRUNCATE ONLY raw_tushare.anns_d CONTINUE IDENTITY；未使用CASCADE，未清空其他表。随后执行已部署代码的 Alembic182→183，成功读回：Raw=0、Serving Light视图=0；group_key已删除，原始载荷非空约束生效，日期/代码/标题投影可空，主键及row_key_hash唯一索引有效；指定备份文件和恢复库均不存在。
 
 服务器代码0c92804c，Python编译及只读存储门禁验证通过。Web仍为部署失败前启动的旧进程，本轮不自动重启服务或触发历史拉取；部署完成并加载新版后须创建全新执行合同的历史任务，不能复用旧完成凭证。此记录取代上文“本轮未执行生产清空”的旧阶段描述，不将清空或迁移成功认定为数据已经补齐。
+
+### TaskRun14431 入口配置改名遗漏修复（2026-10-03）
+
+Prod只读核验：14431与节点22443均failed，fetched/saved/rejected均0，公告表无首行；冻结storage已是raw_only_insert_ignore，包含insert_lock_timeout_seconds=5。失败发生在Ops dispatcher构造TaskRunIngestionContext时，仍按旧字段名读取锁超时，尚未进入DatasetMaintainService或源请求。
+
+配置来源与预算保持不变，不新增参数或兼容别名：TaskRunDispatcher必须从冻结合同storage.insert_lock_timeout_seconds读取观测/独立取消会话期限，再交给TaskRunIngestionContext；后者用于独立状态查询的statement_timeout和lock_timeout。既有writer/DAO/stream/linter读取同一Definition新预算，无需改变冻结合同指纹或已有任务意图。旧任务14431属于新合同，修复部署后可按同范围/过滤显式续跑，也可重新提交新任务；不需要再次清空表或改迁移。
+
+本轮范围为dispatcher单点引用、入口回归与本文；CodeGraph query/impact覆盖dispatcher、Worker、App工厂与测试，并补查实际服务/取消观察实现。回归通过真实Worker→dispatcher→resolver→TaskRunIngestionContext链路，只替换外部同步服务边界，覆盖point/range与父任务/节点一致终态；数据库入库和分页测试仍由已有隔离库回归承担。此前只测直接Foundation同步与任务终态，未覆盖这一构造入口，是上轮漏检原因。源码全量搜索确认没有其他运行代码读取旧reconciliation预算字段。
 
 > 以下为旧方案与历史执行记录，当前实施以以上口径为准。
 
