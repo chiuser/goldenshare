@@ -22,6 +22,10 @@ def server():
                 if self.path=='/slow':
                     for _ in range(100):self.wfile.write(b' ');self.wfile.flush();time.sleep(.05)
                 elif self.path=='/large':self.wfile.write(b'x'*200000)
+                elif self.path in ('/extra-values','/missing-values','/duplicate-fields'):
+                    fields = ['title','title'] if self.path=='/duplicate-fields' else ['title']
+                    items = [['a','b']] if self.path!='/missing-values' else [[]]
+                    self.wfile.write(json.dumps({'code':0,'msg':'','data':{'fields':fields,'items':items}}).encode())
                 elif self.path=='/near-cap':
                     body=json.dumps({'code':0,'msg':'','data':{'fields':['title'],'items':[['x'*32740] for _ in range(2000)]}}).encode()
                     self.wfile.write(body)
@@ -87,3 +91,9 @@ def test_near_cap_decode_is_bounded_and_measured(server):
         'worker_peak_rss_native':resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,
         'note':'near 64 MiB loopback JSON, test parent also hosts HTTP server; measured on macOS, native RSS bytes'}
     Path('/private/tmp/anns-p2-transport-performance.json').write_text(json.dumps(evidence,indent=2))
+
+
+@pytest.mark.parametrize('path',['extra-values','missing-values','duplicate-fields'])
+def test_source_fields_cannot_silently_drop_values(server,path):
+    url,_=server
+    assert invoke(url+'/'+path)[0:2]==('bounded_error','anns_d.source_payload_invalid')

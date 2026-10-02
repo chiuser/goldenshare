@@ -8,7 +8,6 @@ from src.db import get_session_factory
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
 from src.ops.runtime.worker import OperationsWorker
 from src.ops.runtime.worker_lane import WorkerLane
-from src.ops.services.announcement_identity_task_executor import AnnouncementIdentityTaskExecutor
 
 from .sector_heat_task_executor import SectorHeatTaskExecutor
 from .sector_analysis_daily_task_executor import SectorAnalysisDailyTaskExecutor
@@ -66,7 +65,6 @@ def _build_worker(
         "news_stock_linking": news_stock_linking_executor,
     }
     if lane is WorkerLane.GENERAL:
-        maintenance_executors["announcement_identity"] = AnnouncementIdentityTaskExecutor(session_factory=resolved_session_factory)
         maintenance_executors["wealth_sector_analysis_daily"] = (
             SectorAnalysisDailyTaskExecutor(session_factory=resolved_session_factory)
         )

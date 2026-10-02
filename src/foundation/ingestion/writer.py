@@ -110,7 +110,7 @@ class DatasetWriter:
                         )
                     )
         if (
-            definition.storage.write_path in {"raw_only_upsert", "raw_only_reconcile"}
+            definition.storage.write_path in {"raw_only_upsert", "raw_only_insert_ignore"}
             and definition.quality.reject_policy == "fail_unit_on_any_rejection"
             and batch.rows_rejected > 0
         ):
@@ -236,8 +236,8 @@ class DatasetWriter:
                     raw_dao=raw_dao,
                     core_dao=core_dao,
                 )
-            if definition.storage.write_path == "raw_only_reconcile":
-                return self._write_raw_only_reconcile(definition=definition, batch=batch, raw_dao=raw_dao)
+            if definition.storage.write_path == "raw_only_insert_ignore":
+                return self._write_raw_only_insert_ignore(definition=definition, batch=batch, raw_dao=raw_dao)
             if definition.storage.write_path == "raw_only_upsert":
                 return self._write_raw_only_upsert(
                     definition=definition,
@@ -2637,25 +2637,23 @@ class DatasetWriter:
         )
 
     @staticmethod
-    def _write_raw_only_reconcile(*, definition: DatasetDefinition, batch: NormalizedBatch, raw_dao) -> WriteResult:
+    def _write_raw_only_insert_ignore(*, definition: DatasetDefinition, batch: NormalizedBatch, raw_dao) -> WriteResult:
         storage = definition.storage
-        if not all((storage.reconciliation_batch_rows, storage.reconciliation_max_group_versions,
-                    storage.reconciliation_statement_timeout_seconds, storage.reconciliation_lock_timeout_seconds)):
-            raise ValueError("reconciliation requires Definition budgets")
+        if not all((storage.insert_batch_rows, storage.insert_statement_timeout_seconds, storage.insert_lock_timeout_seconds)):
+            raise ValueError("insert ignore requires Definition budgets")
         try:
-            result = raw_dao.reconcile(batch.rows_normalized,
-                                      batch_rows=storage.reconciliation_batch_rows,
-                                      max_group_versions=storage.reconciliation_max_group_versions,
-                                      statement_timeout_seconds=storage.reconciliation_statement_timeout_seconds,
-                                      lock_timeout_seconds=storage.reconciliation_lock_timeout_seconds)
+            result = raw_dao.insert_ignore(batch.rows_normalized,
+                                      batch_rows=storage.insert_batch_rows,
+                                      statement_timeout_seconds=storage.insert_statement_timeout_seconds,
+                                      lock_timeout_seconds=storage.insert_lock_timeout_seconds)
         except AnnouncementPersistenceError as exc:
             raise IngestionWriteError(StructuredError(error_code=exc.code, error_type="write", phase="writer",
                 message=str(exc), retryable=False, unit_id=batch.unit_id)) from exc
         return WriteResult(unit_id=batch.unit_id, rows_written=result.processed, rows_upserted=result.inserted,
                            rows_skipped=batch.rows_rejected, target_table=storage.target_table,
-                           conflict_strategy="information_dominance", rows_inserted=result.inserted,
-                           rows_matched=result.identical + result.covered,
-                           persistence_diagnostics={"announcement_reconciliation": {
+                           conflict_strategy="exact_source_record", rows_inserted=result.inserted,
+                           rows_matched=result.identical,
+                           persistence_diagnostics={"announcement_insert": {
                                **vars(result), "quality_counts": batch.quality_counts,
                                "quality_samples": batch.quality_samples,
                                "rows_saved_semantics": "committed_valid_inputs",

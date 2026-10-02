@@ -184,8 +184,7 @@ class OperationsWorker:
         task_run.status_reason_code = outcome.status_reason_code
         task_run.ended_at = now
         announcement = task_run.task_type == 'dataset_action' and task_run.resource_key == 'anns_d' and task_run.action == 'maintain' and (task_run.request_payload_json or {}).get('execution_context') is not None
-        identity_migration = task_run.task_type == 'maintenance_action' and (task_run.request_payload_json or {}).get('target_key') == 'maintenance.migrate_announcement_identity'
-        preserve_business_progress = announcement or identity_migration
+        preserve_business_progress = announcement
         if not preserve_business_progress or final_status == 'success':
             task_run.rows_fetched = int(outcome.rows_fetched)
             task_run.rows_saved = int(outcome.rows_saved)

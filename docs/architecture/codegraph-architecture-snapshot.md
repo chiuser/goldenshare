@@ -103,7 +103,7 @@ CodeGraph 确认 `TaskRunDispatcher._dispatch_dataset_action` 会从 TaskRun 构
 
 ### 公告一次性身份迁移入口（2026-10-02）
 
-维护动作 `maintenance.migrate_announcement_identity` 经现行 TaskRun dispatcher/GENERAL Worker，App 的 `ops_worker_factory` 注册 Ops `AnnouncementIdentityTaskExecutor`，调用 Foundation `services/migration/announcement_identity.py`。业务批次自己提交，Ops 独立观察；没有 Foundation 反向依赖或新增 Worker。CHECK/APPLY只服务存量身份迁移，日常公告同步仍走既有 DatasetExecutionPlan；范围、冻结摘要、取消续跑及生产尚未执行的边界见[公告LLD §14](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。本轮 CodeGraph explore覆盖dispatcher/worker/进度适配器并补充源码核对，sync/status索引正常；此入口尚未部署。
+2026-10-02 公告保存规则改为完整源记录相等才忽略重复。旧身份迁移维护动作及执行器、离线脚本清退；日常同步通过既有 DatasetExecutionPlan -> announcement_stream -> DatasetWriter -> AnnsDDAO 批量 INSERT ON CONFLICT DO NOTHING。App 不再注册迁移执行器，Foundation 依赖方向不变。CodeGraph query/impact 覆盖 transform、DAO、旧迁移调用方，源码补核 writer、stream、worker、catalog 与下载器，详见[公告LLD当前口径](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。
 
 ### DatasetDefinition 到运营前端的契约链
 

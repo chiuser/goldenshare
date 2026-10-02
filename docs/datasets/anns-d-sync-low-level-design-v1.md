@@ -1,6 +1,46 @@
 # 上市公司公告同步完善 LLD v1
 
-更新时间：2026-10-02。状态：P1/P2 已部署（Prod SHA 1ceeef5d，Alembic 182）；P4 存量迁移准备中，身份 APPLY 和 P3 真实同步验收未执行。物理去冗余按用户已确认的保守覆盖规则实施。[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)定义业务原则，本文件是实施与验收约束。按[开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)填写专项设计；0.3.5 摘要同步回原维护说明。
+## 当前执行口径：Raw 保存全部源记录（2026-10-02）
+
+管理员最新要求取代本文此前的完整度覆盖、group_key、CHECK/APPLY 身份迁移与性能优化方案。此前章节和生产试点记录仅作历史证据，不再执行。
+
+- Raw 原样保留 Tushare 返回的所有字段到 raw_payload；只有所有源字段完全一致的记录才忽略重复插入。本地 id、fetched_at、api_name 不参加源记录比较。
+- 比较完整源对象，JSON 对象字段顺序不影响身份；NULL、空字符串、空格、名称、URL、原始时间文本与任何额外字段的差异均保留。不同 URL 的两条同标题公告都保留，即使一条 URL 为空。
+- 日期、代码、标题、URL、rec_time 缺失或日期时间解析失败均不得拒绝原始记录。查询列只是投影，无法投影时可空，原始值留在 raw_payload；不合成记录、不覆盖、不删除旧行。
+- row_key_hash 为完整源对象规范 JSON 的 SHA256，唯一索引配合 INSERT ON CONFLICT DO NOTHING；冲突后核验完整载荷，哈希碰撞停止当前批，不能静默丢弃不同记录。
+- 自然日 point/range 输入、每天分页、源字段显式请求六列不变。freshness 的 not_applicable 只表示不要求每天都有公告，仍支持日期输入。日期范围只有收到最后一个短页并提交完成凭证才完成。
+- 执行 unit 为自然日，页上限2000，入库批500；内存受单页约束，业务每批短事务提交，末短页最后一批与日凭证原子提交。取消/退出保留已提交批，未完成日重放；重复重放不新增完全相同记录。源请求预算15000、每日500页、响应64MiB、源调用25秒保持现值，超过预算失败，禁止将截断结果报成完整。
+- 进度仍显示阶段、日期、页offset、输入/插入/完全相同重复/拒绝数量、总量和更新时间；取消检查及25秒累计批事务期限不变。状态观察失败不得回滚业务数据，TaskRun/节点一致终态要求保留。
+
+### 配置与影响面审计
+
+storage 三项预算改名为 insert_batch_rows=500、insert_statement_timeout_seconds=25、insert_lock_timeout_seconds=5，默认在 DatasetDefinition，其他数据集为 None；不新增 env/Settings/数据库配置、CLI 参数或页面开关。消费者为 writer、AnnsDDAO、announcement_stream、linter、冻结执行合同和测试；发布后新任务生效，旧合同不得续跑。删除组版本128上限与全部分组消费者。
+
+CodeGraph query/impact 已覆盖 transform、DAO、迁移服务及测试，源码补查 writer、stream、Normalizer、DatasetDefinition、工厂、Ops catalog/worker、下载器及视图。manual actions/catalog/workflow/resolver/planner/request builder/freshness/cards/snapshot/date audit/自动日期策略/前端时间控件继续消费既有日期合同，不自行构造分组或哈希。移除旧身份迁移维护动作、执行器及离线脚本，层间依赖不增加；服务视图名称和列名不变，日期/代码/标题允许空值。
+
+### 数据库切换与验收
+
+新增 Alembic183 接实际182 head，不自动删除任何业务表。旧记录的哈希口径不同，不能直接混写；迁移持表锁检查公告表为空才允许切换，非空则失败并保持原状。生产切换需要先停止公告写入，按管理员明确指令核验服务器备份后仅清理 raw_tushare.anns_d，再升级183，以新执行合同按历史起止日期重新拉取。旧完成凭证属于旧执行token，保留也不会跳过新任务；禁止重用旧token。不做存量逐行重算或后置清洗。此前已有恢复材料需要执行前重新核验。本轮代码开发不执行生产清空、部署或重拉。
+
+验收覆盖六字段及额外字段差异、NULL/空串/空格/时间文本、字段顺序、缺字段/非法日期保留、同批/跨批/跨页/并发完全重复、碰撞回滚、取消/退出/续跑、进度单调与状态失败隔离。真实源样本155162.SH/20230609（缺URL、有URL，均缺rec_time）应保存两条；源2=归一化2=首次插入2，重放插入0且完全相同重复2。全量历史完整性需生产重拉后以源分页计数、入库计数和拒绝原因读回对账确认，不能以代码测试宣称已经补齐。
+
+
+### 本轮开发与验收记录
+
+实现映射：anns_d_contracts 比较完整源 JSON，row_transforms 只建立可空查询投影，Normalizer 无损序列化且无法保存时失败，不静默拒绝。AnnsDDAO 批量忽略完全相同冲突并读回比对；writer/stream 沿用批次提交与完成凭证，计数为 processed=inserted+identical。storage 删除组上限，linter 检查三项新预算。Alembic183 对非空公告表失败，不清空、不重算旧记录，唯一索引与现有视图保留。旧 migration 服务、Ops 维护动作/执行器、App 注册与离线脚本已清退；旧迁移证据表保留为历史，不再读写。
+
+- test_anns_d_exact_records：完整字段/额外字段差异、NULL/空串/空格/时间文本、字段顺序、异常字段保留、本地元数据无关、跨批/页/并发重放、碰撞回滚、真实进程退出续跑、旧合同拒绝、预算反例和新迁移非空保护。
+- test_anns_d_stream：单页内存、分页 offset、取消/退出/续跑、短页凭证事务、状态观察失败隔离、累计事务期限、进度单调、请求预算。Web TaskRun 回归验证 success/failed/canceled 的活动节点与父任务一致，目录/手动动作回归验证旧动作清退。
+- 本地源文档176六字段与 tushareMcp 核验：默认返回五字段，显式请求六字段含 rec_time；无日期 limit1、仅代码 limit1、点日 limit5、范围 limit1/offset1 均取得样本。保留源分页2000，未按 MCP 描述的6000擅自提限。
+- 新鲜真实样本 155162.SH/20230609：source=2、normalized=2、rejected=0、首次inserted=2、physical=2；重放 inserted=0、identical=2，原始载荷读回相等。证据只在 /private/tmp/anns-exact-live-acceptance-20261002.json；不是 Prod 导出。
+- 本地单日合成10001行、6页、physical=10001、完成凭证1；耗时约1.1秒、最长批提交事务约0.1秒。进程峰值含pytest，不能推算生产耗时或宣称RSS恒定。证据 /private/tmp/anns-p2-stream-performance.json。
+- 注册、resolver/source、normalizer、writer/linter、freshness/catalog/snapshot、下载器、Worker/API与架构回归通过；文档完整性及 ingestion linter 通过。CodeGraph sync/status 正常，并查询确认 insert_ignore 新调用点。
+
+生产历史缺失仍存在，必须新任务重拉后再做数量/拒绝原因读回对账；本轮不把本地验收等同于生产补齐。
+
+> 以下为旧方案与历史执行记录，当前实施以以上口径为准。
+
+更新时间：2026-10-02。状态：P1/P2及精简身份迁移已部署（Prod SHA 58750611，包含cb4f2216）；P4服务器小范围CHECK与备份恢复验证通过，2000行运行—取消—续跑—重放验收通过，全表CHECK通过；全量APPLY待阶段放行，P3真实同步验收未完成。最新生产证据见§14.7；此前记录保留为当时事实。物理去冗余按用户已确认的保守覆盖规则实施。[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)定义业务原则，本文件是实施与验收约束。按[开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)填写专项设计；0.3.5 摘要同步回原维护说明。
 
 ## 1. 目标合同及文件影响面
 
@@ -358,3 +398,46 @@ APPLY要求服务器恢复报告列明database（与冻结连接身份相同）�
 本轮Prod只读补核：原生PG16的data_directory=/var/lib/postgresql/16/main，base和pg_wal没有重定向，落系统盘；该盘可用31,318,720KiB约29.87GiB、89%使用。/data/disk可用268,432,956KiB约256GiB，但root:root/755，goldenshare无目录创建权限。运行Worker按GOLDENSHARE_ENV_FILE与当前Settings文件优先规则解析/etc/goldenshare/web.env，数据库host127.0.0.1、port5432、库goldenshare；仅输出位置/host/port/库名，不输出凭据。没有改变配置、创建服务器文件或写生产数据。
 
 下一步部署Web和GENERAL Worker（catalog与executor需同版），准备服务器/data/disk/goldenshare/anns_identity_migration/20261002工作目录及goldenshare权限，在该目录保存冻结小文件和该表原生恢复材料。该路径是具体演练提案，尚未创建、未备份；保留期/恢复权限在执行前确认，禁止自动清理。先CHECK id1..2000、review state_digest；完成针对raw_tushare.anns_d的服务器备份/隔离恢复验证报告后，小范围APPLY finalize=false，进行运行—取消—续跑—读回及实际WAL/空间测量。部署和生产具体演练尚未执行，不把本地结果当Prod通过。小范围通过后再CHECK冻结全表、明确全量空间/恢复范围和阶段授权，最终APPLY/finalize；之后进入P3源同步验收，再补历史拒绝数据。
+
+
+### 14.7 2026-10-02 Prod服务器演练记录
+
+管理员部署后授权继续推进。SSH核实Prod提交5875061171b68237d4975eba67c02b2dc4e452d1包含cb4f2216，Web与GENERAL Worker均于20:57重启，服务器Git无改动。主键高水位8091712；有界只读查询确认id1..2000共2000条且group_key均NULL，初始无公告执行冲突。沿用现有Worker和TaskRun服务，不创建新Worker、不重启其他服务。
+
+服务器专用目录/data/disk/goldenshare/anns_identity_migration/20261002由goldenshare创建。CHECK任务14228成功，count=2000、migrated=0，冻结check-1-2000.json：state_digest=c5f93a8edc5f01cc65590907713d3654b48f949cc6c146c691cc1a7f58fd97c6，business_digest=6b808556f13f9f0eba51c9e85f5d703a9e87e973f3c7b81529a2abe6ede2fabd。每批≤500，业务内容没有传回本机。
+
+服务器PG16.13原生pg_dump仅备份raw_tushare.anns_d，--format=custom/--no-owner/--no-acl/--lock-wait-timeout=5s；备份anns_d-before.dump为551823900字节，SHA256=ab6b9caf4176553fbe0d4e33a52c02ab95bb1fca87904d39738aa6b1f56ad771。原生pg_restore --exit-on-error完整恢复到新建独立库anns_identity_restore_20261002_2102，不覆盖Prod；恢复成功退出，恢复库精确7969302行，原唯一索引有效，id1..2000全部非身份业务字段摘要与冻结结果一致。全表恢复成功不等于已对全表做逐字段摘要对账。
+
+自动审批拒绝验证库GRANT SELECT TO PUBLIC，因扩大访问面；该命令未执行。随后采用既有postgres管理员权限只读验证，无新增授权。真实恢复报告recovery-report.json和WAL基线pilot-before.json均留在服务器；恢复库及备份保留，不执行自动清理。21:08恢复后系统盘可用57010480KiB约54.37GiB、HDD238219032KiB约227.18GiB；恢复库约3586MiB。不是全量APPLY空间峰值承诺。
+
+小范围APPLY14230绑定上述冻结摘要/真实恢复报告、finalize=false。等待原GENERAL Worker收盘维护14229自然结束后，于500行提交观察后经TaskRunCommandService.request_cancel取消，任务与唯一节点均canceled/rows_saved=500；物理扫描确认migrated=500、全部2000行业务摘要仍与冻结相同。新任务14231同参数续跑，跳过已提交500条、更新余下1500条，任务/节点均success/rows_saved=2000；该计数是范围内已迁移总量，并非本次新增量。同参数幂等重放14232成功，重新读回count=migrated=2000、业务摘要不变、唯一索引有效，group_key仍可空，未finalize。四任务均经过正式GENERAL Worker，不是测试注入或独立执行器冒充生产入口。
+
+服务器pilot-final-readback.json保存终态与读回证据。CHECK14228实际0.448秒；取消APPLY14230约3.818秒；续跑14231约3.283秒；重放14232约2.431秒。21:13 Worker当前RSS448900KiB、生命周期VmHWM531972KiB，包含先前收盘工作流，不是迁移独占峰值；WAL基线至最终读回差363934792字节，包含排队期间其他任务写入，不得据此推算公告每行WAL。目标表加索引4128038912字节。
+
+全表只读CHECK任务14233成功，范围1..8091712、state_path=check-full.json，任务/节点均success、rows_fetched=7969302、rows_saved=0。开始21:13:48.692924，结束21:37:08.849952，耗时1400.157秒（23分20秒）。每批500短只读事务，总count=7969302、migrated=2000，余下7967302条待迁移；旧公式/归一化/已迁移新身份全部通过，无异常停止。冻结文件473字节，state_digest=47f3db258026caf447ce9d3d5ebd69b8055bf92e1309c2effcba47627cd1f923，business_digest=473b2fa7ba8158c3501b5288aeb07e17d7d3f6218adcaf6a6b2a1118e3f5f4a2。高水位8091712未变，唯一索引仍unique/valid/ready。每30秒读取单个TaskRun与/proc，所采样RSS始终448900KiB，生命周期VmHWM531972KiB未增加；这不是高频瞬时内存采样。
+
+21:37只读空间复核：系统盘56940048KiB约54.30GiB、HDD238219012KiB约227.18GiB可用。备份和恢复库保留，不自动删除；恢复报告705字节。全量APPLY至少含前后两遍全表校验，按本次CHECK耗时推测仅校验就约47分钟，此外有备份摘要及业务UPDATE开销，不能承诺总耗时或WAL峰值。小范围WAL混入其他写入，不能线性估计；以现行取消/批次持久化能力支持执行时持续观察空间和进度，不能把空闲容量当完整峰值证明。
+
+待放行的具体全量意图：execution_mode=APPLY，start_id=1，end_id=8091712，state_path=/data/disk/goldenshare/anns_identity_migration/20261002/check-full.json，expected_state_digest=47f3db258026caf447ce9d3d5ebd69b8055bf92e1309c2effcba47627cd1f923，recovery_report_path=/data/disk/goldenshare/anns_identity_migration/20261002/recovery-report.json，finalize=true。仅更新两身份列，保留已迁移2000条与全部业务内容/id/唯一索引；最后完整读回通过后限时SET NOT NULL。未创建全量APPLY任务，也未执行最终DDL或源同步；按§14.6另行取得此完整范围阶段放行，再进入P3代表性同步，不能直接开启历史补录。
+
+
+### 14.8 迁移性能复评及待确认优化（2026-10-02）
+
+管理员质疑约1.6万写批的执行成本，本节只记录源码审计、服务器只读计时及候选调整；尚未修改迁移代码、预算或冻结文件，也未启动全量APPLY。CodeGraph CLI query AnnouncementIdentityMigration/TaskRunIngestionContext、impact AnnouncementIdentityMigration定位迁移、Ops适配与测试影响面，再核对当前源码；不修改通用TaskRun行为、日常anns_d同步批次、Worker/lane、CLI/API或子系统依赖方向。
+
+现有代码成本：CHECK每500行atomic_json草稿，fsync文件及父目录；每批emit触发独立TaskRun/节点观察事务，多次强制取消探测又开启独立读事务。APPLY两次_scan没有draft落盘，因此§14.7直接按23分20秒CHECK乘二得到47分钟只能视为此前粗估，不能作为同路径实测。每行validate_row先调用_anns_d_row_transform（已经生成身份），又调用contracts.identity；未迁移行old_identity被重复调用。写批调用Core executemany，提交最多500个带条件UPDATE，并不是一条集合UPDATE。相同500行预算同时取自日常Definition，不能为迁移提速直接改Definition而波及日常同步。
+
+只读计时通过SSH，在已恢复验证库anns_identity_restore_20261002_2102读取raw_tushare.anns_d，白名单为当前TABLE字段，用于原校验/流式摘要；三个PK窗口1..20000、4000001..4020000、8000001..8020000各20000行，每批500短READ ONLY事务。没有Prod公告写入、没有内容导出、没有新增授权或依赖。cProfile先用于定位调用，再单独运行无profile、无草稿/观察写入且取消callback为no-op的原_scan：分别2.283/2.069/2.209秒，约8759/9666/9054行每秒。小样本有缓存、不同连接身份及省略控制开销，不能承诺整表同速；线性外推仅两次读回约27.5—30.3分钟，不包含UPDATE、观察/取消事务、备份摘要、负载及最终DDL。没有测得纯业务写批平均耗时，故完整APPLY暂无可信总ETA。
+
+约15935个实际写批的敏感性示例（是假设，不是实测）：每批0.1/0.3/1秒，仅写阶段即26.6/79.7/265.6分钟，另加前后读回；不能拿含固定备份核验的小范围3秒直接乘约4000倍承诺生产工期。批次5000候选对应全表1594个读取批，剩余7967302行也最多1594个写批；行级处理量不变，减少的是事务/控制/SQL调度次数。
+
+建议确认后统一实施并同步修改§14.5：
+
+1. 复用归一化器已生成的新身份；旧公式每行只计算一次，保持全部比较、NULL/时区/异常规则及业务摘要不变。
+2. 用有界VALUES驱动的一条UPDATE FROM代替每行executemany；保留两列修改、FOR UPDATE、旧身份及原始业务字段匹配、受影响行数断言、唯一索引、整批回滚和错误不泄漏内容。
+3. 迁移独立批次候选5000，不修改日常Definition的500。5000不是已验证最终值，须在既有恢复库真实样本证明内存、SQL参数量、吞吐及25秒累计期限；若不达标，先复评而非静默延长事务期限。
+4. 草稿与Ops进度按最多5秒间隔保存，阶段转换、完成、取消及失败边界强制更新；实际完成量只能来自已提交事实，业务每批仍独立提交并检查取消，页面更新继续低于30秒门禁。CHECK草稿不是可执行checkpoint，完整校验才冻结。
+
+候选预算审计：IDENTITY_MIGRATION_BATCH_ROWS=5000、IDENTITY_MIGRATION_REPORT_INTERVAL_SECONDS=5拟为migration模块具名代码预算，只用于本次迁移，不新增env/Settings/数据库/运营参数；前者供迁移读取/写入unit，后者供草稿/进度节流，Ops适配只消费节流后的观察事件；发布后生效，合同指纹须绑定两预算。运维通过阶段/最后id/已提交量/更新时间观察，不开放绕过校验的开关。以上名称和值仍待方案确认及真实验收，当前实现保持500/逐批观察。
+
+验收至少比较原、新校验所得新身份及业务摘要一致；集合更新保持原字段与id、行数及唯一索引；一批失败/取消整批回滚、进程退出/续跑/重放、观察失败隔离、单调进度和终态一致；另外证明多批期间进度间隔≤5秒、非终态草稿不可APPLY、SQL参数/内存有界、25秒期限不放宽。修改会改变现有冻结合同指纹，需要用新版本重新CHECK，不直接拿当前check-full.json授权新算法；既有服务器备份/恢复材料保留。全量APPLY继续待独立阶段放行。

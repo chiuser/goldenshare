@@ -1,6 +1,16 @@
 # 上市公司公告（`anns_d`）维护说明
 
-状态：P1/P2 源码与本地隔离验收完成，2026-10-02 更新；Prod 已部署1ceeef5d、Alembic182，存量身份迁移尚未完成；详见LLD §13。§2—§6 描述当前源码，§7 保留历史证据，§8 区分目标与阶段完成情况。P2 日规划、逐批提交及取消续跑已在本地实现；目标环境验收仍待 P3/P4。
+## 当前执行口径：Raw 保存全部源记录（2026-10-02）
+
+管理员最新要求取代此前的完整度覆盖与分组迁移：Raw 保留所有不同的 Tushare 原始记录，只忽略源字段完全相同的重复。缺 URL、发布时间或其他字段均保留；不做补全合并、覆盖删除、group_key 或全表 CHECK/APPLY。
+
+当前实现为完整 raw_payload 指纹 + 唯一约束 + INSERT ON CONFLICT DO NOTHING，保留分页、批次提交、进度、取消和续跑。新执行合同不允许复用旧合同；生产表需要服务器备份核验后按明确批准的清空、迁移183、重新拉取流程切换，代码迁移不会自动删除数据。
+
+硬口径、配置审计、消费者、切换及验收证据统一见[LLD 当前执行口径](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。本轮未部署、未清空生产表、未补齐生产历史。
+
+> 以下为旧方案与历史执行记录，当前实施以以上口径为准。
+
+状态：P1/P2 源码与本地隔离验收完成，2026-10-02 更新；Prod 已部署58750611（包含cb4f2216），服务器2000行CHECK与备份恢复验证通过，小范围取消/续跑/重放通过、全量APPLY尚未执行；最新证据详见LLD §14.7。§2—§6 描述当前源码，§7 保留历史证据，§8 区分目标与阶段完成情况。P2 日规划、逐批提交及取消续跑已在本地实现；目标环境验收仍待 P3/P4。
 
 ## 1. 范围与事实源
 
@@ -17,7 +27,7 @@
 
 `unit_builder_key=build_announcement_units`，`universe_policy=no_pool`。[request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)只构造业务请求参数；[SourceClient](/Users/congming/github/goldenshare/src/foundation/ingestion/source_client.py)负责把 Definition 的字段列表传给 connector，并在 unit 内注入 `limit=2000`、递增 `offset`，遇到空页或短页结束。分页参数不开放给运营。
 
-当前为 `announcement_stream + commit_policy=batch`：一页最多 2000 行、每 500 条合法/拒绝输入归一化并短事务保存，末批和完成凭证同事务；空日也形成凭证。unfinished 日从第一页重放，同一冻结执行才跳过已完成日，新观察重新请求。预算、25秒可中止源调用、64MiB传输上限及累计写批期限见 LLD §11—§12，Prod 尚未部署。
+当前为 `announcement_stream + commit_policy=batch`：一页最多 2000 行、每 500 条合法/拒绝输入归一化并短事务保存，末批和完成凭证同事务；空日也形成凭证。unfinished 日从第一页重放，同一冻结执行才跳过已完成日，新观察重新请求。预算、25秒可中止源调用、64MiB传输上限及累计写批期限见 LLD §11—§12；当前部署与生产验收边界见§14.7。
 
 ## 3. 字段与身份
 
@@ -52,7 +62,7 @@
 ## 6. 验证入口与证据边界
 
 - [Definition 回归](/Users/congming/github/goldenshare/tests/test_dataset_definition_registry.py)、[执行计划回归](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)、[归一化回归](/Users/congming/github/goldenshare/tests/test_dataset_normalizer.py)、[源字段传递回归](/Users/congming/github/goldenshare/tests/test_dataset_source_client.py)覆盖本数据集的相应合同；它们不是生产同步验收。
-- [专项 DAO 回归](/Users/congming/github/goldenshare/tests/test_anns_d_reconciliation.py)核对覆盖、冲突、并发、物理替代及 rollback；[通用 DAO 回归](/Users/congming/github/goldenshare/tests/test_row_key_hash_dao.py)确保其他数据集行为不变。
+- 旧专项覆盖测试已清退；[当前完整源记录回归](/Users/congming/github/goldenshare/tests/test_anns_d_exact_records.py)核对全字段差异、完全相同重复、并发与 rollback；[通用 DAO 回归](/Users/congming/github/goldenshare/tests/test_row_key_hash_dao.py)确保其他数据集行为不变。
 - 真实运行若另行授权，需要记录 fetched、normalized、written、rejected、拒绝样本和目标身份数；没有证据不能把源端样本或代码存在升级为“生产已验收”。
 
 ## 7. 历史源端验证记录
@@ -146,3 +156,9 @@ A01—A14唯一追溯表见LLD §8，逐条关联代码点、正反例和验证�
 2026-10-02存量复评更新：本次生产前置推荐缩为服务器侧只迁移身份，保留原公告及id，不导出到本机、不默认删除、不提前移除唯一索引；全量批次验证旧hash/归一化前提，异常停止另审。三个主键窗口只读聚合共4890行，缺URL/时间/name和五字段重复均0，但不代替全量证明。旧拒绝数据需后续重拉，不能靠迁移找回。该方向取代上一段完整候选导出前置；代码、服务器演练及APPLY均未执行，具体依据/恢复与长任务门禁见LLD §14。
 
 精简迁移实现对账（0.3.5补充）：维护动作maintenance.migrate_announcement_identity经既有GENERAL Worker执行，单节点内500行身份提交unit、25秒累计期限/5秒锁期限；业务两身份列为续跑事实，Ops观察独立且不是checkpoint事实源。CHECK保存≤16KiB服务器冻结摘要，APPLY复核范围/摘要/恢复材料后只UPDATE两列；逐批取消和实际进程退出保留已提交数据，最后完整读回才可全表SET NOT NULL。没有源HTTP请求、全量输入缓存、逐行keep映射或生产删除。专项与API/运行时/架构本地验收通过，实际Prod只读核验已确认127.0.0.1连接、系统盘PGDATA/WAL和HDD恢复目录权限；生产代码部署、2000行真实演练和全量执行均未做。参数审计、代码/测试映射和性能证据见LLD §14.5—14.6，不把该阶段改写为P4生产完成。
+
+
+2026-10-02服务器演练最新状态：Prod58750611包含精简迁移cb4f2216，Web和GENERAL Worker已重启。id1..2000 CHECK任务14228通过；该表原生备份及新建隔离库真实恢复成功，恢复行数7969302、唯一索引有效，2000行业务摘要一致。备份、恢复库和小型报告都留在服务器，无本机公告导出、无新增数据库授权。小范围APPLY14230提交500行后取消且任务/节点一致；14231续跑2000行、14232幂等重放均成功，业务摘要不变且唯一索引有效。全表只读CHECK14233成功，7969302条全部通过，migrated=2000，余7967302条待迁移；完整APPLY/finalize尚未执行、待具体阶段放行，详细证据与阶段边界以LLD §14.7为准。前文未部署/未演练表述为历史阶段事实。
+
+
+迁移性能复评（待确认）：服务器恢复库三个各2万行只读窗口证明APPLY无草稿落盘的读回路径不能直接套用原CHECK23分钟；重复身份计算、逐行UPDATE及逐批观察是优化候选。建议迁移专用5000行集合更新及≤5秒观察/草稿间隔，保留原始业务摘要、取消续跑、25秒事务和唯一索引，日常Definition500行不改。实现和预算尚未变更，真实性能/内存/参数/安全验收通过后才能定值；新版需重做冻结CHECK。计时限制、预算审计及完整待确认方案见LLD §14.8，不将候选优化视为已实施。

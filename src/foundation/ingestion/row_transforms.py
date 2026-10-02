@@ -8,7 +8,6 @@ import json
 import math
 from typing import Any
 from zoneinfo import ZoneInfo
-from urllib.parse import urlsplit
 
 from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
 from src.foundation.services.transform.top_list_reason import hash_top_list_reason
@@ -652,46 +651,36 @@ def _news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _anns_d_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    # Identity always uses the original object, before date/text projections.
+    from src.utils import parse_tushare_date
+    from src.foundation.datasets.anns_d_contracts import canonical_payload
     transformed = dict(row)
-    ann_date = transformed.get("ann_date")
-    ts_code = _strip_nul_text(transformed.get("ts_code")).strip().upper()
-    name = _strip_nul_text(transformed.get("name")).strip() or None
-    title = _strip_nul_text(transformed.get("title")).strip()
-    url = _strip_nul_text(transformed.get("url")).strip() or None
+    payload = transformed.get("raw_payload")
+    if payload is None:
+        payload = json.dumps(row, ensure_ascii=False, allow_nan=False)
+    transformed["raw_payload"] = canonical_payload(payload)
+    transformed["row_key_hash"] = announcement_identity(transformed["raw_payload"])
     quality = []
     try:
-        rec_time = _parse_news_datetime(
-            _normalize_news_datetime_input(transformed.get("rec_time")),
-            field_name="rec_time", display_name="公告发布时间",
-        )
-    except RowTransformReject:
-        rec_time = None
+        transformed["ann_date"] = parse_tushare_date(row.get("ann_date"))
+    except (ValueError, TypeError):
+        transformed["ann_date"] = None
+    # PostgreSQL text cannot contain NUL; bounded varchar projections may not fit.
+    # Such source values remain lossless in the JSON payload, never rejected.
+    for field, maximum in (("ts_code", 32), ("name", 128), ("title", None), ("url", None)):
+        value = row.get(field)
+        transformed[field] = value if isinstance(value, str) and "\x00" not in value and (maximum is None or len(value) <= maximum) else None
+    try:
+        transformed["rec_time"] = _parse_news_datetime(
+            _normalize_news_datetime_input(row.get("rec_time")),
+            field_name="rec_time", display_name="公告发布时间")
+    except (RowTransformReject, ValueError, TypeError):
+        transformed["rec_time"] = None
         quality.append("quality.invalid_rec_time")
-    if url is None:
+    if not transformed["url"]:
         quality.append("quality.missing_url")
-    else:
-        try:
-            parts = urlsplit(url)
-            if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username or parts.password:
-                raise ValueError("invalid URL")
-            parts.port
-        except ValueError:
-            quality.append("quality.invalid_url")
-    if rec_time is None:
+    if transformed["rec_time"] is None:
         quality.append("quality.missing_rec_time")
-    if ann_date is None:
-        raise RowTransformReject("normalize.required_field_missing:ann_date", "上市公司公告缺少 ann_date")
-    if not ts_code:
-        raise RowTransformReject("normalize.required_field_missing:ts_code", "上市公司公告缺少 ts_code")
-    if not title:
-        raise RowTransformReject("normalize.required_field_missing:title", "上市公司公告缺少 title")
-    transformed["ann_date"] = ann_date
-    transformed["ts_code"] = ts_code
-    transformed["name"] = name
-    transformed["title"] = title
-    transformed["url"] = url
-    transformed["rec_time"] = rec_time
-    transformed["group_key"], transformed["row_key_hash"] = announcement_identity(transformed)
     transformed["__quality_codes"] = quality
     return transformed
 

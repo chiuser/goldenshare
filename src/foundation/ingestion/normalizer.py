@@ -134,7 +134,12 @@ class DatasetNormalizer:
                         source_fields=definition.source.source_fields,
                     )
                 if definition.normalization.preserve_raw_payload:
-                    normalized["raw_payload"] = json.dumps(_diagnostic_payload(raw_row), ensure_ascii=False, default=str, allow_nan=False)
+                    if definition.dataset_key == "anns_d":
+                        # Bounded announcement calls return JSON source objects. Never stringify
+                        # distinct unsupported values into the same identity or silently reject them.
+                        normalized["raw_payload"] = json.dumps(raw_row, ensure_ascii=False, allow_nan=False)
+                    else:
+                        normalized["raw_payload"] = json.dumps(_diagnostic_payload(raw_row), ensure_ascii=False, default=str, allow_nan=False)
                 if row_transform is not None:
                     normalized = row_transform(normalized)
             except ObservedSnapshotHashError as exc:
@@ -162,6 +167,11 @@ class DatasetNormalizer:
                 )
                 continue
             except Exception as exc:
+                if definition.dataset_key == "anns_d":
+                    raise IngestionNormalizeError(StructuredError(
+                        error_code="anns_d.source_payload_invalid", error_type="normalize", phase="normalizer",
+                        message="公告源记录无法无损保存，当前批停止", retryable=False,
+                        unit_id=fetch_result.unit_id)) from exc
                 self._record_rejection(
                     rejected_reasons,
                     rejected_samples,

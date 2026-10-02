@@ -50,13 +50,12 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
         if not definition.storage.target_table.strip():
             issues.append(IngestionLintIssue(dataset_key, "missing_target_table", "target_table 不能为空"))
         storage = definition.storage
-        if storage.write_path == "raw_only_reconcile":
-            budgets = (storage.reconciliation_batch_rows, storage.reconciliation_max_group_versions,
-                       storage.reconciliation_statement_timeout_seconds, storage.reconciliation_lock_timeout_seconds)
+        if storage.write_path == "raw_only_insert_ignore":
+            budgets = (storage.insert_batch_rows, storage.insert_statement_timeout_seconds, storage.insert_lock_timeout_seconds)
             if any(type(value) is not int or value < 1 for value in budgets):
-                issues.append(IngestionLintIssue(dataset_key, "reconciliation_budget_invalid", "reconcile预算必须为正整数"))
+                issues.append(IngestionLintIssue(dataset_key, "insert_ignore_budget_invalid", "insert ignore预算必须为正整数"))
             if not storage.raw_dao_name or not storage.raw_table or not definition.normalization.preserve_raw_payload:
-                issues.append(IngestionLintIssue(dataset_key, "reconciliation_storage_invalid", "reconcile需Raw DAO、表及原始载荷"))
+                issues.append(IngestionLintIssue(dataset_key, "insert_ignore_storage_invalid", "insert ignore需Raw DAO、表及原始载荷"))
         staged_write = storage.write_path == "serving_staged_immutable_scope_publish"
         if definition.planning.page_processing_mode not in {"buffer_all", "staged_stream", "announcement_stream"}:
             issues.append(
@@ -383,7 +382,7 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
         streaming = definition.planning.page_processing_mode == 'announcement_stream'
         policy = definition.planning.announcement_policy
         if streaming:
-            if storage.write_path != 'raw_only_reconcile' or definition.transaction.commit_policy != 'batch' or definition.planning.fetch_concurrency != 1 or not policy:
+            if storage.write_path != 'raw_only_insert_ignore' or definition.transaction.commit_policy != 'batch' or definition.planning.fetch_concurrency != 1 or not policy:
                 issues.append(IngestionLintIssue(dataset_key,'announcement_stream_contract_invalid','公告流式执行必须专项写路径、批提交、单并发及冻结预算'))
             elif any(type(x) is not int or x < 1 for x in (policy.max_pages_per_unit,policy.max_requests_per_execution,policy.max_response_bytes,policy.source_call_timeout_seconds,definition.planning.max_units_per_execution,definition.planning.max_source_rows_per_unit,definition.planning.page_limit)):
                 issues.append(IngestionLintIssue(dataset_key,'announcement_stream_budget_invalid','公告流式预算必须全部为正整数'))

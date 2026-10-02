@@ -13,10 +13,10 @@ class AnnsDLight(Base):
     __table_args__ = {"schema": "core_serving_light"}
 
     row_key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    ann_date: Mapped[date] = mapped_column(Date, nullable=False)
-    ts_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    ann_date: Mapped[date | None] = mapped_column(Date)
+    ts_code: Mapped[str | None] = mapped_column(String(32))
     name: Mapped[str | None] = mapped_column(String(128))
-    title: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
     rec_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     source: Mapped[str] = mapped_column(String(32), nullable=False)

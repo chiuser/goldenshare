@@ -116,10 +116,10 @@ def run_announcements(executor, *, request, definition, units, cancel_checker, p
         diagnostic = {'runtime': {'announcement': dict(current, unit_done=unit_done,unit_total=len(units),
                       counters=dict(totals),quality_counts=dict(quality),quality_samples=quality_samples,
                       execution_token=context['execution_token'],eta='unavailable')},
-                      'persistence': {'announcement_reconciliation': dict(totals)}}
+                      'persistence': {'announcement_insert': dict(totals)}}
         snapshot = ProgressSnapshot(run_id=request.run_id,dataset_key=definition.dataset_key,unit_total=len(units),
             unit_done=unit_done,unit_failed=0,rows_fetched=totals['observed'],rows_written=totals['processed'],
-            rows_committed=totals['processed'],rows_rejected=totals['rejected'],rows_deduplicated=totals['identical']+totals['covered'],
+            rows_committed=totals['processed'],rows_rejected=totals['rejected'],rows_deduplicated=totals['identical'],
             ingestion_diagnostics=diagnostic,rejected_reason_counts=dict(rejected_reasons),rejected_reason_samples=rejected_samples,
             current_object={'time': {'field':'ann_date','point':current.get('ann_date')},'entity':{'ts_code':request.params.get('ts_code')}})
         if progress_reporter:
@@ -147,17 +147,17 @@ def run_announcements(executor, *, request, definition, units, cancel_checker, p
                     receipts = AnnsDSyncDAO(business,context)
                     def bound_transaction():
                         business.execute(text("SELECT set_config('statement_timeout',:value,true)"),
-                            {'value':f'{definition.storage.reconciliation_statement_timeout_seconds}s'})
+                            {'value':f'{definition.storage.insert_statement_timeout_seconds}s'})
                         business.execute(text("SELECT set_config('lock_timeout',:value,true)"),
-                            {'value':f'{definition.storage.reconciliation_lock_timeout_seconds}s'})
+                            {'value':f'{definition.storage.insert_lock_timeout_seconds}s'})
                     bound_transaction()
-                    AnnsDDAO(business).require_identity_ready()
+                    AnnsDDAO(business).require_storage_ready()
                     business.rollback()
                     for unit in units:
                         check()
                         controls = _Control(engine=engine,context=context,maximum=policy.max_requests_per_execution,check=check,emit=emit,
-                            statement_timeout=definition.storage.reconciliation_statement_timeout_seconds,
-                            lock_timeout=definition.storage.reconciliation_lock_timeout_seconds)
+                            statement_timeout=definition.storage.insert_statement_timeout_seconds,
+                            lock_timeout=definition.storage.insert_lock_timeout_seconds)
                         active = {'ann_date':unit.trade_date.isoformat()}
                         bound_transaction()
                         controls.issued_requests = receipts.issued_requests()
@@ -180,7 +180,7 @@ def run_announcements(executor, *, request, definition, units, cancel_checker, p
                             local['observed'] += len(page.rows_raw)
                             totals['observed'] += len(page.rows_raw)
                             emit('persisting')
-                            size = definition.storage.reconciliation_batch_rows
+                            size = definition.storage.insert_batch_rows
                             starts = range(0,len(page.rows_raw),size) if page.rows_raw else (0,)
                             for start in starts:
                                 check()
@@ -188,9 +188,9 @@ def run_announcements(executor, *, request, definition, units, cancel_checker, p
                                     fetch_result=SourceFetchResult(unit_id=unit.unit_id,request_count=0,retry_count=0,latency_ms=0,
                                         rows_raw=page.rows_raw[start:start+size]),expected_unit_date=unit.trade_date)
                                 check()
-                                with bounded_business_batch(business,definition.storage.reconciliation_statement_timeout_seconds,check) as ensure:
+                                with bounded_business_batch(business,definition.storage.insert_statement_timeout_seconds,check) as ensure:
                                     result = writer.write(definition=definition,batch=batch)
-                                    counts = Counter(result.persistence_diagnostics.get('announcement_reconciliation',{}))
+                                    counts = Counter(result.persistence_diagnostics.get('announcement_insert',{}))
                                     counts = Counter({k:v for k,v in counts.items() if isinstance(v,int)})
                                     counts['rejected'] = batch.rows_rejected
                                     last = page.is_short_page and start+size >= len(page.rows_raw)
@@ -229,6 +229,6 @@ def run_announcements(executor, *, request, definition, units, cancel_checker, p
         raise
     return IngestionRunSummary(dataset_key=request.dataset_key,run_profile=request.run_profile,unit_total=len(units),unit_done=unit_done,
         unit_failed=0,rows_fetched=totals['observed'],rows_written=totals['processed'],rows_committed=totals['processed'],
-        rows_rejected=totals['rejected'],rows_deduplicated=totals['identical']+totals['covered'],ingestion_diagnostics=diagnostic,
+        rows_rejected=totals['rejected'],rows_deduplicated=totals['identical'],ingestion_diagnostics=diagnostic,
         rejected_reason_counts=dict(rejected_reasons),rejected_reason_samples=rejected_samples,result_date=units[-1].trade_date if units else None,
         message='公告日窗口已完成',error_counts={})

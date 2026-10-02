@@ -504,7 +504,7 @@
 
 以下只是常见 `write_path` 示例，不是完整枚举；可用值以当前 writer、Definition linter 和已注册 definitions 为准：
 - `raw_only_upsert`
-- `raw_only_reconcile`（anns_d 专项保守覆盖；不是普通 upsert）
+- `raw_only_insert_ignore`（anns_d 完整源载荷完全相同才忽略）
 - `raw_core_upsert`
 - `raw_core_snapshot_insert_by_trade_date`
 - `raw_std_publish_stock_basic`
@@ -512,7 +512,7 @@
 - `raw_std_publish_moneyflow_biying`
 - `raw_index_period_serving_upsert`
 
-对于 `raw_only_reconcile`，必须填写 storage 的 reconciliation_batch_rows、reconciliation_max_group_versions、reconciliation_statement_timeout_seconds、reconciliation_lock_timeout_seconds 四个正整数，其他路径默认 None。说明配置来源、writer/专项 DAO/离线 PLAN 消费者、计算批次与事务提交的区别、空 batch、锁、保存计数、物理删除范围及迁移就绪条件；不得复用普通哈希 upsert 覆盖冲突版本。当前 anns_d 实例见其同步 LLD §10。
+对于 `raw_only_insert_ignore`，填写 insert_batch_rows、insert_statement_timeout_seconds、insert_lock_timeout_seconds 三项正整数预算，说明完整原始载荷身份、唯一约束、冲突内容校验与插入/完全相同重复计数；不允许按完整度覆盖或删除。
 
 如果需要新增 `write_path`，必须说明为什么现有路径不能承载，并补 writer 测试。
 

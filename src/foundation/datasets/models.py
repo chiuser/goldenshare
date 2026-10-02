@@ -164,10 +164,9 @@ class DatasetStorageDefinition:
     serving_conflict_resolution_policy: str = "none"
     row_identity_filters: dict[str, str | int | bool] = field(default_factory=dict)
     replacement_scope_fields: tuple[str, ...] = ()
-    reconciliation_batch_rows: int | None = None
-    reconciliation_max_group_versions: int | None = None
-    reconciliation_statement_timeout_seconds: int | None = None
-    reconciliation_lock_timeout_seconds: int | None = None
+    insert_batch_rows: int | None = None
+    insert_statement_timeout_seconds: int | None = None
+    insert_lock_timeout_seconds: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

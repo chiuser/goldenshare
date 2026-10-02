@@ -39,7 +39,12 @@ def _attempt(send, base_url, payload, maximum, timeout):
                     limited = '频率超限' in message or '次/分钟' in message
                     send.send(('rate_limit' if limited else 'api_error', envelope.code, message))
                 else:
-                    rows = [] if envelope.data is None else [dict(zip(envelope.data.fields,x,strict=False)) for x in envelope.data.items]
+                    rows = []
+                    if envelope.data is not None:
+                        fields = envelope.data.fields
+                        if len(fields) != len(set(fields)) or any(len(item) != len(fields) for item in envelope.data.items):
+                            raise BoundedTushareError('anns_d.source_payload_invalid', '公告源字段重复或字段值数量不匹配，不能丢弃源值')
+                        rows = [dict(zip(fields, item, strict=True)) for item in envelope.data.items]
                     send.send(('rows', rows))
     except BoundedTushareError as exc:
         send.send(('bounded_error', exc.code, str(exc)))

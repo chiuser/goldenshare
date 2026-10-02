@@ -164,11 +164,11 @@ def test_receipt_failure_rolls_back_only_terminal_batch(engine,monkeypatch):
     assert counts(engine)==(501,1)
 
 
-def test_identity_migration_blocks_empty_day_before_request(engine,monkeypatch):
+def test_old_storage_blocks_empty_day_before_request(engine,monkeypatch):
     calls=fake_source(monkeypatch,[])
-    with engine.begin() as c:c.execute(text('ALTER TABLE raw_tushare.anns_d ALTER COLUMN group_key DROP NOT NULL'))
+    with engine.begin() as c:c.execute(text('ALTER TABLE raw_tushare.anns_d ADD COLUMN group_key VARCHAR(64)'))
     plan=DatasetActionResolver(Mock()).build_plan(action())
-    with pytest.raises(IngestionError,match='身份迁移'):run(engine,plan)
+    with pytest.raises(IngestionError,match='原始存储结构'):run(engine,plan)
     assert not calls and counts(engine)==(0,0)
 
 
@@ -275,7 +275,7 @@ def test_receipt_migration_has_stable_ddl_and_actual_head():
     assert 'CREATE TABLE raw_tushare.anns_d_sync_unit' in ddl and 'CREATE TABLE raw_tushare.anns_d_sync_request_budget' in ddl
     assert 'FOREIGN KEY' not in ddl
 
-def test_live_verified_missing_url_pair_keeps_only_complete_version(engine,monkeypatch):
+def test_live_verified_missing_url_pair_preserves_both_source_records(engine,monkeypatch):
     # MCP read-only verification: 155162.SH / 2023-06-09, six explicit source fields.
     rows = [
     {
@@ -302,8 +302,9 @@ def test_live_verified_missing_url_pair_keeps_only_complete_version(engine,monke
     with engine.connect() as c:
         saved=list(c.execute(select(RawAnnsD)).mappings())
     assert result.rows_fetched==2 and result.rows_committed==2 and result.rows_rejected==0
-    assert len(saved)==1 and saved[0]['url']==rows[1]['url'] and saved[0]['rec_time'] is None
-    assert counts(engine)==(1,1)
+    assert len(saved)==2 and {r['url'] for r in saved} == {None, rows[1]['url']}
+    assert all(r['rec_time'] is None for r in saved)
+    assert counts(engine)==(2,1)
 
 
 def test_batch_deadline_is_cumulative_across_statements(engine):

@@ -19,7 +19,7 @@ def freeze_execution(definition, *, scope, filters, previous=None):
     # The contract includes all implementation budgets, source fields and identity semantics.
     snapshot = {'planning': asdict(definition.planning), 'storage': asdict(definition.storage),
                 'normalization': asdict(definition.normalization), 'source': asdict(definition.source),
-                'date_model': asdict(definition.date_model), 'identity_contract': 'information_dominance_v1'}
+                'date_model': asdict(definition.date_model), 'identity_contract': 'exact_source_record_v1'}
     snapshot = json.loads(json.dumps(snapshot))
     contract_digest = digest(snapshot)
     scope_hash = digest({'dataset_key': definition.dataset_key, 'scope': scope, 'filters': filters})

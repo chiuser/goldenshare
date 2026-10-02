@@ -487,10 +487,10 @@ def test_anns_d_normalizer_parses_required_fields_and_hash() -> None:
     assert batch.rows_rejected == 0
     normalized = batch.rows_normalized[0]
     assert normalized["ann_date"] == date(2026, 5, 14)
-    assert normalized["ts_code"] == "600000.SH"
-    assert normalized["name"] == "浦发银行"
-    assert normalized["title"] == "年度报告"
-    assert normalized["url"] == "https://example.test/a.pdf"
+    assert normalized["ts_code"] == "600000.sh"
+    assert normalized["name"] == " 浦发银行 "
+    assert normalized["title"] == " 年度报告 "
+    assert normalized["url"] == " https://example.test/a.pdf "
     assert normalized["rec_time"].isoformat() == "2026-05-14T08:30:01+08:00"
     assert isinstance(normalized["row_key_hash"], str)
     assert len(normalized["row_key_hash"]) == 64
