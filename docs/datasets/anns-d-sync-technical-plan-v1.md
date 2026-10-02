@@ -4,9 +4,9 @@
 
 管理员最新要求取代此前的完整度覆盖与分组迁移：Raw 保留所有不同的 Tushare 原始记录，只忽略源字段完全相同的重复。缺 URL、发布时间或其他字段均保留；不做补全合并、覆盖删除、group_key 或全表 CHECK/APPLY。
 
-当前实现为完整 raw_payload 指纹 + 唯一约束 + INSERT ON CONFLICT DO NOTHING，保留分页、批次提交、进度、取消和续跑。新执行合同不允许复用旧合同；生产表需要服务器备份核验后按明确批准的清空、迁移183、重新拉取流程切换，代码迁移不会自动删除数据。
+当前实现为完整 raw_payload 指纹 + 唯一约束 + INSERT ON CONFLICT DO NOTHING，保留分页、批次提交、进度、取消和续跑。新执行合同不允许复用旧合同；管理员已明确取消备份；生产切换按已批准的清空、迁移183、重新拉取流程执行，代码迁移不会自动删除数据。
 
-硬口径、配置审计、消费者、切换及验收证据统一见[LLD 当前执行口径](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。本轮未部署、未清空生产表、未补齐生产历史。
+硬口径、配置审计、消费者、切换及验收证据统一见[LLD 当前执行口径](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。本轮已按明确授权删除指定服务器备份与恢复演练库、清空公告表并完成183迁移；目前表为空，历史尚未重拉，服务仍需重启加载已部署新版。新同步必须发起新任务，不沿用旧合同。
 
 > 以下为旧方案与历史执行记录，当前实施以以上口径为准。
 
