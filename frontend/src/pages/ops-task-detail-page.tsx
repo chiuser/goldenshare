@@ -31,6 +31,7 @@ import { MetricPanel } from "../shared/ui/metric-panel";
 import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
+import { OpsAnnouncementProgress } from "./ops-announcement-progress";
 import { OpsTaskPagedUnitProgress } from "./ops-task-paged-unit-progress";
 import {
   calculateEtaEstimate,
@@ -367,6 +368,9 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
         if (view?.run.status === "canceling") {
           return <Text size="sm">停止中</Text>;
         }
+        if (view?.progress.announcement_progress) {
+          return <Text size="sm">暂无法估算</Text>;
+        }
         if (etaEstimate.status === "ready" && etaContextMatches) {
           return <Text size="sm">约 {formatDateTimeLabel(new Date(etaEstimate.estimatedAtMs).toISOString())}</Text>;
         }
@@ -536,6 +540,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                       <Text fw={700}>{(view.progress.rows_deduplicated ?? 0).toLocaleString()}</Text>
                     </MetricPanel>
                   </SimpleGrid>
+                  {view.progress.announcement_progress ? <OpsAnnouncementProgress progress={view.progress.announcement_progress} /> : null}
                   {pagedUnitProgress ? <OpsTaskPagedUnitProgress progress={pagedUnitProgress} /> : null}
                   {!pagedUnitProgress && paginationDiagnostic(view.progress.ingestion_diagnostics) ? (
                     <AlertBar tone="info" title="源端分页">

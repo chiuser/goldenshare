@@ -274,7 +274,7 @@ def _news_params(request, anchor_date: date | None, enum_values: dict[str, Any])
 
 def _anns_d_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     del enum_values
-    if request.run_profile == "point_incremental":
+    if anchor_date is not None or request.run_profile == "point_incremental":
         target_date = anchor_date or request.trade_date
         if target_date is None:
             raise ValueError("上市公司公告单日维护缺少日期")

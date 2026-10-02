@@ -901,10 +901,14 @@ def test_dataset_definition_projects_anns_d_facts() -> None:
     assert definition.storage.raw_table == "raw_tushare.anns_d"
     assert definition.storage.target_table == "core_serving_light.anns_d"
     assert definition.storage.delivery_mode == "raw_with_serving_light_view"
-    assert definition.planning.unit_builder_key == "generic"
+    assert definition.planning.unit_builder_key == "build_announcement_units"
     assert definition.planning.page_limit == 2000
     assert definition.normalization.date_fields == ("ann_date",)
-    assert definition.normalization.required_fields == ("ann_date", "ts_code", "title", "url", "rec_time", "row_key_hash")
+    assert definition.normalization.required_fields == ("ann_date", "ts_code", "title", "row_key_hash", "group_key")
+    assert definition.storage.write_path == "raw_only_reconcile"
+    assert definition.storage.reconciliation_batch_rows == 500
+    assert definition.storage.reconciliation_max_group_versions == 128
+    assert definition.normalization.preserve_raw_payload
 
 
 def test_dataset_definition_projects_irm_qa_facts() -> None:
@@ -1390,4 +1394,5 @@ def test_dataset_definition_transaction_policy_is_explicit_fact() -> None:
     assert {definition.transaction.commit_policy for definition in list_dataset_definitions()} == {
         "raw_then_serving",
         "unit",
+        "batch",
     }

@@ -110,6 +110,10 @@ class IngestionExecutor:
         cancel_checker=None,  # type: ignore[no-untyped-def]
         progress_reporter=None,  # type: ignore[no-untyped-def]
     ) -> IngestionRunSummary:
+        if definition.planning.page_processing_mode == "announcement_stream":
+            from src.foundation.ingestion.announcement_stream import run_announcements
+            return run_announcements(self, request=request, definition=definition, units=units,
+                cancel_checker=cancel_checker, progress_reporter=progress_reporter)
         observer = IngestionObserver(progress_reporter=progress_reporter)
         state = _RunState()
         eligibility_as_of = (

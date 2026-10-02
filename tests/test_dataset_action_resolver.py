@@ -1469,10 +1469,10 @@ def test_dataset_action_resolver_builds_anns_d_point_and_range_units(mocker) -> 
 
     assert point_plan.planning.unit_count == 1
     assert point_plan.units[0].request_params == {"start_date": "20260424", "end_date": "20260424"}
-    assert range_plan.planning.unit_count == 1
+    assert range_plan.planning.unit_count == 5
     assert range_plan.units[0].request_params == {
         "start_date": "20260420",
-        "end_date": "20260424",
+        "end_date": "20260420",
         "ts_code": "600000.SH",
     }
 

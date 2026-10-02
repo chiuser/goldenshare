@@ -608,6 +608,14 @@ def _expand_natural_dates(start_date: date, end_date: date) -> list[date]:
     return dates
 
 
+def _build_announcement_units(planner, request, definition):
+    if request.run_profile == "range_rebuild" and request.start_date and request.end_date:
+        count = (request.end_date - request.start_date).days + 1
+        if count > definition.planning.max_units_per_execution:
+            raise planner._planning_error("units_exceeded", "公告日期范围超过执行日数上限")
+    return _build_natural_day_point_units(planner, request, definition)
+
+
 def _build_natural_day_point_units(
     planner: DatasetUnitPlanner,
     request: ValidatedDatasetActionRequest,
@@ -2048,6 +2056,7 @@ def _build_biying_units(
 
 
 _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetActionRequest, DatasetDefinition], list[PlanUnitSnapshot]]] = {
+    "build_announcement_units": _build_announcement_units,
     "build_biying_equity_daily_units": _build_biying_equity_daily_units,
     "build_biying_moneyflow_units": _build_biying_moneyflow_units,
     "build_cyq_chips_units": _build_cyq_chips_units,

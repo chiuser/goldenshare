@@ -671,3 +671,55 @@ def test_removed_ops_executions_routes_do_not_exist(app_client, user_factory) ->
     response = app_client.get(removed_path, headers=auth_headers(app_client))
 
     assert response.status_code == 404
+
+
+def test_announcement_explicit_resume_requires_frozen_stopped_same_scope(app_client,user_factory,db_session):
+    user_factory(username='admin',password='secret',is_admin=True)
+    headers=auth_headers(app_client)
+    body={'task_type':'dataset_action','resource_key':'anns_d','action':'maintain',
+          'time_input':{'mode':'range','start_date':'2026-01-01','end_date':'2026-01-02'},'filters':{'ts_code':'155162.SH'}}
+    created=app_client.post('/api/v1/ops/task-runs',headers=headers,json=body)
+    assert created.status_code==200,created.text
+    source=db_session.get(TaskRun,created.json()['id'])
+    frozen=source.request_payload_json['execution_context']
+    resume={**body,'resume_from_task_run_id':source.id}
+    assert app_client.post('/api/v1/ops/task-runs',headers=headers,json=resume).status_code==409
+    source.status='canceled';db_session.commit()
+    result=app_client.post('/api/v1/ops/task-runs',headers=headers,json=resume)
+    assert result.status_code==200,result.text
+    resumed=db_session.get(TaskRun,result.json()['id'])
+    assert resumed.request_payload_json['execution_context']==frozen
+    assert resumed.request_payload_json['resume_from_task_run_id']==source.id
+    for altered in ({'filters':{'ts_code':'600000.SH'}},{'time_input':{'mode':'range','start_date':'2026-01-01','end_date':'2026-01-03'}},{'resume_from_task_run_id':True},{'resume_from_task_run_id':0}):
+        assert app_client.post('/api/v1/ops/task-runs',headers=headers,json={**resume,**altered}).status_code==422
+    fresh=app_client.post('/api/v1/ops/task-runs',headers=headers,json=body)
+    assert fresh.status_code==200,fresh.text
+    assert db_session.get(TaskRun,fresh.json()['id']).request_payload_json['execution_context']['execution_token']!=frozen['execution_token']
+
+
+def test_announcement_terminal_keeps_progress_and_matches_node(db_session,task_run_factory,task_run_node_factory):
+    from src.ops.runtime.worker import OperationsWorker
+    from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome
+    for status in ('failed','canceled','success'):
+        run=task_run_factory(resource_key='anns_d',action='maintain',status='running',
+            request_payload_json={'execution_context':{'execution_token':'frozen'}},rows_saved=500,rows_fetched=2000)
+        run.ingestion_diagnostics_json={'runtime':{'announcement':{'phase':'persisting'}}}
+        node=task_run_node_factory(task_run_id=run.id,status='running')
+        run.current_node_id=node.id;db_session.commit()
+        result=OperationsWorker()._finalize_task_run(db_session,run.id,TaskRunDispatchOutcome(status=status,rows_saved=700,rows_fetched=2000))
+        db_session.refresh(node)
+        assert result.status==node.status==status
+        assert result.rows_saved==node.rows_saved==(700 if status=='success' else 500)
+        assert result.ingestion_diagnostics_json==node.ingestion_diagnostics_json
+
+
+def test_announcement_progress_survives_large_sample_compaction():
+    from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
+    from src.ops.queries.task_run_query_service import TaskRunQueryService
+    progress={'phase':'persisting','ann_date':'2026-01-01','unit_done':1,'unit_total':3,
+        'page_number':2,'offset':2000,'issued_requests':4,'counters':{'processed':500},'quality_counts':{},
+        'quality_samples':{'missing':[{'title':'x'*20000}]}}
+    result=TaskRunIngestionContext._sanitize_ingestion_diagnostics({'runtime':{'announcement':progress}})
+    projection=TaskRunQueryService._announcement_progress(result)
+    assert projection.unit_done==1 and projection.counters['processed']==500
+    assert TaskRunQueryService._announcement_progress({'runtime':None}) is None

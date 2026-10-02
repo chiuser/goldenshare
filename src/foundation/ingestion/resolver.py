@@ -24,6 +24,7 @@ from src.foundation.ingestion.execution_plan import (
 )
 from src.foundation.ingestion.unit_planner import DatasetUnitPlanner
 from src.foundation.ingestion.validator import DatasetRequestValidator
+from src.foundation.ingestion.announcement_scope import freeze_execution
 
 
 class DatasetActionResolver:
@@ -116,6 +117,10 @@ class DatasetActionResolver:
                 audit_applicable=definition.date_model.audit_applicable,
             ),
             units=units,
+            execution_context=freeze_execution(definition,
+                scope=self._jsonable({"mode": normalized_time.mode, "start": self._time_scope(normalized_time).start,
+                                      "end": self._time_scope(normalized_time).end}),
+                filters=self._jsonable(validated.params), previous=request.execution_context),
         )
 
     @staticmethod

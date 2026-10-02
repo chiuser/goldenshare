@@ -44,17 +44,21 @@ class _RateLimiter:
         self.next_allowed_at = 0.0
         self.lock = Lock()
 
-    def acquire(self) -> None:
+    def acquire(self, *, check=None, tick=None) -> None:
         if self.max_calls <= 0:
             return
         while True:
+            if check is not None:
+                check()
             with self.lock:
                 now = time.monotonic()
                 sleep_seconds = self.next_allowed_at - now
                 if sleep_seconds <= 0:
                     self.next_allowed_at = max(now, self.next_allowed_at) + self.min_interval_seconds
                     return
-            time.sleep(max(sleep_seconds, 0.05))
+            if tick is not None:
+                tick()
+            time.sleep(min(max(sleep_seconds, 0.05), 0.2) if check is not None else max(sleep_seconds, 0.05))
 
 
 _API_RATE_LIMITS = {
@@ -112,6 +116,22 @@ class TushareHttpClient:
         session.mount("https://", adapter)
         session.mount("http://", adapter)
         return session
+
+    def call_bounded(self, *, api_name, params, fields, maximum, timeout, check, tick, before_request):
+        from src.foundation.clients.bounded_tushare_call import call_bounded, BoundedTushareError
+        _get_rate_limiter(api_name).acquire(check=check, tick=tick)
+        check()
+        before_request()
+        result = call_bounded(base_url=self.base_url, payload={"api_name": api_name, "token": self.token,
+            "params": params, "fields": ",".join(fields)}, maximum=maximum, timeout=timeout, check=check, tick=tick)
+        if result[0] == 'rows':
+            return result[1]
+        if result[0] in {'rate_limit', 'api_error'}:
+            error = TushareRateLimitError if result[0] == 'rate_limit' else TushareApiError
+            raise error(api_name=api_name, code=result[1], message=result[2])
+        if result[0] == 'bounded_error':
+            raise BoundedTushareError(result[1], result[2])
+        raise BoundedTushareError('source_connection_failed', '公告源单次传输失败')
 
     def _summarize_params(self, params: dict[str, Any] | None) -> dict[str, Any]:
         if not params:

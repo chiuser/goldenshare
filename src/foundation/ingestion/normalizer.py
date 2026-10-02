@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import math
 from datetime import date
 from decimal import InvalidOperation
 from typing import Any
@@ -16,6 +18,17 @@ from src.foundation.ingestion.source_client import SourceFetchResult
 from src.utils import CoerceRowError, coerce_row, truncate_text
 
 
+def _diagnostic_payload(value):
+    """Keep nonfinite source values as text instead of rejecting an optional field."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _diagnostic_payload(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_diagnostic_payload(item) for item in value]
+    return value
+
+
 class NormalizedBatch:
     def __init__(
         self,
@@ -26,6 +39,8 @@ class NormalizedBatch:
         rejected_reasons: dict[str, int],
         rejected_samples: dict[str, list[dict[str, Any]]] | None = None,
         rows_deduplicated: int = 0,
+        quality_counts: dict[str, int] | None = None,
+        quality_samples: dict[str, list[dict]] | None = None,
     ) -> None:
         self.unit_id = unit_id
         self.rows_normalized = rows_normalized
@@ -33,6 +48,8 @@ class NormalizedBatch:
         self.rejected_reasons = rejected_reasons
         self.rejected_samples = rejected_samples or {}
         self.rows_deduplicated = rows_deduplicated
+        self.quality_counts = quality_counts or {}
+        self.quality_samples = quality_samples or {}
 
 
 class DatasetNormalizer:
@@ -87,6 +104,8 @@ class DatasetNormalizer:
         rows_normalized: list[dict] = []
         rejected_reasons: dict[str, int] = {}
         rejected_samples: dict[str, list[dict[str, Any]]] = {}
+        quality_counts: dict[str, int] = {}
+        quality_samples: dict[str, list[dict]] = {}
         for raw_row in fetch_result.rows_raw:
             try:
                 normalized = coerce_row(
@@ -114,6 +133,8 @@ class DatasetNormalizer:
                         row=normalized,
                         source_fields=definition.source.source_fields,
                     )
+                if definition.normalization.preserve_raw_payload:
+                    normalized["raw_payload"] = json.dumps(_diagnostic_payload(raw_row), ensure_ascii=False, default=str, allow_nan=False)
                 if row_transform is not None:
                     normalized = row_transform(normalized)
             except ObservedSnapshotHashError as exc:
@@ -190,6 +211,10 @@ class DatasetNormalizer:
                 unit_id=fetch_result.unit_id,
             )
 
+            for code in normalized.pop("__quality_codes", []):
+                field = "url" if code.endswith("url") else "rec_time"
+                self._record_rejection(quality_counts, quality_samples, code, row=raw_row,
+                                       unit_id=fetch_result.unit_id, field=field, value=raw_row.get(field))
             rows_normalized.append(normalized)
         rows_normalized, rows_deduplicated = self._apply_source_multiplicity_policy(
             definition=definition,
@@ -223,6 +248,8 @@ class DatasetNormalizer:
             rejected_reasons=rejected_reasons,
             rejected_samples=rejected_samples,
             rows_deduplicated=rows_deduplicated,
+            quality_counts=quality_counts,
+            quality_samples=quality_samples,
         )
 
     @classmethod

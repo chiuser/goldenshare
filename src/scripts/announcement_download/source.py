@@ -62,5 +62,12 @@ class Source:
                 batch_size=self.policy.batch_size))
             return [dict(row) for row in result.mappings()]
 
+    def has_artifact(self, task: dict) -> bool:
+        # IDs can disappear after physical reconciliation; file identity stays stable.
+        with self.transaction() as conn:
+            return conn.execute(text("""SELECT 1 FROM raw_tushare.anns_d
+                WHERE ann_date=:day AND ts_code=:code AND url=:url LIMIT 1"""),
+                dict(day=task['ann_date'], code=task['ts_code'], url=task['url'])).first() is not None
+
     def close(self):
         self.engine.dispose()

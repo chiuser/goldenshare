@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from src.app.exceptions import WebAppError
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
+from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.runtime.worker_lane import WorkerLane, lane_matches_values, lane_task_filter
 from src.utils import truncate_text
@@ -182,13 +183,16 @@ class OperationsWorker:
         task_run.status = final_status
         task_run.status_reason_code = outcome.status_reason_code
         task_run.ended_at = now
-        task_run.rows_fetched = int(outcome.rows_fetched)
-        task_run.rows_saved = int(outcome.rows_saved)
-        task_run.rows_rejected = int(outcome.rows_rejected)
-        task_run.rows_deduplicated = int(outcome.rows_deduplicated)
+        announcement = task_run.task_type == 'dataset_action' and task_run.resource_key == 'anns_d' and task_run.action == 'maintain' and (task_run.request_payload_json or {}).get('execution_context') is not None
+        if not announcement or final_status == 'success':
+            task_run.rows_fetched = int(outcome.rows_fetched)
+            task_run.rows_saved = int(outcome.rows_saved)
+            task_run.rows_rejected = int(outcome.rows_rejected)
+        if not announcement:
+            task_run.rows_deduplicated = int(outcome.rows_deduplicated)
         if outcome.ingestion_diagnostics is not None:
             task_run.ingestion_diagnostics_json = dict(outcome.ingestion_diagnostics)
-        elif final_status != "canceled":
+        elif final_status != "canceled" and not announcement:
             task_run.ingestion_diagnostics_json = {}
         task_run.rejected_reason_counts_json = dict(outcome.rejected_reason_counts or task_run.rejected_reason_counts_json or {})
         task_run.rejected_reason_samples_json = dict(outcome.rejected_reason_samples or task_run.rejected_reason_samples_json or {})
@@ -200,6 +204,14 @@ class OperationsWorker:
             task_run.progress_percent = 100
         if final_status == "canceled":
             task_run.canceled_at = task_run.canceled_at or now
+        if announcement and task_run.current_node_id is not None:
+            node = session.get(TaskRunNode, task_run.current_node_id)
+            if node is not None and node.task_run_id == task_run.id:
+                node.status = final_status
+                node.ended_at = now
+                node.rows_fetched, node.rows_saved, node.rows_rejected = task_run.rows_fetched, task_run.rows_saved, task_run.rows_rejected
+                node.rows_deduplicated = task_run.rows_deduplicated
+                node.ingestion_diagnostics_json = dict(task_run.ingestion_diagnostics_json or {})
         session.commit()
         session.refresh(task_run)
         return task_run

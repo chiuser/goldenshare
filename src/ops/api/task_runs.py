@@ -82,6 +82,7 @@ def create_ops_task_run(
         time_input=body.time_input.model_dump(exclude_none=True),
         filters=body.filters,
         request_payload=body.request_payload,
+        resume_from_task_run_id=body.resume_from_task_run_id,
     )
     task_run = TaskRunQueryService().get_view(session, task_run_id).run
     return TaskRunCreateResponse(

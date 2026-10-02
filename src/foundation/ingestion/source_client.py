@@ -171,6 +171,59 @@ class DatasetSourceClient:
             pagination_diagnostics=pagination_diagnostics,
         )
 
+    def iter_bounded_pages(self, *, definition, unit, control):
+        from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+        from src.foundation.datasets.anns_d_contracts import AnnouncementPersistenceError
+        policy = definition.planning.announcement_policy
+        connector = create_source_connector(unit.source_key)
+        offset = observed = 0
+        page_number = 1
+        while True:
+            control.check()
+            if page_number > policy.max_pages_per_unit:
+                raise IngestionSourceError(StructuredError(error_code="anns_d.page_budget_exceeded", error_type="source", phase="source_client", message="公告日窗口页数超过预算", retryable=False, unit_id=unit.unit_id))
+            control.fetching(page_number, offset)
+            params = dict(definition.source.base_params)
+            params.update(unit.request_params)
+            params.update(limit=unit.page_limit, offset=offset)
+            retries = 0
+            started = perf_counter()
+            while True:
+                control.check()
+                try:
+                    rows = connector.call_bounded(api_name=definition.source.api_name, params=params,
+                        fields=definition.source.source_fields, maximum=policy.max_response_bytes,
+                        timeout=policy.source_call_timeout_seconds, check=control.check,
+                        tick=control.tick, before_request=control.reserve)
+                    self._annotate_rows(definition=definition, rows=rows, params=params)
+                    break
+                except AnnouncementPersistenceError:
+                    raise
+                except Exception as exc:
+                    control.check()
+                    if isinstance(exc, BoundedTushareError):
+                        error = StructuredError(error_code=exc.code, error_type="source", phase="source_client", message=str(exc), retryable=exc.code == "source_connection_failed", unit_id=unit.unit_id)
+                    else:
+                        error = self.error_mapper.map_exception(exc=exc, phase="source_client", unit_id=unit.unit_id)
+                    if not error.retryable or retries >= 3:
+                        raise IngestionSourceError(error) from exc
+                    retries += 1
+                    delay = self.RATE_LIMIT_RETRY_SLEEP_SECONDS if error.error_code == "source_rate_limited" else 0.5 * 2 ** (retries-1)
+                    control.wait(delay)
+            control.check()
+            if len(rows) > unit.page_limit or observed + len(rows) > unit.max_source_rows_per_unit:
+                raise IngestionSourceError(StructuredError(error_code="source_rows_exceeded", error_type="source", phase="source_client", message="公告日窗口源行超过预算", retryable=False, unit_id=unit.unit_id))
+            observed += len(rows)
+            short = len(rows) < unit.page_limit
+            yield SourcePageResult(unit_id=unit.unit_id,page_number=page_number,offset=offset,
+                rows_raw=rows,retry_count=retries,latency_ms=int((perf_counter()-started)*1000),is_short_page=short)
+            del rows
+            control.check()
+            if short:
+                return
+            page_number += 1
+            offset += unit.page_limit
+
     def iter_pages(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot):  # type: ignore[no-untyped-def]
         connector = create_source_connector(str(unit.source_key or definition.source.adapter_key))
         request_variants = unit.request_variants or ({},)

@@ -1155,6 +1155,7 @@ def test_task_run_dispatcher_keeps_point_intent_and_persists_resolved_date_on_da
     def fake_build_plan(self, request):  # type: ignore[no-untyped-def]
         return SimpleNamespace(
             plan_id="daily-point-plan",
+            execution_context=None,
             dataset_key=request.dataset_key,
             run_profile="point_incremental",
             planning=SimpleNamespace(unit_count=1),
@@ -1433,6 +1434,7 @@ def test_task_run_dispatcher_preserves_full_source_response_json_on_execution_fa
     def fake_build_plan(self, request):  # type: ignore[no-untyped-def]
         return SimpleNamespace(
             plan_id="source-error-plan",
+            execution_context=None,
             dataset_key=request.dataset_key,
             run_profile="range_rebuild",
             planning=SimpleNamespace(unit_count=1),
@@ -1917,7 +1919,7 @@ def test_task_run_dispatcher_returns_readable_closed_trade_date_skip_message(
 ) -> None:
     task_run = task_run_factory(status="running", resource_key="daily", title="股票日线")
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 4, 25), is_open=False)
-    plan = SimpleNamespace(dataset_key="daily", run_profile="point_incremental")
+    plan = SimpleNamespace(dataset_key="daily", run_profile="point_incremental", execution_context=None)
     action_request = DatasetActionRequest(
         dataset_key="daily",
         action="maintain",
@@ -1965,7 +1967,7 @@ def test_task_run_dispatcher_does_not_skip_natural_day_point_on_closed_trade_dat
     monkeypatch.setattr("src.ops.runtime.task_run_dispatcher.DatasetMaintainService", StubDatasetMaintainService)
     task_run = task_run_factory(status="running", resource_key="stk_period_bar_week", title="股票周线行情")
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 1), is_open=False)
-    plan = SimpleNamespace(dataset_key="stk_period_bar_week", run_profile="point_incremental")
+    plan = SimpleNamespace(dataset_key="stk_period_bar_week", run_profile="point_incremental", execution_context=None)
     action_request = DatasetActionRequest(
         dataset_key="stk_period_bar_week",
         action="maintain",

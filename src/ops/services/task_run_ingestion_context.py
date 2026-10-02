@@ -4,7 +4,7 @@ from datetime import datetime
 import json
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from src.foundation.kernel.contracts.ingestion_run_context import IngestionRunContext
@@ -25,14 +25,23 @@ class TaskRunIngestionContext(IngestionRunContext):
         "canceled",
     }
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, *, independent_cancel=False, timeout_seconds=None) -> None:
         self.session = session
+        self.independent_cancel = independent_cancel
+        self.timeout_seconds = timeout_seconds
 
     def is_cancel_requested(self, *, run_id: int) -> bool:
-        cancel_requested_at = self.session.execute(
-            select(TaskRun.cancel_requested_at).where(TaskRun.id == run_id)
-        ).scalar_one_or_none()
-        return isinstance(cancel_requested_at, datetime)
+        if not self.independent_cancel:
+            value = self.session.execute(select(TaskRun.cancel_requested_at).where(TaskRun.id == run_id)).scalar_one_or_none()
+            return isinstance(value,datetime)
+        # Cancellation reads never open/retain a transaction in the business session.
+        with Session(bind=self.session.get_bind()) as probe:
+            if probe.get_bind().dialect.name == 'postgresql':
+                probe.execute(text("SELECT set_config('statement_timeout',:value,true)"),{'value':f'{self.timeout_seconds}s'})
+            cancel_requested_at = probe.execute(
+                select(TaskRun.cancel_requested_at).where(TaskRun.id == run_id)
+            ).scalar_one_or_none()
+            return isinstance(cancel_requested_at, datetime)
 
     def update_progress(
         self,
@@ -56,6 +65,9 @@ class TaskRunIngestionContext(IngestionRunContext):
             return
         progress_session = Session(bind=bind, autoflush=False, autocommit=False, future=True)
         try:
+            if self.independent_cancel and bind.dialect.name == 'postgresql':
+                progress_session.execute(text("SELECT set_config('statement_timeout',:value,true)"),{'value':f'{self.timeout_seconds}s'})
+                progress_session.execute(text("SELECT set_config('lock_timeout',:value,true)"),{'value':f'{self.timeout_seconds}s'})
             task_run = progress_session.get(TaskRun, run_id)
             if task_run is None:
                 return
@@ -66,7 +78,9 @@ class TaskRunIngestionContext(IngestionRunContext):
             task_run.unit_done = committed_units
             task_run.unit_failed = failed_units
             task_run.unit_total = total_units
-            task_run.progress_percent = min(int((handled_units / total_units) * 100), 100) if total_units else None
+            announcement = (ingestion_diagnostics or {}).get('runtime', {}).get('announcement')
+            numerator = committed_units if announcement else handled_units
+            task_run.progress_percent = min(int((numerator / total_units) * 100), 100) if total_units else None
             task_run.rows_fetched = int(rows_fetched if rows_fetched is not None else task_run.rows_fetched or 0)
             task_run.rows_saved = int(rows_saved if rows_saved is not None else task_run.rows_saved or 0)
             task_run.rows_rejected = int(rows_rejected if rows_rejected is not None else task_run.rows_rejected or 0)
@@ -212,6 +226,14 @@ class TaskRunIngestionContext(IngestionRunContext):
         }
         if isinstance(paged_unit, dict):
             fallback["runtime"] = {"paged_unit": paged_unit}
+        announcement = runtime.get('announcement') if isinstance(runtime, dict) else None
+        if isinstance(announcement, dict):
+            # Preserve operational progress when sample evidence exceeds the JSON budget.
+            fields = ('phase','ann_date','page_number','offset','unit_done','unit_total',
+                      'issued_requests','updated_at','execution_token','eta','counters','quality_counts')
+            fallback.setdefault('runtime', {})['announcement'] = {
+                key: announcement[key] for key in fields if key in announcement
+            }
         return fallback
 
     @classmethod

@@ -29,6 +29,7 @@ class DatasetActionRequest:
     schedule_id: int | None = None
     workflow_key: str | None = None
     run_id: int | None = None
+    execution_context: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +45,7 @@ class ValidatedDatasetActionRequest:
     start_date: date | None = None
     end_date: date | None = None
     run_id: int | None = None
+    execution_context: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,3 +147,4 @@ class DatasetExecutionPlan:
     transaction: PlanTransactionPolicy
     observability: PlanObservability
     units: tuple[PlanUnitSnapshot, ...]
+    execution_context: dict[str, Any] | None = None

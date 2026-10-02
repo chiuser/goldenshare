@@ -52,6 +52,10 @@ class FakeSource:
         return [r for r in self.rows if after < r['id'] <= upper and
                 self.options.start_date <= r['ann_date'] <= self.options.end_date][:self.size]
 
+    def has_artifact(self, task):
+        return any(str(r['ann_date']) == task['ann_date'] and r['ts_code'] == task['ts_code']
+                   and r['url'] == task['url'] for r in self.rows)
+
     def close(self):
         self.closed = True
 
@@ -281,8 +285,8 @@ def test_batch_cursor_and_rows_rollback_together(archive):
     ledger = archive[1]
     run_id = ledger.begin_run(archive[2], 'prod')
     bad = row(2)
-    bad['url'] = None
-    with pytest.raises(AttributeError):
+    bad.pop('row_key_hash')
+    with pytest.raises(KeyError):
         ledger.ingest(run_id, 'prod', [row(), bad])
     assert ledger.conn.execute('SELECT after_id FROM runs WHERE run_id=?', (run_id,)).fetchone()[0] == 0
     assert ledger.conn.execute('SELECT count(*) FROM artifacts').fetchone()[0] == 0
@@ -507,3 +511,31 @@ def test_volume_disappears_between_request_and_file_write(archive):
     # Slow metadata checking happens at request/commit boundaries, not once per 64KiB.
     assert run(archive, [row()], disconnected)[0] == 3
     assert not list(archive[2].output_root.rglob('*.pdf'))
+
+
+def test_missing_url_preserves_mapping_and_cursor_without_http(archive):
+    missing=row();missing['url']=None;missing['rec_time']=None
+    calls=[]
+    result, source = run(archive,[missing],lambda request: calls.append(request) or httpx.Response(200,content=PDF))
+    assert result==0 and not calls
+    ledger=archive[1]
+    saved=ledger.conn.execute('SELECT * FROM source_records').fetchone()
+    counters=ledger.conn.execute('SELECT * FROM runs ORDER BY updated_at DESC LIMIT 1').fetchone()
+    assert saved['artifact_key'] is None and saved['raw_id']==1
+    assert counters['after_id']==1 and counters['missing_url_count']==1 and counters['artifacts_total']==0
+
+
+def test_replaced_source_is_not_downloaded(archive):
+    volume,ledger,options,policy,clock,control,*_=archive
+    source=FakeSource([row()],options,policy.batch_size)
+    source.has_artifact=lambda task: False
+    calls=[]
+    client=httpx.Client(transport=httpx.MockTransport(lambda request: calls.append(request) or httpx.Response(200,content=PDF)))
+    try:
+        assert cli.execute(options,policy,control,volume,ledger,source,'test',client,clock)==0
+        assert not calls
+        assert ledger.conn.execute('SELECT skipped_count FROM runs').fetchone()[0]==1
+        assert ledger.conn.execute('SELECT error FROM artifacts').fetchone()[0]=='source_record_replaced'
+        assert source.closed
+    finally:
+        client.close()

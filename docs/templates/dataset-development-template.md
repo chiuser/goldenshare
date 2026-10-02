@@ -504,12 +504,15 @@
 
 以下只是常见 `write_path` 示例，不是完整枚举；可用值以当前 writer、Definition linter 和已注册 definitions 为准：
 - `raw_only_upsert`
+- `raw_only_reconcile`（anns_d 专项保守覆盖；不是普通 upsert）
 - `raw_core_upsert`
 - `raw_core_snapshot_insert_by_trade_date`
 - `raw_std_publish_stock_basic`
 - `raw_std_publish_moneyflow`
 - `raw_std_publish_moneyflow_biying`
 - `raw_index_period_serving_upsert`
+
+对于 `raw_only_reconcile`，必须填写 storage 的 reconciliation_batch_rows、reconciliation_max_group_versions、reconciliation_statement_timeout_seconds、reconciliation_lock_timeout_seconds 四个正整数，其他路径默认 None。说明配置来源、writer/专项 DAO/离线 PLAN 消费者、计算批次与事务提交的区别、空 batch、锁、保存计数、物理删除范围及迁移就绪条件；不得复用普通哈希 upsert 覆盖冲突版本。当前 anns_d 实例见其同步 LLD §10。
 
 如果需要新增 `write_path`，必须说明为什么现有路径不能承载，并补 writer 测试。
 
@@ -546,7 +549,7 @@
 - `max_units_per_execution`：
 - `unit_builder_key`：如需自定义，必须在 `src/foundation/ingestion/unit_planner.py` 有清晰实现和测试。
 - `fetch_concurrency`：当前允许范围以 linter 为准；必须评估配额、连接数、worker 占用和稳定排序。
-- `page_processing_mode`：当前只允许 `buffer_all` / `staged_stream`。长分页任务优先评估 `staged_stream`；选用时必须同时满足对应 write path、stage 表、单并发与 `commit_policy=unit` 的 linter 合同。
+- `page_processing_mode`：当前只允许 `buffer_all` / `staged_stream` / `announcement_stream`。公告具名策略使用 `announcement_stream + raw_only_reconcile + commit_policy=batch`，必须冻结独立业务完成凭证与请求预算、单并发、有界分页和批提交；不作为其他数据集通用默认。长分页任务优先评估 `staged_stream`；选用时必须同时满足对应 write path、stage 表、单并发与 `commit_policy=unit` 的 linter 合同。
 
 写入量评估：
 - 必须估算单个 unit 的最大写入行数：
@@ -562,6 +565,7 @@
     "decimal_fields": (),
     "required_fields": (),
     "row_transform_name": None,
+    "preserve_raw_payload": False,
 }
 ```
 
@@ -569,6 +573,7 @@
 - `decimal_fields`：
 - `required_fields`：
 - `row_transform_name`：
+- `preserve_raw_payload`：默认 False；若 True，normalizer 保存转换前源 payload，说明不可表示原值的诊断编码。quality_counts/quality_samples 与 reject 分开，有界样本不等于无限源历史归档。
 
 约束：
 - 行转换函数必须注册在 `src/foundation/ingestion/row_transforms.py`，不能放在 request builder 里。
@@ -632,7 +637,7 @@
 - `observability.freshness_policy` 由 definition builder 从 `src/foundation/datasets/freshness_policies.py` 注入，开发文档必须说明本数据集归属哪一种 policy，但不要在 `DATASET_ROWS` 中重复保存。
 - `quality.required_fields` 必须覆盖不能缺失的业务主键和日期字段。
 - `quality.unit_date_field`、重复键、必备枚举、批内唯一键、源端多重记录、空结果和写前校验策略必须按当前数据集真实风险填写，不能依赖 writer 临场猜测。
-- `transaction.commit_policy` 当前支持 `unit` 和受专用 write path 约束的 `raw_then_serving`；具体组合必须通过 Definition linter，不得自行创造提交策略。
+- `transaction.commit_policy` 当前支持 `unit`、受专用 write path 约束的 `raw_then_serving` 和受公告具名策略约束的 `batch`；具体组合必须通过 Definition linter，不得自行创造提交策略。
 - `transaction.write_volume_assessment` 必须写人话，说明单事务写入量如何被控制。
 
 ### 4.11 `completeness`
@@ -754,7 +759,7 @@
 
 - adapter：`tushare` / `biying` / 其他
 - `pagination_policy`：
-- `page_processing_mode`：`buffer_all` / `staged_stream`
+- `page_processing_mode`：`buffer_all` / `staged_stream` / 专项批准的 `announcement_stream`
 - 单页参数：
 - 结束条件：
 - 限速策略：

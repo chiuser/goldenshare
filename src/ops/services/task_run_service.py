@@ -61,6 +61,7 @@ class TaskRunCreateContext:
     trigger_source: str
     requested_by_user_id: int | None
     schedule_id: int | None = None
+    resume_from_task_run_id: int | None = None
 
 
 class TaskRunCommandService:
@@ -84,6 +85,7 @@ class TaskRunCommandService:
         time_input: dict[str, Any],
         filters: dict[str, Any],
         request_payload: dict[str, Any] | None = None,
+        resume_from_task_run_id: int | None = None,
     ) -> int:
         task_run = self.create_task_run(
             session,
@@ -96,6 +98,7 @@ class TaskRunCommandService:
                 request_payload=request_payload or {},
                 trigger_source="manual",
                 requested_by_user_id=user.id,
+                resume_from_task_run_id=resume_from_task_run_id,
             ),
         )
         return task_run.id
@@ -235,6 +238,7 @@ class TaskRunCommandService:
             if prepared_request_payload is not None
             else self.prepare_task_run_payload(session, context=context, task_frozen_at=now)
         )
+        request_payload = self._freeze_announcement_payload(session, context, request_payload)
         if self._is_news_stock_linking_payload(request_payload):
             NewsStockLinkingWindowResolver().validate_frozen_payload(request_payload)
         self._ensure_news_stock_linking_not_running(session, request_payload)
@@ -281,6 +285,35 @@ class TaskRunCommandService:
             request_payload=payload,
             task_frozen_at=task_frozen_at,
         )
+
+    @staticmethod
+    def _freeze_announcement_payload(session, context, payload):
+        previous = None
+        resume_id = context.resume_from_task_run_id
+        if resume_id is not None and (type(resume_id) is not int or resume_id < 1):
+            raise WebAppError(status_code=422, code='validation_error', message='恢复任务ID必须为正整数')
+        if context.task_type != 'dataset_action' or context.resource_key != 'anns_d' or context.action != 'maintain':
+            if resume_id is not None:
+                raise WebAppError(status_code=422,code='validation_error',message='仅公告维护支持此恢复意图')
+            return payload
+        if resume_id is not None:
+            if context.trigger_source != 'manual' or context.requested_by_user_id is None:
+                raise WebAppError(status_code=422,code='validation_error',message='公告恢复需运营显式提交')
+            source = session.get(TaskRun, resume_id)
+            if source is None or source.task_type != 'dataset_action' or source.resource_key != 'anns_d' or source.action != 'maintain' or source.status not in {'success','failed','partial_success','canceled'}:
+                raise WebAppError(status_code=409,code='conflict',message='来源必须是已停止的公告维护任务')
+            previous = (source.request_payload_json or {}).get('execution_context')
+            if not isinstance(previous,dict):
+                raise WebAppError(status_code=422,code='validation_error',message='来源任务没有可恢复的冻结执行合同')
+        time_input = dict(context.time_input)
+        request = DatasetActionRequest(dataset_key=context.resource_key,action=context.action,
+            time_input=DatasetTimeInput(**{k:TaskRunCommandService._optional_date(v) if k in {'trade_date','ann_date','start_date','end_date'} else v for k,v in time_input.items()}),
+            filters=dict(context.filters),execution_context=previous)
+        try:
+            plan = DatasetActionResolver(session).build_plan(request)
+        except IngestionError as exc:
+            raise WebAppError(status_code=422,code=exc.structured_error.error_code,message=str(exc)) from exc
+        return {**payload,'execution_context':plan.execution_context,'resume_from_task_run_id':resume_id}
 
     @staticmethod
     def _is_news_stock_linking_payload(payload: dict[str, Any]) -> bool:
@@ -1047,6 +1080,8 @@ class TaskRunCommandService:
         if isinstance(explicit, dict):
             return dict(explicit)
         reserved = {
+            "execution_context",
+            "resume_from_task_run_id",
             "action",
             "dataset_key",
             "time_input",

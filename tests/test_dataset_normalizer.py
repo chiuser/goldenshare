@@ -496,7 +496,7 @@ def test_anns_d_normalizer_parses_required_fields_and_hash() -> None:
     assert len(normalized["row_key_hash"]) == 64
 
 
-def test_anns_d_normalizer_rejects_missing_rec_time() -> None:
+def test_anns_d_normalizer_preserves_missing_rec_time() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("anns_d"),
         fetch_result=SourceFetchResult(
@@ -515,8 +515,10 @@ def test_anns_d_normalizer_rejects_missing_rec_time() -> None:
         ),
     )
 
-    assert batch.rows_rejected == 1
-    assert batch.rejected_reasons == {"normalize.required_field_missing:rec_time": 1}
+    assert batch.rows_rejected == 0
+    assert batch.rejected_reasons == {}
+    assert batch.rows_normalized[0]["rec_time"] is None
+    assert batch.quality_counts == {"quality.missing_rec_time": 1}
 
 
 def test_irm_qa_sh_normalizer_allows_empty_pub_time() -> None:

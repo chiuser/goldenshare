@@ -47,6 +47,7 @@ class DatasetMaintainService:
             "rerun_id",
             "_plan",
             "_action_request",
+            "execution_context",
         }
     )
 
@@ -218,6 +219,7 @@ class DatasetMaintainService:
             start_date=request.time_input.start_date,
             end_date=request.time_input.end_date,
             run_id=request.run_id,
+            execution_context=plan.execution_context,
         )
 
     def _start_run_handle(self, *, run_mode: str, run_id: int | None) -> object:

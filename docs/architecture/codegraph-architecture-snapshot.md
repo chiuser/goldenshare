@@ -1,6 +1,6 @@
 # CodeGraph 架构快照
 
-初始生成：2026-08-22；局部复核：2026-09-16（交易助手 M7 通知发送装配）；M3 局部复核为 2026-09-13，QTF 为 2026-09-10。索引根：`/Users/congming/github/goldenshare`。
+初始生成：2026-08-22；局部复核：2026-09-16（交易助手 M7 通知发送装配）；M3 局部复核为 2026-09-13，QTF 为 2026-09-10。2026-10-02 局部复核：anns_d P2 执行合同与 Ops 恢复/进度。索引根：`/Users/congming/github/goldenshare`。
 
 这是代码入口快照，不是规范或全仓合规证明。未逐项重验的历史链路不能据此认定今日生产状态；下方既往工具记录保留原阶段含义。目录与依赖规则统一见[子系统架构基线](./subsystem-boundary-plan.md)，工具流程见根 AGENTS；不在此维护易过期的索引规模。
 
@@ -97,7 +97,9 @@ CodeGraph 确认 `TaskRunDispatcher._dispatch_dataset_action` 会从 TaskRun 构
 
 `_run_dataset_action_plan` 创建 `DatasetMaintainService`，把 `_plan` 与 `_action_request` 传入 `maintain`。因此 TaskRun 只承载用户或调度意图；计划归一化仍由 `DatasetActionResolver` 负责。
 
-`IngestionExecutor.run` 根据计划选择普通 unit、并发抓取或显式 opt-in 的 staged-stream 路径，不是统一的串行 fetch/commit 循环。普通业务提交、Raw/Serving 两阶段与 staged 分页的边界见[执行计划基线](./dataset-execution-plan-refactor-plan-v1.md)，以 `executor.py`、`writer.py`、`staged_stream.py` 为实现证据。进度报告不能替代业务提交事实。
+`IngestionExecutor.run` 根据计划选择普通 unit、并发抓取或显式 opt-in 的 staged-stream 路径，以及公告 Definition 显式选择的 announcement-stream 路径，不是统一的串行 fetch/commit 循环。普通业务提交、Raw/Serving 两阶段与 staged 分页的边界见[执行计划基线](./dataset-execution-plan-refactor-plan-v1.md)，以 `executor.py`、`writer.py`、`staged_stream.py` 为实现证据。进度报告不能替代业务提交事实。
+
+公告专项路径由 `announcement_scope.freeze_execution` 冻结 execution_token、范围和策略摘要，Ops 保存意图并由 resolver 校验显式恢复。`announcement_stream.run_announcements` 按自然日流式抓取、500 行短事务保存，末批与业务凭证同事务；请求预算独立预占，TaskRun 观察不成为恢复依据。Tushare `call_bounded` 复用现有认证/限速，调用进程可被取消/期限终止。Foundation 不引用 Ops，其他数据集通用路径不变；本地验收及 Prod 未部署边界见[公告同步 LLD](../datasets/anns-d-sync-low-level-design-v1.md#12-p2-实现消费者与验收对账2026-10-02)。CodeGraph query/impact 与当前源码补核覆盖 executor、resolver、source、dispatcher/worker、API/手动表单；sync/status 已复核。
 
 ### DatasetDefinition 到运营前端的契约链
 

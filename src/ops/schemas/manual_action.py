@@ -107,3 +107,4 @@ class ManualActionTimeInput(BaseModel):
 class ManualActionTaskRunCreateRequest(BaseModel):
     time_input: ManualActionTimeInput = Field(default_factory=ManualActionTimeInput)
     filters: dict[str, Any] = Field(default_factory=dict)
+    resume_from_task_run_id: int | None = Field(default=None, gt=0, strict=True)

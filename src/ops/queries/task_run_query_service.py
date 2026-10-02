@@ -17,6 +17,7 @@ from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.action_catalog import get_manual_action_key_for_target
 from src.ops.schemas.task_run import (
+    TaskRunAnnouncementProgress,
     TaskRunActions,
     TaskRunDisplayField,
     TaskRunDisplayObject,
@@ -198,6 +199,7 @@ class TaskRunQueryService:
                 ),
                 period_source_summary=period_source_summary,
                 paged_unit_progress=self._paged_unit_progress(ingestion_diagnostics),
+                announcement_progress=self._announcement_progress(ingestion_diagnostics),
             ),
             primary_issue=self._issue_summary(primary_issue),
             nodes=[self._node_item(node) for node in nodes],
@@ -209,6 +211,17 @@ class TaskRunQueryService:
                 can_copy_params=True,
             ),
         )
+
+    @staticmethod
+    def _announcement_progress(diagnostics):
+        runtime = diagnostics.get('runtime') if isinstance(diagnostics, dict) else None
+        value = runtime.get('announcement') if isinstance(runtime, dict) else None
+        if not isinstance(value, dict):
+            return None
+        try:
+            return TaskRunAnnouncementProgress.model_validate(value)
+        except ValueError:
+            return None
 
     @classmethod
     def _paged_unit_progress(cls, diagnostics: dict) -> TaskRunPagedUnitProgress | None:

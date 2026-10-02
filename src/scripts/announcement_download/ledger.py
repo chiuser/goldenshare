@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS runs (
  run_id TEXT PRIMARY KEY, start_date TEXT, end_date TEXT, interval_seconds REAL,
  source_scope TEXT, upper_id INTEGER DEFAULT 0, after_id INTEGER DEFAULT 0,
  phase TEXT NOT NULL, records_read INTEGER DEFAULT 0, reason TEXT, updated_at TEXT,
+ missing_url_count INTEGER DEFAULT 0,
  artifacts_total INTEGER DEFAULT 0, completed_count INTEGER DEFAULT 0,
  succeeded_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS artifacts (
@@ -45,6 +46,8 @@ class Ledger:
             self.conn.execute('PRAGMA journal_mode=DELETE')
             self.conn.execute('PRAGMA synchronous=FULL')
             self.conn.executescript(SCHEMA)
+            if "missing_url_count" not in {row[1] for row in self.conn.execute("PRAGMA table_info(runs)")}:
+                self.conn.execute("ALTER TABLE runs ADD COLUMN missing_url_count INTEGER NOT NULL DEFAULT 0")
             with self.conn:
                 self.conn.execute('INSERT OR IGNORE INTO archive VALUES(1,1,?,?,?)',
                                   (volume_uuid, relative_root, timestamp()))
@@ -77,17 +80,21 @@ class Ledger:
         with self.conn:
             added = 0
             for row in rows:
-                day, code, url = str(row['ann_date']), row['ts_code'], row['url'].strip()
-                key = identity([day, code, url])
-                self.conn.execute('INSERT OR IGNORE INTO artifacts(artifact_key,ann_date,ts_code,title,url,updated_at) '
-                                  'VALUES(?,?,?,?,?,?)', (key, day, code, row['title'], url, timestamp()))
+                day, code, url = str(row['ann_date']), row['ts_code'], (row['url'] or '').strip()
+                key = identity([day, code, url]) if url else None
+                if key:
+                    self.conn.execute('INSERT OR IGNORE INTO artifacts(artifact_key,ann_date,ts_code,title,url,updated_at) '
+                                      'VALUES(?,?,?,?,?,?)', (key, day, code, row['title'], url, timestamp()))
                 self.conn.execute('INSERT INTO source_records VALUES(?,?,?,?,?,?,?) '
                                   'ON CONFLICT(source_scope,row_key_hash) DO UPDATE SET '
                                   'raw_id=excluded.raw_id,metadata=excluded.metadata,artifact_key=excluded.artifact_key,'
                                   'last_seen_run=excluded.last_seen_run', (scope, row['row_key_hash'], row['id'],
                                   json.dumps(row, ensure_ascii=False, default=str), key, run, run))
-                added += self.conn.execute('INSERT OR IGNORE INTO run_artifacts(run_id,artifact_key) VALUES(?,?)',
-                                           (run, key)).rowcount
+                if key:
+                    added += self.conn.execute('INSERT OR IGNORE INTO run_artifacts(run_id,artifact_key) VALUES(?,?)',
+                                               (run, key)).rowcount
+                else:
+                    self.conn.execute('UPDATE runs SET missing_url_count=missing_url_count+1 WHERE run_id=?', (run,))
             if rows:
                 self.conn.execute('UPDATE runs SET after_id=?,records_read=records_read+?,artifacts_total=artifacts_total+?, '
                                   'updated_at=? WHERE run_id=?', (max(r['id'] for r in rows), len(rows), added, timestamp(), run))
@@ -148,7 +155,8 @@ class Ledger:
         total, done = counters['artifacts_total'], counters['completed_count']
         return dict(records=counters['records_read'], total=total, completed=done, succeeded=counters['succeeded_count'],
                     skipped=counters['skipped_count'], failed=counters['failed_count'],
-                    percent=round(100 * done / total, 2) if total else 100)
+                    percent=round(100 * done / total, 2) if total else 100,
+                    skipped_missing_url=counters['missing_url_count'])
 
     def cooldown(self) -> dict:
         return dict(self.conn.execute('SELECT * FROM cooldown WHERE singleton=1').fetchone())

@@ -26,6 +26,7 @@ class CreateTaskRunRequest(BaseModel):
     filters: dict[str, Any] = Field(default_factory=dict)
     request_payload: dict[str, Any] = Field(default_factory=dict)
     schedule_id: int | None = None
+    resume_from_task_run_id: int | None = Field(default=None, gt=0, strict=True)
 
 
 class TaskRunCreateResponse(BaseModel):
@@ -200,6 +201,19 @@ class TaskRunPagedUnitProgress(BaseModel):
     completed_truncated: bool = False
 
 
+class TaskRunAnnouncementProgress(BaseModel):
+    phase: Literal['planning','fetching','persisting','reconciling','completed','canceled','failed']
+    ann_date: str | None = None
+    page_number: int = Field(default=0, ge=0)
+    offset: int = Field(default=0, ge=0)
+    unit_done: int = Field(default=0, ge=0)
+    unit_total: int = Field(default=0, ge=0)
+    issued_requests: int = Field(default=0, ge=0)
+    updated_at: str | None = None
+    counters: dict[str, int] = Field(default_factory=dict)
+    quality_counts: dict[str, int] = Field(default_factory=dict)
+
+
 class TaskRunProgress(BaseModel):
     unit_total: int
     unit_done: int
@@ -215,6 +229,7 @@ class TaskRunProgress(BaseModel):
     current_object: TaskRunDisplayObject | None = None
     period_source_summary: TaskRunPeriodSourceSummary | None = None
     paged_unit_progress: TaskRunPagedUnitProgress | None = None
+    announcement_progress: TaskRunAnnouncementProgress | None = None
 
 
 class TaskRunIssueSummary(BaseModel):

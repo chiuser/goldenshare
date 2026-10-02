@@ -20,3 +20,6 @@ class TushareSourceConnector(SourceConnector):
         fields: Iterable[str] | None = None,
     ) -> list[dict[str, Any]]:
         return self.client.call(api_name=api_name, params=params, fields=fields)
+
+    def call_bounded(self, **kwargs):
+        return self.client.call_bounded(**kwargs)

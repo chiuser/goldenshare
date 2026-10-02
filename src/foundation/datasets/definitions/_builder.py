@@ -7,6 +7,7 @@ from typing import Any
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.freshness_policies import get_freshness_policy
 from src.foundation.datasets.models import (
+    AnnouncementExecutionPolicy,
     DatasetActionCapability,
     DatasetCapabilities,
     DatasetCompletenessDefinition,
@@ -103,6 +104,8 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         row=row.get("completeness"),
     )
     storage = DatasetStorageDefinition(**storage_row)
+    if planning_row.get("announcement_policy") is not None:
+        planning_row["announcement_policy"] = AnnouncementExecutionPolicy(**planning_row["announcement_policy"])
     planning = DatasetPlanningDefinition(**planning_row)
     _validate_source_fetch_safety(
         dataset_key=identity.dataset_key,
@@ -219,9 +222,9 @@ def _validate_source_fetch_safety(
         raise ValueError(
             f"数据集定义 {dataset_key} 的 max_source_rows_per_unit 必须为正整数"
         )
-    if planning.page_processing_mode != "buffer_all":
+    if planning.page_processing_mode not in {"buffer_all", "announcement_stream"}:
         raise ValueError(
-            f"数据集定义 {dataset_key} 的 max_source_rows_per_unit 只适用于 buffer_all"
+            f"数据集定义 {dataset_key} 的 max_source_rows_per_unit 只适用于 buffer_all/announcement_stream"
         )
     if (
         planning.pagination_policy == "offset_limit"

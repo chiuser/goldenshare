@@ -164,6 +164,10 @@ class DatasetStorageDefinition:
     serving_conflict_resolution_policy: str = "none"
     row_identity_filters: dict[str, str | int | bool] = field(default_factory=dict)
     replacement_scope_fields: tuple[str, ...] = ()
+    reconciliation_batch_rows: int | None = None
+    reconciliation_max_group_versions: int | None = None
+    reconciliation_statement_timeout_seconds: int | None = None
+    reconciliation_lock_timeout_seconds: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +181,14 @@ class DatasetUniverseDefinition:
     request_field: str
     override_fields: tuple[str, ...] = ()
     sources: tuple[DatasetUniverseSourceDefinition, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class AnnouncementExecutionPolicy:
+    max_pages_per_unit: int
+    max_requests_per_execution: int
+    max_response_bytes: int
+    source_call_timeout_seconds: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,10 +207,12 @@ class DatasetPlanningDefinition:
     unit_builder_key: str = "generic"
     fetch_concurrency: int = 1
     page_processing_mode: str = "buffer_all"
+    announcement_policy: AnnouncementExecutionPolicy | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class DatasetNormalizationDefinition:
+    preserve_raw_payload: bool = False
     date_fields: tuple[str, ...] = ()
     decimal_fields: tuple[str, ...] = ()
     required_fields: tuple[str, ...] = ()

@@ -24,6 +24,7 @@ from src.foundation.dao.observed_snapshot_dao import ObservedSnapshotDAO
 from src.foundation.dao.immutable_fact_dao import ImmutableFactDAO
 from src.foundation.dao.fund_portfolio_dao import FundPortfolioDAO
 from src.foundation.dao.row_key_hash_dao import RowKeyHashDAO
+from src.foundation.dao.anns_d_dao import AnnsDDAO
 from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.dao.stk_period_bar_adj_dao import StkPeriodBarAdjDAO
 from src.foundation.dao.stk_period_bar_dao import StkPeriodBarDAO
@@ -303,7 +304,7 @@ class DAOFactory:
         self.raw_broker_recommend = GenericDAO(session, RawBrokerRecommend)
         self.raw_bse_mapping = GenericDAO(session, RawBseMapping)
         self.raw_cctv_news = RawCctvNewsDAO(session)
-        self.raw_anns_d = RowKeyHashDAO(session, RawAnnsD)
+        self.raw_anns_d = AnnsDDAO(session)
         self.raw_irm_qa_sh = RowKeyHashDAO(session, RawIrmQaSh)
         self.raw_irm_qa_sz = RowKeyHashDAO(session, RawIrmQaSz)
         self.raw_major_news = RawMajorNewsDAO(session)

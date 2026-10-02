@@ -65,7 +65,7 @@ function createTaskRunItem(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createTaskRunView(overrides: Record<string, unknown> = {}) {
+export function createTaskRunView(overrides: Record<string, unknown> = {}) {
   const item = createTaskRunItem(overrides);
   const id = Number(item.id);
   const timeInput =

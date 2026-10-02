@@ -50,10 +50,17 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
         if not definition.storage.target_table.strip():
             issues.append(IngestionLintIssue(dataset_key, "missing_target_table", "target_table 不能为空"))
         storage = definition.storage
+        if storage.write_path == "raw_only_reconcile":
+            budgets = (storage.reconciliation_batch_rows, storage.reconciliation_max_group_versions,
+                       storage.reconciliation_statement_timeout_seconds, storage.reconciliation_lock_timeout_seconds)
+            if any(type(value) is not int or value < 1 for value in budgets):
+                issues.append(IngestionLintIssue(dataset_key, "reconciliation_budget_invalid", "reconcile预算必须为正整数"))
+            if not storage.raw_dao_name or not storage.raw_table or not definition.normalization.preserve_raw_payload:
+                issues.append(IngestionLintIssue(dataset_key, "reconciliation_storage_invalid", "reconcile需Raw DAO、表及原始载荷"))
         staged_write = storage.write_path == "serving_staged_immutable_scope_publish"
-        if definition.planning.page_processing_mode not in {"buffer_all", "staged_stream"}:
+        if definition.planning.page_processing_mode not in {"buffer_all", "staged_stream", "announcement_stream"}:
             issues.append(
-                IngestionLintIssue(dataset_key, "page_processing_mode_invalid", "planning.page_processing_mode 仅支持 buffer_all/staged_stream")
+                IngestionLintIssue(dataset_key, "page_processing_mode_invalid", "planning.page_processing_mode 仅支持 buffer_all/staged_stream/announcement_stream")
             )
         if staged_write:
             if definition.planning.page_processing_mode != "staged_stream":
@@ -353,7 +360,7 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
             issues.append(
                 IngestionLintIssue(dataset_key, "raw_storage_required", "非 serving_direct_upsert 写入路径必须配置 raw DAO 和 raw 表")
             )
-        if definition.transaction.commit_policy not in {"unit", "raw_then_serving"}:
+        if definition.transaction.commit_policy not in {"unit", "raw_then_serving", "batch"}:
             issues.append(
                 IngestionLintIssue(
                     dataset_key,
@@ -373,6 +380,15 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                     "raw_then_serving 仅允许 fund_daily 专用两阶段 write path 使用",
                 )
             )
+        streaming = definition.planning.page_processing_mode == 'announcement_stream'
+        policy = definition.planning.announcement_policy
+        if streaming:
+            if storage.write_path != 'raw_only_reconcile' or definition.transaction.commit_policy != 'batch' or definition.planning.fetch_concurrency != 1 or not policy:
+                issues.append(IngestionLintIssue(dataset_key,'announcement_stream_contract_invalid','公告流式执行必须专项写路径、批提交、单并发及冻结预算'))
+            elif any(type(x) is not int or x < 1 for x in (policy.max_pages_per_unit,policy.max_requests_per_execution,policy.max_response_bytes,policy.source_call_timeout_seconds,definition.planning.max_units_per_execution,definition.planning.max_source_rows_per_unit,definition.planning.page_limit)):
+                issues.append(IngestionLintIssue(dataset_key,'announcement_stream_budget_invalid','公告流式预算必须全部为正整数'))
+        elif policy is not None or definition.transaction.commit_policy == 'batch':
+            issues.append(IngestionLintIssue(dataset_key,'announcement_stream_not_allowed','公告预算和batch提交只能用于公告具名流式策略'))
         if definition.planning.max_units_per_execution is not None and definition.planning.max_units_per_execution <= 0:
             issues.append(
                 IngestionLintIssue(dataset_key, "invalid_max_units", "max_units_per_execution 必须大于 0")

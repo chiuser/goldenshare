@@ -50,6 +50,8 @@ class ManualActionCommandService:
         if route is None:
             raise WebAppError(status_code=404, code="not_found", message="手动任务不存在")
         resolved = ManualActionTaskRunResolver(route).resolve(body)
+        if body.resume_from_task_run_id is not None and (resolved.task_type != 'dataset_action' or resolved.resource_key != 'anns_d'):
+            raise WebAppError(status_code=422,code='validation_error',message='仅公告维护支持恢复任务')
         if resolved.task_type == "workflow":
             if not resolved.target_type or not resolved.target_key:
                 raise WebAppError(status_code=422, code="validation_error", message="手动工作流路由未配置")
@@ -87,6 +89,7 @@ class ManualActionCommandService:
                 request_payload=resolved.request_payload,
                 trigger_source="manual",
                 requested_by_user_id=user.id,
+                resume_from_task_run_id=body.resume_from_task_run_id,
             ),
         )
         return task_run.id

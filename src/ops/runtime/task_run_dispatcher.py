@@ -926,7 +926,8 @@ class TaskRunDispatcher:
         service = DatasetMaintainService(
             session,
             dataset_key=plan.dataset_key,
-            run_context=TaskRunIngestionContext(session),
+            run_context=TaskRunIngestionContext(session, independent_cancel=plan.execution_context is not None,
+                timeout_seconds=plan.execution_context['policy_snapshot']['storage']['reconciliation_lock_timeout_seconds'] if plan.execution_context else None),
             run_recorder=NullRunRecorder(),
             result_store=NullIngestionResultStore(),
         )
@@ -963,6 +964,11 @@ class TaskRunDispatcher:
         )
 
         rows_fetched = int(result.rows_fetched or 0)
+        if plan.execution_context is not None:
+            # Observation writes may have failed; carry the committed business summary
+            # through the normal Ops terminal transaction as well.
+            task_run.ingestion_diagnostics_json = dict(result.ingestion_diagnostics)
+            task_run.rows_deduplicated = result.rows_deduplicated
         rows_saved = int(result.rows_written or 0)
         rows_rejected = int(result.rows_rejected or 0)
         rejected_reason_counts = self._normalize_reason_counts(result.rejected_reason_counts)
@@ -1007,6 +1013,7 @@ class TaskRunDispatcher:
             requested_by_user_id=task_run.requested_by_user_id,
             schedule_id=task_run.schedule_id,
             run_id=task_run.id,
+            execution_context=(task_run.request_payload_json or {}).get('execution_context'),
         )
 
     def _prepare_dataset_action_request(self, session: Session, request: DatasetActionRequest) -> DatasetActionRequest:
@@ -1041,6 +1048,7 @@ class TaskRunDispatcher:
             "dataset_key": plan.dataset_key,
             "run_profile": plan.run_profile,
             "unit_count": plan.planning.unit_count,
+            "execution_context": plan.execution_context,
             "units_preview": [
                 {
                     "unit_id": unit.unit_id,

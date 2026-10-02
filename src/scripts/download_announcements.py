@@ -63,7 +63,6 @@ def execute(options, policy, control, volume, ledger, source, scope, client=None
             records += len(rows)
             del rows
             control.update(records=records, cursor=after)
-        source.close()
         ledger.phase(run, 'downloading')
         files = Files(volume, ledger, policy, control)
         kwargs = {'clock': clock} if clock else {}
@@ -72,6 +71,11 @@ def execute(options, policy, control, volume, ledger, source, scope, client=None
         while task := ledger.next_task(run):
             control.check()
             volume.assert_valid(full=True)
+            if not source.has_artifact(task):
+                ledger.state(task['artifact_key'], task['state'], 'source_record_replaced')
+                ledger.result(run, task['artifact_key'], 'skipped')
+                control.update(**ledger.stats(run), error='source_record_replaced')
+                continue
             active_key = task['artifact_key']
             control.update(ts_code=task['ts_code'], title=task['title'], error=None)
             try:
@@ -111,6 +115,7 @@ def execute(options, policy, control, volume, ledger, source, scope, client=None
     finally:
         if downloader:
             downloader.close()
+        source.close()
 
 
 def main(argv=None) -> int:

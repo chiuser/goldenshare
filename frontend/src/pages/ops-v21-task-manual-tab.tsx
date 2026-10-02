@@ -5,6 +5,7 @@ import {
   Grid,
   Group,
   Loader,
+  NumberInput,
   Select,
   SimpleGrid,
   Stack,
@@ -581,6 +582,8 @@ export function OpsManualTaskTab() {
   const [draft, setDraft] = usePersistentState(MANUAL_DRAFT_STORAGE_KEY, buildEmptyDraft());
   const [selectedDomain, setSelectedDomain] = usePersistentState<string>(MANUAL_DOMAIN_STORAGE_KEY, "");
   const [recentActionIds, setRecentActionIds] = usePersistentState<string[]>(MANUAL_RECENT_ACTIONS_STORAGE_KEY, []);
+  const [resumeFromTaskRunId, setResumeFromTaskRunId] = useState<number | string>("");
+  useEffect(() => setResumeFromTaskRunId(""), [draft.action_id]);
   const [createRecovery, setCreateRecovery] = useState<CreateRecoveryState | null>(null);
 
   const prefillTaskRunId = readSearchString(routerSearch, "from_task_run_id");
@@ -775,7 +778,9 @@ export function OpsManualTaskTab() {
       }
       return apiRequest<TaskRunViewResponse>(`/api/v1/ops/manual-actions/${encodeURIComponent(selectedAction.action_key)}/task-runs`, {
         method: "POST",
-        body: buildManualActionRequest(selectedAction, draft),
+        body: { ...buildManualActionRequest(selectedAction, draft),
+          ...(selectedAction.resource_key === "anns_d" && typeof resumeFromTaskRunId === "number" ? { resume_from_task_run_id: resumeFromTaskRunId } : {}),
+        },
       });
     },
     onSuccess: async (data) => {
@@ -1184,6 +1189,8 @@ export function OpsManualTaskTab() {
                       </Grid>
                     </Stack>
                   ) : null}
+
+                  {selectedAction.resource_key === "anns_d" ? <NumberInput label="续跑来源任务 ID（可选）" description="仅支持已停止的公告任务，日期范围和过滤必须一致；留空发起新观察。" min={1} allowDecimal={false} value={resumeFromTaskRunId} onChange={setResumeFromTaskRunId} /> : null}
 
                   <Stack gap="md">
                     <Group justify="flex-end" align="center">
