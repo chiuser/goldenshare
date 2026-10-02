@@ -15,6 +15,7 @@ from src.ops.catalog.dataset_catalog_view_resolver import resolve_default_datase
 
 def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert set(MAINTENANCE_ACTION_REGISTRY) == {
+        "maintenance.migrate_announcement_identity",
         "maintenance.rebuild_dm",
         "maintenance.rebuild_index_kline_serving",
         "maintenance.materialize_wealth_sector_heat_daily",

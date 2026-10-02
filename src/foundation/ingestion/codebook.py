@@ -32,6 +32,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("anns_d.source_deadline_exceeded", "公告源调用超过总期限", "source/executor", "核验公告预算、恢复范围或源行为"),
     IngestionCodebookEntry("anns_d.dataset_busy", "公告维护执行已被占用", "source/executor", "核验公告预算、恢复范围或源行为"),
     IngestionCodebookEntry("source_connection_failed", "上游单次连接未完成", "source/executor", "核验公告预算、恢复范围或源行为"),
+    IngestionCodebookEntry("anns_d.identity_migration_invalid", "公告身份迁移校验失败", "writer", "检查冻结摘要、异常ID与服务器恢复报告，禁止自动清洗或删除"),
     IngestionCodebookEntry("anns_d.identity_migration_required", "公告身份迁移未完成", "writer", "完成已审阅身份迁移后再恢复维护"),
     IngestionCodebookEntry("anns_d.identity_collision", "公告身份或分组哈希与字段不一致", "normalize/writer", "核验公告样本与保存规则"),
     IngestionCodebookEntry("anns_d.group_version_limit_exceeded", "公告候选组超过版本上限", "normalize/writer", "核验公告样本与保存规则"),

@@ -55,6 +55,7 @@ def plan(input_path: Path, output_path: Path) -> dict:
         manifest = hashlib.sha256()
         after = ''
         keep_count = 0
+        pending_rows = 0
         while True:
             next_group = conn.execute('SELECT group_key FROM input_rows WHERE group_key>? ORDER BY group_key LIMIT 1', (after,)).fetchone()
             if not next_group:
@@ -63,6 +64,9 @@ def plan(input_path: Path, output_path: Path) -> dict:
             candidates = conn.execute('SELECT id,old_hash,payload FROM input_rows WHERE group_key=? ORDER BY id LIMIT ?', (group, limit + 1)).fetchall()
             if len(candidates) > limit:
                 raise ValueError('anns_d.group_version_limit_exceeded')
+            if pending_rows + len(candidates) > definition.storage.reconciliation_batch_rows:
+                conn.commit()
+                pending_rows = 0
             rows = []
             for raw_id, old_hash, payload in candidates:
                 original = json.loads(payload)
@@ -84,8 +88,12 @@ def plan(input_path: Path, output_path: Path) -> dict:
                 manifest.update(json.dumps(entry, ensure_ascii=False, separators=(',', ':')).encode() + b'\n')
                 conn.execute('INSERT INTO candidates VALUES(?,?,?,?,?,?,NULL)', entry)
                 keep_count += int(action == 'keep')
-            conn.commit()
+            pending_rows += len(candidates)
+            if pending_rows >= definition.storage.reconciliation_batch_rows:
+                conn.commit()
+                pending_rows = 0
             after = group
+        conn.commit()
         header = dict(migration_token=str(uuid.uuid4()), contract_digest=digest(('anns_d','information_dominance_v1',definition.source.source_fields)),
                       high_water_id=conn.execute('SELECT coalesce(max(id),0) FROM input_rows').fetchone()[0],
                       candidate_count=count, keep_count=keep_count, delete_count=count-keep_count,

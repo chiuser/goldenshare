@@ -184,15 +184,17 @@ class OperationsWorker:
         task_run.status_reason_code = outcome.status_reason_code
         task_run.ended_at = now
         announcement = task_run.task_type == 'dataset_action' and task_run.resource_key == 'anns_d' and task_run.action == 'maintain' and (task_run.request_payload_json or {}).get('execution_context') is not None
-        if not announcement or final_status == 'success':
+        identity_migration = task_run.task_type == 'maintenance_action' and (task_run.request_payload_json or {}).get('target_key') == 'maintenance.migrate_announcement_identity'
+        preserve_business_progress = announcement or identity_migration
+        if not preserve_business_progress or final_status == 'success':
             task_run.rows_fetched = int(outcome.rows_fetched)
             task_run.rows_saved = int(outcome.rows_saved)
             task_run.rows_rejected = int(outcome.rows_rejected)
-        if not announcement:
+        if not preserve_business_progress:
             task_run.rows_deduplicated = int(outcome.rows_deduplicated)
         if outcome.ingestion_diagnostics is not None:
             task_run.ingestion_diagnostics_json = dict(outcome.ingestion_diagnostics)
-        elif final_status != "canceled" and not announcement:
+        elif final_status != "canceled" and not preserve_business_progress:
             task_run.ingestion_diagnostics_json = {}
         task_run.rejected_reason_counts_json = dict(outcome.rejected_reason_counts or task_run.rejected_reason_counts_json or {})
         task_run.rejected_reason_samples_json = dict(outcome.rejected_reason_samples or task_run.rejected_reason_samples_json or {})
@@ -204,7 +206,7 @@ class OperationsWorker:
             task_run.progress_percent = 100
         if final_status == "canceled":
             task_run.canceled_at = task_run.canceled_at or now
-        if announcement and task_run.current_node_id is not None:
+        if preserve_business_progress and task_run.current_node_id is not None:
             node = session.get(TaskRunNode, task_run.current_node_id)
             if node is not None and node.task_run_id == task_run.id:
                 node.status = final_status

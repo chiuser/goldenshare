@@ -101,6 +101,10 @@ CodeGraph 确认 `TaskRunDispatcher._dispatch_dataset_action` 会从 TaskRun 构
 
 公告专项路径由 `announcement_scope.freeze_execution` 冻结 execution_token、范围和策略摘要，Ops 保存意图并由 resolver 校验显式恢复。`announcement_stream.run_announcements` 按自然日流式抓取、500 行短事务保存，末批与业务凭证同事务；请求预算独立预占，TaskRun 观察不成为恢复依据。Tushare `call_bounded` 复用现有认证/限速，调用进程可被取消/期限终止。Foundation 不引用 Ops，其他数据集通用路径不变；本地验收及 Prod 未部署边界见[公告同步 LLD](../datasets/anns-d-sync-low-level-design-v1.md#12-p2-实现消费者与验收对账2026-10-02)。CodeGraph query/impact 与当前源码补核覆盖 executor、resolver、source、dispatcher/worker、API/手动表单；sync/status 已复核。
 
+### 公告一次性身份迁移入口（2026-10-02）
+
+维护动作 `maintenance.migrate_announcement_identity` 经现行 TaskRun dispatcher/GENERAL Worker，App 的 `ops_worker_factory` 注册 Ops `AnnouncementIdentityTaskExecutor`，调用 Foundation `services/migration/announcement_identity.py`。业务批次自己提交，Ops 独立观察；没有 Foundation 反向依赖或新增 Worker。CHECK/APPLY只服务存量身份迁移，日常公告同步仍走既有 DatasetExecutionPlan；范围、冻结摘要、取消续跑及生产尚未执行的边界见[公告LLD §14](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。本轮 CodeGraph explore覆盖dispatcher/worker/进度适配器并补充源码核对，sync/status索引正常；此入口尚未部署。
+
 ### DatasetDefinition 到运营前端的契约链
 
 ```text

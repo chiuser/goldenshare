@@ -1172,3 +1172,19 @@ def test_ops_manual_action_task_run_rejects_unknown_filter(app_client, user_fact
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
+
+
+def test_announcement_identity_check_catalog_and_submit(app_client,user_factory,db_session):
+    headers=_admin_headers(app_client,user_factory)
+    catalog=app_client.get('/api/v1/ops/manual-actions',headers=headers).json()
+    actions={a['action_key']:a for g in catalog['groups'] for a in g['actions']}
+    key='maintenance.migrate_announcement_identity'
+    assert key in actions
+    response=app_client.post(f'/api/v1/ops/manual-actions/{key}/task-runs',headers=headers,
+        json={'filters':{'start_id':1,'end_id':500,'state_path':'/data/disk/announcements/identity-check.json','execution_mode':'CHECK'}})
+    assert response.status_code==200,response.text
+    from src.ops.models.ops.task_run import TaskRun
+    record=db_session.get(TaskRun,response.json()['run']['id'])
+    assert record.request_payload_json['execution_mode']=='CHECK'
+    assert record.request_payload_json['start_id']==1 and record.request_payload_json['end_id']==500
+    assert record.status=='queued'

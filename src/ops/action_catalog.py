@@ -162,6 +162,22 @@ PLAN_HASH_PARAM = ActionParameter(
     description="APPLY 必须提交被引用 PLAN 的不可变哈希。",
 )
 MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
+    "maintenance.migrate_announcement_identity": MaintenanceActionDefinition(
+        key="maintenance.migrate_announcement_identity", display_name="迁移公告身份",
+        domain_key="maintenance", domain_display_name="维护动作",
+        description="服务器分批校验并仅更新公告身份，保留全部公告内容。",
+        executor_key="announcement_identity", schedule_enabled=False,
+        execution_config={"target_tables": ("raw_tushare.anns_d",)},
+        parameters=(
+            ActionParameter(key="execution_mode", display_name="执行模式", param_type="enum", options=("CHECK", "APPLY"), description="先校验，再按已审阅摘要迁移。", default_value="CHECK"),
+            ActionParameter(key="start_id", display_name="起始ID", param_type="integer", description="包含起始公告ID。", required=True),
+            ActionParameter(key="end_id", display_name="截止ID", param_type="integer", description="包含截止公告ID。", required=True),
+            ActionParameter(key="state_path", display_name="服务器校验文件", param_type="string", description="已有服务器目录下的绝对路径；只保存摘要。", required=True),
+            ActionParameter(key="expected_state_digest", display_name="已审阅摘要", param_type="string", description="APPLY必填，来自CHECK结果。"),
+            ActionParameter(key="recovery_report_path", display_name="服务器恢复报告", param_type="string", description="APPLY必填，已完成该表备份恢复演练的报告路径。"),
+            ActionParameter(key="finalize", display_name="完成最终切换", param_type="boolean", description="仅全表APPLY校验通过后设置分组非空约束。", default_value=False),
+        ), default_params={"execution_mode":"CHECK", "finalize":False},
+    ),
     "maintenance.rebuild_dm": MaintenanceActionDefinition(
         key="maintenance.rebuild_dm",
         display_name="刷新数据集市快照",

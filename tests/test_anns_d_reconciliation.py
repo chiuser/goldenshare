@@ -334,3 +334,42 @@ def test_real_tushare_sample_end_to_end_in_isolated_postgres(session):
     assert json.loads(physical[0]['raw_payload'])==rows[1]
     counters=result.persistence_diagnostics['announcement_reconciliation']
     assert (counters['processed'],counters['inserted'],counters['covered'],counters['identical'])==(2,1,1,0)
+
+
+def test_offline_plan_batches_commits_without_splitting_groups(tmp_path,monkeypatch):
+    from src.scripts.plan_announcement_identity_migration import verify_plan
+    real_connect=sqlite3.connect
+    deltas=[]
+    class TrackedConnection(sqlite3.Connection):
+        previous_changes=0
+        def commit(self):
+            deltas.append(self.total_changes-self.previous_changes)
+            super().commit()
+            self.previous_changes=self.total_changes
+    monkeypatch.setattr('src.scripts.plan_announcement_identity_migration.sqlite3.connect',
+        lambda *args,**kwargs:real_connect(*args,**{**kwargs,'factory':TrackedConnection}))
+    rows=[dict(id=i+1,row_key_hash=f'{i+1:064x}',ann_date='2023-06-09',ts_code='155162.SH',
+               name='19津投04',title=f'公告{i}',url='U',rec_time=None) for i in range(900)]
+    for i in range(128):
+        rows.append(dict(id=901+i,row_key_hash=f'{901+i:064x}',ann_date='2023-06-09',ts_code='155162.SH',
+                         name='19津投04',title='非空冲突',url=f'URL{i}',rec_time=None))
+    rows.extend([{**rows[0],'id':1029,'row_key_hash':f'{1029:064x}'},
+                 {**rows[0],'id':1030,'row_key_hash':f'{1030:064x}','url':None}])
+    source=tmp_path/'source.jsonl';output=tmp_path/'plan.sqlite'
+    source.write_text(''.join(json.dumps(row,ensure_ascii=False)+'\n' for row in rows))
+    header=plan(source,output)
+    assert verify_plan(output,expected_manifest_digest=header['manifest_digest'])==header
+    assert (header['candidate_count'],header['keep_count'],header['delete_count'])==(1030,1028,2)
+    assert max(deltas)<=500
+    assert len(deltas)<15  # Hundreds of groups must not result in hundreds of durable commits.
+
+
+def test_failed_plan_draft_has_no_frozen_header(tmp_path):
+    rows=[dict(id=i+1,row_key_hash=f'{i+1:064x}',ann_date='2023-06-09',ts_code='155162.SH',
+               name='19津投04',title='超限组',url=f'URL{i}',rec_time=None) for i in range(129)]
+    source=tmp_path/'source.jsonl';output=tmp_path/'draft.sqlite'
+    source.write_text(''.join(json.dumps(row)+'\n' for row in rows))
+    with pytest.raises(ValueError,match='group_version_limit_exceeded'):plan(source,output)
+    with sqlite3.connect(output) as conn:
+        assert conn.execute('SELECT count(*) FROM header').fetchone()[0]==0
+    with pytest.raises(FileExistsError):plan(source,output)

@@ -1,6 +1,6 @@
 # 上市公司公告同步完善 LLD v1
 
-更新时间：2026-10-02。状态：P1/P2 源码与本地隔离验收完成；P3/P4 尚未执行，Prod 未变更。物理去冗余按用户已确认的保守覆盖规则实施。[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)定义业务原则，本文件是实施与验收约束。按[开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)填写专项设计；0.3.5 摘要同步回原维护说明。
+更新时间：2026-10-02。状态：P1/P2 已部署（Prod SHA 1ceeef5d，Alembic 182）；P4 存量迁移准备中，身份 APPLY 和 P3 真实同步验收未执行。物理去冗余按用户已确认的保守覆盖规则实施。[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)定义业务原则，本文件是实施与验收约束。按[开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)填写专项设计；0.3.5 摘要同步回原维护说明。
 
 ## 1. 目标合同及文件影响面
 
@@ -242,3 +242,119 @@ P2新增 planning.announcement_policy：max_pages_per_unit=500、max_requests_pe
 下一阶段 P3：在已批准的代表性范围做目标环境最小真实运行—取消—续跑—读回，对账输入、拒绝、物理集合、页面更新间隔、RSS 和耗时。P4：另行批准结构/身份存量迁移、备份与恢复方案及 APPLY/部署/补录；未获阶段授权前不执行 Prod 写入或大范围同步。PDF 下载后续 M2/M3 仍待前置验收完成。
 
 最终本地检查：一次合并影响面回归 511 项通过（未重复相加）；前端 31 项、Playwright 1 项通过，typecheck/build/check:rules、Definition lint、唯一 Alembic head 182、文档完整性及 diff 空白检查通过。临时 PostgreSQL 集群已停止；没有安装依赖、提交、推送、Prod/Lake/外盘写入。
+
+
+## 13. Prod 就绪核验与 P4 前置准备（2026-10-02，首份数据库快照13:57北京时间）
+
+当前状态：用户已部署，SSH 只读核实 /opt/goldenshare/goldenshare 的提交为 1ceeef5d2a0763874fdd045378531251ff867d5c；Web、Ops worker、scheduler 均 active。数据库 public.alembic_version 为 20261002_000182，url/rec_time 已可空；迁移两表与完成凭证/请求预算两表存在。group_key 仍可空，按主键首20行的分组均 NULL；迁移 header、业务完成凭证、请求预算查询各自最多5行，均返回0行。当前活动 TaskRun 查询最多20行返回0行，活动公告节点亦0行。此结论是有时点的只读状态，不代表后来不会自动提交任务或已有全量迁移。
+
+因此 P2 代码虽已部署，维护入口仍受 require_identity_ready 门禁限制。执行顺序应按依赖推进：P4 全量存量候选/恢复材料/身份切换 → P3 代表性新同步验收 → 分批历史补录；阶段编号不能替代前置依赖。§12 是部署前本地验收记录，其“未部署”只描述当时状态，不再代表当前 Prod。原14075没有冻结 execution_context，不能直接拿它做新机制的 resume_from_task_run_id；迁移后补历史应创建新观察，续跑只能关联新机制产生且已停止的任务。
+
+### 13.1 只读事实、范围与限制
+
+通过现有 bash scripts/psql-remote.sh/.env.web.local 访问 goldenshare Prod PostgreSQL 16.13；仅目录元数据及指定表投影。每段 BEGIN READ ONLY，查询期限15秒（补核设置5秒），无 DDL/DML；不用临时 Python 客户端另开连接。SSH 核对提交、工具、文件系统与服务状态，不重启、不安装、不修改 Git 配置。最初以SSH当前用户读Git触发 ownership 校验，改用仓库实际所属 goldenshare 用户查询；没有添加 safe.directory。既有 pg_dump/pg_restore 均16.13，与服务器版本匹配。
+
+| 核验项目 | 本次证据 | 解释 |
+| --- | --- | --- |
+| 日期范围 | ann_date 索引首尾为2020-01-01、2026-09-30 | 当前物理存量时间边界，不证明源站从2020才有公告或每日完整 |
+| 主键高水位 | 8091712 | 候选扫描上界，不是行数；主键有空洞 |
+| 目录估计 | 7969302 行 | pg_class 估计，不做全表 count 发现规模 |
+| 物理大小 | 表2580774912字节，索引1546878976字节 | 约3.844GiB合计，非导出/备份/迁移临时空间总和 |
+| 身份门禁 | group_key nullable，首20个id均缺分组 | 新写入将报 identity_migration_required；包括空日 |
+| 部署状态 | SHA1ceeef5d，Alembic182，三个服务active | 部署完成与业务就绪必须分开判定 |
+| 当前运行 | 活动TaskRun/公告节点0；最近公告任务仅14075、310 | 查询有时点，不永久暂停自动任务 |
+| 磁盘 | 根盘可用30709004KiB（约29.29GiB），HDD可用268433316KiB（约256.00GiB） | 根盘已89%使用；不得把所有候选、备份及恢复库放根盘后再测容量 |
+| 表空间 | Raw、所有公告索引、映射和凭证均pg_default；HDD表空间另存在 | pg_default不等于已核实的物理盘；当前连接看不到data_directory，实际PGDATA挂载及WAL路径仍需维护前核验 |
+
+只读报告 /private/tmp/anns-prod-readiness-20261002.txt、anns-prod-readiness-detail-20261002.txt；对应 SQL 留在同目录，均未导出公告标题/URL正文。访问目录统计、45条列元数据、6条索引定义、view定义、两条历史公告任务，以及20条id/日期/缺分组布尔样本；其余有界任务/凭证/清单结果为空。表空间16条目录项，不做业务全表扫描。
+
+### 13.2 PLAN 性能前置改造与配置对账
+
+现有离线工具没有生产 APPLY。本轮只改 src/scripts/plan_announcement_identity_migration.py：候选阶段按已有 Definition.storage.reconciliation_batch_rows=500 累积提交，完整分组不拆开；加入下一组会超500时先提交上一批。128个版本的组上限继续来自原storage配置。input阶段原本即500行提交；最终header仍在全部分组校验、最后批提交后冻结，失败草稿没有冻结header。没有新配置、CLI开关、数据库结构或业务合并规则。
+
+本地合成20000行/20000组基准：每组提交耗时7.795秒，批提交1.299秒；完整源摘要与候选manifest摘要完全一致。父进程峰值RSS153.48MiB（包含Python环境），输入5406674字节、最终SQLite17330176字节。SQLite保留临时页的物理容量，不能按候选表逻辑列宽低估文件。基准仅说明本地PLAN开销，不代表Prod读写速度；不能按比例承诺全量ETA。
+
+正向测试含900个普通组、128个非空冲突版本、完全重复与缺URL覆盖样本，跨批仍保留1028/删除2、每次持久提交的变更量不超过500；负向测试129版本失败不冻结且拒绝覆盖已有草稿。专项4项全部通过；离线相关扩大回归20项通过、2项需要隔离PG的用例跳过、7项不在本轮范围。没有修改持久业务数据，因此未重跑P2整套511项或前端；本次只新增本地PLAN测试。CodeGraph query迁移入口、impact RawAnnsD，动态消费者补读script/六字段覆盖contract/专项DAO/迁移181、182/测试；依赖矩阵不变。
+
+### 13.3 完整候选的待批准导出与执行约束
+
+用户要求按步骤推进后，尝试安排全量只读导出，被自动审批拒绝：约809万行的公告title、URL、时间及哈希导出到本地属于大规模数据出域，现有概括授权没有明确覆盖该payload、规模和目的地。命令未执行，不换路径/工具绕过。随后只在本地生成待审阅SQL，没有source.jsonl，没有新迁移token、全量candidate_count/keep_count/delete_count/manifest_digest，也没有Prod写入。
+
+待授权的具体动作：raw_tushare.anns_d，所有上市/债券代码，不按股票池过滤；id从1到8091712，最多8091712行（估计约797万）。显式投影id、row_key_hash、ann_date、ts_code、name、title、url、rec_time，不含raw_payload、其他表或凭据。按主键窗口每批最多2000行，独立短只读事务与15秒查询期限；不用全历史长事务，不以OFFSET扫描。目的地 /private/tmp/anns-p4-prod-plan-20261002/source.jsonl；离线冻结候选及审阅报告放同一目录，已有本机约226.47GiB可用空间。SQL为同目录export.sql，暂不执行。产物含全量业务数据，未经管理员指令不另行上传、传播或删除。
+
+逐批导出不是一致性快照：必须确认维护窗口内公告写入已停、守住同一执行锁，并在候选冻结与APPLY前核验高水位、完整集合及各行源内容/旧hash未变化；一致性无法证明则草稿不能放行。候选需真实统计保留、完全重复删除、覆盖删除及非空冲突，冻结摘要；不能把68行样本删除0推为全量删除0。
+
+APPLY仍待专项实现与验证：先定实际恢复备份路径、表清单、保留期与权限；建议恢复材料放已核验有空间的HDD，不能未经确认就写目录。使用匹配的原生pg_dump/pg_restore，先核验备份和隔离恢复；archive_mode=off，不能假定已有PITR恢复链。申请APPLY前给出实际冻结token/数量/摘要、备份读回/恢复证明、事务预算、预计空间及维护窗口。没有这些材料不物理删除。
+
+迁移每次以完整分组为业务提交/恢复unit（组≤128、批≤500），旧hash和当前内容一致才更新身份/删已证明冗余，applied_at与业务变更同短事务；中断保留已提交组并按冻结清单重放。沿用公告执行try advisory lock，禁止与维护并跑。旧唯一hash索引的中间冲突按§3设计处理，不造临时业务hash、不开放新旧双轨；最终校验保留集合、哈希唯一、group_key全量非空及view投影，再恢复唯一约束和NOT NULL门禁。恢复方案须区分仅更新身份和已经物理删除两种情况。
+
+迁移执行器的Ops意图入口、任务/节点观测及终态、索引建造时的取消/进度设计，必须在APPLY编码前完成0.3.5代码/测试映射；现有离线PLAN不能冒充已经支持这些功能。全量生产APPLY和历史补录尚未授权或执行。
+
+## 14. 存量迁移简化复评（2026-10-02）
+
+本节取代§3/§7/§13对本次正常旧存量默认生成全量删除候选、导出本机及移除唯一索引的执行设想；新同步的六字段身份、保守覆盖合同不变。管理员要求服务器侧处理、不导出到本机。本节为复评方案，迁移代码、生产写入与最终切换均未执行；不是已经通过全量证明。
+
+### 14.1 旧代码能排除什么
+
+核对提交59064b9f（P1前）的 ingestion/row_transforms.py、datasets/definitions/news.py、models/raw/raw_anns_d.py、dao/factory.py和RowKeyHashDAO：旧转换及Definition拒绝缺URL/rec_time，原表两列NOT NULL；title/code/date必填。旧hash为SHA256的分隔串[anns_d,ann_date,ts_code,title,url,rec_time.isoformat()]，不含name；DAO按hash upsert且唯一索引防重复，同键name差异不会各留一条，而是更新同一行。
+
+所以正常旧路径下没有缺URL/时间的残缺行，也没有相同五字段仅name缺失不同的两行。若旧时间统一Asia/Shanghai编码、字段已按旧规则归一，则在同date/code/title组中，不同存量行必有不同非空URL或rec_time；这些都是保守规则要求保留的冲突版本。name可空本身不构成覆盖：覆盖还要求URL和时间相同，而相同五字段已经被旧hash唯一化。之前被拒或同旧hash覆盖掉的数据不在表里，身份迁移不能恢复，须之后重新拉源。
+
+这个结论以旧写入实际一致为前提。旧解析器允许显式时区，hash时间字符串保留该时区，而PostgreSQL按时间点存储；不能从唯一索引直接推导规范化时间后的五字段唯一。人工写入、其他历史写入、未归一字段同样不能凭样本排除。因此逐批校验必须覆盖这些前提，不能直接宣布全表没有冗余。
+
+### 14.2 本轮只读证据
+
+通过既有psql-remote.sh执行READ ONLY，SQL超时15秒、锁超时3秒。三个主键窗口1..2000、4045000..4046999、8089713..8091712各LIMIT2000，实际2000/2000/890，共4890行。数据库端聚合仅返回计数，没有公告字段内容出域。三窗口missing_url、missing_rec_time、missing_name、五字段重复、title/url旧分隔符、已填group_key均0；row_key_hash唯一索引indisunique/indisvalid/indisready均true，无活动anns_d任务。SQL文件/private/tmp/anns-simplification-audit.sql只含查询语句，不含公告数据。样本不是全表证明。
+
+### 14.3 推荐执行范围：只迁移身份，不清理公告
+
+服务器进程使用当前Python身份函数，按主键分页读取，沿用500行短事务预算；不生成JSONL全量副本、不使用本机离线SQLite候选，不默认填充约800万条keep映射。仅更新row_key_hash/group_key，保留id及六业务字段、raw_payload、api_name、fetched_at；不DELETE，不合成/修补业务字段，不提前DROP唯一索引。
+
+每批先核验字段满足旧归一规则、URL/时间非空，并以数据库时间转Asia/Shanghai重构旧公式核对old_hash；新身份直接由当前anns_d_contracts.identity生成。旧公式不符可能是显式时区或其他路径，统一停止并报告有界异常证据，不猜测、不改字段来通过。批次UPDATE必须核对读取时old_hash和实际业务字段，防止读取后变化；新hash唯一索引冲突也回滚当前批并停止，不删行、不移除索引绕过。旧公式校验通过且业务字段已经归一的完整集合，五字段规范相同意味着旧hash相同，唯一索引排除了完全重复和name覆盖冗余；因此不需要对每组生成删除方案。中间新旧摘要若发生索引冲突，同样停下单独评估。
+
+维护期间公告写入关闭，持有现行公告执行串行锁，当前group_key NOT NULL门禁持续关闭新同步。group_key与new_hash同事务写入；group_key非空是已提交身份事实，续跑须验证新hash与实际字段相符后才能跳过，不只信任Ops游标。尚未提交批可重试，已提交批保留。固定高水位和合同指纹，检测范围漂移；进度由已提交量、当前位置和时间表达，取消前后有检查点，观察失败不回滚业务。沿用既有TaskRun观测要求，不新建调度系统或通用迁移平台；具体入口/进度持久化映射仍须在编码前落定。
+
+全部批完成后核验行数不变、ID集合/业务字段不变、全量身份正确、无未迁移行、唯一索引有效及view投影正确，再SET group_key NOT NULL放行。全量核验也在服务器分批进行，摘要/计数和必要有界异常报告可审阅，不返回全量公告内容。并发停止和最终DDL锁时限需要在最小演练中确认。
+
+仍保留服务器侧针对该表的恢复材料及小范围恢复验证：即便不DELETE，全表身份更新也不能没有恢复依据。只备份/验证本次涉及的表，不扩展为整库恢复工程；路径、空间、保留期和恢复权限要在执行前明确。容量/耗时/WAL测量使用小范围身份更新演练，不能用本机SQLite性能推算。
+
+发现异常时只分析异常范围并再评审；不自动升级为全量清洗。后续历史重拉使用已实现的新DAO完成保守覆盖和物理去冗余，迁移不替代补录。旧离线PLAN保留为既有工具，本次不再优化或作为默认生产前置。
+
+### 14.4 剩余验收
+
+编码前补齐服务器身份迁移入口、合同冻结、取消/退出/续跑与现行TaskRun映射；测试正常旧行全保留、name缺失不误删、旧显式时区异常停止、新hash冲突不DROP索引、批次事务回滚、观察失败不回滚业务。服务器小范围演练需证明行数/字段不变、取消续跑和真实耗时/空间，然后再全量身份迁移；完成后进入P3真实同步验收，最后分批补回旧规则拒绝的数据。
+
+### 14.5 精简实现合同（编码前冻结）
+
+入口复用维护动作maintenance.migrate_announcement_identity，GENERAL Worker注册专项executor，不增加Worker/lane。动作不参与调度；现有维护API、手动操作页面、重试、停止与详情页面消费动态catalog；不新增CLI命令，不改变anns_d日常维护合同。单个维护节点内执行有界批次，节点/TaskRun终态由现有dispatcher/worker收尾。
+
+参数审计：execution_mode=CHECK默认，仅CHECK/APPLY；start_id/end_id必填正整数且包含边界；state_path必填服务器绝对路径，保存几KB冻结摘要而非公告；recovery_report_path可空但APPLY必填，指向运营核验的该表备份/恢复报告；expected_state_digest可空但APPLY必填，来自已审阅CHECK结果，按固定JSON键排序计算并复核；finalize默认false，只有APPLY且start_id=1/end_id=真实全表高水位可用。上述均为TaskRun请求意图，持久化ops.task_run.request_payload_json，经catalog/API校验到专项executor；不是env或新增Settings。批次500、事务期限25秒、锁期限5秒继续取Definition.storage；修改预算/实现身份函数会改变冻结指纹，旧CHECK必须重做。服务不创建参数目录，不执行备份命令或自动清理文件。执行仅允许数据库本机loopback或本机绝对路径Unix socket连接，避免本地Worker远程加载Prod公告字段。
+
+CHECK持有公告执行锁，按id升序LIMIT500、每批短READ ONLY事务，验证旧公式/新身份（已经迁移行需验证两字段正确），对id和全部非身份列做流式摘要、统计实际数量并记录全表高水位；每批原子保存不可执行draft统计，完整扫描才原子冻结state_path。冻结文件绑定数据库连接身份（无密码）、代码合同指纹和范围；APPLY重新全量读回摘要相符后才更新，摘要不匹配停止。冻结文件不含公告字段、逐行映射或新增状态机。
+
+APPLY要求服务器恢复报告列明database（与冻结连接身份相同）、table、start_id/end_id、backup_path、backup_sha256、restore_verified_at。校验范围覆盖、备份文件存在及摘要相符，恢复验证由运营真实演练出具报告，不把填写时间当作自动证明恢复成功。文件读取分块检查取消；迁移不替运营执行恢复或删除备份。批次用行锁和读取值条件保护，只有两列UPDATE；事务累计限时，取消检查在批次前后及提交前。已转换行重新计算身份后跳过，恢复无需逐行映射。进度每批更新阶段、当前id、实际完成/总量/时间，CHECK未知总量不伪造百分比；APPLY按已提交身份数量计进度，校验阶段保持完成量不倒退，最终切换前显示暂无法估算ETA。观察失败只告警。
+
+最后再次按批全量核验业务摘要、行数与新身份；保留有效唯一索引。finalize须覆盖全表且无NULL group_key，SET NOT NULL在限时短事务内执行，不自动延长锁/事务；超时停下保留已迁移批。核心代码不依赖Ops，适配器只透传取消/进度，dispatcher既有终态机制保持。没有新增DatasetDefinition/ExecutionPlan合同、数据库迁移或配置默认；真实备份路径/保留期及生产具体执行仍以演练结果和阶段授权为准。
+
+### 14.6 实现与交付账本
+
+精简代码已落地，尚未提交/部署或生产执行：Foundation migration/announcement_identity.py提供服务器本机连接限定、CHECK冻结/复核、逐批身份UPDATE、数据库事实续跑和限时最终切换；Ops announcement_identity_task_executor.py只适配现行TaskRun取消/进度；action_catalog与App worker factory注册GENERAL维护动作。Worker仅针对该迁移动作保留取消/失败时的已提交量，并与活动节点统一终态，其他维护动作不改口径。没有新DDL迁移、DatasetDefinition/ExecutionPlan合同变更、Worker/lane或业务字段修改。
+
+冻结/恢复JSON读取固定上限16KiB，来源为migration模块MAX_METADATA_BYTES，仅read_metadata消费，无运营开关或env配置，新版本生效；文件路径仍为任务意图。备份摘要按1MiB流式读取，批内取消探测节流200ms，批次边界/提交前强制探测；每5秒或备份核验结束报告已核验字节。身份批次用一条Core executemany提交最多500个UPDATE，行锁加原始业务字段/old_hash条件；错误只回报有界id范围和SQLSTATE，不将公告内容嵌入SQL参数异常日志。最终唯一索引重新检查，全表SET NOT NULL继续限时；普通view无需修改，隔离读回验证其行数和新身份。
+
+| 约束 | 实现 | 验证 |
+| --- | --- | --- |
+| 只更新身份、正常旧存量全保留 | validate_row/old_identity；UPDATE只列group_key/row_key_hash；全业务列含id/fetched_at/raw_payload流式摘要 | name空/不同非空URL/时间、业务字段逐行相同、物理行数相同、view读回 |
+| 异常停止、保留索引 | 旧公式/已迁移身份/冻结摘要/高水位/唯一索引核验 | 显式时区、缺值、未归一、SQLSTATE23505、读取后业务漂移、篡改冻结文件、超16KiB元数据 |
+| 内存与事务有界 | Definition500行预算、25秒累计批期限/5秒锁限时、短独立读/写事务；1MiB文件块 | 实测40写批且每批≤500；事务失败/提交前取消整批回滚 |
+| 持久化续跑及观察隔离 | 两身份列同事务提交，重算验证后跳过已完成行；独立TaskRun观察 | 500行提交后取消、SystemExit及实际os._exit(17)后新进程续跑、重放、观察故障不回滚 |
+| 正式入口与终态 | 维护API→现有dispatcher→GENERAL Worker；新Ops适配器及限定worker收尾 | API CHECK真实提交、成功/失败/取消TaskRun与节点一致、既有Ops/API/架构回归 |
+| 恢复材料和最终切换 | 报告绑定数据库与范围，备份文件摘要复核；只有完整范围可finalize | 隔离pg_dump/pg_restore新库演练及原字段读回、缺报告/错摘要/部分范围切换拒绝 |
+
+验证使用既有PostgreSQL18任务专属socket/private/tmp/anns-p1-pg-socket-20261002，每例新建隔离数据库，不触及正式本地库或Prod，不安装依赖。专项增加真实进程强制退出和原生备份恢复；性能测量的合成恢复资料明确只用于计时，不充当生产恢复证明。相关API/运行时/架构回归及ingestion-lint-definitions、docs integrity、diff检查通过，CodeGraph explore核验dispatcher/worker/进度适配器影响面，补充当前API/query/frontend通用消费者源码，sync/status正常。
+
+隔离2万行性能：CHECK0.604秒；APPLY加前后读回及最终切换2.044秒；40个写批、最大500行；进度报告最大间隔0.031秒；整个基准进程峰值RSS192,413,696字节（含测试/应用导入），WAL生成22,031,568字节，表加索引19,046,400字节。冻结文件509字节，没有逐行映射或公告副本。报告/private/tmp/anns-identity-performance-20261002/performance.json。合成记录字段长度与Prod不同，不能线性承诺Prod耗时/峰值WAL/磁盘空间。
+
+本轮Prod只读补核：原生PG16的data_directory=/var/lib/postgresql/16/main，base和pg_wal没有重定向，落系统盘；该盘可用31,318,720KiB约29.87GiB、89%使用。/data/disk可用268,432,956KiB约256GiB，但root:root/755，goldenshare无目录创建权限。运行Worker按GOLDENSHARE_ENV_FILE与当前Settings文件优先规则解析/etc/goldenshare/web.env，数据库host127.0.0.1、port5432、库goldenshare；仅输出位置/host/port/库名，不输出凭据。没有改变配置、创建服务器文件或写生产数据。
+
+下一步部署Web和GENERAL Worker（catalog与executor需同版），准备服务器/data/disk/goldenshare/anns_identity_migration/20261002工作目录及goldenshare权限，在该目录保存冻结小文件和该表原生恢复材料。该路径是具体演练提案，尚未创建、未备份；保留期/恢复权限在执行前确认，禁止自动清理。先CHECK id1..2000、review state_digest；完成针对raw_tushare.anns_d的服务器备份/隔离恢复验证报告后，小范围APPLY finalize=false，进行运行—取消—续跑—读回及实际WAL/空间测量。部署和生产具体演练尚未执行，不把本地结果当Prod通过。小范围通过后再CHECK冻结全表、明确全量空间/恢复范围和阶段授权，最终APPLY/finalize；之后进入P3源同步验收，再补历史拒绝数据。
