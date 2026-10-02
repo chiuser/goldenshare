@@ -71,6 +71,7 @@ docs/
 - [ETF Basic 治理 LLD（含旧池退场账本；保留当时 SZ/实时待验证据）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 - [ETF 历史分钟维护说明（已合并 LLD；Basic 资格、只读 Preview 与 2026-08-29 指定区间验收）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
 - [ETF 日线与复权因子 DG 数据湖接入技术方案 v1（已结案，历史与日常链验收及治理门禁已闭环）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-plan-v1.md)
+- [DG 股票周线备用源 Raw 补齐方案 v1（方案稿完成，完整 LLD 待补；不在 Prod 回补）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)
 - [ETF 日线与复权因子 DG 数据湖接入 LLD v1（已结案，固定治理回归与事后修复证据已补齐）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-low-level-design-v1.md)
 - [ETF 日线与复权因子 DG 接入 P0 真实验证报告（开发门禁已通过，21:00 复验转为启用前门禁）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md)
 - [ETF 日线与复权因子 DG 接入 P2 最小真实样本验收（通过，仅写隔离目录）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-p2-real-sample-2026-09-02.md)

@@ -1,0 +1,83 @@
+{
+  "audited_at": "2026-10-03",
+  "point_requests": [
+    {
+      "api": "weekly",
+      "ts_code": "000001.SZ",
+      "trade_date": "20260925"
+    },
+    {
+      "api": "stk_weekly_monthly",
+      "ts_code": "000001.SZ",
+      "trade_date": "20260925",
+      "freq": "week"
+    }
+  ],
+  "point_results": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260925\", \"end_date\": \"20260930\", \"freq\": \"week\", \"open\": 11.7, \"high\": 11.75, \"low\": 11.29, \"close\": 11.3, \"pre_close\": 11.7, \"vol\": 3527557.0, \"amount\": 4080639.78, \"change\": -0.4, \"pct_chg\": -3.42}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ],
+  "range_requests": [
+    {
+      "api": "weekly",
+      "ts_code": "000001.SZ",
+      "start_date": "20260901",
+      "end_date": "20260930"
+    },
+    {
+      "api": "stk_weekly_monthly",
+      "ts_code": "000001.SZ",
+      "start_date": "20260901",
+      "end_date": "20260930",
+      "freq": "week"
+    }
+  ],
+  "range_results": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260930\", \"close\": 11.57, \"open\": 11.28, \"high\": 11.65, \"low\": 11.27, \"pre_close\": 11.3, \"change\": 0.27, \"pct_chg\": 0.0239, \"vol\": 245167797.0, \"amount\": 2801023477.07}, {\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260924\", \"close\": 11.3, \"open\": 11.7, \"high\": 11.75, \"low\": 11.29, \"pre_close\": 11.7, \"change\": -0.4, \"pct_chg\": -0.0342, \"vol\": 352755700.0, \"amount\": 4080639783.47}, {\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260918\", \"close\": 11.7, \"open\": 11.73, \"high\": 11.9, \"low\": 11.56, \"pre_close\": 11.74, \"change\": -0.04, \"pct_chg\": -0.0034, \"vol\": 399108894.0, \"amount\": 4682178103.77}, {\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260911\", \"close\": 11.74, \"open\": 11.87, \"high\": 11.88, \"low\": 11.65, \"pre_close\": 11.89, \"change\": -0.15, \"pct_chg\": -0.0126, \"vol\": 411019053.0, \"amount\": 4831448655.28}, {\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260904\", \"close\": 11.89, \"open\": 11.64, \"high\": 12.08, \"low\": 11.62, \"pre_close\": 11.65, \"change\": 0.24, \"pct_chg\": 0.0206, \"vol\": 524377594.0, \"amount\": 6227976369.24}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260925\", \"end_date\": \"20260930\", \"freq\": \"week\", \"open\": 11.7, \"high\": 11.75, \"low\": 11.29, \"close\": 11.3, \"pre_close\": 11.7, \"vol\": 3527557.0, \"amount\": 4080639.78, \"change\": -0.4, \"pct_chg\": -3.42}, {\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260918\", \"end_date\": \"20260930\", \"freq\": \"week\", \"open\": 11.73, \"high\": 11.9, \"low\": 11.56, \"close\": 11.7, \"pre_close\": 11.74, \"vol\": 3991088.94, \"amount\": 4682178.1, \"change\": -0.04, \"pct_chg\": -0.34}, {\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260911\", \"end_date\": \"20260930\", \"freq\": \"week\", \"open\": 11.87, \"high\": 11.88, \"low\": 11.65, \"close\": 11.74, \"pre_close\": 11.89, \"vol\": 4110190.53, \"amount\": 4831448.66, \"change\": -0.15, \"pct_chg\": -1.26}, {\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260904\", \"end_date\": \"20260930\", \"freq\": \"week\", \"open\": 11.64, \"high\": 12.08, \"low\": 11.62, \"close\": 11.89, \"pre_close\": 11.65, \"vol\": 5243775.94, \"amount\": 6227976.37, \"change\": 0.24, \"pct_chg\": 2.06}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ]
+}
