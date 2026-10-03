@@ -71,7 +71,7 @@ Raw 与 Serving 对应版本的缺失键集合完全相同。四层合计导出 
 - stock_week_300114_completed_reconciliation_20261002.csv：两版本字段对账。
 - stock_week_full_reaudit_coverage_20261002.csv：3,432 组层×周汇总。
 - stock_week_full_reaudit_gap_keys_20261002.csv：全部缺失层键。
-- stock_week_full_reaudit_gap_ranges_20261002.csv：包含最新整周缺口的代码范围。
+- 包含最新整周缺口的代码范围汇总已于 2026-10-03 清理：23,146 组记录可从上述保留的缺失层键明细按 layer、ts_code 聚合无损重建。正式历史补齐范围仍使用下述历史剩余清单。
 - stock_week_historical_remaining_code_ranges_20261002.csv：只含历史剩余代码及全部缺失日期。
 - stock_week_full_reaudit_summary_20261002.json：汇总及分类。
 - stock_week_latest_source_verification_20261002.json：最新周四次源验证。
