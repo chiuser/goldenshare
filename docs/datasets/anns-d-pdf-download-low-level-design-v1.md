@@ -5,7 +5,7 @@
 更新时间：2026-10-02。状态：M0 设计已提交、M1 已实现并通过基础隔离验证；M2/M3/M4 尚未执行。需求和范围以[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)为准；实现与验证证据见 §11，不能将隔离测试或只读磁盘信息升级为真实下载验收。
 
 
-2026-10-02 前置依赖更新：公告同步完善 P1/P2 源码及本地隔离验收完成，P3/P4 未执行；见[同步技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)及[同步 LLD](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。原 M1 历史证据保留；P1 已适配 NULL URL 与物理行替代，M2/M3 真实范围、查询性能和下载验收仍待前置阶段完成。
+2026-10-03 前置依赖更新：公告Raw已按完整源记录合同完成2020-01-01至2026-09-30重拉，正式记录12,064,049条、拒绝0、2465日逐日存量对账差异0，详见[生产只读审计](/Users/congming/github/goldenshare/reports/anns_d_prod_sync_audit_20261003.md)。原分组覆盖及存量迁移方案已取消，不再作为下载前置门禁；缺URL记录保留并跳过下载。管理员本轮授权继续推进，下一阶段为M2隔离专项验收，M3真实外盘验收尚未执行。
 
 ## 1. 改动范围与依赖
 
