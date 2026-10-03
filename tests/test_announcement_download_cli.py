@@ -3,8 +3,14 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import subprocess
+import sys
+import threading
+import time
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -539,3 +545,214 @@ def test_replaced_source_is_not_downloaded(archive):
         assert source.closed
     finally:
         client.close()
+
+
+@pytest.mark.parametrize('field,value,reason', [
+    ('ts_code', None, 'invalid_ts_code'),
+    ('title', None, 'invalid_title'),
+    ('ts_code', '../600000.SH', 'invalid_ts_code'),
+    ('ann_date', None, 'invalid_ann_date'),
+])
+def test_invalid_raw_projection_is_file_failure_without_http(archive, field, value, reason):
+    volume, ledger, options, policy, clock, control, *_ = archive
+    item = row()
+    item[field] = value
+    source = FakeSource([item], options)
+    source.batch = lambda after, upper: [item] if after == 0 else []
+    source.has_artifact = lambda task: True
+    client = httpx.Client(transport=httpx.MockTransport(lambda _: pytest.fail('invalid metadata must not request')))
+    assert cli.execute(options, policy, control, volume, ledger, source, 'test', client, clock) == 1
+    assert ledger.conn.execute('SELECT error FROM artifacts').fetchone()[0] == reason
+    assert latest_run(ledger)['phase'] == 'partial_failed'
+
+
+def test_completed_file_hardlink_is_blocked_and_preserved(archive, tmp_path):
+    assert run(archive, [row()])[0] == 0
+    task = dict(archive[1].conn.execute('SELECT * FROM artifacts').fetchone())
+    path = archive[2].output_root / task['relative_path']
+    linked = tmp_path / 'other-owner.pdf'
+    os.link(path, linked)
+    assert run(archive, [row()], lambda _: pytest.fail('unsafe file must not request'))[0] == 3
+    assert latest_run(archive[1])['reason'] == 'multiple_hardlinks_forbidden'
+    assert path.read_bytes() == linked.read_bytes() == PDF
+
+
+@pytest.mark.parametrize('finish_after_deadline', [False, True])
+def test_transfer_deadline_checks_chunk_and_eof(archive, monkeypatch, finish_after_deadline):
+    monotonic = [10.0]
+    monkeypatch.setattr('src.scripts.announcement_download.files.time.monotonic', lambda: monotonic[0])
+
+    class SlowStream(httpx.SyncByteStream):
+        def __iter__(self):
+            if not finish_after_deadline:
+                monotonic[0] += archive[3].transfer_deadline + 1
+            yield PDF
+            if finish_after_deadline:
+                monotonic[0] += archive[3].transfer_deadline + 1
+
+    assert run(archive, [row()], lambda _: httpx.Response(200, stream=SlowStream()))[0] == 1
+    assert archive[1].conn.execute('SELECT error FROM artifacts').fetchone()[0] == 'transfer_deadline_exceeded'
+    assert not list(archive[2].output_root.rglob('*.pdf'))
+
+
+@contextmanager
+def local_http_fixture(respond):
+    calls = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            call = dict(path=self.path, started=time.time(), encoding=self.headers.get('Accept-Encoding'))
+            calls.append(call)
+            status, headers, body = respond(self.path, len(calls))
+            self.send_response(status)
+            for key, value in headers.items():
+                self.send_header(key, value)
+            self.end_headers()
+            self.wfile.write(body)
+            self.wfile.flush()
+            call['finished'] = time.time()
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .01}, daemon=True)
+    thread.start()
+    try:
+        yield f'http://127.0.0.1:{server.server_port}', calls
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_real_http_redirect_retry_interval_and_replay(archive):
+    def respond(path, number):
+        if path == '/1.pdf':
+            return 302, {'Location': '/final.pdf', 'Content-Length': '0'}, b''
+        if number == 2:
+            return 503, {'Retry-After': '0', 'Content-Length': '0'}, b''
+        return 200, {'Content-Type': 'application/pdf', 'Content-Length': str(len(PDF))}, PDF
+
+    volume, ledger, options, policy, _, _, *_ = archive
+    options = replace(options, interval_seconds=.05)
+    policy = replace(policy, backoff_seconds=.01)
+    control = Control(policy, lambda _: None)
+    with local_http_fixture(respond) as (base, calls):
+        rows = [row(url=base + '/1.pdf')]
+        assert cli.execute(options, policy, control, volume, ledger,
+                           FakeSource(rows, options), 'local-http') == 0
+        assert [c['path'] for c in calls] == ['/1.pdf', '/final.pdf', '/1.pdf', '/final.pdf']
+        assert all(c['encoding'] == 'identity' for c in calls)
+        assert all(b['started'] - a['finished'] >= .045 for a, b in zip(calls, calls[1:]))
+        task = dict(ledger.conn.execute('SELECT * FROM artifacts').fetchone())
+        assert (options.output_root / task['relative_path']).read_bytes() == PDF
+        assert cli.execute(options, policy, control, volume, ledger,
+                           FakeSource(rows, options), 'local-http') == 0
+        assert len(calls) == 4
+        assert ledger.stats(latest_run(ledger)['run_id'])['skipped'] == 1
+
+
+def test_real_http_truncated_response_is_retried_and_never_promoted(archive):
+    volume, ledger, options, policy, _, _, *_ = archive
+    options = replace(options, interval_seconds=0)
+    policy = replace(policy, backoff_seconds=.01)
+    control = Control(policy, lambda _: None)
+    with local_http_fixture(lambda *_: (200, {'Content-Length': str(len(PDF)+1)}, PDF)) as (base, calls):
+        rows = [row(url=base + '/short.pdf')]
+        assert cli.execute(options, policy, control, volume, ledger,
+                           FakeSource(rows, options), 'local-http') == 1
+        assert len(calls) == 3
+        assert latest_run(ledger)['phase'] == 'partial_failed'
+        assert not list(options.output_root.rglob('*.pdf'))
+
+
+@pytest.mark.parametrize('crash_mode,resume_mode,requests', [
+    ('downloading', 'resume_two', 1),
+    ('prepared', 'resume_one', 0),
+    ('renamed', 'resume_one', 0),
+])
+def test_real_process_exit_preserves_commits_and_resumes(tmp_path, crash_mode, resume_mode, requests):
+    helper = Path(__file__).parent / 'fixtures/announcement_download_process_runner.py'
+    entry = 'import runpy,sys;sys.argv=sys.argv[1:];runpy.run_path(sys.argv[0],run_name="__main__")'
+
+    def launch(mode):
+        return subprocess.run([sys.executable, '-c', entry, str(helper), str(tmp_path), mode],
+                              cwd=Path(__file__).parents[1], capture_output=True, text=True, timeout=15)
+
+    crashed = launch(crash_mode)
+    assert crashed.returncode == 73, crashed.stderr
+    path = tmp_path / 'local-state/downloads.sqlite'
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT phase FROM runs').fetchone()[0] == 'downloading'
+        if crash_mode == 'downloading':
+            assert db.execute("SELECT count(*) FROM artifacts WHERE state='succeeded'").fetchone()[0] == 1
+        else:
+            assert db.execute('SELECT state FROM artifacts').fetchone()[0] == 'prepared'
+    assert len(list((tmp_path / 'disk').rglob('*.pdf'))) == (0 if crash_mode == 'prepared' else 1)
+    resumed = launch(resume_mode)
+    assert resumed.returncode == 0, resumed.stderr
+    assert json.loads(resumed.stdout)['requests'] == requests
+    with sqlite3.connect(path) as db:
+        assert db.execute('SELECT phase,reason FROM runs ORDER BY rowid LIMIT 1').fetchone() == (
+            'cancelled', 'process_exit_recovered')
+        assert db.execute("SELECT count(*) FROM artifacts WHERE state<>'succeeded'").fetchone()[0] == 0
+        assert db.execute('SELECT phase FROM runs ORDER BY rowid DESC LIMIT 1').fetchone()[0] == 'completed'
+    files = list((tmp_path / 'disk').rglob('*.pdf'))
+    assert len(files) == (2 if crash_mode == 'downloading' else 1)
+    assert all(p.read_bytes() == PDF for p in files)
+
+
+@pytest.mark.parametrize('root', ['data_lake', 'data_lake_staging', 'goldenshare-tushare-lake'])
+def test_lake_roots_are_rejected_before_archive_creation(archive, root):
+    target = archive[0].mount / root / 'announcements'
+    volume = Volume(target, archive[3], archive[0].inspector)
+    try:
+        with pytest.raises(Blocked, match='lake_path_forbidden'):
+            volume.open()
+        assert not target.exists()
+    finally:
+        volume.close()
+
+
+def test_unicode_and_casefold_collisions_keep_distinct_files(archive):
+    rows = [row(1, title='é公告'), row(2, title='e\u0301公告'),
+            row(3, title='Report'), row(4, title='report')]
+    assert run(archive, rows)[0] == 0
+    tasks = list(archive[1].conn.execute('SELECT relative_path FROM artifacts'))
+    import unicodedata
+    assert len({unicodedata.normalize('NFC', t[0]).casefold() for t in tasks}) == 4
+    assert len(list(archive[2].output_root.rglob('*.pdf'))) == 4
+
+
+def test_streaming_uses_policy_blocks_before_preparing(archive):
+    volume, ledger, options, policy, clock, control, *_ = archive
+    policy = replace(policy, max_file_size=1024*1024)
+    sizes = []
+
+    class BlockStream(httpx.SyncByteStream):
+        def __iter__(self):
+            for number in range(8):
+                assert ledger.conn.execute('SELECT state FROM artifacts').fetchone()[0] == 'downloading'
+                chunk = ((b'%PDF-1.7\n' if number == 0 else b'') + b'x' * policy.chunk_size)[:policy.chunk_size]
+                sizes.append(len(chunk))
+                yield chunk
+            yield b'\n%%EOF\n'
+
+    client = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200, stream=BlockStream())))
+    assert cli.execute(options, policy, control, volume, ledger,
+                       FakeSource([row()], options), 'stream-fixture', client, clock) == 0
+    task = ledger.conn.execute('SELECT state,size FROM artifacts').fetchone()
+    assert task['state'] == 'succeeded' and task['size'] == 8*policy.chunk_size + len(b'\n%%EOF\n')
+    assert sizes == [64*1024]*8
+
+
+def test_retry_scope_does_not_pick_old_range_pending_artifacts(archive):
+    ledger = archive[1]
+    old_options = replace(archive[2], start_date=date(2026, 9, 29), end_date=date(2026, 9, 29))
+    old_run = ledger.begin_run(old_options, 'prod/test/anns_d')
+    ledger.ingest(old_run, 'prod/test/anns_d', [row(9, day=old_options.start_date)])
+    calls = []
+    assert run(archive, [row()], lambda req: calls.append(req.url.path) or httpx.Response(200, content=PDF))[0] == 0
+    assert calls == ['/1.pdf']
+    assert ledger.conn.execute("SELECT state FROM artifacts WHERE url LIKE '%/9.pdf'").fetchone()[0] == 'pending'

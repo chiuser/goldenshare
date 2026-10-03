@@ -24,6 +24,8 @@ def valid_url(url: str):
 
 
 def title_name(title: str, suffix: str, budget: int) -> str:
+    if not isinstance(title, str):
+        raise FileFailed('invalid_title')
     clean = unicodedata.normalize('NFC', title)
     clean = re.sub(r'[\x00-\x1f\x7f/\\:*?"<>|]', '_', clean).strip(' .')
     if not clean:
@@ -49,7 +51,7 @@ class Files:
             iso_date(task['ann_date'])
         except ValueError:
             raise FileFailed('invalid_ann_date') from None
-        if not re.fullmatch(r'[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', task['ts_code']):
+        if not isinstance(task['ts_code'], str) or not re.fullmatch(r'[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', task['ts_code']):
             raise FileFailed('invalid_ts_code')
         valid_url(task['url'])
         if task['relative_path']:
@@ -77,6 +79,8 @@ class Files:
         with os.fdopen(handle, 'rb') as stream:
             if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                 raise Blocked('non_regular_archive_file')
+            if os.fstat(stream.fileno()).st_nlink != 1:
+                raise Blocked('multiple_hardlinks_forbidden')
             if os.fstat(stream.fileno()).st_size > self.policy.max_file_size:
                 return os.fstat(stream.fileno()).st_size, ''
             digest, size = hashlib.sha256(), 0

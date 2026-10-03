@@ -2,10 +2,10 @@
 
 > 2026-10-02 最新元数据合同：Raw 保存全部不同源记录，仅忽略完整源字段完全相同的重复；缺URL与缺rec_time均保存。下文涉及完整度覆盖、旧id删除或有效版本选择的历史说明不再适用。下载器仍按日期/代码/URL复用PDF，同一文件可对应多条源记录；缺URL记录计数并跳过下载，保留来源映射。日期范围扫描不会选中 ann_date 无法投影的异常记录；其原始载荷仍在Raw。本轮不扩展PDF开发范围。
 
-更新时间：2026-10-02。状态：M0 设计已提交、M1 已实现并通过基础隔离验证；M2/M3/M4 尚未执行。需求和范围以[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)为准；实现与验证证据见 §11，不能将隔离测试或只读磁盘信息升级为真实下载验收。
+更新时间：2026-10-03。状态：M0/M1已完成，M2专项隔离验收已通过；M3真实外盘验收、M4范围执行尚未进行。需求和范围以[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)为准；实现与验证证据见 §11，不能将隔离测试或只读磁盘信息升级为真实下载验收。
 
 
-2026-10-03 前置依赖更新：公告Raw已按完整源记录合同完成2020-01-01至2026-09-30重拉，正式记录12,064,049条、拒绝0、2465日逐日存量对账差异0，详见[生产只读审计](/Users/congming/github/goldenshare/reports/anns_d_prod_sync_audit_20261003.md)。原分组覆盖及存量迁移方案已取消，不再作为下载前置门禁；缺URL记录保留并跳过下载。管理员本轮授权继续推进，下一阶段为M2隔离专项验收，M3真实外盘验收尚未执行。
+2026-10-03 前置依赖更新：公告Raw已按完整源记录合同完成2020-01-01至2026-09-30重拉，正式记录12,064,049条、拒绝0、2465日逐日存量对账差异0，详见[生产只读审计](/Users/congming/github/goldenshare/reports/anns_d_prod_sync_audit_20261003.md)。原分组覆盖及存量迁移方案已取消，不再作为下载前置门禁；缺URL记录保留并跳过下载。管理员本轮授权继续推进，M2隔离专项验收已完成，下一阶段为M3真实外盘验收。
 
 ## 1. 改动范围与依赖
 
@@ -174,7 +174,7 @@ SQLite 与文件系统无法组成同一个事务，因此必须保留 prepared 
 
 ## 9. 硬要求与验收映射
 
-以下是完整验收目标；M1 已实现的基础隔离覆盖与证据见 §11。M2 的完整专项验收、M3 真实外盘验证仍未进行，不能由矩阵文字推断为全部验收完成。
+以下是完整验收目标；M1基础证据见§11，M2专项证据见§12；M3真实外盘验证仍未进行，不能把模拟卷测试当作正式磁盘验收。
 
 | 要求 | 实现位置 | 正向测试 | 反例/故障测试 |
 | --- | --- | --- | --- |
@@ -234,3 +234,28 @@ URL NULL/空值：保存该行的本地来源映射，记录skipped_missing_url�
 文件身份仍为日期/代码/URL；领取前以短只读事务查询该文件身份是否仍存在，不能用可能被删除的 raw id 当永久身份。若已无该文件身份，标记 skipped、reason=source_record_replaced；新版保留同 URL 时仍可复用已完成文件。新轮次重新枚举，当前轮次冻结的 upper_id 不保证发现随后新增版本；已有 PDF 不删除。每文件复查查询使用 ts_code/ann_date 现有索引，Prod 代表性性能待 M3 验证。
 
 P1 回归包含缺 URL 不请求、游标提交/回滚、被替代来源不请求；已有成功文件恢复和身份测试继续通过。未进行真实 HTTP 下载或写入正式外盘。
+
+
+## 12. M2 专项隔离验收（2026-10-03）
+
+依据为§2—§9既有硬口径，不新增CLI参数、配置、请求头或业务能力。管理员授权继续推进后，先提交生产同步只读证据ffca591f，再完成本阶段。测试使用临时目录、模拟卷、本地127.0.0.1临时HTTP服务以及独立Python子进程；没有请求真实公告网站、连接业务数据库或写正式外盘，也没有安装依赖。
+
+新增反例先复现三个实际缺口：ts_code/title为NULL时原代码抛出未处理TypeError；恢复已完成文件时未拒绝多硬链接。修复集中在files.py：非法代码/标题按既有invalid_ts_code/invalid_title记录文件失败，尚未发请求；指纹恢复发现多硬链接以multiple_hardlinks_forbidden阻断，保留原文件和外部链接。这符合§6原规则，没有修改Raw保存口径。当前Prod对应缺失字段为0，反例覆盖未来合法保留的异常源记录。
+
+| 硬口径 | 真实代码与本阶段证据 |
+|---|---|
+| 日期/间隔参数、显式数据库、先外盘后连接 | CLI/options/source；既有非法日期/间隔、配置优先级、只读事务及启动顺序测试 |
+| 指定日期范围、每批500和短只读事务 | Source.batch/transaction；闭区间、SQL绑定参数与statement_timeout测试，原范围未完成任务不会被新范围领取 |
+| 日期/代码/标题目录与无覆盖 | Files.allocate/title_name、Ledger.assign_path；中文、UTF-8预算、NULL与非法路径反例，NFC及casefold四文件不冲突、未知文件保留 |
+| 外部真实介质与路径边界 | Volume.open/assert_valid；内部盘/只读/未挂载/换UUID/拔盘/符号链接/空间与fsync故障；三种禁止Lake根均在建目录前拒绝 |
+| 串行请求、重定向/重试同样限速 | Downloader/Limiter；真实本地HTTP一次重定向、一次503、重试后再次重定向共4请求，设置0.05秒后每次服务端开始与前次结束相隔至少0.045秒；精确5秒、90秒和debug0由fake clock测试证明 |
+| 服务器冷却与取消 | Limiter/cooldown/Control；Retry-After秒与日期、重启不可缩短冷却、等待中取消、403/验证码停止领取 |
+| 格式与传输校验 | Files.receive；真实HTTP长度截断触发3次尝试且无最终PDF；HTML/压缩编码/超限/缺EOF反例；分块超时和EOF时超时均不能提升 |
+| 单批与分块边界 | Source.batch、Files.receive；SQL批次500、8个64KiB块接收期间均保持downloading，EOF后才prepared/promote；这是行为边界证据，不是全量RSS或容量测量 |
+| 进程退出和幂等恢复 | 三个独立子进程os._exit(73)：下载第二文件时退出保留第一个成功文件，重启只请求一个未完成文件；prepared未提升及rename后未记成功分别退出，重启均零HTTP且正确恢复；旧run记cancelled/process_exit_recovered，完成文件读回一致 |
+| 文件归属安全 | Files.fingerprint/receive；已完成文件多硬链接阻断并保留内容，既有符号链接与非安全暂存反例 |
+| 观测与落账隔离 | Ledger/execute；结果幂等与百分比单调、枚举失败保留批次、rename后SQLite失败保留prepared证据；缺URL映射/游标/统计同事务，不发请求 |
+
+验证：下载专项72项、架构护栏16项，共88项通过；--help、compileall、文档完整性及git diff --check通过。CodeGraph files/query/impact覆盖Downloader、Files及CLI execute，并补读source、ledger、volume、HTTP、文件提交和专项测试；不新增业务分层、依赖方向、API/CLI入口或注册。CodeGraph的静态调用分析不替代真实子进程和HTTP结果。
+
+M2完成不等于M3完成。下一阶段按§9最多5个真实URL，在正式外盘执行下载—中断—续跑—读回，先核验现有挂载、数据库连接和查询性能；不自动启动全历史PDF下载。真实容量、源站限制以及实际外卷断开/重挂载语义仍需现场证据。
