@@ -1,6 +1,6 @@
 # DG 股票周线：Prod 存量保留与备用源 Raw 补齐方案 v1
 
-日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口，M1 纯合同与规划器已完成并验证；[代码级 LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)已对账。M2 捕获器已实现并完成隔离验收；尚未执行正式 bootstrap、写入正式 Lake 或提交 Dagster 任务。账户配额由管理员确认足够，不再作为待核实门禁。
+日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口，M1 纯合同与规划器已完成并验证；[代码级 LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)已对账。M2捕获器、M3年度候选与单文件提升恢复已实现并完成隔离验收；尚未执行正式 bootstrap、写入正式 Lake 或提交 Dagster 任务。账户配额由管理员确认足够，不再作为待核实门禁。
 
 LLD 已细化主源两张资产的逐字段类型／精度及列白名单、局部配置审计、模块接口与消费者影响面、manifest/checkpoint、错误／续跑与测试。2026-10-03 Prod 只读系统目录核验表明仅有代码前缀主键索引，所以历史导出进一步明确为代码批次×年窗口；三张主源技术采集列不进入行情 Parquet，详见 LLD §4。真实分页和代表样本 Decimal/耗时/压缩大小已于 M0 核验；全体退市可用性和身份分支在后续有界调查中逐批准入。M1 详情见 [开发验收记录](../../../reports/stock_week_m1_assessment_20261003.md)。
 
@@ -190,3 +190,8 @@ Raw 补齐本身不要求发布 Silver；但以后要提供一份可消费周线
 不改变 `src.foundation` / `src.ops` / `src.biz` 的数据集契约、Prod request builder、TaskRun 手动入口、现行 Quote API 或前端。无新增反向依赖；Dagster metadata/event 失败不能回滚已提升业务文件，须留下可恢复观测记录。
 
 依据：[新增数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)、[Schema Contract](dagster-asset-schema-contract-design.md)及根／lake_console／orchestrator AGENTS。Dagster 资产、分区与资源使用现行架构；官方参考：[资产定义](https://docs.dagster.io/guides/build/assets/defining-assets)、[分区示例](https://docs.dagster.io/examples/full-pipelines/etl-pipeline/partition-asset)、[外部资源](https://docs.dagster.io/guides/build/external-resources)。资产页面已通过官方搜索摘要核验，页面直读因工具重定向不可用；本轮未加载正式 definitions、运行 dg job 或访问正式 instance。
+
+
+### M3开发进展（2026-10-03）
+
+M2已提交30b118ff，未推送。M3按照LLD年度合并/完整校验/单文件原子提升与恢复实现，详见[M3验收](../../../reports/stock_week_m3_assessment_20261003.md)。两主源各15346行及备用51行仅在私有临时目录构建和读回；NULL、非周五及existing-only保留，冲突/证据变化阻断，真实进程退出可续跑。M3代码尚未提交；正式Lake/instance、bootstrap及更新启用均未执行。下一阶段M4接入definitions，历史完整性与源不可补台账仍按后续阶段验收。

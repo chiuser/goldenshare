@@ -1,6 +1,6 @@
 # DG 股票周线备用源 Raw 补齐：代码级 LLD v1
 
-日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture 实现及隔离验收已完成；M3候选提升、M4 definitions、M9更新编排及正式同步／启用尚未实施。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
+日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture、M3候选与提升恢复已完成开发及隔离验收；M4 definitions、M9更新编排及正式同步／启用尚未实施。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
 
 ## 1. 范围、依据和硬口径
 
@@ -633,3 +633,35 @@ M0/M1 已提交 `114a15c6`。本轮按 §15 M2 开发：新增 `defs/prod_db/sto
 scope的`manifest.evidence_hash`是外部文件SHA256；`WeeklySourceUnit.expected_key_hash`是所选周键列表的逻辑hash，两者用途不同。执行先验证外部来源/键库存文件字节hash及受控根；unit身份/hash由frozen manifest锁定，后续M3覆盖审计仍须从外部expected证据做逐键对账，不能把capture成功当历史缺口清零。
 
 定向/相邻回归与DuckDB OS隔离回归通过，详见验收报告命令和计数。真实子进程以exit17退出后，已完成unit保留、OS锁释放、续跑只读未完成unit；无正式Lake/instance/Prod写入。M0/M1已提交114a15c6，M2修改本轮保留工作区，未推送。下一切片M3仅候选构建／完整校验／提升恢复的开发与私有临时目录验收。
+
+## 22. M3 开工执行卡（2026-10-03）
+
+M2已提交`30b118ff`。M3新增`defs/io/stock_weekly_raw.py`（年度批量relation/merge/hash/audit）、`defs/bootstrap/stock_weekly_candidates.py`（捕获证据与候选清单冻结）、`defs/bootstrap/stock_weekly_promote.py`（逐文件锁/提升/checkpoint/恢复）及对应测试。M2 store仅追加只读receipt验证入口，保持resume行为不变；不改通用resource、API、definitions或现行writer。
+
+| 必须／禁止 | 代码／正反门禁 |
+|---|---|
+| 先完成来源/年度全部捕获；不逐周重扫全历史 | 只选与锚点年度源窗口相交的units，缺receipt拒绝；一次年度relation筛选、merge、PARTITION_BY写出；跨年周由相邻自然年capture合并，不遗漏边界 |
+| 显式schema、源日期及NULL保留 | 三源contract投影；Hive虚拟week_end不写入Parquet；非周五、合法NULL仅记录观察，不清洗 |
+| 同key同值去重、existing-only保留、异值阻断 | NULL-safe SQL merge，source duplicates同值计数；异值/坏schema/重复目标/错误周/超预算正反例 |
+| 年度全量校验后才形成audit证据 | candidate↔source+existing双向EXCEPT ALL、源/owned/boundary/excluded/duplicate守恒、schema/key/分区/hash；缺项不能promote |
+| frozen targets及candidate/source审计hash可核验 | 三源受控路径与baseline fingerprint；plan/assembly/audit签名绑定；候选或源或目标变化拒绝，重新freeze而非force |
+| 单文件同卷原子提升，不伪称组级原子 | 所有文件预检后、source/week全局advisory锁、baseline重查、promoting checkpoint、os.replace、读回、verified checkpoint；拒绝跨st_dev且不copy/delete |
+| replace前后退出均能恢复，不重新拉源或删除现场 | checkpoint与实际target hash交叉判断；候选搬走后不要求原path存在；已verified幂等重放；部分成功/取消保留 |
+| 路径/并发/副作用边界 | staging根与正式Lake根固定；隔离样本只在系统临时根；拒绝symlink/旧根/路径逃逸；apply=False不改目标，未接入instance |
+
+成本沿用WeeklyBudget：每次一个来源、一个锚点年度（最多54周），最多10000代码、1200万source+existing行、3000输入/候选文件，DuckDB512MiB/2线程/2GiB spill。实际代表样本M2两主源各15346行、52周、2chunks；本轮以该捕获集及少量existing/边界/异常样本验收，候选每周单文件。阶段锁内一次目录发现，年度源和目标读为有界集合；merge/hash/audit扫描次数为固定阶段数，不按周重复年度计算。逐文件最终读回只读该周，不能替代年度全集对账。按key唯一且日期合法，每周行数再限制为max_codes×7，避免全历史string_agg无界；schema版本及NULL编码进入canonical SHA256。
+
+候选目录采用独立assembly attempt，完成manifest/audit后才封存；失败现场保留，新attempt不覆盖旧文件。单文件replace为持久化边界，checkpoint JSON逐文件atomic/fsync。跨年bootstrap在freeze阶段必须包含与完整锚点周相交的库存year；缺少邻年capture时不得宣称该周完整。本轮不读取或写入正式Lake，不触发真实job/event；正式执行仍在M5/M6单独批准。
+
+
+## 23. M3 开发验收（2026-10-03）
+
+M2提交`30b118ff`，未推送。[M3验收报告](../../../reports/stock_week_m3_assessment_20261003.md)与[真实源样本测量](../../../reports/stock_week_m3_candidate_sample_20261003.json)记录代码、测试和边界。§22三模块及M2只读receipt入口已实现；当前API/CLI/resource/definitions无变更，M3修改留在工作区。
+
+年度显式schema/NULL-safe合并、同值去重/异值阻断、existing-only保留、一次分区COPY、完整差集与hash校验，均由测试及实际M0值读回证明。audit签名含manifest_hash、candidate_manifest_hash、target_baseline_hash、schema_hash、source_evidence_hash；逐文件提升前核验源/候选/原目标，跨设备拒绝，checkpoint在replace前原子落盘，replace后读回再verified。真实子进程在replace前后exit23均可恢复，不重新拉源；取消保留已完成文件。未伪称整年度组级原子，也未写正式Lake或instance。
+
+备用expected文件明确为ts_code/ISO Friday week_key的CSV或Parquet，文件hash与unit选择键逻辑hash分开校验；每unit读取最多55键用于拒绝超过54的库存，整体键数受max_candidate_keys预算限制。source-key-outcomes.parquet外部台账只区分成功完整源请求的候选键存在/缺行，失败或未查不能据此记空。全市场日线期望、历史身份、复权覆盖仍需后续coverage阶段，不以这份源台账替代。
+
+partial_scope是隔离样本的调用参数，默认False，仅临时目录目标允许，audit明确记录；不新增env、Settings、数据库配置或运营输入，消费者仅候选构建、只读审计与测试。完整主源年度须带相交邻年已捕获unit。最早/最晚历史边界的真实空窗口证据，在M5冻结inventory时补实证，不能制造非零inventory或把缺receipt放宽为无源。
+
+两套主源各15346行/52周文件，均保留49条业务NULL记录，重建新增key0；备用51行/51文件，4条非周五保留，冻结2键全部找到。累计RSS435.219MiB，未触发spill，不能替代全历史/强制spill验收。224项定向、相邻与静态门禁通过；最终观察计数追加后M3的24项和真实样本重跑通过。Ruff、docs、diff及CodeGraph核验详见报告。下一阶段M4仍待推进；正式执行、事件和更新编排不在M3验收范围。

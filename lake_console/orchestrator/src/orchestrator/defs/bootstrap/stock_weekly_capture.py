@@ -482,6 +482,18 @@ class WeeklyCaptureStore:
         )
         _atomic_json(path, state)
 
+    def validated_receipt(self, connection, unit: SourceUnit) -> tuple[Path, dict]:
+        """Read completion evidence without updating a checkpoint or creating units."""
+        self._require_lock()
+        if self._unit_hashes.get(unit.unit_id) != weekly_unit_identity(unit):
+            raise WeeklyCaptureError("unit_not_in_plan")
+        path = self.root / "units" / weekly_unit_identity(unit) / "receipt.json"
+        if not path.exists():
+            raise WeeklyCaptureError("capture_incomplete")
+        receipt = self._read_json(path)
+        self._validate_receipt(connection, unit, receipt)
+        return path, receipt
+
     def resume(self, connection, unit: SourceUnit) -> dict | None:
         path = self.unit_directory(unit) / "receipt.json"
         if not path.exists():
