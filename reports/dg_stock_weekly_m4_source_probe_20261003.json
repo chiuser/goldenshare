@@ -1,0 +1,105 @@
+{
+  "as_of": "2026-10-03",
+  "scope": "read-only MCP requests; no formal lake or instance writes",
+  "parameters": {
+    "freq": "week",
+    "ts_code": "000001.SZ",
+    "trade_date": "20250926"
+  },
+  "probes": [
+    {
+      "key": "m4probe0",
+      "api": "stk_weekly_monthly",
+      "field_mode": "default",
+      "result": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20250926\", \"end_date\": \"20251024\", \"freq\": \"week\", \"open\": 11.44, \"high\": 11.62, \"low\": 11.32, \"close\": 11.4, \"pre_close\": 11.45, \"vol\": 4603930.7, \"amount\": 5272504.64, \"change\": -0.05, \"pct_chg\": -0.44}]"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "key": "m4probe1",
+      "api": "stk_week_month_adj",
+      "field_mode": "default",
+      "result": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20250926\", \"end_date\": \"20260930\", \"freq\": \"week\", \"open\": 11.44, \"high\": 11.62, \"low\": 11.32, \"close\": 11.4, \"pre_close\": 11.45, \"open_qfq\": 10.61, \"high_qfq\": 10.78, \"low_qfq\": 10.5, \"close_qfq\": 10.57, \"open_hfq\": 1507.65, \"high_hfq\": 1531.37, \"low_hfq\": 1491.84, \"close_hfq\": 1502.38, \"vol\": 4603930.7, \"amount\": 5272504.64, \"change\": -0.05, \"pct_chg\": -0.44}]"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "key": "m4explicit0",
+      "api": "stk_weekly_monthly",
+      "field_mode": "all documented columns including business-critical fields",
+      "result": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20250926\", \"end_date\": \"20251024\", \"freq\": \"week\", \"open\": 11.44, \"high\": 11.62, \"low\": 11.32, \"close\": 11.4, \"pre_close\": 11.45, \"vol\": 4603930.7, \"amount\": 5272504.64, \"change\": -0.05, \"pct_chg\": -0.44}]"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "key": "m4explicit1",
+      "api": "stk_week_month_adj",
+      "field_mode": "all documented columns including business-critical fields",
+      "result": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20250926\", \"end_date\": \"20260930\", \"freq\": \"week\", \"open\": 11.44, \"high\": 11.62, \"low\": 11.32, \"close\": 11.4, \"pre_close\": 11.45, \"open_qfq\": 10.61, \"high_qfq\": 10.78, \"low_qfq\": 10.5, \"close_qfq\": 10.57, \"open_hfq\": 1507.65, \"high_hfq\": 1531.37, \"low_hfq\": 1491.84, \"close_hfq\": 1502.38, \"vol\": 4603930.7, \"amount\": 5272504.64, \"change\": -0.05, \"pct_chg\": -0.44}]"
+            }
+          ],
+          "isError": false
+        }
+      }
+    }
+  ],
+  "business_critical_requests": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20250926\", \"end_date\": \"20251024\", \"freq\": \"week\"}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20250926\", \"end_date\": \"20260930\", \"freq\": \"week\", \"close_qfq\": 10.57, \"close_hfq\": 1502.38}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ]
+}

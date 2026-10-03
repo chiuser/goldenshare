@@ -139,6 +139,11 @@ from orchestrator.defs.assets.stock_return_distribution import (
 from orchestrator.defs.assets.stock_suspend_confirmed import (
     silver_stock_suspend_confirmed,
 )
+from orchestrator.defs.assets.stock_weekly import (
+    raw_tushare_stk_period_bar_adj_week,
+    raw_tushare_stk_period_bar_week,
+    raw_tushare_weekly,
+)
 from orchestrator.defs.assets.suspend_d import (
     SUSPEND_D_RAW_COLUMN_TYPES,
     raw_tushare_suspend_d,
@@ -258,6 +263,7 @@ DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 
 
 ACTIVE_ASSET_DEFINITIONS = (
+    raw_tushare_stk_period_bar_week, raw_tushare_stk_period_bar_adj_week, raw_tushare_weekly,
     raw_tushare_daily_basic,
     raw_tushare_trade_calendar,
     silver_trade_calendar,

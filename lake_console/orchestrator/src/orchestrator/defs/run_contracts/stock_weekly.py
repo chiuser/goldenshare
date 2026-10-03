@@ -163,7 +163,7 @@ def weekly_required_columns(source: StockWeeklySource) -> tuple[str, ...]:
 
 def normalize_week_key(value: str) -> str:
     if not isinstance(value, str):
-        raise ValueError("week_key_must_be_iso_friday")
+        raise ValueError("week_key_must_be_iso_friday")  # noqa: TRY004 -- Preserve validated input error contract.
     parsed = date.fromisoformat(value)
     if parsed.isoformat() != value or parsed.weekday() != 4:
         raise ValueError("week_key_must_be_iso_friday")
@@ -254,13 +254,12 @@ class WeeklyCandidate:
         if self.availability in (
             WeeklyAvailability.AVAILABLE,
             WeeklyAvailability.EMPTY_CONFIRMED,
+        ) and (
+            not self.source_evidence_ref
+            or not isinstance(self.source_evidence_hash, str)
+            or not re.fullmatch(r"[a-f0-9]{64}", self.source_evidence_hash)
         ):
-            if (
-                not self.source_evidence_ref
-                or not isinstance(self.source_evidence_hash, str)
-                or not re.fullmatch(r"[a-f0-9]{64}", self.source_evidence_hash)
-            ):
-                raise ValueError("availability_requires_source_evidence")
+            raise ValueError("availability_requires_source_evidence")
 
 
 @dataclass(frozen=True, slots=True)
@@ -401,3 +400,55 @@ class WeeklyPlanManifest:
     planned_key_count: int
     skipped_key_count: int
     skipped_reason_counts: tuple[tuple[str, int], ...]
+
+
+def weekly_asset_key(source: StockWeeklySource) -> str:
+    return {
+        StockWeeklySource.PRIMARY_UNADJUSTED: "raw_tushare_stk_period_bar_week",
+        StockWeeklySource.PRIMARY_ADJUSTED: "raw_tushare_stk_period_bar_adj_week",
+        StockWeeklySource.ALTERNATE_WEEKLY: "raw_tushare_weekly",
+    }[source]
+
+
+def weekly_check_names(source: StockWeeklySource) -> tuple[str, ...]:
+    return tuple(
+        f"{weekly_asset_key(source)}_{kind}_check"
+        for kind in (
+            "file_contract",
+            "key_partition",
+            "delivery_reconciliation",
+        )
+    )
+
+
+def weekly_job_name(source: StockWeeklySource) -> str:
+    return (
+        f"raw_{weekly_dataset_id(source)}_update_job"
+        if source is not StockWeeklySource.ALTERNATE_WEEKLY
+        else "raw_tushare_weekly_update_job"
+    )
+
+
+def weekly_data_contract(source: StockWeeklySource) -> str:
+    return (
+        "tushare_weekly_source_mirror"
+        if source is StockWeeklySource.ALTERNATE_WEEKLY
+        else f"tushare_{weekly_dataset_id(source)}"
+    )
+
+
+def weekly_source_doc(source: StockWeeklySource) -> str:
+    return (
+        "docs/sources/tushare/股票数据/行情数据/"
+        + {
+            StockWeeklySource.PRIMARY_UNADJUSTED: "0336_股票周_月线行情(每日更新).md",
+            StockWeeklySource.PRIMARY_ADJUSTED: "0365_股票周_月线行情(复权--每日更新).md",
+            StockWeeklySource.ALTERNATE_WEEKLY: "0144_周线行情.md",
+        }[source]
+    )
+
+
+@dataclass(frozen=True)
+class StockWeeklyPointPolicy:
+    page_limit: int = 6000
+    page_call_cap: int = 4

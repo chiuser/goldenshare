@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import time as datetime_time
-from typing import Literal
+from typing import ClassVar, Literal
 
 import dagster as dg
 from pydantic import Field
@@ -829,3 +829,9 @@ def _normalize_hms_time(value: object, *, field_name: str) -> str:
 
 def _parse_hms_time(value: str) -> datetime_time:
     return datetime.strptime(value, "%H:%M:%S").time()
+
+
+class StockWeeklyRawConfig(dg.Config):
+    model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
+    write_mode: Literal["create_or_identical"] = "create_or_identical"
+    code_list_path: str | None = None

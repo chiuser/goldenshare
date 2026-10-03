@@ -672,6 +672,16 @@ CONSUMER_SOURCE_FILES = (
     "source_readiness/tushare/stock_daily.py",
     "utils/__init__.py",
     "utils/dg_log_helper.py",
+    "defs/assets/stock_weekly.py",
+    "defs/checks/stock_weekly_checks.py",
+    "defs/jobs/stock_weekly.py",
+    "defs/stock_weekly_point.py",
+    "defs/stock_weekly_source.py",
+    "defs/bootstrap/stock_weekly_capture.py",
+    "defs/bootstrap/stock_weekly_candidates.py",
+    "defs/bootstrap/stock_weekly_promote.py",
+    "defs/io/stock_weekly_raw.py",
+
 )
 
 

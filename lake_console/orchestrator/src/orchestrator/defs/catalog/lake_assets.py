@@ -49,10 +49,13 @@ from orchestrator.defs.paths import (
     raw_namechange_path,
     raw_stk_mins_path,
     raw_stk_nineturn_path,
+    raw_stk_period_bar_adj_week_path,
+    raw_stk_period_bar_week_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
     raw_suspend_d_path,
     raw_trade_calendar_path,
+    raw_tushare_weekly_path,
     silver_adj_factor_path,
     silver_dc_daily_path,
     silver_dc_index_path,
@@ -111,6 +114,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_MINS_SCHEMA,
     RAW_MAJOR_INDEX_MINS_SCHEMA,
     RAW_STK_MINS_SCHEMA,
+    RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA,
+    RAW_STK_PERIOD_BAR_WEEK_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_DC_DAILY_SCHEMA,
     RAW_TUSHARE_DC_INDEX_SCHEMA,
@@ -126,6 +131,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
+    RAW_TUSHARE_WEEKLY_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_DC_DAILY_SCHEMA,
     SILVER_DC_INDEX_SCHEMA,
@@ -213,6 +219,15 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     major_index_mins_technical_state_checks,
 )
 from orchestrator.defs.run_contracts.metadata import SourceSystem
+from orchestrator.defs.run_contracts.stock_weekly import (
+    StockWeeklySource,
+    weekly_asset_key,
+    weekly_check_names,
+    weekly_data_contract,
+    weekly_dataset_id,
+    weekly_source_api,
+    weekly_source_doc,
+)
 
 
 class DataContractSource(str, Enum):
@@ -233,6 +248,7 @@ class IngestionSource(str, Enum):
 
 
 class PartitionModelFamily(str, Enum):
+    NATURAL_WEEK_PARTITION = "natural_week_partition"
     FULL_FILE = "full_file"
     TRADE_DATE_PARTITION = "trade_date_partition"
     SERVING_TABLE = "serving_table"
@@ -249,6 +265,9 @@ class PartitionPhysicalLayout(str, Enum):
 
 
 class PartitionModel(str, Enum):
+    WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_WEEK = "week_end_partition_raw_stk_period_bar_week"
+    WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_ADJ_WEEK = "week_end_partition_raw_stk_period_bar_adj_week"
+    WEEK_END_PARTITION_RAW_TUSHARE_WEEKLY = "week_end_partition_raw_tushare_weekly"
     FULL_FILE_SILVER_STOCK_SUSPEND_CONFIRMED = "full_file_silver_stock_suspend_confirmed"
     FULL_FILE_RAW_TRADE_CALENDAR = "full_file_raw_trade_calendar"
     FULL_FILE_SILVER_TRADE_CALENDAR = "full_file_silver_trade_calendar"
@@ -3382,6 +3401,76 @@ LAKE_ASSET_CATALOG += (
     ),
 )
 
+
+_WEEKLY_CATALOG_SPECS = (
+    (
+        StockWeeklySource.PRIMARY_UNADJUSTED,
+        PartitionModel.WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_WEEK,
+        RAW_STK_PERIOD_BAR_WEEK_SCHEMA,
+        raw_stk_period_bar_week_path,
+    ),
+    (
+        StockWeeklySource.PRIMARY_ADJUSTED,
+        PartitionModel.WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_ADJ_WEEK,
+        RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA,
+        raw_stk_period_bar_adj_week_path,
+    ),
+    (
+        StockWeeklySource.ALTERNATE_WEEKLY,
+        PartitionModel.WEEK_END_PARTITION_RAW_TUSHARE_WEEKLY,
+        RAW_TUSHARE_WEEKLY_SCHEMA,
+        raw_tushare_weekly_path,
+    ),
+)
+PARTITION_MODEL_DEFINITIONS += tuple(
+    _model(
+        model,
+        PartitionModelFamily.NATURAL_WEEK_PARTITION,
+        AssetLayer.RAW,
+        weekly_dataset_id(source),
+        "week_end",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    )
+    for source, model, _, _ in _WEEKLY_CATALOG_SPECS
+)
+LAKE_ASSET_CATALOG += tuple(
+    _entry(
+        asset_key=weekly_asset_key(source),
+        dataset_id=weekly_dataset_id(source),
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        source_system=SourceSystem.TUSHARE,
+        data_contract=weekly_data_contract(source),
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=schema,
+        path_template=lake_path_template(
+            path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=model,
+        source_api=weekly_source_api(source),
+        source_doc=weekly_source_doc(source),
+        ingestion_sources=(IngestionSource.TUSHARE_API,)
+        if source is StockWeeklySource.ALTERNATE_WEEKLY
+        else (IngestionSource.PROD_DB_READONLY, IngestionSource.TUSHARE_API),
+        default_daily_ingestion_source=None
+        if source is StockWeeklySource.ALTERNATE_WEEKLY
+        else IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.TUSHARE_API,)
+        if source is StockWeeklySource.ALTERNATE_WEEKLY
+        else (IngestionSource.PROD_DB_READONLY,),
+        blocking_check_names=weekly_check_names(source),
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="source/week_end",
+            compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="bounded_single_week_explicit_fields",
+            notes="年度bootstrap；单周更新，禁止历史逐周源扫描。",
+        ),
+    )
+    for source, model, schema, path in _WEEKLY_CATALOG_SPECS
+)
 
 def _index_by_asset_key() -> dict[str, LakeAssetCatalogEntry]:
     index: dict[str, LakeAssetCatalogEntry] = {}

@@ -115,13 +115,26 @@ def fetch_weekly_supervised(
     cancel: CancelProbe,
     progress: Callable[[], None] = lambda: None,
 ) -> pd.DataFrame:
-    params = weekly_source_params(unit)
+    return fetch_weekly_request_supervised(
+        worker,
+        weekly_source_params(unit),
+        ALTERNATE_WEEKLY_FIELDS,
+        unit.max_rows,
+        budget,
+        cancel,
+        progress,
+    )
+
+
+def fetch_weekly_request_supervised(
+    worker, params, fields, max_rows, budget, cancel, progress=lambda: None
+):
     check_weekly_cancel(cancel)
     context = multiprocessing.get_context("spawn")
     receiver, sender = context.Pipe(duplex=False)
     process = context.Process(
         target=_weekly_worker_entry,
-        args=(sender, worker, params, ALTERNATE_WEEKLY_FIELDS, unit.max_rows),
+        args=(sender, worker, params, fields, max_rows),
     )
     process.start()
     sender.close()

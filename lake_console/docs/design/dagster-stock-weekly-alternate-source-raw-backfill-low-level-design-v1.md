@@ -1,6 +1,6 @@
 # DG 股票周线备用源 Raw 补齐：代码级 LLD v1
 
-日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture、M3候选与提升恢复已完成开发及隔离验收；M4 definitions、M9更新编排及正式同步／启用尚未实施。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
+日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture、M3候选与提升恢复已完成开发及隔离验收；M4 definitions及受限单周手动交付已完成开发和隔离验收；M9更新编排及正式同步／启用尚未实施。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
 
 ## 1. 范围、依据和硬口径
 
@@ -665,3 +665,29 @@ M2提交`30b118ff`，未推送。[M3验收报告](../../../reports/stock_week_m3
 partial_scope是隔离样本的调用参数，默认False，仅临时目录目标允许，audit明确记录；不新增env、Settings、数据库配置或运营输入，消费者仅候选构建、只读审计与测试。完整主源年度须带相交邻年已捕获unit。最早/最晚历史边界的真实空窗口证据，在M5冻结inventory时补实证，不能制造非零inventory或把缺receipt放宽为无源。
 
 两套主源各15346行/52周文件，均保留49条业务NULL记录，重建新增key0；备用51行/51文件，4条非周五保留，冻结2键全部找到。累计RSS435.219MiB，未触发spill，不能替代全历史/强制spill验收。224项定向、相邻与静态门禁通过；最终观察计数追加后M3的24项和真实样本重跑通过。Ruff、docs、diff及CodeGraph核验详见报告。下一阶段M4仍待推进；正式执行、事件和更新编排不在M3验收范围。
+
+## 24. M4 开工执行卡（2026-10-03）
+
+M3提交1638d42b。按§3/5/9/15注册三份真实asset、每源三blocking checks、三个精确selection手动jobs、名称/schema/catalog/自然周partition model及typed config；自动sensor/schedule与正式注册/执行不在本轮。M4包含让上述asset可实际运行的单周source→capture→merge/audit→promote适配，不能注册空壳或用测试替身冒充正式生产链。
+
+| 硬口径 | 落点与正反验收 |
+|---|---|
+| 三源独立、schema从现行13/21/11列合同派生 | stock_weekly assets及catalog/name mapping；typed schema与active definitions对账 |
+| Friday动态分区，节假日合法，不引用交易日/日线/身份资产 | partitions/models/asset/check/job；临时instance注册一个Friday，验证event.partition和check execution表，非Friday拒绝 |
+| 三blocking checks绑定实际asset且同一partitions_def | file/schema、key/week/freq、独立delivery receipt/hash；丢证据/篡改目标/错误周拒绝，不从输出count制造源一致 |
+| 只开放create_or_identical；备用要求受控冻结≤20代码文件，主源拒绝code_list_path；未知字段/force/fields分页参数拒绝 | StockWeeklyRawConfig extra=forbid、source-specific validation；config来源是run_config并持久化run/receipt，不新增env/DB配置 |
+| 主源指定Friday、freq=week、显式fields、完整分页；备用单代码Monday–Sunday | 单周source helper复用监督子进程；默认page_limit=6000、page_call_cap=4归一到独立frozen PointPolicy，最多12尝试、20秒/call、至少1秒间隔；4页仍满拒绝，≤10000行；备用≤20请求、每对象≤1行，成功空另记 |
+| 原值、NULL与单位保留；已有目标不同值不能自动覆盖 | M2有界capture及M3纯SQL合并/audit/promote复用，逐页capture/receipt持久化；完整existing-only保留，但已有目标新增key也属于修改，create_or_identical阻断 |
+| 导入不连网络、不创建instance/目录、不触发任务 | load_from_defs_folder/registry静态核验；现有EnvVar只在执行时解析；临时instance与临时Lake/staging验证，dg CLI单独隔离home与环境 |
+
+配置审计：StockWeeklyRawConfig.write_mode默认create_or_identical/code_list_path默认None，来源run_config、持久化Dagster run与来源intent，消费者仅三源asset/point adapter；生效每run，UI可见，互斥规则及未知参数有反例。PointPolicy两个分页默认来自§18.2，frozen纯合同，持久化intent/receipt；消费者仅主源point请求循环，不能用于历史Prod或备用。WeeklyBudget已有超时/重试/间隔/行数/DuckDB预算保持原值；TUSHARE_TOKEN与LakeRootResource复用现行资源，未增新配置来源。
+
+规模：每job一个source×一个week×一个文件，不展开历史；主源最多4页/12尝试，≤10000源行；备用≤20代码/≤60尝试，≤20源行。每页≤6000有界传输，捕获完成立即Parquet+receipt；SQL只读当前捕获和目标周，各阶段固定扫描数、merge/join≤70000已有行+10000新增行，每个check只读一文件+一个当期materialization及独立receipt（≤20units）。DuckDB512MiB/2线程/2GiB spill，staging仍在正式根外，单文件replace/checkpoint，retry只重取失败请求、旧capture保留。正常主源通常1–2页；异常12×20秒加间隔上限约252秒，监督回调提供进度；备用最坏60×20秒另列预算，不提供虚假ETA。空间以实际文件字节及候选测量为准，超行/page/code/file预算拒绝。已有M0/M3实际15346历史样本及M0 point行为作为规模依据；本轮再用tushareMcp小样本和隔离单周job验收，不调用正式instance或正式写湖。
+
+## 25. M4 实现对账（2026-10-03）
+
+§24执行卡已落地：三源名称/schema/path及自然周partition model同步注册；metadata直接调用统一构造器，config禁止force/fields/limit/offset；jobs只选择自身asset与三checks，不注册分区、不附带sensor/schedule。真实单周适配使用集中PointPolicy、受监督子进程、逐页独立capture/receipt和M3候选/提升；已有目标异值/新增key阻断。源等待进度每10秒更新；短页终止、满页继续、重复/空/跨周/超限反例均有测试。
+
+九checks只读文件及最新同分区materialization引用的交付证据；临时instance真实evaluation.partition和execution history.partition均核验，统一check metadata/static gates通过。自然周未套入通用TRADE_DATE历史事件扫描；M7单独接入。备用成功空保留receipt，失败不归为empty；大范围缺口用离线冻结计划，不开放20代码限制以外的手动更新。
+
+CodeGraph与直接消费者审计、配置来源/生效方式、模板7A预算/恢复、源端→捕获→候选→读回对账及验证明细见[M4验收](../../../reports/stock_week_m4_assessment_20261003.md)。218项定向/静态回归、18项OS隔离治理、完整dg check defs通过；最后config类型和请求参数断言更新后相关测试再次通过。两套真实源1行样本差异0；10000行合成容量两页、峰值RSS276.156MiB，未验证正式网络/全历史或强制spill。本轮未改变子系统依赖、Prod契约或通用连接工厂；未安装依赖，未写正式Lake/instance。M3提交1638d42b；M4修改未提交。下一步M5冻结库存及授权范围，不自动进入正式执行。

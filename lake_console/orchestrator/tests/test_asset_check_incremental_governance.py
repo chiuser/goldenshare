@@ -53,6 +53,11 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     major_index_mins_technical_state_asset_key,
     major_index_mins_technical_state_checks,
 )
+from orchestrator.defs.run_contracts.stock_weekly import (
+    StockWeeklySource,
+    weekly_asset_key,
+    weekly_check_names,
+)
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     stock_suspend_confirmed_readiness,
@@ -940,6 +945,14 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         retention_allowed=False,
     ),
 }
+
+ASSET_CHECK_GOVERNANCE.update({
+    weekly_asset_key(source): _rules(
+        weekly_check_names(source), category=KEEP_BLOCKING_DAGSTER,
+        phase="stock-weekly-M4", retention_allowed=False,
+    )
+    for source in StockWeeklySource
+})
 
 PROTECTED_CHECK_GOVERNANCE = {
     check_name: _rule(
