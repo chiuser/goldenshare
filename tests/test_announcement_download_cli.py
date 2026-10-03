@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import select
 import sqlite3
 import subprocess
 import sys
@@ -756,3 +757,20 @@ def test_retry_scope_does_not_pick_old_range_pending_artifacts(archive):
     assert run(archive, [row()], lambda req: calls.append(req.url.path) or httpx.Response(200, content=PDF))[0] == 0
     assert calls == ['/1.pdf']
     assert ledger.conn.execute("SELECT state FROM artifacts WHERE url LIKE '%/9.pdf'").fetchone()[0] == 'pending'
+
+
+def test_default_progress_is_visible_before_process_exit_through_pipe():
+    script = ('from src.scripts.announcement_download.core import Control,DownloadPolicy;'
+              'import sys;Control(DownloadPolicy()).update(phase="downloading",completed=1);'
+              'sys.stdin.readline()')
+    proc = subprocess.Popen([sys.executable, '-c', script], cwd=Path(__file__).parents[1],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        visible = bool(select.select([proc.stdout], [], [], 2)[0])
+        if visible:
+            value = json.loads(proc.stdout.readline())
+            assert value['phase'] == 'downloading' and value['completed'] == 1
+        assert visible, 'progress must flush while the process is still running'
+    finally:
+        proc.communicate(input='\n', timeout=10)
+    assert proc.returncode == 0

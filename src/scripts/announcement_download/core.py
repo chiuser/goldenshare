@@ -83,9 +83,9 @@ def timestamp() -> str:
 
 
 class Control:
-    def __init__(self, policy: DownloadPolicy, emit=print):
+    def __init__(self, policy: DownloadPolicy, emit=None):
         self.policy = policy
-        self.emit = emit
+        self.emit = emit if emit is not None else lambda message: print(message, flush=True)
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.view: dict = {'phase': 'startup', 'eta': '暂无法估算'}

@@ -1,0 +1,289 @@
+{
+  "audit_date": "2026-10-03",
+  "sample_date": "2026-07-26",
+  "distinct_source_urls": 5,
+  "interval_seconds": 5,
+  "environment_file": ".env.web.local",
+  "prod_write": false,
+  "initial_attempt": {
+    "outcomes": [
+      {
+        "label": "interrupt",
+        "exit_code": -2,
+        "signal_sent": true,
+        "final": {
+          "phase": "completed",
+          "eta": "暂无法估算",
+          "start_date": "2026-07-26",
+          "end_date": "2026-07-26",
+          "interval_seconds": 5.0,
+          "records": 5,
+          "total": 5,
+          "percent": 100.0,
+          "cursor": 20080451,
+          "completed": 5,
+          "succeeded": 5,
+          "skipped": 0,
+          "failed": 0,
+          "skipped_missing_url": 0,
+          "ts_code": "300241.SZ",
+          "title": "瑞丰光电投资者关系活动记录表",
+          "error": null,
+          "waiting": false,
+          "wait_until": null,
+          "updated_at": "2026-10-03T13:18:44.217950+00:00"
+        },
+        "requests": 5,
+        "statuses": [
+          200,
+          200,
+          200,
+          200,
+          200
+        ]
+      }
+    ],
+    "archive": {
+      "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+      "device": "disk7s1",
+      "ledger": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+      "runs": [
+        {
+          "run_id": "ec621d88e4bd40048066eed252600fd0",
+          "phase": "completed",
+          "records_read": 5,
+          "artifacts_total": 5,
+          "completed_count": 5,
+          "succeeded_count": 5,
+          "skipped_count": 0,
+          "failed_count": 0
+        }
+      ]
+    },
+    "files": [
+      {
+        "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+        "size": 109946,
+        "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+        "matches_ledger": true
+      },
+      {
+        "relative_path": "2026-07-26/002252.SZ/2026年7月24日投资者关系活动记录表.pdf",
+        "size": 346832,
+        "sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c",
+        "matches_ledger": true
+      },
+      {
+        "relative_path": "2026-07-26/000883.SZ/000883湖北能源投资者关系管理信息20260726.pdf",
+        "size": 142453,
+        "sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894",
+        "matches_ledger": true
+      },
+      {
+        "relative_path": "2026-07-26/300750.SZ/2026年7月24日投资者关系活动记录表.pdf",
+        "size": 203070,
+        "sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437",
+        "matches_ledger": true
+      },
+      {
+        "relative_path": "2026-07-26/300241.SZ/瑞丰光电投资者关系活动记录表.pdf",
+        "size": 123298,
+        "sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c",
+        "matches_ledger": true
+      }
+    ],
+    "request_gaps_seconds": [
+      5.155915021896362,
+      5.1541008949279785,
+      5.164288759231567,
+      5.16405987739563
+    ],
+    "minimum_request_gap": 5.1541008949279785,
+    "passed": false
+  },
+  "validated_recheck": {
+    "outcomes": [
+      {
+        "label": "interrupt",
+        "exit_code": 130,
+        "signal_sent": true,
+        "final": {
+          "phase": "cancelled",
+          "eta": "暂无法估算",
+          "start_date": "2026-07-26",
+          "end_date": "2026-07-26",
+          "interval_seconds": 5.0,
+          "records": 5,
+          "total": 5,
+          "percent": 20.0,
+          "cursor": 20080451,
+          "completed": 1,
+          "succeeded": 1,
+          "skipped": 0,
+          "failed": 0,
+          "skipped_missing_url": 0,
+          "ts_code": "002252.SZ",
+          "title": "2026年7月24日投资者关系活动记录表",
+          "error": null,
+          "waiting": false,
+          "wait_until": null,
+          "updated_at": "2026-10-03T13:20:34.691460+00:00"
+        },
+        "requests": 1,
+        "statuses": [
+          200
+        ]
+      },
+      {
+        "label": "resume",
+        "exit_code": 0,
+        "signal_sent": false,
+        "final": {
+          "phase": "completed",
+          "eta": "暂无法估算",
+          "start_date": "2026-07-26",
+          "end_date": "2026-07-26",
+          "interval_seconds": 5.0,
+          "records": 5,
+          "total": 5,
+          "percent": 100.0,
+          "cursor": 20080451,
+          "completed": 5,
+          "succeeded": 4,
+          "skipped": 1,
+          "failed": 0,
+          "skipped_missing_url": 0,
+          "ts_code": "300241.SZ",
+          "title": "瑞丰光电投资者关系活动记录表",
+          "error": null,
+          "wait_until": null,
+          "waiting": false,
+          "updated_at": "2026-10-03T13:20:56.626145+00:00"
+        },
+        "requests": 4,
+        "statuses": [
+          200,
+          200,
+          200,
+          200
+        ]
+      },
+      {
+        "label": "replay",
+        "exit_code": 0,
+        "signal_sent": false,
+        "final": {
+          "phase": "completed",
+          "eta": "暂无法估算",
+          "start_date": "2026-07-26",
+          "end_date": "2026-07-26",
+          "interval_seconds": 5.0,
+          "records": 5,
+          "total": 5,
+          "percent": 100.0,
+          "cursor": 20080451,
+          "completed": 5,
+          "succeeded": 0,
+          "skipped": 5,
+          "failed": 0,
+          "skipped_missing_url": 0,
+          "ts_code": "300241.SZ",
+          "title": "瑞丰光电投资者关系活动记录表",
+          "error": null,
+          "updated_at": "2026-10-03T13:21:00.369412+00:00"
+        },
+        "requests": 0,
+        "statuses": []
+      }
+    ],
+    "archive": {
+      "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+      "device": "disk7s1",
+      "ledger": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/bb28fc7eca37cbf2a513cc48295d82efad9a55fe023853902181bfeabb24bf9f/downloads.sqlite",
+      "runs": [
+        {
+          "run_id": "e90d4ec5fe914d53b7125b70bf37f147",
+          "phase": "cancelled",
+          "records_read": 5,
+          "artifacts_total": 5,
+          "completed_count": 1,
+          "succeeded_count": 1,
+          "skipped_count": 0,
+          "failed_count": 0
+        },
+        {
+          "run_id": "30aeb49649bc46dc9995931a3662eb10",
+          "phase": "completed",
+          "records_read": 5,
+          "artifacts_total": 5,
+          "completed_count": 5,
+          "succeeded_count": 4,
+          "skipped_count": 1,
+          "failed_count": 0
+        },
+        {
+          "run_id": "a70158c9f721436c85531380c555bf9f",
+          "phase": "completed",
+          "records_read": 5,
+          "artifacts_total": 5,
+          "completed_count": 5,
+          "succeeded_count": 0,
+          "skipped_count": 5,
+          "failed_count": 0
+        }
+      ]
+    },
+    "files": [
+      {
+        "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+        "size": 109946,
+        "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+        "matches_ledger": true
+      },
+      {
+        "relative_path": "2026-07-26/002252.SZ/2026年7月24日投资者关系活动记录表.pdf",
+        "size": 346832,
+        "sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c",
+        "matches_ledger": true
+      },
+      {
+        "relative_path": "2026-07-26/000883.SZ/000883湖北能源投资者关系管理信息20260726.pdf",
+        "size": 142453,
+        "sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894",
+        "matches_ledger": true
+      },
+      {
+        "relative_path": "2026-07-26/300750.SZ/2026年7月24日投资者关系活动记录表.pdf",
+        "size": 203070,
+        "sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437",
+        "matches_ledger": true
+      },
+      {
+        "relative_path": "2026-07-26/300241.SZ/瑞丰光电投资者关系活动记录表.pdf",
+        "size": 123298,
+        "sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c",
+        "matches_ledger": true
+      }
+    ],
+    "request_gaps_seconds": [
+      5.167701959609985,
+      5.148475885391235,
+      5.157550811767578,
+      5.156717777252197
+    ],
+    "minimum_request_gap": 5.148475885391235,
+    "passed": true
+  },
+  "performance_ms": {
+    "narrow_first_batch": 0.569,
+    "narrow_next_cursor": 0.109,
+    "wide_next_cursor": 3.059,
+    "artifact_exists": 0.639
+  },
+  "limits": [
+    "Only static.cninfo.com.cn tested",
+    "No physical unplug or unmount",
+    "No full-history PDF capacity estimate",
+    "Initial root and separate validation root retain five files each"
+  ]
+}
