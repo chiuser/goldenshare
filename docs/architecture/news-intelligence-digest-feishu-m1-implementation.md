@@ -158,3 +158,13 @@ python -m src.scripts.news_intelligence_m1 argilla-import \
 - Web/Ops运行前、期间、结束均active；结束pgrep无模型Worker/llama-server。vmstat期间/结束的一秒采样si/so均0，但宿主机既有swpd从1,159,724升至1,161,464 KiB。未采集全程进程级swap及服务p95，不能归因或宣称资源准入；后续性能试验必须补完整监测。
 - 首次隔离打包被生产runtime包初始化导入阻断，模型未运行；已核查原因后使用不含生产runtime初始化的namespace工具包，不改变生产入口。实际工具目录为 `/data/disk/goldenshare/news-intelligence/m1/tooling-v3-review-20261003-ns`，初次失败目录留作诊断，不是实验事实。
 - 下一步只请用户试审这10条。先核验表单是否能接受、局部改、清空和记录缺项；结合错误样本修订候选规则、定义和重要度预评，再扩展120条，不机械扩大当前未经校准的模型错误。
+
+### 6.4 右侧原生预填修正（2026-10-03）
+
+用户要求直接浏览右侧已选答案，而非依赖左侧文本。审计确认此前仅存机器建议文本与metadata，遗漏了Argilla原生Suggestions投影。依据本机2.8 OpenAPI与[官方审核指南](https://docs.argilla.io/latest/how_to_guides/annotate/#suggestions)，补充逐问题原生建议，文字证据保留。界面应使用Focus单条审核，批量视图不显示此类建议。
+
+- `argilla_review.py`在导入/幂等重跑后补充Suggestions：只投影非空预测，保留原文、预测和身份hash；不预填review_action、不创建人工response，已有draft/submitted则跳过。冲突不覆盖，先完整审计再逐项PUT并GET验证。
+- 实机首次写入遇到空多选422，核查后按当前版本约束跳过空列表，不补造NONE分类；幂等续跑保留已写项。现有10条共有61个原生Suggestions，review_action建议0，人工responses仍0。没有重跑模型或改正式HDD实验。
+- `review_policy.py`允许ACCEPT提交与机器答案一致的预填值；EDIT按差异记录，不能把未改动的预填值算成人工纠偏。人工原始提交仍完整导出。
+- 新增草稿保护、建议冲突及独立无建议测试，补充完整预填接受/修改测试；M1与三项架构护栏合计78项通过。CodeGraph query/impact覆盖Biz归一化、App导入导出、演示生成器、CLI和测试；不改变生产API与依赖矩阵。
+- API读回确认建议已关联问题；本轮没有已登录界面的视觉核验或代替用户提交。请刷新现有教学集Focus界面试审。原有模型质量、重要度和M1准入限制不变。

@@ -278,6 +278,8 @@ M0 的硬结论：
 
 输入必须保留 `sample_id/input_hash`、taxonomy/industry/interest/schema/prompt/model 版本、评估角色与模型输出状态。机器建议的每个字段附原文证据及来源（规则或具体模型revision），不能把旧 v2 的标签映射当成新模型已正确分类。导出分别保存建议、人工原始响应、最终值、修改字段、审核时间和问题原因。无效预测不得接受；同一样本内容或建议变化时拒绝覆盖已有任务。
 
+2026-10-03补充右侧原生预填：冻结预测向 `question_id` 投影为Argilla `type=model` Suggestions，producer为 `news-intelligence-v3-model/rule`，具体revision仍以冻结metadata为准。不改变预测、原文及其hash；不创建human responses，不预选审核动作。Argilla 2.8不接受空多选suggestion，因此空列表/None不写；非空建议经PUT后GET读回核验，已有冲突拒绝覆盖，存在人工response（含draft）则跳过。ACCEPT允许携带与预测相同的预填值，但若有改动必须EDIT；EDIT差异比较只记录真实变化。独立任务严禁Suggestions。没有新增Settings、端口、模型调用或部署。测试覆盖完整预填接受、真实差异、空值、幂等、冲突、人工草稿保护及独立无建议。
+
 先用10条演示核验表单，再开展120条辅助试审，间隔至少72小时对30条做隐藏建议的单人复标，并提交 taxonomy review。通过后才冻结正式800条（来源320/320/160）：600条辅助校准（240/240/120）及200条独立验收（80/80/40）。先按事件组隔离两集，防止同事件泄漏；两集内部各维持70%分层随机、30%重点过采样。正式分类门禁只计算独立集，辅助接受率不是独立准确率；某标签证据不足时不能声称门禁通过。独立集用于调参后必须另补未参与调参样本。
 
 新增配置审计：taxonomy=`news-taxonomy-v3-m1-candidate-1`、industry=`news-industry-v1-m1-candidate-1`、interest=`news-interest-v1-m1-candidate-1`、schema=`news-intelligence-review-v3`，均在离线版本化策略中持久化，由审核构造器、Argilla导入导出及评估消费，按新任务生效，不修改旧记录；测试必须覆盖父子约束、空值语义、接受/修改/未决、盲标无建议、版本冲突和原文证据。不新增生产Settings或服务端口。新表单及机器预标注仍须真实导入/导出验证，文档修订不等于部署完成。M1后回写策略；质量或性能未过门槛不得进入M2。

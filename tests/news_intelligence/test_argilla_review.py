@@ -4,14 +4,37 @@ import json
 import pytest
 
 from src.app.runtime.news_intelligence.argilla_review import (
-    VERSIONS, export_reviews, import_review_tasks, prepare_review_record, review_schema,
+    VERSIONS, export_reviews, import_review_tasks, populate_review_suggestions,
+    prepare_review_record, review_schema,
 )
 from src.app.runtime.news_intelligence.argilla_workspace import ArgillaContractError
 from src.biz.services.wealth.news_intelligence.review_policy import (
     INDUSTRIES, INTERESTS, REVIEW_FIELDS, SUBTOPICS, resolve_review, topic_options,
     topic_parent, validate_prediction, validate_values,
 )
-from .test_argilla_workspace import FakeArgillaClient
+from .test_argilla_workspace import FakeArgillaClient as BaseFakeClient
+
+
+class FakeArgillaClient(BaseFakeClient):
+    def request(self, method, path, *, body=None, query=None):
+        if method == "POST" and path.endswith("/questions"):
+            question = {**body, "id": f"q-{len(self.questions)}", "dataset_id": path.split("/")[1]}
+            self.questions.append(question)
+            return question
+        if method == "GET" and path.endswith("/questions"):
+            return {"items": [q for q in self.questions if q["dataset_id"] == path.split("/")[1]]}
+        if path.startswith("records/") and path.endswith("/suggestions"):
+            record_id = path.split("/")[1]
+            record = next(r for rs in self.records.values() for r in rs if r["id"] == record_id)
+            suggestions = record.setdefault("suggestions", [])
+            if method == "GET":
+                return {"items": deepcopy(suggestions)}
+            if method == "PUT":
+                assert body["value"] != []  # Real Argilla 2.8 returns HTTP 422.
+                assert body["question_id"] not in {s["question_id"] for s in suggestions}
+                suggestions.append(dict(body))
+                return body
+        return super().request(method, path, body=body, query=query)
 
 
 TEXT = "芯片公司发布财报，营业收入增长20%。"
@@ -67,9 +90,15 @@ def test_accept_one_click_and_edit_only_wrong_fields():
                               role="TUTORIAL", source_text=TEXT)
     assert accepted["final_values"]["primary_topic"] == "ECONOMY_BUSINESS_FINANCE"
     assert accepted["changed_fields"] == []
+    prefilled = resolve_review(response={"review_action": "ACCEPT", **values()}, prediction=pred,
+                              role="TUTORIAL", source_text=TEXT)
+    assert prefilled["changed_fields"] == []
     edited = resolve_review(response={"review_action": "EDIT", "importance_tier": "HIGH"},
                             prediction=pred, role="TUTORIAL", source_text=TEXT)
     assert edited["changed_fields"] == ["importance_tier"]
+    filled_edit = resolve_review(response={"review_action": "EDIT", **values(), "importance_tier": "HIGH"},
+                                prediction=pred, role="TUTORIAL", source_text=TEXT)
+    assert filled_edit["changed_fields"] == ["importance_tier"]
     assert pred == prediction()  # Do not mutate frozen model output.
     with pytest.raises(ValueError):
         resolve_review(response={"review_action": "EDIT"}, prediction=pred, role="TUTORIAL", source_text=TEXT)
@@ -143,6 +172,11 @@ def test_import_idempotent_preserves_v2_and_refuses_prediction_conflict(tmp_path
     second = import_review_tasks(client=client, input_path=path, workspace_name="news-intelligence-m1")
     assert first["imported"] == 1 and second["imported"] == 0
     assert client.records["v2"] == old
+    suggestions = client.records[first["dataset_id"]][0]["suggestions"]
+    assert len(suggestions) == len([value for value in values().values() if value is not None and value != []])
+    action_ids = {q["id"] for q in client.questions if q["name"] == "review_action"}
+    assert not action_ids & {s["question_id"] for s in suggestions}
+    assert second["suggestions_added"] == 0
     row["machine_prediction"]["values"]["importance_tier"] = "HIGH"
     path.write_text(json.dumps(row) + "\n")
     with pytest.raises(ArgillaContractError, match="conflict"):
@@ -179,3 +213,39 @@ def test_invalid_submitted_response_never_writes_output(tmp_path):
     with pytest.raises(ValueError):
         export_reviews(client=client, dataset_id="v3", output_path=path, annotation_round=1)
     assert not path.exists()
+
+
+def test_suggestions_never_create_responses_and_skip_human_drafts(tmp_path):
+    client = FakeArgillaClient()
+    path = tmp_path / "input.jsonl"
+    path.write_text(json.dumps(record()) + "\n")
+    result = import_review_tasks(client=client, input_path=path, workspace_name="news-intelligence-m1")
+    row = client.records[result["dataset_id"]][0]
+    assert row["responses"] == []
+    row["responses"] = [{"status": "draft", "values": {"review_action": {"value": "EDIT"}}}]
+    original = deepcopy(row)
+    result = populate_review_suggestions(client=client, dataset_id=result["dataset_id"])
+    assert result == {"suggestions_added": 0, "reviewed_records_skipped": 1}
+    assert row == original
+
+
+def test_native_suggestion_conflict_is_not_overwritten(tmp_path):
+    client = FakeArgillaClient()
+    path = tmp_path / "input.jsonl"
+    path.write_text(json.dumps(record()) + "\n")
+    result = import_review_tasks(client=client, input_path=path, workspace_name="news-intelligence-m1")
+    row = client.records[result["dataset_id"]][0]
+    row["suggestions"][0]["value"] = "invalid"
+    original = deepcopy(row)
+    with pytest.raises(ValueError, match="conflicts"):
+        populate_review_suggestions(client=client, dataset_id=result["dataset_id"])
+    assert row == original
+
+
+def test_blind_import_has_no_native_suggestions(tmp_path):
+    client = FakeArgillaClient()
+    path = tmp_path / "blind.jsonl"
+    path.write_text(json.dumps(record("BLIND_VALIDATION")) + "\n")
+    result = import_review_tasks(client=client, input_path=path, workspace_name="news-intelligence-m1")
+    row = client.records[result["dataset_id"]][0]
+    assert row["suggestions"] == [] and row["responses"] == []

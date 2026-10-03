@@ -162,7 +162,9 @@ def resolve_review(*, response: Mapping[str, object], prediction: Mapping[str, o
             raise ValueError("unresolved review requires an issue reason")
         return {"machine_prediction": deepcopy(prediction), "human_response": original,
                 "final_values": None, "changed_fields": [], "status": "UNRESOLVED"}
-    if action == "ACCEPT" and not edits and base is not None:
+    if action == "ACCEPT" and base is not None:
+        if any(value != base[field] for field, value in edits.items()):
+            raise ValueError("ACCEPT contradicts changed values; select EDIT")
         final = deepcopy(base)
     elif action == "EDIT" and base is not None:
         final = validate_values({**base, **edits})

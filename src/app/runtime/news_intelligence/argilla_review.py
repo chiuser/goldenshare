@@ -9,7 +9,7 @@ from src.biz.services.wealth.news_intelligence.policy import EVENT_TYPE_NAMES
 from src.biz.services.wealth.news_intelligence.review_policy import (
     ASSISTED_ROLES, BLIND_ROLES, INDUSTRIES, INDUSTRY_VERSION, INTERESTS,
     INTEREST_VERSION, REVIEW_SCHEMA_VERSION, REVIEW_TAXONOMY_VERSION,
-    resolve_review, topic_options, validate_prediction,
+    REVIEW_FIELDS, resolve_review, topic_options, validate_prediction,
 )
 from .argilla_workspace import (
     ArgillaContractError, ArgillaHttpClient, _atomic_write_jsonl, _canonical_sha256,
@@ -173,7 +173,64 @@ def import_review_tasks(*, client: ArgillaHttpClient, input_path: Path, workspac
     final = {r["external_id"]: r for r in _list_records(client, dataset_id=dataset_id)}
     if any(final.get(r["external_id"], {}).get("metadata", {}).get("review_input_sha256") != r["metadata"]["review_input_sha256"] for r in records):
         raise ArgillaContractError("review import readback failed")
-    return {"dataset_id": dataset_id, "dataset_name": name, "imported": len(missing), "already_present": len(records) - len(missing)}
+    suggestions = populate_review_suggestions(client=client, dataset_id=dataset_id)
+    return {"dataset_id": dataset_id, "dataset_name": name, "imported": len(missing),
+            "already_present": len(records) - len(missing), **suggestions}
+
+
+def populate_review_suggestions(*, client: ArgillaHttpClient, dataset_id: str) -> dict[str, int]:
+    """Project frozen predictions into native controls, never into human responses."""
+    questions = client.request("GET", f"datasets/{dataset_id}/questions")["items"]
+    question_ids = {question["name"]: question["id"] for question in questions}
+    plans = []
+    skipped = 0
+    for record in _list_records(client, dataset_id=dataset_id, include_responses=True):
+        metadata = record.get("metadata", {})
+        if any(metadata.get(key) != value for key, value in VERSIONS.items()):
+            raise ValueError("native suggestions require a v3 review dataset")
+        role = metadata.get("evaluation_role")
+        existing = client.request("GET", f"records/{record['id']}/suggestions")["items"]
+        if role in BLIND_ROLES:
+            if existing or metadata.get("machine_prediction") is not None:
+                raise ValueError("blind review must have no suggestions")
+            continue
+        if role not in ASSISTED_ROLES:
+            raise ValueError("invalid evaluation role")
+        # Even a draft belongs to the human. Never change their working context.
+        if record.get("responses"):
+            skipped += 1
+            continue
+        fields = record["fields"]
+        prediction = validate_prediction(metadata["machine_prediction"], fields["title"] + "\n" + fields["content"])
+        current = {suggestion["question_id"]: suggestion for suggestion in existing}
+        expected = []
+        for field in REVIEW_FIELDS:
+            value = prediction["values"][field]
+            if value is None or value == []:
+                # Argilla 2.8 rejects empty multi-label suggestions. Empty/unknown
+                # choices stay blank; never invent a label to make the API accept it.
+                continue
+            if field not in question_ids:
+                raise ValueError(f"review schema is missing {field}")
+            producer = prediction["evidence"][field]["source"].lower()
+            suggestion = {"question_id": question_ids[field], "value": value,
+                          "type": "model", "agent": f"news-intelligence-v3-{producer}"}
+            old = current.get(suggestion["question_id"])
+            if old is not None and any(old.get(key) != val for key, val in suggestion.items()):
+                raise ValueError("existing native suggestion conflicts with frozen prediction")
+            expected.append(suggestion)
+        plans.append((record["id"], expected, current))
+    added = 0
+    # All contracts/conflicts are checked before writing the first record.
+    for record_id, expected, current in plans:
+        for suggestion in expected:
+            if suggestion["question_id"] not in current:
+                client.request("PUT", f"records/{record_id}/suggestions", body=suggestion)
+                added += 1
+        actual = {s["question_id"]: s for s in client.request("GET", f"records/{record_id}/suggestions")["items"]}
+        if any(any(actual.get(s["question_id"], {}).get(k) != v for k, v in s.items()) for s in expected):
+            raise ArgillaContractError("native suggestions readback failed")
+    return {"suggestions_added": added, "reviewed_records_skipped": skipped}
 
 
 def export_reviews(*, client: ArgillaHttpClient, dataset_id: str, output_path: Path, annotation_round: int) -> dict[str, object]:
