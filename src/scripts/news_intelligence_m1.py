@@ -12,6 +12,8 @@ from src.app.runtime.news_intelligence.argilla_workspace import (
     export_submitted_annotations,
     import_annotation_tasks,
 )
+from src.app.runtime.news_intelligence.argilla_review import import_review_tasks, export_reviews
+from src.app.runtime.news_intelligence.review_demo import prepare_review_demo
 from src.app.runtime.news_intelligence.offline_replay import (
     prepare_pilot_experiment,
     run_calibration_sample_experiment,
@@ -71,6 +73,21 @@ def build_parser() -> argparse.ArgumentParser:
     argilla_export.add_argument("--dataset-id", required=True)
     argilla_export.add_argument("--output", required=True, type=Path)
     argilla_export.add_argument("--annotation-round", required=True, type=int)
+    review_import = subparsers.add_parser("argilla-review-import", help="导入新版机器辅助或独立审核任务；不覆盖旧集。")
+    _add_argilla_connection_arguments(review_import)
+    review_import.add_argument("--input", required=True, type=Path)
+    review_export = subparsers.add_parser("argilla-review-export", help="导出新版建议、人工响应与最终答案。")
+    _add_argilla_connection_arguments(review_export)
+    review_export.add_argument("--dataset-id", required=True)
+    review_export.add_argument("--output", required=True, type=Path)
+    review_export.add_argument("--annotation-round", required=True, type=int)
+    review_demo = subparsers.add_parser("prepare-review-demo", help="仅对冻结样本中的10条运行新版NLI预标注。")
+    review_demo.add_argument("--input-experiment", required=True, type=Path)
+    review_demo.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
+    review_demo.add_argument("--experiment-id", required=True)
+    review_demo.add_argument("--model-root", required=True, type=Path)
+    review_demo.add_argument("--code-commit", required=True)
+    review_demo.add_argument("--timeout-seconds", type=float, default=900.0)
     return parser
 
 
@@ -87,6 +104,21 @@ def _argilla_client(args: argparse.Namespace) -> ArgillaHttpClient:
 
 def main() -> int:
     args = build_parser().parse_args()
+    if args.command == "prepare-review-demo":
+        path = prepare_review_demo(input_experiment=args.input_experiment, output_root=args.output_root,
+                                   experiment_id=args.experiment_id, model_root=args.model_root,
+                                   code_commit=args.code_commit, timeout_seconds=args.timeout_seconds)
+        print(path)
+        return 0
+    if args.command == "argilla-review-import":
+        result = import_review_tasks(client=_argilla_client(args), input_path=args.input, workspace_name=args.workspace)
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "argilla-review-export":
+        result = export_reviews(client=_argilla_client(args), dataset_id=args.dataset_id, output_path=args.output,
+                                annotation_round=args.annotation_round)
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return 0
     if args.command == "verify-artifacts":
         verify_artifact_directory(args.path)
         print(f"verified: {args.path}")
