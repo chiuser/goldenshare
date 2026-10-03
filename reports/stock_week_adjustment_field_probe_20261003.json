@@ -1,0 +1,63 @@
+{
+  "as_of": "2026-10-03",
+  "sample": {
+    "ts_code": "000001.SZ",
+    "trade_date": "20260918"
+  },
+  "calls": [
+    "weekly default",
+    "weekly explicit 11 documented fields",
+    "weekly explicit identity/close plus qfq/hfq/adj_factor",
+    "stk_week_month_adj explicit 21 fields freq=week"
+  ],
+  "results": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260918\", \"close\": 11.7, \"open\": 11.73, \"high\": 11.9, \"low\": 11.56, \"pre_close\": 11.74, \"change\": -0.04, \"pct_chg\": -0.0034, \"vol\": 399108894.0, \"amount\": 4682178103.77}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260918\", \"close\": 11.7, \"open\": 11.73, \"high\": 11.9, \"low\": 11.56, \"pre_close\": 11.74, \"change\": -0.04, \"pct_chg\": -0.0034, \"vol\": 399108894.0, \"amount\": 4682178103.77}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260918\", \"close\": 11.7}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20260918\", \"end_date\": \"20260930\", \"freq\": \"week\", \"open\": 11.73, \"high\": 11.9, \"low\": 11.56, \"close\": 11.7, \"pre_close\": 11.74, \"open_qfq\": 11.48, \"high_qfq\": 11.64, \"low_qfq\": 11.31, \"close_qfq\": 11.45, \"open_hfq\": 1630.56, \"high_hfq\": 1654.2, \"low_hfq\": 1606.93, \"close_hfq\": 1626.39, \"vol\": 3991088.94, \"amount\": 4682178.1, \"change\": -0.04, \"pct_chg\": -0.34}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ]
+}

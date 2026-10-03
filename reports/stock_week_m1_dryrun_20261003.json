@@ -1,0 +1,35 @@
+{
+  "scope": "read existing M0 CSV/JSON only; pure planner; no network/DB/Lake/instance writes",
+  "results": {
+    "primary": {
+      "plan_hash": "551851ab5f7e149b57ab720bc1fd308c763ea543ceccc5dbc0ed1f1c8eb8665b",
+      "source_rows": 15346,
+      "code_count": 298,
+      "units": 1,
+      "source_date_start": "2025-01-01",
+      "source_date_end_exclusive": "2026-01-01",
+      "writes": 0
+    },
+    "adjusted": {
+      "plan_hash": "690de9df5d93640a15c42bcecc0f2b099d360e1fc531745978fefc8be48d4c7d",
+      "source_rows": 15346,
+      "code_count": 298,
+      "units": 1,
+      "source_date_start": "2025-01-01",
+      "source_date_end_exclusive": "2026-01-01",
+      "writes": 0
+    },
+    "retired_000005": {
+      "plan_hash": "3a1fd4ff66dd43b448a64213b40ccdf6601419992042a8a18a4f63f21c3c152a",
+      "candidate_keys": 656,
+      "available_keys": 656,
+      "skipped_keys": 0,
+      "unit_count": 15,
+      "phase_request_cap_including_retries": 45,
+      "first_request_start": "2009-12-28",
+      "last_request_end": "2024-03-10",
+      "max_unit_rows": 53,
+      "writes": 0
+    }
+  }
+}

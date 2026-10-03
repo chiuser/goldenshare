@@ -1,0 +1,47 @@
+{
+  "calls": 54,
+  "results": [
+    {
+      "api": "weekly",
+      "year": 2020,
+      "baseline_rows": 52,
+      "all_six_pages_rows": 52,
+      "history_filtered_rows": 52,
+      "key_diff": 0,
+      "duplicate_pages": 0,
+      "terminal_empty_columns": 11
+    },
+    {
+      "api": "primary",
+      "year": 2025,
+      "baseline_rows": 52,
+      "all_six_pages_rows": 52,
+      "history_filtered_rows": 52,
+      "key_diff": 0,
+      "duplicate_pages": 0,
+      "terminal_empty_columns": 13
+    },
+    {
+      "api": "adjusted",
+      "year": 2025,
+      "baseline_rows": 52,
+      "all_six_pages_rows": 52,
+      "history_filtered_rows": 52,
+      "key_diff": 0,
+      "duplicate_pages": 0,
+      "terminal_empty_columns": 21
+    }
+  ],
+  "market_sample_rows_per_primary_api": 5557,
+  "max_observed_elapsed_s": 0.539,
+  "unexpected_errors": [],
+  "account_quota_verified": false,
+  "environment_versions": {
+    "tushare": "1.4.29",
+    "pandas": "3.0.3",
+    "duckdb": "1.5.2",
+    "dagster": "1.13.18"
+  },
+  "account_quota_status": "operator_confirmed_sufficient_2026-10-03",
+  "development_gate": "M0_closed_for_M1"
+}

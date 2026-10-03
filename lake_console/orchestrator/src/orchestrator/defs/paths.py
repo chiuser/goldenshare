@@ -39,6 +39,7 @@ from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_freq,
     normalize_stk_mins_qfq_freq,
 )
+from orchestrator.defs.run_contracts.stock_weekly import normalize_week_key
 
 DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
 DEFAULT_LAKE_STAGING_ROOT = "/Volumes/datasource/data_lake_staging"
@@ -95,6 +96,24 @@ def lake_path_template(path: Path) -> str:
 
 def raw_trade_calendar_path(root: Path) -> Path:
     return lake_path(root, RAW, "tushare", "trade_calendar", "full", "part-000.parquet")
+
+
+def _raw_stock_weekly_path(root: Path, dataset_id: str, week_key: str) -> Path:
+    if week_key != PATH_TEMPLATE_PARTITION_KEY:
+        normalize_week_key(week_key)
+    return lake_path(root, RAW, "tushare", dataset_id, f"week_end={week_key}", "part-000.parquet")
+
+
+def raw_stk_period_bar_week_path(root: Path, week_key: str) -> Path:
+    return _raw_stock_weekly_path(root, "stk_period_bar_week", week_key)
+
+
+def raw_stk_period_bar_adj_week_path(root: Path, week_key: str) -> Path:
+    return _raw_stock_weekly_path(root, "stk_period_bar_adj_week", week_key)
+
+
+def raw_tushare_weekly_path(root: Path, week_key: str) -> Path:
+    return _raw_stock_weekly_path(root, "weekly", week_key)
 
 
 def silver_trade_calendar_path(root: Path) -> Path:

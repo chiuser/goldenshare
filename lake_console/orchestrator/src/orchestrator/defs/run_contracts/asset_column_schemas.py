@@ -19,8 +19,25 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMN_SPECS,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMN_SPECS,
 )
+from orchestrator.defs.run_contracts.stock_weekly import (
+    StockWeeklySource,
+    weekly_column_specs,
+)
 
 RAW_DAILY_BASIC_SCHEMA = tuple(ColumnContract(*spec) for spec in DAILY_BASIC_COLUMN_SPECS)
+
+RAW_STK_PERIOD_BAR_WEEK_SCHEMA = tuple(
+    ColumnContract(*spec)
+    for spec in weekly_column_specs(StockWeeklySource.PRIMARY_UNADJUSTED)
+)
+RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA = tuple(
+    ColumnContract(*spec)
+    for spec in weekly_column_specs(StockWeeklySource.PRIMARY_ADJUSTED)
+)
+RAW_TUSHARE_WEEKLY_SCHEMA = tuple(
+    ColumnContract(*spec)
+    for spec in weekly_column_specs(StockWeeklySource.ALTERNATE_WEEKLY)
+)
 
 RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA = tuple(
     ColumnContract(

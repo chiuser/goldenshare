@@ -1,6 +1,7 @@
 import dagster as dg
 
 from orchestrator.defs.daily_basic_contract import DAILY_BASIC_PARTITIONS
+from orchestrator.defs.run_contracts.stock_weekly import STOCK_WEEKLY_PARTITIONS
 
 cn_a_daily_basic_trade_days = dg.DynamicPartitionsDefinition(name=DAILY_BASIC_PARTITIONS)
 
@@ -8,6 +9,7 @@ cn_a_daily_basic_trade_days = dg.DynamicPartitionsDefinition(name=DAILY_BASIC_PA
 # their asset-family-specific partition definitions below.
 cn_a_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_trade_days")
 cn_a_stock_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_stock_trade_days")
+cn_a_stock_week_ends = dg.DynamicPartitionsDefinition(name=STOCK_WEEKLY_PARTITIONS)
 cn_a_stk_nineturn_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_a_stk_nineturn_trade_days"
 )

@@ -1,0 +1,25 @@
+{
+  "primary": {
+    "rows": 2895784,
+    "year_count": 17,
+    "sum_code_year_counts": 61285,
+    "minimum_300_code_units_with_year_inventory": 212,
+    "physical_source_date_count": 857,
+    "compressed_bytes_sample_extrapolation": 118240652
+  },
+  "adjusted": {
+    "rows": 2891262,
+    "year_count": 17,
+    "sum_code_year_counts": 61188,
+    "minimum_300_code_units_with_year_inventory": 212,
+    "physical_source_date_count": 857,
+    "compressed_bytes_sample_extrapolation": 202547359
+  },
+  "retired": {
+    "codes": 211,
+    "candidate_keys_old_audit": 103637,
+    "candidate_code_year_units": 2363,
+    "full_17_year_rectangular_max_units": 3587,
+    "max_attempts_per_unit": 3
+  }
+}
