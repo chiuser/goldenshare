@@ -1,0 +1,50 @@
+{
+  "scope": "temporary offline adapter validation; actual M0 source values, synthetic capacity separately; no network or formal writes",
+  "capture_root": "/private/tmp/stock-week-m2-t8th99rz",
+  "results": [
+    {
+      "source": "primary",
+      "source_rows": 15346,
+      "captured_rows": 15346,
+      "chunks": 2,
+      "bytes": 402015,
+      "elapsed_seconds": 0.156,
+      "pg_transport": "offline cursor replay of M0 actual readonly CSV",
+      "sql_calls": 4,
+      "fetchmany_calls": 3,
+      "resume_source_calls": 0,
+      "peak_rss_mib": 214.328
+    },
+    {
+      "source": "adjusted",
+      "source_rows": 15346,
+      "captured_rows": 15346,
+      "chunks": 2,
+      "bytes": 714404,
+      "elapsed_seconds": 0.2854,
+      "pg_transport": "offline cursor replay of M0 actual readonly CSV",
+      "sql_calls": 4,
+      "fetchmany_calls": 3,
+      "resume_source_calls": 0,
+      "peak_rss_mib": 274.562
+    },
+    {
+      "source": "weekly",
+      "source_rows": 51,
+      "captured_rows": 51,
+      "elapsed_seconds": 0.529,
+      "transport": "supervised subprocess replay of actual M0 response",
+      "formal_writes": 0
+    },
+    {
+      "source": "capacity_synthetic",
+      "source_rows": 30000,
+      "captured_rows": 30000,
+      "elapsed_seconds": 0.2798,
+      "fetchmany_calls": 4,
+      "peak_rss_mib": 305.547,
+      "forced_spill": false,
+      "spill_bytes": 0
+    }
+  ]
+}

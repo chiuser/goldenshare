@@ -1,6 +1,6 @@
 # DG 股票周线备用源 Raw 补齐：代码级 LLD v1
 
-日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 adapter、M4 definitions、M9 更新编排及正式同步／启用尚未实施。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
+日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture 实现及隔离验收已完成；M3候选提升、M4 definitions、M9更新编排及正式同步／启用尚未实施。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
 
 ## 1. 范围、依据和硬口径
 
@@ -250,7 +250,7 @@ Raw 覆盖 key 为源 `(ts_code,trade_date)`，同周两个不同源日期不在
 
 M0 先检查 live column/PK/index 与本轮 catalog hash；一次有界 inspect 取得两表独立股票代码集合及最早／最晚源日期，不能只用日线 5,846 个代码代替 Prod 集合。只读代码清单上限 10,000；超限重新定预算，不截断。metadata inspection 只查系统目录；实际 DISTINCT/范围聚合须先 EXPLAIN 并纳入单独只读预算，不能冒充零成本目录统计。
 
-利用实际主键前缀，每 unit 最多 300 个显式代码＋锚点年度对应源日期窗口。Planner 让各 unit 归属的周分区范围互斥：以源日期所属周五是否落入目标年度决定归属；读取跨年边界允许重叠，非本 unit 所属周记录只记 boundary_duplicate，交给对应年度 unit 保留，不造成源数据丢失。异常非周五源日期同样按其自然周存，Raw 源日期不改。
+利用实际主键前缀，每 unit 最多300个显式代码，按源日期自然年半开窗口导出；M1/M2各unit的代码与源日期范围互斥，不按周归属过滤Prod行。M3再按源日期所属ISO周五路由，跨年周可能包含来自两个自然年capture的行，必须合并完整分区。异常非周五源日期保留，Raw源日期不改。
 
 SQL 只允许固定表 enum 和字段 schema，值参数化；数值列投影为 `numeric::text`，日期 `to_char`，避免 psycopg2 Decimal → pandas float。示意：
 
@@ -263,7 +263,7 @@ SELECT ts_code, to_char(trade_date,'YYYYMMDD') AS trade_date,
        change::text AS change, pct_chg::text AS pct_chg
 FROM raw_tushare.stk_period_bar
 WHERE ts_code = ANY(%(codes)s) AND freq = 'week'
-  AND trade_date >= %(source_start)s AND trade_date <= %(source_end)s
+  AND trade_date >= %(source_start)s AND trade_date < %(source_end)s
 ORDER BY ts_code, trade_date, freq;
 ```
 
@@ -602,3 +602,34 @@ CodeGraph `codegraph_explore` 覆盖ColumnContract/catalog模型/资源合同；
 现有OS隔离测试启动器的精确源码清单同步新增纯合同；AST直接import审计另发现现行ETF checks/writer已引用、但清单遗漏的 `etf_adj_factor_terminal_exceptions.py`，只补这一源码文件，不改该ETF实现或开放其YAML、正式Lake/instance及网络。纯代码变更未执行正式writer。治理suite通过12例/456subtests，定向和相邻回归75例通过；初始直接pytest的fixture导入失败及旧清单失败已记录，不放宽或跳过门禁。
 
 真实M1 dry-run仅消费M0临时CSV和reports证据：两主源各298代码/15346行，分别规划一个2025代码批次；退市000005.SZ的656个已证实候选键形成15个year单位、含重试上限45次，首请求2009-12-28，单元最多53周；无网络/DB/湖/instance写入。下一阶段M2：实际readonly Prod stream、Tushare supervisor/capture、持久化checkpoint与取消/续跑，不扩为正式bootstrap执行。
+
+## 20. M2 开工约束与执行卡（2026-10-03）
+
+M0/M1 已提交 `114a15c6`。本轮按 §15 M2 开发：新增 `defs/prod_db/stock_weekly.py`、`defs/stock_weekly_source.py`、`defs/bootstrap/stock_weekly_capture.py`、`defs/bootstrap/stock_weekly_history.py` 及对应隔离测试。只生产 source chunks/receipt/checkpoint，不实现 M3 分区 merge/promote 或 M4 definitions；不修改共享 resource/helper 的行为。
+
+| 硬口径 | 代码点／正反验收 |
+|---|---|
+| 固定两张 Prod 表、显式业务投影、源日期年度半开窗口 | prod adapter；SQL 白名单、numeric 文本、跨年及非周五保留；拒绝备用/伪造 unit |
+| 同 unit 单个只读 repeatable-read 快照 | connection 在首查询前设隔离；count/control 与 named cursor 同连接；异常/取消 rollback；不使用全集 fetchall |
+| 每批≤10000、unit≤30000、45秒、SQL≤30秒 | frozen budget 派生；计数超限先拒绝；fetch 前后取消／deadline，watchdog 调用 connection.cancel 终止阻塞查询 |
+| 备用一代码一年窗口，≤54行，不凭失败断言空源 | supervised worker；显式11列和对象/区间；字段、代码、范围、NULL及重复周反例；完整字段成功空单列 |
+| SDK每调用≤20秒，最多两次重试，阶段共享调用cap | 子进程终止并确认退出；阶段请求ledger调用前落盘，重启不归零；完成后至少间隔1秒；不记录token/异常原文 |
+| captured 前必须有可读、等量、显式schema chunks | 有界DataFrame→DuckDB CAST/COPY/readback；Decimal多余非零小数拒绝，保留Prod NULL；源count与capture count一致 |
+| 续跑只复用同一plan/unit/params/schema且hash一致的证据 | plan锁、独立attempt目录、原子JSON/fsync、逐chunk hash；完成receipt后checkpoint；篡改拒绝、receipt先成而checkpoint缺失可恢复 |
+| 取消不领取新unit，完成单元不重新请求 | history coordinator；完成量来自可读receipt；中断/取消/续跑/幂等重放与进度测试 |
+| 所有写入受控、正式环境不用于test case | 正式调用仅staging根，隔离测试仅系统临时根；拒绝正式Lake、旧湖、路径逃逸与symlink；本轮不执行正式capture |
+
+规模沿用 M0：17年，两源共5,787,046行；代码批次300，每源预计至少212unit，单unit通常≤3chunk。备用候选211对象、2363code/year，只有已证实可补键入计划；本轮隔离样本≤54行备用／30000行Prod，source chunk总数受3000上限约束。COPY只处理当前批；整unit最终只读一次有界chunk集合做schema/key/count验证，DuckDB512MiB/2线程/2GiB spill，目录为本次capture下的spill。chunk为原子提交粒度，unit receipt封存后才算完成；失败不删除已捕获现场，只在新attempt重取未完成unit。无整年/全历史DataFrame或逐行Parquet写入。
+
+主源按 M1 已批准的**源日期自然年半开窗口**导出全部业务行，再由 M3 按ISO周路由；§6.2旧“锚点年互斥”描述不适用于当前Prod adapter，不以周归属过滤导出行。真实远程核验继续通过管理员指定 `psql-remote.sh`；代码注入现有readonly resource不代表授权本轮直接连接正式资源。验收将已有M0真实源样本与实际capture/readback对账，网络实时行为另有M0证据，隔离测试不使用正式token。
+
+
+## 21. M2 开发验收（2026-10-03）
+
+[M2 验收报告](../../../reports/stock_week_m2_assessment_20261003.md)与[样本测量](../../../reports/stock_week_m2_capture_sample_20261003.json)记录实际结果。四个新模块实现固定源投影、repeatable-read/count/named-cursor、取消watchdog、SDK可终止子进程、阶段调用ledger、显式COPY/readback、逐chunk hash、receipt与checkpoint恢复及history进度；没有接入active Definitions或修改共享resource默认行为。
+
+两套真实M0源数据各15346行，分别分两chunk，续跑源调用零；备用51行经监督子进程捕获；30000行容量样本分三chunk，累计进程峰值RSS305.547MiB。数据值双向EXCEPT ALL为零；这些耗时只含离线replay，不含生产传输，不作为正式同步ETA。spill未触发，不能声称强制spill压力已验收。生产网络传输与正式staging执行仍未实施，须在M5/M6批准范围补实际执行验收。
+
+scope的`manifest.evidence_hash`是外部文件SHA256；`WeeklySourceUnit.expected_key_hash`是所选周键列表的逻辑hash，两者用途不同。执行先验证外部来源/键库存文件字节hash及受控根；unit身份/hash由frozen manifest锁定，后续M3覆盖审计仍须从外部expected证据做逐键对账，不能把capture成功当历史缺口清零。
+
+定向/相邻回归与DuckDB OS隔离回归通过，详见验收报告命令和计数。真实子进程以exit17退出后，已完成unit保留、OS锁释放、续跑只读未完成unit；无正式Lake/instance/Prod写入。M0/M1已提交114a15c6，M2修改本轮保留工作区，未推送。下一切片M3仅候选构建／完整校验／提升恢复的开发与私有临时目录验收。

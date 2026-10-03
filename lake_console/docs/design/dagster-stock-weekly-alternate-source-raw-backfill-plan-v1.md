@@ -1,6 +1,6 @@
 # DG 股票周线：Prod 存量保留与备用源 Raw 补齐方案 v1
 
-日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口，M1 纯合同与规划器已完成并验证；[代码级 LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)已对账。尚未实现 M2 捕获器、执行 bootstrap、写入正式 Lake 或提交 Dagster 任务。账户配额由管理员确认足够，不再作为待核实门禁。
+日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口，M1 纯合同与规划器已完成并验证；[代码级 LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)已对账。M2 捕获器已实现并完成隔离验收；尚未执行正式 bootstrap、写入正式 Lake 或提交 Dagster 任务。账户配额由管理员确认足够，不再作为待核实门禁。
 
 LLD 已细化主源两张资产的逐字段类型／精度及列白名单、局部配置审计、模块接口与消费者影响面、manifest/checkpoint、错误／续跑与测试。2026-10-03 Prod 只读系统目录核验表明仅有代码前缀主键索引，所以历史导出进一步明确为代码批次×年窗口；三张主源技术采集列不进入行情 Parquet，详见 LLD §4。真实分页和代表样本 Decimal/耗时/压缩大小已于 M0 核验；全体退市可用性和身份分支在后续有界调查中逐批准入。M1 详情见 [开发验收记录](../../../reports/stock_week_m1_assessment_20261003.md)。
 
