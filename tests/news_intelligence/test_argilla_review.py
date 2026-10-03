@@ -186,7 +186,7 @@ def test_import_idempotent_preserves_v2_and_refuses_prediction_conflict(tmp_path
 def test_export_original_response_clear_tags_and_versions(tmp_path):
     client = FakeArgillaClient()
     row = prepare_review_record(record())
-    response = {"review_action": "EDIT", "clear_fields": ["interest_tags"]}
+    response = {"review_action": "EDIT", **values(), "interest_tags": [], "clear_fields": ["interest_tags"]}
     row["responses"] = [{"status": "submitted", "user_id": "reviewer", "updated_at": "2026-10-03T12:00:00Z",
                          "values": {k: {"value": v} for k, v in response.items()}}]
     client.records["v3"] = [row]
@@ -203,16 +203,73 @@ def test_export_original_response_clear_tags_and_versions(tmp_path):
         export_reviews(client=client, dataset_id="v3", output_path=path, annotation_round=1)
 
 
-def test_invalid_submitted_response_never_writes_output(tmp_path):
+def test_invalid_submitted_response_is_archived_but_never_gold(tmp_path):
     client = FakeArgillaClient()
     row = prepare_review_record(record())
     row["responses"] = [{"status": "submitted", "user_id": "reviewer", "updated_at": "2026-10-03",
                          "values": {"review_action": {"value": "EDIT"}}}]
     client.records["v3"] = [row]
     path = tmp_path / "output.jsonl"
-    with pytest.raises(ValueError):
-        export_reviews(client=client, dataset_id="v3", output_path=path, annotation_round=1)
-    assert not path.exists()
+    result = export_reviews(client=client, dataset_id="v3", output_path=path, annotation_round=1)
+    exported = json.loads(path.read_text())
+    assert result["needs_confirmation"] == 1
+    assert exported["status"] == "NEEDS_CONFIRMATION"
+    assert exported["final_values"] is None
+    assert exported["argilla_responses"] == row["responses"]
+
+
+@pytest.mark.parametrize("change,code", [
+    ({"event_type_status": "UNRESOLVED"}, "INVALID_REVIEW"),
+    ({"industry_status": "UNKNOWN"}, "INVALID_REVIEW"),
+    ({"topic_path": "ECONOMY_BUSINESS_FINANCE", "secondary_topics": ["ECONOMY.BUSINESS_OPERATIONS"]}, "INVALID_REVIEW"),
+    ({"clear_fields": ["interest_tags"]}, "FILL_AND_CLEAR"),
+])
+def test_conflicting_native_forms_preserve_every_answer(change, code):
+    from src.biz.services.wealth.news_intelligence.review_submission import audit_submission
+    response = {"review_action": "EDIT", **values(), **change}
+    original = deepcopy(response)
+    result = audit_submission(response=response, prediction=prediction(), role="TUTORIAL", source_text=TEXT)
+    assert result["status"] == "NEEDS_CONFIRMATION"
+    assert result["final_values"] is None
+    assert result["human_response"] == response == original
+    assert code in {issue["code"] for issue in result["review_issues"]}
+
+
+@pytest.mark.parametrize("action,missing", [("EDIT", "interest_tags"), ("ACCEPT", "primary_event_type")])
+def test_omitted_nonempty_suggestion_is_not_silently_restored(action, missing):
+    from src.biz.services.wealth.news_intelligence.review_submission import audit_submission
+    response = {"review_action": action, **values()}
+    del response[missing]
+    result = audit_submission(response=response, prediction=prediction(), role="TUTORIAL", source_text=TEXT)
+    assert result["final_values"] is None
+    assert any(issue["code"] == "OMITTED_SUGGESTION" and missing in issue["fields"] for issue in result["review_issues"])
+
+
+def test_explicit_negative_status_only_clears_omitted_dependent_field():
+    from src.biz.services.wealth.news_intelligence.review_submission import audit_submission
+    response = {"review_action": "EDIT", **values(), "event_type_status": "NOT_APPLICABLE"}
+    del response["primary_event_type"]
+    result = audit_submission(response=response, prediction=prediction(), role="TUTORIAL", source_text=TEXT)
+    assert result["status"] == "REVIEWED"
+    assert result["final_values"]["primary_event_type"] is None
+
+
+def test_mixed_export_does_not_drop_valid_records_or_mutate_database(tmp_path):
+    client = FakeArgillaClient()
+    rows = []
+    for index, response in enumerate(({"review_action": "ACCEPT"}, {"review_action": "EDIT"})):
+        row = prepare_review_record(record())
+        row["external_id"] = row["metadata"]["sample_id"] = f"m1:news:{index}"
+        row["responses"] = [{"status": "submitted", "user_id": "reviewer", "updated_at": "2026-10-03",
+                             "values": {k: {"value": v} for k, v in response.items()}}]
+        rows.append(row)
+    client.records["v3"] = rows
+    before = deepcopy(rows)
+    path = tmp_path / "mixed.jsonl"
+    result = export_reviews(client=client, dataset_id="v3", output_path=path, annotation_round=1)
+    assert result["submitted_records"] == 2 and result["reviewed_records"] == 1 and result["needs_confirmation"] == 1
+    assert len(path.read_text().splitlines()) == 2
+    assert rows == before
 
 
 def test_suggestions_never_create_responses_and_skip_human_drafts(tmp_path):

@@ -168,3 +168,31 @@ python -m src.scripts.news_intelligence_m1 argilla-import \
 - `review_policy.py`允许ACCEPT提交与机器答案一致的预填值；EDIT按差异记录，不能把未改动的预填值算成人工纠偏。人工原始提交仍完整导出。
 - 新增草稿保护、建议冲突及独立无建议测试，补充完整预填接受/修改测试；M1与三项架构护栏合计78项通过。CodeGraph query/impact覆盖Biz归一化、App导入导出、演示生成器、CLI和测试；不改变生产API与依赖矩阵。
 - API读回确认建议已关联问题；本轮没有已登录界面的视觉核验或代替用户提交。请刷新现有教学集Focus界面试审。原有模型质量、重要度和M1准入限制不变。
+
+### 6.5 十条真实提交与无损导出（2026-10-03）
+
+用户已提交10条（ACCEPT4、EDIT6）。原导出遇到主副包含/行业矛盾就整批失败，且会覆盖显式事件类型、将遗漏的关注标签恢复为机器建议。上述属于程序和工作流缺陷，不将责任归给标注者，也不要求重标整批。
+
+| 约束 | 代码 | 验证 |
+| --- | --- | --- |
+| 原始提交完整留档，不修改工作台 | App `export_reviews` | 原始response、原文、所有responses保留；真实10条只读导出 |
+| 显式值不被状态清空覆盖 | Biz `audit_submission` | 行业与事件矛盾反例；负向状态仅补遗漏依赖字段 |
+| 缺失非空建议不猜测 | 同上 | 部分ACCEPT缺事件、EDIT缺关注标签均待确认 |
+| 无效单条不阻断整批，不能伪造gold | 无损导出合同 | 混合有效/无效测试；待确认final_values为空 |
+| 旧任务不覆盖，HDD版本化冻结 | 现有AtomicArtifactWriter | 新实验目录、13个制品SHA256校验后原子重命名 |
+
+- 实机结果：10条全部导出；5条合同有效、5条 `NEEDS_CONFIRMATION`，没有整体UNRESOLVED动作。合同有效不等于标签准确，不能将50%描述为模型准确率。
+- 待确认：Claude主副包含；原油“无法判断行业”却选能源；南威“事件证据不足”却选价格异动；ETF文章遗漏关注标签；北京文化论坛ACCEPT遗漏原建议事件类型。只需确认这些争议，暂不扩展120条。
+- 正式HDD归档：`/data/disk/goldenshare/news-intelligence/m1/m1-review-v3-audit-20261003-round1`。父实验输入/预测原样继承并记录manifest校验；新导出保留原文与所有原始responses。分类/聚类/摘要/排名均 `NOT_EVALUATED`；无新模型调用、数据库查询、生产业务写入或服务操作。manifest记录基线commit及未提交修复代码SHA，不能把基线当作修复已提交。
+- 聚焦32项、全部M1及三项架构护栏86项通过。CodeGraph `codegraph_impact(export_reviews)`覆盖导出模块及测试；人工核验CLI、Biz归一化、原生建议投影和冻结消费者。保持App→Biz方向，无依赖矩阵变化。没有新增配置、安装或端口。
+- 本轮完成导出端联动校验和保守清空语义；**没有修改现有Argilla题目、建议或人工答案，界面动态联动尚未实现**。后续表单简化和纠偏仍需完成闭环，不能将本轮视为M1-3或M1准入完成。人工确认后另存新轮次，保留本轮原始证据。
+
+### 6.6 用户批准的五项纠偏（2026-10-03）
+
+用户明确同意五项建议后，仅修改这些确认内容：Claude主主题为“科技→技术发展”、副主题清空；ESPO原油为具体能源行业；南威软件事件为可分类的市场价格异动；ETF关注标签仅金融市场；北京文化论坛记录 `LABEL_GAP`，不使用预测或观点，也不擅自新增会议类别。
+
+- 新HDD实验：`/data/disk/goldenshare/news-intelligence/m1/m1-review-v3-audit-20261003-round2`，完整13个制品通过SHA256校验后原子冻结。第一轮保持不变。
+- 10条快照现为9条合同有效、1条未决、0条待确认。北京文化论坛未决的最终值为空，不作为完整gold。教学样本仍不能代表独立准确率或M1准入。
+- 保留首轮 `human_response/argilla_responses/machine_prediction/sample_id/input_hash/submitted_at/reviewer_id/annotation_round` 不变；5项纠偏单独存入 `adjudication_response` 与 `adjudication`，记录 `USER_APPROVED_CHAT`、批准文本、纠偏时间及 `adjudication_round=2`。这不是新的Argilla提交，也不是第二轮盲复标，不能用于单人一致性指标。
+- 验证逐字段原始事实未变化、仅5条获得纠偏记录、剩余5条完整保持原样、纠偏后重新通过Biz校验；未决条不生成最终标签。无模型调用、Argilla写入、数据库访问或服务变更，无依赖矩阵变化。
+- 本轮只落实批准的争议项，不扩大120条、不开始800条。下一步仍是简化表单联动和审计真实误分类；例如财政收入被建议为劳动主题等已接受结果也需要质量复核，不以合同有效掩盖语义错误。

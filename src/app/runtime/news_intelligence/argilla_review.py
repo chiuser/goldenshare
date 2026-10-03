@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Mapping
 
 from src.biz.services.wealth.news_intelligence.policy import EVENT_TYPE_NAMES
+from src.biz.services.wealth.news_intelligence.review_submission import audit_submission
 from src.biz.services.wealth.news_intelligence.review_policy import (
     ASSISTED_ROLES, BLIND_ROLES, INDUSTRIES, INDUSTRY_VERSION, INTERESTS,
     INTEREST_VERSION, REVIEW_SCHEMA_VERSION, REVIEW_TAXONOMY_VERSION,
-    REVIEW_FIELDS, resolve_review, topic_options, validate_prediction,
+    REVIEW_FIELDS, topic_options, validate_prediction,
 )
 from .argilla_workspace import (
     ArgillaContractError, ArgillaHttpClient, _atomic_write_jsonl, _canonical_sha256,
@@ -249,31 +250,18 @@ def export_reviews(*, client: ArgillaHttpClient, dataset_id: str, output_path: P
             raise ValueError("submitted review lacks reviewer or timestamp")
         response = {k: v["value"] for k, v in latest["values"].items() if "value" in v}
         original_response = dict(response)
-        clear_fields = response.pop("clear_fields", [])
-        if not isinstance(clear_fields, list) or any(k not in {"secondary_topics", "industries", "interest_tags"} for k in clear_fields):
-            raise ValueError("invalid fields to clear")
-        if clear_fields and response.get("review_action") != "EDIT":
-            raise ValueError("only EDIT can clear original predictions")
-        for key in clear_fields:
-            if response.get(key):
-                raise ValueError("cannot both fill and clear the same field")
-            response[key] = []
-        # Clearing the event is represented by changing its applicability status.
-        if response.get("event_type_status") in {"NOT_APPLICABLE", "UNRESOLVED"}:
-            response["primary_event_type"] = None
-        if response.get("industry_status") in {"NONE", "UNKNOWN"}:
-            response.setdefault("industries", [])
-        if response.get("review_action") == "LABEL":
-            for key in ("secondary_topics", "industries", "interest_tags"):
-                response.setdefault(key, [])
-            if response.get("classification_status") != "CLASSIFIED":
-                response.setdefault("topic_path", None)
         fields = record["fields"]
-        resolved = resolve_review(response=response, prediction=metadata.get("machine_prediction"),
+        resolved = audit_submission(response=response, prediction=metadata.get("machine_prediction"),
                                   role=metadata["evaluation_role"], source_text=fields["title"] + "\n" + fields["content"])
         resolved["human_response"] = original_response
         output.append({**metadata, **resolved, "argilla_dataset_id": dataset_id,
                        "reviewer_id": latest["user_id"], "submitted_at": latest["updated_at"],
-                       "annotation_round": annotation_round})
+                       "annotation_round": annotation_round,
+                       "export_contract_version": "news-review-export-v2-lossless",
+                       "source_fields": fields, "argilla_responses": record.get("responses", [])})
     _atomic_write_jsonl(output_path, sorted(output, key=lambda r: r["sample_id"]))
-    return {"dataset_id": dataset_id, "submitted_records": len(output), "output_path": str(output_path)}
+    return {"dataset_id": dataset_id, "submitted_records": len(output),
+            "reviewed_records": sum(r["status"] == "REVIEWED" for r in output),
+            "needs_confirmation": sum(r["status"] == "NEEDS_CONFIRMATION" for r in output),
+            "unresolved_records": sum(r["status"] == "UNRESOLVED" for r in output),
+            "output_path": str(output_path)}
