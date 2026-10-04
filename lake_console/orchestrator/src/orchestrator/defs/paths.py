@@ -194,6 +194,14 @@ def raw_stock_daily_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def raw_anns_d_path(root: Path, partition_key: str) -> Path:
+    from orchestrator.defs.anns_d_contract import announcement_date
+
+    if partition_key != PATH_TEMPLATE_PARTITION_KEY:
+        announcement_date(partition_key)
+    return lake_path(root, RAW, "tushare", "anns_d", f"ann_date={partition_key}", "part-000.parquet")
+
+
 def raw_daily_basic_path(root: Path, partition_key: str) -> Path:
     from orchestrator.defs.daily_basic_contract import daily_basic_trade_date
 

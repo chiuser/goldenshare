@@ -1,6 +1,6 @@
 # 上市公司公告接入 DG 代码级 LLD v1
 
-状态：P0 契约与预算核验完成，P1 待开发。日期：2026-10-04。业务决策已获用户确认；本文的拟新增文件、配置、命令及验收项均未实现，不是可直接执行的生产 runbook。
+状态：P1 核心实现与隔离验收完成，P2 待接线。日期：2026-10-04。已实现范围见§13；资产、job、schedule、正式 checks 与 CLI 尚未接线。本文不是可直接执行的生产 runbook。
 
 对应 [技术方案](dagster-anns-d-onboarding-plan-v1.md)，共同使用 R01–R12。采用 [接入模板](../templates/dagster-dataset-onboarding-template.html) 的身份、字段矩阵、§7A、预算、检查、写入与验收要求；未测性能必须在 P0 补齐。
 
@@ -16,7 +16,7 @@
 
 Bootstrap 固定 2020-01-01..2026-09-30。首次接线后按相同日更新实现补 2026-10-01..启用前一天；若范围为空则不创建工作。正式 schedule 启用前必须对账此区间，不能只跑七天。
 
-## 2. 拟新增模块和接线点
+## 2. 模块和接线点（实现状态见§13）
 
 路径相对于 `lake_console/orchestrator/src/orchestrator/`；实施前再次核对当前分拆规则，保持一个职责一个模块，不写通用万能入口。
 
@@ -27,6 +27,7 @@ Bootstrap 固定 2020-01-01..2026-09-30。首次接线后按相同日更新实�
 | `defs/anns_d_source.py` | 显式六字段 Tushare 分页、有界调用、限流/配额/取消 |
 | `defs/anns_d_io.py` | 页 Parquet、DuckDB UNION DISTINCT、候选检查与原子提升 |
 | `defs/bootstrap/anns_d_history.py` / `anns_d_history_cli.py` | plan/capture/build/audit/promote；独立事件补录入口不混入每日链 |
+| `defs/anns_d_execution.py` | 日执行器、提交证据复核、取消与续跑 |
 | `defs/anns_d_checkpoint.py` | 原子 run-scoped checkpoint、指纹恢复、并发锁；不新增永久状态表 |
 | `defs/assets/anns_d.py` | 薄 asset，调用日执行器并返回交付 metadata |
 | `defs/checks/anns_d_checks.py` | 分区一致的文件合同和交付对账 checks |
@@ -69,7 +70,7 @@ Bootstrap 固定 2020-01-01..2026-09-30。首次接线后按相同日更新实�
 
 月起止和上界 id 绑定参数；只读属性在业务 SQL 前建立，优先 `ProdPostgresResource.connect_readonly_transaction()`。月内使用 repeatable read 只读快照，设置 cursor_tuple_fraction=1.0，不与全历史共享事务。读取结束 rollback/close。
 
-拟定受控投影（语法需 P0 实际 EXPLAIN/类型核验，不是当前已实现 helper）：
+已实现的六业务字段投影如下；真实 helper 另返回类型化分区日期和 keys_present 校验标记，不进入 Raw：
 
 ```sql
 SELECT id,
@@ -109,7 +110,7 @@ SDK值规范：只将pandas表示的缺失值（已实测url为float NaN）还�
 
 ## 5. 配置审计
 
-新增默认值集中到拟定 `defs/run_contracts/anns_d.py` 的 policy 与 Dagster schema；本表是设计合同，不证明配置已部署。运营覆盖仅从已声明 job/CLI 参数进入，不散落 env、页面和脚本。
+执行默认值已集中到 `defs/run_contracts/anns_d.py` 的 AnnouncementPolicy；Dagster schema、refresh_days 与 schedule 定义待 P2 接线。本表是设计合同，不证明配置已部署。运营覆盖仅从已声明 job/CLI 参数进入，不散落 env、页面和脚本。
 
 | 配置/常量 | 默认 | 来源/持久化 | 消费者、依赖与生效 |
 |---|---|---|---|
@@ -235,3 +236,28 @@ CodeGraph query/impact与当前实现核对覆盖入口、TushareResource、Prod
 - DuckDB专用2GB/2线程/20GB spill配置可用于隔离连接，不改共享16GB默认；本机未安装pyarrow，P1优先使用现有DuckDB按批JSON/CSV列式读写，不安装依赖。
 - 根环境所需秘密配置均存在（只核验布尔值）；正式instance并发1、路径同文件系统、剩余空间约2.67TiB。资源连通性已通过SSH和SDK核验，未实连ProdPostgresResource；P1须检验其只读属性/隔离级别，不能把SSH成功等同resource验收。
 - P3执行规划15–60分钟、保守空间35GiB；样本不足以证明全月峰值RSS或全量时限，P3先样本校准。原计划81源月/2,465日不变，预算耗尽和类型异常仍fail closed。
+
+## 13. P1 实现与计划对账（2026-10-04）
+
+[验收报告](../../reports/anns_d_dg_p1_20261004.md)、[结构化证据](../../reports/anns_d_dg_p1_20261004.json)。P1 核心完成，P2 接线未开始。§12保留P0时点的历史结论，以本节作为最新状态。
+
+| 硬口径 | 当前实现、测试与证据 |
+|---|---|
+| R01/R02 六字段与源值 | anns_d_contract / anns_d_io；固定六 VARCHAR，SDK 缺失值还原 NULL；类型、空白、空字符串、额外列反例测试。真实 SDK 空日六列、两条缺值样本通过 |
+| R03 完全重复 | 显式六列 DISTINCT；NULL 与空字符串分别保留，URL/rec_time 不同版本保留；io 测试包含 155162.SH 样本及幂等重放 |
+| R04/R06 自然日及异常 | 专用日期合同、raw_anns_d_path；空日生成六列文件，无股票池过滤；日期/schema/类型错误阻断并留 staging 证据 |
+| R05 Prod 只读、每日直连源 | prod_db/anns_d 月服务端游标及 anns_d_source；测试 SQL/事务顺序、批次上限、闭合计数；真实资源 transaction_read_only=on、10,000 行读取，未写 Prod |
+| R07 有界内存与分页 | fetchmany=10,000；源单页2,000，逐页持久化；月份在专用 DuckDB 内一次物化，按日构建，不重复扫描全部月页；2GB/2线程/20GB spill，预算与超时测试通过 |
+| R08 取消与恢复 | checkpoint / io / execution / bootstrap；锁、指纹、基线比较、原子改名、逐文件恢复；进程退出、阻塞调用取消、页篡改、磁盘不足、writer 冲突测试通过 |
+| R09 七日和衔接补拉 | 核心支持已结束自然日/闭区间及共享窗口预算；七日 planner、首次衔接范围和调度接线待 P2，正式补拉待 P4 |
+| R10 业务提交独立 | emit 失败后文件仍保留，checkpoint 落盘失败可核验文件续跑；正式 Dagster 事件补报接线及验收待 P2/P4 |
+| R11 阶段门禁 | 没有资产/job/schedule/正式 checks 注册，没有正式 Lake 或事件写入；仅 /private/tmp 隔离文件和只读请求 |
+| R12 不新增正式状态事实 | 仅 run-scoped 文件 checkpoint 与窗口预算，不新增数据库、摘要 asset 或 freshness 投影；boundaries 测试核验核心不注册 Dagster 定义、不依赖 Prod Ops |
+
+源 capture 完成才可构建候选。完整源页须有大小/SHA 指纹、行数和结束证据；提升前再次验证。Prod keys_present 同时检查六键齐全和没有额外键。错误行仅保存内部 id、分区日期、六字段及 reason code 到 run-scoped staging，不输出完整 raw_payload，不静默跳过。
+
+P1 使用 codegraph query/impact 分析 ProdPostgresResource、TushareResource、DuckDB 连接及路径调用链，并 sync/status 核验索引；新增 raw_anns_d_path 消费者仅公告 Store 和路径测试。没有修改共享资源行为、业务子系统依赖矩阵或下载器消费者。P2 尚须核验 definitions/catalog/checks/schedule 消费者和实际运行 metadata。
+
+自动化结果：公告及资源测试82项通过（公告新增67项、既有资源15项），受保护 DuckDB launcher 回归27项通过；4条既有 Dagster/Pydantic 弃用警告。两种真实进程退出路径均在隔离目录验证。只读验收不是完整月份吞吐测试，也不证明所有 Tushare 日期的全集覆盖。
+
+执行配置由 AnnouncementPolicy 集中管理，持久窗口额度包含失败和重试，重启不退还未决请求；完整月/全量成本仍待正式阶段测量。

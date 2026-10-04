@@ -1,0 +1,67 @@
+{
+  "transaction_read_only": "on",
+  "history_batch_rows": 10000,
+  "history_seconds": 4.705784165998921,
+  "history_fields": [
+    "ann_date",
+    "ts_code",
+    "name",
+    "title",
+    "url",
+    "rec_time"
+  ],
+  "history_plan": [
+    {
+      "expected_rows": 147952,
+      "month_start": "2023-06-01",
+      "month_end": "2023-07-01",
+      "upper_id": "20184551"
+    }
+  ],
+  "empty_rows": 0,
+  "empty_columns": [
+    "ann_date",
+    "ts_code",
+    "name",
+    "title",
+    "url",
+    "rec_time"
+  ],
+  "nullable_rows": 2,
+  "missing_url": 1,
+  "missing_rec_time": 2,
+  "revised_sql_history": {
+    "transaction_read_only": "on",
+    "history_batch_rows": 10000,
+    "history_seconds": 4.268324708100408,
+    "history_fields": [
+      "ann_date",
+      "ts_code",
+      "name",
+      "title",
+      "url",
+      "rec_time"
+    ],
+    "history_plan": [
+      {
+        "expected_rows": 147952,
+        "month_start": "2023-06-01",
+        "month_end": "2023-07-01",
+        "upper_id": "20184551"
+      }
+    ]
+  },
+  "stage": "P1 core only",
+  "date": "2026-10-04",
+  "tests": {
+    "announcement_new": 67,
+    "existing_resource": 15,
+    "protected_duckdb": 27,
+    "total": 109
+  },
+  "formal_lake_write": false,
+  "prod_write": false,
+  "dagster_event_write": false,
+  "schedule_enabled": false,
+  "full_month_capture": false
+}

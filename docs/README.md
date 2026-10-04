@@ -208,7 +208,7 @@ docs/
 - [新闻联播文字稿](/Users/congming/github/goldenshare/docs/datasets/cctv-news-dataset-development.md)
 - [新闻通讯](/Users/congming/github/goldenshare/docs/datasets/major-news-dataset-development.md)
 - [上市公司公告](/Users/congming/github/goldenshare/docs/datasets/anns-d-dataset-development.md)
-- [DG 上市公司公告接入技术方案 v1（P0 核验完成，P1 待开发）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-anns-d-onboarding-plan-v1.md)
+- [DG 上市公司公告接入技术方案 v1（P1 核心完成，P2 待接线）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-anns-d-onboarding-plan-v1.md)
 - [DG 上市公司公告接入 LLD v1（六字段 Raw、bootstrap、七日回看与恢复）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md)
 - [上市公司公告同步完善技术方案 v1（P0；缺值保存、完整覆盖及历史任务恢复）](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)
 - [上市公司公告同步完善 LLD v1（P0；身份、持久化、预算、迁移及验收矩阵）](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)
