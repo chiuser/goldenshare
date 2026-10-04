@@ -1,6 +1,6 @@
 # 股票月线 Raw 接入：代码级 LLD
 
-日期：2026-10-04，Asia/Shanghai。状态：M10.B 来源/库存/性能与纯合同/规划已完成；capture和正式资产尚未开发，未写入正式数据。依据股票周线原方案、管理员本轮允许周线正式验收延期并推进后续工作的指示，以及数据集接入模板 §3–18，尤其 §7A。设计内容与实测结果分别标注，不能据此宣布月线已接入。
+日期：2026-10-04，Asia/Shanghai。状态：M10.C bootstrap采集/候选/提升隔离开发已完成；正式资产与更新机制集成尚未开发，未写入正式数据。依据股票周线原方案、管理员本轮允许周线正式验收延期并推进后续工作的指示，以及数据集接入模板 §3–18，尤其 §7A。设计内容与实测结果分别标注，不能据此宣布月线已接入。
 
 ## 1. 阶段边界与已确认口径
 
@@ -86,16 +86,16 @@ Raw保留批准投影的全部历史源值，20200229是管理员明确的唯一
 
 本设计不直接复制整个weekly执行栈，也不在M9等待实测期间修改其执行语义。先实现月线纯合同/规划和独立的薄adapter；可直接复用现行DuckDBConnectionSettings/connect_configured_duckdb、资源装配、统一run key/config/tag/metadata builder及psql唯一入口。
 
-以下是代码级拆分草案，不是已存在实现：
+以下逐项标明已实现bootstrap接口；definitions和更新模块仍为后续设计：
 
 | 文件 | 核心接口与职责 | 禁止项/验收 |
 |---|---|---|
-| defs/run_contracts/stock_monthly.py | StockMonthlySource仅两主源；MonthlySchema、MonthlyPolicy、MonthlyIntent、MonthUnit/Manifest；normalize_month_key、request_date_for_month | week/备用源输入拒绝；2月28例外由此唯一生成 |
+| defs/run_contracts/stock_monthly.py | StockMonthlySource仅两主源；monthly_column_specs、StockMonthlyPolicy、MonthlyBootstrapIOPolicy、MonthlyProdUnit/MonthlyBootstrapPlan；normalize_month_key、request_date_for_month | week/备用源输入拒绝；2月28例外由此唯一生成 |
 | defs/stock_monthly_planner.py | plan_month_bootstrap(inventory,policy)、plan_month_update(now,calendar,state) | 无IO；只结束月；完整库存冻结hash，未查源不记无源 |
-| defs/prod_db/stock_monthly.py | build_prod_monthly_query(unit)、capture_prod_monthly_unit | 表/13或21列/freq=month显式白名单；只读事务、超时、取消；不COPY采集字段 |
-| defs/bootstrap/stock_monthly_capture.py | capture_month_unit→receipt；resume验证来源/参数/schema/页hash与请求账本 | 单页先持久化；重复执行不重取成功页；拒绝截断、float精度损失 |
-| defs/io/stock_monthly_raw.py | validate_month_relation、classify_month_versions、canonical_month_hash、write_month_candidates | DuckDB SQL列式；20200229留排除台账；不修改业务trade_date |
-| defs/bootstrap/stock_monthly_promote.py | audited候选→同文件系统os.replace；每文件锁/目标fingerprint/checkpoint | 不调用周线的WEEK_SQL/周五validator；同值幂等、异值修订审批；禁止备份/Kopia |
+| defs/prod_db/stock_monthly.py | build_prod_monthly_query(unit)、build_prod_monthly_export_sql、PsqlMonthlyExporter.export | 表/13或21列/freq=month显式白名单；只读事务、超时、取消；不COPY采集字段 |
+| defs/bootstrap/stock_monthly_capture.py | MonthlyCaptureStore.capture_unit/read_receipt、build_month_candidates；bootstrap unit receipt验证来源/参数/schema/字节hash；源分页随M10.D集成 | 单页先持久化；重复执行不重取成功页；拒绝截断、float精度损失 |
+| defs/io/stock_monthly_raw.py | validate_month_relation、load_monthly_csv/parquets、canonical_month_hashes；候选由build_month_candidates列式分桶 | DuckDB SQL列式；20200229留排除台账；不修改业务trade_date |
+| defs/bootstrap/stock_monthly_promote.py | promote_month_candidates：audited候选→同文件系统os.replace；每文件锁/目标fingerprint/checkpoint | 不调用周线的WEEK_SQL/周五validator；同值幂等、异值修订审批；禁止备份/Kopia |
 | defs/stock_monthly_point.py | deliver_month_intent；capture→validate→promote→delivery证据 | 唯一月线writer；业务文件提交后观测失败不回滚 |
 | defs/source_readiness/stock_monthly.py | freeze_month_references、verify_month_completion | 至多31日线文件与身份快照；按个股截至；只读批查询，不逐股查询 |
 | defs/assets/stock_monthly.py、checks/stock_monthly_checks.py | 两Raw assets；各schema、key/value、delivery三个blocking checks | checks只读本文件及冻结交付证明，不在线调用源、不重扫Prod |
@@ -135,7 +135,7 @@ Raw保留批准投影的全部历史源值，20200229是管理员明确的唯一
 
 M10.A 本文及真实源调查；M10.B 补月线真实分页、Prod最新库存和类型/代表unit预算，然后冻结纯合同/规划；M10.C capture/候选/提升隔离开发；M10.D definitions/手动与自动更新集成；M10.E 分阶段正式bootstrap及事件；M10.F 最小真实更新与调度启用。
 
-此前M10.A完成初稿和18次MCP来源调查；本轮M10.B已完成20次SDK分页、Prod最新库存/类型/代表unit性能与纯合同/规划代码和66项测试。计划为两源各225个unit、201个月，共450units/402文件，最大3900源行/unit。没有创建月线资产或正式目录、注册动态分区、运行月线job，也没有启用周线sensor。下一切片为M10.C隔离capture/候选/提升开发。M9源就绪后另行恢复原正式验收，不能把月线结果替代周线验收。
+此前M10.A完成初稿和18次MCP来源调查；本轮M10.B已完成20次SDK分页、Prod最新库存/类型/代表unit性能与纯合同/规划代码和66项测试。计划为两源各225个unit、201个月，共450units/402文件，最大3900源行/unit。没有创建月线资产或正式目录、注册动态分区、运行月线job，也没有启用周线sensor。2026-10-05 M10.C已完成隔离开发，见§12；下一切片为M10.D正式definitions与手动/自动更新机制集成。M9源就绪后另行恢复原正式验收，不能把月线结果替代周线验收。
 
 CodeGraph explore覆盖point/capture/candidate/manifest及Prod模型关联；当前代码进一步核对日期builder、schema、SQL分桶、原capture预算和模板§7A。设计不修改src依赖矩阵，不引入旧lake、Kopia或src/ops组合入口。
 
@@ -150,3 +150,38 @@ run_contracts/stock_monthly.py已实现两主源/字段类型/月份日期/2020�
 typed StockMonthlyPolicy本轮落地配置仅prod_code_batch/max_codes/max_prod_unit_rows/max_year_rows/max_capture_rows/page_limit/max_pages/max_retries/max_update_rows，来源为此模块，消费者为纯planner/request builder与测试，asdict进入plan hash，不新增env或运营开关。其余§5执行/调度配置仍是设计值，下一切片实现前再核对消费者和实测。计划文件仅规划证据，正式apply授权仍独立；未来capture须验证库存文件当前hash与新源计数，不能把本次快照长期当最新库存。
 
 详见[本阶段验收报告](../../../reports/stock_month_m10_assessment_20261004.md)。阶段范围不含月线历史缺口全量清零证明、正式写入、事件补录或自动更新启用；M9待源端就绪单列保留。
+
+## 11. M10.C 开发约束与复用审计（2026-10-05）
+
+本切片只开发 Prod bootstrap 的 unit 捕获、年度候选和逐月原子提升，不注册资产、不运行正式写湖或事件、不处理自动更新源分页（随M10.D点更新集成）。M10.B真实样本与预算作为依据：两源450 units、402 files、1,414,335 accepted rows；每unit≤10000行/64MiB，每年度≤120000行/12候选，最多34年度集合扫描，不做402次历史readiness深扫；DuckDB 512MiB/2线程/2GiB spill，候选逐文件提交，失败重试只读已完成unit。
+
+CodeGraph及当前源码确认：DuckDB连接入口真正不含频度，可直接复用且不修改；ETF bootstrap atomic_write_json虽无频度，却耦合ETF模块且无fsync/路径/并发完整门禁，不抽取它；weekly capture、年度装配、hash、promote均含周合同，不能作为月线入口。新增月线专用files模块集中路径、字节hash、有界JSON、fsync原子控制文件和已设计的flock；没有重构现行通用能力。
+
+配置沿代码版本冻结：新增不可变MonthlyBootstrapIOPolicy，专管prod_statement_timeout_ms=30000、prod_unit_seconds=45、prod_work_mem_mb=32、prod_csv_max_bytes=64MiB、control_max_bytes=1MiB、inventory_max_bytes=16MiB、duckdb_memory_mb=512、duckdb_threads=2、duckdb_temp_mb=2048、process_shutdown_seconds=2。它与纯范围StockMonthlyPolicy分工，IO配置hash进入run目录/receipt/audit，不新增env、数据库配置或运营开关；消费者只有Prod exporter、capture、年度候选和promoter，变更只生成新执行目录，不沿新配置续跑旧receipt。冻结计划显式保留月份范围和年度库存，用纯planner重算计划，核验库存文件hash后才开始unit。
+
+硬口径映射：
+
+| 口径 | 代码与验收 |
+|---|---|
+| Prod只读、完整13/21列、month、年度×代码白名单 | prod_db/stock_monthly.py；SQL正反例、监督子进程超时/取消/字节限制 |
+| 成功unit立即持久化，退出可读回，不重取 | bootstrap/stock_monthly_capture.py；receipt/hash/schema/范围校验、进程退出/重放/取消 |
+| 不丢失Decimal/NULL，28/29先完整捕获 | io/stock_monthly_raw.py；CSV文本严格Decimal校验，捕获后独立排除台账、守恒及双向EXCEPT ALL |
+| 年度库存不漂移，失败不提升 | 年度builder；日期行数/代码集合对照、缺unit/缺行/错频/异常日期/重复键反例 |
+| 正式文件不覆盖异值，安全续跑 | bootstrap/stock_monthly_promote.py；全候选复验、文件fingerprint、flock、同文件系统、os.replace、checkpoint、中断窗口和同值幂等 |
+| 不碰正式资源/旧湖/备用/其他任务 | 所有测试仅私有临时目录，未新增Dagster definitions；路径拒绝与静态门禁 |
+
+本轮隔离验收使用M10.B已导出的业务样本，不重新查询Prod或Tushare；真正全量读取和正式提升仍须独立批准。临时测试结果不证明正式Lake已存在月线，也不替代M9源就绪后的正式更新验收。
+
+写入预检沿既有预算推导，不新增开关：正式根要求datasource卷已挂载、两根既存且可写；采集前staging剩余空间至少2×prod_csv_max_bytes+control_max_bytes+duckdb_temp_mb×MiB；年度候选前至少max_year_rows×512字节+control_max_bytes+duckdb_temp_mb×MiB（类型/固定长度业务字段的保守序列化上界）；提升前staging也预留DuckDB spill上限；提升只作同卷rename，目标卷剩余空间至少control_max_bytes+12×4096字节用于目录和checkpoint。低于预算立即拒绝，不用实际写满磁盘验证。维护窗口和正式执行审批由M10.E命令入口承担，M10.C不自主执行。
+
+## 12. M10.C 落地与验收（2026-10-05）
+
+§11列出的五个模块、纯计划范围/库存自校验以及MonthlyBootstrapIOPolicy已落地；新test_stock_monthly_bootstrap覆盖两套源、实际子进程退出/取消/超时/字节限制、全字段Decimal/NULL、源范围与重复键、候选与库存篡改、跨执行目录共享月锁、同值重放/异值修订、原子提升后checkpoint前中断、控制文件失败不回滚、续跑、跨卷及低磁盘拒绝。capture receipt封存前fsync业务文件和目录，候选按年度集合读回；promoter先完整复验年度candidate与原capture/排除记录，再逐月加锁、复核target、同卷rename和checkpoint。没有声称多文件整体原子。
+
+使用上阶段已导出的各300代码真实Prod样本，3854/3860捕获，排除293/295后3561/3565进入24个私有临时文件；全字段双向差集0、2月仅20200228，重放不重复导出且文件不变。全链路含重放0.943/0.895秒，累计进程RSS峰值351.859MiB，结束spill=0；未测全量、峰值spill或强制spill。旧样本空NULL仅转换为新CSV传输的明确\\N表示，不改变业务值。导出snapshot证据为隔离替身，不能替代新的真实Prod事务验收。
+
+月线111项、月线及相邻周线合计181项通过；完整静态113项、资产治理12项、Ruff、致命错误基线和整个definitions离线隔离加载通过；文档完整性通过。受保护runner只新增本轮月线精确AST只读路径和当前公告任务新增文件的精确发现路径，没有赋予它们网络、正式数据或执行权限。
+
+本轮没有新增正式asset/check/job/sensor/partition或环境配置；没有改动weekly合同和执行代码，也没有Prod/DG正式读写或源请求。唯一源中立复用是既有DuckDB连接入口，并在月线连接中禁止自动安装/加载扩展；未安装任何依赖。新增纯计划字段保存first/last month与immutable inventories，现有planner/测试与bootstrap消费者同步迁移，不新增旧JSON兼容链路。
+
+[验收报告](../../../reports/stock_month_m10c_assessment_20261005.md)及其样本/代码记录保存精确证据。下一步M10.D为两套月线definitions和更新机制集成；正式bootstrap/事件与启用分别待M10.E/F阶段执行，M9正式周线更新验收仍单列等待，不提前完成。

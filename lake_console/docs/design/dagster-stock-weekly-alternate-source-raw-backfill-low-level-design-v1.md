@@ -966,3 +966,7 @@ CodeGraph explore/query影响面覆盖原point调用者、资产/job/check、64�
 管理员确认源站尚未生成2026-10-02周线，本周最小正式验收记录为source_not_ready（管理员源站核查，非本轮API空响应实测）。不运行job、注册分区或启用sensor；源端就绪后再取得完整交付证据并恢复原验收。此前readonly preview/MCP字段样本不等于已经获得可正式交付的周线版本。
 
 管理员明确允许先推进后续任务，因此§15“先完成M9再进入M10”调整为允许M10准备/开发先行，M9正式验收仍保留独立未完成项，不合并验收或提前标第一阶段完成。月线来源调查与[专项LLD初稿](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)已落档；本轮没有改动weekly执行代码。M10实现与正式bootstrap/事件/更新启用继续分阶段核验和授权。
+
+### 34.9 月线bootstrap helper隔离验收（2026-10-05）
+
+月线M10.C实现和验收详见[月线LLD §12](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#12-m10c-落地与验收2026-10-05)及[报告](../../../reports/stock_month_m10c_assessment_20261005.md)。只新增月线薄模块，复用统一DuckDB连接入口，不迁移或改变weekly helper合同。未注册月线definitions、未正式bootstrap/补录事件/启用sensor；下一步M10.D更新机制与definitions集成。M9仍待源就绪后的正式验收，不能用本轮隔离结果替代。

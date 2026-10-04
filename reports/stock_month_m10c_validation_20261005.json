@@ -1,0 +1,57 @@
+{
+  "milestone": "M10.C",
+  "scope": "monthly Prod bootstrap capture/candidate/promote isolated development",
+  "prior_commit": "981fb1cc",
+  "code_sha256_at_closeout": {
+    "src/orchestrator/defs/bootstrap/stock_monthly_files.py": "9d67cdeb8040a9e0b8393056d082fc10512fe708116a382ccad88a9684d67bb1",
+    "src/orchestrator/defs/bootstrap/stock_monthly_capture.py": "5fd1f6bb465a6b760eab10011b0142fccecaa20956d9e8546b7417d269f8590f",
+    "src/orchestrator/defs/bootstrap/stock_monthly_promote.py": "528fac2a940bdd906f40c040cae52c853e59950370e09781ff26c5ff9f756905",
+    "src/orchestrator/defs/io/stock_monthly_raw.py": "273b7c00f52f52ebda6bc1e575b908f80e11208d8895b1883ce831e8ccbab69f",
+    "src/orchestrator/defs/prod_db/stock_monthly.py": "249eb49bd7911c4d77eed1a67823f9ceacfb424e11e10d79fe0457b2a542ed99",
+    "src/orchestrator/defs/run_contracts/stock_monthly.py": "7066d5b0942a805c3aa2c02598a87a26a30c70d3cf3775a480cc62839d7a0d86",
+    "src/orchestrator/defs/stock_monthly_planner.py": "558f6002379f95b9b128f0c2a62ee8bebcc3f13ac7e0193f05885805dcd63622",
+    "tests/test_stock_monthly_bootstrap.py": "a5d86d0ffaaae83473219bd5c63e5c328ab16f02c668df0fcb9a4e7563982302"
+  },
+  "tests": {
+    "monthly": {
+      "count": 111,
+      "log": "/private/tmp/stock_month_m10c_tests.log"
+    },
+    "combined_monthly_weekly": {
+      "count": 181,
+      "warnings": 7,
+      "log": "/private/tmp/stock_month_m10c_regression.log"
+    },
+    "static": {
+      "count": 113,
+      "log": "/private/tmp/stock_month_m10c_static.log"
+    },
+    "asset_governance": {
+      "count": 12,
+      "log": "/private/tmp/stock_month_m10c_governance.log"
+    },
+    "ruff_log": "/private/tmp/stock_month_m10c_ruff.log",
+    "fatal_baseline_log": "/private/tmp/stock_month_m10c_fatal.log",
+    "docs_integrity": {
+      "passed": true,
+      "log": "/private/tmp/stock_month_m10c_docs.log"
+    },
+    "definitions": {
+      "passed": true,
+      "report": "reports/stock_month_m10c_defs_validation_20261005.json"
+    }
+  },
+  "source_sample_report": "reports/stock_month_m10c_sample_20261005.json",
+  "formal_lake_write": false,
+  "formal_dagster_write": false,
+  "new_prod_queries": 0,
+  "new_tushare_requests": 0,
+  "asset_definitions_added": 0,
+  "stage_next": "M10.D",
+  "remaining": [
+    "Asset/check/catalog/path/partition/job integration",
+    "Monthly SDK pagination delivery and monthly upstream completion evidence",
+    "Formal bootstrap/event and updating acceptance require separate stage execution",
+    "M9 source-not-ready formal acceptance remains pending"
+  ]
+}

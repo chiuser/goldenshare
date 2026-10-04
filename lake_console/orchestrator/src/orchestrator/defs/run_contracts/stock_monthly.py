@@ -220,3 +220,26 @@ class MonthlyBootstrapPlan:
     accepted_rows: int
     months: tuple[str, ...]
     units: tuple[MonthlyProdUnit, ...]
+    first_month: str
+    last_month: str
+    inventories: tuple[MonthlyYearInventory, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MonthlyBootstrapIOPolicy:
+    prod_statement_timeout_ms: int = 30000
+    prod_unit_seconds: int = 45
+    prod_work_mem_mb: int = 32
+    prod_csv_max_bytes: int = 64 * 1024 * 1024
+    control_max_bytes: int = 1024 * 1024
+    inventory_max_bytes: int = 16 * 1024 * 1024
+    duckdb_memory_mb: int = 512
+    duckdb_threads: int = 2
+    duckdb_temp_mb: int = 2048
+    process_shutdown_seconds: int = 2
+
+    def __post_init__(self) -> None:
+        if any(type(v) is not int or v <= 0 for v in asdict(self).values()):
+            raise ValueError("invalid_monthly_io_budget")
+        if self.prod_statement_timeout_ms > self.prod_unit_seconds * 1000:
+            raise ValueError("monthly_statement_exceeds_unit_timeout")

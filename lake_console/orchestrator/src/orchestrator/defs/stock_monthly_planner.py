@@ -113,4 +113,7 @@ def plan_month_bootstrap(
         source_rows - excluded,
         tuple(sorted(months)),
         tuple(units),
+        first_month,
+        last_month,
+        inventories,
     )
