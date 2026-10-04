@@ -1,6 +1,6 @@
 # 上市公司公告接入 DG 技术方案 v1
 
-状态：设计完成，待开发；2026-10-04 用户已确认业务决策。本文件不表示数据集已经注册、bootstrap 已执行或调度已启用。
+状态：P0 契约与预算核验完成，P1 待开发；2026-10-04 用户已确认业务决策。本文件不表示数据集已经注册、bootstrap 已执行或调度已启用。
 
 对应 [代码级 LLD](dagster-anns-d-onboarding-low-level-design-v1.md)。先完成本数据集，再迁移下载器消费来源，最后设计和实现数据中心页面。后两项不属于本轮开发范围。
 
@@ -53,7 +53,7 @@ MCP 空结果为 JSON 空数组，不能证明 SDK 的空 DataFrame 具有六字
 | 编号 | 必须遵守的口径 |
 |---|---|
 | R01 | Raw 物理字段只有 ann_date、ts_code、name、title、url、rec_time，顺序固定 |
-| R02 | 保留源字符串、NULL、空字符串、空白；不改名、不 trim、不转时区、不补值 |
+| R02 | 保留源字符串、NULL、空字符串、空白；不改名、不 trim、不转时区、不补值；SDK 的 pandas NaN 还原为源 NULL，真实数值仍报类型错误 |
 | R03 | 只去除六字段完全相同记录，NULL 与空字符串不同；不按代码/日期/标题或 URL 合并元数据 |
 | R04 | 自然日分区，不用交易日、股票池、活跃名单或上市状态过滤 |
 | R05 | Prod 仅历史只读；日常直接 Tushare；没有 Prod fallback 或 Prod Ops 状态依赖 |
@@ -91,7 +91,7 @@ MCP 空结果为 JSON 空数组，不能证明 SDK 的空 DataFrame 具有六字
 
 ### 5.1 Bootstrap
 
-读取按自然月有界 unit，写出仍按自然日。一月一个只读连接/快照，服务端游标按 id 排序，fetchmany=10,000；id 仅辅助 staging/checkpoint，不能进入 Raw。共 81 个源 unit，避免 2,465 次逐日建连接。
+读取按自然月有界 unit，写出仍按自然日。一月一个只读连接/快照，服务端游标按 ann_date、id 排序（P0 已测；设置 cursor_tuple_fraction=1.0），fetchmany=10,000；id 仅辅助 staging/checkpoint，不能进入 Raw。共 81 个源 unit，避免 2,465 次逐日建连接。
 
 在服务器端只投影 raw_payload 中的六个业务值，禁止回传完整 raw_payload；不导出 api_name、fetched_at、row_key_hash 等系统字段。不重算 Prod hash，不修改 Prod 表、索引或同步规则。具体 SQL 与空值/JSON 类型检查见 LLD。
 
@@ -119,7 +119,7 @@ MCP 空结果为 JSON 空数组，不能证明 SDK 的空 DataFrame 具有六字
 | 七日窗口 | 最大已知日规模重复七次约 245 页；窗口请求预算 350、时间预算 60 分钟 | 调度共享 tick 配额后超过即停止派发，未完成日期手工补拉；不伪造完成 |
 | 内存 | Python 单 fetch 批次/单源页；DuckDB 每连接 2GB、2线程、spill 20GB；进程 RSS 目标≤3GB | 最小样本实测；达到硬预算失败保留候选 |
 | 文件数量 | 一日一个正式文件，初始 2,465 个含空日；候选与临时 part 数另计 | 不为小文件强制改月分区；测真实日期/代码查询耗时 |
-| 磁盘与耗时 | Parquet 大小、月吞吐、RSS 尚未实测；Prod 8.7GB 表/索引不能替代 Lake 估算 | P0 用样本得到压缩率及吞吐，按候选+正式+spill+reserve计算空间；缺测量不得进入业务写入实现或全量执行 |
+| 磁盘与耗时 | P0 单批已测：10,000 行 Parquet 211,661 字节、RSS 129,892,352 字节；完整月吞吐待 P3；Prod 表大小不能替代 Lake 估算 | P0 用样本得到压缩率及吞吐，按候选+正式+spill+reserve计算空间；P0 基础预算已闭合，可进入P1；全量执行仍需样本实测与独立批准 |
 
 本表给出默认执行上限，不是已达到的性能结果。bootstrap 总时长必须按样本月吞吐外推并记录误差；Tushare 七日最坏已知页规模，仅五秒等待约 20 分钟，另加 API、重试和文件计算。日常预算共享不能只放在独立七个进程内。
 
@@ -145,10 +145,18 @@ P0 只读测量用日期索引聚合、EXPLAIN 及有限六字段样本；临时
 | P3 Bootstrap | plan→批准样本→读回→批准全量候选/提升→汇总对账；不补事件冒充文件完成 |
 | P4 状态与日常验收 | 分开批准 runless 补录、衔接区间补拉、日更新取消续跑与调度启用；最终审计 |
 
-本阶段只交付方案与 LLD，没有代码或生产执行。下一步是 P0 预算核验，之后按阶段开发。所有批准的口径变更必须同步本文件和 LLD。
+设计轮只交付方案与 LLD，没有代码或生产执行。随后P0预算核验已完成（§10）；下一步P1开发，正式执行仍按阶段授权。所有批准的口径变更必须同步本文件和 LLD。
 
 ## 9. 影响面与后续工作
 
 已使用 CodeGraph query/impact 核对 TushareResource、daily_basic_history_query、Prod AnnsDDAO，并补读 source/ledger/files、catalog、resources、paths、通用分页实现和测试。共享 TushareResource 有其它消费者，本专项优先新增公告专用有界 adapter，不顺手修改公共调用行为。
 
 DG 不 import Prod src/ops 或 src/app，不挂入生产 Web。未来下载器切 DG、SQLite 台账查询能力、名称/代码/拼音检索、前端设计另有专项合同；本方案不提前承诺其实现方式。静态图不能证明正式 definitions 加载成功，动态验证在 P2 完成。
+
+## 10. P0 结论（2026-10-04）
+
+[验收报告](../../reports/anns_d_dg_p0_20261004.md)及[聚合/计划证据](../../reports/anns_d_dg_p0_20261004.json)记录实测与估算。P0通过，仅开放P1开发，不授权正式文件/事件/调度执行。
+
+修正两项执行细节：月读取稳定排序改为ann_date、id，设置cursor_tuple_fraction=1.0；SDK的pandas NaN还原为源NULL，不能把任意float转NULL。六字段原始业务含义不变。
+
+当前存量仍12,064,049行；81月最大543,563行；按现存记录推算最大七日154次请求、含月EOF约1,330次fetch。10,000行六字段样本集合差0，合法空日SDK六字段齐全。历史初始化规划15–60分钟、磁盘保守预留35GiB，仅作可行性预算；完整传输、月RSS和写盘耗时必须在P3样本验收，不能据线性外推宣称全量已通过。

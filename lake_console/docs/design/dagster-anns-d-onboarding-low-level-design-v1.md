@@ -1,6 +1,6 @@
 # 上市公司公告接入 DG 代码级 LLD v1
 
-状态：设计完成，待开发。日期：2026-10-04。业务决策已获用户确认；本文的拟新增文件、配置、命令及验收项均未实现，不是可直接执行的生产 runbook。
+状态：P0 契约与预算核验完成，P1 待开发。日期：2026-10-04。业务决策已获用户确认；本文的拟新增文件、配置、命令及验收项均未实现，不是可直接执行的生产 runbook。
 
 对应 [技术方案](dagster-anns-d-onboarding-plan-v1.md)，共同使用 R01–R12。采用 [接入模板](../templates/dagster-dataset-onboarding-template.html) 的身份、字段矩阵、§7A、预算、检查、写入与验收要求；未测性能必须在 P0 补齐。
 
@@ -67,7 +67,7 @@ Bootstrap 固定 2020-01-01..2026-09-30。首次接线后按相同日更新实�
 
 唯一业务表 `raw_tushare.anns_d`。允许在服务器内部读取 raw_payload 并提取六个批准业务值；完整 raw_payload 禁止输出。id 和类型化 ann_date 只作为排序、范围、恢复及月计划过滤，id 可以进入内部 staging cursor，不进入 Raw。禁止其它业务列、Ops 表、任意表名/SQL 透传和 Prod 写入。
 
-月起止和上界 id 绑定参数；只读属性在业务 SQL 前建立，优先 `ProdPostgresResource.connect_readonly_transaction()`。月内使用 repeatable read 只读快照，不与全历史共享事务。读取结束 rollback/close。
+月起止和上界 id 绑定参数；只读属性在业务 SQL 前建立，优先 `ProdPostgresResource.connect_readonly_transaction()`。月内使用 repeatable read 只读快照，设置 cursor_tuple_fraction=1.0，不与全历史共享事务。读取结束 rollback/close。
 
 拟定受控投影（语法需 P0 实际 EXPLAIN/类型核验，不是当前已实现 helper）：
 
@@ -82,12 +82,12 @@ SELECT id,
 FROM raw_tushare.anns_d
 WHERE ann_date >= %(month_start)s AND ann_date < %(month_end)s
   AND id <= %(upper_id)s
-ORDER BY id;
+ORDER BY ann_date, id;
 ```
 
-使用 JSON 值投影而非随意 `::text`，驱动得到原始字符串或 NULL；字符串以外类型、缺少声明字段、非法 JSON、源 ann_date 和类型化 ann_date 不一致必须显式识别。缺键与显式 NULL 的检查在服务器端 bounded 校验中进行，不靠 `->` 返回 NULL 判断键存在。禁止把异常数字转换成字符串后宣称源镜像。
+使用 JSON 值投影而非随意 `::text`，驱动得到原始字符串或 NULL；字符串以外类型、缺少声明字段、非法 JSON、源 ann_date 和类型化 ann_date 不一致必须显式识别。缺键与显式 NULL 的检查在服务器端逐批有界校验中进行，源 helper 可显式回传仅用于校验的 keys_present 布尔值（不进入 Raw），不靠 `->` 返回 NULL 判断键存在。禁止把异常数字转换成字符串后宣称源镜像。
 
-EXPLAIN 检查月日期过滤索引、id 排序及 JSON 解析成本。81 月直接路径若重复全表扫描或排序代价不可接受，P0 停止并修订源读取计划，不能硬跑，也不擅改 Prod 索引。
+EXPLAIN 检查月日期过滤索引、ann_date/id 排序及 JSON 解析成本。P0实测旧ORDER BY id LIMIT会扫描约838万无关记录，禁止沿用；改用日期前导稳定排序，测试必须断言该排序。81 月直接路径若重复全表扫描或排序代价不可接受，P0 停止并修订源读取计划，不能硬跑，也不擅改 Prod 索引。
 
 月事务内以服务端游标 fetchmany=10,000；每批转换六字段列式批次并写 staging shard。Python 不累积月全集。中途退出未完成月份从头重新 capture（新 attempt 目录），不把新快照拼到旧 capture 中；已完成月候选和已提升文件可复用。capture cursor 是证据，不承诺跨事务恢复旧快照。
 
@@ -96,6 +96,8 @@ EXPLAIN 检查月日期过滤索引、id 排序及 JSON 解析成本。81 月直
 ### 4.2 Tushare
 
 专用 builder 只生成 `anns_d(ann_date=YYYYMMDD, fields=<six>, limit=2000, offset=<cursor>)`。历史范围先展开日期，不能把大区间一次请求后认为完成；不传 ts_code/title，避免源全集被过滤。
+
+SDK值规范：只将pandas表示的缺失值（已实测url为float NaN）还原为None，保留空字符串/空白；非缺失float、数值、对象仍阻断。该步骤是传输层缺失值还原，不是源字段填补；必须用SDK样本和NULL/空字符串反例测试。
 
 字段实测见方案 §2.1；MCP 描述上限与源文档差异已记录。MCP 高 offset 能力有限，不作为生产分页上限。SDK 返回列必须明确包含六字段；合法零行页仍须有 schema。异常无字段响应、类型错误、非成功请求均失败，不能作为空日。
 
@@ -219,6 +221,17 @@ schedule 默认 STOPPED，启用需批准；cron 为每日08:00，明确 Asia/Sh
 
 P0只读核验与 /private/tmp 基准 → P1隔离开发验收 → P2 definitions/partition/check事件测试 → P3获批样本与全量文件 → P4获批事件补录、衔接补拉、日任务验收及调度启用。正式样本、全量文件、事件、调度分别留下批准与对账证据。
 
-本轮只完成两份设计文档和索引；没有新增资产、resource、checks、schedule，未触发Prod/Lake写入。动态 definitions、性能测量和最小真实写入尚未完成，不能声称可投入运行。
+设计轮完成两份文档和索引；随后P0已完成只读核验及临时基准，见§12；没有新增资产、resource、checks、schedule，未触发Prod/Lake写入。动态 definitions、完整月性能及最小真实写入尚未完成，不能声称可投入运行。
 
 CodeGraph query/impact与当前实现核对覆盖入口、TushareResource、Prod只读源、通用分页、路径、catalog和现有下载器消费链。共享资源其它消费者不随本专项改行为；未来前端和下载器合同尚未迁移。当前技术风险为源offset分页可变、7天之外迟到、Prod JSON解析/排序成本、磁盘容量，以及跨月源变化；按本文实测与阻断处理，不引入双轨兜底。
+
+## 12. P0 验收结论与 P1 入口
+
+2026-10-04：[报告](../../reports/anns_d_dg_p0_20261004.md)、[结构化证据](../../reports/anns_d_dg_p0_20261004.json)。P0通过，P1未开始。源合同、范围、六字段镜像、读取计划、执行配置及初始空间/耗时预算已核验；正式写入门禁继续有效。
+
+- 月读取修订为ORDER BY ann_date,id；峰值月有界10,000行EXPLAIN ANALYZE约0.222秒，服务端游标MOVE约0.236秒。MOVE不包含网络传输/客户端反序列化，不代替全月计时。
+- 年度700条服务器内字段检查：缺键0、错误类型0、额外键0；单批10,000条临时Parquet读回集合差0。抽样不证明全表，因此P1每批仍验证源JSON键/类型。
+- SDK空日0行但六字段齐全；尾页257行；已知两条记录url分别NaN/字符串，rec_time均None。SDK socket timeout=30秒已查现有代码，但可终止进程及取消5秒上限必须在P1测试，不写为已实现。
+- DuckDB专用2GB/2线程/20GB spill配置可用于隔离连接，不改共享16GB默认；本机未安装pyarrow，P1优先使用现有DuckDB按批JSON/CSV列式读写，不安装依赖。
+- 根环境所需秘密配置均存在（只核验布尔值）；正式instance并发1、路径同文件系统、剩余空间约2.67TiB。资源连通性已通过SSH和SDK核验，未实连ProdPostgresResource；P1须检验其只读属性/隔离级别，不能把SSH成功等同resource验收。
+- P3执行规划15–60分钟、保守空间35GiB；样本不足以证明全月峰值RSS或全量时限，P3先样本校准。原计划81源月/2,465日不变，预算耗尽和类型异常仍fail closed。
