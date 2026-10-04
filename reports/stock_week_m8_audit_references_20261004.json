@@ -1,0 +1,202 @@
+[
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2010-4f03e4fb9f9a48f1a34db5fc457f1a88/audit.json",
+    "sha256": "180ef6c990b3118cfee75a59608af2fe9ad3c5e2a56b024b6c78ba88ea42a7b9"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2011-c894a115f51b4f0c8d720ccc7da7757c/audit.json",
+    "sha256": "cb41bc2652377886d4451c76dba3768872118ea8a91d9f44ac2d44790f0eba02"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2012-19daf8e0b6d6465f9e77aa96fafe2044/audit.json",
+    "sha256": "6da5718a7e4e72debfe43c78b2027218706117a83189a752a26e62093c478f66"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2013-9225ea7afef24cc89ccbffedc7656116/audit.json",
+    "sha256": "5fea398fc9a30d977d838528743d8e81d8eafc92df52cbd6099e1cece404f350"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2014-d267ec45df1146029f39fd1746b7a60e/audit.json",
+    "sha256": "ede96880a2f2a03777847113aca8827e393e24fcd76043c10a03999a478db536"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2015-447a1b2fa42243acb9e43b14509a2f2f/audit.json",
+    "sha256": "400e64f586babe43e477216ab09a5b1e3bcff13993b0b90b0e0d15b14f7a0914"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2016-ecce164cd31c4fce8002ee589bfdc1b1/audit.json",
+    "sha256": "6f1c3e610471bbc71da8dd2fbbb395eabaf1beebf4d68baf8cea201ae7d98b44"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2017-c7e52349f9724573baf20ecfb46ab58e/audit.json",
+    "sha256": "981837c81fff3517c7bfc85b1f9dcca58c1771946c26a0197c260670436ac5df"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2018-5c370572d48f4fe69119c9a1860a0cb1/audit.json",
+    "sha256": "0fa77951be2179df60ccac9e16c7ffb70e38699c69775f50c8fa88b282afc569"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2019-c6cf00b6c77d4c9984e7247bddec0a77/audit.json",
+    "sha256": "1031987093a737a25bd4606ffe33a57519eb5674c69b635157171ca7881c6fb8"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2020-692935e25509428a8d2cc0dfdd320742/audit.json",
+    "sha256": "b0459ab50dfa453d3210b6de1151306f018749e1443c2647835c14fc08ba86d0"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2021-4dee6a71046544008f7c50ebc42c3b23/audit.json",
+    "sha256": "b64761c0098b0bd8c93d71c6be3637e080d46d0eff9bca55147acba8e2712ac2"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2022-02f516357886469f8bef55c9fd775cbe/audit.json",
+    "sha256": "fad8ffd45ceb3003e4925da78f95b38405b6f486aafb7585f615ba5655554808"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2023-a01663b9a8984c6e9e09836390c6a667/audit.json",
+    "sha256": "857418360fc1b2d9d56b133a92249873b3234756aff57832d4f12eae4ac74ae8"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2024-742e3a6a962c4b2981abedbe0a0de1f4/audit.json",
+    "sha256": "bd62e8ac7e3f6f8fbe5fba3127894327b56420fd098528d96fb8eeeae48af461"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2025-03b403455ce54891b837d6e9983375c5/audit.json",
+    "sha256": "25fdcc3a077c9124473b32fde720b20798db7fc56f093ea48f64ac6fa5ecf6d6"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2026-9d0cf90927824550aef31f4662753cf8/audit.json",
+    "sha256": "3068ef9cd8ba92cd708861c028204659b2ec8ae6a4ea6e76daff5e676ec490ef"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2010-31fecd097a70498a8351ba0ff40b4a58/audit.json",
+    "sha256": "55eab6a6f4c63b6ed7b6d3256a7a0ccf570893f9ec0a6ce8b375b1cd35d2779b"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2011-8d978eaccce74664aa604c06054ff3c0/audit.json",
+    "sha256": "d7889ca4b03658135a2e8912bdfe72941dac16200eee0f7404bb4401eb7ea81c"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2012-fc3bc01245ce45f9ac95214903efc8c5/audit.json",
+    "sha256": "9d0c2fd86973fff973431f5d1d4c16dabbb795d95977c21e0dc5979076543d3e"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2013-3b93745d2b984003b10f17451a951a0f/audit.json",
+    "sha256": "3e22b1f1bd7be09a16f97b073e2d480ca2d9faf0ae97eab7f35a8ec9bbc6786e"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2014-ade87c1c783044b48586098b03540f3b/audit.json",
+    "sha256": "da3ae4902ca1a67894de113cd28a847c9a16466709776e190c55ec7a7e2f0560"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2015-fc631fc320d24b0a96a212ea2aa73c34/audit.json",
+    "sha256": "5e77871e892c265d2aff22027eb9fc3f0cac12d92279326f787ac11532588d26"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2016-ca09224e60e94ec28e7e3b6d52074c49/audit.json",
+    "sha256": "c618320afa83da180780f7ed0b5e3ef420acc3f68b08bdc491043c30ad1d63bd"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2017-5749fd04fa2a456e9a31323e142be33d/audit.json",
+    "sha256": "58eed284a5140d4df8f995b44ba263ff3a595615a6c3acc6a71385cfafd23cfc"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2018-ef891db77f3d4e0b9b1297ab39a0c186/audit.json",
+    "sha256": "b26194096450d5d9ac8ef3a786c4f0e63a61fae1b3bdd4a3e425b1651a92d9e1"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2019-b95a7e729c8242c7bbf42fac932483b5/audit.json",
+    "sha256": "9ea8ceae687c10c0985b92f09858bdc984faa5502817ab4540fc83030729a00d"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2020-3d322dd568a6493985e0861e00958518/audit.json",
+    "sha256": "abacd4fb41a3fdfd2c66526aac50bd9b0855a11f947790bc46bfba1015f7131a"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2021-928c6d315be54a458b8c91e50dfb2d23/audit.json",
+    "sha256": "5a709a10dc9b5ee9a05f2bd42a9588b3f17971cf85e52afaada9eb7c084071d6"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2022-8c8f364398944d84937db2c732f5d271/audit.json",
+    "sha256": "fc4e7247834c149d290a01acdfc066e891fdf56db50053067d0a54905ae15e4b"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2023-36e9d9b48b7b4b1698a852d6d386bf21/audit.json",
+    "sha256": "bf1ac6e351e9e7cd9cbb611dae817e5a4070e8e80f8b55427f749c18ee14e4f6"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2024-7890eccdcbd24b3398265b8af5472c31/audit.json",
+    "sha256": "9e818096b7a929a5dc33c07ec1366618f286cc72741c0e0530c43cbcdde218b0"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2025-a89f57c36d474bb3bd2c7dab7b0d9428/audit.json",
+    "sha256": "c500d35e88a83030a1f354c757d414d6899bde9ce1ed8db9ae1db21a1ae7caab"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2026-182a839d86c34606aeec184ebded9d24/audit.json",
+    "sha256": "12e33a11e5f73a2cee74ed35a0c5b39cfd6b840ff85b0b9beb32a07be6c933eb"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/14e660761ee1df91611a98145f1d657ce206e7f45f3ad4e21144bc2b0b5e2800/assemblies/2010-d2c53d85e6e4442ba60b90a559760120/audit.json",
+    "sha256": "03dc871d03851f171300f94108dc4e2ac7fbdc23096aae0d48146cbba6005837"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/4f5679961c08c0eeb44f09b9a1d7684678b8f1cbdb3df0e1f38d2a2c859868a1/assemblies/2011-f85dd9c5bb0e4abd834c05276f2c2df8/audit.json",
+    "sha256": "e72d4acc8ba7648dc793372d040b90c35d607a20951348c10add6c5c24a97ddc"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/a08bd27f308108588f909f0d092e1f59bedcae558c0de1385b256ba7d7436b38/assemblies/2012-c420ae1898144e4283cd27b4f515ffc5/audit.json",
+    "sha256": "93caba5c0ac2a2297fb90c1d4327faca9698a8ab834015737e9abf003532a0ff"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/ddad6fa6d1849b40f36a4b27004d94c9c8e9fb4e7ac713a227423cf268014fbd/assemblies/2013-a259997889084e9cbe4a9b8cb331c074/audit.json",
+    "sha256": "55a2ea329579f595a83e706f0b02c8256cc25aa7f0cc13a98ed350fda6b889c3"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/5c0ad45d739a3cdaa9b863fa438b53a11b332b154981c898d012c0ef33e5e254/assemblies/2014-697d7cfe2a7a47e2b40b6850514e1dc8/audit.json",
+    "sha256": "2b3271c6da2818d07b8ea63e71bead5e320baa1144cfd4e74ab4a34c129aa151"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/577773b8b6d12908fc2ef98943640f10b7023bc677aa7b9be9ae946c79a39c6b/assemblies/2015-132f3f8062404986960a60d215afbccb/audit.json",
+    "sha256": "faf8f9f7531e9d0c90fe20f6bf4a9045cc76270ff4e8b78b524d567241f4bf08"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/2c5806b38bd2a9d6bc3b2b9923059440dae144ce118118ce64529027b63886b4/assemblies/2016-9e98439d59c8442bac35767c24031520/audit.json",
+    "sha256": "5ff3dbfc2aeb700854a1c7ef60cda9f789c4fbbe5546a66b34eb9e04b1f5175c"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/5973feb5ea3b627f830231aa18eb0c12b26e2d4a5a2606d4fe144218151cb958/assemblies/2017-d5a4908bca8f455b855f0a265c5f4b73/audit.json",
+    "sha256": "ff4aef5cdb42d01ed50acdc8be87af883d86708c5f1e18564fd5820adfa9f06c"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bbc5ca394aeb4d5de7e6bf9fdee192a8700053bc87ab2d32f04a4ccd64ba4899/assemblies/2018-67a196fcdab1464a9e617a0b671b6c1f/audit.json",
+    "sha256": "f04c3808ac0e6bf81989129e99e9a1e76c858283e17659cdcaaeb2665bf26a73"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/92fda175912aed48a1952bc8ae36df02ca4062fd55510b33ca3d2e45a05b9ee6/assemblies/2019-c54727194fc44087859cc6f6591d2ca0/audit.json",
+    "sha256": "baff9fd91af0ac2ac0caf25544687815e6617384234872f1641416e0b2015d54"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/29141a327eeb43d5dce86c94d6d21aef2fb749eeb2c9232d6e0c121b2a5eb655/assemblies/2020-aab0b97c931a4124a2a4802e4ab0e8a1/audit.json",
+    "sha256": "b3f560809a1d0af44ec652327f636e5d67c05b65923abe6b4c9b97d167e56b81"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/43cd28a6e171b0d513e235d531741e894b04cd4986f0ceff34706918849b0add/assemblies/2021-e40d37d0a6484615b4618af89f450ad8/audit.json",
+    "sha256": "e5a183179ddecac7c5c80bee2f461002e67f31b090206ee601b3da73645367cc"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/f78c65fbcf1a203c87daff79e05de97e423232b04fcc1fcfa66c1114468138f8/assemblies/2022-012dbeb2a10046ebab876cfde7bd7580/audit.json",
+    "sha256": "fad1f53429ab18a891345c7580a8d2213e294e713db5a5c246800f2700dd6932"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/d5871d4d6dbc30c9df475a9a6d7d6862c52d9b807a1ecc7a4c660026183304a7/assemblies/2023-b89d065a84c24f579bb67ac4b52562cd/audit.json",
+    "sha256": "67e4dad665c7924f993e7b0bff195672a5f3097f8ad4ad37e771d23989c151b8"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/89fac9a5c354a413cf3ae6fc01b823e38bb5b9f42d443fb67e9c2cebedd0e305/assemblies/2024-c6bef384a6344816aa8b5450d8bf9118/audit.json",
+    "sha256": "f48826eba214700fee90037bf080621a94106429627bdf8d0c95ad7e5460d417"
+  },
+  {
+    "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/087675e076f89cd368b5e111006bd1647c90166807d268326c41835dc698e528/assemblies/2025-dd0a32877e074019aefedffd0258f842/audit.json",
+    "sha256": "31188498f93f62a8b42617758dde900c903f166604dbe4d2359c85a741627701"
+  }
+]

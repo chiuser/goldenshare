@@ -1,0 +1,24 @@
+{
+  "formal_writer_executed": false,
+  "pilot_anchor_year": 2025,
+  "sources": [
+    {
+      "source": "primary_unadjusted",
+      "units": 3,
+      "captured_rows_expected": 41932,
+      "owned_2025_rows_expected": 15450,
+      "codes_2025": 300,
+      "output_file_upper_bound": 54,
+      "plan_hash": "faabfcaed73ebd855262b4591c83d05f197ccfc9fbd36d4f7dc739cce428b3d3"
+    },
+    {
+      "source": "primary_adjusted",
+      "units": 3,
+      "captured_rows_expected": 41932,
+      "owned_2025_rows_expected": 15450,
+      "codes_2025": 300,
+      "output_file_upper_bound": 54,
+      "plan_hash": "c0ac827813310a5d9d1fecf2494655619f2034510936175b907d57ed3d292bce"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+id,resource_key,status,status_reason_code,time_input_json,unit_total,unit_done,unit_failed,requested_at,ended_at
+14222,stk_period_bar_adj_month,success,,"{""mode"": ""point"", ""trade_date"": ""2026-05-31""}",1,1,0,2026-10-02 20:34:20.877296+08,2026-10-02 20:34:31.821308+08
+14221,stk_period_bar_month,success,,"{""mode"": ""point"", ""trade_date"": ""2026-05-31""}",1,1,0,2026-10-02 20:34:00.442448+08,2026-10-02 20:34:08.696086+08

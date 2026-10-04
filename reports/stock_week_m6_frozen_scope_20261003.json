@@ -1,0 +1,170 @@
+{
+  "status": "frozen",
+  "codes": [
+    "000005.SZ",
+    "000961.SZ",
+    "002089.SZ",
+    "300090.SZ",
+    "600090.SH"
+  ],
+  "candidate_keys": 3132,
+  "source_rows": 3132,
+  "source_evidence": "/Users/congming/github/goldenshare/reports/stock_week_m6_source_20261003/evidence.json",
+  "source_evidence_hash": "0058e155ad6b6dc8b287e7e2e0e704a3f741c7514d7f811be1f00fc6e2ce307c",
+  "gap_inventory": {
+    "path": "/Users/congming/github/goldenshare/reports/stock_week_full_reaudit_gap_keys_20261002.csv",
+    "sha256": "e284a8b03c2156f42f288d1a07dd954f4b5d4500b49d0e213a73e733340d6a3d"
+  },
+  "years": [
+    {
+      "year": 2010,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2010-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2010-plan.json",
+      "plan_hash": "32013ac7f09d3fb9b4c0b47173e97a3f3419eb77fd36c88f2057907bbe997ac4",
+      "keys": 236,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 240
+    },
+    {
+      "year": 2011,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2011-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2011-plan.json",
+      "plan_hash": "4cfe154e64a6ebb3ee985df2753bf2a9521a07d0b87a4da0b19d537fa5048ba3",
+      "keys": 221,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 225
+    },
+    {
+      "year": 2012,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2012-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2012-plan.json",
+      "plan_hash": "5ef3a88b53d940d1c92c2651e37bd08f872d3d4fe5878e86eb6c2104e4a239bc",
+      "keys": 226,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 244
+    },
+    {
+      "year": 2013,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2013-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2013-plan.json",
+      "plan_hash": "45978d36edd33423891f03999470113a8176a3c199fe4183a75c57e354afe573",
+      "keys": 254,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 260
+    },
+    {
+      "year": 2014,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2014-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2014-plan.json",
+      "plan_hash": "c887107c923d390dec2fddafe5c8d675df91b823d978388a35b6973e56a9c72b",
+      "keys": 239,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 244
+    },
+    {
+      "year": 2015,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2015-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2015-plan.json",
+      "plan_hash": "ab2455bc96d56bee92dc1944f80db0ed1262fc27545774ea658f8db35f4636b7",
+      "keys": 211,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 225
+    },
+    {
+      "year": 2016,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2016-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2016-plan.json",
+      "plan_hash": "dc84437a7019427255751bfd4fbbf7506c1f472caa58e5cdf8e7963750c588d1",
+      "keys": 226,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 263
+    },
+    {
+      "year": 2017,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2017-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2017-plan.json",
+      "plan_hash": "f1aea51a21e9f3e7c4ccd6d87022526551e2b79aa3f4583864833a29bb5f8b0a",
+      "keys": 250,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 255
+    },
+    {
+      "year": 2018,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2018-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2018-plan.json",
+      "plan_hash": "db5fc02d4d5d97a2bb201cb759c5ed8d2a8f6e145395cf60aa7f0d71736d79b7",
+      "keys": 215,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 239
+    },
+    {
+      "year": 2019,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2019-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2019-plan.json",
+      "plan_hash": "19f9aff8226c400c028fc2fbdde28d3d46c6e8737fd848cc921c4d175619d7fa",
+      "keys": 255,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 260
+    },
+    {
+      "year": 2020,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2020-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2020-plan.json",
+      "plan_hash": "5855c9630da6fd7ce96dbef0673ae362ab4c4396ff7a4743c4f7c4e151b3fc34",
+      "keys": 232,
+      "units": 5,
+      "request_cap": 15,
+      "max_source_rows": 243
+    },
+    {
+      "year": 2021,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2021-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2021-plan.json",
+      "plan_hash": "612db77835184d5f02a1d121eec1ae3f97a1e65158ef7e0d30d0ed41a47a1d6f",
+      "keys": 212,
+      "units": 4,
+      "request_cap": 12,
+      "max_source_rows": 212
+    },
+    {
+      "year": 2022,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2022-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2022-plan.json",
+      "plan_hash": "9248b09f78ee3c64fa0d874d94becebf1d196d9937dfaa4f52c65e662a7b2663",
+      "keys": 168,
+      "units": 4,
+      "request_cap": 12,
+      "max_source_rows": 182
+    },
+    {
+      "year": 2023,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2023-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2023-plan.json",
+      "plan_hash": "e8568d92b73e782ff2f9ba3d8e99a25634a1aa1a91429997eed45e366933dc77",
+      "keys": 150,
+      "units": 3,
+      "request_cap": 9,
+      "max_source_rows": 156
+    },
+    {
+      "year": 2024,
+      "inventory": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2024-inventory.json",
+      "plan": "/Users/congming/github/goldenshare/reports/stock_week_m6_plans_20261003/2024-plan.json",
+      "plan_hash": "a601827099000187ef5f7ba2bb6a0b6a6ac98fd093fd0c7ce6160c02d5483cf7",
+      "keys": 37,
+      "units": 3,
+      "request_cap": 9,
+      "max_source_rows": 45
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 """Three independent source-preserving weekly Raw assets."""
 
 from pathlib import Path
+from time import monotonic
 
 import dagster as dg
 
@@ -43,10 +44,41 @@ from orchestrator.defs.stock_weekly_point import (
     StockWeeklyPointWorker,
     deliver_stock_weekly_point,
 )
+from orchestrator.defs.stock_weekly_update_execution import WeeklyUpdateExecution
+from orchestrator.defs.stock_weekly_update_state import weekly_upstream_events_ready
 
 
 def _deliver(context, config, lake_root, tushare, source):
+    update = None
+    if config.automatic_intent_date is not None:
+        if (
+            source is StockWeeklySource.ALTERNATE_WEEKLY
+            or config.code_list_path is not None
+        ):
+            raise ValueError("alternate_or_code_list_automatic_forbidden")
+        update = WeeklyUpdateExecution(
+            source,
+            context.partition_key,
+            config.automatic_intent_date,
+            target_root=lake_root.root(),
+            upstream_ready=lambda days: weekly_upstream_events_ready(
+                context.instance, days
+            ),
+        )
     lake_root.ensure_available_for_run()
+    checked_at, canceled = 0.0, False
+
+    def cancel():
+        nonlocal checked_at, canceled
+        if monotonic() - checked_at >= 2:
+            checked_at = monotonic()
+            run = context.instance.get_run_by_id(context.run_id)
+            canceled = run is not None and run.status in (
+                dg.DagsterRunStatus.CANCELING,
+                dg.DagsterRunStatus.CANCELED,
+            )
+        return canceled
+
     result = deliver_stock_weekly_point(
         source,
         context.partition_key,
@@ -55,6 +87,8 @@ def _deliver(context, config, lake_root, tushare, source):
         worker=StockWeeklyPointWorker(tushare.token, source),
         code_list_path=config.code_list_path,
         progress=lambda p: context.log.info(str(p)),
+        cancel=cancel,
+        update=update,
     )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(

@@ -196,6 +196,9 @@ class WeeklyBudget:
     prod_statement_timeout_ms: int = 30_000
     prod_unit_seconds: int = 45
     prod_work_mem: str = "32MB"
+    prod_csv_max_bytes: int = 64 * 1024 * 1024
+    prod_control_max_bytes: int = 16 * 1024
+    prod_process_shutdown_seconds: int = 1
     prod_max_connections: int = 1
     max_source_rows_per_prod_unit: int = 30_000
     max_codes: int = 10_000

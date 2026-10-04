@@ -322,6 +322,17 @@ class WeeklyCaptureStore:
         attempt: Path,
         index: int,
     ) -> dict:
+        connection.register("weekly_capture_input", frame)
+        try:
+            return self.write_relation_chunk(
+                connection, "weekly_capture_input", unit, attempt, index
+            )
+        finally:
+            connection.unregister("weekly_capture_input")
+
+    def write_relation_chunk(self, connection, relation, unit, attempt, index):
+        if not re.fullmatch("[a-z_]+", relation):
+            raise WeeklyCaptureError("capture_relation_invalid")
         directory = self.unit_directory(unit)
         check_capture_path(attempt)
         if attempt.parent != directory or not re.fullmatch(
@@ -330,76 +341,79 @@ class WeeklyCaptureStore:
             raise WeeklyCaptureError("attempt_path_invalid")
         specs = weekly_column_specs(unit.source)
         fields = tuple(name for name, _, _ in specs)
-        if tuple(frame.columns) != fields:
+        if (
+            tuple(
+                row[0] for row in connection.execute(f"DESCRIBE {relation}").fetchall()
+            )
+            != fields
+        ):
             raise WeeklyCaptureError("source_schema_mismatch")
-        if len(frame) > min(unit.max_rows, self.manifest.budget.fetch_batch_rows):
+        if connection.execute(f"SELECT count(*) FROM {relation}").fetchone()[0] > min(
+            unit.max_rows, self.manifest.budget.fetch_batch_rows
+        ):
             raise WeeklyCaptureError("chunk_row_budget_exceeded")
         if self._file_count >= self.manifest.budget.max_phase_files:
             raise WeeklyCaptureError("phase_file_budget_exceeded")
-        connection.register("weekly_capture_input", frame)
-        try:
-            # CAST may round decimals; reject nonzero digits beyond the declared scale first.
-            for name, kind, _ in specs:
-                if kind.startswith("DECIMAL"):
-                    bad = connection.execute(
-                        f'''SELECT count(*) FROM weekly_capture_input WHERE "{name}" IS NOT NULL
-                        AND NOT regexp_full_match(CAST("{name}" AS VARCHAR),
-                        '[+-]?[0-9]+(\\.[0-9]{{0,4}}0*)?')'''
-                    ).fetchone()[0]
-                    if bad:
-                        raise WeeklyCaptureError("decimal_precision_loss")
-                elif kind == "DOUBLE":
-                    bad = connection.execute(
-                        f'SELECT count(*) FROM weekly_capture_input WHERE "{name}" IS NOT NULL '
-                        f'AND (try_cast("{name}" AS DOUBLE) IS NULL OR NOT isfinite(try_cast("{name}" AS DOUBLE)))'
-                    ).fetchone()[0]
-                    if bad:
-                        raise WeeklyCaptureError("source_numeric_invalid")
-            projection = ",".join(
-                f'CAST("{name}" AS {kind}) AS "{name}"' for name, kind, _ in specs
-            )
-            connection.execute(
-                f"CREATE OR REPLACE TEMP TABLE weekly_capture_chunk AS SELECT {projection} FROM weekly_capture_input"
-            )
-            count = validate_weekly_capture_relation(
-                connection, "weekly_capture_chunk", unit
-            )
-            path = attempt / f"chunk-{index:04d}.parquet"
-            if path.exists():
-                raise WeeklyCaptureError("capture_chunk_exists")
-            pending = path.with_suffix(".pending")
-            connection.execute(
-                "COPY weekly_capture_chunk TO ? (FORMAT PARQUET, COMPRESSION ZSTD)",
-                [str(pending)],
-            )
-            with pending.open("rb") as stream:
-                os.fsync(stream.fileno())
-            readback = connection.execute(
-                "SELECT count(*) FROM read_parquet(?, hive_partitioning=false)",
-                [str(pending)],
-            ).fetchone()[0]
-            differences = connection.execute(
-                """SELECT count(*) FROM (
-                (SELECT * FROM weekly_capture_chunk EXCEPT ALL SELECT * FROM read_parquet(?, hive_partitioning=false))
-                UNION ALL
-                (SELECT * FROM read_parquet(?, hive_partitioning=false) EXCEPT ALL SELECT * FROM weekly_capture_chunk)
-            )""",
-                [str(pending), str(pending)],
-            ).fetchone()[0]
-            if differences:
-                raise WeeklyCaptureError("capture_value_mismatch")
-            if readback != count:
-                raise WeeklyCaptureError("capture_readback_mismatch")
-            os.replace(pending, path)
-            self._file_count += 1
-            _sync_directory(attempt)
-            return {
-                "path": str(path.relative_to(directory)),
-                "rows": count,
-                "sha256": capture_file_hash(path),
-            }
-        finally:
-            connection.unregister("weekly_capture_input")
+        # CAST may round decimals; reject nonzero digits beyond the declared scale first.
+        for name, kind, _ in specs:
+            if kind.startswith("DECIMAL"):
+                bad = connection.execute(
+                    f'''SELECT count(*) FROM {relation} WHERE "{name}" IS NOT NULL
+                    AND NOT regexp_full_match(CAST("{name}" AS VARCHAR),
+                    '[+-]?[0-9]+(\\.[0-9]{{0,4}}0*)?')'''
+                ).fetchone()[0]
+                if bad:
+                    raise WeeklyCaptureError("decimal_precision_loss")
+            elif kind == "DOUBLE":
+                bad = connection.execute(
+                    f'SELECT count(*) FROM {relation} WHERE "{name}" IS NOT NULL '
+                    f'AND (try_cast("{name}" AS DOUBLE) IS NULL OR NOT isfinite(try_cast("{name}" AS DOUBLE)))'
+                ).fetchone()[0]
+                if bad:
+                    raise WeeklyCaptureError("source_numeric_invalid")
+        projection = ",".join(
+            f'CAST("{name}" AS {kind}) AS "{name}"' for name, kind, _ in specs
+        )
+        connection.execute(
+            f"CREATE OR REPLACE TEMP TABLE weekly_capture_chunk AS SELECT {projection} FROM {relation}"
+        )
+        count = validate_weekly_capture_relation(
+            connection, "weekly_capture_chunk", unit
+        )
+        path = attempt / f"chunk-{index:04d}.parquet"
+        if path.exists():
+            raise WeeklyCaptureError("capture_chunk_exists")
+        pending = path.with_suffix(".pending")
+        connection.execute(
+            "COPY weekly_capture_chunk TO ? (FORMAT PARQUET, COMPRESSION ZSTD)",
+            [str(pending)],
+        )
+        with pending.open("rb") as stream:
+            os.fsync(stream.fileno())
+        readback = connection.execute(
+            "SELECT count(*) FROM read_parquet(?, hive_partitioning=false)",
+            [str(pending)],
+        ).fetchone()[0]
+        differences = connection.execute(
+            """SELECT count(*) FROM (
+            (SELECT * FROM weekly_capture_chunk EXCEPT ALL SELECT * FROM read_parquet(?, hive_partitioning=false))
+            UNION ALL
+            (SELECT * FROM read_parquet(?, hive_partitioning=false) EXCEPT ALL SELECT * FROM weekly_capture_chunk)
+        )""",
+            [str(pending), str(pending)],
+        ).fetchone()[0]
+        if differences:
+            raise WeeklyCaptureError("capture_value_mismatch")
+        if readback != count:
+            raise WeeklyCaptureError("capture_readback_mismatch")
+        os.replace(pending, path)
+        self._file_count += 1
+        _sync_directory(attempt)
+        return {
+            "path": str(path.relative_to(directory)),
+            "rows": count,
+            "sha256": capture_file_hash(path),
+        }
 
     def _validate_receipt(self, connection, unit: SourceUnit, receipt: dict) -> None:
         directory = self.unit_directory(unit)
@@ -409,6 +423,23 @@ class WeeklyCaptureStore:
             or receipt.get("schema_hash") != weekly_schema_hash(unit.source)
         ):
             raise WeeklyCaptureError("receipt_identity_mismatch")
+        source_evidence = receipt.get("source_evidence", {})
+        artifacts = source_evidence.get("capture_artifacts", [])
+        if (
+            source_evidence.get("transport") == "psql_copy_csv_v1"
+            and len(artifacts) != 3
+        ):
+            raise WeeklyCaptureError("capture_evidence_missing")
+        if len(artifacts) > 3:
+            raise WeeklyCaptureError("capture_evidence_invalid")
+        for item in artifacts:
+            path = directory / item["path"]
+            check_capture_path(path)
+            if (
+                not path.is_relative_to(directory)
+                or capture_file_hash(path) != item["sha256"]
+            ):
+                raise WeeklyCaptureError("capture_hash_mismatch")
         chunks = receipt.get("chunks", [])
         if not chunks or len(chunks) > self.manifest.budget.max_phase_files:
             raise WeeklyCaptureError("capture_evidence_missing")

@@ -1,0 +1,4761 @@
+{
+  "status": "complete",
+  "years": {
+    "2010": {
+      "plan_hash": "14e660761ee1df91611a98145f1d657ce206e7f45f3ad4e21144bc2b0b5e2800",
+      "planned_keys": 7095,
+      "units": 155,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 155,
+            "source_rows": 1030,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 274,
+            "peak_process_tree_rss_bytes": 515080192,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 317554688,
+            "seconds": 37.453,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-capture-1.log",
+            "log_hash": "3873ca4f945f0662d2f10e35c124aaaa2a35fd75b14abb5f42c1b889368eeed2"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 155,
+            "source_rows": 2024,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 270,
+            "peak_process_tree_rss_bytes": 507887616,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 309690368,
+            "seconds": 37.55,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-capture-2.log",
+            "log_hash": "8a08021c46b42b06a6bb9876b61889974393a452efa39d254a7554eacd3f773a"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 155,
+            "source_rows": 3003,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 270,
+            "peak_process_tree_rss_bytes": 514883584,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 311820288,
+            "seconds": 37.987,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-capture-3.log",
+            "log_hash": "98b95742ecea21a1b1d1ac0ec3dc7df2c32dd3a1cf66b4eb7efd361243cd0867"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 155,
+            "source_rows": 3467,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 268,
+            "peak_process_tree_rss_bytes": 472875008,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 272875520,
+            "seconds": 38.131,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-capture-4.log",
+            "log_hash": "6a15dedb28cd1742b30d9e73a2c710f6e53cd4189acd28f811e47824d9289c6c"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 155,
+            "source_rows": 4482,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 271,
+            "peak_process_tree_rss_bytes": 525156352,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 323534848,
+            "seconds": 38.795,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-capture-5.log",
+            "log_hash": "6931df4829a7f33c27a0c9ce8b3b0d2a841fee06781cc1de6b0e00ebc6b98c38"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 155,
+            "source_rows": 5498,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 264,
+            "peak_process_tree_rss_bytes": 544817152,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 344064000,
+            "seconds": 38.427,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-capture-6.log",
+            "log_hash": "7aa09d4f31c1f825025e283d97d2c5c35dad8bb8213425d270fcce0e07f13000"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 155,
+            "source_rows": 6406,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 268,
+            "peak_process_tree_rss_bytes": 544571392,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 344981504,
+            "seconds": 39.646,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-capture-7.log",
+            "log_hash": "8d3e5a619a766384b42b3b5eec6c13499930e61bc3dc490dc826fe74b79f2e20"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "14e660761ee1df91611a98145f1d657ce206e7f45f3ad4e21144bc2b0b5e2800",
+            "completed_units": 155,
+            "source_rows": 7095,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 194,
+            "peak_process_tree_rss_bytes": 517914624,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 318357504,
+            "seconds": 28.801,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-capture-8.log",
+            "log_hash": "4c223319a2647f787e867a94fbb4e718d14c72979f7ac596ebd7e5faf8aeebb8"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "14e660761ee1df91611a98145f1d657ce206e7f45f3ad4e21144bc2b0b5e2800",
+        "completed_units": 155,
+        "source_rows": 7095,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 140
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/14e660761ee1df91611a98145f1d657ce206e7f45f3ad4e21144bc2b0b5e2800/assemblies/2010-d2c53d85e6e4442ba60b90a559760120/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 14,
+        "peak_process_tree_rss_bytes": 260833280,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 265404416,
+        "seconds": 2.008,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-build.log",
+        "log_hash": "0fdc2631063d5bf3c2a1f8ac05fc584ff1e4301f6b642f2c459355531a43d0b6"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 7331,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 236,
+        "new_keys": 7095,
+        "non_friday_rows": 411,
+        "null_business_rows": 0,
+        "owned_rows": 7095,
+        "source_rows": 7095,
+        "unique_source_rows": 7095
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7095
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/14e660761ee1df91611a98145f1d657ce206e7f45f3ad4e21144bc2b0b5e2800/assemblies/2010-d2c53d85e6e4442ba60b90a559760120/source-key-outcomes.parquet",
+        "sha256": "b2244c07c7d082a81441f7427c67c45d7dacaa278854625cef17d7a49314daaf"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 52,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 190201856,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 195231744,
+        "seconds": 1.299,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2010-promote.log",
+        "log_hash": "891d4eb61f4b368caa62597da8dba5597eb78fd09a3387d2a6d2e0e5fa905db7"
+      }
+    },
+    "2011": {
+      "plan_hash": "4f5679961c08c0eeb44f09b9a1d7684678b8f1cbdb3df0e1f38d2a2c859868a1",
+      "planned_keys": 7849,
+      "units": 168,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 168,
+            "source_rows": 931,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 282,
+            "peak_process_tree_rss_bytes": 516947968,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 318521344,
+            "seconds": 38.753,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-1.log",
+            "log_hash": "f980e21d2408cd5c01d0a167206f9bee1a407282842a9b2e8065bea7d9ade622"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 168,
+            "source_rows": 1944,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 277,
+            "peak_process_tree_rss_bytes": 528056320,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 328957952,
+            "seconds": 38.458,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-2.log",
+            "log_hash": "99ae8fac9044d64c6bda520247cf0c0d078402744d6bb82d402a1f30dd702b77"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 168,
+            "source_rows": 2943,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 271,
+            "peak_process_tree_rss_bytes": 517668864,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 323469312,
+            "seconds": 38.185,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-3.log",
+            "log_hash": "3537d25990aa69192b23d514eb9cc5f83427e80d2012d05965158c7751d51cf1"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 168,
+            "source_rows": 3780,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 269,
+            "peak_process_tree_rss_bytes": 518291456,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 327024640,
+            "seconds": 38.391,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-4.log",
+            "log_hash": "ed1f2beefb99ecc61669e51476cf59e550e81f37fa390fe8a4d64142aefad651"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 168,
+            "source_rows": 4616,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 268,
+            "peak_process_tree_rss_bytes": 511049728,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 316014592,
+            "seconds": 38.56,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-5.log",
+            "log_hash": "8814ad89b4c7a1e8b5bb74dd180ab9d7aac3a1152d193dd1055d1bd3727beccc"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 168,
+            "source_rows": 5610,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 267,
+            "peak_process_tree_rss_bytes": 521355264,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 321142784,
+            "seconds": 39.037,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-6.log",
+            "log_hash": "018aa2df20375f205679238bec4d7a4c715074afa36a0117442a93d69d59de13"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 168,
+            "source_rows": 6504,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 257,
+            "peak_process_tree_rss_bytes": 516816896,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315375616,
+            "seconds": 37.991,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-7.log",
+            "log_hash": "9bc141897f99751e74522126f8d705af1d66759c479d98b4d07e0ed44906ac36"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 168,
+            "source_rows": 7478,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 256,
+            "peak_process_tree_rss_bytes": 540819456,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 339116032,
+            "seconds": 38.281,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-8.log",
+            "log_hash": "aa50ab0c055e57c8ee309e1bfa7f6ae1a1d3da0ee61bdec9d9ae1d568220ba1b"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "4f5679961c08c0eeb44f09b9a1d7684678b8f1cbdb3df0e1f38d2a2c859868a1",
+            "completed_units": 168,
+            "source_rows": 7849,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 104,
+            "peak_process_tree_rss_bytes": 437272576,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 247136256,
+            "seconds": 15.652,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-capture-9.log",
+            "log_hash": "4534d0302aeea4724374f797f3efde883c5f61999fc1d3b9b9c6483f4bc151c5"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "4f5679961c08c0eeb44f09b9a1d7684678b8f1cbdb3df0e1f38d2a2c859868a1",
+        "completed_units": 168,
+        "source_rows": 7849,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/4f5679961c08c0eeb44f09b9a1d7684678b8f1cbdb3df0e1f38d2a2c859868a1/assemblies/2011-f85dd9c5bb0e4abd834c05276f2c2df8/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 15,
+        "peak_process_tree_rss_bytes": 265568256,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 266338304,
+        "seconds": 2.174,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-build.log",
+        "log_hash": "0123c02a758c5ae37a731a5051d080442f5b44beadc787b8429cc586159d2adf"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 8070,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 221,
+        "new_keys": 7849,
+        "non_friday_rows": 151,
+        "null_business_rows": 0,
+        "owned_rows": 7849,
+        "source_rows": 7849,
+        "unique_source_rows": 7849
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7849
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/4f5679961c08c0eeb44f09b9a1d7684678b8f1cbdb3df0e1f38d2a2c859868a1/assemblies/2011-f85dd9c5bb0e4abd834c05276f2c2df8/source-key-outcomes.parquet",
+        "sha256": "9b1ed3caaf7f232ab564933f61a5a3a1c21dec9223ed289a017cd246a356613b"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 51,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 191545344,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 196214784,
+        "seconds": 1.311,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2011-promote.log",
+        "log_hash": "4bbe31b6026f4f84b65d4bc5f91924be528664d41ba73cc56226cdce14eebca6"
+      }
+    },
+    "2012": {
+      "plan_hash": "a08bd27f308108588f909f0d092e1f59bedcae558c0de1385b256ba7d7436b38",
+      "planned_keys": 8233,
+      "units": 177,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 177,
+            "source_rows": 959,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 274,
+            "peak_process_tree_rss_bytes": 512098304,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 310919168,
+            "seconds": 37.764,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-1.log",
+            "log_hash": "9a69fedac7d99b6a2b5365f42c9966818a411b2359d43e21ffb20c12ee1ff561"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 177,
+            "source_rows": 1930,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 273,
+            "peak_process_tree_rss_bytes": 517832704,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 314458112,
+            "seconds": 37.977,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-2.log",
+            "log_hash": "1ff21c453763fdd3a6cd34a9923bd1bc2b17c7955170fc0c6fbf74e59cbeee82"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 177,
+            "source_rows": 2889,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 274,
+            "peak_process_tree_rss_bytes": 509263872,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 316981248,
+            "seconds": 38.557,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-3.log",
+            "log_hash": "92ce58f4c2384d623714e783a02bf0149eb50afecff4739dead4942c642805c4"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 177,
+            "source_rows": 3857,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 269,
+            "peak_process_tree_rss_bytes": 537378816,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 332333056,
+            "seconds": 38.502,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-4.log",
+            "log_hash": "39ce29c6c57b7090cb6b4fb092c93782a67500e4cb4387edecdcd049b16c9908"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 177,
+            "source_rows": 4757,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 262,
+            "peak_process_tree_rss_bytes": 530579456,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 333004800,
+            "seconds": 37.81,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-5.log",
+            "log_hash": "8ea30ced7dc5d66c2cb9991e7ad44568c3fa7b43c3442b0dae6a94d55905c39f"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 177,
+            "source_rows": 5575,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 261,
+            "peak_process_tree_rss_bytes": 541032448,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 344244224,
+            "seconds": 38.021,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-6.log",
+            "log_hash": "4b543b879def0b25690bb21f783c86b14a266ff61a5f6b626e41b326adb21d19"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 177,
+            "source_rows": 6494,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 257,
+            "peak_process_tree_rss_bytes": 536707072,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 338608128,
+            "seconds": 37.956,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-7.log",
+            "log_hash": "e44e3e4a40dee557ef023ec2217ccd21ade645118c659e0d17149359a62d5696"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 177,
+            "source_rows": 7425,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 263,
+            "peak_process_tree_rss_bytes": 552730624,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 349274112,
+            "seconds": 38.758,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-8.log",
+            "log_hash": "89188d874ac12a85ae1e977907144f206681263e59d56470f98e1589ff8ab027"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "a08bd27f308108588f909f0d092e1f59bedcae558c0de1385b256ba7d7436b38",
+            "completed_units": 177,
+            "source_rows": 8233,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 223,
+            "peak_process_tree_rss_bytes": 542801920,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 344457216,
+            "seconds": 32.786,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-capture-9.log",
+            "log_hash": "14028b2e2650ad115182b92c4280a075fb97b5abbb3ec74b53a11795effba38d"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "a08bd27f308108588f909f0d092e1f59bedcae558c0de1385b256ba7d7436b38",
+        "completed_units": 177,
+        "source_rows": 8233,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/a08bd27f308108588f909f0d092e1f59bedcae558c0de1385b256ba7d7436b38/assemblies/2012-c420ae1898144e4283cd27b4f515ffc5/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 15,
+        "peak_process_tree_rss_bytes": 269959168,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 270204928,
+        "seconds": 2.141,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-build.log",
+        "log_hash": "9bd957aa6597ce124f794fc8605f0040e8544a16fe9cf86599f87730cffaaa48"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 8459,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 226,
+        "new_keys": 8233,
+        "non_friday_rows": 165,
+        "null_business_rows": 0,
+        "owned_rows": 8233,
+        "source_rows": 8233,
+        "unique_source_rows": 8233
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 8233
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/a08bd27f308108588f909f0d092e1f59bedcae558c0de1385b256ba7d7436b38/assemblies/2012-c420ae1898144e4283cd27b4f515ffc5/source-key-outcomes.parquet",
+        "sha256": "023ab33b90e2675a88433a694e13e4ee5e5037407e8a0cc286736c5c91b8ee5a"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 50,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 197394432,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 201572352,
+        "seconds": 1.298,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2012-promote.log",
+        "log_hash": "fa7959a465f2fb7331de14048496fd5a9c2c00387f6c1b38bddb26a19afca8f3"
+      }
+    },
+    "2013": {
+      "plan_hash": "ddad6fa6d1849b40f36a4b27004d94c9c8e9fb4e7ac713a227423cf268014fbd",
+      "planned_keys": 8298,
+      "units": 175,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 175,
+            "source_rows": 880,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 286,
+            "peak_process_tree_rss_bytes": 524681216,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315539456,
+            "seconds": 38.45,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-1.log",
+            "log_hash": "77d8e6642452fcd6da2d8ffa3f9c58181cf784ae192cf914ab1b574214100842"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 175,
+            "source_rows": 1883,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 285,
+            "peak_process_tree_rss_bytes": 528744448,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 326156288,
+            "seconds": 38.636,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-2.log",
+            "log_hash": "db1bc1ae9cc0806b80606fe8b16c71f1644510f81a11705e3425c65e04fbf5d3"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 175,
+            "source_rows": 2857,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 272,
+            "peak_process_tree_rss_bytes": 535855104,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 337756160,
+            "seconds": 37.43,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-3.log",
+            "log_hash": "1b55f740da90ff0a4f9bad5620d7e03c4e5020c65bc69f4b377d3da85eebe3f7"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 175,
+            "source_rows": 3829,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 271,
+            "peak_process_tree_rss_bytes": 526483456,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 326402048,
+            "seconds": 37.811,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-4.log",
+            "log_hash": "c04ad295897e3ec4883e1b4955f819215d246a669a4dce8db03f6490374e3f64"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 175,
+            "source_rows": 4796,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 268,
+            "peak_process_tree_rss_bytes": 547209216,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 345178112,
+            "seconds": 37.728,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-5.log",
+            "log_hash": "4afcb98855cf42298b93cfceb4d77167a821887eb4ac14fb0bb84a4952eb2c2e"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 175,
+            "source_rows": 5720,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 268,
+            "peak_process_tree_rss_bytes": 511066112,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 314408960,
+            "seconds": 38.07,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-6.log",
+            "log_hash": "1784c46347abf6a2dd1e8c4cef90dbeb2a47c012dddb9f3abca2f528bf03a941"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 175,
+            "source_rows": 6618,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 268,
+            "peak_process_tree_rss_bytes": 527974400,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 329777152,
+            "seconds": 38.502,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-7.log",
+            "log_hash": "7fa353132bab44a1847ac78a1c05381297ea9f582dd61e80822d39f958919b9b"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 175,
+            "source_rows": 7577,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 260,
+            "peak_process_tree_rss_bytes": 539344896,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 341377024,
+            "seconds": 37.615,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-8.log",
+            "log_hash": "de8ff7ef721958fd085b9ec21bf32e8b8357ebeea0ff1c33adaa23dab35f2753"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "ddad6fa6d1849b40f36a4b27004d94c9c8e9fb4e7ac713a227423cf268014fbd",
+            "completed_units": 175,
+            "source_rows": 8298,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 194,
+            "peak_process_tree_rss_bytes": 514588672,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 311083008,
+            "seconds": 28.304,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-capture-9.log",
+            "log_hash": "456fa9e0ea92e7da7b788a7a45c3653d18abff53226f9b91b24e98a62b0e9b2f"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "ddad6fa6d1849b40f36a4b27004d94c9c8e9fb4e7ac713a227423cf268014fbd",
+        "completed_units": 175,
+        "source_rows": 8298,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/ddad6fa6d1849b40f36a4b27004d94c9c8e9fb4e7ac713a227423cf268014fbd/assemblies/2013-a259997889084e9cbe4a9b8cb331c074/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 15,
+        "peak_process_tree_rss_bytes": 280920064,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 282181632,
+        "seconds": 2.124,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-build.log",
+        "log_hash": "fd2eaa111011d06e5315dbd894e8b4554a1fd0d38f9cc910138f47910662b007"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 8552,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 254,
+        "new_keys": 8298,
+        "non_friday_rows": 478,
+        "null_business_rows": 0,
+        "owned_rows": 8298,
+        "source_rows": 8298,
+        "unique_source_rows": 8298
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 8298
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/ddad6fa6d1849b40f36a4b27004d94c9c8e9fb4e7ac713a227423cf268014fbd/assemblies/2013-a259997889084e9cbe4a9b8cb331c074/source-key-outcomes.parquet",
+        "sha256": "87319a7a13a9d5aaee6d9fcfb0c43a5a4cce32c6270bcd34564f0fc89135a45e"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 51,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 194789376,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 197967872,
+        "seconds": 1.281,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2013-promote.log",
+        "log_hash": "fe62e8d1c4eaccba7760e12a9c70669a286ea2bbc9b6d522b65fcf2051b03339"
+      }
+    },
+    "2014": {
+      "plan_hash": "5c0ad45d739a3cdaa9b863fa438b53a11b332b154981c898d012c0ef33e5e254",
+      "planned_keys": 7961,
+      "units": 178,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 178,
+            "source_rows": 837,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 282,
+            "peak_process_tree_rss_bytes": 504774656,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 299008000,
+            "seconds": 37.809,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-1.log",
+            "log_hash": "1563294a251944037295ca1be10fc050bb0cc7fa8a3689b8ef1edd10de42a47a"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 178,
+            "source_rows": 1763,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 275,
+            "peak_process_tree_rss_bytes": 527859712,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 330072064,
+            "seconds": 37.218,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-2.log",
+            "log_hash": "cdcd36da137adab506cf69634fec802d8f34acf812881412b83721c85385d32a"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 178,
+            "source_rows": 2659,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 270,
+            "peak_process_tree_rss_bytes": 518275072,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 320897024,
+            "seconds": 37.191,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-3.log",
+            "log_hash": "b9a51fa408c9a9ffa326656d4eb0d710715db0a98d1ffb060ff5d24a10e7257a"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 178,
+            "source_rows": 3615,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 267,
+            "peak_process_tree_rss_bytes": 533643264,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 330989568,
+            "seconds": 37.272,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-4.log",
+            "log_hash": "0c1ffea13acf2643c7961c8024fdf3baa833bbb69f4e2f76ed04b4dac31a68e5"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 178,
+            "source_rows": 4520,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 274,
+            "peak_process_tree_rss_bytes": 533774336,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 334151680,
+            "seconds": 38.649,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-5.log",
+            "log_hash": "9a01cbe2a2b2801d90d0bd82775ef2c8576012d99cc7bdd5a27a9a0fb06e53e3"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 178,
+            "source_rows": 5341,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 264,
+            "peak_process_tree_rss_bytes": 525451264,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 329711616,
+            "seconds": 37.63,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-6.log",
+            "log_hash": "6862cb7d51defff82c791469a331d3c68765f98b569f7b84f2ee93290aab80b2"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 178,
+            "source_rows": 6228,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 261,
+            "peak_process_tree_rss_bytes": 529432576,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 330563584,
+            "seconds": 37.434,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-7.log",
+            "log_hash": "4b78f64bcdf58779ec8e7141094b56f9af92b715a099c6eb5ffbae2609401101"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 178,
+            "source_rows": 7175,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 257,
+            "peak_process_tree_rss_bytes": 531464192,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 339034112,
+            "seconds": 37.261,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-8.log",
+            "log_hash": "add1feb082037a715a4f2081b8f51110bacab4977103b332239dd5ad31e47d7a"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "5c0ad45d739a3cdaa9b863fa438b53a11b332b154981c898d012c0ef33e5e254",
+            "completed_units": 178,
+            "source_rows": 7961,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 229,
+            "peak_process_tree_rss_bytes": 518668288,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 322322432,
+            "seconds": 33.624,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-capture-9.log",
+            "log_hash": "4c94001cc5e959bfeb92964cfa437f9f162e7fdf6a14990ad1818492cf24bc68"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "5c0ad45d739a3cdaa9b863fa438b53a11b332b154981c898d012c0ef33e5e254",
+        "completed_units": 178,
+        "source_rows": 7961,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/5c0ad45d739a3cdaa9b863fa438b53a11b332b154981c898d012c0ef33e5e254/assemblies/2014-697d7cfe2a7a47e2b40b6850514e1dc8/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 15,
+        "peak_process_tree_rss_bytes": 256950272,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 262537216,
+        "seconds": 2.155,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-build.log",
+        "log_hash": "b257a59bbaef262c04e1890d1e063481d5a6a0286f908bf7fedaa7ffe7fd647c"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 8200,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 239,
+        "new_keys": 7961,
+        "non_friday_rows": 464,
+        "null_business_rows": 0,
+        "owned_rows": 7961,
+        "source_rows": 7961,
+        "unique_source_rows": 7961
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7961
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/5c0ad45d739a3cdaa9b863fa438b53a11b332b154981c898d012c0ef33e5e254/assemblies/2014-697d7cfe2a7a47e2b40b6850514e1dc8/source-key-outcomes.parquet",
+        "sha256": "0936255fb84a81888675501424e6d40a889a8b0f72b8f601a4e6427dd11abe5c"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 52,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 195870720,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 201932800,
+        "seconds": 1.299,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2014-promote.log",
+        "log_hash": "0a1e7b5ee4347e304181cbe2d64eccb26efbd845246becf0f0e967808e6aa949"
+      }
+    },
+    "2015": {
+      "plan_hash": "577773b8b6d12908fc2ef98943640f10b7023bc677aa7b9be9ae946c79a39c6b",
+      "planned_keys": 7205,
+      "units": 182,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 182,
+            "source_rows": 741,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 278,
+            "peak_process_tree_rss_bytes": 492617728,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 296321024,
+            "seconds": 37.326,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-1.log",
+            "log_hash": "4c2a566c7d2e3ded9b20f954c8d12a109fcce21e54e3482f59e5babcdcd9d774"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 182,
+            "source_rows": 1543,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 275,
+            "peak_process_tree_rss_bytes": 507543552,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 306806784,
+            "seconds": 37.358,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-2.log",
+            "log_hash": "8c3f334ff0e43716b093ae2b6e2ac0c78e35437bde551db725139ba767519b76"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 182,
+            "source_rows": 2337,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 272,
+            "peak_process_tree_rss_bytes": 517357568,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315899904,
+            "seconds": 37.091,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-3.log",
+            "log_hash": "85b4384d31497e3d17fd1e299336589ea31954e6f80a14ea81cba5472968d4f7"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 182,
+            "source_rows": 3143,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 269,
+            "peak_process_tree_rss_bytes": 515735552,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315932672,
+            "seconds": 37.704,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-4.log",
+            "log_hash": "acecfea040e4357f608c1ae47515793ce33e5f07976a9ea9756321d0322161f9"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 182,
+            "source_rows": 3879,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 261,
+            "peak_process_tree_rss_bytes": 504528896,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 308756480,
+            "seconds": 37.628,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-5.log",
+            "log_hash": "14bfffec483688c4e9a2179fd905df70fab8d7fb549d551e0efd49535c5290b2"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 182,
+            "source_rows": 4733,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 260,
+            "peak_process_tree_rss_bytes": 506871808,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 308707328,
+            "seconds": 37.804,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-6.log",
+            "log_hash": "e58fd757c544169e6742d60f6a04094eb4e1659b050410899108b27019e9f001"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 182,
+            "source_rows": 5590,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 258,
+            "peak_process_tree_rss_bytes": 494026752,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 301203456,
+            "seconds": 37.962,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-7.log",
+            "log_hash": "5711941a84e4ce78aae338292e0c4c6d46705dcdbb89c948c617b406b84fb9b1"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 182,
+            "source_rows": 6402,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 252,
+            "peak_process_tree_rss_bytes": 516046848,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 313737216,
+            "seconds": 37.734,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-8.log",
+            "log_hash": "feba7c694f79d0e3cef19f764d2229694a0ce1b9feb11fbe7860b03c053e5183"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 180,
+            "total_units": 182,
+            "source_rows": 7155,
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 250,
+            "peak_process_tree_rss_bytes": 532217856,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 329154560,
+            "seconds": 37.762,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-9.log",
+            "log_hash": "7dede9213c50cf93614b9de34109ae7ef5ff6bf456aed5d1efe98446c3e4d17a"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "577773b8b6d12908fc2ef98943640f10b7023bc677aa7b9be9ae946c79a39c6b",
+            "completed_units": 182,
+            "source_rows": 7205,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 180
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 27,
+            "peak_process_tree_rss_bytes": 417218560,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 229474304,
+            "seconds": 3.997,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-capture-10.log",
+            "log_hash": "9b73bdd2bf5ab08ccb772e4e4fe102f83c4a1a36e234c269d9b4bfa6c4b75cb3"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "577773b8b6d12908fc2ef98943640f10b7023bc677aa7b9be9ae946c79a39c6b",
+        "completed_units": 182,
+        "source_rows": 7205,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 180
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/577773b8b6d12908fc2ef98943640f10b7023bc677aa7b9be9ae946c79a39c6b/assemblies/2015-132f3f8062404986960a60d215afbccb/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 14,
+        "peak_process_tree_rss_bytes": 269860864,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 269910016,
+        "seconds": 2.04,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-build.log",
+        "log_hash": "cdaed813f2c7369c68d9231bca35a3a09755e59b8407fd023d46dea7bd404711"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 7416,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 211,
+        "new_keys": 7205,
+        "non_friday_rows": 685,
+        "null_business_rows": 0,
+        "owned_rows": 7205,
+        "source_rows": 7205,
+        "unique_source_rows": 7205
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7205
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/577773b8b6d12908fc2ef98943640f10b7023bc677aa7b9be9ae946c79a39c6b/assemblies/2015-132f3f8062404986960a60d215afbccb/source-key-outcomes.parquet",
+        "sha256": "2c1d5252d46ca1f1ee58314b70ee95891e6859797f96e5f8251f294c95211beb"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 52,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 8,
+        "peak_process_tree_rss_bytes": 186515456,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 195444736,
+        "seconds": 1.173,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2015-promote.log",
+        "log_hash": "58f1db38e8be9db3ae1053e3ac6b4897b6a2786fd4b9ce860c746d19a67edc63"
+      }
+    },
+    "2016": {
+      "plan_hash": "2c5806b38bd2a9d6bc3b2b9923059440dae144ce118118ce64529027b63886b4",
+      "planned_keys": 7761,
+      "units": 177,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 177,
+            "source_rows": 910,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 275,
+            "peak_process_tree_rss_bytes": 515997696,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315310080,
+            "seconds": 37.721,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-1.log",
+            "log_hash": "d3fd7f155b3650f81a347f98b2b31926c0ebc55eb652fef9f7dddad54576005a"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 177,
+            "source_rows": 1717,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 271,
+            "peak_process_tree_rss_bytes": 491257856,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 288391168,
+            "seconds": 37.719,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-2.log",
+            "log_hash": "43d3893b907136bf70e077e9bf98d1544b4da7037cd5e6ea0b1d90744796b6ad"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 177,
+            "source_rows": 2601,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 273,
+            "peak_process_tree_rss_bytes": 511672320,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 310820864,
+            "seconds": 38.614,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-3.log",
+            "log_hash": "0271a71fc8c27fc4980af815afb8cb20b747bf6f675a0c1777054b9fa2641619"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 177,
+            "source_rows": 3531,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 263,
+            "peak_process_tree_rss_bytes": 525959168,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 331710464,
+            "seconds": 37.55,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-4.log",
+            "log_hash": "f030950a333304e37631945f14be513967678f5c9e5feb9319bb9cbff9e65fee"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 177,
+            "source_rows": 4427,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 261,
+            "peak_process_tree_rss_bytes": 517390336,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 317489152,
+            "seconds": 37.545,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-5.log",
+            "log_hash": "65e23d739167eb131634ca5c79419f3e441372c165b4de3be3af35a505f92b2f"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 177,
+            "source_rows": 5253,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 257,
+            "peak_process_tree_rss_bytes": 524566528,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 327041024,
+            "seconds": 37.57,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-6.log",
+            "log_hash": "f14e3ac796798eb6ceac6a616399527b7098a55071e5a6e891992e862a3f90e3"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 177,
+            "source_rows": 6108,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 256,
+            "peak_process_tree_rss_bytes": 506019840,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 309559296,
+            "seconds": 37.489,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-7.log",
+            "log_hash": "8a41be0d67bba493cd99d07224e19b40dba8617958c49c205a970399ab94504c"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 177,
+            "source_rows": 6983,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 260,
+            "peak_process_tree_rss_bytes": 517586944,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 319193088,
+            "seconds": 37.936,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-8.log",
+            "log_hash": "5ec8559348cb6788712254a6e08ec2dd683c669d014f9ec80ed7c08ec539b47e"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "2c5806b38bd2a9d6bc3b2b9923059440dae144ce118118ce64529027b63886b4",
+            "completed_units": 177,
+            "source_rows": 7761,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 214,
+            "peak_process_tree_rss_bytes": 528416768,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 327778304,
+            "seconds": 31.52,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-capture-9.log",
+            "log_hash": "6b9d88489f2ec17a41264015fedcbe5cb8638f380daa9f5dd6ec407500b3ccf6"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "2c5806b38bd2a9d6bc3b2b9923059440dae144ce118118ce64529027b63886b4",
+        "completed_units": 177,
+        "source_rows": 7761,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/2c5806b38bd2a9d6bc3b2b9923059440dae144ce118118ce64529027b63886b4/assemblies/2016-9e98439d59c8442bac35767c24031520/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 15,
+        "peak_process_tree_rss_bytes": 258457600,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 258686976,
+        "seconds": 2.152,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-build.log",
+        "log_hash": "08ff9f7c8a499abb6a027b301edbd3480f4a5a4d043dde09e7adc9cce7adcea7"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 7987,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 226,
+        "new_keys": 7761,
+        "non_friday_rows": 458,
+        "null_business_rows": 0,
+        "owned_rows": 7761,
+        "source_rows": 7761,
+        "unique_source_rows": 7761
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7761
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/2c5806b38bd2a9d6bc3b2b9923059440dae144ce118118ce64529027b63886b4/assemblies/2016-9e98439d59c8442bac35767c24031520/source-key-outcomes.parquet",
+        "sha256": "1240b49249e4430cd1c10428747b65b23e5653ca027f8e5a4e0dcba1bade253e"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 51,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 199917568,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 204095488,
+        "seconds": 1.301,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2016-promote.log",
+        "log_hash": "c0a024293feb054098b7ffcbbb597fc5afbbc92b937f16f9b6a70743c5d6ba09"
+      }
+    },
+    "2017": {
+      "plan_hash": "5973feb5ea3b627f830231aa18eb0c12b26e2d4a5a2606d4fe144218151cb958",
+      "planned_keys": 7387,
+      "units": 177,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 177,
+            "source_rows": 806,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 274,
+            "peak_process_tree_rss_bytes": 493699072,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 296894464,
+            "seconds": 36.783,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-1.log",
+            "log_hash": "2ce812a3f7bfd3dd4b0c99527c6d650a045e30d3140687edf0df9555e24cae40"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 177,
+            "source_rows": 1599,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 272,
+            "peak_process_tree_rss_bytes": 514981888,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 310411264,
+            "seconds": 37.061,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-2.log",
+            "log_hash": "9f780d9a1a22492192ae25fbeee547dd4adb7fe991c7e06539ae61e78a623811"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 177,
+            "source_rows": 2392,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 268,
+            "peak_process_tree_rss_bytes": 525680640,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 325320704,
+            "seconds": 36.917,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-3.log",
+            "log_hash": "89e5fba688774592de6202be8beeef7c353d781183168802901163df3d9979f1"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 177,
+            "source_rows": 3183,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 265,
+            "peak_process_tree_rss_bytes": 526991360,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 336019456,
+            "seconds": 37.01,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-4.log",
+            "log_hash": "19e8dcf7adaf4f0d48f06d35b6a6eaa1d699f1b23fc88a10b948e50d13bc1a7e"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 177,
+            "source_rows": 4059,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 263,
+            "peak_process_tree_rss_bytes": 523173888,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315113472,
+            "seconds": 37.146,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-5.log",
+            "log_hash": "576e3ec82421bfc60a2a8c48208f44e647e6ece1e801247bf85fc0d55568fdc8"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 177,
+            "source_rows": 4871,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 267,
+            "peak_process_tree_rss_bytes": 507772928,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 312246272,
+            "seconds": 38.152,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-6.log",
+            "log_hash": "2d3e74b28521034a67a9af57fe3da9a8924f8b3ffd4243c758de5d547591c87d"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 177,
+            "source_rows": 5775,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 260,
+            "peak_process_tree_rss_bytes": 533233664,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 334970880,
+            "seconds": 37.475,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-7.log",
+            "log_hash": "a3d25c4131e5c5e8ebce3462ad38fc22611f6e41843b986009f4090b08056317"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 177,
+            "source_rows": 6703,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 264,
+            "peak_process_tree_rss_bytes": 527400960,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 330366976,
+            "seconds": 38.474,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-8.log",
+            "log_hash": "27ee4746e43814551ba6487902a7b3a684988c93b1a31137c11d4b74b9841426"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "5973feb5ea3b627f830231aa18eb0c12b26e2d4a5a2606d4fe144218151cb958",
+            "completed_units": 177,
+            "source_rows": 7387,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 216,
+            "peak_process_tree_rss_bytes": 516243456,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 318291968,
+            "seconds": 31.78,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-capture-9.log",
+            "log_hash": "b311d1ba4c805be2353996aeb21d84c412e4f50a508ad48dd9d4a309a58a3321"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "5973feb5ea3b627f830231aa18eb0c12b26e2d4a5a2606d4fe144218151cb958",
+        "completed_units": 177,
+        "source_rows": 7387,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/5973feb5ea3b627f830231aa18eb0c12b26e2d4a5a2606d4fe144218151cb958/assemblies/2017-d5a4908bca8f455b855f0a265c5f4b73/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 14,
+        "peak_process_tree_rss_bytes": 260931584,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 260931584,
+        "seconds": 2.025,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-build.log",
+        "log_hash": "069b47681d647391c6b482278823cee7f700000a1f312ac1d7536afdaa6426e7"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 7637,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 250,
+        "new_keys": 7387,
+        "non_friday_rows": 154,
+        "null_business_rows": 0,
+        "owned_rows": 7387,
+        "source_rows": 7387,
+        "unique_source_rows": 7387
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7387
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/5973feb5ea3b627f830231aa18eb0c12b26e2d4a5a2606d4fe144218151cb958/assemblies/2017-d5a4908bca8f455b855f0a265c5f4b73/source-key-outcomes.parquet",
+        "sha256": "7a75cb202e05eda046cf88540f3ac58cbdca5372e852959d7df6081fc2dc1629"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 51,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 202801152,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 206143488,
+        "seconds": 1.299,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2017-promote.log",
+        "log_hash": "6e37d595da6602021bb84509c28f0b6ac80152cf6627a71b3435fec0065353c2"
+      }
+    },
+    "2018": {
+      "plan_hash": "bbc5ca394aeb4d5de7e6bf9fdee192a8700053bc87ab2d32f04a4ccd64ba4899",
+      "planned_keys": 7486,
+      "units": 174,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 174,
+            "source_rows": 828,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 281,
+            "peak_process_tree_rss_bytes": 493371392,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 295780352,
+            "seconds": 37.822,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-1.log",
+            "log_hash": "756bb3ba76f24a2f067138e0febb217defdb999bdb6f3b3177bd35bda5fdbced"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 174,
+            "source_rows": 1671,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 273,
+            "peak_process_tree_rss_bytes": 502906880,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 303284224,
+            "seconds": 36.974,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-2.log",
+            "log_hash": "7c3afea24e8427452b3913c9e9af77da112c55c7c199f21d05d9e9027090fa40"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 174,
+            "source_rows": 2487,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 269,
+            "peak_process_tree_rss_bytes": 500744192,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 304971776,
+            "seconds": 36.883,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-3.log",
+            "log_hash": "6464d275765244abe9a18b3679a34771faac4dc11db84882b3d3f948a67c96f5"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 174,
+            "source_rows": 3337,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 266,
+            "peak_process_tree_rss_bytes": 501874688,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 307068928,
+            "seconds": 37.024,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-4.log",
+            "log_hash": "9de3528adbdf51b053cc8a8f9a757e88ae14812e3bd38aa60a5dc52d1ba68d95"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 174,
+            "source_rows": 4240,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 268,
+            "peak_process_tree_rss_bytes": 522567680,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 325894144,
+            "seconds": 37.799,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-5.log",
+            "log_hash": "3c54685567943be6450b82fa05c0ed6f588158b6ea73022c52f35542c5803764"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 174,
+            "source_rows": 5085,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 259,
+            "peak_process_tree_rss_bytes": 517062656,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 321781760,
+            "seconds": 36.845,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-6.log",
+            "log_hash": "28c4ccd0b13471d959a3963bb2f21f7b7523654770efb0ac582c87f87ead2f60"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 174,
+            "source_rows": 5964,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 257,
+            "peak_process_tree_rss_bytes": 524484608,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 325369856,
+            "seconds": 36.981,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-7.log",
+            "log_hash": "f1fec01978f033faad895c915b9e0713a497409b7faeb63c0a7d956b08df67b6"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 174,
+            "source_rows": 6825,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 261,
+            "peak_process_tree_rss_bytes": 517619712,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315097088,
+            "seconds": 38.091,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-8.log",
+            "log_hash": "904ebab4de759405347607e4e20351fc4aa891db78ee03233f97c4727b619d1c"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "bbc5ca394aeb4d5de7e6bf9fdee192a8700053bc87ab2d32f04a4ccd64ba4899",
+            "completed_units": 174,
+            "source_rows": 7486,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 178,
+            "peak_process_tree_rss_bytes": 507002880,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 318144512,
+            "seconds": 26.169,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-capture-9.log",
+            "log_hash": "f5f370c95e0127bcb3d236bf1566b8c0c2d34d32613972e1a77d9954953724d8"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "bbc5ca394aeb4d5de7e6bf9fdee192a8700053bc87ab2d32f04a4ccd64ba4899",
+        "completed_units": 174,
+        "source_rows": 7486,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bbc5ca394aeb4d5de7e6bf9fdee192a8700053bc87ab2d32f04a4ccd64ba4899/assemblies/2018-67a196fcdab1464a9e617a0b671b6c1f/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 15,
+        "peak_process_tree_rss_bytes": 293404672,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 295452672,
+        "seconds": 2.156,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-build.log",
+        "log_hash": "12121ddd03f20454a84f4f74c797b5a597baba6e133b45d6b990b870f624e1dd"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 7701,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 215,
+        "new_keys": 7486,
+        "non_friday_rows": 254,
+        "null_business_rows": 0,
+        "owned_rows": 7486,
+        "source_rows": 7486,
+        "unique_source_rows": 7486
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7486
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bbc5ca394aeb4d5de7e6bf9fdee192a8700053bc87ab2d32f04a4ccd64ba4899/assemblies/2018-67a196fcdab1464a9e617a0b671b6c1f/source-key-outcomes.parquet",
+        "sha256": "9f69862a2fe5c6b8aeb302ca4554e0953c45a30f2d34f39793cebadeba26e900"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 51,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 8,
+        "peak_process_tree_rss_bytes": 186269696,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 190152704,
+        "seconds": 1.148,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2018-promote.log",
+        "log_hash": "667558ecbf56d3cd2d201a2a3edd376a2e4cacf1c36adb009f1c3a693e568731"
+      }
+    },
+    "2019": {
+      "plan_hash": "92fda175912aed48a1952bc8ae36df02ca4062fd55510b33ca3d2e45a05b9ee6",
+      "planned_keys": 8099,
+      "units": 169,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 169,
+            "source_rows": 984,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 271,
+            "peak_process_tree_rss_bytes": 514637824,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 316194816,
+            "seconds": 37.151,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-1.log",
+            "log_hash": "e0016a6e11091b5ce05419962210aba3d70714875f8fb91abd910914df189d60"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 169,
+            "source_rows": 1870,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 282,
+            "peak_process_tree_rss_bytes": 516833280,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 324747264,
+            "seconds": 39.218,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-2.log",
+            "log_hash": "1217d430ee434e31a63584f95daa6215eb1ea71feec9ac203f53b56c532b972c"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 169,
+            "source_rows": 2807,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 266,
+            "peak_process_tree_rss_bytes": 514195456,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 311803904,
+            "seconds": 37.464,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-3.log",
+            "log_hash": "5a52be565e32b23112df72382745e8e53d7a6cfbb158c2eba87a216b2c7d7d60"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 169,
+            "source_rows": 3754,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 267,
+            "peak_process_tree_rss_bytes": 493158400,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 293224448,
+            "seconds": 38.072,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-4.log",
+            "log_hash": "36b4c51b55da4216ca776478a26162ebfa51e0d214b8f4176df6e139a95ddcea"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 169,
+            "source_rows": 4701,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 263,
+            "peak_process_tree_rss_bytes": 535085056,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 331595776,
+            "seconds": 37.827,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-5.log",
+            "log_hash": "345dab1134f0a66b7839fc317c05579dc917d2454b43a9496874d69d185fa81e"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 169,
+            "source_rows": 5686,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 259,
+            "peak_process_tree_rss_bytes": 508477440,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 311705600,
+            "seconds": 37.574,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-6.log",
+            "log_hash": "224f7520b9b72f66e37648c2c34c4551b0e49093858941fb5cc00a4d2590348c"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 169,
+            "source_rows": 6630,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 265,
+            "peak_process_tree_rss_bytes": 528433152,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 326860800,
+            "seconds": 38.527,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-7.log",
+            "log_hash": "0cdc7690334b75488c19499771ae0b67e510b62ee815479bce3d16c550c9afbf"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 169,
+            "source_rows": 7641,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 258,
+            "peak_process_tree_rss_bytes": 513884160,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 314900480,
+            "seconds": 37.776,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-8.log",
+            "log_hash": "f8cd70c4d65dfc5554401ba80abe3c8226c6ce638da0985be054141cf4cb095d"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "92fda175912aed48a1952bc8ae36df02ca4062fd55510b33ca3d2e45a05b9ee6",
+            "completed_units": 169,
+            "source_rows": 8099,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 118,
+            "peak_process_tree_rss_bytes": 491405312,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 300826624,
+            "seconds": 17.26,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-capture-9.log",
+            "log_hash": "fe8c26e653f7ef0ca40307a9c2cd0cdfe175045e5657dcab451046736e455fc8"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "92fda175912aed48a1952bc8ae36df02ca4062fd55510b33ca3d2e45a05b9ee6",
+        "completed_units": 169,
+        "source_rows": 8099,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/92fda175912aed48a1952bc8ae36df02ca4062fd55510b33ca3d2e45a05b9ee6/assemblies/2019-c54727194fc44087859cc6f6591d2ca0/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 14,
+        "peak_process_tree_rss_bytes": 279199744,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 279298048,
+        "seconds": 2.035,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-build.log",
+        "log_hash": "f6190d6fecb5406092ace9674b66b2b0010baafb422c47c85ba1f790a1cf5961"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 8354,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 255,
+        "new_keys": 8099,
+        "non_friday_rows": 793,
+        "null_business_rows": 0,
+        "owned_rows": 8099,
+        "source_rows": 8099,
+        "unique_source_rows": 8099
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 8099
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/92fda175912aed48a1952bc8ae36df02ca4062fd55510b33ca3d2e45a05b9ee6/assemblies/2019-c54727194fc44087859cc6f6591d2ca0/source-key-outcomes.parquet",
+        "sha256": "2c2df086682187ec11d3b7f99a396a0bef154728c0f0c220244175ddd2d98aa2"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 51,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 8,
+        "peak_process_tree_rss_bytes": 186826752,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 190382080,
+        "seconds": 1.183,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2019-promote.log",
+        "log_hash": "2422da22bd62154080b74ef212e750d7559437b8f1283d4f6bc42c0161c46614"
+      }
+    },
+    "2020": {
+      "plan_hash": "29141a327eeb43d5dce86c94d6d21aef2fb749eeb2c9232d6e0c121b2a5eb655",
+      "planned_keys": 7371,
+      "units": 162,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 162,
+            "source_rows": 968,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 276,
+            "peak_process_tree_rss_bytes": 500695040,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 314605568,
+            "seconds": 38.416,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-1.log",
+            "log_hash": "b9fa4a83ea72e3e4bbc07137acd526da3623f746b611f0174d047cd5bddf7ce7"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 162,
+            "source_rows": 1893,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 275,
+            "peak_process_tree_rss_bytes": 507527168,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 312770560,
+            "seconds": 37.987,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-2.log",
+            "log_hash": "e8f13faa458353becfa23afcdbc8e8e28684d9551bf0faa904f2155b51323d24"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 162,
+            "source_rows": 2817,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 257,
+            "peak_process_tree_rss_bytes": 511918080,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 323108864,
+            "seconds": 36.36,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-3.log",
+            "log_hash": "a5b7665494309d5a7b8c386c112fb371662139178f4b6a1fc4e92368f4fd2501"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 162,
+            "source_rows": 3691,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 250,
+            "peak_process_tree_rss_bytes": 486227968,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 300056576,
+            "seconds": 35.661,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-4.log",
+            "log_hash": "2412fee75a43fd33343145fd74b77c89921c3f9a584d94405f9dcf52716ac51e"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 162,
+            "source_rows": 4590,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 253,
+            "peak_process_tree_rss_bytes": 496910336,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 303710208,
+            "seconds": 36.377,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-5.log",
+            "log_hash": "2421f18c58b28cd047fb74a3d84682c68ecc2f25040fed4122d7a8045c119391"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 162,
+            "source_rows": 5471,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 246,
+            "peak_process_tree_rss_bytes": 507019264,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315359232,
+            "seconds": 35.743,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-6.log",
+            "log_hash": "ad8eba0a700d7b5ea3c6ec3d0c396dedf28241baa584e0dcbca1cb9c0d488d60"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 162,
+            "source_rows": 6388,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 248,
+            "peak_process_tree_rss_bytes": 511901696,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 314327040,
+            "seconds": 36.53,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-7.log",
+            "log_hash": "20ddd745d95bfa0376e8607cc9d752fbbff76ba9393ac417e92a14fbd1c2576c"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 162,
+            "source_rows": 7300,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 243,
+            "peak_process_tree_rss_bytes": 492912640,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 304365568,
+            "seconds": 36.148,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-8.log",
+            "log_hash": "e2e7fd446c5919e841c144f86253d034c750c32ae0cee4b2d4f593ad84085b0b"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "29141a327eeb43d5dce86c94d6d21aef2fb749eeb2c9232d6e0c121b2a5eb655",
+            "completed_units": 162,
+            "source_rows": 7371,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 26,
+            "peak_process_tree_rss_bytes": 405307392,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 217759744,
+            "seconds": 3.797,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-capture-9.log",
+            "log_hash": "16ebba6b8e2a1b8e5d4d282c6ca055496b067522b5c8d540256d61250e4f4fa8"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "29141a327eeb43d5dce86c94d6d21aef2fb749eeb2c9232d6e0c121b2a5eb655",
+        "completed_units": 162,
+        "source_rows": 7371,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 160
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/29141a327eeb43d5dce86c94d6d21aef2fb749eeb2c9232d6e0c121b2a5eb655/assemblies/2020-aab0b97c931a4124a2a4802e4ab0e8a1/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 14,
+        "peak_process_tree_rss_bytes": 273940480,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 280821760,
+        "seconds": 2.031,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-build.log",
+        "log_hash": "f3927fcf43a401413c24b1131562683cb41dc72d7b703e18adae7357c44f9ceb"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 7603,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 232,
+        "new_keys": 7371,
+        "non_friday_rows": 583,
+        "null_business_rows": 0,
+        "owned_rows": 7371,
+        "source_rows": 7371,
+        "unique_source_rows": 7371
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7371
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/29141a327eeb43d5dce86c94d6d21aef2fb749eeb2c9232d6e0c121b2a5eb655/assemblies/2020-aab0b97c931a4124a2a4802e4ab0e8a1/source-key-outcomes.parquet",
+        "sha256": "95fb7c6dfefd6c1ac7207ed1019eb4c848837747ede754f7ac8f8d71afc544db"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 51,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 8,
+        "peak_process_tree_rss_bytes": 186384384,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 187858944,
+        "seconds": 1.158,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2020-promote.log",
+        "log_hash": "4b4c20a3381fbc1407333212d89f75f6fc9038b80d166d25fb77b3377ddae132"
+      }
+    },
+    "2021": {
+      "plan_hash": "43cd28a6e171b0d513e235d531741e894b04cd4986f0ceff34706918849b0add",
+      "planned_keys": 7462,
+      "units": 219,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 219,
+            "source_rows": 969,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 263,
+            "peak_process_tree_rss_bytes": 498466816,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 306429952,
+            "seconds": 36.297,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-1.log",
+            "log_hash": "e5dcc7b9dce1de36abcecdd0bfc8699b9831fe23f356710789e050770a8143c8"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 219,
+            "source_rows": 1937,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 258,
+            "peak_process_tree_rss_bytes": 512131072,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 318308352,
+            "seconds": 36.028,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-2.log",
+            "log_hash": "5a47d459e397fd41638b8e57feecf50398e80d32586b88700c118c02247d8de1"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 219,
+            "source_rows": 2951,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 261,
+            "peak_process_tree_rss_bytes": 492191744,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 300597248,
+            "seconds": 36.855,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-3.log",
+            "log_hash": "cec49d514cd1b2df3cef89afa0741c352fcef8ebc5b5e5094cb56eecc2b1c654"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 219,
+            "source_rows": 3964,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 256,
+            "peak_process_tree_rss_bytes": 505905152,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315604992,
+            "seconds": 36.534,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-4.log",
+            "log_hash": "50796c57eb3590065a35e1abf289bbb764520feb4ca1c0b6b624466768884844"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 219,
+            "source_rows": 4902,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 248,
+            "peak_process_tree_rss_bytes": 484556800,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 301907968,
+            "seconds": 35.889,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-5.log",
+            "log_hash": "91b7e798eb6a08739a8d86f2e65e26ce2e1e26cd855428bbd9a983e5dce6ac8c"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 219,
+            "source_rows": 5822,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 248,
+            "peak_process_tree_rss_bytes": 510590976,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 317833216,
+            "seconds": 36.138,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-6.log",
+            "log_hash": "c1fc5190c98eae7eb05e12e074eebf7a99cf677a887e57e54d1d5e217bfe55e9"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 219,
+            "source_rows": 6637,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 248,
+            "peak_process_tree_rss_bytes": 500383744,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 307888128,
+            "seconds": 36.482,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-7.log",
+            "log_hash": "64036a0f82ea623a7738ed028029d9be05bad894a250da6bfa4b90bf734c8a70"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 219,
+            "source_rows": 7053,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 247,
+            "peak_process_tree_rss_bytes": 465747968,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 271745024,
+            "seconds": 36.777,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-8.log",
+            "log_hash": "c5d2d75c897d833ec0293208286d45aedc4a3c50bd98d07b66510706c98bdcdf"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 180,
+            "total_units": 219,
+            "source_rows": 7192,
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 240,
+            "peak_process_tree_rss_bytes": 470499328,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 277315584,
+            "seconds": 36.139,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-9.log",
+            "log_hash": "d3e403142ed0948d9b8041e3bcd8e432f8932cde5dff6f7215df1f0d32b4ed4a"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 200,
+            "total_units": 219,
+            "source_rows": 7329,
+            "formal_writes": 0,
+            "previous_completed_units": 180
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 249,
+            "peak_process_tree_rss_bytes": 444104704,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 259637248,
+            "seconds": 37.834,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-10.log",
+            "log_hash": "b262a444ad12248d1e5693c2b5e9f0e6fd58b8c788377cfc4be29123235f07fa"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "43cd28a6e171b0d513e235d531741e894b04cd4986f0ceff34706918849b0add",
+            "completed_units": 219,
+            "source_rows": 7462,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 200
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 225,
+            "peak_process_tree_rss_bytes": 464470016,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 267059200,
+            "seconds": 34.552,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-capture-11.log",
+            "log_hash": "b2c5df7da292df12cb4392a261de60ced3dc3c08417ef1c3a0e8d7265afa7033"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "43cd28a6e171b0d513e235d531741e894b04cd4986f0ceff34706918849b0add",
+        "completed_units": 219,
+        "source_rows": 7462,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 200
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/43cd28a6e171b0d513e235d531741e894b04cd4986f0ceff34706918849b0add/assemblies/2021-e40d37d0a6484615b4618af89f450ad8/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 14,
+        "peak_process_tree_rss_bytes": 263962624,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 263979008,
+        "seconds": 2.094,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-build.log",
+        "log_hash": "9b32bdad6d8930297062b77118c97cfebc7a4d92e4d13856c2dae9d91d3fabc3"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 7674,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 212,
+        "new_keys": 7462,
+        "non_friday_rows": 396,
+        "null_business_rows": 0,
+        "owned_rows": 7462,
+        "source_rows": 7462,
+        "unique_source_rows": 7462
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 7462
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/43cd28a6e171b0d513e235d531741e894b04cd4986f0ceff34706918849b0add/assemblies/2021-e40d37d0a6484615b4618af89f450ad8/source-key-outcomes.parquet",
+        "sha256": "a3a9c21537b93a00702575becd054c39be96a8cc28c88228f822b498e06f4ab3"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 53,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 8,
+        "peak_process_tree_rss_bytes": 184614912,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 185745408,
+        "seconds": 1.213,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2021-promote.log",
+        "log_hash": "54b4fbe770d7c2d74f9dfb8181f29480890118b53f9ddb943743908030d2fcdb"
+      }
+    },
+    "2022": {
+      "plan_hash": "f78c65fbcf1a203c87daff79e05de97e423232b04fcc1fcfa66c1114468138f8",
+      "planned_keys": 9835,
+      "units": 277,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 277,
+            "source_rows": 780,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 270,
+            "peak_process_tree_rss_bytes": 490520576,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 302628864,
+            "seconds": 37.567,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-1.log",
+            "log_hash": "2515b363939b90006765e37c246a41376d8761775d61607d58f7765cbb2ad428"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 277,
+            "source_rows": 1682,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 259,
+            "peak_process_tree_rss_bytes": 505380864,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 317767680,
+            "seconds": 36.332,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-2.log",
+            "log_hash": "ae6572cbd5604db8c3584722ff9b4fc1534b30ae03a3612abff7ee5dc86465ad"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 277,
+            "source_rows": 2453,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 265,
+            "peak_process_tree_rss_bytes": 520241152,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 330399744,
+            "seconds": 37.293,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-3.log",
+            "log_hash": "0be3b12859c674223f6b7d3aefe28e098d7b896d93be7755a5af5e89ee02e464"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 277,
+            "source_rows": 3210,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 253,
+            "peak_process_tree_rss_bytes": 489472000,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 297435136,
+            "seconds": 36.213,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-4.log",
+            "log_hash": "615320d459d134dd0378a6064bfd582193b6b631b69f47565df1cba1143db1a4"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 277,
+            "source_rows": 3992,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 249,
+            "peak_process_tree_rss_bytes": 508166144,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 313311232,
+            "seconds": 36.009,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-5.log",
+            "log_hash": "0241454768cf425d5ab3e42777f80d5aaa627230ada687dd34baac55746cfde6"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 277,
+            "source_rows": 4735,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 247,
+            "peak_process_tree_rss_bytes": 487243776,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 306872320,
+            "seconds": 36.071,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-6.log",
+            "log_hash": "930b09c3a7ffe6e33e73df9f68518578f2c6d9afc7aeed343d52f1eacb97a786"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 277,
+            "source_rows": 5457,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 245,
+            "peak_process_tree_rss_bytes": 522862592,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 324206592,
+            "seconds": 36.173,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-7.log",
+            "log_hash": "5c5443a17f6bfc2328fb11f2817cb1e5dd95325483843a971d1bf4b3e84c5239"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 277,
+            "source_rows": 6179,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 248,
+            "peak_process_tree_rss_bytes": 473055232,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 285016064,
+            "seconds": 36.91,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-8.log",
+            "log_hash": "a4cf5fdb363be2eea0e6602ec5078e155122bf13c4bca3991c7be68d32b7260c"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 180,
+            "total_units": 277,
+            "source_rows": 6853,
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 239,
+            "peak_process_tree_rss_bytes": 497074176,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 314130432,
+            "seconds": 35.939,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-9.log",
+            "log_hash": "010879cb600a4c7ad6c3966b2337fb34b318be3a6e579bd1908433dd2da24bc8"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 200,
+            "total_units": 277,
+            "source_rows": 7490,
+            "formal_writes": 0,
+            "previous_completed_units": 180
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 239,
+            "peak_process_tree_rss_bytes": 500416512,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 309575680,
+            "seconds": 36.442,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-10.log",
+            "log_hash": "4929fcf94c4a29300272f1af3d0e755771fec91f399040aa8a542b9602835b29"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 220,
+            "total_units": 277,
+            "source_rows": 8132,
+            "formal_writes": 0,
+            "previous_completed_units": 200
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 236,
+            "peak_process_tree_rss_bytes": 511393792,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 318046208,
+            "seconds": 36.164,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-11.log",
+            "log_hash": "af9a157dde2aa72ae68691f6b025153694153940af3fb9fe5d3469931f3ec0d7"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 240,
+            "total_units": 277,
+            "source_rows": 8756,
+            "formal_writes": 0,
+            "previous_completed_units": 220
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 233,
+            "peak_process_tree_rss_bytes": 523747328,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 336461824,
+            "seconds": 36.142,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-12.log",
+            "log_hash": "59c24a9213467fbd8ae05243d48749f8c08111d0a3ddef211378722301ecdb8f"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 260,
+            "total_units": 277,
+            "source_rows": 9274,
+            "formal_writes": 0,
+            "previous_completed_units": 240
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 231,
+            "peak_process_tree_rss_bytes": 512507904,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 317194240,
+            "seconds": 36.206,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-13.log",
+            "log_hash": "bd9137933ba483a0ca675ae7264789f0e37af31b80d20f7c92ba432e38c22262"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "f78c65fbcf1a203c87daff79e05de97e423232b04fcc1fcfa66c1114468138f8",
+            "completed_units": 277,
+            "source_rows": 9835,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 260
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 198,
+            "peak_process_tree_rss_bytes": 509280256,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 308576256,
+            "seconds": 31.296,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-capture-14.log",
+            "log_hash": "0317492bdcc0644645d0858f6262b4ac19db5fab1323cd409cda315986dacb42"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "f78c65fbcf1a203c87daff79e05de97e423232b04fcc1fcfa66c1114468138f8",
+        "completed_units": 277,
+        "source_rows": 9835,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 260
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/f78c65fbcf1a203c87daff79e05de97e423232b04fcc1fcfa66c1114468138f8/assemblies/2022-012dbeb2a10046ebab876cfde7bd7580/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 16,
+        "peak_process_tree_rss_bytes": 302104576,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 302202880,
+        "seconds": 2.466,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-build.log",
+        "log_hash": "26dbe67bda4088b5de09e247662028a24538a56f8ae92e1982fa1401dc66d72c"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 10003,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 168,
+        "new_keys": 9835,
+        "non_friday_rows": 183,
+        "null_business_rows": 0,
+        "owned_rows": 9835,
+        "source_rows": 9835,
+        "unique_source_rows": 9835
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 9835
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/f78c65fbcf1a203c87daff79e05de97e423232b04fcc1fcfa66c1114468138f8/assemblies/2022-012dbeb2a10046ebab876cfde7bd7580/source-key-outcomes.parquet",
+        "sha256": "08809fde84355b2a5a9687dca64c7a3e2f08b35dc91f093e6d2f22c52f8188f5"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 50,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 188383232,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 195035136,
+        "seconds": 1.395,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2022-promote.log",
+        "log_hash": "8346b03bb90ef9fb75a256255c4b46191a404c5c39ff9673fa8f8a670298898e"
+      }
+    },
+    "2023": {
+      "plan_hash": "d5871d4d6dbc30c9df475a9a6d7d6862c52d9b807a1ecc7a4c660026183304a7",
+      "planned_keys": 12705,
+      "units": 319,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 319,
+            "source_rows": 593,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 262,
+            "peak_process_tree_rss_bytes": 496582656,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 303988736,
+            "seconds": 36.399,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-1.log",
+            "log_hash": "02a88c64ab4bdd587f28383be5fa0ad69f9e7152ed56386deb3583fd4c6818a4"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 319,
+            "source_rows": 1380,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 258,
+            "peak_process_tree_rss_bytes": 495124480,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 305102848,
+            "seconds": 36.108,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-2.log",
+            "log_hash": "818b8013785c8be981da37218cb48e1891cdaa41d9240355a154504392ea3d31"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 319,
+            "source_rows": 2003,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 257,
+            "peak_process_tree_rss_bytes": 515211264,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 326713344,
+            "seconds": 36.425,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-3.log",
+            "log_hash": "335755bdbc2ef9c5b613ba68c03ddcbe9b8c69414306d2d0816bb60f6f00a77f"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 319,
+            "source_rows": 2661,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 255,
+            "peak_process_tree_rss_bytes": 493764608,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 298221568,
+            "seconds": 36.494,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-4.log",
+            "log_hash": "711ae392303f0b0c2340108c750ab4645e16a0446b12ec17c9456b0195e6f08a"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 319,
+            "source_rows": 3484,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 253,
+            "peak_process_tree_rss_bytes": 511688704,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 318111744,
+            "seconds": 36.652,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-5.log",
+            "log_hash": "f9ea55d17097cca8e7595b66ecfc4f1dcc96f4c25d09d074407c8125da2e7a54"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 319,
+            "source_rows": 4308,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 253,
+            "peak_process_tree_rss_bytes": 512933888,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 316440576,
+            "seconds": 36.934,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-6.log",
+            "log_hash": "8ccd0c56b1775a3319d8978b558917a215315b1c75d559d30283d324347a5d73"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 319,
+            "source_rows": 5235,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 254,
+            "peak_process_tree_rss_bytes": 525713408,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 331661312,
+            "seconds": 37.581,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-7.log",
+            "log_hash": "7ce6624344ec6ada6731a32fb1ad86a0d7d00a6389757388623f36c9ec14c978"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 319,
+            "source_rows": 6175,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 244,
+            "peak_process_tree_rss_bytes": 508002304,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 319258624,
+            "seconds": 36.41,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-8.log",
+            "log_hash": "7bad890a9f31417d6bf0b3bf7164493ef1369966027a56e71326591226114307"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 180,
+            "total_units": 319,
+            "source_rows": 7039,
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 240,
+            "peak_process_tree_rss_bytes": 518930432,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 330792960,
+            "seconds": 36.196,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-9.log",
+            "log_hash": "35b04e9144fe06074263e8c34707e0bd63cab57e46a7f1e553241f07503073c5"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 200,
+            "total_units": 319,
+            "source_rows": 7942,
+            "formal_writes": 0,
+            "previous_completed_units": 180
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 240,
+            "peak_process_tree_rss_bytes": 531398656,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 337838080,
+            "seconds": 36.402,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-10.log",
+            "log_hash": "20ae3d522dcab7f6b56d7a6dc8f22485f151aabbbbce78809a2b2c11b83223cc"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 220,
+            "total_units": 319,
+            "source_rows": 8714,
+            "formal_writes": 0,
+            "previous_completed_units": 200
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 235,
+            "peak_process_tree_rss_bytes": 534020096,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 344932352,
+            "seconds": 36.167,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-11.log",
+            "log_hash": "1cd6d5de8ea5ed148b7fe7dd29266886312c835fc5abef6a5b56245655596638"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 240,
+            "total_units": 319,
+            "source_rows": 9458,
+            "formal_writes": 0,
+            "previous_completed_units": 220
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 235,
+            "peak_process_tree_rss_bytes": 525860864,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 333414400,
+            "seconds": 36.538,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-12.log",
+            "log_hash": "93a65899b4f4db24fa81aebc461ae1cf1c00eccdd1fbe58fa2ff402bc3971077"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 260,
+            "total_units": 319,
+            "source_rows": 10183,
+            "formal_writes": 0,
+            "previous_completed_units": 240
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 240,
+            "peak_process_tree_rss_bytes": 499531776,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 319389696,
+            "seconds": 37.825,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-13.log",
+            "log_hash": "5eda784abf7bfa920f08f3e2d22fad64e26e5ce06a10e252c8c937a2ed076b0e"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 280,
+            "total_units": 319,
+            "source_rows": 10985,
+            "formal_writes": 0,
+            "previous_completed_units": 260
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 229,
+            "peak_process_tree_rss_bytes": 534413312,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 340246528,
+            "seconds": 36.333,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-14.log",
+            "log_hash": "a107df852be9404e1f818034ea3df7bc0923561d0edd56babe9b959db1dfb198"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 300,
+            "total_units": 319,
+            "source_rows": 11930,
+            "formal_writes": 0,
+            "previous_completed_units": 280
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 230,
+            "peak_process_tree_rss_bytes": 527532032,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 323108864,
+            "seconds": 36.795,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-15.log",
+            "log_hash": "70cb39f456b51c72364a7e5cb23e5d0f39810de09d7a0577e2350a96f10b9a42"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "d5871d4d6dbc30c9df475a9a6d7d6862c52d9b807a1ecc7a4c660026183304a7",
+            "completed_units": 319,
+            "source_rows": 12705,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 300
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 216,
+            "peak_process_tree_rss_bytes": 522551296,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 329531392,
+            "seconds": 34.815,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-capture-16.log",
+            "log_hash": "67ecbf4bec17ed12ee33ca1558e3258752ea8457eca32498c34f3bad62f30f72"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "d5871d4d6dbc30c9df475a9a6d7d6862c52d9b807a1ecc7a4c660026183304a7",
+        "completed_units": 319,
+        "source_rows": 12705,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 300
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/d5871d4d6dbc30c9df475a9a6d7d6862c52d9b807a1ecc7a4c660026183304a7/assemblies/2023-b89d065a84c24f579bb67ac4b52562cd/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 18,
+        "peak_process_tree_rss_bytes": 312623104,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 312721408,
+        "seconds": 2.814,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-build.log",
+        "log_hash": "c98cbfcbc601359c794a5cec88fe1617bfe1ab5848a9949964278f97346e0211"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 12855,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 150,
+        "new_keys": 12705,
+        "non_friday_rows": 511,
+        "null_business_rows": 0,
+        "owned_rows": 12705,
+        "source_rows": 12705,
+        "unique_source_rows": 12705
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 12705
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/d5871d4d6dbc30c9df475a9a6d7d6862c52d9b807a1ecc7a4c660026183304a7/assemblies/2023-b89d065a84c24f579bb67ac4b52562cd/source-key-outcomes.parquet",
+        "sha256": "5f52d6604bd6e5e2d2f7fe07c84c04e09bde49371835a7c1641f025740cb84ac"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 50,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 197902336,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 202080256,
+        "seconds": 1.434,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2023-promote.log",
+        "log_hash": "29a8dc99c7b85632b469d2583625dd8dbe57ef9a3a2a7cc08b4b982d0b353a7e"
+      }
+    },
+    "2024": {
+      "plan_hash": "89fac9a5c354a413cf3ae6fc01b823e38bb5b9f42d443fb67e9c2cebedd0e305",
+      "planned_keys": 13099,
+      "units": 281,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 281,
+            "source_rows": 424,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 260,
+            "peak_process_tree_rss_bytes": 488275968,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 290865152,
+            "seconds": 36.051,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-1.log",
+            "log_hash": "ab5914a5838c546300e3d12413071f687e2a0f87cd5c45917f95f825062931bb"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 281,
+            "source_rows": 869,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 257,
+            "peak_process_tree_rss_bytes": 484638720,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 292175872,
+            "seconds": 36.056,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-2.log",
+            "log_hash": "a2ad5a40ca0f118c46a2d4bacbb13f3afd1f36390d6313d270aba7f9b7e47b34"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 281,
+            "source_rows": 1889,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 255,
+            "peak_process_tree_rss_bytes": 522846208,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 331497472,
+            "seconds": 36.145,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-3.log",
+            "log_hash": "5bf1ed3707660b6141af210da4b532c051d7fa6efe93f1309ffad4379ad23615"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 281,
+            "source_rows": 2896,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 251,
+            "peak_process_tree_rss_bytes": 518307840,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 328531968,
+            "seconds": 35.986,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-4.log",
+            "log_hash": "eed96949b1302958177a109828baa48d02559a9a88128c238dbcf438351b613c"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 281,
+            "source_rows": 3916,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 248,
+            "peak_process_tree_rss_bytes": 508018688,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 316571648,
+            "seconds": 35.823,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-5.log",
+            "log_hash": "84eca05f3b293db6e882fb89ae8d9bf4876d98be7fed81ca355f5349047f449b"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 281,
+            "source_rows": 4936,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 250,
+            "peak_process_tree_rss_bytes": 529907712,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 342065152,
+            "seconds": 36.573,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-6.log",
+            "log_hash": "af32a0300a4edd3a81d2f2242eafd0db081e2dfbdba4c80c196e57893eeeeac8"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 281,
+            "source_rows": 5953,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 248,
+            "peak_process_tree_rss_bytes": 484294656,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 290930688,
+            "seconds": 36.613,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-7.log",
+            "log_hash": "2c00ad28a9af30b1075fa2ec532bd5c00f440ccf21093b81b592a115f442dd10"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 281,
+            "source_rows": 6958,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 249,
+            "peak_process_tree_rss_bytes": 535822336,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 344686592,
+            "seconds": 36.992,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-8.log",
+            "log_hash": "b4f127bed111b0f077bfe004578efe282b1c7b557a347f965ed73a1bd9b9c160"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 180,
+            "total_units": 281,
+            "source_rows": 7978,
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 242,
+            "peak_process_tree_rss_bytes": 525893632,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 333365248,
+            "seconds": 36.297,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-9.log",
+            "log_hash": "d10e66f41c915190e432410e2888526f78d15866fa70fd7c6c1c56721ab7de5f"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 200,
+            "total_units": 281,
+            "source_rows": 8993,
+            "formal_writes": 0,
+            "previous_completed_units": 180
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 240,
+            "peak_process_tree_rss_bytes": 526336000,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 333791232,
+            "seconds": 36.236,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-10.log",
+            "log_hash": "ffd88d6cd4b0b12709582f4e770486ae586f243406deced3d7f8816feb4eeb2b"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 220,
+            "total_units": 281,
+            "source_rows": 10003,
+            "formal_writes": 0,
+            "previous_completed_units": 200
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 241,
+            "peak_process_tree_rss_bytes": 517472256,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 328646656,
+            "seconds": 36.952,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-11.log",
+            "log_hash": "6b5cd3c6dafd1bd149275b5874e03a14bd806c39efbffa3c03c2ac6e38ba98b0"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 240,
+            "total_units": 281,
+            "source_rows": 11021,
+            "formal_writes": 0,
+            "previous_completed_units": 220
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 237,
+            "peak_process_tree_rss_bytes": 541261824,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 352829440,
+            "seconds": 36.649,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-12.log",
+            "log_hash": "f2f10c73a8bc24455df6cc87bae7e1f00be1cd6dc90b078f31a2dc804b9bf7c1"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 260,
+            "total_units": 281,
+            "source_rows": 12041,
+            "formal_writes": 0,
+            "previous_completed_units": 240
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 232,
+            "peak_process_tree_rss_bytes": 521224192,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 330088448,
+            "seconds": 36.229,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-13.log",
+            "log_hash": "ad855f625affa6b4c55d9ffd74db0dcf2677f86e59c1e9f9a424d8a02d07028e"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 280,
+            "total_units": 281,
+            "source_rows": 13048,
+            "formal_writes": 0,
+            "previous_completed_units": 260
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 231,
+            "peak_process_tree_rss_bytes": 541949952,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 351305728,
+            "seconds": 36.515,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-14.log",
+            "log_hash": "441a86a1e3c51e66ffbb64db8151f6ee04c4123ec15bf776a1d843e83b881177"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "89fac9a5c354a413cf3ae6fc01b823e38bb5b9f42d443fb67e9c2cebedd0e305",
+            "completed_units": 281,
+            "source_rows": 13099,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 280
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 16,
+            "peak_process_tree_rss_bytes": 405798912,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 229244928,
+            "seconds": 2.448,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-capture-15.log",
+            "log_hash": "cb3165990a412cdc9f77b38c1d84f3535b9f09c33ce9716510eb73f943f133de"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "89fac9a5c354a413cf3ae6fc01b823e38bb5b9f42d443fb67e9c2cebedd0e305",
+        "completed_units": 281,
+        "source_rows": 13099,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 280
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/89fac9a5c354a413cf3ae6fc01b823e38bb5b9f42d443fb67e9c2cebedd0e305/assemblies/2024-c6bef384a6344816aa8b5450d8bf9118/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 18,
+        "peak_process_tree_rss_bytes": 272121856,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 272187392,
+        "seconds": 2.793,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-build.log",
+        "log_hash": "61c50be3f6f692952198a94311e84357312803dda3659824ba3dabb107740341"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 13136,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 37,
+        "new_keys": 13099,
+        "non_friday_rows": 1068,
+        "null_business_rows": 0,
+        "owned_rows": 13099,
+        "source_rows": 13099,
+        "unique_source_rows": 13099
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 13099
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/89fac9a5c354a413cf3ae6fc01b823e38bb5b9f42d443fb67e9c2cebedd0e305/assemblies/2024-c6bef384a6344816aa8b5450d8bf9118/source-key-outcomes.parquet",
+        "sha256": "4a6b30620342a7a7fa4922991906a4e3f3840535a85c8fd350d61f5f75919884"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 51,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 9,
+        "peak_process_tree_rss_bytes": 207273984,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 211533824,
+        "seconds": 1.405,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2024-promote.log",
+        "log_hash": "47f7e091b041a8064b80b40a8292f55e1bb7a113210753545361009d04418cc2"
+      }
+    },
+    "2025": {
+      "plan_hash": "087675e076f89cd368b5e111006bd1647c90166807d268326c41835dc698e528",
+      "planned_keys": 8703,
+      "units": 242,
+      "capture_batches": [
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 20,
+            "total_units": 242,
+            "source_rows": 720,
+            "formal_writes": 0,
+            "previous_completed_units": 0
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 259,
+            "peak_process_tree_rss_bytes": 516440064,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 330399744,
+            "seconds": 35.804,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-1.log",
+            "log_hash": "78fafc65f0bb44ad9d04000025cb86d91781531c05a2d91991aa48f6d9a5d091"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 40,
+            "total_units": 242,
+            "source_rows": 1440,
+            "formal_writes": 0,
+            "previous_completed_units": 20
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 266,
+            "peak_process_tree_rss_bytes": 494370816,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 302415872,
+            "seconds": 37.136,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-2.log",
+            "log_hash": "15be95aefc097d3929c7940fb2d1b5c5e88b07cca057753643f0a0670c959408"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 60,
+            "total_units": 242,
+            "source_rows": 2160,
+            "formal_writes": 0,
+            "previous_completed_units": 40
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 254,
+            "peak_process_tree_rss_bytes": 495337472,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 299483136,
+            "seconds": 35.827,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-3.log",
+            "log_hash": "841a019f9b90dd60cd9febb144903b2186a44440dabaee08079ed64390003445"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 80,
+            "total_units": 242,
+            "source_rows": 2879,
+            "formal_writes": 0,
+            "previous_completed_units": 60
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 254,
+            "peak_process_tree_rss_bytes": 498384896,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 306331648,
+            "seconds": 36.159,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-4.log",
+            "log_hash": "23a003335151a1182f2c9aaf5ae08b1e4661309650aac89a4318c8238f51dce3"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 100,
+            "total_units": 242,
+            "source_rows": 3599,
+            "formal_writes": 0,
+            "previous_completed_units": 80
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 247,
+            "peak_process_tree_rss_bytes": 491110400,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 299253760,
+            "seconds": 35.638,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-5.log",
+            "log_hash": "014c2f59e5bfa2f520fda9823ba91552726536793d854e1f75b02133ea66d15e"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 120,
+            "total_units": 242,
+            "source_rows": 4319,
+            "formal_writes": 0,
+            "previous_completed_units": 100
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 245,
+            "peak_process_tree_rss_bytes": 499728384,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 308838400,
+            "seconds": 35.572,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-6.log",
+            "log_hash": "96f9607ad02dcc4f1bd60eb83d06d2ca21057485c5be43e8da2620b1d27f152a"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 140,
+            "total_units": 242,
+            "source_rows": 5039,
+            "formal_writes": 0,
+            "previous_completed_units": 120
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 243,
+            "peak_process_tree_rss_bytes": 498958336,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 307593216,
+            "seconds": 35.797,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-7.log",
+            "log_hash": "050912e17214bb21d14bc3f167b2e6350bf5cb4180623bab11540b115a3f7fe5"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 160,
+            "total_units": 242,
+            "source_rows": 5759,
+            "formal_writes": 0,
+            "previous_completed_units": 140
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 240,
+            "peak_process_tree_rss_bytes": 523665408,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 329678848,
+            "seconds": 35.6,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-8.log",
+            "log_hash": "41684011c49b17d6b66a9bdcedc27681618dbf80738ddd0389dde102e82eb04d"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 180,
+            "total_units": 242,
+            "source_rows": 6473,
+            "formal_writes": 0,
+            "previous_completed_units": 160
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 238,
+            "peak_process_tree_rss_bytes": 500400128,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 309116928,
+            "seconds": 35.833,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-9.log",
+            "log_hash": "be4926f498724d8fe30598e23abca69bf500362fed08b924927acde46cd15302"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 200,
+            "total_units": 242,
+            "source_rows": 7191,
+            "formal_writes": 0,
+            "previous_completed_units": 180
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 236,
+            "peak_process_tree_rss_bytes": 497991680,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 318537728,
+            "seconds": 35.889,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-10.log",
+            "log_hash": "7fd8d60bb3a057d4ddf2309c5b83069917190ab964ab52e6927b783ac8202d25"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 220,
+            "total_units": 242,
+            "source_rows": 7911,
+            "formal_writes": 0,
+            "previous_completed_units": 200
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 238,
+            "peak_process_tree_rss_bytes": 522780672,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 336740352,
+            "seconds": 36.509,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-11.log",
+            "log_hash": "13f689d9c444695c90ae70083ee80398e358d95970a6ceb5abe9223a9bf62c18"
+          }
+        },
+        {
+          "result": {
+            "status": "captured_batch",
+            "completed_units": 240,
+            "total_units": 242,
+            "source_rows": 8631,
+            "formal_writes": 0,
+            "previous_completed_units": 220
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 231,
+            "peak_process_tree_rss_bytes": 502792192,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 315670528,
+            "seconds": 35.786,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-12.log",
+            "log_hash": "45cf8846732011eb15677a6f3ae0b2f7415676c55e78bc72415e5da9095550b9"
+          }
+        },
+        {
+          "result": {
+            "plan_hash": "087675e076f89cd368b5e111006bd1647c90166807d268326c41835dc698e528",
+            "completed_units": 242,
+            "source_rows": 8703,
+            "status": "captured",
+            "formal_writes": 0,
+            "previous_completed_units": 240
+          },
+          "metrics": {
+            "sample_interval_seconds": 0.1,
+            "samples": 27,
+            "peak_process_tree_rss_bytes": 412778496,
+            "peak_spill_bytes": 0,
+            "measurement": "process_exit",
+            "peak_rss_bytes": 229588992,
+            "seconds": 4.076,
+            "exit_code": 0,
+            "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-capture-13.log",
+            "log_hash": "d8c7bc3fc9c8963ef93286576386d397125c05abfd20573861d105ba71e2e787"
+          }
+        }
+      ],
+      "capture": {
+        "plan_hash": "087675e076f89cd368b5e111006bd1647c90166807d268326c41835dc698e528",
+        "completed_units": 242,
+        "source_rows": 8703,
+        "status": "captured",
+        "formal_writes": 0,
+        "previous_completed_units": 240
+      },
+      "audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/087675e076f89cd368b5e111006bd1647c90166807d268326c41835dc698e528/assemblies/2025-dd0a32877e074019aefedffd0258f842/audit.json",
+      "build_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 15,
+        "peak_process_tree_rss_bytes": 240107520,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 255131648,
+        "seconds": 2.275,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-build.log",
+        "log_hash": "4b54c4711d97e76260a860c3795065b01c3b83b816b215ea888590447c8a9218"
+      },
+      "stats": {
+        "abnormal_ohlc_or_volume_rows": 0,
+        "boundary_rows": 0,
+        "candidate_rows": 8703,
+        "duplicate_rows": 0,
+        "excluded_rows": 0,
+        "existing_rows": 0,
+        "new_keys": 8703,
+        "non_friday_rows": 726,
+        "null_business_rows": 0,
+        "owned_rows": 8703,
+        "source_rows": 8703,
+        "unique_source_rows": 8703
+      },
+      "source_key_outcomes": {
+        "counts": {
+          "source_key_present": 8703
+        },
+        "path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/087675e076f89cd368b5e111006bd1647c90166807d268326c41835dc698e528/assemblies/2025-dd0a32877e074019aefedffd0258f842/source-key-outcomes.parquet",
+        "sha256": "a7c735d6579125e2b4526dcd3e6a5616f7347f6681b852d7642ca9535174eaa5"
+      },
+      "promote": {
+        "status": "verified",
+        "files": 36,
+        "partial_scope": false
+      },
+      "promote_metrics": {
+        "sample_interval_seconds": 0.1,
+        "samples": 8,
+        "peak_process_tree_rss_bytes": 178307072,
+        "peak_spill_bytes": 0,
+        "measurement": "process_exit",
+        "peak_rss_bytes": 180092928,
+        "seconds": 1.21,
+        "exit_code": 0,
+        "log": "/Users/congming/github/goldenshare/reports/stock_week_m7_logs_20261003/2025-promote.log",
+        "log_hash": "6da5f826aca13f8b50f0d8ef4c7466048cd816384dd29c22ea55174192205bff"
+      }
+    }
+  },
+  "instance_writes": 0,
+  "prod_writes": 0,
+  "objects": 451,
+  "independent_reconciliation": "/Users/congming/github/goldenshare/reports/stock_week_m7_reconciliation_20261003.json"
+}

@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-import threading
-from collections.abc import Iterator
-from contextlib import contextmanager
+import csv
+import json
+import os
+import signal
+import subprocess
 from dataclasses import asdict
-from time import monotonic
-
-import pandas as pd
+from pathlib import Path
+from time import monotonic, sleep
 
 from orchestrator.defs.bootstrap.stock_weekly_capture import (
-    CancelProbe,
     WeeklyCaptureError,
+    capture_file_hash,
+    check_capture_path,
     check_weekly_cancel,
 )
 from orchestrator.defs.run_contracts.stock_weekly import (
@@ -69,101 +71,196 @@ def build_prod_weekly_query(
     )
 
 
-@contextmanager
-def _prod_watchdog(connection, cancel: CancelProbe, seconds: int) -> Iterator[None]:
-    ended = threading.Event()
-    interrupted = threading.Event()
-    deadline = monotonic() + seconds
-
-    def observe() -> None:
-        while not ended.wait(0.1):
-            if cancel() or monotonic() >= deadline:
-                interrupted.set()
-                connection.cancel()
-                return
-
-    thread = threading.Thread(target=observe, daemon=True)
-    thread.start()
-    try:
-        yield
-        check_weekly_cancel(cancel)
-        if interrupted.is_set() or monotonic() >= deadline:
-            raise WeeklyCaptureError("prod_unit_timeout")
-    except Exception:
-        if cancel():
-            raise WeeklyCaptureError("canceled") from None
-        if interrupted.is_set() or monotonic() >= deadline:
-            raise WeeklyCaptureError("prod_unit_timeout") from None
-        raise
-    finally:
-        ended.set()
-        thread.join(timeout=1)
-        if thread.is_alive():
-            raise WeeklyCaptureError("prod_cancel_monitor_failed")
-
-
-def iter_prod_weekly_batches(
-    resource,
-    unit: ProdWeeklyUnit,
-    budget: WeeklyBudget,
-    cancel: CancelProbe,
-    evidence: dict,
-    remaining_rows: int | None = None,
-) -> Iterator[pd.DataFrame]:
+def build_prod_weekly_export_sql(unit, budget, control_path, remaining_rows):
     query, params = build_prod_weekly_query(unit, budget)
-    check_weekly_cancel(cancel)
-    with resource.connect_readonly_transaction() as connection:
-        # Existing resource guarantees rollback. Isolation precedes the first SQL.
-        connection.set_session(
-            isolation_level="REPEATABLE READ", readonly=True, autocommit=False
+    check_capture_path(control_path)
+    if any(char in str(control_path) for char in "'\\\r\n`"):
+        raise WeeklyCaptureError("prod_control_path_invalid")
+    query = query.replace(
+        "%(codes)s", "ARRAY[" + ",".join(f"'{code}'" for code in params["codes"]) + "]"
+    )
+    query = query.replace("%(start)s", f"DATE '{params['start'].isoformat()}'")
+    query = query.replace("%(end)s", f"DATE '{params['end'].isoformat()}'")
+    if (
+        isinstance(remaining_rows, bool)
+        or not isinstance(remaining_rows, int)
+        or remaining_rows < 0
+    ):
+        raise WeeklyCaptureError("phase_row_budget_exceeded")
+    count = (
+        "SELECT count(*) AS source_rows, txid_current_snapshot()::text AS snapshot, transaction_timestamp()::text AS snapshot_at, current_setting('transaction_read_only') AS readonly, current_setting('transaction_isolation') AS isolation"
+        + query[query.index(" FROM ") : query.index(" ORDER BY ")]
+    )
+    return rf"""\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout = '{budget.prod_statement_timeout_ms}ms';
+SET LOCAL work_mem = '{budget.prod_work_mem}';
+{count}
+\gset weekly_
+SELECT json_build_object('source_rows', :weekly_source_rows, 'snapshot', :'weekly_snapshot', 'snapshot_at', :'weekly_snapshot_at', 'readonly', :'weekly_readonly', 'isolation', :'weekly_isolation')
+\g '{control_path}'
+SELECT 1 / ((:weekly_source_rows <= {unit.max_rows}) AND (:weekly_source_rows <= {remaining_rows}))::integer
+\g /dev/null
+COPY ({query}) TO STDOUT WITH (FORMAT CSV, HEADER true, NULL '\N', ENCODING 'UTF8');
+ROLLBACK;
+"""
+
+
+class PsqlWeeklyExporter:
+    """Only the approved wrapper opens the DB; Python supervises bounded files."""
+
+    def __init__(self, *, process_factory=subprocess.Popen):
+        self.process_factory = process_factory
+        self.repo = Path(__file__).resolve().parents[6]
+
+    @staticmethod
+    def _stop(process, seconds):
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=seconds)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=seconds)
+        else:
+            process.wait()
+
+    def export(self, unit, budget, attempt, cancel, progress, remaining_rows):
+        check_capture_path(attempt)
+        check_weekly_cancel(cancel)
+        sql_path = attempt / "transport.sql"
+        csv_pending = attempt / "transport.csv.pending"
+        control_pending = attempt / "control.json.pending"
+        sql = build_prod_weekly_export_sql(
+            unit, budget, control_pending, remaining_rows
         )
-        with _prod_watchdog(connection, cancel, budget.prod_unit_seconds):
-            with connection.cursor() as control:
-                control.execute(
-                    "SELECT set_config('statement_timeout', %s, true), set_config('work_mem', %s, true)",
-                    [str(budget.prod_statement_timeout_ms), budget.prod_work_mem],
+        with sql_path.open("x") as stream:
+            stream.write(sql)
+            stream.flush()
+            os.fsync(stream.fileno())
+        command = [
+            "bash",
+            str(self.repo / "scripts/psql-remote.sh"),
+            "-f",
+            str(sql_path),
+            "--",
+            "-qAt",
+            "-w",
+        ]
+        environment = os.environ.copy()
+        environment["ENV_FILE"] = str(self.repo / ".env.web.local")
+        started = monotonic()
+        with csv_pending.open("xb") as output:
+            process = self.process_factory(
+                command,
+                cwd=self.repo,
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            try:
+                while process.poll() is None:
+                    check_weekly_cancel(cancel)
+                    if monotonic() - started >= budget.prod_unit_seconds:
+                        raise WeeklyCaptureError("prod_unit_timeout")
+                    if os.fstat(output.fileno()).st_size > budget.prod_csv_max_bytes:
+                        raise WeeklyCaptureError("prod_csv_budget_exceeded")
+                    if (
+                        control_pending.exists()
+                        and control_pending.stat().st_size
+                        > budget.prod_control_max_bytes
+                    ):
+                        raise WeeklyCaptureError("prod_control_budget_exceeded")
+                    progress(
+                        {
+                            "transport_bytes": os.fstat(output.fileno()).st_size,
+                            "phase": "prod_export",
+                        }
+                    )
+                    sleep(0.1)
+                check_weekly_cancel(cancel)
+                if os.fstat(output.fileno()).st_size > budget.prod_csv_max_bytes:
+                    raise WeeklyCaptureError("prod_csv_budget_exceeded")
+                if not control_pending.exists():
+                    raise WeeklyCaptureError("prod_control_invalid")
+                if control_pending.stat().st_size > budget.prod_control_max_bytes:
+                    raise WeeklyCaptureError("prod_control_budget_exceeded")
+                try:
+                    evidence = json.loads(control_pending.read_text())
+                except (ValueError, UnicodeError):
+                    raise WeeklyCaptureError("prod_control_invalid") from None
+                rows = (
+                    evidence.get("source_rows") if isinstance(evidence, dict) else None
                 )
-                control.execute(
-                    "SELECT txid_current_snapshot()::text, transaction_timestamp()::text"
-                )
-                snapshot, timestamp = control.fetchone()
-                count_query = query.replace(
-                    query.split(" FROM ")[0], "SELECT count(*)"
-                ).split(" ORDER BY ")[0]
-                control.execute(count_query, params)
-                count = int(control.fetchone()[0])
-                if count > unit.max_rows:
+                if isinstance(rows, bool) or not isinstance(rows, int) or rows < 0:
+                    raise WeeklyCaptureError("prod_control_invalid")
+                if rows > unit.max_rows:
                     raise WeeklyCaptureError("unit_row_budget_exceeded")
-                if remaining_rows is not None and count > remaining_rows:
+                if rows > remaining_rows:
                     raise WeeklyCaptureError("phase_row_budget_exceeded")
-                evidence.update(
-                    source_table=prod_weekly_table(unit.source),
-                    source_rows=count,
-                    snapshot=snapshot,
-                    snapshot_at=timestamp,
-                    params_hash=stable_weekly_hash(params),
-                    unit_hash=stable_weekly_hash(asdict(unit)),
-                )
-            fields = [name for name, _, _ in weekly_column_specs(unit.source)]
-            total = 0
-            with connection.cursor(
-                name=f"weekly_{stable_weekly_hash(asdict(unit))[:20]}"
-            ) as cursor:
-                cursor.itersize = budget.fetch_batch_rows
-                cursor.execute(query, params)
-                while True:
-                    check_weekly_cancel(cancel)
-                    rows = cursor.fetchmany(budget.fetch_batch_rows)
-                    check_weekly_cancel(cancel)
-                    if len(rows) > budget.fetch_batch_rows:
-                        raise WeeklyCaptureError("chunk_row_budget_exceeded")
-                    if not rows:
-                        break
-                    total += len(rows)
-                    if total > unit.max_rows:
-                        raise WeeklyCaptureError("unit_row_budget_exceeded")
-                    yield pd.DataFrame(rows, columns=fields, dtype=object)
-            if total != count:
-                raise WeeklyCaptureError("source_count_changed")
-            if total == 0:
-                yield pd.DataFrame(columns=fields, dtype=object)
+                if process.returncode != 0:
+                    raise WeeklyCaptureError("prod_export_failed")
+                if (
+                    evidence.get("readonly") != "on"
+                    or evidence.get("isolation") != "repeatable read"
+                    or any(
+                        not isinstance(evidence.get(key), str) or not evidence[key]
+                        for key in ("snapshot", "snapshot_at")
+                    )
+                ):
+                    raise WeeklyCaptureError("prod_control_invalid")
+                output.flush()
+                os.fsync(output.fileno())
+            finally:
+                self._stop(process, budget.prod_process_shutdown_seconds)
+        csv_path = attempt / "transport.csv"
+        control_path = attempt / "control.json"
+        with control_pending.open("rb") as stream:
+            os.fsync(stream.fileno())
+        os.replace(csv_pending, csv_path)
+        os.replace(control_pending, control_path)
+        descriptor = os.open(attempt, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        evidence.update(
+            source_table=prod_weekly_table(unit.source),
+            unit_hash=stable_weekly_hash(asdict(unit)),
+            transport="psql_copy_csv_v1",
+            capture_artifacts=[
+                {
+                    "path": str(path.relative_to(attempt.parent)),
+                    "sha256": capture_file_hash(path),
+                }
+                for path in (sql_path, csv_path, control_path)
+            ],
+        )
+        return csv_path, evidence
+
+
+def load_prod_weekly_csv(connection, path, unit, evidence):
+    check_capture_path(path)
+    fields = [name for name, _, _ in weekly_column_specs(unit.source)]
+    with path.open(newline="", encoding="utf-8") as stream:
+        if next(csv.reader(stream), None) != fields:
+            raise WeeklyCaptureError("source_schema_mismatch")
+    columns = "{" + ",".join(f"'{name}':'VARCHAR'" for name in fields) + "}"
+    connection.execute(
+        f"CREATE OR REPLACE TEMP TABLE weekly_prod_csv AS SELECT * FROM read_csv(?, columns={columns}, header=true, auto_detect=false, delim=',', quote='\"', escape='\"', nullstr='\\N', allow_quoted_nulls=false, strict_mode=true) LIMIT {unit.max_rows + 1}",
+        [str(path)],
+    )
+    count = connection.execute("SELECT count(*) FROM weekly_prod_csv").fetchone()[0]
+    if count > unit.max_rows:
+        raise WeeklyCaptureError("unit_row_budget_exceeded")
+    if count != evidence["source_rows"]:
+        raise WeeklyCaptureError("source_count_changed")
+    return count

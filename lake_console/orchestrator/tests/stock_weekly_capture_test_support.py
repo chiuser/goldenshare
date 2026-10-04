@@ -1,7 +1,6 @@
 """Offline source doubles; no real credentials, DB or Lake references."""
 
 import time
-from contextlib import contextmanager
 from dataclasses import dataclass
 
 import pandas as pd
@@ -120,77 +119,45 @@ class StaticWorker:
         return alternate_frame()
 
 
-class FakeCursor:
-    def __init__(self, connection, name=None):
-        self.connection = connection
-        self.name = name
-        self.itersize = None
-        self.position = 0
-        self.query = ""
+class FakePsqlExporter:
+    def __init__(self, frame=None, control_count=None):
+        self.frame = frame
+        self.control_count = control_count
+        self.calls = 0
 
-    def __enter__(self):
-        return self
+    def export(self, unit, budget, attempt, cancel, progress, remaining_rows):
+        import json
 
-    def __exit__(self, *args):
-        return False
+        from orchestrator.defs.bootstrap.stock_weekly_capture import (
+            WeeklyCaptureError,
+            capture_file_hash,
+        )
 
-    def execute(self, query, params=None):
-        self.query = query
-        self.connection.queries.append((query, params))
-        if self.name and self.connection.blocked:
-            while not self.connection.was_canceled:
-                time.sleep(0.01)
-            raise RuntimeError("query canceled")
-
-    def fetchone(self):
-        if "txid_current_snapshot" in self.query:
-            return ("100:200:", "2026-10-03T00:00:00Z")
-        return (self.connection.control_count,)
-
-    def fetchmany(self, size):
-        self.connection.fetch_sizes.append(size)
-        result = self.connection.rows[self.position : self.position + size]
-        self.position += len(result)
-        return result
-
-    def fetchall(self):
-        raise AssertionError("full fetch forbidden")
-
-
-class FakeConnection:
-    def __init__(self, frame=None, control_count=None, blocked=False):
-        self.rows = (frame if frame is not None else prod_frame()).values.tolist()
-        self.control_count = len(self.rows) if control_count is None else control_count
-        self.blocked = blocked
-        self.queries = []
-        self.sessions = []
-        self.fetch_sizes = []
-        self.was_canceled = False
-        self.rollback_count = 0
-
-    def set_session(self, **kwargs):
-        assert not self.queries
-        self.sessions.append(kwargs)
-
-    def cursor(self, name=None):
-        return FakeCursor(self, name)
-
-    def cancel(self):
-        self.was_canceled = True
-
-
-class FakeResource:
-    def __init__(self, connection=None):
-        self.connection = connection or FakeConnection()
-        self.connection_count = 0
-
-    @contextmanager
-    def connect_readonly_transaction(self):
-        self.connection_count += 1
-        try:
-            yield self.connection
-        finally:
-            self.connection.rollback_count += 1
+        frame = (
+            self.frame if self.frame is not None else prod_frame(unit.sorted_codes[0])
+        )
+        count = len(frame) if self.control_count is None else self.control_count
+        self.calls += 1
+        if count > unit.max_rows:
+            raise WeeklyCaptureError("unit_row_budget_exceeded")
+        if count > remaining_rows:
+            raise WeeklyCaptureError("phase_row_budget_exceeded")
+        path = attempt / "transport.csv"
+        frame.to_csv(path, index=False, na_rep="\\N")
+        control = attempt / "control.json"
+        evidence = {
+            "source_rows": count,
+            "snapshot": "100:200:",
+            "snapshot_at": "2026-10-03T00:00:00Z",
+            "readonly": "on",
+            "isolation": "repeatable read",
+        }
+        control.write_text(json.dumps(evidence))
+        evidence["capture_artifacts"] = [
+            {"path": str(p.relative_to(attempt.parent)), "sha256": capture_file_hash(p)}
+            for p in (path, control)
+        ]
+        return path, evidence
 
 
 def bind_plan_evidence(plan, tmp_path):
@@ -221,6 +188,6 @@ def capture_then_exit(root):
     capture_weekly_history(
         plan,
         capture_root=Path(root),
-        prod_resource=FakeResource(FakeConnection(prod_frame("000001.SZ"))),
+        prod_exporter=FakePsqlExporter(prod_frame("000001.SZ")),
         progress=progress,
     )

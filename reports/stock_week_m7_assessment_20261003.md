@@ -1,0 +1,62 @@
+# M7 股票周线备用源推广验收
+
+依据[原方案](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)和[LLD§15/§31](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)，在dev-interface完成M7退市推广与已确认身份分支。未提交/推送，M8事件和M9更新机制尚未执行。
+
+## 物理结果
+
+本轮451对象参与源调查，16年度3232units，capture实际3232次请求，默认9696次请求预算未放宽。退市206对象100505候选键、身份245对象38893候选键；可补136549键全部原始代码读回覆盖，2849原成功历史请求缺行单列。M6原五只3132行完整保留。
+
+本轮捕获136549行，源调查全历史149698行中按unit真实请求窗口选择136549行；捕获与所选源全字段差集均为0。正式weekly Raw共139681行、453对象、803文件，源业务值对账、重复键、分区错放、schema差异和AVAILABLE键遗漏均为0。本轮捕获量与可补候选量相同；流程仍保留每个unit请求范围内的全部真实返回行。
+
+两主源Raw的1714文件及正式identity map指纹保持不变。Raw三源独立，weekly不提供qfq/hfq，原始代码、日期、源单位和NULL保留，没有改Prod或Silver。
+
+此前历史原始代码缺口候选167097键（211退市对象103637键+251身份对象63460键），本轮后备用weekly物理覆盖139681键，仍有27416个候选键未物理覆盖。区间外和映射未决候选不能直接认定为应补数据；该数字是原始代码/周键物理口径，不能代替canonical身份确认或全市场完整性。
+
+| 分类 | 原代码备用Raw存在 | 键数 |
+|---|---|---:|
+| 北交所身份候选 | 否 | 26519 |
+| 北交所身份候选 | 是 | 36044 |
+| 退市 | 是 | 103637 |
+| 代码变更身份候选 | 否 | 897 |
+
+## 残留与诚实边界
+
+主源最新代码直接覆盖另做交叉核验：38893 confirmed候选在两主源都未直接覆盖，不存在只因当前source map有效区间过滤产生的准入误报；897 inferred键的最新代码数据在两主源存在，但映射尚未确认，不能据此关缺口或自动重写代码。
+
+身份24567键未准入apply：897 inferred、23494有效区间外、176跨边界。最终读回表明这些键均未进入备用Raw。源全历史快照中有148个边界键存在，但尚未通过身份区间门禁，不能直接提升；不改正式映射，不将推断或区间外映射当确认覆盖。
+
+| 原因 | 原代码备用Raw存在 | 键数 |
+|---|---|---:|
+| 映射尚待确认 | 否 | 897 |
+| 整周在映射有效区间外 | 否 | 23494 |
+| 周跨映射边界，需要实际日线日期 | 否 | 176 |
+
+复权171616历史候选键按qfq/hfq展开343232条台账。M6五只6264条保留2026-10-02历史空源证据；其余336968条source_unchecked，本轮没有调整源请求，不能说这些都不可补。逐键记录代码、周期、复权侧、状态、原因、已知源参数/时间和证据；无可补数据时保留缺口，后续最佳努力。
+
+后续先核验176个边界键的实际日线日期（148个已有weekly源快照）；23494个区间外候选先校准上市/身份范围；897个代码变更键先确认映射。上述候选不建议直接批量回补。复权按对象做有界源核验后，再决定能否补入。
+
+## 性能与恢复
+
+capture每批最多20个新receipt、并发1，单调用20秒截止/至少1秒间隔/默认2次重试，年度一次构建与提升；16年度完整business checkpoint及逐文件promote checkpoint保留。实际工作阶段累计6065.6秒，进程SELF峰值336.48MiB、阶段及其子进程树RSS采样峰值527.12MiB，spill采样峰值0字节。该树不包含外层测量控制器或前序调查进程，未证明全流程RSS峰值。0.1秒为目标采样间隔，含系统/文件扫描开销，是峰值下界；未做强制spill压力验证，不能声称spill上界已证明。512MiB仅DuckDB buffer预算。安全批次取消不重复请求已封存unit，最终请求数等于unit数。
+
+独立审计首次把3232分块交给一个全局Parquet扫描，触及512MiB而停止；正式数据和源均未写入。改为每批128文件的SQL INSERT读取，关闭仅影响审计行顺序的preserve_insertion_order，保持512MiB预算后全字段差集及文件校验通过。失败记录另存，不掩盖为第一次即通过。该错误属于独立审计读取，不能反推capture/promote出现了spill，也不代表全流程内存压力验收已完成。
+
+## 代码、测试、依赖与下一阶段
+
+正式Python/配置本轮未增加或修改，复用现有CLI、planner、source、capture、candidate/promoter；临时执行/测量/独立审计脚本与证据都未接入definitions，不新增跨子系统依赖或API/前端消费者。CodeGraph query/impact核验capture_weekly_history、load_weekly_inventory、plan_weekly_source_units、build_stock_identity_map_rows，并逐项读当前代码；收口时codegraph sync/status确认索引最新。47项相关隔离回归通过，文档integrity/diff检查通过；真实源调查、年度apply及最终独立对账分别记录，未把正式资源用作测试。
+
+下一阶段M8仅独立事件补录，需按既有阶段执行边界验收；M9完成两周线更新机制，之后才进入两月线。未写Dagster instance/events、动态分区、job/sensor/schedule，没有启用自动更新。
+
+## 证据
+
+- [执行和年度测量](stock_week_m7_execution_20261003.json)
+- [独立审计失败与修正记录](stock_week_m7_independent_audit_attempts_20261003.json)
+- [最终独立对账](stock_week_m7_reconciliation_20261003.json)
+- [本轮逐键结果](stock_week_m7_key_outcomes_20261003.csv)
+- [历史全部缺口结果](stock_week_m7_historical_gap_outcomes_20261003.csv)
+- [剩余原代码物理缺口](stock_week_m7_remaining_raw_gap_keys_20261003.csv)
+- [未决身份物理读回](stock_week_m7_identity_pending_physical_20261003.csv)
+- [复权残留台账](stock_week_m7_adjusted_residual_keys_20261003.csv)
+- [源调查与年度冻结范围](stock_week_m7_frozen_scope_20261003.json)
+- [MCP跨年边界实测](stock_week_m7_mcp_boundary_probe_20261003.json)
+- [最新代码主源覆盖交叉核验](stock_week_m7_canonical_presence_20261003.json)

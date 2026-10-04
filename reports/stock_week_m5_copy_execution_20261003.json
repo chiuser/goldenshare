@@ -1,0 +1,3576 @@
+{
+  "status": "complete",
+  "sources": {
+    "primary_unadjusted": {
+      "plan_hash": "21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c",
+      "years": {
+        "2010": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2010-4f03e4fb9f9a48f1a34db5fc457f1a88/audit.json",
+          "rows": 87023,
+          "files": 52,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 100600,
+            "candidate_rows": 87023,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 87023,
+            "non_friday_rows": 0,
+            "null_business_rows": 1005,
+            "owned_rows": 87023,
+            "source_rows": 187623,
+            "unique_source_rows": 87023
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.071,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 52,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.601
+        },
+        "2011": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2011-c894a115f51b4f0c8d720ccc7da7757c/audit.json",
+          "rows": 100600,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 109269,
+            "candidate_rows": 100600,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 100600,
+            "non_friday_rows": 0,
+            "null_business_rows": 1112,
+            "owned_rows": 100600,
+            "source_rows": 209869,
+            "unique_source_rows": 100600
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.182,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.56
+        },
+        "2012": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2012-19daf8e0b6d6465f9e77aa96fafe2044/audit.json",
+          "rows": 109269,
+          "files": 50,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 109269,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 109269,
+            "non_friday_rows": 0,
+            "null_business_rows": 1230,
+            "owned_rows": 109269,
+            "source_rows": 109269,
+            "unique_source_rows": 109269
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.141,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 50,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.648
+        },
+        "2013": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2013-9225ea7afef24cc89ccbffedc7656116/audit.json",
+          "rows": 113184,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 109269,
+            "candidate_rows": 113184,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 113184,
+            "non_friday_rows": 0,
+            "null_business_rows": 1385,
+            "owned_rows": 113184,
+            "source_rows": 222453,
+            "unique_source_rows": 113184
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.288,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.729
+        },
+        "2014": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2014-d267ec45df1146029f39fd1746b7a60e/audit.json",
+          "rows": 114197,
+          "files": 52,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 113184,
+            "candidate_rows": 114197,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 114197,
+            "non_friday_rows": 0,
+            "null_business_rows": 1341,
+            "owned_rows": 114197,
+            "source_rows": 227381,
+            "unique_source_rows": 114197
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.366,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 52,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.652
+        },
+        "2015": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2015-447a1b2fa42243acb9e43b14509a2f2f/audit.json",
+          "rows": 116610,
+          "files": 52,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 114197,
+            "candidate_rows": 116610,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 116610,
+            "non_friday_rows": 0,
+            "null_business_rows": 1219,
+            "owned_rows": 116610,
+            "source_rows": 230807,
+            "unique_source_rows": 116610
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.302,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 52,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.688
+        },
+        "2016": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2016-ecce164cd31c4fce8002ee589bfdc1b1/audit.json",
+          "rows": 127647,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 265531,
+            "candidate_rows": 127647,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 127647,
+            "non_friday_rows": 0,
+            "null_business_rows": 1393,
+            "owned_rows": 127647,
+            "source_rows": 393178,
+            "unique_source_rows": 127647
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.55,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.752
+        },
+        "2017": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2017-c7e52349f9724573baf20ecfb46ab58e/audit.json",
+          "rows": 148921,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 148921,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 148921,
+            "non_friday_rows": 0,
+            "null_business_rows": 1419,
+            "owned_rows": 148921,
+            "source_rows": 148921,
+            "unique_source_rows": 148921
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.3,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.753
+        },
+        "2018": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2018-5c370572d48f4fe69119c9a1860a0cb1/audit.json",
+          "rows": 164458,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 164458,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 164458,
+            "non_friday_rows": 0,
+            "null_business_rows": 1504,
+            "owned_rows": 164458,
+            "source_rows": 164458,
+            "unique_source_rows": 164458
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.392,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.755
+        },
+        "2019": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2019-c6cf00b6c77d4c9984e7247bddec0a77/audit.json",
+          "rows": 177090,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 164458,
+            "candidate_rows": 177090,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 177090,
+            "non_friday_rows": 0,
+            "null_business_rows": 1586,
+            "owned_rows": 177090,
+            "source_rows": 341548,
+            "unique_source_rows": 177090
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.678,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.83
+        },
+        "2020": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2020-692935e25509428a8d2cc0dfdd320742/audit.json",
+          "rows": 191336,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 177090,
+            "candidate_rows": 191336,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 191336,
+            "non_friday_rows": 0,
+            "null_business_rows": 1631,
+            "owned_rows": 191336,
+            "source_rows": 368426,
+            "unique_source_rows": 191336
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.723,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.825
+        },
+        "2021": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2021-4dee6a71046544008f7c50ebc42c3b23/audit.json",
+          "rows": 224201,
+          "files": 53,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 423526,
+            "candidate_rows": 224201,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 224201,
+            "non_friday_rows": 0,
+            "null_business_rows": 1693,
+            "owned_rows": 224201,
+            "source_rows": 647727,
+            "unique_source_rows": 224201
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.249,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 53,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.054
+        },
+        "2022": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2022-02f516357886469f8bef55c9fd775cbe/audit.json",
+          "rows": 232190,
+          "files": 50,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 247338,
+            "candidate_rows": 232190,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 232190,
+            "non_friday_rows": 0,
+            "null_business_rows": 1591,
+            "owned_rows": 232190,
+            "source_rows": 479528,
+            "unique_source_rows": 232190
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.124,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 50,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.073
+        },
+        "2023": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2023-a01663b9a8984c6e9e09836390c6a667/audit.json",
+          "rows": 247338,
+          "files": 50,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 247338,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 247338,
+            "non_friday_rows": 0,
+            "null_business_rows": 1598,
+            "owned_rows": 247338,
+            "source_rows": 247338,
+            "unique_source_rows": 247338
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.632,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 50,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.058
+        },
+        "2024": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2024-742e3a6a962c4b2981abedbe0a0de1f4/audit.json",
+          "rows": 259720,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 259720,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 259720,
+            "non_friday_rows": 0,
+            "null_business_rows": 1421,
+            "owned_rows": 259720,
+            "source_rows": 259720,
+            "unique_source_rows": 259720
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.814,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.134
+        },
+        "2025": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2025-03b403455ce54891b837d6e9983375c5/audit.json",
+          "rows": 272685,
+          "files": 52,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 259720,
+            "candidate_rows": 272685,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 272685,
+            "non_friday_rows": 0,
+            "null_business_rows": 367,
+            "owned_rows": 272685,
+            "source_rows": 532405,
+            "unique_source_rows": 272685
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.208,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 52,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.218
+        },
+        "2026": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c/assemblies/2026-9d0cf90927824550aef31f4662753cf8/audit.json",
+          "rows": 209315,
+          "files": 38,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 272685,
+            "candidate_rows": 209315,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 209315,
+            "non_friday_rows": 0,
+            "null_business_rows": 0,
+            "owned_rows": 209315,
+            "source_rows": 482000,
+            "unique_source_rows": 209315
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.03,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 38,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.972
+        }
+      },
+      "capture_root": "/Volumes/datasource/data_lake_staging",
+      "target_root": "/Volumes/datasource/data_lake",
+      "captures": [
+        {
+          "unit_id": "52dcbd3108ded8b6c47191a709749545375997ace8a4767d6cec0f5a3dde5442",
+          "rows": 15062,
+          "seconds": 1.192,
+          "csv_bytes": 1650382
+        },
+        {
+          "unit_id": "5c82953d068b819dfd13040c5249ceeb3132cde7d014c355c221b33fe2dc39e4",
+          "rows": 15381,
+          "seconds": 2.71,
+          "csv_bytes": 1700952
+        },
+        {
+          "unit_id": "99f778a584c3cce6c0751690a448f143da4b3c1019f706ae999ec7511f6c1cdd",
+          "rows": 11476,
+          "seconds": 1.105,
+          "csv_bytes": 1277886
+        },
+        {
+          "unit_id": "cf066b684c7e954f1c4704432ba9681ce6e11386771d12598784e5614358dd07",
+          "rows": 12059,
+          "seconds": 2.562,
+          "csv_bytes": 1331407
+        },
+        {
+          "unit_id": "26dfc26b7355643a43f36866f6b84a68169de3b301a790d796c415b07a881199",
+          "rows": 15413,
+          "seconds": 1.204,
+          "csv_bytes": 1701419
+        },
+        {
+          "unit_id": "46b3a32a6002b74e749cfe889d01133b69461862bf80867015b197a5ee50d272",
+          "rows": 15003,
+          "seconds": 2.807,
+          "csv_bytes": 1643248
+        },
+        {
+          "unit_id": "5c4c9bbc52a5423a11fb55b179b7ab54bd061a8ce2d6ba8daa2b20c7fe1b081d",
+          "rows": 2629,
+          "seconds": 0.759,
+          "csv_bytes": 291020
+        },
+        {
+          "unit_id": "5092d84a5bb9afa43b09dcd67d3797e78d2a9dae091f0e42012f53ac7f493a4c",
+          "rows": 14507,
+          "seconds": 0.983,
+          "csv_bytes": 1583895
+        },
+        {
+          "unit_id": "9d55b78c7c7772a9225cced3cf4919146f5c6bc82efb38dda2ea1cf619366f9f",
+          "rows": 14995,
+          "seconds": 1.829,
+          "csv_bytes": 1651261
+        },
+        {
+          "unit_id": "fc95c7d190091541245142a9b3d9cdb68df3a31af649d8858e34ed856a9ee31c",
+          "rows": 15185,
+          "seconds": 1.216,
+          "csv_bytes": 1680622
+        },
+        {
+          "unit_id": "a190ed984fecb49485779d79353adf6f2eea7099ab2c9c31a74bd9527d4e9ee6",
+          "rows": 12456,
+          "seconds": 2.382,
+          "csv_bytes": 1380589
+        },
+        {
+          "unit_id": "1ce12e8a265ea593235b1a5fc899432e6878685e0be1459df1b96399de629e55",
+          "rows": 12840,
+          "seconds": 1.839,
+          "csv_bytes": 1408393
+        },
+        {
+          "unit_id": "85eced4481427ac9219271174241a2d5b2637fa3cab0d4701b9aaabddecb2c08",
+          "rows": 14973,
+          "seconds": 2.06,
+          "csv_bytes": 1645377
+        },
+        {
+          "unit_id": "ca158ef42872a8823a056e29e06787a6cf93efc057be909f0054855d396f192d",
+          "rows": 14363,
+          "seconds": 2.927,
+          "csv_bytes": 1574238
+        },
+        {
+          "unit_id": "8be0ac1926d7056489475141c74ef30a2ba448d65ad36e2d90d27d07269a21d6",
+          "rows": 1281,
+          "seconds": 0.756,
+          "csv_bytes": 141118
+        },
+        {
+          "unit_id": "a339592aa8a13f02617e874f950ce1ca7cee14e33ac04b258bbb7a705f5da593",
+          "rows": 14500,
+          "seconds": 1.193,
+          "csv_bytes": 1561253
+        },
+        {
+          "unit_id": "0e0bdf989a62104bc45f8e2583d44db19cc5e78b6cfe036d45aad98ed743e321",
+          "rows": 14759,
+          "seconds": 2.382,
+          "csv_bytes": 1595484
+        },
+        {
+          "unit_id": "d62330b511542b9d5a747365f6f56ef99f3d1d57455fb864223ed5d0a99147dd",
+          "rows": 14889,
+          "seconds": 1.081,
+          "csv_bytes": 1624390
+        },
+        {
+          "unit_id": "dc08aaf164ca7c5bfdb7a3faac65ad7f097cb371ce54d30541e23377c8e6fca3",
+          "rows": 13989,
+          "seconds": 2.697,
+          "csv_bytes": 1534451
+        },
+        {
+          "unit_id": "963df639051196c6b97009925067021c70abedb813516ba3282d461abf6c7ed8",
+          "rows": 13642,
+          "seconds": 1.291,
+          "csv_bytes": 1492054
+        },
+        {
+          "unit_id": "d31a8f423af3bb342b6a72f3c6f0bc594be5240148b0efdc18fd08e99c4f665c",
+          "rows": 14714,
+          "seconds": 2.922,
+          "csv_bytes": 1591169
+        },
+        {
+          "unit_id": "32e453e28f93e79bd32c4d11930bfbd9188d11cf1874b609b60e9b44560a5dfc",
+          "rows": 14570,
+          "seconds": 1.205,
+          "csv_bytes": 1569906
+        },
+        {
+          "unit_id": "812c2d74bfae68317f3217e2601570685df21fb54e494e1846af541552c262d7",
+          "rows": 8206,
+          "seconds": 2.378,
+          "csv_bytes": 891979
+        },
+        {
+          "unit_id": "20d0aeeed1e83780196a17c70ffa51acef05a281a8a37f7b0c5ca3465b07d9e0",
+          "rows": 14607,
+          "seconds": 1.31,
+          "csv_bytes": 1577693
+        },
+        {
+          "unit_id": "7f844b39a6e9c52201576d3a4fb7c7b1f63a1cce0fb718e2189b8ce4d357f2b2",
+          "rows": 14876,
+          "seconds": 3.021,
+          "csv_bytes": 1608809
+        },
+        {
+          "unit_id": "6dbd5c5b459f85f520bfa238aa248e8320e58fb1fb88fb2c7a7d503cd04172ee",
+          "rows": 14874,
+          "seconds": 1.203,
+          "csv_bytes": 1622922
+        },
+        {
+          "unit_id": "793505140d2ed293dbe15036ad0c1eb5a9bd7ef78df5cc1b572340cc2ef67e6c",
+          "rows": 14923,
+          "seconds": 1.067,
+          "csv_bytes": 1637847
+        },
+        {
+          "unit_id": "7dd27771f605e9686866fe9a6452d5af1004b1a7626a54b6ee3a2a631606e8bb",
+          "rows": 14677,
+          "seconds": 2.704,
+          "csv_bytes": 1610095
+        },
+        {
+          "unit_id": "8a951c3f92be331fce683d3911a7ae21504459e3a6e42d65c79a19e2d20429f9",
+          "rows": 14888,
+          "seconds": 1.089,
+          "csv_bytes": 1613012
+        },
+        {
+          "unit_id": "5783207d4df5a641624730c48de15692c414747680c091253efde5e191535a44",
+          "rows": 14820,
+          "seconds": 2.484,
+          "csv_bytes": 1603793
+        },
+        {
+          "unit_id": "d9cdefb8a6ea0d721d804e6978aeec545558c5db5687005b8961b8ee0c98fa4f",
+          "rows": 9519,
+          "seconds": 0.965,
+          "csv_bytes": 1032745
+        },
+        {
+          "unit_id": "21335751cd34a8f75a35a17f235b44b4a0d1f93e85213c1946207707c7886ed8",
+          "rows": 14485,
+          "seconds": 2.083,
+          "csv_bytes": 1571738
+        },
+        {
+          "unit_id": "70e98c61e732cecd95bcb25750bd08035e546982b8669de32d3d2f2189703f5e",
+          "rows": 14617,
+          "seconds": 1.174,
+          "csv_bytes": 1592829
+        },
+        {
+          "unit_id": "5e22941b434339a292d9bd26a31c05b6a37acc40f64962bfc3aa2f7df202d13a",
+          "rows": 14734,
+          "seconds": 1.632,
+          "csv_bytes": 1621622
+        },
+        {
+          "unit_id": "2bac0b73bdab9df6130852b415447309e22b669800ad67ffe8f262ee309c090e",
+          "rows": 13911,
+          "seconds": 1.431,
+          "csv_bytes": 1542781
+        },
+        {
+          "unit_id": "93f2c5511c663ed8602eba78ac322b108b024bd2eed2356256c4b44fcacc0ad1",
+          "rows": 13280,
+          "seconds": 2.696,
+          "csv_bytes": 1472034
+        },
+        {
+          "unit_id": "722b8bd13a2838c9028fba35916391c20478bf2322a3c1a95c49a1501e98f7b3",
+          "rows": 14837,
+          "seconds": 1.205,
+          "csv_bytes": 1612070
+        },
+        {
+          "unit_id": "0b9a414fd60b4b23baa10c03ee500c37d036bfa76c36391e58e4485eac150850",
+          "rows": 14520,
+          "seconds": 3.248,
+          "csv_bytes": 1584159
+        },
+        {
+          "unit_id": "a8d0447ac55e4623bb29382598c2a6fd6818cac1b488dfca30d0c241fdc8fde3",
+          "rows": 13813,
+          "seconds": 1.187,
+          "csv_bytes": 1503698
+        },
+        {
+          "unit_id": "a0f7c53dd0700c79d31cf0f3e99486f8e9201db02b716078507e3f08ca5700a7",
+          "rows": 13608,
+          "seconds": 1.313,
+          "csv_bytes": 1515956
+        },
+        {
+          "unit_id": "53c4acb3a7394558f6001746955ca0b75de755b81c012641363c7b9e342df31b",
+          "rows": 13362,
+          "seconds": 1.304,
+          "csv_bytes": 1492583
+        },
+        {
+          "unit_id": "90fd9e18365792062b885930ed2383ec82bab9d458c94f41ebc99d500600fe1f",
+          "rows": 13328,
+          "seconds": 1.519,
+          "csv_bytes": 1494714
+        },
+        {
+          "unit_id": "84212a5e04317a21a73f3ada4b6aad82503522f824b03f473dd1c75f711c44ac",
+          "rows": 12615,
+          "seconds": 1.199,
+          "csv_bytes": 1415354
+        },
+        {
+          "unit_id": "c58eaa744237e2932832eda53287a15cf392175809832eabafb15f631df8729e",
+          "rows": 13238,
+          "seconds": 2.587,
+          "csv_bytes": 1486150
+        },
+        {
+          "unit_id": "03c842ac999fedc4d78c4916010b3d869f13456ee7f1771ace5a4011ff5d65b0",
+          "rows": 12810,
+          "seconds": 1.078,
+          "csv_bytes": 1431814
+        },
+        {
+          "unit_id": "cec645b0332e86db980bd24deb0cb7d957542db299a69599c5b89fcdff26fc5c",
+          "rows": 14281,
+          "seconds": 1.534,
+          "csv_bytes": 1595985
+        },
+        {
+          "unit_id": "6ff7f10fa79ba33c35b5ce5b98b21af9c96e09a1cd960aba097b109502677798",
+          "rows": 13939,
+          "seconds": 1.087,
+          "csv_bytes": 1553791
+        },
+        {
+          "unit_id": "e235fadae62f710918d33eff23b168ffb9e6f9d33106364ea3987d6df9ba63b4",
+          "rows": 9429,
+          "seconds": 2.273,
+          "csv_bytes": 1055710
+        },
+        {
+          "unit_id": "209286fbeed7658a6055b945a92399050796d2601a5fcb77e865dd36fcde5b4b",
+          "rows": 13792,
+          "seconds": 1.089,
+          "csv_bytes": 1522611
+        },
+        {
+          "unit_id": "ffa865f48eae5552ccb18e721e91bd29877fd983629d9044a72ca8feadd937ea",
+          "rows": 14096,
+          "seconds": 2.408,
+          "csv_bytes": 1565258
+        },
+        {
+          "unit_id": "d0fc1f4a2ca7a36b2958df2649e609a88b4e46ed419e02b366eaaf5f50b84aaf",
+          "rows": 14139,
+          "seconds": 0.883,
+          "csv_bytes": 1575702
+        },
+        {
+          "unit_id": "5ab08389d71211e70efe18483a09315743b3786d1717bcf6dbaa659b84df363d",
+          "rows": 12629,
+          "seconds": 1.097,
+          "csv_bytes": 1410821
+        },
+        {
+          "unit_id": "66ea98859a445c954849e49f3d08a89f518ad3942fbb7ec578cbbd84ee736107",
+          "rows": 13811,
+          "seconds": 2.68,
+          "csv_bytes": 1543288
+        },
+        {
+          "unit_id": "6bf8ce6d20dafc4b0a8fcf267ef3ca75a7dfbd1b0348e3d47dfcccc52d82c8cc",
+          "rows": 11724,
+          "seconds": 1.195,
+          "csv_bytes": 1312089
+        },
+        {
+          "unit_id": "b97392f0c80262a553c02bafbedc9715d2bfeb27d8900e1b5a44aa3acc91c9c6",
+          "rows": 14426,
+          "seconds": 1.837,
+          "csv_bytes": 1592105
+        },
+        {
+          "unit_id": "a98586cad8f8db4d3b033bd541c1ad91520c50b0d9d3aa66ca0cf604cbf05c3a",
+          "rows": 14100,
+          "seconds": 2.943,
+          "csv_bytes": 1558838
+        },
+        {
+          "unit_id": "bde3589e15489456d87f96526bd97c323ba66affd89f5f7cc9f4b6a744ab20e3",
+          "rows": 13538,
+          "seconds": 0.989,
+          "csv_bytes": 1494747
+        },
+        {
+          "unit_id": "34c3082a6905cebe76da9ea769e68995776ebb35cc53564f325598ef587065af",
+          "rows": 5392,
+          "seconds": 0.976,
+          "csv_bytes": 601036
+        },
+        {
+          "unit_id": "8348a1c5573a69f037d1b2ae1329d2a4a363b5aa4ddd6ab5eba21a233f321fe8",
+          "rows": 14212,
+          "seconds": 1.203,
+          "csv_bytes": 1560650
+        },
+        {
+          "unit_id": "8d549e03511d2dee61d018d0d0b3cce42406074e36006b0f1ff6de4d7eacbe33",
+          "rows": 14272,
+          "seconds": 1.532,
+          "csv_bytes": 1575245
+        },
+        {
+          "unit_id": "31002bdac2cec74aca65f09b30f081fd1a1ba1c0a8a372ecdffeb169329781ed",
+          "rows": 14544,
+          "seconds": 2.704,
+          "csv_bytes": 1607372
+        },
+        {
+          "unit_id": "969f1fe5013dea415457e730ac5a4238348697eb950b41551939857514d7abee",
+          "rows": 14165,
+          "seconds": 1.189,
+          "csv_bytes": 1570304
+        },
+        {
+          "unit_id": "22a522ef60765e1b5a7d73c3ecda47291a3d6439779698f06614b67afa015b63",
+          "rows": 12415,
+          "seconds": 2.908,
+          "csv_bytes": 1374662
+        },
+        {
+          "unit_id": "ae82f4eb1bacba578d41e50f02b944c4a714d00f6623daee2336b6af227e3914",
+          "rows": 14211,
+          "seconds": 0.99,
+          "csv_bytes": 1580480
+        },
+        {
+          "unit_id": "758c47128eafeccf28b7614bf994fa66d789298ce4bb59f8aaf73d46213a3bba",
+          "rows": 11849,
+          "seconds": 4.312,
+          "csv_bytes": 1313411
+        },
+        {
+          "unit_id": "3efcf0323aa37ae2be939f8e62b6f7435dd834659cd107f956b2d57b9aef2168",
+          "rows": 14558,
+          "seconds": 0.882,
+          "csv_bytes": 1598990
+        },
+        {
+          "unit_id": "707c133678520fc6a5bf620d553a851269e49f0769fa2df7e3d4be54e9701765",
+          "rows": 14297,
+          "seconds": 1.09,
+          "csv_bytes": 1571678
+        },
+        {
+          "unit_id": "9d54f38ebf48b25fa39bacb06f7734f4e1fc7f1234165c609f720f8be4090020",
+          "rows": 13512,
+          "seconds": 3.219,
+          "csv_bytes": 1491787
+        },
+        {
+          "unit_id": "7f29cb2dce4328da63ccabf69409362c3bf998cf48fe54cbee8de2023af46104",
+          "rows": 10886,
+          "seconds": 1.09,
+          "csv_bytes": 1212596
+        },
+        {
+          "unit_id": "cba7973ee18e4cbd076ed5bf7a16e441f350343fe39923966e7b186f69bc1e7e",
+          "rows": 14536,
+          "seconds": 1.84,
+          "csv_bytes": 1575414
+        },
+        {
+          "unit_id": "65cca96a33fb26d9868940766c3d0f14b63d708c2205f35298a422ef454da674",
+          "rows": 14578,
+          "seconds": 1.092,
+          "csv_bytes": 1585229
+        },
+        {
+          "unit_id": "eae893abb633b644a6310d8b1994b82b43af49af3781b18b8de90b8f89ec9c1d",
+          "rows": 14566,
+          "seconds": 2.944,
+          "csv_bytes": 1587327
+        },
+        {
+          "unit_id": "490a57dcb1996a0f650c06de7bb2aa540b8ba20a5028b910235f13159712f24b",
+          "rows": 14566,
+          "seconds": 1.108,
+          "csv_bytes": 1590055
+        },
+        {
+          "unit_id": "860b6db227a4817131c1c31eef216a161dd9607636806607b5ae2857e10d99bb",
+          "rows": 14279,
+          "seconds": 2.176,
+          "csv_bytes": 1568850
+        },
+        {
+          "unit_id": "1e66dd2fab5e1dc4a0dea37708634ea134a3ebf42aa6db435ae47488e122ddf7",
+          "rows": 14771,
+          "seconds": 1.172,
+          "csv_bytes": 1623074
+        },
+        {
+          "unit_id": "bb52227b70c08b425a068cf0c85b3b85e44ae907c2950f15521b438d28b12876",
+          "rows": 14432,
+          "seconds": 3.461,
+          "csv_bytes": 1597303
+        },
+        {
+          "unit_id": "7286e3a308c2af96dafee975fa9e11db6b8ff43e955255132018c2ef1c10e184",
+          "rows": 14683,
+          "seconds": 1.187,
+          "csv_bytes": 1592828
+        },
+        {
+          "unit_id": "94838188bcf001d764932e48d89ad29352c66cb8beb4aaca17ac4f5cd26cc3d3",
+          "rows": 14637,
+          "seconds": 1.621,
+          "csv_bytes": 1589185
+        },
+        {
+          "unit_id": "28045297dc74394d59c1f20810ab0e87f9a82a4a2c35cd7304e8fece6a8a565a",
+          "rows": 14663,
+          "seconds": 2.392,
+          "csv_bytes": 1597807
+        },
+        {
+          "unit_id": "9e37eb617c4af67ec9e618d14428b0c3c4b08277fd4ca3a12f19ee0e7175bdcc",
+          "rows": 14206,
+          "seconds": 1.534,
+          "csv_bytes": 1572931
+        },
+        {
+          "unit_id": "5ecd03d8ac24ccaf136c3d528798108ae874fd3581c5959da864ab24b411c226",
+          "rows": 4541,
+          "seconds": 0.875,
+          "csv_bytes": 501052
+        },
+        {
+          "unit_id": "70fbb32aadb3d587ab48cacfac409660708ccea117a649b5b52d54c616e5e64b",
+          "rows": 15275,
+          "seconds": 1.114,
+          "csv_bytes": 1653578
+        },
+        {
+          "unit_id": "58f01239ac0c990e8d5325e8754869a5a1e8cbd7c869b2fdac904b716bc8cda0",
+          "rows": 15241,
+          "seconds": 3.032,
+          "csv_bytes": 1655329
+        },
+        {
+          "unit_id": "9f80bf958fa18945fe09a8b74ca29d659fdc0840d421292bc259df124e36ecc2",
+          "rows": 15223,
+          "seconds": 1.396,
+          "csv_bytes": 1655903
+        },
+        {
+          "unit_id": "49de43b1077049b5107a2d23d9b03ebc9b9341478bfabb02f55d0e740db272fa",
+          "rows": 15275,
+          "seconds": 1.427,
+          "csv_bytes": 1664091
+        },
+        {
+          "unit_id": "d7ed2d3b7155dfc7f871a37080c87cf1e360e9a691571d5dc51fded2302b5cfb",
+          "rows": 14632,
+          "seconds": 1.402,
+          "csv_bytes": 1607221
+        },
+        {
+          "unit_id": "faeed3a8db89a6be1e1eafc0b8747feccc0be14a05c345863385de2c342a173e",
+          "rows": 15277,
+          "seconds": 1.422,
+          "csv_bytes": 1672691
+        },
+        {
+          "unit_id": "f86c36ad46d0e793ac94202ff9a1d192d33a05f29cacf008c933498f3cd2abd3",
+          "rows": 13913,
+          "seconds": 1.314,
+          "csv_bytes": 1547896
+        },
+        {
+          "unit_id": "2bcf0fa8c66d1a759a5290323f0f6708568bb5cb410de81519e3f7d7875c740c",
+          "rows": 15268,
+          "seconds": 1.405,
+          "csv_bytes": 1654938
+        },
+        {
+          "unit_id": "d8addb22280edc9d33ee5bf3e9baaa47ddcc3827b8d61404d222a2a90a2533d1",
+          "rows": 15251,
+          "seconds": 1.091,
+          "csv_bytes": 1658270
+        },
+        {
+          "unit_id": "f165c67344f1ece6f51fda10909e2225b21228898ac81d9085294fe5c2dc4013",
+          "rows": 15036,
+          "seconds": 2.611,
+          "csv_bytes": 1633683
+        },
+        {
+          "unit_id": "13e5d84d621bda25781a84ba65f17e2a5164978fe0eec124c7757b5a2636e57b",
+          "rows": 14822,
+          "seconds": 1.075,
+          "csv_bytes": 1630960
+        },
+        {
+          "unit_id": "2ab8a5a756bfb8896fc28e78396ce8d3215d0ba933941500e712e30a28cb9aed",
+          "rows": 11877,
+          "seconds": 2.693,
+          "csv_bytes": 1312524
+        },
+        {
+          "unit_id": "f5dddb5fccb12ba60f59d3a019d5b6eb37b55620b24a1e7ac7bfd7e6e3a54e69",
+          "rows": 15166,
+          "seconds": 1.071,
+          "csv_bytes": 1647778
+        },
+        {
+          "unit_id": "e990ae798e3455e7918e797b034c5099aa65f56a146e6433d468b3ea0ae37fc3",
+          "rows": 15235,
+          "seconds": 1.741,
+          "csv_bytes": 1663222
+        },
+        {
+          "unit_id": "b74d97fab08bf799f9b8a596ffdb05c394e9d5150ed9b43780c27ae12a7f3f82",
+          "rows": 15286,
+          "seconds": 1.518,
+          "csv_bytes": 1672015
+        },
+        {
+          "unit_id": "402a02f4e489981e64b416527da512b085dc98610765e32fdf0bb439e9f248d9",
+          "rows": 15286,
+          "seconds": 1.622,
+          "csv_bytes": 1672153
+        },
+        {
+          "unit_id": "2f6048f37e9e84cf11cfc20d0ef1992aee32ffaecf3dfcc3abc6a25a5751f28c",
+          "rows": 13632,
+          "seconds": 1.195,
+          "csv_bytes": 1511800
+        },
+        {
+          "unit_id": "0cd00cd255726b33615c303468ea38c36e6304b2c759182decf40a769b47793a",
+          "rows": 15276,
+          "seconds": 2.92,
+          "csv_bytes": 1681249
+        },
+        {
+          "unit_id": "b729b76f82b848aefe9f91f7d4ac539857d2b131bc435616db73f2009aaa3746",
+          "rows": 15288,
+          "seconds": 1.716,
+          "csv_bytes": 1710527
+        },
+        {
+          "unit_id": "57f9a92431eb9e4f33d1d9fc9a7c7e693356848aac717783189152ab178d0646",
+          "rows": 12081,
+          "seconds": 2.692,
+          "csv_bytes": 1334249
+        },
+        {
+          "unit_id": "9b659028ab6e341621c2adeaedde07b80533697e2cb83af064bcfed8b6e94fc8",
+          "rows": 15263,
+          "seconds": 1.19,
+          "csv_bytes": 1662628
+        },
+        {
+          "unit_id": "2b73975654121deb5d677897239ecf6905b76e37d3ce99c4f08380b2465959d1",
+          "rows": 15193,
+          "seconds": 3.025,
+          "csv_bytes": 1652026
+        },
+        {
+          "unit_id": "e455275633e8d1f6be9878ffbd14899a5452bd0525744e9749164836e35839ad",
+          "rows": 14834,
+          "seconds": 1.32,
+          "csv_bytes": 1624273
+        },
+        {
+          "unit_id": "9016eaad93de8b544357a35af7fda2f95f0f6dd7a1d90befe5bee6a61bf79e2c",
+          "rows": 15088,
+          "seconds": 1.3,
+          "csv_bytes": 1678379
+        },
+        {
+          "unit_id": "bcc6783a393a9b65c47fd7e2ae59230ec777089cbd7d50c9457f9e890a39dcf8",
+          "rows": 11745,
+          "seconds": 2.604,
+          "csv_bytes": 1314177
+        },
+        {
+          "unit_id": "129a9952c79056168119febe936a826de29fd6369b8dc06c3af16e5a34bca88d",
+          "rows": 1963,
+          "seconds": 0.97,
+          "csv_bytes": 220028
+        },
+        {
+          "unit_id": "97316c8269600407c57c28d0b659d15445adeca6f4f0efeee4f5f33a51be7966",
+          "rows": 15855,
+          "seconds": 0.982,
+          "csv_bytes": 1724374
+        },
+        {
+          "unit_id": "f2b56243192fc9606dbec973a92d567bed6bd46ce928092fc3c3746bbfa67c3e",
+          "rows": 15187,
+          "seconds": 2.95,
+          "csv_bytes": 1662868
+        },
+        {
+          "unit_id": "a676a8a8932363075f177b7c645d971497081e253dbbcdb2657542360ba582cc",
+          "rows": 15892,
+          "seconds": 1.096,
+          "csv_bytes": 1737133
+        },
+        {
+          "unit_id": "ea487418c93de6f7140598d2450fc8fc8f428535d8e5a3c65a6589f4105fa53b",
+          "rows": 15885,
+          "seconds": 3.227,
+          "csv_bytes": 1734870
+        },
+        {
+          "unit_id": "2d67d3bda7305a0b3d4168f15b30adf16be1fefd3bbcd84dae09fff7dd360339",
+          "rows": 15802,
+          "seconds": 1.949,
+          "csv_bytes": 1747883
+        },
+        {
+          "unit_id": "9f30353067e459d400a69bb46bf13cfe04d1ab4ad51c50f987c8bd7059233291",
+          "rows": 15895,
+          "seconds": 2.726,
+          "csv_bytes": 1744569
+        },
+        {
+          "unit_id": "4459b81fea6ff925b073ef0b7a24801302986f35432df3e1094a0d08739daa94",
+          "rows": 15863,
+          "seconds": 1.413,
+          "csv_bytes": 1766834
+        },
+        {
+          "unit_id": "064bdc75972279baec12e3503c18560aad491ff7a567cbbad9c3ed2d0cc6690f",
+          "rows": 13792,
+          "seconds": 1.188,
+          "csv_bytes": 1547169
+        },
+        {
+          "unit_id": "42aff5332e0c5b3c624779359a138e40df7af65dc3cf1615605c88ee182ebc33",
+          "rows": 12264,
+          "seconds": 2.591,
+          "csv_bytes": 1341842
+        },
+        {
+          "unit_id": "2bd86ca1f00a12bc81b88e84eefa97118fd7dedc082e164317860d2bb8ea70ed",
+          "rows": 15880,
+          "seconds": 1.202,
+          "csv_bytes": 1733214
+        },
+        {
+          "unit_id": "e5477fd476e20af433f05fcc450430238186ca6040e014e8427b0622063fe958",
+          "rows": 15674,
+          "seconds": 1.645,
+          "csv_bytes": 1711796
+        },
+        {
+          "unit_id": "b963fc0158ea8568ff525d06b077776763491cb36985dd9a49619b18a82a222e",
+          "rows": 15375,
+          "seconds": 2.709,
+          "csv_bytes": 1692046
+        },
+        {
+          "unit_id": "dfc3b9b8f71e219befde768c798f66dc4d9144a6f66c345221dae5e3fd8b3ba7",
+          "rows": 15747,
+          "seconds": 1.085,
+          "csv_bytes": 1743656
+        },
+        {
+          "unit_id": "68d1045d234c36fd032c7dc4af775b3a98363b3402b89201db38b408c0a631f4",
+          "rows": 13869,
+          "seconds": 1.843,
+          "csv_bytes": 1549146
+        },
+        {
+          "unit_id": "e4048d4784ea877778a2e95d8c0b7ecc895e1699767e33397e2377f58a14690e",
+          "rows": 11221,
+          "seconds": 0.895,
+          "csv_bytes": 1260700
+        },
+        {
+          "unit_id": "490fc9359cd83f1ca34ca89d8749e7712d5e6bd90538dda8446e75fe85ff6d0b",
+          "rows": 14943,
+          "seconds": 2.692,
+          "csv_bytes": 1632043
+        },
+        {
+          "unit_id": "137a2b0e3740ac84cdadeb734c9f2213a3dc4df9510daf2bff3861396892e7d7",
+          "rows": 13867,
+          "seconds": 1.191,
+          "csv_bytes": 1524958
+        },
+        {
+          "unit_id": "368d8badc8718eb77afd8f7607a0fdf8e00cfd6a85f8e0542b509cb491b967fc",
+          "rows": 14997,
+          "seconds": 2.619,
+          "csv_bytes": 1643321
+        },
+        {
+          "unit_id": "638daa7693d06cd295c69defff9926f9aa825d1c72d20879042e9ab4871dd720",
+          "rows": 14987,
+          "seconds": 1.411,
+          "csv_bytes": 1642607
+        },
+        {
+          "unit_id": "0003a1191698853f3a1b948600279b72cc28d64d7fb028477da8bb794366d8a7",
+          "rows": 14990,
+          "seconds": 1.307,
+          "csv_bytes": 1662046
+        },
+        {
+          "unit_id": "909e2fc8280c6214b2025ef5e060f201ffe9455d9f2c78a1b744fc28b0b13a50",
+          "rows": 14976,
+          "seconds": 1.108,
+          "csv_bytes": 1637668
+        },
+        {
+          "unit_id": "9781acb3784453ea506fbb317a1225cc19bd9db65e12b2c443b88d562c0487e3",
+          "rows": 14988,
+          "seconds": 2.594,
+          "csv_bytes": 1665298
+        },
+        {
+          "unit_id": "ccb035ac5d7758828b82a9f0b44abe7d7380f37cad27c41364d385c10749bce8",
+          "rows": 14992,
+          "seconds": 1.188,
+          "csv_bytes": 1674247
+        },
+        {
+          "unit_id": "ae08eb2567a83284db6318ecb2d48e44a8adbba4b5e4a29b5428081a5e142cf2",
+          "rows": 11252,
+          "seconds": 2.706,
+          "csv_bytes": 1254991
+        },
+        {
+          "unit_id": "0d7d5d97c01453b517652f345889da36c1466b451304111249de4d9bfddec8f1",
+          "rows": 14992,
+          "seconds": 1.183,
+          "csv_bytes": 1640425
+        },
+        {
+          "unit_id": "5104b39ded405200902161e02a21e997afce761f69baa6e6f112402702897db9",
+          "rows": 14985,
+          "seconds": 1.735,
+          "csv_bytes": 1640235
+        },
+        {
+          "unit_id": "a6785fa2f471af7f5e03eb8b00c8d66609fbada98656e7022202f93c4abdf032",
+          "rows": 14858,
+          "seconds": 2.81,
+          "csv_bytes": 1627977
+        },
+        {
+          "unit_id": "60dda999993e1a44581ec4beea74eb3a86114b93da347d4536fdfdc2c4251e14",
+          "rows": 14416,
+          "seconds": 1.078,
+          "csv_bytes": 1594997
+        },
+        {
+          "unit_id": "539a15a83af9d594df32276ed71d02e02d6dc76eed5bf4d62d5547662c9ab2b3",
+          "rows": 14997,
+          "seconds": 3.103,
+          "csv_bytes": 1662898
+        },
+        {
+          "unit_id": "fdbfbb0261cc8f3513ee3524ffab3554756ff56f651624506b0c966d208b5fb3",
+          "rows": 14005,
+          "seconds": 1.63,
+          "csv_bytes": 1567180
+        },
+        {
+          "unit_id": "836f4ab225f655100be3e5c0cea1c8d3a642bf6df50efc9c00b59445d5dc57f1",
+          "rows": 12845,
+          "seconds": 1.199,
+          "csv_bytes": 1438441
+        },
+        {
+          "unit_id": "5b3f1d45aac27934a9ee7387493c4b81423ed5cfe7dd4f48d34c1aa39de20e72",
+          "rows": 1100,
+          "seconds": 1.307,
+          "csv_bytes": 122516
+        },
+        {
+          "unit_id": "6ee6f1dd28be91968e7cda1a73bfb8bbada37ee6951df75045121a26511fe65b",
+          "rows": 14991,
+          "seconds": 0.983,
+          "csv_bytes": 1633383
+        },
+        {
+          "unit_id": "cc10bec87bf6920a1d1286c523a2ec1250f1c2902ed3a3d86c32716658d7e216",
+          "rows": 14540,
+          "seconds": 1.938,
+          "csv_bytes": 1597958
+        },
+        {
+          "unit_id": "5eedd378f2c0053b3e6ff243f2504bf98f508bc8ee71bb98c97574af660701c6",
+          "rows": 14995,
+          "seconds": 1.734,
+          "csv_bytes": 1640648
+        },
+        {
+          "unit_id": "6e1e33f13932600639ff85bc2ae272ac9f15a9f848e6b96b6840c826200a6e9f",
+          "rows": 14982,
+          "seconds": 1.41,
+          "csv_bytes": 1637079
+        },
+        {
+          "unit_id": "e64f156fb44e88372b0eb1750b4588cc224599b044d4dee134cae4f4791ebcb8",
+          "rows": 14994,
+          "seconds": 2.494,
+          "csv_bytes": 1663741
+        },
+        {
+          "unit_id": "fb9b3b9a3aa0c02244db5390c985fe28cd657fba2b100173aa38f7b02add6927",
+          "rows": 14993,
+          "seconds": 1.086,
+          "csv_bytes": 1638425
+        },
+        {
+          "unit_id": "b552a852dc4408cdead7f2af411161bbfdb40c101673634b8e3d796287caf8eb",
+          "rows": 14996,
+          "seconds": 1.188,
+          "csv_bytes": 1666399
+        },
+        {
+          "unit_id": "ee38a7687902d49761d53f48c6f3a9061f5ea45a7df3abf8353dda23891dba22",
+          "rows": 14940,
+          "seconds": 1.089,
+          "csv_bytes": 1667792
+        },
+        {
+          "unit_id": "542b2c66a481c02ac8512336252d1aeb61d03aa2555517c6df5a7e10be066341",
+          "rows": 14459,
+          "seconds": 2.62,
+          "csv_bytes": 1610915
+        },
+        {
+          "unit_id": "cd7b3aebd5f3c270994b05ffecbcec7684cc2bba3f8098646366e1a94fe39706",
+          "rows": 12866,
+          "seconds": 0.994,
+          "csv_bytes": 1413176
+        },
+        {
+          "unit_id": "946a33bd518f7b143d3bdc62bf46f6b270dfe320d54cdaa37b459eb4de8a3eae",
+          "rows": 14983,
+          "seconds": 2.832,
+          "csv_bytes": 1639302
+        },
+        {
+          "unit_id": "067d2868597161bb925f27b7d5493f4222b8da9ed7117e5952ac4a147586eff8",
+          "rows": 14959,
+          "seconds": 0.984,
+          "csv_bytes": 1631126
+        },
+        {
+          "unit_id": "d1d906f23957f4bc00e1499e744d133c6eca42f5d595370a5b8af42ce434234b",
+          "rows": 14688,
+          "seconds": 1.633,
+          "csv_bytes": 1615154
+        },
+        {
+          "unit_id": "c7518e5c264476b4d3506b2defc932ac34a6d962401474d03100a484eb13c619",
+          "rows": 14547,
+          "seconds": 3.355,
+          "csv_bytes": 1612878
+        },
+        {
+          "unit_id": "c62dea447492a34031ac0823cd115681c4609955b48b195023932100ce9ab0bc",
+          "rows": 14995,
+          "seconds": 1.177,
+          "csv_bytes": 1660552
+        },
+        {
+          "unit_id": "bb24508c7c09ccd40308d48bd16e04e6c14d40769038a3b75f5ec6228b39cdad",
+          "rows": 14864,
+          "seconds": 1.202,
+          "csv_bytes": 1665209
+        },
+        {
+          "unit_id": "2d0415c576ae3f13ec48c9ab4f7a2e86e1d449cb9ecda7131b792d1e9cfa4292",
+          "rows": 11546,
+          "seconds": 2.491,
+          "csv_bytes": 1289837
+        },
+        {
+          "unit_id": "ccea77b119f405bf5ce9a07f1393bd28081600e67ebf4afb8faaa925779017b6",
+          "rows": 15230,
+          "seconds": 0.989,
+          "csv_bytes": 1659482
+        },
+        {
+          "unit_id": "680049a49bf6d246fa54260cc30cedc7a0a0953edf6441a4f6c6570f98a6d9e4",
+          "rows": 15141,
+          "seconds": 2.614,
+          "csv_bytes": 1664685
+        },
+        {
+          "unit_id": "ec8b43704867632ab8502495bfec560fb3a65b2c43079e1dd8ee35c41952a2e1",
+          "rows": 15261,
+          "seconds": 1.194,
+          "csv_bytes": 1665049
+        },
+        {
+          "unit_id": "7c19f98235845ab9d525e41be66751d9d61d58a16a842bd008e36e110b488fab",
+          "rows": 15290,
+          "seconds": 2.695,
+          "csv_bytes": 1667958
+        },
+        {
+          "unit_id": "8f7d0f334f91e236f4bc8edca176a0b61c0a89f6300aab5b5dc5f523c1ad67b1",
+          "rows": 15295,
+          "seconds": 1.298,
+          "csv_bytes": 1690593
+        },
+        {
+          "unit_id": "c956a62d4dd2b4b19b25df7f97ec46affe61025f7397be10672884d982e3f969",
+          "rows": 15296,
+          "seconds": 1.745,
+          "csv_bytes": 1672378
+        },
+        {
+          "unit_id": "f11174897c37986485daa5d2d6c8d896db853ee38db5327722723a65cb3d5c38",
+          "rows": 15287,
+          "seconds": 1.3,
+          "csv_bytes": 1693963
+        },
+        {
+          "unit_id": "a2dc24da5a570a5672c26f3924a1a7300f5a58d803ff91733ec1d76c3dbbc334",
+          "rows": 15244,
+          "seconds": 1.723,
+          "csv_bytes": 1700707
+        },
+        {
+          "unit_id": "bf61b2acd055cf672ba88741c7dc4f599a930db16b52f8dde431229503a5122e",
+          "rows": 15296,
+          "seconds": 1.857,
+          "csv_bytes": 1703803
+        },
+        {
+          "unit_id": "395860270e60a2dcf623468eb984c8821141146d0ce3acdc8fccbe7d9fa3c077",
+          "rows": 14247,
+          "seconds": 1.429,
+          "csv_bytes": 1574866
+        },
+        {
+          "unit_id": "ea18dd74dc070ac1b190c1c2e39d4c7d94df08dbb80ed2daccbb52ccad7485f8",
+          "rows": 15261,
+          "seconds": 1.515,
+          "csv_bytes": 1667305
+        },
+        {
+          "unit_id": "96d107f5341b66e800c1b6ab72d3da5c7997805192ad0464ad1bcecc456f00be",
+          "rows": 15291,
+          "seconds": 1.525,
+          "csv_bytes": 1666967
+        },
+        {
+          "unit_id": "790f5fc4a0d47cdf237adbe837810e91eed104f32d9e1dbff75dc36bbad45367",
+          "rows": 15289,
+          "seconds": 1.513,
+          "csv_bytes": 1679356
+        },
+        {
+          "unit_id": "a1204714f3e361a3fc7470393ed45d226ed739eb64ba80d2a3ed09be9ed7a961",
+          "rows": 14927,
+          "seconds": 2.699,
+          "csv_bytes": 1651937
+        },
+        {
+          "unit_id": "01c3045a2c1194adaed6896c74dbd285eff5d7f4d6bed82aaa1da5a88a4cca7d",
+          "rows": 15292,
+          "seconds": 1.095,
+          "csv_bytes": 1687702
+        },
+        {
+          "unit_id": "86ce992a3cbce6c4e090b76a646abf4c431f054590a5b081e7bb508e53f95e79",
+          "rows": 15291,
+          "seconds": 2.895,
+          "csv_bytes": 1705222
+        },
+        {
+          "unit_id": "f2beb450b8feb196c18b1c7f2f371106794a0da48f00387ceed2f55abcacb705",
+          "rows": 15012,
+          "seconds": 1.094,
+          "csv_bytes": 1669359
+        },
+        {
+          "unit_id": "551eb7e2d656fa731a227cc18af95bf084e3ac09a2b197e2dbb0fe15b867233b",
+          "rows": 1770,
+          "seconds": 1.4,
+          "csv_bytes": 196884
+        },
+        {
+          "unit_id": "d5696a3ec1bdc3de988d7982c61400e38614e9f6b2dcf6285ff3a18ee8df2a55",
+          "rows": 15450,
+          "seconds": 2.386,
+          "csv_bytes": 1690640
+        },
+        {
+          "unit_id": "75edf0bc1af390f0eb9a4d597d0be01bc4332b78145a5dfea3ebfd704c27da3e",
+          "rows": 15227,
+          "seconds": 1.308,
+          "csv_bytes": 1683576
+        },
+        {
+          "unit_id": "b8c52b0030a36dd50949503a0d6db2d7bb655505815a00524762fdd5646eb01b",
+          "rows": 15554,
+          "seconds": 2.387,
+          "csv_bytes": 1711566
+        },
+        {
+          "unit_id": "75b2037019d676933d2bd982fd580c1f4fc2595826fae4813b58ede8b6e639c2",
+          "rows": 15587,
+          "seconds": 1.289,
+          "csv_bytes": 1710617
+        },
+        {
+          "unit_id": "2311728a47de270cd142d7ed422486de7f4b3eab6d46b7dc377231412eed382f",
+          "rows": 15560,
+          "seconds": 1.297,
+          "csv_bytes": 1730959
+        },
+        {
+          "unit_id": "74c11fd446091374a49ab6ee4dca74fd17d18467e8be70050ee158bbb885d661",
+          "rows": 15386,
+          "seconds": 2.724,
+          "csv_bytes": 1693977
+        },
+        {
+          "unit_id": "d79e28865e91947818e1bfba6f749db778dc0b8d2046e3008641077096bda428",
+          "rows": 15548,
+          "seconds": 1.614,
+          "csv_bytes": 1733883
+        },
+        {
+          "unit_id": "93f70d0c1502c7845d0e6dda6adf2fa54f8f2bf676b690d815fd6cb79982bc31",
+          "rows": 15586,
+          "seconds": 1.206,
+          "csv_bytes": 1748406
+        },
+        {
+          "unit_id": "57fd5fa3c422ad9dd0d57107c6b10413bd9e2b9619c02e802a70aadc9ee59908",
+          "rows": 15567,
+          "seconds": 1.193,
+          "csv_bytes": 1740927
+        },
+        {
+          "unit_id": "cdae7019b0aa6e81469fb818c93adf2297a21783b6f5a5dac2f0f3884ff5ae67",
+          "rows": 14826,
+          "seconds": 2.472,
+          "csv_bytes": 1650654
+        },
+        {
+          "unit_id": "b837b19bc42274608daab79b27d39d4d50355d4d9e4c1cf97853f473cca638e2",
+          "rows": 15451,
+          "seconds": 1.099,
+          "csv_bytes": 1693608
+        },
+        {
+          "unit_id": "917ff536d110fca458bac9ccf604f4db8a464661009677c577d49c2bbf84b593",
+          "rows": 15384,
+          "seconds": 1.639,
+          "csv_bytes": 1689460
+        },
+        {
+          "unit_id": "a9526311c41bcbc41813078fbeeaa65dca361f121e36015a37479488a74ef911",
+          "rows": 15400,
+          "seconds": 2.392,
+          "csv_bytes": 1694236
+        },
+        {
+          "unit_id": "c01c3e09ba66ed952c9c1358b5aaee54ce9f062892f2646a8146547355050bd2",
+          "rows": 15158,
+          "seconds": 1.324,
+          "csv_bytes": 1685793
+        },
+        {
+          "unit_id": "1b605477f60b555947b33556d91eb1a43bdeaca23bb09309483ffd1b982b9b95",
+          "rows": 15443,
+          "seconds": 1.411,
+          "csv_bytes": 1716153
+        },
+        {
+          "unit_id": "2c334479d4e516bcaf3badc9dfa7d0bd8d1ba365e3053ee6fe400ce23d2ab691",
+          "rows": 15577,
+          "seconds": 1.22,
+          "csv_bytes": 1744769
+        },
+        {
+          "unit_id": "8c3b899f0b8358abf5cb29f17ce3104bf59db8e6faecb12c6ab87e203c898905",
+          "rows": 15563,
+          "seconds": 1.411,
+          "csv_bytes": 1742282
+        },
+        {
+          "unit_id": "4730bb792d68e1d73ce90e7ea6d079ed7c654420729511dc11a81aee94cee112",
+          "rows": 8799,
+          "seconds": 1.2,
+          "csv_bytes": 984464
+        },
+        {
+          "unit_id": "51608fe5583d85a5f2000b14ede1385cb5c1d7e99c5d4be594c2ce83d0765193",
+          "rows": 1619,
+          "seconds": 0.875,
+          "csv_bytes": 179667
+        },
+        {
+          "unit_id": "669266a62adef0470029105ab603debdc8bd5793fc7912858b2c0b0d9518ba6d",
+          "rows": 11354,
+          "seconds": 1.089,
+          "csv_bytes": 1248932
+        },
+        {
+          "unit_id": "e2f0b9f81963a20fce5bc25c6de3f82726cefc204712e346a07a25f7f9f083f5",
+          "rows": 11223,
+          "seconds": 0.986,
+          "csv_bytes": 1246821
+        },
+        {
+          "unit_id": "55db15190f6b7219d848b66e214c143c6fdd5b03980e2ac07fc886618f4dbd3a",
+          "rows": 11363,
+          "seconds": 1.95,
+          "csv_bytes": 1256781
+        },
+        {
+          "unit_id": "d56b21c03875ba01fdec2008c1c7add119f81509404f9c471d85b1b42487793d",
+          "rows": 11396,
+          "seconds": 0.979,
+          "csv_bytes": 1256366
+        },
+        {
+          "unit_id": "41544ac8406b5f5b31eb8fa0671a5f122143bb019ecdc30ecc9c379fba64e1cf",
+          "rows": 11348,
+          "seconds": 2.561,
+          "csv_bytes": 1267774
+        },
+        {
+          "unit_id": "8478580c0d20f9e6573bd2ddbfc99e94eac7cb0e7cde9b5d44c3000f85b58501",
+          "rows": 11376,
+          "seconds": 1.087,
+          "csv_bytes": 1258519
+        },
+        {
+          "unit_id": "9f055e524adc5bae9f6dd47546f0e9300e696bcfef6483c25a693be32a0ba0a1",
+          "rows": 11305,
+          "seconds": 2.703,
+          "csv_bytes": 1265774
+        },
+        {
+          "unit_id": "9d693e4fcb1824feddcaded93c267662f1a606024238e715b4efa44656892c76",
+          "rows": 11390,
+          "seconds": 1.088,
+          "csv_bytes": 1282690
+        },
+        {
+          "unit_id": "297669654b4c45f02a13654dca079d732481a1f9776581c7e9d4c29c48124d7f",
+          "rows": 11388,
+          "seconds": 2.369,
+          "csv_bytes": 1278628
+        },
+        {
+          "unit_id": "bd26dc1a5872b0aa943873de3b41cd83b01e5073bcf3becdc1d625ed343aad58",
+          "rows": 10945,
+          "seconds": 0.875,
+          "csv_bytes": 1227735
+        },
+        {
+          "unit_id": "9f4e01e357209a293b6c5e5a1064c8fcbef65266627ef18ad1c1f8be5e14629a",
+          "rows": 11299,
+          "seconds": 2.591,
+          "csv_bytes": 1246071
+        },
+        {
+          "unit_id": "73640eed4ced79a8ed671f92412df48dadb883544ddb7d66b359288c6f583175",
+          "rows": 11318,
+          "seconds": 0.983,
+          "csv_bytes": 1246980
+        },
+        {
+          "unit_id": "019c7a0000078b76c2a6f77744ed092a45e2fd9e86b6f786c28f9214a346dd48",
+          "rows": 11310,
+          "seconds": 2.5,
+          "csv_bytes": 1249894
+        },
+        {
+          "unit_id": "e979b2f1c7b9565abc6b16be4ae0ea1bea28b1a15d20d96197b46770d12e92dd",
+          "rows": 11339,
+          "seconds": 1.099,
+          "csv_bytes": 1266666
+        },
+        {
+          "unit_id": "d957676e93ddd36ba612357869e3ac63a8bd665ae79f73b8e34f6ba92cdddd68",
+          "rows": 11273,
+          "seconds": 2.185,
+          "csv_bytes": 1258587
+        },
+        {
+          "unit_id": "4fa196b013518051b5511fbe1bdb5812662a6144170a1fbd55b0e9463c9fd43c",
+          "rows": 11364,
+          "seconds": 0.979,
+          "csv_bytes": 1281312
+        },
+        {
+          "unit_id": "31f81db21ed5683107807e0e5537516ae721ee3ccccda8f98b5b7e6922af0a9b",
+          "rows": 11377,
+          "seconds": 2.282,
+          "csv_bytes": 1285774
+        },
+        {
+          "unit_id": "30e8023c2440824de09323645fef915d8c2993a7d2588aa50aa107d9cf3ecb12",
+          "rows": 9949,
+          "seconds": 0.981,
+          "csv_bytes": 1118050
+        },
+        {
+          "unit_id": "9d46eb1029018489ecca1b76bf75cebd91c501e9989097ddb69be23e84301775",
+          "rows": 6998,
+          "seconds": 2.938,
+          "csv_bytes": 770886
+        }
+      ],
+      "capture": {
+        "plan_hash": "21eb70c1b4ac42d4f5a303b8a59087a16ba1beee1b4091b2619016944d4cf85c",
+        "completed_units": 212,
+        "source_rows": 2895784,
+        "status": "captured",
+        "formal_writes": 0
+      },
+      "capture_seconds": 395.1,
+      "final_audit": {
+        "rows": 2895784,
+        "duplicate_keys": 0,
+        "files": 857,
+        "all_file_hashes_match": true,
+        "annual_value_difference_rows": 0,
+        "formal_bytes": 89441602
+      }
+    },
+    "primary_adjusted": {
+      "plan_hash": "bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec",
+      "years": {
+        "2010": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2010-31fecd097a70498a8351ba0ff40b4a58/audit.json",
+          "rows": 86710,
+          "files": 52,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 100307,
+            "candidate_rows": 86710,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 86710,
+            "non_friday_rows": 0,
+            "null_business_rows": 695,
+            "owned_rows": 86710,
+            "source_rows": 187017,
+            "unique_source_rows": 86710
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.446,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 52,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.855
+        },
+        "2011": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2011-8d978eaccce74664aa604c06054ff3c0/audit.json",
+          "rows": 100307,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 108981,
+            "candidate_rows": 100307,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 100307,
+            "non_friday_rows": 0,
+            "null_business_rows": 819,
+            "owned_rows": 100307,
+            "source_rows": 209288,
+            "unique_source_rows": 100307
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.557,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.809
+        },
+        "2012": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2012-fc3bc01245ce45f9ac95214903efc8c5/audit.json",
+          "rows": 108981,
+          "files": 50,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 108981,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 108981,
+            "non_friday_rows": 0,
+            "null_business_rows": 942,
+            "owned_rows": 108981,
+            "source_rows": 108981,
+            "unique_source_rows": 108981
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.375,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 50,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.811
+        },
+        "2013": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2013-3b93745d2b984003b10f17451a951a0f/audit.json",
+          "rows": 112881,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 108981,
+            "candidate_rows": 112881,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 112881,
+            "non_friday_rows": 0,
+            "null_business_rows": 1082,
+            "owned_rows": 112881,
+            "source_rows": 221862,
+            "unique_source_rows": 112881
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.657,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.829
+        },
+        "2014": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2014-ade87c1c783044b48586098b03540f3b/audit.json",
+          "rows": 113936,
+          "files": 52,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 112881,
+            "candidate_rows": 113936,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 113936,
+            "non_friday_rows": 0,
+            "null_business_rows": 1080,
+            "owned_rows": 113936,
+            "source_rows": 226817,
+            "unique_source_rows": 113936
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.711,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 52,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.851
+        },
+        "2015": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2015-fc631fc320d24b0a96a212ea2aa73c34/audit.json",
+          "rows": 116352,
+          "files": 52,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 113936,
+            "candidate_rows": 116352,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 116352,
+            "non_friday_rows": 0,
+            "null_business_rows": 961,
+            "owned_rows": 116352,
+            "source_rows": 230288,
+            "unique_source_rows": 116352
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.668,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 52,
+            "partial_scope": false
+          },
+          "promote_seconds": 0.884
+        },
+        "2016": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2016-ca09224e60e94ec28e7e3b6d52074c49/audit.json",
+          "rows": 127358,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 264977,
+            "candidate_rows": 127358,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 127358,
+            "non_friday_rows": 0,
+            "null_business_rows": 1104,
+            "owned_rows": 127358,
+            "source_rows": 392335,
+            "unique_source_rows": 127358
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.001,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.003
+        },
+        "2017": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2017-5749fd04fa2a456e9a31323e142be33d/audit.json",
+          "rows": 148625,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 148625,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 148625,
+            "non_friday_rows": 0,
+            "null_business_rows": 1123,
+            "owned_rows": 148625,
+            "source_rows": 148625,
+            "unique_source_rows": 148625
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.614,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.09
+        },
+        "2018": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2018-ef891db77f3d4e0b9b1297ab39a0c186/audit.json",
+          "rows": 164152,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 164152,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 164152,
+            "non_friday_rows": 0,
+            "null_business_rows": 1198,
+            "owned_rows": 164152,
+            "source_rows": 164152,
+            "unique_source_rows": 164152
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 1.75,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.045
+        },
+        "2019": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2019-b95a7e729c8242c7bbf42fac932483b5/audit.json",
+          "rows": 176777,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 164152,
+            "candidate_rows": 176777,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 176777,
+            "non_friday_rows": 0,
+            "null_business_rows": 1273,
+            "owned_rows": 176777,
+            "source_rows": 340929,
+            "unique_source_rows": 176777
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.087,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.089
+        },
+        "2020": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2020-3d322dd568a6493985e0861e00958518/audit.json",
+          "rows": 190980,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 176777,
+            "candidate_rows": 190980,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 190980,
+            "non_friday_rows": 0,
+            "null_business_rows": 1275,
+            "owned_rows": 190980,
+            "source_rows": 367757,
+            "unique_source_rows": 190980
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.177,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.131
+        },
+        "2021": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2021-928c6d315be54a458b8c91e50dfb2d23/audit.json",
+          "rows": 223831,
+          "files": 53,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 422820,
+            "candidate_rows": 223831,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 223831,
+            "non_friday_rows": 0,
+            "null_business_rows": 1323,
+            "owned_rows": 223831,
+            "source_rows": 646651,
+            "unique_source_rows": 223831
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.974,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 53,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.416
+        },
+        "2022": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2022-8c8f364398944d84937db2c732f5d271/audit.json",
+          "rows": 231840,
+          "files": 50,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 246988,
+            "candidate_rows": 231840,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 231840,
+            "non_friday_rows": 0,
+            "null_business_rows": 1241,
+            "owned_rows": 231840,
+            "source_rows": 478828,
+            "unique_source_rows": 231840
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.58,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 50,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.343
+        },
+        "2023": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2023-36e9d9b48b7b4b1698a852d6d386bf21/audit.json",
+          "rows": 246988,
+          "files": 50,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 246988,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 246988,
+            "non_friday_rows": 0,
+            "null_business_rows": 1248,
+            "owned_rows": 246988,
+            "source_rows": 246988,
+            "unique_source_rows": 246988
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.185,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 50,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.371
+        },
+        "2024": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2024-7890eccdcbd24b3398265b8af5472c31/audit.json",
+          "rows": 259544,
+          "files": 51,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 0,
+            "candidate_rows": 259544,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 259544,
+            "non_friday_rows": 0,
+            "null_business_rows": 1245,
+            "owned_rows": 259544,
+            "source_rows": 259544,
+            "unique_source_rows": 259544
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.342,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 51,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.392
+        },
+        "2025": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2025-a89f57c36d474bb3bd2c7dab7b0d9428/audit.json",
+          "rows": 272685,
+          "files": 52,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 259544,
+            "candidate_rows": 272685,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 272685,
+            "non_friday_rows": 0,
+            "null_business_rows": 367,
+            "owned_rows": 272685,
+            "source_rows": 532229,
+            "unique_source_rows": 272685
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.943,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 52,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.472
+        },
+        "2026": {
+          "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec/assemblies/2026-182a839d86c34606aeec184ebded9d24/audit.json",
+          "rows": 209315,
+          "files": 38,
+          "stats": {
+            "abnormal_ohlc_or_volume_rows": 0,
+            "boundary_rows": 272685,
+            "candidate_rows": 209315,
+            "duplicate_rows": 0,
+            "excluded_rows": 0,
+            "existing_rows": 0,
+            "new_keys": 209315,
+            "non_friday_rows": 0,
+            "null_business_rows": 0,
+            "owned_rows": 209315,
+            "source_rows": 482000,
+            "unique_source_rows": 209315
+          },
+          "value_difference_rows": 0,
+          "build_audit_seconds": 2.521,
+          "status": "promoted",
+          "promoted": {
+            "status": "verified",
+            "files": 38,
+            "partial_scope": false
+          },
+          "promote_seconds": 1.13
+        }
+      },
+      "capture_root": "/Volumes/datasource/data_lake_staging",
+      "target_root": "/Volumes/datasource/data_lake",
+      "captures": [
+        {
+          "unit_id": "630d6bb92f8df2ae39a9eb999230a1ed4ca7f12ab04b0babe659a01304a42489",
+          "rows": 15063,
+          "seconds": 2.331,
+          "csv_bytes": 2575719
+        },
+        {
+          "unit_id": "7f882a59fb915025b909a6963357eb1f1e1359e44bc3da8d517b3be13e59bb75",
+          "rows": 15374,
+          "seconds": 2.169,
+          "csv_bytes": 2640389
+        },
+        {
+          "unit_id": "07bf9f5d86384308d2a65eaae9fea5426a3a082532ceceaabb1ab1d64c43ca1b",
+          "rows": 11235,
+          "seconds": 2.077,
+          "csv_bytes": 1936967
+        },
+        {
+          "unit_id": "a078a9bc69e93b2d79ef32f387e8b58c61f4caa66d356501545483f8d958f93d",
+          "rows": 12356,
+          "seconds": 3.016,
+          "csv_bytes": 2119768
+        },
+        {
+          "unit_id": "2c4fd94b8e1f27589e2f9996db44dc12771ed97a2b8800655a5ae9dfb2ec9ed1",
+          "rows": 15413,
+          "seconds": 2.504,
+          "csv_bytes": 2645971
+        },
+        {
+          "unit_id": "54a23b253901a196992e411ea907b311de756754d47eeaa7138627ce6900a6b1",
+          "rows": 14939,
+          "seconds": 2.292,
+          "csv_bytes": 2560515
+        },
+        {
+          "unit_id": "9bcd52f22d80aa222b0fde3a364149b22db396e53ccf48c1fd6da0b52ff1296f",
+          "rows": 2330,
+          "seconds": 1.113,
+          "csv_bytes": 396007
+        },
+        {
+          "unit_id": "f126dbe76fd2a713e5faa6f61ae60e6751b48cf97984ef0dd5aafcace47f11b2",
+          "rows": 14466,
+          "seconds": 2.085,
+          "csv_bytes": 2468617
+        },
+        {
+          "unit_id": "fd66aa933814f57250ebdb2912248bebeb4c3af6679a791ebc1a3e566bf4baea",
+          "rows": 15044,
+          "seconds": 3.071,
+          "csv_bytes": 2579410
+        },
+        {
+          "unit_id": "0251cefe11d015f3c82cf0d5749be28d173ddcc123703a2368da17432801e9e4",
+          "rows": 15188,
+          "seconds": 1.638,
+          "csv_bytes": 2604422
+        },
+        {
+          "unit_id": "27f2f6ce5129afd810dc96515372169a4b05d485a5215232ee13c62a8948aa10",
+          "rows": 12398,
+          "seconds": 2.395,
+          "csv_bytes": 2125364
+        },
+        {
+          "unit_id": "0b476f2f0f12944fc1791446edf01a833f6c5f329a88fa494a0a82bf77fc9fd6",
+          "rows": 12898,
+          "seconds": 3.016,
+          "csv_bytes": 2202306
+        },
+        {
+          "unit_id": "832c4d01e95c89fc2425ed9624fac3ff07a80ad3d29e3a2fc3cdd320859cda2e",
+          "rows": 14940,
+          "seconds": 1.751,
+          "csv_bytes": 2565838
+        },
+        {
+          "unit_id": "db319093e99f265a1a57dbd3a85a32b33020917703e96a8dffed84a2cc16d303",
+          "rows": 14394,
+          "seconds": 1.424,
+          "csv_bytes": 2457139
+        },
+        {
+          "unit_id": "d30840add9f69099e68b55567c3f11d6a224fccebcbf5cc1b3f8220baa6b586b",
+          "rows": 979,
+          "seconds": 1.42,
+          "csv_bytes": 165255
+        },
+        {
+          "unit_id": "84c20349d70992ac3d8115f9e68514bb6835c6cccd89cc3e7381579e93632aca",
+          "rows": 14500,
+          "seconds": 1.746,
+          "csv_bytes": 2439881
+        },
+        {
+          "unit_id": "058dcdc4629c1d0503ffef2da4e90e3941a86586e0d8700f283bd594970455a0",
+          "rows": 14769,
+          "seconds": 1.645,
+          "csv_bytes": 2488439
+        },
+        {
+          "unit_id": "dca231a919a102976d505d548880a29014fe841be204b9697bfd4b0ac19598eb",
+          "rows": 14890,
+          "seconds": 1.74,
+          "csv_bytes": 2519570
+        },
+        {
+          "unit_id": "5df8d671adf9c9d3f19a07c2687a5eca217658bea35bfb621285b535e7fcc10e",
+          "rows": 13983,
+          "seconds": 2.512,
+          "csv_bytes": 2372803
+        },
+        {
+          "unit_id": "ce13163fc5fee944b079b93c403512ba88bb691564245a93e272c4f4e69edfe3",
+          "rows": 13636,
+          "seconds": 1.101,
+          "csv_bytes": 2312339
+        },
+        {
+          "unit_id": "5e4eea1e7efe0df411025e591688c9fba673d7236994620eab7a54d4eea3769c",
+          "rows": 14727,
+          "seconds": 2.179,
+          "csv_bytes": 2482334
+        },
+        {
+          "unit_id": "6b44c512c5d80a8574f16add5e517bf71e6a90b9f481351c35a16c6475b834b1",
+          "rows": 14570,
+          "seconds": 1.964,
+          "csv_bytes": 2463373
+        },
+        {
+          "unit_id": "bfffac70b35c2932937a933a5aef15810747c1bef4be49c5f860b9c07724715f",
+          "rows": 7906,
+          "seconds": 1.223,
+          "csv_bytes": 1324346
+        },
+        {
+          "unit_id": "6a55d08adae7cba791ee9ce8d5e9d7b82375cc6d40c1665a9c1474daca8bccbc",
+          "rows": 14608,
+          "seconds": 2.594,
+          "csv_bytes": 2466409
+        },
+        {
+          "unit_id": "09f11f99a18ac4fb67c2d3d78617bc3831010efc49b2d07cdbbb874e0c9a0fdf",
+          "rows": 14866,
+          "seconds": 2.075,
+          "csv_bytes": 2506103
+        },
+        {
+          "unit_id": "7708807cd5bb9c8be6613bf98a6af49dc37e3d4be0d3ab046f2f0396fba0da37",
+          "rows": 14872,
+          "seconds": 1.62,
+          "csv_bytes": 2519817
+        },
+        {
+          "unit_id": "a209108780568c58601c3d4dddc74701d36329a2b719473e79c9a242e6136d1b",
+          "rows": 14911,
+          "seconds": 1.922,
+          "csv_bytes": 2533441
+        },
+        {
+          "unit_id": "b8e0c82c90f9800080dbe0de2247c96e9431a82b018e93c7d09aa3450d9b8bec",
+          "rows": 14702,
+          "seconds": 2.411,
+          "csv_bytes": 2502840
+        },
+        {
+          "unit_id": "d4a0d20bd78f48f2499c42c88372fd55ac1c63fe7bc504c8368ff63e38e90796",
+          "rows": 14889,
+          "seconds": 2.738,
+          "csv_bytes": 2515783
+        },
+        {
+          "unit_id": "42e1809177d569e50dcbe214462e447992c95820cd739801a1b925265f570236",
+          "rows": 14805,
+          "seconds": 1.436,
+          "csv_bytes": 2512354
+        },
+        {
+          "unit_id": "1e8891756aed6a1d2fa4b9f1130faef0b9586e855fc87fa997b3d19bebcb65da",
+          "rows": 9228,
+          "seconds": 1.315,
+          "csv_bytes": 1543486
+        },
+        {
+          "unit_id": "8181d4233434fb72af35e8aad7064a801d4e2dee2b30e136dd2654f043dfa6a8",
+          "rows": 14506,
+          "seconds": 1.416,
+          "csv_bytes": 2461075
+        },
+        {
+          "unit_id": "abeb3661f5e0c76f6a8e86b60beb1e0a0dc688abdac040cf5e49c06b98281bb9",
+          "rows": 14624,
+          "seconds": 3.49,
+          "csv_bytes": 2485468
+        },
+        {
+          "unit_id": "2c224b42db6bca84ba89d56cc1b2352ad3f48e73b0d7a41cd48523eb156c80db",
+          "rows": 14743,
+          "seconds": 1.316,
+          "csv_bytes": 2522191
+        },
+        {
+          "unit_id": "571b3e55ea6764ed3b78f6f139afbdbb2ead81edd39a8de9f1a25114cd105f58",
+          "rows": 13901,
+          "seconds": 2.292,
+          "csv_bytes": 2389685
+        },
+        {
+          "unit_id": "9acd552e4e5a03241057f3c3dad0b5efd5aa738caaaa2f87accc211c69b374c9",
+          "rows": 13302,
+          "seconds": 1.727,
+          "csv_bytes": 2289739
+        },
+        {
+          "unit_id": "52cf1fc48183f19e375cd00bc3adf76147ffc66fe44611f10075362255bd1bcf",
+          "rows": 14790,
+          "seconds": 4.325,
+          "csv_bytes": 2509114
+        },
+        {
+          "unit_id": "602b5560c284fe4eb6bb6d24d25e137f107ddacc7d86a6a8fa11059627372a6b",
+          "rows": 14561,
+          "seconds": 1.635,
+          "csv_bytes": 2492048
+        },
+        {
+          "unit_id": "9a05c5d3956bbbe05824706f10794dae8fcafc873452e9d1a4e63f7fe37f4f7b",
+          "rows": 13509,
+          "seconds": 2.071,
+          "csv_bytes": 2278988
+        },
+        {
+          "unit_id": "f62d10ee0923ccf1615486b90ca6656645512a42516b89f118e73e1945b3980d",
+          "rows": 13576,
+          "seconds": 2.846,
+          "csv_bytes": 2368966
+        },
+        {
+          "unit_id": "00a6aaba9b46b8f93148ae8f01b655b869119945b7b1fbc305edb972c18a5e98",
+          "rows": 13409,
+          "seconds": 1.113,
+          "csv_bytes": 2343522
+        },
+        {
+          "unit_id": "ca01c18a233182a00c808ff7d1c5eee145c26bf022d2bdf94c92c58c8eb8839e",
+          "rows": 13320,
+          "seconds": 2.624,
+          "csv_bytes": 2332996
+        },
+        {
+          "unit_id": "a4729cd640f3500d807db8714c145faab138f55d3524294a5a641bdbb677bc98",
+          "rows": 12621,
+          "seconds": 1.111,
+          "csv_bytes": 2211441
+        },
+        {
+          "unit_id": "1e5194bfcf9fbe2cae4f9f1911298fc6f201406155fdbcba56003425ba0d42d0",
+          "rows": 13245,
+          "seconds": 3.463,
+          "csv_bytes": 2332951
+        },
+        {
+          "unit_id": "3c6f87cd8d27c8db82b2cc6914a83558fd3f76de5975c57affd6bc48d9e0676e",
+          "rows": 12787,
+          "seconds": 1.22,
+          "csv_bytes": 2233407
+        },
+        {
+          "unit_id": "93d094fcdc8d83743f042a2b6443682ea8e90efde8bae0a84c9d549e0c168869",
+          "rows": 14270,
+          "seconds": 1.424,
+          "csv_bytes": 2501146
+        },
+        {
+          "unit_id": "bf9875f359a4cd1ed85e35e24d0f88a0423d0618f1542647bd7a1fe7a128a160",
+          "rows": 14005,
+          "seconds": 1.436,
+          "csv_bytes": 2444310
+        },
+        {
+          "unit_id": "210c29535390de7aac8189ca74ef6ab02220dd0ba2cd92d772329c31264b87de",
+          "rows": 9119,
+          "seconds": 1.007,
+          "csv_bytes": 1584547
+        },
+        {
+          "unit_id": "7c3a371212f049e75d70744a15be19fa246a3e2fdf8c86be3085f632798e120a",
+          "rows": 13792,
+          "seconds": 2.524,
+          "csv_bytes": 2387151
+        },
+        {
+          "unit_id": "bfb215fbb7b591550ca4af45b79b0ba91ca762d09ef13cda43c6a02e39d962fb",
+          "rows": 14112,
+          "seconds": 1.202,
+          "csv_bytes": 2454460
+        },
+        {
+          "unit_id": "ec8653d115d861cfde8b38cab8cc0f0331fbbb48c2df83de3009c9d2c936ae25",
+          "rows": 14119,
+          "seconds": 1.315,
+          "csv_bytes": 2461929
+        },
+        {
+          "unit_id": "176d4f82b6c1a6348e30e83550333293bbd20991b7abc99359ec47e5c18a24f9",
+          "rows": 12546,
+          "seconds": 1.954,
+          "csv_bytes": 2194890
+        },
+        {
+          "unit_id": "be670e70a129bb549ebae2170f4a78ec1702d004bc179f6a31944052b3815efd",
+          "rows": 13879,
+          "seconds": 1.424,
+          "csv_bytes": 2440173
+        },
+        {
+          "unit_id": "e7d81bace0c22529f7fa596a04a6c12a2e49c3b97930a37cd641f06c09dfd7ac",
+          "rows": 11757,
+          "seconds": 1.227,
+          "csv_bytes": 2066412
+        },
+        {
+          "unit_id": "459e1783ac6a5ae40751ab2599326e17748704edc7bc68b50513284433bd6a6f",
+          "rows": 14405,
+          "seconds": 2.162,
+          "csv_bytes": 2488492
+        },
+        {
+          "unit_id": "2b85b0c7f159ffa193f86c08370e47a9ae1deb255f993489b1a74c6d3f0a5d7e",
+          "rows": 14069,
+          "seconds": 1.306,
+          "csv_bytes": 2452080
+        },
+        {
+          "unit_id": "021248e958ad7900ccc539b0c78047622196d31f3651faa387eaa9ae7b42ac72",
+          "rows": 13500,
+          "seconds": 2.388,
+          "csv_bytes": 2317022
+        },
+        {
+          "unit_id": "82deb8f78de1b21a79fec551d807da6c06886e8cc2dd54a570151b24ba595db2",
+          "rows": 5179,
+          "seconds": 1.219,
+          "csv_bytes": 903323
+        },
+        {
+          "unit_id": "a52067a7713eeb08779fbd760c8c9d0f5de92274f537aad753d3525870115069",
+          "rows": 14222,
+          "seconds": 1.527,
+          "csv_bytes": 2453122
+        },
+        {
+          "unit_id": "1a70246266b38feca06f1f18d47bc4aae360e7793cf24747c7996e1e85db7929",
+          "rows": 14268,
+          "seconds": 2.184,
+          "csv_bytes": 2470853
+        },
+        {
+          "unit_id": "262690d347098a119e52a5efe48308c9084fb4b7c80e560ef8f53ef2e44fbfaa",
+          "rows": 14537,
+          "seconds": 2.717,
+          "csv_bytes": 2517779
+        },
+        {
+          "unit_id": "3d78c8d7612354b1798c42927c7e0fce52236097216e1d082ec89e8e3272d15d",
+          "rows": 14158,
+          "seconds": 1.96,
+          "csv_bytes": 2460157
+        },
+        {
+          "unit_id": "a19a55d1da7cfed251a776e7cb1bcb495969f7dc20a1297a94e6558b83d3c04f",
+          "rows": 12410,
+          "seconds": 1.309,
+          "csv_bytes": 2159573
+        },
+        {
+          "unit_id": "56324c0d2e95e501d6285ab149ef4a8815a1953ce7dca8f2ca53b7507df7fb59",
+          "rows": 14234,
+          "seconds": 1.754,
+          "csv_bytes": 2488027
+        },
+        {
+          "unit_id": "fec6703e04f10403a098ac8ee39c9ca9fc00ed52e3e5c158beee2b8b650b1f19",
+          "rows": 11839,
+          "seconds": 1.632,
+          "csv_bytes": 2056673
+        },
+        {
+          "unit_id": "e1898eb2f5eb7138be752dcd8d69900441b9ece11ee48be99be3e6c69df75e13",
+          "rows": 14555,
+          "seconds": 2.601,
+          "csv_bytes": 2505927
+        },
+        {
+          "unit_id": "7dda76fb98d08df02c8c258721a756fa454d768e03ce721bb86b28534466af80",
+          "rows": 14292,
+          "seconds": 1.412,
+          "csv_bytes": 2478661
+        },
+        {
+          "unit_id": "821373e0229252f54408518c6c47c4cb548d5bb374184ae820902605b31cca59",
+          "rows": 13367,
+          "seconds": 2.371,
+          "csv_bytes": 2293719
+        },
+        {
+          "unit_id": "ecd63f14fe598d806ea74cdc57eec172d9cf091388c924c7c96f8a3a9fbe02c1",
+          "rows": 10743,
+          "seconds": 1.005,
+          "csv_bytes": 1875132
+        },
+        {
+          "unit_id": "9ebd8ab36a39141b602fff636fcc1ffa10160c2b4b59aa008db99f72a88e1294",
+          "rows": 14536,
+          "seconds": 2.48,
+          "csv_bytes": 2469676
+        },
+        {
+          "unit_id": "91ed4802a7a7c0eed6b5f9fd464ae46b5120d987021ca7b2faf08e770af3aed4",
+          "rows": 14578,
+          "seconds": 2.194,
+          "csv_bytes": 2482384
+        },
+        {
+          "unit_id": "174a851e773213838982be72fddb2ddcb9746cae2d52e8157b99f3fef9ab18cd",
+          "rows": 14552,
+          "seconds": 1.841,
+          "csv_bytes": 2482051
+        },
+        {
+          "unit_id": "a4b9d7163ae46e88965033ef8b0dde8fe4ac637b7480be6a17203d1fff03f80b",
+          "rows": 14576,
+          "seconds": 1.413,
+          "csv_bytes": 2488079
+        },
+        {
+          "unit_id": "3b1cebb48baa6712b7e38bcb743d15d4bfaf0195ad3cdd7dfc08380e0147b42b",
+          "rows": 14282,
+          "seconds": 2.717,
+          "csv_bytes": 2458185
+        },
+        {
+          "unit_id": "74db3fc778f139852123b9dcf93cb4fd0efa00356f6eb950dccbea587f26d3a7",
+          "rows": 14772,
+          "seconds": 1.322,
+          "csv_bytes": 2543112
+        },
+        {
+          "unit_id": "d0ab4c1e9886f6e9cbd0dcfa120960c3ce07799c0a5e9701e498727b372a8126",
+          "rows": 14432,
+          "seconds": 2.387,
+          "csv_bytes": 2499830
+        },
+        {
+          "unit_id": "7ec61c10ec93be98296a28e15afe6597ceecff42bdb95da735ec3ab5d42c0f93",
+          "rows": 14681,
+          "seconds": 1.955,
+          "csv_bytes": 2493961
+        },
+        {
+          "unit_id": "01580e539a49f8f413b8647f17f9fd60d5adb48fff3cac33fb351d037f3ac54c",
+          "rows": 14607,
+          "seconds": 1.724,
+          "csv_bytes": 2496847
+        },
+        {
+          "unit_id": "0886d18fbd6b37b0bb7317ac4fec5d33dabb0958f0450c3d6e5c2d3ab27fdca3",
+          "rows": 14690,
+          "seconds": 2.94,
+          "csv_bytes": 2483380
+        },
+        {
+          "unit_id": "5eca42e98425cd29bf95ebc350793311ffb4065a6d7f36a5e8c2b7e7d7ea4169",
+          "rows": 14188,
+          "seconds": 1.409,
+          "csv_bytes": 2454360
+        },
+        {
+          "unit_id": "690201514220322a8a2b75a58e0b7c78d95bbb6bf96e04b745a1928572f3f353",
+          "rows": 4258,
+          "seconds": 1.21,
+          "csv_bytes": 735102
+        },
+        {
+          "unit_id": "6136e82b0541547b8c25df6ab34795bf8eddf5ee3c65756543446204ecdbbf83",
+          "rows": 15277,
+          "seconds": 1.638,
+          "csv_bytes": 2592241
+        },
+        {
+          "unit_id": "ef7afd67eb1992f120cf2118095dde7b35dee228aa0613cdaa4f140806b59e82",
+          "rows": 15241,
+          "seconds": 2.498,
+          "csv_bytes": 2589624
+        },
+        {
+          "unit_id": "358b16930e4edb5b0376c4f567a447d6de6c46a83fe5b4f55ecfb983ea921a5a",
+          "rows": 15223,
+          "seconds": 1.536,
+          "csv_bytes": 2590649
+        },
+        {
+          "unit_id": "158f9143247b78a1081b48f0eec7042e5276faba71010be0a62693440c8ed5bf",
+          "rows": 15275,
+          "seconds": 2.262,
+          "csv_bytes": 2600333
+        },
+        {
+          "unit_id": "d22cedf3657c3fa3d7eaa54f75285f84a1894abc8c8bbd7e150d8a4020ed9409",
+          "rows": 14632,
+          "seconds": 1.198,
+          "csv_bytes": 2516342
+        },
+        {
+          "unit_id": "e56b859d8bdda61a7aa01c76b051193aeb3b8c638617454462e84b0ed67746f9",
+          "rows": 15276,
+          "seconds": 1.979,
+          "csv_bytes": 2620540
+        },
+        {
+          "unit_id": "8d768bc556fdc1d142505bb99503bdf0d367a6b029a0a0e3bab8689566c5ff59",
+          "rows": 13956,
+          "seconds": 1.085,
+          "csv_bytes": 2429716
+        },
+        {
+          "unit_id": "6daaa155e4f1ea1b2aa85d71818e5e803d1d22d65cdfda596e529219eebaea26",
+          "rows": 15268,
+          "seconds": 3.036,
+          "csv_bytes": 2589471
+        },
+        {
+          "unit_id": "f927a6fc8afc0d623ac189ed2a879d4f7c4a11a07841243ce656be3aa901cfb5",
+          "rows": 15251,
+          "seconds": 1.652,
+          "csv_bytes": 2612503
+        },
+        {
+          "unit_id": "19735ee9945755a1b680ffdbbe4b3593998e0dafd1bf61ba7c44d4f1ece7f076",
+          "rows": 15036,
+          "seconds": 1.54,
+          "csv_bytes": 2538519
+        },
+        {
+          "unit_id": "1b3454704b24e676361db471ddb6ccb32e736caada1050f28648e04754062e52",
+          "rows": 14822,
+          "seconds": 2.521,
+          "csv_bytes": 2544085
+        },
+        {
+          "unit_id": "d9f05fcb9081369945c81562e373bcdd127d9a1f4371fb7fa7bf2d73daeecad6",
+          "rows": 11520,
+          "seconds": 2.076,
+          "csv_bytes": 1991556
+        },
+        {
+          "unit_id": "7f9f48f620b0235a063e2771e47f1775df8ec463b93f03a2eb8bf4a2fbcc0efd",
+          "rows": 15166,
+          "seconds": 1.957,
+          "csv_bytes": 2581850
+        },
+        {
+          "unit_id": "d57c7cc2ffbe216eb872fccc4a003e6bbf9ad8dc9b0e90fe59201605ab84e592",
+          "rows": 15235,
+          "seconds": 1.958,
+          "csv_bytes": 2603546
+        },
+        {
+          "unit_id": "8fd333087d7f8e5874dc229110ecf3095e4b1f609d231a86e3ef0b1670175c9c",
+          "rows": 15287,
+          "seconds": 1.323,
+          "csv_bytes": 2615960
+        },
+        {
+          "unit_id": "cc93778a6192ff05074eaee0dbedf388de1ac0a4805323dbde39bb1855985a51",
+          "rows": 15286,
+          "seconds": 2.72,
+          "csv_bytes": 2616239
+        },
+        {
+          "unit_id": "22ec94fe9552428a796bc5449cb5b5e740d401cbc6fd5a252e9512f8e83a7b10",
+          "rows": 13631,
+          "seconds": 1.629,
+          "csv_bytes": 2369842
+        },
+        {
+          "unit_id": "35a49b1716ae56a1a2ec25912471cfba0af764ee5aaedb7864709f4b48b19e86",
+          "rows": 15277,
+          "seconds": 1.196,
+          "csv_bytes": 2638368
+        },
+        {
+          "unit_id": "53a97a6546999a5e8a5b6ca24c6daef073330535fe2f7476ccc88daab321fa76",
+          "rows": 15288,
+          "seconds": 2.84,
+          "csv_bytes": 2687298
+        },
+        {
+          "unit_id": "6556a3ac22516b37a0a835dfc5d45a05d1b0ab95fff3a6212ac3af5c86f8c49d",
+          "rows": 12081,
+          "seconds": 0.998,
+          "csv_bytes": 2089416
+        },
+        {
+          "unit_id": "0c07b7b47cb54841a5217fd168a787500ea55b4519457ac94e56a6d8ac04e20b",
+          "rows": 15262,
+          "seconds": 2.633,
+          "csv_bytes": 2604724
+        },
+        {
+          "unit_id": "360bc75564f6a8bc7dec63d7e8f9b5786cc76e3d790d3f0d57c4578a65096100",
+          "rows": 15193,
+          "seconds": 3.134,
+          "csv_bytes": 2596362
+        },
+        {
+          "unit_id": "ec91c2ef138980be385742fc703deef79a11883b2a4c6111ac0bdb3ada56ee9b",
+          "rows": 14835,
+          "seconds": 1.308,
+          "csv_bytes": 2515758
+        },
+        {
+          "unit_id": "ff02b561f7ecc496e2b5ef26c1dedb8f256d55cd70eefce4c45231c14e9ec2cc",
+          "rows": 15088,
+          "seconds": 3.264,
+          "csv_bytes": 2628668
+        },
+        {
+          "unit_id": "d88a05c920cf3b46d20bf8da34eca471b432f4b37a6080bb5deeb4ef9881169f",
+          "rows": 11602,
+          "seconds": 1.101,
+          "csv_bytes": 2040136
+        },
+        {
+          "unit_id": "857935cf8d802f32fe3097369842fccc4b22369ab125bbb17ab946c6b39086ba",
+          "rows": 1749,
+          "seconds": 1.322,
+          "csv_bytes": 308588
+        },
+        {
+          "unit_id": "e927f7ef41f3cc561d64670eb9c91db5633a4d9374356353de2aafd81060ead1",
+          "rows": 15855,
+          "seconds": 1.523,
+          "csv_bytes": 2705114
+        },
+        {
+          "unit_id": "61e7fa208251f12ced1639c11e7f6039f916408695bf80d65eb92b07bdac60c5",
+          "rows": 15188,
+          "seconds": 2.63,
+          "csv_bytes": 2606894
+        },
+        {
+          "unit_id": "3a7aebfc9ef7be01fd29c7b04c99a3a4cdbf6945cf12104668eaf76e4c46915e",
+          "rows": 15891,
+          "seconds": 1.333,
+          "csv_bytes": 2722473
+        },
+        {
+          "unit_id": "e120f45a9c8d6312fd393340254110f6679189c8fec62d57febea1cc15a19846",
+          "rows": 15886,
+          "seconds": 1.439,
+          "csv_bytes": 2717216
+        },
+        {
+          "unit_id": "83209d6f2bb509d1e7899118f49168398b3e422614e8cdae4e6640073f29d23c",
+          "rows": 15802,
+          "seconds": 1.55,
+          "csv_bytes": 2742261
+        },
+        {
+          "unit_id": "3f268146e58860a72cd702c20def0a21d452ac4477becfa56d9b95ea65e92e03",
+          "rows": 15895,
+          "seconds": 2.486,
+          "csv_bytes": 2741305
+        },
+        {
+          "unit_id": "5a588aab9d3d1dbec57920d6e10aab2e9f154fe555697e9894abdbdc4024c1b7",
+          "rows": 15863,
+          "seconds": 1.531,
+          "csv_bytes": 2781150
+        },
+        {
+          "unit_id": "1c58fab7b2d241f36fbdd27ccdad837288e678fa0ea0944ab2a0ad14fa289daf",
+          "rows": 13595,
+          "seconds": 2.532,
+          "csv_bytes": 2400096
+        },
+        {
+          "unit_id": "d5e246f0dee1b60c4bbe04c702ca807bd1549e49dacc73d6fb02cac613520988",
+          "rows": 12461,
+          "seconds": 0.992,
+          "csv_bytes": 2132834
+        },
+        {
+          "unit_id": "e94be03fdb79061ef0e6829c1c0125cd11db31a48c78daf9c5cd0d622ff60ad2",
+          "rows": 15880,
+          "seconds": 3.488,
+          "csv_bytes": 2727342
+        },
+        {
+          "unit_id": "b7678a5013f02836237e2c8ca9fd32c2f497958f8a16464bacdea6856e35d100",
+          "rows": 15674,
+          "seconds": 3.476,
+          "csv_bytes": 2678123
+        },
+        {
+          "unit_id": "f7dbc0e3a4f5beb019de9756c9098120d2f7889072635d555a317e88fe07e94b",
+          "rows": 15375,
+          "seconds": 1.533,
+          "csv_bytes": 2628555
+        },
+        {
+          "unit_id": "0eec8e6390b018c4c2ad7355e26cbaca61525861d7389dde8ed21492b1191e90",
+          "rows": 15747,
+          "seconds": 1.743,
+          "csv_bytes": 2735522
+        },
+        {
+          "unit_id": "caa46499cb18198f4986cbd21b7699f7a2c8f8c6f3ded783e7ad9a2be6a4e587",
+          "rows": 13798,
+          "seconds": 1.325,
+          "csv_bytes": 2425682
+        },
+        {
+          "unit_id": "d015d258bf687826969c2abc9d1c9080ae179f38116f666ac96118d16e59faa4",
+          "rows": 10921,
+          "seconds": 2.514,
+          "csv_bytes": 1937597
+        },
+        {
+          "unit_id": "8aaec7530e04f301c746f60c06b358dca6f411b05c2ef608219205725a44c0ba",
+          "rows": 14943,
+          "seconds": 1.427,
+          "csv_bytes": 2557901
+        },
+        {
+          "unit_id": "cff150c24742780b3c5bc94fc8b390807d993632e3b5f0f2d4d0edd3e5a45ab9",
+          "rows": 13867,
+          "seconds": 1.869,
+          "csv_bytes": 2390381
+        },
+        {
+          "unit_id": "0c2c2f7cd7a2236aa81438eb07447016a42c6458081bc47d5f5b0ef15ba9138e",
+          "rows": 14997,
+          "seconds": 2.484,
+          "csv_bytes": 2573741
+        },
+        {
+          "unit_id": "ae466b716fb24b63bf56a0989d04bf7110627f39f356e0f0783c2be54f74d624",
+          "rows": 14987,
+          "seconds": 1.43,
+          "csv_bytes": 2569125
+        },
+        {
+          "unit_id": "d1aad41a1f3a2f705597129ee52cabaea0121ca8f9183b279e2b9be088568f2f",
+          "rows": 14990,
+          "seconds": 1.829,
+          "csv_bytes": 2604525
+        },
+        {
+          "unit_id": "19a6fd93b1ba9b7a95b4222c969cfb9ef6ef45db7362241597cc439ff3469ed0",
+          "rows": 14976,
+          "seconds": 1.43,
+          "csv_bytes": 2571033
+        },
+        {
+          "unit_id": "c3e3bd703377989d5588fad9b5c221257ac964960b92e61f9648bfbb74ea7b8e",
+          "rows": 14988,
+          "seconds": 2.956,
+          "csv_bytes": 2619240
+        },
+        {
+          "unit_id": "cf5ae7aa87ae81d04d07c7048a1c5157a7b76eb2b02891d017e8d1bc778000de",
+          "rows": 14992,
+          "seconds": 2.511,
+          "csv_bytes": 2633291
+        },
+        {
+          "unit_id": "1dd08370d24a467d570db78c6e23f34cd79e19de7f69957629efe88be3da4506",
+          "rows": 11252,
+          "seconds": 1.741,
+          "csv_bytes": 1970372
+        },
+        {
+          "unit_id": "a28dbcca17099ff56a0967853285f66a6e4ead1a1bb51319679bccbf3b9ad049",
+          "rows": 14992,
+          "seconds": 2.204,
+          "csv_bytes": 2570303
+        },
+        {
+          "unit_id": "ea55a54bd001db02805a568efa459e6db18490cd37f67cae0d3ce9d4576cc36f",
+          "rows": 14985,
+          "seconds": 1.965,
+          "csv_bytes": 2583669
+        },
+        {
+          "unit_id": "af688c6269feb8a057425dbb8edbcc3b01efa04201510760dc13caa957d8cff7",
+          "rows": 14858,
+          "seconds": 1.761,
+          "csv_bytes": 2527458
+        },
+        {
+          "unit_id": "e5b184b3a7deb10f114676187fbd80e371a77026b7ffe51bbc21b9d6721926af",
+          "rows": 14416,
+          "seconds": 1.64,
+          "csv_bytes": 2491277
+        },
+        {
+          "unit_id": "e41419dfd7963599ad969bdc79b42951b23d5201f41408abacccdc467949e5be",
+          "rows": 14997,
+          "seconds": 1.417,
+          "csv_bytes": 2605808
+        },
+        {
+          "unit_id": "79aa0dfd88d309e1dad22d7a79c8f398f0623c971b5406f1550e526d5eda427a",
+          "rows": 13987,
+          "seconds": 1.866,
+          "csv_bytes": 2464959
+        },
+        {
+          "unit_id": "57700398a19e77a3ad2a278cd5a0a908ec71dfdd8b3cc741c98893ca7cba2d01",
+          "rows": 12863,
+          "seconds": 1.427,
+          "csv_bytes": 2270125
+        },
+        {
+          "unit_id": "844004059ec7706cafd32f48226486d20d4ec7d60b671c7528075b489499406b",
+          "rows": 750,
+          "seconds": 1.408,
+          "csv_bytes": 130370
+        },
+        {
+          "unit_id": "550dd80e8e77cd5624177318f0470285ce0c83d740f4575441791150dd7988ba",
+          "rows": 14991,
+          "seconds": 1.522,
+          "csv_bytes": 2563627
+        },
+        {
+          "unit_id": "3351056d629f320a4a2e220119b22aa8739a5bd2775fd28006376c4264c92fd0",
+          "rows": 14540,
+          "seconds": 1.977,
+          "csv_bytes": 2508837
+        },
+        {
+          "unit_id": "e4f63f0839d346621b2927e5616cd46170023015887c557e2fecfb92e44d5bae",
+          "rows": 14995,
+          "seconds": 1.324,
+          "csv_bytes": 2572811
+        },
+        {
+          "unit_id": "3402fa3c02aa3f723a0d31399c762a31474efd8062153bdcc3c072896c948ca5",
+          "rows": 14982,
+          "seconds": 2.095,
+          "csv_bytes": 2564103
+        },
+        {
+          "unit_id": "cae0bfaacc96dda3057a094643a95a25453102993c7422f636758b6851888c2c",
+          "rows": 14994,
+          "seconds": 1.654,
+          "csv_bytes": 2609665
+        },
+        {
+          "unit_id": "ae8ef9ffc71b20359dbe5118fb4b7091e5e7fe0bf114b46565aa708b98f5e007",
+          "rows": 14992,
+          "seconds": 1.542,
+          "csv_bytes": 2573010
+        },
+        {
+          "unit_id": "f6c863a292946f248a41cd059a595f6d6cb46f57c260d6fb3153dd0b28faa286",
+          "rows": 14997,
+          "seconds": 1.409,
+          "csv_bytes": 2622077
+        },
+        {
+          "unit_id": "0ffeabc2d6a3e9e7d448848b7b1d90ec4b005da4bb37cbfc1344970366bcdff1",
+          "rows": 14940,
+          "seconds": 1.432,
+          "csv_bytes": 2623883
+        },
+        {
+          "unit_id": "6614d7277711e4448ac7a044d4753981a57fcc15333b0232443a00196925cb36",
+          "rows": 14392,
+          "seconds": 2.749,
+          "csv_bytes": 2524310
+        },
+        {
+          "unit_id": "ad40f55a08ff1a3a2afcbd10d0a5c62b7380df27a77a9165cec860cea4d9bd3e",
+          "rows": 12933,
+          "seconds": 1.539,
+          "csv_bytes": 2226131
+        },
+        {
+          "unit_id": "1d7e5779895c478bddbd39122443e57e199bb9b9c0d259fc8d15f778b3a1171a",
+          "rows": 14983,
+          "seconds": 1.416,
+          "csv_bytes": 2581979
+        },
+        {
+          "unit_id": "f43adeb3af2d84be71fb27e0d9fbf8b92839fe9bb67df698c7b1106742cfbd4d",
+          "rows": 14913,
+          "seconds": 2.084,
+          "csv_bytes": 2551480
+        },
+        {
+          "unit_id": "85480f1a5cb125e285b64591bbe356571ead72f6822d8a95603de1279c09a8a6",
+          "rows": 14692,
+          "seconds": 1.09,
+          "csv_bytes": 2507741
+        },
+        {
+          "unit_id": "9a18fea4c0f98703c05341d0a3c1c1abc166148b49108430f9a524842865a873",
+          "rows": 14589,
+          "seconds": 2.956,
+          "csv_bytes": 2539293
+        },
+        {
+          "unit_id": "6e0d88e546a94011063d68c0f284a8edbbd2eb88b42365e359eb2d1f01baab22",
+          "rows": 14995,
+          "seconds": 1.326,
+          "csv_bytes": 2609320
+        },
+        {
+          "unit_id": "5d6a67959be49ec95635728e1ce365672dcd4d6afea8664e6957028be50b4bb2",
+          "rows": 14864,
+          "seconds": 1.53,
+          "csv_bytes": 2626008
+        },
+        {
+          "unit_id": "d7b54ab0d010fa295ac212dcbfb989b340843a973360ad2d47004f99687999bb",
+          "rows": 11196,
+          "seconds": 1.22,
+          "csv_bytes": 1968265
+        },
+        {
+          "unit_id": "aaf0ce45224f86f73ed22e8a11f7c93119a05312a021fe3c09c0a2b807a9448f",
+          "rows": 15280,
+          "seconds": 1.524,
+          "csv_bytes": 2607010
+        },
+        {
+          "unit_id": "63963604371f8ee8d290eee384b09519ee955125e52bdd55c959acb950c5d568",
+          "rows": 15193,
+          "seconds": 1.213,
+          "csv_bytes": 2615418
+        },
+        {
+          "unit_id": "61aab9b26f397cd30ef52fee2d3d4643eb19b90cad101e4caef6d5ce56015e51",
+          "rows": 15288,
+          "seconds": 1.862,
+          "csv_bytes": 2606245
+        },
+        {
+          "unit_id": "af1ade32016b364accb3bed8e4c2e8bcf6406b78daa46834df95124c19e94c3b",
+          "rows": 15290,
+          "seconds": 1.12,
+          "csv_bytes": 2604234
+        },
+        {
+          "unit_id": "bbee5b4981d48e6d84ef38012e9e62d962f7dbb8baa33d91003eda8e734c6d5d",
+          "rows": 15295,
+          "seconds": 2.403,
+          "csv_bytes": 2644849
+        },
+        {
+          "unit_id": "e7cf5abd1ecd944812575e7fe679af48fde20e97c545cae2978d2858589885e7",
+          "rows": 15296,
+          "seconds": 3.132,
+          "csv_bytes": 2618588
+        },
+        {
+          "unit_id": "dd5ba3a892ad5b776b9ae18df4965e4eb3388879250923f4f989dfa0eab3173a",
+          "rows": 15287,
+          "seconds": 1.424,
+          "csv_bytes": 2656717
+        },
+        {
+          "unit_id": "346c6cefa9853ad7ddd77c762a1bec005a90f3b94b55b88f63892e2f8e7d8502",
+          "rows": 15276,
+          "seconds": 2.087,
+          "csv_bytes": 2673942
+        },
+        {
+          "unit_id": "01e2c49cb4dd12dfce66a0c0ba9ef9bb42c63fdeef213319fcc339fb9f1f1d2f",
+          "rows": 15296,
+          "seconds": 1.326,
+          "csv_bytes": 2675101
+        },
+        {
+          "unit_id": "ff8a2c610057a7f69386591f36ba2c04e6579ca11f343a13ec33704ff8f5b7b4",
+          "rows": 14247,
+          "seconds": 2.376,
+          "csv_bytes": 2468528
+        },
+        {
+          "unit_id": "d07a55436c9537e31ad52057af6a0da38471cbc604a0837b10d637e5adcd2d4a",
+          "rows": 15281,
+          "seconds": 1.418,
+          "csv_bytes": 2614618
+        },
+        {
+          "unit_id": "1f8b92c986afb008e09126b8ab7c4ead95a590ea69c52a8edc922a1b377804a3",
+          "rows": 15291,
+          "seconds": 1.84,
+          "csv_bytes": 2618526
+        },
+        {
+          "unit_id": "29476bcd953e7cddfa33f4578db4bda40fb5d32c2033b9fd40f738b410c8da95",
+          "rows": 15289,
+          "seconds": 1.439,
+          "csv_bytes": 2602876
+        },
+        {
+          "unit_id": "41c4075fd1166303c8ab5d1a430dfb8840c571c9c9edc680969ce9cb678c8074",
+          "rows": 14927,
+          "seconds": 1.321,
+          "csv_bytes": 2585051
+        },
+        {
+          "unit_id": "bbb059482cc44649e5dc310154d12c867c56bcf762a8e10472c062d1c36d911f",
+          "rows": 15292,
+          "seconds": 1.308,
+          "csv_bytes": 2639562
+        },
+        {
+          "unit_id": "fc2bd27a5d8262b46cf37e6a038839f7bda4ee5a904adfb00d4d29b8e3dd640f",
+          "rows": 15291,
+          "seconds": 1.322,
+          "csv_bytes": 2680779
+        },
+        {
+          "unit_id": "ee9fd71e66da8ca6fe9c3a4d85272d6a4c3ec38518173b5f72c28c637cd3c37e",
+          "rows": 14940,
+          "seconds": 1.875,
+          "csv_bytes": 2607852
+        },
+        {
+          "unit_id": "dd219dd4df9a791050aab6e1a8ae539dd56b93c0f6e09d8aa34dbd8b79f80b3d",
+          "rows": 1485,
+          "seconds": 0.784,
+          "csv_bytes": 259018
+        },
+        {
+          "unit_id": "0f4646ca31f2d45b7220c7e7d600f6063fe0f6536672cd3a300065d8c06c0da4",
+          "rows": 15450,
+          "seconds": 1.782,
+          "csv_bytes": 2651985
+        },
+        {
+          "unit_id": "0ee6c2d4867802c60615e8d23be2c4bb67d0aa2ae74ec3f4e989d378613a65bc",
+          "rows": 15227,
+          "seconds": 2.956,
+          "csv_bytes": 2640746
+        },
+        {
+          "unit_id": "ff80c0b54de9d07834bf4b9ddb301e8ed806d6504dfd98c02952a03491d6004e",
+          "rows": 15554,
+          "seconds": 1.616,
+          "csv_bytes": 2680027
+        },
+        {
+          "unit_id": "12ff58e6769e0778b7ab168d45ea2614176601f2d4321d8f4449aef03db6aee0",
+          "rows": 15587,
+          "seconds": 1.84,
+          "csv_bytes": 2677851
+        },
+        {
+          "unit_id": "a2059feecd7776f8a114c98b8fd103bf9c7ba861f0ec1dd94de1c35da846ecdb",
+          "rows": 15560,
+          "seconds": 1.227,
+          "csv_bytes": 2713468
+        },
+        {
+          "unit_id": "83ee400a3f89a88b25f5b14350dde4cbb4465e7602a1b87b29dc96afeb975595",
+          "rows": 15386,
+          "seconds": 1.425,
+          "csv_bytes": 2660577
+        },
+        {
+          "unit_id": "78622dd21e835848bcc73a0bb6feac5d7181197abff533b4f4b2e7355e25e22a",
+          "rows": 15548,
+          "seconds": 2.719,
+          "csv_bytes": 2727551
+        },
+        {
+          "unit_id": "98bb72683491176ed8b5efc02e93077734dace30dd1581233dc5828ea8939405",
+          "rows": 15586,
+          "seconds": 1.438,
+          "csv_bytes": 2750364
+        },
+        {
+          "unit_id": "ffeb67d752cebc398e758843988121fdfafcc6677569542d7743d50416845246",
+          "rows": 15567,
+          "seconds": 1.858,
+          "csv_bytes": 2738616
+        },
+        {
+          "unit_id": "83259bd869a90eb705f23293eda9bb6b98d72d4afc618caa524bca1c019155b3",
+          "rows": 14826,
+          "seconds": 1.734,
+          "csv_bytes": 2596189
+        },
+        {
+          "unit_id": "70fb4864475f3f20d4bf06fba5a5b7fecb23d45aced6a590bbc56533648770f6",
+          "rows": 15451,
+          "seconds": 1.869,
+          "csv_bytes": 2655070
+        },
+        {
+          "unit_id": "20c9e62e3326d648799dd501f2ade0537e7057909977e128b670d0be60fb15ef",
+          "rows": 15384,
+          "seconds": 1.443,
+          "csv_bytes": 2664980
+        },
+        {
+          "unit_id": "8d9f4948ae7011f72d927d0468b0938685257714f1f284921ef89f827c84f557",
+          "rows": 15400,
+          "seconds": 1.874,
+          "csv_bytes": 2625655
+        },
+        {
+          "unit_id": "a7b139f9e35dc4653a09c007f43a910475017744df075e3a293a7dc511dc2108",
+          "rows": 15158,
+          "seconds": 2.926,
+          "csv_bytes": 2645221
+        },
+        {
+          "unit_id": "9e351be14aa0a32c696b27c84344e3b43fbfab3cd90ae564570b5e31a5d4077b",
+          "rows": 15443,
+          "seconds": 1.524,
+          "csv_bytes": 2690454
+        },
+        {
+          "unit_id": "ef795fa89dcd3b3a4f8cb561a44ae3705ca5480e2a8cf63727f5a24c659f167c",
+          "rows": 15577,
+          "seconds": 2.735,
+          "csv_bytes": 2746573
+        },
+        {
+          "unit_id": "6c19ba08f13422a9dc76cad5e665451889385a3af3a28c8d3f84290b5d0a101c",
+          "rows": 15563,
+          "seconds": 1.973,
+          "csv_bytes": 2741031
+        },
+        {
+          "unit_id": "92ec19ba9c6d7d92a6a816b197915cc6158a9f7ba4e1a6749f2135fb490bdca4",
+          "rows": 8799,
+          "seconds": 1.312,
+          "csv_bytes": 1552176
+        },
+        {
+          "unit_id": "e86b8fc80aa3e77c73a09e1885e1171c1aa7ca4aa445d05d0f80da17ab690015",
+          "rows": 1619,
+          "seconds": 0.667,
+          "csv_bytes": 283236
+        },
+        {
+          "unit_id": "6b20506d0afd75cc1f7c1f0193bb0e20516ebedb5dfe4b672d44727fd3ca2db2",
+          "rows": 11354,
+          "seconds": 0.795,
+          "csv_bytes": 1958433
+        },
+        {
+          "unit_id": "e62d2f670278b38ef3ce14588ddb87b4f435a60b3609c1304045a4d3fa5f5517",
+          "rows": 11223,
+          "seconds": 3.283,
+          "csv_bytes": 1956537
+        },
+        {
+          "unit_id": "e6db53dc1678859ce85db1b16b0d3790a799485ebdb076fbe336e7314198ab50",
+          "rows": 11363,
+          "seconds": 1.089,
+          "csv_bytes": 1968659
+        },
+        {
+          "unit_id": "6a3c18d5af0646c0c6a2aaf873833d9ad92922085339516a92eae6311b22ddb4",
+          "rows": 11396,
+          "seconds": 2.069,
+          "csv_bytes": 1967001
+        },
+        {
+          "unit_id": "7b01a52649cc916e786f8562253b916615900bc58ef9293faaa46294cd0fc08a",
+          "rows": 11348,
+          "seconds": 0.89,
+          "csv_bytes": 1987791
+        },
+        {
+          "unit_id": "33b181266ced475d32e2adf4db8603fbf36fea790321c30926faa7faacf43dc2",
+          "rows": 11376,
+          "seconds": 3.594,
+          "csv_bytes": 1977450
+        },
+        {
+          "unit_id": "d6b2f10ec2542efde8ae7ff30b82ba6f6edd4a7671f73841d3b3c91be26e8252",
+          "rows": 11305,
+          "seconds": 1.097,
+          "csv_bytes": 1992310
+        },
+        {
+          "unit_id": "6ff8044006b20b9ce288afd8b27715eb43329ff2def3e9198a8042c15b71c58a",
+          "rows": 11390,
+          "seconds": 1.333,
+          "csv_bytes": 2019375
+        },
+        {
+          "unit_id": "77944b146a67647b724316d38dff0dfe1d2a572e05793a68f72adfba07ed2c4b",
+          "rows": 11388,
+          "seconds": 1.854,
+          "csv_bytes": 2011053
+        },
+        {
+          "unit_id": "59318ab209caba3d550ac83e3af31e5de2a7e140e628210b18ad8833549d61fe",
+          "rows": 10945,
+          "seconds": 2.178,
+          "csv_bytes": 1934523
+        },
+        {
+          "unit_id": "126aec8163328e4cbfaf04d42b2240da8ac7b4d0ae7a2bf82042e7ab85820e0c",
+          "rows": 11299,
+          "seconds": 0.989,
+          "csv_bytes": 1953501
+        },
+        {
+          "unit_id": "7d54104e8db7eae2f324f82dd6b5c74b978132349198149cc93dac1ce26bb317",
+          "rows": 11318,
+          "seconds": 1.525,
+          "csv_bytes": 1965723
+        },
+        {
+          "unit_id": "90320ccb4033d3cbe33694f4251bda571d7e245ded5a10184ca3e4b3c06eaa4c",
+          "rows": 11310,
+          "seconds": 2.071,
+          "csv_bytes": 1937042
+        },
+        {
+          "unit_id": "4586066e37ce21e88388c82b920618241d6655f09f77687cf812726fb70fea47",
+          "rows": 11339,
+          "seconds": 1.109,
+          "csv_bytes": 1989863
+        },
+        {
+          "unit_id": "4d836de645b160712bddb8e39cf6f96ee633bee2213677044055972be80db06a",
+          "rows": 11273,
+          "seconds": 3.367,
+          "csv_bytes": 1975118
+        },
+        {
+          "unit_id": "2c0c3df65305036e3125ecf8ec4dc560b634ac2451a3a9ed2e496f83d3d3e27b",
+          "rows": 11364,
+          "seconds": 1.306,
+          "csv_bytes": 2018125
+        },
+        {
+          "unit_id": "8b376743746a692606a523188a28bd4258d714fe02dbe8a55ce0cfb2f2df3f4f",
+          "rows": 11377,
+          "seconds": 1.106,
+          "csv_bytes": 2025213
+        },
+        {
+          "unit_id": "d1ed6c5cede198db8d4f3f4b7adb7ecacb7b54c3292965d6f375612c209e1fef",
+          "rows": 9949,
+          "seconds": 1.66,
+          "csv_bytes": 1765672
+        },
+        {
+          "unit_id": "4bae617d5aa81318444b8f07bcafba8e0f2f2d25024fae381e843cf257a44977",
+          "rows": 6998,
+          "seconds": 0.901,
+          "csv_bytes": 1215294
+        }
+      ],
+      "capture": {
+        "plan_hash": "bf673c3b60473a8430ea2bfb5a2ada07f69130975a2116f1808d99f438e8f6ec",
+        "completed_units": 212,
+        "source_rows": 2891262,
+        "status": "captured",
+        "formal_writes": 0
+      },
+      "capture_seconds": 435.355,
+      "final_audit": {
+        "rows": 2891262,
+        "duplicate_keys": 0,
+        "files": 857,
+        "all_file_hashes_match": true,
+        "annual_value_difference_rows": 0,
+        "formal_bytes": 157624274
+      }
+    }
+  },
+  "instance_writes": 0,
+  "peak_rss_bytes": 1867988992,
+  "final_reconciliation": {
+    "status": "passed",
+    "source_inventory_delta_rows": 0,
+    "source_date_bounds_delta_rows": 0,
+    "sources": [
+      {
+        "source": "primary_unadjusted",
+        "code_year_inventory_difference_rows": 0,
+        "rows": 2895784,
+        "files": 857,
+        "code_year_inventory": "/Users/congming/github/goldenshare/reports/stock_week_m5_primary_unadjusted_formal_code_year_inventory_20261003.csv"
+      },
+      {
+        "source": "primary_adjusted",
+        "code_year_inventory_difference_rows": 0,
+        "rows": 2891262,
+        "files": 857,
+        "code_year_inventory": "/Users/congming/github/goldenshare/reports/stock_week_m5_primary_adjusted_formal_code_year_inventory_20261003.csv"
+      }
+    ],
+    "business_value_scope": "Exact captured per-unit snapshots; annual EXCEPT ALL zero and formal hashes match audited candidates. Inventory delta does not certify later same-key value revisions.",
+    "instance_writes": 0
+  }
+}

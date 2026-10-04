@@ -1,0 +1,7 @@
+id,resource_key,status,time_input_json,filters_json,trigger_source,requested_at,ended_at,rows_saved,rows_rejected,status_reason_code
+14272,stk_period_bar_adj_week,failed,"{""mode"": ""point""}",{},scheduled,2026-10-02 22:04:23.177281+08,2026-10-02 22:05:48.728931+08,0,0,invalid_anchor_date
+14271,stk_period_bar_week,failed,"{""mode"": ""point""}",{},scheduled,2026-10-02 22:03:23.13785+08,2026-10-02 22:05:48.712809+08,0,0,invalid_anchor_date
+14218,stk_period_bar_week,success,"{""mode"": ""point"", ""trade_date"": ""2026-06-19""}",{},manual,2026-10-02 20:32:44.189989+08,2026-10-02 20:32:50.794358+08,5517,0,
+14217,stk_period_bar_week,success,"{""mode"": ""point"", ""trade_date"": ""2026-09-25""}",{},manual,2026-10-02 20:32:33.716627+08,2026-10-02 20:32:45.967889+08,5559,0,
+14216,stk_period_bar_adj_week,success,"{""mode"": ""point"", ""trade_date"": ""2026-09-25""}",{},manual,2026-10-02 20:32:07.572027+08,2026-10-02 20:32:18.44386+08,5559,0,
+14215,stk_period_bar_adj_week,success,"{""mode"": ""point"", ""trade_date"": ""2026-06-19""}",{},manual,2026-10-02 20:31:44.135467+08,2026-10-02 20:31:55.914097+08,5517,0,

@@ -3491,7 +3491,7 @@ LAKE_ASSET_CATALOG += tuple(
             batch_grain="source/week_end",
             compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="bounded_single_week_explicit_fields",
-            notes="年度bootstrap；单周更新，禁止历史逐周源扫描。",
+            notes=("备用weekly仅手动；禁止自动诊断、fallback或修复。" if source is StockWeeklySource.ALTERNATE_WEEKLY else "年度bootstrap；每日19:30更新已结束周，两主源串行；6000/页、4页、每页最多3次调用；完整周日线覆盖门禁与持久化receipt续跑，禁止历史逐周源扫描。"),
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS

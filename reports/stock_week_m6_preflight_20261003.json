@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "same_device": true,
+  "staging_writable": true,
+  "lake_writable": true,
+  "free_bytes": 2937954455552,
+  "target": "/Volumes/datasource/data_lake/raw/tushare/weekly",
+  "target_exists": false,
+  "years": 15,
+  "units": 69,
+  "keys": 3132,
+  "max_requests": 207,
+  "formal_writes": 0,
+  "instance_writes": 0
+}

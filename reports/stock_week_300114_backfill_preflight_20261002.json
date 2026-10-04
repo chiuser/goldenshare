@@ -1,0 +1,1542 @@
+{
+  "batch": "stock_week_300114_20261002_user_authorized",
+  "database": "goldenshare",
+  "requested_by_user_id": null,
+  "authorization": "Explicit user request in this Codex chat; submit the source-verified quarterly weekly maintain tasks for 300114.SZ sequentially",
+  "plans": [
+    {
+      "index": 1,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2025-01-03",
+        "end_date": "2025-02-14"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 7
+    },
+    {
+      "index": 2,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2025-01-03",
+        "end_date": "2025-02-14"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 7
+    },
+    {
+      "index": 3,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2024-10-04",
+        "end_date": "2024-12-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 4,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2024-10-04",
+        "end_date": "2024-12-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 5,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2024-07-05",
+        "end_date": "2024-09-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 6,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2024-07-05",
+        "end_date": "2024-09-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 7,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2024-04-05",
+        "end_date": "2024-06-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 8,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2024-04-05",
+        "end_date": "2024-06-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 9,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2024-01-05",
+        "end_date": "2024-03-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 10,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2024-01-05",
+        "end_date": "2024-03-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 11,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2023-10-13",
+        "end_date": "2023-12-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 12,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2023-10-13",
+        "end_date": "2023-12-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 13,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2023-07-07",
+        "end_date": "2023-09-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 14,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2023-07-07",
+        "end_date": "2023-09-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 15,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2023-04-07",
+        "end_date": "2023-06-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 16,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2023-04-07",
+        "end_date": "2023-06-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 17,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2023-01-06",
+        "end_date": "2023-03-31"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 18,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2023-01-06",
+        "end_date": "2023-03-31"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 19,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2022-10-14",
+        "end_date": "2022-12-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 20,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2022-10-14",
+        "end_date": "2022-12-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 21,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2022-07-01",
+        "end_date": "2022-09-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 22,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2022-07-01",
+        "end_date": "2022-09-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 23,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2022-04-01",
+        "end_date": "2022-06-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 24,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2022-04-01",
+        "end_date": "2022-06-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 25,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2022-01-07",
+        "end_date": "2022-03-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 26,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2022-01-07",
+        "end_date": "2022-03-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 27,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2021-10-01",
+        "end_date": "2021-12-31"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 28,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2021-10-01",
+        "end_date": "2021-12-31"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 29,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2021-07-02",
+        "end_date": "2021-09-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 30,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2021-07-02",
+        "end_date": "2021-09-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 31,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2021-04-02",
+        "end_date": "2021-06-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 32,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2021-04-02",
+        "end_date": "2021-06-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 33,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2021-01-01",
+        "end_date": "2021-03-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 34,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2021-01-01",
+        "end_date": "2021-03-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 35,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2020-10-02",
+        "end_date": "2020-12-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 36,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2020-10-02",
+        "end_date": "2020-12-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 37,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2020-07-03",
+        "end_date": "2020-09-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 38,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2020-07-03",
+        "end_date": "2020-09-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 39,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2020-04-03",
+        "end_date": "2020-06-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 40,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2020-04-03",
+        "end_date": "2020-06-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 41,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2020-01-03",
+        "end_date": "2020-03-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 42,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2020-01-03",
+        "end_date": "2020-03-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 43,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2019-10-04",
+        "end_date": "2019-12-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 44,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2019-10-04",
+        "end_date": "2019-12-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 45,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2019-07-05",
+        "end_date": "2019-09-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 46,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2019-07-05",
+        "end_date": "2019-09-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 47,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2019-04-05",
+        "end_date": "2019-06-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 48,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2019-04-05",
+        "end_date": "2019-06-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 49,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2019-01-04",
+        "end_date": "2019-03-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 50,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2019-01-04",
+        "end_date": "2019-03-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 51,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2018-10-12",
+        "end_date": "2018-12-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 52,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2018-10-12",
+        "end_date": "2018-12-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 53,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2018-07-06",
+        "end_date": "2018-09-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 54,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2018-07-06",
+        "end_date": "2018-09-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 55,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2018-04-06",
+        "end_date": "2018-06-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 56,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2018-04-06",
+        "end_date": "2018-06-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 57,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2018-01-05",
+        "end_date": "2018-03-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 58,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2018-01-05",
+        "end_date": "2018-03-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 59,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2017-10-13",
+        "end_date": "2017-12-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 60,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2017-10-13",
+        "end_date": "2017-12-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 61,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2017-07-07",
+        "end_date": "2017-09-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 62,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2017-07-07",
+        "end_date": "2017-09-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 63,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2017-04-07",
+        "end_date": "2017-06-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 64,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2017-04-07",
+        "end_date": "2017-06-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 65,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2017-01-06",
+        "end_date": "2017-03-31"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 66,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2017-01-06",
+        "end_date": "2017-03-31"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 67,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2016-10-14",
+        "end_date": "2016-12-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 68,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2016-10-14",
+        "end_date": "2016-12-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 69,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2016-07-01",
+        "end_date": "2016-09-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 70,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2016-07-01",
+        "end_date": "2016-09-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 71,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2016-04-01",
+        "end_date": "2016-06-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 72,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2016-04-01",
+        "end_date": "2016-06-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 73,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2016-01-01",
+        "end_date": "2016-03-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 74,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2016-01-01",
+        "end_date": "2016-03-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 75,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2015-10-02",
+        "end_date": "2015-12-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 76,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2015-10-02",
+        "end_date": "2015-12-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 77,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2015-07-03",
+        "end_date": "2015-09-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 78,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2015-07-03",
+        "end_date": "2015-09-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 79,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2015-04-03",
+        "end_date": "2015-06-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 80,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2015-04-03",
+        "end_date": "2015-06-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 81,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2015-01-02",
+        "end_date": "2015-03-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 82,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2015-01-02",
+        "end_date": "2015-03-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 83,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2014-10-03",
+        "end_date": "2014-12-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 84,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2014-10-03",
+        "end_date": "2014-12-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 85,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2014-07-04",
+        "end_date": "2014-09-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 86,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2014-07-04",
+        "end_date": "2014-09-26"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 87,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2014-04-04",
+        "end_date": "2014-06-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 88,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2014-04-04",
+        "end_date": "2014-06-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 89,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2014-01-03",
+        "end_date": "2014-03-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 90,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2014-01-03",
+        "end_date": "2014-03-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 91,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2013-10-04",
+        "end_date": "2013-12-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 92,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2013-10-04",
+        "end_date": "2013-12-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 93,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2013-07-05",
+        "end_date": "2013-09-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 94,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2013-07-05",
+        "end_date": "2013-09-27"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 95,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2013-06-14",
+        "end_date": "2013-06-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 3
+    },
+    {
+      "index": 96,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2013-06-14",
+        "end_date": "2013-06-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 3
+    },
+    {
+      "index": 97,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2013-01-04",
+        "end_date": "2013-03-01"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 9
+    },
+    {
+      "index": 98,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2013-01-04",
+        "end_date": "2013-03-01"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 9
+    },
+    {
+      "index": 99,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2012-10-12",
+        "end_date": "2012-12-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 100,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2012-10-12",
+        "end_date": "2012-12-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 101,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2012-07-06",
+        "end_date": "2012-09-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 102,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2012-07-06",
+        "end_date": "2012-09-28"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 103,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2012-04-06",
+        "end_date": "2012-06-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 104,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2012-04-06",
+        "end_date": "2012-06-29"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 105,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2012-01-06",
+        "end_date": "2012-03-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 106,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2012-01-06",
+        "end_date": "2012-03-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 107,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2011-10-14",
+        "end_date": "2011-12-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 108,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2011-10-14",
+        "end_date": "2011-12-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 109,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2011-07-01",
+        "end_date": "2011-09-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 110,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2011-07-01",
+        "end_date": "2011-09-30"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 111,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2011-04-01",
+        "end_date": "2011-06-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 112,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2011-04-01",
+        "end_date": "2011-06-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 13
+    },
+    {
+      "index": 113,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2011-01-07",
+        "end_date": "2011-03-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 114,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2011-01-07",
+        "end_date": "2011-03-25"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 12
+    },
+    {
+      "index": 115,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2010-10-01",
+        "end_date": "2010-12-31"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 116,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2010-10-01",
+        "end_date": "2010-12-31"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 14
+    },
+    {
+      "index": 117,
+      "resource_key": "stk_period_bar_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2010-08-27",
+        "end_date": "2010-09-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 5
+    },
+    {
+      "index": 118,
+      "resource_key": "stk_period_bar_adj_week",
+      "time_input": {
+        "mode": "range",
+        "start_date": "2010-08-27",
+        "end_date": "2010-09-24"
+      },
+      "filters": {
+        "ts_code": "300114.SZ"
+      },
+      "units": 5
+    }
+  ]
+}

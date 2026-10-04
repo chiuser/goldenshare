@@ -1,0 +1,81 @@
+{
+  "status": "passed",
+  "records": [
+    {
+      "source": "primary_unadjusted",
+      "plan_hash": "54d11898ff9b6d8f1da2082bfd679ef1a9affa2b9083d343bf8e24b50fc33413",
+      "initial_calls": [],
+      "resume_calls": [],
+      "replay_calls": 0,
+      "capture": {
+        "plan_hash": "54d11898ff9b6d8f1da2082bfd679ef1a9affa2b9083d343bf8e24b50fc33413",
+        "completed_units": 3,
+        "source_rows": 41932,
+        "status": "captured",
+        "formal_writes": 0
+      },
+      "candidate_audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/54d11898ff9b6d8f1da2082bfd679ef1a9affa2b9083d343bf8e24b50fc33413/assemblies/2025-f22d039c62ba4df8861b61d4b008d5f1/audit.json",
+      "candidate_rows": 15450,
+      "files": 52,
+      "value_difference_rows": 0,
+      "preflight": {
+        "status": "correctly_rejected",
+        "reason": "cross_device_promotion_forbidden"
+      },
+      "promoted": {
+        "status": "not_executed",
+        "reason": "partial-scope pilot only validates candidate; formal promotion requires full scope"
+      }
+    },
+    {
+      "source": "primary_adjusted",
+      "plan_hash": "de90d3f01def6cc9102595d7a3d0e25d081135105c60625f707c890a2d50fef0",
+      "initial_calls": [
+        {
+          "unit_id": "aaf0ce45224f86f73ed22e8a11f7c93119a05312a021fe3c09c0a2b807a9448f",
+          "source_rows": 15280,
+          "seconds": 1.777,
+          "csv_bytes": 2607010
+        }
+      ],
+      "resume_calls": [
+        {
+          "unit_id": "0f4646ca31f2d45b7220c7e7d600f6063fe0f6536672cd3a300065d8c06c0da4",
+          "source_rows": 15450,
+          "seconds": 1.778,
+          "csv_bytes": 2651985
+        },
+        {
+          "unit_id": "7fddfa819c870311f6624ceab29e502f0ebb0645be87f43b6769270b28d9dd48",
+          "source_rows": 11202,
+          "seconds": 2.106,
+          "csv_bytes": 1931639
+        }
+      ],
+      "replay_calls": 0,
+      "capture": {
+        "plan_hash": "de90d3f01def6cc9102595d7a3d0e25d081135105c60625f707c890a2d50fef0",
+        "completed_units": 3,
+        "source_rows": 41932,
+        "status": "captured",
+        "formal_writes": 0
+      },
+      "candidate_audit": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/de90d3f01def6cc9102595d7a3d0e25d081135105c60625f707c890a2d50fef0/assemblies/2025-0512b81f94b24cbe921afff216c518b8/audit.json",
+      "candidate_rows": 15450,
+      "files": 52,
+      "value_difference_rows": 0,
+      "preflight": {
+        "status": "correctly_rejected",
+        "reason": "cross_device_promotion_forbidden"
+      },
+      "promoted": {
+        "status": "not_executed",
+        "reason": "partial-scope pilot only validates candidate; formal promotion requires full scope"
+      }
+    }
+  ],
+  "target_root": "/private/tmp/stock_week_m5_copy_pilot_9c653481fb08456d88dc78fb243c3df1",
+  "formal_lake_writes": 0,
+  "instance_writes": 0,
+  "peak_rss_bytes": 396263424
+}

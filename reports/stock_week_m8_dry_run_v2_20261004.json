@@ -1,0 +1,1 @@
+{"counts": {"blocked_checks": 0, "checks": 7551, "files": 2517, "historical_latest_failed": 0, "materializations": 2517, "records_returned": 0, "rows": 5926727}, "plan_hash": "39154bfe35d3395c65472513fb08805866fa7aa707d906d76f916429368a2012", "registrations": 857, "status": "dry_run"}

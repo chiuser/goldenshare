@@ -13,6 +13,7 @@ from orchestrator.defs.assets.adj_factor import (
     raw_tushare_adj_factor,
     silver_adj_factor,
 )
+from orchestrator.defs.assets.anns_d import raw_tushare_anns_d
 from orchestrator.defs.assets.calendar import (
     TRADE_CALENDAR_RAW_COLUMN_TYPES,
     raw_tushare_trade_calendar,
@@ -263,6 +264,7 @@ DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 
 
 ACTIVE_ASSET_DEFINITIONS = (
+    raw_tushare_anns_d,
     raw_tushare_stk_period_bar_week, raw_tushare_stk_period_bar_adj_week, raw_tushare_weekly,
     raw_tushare_daily_basic,
     raw_tushare_trade_calendar,

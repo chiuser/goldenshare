@@ -1,0 +1,1 @@
+{"check": "raw_tushare_stk_period_bar_week_delivery_reconciliation_check", "plan_hash": "39154bfe35d3395c65472513fb08805866fa7aa707d906d76f916429368a2012", "source": "primary_unadjusted", "stage": "checks", "week": "2014-09-26", "writes": 75}

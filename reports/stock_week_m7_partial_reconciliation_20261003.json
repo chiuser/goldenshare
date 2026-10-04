@@ -1,0 +1,92 @@
+{
+  "status": "partial_independent_audit_passed_not_global_complete",
+  "as_of": "2026-10-03T14:34:20.268983+00:00",
+  "years": [
+    {
+      "year": 2010,
+      "units": 155,
+      "source_rows": 7095,
+      "business_differences": 0,
+      "formal_audit_files_verified": 52
+    },
+    {
+      "year": 2011,
+      "units": 168,
+      "source_rows": 7849,
+      "business_differences": 0,
+      "formal_audit_files_verified": 51
+    },
+    {
+      "year": 2012,
+      "units": 177,
+      "source_rows": 8233,
+      "business_differences": 0,
+      "formal_audit_files_verified": 50
+    },
+    {
+      "year": 2013,
+      "units": 175,
+      "source_rows": 8298,
+      "business_differences": 0,
+      "formal_audit_files_verified": 51
+    },
+    {
+      "year": 2014,
+      "units": 178,
+      "source_rows": 7961,
+      "business_differences": 0,
+      "formal_audit_files_verified": 52
+    },
+    {
+      "year": 2015,
+      "units": 182,
+      "source_rows": 7205,
+      "business_differences": 0,
+      "formal_audit_files_verified": 52
+    },
+    {
+      "year": 2016,
+      "units": 177,
+      "source_rows": 7761,
+      "business_differences": 0,
+      "formal_audit_files_verified": 51
+    },
+    {
+      "year": 2017,
+      "units": 177,
+      "source_rows": 7387,
+      "business_differences": 0,
+      "formal_audit_files_verified": 51
+    },
+    {
+      "year": 2018,
+      "units": 174,
+      "source_rows": 7486,
+      "business_differences": 0,
+      "formal_audit_files_verified": 51
+    },
+    {
+      "year": 2019,
+      "units": 169,
+      "source_rows": 8099,
+      "business_differences": 0,
+      "formal_audit_files_verified": 51
+    },
+    {
+      "year": 2020,
+      "units": 162,
+      "source_rows": 7371,
+      "business_differences": 0,
+      "formal_audit_files_verified": 51
+    },
+    {
+      "year": 2021,
+      "units": 219,
+      "source_rows": 7462,
+      "business_differences": 0,
+      "formal_audit_files_verified": 53
+    }
+  ],
+  "formal_writes": 0,
+  "instance_writes": 0
+}

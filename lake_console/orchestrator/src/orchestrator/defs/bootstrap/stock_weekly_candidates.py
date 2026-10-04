@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import date, timedelta
 from pathlib import Path
+
+from duckdb import Error as DuckDBError
 
 from orchestrator.defs.bootstrap.stock_weekly_capture import (
     WeeklyCaptureError,
@@ -31,12 +34,101 @@ from orchestrator.defs.io.stock_weekly_raw import (
 )
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
 from orchestrator.defs.run_contracts.stock_weekly import (
+    ProdWeeklyScope,
     ProdWeeklyUnit,
+    ProdYearInventory,
     normalize_week_key,
     stable_weekly_hash,
     weekly_dataset_id,
     weekly_schema_hash,
 )
+from orchestrator.defs.stock_weekly_planner import freeze_prod_weekly_plan
+
+
+def verified_empty_inventory_intervals(manifest):
+    """Only a complete frozen inventory can prove an empty boundary year."""
+    verify_weekly_plan_evidence(manifest)
+    path = Path(manifest.evidence_ref)
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parents[6] / path
+    if path.suffix != ".json":
+        return ()
+    if path.stat().st_size > 16 * 1024 * 1024:
+        raise WeeklyCaptureError("inventory_evidence_budget_exceeded")
+    try:
+        payload = json.loads(path.read_text())
+    except ValueError:
+        raise WeeklyCaptureError("inventory_evidence_invalid") from None
+    if not isinstance(payload, dict) or payload.get("kind") != "prod_weekly_inventory":
+        return ()
+    try:
+        if payload["version"] != 1 or payload["source"] != manifest.source.value:
+            raise ValueError("inventory_identity")
+        snapshots = payload["snapshot"]
+        if not snapshots or any(
+            s["readonly"] != "on" or s["isolation"] != "repeatable read"
+            for s in snapshots
+        ):
+            raise ValueError("inventory_snapshot")
+        inventories = tuple(
+            ProdYearInventory(i["year"], tuple(i["codes"]), i["source_rows"])
+            for i in payload["inventories"]
+        )
+        if len(inventories) * 54 > manifest.budget.max_phase_files:
+            raise ValueError("inventory_year_budget")
+        scope = ProdWeeklyScope(
+            manifest.source,
+            inventories,
+            manifest.evidence_ref,
+            manifest.evidence_hash,
+            manifest.budget,
+        )
+        if freeze_prod_weekly_plan(scope) != manifest:
+            raise ValueError("inventory_manifest")
+        empty_years = tuple(i.year for i in scope.inventories if i.source_rows == 0)
+        if tuple(payload["empty_years"]) != empty_years:
+            raise ValueError("inventory_empty_years")
+        if payload["date_window"] != [
+            f"{scope.inventories[0].year}-01-01",
+            f"{scope.inventories[-1].year + 1}-01-01",
+        ]:
+            raise ValueError("inventory_window")
+        input_proof = payload["input_inventory"]
+        input_manifest = replace(
+            manifest,
+            evidence_ref=input_proof["path"],
+            evidence_hash=input_proof["sha256"],
+        )
+        verify_weekly_plan_evidence(input_manifest)
+        if Path(input_proof["path"]).stat().st_size > 16 * 1024 * 1024:
+            raise WeeklyCaptureError("inventory_evidence_budget_exceeded")
+        settings = DuckDBConnectionSettings(
+            temp_directory=Path(tempfile.gettempdir()).resolve(),
+            memory_limit=manifest.budget.duckdb_memory_limit,
+            threads=manifest.budget.duckdb_threads,
+            max_temp_directory_size=manifest.budget.duckdb_max_temp,
+        )
+        with connect_configured_duckdb(
+            settings, temp_policy="existing_no_spill"
+        ) as con:
+            actual = {
+                y: (tuple(codes), count)
+                for y, codes, count in con.execute(
+                    "SELECT CAST(year AS INTEGER),list(ts_code ORDER BY ts_code),"
+                    "sum(CAST(source_rows AS BIGINT)) FROM read_csv(?,header=true,all_varchar=true) "
+                    "WHERE source=? GROUP BY year",
+                    [input_proof["path"], manifest.source.value],
+                ).fetchall()
+            }
+        expected = {
+            i.year: (i.codes, i.source_rows) for i in scope.inventories if i.source_rows
+        }
+        if actual != expected:
+            raise ValueError("inventory_control_counts")
+        verify_weekly_plan_evidence(input_manifest)
+    except (KeyError, TypeError, ValueError, DuckDBError):
+        raise WeeklyCaptureError("inventory_evidence_invalid") from None
+    return tuple((date(y, 1, 1), date(y + 1, 1, 1)) for y in empty_years)
 
 
 def validate_root(root: Path, *, staging: bool):
@@ -173,7 +265,10 @@ def build_weekly_partition_candidates(
         raise WeeklyCaptureError("year_inventory_missing")
     # Adjacent calendar-year units must be included when the scope is full.
     if not partial_scope and isinstance(units[0], ProdWeeklyUnit):
-        intervals = sorted({unit_window(u) for u in units})
+        intervals = sorted(
+            {unit_window(u) for u in units}
+            | set(verified_empty_inventory_intervals(manifest))
+        )
         cursor = start
         for lo, hi in intervals:
             if lo > cursor:
@@ -205,6 +300,13 @@ def build_weekly_partition_candidates(
         if not proof.is_absolute():
             proof = repo / proof
         evidence = [{"path": str(proof), "sha256": manifest.evidence_hash}]
+        if isinstance(units[0], ProdWeeklyUnit) and proof.suffix == ".json":
+            payload = json.loads(proof.read_text())
+            if (
+                isinstance(payload, dict)
+                and payload.get("kind") == "prod_weekly_inventory"
+            ):
+                evidence.append(dict(payload["input_inventory"]))
         evidence.append(
             {
                 "path": str(store.root / "plan.json"),
@@ -224,6 +326,11 @@ def build_weekly_partition_candidates(
                     proof_path = repo / proof_path
                 evidence.append({"path": str(proof_path), "sha256": digest})
             directory = receipt_path.parent
+            for artifact in receipt.get("source_evidence", {}).get(
+                "capture_artifacts", []
+            ):
+                path = store.unit_directory(unit) / artifact["path"]
+                evidence.append({"path": str(path), "sha256": artifact["sha256"]})
             for chunk in receipt["chunks"]:
                 path = directory / chunk["path"]
                 inputs.append(path)

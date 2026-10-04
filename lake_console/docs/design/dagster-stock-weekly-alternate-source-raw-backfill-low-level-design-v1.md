@@ -1,6 +1,6 @@
 # DG 股票周线备用源 Raw 补齐：代码级 LLD v1
 
-日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture、M3候选与提升恢复已完成开发及隔离验收；M4 definitions及受限单周手动交付已完成开发和隔离验收；M9更新编排及正式同步／启用尚未实施。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
+日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture、M3候选与提升恢复已完成开发及隔离验收；M4 definitions及受限单周手动交付已完成开发和隔离验收；M5两主源物理bootstrap与M6五只备用源补齐已完成；M7退市推广与身份核验已完成物理验收；M8事件补录及写后验收已于2026-10-04完成；M9自动更新仍待推进。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
 
 ## 1. 范围、依据和硬口径
 
@@ -191,10 +191,10 @@ source_date_week_key(value: str) -> str  # 源 YYYYMMDD 转所属 ISO 周五
 plan_weekly_source_units(scope: WeeklyHistoryScope) -> tuple[WeeklySourceUnit, ...]
 plan_prod_source_units(scope: ProdWeeklyScope) -> tuple[ProdWeeklyUnit, ...]
 
-# prod_db/stock_weekly.py：每 unit 单连接 readonly，fetchmany 有界
-inspect_prod_weekly_source(resource, source: StockWeeklySource) -> ProdSourceInspection
-iter_prod_weekly_batches(resource, unit: ProdWeeklyUnit, budget: WeeklyBudget,
-                        cancel: CancelProbe) -> Iterator[pd.DataFrame]
+# prod_db/stock_weekly.py：脚本唯一入口、每unit一只读快照
+PsqlWeeklyExporter.export(unit, budget, attempt, cancel, progress,
+                         remaining_rows) -> tuple[Path, dict]
+load_prod_weekly_csv(connection, path, unit, evidence) -> int
 
 # source capture 成功即留下可读 evidence；失败也不触碰正式文件
 capture_weekly_source_unit(unit: WeeklySourceUnit, *, worker: WeeklySourceWorker,
@@ -252,7 +252,7 @@ M0 先检查 live column/PK/index 与本轮 catalog hash；一次有界 inspect 
 
 利用实际主键前缀，每 unit 最多300个显式代码，按源日期自然年半开窗口导出；M1/M2各unit的代码与源日期范围互斥，不按周归属过滤Prod行。M3再按源日期所属ISO周五路由，跨年周可能包含来自两个自然年capture的行，必须合并完整分区。异常非周五源日期保留，Raw源日期不改。
 
-SQL 只允许固定表 enum 和字段 schema，值参数化；数值列投影为 `numeric::text`，日期 `to_char`，避免 psycopg2 Decimal → pandas float。示意：
+SQL 只允许固定表 enum 和字段 schema。内部query builder保留参数模板，psql脚本对已严格校验的代码、日期和预算生成SQL字面量，不接受任意SQL或未校验的字符串；数值列投影为 `numeric::text`，日期 `to_char`，避免 psycopg2 Decimal → pandas float。示意：
 
 ```sql
 SELECT ts_code, to_char(trade_date,'YYYYMMDD') AS trade_date,
@@ -267,9 +267,9 @@ WHERE ts_code = ANY(%(codes)s) AND freq = 'week'
 ORDER BY ts_code, trade_date, freq;
 ```
 
-复权适配按 §4 的 21 列显式投影，不 SELECT *。连接通过 `connect_readonly_transaction()`；业务查询前设置 `REPEATABLE READ, READ ONLY`，SET LOCAL statement_timeout / work_mem，服务端 cursor `itersize=fetch_batch_rows`；同 unit 的 source count/control aggregates 和 streaming SELECT 在同一快照。结束 rollback，不建立全历史长事务。
+复权适配按 §4 的 21 列显式投影，不 SELECT *。唯一数据库入口为 `bash scripts/psql-remote.sh -f <受控SQL文件> -- -qAt -w`，固定使用 `.env.web.local`；不读取或拼装 DSN，不使用 Resource 直连。每 unit 独立 psql 进程，在业务查询前建立 `REPEATABLE READ, READ ONLY`，设置本地 statement_timeout/work_mem；count、snapshot/control 与 `COPY (SELECT ...) TO STDOUT` 在同一事务，最后 ROLLBACK。control JSON 单独输出，stdout 只有 CSV。
 
-每 `fetchmany(10000)` 立即构造 bounded DataFrame（SQL 已返回数值字符串），register 到受控 DuckDB connection，SQL 显式 CAST 后 COPY 一个 staging source chunk；unregister 并释放该 DataFrame。禁止 executemany 或 Python 一行一行写 Parquet，禁止整个年度 DataFrame 常驻。max_source_rows_per_unit 初始 30,000，超过时停止；规划阶段可按确定规则缩小代码批次，不能在 apply 中自动扩大预算。
+CSV 数值仍是 SQL numeric::text，NULL 使用显式 `\N`，DuckDB 显式 VARCHAR 输入后按 schema CAST；禁止经 pandas float 中转。每 unit 最多30,000行、CSV最多64MiB；先验证 header、控制行数、只读快照、CSV完整性，再由 DuckDB 有界 relation 按最多10,000行构建 capture chunks。Python只读header和控制证据，不逐行处理业务数据。超过预算停止，不在 apply 自动放宽范围。进程组取消、文件完整性、续跑证据与配置审计以 §27 为当前执行口径；M2服务端游标描述只保留为历史记录。
 
 每 unit 最多 45 秒；初测年度单元超过预算则在冻结计划前分割代码清单／时间窗口。query plan 必须证明使用 PK 对 bounded code/date 范围读取；不执行 force enable_seqscan=false 作为默认掩盖缺索引，也不擅自建索引。source SQL 的计数／控制聚合与导出读取次数都计入预算。
 
@@ -442,23 +442,17 @@ report runless materialization 后取得 storage identity；用现行 `AssetChec
 
 ## 13. 拟定 CLI 与运行手册
 
-命令名是未来代码接口，不是当前可执行命令。本轮未运行这些命令。采用现有项目解释器，不安装依赖：
+M5当前入口如下（使用现有项目解释器；各命令均须填写实际绝对路径）：
 
 ```text
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli inspect --source primary_unadjusted
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli plan --scope-file <approved_scope.json> --output <approved_staging>
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli capture --plan <plan.json> --apply
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli build --plan <plan.json> --apply
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli audit --plan <plan.json>
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli promote --plan <plan.json> --audit <audit.json> --apply
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli audit-formal --plan <plan.json>
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_events_cli plan --formal-audit <formal-audit.json>
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_events_cli register --plan <events.json> --apply
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_events_cli report-events --plan <events.json> --apply
-.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_events_cli audit --plan <events.json>
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory <frozen_inventory.json> --plan <copy_capture_plan.json> --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory <frozen_inventory.json> --plan <copy_capture_plan.json> --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake --mode capture --apply
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory <frozen_inventory.json> --plan <copy_capture_plan.json> --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake --mode build --year <year> --apply
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory <frozen_inventory.json> --plan <copy_capture_plan.json> --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake --mode promote --audit <audit.json>
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory <frozen_inventory.json> --plan <copy_capture_plan.json> --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake --mode promote --audit <audit.json> --apply
 ```
 
-plan/audit 可输出获准报告；capture/build 会写staging，promote会写正式Lake，register/report会写instance。没有apply时各mutating stage仅返回dry-run预算，不触发源调用、隐式注册或目录创建。scope文件路径参数不等于写入授权；审批必须匹配plan hash、stage、对象／文件／事件上限。
+默认dry-run只核验冻结库存/路径并输出预算，不创建目录、不调用源、不写instance。capture/build没有apply立即拒绝；promote没有apply只预检；续跑重用相同freeze/预算/目录与命令。SIGINT/SIGTERM只设置取消意图，由各阶段检查点安全退出。CLI各执行阶段要求显式冻结plan文件，逐字段与inventory重建结果一致（包括预算），防止默认值变化隐式生成新计划。CLI校验inventory→plan一致、year在冻结范围、audit属于当前plan/roots，不能借文件参数扩大写入范围。最终formal聚合审计单独保存报告；M7 events CLI未实现，不在本轮调用。scope路径不等于授权，正式命令执行前仍列明阶段、plan hash、文件上限与恢复方式。
 
 | 排障入口 | 看哪里 | 处理 |
 |---|---|---|
@@ -513,7 +507,7 @@ M1 已审计 schema/path/partition 的现行引用；无 active 周线资产和�
 |---|---|---|
 | `test_stock_weekly_contract.py` | schema/keys/field sequence | 13/21/11列严格顺序、Decimal规模、Raw日期字符串；备用不能出现freq/qfq |
 | `test_stock_weekly_planner.py` | 2010-01-01、2026-09-25/10-02、跨年和休市周五 | Mon/Sun源界、排除当前周、年度所有权唯一、unknown/source-unchecked不进apply |
-| `test_stock_weekly_prod_source.py` | fake named cursor＋300code/year | readonly在query前设置、每batch≤10000、无fetchall全集/SELECT *、保NULL/退市/非周五，单位不改 |
+| `test_stock_weekly_prod_source.py` | 隔离psql子进程＋300code/year | 唯一脚本入口、readonly在query前设置、每chunk≤10000、无直连/SELECT *、保NULL/退市/非周五，单位不改 |
 | `test_stock_weekly_source.py` | 默认／显式／关键字段fixtures、年窗口和小页 | 零列不是空源、年度子集不截断、满页续取、重复页停止、precision_loss不提升 |
 | `test_stock_weekly_source_supervisor.py` | 阻塞worker、重试、取消 | 超时子进程确实退出，取消不领新unit、cap含失败和重试、日志无token |
 | `test_stock_weekly_raw_io.py` | existing+new、Decimal/NULL、坏文件 | exactkey merge、existing-only保留、源异值fail、schema漂移、无executemany逐行写入 |
@@ -561,11 +555,11 @@ M1 已审计 schema/path/partition 的现行引用；无 active 周线资产和�
 
 第一阶段新增 `defs/stock_weekly_update.py`（纯日期/选择合同）、`defs/source_readiness/stock_weekly.py`（只读完成周期及覆盖判断）、`defs/sensors/raw_stock_weekly_update_job_sensor.py`（只编排两主源更新job）、`tests/test_stock_weekly_update.py`、`tests/test_raw_stock_weekly_update_job_sensor.py`。exact active定义、现行sensor通用helper消费者和注册方式在M4/M9接入前补专项影响面审计，不凭此草案直接复制日线sensor。
 
-拟接口：`latest_completed_week_anchor(now, calendar, cutoff) -> WeekEligibility`，返回自然周五、周期窗口、截止状态与交易日依据；`plan_stock_weekly_updates(calendar, last_verified_delivery, pending_runs, budget) -> UpdatePlan` 只规划有界遗漏周期；`fetch_primary_week_pages(source, anchor, fields, budget, consume_page, cancel) -> SourceReceipt` 不在sensor重复拉源；`audit_weekly_delivery(receipt, expected_key_ref, unavailable_ledger) -> DeliveryAudit`；`plan_weekly_revision(old_fingerprint, new_capture) -> RevisionPlan` 单独处理同key异值。
+拟接口：`latest_completed_week_anchor(now, calendar, policy) -> WeekEligibility`，返回自然周五、周期窗口、截止状态与交易日依据；`plan_stock_weekly_updates(calendar, last_verified_delivery, pending_runs, budget) -> UpdatePlan` 只规划有界遗漏周期；`fetch_primary_week_pages(source, anchor, fields, budget, consume_page, cancel) -> SourceReceipt` 不在sensor重复拉源；`audit_weekly_delivery(receipt, expected_key_ref, unavailable_ledger) -> DeliveryAudit`；`plan_weekly_revision(old_fingerprint, new_capture) -> RevisionPlan` 单独处理同key异值。
 
-采用一只独立编排sensor，周期性检查而非日线freshness。只选择两个主源job，不含备用历史job、不写上游。定义默认STOPPED，重载不启动。sensor不写Parquet、不直接调用源；新增动态周分区、RunRequest、cursor属于正式编排写入，启用前单独验收与授权。每tick先判已完成自然周期和正式交付证据，再排除queued/started运行；run_key必须复用当前 `build_asset_update_run_key(subject, unit_id)`；unit_id由source/anchor/计划版本构成，禁止自写run_key拼接或专属builder，cursor只记有界选择和观测，不以cursor成功替代物理交付。失败重试走现有受控重试机制，不能不断变run_key生成重复任务。
+采用一只独立编排sensor，周期性检查而非日线freshness。只选择两个主源job，不含备用历史job、不写上游。定义默认STOPPED，重载不启动。sensor不写Parquet、不直接调用源；新增动态周分区、RunRequest、cursor属于正式编排写入，启用前单独验收与授权。每tick先判已完成自然周期和正式交付证据，再排除queued/started运行；run_key必须复用当前 `build_asset_update_run_key(subject, unit_id)`；unit_id由source/anchor/计划版本构成，禁止自写run_key拼接或专属builder，cursor只记有界选择和观测，不以cursor成功替代物理交付。同一日同一source/week只创建一个自动意图；源调用技术失败使用现有有界重试。源未就绪保留欠账与原因，下一个每日19:30窗口可形成新的明确日更新意图；不能按tick时间戳不断变run_key生成重复任务。
 
-当周自然周五到达截止才可自动选择该周；休市周五不回退到最近开市日作为请求参数，仍显式trade_date=自然周五。使用正式交易日历判断周期内是否有交易日；日历缺失为calendar_unverified，不自动判整周无交易。整周确实无交易可明确跳过并记录，不能报告非空行情已完成。覆盖expected取周期内实际Raw日线键及核实身份，不要求所有在市股票每周有行，也不因Raw日线未准备就触发上游写入。历史欠账按最早未完成周期有界推进；不能仅用latest周而永久跳过长停机期间。日线证据/身份未决记原因，源无数据仍按管理员尽力补齐口径处理。
+每天Asia/Shanghai 19:30起才允许自动选周；触发时间与周期完成分开判断。当周自然周五已过19:30且源完成证据合格才可交付该周；休市周五不回退到最近开市日作为请求参数，仍显式trade_date=自然周五。使用正式交易日历判断周期内是否有交易日；日历缺失为calendar_unverified，不自动判整周无交易。整周确实无交易可明确跳过并记录，不能报告非空行情已完成。覆盖expected取周期内实际Raw日线键及核实身份，不要求所有在市股票每周有行，也不因Raw日线未准备就触发上游写入。历史欠账按最早未完成周期有界推进；不能仅用latest周而永久跳过长停机期间。日线证据/身份未决记原因，源无数据仍按管理员尽力补齐口径处理。
 
 新周期 create_or_identical 支持新增键及同值幂等；同key异值、end_date或qfq/hfq快照变化生成修订差异及计划，不能自动提升为覆盖。bootstrap保留Prod原计算版本；Raw不是一份全历史实时重算的qfq序列。后续需要历史刷新时复用完整候选校验/原子提升/逐文件checkpoint，单独执行；不为新增一周自动重拉全历史。
 
@@ -575,7 +569,7 @@ M1 已审计 schema/path/partition 的现行引用；无 active 周线资产和�
 
 | 配置 | 默认／来源与持久化 | 消费者、依赖、生效、可见与门禁 |
 |---|---|---|
-| timezone / close_cutoff | Asia/Shanghai / 周五22:15；版本化policy→plan | planner/sensor；晚于源文档19–20点而非保证源已就绪；截止正反例，tick读取且cursor显示 |
+| timezone / daily_start_time | Asia/Shanghai / 每日19:30（管理员2026-10-04确认，替代旧周五22:15草案）；typed policy→冻结plan | planner/sensor；19:30仅开放触发窗口，不保证源已就绪；19:29:59/19:30:00、非周五、时区正反例，tick读取且cursor显示 |
 | tick_min_seconds | 60；同policy→sensor definition | 编排sensor；不等于每分钟下载；definition reload生效，metadata可见 |
 | max_periods_per_tick / max_pending_runs | 1 / 两主源各1；同policy→plan | planner/sensor；只取最早欠账周期，阻止并发重写；bounded instance查询及故障/长停机测试 |
 | update_page_limit / page_call_cap | 6000 / 每源每周期最多4页；同budget→receipt | source adapter；最后一满页仍需终空页，超cap拒绝，不能把截断当完整；计数metadata |
@@ -691,3 +685,284 @@ M3提交1638d42b。按§3/5/9/15注册三份真实asset、每源三blocking chec
 九checks只读文件及最新同分区materialization引用的交付证据；临时instance真实evaluation.partition和execution history.partition均核验，统一check metadata/static gates通过。自然周未套入通用TRADE_DATE历史事件扫描；M7单独接入。备用成功空保留receipt，失败不归为empty；大范围缺口用离线冻结计划，不开放20代码限制以外的手动更新。
 
 CodeGraph与直接消费者审计、配置来源/生效方式、模板7A预算/恢复、源端→捕获→候选→读回对账及验证明细见[M4验收](../../../reports/stock_week_m4_assessment_20261003.md)。218项定向/静态回归、18项OS隔离治理、完整dg check defs通过；最后config类型和请求参数断言更新后相关测试再次通过。两套真实源1行样本差异0；10000行合成容量两页、峰值RSS276.156MiB，未验证正式网络/全历史或强制spill。本轮未改变子系统依赖、Prod契约或通用连接工厂；未安装依赖，未写正式Lake/instance。M3提交1638d42b；M4修改未提交。下一步M5冻结库存及授权范围，不自动进入正式执行。
+
+## 26. M5 开工与只读冻结（2026-10-03）
+
+M4提交eb1a3aab，未推送。本轮M5范围为两主源Prod存量bootstrap，不附带备用源、事件/动态分区、sensor/schedule或Silver。先经psql-remote.sh在同一repeatable-read/read-only事务冻结freq=week年度代码/行数、2009–2027相邻年窗口、日期边界和快照；两源仍为2895784/2891262行、各212个300代码units，源日期2010-01-01至2026-09-25。每unit≤30000行、每fetch≤10000；各源phase≤1200万行/3000文件，DuckDB512MiB/2线程/2GiB spill。预计输出各857个周文件，压缩空间沿M0约321MB外推；staging+候选+目标和重写量实际测量，不以外推替代门禁。正式根/两个目标和staging只读预检：目标尚不存在、同设备、自由空间约2.94TB，写权限须在实际执行环境核验。
+
+捕获传输存在待确认冲突：AGENTS.local.md只允许psql-remote.sh访问远程DB，§6.2/M2实现为readonly resource/named cursor。已向管理员列出保留入口并改有界CSV流与本次窄直连例外两种选项；未确认前不修改捕获合同、不进入正式写湖。完成只读冻结不代表M5验收通过。
+
+独立边界修正按M3已明确的空窗口证据要求实施：当前2010首周需要2009窗口，而2009库存为0、无unit；不能伪造有数据unit或启用partial_scope。新增识别`prod_weekly_inventory`版本1的冻结JSON证据，逐项重建ProdYearInventory/ProdWeeklyScope，复算完整manifest必须与输入一致，快照必须read-only/repeatable-read；只允许其中rows=0且codes为空的自然年扩展coverage intervals。证据先通过既有受控路径和hash校验；缺格式/缺声明仍按原门禁拒绝。读取JSON上限16MiB，source/count/unit/hash不一致均阻断，正例覆盖已证实空年，反例覆盖篡改、非零年伪装空年、scope/manifest不一致和旧格式缺证据。该格式不修改WeeklyPlanManifest/receipt schema或既有plan hash算法；消费者仅候选年度边界检查与冻结脚本，未增加运营/env/数据库配置。
+
+M5边界校验进一步绑定原始库存CSV：受控路径/hash与16MiB上限、各年代码集合及行数必须与冻结JSON一致；原始CSV同时进入候选audit evidence，不能仅靠JSON自己声明空年。87项相邻/定向回归及113项static gates通过。已形成每源300代码、2024–2026三units、41932输入/15450归属2025行的具体试点草案，以及各212units的全量草案；尚未正式捕获或提升。当前结果与传输路径待确认事项见[M5预检](../../../reports/stock_week_m5_preflight_assessment_20261003.md)，不将预检记为M5完成。
+
+## 27. M5 捕获传输调整与执行门禁（2026-10-03）
+
+管理员已确认保留 AGENTS.local.md 的唯一数据库入口并改用 COPY CSV。此节取代 §26 的待确认状态及 M2 的 named cursor 路径；M2历史验收不改写为新路径已验收。本轮先更新LLD、再开发和隔离验收，M5完成仍须真实捕获、正式文件读回与最终对账。
+
+### 27.1 代码范围、合同与证据
+
+| 硬口径 | 实现落点 | 验收与反例 |
+|---|---|---|
+| 只经现有脚本访问Prod；不增加DB配置或修改脚本 | `defs/prod_db/stock_weekly.py` 的 PsqlWeeklyExporter；删除原cursor adapter | argv固定脚本/固定env；模拟进程不访问正式资源；全消费者扫描无旧adapter |
+| 单unit只读快照，控制数量与CSV属于同一事务 | 固定表/字段/代码/日期 SQL生成；count后COPY、ROLLBACK | 只读/隔离/快照缺失、退出非零、CSV不完整均不能封存 |
+| Prod全部业务行原样保留 | 13/21字段投影，NULL标记，VARCHAR→Decimal，现有capture校验 | NULL、非周五、末尾零和超精度反例；无退市过滤、无采集字段 |
+| 取消不领取新unit，已提交unit续跑不重取 | 进程组TERM→KILL及reap；capture receipt/checkpoint | 真子进程阻塞取消、超时、退出；取消后续跑、幂等、source calls为零 |
+| 只有完整证据算完成 | SQL/CSV/control hash进入receipt；candidate audit继承源证据 | 任一证据篡改阻止resume/promote；失败attempt保留 |
+| 有界columnar写入 | DuckDB unit relation→每chunk≤10000→CAST/COPY/readback | source/count/capture一致；不整年DataFrame、无逐行Parquet写入 |
+
+内部协调器参数由 `prod_resource` 迁移为 `prod_exporter`，一次迁移全部代码与测试消费者，不留双轨。DataFrame chunk入口仅供备用源现有SDK使用；Prod改用同一校验逻辑的relation入口。无需新增asset/resource/check/job/sensor，也不改变业务schema、正式路径或子系统依赖。
+
+### 27.2 子进程与文件边界
+
+每unit在独立attempt目录保存SQL、CSV、control。SQL值只来自经校验的固定枚举、股票代码和date对象；psql元命令路径必须在受控attempt内，拒绝引号、反斜杠、换行，避免元命令或shell解释。启动参数列表而非shell拼接，stdin关闭、stderr不输出凭证，失败只记录reason code。
+
+先写 `.pending`，每0.1秒检查取消、45秒deadline和输出字节；每10秒报告当前unit/window及进度，等待期间不能伪造完成量。取消/超时/字节超限终止整个进程组，TERM等待1秒后KILL并回收。服务器断开结束只读事务；失败不能封存receipt。exit=0后校验control≤16KiB、source_rows是非负整数且不超过unit/phase、readonly=on、isolation=repeatable read及snapshot/time非空；fsync并原子封存。CSV显式header、UTF8、NULL='\N'；quoted NULL保持字符串，空字符串不得自动成为NULL。
+
+DuckDB显式列类型VARCHAR、strict解析，unit relation计数与source_rows一致后再写chunks；所有精度、身份、范围、重复键和Parquet读回校验沿用M2。SQL/CSV/control逐文件hash校验包含seal、resume及candidate源证据。已有已封存unit不会重取；未完成unit在新attempt整体重取，不复用半截CSV。正式提升继续使用M3的签名、目标指纹、逐文件checkpoint和同设备os.replace，无备份或快照。
+
+### 27.3 配置审计与性能预算
+
+新增预算仅放 `WeeklyBudget`，随冻结manifest持久化并进入plan hash，无新env/Settings/数据库配置/运营字段；修改预算必须重新freeze。消费者为Prod exporter、证据校验及对应测试，运行前显示manifest预算，修改后仅新计划生效。新增 `prod_csv_max_bytes=67108864`、`prod_control_max_bytes=16384`、`prod_process_shutdown_seconds=1`；正整数校验，超限失败，禁止自动扩大。其余沿用300代码/unit、30000行/unit、10000行/chunk、statement30秒、unit45秒、单连接、work_mem32MB、DuckDB512MiB/2线程/2GiB staging spill。
+
+全量两源5,787,046行、424units；每unit一次COUNT/一次COPY和一只读事务，最多1272个源Parquet chunks，预计两源1714个正式周文件。unit CSV最多64MiB，当前unit DuckDB relation最多30000行；保留全部原始CSV证据，理论CSV上限424×64MiB约26.5GiB，另外Parquet/候选/正式/2GiB spill计入预检，当前2.94TB空闲可容纳。实际耗时、字节、RSS与spill必须试点记录，不把45秒×424预算上界约5.3小时当ETA。超时或超行先停止，重新冻结更小unit；不能无限重试或全历史事务。
+
+试点为每源300代码、2024–2026三个自然年units、41932输入行，候选归属2025的15450行；这不是完整市场年度证明。试点捕获取消→续跑→完整业务列读回后才进入全量；全量年度构建仅扫描当年和相交边界capture，单源单周单文件。结束独立聚合审计源/目标文件集、schema、key、rows及双向业务值差集，并重新经脚本冻结只读库存作delta审计。不同unit快照不宣称同一瞬间全库备份。
+
+### 27.4 阶段执行顺序与权限
+
+先隔离验证传输与CSV→DuckDB，再重冻结全量及试点计划（旧计划未执行，不复用旧hash）。执行入口须默认dry-run，分开capture、candidate/audit、promote和resume，输出完整命令、cwd、manifest/hash、staging、正式目标、预期数量及失败恢复方式。M5只写两主源Raw，Prod始终只读，不写Dagster instance、动态分区或events；M6备用、M7事件、M9自动更新另按阶段推进。任何正式执行前核验实际主机权限与同设备边界，不能把沙箱os.access结果当主机权限结论。
+
+依据：[PostgreSQL psql元命令与批处理](https://www.postgresql.org/docs/current/app-psql.html)、[COPY TO STDOUT/CSV](https://www.postgresql.org/docs/current/sql-copy.html)，以及本仓当前脚本、capture/候选/提升实现。正式传输与全量写入结果尚未产生，不计为M5完成。
+
+### 27.5 新路径实际验证进展
+
+真实只读COPY审计两源各300代码/15450行，CSV计数和Parquet读回数量一致，业务列双向EXCEPT ALL均为0；CSV分别1690640/2651985字节，源导出加转换读回约1.66/3.97秒，峰值RSS约239MiB。详见[传输证据](../../../reports/stock_week_m5_transport_probe_20261003.json)。这是2025样本，不是全量验收。
+
+两源试点各捕获3units/41932行，取消后已封存unit被复用，完整重放源调用0；2025候选各15450行/52文件，值差集0。正式staging与/private/tmp属于不同设备，试点向临时目标提升正确触发cross_device_promotion_forbidden，无正式Raw写入；部分市场试点只审计候选，完整年度才进入正式提升，不放宽路径或同设备门禁。详见[试点证据](../../../reports/stock_week_m5_copy_pilot_20261003.json)。
+
+CodeGraph query/impact覆盖捕获协调器、Prod adapter、capture store及候选消费者，直接代码搜索补齐测试和CLI调用方；新空年证据helper引入纯planner依赖，受保护治理启动器只增该文件的读取白名单，网络/正式Lake/凭证禁令保持。当前正式全量仍待执行及delta审计，未写events。
+
+## 28. M5 物理 bootstrap 结果（2026-10-03）
+
+已按 §27 执行两主源完整历史捕获、年度候选校验、同设备原子提升及独立正式读回。未复权2895784行、复权2891262行，各212units、410个source chunks、857个正式周文件；正式源日期2010-01-01至2026-09-25。源行数=捕获行数=正式行数；reject、同值去重、排除行、重复key与年度业务值双向差集均为0，正式文件集和全部指纹匹配。结束经唯一脚本再读Prod库存：代码年记录、行数/日期边界及全表最早/最晚源日期差异0，正式代码年库存与原冻结库存差异0。业务值一致性限定于已捕获unit快照；库存delta不是此后同键值修订的完整认证。
+
+Raw完整保留源NULL：只有end_date为空，未复权21495行、复权16976行；价格/成交量/复权价格列NULL均为0。非周五/异常OHLC或负成交量统计0。未新增Silver清洗、未自行补复权、未开始备用源修补。
+
+| 性能实测 | 未复权 | 复权 |
+|---|---:|---:|
+| capture总耗时（含脚本/转换/chunk校验） | 395.100秒 | 435.355秒 |
+| 最慢单unit导出 | 4.312秒 | 4.325秒 |
+| 年度build/audit合计 | 27.050秒 | 34.588秒 |
+| promote/readback合计 | 14.302秒 | 18.521秒 |
+| CSV字节 | 319150325 | 498881104 |
+| source chunk字节 | 78559392 | 138599798 |
+| 正式Parquet字节 | 89441602 | 157624274 |
+| capture/staging留存字节 | 401345522 | 641172856 |
+
+组合执行进程累计peak RSS=1867988992字节（1781.453MiB，约1.74GiB）；不能把DuckDB memory_limit=512MiB写成进程RSS硬上限。[DuckDB官方说明](https://duckdb.org/docs/lts/configuration/pragmas)指出该参数约束buffer manager，string_agg等聚合可在其外分配。当前canonical hash仍按有界年度/周group处理，没有内存/临时空间超限错误。实际结束留存spill为0字节，执行期间peak spill没有采样，**不宣称未发生spill或已完成强制spill压力验收**。后续标准操作采用 §13 已交付的capture/build/promote独立CLI阶段、按年度进程执行，并在下一阶段补过程RSS/peak spill测量；此为性能可观测性剩余项，不影响本次业务物理对账结论。
+
+验收与测量详见[M5报告](../../../reports/stock_week_m5_copy_assessment_20261003.md)、[最终对账](../../../reports/stock_week_m5_final_reconciliation_20261003.json)、[性能/NULL测量](../../../reports/stock_week_m5_copy_metrics_20261003.json)。M5两主源物理bootstrap完成；M6备用源、M7事件、M9自动更新尚未执行，不能把物理文件完成说成全部DG就绪。本轮没有instance/events/动态分区/sensor/schedule变更；源码和文档修改尚未提交、未推送。
+
+## 29. M6 五对象执行卡（执行前冻结）
+
+范围固定为000005.SZ、000961.SZ、002089.SZ、300090.SZ、600090.SH；anchor从2010-01-01至2026-09-25，排除2026-10-02。M7才扩查211退市与251身份候选，M8才补事件。本轮不修改主源Raw、Prod、Silver、definitions、自动任务或任何字段合同。
+
+先刷新五对象有界历史源证据：weekly显式11列，20091228至20260927，单对象最多874周，响应达到6000或有重复周/越界即拒绝。成功完整响应逐key与既有日线期望候选对账；有数据键才进入AVAILABLE，成功缺行记录source_key_absent_confirmed，错误保持failed/unchecked。旧3132只作独立基准。原始业务响应CSV与请求/时间/数量/字段/hash证据持久化，不保存token。
+
+按anchor年冻结CSV候选状态及expected键，单年最多5对象×53周=265键、5units、含重试最多15次年度请求；最多17年度、85units、255尝试，非空实际数量由dry-run决定。每年度独立capture、build、promote进程；每来源每年度完整捕获后仅构建和提升一次，不逐对象重写周文件。源响应及年度候选上界约4505行/857文件，实际written按完整窗口返回行计而非只按缺口计。正常年度约5次调用加至少1秒间隔，预计数秒到十余秒；极端重试可达315秒，预算上限不是ETA。512MiB为DuckDB buffer，2线程、2GiB spill沿用WeeklyBudget；进程RSS和spill过程峰值另测，0.1秒采样是观测下界，进程退出resource peak RSS另记。每阶段设置12分钟外部期限，超时取消且保留已封存unit及checkpoint；源/目标量或hash不一致不提升。staging和正式目标同设备且空间预检后执行，目标仅raw/tushare/weekly。
+
+代码落点：stock_weekly_history_cli.load_inventory增加明确kind=weekly_history_inventory/version=1的读取；原Prod格式与行为保持。新增load_weekly_inventory从受控CSV读取WeeklyCandidate，验证文件hash/大小/行数、严格列合同和AVAILABLE集合与expected文件完全相等，复用WeeklyHistoryScope与freeze_weekly_history_plan。build的年度来自WeeklySourceUnit.anchor_start；capture仅alternate选择现有WeeklySdkWorker，token只在capture执行时从现有TUSHARE_TOKEN取。预算默认不新增/不修改，现有CLI参数不删除；新格式仅离线bootstrap消费者使用，不对用户/运营时间控件增加参数。
+
+正反验收：主源dry-run不构造exporter；备用dry-run不读取token/不创建目录；篡改候选/expected、缺proof、空白错误状态、重复键、错误year/未冻结plan拒绝；AVAILABLE范围外状态不能进入请求；源等待取消及已封存receipt重放无需源调用；年度业务值差集、源端/捕获/正式行数、NULL/schema/key/分区/文件hash及逐key恢复结果对账。CodeGraph query/impact覆盖WeeklyHistoryScope、capture_weekly_history、load_inventory，直接搜索补齐CLI/测试与candidate/promoter调用；没有src子系统/API/前端消费者变更。真实只读源刷新与正式写入分阶段列精确命令，临时审计/测量脚本仅执行本卡，证据落reports，脚本不接入definitions。
+
+M6执行前启动失败记录：临时stage启动器首次缺少__main__保护，spawn子进程重复进入协调器，被writer锁拒绝；三次unit启动尝试已计入原计划，未形成receipt或正式文件。修正保护后原unit_attempt_budget_exceeded正确阻止继续，不能清空attempt或扩大重试预算。保留原冻结计划、失败目录与两份日志；重新冻结v2证据格式为每对象JSON，包含同一真实响应的请求/时间/列/CSV指纹及完整原始业务行，原CSV仍保留。新证据hash产生独立计划，仍是相同五对象/3132键/69units及默认2次重试；不伪称旧计划续跑成功。修正启动器后执行新计划取消→resume→replay，验收分别记录。
+
+
+## 30. M6 五对象物理补齐验收
+
+新source快照与原候选基准一致：000005.SZ 656、000961.SZ 732、002089.SZ 674、300090.SZ 473、600090.SH 597，共3132候选键；限定历史窗口内源响应也是3132行。15个anchor年度、69units完成捕获与一次年度构建/提升；734正式周文件、1372621字节，源日期20091231至20240510。Raw原日期/11列/DOUBLE/源单位保留，20091231正确归入2010-01-01分区。source↔capture↔formal全部业务列EXCEPT ALL差集0、重复键0、分区错放0、候选遗漏0，全部目标文件集和hash与audit一致；逐key恢复台账3132行。
+
+v2计划真实取消在封存首unit后发生，续跑复用receipt；最终69次请求恰等于69units，完整重放不增加请求。v1临时启动失误和三次失败attempt留存，未删除检查点/增加预算/写正式文件；不将v1失败描述为v2续跑成功。累计阶段实测153.213秒；进程自身退出peak RSS255852544字节，采样进程树peak RSS447283200字节（426.5625MiB）；1147次观测spill峰值0。采样间隔目标0.1秒，ps/扫描开销会延长实际间隔，故只能作为峰值下界，未强制spill测试。
+
+前后复权未恢复：另存3132周期×qfq/hfq=6264条记录，引用2026-10-02的stk_week_month_adj对象历史成功空响应，checked_at保留原日期，reason明确本轮未刷新该源。weekly响应不能证明qfq/hfq已补；并不宣称全体211退市、251身份候选或全市场完整。
+
+CLI及范围冻结正反例、source监督/取消、candidate/promoter/边界、定义/static gates三组测试46/50/162通过（含重复测试，不累加）；补充成功空候选证据校验后CLI17项再通过；Ruff默认及致命错误基线、文档integrity、diff检查、CodeGraph sync/status通过。依据M6执行卡及接入模板7A，本轮只涉及离线CLI，未改字段、asset/catalog、API/前端或子系统依赖。详见[M6验收](../../../reports/stock_week_m6_assessment_20261003.md)、[独立对账](../../../reports/stock_week_m6_reconciliation_20261003.json)、[逐key台账](../../../reports/stock_week_m6_key_outcomes_20261003.csv)及[复权残余](../../../reports/stock_week_m6_adjusted_residual_keys_20261003.csv)。M6完成；M7为退市推广与身份分支，M8才是事件补录（以§15为准，之前附录中的阶段号混写不作为执行依据）。本轮未提交或推送。
+
+## 31. M7 退市推广与身份分支执行卡（执行前）
+
+本轮沿用已批准M7：固定旧候选快照，退市未复权206对象/100505键/2294实际code-year（211对象中M6五只已完成），年份2010–2024；anchor范围仍2010-01-01至2026-09-25，排除2026-10-02。身份分支251对象/63460键（249 BSE/62563，另2未知/897）先只读核验，不因名字相似或当前股票池更名自动准入，不改identity seed/正式map。字段/单位/Rawkey/日期语义、默认预算及CLI合同均不变。
+
+| 性能项 | 执行范围/门禁 |
+|---|---|
+| 来源调查 | 206对象×有界20091228–20260927窗口，≤874周/对象，显式11列；每对象最多3次/618尝试，22秒外部期限，成功空保列，不把zero-column/HTTP错误当空 |
+| 真正捕获 | 只取源证据AVAILABLE键，年度max182对象、每unit≤54行；上界2294units/6882尝试、123876行、857周文件；实际计划dry-run后减少，禁止全市场矩形展开 |
+| 批次/请求 | 捕获并发1，默认1秒间隔/20秒超时/2次重试；20对象是工作批次，完整年度捕获后构建/提升一次，不每20对象重写全年 |
+| DuckDB/输出 | 512MiB buffer/2threads/2GiB spill、年度候选/目标扫描；scope/candidate≤250000键，候选输入/源证据分别hash校验，外部年度阶段12分钟期限 |
+| 成本实测依据 | M6 69units/153秒含构建与提升；本轮2294units按相同监督路径约一小时量级，实际测量、不以预算当ETA；源调查预计数分钟 |
+| 写入/恢复 | canonical staging与正式weekly同盘，保留M6五对象；原候选全校验、逐文件checkpoint与replace，退出保留receipt/attempt；成功空/失败/未查分列，超预算不清checkpoint或扩重试 |
+| 观测 | 当前对象/年度及已封存完成量；独立年度进程RSS、进程树RSS及spill采样；只按当前阶段目录扫描spill，目标采样间隔0.1秒为观测下界，不宣称压力通过 |
+
+身份只读审计消费正式silver/basic/stock_identity_map及两张主源Raw；对confirmed且整自然周包含于有效区间的键做保守canonical覆盖判定。inferred、缺map、边界周、映射冲突及identity-source有效区间不清单列pending，不用星期五假定周内真实变更日期；需要时再用获准Prod日线真实日期/源真实日期核清。不将canonical已覆盖写成原代码物理已补。先聚合代码/周键而不是734/857文件逐check深扫，源日期用文件内部VARCHAR、hive_partitioning=false。已确认身份但确有残余的对象另冻结准入计划，未查源不得当无源。
+
+实施与验收落点：只复用CLI load_weekly_inventory、纯planner、WeeklySdkWorker、capture store、candidate/promoter，不修改definitions/API/src层或新增配置。新增本轮临时调查/冻结/执行/只读审计脚本不接入正式definitions，证据落reports；所有真实响应先保存CSV/每对象JSON参数/日期/列/行/hash，年度candidate与expected hash冻结后才capture。目标写入仅raw/tushare/weekly，正式identity map与主源Raw只读，Prod不写；不写Dagster instance/events/动态分区，也不启用sensor/schedule。M8仍是下一独立阶段。
+
+M7身份只读预检结果：两主源对63460历史键均没有可据confirmed map闭合的canonical周键；245对象/38893键处于整周confirmed有效区间，但源未核验；剩余24567键含249对象/23670映射有效期之前或边界、2对象/897 inferred键。这里不是证明源为空，也不改写正式映射。按本节已约定“已确认身份但确有残余另冻结准入”，新增245对象的只读weekly可用性调查，显式原始代码、不改用canonical请求。总调查451对象，最多1353次尝试；只允许38893个confirmed区间键在合格源实测后准入。若空响应记录该范围无源；有效区间之前/边界/inferred继续pending，不能把原始物理缺行抹成已覆盖。
+
+捕获年度阶段按现有objects_per_batch=20细分进程工作批次：临时执行器每次调用同一冻结年度manifest的capture_weekly_history，仅在新增20个receipt封存后的安全边界设置cancel；没有开始下一unit、不增加失败attempt，不提前构建/提升。下一批resume严格验证已封存receipt；所有年度units完成才一次build/promote。此控制避免退市与身份合并年度超过12分钟单阶段期限；不增加CLI/config/typed budget合同。既有coordinator会重验已完成的小型receipt/Parquet，年内累计验证开销独立测量，不扩为全历史扫描；超时/校验失败保留现场并拒绝提升。后续真实源→捕获→正式对账以冻结unit窗口内全部返回行数为准，窗口以外源调查数据不伪称应写入行。
+
+### 31.1 实际冻结与残留细分
+
+初始206退市对象/2294 code-year是退市支预算，不能当成最终两支总规模。完成只读身份核验后，两支实际451对象、139398候选键，136549 AVAILABLE、2849成功缺行；16年度3232units，年度最多319units，默认request cap9696，单位完整返回行上界144964。范围和源证据已冻结，capture、构建和提升进行中；最终全部业务列与文件集读回通过前，不标M7完成。
+
+身份未决24567键细分：2 inferred对象897键，239对象23494键的整个周落在映射有效区间之外，176对象176键真正跨有效区间边界。后两者不能都表述为“周跨边界”；历史冻结台账原reason保留，新细分台账另存，不改绑定manifest的证据。未决键不能按confirmed admission进入apply；已准入unit完整源响应仍全部保留，可能物理覆盖部分未决键，最终报告须分别给出原始代码物理覆盖与canonical身份确认状态，不能直接把24567当成最终物理缺口。
+
+复权台账按原historical raw_adjusted缺口171616键分别列qfq/hfq，343232是复权侧记账数量，不是接口请求数。同一stk_week_month_adj响应承载两侧字段。本轮weekly未验证复权源，除M6原五只6264条保留2026-10-02历史空源证据外，336968条均为source_unchecked，查询时间/response_rows不伪造。后续可补性最佳努力，不作为本次未复权Raw提升门禁。证据：[M7执行前评估](../../../reports/stock_week_m7_preflight_assessment_20261003.md)、[残留分类](../../../reports/stock_week_m7_residuals_prepared_20261003.json)。
+
+### 31.2 最新代码主源覆盖交叉核验
+
+额外只读核验canonical_code在两主源Raw直接存在的情况：38893 confirmed候选均无对应最新代码周线，未因canonical投影的有效区间过滤制造准入误报。897 inferred键在两主源有最新代码周线，但映射仍未确认，不作为等价覆盖证明；不得自动改正式identity map或Raw代码。其余23670有效区间外/跨边界键也无最新代码直接覆盖。结果见[交叉核验](../../../reports/stock_week_m7_canonical_presence_20261003.json)，该核验不修改冻结manifest或apply范围。
+
+## 32. M7 物理验收与残留（2026-10-03）
+
+M7已完成退市推广与confirmed身份分支：16年度3232units，本轮136549行、正式139681行/803文件；全字段差集、重复、分区错放、AVAILABLE键遗漏均0，M6原3132行保持，两主源1714文件和identity map指纹不变。139398候选键中136549可补键原代码已读回；2849源成功缺行单列；24567身份未决按有效区间/inferred/边界及物理存在分别记账。历史167097原代码缺口候选中现物理覆盖139681键、27416候选仍未覆盖；身份区间外/未决不能直接认定应补，不表述为全市场已完整。148个跨边界键在源快照存在，仍需实际日线日期核验后才能准入。复权343232条保留6264历史源空、336968未核验，没有生成复权值。独立审计首次全局读取3232分块触及512MiB，后改为128文件SQL批次读入、关闭审计插入顺序保留，在同预算下通过；失败证据保留，没有改正式数据或源请求。进程阶段及其子进程树RSS采样峰值527.12MiB，spill采样0不等于强制压力通过；真实请求数3232，批次续跑无额外重复请求。详见[M7验收](../../../reports/stock_week_m7_assessment_20261003.md)。未提交/推送；M8事件及M9更新未执行。
+
+## 33. M8 事件补录开发卡（2026-10-04）
+
+沿用§12与接入模板§7A：输入是M5两主源、M7备用源最新年度sealed audit的路径与SHA，不扫描目录扩大范围，不调用Tushare/Prod、不修改行情。预计2517文件、5926727行；最多10068个事件，实际缺少的分区和事件由只读dry-run冻结。M7年度证据包含M6存量，不能拿已过期的M6文件指纹发布通过事件。
+
+代码落点：`bootstrap/stock_weekly_event_files.py`按source/year复用正式schema、key/partition、canonical校验；`checks/stock_weekly_checks.py`提取同一交付证据核验函数，每年度只深扫receipt一次；`bootstrap/stock_weekly_events.py`负责事件读取、冻结计划、分阶段写入和读回；独立CLI与instance adapter负责命令/现有本机PG存储连接。不上definitions、不新增asset/check/job或环境配置，既有check入口及元数据语义保持一致。
+
+预算来自唯一WeeklyBudget：DuckDB512MiB/2线程；只读不spill；每年度最多54文件；事件读取每100分区、每页500记录、累计20000记录上限，稳定cursor与storage-id批量读取check正文；拒绝无界历史扫描。每次apply最多100个事件或100个注册键，取消检查在每个unit前后；每个完成unit写原子checkpoint，事件写后 checkpoint失败靠实际事件身份恢复，禁止删除历史事件。
+
+EventPlan封存源/asset/week、文件SHA/逻辑hash/行数、audit路径/hash/SHA、instance配置SHA与非敏感存储身份、当前materialization关联以及待补清单。materialization复用统一metadata helper与weekly_delivery证据；check为同分区blocking/ERROR/passed，绑定实际storage_id/run_id/timestamp。apply逐文件重验SHA和最新materialization；新目标或未知事件变化拒绝续跑，不自动扩容计划。分区注册、materialization、check分开执行；checkpoint只证明执行进度，物理及实际事件读回才证明成功。
+
+隔离测试覆盖源证据变更、错分区/重复/字段异常、读取上限与cursor、历史failed/旧目标、取消、事件写后异常、幂等续跑。正式dry-run只构造现有PG存储，autocreate=false，禁止默认instance discovery、DDL、launcher和sensor。正式apply遵守性能治理§7.2，先报告数量与完整命令，再单独审批；写后聚合审计并抽五个代表分区校验实际readiness，不全历史逐check深扫。当前开发卡不代表正式事件已补录。
+
+### M8 开发与正式只读验收（2026-10-04）
+
+四个事件helper/CLI、同一源证据校验提取及隔离测试已完成。只读核验2517文件/5926727行与50年度证明一致，50连接/2867 SQL/14352证据文件、15.719秒；现有相关events为0，冻结857注册键、2517 materializations、7551blocking checks，10068事件。计划hash `39154bfe35d3395c65472513fb08805866fa7aa707d906d76f916429368a2012`，只采用v3计划。
+
+CLI的start/count只选择冻结清单：register每100键，materializations每100条，checks每25文件最多75事件；每次写上限仍100。apply按批重验源receipt及sealed条目，每写重验文件/auditSHA和实际当前target。既有不匹配check列blocked并拒绝全部apply：现行Dagster runless唯一键不支持直接覆盖旧check，不删除历史、不伪造run_id；本轮blocked=0。五代表分区实际readiness抽查只在最终audit做。
+
+78项定向/相邻、125项OS隔离治理/静态测试通过；静态启动器旧113/112数量与20个源码路径清单漂移已精确校准，未扩大资源权限。CodeGraph query/impact/sync/status与当前消费者核验完成，未改变API/前端、catalog/schema或子系统边界。正式apply尚待性能治理§7.2单独审批；完整读写/恢复及139条命令见[M8验收及执行卡](../../../reports/stock_week_m8_assessment_20261004.md)。未提交/推送，M9未开始。
+
+
+## M8 正式补录与写后验收完成（2026-10-04）
+
+管理员确认冻结执行清单后，按原v3 plan hash执行全部139条命令：857周分区注册、2517 materializations、7551 blocking checks，共10068事件。单分区试点实际readiness通过后进入全量，重复遇到试点时幂等跳过1 materialization和3 checks；全部批次成功，无额外事件、重试或范围扩张。
+
+最终只读审计重新验证2517文件/5926727行与原证据一致；缺registration/materialization/check、blocked及latest failed均0。返回17619条观测记录，低于20000预算；两主源2010-01-01与2026-09-25、备用源2010-01-01五代表分区真实文件及check target关联/readiness全部通过。当前批准文件范围已就绪，不等于M7残余业务缺口消失。
+
+命令累计实测1503.595秒：注册33.946秒、materializations131.788秒、checks1311.883秒、最终audit25.978秒；此数是命令耗时累计，不含人工试点审阅等间隔，也不是RSS/spill压力验收。此次未改正式行情/Prod/Silver，不调用源、不启用sensor/schedule、不改变依赖矩阵。代码沿用此前78项定向/相邻及125项OS隔离治理/静态验收，本轮只执行获批命令、读回和文档对账。
+
+[最终对账](../../../reports/stock_week_m8_final_reconciliation_20261004.json)、[逐批执行台账](../../../reports/stock_week_m8_execution_20261004.jsonl)、[完整验收](../../../reports/stock_week_m8_assessment_20261004.md)。M8完成；下一独立阶段M9为更新机制，未开始。修改未提交/推送。
+
+
+## 34. M9 更新机制：每日19:30与备用仅手动（2026-10-04）
+
+### 34.1 管理员口径与范围
+
+自动更新每天Asia/Shanghai 19:30开始，只选择`raw_stk_period_bar_week_update_job`与`raw_stk_period_bar_adj_week_update_job`及各自三个blocking checks。`raw_tushare_weekly_update_job`不进入任何自动selection、fallback、repair或自动source probe；源异常只向运营显示原因及手动备用方案，执行备用必须有明确手动任务。备用只提供未复权行情，不能提示它补qfq/hfq，也不混写主源Raw。
+
+沿用本方案已有“已结束周/遗漏周”语义，不默认扩为当周每日滚动快照。每日触发与每周产生新分区不同：没有新的已完成周且没有欠账时，显示已就绪并跳过下载；周末可继续尝试之前未完成的周。已向管理员提出滚动当周的可选澄清；在进一步改变周期交付口径之前，以既有已结束周设计推进。当周滚动模式若被选择，需要另补源行为实测、快照/修订及日期输入合同，不能仅改时间常量就启用。
+
+### 34.2 编排与选择
+
+沿用单只独立sensor，tick_min_seconds=60，通过纯planner的每日19:30时间门禁开启更新；不再并设schedule形成两个写入发起方。19:30之前先返回skip，不查源、不重扫Lake或深读事件；19:30后的首个实际tick开始判断，daemon延迟必须显示真实evaluated_at，不能承诺准点完成。该模式沿用当前stock_mins_qfq_daily_sensor的时间门禁结构，并参考[Dagster sensor官方说明](https://dagster.io/docs/guides/automate/sensors)；minimum_interval是最小间隔，不是精确时钟。若服务停机后晚于19:30恢复，按欠账事实判断；次日19:30前不补发凌晨任务。
+
+每次为一个最早未完成自然周规划两主源：
+
+1. 先读正式交易日历，确定已经结束的周、该周最后实际交易日和无交易整周；自然周五仍是请求/分区坐标，节假日不改成最近交易日。
+2. 缺日历或日线/身份覆盖证据时显示具体blocked原因，不推断无交易、不触发上游日线任务。
+3. 用两资产当前文件/交付证据/实际target checks判断已完成、未完成、需要人工修订，M8已verified历史作为初始化基线。cursor只是有界frontier与选择理由；不保存全历史键、不替代物理事实、不将已知退市/身份未决残余自动重解释成新欠账。
+4. 查询两主源queued/started意图，按source/week去重；同一source最多一个pending，同一个目标文件只能有一个writer。为避免独立SDK进程假称共享限流，首期两主源串行领取同周任务，完成一个后再领取另一个；不增加全局token配置。
+5. 两源独立提交/验收，一个失败不回滚另一个已验证文件。下一周不越过未完成的当前周期；大范围停机积压走专项恢复，sensor不得全历史深扫。
+
+新自动unit由source、自然周、policy_version、每日意图日期构成，复用`build_asset_update_run_key(subject,unit_id)`及`build_run_request`，不自建run key builder。每日意图日期用于明确每日19:30的新尝试，不用于每tick换key；同日源未就绪不得每分钟重开job。已提交任务的进程退出/技术失败在原unit内按持久化receipt/checkpoint恢复，实际run retry消费者须在实现前专项审计，不能靠变更unit冒充安全续跑。
+
+### 34.3 下载、交付与异常
+
+源参数继续采用当前Prod request builder与DG point helper已核对的`trade_date=自然周五,freq=week`，显式完整业务fields，6000/页、最多4页，必须证明分页结束，满页达到cap不视作完整。不从当前上市池过滤全市场请求，不自动重拉全历史复权。
+
+19:30仅表示开始尝试；源成功返回仍可能不是完整周。对新周期，捕获receipt后在候选提升前核验`end_date`、周期内实际日线覆盖/身份及分页完整性，区分停牌/退市合法缺行与未完成计算。具体end_date谓词与停牌/除权样本需按当前源实测收口：两份本地文档都定义计算截至日期，未复权示例显示trade_date周五、end_date周四；不能把接口名称“每日更新”或非空响应作为周已完成证明。未完成证据停留在staging，记source_not_ready/coverage_unverified，不写正式文件或PASS。
+
+现有`deliver_stock_weekly_point`提供单周capture、候选及create_or_identical，但源码中每次生成新的point assembly，不具备自动意图的持久化unit续跑，也没有完整周source-readiness门禁。M9应在同一交付主链加冻结update unit、receipt/checkpoint恢复和候选前门禁，保留现有手动入口语义；禁止只给现有helper加一个sensor就宣称M9完成。任何需要修改其手动输入/行为的方案先逐项说明并确认。
+
+新文件验证合格才原子提升并由实际asset job产生materialization/check。同值重跑幂等；同key异值、end_date或复权快照变化输出revision_required差异和计划，不自动覆盖既有文件，不使用M8 runless补绿流程。取消在请求/分页/审计/提升单元前后检查；已提交文件保留，观测写入失败不回滚业务数据。
+
+运营说明通过现有sensor SkipReason、cursor detail与run日志承载，不另做前端页面或通知服务。至少展示source、week、daily_intent_date、当前阶段、已完成量、reason_code、证据引用与next_action。技术错误不记成无源；两源失败/超时/空/分页不完整/身份未决都不得自动调用weekly。
+
+| 状态 | 处理与运营说明 |
+|---|---|
+| before_daily_start / already_verified | 等待19:30／该范围已验证，跳过源请求 |
+| source_not_ready / coverage_unverified | 保留欠账与证据，下一每日窗口再判断；不写绿 |
+| source_timeout / source_failed / page_cap_exceeded | 保存失败阶段与请求计数，原unit有界重试或明确手动续跑 |
+| revision_required / identity_unresolved | 保留差异或身份依据，建议先审阅；不自动覆盖 |
+| 主源未复权问题需考虑备用 | 显示“可按明确代码/周范围手动运行备用weekly，结果仅落独立Raw；未执行” |
+| 复权主源问题 | 显示“weekly不提供复权，不能替代此资产；待主源/专项复权处理” |
+
+### 34.4 配置与预算审计
+
+以下是待实现配置设计，不代表已修改配置/启用服务。唯一持久化事实为typed policy版本、冻结update plan与staging receipts/checkpoint；沿用现有token及WeeklyBudget，没有新secret/env/DB表。所有消费者限定planner、sensor、worker、运行证据及其测试；policy变更生成新plan版本，不能让旧unit隐式改参数。
+
+| 配置或固定约束 | 来源/默认与持久化 | 消费者、生效、可见和门禁 |
+|---|---|---|
+| timezone / daily_start_time | WeeklyUpdatePolicy：Asia/Shanghai / 19:30；plan显式序列化 | planner/sensor；reload后新意图生效，cursor显示；时间边界/非交易日/晚恢复测试 |
+| tick_min_seconds | policy：60；definition/plan | sensor；reload生效；19:30前轻量skip，不能解释为每分钟下载 |
+| max_periods_per_tick / per_source_pending / global_auto_pending | policy：1 / 1 / 1；plan | planner/sensor；两主源串行，共享预算；queued/started去重与手动writer冲突测试 |
+| 每日每source/week一个自动意图 | 固定编排合同，daily_intent_date入unit/hash | planner/request/run查询；午夜换日、同日重复tick、源空次日再判断测试 |
+| fields / page_limit / page_call_cap | source schema +现有StockWeeklyPointPolicy：完整字段/6000/4；receipt | worker与分页；完整page/终空页/超cap反例；不新增独立散落配置 |
+| source_concurrency / min_interval / max_retries / timeout | 现有WeeklyBudget：1 / 1秒 / 2 / 20秒；plan | source supervisor；逐调用记数、取消与超时；源空不是技术重试许可证 |
+| default_status | STOPPED；新definition固定 | definition/reload不启动，正式启用按阶段确认；停止状态测试 |
+| automatic_sources | 两主源固定允许清单，不做可编辑fallback开关 | planner/sensor/run_request；selection、失败/空/超时全部断言weekly调用数0 |
+
+每周期两源正常请求上界8次，含每页最多2次技术重试的硬上界24次；时间超时部分上界480秒，加限流/下载及候选校验，不把此数字当真实ETA。新周期最多2个正式文件，行数受当前WeeklyBudget与page cap共同约束；每源独立candidate/checkpoint，不全历史事务。sensor只查有界frontier，不扫描M8全部2517文件；实际SQL/连接/文件/事件API cap须在实现前按现有helper选择收口，禁止宣称已验证。
+
+### 34.5 代码切片与验收
+
+设计落点仍为`defs/stock_weekly_update.py`纯周期/意图planner、`defs/source_readiness/stock_weekly.py`有界事实判断、`defs/sensors/raw_stock_weekly_update_job_sensor.py`两主源编排，及现有point/capture/candidate主链的update-unit恢复；备用手动asset/job不改。审计现有配置/run query/retry/cursor helper和definitions加载消费者后再编码；若语义不符不得直接复用名称。
+
+| 硬口径 | 必需验证 |
+|---|---|
+| 每日19:30，仅已结束周期 | 19:29:59/19:30:00、周一/周五/周末、UTC→上海、整周休市、日历缺失、服务晚恢复 |
+| 只两主源；无备用自动fallback | selection精确；两主源分别失败、超时、源空、分页不完整时weekly fetch和run request均0 |
+| 去重/串行/不越过欠账 | 同日重复tick、排队/运行中、手动writer、两源一成功一失败、长停机frontier有界 |
+| 完整周证明 | 非空但end_date落后、日线覆盖未验证、合法停牌/退市、满页截断、终空页、source-empty与技术失败分开 |
+| 安全恢复及修订 | 分页中取消/退出、receipt读回续跑、重复意图、文件变化、同key异值、观测失败不回滚正式文件 |
+| 性能/真实样本 | 一正常新周两源、一次源未就绪样本、一个代表取消→续跑→读回；记录请求/行数/文件/SQL/耗时，正式写入另按实际unit批准 |
+
+本轮只修订两份原设计文档；CodeGraph query/impact及当前代码审计覆盖run key消费者、现有weekly资产/jobs/checks、point helper、Prod参数builder、现有19:30 sensor模式及备用入口。无代码、配置或调度写入，不改变子系统依赖/源字段合同。M9尚未开发；先收口源完成谓词、持久化意图恢复及有界readiness API预算，完成配置/消费者审计后进入代码切片。
+
+### 34.6 实现前收口：源完成、配置与读取预算
+
+2026-10-04 已通过 Tushare MCP 核验两主源的默认、完整字段和关键字段请求，并以正式 Raw 日线对账 2026-10-02 周：两源均为5565行，与9月28/29/30日线代码并集一致。未复权5561行end_date=20260930，3行=20260929，1行=20260928；不得把后4行误判为缺口。历史20260925周的end_date可晚于所属周，不能要求等于周五或位于所属周。完整周谓词采用确认身份归一后的日线代码并集覆盖，每只股票end_date不得早于它在该周的最后实际日线日期。Raw保留源代码与原值；身份只用于审计，不改写Raw。无日线的停牌/退市不凭上市池生成缺口；无法确认身份则阻断。源无数据、日期格式错误、未覆盖日线、缺日历或上游check不绿均不提升。MCP接口不暴露limit/offset，本轮不把它冒充分页实测；沿用已核验point参数与6000/4硬门禁，隔离测试验证满页终止与截断反例。
+
+新增自动意图输入只作用于两主源：StockWeeklyRawConfig.automatic_intent_date默认为None（现有手动行为），sensor显式传本地日期；不解析run key生成参数。WeeklyUpdatePolicy唯一保存时区/19:30/60秒及有界读取预算；history_verified_through=2026-09-25来自M8已核验历史，通过两源该周文件、交付和check初始化，禁止自动追讨M7历史残余。新字段消费者仅weekly asset、planner、point交付与测试；不新增env/数据库配置。旧手动任务不传新字段；备用传入自动意图必须拒绝。配置reload只影响新意图，冻结意图不得隐式改预算。
+
+sensor一次只判断frontier相邻一个周，两源串行：最多2次pending-run查询各limit=1、2次当日run-key查询各limit=1、2次周materialization各limit=1及2次批量3-check查询；物理最多2个周文件及2份有界audit JSON。未提交阶段不下载源。日历一次查询仅周一到周五5天；选中源在asset内最多5个日线文件、1个身份文件、1个日历文件、2个冻结控制文件。日线与身份的blocking checks采用分区明确的batch API并绑定目标materialization；上限6组上游、每组最多1次materialization查询+1次批量check查询。参考读取在一条受限DuckDB连接中，最多8次业务SQL，扫描日线不超过5×10000行，身份不超过10000行；超过上限fail closed。停机积压按frontier逐周推进，不使用latest registered作为目标、不枚举全历史Lake。
+
+自动意图在原point主链使用稳定assembly及source/week writer lock；每页落typed capture+receipt，成功页可读回，逐调用持久化请求总量和每页尝试次数（各最多3，累计最多12）。进程退出后显式原run重执行沿相同config/unit恢复；源未就绪同日不重开job，次日新日意图重新捕获。现有jobs没有Dagster RetryPolicy，本次不虚构全run自动重试，也不修改全局重试配置；技术调用在unit内重试，运营可原配置重执行。候选审计、提升checkpoint复用原实现；提升后即使日志或事件写失败，已提交文件保留，恢复沿原audit继续，而不是新建assembly覆盖。
+
+每个新周期只写两个独立Raw文件及各自实际job的1个materialization+3个checks，禁止runless。单源新写最大10000行，最多4页/12含重试调用；两源串行总上限24调用/480秒超时部分，另加限流与向量化审计。每日门禁前0源调用、0Lake/DB读取。源完成依据被冻结到staging控制证据中，正式check校验该证据及Raw覆盖；后续身份snapshot正常更新不回溯污染旧交付。以上预算、取消/续跑/修订/观测失败反例是实现门禁，正式启用仍需最小真实交付验收。
+
+### 34.7 M9开发与只读预演结果（2026-10-04，正式验收未完成）
+
+已落地每日19:30的两主源sensor、完整周planner、有界源完成判断、稳定自动意图、成功页receipt复用、跨进程请求预算与间隔、执行锁、同值复用和异值修订说明。只选择两套主源及原三个blocking checks；备用只手动，任何自动失败/空/超时/分页截断不触发备用。StockWeeklyRawConfig增加可选automatic_intent_date，None保留原手动语义；统一configs builder生成run_config。通用build_run_request增加可选job_name，既有调用默认值和tags不变；run key仍由统一builder生成，不解析key作为执行输入。两个原jobs与checks的分区/字段合同不变，无新业务表、env、secret或Silver改动。
+
+源完成判断与正式delivery check共享同一纯谓词；冻结引用在staging并进入signed audit，checks不依赖后续变动的身份snapshot。捕获预算逐调用持久化，技术失败最多每页3次，重执行不清零；成功页不会再查源。实际进程退出、取消后续跑、提升后观测失败、同key异值、源未就绪、满页达到cap、未确认身份和两个主源实际job的分区check均有隔离测试。source/week执行锁保护point任务，正式提升沿用已有writer lock、目标fingerprint与checkpoint，不引入备份或第二个writer。
+
+**日线上游事件口径校准**：当前Raw日线4个blocking checks的日期绑定依据是target materialization，不是check.partition。首轮分区过滤错误地显示缺check，已用当前readiness纯helper的目标绑定语义校准；不改日线、不增加兼容分支。上游日线采用一次日期集合materialization查询（最多50条）及4个check历史各最多20条；身份采用1个materialization+1次3-check batch。新增typed policy max_upstream_check_records=20与max_materialization_versions_per_period=10，来源仅WeeklyUpdatePolicy，消费者为周线事件batch、冻结意图和测试，reload仅对新意图生效。不得直接复用全局CHECK_HISTORY_LIMIT=5000作为M9热路径预算。未匹配到目标、失败、不blocking或超出有界窗口均阻断，禁止扩大历史扫描冒充ready。
+
+最终sensor每次最多核验基线与相邻目标两个周、两种源，最多4个materialization、4次weekly check batch、4个周文件及4份有界audit；加两次pending查询、最多两次当日意图查询、一次上游batch与一次has_dynamic_partition，总事件API上界20次、返回记录上界160条。19:30前仍0外部读取。无交易周的examined_through与最后真实交付verified_through分别保存，不能拿休市周要求不存在的周文件。缺分区时在同一SensorResult生成该一个自然周五的add request及一个主源RunRequest；只有正式启用后才由daemon写分区。消费者已核验三个weekly assets、九checks、三个jobs和新sensor，备用共用分区定义但不进入自动selection。
+
+正式只读预演（模拟2026-10-04 19:30）确定首个欠账为2026-10-02；日线/身份blocking checks通过，两源MCP样本均覆盖5565代码。最终预演约0.268秒、16次事件API、95条返回记录（80条check历史+6条materialization+9条check batch），0源请求、0正式写入。报告：reports/stock_week_m9_readonly_preview_verified_20261004.json；先前未校准的preview/upstream报告保留为审计过程，不能当作当前门禁结论。
+
+开发验证：11组相关回归167项通过；新增代码与修改的weekly路径Ruff通过。共享configs.py既有11项lint问题未在本轮扩大修复。续验补齐隔离器7个公告源码的精确读取清单及资产治理中raw_tushare_anns_d登记；完整113项静态检查与12项资产治理检查（468 subtests）通过，没有降低断言或修改公告业务代码。两个测试改动默认Ruff、全src/tests致命错误基线通过。现有dg check defs --no-check-yaml --use-active-venv在临时instance和精确源码只读隔离中成功加载整个code location，禁止网络及正式Lake/DB访问，没有安装或同步依赖。详见reports/stock_week_m9_defs_validation_20261004.json。共享静态门禁已解除；最小正式执行验收和调度启用仍分别待批准。
+CodeGraph explore/query影响面覆盖原point调用者、资产/job/check、64个run request消费者及配置/cursor/readiness链；完成本轮后已sync/status。无src子系统边界或依赖矩阵变动，无正式路径变动。当前未提交、未执行正式更新、未启用sensor，M9状态为开发及静态/隔离验收已完成、最小正式验收待完成。
+
+### 34.8 正式验收延期与月线先行（2026-10-04）
+
+管理员确认源站尚未生成2026-10-02周线，本周最小正式验收记录为source_not_ready（管理员源站核查，非本轮API空响应实测）。不运行job、注册分区或启用sensor；源端就绪后再取得完整交付证据并恢复原验收。此前readonly preview/MCP字段样本不等于已经获得可正式交付的周线版本。
+
+管理员明确允许先推进后续任务，因此§15“先完成M9再进入M10”调整为允许M10准备/开发先行，M9正式验收仍保留独立未完成项，不合并验收或提前标第一阶段完成。月线来源调查与[专项LLD初稿](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)已落档；本轮没有改动weekly执行代码。M10实现与正式bootstrap/事件/更新启用继续分阶段核验和授权。

@@ -1,0 +1,1420 @@
+{
+  "date": "2026-10-04",
+  "scope": "readonly source probes; no prod/lake writes",
+  "pagination_verified": false,
+  "pagination_limitation": "MCP tool schema does not expose limit/offset",
+  "evidence": [
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "object_default",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ"
+      },
+      "is_error": false,
+      "row_count": 426,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 11.68,
+          "high": 12.08,
+          "low": 11.27,
+          "close": 11.57,
+          "pre_close": 11.72,
+          "vol": 18415433.83,
+          "amount": 21559984.96,
+          "change": -0.15,
+          "pct_chg": -1.28
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 11.54,
+          "high": 11.77,
+          "low": 11.03,
+          "close": 11.72,
+          "pre_close": 11.63,
+          "vol": 20797559.72,
+          "amount": 23656285.45,
+          "change": 0.09,
+          "pct_chg": 0.77
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260731",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 10.05,
+          "high": 11.63,
+          "low": 9.99,
+          "close": 11.63,
+          "pre_close": 10.05,
+          "vol": 27193138.82,
+          "amount": 29599187.69,
+          "change": 1.58,
+          "pct_chg": 15.72
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260630",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 10.9,
+          "high": 11.39,
+          "low": 10.02,
+          "close": 10.05,
+          "pre_close": 10.93,
+          "vol": 24524892.26,
+          "amount": 26553616.13,
+          "change": -0.88,
+          "pct_chg": -8.05
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260531",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 11.5,
+          "high": 11.5,
+          "low": 10.62,
+          "close": 10.93,
+          "pre_close": 11.49,
+          "vol": 16802295.74,
+          "amount": 18460366.75,
+          "change": -0.56,
+          "pct_chg": -4.87
+        }
+      ],
+      "last_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910831",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 29.39,
+          "high": 29.39,
+          "low": 14.3,
+          "close": 15.05,
+          "pre_close": 29.54,
+          "vol": 27573,
+          "amount": 42111.21,
+          "change": -14.49,
+          "pct_chg": -49.05
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910731",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 33.65,
+          "high": 33.65,
+          "low": 29.54,
+          "close": 29.54,
+          "pre_close": 33.82,
+          "vol": 58,
+          "amount": 184.01,
+          "change": -4.28,
+          "pct_chg": -12.66
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910630",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 37.96,
+          "high": 37.96,
+          "low": 33.99,
+          "close": 33.99,
+          "pre_close": 38.15,
+          "vol": 247,
+          "amount": 881.5,
+          "change": -4.16,
+          "pct_chg": -10.9
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910531",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 43.46,
+          "high": 43.46,
+          "low": 38.34,
+          "close": 38.34,
+          "pre_close": 43.68,
+          "vol": 1769,
+          "amount": 7235.66,
+          "change": -5.34,
+          "pct_chg": -12.23
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910430",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 49,
+          "high": 49,
+          "low": 43.68,
+          "close": 43.68,
+          "pre_close": 43.7,
+          "vol": 117,
+          "amount": 534.62,
+          "change": -0.02,
+          "pct_chg": -0.05
+        }
+      ],
+      "all_rows_in_report": false
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "point_documented",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20260930"
+      },
+      "is_error": false,
+      "row_count": 1,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 11.68,
+          "high": 12.08,
+          "low": 11.27,
+          "close": 11.57,
+          "pre_close": 11.72,
+          "vol": 18415433.83,
+          "amount": 21559984.96,
+          "change": -0.15,
+          "pct_chg": -1.28
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "weekend_month",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20260531",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "close"
+        ]
+      },
+      "is_error": false,
+      "row_count": 1,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "close"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260531",
+          "end_date": "20260930",
+          "freq": "month",
+          "close": 10.93
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "last_trading_day",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20260529",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "close"
+        ]
+      },
+      "is_error": false,
+      "row_count": 0,
+      "columns": [],
+      "first_rows": [],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "feb28",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20200228"
+      },
+      "is_error": false,
+      "row_count": 1,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20200228",
+          "end_date": "20250826",
+          "freq": "month",
+          "open": 13.99,
+          "high": 15.72,
+          "low": 13.99,
+          "close": 14.5,
+          "pre_close": 15.54,
+          "vol": 25321376.36,
+          "amount": 37501098.78,
+          "change": -1.04,
+          "pct_chg": -6.69
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "feb29",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20200229"
+      },
+      "is_error": false,
+      "row_count": 1,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20200229",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 13.99,
+          "high": 15.72,
+          "low": 13.99,
+          "close": 14.5,
+          "pre_close": 15.54,
+          "vol": 25321376.36,
+          "amount": 37501098.78,
+          "change": -1.04,
+          "pct_chg": -6.69
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "object_default",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ"
+      },
+      "is_error": false,
+      "row_count": 426,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "open_qfq",
+        "high_qfq",
+        "low_qfq",
+        "close_qfq",
+        "open_hfq",
+        "high_hfq",
+        "low_hfq",
+        "close_hfq",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 11.68,
+          "high": 12.08,
+          "low": 11.27,
+          "close": 11.57,
+          "pre_close": 11.72,
+          "open_qfq": 11.43,
+          "high_qfq": 11.82,
+          "low_qfq": 11.27,
+          "close_qfq": 11.57,
+          "open_hfq": 1623.61,
+          "high_hfq": 1679.22,
+          "low_hfq": 1601.13,
+          "close_hfq": 1643.75,
+          "vol": 18415433.83,
+          "amount": 21559984.96,
+          "change": -0.15,
+          "pct_chg": -1.28
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 11.54,
+          "high": 11.77,
+          "low": 11.03,
+          "close": 11.72,
+          "pre_close": 11.63,
+          "open_qfq": 11.29,
+          "high_qfq": 11.52,
+          "low_qfq": 10.79,
+          "close_qfq": 11.47,
+          "open_hfq": 1604.15,
+          "high_hfq": 1636.12,
+          "low_hfq": 1533.26,
+          "close_hfq": 1629.17,
+          "vol": 20797559.72,
+          "amount": 23656285.45,
+          "change": 0.09,
+          "pct_chg": 0.77
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260731",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 10.05,
+          "high": 11.63,
+          "low": 9.99,
+          "close": 11.63,
+          "pre_close": 10.05,
+          "open_qfq": 9.83,
+          "high_qfq": 11.38,
+          "low_qfq": 9.77,
+          "close_qfq": 11.38,
+          "open_hfq": 1397.03,
+          "high_hfq": 1616.66,
+          "low_hfq": 1388.69,
+          "close_hfq": 1616.66,
+          "vol": 27193138.82,
+          "amount": 29599187.69,
+          "change": 1.58,
+          "pct_chg": 15.72
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260630",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 10.9,
+          "high": 11.39,
+          "low": 10.02,
+          "close": 10.05,
+          "pre_close": 10.93,
+          "open_qfq": 10.33,
+          "high_qfq": 11.01,
+          "low_qfq": 9.8,
+          "close_qfq": 9.83,
+          "open_hfq": 1466.92,
+          "high_hfq": 1563.84,
+          "low_hfq": 1392.86,
+          "close_hfq": 1397.03,
+          "vol": 24524892.26,
+          "amount": 26553616.13,
+          "change": -0.88,
+          "pct_chg": -8.05
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260531",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 11.5,
+          "high": 11.5,
+          "low": 10.62,
+          "close": 10.93,
+          "pre_close": 11.49,
+          "open_qfq": 10.89,
+          "high_qfq": 10.89,
+          "low_qfq": 10.06,
+          "close_qfq": 10.35,
+          "open_hfq": 1547.66,
+          "high_hfq": 1547.66,
+          "low_hfq": 1429.23,
+          "close_hfq": 1470.95,
+          "vol": 16802295.74,
+          "amount": 18460366.75,
+          "change": -0.56,
+          "pct_chg": -4.87
+        }
+      ],
+      "last_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910831",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 29.39,
+          "high": 29.39,
+          "low": 14.3,
+          "close": 15.05,
+          "pre_close": 29.54,
+          "open_qfq": 0.29,
+          "high_qfq": 0.3,
+          "low_qfq": 0.26,
+          "close_qfq": 0.28,
+          "open_hfq": 41.41,
+          "high_hfq": 42.51,
+          "low_hfq": 37.29,
+          "close_hfq": 39.25,
+          "vol": 27573,
+          "amount": 42111.21,
+          "change": -14.49,
+          "pct_chg": -49.05
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910731",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 33.65,
+          "high": 33.65,
+          "low": 29.54,
+          "close": 29.54,
+          "pre_close": 33.82,
+          "open_qfq": 0.33,
+          "high_qfq": 0.33,
+          "low_qfq": 0.29,
+          "close_qfq": 0.29,
+          "open_hfq": 47.41,
+          "high_hfq": 47.41,
+          "low_hfq": 41.62,
+          "close_hfq": 41.62,
+          "vol": 58,
+          "amount": 184.01,
+          "change": -4.28,
+          "pct_chg": -12.66
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910630",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 37.96,
+          "high": 37.96,
+          "low": 33.99,
+          "close": 33.99,
+          "pre_close": 38.15,
+          "open_qfq": 0.38,
+          "high_qfq": 0.38,
+          "low_qfq": 0.34,
+          "close_qfq": 0.34,
+          "open_hfq": 53.49,
+          "high_hfq": 53.49,
+          "low_hfq": 47.89,
+          "close_hfq": 47.89,
+          "vol": 247,
+          "amount": 881.5,
+          "change": -4.16,
+          "pct_chg": -10.9
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910531",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 43.46,
+          "high": 43.46,
+          "low": 38.34,
+          "close": 38.34,
+          "pre_close": 43.68,
+          "open_qfq": 0.43,
+          "high_qfq": 0.43,
+          "low_qfq": 0.38,
+          "close_qfq": 0.38,
+          "open_hfq": 61.24,
+          "high_hfq": 61.24,
+          "low_hfq": 54.02,
+          "close_hfq": 54.02,
+          "vol": 1769,
+          "amount": 7235.66,
+          "change": -5.34,
+          "pct_chg": -12.23
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "19910430",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 49,
+          "high": 49,
+          "low": 43.68,
+          "close": 43.68,
+          "pre_close": 43.7,
+          "open_qfq": 0.34,
+          "high_qfq": 0.34,
+          "low_qfq": 0.31,
+          "close_qfq": 0.31,
+          "open_hfq": 49,
+          "high_hfq": 49,
+          "low_hfq": 43.68,
+          "close_hfq": 43.68,
+          "vol": 117,
+          "amount": 534.62,
+          "change": -0.02,
+          "pct_chg": -0.05
+        }
+      ],
+      "all_rows_in_report": false
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "point_documented",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20260930"
+      },
+      "is_error": false,
+      "row_count": 1,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "open_qfq",
+        "high_qfq",
+        "low_qfq",
+        "close_qfq",
+        "open_hfq",
+        "high_hfq",
+        "low_hfq",
+        "close_hfq",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 11.68,
+          "high": 12.08,
+          "low": 11.27,
+          "close": 11.57,
+          "pre_close": 11.72,
+          "open_qfq": 11.43,
+          "high_qfq": 11.82,
+          "low_qfq": 11.27,
+          "close_qfq": 11.57,
+          "open_hfq": 1623.61,
+          "high_hfq": 1679.22,
+          "low_hfq": 1601.13,
+          "close_hfq": 1643.75,
+          "vol": 18415433.83,
+          "amount": 21559984.96,
+          "change": -0.15,
+          "pct_chg": -1.28
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "weekend_month",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20260531",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "close"
+        ]
+      },
+      "is_error": false,
+      "row_count": 1,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "close"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260531",
+          "end_date": "20260930",
+          "freq": "month",
+          "close": 10.93
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "last_trading_day",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20260529",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "close"
+        ]
+      },
+      "is_error": false,
+      "row_count": 0,
+      "columns": [],
+      "first_rows": [],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "feb28",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20200228"
+      },
+      "is_error": false,
+      "row_count": 1,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "open_qfq",
+        "high_qfq",
+        "low_qfq",
+        "close_qfq",
+        "open_hfq",
+        "high_hfq",
+        "low_hfq",
+        "close_hfq",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20200228",
+          "end_date": "20250910",
+          "freq": "month",
+          "open": 13.99,
+          "high": 15.72,
+          "low": 13.99,
+          "close": 14.5,
+          "pre_close": 15.54,
+          "open_qfq": 11.59,
+          "high_qfq": 13.02,
+          "low_qfq": 11.59,
+          "close_qfq": 12.01,
+          "open_hfq": 1527.28,
+          "high_hfq": 1716.14,
+          "low_hfq": 1527.28,
+          "close_hfq": 1582.96,
+          "vol": 25321376.36,
+          "amount": 37501098.78,
+          "change": -1.04,
+          "pct_chg": -6.69
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "feb29",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "trade_date": "20200229"
+      },
+      "is_error": false,
+      "row_count": 1,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "open_qfq",
+        "high_qfq",
+        "low_qfq",
+        "close_qfq",
+        "open_hfq",
+        "high_hfq",
+        "low_hfq",
+        "close_hfq",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20200229",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 13.99,
+          "high": 15.72,
+          "low": 13.99,
+          "close": 14.5,
+          "pre_close": 15.54,
+          "open_qfq": 10.75,
+          "high_qfq": 12.08,
+          "low_qfq": 10.75,
+          "close_qfq": 11.14,
+          "open_hfq": 1527.27,
+          "high_hfq": 1716.14,
+          "low_hfq": 1527.27,
+          "close_hfq": 1582.95,
+          "vol": 25321376.36,
+          "amount": 37501098.78,
+          "change": -1.04,
+          "pct_chg": -6.69
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "freq_only",
+      "args": {
+        "freq": "month",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq"
+        ]
+      },
+      "is_error": false,
+      "row_count": 6000,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000002.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000006.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000007.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000008.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        }
+      ],
+      "last_rows": [
+        {
+          "ts_code": "001215.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "001216.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "001217.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "001218.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "001219.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        }
+      ],
+      "all_rows_in_report": false
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "range_explicit",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "start_date": "20200201",
+        "end_date": "20200229",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ]
+      },
+      "is_error": false,
+      "row_count": 2,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20200229",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 13.99,
+          "high": 15.72,
+          "low": 13.99,
+          "close": 14.5,
+          "pre_close": 15.54,
+          "vol": 25321376.36,
+          "amount": 37501098.78,
+          "change": -1.04,
+          "pct_chg": -6.69
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20200228",
+          "end_date": "20250826",
+          "freq": "month",
+          "open": 13.99,
+          "high": 15.72,
+          "low": 13.99,
+          "close": 14.5,
+          "pre_close": 15.54,
+          "vol": 25321376.36,
+          "amount": 37501098.78,
+          "change": -1.04,
+          "pct_chg": -6.69
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_weekly_monthly",
+      "label": "market_september",
+      "args": {
+        "freq": "month",
+        "trade_date": "20260930",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq"
+        ]
+      },
+      "is_error": false,
+      "row_count": 5571,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000002.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000006.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000007.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000008.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        }
+      ],
+      "last_rows": [
+        {
+          "ts_code": "920978.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "920981.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "920982.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "920985.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "920992.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        }
+      ],
+      "all_rows_in_report": false
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "freq_only",
+      "args": {
+        "freq": "month",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq"
+        ]
+      },
+      "is_error": false,
+      "row_count": 6000,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000002.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000006.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000007.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000008.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        }
+      ],
+      "last_rows": [
+        {
+          "ts_code": "001215.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "001216.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "001217.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "001218.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "001219.SZ",
+          "trade_date": "20260831",
+          "end_date": "20260930",
+          "freq": "month"
+        }
+      ],
+      "all_rows_in_report": false
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "range_explicit",
+      "args": {
+        "freq": "month",
+        "ts_code": "000001.SZ",
+        "start_date": "20200201",
+        "end_date": "20200229",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ]
+      },
+      "is_error": false,
+      "row_count": 2,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "open_qfq",
+        "high_qfq",
+        "low_qfq",
+        "close_qfq",
+        "open_hfq",
+        "high_hfq",
+        "low_hfq",
+        "close_hfq",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20200229",
+          "end_date": "20260930",
+          "freq": "month",
+          "open": 13.99,
+          "high": 15.72,
+          "low": 13.99,
+          "close": 14.5,
+          "pre_close": 15.54,
+          "open_qfq": 10.75,
+          "high_qfq": 12.08,
+          "low_qfq": 10.75,
+          "close_qfq": 11.14,
+          "open_hfq": 1527.27,
+          "high_hfq": 1716.14,
+          "low_hfq": 1527.27,
+          "close_hfq": 1582.95,
+          "vol": 25321376.36,
+          "amount": 37501098.78,
+          "change": -1.04,
+          "pct_chg": -6.69
+        },
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20200228",
+          "end_date": "20250910",
+          "freq": "month",
+          "open": 13.99,
+          "high": 15.72,
+          "low": 13.99,
+          "close": 14.5,
+          "pre_close": 15.54,
+          "open_qfq": 11.59,
+          "high_qfq": 13.02,
+          "low_qfq": 11.59,
+          "close_qfq": 12.01,
+          "open_hfq": 1527.28,
+          "high_hfq": 1716.14,
+          "low_hfq": 1527.28,
+          "close_hfq": 1582.96,
+          "vol": 25321376.36,
+          "amount": 37501098.78,
+          "change": -1.04,
+          "pct_chg": -6.69
+        }
+      ],
+      "last_rows": [],
+      "all_rows_in_report": true
+    },
+    {
+      "tool": "mcp__tushareMcp__stk_week_month_adj",
+      "label": "market_september",
+      "args": {
+        "freq": "month",
+        "trade_date": "20260930",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq"
+        ]
+      },
+      "is_error": false,
+      "row_count": 5571,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq"
+      ],
+      "first_rows": [
+        {
+          "ts_code": "000001.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000002.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000006.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000007.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "000008.SZ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        }
+      ],
+      "last_rows": [
+        {
+          "ts_code": "920978.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "920981.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "920982.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "920985.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        },
+        {
+          "ts_code": "920992.BJ",
+          "trade_date": "20260930",
+          "end_date": "20260930",
+          "freq": "month"
+        }
+      ],
+      "all_rows_in_report": false
+    }
+  ]
+}

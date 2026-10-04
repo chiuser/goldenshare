@@ -835,3 +835,24 @@ class StockWeeklyRawConfig(dg.Config):
     model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
     write_mode: Literal["create_or_identical"] = "create_or_identical"
     code_list_path: str | None = None
+    automatic_intent_date: str | None = None
+
+
+def build_stock_weekly_update_job_run_config(source, intent_date):
+    from datetime import date
+
+    from orchestrator.defs.run_contracts.stock_weekly import (
+        StockWeeklySource,
+        weekly_asset_key,
+    )
+
+    source = StockWeeklySource(source)
+    if source is StockWeeklySource.ALTERNATE_WEEKLY:
+        raise ValueError("alternate_automatic_forbidden")
+    if date.fromisoformat(intent_date).isoformat() != intent_date:
+        raise ValueError("invalid_weekly_intent_date")
+    return {
+        "ops": {
+            weekly_asset_key(source): {"config": {"automatic_intent_date": intent_date}}
+        }
+    }

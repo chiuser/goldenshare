@@ -1,0 +1,150 @@
+{
+  "status": "passed",
+  "as_of": "2026-10-03T12:03:35.023309+00:00",
+  "counts": {
+    "source": 3132,
+    "captured": 3132,
+    "formal": 3132
+  },
+  "differences": {
+    "source_minus_captured": 0,
+    "captured_minus_source": 0,
+    "captured_minus_formal": 0,
+    "formal_minus_captured": 0
+  },
+  "missing_candidate_keys": 0,
+  "extra_candidate_keys": 0,
+  "duplicate_keys": 0,
+  "bad_partitions": 0,
+  "files": 734,
+  "receipts": 69,
+  "successful_plan_attempts": 69,
+  "source_probe_calls": 5,
+  "failed_initial_plan_launches": 3,
+  "source_bounds": [
+    "20091231",
+    "20240510"
+  ],
+  "null_counts": {
+    "ts_code": 0,
+    "trade_date": 0,
+    "close": 0,
+    "open": 0,
+    "high": 0,
+    "low": 0,
+    "pre_close": 0,
+    "change": 0,
+    "pct_chg": 0,
+    "vol": 0,
+    "amount": 0
+  },
+  "formal_bytes": 1372621,
+  "peak_process_tree_rss_bytes": 447283200,
+  "peak_process_rss_bytes": 255852544,
+  "sampled_peak_spill_bytes": 0,
+  "spill_samples": 1147,
+  "sample_interval_seconds": 0.1,
+  "spill_measurement_limit": "0.1-second samples are a lower bound; no forced-spill stress test",
+  "stage_seconds": 153.213,
+  "years": [
+    {
+      "year": 2010,
+      "rows": 236,
+      "files": 52,
+      "source_rows": 236
+    },
+    {
+      "year": 2011,
+      "rows": 221,
+      "files": 51,
+      "source_rows": 221
+    },
+    {
+      "year": 2012,
+      "rows": 226,
+      "files": 50,
+      "source_rows": 226
+    },
+    {
+      "year": 2013,
+      "rows": 254,
+      "files": 51,
+      "source_rows": 254
+    },
+    {
+      "year": 2014,
+      "rows": 239,
+      "files": 52,
+      "source_rows": 239
+    },
+    {
+      "year": 2015,
+      "rows": 211,
+      "files": 52,
+      "source_rows": 211
+    },
+    {
+      "year": 2016,
+      "rows": 226,
+      "files": 51,
+      "source_rows": 226
+    },
+    {
+      "year": 2017,
+      "rows": 250,
+      "files": 51,
+      "source_rows": 250
+    },
+    {
+      "year": 2018,
+      "rows": 215,
+      "files": 51,
+      "source_rows": 215
+    },
+    {
+      "year": 2019,
+      "rows": 255,
+      "files": 51,
+      "source_rows": 255
+    },
+    {
+      "year": 2020,
+      "rows": 232,
+      "files": 51,
+      "source_rows": 232
+    },
+    {
+      "year": 2021,
+      "rows": 212,
+      "files": 53,
+      "source_rows": 212
+    },
+    {
+      "year": 2022,
+      "rows": 168,
+      "files": 50,
+      "source_rows": 168
+    },
+    {
+      "year": 2023,
+      "rows": 150,
+      "files": 50,
+      "source_rows": 150
+    },
+    {
+      "year": 2024,
+      "rows": 37,
+      "files": 18,
+      "source_rows": 37
+    }
+  ],
+  "instance_writes": 0,
+  "prod_writes": 0,
+  "key_ledger": "/Users/congming/github/goldenshare/reports/stock_week_m6_key_outcomes_20261003.csv",
+  "key_ledger_hash": "4784d52ba9e160e3ff6eb0e091dea5edd6193779f36283311c79f3b458c45583",
+  "adjusted_period_keys_retained": 3132,
+  "adjusted_qfq_hfq_ledger_rows": 6264,
+  "adjusted_evidence_as_of": "2026-10-02",
+  "adjusted_not_refreshed_in_M6": true,
+  "adjusted_ledger": "/Users/congming/github/goldenshare/reports/stock_week_m6_adjusted_residual_keys_20261003.csv"
+}

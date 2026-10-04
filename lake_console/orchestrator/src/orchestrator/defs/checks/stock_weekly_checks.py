@@ -41,6 +41,32 @@ from orchestrator.defs.run_contracts.stock_weekly import (
 )
 
 
+def verify_weekly_delivery_evidence(audit, budget=None):
+    """Verify the same sealed source receipts once per bounded annual audit."""
+    budget = budget or WeeklyBudget()
+    if len(audit["source_evidence"]) > budget.max_phase_files:
+        raise WeeklyCaptureError("delivery_evidence_budget_exceeded")
+    control_count = 0
+    receipts = 0
+    for item in audit["source_evidence"]:
+        reference = Path(item["path"])
+        if fingerprint(reference) != item["sha256"]:
+            raise WeeklyCaptureError("delivery_evidence_changed")
+        if reference.name == "receipt.json":
+            if reference.stat().st_size > 1024 * 1024:
+                raise WeeklyCaptureError("delivery_receipt_budget_exceeded")
+            receipt = json.loads(reference.read_text())
+            if (
+                receipt["status"] not in ("captured", "success_empty")
+                or receipt["schema_hash"] != audit["schema_hash"]
+            ):
+                raise WeeklyCaptureError("delivery_receipt_invalid")
+            control_count += receipt["source_rows"]
+            receipts += 1
+    if not receipts or control_count != audit["stats"]["source_rows"]:
+        raise WeeklyCaptureError("delivery_control_count_mismatch")
+
+
 def audit_weekly_file(source, week, root, *, delivery=None, kind="key_partition"):
     normalize_week_key(week)
     path = partition_path(root, source, week)
@@ -95,30 +121,30 @@ def audit_weekly_file(source, week, root, *, delivery=None, kind="key_partition"
                 }
             }:
                 raise WeeklyCaptureError("delivery_hash_mismatch")
-            if len(audit["source_evidence"]) > budget.max_phase_files:
-                raise WeeklyCaptureError("delivery_evidence_budget_exceeded")
-            control_count = 0
-            receipts = 0
-            for item in audit["source_evidence"]:
-                reference = Path(item["path"])
-                if fingerprint(reference) != item["sha256"]:
-                    raise WeeklyCaptureError("delivery_evidence_changed")
-                if reference.name == "receipt.json":
-                    if reference.stat().st_size > 1024 * 1024:
-                        raise WeeklyCaptureError("delivery_receipt_budget_exceeded")
-                    receipt = json.loads(reference.read_text())
-                    if (
-                        receipt["status"] not in ("captured", "success_empty")
-                        or receipt["schema_hash"] != audit["schema_hash"]
-                    ):
-                        raise WeeklyCaptureError("delivery_receipt_invalid")
-                    control_count += receipt["source_rows"]
-                    receipts += 1
-            if (
-                not receipts
-                or control_count != audit["stats"]["source_rows"]
-                or count != matches[0]["rows"]
-            ):
+            verify_weekly_delivery_evidence(audit, budget)
+            if audit.get("update_reference"):
+                from orchestrator.defs.source_readiness.stock_weekly import (
+                    verify_weekly_source_completion,
+                )
+                from orchestrator.defs.stock_weekly_update_execution import (
+                    read_weekly_control,
+                )
+
+                reference = audit["update_reference"]
+                if fingerprint(Path(reference["path"])) != reference["sha256"]:
+                    raise WeeklyCaptureError("weekly_reference_evidence_changed")
+                frozen = read_weekly_control(Path(reference["path"]))
+                if frozen["week"] != week:
+                    raise WeeklyCaptureError("weekly_reference_identity_mismatch")
+                completion = verify_weekly_source_completion(
+                    con.execute(
+                        "SELECT ts_code,trade_date,end_date,freq FROM weekly_checked"
+                    ).fetchall(),
+                    frozen,
+                )
+                if completion != audit["source_completion"]:
+                    raise WeeklyCaptureError("weekly_source_completion_mismatch")
+            if count != matches[0]["rows"]:
                 raise WeeklyCaptureError("delivery_control_count_mismatch")
     return count
 

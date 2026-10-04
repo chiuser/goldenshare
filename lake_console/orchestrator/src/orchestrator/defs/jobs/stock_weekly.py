@@ -1,4 +1,4 @@
-"""Explicit, layer-isolated manual weekly jobs; no sensors or schedules."""
+"""Layer-isolated primary weekly jobs and the manual-only alternate job."""
 
 import dagster as dg
 

@@ -1,0 +1,14 @@
+{
+  "kind": "M7_authorized_candidate_scope",
+  "version": 1,
+  "objects": "/Users/congming/github/goldenshare/reports/stock_week_m7_objects_20261003.csv",
+  "objects_hash": "e6083549d523745c8521982c5d20caf0bdf60f5a7d5305a99d5ebf3bab0a6623",
+  "gap_inventory": "/Users/congming/github/goldenshare/reports/stock_week_full_reaudit_gap_keys_20261002.csv",
+  "gap_inventory_hash": "e284a8b03c2156f42f288d1a07dd954f4b5d4500b49d0e213a73e733340d6a3d",
+  "codes": 206,
+  "candidate_keys": 100505,
+  "code_year_units_upper_bound": 2294,
+  "max_probe_calls": 618,
+  "excluded_week": "2026-10-02",
+  "formal_target": "/Volumes/datasource/data_lake/raw/tushare/weekly"
+}

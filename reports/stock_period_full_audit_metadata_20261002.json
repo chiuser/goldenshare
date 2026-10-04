@@ -1,0 +1,254 @@
+{
+  "scope_start": "2010-01-01",
+  "scope_end": "2026-09-30",
+  "daily_start_for_first_week": "2009-12-28",
+  "daily_codes": 5846,
+  "batches": 20,
+  "batch_size": 300,
+  "gap_keys": 396523,
+  "unique_codes": 512,
+  "active_tasks": 32,
+  "active_target_keys": 666,
+  "source_20250531_proof": [
+    {
+      "series": "unadjusted",
+      "ts_code": "000851.SZ",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "002235.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "002769.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "002812.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "300165.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "300379.SZ",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "300630.SZ",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "300710.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "600190.SH",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "600200.SH",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "600222.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "601059.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "601198.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "601989.SH",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "601995.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "603388.SH",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "688051.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "688536.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "688766.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "unadjusted",
+      "ts_code": "920680.BJ",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "000851.SZ",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "002235.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "002769.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "002812.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "300165.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "300379.SZ",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "300630.SZ",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "300710.SZ",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "600190.SH",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "600200.SH",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "600222.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "601059.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "601198.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "601989.SH",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "601995.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "603388.SH",
+      "list_status": "D",
+      "source_has_row": false
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "688051.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "688536.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "688766.SH",
+      "list_status": "L",
+      "source_has_row": true
+    },
+    {
+      "series": "adjusted",
+      "ts_code": "920680.BJ",
+      "list_status": "D",
+      "source_has_row": false
+    }
+  ]
+}

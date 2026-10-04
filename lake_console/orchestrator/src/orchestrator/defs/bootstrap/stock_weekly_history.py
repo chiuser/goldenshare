@@ -19,7 +19,7 @@ from orchestrator.defs.duckdb_connection import (
     DuckDBConnectionSettings,
     connect_configured_duckdb,
 )
-from orchestrator.defs.prod_db.stock_weekly import iter_prod_weekly_batches
+from orchestrator.defs.prod_db.stock_weekly import load_prod_weekly_csv
 from orchestrator.defs.run_contracts.stock_weekly import (
     ProdWeeklyUnit,
     WeeklyPlanManifest,
@@ -35,25 +35,37 @@ def capture_prod_weekly_unit(
     connection,
     unit: ProdWeeklyUnit,
     *,
-    resource,
+    exporter,
     store: WeeklyCaptureStore,
     cancel: CancelProbe,
-    progress: Callable[[int], None],
+    progress: Callable[[int | dict], None],
     remaining_rows: int,
 ) -> dict:
+    started = monotonic()
     attempt = store.begin_attempt(unit)
     chunks = []
     evidence = {}
     captured_rows = 0
     try:
-        for index, frame in enumerate(
-            iter_prod_weekly_batches(
-                resource, unit, store.manifest.budget, cancel, evidence, remaining_rows
-            )
+        path, evidence = exporter.export(
+            unit, store.manifest.budget, attempt, cancel, progress, remaining_rows
+        )
+        check_weekly_cancel(cancel)
+        count = load_prod_weekly_csv(connection, path, unit, evidence)
+        for index, offset in enumerate(
+            range(0, max(count, 1), store.manifest.budget.fetch_batch_rows)
         ):
             check_weekly_cancel(cancel)
-            chunks.append(store.write_chunk(connection, frame, unit, attempt, index))
-            captured_rows += len(frame)
+            if monotonic() - started >= store.manifest.budget.prod_unit_seconds:
+                raise WeeklyCaptureError("prod_unit_timeout")
+            connection.execute(
+                f"CREATE OR REPLACE TEMP TABLE weekly_prod_batch AS SELECT * FROM weekly_prod_csv LIMIT {store.manifest.budget.fetch_batch_rows} OFFSET {offset}"
+            )
+            chunk = store.write_relation_chunk(
+                connection, "weekly_prod_batch", unit, attempt, index
+            )
+            chunks.append(chunk)
+            captured_rows += chunk["rows"]
             progress(captured_rows)
             check_weekly_cancel(cancel)
         return store.seal(connection, unit, chunks, evidence["source_rows"], evidence)
@@ -71,7 +83,7 @@ def capture_weekly_history(
     manifest: WeeklyPlanManifest,
     *,
     capture_root: Path,
-    prod_resource=None,
+    prod_exporter=None,
     worker: WeeklySourceWorker | None = None,
     cancel: CancelProbe = lambda: False,
     progress: Callable[[dict], None] | None = None,
@@ -106,9 +118,11 @@ def capture_weekly_history(
                 "completed_units": completed,
                 "total_units": len(manifest.units),
                 "source_rows": source_rows,
-                "current_chunk_rows": chunk_rows,
+                "current_chunk_rows": 0 if isinstance(chunk_rows, dict) else chunk_rows,
                 "eta": "暂无法估算",
             }
+            if isinstance(chunk_rows, dict):
+                payload.update(chunk_rows)
             logger.stdout("progress", **payload)
             if progress:
                 progress(payload)
@@ -133,12 +147,12 @@ def capture_weekly_history(
                 receipt = store.resume(connection, unit)
                 if receipt is None:
                     if isinstance(unit, ProdWeeklyUnit):
-                        if prod_resource is None:
-                            raise WeeklyCaptureError("prod_resource_required")
+                        if prod_exporter is None:
+                            raise WeeklyCaptureError("prod_exporter_required")
                         receipt = capture_prod_weekly_unit(
                             connection,
                             unit,
-                            resource=prod_resource,
+                            exporter=prod_exporter,
                             store=store,
                             cancel=cancel,
                             remaining_rows=budget.max_phase_rows - source_rows,

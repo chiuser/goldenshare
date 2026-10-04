@@ -1,0 +1,39 @@
+{"section": "size", "table": "stk_period_bar", "estimated_rows": 3602249.0, "total_bytes": 806977536}
+{"section": "size", "table": "stk_period_bar_adj", "estimated_rows": 3602394.0, "total_bytes": 1027006464}
+{"section": "column", "table": "stk_period_bar", "column": "ts_code", "type": "character varying", "precision": null, "scale": null, "nullable": "NO"}
+{"section": "column", "table": "stk_period_bar", "column": "trade_date", "type": "date", "precision": null, "scale": null, "nullable": "NO"}
+{"section": "column", "table": "stk_period_bar", "column": "freq", "type": "character varying", "precision": null, "scale": null, "nullable": "NO"}
+{"section": "column", "table": "stk_period_bar", "column": "end_date", "type": "date", "precision": null, "scale": null, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "open", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "high", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "low", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "close", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "pre_close", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "vol", "type": "numeric", "precision": 20, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "amount", "type": "numeric", "precision": 20, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "change", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar", "column": "pct_chg", "type": "numeric", "precision": 10, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "ts_code", "type": "character varying", "precision": null, "scale": null, "nullable": "NO"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "trade_date", "type": "date", "precision": null, "scale": null, "nullable": "NO"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "freq", "type": "character varying", "precision": null, "scale": null, "nullable": "NO"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "end_date", "type": "date", "precision": null, "scale": null, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "open", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "high", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "low", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "close", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "pre_close", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "open_qfq", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "high_qfq", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "low_qfq", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "close_qfq", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "open_hfq", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "high_hfq", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "low_hfq", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "close_hfq", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "vol", "type": "numeric", "precision": 20, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "amount", "type": "numeric", "precision": 20, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "change", "type": "numeric", "precision": 18, "scale": 4, "nullable": "YES"}
+{"section": "column", "table": "stk_period_bar_adj", "column": "pct_chg", "type": "numeric", "precision": 10, "scale": 4, "nullable": "YES"}
+{"section": "index", "table": "stk_period_bar", "name": "pk_stk_period_bar", "definition": "CREATE UNIQUE INDEX pk_stk_period_bar ON raw_tushare.stk_period_bar USING btree (ts_code, trade_date, freq)"}
+{"section": "index", "table": "stk_period_bar_adj", "name": "pk_stk_period_bar_adj", "definition": "CREATE UNIQUE INDEX pk_stk_period_bar_adj ON raw_tushare.stk_period_bar_adj USING btree (ts_code, trade_date, freq)"}
+{"section": "sample_plan", "plan": [{"Plan": {"Node Type": "Index Scan", "Parallel Aware": false, "Async Capable": false, "Scan Direction": "Forward", "Index Name": "pk_stk_period_bar", "Relation Name": "stk_period_bar", "Alias": "stk_period_bar", "Startup Cost": 0.43, "Total Cost": 93.26, "Plan Rows": 27, "Plan Width": 80, "Index Cond": "(((ts_code)::text = ANY ('{000001.SZ,600000.SH,920002.BJ}'::text[])) AND (trade_date >= '2020-01-01'::date) AND (trade_date < '2021-01-01'::date) AND ((freq)::text = 'month'::text))"}}]}

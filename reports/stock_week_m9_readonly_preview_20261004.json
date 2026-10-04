@@ -1,0 +1,114 @@
+{
+  "simulated_evaluation_time": "2026-10-04T19:30:00+08:00",
+  "cursor": {
+    "blocked_count": 0,
+    "decision": "request_runs",
+    "details": {
+      "asset_family": "stock_weekly",
+      "blocked_component": "primary_unadjusted",
+      "evidence": {
+        "daily_intent_date": "2026-10-04",
+        "source": "primary_unadjusted"
+      },
+      "job_name": "raw_stk_period_bar_week_update_job",
+      "next_action": "查看主源证据；必要时明确代码和周范围手动运行备用weekly，仅写独立Raw；当前未执行备用。",
+      "partition_set": "cn_a_stock_week_ends",
+      "reason_code": "request_run",
+      "runtime_state": {
+        "examined_through": "2026-09-25",
+        "policy_version": "completed-week-v1",
+        "verified_through": "2026-09-25"
+      },
+      "sensor_name": "raw_stock_weekly_update_job_sensor",
+      "summary": "提交2026-10-02主源更新；完整周校验通过后才提升。"
+    },
+    "evaluated_at": "2026-10-04T19:30:00+08:00",
+    "sample_keys": [],
+    "schema_version": 1,
+    "selected_count": 1,
+    "target_date": "2026-10-02"
+  },
+  "runs": [
+    {
+      "job_name": "raw_stk_period_bar_week_update_job",
+      "partition": "2026-10-02",
+      "run_key": "raw_tushare_stk_period_bar_week:5bb62632b680f20f1434257d10f564c7e02b34d34fb68aecacf33d8681cf3e23",
+      "run_config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_week": {
+            "config": {
+              "automatic_intent_date": "2026-10-04"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "partition_registration_preview": [
+    [
+      "2026-10-02"
+    ]
+  ],
+  "sensor_event_api_calls": {
+    "get_runs": 3,
+    "fetch_materializations": 3,
+    "get_latest_asset_check_execution_by_key": 2,
+    "has_dynamic_partition": 1
+  },
+  "sensor_elapsed_seconds": 0.23281587497331202,
+  "writes": 0,
+  "automatic_source_calls": 0,
+  "alternate_calls": 0,
+  "upstream_blocking_checks_ready": false,
+  "reference": {
+    "week": "2026-10-02",
+    "open_dates": [
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30"
+    ],
+    "references": [
+      {
+        "path": "/Volumes/datasource/data_lake/raw/tushare/trade_calendar/full/part-000.parquet",
+        "sha256": "fd4828e913af6a091557fe1407e2c795e6d2a5b31aedb5a54f7ccef949768ee9"
+      },
+      {
+        "path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+        "sha256": "03d4d4a8e17b9108696b124cb6fdc9174f012fde86b15e41c205563bc17c0dfb"
+      },
+      {
+        "path": "/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date=2026-09-28/part-000.parquet",
+        "sha256": "fc4f621cdf5d3085eb723ea74c082d36f4d2a3d28137840bedb8384388e46b32"
+      },
+      {
+        "path": "/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date=2026-09-29/part-000.parquet",
+        "sha256": "770be708a313e2542cc05eab026b36ba6cee39b60e36f0cea2becb9766806eb3"
+      },
+      {
+        "path": "/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date=2026-09-30/part-000.parquet",
+        "sha256": "72445ee1d448a9b77d386babbd6256ba22fc505c198ad737d70b0c49e551e4cd"
+      }
+    ],
+    "daily_rows": 16677,
+    "expected_code_count": 5565
+  },
+  "source_completion": {
+    "unadjusted": {
+      "expected_codes": 5565,
+      "source_rows": 5565,
+      "reason_code": "ready"
+    },
+    "adjusted": {
+      "expected_codes": 5565,
+      "source_rows": 5565,
+      "reason_code": "ready"
+    }
+  },
+  "total_event_api_calls": {
+    "get_runs": 3,
+    "fetch_materializations": 5,
+    "get_latest_asset_check_execution_by_key": 4,
+    "has_dynamic_partition": 1
+  },
+  "upstream_note": "Physical source comparison used upstream_ready=True to measure content independently; does not override the separately measured formal blocking check gate."
+}

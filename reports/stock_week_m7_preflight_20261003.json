@@ -1,0 +1,3686 @@
+{
+  "status": "passed",
+  "same_device": true,
+  "free_bytes": 2938025136128,
+  "baseline_files": [
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-01-01/part-000.parquet",
+      "sha256": "530827f475ed0787b9d8340f8005e561fe2ae4983615ad50dbef6953f7269679",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-01-08/part-000.parquet",
+      "sha256": "ddc07b0f31aa5f684cc511ce8a1e376a68e38d509b29a0b9603c4df56d067cdc",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-01-15/part-000.parquet",
+      "sha256": "32580a9d49f90843a34bf355219e94374d9bf6a46acd8a11dcbf196f0d7d0f77",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-01-22/part-000.parquet",
+      "sha256": "e9bdb1e9315793966233644f53e4c5319fac129de30edd1198beda6206d48a97",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-01-29/part-000.parquet",
+      "sha256": "1da813e88a6aa5fc05d73c7ee108bbe1326c3ead8ce920b64d1edc105e41da7a",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-02-05/part-000.parquet",
+      "sha256": "079f45126b986e9f865cd5925c52fe9d878acc127e55fb0560f190ceda455b9e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-02-12/part-000.parquet",
+      "sha256": "bd7a6c42a6ea1270f64414547bdb54bc750dae1d78a8922aea25eec8ac20e98e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-02-26/part-000.parquet",
+      "sha256": "54c4ad069cf57509c35fb8e238565a62f96ccff9cbfbfde0d213e6276287a1e8",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-03-05/part-000.parquet",
+      "sha256": "c2bb0de18684d2875cf990c047b817ae30b219d9edb41f16b611e3fff0989458",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-03-12/part-000.parquet",
+      "sha256": "4ae9c4fac0e2515356718e5ee178a4a1418948e2c90930faa5337b5d9852dfda",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-03-19/part-000.parquet",
+      "sha256": "2894eedc70228b00edffbdf5e79abdd870ef31265c30e339dca3bd1b039bb051",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-03-26/part-000.parquet",
+      "sha256": "36ea7a7bb6c9652c47888f487801b3e8a40d2bfe133e482c17973c61792dac21",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-04-02/part-000.parquet",
+      "sha256": "d157a6a97bc512e49e218799144bc5137f162472decce4afcae7cd4987f15f71",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-04-09/part-000.parquet",
+      "sha256": "d2b806fb927ccd2258c582b98840a82d2cb98b4e5347602625506520f0e1444a",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-04-16/part-000.parquet",
+      "sha256": "7a39d290f36c48b74d1cb794e26ac67750a7eef0b92c3484b06ffc05fec442e7",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-04-23/part-000.parquet",
+      "sha256": "940bafa8e665cbe08a8bbbff85b07d259581150e36e4bfdf075acc75dcb21840",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-04-30/part-000.parquet",
+      "sha256": "f355971f1b311af3f88c9c9acf8158d984c59bdd30d6c392b6eb7170ae1001d8",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-05-07/part-000.parquet",
+      "sha256": "1fb75cd2578ee122e50e386ada069813702b5dc233f14ccb4e1883b2b76f6161",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-05-14/part-000.parquet",
+      "sha256": "e479cf55e8791d23dcfd481621e096d032504b56cb938c5edee372f1ed9d82e6",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-05-21/part-000.parquet",
+      "sha256": "d0aeedfa5b9df357334883bda1db866ba8a618a88d136b5835d656a2eaf1c002",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-05-28/part-000.parquet",
+      "sha256": "b17a0d60742a244489547f5680ecc783a06407770d17c990f6061ad18821786e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-06-04/part-000.parquet",
+      "sha256": "43cf250df6c706efd7dc765114511d251712616aa5f1290d3ede83c46769ac12",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-06-11/part-000.parquet",
+      "sha256": "fcda224aec71bb8e28d1d48764fffdfd64d79ba0c11e2217683bb24a64a0f952",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-06-18/part-000.parquet",
+      "sha256": "dc1a3ca0ff48da5bec96f16f0ded8e477a2eecb89559167bc35838fcb4579c1d",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-06-25/part-000.parquet",
+      "sha256": "5d4c0e546fafd7a3a87856f4196251d97bb5bd3733591d50ae02eee563802ed9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-07-02/part-000.parquet",
+      "sha256": "aa7638a141093d195507cfeb710248b5fc9ffa7cd222fbf6d02ff6c09f864388",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-07-09/part-000.parquet",
+      "sha256": "9e74bc57c61f0850461feca3f82c10eb86ad922b2be09121e876c45c38c8d54b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-07-16/part-000.parquet",
+      "sha256": "ac1aa44ecf45160622c33678879307f61765ab1e06cd2a9f3b170136fd664abd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-07-23/part-000.parquet",
+      "sha256": "e1a31f97e79ee7add63b43321fe14ca58df7f8c438d5d8a098dbbc358cdeacc6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-07-30/part-000.parquet",
+      "sha256": "aa555c4b6a9f88732bd0cd0df98e21d1586a169c8d632d0ac7973b28597a4afd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-08-06/part-000.parquet",
+      "sha256": "a1caf41d5fadfce5728e3c947b60da2b11c9c28273ddb5d0bbe3b911e567c937",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-08-13/part-000.parquet",
+      "sha256": "580139d5036704dfbf42fb3d5a6a84951b6c4a4a5329b5510be3d7c23b6edc6a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-08-20/part-000.parquet",
+      "sha256": "c31dc547c0af60228779dcda1865db848649b55eea72d7796ae275836c09f7f2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-08-27/part-000.parquet",
+      "sha256": "ef133b9360cbdb2aeec88f4556dcf2841cf68c99adf757a794126ec1466ec834",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-09-03/part-000.parquet",
+      "sha256": "795af8356bb2e077fbd83c4d0a016726218dde09f8b8c37d9481f7e885efc616",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-09-10/part-000.parquet",
+      "sha256": "80c8ce00f0f45fc1744a39be498888894651d687a7040f0a089838af84de7ff6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-09-17/part-000.parquet",
+      "sha256": "91297754ab16bc436c08e05ea69fc43bf6a08ecc64e340adde8e2b036e210ec3",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-09-24/part-000.parquet",
+      "sha256": "6375aa9c43ca777138e95a3893aa983ca58bed8a43509b3fae43f1bfacb4dcca",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-10-01/part-000.parquet",
+      "sha256": "a364d14afa7e39af157a0fd0edda32d08fd68e5fe76655f513d41cafc6bd0283",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-10-08/part-000.parquet",
+      "sha256": "74ed1ffdf09cc978e836bcdcb5c76bbab7ff2c1517e80831afedf93aebef1b91",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-10-15/part-000.parquet",
+      "sha256": "d7a09502a2361271cea489bd98836c52ccf0e65791379e1043f128bfcad8d601",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-10-22/part-000.parquet",
+      "sha256": "528369fabc22fb743e143ee3c8914d857b9a6a8f85a038bee0c2e3c826838435",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-10-29/part-000.parquet",
+      "sha256": "5cee0fb4927dbbc16de49542923d0b78c0eb8ffaee99daa0bf0a36cb2c54fa4a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-11-05/part-000.parquet",
+      "sha256": "07bc14a43f3b87bf052a06572f49ca8f03d73bb1f1225f055ebfef1bfb0f7e21",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-11-12/part-000.parquet",
+      "sha256": "a56ef610d26b4f8b17eacfaeeb8688a317d8feba5dacad68ee5ed246c52d4f0b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-11-19/part-000.parquet",
+      "sha256": "dd08be773cfd85ee703579d7afc5ee8a92ffe36d66e77c84f17ea6d78ef94c53",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-11-26/part-000.parquet",
+      "sha256": "16e7d813612fb27254caf632c8e2840002eee90decfe997f70bf0bb8d746cb46",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-12-03/part-000.parquet",
+      "sha256": "c3dc301ccae0e1188a41bd6979bb3c9a38febc32a11a0bf6e1bd5fbcc85a0850",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-12-10/part-000.parquet",
+      "sha256": "d44f6398804d0ebe68f971d30b974f96562ff4a1baa51a7a7fade1f7e022b035",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-12-17/part-000.parquet",
+      "sha256": "714a49fbda5fc137a76a7084f59954f7ce6fe82d624a8212176dbc25f246041d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-12-24/part-000.parquet",
+      "sha256": "f9fbe054a3581999ec30833017af20fd06134175c17b9b44ef039cfd8007e027",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2010-12-31/part-000.parquet",
+      "sha256": "21659376ecbf5675c73d466d54cec78340bb962538cfeab2fbedf0f874433c38",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-01-07/part-000.parquet",
+      "sha256": "806626641e078bc1cef69a63166b2426235895404f17a1699dcbc9b02d64d4ad",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-01-14/part-000.parquet",
+      "sha256": "43c63472ec3fbd7d8fda17c01a1a7c4151ec0bd0142a468b3651042450c2c9fd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-01-21/part-000.parquet",
+      "sha256": "4f9b9050322b169b6a8e22302c38021a992b018b558bab5227833f87894abcc0",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-01-28/part-000.parquet",
+      "sha256": "b206f9e8f0a8d1eee5240d91b1b0373debb9f60b1c8171f254ed6d21192ff9fa",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-02-04/part-000.parquet",
+      "sha256": "eba4d8142435c3976346a3f368148260a34992bc1fc4611c4b63639ef73dbc58",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-02-11/part-000.parquet",
+      "sha256": "5e4638d69d50f13d8efec5bfebfa6609ff2159917802db8338ceec797af9f797",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-02-18/part-000.parquet",
+      "sha256": "5894e99fec1e3531a1483b942cf3629c22887c9b623de773d4c6b5fa4256de42",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-02-25/part-000.parquet",
+      "sha256": "d1df026ec65eaa0b688e6ba35590e6f2dc7f478f5f3d04b86044fbeb0197badc",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-03-04/part-000.parquet",
+      "sha256": "fbc51a7b063aa54ed63e606595b67d792409bd9ed63064605b615d844eae0d66",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-03-11/part-000.parquet",
+      "sha256": "081b122de070e0e1a38ca6b26868b26adbbf42f873728a48f996949c5dd4c53f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-03-18/part-000.parquet",
+      "sha256": "7bc730dae068769a0997b1f0eae817fee7c3b7a2ae868ffac790819b53b12138",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-03-25/part-000.parquet",
+      "sha256": "4b59c6a019d73faf760f578fabc0410d45f796f58cf4507b3ff83e433b640c8f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-04-01/part-000.parquet",
+      "sha256": "bb43f0cb888c89b87eb9812969552f060e3c9570bf8e19f5789636fd6b08ac9b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-04-08/part-000.parquet",
+      "sha256": "812b3b4ee7ac5444e1593646070a63a7f2e76073f5f21771819c4e47d85b25f4",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-04-15/part-000.parquet",
+      "sha256": "a725de0e10beda2288d8b969e48b41d92376833a77a483c11d16fe65d60eb2a8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-04-22/part-000.parquet",
+      "sha256": "a0914184df25f46d59486ffddf9d0d7ca247f69dffdbf271911801c566b13429",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-04-29/part-000.parquet",
+      "sha256": "e8d60662de333d5dc9e38401caf8f7b482c6436824e0b16c640cd0edc8eeb217",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-05-06/part-000.parquet",
+      "sha256": "c5624ee2fc75cd6a42083d9090a832291fde6d38b3b7ad844419461425c242d1",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-05-13/part-000.parquet",
+      "sha256": "fb9b01efe0f120dd3b0bc4d5df8daedf52c49a718732ebcaa94f45df193a585c",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-05-20/part-000.parquet",
+      "sha256": "c2d5bd9d6ee60713577f6b9622e40bb040a833cbdf4a028c4b38434fa01979ed",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-05-27/part-000.parquet",
+      "sha256": "9574c9ca488d9eaafb5539588cb214c9d47992aba6a3155419c74c29f3693bec",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-06-03/part-000.parquet",
+      "sha256": "8449c25cde867c2093b78f62b205957b25d59ab3f3564c2e5aec5c3c9e8c06d4",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-06-10/part-000.parquet",
+      "sha256": "22b2c51b62f357aa6b7051d7fb22bb1718078932b8df8b04bfd329b18b888480",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-06-17/part-000.parquet",
+      "sha256": "76bedb01d6f802aaede128b11887d7534203e883119c67862757fcac87103f91",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-06-24/part-000.parquet",
+      "sha256": "f850968f0b4569ccd2c2f02077c7d5e8fc9a2efe1b1cea48276b25c388ff7044",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-07-01/part-000.parquet",
+      "sha256": "5c6a658b1e93051dd5b5f64575a4a53821ce0315b0a6a7446880a54237d43ca5",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-07-08/part-000.parquet",
+      "sha256": "46aafcfa818472778496ea18ee409047a4def4da1710fd66dd6cb0d39b12fc71",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-07-15/part-000.parquet",
+      "sha256": "b7b4c918d102645c3c34d93aaddbef2d62586b02f1b60d8d5c646d511b0d1d01",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-07-22/part-000.parquet",
+      "sha256": "2724d3195682920002a21149f4aa53d2cdc08b16b76b14e2ded35892ab409473",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-07-29/part-000.parquet",
+      "sha256": "7aa04dc2e7b378f7606c1eecd9af016d16102668a38b8bf69267fb61533d2021",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-08-05/part-000.parquet",
+      "sha256": "7598082ab6e182f370e3cdbb9293fa682e9ef33b7d0295a3757670a06e24a7f5",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-08-12/part-000.parquet",
+      "sha256": "79d8bf20b47a122f2186200526fa6c5f8e90d597db3ebd34d268aa1705386a25",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-08-19/part-000.parquet",
+      "sha256": "03e9bc0a6f86018af6ef6da63bd928211fa0b3c93b59cd30b23af174958db195",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-08-26/part-000.parquet",
+      "sha256": "b5aad8de350e7307b5ffb75b32c3ab6f1f1d3d25c2a384b7bdc60e4c8b3e5e92",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-09-02/part-000.parquet",
+      "sha256": "80c1b72949549de7c5fcc584dafd02d6f0a3ab63cd79252f6b30223759a93d59",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-09-09/part-000.parquet",
+      "sha256": "cc2ee6a8e80f0dae2e41ebfe5df10b2c1b8f991b7b80146e3efdda0a5e12f12a",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-09-16/part-000.parquet",
+      "sha256": "9e2432bd432ca7ef79a91e64f33bea74765726d93d4b1c2b5121cb1f6965b054",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-09-23/part-000.parquet",
+      "sha256": "0c9c022e544905f3f602678657822682218934b22e5f27e24f97cc4ffd8c3447",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-09-30/part-000.parquet",
+      "sha256": "d1cdb11ea65bd473cd330ffaf48ead270deb4bb7bd7f8f100ae9ca7b171fb706",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-10-14/part-000.parquet",
+      "sha256": "53ec7cbc94b2818ce98882d1c4d862da6bb39e992d8545b680bf47d21325cbff",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-10-21/part-000.parquet",
+      "sha256": "e6a0066aa2027e77c9ee2a31def0cc6db26c2c4a443c62b15c362e2888b5ceb0",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-10-28/part-000.parquet",
+      "sha256": "e9ef65d21f9c36cc36c462fa027b475952ab043492c778a91f27f28a29618e68",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-11-04/part-000.parquet",
+      "sha256": "fdfd2a9a33d3aba2c2df7e23f8c46afc74b820cd56f3cf8aed1cf19ad97a231c",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-11-11/part-000.parquet",
+      "sha256": "c9023ea5bbbd91f168dc412240a08600d22c279f5a272dc0001e1f5cfdef591a",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-11-18/part-000.parquet",
+      "sha256": "5cd2757af87cebf548e71639457ece7d1f785bc6a5c29cb48cdede198c40e3c0",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-11-25/part-000.parquet",
+      "sha256": "5e31b76e8829a5ad48b66c25fd42ff40d716786258720c5aac706997220db035",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-12-02/part-000.parquet",
+      "sha256": "335b43ea12380a821680556184b6966b68f519c6d6fe0004449945905e4147c1",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-12-09/part-000.parquet",
+      "sha256": "885638534c25960f045db98d1415455ac2b10d67a2804b05ce96377036d6c926",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-12-16/part-000.parquet",
+      "sha256": "6767950fb976bbba59ea0e89de89685a46306205fcaa662f36d4406463ad2d5e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-12-23/part-000.parquet",
+      "sha256": "ace558b086660f4352eaa982149ae2a1a0a059e19c59587aa7d9c2dfd05b255c",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2011-12-30/part-000.parquet",
+      "sha256": "bf74d745c7639b22759cfa3ac84b92c811ef4b616e988d417355f730f68bc0eb",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-01-06/part-000.parquet",
+      "sha256": "2f1f12c7fce0941fb7cd649d56f9f3b94c471c6a6a2556af5312190bdf731080",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-01-13/part-000.parquet",
+      "sha256": "9c5d82e6355ed77c4d09e604a5d510780a46372c10bab350a29d893cf775de5f",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-01-20/part-000.parquet",
+      "sha256": "1fa011db351afe3b7c150ce319c9a9596b2efa0944d6c0425a141fbba026af50",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-02-03/part-000.parquet",
+      "sha256": "f204425a67f2115bec56133c5c5afab243d57d55ffb5b1f5a02816b6fcc37f08",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-02-10/part-000.parquet",
+      "sha256": "aca9ff66fc515046a994e2db74b8b53fae10d63066fd801c4b873a40ef31783e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-02-17/part-000.parquet",
+      "sha256": "9a16eb7dee3bebbe5e2f2579574da16ddf048ccff449171e3f6cd407a32b851b",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-02-24/part-000.parquet",
+      "sha256": "6db789d1759183e8fcf373b093db5d777a48acd967af10361bf715c94f4af976",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-03-02/part-000.parquet",
+      "sha256": "04f6bd51b07ab284485c62ee69f0eb4928f68433cf1dace2bb85f41ac7de0935",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-03-09/part-000.parquet",
+      "sha256": "485c5d23d84c02e7bddada3bfa75f8eafb5f6c1bc415d6eadc19796fba3f10d0",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-03-16/part-000.parquet",
+      "sha256": "082c8638bc6d8da9c65f217454a2abc6601a3a8355baa883cca4d666c5683e55",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-03-23/part-000.parquet",
+      "sha256": "aa93b021fe06a396837304889a5430ea3d98fbecd66244a034ac485f32bb4484",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-03-30/part-000.parquet",
+      "sha256": "2eb46ba1cf765140897071c8523d637a8be8b310e750a6f2948ff36dd4435e92",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-04-06/part-000.parquet",
+      "sha256": "1eded7e8b9462649fa94da03150d9eb0bd0a40ea276607a44f9ea03dd4889902",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-04-13/part-000.parquet",
+      "sha256": "61f597c6ceed4146e622b4608bb6d73d7156dd519b5b2477e30172c4dc54b1a3",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-04-20/part-000.parquet",
+      "sha256": "c388397ecc9f7ddabb8c6b30db5144c9f7017ecca8e3e1748f8bc4a42f2c16a8",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-04-27/part-000.parquet",
+      "sha256": "ebe0188acb61da00377ad5e9ce50471b1a1a1bbd9f9ffc9935aad097322eeae0",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-05-04/part-000.parquet",
+      "sha256": "9524dab213fadec6d790f438cc46b60cd7b09fe3ad12184fdff02ecdc3c174f9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-05-11/part-000.parquet",
+      "sha256": "dd2fe29e8c60b194dc998ba6c8ad42e018f4ce9964174eb0af15ca04656a3772",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-05-18/part-000.parquet",
+      "sha256": "48f7ac89c3ccdf88956fba4671d3419f3d6e788edb7b203c2064380fe17ee528",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-05-25/part-000.parquet",
+      "sha256": "beb7d3572691e78b1879c800d8b2492820f2c464c951279f6543119a05e8a321",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-06-01/part-000.parquet",
+      "sha256": "06aef97fe1774af0e9849b6845973741527129f226c4d796856810a8cb4d670c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-06-08/part-000.parquet",
+      "sha256": "dec2998f7d4600a3171cf7b99364d1ad23fd7874ae7543860ea9805b1f56f5b7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-06-15/part-000.parquet",
+      "sha256": "2841eaaebf968e466279a73b1facea5f706a6d039954455867826ca32563b867",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-06-22/part-000.parquet",
+      "sha256": "2e377e3a71fcb1c1613516585e42c0e37654805f8364948274822dde3a6a3bd0",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-06-29/part-000.parquet",
+      "sha256": "c25aecfa592b5bea4f6db67a61aa964997150180d9530cd095bf9123cab0ad80",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-07-06/part-000.parquet",
+      "sha256": "676c2179f9a4c64b8cb449130b563ff4f345400d3100b0788d8fe7586cad935a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-07-13/part-000.parquet",
+      "sha256": "ccdd136d2c00b54519937654df578debfa26e48a4fdcefed8a376f5c10d6f48e",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-07-20/part-000.parquet",
+      "sha256": "5f2225292cf3629f200b427e4a8ea101e1a8f1081c4cc8b5cd368a45333c54a9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-07-27/part-000.parquet",
+      "sha256": "c671592cc3a4281fb417f6eba45862b766a21028d1c40c186f622058c9687b8c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-08-03/part-000.parquet",
+      "sha256": "daee76fdf1a80bc11c3c8927f98093f601f787ffb0d24cc13714782b26ee38ba",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-08-10/part-000.parquet",
+      "sha256": "8e470b8c4545e0300f6425e2d49e2fea5f62aec6836d9af739dac81e70c7a5dd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-08-17/part-000.parquet",
+      "sha256": "c3871efb772ced8f34448ac00abe5a952800051713dcbc3875e89dc762374a99",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-08-24/part-000.parquet",
+      "sha256": "18b226ce14ae9150e4383422a4062f70305c7f279da9c7828175068eacc06bbd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-08-31/part-000.parquet",
+      "sha256": "6ccf0b5c160ceac5a5847ad27257ca81fd73f45ce7edb6d86e45394e5e7651e3",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-09-07/part-000.parquet",
+      "sha256": "108fbb4169ec0c77d20358127366aa2760786d074e5a7e840a547d1ef585f231",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-09-14/part-000.parquet",
+      "sha256": "73373267f5a5751692668518d5987c1326e8cacbfdaa389416e79efb76443abf",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-09-21/part-000.parquet",
+      "sha256": "394ac0bcb005aacbc7b701926b91d0dd05148b52df4f579071f0b7af5d88fd5e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-09-28/part-000.parquet",
+      "sha256": "a78b293c04de74ebe8f1b6511ed6fbf3e2d270e17378f54160d146afb2b0789e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-10-12/part-000.parquet",
+      "sha256": "a4a35bd95bf3e22a99ea8bb69e76e12e15717a7d5f53c37c9db72366e1c43d53",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-10-19/part-000.parquet",
+      "sha256": "27ee5d93cad957fb2f15249f1e0f26227b0ddd8924ea989aff57320cf629abf9",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-10-26/part-000.parquet",
+      "sha256": "0a07fe16d839e4f196dc821bdcf7cf03a5d6c42377dc8468856603a981044b85",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-11-02/part-000.parquet",
+      "sha256": "a5ad9b35f7b4a2521d45c2ef9e9ae2d5eacb128b063c4dc49c3db0c6c3d36d32",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-11-09/part-000.parquet",
+      "sha256": "8529a291c538f24554c393d21e276971ea2c55af1d70c595d7fd21fecaae95fc",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-11-16/part-000.parquet",
+      "sha256": "054496ecce601ca3b27f8354f8e0dd57135bd284eaeb95716052be3dd05d8eeb",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-11-23/part-000.parquet",
+      "sha256": "eb6d597b0a0c1a3a6c16cd5544d25d4d16fc6590604047c7264b5e85cc5d0974",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-11-30/part-000.parquet",
+      "sha256": "9cf1c529bad245c7a8074f4f649e300812aebe6c1221b06a67f5459035c34f64",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-12-07/part-000.parquet",
+      "sha256": "56f746e83358ed9fd01a2915892bb47fd436993107a8746e3ceb4fe02e292d13",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-12-14/part-000.parquet",
+      "sha256": "044e0b8f572df8a33d46d6709f692f538590dae27e1de3ec6f75271c4d0100eb",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-12-21/part-000.parquet",
+      "sha256": "23ad68f2b57670dc8195b071dc5f83ff43a92c39b4d0da4ffd05ce27d64b0326",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2012-12-28/part-000.parquet",
+      "sha256": "eac8c236a678b130599d4cfb20ee841ca01b8bb16f872d19eae38ee15b6b30e1",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-01-04/part-000.parquet",
+      "sha256": "f1ed5195ae6bdf2dcc8ebed2ab7383fb3216f784d6924f4ac46127f923a74485",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-01-11/part-000.parquet",
+      "sha256": "5110ee95ac52bf402da315b0e53d97be29d421f247ef720f8dd58d2f01e2c1fc",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-01-18/part-000.parquet",
+      "sha256": "7d01c3b90f284bacdc93f4bd2329373af28ba7e81dc9b922e3671d60e3a7bf4f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-01-25/part-000.parquet",
+      "sha256": "2a4b9bb4a64ebf08d5cd056f2cf0699e101382fd5311b4abe5e2df7f4fa7287f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-02-01/part-000.parquet",
+      "sha256": "f39c7224a4162b8e558121fbf65fe8ff6886a7f4ba4c09490ef6df8b266341e5",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-02-08/part-000.parquet",
+      "sha256": "2893712e9a4e9180c258305581b2eba455924460bffa1b730a475dee03044fd7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-02-22/part-000.parquet",
+      "sha256": "a8d33393c503aa455cf4d128b762db86f30e6532c9a68bc67ef9ca1c6ecb103f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-03-01/part-000.parquet",
+      "sha256": "681f9c1991f7674607adf093fca924815ea02bea59de41ff6a139074cedc03d1",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-03-08/part-000.parquet",
+      "sha256": "dd0edc84d30afa6557719c0145b96c467e83c75e1cb13522585b5f5db7c2084b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-03-15/part-000.parquet",
+      "sha256": "c4fe0be8d9470589dd05185e6a5e957505592670456b3049cd6e99c4e35067d8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-03-22/part-000.parquet",
+      "sha256": "7b9aa85073971c56d5e9f9849f3de5fe0f19c19882e817210a69891dc2a97ca1",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-03-29/part-000.parquet",
+      "sha256": "e6b338dd82044e8b13a829da7400a3398230953bdaceb5c54971c2df8e57b5d1",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-04-05/part-000.parquet",
+      "sha256": "e21cd25f70a26e9da3ac39f8b5ef3e739f1513bc8eef3e4a36432db3582da2bd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-04-12/part-000.parquet",
+      "sha256": "c876c6e9ab739b7339d73407a99f26be6e7d97ac927d373fa537504c4f6c1ec0",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-04-19/part-000.parquet",
+      "sha256": "d31bfb7bd54ff87320b5ee78e179a7363f07f9efb2a2e2456459a519a4f1cf49",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-04-26/part-000.parquet",
+      "sha256": "1df370d5c7f22eebc4151f4158ab0fa8d85c7542d33c43d95ecf1afc80939aec",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-05-03/part-000.parquet",
+      "sha256": "9e922898433212b46e3e9bc00d23e77f214c371e81e15ead68872b2d2701e875",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-05-10/part-000.parquet",
+      "sha256": "4d92165651355a867fff0d167da45945c323864f4e6e024a5b0f8c7b7eb2f87b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-05-17/part-000.parquet",
+      "sha256": "8ede78fb3039486ce8628c138543cd03a727ae5a0536df57a2625e024c980769",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-05-24/part-000.parquet",
+      "sha256": "c90fc812c0a1330792891653f47661ce539f6f55adc76a7218d3ba0da0b30184",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-05-31/part-000.parquet",
+      "sha256": "2829810a6763626960a25d9395fd8880a1f6ba7c27212992198a399ebfa324ab",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-06-07/part-000.parquet",
+      "sha256": "ffebb6bccc94eb46482c0ae835cfc14655d33945916c9bf3a1640855eb683434",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-06-14/part-000.parquet",
+      "sha256": "f687ba72b62b391ad289806f9331fce2ac15e8e31af25c8c93e74eebf1b13d62",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-06-21/part-000.parquet",
+      "sha256": "af5066204eef9c73a23f857abd4c0ebb81044faeb4e50c261873621548d0b1d8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-06-28/part-000.parquet",
+      "sha256": "c58477f396d8ca56eeb94233b13c327a440ca184069d988a20b0fca4f1385561",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-07-05/part-000.parquet",
+      "sha256": "4189cf0bd3eac50bd0b4c250dd05324aa0812440b5bf95cb4c20ed41d0b8ed85",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-07-12/part-000.parquet",
+      "sha256": "2cc25ec4e8135e82ae7ea008aa31b6763cf70cf523cfb631d6a021ac5e0bb43f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-07-19/part-000.parquet",
+      "sha256": "c5085bc524fcc58c3da53d1282eaf7395e11d3b2ba7a51dbf90ee5f725fcae5d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-07-26/part-000.parquet",
+      "sha256": "fe89f188de69b267c6ca441ea7cf8ac3d71e94506f80ce928565677ab0108a93",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-08-02/part-000.parquet",
+      "sha256": "576c1deb1b6c64d0b0858f87f3a3e733054c103b00d98dd6a4a36e29d1560155",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-08-09/part-000.parquet",
+      "sha256": "c8dfb560a88a5b155c388aedc4ccb683277aa912e8256c1cd8ff3295e4900221",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-08-16/part-000.parquet",
+      "sha256": "ee6155dd041f1800e4de6b9270ab9457880cfb5a8a0845d90647fe15ef955b69",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-08-23/part-000.parquet",
+      "sha256": "108b36e8c815002eb2a2f251dfdf1d824582f9387a5624491e282073a44447a5",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-08-30/part-000.parquet",
+      "sha256": "80c0ab5e8985f5345485c1eb46fec99ef399cadc713c6cbad0afcbadeb300562",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-09-06/part-000.parquet",
+      "sha256": "d89314391a542db853a324ae6d7770a579d0ac8f6271b22e165594691f58e0d4",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-09-13/part-000.parquet",
+      "sha256": "8aacd75b743592272d6701c3b216a65b9af215ebbafeced945853594c9fd8746",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-09-20/part-000.parquet",
+      "sha256": "afd3ac6f36f5fb185be6d7ae80ecfa04af72eff57327a195596c55c97190e033",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-09-27/part-000.parquet",
+      "sha256": "69c50349f3d3e0ed3c4afe62066e6418e1f5ceb1ab38386a914b3d202619c70b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-10-04/part-000.parquet",
+      "sha256": "9b601fe01f4032b225248de943a460b20867516f3e3c57b0485591fe1814fbdb",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-10-11/part-000.parquet",
+      "sha256": "d42643ba3c9364c45ff4ac8798615d02500ef1a76455d095c05eac6725fedc8b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-10-18/part-000.parquet",
+      "sha256": "dd9fe893edc01a5c3acd58da39f332eebfa0ee8504075a1f62ae9527e93c022e",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-10-25/part-000.parquet",
+      "sha256": "6dad3d18a8de97222f68326fd19547afe40eb699a84c83d04b5fa9bc49ba5f57",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-11-01/part-000.parquet",
+      "sha256": "c0abe9cdd14e0a3ddb8ede9ee4627441fec7384dc9428d17128b0b56aefef655",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-11-08/part-000.parquet",
+      "sha256": "d405a32a12c7645cef939cbc9f2b4018c478b6788ee0516ff6d7869325e152f7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-11-15/part-000.parquet",
+      "sha256": "957859a8867a0913e04c506d387207ee216b99cb744a170da574b9d1251438c1",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-11-22/part-000.parquet",
+      "sha256": "444b41400bf3aa6a7916d787eff330acf6a847671386c2a6763cdd980df39ed6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-11-29/part-000.parquet",
+      "sha256": "13372d745c65ed3a5253c53ddeaefc58012708999a6983c5383564ea2cd6f56a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-12-06/part-000.parquet",
+      "sha256": "c3cc72a3cbf9af91f50ea02b51de3a1a935a7c1599d418f68baeb14c50d0480b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-12-13/part-000.parquet",
+      "sha256": "35a8f19ae171ef503bf1efd5862b777d34aab22af9e05ec82712e03fc255a20e",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-12-20/part-000.parquet",
+      "sha256": "c519ae08ff3a1281a236d039e8b577868246d88ea94f28cbd716609042ce4b50",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2013-12-27/part-000.parquet",
+      "sha256": "a7d88c7513092492323ebcafae794a9315e95655bb0be2256302a3e1bec5828a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-01-03/part-000.parquet",
+      "sha256": "e0854b0af643f3b554b1d4de2e236c0e89c6414d8501c508fbe46b04bd952dfe",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-01-10/part-000.parquet",
+      "sha256": "15e7872cc2bdfe67a7137734b067c71cf3a27d34223c11d033ad19effb10007d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-01-17/part-000.parquet",
+      "sha256": "369e5482a933d7f6f924d14cfa7f5888609baeb91191095ace39d30960541f8e",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-01-24/part-000.parquet",
+      "sha256": "958c7fe030db77c072ec9f6cb6fdbe9c48d5041ac83a074a380de52da5a5e324",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-01-31/part-000.parquet",
+      "sha256": "f16ff2b818c8d926b94db30c055ba6923c0b1276ee93d2e8f130b699a0d02a54",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-02-07/part-000.parquet",
+      "sha256": "2f611fe44c63ff6da242253a7958f8764ece14861bedf23e7a718206cc0881af",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-02-14/part-000.parquet",
+      "sha256": "3346df595f74c7225b5e65e026c57b350d2865a639e6b3722416105c3f25aedf",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-02-21/part-000.parquet",
+      "sha256": "6c146f4760202e35720e4ec51aca6bb6d52801448bd847a5c00c9ecb50ac9fe8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-02-28/part-000.parquet",
+      "sha256": "afe35ed429c6e572ca0ec05119d9ca6b33af27d8801f98c8782e7aca179cb5de",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-03-07/part-000.parquet",
+      "sha256": "5d988ba432fb983497add16ce1d8ad5463fd9885c766f977e8f786eba378b5ef",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-03-14/part-000.parquet",
+      "sha256": "d9e0e061d809a4cdc8c712c5fe1a509de7dbe1ca6bd925819d33cce37827b8a0",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-03-21/part-000.parquet",
+      "sha256": "46fb64977a8caf1ab145055652612d07906a9b391d1ee72bcd4584df65635f9f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-03-28/part-000.parquet",
+      "sha256": "532db4f089449286c114f3b4ff783d5308677bb4d507c0667c6e8fd5a40dbd4d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-04-04/part-000.parquet",
+      "sha256": "a5c329747395bb0df2dc172df6927da566a6b8fc88b24e863ee402942583c35a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-04-11/part-000.parquet",
+      "sha256": "4d154db865cbb21b674d902c510ac5fc29dd50ac17d69bf13ad4afb820ebc2b8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-04-18/part-000.parquet",
+      "sha256": "572341b046bfb3e017d977c7ee79e3ef8cf4463119a61a84f137df8970e17807",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-04-25/part-000.parquet",
+      "sha256": "38755b4145f038ae50d12bbf5c305463012ee9d0cc182d6e9a05f7d5dfaa6b97",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-05-02/part-000.parquet",
+      "sha256": "e69630673feda6ea5e1764b71e38e5594c622df4177444e972e380ecbd3b880f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-05-09/part-000.parquet",
+      "sha256": "353dcd92a36965cee02cf79a392636645e92150320c1a3ccd1f5b2acd9c70d91",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-05-16/part-000.parquet",
+      "sha256": "4b2b35d0627ff992529094ad19c26a68761c7972702295e70dc4b145ed2b7d3f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-05-23/part-000.parquet",
+      "sha256": "5f8bb72dc81c35dff71182b15f14056eca829d3f2d34662f27c0341148c6cded",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-05-30/part-000.parquet",
+      "sha256": "6e8bf08656334e31e551f0482213586675873c10d1013fb7daf38ac6fb11cdc1",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-06-06/part-000.parquet",
+      "sha256": "ca203be2790cc78f9a8b8e6ca2f7723547f0b58c28645de14ca877c0543b5b56",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-06-13/part-000.parquet",
+      "sha256": "0e8df47f4c9cdf1bc159367c8dd373c1a5653bab6f339e620d74057c8a71df29",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-06-20/part-000.parquet",
+      "sha256": "de8193fab9d4b12e9b99a83a1d827bb5a29a2309ca1619f9957c706054156003",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-06-27/part-000.parquet",
+      "sha256": "6a6aa4bf97103752e85ad008fa796c63b91c591d6d078b7a3b34cd293b7e536b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-07-04/part-000.parquet",
+      "sha256": "5425f9a7acc98eb7bacb0e7b84a3c345ebbf292399f6b2886df9b337d783efc9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-07-11/part-000.parquet",
+      "sha256": "9c27a74654cd77c20ba51d4cab5b279bc366beb9606b9cd20efd8e5c90955a92",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-07-18/part-000.parquet",
+      "sha256": "a07941aa9ff7d2e955b8c00da2470b017f3b25f6a09eb0437b64d3f31b0ee4e6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-07-25/part-000.parquet",
+      "sha256": "e59aa2641ad9fbea99ca80e0650b4fd0e759cba217358de7982367614ad598ac",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-08-01/part-000.parquet",
+      "sha256": "8af21618483537ce7ae1662b826a694f10453c20b59fd12a11b0bf1ccb39a597",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-08-08/part-000.parquet",
+      "sha256": "734f7fddc2e97336e6facff1dc3247f5f78b90a1337eb7bde9bf13d7f183ba79",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-08-15/part-000.parquet",
+      "sha256": "7c293cc3393d7b95e644f803f53443d9f9b9d6c91255080192f86aeadd142255",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-08-22/part-000.parquet",
+      "sha256": "76627a011088bc3618dfc3de9c5eec8e79569bd46cef60b9e6e8b2521c319136",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-08-29/part-000.parquet",
+      "sha256": "7985e6d94aa016e306e487900fe3234f1beb2577a3cf7823356fe7913ca4501e",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-09-05/part-000.parquet",
+      "sha256": "3eda6618f9e3ffe33b7c9ce195bad5ee762968dca1624ca65953c818e2fdd2b2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-09-12/part-000.parquet",
+      "sha256": "34e9664c4fc28dfddb4f7d8d3452a58b009fc2be3d4787ccc62826e645df18d4",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-09-19/part-000.parquet",
+      "sha256": "91d9e66127028de38799a515f197273f9f4e0a640b2de92ea12283bc35fe7868",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-09-26/part-000.parquet",
+      "sha256": "0df5f7053068b45b10a43dda5a9f77b8672699eeb5508da42bf7f72065eb9a99",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-10-03/part-000.parquet",
+      "sha256": "b9f373effd8c03658b102b308503d77fc133cd5ba8b7531b5ad524ec025b697d",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-10-10/part-000.parquet",
+      "sha256": "bc271f513126a6bd279fd44d58af1db7c08a9bfbd158aa727c045a78a26a7c10",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-10-17/part-000.parquet",
+      "sha256": "31818072fe654a80f3be74b73ec796a2bba9c2ee1fc377e0e49d8b0c757416bb",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-10-24/part-000.parquet",
+      "sha256": "34c72312fed7ff028d498f41720d02a173b777fbd473718ee301fdb338129e82",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-10-31/part-000.parquet",
+      "sha256": "5b7959ae9b7dab32fe80d7077a98eac0ea1d7020a819b0e33e586813c815b0a6",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-11-07/part-000.parquet",
+      "sha256": "eb8364dba849666b6e603288d063184e8a6fb75ec976594ada5b7dbec14a7696",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-11-14/part-000.parquet",
+      "sha256": "60ea65bcce5852eaba7a72ed168baf1122b29746fda08104275a5aae3649393c",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-11-21/part-000.parquet",
+      "sha256": "9695448c54fea5985cbb11c81d8aa61ca1b7e2d43f7211c8e223cb731d288380",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-11-28/part-000.parquet",
+      "sha256": "b2311453673c588233e76ecb1dcc2e376b61b36626859c72b9a51244411517a6",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-12-05/part-000.parquet",
+      "sha256": "b3622bf04ca3c30c666bb91b718f77887dd2cdd63f62c2b30556d126293289df",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-12-12/part-000.parquet",
+      "sha256": "a109f7f65cf2dc36dea15bb338e5b8da1ee9f0b8154c120b57e128e70dc580dc",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-12-19/part-000.parquet",
+      "sha256": "26a79fc2f74ecbeb1ee5d42c0b16a83455533ed5c80f9c61c9ecc6b4204d1c42",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2014-12-26/part-000.parquet",
+      "sha256": "bb891302f95b801b57d48735e915d87964468d6ea197e8bf361af2d3a5fd5534",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-01-02/part-000.parquet",
+      "sha256": "2322655c94e9f0026ad856bfb1da87fb568567b3864f36ec957e8625ce120610",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-01-09/part-000.parquet",
+      "sha256": "bac090b0d71201223bd2b767a85ace5b1aaf94ef2dd312cb343d6fb968cdf438",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-01-16/part-000.parquet",
+      "sha256": "e332628acb6c1510b0bc17fac44831abd5425b6ae57f45399915e437f8b8c1bb",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-01-23/part-000.parquet",
+      "sha256": "13581a573fdd500c08dc0d9d1d822b2e62c1ac9f8d5de92aa7dae13d3129f1ea",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-01-30/part-000.parquet",
+      "sha256": "b8c219a55962cb1846b848c2526a0b4f6a4421305cda32a62e533af1d9e5ca40",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-02-06/part-000.parquet",
+      "sha256": "48da4fd4a12ef10fc709713b91e02043e0de05eaf4b919729bc93391749eb379",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-02-13/part-000.parquet",
+      "sha256": "b7d447ecf01d30e07e6903513591b8b1423e7493b3ac97638b1d28ce60170d29",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-02-20/part-000.parquet",
+      "sha256": "381855cf0cae86027a88dfcccf0a09cc03927cceddee2de5bb2364e81931a466",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-02-27/part-000.parquet",
+      "sha256": "0dd48386b7866fceb05cfbef435ab0e596bcdf3b76d955ccac703fc3c6ef2e80",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-03-06/part-000.parquet",
+      "sha256": "0793593022bb29b84d4581feee95c945633eabe4164c1b0bf83d3006cd7d62b8",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-03-13/part-000.parquet",
+      "sha256": "775615e7ef1b208b707bf4e779157cc0124c352242f6e4c8490f40121e8333f5",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-03-20/part-000.parquet",
+      "sha256": "0bd008a1e3fe98e9c4654d8da7181feaf671f80cf85c3928cdeee49ea8d91eb4",
+      "rows": 2
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-03-27/part-000.parquet",
+      "sha256": "8d7b67f690c4fb957d0448908f3e0f09cb0fe3b0491414a1d09a934a737a5df1",
+      "rows": 1
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-04-03/part-000.parquet",
+      "sha256": "b2f0298e620115561135b4f66de762493d6b22875f6ded36b7db017385b99454",
+      "rows": 1
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-04-10/part-000.parquet",
+      "sha256": "5723bba4bf7e3a5318e005c2bf1c9b0252ecc157847ced1e64f4da68376927f4",
+      "rows": 1
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-04-17/part-000.parquet",
+      "sha256": "71959944df9949be6d7a8e95ef72c9f5b49c0f645b2d9dc099ebcae0b519f643",
+      "rows": 1
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-04-24/part-000.parquet",
+      "sha256": "adf5b85aa5f80d82ac1f4832276591404ead840e84c38756b3e790bcc5ab480d",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-05-01/part-000.parquet",
+      "sha256": "167dce9053e233ed6f4fc39297e367f103ee2f139d155969d0449e0fb02f027f",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-05-08/part-000.parquet",
+      "sha256": "da3f2ed732b5a29a5681d42fcf3098802205d6a28f02d6372a58f7e6ec8cb964",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-05-15/part-000.parquet",
+      "sha256": "af270e0273f29818a1b306f49a2506403f9026662442d0c3a9419ac9c189a9ad",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-05-22/part-000.parquet",
+      "sha256": "21495f1931054dd4f65870610e4c81f1c2b17d1b9e61ac7d2ee4115216dc5577",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-05-29/part-000.parquet",
+      "sha256": "648f237ae993dc6045009ce9e57e63aee4b11b1bf66a072ed0f7402960d0f605",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-06-05/part-000.parquet",
+      "sha256": "1105b46ef2b198df7070433bc53aec4e30386e9237adfe17474c99155f642da5",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-06-12/part-000.parquet",
+      "sha256": "36bba7d1231f013b9ed63c29c4a9dc31624d725e0af9cf92641d00fb64fa4005",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-06-19/part-000.parquet",
+      "sha256": "1b8011c0480a2149f19d4d11e1ea9321d9fbad61665853f2375ff9d91d4881eb",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-06-26/part-000.parquet",
+      "sha256": "d06de0225b6bd57375d257d80787020a6cb072e638b11f70ab044f68ee793206",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-07-03/part-000.parquet",
+      "sha256": "8c0f005a8f8e534e2a3d99d1f5fdd582cd7ddb24e702675fb6eb16d8112e2765",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-07-10/part-000.parquet",
+      "sha256": "61c3d02f9a0f42eb7aeb32c25017a1b35b585d7c90b93b3fc38bab789955dea6",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-07-17/part-000.parquet",
+      "sha256": "b71c0a9777b53196122898c5c474ef00e7ccb1524b178bd755a0aac97c652208",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-07-24/part-000.parquet",
+      "sha256": "e5419cdf32119f62bd9f9b8d8780fd950d61e48acafefe540a9b2ad8ec17f225",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-07-31/part-000.parquet",
+      "sha256": "fc1d6332599a17063273288facd2ce6400a0c9319a71ee4b1c7e857a0acbf8e9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-08-07/part-000.parquet",
+      "sha256": "a765a571c63a008280d2bfc3b2a183144dfc24e97813feaff54ffef9bd3c22c4",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-08-14/part-000.parquet",
+      "sha256": "8e3bd357c5116fc6937d5d6ae307e73457b41359e39b71230a1b2c71dd1c7259",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-08-21/part-000.parquet",
+      "sha256": "ffc9f231f3d35be423767ec40b050981284fb2be70eb5275d7ebcaa0cc5981c8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-08-28/part-000.parquet",
+      "sha256": "94023a856c3dbc68dfb4a879ca6226e0660729e34252099dcf7d3cb31e679164",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-09-04/part-000.parquet",
+      "sha256": "14833b70696d391a90ff45aa365b4470b1d863d91aa6fa030d81192524253c68",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-09-11/part-000.parquet",
+      "sha256": "4426f1a0600c177053f671a4c044a6cebaefd5128a6208944c63e3bb93cb5a4b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-09-18/part-000.parquet",
+      "sha256": "b8d6bd47512b01e54a611849261a2ae7a729500537d9fbc69dfe3fdab4ea4006",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-09-25/part-000.parquet",
+      "sha256": "62adce9af442b6a7d63d158139d25fa368f8fe4f53658eab53a0eee280db9ab9",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-10-02/part-000.parquet",
+      "sha256": "1a33019fd03182a99cb92e5e24617e204fe56904fe96c8b9834b565e5d1d2d2f",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-10-09/part-000.parquet",
+      "sha256": "e69f2dc2f040898b38baeb5fe0b51508af9258154e4ad01d3eb46da0a1658589",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-10-16/part-000.parquet",
+      "sha256": "660496c0d3bd275ab50b9244af52488be7be0e3fabd16434615ca315dcadbb3e",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-10-23/part-000.parquet",
+      "sha256": "ae9432eeeed165c6de51909f41fef291cda705ea98c3497444ea716868bc11e7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-10-30/part-000.parquet",
+      "sha256": "95495a72ab63462fcab0142fa60a58b34d0b32e002a0e803c3c19fd573c169f5",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-11-06/part-000.parquet",
+      "sha256": "d85f48959120812c32e33a00c3857c9c581525229c154efb8d47eb52e9c1dbff",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-11-13/part-000.parquet",
+      "sha256": "f3869404eab4b5a7e5e6e28dcc7e9539d801ebf7e13a609123ea2d8b2f91f088",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-11-20/part-000.parquet",
+      "sha256": "2e1998f41e93a5bf64e890b3890cfbb8abab3b0e6ed4998f72b1ed0e7e6f32bd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-11-27/part-000.parquet",
+      "sha256": "b8cab1873afecebe3b826ddb80d9628a13efb1d3d76e1544c10a24fadbfcfb34",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-12-04/part-000.parquet",
+      "sha256": "bd1dc46f6634d039b58ce8642c2cf83eafbd170e5ff17699c0a91b9ccf7ce091",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-12-11/part-000.parquet",
+      "sha256": "ef3c787b5a9d128b8d244760fa9f32c7fbbd53e9552027469b755d24d67228ca",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-12-18/part-000.parquet",
+      "sha256": "94ab93f9136d05277fde2b0405e4a2396b5327c0a2bcc5a1c8ab2f377ea91ef8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2015-12-25/part-000.parquet",
+      "sha256": "f12d13253a637942d963210ba8aa31a3ec4aa1ce7130c7151df4c38b84eed240",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-01-01/part-000.parquet",
+      "sha256": "a49535bd7d2623b875569fb92874478acf665ee328a3f876a2ef8e314fa75c93",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-01-08/part-000.parquet",
+      "sha256": "12511340b1e07550ca4f3aae6402adf0ccdc77417f061134900962b9c31ea2f4",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-01-15/part-000.parquet",
+      "sha256": "196342ef5cbcc366d37e3f4f72876fb937a9f511cce4188c33a4784b487d7d3d",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-01-22/part-000.parquet",
+      "sha256": "aea17ce9a40d4c4255659a9664773e12fea551dabdfca12f5766670e233024b4",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-01-29/part-000.parquet",
+      "sha256": "c079b87f70c52d5aa67d71e5c005e92a448e69485432bb188cb3b9c5ae77a48b",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-02-05/part-000.parquet",
+      "sha256": "df1effb7be5e5bd511b507afd3ce682c2377d14db7da6c9765f10dfc8e3cf030",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-02-19/part-000.parquet",
+      "sha256": "4c3f740c87b91695661385cd0a1e948c969bda39bdc918664e7036108922e4c0",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-02-26/part-000.parquet",
+      "sha256": "627f3b7e0e30c6ccee47ba37b349e9251bc9275deaaa58961e4fc4774069abdd",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-03-04/part-000.parquet",
+      "sha256": "fbd9f38148fa1885972c8a33c2a35e3c57a279aa4cb3d7e8a9799c843f0b5d0a",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-03-11/part-000.parquet",
+      "sha256": "69afe910a9e33c09e7a7856c68da6cae43cc86f66d5f9ffeed45bcea51550b8d",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-03-18/part-000.parquet",
+      "sha256": "349bff6a0b1cd60ef03063846f6c929b39761cfcf44642cd4adcc8247d0781b6",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-03-25/part-000.parquet",
+      "sha256": "32b10f25c6bd2033bb6e3d7fd081fc727da6912ba32ac3b974434345e98219b3",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-04-01/part-000.parquet",
+      "sha256": "5abb6adaadaadf937c0f76f118a10902382c7c59c5821935c1596c02d6333582",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-04-08/part-000.parquet",
+      "sha256": "d2fb63c461c01d63993a6d50ec30df3173427318515b7056337b8dd8dad9fb21",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-04-15/part-000.parquet",
+      "sha256": "da1692ae13c3241783e11b3b67ff063cb48ed5b0b1d5cc7f6902dd488b6d049e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-04-22/part-000.parquet",
+      "sha256": "e6d5088a3d64ff71fa787d58b4c724d8e146be11333a8a9c86d55f8645cf83de",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-04-29/part-000.parquet",
+      "sha256": "f0ca2760761f18ad9346efd6c08ebe7728a092fe42d500c7b06e8413c2c30100",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-05-06/part-000.parquet",
+      "sha256": "e1070b27895e55d2f86b27d306d30b1dd9161672d92727eae0ab6fb39db109dc",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-05-13/part-000.parquet",
+      "sha256": "42c2852fcac138a138369dc2f12de1ae3a3d5c07b3eb894b85561f1e4026159f",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-05-20/part-000.parquet",
+      "sha256": "1248b023e497021b07599e253cf9d23a4a85654e6add436d8cdd2077f30c8ea1",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-05-27/part-000.parquet",
+      "sha256": "90f8750ca60f1c9939dd722a4e88f976ee0907493d2833075a5096956e040c80",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-06-03/part-000.parquet",
+      "sha256": "1cf337b35c80d6a5e6a524f67424ddf289c155426374460f6ef52a0cd8d9d0dd",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-06-10/part-000.parquet",
+      "sha256": "90c3eb716121c8502cb3588b9e8696b41b5c2ebcbdcbde287985c8611d6e985e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-06-17/part-000.parquet",
+      "sha256": "8e3a0940637f196a67475282b8112e6c807444b6a5065ca5c419ec7d5227a77f",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-06-24/part-000.parquet",
+      "sha256": "691e1119f0725d233c077c0cd03e2c3f41f3e86982721ee880899fe682eb6a12",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-07-01/part-000.parquet",
+      "sha256": "35af176f5c06f6c2acb99040fd3b1ed1dde943caff622807edb726e5eb605865",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-07-08/part-000.parquet",
+      "sha256": "0d87c3024c47be02c8846933c4096df525b40cfdf4d014080e839d8346551c35",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-07-15/part-000.parquet",
+      "sha256": "ea9384709b1ba9977c206108290a1d90a27976ae5e8c5b68d2f17583cb6f7b0e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-07-22/part-000.parquet",
+      "sha256": "1d47c1da66e26c8bb053b782bc445c9cada4ecf62291b10d60c1ea7209f94d9c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-07-29/part-000.parquet",
+      "sha256": "81f363efaf47be7979ae7f1e1917a9695073ec25fd7c71f7769c277e2430b841",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-08-05/part-000.parquet",
+      "sha256": "505af68bb574e2d0ea338ad46d11d912dce3c4408cd56c6006acc29c75a721cf",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-08-12/part-000.parquet",
+      "sha256": "8a7ad8511a9054464c6d53847b5c398e68ed6b14b778df1d1ae1695dca39b8a7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-08-19/part-000.parquet",
+      "sha256": "3a9f7b9738f2d9512a2d6ae556a5766f9be0b4ead07e607bf0bb15dfef5588ff",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-08-26/part-000.parquet",
+      "sha256": "39fa708bed503d0c8ef5b2d4ee5873bceac5cf64e4be5259b97836b0dfec429a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-09-02/part-000.parquet",
+      "sha256": "fd942db698db76ea9f5b83571922ed52bf164afd28f6bd6fa62d470614385117",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-09-09/part-000.parquet",
+      "sha256": "b34462e5b684c23dc0eabdf4a9574a0bea899e1419d763f926d903747d3a0ff9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-09-16/part-000.parquet",
+      "sha256": "63bc245b24458f7ef9a08f4a10c8c749cfab4ef8e0d77b0cc96182662eb6d341",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-09-23/part-000.parquet",
+      "sha256": "3ddf51e3a2c3c8f84806062efb77a435665709365c21ca6ee95ff1d29fb8f1cd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-09-30/part-000.parquet",
+      "sha256": "3036b172db037e77880b4f0ecd30ed6c6fc907f6cbda1a59b035230c6de09643",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-10-14/part-000.parquet",
+      "sha256": "1e3eebb2c291d6d3d102bae5f2465407a1d023b0748e7dd5463aa0d1d4b6f7e0",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-10-21/part-000.parquet",
+      "sha256": "37dbe7879dc83d34feb5a28dcac6046d51f53d39ad81cdfd376ad490d7d87c8c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-10-28/part-000.parquet",
+      "sha256": "0defd3425aaae9ff573cf2c3f793d7f3de8429a9c79a668c0a8fd6ade4e3ea78",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-11-04/part-000.parquet",
+      "sha256": "26aefc5c9a7eb010677ca5d723c6ec18e930d60d622f1951cd589e6b33ca2538",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-11-11/part-000.parquet",
+      "sha256": "687da89f13c58d3ae94d7ab9d4fe1ad17313ef9f2d35300bc28d9387dd8a8181",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-11-18/part-000.parquet",
+      "sha256": "06325713d7edc1fbb27eea695fb1d7159766f92d502de8fbb0ee817ce0eeecbe",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-11-25/part-000.parquet",
+      "sha256": "90fd48aaea52bbddbae382c3093f7f6453af424df808e909ec6ab7bc2daf45bb",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-12-02/part-000.parquet",
+      "sha256": "c01c818098a02506286d70369a7858d32717d3d9d21e7005e7e1527b6867baac",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-12-09/part-000.parquet",
+      "sha256": "83890c44d6c33e9c63cf9f6f9ecb4210420b837bd17629f3310685489b723928",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-12-16/part-000.parquet",
+      "sha256": "363fb2348de22adb4cf65d0e85936c7eac9874df950c8b891baf30c3a8f47e83",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-12-23/part-000.parquet",
+      "sha256": "341d442b67c3dc06b1b6578b616accfd3cff6b3101bd4badb68f7fe274941b99",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2016-12-30/part-000.parquet",
+      "sha256": "082709550e6b410decf1cca20fab1aa298f999cbf6d6c32c8d34e3ac309e2ecc",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-01-06/part-000.parquet",
+      "sha256": "9a2c17bea11f31f1999e6fae1853c61bec8fbb948a68c0954d6d218ee56ab3a2",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-01-13/part-000.parquet",
+      "sha256": "5d77d804743ff8695d497bd8a39c98ee22f8295350438dd9278f4900ccda4645",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-01-20/part-000.parquet",
+      "sha256": "bc9a085aad29b67c990f5079da61ec870d60a519a1b22f671c018808d3cc32dd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-01-27/part-000.parquet",
+      "sha256": "c295821246de6dae0608c8a267f7d49ee1d31f23746335e9d6eb07f9dd5623b2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-02-03/part-000.parquet",
+      "sha256": "d2a856bff4da5c075340d03a7c4574d8e933249708a7ccd5dcc84bee865200b7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-02-10/part-000.parquet",
+      "sha256": "08328be4693565acfe3942a522dd413a620c65ed735a0944daa267469ec4101d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-02-17/part-000.parquet",
+      "sha256": "faf558b6f72a474b5c6944ae5b7c10ef6204d1894c321b8edf9cab690b21c368",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-02-24/part-000.parquet",
+      "sha256": "192a7b06c0bc266a8deb97ec84d2b653c2123a4aa2116c5b42b4ffc530db7efd",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-03-03/part-000.parquet",
+      "sha256": "5f80708b7df28785fd7e3a773257bdf501213b237b6c94a771762ce32c7c4f1f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-03-10/part-000.parquet",
+      "sha256": "b75a4b8f6da6c83a510164f6328d2c8825ba2f04a815dbfa48a29132ffa48e55",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-03-17/part-000.parquet",
+      "sha256": "bdccd539162cc8cd5437ce5f571f3f930f41da49fdaf65c3c31672b7db317ff8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-03-24/part-000.parquet",
+      "sha256": "76d47cc32f52818f1768ea22c77a6866f97390eefbf8c25f86ca838fb8cbd566",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-03-31/part-000.parquet",
+      "sha256": "2714ee23d8ff7855953b12e14b502a0c946456cab6100a590961f48d320d4c63",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-04-07/part-000.parquet",
+      "sha256": "661b560b64abe46170db5ca9987bc49e74c8418989509052bf6dadd864a9cd14",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-04-14/part-000.parquet",
+      "sha256": "bfd14c1d2f8af4e48a035b7f1f53264327a53c78b3e33a1f3862a0180591d4c6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-04-21/part-000.parquet",
+      "sha256": "5ff75f5ca8096025c56e823c45c5763ab013432128b26d060638df762aadca6e",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-04-28/part-000.parquet",
+      "sha256": "8579250adc2ab43d7f20aaf0ac0b4924c7ffa611b145757aee9f463936cd9c5f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-05-05/part-000.parquet",
+      "sha256": "bf754ac38b22aaa6984a4f747c36ae47475362c5b952dc33bcd5cb57ee466a88",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-05-12/part-000.parquet",
+      "sha256": "569dd0b34efe8b26348e61ff5f37cd507c5e6206c8c368bf934f551d6d76f9b9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-05-19/part-000.parquet",
+      "sha256": "1dfd5e9ec8140409fb178281ed71a9c4d51b34fd30cbcbda036c8baedd667dd8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-05-26/part-000.parquet",
+      "sha256": "62b967e2c486a89cccfdc71a023691e3522be16ef9f17561ca38fffb8fae2e6c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-06-02/part-000.parquet",
+      "sha256": "8f6b85670130e1a6db2bd81fbf31a05b13fdc9ba82977e8cf39d080c72e47902",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-06-09/part-000.parquet",
+      "sha256": "11e8578b63743224a5ab5734f0a3d22927026dd2d9f33a625623e6db691686c6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-06-16/part-000.parquet",
+      "sha256": "7331b77c6481819d16b6cd16af5bbfe0b086c3303758a4e904f640384f7d97f6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-06-23/part-000.parquet",
+      "sha256": "a2a14b0655ed62a3a9e5bec8d233c1522999367d4569bc892799ec9f3464c458",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-06-30/part-000.parquet",
+      "sha256": "1e590ceb996bfe44be429cfdd2a72a6259bd13fa67dc6bb5cbbdf6d966ebade4",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-07-07/part-000.parquet",
+      "sha256": "46b159210a6bc5e547f8a3b973e50b69d505d61effbf6966ef91b95536a914d6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-07-14/part-000.parquet",
+      "sha256": "34ed95a4854e70a87259f63af839e29eabf3b791449a1b0ae210c3541253870b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-07-21/part-000.parquet",
+      "sha256": "41b8a85a56beca89b8ff1983560a7e51e148f1f64b744444a7940bb6933c50dc",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-07-28/part-000.parquet",
+      "sha256": "06ebd4ea7cfd626295c78142704dfc151e73f11b626073e107031daa0cad1087",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-08-04/part-000.parquet",
+      "sha256": "dccd6745b067c9f1a08ee052f628b72c6b1c689b711ab231bc998ac1da751e35",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-08-11/part-000.parquet",
+      "sha256": "3931507923d96fe97b52dd66a53183698d074a1ace8791b018d227dd566dcb4b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-08-18/part-000.parquet",
+      "sha256": "29beee33d5d75df9b63857ce622d49de73e97c90f6287dd3086384d2066a8347",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-08-25/part-000.parquet",
+      "sha256": "458704fded3a13ad7b333f518cb318492e239551628438011088a2dcd066c10b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-09-01/part-000.parquet",
+      "sha256": "83146a46f2e54761dbebfbb4ddf07ad3a38dbcd04db1de062a140b5f659bc894",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-09-08/part-000.parquet",
+      "sha256": "2e01bbde3025d0d08478d7e6429533a1273adf613da8ce882ed2bf181ef89774",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-09-15/part-000.parquet",
+      "sha256": "dbd47604f36dfc5815dc34d27d42ee65c2fe855a40a1a551958bc13ba1946b7a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-09-22/part-000.parquet",
+      "sha256": "82bcf2fc28c65d225926d312fb7dfbd473b9a05d793f38b62a44b9013710c472",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-09-29/part-000.parquet",
+      "sha256": "663ce6b66a27b27652fe7e60dcf85e56c5a1d90493b08a9fcfb14b819f5b8d7d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-10-13/part-000.parquet",
+      "sha256": "391cb758159d52150589642d4dac7cbbaafc2cea0267ccd246d0d56ff86a21a9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-10-20/part-000.parquet",
+      "sha256": "5d0241c570d6907e88c35c11fd0745da41f51bd19772fa2c21429fbc05c9f5a4",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-10-27/part-000.parquet",
+      "sha256": "155fdfd8557e599e5e8befd257dffd06dd0064b5fd992674623df436238b9a40",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-11-03/part-000.parquet",
+      "sha256": "de78adc2bbefe2514351290fa4e875f0839539fefdd1884fa05c245e8e8d1e26",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-11-10/part-000.parquet",
+      "sha256": "bb6abbd1db7a9afc5daee55610d3c64c3c5f3475cf995a80bc5270850c633414",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-11-17/part-000.parquet",
+      "sha256": "17b5144e95340678af8bae7596546f3982c648d947f13e5e11215d182df5eaaf",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-11-24/part-000.parquet",
+      "sha256": "0b205930dc47bd0a4b6ab1638980aa190d8de9020583aaff94d5f9a6ff1fb728",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-12-01/part-000.parquet",
+      "sha256": "e1d88625fbf1ea019c97ab8e06e85de713e5c81217b677f470aef43835914ea7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-12-08/part-000.parquet",
+      "sha256": "cd974111e8a0c579b32b83fcb0ff507f17159ef149f6403245fcee36a498bee2",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-12-15/part-000.parquet",
+      "sha256": "07d32c655a8df364ce314bfe568c850fb63e1f3d83f22745906c635175fdc7e0",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-12-22/part-000.parquet",
+      "sha256": "b1229ea8441540897cd675c3807bc24178174e5b1ff9fd264b299d2195080e55",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2017-12-29/part-000.parquet",
+      "sha256": "09431f1436dc8f8f8babd59ad06c24e75f6efc8dc734e5a611b9ef1049d04979",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-01-05/part-000.parquet",
+      "sha256": "baa59a575ef31a345bf4f104a22ce5f9a69c79965b55563c15a828605b8c174f",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-01-12/part-000.parquet",
+      "sha256": "8a8571013306224a98653cd20ec868319a84d52c1995ce83afe39f1ce6b375d9",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-01-19/part-000.parquet",
+      "sha256": "9f62521eed0cdedda231b6219c73120fc9c9d2172cc7df4f34fc811cf177e666",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-01-26/part-000.parquet",
+      "sha256": "7d81d4a5a7df7cc91e156ae683bf24ff74540bc9c416e627c5a397c098c67c0a",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-02-02/part-000.parquet",
+      "sha256": "ea20e3360b4b7c4b6a2cff8d10edb4f80c2d5639f9ffe0bf81c952c51a2dc236",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-02-09/part-000.parquet",
+      "sha256": "5f8c81d0719f4ff34a58471a0cebe806fa199d6a40c62a1cfe085665ff9458ea",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-02-16/part-000.parquet",
+      "sha256": "6841c88e255c3e9c88cf0741b70a97bf07c8f6bcc4ad4c1c7d4d21df63ae3477",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-02-23/part-000.parquet",
+      "sha256": "4d5b6f67dca7044121b99405f7a4b0e576ed3803135b0b90e744c1de02ba4f0d",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-03-02/part-000.parquet",
+      "sha256": "b75d1436b60f3bd9f3d2e6eb069a92b95405d32644a06742d6f4490c5308be01",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-03-09/part-000.parquet",
+      "sha256": "8432781bff6ef927bc3d5ce51714b1779689418c4ea92cb4e635991dffa45f6d",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-03-16/part-000.parquet",
+      "sha256": "79f15a0b8bda35b388d332cac3eef0e75f3a70856258fd4a278787d2e71bcaaa",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-03-23/part-000.parquet",
+      "sha256": "15eb283f8d48f34b9c1802ffeb6e7f82d700270d085aa5ae654b489d8565a62c",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-03-30/part-000.parquet",
+      "sha256": "db16a0e0f7668cacdc8932834e7aea767a18d4c4ac518ba9fdd2f04584821ed4",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-04-06/part-000.parquet",
+      "sha256": "998f55334991871383dbc9dc11742d49d5aa65e44645651e29f3fc947439a744",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-04-13/part-000.parquet",
+      "sha256": "adcd54f85b23bdf35e1901811d7ae7d536927cb2de90be75163896c658177e93",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-04-20/part-000.parquet",
+      "sha256": "9eed99345cec8e80af6895f1cf37f6fafb030c7e67a14a27296dda92451445a2",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-04-27/part-000.parquet",
+      "sha256": "7b1474b1aa4b2194073b8e60e0a3433416da5aaeb15e5a40297ea0018bfbb127",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-05-04/part-000.parquet",
+      "sha256": "c9809d48ddd731ea013375b6811466992a73e3619eede2d71252dc2ce7388220",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-05-11/part-000.parquet",
+      "sha256": "fcce93dfdaf62f89ed675c501b7e60ca244b072b5947ecfbe4b338794dfa6226",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-05-18/part-000.parquet",
+      "sha256": "174624b69ac12392cfc7a4d157b07c78862aa4e1eb0844edd6e5cb9320dd0a3d",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-05-25/part-000.parquet",
+      "sha256": "90acc90cd5db6e62e9fa427db645b98a5607f42192d0b221475ee0dd5ef3fdeb",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-06-01/part-000.parquet",
+      "sha256": "94e18d3f3073341b768e51268c15c43f12e933e4607d0a09703120cf7ab04d7f",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-06-08/part-000.parquet",
+      "sha256": "4c70142e0c7795ac2833a80a31f97202ec3726145d413a16c9aa53c638254dd3",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-06-15/part-000.parquet",
+      "sha256": "ad470f49310378fe6b5b50b65aa192dbb8152c3646c648e0039c1d80499babf7",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-06-22/part-000.parquet",
+      "sha256": "f6da8989d8b2c5e9add6a76abed2dd263b64b44a35388bb03aee8d62fbc03df2",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-06-29/part-000.parquet",
+      "sha256": "64e256e51be71d93d19ea86868c88be744a46ac17f1d5c890c612e836746a76b",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-07-06/part-000.parquet",
+      "sha256": "3496c8554901149e65136aeebbd6c496f3a7f94c125f83dbe4836f1b5335ea99",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-07-13/part-000.parquet",
+      "sha256": "a0ab5c26525ee99049685bb5ac3d9964a09453ccbb27105d630dcfaf80f632a2",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-07-20/part-000.parquet",
+      "sha256": "347d593c3474dfb10f0a9e11a757006c171218a3d46073748416a93daf6d1c45",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-07-27/part-000.parquet",
+      "sha256": "c0e3c432f4bcd750d7ae9f499c40a7b706150647a593acf2c7c349c783d3f659",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-08-03/part-000.parquet",
+      "sha256": "66749f3008db064daa385a624122a6aee656f37e26fe35a64f3b98f90382988c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-08-10/part-000.parquet",
+      "sha256": "f371f9e52781841649ba83711fa2905fa15609d273438e0613a14d3380a2654d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-08-17/part-000.parquet",
+      "sha256": "60455ca9d0340867c753b8325ff58b80f15ffe0989283c956144e475dd019017",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-08-24/part-000.parquet",
+      "sha256": "68ebba82962fac2586700436634f7d176c4f065679dbddfc55383ceb531408ee",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-08-31/part-000.parquet",
+      "sha256": "a505b4bc1953390e512de44df3577aebc78cd91475a838e7246e0cdc84ab3681",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-09-07/part-000.parquet",
+      "sha256": "7d051c62009bf4ac1fc395ca4258f2f47f0f5d89dd77da63f4bfa76f8a09f210",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-09-14/part-000.parquet",
+      "sha256": "6d3d1d4bbb09ee1262dca9d660891222fe373a6a5867645f26fc0508f3a1aea2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-09-21/part-000.parquet",
+      "sha256": "4dd8192da0da94e10cc6c07cbd49504e91e7c502fec64ed073e7aecc50d55e2a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-09-28/part-000.parquet",
+      "sha256": "90e10d9aedd4eca8c5c73fcb539470ede01922a3cec30795cc6dad060a5dabad",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-10-12/part-000.parquet",
+      "sha256": "2c58ed992cc010ca3b58eb6e66b75a508c9e49e870574a10dfe88ff90977a057",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-10-19/part-000.parquet",
+      "sha256": "9cdb75082dabe7c5b1c173bb22c68f514dac8e93f35c5f55280e916cefb17bf6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-10-26/part-000.parquet",
+      "sha256": "0a9104174f0e27b420ac09c76a34cf0834a785f604117bc470984f1d10c41994",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-11-02/part-000.parquet",
+      "sha256": "74ed0f809b5f453daad1335b04890971acec0c845ec871efa6ddf085835cd1b8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-11-09/part-000.parquet",
+      "sha256": "37977eeb2bac33172966607b2c50947b6f3bf3b7a380a9f677e39f4267f3c7fe",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-11-16/part-000.parquet",
+      "sha256": "08c0073db55c3a3f2080c6e4f2cf277dcf3208b344a4ebb6c90a375c50c3392a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-11-23/part-000.parquet",
+      "sha256": "bedd0d297a7ccce6684a85d819b48b84006ca5cff685f9ed24aa2157f65cdb9f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-11-30/part-000.parquet",
+      "sha256": "629b0a2f3e82ed63267d9958efcde26e6f4d2ac50fdb6a9672ef8f8f2148ae2b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-12-07/part-000.parquet",
+      "sha256": "cecea714c2f7f88e1df566e049b69419590577456dd0cdccac458107c42fd5c3",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-12-14/part-000.parquet",
+      "sha256": "5c8a7c600b3c4c1edfe51112fd11406d7ebac015aff093bcb170977b46d29592",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-12-21/part-000.parquet",
+      "sha256": "27c96534a6a92382d241a570c0c954e2221b7fe24a53f2491ba59ea30a220c99",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2018-12-28/part-000.parquet",
+      "sha256": "e883d70406956a5406595b6fd7da3b73ab63d45341d72531d02c22a9f1688e32",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-01-04/part-000.parquet",
+      "sha256": "50c6cb1493f04da964793a37f9a141e45ef3ed2a027a4a4c79fb86bb4c6f54cb",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-01-11/part-000.parquet",
+      "sha256": "308081e9266dfb7767c6d6ae6aab326b8d6dd13172cfe21cc397a16937916855",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-01-18/part-000.parquet",
+      "sha256": "c37a6a09c7a42f9096034b39e620f70b0dc1de6763ea111cb056a03080295762",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-01-25/part-000.parquet",
+      "sha256": "11cf12774a3f5fe80fc60a9c5cf0384b1fa3c80d661dbf876f53cb248388c28f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-02-01/part-000.parquet",
+      "sha256": "dc01fa20fefc969e7e99e20f54694c572b4ff33d2e1e57051b9d78a1340d5592",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-02-15/part-000.parquet",
+      "sha256": "c8e5fd52842211454a5b9b13c96ef1eb7d21635fc375ca54141c82193eb38f4b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-02-22/part-000.parquet",
+      "sha256": "597a70e37875adbe1c755e630478ec079004772d62a92d61a95dbe734cb05a13",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-03-01/part-000.parquet",
+      "sha256": "95ce43a9e374abf473dc13a0819ccd316e8341a2134cff593a99bfa13a436238",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-03-08/part-000.parquet",
+      "sha256": "59a2dd7a91f923d55ecd665c90d38d57cbdb711ac54fb007e1526900aefe7667",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-03-15/part-000.parquet",
+      "sha256": "c0ec8854720c031fe427caaafe0c9bbeb02b52e8a23eab1dfff4e6d70cb3aae7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-03-22/part-000.parquet",
+      "sha256": "acc371f7574e21854b7c61e63414e004c094cc608f0cfac618a355bddcdfdf6a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-03-29/part-000.parquet",
+      "sha256": "8618b794636180af0c19534ee95dda56dba701490fe9ed7b7e84e762e0727761",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-04-05/part-000.parquet",
+      "sha256": "afafa28f6d23e2595dcb17bc4c79099ec678d97b42293104b72ff6a2ad506cb8",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-04-12/part-000.parquet",
+      "sha256": "2c493e6b7adc18ede0b40b93d92dd8cf1099bb7ee2e643ef41c3ea1c4a0dd711",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-04-19/part-000.parquet",
+      "sha256": "53481fbafd54dc2b5a9acf5e059e69f5045ac990c7dd8328bbcf6a00e7c746b3",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-04-26/part-000.parquet",
+      "sha256": "eedb6419765b5758f54e20a4ec5ae78258f69dce7696dd2fc360ab1ecf07775c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-05-03/part-000.parquet",
+      "sha256": "e05fdf3a979bfac46811e489490ba153e67299265265eed4f785f9d66d6abef6",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-05-10/part-000.parquet",
+      "sha256": "a74eb9168030f68a2a19d1eaef1f4f324dbf86b84a6629ca32fc54bcd78260e2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-05-17/part-000.parquet",
+      "sha256": "a70d129fcfb599ccaff85bf10ae7025acec62bde2455d4e9dca81913b4d83214",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-05-24/part-000.parquet",
+      "sha256": "0dcebf82f1d2f531e5dc334003d40f092602c9b8039d9af1eac8273d8a1e2c6d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-05-31/part-000.parquet",
+      "sha256": "5cd82b78593eba11175c9c6f032563ce20179eec7c1e94a59d94c3bf99a3e2e0",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-06-07/part-000.parquet",
+      "sha256": "64236525b36ca0cd7defd661dc6e2d30b78f9bd9cbf0bfd85be16af3393f41cf",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-06-14/part-000.parquet",
+      "sha256": "29dfae9fad352efdaca6ce6103bb56c2232d5f1ae57bcf6326e3fca1d43ee7d1",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-06-21/part-000.parquet",
+      "sha256": "0c4d17cbbe2047d10e35d6292e1e3c971faf39211c63f5b02634dcb84b6ffd29",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-06-28/part-000.parquet",
+      "sha256": "be89147b8e7a06be6e614aeeac914c5c5980d05efb0ec22c442056c557578f6c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-07-05/part-000.parquet",
+      "sha256": "4bb6d2754b9ed746951e1f510889217e88da6e98d772e656524a75f5d92dc2bb",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-07-12/part-000.parquet",
+      "sha256": "68eaad3e3289e528afa3ef801206bddbfac6fd9cbc558767493f2e59ba1aac12",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-07-19/part-000.parquet",
+      "sha256": "9fec4961b01431db1dece144c93e3bab1a1713f9b1aa025b5fb9c88265f70a20",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-07-26/part-000.parquet",
+      "sha256": "d2e0ec3b8d100ce527d437244a5ea5207e5fc3bd2b1bf630c33747737abdae50",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-08-02/part-000.parquet",
+      "sha256": "9ac0a81bdf65d13bcf69283c0dbd95e72766a446b39d311e0005f460cd97f885",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-08-09/part-000.parquet",
+      "sha256": "31aab9e6dc6aa4334d87f5fe325ef4a5c01f9b107c88ea24e7de96b84e25f864",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-08-16/part-000.parquet",
+      "sha256": "e936f3c15dc3931bec8822a1abf6c70f64710e30ee84392090834a48151ebf4a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-08-23/part-000.parquet",
+      "sha256": "5bb6c70432bee7de46f3c031a6e5b87332f40fb526259031ea0677499dd4be41",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-08-30/part-000.parquet",
+      "sha256": "0a61478d01a9174cf8873b47063acaceee0c966b355f00cb445d58538f065558",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-09-06/part-000.parquet",
+      "sha256": "45611529931ac8d6df3e7f94b09341aeb28e96f80efc530a79303c9a2a529f9f",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-09-13/part-000.parquet",
+      "sha256": "0ad2217abaf1b51e0777c23dd6680d670a187d644d288f588fba113e74691744",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-09-20/part-000.parquet",
+      "sha256": "8198b617aeeb4965307bad5782af775f8b506a9709093971bcd02a3f4fc82152",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-09-27/part-000.parquet",
+      "sha256": "8b4c1fc3bd4cd320f8081733061f8e2963ff370d5e8718138f08736a7bcc86af",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-10-04/part-000.parquet",
+      "sha256": "b1f54ec87d8559bd2e10eb888c5234582ac25bae99892c094717be4fc9bec1f2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-10-11/part-000.parquet",
+      "sha256": "430d2d9877499d98d7dabdc7061cdaeb0f5c3de902d14ba10fdca0e57086fc93",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-10-18/part-000.parquet",
+      "sha256": "aea228ac8ea9ded07296f22df413b6e6b006456af31df3b3ea30774e7c10fb7a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-10-25/part-000.parquet",
+      "sha256": "538fc37030c973c455e4665129731dcd66928d91093556641a52294ec826b738",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-11-01/part-000.parquet",
+      "sha256": "17ccd0e3946821f7c8de113116bedbb381fd44f44966f9ba761cd72d0fab1806",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-11-08/part-000.parquet",
+      "sha256": "f16881a140ba3ce9c907e5a95c3abaf0f858c3cf180f748591a1365a959a5f67",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-11-15/part-000.parquet",
+      "sha256": "66ec31e79c7f337e54d64d33890d0e8a4317755867c5eb639289b99dee9432ba",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-11-22/part-000.parquet",
+      "sha256": "536ed1edb8984f9f0e1aae94a59ef24b8acc93c817116203fcfef34954225cec",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-11-29/part-000.parquet",
+      "sha256": "60ccd5b7711c717a570e35e2d1e196cd25be0fa12bd2059840b8c5a588bb2cf5",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-12-06/part-000.parquet",
+      "sha256": "960678ca327c11507be8560a597c931cc839afc5ba879c14bd232fa11cbc48a7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-12-13/part-000.parquet",
+      "sha256": "2f7e5ee9a11786f8a5201e6111a1e1c632299d82ea10dee5b9263473f03899d1",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-12-20/part-000.parquet",
+      "sha256": "687d895b279df976312ecc044d09982909205697f031942c3fd80f8d552f93a9",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2019-12-27/part-000.parquet",
+      "sha256": "d88fa574d57f48fff721941ae78001f18c1709dae57b24e5a034b41bfebbfcaa",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-01-03/part-000.parquet",
+      "sha256": "847f9f9ee7aef113763847fcca7d110da4d2d4c2b90ddffdd506a815d15f83c7",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-01-10/part-000.parquet",
+      "sha256": "c9c39f3ef19c894052be11d7565197727167aef5ccf6ef3074854ca7720809ef",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-01-17/part-000.parquet",
+      "sha256": "f07917b44d4fd4dd8f383ca26d5335544ef9c88dcb366fb4423238e9e5b6b53e",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-01-24/part-000.parquet",
+      "sha256": "6f66e6a41d5514aa07ecff7a4eec1d242e107b5b5f47f02507567e72286cd603",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-02-07/part-000.parquet",
+      "sha256": "9b616f49fd05fa5beaf1f2776b34b5425a94ebc918a3791b5abdeceee5b57f41",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-02-14/part-000.parquet",
+      "sha256": "cfc303caecea77f979746e6827f34e07f0fa6e56902f8bc53b725cef46381be2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-02-21/part-000.parquet",
+      "sha256": "c90e058cd89d0d9c942f42eec21526d0e0ffa5b7c9070fbdc34f3868a15e7524",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-02-28/part-000.parquet",
+      "sha256": "e53495c4601cb15dd6be0ca5db03f87cf3d446f12cf34e4c42ca4b69ac259a06",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-03-06/part-000.parquet",
+      "sha256": "32e953c645ad212e2b437545477a54f755751e2798c522d1e27b2ad5436a7485",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-03-13/part-000.parquet",
+      "sha256": "6678dd50201abe3b8d960d9983ad52d387368f65f84031654e92d93fd3287a2c",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-03-20/part-000.parquet",
+      "sha256": "9307ab258d59406e4ab613c9a739672ea45187039af74981135ce241e57fa84a",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-03-27/part-000.parquet",
+      "sha256": "1f403d9f19b9222eb445fcbf0c95c4e3021b1980e3d98be758bd5eb52b9d0da2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-04-03/part-000.parquet",
+      "sha256": "dd79b8e07e0494654c5484f5899e0f6c30ae5e982dc19af66aa439da0ded62be",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-04-10/part-000.parquet",
+      "sha256": "fe76d907bae85edc22f10a488ec63668bc3ac8d58972ce70bde7180bd85fccd5",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-04-17/part-000.parquet",
+      "sha256": "a248f52cdfb128c794120dec9f04c094e4d25ea902baae40884a46d5bf8bc5ba",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-04-24/part-000.parquet",
+      "sha256": "f96524e7ee684e7a4bd7a12be40f51609cc3cfc1abf0dc96e84124febc257043",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-05-01/part-000.parquet",
+      "sha256": "0ab371b0f0bf2f872984b2e19064b3260bbd964602f6d6b703b21e51fec0bf1d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-05-08/part-000.parquet",
+      "sha256": "9cdf3ae1a16251b9822ecc7c26ca2684e8f371058ace2b472b31d12c58f46f9b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-05-15/part-000.parquet",
+      "sha256": "0af90dcd666415b970a59e814647ff2c6a4f282c8a475c25acc03ed4612f9311",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-05-22/part-000.parquet",
+      "sha256": "e9f3b49940d5000a9091ffca4c6780b0f23b164e79cbdda515820bea3fa8f16b",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-05-29/part-000.parquet",
+      "sha256": "d27a3e847fc2b2378c677f2ed2b1bcaec97f09d9aa8402d60100d1e204e81661",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-06-05/part-000.parquet",
+      "sha256": "40c50dc2ae6adf95a320ea9889d0aea0a8d57a21af5f3226aced0393cd89407d",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-06-12/part-000.parquet",
+      "sha256": "270a4fd3f339de760c721b03a029498a1621f2f55d351a3638d8f50d1cc9db79",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-06-19/part-000.parquet",
+      "sha256": "fd8b96194c44f027766f61cd8a93872aa46384be7d869bdd6ed9b0ca34808f9d",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-06-26/part-000.parquet",
+      "sha256": "d19e79849743eaee2c7eaccd03bc3d5998434803558a559fd7ec1810a9824147",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-07-03/part-000.parquet",
+      "sha256": "16c825d37978fed7403457ce8b43487400798d8ef77a9be6f89b5e83e31396ec",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-07-10/part-000.parquet",
+      "sha256": "0e0c1ae7a37f5cb97f246371b14dd9e3152a40b3718e0a519f651828906e9607",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-07-17/part-000.parquet",
+      "sha256": "1f3fcee3bf4f15828b73325bd6bc7972771e45c27ca1210c845b9d494e6bbf38",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-07-24/part-000.parquet",
+      "sha256": "f48e9c5661a0f772422d8c65a9a9bb44588594677c04a0a1a5d887809332f2c5",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-07-31/part-000.parquet",
+      "sha256": "2b7af7c849729d615dcf5e1826fc22db960240dcda2528c3670d8e19437a6607",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-08-07/part-000.parquet",
+      "sha256": "08bc1db2572ffd39978a1b73c1e031bcfd8e5308a7ca19bb138f48f5f8c6c4e3",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-08-14/part-000.parquet",
+      "sha256": "10c24fff8761338fa138f71a9969184e7e1af518bd8100510f65f770e7746867",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-08-21/part-000.parquet",
+      "sha256": "bc67bfd4a27cee441efac10c30f356433e24e1b5e89101c085435f7a0fadbfc2",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-08-28/part-000.parquet",
+      "sha256": "fce27d74123cc23debcec9c5682ac3138aa3f3701d9cb3abefb7cb94a8ef60db",
+      "rows": 5
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-09-04/part-000.parquet",
+      "sha256": "46d5954909a892848b38b045410d771b7bed54a600cc702e822d7a1376a7d3c5",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-09-11/part-000.parquet",
+      "sha256": "8f19646a024843874eb0872638b73d934d8f5747af9b4c6e5d605bc2745227cf",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-09-18/part-000.parquet",
+      "sha256": "6f4aa501b1ff6687b2ebed4a8b7dcf329d00859be0cd7466a9a5e7b9516c0219",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-09-25/part-000.parquet",
+      "sha256": "5f0ede2e71c2b7d005bf8b29b940b6caafd0b285787443e3d7a559594017504e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-10-02/part-000.parquet",
+      "sha256": "6d7207504618bc82ccfaa816a79718146c816d4350a0d2047bfdc38ae7b3788d",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-10-09/part-000.parquet",
+      "sha256": "34b550bd42bdd48b314ef994242899aa57f755680484a3670011b3e26b447ef2",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-10-16/part-000.parquet",
+      "sha256": "a93abfdbafab6d6d9e9dafb2693cbd848a1780f84d01d0229201750ca5cb1a28",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-10-23/part-000.parquet",
+      "sha256": "786b9add9fbc36a658e807c167fa3eb64e281fa3475211d17b42a7fe43bc88ca",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-10-30/part-000.parquet",
+      "sha256": "be49fdfc95eacc59f21bd3e0c17a15027a82006359e6f0390e5af7a4650d4acc",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-11-06/part-000.parquet",
+      "sha256": "3ff22c6d7e01515d4c2b9fc870648137f1adf31e8c188f3b8b01dc755ff1dbff",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-11-13/part-000.parquet",
+      "sha256": "b8c49f0dd3bfdadc6c50991ad0312125d444d94d265cb6e955950a37b6325659",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-11-20/part-000.parquet",
+      "sha256": "3b0a92309827c38c3fd03c80feb30b88c50580ad6a11656fa6dc7567d895d083",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-11-27/part-000.parquet",
+      "sha256": "199043535d41855bd35ae6e85e5126652dc4099d560b8f10b0127b73ddd1be84",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-12-04/part-000.parquet",
+      "sha256": "397aad12f931fe53702953ea11b2a8e8ff36e42fe42f9e1e4528ca3ec5ab08b9",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-12-11/part-000.parquet",
+      "sha256": "999b43e3023550d76fc18b2c49fe011eef3a30eac9c7e284d91dd0d3718dd1c5",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-12-18/part-000.parquet",
+      "sha256": "39749de5853cd430d85c9a91be3e94a04200d1f1b816e05c305747be8373979c",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2020-12-25/part-000.parquet",
+      "sha256": "dfc643c5af2ed3eb5032ad04cab94ea3b97ac2fdfabaa7d2a458bf27861870f8",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-01-01/part-000.parquet",
+      "sha256": "5e9baf638eed1b573a4d365d6c5d63bf78aeda34c5fab907b4b40a6a5234740b",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-01-08/part-000.parquet",
+      "sha256": "e4e1c4a65226f4827aef5c191f9810f658c2985029cd8b88247b03a89c48e7ce",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-01-15/part-000.parquet",
+      "sha256": "27d80c56c7b743cf2868494f49c7377bf3bcc245b29f1df516758b9948cc1819",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-01-22/part-000.parquet",
+      "sha256": "6dce032c9ea92e3284163c4797cdd373734f991065f2d23deac81c946c74a298",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-01-29/part-000.parquet",
+      "sha256": "bd5fac2fcaaa19763b41cba291ede268c30d648daefe130c9544eaa760e19b8b",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-02-05/part-000.parquet",
+      "sha256": "a04103bfef8a1f3af5cfcb40aa5a817fb47427454ede82e3c308561a63d6fdc8",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-02-12/part-000.parquet",
+      "sha256": "528ced399ef06394c272a9c721f4b0e8e7341f7c088390601520fcf59c6e14d0",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-02-19/part-000.parquet",
+      "sha256": "30b87e9f8016d15e8ffdda66c244aee4ad0d509bd8346444a3dd80855f8c2a89",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-02-26/part-000.parquet",
+      "sha256": "de0963ad5ec60b353fd24c8c5693a50c10a7c9030a337274bcd5ffecf4dc02b3",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-03-05/part-000.parquet",
+      "sha256": "78bb00557748f902508ca6e33ff9f64dc5f08b07e4977df0a472c1f477f4a242",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-03-12/part-000.parquet",
+      "sha256": "8c5b574347b28ff913b37b8b52eb7af33f843ed48dbb10372ae699ebe146a477",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-03-19/part-000.parquet",
+      "sha256": "37d8e9b4027b8c5b41d974c5afc379d6a56c8d0a72f3f2be75179b905e64cddd",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-03-26/part-000.parquet",
+      "sha256": "4392dc1d0cbc5d0be452899c753d6166061267771ae67eef9b4944121b3ee29f",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-04-02/part-000.parquet",
+      "sha256": "7226a4a40a3763435e84fa12b5efbda5908948584a23eceb6f11bf8144058100",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-04-09/part-000.parquet",
+      "sha256": "a3520e4e40d7554f9b0a4de7af062abcce057974e825a11c04d22941dcc57d45",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-04-16/part-000.parquet",
+      "sha256": "8bc84284151a4ef1bd128da5786bb3b698e07ef3e42813beb576b879c8bd5a3c",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-04-23/part-000.parquet",
+      "sha256": "41e32a335e171d9017f4b47f206c974783b58911109621211539ea2f7f67ba35",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-04-30/part-000.parquet",
+      "sha256": "eb58b569abc3d38e47a0f782616beb2a3da29ba7056380659faff81ab92eabf8",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-05-07/part-000.parquet",
+      "sha256": "d7ecadf6672ddc7d789998ad3d1a3214c9c411aeda0b30fed0cbd52fa7b00013",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-05-14/part-000.parquet",
+      "sha256": "1fe266f7d8ce814db56644d2d3b4d05aaa47bc7dfe09563d854f7ae0a4cdaed1",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-05-21/part-000.parquet",
+      "sha256": "bb5a5522b32d4c1631bdc29455161ab7cb5fe18d03f73ca354de4252a5062fa2",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-05-28/part-000.parquet",
+      "sha256": "bb21785947e07afaf7924472eb98a4c6b821e00c56a985ad8329f73ebb1776ab",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-06-04/part-000.parquet",
+      "sha256": "0992be80c5cacf212bcbad9fd6570227759c6632b54704d69c1e4a5201763dac",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-06-11/part-000.parquet",
+      "sha256": "ef6fb96cdb02e0c8d88869cfb4d6e032ffa5da65b857929cf0035a1cc074c8f7",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-06-18/part-000.parquet",
+      "sha256": "15f1df203e077998eb0cc88668b625df8f4a9f2cc1eb58ee4a8513531657ed6e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-06-25/part-000.parquet",
+      "sha256": "f5dc418a20578a8fa80e5aa188a25e00338d19293dc09a0eab5bd0fd5497b0a9",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-07-02/part-000.parquet",
+      "sha256": "500f923a86412fdef5f7bf8af86db482a0ac2ac18b24f52ad156dadc49c26f41",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-07-09/part-000.parquet",
+      "sha256": "863870ead697a526fdcaed7fa0b5060bb9d8d65426f0c041ba7394c80b813d7a",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-07-16/part-000.parquet",
+      "sha256": "cfb1cae1de06ef7f03a5f0ce76683daa9601f54b8bedd997de14e443796c1233",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-07-23/part-000.parquet",
+      "sha256": "402cdeb6f0de9ca30d8a9dc3736763336a856c13f8f68cb8dd522720585b39b9",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-07-30/part-000.parquet",
+      "sha256": "f8d7a9833204976d6dfa410deb335a58bd8c027e2bef11d0ab116c3b3dd90be0",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-08-06/part-000.parquet",
+      "sha256": "0c2edf4ab7ec848dc886f6f4fe4d30ca4839db030cc61fcc02309f15146e6188",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-08-13/part-000.parquet",
+      "sha256": "632fba09d9d179616312f755eccdea1694225892fd0f775b9b94689a986c06fb",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-08-20/part-000.parquet",
+      "sha256": "3b9fff931c34a85c500ea195f421516a16d7c6384cdfb7838719509d4651f5a3",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-08-27/part-000.parquet",
+      "sha256": "e6f75a07b0cefcaf34dc5b3c996925bc11afa768610f37951c2a533dc1ee4331",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-09-03/part-000.parquet",
+      "sha256": "ce931945692667cbc3979710640da3454af7b07df68ffa0dea4998dfec92ae3d",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-09-10/part-000.parquet",
+      "sha256": "94d9625d41962de025216c650d434be1e7226aa77d22bf46a7a361a9e67798a1",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-09-17/part-000.parquet",
+      "sha256": "a2ec16a11c85bd26b9600c4f40a0b94530644f82588621eea22c5a9514d776e5",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-09-24/part-000.parquet",
+      "sha256": "c9d2153c62f518f5ddf0f6223e196f469dc4d7bf7c1fd27fe2446335d63d0584",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-10-01/part-000.parquet",
+      "sha256": "8bc8241e4e9bf75e870e4b8c92a35b39c86bba279d5e2c0a8e4e3567ac4eebbc",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-10-08/part-000.parquet",
+      "sha256": "cacf5bbd7759c2940102c7a2cbbd1582f4a5a5e9f7d4f04316547538f333ca16",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-10-15/part-000.parquet",
+      "sha256": "ae837a5c53d29c5f9a95e6430ba780758aecc83a5d1574250a058ecf4671edd1",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-10-22/part-000.parquet",
+      "sha256": "52477989efcbbfe612d8de9a91b1c02e5cfc031f3ce7430b15f161c0c49fde13",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-10-29/part-000.parquet",
+      "sha256": "3c96b82caf5a00ce086ec03fa0de2dd20d1293ad0c384234cf5987f189a7696b",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-11-05/part-000.parquet",
+      "sha256": "a32e4559df70f854a988a0c42b771b268b39d58e51fa285d65b4c443eded39d2",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-11-12/part-000.parquet",
+      "sha256": "2abe7bff8423a9a1930a6d88ceda24882d7c852212f5236d7373530112ef5580",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-11-19/part-000.parquet",
+      "sha256": "ba3ab4c0f6f292169faa9ad7ad6f79bad9210def476aac0da6345eec98688282",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-11-26/part-000.parquet",
+      "sha256": "d97c4b8ae9aeb89434da3aa650876d8ef9dbe38f677013c367446f3a082fa3cb",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-12-03/part-000.parquet",
+      "sha256": "47aee4c217cd4e0350da6a0f0a015b64356e61a9f02c8bdd736fd5b01f4a3b16",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-12-10/part-000.parquet",
+      "sha256": "0764868daf4d521f16ec522e476e6e80e48c3f667c00a3d2ddc50a77f5f197f4",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-12-17/part-000.parquet",
+      "sha256": "2d29051b690146a53d002e84c41dd83c1228b5f1e47a0cc056c68ca17f7381b5",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-12-24/part-000.parquet",
+      "sha256": "9d7f65409f7e9ef079dcbeee31fedccca72c05c472bc403816e8a7ea1b55eae6",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2021-12-31/part-000.parquet",
+      "sha256": "ffa5ff14d36b370ba382eb92d809a6bc6c1b838cc2c425e08ae4e14b04de1a61",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-01-07/part-000.parquet",
+      "sha256": "9d77c6ad185b389540a191731b8fbcb7abc3823f7baccb6040032213b74d77fc",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-01-14/part-000.parquet",
+      "sha256": "33087fb39b0b2a9b49c46cfc4d79b163a7402ffe68a6f451f8f3c22e239a5978",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-01-21/part-000.parquet",
+      "sha256": "4e7de629807def5996ad6de5abbf41c4f61a84f78821a30f44212d9665cb0de7",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-01-28/part-000.parquet",
+      "sha256": "d362f9eba25be2147061e5a9076aa546fe5096de7c539b86cc56c7ef39e1d0b7",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-02-11/part-000.parquet",
+      "sha256": "a8dcb81c3e7a6832afbe2a6015cb1a6b3aeb3074a8b15a0b0f1e901be3755954",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-02-18/part-000.parquet",
+      "sha256": "278f4d5cf089cb4d1e4c5dfdd83add92f3734e126207087c16d82e42ad0a072e",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-02-25/part-000.parquet",
+      "sha256": "42dcf72788188a67e28199c54d66d832c98013d3b009e4605f6bc6f3d2823a78",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-03-04/part-000.parquet",
+      "sha256": "bf8caed9a1aa9e288d8121ef93461bde080cedb816328b25fae776e8445b43cc",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-03-11/part-000.parquet",
+      "sha256": "8ef4ed986b6b36dc51ec8e2a44db873f9c9fdb7a3176c89e3c760b73a492fa51",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-03-18/part-000.parquet",
+      "sha256": "725ab09a5b9d08d0b7edfaa1419d1f7837c4001704df9ba40cc4204f8c1630b8",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-03-25/part-000.parquet",
+      "sha256": "1170ab6becd67f94406b417158fb53e13b4282f947e377ab1d2d4c0bcc1e4e60",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-04-01/part-000.parquet",
+      "sha256": "3046f38b7e39b94b850dc554e1994c593d8bfd2add83d7248dab6f5a1a774448",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-04-08/part-000.parquet",
+      "sha256": "ac0bb37bd3111926a46a19ba6092b817561c3e9fe7e7f5543a1c5a2a41c44784",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-04-15/part-000.parquet",
+      "sha256": "dbd119a7b6ddd3703686dfa15c41689df40e722a96580ea75b57a0025b2f7dc2",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-04-22/part-000.parquet",
+      "sha256": "aea1224a6c5400a3d289f2d18ad25ace0dec2d44cf155b698a15cbdaff8653fb",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-04-29/part-000.parquet",
+      "sha256": "27e5d34600c4d1a07bf4ec6fc9983de4cab8644ba2c19aa63e9c2f02c56b0a43",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-05-06/part-000.parquet",
+      "sha256": "240124b6142980f294fee74bb05cc346518d3558d75188f77d804fe54f7b844f",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-05-13/part-000.parquet",
+      "sha256": "3e2099dd75b9ef56a526dc866f6382a0c734f318ab64a176bc1ee49b97593901",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-05-20/part-000.parquet",
+      "sha256": "a30b9468dacb8d6df50f21d98edd95a1fd85ec8ea6a753444e7ead8dc92f262e",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-05-27/part-000.parquet",
+      "sha256": "eab37936f513578c062cbae140c05942ea6e9a206b1aca3d5bcea5f9b7113ae9",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-06-03/part-000.parquet",
+      "sha256": "ae65add0209a7b7ac4cd0438ea6b958948d952a527e45132fb6da7efad572723",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-06-10/part-000.parquet",
+      "sha256": "c47210a497743a7806205c741f46a39024b5584495434dcc813034ec141c9259",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-06-17/part-000.parquet",
+      "sha256": "99b9eb31991d6d17d3e0eba4b18efdb2f9bb2aa0d6d31b20ab0b9cf165ea0890",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-06-24/part-000.parquet",
+      "sha256": "9f3af789696830c7b51b89819c430b2e04c49cacd39cd7b96c4c922bdcf267d5",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-07-01/part-000.parquet",
+      "sha256": "51e4baeb5e10d9f74636e8a4cdec74d7bfc8f75422481e2c70ab3bbb454a9675",
+      "rows": 4
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-07-08/part-000.parquet",
+      "sha256": "7fda083f164eb8d230712b911ac88c502c47e8a4efea38371fb58514f24290bc",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-07-15/part-000.parquet",
+      "sha256": "27f5c5aafa710ee51179700ccab303f9636a02c66f0dcee96b5d785c98264d77",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-07-22/part-000.parquet",
+      "sha256": "4c9f04b7f26ddae443530c11be0c9cfaf27a3778b5a8339c7bf24932753a424f",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-07-29/part-000.parquet",
+      "sha256": "1933ba5669a23d705fb956971a8ceadbfd77e45270bec9e8675042ea841c82ae",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-08-05/part-000.parquet",
+      "sha256": "13c8fa260b28c4d29f4ed34f0494a707f4b754a2685671931ca64b9df2ac8f8f",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-08-12/part-000.parquet",
+      "sha256": "393d3b7dbf4d2faf5ba96cd89642f227da57eccc8e3ae85a7089d07219792bde",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-08-19/part-000.parquet",
+      "sha256": "b5d303718c94971012b79471a50bbcdf98cd39484992ffbf4a624357410ea7bf",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-08-26/part-000.parquet",
+      "sha256": "f6eaeea3d30e62533e04b8935a46c295e1788389b716d42c88e9372e0a2a72f2",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-09-02/part-000.parquet",
+      "sha256": "c295aba2a296a76e2453c0b76cd103c9d0d6b0d247df5a4f50b303e18d8c0aa9",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-09-09/part-000.parquet",
+      "sha256": "b5b3111bff52053bdf3558b8358578ba88bed0f2e224b33edb80197253dbf523",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-09-16/part-000.parquet",
+      "sha256": "2be8832487af34ac3fa428be77dfde7fd058a42ece79370e4965f3acbc401f03",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-09-23/part-000.parquet",
+      "sha256": "f57fea864f3c88107f706335eb36b245cf4287f760d14ce2771c0a5cbbf8d84e",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-09-30/part-000.parquet",
+      "sha256": "b5060e2aa6a13d3db76d030ffff5d2ef96304c113a560a55ca2be884101b5dd6",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-10-14/part-000.parquet",
+      "sha256": "be4a7b45c5f600d223a6cf61b07fdf7a96b0481889dce2ca840bbae0931d5bf1",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-10-21/part-000.parquet",
+      "sha256": "fb4b6fc35dc083ae14812c1ba637d3f8a759c03e38a7ce62b581ad5d36db1ebf",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-10-28/part-000.parquet",
+      "sha256": "b24c8f8020cf396db7ece6b3e924f8a9a831c5c43178ed54857cc2955867637b",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-11-04/part-000.parquet",
+      "sha256": "9b895e876ff2fda73acd93ffe0f2a73bf4f65c141889a192407aaa7aa6da2605",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-11-11/part-000.parquet",
+      "sha256": "ca16f9f7bfea8041538d570acfde295b20da29fc6c1eb96cb7c44ca01a902195",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-11-18/part-000.parquet",
+      "sha256": "ab5c9a757c561de18cc5dfda11ddf2c460379a1bdf0457a522bdca6e6801bf1e",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-11-25/part-000.parquet",
+      "sha256": "b6ea73152c4ad9fb68af9fd6d547540838fdad3865367947b0dbc04b9af4a0c8",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-12-02/part-000.parquet",
+      "sha256": "64ef7bd4f94bfe526fc6941a257691aed5d2a5301947d2efc76f5be02bdfb68c",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-12-09/part-000.parquet",
+      "sha256": "5351103b7acea2c1fac4d7a3b33838c3acda75bd6a95196f71003020a5ff2d3b",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-12-16/part-000.parquet",
+      "sha256": "eac588d643f2e33f3acf8b47ee35da0328179d8962491cdce1e4f994a5ce5725",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-12-23/part-000.parquet",
+      "sha256": "6734d5ac1bc7cc81d22f7a86563d55feb3a0529da13b97d08d3b0c478d8127d7",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2022-12-30/part-000.parquet",
+      "sha256": "46744642ea7fe926fb0590bde1664fed415aa356286956ddd3347a9ebda3bbbb",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-01-06/part-000.parquet",
+      "sha256": "0cec2b7e1fab29e8c64da081db49312dd9765b646e221321e90b811e07af2a21",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-01-13/part-000.parquet",
+      "sha256": "0645b136bd524aa255fae9239c3bcf7337851ce8d98bdbc31a1d5d10f59798ff",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-01-20/part-000.parquet",
+      "sha256": "7656115e1a0c2ccee62ec9949b417aa0e946fa9d91484a7c622a225a6e0c4713",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-02-03/part-000.parquet",
+      "sha256": "6fbcf5b213f3dfb01cdc3e3cae515d353050849f7d46676a3d0a40eacbf415f3",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-02-10/part-000.parquet",
+      "sha256": "acabeb115027a83141843cebf2d2c0303315c9c3f7650d45c55191db07c691ed",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-02-17/part-000.parquet",
+      "sha256": "a08634dad4be6d697da5894b72a509d3be965826d1891427f1ea85e279af4773",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-02-24/part-000.parquet",
+      "sha256": "fc27a15ef29e7fe343362ff075cf8e52dd36e2ad8e0637adbefe21ea2d0e3811",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-03-03/part-000.parquet",
+      "sha256": "e4aa240a07b906af764c753aa4d2eaa40fe37810447abe4ad21cfd64ef8e0cb5",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-03-10/part-000.parquet",
+      "sha256": "b9e87d3988676c8e91be71ca340eb743162d0ae6895e4d4e4ad1af1bbbbcd717",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-03-17/part-000.parquet",
+      "sha256": "a880bf95a5f39d7e1905bb206a3fcd523a9ec072bdc16d060861a43d6758a744",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-03-24/part-000.parquet",
+      "sha256": "a791faeddc5cc29be9e23085a3007ff431af3f6f656b6f8a75e98387e5cb0ca4",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-03-31/part-000.parquet",
+      "sha256": "f58b7b1e94b9911344eee35ea866c718db5a1e58415e1412bf8c30aa7c031d40",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-04-07/part-000.parquet",
+      "sha256": "3db51561143d0faa4f38d84770ae148f0402e8d38bc1626c40273ce876bb37b5",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-04-14/part-000.parquet",
+      "sha256": "f1ee38b0a25151558c368d5c5f59f3cefcb777538267a99eaf04a041ade49001",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-04-21/part-000.parquet",
+      "sha256": "b7928f3aa6b67a29be5ea0522087c2d4acc3bd06a7920d0cff6e9182d19f8a43",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-04-28/part-000.parquet",
+      "sha256": "13b573f66414d0f18994d37c68ccc355bf85908f0c2459487fe7300727525bd3",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-05-05/part-000.parquet",
+      "sha256": "79ab6341560d850beec082b4b48152a2c298b807e1c5ef91bb39e791cf6d0a23",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-05-12/part-000.parquet",
+      "sha256": "49bf3a1336a7192b6322b4b06f63eb646bfafe9688cbf31a5e1c3f1734f12f26",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-05-19/part-000.parquet",
+      "sha256": "75ad6cdb9d8dfc4fc278af9745b286f40675455210ec6ceb80b9cd8410d8108d",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-05-26/part-000.parquet",
+      "sha256": "ecae08ade5122df8585ec25d40fe176eca315f3d2fad8e645b61fa0745dd2c1a",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-06-02/part-000.parquet",
+      "sha256": "ef7799f35599d8987e39f175105847aec871d2884b532fbd8cd33ca25d9774c4",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-06-09/part-000.parquet",
+      "sha256": "ba7e54d06f8fae42898cfd2b82aa87abacbb8c14d3ae83656ff23db8251a60ec",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-06-16/part-000.parquet",
+      "sha256": "698249be42321c58969fc951fd5e7f477ea8682e7296251ed43b3b4e20589273",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-06-23/part-000.parquet",
+      "sha256": "86c1c7f539b4cb3744550fa72e3fef793b985a5d9a07088ae91b524d5cace09a",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-06-30/part-000.parquet",
+      "sha256": "a33ff518cc63db73dfd8d0268c7cf6ac9aaa4a92150481376962b6fff5bb71c0",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-07-07/part-000.parquet",
+      "sha256": "ef26e467ae7e869ddec47e6176e44a83e9522e1d6a70352281a8614961d1df4e",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-07-14/part-000.parquet",
+      "sha256": "35ef1e1f7a101999f639ecfc88f10ac1e177675ed4b0526ea4b80d26bd42ba4e",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-07-21/part-000.parquet",
+      "sha256": "c8e575eba119d5e79497fecd7452321a497f8d127fd83ddd9acea0a142397fab",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-07-28/part-000.parquet",
+      "sha256": "2877d86629b94a8135ea8f74b2710589b3a37dcca3946b539a5417c29b4e76bc",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-08-04/part-000.parquet",
+      "sha256": "9863eec66cfecfee744d266925147924687d315cfc992b5d77b35523fc878dba",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-08-11/part-000.parquet",
+      "sha256": "f0ec58c8f19158f8c92da756df27f375c5a14b20868756e6af8f53d1094667ee",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-08-18/part-000.parquet",
+      "sha256": "27506fd94c1d25176dacf31a8b4323158179cba23ab7f50811d481637194d165",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-08-25/part-000.parquet",
+      "sha256": "a3da433c13f19178661ece6a4f751cf3dad3c76e6074fa7d8c618345dc06ee33",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-09-01/part-000.parquet",
+      "sha256": "7c1f459143c32b404d135f8180b20c4543fdf42eb8c9549b54b2024119e3495a",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-09-08/part-000.parquet",
+      "sha256": "d6ed254c5bd21f66f4c078cc6b2048cc9e8cbed7d6fe1fd46e6afdc60753adec",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-09-15/part-000.parquet",
+      "sha256": "2ca28560ffed8a35a85dd893cea0c9f9229c568f9d5dcff92fe15acbbbc7da0c",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-09-22/part-000.parquet",
+      "sha256": "0f4779660dd457d1b6ccaecf817514f0710496fcbc7fb50e309c466df83d86b3",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-09-29/part-000.parquet",
+      "sha256": "c9eebfcc62475bf22e3f3003ba1065a3850f5a61c00b8ab358a741acab086bc2",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-10-13/part-000.parquet",
+      "sha256": "9b965d8ac558b3434277fcbc8be6feb00e63f9a1e009df24fd23ed270c1b7efa",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-10-20/part-000.parquet",
+      "sha256": "c061a1385a8815680dc65974b4e94aa053a05e6b6dc8c27344114637916f5c6a",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-10-27/part-000.parquet",
+      "sha256": "ca9b33b29454e430750665732dea12ea57c4c9a70e91b13ba8127864eca477f6",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-11-03/part-000.parquet",
+      "sha256": "2b79b19a07405c6af6f3c224c162f0df213fd69b7c0bf15aee0828e749537e4c",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-11-10/part-000.parquet",
+      "sha256": "1f2b8db9526eb56d2926eb359f2d2b400fe4e9a3c63db5cdf678de2e8092c1da",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-11-17/part-000.parquet",
+      "sha256": "34060a6c877a605443f9df27ca9c570cdc96a303d95813ef31e4e38459502406",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-11-24/part-000.parquet",
+      "sha256": "82b5e867b766fce8cf584e482a9e48a4b839b08bb8f59a86abc5672c28cb2c0f",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-12-01/part-000.parquet",
+      "sha256": "a82ef5cf51cd11c694fe5000bbeae012fe8132a6470f20564765e174e4f88a52",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-12-08/part-000.parquet",
+      "sha256": "868a05f56ae71acb37e21a2915661d3c5a18ba2bf7f587bad5f82ad6a1db3a3e",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-12-15/part-000.parquet",
+      "sha256": "f4023ee25f760084fb471c3d8698423578fb0190268612f45268fcf03cd0486e",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-12-22/part-000.parquet",
+      "sha256": "991df364281c6f5ea94d28d3558f82a575e78fb738fdf3cb58349ff12ab15e6a",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2023-12-29/part-000.parquet",
+      "sha256": "0bff75804f178e71b1686981777e37a3ac579b1743c1621078bc12e044bdec51",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-01-05/part-000.parquet",
+      "sha256": "89be7ce2595571aa2ccd93306e84ce22cdff101bf0b2785b5f5c480dbc2088b7",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-01-12/part-000.parquet",
+      "sha256": "6f78c82455fd439ffa8096e3f07a4fea96b564e708479797cd2fe4bebacdfade",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-01-19/part-000.parquet",
+      "sha256": "a505710eee898e766495d0655fb9543bb27c656ba9e6bb60ef492aef44c510ed",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-01-26/part-000.parquet",
+      "sha256": "2b27598a91e5941b856af30630864a461500e438211f303f4512350b1f7d9450",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-02-02/part-000.parquet",
+      "sha256": "02cb8b360dc546a573935c047a04d4347d0bbdbae760295e89f2943288e2ee4c",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-02-09/part-000.parquet",
+      "sha256": "97c538c8c35d7ad938726567a10f30b306bff0ac6d9b7c5595038aefeb8b1b0a",
+      "rows": 3
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-02-23/part-000.parquet",
+      "sha256": "c971f27a91f82ef86540d7a96cc14695466de33040c3f746ba1c6c127d695cb1",
+      "rows": 2
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-03-01/part-000.parquet",
+      "sha256": "98de0a158f847be75cc055006f6db722225ba6c4234c48e4b0311a18625a74bd",
+      "rows": 2
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-03-08/part-000.parquet",
+      "sha256": "91722d6db70c500894871185ffd0683fdf37480d283172224fa55260b9cd4e9c",
+      "rows": 2
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-03-15/part-000.parquet",
+      "sha256": "e19b97d4617c4b8c862e633db5264f55169e3b0bfc27f9744948a14ae74bb211",
+      "rows": 1
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-03-22/part-000.parquet",
+      "sha256": "e8667cd0d47002e34ace3dceaaa08bae509e8ae7983e4a40344865cb9b9dcce4",
+      "rows": 1
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-03-29/part-000.parquet",
+      "sha256": "27802b728a7a46f81fdac6ee7aafd21699b6ef174a3d7ba38783f83d7647a8fd",
+      "rows": 2
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-04-05/part-000.parquet",
+      "sha256": "538711fdd3476c37ada075a5197e2347bcab198a45fde9fe1769f9ae4677d7b7",
+      "rows": 2
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-04-12/part-000.parquet",
+      "sha256": "44f218e00d455d6a71ea862a30db4b0efed6221107c91b69215a79b987343a0b",
+      "rows": 2
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-04-19/part-000.parquet",
+      "sha256": "98aa9ff8aaf9a300e1674aecb2d13a9bbafea9ce8c5a4b5fa7dfa7af73273af3",
+      "rows": 2
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-04-26/part-000.parquet",
+      "sha256": "c04b37531798e8b5482fbe8ba4aab7b6047c96a74f56c7a9e4d1ed8781121e54",
+      "rows": 1
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-05-03/part-000.parquet",
+      "sha256": "47cfd5d824c5644f621788492ff16ad7e9fffe00f6df5a1cc883153305685f0d",
+      "rows": 1
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/weekly/week_end=2024-05-10/part-000.parquet",
+      "sha256": "826a7580623fb9bee13c97026341965f9d720d97d340779b222e197249d7605a",
+      "rows": 1
+    }
+  ],
+  "baseline_rows": 3132,
+  "expected_candidate_keys": 136549,
+  "annual_phases": 16,
+  "units": 3232,
+  "request_cap": 9696,
+  "capture_row_cap": 144964,
+  "target": "/Volumes/datasource/data_lake/raw/tushare/weekly",
+  "instance_writes": 0,
+  "prod_writes": 0
+}

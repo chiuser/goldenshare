@@ -52,6 +52,10 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     weekly_source_api,
 )
 from orchestrator.defs.stock_weekly_source import fetch_weekly_request_supervised
+from orchestrator.defs.stock_weekly_update_execution import (
+    read_weekly_control,
+    weekly_execution_lock,
+)
 
 
 def _request_progress(progress, payload):
@@ -130,6 +134,50 @@ def deliver_stock_weekly_point(
     cancel=lambda: False,
     progress=lambda payload: None,
     fetch=fetch_weekly_request_supervised,
+    update=None,
+):
+    normalize_week_key(week)
+    if source is not StockWeeklySource.ALTERNATE_WEEKLY and code_list_path is not None:
+        raise WeeklyCaptureError("primary_code_list_forbidden")
+    if source is StockWeeklySource.ALTERNATE_WEEKLY:
+        if update is not None:
+            raise WeeklyCaptureError("alternate_automatic_forbidden")
+        read_weekly_codes(code_list_path)
+    validate_root(target_root, staging=False)
+    validate_root(staging_root, staging=True)
+    if (
+        target_root == staging_root
+        or target_root.is_relative_to(staging_root)
+        or staging_root.is_relative_to(target_root)
+    ):
+        raise WeeklyCaptureError("weekly_roots_overlap")
+    with weekly_execution_lock(staging_root, source, week):
+        return _deliver_stock_weekly_point(
+            source,
+            week,
+            target_root=target_root,
+            staging_root=staging_root,
+            worker=worker,
+            code_list_path=code_list_path,
+            cancel=cancel,
+            progress=progress,
+            fetch=fetch,
+            update=update,
+        )
+
+
+def _deliver_stock_weekly_point(
+    source,
+    week,
+    *,
+    target_root,
+    staging_root,
+    worker,
+    code_list_path,
+    cancel,
+    progress,
+    fetch,
+    update,
 ):
     normalize_week_key(week)
     validate_root(target_root, staging=False)
@@ -157,17 +205,64 @@ def deliver_stock_weekly_point(
         "policy": asdict(policy),
         "write_mode": "create_or_identical",
     }
+    if update is not None:
+        if (
+            source is StockWeeklySource.ALTERNATE_WEEKLY
+            or update.intent["week"] != week
+            or update.intent["source"] != source.value
+        ):
+            raise WeeklyCaptureError("automatic_intent_mismatch")
+        intent["update"] = update.intent
     plan_hash = stable_weekly_hash(intent)
     assembly = (
         staging_root
         / "stock_weekly_raw"
         / plan_hash
         / "assemblies"
-        / f"point-{uuid.uuid4().hex}"
+        / (
+            f"update-{update.intent['unit_id']}"
+            if update is not None
+            else f"point-{uuid.uuid4().hex}"
+        )
     )
     check_capture_path(assembly)
-    assembly.mkdir(parents=True)
-    _atomic_json(assembly / "intent.json", intent)
+    assembly.mkdir(parents=True, exist_ok=update is not None)
+    intent_path = assembly / "intent.json"
+    serialized_intent = json.loads(json.dumps(intent))
+    if intent_path.exists():
+        if read_weekly_control(intent_path) != serialized_intent:
+            raise WeeklyCaptureError("automatic_intent_changed")
+    else:
+        _atomic_json(intent_path, intent)
+    if update is not None and (assembly / "audit.json").exists():
+        from orchestrator.defs.bootstrap.stock_weekly_promote import read_audit
+        from orchestrator.defs.source_readiness.stock_weekly import (
+            assert_weekly_references_unchanged,
+        )
+
+        audit = read_audit(assembly / "audit.json")
+        if audit["plan_hash"] != plan_hash or audit["source"] != source.value:
+            raise WeeklyCaptureError("automatic_audit_identity_mismatch")
+        item = audit["files"][0]
+        if fingerprint(Path(item["target"])) != item["sha256"]:
+            reference = read_weekly_control(assembly / "update_reference.json")
+            assert_weekly_references_unchanged(reference["references"])
+            if not update.upstream_ready(reference["open_dates"]):
+                raise WeeklyCaptureError("weekly_upstream_not_ready")
+        promote_weekly_candidates(
+            assembly / "audit.json", apply=True, cancel=cancel, progress=progress
+        )
+        return {
+            "path": item["target"],
+            "rows": item["rows"],
+            "source_rows": audit["stats"]["source_rows"],
+            "audit_path": str(assembly / "audit.json"),
+            "audit_hash": audit["audit_hash"],
+            "source": source.value,
+            "week": week,
+            "delivery_method": "tushare_week_point",
+            "requests": read_weekly_control(assembly / "requests.json")["calls"],
+        }
     settings = DuckDBConnectionSettings(
         temp_directory=assembly / "spill",
         memory_limit=budget.duckdb_memory_limit,
@@ -192,10 +287,28 @@ def deliver_stock_weekly_point(
         connection.execute("SET autoinstall_known_extensions=false")
         connection.execute("SET autoload_known_extensions=false")
         total = 0
+        if update is not None:
+            evidence.append(update.prepare(connection, assembly))
+            if (assembly / "requests.json").exists():
+                requests = read_weekly_control(assembly / "requests.json")["calls"]
         for index in range(len(codes) if codes else policy.page_call_cap):
             if cancel():
                 raise WeeklyCaptureError("canceled")
             anchor = date.fromisoformat(week)
+            if update is not None:
+                captured = update.resume_page(
+                    connection, assembly, index, intent, budget, plan_hash
+                )
+                if captured is not None:
+                    total += captured["rows"]
+                    if total > budget.max_codes:
+                        raise WeeklyCaptureError("point_row_budget_exceeded")
+                    inputs.extend(captured["inputs"])
+                    evidence.extend(captured["evidence"])
+                    receipt_index.append(captured["index"])
+                    if captured["rows"] < policy.page_limit:
+                        break
+                    continue
             params = (
                 {
                     "ts_code": codes[index],
@@ -211,22 +324,31 @@ def deliver_stock_weekly_point(
                 }
             )
             for retry in range(budget.max_retries + 1):
-                while time.monotonic() - last_call < budget.minimum_interval_seconds:
+                while (
+                    time.monotonic() - last_call < budget.minimum_interval_seconds
+                    or (update is not None and time.time() < update.next_request_at)
+                ):
                     if cancel():
                         raise WeeklyCaptureError("canceled")
                     time.sleep(0.05)
-                requests += 1
+                if update is not None:
+                    requests = update.reserve(
+                        assembly, index, params, request_cap, budget
+                    )
+                else:
+                    requests += 1
                 if requests > request_cap:
                     raise WeeklyCaptureError("point_request_cap_exceeded")
-                _atomic_json(
-                    assembly / "requests.json",
-                    {
-                        "calls": requests,
-                        "cap": request_cap,
-                        "params": params,
-                        "stage": "requesting",
-                    },
-                )
+                if update is None:
+                    _atomic_json(
+                        assembly / "requests.json",
+                        {
+                            "calls": requests,
+                            "cap": request_cap,
+                            "params": params,
+                            "stage": "requesting",
+                        },
+                    )
                 progress(
                     {
                         "stage": "requesting",
@@ -266,6 +388,8 @@ def deliver_stock_weekly_point(
                         raise
                 finally:
                     last_call = time.monotonic()
+                    if update is not None:
+                        update.request_ended(assembly, budget)
             total += len(frame)
             if total > budget.max_codes:
                 raise WeeklyCaptureError("point_row_budget_exceeded")
@@ -311,6 +435,8 @@ def deliver_stock_weekly_point(
                 (),
             )
             store = WeeklyCaptureStore(assembly / f"page-{index}", manifest)
+            if update is not None:
+                update.record_page(assembly, index, unit, len(frame))
             with store.locked():
                 attempt = store.begin_attempt(unit)
                 chunk = store.write_chunk(connection, frame, unit, attempt, 0)
@@ -351,6 +477,7 @@ def deliver_stock_weekly_point(
             raise WeeklyCaptureError("point_source_empty")
         load_relation(connection, "weekly_input", inputs, source)
         validate_relation(connection, "weekly_input", source, budget, unique=True)
+        source_completion = update.verify(connection) if update is not None else None
         if connection.execute(
             f"SELECT count(*) FROM weekly_input WHERE {WEEK_SQL}<>?", [week]
         ).fetchone()[0]:
@@ -372,6 +499,27 @@ def deliver_stock_weekly_point(
             connection, "weekly_existing", source, budget
         ).keys() != {week}:
             raise WeeklyCaptureError("target_partition_mismatch")
+        if update is not None and baseline is not None:
+            from orchestrator.defs.io.stock_weekly_raw import columns
+
+            difference_rows = connection.execute(
+                f"SELECT count(*) FROM (SELECT {columns(source)} FROM weekly_input EXCEPT SELECT {columns(source)} FROM weekly_existing)"
+            ).fetchone()[0]
+            if difference_rows:
+                _atomic_json(
+                    assembly / "revision_required.json",
+                    {
+                        "reason_code": "revision_required",
+                        "source": source.value,
+                        "week": week,
+                        "difference_rows": difference_rows,
+                        "target": str(target),
+                        "baseline_sha256": baseline,
+                        "action": "review_source_diff_before_explicit_revision",
+                        "automatic_overwrite": False,
+                    },
+                )
+                raise WeeklyCaptureError("revision_required")
         stats = assemble_relation(connection, source, anchor.year, budget, ())
         if baseline is not None and stats["new_keys"]:
             raise WeeklyCaptureError("create_or_identical_conflict")
@@ -422,6 +570,12 @@ def deliver_stock_weekly_point(
             ),
             "source_evidence_hash": stable_weekly_hash(evidence),
         }
+        if update is not None:
+            audit["update_reference"] = {
+                "path": str(assembly / "update_reference.json"),
+                "sha256": capture_file_hash(assembly / "update_reference.json"),
+            }
+            audit["source_completion"] = source_completion
         audit["audit_hash"] = stable_weekly_hash(audit)
         _atomic_json(assembly / "audit.json", audit)
     promote_weekly_candidates(

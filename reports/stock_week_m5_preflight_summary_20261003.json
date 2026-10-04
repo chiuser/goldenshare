@@ -1,0 +1,39 @@
+{
+  "as_of": "2026-10-03",
+  "sources": [
+    {
+      "source": "primary_unadjusted",
+      "frozen_inventory": "/Users/congming/github/goldenshare/reports/stock_week_m5_primary_unadjusted_frozen_inventory_20261003.json",
+      "capture_manifest": "/Users/congming/github/goldenshare/reports/stock_week_m5_primary_unadjusted_capture_plan_20261003.json",
+      "plan_hash": "72f9eae4cdea50de11bfece1854b97e6fb01003acb83d227694db7328736d01f",
+      "source_rows": 2895784,
+      "units": 212,
+      "empty_years": [
+        2009,
+        2027
+      ],
+      "max_unit_rows": 30000,
+      "max_fetch_rows": 10000,
+      "expected_file_upper_bound": 1026
+    },
+    {
+      "source": "primary_adjusted",
+      "frozen_inventory": "/Users/congming/github/goldenshare/reports/stock_week_m5_primary_adjusted_frozen_inventory_20261003.json",
+      "capture_manifest": "/Users/congming/github/goldenshare/reports/stock_week_m5_primary_adjusted_capture_plan_20261003.json",
+      "plan_hash": "e75c7f4b5260b369264ec24d8058730c577d64e3985cea80720c9be10dc59f43",
+      "source_rows": 2891262,
+      "units": 212,
+      "empty_years": [
+        2009,
+        2027
+      ],
+      "max_unit_rows": 30000,
+      "max_fetch_rows": 10000,
+      "expected_file_upper_bound": 1026
+    }
+  ],
+  "formal_writer_executed": false,
+  "source_network": "psql-remote.sh read-only aggregate only",
+  "capture_transport_pending": "named-cursor implementation conflicts with mandatory psql-remote.sh entrypoint; awaiting explicit decision",
+  "boundary_contract_pending": "Frozen zero-year evidence support implemented; isolated regression in progress; formal capture remains blocked by transport decision"
+}

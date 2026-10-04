@@ -1,0 +1,38 @@
+{
+  "roots": [
+    {
+      "path": "/Volumes/datasource/data_lake",
+      "exists": true,
+      "symlink": false,
+      "device": 16777244,
+      "free_bytes": 2940094537728,
+      "write_access": false
+    },
+    {
+      "path": "/Volumes/datasource/data_lake_staging",
+      "exists": true,
+      "symlink": false,
+      "device": 16777244,
+      "free_bytes": 2940094537728,
+      "write_access": false
+    }
+  ],
+  "targets": [
+    {
+      "dataset": "stk_period_bar_week",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_week",
+      "exists": false,
+      "files": 0,
+      "bytes": 0,
+      "sample_paths": []
+    },
+    {
+      "dataset": "stk_period_bar_adj_week",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week",
+      "exists": false,
+      "files": 0,
+      "bytes": 0,
+      "sample_paths": []
+    }
+  ]
+}

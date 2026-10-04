@@ -1,0 +1,33 @@
+{
+  "api": "weekly",
+  "channel": "tushareMcp",
+  "checked_at": "2026-10-03T13:47:27.043Z",
+  "params": {
+    "ts_code": "000018.SZ",
+    "start_date": "20091228",
+    "end_date": "20100103",
+    "fields": [
+      "ts_code",
+      "trade_date",
+      "close",
+      "open",
+      "high",
+      "low",
+      "pre_close",
+      "change",
+      "pct_chg",
+      "vol",
+      "amount"
+    ]
+  },
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"ts_code\": \"000018.SZ\", \"trade_date\": \"20091231\", \"close\": 8.6, \"open\": 8.18, \"high\": 8.84, \"low\": 8.1, \"pre_close\": 8.18, \"change\": 0.42, \"pct_chg\": 0.0513, \"vol\": 7184861.0, \"amount\": 61285088.0}]"
+      }
+    ],
+    "isError": false
+  },
+  "scope": "Read-only cross-year boundary sample; excludes execution request ledger; no source or Lake writes"
+}
