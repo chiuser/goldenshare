@@ -1,6 +1,6 @@
 # 上市公司公告接入 DG 代码级 LLD v1
 
-状态：P1 核心实现与隔离验收完成，P2 待接线。日期：2026-10-04。已实现范围见§13；资产、job、schedule、正式 checks 与 CLI 尚未接线。本文不是可直接执行的生产 runbook。
+状态：P2 接线与隔离验收完成，P3 待推进。日期：2026-10-04。最新实现范围见§15；资产、job、schedule、checks及日补拉CLI已接线，正式历史初始化和启用仍待阶段执行授权。
 
 对应 [技术方案](dagster-anns-d-onboarding-plan-v1.md)，共同使用 R01–R12。采用 [接入模板](../templates/dagster-dataset-onboarding-template.html) 的身份、字段矩阵、§7A、预算、检查、写入与验收要求；未测性能必须在 P0 补齐。
 
@@ -261,3 +261,45 @@ P1 使用 codegraph query/impact 分析 ProdPostgresResource、TushareResource�
 自动化结果：公告及资源测试82项通过（公告新增67项、既有资源15项），受保护 DuckDB launcher 回归27项通过；4条既有 Dagster/Pydantic 弃用警告。两种真实进程退出路径均在隔离目录验证。只读验收不是完整月份吞吐测试，也不证明所有 Tushare 日期的全集覆盖。
 
 执行配置由 AnnouncementPolicy 集中管理，持久窗口额度包含失败和重试，重启不退还未决请求；完整月/全量成本仍待正式阶段测量。
+
+## 14. P2 接线执行约束
+
+本轮沿用用户已批准的 P2 范围：资产 raw_tushare_anns_d，job raw_anns_d_update_job，schedule raw_anns_d_update_schedule；两个 blocking check 分别为 raw_tushare_anns_d_file_contract_check、raw_tushare_anns_d_delivery_reconciliation_check。catalog 登记专属 ann_date_partition_raw_anns_d，自然日从2020-01-01起，六 VARCHAR schema。不得增加股票池、交易日依赖、Silver/Gold 或永久状态表。
+
+七日 schedule 只生成请求，不读写 Lake/instance；共享窗口身份、范围及起始时刻通过内部 run tags 传递，间隔通过资产 config 传递。按日期优先级排队，执行时 admission 核验更早日期已物理提交；乱序或并发领取失败关闭，不先请求源，不假定队列顺序等于执行顺序。窗口超时或前日未完成时明确失败，保留已完成日；运营可续跑同窗口或另建手工窗口。只在 run-scoped staging 保存 admission、预算与日 checkpoint。
+
+仅运营日期范围和间隔开放为手工 CLI 参数；内部窗口/续跑身份不进入面向用户的页面。日补拉 CLI 默认 plan，run 必须显式选择，固定正式根目录，不能透传 SQL/表/根路径。历史文件与 runless 事件入口仍分阶段提供，不用日更新入口替代 bootstrap。
+
+检查只读当日文件、当前 materialization 引用的 run-scoped 证据；不能借用其它分区或正在 materializing 的其它 run。缺证据、目标或源页指纹改变时红灯。正式 check 分区事件在隔离 instance 验证；默认 STOPPED、definitions/catalog/schema、七日跨月年、重复 tick、乱序/取消/预算、合法空日与缺值、观测失败后续跑均需正反测试。
+
+性能沿用 P0/P1 预算：每 tick7日/7请求计划、350源请求/60分钟共享上限，checks仅单日文件和对应证据，不重拉源；schedule求值不得扫描任何数据文件。本轮全部执行测试位于临时目录及隔离instance，未获授权的正式 job、文件、事件、调度均不执行。
+
+## 15. P2 实现与验收对账（2026-10-04）
+
+[验收报告](../../reports/anns_d_dg_p2_20261004.md)、[结构化证据](../../reports/anns_d_dg_p2_20261004.json)。P1 已提交 aa08fbd0；本节是最新状态，§12/§13保留各阶段历史结论。
+
+| 约束 | 实现与验收 |
+|---|---|
+| Raw-only、稳定schema/metadata | assets/anns_d.py、RAW_ANNS_D_SCHEMA、catalog/name_mapping与lake_assets；asset无上游交易日/股票池依赖；测试核验六VARCHAR、名称、路径、checks及分区模型 |
+| 自然日分区事件 | anns_d_partitions.py；asset和两个check同一DailyPartitionsDefinition；隔离实际 materialize 的返回evaluation、持久化event和materialization均为2023-06-09；零行和缺值版本通过 |
+| 七日08:00、默认停止、同tick去重 | schedules/anns_d.py；集中cron/timezone/refresh defaults；通用run key builder生成anns_d:<tick-date>:<target-date>，显式tags共享窗口；跨月年和重复tick测试通过；schedule只构造请求，不扫描文件或写预算 |
+| 顺序、配额、截止与取消 | anns_d_window.py；执行锁+前日已提交核验，乱序不请求源；保持窗口已完成日；policy/range冻结、截止时间不能重启延长；取消终态、过期、危险窗口标签与非有限时间反例通过 |
+| Checks不借证据、不重拉源 | checks/anns_d_checks.py；文件check独立检查物理合同，交付check读取同日当前materialization指向的checkpoint，核验run归属、源页/目标指纹、行数与结束证据；缺证据、错误身份、其它run、篡改和越界源页红灯 |
+| 业务提交独立、续跑 | asset调用P1核心，物理交付先完成再返回MaterializeResult；同window/day使用稳定run目录，复用已经提交的证据。事件失败不删除文件；P1崩溃/观测失败回归继续通过 |
+| 运营入口默认只读 | anns_d_cli.py；默认plan只输出日期/预算/窗口身份；不读秘密、不连接源、不建Store；run显式执行，固定Lake/staging；asset/check也拒绝共享resource覆盖正式Lake根，访问前阻断并有反例测试；interval有限且非负；plan零写入与危险输入测试通过 |
+
+集中配置来源：AnnouncementRawConfig和CLI间隔默认引用AnnouncementPolicy；cron/timezone/refresh_days在run_contracts/anns_d.py定义。窗口内部tags为window_id/start_date/end_date/started_at，由schedule或CLI构造，不进入Raw；持久化仅windows/<id>/admission.json、budget.json及稳定日run目录的delivery.json，身份包含日期与policy。临时目录是执行证据，不作为freshness事实。
+
+CLI例子（从orchestrator目录运行，当前仅plan可用于未批准阶段）：
+
+```bash
+.venv/bin/python -B -m orchestrator.defs.anns_d_cli plan --start-date 2026-10-01 --end-date 2026-10-03 --interval-seconds 5
+```
+
+默认省略plan效果相同。显式run会写正式Raw与staging，必须按阶段获得执行授权；需要TUSHARE_TOKEN。--window-id用于恢复同一窗口，日期和间隔不得改变。完成日可重复核验；过期窗口中的未完成日不能靠重启重置预算，须形成新的运营补拉意图。CLI不写Dagster事件，文件完成不代表正式事件已齐；历史CLI和runless补报入口继续在P3/P4完成，未发布伪命令。
+
+124项自动化回归通过，包括P1核心、27项P2测试、既有资源/metadata/ETF catalog。隔离dg check defs通过，dg list defs确认asset/job/schedule/check被自动发现，无需改definitions.py装配。正式instance、Prod、Lake、事件、调度均未变更。源端真值沿用P0/P1只读证据，本轮没有新增真实源请求。
+
+CodeGraph query/impact/sync/status与源码核验覆盖共享资源、definition metadata、路径、公告asset/check/window/job/schedule、catalog消费者和现有下载器。新增natural_date_partition不会进入仅支持trade_date的historical_materialization_reconciliation白名单；其余catalog条目及消费者语义未迁移。无子系统依赖矩阵变化，无下载器/前端改动。
+
+风险：当前固定Dagster1.13.18的partitioned AssetCheckSpec有PreviewWarning，已通过真实隔离事件测试；升级时须重新验收。队列乱序不会越过前日，但会明确失败，运营须按窗口续跑；七天之外迟到仍需显式补拉。正式全月性能、运行—取消—续跑读回、事件补报和启用验收留待P3/P4。

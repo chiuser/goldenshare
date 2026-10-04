@@ -974,3 +974,13 @@ CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA = (
     ColumnContract("up_gt_10_count", "UInt32", "涨幅大于 10% 的股票数量"),
     ColumnContract("updated_at", "DateTime", "ClickHouse serving 行更新时间"),
 )
+
+
+RAW_ANNS_D_SCHEMA = (
+    ColumnContract("ann_date", "VARCHAR", "源公告日期YYYYMMDD；用于自然日分区校验"),
+    ColumnContract("ts_code", "VARCHAR", "源上市公司或债券代码；允许NULL"),
+    ColumnContract("name", "VARCHAR", "源名称；允许NULL"),
+    ColumnContract("title", "VARCHAR", "源公告标题；保留原值和NULL"),
+    ColumnContract("url", "VARCHAR", "源公告URL；允许NULL和空字符串"),
+    ColumnContract("rec_time", "VARCHAR", "源发布时间文本；允许NULL，不转时区"),
+)

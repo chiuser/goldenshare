@@ -300,3 +300,9 @@ stk_mins_raw_replace_from_prod_cli.py plan/apply（人工维护窗口）
 2. 数据库读取白名单、恢复维护窗口和真实执行需按具体任务核验；本轮未访问生产数据库或正式 DG instance。
 3. API 合同与数据集测试回到对应专题和接入模板，不再把已有规范写成新的待拍板事项。
 4. 本轮使用 CodeGraph status/query/impact 核查 QTF，并以 router、factory、executor、合同与架构测试补核实际调用；图中同名符号扩散不视为调用证据。没有改变代码、依赖方向或运行合同。
+
+### DG 上市公司公告接线（2026-10-04）
+
+load_from_defs_folder 自动发现 raw_tushare_anns_d、两项同自然日 blocking checks、raw_anns_d_update_job 和默认停止的 raw_anns_d_update_schedule。日执行链为 asset → anns_d_window admission/预算 → anns_d_execution → anns_d_source/anns_d_io → 六字段 Raw；检查读取当日文件和 materialization 引用的交付证据，不重新请求源。Prod 仅历史只读 helper 来源；现有下载器继续消费Prod，本轮未迁移。
+
+CodeGraph query/impact/sync/status覆盖共享metadata/resource/path及新增asset/check/window调用链，并补核catalog和历史补报消费者。没有业务子系统边界或依赖矩阵调整；正式初始化、事件补报和启用未执行，见[公告DG LLD](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md#15-p2-实现与验收对账2026-10-04)。

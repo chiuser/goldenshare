@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-04",
+  "stage": "P2",
+  "p1_commit": "aa08fbd0",
+  "tests_passed": 124,
+  "p2_new_tests": 27,
+  "definitions_check_exit_code": 0,
+  "inventory_exit_code": 0,
+  "assets": [
+    "raw_tushare_anns_d"
+  ],
+  "jobs": [
+    "raw_anns_d_update_job"
+  ],
+  "schedules": [
+    {
+      "name": "raw_anns_d_update_schedule",
+      "default_status": "STOPPED",
+      "cron": "0 8 * * *",
+      "timezone": "Asia/Shanghai"
+    }
+  ],
+  "checks": [
+    "raw_tushare_anns_d_file_contract_check",
+    "raw_tushare_anns_d_delivery_reconciliation_check"
+  ],
+  "event_partition_test": "2023-06-09",
+  "formal_lake_write": false,
+  "prod_write": false,
+  "formal_dagster_event_write": false,
+  "schedule_enabled": false,
+  "source_requests": 0,
+  "validation_log": "/private/tmp/anns-d-definitions-05zyfnsk/validation.log",
+  "inventory": "/private/tmp/anns-d-definitions-05zyfnsk/definitions.json",
+  "warnings": [
+    "4 existing Dagster Pydantic deprecations",
+    "partitioned AssetCheckSpec preview"
+  ],
+  "remaining": [
+    "P3 historical staged CLI and approved physical bootstrap",
+    "P4 approved event reporting, bridge update and schedule enablement"
+  ]
+}

@@ -3,6 +3,8 @@
 import math
 from dataclasses import dataclass
 
+import dagster as dg
+
 
 @dataclass(frozen=True)
 class AnnouncementPolicy:
@@ -56,3 +58,13 @@ class AnnouncementPolicy:
                 or (name != "interval_seconds" and value == 0)
             ):
                 raise ValueError(f"announcement_invalid_{name}")
+
+
+# Only the source interval is an operator config; window intent travels in run tags.
+class AnnouncementRawConfig(dg.Config):
+    interval_seconds: float = AnnouncementPolicy().interval_seconds
+
+
+ANNOUNCEMENT_REFRESH_DAYS = 7
+ANNOUNCEMENT_TIMEZONE = "Asia/Shanghai"
+ANNOUNCEMENT_CRON = "0 8 * * *"

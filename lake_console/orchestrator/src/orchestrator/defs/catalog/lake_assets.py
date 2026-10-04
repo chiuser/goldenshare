@@ -3,6 +3,11 @@
 from dataclasses import dataclass
 from enum import Enum
 
+from orchestrator.defs.anns_d_contract import (
+    ANNOUNCEMENT_ASSET,
+    ANNOUNCEMENT_CHECKS,
+    ANNOUNCEMENT_SOURCE_DOC,
+)
 from orchestrator.defs.catalog.name_mapping import get_dataset_chinese_name
 from orchestrator.defs.daily_basic_contract import DAILY_BASIC_ASSET, DAILY_BASIC_CHECKS
 from orchestrator.defs.paths import (
@@ -32,6 +37,7 @@ from orchestrator.defs.paths import (
     gold_wealth_market_turnover_path,
     lake_path_template,
     raw_adj_factor_path,
+    raw_anns_d_path,
     raw_daily_basic_path,
     raw_dc_daily_path,
     raw_dc_index_path,
@@ -107,6 +113,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     PROD_CORE_INDEX_DAILY_NINETURN_SCHEMA,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
     PROD_CORE_WEALTH_SECTOR_HIERARCHY_SCHEMA,
+    RAW_ANNS_D_SCHEMA,
     RAW_DAILY_BASIC_SCHEMA,
     RAW_ETF_MINS_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
@@ -248,6 +255,7 @@ class IngestionSource(str, Enum):
 
 
 class PartitionModelFamily(str, Enum):
+    NATURAL_DATE_PARTITION = "natural_date_partition"
     NATURAL_WEEK_PARTITION = "natural_week_partition"
     FULL_FILE = "full_file"
     TRADE_DATE_PARTITION = "trade_date_partition"
@@ -265,6 +273,7 @@ class PartitionPhysicalLayout(str, Enum):
 
 
 class PartitionModel(str, Enum):
+    ANN_DATE_PARTITION_RAW_ANNS_D = "ann_date_partition_raw_anns_d"
     WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_WEEK = "week_end_partition_raw_stk_period_bar_week"
     WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_ADJ_WEEK = "week_end_partition_raw_stk_period_bar_adj_week"
     WEEK_END_PARTITION_RAW_TUSHARE_WEEKLY = "week_end_partition_raw_tushare_weekly"
@@ -704,6 +713,7 @@ def _model(
 
 
 PARTITION_MODEL_DEFINITIONS = (
+    _model(PartitionModel.ANN_DATE_PARTITION_RAW_ANNS_D, PartitionModelFamily.NATURAL_DATE_PARTITION, AssetLayer.RAW, "anns_d", "ann_date", PartitionPhysicalLayout.PARTITION_FILE, notes="自然日；空日合法；不依赖交易日或股票池"),
     _model(
         PartitionModel.FULL_FILE_SILVER_STOCK_SUSPEND_CONFIRMED,
         PartitionModelFamily.FULL_FILE, AssetLayer.SILVER, "stock_suspend_confirmed",
@@ -1469,6 +1479,21 @@ def _derived_entry(
 
 
 LAKE_ASSET_CATALOG = (
+    _entry(
+        asset_key=ANNOUNCEMENT_ASSET, dataset_id="anns_d", layer=AssetLayer.RAW,
+        data_domain=DataDomain.BASIC_DATA, group_name="basic", source_system=SourceSystem.TUSHARE,
+        data_contract="tushare_anns_d_six_field_mirror", data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_ANNS_D_SCHEMA,
+        path_template=lake_path_template(raw_anns_d_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)),
+        partition_model=PartitionModel.ANN_DATE_PARTITION_RAW_ANNS_D,
+        source_api="anns_d", source_doc=ANNOUNCEMENT_SOURCE_DOC,
+        ingestion_sources=(IngestionSource.TUSHARE_API,), default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,), blocking_check_names=ANNOUNCEMENT_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE, event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(batch_grain="ann_date; bootstrap capture month", compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="2000 rows/page; 5s interval; 100/day; 350/window; 60min/window",
+            notes="六字段版本合并；逐页持久化；2GB/2threads/20GB spill；自然日原子提升；事件不回滚文件"),
+    ),
     _tushare_raw_entry(
         asset_key=DAILY_BASIC_ASSET,
         dataset_id="daily_basic",

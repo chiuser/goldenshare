@@ -91,3 +91,12 @@ def announcement_rows_digest(rows):
         rows, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     )
     return hashlib.sha256(encoded.encode()).hexdigest()
+
+
+ANNOUNCEMENT_ASSET = "raw_tushare_anns_d"
+ANNOUNCEMENT_JOB = "raw_anns_d_update_job"
+ANNOUNCEMENT_CHECKS = (
+    "raw_tushare_anns_d_file_contract_check",
+    "raw_tushare_anns_d_delivery_reconciliation_check",
+)
+ANNOUNCEMENT_SOURCE_DOC = "docs/sources/tushare/大模型语料/0176_上市公司全量公告.md"
