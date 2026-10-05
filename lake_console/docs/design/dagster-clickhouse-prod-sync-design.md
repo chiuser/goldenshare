@@ -249,6 +249,8 @@ jdbc:clickhouse://127.0.0.1:8123/default
 
 ### 5.1 推荐方式：SSH tunnel
 
+2026-10-05增加统一启动入口 `lake_console/bin/lake-dg-start`：依赖缺失时自动启动本机PG、CH及本节隧道，真实只读查询通过后启动DG。自动隧道使用原脚本新增的 `--batch` 模式，手工无参调用保持原行为；resource依然只负责连接。配置与验收见[本机启动方案](dagster-local-startup-plan-v1.md)。
+
 第一版推荐使用 SSH tunnel：
 
 ```bash

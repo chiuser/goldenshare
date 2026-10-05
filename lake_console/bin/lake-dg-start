@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../orchestrator" && pwd)"
+PYTHON="${PROJECT}/.venv/bin/python"
+[[ -x "${PYTHON}" ]] || { echo "ERROR: 缺少现有项目 Python: ${PYTHON}" >&2; exit 1; }
+# Reuse the user's existing login environment without uv's implicit dependency sync.
+exec /bin/bash -lc 'cd -- "$1" && exec "$2" -B -m orchestrator.local_startup "${@:3}"' \
+  lake-dg-start "${PROJECT}" "${PYTHON}" "$@"

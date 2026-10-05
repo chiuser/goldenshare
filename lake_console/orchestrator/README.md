@@ -4,6 +4,32 @@
 Parquet lake. It is a formal data orchestration project, not a scaffold or
 scratch Dagster tutorial.
 
+## Local Startup
+
+Use the [unified startup script](../bin/lake-dg-start) from any directory:
+
+```bash
+bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start
+```
+
+It reads the existing Bash login environment, starts missing local PostgreSQL 18,
+local ClickHouse and the prod ClickHouse SSH tunnel, verifies real queries, then
+starts the existing project `dg dev` webserver and daemon. An occupied DG port,
+bad credentials, invalid configuration or a failed readiness check blocks launch.
+Existing services are reused; stopping DG leaves ready dependencies running.
+The script uses the installed `.venv` without installing or syncing dependencies.
+
+To inspect dependencies without starting anything:
+
+```bash
+bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start --check-only
+```
+
+Lake availability produces startup warnings; asset execution retains its strict
+write guards. Checks do not trigger Tushare calls, notifications, jobs or schema
+initialization. See the [startup design](../docs/design/dagster-local-startup-plan-v1.md)
+for configuration, timeouts, service ownership and acceptance limits.
+
 ## Current Scope
 
 The active code location is loaded from `src/orchestrator/defs` and currently
