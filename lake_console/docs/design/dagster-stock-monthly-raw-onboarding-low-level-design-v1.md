@@ -318,3 +318,9 @@ freeze_month_references的全表检查保留非空/唯一/预算/整文件hash�
 月线更新66项、定义/sensor22项、受保护静态113项通过，修改文件完整Ruff及全src/tests致命基线通过。正式2026-09只读复核21日线文件/116588行/5571期望代码、6163身份键，历史T600018.SH仍映射自身且不在期望集合；原monthly_identity_invalid_or_over_budget不再出现。复用2026-10-04已捕获的两源全市场响应各5571行，与真实9月参考完成校验均ready，耗时0.522秒。完整身份/参考文件hash及上游绑定复核一致，两份Raw目标字节hash不变。
 
 此为修复及真实只读门禁验收，不是新的正式job或实时源更新验收。管理员随后确认已加载修复代码并要求提交修改；本轮助手不重复reload，也不触发job、写正式event/cursor或启用19:30调度。M10.F真实更新及启用、M9原正式验收继续单列。本段及相关代码/测试/证据随修复提交，未推送。详见[修复对账报告](../../../reports/stock_month_m10f_identity_fix_20261005.md)及[真实只读证据](../../../reports/stock_month_m10f_identity_fix_preflight_20261005.json)。
+
+## 共享源异常诊断修订（2026-10-06）
+
+管理员确认周线M9先补齐异常分类，共享监督入口同步覆盖月线point。监督IPC仅传固定安全分类，异常note为source_diagnostic=<白名单分类>；月线转换错误和同次执行重试预算耗尽时复制最后一次已验证分类，不复制原文/任意note或猜测权限/限流。页间不继承旧分类，重启遇旧预算耗尽时不新增请求、不伪造诊断。原monthly reason、源参数/字段、账本、预算、取消、Raw和Definitions不变。
+
+月线与周线/source等168项定向/相邻测试、113项受保护静态门禁通过，包含两个月线源的错误转换、分类保留及重启不加请求；未触发正式月线更新或启用sensor。完整设计以[周线LLD共享修订](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)为准，实测对账见[分类验收](../../../reports/stock_week_m9_diagnostic_assessment_20261006.md)。该开发结果不完成M10.F新增月份真实验收。

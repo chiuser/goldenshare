@@ -253,19 +253,48 @@ def test_cap_full_is_not_truncated_success(tmp_path):
     assert not raw_stock_monthly_path(tmp_path / "lake", SOURCES[0], "2020-02").exists()
 
 
-def test_attempt_budget_persists_across_restarts(tmp_path):
+@pytest.mark.parametrize("source", SOURCES)
+def test_attempt_budget_persists_across_restarts(tmp_path, source):
     calls = []
 
     def fail(*args):
         calls.append(1)
-        raise WeeklyCaptureError("source_failed")
+        error = WeeklyCaptureError("source_failed")
+        error.add_note("synthetic-secret-token https://user:password@example.invalid/")
+        error.add_note("source_diagnostic=synthetic-secret-token")
+        error.add_note("source_diagnostic=network_proxy")
+        raise error
 
-    for _ in range(2):
-        with pytest.raises(ValueError, match="monthly_request_budget_exhausted"):
-            deliver(tmp_path, SOURCES[0], fetch=fail)
+    for execution in range(2):
+        with pytest.raises(
+            ValueError, match="monthly_request_budget_exhausted"
+        ) as error:
+            deliver(tmp_path, source, fetch=fail)
+        assert str(error.value) == "monthly_request_budget_exhausted"
+        assert getattr(error.value, "__notes__", []) == (
+            ["source_diagnostic=network_proxy"] if execution == 0 else []
+        )
     assert len(calls) == 3
     ledger = json.loads(next((tmp_path / "staging").rglob("requests.json")).read_text())
     assert ledger["calls"] == 3 and ledger["attempts"] == {"0": 3}
+    assert "synthetic-secret-token" not in json.dumps(ledger)
+
+
+@pytest.mark.parametrize("source", SOURCES)
+def test_monthly_nonretry_failure_keeps_safe_diagnostic(tmp_path, source):
+    calls = []
+
+    def fail(*args):
+        calls.append(1)
+        error = WeeklyCaptureError("source_schema_mismatch")
+        error.add_note("source_diagnostic=response_schema")
+        raise error
+
+    with pytest.raises(ValueError) as error:
+        deliver(tmp_path, source, fetch=fail)
+    assert str(error.value) == "monthly_source_schema_mismatch"
+    assert error.value.__notes__ == ["source_diagnostic=response_schema"]
+    assert len(calls) == 1
 
 
 def test_cancel_after_successful_page_resumes_without_refetch(tmp_path):
@@ -492,8 +521,9 @@ def test_identity_budget_applies_to_full_snapshot(tmp_path, monkeypatch):
         "StockMonthlyPolicy",
         lambda: replace(StockMonthlyPolicy(), max_codes=2, prod_code_batch=2),
     )
-    with duckdb.connect() as con, pytest.raises(
-        ValueError, match="monthly_identity_invalid_or_over_budget"
+    with (
+        duckdb.connect() as con,
+        pytest.raises(ValueError, match="monthly_identity_invalid_or_over_budget"),
     ):
         freeze_month_references(
             con, lake, "2020-02", upstream_bindings=lambda days: {"ids": list(days)}
@@ -515,8 +545,9 @@ def test_unreferenced_identity_changes_invalidate_full_snapshot_hash(tmp_path):
 
 def test_upstream_blocking_gate_remains_required(tmp_path):
     lake, _, _ = setup_reference(tmp_path)
-    with duckdb.connect() as con, pytest.raises(
-        ValueError, match="monthly_upstream_not_ready"
+    with (
+        duckdb.connect() as con,
+        pytest.raises(ValueError, match="monthly_upstream_not_ready"),
     ):
         freeze_month_references(
             con, lake, "2020-02", upstream_bindings=lambda days: None

@@ -119,6 +119,52 @@ class StaticWorker:
         return alternate_frame()
 
 
+@dataclass
+class SourceFailureWorker:
+    """Raise synthetic exceptions in a real spawned child, without network IO."""
+
+    mode: str
+
+    def __call__(self, params, fields, max_rows):
+        import json
+        import os
+
+        from requests import exceptions as request_errors
+
+        from orchestrator.defs.bootstrap.stock_weekly_capture import WeeklyCaptureError
+        from orchestrator.defs.resources import TushareResponseError
+
+        secret = "synthetic-secret-token https://user:password@example.invalid/"
+        if self.mode == "exit":
+            os._exit(19)
+        if self.mode == "decode":
+            raise json.JSONDecodeError(secret, secret, 0)
+        if self.mode == "arbitrary_type":
+            raise type("synthetic-secret-token", (Exception,), {})(secret)
+        if self.mode == "business":
+            raise Exception("无权限/积分/频率/限流 " + secret)  # noqa: TRY002 -- Match the installed SDK's untyped business rejection.
+        if self.mode == "row_budget":
+            raise WeeklyCaptureError("unit_row_budget_exceeded")
+        error_type = {
+            "proxy": request_errors.ProxyError,
+            "tls": request_errors.SSLError,
+            "connect_timeout": request_errors.ConnectTimeout,
+            "read_timeout": request_errors.ReadTimeout,
+            "connection": request_errors.ConnectionError,
+            "request": request_errors.RequestException,
+            "requests_decode": request_errors.JSONDecodeError,
+            "schema": TushareResponseError,
+            "dependency": ImportError,
+            "type": TypeError,
+            "value": ValueError,
+            "unknown": Exception,
+            "capture_unknown": WeeklyCaptureError,
+        }[self.mode]
+        if self.mode == "requests_decode":
+            raise error_type(secret, secret, 0)
+        raise error_type(secret)
+
+
 class FakePsqlExporter:
     def __init__(self, frame=None, control_count=None):
         self.frame = frame

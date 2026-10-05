@@ -51,7 +51,10 @@ from orchestrator.defs.source_readiness.stock_monthly import (
     verify_month_completion,
 )
 from orchestrator.defs.stock_monthly_update import monthly_update_intent
-from orchestrator.defs.stock_weekly_source import fetch_weekly_request_supervised
+from orchestrator.defs.stock_weekly_source import (
+    copy_source_diagnostic,
+    fetch_weekly_request_supervised,
+)
 
 
 @dataclass(frozen=True)
@@ -485,12 +488,16 @@ def _deliver(
             if not receipt_path.exists():
                 params = monthly_point_request(month, index, policy)
                 attempts = ledger["attempts"].get(str(index), 0)
+                last_source_error = None
                 while True:
                     check_monthly_cancel(cancel)
                     if attempts >= policy.max_retries + 1 or ledger[
                         "calls"
                     ] >= policy.max_pages * (policy.max_retries + 1):
-                        raise ValueError("monthly_request_budget_exhausted")
+                        raise copy_source_diagnostic(
+                            last_source_error,
+                            ValueError("monthly_request_budget_exhausted"),
+                        ) from None
                     while time.time() < ledger["next_request_at"]:
                         check_monthly_cancel(cancel)
                         time.sleep(0.05)
@@ -532,8 +539,11 @@ def _deliver(
                         )
                         break
                     except WeeklyCaptureError as error:
+                        last_source_error = error
                         if str(error) not in ("source_failed", "source_timeout"):
-                            raise ValueError("monthly_" + str(error)) from None
+                            raise copy_source_diagnostic(
+                                error, ValueError("monthly_" + str(error))
+                            ) from None
                     finally:
                         ledger["next_request_at"] = (
                             time.time() + MONTHLY_UPDATE_POLICY.minimum_interval_seconds

@@ -1,0 +1,31 @@
+{
+  "as_of": "2026-10-06T00:15:08.335941+08:00",
+  "kind": "bounded_source_readonly_audit",
+  "api": "stk_weekly_monthly",
+  "params": {
+    "trade_date": "20261002",
+    "freq": "week",
+    "limit": 6000,
+    "offset": 0
+  },
+  "formal_job_executed": false,
+  "formal_instance_writes": false,
+  "formal_lake_or_ledger_writes": false,
+  "outcome": "success",
+  "rows": 5565,
+  "columns": [
+    "ts_code",
+    "trade_date",
+    "end_date",
+    "freq",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "vol",
+    "amount",
+    "change",
+    "pct_chg"
+  ]
+}

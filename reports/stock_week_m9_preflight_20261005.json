@@ -1,0 +1,404 @@
+{
+  "as_of": "2026-10-05T23:08:01.306323+08:00",
+  "week": "2026-10-02",
+  "mode": "formal_read_only",
+  "source_capture": "MCP explicit complete field lists; CSV in private tmp",
+  "formal_writes": 0,
+  "sources": {
+    "primary_unadjusted": {
+      "api": "stk_weekly_monthly",
+      "request": {
+        "freq": "week",
+        "trade_date": "20261002",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ]
+      },
+      "capture_path": "/private/tmp/stock_week_m9_preflight_20261005/primary_unadjusted.csv",
+      "capture_sha256": "34b438be9b4da987a185e6670874105ec89e9865e465c8bef93df2127549c428",
+      "capture_bytes": 650416,
+      "rows": 5565,
+      "column_count": 13,
+      "completion": {
+        "expected_codes": 5565,
+        "source_rows": 5565,
+        "reason_code": "ready"
+      },
+      "missing_codes": 0,
+      "extra_codes": 0,
+      "cutoff_inequality_count": 0,
+      "null_counts": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "end_date": 0,
+        "freq": 0,
+        "open": 0,
+        "high": 0,
+        "low": 0,
+        "close": 0,
+        "pre_close": 0,
+        "vol": 0,
+        "amount": 0,
+        "change": 0,
+        "pct_chg": 0
+      },
+      "canonical_hashes": {
+        "2026-10-02": {
+          "rows": 5565,
+          "logical_hash": "51114ec1db570e5e23012cd0f736a159728f6fa050279079540bb03367db4d0d"
+        }
+      },
+      "cutoff_counts": {
+        "20260928": 1,
+        "20260929": 3,
+        "20260930": 5561
+      },
+      "key_sample": [
+        [
+          "000001.SZ",
+          "20261002",
+          "20260930",
+          "week"
+        ],
+        [
+          "000002.SZ",
+          "20261002",
+          "20260930",
+          "week"
+        ]
+      ],
+      "baseline_status": "ready",
+      "target_status": "missing",
+      "target": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_week/week_end=2026-10-02/part-000.parquet",
+      "pending_runs": [],
+      "latest_runs": []
+    },
+    "primary_adjusted": {
+      "api": "stk_week_month_adj",
+      "request": {
+        "freq": "week",
+        "trade_date": "20261002",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ]
+      },
+      "capture_path": "/private/tmp/stock_week_m9_preflight_20261005/primary_adjusted.csv",
+      "capture_sha256": "610e105ddfbc816b2b227e86a79bbf4c7417f38d7200d18f021e1634ee2eaed4",
+      "capture_bytes": 994715,
+      "rows": 5565,
+      "column_count": 21,
+      "completion": {
+        "expected_codes": 5565,
+        "source_rows": 5565,
+        "reason_code": "ready"
+      },
+      "missing_codes": 0,
+      "extra_codes": 0,
+      "cutoff_inequality_count": 0,
+      "null_counts": {
+        "ts_code": 0,
+        "trade_date": 0,
+        "end_date": 0,
+        "freq": 0,
+        "open": 0,
+        "high": 0,
+        "low": 0,
+        "close": 0,
+        "pre_close": 0,
+        "open_qfq": 0,
+        "high_qfq": 0,
+        "low_qfq": 0,
+        "close_qfq": 0,
+        "open_hfq": 0,
+        "high_hfq": 0,
+        "low_hfq": 0,
+        "close_hfq": 0,
+        "vol": 0,
+        "amount": 0,
+        "change": 0,
+        "pct_chg": 0
+      },
+      "canonical_hashes": {
+        "2026-10-02": {
+          "rows": 5565,
+          "logical_hash": "c5ee7edaa34f0958fe34f32b80a407f37c8ae105e7eb12041fe177cd57ca6612"
+        }
+      },
+      "cutoff_counts": {
+        "20260928": 1,
+        "20260929": 3,
+        "20260930": 5561
+      },
+      "key_sample": [
+        [
+          "000001.SZ",
+          "20261002",
+          "20260930",
+          "week"
+        ],
+        [
+          "000002.SZ",
+          "20261002",
+          "20260930",
+          "week"
+        ]
+      ],
+      "baseline_status": "ready",
+      "target_status": "missing",
+      "target": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=2026-10-02/part-000.parquet",
+      "pending_runs": [],
+      "latest_runs": []
+    }
+  },
+  "baseline_hashes_before": {
+    "primary_unadjusted/2026-09-25": "5658e11f37c4bf1e6b0f81b376dd33cea094e327675db19cbce4b60af5fce029",
+    "primary_unadjusted/2026-10-02": null,
+    "primary_adjusted/2026-09-25": "13f7b0c35a783b8b5b114cbf6c9b8253bd8aafe4fb1aeebf36c3a632d49a88de",
+    "primary_adjusted/2026-10-02": null
+  },
+  "filesystem": {
+    "lake_root": "/Volumes/datasource/data_lake",
+    "staging_root": "/Volumes/datasource/data_lake_staging",
+    "volume_mounted": true,
+    "free_bytes": 2933469126656,
+    "staging_exists": true,
+    "same_filesystem": true
+  },
+  "instance": {
+    "home": "/Users/congming/.goldenshare/dagster_home",
+    "config_sha256": "27860ab1b63b33a07c4425177237d374ed55b9e3fab29491fd6dfae344d02049",
+    "artifact_root": "/Users/congming/.goldenshare/dagster_artifacts",
+    "storage": {
+      "host": "localhost",
+      "port": 5432,
+      "database": "goldenshare_dagster",
+      "username": "congming"
+    }
+  },
+  "partition_registered": false,
+  "sensor_states": [],
+  "reference": {
+    "week": "2026-10-02",
+    "open_dates": [
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30"
+    ],
+    "daily_rows": 16677,
+    "references": [
+      {
+        "path": "/Volumes/datasource/data_lake/raw/tushare/trade_calendar/full/part-000.parquet",
+        "sha256": "fd4828e913af6a091557fe1407e2c795e6d2a5b31aedb5a54f7ccef949768ee9"
+      },
+      {
+        "path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+        "sha256": "03d4d4a8e17b9108696b124cb6fdc9174f012fde86b15e41c205563bc17c0dfb"
+      },
+      {
+        "path": "/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date=2026-09-28/part-000.parquet",
+        "sha256": "fc4f621cdf5d3085eb723ea74c082d36f4d2a3d28137840bedb8384388e46b32"
+      },
+      {
+        "path": "/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date=2026-09-29/part-000.parquet",
+        "sha256": "770be708a313e2542cc05eab026b36ba6cee39b60e36f0cea2becb9766806eb3"
+      },
+      {
+        "path": "/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date=2026-09-30/part-000.parquet",
+        "sha256": "72445ee1d448a9b77d386babbd6256ba22fc505c198ad737d70b0c49e551e4cd"
+      }
+    ],
+    "expected_codes": 5565,
+    "identity_codes": 6163
+  },
+  "baseline_hashes_after": {
+    "primary_unadjusted/2026-09-25": "5658e11f37c4bf1e6b0f81b376dd33cea094e327675db19cbce4b60af5fce029",
+    "primary_unadjusted/2026-10-02": null,
+    "primary_adjusted/2026-09-25": "13f7b0c35a783b8b5b114cbf6c9b8253bd8aafe4fb1aeebf36c3a632d49a88de",
+    "primary_adjusted/2026-10-02": null
+  },
+  "formal_hashes_unchanged": true,
+  "preflight_passed": true,
+  "elapsed_seconds": 0.602,
+  "limits": [
+    "No sensor evaluation, cursor, dynamic partition, materialization or check event writes",
+    "Loaded long-running code location version is not independently verified",
+    "Read-only MCP/SDK source audits are not formal job or recovery acceptance"
+  ],
+  "sdk_pagination": {
+    "as_of": "2026-10-05T23:10:01.800966+08:00",
+    "calls": [
+      {
+        "source": "primary_unadjusted",
+        "params": {
+          "freq": "week",
+          "trade_date": "20261002",
+          "limit": 6000,
+          "offset": 0
+        },
+        "rows": 5565,
+        "columns": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "seconds": 3.564,
+        "capture_path": "/private/tmp/stock_week_m9_preflight_20261005/primary_unadjusted_sdk.csv",
+        "capture_sha256": "7a78a3513543e0ba4c85ca751812146f092cc98d3135c9a701c730b1916cbe0f",
+        "canonical_hashes": {
+          "2026-10-02": {
+            "rows": 5565,
+            "logical_hash": "51114ec1db570e5e23012cd0f736a159728f6fa050279079540bb03367db4d0d"
+          }
+        },
+        "MCP_full_field_match": true
+      },
+      {
+        "source": "primary_unadjusted",
+        "params": {
+          "freq": "week",
+          "trade_date": "20261002",
+          "limit": 6000,
+          "offset": 6000
+        },
+        "rows": 0,
+        "columns": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "seconds": 1.621
+      },
+      {
+        "source": "primary_adjusted",
+        "params": {
+          "freq": "week",
+          "trade_date": "20261002",
+          "limit": 6000,
+          "offset": 0
+        },
+        "rows": 5565,
+        "columns": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "seconds": 2.759,
+        "capture_path": "/private/tmp/stock_week_m9_preflight_20261005/primary_adjusted_sdk.csv",
+        "capture_sha256": "258f31e0cdd474e864e3a7801f9874d8f306f6087189fa6fcff82f3114fbfdb9",
+        "canonical_hashes": {
+          "2026-10-02": {
+            "rows": 5565,
+            "logical_hash": "c5ee7edaa34f0958fe34f32b80a407f37c8ae105e7eb12041fe177cd57ca6612"
+          }
+        },
+        "MCP_full_field_match": true
+      },
+      {
+        "source": "primary_adjusted",
+        "params": {
+          "freq": "week",
+          "trade_date": "20261002",
+          "limit": 6000,
+          "offset": 6000
+        },
+        "rows": 0,
+        "columns": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "seconds": 3.244
+      }
+    ],
+    "requests": 4,
+    "passed": true
+  }
+}

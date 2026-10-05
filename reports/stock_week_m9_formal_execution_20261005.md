@@ -1,0 +1,48 @@
+# 股票周线 M9 正式交付尝试：未复权源请求失败
+
+2026-10-05，Asia/Shanghai。管理员明确批准按[预检清单](stock_week_m9_preflight_20261005.md)执行10月2日两主源正式交付，并询问“取消恢复验收和19:30启用分阶段”的含义。本轮实际只完成动态周键注册和第一源job尝试；第一源失败后按清单停止，未执行复权job，没有主动取消/杀进程或启用sensor。M9正式更新验收未通过。
+
+## 分阶段的具体含义
+
+1. 正常交付：Tushare实际下载→持久化捕获→完整候选校验→正式文件原子提升→物化和三个blocking checks→独立读回，验证两源新增周期。
+2. 取消恢复：在预先约定的检查点主动取消任务，核验已完成unit保留、没有继续领取新unit，再基于原意图持久化事实完成续跑和幂等读回。此次正常job授权不包含主动中断实验；本次自然失败也不自动算“取消恢复已验收”。
+3. 19:30启用：验收前两项后，启用唯一weekly sensor，正式环境每天上海时间19:30后自动检查已结束周并串行更新两源，备用源只允许明确手动使用。启用会产生持续自动运行的后果，因此单独核验和批准。
+
+这些是同一M9的三个验收环节，不是新增行情需求，不需要重复bootstrap。静态/隔离结果与正式验收各自记录。
+
+## 执行结果与实际写入
+
+- 23:27起核对当前分支dev-interface、日期、配置和审批清单；注册入口再次验证instance身份、上游/基线hash、目标missing及并发状态。
+- 已注册cn_a_stock_week_ends的2026-10-02一个动态键，保留该事实，不删除回滚。
+- 按清单执行raw_stk_period_bar_week_update_job，run_id为`3c41d79a-1f36-4bd8-8bd4-47e64462ad99`；run和asset step均进入失败终态，步骤耗时约24.4秒。
+- 失败在第一源第一页请求，参数freq=week、trade_date=20261002、limit=6000、offset=0。请求账本记账3次、第一页尝试次数3，未得到任何捕获receipt；账本不能证明每次请求都抵达源站。冻结意图、上游参考、请求记录保留在正式staging，未生成candidate/audit/正式Raw文件。
+- run记录1个计划物化、3个计划check及真实失败生命周期事件；实际成功物化0、实际check evaluation 0。计划事件不能算交付或验收通过。
+- 复权job未运行；两源10月2日period_status均missing。两个历史9月25日基线hash和五份上游参考hash在后置只读审计中均未变。
+- sensor没有持久化instigator state，本轮未启用。没有写Prod/Silver/月线，也没有调用备用源、清理账本、删文件或删事件。
+
+精确命令仍为预检清单中的注册命令和第一源dg launch命令，使用正式DAGSTER_HOME及本项目现有.venv，显式module/attribute，没有uv同步或安装。第二源命令未执行。
+
+## 根因核验的结论与限制
+
+现行`stock_weekly_source._weekly_worker_entry`将SDK/资源调用中的任意异常统一变成`source_failed`，不向父进程传真实异常类型或脱敏分类；父进程因此只留下通用reason code。该run的out/err计算日志为空，现有事实不足以将本次失败归因于网络、认证、权限或源站业务拒绝。
+
+23:33使用相同StockWeeklyPointWorker及fetch_weekly_request_supervised，对相同参数做一次独立只读源核验，仍成功返回5565行完整13列。这证明该次只读请求可用，不能证明正式job上下文完全相同，也不能排除正式尝试期间的瞬时故障。不能据此宣布job失败原因已经确定。
+
+当前目录没有.env注入变量，继承环境没有DAGSTER_PROJECT_ENV_FILE_PATHS；没有发现这两条路径覆盖TUSHARE_TOKEN的证据。使用合成token、私有隔离resource初始化确认EnvVar可解析为str，不接触源站、不使用正式token作为测试输入；这个隔离结论不代表已经观测到失败run的实际资源值。未读取、输出或保存token明文。
+
+已使用仓库根CodeGraph explore追踪StockWeeklyPointWorker、监督子进程与resource调用；当前代码引用核对表明该监督链还被备用weekly和月线point复用。若后续修订诊断，须先同步原LLD、列出这些消费者和相关测试，保持通用source_failed拒绝/重试口径及凭据保护，不在周线旁边另写一条正式拉取链。本轮未修改实现或契约。
+
+## 下一步
+
+先制定并确认最小脱敏诊断方案，记录API身份、参数、异常类别/有限错误分类及执行上下文差异，禁止记录token、原始异常字符串或含凭据URL。取得真实分类证据后再修复实际根因，不能凭猜测改网络、token、权限或提高重试预算。
+
+本意图第一页已经耗尽3次尝试；直接重放将被现有预算拒绝。保留原账本，不清空重试次数，不换意图绕过。根因处理后需明确合法的续执行意图和门禁，再恢复两源交付；主动取消恢复和19:30启用仍未进入。本次执行批准不延伸为修改合同、清理staging或启用调度的批准。
+
+## 证据与检查
+
+- [失败run事件及错误](stock_week_m9_formal_failed_run_20261005.json)
+- [staging请求账本](stock_week_m9_formal_staging_20261005.json)
+- [后置状态与物理指纹](stock_week_m9_formal_failure_state_20261005.json)
+- [独立只读SDK核验](stock_week_m9_source_diagnostic_20261005.json)
+
+只读后置验收确认失败终态、正式目标missing、动态键已注册、历史/上游hash未变；这些是失败后状态核验，不是数据更新验收通过。同期更新周线原方案及LLD的当前状态，代码、路径、资源定义与src依赖矩阵不变。本轮文件尚未提交或推送。

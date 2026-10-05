@@ -309,10 +309,14 @@ def test_request_budget_persists_across_reexecution_no_alternate(tmp_path, failu
 
     def fail(*args):
         calls.append(args[1])
-        raise WeeklyCaptureError(failure)
+        error = WeeklyCaptureError(failure)
+        error.add_note("source_diagnostic=network_proxy")
+        raise error
 
-    with pytest.raises(WeeklyCaptureError, match=failure):
+    with pytest.raises(WeeklyCaptureError, match=failure) as error:
         delivery(tmp_path, source, fail)
+    assert str(error.value) == failure
+    assert error.value.__notes__ == ["source_diagnostic=network_proxy"]
     assert len(calls) == 3
     with pytest.raises(WeeklyCaptureError, match="point_request_cap_exceeded"):
         delivery(tmp_path, source, fail)

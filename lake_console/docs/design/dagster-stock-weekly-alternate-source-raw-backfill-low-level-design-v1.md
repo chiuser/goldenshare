@@ -1,6 +1,6 @@
 # DG 股票周线备用源 Raw 补齐：代码级 LLD v1
 
-日期：2026-10-03，Asia/Shanghai。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture、M3候选与提升恢复已完成开发及隔离验收；M4 definitions及受限单周手动交付已完成开发和隔离验收；M5两主源物理bootstrap与M6五只备用源补齐已完成；M7退市推广与身份核验已完成物理验收；M8事件补录及写后验收已于2026-10-04完成；M9开发/静态隔离验证通过、正式验收延期，调度未启用；M10.A—E月线开发、全量文件及事件补录完成，M10.F正式更新验收/启用待推进。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
+日期：2026-10-03，Asia/Shanghai；最新核验：2026-10-05。状态：M0 开发前核验已收口；M1 纯合同／规划器已完成。M2 capture、M3候选与提升恢复已完成开发及隔离验收；M4 definitions及受限单周手动交付已完成开发和隔离验收；M5两主源物理bootstrap与M6五只备用源补齐已完成；M7退市推广与身份核验已完成物理验收；M8事件补录及写后验收已于2026-10-04完成；M9开发/静态隔离验证及10月5日两源2026-10-02完整响应/SDK分页/正式上游只读预检通过，本轮获准的未复权正式job在源请求阶段失败，复权未执行，根因待核实；恢复验收未完成，调度未启用；M10.A—E月线开发、全量文件及事件补录完成，M10.F身份修复已提交，新增月更新验收/启用待推进。技术方案见 [方案 v1](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。本文不是实施授权或“开发门禁全部通过”的证明。
 
 ## 1. 范围、依据和硬口径
 
@@ -1006,3 +1006,60 @@ M10.E事件入口/验收已提交ee325688、未推送。本轮M10.F只读核验�
 ## M10.F身份误阻断修复（2026-10-05，最新口径）
 
 管理员随后批准只解决月线无关历史身份记录造成的阻断，不专项处理T前缀行情、不补周线、不删除/归并身份，也不决定未来Silver规则。月线LLD§4已先修订为全表非空/唯一/预算/hash/upstream门禁与实际日线/源行情映射格式、confirmed检查分层；同日修复及正式只读核验通过，9月116588日线行/5571期望代码、两源缓存响应各5571行完成校验ready，历史身份及两份Raw目标hash不变。88项月线回归、113项受保护静态门禁通过。管理员随后确认已加载修复代码并要求提交；助手不重复reload。真实更新job与19:30启用仍未执行，M9不受影响；本段及相关修复随本轮提交，未推送。实现与证据详见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)及[修复报告](../../../reports/stock_month_m10f_identity_fix_20261005.md)。
+
+
+## M9正式更新前只读预检通过（2026-10-05）
+
+管理员按重新安排的顺序要求先做周线。23:08—23:10核验2026-10-02两源：MCP完整13/21列各5565行；现有SDK worker串行验证limit=6000的offset=0各5565行、offset=6000均0行，完整业务字段hash与MCP一致。3个开市日日线16677行、期望5565代码与两源完全匹配，个股截至日期不一致0，上游检查绑定通过。2026-09-25两源基线ready且指纹未变，10月2日两个目标missing、动态周键未注册、无并发任务；sensor没有持久化启动记录，本轮未启用。
+
+源尚未发布的延期记录保留为历史；当前已具备进入正式交付审批的只读条件，不等于M9完成。下一步仅2026-10-02两个主源现行job串行交付，最多2文件/11130行及2物化+6checks；完整命令、路径、预算、失败处理和审批边界见[本轮报告及执行清单](../../../reports/stock_week_m9_preflight_20261005.md)及[只读证据](../../../reports/stock_week_m9_preflight_20261005.json)。正式交付、主动取消/恢复验收及19:30启用仍分阶段批准。本轮没有正式Lake/instance写入，没有源码或合同变动；月线新分区验收继续等待完整新月份，本次文档与证据尚未提交。
+
+
+## M9正式交付尝试失败（2026-10-05，当前状态）
+
+管理员批准按10月5日预检清单执行。已注册2026-10-02一个动态周键，第一源raw_stk_period_bar_week_update_job的run 3c41d79a-1f36-4bd8-8bd4-47e64462ad99在第一页源请求失败；请求账本3次、receipt 0、正式文件/实际物化/check evaluation均0。按前项失败即停止，复权job未执行；没有主动取消/杀进程或启用19:30 sensor。后置只读复核两源目标missing、两个历史基线及上游指纹不变。
+
+相同SDK监督worker的独立只读请求仍返回5565行，但正式worker把真实异常统一压成source_failed，计算日志为空，现有证据不能确定网络/认证/权限等根因。不能盲目重试或清空本意图已耗尽的第一页尝试账本。下一步先明确脱敏诊断设计及共享链路消费者，再取得真实异常分类、解决根因和恢复交付；M9更新/取消恢复/19:30启用未完成。完整执行、已写入事实及下一步边界见[执行报告](../../../reports/stock_week_m9_formal_execution_20261005.md)和[后置证据](../../../reports/stock_week_m9_formal_failure_state_20261005.json)。本轮没有修改源码或契约，记录尚未提交。
+
+
+## M9失败原因排查补充（2026-10-05，诊断修订待确认）
+
+进一步核对正式traceback确认父进程已收到子进程的source_failed，不是EOF或监督超时。23:45使用当前code-location资源配置的独立真实只读请求返回5565行；合成凭据的资源/SDK子进程及私有CLI驱动隔离验证通过。当前凭据传递及核验时源请求正常，仍不能确定正式失败时的原始SDK异常。现行共享worker为保护凭据丢弃全部异常类型/分类，原日志为空，故原故障不能靠现存记录还原。
+
+拟修订共享监督入口的有限安全分类及月线重试耗尽时的分类保留，保持原reason code、请求参数、预算、取消与写入语义；覆盖周线point、备用weekly capture和月线point消费者，未知错误不猜测。此项为待管理员确认方案，未修改正式Python/配置，未重跑job或清理账本、启用sensor，M9未完成。具体代码落点、正反验证及真实只读边界见[本轮排查报告](../../../reports/stock_week_m9_failure_diagnosis_20261005.md)。
+
+## M9共享源异常分类修订（2026-10-06，已确认设计）
+
+管理员确认“先补齐异常分类”。本切片仅完善故障诊断，不承担旧 run 根因还原或正式更新恢复。实施前已使用 CodeGraph explore 核对监督调用链，并阅读实际周线 point、备用 capture、月线 point 和错误消费者；无新前端/API消费者或跨src子系统依赖。
+
+### 代码级口径及约束对账
+
+| 约束 | 实现落点 | 验证 |
+| --- | --- | --- |
+| 子进程只发送白名单分类，原始异常/任意类名不出子进程 | stock_weekly_source.py 的分类 helper、_weekly_worker_entry | 直接IPC替身检查及实际spawn；恶意消息/URL/类名测试 |
+| 外层 str(error) 和重试 reason 不变 | 父进程将固定分类写入 exception note | source_failed/source_timeout/结构及行数错误断言；重试预算/取消回归 |
+| EOF、无响应退出、监督超时分开记录 | fetch_weekly_request_supervised | EOF/退出、超时及子进程清理验证 |
+| 周线 point、备用 capture 保留分类，月线重试耗尽也保留 | 共享 exception note；stock_monthly_point.py 保留本页最后一次分类，转换错误仅复制已验证note | 三个消费者失败与预算回归；月线取消/成功页/续跑不重复请求 |
+| 未知SDK业务错误不猜测身份/权限/限流 | 通用 Exception 归unknown；不解析异常文本 | 通用拒绝信息仍unknown；自定义异常类型不能泄露 |
+| 不新增配置/资产/状态实体，不变原预算或行情契约 | 现行module内部IPC与exception note | 原catalog/static gates、治理与相邻回归 |
+
+具体IPC统一为 `(reason, frame_or_none, category_or_none)`，成功为 `ok/frame/None`。分类固定为 network_proxy、network_tls、network_timeout、network_connection、network_request、response_decode、response_schema、unit_row_budget、worker_dependency、worker_type、worker_value、unknown，以及 supervisor_timeout、worker_eof、worker_exit、worker_not_terminated。requests类型及json.JSONDecodeError按精确继承关系判断；response_schema由现行TushareResponseError或已知结构拒绝产生。分类不改变这些错误可重试与否。
+
+exception note固定格式为 `source_diagnostic=<category>`。复制helper只复制此格式且属于白名单的分类，不复制任意 __notes__、类型名称、异常字符串、堆栈或凭据。月线原 `monthly_request_budget_exhausted` 等reason保持不变；同次执行的预算错误保留本页最后一次安全分类。进程退出后续跑只读现有账本，旧账本没有诊断时不伪造分类、不再发请求。预算及文件格式不变，不为诊断新建持久化实体。
+
+### 成本与执行边界
+
+| 项目 | 本轮增量 |
+| --- | --- |
+| 对象/周期/分区/枚举 | 无范围扩展；复用三类消费者 |
+| 正式请求/分页/源行/写入行/文件/事件 | 开发与隔离验证均0；后续真实源审计只读、单页有界 |
+| scan/join/write/spill/commit | 无额外SQL或行情扫描；原逐页捕获及逐文件原子提升不变 |
+| CPU/内存/IPC | 每次失败一次固定类型判断、一个短字符串；不持有响应body或额外DataFrame |
+| 重试成本/配额/限流 | 原预算、间隔和取消检查不变；unknown仍按原source_failed规则处理 |
+| 拒绝与样本 | 任意非白名单诊断不能输出；合成故障与私有临时文件验证，不访问正式资源 |
+
+修改范围：stock_weekly_source.py、stock_monthly_point.py、相关source/update测试及其现有离线替身；不新增定义或resource配置。验证使用项目现有.venv、既有OS隔离启动器适用的治理suite及本轮合成请求测试，无安装或正式任务。历史当次异常已丢失，分类落地不等于已确诊或恢复M9；正式job、原账本处理及19:30启用继续按后续精确范围审批。
+
+### 实施与验收结果（2026-10-06）
+
+以上已确认修订已落地，IPC唯一发送/接收点及全部三类消费者已对账；168项定向/相邻测试、113项受保护静态门禁、完整Ruff及致命错误基线通过。已验证note进入Dagster序列化失败信息且无合成凭据泄露；requests与stdlib两类JSONDecodeError均覆盖。真实只读源审计仍返回5565行，未复现旧错误；未进行正式job/账本/事件/sensor操作。代码未提交、未加载确认，M9正式更新和取消恢复/19:30启用仍未完成。详见[本轮验收](../../../reports/stock_week_m9_diagnostic_assessment_20261006.md)。
