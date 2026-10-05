@@ -1,0 +1,410 @@
+{
+  "kind": "anns_d_p4_bridge_acceptance",
+  "as_of": "2026-10-05",
+  "implementation_commit": "7cd72297",
+  "scope": {
+    "start": "2026-10-01",
+    "end": "2026-10-04",
+    "interval_seconds": 5,
+    "window_id": "anns-d-p4-bridge-20261005"
+  },
+  "file_audit": {
+    "passed": true,
+    "source_rows": 724,
+    "written_rows": 724,
+    "set_difference_rows": 0,
+    "rejected_rows": 0,
+    "missing_url": 0,
+    "missing_rec_time": 0,
+    "days": [
+      {
+        "day": "2026-10-01",
+        "source_rows": 724,
+        "written_rows": 724,
+        "readback_rows": 724,
+        "duplicate_rows": 0,
+        "missing_url": 0,
+        "missing_rec_time": 0,
+        "last_page_rows": 724,
+        "requests": 1,
+        "file": {
+          "size": 24078,
+          "sha256": "7bc026150791be8e389095f119d3f1c47309b2e0328289f36445e01d21b13009"
+        }
+      },
+      {
+        "day": "2026-10-02",
+        "source_rows": 0,
+        "written_rows": 0,
+        "readback_rows": 0,
+        "duplicate_rows": 0,
+        "missing_url": 0,
+        "missing_rec_time": 0,
+        "last_page_rows": 0,
+        "requests": 1,
+        "file": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        }
+      },
+      {
+        "day": "2026-10-03",
+        "source_rows": 0,
+        "written_rows": 0,
+        "readback_rows": 0,
+        "duplicate_rows": 0,
+        "missing_url": 0,
+        "missing_rec_time": 0,
+        "last_page_rows": 0,
+        "requests": 1,
+        "file": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        }
+      },
+      {
+        "day": "2026-10-04",
+        "source_rows": 0,
+        "written_rows": 0,
+        "readback_rows": 0,
+        "duplicate_rows": 0,
+        "missing_url": 0,
+        "missing_rec_time": 0,
+        "last_page_rows": 0,
+        "requests": 1,
+        "file": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        }
+      }
+    ],
+    "window": {
+      "identity": {
+        "window_id": "anns-d-p4-bridge-20261005",
+        "days": [
+          "2026-10-01",
+          "2026-10-02",
+          "2026-10-03",
+          "2026-10-04"
+        ],
+        "policy": {
+          "page_size": 2000,
+          "prod_fetch_rows": 10000,
+          "interval_seconds": 5.0,
+          "max_attempts": 3,
+          "call_timeout": 30,
+          "cancel_grace": 5,
+          "max_day_requests": 100,
+          "max_window_requests": 350,
+          "max_window_seconds": 3600,
+          "max_month_rows": 2000000,
+          "month_deadline": 1800,
+          "sql_timeout_ms": 60000,
+          "duckdb_memory": "2GB",
+          "duckdb_threads": 2,
+          "spill_limit": "20GB",
+          "min_free_reserve": 5368709120
+        }
+      },
+      "completed": [
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-03",
+        "2026-10-04"
+      ],
+      "started_at": 1791160590.424615,
+      "phase": "completed",
+      "failed_day": null
+    },
+    "budget": {
+      "window_id": "anns-d-p4-bridge-20261005",
+      "requests": 4,
+      "deadline": 1791164190.424615,
+      "next_request": 1791160658.82598,
+      "in_flight": false,
+      "day_requests": {
+        "2026-10-01": 1,
+        "2026-10-02": 1,
+        "2026-10-03": 1,
+        "2026-10-04": 1
+      }
+    },
+    "first_committed_fingerprint_unchanged": true,
+    "formal_file_bytes": 24654
+  },
+  "readiness": {
+    "passed": true,
+    "records_returned": 20,
+    "samples": [
+      {
+        "day": "2026-10-01",
+        "rows": 724,
+        "mat_storage_id": 7424649,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7424653,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7424654,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2026-10-02",
+        "rows": 0,
+        "mat_storage_id": 7424650,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7424655,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7424656,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2026-10-03",
+        "rows": 0,
+        "mat_storage_id": 7424651,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7424657,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7424658,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2026-10-04",
+        "rows": 0,
+        "mat_storage_id": 7424652,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7424659,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7424660,
+            "passed_and_correctly_bound": true
+          }
+        }
+      }
+    ]
+  },
+  "file_runs": {
+    "cancel": {
+      "label": "files-cancel",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.anns_d_cli",
+        "run",
+        "--start-date",
+        "2026-10-01",
+        "--end-date",
+        "2026-10-04",
+        "--interval-seconds",
+        "5",
+        "--window-id",
+        "anns-d-p4-bridge-20261005"
+      ],
+      "exit_code": -2,
+      "elapsed_seconds": 6.649,
+      "cancel_sent": true,
+      "cancel_to_exit_seconds": 0.096,
+      "files": {
+        "2026-10-01": {
+          "size": 24078,
+          "sha256": "7bc026150791be8e389095f119d3f1c47309b2e0328289f36445e01d21b13009"
+        },
+        "2026-10-02": null,
+        "2026-10-03": null,
+        "2026-10-04": null
+      }
+    },
+    "resume": {
+      "label": "files-resume",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.anns_d_cli",
+        "run",
+        "--start-date",
+        "2026-10-01",
+        "--end-date",
+        "2026-10-04",
+        "--interval-seconds",
+        "5",
+        "--window-id",
+        "anns-d-p4-bridge-20261005"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 18.236,
+      "cancel_sent": false,
+      "cancel_to_exit_seconds": null,
+      "files": {
+        "2026-10-01": {
+          "size": 24078,
+          "sha256": "7bc026150791be8e389095f119d3f1c47309b2e0328289f36445e01d21b13009"
+        },
+        "2026-10-02": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        },
+        "2026-10-03": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        },
+        "2026-10-04": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        }
+      }
+    },
+    "replay": {
+      "label": "files-replay",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.anns_d_cli",
+        "run",
+        "--start-date",
+        "2026-10-01",
+        "--end-date",
+        "2026-10-04",
+        "--interval-seconds",
+        "5",
+        "--window-id",
+        "anns-d-p4-bridge-20261005"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.46,
+      "cancel_sent": false,
+      "cancel_to_exit_seconds": null,
+      "files": {
+        "2026-10-01": {
+          "size": 24078,
+          "sha256": "7bc026150791be8e389095f119d3f1c47309b2e0328289f36445e01d21b13009"
+        },
+        "2026-10-02": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        },
+        "2026-10-03": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        },
+        "2026-10-04": {
+          "size": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+        }
+      }
+    }
+  },
+  "events": {
+    "materializations": {
+      "kind": "anns_d_event_result",
+      "stage": "materializations",
+      "plan_fingerprint": "30b8376bf6c9a0e940716e9297fb6a583b2336cf82c0fe030a0f32b44bb99e3e",
+      "months": [
+        {
+          "month": "2026-10-01",
+          "files": 4,
+          "written": 4,
+          "passed": true
+        }
+      ],
+      "records_returned": 4,
+      "written": 4,
+      "fingerprint": "cb7563538dbee4c2eb44b2c59c183c3e37907fb0cb55dcbd5c378947f0a98f31"
+    },
+    "checks": {
+      "kind": "anns_d_event_result",
+      "stage": "checks",
+      "plan_fingerprint": "30b8376bf6c9a0e940716e9297fb6a583b2336cf82c0fe030a0f32b44bb99e3e",
+      "months": [
+        {
+          "month": "2026-10-01",
+          "files": 4,
+          "written": 8,
+          "passed": true
+        }
+      ],
+      "records_returned": 24,
+      "written": 8,
+      "fingerprint": "fa8ffcb2c23be98dae2ec872aeea8f7b3ed66b8495645e4ccf0b1a49bc729e30"
+    },
+    "audit": {
+      "kind": "anns_d_event_result",
+      "stage": "audit",
+      "plan_fingerprint": "30b8376bf6c9a0e940716e9297fb6a583b2336cf82c0fe030a0f32b44bb99e3e",
+      "months": [
+        {
+          "month": "2026-10-01",
+          "files": 4,
+          "written": 0,
+          "passed": true
+        }
+      ],
+      "records_returned": 40,
+      "written": 0,
+      "fingerprint": "58addc59ebd29a56efb6008a22fda9e4d8bfaa7effdde963598881ea2f9cffc2"
+    },
+    "materializations-replay": {
+      "kind": "anns_d_event_result",
+      "stage": "materializations",
+      "plan_fingerprint": "30b8376bf6c9a0e940716e9297fb6a583b2336cf82c0fe030a0f32b44bb99e3e",
+      "months": [
+        {
+          "month": "2026-10-01",
+          "files": 4,
+          "written": 0,
+          "passed": true
+        }
+      ],
+      "records_returned": 40,
+      "written": 0,
+      "fingerprint": "b4a1e3765081a80619af87fc1fb16113fcb4df509c6cfd64d89c3c7fbd390a77"
+    },
+    "checks-replay": {
+      "kind": "anns_d_event_result",
+      "stage": "checks",
+      "plan_fingerprint": "30b8376bf6c9a0e940716e9297fb6a583b2336cf82c0fe030a0f32b44bb99e3e",
+      "months": [
+        {
+          "month": "2026-10-01",
+          "files": 4,
+          "written": 0,
+          "passed": true
+        }
+      ],
+      "records_returned": 40,
+      "written": 0,
+      "fingerprint": "52e1c1209cb9391045c0a06bd8f876e0cad58ebb79fd64b7913693a6843bd31b"
+    }
+  },
+  "not_executed": [
+    "formal_daily_job",
+    "schedule_enablement",
+    "pdf_download",
+    "prod_write"
+  ]
+}
