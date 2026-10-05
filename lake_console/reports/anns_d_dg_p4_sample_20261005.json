@@ -1,0 +1,435 @@
+{
+  "stage": "P4 formal event sample",
+  "date": "2026-10-05",
+  "event_plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+  "scope": {
+    "month": "2023-06-01",
+    "files": 30,
+    "rows": 147952,
+    "empty_days": 1
+  },
+  "events": {
+    "materializations": 30,
+    "checks": 60,
+    "ready_partitions": 30,
+    "duplicates_from_replay": 0
+  },
+  "cancelled_committed": {
+    "materializations": 3,
+    "checks": 3
+  },
+  "results": {
+    "mat-resume": {
+      "kind": "anns_d_event_result",
+      "stage": "materializations",
+      "plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+      "months": [
+        {
+          "month": "2023-06-01",
+          "files": 30,
+          "written": 27,
+          "passed": true
+        }
+      ],
+      "records_returned": 33,
+      "written": 27,
+      "fingerprint": "35b03aca63fc0b186594728131782e94460914da08aa44c017e10ae9dea3faab"
+    },
+    "checks-resume": {
+      "kind": "anns_d_event_result",
+      "stage": "checks",
+      "plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+      "months": [
+        {
+          "month": "2023-06-01",
+          "files": 30,
+          "written": 57,
+          "passed": true
+        }
+      ],
+      "records_returned": 186,
+      "written": 57,
+      "fingerprint": "62a4417e6e087842839904511a35d1d8449937054f84dd4e5e6b05a166c2c081"
+    },
+    "mat-replay": {
+      "kind": "anns_d_event_result",
+      "stage": "materializations",
+      "plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+      "months": [
+        {
+          "month": "2023-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        }
+      ],
+      "records_returned": 300,
+      "written": 0,
+      "fingerprint": "196c74d5a2ed6e81cd919adbb188f1bd70de914d7781e96e85fedbb36a2198b1"
+    },
+    "checks-replay": {
+      "kind": "anns_d_event_result",
+      "stage": "checks",
+      "plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+      "months": [
+        {
+          "month": "2023-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        }
+      ],
+      "records_returned": 300,
+      "written": 0,
+      "fingerprint": "92c47ff2cadff9d0cb21bde8ed034136285c30c933fe5d86af58883bcd90a654"
+    },
+    "sample-audit": {
+      "kind": "anns_d_event_result",
+      "stage": "audit",
+      "plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+      "months": [
+        {
+          "month": "2023-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        }
+      ],
+      "records_returned": 300,
+      "written": 0,
+      "fingerprint": "2aaad3c3294cc9276cbb12b3546d814759f35e1626d5be1ddafeae51dba18831"
+    }
+  },
+  "measurements": [
+    {
+      "stage": "materializations",
+      "label": "mat-cancel",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.bootstrap.anns_d_events_cli",
+        "materializations",
+        "--event-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/anns_d_dg_p4_frozen_event_plan_20261005.json",
+        "--fingerprint",
+        "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+        "--month",
+        "2023-06-01",
+        "--report",
+        "/private/tmp/anns-d-p4-sample-20261005/mat-cancel.json"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 2.315,
+      "cancel_sent": true,
+      "cancel_to_exit_seconds": 0.238,
+      "last_progress": {
+        "last_business_progress_at": 1791152779.6604412,
+        "phase": "materializations",
+        "updated_at": 1791152779.660447,
+        "eta": "暂无法估算",
+        "month": "2023-06-01",
+        "audited_files": 30,
+        "day": "2023-06-02",
+        "completed": 2,
+        "total": 30
+      }
+    },
+    {
+      "stage": "materializations",
+      "label": "mat-resume",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.bootstrap.anns_d_events_cli",
+        "materializations",
+        "--event-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/anns_d_dg_p4_frozen_event_plan_20261005.json",
+        "--fingerprint",
+        "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+        "--month",
+        "2023-06-01",
+        "--report",
+        "/private/tmp/anns-d-p4-sample-20261005/mat-resume.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.96,
+      "cancel_sent": false,
+      "cancel_to_exit_seconds": null,
+      "last_progress": {
+        "last_business_progress_at": 1791152794.63534,
+        "phase": "materializations",
+        "updated_at": 1791152794.635347,
+        "eta": "暂无法估算",
+        "month": "2023-06-01",
+        "audited_files": 30,
+        "day": "2023-06-30",
+        "completed": 30,
+        "total": 30
+      }
+    },
+    {
+      "stage": "checks",
+      "label": "checks-cancel",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.bootstrap.anns_d_events_cli",
+        "checks",
+        "--event-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/anns_d_dg_p4_frozen_event_plan_20261005.json",
+        "--fingerprint",
+        "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+        "--month",
+        "2023-06-01",
+        "--report",
+        "/private/tmp/anns-d-p4-sample-20261005/checks-cancel.json"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 1.408,
+      "cancel_sent": true,
+      "cancel_to_exit_seconds": 0.227,
+      "last_progress": {
+        "last_business_progress_at": 1791152807.884605,
+        "phase": "checks",
+        "updated_at": 1791152807.8846111,
+        "eta": "暂无法估算",
+        "month": "2023-06-01",
+        "audited_files": 30,
+        "day": "2023-06-01",
+        "completed": 2,
+        "total": 60
+      }
+    },
+    {
+      "stage": "checks",
+      "label": "checks-resume",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.bootstrap.anns_d_events_cli",
+        "checks",
+        "--event-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/anns_d_dg_p4_frozen_event_plan_20261005.json",
+        "--fingerprint",
+        "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+        "--month",
+        "2023-06-01",
+        "--report",
+        "/private/tmp/anns-d-p4-sample-20261005/checks-resume.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.939,
+      "cancel_sent": false,
+      "cancel_to_exit_seconds": null,
+      "last_progress": {
+        "last_business_progress_at": 1791152822.68511,
+        "phase": "checks",
+        "updated_at": 1791152822.6851158,
+        "eta": "暂无法估算",
+        "month": "2023-06-01",
+        "audited_files": 30,
+        "day": "2023-06-30",
+        "completed": 60,
+        "total": 60
+      }
+    },
+    {
+      "stage": "materializations",
+      "label": "mat-replay",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.bootstrap.anns_d_events_cli",
+        "materializations",
+        "--event-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/anns_d_dg_p4_frozen_event_plan_20261005.json",
+        "--fingerprint",
+        "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+        "--month",
+        "2023-06-01",
+        "--report",
+        "/private/tmp/anns-d-p4-sample-20261005/mat-replay.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.437,
+      "cancel_sent": false,
+      "cancel_to_exit_seconds": null,
+      "last_progress": {
+        "last_business_progress_at": 1791152837.157762,
+        "phase": "materializations",
+        "updated_at": 1791152837.157784,
+        "eta": "暂无法估算",
+        "month": "2023-06-01",
+        "audited_files": 30,
+        "completed": 30,
+        "total": 30
+      }
+    },
+    {
+      "stage": "checks",
+      "label": "checks-replay",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.bootstrap.anns_d_events_cli",
+        "checks",
+        "--event-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/anns_d_dg_p4_frozen_event_plan_20261005.json",
+        "--fingerprint",
+        "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+        "--month",
+        "2023-06-01",
+        "--report",
+        "/private/tmp/anns-d-p4-sample-20261005/checks-replay.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.532,
+      "cancel_sent": false,
+      "cancel_to_exit_seconds": null,
+      "last_progress": {
+        "last_business_progress_at": 1791152848.439997,
+        "phase": "checks",
+        "updated_at": 1791152848.440004,
+        "eta": "暂无法估算",
+        "month": "2023-06-01",
+        "audited_files": 30,
+        "completed": 60,
+        "total": 60
+      }
+    },
+    {
+      "stage": "audit",
+      "label": "sample-audit",
+      "command": [
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python",
+        "-B",
+        "-m",
+        "orchestrator.defs.bootstrap.anns_d_events_cli",
+        "audit",
+        "--event-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/anns_d_dg_p4_frozen_event_plan_20261005.json",
+        "--fingerprint",
+        "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+        "--month",
+        "2023-06-01",
+        "--report",
+        "/private/tmp/anns-d-p4-sample-20261005/sample-audit.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.488,
+      "cancel_sent": false,
+      "cancel_to_exit_seconds": null,
+      "last_progress": {
+        "last_business_progress_at": 1791152860.3643808,
+        "phase": "audit",
+        "updated_at": 1791152860.364387,
+        "eta": "暂无法估算",
+        "month": "2023-06-01",
+        "audited_files": 30,
+        "completed": 60,
+        "total": 60
+      }
+    }
+  ],
+  "readiness": {
+    "samples": [
+      {
+        "day": "2023-06-01",
+        "rows": 6696,
+        "mat_storage_id": 7417254,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7417284,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7417285,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2023-06-09",
+        "rows": 7542,
+        "mat_storage_id": 7417262,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7417300,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7417301,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2023-06-23",
+        "rows": 0,
+        "mat_storage_id": 7417276,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7417328,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7417329,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2023-06-30",
+        "rows": 10429,
+        "mat_storage_id": 7417283,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7417342,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7417343,
+            "passed_and_correctly_bound": true
+          }
+        }
+      }
+    ],
+    "records_returned": 20,
+    "passed": true
+  },
+  "all_file_evidence_unchanged": true,
+  "after_sample_counts": {
+    "files": 2465,
+    "rows": 12064049,
+    "materializations": 2435,
+    "checks": 4870,
+    "records_returned": 150
+  },
+  "remaining": {
+    "months": 80,
+    "files": 2435,
+    "materializations": 2435,
+    "checks": 4870,
+    "events": 7305
+  },
+  "lake_data_writes": 0,
+  "prod_writes": 0,
+  "tushare_requests": 0,
+  "pdf_requests": 0,
+  "schedule_enabled": false,
+  "P4_complete": false
+}

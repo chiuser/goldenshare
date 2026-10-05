@@ -1,0 +1,135 @@
+{
+  "date": "2026-10-04",
+  "scope": [
+    "2023-06-01",
+    "2023-06-30"
+  ],
+  "plan_fingerprint": "dc0a03a404d9bdbcd7cdd34bc4da0e045f9f01a7b03d478ce6d0e29ea2e40d9b",
+  "source_rows": 147952,
+  "written_rows": 147952,
+  "duplicate_rows": 0,
+  "rejected_rows": 0,
+  "missing_url": 3,
+  "missing_rec_time": 66669,
+  "set_difference_rows": 0,
+  "formal_files": 30,
+  "empty_files": 1,
+  "formal_audit_passed": true,
+  "formal_audit_fingerprint": "2cbb5f7114e125b917139fc59c90ab6246006e6d23865e20684bbd0769570e65",
+  "peak_process_rss_bytes": 414433280,
+  "rss_measurement_method": "ps process RSS sampled about every 50ms; observed peak, not OS-certified maximum; source/duckdb in same process",
+  "measurements": [
+    {
+      "stage": "audit",
+      "label": "sample-audit",
+      "exit_code": 0,
+      "seconds": 0.9037494589574635,
+      "peak_process_rss_bytes": 401276928,
+      "cancel_requested": false,
+      "log": "/private/tmp/anns-d-dg-p3-20261004/sample-audit.log"
+    },
+    {
+      "stage": "build",
+      "label": "sample-build-cancelled",
+      "exit_code": 1,
+      "seconds": 0.8683051248081028,
+      "peak_process_rss_bytes": 278888448,
+      "cancel_requested": true,
+      "log": "/private/tmp/anns-d-dg-p3-20261004/sample-build-cancelled.log"
+    },
+    {
+      "stage": "build",
+      "label": "sample-build",
+      "exit_code": 0,
+      "seconds": 1.3666105000302196,
+      "peak_process_rss_bytes": 382435328,
+      "cancel_requested": false,
+      "log": "/private/tmp/anns-d-dg-p3-20261004/sample-build.log"
+    },
+    {
+      "stage": "capture",
+      "label": "sample-capture",
+      "exit_code": 0,
+      "seconds": 22.57097391691059,
+      "peak_process_rss_bytes": 271220736,
+      "cancel_requested": false,
+      "log": "/private/tmp/anns-d-dg-p3-20261004/sample-capture.log"
+    },
+    {
+      "stage": "audit",
+      "label": "sample-formal-audit",
+      "exit_code": 0,
+      "seconds": 0.8701046251226217,
+      "peak_process_rss_bytes": 356696064,
+      "cancel_requested": false,
+      "log": "/private/tmp/anns-d-dg-p3-20261004/sample-formal-audit.log"
+    },
+    {
+      "stage": "promote",
+      "label": "sample-promote-cancelled",
+      "exit_code": 1,
+      "seconds": 0.9535646250005811,
+      "peak_process_rss_bytes": 414433280,
+      "cancel_requested": true,
+      "log": "/private/tmp/anns-d-dg-p3-20261004/sample-promote-cancelled.log"
+    },
+    {
+      "stage": "promote",
+      "label": "sample-promote",
+      "exit_code": 0,
+      "seconds": 1.324112875154242,
+      "peak_process_rss_bytes": 397508608,
+      "cancel_requested": false,
+      "log": "/private/tmp/anns-d-dg-p3-20261004/sample-promote.log"
+    },
+    {
+      "stage": "promote",
+      "label": "sample-promote-replay",
+      "exit_code": 0,
+      "seconds": 1.0138604589737952,
+      "peak_process_rss_bytes": 400146432,
+      "cancel_requested": false,
+      "log": "/private/tmp/anns-d-dg-p3-20261004/sample-promote-replay.log"
+    }
+  ],
+  "readback": {
+    "all_30_file_fingerprints_unchanged_on_replay": true,
+    "retained_commits_after_cancel": 2,
+    "retained_candidates_after_cancel": 2,
+    "month_phase": "promoted",
+    "child_checkpoints_promoted": 30,
+    "formal_bytes": 2674005,
+    "source_shard_bytes": 3523756,
+    "case_columns": [
+      "ts_code",
+      "ann_date",
+      "title",
+      "url",
+      "rec_time"
+    ],
+    "nullable_case_rows": [
+      [
+        "155162.SH",
+        "20230609",
+        "关于19津投04（155162）盘中临时停牌的公告",
+        null,
+        null
+      ],
+      [
+        "155162.SH",
+        "20230609",
+        "关于19津投04（155162）盘中临时停牌的公告",
+        "http://dataclouds.cninfo.com.cn/sjother/regulatory_announcement/sse/7d5d3210069711eeb155fa163ebe0297.pdf",
+        null
+      ]
+    ],
+    "nullable_case_set_difference": 0
+  },
+  "prod_write": false,
+  "formal_dagster_event_write": false,
+  "schedule_enabled": false,
+  "full_history_started": false,
+  "remaining_months": 80,
+  "remaining_days": 2435,
+  "remaining_source_rows": 11916097
+}

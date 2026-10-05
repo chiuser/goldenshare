@@ -44,6 +44,42 @@ class AnnouncementHistorySource:
     def __init__(self, resource, policy):
         self.resource, self.policy = resource, policy
 
+    def inventory(self, start, end, control):
+        first, _ = announcement_month_bounds(start)
+        _, last = announcement_month_bounds(end)
+        if first.isoformat() != start or (last - timedelta(days=1)).isoformat() != end:
+            raise AnnouncementError("announcement_bootstrap_full_months_required")
+        started = time.monotonic()
+        rows = []
+        with (
+            self.resource.connect_readonly_transaction() as connection,
+            connection.cursor() as cursor,
+        ):
+            cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            cursor.execute(
+                "SET LOCAL statement_timeout = %s", (self.policy.sql_timeout_ms,)
+            )
+            with self.observed_read(connection, control, started):
+                cursor.execute(
+                    "SELECT ann_date, count(*), max(id) FROM raw_tushare.anns_d "
+                    "WHERE ann_date >= %(start)s AND ann_date < %(end)s "
+                    "GROUP BY ann_date ORDER BY ann_date",
+                    {"start": first, "end": last},
+                )
+            while True:
+                control.check()
+                with self.observed_read(connection, control, started):
+                    batch = cursor.fetchmany(256)
+                if not batch:
+                    break
+                rows.extend(
+                    {"day": day.isoformat(), "rows": count, "upper_id": upper}
+                    for day, count, upper in batch
+                )
+                if len(rows) > 2465:
+                    raise AnnouncementError("announcement_inventory_budget")
+        return rows
+
     def batches(self, month, upper_id, control, on_plan=lambda summary: None):
         sql, params = announcement_history_query(month, upper_id)
         started = time.monotonic()

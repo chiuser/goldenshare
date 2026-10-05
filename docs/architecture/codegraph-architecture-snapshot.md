@@ -306,3 +306,7 @@ stk_mins_raw_replace_from_prod_cli.py plan/apply（人工维护窗口）
 load_from_defs_folder 自动发现 raw_tushare_anns_d、两项同自然日 blocking checks、raw_anns_d_update_job 和默认停止的 raw_anns_d_update_schedule。日执行链为 asset → anns_d_window admission/预算 → anns_d_execution → anns_d_source/anns_d_io → 六字段 Raw；检查读取当日文件和 materialization 引用的交付证据，不重新请求源。Prod 仅历史只读 helper 来源；现有下载器继续消费Prod，本轮未迁移。
 
 CodeGraph query/impact/sync/status覆盖共享metadata/resource/path及新增asset/check/window调用链，并补核catalog和历史补报消费者。没有业务子系统边界或依赖矩阵调整；正式初始化、事件补报和启用未执行，见[公告DG LLD](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md#15-p2-实现与验收对账2026-10-04)。
+
+2026-10-04 公告P3入口局部复核：bootstrap/anns_d_history_cli → history_plan / history_execution → Prod只读inventory/capture、逐日build及history_audit/promote；仅文件阶段，无Dagster事件。原日更新asset/window/check消费者保持P2合同；新增逐日bootstrap交付checkpoint采用同一day/policy身份供后续check使用。CodeGraph query/impact/sync/status与源码核验通过；无业务子系统依赖矩阵变化。
+
+2026-10-05 公告P4入口局部复核：bootstrap/anns_d_events_cli → event_files（P3月集合proof/P2已交付凭据）→ event_instance/state/events（已有PG、月批事件、独立物化/check/audit）。不调用源、不写业务文件，不替代日asset/job；CodeGraph query/impact/sync/status及源码补核消费者，无跨子系统依赖变化。正式事件样本、全量与启用仍待分阶段批准。

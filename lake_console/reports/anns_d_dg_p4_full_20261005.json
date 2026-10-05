@@ -1,0 +1,1641 @@
+{
+  "date": "2026-10-05",
+  "stage": "P4 historical event backfill complete",
+  "scope": {
+    "start": "2020-01-01",
+    "end": "2026-09-30",
+    "months": 81,
+    "files": 2465,
+    "rows": 12064049
+  },
+  "added_this_run": {
+    "materializations": 2435,
+    "checks": 4870,
+    "events": 7305
+  },
+  "total_matching_events": {
+    "materializations": 2465,
+    "checks": 4930,
+    "events": 7395
+  },
+  "missing_materializations": 0,
+  "missing_checks": 0,
+  "all_file_delivery_source_evidence_unchanged": true,
+  "event_month_checkpoints_verified": 81,
+  "event_plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+  "results": {
+    "materializations": {
+      "kind": "anns_d_event_result",
+      "stage": "materializations",
+      "plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+      "months": [
+        {
+          "month": "2020-01-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2020-02-01",
+          "files": 29,
+          "written": 29,
+          "passed": true
+        },
+        {
+          "month": "2020-03-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2020-04-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2020-05-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2020-06-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2020-07-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2020-08-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2020-09-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2020-10-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2020-11-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2020-12-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2021-01-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2021-02-01",
+          "files": 28,
+          "written": 28,
+          "passed": true
+        },
+        {
+          "month": "2021-03-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2021-04-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2021-05-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2021-06-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2021-07-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2021-08-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2021-09-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2021-10-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2021-11-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2021-12-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2022-01-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2022-02-01",
+          "files": 28,
+          "written": 28,
+          "passed": true
+        },
+        {
+          "month": "2022-03-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2022-04-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2022-05-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2022-06-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2022-07-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2022-08-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2022-09-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2022-10-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2022-11-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2022-12-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2023-01-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2023-02-01",
+          "files": 28,
+          "written": 28,
+          "passed": true
+        },
+        {
+          "month": "2023-03-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2023-04-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2023-05-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2023-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-07-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2023-08-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2023-09-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2023-10-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2023-11-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2023-12-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2024-01-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2024-02-01",
+          "files": 29,
+          "written": 29,
+          "passed": true
+        },
+        {
+          "month": "2024-03-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2024-04-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2024-05-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2024-06-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2024-07-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2024-08-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2024-09-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2024-10-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2024-11-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2024-12-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2025-01-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2025-02-01",
+          "files": 28,
+          "written": 28,
+          "passed": true
+        },
+        {
+          "month": "2025-03-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2025-04-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2025-05-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2025-06-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2025-07-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2025-08-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2025-09-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2025-10-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2025-11-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2025-12-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2026-01-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2026-02-01",
+          "files": 28,
+          "written": 28,
+          "passed": true
+        },
+        {
+          "month": "2026-03-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2026-04-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2026-05-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2026-06-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        },
+        {
+          "month": "2026-07-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2026-08-01",
+          "files": 31,
+          "written": 31,
+          "passed": true
+        },
+        {
+          "month": "2026-09-01",
+          "files": 30,
+          "written": 30,
+          "passed": true
+        }
+      ],
+      "records_returned": 2735,
+      "written": 2435,
+      "fingerprint": "f36b3f5fc1b665ec8c8e6b63e8b9a8b7c8c454a717c5e9a435fa6ce20018bb48"
+    },
+    "checks": {
+      "kind": "anns_d_event_result",
+      "stage": "checks",
+      "plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+      "months": [
+        {
+          "month": "2020-01-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2020-02-01",
+          "files": 29,
+          "written": 58,
+          "passed": true
+        },
+        {
+          "month": "2020-03-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2020-04-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2020-05-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2020-06-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2020-07-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2020-08-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2020-09-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2020-10-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2020-11-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2020-12-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2021-01-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2021-02-01",
+          "files": 28,
+          "written": 56,
+          "passed": true
+        },
+        {
+          "month": "2021-03-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2021-04-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2021-05-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2021-06-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2021-07-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2021-08-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2021-09-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2021-10-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2021-11-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2021-12-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2022-01-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2022-02-01",
+          "files": 28,
+          "written": 56,
+          "passed": true
+        },
+        {
+          "month": "2022-03-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2022-04-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2022-05-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2022-06-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2022-07-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2022-08-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2022-09-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2022-10-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2022-11-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2022-12-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2023-01-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2023-02-01",
+          "files": 28,
+          "written": 56,
+          "passed": true
+        },
+        {
+          "month": "2023-03-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2023-04-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2023-05-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2023-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-07-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2023-08-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2023-09-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2023-10-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2023-11-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2023-12-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2024-01-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2024-02-01",
+          "files": 29,
+          "written": 58,
+          "passed": true
+        },
+        {
+          "month": "2024-03-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2024-04-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2024-05-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2024-06-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2024-07-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2024-08-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2024-09-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2024-10-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2024-11-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2024-12-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2025-01-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2025-02-01",
+          "files": 28,
+          "written": 56,
+          "passed": true
+        },
+        {
+          "month": "2025-03-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2025-04-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2025-05-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2025-06-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2025-07-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2025-08-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2025-09-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2025-10-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2025-11-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2025-12-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2026-01-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2026-02-01",
+          "files": 28,
+          "written": 56,
+          "passed": true
+        },
+        {
+          "month": "2026-03-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2026-04-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2026-05-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2026-06-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        },
+        {
+          "month": "2026-07-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2026-08-01",
+          "files": 31,
+          "written": 62,
+          "passed": true
+        },
+        {
+          "month": "2026-09-01",
+          "files": 30,
+          "written": 60,
+          "passed": true
+        }
+      ],
+      "records_returned": 14910,
+      "written": 4870,
+      "fingerprint": "bbc37bcc0aa42c996aa71dfd5c0888f6334a866c2e9e2adfaf1457900c783cfe"
+    },
+    "audit": {
+      "kind": "anns_d_event_result",
+      "stage": "audit",
+      "plan_fingerprint": "c6aa13f0e81631089cd7955fdf3f966957355fde8caf3d27d645e7e2b2177e34",
+      "months": [
+        {
+          "month": "2020-01-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-02-01",
+          "files": 29,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-03-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-04-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-05-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-07-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-08-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-09-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-10-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-11-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2020-12-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-01-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-02-01",
+          "files": 28,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-03-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-04-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-05-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-07-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-08-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-09-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-10-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-11-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2021-12-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-01-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-02-01",
+          "files": 28,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-03-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-04-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-05-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-07-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-08-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-09-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-10-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-11-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2022-12-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-01-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-02-01",
+          "files": 28,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-03-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-04-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-05-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-07-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-08-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-09-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-10-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-11-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2023-12-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-01-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-02-01",
+          "files": 29,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-03-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-04-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-05-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-07-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-08-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-09-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-10-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-11-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2024-12-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-01-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-02-01",
+          "files": 28,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-03-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-04-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-05-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-07-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-08-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-09-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-10-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-11-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2025-12-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-01-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-02-01",
+          "files": 28,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-03-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-04-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-05-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-06-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-07-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-08-01",
+          "files": 31,
+          "written": 0,
+          "passed": true
+        },
+        {
+          "month": "2026-09-01",
+          "files": 30,
+          "written": 0,
+          "passed": true
+        }
+      ],
+      "records_returned": 24650,
+      "written": 0,
+      "fingerprint": "14154078abc751ffae9c30b5edc930ff10bbfe4e69a741e61b5c8769a1fcbe8c"
+    }
+  },
+  "measurements": {
+    "materializations": {
+      "files": 2465,
+      "written": 2435,
+      "records_returned": 2735,
+      "log_created_to_last_progress_seconds": 94.693
+    },
+    "checks": {
+      "files": 2465,
+      "written": 4870,
+      "records_returned": 14910,
+      "log_created_to_last_progress_seconds": 183.384
+    },
+    "audit": {
+      "files": 2465,
+      "written": 0,
+      "records_returned": 24650,
+      "log_created_to_last_progress_seconds": 47.39
+    }
+  },
+  "readiness": {
+    "passed": true,
+    "records_returned": 25,
+    "samples": [
+      {
+        "day": "2020-01-01",
+        "rows": 694,
+        "mat_storage_id": 7417344,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7419779,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7419780,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2023-06-09",
+        "rows": 7542,
+        "mat_storage_id": 7417262,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7417300,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7417301,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2023-06-23",
+        "rows": 0,
+        "mat_storage_id": 7417276,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7417328,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7417329,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2024-04-30",
+        "rows": 67867,
+        "mat_storage_id": 7418895,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7422881,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7422882,
+            "passed_and_correctly_bound": true
+          }
+        }
+      },
+      {
+        "day": "2026-09-30",
+        "rows": 2257,
+        "mat_storage_id": 7419778,
+        "materialization_matches": true,
+        "file_unchanged": true,
+        "checks": {
+          "raw_tushare_anns_d_file_contract_check": {
+            "storage_id": 7424647,
+            "passed_and_correctly_bound": true
+          },
+          "raw_tushare_anns_d_delivery_reconciliation_check": {
+            "storage_id": 7424648,
+            "passed_and_correctly_bound": true
+          }
+        }
+      }
+    ]
+  },
+  "after_full_counts": {
+    "files": 2465,
+    "rows": 12064049,
+    "materializations": 0,
+    "checks": 0,
+    "records_returned": 12325
+  },
+  "observed_stage_seconds_total": 325.467,
+  "lake_business_writes": 0,
+  "prod_writes": 0,
+  "tushare_requests": 0,
+  "pdf_requests": 0,
+  "schedule_enable_actions": 0,
+  "P4_complete": false
+}

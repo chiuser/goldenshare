@@ -9,7 +9,7 @@ def test_announcement_core_has_no_external_business_imports_or_database_writes()
     files = [
         *root.glob("anns_d_*.py"),
         root / "prod_db/anns_d.py",
-        root / "bootstrap/anns_d_history.py",
+        *root.glob("bootstrap/anns_d_history*.py"),
         root / "run_contracts/anns_d.py",
     ]
     for file in files:
@@ -37,7 +37,7 @@ def test_announcement_core_has_no_external_business_imports_or_database_writes()
 
 def test_core_helpers_do_not_create_dagster_definitions():
     root = Path(__file__).parents[1] / "src/orchestrator/defs"
-    for path in root.glob("anns_d_*.py"):
+    for path in [*root.glob("anns_d_*.py"), *root.glob("bootstrap/anns_d_history*.py")]:
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):

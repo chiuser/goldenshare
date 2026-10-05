@@ -1,6 +1,6 @@
 # 上市公司公告接入 DG 代码级 LLD v1
 
-状态：P2 接线与隔离验收完成，P3 待推进。日期：2026-10-04。最新实现范围见§15；资产、job、schedule、checks及日补拉CLI已接线，正式历史初始化和启用仍待阶段执行授权。
+状态：历史文件与全量事件已完成；P4衔接补拉/日常验收/启用待阶段授权。日期：2026-10-05；最新状态见§23。
 
 对应 [技术方案](dagster-anns-d-onboarding-plan-v1.md)，共同使用 R01–R12。采用 [接入模板](../templates/dagster-dataset-onboarding-template.html) 的身份、字段矩阵、§7A、预算、检查、写入与验收要求；未测性能必须在 P0 补齐。
 
@@ -303,3 +303,99 @@ CLI例子（从orchestrator目录运行，当前仅plan可用于未批准阶段�
 CodeGraph query/impact/sync/status与源码核验覆盖共享资源、definition metadata、路径、公告asset/check/window/job/schedule、catalog消费者和现有下载器。新增natural_date_partition不会进入仅支持trade_date的historical_materialization_reconciliation白名单；其余catalog条目及消费者语义未迁移。无子系统依赖矩阵变化，无下载器/前端改动。
 
 风险：当前固定Dagster1.13.18的partitioned AssetCheckSpec有PreviewWarning，已通过真实隔离事件测试；升级时须重新验收。队列乱序不会越过前日，但会明确失败，运营须按窗口续跑；七天之外迟到仍需显式补拉。正式全月性能、运行—取消—续跑读回、事件补报和启用验收留待P3/P4。
+
+## 16. P3 历史入口开发约束
+
+沿用已批准的2020-01-01..2026-09-30范围，历史执行按完整自然月选择子范围，不改变公告字段或日更新入口。新增bootstrap/anns_d_history_plan.py、anns_d_history_execution.py、anns_d_history_audit.py和anns_d_history_cli.py；复用现有六字段source、Store、checkpoint，不引入长期状态实体。
+
+plan仅用Prod只读日期/id/行数聚合和本地卷/目标指纹读取，报告写/private/tmp；不创建正式Lake/staging目录。计划冻结范围、每月上界id、逐日源行数、目标基线、policy、合同版本、成本及SHA身份。CLI只接受受控日期、计划身份、月份、阶段和报告路径，不透传SQL、表名或Lake根；capture/build/promote明确要求计划SHA。
+
+数据阶段分开执行：capture按月快照及10,000条批次保存六字段；同快照行数必须等于计划。build逐日记录候选，取消后不丢已完成候选引用；audit用月级DuckDB集合差、物理schema/footer和路径日期校验，禁止只比较行数；promote只接纳同计划的绿色audit并复核指纹，逐日原子提交。已经提交日可续跑核验，目标冲突不覆盖、不备份、不删除。最终formal audit按月扫描正式文件，不对2,465日逐日打开大表查询。
+
+预算沿用P0：81月、2,465自然日，约1,206万行；每月最多200万行、1800秒、SQL60秒、DuckDB2GB/2线程/20GB spill。计划空间门禁为至少35GiB且同文件系统，成本估算保留误差，不当作实测吞吐；执行按月记录实际耗时和行数。事件期望为2,465 materialization及4,930 check，但P3不写事件或启动调度。新增35GiB门禁为bootstrap固定预算，不增加env或运营可调参数；消费者仅历史plan/执行卷检查，随进程启动生效，并有磁盘不足反例。
+
+隔离正反验收覆盖：默认plan不创建Lake/staging、计划篡改/越界/超预算、源数量变更、取消capture重启、候选逐日续跑、目标/页/候选变化、无绿色audit不能promote、中途提交后续跑幂等、月级集合差及最终formal audit。实际只读计划先落地，再列样本/全量的完整命令、卷路径、执行范围、取消与恢复方法；正式文件与事件批准分开记录。
+
+## 17. P3 开发与计划对账（2026-10-04）
+
+[验收和正式样本完整命令](../../reports/anns_d_dg_p3_20261004.md)、[结构化证据](../../reports/anns_d_dg_p3_20261004.json)。P3开发与只读计划完成，正式样本/全量尚未执行；本节是最新状态，§12–§15保留历史记录。
+
+| 硬口径 | 代码与验证 |
+|---|---|
+| 默认plan、正式卷先验、固定范围/根 | history_cli/plan及prod_db.inventory；日期/count/id只读聚合，未创建Lake/staging；启动卷失败不打开Prod、越界/部分月/目标篡改反例 |
+| 冻结逐日源量、上界id、基线、policy、SHA | history_plan；snapshot源计数不同阻断，报告不可覆盖；真实81月预检冻结12,064,049行/2,465日 |
+| 单批1万、月200万/1800秒/SQL60秒 | P1源复用与HistoryControl；预算/超时正反测试；35GiB同卷门禁；每阶段实际耗时存checkpoint，完整月峰值资源待正式样本 |
+| 六字段/完全重复/NULL | history_capture及Store；六VARCHAR、DISTINCT和源值不变；隔离测试重复3行变2行，NULL URL与有URL均保留，空日生成空文件 |
+| 每日候选/提交可恢复 | build逐日checkpoint，promote独立child交付checkpoint；取消保留2日候选及2正式文件并恢复，重放指纹不变；child身份包含day/policy供P2check读取 |
+| 审计不只比行数 | history_audit月级批量集合双向差、footer、文件名日期、前后指纹；同量错误内容及交换日期文件反例阻断 |
+| 无绿色审计不可提升/不覆盖冲突 | history_execution冻结audit计划身份及文件SHA，提升前复核；无证明/目标冲突反例；原子提升复用P1 |
+| 文件与事件隔离 | 边界测试覆盖全部历史模块，CLI无events；未访问正式instance或写Prod/事件/调度；正式样本与全量批准仍分开 |
+
+156项回归及scoped Ruff/全目录致命检查通过；4条既有Pydantic及1条分区check预览警告。CodeGraph query/impact/sync/status核验入口、源、历史build及消费者，只有公告历史helper/CLI增加调用，不改变依赖矩阵、下载器或前端。正式全月吞吐、峰值RSS、运行—取消—续跑真实读回尚未验收，不能把隔离测试替代正式阶段。
+
+## 18. P3 正式样本事实（2026-10-04）
+
+[完整验收、性能及全量待批准命令](../../reports/anns_d_dg_p3_sample_20261004.md)、[结构化证据](../../reports/anns_d_dg_p3_sample_20261004.json)。用户批准此前列明的2023-06样本；本节是最新执行状态，§17为开发/预检时点。
+
+六字段source/readback集合一致：147,952→147,952行，完全重复0、reject0、集合差0，30日期文件/1空日；URL缺值3、rec_time缺值66,669保留。capture22.571秒，恢复build1.367秒，候选audit0.904秒，恢复promote1.324秒，重放1.014秒，最终formal audit0.870秒；最大采样进程RSS414,433,280字节。每次测量日志和真实命令保留/private/tmp，时间是实测而非估算。
+
+两次SIGINT分别证明build候选2日和promote正式文件2日持久化；相同计划续跑后既有SHA一致，重放后30个SHA一致、零新增；30日child checkpoint均promoted。正式月audit再验证全部文件，未重新请求源或报事件。既有缺值原始版本逐条读回一致。
+
+本轮没有主代码、配置、API或依赖矩阵变更，没有Prod/instance事件/调度写入。只执行正式样本，剩余80月/2,435文件/11,916,097源行需按阶段批准；P3尚未全量完成。采样月吞吐不能证明最大月峰值，硬内存/时间/空间门禁继续适用；最终Dagster readiness在P4事件及日常验收完成后确认。
+
+## 19. P3 全量事实与退出（2026-10-04）
+
+[全量报告/实测性能](../../reports/anns_d_dg_p3_full_20261004.md)、[聚合证据](../../reports/anns_d_dg_p3_full_20261004.json)、[冻结计划](../../reports/anns_d_dg_p3_frozen_plan_20261004.json)、[正式审计](../../reports/anns_d_dg_p3_formal_audit_20261004.json)。用户明确授权全量五阶段命令，本节是最新状态，§17/§18保留开发/样本时点。
+
+六字段业务数据source/readback均12,064,049行，81月/2,465日/83空日，重复0、拒绝0、双向集合差0。URL缺值15、rec_time缺值4,039,070均保留；全部目标集合/schema/日期分区/指纹通过formal audit，原六月30文件SHA不变。81个捕获checkpoint及2,465日交付checkpoint promoted，源1,249 shards/258,488,034字节，正式200,709,132字节。
+
+五阶段合计2,049.396秒（约34.2分钟），最大观测RSS1,841,954,816字节，峰值月543,563行capture81.189秒，结束剩余空间约2.66TiB；预算/超时/空间拒绝未触发。RSS采样不证明绝对峰值，也不是DuckDB内部用量。本轮没有Python/配置/入口/依赖矩阵变更，没有Prod写入、Tushare/PDF请求、Dagster事件或启用动作。开发156项回归和样本取消/续跑/重放证明保持有效，此次以全部月正式集合读回完成文件验收。
+
+P3退出条件全部达成。P4衔接补拉、独立runless事件、正式日更新恢复/事件失败补报及调度启用尚未执行，不能把物理完成记为Dagster readiness已通过。文件授权不扩大至事件或schedule；后续依照原阶段精确范围审批。
+
+## 20. P4 开发约束（2026-10-05）
+
+P4先开发独立事件plan/materializations/checks/audit入口，随后按明确命令分别批准正式事件样本、全量、衔接补拉、日任务恢复和调度启用。日asset/job和STOPPED定义不改合同，不下载PDF、不写Prod，不增加永久状态表或动态分区。源请求/间隔保持P2。
+
+事件文件事实：历史复用P3冻结计划及formal audit，重新按月完整集合审计；日补拉最多7个delivery.json复用P2交付验证。固定正式Lake/staging及DAGSTER_HOME，只打开已有本机PostgreSQL stores，should_autocreate_tables=False，默认连接transaction_read_only=on，SQL10秒。禁止默认instance发现、初始化、DDL、任意表/SQL/根路径。实例身份冻结配置SHA、主机/端口/库/用户及artifact根（不保存秘密）。
+
+成本：历史最多2,465文件/7,395事件，日补拉最多7文件/21事件；每自然月≤31日期，批量读最新物化、check partition info和对应storage IDs，整次最多30,000返回记录（含info+body），不逐日深扫event history。每月物理扫描只做一轮集合审计，源/目标文件SHA前后固定；存储查询SQL10秒，每月apply最多93事件、1800秒，超预算阻断。原P3完整formal audit18秒/RSS1.72GiB是文件校验测量依据，事件读写性能须真实只读计划/获批样本校准，不能预先声明全量通过。
+
+计算只读边界：不使用Store构造及staging spill；复用只读schema/audit方法，DuckDB临时计算仅在/private/tmp，固定2GB/2线程/20GBspill和25GiB空闲门禁。
+
+配置审计：以上25GiB/31日/30,000记录/1800秒/SQL10秒为公告事件模块固定安全预算，不新增env或Settings参数；消费者为state reader、planner、apply和instance opener，随进程启动生效；测试涵盖超预算、分页不推进和不初始化stores。入口仅运营阶段、计划SHA、已有manifest/审计引用、月份及/private/tmp报告；不增加用户页面输入。
+
+plan冻结日文件、child checkpoint及source页/完整审计证据、当前事件storage IDs和instance身份。物化metadata复用P2 announcement_identity/checkpoint，补文件SHA和合同/schema；check显式partition、blocking ERROR、checked_row_count以及target_materialization_data指向正确storage ID/run/timestamp。日文件改变/证据缺失、旧红灯、错误关联或外部事件变化均阻断。相同文件身份重复报告跳过，不仅按行数或绿灯判断。
+
+物化和checks分两阶段，月内先批量读当前状态，提交事件后批量读回。每事件前后取消检查，每事件checkpoint写失败不回滚已提交事件；重启靠实际事件身份继续，不能靠checkpoint猜已完成。完整月读回通过后形成月checkpoint，检查提交不覆盖业务文件。文件SHA在单事件前复核、源及交付证据在每月开始重验；事件变更用冻结ID/自身计划token比较并最终复核，禁止借其它分区check。只追加正确事实，不删除事件。
+
+隔离正反测试必须覆盖正确日期/target绑定、空日/缺值、partial取消和进程退出、写后报错/读回/观测失败续跑、幂等、文件/源/identity/实例变化、外部事件竞争、旧failed check阻断、超预算与分页停滞、默认只读无初始化。正式只读计划可执行；完成样本完整命令/范围/数量后再审批执行，不把开发授权当成正式event或schedule写入授权。
+
+
+## 21. P4 开发与只读预检（2026-10-05）
+
+[实现对账、预检和正式样本完整命令](../../reports/anns_d_dg_p4_20261005.md)、[聚合证据](../../reports/anns_d_dg_p4_20261005.json)、[冻结事件计划](../../reports/anns_d_dg_p4_frozen_event_plan_20261005.json)。本节为最新状态，P4尚未全部退出。
+
+独立anns_d_events_cli默认plan，物化/checks/audit分离；history引用既有P3报告重新完整集合审计，daily最多7个已promoted凭据。物理读取不创建Lake/staging，固定PG存储不初始化且plan/audit强制只读；冻结源/目标/交付/父捕获/实例/事件身份。每月批读事件并读回，正确日期与target_materialization_data绑定，逐事件checkpoint、SIGINT/SIGTERM取消、实际事件身份续跑；旧红灯和外部变化阻断，业务文件不参与事件事务。
+
+正式只读预检重新核验81月/2,465文件/12,064,049行；现有公告事件0，待补2,465物化+4,930检查。166项自动化通过（P4新增25项），完整30日隔离物理文件到90事件读回通过；取消/退出/丢响应/观测失败恢复和幂等、反例均通过，scoped Ruff通过。CodeGraph query/impact/sync/status和源码核验覆盖交付/check/CLI消费者，不改变依赖矩阵或原入口。
+
+尚未正式写事件、请求Tushare、补衔接区间、执行正式日任务恢复或启用schedule；2023-06样本30物化/60check的命令、取消续跑/重放及授权范围已具体落档，必须获样本执行批准。全量及后续步骤各自保留阶段审批，不以开发/只读验收替代正式readiness和写入性能证据。
+
+
+## 22. P4 正式事件样本验收（2026-10-05）
+
+[实测、读回及全量待批准命令](../../reports/anns_d_dg_p4_sample_20261005.md)、[结构化证据](../../reports/anns_d_dg_p4_sample_20261005.json)。用户授权2023-06的30物化/60check和取消续跑重放，本节为最新执行事实，§21保留开发时点。
+
+样本30日/147,952行/1空日，正式30物化+60正确日期且绑定同日mat的绿色检查读回通过；SIGINT取消分别0.238/0.227秒，实际各保留3提交事件；续跑新增27物化/57checks。两阶段重放均新增0。最终audit和首/尾/缺值/空日readiness通过，全范围只读复核全部81月文件/交付/父捕获证据不变。无业务文件/Prod写入，无Tushare/PDF请求及启用；本轮无源码/配置/依赖变化。
+
+剩余80月需新增2,435物化+4,870检查，共7,305事件。报告已列原计划三条完整全量命令、估算5–15分钟（非实测承诺）、取消续跑及精确写范围；尚未获全量执行批准，因此未执行。衔接补拉、正式日任务恢复及schedule各自待具体阶段批准，P4仍未全部退出。
+
+
+## 23. P4 全量历史事件事实（2026-10-05）
+
+[全量报告、实测及下一阶段具体流程](../../reports/anns_d_dg_p4_full_20261005.md)、[结构化证据](../../reports/anns_d_dg_p4_full_20261005.json)。用户明确授权样本报告三条全量命令，本节为最新事实，§21/§22保留开发/样本时点。
+
+本輪新增2,435物化+4,870check，六月已完成样本跳过；总2,465物化/4,930check、81月/2,465日/12,064,049行，最终audit和新只读缺口plan通过，缺物化0/缺check0。全部文件/源页/日交付/父捕获证据与原冻结计划不变，81事件月checkpoint checks_verified；5个代表日期readiness通过。月批查询audit返回24,650记录，低于30,000门禁，不逐日深历史扫描。三阶段观测94.693/183.384/47.390秒，累计约5.4分钟，计量口径见报告，未测RSS。
+
+无业务文件/Prod写入，无Tushare/PDF请求、日job执行或启用；无源码/配置/入口/依赖改动。历史文件+事件退出，P4整体尚未退出。下一阶段只读plan已明确2026-10-01..04四日、5秒间隔、稳定窗口及原请求/时间/内存预算；四日文件和至多12事件的具体命令、取消恢复、绿色交付门禁及拒绝策略已列明，尚未获该阶段执行授权。正式日任务与schedule继续分别审批，不扩大全量历史事件授权。

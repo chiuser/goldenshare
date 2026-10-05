@@ -77,7 +77,7 @@ def build_announcement_month(month, pages, store, checkpoint, control):
         (first + timedelta(days=index)).isoformat()
         for index in range((end - first).days)
     )
-    deliveries = {}
+    deliveries = dict(checkpoint.document.get("deliveries", {}))
     with store.connection() as connection:
         store._relation(connection, "month_capture", pages)
         connection.execute(
@@ -85,14 +85,22 @@ def build_announcement_month(month, pages, store, checkpoint, control):
         )
         for day in days:
             control.check()
-            deliveries[day] = store.build_day(
-                day, (), bootstrap=True, month_connection=connection
-            )
-            deliveries[day].update(
-                source_pages=checkpoint.document["pages"],
-                capture_complete=True,
-                source_plan=checkpoint.document["source_plan"],
-            )
+            if day in deliveries:
+                delivery = deliveries[day]
+                candidate = Path(delivery["candidate"])
+                path = candidate if candidate.exists() else store.target(day)
+                if announcement_file_fingerprint(path) != delivery["fingerprint"]:
+                    raise AnnouncementError("announcement_history_candidate_changed")
+            else:
+                deliveries[day] = store.build_day(
+                    day, (), bootstrap=True, month_connection=connection
+                )
+                deliveries[day].update(
+                    source_pages=checkpoint.document["pages"],
+                    capture_complete=True,
+                    source_plan=checkpoint.document["source_plan"],
+                )
+            checkpoint.save(phase="building", deliveries=deliveries)
             control.progress(
                 phase="building",
                 day=day,

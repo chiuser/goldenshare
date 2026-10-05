@@ -1,0 +1,46 @@
+{
+  "plan": "/private/tmp/anns-d-dg-p3-20261004/history-plan.json",
+  "fingerprint": "dc0a03a404d9bdbcd7cdd34bc4da0e045f9f01a7b03d478ce6d0e29ea2e40d9b",
+  "months": 81,
+  "days": 2465,
+  "source_rows": 12064049,
+  "expected_files": 2465,
+  "estimated_seconds_range": [
+    900,
+    3600
+  ],
+  "estimate_basis": "P0 bounded sample; full history not measured",
+  "min_free_bytes": 37580963840,
+  "free_bytes_observed": 2937873416192,
+  "max_source_batch_rows": 10000,
+  "source_requests": 0,
+  "event_writes": 0,
+  "preflight_seconds": 17.86862212489359,
+  "existing_files": 0,
+  "empty_days": 83,
+  "peak_month": "2024-04-01",
+  "peak_month_rows": 543563,
+  "date": "2026-10-04",
+  "stage": "P3 development and readonly preflight",
+  "p2_commit": "725f5a50",
+  "tests_passed": 156,
+  "p3_new_tests": 32,
+  "formal_lake_write": false,
+  "prod_write": false,
+  "formal_dagster_event_write": false,
+  "schedule_enabled": false,
+  "sample": {
+    "month": "2023-06-01",
+    "rows": 147952,
+    "days": 30,
+    "empty_days": 1
+  },
+  "remaining": [
+    "Approved sample capture/build/audit/promote and cancellation/resume/readback",
+    "Approved full history file bootstrap",
+    "P4 events, bridge update, daily acceptance and schedule enablement"
+  ],
+  "latest_stage": "P3 full file bootstrap passed; P4 pending",
+  "sample_execution_report": "anns_d_dg_p3_sample_20261004.json",
+  "full_execution_report": "anns_d_dg_p3_full_20261004.json"
+}
