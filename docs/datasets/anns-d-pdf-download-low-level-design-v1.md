@@ -1,206 +1,201 @@
 # 上市公司公告 PDF 本地归档 LLD v1
 
-> 2026-10-02 最新元数据合同：Raw 保存全部不同源记录，仅忽略完整源字段完全相同的重复；缺URL与缺rec_time均保存。下文涉及完整度覆盖、旧id删除或有效版本选择的历史说明不再适用。下载器仍按日期/代码/URL复用PDF，同一文件可对应多条源记录；缺URL记录计数并跳过下载，保留来源映射。日期范围扫描不会选中 ann_date 无法投影的异常记录；其原始载荷仍在Raw。本轮不扩展PDF开发范围。
+更新时间：2026-10-05。状态：**DG 消费设计完成，代码待迁移、验收待执行**。§1—§10 是迁移目标与开发门禁；当前代码仍为 Prod reader。§11—§13 是已完成的 Prod 版本历史记录，不证明 DG 版本通过。[技术方案](anns-d-pdf-download-technical-plan-v1.md)规定本轮与后续范围。
 
-更新时间：2026-10-03。状态：M0/M1已完成，M2专项隔离验收已通过；M3最小真实下载/取消/续跑/读回已通过，M4范围执行尚未进行；真实拔盘未验证。需求和范围以[技术方案](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)为准；实现与验证证据见 §11，不能将隔离测试或只读磁盘信息升级为真实下载验收。
+## 1. 改动范围、依据与依赖
 
+当前入口 `main → Volume.open → configured_database → Ledger → Source → execute`；execute 先按 upper_id/after_id 枚举，再对每个文件调用 has_artifact。目标替换为 `main → 输出卷门禁 → DG 来源卷/依赖预检 → Ledger(schema 2) → Source.iter_days → 封存枚举 → 原文件下载/恢复流程`。本轮仅修订文档，以下代码及测试均待实施。
 
-2026-10-03 前置依赖更新：公告Raw已按完整源记录合同完成2020-01-01至2026-09-30重拉，正式记录12,064,049条、拒绝0、2465日逐日存量对账差异0，详见[生产只读审计](/Users/congming/github/goldenshare/reports/anns_d_prod_sync_audit_20261003.md)。原分组覆盖及存量迁移方案已取消，不再作为下载前置门禁；缺URL记录保留并跳过下载。管理员本轮授权继续推进，M2隔离专项验收已完成，M3最小真实下载验收已通过，下一阶段为管理员指定范围的M4执行。
-
-## 1. 改动范围与依赖
-
-M1 已新增：
-
-| 位置 | 职责 |
+| 位置 | 迁移目标与影响面 |
 | --- | --- |
-| `src/scripts/download_announcements.py` | argparse 入口、参数校验、信号取消、阶段输出与流程组合 |
-| `src/scripts/announcement_download/core.py` | 唯一参数与策略默认值、取消、进度心跳和安全错误类型 |
-| `src/scripts/announcement_download/volume.py` | 外部卷识别、句柄固定、空间和可写探针、运行期卷核验 |
-| `src/scripts/announcement_download/source.py` | 指定 Raw 表的只读、有界枚举 |
-| `src/scripts/announcement_download/ledger.py` | 本地 SQLite、归档锁、行映射、冷却与文件状态 |
-| `src/scripts/announcement_download/files.py` | 安全命名、流式暂存、校验与原子提交/恢复 |
-| `src/scripts/announcement_download/http.py` | 串行请求、手动重定向、可取消限速、有限重试 |
-| `tests/test_announcement_download_cli.py` | 基础隔离测试与故障注入，不默认连接 Prod 或写外盘 |
+| `src/scripts/download_announcements.py` | 移除 Settings/DB 建连与 id 游标；逐日/逐批落账、封存检查和 Source 关闭；移除逐文件 has_artifact |
+| `src/scripts/announcement_download/source.py` | 单一 DG Raw reader、六字段校验、固定 fd、批迭代、日指纹及可取消 DuckDB；不保留 PG reader |
+| `src/scripts/announcement_download/core.py` | 集中 source 默认策略及日期下载投影/源指纹所需类型；旧文件 identity 算法不变 |
+| `src/scripts/announcement_download/volume.py` | 复用已审计的卷识别与句柄校验；源卷使用只读路径，不能复用输出写探针或建目录 |
+| `src/scripts/announcement_download/ledger.py` | schema 2 原子迁移、DG 来源映射、日输入事实、封存门禁与增量计数 |
+| `src/scripts/announcement_download/files.py`、`http.py` | 保留安全文件/HTTP 协议；复用已有 artifact_key、路径、prepared 与冷却 |
+| `tests/test_announcement_download_cli.py` 及同域专项测试 | 一次迁移 Source fixtures、旧 DB/id 断言及所有账本消费者；增加独立 Parquet/旧账本金样本 |
 
-模块目录及 `__init__.py` 是独立工具实现，不新增业务子系统。工具引用现有 Foundation 定义、Settings 和底层数据库依赖，不从 Foundation 反向导入工具。未改 `src/cli.py` 注册、未引入 Ops runtime，未改模型、DatasetDefinition、request builder 或 Alembic。后续如发现必须改变这些边界，暂停并修订设计。
+来源以 [DG 六字段合同](../../lake_console/orchestrator/src/orchestrator/defs/anns_d_contract.py)、[paths](../../lake_console/orchestrator/src/orchestrator/defs/paths.py)、[promote_day](../../lake_console/orchestrator/src/orchestrator/defs/anns_d_io.py) 为依据。consumer 不 import orchestrator；字段序列/版本一致性由跨域合同测试核验，不创建旁路 DatasetDefinition 或改变数据集时间模型。
 
-使用已声明依赖 SQLAlchemy、psycopg、httpx，以及标准库 argparse/sqlite3/hashlib/subprocess/plistlib；macOS `diskutil` 为系统工具。依赖声明不证明本机已安装，M1 前检查现有环境，不自动安装或同步依赖。
+维持工具目录归属，不新增业务子系统，不改 Foundation/Ops/Biz/App/QTF 依赖矩阵。不会在工具中引用 Dagster runtime、staging 锁 helper、PG/CH 或旧 Lake/Kopia 实现。已审计 Foundation `StockMinsLakeReader`：它读取 Gold 分钟数据、按分页查询，并不提供公告所需 fd 固定/逐日流式语义，不能仅因使用 DuckDB 就复用它。
+
+使用已有 httpx、标准库和根项目 local-lake DuckDB 可选依赖。缺 DuckDB 时启动明确失败，不能隐式安装、同步依赖或下载扩展。删除工具的 SQLAlchemy/psycopg 使用不表示移除仓库其他功能的共享依赖。
 
 ## 2. 参数与配置项审计
 
-命令行参数统一解析为不可变 `DownloadOptions`，消费者不能各自另设默认值。表中新增工程默认值在实现中只能集中定义一次。
+所有默认值由 `DownloadOptions`/`DownloadPolicy` 和唯一 source 路径工厂提供，禁止散落多套默认值。新项在实现前已按本表审计；本轮尚未写入代码。
 
-| 名称 | 默认/校验 | 来源、持久化 | 全部消费者与作用域 | 生效/可见性/测试 |
-| --- | --- | --- | --- | --- |
-| `--start-date` | 必填，ISO `YYYY-MM-DD` | CLI；runs 保存实际值 | source 日期下界；progress 展示本轮范围 | 启动；非法日期、边界反例 |
-| `--end-date` | 必填，ISO 日期，必须 ≥ start | CLI；runs 保存实际值 | source 日期上界；progress 展示 | 启动；闭区间测试 |
-| `--interval-seconds` | 5.0；有限非负数，支持小数与 0 | CLI；runs 保存实际值 | HTTP 全部请求、retry、redirect；progress 展示 | 下次启动可修改；fake clock 测试 |
-| `--output-root` | `/Volumes/datasource/announcements` | CLI；账本记录卷 UUID 与规范路径 | volume、ledger、files、progress | 启动；外卷、路径越界、符号链接反例 |
-| `GOLDENSHARE_ENV_FILE` | 沿用 Settings 的 `.env` 默认 | 已有 env；只保存脱敏来源标识 | 现有 Settings、source | 启动；文件存在/实际值来源测试 |
-| `DATABASE_URL` | 必须有显式值，不使用 Settings 默认 localhost URL | 现有 env/配置文件；不在账本保存凭据 | source 的独立只读 engine | 启动；缺失、配置优先级、脱敏测试 |
-| 本地账本位置（自动派生） | `~/Library/Application Support/Goldenshare/announcement-download/<归档身份>/downloads.sqlite` | 单一 options factory 由卷 UUID + 卷内相对目录生成；本机持久化，无新增 env/CLI | ledger、启动恢复；按归档身份隔离 | 启动；同卷重挂载复用、不同卷隔离、目录可写测试 |
+| 名称 | 默认与来源/持久化 | 消费者、作用范围与依赖 | 生效、可见性与测试 |
+| --- | --- | --- | --- |
+| --start-date / --end-date | 必填 ISO 日期，end≥start；CLI，runs 保存实际值 | source 自然日闭区间、runner、progress | 每次启动；边界/空日/缺日/非法参数 |
+| --interval-seconds | 5.0，有限非负，可小数/0；CLI，runs 保存 | HTTP/limiter/retry/redirect；不能缩短已有 cooldown | 下次启动；时间戳/fake clock/重启测试 |
+| --output-root | /Volumes/datasource/announcements；CLI，archive 卷身份/相对路径 | 输出 volume、ledger、files | 启动；外卷/不同输出卷/禁止 Lake 路径 |
+| DG source 根（固定来源，不新增开关） | /Volumes/datasource/data_lake；唯一 source 工厂，source_scope/runs 记录规范来源 | source 路径仅 raw/tushare/anns_d；依据 DG paths | 启动；旧 config/env 不能覆盖，缺路径无 fallback |
+| 账本路径（沿用自动派生） | ~/Library/Application Support/Goldenshare/announcement-download/<归档身份>/downloads.sqlite | ledger；归档身份仍是输出卷 UUID+卷内相对目录 | 启动；同卷重挂载复用、不同卷隔离 |
+| source_contract_version | DG ANNOUNCEMENT_VERSION 当前为 1；source 固定合同，scope/日事实持久化 | source 六字段/schema；新记录 key 与旧 PG 来源隔离 | 合同一致性测试；字段顺序漂移启动阻断，Raw 无版本列不能运行时猜版本 |
+| batch_size | 500；原 Policy 默认，替换 DB 消费者为 source/ledger | fetchmany/单批提交、取消边界；日余批可小于 500 | 启动；501+跨批反例、禁止 fetchall/OFFSET |
+| source_query_timeout_seconds | 15；替换旧 db_timeout_ms，集中 Policy；runs 策略摘要 | 每个 DuckDB 阻塞读取调用的超时/interrupt；不含暂停落账时间 | 每调用；超时/取消/线程回收/安全关闭 |
+| source_memory_limit / source_threads | 256 MiB / 1；集中 Policy，runs 策略摘要 | 单一 source DuckDB，内存用尽阻断；不声明等于 RSS | 启动；低内存反例、真实最大日 profiling |
+| source spill/扩展策略 | 禁止 spill（max_temp_directory_size=0）、禁自动安装/加载扩展；唯一连接工厂 | source，仅本地 Parquet；不能写正式/staging/系统缓存 | 连接建立；trace 无临时文件/扩展网络 |
+| GOLDENSHARE_ENV_FILE / DATABASE_URL | 从此工具移除，不加载/不消费；仓库其他模块不变 | 无运行期消费者，不保存旧连接凭据 | 启动；缺 env 也可读 DG，设 PG env 也零连接 |
 
-现有 [Settings](/Users/congming/github/goldenshare/src/foundation/config/settings.py)中环境文件值优先于同名进程 env，工具必须沿用并在测试中证明，不在 source 另行解析出一套相反优先级。只保存环境文件路径及无密码的连接目标摘要；不打印 URL query 或认证信息。
+其他现有 Policy 保持：串行 1、diskutil 超时 10s、HTTP 64 KiB 块、PDF 上限 512 MiB、安全余量 1 GiB；connect/read/write/pool 超时 10/15/15/5s，正文期限 600s；尝试 3 次、最多 5 跳重定向、退避 30/60/120s、basename 200 UTF-8 字节；进度 ≤5s、等待分片 ≤0.5s。消费者仍为 volume/files/http/Control/ledger，原正反例继续回归。
 
-以下为统一 `DownloadPolicy` 工程限制，第一版不另暴露为用户参数；需修改时同步两份原设计：
+配置不存在 DG daemon/PG/CH 启动依赖，也不引入每日同步参数。source 预算与 batch/取消相互约束；超预算停止并报告，不自动扩大参数。台账可读参数摘要、终端显示脱敏来源和实际日期/间隔；维护查询入口在后续阶段，不由本次另加 CLI。
 
-| 策略 | 设计值 | 消费者与测试 |
-| --- | --- | --- |
-| 并发 | 1；同归档根单进程锁 | HTTP/ledger；跨进程互斥 |
-| DB 批次/超时 | 500 行 / 每次 15 秒 | source；游标与超时测试 |
-| 外卷信息调用超时 | 每次 diskutil 10 秒 | volume；超时后停止，不回落目录 |
-| 流块大小 | 64 KiB | files；不累积正文测试 |
-| 最大 PDF / 磁盘安全余量 | 512 MiB / 1 GiB | files/volume；header、流式计数、空间反例 |
-| 网络超时 | connect 10s、read 15s、write 15s、pool 5s；正文传输期限 10 分钟 | HTTP/files；按流块与 EOF 检查期限；阻塞读取最多额外一个 15s read timeout，期限不含冷却 |
-| 单文件请求尝试 | 最多 3 次，含首次；每次最多 5 跳重定向 | HTTP/ledger；次数与循环反例 |
-| 退避 | 三次尝试后的冷却依次 30s、60s、120s；服务器要求优先 | limiter；Retry-After 两种格式和时钟测试 |
-| 标题文件名预算 | 完整 basename ≤ 200 UTF-8 字节，包含后缀和 `.pdf` | files；中文、碰撞、截断测试 |
-| 进度/取消检查 | 更新 ≤ 5s；等待分片 ≤ 0.5s | runner/HTTP；等待中取消测试 |
+## 3. 启动、外盘与权限门禁
 
-512 MiB 是限制而非已测公告大小；超限记 `file_too_large`，不能截断后宣称成功。每个文件开始前要求可用空间 ≥ 安全余量 + 单文件上限；流式过程中也检查空间。全量容量仍须按真实样本估计。
+1. 校验原 CLI 参数；失败不读取 Raw、不打开账本、不建目录。
+2. 先验证输出目标真实外置卷、UUID、Mounted/Writable 和 APFS physical store。排除内部卷、映像、符号链接与 Lake/staging/退役目录；固定目录 fd 后才创建归档子目录、执行自身可写探针及空间/fsync 检查。不能 mkdir 挂载点。
+3. 只读识别 DG 来源的 datasource 卷，固定 UUID/设备/目录 fd，逐层 O_NOFOLLOW 查找正式源路径；来源不存在或不是已核验外卷即失败。输出在另一外卷时分别校验，不能假设两个 UUID 相同。源路径不执行 probe/mkdir/lock/write。
+4. 检查已安装 DuckDB 与受限配置可用；不得以缺依赖为由访问数据库或自动安装。源/输出门禁通过后取得 `.state/archive.lock` 的 OS flock，再打开派生的本机 SQLite；失败不发 HTTP。
+5. 初始化或迁移账本，再枚举。每个日文件打开、批次读取前后、指纹完成及日封存前核验来源卷；输出卷继续在批次、HTTP 与文件提升边界核验。流块使用已有低成本挂载/设备/fd 检查，不逐块运行 diskutil。
+6. 任一必需卷失效时 blocked/cancelled，保留已提交 PDF 和本机诊断；不能按同名挂载目录重开、回落系统盘或通过临时拷贝 Raw 绕过问题。
 
-## 3. 外盘门禁和文件操作顺序
+SQLite 沿用 DELETE journal、synchronous=FULL 和本机路径；目录句柄不被误称为 sqlite3 dir_fd 支持。迁移、枚举与文件提交都在同归档根独占锁下进行；不取得 DG 写锁，不修改调度或同步进程。
 
-1. 解析参数；拒绝非法日期/间隔，不连接数据库、不创建目标目录。
-2. 沿目标路径找到真实存在的外部卷挂载点。用现有 `diskutil info -plist` 核对 UUID、Mounted、Writable、介质外部属性及物理设备；APFS 容器追溯 physical store，所需信息无法取得就失败。
-3. 排除系统卷、内部物理盘、普通本地目录、虚拟映像及无法确定外部介质的目标。第一版 macOS 专用，不对其他平台静默降级。
-4. 逐层拒绝符号链接，确认目标在该卷内且不属于 DG Lake/staging/退役 Lake 路径。`/Volumes/datasource` 只是候选路径，名字本身不是证据。
-5. 固定卷 UUID、设备号和卷目录 fd。目录创建、打开、rename、删除探针等使用 `dir_fd` 相对操作和 `O_NOFOLLOW`；只在已固定卷上创建缺失子目录。
-6. 核对空间；用随机且排他创建的本工具探针测试写入与 fsync，移除自身探针，不能清理外部目录。文件和目录同步不支持时停止，不能静默降为不可靠提交。
-7. 在固定外盘目录句柄下创建 `.state/archive.lock` 并取得 `flock`，再打开本机 Application Support 下派生的 SQLite；本机账本目录不可写就退出。采用 DELETE journal、`synchronous=FULL`。SQLite 使用本机路径，不能声称标准 sqlite3 支持任意 `dir_fd` 或依靠重新检查绝对挂载路径消除竞态。锁文件可以保留；以 OS 锁而不是文件存在判断占用。
-8. 此后才建立数据库连接。所有存储写入与每次外部请求前核验 UUID/设备/挂载状态；旧 fd 不得改用系统盘路径重开。
+## 4. DG Raw 只读枚举与封存
 
-`assert_valid(full=True)` 在每批数据库读取前后、每次 HTTP 请求前和原子提升前查 UUID/设备；流块和文件指纹读取使用便宜的挂载、设备与固定 fd 检查，不逐块启动 diskutil。路径创建仍锚定 fd。实际只读检查确认 datasource 为 APFS、Internal=false，physical store 为 disk6s2，具备 DeviceTreePath；这些标识仅描述本次检查，不硬编码进实现。
+### 4.1 输入合同与扫描
 
-拔盘后外盘 fsync/rename 失败统一中止，尽可能将中断原因保存至本机账本；允许保留 `.part` 和可读的已完成成果。进程无法写本机账本时，终端明确最后一个已确认文件，不能伪报本轮全部完成。目录句柄方案与实际磁盘文件系统兼容性必须通过 M3，文档不宣称跨任意文件系统的掉电原子性。
+start/end 保持原 ISO 语法和闭区间；按自然日递增生成路径，每次只打开一天。数据集当前从 2020-01-01 开始；不缩窄现有 CLI 日期语法，所请求日文件缺失就明确报缺日，不能猜为空或截断范围。固定唯一 part-000.parquet，不 glob staging/candidate/其他 part，不依据 DG 事件数量推断文件存在。
 
-## 4. 数据库只读枚举
+物理 schema 必须是固定顺序六列 VARCHAR：`ann_date, ts_code, name, title, url, rec_time`，读取禁用 hive_partitioning。投影全部六列，不加 id/hash/group 字段，不 SELECT *。所有非 NULL 值必须是字符串；Raw YYYYMMDD 严格解析并等于当前 ISO 分区日期，不能以目录字段补齐错误 Raw 日期。其他字段的 NULL、空串和空白原样保留；不调用股票基本信息库/交易日/对象池过滤。
 
-source 从当前 Definition 校验 Raw 表映射仍为 `raw_tushare.anns_d`、日期字段仍为 `ann_date`；不另建 dataset registry。变化时明确失败，不能猜列或自动切别的表。
-
-白名单投影：`id, row_key_hash, ann_date, ts_code, title, url, rec_time`。不读 `raw_payload`，不 `SELECT *`，不使用 DAO 的写方法。每批独立事务，首先设置 READ ONLY，再设置 statement_timeout。
-
-本轮开始用主键降序 `LIMIT 1` 获得 `upper_id`，从 `after_id=0` 枚举：
+目标单日 SQL（路径参数是已固定句柄；不按绝对路径再次打开）：
 
 ```sql
-SELECT id, row_key_hash, ann_date, ts_code, title, url, rec_time
-FROM raw_tushare.anns_d
-WHERE ann_date >= :start_date AND ann_date <= :end_date
-  AND id > :after_id AND id <= :upper_id
-ORDER BY id
-LIMIT :batch_size;
+SELECT ann_date, ts_code, name, title, url, rec_time
+FROM read_parquet(?, hive_partitioning=false);
 ```
 
-全部绑定参数。每批将行映射、下载身份和 `after_id=max(id)` 在同一个本地 SQLite 事务提交；空页标记枚举结束。只读 DB 事务在本地落账前关闭，不跨 HTTP 传输或整个历史范围持有事务。批次失败不推进本地游标。
+参数为 `/dev/fd/<fd>`。DuckDB 1.5.5/macOS 机制已用临时文件验证；其他平台或不支持 fd 路径的环境明确失败，不能改为逐批重开路径。source 使用同一个查询结果 `fetchmany(500)` 迭代，不能 OFFSET 或每批执行同一全日 SQL；无需全日 ORDER BY/DISTINCT，也不把查询结果转成整日 list/DataFrame。固定 fd 保持到全部批次和日指纹核验结束。
 
-新命令创建新 run，重新枚举同一日期，因此不因旧 high watermark 漏掉新入库记录。下载账本跨 run 复用，旧枚举无需续扫才能保证文件任务续跑。`upper_id` 仅限制本轮读取范围，不保证数据库一致快照；并发事务较晚提交或旧行更新应在下一次重扫纳入。必要时等公告元数据更新完成再启动，不能以一次枚举结果宣称同步完整。
+### 4.2 并发一致性和日校验
 
-M1 已执行窄/宽首批 EXPLAIN ANALYZE，证据见 §11。LIMIT 只限制返回行数，首批通过不代表所有游标与日期性能均已验收；M3 仍需核验代表性后续游标。若不能满足 15 秒或内存界限，调整批读设计并回写本文，不自行加生产索引、扩大超时或改数据库。
+来源按日 os.replace；读者持有旧 inode，路径新版不影响这一日。不要比较“当前路径仍是旧 inode”作为完成条件，否则正常每日更新会错误阻断。记录打开版本的 fstat 身份、size、SHA-256 与 footer 行数；在打开 fd 上用 64 KiB pread 块生成读取前/后指纹，不改变查询使用的文件位置；核验两次指纹及 dev/ino/size/mtime 一致。原子替换可能改变旧 inode 的 ctime/nlink，不能把这两项变化当作内容变化。路径指向新版可以完成旧版读取，同一 inode 原地改变则 source_file_changed 阻断。
 
-## 5. 本地身份与账本
+schema/footer 从同一固定 fd 读取。读取行数必须等于该版本 footer 行数；每行日期/类型均验证。源六字段重复通过账本同一 run 的 record_key 再次出现检测，不能消费时去重后宣称 Raw 符合合同；发现重复记 source_duplicate_record 并阻断。NULL URL/rec_time 不算合同错误。合法完整 schema 的零行文件封存为 0 行；缺失/损坏/schema 或分区错误均阻断。
 
-`artifact_key = sha256(规范 JSON 数组 [ann_date.isoformat(), ts_code, url.strip()])`，使用明确 UTF-8 编码与固定序列化。它是本地文件任务身份，不替代 `row_key_hash`。同 URL 跨日期或跨公司分别归档，不自动跨目录复制、硬链接或全盘去重。
+运行最多一个固定日文件句柄、一条活动 DuckDB 查询、一批 500 行。每日本身创建并关闭独立 DuckDB 连接，不能跨日复用连接缓存 `/dev/fd/同编号`；DuckDB 内部临时打开的句柄也须随连接关闭，不宣称全进程只有一个 fd。日级最多两次指纹流读及一次数据扫描，另有有界 schema/footer 读取；扫描量与输入文件字节相关。指纹/批次循环检查取消，查询/元数据调用采用 15s watchdog 调用 connection.interrupt()；计时器每次调用结束撤销，连接只能在调用结束后关闭。独立进程测试必须证明超时和 Ctrl+C 会停止领取、线程结束且不遗留查询；若实测 interrupt 无法在预算内退出，停止实现验收并修订本节，不能无界等待或引入隐式全文件缓存。
 
-SQLite 设计表：
+### 4.3 持久化边界与下载输入
 
-| 表 | 关键字段及约束 |
+begin_run 后各日记 reading，每批 source_records、run_artifacts、records_read/missing_url_count/artifacts_total 和该日 records_committed 在同一 SQLite 短事务保存。失败不推进计数；已提交批次保留。日校验通过在一个事务写 size/hash/footer_count、completed 状态及完成日计数；阻断/取消时保存当前日 blocked/cancelled 与原因，不虚增完成日数。枚举期间禁止 HTTP，包括先读完第一日就边枚举边下载。
+
+所有日期 completed 且 committed_count=footer_count 才能将 runs.enumeration_sealed=1、phase=downloading 一次提交；next_task 必须拒绝未封存 run。下载只领取这一 run_artifacts 的冻结集合，不向实时 Raw 做 has_artifact 查询，不按每文件重扫 Parquet。源后来新增记录在下一次命令纳入。
+
+日快照不是跨日期整体快照；封存只证明读过这些版本并满足 consumer 合同，不产生或替代 DG materialization/check/readiness 状态。DG 对源的完整分页及日常稳定性由原 DG 接入方案验收。
+
+退出或失败的新命令从所选日期首日重新枚举，保留旧日事实用于诊断；不使用旧行号跳进可能更新的文件。文件级续跑依靠稳定 artifact_key，而不是旧 upper_id/after_id。无 URL 行只有来源映射，没有任务。枚举缺日时整轮 blocked/零 HTTP，不清理先前已成功 PDF。
+
+## 5. 身份、SQLite schema 2 与迁移
+
+### 5.1 两种身份
+
+原 `core.identity` 的 JSON 数组、ensure_ascii=False、固定 separators、UTF-8 SHA-256 算法保持。目标身份明确为：
+
+```text
+record_key = identity(["dg-anns-d-v1", raw_ann_date, raw_ts_code,
+                       raw_name, raw_title, raw_url, raw_rec_time])
+artifact_key = identity([ISO(raw_ann_date), raw_ts_code, raw_url.strip()])
+```
+
+record_key 的原值不 trim/补空/转时区/NFC；JSON null 和 "" 不同。它是下载台账的来源映射指纹，不写回 Raw，不代表 Prod hash。URL NULL/去空白后为空时 artifact_key=NULL，记录 skipped_missing_url；其他非法字段仍保留来源映射，文件验证沿用 invalid_title/invalid_ts_code/invalid_url。
+
+source_scope 从 DG 来源卷 UUID、卷内 raw/tushare/anns_d 路径、合同版本生成，带明确 dg-anns-d 标识。旧 Prod scope/hash 按原值保留，不能冒充 DG six-field key。归档身份仍由输出卷 UUID 与相对目录生成，不能把来源切换加入归档身份导致旧台账找不到。
+
+Raw 20260726 的下载投影须为 2026-07-26；同代码/trim 后 URL 得到旧 key。name/title/rec_time 不同的源记录分别映射到同一 artifacts；原路径/首次标题不改。跨日期/代码仍分别下载，不新增跨目录链接或全盘去重。六字段完整原 JSON 存在 source_records.metadata；用于下载的规范日期/URL 与原值分开，不能覆盖 metadata。
+
+### 5.2 表与事务
+
+| 表 | schema 2 目标 |
 | --- | --- |
-| archive | 单行 schema_version、volume_uuid、root_relative_path、created_at |
-| runs | run_id、日期范围、间隔、脱敏来源、upper_id、after_id、阶段、原始行数、任务数及成功/跳过/失败/完成计数、终态、更新时间 |
-| source_records | source_scope + row_key_hash 唯一；raw_id、完整元数据、artifact_key、first_seen/last_seen_run |
-| artifacts | artifact_key 主键；原始 URL、首次标题、已分配相对文件路径、状态、错误、attempts、size、sha256、更新时间 |
-| run_artifacts | run_id + artifact_key 唯一；本轮结果和尝试量，限定本轮范围 |
-| cooldown | 单行 last_request_finished_at、next_request_not_before UTC、request_in_flight、原因；请求开始和结束分别落账 |
+| archive | 原 volume_uuid/root_relative_path/created_at，schema_version=2；不得生成新归档身份 |
+| runs | 原范围/间隔/计数/阶段保留；新增 source_kind、source_contract_version、source_policy、days_total/days_completed/current_day、enumeration_sealed 默认 0；旧 upper_id/after_id 重命名 legacy_upper_id/legacy_after_id，仅历史诊断 |
+| source_records | 原 PK(source_scope,row_key_hash) 随列重命名为 PK(source_scope,record_key)；raw_id→legacy_raw_id；metadata/artifact_key/first_seen_run/last_seen_run 保留，DG 行 legacy_raw_id=NULL |
+| run_source_days（新增） | PK(run_id,ann_date)；state、opened_dev/ino、size、sha256、footer_count、records_committed、reason、updated_at；只保存读取事实，不复制文件或做 DG readiness 摘要 |
+| artifacts | 原主键/路径/path_fold/title/URL/state/attempts/size/sha256 原样保留，供两种历史来源复用 |
+| run_artifacts | 原 PK(run_id,artifact_key)、outcome/attempts 与 pending 索引保留；只能消费已封存新 run |
+| cooldown | 原单行时间/in_flight/reason 保留，不因迁移缩短等待 |
 
-source_scope 来自脱敏数据库目标及固定 schema/table，不能仅凭 row_key_hash 混合不同来源。source_records 保留同文件的全部行映射。路径分配使用 NFC + casefold 唯一键处理大小写不敏感卷，原始文件名保留中文。
+新鲜初始化直接建 schema 2。已有 schema 1 在取得归档 OS 锁并核对 archive 卷身份后升级：先验证已知表/列/索引；BEGIN IMMEDIATE；显式逐条 ALTER TABLE/CREATE TABLE/索引调整；旧 runs 标注 source_kind=prod_postgres（历史），新字段不虚构其读取日数/指纹；最后更新 archive.schema_version 并 COMMIT。不能先执行新 schema 的建表脚本再核验版本，不能用会隐式提交的 executescript 包裹迁移。未知/更高版本或非本归档账本直接阻断。
 
-新增唯一 run_artifact 与任务总量在同一枚举事务提交；本轮 outcome 与成功/跳过/失败/完成计数也同事务提交，重复记录相同 outcome 不累加。`stats()` 仅读 runs 单行，不能为每次进度刷新 GROUP BY 全部任务。待下载任务使用 run_id/outcome/artifact_key 索引逐项读取。
+列重命名只改变标签，不重算旧 hash/id 或改旧 metadata；legacy 字段仅存历史数据，不保留 PG 运行分支。新代码只创建 DG run，DG 插入显式列清单，禁止 INSERT VALUES 依赖旧列顺序。全部 SQL/fixtures/查询消费者一次迁移到新列名。失败 ROLLBACK，旧版本/行数/索引/冷却与文件原样可读；不清空、重建、备份或删除账本/PDF。升级后旧程序遇 schema_version 不匹配应停止；不提供降级写入。
 
-states：`pending → downloading → prepared → succeeded`；可转 `failed / blocked`。run 为 `enumerating / downloading / completed / partial_failed / cancelled / blocked`。终态不能由进程退出码反推，必须基于本轮结果。
+每批事务内为新来源指纹保存 metadata/首次及末次 run；同 run 已存在该 key 即重复源合同错误，回滚本批。新 run 再见同 key 更新 last_seen_run 不算重复。run_artifacts INSERT OR IGNORE 的新增量与 artifacts_total 同事务维护；completed/outcome 变更同事务更新增量计数。stats 仅读 runs 单行，不能全表 COUNT/GROUP BY 做心跳。日表索引支持按 run/state 查询，next_task 仍走原 pending 索引。
 
-启动取得独占锁后，将遗留的非终态 run 记为 cancelled，原因 `process_exit_recovered`，再创建新 run。保留旧计数和游标，文件状态按恢复矩阵核验；不能把进程崩溃记为 completed。
+文件 states 继续 pending→downloading→prepared→succeeded，失败/阻断分开；run 继续 enumerating/downloading/completed/partial_failed/cancelled/blocked。进程异常退出后启动将旧活动 run 记 cancelled/process_exit_recovered，不删除其已入账行。新 run 再枚举、封存及文件恢复；历史 attempts 与本轮 attempts 分开，每轮最多 3 次。
 
-attempts 累计历史次数与本轮尝试数分开保存；每轮最多 3 次，不因历史失败永久禁用重试。下一次命令对本轮重新出现的 failed/blocked 项允许重试，但必须遵守持久化冷却；不领取所选日期外的旧任务。
+## 6. 命名、校验、提交与删除后重下
 
-## 6. 文件名、校验和原子提交
+沿用 Files.allocate/receive/promote/recover。完整 ts_code 通过路径安全校验；title 清洗 NFC、不安全字符及 UTF-8 截断，以 title.pdf 优先，碰撞追加 artifact_key 短 hash 逐级延长；path_fold 唯一处理大小写等价，保留未知文件、不覆写。不因来源切换重新分配已有成功路径。
 
-先以清洗后的 `title.pdf` 分配路径；同名任务、现有未知文件或大小写等价名称占用时，追加 artifact_key 前 12 位，仍冲突则逐级延长至完整 hash；仍被占用时失败。路径分配必须落账后再开始下载，不能因数据库返回顺序改变已分配路径。
+仅 http(s) URL，TLS 验证开启。标题为空/非法代码/URL 标记当前文件失败，元数据仍在台账。正文写同目录 `.<artifact_key>.part`，64 KiB 块、size/SHA-256、PDF header/EOF、Content-Length/编码/非 HTML/512 MiB 上限校验；fsync 后先记 prepared，再 os.replace 并同步目录，最后记 succeeded。SQLite 写成功前不报告成功；写失败停止后续领取，不回滚已提交 PDF。
 
-标题为空或代码/日期/URL 不合法，记明确错误，不创建文件。URL 只接受 HTTP/HTTPS，不接受本地 file URL；TLS 验证开启，不伪造 Referer。实际站点需要额外请求头或认证时先报告证据、修订方案。
-
-下载步骤：
-
-1. 校验目标卷、空间和已分配路径；创建同目录专属 `.<artifact_key>.part`，防止 200 字节标题叠加哈希超过 NAME_MAX。仅处理账本归属本工具的暂存文件；拒绝符号链接、非普通文件及多硬链接文件。
-2. 响应流块大小 64 KiB；累计 size 和 SHA-256，不把整份正文放进内存。
-3. 检查成功状态、开头允许 PDF 版本标记、Content-Type 未明确为 HTML、长度未超限、可用 Content-Length 与传输字节一致、末尾基本 `%%EOF` 标记。强制 identity 传输编码以便长度对账；仍返回压缩编码时拒绝并记录原因，不混用解码后长度。
-4. fsync `.part` 与其父目录，保存 prepared 的 size/sha256；再次校验卷与最终路径，禁止覆盖非本任务文件；同根独占锁保证本工具无并行提交。
-5. `os.replace()` 提升并同步父目录，提交 succeeded。SQLite 成功保存前不能报告成功。
-
-自动恢复矩阵：
-
-| 中断位置 | 重启行为 |
+| 账本/物理状态 | 新轮次恢复动作 |
 | --- | --- |
-| downloading，只有不完整 part | 从头重下本文件，保留其他成功文件 |
-| prepared，part 完整、final 不存在 | 核对记录的 size/hash 后完成提升，不再发 HTTP |
-| prepared，final 存在且 size/hash 一致 | 补记成功；此为 rename 后账本提交前恢复 |
-| succeeded，final 校验一致 | 本轮 skipped，不发 HTTP |
-| succeeded，final 缺失 | 回到 pending，重新下载 |
-| final 损坏或未知文件占用路径 | 分配新的安全路径并落账后重下，保留原文件、不覆盖 |
-| final 和 part 均无法与 prepared 对上 | 记录恢复失败，保留证据，不猜测成功 |
+| succeeded，size/hash 一致 | 有效跳过，零 HTTP |
+| succeeded，用户已删除 final | pending，按原身份及安全路径重新下载；台账不能永久阻止 |
+| succeeded，损坏或未知文件占用 | 保存原文件，分配安全新路径重下 |
+| downloading，只有不完整 part | 文件从头重下；其他已完成文件保留 |
+| prepared，part 匹配且 final 不存在 | 原子提升并补成功，零 HTTP |
+| prepared，final 匹配 | 补成功，零 HTTP |
+| prepared 均不匹配、符号链接或多硬链接 | 沿用恢复失败/安全阻断，不猜成功、不覆盖 |
 
-SQLite 与文件系统无法组成同一个事务，因此必须保留 prepared 恢复协议。文件校验保证基础格式和传输一致，不保证内容真实性、可阅读性或网站后来未修改相同 URL。成功文件不会每轮重新联网探测远端版本，URL 内容修订另行处理。
+同 URL 远端内容修改不在本次探测范围；不做 Range 字节续传、自动重命名旧成果、未知文件删除或额外文件备份。
 
-## 7. 限速、重试和取消
+## 7. 请求间隔、取消与故障
 
-全局单请求调度器，上一请求结束后计算下一可请求时间；UTC 截止时间持久化，运行期使用 monotonic 等待。进程重启取 `max(持久化截止时间, last_request_finished_at + 本轮 interval)`，不能通过改小间隔缩短已记录冷却。遗留 request_in_flight 表示结束时间未知，重启后至少再等待本轮 interval；已知的较晚服务器冷却仍保留。请求开始前先落 in-flight，失败不能发请求；请求结束后无法落账就停止，不继续领取文件。HTTP transport 禁用隐式重试，由统一调度器控制全部尝试。
+沿用全局 Limiter，所有实际 GET/重试/每跳 redirect 在请求前核验输出卷并遵守 `max(间隔,持久冷却,服务器要求)`；httpx 禁自动重定向/重试，禁止 HTTPS 降级与循环，最多 5 跳。请求开始落 in_flight、结束落冷却，失败不能继续请求；重启不能缩短已有 next_request_not_before，未知结束至少等待本轮 interval。
 
-关闭 httpx 自动重定向。301/302/303/307/308 按 Location 显式发起下一请求，每跳先限速、检查取消、重新核验卷；最多 5 跳，禁止循环和 HTTPS 降级 HTTP。相对 Location 依据实际响应 URL 解析，不猜域名。
+超时/连接错误/408/429/5xx 最多 3 次，退避 30/60/120s，Retry-After 支持秒与 HTTP 日期；403/验证码使 run blocked，停止后续；404/410/非法 PDF 等文件 failed，其他文件仍限速执行。缺源文件/schema/读取超时/源卷丢失/SQLite/锁错误使 run blocked，不回落 Prod 或启动 DG。
 
-- 超时、连接错误、408、429、5xx：按最多 3 次尝试处理，退避从 30 秒开始；不得立即密集重试。
-- Retry-After：支持秒数和 HTTP date；过去值按 0 处理，实际等待仍不低于 interval/退避。对 429 以及携带此头的 503 遵守要求，不截短服务器等待；长等待可以取消。
-- 403、验证码/明确拦截：本轮 blocked，停止全部后续请求，保留拒绝原因和状态。
-- 404/410、非法重定向、非 PDF：当前文件 failed，下一文件仍按间隔调度。
-- 外盘/SQLite/锁/配置/数据库错误：本轮 blocked，停止领取新任务。
+取消检查覆盖源 fd 指纹块、日和批次前后、SQLite 提交前后、每个 HTTP 开始/结束、传输块、≤0.5s 等待、prepared/rename 边界；Control 心跳 ≤5s。DuckDB watchdog 与 Control 协作，取消触发 interrupt，必须安全等待查询结束再释放 fd/connection，不在活动查询期间关闭句柄。网络正在阻塞的 read 仍受 15s 超时约束；不承诺任意系统 I/O 瞬间终止。退出保留所有已提交 unit。
 
-每次实际请求开始/结束、传输块、等待分片、枚举批次前后及原子提交前检查取消。Ctrl+C 停止新请求；尚未提交文件留暂存状态，已提交文件不回滚。等待以 ≤0.5 秒分片处理，网络 read timeout 15 秒；不能承诺取消瞬间终止正在阻塞的系统调用，但需在可控边界内退出。
+## 8. 进度、退出码与性能验收
 
-## 8. 进度、错误和退出码
+枚举显示 current_day、days_completed/days_total、records_read、artifacts_total、missing_url_count、更新时间；活动日同时显示 records_committed/footer_count，按已提交业务计数更新。源指纹/查询中只显示当前子阶段和上次确认量，不能把心跳当行增长。范围整体记录总量未确定时不伪造记录百分比；枚举封存后以 run_artifacts 为下载分母。
 
-枚举阶段显示读取行数、已归入文件数、游标和范围，不伪造总量百分比。枚举完成后以 run_artifacts 为分母，显示当前标题/公司、完成量、成功/跳过/失败数量、百分比与更新时间。记录数与唯一文件数分别显示。
+退出码沿用：0=文件全部成功或有效跳过，含合法零任务范围；1=存在文件失败；2=参数/启动依赖/磁盘门禁失败；3=运行阻断；130=用户取消。运行期缺日不是 0 行成功。可记录 reason code、脱敏来源及当前日，不输出连接串/错误页/敏感 URL query。
 
-下载、校验和等待中每 5 秒输出进度；ETA 未有可靠样本时显示“暂无法估算”。输出不含密码、完整敏感 query 或错误页正文。错误保留 reason code、HTTP status、脱敏 host、尝试数，URL 原值仅在本地账本用于追溯。
+输入已知上界证据为历史最大日 69,498 行，当前证据总行数 12,064,773（均为历史时点）。成本为 O(日期文件总字节+源行数+新增任务)，SQLite B=Σceil(日行数/500) 次枚举提交；源内存预算 256 MiB/1 线程/no-spill，Python 500 行及 64 KiB 块。它不等于全进程 RSS 上限；单批字符串大小和台账增长须实测。不存在全历史 DB 事务、Tushare 配额或逐 PDF 元数据 SQL。
 
-退出码：0=本轮全部文件成功或有效跳过（空范围也显示 0 个记录）；1=本轮存在文件失败；2=参数或环境/磁盘门禁失败；3=运行被阻断；130=用户取消。不得仅打印错误仍返回 0。
+实现后先在空日、小日、最大日量级只读 profiling，记录 fd 数/查询次数/扫描字节、读取和落账时间、峰值 RSS、每行台账空间、取消延迟；最大日量级每个读取调用应在 15s 内完成，进度间隔≤5s。不能满足预算则阻断并回写方案，不静默增加限制。只有按已测样本算清选定日期枚举耗时、台账/磁盘空间、文件请求量及预计范围耗时才进入范围执行；PDF 网络计时样本只在最小真实阶段获取，不为 profiling 提前下载大量文件。
 
-## 9. 硬要求与验收映射
+## 9. 开发硬口径与验收映射（全部待 DG 版本验证）
 
-以下是完整验收目标；M1基础证据见§11，M2专项证据见§12；M3最小真实验收见§13；真实拔盘未验证，不能把模拟卷测试当作实际断开/重挂载验收。
-
-| 要求 | 实现位置 | 正向测试 | 反例/故障测试 |
+| 约束 | 目标代码点 | 正向证据 | 负向/故障证据 |
 | --- | --- | --- | --- |
-| R1 本地入口 | CLI、options | 指定和默认路径解析 | 缺显式 DB 配置，不能回落 localhost |
-| R2 日期闭区间 | source | 起止日都纳入 | 前后一天、逆序、非法日期、空范围 |
-| R3 目录 | files | 日期/完整代码目录 | ../、控制字符、符号链接越界 |
-| R4 标题命名 | files、ledger | 中文标题和长标题 | 同名不同 URL、NFC/casefold 碰撞、未知现有文件 |
-| R5 间隔 | limiter、HTTP | fake clock 证明请求结束后间隔 | redirect/retry 绕过、负数/NaN/inf、冷却重启 |
-| R6 续跑 | ledger、files | 重复命令已完成零请求 | 枚举崩溃、下载中断、prepared 前后、rename 后/成功落账前、SQLite 写失败 |
-| R7 外盘门禁 | volume | 通过真实挂载证据后才创建子目录 | 目录存在但未挂载、内部盘、只读、空间不足、同名换盘、检查与写入间拔盘 |
-| R8 新公告 | source、run_artifacts | 第二轮新增记录被纳入 | 历史游标误跳过、旧范围任务误执行、并发更新不能宣称一致快照 |
-| 文件可靠性 | files | 完整 PDF、size/hash 读回 | HTTP 200 HTML、截断、超限、损坏、fsync 不支持 |
-| 有界运行 | source、HTTP | 单批 500、流块 64KiB | 整范围驻留内存、慢流硬期限、长事务跨下载 |
-| 观测和取消 | runner | 进度与终态一致 | 冷却中取消、数据库超时、403 后仍领取文件 |
+| R1 单一 DG 来源 | CLI.main、source 工厂 | 无 PG/CH/DG 进程也读 fixture；现有四参数 | monkeypatch DB/Tushare 建连即报错，证明未调用；缺 DuckDB/源无 fallback |
+| R2 全自然日范围 | Source.iter_days/iter_batches | 两端/周末/空日、退市与债券代码都纳入 | 前后一天不得混入；缺一日整轮 blocked/零 HTTP；非法 Raw 日期不补值 |
+| R3 日期与旧 key | core.identity、源下载投影 | 固定旧金样本 2026-07-26 与 Raw 20260726 得同 key | 直接八位 date 会得不同 key 的反例；跨日/代码不同 key |
+| R4 六字段与标题 | source、Ledger.ingest、Files.allocate | 六字段原值、同 URL 多映射单任务、旧路径不改 | NULL/空串/空白/name/rec_time 差异不得合并；非法标题/代码保留来源并失败 |
+| R5 限速 | Limiter/Downloader/cooldown | fake clock 和本地 HTTP 时间戳 | redirect/retry 绕过、NaN/inf/负数、迁移/重启缩短冷却 |
+| R6 恢复与复用 | Files.recover/ledger v2 | schema 1 五个成功旧 key 升级后零 GET；删除一份后仅请求这一份 | prepared 两窗口、损坏保留重下、退出/rename 后记账失败；错卷不复用 |
+| R7 双卷门禁 | Volume/source 只读锚点 | 同卷/不同外卷，外盘确认先于读取/账本/HTTP | 内盘、未挂载、只读输出、路径符号链接、源/输出换 UUID、失败不得建挂载目录 |
+| R8 新运行重枚举 | Source/Ledger.begin_run | 下次加入新版记录，已有文件有效跳过 | 从旧 id/行号跳读不得出现；旧范围任务不能领取 |
+| R9 固定日版本/封存 | fd reader/run_source_days/next_task | 读取到半批后 os.replace，全部行来自旧版；ctime/nlink 改变仍允许；下轮全新版 | 原地改写/坏 footer/读数不符/重复源/任一缺日阻断；未封存调用 next_task 禁止 |
+| R10 有界读取 | query/fetchmany/Policy | 501+跨批、69,498 行量级；一次固定一日/一查询、单批≤500；跨日复用 fd 编号不会混入缓存旧数据 | 禁 fetchall/OFFSET/全范围 list/逐文件 read_parquet；no-spill/扩展网络反例 |
+| R11 原子迁移/持久化 | Ledger 升级/批次/封存 | v1 金样本升级保留全部状态；v2 重开无重复迁移 | 中途 DDL 故障回滚、未知版本/旧程序拒绝、批次失败不推进、SIGKILL 后新轮恢复 |
+| 取消/进度/终态 | Control/runner/Source | 查询 interrupt、独立子进程中断—重启、计数单调 | 查询超时不遗留线程/fd，冷却取消，台账写失败停止而保留 PDF；心跳无业务量不算进度 |
 
-M2 使用隔离临时目录、模拟卷元数据和本地 HTTP fixtures；启动本地服务需获工具层权限，测试不调用远端网站、不使用正式外盘/业务表。禁止以测试为由安装套件、删业务数据或清理用户目录。
+隔离 fixture 用现有 DuckDB 生成临时 Parquet，expected 六字段/旧 key 必须是独立字面金样本，不能通过被测 helper 反向生成；旧账本 fixture 采用实际 schema 1，所有 files/HTTP 不变规则继续回归。测试不访问正式 Lake、Prod 或真实 PDF，不安装依赖。
 
-M3 另获执行授权后，Prod 只读获取最多 5 个 URL，先按实际域名核验重定向、响应类型、大小与拦截行为，再在外盘执行下载—中断—续跑—校验。核对元数据记录数、去重任务数、请求数、请求时间戳、成功/跳过/失败数和物理文件 size/hash；请求次数要能解释到首次、重试、重定向，不能把文件数当作请求数。
+之后只读验收已通过历史文件：至少空日、2026-07-26 五条日、缺 URL/rec_time 的已知样本及最大日量级；对照实际六字段、行数、批次数和记录→文件映射，记录数量/样本与 profiling。需要大日 fixtures 时不把合成量级当实际数据证据，不把仅文件存在标为 DG ready。
 
-## 10. 影响面与本轮验证记录
+最小真实阶段另按授权选择最多 5 个唯一 URL：先验证既有 Prod 成功文件在同归档根复用零请求，删除文件只在用户明确同意的验收文件范围做；随后下载—取消—续跑—零请求重放—size/hash 读回。记录来源 run/day/hash、源行数、唯一任务数、每次请求及间隔、物理成果。不自动卸载承载其他任务的磁盘；真实拔盘仍须另有现场验收。
 
-2026-10-01 使用仓库根 CodeGraph CLI：`status`（索引 up to date）、`query anns_d`、`query SessionLocal`、`impact RawAnnsD`、`callers RawAnnsD`、`callers _anns_d_params`、`callers SessionLocal`、`callees _anns_d_row_transform`。索引 impact 仅返回模型符号，动态 registry 调用未在 callers 完整呈现，不能当作消费者完整证明；补用当前代码搜索与逐项读取覆盖 Definition → request builder/row transform → Raw ORM/DAO → Serving view、Ops action_catalog、CLI、既有测试及 frontend/wealth/qtf/biz/app 消费者。直接前端/API 使用未在这次窄搜索中发现，不外推为不存在仓库外 SQL 消费者。
+## 10. 本轮分析、验证与下一步
 
-M0 新增两份设计文档并更新 docs 索引，提交 `45c19af3`；M1 随后新增独立下载工具及专项测试，未改变既有运行入口、契约、分层或依赖矩阵。仍在当前 `dev-interface`，未建分支/worktree，未纳入其他未完成工作。
+2026-10-05 使用 CodeGraph `codegraph_explore` 覆盖 CLI、source、Ledger、Files/Volume 调用关系，补读真实 main/execute、Policy、账本 SQL、文件恢复、专项 tests、DG contract/path/promote_day 与现有 Foundation Lake reader。影响面集中于工具入口→来源枚举→SQLite→文件恢复；没有把静态调用结果当作全量动态消费者证据，旧 SQL fixtures/直接账本字段消费者以 rg 搜索核验。未发现本次需要修改的前端/API 消费者；数据中心尚属后续设计。
 
-实际 URL 最小样本、外卷写入/断开/重挂载恢复及后续批读性能仍待 M2/M3；当前没有需用户补充的功能选择。若真实证据要求新增认证、改变数据库、路径或依赖，按差异重新评审。
+临时文件机制验证：根现有 .venv 的 DuckDB 1.5.5，旧文件 fd 打开后 os.replace 路径；read_parquet('/dev/fd/<fd>', hive_partitioning=false) 读 old，重开路径读 new。复测确认旧 fd 的 dev/ino/size/mtime 不变，nlink 从 1 变 0、ctime 改变；256 MiB/1 线程/no-spill/禁止自动扩展的连接配置可建立。临时目录清理，不读取/写入正式 Lake，不下载 PDF。此证据只支持 §4 固定 fd 与属性核验选择，不是新增自动化测试、性能预算或真实下载已通过的声明。
+
+本轮只改两份原文档；不改变实际 CLI/数据库/契约/依赖矩阵。迁移实现、schema 升级、所有 DG 正反例、真实源读取/性能与真实下载均待后续步骤。下一步按技术方案 §9 的“迁移实现”推进，再做隔离和只读验收；DG 连续日常验证独立推进。
+
+本轮文档完整性三组检查通过；两份文档共 21 个引用逐项核验通过，R1—R11 在两份原设计中均有对应约束/验收映射，git diff --check 通过。文档检查不证明新代码行为。以下保留 Prod 版本历史证据，段落中的阶段指引只表示记录当时状态。旧分组覆盖/id 删除已经失效，旧逐文件 DB 存在性复核仅描述尚未迁移的实现，不适用于上述目标 DG reader。
 
 ## 11. M0/M1 实施证据（2026-10-01）
 
@@ -216,7 +211,7 @@ M0 新增两份设计文档并更新 docs 索引，提交 `45c19af3`；M1 随后
 下一阶段为 M2 专项验收，需单独按阶段确认；真实 URL 下载与正式外盘写入仍由 M3 承担。本轮不创建调度、不发起公告元数据维护或全量下载。
 
 
-## 公告同步读取合同（P1 已适配，真实验收待后续阶段）
+### 2026-10-02 旧分组方案与 Prod 消费者记录（已被替代）
 
 元数据同步仍由既有anns_d主链负责。2026-10-02用户确定Raw物理只留不被覆盖版本，下载枚举继续显式读取Raw id和row_key_hash，无需is_current过滤。上界id只是本轮枚举边界，不是永久公告身份；每次新轮次从0重枚举。被完整记录替代的旧id可以被删除，新版获得新id；元数据内容指纹可能变化，文件身份仍是日期、代码、URL。
 
@@ -227,7 +222,7 @@ URL NULL/空值：保存该行的本地来源映射，记录skipped_missing_url�
 适配验证：物理替代后的旧来源映射不错误领取、缺URL映射/统计/游标同事务、缺时间可下载、代表换ID相同URL不重复下载、旧轮次未完成文件的有效性复核、非完整性快照边界。现行M1没有上述NULL与覆盖适配，不能在新公告合同部署后直接当作已兼容运行。
 
 
-### 2026-10-02 P1 消费者适配
+### 2026-10-02 Prod 消费者适配记录
 
 无 URL 的公告写入本地 source_records，artifact_key 为 NULL，不领取 HTTP 请求；游标与 missing_url_count 同一 SQLite 事务提交，输出 skipped_missing_url。已有账本通过显式 ADD COLUMN 补 run 计数，不清空记录。
 
