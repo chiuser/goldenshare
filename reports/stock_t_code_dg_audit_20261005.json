@@ -1,0 +1,136 @@
+{
+  "as_of": "2026-10-05",
+  "lake_root": "/Volumes/datasource/data_lake",
+  "basic": {
+    "raw_basic": [
+      [
+        "600018.SH",
+        "上港集团",
+        "L",
+        "20061026",
+        null
+      ],
+      [
+        "T600018.SH",
+        "上港集箱(退)",
+        "D",
+        "20000719",
+        "20061020"
+      ]
+    ],
+    "lifecycle": [
+      [
+        "600018.SH",
+        "上港集团",
+        "L",
+        "2006-10-26",
+        null
+      ],
+      [
+        "T600018.SH",
+        "上港集箱(退)",
+        "D",
+        "2000-07-19",
+        "2006-10-20"
+      ]
+    ]
+  },
+  "identity": {
+    "path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+    "rows": [
+      [
+        "600018.SH",
+        "600018.SH",
+        "2006-10-26",
+        null,
+        "stock_lifecycle",
+        "confirmed",
+        "historical stock lifecycle self mapping"
+      ],
+      [
+        "T600018.SH",
+        "T600018.SH",
+        "2000-07-19",
+        "2006-10-20",
+        "stock_lifecycle",
+        "confirmed",
+        "historical stock lifecycle self mapping"
+      ]
+    ]
+  },
+  "raw": {
+    "stk_period_bar_week": {
+      "files": 857,
+      "rows": 2895784,
+      "t_rows": 0,
+      "first_date": "20100101",
+      "last_date": "20260925",
+      "selected": [
+        [
+          "600018.SH",
+          847,
+          "20100101",
+          "20260925"
+        ]
+      ],
+      "seconds": 0.217
+    },
+    "stk_period_bar_adj_week": {
+      "files": 857,
+      "rows": 2891262,
+      "t_rows": 0,
+      "first_date": "20100101",
+      "last_date": "20260925",
+      "selected": [
+        [
+          "600018.SH",
+          847,
+          "20100101",
+          "20260925"
+        ]
+      ],
+      "seconds": 0.236
+    },
+    "stk_period_bar_month": {
+      "files": 201,
+      "rows": 707573,
+      "t_rows": 0,
+      "first_date": "20100131",
+      "last_date": "20260930",
+      "selected": [
+        [
+          "600018.SH",
+          200,
+          "20100131",
+          "20260930"
+        ]
+      ],
+      "seconds": 0.056
+    },
+    "stk_period_bar_adj_month": {
+      "files": 201,
+      "rows": 706762,
+      "t_rows": 0,
+      "first_date": "20100131",
+      "last_date": "20260930",
+      "selected": [
+        [
+          "600018.SH",
+          200,
+          "20100131",
+          "20260930"
+        ]
+      ],
+      "seconds": 0.057
+    },
+    "weekly": {
+      "files": 803,
+      "rows": 139681,
+      "t_rows": 0,
+      "first_date": "20091231",
+      "last_date": "20250905",
+      "selected": [],
+      "seconds": 0.104
+    }
+  }
+}

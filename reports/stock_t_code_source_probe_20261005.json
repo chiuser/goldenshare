@@ -1,0 +1,57 @@
+{
+  "as_of": "2026-10-05",
+  "probes": [
+    {
+      "probe": 0,
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"T600018.SH\", \"symbol\": \"T600018\", \"name\": \"上港集箱(退)\", \"area\": null, \"industry\": null, \"cnspell\": \"sgjx\", \"market\": null, \"list_date\": \"20000719\", \"act_name\": null, \"act_ent_type\": null}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "probe": 1,
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"T600018.SH\", \"symbol\": \"T600018\", \"name\": \"上港集箱(退)\", \"area\": null, \"industry\": null, \"list_date\": \"20000719\"}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "probe": 2,
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"T600018.SH\", \"symbol\": \"T600018\", \"name\": \"上港集箱(退)\", \"list_status\": \"D\", \"list_date\": \"20000719\", \"delist_date\": \"20061020\", \"exchange\": \"SSE\"}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "probe": 3,
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"600018.SH\", \"symbol\": \"600018\", \"name\": \"上港集团\", \"list_status\": \"L\", \"list_date\": \"20061026\", \"delist_date\": null, \"exchange\": \"SSE\"}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ]
+}

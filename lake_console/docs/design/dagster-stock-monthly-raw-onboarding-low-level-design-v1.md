@@ -59,6 +59,10 @@ Bootstrap读取范围按自然年度闭开区间和明确代码批次，读取�
 
 月度完整性依据“该股票该自然月有实际日线”形成期望键，身份仅用于审计；整月停牌/已退市无日线不制造缺口。原始证券代码不改写。源end_date至少覆盖该股票当月最后实际日线，且是合法日期；历史end_date晚于该月合法。Bootstrap原样保留Prod历史NULL，新增自动交付缺截至证明则停止。两种交付证据不同，不把历史复制门禁误当新增源完成门禁。
 
+身份参考的校验分成两层：整张快照仍要求source_ts_code/latest_ts_code非空、source_ts_code唯一、数量不超过max_codes，并保留全文件哈希及上游blocking checks。只有当月实际日线及实际返回月线引用的映射，才要求source/latest代码满足现行六位数字+SH/SZ/BJ格式且confidence=confirmed；未引用的合法历史代码不因格式不同阻断本月更新。freeze_month_references在当月日线join中校验，verify_month_completion在源行情join中校验，不能遗漏无日线但源返回的额外对象。失败分别沿用monthly_identity_unresolved和monthly_identity_or_source_cutoff_invalid，不新增原因码或配置。身份表不删除、不去T、不增加归并关系，Raw业务代码不改写，Raw入口代码格式不变；周线不增加T代码补录，未来周/月线Silver规则未决定。
+
+本调整保持最多31个日线文件、320000参考行、10000身份/期望代码的预算；向量化join只增加实际引用映射的格式谓词，不增加源请求、逐股查询或全历史扫描。验收必须覆盖未引用历史T代码仍保留、实际引用的坏格式/未确认/缺失映射拒绝、全表空值/重复/超预算拒绝、额外源对象映射失败及上游阻断/参考文件变化仍拒绝。
+
 Raw保留批准投影的全部历史源值，20200229是管理员明确的唯一已确认排除，必须与“Prod全量”一起解释；不能在报告隐藏这一例外。
 
 ## 5. 配置审计与性能预算（模板 §7A/13）
@@ -296,4 +300,21 @@ CLI新增显式参数仅供运营bootstrap使用：`freeze --inventory --source 
 
 27个事件测试+24个history测试共51项通过；额外现行readiness消费者测试通过；受保护静态113、治理12、Ruff默认及全域致命错误、离线definitions、文档完整性、CodeGraph sync/status通过。旧SQLite索引不允许同runless检查名/月键重复插入，沿“先读真实事件→幂等跳过”处理，失败项只拒绝，不绕过或删事件。没有新Src跨子系统依赖、Prod/Tushare请求、Raw写入、job/sensor执行、安装依赖或推送；月线sensor无持久化运行状态，definition仍STOPPED。
 
-M10.E文件及事件验收完成。本轮事件代码、报告与文档尚未提交；M10.F源实际更新及19:30调度启用仍需下一阶段，M9正式周线更新验收继续单列。详细证据见[执行与验收报告](../../../reports/stock_month_m10e_events_execution_20261005.md)、[最终集合审计](../../../reports/stock_month_m10e_events_final_audit_20261005.json)与[现行消费者复核](../../../reports/stock_month_m10e_events_consumer_audit_20261005.json)。
+M10.E文件及事件验收完成。本轮事件代码、报告与文档已提交ee325688；M10.F源实际更新及19:30调度启用仍需下一阶段，M9正式周线更新验收继续单列。详细证据见[执行与验收报告](../../../reports/stock_month_m10e_events_execution_20261005.md)、[最终集合审计](../../../reports/stock_month_m10e_events_final_audit_20261005.json)与[现行消费者复核](../../../reports/stock_month_m10e_events_consumer_audit_20261005.json)。
+
+
+## 历史记录：M10.F审计暂停（2026-10-05）
+
+M10.E事件入口/验收已提交ee325688、未推送。本轮M10.F只读核验发现：月线freeze_month_references对全量身份表加六位数字代码正则，误拒历史生命周期自映射T600018.SH（2000-07-19至2006-10-20）。正式身份表6163行、无重复、上游checks通过；9月21日线文件/116588行/5571代码中该历史代码0行，本月实际映射缺失/未confirmed/格式错误0。故此是月线消费者与身份既有契约的冲突，不是本月日线或源配额问题；全局校验会阻断新的更新意图。
+
+管理员明确选择“先保留现状，只完成审计”。本轮没有修订规范或修改代码/数据、运行两源更新job、写事件/cursor或启用sensor。只读MCP单股三类字段请求各API3次通过，不替代全市场更新验收；两源历史9月仍ready，正式UI月线sensor STOPPED。M10.F未完成，建议的按本月实际引用身份校验尚未批准；M9独立待办不变。根因、影响面和后续建议详见[M10.F审计报告](../../../reports/stock_month_m10f_audit_20261005.md)。本轮审计文档/证据尚未提交。
+
+## M10.F身份误阻断修复（2026-10-05）
+
+管理员在核对Prod/DG基础信息及周期行情后明确批准“按照你的建议做，主要把之前阻断项解决掉”。本次仅修订§4身份校验范围，不专项处理T前缀行情、不补周线、不删除或归并历史身份、不改变Raw代码合同；退市历史保留口径只限Raw周/月线，未来Silver规则未决定。此前“保留现状、只审计”的决定保留为历史记录，本段为最新批准口径。
+
+freeze_month_references的全表检查保留非空/唯一/预算/整文件hash及上游blocking checks；格式/confirmed要求转到实际日线join。verify_month_completion同时检查实际源返回对象的映射格式，防止无日线的额外源对象绕过门禁。没有新增配置、原因码或源请求，没有改weekly/Prod/Definitions或依赖矩阵。CodeGraph impact追到月线point共用入口与定义测试。
+
+月线更新66项、定义/sensor22项、受保护静态113项通过，修改文件完整Ruff及全src/tests致命基线通过。正式2026-09只读复核21日线文件/116588行/5571期望代码、6163身份键，历史T600018.SH仍映射自身且不在期望集合；原monthly_identity_invalid_or_over_budget不再出现。复用2026-10-04已捕获的两源全市场响应各5571行，与真实9月参考完成校验均ready，耗时0.522秒。完整身份/参考文件hash及上游绑定复核一致，两份Raw目标字节hash不变。
+
+此为修复及真实只读门禁验收，不是新的正式job或实时源更新验收。管理员随后确认已加载修复代码并要求提交修改；本轮助手不重复reload，也不触发job、写正式event/cursor或启用19:30调度。M10.F真实更新及启用、M9原正式验收继续单列。本段及相关代码/测试/证据随修复提交，未推送。详见[修复对账报告](../../../reports/stock_month_m10f_identity_fix_20261005.md)及[真实只读证据](../../../reports/stock_month_m10f_identity_fix_preflight_20261005.json)。

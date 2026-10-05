@@ -63,7 +63,7 @@ def freeze_month_references(connection, root, month, *, upstream_bindings):
         [str(identity), StockMonthlyPolicy().max_codes + 1],
     )
     count, invalid = connection.execute(
-        "SELECT count(*),count(*) FILTER(WHERE source_ts_code IS NULL OR latest_ts_code IS NULL OR NOT regexp_full_match(source_ts_code,'[0-9]{6}\\.(SH|SZ|BJ)') OR NOT regexp_full_match(latest_ts_code,'[0-9]{6}\\.(SH|SZ|BJ)')) FROM monthly_identity"
+        "SELECT count(*),count(*) FILTER(WHERE source_ts_code IS NULL OR latest_ts_code IS NULL OR trim(source_ts_code)='' OR trim(latest_ts_code)='') FROM monthly_identity"
     ).fetchone()
     if (
         count > StockMonthlyPolicy().max_codes
@@ -108,7 +108,7 @@ def freeze_month_references(connection, root, month, *, upstream_bindings):
     ).fetchone()[0] != len(paths):
         raise ValueError("monthly_daily_coverage_invalid")
     if connection.execute(
-        "SELECT count(*) FROM monthly_daily d LEFT JOIN monthly_identity i ON d.ts_code=i.source_ts_code WHERE i.latest_ts_code IS NULL OR i.confidence IS DISTINCT FROM 'confirmed'"
+        "SELECT count(*) FROM monthly_daily d LEFT JOIN monthly_identity i ON d.ts_code=i.source_ts_code WHERE i.latest_ts_code IS NULL OR i.confidence IS DISTINCT FROM 'confirmed' OR NOT regexp_full_match(i.source_ts_code,'[0-9]{6}\\.(SH|SZ|BJ)') OR NOT regexp_full_match(i.latest_ts_code,'[0-9]{6}\\.(SH|SZ|BJ)')"
     ).fetchone()[0]:
         raise ValueError("monthly_identity_unresolved")
     expected = dict(
@@ -156,7 +156,7 @@ def verify_month_completion(connection, reference):
         ),
     )
     count, invalid = connection.execute(
-        "SELECT count(*),count(*) FILTER(WHERE i.code IS NULL OR trade_date<>? OR freq<>'month' OR end_date IS NULL OR try_strptime(end_date,'%Y%m%d') IS NULL) FROM monthly_capture s LEFT JOIN monthly_canonical i ON s.ts_code=i.raw_code",
+        "SELECT count(*),count(*) FILTER(WHERE i.code IS NULL OR NOT regexp_full_match(i.raw_code,'[0-9]{6}\\.(SH|SZ|BJ)') OR NOT regexp_full_match(i.code,'[0-9]{6}\\.(SH|SZ|BJ)') OR trade_date<>? OR freq<>'month' OR end_date IS NULL OR try_strptime(end_date,'%Y%m%d') IS NULL) FROM monthly_capture s LEFT JOIN monthly_canonical i ON s.ts_code=i.raw_code",
         [request_date_for_month(reference["month"])],
     ).fetchone()
     if not count or count > StockMonthlyPolicy().max_update_rows:

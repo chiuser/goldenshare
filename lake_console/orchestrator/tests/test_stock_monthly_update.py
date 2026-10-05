@@ -26,7 +26,10 @@ from orchestrator.defs.run_contracts.stock_monthly import (
     monthly_column_specs,
     request_date_for_month,
 )
-from orchestrator.defs.source_readiness.stock_monthly import freeze_month_references
+from orchestrator.defs.source_readiness.stock_monthly import (
+    assert_month_references_unchanged,
+    freeze_month_references,
+)
 from orchestrator.defs.stock_monthly_point import (
     deliver_month_intent,
     read_month_delivery,
@@ -179,6 +182,7 @@ def test_delivery_exact_fields_dates_nulls_and_replay(tmp_path, source, month):
         ("end_date", None, "monthly_identity_or_source_cutoff_invalid"),
         ("end_date", "20200227", "monthly_source_not_ready"),
         ("ts_code", "999999.SZ", "monthly_identity_or_source_cutoff_invalid"),
+        ("ts_code", "T600018.SH", "monthly_receipt_codes_invalid"),
     ],
 )
 def test_invalid_source_is_not_promoted(tmp_path, field, value, reason):
@@ -347,6 +351,176 @@ def test_month_more_than_twenty_days_uses_sql_aggregation(tmp_path):
             "600000.SH": "20260930",
         }
         assert "000002.SZ" not in reference["expected"]
+
+
+def identity_frame(lake):
+    with duckdb.connect() as con:
+        return con.execute(
+            "SELECT * FROM read_parquet(?,hive_partitioning=false)",
+            [str(silver_stock_identity_map_path(lake))],
+        ).df()
+
+
+@pytest.mark.parametrize("source", SOURCES)
+def test_unreferenced_historical_identity_preserved_without_blocking(tmp_path, source):
+    lake, _, _ = setup_reference(tmp_path)
+    path = silver_stock_identity_map_path(lake)
+    frame = pd.concat(
+        [
+            identity_frame(lake),
+            pd.DataFrame(
+                {
+                    "source_ts_code": ["T600018.SH", "600018.SH"],
+                    "latest_ts_code": ["T600018.SH", "600018.SH"],
+                    "confidence": ["confirmed", "confirmed"],
+                }
+            ),
+        ],
+        ignore_index=True,
+    )
+    parquet(path, frame)
+    original = path.read_bytes()
+    with duckdb.connect() as con:
+        reference = freeze_month_references(
+            con, lake, "2020-02", upstream_bindings=lambda days: {"ids": list(days)}
+        )
+    assert reference["canonical"]["T600018.SH"] == "T600018.SH"
+    assert reference["canonical"]["600018.SH"] == "600018.SH"
+    assert reference["expected"] == {
+        "000001.SZ": "20200228",
+        "600000.SH": "20200228",
+    }
+    result = deliver(tmp_path, source)
+    assert result["rows"] == 2 and path.read_bytes() == original
+    with duckdb.connect() as con:
+        assert con.execute(
+            "SELECT ts_code FROM read_parquet(?,hive_partitioning=false) ORDER BY 1",
+            [result["path"]],
+        ).fetchall() == [("000001.SZ",), ("600000.SH",)]
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("source_ts_code", None),
+        ("latest_ts_code", None),
+        ("source_ts_code", " "),
+        ("latest_ts_code", " "),
+        ("source_ts_code", "000001.SZ"),
+    ],
+)
+def test_unreferenced_identity_structural_errors_still_block(tmp_path, field, value):
+    lake, _, _ = setup_reference(tmp_path)
+    frame = identity_frame(lake)
+    frame.loc[2, field] = value
+    parquet(silver_stock_identity_map_path(lake), frame)
+    with pytest.raises(ValueError, match="monthly_identity_invalid_or_over_budget"):
+        deliver(
+            tmp_path,
+            SOURCES[0],
+            fetch=lambda *args: pytest.fail("source requested after identity failure"),
+        )
+    assert not raw_stock_monthly_path(lake, SOURCES[0], "2020-02").exists()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("latest_ts_code", "T600018.SH"),
+        ("latest_ts_code", "bad-code"),
+        ("confidence", "inferred"),
+        ("confidence", None),
+        ("source_ts_code", "999999.SZ"),
+    ],
+)
+def test_daily_referenced_identity_errors_block_before_source(tmp_path, field, value):
+    lake, _, _ = setup_reference(tmp_path)
+    frame = identity_frame(lake)
+    frame.loc[0, field] = value
+    parquet(silver_stock_identity_map_path(lake), frame)
+    with pytest.raises(ValueError, match="monthly_identity_unresolved"):
+        deliver(
+            tmp_path,
+            SOURCES[0],
+            fetch=lambda *args: pytest.fail("source requested after identity failure"),
+        )
+
+
+def test_daily_referenced_historical_code_still_rejected(tmp_path):
+    lake, _, days = setup_reference(tmp_path)
+    frame = identity_frame(lake)
+    frame.loc[0, ["source_ts_code", "latest_ts_code"]] = "T600018.SH"
+    parquet(silver_stock_identity_map_path(lake), frame)
+    parquet(
+        raw_stock_daily_path(lake, days[0].isoformat()),
+        pd.DataFrame({"ts_code": ["T600018.SH"], "trade_date": ["20200228"]}),
+    )
+    with pytest.raises(ValueError, match="monthly_identity_unresolved"):
+        deliver(
+            tmp_path,
+            SOURCES[0],
+            fetch=lambda *args: pytest.fail("source requested for invalid daily code"),
+        )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("latest_ts_code", "T600018.SH"), ("confidence", "inferred")],
+)
+def test_extra_source_identity_is_validated_even_without_daily(tmp_path, field, value):
+    lake, _, _ = setup_reference(tmp_path)
+    frame = identity_frame(lake)
+    frame.loc[2, field] = value  # 000002.SZ has no daily rows, but is returned below.
+    parquet(silver_stock_identity_map_path(lake), frame)
+    with pytest.raises(ValueError, match="monthly_identity_or_source_cutoff_invalid"):
+        deliver(
+            tmp_path,
+            SOURCES[0],
+            fetch=lambda *args: frame_for(
+                SOURCES[0], codes=("000001.SZ", "000002.SZ", "600000.SH")
+            ),
+        )
+    assert not raw_stock_monthly_path(lake, SOURCES[0], "2020-02").exists()
+
+
+def test_identity_budget_applies_to_full_snapshot(tmp_path, monkeypatch):
+    from orchestrator.defs.source_readiness import stock_monthly as module
+
+    lake, _, _ = setup_reference(tmp_path)
+    monkeypatch.setattr(
+        module,
+        "StockMonthlyPolicy",
+        lambda: replace(StockMonthlyPolicy(), max_codes=2, prod_code_batch=2),
+    )
+    with duckdb.connect() as con, pytest.raises(
+        ValueError, match="monthly_identity_invalid_or_over_budget"
+    ):
+        freeze_month_references(
+            con, lake, "2020-02", upstream_bindings=lambda days: {"ids": list(days)}
+        )
+
+
+def test_unreferenced_identity_changes_invalidate_full_snapshot_hash(tmp_path):
+    lake, _, _ = setup_reference(tmp_path)
+    with duckdb.connect() as con:
+        reference = freeze_month_references(
+            con, lake, "2020-02", upstream_bindings=lambda days: {"ids": list(days)}
+        )
+    frame = identity_frame(lake)
+    frame.loc[2, "confidence"] = "inferred"
+    parquet(silver_stock_identity_map_path(lake), frame)
+    with pytest.raises(ValueError, match="monthly_reference_changed"):
+        assert_month_references_unchanged(reference["references"])
+
+
+def test_upstream_blocking_gate_remains_required(tmp_path):
+    lake, _, _ = setup_reference(tmp_path)
+    with duckdb.connect() as con, pytest.raises(
+        ValueError, match="monthly_upstream_not_ready"
+    ):
+        freeze_month_references(
+            con, lake, "2020-02", upstream_bindings=lambda days: None
+        )
 
 
 @pytest.mark.parametrize(

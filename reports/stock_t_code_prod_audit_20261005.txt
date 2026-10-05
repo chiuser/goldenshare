@@ -1,0 +1,37 @@
+BEGIN
+SET
+ section |  ts_code   |     name     | list_status | list_date  | delist_date
+---------+------------+--------------+-------------+------------+-------------
+ basic_t | T00018.SH  | 上港集箱(退) | D           | 2000-07-19 | 2006-10-20
+ basic_t | T600018.SH | 上港集箱(退) | D           | 2000-07-19 | 2006-10-20
+ basic_t | TS0018.SH  | 上港集箱(退) | D           | 2000-07-19 | 2006-10-20
+(3 rows)
+
+  section   |  ts_code   |     name     | list_status | list_date  | delist_date | stripped_code | stripped_name | stripped_status | stripped_list_date | stripped_delist_date
+------------+------------+--------------+-------------+------------+-------------+---------------+---------------+-----------------+--------------------+----------------------
+ basic_pair | T00018.SH  | 上港集箱(退) | D           | 2000-07-19 | 2006-10-20  |               |               |                 |                    |
+ basic_pair | T600018.SH | 上港集箱(退) | D           | 2000-07-19 | 2006-10-20  | 600018.SH     | 上港集团      | L               | 2006-10-26         |
+ basic_pair | TS0018.SH  | 上港集箱(退) | D           | 2000-07-19 | 2006-10-20  |               |               |                 |                    |
+(3 rows)
+
+ section | ts_code | freq | rows | min | max
+---------+---------+------+------+-----+-----
+(0 rows)
+
+ section | ts_code | freq | rows | min | max
+---------+---------+------+------+-----+-----
+(0 rows)
+
+   section   |  ts_code  | freq  | rows |    min     |    max
+-------------+-----------+-------+------+------------+------------
+ example_bar | 600018.SH | month |  201 | 2010-01-31 | 2026-09-30
+ example_bar | 600018.SH | week  |  847 | 2010-01-01 | 2026-09-25
+(2 rows)
+
+   section   |  ts_code  | freq  | rows |    min     |    max
+-------------+-----------+-------+------+------------+------------
+ example_adj | 600018.SH | month |  201 | 2010-01-31 | 2026-09-30
+ example_adj | 600018.SH | week  |  847 | 2010-01-01 | 2026-09-25
+(2 rows)
+
+ROLLBACK
