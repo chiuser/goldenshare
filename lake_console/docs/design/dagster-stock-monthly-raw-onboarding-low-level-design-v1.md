@@ -1,6 +1,6 @@
 # 股票月线 Raw 接入：代码级 LLD
 
-日期：2026-10-04，Asia/Shanghai。状态：M10.C已提交ac063248，M10.D已提交733fbd61；M10.E文件入口已提交e1f56646，小样本结果已提交a49609db，两源正式全量文件及独立对账通过；事件补录仍未执行。依据股票周线原方案、管理员本轮允许周线正式验收延期并推进后续工作的指示，以及数据集接入模板 §3–18，尤其 §7A。设计内容与实测结果分别标注，不能据此宣布月线已接入。
+日期：2026-10-04，Asia/Shanghai。状态：M10.C已提交ac063248，M10.D已提交733fbd61；M10.E文件入口已提交e1f56646，小样本结果已提交a49609db，两源正式全量文件与事件补录均通过，M10.E完成，M10.F正式更新验收及启用仍待推进。依据股票周线原方案、管理员本轮允许周线正式验收延期并推进后续工作的指示，以及数据集接入模板 §3–18，尤其 §7A。设计内容与实测结果分别标注，不能据此宣布月线已接入。
 
 ## 1. 阶段边界与已确认口径
 
@@ -269,4 +269,31 @@ CLI新增显式参数仅供运营bootstrap使用：`freeze --inventory --source 
 
 后置正式instance只读核验：月分区0、两源月线物化0；未补录事件、触发job或启用调度。文件阶段通过不替代事件就绪或日线期望缺口审计；下一步按原设计单独冻结事件清单、sample/batch补录及最终审计。M10.E仍未整体完成，M9/M10.F继续单列。
 
-[全量报告](../../../reports/stock_month_m10e_formal_full_20261005.md)、[详细证据](../../../reports/stock_month_m10e_formal_full_20261005.json)及[完整命令](../../../reports/stock_month_m10e_full_commands_20261005.txt)已落档。全量结果和本节尚未提交，小样本证据已提交a49609db。
+[全量报告](../../../reports/stock_month_m10e_formal_full_20261005.md)、[详细证据](../../../reports/stock_month_m10e_formal_full_20261005.json)及[完整命令](../../../reports/stock_month_m10e_full_commands_20261005.txt)已落档。全量结果及本节已提交3892ad31，小样本证据已提交a49609db；未推送。
+
+## 19. M10.E事件补录实施约束（2026-10-05）
+
+全量文件结果已提交3892ad31。管理员明确要求“提交吧，然后进行事件补录”，授权本阶段先dry-run、六个资产分区样本再分批补齐，不含M10.F启用。目标为两套Raw、2010-01至2026-09共402资产分区/201动态月键，最多402物化+1206检查=1608事件。无Prod/Tushare请求、Raw修改、job或sensor执行。事件误写不得删除回滚；停止后保留已有事件，经核查后追加更正。
+
+新增stock_monthly_events（年度集合证明→冻结→有界事件读取→幂等写入）与stock_monthly_events_cli；复用audit_monthly_history、月线delivery控制证明、标准metadata builder及既有无自动建表instance opener，不更改周线合同。CodeGraph explore/impact覆盖history、delivery、weekly event writer及checks；当前代码核对月线readiness、check名称/分区和metadata消费者。CLI只供运营，未接入Definitions；src依赖矩阵不变。
+
+配置审计：MonthlyEventPolicy为版本化不可变代码策略，不来自env/DB/页面，不增加外部开关。event_write_cap=2048（拒绝超过512资产分区）；event_record_read_cap=8192（包含check索引和正文）；event_partition_batch=12（年度组）；event_write_batch=100（实际事件数，至多25完整资产分区）；plan_max_bytes=8MiB。消费者仅事件helper/CLI/tests，策略进入plan_hash，代码reload后拒绝旧策略。沿用512MiB/2线程年度DuckDB审计。首次和最终各34年度集合扫描/742SQL；event主审计每source/year最多1物化页、1检查索引、1正文页，干净历史预计102调用；历史过多时按8192返回预算失败关闭。写入只做精确目标ID读回和批末集合核验，不逐check扫历史。
+
+冻结计划绑定两份严格history计划、根/instance身份、402文件字节/逻辑hash、年度audit hash、既有latest mat/check ID及缺项。发现已有异值物化或非匹配checks时拒绝覆盖，需另行审阅。APPLY只允许冻结scope，动态注册按最多100键/批；每个资产分区最多4事件，检查显式month、blocking/error/pass及target storage_id/run_id/timestamp。原ID改变只接受同plan且同证明的自有事件；checkpoint仅进度，不替代实际event事实。进程退出或checkpoint失败后按eventlog恢复，取消前后检查，不领取新unit。文件/年度控制证明在每批写前复核，物化后精确读回，批末查全部绑定。
+
+测试门禁：隔离instance下两源真实临时Parquet→年度审计→事件→绑定读回，覆盖取消/退出/重放、plan/文件/receipt篡改、错误或外部事件、目标物化改变、批次/读取上限、默认只读和无apply拒绝。三check校验分别映射年度schema/键日期分区/canonical+封存交付证明。正式先六个资产分区（2010-01/2020-02/2026-05两源，24事件）再剩余396（1584事件），最终年度物理集合+latest物化/check集合及最早/2020-02/2026-05/最后月份样本readiness核验。历史NULL保留、20200229排除、sensor仍停止；未验证的M9/M10.F继续单列。
+
+
+## 20. M10.E正式事件补录通过（2026-10-05）
+
+管理员本轮明确要求提交后进行事件补录，先提交全量文件证据3892ad31（未推送），再完成本阶段入口、隔离验证及正式dry-run→样本→分批执行→聚合读回。2010-01至2026-09两源402个资产分区/201动态月键，先注册三个样本月、写入6物化+18检查，六个样本实际文件及target绑定均通过；随后注册剩余198键，17批补录1584事件，跳过24个已有样本事件。共402物化、1206blocking/error/passed检查，全部对应准确storage_id/run_id/timestamp及相同month。没有重复事件、外部漂移、已有失败覆盖或预算拒绝。
+
+首次dry-run与最终审计各34年度集合/742SQL，耗时4.838/4.255秒；402文件字节/逻辑hash与冻结证据完全一致，1414335行及7364条排除守恒。独立事件集合查询实测34物化页+34检查索引+34正文页=102调用，返回2814记录（402物化+1206索引+1206正文），不是2814个新增事件。两源各201物化、每种check各201，缺项/阻塞/历史latest failed均0，动态分区集合差0。最终8个文件和绑定样本ready，现行monthly_period_status消费者同8样本全部ready。
+
+全量注册、17批事件及最终audit的21条CLI计时合计100.106秒（不含前置样本、间隔及独立消费者复核），每批实际事件最多100；未测正式RSS/spill。SIGINT/SIGTERM逐unit取消，单次事件提交后checkpoint立即持久化；实际隔离子进程在第5事件后os._exit，再启动补余11并再次重放0写入通过。正式执行未发生取消，不将隔离恢复验证冒充正式取消演练。
+
+代码/测试对账：audit_monthly_event_files复用history年度集合全语义；verify_monthly_event_file校验正式字节、logical hash、年度audit与receipt/promoted控制；冻结计划含来源严格history计划SHA、instance身份及策略；CLI默认只读，写入必须显式apply+外部plan文件SHA，输出限制reports/private tmp。read_monthly_event_state按source/year集合读取；apply_monthly_events逐分区最多4事件，精确目标读回、批末latest绑定复核，自有同plan事件才允许续跑，遇外部/失败事件拒绝。独占staging event锁防止并发同入口写入；不迁移周线API。新增配置仅MonthlyEventPolicy版本化代码预算，审计在§19，不增env/DB配置。
+
+27个事件测试+24个history测试共51项通过；额外现行readiness消费者测试通过；受保护静态113、治理12、Ruff默认及全域致命错误、离线definitions、文档完整性、CodeGraph sync/status通过。旧SQLite索引不允许同runless检查名/月键重复插入，沿“先读真实事件→幂等跳过”处理，失败项只拒绝，不绕过或删事件。没有新Src跨子系统依赖、Prod/Tushare请求、Raw写入、job/sensor执行、安装依赖或推送；月线sensor无持久化运行状态，definition仍STOPPED。
+
+M10.E文件及事件验收完成。本轮事件代码、报告与文档尚未提交；M10.F源实际更新及19:30调度启用仍需下一阶段，M9正式周线更新验收继续单列。详细证据见[执行与验收报告](../../../reports/stock_month_m10e_events_execution_20261005.md)、[最终集合审计](../../../reports/stock_month_m10e_events_final_audit_20261005.json)与[现行消费者复核](../../../reports/stock_month_m10e_events_consumer_audit_20261005.json)。

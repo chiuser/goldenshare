@@ -737,6 +737,8 @@ CONSUMER_SOURCE_FILES = (
     "defs/bootstrap/stock_monthly_history.py",
     "defs/bootstrap/stock_monthly_history_plan.py",
     "defs/bootstrap/stock_monthly_history_cli.py",
+    "defs/bootstrap/stock_monthly_events.py",
+    "defs/bootstrap/stock_monthly_events_cli.py",
     "defs/io/stock_monthly_raw.py",
     "defs/prod_db/stock_monthly.py",
     "defs/bootstrap/anns_d_event_files.py",
