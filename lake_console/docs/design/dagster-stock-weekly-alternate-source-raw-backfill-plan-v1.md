@@ -287,3 +287,7 @@ M9未宣布完成：共享工作区的anns_d新增文件在验收中继续变化
 ### 2026-10-05：M10.C提交及M10.D开发验收
 
 M10.C已提交ac063248，未推送。M10.D按月线LLD完成两套Raw资产/6个blocking checks/2 jobs/默认STOPPED月线sensor及手动与每日19:30完整月更新开发；历史NULL bootstrap证明与新增源个股截至证明分开校验，不新增Silver/Gold，不自动备用或覆盖异值。代码与临时instance验收通过，正式bootstrap/事件及启用未执行；M9待源就绪的正式周线更新验收仍单列。当前月线范围及配置/性能/代码对账以[月线LLD §13–14](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)和[本轮验收报告](../../../reports/stock_month_m10d_assessment_20261005.md)为准，下一阶段M10.E，未宣称正式接入完成。
+
+### 2026-10-05：M10.D提交及M10.E文件执行准备
+
+M10.D已提交733fbd61、未推送。M10.E沿月线LLD补齐freeze/dry-run/apply/audit运营入口、更新Prod只读库存和正式路径/instance预检，隔离续跑/年度集合审计及治理门禁通过。全量402文件目标均不存在；小样本按三个完整月两源冻结6文件/21345准入行，具体命令、SHA和独立执行审批见[月线M10.E报告](../../../reports/stock_month_m10e_assessment_20261005.md)与[月线LLD§15–16](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。M10.E未完成，正式sample/full/事件待分阶段执行；未写正式Lake/分区/事件或启用调度，M9原验收与M10.F启用继续保留。

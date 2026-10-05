@@ -975,3 +975,7 @@ CodeGraph explore/query影响面覆盖原point调用者、资产/job/check、64�
 ### 2026-10-05：M10.C提交及M10.D开发验收
 
 M10.C已提交ac063248，未推送。M10.D按月线LLD完成两套Raw资产/6个blocking checks/2 jobs/默认STOPPED月线sensor及手动与每日19:30完整月更新开发；历史NULL bootstrap证明与新增源个股截至证明分开校验，不新增Silver/Gold，不自动备用或覆盖异值。代码与临时instance验收通过，正式bootstrap/事件及启用未执行；M9待源就绪的正式周线更新验收仍单列。当前月线范围及配置/性能/代码对账以[月线LLD §13–14](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)和[本轮验收报告](../../../reports/stock_month_m10d_assessment_20261005.md)为准，下一阶段M10.E，未宣称正式接入完成。
+
+### 2026-10-05：M10.D提交及M10.E文件执行准备
+
+M10.D已提交733fbd61、未推送。M10.E新增月线薄CLI/计划重建/年度续跑与集合审计，无周线合同、src依赖矩阵或正式路径变动。24个新增入口测试及186个相邻月线回归、静态/治理/隔离defs通过；正式只读预检和小样本6文件冻结范围详见[月线LLD§15–16](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)及[报告/执行清单](../../../reports/stock_month_m10e_assessment_20261005.md)。正式写入尚未执行，M10.E未完成；后续文件与事件分别审批，M9/M10.F不提前关闭。

@@ -1,0 +1,2 @@
+{"table" : "stk_period_bar", "min_trade_date" : "2010-01-31", "max_trade_date" : "2026-09-30", "outside_frozen_scope_rows" : 0, "audited_at" : "2026-10-05T08:15:25.500406+08:00"}
+{"table" : "stk_period_bar_adj", "min_trade_date" : "2010-01-31", "max_trade_date" : "2026-09-30", "outside_frozen_scope_rows" : 0, "audited_at" : "2026-10-05T08:15:25.753153+08:00"}

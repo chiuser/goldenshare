@@ -1,6 +1,6 @@
 # 股票月线 Raw 接入：代码级 LLD
 
-日期：2026-10-04，Asia/Shanghai。状态：M10.C已提交ac063248；M10.D两套月线definitions及手动/自动更新开发和隔离验收完成，未执行正式bootstrap或启用调度。依据股票周线原方案、管理员本轮允许周线正式验收延期并推进后续工作的指示，以及数据集接入模板 §3–18，尤其 §7A。设计内容与实测结果分别标注，不能据此宣布月线已接入。
+日期：2026-10-04，Asia/Shanghai。状态：M10.C已提交ac063248，M10.D已提交733fbd61；M10.E文件入口及只读预检/隔离验收完成，正式小样本、全量文件与事件补录待分阶段执行。依据股票周线原方案、管理员本轮允许周线正式验收延期并推进后续工作的指示，以及数据集接入模板 §3–18，尤其 §7A。设计内容与实测结果分别标注，不能据此宣布月线已接入。
 
 ## 1. 阶段边界与已确认口径
 
@@ -213,4 +213,36 @@ stock_monthly_point实现持久化请求账、独立页CSV/Parquet/receipt、完
 
 复用10月4日已捕获的9月源响应，各5571行；私有临时日线/身份/事件替身下，源页捕获→候选→提升0.391/0.410秒，双向全字段差集0、重放不重取，文件177072/311668字节。31文件/310000参考键/10000期望代码的SQL生成压力样本，参考聚合0.064秒，控制JSON517866字节；累计RSS峰值357.813MiB，采样spill峰值0，未强制spill。日线/身份/事件是明确替身，不能将上述性能样本当真实日线覆盖或新的源端就绪验收。缓存源各10只股票end_date早于9月30日，进一步说明须按个股最后实际日线判断，不能统一要求月末截至。
 
-没有新的Prod/Tushare请求、正式Lake写入、正式instance事件或分区注册，也没有启用sensor、安装依赖或推送。M9正式周线源更新验收仍单列待恢复。M10.D尚未提交；下一阶段M10.E准备正式命令入口、刷新库存并分阶段bootstrap/事件，写入前仍需要独立执行批准；M10.F才做源实际更新与调度启用。详见[验收报告](../../../reports/stock_month_m10d_assessment_20261005.md)与其JSON证据。
+没有新的Prod/Tushare请求、正式Lake写入、正式instance事件或分区注册，也没有启用sensor、安装依赖或推送。M9正式周线源更新验收仍单列待恢复。M10.D验收时尚未提交，现已提交733fbd61；M10.E正式命令入口、刷新库存及执行准备见§15–16，写入前仍需要独立执行批准；M10.F才做源实际更新与调度启用。详见[验收报告](../../../reports/stock_month_m10d_assessment_20261005.md)与其JSON证据。
+
+## 15. M10.E 文件执行入口与开工约束（2026-10-05）
+
+M10.D已提交733fbd61。M10.E沿原§7A直写补录路线推进，文件与事件仍分阶段执行。本切片补齐`bootstrap/stock_monthly_history_plan.py`、`stock_monthly_history.py`、`stock_monthly_history_cli.py`，复用C捕获/提升及D交付证明，不改变源字段、日期、asset/check/job/sensor、周线或Prod合同。CodeGraph explore/impact确认planner仅被月线capture/tests消费；事件instance只读预检沿现行禁自动建表入口，不改变其实现。
+
+硬口径：库存证据必须与显式scope相符并重建纯计划；dry-run不能创建正式目录、staging目录、instance、事件或分区；apply必须显式指定已冻结preflight的文件SHA，范围/策略/两根/目标baseline一致；year为编排边界、unit为采集持久化边界、month为原子提交边界。年度audit引用在提升前持久化，退出后沿其checkpoint续跑；拒绝目标异值、篡改库存、控制文件、路径、预算或目标漂移。SIGINT/SIGTERM变为取消，不再领取unit；已完成文件和receipt保留。正式最终验收每源/年合并读取，SQL核验schema、业务键、月份摆放和全字段canonical hash，交付控制证据绑定同C年度守恒；不做402次年度业务深扫描。
+
+| 范围/预算 | 冻结与验收方式 |
+|---|---|
+| 最新Prod两源711255/710444行；各排除3682；正式1414335行 | 2026-10-05只读库存与bounds JSONL；日期/code计数与C候选逐年相符 |
+| 17年×2源、450units、402文件 | 串行连接；每unit≤3900实际上界、10000硬上限/64MiB；每年≤12候选/120000行 |
+| 全量最多450连接、900业务SQL（COUNT+COPY） | timeout30s/unit45s，单unit或一年完成即持久化，不全历史事务；理论源unit预算≤20250s，不作实际耗时承诺 |
+| DuckDB 512MiB/2线程/2GiB staging spill | 保留C预算；年度≤120000行，final audit最多34次年度集合校验；按样本记录SQL与时间 |
+| 同卷、staging预留≥2GiB+129MiB | 已只读确认同卷且剩余2.93TB；正式apply再次检查，磁盘不足立即拒绝 |
+| 小样本2010-01、2020-02、2026-05各两源 | 每月需单独精确date/code库存；共6文件，无对象抽样导致不完整月，不向正式分区写半市场数据 |
+| 事件预计402 materializations+1206 checks、201分区键 | 本文件切片不补录；正式文件聚合审计通过后，另冻结既有事件/缺项及instance身份，sample→batch100→聚合复核 |
+
+CLI新增显式参数仅供运营bootstrap使用：`freeze --inventory --source --first-month --last-month --output`；`dry-run --plan --lake-root --staging-root --output`（默认动作）；`apply --plan --preflight --preflight-sha256 --output`；`audit --plan --lake-root --staging-root --output`。参数是执行意图，不新增env/Settings/数据库配置。根默认唯一正式路径；无任意SQL、备用源、覆盖、事件或启用参数。冻结格式是当前纯合同规范版本，旧B规划JSON不作为执行入口；从原始库存重建，禁止兼容解析历史格式。
+
+文件小样本、全量文件、事件小样本和全量事件分别按正式执行门禁列出具体命令与精确范围后批准；只读与隔离验证无需借用正式写权限。当前只读预检发现402目标均不存在、月分区0、两资产物化记录0。此事实不等于正式已接入，M9待验收/M10.F启用继续单列。
+
+## 16. M10.E 执行准备结果与代码/验收对账（2026-10-05）
+
+文件入口已实现freeze/dry-run/apply/audit。`history_plan`从只读原始JSONL重新生成计划，拒绝重复/孤立日期、非只读快照、超范围和手改units/计数；CLI默认dry-run，apply必须匹配外部preflight SHA且禁止输出覆盖输入证据。`history`串行year/unit编排，年度audit在提升前持久化并供进程退出续跑；目标baseline变化仅允许本计划已封存candidate/checkpoint证明的提交，不把删除既有目标当作未创建。final audit每年合并schema/主键/月份摆放/full-field canonical hash，校验排除台账字节hash和已提交证明，采用现行DuckDB统一连接，禁隐式扩展安装。
+
+24个新增入口测试覆盖真实临时Parquet完整执行、同命令续跑、receipt后取消、提交后模拟退出、语义不完整库存、plan篡改、preflight scope/hash、未审批目标出现/基线消失、损坏正式文件/月份交换/排除台账/receipt、默认只读及无SHA拒绝APPLY。相邻既有月线186项回归通过，合计210个不同测试；113静态、12治理检查、Ruff默认/致命、隔离definitions和docs完整性通过。源码白名单新增3个精确bootstrap路径，不放宽断言；无src依赖矩阵或周线合同变化。
+
+复用M10.B保存的真实Prod业务样本在私有tmp执行两源各12个文件；准入3561/3565，排除293/295，双向全字段差集0，年度集合audit各22 SQL，含首次bootstrap和audit约0.525/0.444秒。续跑未再次导出；RSS累计进程峰值约255.5/284.6MiB。运输事务为缓存fixture模拟，不冒充本轮真实Prod capture；非全市场/全量/强制spill证明。
+
+最新只读Prod总量未变化。sample冻结2010-01/2020-02/2026-05的完整两源市场：6文件，76units，28709源行，排除7364，准入21345。预检目标均不存在，正式dynamic partitions与两资产物化均0；同卷、空间预算通过。执行清单列明cwd、DAGSTER_HOME、两根、6条完整命令与preflight SHA、读写影响、取消/续跑和拒绝方式。正式sample尚未批准/执行，后续full预检必须在sample后刷新，不能沿“目标不存在”旧baseline进入全量；事件入口将在正式文件审计通过后冻结，M10.E当前未完成。
+
+详见[本切片报告及小样本执行清单](../../../reports/stock_month_m10e_assessment_20261005.md)、[冻结范围](../../../reports/stock_month_m10e_frozen_scopes_20261005.json)和[验收JSON](../../../reports/stock_month_m10e_validation_20261005.json)。代码尚未提交，未正式写湖、注册分区、补录事件或启用调度；M9/M10.F待办不变。

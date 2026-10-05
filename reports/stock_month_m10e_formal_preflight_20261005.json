@@ -1,0 +1,37 @@
+{
+  "readonly": true,
+  "lake_root": "/Volumes/datasource/data_lake",
+  "staging_root": "/Volumes/datasource/data_lake_staging",
+  "mounted": true,
+  "same_filesystem": true,
+  "free_bytes": 2934033055744,
+  "sources": [
+    {
+      "source": "primary_unadjusted",
+      "expected_files": 201,
+      "existing_files": [],
+      "materialization_records_returned": 0,
+      "materializations_has_more": false
+    },
+    {
+      "source": "primary_adjusted",
+      "expected_files": 201,
+      "existing_files": [],
+      "materialization_records_returned": 0,
+      "materializations_has_more": false
+    }
+  ],
+  "instance_identity": {
+    "home": "/Users/congming/.goldenshare/dagster_home",
+    "config_sha256": "27860ab1b63b33a07c4425177237d374ed55b9e3fab29491fd6dfae344d02049",
+    "artifact_root": "/Users/congming/.goldenshare/dagster_artifacts",
+    "storage": {
+      "host": "localhost",
+      "port": 5432,
+      "database": "goldenshare_dagster",
+      "username": "congming"
+    }
+  },
+  "registered_month_keys": [],
+  "elapsed_seconds": 0.11
+}
