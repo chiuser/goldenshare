@@ -98,6 +98,16 @@ def raw_trade_calendar_path(root: Path) -> Path:
     return lake_path(root, RAW, "tushare", "trade_calendar", "full", "part-000.parquet")
 
 
+def raw_stock_monthly_path(root: Path, source, month: str) -> Path:
+    from orchestrator.defs.run_contracts.stock_monthly import (
+        monthly_dataset_id,
+        normalize_month_key,
+    )
+    if month != PATH_TEMPLATE_PARTITION_KEY:
+        normalize_month_key(month)
+    return lake_path(root, RAW, "tushare", monthly_dataset_id(source), f"month={month}", "data.parquet")
+
+
 def _raw_stock_weekly_path(root: Path, dataset_id: str, week_key: str) -> Path:
     if week_key != PATH_TEMPLATE_PARTITION_KEY:
         normalize_week_key(week_key)

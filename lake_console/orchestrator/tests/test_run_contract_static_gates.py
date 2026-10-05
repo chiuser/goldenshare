@@ -97,6 +97,7 @@ SENSOR_DEFINITION_CALL_NAMES = {
 # Freeze stable identities so additions, removals, and duplicates are diagnosable by name.
 EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
     {
+        "sensors/raw_stock_monthly_update_job_sensor.py:raw_stock_monthly_update_job_sensor",
         "sensors/daily_basic_sensor.py:raw_tushare_daily_basic_update_job_sensor",
         "sensors/raw_stock_weekly_update_job_sensor.py:raw_stock_weekly_update_job_sensor",
         "sensors/daily_basic_trade_day_sensor.py:daily_basic_trade_day_sensor",

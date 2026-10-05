@@ -243,3 +243,86 @@ class MonthlyBootstrapIOPolicy:
             raise ValueError("invalid_monthly_io_budget")
         if self.prod_statement_timeout_ms > self.prod_unit_seconds * 1000:
             raise ValueError("monthly_statement_exceeds_unit_timeout")
+
+
+STOCK_MONTHLY_PARTITIONS = "cn_a_stock_months"
+
+
+def monthly_dataset_id(source):
+    return (
+        "stk_period_bar_adj_month"
+        if StockMonthlySource(source) is StockMonthlySource.PRIMARY_ADJUSTED
+        else "stk_period_bar_month"
+    )
+
+
+def monthly_asset_key(source):
+    return "raw_tushare_" + monthly_dataset_id(source)
+
+
+def monthly_job_name(source):
+    return "raw_" + monthly_dataset_id(source) + "_update_job"
+
+
+def monthly_check_names(source):
+    return tuple(
+        monthly_asset_key(source) + "_" + kind + "_check"
+        for kind in ("file_contract", "key_partition", "delivery_reconciliation")
+    )
+
+
+def monthly_data_contract(source):
+    return monthly_dataset_id(source) + "@1"
+
+
+def monthly_source_doc(source):
+    doc = (
+        365
+        if StockMonthlySource(source) is StockMonthlySource.PRIMARY_ADJUSTED
+        else 336
+    )
+    return f"https://tushare.pro/document/2?doc_id={doc}"
+
+
+@dataclass(frozen=True, slots=True)
+class MonthlyUpdatePolicy:
+    version: str = "completed-month-v1"
+    timezone: str = "Asia/Shanghai"
+    daily_start_time: str = "19:30"
+    tick_min_seconds: int = 60
+    history_verified_through: str = "2026-09"
+    call_timeout_seconds: int = 20
+    minimum_interval_seconds: int = 1
+    max_daily_files: int = 31
+    max_reference_rows: int = 320000
+    max_reference_sql: int = 80
+    max_materialization_versions_per_date: int = 10
+    max_upstream_check_records: int = 320
+    max_event_records_per_tick: int = 2000
+
+    def __post_init__(self):
+        normalize_month_key(self.history_verified_through)
+        if (
+            self.version != "completed-month-v1"
+            or self.timezone != "Asia/Shanghai"
+            or self.daily_start_time != "19:30"
+        ):
+            raise ValueError("monthly_update_policy_invalid")
+        for name, value in asdict(self).items():
+            if isinstance(value, str):
+                continue
+            if type(value) is not int or value <= 0:
+                raise ValueError("monthly_update_budget_invalid:" + name)
+        if (
+            self.max_daily_files > 31
+            or self.max_reference_rows > 320000
+            or self.call_timeout_seconds > 20
+            or self.max_materialization_versions_per_date > 10
+            or self.max_upstream_check_records > 320
+            or self.max_reference_sql > 80
+            or self.max_event_records_per_tick > 2000
+        ):
+            raise ValueError("monthly_update_budget_exceeded")
+
+
+MONTHLY_UPDATE_POLICY = MonthlyUpdatePolicy()

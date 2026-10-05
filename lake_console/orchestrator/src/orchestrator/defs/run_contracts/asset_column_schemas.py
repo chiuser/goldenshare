@@ -984,3 +984,21 @@ RAW_ANNS_D_SCHEMA = (
     ColumnContract("url", "VARCHAR", "源公告URL；允许NULL和空字符串"),
     ColumnContract("rec_time", "VARCHAR", "源发布时间文本；允许NULL，不转时区"),
 )
+
+
+from orchestrator.defs.run_contracts.stock_monthly import (
+    StockMonthlySource,
+    monthly_column_specs,
+)
+
+
+def _monthly_schema(source):
+    descriptions = {"ts_code": "Tushare原始股票代码，不改写身份", "trade_date": "源月末日期YYYYMMDD；2020年2月仅20200228", "end_date": "源计算截至日期YYYYMMDD，历史允许NULL及晚于所属月", "freq": "源频率，固定month", "open": "未复权月开盘价", "high": "未复权月最高价", "low": "未复权月最低价", "close": "未复权月收盘价", "pre_close": "源上一周期收盘价，复权接口采用除权价", "vol": "月成交量，保留源单位", "amount": "月成交额，保留源单位", "change": "源月涨跌额", "pct_chg": "源月涨跌幅，保留接口计算口径"}
+    for suffix, description in (("qfq", "前复权"), ("hfq", "后复权")):
+        for field, label in (("open", "开盘价"), ("high", "最高价"), ("low", "最低价"), ("close", "收盘价")):
+            descriptions[field+"_"+suffix] = description+"月"+label
+    return tuple(ColumnContract(n, t, descriptions[n]) for n, t in monthly_column_specs(source))
+
+
+RAW_STK_PERIOD_BAR_MONTH_SCHEMA = _monthly_schema(StockMonthlySource.PRIMARY_UNADJUSTED)
+RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA = _monthly_schema(StockMonthlySource.PRIMARY_ADJUSTED)

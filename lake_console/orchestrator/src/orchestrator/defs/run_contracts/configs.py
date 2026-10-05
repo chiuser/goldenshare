@@ -856,3 +856,23 @@ def build_stock_weekly_update_job_run_config(source, intent_date):
             weekly_asset_key(source): {"config": {"automatic_intent_date": intent_date}}
         }
     }
+
+
+class StockMonthlyRawConfig(dg.Config):
+    model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
+    write_mode: Literal["create_or_identical"] = "create_or_identical"
+    automatic_intent_date: str | None = None
+
+
+def build_stock_monthly_update_job_run_config(source, intent_date):
+    from datetime import date
+
+    from orchestrator.defs.run_contracts.stock_monthly import monthly_asset_key
+
+    if date.fromisoformat(intent_date).isoformat() != intent_date:
+        raise ValueError("invalid_monthly_intent_date")
+    return {
+        "ops": {
+            monthly_asset_key(source): {"config": {"automatic_intent_date": intent_date}}
+        }
+    }

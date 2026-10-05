@@ -282,3 +282,8 @@ M9未宣布完成：共享工作区的anns_d新增文件在验收中继续变化
 ### 月线M10.C隔离开发完成（2026-10-05）
 
 已在[月线专项LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#12-m10c-落地与验收2026-10-05)落实Prod只读capture、成功unit续跑、年度候选与20200229排除台账、Decimal/NULL保真、逐月锁/target fingerprint/原子提升/checkpoint。月线111项及相邻周线合计181项、完整静态与治理门禁通过；保存的真实Prod样本24个临时月文件全字段差异0，未写正式Lake或事件。前序修改已提交981fb1cc，M10.C未提交。下一步M10.D集成两套月线资产及手动/每日19:30自动更新；M9源就绪后的正式验收仍保留。
+
+
+### 2026-10-05：M10.C提交及M10.D开发验收
+
+M10.C已提交ac063248，未推送。M10.D按月线LLD完成两套Raw资产/6个blocking checks/2 jobs/默认STOPPED月线sensor及手动与每日19:30完整月更新开发；历史NULL bootstrap证明与新增源个股截至证明分开校验，不新增Silver/Gold，不自动备用或覆盖异值。代码与临时instance验收通过，正式bootstrap/事件及启用未执行；M9待源就绪的正式周线更新验收仍单列。当前月线范围及配置/性能/代码对账以[月线LLD §13–14](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)和[本轮验收报告](../../../reports/stock_month_m10d_assessment_20261005.md)为准，下一阶段M10.E，未宣称正式接入完成。

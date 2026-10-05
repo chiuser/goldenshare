@@ -1,0 +1,155 @@
+{
+  "date": "2026-10-05",
+  "branch": "dev-interface",
+  "m10c_commit": "ac063248",
+  "m10d_committed": false,
+  "pushed": false,
+  "formal_lake_writes": false,
+  "formal_dagster_writes": false,
+  "tushare_or_prod_requests": 0,
+  "sensor_default_status": "STOPPED",
+  "new_assets": 2,
+  "new_blocking_checks": 6,
+  "new_jobs": 2,
+  "new_sensors": 1,
+  "files": [
+    "lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md",
+    "lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md",
+    "lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py",
+    "lake_console/orchestrator/tests/test_asset_governance_contracts.py",
+    "lake_console/orchestrator/tests/test_run_contract_static_gates.py",
+    "lake_console/orchestrator/src/orchestrator/defs/stock_monthly_point.py",
+    "lake_console/orchestrator/src/orchestrator/defs/stock_monthly_update.py",
+    "lake_console/orchestrator/src/orchestrator/defs/stock_monthly_update_state.py",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/stock_monthly.py",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_monthly_delivery.py",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_monthly_capture.py",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/stock_monthly_checks.py",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/stock_monthly.py",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/raw_stock_monthly_update_job_sensor.py",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_monthly.py",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/configs.py",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py",
+    "lake_console/orchestrator/src/orchestrator/defs/paths.py",
+    "lake_console/orchestrator/src/orchestrator/defs/partitions.py",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py",
+    "lake_console/orchestrator/tests/test_stock_monthly_update.py",
+    "lake_console/orchestrator/tests/test_stock_monthly_definitions.py",
+    "lake_console/orchestrator/tests/test_stock_monthly_update_state.py",
+    "lake_console/orchestrator/tests/test_raw_stock_monthly_update_job_sensor.py"
+  ],
+  "source_sha256": {
+    "lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md": "bf396cf84f2038ff09b1ea1573349d7eccd4efb2837db19755d2a1d652d70b5f",
+    "lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md": "ed6ad174c31d015cb523a8082f5edf377bafdc06734dd89a4244428b21c32ebe",
+    "lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md": "45b06397be9a3c9b1b33cdd59f08ad46e304d8d5403ac2c496716609a9fd597d",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "10a320776d4dc25f897797e205bfb05ca66dfc6c91b63614a262f20e879dc92f",
+    "lake_console/orchestrator/tests/test_asset_governance_contracts.py": "59d7cf403b9a66cc7dc7b968646ef10d6b04a78331be00ff57d36d4dc409b7fe",
+    "lake_console/orchestrator/tests/test_run_contract_static_gates.py": "3590b9bde6775b4d075c54e34905342b0d7d4bad815a91ce1aaf56ab568472ce",
+    "lake_console/orchestrator/src/orchestrator/defs/stock_monthly_point.py": "35077c48f5c7867cede3a823abba61e6483b2c41ec586a3fbf801003c93f21e6",
+    "lake_console/orchestrator/src/orchestrator/defs/stock_monthly_update.py": "7f6fd1e1ce2aee461c37a80d555d1991031424c57a4f0de43adafde4ef9547cd",
+    "lake_console/orchestrator/src/orchestrator/defs/stock_monthly_update_state.py": "409dca5f3bd94f5c84f376f862c105b70bdc4ee724c5945453069dd41f28a836",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/stock_monthly.py": "afe324f557365e0ce9926625d472a81a1b012642091038337fc42df6ef1638ae",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_monthly_delivery.py": "d04a287e7465c207db059ebce6ad354ed7c510a1dfcb462c59b3e376e8826687",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_monthly_capture.py": "92845a2127c016b459aa8890a7a5316f0c9dfba6f45e282672b274deaf276dc6",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py": "e502fc2553de4cb7ae23423beba04fbdb4f8790898285743418e89fdbe3bb2b5",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/stock_monthly_checks.py": "ce05f79b7c85740e20b370e62c1c75f7e13f1dfdac519ece3ca51c2fff4d444a",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/stock_monthly.py": "38aba31e5c5c0369e1657441e17565c825d9b54c9950a2af69752dca50d672a6",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/raw_stock_monthly_update_job_sensor.py": "43d71617177b74111c3fb7ad671455d09c1492972d19a53c323536b34d8ef105",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_monthly.py": "c110ecc82dc108a35d2535666e8a8e97127897dbd16fc4f45140ee7a414b1037",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/configs.py": "1b97ae33fe0fba5faf91519eaaf14f0baac4458675c875e020e0bbb5e80d4c6d",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py": "c6ba2988c9c81e0d4fb50121e237b18a3a4c8e46640b2910a7895072238823ea",
+    "lake_console/orchestrator/src/orchestrator/defs/paths.py": "900e9d4a8080f522259df2acf4872d7e07af4e122ba49a9ad518a40076d52865",
+    "lake_console/orchestrator/src/orchestrator/defs/partitions.py": "1fe8f3337d581b7976c9a8266e588d1ed4e8f2ae81457e84c46ce1f65f5adb87",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py": "3fdd162b47134378113090c0928a610ff229b7be7ca839dce16ad5f9155a8a38",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py": "39d30485201f4406094d6e2727a9b81c616dcd780bde00cde750fe608ae8a653",
+    "lake_console/orchestrator/tests/test_stock_monthly_update.py": "5e9add5203c12c336df54773920ab9fec2e9770ed1438900778f4e4f3cca5c1e",
+    "lake_console/orchestrator/tests/test_stock_monthly_definitions.py": "059f2159fab8d0dacf6eab2451b7cc142bd1f929b4adcd5166ff0e19082d6803",
+    "lake_console/orchestrator/tests/test_stock_monthly_update_state.py": "1f0a6a79723d88ce7a691b767cfd45f353f457cfbcf30e9fcc285b339a0ba90f",
+    "lake_console/orchestrator/tests/test_raw_stock_monthly_update_job_sensor.py": "6947a594c5aea48836e7d89de5e3084b5860f68a1809b592cd967697bbf4db7e"
+  },
+  "checks": {
+    "tests": {
+      "log": "/private/tmp/stock_month_m10d_tests.log",
+      "sha256": "45fd225b733774ad8fd05cfb914434379124549529b245d8de0f4d7730db4fdb",
+      "passed": 242,
+      "warnings": 12,
+      "elapsed_seconds": 31.68
+    },
+    "static": {
+      "log": "/private/tmp/stock_month_m10d_static.log",
+      "sha256": "d99320b732d748a6c879ba3b14d81b464c00ae6db61ac135f613c02423c85082",
+      "passed": 113
+    },
+    "governance": {
+      "log": "/private/tmp/stock_month_m10d_governance.log",
+      "sha256": "528fc6939408e8af6267ea2c01b57fa2636b4c95cc458f0165ac36ecf45f7fb5",
+      "passed": 12
+    },
+    "defs": {
+      "log": "/private/tmp/stock_month_m10d_defs.log",
+      "sha256": "4e5cfdc419934be5cbc8718a208e3397de9b9c553179a01ef0c587a5eb4c4a1e"
+    },
+    "ruff_new": {
+      "log": "/private/tmp/stock_month_m10d_ruff_new.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "fatal": {
+      "log": "/private/tmp/stock_month_m10d_fatal.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "docs": {
+      "log": "/private/tmp/stock_month_m10d_docs.log",
+      "sha256": "4a54bdf009e4ed2f2cb57b8210c15fbb9f7f1f3aa8ece2d9b513e022a47a7e00"
+    }
+  },
+  "ruff_shared_head_comparison": [
+    {
+      "file": "src/orchestrator/defs/run_contracts/configs.py",
+      "head_findings": 11,
+      "current_findings": 11,
+      "additional_findings": []
+    },
+    {
+      "file": "tests/stock_suspend_confirmed_test_runner.py",
+      "head_findings": 0,
+      "current_findings": 0,
+      "additional_findings": []
+    },
+    {
+      "file": "tests/test_asset_governance_contracts.py",
+      "head_findings": 0,
+      "current_findings": 0,
+      "additional_findings": []
+    },
+    {
+      "file": "tests/test_run_contract_static_gates.py",
+      "head_findings": 0,
+      "current_findings": 0,
+      "additional_findings": []
+    }
+  ],
+  "sample_report": "/Users/congming/github/goldenshare/reports/stock_month_m10d_sample_20261005.json",
+  "limits": {
+    "page_limit": 6000,
+    "max_pages": 4,
+    "max_calls_per_page": 3,
+    "max_update_rows": 10000,
+    "max_daily_files": 31,
+    "max_reference_rows": 320000,
+    "max_reference_sql": 80,
+    "max_upstream_check_history": 320,
+    "max_event_records_per_tick": 2000
+  },
+  "source_evidence_date": "2026-10-04",
+  "codegraph_tools": [
+    "explore",
+    "impact",
+    "sync",
+    "status"
+  ],
+  "boundaries": "No Prod DatasetDefinition/frontend/src dependency changes; weekly contracts unchanged; monthly writer/checks/catalog consumers only",
+  "next": "M10.E formal bootstrap commands, refreshed inventory and staged approval; M10.F source update/enable; M9 separate pending"
+}

@@ -1,0 +1,49 @@
+{
+  "isolation_root": "/private/tmp/stock-month-m10d-sample-us_r5v4w",
+  "source_evidence_date": "2026-10-04",
+  "reference_and_events_are_fixtures": true,
+  "fixture_daily_policy": "All source codes only Sep01/Sep02; 000001.SZ on other open dates; independent synthetic gate, not real daily coverage proof",
+  "formal_writes": false,
+  "new_network_requests": 0,
+  "full_market": [
+    {
+      "source": "primary_unadjusted",
+      "source_fixture": "/private/tmp/stock_month_m10_source_20261004/primary_unadjusted_market_full.csv",
+      "source_rows": 5571,
+      "target_rows": 5571,
+      "difference_rows": 0,
+      "fixture_requests": 1,
+      "new_network_requests": 0,
+      "reference_files": 22,
+      "reference_rows": 11162,
+      "elapsed_seconds": 0.39104666700586677,
+      "parquet_bytes": 177072,
+      "source_fixture_sha256": "3f509842559c0d42bb7f72f8052a900549cc55dcbb7e4042e1a6ecf3b7d56c87"
+    },
+    {
+      "source": "primary_adjusted",
+      "source_fixture": "/private/tmp/stock_month_m10_source_20261004/primary_adjusted_market_full.csv",
+      "source_rows": 5571,
+      "target_rows": 5571,
+      "difference_rows": 0,
+      "fixture_requests": 1,
+      "new_network_requests": 0,
+      "reference_files": 22,
+      "reference_rows": 11162,
+      "elapsed_seconds": 0.41043620789423585,
+      "parquet_bytes": 311668,
+      "source_fixture_sha256": "b2b3af2fbd67ea08e9800e080619b1a6bff7c1035c762b1085e14d9175a51552"
+    }
+  ],
+  "near_budget": {
+    "reference_files": 31,
+    "reference_rows": 310000,
+    "expected_codes": 10000,
+    "elapsed_seconds": 0.06417520809918642,
+    "reference_json_bytes": 517866,
+    "synthetic": true
+  },
+  "process_lifetime_rss_peak_mib": 357.8125,
+  "sampled_spill_peak_bytes": 0,
+  "forced_spill_tested": false
+}

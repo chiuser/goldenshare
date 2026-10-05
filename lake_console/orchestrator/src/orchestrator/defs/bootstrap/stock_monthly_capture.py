@@ -34,7 +34,6 @@ from orchestrator.defs.io.stock_monthly_raw import (
 from orchestrator.defs.prod_db.stock_monthly import validate_monthly_export_evidence
 from orchestrator.defs.run_contracts.stock_monthly import (
     MonthlyBootstrapIOPolicy,
-    StockMonthlySource,
     monthly_contract_hash,
     normalize_month_key,
 )
@@ -42,14 +41,10 @@ from orchestrator.defs.stock_monthly_planner import plan_month_bootstrap
 
 
 def monthly_target_path(root, source, month):
+    from orchestrator.defs.paths import raw_stock_monthly_path
     check_monthly_root(root, staging=False)
     normalize_month_key(month)
-    dataset = (
-        "stk_period_bar_adj_month"
-        if StockMonthlySource(source) is StockMonthlySource.PRIMARY_ADJUSTED
-        else "stk_period_bar_month"
-    )
-    target = root / "raw" / "tushare" / dataset / f"month={month}" / "data.parquet"
+    target = raw_stock_monthly_path(root, source, month)
     check_monthly_path(target)
     return target
 

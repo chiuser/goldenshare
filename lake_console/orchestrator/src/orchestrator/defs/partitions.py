@@ -1,5 +1,9 @@
 import dagster as dg
 
+from orchestrator.defs.run_contracts.stock_monthly import STOCK_MONTHLY_PARTITIONS
+
+cn_a_stock_months = dg.DynamicPartitionsDefinition(name=STOCK_MONTHLY_PARTITIONS)
+
 from orchestrator.defs.daily_basic_contract import DAILY_BASIC_PARTITIONS
 from orchestrator.defs.run_contracts.stock_weekly import STOCK_WEEKLY_PARTITIONS
 

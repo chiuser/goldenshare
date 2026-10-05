@@ -133,6 +133,10 @@ from orchestrator.defs.assets.stock_daily_trend_channel import (
 )
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
+from orchestrator.defs.assets.stock_monthly import (
+    raw_tushare_stk_period_bar_adj_month,
+    raw_tushare_stk_period_bar_month,
+)
 from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
     gold_stock_return_distribution,
@@ -264,6 +268,7 @@ DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 
 
 ACTIVE_ASSET_DEFINITIONS = (
+    raw_tushare_stk_period_bar_month, raw_tushare_stk_period_bar_adj_month,
     raw_tushare_anns_d,
     raw_tushare_stk_period_bar_week, raw_tushare_stk_period_bar_adj_week, raw_tushare_weekly,
     raw_tushare_daily_basic,

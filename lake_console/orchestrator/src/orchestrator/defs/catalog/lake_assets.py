@@ -256,6 +256,7 @@ class IngestionSource(str, Enum):
 
 class PartitionModelFamily(str, Enum):
     NATURAL_DATE_PARTITION = "natural_date_partition"
+    NATURAL_MONTH_PARTITION = "natural_month_partition"
     NATURAL_WEEK_PARTITION = "natural_week_partition"
     FULL_FILE = "full_file"
     TRADE_DATE_PARTITION = "trade_date_partition"
@@ -273,6 +274,8 @@ class PartitionPhysicalLayout(str, Enum):
 
 
 class PartitionModel(str, Enum):
+    MONTH_PARTITION_RAW_STK_PERIOD_BAR_MONTH = "month_partition_raw_stk_period_bar_month"
+    MONTH_PARTITION_RAW_STK_PERIOD_BAR_ADJ_MONTH = "month_partition_raw_stk_period_bar_adj_month"
     ANN_DATE_PARTITION_RAW_ANNS_D = "ann_date_partition_raw_anns_d"
     WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_WEEK = "week_end_partition_raw_stk_period_bar_week"
     WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_ADJ_WEEK = "week_end_partition_raw_stk_period_bar_adj_week"
@@ -3495,6 +3498,48 @@ LAKE_ASSET_CATALOG += tuple(
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS
+)
+
+
+from orchestrator.defs.paths import raw_stock_monthly_path
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA,
+    RAW_STK_PERIOD_BAR_MONTH_SCHEMA,
+)
+from orchestrator.defs.run_contracts.stock_monthly import (
+    StockMonthlySource,
+    monthly_asset_key,
+    monthly_check_names,
+    monthly_data_contract,
+    monthly_dataset_id,
+    monthly_source_api,
+    monthly_source_doc,
+)
+
+_MONTHLY_CATALOG_SPECS = (
+    (StockMonthlySource.PRIMARY_UNADJUSTED, PartitionModel.MONTH_PARTITION_RAW_STK_PERIOD_BAR_MONTH, RAW_STK_PERIOD_BAR_MONTH_SCHEMA),
+    (StockMonthlySource.PRIMARY_ADJUSTED, PartitionModel.MONTH_PARTITION_RAW_STK_PERIOD_BAR_ADJ_MONTH, RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA),
+)
+PARTITION_MODEL_DEFINITIONS += tuple(
+    _model(model, PartitionModelFamily.NATURAL_MONTH_PARTITION, AssetLayer.RAW, monthly_dataset_id(source), "month", PartitionPhysicalLayout.PARTITION_FILE)
+    for source, model, _ in _MONTHLY_CATALOG_SPECS
+)
+LAKE_ASSET_CATALOG += tuple(
+    _entry(
+        asset_key=monthly_asset_key(source), dataset_id=monthly_dataset_id(source),
+        layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA, group_name="quote",
+        source_system=SourceSystem.TUSHARE, data_contract=monthly_data_contract(source),
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT, column_schema=schema,
+        path_template=lake_path_template(raw_stock_monthly_path(PATH_TEMPLATE_LAKE_ROOT, source, PATH_TEMPLATE_PARTITION_KEY)),
+        partition_model=model, source_api=monthly_source_api(source), source_doc=monthly_source_doc(source),
+        ingestion_sources=(IngestionSource.PROD_DB_READONLY, IngestionSource.TUSHARE_API),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API, bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        blocking_check_names=monthly_check_names(source), write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(batch_grain="source/month", compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="bounded_complete_month_explicit_fields",
+            notes="年度bootstrap；每日19:30只处理完整月，两源串行；6000行/页、4页、每页3次；31日线文件/320000参考行向量化审计；2020-02仅28日；备用不自动使用。"),
+    ) for source, model, schema in _MONTHLY_CATALOG_SPECS
 )
 
 def _index_by_asset_key() -> dict[str, LakeAssetCatalogEntry]:

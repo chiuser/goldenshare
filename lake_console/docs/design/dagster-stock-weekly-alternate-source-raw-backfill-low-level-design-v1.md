@@ -970,3 +970,8 @@ CodeGraph explore/query影响面覆盖原point调用者、资产/job/check、64�
 ### 34.9 月线bootstrap helper隔离验收（2026-10-05）
 
 月线M10.C实现和验收详见[月线LLD §12](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#12-m10c-落地与验收2026-10-05)及[报告](../../../reports/stock_month_m10c_assessment_20261005.md)。只新增月线薄模块，复用统一DuckDB连接入口，不迁移或改变weekly helper合同。未注册月线definitions、未正式bootstrap/补录事件/启用sensor；下一步M10.D更新机制与definitions集成。M9仍待源就绪后的正式验收，不能用本轮隔离结果替代。
+
+
+### 2026-10-05：M10.C提交及M10.D开发验收
+
+M10.C已提交ac063248，未推送。M10.D按月线LLD完成两套Raw资产/6个blocking checks/2 jobs/默认STOPPED月线sensor及手动与每日19:30完整月更新开发；历史NULL bootstrap证明与新增源个股截至证明分开校验，不新增Silver/Gold，不自动备用或覆盖异值。代码与临时instance验收通过，正式bootstrap/事件及启用未执行；M9待源就绪的正式周线更新验收仍单列。当前月线范围及配置/性能/代码对账以[月线LLD §13–14](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)和[本轮验收报告](../../../reports/stock_month_m10d_assessment_20261005.md)为准，下一阶段M10.E，未宣称正式接入完成。
