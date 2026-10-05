@@ -1,6 +1,6 @@
 # 上市公司公告 PDF 本地归档技术方案 v1
 
-更新时间：2026-10-05。状态：**DG 消费修订的方案已完成，迁移代码及 DG 下载验收待实施**。当前下载器仍只读 Prod；原 M0—M3 的实现及验收属于 Prod 版本，不能作为 DG 版本完成证明。本轮只更新本方案与 LLD，不执行下载、不修改 CLI 代码或正式数据。
+更新时间：2026-10-05。状态：**DG 来源迁移实现、隔离与只读验收完成；DG 最小真实 PDF 验收待执行**。方案提交 777d6901，实施修改尚未另行提交。原 M0—M3 属于 Prod 版本历史证据，不能作为 DG 版本真实下载证明。本轮不下载 PDF、不写正式数据、不打开或升级正式归档账本。
 
 ## 1. 目标、依据与范围
 
@@ -13,7 +13,7 @@
 - 当前 [CLI](../../src/scripts/download_announcements.py)、[Prod reader](../../src/scripts/announcement_download/source.py)、[账本](../../src/scripts/announcement_download/ledger.py)、[文件恢复](../../src/scripts/announcement_download/files.py)。
 - [子系统边界](../architecture/subsystem-boundary-plan.md)、[DG 性能治理](../../lake_console/docs/design/dagster-data-pipeline-performance-governance.md)、Tushare doc_id=176 的[本地接口说明](../sources/tushare/大模型语料/0176_上市公司全量公告.md)。
 
-后续实现替换现有工具的 source 与枚举流程，同步迁移台账和测试；不会保留 Prod/DG 双读取模式或缺文件回落 Prod。SQLite 延续下载台账职责，不新增公告业务数据库、搜索索引、调度或页面。不改 DG 数据集合同、同步规则、DatasetDefinition、Ops TaskRun 或正式 Lake 文件。
+本轮已替换现有工具的 source 与枚举流程，同步迁移台账接口和测试；不保留 Prod/DG 双读取模式或缺文件回落 Prod。SQLite 延续下载台账职责，不新增公告业务数据库、搜索索引、调度或页面。不改 DG 数据集合同、同步规则、DatasetDefinition、Ops TaskRun 或正式 Lake 文件。
 
 DG 日常更新还需连续运行验收。按用户本轮决定，下载器设计、隔离开发及已验收历史文件的只读验证可并行推进；这不把 DG 日常验收标为完成，也不授权全历史下载。数据中心与股票名称/代码/首字母搜索继续留在后续阶段。
 
@@ -21,7 +21,7 @@ DG 日常更新还需连续运行验收。按用户本轮决定，下载器设�
 
 | 项目 | 当前事实与迁移要求 |
 | --- | --- |
-| 当前下载器 | Prod PostgreSQL 只读、id keyset 每批 500；领取每个文件前查数据库确认日期/代码/URL 仍存在 |
+| 当前下载器 | DG 正式 Raw 按日固定 fd、每批 500；完整枚举并校验封存后按本轮文件集合下载；无 Prod 连接或逐文件源查询 |
 | DG 正式文件 | `/Volumes/datasource/data_lake/raw/tushare/anns_d/ann_date=YYYY-MM-DD/part-000.parquet`，自然日分区 |
 | Raw 物理字段 | 依次为 ann_date、ts_code、name、title、url、rec_time，均为可空字符串；没有 id、row_key_hash 或 group_key |
 | 两种日期表示 | Raw ann_date 是 YYYYMMDD；分区与归档目录是 YYYY-MM-DD。只在下载投影中转换，不改 Raw 值 |
@@ -50,7 +50,7 @@ DG 日常更新还需连续运行验收。按用户本轮决定，下载器设�
 
 ## 4. 使用方式及配置边界
 
-迁移完成后的目标命令如下，**当前代码尚未切换到 DG，不能据此当作 DG 命令执行**：
+以下命令的实现已切换到 DG，执行会写归档并可能请求真实 PDF。本轮未执行该下载命令，DG 真实归档验收仍待下一阶段：
 
 ```bash
 .venv/bin/python -m src.scripts.download_announcements \
@@ -60,7 +60,7 @@ DG 日常更新还需连续运行验收。按用户本轮决定，下载器设�
   --output-root /Volumes/datasource/announcements
 ```
 
-四个参数、日期语法、默认间隔与输出根保持原样。元数据来源切换是本方案明确的入口行为变更；实施时一次迁移 CLI、source、ledger 和测试，不新增 source/backend/lake-root 参数，不保留隐式 fallback。
+四个参数、日期语法、默认间隔与输出根保持原样。元数据来源切换是本方案明确的入口行为变更；已一次迁移 CLI、source、ledger 和测试，不新增 source/backend/lake-root 参数，不保留隐式 fallback。
 
 来源固定为 DG 正式根，由一个 source 工厂消费；不读取旧 lake_console/config.local.toml，不加载 DATABASE_URL/GOLDENSHARE_ENV_FILE，不要求启动 PG/CH/SSH/DG。源文件不存在时提示缺失日期并阻断，下载器不代替 DG 同步。完整配置审计见 LLD §2。
 
@@ -102,13 +102,17 @@ PDF 粗略耗时仍为 `N×平均传输耗时 + max(N+额外请求数-1,0)×间�
 
 进度每 ≤5 秒显示阶段、当前日期、完成日数/总日数、读取行数、来源映射量和文件任务数；下载后显示完成量/总量、成功/跳过/失败、冷却与更新时间。未知总行数或 ETA 明示未知，不用心跳代替业务计数。
 
+### 2026-10-05 实施及只读证据
+
+[验收报告](../../reports/anns_d_download_dg_reader_acceptance_20261005.md)及[数量/指纹/性能](../../reports/anns_d_download_dg_reader_acceptance_20261005.json)：四个正式日期读回 76,685 条，最大存量日 2024-04-26 为 69,138 条、139 批、约 39.077 秒；原 69,498 是历史同步源输入峰值量级，不是该文件物理条数。RSS 峰值 128.78 MiB，零 PDF 请求，临时台账约 1158.16 字节/行。正式台账未升级；真实旧文件复用、真实 PDF 网络/容量及拔盘仍待阶段验收。实测仅覆盖读者与临时落账，实际 CLI 的额外输出卷门禁成本尚未计入。
+
 ## 9. 接下来的实施顺序
 
 | 步骤 | 本阶段完成条件 |
 | --- | --- |
-| 1 方案与 LLD | 本次修订；源合同、逐日读取、身份、配置、台账迁移和验收映射明确；代码未迁移 |
-| 2 迁移实现 | 替换 Prod reader/枚举链，schema 2 原子升级，全部测试消费者迁移；清零运行期 DB/id/has_artifact 依赖 |
-| 3 隔离与只读验收 | 正反例及退出/续跑测试；已验收 DG 日文件只读数量/样本/性能对账，不写正式 Lake、不开下载 |
+| 1 方案与 LLD | 已完成并提交 777d6901；源合同、逐日读取、身份、配置、台账迁移和验收映射明确 |
+| 2 迁移实现 | 已完成；替换 Prod reader/枚举链，schema 2 原子升级，全部测试消费者迁移；清零运行期 DB/id/has_artifact 依赖；正式旧账本尚未升级 |
+| 3 隔离与只读验收 | 已完成；正反例/退出/取消/续跑与架构回归通过，四个正式日文件 76,685 条对账通过；不写正式 Lake、不下载 |
 | 4 DG 最小真实下载 | 按另行阶段授权选最多 5 个唯一 URL；旧 PDF 复用零请求、删除后重下、取消—续跑—size/hash 对账 |
 | 5 台账维护与数据中心 | 后续单独设计台账查询/维修入口，再完成数据中心设计稿、API 与页面；不在本次顺手加入 |
 

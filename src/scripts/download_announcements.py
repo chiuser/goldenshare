@@ -9,20 +9,18 @@ import signal
 import sqlite3
 from pathlib import Path
 
-from sqlalchemy.exc import SQLAlchemyError
-
 from src.scripts.announcement_download.core import (
     Blocked, Cancelled, Control, DownloadOptions, DownloadPolicy, FileFailed, iso_date,
 )
 from src.scripts.announcement_download.files import Files
 from src.scripts.announcement_download.http import Downloader
 from src.scripts.announcement_download.ledger import Ledger
-from src.scripts.announcement_download.source import Source, configured_database
+from src.scripts.announcement_download.source import Source
 from src.scripts.announcement_download.volume import Volume
 
 
 def parse_options(argv=None) -> DownloadOptions:
-    parser = argparse.ArgumentParser(description='公告 PDF 本地归档；重复相同日期命令可续跑。')
+    parser = argparse.ArgumentParser(description='从 DG Raw 读取公告并本地归档 PDF；重复相同日期命令可续跑。')
     parser.add_argument('--start-date', required=True, type=iso_date, help='ann_date 起始日 YYYY-MM-DD（包含）')
     parser.add_argument('--end-date', required=True, type=iso_date, help='ann_date 结束日 YYYY-MM-DD（包含）')
     parser.add_argument('--interval-seconds', type=float, default=DownloadOptions.interval_seconds,
@@ -38,46 +36,47 @@ def parse_options(argv=None) -> DownloadOptions:
 
 def execute(options, policy, control, volume, ledger, source, scope, client=None, clock=None) -> int:
     """Dependency injection lets isolated tests exercise the same production run loop."""
-    run = ledger.begin_run(options, scope)
+    run = ledger.begin_run(options, scope, policy)
     downloader = None
     active_key = None
     try:
         control.update(phase='enumerating', start_date=str(options.start_date), end_date=str(options.end_date),
-                       interval_seconds=options.interval_seconds, records=0, total=None, percent=None)
+                       interval_seconds=options.interval_seconds, source_kind='dg_raw_parquet', source_scope=scope,
+                       records=0, total=None, percent=None)
         control.check()
         volume.assert_valid(full=True)
-        upper = source.upper_id()
-        ledger.set_upper(run, upper)
-        after = 0
-        records = 0
-        while True:
-            control.check()
-            volume.assert_valid(full=True)
-            rows = source.batch(after, upper)
-            control.check()
-            volume.assert_valid(full=True)
-            ledger.ingest(run, scope, rows)
-            if not rows:
-                break
-            after = max(r['id'] for r in rows)
-            records += len(rows)
-            del rows
-            control.update(records=records, cursor=after)
-        ledger.phase(run, 'downloading')
+        for day in source.iter_days():
+            ledger.begin_day(run, day.day)
+            control.update(**ledger.stats(run), footer_count=None, records_committed=0)
+            with day:
+                ledger.describe_day(run, day.day, day.facts)
+                control.update(footer_count=day.facts['footer_count'], records_committed=0)
+                committed = 0
+                for rows in day:
+                    control.check()
+                    volume.assert_valid(full=True)
+                    ledger.ingest(run, scope, day.day, rows, policy.batch_size)
+                    committed += len(rows)
+                    control.update(**ledger.stats(run), records_committed=committed)
+                    del rows
+                    control.check()
+                facts = day.verify()
+                control.check()
+                volume.assert_valid(full=True)
+                ledger.complete_day(run, day.day, facts)
+                control.update(**ledger.stats(run))
+        control.check()
+        ledger.seal(run)
         files = Files(volume, ledger, policy, control)
         kwargs = {'clock': clock} if clock else {}
         downloader = Downloader(ledger, files, volume, options, policy, control, client=client, **kwargs)
-        control.update(phase='downloading', **ledger.stats(run))
+        control.update(phase='downloading', source_stage=None, **ledger.stats(run))
         while task := ledger.next_task(run):
             control.check()
             volume.assert_valid(full=True)
-            if not source.has_artifact(task):
-                ledger.state(task['artifact_key'], task['state'], 'source_record_replaced')
-                ledger.result(run, task['artifact_key'], 'skipped')
-                control.update(**ledger.stats(run), error='source_record_replaced')
-                continue
+            source.assert_valid(full=True)
             active_key = task['artifact_key']
-            control.update(ts_code=task['ts_code'], title=task['title'], error=None)
+            control.update(ts_code=task['ts_code'], title=task['title'], ann_date=task['ann_date'], error=None)
             try:
                 task = files.allocate(task)
                 outcome = files.recover(task)
@@ -98,10 +97,17 @@ def execute(options, policy, control, volume, ledger, source, scope, client=None
         control.update(phase=terminal, **ledger.stats(run))
         return 1 if failed else 0
     except Cancelled:
-        ledger.phase(run, 'cancelled', 'user_cancelled')
-        control.update(phase='cancelled', **ledger.stats(run))
+        try:
+            ledger.phase(run, 'cancelled', 'user_cancelled')
+        except sqlite3.Error:
+            pass
+        try:
+            stats = ledger.stats(run)
+        except sqlite3.Error:
+            stats = {}
+        control.update(phase='cancelled', **stats)
         return 130
-    except (Blocked, OSError, sqlite3.Error, SQLAlchemyError) as exc:
+    except (Blocked, OSError, sqlite3.Error) as exc:
         reason = str(exc) if isinstance(exc, Blocked) else type(exc).__name__
         # Best effort observation must not delete already committed PDFs.
         try:
@@ -128,17 +134,16 @@ def main(argv=None) -> int:
     signal.signal(signal.SIGINT, lambda *_: control.stop.set())
     control.start()
     try:
-        # Never connect to a DB or create archive/state directories before this gate.
+        # Verify both external anchors before opening the ledger or reading Raw.
         volume.open()
         control.check()
-        url, scope = configured_database()
+        source = Source(options, policy, control).open()
         ledger = Ledger(volume.ledger_path(), volume.volume_uuid, volume.relative_root)
-        source = Source(url, options, policy)
-        return execute(options, policy, control, volume, ledger, source, scope)
+        return execute(options, policy, control, volume, ledger, source, source.scope)
     except Cancelled:
         control.update(phase='cancelled')
         return 130
-    except (Blocked, OSError, sqlite3.Error, SQLAlchemyError, ValueError) as exc:
+    except (Blocked, OSError, sqlite3.Error, ValueError) as exc:
         reason = str(exc) if isinstance(exc, Blocked) else type(exc).__name__
         control.update(phase='startup_failed', error=reason)
         return 2

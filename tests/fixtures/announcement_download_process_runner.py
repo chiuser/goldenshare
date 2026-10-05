@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import sys
 from dataclasses import replace
 from datetime import date
@@ -33,24 +34,41 @@ def main():
     options = DownloadOptions(date(2026, 9, 30), date(2026, 9, 30), 0, mount / 'announcements')
     requests = []
     control = Control(policy, lambda _: None)
-    rows = [dict(id=n, row_key_hash=f'row-{n}', ann_date=options.start_date, ts_code='600000.SH',
+    signal.signal(signal.SIGINT, lambda *_: control.stop.set())
+    rows = [dict(ann_date='20260930',name='样本公司',ts_code='600000.SH',
                  title=f'公告{n}', url=f'https://fixture.example/{n}.pdf', rec_time=None)
             for n in (1, 2)]
     if mode in ('prepared', 'renamed', 'resume_one'):
         rows = rows[:1]
 
+    class Day:
+        day='2026-09-30'
+        facts=dict(opened_dev=1,opened_ino=1,size=0,sha256='0'*64,footer_count=len(rows))
+        def __enter__(self): return self
+        def __exit__(self,*_): pass
+        def __iter__(self):
+            if mode == 'query_cancel':
+                from src.scripts.announcement_download.source import Source as RawSource, DayReader
+                source = RawSource(options, policy, control)
+                reader = DayReader(source, self.day)
+                reader.connection = source.connect()
+                print('query_ready', flush=True)
+                try:
+                    reader._call(lambda: reader.connection.execute(
+                        'SELECT sum(sqrt(i)) FROM range(10000000000) t(i)'))
+                finally:
+                    reader.close()
+                    source.close()
+            if mode == 'enumerating':
+                yield rows[:1]
+                os._exit(73)
+            yield rows
+        def verify(self): return self.facts
+
     class Source:
-        def upper_id(self):
-            return rows[-1]['id']
-
-        def batch(self, after, upper):
-            return [r for r in rows if after < r['id'] <= upper]
-
-        def has_artifact(self, task):
-            return True
-
-        def close(self):
-            pass
+        def iter_days(self): yield Day()
+        def assert_valid(self,full=False): pass
+        def close(self): pass
 
     class ExitStream(httpx.SyncByteStream):
         def __iter__(self):

@@ -4,37 +4,59 @@ import json
 import sqlite3
 import unicodedata
 import uuid
+from dataclasses import asdict
+from datetime import date, timedelta
 from pathlib import Path
 
-from .core import Blocked, DownloadOptions, identity, timestamp
+from .core import (
+    SOURCE_CONTRACT_VERSION, Blocked, DownloadOptions, DownloadPolicy, source_projection, timestamp,
+)
 
 
-SCHEMA = '''
-CREATE TABLE IF NOT EXISTS archive (
+DAY_SCHEMA = """CREATE TABLE run_source_days (
+ run_id TEXT NOT NULL, ann_date TEXT NOT NULL, state TEXT NOT NULL,
+ opened_dev INTEGER, opened_ino INTEGER, size INTEGER, sha256 TEXT,
+ footer_count INTEGER, records_committed INTEGER NOT NULL DEFAULT 0,
+ reason TEXT, updated_at TEXT, PRIMARY KEY(run_id,ann_date))"""
+
+RUN_ADDITIONS = (
+ ('source_kind', "TEXT NOT NULL DEFAULT 'dg_raw_parquet'"),
+ ('source_contract_version', 'INTEGER'), ('source_policy', 'TEXT'),
+ ('days_total', 'INTEGER'), ('days_completed', 'INTEGER NOT NULL DEFAULT 0'),
+ ('current_day', 'TEXT'), ('enumeration_sealed', 'INTEGER NOT NULL DEFAULT 0'),
+)
+
+SCHEMA = (
+ """CREATE TABLE archive (
  singleton INTEGER PRIMARY KEY CHECK(singleton=1), schema_version INTEGER NOT NULL,
- volume_uuid TEXT NOT NULL, root_relative_path TEXT NOT NULL, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS runs (
+ volume_uuid TEXT NOT NULL, root_relative_path TEXT NOT NULL, created_at TEXT NOT NULL)""",
+ """CREATE TABLE runs (
  run_id TEXT PRIMARY KEY, start_date TEXT, end_date TEXT, interval_seconds REAL,
- source_scope TEXT, upper_id INTEGER DEFAULT 0, after_id INTEGER DEFAULT 0,
+ source_scope TEXT, legacy_upper_id INTEGER DEFAULT 0, legacy_after_id INTEGER DEFAULT 0,
  phase TEXT NOT NULL, records_read INTEGER DEFAULT 0, reason TEXT, updated_at TEXT,
  missing_url_count INTEGER DEFAULT 0,
  artifacts_total INTEGER DEFAULT 0, completed_count INTEGER DEFAULT 0,
- succeeded_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0);
-CREATE TABLE IF NOT EXISTS artifacts (
+ succeeded_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0,
+ source_kind TEXT NOT NULL DEFAULT 'dg_raw_parquet', source_contract_version INTEGER, source_policy TEXT,
+ days_total INTEGER, days_completed INTEGER NOT NULL DEFAULT 0, current_day TEXT,
+ enumeration_sealed INTEGER NOT NULL DEFAULT 0)""",
+ """CREATE TABLE artifacts (
  artifact_key TEXT PRIMARY KEY, ann_date TEXT, ts_code TEXT, title TEXT, url TEXT,
  relative_path TEXT, path_fold TEXT UNIQUE, state TEXT NOT NULL DEFAULT 'pending',
- error TEXT, attempts INTEGER NOT NULL DEFAULT 0, size INTEGER, sha256 TEXT, updated_at TEXT);
-CREATE TABLE IF NOT EXISTS source_records (
- source_scope TEXT, row_key_hash TEXT, raw_id INTEGER, metadata TEXT, artifact_key TEXT,
- first_seen_run TEXT, last_seen_run TEXT, PRIMARY KEY(source_scope,row_key_hash));
-CREATE TABLE IF NOT EXISTS run_artifacts (
+ error TEXT, attempts INTEGER NOT NULL DEFAULT 0, size INTEGER, sha256 TEXT, updated_at TEXT)""",
+ """CREATE TABLE source_records (
+ source_scope TEXT, record_key TEXT, legacy_raw_id INTEGER, metadata TEXT, artifact_key TEXT,
+ first_seen_run TEXT, last_seen_run TEXT, PRIMARY KEY(source_scope,record_key))""",
+ """CREATE TABLE run_artifacts (
  run_id TEXT, artifact_key TEXT, outcome TEXT, attempts INTEGER DEFAULT 0,
- PRIMARY KEY(run_id,artifact_key));
-CREATE TABLE IF NOT EXISTS cooldown (
+ PRIMARY KEY(run_id,artifact_key))""",
+ """CREATE TABLE cooldown (
  singleton INTEGER PRIMARY KEY CHECK(singleton=1), last_request_finished_at REAL DEFAULT 0,
- next_request_not_before REAL DEFAULT 0, request_in_flight INTEGER DEFAULT 0, reason TEXT);
-CREATE INDEX IF NOT EXISTS run_pending ON run_artifacts(run_id,outcome,artifact_key);
-'''
+ next_request_not_before REAL DEFAULT 0, request_in_flight INTEGER DEFAULT 0, reason TEXT)""",
+ 'CREATE INDEX run_pending ON run_artifacts(run_id,outcome,artifact_key)',
+ DAY_SCHEMA,
+ 'CREATE INDEX source_day_state ON run_source_days(run_id,state,ann_date)',
+)
 
 
 class Ledger:
@@ -43,68 +65,217 @@ class Ledger:
         self.conn = sqlite3.connect(path, timeout=5)
         self.conn.row_factory = sqlite3.Row
         try:
-            self.conn.execute('PRAGMA journal_mode=DELETE')
-            self.conn.execute('PRAGMA synchronous=FULL')
-            self.conn.executescript(SCHEMA)
-            if "missing_url_count" not in {row[1] for row in self.conn.execute("PRAGMA table_info(runs)")}:
-                self.conn.execute("ALTER TABLE runs ADD COLUMN missing_url_count INTEGER NOT NULL DEFAULT 0")
-            with self.conn:
-                self.conn.execute('INSERT OR IGNORE INTO archive VALUES(1,1,?,?,?)',
-                                  (volume_uuid, relative_root, timestamp()))
-                existing = self.conn.execute('SELECT * FROM archive').fetchone()
-                if (existing['schema_version'] != 1 or existing['volume_uuid'] != volume_uuid
-                        or existing['root_relative_path'] != relative_root):
+            tables = {r[0] for r in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if not tables:
+                self.conn.execute('PRAGMA journal_mode=DELETE')
+                self.conn.execute('PRAGMA synchronous=FULL')
+                self.conn.execute('BEGIN IMMEDIATE')
+                try:
+                    for sql in SCHEMA:
+                        self.conn.execute(sql)
+                    self.conn.execute('INSERT INTO archive VALUES(1,2,?,?,?)',
+                                      (volume_uuid, relative_root, timestamp()))
+                    self.conn.execute('INSERT INTO cooldown(singleton) VALUES(1)')
+                    self.conn.commit()
+                except BaseException:
+                    self.conn.rollback()
+                    raise
+            else:
+                if 'archive' not in tables:
+                    raise Blocked('archive_schema_invalid')
+                existing = self.conn.execute('SELECT * FROM archive LIMIT 2').fetchmany(2)
+                if len(existing) != 1:
+                    raise Blocked('archive_schema_invalid')
+                existing = existing[0]
+                if (existing['volume_uuid'] != volume_uuid or existing['root_relative_path'] != relative_root):
                     raise Blocked('archive_identity_mismatch')
-                self.conn.execute('INSERT OR IGNORE INTO cooldown(singleton) VALUES(1)')
+                version = existing['schema_version']
+                if version not in (1, 2):
+                    raise Blocked('archive_schema_version_unsupported')
+                self._validate_schema(version)
+                self.conn.execute('PRAGMA journal_mode=DELETE')
+                self.conn.execute('PRAGMA synchronous=FULL')
+                if version == 1:
+                    self._upgrade()
+                    self._validate_schema(2)
         except BaseException:
             self.conn.close()
             raise
 
-    def begin_run(self, options: DownloadOptions, scope: str) -> str:
+    def _validate_schema(self, version):
+        required = dict(
+            archive={'singleton','schema_version','volume_uuid','root_relative_path','created_at'},
+            runs={'run_id','start_date','end_date','interval_seconds','source_scope','phase','records_read',
+                  'reason','updated_at','missing_url_count','artifacts_total','completed_count',
+                  'succeeded_count','skipped_count','failed_count'},
+            artifacts={'artifact_key','ann_date','ts_code','title','url','relative_path','path_fold',
+                       'state','error','attempts','size','sha256','updated_at'},
+            source_records={'source_scope','metadata','artifact_key','first_seen_run','last_seen_run'},
+            run_artifacts={'run_id','artifact_key','outcome','attempts'},
+            cooldown={'singleton','last_request_finished_at','next_request_not_before','request_in_flight','reason'},
+        )
+        if version == 1:
+            required['runs'] |= {'upper_id','after_id'}
+            required['source_records'] |= {'row_key_hash','raw_id'}
+        else:
+            required['runs'] |= {'legacy_upper_id','legacy_after_id', *(n for n,_ in RUN_ADDITIONS)}
+            required['source_records'] |= {'record_key','legacy_raw_id'}
+            required['run_source_days'] = {'run_id','ann_date','state','opened_dev','opened_ino','size','sha256',
+                                          'footer_count','records_committed','reason','updated_at'}
+        for table, expected in required.items():
+            actual = {r[1] for r in self.conn.execute(f'PRAGMA table_info({table})')}
+            if version == 1 and table == 'runs' and 'missing_url_count' not in actual:
+                expected = expected - {'missing_url_count'}
+            if actual != expected:
+                raise Blocked('archive_schema_invalid')
+        indexes = {'run_pending':['run_id','outcome','artifact_key']}
+        if version == 2:
+            indexes['source_day_state'] = ['run_id','state','ann_date']
+        for index, columns in indexes.items():
+            if [r[2] for r in self.conn.execute(f'PRAGMA index_info({index})')] != columns:
+                raise Blocked('archive_schema_invalid')
+        key = 'row_key_hash' if version == 1 else 'record_key'
+        primary_keys = dict(archive=['singleton'], runs=['run_id'], artifacts=['artifact_key'],
+                            source_records=['source_scope',key], run_artifacts=['run_id','artifact_key'],
+                            cooldown=['singleton'])
+        if version == 2:
+            primary_keys['run_source_days'] = ['run_id','ann_date']
+        for table, columns in primary_keys.items():
+            pk = sorted((r[5],r[1]) for r in self.conn.execute(f'PRAGMA table_info({table})') if r[5])
+            if [column for _,column in pk] != columns:
+                raise Blocked('archive_schema_invalid')
+        path_unique = False
+        for index in self.conn.execute('PRAGMA index_list(artifacts)'):
+            quoted = index[1].replace('"','""')
+            columns = [r[2] for r in self.conn.execute(f'PRAGMA index_info("{quoted}")')]
+            if index[2] and not index[4] and columns == ['path_fold']:
+                path_unique = True
+        if not path_unique:
+            raise Blocked('archive_schema_invalid')
+        if self.conn.execute('SELECT count(*) FROM cooldown WHERE singleton=1').fetchone()[0] != 1:
+            raise Blocked('archive_schema_invalid')
+
+    def _upgrade(self):
+        self.conn.execute('BEGIN IMMEDIATE')
+        try:
+            if 'missing_url_count' not in {r[1] for r in self.conn.execute('PRAGMA table_info(runs)')}:
+                self.conn.execute('ALTER TABLE runs ADD COLUMN missing_url_count INTEGER NOT NULL DEFAULT 0')
+            self.conn.execute('ALTER TABLE runs RENAME COLUMN upper_id TO legacy_upper_id')
+            self.conn.execute('ALTER TABLE runs RENAME COLUMN after_id TO legacy_after_id')
+            self.conn.execute('ALTER TABLE source_records RENAME COLUMN row_key_hash TO record_key')
+            self.conn.execute('ALTER TABLE source_records RENAME COLUMN raw_id TO legacy_raw_id')
+            for name, declaration in RUN_ADDITIONS:
+                self.conn.execute(f'ALTER TABLE runs ADD COLUMN {name} {declaration}')
+            self.conn.execute("UPDATE runs SET source_kind='prod_postgres'")
+            self.conn.execute(DAY_SCHEMA)
+            self.conn.execute('CREATE INDEX source_day_state ON run_source_days(run_id,state,ann_date)')
+            self.conn.execute('UPDATE archive SET schema_version=2 WHERE singleton=1')
+            self._validate_schema(2)
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
+
+    def begin_run(self, options: DownloadOptions, scope: str, policy: DownloadPolicy | None = None) -> str:
         run = uuid.uuid4().hex
         with self.conn:
+            self.conn.execute("UPDATE run_source_days SET state='cancelled',reason='process_exit_recovered',updated_at=? "
+                              "WHERE state='reading'", (timestamp(),))
             self.conn.execute("UPDATE runs SET phase='cancelled',reason='process_exit_recovered',updated_at=? "
                               "WHERE phase IN ('enumerating','downloading')", (timestamp(),))
-            self.conn.execute('INSERT INTO runs(run_id,start_date,end_date,interval_seconds,source_scope,phase,updated_at) '
-                              "VALUES(?,?,?,?,?,'enumerating',?)", (run, options.start_date.isoformat(),
-                              options.end_date.isoformat(), options.interval_seconds, scope, timestamp()))
+            self.conn.execute('INSERT INTO runs(run_id,start_date,end_date,interval_seconds,source_scope,phase,updated_at,'
+                              'source_contract_version,source_policy,days_total,legacy_upper_id,legacy_after_id) '
+                              'VALUES(?,?,?,?,?,?,?,?,?,?,NULL,NULL)',
+                              (run, options.start_date.isoformat(), options.end_date.isoformat(), options.interval_seconds,
+                               scope, 'enumerating', timestamp(), SOURCE_CONTRACT_VERSION,
+                               json.dumps(asdict(policy or DownloadPolicy()), sort_keys=True),
+                               (options.end_date-options.start_date).days+1))
         return run
 
-    def set_upper(self, run: str, upper_id: int):
+    def begin_day(self, run: str, day: str):
         with self.conn:
-            self.conn.execute('UPDATE runs SET upper_id=?,updated_at=? WHERE run_id=?',
-                              (upper_id, timestamp(), run))
+            current = self.conn.execute('SELECT * FROM runs WHERE run_id=?', (run,)).fetchone()
+            if (not current or current['phase'] != 'enumerating' or current['enumeration_sealed']
+                    or current['days_completed'] >= current['days_total']
+                    or (date.fromisoformat(current['start_date']) + timedelta(days=current['days_completed'])).isoformat() != day):
+                raise Blocked('source_day_outside_enumeration')
+            self.conn.execute("INSERT INTO run_source_days(run_id,ann_date,state,updated_at) VALUES(?,?,'reading',?)",
+                              (run, day, timestamp()))
+            self.conn.execute('UPDATE runs SET current_day=?,updated_at=? WHERE run_id=?', (day,timestamp(),run))
 
-    def ingest(self, run: str, scope: str, rows: list[dict]):
-        # Rows and cursor commit together. A failed batch never advances after_id.
+    def describe_day(self, run: str, day: str, facts: dict):
         with self.conn:
-            added = 0
+            self.conn.execute('UPDATE run_source_days SET opened_dev=?,opened_ino=?,size=?,sha256=?,footer_count=?,'
+                              "updated_at=? WHERE run_id=? AND ann_date=? AND state='reading'",
+                              (*[facts[k] for k in ('opened_dev','opened_ino','size','sha256','footer_count')],timestamp(),run,day))
+
+    def ingest(self, run: str, scope: str, day: str, rows: list[dict], batch_size=500):
+        if len(rows) > min(batch_size,500):
+            raise Blocked('source_batch_limit')
+        with self.conn:
+            current = self.conn.execute('SELECT phase,source_scope,enumeration_sealed FROM runs WHERE run_id=?',
+                                        (run,)).fetchone()
+            unit = self.conn.execute('SELECT * FROM run_source_days WHERE run_id=? AND ann_date=?', (run,day)).fetchone()
+            if (not current or current['phase'] != 'enumerating' or current['enumeration_sealed']
+                    or current['source_scope'] != scope or not unit or unit['state'] != 'reading'):
+                raise Blocked('source_batch_outside_enumeration')
+            added = missing = 0
             for row in rows:
-                day, code, url = str(row['ann_date']), row['ts_code'], (row['url'] or '').strip()
-                key = identity([day, code, url]) if url else None
+                record_key, iso_day, key = source_projection(row, day)
+                previous = self.conn.execute('SELECT last_seen_run FROM source_records WHERE source_scope=? AND record_key=?',
+                                             (scope,record_key)).fetchone()
+                if previous and previous['last_seen_run'] == run:
+                    raise Blocked('source_duplicate_record')
                 if key:
                     self.conn.execute('INSERT OR IGNORE INTO artifacts(artifact_key,ann_date,ts_code,title,url,updated_at) '
-                                      'VALUES(?,?,?,?,?,?)', (key, day, code, row['title'], url, timestamp()))
-                self.conn.execute('INSERT INTO source_records VALUES(?,?,?,?,?,?,?) '
-                                  'ON CONFLICT(source_scope,row_key_hash) DO UPDATE SET '
-                                  'raw_id=excluded.raw_id,metadata=excluded.metadata,artifact_key=excluded.artifact_key,'
-                                  'last_seen_run=excluded.last_seen_run', (scope, row['row_key_hash'], row['id'],
-                                  json.dumps(row, ensure_ascii=False, default=str), key, run, run))
+                                      'VALUES(?,?,?,?,?,?)', (key,iso_day,row['ts_code'],row['title'],row['url'].strip(),timestamp()))
+                self.conn.execute('INSERT INTO source_records(source_scope,record_key,legacy_raw_id,metadata,artifact_key,'
+                                  'first_seen_run,last_seen_run) VALUES(?,?,NULL,?,?,?,?) '
+                                  'ON CONFLICT(source_scope,record_key) DO UPDATE SET last_seen_run=excluded.last_seen_run',
+                                  (scope,record_key,json.dumps(row,ensure_ascii=False,separators=(',',':')),key,run,run))
                 if key:
                     added += self.conn.execute('INSERT OR IGNORE INTO run_artifacts(run_id,artifact_key) VALUES(?,?)',
-                                               (run, key)).rowcount
+                                               (run,key)).rowcount
                 else:
-                    self.conn.execute('UPDATE runs SET missing_url_count=missing_url_count+1 WHERE run_id=?', (run,))
-            if rows:
-                self.conn.execute('UPDATE runs SET after_id=?,records_read=records_read+?,artifacts_total=artifacts_total+?, '
-                                  'updated_at=? WHERE run_id=?', (max(r['id'] for r in rows), len(rows), added, timestamp(), run))
+                    missing += 1
+            self.conn.execute('UPDATE runs SET records_read=records_read+?,artifacts_total=artifacts_total+?,'
+                              'missing_url_count=missing_url_count+?,updated_at=? WHERE run_id=?',
+                              (len(rows),added,missing,timestamp(),run))
+            self.conn.execute('UPDATE run_source_days SET records_committed=records_committed+?,updated_at=? '
+                              'WHERE run_id=? AND ann_date=?', (len(rows),timestamp(),run,day))
+
+    def complete_day(self, run: str, day: str, facts: dict):
+        with self.conn:
+            current = self.conn.execute('SELECT * FROM run_source_days WHERE run_id=? AND ann_date=?', (run,day)).fetchone()
+            if (not current or current['state'] != 'reading' or current['records_committed'] != facts['footer_count']
+                    or any(current[k] != facts[k] for k in ('opened_dev','opened_ino','size','sha256','footer_count'))):
+                raise Blocked('source_day_reconciliation')
+            self.conn.execute("UPDATE run_source_days SET state='completed',updated_at=? WHERE run_id=? AND ann_date=?",
+                              (timestamp(),run,day))
+            self.conn.execute('UPDATE runs SET days_completed=days_completed+1,updated_at=? WHERE run_id=?', (timestamp(),run))
+
+    def seal(self, run: str):
+        with self.conn:
+            info = self.conn.execute('SELECT * FROM runs WHERE run_id=?', (run,)).fetchone()
+            invalid = self.conn.execute("SELECT 1 FROM run_source_days WHERE run_id=? AND "
+                                        "(state<>'completed' OR footer_count IS NULL OR records_committed<>footer_count) LIMIT 1",
+                                        (run,)).fetchone()
+            if (not info or info['phase'] != 'enumerating' or info['days_completed'] != info['days_total'] or invalid):
+                raise Blocked('source_enumeration_incomplete')
+            self.conn.execute("UPDATE runs SET enumeration_sealed=1,phase='downloading',updated_at=? WHERE run_id=?",
+                              (timestamp(),run))
 
     def phase(self, run: str, phase: str, reason=None):
         with self.conn:
-            self.conn.execute('UPDATE runs SET phase=?,reason=?,updated_at=? WHERE run_id=?',
-                              (phase, reason, timestamp(), run))
+            if phase in ('cancelled','blocked'):
+                self.conn.execute("UPDATE run_source_days SET state=?,reason=?,updated_at=? WHERE run_id=? AND state='reading'",
+                                  (phase,reason,timestamp(),run))
+            self.conn.execute('UPDATE runs SET phase=?,reason=?,updated_at=? WHERE run_id=?', (phase,reason,timestamp(),run))
 
     def next_task(self, run: str) -> dict | None:
+        info = self.conn.execute('SELECT enumeration_sealed,phase FROM runs WHERE run_id=?', (run,)).fetchone()
+        if not info or not info['enumeration_sealed'] or info['phase'] != 'downloading':
+            raise Blocked('source_enumeration_not_sealed')
         row = self.conn.execute('SELECT a.* FROM artifacts a JOIN run_artifacts r USING(artifact_key) '
                                 'WHERE r.run_id=? AND r.outcome IS NULL ORDER BY r.artifact_key LIMIT 1', (run,)).fetchone()
         return dict(row) if row else None
@@ -155,8 +326,9 @@ class Ledger:
         total, done = counters['artifacts_total'], counters['completed_count']
         return dict(records=counters['records_read'], total=total, completed=done, succeeded=counters['succeeded_count'],
                     skipped=counters['skipped_count'], failed=counters['failed_count'],
-                    percent=round(100 * done / total, 2) if total else 100,
-                    skipped_missing_url=counters['missing_url_count'])
+                    percent=(round(100 * done / total, 2) if total else 100) if counters['enumeration_sealed'] else None,
+                    skipped_missing_url=counters['missing_url_count'], current_day=counters['current_day'],
+                    days_total=counters['days_total'], days_completed=counters['days_completed'])
 
     def cooldown(self) -> dict:
         return dict(self.conn.execute('SELECT * FROM cooldown WHERE singleton=1').fetchone())

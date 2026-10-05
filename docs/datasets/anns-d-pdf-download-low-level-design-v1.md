@@ -1,10 +1,10 @@
 # 上市公司公告 PDF 本地归档 LLD v1
 
-更新时间：2026-10-05。状态：**DG 消费设计完成，代码待迁移、验收待执行**。§1—§10 是迁移目标与开发门禁；当前代码仍为 Prod reader。§11—§13 是已完成的 Prod 版本历史记录，不证明 DG 版本通过。[技术方案](anns-d-pdf-download-technical-plan-v1.md)规定本轮与后续范围。
+更新时间：2026-10-05。状态：**DG 来源迁移实现、隔离与只读验收完成；最小真实 PDF 验收待执行**。方案提交 777d6901，实施修改尚未另行提交。§1—§10 是现行实现与门禁，交付证据见 §14；正式归档账本未打开/升级。§11—§13 是 Prod 历史记录，不证明 DG 版本真实下载通过。[技术方案](anns-d-pdf-download-technical-plan-v1.md)规定本轮与后续范围。
 
 ## 1. 改动范围、依据与依赖
 
-当前入口 `main → Volume.open → configured_database → Ledger → Source → execute`；execute 先按 upper_id/after_id 枚举，再对每个文件调用 has_artifact。目标替换为 `main → 输出卷门禁 → DG 来源卷/依赖预检 → Ledger(schema 2) → Source.iter_days → 封存枚举 → 原文件下载/恢复流程`。本轮仅修订文档，以下代码及测试均待实施。
+旧 Prod 入口 `main → Volume.open → configured_database → Ledger → Source → execute`，已被替换。现行入口为 `main → 输出卷门禁 → DG 来源卷/依赖预检 → Ledger(schema 2) → Source.iter_days → 封存枚举 → 原文件下载/恢复流程`。本轮已完成以下代码与测试迁移；没有执行真实 PDF 下载或修改正式归档。
 
 | 位置 | 迁移目标与影响面 |
 | --- | --- |
@@ -24,7 +24,7 @@
 
 ## 2. 参数与配置项审计
 
-所有默认值由 `DownloadOptions`/`DownloadPolicy` 和唯一 source 路径工厂提供，禁止散落多套默认值。新项在实现前已按本表审计；本轮尚未写入代码。
+所有默认值由 `DownloadOptions`/`DownloadPolicy` 和唯一 source 路径工厂提供，禁止散落多套默认值。新项在实现前已按本表审计，本轮已集中落地。
 
 | 名称 | 默认与来源/持久化 | 消费者、作用范围与依赖 | 生效、可见性与测试 |
 | --- | --- | --- | --- |
@@ -33,7 +33,7 @@
 | --output-root | /Volumes/datasource/announcements；CLI，archive 卷身份/相对路径 | 输出 volume、ledger、files | 启动；外卷/不同输出卷/禁止 Lake 路径 |
 | DG source 根（固定来源，不新增开关） | /Volumes/datasource/data_lake；唯一 source 工厂，source_scope/runs 记录规范来源 | source 路径仅 raw/tushare/anns_d；依据 DG paths | 启动；旧 config/env 不能覆盖，缺路径无 fallback |
 | 账本路径（沿用自动派生） | ~/Library/Application Support/Goldenshare/announcement-download/<归档身份>/downloads.sqlite | ledger；归档身份仍是输出卷 UUID+卷内相对目录 | 启动；同卷重挂载复用、不同卷隔离 |
-| source_contract_version | DG ANNOUNCEMENT_VERSION 当前为 1；source 固定合同，scope/日事实持久化 | source 六字段/schema；新记录 key 与旧 PG 来源隔离 | 合同一致性测试；字段顺序漂移启动阻断，Raw 无版本列不能运行时猜版本 |
+| source_contract_version | DG ANNOUNCEMENT_VERSION 当前为 1；source 固定合同，scope/runs 持久化，日事实通过 run_id 关联 | source 六字段/schema；新记录 key 与旧 PG 来源隔离 | 合同一致性测试；字段顺序漂移启动阻断，Raw 无版本列不能运行时猜版本 |
 | batch_size | 500；原 Policy 默认，替换 DB 消费者为 source/ledger | fetchmany/单批提交、取消边界；日余批可小于 500 | 启动；501+跨批反例、禁止 fetchall/OFFSET |
 | source_query_timeout_seconds | 15；替换旧 db_timeout_ms，集中 Policy；runs 策略摘要 | 每个 DuckDB 阻塞读取调用的超时/interrupt；不含暂停落账时间 | 每调用；超时/取消/线程回收/安全关闭 |
 | source_memory_limit / source_threads | 256 MiB / 1；集中 Policy，runs 策略摘要 | 单一 source DuckDB，内存用尽阻断；不声明等于 RSS | 启动；低内存反例、真实最大日 profiling |
@@ -120,7 +120,7 @@ Raw 20260726 的下载投影须为 2026-07-26；同代码/trim 后 URL 得到旧
 | run_artifacts | 原 PK(run_id,artifact_key)、outcome/attempts 与 pending 索引保留；只能消费已封存新 run |
 | cooldown | 原单行时间/in_flight/reason 保留，不因迁移缩短等待 |
 
-新鲜初始化直接建 schema 2。已有 schema 1 在取得归档 OS 锁并核对 archive 卷身份后升级：先验证已知表/列/索引；BEGIN IMMEDIATE；显式逐条 ALTER TABLE/CREATE TABLE/索引调整；旧 runs 标注 source_kind=prod_postgres（历史），新字段不虚构其读取日数/指纹；最后更新 archive.schema_version 并 COMMIT。不能先执行新 schema 的建表脚本再核验版本，不能用会隐式提交的 executescript 包裹迁移。未知/更高版本或非本归档账本直接阻断。
+新鲜初始化直接建 schema 2。已有 schema 1 在取得归档 OS 锁并核对 archive 卷身份后升级：先验证已知表/列/主键/唯一索引；BEGIN IMMEDIATE；早期 schema 1 若缺 missing_url_count，在该事务中补默认 0（旧程序同样支持该已知形态），不猜测其他缺列；显式逐条 ALTER TABLE/CREATE TABLE/索引调整；旧 runs 标注 source_kind=prod_postgres（历史），新字段不虚构其读取日数/指纹；最后更新 archive.schema_version 并 COMMIT。不能先执行新 schema 的建表脚本再核验版本，不能用会隐式提交的 executescript 包裹迁移。未知/更高版本或非本归档账本直接阻断。
 
 列重命名只改变标签，不重算旧 hash/id 或改旧 metadata；legacy 字段仅存历史数据，不保留 PG 运行分支。新代码只创建 DG run，DG 插入显式列清单，禁止 INSERT VALUES 依赖旧列顺序。全部 SQL/fixtures/查询消费者一次迁移到新列名。失败 ROLLBACK，旧版本/行数/索引/冷却与文件原样可读；不清空、重建、备份或删除账本/PDF。升级后旧程序遇 schema_version 不匹配应停止；不提供降级写入。
 
@@ -156,7 +156,7 @@ Raw 20260726 的下载投影须为 2026-07-26；同代码/trim 后 URL 得到旧
 
 ## 8. 进度、退出码与性能验收
 
-枚举显示 current_day、days_completed/days_total、records_read、artifacts_total、missing_url_count、更新时间；活动日同时显示 records_committed/footer_count，按已提交业务计数更新。源指纹/查询中只显示当前子阶段和上次确认量，不能把心跳当行增长。范围整体记录总量未确定时不伪造记录百分比；枚举封存后以 run_artifacts 为下载分母。
+枚举显示 current_day、days_completed/days_total、records_read、artifacts_total、missing_url_count、更新时间；活动日同时显示 records_committed/footer_count，按已提交业务计数更新。源指纹/查询中只显示当前子阶段和上次确认量，不能把心跳当行增长。范围整体记录总量未确定时不伪造记录百分比；枚举封存后以 run_artifacts 为下载分母，并用 ann_date 显示当前文件日期（current_day 保留读源窗口上下文）。
 
 退出码沿用：0=文件全部成功或有效跳过，含合法零任务范围；1=存在文件失败；2=参数/启动依赖/磁盘门禁失败；3=运行阻断；130=用户取消。运行期缺日不是 0 行成功。可记录 reason code、脱敏来源及当前日，不输出连接串/错误页/敏感 URL query。
 
@@ -164,12 +164,12 @@ Raw 20260726 的下载投影须为 2026-07-26；同代码/trim 后 URL 得到旧
 
 实现后先在空日、小日、最大日量级只读 profiling，记录 fd 数/查询次数/扫描字节、读取和落账时间、峰值 RSS、每行台账空间、取消延迟；最大日量级每个读取调用应在 15s 内完成，进度间隔≤5s。不能满足预算则阻断并回写方案，不静默增加限制。只有按已测样本算清选定日期枚举耗时、台账/磁盘空间、文件请求量及预计范围耗时才进入范围执行；PDF 网络计时样本只在最小真实阶段获取，不为 profiling 提前下载大量文件。
 
-## 9. 开发硬口径与验收映射（全部待 DG 版本验证）
+## 9. 开发硬口径与验收映射（隔离/只读证据见 §14，真实下载另验）
 
 | 约束 | 目标代码点 | 正向证据 | 负向/故障证据 |
 | --- | --- | --- | --- |
 | R1 单一 DG 来源 | CLI.main、source 工厂 | 无 PG/CH/DG 进程也读 fixture；现有四参数 | monkeypatch DB/Tushare 建连即报错，证明未调用；缺 DuckDB/源无 fallback |
-| R2 全自然日范围 | Source.iter_days/iter_batches | 两端/周末/空日、退市与债券代码都纳入 | 前后一天不得混入；缺一日整轮 blocked/零 HTTP；非法 Raw 日期不补值 |
+| R2 全自然日范围 | Source.iter_days/DayReader.__iter__ | 两端/周末/空日、退市与债券代码都纳入 | 前后一天不得混入；缺一日整轮 blocked/零 HTTP；非法 Raw 日期不补值 |
 | R3 日期与旧 key | core.identity、源下载投影 | 固定旧金样本 2026-07-26 与 Raw 20260726 得同 key | 直接八位 date 会得不同 key 的反例；跨日/代码不同 key |
 | R4 六字段与标题 | source、Ledger.ingest、Files.allocate | 六字段原值、同 URL 多映射单任务、旧路径不改 | NULL/空串/空白/name/rec_time 差异不得合并；非法标题/代码保留来源并失败 |
 | R5 限速 | Limiter/Downloader/cooldown | fake clock 和本地 HTTP 时间戳 | redirect/retry 绕过、NaN/inf/负数、迁移/重启缩短冷却 |
@@ -193,9 +193,9 @@ Raw 20260726 的下载投影须为 2026-07-26；同代码/trim 后 URL 得到旧
 
 临时文件机制验证：根现有 .venv 的 DuckDB 1.5.5，旧文件 fd 打开后 os.replace 路径；read_parquet('/dev/fd/<fd>', hive_partitioning=false) 读 old，重开路径读 new。复测确认旧 fd 的 dev/ino/size/mtime 不变，nlink 从 1 变 0、ctime 改变；256 MiB/1 线程/no-spill/禁止自动扩展的连接配置可建立。临时目录清理，不读取/写入正式 Lake，不下载 PDF。此证据只支持 §4 固定 fd 与属性核验选择，不是新增自动化测试、性能预算或真实下载已通过的声明。
 
-本轮只改两份原文档；不改变实际 CLI/数据库/契约/依赖矩阵。迁移实现、schema 升级、所有 DG 正反例、真实源读取/性能与真实下载均待后续步骤。下一步按技术方案 §9 的“迁移实现”推进，再做隔离和只读验收；DG 连续日常验证独立推进。
+本轮按技术方案 §9 完成迁移实现及隔离/只读验收；CLI 四参数不变，来源明确切 DG，移除数据库读取。schema 升级目前只执行于临时旧账本金样本，正式台账未打开。依赖矩阵、DatasetDefinition、DG 数据集/API/前端均未改变。下一步是最多五个唯一 URL 的 DG 来源真实归档验收；DG 连续日常验证独立推进。
 
-本轮文档完整性三组检查通过；两份文档共 21 个引用逐项核验通过，R1—R11 在两份原设计中均有对应约束/验收映射，git diff --check 通过。文档检查不证明新代码行为。以下保留 Prod 版本历史证据，段落中的阶段指引只表示记录当时状态。旧分组覆盖/id 删除已经失效，旧逐文件 DB 存在性复核仅描述尚未迁移的实现，不适用于上述目标 DG reader。
+方案提交前文档完整性三组、两份文档 21 个引用及差异检查通过；实施阶段又核验新增引用，结果见 §14。R1—R11 在两份原设计中均有对应约束/验收映射。文档检查不证明新代码行为。以下保留 Prod 版本历史证据，段落中的阶段指引只表示记录当时状态。旧分组覆盖/id 删除已经失效，旧逐文件 DB 存在性复核仅描述已被替代的 Prod 实现，不适用于上述目标 DG reader。
 
 ## 11. M0/M1 实施证据（2026-10-01）
 
@@ -287,3 +287,20 @@ GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.download_ann
 ```
 
 范围边界：本轮没有写Prod、启动元数据同步、下载全历史或安装依赖。只验证巨潮静态域名及5个小文件；其他域名、真实拔盘、全范围容量和实际运行预算没有本轮证据。M4须由管理员指定日期和请求间隔，不能把5个样本均值外推为1200万份的磁盘或耗时预算。
+
+
+## 14. DG 迁移实现与隔离/只读验收（2026-10-05）
+
+方案提交 777d6901 后，用户授权继续推进。源与台账升级按 §1—§9 实施；正式 Lake 只读，本轮未运行真实 PDF 下载、升级正式账本、删除用户 PDF、触发 DG job/事件/调度或安装依赖。[完整验收](../../reports/anns_d_download_dg_reader_acceptance_20261005.md)、[机器可读证据](../../reports/anns_d_download_dg_reader_acceptance_20261005.json)。
+
+R1—R11 的代码点为 CLI.main/execute、Source/DayReader、SourceVolume、source_projection、Ledger._upgrade/begin_day/ingest/complete_day/seal/next_task，以及未改的 Files/Downloader。tests/test_announcement_download_cli.py 全部迁移到日迭代/封存；tests/test_announcement_download_dg.py 验证真实临时 Parquet 与历史 schema 1 金样本。SQL 和测试消费者已清零运行期 configured_database/id 游标/has_artifact，旧字段只留在事务迁移及历史诊断，不保留 PG 执行分支。
+
+冻结旧版构造器与 SQL 仅作为迁移测试金样本，不被产品导入。五份隔离旧 PDF 升级后零请求，删除其中一份只请求这一份；prepared 两窗口、未知版本、缺唯一约束、DDL 中途回滚、旧程序拒绝新账本和早期可选计数列均验证。独立进程枚举中退出保留第一批，重启重新枚举；实际 SIGINT 中断长 DuckDB 查询得到 run/day cancelled、零请求；超时/取消 watcher 回收。原本机 HTTP redirect/retry/冷却测试继续通过。
+
+正式只读选择合法空日 2026-09-26、五条日 2026-07-26、缺字段样本 2023-06-09 和冻结计划最大存量日 2024-04-26；合计 76,685 条、156 批、42,032 唯一文件任务，缺 URL 1 条、rec_time NULL 29,443 条均保留映射。六字段/逐行日期/类型、无完整重复、fd 前后指纹、footer 与 SQLite 行数、日完成及范围封存均对账一致；没有请求 PDF。它不证明全历史/Tushare 完整性或 DG 日常稳定性。
+
+最大日 69,138 条，139 批，读源和临时落账 39.077 秒，其中 SQL 6.053 秒，单次 DuckDB 调用最大 0.006 秒，进度最大间隔 0.33 秒；整体 RSS 峰值 128.78 MiB。正式归档的双卷核验/文件恢复/网络开销不在本次只读秒数中。台账 88,813,568 字节，样本平均 1158.16 字节/行；全文记录/索引会占空间，不能把 DuckDB 内存限制当台账容量保证或直接据样本承诺全量耗时。
+
+CodeGraph explore/search + sync/status（up to date）复核 CLI→Source/SourceVolume→Ledger→Files/HTTP，补用实际 SQL、源码和 tests 搜索核验所有消费者。未修改子系统边界、API、DatasetDefinition、DG 接入合同或数据维护执行计划。下一步另按阶段执行 DG 最小真实下载，台账查询维护和前端继续后续工作。
+
+验收数量：下载专项与架构共 129 项通过，--help、compileall、文档完整性、26 个引用和 git diff --check 通过；没有安装依赖或合入其他工作区改动。

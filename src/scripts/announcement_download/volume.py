@@ -30,10 +30,10 @@ def no_symlinks(path: Path):
             raise Blocked('symlink_path_forbidden')
 
 
-def external_volume(info: dict, inspector=disk_info) -> str:
+def external_volume(info: dict, inspector=disk_info, *, require_writable=True) -> str:
     if not info.get('MountPoint') or not info.get('VolumeUUID'):
         raise Blocked('volume_not_mounted')
-    if info.get('WritableVolume', info.get('Writable')) is not True:
+    if require_writable and info.get('WritableVolume', info.get('Writable')) is not True:
         raise Blocked('volume_read_only')
     stores = info.get('APFSPhysicalStores')
     if info.get('FilesystemType') == 'apfs' and not stores:
@@ -65,6 +65,7 @@ class Volume:
         self.policy = policy
         self.inspector = inspector or (lambda target: disk_info(target, policy.volume_timeout))
         self.root_fd = self.mount_fd = self.lock_fd = -1
+        self.require_writable = True
 
     def open(self):
         if sys.platform != 'darwin':
@@ -122,7 +123,7 @@ class Volume:
             info = self.inspector(str(self.mount))
             if (info.get('VolumeUUID') != self.volume_uuid or info.get('DeviceIdentifier') != self.device_id
                     or info.get('MountPoint') != str(self.mount)
-                    or info.get('WritableVolume', info.get('Writable')) is not True):
+                    or (self.require_writable and info.get('WritableVolume', info.get('Writable')) is not True)):
                 raise Blocked('volume_disconnected_or_changed')
         if self.root_fd >= 0 and os.fstat(self.root_fd).st_dev != self.device:
             raise Blocked('archive_device_changed')
@@ -188,3 +189,30 @@ class Volume:
             if fd >= 0:
                 os.close(fd)
                 setattr(self, name, -1)
+
+
+class SourceVolume(Volume):
+    """An external source anchor: never creates directories, locks or write probes."""
+
+    def open(self):
+        if sys.platform != 'darwin':
+            raise Blocked('macOS_required')
+        self.require_writable = False
+        no_symlinks(self.output)
+        mount = self.output
+        while not os.path.ismount(mount) and mount != mount.parent:
+            mount = mount.parent
+        if mount == Path('/'):
+            raise Blocked('external_mount_required')
+        info = self.inspector(str(mount))
+        self.volume_uuid = external_volume(info, self.inspector, require_writable=False)
+        self.mount = mount
+        if Path(info['MountPoint']) != mount:
+            raise Blocked('mount_identity_mismatch')
+        self.relative_root = self.output.relative_to(mount).as_posix()
+        self.device_id = info.get('DeviceIdentifier')
+        self.mount_fd = os.open(mount, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        self.device = os.fstat(self.mount_fd).st_dev
+        self.assert_valid(full=True)
+        self.root_fd = self._walk(self.mount_fd, self.relative_root, create=False)
+        return self

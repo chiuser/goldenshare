@@ -36,7 +36,9 @@ class Cancelled(DownloadError):
 @dataclass(frozen=True)
 class DownloadPolicy:
     batch_size: int = 500
-    db_timeout_ms: int = 15_000
+    source_query_timeout_seconds: float = 15
+    source_memory_limit: str = '256MiB'
+    source_threads: int = 1
     volume_timeout: float = 10
     chunk_size: int = 64 * 1024
     max_file_size: int = 512 * 1024 * 1024
@@ -74,8 +76,33 @@ def iso_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
-def identity(parts: list[str]) -> str:
+def identity(parts: list[str | None]) -> str:
     return hashlib.sha256(json.dumps(parts, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+
+
+# The published DG Raw contract. Never infer these values from directory fields.
+ANNOUNCEMENT_FIELDS = ('ann_date', 'ts_code', 'name', 'title', 'url', 'rec_time')
+SOURCE_CONTRACT_VERSION = 1
+
+
+def source_projection(row: dict, day: str) -> tuple[str, str, str | None]:
+    if set(row) != set(ANNOUNCEMENT_FIELDS):
+        raise Blocked('source_record_schema')
+    if any(value is not None and not isinstance(value, str) for value in row.values()):
+        raise Blocked('source_record_type')
+    value = row['ann_date']
+    if not isinstance(value, str) or not re.fullmatch(r'[0-9]{8}', value):
+        raise Blocked('source_record_date')
+    try:
+        parsed = date(int(value[:4]), int(value[4:6]), int(value[6:]))
+    except ValueError:
+        raise Blocked('source_record_date') from None
+    if parsed.isoformat() != day:
+        raise Blocked('source_partition_mismatch')
+    record_key = identity(['dg-anns-d-v1', *(row[name] for name in ANNOUNCEMENT_FIELDS)])
+    url = (row['url'] or '').strip()
+    artifact_key = identity([day, row['ts_code'], url]) if url else None
+    return record_key, day, artifact_key
 
 
 def timestamp() -> str:

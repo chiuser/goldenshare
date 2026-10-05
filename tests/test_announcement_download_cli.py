@@ -13,7 +13,6 @@ from dataclasses import replace
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -25,7 +24,7 @@ from src.scripts.announcement_download.core import (
 from src.scripts.announcement_download.files import Files, title_name, valid_url
 from src.scripts.announcement_download.http import Limiter, retry_seconds
 from src.scripts.announcement_download.ledger import Ledger
-from src.scripts.announcement_download.source import Source, configured_database
+from src.scripts.announcement_download.source import Source
 from src.scripts.announcement_download.volume import Volume, external_volume
 
 
@@ -45,31 +44,63 @@ class Clock:
         self.now += seconds
 
 
+class FakeDay:
+    def __init__(self, source, day, rows):
+        self.source, self.day, self.rows = source, day, rows
+        self.facts = dict(opened_dev=1,opened_ino=1,size=0,sha256='0'*64,footer_count=len(rows))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    def __iter__(self):
+        for offset in range(0,len(self.rows),self.source.size):
+            if self.source.fail_after_batches is not None and len(self.source.calls) >= self.source.fail_after_batches:
+                raise Blocked('source_read_failed')
+            self.source.calls.append(offset)
+            yield self.rows[offset:offset+self.source.size]
+
+    def verify(self):
+        return self.facts
+
+
 class FakeSource:
     def __init__(self, rows, options, size=500):
         self.rows, self.options, self.size = rows, options, size
-        self.calls = []
-        self.closed = False
+        self.calls, self.closed = [], False
+        self.fail_after_batches = None
 
-    def upper_id(self):
-        return max((r['id'] for r in self.rows), default=0)
+    def iter_days(self):
+        from datetime import timedelta
+        day = self.options.start_date
+        while day <= self.options.end_date:
+            rows = [r for r in self.rows if r['ann_date'] in (None,day.strftime('%Y%m%d'))]
+            yield FakeDay(self,day.isoformat(),rows)
+            day += timedelta(days=1)
 
-    def batch(self, after, upper):
-        self.calls.append(after)
-        return [r for r in self.rows if after < r['id'] <= upper and
-                self.options.start_date <= r['ann_date'] <= self.options.end_date][:self.size]
-
-    def has_artifact(self, task):
-        return any(str(r['ann_date']) == task['ann_date'] and r['ts_code'] == task['ts_code']
-                   and r['url'] == task['url'] for r in self.rows)
+    def assert_valid(self, full=False):
+        pass
 
     def close(self):
         self.closed = True
 
 
-def row(n=1, title='董事会决议公告', url=None, day=date(2026, 9, 30), code='600000.SH'):
-    return dict(id=n, row_key_hash=f'row-{n}', ann_date=day, ts_code=code, title=title,
-                url=url or f'https://ann.example/{n}.pdf', rec_time='2026-09-30T08:00:00+08:00')
+def row(n=1, title='董事会决议公告', url=None, day=date(2026,9,30), code='600000.SH'):
+    return dict(ann_date=day.strftime('%Y%m%d'),ts_code=code,name='样本公司',title=title,
+                url=url or f'https://ann.example/{n}.pdf',rec_time='2026-09-30 08:00:00')
+
+
+def stage_rows(ledger, run, scope, rows, day='2026-09-30', seal=False):
+    facts=dict(opened_dev=1,opened_ino=1,size=0,sha256='0'*64,footer_count=len(rows))
+    ledger.begin_day(run,day)
+    ledger.describe_day(run,day,facts)
+    ledger.ingest(run,scope,day,rows)
+    if seal:
+        ledger.complete_day(run,day,facts)
+        ledger.seal(run)
+
 
 
 @pytest.fixture
@@ -102,7 +133,7 @@ def run(archive, rows, handler=None):
     volume, ledger, options, policy, clock, control, *_ = archive
     client = httpx.Client(transport=httpx.MockTransport(handler or (lambda _: httpx.Response(200, content=PDF))))
     source = FakeSource(rows, options, policy.batch_size)
-    code = cli.execute(options, policy, control, volume, ledger, source, 'prod/test/anns_d',
+    code = cli.execute(options, policy, control, volume, ledger, source, 'dg/test/anns_d',
                        client=client, clock=clock)
     return code, source
 
@@ -137,50 +168,16 @@ def test_startup_gate_precedes_configuration_and_state(monkeypatch):
         touched.append('gate')
         raise Blocked('external_mount_required')
     monkeypatch.setattr(Volume, 'open', gate)
-    monkeypatch.setattr(cli, 'configured_database', lambda: pytest.fail('DB configuration touched before gate'))
+    monkeypatch.setattr(cli, 'Source', lambda *a: pytest.fail('source touched before output gate'))
     monkeypatch.setattr(cli, 'Ledger', lambda *a: pytest.fail('ledger touched before gate'))
     assert cli.main(['--start-date', '2026-09-30', '--end-date', '2026-09-30']) == 2
     assert touched == ['gate']
 
 
-def test_no_default_database_and_existing_settings_precedence(tmp_path, monkeypatch):
-    from src.foundation.config.settings import get_settings
-    env = tmp_path / '.env'
-    monkeypatch.setenv('GOLDENSHARE_ENV_FILE', str(env))
-    monkeypatch.delenv('DATABASE_URL', raising=False)
-    get_settings.cache_clear()
-    try:
-        with pytest.raises(Blocked, match='explicit_DATABASE_URL'):
-            configured_database()
-        env.write_text('DATABASE_URL=postgresql+psycopg://file_user:file_secret@file-host/prod\n')
-        monkeypatch.setenv('DATABASE_URL', 'postgresql+psycopg://env_user:env_secret@env-host/dev')
-        url, scope = configured_database()
-        assert 'file-host' in url
-        assert scope == 'file-host:5432/prod/raw_tushare.anns_d'
-        assert 'secret' not in scope and 'user' not in scope
-        assert 'env-host' in os.environ['DATABASE_URL']
-    finally:
-        get_settings.cache_clear()
-
-
-def test_source_readonly_first_bound_range_and_batch(monkeypatch):
-    engine = MagicMock()
-    connection = engine.connect.return_value.__enter__.return_value
-    connection.execute.return_value.mappings.return_value = [row()]
-    monkeypatch.setattr('src.scripts.announcement_download.source.create_engine', lambda *a, **kw: engine)
-    options = DownloadOptions(date(2026, 9, 1), date(2026, 9, 30))
-    source = Source('not-connected', options, DownloadPolicy())
-    assert source.batch(4, 20)[0]['id'] == 1
-    calls = connection.execute.call_args_list
-    assert str(calls[0].args[0]) == 'SET TRANSACTION READ ONLY'
-    assert 'statement_timeout' in str(calls[1].args[0])
-    sql, params = calls[2].args
-    assert 'ann_date >= :start_date AND ann_date <= :end_date' in str(sql)
-    assert 'raw_payload' not in str(sql) and 'SELECT *' not in str(sql)
-    assert params == dict(start_date=options.start_date, end_date=options.end_date, after_id=4, upper_id=20, batch_size=500)
-    assert connection.begin.return_value.__exit__.called
-    source.close()
-    engine.dispose.assert_called_once()
+def test_cli_has_no_database_configuration_consumer():
+    import inspect
+    text=inspect.getsource(cli)
+    assert 'configured_database' not in text and 'sqlalchemy' not in text
 
 
 def test_closed_date_range_and_empty_range(archive):
@@ -253,8 +250,8 @@ def test_rename_before_success_ledger_failure_recovers_without_request(archive, 
 
 def test_prepared_part_promotes_without_request(archive):
     ledger, options = archive[1], archive[2]
-    run_id = ledger.begin_run(options, 'prod/test/anns_d')
-    ledger.ingest(run_id, 'prod/test/anns_d', [row()])
+    run_id = ledger.begin_run(options, 'dg/test/anns_d')
+    stage_rows(ledger,run_id,'dg/test/anns_d',[row()],seal=True)
     files = Files(archive[0], ledger, archive[3], archive[5])
     task = files.allocate(ledger.next_task(run_id))
     import hashlib
@@ -288,15 +285,18 @@ def test_cancel_mid_second_file_then_resume_only_unfinished(archive):
     assert len(list(archive[2].output_root.rglob('*.pdf'))) == 2
 
 
-def test_batch_cursor_and_rows_rollback_together(archive):
-    ledger = archive[1]
-    run_id = ledger.begin_run(archive[2], 'prod')
-    bad = row(2)
-    bad.pop('row_key_hash')
-    with pytest.raises(KeyError):
-        ledger.ingest(run_id, 'prod', [row(), bad])
-    assert ledger.conn.execute('SELECT after_id FROM runs WHERE run_id=?', (run_id,)).fetchone()[0] == 0
-    assert ledger.conn.execute('SELECT count(*) FROM artifacts').fetchone()[0] == 0
+def test_batch_rows_and_counts_rollback_together(archive):
+    ledger=archive[1]
+    run_id=ledger.begin_run(archive[2],'dg')
+    facts=dict(opened_dev=1,opened_ino=1,size=0,sha256='0'*64,footer_count=2)
+    ledger.begin_day(run_id,'2026-09-30')
+    ledger.describe_day(run_id,'2026-09-30',facts)
+    bad=row(2);bad.pop('name')
+    with pytest.raises(Blocked,match='source_record_schema'):
+        ledger.ingest(run_id,'dg','2026-09-30',[row(),bad])
+    assert ledger.conn.execute('SELECT records_read FROM runs').fetchone()[0]==0
+    assert ledger.conn.execute('SELECT records_committed FROM run_source_days').fetchone()[0]==0
+    assert ledger.conn.execute('SELECT count(*) FROM artifacts').fetchone()[0]==0
 
 
 def test_redirect_and_retry_all_obey_intervals(archive):
@@ -444,19 +444,15 @@ def test_bad_redirects_do_not_issue_second_request(archive, location, error):
 
 
 def test_enumeration_crash_keeps_batch_and_next_run_refreshes(archive):
-    from sqlalchemy.exc import SQLAlchemyError
     volume, ledger, options, policy, clock, control, *_ = archive
     source = FakeSource([row(1), row(2), row(3)], options, policy.batch_size)
-    batch = source.batch
-    def fail(after, upper):
-        if after:
-            raise SQLAlchemyError('injected source outage')
-        return batch(after, upper)
-    source.batch = fail
+    source.fail_after_batches = 1
     client = httpx.Client(transport=httpx.MockTransport(lambda _: pytest.fail('no HTTP during enumeration')))
-    assert cli.execute(options, policy, control, volume, ledger, source, 'prod/test/anns_d', client, clock) == 3
+    assert cli.execute(options, policy, control, volume, ledger, source, 'dg/test/anns_d', client, clock) == 3
     client.close()
-    assert latest_run(ledger)['after_id'] == 2
+    assert latest_run(ledger)['records_read'] == 2
+    assert latest_run(ledger)['enumeration_sealed'] == 0
+    assert ledger.conn.execute('SELECT state FROM run_source_days').fetchone()[0] == 'blocked'
     assert ledger.conn.execute('SELECT count(*) FROM source_records').fetchone()[0] == 2
     requests = []
     assert run(archive, [row(1), row(2), row(3), row(4)], lambda req: requests.append(req) or httpx.Response(200, content=PDF))[0] == 0
@@ -528,21 +524,22 @@ def test_missing_url_preserves_mapping_and_cursor_without_http(archive):
     ledger=archive[1]
     saved=ledger.conn.execute('SELECT * FROM source_records').fetchone()
     counters=ledger.conn.execute('SELECT * FROM runs ORDER BY updated_at DESC LIMIT 1').fetchone()
-    assert saved['artifact_key'] is None and saved['raw_id']==1
-    assert counters['after_id']==1 and counters['missing_url_count']==1 and counters['artifacts_total']==0
+    assert saved['artifact_key'] is None and saved['legacy_raw_id'] is None
+    assert counters['records_read']==1 and counters['missing_url_count']==1 and counters['artifacts_total']==0
 
 
-def test_replaced_source_is_not_downloaded(archive):
+def test_download_uses_sealed_input_without_live_source_queries(archive):
     volume,ledger,options,policy,clock,control,*_=archive
     source=FakeSource([row()],options,policy.batch_size)
-    source.has_artifact=lambda task: False
+    def days():
+        yield FakeDay(source,'2026-09-30',[row()])
+        source.rows=[]
+    source.iter_days=days
     calls=[]
     client=httpx.Client(transport=httpx.MockTransport(lambda request: calls.append(request) or httpx.Response(200,content=PDF)))
     try:
         assert cli.execute(options,policy,control,volume,ledger,source,'test',client,clock)==0
-        assert not calls
-        assert ledger.conn.execute('SELECT skipped_count FROM runs').fetchone()[0]==1
-        assert ledger.conn.execute('SELECT error FROM artifacts').fetchone()[0]=='source_record_replaced'
+        assert len(calls)==1 and latest_run(ledger)['enumeration_sealed']==1
         assert source.closed
     finally:
         client.close()
@@ -552,15 +549,12 @@ def test_replaced_source_is_not_downloaded(archive):
     ('ts_code', None, 'invalid_ts_code'),
     ('title', None, 'invalid_title'),
     ('ts_code', '../600000.SH', 'invalid_ts_code'),
-    ('ann_date', None, 'invalid_ann_date'),
 ])
 def test_invalid_raw_projection_is_file_failure_without_http(archive, field, value, reason):
     volume, ledger, options, policy, clock, control, *_ = archive
     item = row()
     item[field] = value
     source = FakeSource([item], options)
-    source.batch = lambda after, upper: [item] if after == 0 else []
-    source.has_artifact = lambda task: True
     client = httpx.Client(transport=httpx.MockTransport(lambda _: pytest.fail('invalid metadata must not request')))
     assert cli.execute(options, policy, control, volume, ledger, source, 'test', client, clock) == 1
     assert ledger.conn.execute('SELECT error FROM artifacts').fetchone()[0] == reason
@@ -669,6 +663,7 @@ def test_real_http_truncated_response_is_retried_and_never_promoted(archive):
 
 
 @pytest.mark.parametrize('crash_mode,resume_mode,requests', [
+    ('enumerating', 'resume_two', 2),
     ('downloading', 'resume_two', 1),
     ('prepared', 'resume_one', 0),
     ('renamed', 'resume_one', 0),
@@ -685,12 +680,15 @@ def test_real_process_exit_preserves_commits_and_resumes(tmp_path, crash_mode, r
     assert crashed.returncode == 73, crashed.stderr
     path = tmp_path / 'local-state/downloads.sqlite'
     with sqlite3.connect(path) as db:
-        assert db.execute('SELECT phase FROM runs').fetchone()[0] == 'downloading'
-        if crash_mode == 'downloading':
+        assert db.execute('SELECT phase FROM runs').fetchone()[0] == ('enumerating' if crash_mode == 'enumerating' else 'downloading')
+        if crash_mode == 'enumerating':
+            assert db.execute('SELECT records_read,enumeration_sealed FROM runs').fetchone() == (1,0)
+            assert db.execute('SELECT records_committed FROM run_source_days').fetchone()[0] == 1
+        elif crash_mode == 'downloading':
             assert db.execute("SELECT count(*) FROM artifacts WHERE state='succeeded'").fetchone()[0] == 1
         else:
             assert db.execute('SELECT state FROM artifacts').fetchone()[0] == 'prepared'
-    assert len(list((tmp_path / 'disk').rglob('*.pdf'))) == (0 if crash_mode == 'prepared' else 1)
+    assert len(list((tmp_path / 'disk').rglob('*.pdf'))) == (0 if crash_mode in ('prepared','enumerating') else 1)
     resumed = launch(resume_mode)
     assert resumed.returncode == 0, resumed.stderr
     assert json.loads(resumed.stdout)['requests'] == requests
@@ -700,7 +698,7 @@ def test_real_process_exit_preserves_commits_and_resumes(tmp_path, crash_mode, r
         assert db.execute("SELECT count(*) FROM artifacts WHERE state<>'succeeded'").fetchone()[0] == 0
         assert db.execute('SELECT phase FROM runs ORDER BY rowid DESC LIMIT 1').fetchone()[0] == 'completed'
     files = list((tmp_path / 'disk').rglob('*.pdf'))
-    assert len(files) == (2 if crash_mode == 'downloading' else 1)
+    assert len(files) == (2 if crash_mode in ('downloading','enumerating') else 1)
     assert all(p.read_bytes() == PDF for p in files)
 
 
@@ -751,8 +749,8 @@ def test_streaming_uses_policy_blocks_before_preparing(archive):
 def test_retry_scope_does_not_pick_old_range_pending_artifacts(archive):
     ledger = archive[1]
     old_options = replace(archive[2], start_date=date(2026, 9, 29), end_date=date(2026, 9, 29))
-    old_run = ledger.begin_run(old_options, 'prod/test/anns_d')
-    ledger.ingest(old_run, 'prod/test/anns_d', [row(9, day=old_options.start_date)])
+    old_run = ledger.begin_run(old_options, 'dg/test/anns_d')
+    stage_rows(ledger,old_run,'dg/test/anns_d',[row(9,day=old_options.start_date)],day=old_options.start_date.isoformat())
     calls = []
     assert run(archive, [row()], lambda req: calls.append(req.url.path) or httpx.Response(200, content=PDF))[0] == 0
     assert calls == ['/1.pdf']
@@ -774,3 +772,25 @@ def test_default_progress_is_visible_before_process_exit_through_pipe():
     finally:
         proc.communicate(input='\n', timeout=10)
     assert proc.returncode == 0
+
+
+def test_sigint_during_source_query_cancels_run_and_day_in_subprocess(tmp_path):
+    helper=Path(__file__).parent/'fixtures/announcement_download_process_runner.py'
+    entry='import runpy,sys;sys.argv=sys.argv[1:];runpy.run_path(sys.argv[0],run_name="__main__")'
+    proc=subprocess.Popen([sys.executable,'-B','-c',entry,str(helper),str(tmp_path),'query_cancel'],
+                          cwd=Path(__file__).parents[1],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    try:
+        assert select.select([proc.stdout],[],[],5)[0]
+        assert proc.stdout.readline().strip()=='query_ready'
+        time.sleep(.1)
+        proc.send_signal(__import__('signal').SIGINT)
+        stdout,stderr=proc.communicate(timeout=5)
+        assert proc.returncode==130,stderr
+        assert json.loads(stdout)['requests']==0
+    finally:
+        if proc.poll() is None:
+            proc.kill();proc.communicate()
+    with sqlite3.connect(tmp_path/'local-state/downloads.sqlite') as conn:
+        assert conn.execute('SELECT phase,reason FROM runs').fetchone()==('cancelled','user_cancelled')
+        assert conn.execute('SELECT state,records_committed FROM run_source_days').fetchone()==('cancelled',0)
+    assert not list((tmp_path/'disk').rglob('*.pdf'))
