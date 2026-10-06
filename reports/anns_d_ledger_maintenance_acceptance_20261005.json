@@ -1,0 +1,1108 @@
+{
+  "as_of": "2026-10-05T23:57:50.855560+08:00",
+  "scope": "real formal archives read-only; all repair/failure cases isolated",
+  "snapshots": [
+    {
+      "root": "/Volumes/datasource/announcements",
+      "ledger": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+      "schema_version": 1,
+      "bytes": 54812672,
+      "sha256_before": "024ce5eceb4ebf3d401982984711f693cdf5aefd6eab2941e37c481295db4cf2",
+      "sha256_after": "024ce5eceb4ebf3d401982984711f693cdf5aefd6eab2941e37c481295db4cf2",
+      "ledger_unchanged": true,
+      "summary": {
+        "archive": {
+          "singleton": 1,
+          "schema_version": 1,
+          "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+          "root_relative_path": "announcements",
+          "created_at": "2026-10-03T13:18:19.296620+00:00"
+        },
+        "files": [
+          {
+            "state": "pending",
+            "count": 33825
+          },
+          {
+            "state": "succeeded",
+            "count": 363
+          }
+        ],
+        "dates": {
+          "first_date": "2026-07-26",
+          "last_date": "2026-09-30",
+          "file_tasks": 34188
+        },
+        "sources": {
+          "records": 34188,
+          "missing_url": 0
+        },
+        "latest_run": [
+          {
+            "ledger_rowid": 2,
+            "run_id": "0e9bdd89040b44e39fa05b6104d74057",
+            "start_date": "2026-09-01",
+            "end_date": "2026-09-30",
+            "interval_seconds": 5.0,
+            "source_scope": "152.136.106.251:5432/goldenshare/raw_tushare.anns_d",
+            "upper_id": 20184551,
+            "after_id": 20184551,
+            "phase": "blocked",
+            "records_read": 34183,
+            "reason": "OperationalError",
+            "updated_at": "2026-10-03T14:22:12.326938+00:00",
+            "missing_url_count": 0,
+            "artifacts_total": 34183,
+            "completed_count": 358,
+            "succeeded_count": 358,
+            "skipped_count": 0,
+            "failed_count": 0,
+            "source_kind": "prod_postgres"
+          }
+        ],
+        "physical_status": "not_checked"
+      },
+      "matched_files": 1
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "ledger": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+      "schema_version": 2,
+      "bytes": 65536,
+      "sha256_before": "392a86f4ba5d919e81f1383371f7c7c13b3bdebaf29561208c4643f56106f06f",
+      "sha256_after": "392a86f4ba5d919e81f1383371f7c7c13b3bdebaf29561208c4643f56106f06f",
+      "ledger_unchanged": true,
+      "summary": {
+        "archive": {
+          "singleton": 1,
+          "schema_version": 2,
+          "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+          "root_relative_path": "announcements/dg-source-acceptance-20261005",
+          "created_at": "2026-10-05T15:21:52.719132+00:00"
+        },
+        "files": [
+          {
+            "state": "succeeded",
+            "count": 5
+          }
+        ],
+        "dates": {
+          "first_date": "2026-07-26",
+          "last_date": "2026-07-26",
+          "file_tasks": 5
+        },
+        "sources": {
+          "records": 5,
+          "missing_url": 0
+        },
+        "latest_run": [
+          {
+            "ledger_rowid": 3,
+            "run_id": "0bd0bb926a394a45b8a349cc30376698",
+            "start_date": "2026-07-26",
+            "end_date": "2026-07-26",
+            "interval_seconds": 5.0,
+            "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+            "legacy_upper_id": null,
+            "legacy_after_id": null,
+            "phase": "completed",
+            "records_read": 5,
+            "reason": null,
+            "updated_at": "2026-10-05T15:22:20.824895+00:00",
+            "missing_url_count": 0,
+            "artifacts_total": 5,
+            "completed_count": 5,
+            "succeeded_count": 0,
+            "skipped_count": 5,
+            "failed_count": 0,
+            "source_kind": "dg_raw_parquet",
+            "source_contract_version": 1,
+            "source_policy": "{\"attempts\": 3, \"backoff_seconds\": 30, \"batch_size\": 500, \"chunk_size\": 65536, \"connect_timeout\": 10, \"filename_bytes\": 200, \"max_file_size\": 536870912, \"pool_timeout\": 5, \"progress_seconds\": 5, \"read_timeout\": 15, \"redirects\": 5, \"reserve_bytes\": 1073741824, \"source_memory_limit\": \"256MiB\", \"source_query_timeout_seconds\": 15, \"source_threads\": 1, \"transfer_deadline\": 600, \"volume_timeout\": 10, \"wait_slice\": 0.5, \"write_timeout\": 15}",
+            "days_total": 1,
+            "days_completed": 1,
+            "current_day": "2026-07-26",
+            "enumeration_sealed": 1
+          }
+        ],
+        "physical_status": "not_checked"
+      },
+      "matched_files": 5
+    }
+  ],
+  "commands": [
+    {
+      "root": "/Volumes/datasource/announcements",
+      "args": [
+        "summary"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.5652482500299811,
+      "output": {
+        "command": "summary",
+        "output_root": "/Volumes/datasource/announcements",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+        "schema_version": 1,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "archive": {
+            "singleton": 1,
+            "schema_version": 1,
+            "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+            "root_relative_path": "announcements",
+            "created_at": "2026-10-03T13:18:19.296620+00:00"
+          },
+          "files": [
+            {
+              "state": "pending",
+              "count": 33825
+            },
+            {
+              "state": "succeeded",
+              "count": 363
+            }
+          ],
+          "dates": {
+            "first_date": "2026-07-26",
+            "last_date": "2026-09-30",
+            "file_tasks": 34188
+          },
+          "sources": {
+            "records": 34188,
+            "missing_url": 0
+          },
+          "latest_run": [
+            {
+              "ledger_rowid": 2,
+              "run_id": "0e9bdd89040b44e39fa05b6104d74057",
+              "start_date": "2026-09-01",
+              "end_date": "2026-09-30",
+              "interval_seconds": 5.0,
+              "source_scope": "152.136.106.251:5432/goldenshare/raw_tushare.anns_d",
+              "upper_id": 20184551,
+              "after_id": 20184551,
+              "phase": "blocked",
+              "records_read": 34183,
+              "reason": "OperationalError",
+              "updated_at": "2026-10-03T14:22:12.326938+00:00",
+              "missing_url_count": 0,
+              "artifacts_total": 34183,
+              "completed_count": 358,
+              "succeeded_count": 358,
+              "skipped_count": 0,
+              "failed_count": 0,
+              "source_kind": "prod_postgres"
+            }
+          ],
+          "physical_status": "not_checked"
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements",
+      "args": [
+        "runs",
+        "--limit",
+        "2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.5907590831629932,
+      "output": {
+        "command": "runs",
+        "output_root": "/Volumes/datasource/announcements",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+        "schema_version": 1,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "items": [
+            {
+              "ledger_rowid": 2,
+              "run_id": "0e9bdd89040b44e39fa05b6104d74057",
+              "start_date": "2026-09-01",
+              "end_date": "2026-09-30",
+              "interval_seconds": 5.0,
+              "source_scope": "152.136.106.251:5432/goldenshare/raw_tushare.anns_d",
+              "upper_id": 20184551,
+              "after_id": 20184551,
+              "phase": "blocked",
+              "records_read": 34183,
+              "reason": "OperationalError",
+              "updated_at": "2026-10-03T14:22:12.326938+00:00",
+              "missing_url_count": 0,
+              "artifacts_total": 34183,
+              "completed_count": 358,
+              "succeeded_count": 358,
+              "skipped_count": 0,
+              "failed_count": 0,
+              "source_kind": "prod_postgres"
+            },
+            {
+              "ledger_rowid": 1,
+              "run_id": "ec621d88e4bd40048066eed252600fd0",
+              "start_date": "2026-07-26",
+              "end_date": "2026-07-26",
+              "interval_seconds": 5.0,
+              "source_scope": "152.136.106.251:5432/goldenshare/raw_tushare.anns_d",
+              "upper_id": 20184551,
+              "after_id": 20080451,
+              "phase": "completed",
+              "records_read": 5,
+              "reason": null,
+              "updated_at": "2026-10-03T13:18:44.217491+00:00",
+              "missing_url_count": 0,
+              "artifacts_total": 5,
+              "completed_count": 5,
+              "succeeded_count": 5,
+              "skipped_count": 0,
+              "failed_count": 0,
+              "source_kind": "prod_postgres"
+            }
+          ],
+          "limit": 2,
+          "has_more": false,
+          "next_before_rowid": null
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements",
+      "args": [
+        "files",
+        "--start-date",
+        "2026-07-26",
+        "--end-date",
+        "2026-07-26",
+        "--limit",
+        "3"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.6071829579304904,
+      "output": {
+        "command": "files",
+        "output_root": "/Volumes/datasource/announcements",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+        "schema_version": 1,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "items": [
+            {
+              "artifact_key": "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+              "ann_date": "2026-07-26",
+              "ts_code": "301215.SZ",
+              "title": "301215中汽股份投资者关系管理信息20260726",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442223.PDF",
+              "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+              "path_fold": "2026-07-26/301215.sz/301215中汽股份投资者关系管理信息20260726.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 109946,
+              "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+              "updated_at": "2026-10-03T13:18:21.987446+00:00",
+              "physical_status": "not_checked"
+            },
+            {
+              "artifact_key": "5690d089b11a6f938b57af81289b467c1a6d159ad4cc3a1ea038f58b720df1c2",
+              "ann_date": "2026-07-26",
+              "ts_code": "002252.SZ",
+              "title": "2026年7月24日投资者关系活动记录表",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442095.PDF",
+              "relative_path": "2026-07-26/002252.SZ/2026年7月24日投资者关系活动记录表.pdf",
+              "path_fold": "2026-07-26/002252.sz/2026年7月24日投资者关系活动记录表.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 346832,
+              "sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c",
+              "updated_at": "2026-10-03T13:18:27.708774+00:00",
+              "physical_status": "not_checked"
+            },
+            {
+              "artifact_key": "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34",
+              "ann_date": "2026-07-26",
+              "ts_code": "000883.SZ",
+              "title": "000883湖北能源投资者关系管理信息20260726",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442156.PDF",
+              "relative_path": "2026-07-26/000883.SZ/000883湖北能源投资者关系管理信息20260726.pdf",
+              "path_fold": "2026-07-26/000883.sz/000883湖北能源投资者关系管理信息20260726.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 142453,
+              "sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894",
+              "updated_at": "2026-10-03T13:18:33.342787+00:00",
+              "physical_status": "not_checked"
+            }
+          ],
+          "limit": 3,
+          "has_more": true,
+          "next_after_key": "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34"
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements",
+      "args": [
+        "files",
+        "--start-date",
+        "2026-07-26",
+        "--end-date",
+        "2026-07-26",
+        "--limit",
+        "3",
+        "--after-key",
+        "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.6279559580143541,
+      "output": {
+        "command": "files",
+        "output_root": "/Volumes/datasource/announcements",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+        "schema_version": 1,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "items": [
+            {
+              "artifact_key": "af6b47418faca23a4c152937fd322544b1618c5f0406ac13d2d551899b2d47e2",
+              "ann_date": "2026-07-26",
+              "ts_code": "300750.SZ",
+              "title": "2026年7月24日投资者关系活动记录表",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442224.PDF",
+              "relative_path": "2026-07-26/300750.SZ/2026年7月24日投资者关系活动记录表.pdf",
+              "path_fold": "2026-07-26/300750.sz/2026年7月24日投资者关系活动记录表.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 203070,
+              "sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437",
+              "updated_at": "2026-10-03T13:18:38.750190+00:00",
+              "physical_status": "not_checked"
+            },
+            {
+              "artifact_key": "f35c7fba020f46a68728cff4768a3a23d070d06866ceff537d150901c230ccf0",
+              "ann_date": "2026-07-26",
+              "ts_code": "300241.SZ",
+              "title": "瑞丰光电投资者关系活动记录表",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442225.PDF",
+              "relative_path": "2026-07-26/300241.SZ/瑞丰光电投资者关系活动记录表.pdf",
+              "path_fold": "2026-07-26/300241.sz/瑞丰光电投资者关系活动记录表.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 123298,
+              "sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c",
+              "updated_at": "2026-10-03T13:18:44.214713+00:00",
+              "physical_status": "not_checked"
+            }
+          ],
+          "limit": 3,
+          "has_more": false,
+          "next_after_key": null
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements",
+      "args": [
+        "show",
+        "--artifact-key",
+        "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+        "--limit",
+        "2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.6489762919954956,
+      "output": {
+        "command": "show",
+        "output_root": "/Volumes/datasource/announcements",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+        "schema_version": 1,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "artifact": {
+            "artifact_key": "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+            "ann_date": "2026-07-26",
+            "ts_code": "301215.SZ",
+            "title": "301215中汽股份投资者关系管理信息20260726",
+            "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442223.PDF",
+            "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+            "path_fold": "2026-07-26/301215.sz/301215中汽股份投资者关系管理信息20260726.pdf",
+            "state": "succeeded",
+            "error": null,
+            "attempts": 1,
+            "size": 109946,
+            "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+            "updated_at": "2026-10-03T13:18:21.987446+00:00",
+            "physical_status": "not_checked"
+          },
+          "sources": {
+            "items": [
+              {
+                "ledger_rowid": 3,
+                "source_scope": "152.136.106.251:5432/goldenshare/raw_tushare.anns_d",
+                "record_key": "446bf5b135767d3b1237265fdd5f3c6d60081b2cd97bc40699cd359b91c04f85",
+                "legacy_raw_id": 20080449,
+                "metadata": {
+                  "id": 20080449,
+                  "row_key_hash": "446bf5b135767d3b1237265fdd5f3c6d60081b2cd97bc40699cd359b91c04f85",
+                  "ann_date": "2026-07-26",
+                  "ts_code": "301215.SZ",
+                  "title": "301215中汽股份投资者关系管理信息20260726",
+                  "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442223.PDF",
+                  "rec_time": "2026-07-26 22:01:42+08:00"
+                },
+                "first_seen_run": "ec621d88e4bd40048066eed252600fd0",
+                "last_seen_run": "ec621d88e4bd40048066eed252600fd0"
+              }
+            ],
+            "limit": 2,
+            "has_more": false,
+            "next_after_rowid": null
+          }
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements",
+      "args": [
+        "verify",
+        "--artifact-key",
+        "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.9146995421033353,
+      "output": {
+        "command": "verify",
+        "output_root": "/Volumes/datasource/announcements",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+        "schema_version": 1,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "artifact_key": "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+          "expected_size": 109946,
+          "expected_sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+          "final": {
+            "status": "matched",
+            "size": 109946,
+            "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0"
+          },
+          "part": null
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "summary"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.6486547500826418,
+      "output": {
+        "command": "summary",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "archive": {
+            "singleton": 1,
+            "schema_version": 2,
+            "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+            "root_relative_path": "announcements/dg-source-acceptance-20261005",
+            "created_at": "2026-10-05T15:21:52.719132+00:00"
+          },
+          "files": [
+            {
+              "state": "succeeded",
+              "count": 5
+            }
+          ],
+          "dates": {
+            "first_date": "2026-07-26",
+            "last_date": "2026-07-26",
+            "file_tasks": 5
+          },
+          "sources": {
+            "records": 5,
+            "missing_url": 0
+          },
+          "latest_run": [
+            {
+              "ledger_rowid": 3,
+              "run_id": "0bd0bb926a394a45b8a349cc30376698",
+              "start_date": "2026-07-26",
+              "end_date": "2026-07-26",
+              "interval_seconds": 5.0,
+              "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+              "legacy_upper_id": null,
+              "legacy_after_id": null,
+              "phase": "completed",
+              "records_read": 5,
+              "reason": null,
+              "updated_at": "2026-10-05T15:22:20.824895+00:00",
+              "missing_url_count": 0,
+              "artifacts_total": 5,
+              "completed_count": 5,
+              "succeeded_count": 0,
+              "skipped_count": 5,
+              "failed_count": 0,
+              "source_kind": "dg_raw_parquet",
+              "source_contract_version": 1,
+              "source_policy": "{\"attempts\": 3, \"backoff_seconds\": 30, \"batch_size\": 500, \"chunk_size\": 65536, \"connect_timeout\": 10, \"filename_bytes\": 200, \"max_file_size\": 536870912, \"pool_timeout\": 5, \"progress_seconds\": 5, \"read_timeout\": 15, \"redirects\": 5, \"reserve_bytes\": 1073741824, \"source_memory_limit\": \"256MiB\", \"source_query_timeout_seconds\": 15, \"source_threads\": 1, \"transfer_deadline\": 600, \"volume_timeout\": 10, \"wait_slice\": 0.5, \"write_timeout\": 15}",
+              "days_total": 1,
+              "days_completed": 1,
+              "current_day": "2026-07-26",
+              "enumeration_sealed": 1
+            }
+          ],
+          "physical_status": "not_checked"
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "runs",
+        "--limit",
+        "2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.6141028751153499,
+      "output": {
+        "command": "runs",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "items": [
+            {
+              "ledger_rowid": 3,
+              "run_id": "0bd0bb926a394a45b8a349cc30376698",
+              "start_date": "2026-07-26",
+              "end_date": "2026-07-26",
+              "interval_seconds": 5.0,
+              "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+              "legacy_upper_id": null,
+              "legacy_after_id": null,
+              "phase": "completed",
+              "records_read": 5,
+              "reason": null,
+              "updated_at": "2026-10-05T15:22:20.824895+00:00",
+              "missing_url_count": 0,
+              "artifacts_total": 5,
+              "completed_count": 5,
+              "succeeded_count": 0,
+              "skipped_count": 5,
+              "failed_count": 0,
+              "source_kind": "dg_raw_parquet",
+              "source_contract_version": 1,
+              "source_policy": "{\"attempts\": 3, \"backoff_seconds\": 30, \"batch_size\": 500, \"chunk_size\": 65536, \"connect_timeout\": 10, \"filename_bytes\": 200, \"max_file_size\": 536870912, \"pool_timeout\": 5, \"progress_seconds\": 5, \"read_timeout\": 15, \"redirects\": 5, \"reserve_bytes\": 1073741824, \"source_memory_limit\": \"256MiB\", \"source_query_timeout_seconds\": 15, \"source_threads\": 1, \"transfer_deadline\": 600, \"volume_timeout\": 10, \"wait_slice\": 0.5, \"write_timeout\": 15}",
+              "days_total": 1,
+              "days_completed": 1,
+              "current_day": "2026-07-26",
+              "enumeration_sealed": 1
+            },
+            {
+              "ledger_rowid": 2,
+              "run_id": "d375568ce67346ebb864be55cddce298",
+              "start_date": "2026-07-26",
+              "end_date": "2026-07-26",
+              "interval_seconds": 5.0,
+              "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+              "legacy_upper_id": null,
+              "legacy_after_id": null,
+              "phase": "completed",
+              "records_read": 5,
+              "reason": null,
+              "updated_at": "2026-10-05T15:22:17.522633+00:00",
+              "missing_url_count": 0,
+              "artifacts_total": 5,
+              "completed_count": 5,
+              "succeeded_count": 4,
+              "skipped_count": 1,
+              "failed_count": 0,
+              "source_kind": "dg_raw_parquet",
+              "source_contract_version": 1,
+              "source_policy": "{\"attempts\": 3, \"backoff_seconds\": 30, \"batch_size\": 500, \"chunk_size\": 65536, \"connect_timeout\": 10, \"filename_bytes\": 200, \"max_file_size\": 536870912, \"pool_timeout\": 5, \"progress_seconds\": 5, \"read_timeout\": 15, \"redirects\": 5, \"reserve_bytes\": 1073741824, \"source_memory_limit\": \"256MiB\", \"source_query_timeout_seconds\": 15, \"source_threads\": 1, \"transfer_deadline\": 600, \"volume_timeout\": 10, \"wait_slice\": 0.5, \"write_timeout\": 15}",
+              "days_total": 1,
+              "days_completed": 1,
+              "current_day": "2026-07-26",
+              "enumeration_sealed": 1
+            }
+          ],
+          "limit": 2,
+          "has_more": true,
+          "next_before_rowid": 2
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "files",
+        "--start-date",
+        "2026-07-26",
+        "--end-date",
+        "2026-07-26",
+        "--limit",
+        "3"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.508916666964069,
+      "output": {
+        "command": "files",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "items": [
+            {
+              "artifact_key": "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+              "ann_date": "2026-07-26",
+              "ts_code": "301215.SZ",
+              "title": "301215中汽股份投资者关系管理信息20260726",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442223.PDF",
+              "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+              "path_fold": "2026-07-26/301215.sz/301215中汽股份投资者关系管理信息20260726.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 109946,
+              "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+              "updated_at": "2026-10-05T15:21:54.464478+00:00",
+              "physical_status": "not_checked"
+            },
+            {
+              "artifact_key": "5690d089b11a6f938b57af81289b467c1a6d159ad4cc3a1ea038f58b720df1c2",
+              "ann_date": "2026-07-26",
+              "ts_code": "002252.SZ",
+              "title": "2026年7月24日投资者关系活动记录表",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442095.PDF",
+              "relative_path": "2026-07-26/002252.SZ/2026年7月24日投资者关系活动记录表.pdf",
+              "path_fold": "2026-07-26/002252.sz/2026年7月24日投资者关系活动记录表.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 346832,
+              "sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c",
+              "updated_at": "2026-10-05T15:21:59.986372+00:00",
+              "physical_status": "not_checked"
+            },
+            {
+              "artifact_key": "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34",
+              "ann_date": "2026-07-26",
+              "ts_code": "000883.SZ",
+              "title": "000883湖北能源投资者关系管理信息20260726",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442156.PDF",
+              "relative_path": "2026-07-26/000883.SZ/000883湖北能源投资者关系管理信息20260726.pdf",
+              "path_fold": "2026-07-26/000883.sz/000883湖北能源投资者关系管理信息20260726.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 142453,
+              "sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894",
+              "updated_at": "2026-10-05T15:22:05.582730+00:00",
+              "physical_status": "not_checked"
+            }
+          ],
+          "limit": 3,
+          "has_more": true,
+          "next_after_key": "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34"
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "files",
+        "--start-date",
+        "2026-07-26",
+        "--end-date",
+        "2026-07-26",
+        "--limit",
+        "3",
+        "--after-key",
+        "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.5051744999364018,
+      "output": {
+        "command": "files",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "items": [
+            {
+              "artifact_key": "af6b47418faca23a4c152937fd322544b1618c5f0406ac13d2d551899b2d47e2",
+              "ann_date": "2026-07-26",
+              "ts_code": "300750.SZ",
+              "title": "2026年7月24日投资者关系活动记录表",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442224.PDF",
+              "relative_path": "2026-07-26/300750.SZ/2026年7月24日投资者关系活动记录表.pdf",
+              "path_fold": "2026-07-26/300750.sz/2026年7月24日投资者关系活动记录表.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 203070,
+              "sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437",
+              "updated_at": "2026-10-05T15:22:12.036661+00:00",
+              "physical_status": "not_checked"
+            },
+            {
+              "artifact_key": "f35c7fba020f46a68728cff4768a3a23d070d06866ceff537d150901c230ccf0",
+              "ann_date": "2026-07-26",
+              "ts_code": "300241.SZ",
+              "title": "瑞丰光电投资者关系活动记录表",
+              "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442225.PDF",
+              "relative_path": "2026-07-26/300241.SZ/瑞丰光电投资者关系活动记录表.pdf",
+              "path_fold": "2026-07-26/300241.sz/瑞丰光电投资者关系活动记录表.pdf",
+              "state": "succeeded",
+              "error": null,
+              "attempts": 1,
+              "size": 123298,
+              "sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c",
+              "updated_at": "2026-10-05T15:22:17.520465+00:00",
+              "physical_status": "not_checked"
+            }
+          ],
+          "limit": 3,
+          "has_more": false,
+          "next_after_key": null
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "show",
+        "--artifact-key",
+        "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+        "--limit",
+        "2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.5630443331319839,
+      "output": {
+        "command": "show",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "artifact": {
+            "artifact_key": "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+            "ann_date": "2026-07-26",
+            "ts_code": "301215.SZ",
+            "title": "301215中汽股份投资者关系管理信息20260726",
+            "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442223.PDF",
+            "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+            "path_fold": "2026-07-26/301215.sz/301215中汽股份投资者关系管理信息20260726.pdf",
+            "state": "succeeded",
+            "error": null,
+            "attempts": 1,
+            "size": 109946,
+            "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+            "updated_at": "2026-10-05T15:21:54.464478+00:00",
+            "physical_status": "not_checked"
+          },
+          "sources": {
+            "items": [
+              {
+                "ledger_rowid": 5,
+                "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+                "record_key": "2d9689d0d466545dfc0e05a4d2f81e70f9109431ccc3b9b4a5b7882eea3909a9",
+                "legacy_raw_id": null,
+                "metadata": {
+                  "ann_date": "20260726",
+                  "ts_code": "301215.SZ",
+                  "name": "中汽股份",
+                  "title": "301215中汽股份投资者关系管理信息20260726",
+                  "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442223.PDF",
+                  "rec_time": "2026-07-26 22:01:42"
+                },
+                "first_seen_run": "c87aecb8cb5b44fba04d848ff4453f1f",
+                "last_seen_run": "0bd0bb926a394a45b8a349cc30376698"
+              }
+            ],
+            "limit": 2,
+            "has_more": false,
+            "next_after_rowid": null
+          }
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "verify",
+        "--artifact-key",
+        "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.9954910001251847,
+      "output": {
+        "command": "verify",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "artifact_key": "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+          "expected_size": 109946,
+          "expected_sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+          "final": {
+            "status": "matched",
+            "size": 109946,
+            "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0"
+          },
+          "part": null
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "verify",
+        "--artifact-key",
+        "5690d089b11a6f938b57af81289b467c1a6d159ad4cc3a1ea038f58b720df1c2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.9075023750774562,
+      "output": {
+        "command": "verify",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "artifact_key": "5690d089b11a6f938b57af81289b467c1a6d159ad4cc3a1ea038f58b720df1c2",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/002252.SZ/2026年7月24日投资者关系活动记录表.pdf",
+          "expected_size": 346832,
+          "expected_sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c",
+          "final": {
+            "status": "matched",
+            "size": 346832,
+            "sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c"
+          },
+          "part": null
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "verify",
+        "--artifact-key",
+        "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.7131657081190497,
+      "output": {
+        "command": "verify",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "artifact_key": "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/000883.SZ/000883湖北能源投资者关系管理信息20260726.pdf",
+          "expected_size": 142453,
+          "expected_sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894",
+          "final": {
+            "status": "matched",
+            "size": 142453,
+            "sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894"
+          },
+          "part": null
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "verify",
+        "--artifact-key",
+        "af6b47418faca23a4c152937fd322544b1618c5f0406ac13d2d551899b2d47e2"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.734744458924979,
+      "output": {
+        "command": "verify",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "artifact_key": "af6b47418faca23a4c152937fd322544b1618c5f0406ac13d2d551899b2d47e2",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/300750.SZ/2026年7月24日投资者关系活动记录表.pdf",
+          "expected_size": 203070,
+          "expected_sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437",
+          "final": {
+            "status": "matched",
+            "size": 203070,
+            "sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437"
+          },
+          "part": null
+        }
+      }
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "args": [
+        "verify",
+        "--artifact-key",
+        "f35c7fba020f46a68728cff4768a3a23d070d06866ceff537d150901c230ccf0"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.8012288329191506,
+      "output": {
+        "command": "verify",
+        "output_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+        "ledger_path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+        "schema_version": 2,
+        "policy": {
+          "page_default": 20,
+          "page_max": 100,
+          "query_timeout_seconds": 4,
+          "sql_progress_steps": 1000
+        },
+        "result": {
+          "artifact_key": "f35c7fba020f46a68728cff4768a3a23d070d06866ceff537d150901c230ccf0",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/300241.SZ/瑞丰光电投资者关系活动记录表.pdf",
+          "expected_size": 123298,
+          "expected_sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c",
+          "final": {
+            "status": "matched",
+            "size": 123298,
+            "sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c"
+          },
+          "part": null
+        }
+      }
+    }
+  ],
+  "formal_repairs": 0,
+  "pdf_deletions": 0,
+  "http_requests": 0,
+  "prod_connections": 0,
+  "lake_reads": 0,
+  "lake_writes": 0,
+  "dagster_writes": 0,
+  "dependency_installs": 0,
+  "implementation_sha256": {
+    "src/scripts/announcement_ledger.py": "a5e04f900ca007f1b659e6a00722b149587bea42557fff1a8b8963235af82c56",
+    "src/scripts/announcement_download/maintenance.py": "1609ce26650ba970c4b83e7ed9e1b30be0bf215d85220bce83dcac8dbf0705ff",
+    "src/scripts/announcement_download/ledger.py": "473db7cd5a84a8d2f061bfa66172ed06a99cddb636aea01a2241feed596c54b5",
+    "src/scripts/announcement_download/files.py": "0be64c17905b331a52a2cabd10a72e431649628bb11d93e8c7ef31b8fb19bcb0",
+    "src/scripts/announcement_download/volume.py": "877bdaaa6384b8def4d3ab508c2e81e817a1dd8819aed8832aa943e5764cfdbb",
+    "tests/test_announcement_ledger.py": "a26a359e2bb0b6eb0d7c46845b0c58e9314c1103d7f778204f6bff2ab7d35834"
+  },
+  "automated_tests": {
+    "total": 178,
+    "maintenance": 49,
+    "existing_download": 113,
+    "architecture": 16,
+    "duration_seconds": 13.19,
+    "command": ".venv/bin/python -B -m pytest tests/test_announcement_download_cli.py tests/test_announcement_download_dg.py tests/test_announcement_ledger.py tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py -q"
+  },
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_search",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "scope": "Original CLI, Ledger, Volume/SourceVolume, Files/fingerprint/recover, process fixture and CLI/DG/maintenance tests; generic names were ambiguous, actual directory source and SQL checked.",
+    "status": "up to date",
+    "subsystem_dependency_changes": false,
+    "frontend_api_changes": false
+  },
+  "stop_boundary": "Data center page/API/Figma/product functionality work has not started. Product details and Figma design require discussion and later explicit authorization."
+}

@@ -1,10 +1,10 @@
 # 上市公司公告 PDF 本地归档 LLD v1
 
-更新时间：2026-10-05。状态：**DG 来源迁移实现、隔离与只读验收完成；最小真实 PDF 验收待执行**。方案提交 777d6901，实施修改尚未另行提交。§1—§10 是现行实现与门禁，交付证据见 §14；正式归档账本未打开/升级。§11—§13 是 Prod 历史记录，不证明 DG 版本真实下载通过。[技术方案](anns-d-pdf-download-technical-plan-v1.md)规定本轮与后续范围。
+更新时间：2026-10-06。状态：**DG 来源迁移、隔离/只读与五 URL 最小真实归档验收通过；台账查询/维护已完成；网页产品化技术设计已落档，尚未编码**。方案提交 777d6901，下载器代码提交 9f8faacf。§1—§10 是现行实现与门禁，隔离/只读证据见 §14，五 URL 真实证据见 §15。独立旧验收台账已升级，默认归档台账尚未升级。§11—§13 为 Prod 历史记录；网页schema3/运行目标见§17，不代表当前实现已经升级。[技术方案](anns-d-pdf-download-technical-plan-v1.md)规定本轮与后续范围。
 
 ## 1. 改动范围、依据与依赖
 
-旧 Prod 入口 `main → Volume.open → configured_database → Ledger → Source → execute`，已被替换。现行入口为 `main → 输出卷门禁 → DG 来源卷/依赖预检 → Ledger(schema 2) → Source.iter_days → 封存枚举 → 原文件下载/恢复流程`。本轮已完成以下代码与测试迁移；没有执行真实 PDF 下载或修改正式归档。
+旧 Prod 入口 `main → Volume.open → configured_database → Ledger → Source → execute`，已被替换。现行入口为 `main → 输出卷门禁 → DG 来源卷/依赖预检 → Ledger(schema 2) → Source.iter_days → 封存枚举 → 原文件下载/恢复流程`。已完成以下代码与测试迁移；后续五 URL 真实归档范围及结果见 §15。
 
 | 位置 | 迁移目标与影响面 |
 | --- | --- |
@@ -193,7 +193,7 @@ Raw 20260726 的下载投影须为 2026-07-26；同代码/trim 后 URL 得到旧
 
 临时文件机制验证：根现有 .venv 的 DuckDB 1.5.5，旧文件 fd 打开后 os.replace 路径；read_parquet('/dev/fd/<fd>', hive_partitioning=false) 读 old，重开路径读 new。复测确认旧 fd 的 dev/ino/size/mtime 不变，nlink 从 1 变 0、ctime 改变；256 MiB/1 线程/no-spill/禁止自动扩展的连接配置可建立。临时目录清理，不读取/写入正式 Lake，不下载 PDF。此证据只支持 §4 固定 fd 与属性核验选择，不是新增自动化测试、性能预算或真实下载已通过的声明。
 
-本轮按技术方案 §9 完成迁移实现及隔离/只读验收；CLI 四参数不变，来源明确切 DG，移除数据库读取。schema 升级目前只执行于临时旧账本金样本，正式台账未打开。依赖矩阵、DatasetDefinition、DG 数据集/API/前端均未改变。下一步是最多五个唯一 URL 的 DG 来源真实归档验收；DG 连续日常验证独立推进。
+按技术方案 §9，迁移实现和隔离/只读阶段先完成，随后经用户授权完成 §15 五 URL 真实验收；CLI 四参数不变，来源明确切 DG，移除数据库读取。schema 升级已有独立旧验收台账的真实证据，默认归档台账未升级。依赖矩阵、DatasetDefinition、DG 数据集/API/前端均未改变。台账查询/维护的后续实现与验收见 §16；数据中心页面/API/Figma 工作开始前停下，待产品细节和 Figma 讨论完成后另行授权。DG 连续日常验证独立进行。
 
 方案提交前文档完整性三组、两份文档 21 个引用及差异检查通过；实施阶段又核验新增引用，结果见 §14。R1—R11 在两份原设计中均有对应约束/验收映射。文档检查不证明新代码行为。以下保留 Prod 版本历史证据，段落中的阶段指引只表示记录当时状态。旧分组覆盖/id 删除已经失效，旧逐文件 DB 存在性复核仅描述已被替代的 Prod 实现，不适用于上述目标 DG reader。
 
@@ -304,3 +304,110 @@ R1—R11 的代码点为 CLI.main/execute、Source/DayReader、SourceVolume、so
 CodeGraph explore/search + sync/status（up to date）复核 CLI→Source/SourceVolume→Ledger→Files/HTTP，补用实际 SQL、源码和 tests 搜索核验所有消费者。未修改子系统边界、API、DatasetDefinition、DG 接入合同或数据维护执行计划。下一步另按阶段执行 DG 最小真实下载，台账查询维护和前端继续后续工作。
 
 验收数量：下载专项与架构共 129 项通过，--help、compileall、文档完整性、26 个引用和 git diff --check 通过；没有安装依赖或合入其他工作区改动。
+
+## 15. DG 五 URL 最小真实归档验收（2026-10-05）
+
+用户要求提交代码并继续推进，先提交下载器实现、测试和 §14 证据为 9f8faacf，再执行本节验收。[真实报告](../../reports/anns_d_download_dg_pdf_acceptance_20261005.md)、[运行/网络/文件证据](../../reports/anns_d_download_dg_pdf_acceptance_20261005.json)。本节是 §14 之后的新阶段，前述只读阶段记录保留。
+
+选 DG Raw 2026-07-26 完整自然日，五条六字段记录、五个不同 URL，来源指纹与 §14 一致。默认归档已有其他九月批次，本轮只读检查后保持原 schema 1 和记录；升级验收使用既有独立目录 `/Volumes/datasource/announcements/m3-interrupt-acceptance-20261003`。真实 schema 1→2 后，五条 artifacts 全部字段、五条旧来源映射和三次旧运行原有字段保留；另建 DG 映射并复用同一 artifact_key。五份已有 PDF 全部跳过，零 GET。
+
+新目录 `/Volumes/datasource/announcements/dg-source-acceptance-20261005` 在执行前不存在，派生台账也不存在。真实 CLI main 完成输出/源双卷核验、逐日落账与指纹/footer对账、范围封存、HTTP、fsync 与原子提交。临时观察不替换真实网络/源/文件链，只限制已核验五 URL 和每轮请求预算、记录请求/响应及 Limiter.after；父进程读到首份成功后发送实际 OS SIGINT。
+
+| 运行 | 退出码 / 终态 | 成功 / 跳过 / 失败 | GET |
+| --- | --- | --- | ---: |
+| 旧归档复用 | 0 / completed | 0 / 5 / 0 | 0 |
+| 新目录首份后 SIGINT | 130 / cancelled | 1 / 0 / 0 | 1 |
+| 同命令续跑 | 0 / completed | 4 / 1 / 0 | 4 |
+| 再次同命令 | 0 / completed | 0 / 5 / 0 | 0 |
+
+每轮 records_read/footer/records_committed=5、五文件任务、日 completed、输入 enumeration_sealed=1，run 来源均为 dg_raw_parquet。取消不回退已完成日或成功文件，续跑重新枚举并复用首份。真实五次 GET 均 200/application/pdf，无额外探测/重试/重定向，最短请求结束至下一开始 5.119 秒，包含中断后重启间隔。新五份共 925,599 字节，Content-Length 与接收大小一致；旧五份与新五份共十次物理 size/hash 读回均匹配台账，两个台账 integrity_check=ok。
+
+临时观察脚本初次把日状态 completed 误断言为 complete，产品命令实际已成功、五份跳过、零请求；原日志保留，修正观察断言后重复零请求验证，未改产品代码或重置台账。该观察错误不记为产品失败。详细进度间隔、取消响应耗时及各轮日期/哈希见机器报告。
+
+本轮没有删除既有 PDF、备份/重建台账、修改默认台账、写 Prod/Lake、触发 DG job/事件/调度或安装依赖。删除后重下仍由隔离测试覆盖；现场删除须明确授权。现场拔盘、多域名/大文件、全量预算和 DG 连续日常稳定性不在本节证据内。产品代码没有新增改动，原 129 项测试仍为提交前证据；本轮新增真实验收报告及两份原设计状态回写。下一步按方案设计台账查询/维护能力，再做数据中心设计稿、API 和页面，不由最小验收自动启动批量下载。
+
+## 16. 台账查询与维护设计及验收约束（2026-10-05）
+
+状态：本地 CLI 已实现，隔离与正式只读验收通过；交付证据见 §16.4。用户授权本阶段，且要求进入数据中心页面前停下；Figma 与产品细节讨论是下一阶段前提。本阶段不做数据中心页面、API 或 Figma，也不创建公告业务数据库/搜索索引。
+
+### 16.1 入口与范围
+
+新增 `src/scripts/announcement_ledger.py` 和 `announcement_download/maintenance.py`。原 download_announcements 的入口/四参数/下载行为保留。所有子命令输出 JSON，可直接在终端查询，无需手工找 SQLite 文件。全局 `--output-root` 沿用 `/Volumes/datasource/announcements`；卷 UUID+卷内路径派生台账位置不变，不允许输入任意台账路径绕过身份。
+
+| 命令 | 输入 | 输出/行为 |
+| --- | --- | --- |
+| summary | 归档根 | 实际台账路径、schema、文件状态/日期计数、来源映射及缺 URL 数、最近运行；不声称文件物理有效 |
+| runs | limit、before-rowid，可选 run-id | 最近创建的运行或单次运行；实际记录的来源/范围/阶段/计数/原因；schema 1 标为历史 Prod，只观察不升级 |
+| files | start/end-date、ts-code、title、state、run-id、limit、after-key | 参数化条件，稳定 artifact_key 游标，返回 path/state/error/size/hash/attempts；物理状态默认未检查 |
+| show | artifact-key、limit | 单文件及关联来源 metadata、首次/末次运行，有界来源 rowid 游标；metadata 保留 NULL/空串 |
+| verify | artifact-key | 只读检查 final 和 prepared part，不创建目录或更新台账，报告 matched/missing/mismatch/unallocated/untracked；不足以成功确认时退出 1 |
+| repair | 必须 artifact-key | 明确单文件、排他归档锁，原 allocate/recover；返回前后事实及建议的原日期重下载参数，不发 HTTP |
+
+show 的来源分页用可选 after-rowid，不无限拉全量来源。runs 的 before-rowid 及 files 的 after-key 均为当前台账观察游标，不代表冻结快照或业务身份；默认 20、最多 100，SQL LIMIT 为 limit+1。不新增 schema/index；首次发布对既有最大台账做有限只读计时，超预算阻断而非扩大超时或自动建索引。
+
+### 16.2 配置项审计
+
+| 配置 | 默认/来源/持久化 | 作用/消费者/依赖 | 生效/可见性/门禁 |
+| --- | --- | --- | --- |
+| output-root | 原默认归档根；新 CLI 参数，无新持久化 | 只读卷或写入 Volume、派生 Ledger；依赖卷 UUID/相对目录 | 每次启动，JSON 输出实际根/台账；错卷/禁止 Lake/符号链接/根不存在反例 |
+| limit | 20；新 CLI 参数，LedgerQueryPolicy.page_default | 查询 runs/files/show，范围 1..100 | 本次查询，输出 limit/has_more/cursor；越界反例 |
+| page_max | 100；LedgerQueryPolicy，无 env/DB 持久化 | 参数解析/查询，有界返回 | 启动，输出 policy；不得 fetchall/OFFSET |
+| query_timeout_seconds | 4 秒；LedgerQueryPolicy，无 env/DB 持久化 | SQLite progress handler，整次只读观察事务共享截止时间；不冒用源读取 timeout | 每次命令，JSON policy；长 SQL 超时/Ctrl+C 反例 |
+| sql_progress_steps | 1000；LedgerQueryPolicy，无 env/DB 持久化 | progress handler 回调步数，依赖 timeout/control | 每次 SQL，JSON policy；回调清理、后续查询可用 |
+
+其他空间、哈希 chunk/max PDF、文件命名、卷检查预算沿用 DownloadPolicy 和原消费者。SQLite busy timeout 沿用 5 秒。没有下载间隔/来源根参数、配置数据库或新运行表，不修改已有下载 policy 摘要。
+
+### 16.3 实现硬约束与代码/测试映射
+
+| 约束 | 代码点 | 正/负验收 |
+| --- | --- | --- |
+| L1 查询完全只读 | Ledger(read_only=True)、SourceVolume+归档路径校验、LedgerQuery | schema 1/2 查询成功且字节不变；未创建/迁移/探测写、错身份/不存在/未知 schema 阻断 |
+| L2 分页/参数/取消有界 | LedgerQueryPolicy/SQL wrapper/parser | 20/100/101+分页、参数化引号/通配符、空值、坏日期/cursor/state；真实长 SQL 超时与 Ctrl+C；不用 fetchall/OFFSET |
+| L3 账面与物理明确区分 | files/show、verify、Files.fingerprint | succeeded 被删除仍显示账面 succeeded；verify 报 missing 且不改账；大小/hash错误、硬链接/符号链接/FIFO/路径越界阻断 |
+| L4 单文件修复沿用协议 | repair、Volume 排他锁、Files.allocate/recover、Ledger.state | prepared 两窗口、缺失 pending、损坏文件保留/新路径、失败重试；成功文件不重下，wrong卷/锁冲突/无目标不写 |
+| L5 历史与网络不受维护污染 | repair before/after、既有 Ledger | 不改 run/run_artifacts/source_records/cooldown/attempts，不取消旧 run；异常/取消已提交文件保留；零 HTTP/DG/Prod/Lake 写 |
+| L6 产品阶段停止线 | 两份原文档、目录/引用审计 | 只改脚本/台账/测试；不进入数据中心 API/页面/Figma 或新增依赖 |
+
+repair 先只读核验既有台账/目标与外盘，才使用原 Volume 的可写检查与排他锁，并在锁内再次读取目标，避免查询后下载改变状态。只升级已识别且已有的旧台账，不创建空归档；缺目标在写门禁前退出。prepared 的 final/part 无法匹配时沿用 prepared_evidence_mismatch，保留文件、标为 failed，可由下一次原日期下载命令重新开始；不强行提升不明文件。历史 run/task outcomes 保留为当时事实，不按修复后的 artifact 状态重写计数；不将下载历史标成当前物理清单。
+
+只读模式不拿写锁、不需要 DG Raw/DuckDB/数据库/网络可用，不读正式 Lake；各命令只访问选择归档及其自动派生台账。来源详情保留原 JSON 值，不用 title/name/rec_time 推断另一身份。文件指纹必须以 O_NOFOLLOW|O_NONBLOCK 打开并核实 regular/nlink/device，不允许 FIFO 阻塞取消。SQLite 原 DELETE journal 与写入 busy timeout=5 秒不变：查询同一只读事务总预算为 4 秒，每个 SQL 检查共享截止时间，事务在卷复检/打印/文件哈希之前关闭，减少干扰下载提交；预算耗尽应重新发起窄查询，不在同一过期事务继续。repair 不持覆盖范围的事务，逐步提交遵循原 prepared 协议。
+
+实际验收只读 default schema 1 的概况/有界文件与单条物理校验、独立 schema 2 的五文件校验；维护故障注入全部用临时目录，不删除正式验收文件。验证完成后回写本节交付状态与证据；数据中心下一阶段必须停止，等待产品细节/Figma 完成后的明确授权。
+
+### 16.4 实施、使用与停止线
+
+新增 [台账入口](../../src/scripts/announcement_ledger.py)、[查询/单文件维护](../../src/scripts/announcement_download/maintenance.py)和[维护专项](../../tests/test_announcement_ledger.py)；Ledger 增加只读打开分支、Volume 提取同一归档禁止路径校验，Files.fingerprint 增加非阻塞打开/同设备核验，原下载入口及 schema 2 不变。故障恢复调用原 Files.allocate/recover，不复制一套文件提升协议。
+
+在仓库根目录使用现有环境。示例 KEY 必须替换为 files 返回的完整 artifact_key；以下查询默认归档，`--output-root` 可在子命令前选择其他已有归档根：
+
+```bash
+.venv/bin/python -m src.scripts.announcement_ledger summary
+.venv/bin/python -m src.scripts.announcement_ledger runs --limit 5
+.venv/bin/python -m src.scripts.announcement_ledger files --start-date 2026-09-01 --end-date 2026-09-30 --state failed --limit 20
+.venv/bin/python -m src.scripts.announcement_ledger files --ts-code 600000.SH --title 年报 --limit 20
+.venv/bin/python -m src.scripts.announcement_ledger show --artifact-key KEY
+.venv/bin/python -m src.scripts.announcement_ledger verify --artifact-key KEY
+.venv/bin/python -m src.scripts.announcement_ledger repair --artifact-key KEY
+```
+
+files 继续翻页传 next_after_key 为 --after-key；runs 传 next_before_rowid 为 --before-rowid；show 传 sources.next_after_rowid 为 --after-rowid。has_more=false 时结束。verify/repair 必须明确单个 key，不能按一段日期批量修改台账。查询和 verify 不需要 DG Raw、DuckDB、PG/CH 或网站在线。
+
+repair 不请求 PDF，返回前后状态和 redownload 日期/输出根参数；ready_for_download 表示台账已整理为 pending。执行原下载命令仍会重新枚举这一完整自然日，同日其他未完成文件也会下载，有效成功文件跳过；这不是单 URL 立即下载入口，必须有对应 DG 日文件。若只删除一份且其他当日文件有效，验证证明仅重下缺失这一份。failed 表示现场 prepared 证据等不满足提升规则；不会强行宣告成功或删除证据。
+
+退出码：0 查询/物理匹配/修复成功；1 verify 无法匹配 final 或 repair 文件失败；2 参数错误；3 台账/卷/SQL/锁等阻断；130 用户 Ctrl+C。历史 runs/run_artifacts/source_records/cooldown 与 attempts 不因 repair 重写；因此历史 run 可以 completed，而当前某文件已缺失，必须以 verify 输出区分账面/物理事实。repair 可能原子升级已识别的 schema 1；只读命令绝不升级。
+
+[验收报告](../../reports/anns_d_ledger_maintenance_acceptance_20261005.md)、[机器证据](../../reports/anns_d_ledger_maintenance_acceptance_20261005.json)记录正式 schema 1 默认台账和 schema 2 独立验收台账的 16 次只读 CLI 调用，六份 PDF size/hash 匹配，两份 SQLite 前后 SHA-256 相同，未在正式目录 repair/删除/重下。默认台账 34,188 条文件/来源映射，有界查询及概况均在 4 秒 SQL 观察预算内；完整 CLI 耗时包含外盘检查，逐轮见报告，不外推全历史台账性能。
+
+实施前 CodeGraph explore/search 复核 Ledger、Volume、Files 与原 CLI 关系，通用名命中其他同名组件，补读真实目录源码/SQL/专项消费者；实现后 sync/status 核验索引。无前端/API 消费者修改，无 DatasetDefinition、DG 合同/同步、Ops TaskRun 或子系统依赖变化。校验数量以验收报告为准；每条 L1—L6 均有对应代码/测试/只读或目录范围证据。现场修复写入与真实拔盘未执行，相关故障路径仅隔离证明。
+
+**2026-10-05台账阶段按用户要求在此停下，未开展页面/API/Figma。此为历史阶段边界；2026-10-06产品/Figma R1已确认，现已获准编写网页技术方案与LLD，见§17；页面/API仍未编码。**
+
+## 17. 网页产品化合同引用（2026-10-06；设计稿）
+
+[数据中心技术方案](../../wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)与[网页LLD](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)完整规定公告查询、日期预览、后台运行、停止/继续、精确失败重试、历史、部署差异及Figma24状态。它们是**未来网页扩展**的合同；本文件§1—§16继续记录schema2/CLI的当前实现与历史证据，不直接改为schema3已实现。
+
+网页目标迁移完整消费链：download/ledger两个CLI、Source、Ledger、Files、HTTP、maintenance、旧schema fixture及全部公告测试。主实现移出工具目录，保留单一身份/卷门禁/限速/文件提交协议，清零旧import而不新增转发兼容包。schema3新增预览关联、控制/会话/尝试/进度和幂等事实，但保留schema1/2只读识别及原历史数据，不清空/改归档身份。原CLI日期重放保留；网页continue只恢复sealed原集合，retry另建原失败集合的关联批次，不能扩大到同日或同公司其它文件。
+
+网页查询只用成功台账加安全文件存在性判断，不套用CLI verify的逐文件hash；完整公告目录来自按日期可重建的DG投影，不是source_records下载子集。原CLI repair/verify继续独立存在，不因此新增网页维护按钮、本地PDF服务或DG同步入口。
+
+新增配置、schema、端口/API、状态机、SQL、迁移回归、业务/观察事务隔离和真实验收由网页LLD统一定义，本文件不复制第二套字段合同。本轮没有执行迁移/下载/索引写入；依赖矩阵不改，后续实施按网页DC阶段授权。

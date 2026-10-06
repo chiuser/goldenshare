@@ -208,12 +208,12 @@ docs/
 - [新闻联播文字稿](/Users/congming/github/goldenshare/docs/datasets/cctv-news-dataset-development.md)
 - [新闻通讯](/Users/congming/github/goldenshare/docs/datasets/major-news-dataset-development.md)
 - [上市公司公告](/Users/congming/github/goldenshare/docs/datasets/anns-d-dataset-development.md)
-- [DG 上市公司公告接入技术方案 v1（P2 接线完成，P3 待推进）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-anns-d-onboarding-plan-v1.md)
+- [DG 上市公司公告接入技术方案 v1（元数据初始化与每日更新）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-anns-d-onboarding-plan-v1.md)
 - [DG 上市公司公告接入 LLD v1（六字段 Raw、bootstrap、七日回看与恢复）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md)
 - [上市公司公告同步完善技术方案 v1（P0；缺值保存、完整覆盖及历史任务恢复）](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-technical-plan-v1.md)
 - [上市公司公告同步完善 LLD v1（P0；身份、持久化、预算、迁移及验收矩阵）](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)
-- [上市公司公告 PDF 本地归档技术方案 v1（M0/M1 完成，尚未真实下载验收）](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)
-- [上市公司公告 PDF 本地归档 LLD v1（M1 实现证据、参数、外盘门禁与续跑）](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-low-level-design-v1.md)
+- [上市公司公告 PDF 本地归档技术方案 v1（DG 来源、限速与续跑）](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-technical-plan-v1.md)
+- [上市公司公告 PDF 本地归档 LLD v1（外盘门禁、文件恢复与台账维护）](/Users/congming/github/goldenshare/docs/datasets/anns-d-pdf-download-low-level-design-v1.md)
 - [上证E互动问答](/Users/congming/github/goldenshare/docs/datasets/irm-qa-sh-dataset-development.md)
 - [深证互动易问答](/Users/congming/github/goldenshare/docs/datasets/irm-qa-sz-dataset-development.md)
 - [券商研究报告](/Users/congming/github/goldenshare/docs/datasets/research-report-dataset-development.md)
@@ -265,6 +265,9 @@ docs/
 
 ## 9. 产品原始材料
 
+- [财势乾坤数据中心与上市公司公告产品方案 v1（产品规则与 Figma R1 已确认；页面/API 未开发）](/Users/congming/github/goldenshare/docs/product/wealth-data-center-announcements-product-plan-v1.md)
+- [财势乾坤数据中心与公告技术方案 v1（Figma/产品对照，设计稿未编码）](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)
+- [财势乾坤数据中心与公告 LLD v1（查询、后台下载、精确恢复与编码门禁）](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)
 - [三指数次日上涨概率回测小方案 v1](/Users/congming/github/goldenshare/docs/product/index-next-day-probability-backtest-plan-v1.md)
 - [缠论教学：沪深300结构与逐日确认案例 v1](/Users/congming/github/goldenshare/docs/product/chan-theory-csi300-teaching-guide-v1.md)
 - [缠论买点预判与买卖区间盈利验证方案 v1（分钟基准已完成，单变量A对照见第14节；账户回测未执行）](/Users/congming/github/goldenshare/docs/product/chan-signal-prediction-and-profit-experiment-plan-v1.md)

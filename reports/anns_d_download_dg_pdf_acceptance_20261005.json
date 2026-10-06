@@ -1,0 +1,553 @@
+{
+  "observer_correction": "Initial reuse CLI completed with 5 skips and 0 GET; audit assertion used complete instead of implemented completed day state. Logs retained; corrected observer repeats zero-GET verification; no product code change.",
+  "sample_date": "2026-07-26",
+  "implementation_commit": "9f8faacf",
+  "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+  "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+  "source_facts": {
+    "opened_dev": 16777244,
+    "opened_ino": 20022260,
+    "size": 1807,
+    "sha256": "83562daeb1e87b11dd70ab4dd3985df818ce7c411ff1fbf67bb3a86788330104",
+    "footer_count": 5
+  },
+  "existing_root": "/Volumes/datasource/announcements/m3-interrupt-acceptance-20261003",
+  "existing_ledger": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/bb28fc7eca37cbf2a513cc48295d82efad9a55fe023853902181bfeabb24bf9f/downloads.sqlite",
+  "fresh_root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+  "fresh_ledger": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite",
+  "schema_upgrade": {
+    "before": 1,
+    "after": 2,
+    "old_artifacts_unchanged": 5,
+    "old_source_records_preserved": 5,
+    "old_runs_preserved": 3,
+    "new_dg_source_records": 5
+  },
+  "runs": [
+    {
+      "label": "existing-reuse-verified",
+      "exit_code": 0,
+      "run": {
+        "run_id": "94b27d45815e44f0986074c257812d7f",
+        "start_date": "2026-07-26",
+        "end_date": "2026-07-26",
+        "interval_seconds": 5.0,
+        "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+        "legacy_upper_id": null,
+        "legacy_after_id": null,
+        "phase": "completed",
+        "records_read": 5,
+        "reason": null,
+        "updated_at": "2026-10-05T15:21:51.935540+00:00",
+        "missing_url_count": 0,
+        "artifacts_total": 5,
+        "completed_count": 5,
+        "succeeded_count": 0,
+        "skipped_count": 5,
+        "failed_count": 0,
+        "source_kind": "dg_raw_parquet",
+        "source_contract_version": 1,
+        "source_policy": "{\"attempts\": 3, \"backoff_seconds\": 30, \"batch_size\": 500, \"chunk_size\": 65536, \"connect_timeout\": 10, \"filename_bytes\": 200, \"max_file_size\": 536870912, \"pool_timeout\": 5, \"progress_seconds\": 5, \"read_timeout\": 15, \"redirects\": 5, \"reserve_bytes\": 1073741824, \"source_memory_limit\": \"256MiB\", \"source_query_timeout_seconds\": 15, \"source_threads\": 1, \"transfer_deadline\": 600, \"volume_timeout\": 10, \"wait_slice\": 0.5, \"write_timeout\": 15}",
+        "days_total": 1,
+        "days_completed": 1,
+        "current_day": "2026-07-26",
+        "enumeration_sealed": 1
+      },
+      "day": {
+        "run_id": "94b27d45815e44f0986074c257812d7f",
+        "ann_date": "2026-07-26",
+        "state": "completed",
+        "opened_dev": 16777244,
+        "opened_ino": 20022260,
+        "size": 1807,
+        "sha256": "83562daeb1e87b11dd70ab4dd3985df818ce7c411ff1fbf67bb3a86788330104",
+        "footer_count": 5,
+        "records_committed": 5,
+        "reason": null,
+        "updated_at": "2026-10-05T15:21:50.919024+00:00"
+      },
+      "http_events": [],
+      "duration_seconds": 3.3178489208221436,
+      "sigint_at": null,
+      "cancel_latency_seconds": null,
+      "final_progress": {
+        "phase": "completed",
+        "eta": "暂无法估算",
+        "start_date": "2026-07-26",
+        "end_date": "2026-07-26",
+        "interval_seconds": 5.0,
+        "source_kind": "dg_raw_parquet",
+        "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+        "records": 5,
+        "total": 5,
+        "percent": 100.0,
+        "completed": 5,
+        "succeeded": 0,
+        "skipped": 5,
+        "failed": 0,
+        "skipped_missing_url": 0,
+        "current_day": "2026-07-26",
+        "days_total": 1,
+        "days_completed": 1,
+        "footer_count": 5,
+        "records_committed": 5,
+        "source_stage": null,
+        "ts_code": "300241.SZ",
+        "title": "瑞丰光电投资者关系活动记录表",
+        "ann_date": "2026-07-26",
+        "error": null,
+        "updated_at": "2026-10-05T15:21:51.936009+00:00"
+      }
+    },
+    {
+      "label": "fresh-cancel",
+      "exit_code": 130,
+      "run": {
+        "run_id": "c87aecb8cb5b44fba04d848ff4453f1f",
+        "start_date": "2026-07-26",
+        "end_date": "2026-07-26",
+        "interval_seconds": 5.0,
+        "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+        "legacy_upper_id": null,
+        "legacy_after_id": null,
+        "phase": "cancelled",
+        "records_read": 5,
+        "reason": "user_cancelled",
+        "updated_at": "2026-10-05T15:21:54.739041+00:00",
+        "missing_url_count": 0,
+        "artifacts_total": 5,
+        "completed_count": 1,
+        "succeeded_count": 1,
+        "skipped_count": 0,
+        "failed_count": 0,
+        "source_kind": "dg_raw_parquet",
+        "source_contract_version": 1,
+        "source_policy": "{\"attempts\": 3, \"backoff_seconds\": 30, \"batch_size\": 500, \"chunk_size\": 65536, \"connect_timeout\": 10, \"filename_bytes\": 200, \"max_file_size\": 536870912, \"pool_timeout\": 5, \"progress_seconds\": 5, \"read_timeout\": 15, \"redirects\": 5, \"reserve_bytes\": 1073741824, \"source_memory_limit\": \"256MiB\", \"source_query_timeout_seconds\": 15, \"source_threads\": 1, \"transfer_deadline\": 600, \"volume_timeout\": 10, \"wait_slice\": 0.5, \"write_timeout\": 15}",
+        "days_total": 1,
+        "days_completed": 1,
+        "current_day": "2026-07-26",
+        "enumeration_sealed": 1
+      },
+      "day": {
+        "run_id": "c87aecb8cb5b44fba04d848ff4453f1f",
+        "ann_date": "2026-07-26",
+        "state": "completed",
+        "opened_dev": 16777244,
+        "opened_ino": 20022260,
+        "size": 1807,
+        "sha256": "83562daeb1e87b11dd70ab4dd3985df818ce7c411ff1fbf67bb3a86788330104",
+        "footer_count": 5,
+        "records_committed": 5,
+        "reason": null,
+        "updated_at": "2026-10-05T15:21:53.611030+00:00"
+      },
+      "http_events": [
+        {
+          "at": 1791213714.1112268,
+          "kind": "request_start",
+          "request_number": 1,
+          "url_key": "fd207b2f4480b8c9a25787dc55ebe951cb0831e58dcae451759bc9678d3595bc"
+        },
+        {
+          "at": 1791213714.27343,
+          "kind": "response_headers",
+          "request_number": 1,
+          "status": 200,
+          "content_type": "application/pdf",
+          "content_length": "109946"
+        },
+        {
+          "at": 1791213714.466073,
+          "kind": "request_finished",
+          "request_number": 1
+        }
+      ],
+      "duration_seconds": 2.837675094604492,
+      "sigint_at": 1791213714.467881,
+      "cancel_latency_seconds": 0.348876953125,
+      "final_progress": {
+        "phase": "cancelled",
+        "eta": "暂无法估算",
+        "start_date": "2026-07-26",
+        "end_date": "2026-07-26",
+        "interval_seconds": 5.0,
+        "source_kind": "dg_raw_parquet",
+        "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+        "records": 5,
+        "total": 5,
+        "percent": 20.0,
+        "completed": 1,
+        "succeeded": 1,
+        "skipped": 0,
+        "failed": 0,
+        "skipped_missing_url": 0,
+        "current_day": "2026-07-26",
+        "days_total": 1,
+        "days_completed": 1,
+        "footer_count": 5,
+        "records_committed": 5,
+        "source_stage": null,
+        "ts_code": "002252.SZ",
+        "title": "2026年7月24日投资者关系活动记录表",
+        "ann_date": "2026-07-26",
+        "error": null,
+        "waiting": false,
+        "wait_until": null,
+        "updated_at": "2026-10-05T15:21:54.739676+00:00"
+      }
+    },
+    {
+      "label": "fresh-resume",
+      "exit_code": 0,
+      "run": {
+        "run_id": "d375568ce67346ebb864be55cddce298",
+        "start_date": "2026-07-26",
+        "end_date": "2026-07-26",
+        "interval_seconds": 5.0,
+        "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+        "legacy_upper_id": null,
+        "legacy_after_id": null,
+        "phase": "completed",
+        "records_read": 5,
+        "reason": null,
+        "updated_at": "2026-10-05T15:22:17.522633+00:00",
+        "missing_url_count": 0,
+        "artifacts_total": 5,
+        "completed_count": 5,
+        "succeeded_count": 4,
+        "skipped_count": 1,
+        "failed_count": 0,
+        "source_kind": "dg_raw_parquet",
+        "source_contract_version": 1,
+        "source_policy": "{\"attempts\": 3, \"backoff_seconds\": 30, \"batch_size\": 500, \"chunk_size\": 65536, \"connect_timeout\": 10, \"filename_bytes\": 200, \"max_file_size\": 536870912, \"pool_timeout\": 5, \"progress_seconds\": 5, \"read_timeout\": 15, \"redirects\": 5, \"reserve_bytes\": 1073741824, \"source_memory_limit\": \"256MiB\", \"source_query_timeout_seconds\": 15, \"source_threads\": 1, \"transfer_deadline\": 600, \"volume_timeout\": 10, \"wait_slice\": 0.5, \"write_timeout\": 15}",
+        "days_total": 1,
+        "days_completed": 1,
+        "current_day": "2026-07-26",
+        "enumeration_sealed": 1
+      },
+      "day": {
+        "run_id": "d375568ce67346ebb864be55cddce298",
+        "ann_date": "2026-07-26",
+        "state": "completed",
+        "opened_dev": 16777244,
+        "opened_ino": 20022260,
+        "size": 1807,
+        "sha256": "83562daeb1e87b11dd70ab4dd3985df818ce7c411ff1fbf67bb3a86788330104",
+        "footer_count": 5,
+        "records_committed": 5,
+        "reason": null,
+        "updated_at": "2026-10-05T15:21:56.881809+00:00"
+      },
+      "http_events": [
+        {
+          "at": 1791213719.648278,
+          "kind": "request_start",
+          "request_number": 1,
+          "url_key": "4a61b8a3fbc1e3b0e8d8d739f92ea5ff83e68cf6321b35c53c4854a8205c6d99"
+        },
+        {
+          "at": 1791213719.753914,
+          "kind": "response_headers",
+          "request_number": 1,
+          "status": 200,
+          "content_type": "application/pdf",
+          "content_length": "346832"
+        },
+        {
+          "at": 1791213719.98773,
+          "kind": "request_finished",
+          "request_number": 1
+        },
+        {
+          "at": 1791213725.173163,
+          "kind": "request_start",
+          "request_number": 2,
+          "url_key": "576abf1f0140beeb60d14bbd174109ffba70cf74c297728c377cce4d605e74c3"
+        },
+        {
+          "at": 1791213725.2901518,
+          "kind": "response_headers",
+          "request_number": 2,
+          "status": 200,
+          "content_type": "application/pdf",
+          "content_length": "142453"
+        },
+        {
+          "at": 1791213725.584074,
+          "kind": "request_finished",
+          "request_number": 2
+        },
+        {
+          "at": 1791213730.702743,
+          "kind": "request_start",
+          "request_number": 3,
+          "url_key": "2c34dee56206109770fd8298a353c28ac6de3fb1b77f2b488f5aa12847269373"
+        },
+        {
+          "at": 1791213731.629322,
+          "kind": "response_headers",
+          "request_number": 3,
+          "status": 200,
+          "content_type": "application/pdf",
+          "content_length": "203070"
+        },
+        {
+          "at": 1791213732.037633,
+          "kind": "request_finished",
+          "request_number": 3
+        },
+        {
+          "at": 1791213737.200885,
+          "kind": "request_start",
+          "request_number": 4,
+          "url_key": "bd705651884116489f5523b95c0377a0083a32579e6e5a5f3cf504fb0b99a158"
+        },
+        {
+          "at": 1791213737.3448188,
+          "kind": "response_headers",
+          "request_number": 4,
+          "status": 200,
+          "content_type": "application/pdf",
+          "content_length": "123298"
+        },
+        {
+          "at": 1791213737.521918,
+          "kind": "request_finished",
+          "request_number": 4
+        }
+      ],
+      "duration_seconds": 22.787195920944214,
+      "sigint_at": null,
+      "cancel_latency_seconds": null,
+      "final_progress": {
+        "phase": "completed",
+        "eta": "暂无法估算",
+        "start_date": "2026-07-26",
+        "end_date": "2026-07-26",
+        "interval_seconds": 5.0,
+        "source_kind": "dg_raw_parquet",
+        "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+        "records": 5,
+        "total": 5,
+        "percent": 100.0,
+        "completed": 5,
+        "succeeded": 4,
+        "skipped": 1,
+        "failed": 0,
+        "skipped_missing_url": 0,
+        "current_day": "2026-07-26",
+        "days_total": 1,
+        "days_completed": 1,
+        "footer_count": 5,
+        "records_committed": 5,
+        "source_stage": null,
+        "ts_code": "300241.SZ",
+        "title": "瑞丰光电投资者关系活动记录表",
+        "ann_date": "2026-07-26",
+        "error": null,
+        "wait_until": null,
+        "waiting": false,
+        "updated_at": "2026-10-05T15:22:17.522975+00:00"
+      }
+    },
+    {
+      "label": "fresh-replay",
+      "exit_code": 0,
+      "run": {
+        "run_id": "0bd0bb926a394a45b8a349cc30376698",
+        "start_date": "2026-07-26",
+        "end_date": "2026-07-26",
+        "interval_seconds": 5.0,
+        "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+        "legacy_upper_id": null,
+        "legacy_after_id": null,
+        "phase": "completed",
+        "records_read": 5,
+        "reason": null,
+        "updated_at": "2026-10-05T15:22:20.824895+00:00",
+        "missing_url_count": 0,
+        "artifacts_total": 5,
+        "completed_count": 5,
+        "succeeded_count": 0,
+        "skipped_count": 5,
+        "failed_count": 0,
+        "source_kind": "dg_raw_parquet",
+        "source_contract_version": 1,
+        "source_policy": "{\"attempts\": 3, \"backoff_seconds\": 30, \"batch_size\": 500, \"chunk_size\": 65536, \"connect_timeout\": 10, \"filename_bytes\": 200, \"max_file_size\": 536870912, \"pool_timeout\": 5, \"progress_seconds\": 5, \"read_timeout\": 15, \"redirects\": 5, \"reserve_bytes\": 1073741824, \"source_memory_limit\": \"256MiB\", \"source_query_timeout_seconds\": 15, \"source_threads\": 1, \"transfer_deadline\": 600, \"volume_timeout\": 10, \"wait_slice\": 0.5, \"write_timeout\": 15}",
+        "days_total": 1,
+        "days_completed": 1,
+        "current_day": "2026-07-26",
+        "enumeration_sealed": 1
+      },
+      "day": {
+        "run_id": "0bd0bb926a394a45b8a349cc30376698",
+        "ann_date": "2026-07-26",
+        "state": "completed",
+        "opened_dev": 16777244,
+        "opened_ino": 20022260,
+        "size": 1807,
+        "sha256": "83562daeb1e87b11dd70ab4dd3985df818ce7c411ff1fbf67bb3a86788330104",
+        "footer_count": 5,
+        "records_committed": 5,
+        "reason": null,
+        "updated_at": "2026-10-05T15:22:19.730331+00:00"
+      },
+      "http_events": [],
+      "duration_seconds": 3.2626233100891113,
+      "sigint_at": null,
+      "cancel_latency_seconds": null,
+      "final_progress": {
+        "phase": "completed",
+        "eta": "暂无法估算",
+        "start_date": "2026-07-26",
+        "end_date": "2026-07-26",
+        "interval_seconds": 5.0,
+        "source_kind": "dg_raw_parquet",
+        "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+        "records": 5,
+        "total": 5,
+        "percent": 100.0,
+        "completed": 5,
+        "succeeded": 0,
+        "skipped": 5,
+        "failed": 0,
+        "skipped_missing_url": 0,
+        "current_day": "2026-07-26",
+        "days_total": 1,
+        "days_completed": 1,
+        "footer_count": 5,
+        "records_committed": 5,
+        "source_stage": null,
+        "ts_code": "300241.SZ",
+        "title": "瑞丰光电投资者关系活动记录表",
+        "ann_date": "2026-07-26",
+        "error": null,
+        "updated_at": "2026-10-05T15:22:20.825303+00:00"
+      }
+    }
+  ],
+  "pdf_readbacks": [
+    {
+      "root": "/Volumes/datasource/announcements/m3-interrupt-acceptance-20261003",
+      "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+      "size": 109946,
+      "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/m3-interrupt-acceptance-20261003",
+      "relative_path": "2026-07-26/002252.SZ/2026年7月24日投资者关系活动记录表.pdf",
+      "size": 346832,
+      "sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/m3-interrupt-acceptance-20261003",
+      "relative_path": "2026-07-26/000883.SZ/000883湖北能源投资者关系管理信息20260726.pdf",
+      "size": 142453,
+      "sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/m3-interrupt-acceptance-20261003",
+      "relative_path": "2026-07-26/300750.SZ/2026年7月24日投资者关系活动记录表.pdf",
+      "size": 203070,
+      "sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/m3-interrupt-acceptance-20261003",
+      "relative_path": "2026-07-26/300241.SZ/瑞丰光电投资者关系活动记录表.pdf",
+      "size": 123298,
+      "sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+      "size": 109946,
+      "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "relative_path": "2026-07-26/002252.SZ/2026年7月24日投资者关系活动记录表.pdf",
+      "size": 346832,
+      "sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "relative_path": "2026-07-26/000883.SZ/000883湖北能源投资者关系管理信息20260726.pdf",
+      "size": 142453,
+      "sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "relative_path": "2026-07-26/300750.SZ/2026年7月24日投资者关系活动记录表.pdf",
+      "size": 203070,
+      "sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437"
+    },
+    {
+      "root": "/Volumes/datasource/announcements/dg-source-acceptance-20261005",
+      "relative_path": "2026-07-26/300241.SZ/瑞丰光电投资者关系活动记录表.pdf",
+      "size": 123298,
+      "sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c"
+    }
+  ],
+  "unique_source_urls": 5,
+  "http_requests": 5,
+  "request_end_to_next_start_gaps_seconds": [
+    5.182204961776733,
+    5.1854329109191895,
+    5.118669033050537,
+    5.163252115249634
+  ],
+  "minimum_gap_seconds": 5.118669033050537,
+  "fresh_pdf_bytes": 925599,
+  "default_archive": {
+    "schema_version": 1,
+    "counts": {
+      "artifacts": 34188,
+      "source_records": 34188,
+      "runs": 2
+    },
+    "modified": false
+  },
+  "forbidden_actions": {
+    "pdf_deletions": 0,
+    "prod_writes": 0,
+    "lake_writes": 0,
+    "dagster_writes": 0,
+    "dependency_installs": 0
+  },
+  "accepted_at": "2026-10-05T23:23:53.652480+08:00",
+  "evidence_method": "Genuine src.scripts.download_announcements.main; httpx.Client.send and Limiter.after observation only; exact URL whitelist and request budgets; parent sends OS SIGINT after first success event. No replacement of source, volume checks, file writes, ledger transaction or network.",
+  "prior_validation": {
+    "tests_passed": 129,
+    "reader_records": 76685,
+    "reader_report": "reports/anns_d_download_dg_reader_acceptance_20261005.json",
+    "tests_rerun_this_acceptance": false
+  },
+  "implementation_sha256": {
+    "src/scripts/download_announcements.py": "818986a3a544118eccca31999f9d13ad457f02e1bfb33d0c32e318c5135918ae",
+    "src/scripts/announcement_download/core.py": "c50357f12b4a7be3535fd290eb68fe94b710f48caded636bc1199d44c22c4ab2",
+    "src/scripts/announcement_download/source.py": "d57e312f26f48a429bb82c403a519a666a3b8636392ab71ce7036c75b8f67099",
+    "src/scripts/announcement_download/ledger.py": "ac36ef0eefdcc113bbf547af4163ccc7b74f115330db6461d2566a19733fa512",
+    "src/scripts/announcement_download/volume.py": "7ec2d5690122269ed61df50fe8c6133d4ea948b56738ef5b8307d2a5eef13a11",
+    "src/scripts/announcement_download/files.py": "453d501c35f3abc77c601b363e42625a7c4957a26e7bf78e23d74fe520729a36",
+    "src/scripts/announcement_download/http.py": "5acf50c51f32d2e4d1a83eb96a16f93993cf11423116ae44ba8d3f1dbaf01185"
+  },
+  "progress": {
+    "existing-reuse-verified": {
+      "events": 21,
+      "maximum_report_gap_seconds": 0.2490530014038086
+    },
+    "fresh-cancel": {
+      "events": 15,
+      "maximum_report_gap_seconds": 0.3600809574127197
+    },
+    "fresh-resume": {
+      "events": 33,
+      "maximum_report_gap_seconds": 4.635803937911987
+    },
+    "fresh-replay": {
+      "events": 21,
+      "maximum_report_gap_seconds": 0.28015613555908203
+    }
+  },
+  "content_lengths_match": true
+}

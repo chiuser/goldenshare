@@ -357,6 +357,33 @@
 
 游标语法非法、结构不合法或筛选不匹配属于 `TA_REQUEST_INVALID`，不假称版本变化。交易助手游标按技术方案 §4.31 编码，不使用签名，不新增验签或签名密钥。有效原始记录没有匹配行是合法空列表；缺数、停牌、重算及尚未触发是业务状态，不统一抛 `TA_QUERY_FAILED`。所有业务拒绝只描述当前命令，不凭 HTTP 或异常码单独宣告旧未决尝试已停止。
 
+## 11.4 数据中心与公告归档（设计登记，尚未实现）
+
+依据[数据中心技术方案](../pages/data-center/data-center-announcements-implementation-design-v1.md)与[LLD](../pages/data-center/data-center-announcements-low-level-design-v1.md)。本节供后续 API/执行观察使用，登记不表示代码已上线。认证失败沿用认证层401；公告模块在当前部署关闭时，登录用户访问模块API为404。用户界面显示message，不显示异常码或底层异常堆栈。
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `DC_MODULE_UNAVAILABLE` | dataCenter | info | false | false | 当前部署不提供公告模块 | Prod或能力关闭；模块API404，首页仍成功 | 首页不显示卡；直达提示不可用 | app | DC-design | active |
+| `DC_REQUEST_INVALID` | announcements | warn | false | false | 请求参数不符合合同 | 日期/间隔/分页/key非法，或额外公司/URL/路径创建字段；422 | 内联提示，保留草稿，不启动任务 | biz | DC-design | active |
+| `DC_OBJECT_NOT_FOUND` | announcements | warn | false | false | 查询/预览/任务对象不存在 | 未知对象id；404 | 当前详情不可获取，返回现有列表 | biz | DC-design | active |
+| `DC_STATE_CONFLICT` | announcements | warn | false | false | 当前状态不支持本次命令 | 未封存继续、非失败key重试、幂等key复用不同payload；409 | 重读对象资格，不扩大范围或自动重发 | biz | DC-design | active |
+| `DC_PREVIEW_STALE` | announcements | warn | false | false | 预览依据已失效 | 参数/来源日版本/身份变化或过期；409 | 保留输入、重新预览；零HTTP | biz | DC-design | active |
+| `DC_QUERY_CONTEXT_CHANGED` | announcements | warn | false | false | 查询页版本或存在性快照已变化 | 索引revision、卷身份、页内物理状态与queryId不一致或过期；409 | 原筛选重新查第一页，不拼接旧页 | biz | DC-design | active |
+| `DC_SOURCE_UNAVAILABLE` | announcements | error | false | false | 所需本地元数据尚不可读取 | 缺自然日文件、来源卷掉线/权限；503或任务blocked | 来源不可用而非无公告；恢复后刷新/手动继续 | biz | DC-design | active |
+| `DC_SOURCE_CONTRACT_MISMATCH` | announcements | error | false | false | 本地来源不满足固定合同 | schema/日期/行数/指纹/源重复不符 | 阻断该范围，不降级到旧湖/Prod或过滤掉坏行 | biz | DC-design | active |
+| `DC_INDEX_FAILED` | announcements | error | false | false | 本地查询准备失败 | 投影构建超预算、SQLite写失败或校验失败 | 显示准备错误，不发布半日版本/伪造零结果 | biz | DC-design | active |
+| `DC_VOLUME_UNAVAILABLE` | announcements | error | false | false | 归档磁盘不可安全使用 | 未挂载、UUID/device变化、链接/只读/权限门禁失败 | 保留卡/历史，阻断下载，允许重新检查 | biz | DC-design | active |
+| `DC_SPACE_INSUFFICIENT` | announcements | error | false | false | 磁盘空间不满足预算 | 下载空间预留或本机索引空间不足 | 停止领取、保留成果，处理空间后手动恢复 | biz | DC-design | active |
+| `DC_STATUS_UNAVAILABLE` | announcements | warn | false | false | 当前文件下载状态无法核验 | 存在性检查IO/权限失败；不含确认不存在 | 状态留空加提示，禁用状态筛选，不当未下载 | biz | DC-design | active |
+| `DC_ARCHIVE_BUSY` | announcements | warn | false | false | 同归档已有写执行 | Web/CLI/维修/迁移争锁或active slot冲突；409 | 显示现有任务/占用，不排队、不新建并行执行 | biz | DC-design | active |
+| `DC_LEDGER_FAILED` | announcements | error | false | false | 台账/持久控制不可用 | 未知schema、迁移/读写失败或持久完成观察失败 | 保留PDF证据，停止领取；不清空/重建台账 | biz | DC-design | active |
+| `DC_REMOTE_BLOCKED` | announcements | error | false | false | 源站拒绝或要求验证 | HTTP403、验证码/挑战页 | 全局阻断、有限检查并遵守冷却；不无限重试 | biz | DC-design | active |
+| `DC_FILE_FAILED` | announcements | warn | false | false | 原范围单文件处理失败 | 非全局HTTP错误、非法URL/标题/代码、PDF校验或有限自动尝试耗尽 | 失败列表安全原因，可精确重试；其他文件继续 | biz | DC-design | active |
+| `DC_QUERY_FAILED` | announcements | error | false | false | 读取/观察未完成 | SQL/响应构建/接口超时或未分类读失败 | 当前模块读取错误；观察失败不改run终态 | biz | DC-design | active |
+| `DC_DEPENDENCY_UNAVAILABLE` | announcements | error | false | false | 本地能力缺少必需依赖 | DuckDB或已准入首字母转换依赖不可用 | 明确缺依赖，不隐式安装或用不完整搜索冒充交付 | app | DC-design | active |
+
+正常interval/backoff/cooldown是等待状态，不作为异常失败。零公告/无URL/缺名称/确认文件不存在也不是全局错误；用对应事实字段表达。下层保留安全reason code，响应适配层按本表转换，原始网络异常不得透传。测试覆盖与HTTP语义见LLD R01—R19。
+
 ## 12. 变更规则
 
 1. 已上线的 `code` 不允许重用为新语义。
