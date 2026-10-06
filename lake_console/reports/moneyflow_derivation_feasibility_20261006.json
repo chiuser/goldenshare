@@ -1,0 +1,872 @@
+{
+  "as_of": "2026-10-06",
+  "market_gap": [
+    {
+      "trade_date": "20260709",
+      "close_sh": 4036.59,
+      "pct_change_sh": 1.65,
+      "close_sz": 15398.73,
+      "pct_change_sz": 3.07,
+      "net_amount": 22458605568,
+      "net_amount_rate": 0.77,
+      "buy_elg_amount": 33968738304,
+      "buy_elg_amount_rate": 1.17,
+      "buy_lg_amount": -11510132736,
+      "buy_lg_amount_rate": -0.4,
+      "buy_md_amount": -41330294784,
+      "buy_md_amount_rate": -1.42,
+      "buy_sm_amount": 18871689216,
+      "buy_sm_amount_rate": 0.65
+    }
+  ],
+  "industry_sample": [
+    {
+      "trade_date": "20260930",
+      "ts_code": "881142.TI",
+      "industry": "生物制品",
+      "net_buy_amount": 80,
+      "net_sell_amount": 66,
+      "net_amount": 14,
+      "company_num": 56
+    }
+  ],
+  "concept_sample": [
+    {
+      "trade_date": "20260930",
+      "ts_code": "885748.TI",
+      "name": "可燃冰",
+      "company_num": 14,
+      "net_buy_amount": 7,
+      "net_sell_amount": 5,
+      "net_amount": 1
+    }
+  ],
+  "industry_members": [
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688806.SH",
+      "con_name": "泰诺麦博",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "920575.BJ",
+      "con_name": "*ST康乐",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "920344.BJ",
+      "con_name": "三元基因",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "920047.BJ",
+      "con_name": "诺思兰德",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688765.SH",
+      "con_name": "禾元生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688739.SH",
+      "con_name": "成大生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688670.SH",
+      "con_name": "金迪克",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688520.SH",
+      "con_name": "神州细胞",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688488.SH",
+      "con_name": "艾迪药业",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688443.SH",
+      "con_name": "智翔金泰",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688428.SH",
+      "con_name": "诺诚健华",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688336.SH",
+      "con_name": "三生国健",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688331.SH",
+      "con_name": "荣昌生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688319.SH",
+      "con_name": "欧林生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688278.SH",
+      "con_name": "特宝生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688276.SH",
+      "con_name": "百克生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688185.SH",
+      "con_name": "康希诺",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688180.SH",
+      "con_name": "君实生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688177.SH",
+      "con_name": "百奥泰",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688163.SH",
+      "con_name": "赛伦生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688137.SH",
+      "con_name": "近岸蛋白",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688136.SH",
+      "con_name": "科兴制药",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688105.SH",
+      "con_name": "诺唯赞",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "688062.SH",
+      "con_name": "迈威生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "603590.SH",
+      "con_name": "康辰药业",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "603087.SH",
+      "con_name": "甘李药业",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "600867.SH",
+      "con_name": "通化东宝",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "600739.SH",
+      "con_name": "辽宁成大",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "600211.SH",
+      "con_name": "西藏药业",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "600161.SH",
+      "con_name": "天坛生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "301393.SZ",
+      "con_name": "昊帆生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "301207.SZ",
+      "con_name": "华兰疫苗",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "301166.SZ",
+      "con_name": "优宁维",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "301080.SZ",
+      "con_name": "百普赛斯",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "301047.SZ",
+      "con_name": "义翘神州",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300841.SZ",
+      "con_name": "康华生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300601.SZ",
+      "con_name": "康泰生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300485.SZ",
+      "con_name": "赛升药业",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300357.SZ",
+      "con_name": "我武生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300318.SZ",
+      "con_name": "博晖创新",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300294.SZ",
+      "con_name": "博雅生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300239.SZ",
+      "con_name": "东宝生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300142.SZ",
+      "con_name": "沃森生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300122.SZ",
+      "con_name": "智飞生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "300009.SZ",
+      "con_name": "安科生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "002880.SZ",
+      "con_name": "卫光生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "002773.SZ",
+      "con_name": "康弘药业",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "002693.SZ",
+      "con_name": "双成药业",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "002581.SZ",
+      "con_name": "*ST未名",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "002252.SZ",
+      "con_name": "上海莱士",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "002007.SZ",
+      "con_name": "华兰生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "000661.SZ",
+      "con_name": "长春高新",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "000534.SZ",
+      "con_name": "万泽股份",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "000518.SZ",
+      "con_name": "四环生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "881142.TI",
+      "con_code": "000403.SZ",
+      "con_name": "派林生物",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    }
+  ],
+  "concept_members": [
+    {
+      "ts_code": "885748.TI",
+      "con_code": "688187.SH",
+      "con_name": "时代电气",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "601808.SH",
+      "con_name": "中海油服",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "600871.SH",
+      "con_name": "石化油服",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "600282.SH",
+      "con_name": "南钢股份",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "600098.SH",
+      "con_name": "广州发展",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "600028.SH",
+      "con_name": "中国石化",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "301158.SZ",
+      "con_name": "德石股份",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "300191.SZ",
+      "con_name": "潜能恒信",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "300157.SZ",
+      "con_name": "新锦动力",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "300084.SZ",
+      "con_name": "海默科技",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "002278.SZ",
+      "con_name": "神开股份",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "002088.SZ",
+      "con_name": "鲁阳节能",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "000852.SZ",
+      "con_name": "石化机械",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    },
+    {
+      "ts_code": "885748.TI",
+      "con_code": "000039.SZ",
+      "con_name": "中集集团",
+      "is_new": "Y",
+      "in_date": null,
+      "out_date": null,
+      "weight": null
+    }
+  ],
+  "ths_gap_source": [
+    {
+      "date": "20241104",
+      "count": 0
+    },
+    {
+      "date": "20250120",
+      "count": 5214
+    }
+  ],
+  "board_gap_source": [
+    {
+      "api": "moneyflow_ind_ths",
+      "date": "20250120",
+      "code": "881142.TI",
+      "count": 0
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "date": "20250120",
+      "code": "885748.TI",
+      "count": 0
+    }
+  ],
+  "prod_reads": [
+    {
+      "kind": "dc_sum",
+      "date": "2026-07-08",
+      "a_rows": 5535,
+      "a_net": "-69825124100.0000",
+      "shsz_net": "-69822764000.0000",
+      "all_net": "-69905725600.0000",
+      "market_net": "-69823209472.0000",
+      "a_net_diff": "-1914628.0000",
+      "a_elg": "-35578872900.0000",
+      "market_elg": "-35576537088.0000",
+      "a_lg": "-34246251400.0000",
+      "market_lg": "-34246672384.0000",
+      "net_nulls": 0
+    },
+    {
+      "kind": "dc_sum",
+      "date": "2026-07-09",
+      "a_rows": 5536,
+      "a_net": "22463683300.0000",
+      "shsz_net": "22460602200.0000",
+      "all_net": "22547422800.0000",
+      "market_net": null,
+      "a_net_diff": null,
+      "a_elg": "33965731300.0000",
+      "market_elg": null,
+      "a_lg": "-11502049200.0000",
+      "market_lg": null,
+      "net_nulls": 0
+    },
+    {
+      "kind": "dc_sum",
+      "date": "2026-07-10",
+      "a_rows": 5537,
+      "a_net": "-39787468900.0000",
+      "shsz_net": "-39795187500.0000",
+      "all_net": "-40294872500.0000",
+      "market_net": "-39791411200.0000",
+      "a_net_diff": "3942300.0000",
+      "a_elg": "-29093889100.0000",
+      "market_elg": "-29097578496.0000",
+      "a_lg": "-10693587300.0000",
+      "market_lg": "-10693832704.0000",
+      "net_nulls": 0
+    },
+    {
+      "kind": "dc_sum",
+      "date": "2026-09-28",
+      "a_rows": 5561,
+      "a_net": "-91389447600.0000",
+      "shsz_net": "-91400360500.0000",
+      "all_net": "-91810117800.0000",
+      "market_net": "-91400310784.0000",
+      "a_net_diff": "10863184.0000",
+      "a_elg": "-61493313900.0000",
+      "market_elg": "-61495889920.0000",
+      "a_lg": "-29896133000.0000",
+      "market_lg": "-29904420864.0000",
+      "net_nulls": 0
+    },
+    {
+      "kind": "dc_sum",
+      "date": "2026-09-29",
+      "a_rows": 5561,
+      "a_net": "6527073400.0000",
+      "shsz_net": "6526543300.0000",
+      "all_net": "6612854200.0000",
+      "market_net": "6524353024.0000",
+      "a_net_diff": "2720376.0000",
+      "a_elg": "7351098900.0000",
+      "market_elg": "7351142912.0000",
+      "a_lg": "-824023200.0000",
+      "market_lg": "-826789888.0000",
+      "net_nulls": 0
+    },
+    {
+      "kind": "dc_sum",
+      "date": "2026-09-30",
+      "a_rows": 5562,
+      "a_net": "-13629465400.0000",
+      "shsz_net": "-13630852800.0000",
+      "all_net": "-13609884300.0000",
+      "market_net": "-13628162048.0000",
+      "a_net_diff": "-1303352.0000",
+      "a_elg": "-6074010000.0000",
+      "market_elg": "-6074327040.0000",
+      "a_lg": "-7555456800.0000",
+      "market_lg": "-7553835008.0000",
+      "net_nulls": 0
+    },
+    {
+      "kind": "stock_ths_at_gap",
+      "date": "2025-01-20",
+      "count": 5214,
+      "null_net": 0
+    },
+    {
+      "kind": "stock_ths_at_gap",
+      "date": "2026-08-05",
+      "count": 5199,
+      "null_net": 0
+    },
+    {
+      "kind": "stock_dc_at_gap",
+      "date": "2026-07-09",
+      "count": 5976
+    }
+  ],
+  "ths_sum_comparisons": [
+    {
+      "type": "industry",
+      "code": "881142.TI",
+      "date": "20260930",
+      "member_count": 55,
+      "company_num": 56,
+      "matched_stock_count": 52,
+      "missing_stock_codes": [
+        "920575.BJ",
+        "920344.BJ",
+        "920047.BJ"
+      ],
+      "membership_in_out_null_count": 55,
+      "stock_sum_yiyuan": {
+        "net_amount": "13.276644",
+        "buy_lg_amount": "9.340742",
+        "buy_md_amount": "4.731008",
+        "buy_sm_amount": "-0.795106"
+      },
+      "large_plus_medium_yiyuan": "14.071750",
+      "source_board": {
+        "trade_date": "20260930",
+        "ts_code": "881142.TI",
+        "industry": "生物制品",
+        "net_buy_amount": 80,
+        "net_sell_amount": 66,
+        "net_amount": 14,
+        "company_num": 56
+      }
+    },
+    {
+      "type": "concept",
+      "code": "885748.TI",
+      "date": "20260930",
+      "member_count": 14,
+      "company_num": 14,
+      "matched_stock_count": 14,
+      "missing_stock_codes": [],
+      "membership_in_out_null_count": 14,
+      "stock_sum_yiyuan": {
+        "net_amount": "3.900568",
+        "buy_lg_amount": "0.587223",
+        "buy_md_amount": "1.082548",
+        "buy_sm_amount": "2.230797"
+      },
+      "large_plus_medium_yiyuan": "1.669771",
+      "source_board": {
+        "trade_date": "20260930",
+        "ts_code": "885748.TI",
+        "name": "可燃冰",
+        "company_num": 14,
+        "net_buy_amount": 7,
+        "net_sell_amount": 5,
+        "net_amount": 1
+      }
+    }
+  ],
+  "market_gap_comparison": {
+    "a_net": "5077732.0000",
+    "shsz_net": "1996632.0000",
+    "all_net": "88817232.0000"
+  },
+  "limitations": [
+    "DC candidate universes differ and no exact reconstruction formula was established",
+    "No historical THS membership effective intervals established from tested samples",
+    "Net amounts do not determine independent gross inflow and outflow",
+    "Current member set is not a proof of historical board membership",
+    "No raw datasets were written; derived estimates were not implemented"
+  ]
+}

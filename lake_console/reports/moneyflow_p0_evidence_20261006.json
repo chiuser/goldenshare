@@ -1,0 +1,4024 @@
+{
+  "as_of": "2026-10-06",
+  "read_scope": "2010-01-01..2026-09-30; seven raw_tushare tables; SSE trade_cal reference",
+  "status": "P0 evidence recorded; exit gate not passed",
+  "baseline_commit": "bf7df7ff",
+  "fields": {
+    "moneyflow": [
+      "ts_code",
+      "trade_date",
+      "buy_sm_vol",
+      "buy_sm_amount",
+      "sell_sm_vol",
+      "sell_sm_amount",
+      "buy_md_vol",
+      "buy_md_amount",
+      "sell_md_vol",
+      "sell_md_amount",
+      "buy_lg_vol",
+      "buy_lg_amount",
+      "sell_lg_vol",
+      "sell_lg_amount",
+      "buy_elg_vol",
+      "buy_elg_amount",
+      "sell_elg_vol",
+      "sell_elg_amount",
+      "net_mf_vol",
+      "net_mf_amount"
+    ],
+    "moneyflow_cnt_ths": [
+      "trade_date",
+      "ts_code",
+      "name",
+      "lead_stock",
+      "close_price",
+      "pct_change",
+      "industry_index",
+      "company_num",
+      "pct_change_stock",
+      "net_buy_amount",
+      "net_sell_amount",
+      "net_amount"
+    ],
+    "moneyflow_dc": [
+      "trade_date",
+      "ts_code",
+      "name",
+      "pct_change",
+      "close",
+      "net_amount",
+      "net_amount_rate",
+      "buy_elg_amount",
+      "buy_elg_amount_rate",
+      "buy_lg_amount",
+      "buy_lg_amount_rate",
+      "buy_md_amount",
+      "buy_md_amount_rate",
+      "buy_sm_amount",
+      "buy_sm_amount_rate"
+    ],
+    "moneyflow_ind_dc": [
+      "trade_date",
+      "content_type",
+      "ts_code",
+      "name",
+      "pct_change",
+      "close",
+      "net_amount",
+      "net_amount_rate",
+      "buy_elg_amount",
+      "buy_elg_amount_rate",
+      "buy_lg_amount",
+      "buy_lg_amount_rate",
+      "buy_md_amount",
+      "buy_md_amount_rate",
+      "buy_sm_amount",
+      "buy_sm_amount_rate",
+      "buy_sm_amount_stock",
+      "rank"
+    ],
+    "moneyflow_ind_ths": [
+      "trade_date",
+      "ts_code",
+      "industry",
+      "lead_stock",
+      "close",
+      "pct_change",
+      "company_num",
+      "pct_change_stock",
+      "close_price",
+      "net_buy_amount",
+      "net_sell_amount",
+      "net_amount"
+    ],
+    "moneyflow_mkt_dc": [
+      "trade_date",
+      "close_sh",
+      "pct_change_sh",
+      "close_sz",
+      "pct_change_sz",
+      "net_amount",
+      "net_amount_rate",
+      "buy_elg_amount",
+      "buy_elg_amount_rate",
+      "buy_lg_amount",
+      "buy_lg_amount_rate",
+      "buy_md_amount",
+      "buy_md_amount_rate",
+      "buy_sm_amount",
+      "buy_sm_amount_rate"
+    ],
+    "moneyflow_ths": [
+      "trade_date",
+      "ts_code",
+      "name",
+      "pct_change",
+      "latest",
+      "net_amount",
+      "net_d5_amount",
+      "buy_lg_amount",
+      "buy_lg_amount_rate",
+      "buy_md_amount",
+      "buy_md_amount_rate",
+      "buy_sm_amount",
+      "buy_sm_amount_rate"
+    ]
+  },
+  "mcp": [
+    {
+      "api": "moneyflow",
+      "mode": "no_params",
+      "params": {},
+      "isError": true,
+      "row_count": null,
+      "fields": [],
+      "sample": "tushare API 错误 [50101]: 参数校验失败, 股票代码和日期至少输入一个参数",
+      "min_date": null,
+      "max_date": null
+    },
+    {
+      "api": "moneyflow_dc",
+      "mode": "no_params",
+      "params": {},
+      "isError": false,
+      "row_count": null,
+      "fields": [],
+      "sample": "[{\"trade_date\": \"20260930\", \"ts_code\": \"920002.BJ\", \"name\": \"万达轴承\", \"pct_change\": -0.73, \"close\": 51.94, \"net_amount\": -21.68, \"net_amount_rate\": -0.21, \"buy_elg_amount\": 335.82, \"buy_elg_amount_rate\": 3.26, \"buy_lg_amount\": -357.49, \"buy_lg_amount_rate\": -3.47, \"buy_md_amount\": -116.05, \"buy_md_amount_rate\": -1.13, \"buy_sm_amount\": 60.64, \"buy_sm_amount_rate\": 0.59}, {\"trade_date\": \"20260930\", \"ts_code\": \"920020.BJ\", \"name\": \"泰凯英\", \"pct_change\": 0.0, \"close\": 14.76, \"net_amount\": 0.0, \"net_amou",
+      "min_date": null,
+      "max_date": null
+    },
+    {
+      "api": "moneyflow_ths",
+      "mode": "no_params",
+      "params": {},
+      "isError": false,
+      "row_count": null,
+      "fields": [],
+      "sample": "[{\"trade_date\": \"20260930\", \"ts_code\": \"600363.SH\", \"name\": \"ST联光\", \"pct_change\": -9.96, \"latest\": 12.2, \"net_amount\": 1831.95, \"net_d5_amount\": -8246.3, \"buy_lg_amount\": 589.99, \"buy_lg_amount_rate\": 32.21, \"buy_md_amount\": 503.37, \"buy_md_amount_rate\": 27.48, \"buy_sm_amount\": 738.59, \"buy_sm_amount_rate\": 40.32}, {\"trade_date\": \"20260930\", \"ts_code\": \"001246.SZ\", \"name\": \"力勤资源\", \"pct_change\": 206.59, \"latest\": 65.09, \"net_amount\": -30854.08, \"net_d5_amount\": 53910.86, \"buy_lg_amount\": 53910.86",
+      "min_date": null,
+      "max_date": null
+    },
+    {
+      "api": "moneyflow_ind_dc",
+      "mode": "no_params",
+      "params": {},
+      "isError": false,
+      "row_count": null,
+      "fields": [],
+      "sample": "[{\"trade_date\": \"20260930\", \"content_type\": \"行业\", \"ts_code\": \"BK0739.DC\", \"name\": \"工程机械\", \"pct_change\": 0.34, \"close\": 2050.67, \"net_amount\": 289091424.0, \"net_amount_rate\": 5.47, \"buy_elg_amount\": 225893744.0, \"buy_elg_amount_rate\": 4.27, \"buy_lg_amount\": 63197680.0, \"buy_lg_amount_rate\": 1.2, \"buy_md_amount\": -100646992.0, \"buy_md_amount_rate\": -1.9, \"buy_sm_amount\": -194059440.0, \"buy_sm_amount_rate\": -3.67, \"buy_sm_amount_stock\": \"徐工机械\", \"rank\": 39}, {\"trade_date\": \"20260930\", \"content_type\"",
+      "min_date": null,
+      "max_date": null
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "no_params",
+      "params": {},
+      "isError": false,
+      "row_count": null,
+      "fields": [],
+      "sample": "[{\"trade_date\": \"20260930\", \"ts_code\": \"881142.TI\", \"industry\": \"生物制品\", \"lead_stock\": \"康希诺\", \"close\": 6727.88, \"pct_change\": 4.63, \"company_num\": 56, \"pct_change_stock\": 20.0, \"close_price\": 102.64, \"net_buy_amount\": 80.0, \"net_sell_amount\": 66.0, \"net_amount\": 14.0}, {\"trade_date\": \"20260930\", \"ts_code\": \"881175.TI\", \"industry\": \"医疗服务\", \"lead_stock\": \"南模生物\", \"close\": 21661.9, \"pct_change\": 3.11, \"company_num\": 56, \"pct_change_stock\": 19.87, \"close_price\": 64.98, \"net_buy_amount\": 133.0, \"net_se",
+      "min_date": null,
+      "max_date": null
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "no_params",
+      "params": {},
+      "isError": false,
+      "row_count": null,
+      "fields": [],
+      "sample": "[{\"trade_date\": \"20260930\", \"ts_code\": \"885865.TI\", \"name\": \"金属钴\", \"lead_stock\": \"力勤资源\", \"close_price\": 65.09, \"pct_change\": 0.41, \"industry_index\": 2453.73, \"company_num\": 33, \"pct_change_stock\": 206.59, \"net_buy_amount\": 69.0, \"net_sell_amount\": 51.0, \"net_amount\": 17.0}, {\"trade_date\": \"20260930\", \"ts_code\": \"886080.TI\", \"name\": \"财税数字化\", \"lead_stock\": \"永信至诚\", \"close_price\": 22.54, \"pct_change\": -1.23, \"industry_index\": 1630.57, \"company_num\": 66, \"pct_change_stock\": 6.12, \"net_buy_amount\": 31",
+      "min_date": null,
+      "max_date": null
+    },
+    {
+      "api": "moneyflow_mkt_dc",
+      "mode": "no_params",
+      "params": {},
+      "isError": false,
+      "row_count": 840,
+      "fields": [
+        "trade_date",
+        "close_sh",
+        "pct_change_sh",
+        "close_sz",
+        "pct_change_sz",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "close_sh": 3842.19,
+          "pct_change_sh": 0.31,
+          "close_sz": 12887.62,
+          "pct_change_sz": -0.11,
+          "net_amount": -13628162048,
+          "net_amount_rate": -0.95,
+          "buy_elg_amount": -6074327040,
+          "buy_elg_amount_rate": -0.42,
+          "buy_lg_amount": -7553835008,
+          "buy_lg_amount_rate": -0.53,
+          "buy_md_amount": -1221431296,
+          "buy_md_amount_rate": -0.08,
+          "buy_sm_amount": 14849589248,
+          "buy_sm_amount_rate": 1.03
+        },
+        {
+          "trade_date": "20260929",
+          "close_sh": 3830.45,
+          "pct_change_sh": 0.18,
+          "close_sz": 12901.95,
+          "pct_change_sz": 0.34,
+          "net_amount": 6524353024,
+          "net_amount_rate": 0.46,
+          "buy_elg_amount": 7351142912,
+          "buy_elg_amount_rate": 0.52,
+          "buy_lg_amount": -826789888,
+          "buy_lg_amount_rate": -0.06,
+          "buy_md_amount": -11742089216,
+          "buy_md_amount_rate": -0.83,
+          "buy_sm_amount": 5217730560,
+          "buy_sm_amount_rate": 0.37
+        }
+      ],
+      "min_date": "20230417",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow",
+      "mode": "object_only",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "920344.BJ"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 43,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "920344.BJ"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "920344.BJ"
+        }
+      ],
+      "min_date": "20230602",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow",
+      "mode": "range",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "920344.BJ",
+        "start_date": "20260928",
+        "end_date": "20260930"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 3,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "920344.BJ"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "920344.BJ"
+        }
+      ],
+      "min_date": "20260928",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_dc",
+      "mode": "object_only",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "001246.SZ"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 14,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "001246.SZ"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "001246.SZ"
+        }
+      ],
+      "min_date": "20260910",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_dc",
+      "mode": "range",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "001246.SZ",
+        "start_date": "20260928",
+        "end_date": "20260930"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 3,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "001246.SZ"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "001246.SZ"
+        }
+      ],
+      "min_date": "20260928",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_ths",
+      "mode": "object_only",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "301716.SZ"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 12,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "301716.SZ"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "301716.SZ"
+        }
+      ],
+      "min_date": "20260914",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_ths",
+      "mode": "range",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "301716.SZ",
+        "start_date": "20260928",
+        "end_date": "20260930"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 3,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "301716.SZ"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "301716.SZ"
+        }
+      ],
+      "min_date": "20260928",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_ind_dc",
+      "mode": "object_only",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code",
+          "content_type",
+          "name"
+        ],
+        "ts_code": "BK1216.DC"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 261,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "content_type",
+        "name"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "BK1216.DC",
+          "content_type": "行业",
+          "name": "医药生物"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "BK1216.DC",
+          "content_type": "行业",
+          "name": "医药生物"
+        }
+      ],
+      "min_date": "20250903",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_ind_dc",
+      "mode": "range",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code",
+          "content_type",
+          "name"
+        ],
+        "ts_code": "BK1216.DC",
+        "start_date": "20260928",
+        "end_date": "20260930"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 3,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "content_type",
+        "name"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "BK1216.DC",
+          "content_type": "行业",
+          "name": "医药生物"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "BK1216.DC",
+          "content_type": "行业",
+          "name": "医药生物"
+        }
+      ],
+      "min_date": "20260928",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "object_only",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "881142.TI"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 496,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "881142.TI"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "881142.TI"
+        }
+      ],
+      "min_date": "20240910",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "range",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "881142.TI",
+        "start_date": "20260928",
+        "end_date": "20260930"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 3,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "881142.TI"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "881142.TI"
+        }
+      ],
+      "min_date": "20260928",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "object_only",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "885955.TI"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 511,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "885955.TI"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "885955.TI"
+        }
+      ],
+      "min_date": "20240910",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "range",
+      "params": {
+        "fields": [
+          "trade_date",
+          "ts_code"
+        ],
+        "ts_code": "885955.TI",
+        "start_date": "20260928",
+        "end_date": "20260930"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 3,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "885955.TI"
+        },
+        {
+          "trade_date": "20260929",
+          "ts_code": "885955.TI"
+        }
+      ],
+      "min_date": "20260928",
+      "max_date": "20260930"
+    },
+    {
+      "api": "moneyflow_mkt_dc",
+      "mode": "range",
+      "params": {
+        "fields": [
+          "trade_date",
+          "net_amount"
+        ],
+        "start_date": "20260928",
+        "end_date": "20260930"
+      },
+      "isError": false,
+      "parseable": true,
+      "row_count": 3,
+      "fields": [
+        "trade_date",
+        "net_amount"
+      ],
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "net_amount": -13628162048
+        },
+        {
+          "trade_date": "20260929",
+          "net_amount": 6524353024
+        }
+      ],
+      "min_date": "20260928",
+      "max_date": "20260930"
+    }
+  ],
+  "history_summary": {
+    "moneyflow": {
+      "rows": 14089300,
+      "dates": 4067,
+      "start": "2010-01-04",
+      "end": "2026-09-30",
+      "duplicate_keys": 0,
+      "calendar_expected_dates": 4067,
+      "missing_dates": [],
+      "non_open_dates": [],
+      "min_day_rows": 830,
+      "min_days": [
+        {
+          "kind": "history",
+          "table": "moneyflow",
+          "date": "2010-03-30",
+          "count": 830,
+          "unique": 830
+        }
+      ],
+      "sample_count": 5572,
+      "sample_csv_bytes": 856108,
+      "csv_bytes_per_row": 153.64
+    },
+    "moneyflow_cnt_ths": {
+      "rows": 192009,
+      "dates": 495,
+      "start": "2024-09-10",
+      "end": "2026-09-30",
+      "duplicate_keys": 0,
+      "calendar_expected_dates": 498,
+      "missing_dates": [
+        "2024-11-04",
+        "2025-01-20",
+        "2026-07-09"
+      ],
+      "non_open_dates": [],
+      "min_day_rows": 379,
+      "min_days": [
+        {
+          "kind": "history",
+          "table": "moneyflow_cnt_ths",
+          "date": "2026-08-07",
+          "count": 379,
+          "unique": 379
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_cnt_ths",
+          "date": "2026-08-10",
+          "count": 379,
+          "unique": 379
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_cnt_ths",
+          "date": "2026-08-11",
+          "count": 379,
+          "unique": 379
+        }
+      ],
+      "sample_count": 387,
+      "sample_csv_bytes": 41312,
+      "csv_bytes_per_row": 106.75
+    },
+    "moneyflow_dc": {
+      "rows": 4278673,
+      "dates": 739,
+      "start": "2023-09-11",
+      "end": "2026-09-30",
+      "duplicate_keys": 0,
+      "calendar_expected_dates": 740,
+      "missing_dates": [
+        "2023-11-22"
+      ],
+      "non_open_dates": [],
+      "min_day_rows": 2812,
+      "min_days": [
+        {
+          "kind": "history",
+          "table": "moneyflow_dc",
+          "date": "2026-05-19",
+          "count": 2812,
+          "unique": 2812
+        }
+      ],
+      "sample_count": 6024,
+      "sample_csv_bytes": 786991,
+      "csv_bytes_per_row": 130.64
+    },
+    "moneyflow_ind_dc": {
+      "rows": 364012,
+      "dates": 739,
+      "start": "2023-09-12",
+      "end": "2026-09-30",
+      "duplicate_keys": 0,
+      "calendar_expected_dates": 739,
+      "missing_dates": [],
+      "non_open_dates": [],
+      "min_day_rows": 86,
+      "min_days": [
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-12",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-13",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-14",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-15",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-18",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-19",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-20",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-21",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-22",
+          "count": 86,
+          "unique": 86
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_dc",
+          "date": "2023-09-25",
+          "count": 86,
+          "unique": 86
+        }
+      ],
+      "sample_count": 1031,
+      "sample_csv_bytes": 191269,
+      "csv_bytes_per_row": 185.52
+    },
+    "moneyflow_ind_ths": {
+      "rows": 44460,
+      "dates": 494,
+      "start": "2024-09-10",
+      "end": "2026-09-30",
+      "duplicate_keys": 0,
+      "calendar_expected_dates": 498,
+      "missing_dates": [
+        "2024-11-04",
+        "2025-01-20",
+        "2026-07-09",
+        "2026-08-05"
+      ],
+      "non_open_dates": [],
+      "min_day_rows": 90,
+      "min_days": [
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-10",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-11",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-12",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-13",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-18",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-19",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-20",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-23",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-24",
+          "count": 90,
+          "unique": 90
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ind_ths",
+          "date": "2024-09-25",
+          "count": 90,
+          "unique": 90
+        }
+      ],
+      "sample_count": 90,
+      "sample_csv_bytes": 9427,
+      "csv_bytes_per_row": 104.74
+    },
+    "moneyflow_mkt_dc": {
+      "rows": 839,
+      "dates": 839,
+      "start": "2023-04-17",
+      "end": "2026-09-30",
+      "duplicate_keys": 0,
+      "calendar_expected_dates": 840,
+      "missing_dates": [
+        "2026-07-09"
+      ],
+      "non_open_dates": [],
+      "min_day_rows": 1,
+      "min_days": [
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-17",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-18",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-19",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-20",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-21",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-24",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-25",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-26",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-27",
+          "count": 1,
+          "unique": 1
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_mkt_dc",
+          "date": "2023-04-28",
+          "count": 1,
+          "unique": 1
+        }
+      ],
+      "sample_count": 1,
+      "sample_csv_bytes": 388,
+      "csv_bytes_per_row": 388.0
+    },
+    "moneyflow_ths": {
+      "rows": 2191645,
+      "dates": 431,
+      "start": "2024-12-19",
+      "end": "2026-09-30",
+      "duplicate_keys": 0,
+      "calendar_expected_dates": 433,
+      "missing_dates": [
+        "2026-07-06",
+        "2026-07-09"
+      ],
+      "non_open_dates": [],
+      "min_day_rows": 2,
+      "min_days": [
+        {
+          "kind": "history",
+          "table": "moneyflow_ths",
+          "date": "2024-12-19",
+          "count": 2,
+          "unique": 2
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ths",
+          "date": "2024-12-20",
+          "count": 2,
+          "unique": 2
+        },
+        {
+          "kind": "history",
+          "table": "moneyflow_ths",
+          "date": "2024-12-23",
+          "count": 2,
+          "unique": 2
+        }
+      ],
+      "sample_count": 5215,
+      "sample_csv_bytes": 618534,
+      "csv_bytes_per_row": 118.61
+    },
+    "dc_type_history": {
+      "地域": {
+        "start": "2025-02-26",
+        "end": "2026-09-30",
+        "dates": 391,
+        "rows": 12121,
+        "null_codes": 0,
+        "days_with_code_collisions": 0
+      },
+      "行业": {
+        "start": "2023-09-12",
+        "end": "2026-09-30",
+        "dates": 739,
+        "rows": 171901,
+        "null_codes": 0,
+        "days_with_code_collisions": 0
+      },
+      "概念": {
+        "start": "2025-02-26",
+        "end": "2026-09-30",
+        "dates": 391,
+        "rows": 179990,
+        "null_codes": 0,
+        "days_with_code_collisions": 0
+      }
+    }
+  },
+  "wire": [
+    {
+      "api": "moneyflow",
+      "round": 1,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 2000,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 4000,
+          "count": 1572
+        }
+      ],
+      "count": 5572,
+      "duplicate_keys": 0,
+      "sha256": "6ae4080706cc6f114307d6f0953dbfd99ec01c0cb8f6df5b0d6204e411a52813",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.3686,
+        0.2928,
+        0.3357
+      ]
+    },
+    {
+      "api": "moneyflow",
+      "round": 2,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 2000,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 4000,
+          "count": 1572
+        }
+      ],
+      "count": 5572,
+      "duplicate_keys": 0,
+      "sha256": "6ae4080706cc6f114307d6f0953dbfd99ec01c0cb8f6df5b0d6204e411a52813",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.2943,
+        0.3341,
+        0.2737
+      ]
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "round": 1,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 387
+        }
+      ],
+      "count": 387,
+      "duplicate_keys": 0,
+      "sha256": "827733ec8c0921e2987653144d3e980910ddbcc31a11cefe4c24e00ee537c46e",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.1393
+      ]
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "round": 2,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 387
+        }
+      ],
+      "count": 387,
+      "duplicate_keys": 0,
+      "sha256": "827733ec8c0921e2987653144d3e980910ddbcc31a11cefe4c24e00ee537c46e",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.1055
+      ]
+    },
+    {
+      "api": "moneyflow_dc",
+      "round": 1,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 2000,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 4000,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 6000,
+          "count": 24
+        }
+      ],
+      "count": 6024,
+      "duplicate_keys": 0,
+      "sha256": "b5552597ca1e115a060fdd18ed3ff33f14b484c047171eceb36d85d083815662",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.27,
+        0.2408,
+        0.296,
+        0.1077
+      ]
+    },
+    {
+      "api": "moneyflow_dc",
+      "round": 2,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 2000,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 4000,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 6000,
+          "count": 24
+        }
+      ],
+      "count": 6024,
+      "duplicate_keys": 0,
+      "sha256": "b5552597ca1e115a060fdd18ed3ff33f14b484c047171eceb36d85d083815662",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.2478,
+        0.2537,
+        0.286,
+        0.0852
+      ]
+    },
+    {
+      "api": "moneyflow_ind_dc",
+      "round": 1,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": "行业",
+          "offset": 0,
+          "count": 496
+        },
+        {
+          "scope": "概念",
+          "offset": 0,
+          "count": 504
+        },
+        {
+          "scope": "地域",
+          "offset": 0,
+          "count": 31
+        }
+      ],
+      "count": 1031,
+      "duplicate_keys": 0,
+      "sha256": "2928fdd4c23549b4c82bdbefe32a3e38d1be97f1fc1050d2ef848bdcc0156b07",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.1842,
+        0.5591,
+        0.1025
+      ]
+    },
+    {
+      "api": "moneyflow_ind_dc",
+      "round": 2,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": "行业",
+          "offset": 0,
+          "count": 496
+        },
+        {
+          "scope": "概念",
+          "offset": 0,
+          "count": 504
+        },
+        {
+          "scope": "地域",
+          "offset": 0,
+          "count": 31
+        }
+      ],
+      "count": 1031,
+      "duplicate_keys": 0,
+      "sha256": "2928fdd4c23549b4c82bdbefe32a3e38d1be97f1fc1050d2ef848bdcc0156b07",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.1739,
+        0.1269,
+        0.0866
+      ]
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "round": 1,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 90
+        }
+      ],
+      "count": 90,
+      "duplicate_keys": 0,
+      "sha256": "f1e92a1abaae89983f8e323101f80e3028e495808e10e1bfed553b870e064013",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.0806
+      ]
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "round": 2,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 90
+        }
+      ],
+      "count": 90,
+      "duplicate_keys": 0,
+      "sha256": "f1e92a1abaae89983f8e323101f80e3028e495808e10e1bfed553b870e064013",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.1515
+      ]
+    },
+    {
+      "api": "moneyflow_mkt_dc",
+      "round": 1,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 1
+        }
+      ],
+      "count": 1,
+      "duplicate_keys": 0,
+      "sha256": "a2d5d3747a5a04aafc0c81341fe00c1afc92fbd29389be69c8903a3cf0386654",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.0954
+      ]
+    },
+    {
+      "api": "moneyflow_mkt_dc",
+      "round": 2,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 1
+        }
+      ],
+      "count": 1,
+      "duplicate_keys": 0,
+      "sha256": "a2d5d3747a5a04aafc0c81341fe00c1afc92fbd29389be69c8903a3cf0386654",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.0767
+      ]
+    },
+    {
+      "api": "moneyflow_ths",
+      "round": 1,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 2000,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 4000,
+          "count": 1215
+        }
+      ],
+      "count": 5215,
+      "duplicate_keys": 0,
+      "sha256": "2e9b14d837283877f31e46a7640a974c72f05fa4f2ff348bbfc3a029a436d0f9",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.2374,
+        0.1847,
+        0.2151
+      ]
+    },
+    {
+      "api": "moneyflow_ths",
+      "round": 2,
+      "params": {
+        "trade_date": "20260930",
+        "limit": 2000
+      },
+      "pages": [
+        {
+          "scope": null,
+          "offset": 0,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 2000,
+          "count": 2000
+        },
+        {
+          "scope": null,
+          "offset": 4000,
+          "count": 1215
+        }
+      ],
+      "count": 5215,
+      "duplicate_keys": 0,
+      "sha256": "2e9b14d837283877f31e46a7640a974c72f05fa4f2ff348bbfc3a029a436d0f9",
+      "precision_over_4_count": 0,
+      "precision_samples": [],
+      "fractional_volume_count": 0,
+      "volume_samples": [],
+      "request_elapsed_s": [
+        0.257,
+        0.2783,
+        0.266
+      ]
+    }
+  ],
+  "comparison": {
+    "moneyflow": {
+      "prod_count": 5572,
+      "source_count": 5572,
+      "prod_only_count": 0,
+      "source_only_count": 0,
+      "field_difference_count": 0,
+      "differences": [],
+      "stable_two_rounds": true,
+      "pages_per_round": [
+        2000,
+        2000,
+        1572
+      ],
+      "requests_two_rounds": 6,
+      "request_elapsed_s": 1.8992,
+      "precision_over_4": 0,
+      "fractional_volumes": 0
+    },
+    "moneyflow_cnt_ths": {
+      "prod_count": 387,
+      "source_count": 387,
+      "prod_only_count": 0,
+      "source_only_count": 0,
+      "field_difference_count": 0,
+      "differences": [],
+      "stable_two_rounds": true,
+      "pages_per_round": [
+        387
+      ],
+      "requests_two_rounds": 2,
+      "request_elapsed_s": 0.24480000000000002,
+      "precision_over_4": 0,
+      "fractional_volumes": 0
+    },
+    "moneyflow_dc": {
+      "prod_count": 6024,
+      "source_count": 6024,
+      "prod_only_count": 0,
+      "source_only_count": 0,
+      "field_difference_count": 0,
+      "differences": [],
+      "stable_two_rounds": true,
+      "pages_per_round": [
+        2000,
+        2000,
+        2000,
+        24
+      ],
+      "requests_two_rounds": 8,
+      "request_elapsed_s": 1.7872,
+      "precision_over_4": 0,
+      "fractional_volumes": 0
+    },
+    "moneyflow_ind_dc": {
+      "prod_count": 1031,
+      "source_count": 1031,
+      "prod_only_count": 0,
+      "source_only_count": 0,
+      "field_difference_count": 0,
+      "differences": [],
+      "stable_two_rounds": true,
+      "pages_per_round": [
+        496,
+        504,
+        31
+      ],
+      "requests_two_rounds": 6,
+      "request_elapsed_s": 1.2332,
+      "precision_over_4": 0,
+      "fractional_volumes": 0
+    },
+    "moneyflow_ind_ths": {
+      "prod_count": 90,
+      "source_count": 90,
+      "prod_only_count": 0,
+      "source_only_count": 0,
+      "field_difference_count": 0,
+      "differences": [],
+      "stable_two_rounds": true,
+      "pages_per_round": [
+        90
+      ],
+      "requests_two_rounds": 2,
+      "request_elapsed_s": 0.2321,
+      "precision_over_4": 0,
+      "fractional_volumes": 0
+    },
+    "moneyflow_mkt_dc": {
+      "prod_count": 1,
+      "source_count": 1,
+      "prod_only_count": 0,
+      "source_only_count": 0,
+      "field_difference_count": 0,
+      "differences": [],
+      "stable_two_rounds": true,
+      "pages_per_round": [
+        1
+      ],
+      "requests_two_rounds": 2,
+      "request_elapsed_s": 0.1721,
+      "precision_over_4": 0,
+      "fractional_volumes": 0
+    },
+    "moneyflow_ths": {
+      "prod_count": 5215,
+      "source_count": 5215,
+      "prod_only_count": 0,
+      "source_only_count": 0,
+      "field_difference_count": 0,
+      "differences": [],
+      "stable_two_rounds": true,
+      "pages_per_round": [
+        2000,
+        2000,
+        1215
+      ],
+      "requests_two_rounds": 6,
+      "request_elapsed_s": 1.4385,
+      "precision_over_4": 0,
+      "fractional_volumes": 0
+    }
+  },
+  "matrix_sdk": [
+    {
+      "api": "moneyflow",
+      "mode": "no_params",
+      "params": {},
+      "ok": false,
+      "error": "参数校验失败, 股票代码和日期至少输入一个参数"
+    },
+    {
+      "api": "moneyflow",
+      "mode": "explicit_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "920344.BJ"
+      },
+      "requested_fields": "ts_code,trade_date,buy_sm_vol,buy_sm_amount,sell_sm_vol,sell_sm_amount,buy_md_vol,buy_md_amount,sell_md_vol,sell_md_amount,buy_lg_vol,buy_lg_amount,sell_lg_vol,sell_lg_amount,buy_elg_vol,buy_elg_amount,sell_elg_vol,sell_elg_amount,net_mf_vol,net_mf_amount",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "buy_sm_vol",
+        "buy_sm_amount",
+        "sell_sm_vol",
+        "sell_sm_amount",
+        "buy_md_vol",
+        "buy_md_amount",
+        "sell_md_vol",
+        "sell_md_amount",
+        "buy_lg_vol",
+        "buy_lg_amount",
+        "sell_lg_vol",
+        "sell_lg_amount",
+        "buy_elg_vol",
+        "buy_elg_amount",
+        "sell_elg_vol",
+        "sell_elg_amount",
+        "net_mf_vol",
+        "net_mf_amount"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "ts_code": "920344.BJ",
+          "trade_date": "20260930",
+          "buy_sm_vol": 6592,
+          "buy_sm_amount": "1641.74",
+          "sell_sm_vol": 5767,
+          "sell_sm_amount": "1431.82",
+          "buy_md_vol": 45393,
+          "buy_md_amount": "11003.79",
+          "sell_md_vol": 31867,
+          "sell_md_amount": "7772.62",
+          "buy_lg_vol": 24274,
+          "buy_lg_amount": "6014.25",
+          "sell_lg_vol": 19776,
+          "sell_lg_amount": "4093.87",
+          "buy_elg_vol": 0,
+          "buy_elg_amount": "0.0",
+          "sell_elg_vol": 0,
+          "sell_elg_amount": "0.0",
+          "net_mf_vol": 0,
+          "net_mf_amount": "0.0"
+        }
+      ],
+      "elapsed_s": 0.1653
+    },
+    {
+      "api": "moneyflow",
+      "mode": "critical_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "920344.BJ"
+      },
+      "requested_fields": "trade_date,ts_code,trade_count",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "trade_count"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "920344.BJ",
+          "trade_count": 1074
+        }
+      ],
+      "elapsed_s": 0.1062
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "no_params",
+      "params": {},
+      "requested_fields": "",
+      "ok": true,
+      "count": 4000,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "lead_stock",
+        "close_price",
+        "pct_change",
+        "industry_index",
+        "company_num",
+        "pct_change_stock",
+        "net_buy_amount",
+        "net_sell_amount",
+        "net_amount"
+      ],
+      "min_date": "20260915",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "885865.TI",
+          "name": "金属钴",
+          "lead_stock": "力勤资源",
+          "close_price": "65.09",
+          "pct_change": "0.41",
+          "industry_index": "2453.73",
+          "company_num": 33,
+          "pct_change_stock": "206.59",
+          "net_buy_amount": "69.0",
+          "net_sell_amount": "51.0",
+          "net_amount": "17.0"
+        },
+        {
+          "trade_date": "20260930",
+          "ts_code": "886080.TI",
+          "name": "财税数字化",
+          "lead_stock": "永信至诚",
+          "close_price": "22.54",
+          "pct_change": "-1.23",
+          "industry_index": "1630.57",
+          "company_num": 66,
+          "pct_change_stock": "6.12",
+          "net_buy_amount": "31.0",
+          "net_sell_amount": "42.0",
+          "net_amount": "-10.0"
+        }
+      ],
+      "elapsed_s": 0.3365
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "explicit_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "885955.TI"
+      },
+      "requested_fields": "trade_date,ts_code,name,lead_stock,close_price,pct_change,industry_index,company_num,pct_change_stock,net_buy_amount,net_sell_amount,net_amount",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "lead_stock",
+        "close_price",
+        "pct_change",
+        "industry_index",
+        "company_num",
+        "pct_change_stock",
+        "net_buy_amount",
+        "net_sell_amount",
+        "net_amount"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "885955.TI",
+          "name": "重组蛋白",
+          "lead_stock": "泰诺麦博",
+          "close_price": "30.67",
+          "pct_change": "3.78",
+          "industry_index": "851.77",
+          "company_num": 128,
+          "pct_change_stock": "19.99",
+          "net_buy_amount": "95.0",
+          "net_sell_amount": "75.0",
+          "net_amount": "19.0"
+        }
+      ],
+      "elapsed_s": 0.0703
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "critical_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "885955.TI"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "885955.TI"
+        }
+      ],
+      "elapsed_s": 0.0696
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "gap_2024-11-04",
+      "params": {
+        "trade_date": "20241104"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 0,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": null,
+      "max_date": null,
+      "sample": [],
+      "elapsed_s": 0.1516
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "gap_2025-01-20",
+      "params": {
+        "trade_date": "20250120"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 0,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": null,
+      "max_date": null,
+      "sample": [],
+      "elapsed_s": 0.1002
+    },
+    {
+      "api": "moneyflow_cnt_ths",
+      "mode": "gap_2026-07-09",
+      "params": {
+        "trade_date": "20260709"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 382,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260709",
+      "max_date": "20260709",
+      "sample": [
+        {
+          "trade_date": "20260709",
+          "ts_code": "885893.TI"
+        },
+        {
+          "trade_date": "20260709",
+          "ts_code": "885907.TI"
+        }
+      ],
+      "elapsed_s": 0.1693
+    },
+    {
+      "api": "moneyflow_dc",
+      "mode": "no_params",
+      "params": {},
+      "requested_fields": "",
+      "ok": true,
+      "count": 8000,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "pct_change",
+        "close",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate"
+      ],
+      "min_date": "20260929",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "920002.BJ",
+          "name": "万达轴承",
+          "pct_change": "-0.73",
+          "close": "51.94",
+          "net_amount": "-21.68",
+          "net_amount_rate": "-0.21",
+          "buy_elg_amount": "335.82",
+          "buy_elg_amount_rate": "3.26",
+          "buy_lg_amount": "-357.49",
+          "buy_lg_amount_rate": "-3.47",
+          "buy_md_amount": "-116.05",
+          "buy_md_amount_rate": "-1.13",
+          "buy_sm_amount": "60.64",
+          "buy_sm_amount_rate": "0.59"
+        },
+        {
+          "trade_date": "20260930",
+          "ts_code": "920020.BJ",
+          "name": "泰凯英",
+          "pct_change": "0.0",
+          "close": "14.76",
+          "net_amount": "0.0",
+          "net_amount_rate": "0.0",
+          "buy_elg_amount": "0.0",
+          "buy_elg_amount_rate": "0.0",
+          "buy_lg_amount": "0.0",
+          "buy_lg_amount_rate": "0.0",
+          "buy_md_amount": "42.65",
+          "buy_md_amount_rate": "13.01",
+          "buy_sm_amount": "-7.8",
+          "buy_sm_amount_rate": "-2.38"
+        }
+      ],
+      "elapsed_s": 0.4233
+    },
+    {
+      "api": "moneyflow_dc",
+      "mode": "explicit_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "001246.SZ"
+      },
+      "requested_fields": "trade_date,ts_code,name,pct_change,close,net_amount,net_amount_rate,buy_elg_amount,buy_elg_amount_rate,buy_lg_amount,buy_lg_amount_rate,buy_md_amount,buy_md_amount_rate,buy_sm_amount,buy_sm_amount_rate",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "pct_change",
+        "close",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "001246.SZ",
+          "name": "N力勤",
+          "pct_change": "206.59",
+          "close": "65.09",
+          "net_amount": "147598.21",
+          "net_amount_rate": "17.69",
+          "buy_elg_amount": "32481.48",
+          "buy_elg_amount_rate": "3.89",
+          "buy_lg_amount": "115116.73",
+          "buy_lg_amount_rate": "13.79",
+          "buy_md_amount": "176410.4",
+          "buy_md_amount_rate": "21.14",
+          "buy_sm_amount": "-324008.62",
+          "buy_sm_amount_rate": "-38.82"
+        }
+      ],
+      "elapsed_s": 0.0762
+    },
+    {
+      "api": "moneyflow_dc",
+      "mode": "critical_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "001246.SZ"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "001246.SZ"
+        }
+      ],
+      "elapsed_s": 0.1525
+    },
+    {
+      "api": "moneyflow_dc",
+      "mode": "gap_2023-11-22",
+      "params": {
+        "trade_date": "20231122"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 0,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": null,
+      "max_date": null,
+      "sample": [],
+      "elapsed_s": 0.1841
+    },
+    {
+      "api": "moneyflow_ind_dc",
+      "mode": "no_params",
+      "params": {},
+      "requested_fields": "",
+      "ok": true,
+      "count": 5000,
+      "fields": [
+        "trade_date",
+        "content_type",
+        "ts_code",
+        "name",
+        "pct_change",
+        "close",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate",
+        "buy_sm_amount_stock",
+        "rank"
+      ],
+      "min_date": "20260923",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "content_type": "行业",
+          "ts_code": "BK0739.DC",
+          "name": "工程机械",
+          "pct_change": "0.34",
+          "close": "2050.67",
+          "net_amount": "289091424.0",
+          "net_amount_rate": "5.47",
+          "buy_elg_amount": "225893744.0",
+          "buy_elg_amount_rate": "4.27",
+          "buy_lg_amount": "63197680.0",
+          "buy_lg_amount_rate": "1.2",
+          "buy_md_amount": "-100646992.0",
+          "buy_md_amount_rate": "-1.9",
+          "buy_sm_amount": "-194059440.0",
+          "buy_sm_amount_rate": "-3.67",
+          "buy_sm_amount_stock": "徐工机械",
+          "rank": 39
+        },
+        {
+          "trade_date": "20260930",
+          "content_type": "行业",
+          "ts_code": "BK0479.DC",
+          "name": "钢铁",
+          "pct_change": "1.19",
+          "close": "7808.95",
+          "net_amount": "-7955360.0",
+          "net_amount_rate": "-0.15",
+          "buy_elg_amount": "36001248.0",
+          "buy_elg_amount_rate": "0.68",
+          "buy_lg_amount": "-43956608.0",
+          "buy_lg_amount_rate": "-0.83",
+          "buy_md_amount": "-207929728.0",
+          "buy_md_amount_rate": "-3.91",
+          "buy_sm_amount": "215885120.0",
+          "buy_sm_amount_rate": "4.06",
+          "buy_sm_amount_stock": "河钢资源",
+          "rank": 14
+        }
+      ],
+      "elapsed_s": 0.5866
+    },
+    {
+      "api": "moneyflow_ind_dc",
+      "mode": "explicit_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "BK1216.DC"
+      },
+      "requested_fields": "trade_date,content_type,ts_code,name,pct_change,close,net_amount,net_amount_rate,buy_elg_amount,buy_elg_amount_rate,buy_lg_amount,buy_lg_amount_rate,buy_md_amount,buy_md_amount_rate,buy_sm_amount,buy_sm_amount_rate,buy_sm_amount_stock,rank",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "content_type",
+        "ts_code",
+        "name",
+        "pct_change",
+        "close",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate",
+        "buy_sm_amount_stock",
+        "rank"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "content_type": "行业",
+          "ts_code": "BK1216.DC",
+          "name": "医药生物",
+          "pct_change": "2.03",
+          "close": "4767.98",
+          "net_amount": "6190539776.0",
+          "net_amount_rate": "4.44",
+          "buy_elg_amount": "3485894656.0",
+          "buy_elg_amount_rate": "2.5",
+          "buy_lg_amount": "2704645120.0",
+          "buy_lg_amount_rate": "1.94",
+          "buy_md_amount": "-2772193024.0",
+          "buy_md_amount_rate": "-1.99",
+          "buy_sm_amount": "-3319524608.0",
+          "buy_sm_amount_rate": "-2.38",
+          "buy_sm_amount_stock": "恒瑞医药",
+          "rank": 1
+        }
+      ],
+      "elapsed_s": 0.076
+    },
+    {
+      "api": "moneyflow_ind_dc",
+      "mode": "critical_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "BK1216.DC"
+      },
+      "requested_fields": "trade_date,ts_code,content_type,name",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "content_type",
+        "name"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "BK1216.DC",
+          "content_type": "行业",
+          "name": "医药生物"
+        }
+      ],
+      "elapsed_s": 0.0757
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "no_params",
+      "params": {},
+      "requested_fields": "",
+      "ok": true,
+      "count": 5000,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "industry",
+        "lead_stock",
+        "close",
+        "pct_change",
+        "company_num",
+        "pct_change_stock",
+        "close_price",
+        "net_buy_amount",
+        "net_sell_amount",
+        "net_amount"
+      ],
+      "min_date": "20260714",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "881142.TI",
+          "industry": "生物制品",
+          "lead_stock": "康希诺",
+          "close": "6727.88",
+          "pct_change": "4.63",
+          "company_num": 56,
+          "pct_change_stock": "20.0",
+          "close_price": "102.64",
+          "net_buy_amount": "80.0",
+          "net_sell_amount": "66.0",
+          "net_amount": "14.0"
+        },
+        {
+          "trade_date": "20260930",
+          "ts_code": "881175.TI",
+          "industry": "医疗服务",
+          "lead_stock": "南模生物",
+          "close": "21661.9",
+          "pct_change": "3.11",
+          "company_num": 56,
+          "pct_change_stock": "19.87",
+          "close_price": "64.98",
+          "net_buy_amount": "133.0",
+          "net_sell_amount": "108.0",
+          "net_amount": "25.0"
+        }
+      ],
+      "elapsed_s": 0.4124
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "explicit_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "881142.TI"
+      },
+      "requested_fields": "trade_date,ts_code,industry,lead_stock,close,pct_change,company_num,pct_change_stock,close_price,net_buy_amount,net_sell_amount,net_amount",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "industry",
+        "lead_stock",
+        "close",
+        "pct_change",
+        "company_num",
+        "pct_change_stock",
+        "close_price",
+        "net_buy_amount",
+        "net_sell_amount",
+        "net_amount"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "881142.TI",
+          "industry": "生物制品",
+          "lead_stock": "康希诺",
+          "close": "6727.88",
+          "pct_change": "4.63",
+          "company_num": 56,
+          "pct_change_stock": "20.0",
+          "close_price": "102.64",
+          "net_buy_amount": "80.0",
+          "net_sell_amount": "66.0",
+          "net_amount": "14.0"
+        }
+      ],
+      "elapsed_s": 0.5786
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "critical_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "881142.TI"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "881142.TI"
+        }
+      ],
+      "elapsed_s": 0.0678
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "gap_2024-11-04",
+      "params": {
+        "trade_date": "20241104"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 0,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": null,
+      "max_date": null,
+      "sample": [],
+      "elapsed_s": 0.0716
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "gap_2025-01-20",
+      "params": {
+        "trade_date": "20250120"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 0,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": null,
+      "max_date": null,
+      "sample": [],
+      "elapsed_s": 0.0757
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "gap_2026-07-09",
+      "params": {
+        "trade_date": "20260709"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 90,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260709",
+      "max_date": "20260709",
+      "sample": [
+        {
+          "trade_date": "20260709",
+          "ts_code": "881121.TI"
+        },
+        {
+          "trade_date": "20260709",
+          "ts_code": "881172.TI"
+        }
+      ],
+      "elapsed_s": 0.0712
+    },
+    {
+      "api": "moneyflow_ind_ths",
+      "mode": "gap_2026-08-05",
+      "params": {
+        "trade_date": "20260805"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 90,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260805",
+      "max_date": "20260805",
+      "sample": [
+        {
+          "trade_date": "20260805",
+          "ts_code": "881169.TI"
+        },
+        {
+          "trade_date": "20260805",
+          "ts_code": "881172.TI"
+        }
+      ],
+      "elapsed_s": 0.1358
+    },
+    {
+      "api": "moneyflow_mkt_dc",
+      "mode": "no_params",
+      "params": {},
+      "requested_fields": "",
+      "ok": true,
+      "count": 840,
+      "fields": [
+        "trade_date",
+        "close_sh",
+        "pct_change_sh",
+        "close_sz",
+        "pct_change_sz",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate"
+      ],
+      "min_date": "20230417",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "close_sh": "3842.19",
+          "pct_change_sh": "0.31",
+          "close_sz": "12887.62",
+          "pct_change_sz": "-0.11",
+          "net_amount": "-13628162048.0",
+          "net_amount_rate": "-0.95",
+          "buy_elg_amount": "-6074327040.0",
+          "buy_elg_amount_rate": "-0.42",
+          "buy_lg_amount": "-7553835008.0",
+          "buy_lg_amount_rate": "-0.53",
+          "buy_md_amount": "-1221431296.0",
+          "buy_md_amount_rate": "-0.08",
+          "buy_sm_amount": "14849589248.0",
+          "buy_sm_amount_rate": "1.03"
+        },
+        {
+          "trade_date": "20260929",
+          "close_sh": "3830.45",
+          "pct_change_sh": "0.18",
+          "close_sz": "12901.95",
+          "pct_change_sz": "0.34",
+          "net_amount": "6524353024.0",
+          "net_amount_rate": "0.46",
+          "buy_elg_amount": "7351142912.0",
+          "buy_elg_amount_rate": "0.52",
+          "buy_lg_amount": "-826789888.0",
+          "buy_lg_amount_rate": "-0.06",
+          "buy_md_amount": "-11742089216.0",
+          "buy_md_amount_rate": "-0.83",
+          "buy_sm_amount": "5217730560.0",
+          "buy_sm_amount_rate": "0.37"
+        }
+      ],
+      "elapsed_s": 0.3091
+    },
+    {
+      "api": "moneyflow_mkt_dc",
+      "mode": "explicit_sample",
+      "params": {
+        "trade_date": "20260930"
+      },
+      "requested_fields": "trade_date,close_sh,pct_change_sh,close_sz,pct_change_sz,net_amount,net_amount_rate,buy_elg_amount,buy_elg_amount_rate,buy_lg_amount,buy_lg_amount_rate,buy_md_amount,buy_md_amount_rate,buy_sm_amount,buy_sm_amount_rate",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "close_sh",
+        "pct_change_sh",
+        "close_sz",
+        "pct_change_sz",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "close_sh": "3842.19",
+          "pct_change_sh": "0.31",
+          "close_sz": "12887.62",
+          "pct_change_sz": "-0.11",
+          "net_amount": "-13628162048.0",
+          "net_amount_rate": "-0.95",
+          "buy_elg_amount": "-6074327040.0",
+          "buy_elg_amount_rate": "-0.42",
+          "buy_lg_amount": "-7553835008.0",
+          "buy_lg_amount_rate": "-0.53",
+          "buy_md_amount": "-1221431296.0",
+          "buy_md_amount_rate": "-0.08",
+          "buy_sm_amount": "14849589248.0",
+          "buy_sm_amount_rate": "1.03"
+        }
+      ],
+      "elapsed_s": 0.0765
+    },
+    {
+      "api": "moneyflow_mkt_dc",
+      "mode": "gap_2026-07-09",
+      "params": {
+        "trade_date": "20260709"
+      },
+      "requested_fields": "trade_date",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date"
+      ],
+      "min_date": "20260709",
+      "max_date": "20260709",
+      "sample": [
+        {
+          "trade_date": "20260709"
+        }
+      ],
+      "elapsed_s": 0.0919
+    },
+    {
+      "api": "moneyflow_ths",
+      "mode": "no_params",
+      "params": {},
+      "requested_fields": "",
+      "ok": true,
+      "count": 6000,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "pct_change",
+        "latest",
+        "net_amount",
+        "net_d5_amount",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate"
+      ],
+      "min_date": "20260929",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "600363.SH",
+          "name": "ST联光",
+          "pct_change": "-9.96",
+          "latest": "12.2",
+          "net_amount": "1831.95",
+          "net_d5_amount": "-8246.3",
+          "buy_lg_amount": "589.99",
+          "buy_lg_amount_rate": "32.21",
+          "buy_md_amount": "503.37",
+          "buy_md_amount_rate": "27.48",
+          "buy_sm_amount": "738.59",
+          "buy_sm_amount_rate": "40.32"
+        },
+        {
+          "trade_date": "20260930",
+          "ts_code": "001246.SZ",
+          "name": "力勤资源",
+          "pct_change": "206.59",
+          "latest": "65.09",
+          "net_amount": "-30854.08",
+          "net_d5_amount": "53910.86",
+          "buy_lg_amount": "53910.86",
+          "buy_lg_amount_rate": "6.46",
+          "buy_md_amount": "106297.33",
+          "buy_md_amount_rate": "12.74",
+          "buy_sm_amount": "-191062.27",
+          "buy_sm_amount_rate": "-22.89"
+        }
+      ],
+      "elapsed_s": 0.4357
+    },
+    {
+      "api": "moneyflow_ths",
+      "mode": "explicit_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "301716.SZ"
+      },
+      "requested_fields": "trade_date,ts_code,name,pct_change,latest,net_amount,net_d5_amount,buy_lg_amount,buy_lg_amount_rate,buy_md_amount,buy_md_amount_rate,buy_sm_amount,buy_sm_amount_rate",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "pct_change",
+        "latest",
+        "net_amount",
+        "net_d5_amount",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "301716.SZ",
+          "name": "鸿富诚",
+          "pct_change": "1.33",
+          "latest": "586.6",
+          "net_amount": "2391.43",
+          "net_d5_amount": "156580.54",
+          "buy_lg_amount": "19426.2",
+          "buy_lg_amount_rate": "5.75",
+          "buy_md_amount": "-16012.23",
+          "buy_md_amount_rate": "-4.74",
+          "buy_sm_amount": "-1022.54",
+          "buy_sm_amount_rate": "-0.3"
+        }
+      ],
+      "elapsed_s": 0.0873
+    },
+    {
+      "api": "moneyflow_ths",
+      "mode": "critical_sample",
+      "params": {
+        "trade_date": "20260930",
+        "ts_code": "301716.SZ"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 1,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260930",
+      "max_date": "20260930",
+      "sample": [
+        {
+          "trade_date": "20260930",
+          "ts_code": "301716.SZ"
+        }
+      ],
+      "elapsed_s": 0.0711
+    },
+    {
+      "api": "moneyflow_ths",
+      "mode": "gap_2026-07-06",
+      "params": {
+        "trade_date": "20260706"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 5200,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260706",
+      "max_date": "20260706",
+      "sample": [
+        {
+          "trade_date": "20260706",
+          "ts_code": "300626.SZ"
+        },
+        {
+          "trade_date": "20260706",
+          "ts_code": "688720.SH"
+        }
+      ],
+      "elapsed_s": 0.1159
+    },
+    {
+      "api": "moneyflow_ths",
+      "mode": "gap_2026-07-09",
+      "params": {
+        "trade_date": "20260709"
+      },
+      "requested_fields": "trade_date,ts_code",
+      "ok": true,
+      "count": 5205,
+      "fields": [
+        "trade_date",
+        "ts_code"
+      ],
+      "min_date": "20260709",
+      "max_date": "20260709",
+      "sample": [
+        {
+          "trade_date": "20260709",
+          "ts_code": "300626.SZ"
+        },
+        {
+          "trade_date": "20260709",
+          "ts_code": "688720.SH"
+        }
+      ],
+      "elapsed_s": 0.2187
+    }
+  ],
+  "perf": {
+    "unit_rows": 100000,
+    "unit_unique": 100000,
+    "unit_dates": [
+      "20100105",
+      "20260930"
+    ],
+    "readback_rows": 100000,
+    "csv_bytes": 15445381,
+    "raw_parquet_bytes": 5990246,
+    "silver_parquet_bytes": 5993468,
+    "csv_load_s": 0.32551791705191135,
+    "raw_write_s": 0.08039749995805323,
+    "silver_write_s": 0.08486758288927376,
+    "max_rss_bytes": 199573504,
+    "spill": "disabled",
+    "benchmark_limit": "single_chunk_not_full_repartition",
+    "dagster_concurrency": {
+      "concurrency": {
+        "runs": {
+          "max_concurrent_runs": 1
+        },
+        "pools": {
+          "granularity": "run"
+        }
+      },
+      "run_queue": null,
+      "run_coordinator": {
+        "module": "dagster.core.run_coordinator",
+        "class": "QueuedRunCoordinator"
+      }
+    },
+    "lake_free_bytes": {
+      "/Volumes/datasource/data_lake": 2933462503424,
+      "/Volumes/datasource/data_lake_staging": 2933462503424
+    },
+    "raw_silver_business_diff_rows": 0
+  },
+  "columns": [
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "ts_code",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "trade_date",
+      "type": "date",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "buy_sm_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "buy_sm_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "sell_sm_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "sell_sm_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "buy_md_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "buy_md_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "sell_md_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "sell_md_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "buy_lg_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "buy_lg_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "sell_lg_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "sell_lg_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "buy_elg_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "buy_elg_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "sell_elg_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "sell_elg_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "net_mf_vol",
+      "type": "bigint",
+      "precision": 64,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "net_mf_amount",
+      "type": "numeric",
+      "precision": 20,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "api_name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "fetched_at",
+      "type": "timestamp with time zone",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow",
+      "column": "raw_payload",
+      "type": "text",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "trade_date",
+      "type": "date",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "ts_code",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "lead_stock",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "close_price",
+      "type": "numeric",
+      "precision": 18,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "pct_change",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "industry_index",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "company_num",
+      "type": "integer",
+      "precision": 32,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "pct_change_stock",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "net_buy_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "net_sell_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "net_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "api_name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "fetched_at",
+      "type": "timestamp with time zone",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_cnt_ths",
+      "column": "raw_payload",
+      "type": "text",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "trade_date",
+      "type": "date",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "ts_code",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "pct_change",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "close",
+      "type": "numeric",
+      "precision": 18,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "net_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "net_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "buy_elg_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "buy_elg_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "buy_lg_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "buy_lg_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "buy_md_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "buy_md_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "buy_sm_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "buy_sm_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "api_name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "fetched_at",
+      "type": "timestamp with time zone",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_dc",
+      "column": "raw_payload",
+      "type": "text",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "trade_date",
+      "type": "date",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "content_type",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "ts_code",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "pct_change",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "close",
+      "type": "numeric",
+      "precision": 18,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "net_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "net_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_elg_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_elg_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_lg_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_lg_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_md_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_md_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_sm_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_sm_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "buy_sm_amount_stock",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "rank",
+      "type": "integer",
+      "precision": 32,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "api_name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "fetched_at",
+      "type": "timestamp with time zone",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_dc",
+      "column": "raw_payload",
+      "type": "text",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "trade_date",
+      "type": "date",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "ts_code",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "industry",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "lead_stock",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "close",
+      "type": "numeric",
+      "precision": 18,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "pct_change",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "company_num",
+      "type": "integer",
+      "precision": 32,
+      "scale": 0,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "pct_change_stock",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "close_price",
+      "type": "numeric",
+      "precision": 18,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "net_buy_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "net_sell_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "net_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "api_name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "fetched_at",
+      "type": "timestamp with time zone",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ind_ths",
+      "column": "raw_payload",
+      "type": "text",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "trade_date",
+      "type": "date",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "close_sh",
+      "type": "numeric",
+      "precision": 18,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "pct_change_sh",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "close_sz",
+      "type": "numeric",
+      "precision": 18,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "pct_change_sz",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "net_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "net_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "buy_elg_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "buy_elg_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "buy_lg_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "buy_lg_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "buy_md_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "buy_md_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "buy_sm_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "buy_sm_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "api_name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "fetched_at",
+      "type": "timestamp with time zone",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_mkt_dc",
+      "column": "raw_payload",
+      "type": "text",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "trade_date",
+      "type": "date",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "ts_code",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "pct_change",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "latest",
+      "type": "numeric",
+      "precision": 18,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "net_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "net_d5_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "buy_lg_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "buy_lg_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "buy_md_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "buy_md_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "buy_sm_amount",
+      "type": "numeric",
+      "precision": 24,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "buy_sm_amount_rate",
+      "type": "numeric",
+      "precision": 10,
+      "scale": 4,
+      "nullable": "YES"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "api_name",
+      "type": "character varying",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "fetched_at",
+      "type": "timestamp with time zone",
+      "precision": null,
+      "scale": null,
+      "nullable": "NO"
+    },
+    {
+      "kind": "columns",
+      "table": "moneyflow_ths",
+      "column": "raw_payload",
+      "type": "text",
+      "precision": null,
+      "scale": null,
+      "nullable": "YES"
+    }
+  ],
+  "artifact_sha256": {
+    "moneyflow_p0_comparison.json": "83d65841a2211f9ff4ae8bdecf7214a683e42000ba968cc046d43b2a07e52893",
+    "moneyflow_p0_fields.json": "b36d47fc46a134742c3142a082c36dc811c0205442809c21a81e420092cd41fd",
+    "moneyflow_p0_history_summary.json": "1a55411444b9eedd34926255198903303a767e4ac161f2dcfbb3b47f2dde8247",
+    "moneyflow_p0_matrix_sdk.json": "6ca041b28a66e0f361b0aeb817bd971450745395d016d012788eba0b2d7f6e69",
+    "moneyflow_p0_mcp.json": "6a74e4c7c6c3c10d844e2d77cd800b134bf3df6a06d69b30a0abbdc3e42cf9c2",
+    "moneyflow_p0_moneyflow_cnt_ths_page_all_0.json": "af147b2145c5dee325d687110177c33e4ffe7b22fb039e77322e092c19f0713b",
+    "moneyflow_p0_moneyflow_cnt_ths_point.json": "af147b2145c5dee325d687110177c33e4ffe7b22fb039e77322e092c19f0713b",
+    "moneyflow_p0_moneyflow_dc_page_all_0.json": "4249c5ee85cc74c602ba07223c84e50a5b38af5aa7ed6eb06f14fa56425a733b",
+    "moneyflow_p0_moneyflow_dc_page_all_2000.json": "6a917b8cc8f3b565b18970a95fb4ef6b04081c898651a2c3360a53cc11ec799c",
+    "moneyflow_p0_moneyflow_dc_page_all_4000.json": "62ff933ef57eeeb3345f2aef5ae9589fdeaa7387760076728b3cee86c55ba8a6",
+    "moneyflow_p0_moneyflow_dc_page_all_6000.json": "cf2d1df4de4d247f7d482a24c135726ff52bc01fd577e39dbee9a99ed1a22ae6",
+    "moneyflow_p0_moneyflow_dc_point.json": "ff5893921c5bb7b6c1dd5a6d9e5e59e0aca1d0975d81a09a92766bba88d54e04",
+    "moneyflow_p0_moneyflow_ind_dc_page_地域_0.json": "f8a1d64347b277f3e430febdbe195b079076bb7fa614e1837cbede3069056414",
+    "moneyflow_p0_moneyflow_ind_dc_page_概念_0.json": "8c7f0d44ee88dbe77b9fabd7c6afddadb32cfa8f3f67ba6d07775eb1f2530b4d",
+    "moneyflow_p0_moneyflow_ind_dc_page_行业_0.json": "45d5690d8e509dcd465787593015edcaa04105b40bea696cb62e2d750f3001c8",
+    "moneyflow_p0_moneyflow_ind_dc_point.json": "9f7c75712f824e5cd82f5eb600475415623eccafa1828b86e980da17e90cb592",
+    "moneyflow_p0_moneyflow_ind_ths_page_all_0.json": "ee10a87bce7d3ecfc424ec5dba25b4d01207d144822fab736e7a4081bad59954",
+    "moneyflow_p0_moneyflow_ind_ths_point.json": "ee10a87bce7d3ecfc424ec5dba25b4d01207d144822fab736e7a4081bad59954",
+    "moneyflow_p0_moneyflow_mkt_dc_page_all_0.json": "ced75c28fd2ae012d94f87f82b3fc81404b16576f36065c17c1a9f7cc6e78778",
+    "moneyflow_p0_moneyflow_mkt_dc_point.json": "ced75c28fd2ae012d94f87f82b3fc81404b16576f36065c17c1a9f7cc6e78778",
+    "moneyflow_p0_moneyflow_page_all_0.json": "d030a195aa7172ab3db98e81433d30c3adb4f5080a047451de599422c0a078bb",
+    "moneyflow_p0_moneyflow_page_all_2000.json": "c12e86de2427848ede6eb3a1a50676aed196c5ffab53b1946a3d884af094b1e6",
+    "moneyflow_p0_moneyflow_page_all_4000.json": "8efcbfd0c7b53aa9a6a832afdb0a6aa5932b8192424ad15b039f7abdb63a3144",
+    "moneyflow_p0_moneyflow_point.json": "2e1f88270684965989d6cf961065cc6bb7faca47b762c12af45e1bf6e93e3d39",
+    "moneyflow_p0_moneyflow_ths_page_all_0.json": "f09f17e0342c85380706d717eb6a29e9381f8823ee3cc0dda9e99d7b86bf90bb",
+    "moneyflow_p0_moneyflow_ths_page_all_2000.json": "f6eb5e5d948dc40bf3493680dcf5b551bd976fe969c4420d525b63db82ffad28",
+    "moneyflow_p0_moneyflow_ths_page_all_4000.json": "b7c7745a4eb38bfd75251e2c8c7dab99dce29985f4a77f676ab6d051168b7975",
+    "moneyflow_p0_moneyflow_ths_point.json": "7f51c64023a492d4a811ec476fa199e594b58bc3f7897e1bc019b3a73702618b",
+    "moneyflow_p0_perf.json": "87e00d0a0babb0066d0f0237be13de9ded4bbb003eae33db221334de24b4fbca",
+    "moneyflow_p0_wire.json": "bc27d113db05656c395b1c47ea248bda9da0e5d38f139082b12daabd23fc508e",
+    "moneyflow_p0_wire_moneyflow_1.json": "6ae4080706cc6f114307d6f0953dbfd99ec01c0cb8f6df5b0d6204e411a52813",
+    "moneyflow_p0_wire_moneyflow_2.json": "6ae4080706cc6f114307d6f0953dbfd99ec01c0cb8f6df5b0d6204e411a52813",
+    "moneyflow_p0_wire_moneyflow_cnt_ths_1.json": "827733ec8c0921e2987653144d3e980910ddbcc31a11cefe4c24e00ee537c46e",
+    "moneyflow_p0_wire_moneyflow_cnt_ths_2.json": "827733ec8c0921e2987653144d3e980910ddbcc31a11cefe4c24e00ee537c46e",
+    "moneyflow_p0_wire_moneyflow_dc_1.json": "b5552597ca1e115a060fdd18ed3ff33f14b484c047171eceb36d85d083815662",
+    "moneyflow_p0_wire_moneyflow_dc_2.json": "b5552597ca1e115a060fdd18ed3ff33f14b484c047171eceb36d85d083815662",
+    "moneyflow_p0_wire_moneyflow_ind_dc_1.json": "2928fdd4c23549b4c82bdbefe32a3e38d1be97f1fc1050d2ef848bdcc0156b07",
+    "moneyflow_p0_wire_moneyflow_ind_dc_2.json": "2928fdd4c23549b4c82bdbefe32a3e38d1be97f1fc1050d2ef848bdcc0156b07",
+    "moneyflow_p0_wire_moneyflow_ind_ths_1.json": "f1e92a1abaae89983f8e323101f80e3028e495808e10e1bfed553b870e064013",
+    "moneyflow_p0_wire_moneyflow_ind_ths_2.json": "f1e92a1abaae89983f8e323101f80e3028e495808e10e1bfed553b870e064013",
+    "moneyflow_p0_wire_moneyflow_mkt_dc_1.json": "a2d5d3747a5a04aafc0c81341fe00c1afc92fbd29389be69c8903a3cf0386654",
+    "moneyflow_p0_wire_moneyflow_mkt_dc_2.json": "a2d5d3747a5a04aafc0c81341fe00c1afc92fbd29389be69c8903a3cf0386654",
+    "moneyflow_p0_wire_moneyflow_ths_1.json": "2e9b14d837283877f31e46a7640a974c72f05fa4f2ff348bbfc3a029a436d0f9",
+    "moneyflow_p0_wire_moneyflow_ths_2.json": "2e9b14d837283877f31e46a7640a974c72f05fa4f2ff348bbfc3a029a436d0f9"
+  }
+}
