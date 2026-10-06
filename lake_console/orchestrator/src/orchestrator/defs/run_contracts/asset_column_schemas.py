@@ -1027,3 +1027,25 @@ SILVER_MONEYFLOW_MKT_DC_SCHEMA = tuple(
     if column.name == "trade_date" else column
     for column in RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA
 )
+
+
+RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA = (
+    ColumnContract("trade_date", "VARCHAR", "源交易日YYYYMMDD，不得为空"),
+    ColumnContract("ts_code", "VARCHAR", "同花顺板块代码，不得为空，与交易日组成唯一键"),
+    ColumnContract("industry", "VARCHAR", "源行业名称，允许NULL"),
+    ColumnContract("lead_stock", "VARCHAR", "源领涨股票名称，允许NULL"),
+    ColumnContract("close", "DECIMAL(18,4)", "行业收盘指数，允许NULL，保留源值"),
+    ColumnContract("pct_change", "DECIMAL(10,4)", "行业指数涨跌幅（%），允许NULL"),
+    ColumnContract("company_num", "INTEGER", "源公司数量，允许NULL，不舍入"),
+    ColumnContract("pct_change_stock", "DECIMAL(10,4)", "领涨股涨跌幅（%），允许NULL"),
+    ColumnContract("close_price", "DECIMAL(18,4)", "领涨股最新价，允许NULL"),
+    ColumnContract("net_buy_amount", "DECIMAL(24,4)", "源流入资金（亿元），允许NULL和负值"),
+    ColumnContract("net_sell_amount", "DECIMAL(24,4)", "源流出资金（亿元），允许NULL和负值"),
+    ColumnContract("net_amount", "DECIMAL(24,4)", "源净额（亿元），允许NULL和负值，不重算"),
+)
+
+SILVER_MONEYFLOW_IND_THS_SCHEMA = tuple(
+    ColumnContract(column.name, "DATE", "标准化交易日，不得为空")
+    if column.name == "trade_date" else column
+    for column in RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA
+)

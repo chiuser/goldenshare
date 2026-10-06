@@ -11,10 +11,12 @@ from orchestrator.defs.checks.moneyflow import (
     audit_market_moneyflow_file,
     audit_market_moneyflow_standardization,
 )
+from orchestrator.defs.io.moneyflow_candidates import (
+    moneyflow_candidate_connection,
+    moneyflow_candidate_directory,
+)
 from orchestrator.defs.io.moneyflow_raw_writer import (
     build_market_moneyflow_raw_candidate,
-    market_candidate_connection,
-    market_candidate_directory,
 )
 from orchestrator.defs.io.moneyflow_silver_writer import (
     build_market_moneyflow_silver_candidate,
@@ -89,7 +91,7 @@ def test_stable_raw_silver_preserve_null_and_negative(tmp_path):
         ]
         * 2
     )
-    with market_candidate_connection(raw.parent) as c:
+    with moneyflow_candidate_connection(raw.parent) as c:
         audit_market_moneyflow_standardization(c, raw, silver, DAY)
         assert c.execute(
             "SELECT close_sh,net_amount FROM read_parquet(?,hive_partitioning=false)",
@@ -146,7 +148,7 @@ def test_tamper_rejected(tmp_path):
 
 def test_wrong_day_and_corrupt_file(tmp_path):
     raw, _, _ = build(tmp_path, [[row()], [row()]])
-    with market_candidate_connection(raw.parent) as c:
+    with moneyflow_candidate_connection(raw.parent) as c:
         with pytest.raises(MoneyflowContractError, match="file_count_or_date"):
             audit_market_moneyflow_file(c, raw, "2026-09-29")
         raw.write_bytes(b"bad")
@@ -212,7 +214,7 @@ def test_no_formal_or_path_traversal():
         (Path("relative"), "x"),
     ]:
         with pytest.raises(MoneyflowContractError):
-            market_candidate_directory(root, op, DAY)
+            moneyflow_candidate_directory(root, op, DAY, dataset="moneyflow_mkt_dc")
 
 
 def test_recorded_source_sample(tmp_path):
@@ -228,7 +230,7 @@ def test_recorded_source_sample(tmp_path):
     )["sample"][0]
     raw, _, _ = build(tmp_path, [[sample], [sample]])
     silver = build_market_moneyflow_silver_candidate(raw, DAY)
-    with market_candidate_connection(raw.parent) as c:
+    with moneyflow_candidate_connection(raw.parent) as c:
         audit_market_moneyflow_standardization(c, raw, silver, DAY)
 
 
@@ -261,7 +263,7 @@ def test_silver_value_change_fails_standardization(tmp_path):
     raw, _, _ = build(tmp_path, [[row()], [row()]])
     silver = build_market_moneyflow_silver_candidate(raw, DAY)
     changed = raw.parent / "changed.parquet"
-    with market_candidate_connection(raw.parent) as c:
+    with moneyflow_candidate_connection(raw.parent) as c:
         c.execute(
             "COPY (SELECT * REPLACE(CAST(net_amount+1 AS DECIMAL(24,4)) AS net_amount) FROM read_parquet($source,hive_partitioning=false)) TO $target (FORMAT PARQUET)",
             {"source": str(silver), "target": str(changed)},
@@ -271,7 +273,7 @@ def test_silver_value_change_fails_standardization(tmp_path):
 
 
 def test_no_spill_and_extensions_off(tmp_path):
-    with market_candidate_connection(tmp_path) as c:
+    with moneyflow_candidate_connection(tmp_path) as c:
         settings = dict(
             c.execute(
                 "SELECT name,value FROM duckdb_settings() WHERE name IN ('max_temp_directory_size','autoload_known_extensions','autoinstall_known_extensions')"
@@ -289,7 +291,9 @@ def test_staging_symlink_is_rejected(tmp_path):
     other.mkdir()
     (tmp_path / "moneyflow").symlink_to(other, target_is_directory=True)
     with pytest.raises(MoneyflowContractError, match="staging_symlink"):
-        market_candidate_directory(tmp_path, "symlink", DAY)
+        moneyflow_candidate_directory(
+            tmp_path, "symlink", DAY, dataset="moneyflow_mkt_dc"
+        )
 
 
 def test_float_outside_exact_integer_range_is_rejected():
@@ -303,7 +307,7 @@ def test_staging_root_symlink_is_rejected(tmp_path):
     root = tmp_path / "linked"
     root.symlink_to(other, target_is_directory=True)
     with pytest.raises(MoneyflowContractError, match="staging_symlink"):
-        market_candidate_directory(root, "x", DAY)
+        moneyflow_candidate_directory(root, "x", DAY, dataset="moneyflow_mkt_dc")
 
 
 def test_invalid_calendar_day_is_rejected():

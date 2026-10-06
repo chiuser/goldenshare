@@ -7,11 +7,11 @@ from orchestrator.defs.checks.moneyflow import (
     audit_market_moneyflow_file,
     audit_market_moneyflow_standardization,
 )
-from orchestrator.defs.io.moneyflow_raw_writer import (
+from orchestrator.defs.io.moneyflow_candidates import (
     candidate_file_hash,
-    market_candidate_connection,
-    market_candidate_directory,
-    write_market_receipt,
+    moneyflow_candidate_connection,
+    moneyflow_candidate_directory,
+    write_moneyflow_receipt,
 )
 from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_STABILITY_SECONDS,
@@ -24,8 +24,8 @@ def build_market_moneyflow_silver_candidate(raw: Path, trade_date: str) -> Path:
     market_moneyflow_day(trade_date)
     if not raw.is_absolute() or raw.name != "raw.parquet" or len(raw.parents) < 5:
         raise MoneyflowContractError("raw_candidate_path")
-    expected = market_candidate_directory(
-        raw.parents[4], raw.parents[2].name, trade_date
+    expected = moneyflow_candidate_directory(
+        raw.parents[4], raw.parents[2].name, trade_date, dataset="moneyflow_mkt_dc"
     )
     if raw.parent != expected:
         raise MoneyflowContractError("raw_candidate_path")
@@ -43,7 +43,7 @@ def build_market_moneyflow_silver_candidate(raw: Path, trade_date: str) -> Path:
     target = directory / "silver.parquet"
     if target.exists():
         raise MoneyflowContractError("operation_conflict")
-    with market_candidate_connection(directory) as connection:
+    with moneyflow_candidate_connection(directory) as connection:
         audit_market_moneyflow_file(connection, raw, trade_date)
         connection.execute(
             "COPY (SELECT * REPLACE(strptime(trade_date,'%Y%m%d')::DATE AS trade_date) "
@@ -51,7 +51,7 @@ def build_market_moneyflow_silver_candidate(raw: Path, trade_date: str) -> Path:
             {"source": str(raw), "target": str(target)},
         )
         audit_market_moneyflow_standardization(connection, raw, target, trade_date)
-    write_market_receipt(
+    write_moneyflow_receipt(
         directory,
         {
             **receipt,

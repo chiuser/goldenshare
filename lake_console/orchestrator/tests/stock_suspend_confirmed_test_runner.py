@@ -110,6 +110,12 @@ INTEGRATION_SOURCE_FILES = (
 # Frozen exact source inventory for full consumer/governance discovery.
 CONSUMER_SOURCE_FILES = (
     # Moneyflow candidate modules: exact read-only discovery/import closure.
+    "defs/io/moneyflow_candidates.py",
+    "defs/checks/moneyflow_ind_ths.py",
+    "defs/run_contracts/moneyflow_ind_ths.py",
+    "defs/source_readiness/moneyflow_ind_ths.py",
+    "defs/io/moneyflow_ind_ths_raw_writer.py",
+    "defs/io/moneyflow_ind_ths_silver_writer.py",
     "defs/checks/moneyflow.py",
     "defs/run_contracts/moneyflow.py",
     "defs/source_readiness/moneyflow.py",

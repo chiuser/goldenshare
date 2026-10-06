@@ -3,6 +3,8 @@
 import hashlib
 import json
 import re
+import resource
+import sys
 from datetime import date
 from decimal import Decimal, InvalidOperation, localcontext
 
@@ -13,16 +15,28 @@ from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
 MONEYFLOW_MKT_DC_FIELDS = tuple(c.name for c in RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA)
 MONEYFLOW_PAGE_SIZE = 2000
+MONEYFLOW_MAX_ROWS_PER_ROUND = 20000
 MONEYFLOW_STABILITY_SECONDS = 60
 MONEYFLOW_REQUEST_TIMEOUT_SECONDS = 30
 MONEYFLOW_DUCKDB_MEMORY_LIMIT = "512MB"
 MONEYFLOW_DUCKDB_THREADS = 1
 MONEYFLOW_MAX_REQUESTS = 64
 MONEYFLOW_MAX_ELAPSED_SECONDS = 300
+MONEYFLOW_MAX_RSS_BYTES = 768 * 1024 * 1024
 
 
 class MoneyflowContractError(ValueError):
     """A source or candidate failed a blocking moneyflow contract."""
+
+
+def moneyflow_peak_rss_bytes() -> int:
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return peak if sys.platform == "darwin" else peak * 1024
+
+
+def assert_moneyflow_memory_budget() -> None:
+    if moneyflow_peak_rss_bytes() > MONEYFLOW_MAX_RSS_BYTES:
+        raise MoneyflowContractError("memory_budget_exceeded")
 
 
 def market_moneyflow_day(value: str) -> str:
