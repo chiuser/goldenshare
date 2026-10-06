@@ -64,13 +64,13 @@ SCHEMA = (
 
 
 class Ledger:
-    def __init__(self, path: Path, volume_uuid: str, relative_root: str, *, read_only=False):
+    def __init__(self, path: Path, volume_uuid: str, relative_root: str, *, read_only=False, read_timeout_seconds=5):
         path = Path(path).absolute()
         no_symlinks(path)
         if read_only:
             if not path.is_file():
                 raise Blocked('archive_ledger_missing')
-            self.conn = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=5)
+            self.conn = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=read_timeout_seconds)
         else:
             path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             if not path.exists():

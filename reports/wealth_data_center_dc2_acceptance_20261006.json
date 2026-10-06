@@ -1,0 +1,598 @@
+{
+  "date": "2026-10-06",
+  "milestone": "DC2",
+  "status": "complete_uncommitted",
+  "branch": "dev-interface",
+  "dc1_commit": "9ad6654c",
+  "test_result": {
+    "passed": 257,
+    "seconds": 39.77,
+    "warnings": 1,
+    "scope": [
+      "catalog",
+      "web_real_routes",
+      "download_cli",
+      "download_dg",
+      "ledger",
+      "archive_runtime",
+      "subsystem_dependency_matrix",
+      "platform_legacy_guardrails",
+      "operations_legacy_guardrails"
+    ]
+  },
+  "formal_operations": {
+    "raw_writes": 0,
+    "prod_writes": 0,
+    "dg_writes": 0,
+    "formal_catalog_initialized": false,
+    "formal_ledger_opened": false,
+    "pdf_http_requests": 0,
+    "web_started": false,
+    "actual_env_changed": false,
+    "dependencies_installed": false
+  },
+  "formal_source_missing_date": "2026-10-05",
+  "policy": {
+    "query_days": 30,
+    "page_size": 50,
+    "history_size": 20,
+    "result_size": 50,
+    "company_limit": 20,
+    "keyword_limit": 64,
+    "title_limit": 200,
+    "sql_seconds": 4,
+    "api_seconds": 5,
+    "poll_seconds": 2,
+    "heartbeat_seconds": 5,
+    "stale_seconds": 15,
+    "ttl_seconds": 900,
+    "catalog_check_seconds": 30,
+    "control_poll_seconds": 0.5,
+    "catalog_unit_seconds": 60
+  },
+  "config": {
+    "WEALTH_LOCAL_ANNOUNCEMENTS_ENABLED": {
+      "default": false,
+      "source": "env -> Settings",
+      "scope": "dev/local plus explicit flag; prod always disabled",
+      "activation": "restart",
+      "consumers": [
+        "capability",
+        "modules",
+        "announcement API",
+        "direct page",
+        "lifespan"
+      ]
+    },
+    "initials_dictionary": {
+      "path": "config/wealth/announcement-name-initials.json",
+      "identity": "version plus content SHA",
+      "consumers": [
+        "NameInitials",
+        "CatalogBuilder",
+        "current catalog validation"
+      ]
+    }
+  },
+  "evidence": {
+    "profile": {
+      "schema": {
+        "stock_basic": {
+          "rows": 5911,
+          "facts": {
+            "opened_dev": 16777244,
+            "opened_ino": 19806081,
+            "size": 454129,
+            "sha256": "01fb859e27899f496560df7fb1155637f3be3b44e1bbf509a13dc5d5468f4a58",
+            "footer_count": 5911
+          },
+          "seconds": 0.1759433748666197
+        },
+        "namechange": {
+          "rows": 14229,
+          "facts": {
+            "opened_dev": 16777244,
+            "opened_ino": 19806029,
+            "size": 323183,
+            "sha256": "b66e9925e3134cf82033e36ab3b9c1a084ec2bfb4cea4f62d42657b9f5feab6c",
+            "footer_count": 14229
+          },
+          "seconds": 0.1990850840229541
+        }
+      },
+      "days": [
+        {
+          "date": "2026-09-06",
+          "rows": 2,
+          "bytes": 1543,
+          "sha256": "acdceeed8d209e234c74a73f37ca7572deadbc9f10ad91a07ec8ff71b43d89ab",
+          "seconds": 0.4664772499818355
+        },
+        {
+          "date": "2026-09-07",
+          "rows": 572,
+          "bytes": 18509,
+          "sha256": "bfafd9dd8d44e71a66bce735cb72984b6eda041d8f930a0521998215e7fa58f0",
+          "seconds": 0.5892112911678851
+        },
+        {
+          "date": "2026-09-08",
+          "rows": 1713,
+          "bytes": 49697,
+          "sha256": "e1152d4e792eb2d64d0ed53afabe8f05cdce13785470425c0dc6748ba6ccc4e9",
+          "seconds": 1.062895500101149
+        },
+        {
+          "date": "2026-09-09",
+          "rows": 1418,
+          "bytes": 42019,
+          "sha256": "b07a6a375d99430967d56279cb59b4bd311e13719f29945913804f1059ebd3be",
+          "seconds": 1.1633356250822544
+        },
+        {
+          "date": "2026-09-10",
+          "rows": 1413,
+          "bytes": 43142,
+          "sha256": "ac2fe6869b931a9a61d9a9096a55cca6b0ca731ec7bad0ef9d570b4e7c4816bb",
+          "seconds": 1.1250551661942154
+        },
+        {
+          "date": "2026-09-11",
+          "rows": 1783,
+          "bytes": 52041,
+          "sha256": "9bfd686c0d58b1e3afcc7e8c3d59373dd29fb03692478cd503b6615431f4eab2",
+          "seconds": 1.1257200420368463
+        },
+        {
+          "date": "2026-09-12",
+          "rows": 1627,
+          "bytes": 45190,
+          "sha256": "811e1ec75caffa89c7968784b27c06e1d97db76d70ec33e8debaf0664292597c",
+          "seconds": 1.3247473330702633
+        },
+        {
+          "date": "2026-09-13",
+          "rows": 4,
+          "bytes": 1697,
+          "sha256": "cacaa869aac94913535a6fa3fd7d886933e47067149a68a37518b6e61bdcf999",
+          "seconds": 0.5815278328955173
+        },
+        {
+          "date": "2026-09-14",
+          "rows": 612,
+          "bytes": 19798,
+          "sha256": "1ad016759980ce2f8c3cca72fda29412f5fab35ef6e97f9379fe173dafd62fe0",
+          "seconds": 0.8497922921087593
+        },
+        {
+          "date": "2026-09-15",
+          "rows": 2208,
+          "bytes": 61023,
+          "sha256": "b5d3ff794581ea98fc1da1deb99625bc6521b774048dffe7687b7e6c215c6950",
+          "seconds": 1.7626411251258105
+        },
+        {
+          "date": "2026-09-16",
+          "rows": 1689,
+          "bytes": 49266,
+          "sha256": "ba03dff24e5ccf810332609131223501c6203925fda70202656ddbd5530ad0f3",
+          "seconds": 1.6393231670372188
+        },
+        {
+          "date": "2026-09-17",
+          "rows": 1291,
+          "bytes": 40015,
+          "sha256": "98cb106c309acf993fdd575b5c6011d358ded3cf76de9f8e39d48424558fdfcd",
+          "seconds": 1.0218802909366786
+        },
+        {
+          "date": "2026-09-18",
+          "rows": 1247,
+          "bytes": 39347,
+          "sha256": "7a0993bd0072c38678a20cf7db5f62867366c229e2434de0c4ef44cb620ac947",
+          "seconds": 0.9972961670719087
+        },
+        {
+          "date": "2026-09-19",
+          "rows": 1041,
+          "bytes": 32474,
+          "sha256": "19865557a031ed859f5b4504d3d86afbac9e89c91aa0a7951706b7dba1b0f144",
+          "seconds": 1.050348832970485
+        },
+        {
+          "date": "2026-09-20",
+          "rows": 13,
+          "bytes": 2120,
+          "sha256": "0929fb7194cab6c74a40bc7f14d60535e2ed91eaf081bf69684858176192db3c",
+          "seconds": 0.546394833130762
+        },
+        {
+          "date": "2026-09-21",
+          "rows": 526,
+          "bytes": 18098,
+          "sha256": "5e2a4dfee60c8aa3e536283b2afd83c5caa624e972ca0daf8b7296d3d1303dab",
+          "seconds": 0.7778377500362694
+        },
+        {
+          "date": "2026-09-22",
+          "rows": 1634,
+          "bytes": 48236,
+          "sha256": "6849cb311adc3fe932e5a4d0ad063a96a5007869af5540a15001d0111e85d968",
+          "seconds": 1.1521624170709401
+        },
+        {
+          "date": "2026-09-23",
+          "rows": 1573,
+          "bytes": 44256,
+          "sha256": "4ad1a23cc0cd106e9e4add8b7b2323d46ea19d86ce1b700e0bdc4f1abcd1ebb1",
+          "seconds": 1.0512214999180287
+        },
+        {
+          "date": "2026-09-24",
+          "rows": 1854,
+          "bytes": 52392,
+          "sha256": "fd326a569f24d8dc63b67112dd15953421275a8f94d4ca7d9db07a3b492d2765",
+          "seconds": 1.1104105419944972
+        },
+        {
+          "date": "2026-09-25",
+          "rows": 806,
+          "bytes": 25380,
+          "sha256": "ac6914badafe875a97deb8d674727f25074ca66975b032b348db650c8eb16908",
+          "seconds": 0.6339562498033047
+        },
+        {
+          "date": "2026-09-26",
+          "rows": 0,
+          "bytes": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc",
+          "seconds": 0.30174620798788965
+        },
+        {
+          "date": "2026-09-27",
+          "rows": 1,
+          "bytes": 1474,
+          "sha256": "d929cd6887803747483d69eb316eb2b75155cbd73146bdc7970c403d6d576779",
+          "seconds": 0.44673270802013576
+        },
+        {
+          "date": "2026-09-28",
+          "rows": 758,
+          "bytes": 24364,
+          "sha256": "7b4338f4b2d2a68f29bbef72bcc538dadc3fdec8056c2b6bc9f2cc02109e1a7d",
+          "seconds": 0.7095045000314713
+        },
+        {
+          "date": "2026-09-29",
+          "rows": 1802,
+          "bytes": 50937,
+          "sha256": "4bb0bda0663a83a2020b522e078536a862bf2406ab82c029c1a838e9abc66b2d",
+          "seconds": 1.1005130829289556
+        },
+        {
+          "date": "2026-09-30",
+          "rows": 2257,
+          "bytes": 61200,
+          "sha256": "2e87b9fd6e2b025a425551406737b29ea3d8ced5c93d1443a1a1a3f1a407f23e",
+          "seconds": 1.560293875169009
+        },
+        {
+          "date": "2026-10-01",
+          "rows": 724,
+          "bytes": 24078,
+          "sha256": "7bc026150791be8e389095f119d3f1c47309b2e0328289f36445e01d21b13009",
+          "seconds": 0.8746726661920547
+        },
+        {
+          "date": "2026-10-02",
+          "rows": 0,
+          "bytes": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc",
+          "seconds": 0.37747241696342826
+        },
+        {
+          "date": "2026-10-03",
+          "rows": 0,
+          "bytes": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc",
+          "seconds": 0.38894533296115696
+        },
+        {
+          "date": "2026-10-04",
+          "rows": 0,
+          "bytes": 192,
+          "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc",
+          "seconds": 0.3852745830081403
+        }
+      ],
+      "pdf_requests": 0,
+      "formal_writes": 0
+    },
+    "real-index": {
+      "formal_writes": 0,
+      "formal_ledger_opened": false,
+      "pdf_requests": 0,
+      "temp_path": "/private/tmp/dc2-real-index-1791294032119763000",
+      "cold_seconds": 30.623831833014265,
+      "warm_seconds": 0.29031016607768834,
+      "page_seconds": 0.08892345917411149,
+      "records": 29619,
+      "page_rows": 50,
+      "company_seconds": 0.07405745913274586,
+      "historical_name_sample": {
+        "keyword": "SFZA",
+        "hasMore": false,
+        "items": [
+          {
+            "tsCode": "000045.SZ",
+            "name": "深纺织A",
+            "initials": "SFZA",
+            "matchedAlias": null,
+            "nameSource": "master",
+            "matchKind": "initials"
+          },
+          {
+            "tsCode": "000001.SZ",
+            "name": "平安银行",
+            "initials": "PAYH",
+            "matchedAlias": "深发展A",
+            "nameSource": "master",
+            "matchKind": "alias"
+          }
+        ]
+      },
+      "peak_rss_bytes": 237928448,
+      "catalog_bytes": 44998656
+    },
+    "presence-profile": {
+      "samples": [
+        {
+          "keys": 34188,
+          "present": 34188,
+          "check_seconds": 0.7456464590504766,
+          "setup_seconds": 2.513484749943018,
+          "stat_count": 34188
+        },
+        {
+          "keys": 50000,
+          "present": 50000,
+          "check_seconds": 1.128962874878198,
+          "setup_seconds": 1.3986869589425623,
+          "stat_count": 84188
+        }
+      ],
+      "peak_rss_bytes": 117669888,
+      "pdf_http_requests": 0,
+      "hash_calls": 0,
+      "formal_writes": 0
+    },
+    "capacity": {
+      "records": 8000000,
+      "load_seconds": 879.5755677500274,
+      "path": "/private/tmp/dc2-capacity-1791292038448715000",
+      "samples": [
+        {
+          "case": "default30",
+          "seconds": 2.3607144998386502,
+          "total": 1500000,
+          "items": 50
+        },
+        {
+          "case": "history",
+          "seconds": 4.000441042007878,
+          "error": "catalog_sql_timeout"
+        },
+        {
+          "case": "deep_page",
+          "seconds": 4.00052662496455,
+          "error": "catalog_sql_timeout"
+        },
+        {
+          "case": "literal_contains",
+          "seconds": 4.000620416831225,
+          "error": "catalog_sql_timeout"
+        },
+        {
+          "case": "company",
+          "seconds": 4.00062375003472,
+          "error": "catalog_sql_timeout"
+        }
+      ],
+      "company_seconds": 0.0020317500457167625,
+      "company_candidates": 20,
+      "peak_rss_bytes": 130203648,
+      "catalog_bytes": 6731808768
+    },
+    "capacity-recheck": {
+      "records": 8000000,
+      "samples": [
+        {
+          "case": "default30",
+          "seconds": 1.794368124799803,
+          "total": 1500000,
+          "items": 50
+        },
+        {
+          "case": "history",
+          "seconds": 4.000668375054374,
+          "error": "catalog_sql_timeout"
+        },
+        {
+          "case": "deep_page",
+          "seconds": 4.000617834040895,
+          "error": "catalog_sql_timeout"
+        },
+        {
+          "case": "literal_contains",
+          "seconds": 4.0004045001696795,
+          "error": "catalog_sql_timeout"
+        },
+        {
+          "case": "company",
+          "seconds": 3.426945040933788,
+          "total": 80000,
+          "items": 50
+        }
+      ],
+      "order_index_build_seconds": 28.674105416983366,
+      "peak_rss_bytes": 113721344,
+      "catalog_bytes": 8156520448
+    },
+    "capacity-final": {
+      "records": 8000000,
+      "samples": [
+        {
+          "case": "default30",
+          "preparation_seconds": 0.0021269998978823423,
+          "page_seconds": 0.011343374848365784,
+          "total": 1500000,
+          "items": 50
+        },
+        {
+          "case": "history",
+          "preparation_seconds": 0.005491625051945448,
+          "page_seconds": 0.0016284161247313023,
+          "total": 8000000,
+          "items": 50
+        },
+        {
+          "case": "deep_page",
+          "preparation_seconds": 0.0019967500120401382,
+          "page_seconds": 0.019266125047579408,
+          "total": 8000000,
+          "items": 50
+        },
+        {
+          "case": "literal_contains",
+          "preparation_seconds": 67.19282916700467,
+          "page_seconds": 0.003020291915163398,
+          "total": 8000000,
+          "items": 50
+        },
+        {
+          "case": "company",
+          "preparation_seconds": 11.151809624861926,
+          "page_seconds": 0.0055847920011729,
+          "total": 80000,
+          "items": 50
+        },
+        {
+          "case": "empty_title",
+          "preparation_seconds": 39.9447788328398,
+          "page_seconds": 0.0005186658818274736,
+          "total": 0,
+          "items": 0
+        },
+        {
+          "case": "downloaded",
+          "preparation_seconds": 79.6377652080264,
+          "page_seconds": 0.0625743749551475,
+          "total": 8000000,
+          "items": 50
+        }
+      ],
+      "peak_rss_bytes": 119734272,
+      "catalog_bytes": 8162848768
+    },
+    "final-page-check": {
+      "samples": [
+        {
+          "case": "default30",
+          "seconds": 0.011934750014916062,
+          "total": 1500000,
+          "items": 50
+        },
+        {
+          "case": "history",
+          "seconds": 0.002491333056241274,
+          "total": 8000000,
+          "items": 50
+        },
+        {
+          "case": "deep_page",
+          "seconds": 0.017480541951954365,
+          "total": 8000000,
+          "items": 50
+        },
+        {
+          "case": "literal_contains",
+          "seconds": 0.0019331660587340593,
+          "total": 8000000,
+          "items": 50
+        },
+        {
+          "case": "company",
+          "seconds": 0.0024812500923871994,
+          "total": 80000,
+          "items": 50
+        },
+        {
+          "case": "empty_title",
+          "seconds": 0.0004960419610142708,
+          "total": 0,
+          "items": 0
+        },
+        {
+          "case": "downloaded",
+          "seconds": 0.04141300008632243,
+          "total": 8000000,
+          "items": 50
+        }
+      ],
+      "peak_rss_bytes": 114655232
+    }
+  },
+  "caveats": [
+    "point samples, no P95 claim",
+    "8m synthetic record/index workload reused only in private temporary SQLite; fresh final schema tested separately",
+    "status SQL capacity presence does not equal real 8m-file stat profiling",
+    "ready results TTL starts after preparation; no partial total",
+    "formal missing date was observed read-only; no DG repair performed"
+  ],
+  "implementation_sha256": {
+    "config/wealth/announcement-name-initials.json": "f24d02716d447d871b9b9d7963887eca8a3e25048fcca9faf3fb6be210200b12",
+    "src/app/api/v1/router.py": "990c7027c79e60f7a0f5b00de362860c4dbc76262b38cd88ab9a333239aecd41",
+    "src/app/exceptions/web.py": "c88ad6001902fc432c28666ddc099801fc347517c62c1d684cbe2da7c1f9cbc9",
+    "src/app/runtime/announcement_archive_lifespan.py": "fb8b5fba183661ab411749fea74baed3a5ae63816227c8a1d778b97ab443a2a3",
+    "src/app/web/app.py": "e1852dc32c50b442575456867a8e7b3c156f38e06de692b36d24bedb183a3215",
+    "src/app/web/lifespan.py": "85cc7e98b0ff33ef7c1b21c1d3bea365394ba80bd67db4e1ceafe108ec5986f0",
+    "src/biz/api/wealth/data_center/__init__.py": "5bfbcfc2348f74d5483af3de58227e8b3847604e1c39f9f337663940f27c6aa8",
+    "src/biz/api/wealth/data_center/announcements.py": "44e85a4a6ad5648b596596ea837d3f33746e98afc97846596a2acd2c68c8d807",
+    "src/biz/api/wealth/data_center/home.py": "edda53abe92eef6f3014731aa8f7bbe1f722da073728003d47eab9c933cf2625",
+    "src/biz/queries/wealth/data_center/__init__.py": "5bfbcfc2348f74d5483af3de58227e8b3847604e1c39f9f337663940f27c6aa8",
+    "src/biz/queries/wealth/data_center/announcement_query.py": "b3821820e39bf224c44bc00c15469be372dff89e1df1f56c4b1589f626358dfd",
+    "src/biz/queries/wealth/data_center/company_query.py": "6890b52f3b179acab86d072fde5d25d92d2decd78442954993b7d6cbdf86587b",
+    "src/biz/schemas/wealth/data_center/__init__.py": "5bfbcfc2348f74d5483af3de58227e8b3847604e1c39f9f337663940f27c6aa8",
+    "src/biz/schemas/wealth/data_center/announcements.py": "fd67a0e920b5053ae4a755d8f099c5d059d4e442b3892e5e855254ca0c93eb36",
+    "src/biz/services/wealth/data_center/__init__.py": "5bfbcfc2348f74d5483af3de58227e8b3847604e1c39f9f337663940f27c6aa8",
+    "src/biz/services/wealth/data_center/errors.py": "5843b9230d18859358a20afce8c177c1540daed3bf0d98ff9e25af62524a335f",
+    "src/biz/services/wealth/data_center/query_service.py": "caa4d7f5b52ebfe89be922ca7e3f9bb38e4b305fcd53620a2de7a32639fbfb0f",
+    "src/foundation/clients/announcement_archive/budget.py": "68cdedc02d2f62db3c7abc97b22f6582e5596c3ef2ea5ec32ee9633e99d6a265",
+    "src/foundation/clients/announcement_archive/names.py": "f2f903e29b1497e0445ddab61329bb1ae4d4685be92b7353a22572e2a0120f31",
+    "src/foundation/clients/announcement_archive/presence.py": "d1f8fe5a4c552e3563201f718c21305bced056d213a1d6294440e4b4d53f9057",
+    "src/foundation/config/announcement_archive.py": "4305022f90ededc99d8c962d039d6f26b94d76aabe308e123e568ccbd2e199bd",
+    "src/foundation/config/settings.py": "74ede9aabe554713275f58a7354ce462d4a6c996dc595cb6d043d4605abe1494",
+    "src/foundation/dao/announcement_archive/catalog.py": "5dbc291c79cc8faa273497acc6d8165b9611fa5865eb1442990190e727f6b478",
+    "src/foundation/dao/announcement_archive/ledger.py": "75693387175ecd456c7da014fee69ca21e395a0e591e0046124428b0e7e17082",
+    "src/foundation/kernel/contracts/announcement_catalog.py": "4fd82cdb9de6448f483b9eca6da105ae3bbbc71a9d94b23f3cd05e531a08cd50",
+    "src/ops/runtime/announcement_archive/catalog_builder.py": "c2f8fd2b6a5e48e05867a83c45cfeb90679dc49bb3adb34a5662550b6dbe0d9b",
+    "tests/test_announcement_catalog.py": "d16f1737baf1cee9c2e6996726f370bac92b9387f2b15e4010748da2fa876a34",
+    "tests/web/test_wealth_data_center_api.py": "84b90ad5b2c627f89b9a85f5015dd64dd3d7190b4883e5237818468fc82669c3"
+  },
+  "remaining": [
+    "DC3 download management backend",
+    "DC4 Figma frontend",
+    "DC5 independently authorized real archive acceptance",
+    "DG daily stability"
+  ],
+  "final_checks": {
+    "compileall": "pass",
+    "docs_integrity": "pass",
+    "diff_check": "pass",
+    "implementation_fingerprints": "pass",
+    "relative_links": "pass",
+    "codegraph": "sync/status up to date",
+    "staged_paths": [],
+    "branch": "dev-interface"
+  }
+}

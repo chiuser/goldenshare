@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "overrides": [
+    {"name": "重庆银行", "initials": "CQYH"},
+    {"name": "重庆路桥", "initials": "CQLQ"},
+    {"name": "重庆啤酒", "initials": "CQPJ"},
+    {"name": "长安汽车", "initials": "CAQC"},
+    {"name": "长城汽车", "initials": "CCQC"}
+  ]
+}

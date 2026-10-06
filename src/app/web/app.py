@@ -9,6 +9,9 @@ from starlette.middleware.cors import CORSMiddleware
 
 from src.app.api.router import router as api_router
 from src.app.exceptions import install_exception_handlers
+from src.app.runtime.announcement_archive_lifespan import install_data_center
+from src.foundation.config.settings import get_settings
+from src.foundation.config.announcement_archive import announcements_enabled
 from src.app.web.lifespan import web_lifespan
 from src.app.web.middleware import AccessLogMiddleware, RequestIdMiddleware
 from src.app.web.settings import FRONTEND_DIST_DIR, STATIC_DIR, WEALTH_DIST_DIR, get_web_settings
@@ -45,6 +48,7 @@ if FRONTEND_BRAND_DIR.exists():
 if WEALTH_ASSETS_DIR.exists():
     app.mount("/wealth/assets", StaticFiles(directory=str(WEALTH_ASSETS_DIR)), name="wealth-assets")
 install_exception_handlers(app)
+install_data_center(app)
 app.include_router(api_router)
 
 
@@ -97,6 +101,8 @@ def wealth_app_root():  # type: ignore[no-untyped-def]
 def wealth_app_subpath(subpath: str):  # type: ignore[no-untyped-def]
     if not subpath or subpath.startswith("api/") or subpath.startswith("assets/"):
         return RedirectResponse(url="/wealth/login")
+    if (subpath == 'data-center/announcements' or subpath.startswith('data-center/announcements/')) and not announcements_enabled(get_settings()):
+        return PlainTextResponse('当前部署不提供上市公司公告模块',status_code=404)
     return _wealth_app_response()
 
 

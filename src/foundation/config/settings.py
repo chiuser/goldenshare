@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     quote_api_auth_required: bool = Field(default=False, alias="QUOTE_API_AUTH_REQUIRED")
     biz_use_serving_light: bool = Field(default=True, alias="BIZ_USE_SERVING_LIGHT")
     biz_serving_fallback: bool = Field(default=True, alias="BIZ_SERVING_FALLBACK")
+    wealth_local_announcements_enabled: bool = Field(
+        default=False, alias="WEALTH_LOCAL_ANNOUNCEMENTS_ENABLED",
+    )
     wealth_local_lake_minute_api_enabled: bool = Field(
         default=False,
         alias="WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED",

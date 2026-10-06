@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from src.app.api.v1 import health, qtf, trading_assistant
+from src.app.runtime.announcement_archive_lifespan import include_data_center
 from src.app.auth.api import admin, admin_users, auth, users
 from src.biz.api import market as biz_market
 from src.biz.api import quote as biz_quote
@@ -130,3 +131,6 @@ def _include_local_stock_daily_trend_channel_router(
 
 
 _include_local_stock_daily_trend_channel_router(router)
+
+
+include_data_center(router)

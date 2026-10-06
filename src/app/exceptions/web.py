@@ -55,6 +55,9 @@ def install_exception_handlers(app: FastAPI) -> None:
                     message="登录参数校验失败，请检查用户名和密码",
                 ),
             )
+        if request.url.path.startswith('/api/v1/wealth/data-center/'):
+            return JSONResponse(status_code=422,content=_error_payload(
+                request,code='DC_REQUEST_INVALID',message='公告查询参数不合法，请检查日期、筛选条件或页码'))
         operator_error = _operator_forbidden_validation_error(exc)
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

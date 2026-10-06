@@ -1,6 +1,6 @@
 # 数据中心与上市公司公告 LLD v1
 
-日期：2026-10-06。状态：**编码级设计已获用户确认；DC1实现与隔离验收完成，未提交。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
+日期：2026-10-06。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2完成开发及本阶段验收、尚未提交；DC3—DC5待推进。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
 
 ## 1. 硬口径、实现点与验收索引
 
@@ -70,15 +70,15 @@ URL为NULL/trim后空：artifactKey=NULL
 
 | 表/主键 | 字段与作用 |
 | --- | --- |
-| `catalog_days(ann_date)` | active_generation、源dev/ino/size/mtime_ns/sha256/footer_count、published_at；完整零行日也有事实 |
+| `catalog_days(ann_date)` | active_generation、源dev/ino/size/mtime_ns/sha256/footer_count、published_at、dictionary_version；完整零行日也有事实 |
 | `catalog_records(ann_date,generation,record_key)` | 六字段原列（raw_ann_date另名）、artifact_key、download_url；NULL/空串原样；新版本只供发布后查询 |
 | `catalog_builds(build_id)` | 所请求日期、state/current_day/days_scanned/records_scanned/reason/updated_at；无HTTP |
 | `company_sources(source_kind,ts_code,name)` | raw_master/历史更名/公告别名、cnspell、initials、最新公告日期、所属日版本；名称缺失的代码仍纳候选 |
-| `catalog_meta(singleton)` | schema版本、catalogRevision、名称版本、词表版本；ready与来源可用性分开 |
-| `query_snapshots(query_id)` / `query_presence(query_id,artifact_key)` | 规范条件、catalogRevision、archiveIdentity、checkedAt、expiresAt、成功且存在的文件keys；只为状态过滤，大查询准备不常驻内存 |
+| `catalog_meta(singleton)` | schema版本、catalogRevision、名称版本、词表版本、名称快照指纹事实；ready与来源可用性分开 |
+| `query_snapshots(query_id)` / `query_presence(query_id,artifact_key)` / `query_day_counts(query_id,ann_date)` | 规范条件、catalogRevision、archiveIdentity、checkedAt、expiresAt、成功且存在的文件keys；presence只为状态过滤；逐日匹配数用于完整统计和深页定位；updatedAt/preparationStage/datesCounted/artifactsChecked持久化准备业务进度，大查询准备不常驻内存 |
 | `previews(preview_id)` / `preview_days(preview_id,ann_date)` | 日期/interval/来源/归档身份、状态/统计/有效期、逐日固定版本指纹；无全量候选JSON |
 
-索引：records `(ann_date,generation,ts_code,record_key)`、`(ts_code,ann_date,generation,record_key)`、artifact_key；company `(ts_code)`、`(initials,ts_code)`。标题contains不假装能用普通BTree，需要日期/公司裁剪后参数化instr；不引入语义索引或PDF全文检索。
+索引：另加按列表顺序的覆盖索引`(ann_date DESC,(ts_code IS NULL),ts_code,record_key,generation,artifact_key)`；records `(ann_date,generation,ts_code,record_key)`、`(ts_code,ann_date,generation,record_key)`、artifact_key；company `(ts_code)`、`(initials,ts_code)`。标题contains不假装能用普通BTree，需要日期/公司裁剪后参数化instr；不引入语义索引或PDF全文检索。
 
 构建一个日版本：begin→读FD/校验schema→500行逐批写未发布generation→指纹/行数/六字段重复校验→短事务更新active_generation和revision。途中失败保留旧active，当前请求所需新版未就绪就返回preparing/error，不能把旧版当最新。新增版本存在性判别使用dev/ino/size/mtime；有变化才完整重建，缺文件撤销可用标记。相同inode原地修改阻断；DG正常os.replace不伤已固定的旧版本读取。
 
@@ -89,7 +89,7 @@ URL为NULL/trim后空：artifactKey=NULL
 1. 规范日期/条件→验证所请求每个自然日存在且索引版本当前；缺日返回source_not_ready，合法零行可参与查询。不默认裁剪未来/缺失日期。
 2. 普通all查询：一个SQL读事务count+50行+稳定顺序；结束事务后对该页唯一artifactKey在台账查询succeeded/path，安全stat检查。无台账文件直接undownloaded。重挂载UUID不符/权限/IO错误是unknown，整页statusUnavailable，不把unknown行填undownloaded。
 3. 状态筛选：SQL取匹配元数据的distinct artifactKey与succeeded台账交集，500一批；逐key安全存在性检查、落query_presence。无成功台账不需stat。完成后count和分页在SQL应用presence条件；扫描超4秒返回202/preparing，不输出半截结果/总数。
-4. 结果以queryId绑定规范条件、catalogRevision、归档身份、presenceCheckedAt，有效15分钟。同版本翻页；catalogRevision/归档身份变化或页文件检查发现与presence不符返回409要求刷新。检查和展示存在时间差，DTO明确checkedAt，不承诺浏览器显示后文件不会被用户删除。
+4. 结果以queryId绑定规范条件、catalogRevision、归档身份、presenceCheckedAt，结果ready后有效15分钟；准备中不消耗结果TTL，进程重启可继续本地准备。同版本翻页；catalogRevision/归档身份变化或页文件检查发现与presence不符返回409要求刷新。检查和展示存在时间差，DTO明确checkedAt，不承诺浏览器显示后文件不会被用户删除。
 5. 不在SQLite读事务里stat/hash/网络；catalog+ledger不做跨DB写事务。ledger短快照读回本批后关闭，查询存在性结果不写artifacts.state或历史run。
 
 SQL核心（`:downloadedKeys` 是临时/持久化presence关系，不是巨大IN参数）：
@@ -103,10 +103,11 @@ WHERE r.ann_date BETWEEN :startDate AND :endDate
  AND (:title='' OR instr(COALESCE(r.title,''),:title)>0)
  -- downloaded: EXISTS(query_presence key); undownloaded: NOT EXISTS(...)
 ORDER BY r.ann_date DESC,(r.ts_code IS NULL),r.ts_code ASC,r.record_key ASC
-LIMIT 50 OFFSET :offset;
+-- 页面按逐日匹配数定位，只对相关日使用局部offset
+LIMIT 50 OFFSET :dayOffset;
 ```
 
-count同WHERE、同revision短快照。每页50固定，正常上一/下一页携page序号；大页OFFSET必须进入容量样本，超4秒不输出错误空态。允许实现将queryId的页游标存储为日期/代码/recordKey keyset以优化，不改变页码/总数用户合同，不允许临时扩大返回list。
+计数同WHERE、同revision；后台按每个已发布日短快照计算匹配数，完整后随query ready原子封存。API读事务同时取该revision的日匹配数与50行，不输出部分总数。无公司/标题/状态筛选时可直接使用已完整校验且与索引实际行数一致的日footer_count；有筛选时按日参数化COUNT，相同筛选不改变语义。每页50固定，正常上一/下一页携page序号；大页OFFSET必须进入容量样本，超4秒不输出错误空态。允许实现将queryId的页游标存储为日期/代码/recordKey keyset以优化，不改变页码/总数用户合同，不允许临时扩大返回list。
 
 名称查询以代码 LEFT JOIN，不能用名称表 INNER JOIN 丢公告。显示优先master的非空name；否则所请求日期范围 `ann_date DESC,record_key ASC` 的非空公告名；否则代码，代码也缺失显示“—”。CompanyCandidate按代码去重；匹配排序固定为完整代码精确→六位代码精确→代码前缀→当前名称精确/包含→当前首字母前缀→历史名称/首字母，再按tsCode升序。名称contains使用instr，首字母uppercase前缀LIKE须escape；sourceName/cnspell原值不被搜索规范值覆盖。候选matchedAlias明确历史命中依据，显示name仍是当前主表名；不默选首项。
 
@@ -151,10 +152,10 @@ schema1/2识别、写入口原子迁移到3；只读CLI仍可读取已支持的�
 | startDate/endDate | 下载必填空初值；查询缺省上海today-29/today；API→preview/runs | catalogue/Source；自然日闭区间 | 每次命令；同日/跨月/未来缺日/倒置负例 |
 | intervalSeconds |5，有限非负小数；DownloadOptions→preview/runs |Limiter及全部HTTP；继承后不缩短cooldown | create；重试/continue继承不另暴露新间隔 |
 | 归档/来源根 |固定GUI默认根、固定正式Lake；唯一core/source工厂 | Volume/Source/DAO；禁止Lake输出 | 启动；GUI不可编辑/不可API透传；CLI既有output-root保留 |
-| 台账/索引路径 | UUID+相对根及sourceScope自动派生，见§3/4 |DAO/锁/reader；不提供用户文件选择 |启动；不同卷隔离、schema检测、目录0600/0700策略 |
+| 台账/索引路径 | UUID+相对根及sourceScope自动派生，见§3/4 |DAO/锁/reader；不提供用户文件选择 |启动；不同卷隔离、schema检测、文件0600/目录0700策略 |
 | 基础DownloadPolicy（既有） |batch500、DuckDB256MiB/1线程/无spill、query15秒、chunk64KiB、max512MiB、reserve1GiB、connect10/read15/write15/pool5秒、transfer600秒、attempts3、redirects5、backoff30秒、filename200字节、progress5秒、waitSlice0.5秒 |Source/HTTP/Files；runs保存policy版本摘要 |每run；继承原PDF LLD §2，不再各处写默认常量 |
 | `DataCenterPolicy`（新增集中内部策略） |page50/history20/result50、候选limit20/keyword64、title200、SQL截止4秒、API读截止5秒、poll2秒、heartbeat5秒、失联提示15秒、preview/queryTTL900秒、catalog校验周期30秒、日期任务控制poll0.5秒、索引unit软预算60秒 |Biz/Ops共享明确子配置投影；不得env/page各放一份 |启动/创建；前端context读取展示默认/预算；超预算prepare或error，不截范围 |
-| 首字母词表（新增） |版本化`config/wealth/announcement-name-initials.json`，仅名称→确定覆盖读音/首字母 |索引生成；源cnspell优先，词表只补历史/缺失 |索引重建后生效；运营文件、无用户控件；同名跨公司可用tsCode限定 |
+| 首字母词表（新增） |版本化`config/wealth/announcement-name-initials.json`，仅名称→确定覆盖读音/首字母 |索引生成；源cnspell优先，词表只补历史/缺失 |后台准备重新读取词表，版本改变后重建所请求日期及名称索引；运营文件、无用户控件；同名跨公司可用tsCode限定 |
 
 依赖：现有stdlib/httpx/DuckDB/React足够执行和页面；历史简称中文首字母需要新增本地可选依赖 `pypinyin`。其[官方说明](https://github.com/mozillazg/python-pinyin)提供FIRST_LETTER、单读音转换和词组支持，声明MIT及Python3.13支持；这些是选型依据，不能替代本机验证。仅在local-lake可选组声明并锁定获准版本，部署Prod不加载；2026-10-06用户已授权依赖准入及安装；版本固定pypinyin==0.55.0（[PyPI发布记录](https://pypi.org/project/pypinyin/0.55.0/)），只在根现有.venv安装该包，不同步其它依赖。根Python3.13.5已安装并验证平安银行/PAYH、招商银行/ZSYH、深发展A/SFZA、重庆银行/CQYH、ST平安银行/STPAYH五样本；只新增这一包，中文名称转换消费者和覆盖词表在DC2实现，禁止隐式pip/uv同步。转换函数统一对名称做NFC、中文取单读音首字母、英数保留、标点移除、输出upper；不穷举多音字组合。覆盖平安银行/PAYH、招商银行/ZSYH、深发展A/SFZA、重庆银行/CQYH及ST标记；源cnspell不被转换结果覆盖。词表版本变化产生新的名称索引版本，不修改Raw。
 
@@ -201,7 +202,7 @@ interface AnnouncementRow {
   statusCheckedAt: string | null;
 }
 interface QueryResult {
-  queryId: string; pageState: PageState; catalogRevision: number;
+  queryId: string; pageState: PageState; catalogRevision: number | null;
   conditions: { startDate: string; endDate: string; tsCode: string | null;
     titleKeyword: string; downloadStatus: "all" | "downloaded" | "undownloaded"; };
   items: AnnouncementRow[]; total: number | null; page: number; pageSize: 50;
@@ -417,11 +418,11 @@ git diff --check
 | 门禁 | 当前设计状态 | 后续通过标准 |
 | --- | --- | --- |
 |参数/字段/样例/状态/异常/查询草案 |本文已定义 |评审无歧义，API逐字段实现 |
-|配置审计与中文依赖 |DC1获准安装0.55.0并通过五名称样本；DC2词表/索引待做 |配置消费者/覆盖词表按DC2验收，不宣称搜索已交付 |
-|schema消费者/分层 |当前链路已审计，目标未实现 |全部旧import清零、1/2/3访问合同测试、无反向依赖 |
-|性能 |预算已定义，容量未实测 |30日/大日/多年/K存在性/深页样本达标 |
-|真实API/前端/物理验收 |尚未实现/执行 |核心字段、24画板、最小真实归档分别有报告 |
-|评审确认 |2026-10-06用户确认技术路线并授权DC1 |每阶段独立验收；产品已确认不重复拍板 |
+|配置审计与中文依赖 |DC1获准安装0.55.0；DC2词表/索引/开关及消费者验收完成 |当前见§15；页面context消费者仍待DC4 |
+|schema消费者/分层 |DC1旧import清零、1/2/3只读；DC2纯端口装配及依赖门禁通过 |正式迁移另验，不将临时验证视为正式升级 |
+|性能 |DC2完成30日/50k/800万/K存在性/深页点时样本 |查询已达本阶段预算；预览/下载性能仍待DC3 |
+|真实API/前端/物理验收 |DC2查询真实路由完成；页面和真实归档未执行 |24画板与最小真实归档分别待DC4/DC5 |
+|评审确认 |2026-10-06用户确认路线并授权DC1、DC2 |每阶段独立验收；产品已确认不重复拍板 |
 
 ## 12. 实施对账与文档关系
 
@@ -429,7 +430,7 @@ git diff --check
 
 原PDF文档新增网页扩展引用，不抹掉M0—M3/DG/维护历史证据；产品规则不改，只补技术文档入口；README索引与异常注册同轮更新。正式DG合同不变，consumer AST测试继续；若实际源/运行语义与本文冲突，先说明并修正文档，不使用兼容旁路或猜测补丁。
 
-2026-10-06技术路线、DC1和本地依赖已获用户确认；DC1实现与隔离验收见§14。DC2—DC5仍未实施，不从schema3字段存在推断网页功能已经交付。
+2026-10-06技术路线、DC1和本地依赖已获用户确认；DC1实现与隔离验收见§14。DC2已获后续授权，当前交付见§15；DC3—DC5未实施，不从schema3字段存在推断网页下载功能已经交付。
 
 ## 13. DC1授权与执行约束（2026-10-06）
 
@@ -454,6 +455,37 @@ schema1/2→3只在写入口、调用方取得本机/外盘双锁后、单事务
 
 单一HTTP transport使用现有httpx0.28.1/httpcore1.0.9，DNS全答案检查并绑定数字IP连接，保留Host/SNI，无连接复用/隐式代理；私网/特殊地址/重定向负例通过。新文件代表标题在封存前按可用标题+recordKey稳定选取，旧文件title/path保留；同文件多源记录仍分别保存。
 
-完整387项通过；最终目录职责收敛后受影响217项复测通过。原SIGINT/进程退出/续跑/prepared/rename/冷却、观察失败不回滚PDF、CLI/Raw/架构专项均通过；definition/resolver/runtime registry与ingestion lint通过。正式2026-07-26只读5条/footer5、指纹与原验收一致，零台账打开/远程PDF/来源写入。
+完整387项通过；最终目录职责收敛后受影响217项复测通过，随后提交9ad6654c。原SIGINT/进程退出/续跑/prepared/rename/冷却、观察失败不回滚PDF、CLI/Raw/架构专项均通过；definition/resolver/runtime registry与ingestion lint通过。正式2026-07-26只读5条/footer5、指纹与原验收一致，零台账打开/远程PDF/来源写入。
 
 R03身份/缺值、R12基础限速/尝试、R14CLI取消、R15中断事实、R16文件协议及R19架构基础已按DC1落地；R10双锁/slot基础、R11存储/计数基础通过。网页预览/精确继续与失败retry/线程管理、DTO/认证/capability、日期索引和搜索、页面/轮询仍按DC2—DC4开发；这不是R01—R19整体完成。正式迁移、索引及最小真实归档仍待阶段授权。
+
+## 15. DC2授权、硬约束与当前实现（2026-10-06）
+
+用户指令“提交吧。然后推进DC2”：DC1按相关路径白名单提交9ad6654c，随后执行本阶段。不开新分支，不提交其他任务的工作区文件。DC2当前代码尚未提交；正式索引/台账、真实下载与部署不在本阶段验证范围。
+
+| DC2硬口径 | 真实落点与测试 |
+| --- | --- |
+| 正式Raw六字段、日期自然日、记录和文件身份不变 | 原Source/core逐字节保留；CatalogBuilder逐批source_projection；临时Parquet/空值/不同记录同文件/缺日和零行测试 |
+| 可重建日版本，500批，校验后发布 | Foundation Catalog SQL、Ops CatalogBuilder；重复/失败/停止/重放/源replace及同inode改变负例；未发布版本不进入count |
+| 名称优先级/别名/首字母，包含退市和主表外代码 | NameSnapshot固定Raw两snapshot，无上市状态过滤；NameInitials+版本词表；Biz CompanyQuery当前名/历史命中排序；实际SFZA历史命中证据 |
+| 30自然日/50条、稳定顺序、字面标题 | DataCenterPolicy、请求DTO、AnnouncementQuery；上海跨日、ties/深页、%/_、额外参数/倒置日期422 |
+| 状态先全范围再分页；删除/unknown不伪造 | ArchivePresence只读Ledger+安全stat、500keys query_presence；同文件多行/后续页/删除后409或刷新未下载/断盘NULL；不hash、不改台账 |
+| 准备不阻塞API、不伪造部分总数 | App lifespan独立串行本地查询准备线程，Biz prepare_next，持久query_snapshots/builds；202 total=NULL，完成后短SQL读快照；不发HTTP |
+| 登录访问、Prod首页无卡/API和直达404 | Foundation capability+Settings，App统一get_current_user装配，Biz独立API；真实App路由/401→404/同路径不开启/本地卡不受盘可用性影响 |
+| 原CLI和分层边界保持 | 两CLI/旧schema只读回归；新CatalogPreparationPort/ArchivePresencePort由App注入，无Biz↔Ops直接import；CodeGraph/架构门禁 |
+
+明确的实现细节：queryId为不透明的来源scope摘要加随机id；换卷后旧id明确409而不命中新来源。查询只读连接query_only；索引writer锁、WAL/FULL，未知schema不能清空重建。台账仍DELETE/FULL，查询不持有SQLite事务做stat；Ledger只读timeout允许调用方按4秒预算传入，原CLI默认5秒不变。名称原cnspell保留，检索首字母去标点并转upper；NULL/空名称在候选键中用空占位，公告六列原值仍保留在catalog_records，不据此丢行。
+
+列表先取得50条稳定排序keys，再补公司名称；同一个SQL读快照读取已封存的逐日匹配数和页面keys。用日匹配数定位页起点，只在相关日做局部offset，不对8m范围先补名再OFFSET。匹配数的准备前后校验revision，状态筛选先完整准备presence；任何失败/变化不发布部分统计。源码用日期外层与日generation范围计数、列表覆盖索引，避免先为全历史行补名称再OFFSET。状态presence准备只写临时查询事实；all页可在归档状态无法核验时继续展示元数据并返回NULL状态；过滤页不可将unknown当未下载。query ready后开始的15分钟TTL和revision变化均触发409要求新查询。名称词表版本标在每个日版本，避免词表更新后只重建master却遗留公告别名旧首字母。
+
+模块开关在两个env示例默认false，Settings统一读取。仅dev/local加true生效，Prod强制关闭；本轮不修改本机运行env或启动Web，不执行正式索引初始化。启动时来源身份核验在后台完成；尚未就绪时503，不同步阻塞API执行diskutil。后台30秒核验来源/卷，API只做轻量mount/device与所请求分区版本检查；首次准备和变化时完整读取校验。断盘后保留卡，恢复后可重新准备查询，不触发DG或PDF下载。
+
+配置、SQL、DTO、公共异常沿用本文§5/6及异常注册表，未增加用户参数或第三种下载状态。R01/R03/R05/R06/R07和R19查询部分按本阶段验收；R04外链前端、R08—R18网页下载管理/预览/进度/恢复及页面仍待DC3/DC4，不能把只读API完成当成整个产品完成。
+
+准备阶段持久化updated_at、preparation_stage、dates_counted、artifacts_checked。PageState.message分别显示索引准备、文件检查数量、匹配日期统计数量，asOfTime取真实业务更新时间；不增加第三种下载状态，也不把心跳当业务进展。preparation保留原datesScanned/datesTotal/recordsScanned字段；ready之前total和catalogRevision可为NULL。GET拒绝额外/重复参数，POST仅接受DTO字段，不接受浏览器路径、URL或其他创建下载参数。
+
+所有API读操作进入共享5秒read_budget；Catalog和只读Ledger的连接/SQL超时取剩余时间与SQL4秒预算的最小值，避免每段独立耗时4秒叠加。该ContextVar在请求退出后还原，不污染后续请求或后台逐日准备。后台每个SQL仍4秒，每日索引60秒软预算；不宣称能强行中止内核磁盘IO。
+
+最终组合257项通过（39.77秒），覆盖真实路由、50k日100批、日匹配数损坏/版本变化、旧presence重建、准备TTL、原CLI/DG/台账与架构。800万隔离记录最初全范围COUNT/OFFSET超预算，优化后全历史首屏0.002秒、第159999页0.017秒；标题/状态统计后台40—80秒，完成前202并逐日显示业务进度。实际30日29619条冷构建30.624秒、复用0.290秒、首屏0.089秒，存在性34188/50000个隔离文件分别0.746/1.129秒。点时数值不是P95，800万状态SQL样本不等于真实文件stat规模；正式10月5日Raw缺日如实阻断。
+
+完整证据和未执行项见[DC2验收报告](../../../../reports/wealth_data_center_dc2_acceptance_20261006.md)及[机器证据](../../../../reports/wealth_data_center_dc2_acceptance_20261006.json)。DC2已完成但尚未提交；正式索引/台账、真实下载、实际Web启动、DG/Prod/Lake写入和前端均未执行，当前停在DC2。

@@ -316,3 +316,11 @@ CodeGraph query/impact/sync/status覆盖共享metadata/resource/path及新增ass
 原两个CLI入口路径保持；共享主实现从src/scripts/announcement_download移到Foundation clients/announcement_archive及DAO/announcement_archive；执行循环和单文件修复在Ops runtime/announcement_archive。DAO仅查询/最小持久化，文件核验在Files。链路为CLI→Ops→Foundation，Foundation无反向Ops/Biz/App依赖。旧实现包和旧import清零；core/source原身份/读者逐字节保持，DG/Prod数据合同不改。
 
 台账写入口增量schema3；1/2/3只读、双锁、原子迁移、slot/session/attempt及历史结果幂等完成隔离验收。没有新增Prod任务/队列或网页API/页面；后续App注入端口、Biz查询及后台线程仍待对应阶段。工具使用explore/impact及sync/status，通用同名噪声补读实际SQL/源码/测试。[验收报告](../../reports/wealth_data_center_dc1_acceptance_20261006.md)记录范围与未执行项，不据本局部快照推断正式台账已升级或网页已上线。
+
+## 2026-10-06局部复核：公告查询DC2
+
+App认证/router/lifespan → Biz data_center API/AnnouncementQueryService → Foundation Catalog/ArchivePresence；App另外注入Foundation纯CatalogPreparationPort及Ops CatalogBuilder。后台仅本地索引/查询准备，不进行DG同步或PDF下载；Biz无直接Ops/App import，依赖矩阵不变。原Source/六字段身份和CLI入口保留。
+
+目录与调用链新增本机可重建日期索引、名称/别名投影、查询快照及逐日匹配数。未发布日generation不入查询；ready总数与页面在同revision短读快照下读取，深页按日定位，不先全历史补名再OFFSET。状态只读schema1/2/3台账及安全文件stat，不迁移正式台账。新Settings开关只在dev/local且显式true生效；Prod查询/直达404，首页空模块。
+
+CodeGraph explore/impact覆盖Source/Ledger/Files、Settings、认证/router、AnnouncementQueryService/CatalogBuilder/ArchivePresence及prepare_counts；sync/status在开发后核验。动态端口装配、SQL语义和实际消费者由当前源码/真实Web路由与架构测试补核。[DC2验收](../../reports/wealth_data_center_dc2_acceptance_20261006.md)记录257项、只读正式来源和800万隔离容量；没有正式索引、迁移、部署或远程HTTP，下载管理/前端仍待后续阶段。
