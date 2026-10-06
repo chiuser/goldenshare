@@ -18,14 +18,15 @@ import httpx
 import pytest
 
 from src.scripts import download_announcements as cli
-from src.scripts.announcement_download.core import (
+from src.ops.runtime.announcement_archive import executor
+from src.foundation.clients.announcement_archive.core import (
     Blocked, Cancelled, Control, DownloadOptions, DownloadPolicy, FileFailed,
 )
-from src.scripts.announcement_download.files import Files, title_name, valid_url
-from src.scripts.announcement_download.http import Limiter, retry_seconds
-from src.scripts.announcement_download.ledger import Ledger
-from src.scripts.announcement_download.source import Source
-from src.scripts.announcement_download.volume import Volume, external_volume
+from src.foundation.clients.announcement_archive.files import Files, title_name, valid_url
+from src.foundation.clients.announcement_archive.http import Limiter, retry_seconds
+from src.foundation.dao.announcement_archive.ledger import Ledger
+from src.foundation.clients.announcement_archive.source import Source
+from src.foundation.clients.announcement_archive.volume import Volume, external_volume
 
 
 PDF = b'%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n'
@@ -114,8 +115,9 @@ def archive(tmp_path, monkeypatch):
     physical = dict(Internal=False, VirtualOrPhysical='Physical')
     def inspect(target):
         return physical if target == 'disk6s2' else info
-    monkeypatch.setattr('src.scripts.announcement_download.volume.sys.platform', 'darwin')
-    monkeypatch.setattr('src.scripts.announcement_download.volume.os.path.ismount', lambda p: Path(p) == mount)
+    monkeypatch.setattr('src.foundation.clients.announcement_archive.volume.sys.platform', 'darwin')
+    monkeypatch.setattr('src.foundation.clients.announcement_archive.volume.os.path.ismount', lambda p: Path(p) == mount)
+    monkeypatch.setattr(Volume, 'ledger_path', lambda self: tmp_path / 'local-state/downloads.sqlite')
     policy = replace(DownloadPolicy(), max_file_size=1024, reserve_bytes=0, batch_size=2)
     volume = Volume(output, policy, inspect).open()
     ledger = Ledger(tmp_path / 'local-state/downloads.sqlite', volume.volume_uuid, volume.relative_root)
@@ -133,7 +135,7 @@ def run(archive, rows, handler=None):
     volume, ledger, options, policy, clock, control, *_ = archive
     client = httpx.Client(transport=httpx.MockTransport(handler or (lambda _: httpx.Response(200, content=PDF))))
     source = FakeSource(rows, options, policy.batch_size)
-    code = cli.execute(options, policy, control, volume, ledger, source, 'dg/test/anns_d',
+    code = executor.execute(options, policy, control, volume, ledger, source, 'dg/test/anns_d',
                        client=client, clock=clock)
     return code, source
 
@@ -168,8 +170,8 @@ def test_startup_gate_precedes_configuration_and_state(monkeypatch):
         touched.append('gate')
         raise Blocked('external_mount_required')
     monkeypatch.setattr(Volume, 'open', gate)
-    monkeypatch.setattr(cli, 'Source', lambda *a: pytest.fail('source touched before output gate'))
-    monkeypatch.setattr(cli, 'Ledger', lambda *a: pytest.fail('ledger touched before gate'))
+    monkeypatch.setattr(executor, 'Source', lambda *a: pytest.fail('source touched before output gate'))
+    monkeypatch.setattr(executor, 'Ledger', lambda *a: pytest.fail('ledger touched before gate'))
     assert cli.main(['--start-date', '2026-09-30', '--end-date', '2026-09-30']) == 2
     assert touched == ['gate']
 
@@ -259,9 +261,13 @@ def test_prepared_part_promotes_without_request(archive):
     path.parent.mkdir(parents=True)
     (path.parent / files.part_name(task)).write_bytes(PDF)
     ledger.prepared(task['artifact_key'], len(PDF), hashlib.sha256(PDF).hexdigest())
+    ledger.close()
+    ledger = Ledger(archive[0].ledger_path(), archive[0].volume_uuid, archive[0].relative_root)
+    archive = (archive[0], ledger, *archive[2:])
     assert run(archive, [row()], lambda req: pytest.fail('prepared part should not request HTTP'))[0] == 0
     assert path.read_bytes() == PDF
     assert ledger.conn.execute('SELECT phase,reason FROM runs WHERE run_id=?', (run_id,)).fetchone()['reason'] == 'process_exit_recovered'
+    ledger.close()
 
 
 def test_cancel_mid_second_file_then_resume_only_unfinished(archive):
@@ -385,8 +391,8 @@ def test_external_apfs_requires_physical_store(changes, reason):
 
 
 def test_no_mount_does_not_create_directory(tmp_path, monkeypatch):
-    monkeypatch.setattr('src.scripts.announcement_download.volume.sys.platform', 'darwin')
-    monkeypatch.setattr('src.scripts.announcement_download.volume.os.path.ismount', lambda p: Path(p) == Path('/'))
+    monkeypatch.setattr('src.foundation.clients.announcement_archive.volume.sys.platform', 'darwin')
+    monkeypatch.setattr('src.foundation.clients.announcement_archive.volume.os.path.ismount', lambda p: Path(p) == Path('/'))
     output = tmp_path / 'not-mounted/announcements'
     volume = Volume(output, DownloadPolicy(), lambda _: pytest.fail('diskutil should not inspect root'))
     with pytest.raises(Blocked, match='external_mount'):
@@ -448,7 +454,7 @@ def test_enumeration_crash_keeps_batch_and_next_run_refreshes(archive):
     source = FakeSource([row(1), row(2), row(3)], options, policy.batch_size)
     source.fail_after_batches = 1
     client = httpx.Client(transport=httpx.MockTransport(lambda _: pytest.fail('no HTTP during enumeration')))
-    assert cli.execute(options, policy, control, volume, ledger, source, 'dg/test/anns_d', client, clock) == 3
+    assert executor.execute(options, policy, control, volume, ledger, source, 'dg/test/anns_d', client, clock) == 3
     client.close()
     assert latest_run(ledger)['records_read'] == 2
     assert latest_run(ledger)['enumeration_sealed'] == 0
@@ -494,7 +500,7 @@ def test_space_and_fsync_failure_do_not_commit_pdf(archive, monkeypatch):
         assert run(archive, [row()])[0] == 3
     assert not list(archive[2].output_root.rglob('*.pdf'))
     with monkeypatch.context() as patch:
-        patch.setattr('src.scripts.announcement_download.files.os.fsync', lambda *a: (_ for _ in ()).throw(OSError('unsupported')))
+        patch.setattr('src.foundation.clients.announcement_archive.files.os.fsync', lambda *a: (_ for _ in ()).throw(OSError('unsupported')))
         assert run(archive, [row()])[0] == 3
     assert not list(archive[2].output_root.rglob('*.pdf'))
 
@@ -538,7 +544,7 @@ def test_download_uses_sealed_input_without_live_source_queries(archive):
     calls=[]
     client=httpx.Client(transport=httpx.MockTransport(lambda request: calls.append(request) or httpx.Response(200,content=PDF)))
     try:
-        assert cli.execute(options,policy,control,volume,ledger,source,'test',client,clock)==0
+        assert executor.execute(options,policy,control,volume,ledger,source,'test',client,clock)==0
         assert len(calls)==1 and latest_run(ledger)['enumeration_sealed']==1
         assert source.closed
     finally:
@@ -556,7 +562,7 @@ def test_invalid_raw_projection_is_file_failure_without_http(archive, field, val
     item[field] = value
     source = FakeSource([item], options)
     client = httpx.Client(transport=httpx.MockTransport(lambda _: pytest.fail('invalid metadata must not request')))
-    assert cli.execute(options, policy, control, volume, ledger, source, 'test', client, clock) == 1
+    assert executor.execute(options, policy, control, volume, ledger, source, 'test', client, clock) == 1
     assert ledger.conn.execute('SELECT error FROM artifacts').fetchone()[0] == reason
     assert latest_run(ledger)['phase'] == 'partial_failed'
 
@@ -575,7 +581,7 @@ def test_completed_file_hardlink_is_blocked_and_preserved(archive, tmp_path):
 @pytest.mark.parametrize('finish_after_deadline', [False, True])
 def test_transfer_deadline_checks_chunk_and_eof(archive, monkeypatch, finish_after_deadline):
     monotonic = [10.0]
-    monkeypatch.setattr('src.scripts.announcement_download.files.time.monotonic', lambda: monotonic[0])
+    monkeypatch.setattr('src.foundation.clients.announcement_archive.files.time.monotonic', lambda: monotonic[0])
 
     class SlowStream(httpx.SyncByteStream):
         def __iter__(self):
@@ -635,15 +641,17 @@ def test_real_http_redirect_retry_interval_and_replay(archive):
     control = Control(policy, lambda _: None)
     with local_http_fixture(respond) as (base, calls):
         rows = [row(url=base + '/1.pdf')]
-        assert cli.execute(options, policy, control, volume, ledger,
-                           FakeSource(rows, options), 'local-http') == 0
+        assert executor.execute(options, policy, control, volume, ledger,
+                           FakeSource(rows, options), 'local-http',
+                           client=httpx.Client(transport=httpx.HTTPTransport(retries=0), trust_env=False)) == 0
         assert [c['path'] for c in calls] == ['/1.pdf', '/final.pdf', '/1.pdf', '/final.pdf']
         assert all(c['encoding'] == 'identity' for c in calls)
         assert all(b['started'] - a['finished'] >= .045 for a, b in zip(calls, calls[1:]))
         task = dict(ledger.conn.execute('SELECT * FROM artifacts').fetchone())
         assert (options.output_root / task['relative_path']).read_bytes() == PDF
-        assert cli.execute(options, policy, control, volume, ledger,
-                           FakeSource(rows, options), 'local-http') == 0
+        assert executor.execute(options, policy, control, volume, ledger,
+                           FakeSource(rows, options), 'local-http',
+                           client=httpx.Client(transport=httpx.HTTPTransport(retries=0), trust_env=False)) == 0
         assert len(calls) == 4
         assert ledger.stats(latest_run(ledger)['run_id'])['skipped'] == 1
 
@@ -655,8 +663,9 @@ def test_real_http_truncated_response_is_retried_and_never_promoted(archive):
     control = Control(policy, lambda _: None)
     with local_http_fixture(lambda *_: (200, {'Content-Length': str(len(PDF)+1)}, PDF)) as (base, calls):
         rows = [row(url=base + '/short.pdf')]
-        assert cli.execute(options, policy, control, volume, ledger,
-                           FakeSource(rows, options), 'local-http') == 1
+        assert executor.execute(options, policy, control, volume, ledger,
+                           FakeSource(rows, options), 'local-http',
+                           client=httpx.Client(transport=httpx.HTTPTransport(retries=0), trust_env=False)) == 1
         assert len(calls) == 3
         assert latest_run(ledger)['phase'] == 'partial_failed'
         assert not list(options.output_root.rglob('*.pdf'))
@@ -694,7 +703,7 @@ def test_real_process_exit_preserves_commits_and_resumes(tmp_path, crash_mode, r
     assert json.loads(resumed.stdout)['requests'] == requests
     with sqlite3.connect(path) as db:
         assert db.execute('SELECT phase,reason FROM runs ORDER BY rowid LIMIT 1').fetchone() == (
-            'cancelled', 'process_exit_recovered')
+            'interrupted', 'process_exit_recovered')
         assert db.execute("SELECT count(*) FROM artifacts WHERE state<>'succeeded'").fetchone()[0] == 0
         assert db.execute('SELECT phase FROM runs ORDER BY rowid DESC LIMIT 1').fetchone()[0] == 'completed'
     files = list((tmp_path / 'disk').rglob('*.pdf'))
@@ -739,7 +748,7 @@ def test_streaming_uses_policy_blocks_before_preparing(archive):
             yield b'\n%%EOF\n'
 
     client = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200, stream=BlockStream())))
-    assert cli.execute(options, policy, control, volume, ledger,
+    assert executor.execute(options, policy, control, volume, ledger,
                        FakeSource([row()], options), 'stream-fixture', client, clock) == 0
     task = ledger.conn.execute('SELECT state,size FROM artifacts').fetchone()
     assert task['state'] == 'succeeded' and task['size'] == 8*policy.chunk_size + len(b'\n%%EOF\n')
@@ -751,14 +760,18 @@ def test_retry_scope_does_not_pick_old_range_pending_artifacts(archive):
     old_options = replace(archive[2], start_date=date(2026, 9, 29), end_date=date(2026, 9, 29))
     old_run = ledger.begin_run(old_options, 'dg/test/anns_d')
     stage_rows(ledger,old_run,'dg/test/anns_d',[row(9,day=old_options.start_date)],day=old_options.start_date.isoformat())
+    ledger.close()
+    ledger = Ledger(archive[0].ledger_path(), archive[0].volume_uuid, archive[0].relative_root)
+    archive = (archive[0], ledger, *archive[2:])
     calls = []
     assert run(archive, [row()], lambda req: calls.append(req.url.path) or httpx.Response(200, content=PDF))[0] == 0
     assert calls == ['/1.pdf']
     assert ledger.conn.execute("SELECT state FROM artifacts WHERE url LIKE '%/9.pdf'").fetchone()[0] == 'pending'
+    ledger.close()
 
 
 def test_default_progress_is_visible_before_process_exit_through_pipe():
-    script = ('from src.scripts.announcement_download.core import Control,DownloadPolicy;'
+    script = ('from src.foundation.clients.announcement_archive.core import Control,DownloadPolicy;'
               'import sys;Control(DownloadPolicy()).update(phase="downloading",completed=1);'
               'sys.stdin.readline()')
     proc = subprocess.Popen([sys.executable, '-c', script], cwd=Path(__file__).parents[1],

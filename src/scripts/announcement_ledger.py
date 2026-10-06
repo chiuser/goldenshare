@@ -1,20 +1,11 @@
-"""Query/verify a local announcement archive, or reconcile one explicitly chosen file."""
+"""Stable CLI entry for local announcement ledger maintenance."""
 from __future__ import annotations
-
 import argparse
-import json
 import re
-import signal
-import sqlite3
-from dataclasses import asdict
 from pathlib import Path
-
-from src.scripts.announcement_download.core import Blocked, Cancelled, Control, DownloadOptions, DownloadPolicy, iso_date
-from src.scripts.announcement_download.ledger import Ledger
-from src.scripts.announcement_download.maintenance import (
-    ARTIFACT_STATES, LedgerQuery, LedgerQueryPolicy, repair_one, verify_one,
-)
-from src.scripts.announcement_download.volume import SourceVolume, Volume, no_symlinks
+from src.foundation.clients.announcement_archive.core import DownloadOptions, iso_date
+from src.foundation.dao.announcement_archive.maintenance import ARTIFACT_STATES, LedgerQueryPolicy
+from src.ops.runtime.announcement_archive.maintenance import run_cli
 
 
 def parse_options(argv=None):
@@ -69,78 +60,7 @@ def parse_options(argv=None):
 
 
 def main(argv=None):
-    args = parse_options(argv)
-    policy, query_policy = DownloadPolicy(), LedgerQueryPolicy()
-    control = Control(policy)
-    volume = SourceVolume(args.output_root, policy)
-    ledger = None
-    old_handler = signal.getsignal(signal.SIGINT)
-    signal.signal(signal.SIGINT, lambda *_: control.stop.set())
-    def emit(**result):
-        print(json.dumps(result, ensure_ascii=False), flush=True)
-    try:
-        volume.open()
-        volume.assert_archive_path()
-        path = volume.ledger_path()
-        no_symlinks(path)
-        ledger = Ledger(path, volume.volume_uuid, volume.relative_root, read_only=True)
-        query = LedgerQuery(ledger, control, query_policy)
-        context = dict(command=args.command, output_root=str(volume.output), ledger_path=str(path),
-                       schema_version=query.version, policy=asdict(query_policy))
-        if args.command == 'summary':
-            result = query.summary()
-        elif args.command == 'runs':
-            result = query.runs(args.limit, args.before_rowid, args.run_id)
-        elif args.command == 'files':
-            result = query.files(args.limit, **{key:getattr(args,key) for key in (
-                'start_date','end_date','ts_code','title','state','run_id','after_key')})
-        elif args.command == 'show':
-            result = query.show(args.artifact_key, args.limit, args.after_rowid)
-        else:
-            task = query.artifact(args.artifact_key)
-            # Hashing/promoting a PDF must not keep a SQLite read transaction open.
-            ledger.close(); ledger = None
-            if args.command == 'verify':
-                result = verify_one(task, volume, policy, control)
-            else:
-                control.check()
-                prior_identity = volume.volume_uuid, volume.relative_root
-                volume.close()
-                volume = Volume(args.output_root, policy)
-                volume.open()
-                if (volume.volume_uuid,volume.relative_root) != prior_identity:
-                    raise Blocked('archive_identity_mismatch')
-                path = volume.ledger_path()
-                no_symlinks(path)
-                if not path.is_file():
-                    raise Blocked('archive_ledger_missing')
-                control.check()
-                ledger = Ledger(path, volume.volume_uuid, volume.relative_root)
-                result = repair_one(args.artifact_key, volume, ledger, policy, control)
-                context['schema_version'] = 2
-        if ledger:
-            ledger.close(); ledger = None
-        control.check()
-        volume.assert_valid(full=True)
-        emit(**context, result=result)
-        if args.command == 'verify':
-            return 0 if result['final']['status'] == 'matched' else 1
-        if args.command == 'repair' and result['outcome'] == 'failed':
-            return 1
-        return 0
-    except Cancelled:
-        emit(command=args.command, error='user_cancelled')
-        return 130
-    except (Blocked, OSError, sqlite3.Error, ValueError) as exc:
-        reason = str(exc) if isinstance(exc, Blocked) else type(exc).__name__
-        emit(command=args.command, error=reason)
-        return 3
-    finally:
-        if ledger:
-            ledger.close()
-        volume.close()
-        control.close()
-        signal.signal(signal.SIGINT, old_handler)
+    return run_cli(parse_options(argv))
 
 
 if __name__ == '__main__':

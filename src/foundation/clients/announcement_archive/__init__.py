@@ -1,0 +1,1 @@
+"""Local announcement archive capabilities."""

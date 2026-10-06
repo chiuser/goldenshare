@@ -1,7 +1,7 @@
 """Frozen schema-1 startup from 777d6901; only tests old-program refusal after upgrade."""
 from pathlib import Path
 import sqlite3
-from src.scripts.announcement_download.core import Blocked, timestamp
+from src.foundation.clients.announcement_archive.core import Blocked, timestamp
 SCHEMA = (Path(__file__).with_name('announcement_download_schema_v1.sql')).read_text()
 
 

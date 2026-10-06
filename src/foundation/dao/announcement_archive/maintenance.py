@@ -1,14 +1,12 @@
-"""Bounded local ledger observations and single-artifact reconciliation."""
+"""Bounded, read-only ledger observations."""
 from __future__ import annotations
 
 import json
 import sqlite3
 import time
 from dataclasses import dataclass
-from pathlib import PurePosixPath
 
-from .core import Blocked, Cancelled, Control, DownloadPolicy, FileFailed
-from .files import Files
+from src.foundation.clients.announcement_archive.core import Blocked, Control
 
 
 ARTIFACT_STATES = ('pending', 'downloading', 'prepared', 'succeeded', 'failed', 'blocked')
@@ -125,8 +123,8 @@ class LedgerQuery:
     def show(self, key, limit, after_rowid=None):
         artifact = self.artifact(key)
         artifact['physical_status'] = 'not_checked'
-        key_column = 'record_key' if self.version == 2 else 'row_key_hash'
-        id_column = 'legacy_raw_id' if self.version == 2 else 'raw_id'
+        key_column = 'record_key' if self.version >= 2 else 'row_key_hash'
+        id_column = 'legacy_raw_id' if self.version >= 2 else 'raw_id'
         sql = (f'SELECT rowid AS ledger_rowid,source_scope,{key_column} AS record_key,'
                f'{id_column} AS legacy_raw_id,metadata,first_seen_run,last_seen_run '
                'FROM source_records WHERE artifact_key=?')
@@ -140,59 +138,3 @@ class LedgerQuery:
             except (TypeError, ValueError):
                 raise Blocked('ledger_metadata_invalid') from None
         return dict(artifact=artifact, sources=sources)
-
-
-def verify_one(task, volume, policy: DownloadPolicy, control: Control):
-    """Inspect the known paths without allocate(), mkdir(), or SQLite writes."""
-    control.check()
-    volume.assert_valid(full=True)
-    if not task['relative_path']:
-        return dict(artifact_key=task['artifact_key'], ledger_state=task['state'], final=dict(status='unallocated'), part=None)
-    path = PurePosixPath(task['relative_path'])
-    if path.is_absolute() or '..' in path.parts or path.name in ('', '.'):
-        raise Blocked('unsafe_relative_path')
-    files = Files(volume, None, policy, control)
-    def describe(actual):
-        if actual is None:
-            return dict(status='missing')
-        status = 'matched' if files.matches(task, actual) else ('untracked' if task['sha256'] is None else 'mismatch')
-        return dict(status=status, size=actual[0], sha256=actual[1])
-    final = part = None
-    try:
-        with volume.directory(str(path.parent)) as fd:
-            final = files.fingerprint(fd, path.name)
-            if task['state'] == 'prepared':
-                part = files.fingerprint(fd, files.part_name(task))
-    except FileNotFoundError:
-        pass
-    volume.assert_valid(full=True)
-    return dict(artifact_key=task['artifact_key'], ledger_state=task['state'], relative_path=task['relative_path'],
-                expected_size=task['size'], expected_sha256=task['sha256'], final=describe(final),
-                part=describe(part) if task['state'] == 'prepared' else None)
-
-
-def repair_one(key, volume, ledger, policy: DownloadPolicy, control: Control):
-    """Caller holds the original archive lock. Preserve download history and cooldown."""
-    control.check()
-    before = ledger.conn.execute('SELECT * FROM artifacts WHERE artifact_key=?', (key,)).fetchone()
-    if before is None:
-        raise Blocked('artifact_not_found')
-    before = dict(before)
-    files = Files(volume, ledger, policy, control)
-    volume.assert_valid(full=True)
-    try:
-        task = files.allocate(dict(before))
-        outcome = files.recover(task)
-        if outcome == 'skipped':
-            outcome = 'already_valid'
-        elif outcome == 'succeeded':
-            outcome = 'recovered'
-        else:
-            outcome = 'ready_for_download'
-    except FileFailed as exc:
-        ledger.state(key, 'failed', str(exc))
-        outcome = 'failed'
-    after = ledger.artifact(key)
-    return dict(artifact_key=key, outcome=outcome, before=before, after=after, http_requests=0,
-                redownload=dict(start_date=after['ann_date'], end_date=after['ann_date'], output_root=str(volume.output))
-                if outcome in ('ready_for_download', 'failed') else None)

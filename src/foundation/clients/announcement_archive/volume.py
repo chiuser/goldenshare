@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 from .core import Blocked, DownloadPolicy, identity
+from .locking import ExecutionLock
 
 
 def disk_info(target: str, timeout: float = DownloadPolicy.volume_timeout) -> dict:
@@ -66,6 +67,7 @@ class Volume:
         self.inspector = inspector or (lambda target: disk_info(target, policy.volume_timeout))
         self.root_fd = self.mount_fd = self.lock_fd = -1
         self.require_writable = True
+        self.execution_lock = None
 
     def open(self):
         if sys.platform != 'darwin':
@@ -86,6 +88,7 @@ class Volume:
         self.device_id = info.get('DeviceIdentifier')
         self.mount_fd = os.open(mount, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         self.device = os.fstat(self.mount_fd).st_dev
+        self.execution_lock = ExecutionLock(self.ledger_path().parent / 'execution.lock').open()
         self.assert_valid(full=True)
         self.check_space(policy_file=True, fd=self.mount_fd)
         # Probe only after the mounted physical volume has been verified.
@@ -192,6 +195,9 @@ class Volume:
             if fd >= 0:
                 os.close(fd)
                 setattr(self, name, -1)
+        if self.execution_lock is not None:
+            self.execution_lock.close()
+            self.execution_lock = None
 
 
 class SourceVolume(Volume):

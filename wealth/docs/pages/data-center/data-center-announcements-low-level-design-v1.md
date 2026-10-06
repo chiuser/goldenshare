@@ -1,6 +1,6 @@
 # 数据中心与上市公司公告 LLD v1
 
-日期：2026-10-06。状态：**编码级设计稿，待技术评审，未实现。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
+日期：2026-10-06。状态：**编码级设计已获用户确认；DC1实现与隔离验收完成，未提交。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
 
 ## 1. 硬口径、实现点与验收索引
 
@@ -32,8 +32,8 @@
 
 目标目录在方案 §3.1，具体文件按职责设置，禁止为每个动作复制下载循环：
 
-- Foundation `clients/announcement_archive/{core,source,volume,files,http}.py` 从现有实现移位；DAO 下 `ledger.py`、`catalog.py`、`maintenance.py`；kernel 下端口与事件。保留 `source_projection` 原 JSON/SHA 算法和 DownloadOptions/DownloadPolicy。
-- Ops `runtime/announcement_archive/{executor,supervisor,catalog_builder}.py`：执行单循环、长读取准备、当前run控制；不用 Biz DTO 或 App auth。CatalogBuilder只复制经验证的来源投影/别名事实、计算确定首字母；名称优先级与搜索排序在 Biz。
+- Foundation `clients/announcement_archive/{core,source,volume,files,http}.py` 从现有实现移位；DAO 下 `ledger.py`、`catalog.py`、`maintenance.py`（仅查询）；单文件修复编排归Ops maintenance，文件核验归Files；kernel下端口与事件在对应运行阶段接线。保留 `source_projection` 原 JSON/SHA 算法和 DownloadOptions/DownloadPolicy。
+- Ops `runtime/announcement_archive/{executor,maintenance,supervisor,catalog_builder}.py`：执行单循环、长读取准备、当前run控制；不用 Biz DTO 或 App auth。CatalogBuilder只复制经验证的来源投影/别名事实、计算确定首字母；名称优先级与搜索排序在 Biz。
 - Biz `api/wealth/data_center/{home,announcements}.py`；schemas 同域 `announcements.py`；queries 同域 `{announcement_query,company_query,run_query}.py`；services 同域 `{query_service,download_service,policy}.py`。不建 flat `wealth_data_center_*.py`。
 - App `announcement_archive_lifespan.py` 创建 supervisor、向 Biz 注入 Foundation 的 `ArchiveExecutionPort`，在 router 装配处加 `get_current_user` 登录依赖。Business API 不 import App/Ops；App传递 actorId只供审计、不新增权限规则。
 - 两个 CLI 原路径保留为入口；移走 `src/scripts/announcement_download/` 的主实现并清零所有旧 import，不留兼容转发包。CLI仍接受现有参数/退出码；日期重放与网页continue是两个明确意图，共用执行循环的两种输入，不存在两套文件协议。
@@ -156,7 +156,7 @@ schema1/2识别、写入口原子迁移到3；只读CLI仍可读取已支持的�
 | `DataCenterPolicy`（新增集中内部策略） |page50/history20/result50、候选limit20/keyword64、title200、SQL截止4秒、API读截止5秒、poll2秒、heartbeat5秒、失联提示15秒、preview/queryTTL900秒、catalog校验周期30秒、日期任务控制poll0.5秒、索引unit软预算60秒 |Biz/Ops共享明确子配置投影；不得env/page各放一份 |启动/创建；前端context读取展示默认/预算；超预算prepare或error，不截范围 |
 | 首字母词表（新增） |版本化`config/wealth/announcement-name-initials.json`，仅名称→确定覆盖读音/首字母 |索引生成；源cnspell优先，词表只补历史/缺失 |索引重建后生效；运营文件、无用户控件；同名跨公司可用tsCode限定 |
 
-依赖：现有stdlib/httpx/DuckDB/React足够执行和页面；历史简称中文首字母需要新增本地可选依赖 `pypinyin`。其[官方说明](https://github.com/mozillazg/python-pinyin)提供FIRST_LETTER、单读音转换和词组支持，声明MIT及Python3.13支持；这些是选型依据，不能替代本机验证。仅在local-lake可选组声明并锁定获准版本，部署Prod不加载；开发前固定版本/词典、验证Python3.13可用性并另获安装授权，禁止隐式pip/uv同步。根现有环境只读检查：DuckDB/httpx可导入，pypinyin不存在，本轮未安装。转换函数统一对名称做NFC、中文取单读音首字母、英数保留、标点移除、输出upper；不穷举多音字组合。覆盖平安银行/PAYH、招商银行/ZSYH、深发展A/SFZA、重庆银行/CQYH及ST标记；源cnspell不被转换结果覆盖。词表版本变化产生新的名称索引版本，不修改Raw。
+依赖：现有stdlib/httpx/DuckDB/React足够执行和页面；历史简称中文首字母需要新增本地可选依赖 `pypinyin`。其[官方说明](https://github.com/mozillazg/python-pinyin)提供FIRST_LETTER、单读音转换和词组支持，声明MIT及Python3.13支持；这些是选型依据，不能替代本机验证。仅在local-lake可选组声明并锁定获准版本，部署Prod不加载；2026-10-06用户已授权依赖准入及安装；版本固定pypinyin==0.55.0（[PyPI发布记录](https://pypi.org/project/pypinyin/0.55.0/)），只在根现有.venv安装该包，不同步其它依赖。根Python3.13.5已安装并验证平安银行/PAYH、招商银行/ZSYH、深发展A/SFZA、重庆银行/CQYH、ST平安银行/STPAYH五样本；只新增这一包，中文名称转换消费者和覆盖词表在DC2实现，禁止隐式pip/uv同步。转换函数统一对名称做NFC、中文取单读音首字母、英数保留、标点移除、输出upper；不穷举多音字组合。覆盖平安银行/PAYH、招商银行/ZSYH、深发展A/SFZA、重庆银行/CQYH及ST标记；源cnspell不被转换结果覆盖。词表版本变化产生新的名称索引版本，不修改Raw。
 
 ## 6. API 合同
 
@@ -417,11 +417,11 @@ git diff --check
 | 门禁 | 当前设计状态 | 后续通过标准 |
 | --- | --- | --- |
 |参数/字段/样例/状态/异常/查询草案 |本文已定义 |评审无歧义，API逐字段实现 |
-|配置审计与中文依赖 |已列审计；依赖未安装 |依赖准入和安装另获准、锁定、词表样例通过 |
+|配置审计与中文依赖 |DC1获准安装0.55.0并通过五名称样本；DC2词表/索引待做 |配置消费者/覆盖词表按DC2验收，不宣称搜索已交付 |
 |schema消费者/分层 |当前链路已审计，目标未实现 |全部旧import清零、1/2/3访问合同测试、无反向依赖 |
 |性能 |预算已定义，容量未实测 |30日/大日/多年/K存在性/深页样本达标 |
 |真实API/前端/物理验收 |尚未实现/执行 |核心字段、24画板、最小真实归档分别有报告 |
-|评审签字 |待技术评审 |后端/前端/架构确认可实施；产品已确认不重复拍板 |
+|评审确认 |2026-10-06用户确认技术路线并授权DC1 |每阶段独立验收；产品已确认不重复拍板 |
 
 ## 12. 实施对账与文档关系
 
@@ -429,4 +429,31 @@ git diff --check
 
 原PDF文档新增网页扩展引用，不抹掉M0—M3/DG/维护历史证据；产品规则不改，只补技术文档入口；README索引与异常注册同轮更新。正式DG合同不变，consumer AST测试继续；若实际源/运行语义与本文冲突，先说明并修正文档，不使用兼容旁路或猜测补丁。
 
-本轮只读审计与方案落档，不含上述实现/迁移/正式执行。下一步先技术评审，然后经阶段授权进入DC1。
+2026-10-06技术路线、DC1和本地依赖已获用户确认；DC1实现与隔离验收见§14。DC2—DC5仍未实施，不从schema3字段存在推断网页功能已经交付。
+
+## 13. DC1授权与执行约束（2026-10-06）
+
+用户确认按本文进入DC1，并授权pypinyin本地可选依赖。DC1只迁移共享核心/CLI消费者、实现schema3及执行基础，隔离验证旧数据保留、幂等结果、进程退出、锁、冷却和安全HTTP。正式台账/索引、真实PDF、DG/Prod、页面/API不在本阶段执行范围。
+
+| DC1硬约束 | 代码/验收落点 |
+| --- | --- |
+| 唯一核心，无旧包转发 | Foundation clients/DAO、Ops executor、两CLI及全部fixture；引用清零/架构测试 |
+| 身份/路径/CLI行为保持 | source_projection、Files/Volume、parse_options；原专项回归 |
+| schema1/2只读不升级，写入口原子到3 | Ledger/schema定义；临时SQLite字段/行/冷却对账、失败回滚、未知schema拒绝 |
+| 一个执行，双锁/持久slot，退出不自动HTTP | 本机execution.lock→外盘archive.lock→短事务；双进程及退出fixture |
+| 500批/日封存后HTTP，取消/恢复保留成果 | Ops executor/Source/DAO；原进程退出、prepared/rename故障测试 |
+| 原历史和成功事实不因观察失败回滚 | Ledger.result/phase、Files；幂等计数与观察失败窗口 |
+| 全部跳转公共目标且绑定已验证IP | HTTP transport、Limiter；DNS/IPv6/私网/redirect负例 |
+| 仅获准依赖，本地可选且固定版本 | pyproject local-lake pypinyin==0.55.0；现有Python3.13样本，无Prod自动加载 |
+
+## 14. DC1交付对账（2026-10-06）
+
+[验收报告](../../../../reports/wealth_data_center_dc1_acceptance_20261006.md)及[机器证据](../../../../reports/wealth_data_center_dc1_acceptance_20261006.json)。单一核心/DAO/Ops执行循环与两CLI、三个原专项及fixture消费者迁移完成。DAO查询不编排文件；verify在Files，repair在Ops。旧主实现包删除，无转发兼容层；core/source逐字节保持原身份、Raw合同及读者。
+
+schema1/2→3只在写入口、调用方取得本机/外盘双锁后、单事务完成；正式台账未升级。只读识别1/2/3；原字段、路径、结果、来源、尝试次数和冷却保留。新增attempt_open/session_open为未结束尝试/会话的partial index，避免孤儿恢复扫描全部已结束记录；创建表定义及严格验证见DAO schema/ledger。run结果重放幂等，不能把旧失败outcome改成功；新run另保存新结果。同一owner不得接纳两个活动run，显式新命令恢复旧owner中断事实，不自动HTTP。全局业务进度时间只随已提交批/日/文件结果改变，heartbeat不伪装完成。
+
+单一HTTP transport使用现有httpx0.28.1/httpcore1.0.9，DNS全答案检查并绑定数字IP连接，保留Host/SNI，无连接复用/隐式代理；私网/特殊地址/重定向负例通过。新文件代表标题在封存前按可用标题+recordKey稳定选取，旧文件title/path保留；同文件多源记录仍分别保存。
+
+完整387项通过；最终目录职责收敛后受影响217项复测通过。原SIGINT/进程退出/续跑/prepared/rename/冷却、观察失败不回滚PDF、CLI/Raw/架构专项均通过；definition/resolver/runtime registry与ingestion lint通过。正式2026-07-26只读5条/footer5、指纹与原验收一致，零台账打开/远程PDF/来源写入。
+
+R03身份/缺值、R12基础限速/尝试、R14CLI取消、R15中断事实、R16文件协议及R19架构基础已按DC1落地；R10双锁/slot基础、R11存储/计数基础通过。网页预览/精确继续与失败retry/线程管理、DTO/认证/capability、日期索引和搜索、页面/轮询仍按DC2—DC4开发；这不是R01—R19整体完成。正式迁移、索引及最小真实归档仍待阶段授权。

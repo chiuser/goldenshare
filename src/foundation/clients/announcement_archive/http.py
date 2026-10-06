@@ -9,6 +9,7 @@ import httpx
 
 from .core import Blocked, Control, DownloadOptions, DownloadPolicy, FileFailed, Retryable
 from .files import valid_url
+from .transport import PublicHTTPTransport
 
 
 def retry_seconds(value: str | None, now: float) -> float:
@@ -57,10 +58,11 @@ class Downloader:
                  control: Control, client=None, clock=time.time):
         self.ledger, self.files, self.options, self.policy, self.control = ledger, files, options, policy, control
         self.clock = clock
+        self.last_http_status = None
         self.limiter = Limiter(ledger, options.interval_seconds, control, volume, clock)
         self.client = client or httpx.Client(timeout=httpx.Timeout(connect=policy.connect_timeout,
             read=policy.read_timeout, write=policy.write_timeout, pool=policy.pool_timeout),
-            transport=httpx.HTTPTransport(retries=0), follow_redirects=False, trust_env=False)
+            transport=PublicHTTPTransport(control), follow_redirects=False, trust_env=False)
 
     def _request(self, url: str, task: dict) -> str | None:
         valid_url(url)
@@ -70,6 +72,7 @@ class Downloader:
             with self.client.stream('GET', url, headers={'Accept-Encoding': 'identity'},
                                     follow_redirects=False) as response:
                 status = response.status_code
+                self.last_http_status = status
                 if status == 403:
                     raise Blocked('http_403')
                 if status == 408 or status == 429 or 500 <= status <= 599:
@@ -100,6 +103,7 @@ class Downloader:
             self.control.check()
             self.ledger.attempt(run, task['artifact_key'])
             url, seen = task['url'], set()
+            self.last_http_status = None
             try:
                 for hop in range(self.policy.redirects + 1):
                     if url in seen:
@@ -107,6 +111,7 @@ class Downloader:
                     seen.add(url)
                     next_url = self._request(url, task)
                     if next_url is None:
+                        self.ledger.finish_attempt(run, task['artifact_key'], 'succeeded', http_status=self.last_http_status, received=self.ledger.artifact(task['artifact_key'])['size'] or 0)
                         return
                     if hop == self.policy.redirects:
                         raise FileFailed('redirect_limit')
@@ -114,12 +119,16 @@ class Downloader:
                         raise FileFailed('https_downgrade_forbidden')
                     valid_url(next_url)
                     url = next_url
-            except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError):
-                error = Retryable('network_or_timeout')
             except Retryable as exc:
                 error = exc
+            except (FileFailed, Blocked) as exc:
+                self.ledger.finish_attempt(run, task['artifact_key'], 'failed', str(exc), self.last_http_status)
+                raise
+            except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError):
+                error = Retryable('network_or_timeout')
             except httpx.HTTPError:
                 raise FileFailed('invalid_http_response') from None
+            self.ledger.finish_attempt(run, task['artifact_key'], 'retryable', str(error), self.last_http_status)
             wait = max(self.policy.backoff_seconds * 2 ** attempt, error.retry_after)
             self.limiter.defer(wait, str(error))
             if attempt + 1 == self.policy.attempts:

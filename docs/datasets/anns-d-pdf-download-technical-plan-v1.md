@@ -1,6 +1,8 @@
 # 上市公司公告 PDF 本地归档技术方案 v1
 
-更新时间：2026-10-06。状态：**DG 来源迁移、隔离/只读与五 URL 最小真实归档验收通过；台账查询/维护已完成；网页产品化技术设计已落档，尚未编码**。方案提交 777d6901，下载器实现提交 9f8faacf。独立旧验收账本已升级，旧五份零请求复用；新五份取消、续跑及重放通过。默认归档台账、正式 Lake 与 Prod 未修改。原 M0—M3 为 Prod 历史证据，DG 证据另见下文；网页目标与当前CLI的关系见§12。
+更新时间：2026-10-06。当前状态：**DC1共享核心、schema3及CLI消费者迁移完成，隔离验收通过，未提交；网页查询/API/页面待开发。** 最新实现见§13与网页LLD§14；正式台账未迁移。
+
+§1—§12保留此前DG读者、五URL真实归档、台账维护及网页设计阶段的记录；M0—M3为Prod版本历史。原方案提交777d6901、下载器提交9f8faacf，独立旧验收台账曾升级到2；这些历史证据不证明此次schema3或网页已在正式环境执行。
 
 ## 1. 目标、依据与范围
 
@@ -10,7 +12,7 @@
 
 - [DG 公告接入方案](../../lake_console/docs/design/dagster-anns-d-onboarding-plan-v1.md)及[DG LLD](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md)。
 - [六字段合同](../../lake_console/orchestrator/src/orchestrator/defs/anns_d_contract.py)、[正式路径](../../lake_console/orchestrator/src/orchestrator/defs/paths.py)、[原子提升实现](../../lake_console/orchestrator/src/orchestrator/defs/anns_d_io.py)。
-- 当前 [CLI](../../src/scripts/download_announcements.py)、[Prod reader](../../src/scripts/announcement_download/source.py)、[账本](../../src/scripts/announcement_download/ledger.py)、[文件恢复](../../src/scripts/announcement_download/files.py)。
+- 当前 [CLI](../../src/scripts/download_announcements.py)、[DG reader](../../src/foundation/clients/announcement_archive/source.py)、[账本](../../src/foundation/dao/announcement_archive/ledger.py)、[文件恢复](../../src/foundation/clients/announcement_archive/files.py)。
 - [子系统边界](../architecture/subsystem-boundary-plan.md)、[DG 性能治理](../../lake_console/docs/design/dagster-data-pipeline-performance-governance.md)、Tushare doc_id=176 的[本地接口说明](../sources/tushare/大模型语料/0176_上市公司全量公告.md)。
 
 本轮已替换现有工具的 source 与枚举流程，同步迁移台账接口和测试；不保留 Prod/DG 双读取模式或缺文件回落 Prod。SQLite 延续下载台账职责，不新增公告业务数据库、搜索索引、调度或页面。不改 DG 数据集合同、同步规则、DatasetDefinition、Ops TaskRun 或正式 Lake 文件。
@@ -173,3 +175,9 @@ P1 回归包含缺 URL 不请求、游标提交/回滚、被替代来源不请�
 目标变更包括：共享下载主实现由scripts迁到Foundation基础能力、执行控制归Ops并由App装配；台账schema3保留旧身份/路径/结果/冷却，全部消费者同轮迁移；新增可重建日期索引，仍只读DG六字段Raw。身份算法、文件提升协议、CLI现有参数/输出/退出行为不变。GUI固定归档根、仅日期创建，原任务继续/精确失败重试不能用整段CLI重跑替代。
 
 本轮只写设计，不迁移正式台账/索引、不调用PDF或DG/Prod。网页方案中的schema3/新API/运行控制均未落代码，不把原M0—M3与台账CLI验收升级成网页交付；后续DC0—DC5分期门禁见网页LLD。
+
+## 13. DC1共用核心和schema3（2026-10-06）
+
+用户已确认DC1与本地pypinyin依赖。共享核心现位于Foundation clients/announcement_archive，台账/查询在DAO，执行与单文件修复归Ops；两个原CLI为薄入口。写入口单事务升级schema1/2→3，只读不升级；旧身份/路径/来源/结果/冷却保留。旧主实现包及import清零。§1—§12保留此前阶段口径，当前实现以网页LLD§14和[验收报告](../../reports/wealth_data_center_dc1_acceptance_20261006.md)为准。
+
+完整387项通过，职责收敛后受影响217项复测通过；正式Raw五条只读指纹对账通过。正式台账未迁移，没有远程PDF/DG/Prod/Lake写入。schema3基础不代表预览/继续/精确重试/API/页面已完成；下一步DC2查询后端另按阶段推进。

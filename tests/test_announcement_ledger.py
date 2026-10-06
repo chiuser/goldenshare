@@ -14,11 +14,14 @@ import httpx
 import pytest
 
 from src.scripts import announcement_ledger as cli
-from src.scripts.announcement_download.core import Blocked, Cancelled
-from src.scripts.announcement_download.files import Files
-from src.scripts.announcement_download.ledger import Ledger
-from src.scripts.announcement_download.maintenance import LedgerQuery, LedgerQueryPolicy, repair_one, verify_one
-from src.scripts.announcement_download.volume import SourceVolume, Volume
+from src.ops.runtime.announcement_archive import maintenance as runtime
+from src.foundation.clients.announcement_archive.core import Blocked, Cancelled
+from src.foundation.clients.announcement_archive.files import Files
+from src.foundation.dao.announcement_archive.ledger import Ledger
+from src.foundation.dao.announcement_archive.maintenance import LedgerQuery, LedgerQueryPolicy
+from src.foundation.clients.announcement_archive.files import verify_one
+from src.ops.runtime.announcement_archive.maintenance import repair_one
+from src.foundation.clients.announcement_archive.volume import SourceVolume, Volume
 from test_announcement_download_cli import archive, row, run, stage_rows, PDF
 from test_announcement_download_dg import seed_v1, OLD_KEY
 
@@ -27,6 +30,7 @@ def populate(archive, rows):
     ledger, options = archive[1:3]
     run_id = ledger.begin_run(options, 'dg/test/anns_d')
     stage_rows(ledger,run_id,'dg/test/anns_d',rows,seal=True)
+    ledger.phase(run_id,'cancelled','fixture_enumeration_only')
     return run_id
 
 
@@ -49,8 +53,8 @@ def patch_main(archive, monkeypatch):
     vol=archive[0]
     path=Path(archive[1].conn.execute('PRAGMA database_list').fetchone()[2])
     monkeypatch.setattr(Volume,'ledger_path',lambda self:path)
-    monkeypatch.setattr(cli,'SourceVolume',lambda output,policy:SourceVolume(output,archive[3],vol.inspector))
-    monkeypatch.setattr(cli,'Volume',lambda output,policy:Volume(output,archive[3],vol.inspector))
+    monkeypatch.setattr(runtime,'SourceVolume',lambda output,policy:SourceVolume(output,archive[3],vol.inspector))
+    monkeypatch.setattr(runtime,'Volume',lambda output,policy:Volume(output,archive[3],vol.inspector))
     monkeypatch.setattr(httpx.Client,'send',lambda *_a,**_k:pytest.fail('maintenance must never send HTTP'))
     return path
 
@@ -63,12 +67,12 @@ def patch_main(archive, monkeypatch):
     ['runs','--run-id',"x' OR 1=1"],
 ])
 def test_bad_input_precedes_all_io(args,monkeypatch):
-    monkeypatch.setattr(cli,'SourceVolume',lambda *_:pytest.fail('disk must not be touched'))
+    monkeypatch.setattr(runtime,'SourceVolume',lambda *_:pytest.fail('disk must not be touched'))
     with pytest.raises(SystemExit) as error:cli.main(args)
     assert error.value.code==2
 
 
-@pytest.mark.parametrize('version',[1,2])
+@pytest.mark.parametrize('version',[1,3])
 def test_read_only_schema_and_bytes_unchanged(archive,tmp_path,version):
     if version==1:
         path=tmp_path/'old.sqlite';seed_v1(path,archive)
@@ -292,10 +296,10 @@ def test_real_main_v1_repair_upgrades_only_selected_known_archive(archive,tmp_pa
     capsys.readouterr();assert old.read_bytes()==before
     archive[0].close()
     assert cli.main(root+['repair','--artifact-key',OLD_KEY])==0
-    assert json.loads(capsys.readouterr().out)['schema_version']==2
+    assert json.loads(capsys.readouterr().out)['schema_version']==3
     with sqlite3.connect(old) as db:
-        assert db.execute('SELECT schema_version FROM archive').fetchone()[0]==2
-        assert {t:list(db.execute('SELECT * FROM '+t+' ORDER BY rowid')) for t in history}==history
+        assert db.execute('SELECT schema_version FROM archive').fetchone()[0]==3
+        assert {t:[tuple(row[:len(history[t][0])]) for row in db.execute('SELECT * FROM '+t+' ORDER BY rowid')] for t in history}==history
         assert db.execute('SELECT COUNT(*) FROM source_records').fetchone()[0]==5
 
 
@@ -326,7 +330,7 @@ def test_cli_real_sigint_interrupts_long_sql_without_writes(archive,tmp_path):
     populate(archive,[row()])
     path=Path(archive[1].conn.execute('PRAGMA database_list').fetchone()[2]);before=path.read_bytes()
     script=tmp_path/'cancel_query.py'
-    script.write_text('''import sys,json\nfrom pathlib import Path\nfrom src.scripts import announcement_ledger as cli\nfrom src.scripts.announcement_download.volume import SourceVolume,Volume\nfrom src.scripts.announcement_download.maintenance import LedgerQuery\nfrom src.scripts.announcement_download import volume as mod\nmount=Path(sys.argv[1]);root=Path(sys.argv[2]);db=Path(sys.argv[3])\nmod.sys.platform='darwin'\nmod.os.path.ismount=lambda value:Path(value)==mount\ninfo=dict(MountPoint=str(mount),VolumeUUID='test-external-volume',DeviceIdentifier='disk7s1',Internal=False,VirtualOrPhysical='Physical')\ncli.SourceVolume=lambda output,policy:SourceVolume(output,policy,lambda value:info)\nVolume.ledger_path=lambda self:db\ndef summary(self):\n print('sql_started',flush=True)\n return self.query("WITH RECURSIVE x(n) AS (SELECT 0 UNION ALL SELECT n+1 FROM x WHERE n<100000000) SELECT SUM(n) FROM x")\nLedgerQuery.summary=summary\nraise SystemExit(cli.main(['--output-root',str(root),'summary']))\n''')
+    script.write_text('''import sys,json\nfrom pathlib import Path\nfrom src.scripts import announcement_ledger as cli\nfrom src.ops.runtime.announcement_archive import maintenance as runtime\nfrom src.foundation.clients.announcement_archive.volume import SourceVolume,Volume\nfrom src.foundation.dao.announcement_archive.maintenance import LedgerQuery\nfrom src.foundation.clients.announcement_archive import volume as mod\nmount=Path(sys.argv[1]);root=Path(sys.argv[2]);db=Path(sys.argv[3])\nmod.sys.platform='darwin'\nmod.os.path.ismount=lambda value:Path(value)==mount\ninfo=dict(MountPoint=str(mount),VolumeUUID='test-external-volume',DeviceIdentifier='disk7s1',Internal=False,VirtualOrPhysical='Physical')\nruntime.SourceVolume=lambda output,policy:SourceVolume(output,policy,lambda value:info)\nVolume.ledger_path=lambda self:db\ndef summary(self):\n print('sql_started',flush=True)\n return self.query("WITH RECURSIVE x(n) AS (SELECT 0 UNION ALL SELECT n+1 FROM x WHERE n<100000000) SELECT SUM(n) FROM x")\nLedgerQuery.summary=summary\nraise SystemExit(cli.main(['--output-root',str(root),'summary']))\n''')
     env=dict(os.environ,PYTHONPATH=str(Path.cwd()))
     p=subprocess.Popen([sys.executable,'-B',str(script),str(archive[0].mount),str(archive[2].output_root),str(path)],
                        env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
@@ -397,7 +401,7 @@ def test_main_ledger_symlink_and_wrong_volume_are_readonly_failures(archive,tmp_
 def test_cancel_at_write_gate_does_not_upgrade_old_ledger(archive,tmp_path,monkeypatch,capsys):
     old=tmp_path/'v1.sqlite';seed_v1(old,archive);before=old.read_bytes()
     patch_main(archive,monkeypatch);monkeypatch.setattr(Volume,'ledger_path',lambda self:old)
-    control=archive[5];monkeypatch.setattr(cli,'Control',lambda policy:control)
+    control=archive[5];monkeypatch.setattr(runtime,'Control',lambda policy:control)
     original=Volume.open
     def cancel_after_open(self):
         result=original(self);control.stop.set();return result

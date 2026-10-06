@@ -15,8 +15,8 @@ from .core import Blocked, Control, DownloadPolicy, FileFailed, Retryable, iso_d
 def valid_url(url: str):
     try:
         parts = urlsplit(url)
-        if (parts.scheme not in ('http', 'https') or not parts.hostname or parts.username
-                or parts.password or any(ord(c) < 32 for c in url)):
+        if (parts.scheme not in ('http', 'https') or not parts.hostname or parts.username is not None
+                or parts.password is not None or any(ord(c) < 32 or ord(c) == 127 for c in url)):
             raise ValueError
         parts.port
     except ValueError:
@@ -190,3 +190,31 @@ class Files:
             os.fsync(fd)
             self.ledger.prepared(task['artifact_key'], size, digest.hexdigest())
             self.promote(fd, task)
+
+def verify_one(task, volume, policy: DownloadPolicy, control: Control):
+    """Inspect the known paths without allocate(), mkdir(), or SQLite writes."""
+    control.check()
+    volume.assert_valid(full=True)
+    if not task['relative_path']:
+        return dict(artifact_key=task['artifact_key'], ledger_state=task['state'], final=dict(status='unallocated'), part=None)
+    path = PurePosixPath(task['relative_path'])
+    if path.is_absolute() or '..' in path.parts or path.name in ('', '.'):
+        raise Blocked('unsafe_relative_path')
+    files = Files(volume, None, policy, control)
+    def describe(actual):
+        if actual is None:
+            return dict(status='missing')
+        status = 'matched' if files.matches(task, actual) else ('untracked' if task['sha256'] is None else 'mismatch')
+        return dict(status=status, size=actual[0], sha256=actual[1])
+    final = part = None
+    try:
+        with volume.directory(str(path.parent)) as fd:
+            final = files.fingerprint(fd, path.name)
+            if task['state'] == 'prepared':
+                part = files.fingerprint(fd, files.part_name(task))
+    except FileNotFoundError:
+        pass
+    volume.assert_valid(full=True)
+    return dict(artifact_key=task['artifact_key'], ledger_state=task['state'], relative_path=task['relative_path'],
+                expected_size=task['size'], expected_sha256=task['sha256'], final=describe(final),
+                part=describe(part) if task['state'] == 'prepared' else None)

@@ -269,7 +269,7 @@ docs/
 ## 9. 产品原始材料
 
 - [财势乾坤数据中心与上市公司公告产品方案 v1（产品规则与 Figma R1 已确认；页面/API 未开发）](/Users/congming/github/goldenshare/docs/product/wealth-data-center-announcements-product-plan-v1.md)
-- [财势乾坤数据中心与公告技术方案 v1（Figma/产品对照，设计稿未编码）](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)
+- [财势乾坤数据中心与公告技术方案 v1（Figma/产品对照，DC1完成、网页待开发）](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)
 - [财势乾坤数据中心与公告 LLD v1（查询、后台下载、精确恢复与编码门禁）](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)
 - [三指数次日上涨概率回测小方案 v1](/Users/congming/github/goldenshare/docs/product/index-next-day-probability-backtest-plan-v1.md)
 - [缠论教学：沪深300结构与逐日确认案例 v1](/Users/congming/github/goldenshare/docs/product/chan-theory-csi300-teaching-guide-v1.md)

@@ -310,3 +310,9 @@ CodeGraph query/impact/sync/status覆盖共享metadata/resource/path及新增ass
 2026-10-04 公告P3入口局部复核：bootstrap/anns_d_history_cli → history_plan / history_execution → Prod只读inventory/capture、逐日build及history_audit/promote；仅文件阶段，无Dagster事件。原日更新asset/window/check消费者保持P2合同；新增逐日bootstrap交付checkpoint采用同一day/policy身份供后续check使用。CodeGraph query/impact/sync/status与源码核验通过；无业务子系统依赖矩阵变化。
 
 2026-10-05 公告P4入口局部复核：bootstrap/anns_d_events_cli → event_files（P3月集合proof/P2已交付凭据）→ event_instance/state/events（已有PG、月批事件、独立物化/check/audit）。不调用源、不写业务文件，不替代日asset/job；CodeGraph query/impact/sync/status及源码补核消费者，无跨子系统依赖变化。正式事件样本、全量与启用仍待分阶段批准。
+
+## 2026-10-06局部复核：公告归档DC1
+
+原两个CLI入口路径保持；共享主实现从src/scripts/announcement_download移到Foundation clients/announcement_archive及DAO/announcement_archive；执行循环和单文件修复在Ops runtime/announcement_archive。DAO仅查询/最小持久化，文件核验在Files。链路为CLI→Ops→Foundation，Foundation无反向Ops/Biz/App依赖。旧实现包和旧import清零；core/source原身份/读者逐字节保持，DG/Prod数据合同不改。
+
+台账写入口增量schema3；1/2/3只读、双锁、原子迁移、slot/session/attempt及历史结果幂等完成隔离验收。没有新增Prod任务/队列或网页API/页面；后续App注入端口、Biz查询及后台线程仍待对应阶段。工具使用explore/impact及sync/status，通用同名噪声补读实际SQL/源码/测试。[验收报告](../../reports/wealth_data_center_dc1_acceptance_20261006.md)记录范围与未执行项，不据本局部快照推断正式台账已升级或网页已上线。

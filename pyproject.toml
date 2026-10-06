@@ -34,6 +34,7 @@ dev = [
 ]
 local-lake = [
   "duckdb>=1.3,<2",
+  "pypinyin==0.55.0",
 ]
 
 [project.scripts]

@@ -1,10 +1,12 @@
 # 上市公司公告 PDF 本地归档 LLD v1
 
-更新时间：2026-10-06。状态：**DG 来源迁移、隔离/只读与五 URL 最小真实归档验收通过；台账查询/维护已完成；网页产品化技术设计已落档，尚未编码**。方案提交 777d6901，下载器代码提交 9f8faacf。§1—§10 是现行实现与门禁，隔离/只读证据见 §14，五 URL 真实证据见 §15。独立旧验收台账已升级，默认归档台账尚未升级。§11—§13 为 Prod 历史记录；网页schema3/运行目标见§17，不代表当前实现已经升级。[技术方案](anns-d-pdf-download-technical-plan-v1.md)规定本轮与后续范围。
+更新时间：2026-10-06。当前状态：**DC1共享核心、schema3及CLI消费者迁移完成，隔离验收通过，未提交；网页查询/API/页面待开发。** 最新实现与门禁见§18及网页LLD§14；正式归档台账未升级。
+
+§1—§16保留2026-10-05及更早阶段当时的实现和验收记录：DG schema2读者/五URL归档/台账维护，以及Prod M0—M3历史。独立旧验收台账曾升级到2，不代表此次已迁移到3。§17为网页技术目标引用。[技术方案](anns-d-pdf-download-technical-plan-v1.md)说明后续范围。
 
 ## 1. 改动范围、依据与依赖
 
-旧 Prod 入口 `main → Volume.open → configured_database → Ledger → Source → execute`，已被替换。现行入口为 `main → 输出卷门禁 → DG 来源卷/依赖预检 → Ledger(schema 2) → Source.iter_days → 封存枚举 → 原文件下载/恢复流程`。已完成以下代码与测试迁移；后续五 URL 真实归档范围及结果见 §15。
+旧 Prod 入口 `main → Volume.open → configured_database → Ledger → Source → execute`，已被替换。2026-10-05当时入口为 `main → 输出卷门禁 → DG 来源卷/依赖预检 → Ledger(schema 2) → Source.iter_days → 封存枚举 → 原文件下载/恢复流程`。已完成以下代码与测试迁移；后续五 URL 真实归档范围及结果见 §15。
 
 | 位置 | 迁移目标与影响面 |
 | --- | --- |
@@ -376,7 +378,7 @@ repair 先只读核验既有台账/目标与外盘，才使用原 Volume 的可�
 
 ### 16.4 实施、使用与停止线
 
-新增 [台账入口](../../src/scripts/announcement_ledger.py)、[查询/单文件维护](../../src/scripts/announcement_download/maintenance.py)和[维护专项](../../tests/test_announcement_ledger.py)；Ledger 增加只读打开分支、Volume 提取同一归档禁止路径校验，Files.fingerprint 增加非阻塞打开/同设备核验，原下载入口及 schema 2 不变。故障恢复调用原 Files.allocate/recover，不复制一套文件提升协议。
+新增 [台账入口](../../src/scripts/announcement_ledger.py)、[查询/单文件维护](../../src/foundation/dao/announcement_archive/maintenance.py)和[维护专项](../../tests/test_announcement_ledger.py)；Ledger 增加只读打开分支、Volume 提取同一归档禁止路径校验，Files.fingerprint 增加非阻塞打开/同设备核验，原下载入口及 schema 2 不变。故障恢复调用原 Files.allocate/recover，不复制一套文件提升协议。
 
 在仓库根目录使用现有环境。示例 KEY 必须替换为 files 返回的完整 artifact_key；以下查询默认归档，`--output-root` 可在子命令前选择其他已有归档根：
 
@@ -404,10 +406,20 @@ repair 不请求 PDF，返回前后状态和 redownload 日期/输出根参数�
 
 ## 17. 网页产品化合同引用（2026-10-06；设计稿）
 
-[数据中心技术方案](../../wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)与[网页LLD](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)完整规定公告查询、日期预览、后台运行、停止/继续、精确失败重试、历史、部署差异及Figma24状态。它们是**未来网页扩展**的合同；本文件§1—§16继续记录schema2/CLI的当前实现与历史证据，不直接改为schema3已实现。
+[数据中心技术方案](../../wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)与[网页LLD](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)完整规定公告查询、日期预览、后台运行、停止/继续、精确失败重试、历史、部署差异及Figma24状态。它们是**未来网页扩展**的合同；本文件§1—§16保留schema2/CLI的历史基线；最新DC1基础实现见§18，正式台账未升级。
 
 网页目标迁移完整消费链：download/ledger两个CLI、Source、Ledger、Files、HTTP、maintenance、旧schema fixture及全部公告测试。主实现移出工具目录，保留单一身份/卷门禁/限速/文件提交协议，清零旧import而不新增转发兼容包。schema3新增预览关联、控制/会话/尝试/进度和幂等事实，但保留schema1/2只读识别及原历史数据，不清空/改归档身份。原CLI日期重放保留；网页continue只恢复sealed原集合，retry另建原失败集合的关联批次，不能扩大到同日或同公司其它文件。
 
 网页查询只用成功台账加安全文件存在性判断，不套用CLI verify的逐文件hash；完整公告目录来自按日期可重建的DG投影，不是source_records下载子集。原CLI repair/verify继续独立存在，不因此新增网页维护按钮、本地PDF服务或DG同步入口。
 
 新增配置、schema、端口/API、状态机、SQL、迁移回归、业务/观察事务隔离和真实验收由网页LLD统一定义，本文件不复制第二套字段合同。本轮没有执行迁移/下载/索引写入；依赖矩阵不改，后续实施按网页DC阶段授权。
+
+## 18. DC1实施后的当前入口（2026-10-06）
+
+当前链路 `download_announcements.main → Ops executor.run_cli/execute → Foundation Source/Volume/Files/Downloader/DAO Ledger(schema3)`；台账入口 `announcement_ledger.main → Ops maintenance.run_cli → DAO LedgerQuery / Files.verify_one / Ops repair_one`。旧src/scripts/announcement_download主实现包已删除，旧路径只存在于历史叙述/报告中。CLI参数/退出行为保持，输出中的schema_version反映实际1/2/3。
+
+单写schema3；schema1→3的所有DDL含原1→2部分在同一事务，不存在中间独立提交；schema2同样原子增量到3。只读CLI支持1/2/3不写、不建、不升。调用方持本机execution.lock→外盘archive.lock后才打开写台账；DAO不代替卷门禁或自己取得物理锁。旧事实保留、不备份/清空/重建，未知/损坏schema阻断。只有临时隔离账本升级，正式默认/验收台账未打开升级。
+
+身份/Raw reader逐字节不变；代表标题只在新artifact封存前确定，不重命名旧文件。新增控制slot/session/attempt/receipt及进度字段，已完成run结果不可覆盖；进程退出/观察写失败保留PDF和尝试证据，显式新日期命令可以复用文件。网页原run继续和关联失败批次仍属于DC3，不由CLI日期重放冒充。
+
+[DC1验收报告](../../reports/wealth_data_center_dc1_acceptance_20261006.md)及[机器证据](../../reports/wealth_data_center_dc1_acceptance_20261006.json)：完整387项、最终受影响217项通过，ingestion lint/compileall/CLI help通过；正式Raw五条只读指纹一致，无台账打开/来源写入/PDF请求。依赖矩阵不改，CodeGraph sync/status为up to date；新增pypinyin0.55.0为获准本地可选依赖，名称索引消费者在DC2实现。源站多域名真实归档、实际拔盘、容量预算、网页和正式迁移继续按后续阶段验证。

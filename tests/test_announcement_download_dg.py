@@ -20,14 +20,15 @@ import httpx
 import pytest
 
 from src.scripts import download_announcements as cli
-from src.scripts.announcement_download import source as source_module
-from src.scripts.announcement_download.core import (
+from src.ops.runtime.announcement_archive import executor
+from src.foundation.clients.announcement_archive import source as source_module
+from src.foundation.clients.announcement_archive.core import (
     ANNOUNCEMENT_FIELDS, SOURCE_CONTRACT_VERSION, Blocked, Cancelled, Control,
     DownloadOptions, DownloadPolicy, identity, source_projection,
 )
-from src.scripts.announcement_download.ledger import Ledger
-from src.scripts.announcement_download.source import DayReader, Source
-from src.scripts.announcement_download.volume import SourceVolume
+from src.foundation.dao.announcement_archive.ledger import Ledger
+from src.foundation.clients.announcement_archive.source import DayReader, Source
+from src.foundation.clients.announcement_archive.volume import SourceVolume
 from test_announcement_download_cli import archive, row, run, stage_rows, latest_run, PDF
 
 
@@ -64,7 +65,7 @@ def make_source(archive, options=None, policy=None):
 def source_run(archive, source, handler=None):
     client=httpx.Client(transport=httpx.MockTransport(handler or (lambda _: httpx.Response(200,content=PDF))))
     try:
-        return cli.execute(source.options,source.policy,archive[5],archive[0],archive[1],source,source.scope,
+        return executor.execute(source.options,source.policy,archive[5],archive[0],archive[1],source,source.scope,
                            client,archive[4])
     finally:
         client.close()
@@ -234,8 +235,8 @@ def test_source_read_only_volume_does_not_create_anything(archive,monkeypatch):
     before=set(root.rglob('*'))
     archive[6]['WritableVolume']=False
     with monkeypatch.context() as patch:
-        patch.setattr('src.scripts.announcement_download.volume.os.mkdir',lambda *a,**kw: pytest.fail('source mkdir'))
-        patch.setattr('src.scripts.announcement_download.volume.os.fsync',lambda *a: pytest.fail('source write probe'))
+        patch.setattr('src.foundation.clients.announcement_archive.volume.os.mkdir',lambda *a,**kw: pytest.fail('source mkdir'))
+        patch.setattr('src.foundation.clients.announcement_archive.volume.os.fsync',lambda *a: pytest.fail('source write probe'))
         source=make_source(archive)
         source.close()
     assert set(root.rglob('*'))==before
@@ -279,7 +280,7 @@ def test_v1_migration_reuses_old_pdf_then_deleted_file_downloads(archive,tmp_pat
     ledger=Ledger(path,archive[0].volume_uuid,archive[0].relative_root)
     migrated=(archive[0],ledger,*archive[2:])
     try:
-        assert ledger.conn.execute('SELECT schema_version FROM archive').fetchone()[0]==2
+        assert ledger.conn.execute('SELECT schema_version FROM archive').fetchone()[0]==3
         old=dict(ledger.conn.execute('SELECT * FROM source_records').fetchone())
         assert old['record_key']=='old-raw-hash' and old['legacy_raw_id']==42 and old['metadata']=='{"old":"metadata"}'
         old_run=ledger.conn.execute("SELECT * FROM runs WHERE run_id='old-run'").fetchone()
@@ -323,10 +324,10 @@ def test_migration_failure_rolls_back_all_ddl_and_preserves_old_facts(archive,tm
 def test_unknown_version_and_wrong_archive_are_not_migrated(archive,tmp_path):
     path=tmp_path/'unknown.sqlite';seed_v1(path,archive)
     with pytest.raises(Blocked,match='identity_mismatch'):Ledger(path,'wrong-volume',archive[0].relative_root)
-    with sqlite3.connect(path) as conn:conn.execute('UPDATE archive SET schema_version=3')
+    with sqlite3.connect(path) as conn:conn.execute('UPDATE archive SET schema_version=99')
     with pytest.raises(Blocked,match='version_unsupported'):Ledger(path,archive[0].volume_uuid,archive[0].relative_root)
     with sqlite3.connect(path) as conn:
-        assert conn.execute('SELECT schema_version FROM archive').fetchone()[0]==3
+        assert conn.execute('SELECT schema_version FROM archive').fetchone()[0]==99
         assert conn.execute('SELECT raw_id FROM source_records').fetchone()[0]==42
 
 
@@ -335,8 +336,8 @@ def test_real_query_watchdog_interrupts_and_joins_in_subprocess(cancel):
     script='''
 import threading,time,duckdb
 from datetime import date
-from src.scripts.announcement_download.core import *
-from src.scripts.announcement_download.source import Source,DayReader
+from src.foundation.clients.announcement_archive.core import *
+from src.foundation.clients.announcement_archive.source import Source,DayReader
 p=DownloadPolicy(source_query_timeout_seconds=.1 if not CANCEL else 15)
 c=Control(p,lambda _:None)
 s=Source(DownloadOptions(date(2026,9,30),date(2026,9,30)),p,c)
@@ -392,8 +393,8 @@ def test_main_ignores_database_env_and_never_calls_settings(archive,tmp_path,mon
         def close(self):pass
         def ledger_path(self):return tmp_path/'cli-ledger.sqlite'
         def __getattr__(self,name):return getattr(archive[0],name)
-    monkeypatch.setattr(cli,'Volume',lambda *a:Output())
-    monkeypatch.setattr(cli,'Source',lambda options,policy,control:Source(
+    monkeypatch.setattr(executor,'Volume',lambda *a:Output())
+    monkeypatch.setattr(executor,'Source',lambda options,policy,control:Source(
         options,policy,control,SourceVolume(raw_root(archive),policy,archive[0].inspector)))
     assert cli.main(['--start-date','2026-09-30','--end-date','2026-09-30'])==0
     with sqlite3.connect(tmp_path/'cli-ledger.sqlite') as conn:
@@ -438,7 +439,7 @@ def test_closed_range_does_not_read_neighbor_files_and_no_stock_pool(archive):
 def test_source_can_be_another_verified_external_volume(archive,tmp_path,monkeypatch):
     other=tmp_path/'other-disk';other.mkdir()
     root=other/'data_lake/raw/tushare/anns_d';write_day(root,'2026-09-30',[])
-    monkeypatch.setattr('src.scripts.announcement_download.volume.os.path.ismount',
+    monkeypatch.setattr('src.foundation.clients.announcement_archive.volume.os.path.ismount',
                         lambda path:Path(path) in (other,archive[0].mount))
     info=dict(MountPoint=str(other),VolumeUUID='other-source-volume',DeviceIdentifier='disk-other',
               WritableVolume=False,Internal=False,VirtualOrPhysical='Physical')
@@ -473,7 +474,7 @@ def test_earliest_schema_one_missing_url_counter_is_migrated_atomically(archive,
     ledger=Ledger(path,archive[0].volume_uuid,archive[0].relative_root)
     try:
         assert ledger.conn.execute('SELECT missing_url_count FROM runs').fetchone()[0]==0
-        assert ledger.conn.execute('SELECT schema_version FROM archive').fetchone()[0]==2
+        assert ledger.conn.execute('SELECT schema_version FROM archive').fetchone()[0]==3
         assert ledger.conn.execute('SELECT count(*) FROM artifacts').fetchone()[0]==5
     finally:
         ledger.close()
@@ -499,6 +500,6 @@ def test_frozen_v1_program_refuses_migrated_v2_and_preserves_data(archive,tmp_pa
     with pytest.raises(Blocked,match='archive_identity_mismatch'):
         old(path,archive[0].volume_uuid,archive[0].relative_root)
     with sqlite3.connect(path) as conn:
-        assert conn.execute('SELECT schema_version FROM archive').fetchone()[0]==2
+        assert conn.execute('SELECT schema_version FROM archive').fetchone()[0]==3
         assert conn.execute('SELECT count(*) FROM artifacts').fetchone()[0]==5
     assert final.read_bytes()==PDF

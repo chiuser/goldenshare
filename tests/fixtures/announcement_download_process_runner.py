@@ -11,12 +11,12 @@ from pathlib import Path
 
 import httpx
 
-from src.scripts.download_announcements import execute
-from src.scripts.announcement_download.core import Control, DownloadOptions, DownloadPolicy
-from src.scripts.announcement_download.files import Files
-from src.scripts.announcement_download.ledger import Ledger
-from src.scripts.announcement_download.volume import Volume
-from src.scripts.announcement_download import volume as volume_module
+from src.ops.runtime.announcement_archive.executor import execute
+from src.foundation.clients.announcement_archive.core import Control, DownloadOptions, DownloadPolicy
+from src.foundation.clients.announcement_archive.files import Files
+from src.foundation.dao.announcement_archive.ledger import Ledger
+from src.foundation.clients.announcement_archive.volume import Volume
+from src.foundation.clients.announcement_archive import volume as volume_module
 
 
 PDF = b'%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n'
@@ -48,7 +48,7 @@ def main():
         def __exit__(self,*_): pass
         def __iter__(self):
             if mode == 'query_cancel':
-                from src.scripts.announcement_download.source import Source as RawSource, DayReader
+                from src.foundation.clients.announcement_archive.source import Source as RawSource, DayReader
                 source = RawSource(options, policy, control)
                 reader = DayReader(source, self.day)
                 reader.connection = source.connect()
@@ -91,6 +91,7 @@ def main():
             return original_state(self, key, value, error)
         Ledger.state = state
 
+    Volume.ledger_path = lambda self: root / 'local-state/downloads.sqlite'
     volume = Volume(options.output_root, policy, lambda _: info)
     ledger = None
     try:

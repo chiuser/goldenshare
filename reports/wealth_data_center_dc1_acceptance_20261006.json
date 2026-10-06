@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-06",
+  "branch": "dev-interface",
+  "status": "DC1 implemented; isolated acceptance passed; formal resources untouched",
+  "validation": {
+    "full_regression": {
+      "passed": 387,
+      "seconds": 20.07
+    },
+    "final_affected_regression": {
+      "passed": 217,
+      "seconds": 19.77
+    },
+    "ingestion_lint": "passed",
+    "compileall": "passed",
+    "cli_help": "both passed",
+    "codegraph": "explore/impact; sync/status up to date"
+  },
+  "readonly_source": {
+    "date": "2026-07-26",
+    "records": 5,
+    "artifact_keys": [
+      "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34",
+      "5690d089b11a6f938b57af81289b467c1a6d159ad4cc3a1ea038f58b720df1c2",
+      "f35c7fba020f46a68728cff4768a3a23d070d06866ceff537d150901c230ccf0",
+      "af6b47418faca23a4c152937fd322544b1618c5f0406ac13d2d551899b2d47e2",
+      "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec"
+    ],
+    "source_sha256": "83562daeb1e87b11dd70ab4dd3985df818ce7c411ff1fbf67bb3a86788330104",
+    "source_bytes": 1807,
+    "seconds": 1.211,
+    "pdf_requests": 0,
+    "ledger_opened": false,
+    "source_writes": 0
+  },
+  "dependency": {
+    "package": "pypinyin",
+    "version": "0.55.0",
+    "group": "local-lake",
+    "python": "3.13.5",
+    "environment": "/Users/congming/github/goldenshare/.venv",
+    "installed_packages": [
+      "pypinyin==0.55.0"
+    ],
+    "httpx": "0.28.1",
+    "httpcore": "1.0.9",
+    "samples": {
+      "平安银行": "PAYH",
+      "招商银行": "ZSYH",
+      "深发展A": "SFZA",
+      "重庆银行": "CQYH",
+      "ST平安银行": "STPAYH"
+    }
+  },
+  "unchanged": {
+    "core": true,
+    "source": true
+  },
+  "implementation_sha256": {
+    "src/foundation/clients/announcement_archive/__init__.py": "84a469a30d73440263079844c949d9751c294ac1f9fc2195782903cb09dcdb21",
+    "src/foundation/clients/announcement_archive/core.py": "c50357f12b4a7be3535fd290eb68fe94b710f48caded636bc1199d44c22c4ab2",
+    "src/foundation/clients/announcement_archive/files.py": "510b1efdac6c63f3ad71ff6cfe4bd27f77a128e946f4c8d5a5482b98caccdd63",
+    "src/foundation/clients/announcement_archive/http.py": "471c265956f5ffaa3fe5a8c712b69b87f604757d90fac1f504e3f22621decdfa",
+    "src/foundation/clients/announcement_archive/locking.py": "1627bf10a3bf9cf8180f89bf469b931ae0febc046cf5d162a636350c51801edd",
+    "src/foundation/clients/announcement_archive/source.py": "d57e312f26f48a429bb82c403a519a666a3b8636392ab71ce7036c75b8f67099",
+    "src/foundation/clients/announcement_archive/transport.py": "ce93c73b71b37eee1ff0f65b896a7378aeb2afa942f65dfc227aca7042af191d",
+    "src/foundation/clients/announcement_archive/volume.py": "21872eb147bbae3859abc314dc0571a45691772e29510cf17dae443c8661f866",
+    "src/foundation/dao/announcement_archive/__init__.py": "84a469a30d73440263079844c949d9751c294ac1f9fc2195782903cb09dcdb21",
+    "src/foundation/dao/announcement_archive/ledger.py": "eb3482800ebea4751e83feeaa5da452a8574f868521d4454cac8801b621c0714",
+    "src/foundation/dao/announcement_archive/maintenance.py": "05b4c44eba518b7d51c1fb2331054dc266e15870a3c71dffd91b539ecf7b4951",
+    "src/foundation/dao/announcement_archive/schema.py": "48d7c08dbbae6a41191a2aa5b2ed8830c8ace5dc7793b01a46a32dbc01d55788",
+    "src/ops/runtime/announcement_archive/__init__.py": "84a469a30d73440263079844c949d9751c294ac1f9fc2195782903cb09dcdb21",
+    "src/ops/runtime/announcement_archive/executor.py": "0e3e0fd7f1714f22cb996d092a97a007cbead7e7e0f4a664f25419fe0ee236f5",
+    "src/ops/runtime/announcement_archive/maintenance.py": "66381d1732dddb6b4eb78400c90972af3c778f157e2dc13cc883512593aa2acc",
+    "src/scripts/announcement_ledger.py": "1cb7de0a8dcc0282239c15d52d585b389655ddbdd42a8ab57a5b644ab6a3b66e",
+    "src/scripts/download_announcements.py": "871f54832ae6dc27bbadf0bc3025b077746895fe66222300c580c9b5752f0f21"
+  },
+  "excluded_actions": {
+    "formal_ledger_migrations": 0,
+    "formal_index_writes": 0,
+    "remote_pdf_requests": 0,
+    "prod_writes": 0,
+    "lake_writes": 0,
+    "dagster_actions": 0,
+    "frontend_api_changes": 0,
+    "commits": 0
+  }
+}

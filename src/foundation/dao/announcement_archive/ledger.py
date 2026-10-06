@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import unicodedata
 import uuid
@@ -8,9 +9,12 @@ from dataclasses import asdict
 from datetime import date, timedelta
 from pathlib import Path
 
-from .core import (
+from src.foundation.clients.announcement_archive.core import (
     SOURCE_CONTRACT_VERSION, Blocked, DownloadOptions, DownloadPolicy, source_projection, timestamp,
 )
+
+from src.foundation.clients.announcement_archive.volume import no_symlinks
+from .schema import ADDITIONS, REQUIRED, PRIMARY_KEYS, INDEXES, extend_schema
 
 
 DAY_SCHEMA = """CREATE TABLE run_source_days (
@@ -62,14 +66,19 @@ SCHEMA = (
 class Ledger:
     def __init__(self, path: Path, volume_uuid: str, relative_root: str, *, read_only=False):
         path = Path(path).absolute()
+        no_symlinks(path)
         if read_only:
             if not path.is_file():
                 raise Blocked('archive_ledger_missing')
             self.conn = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=5)
         else:
-            path.parent.mkdir(parents=True, exist_ok=True)
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            if not path.exists():
+                handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+                os.close(handle)
             self.conn = sqlite3.connect(path, timeout=5)
         self.conn.row_factory = sqlite3.Row
+        self.owner_token = uuid.uuid4().hex
         try:
             if read_only:
                 self.conn.execute('PRAGMA query_only=ON')
@@ -86,6 +95,8 @@ class Ledger:
                     self.conn.execute('INSERT INTO archive VALUES(1,2,?,?,?)',
                                       (volume_uuid, relative_root, timestamp()))
                     self.conn.execute('INSERT INTO cooldown(singleton) VALUES(1)')
+                    extend_schema(self.conn)
+                    self._validate_schema(3)
                     self.conn.commit()
                 except BaseException:
                     self.conn.rollback()
@@ -101,16 +112,15 @@ class Ledger:
                 if (existing['volume_uuid'] != volume_uuid or existing['root_relative_path'] != relative_root):
                     raise Blocked('archive_identity_mismatch')
                 version = existing['schema_version']
-                if version not in (1, 2):
+                if version not in (1, 2, 3):
                     raise Blocked('archive_schema_version_unsupported')
                 self._validate_schema(version)
                 if read_only:
                     return
                 self.conn.execute('PRAGMA journal_mode=DELETE')
                 self.conn.execute('PRAGMA synchronous=FULL')
-                if version == 1:
-                    self._upgrade()
-                    self._validate_schema(2)
+                if version < 3:
+                    self._upgrade(version)
         except BaseException:
             self.conn.close()
             raise
@@ -135,6 +145,13 @@ class Ledger:
             required['source_records'] |= {'record_key','legacy_raw_id'}
             required['run_source_days'] = {'run_id','ann_date','state','opened_dev','opened_ino','size','sha256',
                                           'footer_count','records_committed','reason','updated_at'}
+        if version == 3:
+            for table, fields in ADDITIONS.items():
+                required[table] |= {name for name, _ in fields}
+            required.update(REQUIRED)
+        actual_tables = {r[0] for r in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if actual_tables != set(required):
+            raise Blocked('archive_schema_invalid')
         for table, expected in required.items():
             actual = {r[1] for r in self.conn.execute(f'PRAGMA table_info({table})')}
             if version == 1 and table == 'runs' and 'missing_url_count' not in actual:
@@ -142,8 +159,10 @@ class Ledger:
             if actual != expected:
                 raise Blocked('archive_schema_invalid')
         indexes = {'run_pending':['run_id','outcome','artifact_key']}
-        if version == 2:
+        if version >= 2:
             indexes['source_day_state'] = ['run_id','state','ann_date']
+        if version == 3:
+            indexes.update({name:definition[1] for name,definition in INDEXES.items()})
         for index, columns in indexes.items():
             if [r[2] for r in self.conn.execute(f'PRAGMA index_info({index})')] != columns:
                 raise Blocked('archive_schema_invalid')
@@ -151,8 +170,10 @@ class Ledger:
         primary_keys = dict(archive=['singleton'], runs=['run_id'], artifacts=['artifact_key'],
                             source_records=['source_scope',key], run_artifacts=['run_id','artifact_key'],
                             cooldown=['singleton'])
-        if version == 2:
+        if version >= 2:
             primary_keys['run_source_days'] = ['run_id','ann_date']
+        if version == 3:
+            primary_keys.update(PRIMARY_KEYS)
         for table, columns in primary_keys.items():
             pk = sorted((r[5],r[1]) for r in self.conn.execute(f'PRAGMA table_info({table})') if r[5])
             if [column for _,column in pk] != columns:
@@ -167,23 +188,28 @@ class Ledger:
             raise Blocked('archive_schema_invalid')
         if self.conn.execute('SELECT count(*) FROM cooldown WHERE singleton=1').fetchone()[0] != 1:
             raise Blocked('archive_schema_invalid')
+        if version == 3 and self.conn.execute('SELECT count(*) FROM archive_execution WHERE singleton=1').fetchone()[0] != 1:
+            raise Blocked('archive_schema_invalid')
 
-    def _upgrade(self):
+    def _upgrade(self, version):
         self.conn.execute('BEGIN IMMEDIATE')
         try:
-            if 'missing_url_count' not in {r[1] for r in self.conn.execute('PRAGMA table_info(runs)')}:
-                self.conn.execute('ALTER TABLE runs ADD COLUMN missing_url_count INTEGER NOT NULL DEFAULT 0')
-            self.conn.execute('ALTER TABLE runs RENAME COLUMN upper_id TO legacy_upper_id')
-            self.conn.execute('ALTER TABLE runs RENAME COLUMN after_id TO legacy_after_id')
-            self.conn.execute('ALTER TABLE source_records RENAME COLUMN row_key_hash TO record_key')
-            self.conn.execute('ALTER TABLE source_records RENAME COLUMN raw_id TO legacy_raw_id')
-            for name, declaration in RUN_ADDITIONS:
-                self.conn.execute(f'ALTER TABLE runs ADD COLUMN {name} {declaration}')
-            self.conn.execute("UPDATE runs SET source_kind='prod_postgres'")
-            self.conn.execute(DAY_SCHEMA)
-            self.conn.execute('CREATE INDEX source_day_state ON run_source_days(run_id,state,ann_date)')
-            self.conn.execute('UPDATE archive SET schema_version=2 WHERE singleton=1')
-            self._validate_schema(2)
+            if version == 1:
+                if 'missing_url_count' not in {r[1] for r in self.conn.execute('PRAGMA table_info(runs)')}:
+                    self.conn.execute('ALTER TABLE runs ADD COLUMN missing_url_count INTEGER NOT NULL DEFAULT 0')
+                self.conn.execute('ALTER TABLE runs RENAME COLUMN upper_id TO legacy_upper_id')
+                self.conn.execute('ALTER TABLE runs RENAME COLUMN after_id TO legacy_after_id')
+                self.conn.execute('ALTER TABLE source_records RENAME COLUMN row_key_hash TO record_key')
+                self.conn.execute('ALTER TABLE source_records RENAME COLUMN raw_id TO legacy_raw_id')
+                for name, declaration in RUN_ADDITIONS:
+                    self.conn.execute(f'ALTER TABLE runs ADD COLUMN {name} {declaration}')
+                self.conn.execute("UPDATE runs SET source_kind='prod_postgres'")
+                self.conn.execute(DAY_SCHEMA)
+                self.conn.execute('CREATE INDEX source_day_state ON run_source_days(run_id,state,ann_date)')
+                self.conn.execute('UPDATE archive SET schema_version=2 WHERE singleton=1')
+                self._validate_schema(2)
+            extend_schema(self.conn)
+            self._validate_schema(3)
             self.conn.commit()
         except BaseException:
             self.conn.rollback()
@@ -192,9 +218,16 @@ class Ledger:
     def begin_run(self, options: DownloadOptions, scope: str, policy: DownloadPolicy | None = None) -> str:
         run = uuid.uuid4().hex
         with self.conn:
+            active = self.conn.execute('SELECT active_run_id,owner_token FROM archive_execution WHERE singleton=1').fetchone()
+            if active['active_run_id'] and active['owner_token'] == self.owner_token:
+                raise Blocked('archive_already_running')
+            now = timestamp()
+            self.conn.execute("UPDATE attempt_log SET ended_at=?,outcome='interrupted',reason='process_exit_recovered' WHERE ended_at IS NULL", (now,))
+            self.conn.execute("UPDATE run_sessions SET ended_at=?,reason='process_exit_recovered' WHERE ended_at IS NULL", (now,))
+            self.conn.execute("UPDATE runs SET finished_at=?,owner_token=NULL WHERE phase IN ('enumerating','downloading')", (now,))
             self.conn.execute("UPDATE run_source_days SET state='cancelled',reason='process_exit_recovered',updated_at=? "
                               "WHERE state='reading'", (timestamp(),))
-            self.conn.execute("UPDATE runs SET phase='cancelled',reason='process_exit_recovered',updated_at=? "
+            self.conn.execute("UPDATE runs SET phase='interrupted',reason='process_exit_recovered',updated_at=? "
                               "WHERE phase IN ('enumerating','downloading')", (timestamp(),))
             self.conn.execute('INSERT INTO runs(run_id,start_date,end_date,interval_seconds,source_scope,phase,updated_at,'
                               'source_contract_version,source_policy,days_total,legacy_upper_id,legacy_after_id) '
@@ -203,6 +236,11 @@ class Ledger:
                                scope, 'enumerating', timestamp(), SOURCE_CONTRACT_VERSION,
                                json.dumps(asdict(policy or DownloadPolicy()), sort_keys=True),
                                (options.end_date-options.start_date).days+1))
+            self.conn.execute('UPDATE runs SET created_at=?,started_at=?,owner_token=?,heartbeat_at=?,business_updated_at=? WHERE run_id=?',
+                              (now,now,self.owner_token,now,now,run))
+            self.conn.execute('INSERT INTO run_sessions(run_id,session_seq,started_at,owner_token) VALUES(?,1,?,?)', (run,now,self.owner_token))
+            self.conn.execute('UPDATE archive_execution SET active_run_id=?,owner_token=?,heartbeat=?,revision=revision+1 WHERE singleton=1',
+                              (run,self.owner_token,now))
         return run
 
     def begin_day(self, run: str, day: str):
@@ -240,8 +278,9 @@ class Ledger:
                 if previous and previous['last_seen_run'] == run:
                     raise Blocked('source_duplicate_record')
                 if key:
-                    self.conn.execute('INSERT OR IGNORE INTO artifacts(artifact_key,ann_date,ts_code,title,url,updated_at) '
-                                      'VALUES(?,?,?,?,?,?)', (key,iso_day,row['ts_code'],row['title'],row['url'].strip(),timestamp()))
+                    self.conn.execute('INSERT OR IGNORE INTO artifacts(artifact_key,ann_date,ts_code,title,url,updated_at,created_run_id,representative_record_key) '
+                                      'VALUES(?,?,?,?,?,?,?,?)', (key,iso_day,row['ts_code'],row['title'],row['url'].strip(),timestamp(),run,record_key))
+                    self._representative(run, key, record_key, row['title'])
                 self.conn.execute('INSERT INTO source_records(source_scope,record_key,legacy_raw_id,metadata,artifact_key,'
                                   'first_seen_run,last_seen_run) VALUES(?,?,NULL,?,?,?,?) '
                                   'ON CONFLICT(source_scope,record_key) DO UPDATE SET last_seen_run=excluded.last_seen_run',
@@ -249,13 +288,30 @@ class Ledger:
                 if key:
                     added += self.conn.execute('INSERT OR IGNORE INTO run_artifacts(run_id,artifact_key) VALUES(?,?)',
                                                (run,key)).rowcount
+                    self.conn.execute('UPDATE run_artifacts SET representative_record_key=(SELECT representative_record_key FROM artifacts WHERE artifact_key=?) WHERE run_id=? AND artifact_key=?', (key,run,key))
                 else:
                     missing += 1
             self.conn.execute('UPDATE runs SET records_read=records_read+?,artifacts_total=artifacts_total+?,'
-                              'missing_url_count=missing_url_count+?,updated_at=? WHERE run_id=?',
-                              (len(rows),added,missing,timestamp(),run))
+                              'missing_url_count=missing_url_count+?,updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?',
+                              (len(rows),added,missing,timestamp(),timestamp(),run))
             self.conn.execute('UPDATE run_source_days SET records_committed=records_committed+?,updated_at=? '
                               'WHERE run_id=? AND ann_date=?', (len(rows),timestamp(),run,day))
+
+    def _representative(self, run, key, record_key, title):
+        current = self.artifact(key)
+        if current['created_run_id'] != run or current['relative_path'] is not None:
+            return
+        def rank(value, record):
+            from src.foundation.clients.announcement_archive.files import title_name
+            from src.foundation.clients.announcement_archive.core import FileFailed
+            try:
+                title_name(value, '', DownloadPolicy.filename_bytes)
+                return (0, record)
+            except FileFailed:
+                return (1, record)
+        if rank(title, record_key) < rank(current['title'], current['representative_record_key']):
+            self.conn.execute('UPDATE artifacts SET title=?,representative_record_key=? WHERE artifact_key=?',
+                              (title,record_key,key))
 
     def complete_day(self, run: str, day: str, facts: dict):
         with self.conn:
@@ -265,7 +321,7 @@ class Ledger:
                 raise Blocked('source_day_reconciliation')
             self.conn.execute("UPDATE run_source_days SET state='completed',updated_at=? WHERE run_id=? AND ann_date=?",
                               (timestamp(),run,day))
-            self.conn.execute('UPDATE runs SET days_completed=days_completed+1,updated_at=? WHERE run_id=?', (timestamp(),run))
+            self.conn.execute('UPDATE runs SET days_completed=days_completed+1,updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?', (timestamp(),timestamp(),run))
 
     def seal(self, run: str):
         with self.conn:
@@ -284,6 +340,13 @@ class Ledger:
                 self.conn.execute("UPDATE run_source_days SET state=?,reason=?,updated_at=? WHERE run_id=? AND state='reading'",
                                   (phase,reason,timestamp(),run))
             self.conn.execute('UPDATE runs SET phase=?,reason=?,updated_at=? WHERE run_id=?', (phase,reason,timestamp(),run))
+            if phase in ('completed','partial_failed','cancelled','blocked','stopped','interrupted'):
+                now = timestamp()
+                self.conn.execute('UPDATE runs SET finished_at=?,revision=revision+1 WHERE run_id=?', (now,run))
+                self.conn.execute('UPDATE attempt_log SET ended_at=?,outcome=?,reason=? WHERE run_id=? AND ended_at IS NULL', (now,phase,reason,run))
+                self.conn.execute('UPDATE run_sessions SET ended_at=?,reason=? WHERE run_id=? AND ended_at IS NULL', (now,reason or phase,run))
+                self.conn.execute('UPDATE archive_execution SET active_run_id=NULL,owner_token=NULL,heartbeat=?,revision=revision+1 WHERE singleton=1 AND active_run_id=?', (now,run))
+                self.conn.execute('UPDATE run_artifacts SET claimed_owner=NULL,claimed_at=NULL WHERE run_id=? AND outcome IS NULL', (run,))
 
     def next_task(self, run: str) -> dict | None:
         info = self.conn.execute('SELECT enumeration_sealed,phase FROM runs WHERE run_id=?', (run,)).fetchone()
@@ -291,6 +354,11 @@ class Ledger:
             raise Blocked('source_enumeration_not_sealed')
         row = self.conn.execute('SELECT a.* FROM artifacts a JOIN run_artifacts r USING(artifact_key) '
                                 'WHERE r.run_id=? AND r.outcome IS NULL ORDER BY r.artifact_key LIMIT 1', (run,)).fetchone()
+        if row:
+            with self.conn:
+                self.conn.execute('UPDATE run_artifacts SET claimed_owner=?,claimed_at=? WHERE run_id=? AND artifact_key=? AND outcome IS NULL',
+                                  (self.owner_token,timestamp(),run,row['artifact_key']))
+                self.conn.execute('UPDATE runs SET current_artifact_key=? WHERE run_id=?', (row['artifact_key'],run))
         return dict(row) if row else None
 
     def artifact(self, key: str) -> dict:
@@ -314,6 +382,17 @@ class Ledger:
         with self.conn:
             self.conn.execute('UPDATE artifacts SET attempts=attempts+1,updated_at=? WHERE artifact_key=?', (timestamp(), key))
             self.conn.execute('UPDATE run_artifacts SET attempts=attempts+1 WHERE run_id=? AND artifact_key=?', (run, key))
+            sequence = self.conn.execute('SELECT COALESCE(MAX(attempt_seq),0)+1 FROM attempt_log WHERE run_id=? AND artifact_key=?', (run,key)).fetchone()[0]
+            session = self.conn.execute('SELECT MAX(session_seq) FROM run_sessions WHERE run_id=?', (run,)).fetchone()[0]
+            self.conn.execute('INSERT INTO attempt_log(run_id,artifact_key,attempt_seq,session_seq,started_at) VALUES(?,?,?,?,?)',
+                              (run,key,sequence,session,timestamp()))
+            self.conn.execute('UPDATE runs SET attempt_number=? WHERE run_id=?', (sequence,run))
+
+    def finish_attempt(self, run, key, outcome, reason=None, http_status=None, received=0):
+        with self.conn:
+            self.conn.execute('UPDATE attempt_log SET ended_at=?,outcome=?,reason=?,http_status=?,bytes=? WHERE run_id=? AND artifact_key=? AND ended_at IS NULL',
+                              (timestamp(),outcome,reason,http_status,received,run,key))
+
 
     def prepared(self, key: str, size: int, digest: str):
         with self.conn:
@@ -328,11 +407,11 @@ class Ledger:
                                          (run, key)).fetchone()[0]
             if previous == outcome:
                 return
-            self.conn.execute('UPDATE run_artifacts SET outcome=? WHERE run_id=? AND artifact_key=?', (outcome, run, key))
             if previous:
-                self.conn.execute(f'UPDATE runs SET {columns[previous]}={columns[previous]}-1 WHERE run_id=?', (run,))
-            self.conn.execute(f'UPDATE runs SET {column}={column}+1,completed_count=completed_count+?,updated_at=? WHERE run_id=?',
-                              (0 if previous else 1, timestamp(), run))
+                raise Blocked('run_result_already_final')
+            self.conn.execute('UPDATE run_artifacts SET outcome=?,claimed_owner=NULL,claimed_at=NULL WHERE run_id=? AND artifact_key=?', (outcome, run, key))
+            self.conn.execute(f'UPDATE runs SET {column}={column}+1,completed_count=completed_count+?,updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?',
+                              (0 if previous else 1, timestamp(), timestamp(), run))
 
     def stats(self, run: str) -> dict:
         counters = self.conn.execute('SELECT * FROM runs WHERE run_id=?', (run,)).fetchone()
