@@ -109,6 +109,12 @@ INTEGRATION_SOURCE_FILES = (
 )
 # Frozen exact source inventory for full consumer/governance discovery.
 CONSUMER_SOURCE_FILES = (
+    # Moneyflow candidate modules: exact read-only discovery/import closure.
+    "defs/checks/moneyflow.py",
+    "defs/run_contracts/moneyflow.py",
+    "defs/source_readiness/moneyflow.py",
+    "defs/io/moneyflow_raw_writer.py",
+    "defs/io/moneyflow_silver_writer.py",
     # Current unrelated announcement sources: read-only AST inventory, no execution grant.
     "defs/anns_d_checkpoint.py",
     "defs/anns_d_contract.py",

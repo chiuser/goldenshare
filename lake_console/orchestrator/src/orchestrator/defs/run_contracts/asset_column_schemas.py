@@ -1002,3 +1002,28 @@ def _monthly_schema(source):
 
 RAW_STK_PERIOD_BAR_MONTH_SCHEMA = _monthly_schema(StockMonthlySource.PRIMARY_UNADJUSTED)
 RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA = _monthly_schema(StockMonthlySource.PRIMARY_ADJUSTED)
+
+
+RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA = (
+    ColumnContract("trade_date", "VARCHAR", "原始交易日YYYYMMDD，不得为空"),
+    ColumnContract("close_sh", "DECIMAL(18,4)", "上证收盘指数（点），允许NULL"),
+    ColumnContract("pct_change_sh", "DECIMAL(10,4)", "涨跌幅或净占比（%），允许NULL，保留源值"),
+    ColumnContract("close_sz", "DECIMAL(18,4)", "深证收盘指数（点），允许NULL"),
+    ColumnContract("pct_change_sz", "DECIMAL(10,4)", "涨跌幅或净占比（%），允许NULL，保留源值"),
+    ColumnContract("net_amount", "DECIMAL(24,4)", "源净流入金额（元），允许NULL和负值，不重算"),
+    ColumnContract("net_amount_rate", "DECIMAL(10,4)", "涨跌幅或净占比（%），允许NULL，保留源值"),
+    ColumnContract("buy_elg_amount", "DECIMAL(24,4)", "源净流入金额（元），允许NULL和负值，不重算"),
+    ColumnContract("buy_elg_amount_rate", "DECIMAL(10,4)", "涨跌幅或净占比（%），允许NULL，保留源值"),
+    ColumnContract("buy_lg_amount", "DECIMAL(24,4)", "源净流入金额（元），允许NULL和负值，不重算"),
+    ColumnContract("buy_lg_amount_rate", "DECIMAL(10,4)", "涨跌幅或净占比（%），允许NULL，保留源值"),
+    ColumnContract("buy_md_amount", "DECIMAL(24,4)", "源净流入金额（元），允许NULL和负值，不重算"),
+    ColumnContract("buy_md_amount_rate", "DECIMAL(10,4)", "涨跌幅或净占比（%），允许NULL，保留源值"),
+    ColumnContract("buy_sm_amount", "DECIMAL(24,4)", "源净流入金额（元），允许NULL和负值，不重算"),
+    ColumnContract("buy_sm_amount_rate", "DECIMAL(10,4)", "涨跌幅或净占比（%），允许NULL，保留源值"),
+)
+
+SILVER_MONEYFLOW_MKT_DC_SCHEMA = tuple(
+    ColumnContract(column.name, "DATE", "标准化交易日，不得为空")
+    if column.name == "trade_date" else column
+    for column in RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA
+)
