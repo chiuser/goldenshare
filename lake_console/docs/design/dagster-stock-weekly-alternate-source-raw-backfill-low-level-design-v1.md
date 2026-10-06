@@ -11,8 +11,8 @@
 | 历史bootstrap及事件补录 | M5–M8已完成，沿原验收记录 | 保留已查无源、身份未决及复权未核验的逐键台账 |
 | 2026-10-02两主源新增周更新 | 已通过；各5565行、共2物化/6检查，[正常交付](../../../reports/stock_week_m9_recovery_execution_20261006.md) | 不重复下载或改写已交付文件 |
 | 同意图幂等重放 | 已通过；零新增源请求，共2物化/6检查，[重放验收](../../../reports/stock_week_m9_replay_execution_20261006.md) | 正式数据、audit/receipt不变；提升checkpoint可按现行代码刷新verified时间 |
-| 主动取消与同意图续跑 | 尚未执行，[下一阶段条件](../../../reports/stock_week_m9_next_stage_readiness_20261006.json) | 优先2026-10-09真实完成周，源与上游就绪后冻结执行卡；核对启动/取消入口和真实进程退出，不删除已完成意图造场景 |
-| 每日19:30自动更新 | 未启用 | 取消/恢复等验收收口后独立启用；两主源串行，备用仅按明确手动任务执行 |
+| 主动取消与同意图续跑 | 正式尚未执行；[入口审计/隔离准备已完成](../../../reports/stock_period_update_acceptance_readiness_20261006.md) | 执行卡见本文末节；2026-10-09真实完成周、源与上游就绪后刷新范围批准执行，不删除已完成意图造场景 |
+| 每日19:30自动更新 | 未启用；24项周/月sensor隔离检查通过 | 取消/恢复等验收收口后独立启用并验证真实tick/交付；两主源串行，备用仅按明确手动任务执行 |
 
 ## 1. 范围、依据和硬口径
 
@@ -799,7 +799,7 @@ v2计划真实取消在封存首unit后发生，续跑复用receipt；最终69�
 
 前后复权未恢复：另存3132周期×qfq/hfq=6264条记录，引用2026-10-02的stk_week_month_adj对象历史成功空响应，checked_at保留原日期，reason明确本轮未刷新该源。weekly响应不能证明qfq/hfq已补；并不宣称全体211退市、251身份候选或全市场完整。
 
-CLI及范围冻结正反例、source监督/取消、candidate/promoter/边界、定义/static gates三组测试46/50/162通过（含重复测试，不累加）；补充成功空候选证据校验后CLI17项再通过；Ruff默认及致命错误基线、文档integrity、diff检查、CodeGraph sync/status通过。依据M6执行卡及接入模板7A，本轮只涉及离线CLI，未改字段、asset/catalog、API/前端或子系统依赖。详见[M6验收](../../../reports/stock_week_m6_assessment_20261003.md)、[独立对账](../../../reports/stock_week_m6_reconciliation_20261003.json)、[逐key台账](../../../reports/stock_week_m6_key_outcomes_20261003.csv)及[复权残余](../../../reports/stock_week_m6_adjusted_residual_keys_20261003.csv)。M6完成；M7为退市推广与身份分支，M8才是事件补录（以§15为准，之前附录中的阶段号混写不作为执行依据）。本轮未提交或推送。
+CLI及范围冻结正反例、source监督/取消、candidate/promoter/边界、定义/static gates三组测试46/50/162通过（含重复测试，不累加）；补充成功空候选证据校验后CLI17项再通过；Ruff默认及致命错误基线、文档integrity、diff检查、CodeGraph sync/status通过。依据M6执行卡及接入模板7A，本轮只涉及离线CLI，未改字段、asset/catalog、API/前端或子系统依赖。详见[M6验收](../../../reports/stock_week_m6_assessment_20261003.md)、[独立对账](../../../reports/stock_week_m6_reconciliation_20261003.json)、[逐key台账](../../../reports/stock_week_m6_key_outcomes_20261003.csv)及[复权残余](../../../reports/stock_week_m6_adjusted_residual_keys_20261003.csv)。M6完成；M7为退市推广与身份分支，M8才是事件补录（以§15为准，之前附录中的阶段号混写不作为执行依据）。本轮准备记录随本次提交；未推送。
 
 ## 31. M7 退市推广与身份分支执行卡（执行前）
 
@@ -1097,3 +1097,44 @@ exception note固定格式为 `source_diagnostic=<category>`。复制helper只�
 管理员要求把月线真实源预检与正式job/重放合并：一次不取源的当前上游/目标预检后，现行job内直接源页捕获→完整字段比对→真实物化/check；省去额外全市场预下载。2026-09两源各5571行，四次串行正式run（初次+同意图重放）均SUCCESS，源请求共2次/重放增量0，4物化+12准确绑定的passing blocking checks；两源ready，原Raw文件及上游/历史基线不变，两意图封存证明重放不变。无差异、reject、覆盖、备用或sensor启用；没有改代码/字段/配置合同或依赖矩阵。
 
 [合并执行与验收](../../../reports/stock_month_m10f_combined_execution_20261006.md)记录全部命令、冻结范围、预算、逐run证据和最终集合对账；月线LLD同步当前执行口径。此为已有完整月份更新链路验收，不代替10月结束后的新月创建、主动取消/同意图恢复或每日19:30上线验收。M9与M10.F未整体完成，该阶段执行记录与方案/LLD随此次文档提交；未推送。
+
+## 后续真实验收执行卡（2026-10-06准备完成）
+
+本节记录已批准的后续验收准备，不授权立即执行正式任务或启用调度。上轮周线重放、月线合并验收及LLD状态更新已提交611d060d；本轮只补隔离测试、运行入口审计和执行卡，随本次提交；未推送。共用启动/取消/恢复/19:30操作标准见[准备报告](../../../reports/stock_period_update_acceptance_readiness_20261006.md)，[当前实例快照](../../../reports/stock_period_update_runtime_readiness_20261006.json)记录2026-10-06 08:39状态。
+
+### 已完成与不能提前验收的边界
+
+真实SIGINT/DagsterExecutionInterruptedError中断时SDK子进程退出的新增2例通过；结合原有周/月页封存取消与退出恢复等共8项通过，两个sensor隔离门禁24项通过。正式代码、共享contract、配置及源参数不变。原来的CLI run缺GRPC_INFO_TAG，因此后续从正式页面Launchpad启动和Terminate；不能只写CANCELING即算取消成功。当前3000端点拒绝连接、PG可读、无周/月pending任务；在线location/repository/launcher仍须运营恢复既有服务后只读确认，本轮没有启动服务。
+
+### 周线范围、配置与成本
+
+| 项目 | 后续刷新/执行口径 |
+| --- | --- |
+| 候选周期 | 2026-10-09，最早收盘之后；还须Tushare发布及实际开市日线/checks就绪。10月8/9日开市来自前轮日历证据，执行前重新核实；源未就绪就延期，不改周期/日期造数据。 |
+| 入口 | 在线正式location/repository的Launchpad；实际名称、版本、launcher与daemon健康须刷新，不能把默认模块名当在线名称。 |
+| 未复权 | raw_stk_period_bar_week_update_job / raw_tushare_stk_period_bar_week |
+| 复权 | raw_stk_period_bar_adj_week_update_job / raw_tushare_stk_period_bar_adj_week |
+| 目标 | /Volumes/datasource/data_lake/raw/tushare/stk_period_bar_week/week_end=2026-10-09/part-000.parquet 与 stk_period_bar_adj_week 同结构；路径按现行paths.py核验。 |
+| staging | /Volumes/datasource/data_lake_staging/stock_weekly_raw/<plan_hash>/assemblies/update-<unit_id>；预检按实际D和既有policy冻结，不预创建目录。 |
+| 日期 | 初次真实执行上海日期D；两源本次分别固定D，取消后的新run沿各自初始D恢复，跨日也不换意图；不省略automatic_intent_date，否则不是可恢复的更新意图。 |
+| 输入/请求 | 全市场两个主源、无code_list/备用；最多5日线/50000参考行，6000行/页/4页、每页3尝试，每源取消+续跑共享12次调用上限。最多每源10000行/1正式文件；512MiB/2线程/2GiB spill。 |
+| 事件/读回 | 每源成功完整job为1物化+3准确绑定的passing blocking checks；取消/失败生命周期单列实测，候选校验后原子提升，保留已提交文件。 |
+
+Launchpad选分区2026-10-09，完整job含本源asset和全部3个blocking checks。以下为配置模板，D须换成当次真实日期才能执行；不是现在可执行的冻结命令。
+
+```yaml
+ops:
+  raw_tushare_stk_period_bar_week:
+    config:
+      automatic_intent_date: 'D'
+```
+
+复权job配置只将asset键替换为raw_tushare_stk_period_bar_adj_week，其他口径相同。配置来自现行build_stock_weekly_update_job_run_config，不新增运营参数或隐式备用开关。
+
+### 执行顺序与收口
+
+先冻结只读上游/目标/分区/剩余预算/空闲证据及精确提交、取消范围，经该阶段批准后：未复权启动→在真实未完成窗口取消→CANCELED和资源退出读回→原配置完整job恢复→数据/3checks验收→同意图重放；再独立处理复权。各源完成程度分别记账，错过取消窗口记未覆盖，不删除已经完成的意图重新制造窗口。
+
+取消前已封存页应在恢复时不再下载；未封存页沿原尝试余额重取，不清账本、不提额、不更换D。若取消发生在提升后，只证明提交后取消，未完成单元续跑继续待验收。错误和异值保留证据，revision_required不覆盖、不自动调用weekly备用。每源留存启动入口/gRPC标记存在性、run状态/时间、进程退出、receipt/hash、源调用增量和准确物化/check绑定，不能用隔离测试替代这些证据。
+
+两个主源取消/恢复与新周数据验收收口后，单独启用raw_stock_weekly_update_job_sensor，Asia/Shanghai每日19:30开始、最小tick60秒。当前history_verified_through=2026-09-25由既有逻辑逐周核验并推进，不擅改cursor跳到最大日期；周线可独立上线，不等月线。启用后需实际tick/run/文件/检查证据；无缺口时skip仅证明调度在运行，自动提交交付仍等下个真实缺失周期。M9在这些未覆盖项关闭前保持未完成。

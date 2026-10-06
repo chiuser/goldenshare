@@ -1,0 +1,69 @@
+{
+  "as_of": "2026-10-06T08:39:22.112280+08:00",
+  "read_only": true,
+  "endpoint": "http://127.0.0.1:3000/graphql",
+  "query": "query PeriodReadiness {\n  instance { runLauncher { name } }\n  workspaceOrError { __typename ... on Workspace {\n    locationEntries { name loadStatus versionKey updatedTimestamp\n      locationOrLoadError { __typename ... on RepositoryLocation {\n        name serverId repositories { name jobs { name }\n          sensors { name defaultStatus sensorState { status typeSpecificData {\n            ... on SensorData { lastCursor lastTickTimestamp }\n          } } }\n        }\n      } }\n    }\n  } }\n}",
+  "http_error_type": "URLError",
+  "http_reason_type": "ConnectionRefusedError",
+  "http_reason_errno": 61,
+  "configured_runtime": {
+    "run_launcher": null,
+    "run_coordinator": {
+      "module": "dagster.core.run_coordinator",
+      "class": "QueuedRunCoordinator"
+    },
+    "run_monitoring": {
+      "enabled": true,
+      "free_slots_after_run_end_seconds": 300
+    },
+    "run_retries": null,
+    "concurrency": {
+      "runs": {
+        "max_concurrent_runs": 1
+      },
+      "pools": {
+        "granularity": "run"
+      }
+    }
+  },
+  "run_launcher_config_note": "Absent explicit launcher uses installed DefaultRunLauncher; live launcher not confirmed if HTTP unavailable.",
+  "instance": {
+    "home": "/Users/congming/.goldenshare/dagster_home",
+    "config_sha256": "27860ab1b63b33a07c4425177237d374ed55b9e3fab29491fd6dfae344d02049",
+    "artifact_root": "/Users/congming/.goldenshare/dagster_artifacts",
+    "storage": {
+      "host": "localhost",
+      "port": 5432,
+      "database": "goldenshare_dagster",
+      "username": "congming"
+    }
+  },
+  "stored_period_sensors": [],
+  "latest_period_runs": [
+    {
+      "job": "raw_stk_period_bar_week_update_job",
+      "run_id": "bf98de39-0616-4dd1-83e0-e350c07df7e7",
+      "status": "SUCCESS",
+      "grpc_termination_tag_present": false
+    },
+    {
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "run_id": "2e327e73-ffca-44f4-baef-327fd5704126",
+      "status": "SUCCESS",
+      "grpc_termination_tag_present": false
+    },
+    {
+      "job": "raw_stk_period_bar_month_update_job",
+      "run_id": "054854f0-441a-4ce7-8487-616785ecb62b",
+      "status": "SUCCESS",
+      "grpc_termination_tag_present": false
+    },
+    {
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "run_id": "4a2e3c8d-513a-4996-9ca3-58aa74bd1251",
+      "status": "SUCCESS",
+      "grpc_termination_tag_present": false
+    }
+  ],
+  "pending_period_runs": []
+}

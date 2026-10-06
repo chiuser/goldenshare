@@ -11,8 +11,8 @@
 | 历史bootstrap及事件补录 | M10.E已完成；2010-01至2026-09两源402资产分区，沿原全量与事件验收 | 不重复全量bootstrap或补录事件 |
 | 身份误阻断 | 已修复并通过真实只读门禁；[修复验收](../../../reports/stock_month_m10f_identity_fix_20261005.md) | 保留身份与Raw历史，不专项处理T代码 |
 | 2026-09真实更新及幂等重放 | 已通过；两源各5571行，四run/4物化/12检查，源共2次且重放增量0；[合并验收](../../../reports/stock_month_m10f_combined_execution_20261006.md)、[最终对账](../../../reports/stock_month_m10f_combined_final_audit_20261006.json) | 本地预检不额外下载，job内全字段同值校验；有异值则revision_required停止，原文件不覆盖 |
-| 新月份创建及主动取消/续跑 | 尚未完成 | 10月结束且源/上游就绪后验证新月交付；取消须选真实未完成意图和匹配的运行入口，沿同一意图恢复 |
-| 每日19:30自动更新 | 未启用 | 其余验收收口后独立启用，不使用自动备用源 |
+| 新月份创建及主动取消/续跑 | 正式尚未完成；[入口审计/隔离准备已完成](../../../reports/stock_period_update_acceptance_readiness_20261006.md) | 执行卡见本文末节；10月结束且源/上游就绪后刷新范围批准执行；取消选真实未完成意图，沿同一意图恢复 |
+| 每日19:30自动更新 | 未启用；24项周/月sensor隔离检查通过 | 其余验收收口后独立启用并验证真实tick/交付，不使用自动备用源 |
 
 ## 1. 阶段边界与已确认口径
 
@@ -350,3 +350,48 @@ freeze_month_references的全表检查保留非空/唯一/预算/整文件hash�
 按管理员合并步骤要求，source-free预检通过后，由现行两个主源job直接拉取2026-09完整月并与既有Raw全字段比对；每源成功读回后沿实际2026-10-06原意图重放。四run均SUCCESS，每源5571行，两源合计11142行，实际源请求总2次、重放新增0次；4物化及12个blocking checks全部准确绑定并通过，两源最终ready。正式文件字节/逻辑hash保持，两意图各10份封存文件重放前后全不变，上游参考/绑定及历史基线不变。没有reject、差异、备用源、正式数据改写或调度启用。四run累计实测15.188秒，不含CLI/审计/编排，未测RSS/spill峰值。
 
 [执行与验收报告](../../../reports/stock_month_m10f_combined_execution_20261006.md)及[最终对账](../../../reports/stock_month_m10f_combined_final_audit_20261006.json)保存逐run、全字段、账本与读回证据。没有改正式代码/配置/contract或子系统边界，本阶段执行记录随此次文档提交；未推送。既有月份真实更新及幂等验收通过，不等于M10.F整体完成：新增月份创建、主动取消/续跑、正式launcher及每日19:30启用仍待对应阶段；周线M9待办不改变。
+
+## 后续真实验收执行卡（2026-10-06准备完成）
+
+本节记录已批准的后续准备，不授权现在启动正式任务或启用调度。上轮九月合并验收、周线重放及LLD更新已提交611d060d；本轮只补隔离测试、入口审计与执行卡，随本次提交；未推送。[共用准备报告](../../../reports/stock_period_update_acceptance_readiness_20261006.md)给出启动/取消/同意图恢复/19:30操作及关闭标准，[运行快照](../../../reports/stock_period_update_runtime_readiness_20261006.json)记录2026-10-06 08:39事实。
+
+### 已完成与待实际验证
+
+新增普通SIGINT和Dagster执行中断清理SDK子进程的2例通过；结合现有周/月封存页取消/退出恢复等共8项通过，两个sensor门禁24项通过。当前两源九月更新和重放已验收，不重复拉取；这些证据不替代新月实际创建或正式launcher取消。
+
+现有CLI run没有GRPC_INFO_TAG，后续改用正式页面Launchpad启动和Terminate；这只是选择已存在的运行入口，没有修改job/executor/API。两个月线job仍使用in_process_executor，由正式launcher另起run进程。3000端点当前拒绝连接，PG可读且无周/月pending；在线location/repository、加载版本、launcher和daemon健康待运营恢复既有服务后刷新，不推断已上线。
+
+### 月线范围、配置与成本
+
+| 项目 | 后续刷新/执行口径 |
+| --- | --- |
+| 候选周期 | 2026-10；最早2026-11-01起且Tushare已发布、全月开市日线/身份/准确上游checks就绪，日历重新核实。11月1日到来本身不证明源就绪。 |
+| 日期字段 | 分区2026-10；源沿现行自然月末坐标20261031，保持源trade_date/end_date，不改为最后交易日；2020-02仅28日的历史例外不变。 |
+| 未复权 | raw_stk_period_bar_month_update_job / raw_tushare_stk_period_bar_month |
+| 复权 | raw_stk_period_bar_adj_month_update_job / raw_tushare_stk_period_bar_adj_month |
+| 目标 | /Volumes/datasource/data_lake/raw/tushare/stk_period_bar_month/month=2026-10/data.parquet 与 stk_period_bar_adj_month 同结构；路径按现行paths.py核验。 |
+| staging | /Volumes/datasource/data_lake_staging/stock_monthly_raw/updates/<intent_hash>；hash含原意图日期、目标根、policy/schema/io，执行前由既有代码冻结，不预创建。 |
+| 日期配置 | 初始执行真实上海日期D，不省略automatic_intent_date；续跑保留初始D，即使跨日run ID改变。月线execution_id在自动意图下归一为unit_id，从同目录继续，不生成另一个人工意图。 |
+| 读取/写入 | 最多31日线/320000参考行，现有身份全表有界hash及结构检查、实际引用的格式/confirmed门禁保持；每源最多10000行/1正式文件；512MiB/2线程/2GiB spill。 |
+| 请求/事件 | 6000行/页、最多4页、每页3尝试，取消+续跑共用每源12次上限，两源最多24次；每源成功完整job为1物化+3准确绑定passing checks。取消/失败事件数量实测，不用runless补绿。 |
+
+正式页面确认在线location/repository名称、版本和launcher，Launchpad选分区2026-10及完整job全部检查。D换成实际初始执行日期后才能形成可批准执行清单；现在不预注册新月分区。
+
+```yaml
+ops:
+  raw_tushare_stk_period_bar_month:
+    config:
+      automatic_intent_date: 'D'
+```
+
+复权job只替换asset键为raw_tushare_stk_period_bar_adj_month。沿build_stock_monthly_update_job_run_config，不新增force、股票池、备用或覆盖参数。
+
+### 合并新月份与取消/恢复验收，减少重复取源
+
+一次source-free上游/目标预检，冻结新月文件不存在、分区注册范围、剩余预算、基线和空闲证据；源就绪通过现行job实际请求/验证，不额外做全市场预下载。经该阶段批准后，逐源执行：Launchpad启动→真实未完成窗口取消→CANCELED与资源退出核验→同一初始D完整job恢复→新月候选校验/原子创建→全字段源对账/3checks→同意图重放。各源独立记账，不因另一源失败回滚已提交文件。
+
+优先在页receipt封存后、正式提升前取消；月线当前约一页，窗口可能很短，任务先完成就记录该源取消未覆盖，不能清receipt、改page_limit、加延迟或换D造场景。只在采集中取消的结果不证明封存页复用；提升后取消不证明未完成单元恢复。已封存页不重取，未封存页按持久化尝试余额重取；失败或异值保留原文件/账本并停下审阅。
+
+最终每源需真实run SUCCESS、新月文件、schema/键/日期/全字段canonical与delivery proof一致、3checks绑定本次准确物化且readiness ready；取消/恢复另保存run终态、进程退出、receipt/hash和源调用增量。新增月正常成功不能替代取消验收，既有九月同值成功不能替代新增月原子创建。
+
+新月及两主源取消/恢复收口后，单独启用raw_stock_monthly_update_job_sensor，Asia/Shanghai每日19:30开始、最小tick60秒；history_verified_through=2026-09由现有逻辑逐月校验推进，不手写cursor跳过欠账。须保留真实窗口tick、run key/config、串行提交及物化/check证据；没有缺口的skip不等于实际自动交付已验收。自动备用禁止、手动源仍按显式任务范围执行。M10.F在待办关闭前仍未整体完成；周线可先独立收口和启用。

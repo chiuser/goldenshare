@@ -1,4 +1,6 @@
 import multiprocessing
+import os
+import signal
 import traceback
 from dataclasses import replace
 from threading import Event, Timer
@@ -6,6 +8,8 @@ from time import monotonic
 
 import duckdb
 import pytest
+from dagster._core.errors import DagsterExecutionInterruptedError
+from dagster._utils.interrupts import raise_interrupts_as
 
 from orchestrator.defs.bootstrap.stock_weekly_capture import (
     WeeklyCaptureError,
@@ -91,6 +95,39 @@ def test_cancel_running_worker_kills_process():
     finally:
         timer.join()
     assert not multiprocessing.active_children()
+
+
+@pytest.mark.parametrize("error_type", [KeyboardInterrupt, DagsterExecutionInterruptedError])
+def test_execution_interrupt_reaps_source_worker(error_type):
+    """A real SIGINT unwinds the shared supervisor and leaves no SDK child."""
+    plan = weekly_plan()
+    before = {child.pid for child in multiprocessing.active_children()}
+    interrupted_pids = set()
+    original_handler = signal.getsignal(signal.SIGINT)
+    original_term_handler = signal.getsignal(signal.SIGTERM)
+
+    def interrupt_after_spawn():
+        interrupted_pids.update(
+            child.pid for child in multiprocessing.active_children() if child.pid not in before
+        )
+        assert interrupted_pids
+        os.kill(os.getpid(), signal.SIGINT)
+
+    try:
+        with pytest.raises(error_type), raise_interrupts_as(error_type):
+            fetch_weekly_supervised(
+                StaticWorker("blocked"),
+                plan.units[0],
+                plan.budget,
+                lambda: False,
+                interrupt_after_spawn,
+            )
+    finally:
+        # Dagster also maps SIGTERM to SIGINT; keep this test's handlers isolated.
+        signal.signal(signal.SIGTERM, original_term_handler)
+
+    assert signal.getsignal(signal.SIGINT) == original_handler
+    assert {child.pid for child in multiprocessing.active_children()} == before
 
 
 def test_success_empty_has_schema_and_receipt(tmp_path):
