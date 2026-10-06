@@ -1,5 +1,7 @@
 # 周线/月线更新：当前准备完成与后续真实验收清单
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-06阶段收尾说明：本报告保留当时审计/准备事实；本需求已按管理员决定暂时结束。当前开发及数据交付结果、未来日期/条件和恢复入口见[收尾记录](stock_period_raw_closeout_20261006.md)。后续执行卡继续有效，但没有自动启用授权；旧时刻服务状态不作为执行时承诺。
 
 2026-10-06，Asia/Shanghai。依据管理员“把现在能做的推进做完，需要后续验证的，在文档中记录清晰”，本轮完成运行入口审计、未覆盖的中断清理测试和后续执行卡。M9/M10.F仍待真实取消/续跑及自动运行验收；月线另欠新月份实际创建。本轮没有正式任务、取消、分区/event/cursor/sensor写入或服务启停。
@@ -10,7 +12,7 @@
 
 | 工作 | 证据与结论 |
 | --- | --- |
-| 正式实例只读复核 | [08:39快照](stock_period_update_runtime_readiness_20261006.json)：四个主源最近run均SUCCESS、没有pending周/月任务；四run均无gRPC取消标记。两sensor无持久化state记录；不能将此描述为正在运行。 |
+| 正式实例只读复核 | 08:39快照（历史中间文件已清理）：四个主源最近run均SUCCESS、没有pending周/月任务；四run均无gRPC取消标记。两sensor无持久化state记录；不能将此描述为正在运行。 |
 | 当前启动配置 | 现有dagster.yaml配置QueuedRunCoordinator、全实例最大并发run=1、run monitoring开启；未显式配置launcher，安装包默认DefaultRunLauncher。HTTP页面不可达，因此没有确认在线launcher或已加载的location/repository；不把配置推断写成在线事实。 |
 | 正式页面条件 | 既有local_startup.py指定127.0.0.1:3000；只读HTTP查询得到ConnectionRefusedError/errno=61。当前端点拒绝连接，不是PG权限问题；没有据此重启服务。后续使用既有lake-dg-start入口由运营恢复后，再刷新在线位置/版本/launcher。 |
 | 中断清理新增覆盖 | 在既有test_stock_weekly_source.py增加2个参数化用例，使用合成阻塞worker、真实SIGINT和Dagster的中断上下文，验证KeyboardInterrupt及DagsterExecutionInterruptedError均从监督入口退出、无遗留SDK子进程并恢复信号处理器。没有真实token、数据库或Lake访问。 |
@@ -31,12 +33,12 @@ gRPC执行server接收取消后设置termination event，执行进程的terminat
 
 ## 正式取消/续跑的共用操作卡（未执行）
 
-1. **先刷新证据，再审批执行。** 页面及code location须在线，核实location/repository实际名称和加载版本、launcher、daemon健康、job包含本源asset及全部3个blocking checks。读取当前周期日历、日线、身份和准确上游check绑定，冻结目标/staging路径、基线hash、剩余请求预算、分区注册状态及没有active/pending周/月任务；另查看全实例并发槽/队列占用，保留其他任务，不为本次验收取消它们。需要的新动态分区与job执行一并列入该阶段的精确批准清单。不要调用正式sensor preview代替只读预检；它可能包含分区/cursor写意图。
+1. **先刷新证据，再审批执行。** 页面及code location须在线，核实location/repository实际名称和加载版本、launcher、daemon健康、job包含本源asset及全部3个blocking checks。读取当前周期日历、日线、身份和准确上游check绑定，冻结目标/staging路径、本次目标文件初始状态、剩余请求预算、分区注册状态及没有active/pending周/月任务；另查看全实例并发槽/队列占用，保留其他任务，不为本次验收取消它们。需要的新动态分区与job执行一并列入该阶段的精确批准清单。不要调用正式sensor preview代替只读预检；它可能包含分区/cursor写意图。
 2. **从正式页面Launchpad启动一个主源job。** 分区和配置见两份LLD执行卡；automatic_intent_date取本次初始执行的真实上海日期D。保留run ID、config、source、partition、unit/plan hash及真实staging目录。确认运行后有GRPC_INFO_TAG，不输出其连接内容；缺标记就停止取消验收，保留已运行事实。
 3. **选择真实未完成窗口取消。** 优先已有封存页、尚未完成正式提升时点击普通Terminate；只取消精确run ID，不强制标绿。也可以记录采集中被取消的场景，但没有封存页就不能宣称验证了“封存页不重取”。保留取消前后状态、请求账本、receipt/chunk/hash、执行进程/采集子进程退出和最新事件证据。任务先完成或窗口太短，记“未覆盖”，不能删除receipt、伪造意图、缩小正式page_limit或加延时造场景。
 4. **取消必须有终态和进程证据。** CANCELING只是请求已登记。要求CANCELED并确认该run执行资源/采集子进程退出，无继续领取请求；FAILURE、残留进程或一直CANCELING均不算通过。若已在原子提升后取消，正式文件保留，单列“提交后取消”场景；不能拿它替代未完成单元续跑。失败时停下审计，不强制修改状态、清理账本或取消其他任务。
 5. **原配置启动新的完整job续跑。** 相同source、partition、初始D、根路径与policy，运行ID可以不同；跨日恢复仍保留初始D。使用完整asset+3checks选择，不用仅失败step重执行代替。已封存页的receipt/chunk/canonical hash不变且不重新请求；未封存页可按原持久化尝试余额重取，不能要求它也零请求。预算耗尽如实保留，不通过换D或清账本续命。
-6. **独立读回后才推进另一主源。** 新文件/同值文件、schema、键/周期、全字段源对账、delivery proof与准确绑定的3checks一致，run SUCCESS且readiness ready。取消、续跑和成功阶段各自保存实际读写量、耗时、source calls和拒绝原因。每个主源单独记录验收状态；若其中一源错过窗口，只保留该源待办，不回滚另一源成功文件。续跑后的同意图重放应无新增源请求。
+6. **独立读回后才推进另一主源。** 新文件/同值文件、schema、键/周期、本次交付内的全字段源对账通过，当前文件路径/行数与物化一致，3checks准确绑定通过，run SUCCESS且readiness ready。取消、续跑和成功阶段各自保存实际读写量、耗时、source calls和拒绝原因。每个主源单独记录验收状态；若其中一源错过窗口，只保留该源待办，不回滚另一源成功文件。续跑后的同意图重放应无新增源请求。
 
 单源单意图仍按现行6000行/页、最多4页、每页最多3次尝试，**取消加续跑共享最多12次源请求**；两源合计最多24次，不因新run刷新上限。每源最多10000行/1正式文件；每次成功完整job预期1物化+3检查。失败/取消事件数量记录实测，不承诺零事件。月线最多31日线/320000参考行，周线最多5日线/50000参考行；512MiB/2线程、2GiB spill沿既有配置。没有新增配置、全历史扫描、全量重拉或配额调查。
 
@@ -44,7 +46,7 @@ gRPC执行server接收取消后设置termination event，执行进程的terminat
 
 先完成对应频度两主源的新周期及取消/续跑验收，再单独确认启用范围：周线仅raw_stock_weekly_update_job_sensor，月线仅raw_stock_monthly_update_job_sensor；周线不必等月线。沿现有Asia/Shanghai每日19:30开始、最小tick间隔60秒的窗口；这是窗口内按tick检查，不能保证精确19:30:00产生run。
 
-启用前只读记录在线定义/版本、sensor持久化state/cursor、最新物理文件及准确check绑定、最早未完成周期、无pending任务和daemon健康。代码默认history_verified_through为周线2026-09-25/月线2026-09；让现有逻辑逐周期验证并推进，不手写cursor跳过历史或用最大物化日期替代frontier。本轮未新增游标初始化或另一个定时任务。
+启用前只读记录在线定义/版本、sensor持久化state/cursor、最新物理文件及准确check绑定、最早未完成周期、无pending任务和daemon健康。代码默认history_verified_through为周线2026-09-25/月线2026-09；从已验收坐标的下一周期开始检查并推进，不反复验证已完成基线，不手写cursor跳过历史或用最大物化日期替代frontier。本轮未新增游标初始化或另一个定时任务。
 
 启用后记录真实19:30窗口tick、reason code、run key/config、动态分区意图和实际run：未完成周期/源未就绪须等待并说明，不能跑本周/本月或自动用备用；只有最早已完成且缺少的主源进入队列，两源串行、不重复提交同一日意图，两源文件与检查ready后才推进周期。停止sensor只能停止新调度，不能替代取消在途任务。若启用当时已无缺口，允许真实skip/tick验证，但“自动提交及交付”仍需下个实际缺失周期；不得把skip当作自动更新全链路验收完成。
 

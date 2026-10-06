@@ -409,3 +409,33 @@ def test_cli_apply_requires_external_frozen_plan_sha(context, monkeypatch, sha):
         argv += ["--plan-sha256", sha]
     with pytest.raises(SystemExit):
         main(argv)
+
+
+def test_finished_bootstrap_checks_survive_removed_proofs(context):
+    import shutil
+    from types import SimpleNamespace
+
+    from orchestrator.defs.checks import stock_monthly_checks as checks
+    from orchestrator.defs.resources import LakeRootResource
+    from orchestrator.defs.run_contracts.stock_monthly import (
+        StockMonthlySource,
+        monthly_check_names,
+    )
+    from orchestrator.defs.stock_monthly_update_state import monthly_period_status
+
+    instance, plan, _, _ = context
+    assert apply_all(context)["writes"] == 16
+    lake = Path(plan["evidence"]["lake_root"])
+    shutil.rmtree(Path(plan["evidence"]["staging_root"]))
+    for ref in plan["evidence"]["history_plans"]:
+        Path(ref["path"]).unlink()
+    for source in tuple(StockMonthlySource):
+        check_defs = [getattr(checks, name) for name in monthly_check_names(source)]
+        for e in (e for e in plan["entries"] if e["source"] == source.value):
+            check_context = SimpleNamespace(instance=instance, partition_key=e["month"])
+            for definition in check_defs:
+                result = definition.node_def.compute_fn.decorated_fn(
+                    check_context, LakeRootResource(root_path=str(lake))
+                )
+                assert result.passed
+            assert monthly_period_status(instance, lake, source, e["month"]) == "ready"

@@ -1,5 +1,7 @@
 # M9 共享源异常分类修订验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-06，Asia/Shanghai。管理员确认“先补齐异常分类”，依据[上轮排查](stock_week_m9_failure_diagnosis_20261005.md)和[周线LLD已确认修订](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)。本轮完成分类开发和隔离验收；原正式 run 的具体失败原因仍无法追溯，M9正式更新、取消恢复和19:30启用未完成。
 
 ## 结果与代码落点
@@ -25,7 +27,7 @@
 
 静态门禁使用现有项目.venv及原受保护启动器；外层沙箱不支持嵌套sandbox-exec，按工具权限提权启动，子进程仍禁止网络和正式资源。既有Pydantic弃用、partitioned-check预览、context.run_id弃用警告不是本轮故障。
 
-分类增量为失败时常数次类型判断与一个有界短字符串，不额外读取响应body、不新增DataFrame/SQL/文件扫描或spill，原请求、限流、事务、候选提升及checkpoint不变。开发/隔离阶段正式请求及写入为0；真实源审计仅1页、limit6000/offset0，未产生任何正式写入。详见[真实源只读证据](stock_week_m9_diagnostic_source_audit_20261006.json)。
+分类增量为失败时常数次类型判断与一个有界短字符串，不额外读取响应body、不新增DataFrame/SQL/文件扫描或spill，原请求、限流、事务、候选提升及checkpoint不变。开发/隔离阶段正式请求及写入为0；真实源审计仅1页、limit6000/offset0，未产生任何正式写入。详见真实源只读证据（历史中间文件已清理）。
 
 ## 剩余事项
 

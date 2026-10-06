@@ -46,7 +46,7 @@ def context(tmp_path, monkeypatch, statuses=None, days=("2026-09-30",)):
     def status(instance, root, source, week):
         observed.append((source, week))
         if week == "2026-09-25":
-            return "ready"
+            pytest.fail("completed bootstrap baseline must not be reread")
         return (statuses or {}).get(source, "missing")
 
     monkeypatch.setattr(module, "weekly_period_status", status)
@@ -140,7 +140,7 @@ def test_two_verified_sources_advance_only_one_period(tmp_path, monkeypatch):
     result = module.evaluate_stock_weekly_update(ctx, NOW)
     runtime = load_sensor_cursor(result.cursor)["details"]["runtime_state"]
     assert runtime["verified_through"] == "2026-10-02"
-    assert len(observed) == 4 and not result.run_requests
+    assert len(observed) == 2 and not result.run_requests
     ctx.cursor = result.cursor
     again = module.evaluate_stock_weekly_update(ctx, NOW)
     assert reason(again) == "already_verified" and not again.run_requests

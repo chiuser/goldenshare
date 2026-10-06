@@ -1,5 +1,7 @@
 # M6 五只退市股票备用周线 Raw 验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-03 20:03（Asia/Shanghai）独立读回通过。按原方案、LLD §15/§29与接入模板7A完成五对象试点：源响应=捕获=正式Raw 3132行，734个周文件，业务值双向差集0、重复键0、错分区0、候选遗漏0。M6完成；不是全体退市或全市场覆盖完成。M5/M6修改仍在当前dev-interface工作区，未提交、未推送。
 
 ## 范围与结果
@@ -34,7 +36,7 @@ anchor范围2010-01-01至2026-09-25，2026-10-02排除；有候选的实际15年
 
 实际执行cwd：`/Users/congming/github/goldenshare/lake_console/orchestrator`。现有`.venv`，不安装依赖、不设置PYTHONPATH。TUSHARE_TOKEN仅继承现有环境，未写入命令、计划或报告。
 
-执行命令分别为`.venv/bin/python -B /private/tmp/stock_week_m6_probe.py`、冻结脚本`stock_week_m6_freeze.py`、`.venv/bin/python -B /private/tmp/stock_week_m6_execute.py`和独立审计`stock_week_m6_reconcile.py`。临时执行协调器依次调用CLI的capture/build/promote；完整参数使用[年度冻结输入](stock_week_m6_frozen_scope_v2_20261003.json)中的inventory/plan、canonical capture/target roots，build附`--year`，promote附准确`--audit`，写入必须`--apply`。临时脚本不接入definitions；继续维护的正式入口是CLI。DAGSTER_HOME不读取、不初始化。
+执行命令分别为`.venv/bin/python -B /private/tmp/stock_week_m6_probe.py`、冻结脚本`stock_week_m6_freeze.py`、`.venv/bin/python -B /private/tmp/stock_week_m6_execute.py`和独立审计`stock_week_m6_reconcile.py`。临时执行协调器依次调用CLI的capture/build/promote；完整参数使用年度冻结输入（历史中间文件已清理）中的inventory/plan、canonical capture/target roots，build附`--year`，promote附准确`--audit`，写入必须`--apply`。临时脚本不接入definitions；继续维护的正式入口是CLI。DAGSTER_HOME不读取、不初始化。
 
 | 项目 | 冻结上界/实测 |
 |---|---|
@@ -54,10 +56,10 @@ anchor范围2010-01-01至2026-09-25，2026-10-02排除；有候选的实际15年
 
 定向测试三组46、50、162项通过（含重复），最终补充EMPTY_CONFIRMED证据校验后CLI17项再通过；Ruff修改文件默认规则、全src/tests致命错误基线、文档integrity与diff检查通过，CodeGraph sync/status最新。仅使用隔离测试样本；真实源刷新和正式写入/只读审计独立执行。
 
-- [最终独立对账](stock_week_m6_reconciliation_20261003.json)：源/捕获/正式数量、全业务值、key/分区/schema/NULL与每个正式文件hash。
-- [执行及每阶段测量](stock_week_m6_execution_20261003.json)：年度capture/build/promote、取消/replay及RSS/spill/log hash。
-- [未复权逐key](stock_week_m6_key_outcomes_20261003.csv)：3132行fallback_recovered。
-- [前后复权残余](stock_week_m6_adjusted_residual_keys_20261003.csv)：6264行，核验日期保持2026-10-02；不是本轮重新证实当前无源。
-- [MCP跨年实测](stock_week_m6_mcp_boundary_probe_20261003.json)、[五对象源证据](stock_week_m6_source_20261003/evidence.json)、[冻结范围v2](stock_week_m6_frozen_scope_v2_20261003.json)。
+- 最终独立对账（历史中间文件已清理）：源/捕获/正式数量、全业务值、key/分区/schema/NULL与每个正式文件hash。
+- 执行及每阶段测量（历史中间文件已清理）：年度capture/build/promote、取消/replay及RSS/spill/log hash。
+- 未复权逐key（历史中间文件已清理）：3132行fallback_recovered。
+- 前后复权残余（历史中间文件已清理）：6264行，核验日期保持2026-10-02；不是本轮重新证实当前无源。
+- MCP跨年实测（历史中间文件已清理）、五对象源证据（历史中间文件已清理）、冻结范围v2（历史中间文件已清理）。
 
 下一步M7：原211退市范围中剩余206对象有界查源、准入及补齐，251身份候选另核验；旧候选100505键只作调查基准，不能默认全能补。M8才单独补录事件，M9仍须完成更新机制。当前物理文件完成不代表DG事件/readiness或整个周月线项目交付完成。

@@ -1,5 +1,24 @@
 # 股票月线 Raw 接入：代码级 LLD
 
+## 2026-10-07 管理员确认的纠偏口径（覆盖此前相冲突的设计）
+
+历史 bootstrap：搬完后按源数据、候选文件和正式文件做一次完整对账，通过即结束。完整对账仍属于 bootstrap 的执行与收尾，不注册为永久历史复核任务；完成后不要求保留搬运清单、源响应、receipt 或 reports 文件供正式运行读取。
+
+日常更新：只采集、校验并交付当前任务的新周或新月。源页、候选和值对账在本次执行内完成；三项正式检查只读当前目标分区，分别检查文件合同、主键/周期和本次物化记录的路径/行数。不再读取历史搬运证明，不将旧文件 hash 固定为永远不可修改。后续正规数据修订应按现有修订流程验收，不因旧 bootstrap 证明而报错。
+
+调度只使用已验收基线和 cursor 作为进度坐标，检查下一待处理周期是否有准确绑定到最新物化的通过检查；不在每个 tick 重查基线或已完成历史。保留当前 19:30、两主源串行、备用源仅手动、取消/续跑和原子提升规则；未完成意图的 staging 只用于该意图继续执行，不作为后续周期的依赖。
+
+本轮改动范围：周/月线 assets、checks、两个 period_status、两个 sensor、bootstrap 事件登记及其测试。bootstrap 专用源证据验证迁回 bootstrap 模块；日常月线证明读取不再兼办 bootstrap。迁移全部消费者，保留现有三个 check 名称及准确物化绑定，停止输出永久证明路径 metadata；旧事件中的路径不再读取。不新增配置、归档系统、数据库、自动任务或源请求，不改行情字段、正式 Lake 数据或已登记事件。
+
+现有配置值不变：周线 history_verified_through=2026-09-25、月线=2026-09，代码版本为配置来源，两个 sensor 使用它初始化进度；其含义是已完成一次验收的起点，不是每次必须重验的历史分区。原 cursor 继续沿用；当前周期仍必须具备文件及最新物化绑定的全部通过检查，不能凭 cursor 判定新增数据完成。
+
+性能门禁：日常每源仅当前一周/一月文件；period_status 只读取当前文件存在性、最新一条物化及三项绑定检查，不扫描历史或 staging。保留原有有界分页、单批内存、DuckDB 预算和文件原子提升。bootstrap 完整对账与逐文件提交能力保留。
+
+验收要求：隔离测试证明完成 bootstrap 后删除搬运材料仍可检查和调度；sensor 不复核历史基线；当前任务路径/行数错误、缺文件、失败或过期检查仍不能判 ready；源到候选的差异、取消、退出、同意图续跑及幂等重放继续受原测试约束。真实新周期取消/续跑及调度启用仍按末尾执行卡待验收，不因本轮纠偏宣称已上线。
+
+清理范围：本需求已完成的源缓存、冻结计划、库存清单、执行快照和重复对账 JSON/CSV/JSONL/TXT，包括 Git 已跟踪文件；清理时同步解除文档引用。只保留简明验收结论和管理员此前要求记录的最终未补齐逐键结果，它们不作为任何运行依赖。其他任务的 reports 不清理。最终清单与验证记录落回现有收尾/清理文档。
+
+
 日期：2026-10-04，Asia/Shanghai；阶段收尾：2026-10-06。**月线已批准开发、全量bootstrap、事件及2026-09真实更新/重放完成；本需求暂时结束。** M10.F正式新月份创建、取消/同意图续跑及19:30启用仍待真实条件验收，M10.F尚未整体完成。依据原方案、管理员批准口径和数据集接入模板§3–18（尤其§7A）；本文继续承载现行代码合同与未来执行卡，不构成后续正式操作授权。[阶段收尾记录](../../../reports/stock_period_raw_closeout_20261006.md)。
 
 ## 当前验收状态（2026-10-06）
@@ -10,12 +29,12 @@
 | --- | --- | --- |
 | 历史bootstrap及事件补录 | M10.E已完成；2010-01至2026-09两源402资产分区，沿原全量与事件验收 | 不重复全量bootstrap或补录事件 |
 | 身份误阻断 | 已修复并通过真实只读门禁；[修复验收](../../../reports/stock_month_m10f_identity_fix_20261005.md) | 保留身份与Raw历史，不专项处理T代码 |
-| 2026-09真实更新及幂等重放 | 已通过；两源各5571行，四run/4物化/12检查，源共2次且重放增量0；[合并验收](../../../reports/stock_month_m10f_combined_execution_20261006.md)、[最终对账](../../../reports/stock_month_m10f_combined_final_audit_20261006.json) | 本地预检不额外下载，job内全字段同值校验；有异值则revision_required停止，原文件不覆盖 |
+| 2026-09真实更新及幂等重放 | 已通过；两源各5571行，四run/4物化/12检查，源共2次且重放增量0；[合并验收](../../../reports/stock_month_m10f_combined_execution_20261006.md)、最终对账（历史中间文件已清理） | 本地预检不额外下载，job内全字段同值校验；有异值则revision_required停止，原文件不覆盖 |
 | 正式运行入口只读复核 | 18:41–18:43已通过，[在线复核](../../../reports/stock_period_update_runtime_acceptance_20261006.md)：orchestrator/__repository__、DefaultRunLauncher、daemon及完整job/3checks可用，sensor停止 | 关闭08:39页面不可达待办；新月/正式取消未验收，执行前刷新在线状态 |
 | 新月份创建及主动取消/续跑 | 正式尚未完成；[入口审计/隔离准备已完成](../../../reports/stock_period_update_acceptance_readiness_20261006.md) | 执行卡见本文末节；10月结束且源/上游就绪后刷新范围批准执行；取消选真实未完成意图，沿同一意图恢复 |
 | 每日19:30自动更新 | 未启用；24项周/月sensor隔离检查通过 | 其余验收收口后独立启用并验证真实tick/交付，不使用自动备用源 |
 
-2026-10-06 20:03收尾[独立只读复核](../../../reports/stock_period_raw_september_closeout_20261006.json)：9月两源各5571行/5571代码，日期均20260930，各3项检查ready，文件与原验收指纹一致。9月已交付；后续新月验收对象为2026-10。
+2026-10-06 20:03收尾独立只读复核（历史中间文件已清理）：9月两源各5571行/5571代码，日期均20260930，各3项检查ready，文件与原验收指纹一致。9月已交付；后续新月验收对象为2026-10。
 
 ## 1. 阶段边界与已确认口径
 
@@ -30,7 +49,7 @@
 
 本地接口文档为 doc336（stk_weekly_monthly）与 doc365（stk_week_month_adj）。当前源码已核对 Prod request_builders.py 的月线 builder：复用日期输入逻辑但明确写 freq=month；DG 周线 point、capture、candidate、io、run_contracts 均含 week/周五约束，不能直接传 month。
 
-[本轮 MCP 核验](../../../reports/stock_month_m10_source_probe_20261004.json)记录18次只读请求的参数、行数、字段及首尾样本；大响应未保存全部行，不把样本文件当捕获全集。
+本轮 MCP 核验（历史中间文件已清理）记录18次只读请求的参数、行数、字段及首尾样本；大响应未保存全部行，不把样本文件当捕获全集。
 
 | 核验 | 两主源结果 | 对设计的影响 |
 |---|---|---|
@@ -117,7 +136,7 @@ Raw保留批准投影的全部历史源值，20200229是管理员明确的唯一
 | defs/bootstrap/stock_monthly_promote.py | promote_month_candidates：audited候选→同文件系统os.replace；每文件锁/目标fingerprint/checkpoint | 不调用周线的WEEK_SQL/周五validator；同值幂等、异值修订审批；禁止备份/Kopia |
 | defs/stock_monthly_point.py | deliver_month_intent；capture→validate→promote→delivery证据 | 唯一月线writer；业务文件提交后观测失败不回滚 |
 | defs/source_readiness/stock_monthly.py | freeze_month_references、verify_month_completion | 至多31日线文件与身份快照；按个股截至；只读批查询，不逐股查询 |
-| defs/assets/stock_monthly.py、checks/stock_monthly_checks.py | 两Raw assets；各schema、key/value、delivery三个blocking checks | checks只读本文件及冻结交付证明，不在线调用源、不重扫Prod |
+| defs/assets/stock_monthly.py、checks/stock_monthly_checks.py | 两Raw assets；各schema、key/value、delivery三个blocking checks | checks只读本次月份文件及最新物化的标准路径/行数，不读取历史搬运材料或源页，不在线调用源、不重扫Prod |
 | defs/jobs/stock_monthly.py、sensors/raw_stock_monthly_update_job_sensor.py | 两精确asset+checks jobs，一sensor串行、默认STOPPED | 无fallback；同日/源/月一个意图；先补最早欠账，不当前月快照 |
 | paths、partitions、column schemas、configs、name mapping、catalog、静态/治理测试 | 单事实源登记；中文事实卡、分区及统一config builder | 消费者与测试一次迁移；不动Prod DatasetDefinition/前端日期合同 |
 
@@ -213,9 +232,9 @@ M10.C已提交ac063248。M10.D按既定口径开发两主源definitions及手动
 
 StockMonthlyRawConfig仅write_mode=create_or_identical与automatic_intent_date=None；消费者为asset和统一run config builder；额外对象过滤/备用/overwrite字段拒绝。手动与自动均走完整月日线/身份门禁，日期集中在monthly_point_request生成。手动同次run_id续跑，自动同日source/month稳定意图；每页调用次数先持久化再发请求，成功页立即封存，重启不得重置预算。复用fetch_weekly_request_supervised仅监督传输（显式freq=month，原接口不改），独立月线worker选择两主API；不调用周线validator/assembly。
 
-整月参考键在DuckDB按filename校验、身份join、group聚合，不把320000日线行反序列化为Python列表。冻结参考证据含物理hash、上游materialization/check绑定及有界期望键，新增源end_date必须覆盖每只股票最后日线。持续检查取消，失败保留page/control/candidate；单月promote使用与bootstrap相同source-month锁和create_or_identical，提交后观测失败保留文件。检查只读文件和捕获证明，不查询源/Prod；bootstrap证明将在M10.E事件入口绑定，尚无证明的历史文件不自动成为ready。
+整月参考键在DuckDB按filename校验、身份join、group聚合，不把320000日线行反序列化为Python列表。冻结参考证据含物理hash、上游materialization/check绑定及有界期望键，新增源end_date必须覆盖每只股票最后日线。持续检查取消，失败保留page/control/candidate；单月promote使用与bootstrap相同source-month锁和create_or_identical，提交后观测失败保留文件。2026-10-07纠偏后，检查只读当前月份文件及标准物化路径/行数，不读取捕获证明或历史搬运材料；bootstrap完整对账仅在一次交付收尾时执行。新增月份仍须最新物化及全部准确绑定通过检查。
 
-新增三种check均按现行编码规范采用asset名+file_contract/key_partition/delivery_reconciliation+check；共享cn_a_stock_months分区。每次asset最多12源调用/10000行；每check最多4页/10000行本月对账，禁止全年度/全历史重扫。sensor一次只处理基线与一个欠账月；日线事件批查询上界1590，加两源绑定仍低于2000，月份超过历史窗口失败关闭。测试覆盖真实临时job的分区check事件、>20交易日门禁、全字段源对账、取消/退出/预算、同值/异值、观测失败不回滚、调度前/后/最早欠账/日内去重及禁止备用。正式验收仍分别属于M10.E/F。
+新增三种check均按现行编码规范采用asset名+file_contract/key_partition/delivery_reconciliation+check；共享cn_a_stock_months分区。每次asset最多12源调用/10000行；每check最多读取当前一份月文件/10000行，源页读取为0，禁止全年度/全历史重扫。sensor一次只处理一个待处理月，不复核已验收历史基线；日线事件批查询上界1590，加两源绑定仍低于2000，月份超过历史窗口失败关闭。测试覆盖真实临时job的分区check事件、>20交易日门禁、全字段源对账、取消/退出/预算、同值/异值、观测失败不回滚、调度前/后/最早欠账/日内去重及禁止备用。正式验收仍分别属于M10.E/F。
 
 M10.D的历史delivery check直接支持C已冻结的年度audit与逐月promoted checkpoint：只读取该年度至多34份receipt控制文件的hash和本月正式文件，不每月重新扫描整年capture。源全字段深对账仍由C在提升前完成；年度audit把本月logical_hash、源/排除/接受守恒和receipt身份冻结。此路径保留合法历史NULL，不套新增源的日线截至门禁；M10.E负责正式事件绑定，D不发事件。更新proof另有最多4页本月全字段读回，两种明确来源分派，不增加旧实现兼容逻辑。
 
@@ -264,7 +283,7 @@ CLI新增显式参数仅供运营bootstrap使用：`freeze --inventory --source 
 
 最新只读Prod总量未变化。sample冻结2010-01/2020-02/2026-05的完整两源市场：6文件，76units，28709源行，排除7364，准入21345。预检目标均不存在，正式dynamic partitions与两资产物化均0；同卷、空间预算通过。执行清单列明cwd、DAGSTER_HOME、两根、6条完整命令与preflight SHA、读写影响、取消/续跑和拒绝方式。正式sample尚未批准/执行，后续full预检必须在sample后刷新，不能沿“目标不存在”旧baseline进入全量；事件入口将在正式文件审计通过后冻结，M10.E当前未完成。
 
-详见[本切片报告及小样本执行清单](../../../reports/stock_month_m10e_assessment_20261005.md)、[冻结范围](../../../reports/stock_month_m10e_frozen_scopes_20261005.json)和[验收JSON](../../../reports/stock_month_m10e_validation_20261005.json)。代码尚未提交，未正式写湖、注册分区、补录事件或启用调度；M9/M10.F待办不变。
+详见[本切片报告及小样本执行清单](../../../reports/stock_month_m10e_assessment_20261005.md)、冻结范围（历史中间文件已清理）和验收JSON（历史中间文件已清理）。代码尚未提交，未正式写湖、注册分区、补录事件或启用调度；M9/M10.F待办不变。
 
 
 ## 17. M10.E正式小样本通过（2026-10-05）
@@ -275,7 +294,7 @@ CLI新增显式参数仅供运营bootstrap使用：`freeze --inventory --source 
 
 正式instance仅只读复核，cn_a_stock_months键仍0，两源样本物化均0；尚未补录事件或启用调度，文件合格不冒充Dagster ready。已存新的post-sample全量preflight，每源3既有/198待创建目标；旧全空baseline只保留作历史记录。M10.E尚欠全量文件及独立事件阶段，M9/M10.F不提前完成。
 
-[正式小样本报告](../../../reports/stock_month_m10e_formal_sample_20261005.md)和[详细证据JSON](../../../reports/stock_month_m10e_formal_sample_20261005.json)保存实际行数、路径、字节hash、单位快照和下一步预检引用。执行结果/本节尚未提交，原执行代码已提交e1f56646。
+[正式小样本报告](../../../reports/stock_month_m10e_formal_sample_20261005.md)和详细证据JSON（历史中间文件已清理）保存实际行数、路径、字节hash、单位快照和下一步预检引用。执行结果/本节尚未提交，原执行代码已提交e1f56646。
 
 
 ## 18. M10.E正式全量文件阶段通过（2026-10-05）
@@ -288,7 +307,7 @@ CLI新增显式参数仅供运营bootstrap使用：`freeze --inventory --source 
 
 后置正式instance只读核验：月分区0、两源月线物化0；未补录事件、触发job或启用调度。文件阶段通过不替代事件就绪或日线期望缺口审计；下一步按原设计单独冻结事件清单、sample/batch补录及最终审计。M10.E仍未整体完成，M9/M10.F继续单列。
 
-[全量报告](../../../reports/stock_month_m10e_formal_full_20261005.md)、[详细证据](../../../reports/stock_month_m10e_formal_full_20261005.json)及[完整命令](../../../reports/stock_month_m10e_full_commands_20261005.txt)已落档。全量结果及本节已提交3892ad31，小样本证据已提交a49609db；未推送。
+[全量报告](../../../reports/stock_month_m10e_formal_full_20261005.md)、详细证据（历史中间文件已清理）及完整命令（历史中间文件已清理）已落档。全量结果及本节已提交3892ad31，小样本证据已提交a49609db；未推送。
 
 ## 19. M10.E事件补录实施约束（2026-10-05）
 
@@ -315,7 +334,7 @@ CLI新增显式参数仅供运营bootstrap使用：`freeze --inventory --source 
 
 27个事件测试+24个history测试共51项通过；额外现行readiness消费者测试通过；受保护静态113、治理12、Ruff默认及全域致命错误、离线definitions、文档完整性、CodeGraph sync/status通过。旧SQLite索引不允许同runless检查名/月键重复插入，沿“先读真实事件→幂等跳过”处理，失败项只拒绝，不绕过或删事件。没有新Src跨子系统依赖、Prod/Tushare请求、Raw写入、job/sensor执行、安装依赖或推送；月线sensor无持久化运行状态，definition仍STOPPED。
 
-M10.E文件及事件验收完成。本轮事件代码、报告与文档已提交ee325688；M10.F源实际更新及19:30调度启用仍需下一阶段，M9正式周线更新验收继续单列。详细证据见[执行与验收报告](../../../reports/stock_month_m10e_events_execution_20261005.md)、[最终集合审计](../../../reports/stock_month_m10e_events_final_audit_20261005.json)与[现行消费者复核](../../../reports/stock_month_m10e_events_consumer_audit_20261005.json)。
+M10.E文件及事件验收完成。本轮事件代码、报告与文档已提交ee325688；M10.F源实际更新及19:30调度启用仍需下一阶段，M9正式周线更新验收继续单列。详细证据见[执行与验收报告](../../../reports/stock_month_m10e_events_execution_20261005.md)、最终集合审计（历史中间文件已清理）与现行消费者复核（历史中间文件已清理）。
 
 
 ## 历史记录：M10.F审计暂停（2026-10-05）
@@ -332,7 +351,7 @@ freeze_month_references的全表检查保留非空/唯一/预算/整文件hash�
 
 月线更新66项、定义/sensor22项、受保护静态113项通过，修改文件完整Ruff及全src/tests致命基线通过。正式2026-09只读复核21日线文件/116588行/5571期望代码、6163身份键，历史T600018.SH仍映射自身且不在期望集合；原monthly_identity_invalid_or_over_budget不再出现。复用2026-10-04已捕获的两源全市场响应各5571行，与真实9月参考完成校验均ready，耗时0.522秒。完整身份/参考文件hash及上游绑定复核一致，两份Raw目标字节hash不变。
 
-此为修复及真实只读门禁验收，不是新的正式job或实时源更新验收。管理员随后确认已加载修复代码并要求提交修改；本轮助手不重复reload，也不触发job、写正式event/cursor或启用19:30调度。M10.F真实更新及启用、M9原正式验收继续单列。本段及相关代码/测试/证据随修复提交，未推送。详见[修复对账报告](../../../reports/stock_month_m10f_identity_fix_20261005.md)及[真实只读证据](../../../reports/stock_month_m10f_identity_fix_preflight_20261005.json)。
+此为修复及真实只读门禁验收，不是新的正式job或实时源更新验收。管理员随后确认已加载修复代码并要求提交修改；本轮助手不重复reload，也不触发job、写正式event/cursor或启用19:30调度。M10.F真实更新及启用、M9原正式验收继续单列。本段及相关代码/测试/证据随修复提交，未推送。详见[修复对账报告](../../../reports/stock_month_m10f_identity_fix_20261005.md)及真实只读证据（历史中间文件已清理）。
 
 ## 共享源异常诊断修订（2026-10-06）
 
@@ -352,11 +371,11 @@ freeze_month_references的全表检查保留非空/唯一/预算/整文件hash�
 
 按管理员合并步骤要求，source-free预检通过后，由现行两个主源job直接拉取2026-09完整月并与既有Raw全字段比对；每源成功读回后沿实际2026-10-06原意图重放。四run均SUCCESS，每源5571行，两源合计11142行，实际源请求总2次、重放新增0次；4物化及12个blocking checks全部准确绑定并通过，两源最终ready。正式文件字节/逻辑hash保持，两意图各10份封存文件重放前后全不变，上游参考/绑定及历史基线不变。没有reject、差异、备用源、正式数据改写或调度启用。四run累计实测15.188秒，不含CLI/审计/编排，未测RSS/spill峰值。
 
-[执行与验收报告](../../../reports/stock_month_m10f_combined_execution_20261006.md)及[最终对账](../../../reports/stock_month_m10f_combined_final_audit_20261006.json)保存逐run、全字段、账本与读回证据。没有改正式代码/配置/contract或子系统边界，本阶段执行记录随此次文档提交；未推送。既有月份真实更新及幂等验收通过，不等于M10.F整体完成：新增月份创建、主动取消/续跑、正式launcher及每日19:30启用仍待对应阶段；周线M9待办不改变。
+[执行与验收报告](../../../reports/stock_month_m10f_combined_execution_20261006.md)及最终对账（历史中间文件已清理）保存逐run、全字段、账本与读回证据。没有改正式代码/配置/contract或子系统边界，本阶段执行记录随此次文档提交；未推送。既有月份真实更新及幂等验收通过，不等于M10.F整体完成：新增月份创建、主动取消/续跑、正式launcher及每日19:30启用仍待对应阶段；周线M9待办不改变。
 
 ## 后续真实验收执行卡（2026-10-06准备完成）
 
-本节记录已批准的后续准备，不授权现在启动正式任务或启用调度。上轮九月合并验收、周线重放及LLD更新已提交611d060d；本轮只补隔离测试、入口审计与执行卡，随本次提交；未推送。[共用准备报告](../../../reports/stock_period_update_acceptance_readiness_20261006.md)给出启动/取消/同意图恢复/19:30操作及关闭标准，[运行快照](../../../reports/stock_period_update_runtime_readiness_20261006.json)记录2026-10-06 08:39事实。
+本节记录已批准的后续准备，不授权现在启动正式任务或启用调度。上轮九月合并验收、周线重放及LLD更新已提交611d060d；本轮只补隔离测试、入口审计与执行卡，随本次提交；未推送。[共用准备报告](../../../reports/stock_period_update_acceptance_readiness_20261006.md)给出启动/取消/同意图恢复/19:30操作及关闭标准，运行快照（历史中间文件已清理）记录2026-10-06 08:39事实。
 
 ### 已完成与待实际验证
 
@@ -391,10 +410,32 @@ ops:
 
 ### 合并新月份与取消/恢复验收，减少重复取源
 
-一次source-free上游/目标预检，冻结新月文件不存在、分区注册范围、剩余预算、基线和空闲证据；源就绪通过现行job实际请求/验证，不额外做全市场预下载。经该阶段批准后，逐源执行：Launchpad启动→真实未完成窗口取消→CANCELED与资源退出核验→同一初始D完整job恢复→新月候选校验/原子创建→全字段源对账/3checks→同意图重放。各源独立记账，不因另一源失败回滚已提交文件。
+一次source-free上游/目标预检，冻结新月文件不存在、分区注册范围、剩余预算、本次目标文件状态和空闲证据；源就绪通过现行job实际请求/验证，不额外做全市场预下载。经该阶段批准后，逐源执行：Launchpad启动→真实未完成窗口取消→CANCELED与资源退出核验→同一初始D完整job恢复→新月候选校验/原子创建→全字段源对账/3checks→同意图重放。各源独立记账，不因另一源失败回滚已提交文件。
 
 优先在页receipt封存后、正式提升前取消；月线当前约一页，窗口可能很短，任务先完成就记录该源取消未覆盖，不能清receipt、改page_limit、加延迟或换D造场景。只在采集中取消的结果不证明封存页复用；提升后取消不证明未完成单元恢复。已封存页不重取，未封存页按持久化尝试余额重取；失败或异值保留原文件/账本并停下审阅。
 
 最终每源需真实run SUCCESS、新月文件、schema/键/日期/全字段canonical与delivery proof一致、3checks绑定本次准确物化且readiness ready；取消/恢复另保存run终态、进程退出、receipt/hash和源调用增量。新增月正常成功不能替代取消验收，既有九月同值成功不能替代新增月原子创建。
 
-新月及两主源取消/恢复收口后，单独启用raw_stock_monthly_update_job_sensor，Asia/Shanghai每日19:30开始、最小tick60秒；history_verified_through=2026-09由现有逻辑逐月校验推进，不手写cursor跳过欠账。须保留真实窗口tick、run key/config、串行提交及物化/check证据；没有缺口的skip不等于实际自动交付已验收。自动备用禁止、手动源仍按显式任务范围执行。M10.F在待办关闭前仍未整体完成；周线可先独立收口和启用。
+新月及两主源取消/恢复收口后，单独启用raw_stock_monthly_update_job_sensor，Asia/Shanghai每日19:30开始、最小tick60秒；history_verified_through=2026-09为已完成一次验收的初始化坐标，先检查下一待处理月再推进，不复核该历史基线，不手写cursor跳过欠账。须保留真实窗口tick、run key/config、串行提交及物化/check证据；没有缺口的skip不等于实际自动交付已验收。自动备用禁止、手动源仍按显式任务范围执行。M10.F在待办关闭前仍未整体完成；周线可先独立收口和启用。
+
+## 2026-10-07 纠偏落地与验证
+
+本轮按管理员指令完成纠偏，不增加需求。原错误是把一次搬运的输入/封存证明当成长久运行合同，又让每个 tick 回查历史基线。现在 bootstrap 在自身执行/事件收尾内完成完整对账后结束；日常源值校验留在当前任务，正式检查及调度不再读旧搬运材料。
+
+| 管理员口径 | 当前代码落点 | 验证 |
+| --- | --- | --- |
+| bootstrap完整对账通过即结束 | bootstrap/stock_weekly_event_files.py 承载专用源证据校验；monthly bootstrap/history/events 保留一次交付内的源—候选—正式集合对账 | 完整周/月线测试保留源/候选/计划篡改、漏行、重复、NULL/Decimal、取消/退出/幂等门禁 |
+| 日常只检查本次分区 | checks/stock_weekly_checks.py、stock_monthly_checks.py 与 stock_period_checks.py；最新物化标准URI/行数对照当前文件 | 实际隔离job与三checks通过；不存在/错误周期/路径/行数拒绝；旧证明缺失不会阻断正规修订 |
+| 不反复检查已完成历史 | stock_weekly_update_state.py、stock_monthly_update_state.py、两个update_job_sensor | sensor测试禁止读历史基线；只处理下一待完成周期；最新检查失败、过期绑定、缺文件仍不ready |
+| reports不承载运行依赖 | assets不再输出永久证明路径；bootstrap事件物化统一标准URI/行数；清零正式checks/state/sensor旧证明读取 | 完成bootstrap后删除临时证明，实际检查函数与绑定readiness继续通过；旧正式事件无需重写 |
+| 本次取消/续跑能力保留 | 月线read_month_delivery仅服务当前更新意图；周/月源页封存、预算、候选验证、锁/replace/checkpoint保持 | 源差异、实际子进程退出、页封存续跑、重放零源请求等原回归继续通过 |
+
+CodeGraph已使用 explore、impact，并在变更后执行 sync/status；影响面覆盖 assets→checks→period_status→sensor，以及 bootstrap 事件写入/匹配、月线意图证明读取和测试。静态隔离启动器只增列本次新纯模块 stock_period_checks.py，其他任务改动保留。无 src 子系统依赖方向、行情字段、前端/API或运营配置变化；三个既有检查名称保留，源字段/分页/原预算和19:30不变。
+
+验证：周/月线全部定向测试 **494项通过**，受保护完整静态门禁 **113项通过**；清理死函数后周线事件与新分区合同再回归 **26项通过**。改动文件 Ruff、全src/tests致命错误基线通过。文档完整性及本需求全部本地链接/锚点核验通过；git diff --check通过。测试日志和清理冻结清单仅在private/tmp，未新增长期机器报告。
+
+清理后真实只读核验8个正式分区：2010-01-01周线两源1507/1501行、2010-01月线两源各1534行；2026-10-02周线两源各5565行、2026-09月线两源各5571行，均通过当前文件/物化检查且ready。复用已存在的最新物化/通过检查，不执行正式check、job或补录事件，源请求和正式写入均0；新读取不访问reports/staging。核验时活动任务0，两个sensor无持久化启用状态，默认仍停止。
+
+删除1493个中间数据文件，其中377个Git已跟踪，共432513175字节；两份最终缺口CSV仅供人工查看，去掉旧证明指针。明细见[清理记录](../../../reports/stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。没有把旧报告搬到另一个永久目录或新建证据系统。
+
+管理员已要求提交，本轮纠偏修改随本次提交入库，未推送；正式code location尚未重新加载。正式服务需重新加载后再执行检查；本轮没有reload/启用授权，不自行操作。后续真实新周/新月取消续跑及19:30启用仍按既有执行卡保留，条件未到不标完成。

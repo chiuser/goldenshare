@@ -1,5 +1,7 @@
 # 2020 年 2 月月线：源端与 Prod 专项复核
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-02，用户要求重新拉取 2020-02-28 月线并比较 Prod。本轮调用 tushareMcp 的 stk_weekly_monthly / stk_week_month_adj，freq=month，分别显式查询 20200228 和 20200229，并请求完整 13/21 个业务字段。四次返回均小于 6,000 行，无截断提示。Prod 通过现有 psql-remote.sh，在只读事务、30 秒超时内导出 raw_tushare.stk_period_bar / stk_period_bar_adj 的相同两个日期、freq=month、显式业务字段，共 14,621 行。本轮不写 Prod，不修改数据契约；未做 Serving 数值对账。
 
 ## 结论修正
@@ -45,8 +47,8 @@
 
 文件：
 
-- [本次源端快照 CSV](/Users/congming/github/goldenshare/reports/stock_month_20200228_29_source_snapshot_20261002.csv)：14,838 条源记录。
-- [比较汇总 JSON](/Users/congming/github/goldenshare/reports/stock_month_20200228_29_source_prod_summary_20261002.json)。
-- [逐字段差异 CSV](/Users/congming/github/goldenshare/reports/stock_month_20200228_29_source_prod_diff_20261002.csv)：包含源端新增键、同日期差异及两日期源版本差异，共 34,422 行，不能把所有行数解读为缺失行情数。
+- 本次源端快照 CSV（历史中间文件已清理）：14,838 条源记录。
+- 比较汇总 JSON（历史中间文件已清理）。
+- 逐字段差异 CSV（历史中间文件已清理）：包含源端新增键、同日期差异及两日期源版本差异，共 34,422 行，不能把所有行数解读为缺失行情数。
 
 改动仅为 reports 的证据和原评估更正，不影响架构边界/依赖矩阵。下一步是代码映射与复权版本专项核验，不执行删除、写库或正式 Lake 变更。

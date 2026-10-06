@@ -1,1 +1,0 @@
-{"confidence_counts":[["confirmed",6152],["inferred",11]],"duplicate_samples":[],"identity_path":"/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet","identity_rows":6163,"invalid_rows":1,"invalid_samples":[["T600018.SH","T600018.SH","confirmed"]],"month_affected_samples":[],"month_daily_codes":5571}

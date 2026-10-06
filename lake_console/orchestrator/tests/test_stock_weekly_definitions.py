@@ -152,28 +152,42 @@ def test_primary_code_filter_rejected_before_source(tmp_path):
     assert not (tmp_path / "stage").exists()
 
 
-def test_delivery_evidence_missing_is_not_green(tmp_path, monkeypatch):
+def test_finished_delivery_does_not_depend_on_captured_proofs(tmp_path, monkeypatch):
+    from orchestrator.defs.bootstrap.stock_weekly_event_files import (
+        verify_weekly_delivery_evidence,
+    )
+    from orchestrator.defs.stock_weekly_update_state import weekly_period_status
+
     source = SOURCES[0]
     bind_delivery(monkeypatch, tmp_path, source)
-    definitions, _asset, _ = definition_for(tmp_path, source)
+    definitions, asset, _ = definition_for(tmp_path, source)
     with dg.DagsterInstance.ephemeral() as instance:
         instance.add_dynamic_partitions(cn_a_stock_week_ends.name, ["2020-02-28"])
         result = definitions.resolve_job_def(
             weekly_job_name(source)
         ).execute_in_process(instance=instance, partition_key="2020-02-28")
         assert result.success
-    audit = next((tmp_path / "staging").rglob("audit.json"))
-    payload = json.loads(audit.read_text())
-    evidence = next(
-        i for i in payload["source_evidence"] if i["path"].endswith("receipt.json")
-    )
-    Path(evidence["path"]).write_text("changed")
-    with pytest.raises(Exception, match="delivery_evidence_changed"):
-        checks.audit_weekly_file(
-            source,
-            "2020-02-28",
-            tmp_path / "lake",
-            delivery={"audit_path": str(audit), "audit_hash": payload["audit_hash"]},
+        audit = next((tmp_path / "staging").rglob("audit.json"))
+        payload = json.loads(audit.read_text())
+        receipt = next(
+            i for i in payload["source_evidence"] if i["path"].endswith("receipt.json")
+        )
+        Path(receipt["path"]).write_text("changed")
+        # A bootstrap still in progress must refuse tampered input.
+        with pytest.raises(Exception, match="delivery_evidence_changed"):
+            verify_weekly_delivery_evidence(payload)
+        audit.unlink()
+        assert checks.audit_weekly_file(source, "2020-02-28", tmp_path / "lake") == 1
+        assert (
+            weekly_period_status(instance, tmp_path / "lake", source, "2020-02-28")
+            == "ready"
+        )
+        record = instance.fetch_materializations(
+            dg.AssetRecordsFilter(asset_key=asset.key, asset_partitions=["2020-02-28"]),
+            limit=1,
+        ).records[0]
+        assert (
+            "goldenshare/weekly_delivery" not in record.asset_materialization.metadata
         )
 
 

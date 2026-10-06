@@ -1,6 +1,0 @@
-ts_code,name,current_unadjusted_api_rows,current_adjusted_api_rows,alternate_weekly_rows,raw_unadjusted_historical_missing_keys,alternate_same_iso_week_matches,unmatched_expected_iso_weeks,handling
-000005.SZ,ST星源(退),0,0,1488,656,656,0,当前接口不可回补；备用weekly有历史，单列待源替换评估；不提交现行批量回补任务
-000961.SZ,ST中南(退),0,0,1179,732,732,0,当前接口不可回补；备用weekly有历史，单列待源替换评估；不提交现行批量回补任务
-002089.SZ,新海退(退),0,0,831,674,674,0,当前接口不可回补；备用weekly有历史，单列待源替换评估；不提交现行批量回补任务
-300090.SZ,盛运退(退),0,0,473,473,473,0,当前接口不可回补；备用weekly有历史，单列待源替换评估；不提交现行批量回补任务
-600090.SH,退济堂(退),0,0,1193,597,597,0,当前接口不可回补；备用weekly有历史，单列待源替换评估；不提交现行批量回补任务

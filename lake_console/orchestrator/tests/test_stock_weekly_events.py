@@ -356,3 +356,39 @@ def test_forged_business_identity_rejected_even_with_recomputed_plan_hash(tmp_pa
                 instance, plan, stage="register", checkpoint=tmp_path / "c.json"
             )
         assert instance.get_dynamic_partitions("cn_a_stock_week_ends") == []
+
+
+def test_finished_bootstrap_checks_survive_removed_proofs(tmp_path):
+    import shutil
+    from types import SimpleNamespace
+
+    from orchestrator.defs.checks import stock_weekly_checks as checks
+    from orchestrator.defs.resources import LakeRootResource
+    from orchestrator.defs.run_contracts.stock_weekly import (
+        weekly_check_names,
+    )
+    from orchestrator.defs.stock_weekly_update_state import weekly_period_status
+
+    e = entry(tmp_path)
+    source = StockWeeklySource(e["source"])
+    check_defs = [getattr(checks, name) for name in weekly_check_names(source)]
+    with dg.DagsterInstance.ephemeral() as instance:
+        plan = events.freeze_weekly_event_plan(
+            instance, [e], instance_identity={"isolated": True}
+        )
+        apply_all(instance, plan, tmp_path)
+        assert (
+            weekly_period_status(instance, tmp_path / "lake", source, e["week"])
+            == "ready"
+        )
+        shutil.rmtree(tmp_path / "stage")
+        check_context = SimpleNamespace(instance=instance, partition_key=e["week"])
+        for definition in check_defs:
+            result = definition.node_def.compute_fn.decorated_fn(
+                check_context, LakeRootResource(root_path=str(tmp_path / "lake"))
+            )
+            assert result.passed
+        assert (
+            weekly_period_status(instance, tmp_path / "lake", source, e["week"])
+            == "ready"
+        )

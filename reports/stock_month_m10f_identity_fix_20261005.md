@@ -1,5 +1,7 @@
 # 月线更新身份误阻断修复验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-05，Asia/Shanghai。原月线身份阻断已解除：代码修复、隔离回归及正式2026-09只读门禁验收通过。管理员随后确认已加载修复代码，并要求提交修改。本轮由助手执行的范围不含正式更新job、code location reload、事件/cursor写入或调度启用，不能据此宣布M10.F整体完成。本报告随修复提交，未推送。
 
 ## 目标、依据与改动
@@ -38,7 +40,7 @@ freeze_month_references真实返回116588日线行、5571期望代码、6163身�
 
 两源2026-10-04已捕获全市场CSV各5571行，与真实9月参考执行verify_month_completion均ready。没有新源调用；这是已有源快照对当前正式参考的完成校验，不是2026-10-05实时下载或正式job验收。两源正式monthly_period_status仍ready。
 
-身份文件SHA前后均03d4d4a8e17b9108696b124cb6fdc9174f012fde86b15e41c205563bc17c0dfb；两份正式Raw目标SHA前后不变。所有报告仅写仓库reports，正式Lake/instance写入0。精确数值、源CSV SHA、全部参考及上游绑定见[只读JSON](stock_month_m10f_identity_fix_preflight_20261005.json)。
+身份文件SHA前后均03d4d4a8e17b9108696b124cb6fdc9174f012fde86b15e41c205563bc17c0dfb；两份正式Raw目标SHA前后不变。所有报告仅写仓库reports，正式Lake/instance写入0。精确数值、源CSV SHA、全部参考及上游绑定见只读JSON（历史中间文件已清理）。
 
 ## 剩余阶段
 

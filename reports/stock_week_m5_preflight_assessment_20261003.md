@@ -1,5 +1,7 @@
 # DG 股票周线 M5 预检与阻断记录
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 截至2026-10-03，M4已提交`eb1a3aab`，未推送。M5已完成两主源实时Prod只读库存、正式目标只读预检、全量/试点捕获计划草案及空边界证据修正；**尚未完成M5正式bootstrap验收**。未捕获正式staging、未写正式Lake、未访问或写入正式Dagster instance。捕获传输路径与本机规则冲突，等待管理员确认后继续。
 
 ## 实时只读范围及结果
@@ -15,17 +17,17 @@
 
 2009与2027在获准窗口内均无行，来自完整聚合和日期边界证据，不能用未请求或接口报错替代。当前snapshot为`11369700:11369700:`，transaction timestamp为2026-10-03 15:15:42.700054+08。跨后续捕获unit不共享此快照；每unit需新snapshot/control count，最终delta audit应核实源变化。
 
-报告入口：[库存CSV](stock_week_m5_prod_inventory_20261003.csv)、[年度预算CSV](stock_week_m5_year_budget_20261003.csv)、[日期边界](stock_week_m5_prod_bounds_20261003.csv)、[快照](stock_week_m5_prod_snapshot_20261003.csv)、[计划摘要](stock_week_m5_preflight_summary_20261003.json)。两源的`frozen_inventory`及`capture_plan` JSON位于同目录，包含hash和明确代码列表；它们是待执行计划，不能视为capture receipt。
+报告入口：库存CSV（历史中间文件已清理）、年度预算CSV（历史中间文件已清理）、日期边界（历史中间文件已清理）、快照（历史中间文件已清理）、计划摘要（历史中间文件已清理）。两源的`frozen_inventory`及`capture_plan` JSON位于同目录，包含hash和明确代码列表；它们是待执行计划，不能视为capture receipt。
 
 ## 正式目标与性能门禁
 
-[Lake预检](stock_week_m5_lake_preflight_20261003.json)：两份目标`raw/tushare/stk_period_bar_week`、`stk_period_bar_adj_week`尚不存在、零目标文件。正式根与staging均存在、无symlink、设备号相同，自由空间约2.94TB。本轮沙箱内os.access返回不可写，尚未用实际获准写入环境验证权限，不能据此判定宿主目录不可写或尝试创建目录。
+Lake预检（历史中间文件已清理）：两份目标`raw/tushare/stk_period_bar_week`、`stk_period_bar_adj_week`尚不存在、零目标文件。正式根与staging均存在、无symlink、设备号相同，自由空间约2.94TB。本轮沙箱内os.access返回不可写，尚未用实际获准写入环境验证权限，不能据此判定宿主目录不可写或尝试创建目录。
 
 全量范围两源共5787046行、424units；各源预计857个实际周文件，保守19年×54=1026文件上界，低于phase3000上限。每unit300代码、≤30000行、≤45秒、SQL≤30秒、fetch≤10000；每unit最多3个source chunks，捕获与控制查询约424次事务、424次计数和424次有界读取，附带事务/快照/超时控制语句。DuckDB512MiB/2线程/spill2GiB，只在正式staging受控目录使用。单文件原子replace、逐文件checkpoint、dataset/week锁；无全历史长事务，无逐周Dagster backfill。
 
 M0样本压缩外推约321MB仅为目标数据参考；实际source chunks、候选、目标及试点后重写字节应在执行中逐阶段测量。本轮不把离线CSV聚合或M4离线耗时作为真实导出ETA。424×45秒是unit超时总上界约5.3小时，不是预计耗时；试点不达标应在冻结新计划前拆分unit，不能在apply扩大预算。
 
-[试点预算](stock_week_m5_pilot_budget_20261003.json)：各源选2025年有行的前300个排序代码，捕获2024–2026三个自然年，以覆盖2025所有ISO周边界；各3units、41932输入行、15450归属2025行、最多54周文件。仅拟输出2025、最多两源108文件；不得称全市场bootstrap已完成。试点库存CSV与计划JSON由同次真实全量汇总生成可复算子集。后续全量合并试点重复行必须值一致，并单列rewrite bytes。试点尚未执行。
+试点预算（历史中间文件已清理）：各源选2025年有行的前300个排序代码，捕获2024–2026三个自然年，以覆盖2025所有ISO周边界；各3units、41932输入行、15450归属2025行、最多54周文件。仅拟输出2025、最多两源108文件；不得称全市场bootstrap已完成。试点库存CSV与计划JSON由同次真实全量汇总生成可复算子集。后续全量合并试点重复行必须值一致，并单列rewrite bytes。试点尚未执行。
 
 ## 已修正的独立边界问题
 
@@ -33,7 +35,7 @@ M3原实现只用非空capture unit的年度区间判断完整边界。2010首�
 
 `defs/bootstrap/stock_weekly_candidates.py`新增冻结库存证据读取：只识别`prod_weekly_inventory@1` JSON；受控路径/hash、16MiB文件上限、readonly/repeatable-read标记、日期窗口、ProdYearInventory/Scope及完整manifest复算全部通过后，再独立核对原始库存CSV的各年代码集合/控制行数。只有rows=0且codes为空的年可扩展边界区间；CSV hash同时加入audit evidence，后续变化阻断。旧格式、缺声明、JSON/源身份/快照/窗口/计划不一致、伪装空年、篡改均拒绝。未修改WeeklyPlanManifest/receipt schema、已有plan hash算法、Prod访问resource或全局连接工厂。
 
-新增`tests/test_stock_weekly_inventory.py`。相关回归87 passed、static gates113 passed；新代码默认Ruff、全项目致命错误基线、docs integrity与diff检查通过。真实库存在临时目录再次核验，两主源2009/2027空窗口及完整manifest匹配，2010边界通过后按预期停在`capture_incomplete`，未伪造receipt或宣称已写湖。详见[边界核验](stock_week_m5_boundary_preflight_20261003.json)。初始正例测试误把返回audit路径当dict，改为读取真实audit后通过，没有修改实现来迁就测试。
+新增`tests/test_stock_weekly_inventory.py`。相关回归87 passed、static gates113 passed；新代码默认Ruff、全项目致命错误基线、docs integrity与diff检查通过。真实库存在临时目录再次核验，两主源2009/2027空窗口及完整manifest匹配，2010边界通过后按预期停在`capture_incomplete`，未伪造receipt或宣称已写湖。详见边界核验（历史中间文件已清理）。初始正例测试误把返回audit路径当dict，改为读取真实audit后通过，没有修改实现来迁就测试。
 
 CodeGraph开发前query plan_prod_source_units/impact iter_prod_weekly_batches，开发后sync、impact verified_empty_inventory_intervals/build_weekly_partition_candidates；补审当前source、planner、capture、candidate、promote和治理消费者。影响仅独立orchestrator的候选边界验证，未改变子系统依赖、Prod业务契约或前端/API行为。LLD §26已同步硬口径与配置/预算来源；16MiB为冻结证据格式读取上限，无env/数据库/运营覆盖入口。
 

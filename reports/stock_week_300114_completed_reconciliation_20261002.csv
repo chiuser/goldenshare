@@ -1,3 +1,0 @@
-dataset,raw_rows,serving_rows,serving_only,raw_only,business_field_mismatches,raw_null_ohlc,raw_ohlc_invalid,audited_at
-stk_period_bar,726,726,0,0,0,0,0,2026-10-02 22:34:50.449358+08
-stk_period_bar_adj,726,726,0,0,0,0,0,2026-10-02 22:34:50.449358+08

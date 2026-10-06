@@ -95,7 +95,6 @@ def _deliver(context, config, lake_root, tushare, source):
             uri=result["path"],
             row_count=result["rows"],
             observed_columns=tuple(n for n, _, _ in weekly_column_specs(source)),
-            extra_metadata={"goldenshare/weekly_delivery": result},
         )
     )
 

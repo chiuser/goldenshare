@@ -1,8 +1,5 @@
 """Bounded event bindings and current-file identity for weekly scheduling."""
 
-import tempfile
-from pathlib import Path
-
 import dagster as dg
 from dagster._core.event_api import PartitionKeyFilter
 
@@ -11,12 +8,8 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     asset_check_record_succeeded,
 )
 from orchestrator.defs.bootstrap.stock_weekly_candidates import (
-    fingerprint,
     partition_path,
 )
-from orchestrator.defs.bootstrap.stock_weekly_capture import WeeklyCaptureError
-from orchestrator.defs.bootstrap.stock_weekly_promote import read_audit
-from orchestrator.defs.paths import DEFAULT_LAKE_STAGING_ROOT
 from orchestrator.defs.run_contracts.stock_weekly import (
     weekly_asset_key,
     weekly_check_names,
@@ -26,8 +19,8 @@ from orchestrator.defs.sensors.readiness import (
     SILVER_STOCK_IDENTITY_MAP_READINESS_SPEC,
     _check_result_for_materialization_ids,
 )
+from orchestrator.defs.stock_period_checks import verify_period_materialization
 from orchestrator.defs.stock_weekly_update import WEEKLY_UPDATE_POLICY
-from orchestrator.defs.stock_weekly_update_execution import read_weekly_control
 
 
 def weekly_event_binding(instance, asset_key, names, partition=None):
@@ -125,31 +118,10 @@ def weekly_period_status(instance, root, source, week):
         return "orphan_file" if path.exists() else "missing"
     if not ready:
         return "checks_failed_or_stale"
-    value = record.asset_materialization.metadata.get("goldenshare/weekly_delivery")
-    delivery = getattr(value, "value", None)
-    if not delivery:
-        return "delivery_evidence_missing"
-    audit_path = Path(delivery["audit_path"])
-    if not any(
-        audit_path.is_relative_to(parent)
-        for parent in (
-            Path(DEFAULT_LAKE_STAGING_ROOT),
-            Path("/private/tmp"),
-            Path(tempfile.gettempdir()).resolve(),
-        )
-    ):
-        raise WeeklyCaptureError("delivery_path_forbidden")
-    # Enforce the same bounded control/path contract before reading a signed audit.
-    read_weekly_control(audit_path)
-    audit = read_audit(audit_path)
-    files = [item for item in audit["files"] if item["week"] == week]
-    if (
-        audit["source"] != source.value
-        or audit["target_root"] != str(root)
-        or audit["audit_hash"] != delivery["audit_hash"]
-        or len(files) != 1
-    ):
-        raise WeeklyCaptureError("weekly_delivery_identity_mismatch")
-    if files[0]["target"] != str(path) or fingerprint(path) != files[0]["sha256"]:
-        return "formal_file_changed"
+    if not path.is_file():
+        return "formal_file_missing"
+    try:
+        verify_period_materialization(record, week, path)
+    except ValueError:
+        return "materialization_invalid"
     return "ready"

@@ -1,12 +1,14 @@
 # M10.F 九月月线预检、实际更新与重放合并验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-06，Asia/Shanghai。管理员要求把“刷新9月月线只读预检”和“串行执行两主源job及重放”合并，尽量省时省力完成。本阶段沿原方案允许的同值既有月份验收；真实新增月份及主动取消/续跑、19:30启用仍单列。当前不提交或推送前轮尚未提交记录。
 
 ## 合并执行口径
 
 先一次 source-free 只读预检：正式21日线/身份/事件绑定、两份9月Raw/schema/键/hash、四个基线文件、并发任务/分区/sensor状态与空间。通过后由现行asset job完成真实源拉取→页receipt→全字段候选/现有Raw比对→真实物化/checks；省去额外全市场预拉。每个主源初次job独立验收后，马上沿同意图重放，复用delivery proof；前项失败立即停止，不执行下一任务或自动覆盖差异。四次真实job串行，不使用bootstrap/runless补绿替代。
 
-只读预检0.753秒通过：2026-09两源各5571行/ready，21日线116588行/5571期望代码，准确上游绑定通过；无周/月主源pending，9月分区已注册，sensor未启动，本日两个新意图目录均不存在。同卷且空间满足现行约2.13GiB门禁。没有预拉源，也没有正式写入。完整参考及源范围在[预检快照](stock_month_m10f_combined_preflight_20261006.json)。
+只读预检0.753秒通过：2026-09两源各5571行/ready，21日线116588行/5571期望代码，准确上游绑定通过；无周/月主源pending，9月分区已注册，sensor未启动，本日两个新意图目录均不存在。同卷且空间满足现行约2.13GiB门禁。没有预拉源，也没有正式写入。完整参考及源范围在预检快照（历史中间文件已清理）。
 
 ## 完整命令及读写范围
 
@@ -58,7 +60,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/dg launch --mod
 
 Dagster持久化运行记录实测四run累计15.188秒（未复权初次4.141/重放0.808秒；复权初次9.295/重放0.944秒），不含CLI启动、独立读回、审计与编排间隔。预检0.753秒；未测RSS/过程spill峰值，不把零文件变更当作未产生staging候选。时间数据来自真实run start/end，不使用缓存源模拟验收。
 
-详细证据：[未复权初次](stock_month_m10f_combined_primary_unadjusted_initial_20261006.json)、[未复权重放](stock_month_m10f_combined_primary_unadjusted_replay_20261006.json)、[复权初次](stock_month_m10f_combined_primary_adjusted_initial_20261006.json)、[复权重放](stock_month_m10f_combined_primary_adjusted_replay_20261006.json)、[最终集合对账](stock_month_m10f_combined_final_audit_20261006.json)。最终审计只读，没有新增正式事件或执行job。
+详细证据：未复权初次（历史中间文件已清理）、未复权重放（历史中间文件已清理）、复权初次（历史中间文件已清理）、复权重放（历史中间文件已清理）、最终集合对账（历史中间文件已清理）。最终审计只读，没有新增正式事件或执行job。
 
 ## 完成边界与下一步
 

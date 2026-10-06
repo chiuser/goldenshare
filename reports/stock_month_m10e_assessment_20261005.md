@@ -1,5 +1,7 @@
 # 月线 M10.E：文件执行准备与小样本审批清单
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 日期：2026-10-05，Asia/Shanghai。M10.D已提交733fbd61，未推送。M10.E当前只完成执行入口、正式只读预检与隔离验收，未正式写湖、注册分区、补录事件或启用sensor。
 
 ## 已核验结果
@@ -31,7 +33,7 @@ Prod投影严格是现行13/21业务字段，不包含采集信息；每unit REA
 - `raw/tushare/stk_period_bar_month/month=YYYY-MM/data.parquet`
 - `raw/tushare/stk_period_bar_adj_month/month=YYYY-MM/data.parquet`
 
-采集、候选、spill、排除台账、receipt、年度audit和promoted checkpoint位于`/Volumes/datasource/data_lake_staging/stock_monthly_raw/<本清单plan_hash>/<固定IO_hash>/`。精确plan/preflight/范围与外部SHA见[冻结清单](stock_month_m10e_frozen_scopes_20261005.json)。控制报告只写仓库reports。以下6条命令逐条串行执行，已核验dry-run，无任意SQL或覆盖参数：
+采集、候选、spill、排除台账、receipt、年度audit和promoted checkpoint位于`/Volumes/datasource/data_lake_staging/stock_monthly_raw/<本清单plan_hash>/<固定IO_hash>/`。精确plan/preflight/范围与外部SHA见冻结清单（历史中间文件已清理）。控制报告只写仓库reports。以下6条命令逐条串行执行，已核验dry-run，无任意SQL或覆盖参数：
 
 ```bash
 .venv/bin/python -B -m orchestrator.defs.bootstrap.stock_monthly_history_cli apply --plan /Users/congming/github/goldenshare/reports/stock_month_m10e_2010-01_primary_unadjusted_20261005_plan.json --preflight /Users/congming/github/goldenshare/reports/stock_month_m10e_2010-01_primary_unadjusted_20261005_preflight.json --preflight-sha256 7f63fdcce075719576dc9c8319d537c56e618ebf4a39a719fe733057297da536 --output /Users/congming/github/goldenshare/reports/stock_month_m10e_2010-01_primary_unadjusted_20261005_files.json

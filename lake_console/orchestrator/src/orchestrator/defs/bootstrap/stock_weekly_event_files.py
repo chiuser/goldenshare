@@ -1,5 +1,6 @@
 """Read-only, bounded physical proof for weekly runless event plans."""
 
+import json
 import tempfile
 import time
 from pathlib import Path
@@ -13,7 +14,6 @@ from orchestrator.defs.bootstrap.stock_weekly_capture import (
     check_capture_path,
 )
 from orchestrator.defs.bootstrap.stock_weekly_promote import read_audit
-from orchestrator.defs.checks.stock_weekly_checks import verify_weekly_delivery_evidence
 from orchestrator.defs.duckdb_connection import (
     DuckDBConnectionSettings,
     connect_configured_duckdb,
@@ -26,6 +26,32 @@ from orchestrator.defs.io.stock_weekly_raw import (
 )
 from orchestrator.defs.paths import DEFAULT_LAKE_STAGING_ROOT
 from orchestrator.defs.run_contracts.stock_weekly import StockWeeklySource, WeeklyBudget
+
+
+def verify_weekly_delivery_evidence(audit, budget=None):
+    """Verify the same sealed source receipts once per bounded annual audit."""
+    budget = budget or WeeklyBudget()
+    if len(audit["source_evidence"]) > budget.max_phase_files:
+        raise WeeklyCaptureError("delivery_evidence_budget_exceeded")
+    control_count = 0
+    receipts = 0
+    for item in audit["source_evidence"]:
+        reference = Path(item["path"])
+        if fingerprint(reference) != item["sha256"]:
+            raise WeeklyCaptureError("delivery_evidence_changed")
+        if reference.name == "receipt.json":
+            if reference.stat().st_size > 1024 * 1024:
+                raise WeeklyCaptureError("delivery_receipt_budget_exceeded")
+            receipt = json.loads(reference.read_text())
+            if (
+                receipt["status"] not in ("captured", "success_empty")
+                or receipt["schema_hash"] != audit["schema_hash"]
+            ):
+                raise WeeklyCaptureError("delivery_receipt_invalid")
+            control_count += receipt["source_rows"]
+            receipts += 1
+    if not receipts or control_count != audit["stats"]["source_rows"]:
+        raise WeeklyCaptureError("delivery_control_count_mismatch")
 
 
 def audit_weekly_event_files(references, *, metrics=None):

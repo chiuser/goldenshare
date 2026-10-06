@@ -1,5 +1,7 @@
 # M7 执行前冻结与范围
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 依据原方案、LLD §15/§31和M6物理验收继续M7。当前dev-interface，既有无关脏文件保留，未提交/推送。正式执行进行中，本报告不作为完成证明。
 
 ## 冻结结果
@@ -30,10 +32,10 @@
 
 capture并发1、20秒截止/至少1秒间隔/2次重试；每进程最多新增20receipts，原manifest续跑校验以前receipt，不重拉已完成单元。16年度每年一次向量化候选与提升；最多319units/年度，冻结源行cap144964、857文件上界，保留M6业务投影。DuckDB512MiB仅buffer预算、2线程、2GiB spill。每工作阶段12分钟外部截止，取消/失败保留数据和attempt；不清空checkpoint或扩大预算。年度resume的已完成receipt重验开销及实际elapsed、process RSS/tree RSS/spill独立记录；0.1秒目标采样含系统调用开销，为峰值下界，不能声称压力通过。源调查CSV/JSON和年度candidate证据远低于当前约2.94TB可用空间。
 
-cwd为`/Users/congming/github/goldenshare/lake_console/orchestrator`，现有`.venv`。正式控制命令`.venv/bin/python -B /private/tmp/stock_week_m7_execute.py`，只使用[冻结年度输入](stock_week_m7_frozen_scope_20261003.json)，capture批次调用现有capture_weekly_history，build/promote调用CLI明确的year/audit与apply。staging `/Volumes/datasource/data_lake_staging/stock_weekly_raw/{plan_hash}`；目标 `/Volumes/datasource/data_lake/raw/tushare/weekly`；不读取/初始化DAGSTER_HOME。中断重新执行同一命令按已封存receipt/年度audit/checkpoint恢复，先对账后继续。
+cwd为`/Users/congming/github/goldenshare/lake_console/orchestrator`，现有`.venv`。正式控制命令`.venv/bin/python -B /private/tmp/stock_week_m7_execute.py`，只使用冻结年度输入（历史中间文件已清理），capture批次调用现有capture_weekly_history，build/promote调用CLI明确的year/audit与apply。staging `/Volumes/datasource/data_lake_staging/stock_weekly_raw/{plan_hash}`；目标 `/Volumes/datasource/data_lake/raw/tushare/weekly`；不读取/初始化DAGSTER_HOME。中断重新执行同一命令按已封存receipt/年度audit/checkpoint恢复，先对账后继续。
 
 ## 验证与待验收
 
 47项相关隔离回归通过（CLI、历史coordinator、planner/source），文档integrity/diff检查通过；没有把正式资源作为测试样例。源真实调查和身份只读核验独立于测试。正式源→capture→target全部业务列、文件集/指纹、分区/schema/NULL/key、旧M6数据保持和逐key分类数量守恒仍须最终独立对账，本报告不代替这些结果。复权来源可补性另记录，weekly恢复不代表qfq/hfq恢复。
 
-证据：[身份只读审计](stock_week_m7_identity_audit_20261003.json)、[源键分类](stock_week_m7_source_key_classification_20261003.csv)、[同盘/原目标预检](stock_week_m7_preflight_20261003.json)、[退市来源证据](stock_week_m7_source_20261003/evidence.json)、[已确认身份来源证据](stock_week_m7_identity_source_20261003/evidence.json)。M8事件补录及M9更新机制尚未执行。
+证据：身份只读审计（历史中间文件已清理）、源键分类（历史中间文件已清理）、同盘/原目标预检（历史中间文件已清理）、退市来源证据（历史中间文件已清理）、已确认身份来源证据（历史中间文件已清理）。M8事件补录及M9更新机制尚未执行。

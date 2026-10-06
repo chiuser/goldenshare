@@ -1,4 +1,4 @@
-"""Read-only monthly file, partition and captured-source reconciliation checks."""
+"""Read-only monthly file, partition and current-materialization reconciliation checks."""
 
 import tempfile
 from pathlib import Path
@@ -28,8 +28,8 @@ from orchestrator.defs.run_contracts.stock_monthly import (
 )
 from orchestrator.defs.stock_monthly_point import (
     monthly_connection,
-    read_month_delivery,
 )
+from orchestrator.defs.stock_period_checks import verify_period_materialization
 
 
 def audit_monthly_file(connection, root, source, month, *, schema_only=False):
@@ -94,28 +94,13 @@ def _build_check(asset, source, name, kind):
                         ),
                         limit=1,
                     ).records
-                    delivery = (
-                        getattr(
-                            records[0].asset_materialization.metadata.get(
-                                "goldenshare/monthly_delivery"
-                            ),
-                            "value",
-                            None,
-                        )
-                        if records
-                        else None
-                    )
-                    if not delivery:
-                        raise ValueError("monthly_delivery_evidence_missing")
-                    proof = read_month_delivery(
-                        delivery,
-                        lake_root.root(),
-                        source,
+                    verify_period_materialization(
+                        records[0] if records else None,
                         context.partition_key,
-                        connection=connection,
-                    )
-                    evidence.update(
-                        source_rows=proof["source_rows"], value_difference_rows=0
+                        raw_stock_monthly_path(
+                            lake_root.root(), source, context.partition_key
+                        ),
+                        rows=evidence["rows"],
                     )
             return dg.AssetCheckResult(
                 passed=True,
@@ -133,7 +118,7 @@ def _build_check(asset, source, name, kind):
                         "reason_code": "monthly_file_or_delivery_invalid",
                         "source": source.value,
                         "month": context.partition_key,
-                        "next_action": "核查本月文件、源页receipt与冻结证明；不要直接覆盖历史数据。",
+                        "next_action": "核查本次月份文件及最新物化的路径、行数和检查绑定。",
                     },
                 ),
             )

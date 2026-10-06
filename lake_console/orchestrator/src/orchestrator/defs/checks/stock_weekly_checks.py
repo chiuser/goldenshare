@@ -1,6 +1,5 @@
-"""Checks read physical files and independent delivery evidence; never fetch source."""
+"""Checks only the current partition and its materialization; never read old proofs."""
 
-import json
 from pathlib import Path
 
 import dagster as dg
@@ -11,14 +10,11 @@ from orchestrator.defs.assets.stock_weekly import (
     raw_tushare_weekly,
 )
 from orchestrator.defs.bootstrap.stock_weekly_candidates import (
-    fingerprint,
     partition_path,
 )
 from orchestrator.defs.bootstrap.stock_weekly_capture import (
     WeeklyCaptureError,
-    check_capture_path,
 )
-from orchestrator.defs.bootstrap.stock_weekly_promote import read_audit
 from orchestrator.defs.duckdb_connection import (
     DuckDBConnectionSettings,
     connect_configured_duckdb,
@@ -26,11 +22,9 @@ from orchestrator.defs.duckdb_connection import (
 from orchestrator.defs.io.stock_weekly_raw import (
     WEEK_SQL,
     load_relation,
-    relation_hashes,
     validate_relation,
 )
 from orchestrator.defs.partitions import cn_a_stock_week_ends
-from orchestrator.defs.paths import DEFAULT_LAKE_STAGING_ROOT
 from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.stock_weekly import (
@@ -39,35 +33,10 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     normalize_week_key,
     weekly_check_names,
 )
+from orchestrator.defs.stock_period_checks import verify_period_materialization
 
 
-def verify_weekly_delivery_evidence(audit, budget=None):
-    """Verify the same sealed source receipts once per bounded annual audit."""
-    budget = budget or WeeklyBudget()
-    if len(audit["source_evidence"]) > budget.max_phase_files:
-        raise WeeklyCaptureError("delivery_evidence_budget_exceeded")
-    control_count = 0
-    receipts = 0
-    for item in audit["source_evidence"]:
-        reference = Path(item["path"])
-        if fingerprint(reference) != item["sha256"]:
-            raise WeeklyCaptureError("delivery_evidence_changed")
-        if reference.name == "receipt.json":
-            if reference.stat().st_size > 1024 * 1024:
-                raise WeeklyCaptureError("delivery_receipt_budget_exceeded")
-            receipt = json.loads(reference.read_text())
-            if (
-                receipt["status"] not in ("captured", "success_empty")
-                or receipt["schema_hash"] != audit["schema_hash"]
-            ):
-                raise WeeklyCaptureError("delivery_receipt_invalid")
-            control_count += receipt["source_rows"]
-            receipts += 1
-    if not receipts or control_count != audit["stats"]["source_rows"]:
-        raise WeeklyCaptureError("delivery_control_count_mismatch")
-
-
-def audit_weekly_file(source, week, root, *, delivery=None, kind="key_partition"):
+def audit_weekly_file(source, week, root, *, kind="key_partition"):
     normalize_week_key(week)
     path = partition_path(root, source, week)
     budget = WeeklyBudget()
@@ -89,63 +58,6 @@ def audit_weekly_file(source, week, root, *, delivery=None, kind="key_partition"
             f"SELECT count(*) FROM weekly_checked WHERE {WEEK_SQL}<>?", [week]
         ).fetchone()[0]:
             raise WeeklyCaptureError("formal_week_mismatch")
-        hashes = relation_hashes(con, "weekly_checked", source, budget)
-        if delivery is not None:
-            audit_path = Path(delivery["audit_path"])
-            check_capture_path(audit_path)
-            allowed = (
-                Path(DEFAULT_LAKE_STAGING_ROOT),
-                Path("/private/tmp"),
-                Path(tempfile.gettempdir()).resolve(),
-            )
-            if not any(audit_path.is_relative_to(p) for p in allowed):
-                raise WeeklyCaptureError("delivery_path_forbidden")
-            audit = read_audit(audit_path)
-            if (
-                audit["audit_hash"] != delivery["audit_hash"]
-                or audit["source"] != source.value
-                or audit["target_root"] != str(root)
-            ):
-                raise WeeklyCaptureError("delivery_identity_mismatch")
-            matches = [f for f in audit["files"] if f["week"] == week]
-            if (
-                len(matches) != 1
-                or matches[0]["target"] != str(path)
-                or fingerprint(path) != matches[0]["sha256"]
-            ):
-                raise WeeklyCaptureError("delivery_target_mismatch")
-            if hashes != {
-                week: {
-                    "rows": matches[0]["rows"],
-                    "logical_hash": matches[0]["logical_hash"],
-                }
-            }:
-                raise WeeklyCaptureError("delivery_hash_mismatch")
-            verify_weekly_delivery_evidence(audit, budget)
-            if audit.get("update_reference"):
-                from orchestrator.defs.source_readiness.stock_weekly import (
-                    verify_weekly_source_completion,
-                )
-                from orchestrator.defs.stock_weekly_update_execution import (
-                    read_weekly_control,
-                )
-
-                reference = audit["update_reference"]
-                if fingerprint(Path(reference["path"])) != reference["sha256"]:
-                    raise WeeklyCaptureError("weekly_reference_evidence_changed")
-                frozen = read_weekly_control(Path(reference["path"]))
-                if frozen["week"] != week:
-                    raise WeeklyCaptureError("weekly_reference_identity_mismatch")
-                completion = verify_weekly_source_completion(
-                    con.execute(
-                        "SELECT ts_code,trade_date,end_date,freq FROM weekly_checked"
-                    ).fetchall(),
-                    frozen,
-                )
-                if completion != audit["source_completion"]:
-                    raise WeeklyCaptureError("weekly_source_completion_mismatch")
-            if count != matches[0]["rows"]:
-                raise WeeklyCaptureError("delivery_control_count_mismatch")
     return count
 
 
@@ -159,23 +71,18 @@ def _build_check(asset, source, name, kind):
         reason = "ok"
         try:
             week = context.partition_key
-            delivery = None
+            rows = audit_weekly_file(source, week, lake_root.root(), kind=kind)
             if kind == "delivery_reconciliation":
                 records = context.instance.fetch_materializations(
                     dg.AssetRecordsFilter(asset_key=asset.key, asset_partitions=[week]),
                     limit=1,
                 ).records
-                if not records:
-                    raise WeeklyCaptureError("delivery_materialization_missing")
-                value = records[0].asset_materialization.metadata.get(
-                    "goldenshare/weekly_delivery"
+                verify_period_materialization(
+                    records[0] if records else None,
+                    week,
+                    partition_path(lake_root.root(), source, week),
+                    rows=rows,
                 )
-                delivery = getattr(value, "value", None)
-                if not delivery:
-                    raise WeeklyCaptureError("delivery_evidence_missing")
-            rows = audit_weekly_file(
-                source, week, lake_root.root(), delivery=delivery, kind=kind
-            )
             return dg.AssetCheckResult(
                 passed=True,
                 metadata=build_check_metadata(

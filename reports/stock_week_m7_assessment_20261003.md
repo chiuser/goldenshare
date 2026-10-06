@@ -1,5 +1,7 @@
 # M7 股票周线备用源推广验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 依据[原方案](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)和[LLD§15/§31](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)，在dev-interface完成M7退市推广与已确认身份分支。未提交/推送，M8事件和M9更新机制尚未执行。
 
 ## 物理结果
@@ -49,14 +51,16 @@ capture每批最多20个新receipt、并发1，单调用20秒截止/至少1秒�
 
 ## 证据
 
-- [执行和年度测量](stock_week_m7_execution_20261003.json)
-- [独立审计失败与修正记录](stock_week_m7_independent_audit_attempts_20261003.json)
-- [最终独立对账](stock_week_m7_reconciliation_20261003.json)
-- [本轮逐键结果](stock_week_m7_key_outcomes_20261003.csv)
-- [历史全部缺口结果](stock_week_m7_historical_gap_outcomes_20261003.csv)
-- [剩余原代码物理缺口](stock_week_m7_remaining_raw_gap_keys_20261003.csv)
-- [未决身份物理读回](stock_week_m7_identity_pending_physical_20261003.csv)
-- [复权残留台账](stock_week_m7_adjusted_residual_keys_20261003.csv)
-- [源调查与年度冻结范围](stock_week_m7_frozen_scope_20261003.json)
-- [MCP跨年边界实测](stock_week_m7_mcp_boundary_probe_20261003.json)
-- [最新代码主源覆盖交叉核验](stock_week_m7_canonical_presence_20261003.json)
+- 执行和年度测量（历史中间文件已清理）
+- 独立审计失败与修正记录（历史中间文件已清理）
+- 最终独立对账（历史中间文件已清理）
+- 本轮逐键结果（历史中间文件已清理）
+- 历史全部缺口结果（历史中间文件已清理）
+- 剩余原代码物理缺口（本地CSV，未入库）
+- 未决身份物理读回（历史中间文件已清理）
+- 复权残留台账（本地CSV，未入库）
+- 源调查与年度冻结范围（历史中间文件已清理）
+- MCP跨年边界实测（历史中间文件已清理）
+- 最新代码主源覆盖交叉核验（历史中间文件已清理）
+
+2026-10-07清理后仅保留未复权最终未补齐键（本地CSV，未入库）和复权最终未补齐结果（本地CSV，未入库）供人工查阅；不作为任何运行输入。已删除旧证明路径列，状态仍表示当时核验结果。

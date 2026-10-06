@@ -199,7 +199,6 @@ def test_automatic_delivery_actual_receipts_checks_and_no_refetch(tmp_path, sour
             source,
             "2020-02-28",
             tmp_path / "lake",
-            delivery=first,
             kind="delivery_reconciliation",
         )
         == 1

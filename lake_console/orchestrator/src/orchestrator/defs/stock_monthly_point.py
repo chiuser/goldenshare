@@ -243,16 +243,8 @@ def _verify_source_proof(connection, proof, directory, source, month):
 
 
 def read_month_delivery(delivery, root, source, month, *, connection=None):
-    """Local proof audit, no source requests; bounded to one month's captured pages."""
+    """Resume proof for this update intent only; never used by formal checks/sensors."""
     source = StockMonthlySource(source)
-    if delivery.get("delivery_method") == "prod_month_bootstrap":
-        from orchestrator.defs.bootstrap.stock_monthly_delivery import (
-            read_month_bootstrap_delivery,
-        )
-
-        return read_month_bootstrap_delivery(
-            delivery, root, source, month, connection=connection
-        )
     path = Path(delivery["proof_path"])
     check_monthly_path(path)
     allowed = (

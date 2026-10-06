@@ -1,5 +1,0 @@
-source_table,freq,min_trade_date,max_trade_date,audited_at
-stk_period_bar,month,2010-01-31,2026-09-30,2026-10-03 08:45:32.84906+08
-stk_period_bar,week,2010-01-01,2026-09-25,2026-10-03 08:45:32.84906+08
-stk_period_bar_adj,month,2010-01-31,2026-09-30,2026-10-03 08:45:32.84906+08
-stk_period_bar_adj,week,2010-01-01,2026-09-25,2026-10-03 08:45:32.84906+08

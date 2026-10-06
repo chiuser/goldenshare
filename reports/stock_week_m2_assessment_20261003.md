@@ -1,5 +1,7 @@
 # 股票周线 M2 开发验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 日期：2026-10-03。M0/M1 已提交 `114a15c6`，未推送。本轮完成 M2 capture 实现和隔离验收，M2 修改保留工作区。依据[原方案](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)、[LLD §20–21](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)、DG 接入模板 §7A 及性能治理规范。
 
 ## 实现与硬口径对账
@@ -15,13 +17,13 @@
 | `tests/test_stock_weekly_source.py` | 真实隔离子进程超时／取消、成功空、错误脱敏、重试和重启后预算不重置 |
 | `tests/test_stock_weekly_history.py`、`stock_weekly_capture_test_support.py` | 只读替身、完成单元取消／续跑／幂等、进度单调、实际进程exit17后恢复、外部输入篡改阻断 |
 
-同时回写原方案、LLD和文档索引，新增本报告及[测量JSON](stock_week_m2_capture_sample_20261003.json)。未改变现有API／CLI、shared resources、活跃资产、catalog、jobs或sensors；业务子系统依赖矩阵不变。预算沿用M1冻结合同，不新增env／数据库／页面配置项。
+同时回写原方案、LLD和文档索引，新增本报告及测量JSON（历史中间文件已清理）。未改变现有API／CLI、shared resources、活跃资产、catalog、jobs或sensors；业务子系统依赖矩阵不变。预算沿用M1冻结合同，不新增env／数据库／页面配置项。
 
 失败或取消的attempt目录保留。完成单元复用前重新校验Parquet物理schema、key、源范围、count、file hash及receipt hash；不存在通过删除坏文件或静默截断继续的方法。未完成单元在下一attempt重取，既有请求次数不归零。备用查空不能当作复权已补齐，capture成功也不能代替M3的历史expected-key覆盖对账。
 
 ## 测量与范围
 
-[样本JSON](stock_week_m2_capture_sample_20261003.json)使用M0真实只读源数据，在 `/private/tmp` 回放到实际M2 adapter/capture。PG网络连接替换为有界cursor replay；备用响应经过实际监督子进程。没有使用正式token、instance或正式Lake作为测试资源。
+样本JSON（历史中间文件已清理）使用M0真实只读源数据，在 `/private/tmp` 回放到实际M2 adapter/capture。PG网络连接替换为有界cursor replay；备用响应经过实际监督子进程。没有使用正式token、instance或正式Lake作为测试资源。
 
 | 样本 | 源行／capture读回 | 批次及续跑 | 内存／限制 |
 |---|---|---|---|

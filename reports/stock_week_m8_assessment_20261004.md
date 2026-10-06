@@ -1,5 +1,7 @@
 # M8 周线事件补录：开发及正式补录验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-04。M8开发、正式apply及写后验收均已完成，M9未开始。下文开发/待批准段保留执行前历史记录，最新结论以末尾正式补录验收为准；就绪结论仅覆盖冻结文件范围，不代表全市场缺口消失。
 
 ## 依据与范围
@@ -10,7 +12,7 @@
 
 ## 正式只读结果
 
-[最新dry-run](stock_week_m8_dry_run_v3_20261004.json)、[冻结EventPlan](stock_week_m8_event_plan_v3_20261004.json)、[50个年度证据引用](stock_week_m8_audit_references_20261004.json)。旧v1/v2保留为开发过程证据，不作为apply输入。
+最新dry-run（历史中间文件已清理）、冻结EventPlan（历史中间文件已清理）、50个年度证据引用（历史中间文件已清理）。旧v1/v2不作为apply输入；2026-10-07按管理员清理要求删除其冗余完整EventPlan，保留旧dry-run摘要与plan_hash，最新实际执行v3及全部执行/对账证据不变。删除明细见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07补充清理)。
 
 - 已验证2517个文件，5926727行，文件SHA、严格物理schema、业务key、自然周归属及canonical hash均与交付证据一致。不是全市场无缺口结论，M7残余分类仍有效。
 - 需要注册857个cn_a_stock_week_ends键；补2517次materialization、7551次blocking check，共10068事件。现有materialization及check记录为0，已有passed、latest failed、冲突check均0。
@@ -44,7 +46,7 @@ CodeGraph使用explore、query、impact、sync/status；图分析与直接代码
 
 ## 执行前待批准的执行卡（历史，已获本轮确认）
 
-[完整139条分阶段命令](stock_week_m8_apply_commands_20261004.json)已列argv、cwd、DAGSTER_HOME、读写范围与恢复方式，均指向v3冻结计划。只申请本轮857注册键与10068个事件，既有目标变化即停。分区注册每100键，单分区materialization及3checks试点读回后，materialization每100条、check每25文件（最多75条），再只读聚合审计与5分区样本。试点在全量批次遇到时幂等跳过，不增加事件数。
+完整139条分阶段命令（历史中间文件已清理）已列argv、cwd、DAGSTER_HOME、读写范围与恢复方式，均指向v3冻结计划。只申请本轮857注册键与10068个事件，既有目标变化即停。分区注册每100键，单分区materialization及3checks试点读回后，materialization每100条、check每25文件（最多75条），再只读聚合审计与5分区样本。试点在全量批次遇到时幂等跳过，不增加事件数。
 
 示例完整命令（试点必须在注册阶段完成之后）：
 
@@ -71,7 +73,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python -B -m or
 
 新增10068事件；materialization/check跳过的是已经读回通过的试点，没有新增重复事件。命令累计1503.595秒，不含人工试点审阅等间隔。未测RSS或强制spill，不能声称性能压力全部通过；此次低频历史维护成本已实测落档。
 
-[最终对账](stock_week_m8_final_reconciliation_20261004.json)、[实际写后审计](stock_week_m8_apply_139_20261004.json)、[逐批台账](stock_week_m8_execution_20261004.jsonl)、[试点readiness](stock_week_m8_pilot_readback_20261004.json)。全部139步exit=0，最终文件数2517、行数5926727与冻结证据一致；缺注册、materialization、check、blocked、latest failed均0，返回17619条记录，未超过20000上限。
+最终对账（历史中间文件已清理）、实际写后审计（历史中间文件已清理）、逐批台账（历史中间文件已清理）、试点readiness（历史中间文件已清理）。全部139步exit=0，最终文件数2517、行数5926727与冻结证据一致；缺注册、materialization、check、blocked、latest failed均0，返回17619条记录，未超过20000上限。
 
 五代表分区实际readiness均通过：未复权主源与复权主源各2010-01-01、2026-09-25，备用源2010-01-01。核验实际文件、源证据及三个passed/blocking/ERROR evaluation的partition和target storage_id/run_id/timestamp，未使用checkpoint替代实际事实。
 

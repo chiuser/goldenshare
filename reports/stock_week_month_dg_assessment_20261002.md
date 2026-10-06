@@ -1,5 +1,7 @@
 # 股票周／月行情接入 DG：只读审计与整体评估
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 审计日期：2026-10-02，Asia/Shanghai；主要数据查询在 19:00–19:43 完成。本文是接入建议，不是已批准的实施方案。本轮没有修改实现、Prod、正式 Lake 或 Dagster instance。
 
 > 2026-10-02 补充复核：本文关于“2020-02-28 是异常、Silver 优先采用 29 日”的初步建议已撤回。Tushare 当前对 28 日与 29 日均返回月线；28 日 Prod 存量与源端逐字段完全一致。两日的代码集合、复权版本不同，暂时保留两批源事实，不删除、不改日期。详见 [专项复核](/Users/congming/github/goldenshare/reports/stock_month_20200228_29_verification_20261002.md)。下文相关旧判断仅保留审计历史，不能作为执行依据。
@@ -39,7 +41,7 @@ Prod SQL 使用只读事务及 30–60 秒 statement timeout；查询汇总、�
 
 Prod 日线始于 1990-12-19，周／月线始于 2010 年。1990–2009 年属于 Prod 原本没有的周／月历史范围，bootstrap 不能补出。Tushare 000001.SZ 对象过滤样本返回 1,780 条周线，最早 1991-04-05，说明至少该样本有更早源数据；不能据一个样本承诺全市场早期覆盖。
 
-精确汇总 CSV：[Prod 概况](/Users/congming/github/goldenshare/reports/stock_week_month_prod_summary_20261002.csv)。
+精确汇总 CSV：Prod 概况（历史中间文件已清理）。
 
 ## 同步日期：继承业务口径，显式生成锚点
 
@@ -89,7 +91,7 @@ DG 建议：
 
 月线六个候选为 001237.SZ、603435.SH、688635.SH、920161.BJ、920218.BJ、920220.BJ；其中 001237.SZ 已证实源端目前有数据。周线零星候选包括新股与 603843.SH，不能未经身份/源端核实就自动定义为入库故障。
 
-完整逐周期 CSV：[2026 年覆盖](/Users/congming/github/goldenshare/reports/stock_week_month_daily_coverage_2026_20261002.csv)，包含 expected、missing、BJ 分类、缺失样本和 period_state。该 CSV 包含 10 月 2 日的预期集合，汇总时必须排除 not_due_at_audit。
+完整逐周期 CSV：2026 年覆盖（历史中间文件已清理），包含 expected、missing、BJ 分类、缺失样本和 period_state。该 CSV 包含 10 月 2 日的预期集合，汇总时必须排除 not_due_at_audit。
 
 2010–2025 全历史逐股票／周期键的单次汇总查询触及 60 秒上限，已停止，未输出有效结果。因此本文不能宣称“历史只有以上零星缺口”；实施前要用有预算的分批审计补齐。OHLC 与日线聚合的全历史数值一致性也尚未验收，不能把键覆盖当作价格一致性证明。
 

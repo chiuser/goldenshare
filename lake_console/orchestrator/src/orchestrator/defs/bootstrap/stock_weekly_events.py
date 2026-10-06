@@ -44,19 +44,13 @@ def _asset(entry):
     return dg.AssetKey(weekly_asset_key(StockWeeklySource(entry["source"])))
 
 
-def _delivery(entry):
-    return {key: entry[key] for key in ("path", "rows", "audit_path", "audit_hash")}
-
-
 def _matching_mat(record, entry):
     if record is None:
         return False
     materialization = record.asset_materialization
-    delivery = _value(materialization.metadata, "goldenshare/weekly_delivery")
     return (
         materialization.partition == entry["week"]
-        and isinstance(delivery, dict)
-        and all(delivery.get(key) == value for key, value in _delivery(entry).items())
+        and _value(materialization.metadata, "dagster/uri") == entry["path"]
         and _value(materialization.metadata, "dagster/row_count") == entry["rows"]
     )
 
@@ -266,7 +260,6 @@ def audit_weekly_readiness_samples(instance, entries):
                 StockWeeklySource(entry["source"]),
                 entry["week"],
                 Path(entry["path"]).parents[4],
-                delivery=_delivery(entry),
                 kind="delivery_reconciliation",
             )
         samples.append(
@@ -310,10 +303,10 @@ def apply_weekly_events(
         selected_weeks = set(plan["missing_registrations"][start : start + count])
         proof_entries = [e for e in plan["entries"] if e["week"] in selected_weeks]
     # Revalidate immutable source proof once per annual audit, not once per check.
-    from orchestrator.defs.bootstrap.stock_weekly_promote import read_audit
-    from orchestrator.defs.checks.stock_weekly_checks import (
+    from orchestrator.defs.bootstrap.stock_weekly_event_files import (
         verify_weekly_delivery_evidence,
     )
+    from orchestrator.defs.bootstrap.stock_weekly_promote import read_audit
 
     verified = {}
     for entry in proof_entries:
@@ -409,7 +402,6 @@ def apply_weekly_events(
                             )
                         ],
                         extra_metadata={
-                            "goldenshare/weekly_delivery": _delivery(entry),
                             TOKEN: plan["plan_hash"],
                         },
                     ),

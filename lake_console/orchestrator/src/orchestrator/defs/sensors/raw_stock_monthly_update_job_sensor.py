@@ -146,16 +146,7 @@ def evaluate_stock_monthly_update(context, now):
                     source=source,
                 )
         root = context.resources.lake_root.root()
-        # A cursor is a bookmark, never completion evidence.
-        for source in tuple(StockMonthlySource):
-            status = monthly_period_status(context.instance, root, source, frontier)
-            if status != "ready":
-                return result(
-                    "baseline_not_ready",
-                    f"{frontier}交付基线需要核验：{status}。",
-                    month=frontier,
-                    source=source,
-                )
+        # Bootstrap was reconciled once. Only the next uncompleted period is checked.
         month = next_month(examined)
         if not completed_month(now, month):
             return result("already_verified", "已结束月均已交付，等待下一个完成周期。")

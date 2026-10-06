@@ -1,5 +1,7 @@
 # M10.E 正式月线全量 bootstrap 验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 日期：2026-10-05，Asia/Shanghai。管理员本轮明确“提交。然后推进全量bootstrap”。先将小样本结果与post-sample预检提交a49609db，未推送；使用已提交e1f56646文件入口执行两源全量历史，未改业务代码或扩展到事件阶段。
 
 ## 结果与性能
@@ -13,7 +15,7 @@
 
 只通过仓库psql-remote.sh读取raw_tushare.stk_period_bar/stk_period_bar_adj，freq=month，字段按现行13/21列白名单投影、不带采集信息。每unit≤300明确代码/3900计划上界/10000硬上限，真实COUNT/COPY同一READ ONLY REPEATABLE READ事务并ROLLBACK，30秒SQL超时/45秒unit监督超时，单连接串行。450份成功receipt、真实snapshot/control、capture、源运输证据均持久化；没有全历史长事务或Tushare请求。
 
-工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`。完整两条apply命令与已核验的post-sample外部SHA见[执行清单](stock_month_m10e_full_commands_20261005.txt)。DAGSTER_HOME为`/Users/congming/.goldenshare/dagster_home`，文件入口不打开instance；后置instance审计仅读已有事实，禁自动建表。
+工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`。完整两条apply命令与已核验的post-sample外部SHA见执行清单（历史中间文件已清理）。DAGSTER_HOME为`/Users/congming/.goldenshare/dagster_home`，文件入口不打开instance；后置instance审计仅读已有事实，禁自动建表。
 
 正式路径为`/Volumes/datasource/data_lake/raw/tushare/{stk_period_bar_month,stk_period_bar_adj_month}/month=YYYY-MM/data.parquet`；所有capture/候选/台账/receipt/audit/checkpoint位于`/Volumes/datasource/data_lake_staging/stock_monthly_raw/<plan_hash>/<io_hash>/`。两个入口各按year处理、按unit持久化、按month同卷os.replace提交。退出或取消保留已完成事实，沿本次冻结计划/checkpoint续跑；不删除正式数据、不做Kopia或备份。
 
@@ -24,7 +26,7 @@
 3. 正式2020-02只含20200228，其他月保持源自然月末，2026-05保持20260531。Decimal与NULL源值一致，正式end_date合法NULL为3960/3149行，共7109；不套新增源的截至门禁擅自填充历史NULL。
 4. 两条命令日志计时合计424.653秒（约7.08分钟，不含命令间编排），正式Parquet合计61569878字节，单源年度集合audit约1.937/2.387秒；全量独立读回8.980秒。DuckDB沿既定512MiB/2线程/2GiB spill预算，没有实测正式进程RSS峰值或spill峰值，不借隔离值代替。本次事实为逐unit来源快照，不宣称一个全局Prod时间点事务。
 
-完整路径/字节hash、450个事务快照、34个年度对账结果和各源汇总见[详细JSON](stock_month_m10e_formal_full_20261005.json)。未复权先行独立审计另见stock_month_m10e_unadjusted_full_readback_20261005.json；全量JSON为最终结果。
+完整路径/字节hash、450个事务快照、34个年度对账结果和各源汇总见详细JSON（历史中间文件已清理）。未复权先行独立审计另见stock_month_m10e_unadjusted_full_readback_20261005.json；全量JSON为最终结果。
 
 ## 阶段边界
 

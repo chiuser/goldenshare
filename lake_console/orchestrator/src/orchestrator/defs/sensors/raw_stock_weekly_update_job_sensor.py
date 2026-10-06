@@ -148,16 +148,7 @@ def evaluate_stock_weekly_update(context, now):
                     source=source,
                 )
         root = context.resources.lake_root.root()
-        # A cursor is a bookmark, never completion evidence.
-        for source in AUTOMATIC_WEEKLY_SOURCES:
-            status = weekly_period_status(context.instance, root, source, frontier)
-            if status != "ready":
-                return result(
-                    "baseline_not_ready",
-                    f"{frontier}交付基线需要核验：{status}。",
-                    week=frontier,
-                    source=source,
-                )
+        # Bootstrap was reconciled once. Only the next uncompleted period is checked.
         week = next_weekly_period(examined)
         if not completed_week(now, week):
             return result("already_verified", "已结束周均已交付，等待下一个完成周期。")

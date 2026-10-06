@@ -1,5 +1,7 @@
 # DG 股票周线 M4 开发及隔离验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 截至2026-10-03，M3已提交`1638d42b`，未推送。M4完成三份Raw资产、九个blocking checks、三个手动更新jobs及catalog/schema/自然周分区合同接入；本轮M4修改尚未提交。正式Lake、正式Dagster instance、动态分区、bootstrap、runless事件、sensor与schedule均未执行或启用。
 
 ## 目标、依据和范围
@@ -36,7 +38,7 @@ DuckDB统一设置512MiB、2线程、spill上限2GiB；正式提升复用M3同�
 
 [源实测JSON](dg_stock_weekly_m4_source_probe_20261003.json)：两主源针对`000001.SZ/20250926/freq=week`分别实测默认字段、全量文档字段、关键字段显式请求，均返回1行。身份字段包含`ts_code/trade_date/freq`，时间字段包含`end_date`。本次原始源返回end_date为20251024、复权源为20260930，均不同于trade_date；Raw按源保留，不能将end_date当该周末或强行改写。接口选型/对象/区间/SDK分页的前序证据继续见M0；MCP工具未暴露limit/offset，本次不冒称用MCP完成分页实测。
 
-[隔离交付JSON](stock_week_m4_delivery_sample_20261003.json)：将本次两套MCP真实返回重放至私有临时目录，均源1行、归一化1行、写入/读回1行、reject0，所有业务字段双向EXCEPT ALL差异0。耗时分别0.0783/0.0825秒，仅含离线交付与对账。
+隔离交付JSON（历史中间文件已清理）：将本次两套MCP真实返回重放至私有临时目录，均源1行、归一化1行、写入/读回1行、reject0，所有业务字段双向EXCEPT ALL差异0。耗时分别0.0783/0.0825秒，仅含离线交付与对账。
 
 容量样本从一条真实业务行生成10000个合成代码，6000+4000两页，offset为0/6000，最终1个8950字节文件、10000行，交付与delivery check共1.2962秒。累计峰值RSS276.156MiB、spill0。代码和高压缩重复价格为合成样本，不代表真实市场文件大小、传输耗时或全历史性能；未完成强制spill验收。正式端到端网络与Lake执行须在M5/M6获准范围验收。
 

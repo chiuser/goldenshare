@@ -1,3 +1,0 @@
-dataset_key,action,time_mode,trade_date,ts_code,expected_missing_keys,source_verified_rows,status,notes
-stk_period_bar_week,maintain,point,2026-10-02,,5565,5565,recommended_not_submitted,全市场；填写周五2026-10-02，不能留空或填最后交易日2026-09-30
-stk_period_bar_adj_week,maintain,point,2026-10-02,,5565,5565,recommended_not_submitted,全市场；填写周五2026-10-02，不能留空或填最后交易日2026-09-30

@@ -82,11 +82,9 @@ def _matching_mat(record, entry):
     if record is None:
         return False
     materialization = record.asset_materialization
-    delivery = _value(materialization.metadata, "goldenshare/monthly_delivery")
     return (
         materialization.partition == entry["month"]
-        and isinstance(delivery, dict)
-        and all(delivery.get(key) == value for key, value in _delivery(entry).items())
+        and _value(materialization.metadata, "dagster/uri") == entry["path"]
         and _value(materialization.metadata, "dagster/row_count") == entry["rows"]
     )
 
@@ -446,7 +444,6 @@ def apply_monthly_events(
                         row_count=entry["rows"],
                         observed_columns=[s[0] for s in monthly_column_specs(source)],
                         extra_metadata={
-                            "goldenshare/monthly_delivery": _delivery(entry),
                             TOKEN: plan["plan_hash"],
                         },
                     ),

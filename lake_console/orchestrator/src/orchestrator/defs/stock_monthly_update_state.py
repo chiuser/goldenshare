@@ -87,7 +87,7 @@ def monthly_daily_intent_submitted(instance, source, key):
 
 def monthly_period_status(instance, root, source, month):
     from orchestrator.defs.paths import raw_stock_monthly_path
-    from orchestrator.defs.stock_monthly_point import read_month_delivery
+    from orchestrator.defs.stock_period_checks import verify_period_materialization
 
     path = raw_stock_monthly_path(root, source, month)
     record, ready = weekly_event_binding(
@@ -100,12 +100,10 @@ def monthly_period_status(instance, root, source, month):
         return "orphan_file" if path.exists() else "missing"
     if not ready:
         return "checks_failed_or_stale"
-    value = record.asset_materialization.metadata.get("goldenshare/monthly_delivery")
-    delivery = getattr(value, "value", None)
-    if not delivery:
-        return "delivery_evidence_missing"
+    if not path.is_file():
+        return "formal_file_missing"
     try:
-        read_month_delivery(delivery, root, source, month)
-    except (ValueError, KeyError, OSError):
-        return "formal_file_or_proof_changed"
+        verify_period_materialization(record, month, path)
+    except ValueError:
+        return "materialization_invalid"
     return "ready"

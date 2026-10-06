@@ -1,5 +1,7 @@
 # 月线 M10.C 隔离开发验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-05，Asia/Shanghai。M10.C bootstrap helper开发完成；未写正式Lake、注册分区、触发job、补录事件或启用sensor。前序周线与月线M10.B已提交 `981fb1cc`，本轮M10.C改动尚未提交、未推送。
 
 已实现两源Prod只读业务字段SQL与监督导出、冻结计划重算/库存hash、成功unit receipt、Decimal/NULL保真、年度库存对照、20200229排除台账、全候选差集校验、跨计划/IO配置共用月文件锁、目标fingerprint、同值复用/异值停止、同卷逐文件os.replace和checkpoint续跑。没有修改weekly helper、正式definitions、Prod API或src分层。
@@ -19,4 +21,4 @@
 
 下一步M10.D：注册两套月线assets/checks/catalog/paths/partitions并集成手动、每天19:30自动更新及月份完成证据。M10.E正式文件/事件执行、M10.F更新验收另列；M9仍待周线源版本可交付后正式验收。无需新增业务拍板，不能将本轮隔离测试作为正式写入或启用授权。
 
-证据：[样本报告](stock_month_m10c_sample_20261005.json)、[代码/验证记录](stock_month_m10c_validation_20261005.json)、[LLD](../lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。
+证据：样本报告（历史中间文件已清理）、代码/验证记录（历史中间文件已清理）、[LLD](../lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。

@@ -1,5 +1,7 @@
 # M9 周线正式交付恢复执行清单
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-06，Asia/Shanghai。管理员要求提交异常分类修订，确认已重新加载代码，并要求继续。本轮先提交`ca46278c`，未推送；再恢复已批准的2026-10-02同周两主源正常交付。主动取消恢复和19:30调度启用继续分阶段，当前不执行。
 
 ## 每日意图及预算依据
@@ -8,7 +10,7 @@
 
 ## 已刷新预检
 
-当前源码下两主源各两次真实SDK有界分页：limit6000，offset0各5565行、offset6000均0行；13/21列、完整字段hash与10月5日源预检一致。正式上游3日线/16677行/5565期望代码及身份blocking绑定满足，基线ready、两个新目标missing、无pending job。2026-10-02动态键已注册，本轮不再注册；sensor无启动state。两根同卷、空间充足，旧账本及正式基线指纹不变；10月6日两新assembly均不存在。预检7.373秒，无正式写入。详见[只读证据](stock_week_m9_recovery_preflight_20261006.json)。
+当前源码下两主源各两次真实SDK有界分页：limit6000，offset0各5565行、offset6000均0行；13/21列、完整字段hash与10月5日源预检一致。正式上游3日线/16677行/5565期望代码及身份blocking绑定满足，基线ready、两个新目标missing、无pending job。2026-10-02动态键已注册，本轮不再注册；sensor无启动state。两根同卷、空间充足，旧账本及正式基线指纹不变；10月6日两新assembly均不存在。预检7.373秒，无正式写入。详见只读证据（历史中间文件已清理）。
 
 ## 精确执行范围与命令
 
@@ -42,9 +44,9 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/dg launch --mod
 
 以下将在每个正式job及独立读回完成后记录；预检通过本身不是交付完成。
 
-未复权job已成功：run `dd120254-9f0b-4ac5-9a7a-bb3547364566`，1份正式文件/5565行、1物化、3个blocking check evaluation全部通过并绑定当前物化。独立只读schema、主键和全字段hash与本轮源一致，period_status=ready；旧账本、两个历史基线和上游指纹未变。详见[未复权后置证据](stock_week_m9_recovery_primary_unadjusted_20261006.json)。随后才开始复权job。
+未复权job已成功：run `dd120254-9f0b-4ac5-9a7a-bb3547364566`，1份正式文件/5565行、1物化、3个blocking check evaluation全部通过并绑定当前物化。独立只读schema、主键和全字段hash与本轮源一致，period_status=ready；旧账本、两个历史基线和上游指纹未变。详见未复权后置证据（历史中间文件已清理）。随后才开始复权job。
 
-复权job随后成功：run `f7f20061-871e-48ba-871f-8554d69dad64`，1份正式文件/5565行、1物化、3个blocking checks准确绑定且通过，独立schema/主键/全部源字段hash一致。后置查询确认两源均ready，旧账本/历史基线/上游指纹不变，sensor仍无启动state。详见[复权及最终状态](stock_week_m9_recovery_primary_adjusted_20261006.json)。
+复权job随后成功：run `f7f20061-871e-48ba-871f-8554d69dad64`，1份正式文件/5565行、1物化、3个blocking checks准确绑定且通过，独立schema/主键/全部源字段hash一致。后置查询确认两源均ready，旧账本/历史基线/上游指纹不变，sensor仍无启动state。详见复权及最终状态（历史中间文件已清理）。
 
 两份正式Raw合计11130行，本轮正式源请求各1次、合计2次，每源第一页只占用1次尝试；加恢复前只读分页4次，本轮一共6次源查询。没有补录runless事件、写Prod/Silver/月线、自动使用备用源、主动取消任务或启用19:30。10月5日失败原因仍无法追溯，不能把本轮成功称为原始网络/权限原因已确诊；本轮正式执行未再失败。
 

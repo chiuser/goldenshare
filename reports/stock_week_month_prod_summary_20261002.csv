@@ -1,5 +1,0 @@
-series,freq,rows,codes,anchors,min_date,max_date,min_end_date,max_end_date,null_end_date,end_after_anchor,invalid_anchor,null_ohlc_volume,invalid_ohlc,nonpositive_or_negative
-unadjusted,month,703828,5629,202,2010-01-31,2026-09-30,2025-08-12,2026-09-30,3584,666986,3632,0,0,0
-unadjusted,week,2883952,5623,855,2010-01-01,2026-09-18,2025-08-12,2026-09-18,20769,2726963,0,0,0,0
-adjusted,month,703052,5622,202,2010-01-31,2026-09-30,2025-08-12,2026-09-30,2808,666986,3625,0,0,0
-adjusted,week,2879431,5615,855,2010-01-01,2026-09-18,2025-08-12,2026-09-18,16250,2736145,0,0,0,0

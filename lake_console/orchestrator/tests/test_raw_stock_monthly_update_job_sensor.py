@@ -38,7 +38,6 @@ def context(
     tmp_path,
     monkeypatch,
     statuses=None,
-    baseline="ready",
     days=("2026-10-30",),
     upstream=True,
 ):
@@ -46,9 +45,9 @@ def context(
 
     def status(instance, root, source, month):
         seen.append((source, month))
-        return (
-            baseline if month == "2026-09" else (statuses or {}).get(source, "missing")
-        )
+        if month == "2026-09":
+            pytest.fail("completed bootstrap baseline must not be reread")
+        return (statuses or {}).get(source, "missing")
 
     monkeypatch.setattr(module, "monthly_period_status", status)
     monkeypatch.setattr(
@@ -119,14 +118,11 @@ def test_pending_precedes_physical_scan(tmp_path, monkeypatch):
     )
 
 
-@pytest.mark.parametrize(
-    "baseline",
-    ["missing", "orphan_file", "checks_failed_or_stale", "delivery_evidence_missing"],
-)
-def test_no_fake_bootstrap_baseline(tmp_path, monkeypatch, baseline):
-    ctx, _ = context(tmp_path, monkeypatch, baseline=baseline)
+def test_bootstrap_completed_once_and_only_new_month_checked(tmp_path, monkeypatch):
+    ctx, seen = context(tmp_path, monkeypatch)
     result = module.evaluate_stock_monthly_update(ctx, NOW)
-    assert reason(result) == "baseline_not_ready" and not result.run_requests
+    assert len(result.run_requests) == 1
+    assert seen and all(month == "2026-10" for _, month in seen)
 
 
 def test_current_month_not_requested(tmp_path, monkeypatch):

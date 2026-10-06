@@ -1,5 +1,7 @@
 # DG 股票周线 M3 开发验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 日期：2026-10-03，Asia/Shanghai。M2已按管理员指令提交`30b118ff`，未推送。M3年度候选、源对账和单文件提升恢复已完成开发及私有临时目录验收；M3修改尚未提交。正式Lake、正式staging、Prod和Dagster instance均未写入。
 
 ## 目标、依据与改动
@@ -14,7 +16,7 @@
 | `defs/bootstrap/stock_weekly_capture.py` | 只追加validated_receipt；复用当前验证，不更新checkpoint，不改resume |
 | `tests/test_stock_weekly_candidates.py` | 24项三源、跨年、NULL、冲突、证据篡改、路径、并发、预算、取消及真实进程退出测试 |
 
-原方案、LLD、docs索引同步更新；本报告及[测量JSON](stock_week_m3_candidate_sample_20261003.json)保存验收。没有改变共享resource、API/CLI、DatasetDefinition、活跃资产/catalog/sensor或业务子系统依赖矩阵。
+原方案、LLD、docs索引同步更新；本报告及测量JSON（历史中间文件已清理）保存验收。没有改变共享resource、API/CLI、DatasetDefinition、活跃资产/catalog/sensor或业务子系统依赖矩阵。
 
 ## 硬口径对账
 

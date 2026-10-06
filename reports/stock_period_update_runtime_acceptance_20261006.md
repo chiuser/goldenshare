@@ -1,5 +1,7 @@
 # 周/月线正式运行入口只读复核通过
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-06阶段收尾说明：本报告保留当时审计/准备事实；本需求已按管理员决定暂时结束。当前开发及数据交付结果、未来日期/条件和恢复入口见[收尾记录](stock_period_raw_closeout_20261006.md)。后续执行卡继续有效，但没有自动启用授权；旧时刻服务状态不作为执行时承诺。
 
 2026-10-06 18:41–18:43，Asia/Shanghai。依据管理员“按照你的建议继续推进”，完成后续任务第1步：正式页面、code location、launcher、daemon及已加载job合同复核。此次仅查询已有状态和Lake日历，没有启动/停止服务、执行job/check/sensor、注册分区或修改cursor/event。
@@ -17,7 +19,7 @@
 | 加载合同 | 四个主源job分别包含本源asset和file_contract/key_partition/delivery_reconciliation三个blocking checks，checks确实属于对应job和asset。资产配置都包含automatic_intent_date；在线四项合同核对全部通过。 |
 | 下一周条件 | 2026-10-09尚未结束；真实日历开市日为10月8/9日，两日Raw日线文件均不存在，上游checks未ready，两源该周目标文件不存在。取消/续跑执行条件为false；这是未来周期等待，不判为历史缺口。 |
 
-[在线状态与下一周证据](stock_period_update_live_recheck_20261006.json)保存实例身份、配置hash、launcher/daemon、sensor、运行记录与日历指纹；[已加载四job合同](stock_period_update_loaded_jobs_20261006.json)保存GraphQL纯query、实际返回和逐job核对。没有打印token/密码、环境变量或进程完整命令行。
+在线状态与下一周证据（历史中间文件已清理）保存实例身份、配置hash、launcher/daemon、sensor、运行记录与日历指纹；已加载四job合同（历史中间文件已清理）保存GraphQL纯query、实际返回和逐job核对。没有打印token/密码、环境变量或进程完整命令行。
 
 ## 本次读取范围与实现核验
 

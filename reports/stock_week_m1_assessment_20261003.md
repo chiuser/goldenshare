@@ -1,12 +1,14 @@
 # 股票周线 M0／M1 开发验收记录
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 日期：2026-10-03。结论：M0 开发前核验已收口，M1 纯合同和规划器已实现。账户配额按管理员确认视为足够，不再作为开发门禁。实际采集、正式文件提升和更新机制尚未交付，分别继续按后续里程碑执行。
 
 依据：[方案](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)、[LLD](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)、DG 数据集新增模板及专项性能治理规则。
 
 ## 1. M0 收口证据
 
-[M0 报告](stock_week_m0_assessment_20261003.md)记录三源接口、日期／分页对账、Prod 规模与代表性 Decimal Parquet 写出读回。两套 Prod 周线合计 5,787,046 行；最后的只读 [API 标签核验](stock_week_m0_source_identity_20261003.csv)中，两表非预期源接口标签均为零。
+[M0 报告](stock_week_m0_assessment_20261003.md)记录三源接口、日期／分页对账、Prod 规模与代表性 Decimal Parquet 写出读回。两套 Prod 周线合计 5,787,046 行；最后的只读 API 标签核验（历史中间文件已清理）中，两表非预期源接口标签均为零。
 
 账户配额无需再调查。超时、重试、批次、内存和请求总量上限仍保留，用于防止失控执行。M0 代表样本不替代 M2 的实际 adapter、取消／续跑和内存压力验收，也不证明全部退市股票可补齐。
 
@@ -23,7 +25,7 @@
 | `lake_console/orchestrator/tests/test_stock_weekly_planner.py` | 跨年、排除周、分类、限量及冻结计划正反例 |
 | `lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py` | 同步精确源码清单，不放宽隔离策略 |
 
-同时更新原方案、LLD、文档索引与 M0 状态，新增本报告及 [M1 dry-run 结果](stock_week_m1_dryrun_20261003.json)。已有 API／CLI 签名和默认行为未变，没有增加环境、数据库或运营页面配置项。预算只存在于冻结的 `WeeklyBudget`，进入 manifest 和 plan hash。
+同时更新原方案、LLD、文档索引与 M0 状态，新增本报告及 M1 dry-run 结果（历史中间文件已清理）。已有 API／CLI 签名和默认行为未变，没有增加环境、数据库或运营页面配置项。预算只存在于冻结的 `WeeklyBudget`，进入 manifest 和 plan hash。
 
 ## 3. 硬口径对账
 
@@ -50,7 +52,7 @@ active assets、catalog entries、partition models 和 Dagster 执行 config 在
 
 直接 pytest 首次因隔离 fixture 未初始化而失败，改用既有启动器。启动器先拒绝新增纯合同，随后暴露一项既有清单遗漏：ETF checks／writer 已直接导入 `etf_adj_factor_terminal_exceptions.py`。核验实际 imports 后，只将这两个源码文件补入精确清单；没有改 ETF 逻辑、开放其 YAML、网络、正式 Lake 或 instance 权限，随后治理回归通过。没有跳过失败门禁。
 
-[真实样本 dry-run](stock_week_m1_dryrun_20261003.json)只消费已有 M0 CSV／JSON：两主源各 298 个代码、15,346 行，各形成一个 2025 年代码批次；退市 `000005.SZ` 的 656 个已证实候选键全部匹配源证据，形成 15 个年度 unit，含重试最多 45 次请求，首窗口始于 2009-12-28，单 unit 最多 53 周。此样本不能推断全部退市股票均可补。
+真实样本 dry-run（历史中间文件已清理）只消费已有 M0 CSV／JSON：两主源各 298 个代码、15,346 行，各形成一个 2025 年代码批次；退市 `000005.SZ` 的 656 个已证实候选键全部匹配源证据，形成 15 个年度 unit，含重试最多 45 次请求，首窗口始于 2009-12-28，单 unit 最多 53 周。此样本不能推断全部退市股票均可补。
 
 dry-run 没有网络访问或 DB／Lake／instance 写入，仅生成报告。临时 CSV 引用不构成正式可执行输入；M2 必须重新捕获并持久化可核验输入。
 

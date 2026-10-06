@@ -98,10 +98,12 @@ def test_bootstrap_delivery_retains_null_cutoff_without_daily_reconstruction(
 ):
     import json
 
+    from orchestrator.defs.bootstrap.stock_monthly_delivery import (
+        read_month_bootstrap_delivery,
+    )
     from orchestrator.defs.bootstrap.stock_monthly_promote import (
         promote_month_candidates,
     )
-    from orchestrator.defs.stock_monthly_point import read_month_delivery
 
     from .test_stock_monthly_bootstrap import prepared
 
@@ -122,7 +124,9 @@ def test_bootstrap_delivery_retains_null_cutoff_without_daily_reconstruction(
         "rows": item["rows"],
     }
     with store.connection() as con:
-        proof = read_month_delivery(delivery, lake, source, month, connection=con)
+        proof = read_month_bootstrap_delivery(
+            delivery, lake, source, month, connection=con
+        )
         assert (
             proof["annual_captured_rows"] == 6
             and proof["annual_excluded_rows"] == 2
@@ -136,4 +140,4 @@ def test_bootstrap_delivery_retains_null_cutoff_without_daily_reconstruction(
         )
     path.write_text(path.read_text() + "changed")
     with pytest.raises(ValueError, match="monthly_bootstrap_audit_changed"):
-        read_month_delivery(delivery, lake, source, month)
+        read_month_bootstrap_delivery(delivery, lake, source, month)

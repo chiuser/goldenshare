@@ -754,6 +754,7 @@ CONSUMER_SOURCE_FILES = (
     "defs/bootstrap/anns_d_events_cli.py",
     "defs/stock_weekly_update_execution.py",
     "defs/stock_weekly_update_state.py",
+    "defs/stock_period_checks.py",
     "defs/source_readiness/stock_weekly.py",
     "defs/sensors/raw_stock_weekly_update_job_sensor.py",
     "defs/stock_weekly_planner.py",

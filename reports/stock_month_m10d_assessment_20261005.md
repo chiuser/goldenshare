@@ -1,5 +1,7 @@
 # 股票月线 M10.D 开发验收
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-05，Asia/Shanghai。M10.C已提交 `ac063248`，未推送；M10.D开发与隔离验收完成，尚未提交。没有操作正式数据湖、正式Dagster instance或源下载任务，sensor默认STOPPED。
 
 依据[月线LLD](../lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)及数据集模板§7A，新增两套月线Raw assets、6个blocking checks、2个asset+checks jobs、1个每日19:30月线sensor；注册catalog、中文名、精确Decimal schema、paths、动态月份分区定义及typed config。不修改Prod、weekly执行链、前端或src依赖矩阵。
@@ -27,4 +29,4 @@ CodeGraph/当前代码影响面覆盖路径bootstrap消费者、监督传输、�
 
 下一步M10.E为正式bootstrap入口/库存刷新/磁盘和维护窗口预检/分阶段数据与事件执行；M10.F源真实更新和启用另列。M9周线正式源验收仍等待管理员确认可交付版本。正式执行未经本轮授权，未执行；开发完成不代表月线已经上线。
 
-证据：[样本](stock_month_m10d_sample_20261005.json)、[验证清单](stock_month_m10d_validation_20261005.json)。Dagster定义设计查阅[assets](https://docs.dagster.io/guides/build/assets)、[resources](https://docs.dagster.io/guides/build/external-resources)、[partitions](https://docs.dagster.io/guides/build/partitions-and-backfills)、[checks](https://docs.dagster.io/guides/test/asset-checks)及当前安装版本临时job；最终行为以实际测试为准。
+证据：样本（历史中间文件已清理）、验证清单（历史中间文件已清理）。Dagster定义设计查阅[assets](https://docs.dagster.io/guides/build/assets)、[resources](https://docs.dagster.io/guides/build/external-resources)、[partitions](https://docs.dagster.io/guides/build/partitions-and-backfills)、[checks](https://docs.dagster.io/guides/test/asset-checks)及当前安装版本临时job；最终行为以实际测试为准。

@@ -1,5 +1,7 @@
 # 月线历史事件补录执行清单
 
+2026-10-07纠偏说明：本报告保留历史结论；搬运/审计中间数据文件已按管理员要求清理，不再是正式检查或调度依赖。现行口径为 bootstrap 完整对账一次即结束、日常只检查当前新增周期。详见[清理记录](stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。
+
 2026-10-05，Asia/Shanghai。管理员本轮“提交吧，然后进行事件补录”授权本阶段；先提交全量文件证据3892ad31，未推送。
 
 工作目录 `/Users/congming/github/goldenshare/lake_console/orchestrator`；正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，复用现有本机PostgreSQL，禁止自动建表/升级。正式Lake只读 `/Volumes/datasource/data_lake`；staging只读封存证明及独占 `stock_monthly_event_writer.lock`，不写Raw/候选业务文件。
@@ -26,4 +28,4 @@ Dry-run：两源34年度集合校验/742SQL/4.838秒，402文件1414335行通过
 
 M10.E文件/事件阶段完成。事件代码与本轮结果尚未提交；M10.F更新验收/启用和M9周线延期验收另行推进。
 
-证据：[初始dry-run](stock_month_m10e_events_20261005_dryrun.json)、[冻结计划](stock_month_m10e_events_20261005_plan.json)、[样本审计](stock_month_m10e_events_sample_audit_20261005.json)、[全量逐命令日志](stock_month_m10e_events_full_execution_20261005.json)、[最终文件/事件集合](stock_month_m10e_events_final_audit_20261005.json)、[独立消费者与聚合计数](stock_month_m10e_events_consumer_audit_20261005.json)。
+证据：初始dry-run（历史中间文件已清理）、冻结计划（历史中间文件已清理）、样本审计（历史中间文件已清理）、全量逐命令日志（历史中间文件已清理）、最终文件/事件集合（历史中间文件已清理）、独立消费者与聚合计数（历史中间文件已清理）。
