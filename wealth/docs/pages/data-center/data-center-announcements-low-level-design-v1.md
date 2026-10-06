@@ -1,6 +1,6 @@
 # 数据中心与上市公司公告 LLD v1
 
-日期：2026-10-06。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2完成开发及本阶段验收、尚未提交；DC3—DC5待推进。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
+日期：2026-10-06。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2提交a1b47713；DC3后端完成、尚未提交，DC4—DC5待推进。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
 
 ## 1. 硬口径、实现点与验收索引
 
@@ -38,7 +38,7 @@
 - App `announcement_archive_lifespan.py` 创建 supervisor、向 Biz 注入 Foundation 的 `ArchiveExecutionPort`，在 router 装配处加 `get_current_user` 登录依赖。Business API 不 import App/Ops；App传递 actorId只供审计、不新增权限规则。
 - 两个 CLI 原路径保留为入口；移走 `src/scripts/announcement_download/` 的主实现并清零所有旧 import，不留兼容转发包。CLI仍接受现有参数/退出码；日期重放与网页continue是两个明确意图，共用执行循环的两种输入，不存在两套文件协议。
 
-`ArchiveExecutionPort` 只提供 `prepare_preview/create/stop/continue_run/retry/recheck` 与只读观察。`ArchiveCommand` 是本地文件归档命令，不是新的 DatasetDefinition 或 Prod ingestion action。元数据更新仍由既有 DG 管道负责，网页不操作 DG/Prod TaskRun。
+`ArchiveExecutionPort.submit(kind,payload,key,actor)` 只接纳 create/continue/retry/recheck 四类执行意图，返回已持久化runId；close由App生命周期调用。本地预览由PreviewRuntime准备，stop由ArchiveStore保存意图，只读观察由RunQuery读取，不通过执行端口读写混用。`ArchiveCommand` 是本地文件归档命令，不是新的 DatasetDefinition 或 Prod ingestion action。元数据更新仍由既有 DG 管道负责，网页不操作 DG/Prod TaskRun。
 
 全部消费者：download CLI、ledger CLI、maintenance、Source/Files/HTTP、三个公告测试文件、schema1 fixture/process runner、架构测试；新增网页 API/运行器/查询。当前 StockSearch API及其 watchlist消费者行为不改，公告使用独立候选合同。导航必须审计所有现有 onNavigate→path映射，不只修改 DataCenter自身；当前未识别路由回 MarketOverview 的默认逻辑须增加明确匹配。
 
@@ -76,6 +76,7 @@ URL为NULL/trim后空：artifactKey=NULL
 | `company_sources(source_kind,ts_code,name)` | raw_master/历史更名/公告别名、cnspell、initials、最新公告日期、所属日版本；名称缺失的代码仍纳候选 |
 | `catalog_meta(singleton)` | schema版本、catalogRevision、名称版本、词表版本、名称快照指纹事实；ready与来源可用性分开 |
 | `query_snapshots(query_id)` / `query_presence(query_id,artifact_key)` / `query_day_counts(query_id,ann_date)` | 规范条件、catalogRevision、archiveIdentity、checkedAt、expiresAt、成功且存在的文件keys；presence只为状态过滤；逐日匹配数用于完整统计和深页定位；updatedAt/preparationStage/datesCounted/artifactsChecked持久化准备业务进度，大查询准备不常驻内存 |
+| `preview_artifacts(preview_id,artifact_key)` | schema2新增本地预览去重标记；500记录一批插入，只对首次出现文件检查存在性，重启重算前分批清除本预览标记 |
 | `previews(preview_id)` / `preview_days(preview_id,ann_date)` | 日期/interval/来源/归档身份、状态/统计/有效期、逐日固定版本指纹；无全量候选JSON |
 
 索引：另加按列表顺序的覆盖索引`(ann_date DESC,(ts_code IS NULL),ts_code,record_key,generation,artifact_key)`；records `(ann_date,generation,ts_code,record_key)`、`(ts_code,ann_date,generation,record_key)`、artifact_key；company `(ts_code)`、`(initials,ts_code)`。标题contains不假装能用普通BTree，需要日期/公司裁剪后参数化instr；不引入语义索引或PDF全文检索。
@@ -178,6 +179,7 @@ schema1/2识别、写入口原子迁移到3；只读CLI仍可读取已支持的�
 | POST `/announcements/runs` |previewId，`Idempotency-Key` header |202 runId；检查ready/TTL/参数/来源，claim成功才接纳 |
 | GET `/announcements/runs` |cursor?,limit≤20 |currentRunId +最近执行页；无巨大全部历史数组 |
 | GET `/announcements/runs/{id}` |无 |完整TaskDto +关联retry批次摘要分页入口 |
+| GET `/announcements/runs/{id}/related` |cursor?,limit≤20 |同根日期run及关联retry历史，keyset分页，不返回巨大嵌套数组 |
 | GET `/announcements/runs/{id}/files` |result=all/failed/pending/succeeded/reused，cursor?,limit≤50 |文件结果/失败原因/本批尝试；精确run集合 |
 | POST `/announcements/runs/{id}/stop` |无 |202 stopping；终态/已请求返回当前状态；只能控制活动run |
 | POST `/announcements/runs/{id}/continue` |Idempotency-Key |202原run恢复；只能sealed停止/阻断/中断且有pending，失败不包含 |
@@ -420,9 +422,9 @@ git diff --check
 |参数/字段/样例/状态/异常/查询草案 |本文已定义 |评审无歧义，API逐字段实现 |
 |配置审计与中文依赖 |DC1获准安装0.55.0；DC2词表/索引/开关及消费者验收完成 |当前见§15；页面context消费者仍待DC4 |
 |schema消费者/分层 |DC1旧import清零、1/2/3只读；DC2纯端口装配及依赖门禁通过 |正式迁移另验，不将临时验证视为正式升级 |
-|性能 |DC2完成30日/50k/800万/K存在性/深页点时样本 |查询已达本阶段预算；预览/下载性能仍待DC3 |
-|真实API/前端/物理验收 |DC2查询真实路由完成；页面和真实归档未执行 |24画板与最小真实归档分别待DC4/DC5 |
-|评审确认 |2026-10-06用户确认路线并授权DC1、DC2 |每阶段独立验收；产品已确认不重复拍板 |
+|性能 |DC2查询容量；DC3五万单日及800万预览点时样本 |异步预览10.5/41.4秒、峰值127MiB；真实归档仍待DC5 |
+|真实API/前端/物理验收 |DC2/DC3真实路由及本机HTTP fixture完成；页面和正式归档未执行 |24画板与最小真实归档分别待DC4/DC5 |
+|评审确认 |2026-10-06用户确认路线并分阶段授权DC1、DC2、DC3 |每阶段独立验收；产品已确认不重复拍板 |
 
 ## 12. 实施对账与文档关系
 
@@ -430,7 +432,7 @@ git diff --check
 
 原PDF文档新增网页扩展引用，不抹掉M0—M3/DG/维护历史证据；产品规则不改，只补技术文档入口；README索引与异常注册同轮更新。正式DG合同不变，consumer AST测试继续；若实际源/运行语义与本文冲突，先说明并修正文档，不使用兼容旁路或猜测补丁。
 
-2026-10-06技术路线、DC1和本地依赖已获用户确认；DC1实现与隔离验收见§14。DC2已获后续授权，当前交付见§15；DC3—DC5未实施，不从schema3字段存在推断网页下载功能已经交付。
+2026-10-06技术路线、DC1和本地依赖已获用户确认；DC1实现与隔离验收见§14。DC2已获后续授权，当前交付见§15；DC3后端交付见§17；DC4—DC5尚未实施，后端完成不代表网页或正式归档验收完成。
 
 ## 13. DC1授权与执行约束（2026-10-06）
 
@@ -488,4 +490,59 @@ R03身份/缺值、R12基础限速/尝试、R14CLI取消、R15中断事实、R16
 
 最终组合257项通过（39.77秒），覆盖真实路由、50k日100批、日匹配数损坏/版本变化、旧presence重建、准备TTL、原CLI/DG/台账与架构。800万隔离记录最初全范围COUNT/OFFSET超预算，优化后全历史首屏0.002秒、第159999页0.017秒；标题/状态统计后台40—80秒，完成前202并逐日显示业务进度。实际30日29619条冷构建30.624秒、复用0.290秒、首屏0.089秒，存在性34188/50000个隔离文件分别0.746/1.129秒。点时数值不是P95，800万状态SQL样本不等于真实文件stat规模；正式10月5日Raw缺日如实阻断。
 
-完整证据和未执行项见[DC2验收报告](../../../../reports/wealth_data_center_dc2_acceptance_20261006.md)及[机器证据](../../../../reports/wealth_data_center_dc2_acceptance_20261006.json)。DC2已完成但尚未提交；正式索引/台账、真实下载、实际Web启动、DG/Prod/Lake写入和前端均未执行，当前停在DC2。
+完整证据和未执行项见[DC2验收报告](../../../../reports/wealth_data_center_dc2_acceptance_20261006.md)及[机器证据](../../../../reports/wealth_data_center_dc2_acceptance_20261006.json)。本节为DC2提交前交付记录，随后提交a1b47713；正式索引/台账、真实下载、实际Web启动、DG/Prod/Lake写入和前端均未执行。当前DC3进展见§17。
+
+
+## 16. DC3授权与开工约束（2026-10-06）
+
+用户“提交，然后继续推进DC3”：DC2已提交a1b47713。当前只实现§5—8中日期预览、下载命令/后台、进度、停止、原任务继续、原失败精确重试、重新检查、历史及文件结果API；不写前端、不运行正式迁移或真实下载。保留原CLI入口/退出码及日期重放语义，下载循环抽为同一个执行实现。
+
+| 必须口径 | 本轮代码/测试落点 |
+| --- | --- |
+| 只日期+非负有限间隔、固定默认目录 | DTO/DownloadService；额外公司/URL/路径、倒置/NaN/无日期拒绝 |
+| 预览只本地读取，五统计完整、日版本固定 | PreviewRuntime+Catalog预览表；源/归档变化或TTL过期409，无URL不失败，零文件不建run |
+| 先双锁/短事务接纳，线程拥有资源才202 | Supervisor+ExecutionLock/Volume+command_receipts；多进程/CLI争锁、同key同payload、变payload负例 |
+| 500批、全部日封存后HTTP | 共享Executor+Ledger；中途取消/来源变化不发HTTP，已提交日/批保留 |
+| 停止/退出保留成果；重启不自动HTTP | 持久stop_requested、owner恢复/session/slot；进程退出和原集合继续 |
+| Continue只outcome=NULL，retry只尚未解决失败key | ExecutionDAO短事务及keyset500复制；新增同日公告、旧成功/失败不被Continue纳入，单项1/全部失败10 |
+| processed=success+reuse+fail，观察不回滚文件 | WebControl/RunQuery/共享Files；字节/等待、业务时间与心跳分开，结果写失败物理证据保留 |
+| 历史/文件分页、拔盘仍可读，所有登录用户共享 | RunQuery+只读本机Ledger；schema1/2只读，旧集合无完整证据不允许恢复；未知schema阻断 |
+| recheck不自动继续、不清冷却 | 共享Downloader有限probe；volume/localSource零HTTP、remote最多单session/有限redirect/1024字节 |
+
+配置审计补充（无新增env开关或用户参数）：本机`announcement-download/web-archive.json`仅为固定网页归档的最近已验证身份绑定，不是业务事实源。保存version=1、volumeUuid、rootRelativePath、固定archiveLocation；路径位于Application Support，以0600文件、0700父目录及同目录原子replace落地，只在核验归档身份后更新。消费者为Supervisor/RunQuery的本机台账定位和退出恢复，台账仍按原UUID+相对根算法定位；无卷时读取已有绑定，不扫描其它归档或猜测UUID。绑定非法/缺失只显示不可用，不创建/迁移台账。生效为本次启动/显式命令，运维可从文件和context观察固定位置；测试覆盖替换卷、非法绑定、拔盘历史与不写探针。该绑定不允许浏览器传入路径，Prod不开启消费者。
+
+schema3既有字段/表继续使用；预览进度、错误和版本摘要放previews.statistics的小型对象，逐日事实放preview_days，不放候选JSON。准备进度来源为相应catalog_builds/逐批已提交事实。run/history仍以既有本机台账为事实源，不新增Prod TaskRun或下载队列。文件transferState从当前artifacts prepared事实和执行观察派生，未知length保持NULL，不伪造百分比。
+
+接纳线程需在API读预算内完成资源交接；超时/失败返回明确错误并取消尚未接纳意图，已持久receipt的响应丢失仍依原key读回，不重复创建。SQL4秒、API共享5秒、预览TTL900秒、500批及下载原Policy保持；本轮性能验收包括已有800万隔离catalog上的预览统计，真实网络只用本地HTTP fixture，正式归档另行验收。
+
+
+DC3预览容量审计补充：单日反复DISTINCT+key分页会重复扫描/排序50k行，不能用于800万容量。Catalog升级为schema2，仅增加可重建preview_artifacts(preview_id,artifact_key)临时去重事实。按日期和record_key读取500条，以该表INSERT OR IGNORE得到本批新文件key，存在性检查和统计都只做一次；完成后不保留全量候选JSON。已知schema1在catalog writer锁内单事务添加表、校验并更新版本，旧索引/查询事实保留；未知schema拒绝，不清空任何数据。所有Catalog构建/查询/预览消费者和旧schema升级/回滚测试同步，正式升级本轮不执行。预览中断后分500删除本预览临时key再重算估计，旧发布日索引继续复用。
+
+当前文件的transferState通过WebControl写入既有wait_kind中的内部verifying阶段以及artifacts.prepared事实提供；对外wait仅映射interval/backoff/cooldown，验证不是等待。无新增台账schema字段；unknown bytesTotal仍NULL。CLI只使用原Control，不增加逐chunk日志。分配/URL/标题校验失败的安全reason保存在原run attempt_log诊断行，不伪造HTTP尝试次数，后续重试不会抹掉原错误。
+
+
+## 17. DC3实现与验收对账（2026-10-06）
+
+DC2已提交a1b47713；用户授权后完成DC3下载管理后端，代码尚未提交。实际入口为App include_data_center/lifespan → Biz downloads API/DownloadService/RunQuery → Foundation纯ArchiveExecutionPort与ArchiveStore；App装配Ops PreviewRuntime/ArchiveSupervisor/WebControl，CLI和Web共用execute_run及Files/Downloader。无需新增服务或下载队列，子系统依赖矩阵不变。
+
+| 计划硬口径 | 实现及验收 |
+| --- | --- |
+| R08—R09日期范围、固定归档、预览五统计 | PreviewRequest/PreviewRuntime/Catalog；真实Parquet和路由证明3公告→1文件+1无URL，缺值保留；多余公司/URL/路径、逆日期和非有限间隔422；零文件不建run；来源/归档/TTL变化拒绝接纳 |
+| R10单活动执行与接纳幂等 | Supervisor双锁+Ledger receipt/session/slot；活动重复key返回原run，变payload/其它命令409，CLI争锁拒绝；进程在receipt提交后退出可原key读回，不自动HTTP |
+| R11冻结和进度 | 日指纹在枚举前后核验，500提交，全部日完整后seal；准备中total=NULL；processed=成功+复用+失败，字节未知长度NULL、验证阶段、间隔/退避/冷却和独立业务/心跳时间；ETA=NULL |
+| R12自动尝试和失败明细 | 单共享Downloader、持久冷却；本机真实HTTP验证重定向也有请求完成后间隔；attempts按本批，错误来自原run不可变attempt_log，后续retry不抹掉原HTTP404/标题错误 |
+| R13原失败精确retry | 500 keyset复制尚未解决失败，全部10份→新批total10、单项→total1；新增同日Raw公告不进入retry，成功/reused不进入；旧failed不改写，关联历史20/文件50分页 |
+| R14—R15停止和退出恢复 | 准备时停止保留已提交500行但不HTTP、不允许Continue；sealed停止只继续原pending；5种子进程os._exit窗口验证准备/prepared/rename/下载中/receipt后退出，重启不自动HTTP，文件落盘窗口零请求恢复 |
+| R16物理事实独立 | 沿用fsync/prepared/hash/replace协议；结果写失败不删PDF，原成功尝试可补一次succeeded结果；新日期任务发现已删文件重新下载，非依据旧历史结果永久跳过 |
+| R17—R18检查、历史与本地能力 | volume/localSource检查零HTTP；volume检查无需Raw可读，remote有限session/prefix共享冷却且不自动continue；403/验证码必须remoteSource检查通过才能Continue，本地检查不能替代，新阻断清除旧通过记录；终态stop不覆盖结果；已有绑定可离线查本机历史；1/2只读不迁移，旧合同无证据不允许精确恢复 |
+| R19边界与性能 | App纯端口注入、Prod禁用/认证沿用；源/六字段身份不变；8m隔离缓存按500读写及50k真实单日API验收；无正式迁移、源站PDF或DG/Prod/Lake写入 |
+
+关联历史使用HistoryDto（currentRunId、最多20项items、nextCursor）；每项含runId/rootRunId/retryOfRunId、日期、phase和既存计数。文件明细companyName优先使用本次冻结代表记录的公告name，缺失回退代码/未知公司，因此离线历史不依赖DG名称表；公告默认列表仍遵守§3.3当前主表名称优先规则。失败明细只返回安全中文说明及HTTP状态，不泄露本地路径或原始网络异常。
+
+配置消费者已核对：请求默认间隔和固定Binding目录引用原DownloadOptions；原Policy按run保存，继续/重试沿用该策略。WebControl每0.5秒短读停止意图、默认5秒写一次心跳，字节观察默认5秒及阶段变化时提交；文件完成仍独立提交。预览和内部query_snapshot同事务创建，失败原子回滚；query_snapshot使用preview状态，不被公告列表的preparing准备循环领取。Catalog schema2原子添加一张标记表，未改台账schema3或源合同。
+
+失败集合的NOT EXISTS使用家族run_id列表加artifact_key索引定位，不逐失败扫描全部run_artifacts；实际临时schema3台账110000结果行在4秒预算内准确区分50000原失败、10000关联解决和50000无关成功，未解决40000。查询计数、文件资格及retry共用该SQL。
+
+完整组合回归468项通过（64.27秒），涵盖公告七个专项/Web、定义/resolver/runtime registry和三个架构护栏；最终Catalog/Web原子创建复核82项（41.83秒）、检查资格和分层复核88项（46.67秒）通过，最终共享台账/CLI及全部45项DC3复核206项（32.65秒）通过。ingestion lint、compileall、文档完整性/链接、diff检查及CodeGraph同步均通过。800万隔离索引预览默认30日150万记录约10.5秒、全160日约41.4秒、峰值127MiB；这是已有索引上的点时统计，不含首次构建，也不代表800万唯一文件stat。该SQL容量样本有34188个合成共享文件key；真实五万唯一文件的日期/身份/批次语义由独立Parquet API测试证明。
+
+[DC3验收报告](../../../../reports/wealth_data_center_dc3_acceptance_20261006.md)及[机器证据](../../../../reports/wealth_data_center_dc3_acceptance_20261006.json)记录逐项落点、容量和未执行项。预览/私有快照同事务创建与回滚已有负例；403和验证码的检查门禁两类负例均已通过。当前停在DC3；R01—R19的页面显示/交互、24个Figma状态、真实浏览器和正式归档运行仍待DC4/DC5，不能提前宣称整个数据中心上线。

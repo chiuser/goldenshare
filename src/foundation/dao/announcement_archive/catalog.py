@@ -43,12 +43,16 @@ SCHEMA = (
  match_count INTEGER NOT NULL,PRIMARY KEY(query_id,ann_date))''',
 '''CREATE TABLE query_presence(query_id TEXT NOT NULL,artifact_key TEXT NOT NULL,
  PRIMARY KEY(query_id,artifact_key))''',
-# Preview persistence is consumed in DC3; no HTTP or preview command implemented here.
+# Preview facts remain local and never authorize HTTP by themselves.
 '''CREATE TABLE previews(preview_id TEXT PRIMARY KEY,start_date TEXT,end_date TEXT,interval_seconds REAL,
  source_scope TEXT,archive_identity TEXT,state TEXT,statistics TEXT,expires_at REAL)''',
 '''CREATE TABLE preview_days(preview_id TEXT,ann_date TEXT,generation TEXT,source_facts TEXT,
  PRIMARY KEY(preview_id,ann_date))''',
 )
+
+SCHEMA_V1 = SCHEMA
+PREVIEW_ARTIFACTS = "CREATE TABLE preview_artifacts(preview_id TEXT NOT NULL,artifact_key TEXT NOT NULL,PRIMARY KEY(preview_id,artifact_key))"
+SCHEMA = (*SCHEMA,PREVIEW_ARTIFACTS)
 
 
 def catalog_path(scope):
@@ -87,12 +91,23 @@ class Catalog:
                     conn.execute('BEGIN IMMEDIATE')
                     for sql in SCHEMA:
                         conn.execute(sql)
-                    conn.execute('INSERT INTO catalog_meta(singleton,schema_version,source_scope) VALUES(1,1,?)', (self.scope,))
+                    conn.execute('INSERT INTO catalog_meta(singleton,schema_version,source_scope) VALUES(1,2,?)', (self.scope,))
                     conn.commit()
+                version=conn.execute('SELECT schema_version FROM catalog_meta WHERE singleton=1').fetchone()[0]
+                if version==1:
+                    self.validate(conn,version=1)
+                    conn.execute('BEGIN IMMEDIATE')
+                    try:
+                        conn.execute(PREVIEW_ARTIFACTS)
+                        conn.execute('UPDATE catalog_meta SET schema_version=2 WHERE singleton=1')
+                        self.validate(conn)
+                        conn.commit()
+                    except BaseException:
+                        conn.rollback();raise
                 self.validate(conn)
             else:
                 meta = conn.execute('SELECT schema_version,source_scope FROM catalog_meta WHERE singleton=1').fetchone()
-                if meta is None or tuple(meta) != (1, self.scope):
+                if meta is None or tuple(meta) != (2, self.scope):
                     raise Blocked('catalog_schema_invalid')
             conn.execute('BEGIN IMMEDIATE' if write else 'BEGIN')
             yield conn
@@ -106,11 +121,11 @@ class Catalog:
         finally:
             conn.close()
 
-    def validate(self, conn):
+    def validate(self, conn,version=2):
         # Compare to the declared schema, including PKs and indexes; no silent auto-rebuild.
         reference = sqlite3.connect(':memory:')
         try:
-            for sql in SCHEMA:
+            for sql in (SCHEMA_V1 if version==1 else SCHEMA):
                 reference.execute(sql)
             tables = {r[0] for r in reference.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             if tables != {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
@@ -125,7 +140,7 @@ class Catalog:
                 if actual is None or actual[0] != sql:
                     raise Blocked('catalog_schema_invalid')
             meta = conn.execute('SELECT schema_version,source_scope FROM catalog_meta WHERE singleton=1').fetchone()
-            if meta is None or tuple(meta) != (1, self.scope):
+            if meta is None or tuple(meta) != (version, self.scope):
                 raise Blocked('catalog_schema_invalid')
         finally:
             reference.close()
@@ -181,12 +196,16 @@ class Catalog:
                          (query_id,timestamp(),query_id))
 
     def create_query(self, query_id, conditions):
+        with self.connection(write=True) as conn:
+            self._insert_query(conn,query_id,conditions,'preparing')
+
+    @staticmethod
+    def _insert_query(conn,query_id,conditions,state):
         from datetime import date
         days = (date.fromisoformat(conditions['endDate']) - date.fromisoformat(conditions['startDate'])).days + 1
-        with self.connection(write=True) as conn:
-            conn.execute('''INSERT INTO query_snapshots(query_id,conditions,state,expires_at,dates_total,created_at,updated_at)
-                VALUES(?,?,'preparing',?,?,?,?)''',
-                         (query_id,json.dumps(conditions,ensure_ascii=False),None,days,timestamp(),timestamp()))
+        conn.execute('''INSERT INTO query_snapshots(query_id,conditions,state,expires_at,dates_total,created_at,updated_at)
+            VALUES(?,?,?,?,?,?,?)''',
+                     (query_id,json.dumps(conditions,ensure_ascii=False),state,None,days,timestamp(),timestamp()))
 
     def query(self, query_id):
         with self.connection() as conn:
@@ -226,3 +245,61 @@ class Catalog:
                 days_scanned=excluded.days_scanned,records_scanned=excluded.records_scanned,
                 reason=excluded.reason,updated_at=excluded.updated_at''',
                          (build_id,start,end,state,current,days,records,reason,timestamp()))
+
+    def create_preview(self,preview_id,start,end,interval,archive_identity):
+        conditions=dict(startDate=start,endDate=end,tsCode=None,titleKeyword='',downloadStatus='all')
+        stats=dict(recordCount=None,artifactCount=None,missingUrlCount=None,reusableEstimate=None,downloadEstimate=None,reason=None,updatedAt=timestamp())
+        with self.connection(write=True) as conn:
+            self._insert_query(conn,preview_id,conditions,'preview')
+            conn.execute('INSERT INTO previews VALUES(?,?,?,?,?,?,?,?,?)',(preview_id,start,end,interval,self.scope,archive_identity,'preparing',json.dumps(stats),None))
+
+    def preview(self,preview_id):
+        with self.connection() as conn:
+            row=conn.execute('SELECT * FROM previews WHERE preview_id=?',(preview_id,)).fetchone()
+            return dict(row) if row else None
+
+    def preview_pending(self):
+        with self.connection() as conn:
+            row=conn.execute("SELECT preview_id FROM previews WHERE state='preparing' ORDER BY rowid LIMIT 1").fetchone()
+            return row[0] if row else None
+
+    def update_preview(self,preview_id,*,state=None,statistics=None,ready=False):
+        with self.connection(write=True) as conn:
+            current=conn.execute('SELECT state FROM previews WHERE preview_id=?',(preview_id,)).fetchone()
+            if not current or current[0]=='cancelled':return
+            fields={}
+            if state:fields['state']=state
+            if statistics is not None:
+                fields['statistics']=json.dumps(dict(statistics,updatedAt=timestamp()),ensure_ascii=False)
+            if ready:fields['expires_at']=time.time()+self.policy.ttl_seconds
+            if fields:
+                conn.execute('UPDATE previews SET '+','.join(k+'=?' for k in fields)+' WHERE preview_id=?',(*fields.values(),preview_id))
+
+    def cancel_preview(self,preview_id):
+        with self.connection(write=True) as conn:
+            row=conn.execute('SELECT state FROM previews WHERE preview_id=?',(preview_id,)).fetchone()
+            if row is None:raise Blocked('preview_not_found')
+            if row[0]=='preparing':conn.execute("UPDATE previews SET state='cancelled' WHERE preview_id=?",(preview_id,))
+
+    def put_preview_day(self,preview_id,day):
+        facts={k:day[k] for k in ('opened_dev','opened_ino','size','mtime_ns','sha256','footer_count')}
+        with self.connection(write=True) as conn:
+            conn.execute('INSERT OR REPLACE INTO preview_days VALUES(?,?,?,?)',(preview_id,day['ann_date'],day['active_generation'],json.dumps(facts,sort_keys=True)))
+
+    def preview_day(self,preview_id,day):
+        with self.connection() as conn:
+            row=conn.execute('SELECT * FROM preview_days WHERE preview_id=? AND ann_date=?',(preview_id,day)).fetchone()
+            return dict(row) if row else None
+
+
+    def reset_preview_keys(self,preview_id,check):
+        while True:
+            check()
+            with self.connection(write=True) as conn:
+                removed=conn.execute('DELETE FROM preview_artifacts WHERE rowid IN (SELECT rowid FROM preview_artifacts WHERE preview_id=? LIMIT 500)',(preview_id,)).rowcount
+            if removed<500:return
+
+    def add_preview_keys(self,preview_id,keys):
+        if len(keys)>500:raise ValueError('preview_batch_limit')
+        with self.connection(write=True) as conn:
+            return [key for key in keys if conn.execute('INSERT OR IGNORE INTO preview_artifacts VALUES(?,?)',(preview_id,key)).rowcount]

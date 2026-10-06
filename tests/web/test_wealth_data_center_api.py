@@ -21,6 +21,7 @@ def dc_client(query_archive,monkeypatch):
     settings=Settings(WEALTH_LOCAL_ANNOUNCEMENTS_ENABLED=True,APP_ENV='local')
     monkeypatch.setattr('src.biz.api.wealth.data_center.home.get_settings',lambda:settings)
     monkeypatch.setattr('src.biz.api.wealth.data_center.announcements.get_settings',lambda:settings)
+    monkeypatch.setattr('src.biz.api.wealth.data_center.downloads.get_settings',lambda:settings)
     write_day(raw_root(archive),'2026-09-30',[row()])
     app=FastAPI();install_exception_handlers(app);install_data_center(app)
     from fastapi import APIRouter
@@ -60,7 +61,7 @@ def test_home_registered_routes_and_real_query(dc_client):
     candidates=client.get(PREFIX+'/announcements/companies',params=dict(keyword='SFZA',startDate='2026-09-30',endDate='2026-09-30'))
     assert candidates.status_code==200 and candidates.json()['items'][0]['matchedAlias']=='深发展A'
     assert client.get(PREFIX+'/announcements/pdf/example').status_code==404
-    assert client.post(PREFIX+'/announcements/runs',json={}).status_code==404 # DC3 not implemented.
+    assert client.post(PREFIX+'/announcements/runs',json={}).status_code in {422,503} # Download storage not supplied by this query-only fixture.
 
 
 def test_login_first_then_capability_and_prod(dc_client):

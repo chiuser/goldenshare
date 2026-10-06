@@ -5,7 +5,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from fastapi import Depends
+from fastapi import Depends,Request
 from fastapi.responses import JSONResponse
 
 from src.app.auth.dependencies import get_current_user
@@ -21,7 +21,7 @@ from src.biz.services.wealth.data_center.query_service import AnnouncementQueryS
 from src.ops.runtime.announcement_archive.catalog_builder import CatalogBuilder
 
 
-def build_query_service(wake,control):
+def build_catalog_resources(control):
     # Local optional imports are behind the deployment capability; Prod does not load pypinyin/DuckDB.
     from src.foundation.clients.announcement_archive.names import NAME_ROOT,NameInitials
     from src.foundation.clients.announcement_archive.presence import ArchivePresence
@@ -45,13 +45,59 @@ def build_query_service(wake,control):
         finally:
             lock.close()
         builder=CatalogBuilder(catalog,source,names,NameInitials())
-        return AnnouncementQueryService(catalog,builder,presence,wake=wake)
+        return builder,presence
     except BaseException:
         for value in sources:
             value.close()
         if volume:
             volume.close()
         raise
+
+
+def build_query_service(wake,control):
+    builder,presence=build_catalog_resources(control)
+    return AnnouncementQueryService(builder.catalog,builder,presence,wake=wake)
+
+
+def build_execution_resources(options,control,*,source_required=True):
+    from src.foundation.clients.announcement_archive.volume import Volume
+    from src.foundation.dao.announcement_archive.ledger import Ledger
+    volume=Volume(options.output_root,control.policy);source=ledger=None
+    try:
+        volume.open();control.check()
+        if source_required:source=Source(options,control.policy,control).open()
+        control.check()
+        ledger=Ledger(volume.ledger_path(),volume.volume_uuid,volume.relative_root)
+        return volume,ledger,source
+    except BaseException:
+        if source:source.close()
+        if ledger:ledger.close()
+        volume.close();raise
+
+
+def build_download_service(runtime):
+    from types import SimpleNamespace
+    from src.foundation.clients.announcement_archive.binding import ArchiveBinding
+    from src.ops.runtime.announcement_archive.supervisor import ArchiveSupervisor
+    from src.ops.runtime.announcement_archive.preview import PreviewRuntime
+    from src.biz.services.wealth.data_center.download_service import AnnouncementDownloadService
+    binding=ArchiveBinding()
+    def catalog():
+        if runtime._service is None:raise Blocked(runtime.error)
+        return runtime._service.catalog
+    def bootstrap():
+        anchor=SourceVolume(binding.output.parent,DownloadPolicy())
+        try:
+            anchor.open();anchor.assert_valid(full=True)
+            binding.remember(SimpleNamespace(output=binding.output,relative_root=binding.output.relative_to(anchor.mount).as_posix(),volume_uuid=anchor.volume_uuid))
+        finally:anchor.close()
+    supervisor=ArchiveSupervisor(binding,build_execution_resources,catalog,bootstrap=bootstrap).start()
+    previews=PreviewRuntime(build_catalog_resources,catalog).start()
+    def archive_identity():
+        if runtime._service is None:raise Blocked(runtime.error)
+        return runtime._service.presence.identity
+    service=AnnouncementDownloadService(supervisor,supervisor.store,catalog,archive_identity,previews.wake.set)
+    return service,supervisor,previews
 
 
 class AnnouncementCatalogRuntime:
@@ -107,14 +153,18 @@ class AnnouncementCatalogRuntime:
 
 @asynccontextmanager
 async def announcement_archive_lifespan(app):
-    runtime=None
+    runtime=None;supervisor=previews=None
     if announcements_enabled(get_settings()):
         runtime=AnnouncementCatalogRuntime().start()
         app.state.announcement_catalog=runtime
+        service,supervisor,previews=build_download_service(runtime)
+        app.state.announcement_download=service
     try:
         yield
     finally:
         if runtime:
+            supervisor.close();previews.close()
+            del app.state.announcement_download
             runtime.close()
             del app.state.announcement_catalog
 
@@ -126,6 +176,9 @@ def install_data_center(app):
 
 
 def include_data_center(router):
-    from src.biz.api.wealth.data_center import home,announcements
+    from src.biz.api.wealth.data_center import home,announcements,downloads
     router.include_router(home.router,dependencies=[Depends(get_current_user)])
     router.include_router(announcements.router,dependencies=[Depends(get_current_user)])
+    def actor(request: Request,user=Depends(get_current_user)):
+        request.state.announcement_actor=str(user.id) if hasattr(user,'id') else None
+    router.include_router(downloads.router,dependencies=[Depends(actor)])

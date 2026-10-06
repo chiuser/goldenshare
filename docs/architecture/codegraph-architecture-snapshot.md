@@ -324,3 +324,12 @@ App认证/router/lifespan → Biz data_center API/AnnouncementQueryService → F
 目录与调用链新增本机可重建日期索引、名称/别名投影、查询快照及逐日匹配数。未发布日generation不入查询；ready总数与页面在同revision短读快照下读取，深页按日定位，不先全历史补名再OFFSET。状态只读schema1/2/3台账及安全文件stat，不迁移正式台账。新Settings开关只在dev/local且显式true生效；Prod查询/直达404，首页空模块。
 
 CodeGraph explore/impact覆盖Source/Ledger/Files、Settings、认证/router、AnnouncementQueryService/CatalogBuilder/ArchivePresence及prepare_counts；sync/status在开发后核验。动态端口装配、SQL语义和实际消费者由当前源码/真实Web路由与架构测试补核。[DC2验收](../../reports/wealth_data_center_dc2_acceptance_20261006.md)记录257项、只读正式来源和800万隔离容量；没有正式索引、迁移、部署或远程HTTP，下载管理/前端仍待后续阶段。
+
+
+## 2026-10-06局部复核：公告下载后台DC3
+
+App include_data_center/lifespan → Biz downloads API/DownloadService/RunQuery → Foundation ArchiveExecutionPort/ArchiveStore/Catalog。App装配Ops PreviewRuntime/ArchiveSupervisor/WebControl，监督线程独占Volume+本机执行锁并持有Ledger/Source，CLI和Web共用execute_run/Files/Downloader。仅本地日期归档命令，不引入Prod TaskRun、DG下载任务或队列；原六字段Source合同及子系统依赖矩阵不变。
+
+预览固定逐日版本，按500读取去重/检查；Catalog schema2仅新增preview_artifacts，已知schema1原子升级，未知schema阻断。既存台账schema3保存receipt、slot/session、精确run集合、停止/字节观察，继续只处理pending，retry保存关联失败子集合。最近验证的ArchiveBinding定位离线本机历史，不能当作来源或物理文件事实。启动恢复取得本机执行锁后只记中断，不自动HTTP。
+
+开发前CodeGraph explore/impact覆盖Ledger/Files/Volume/ExecutionLock/ArchiveExecutor及旧消费者；开发后query/impact复核ArchiveSupervisor/WebControl/execute_run/ArchiveExecutionPort，sync/status确认索引最新。同名execute_run工具结果包含无关日期审计任务，纯Protocol的动态注入不能由impact单独证明，因此补读App/Biz/Ops/DAO、真实路由与架构门禁；未修改其它任务或依赖方向。[DC3验收](../../reports/wealth_data_center_dc3_acceptance_20261006.md)记录468项、五个进程退出窗口、临时HTTP和容量样本。正式资源和前端未执行，仍待DC4/DC5。

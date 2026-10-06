@@ -215,7 +215,7 @@ class Ledger:
             self.conn.rollback()
             raise
 
-    def begin_run(self, options: DownloadOptions, scope: str, policy: DownloadPolicy | None = None) -> str:
+    def begin_run(self, options: DownloadOptions, scope: str, policy: DownloadPolicy | None = None, *, command=None, details=None) -> str:
         run = uuid.uuid4().hex
         with self.conn:
             active = self.conn.execute('SELECT active_run_id,owner_token FROM archive_execution WHERE singleton=1').fetchone()
@@ -241,6 +241,13 @@ class Ledger:
             self.conn.execute('INSERT INTO run_sessions(run_id,session_seq,started_at,owner_token) VALUES(?,1,?,?)', (run,now,self.owner_token))
             self.conn.execute('UPDATE archive_execution SET active_run_id=?,owner_token=?,heartbeat=?,revision=revision+1 WHERE singleton=1',
                               (run,self.owner_token,now))
+            if details:
+                if not set(details) <= {'batch_kind','parent_run_id','retry_of_run_id','preview_id','actor_id','records_read','missing_url_count','days_total'}:
+                    raise ValueError('invalid_run_details')
+                self.conn.execute('UPDATE runs SET '+','.join(k+'=?' for k in details)+' WHERE run_id=?', (*details.values(),run))
+            if command:
+                key,kind,digest=command
+                self.conn.execute('INSERT INTO command_receipts VALUES(?,?,?,?,?,?)', (key,kind,digest,run,'accepted',now))
         return run
 
     def begin_day(self, run: str, day: str):
@@ -331,8 +338,8 @@ class Ledger:
                                         (run,)).fetchone()
             if (not info or info['phase'] != 'enumerating' or info['days_completed'] != info['days_total'] or invalid):
                 raise Blocked('source_enumeration_incomplete')
-            self.conn.execute("UPDATE runs SET enumeration_sealed=1,phase='downloading',updated_at=? WHERE run_id=?",
-                              (timestamp(),run))
+            self.conn.execute("UPDATE runs SET enumeration_sealed=1,phase='downloading',updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?",
+                              (timestamp(),timestamp(),run))
 
     def phase(self, run: str, phase: str, reason=None):
         with self.conn:
@@ -340,9 +347,11 @@ class Ledger:
                 self.conn.execute("UPDATE run_source_days SET state=?,reason=?,updated_at=? WHERE run_id=? AND state='reading'",
                                   (phase,reason,timestamp(),run))
             self.conn.execute('UPDATE runs SET phase=?,reason=?,updated_at=? WHERE run_id=?', (phase,reason,timestamp(),run))
+            if phase=='blocked' and reason in {'http_403','challenge_page'}:
+                self.conn.execute('UPDATE runs SET check_state=NULL,check_kind=NULL,check_code=NULL,check_updated_at=NULL WHERE run_id=?',(run,))
             if phase in ('completed','partial_failed','cancelled','blocked','stopped','interrupted'):
                 now = timestamp()
-                self.conn.execute('UPDATE runs SET finished_at=?,revision=revision+1 WHERE run_id=?', (now,run))
+                self.conn.execute("UPDATE runs SET finished_at=?,current_artifact_key=CASE WHEN phase='blocked' THEN current_artifact_key ELSE NULL END,wait_kind=NULL,next_request_at=NULL,revision=revision+1 WHERE run_id=?", (now,run))
                 self.conn.execute('UPDATE attempt_log SET ended_at=?,outcome=?,reason=? WHERE run_id=? AND ended_at IS NULL', (now,phase,reason,run))
                 self.conn.execute('UPDATE run_sessions SET ended_at=?,reason=? WHERE run_id=? AND ended_at IS NULL', (now,reason or phase,run))
                 self.conn.execute('UPDATE archive_execution SET active_run_id=NULL,owner_token=NULL,heartbeat=?,revision=revision+1 WHERE singleton=1 AND active_run_id=?', (now,run))
@@ -358,7 +367,7 @@ class Ledger:
             with self.conn:
                 self.conn.execute('UPDATE run_artifacts SET claimed_owner=?,claimed_at=? WHERE run_id=? AND artifact_key=? AND outcome IS NULL',
                                   (self.owner_token,timestamp(),run,row['artifact_key']))
-                self.conn.execute('UPDATE runs SET current_artifact_key=? WHERE run_id=?', (row['artifact_key'],run))
+                self.conn.execute('UPDATE runs SET current_artifact_key=?,attempt_number=0,bytes_received=0,bytes_total=NULL,wait_kind=NULL,next_request_at=NULL WHERE run_id=?', (row['artifact_key'],run))
         return dict(row) if row else None
 
     def artifact(self, key: str) -> dict:
@@ -386,7 +395,7 @@ class Ledger:
             session = self.conn.execute('SELECT MAX(session_seq) FROM run_sessions WHERE run_id=?', (run,)).fetchone()[0]
             self.conn.execute('INSERT INTO attempt_log(run_id,artifact_key,attempt_seq,session_seq,started_at) VALUES(?,?,?,?,?)',
                               (run,key,sequence,session,timestamp()))
-            self.conn.execute('UPDATE runs SET attempt_number=? WHERE run_id=?', (sequence,run))
+            self.conn.execute('UPDATE runs SET attempt_number=? WHERE run_id=?', (self.conn.execute('SELECT COUNT(*) FROM attempt_log WHERE run_id=? AND artifact_key=? AND session_seq=?',(run,key,session)).fetchone()[0],run))
 
     def finish_attempt(self, run, key, outcome, reason=None, http_status=None, received=0):
         with self.conn:
@@ -412,6 +421,15 @@ class Ledger:
             self.conn.execute('UPDATE run_artifacts SET outcome=?,claimed_owner=NULL,claimed_at=NULL WHERE run_id=? AND artifact_key=?', (outcome, run, key))
             self.conn.execute(f'UPDATE runs SET {column}={column}+1,completed_count=completed_count+?,updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?',
                               (0 if previous else 1, timestamp(), timestamp(), run))
+
+    def file_failure(self,run,key,reason):
+        """Preserve validation errors in the original run even after an artifact is retried."""
+        with self.conn:
+            session=self.conn.execute('SELECT MAX(session_seq) FROM run_sessions WHERE run_id=?',(run,)).fetchone()[0]
+            if not self.conn.execute('SELECT 1 FROM attempt_log WHERE run_id=? AND artifact_key=? AND session_seq=? AND reason=?',(run,key,session,reason)).fetchone():
+                sequence=self.conn.execute('SELECT COALESCE(MAX(attempt_seq),0)+1 FROM attempt_log WHERE run_id=? AND artifact_key=?',(run,key)).fetchone()[0]
+                now=timestamp()
+                self.conn.execute("INSERT INTO attempt_log VALUES(?,?,?,?,?,?,'failed',?,NULL,0)",(run,key,sequence,session,now,now,reason))
 
     def stats(self, run: str) -> dict:
         counters = self.conn.execute('SELECT * FROM runs WHERE run_id=?', (run,)).fetchone()

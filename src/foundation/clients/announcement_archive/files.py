@@ -149,6 +149,7 @@ class Files:
             raise FileFailed('invalid_content_length') from None
         if length is not None and (length < 0 or length > self.policy.max_file_size):
             raise FileFailed('file_too_large')
+        getattr(self.control,'transfer',lambda *_:None)(0,length,'receiving')
         self.ledger.state(task['artifact_key'], 'downloading')
         path = PurePosixPath(task['relative_path'])
         with self.volume.directory(str(path.parent), create=True) as fd:
@@ -175,6 +176,8 @@ class Files:
                     tail = (tail + chunk)[-2048:]
                     stream.write(chunk)
                     digest.update(chunk)
+                    getattr(self.control,'transfer',lambda *_:None)(size,length,'receiving')
+                getattr(self.control,'transfer',lambda *_:None)(size,length,'verifying')
                 if length is not None and size != length:
                     raise Retryable('content_length_mismatch')
                 if time.monotonic() > deadline:

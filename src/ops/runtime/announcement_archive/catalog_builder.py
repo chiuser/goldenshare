@@ -30,7 +30,8 @@ class CatalogBuilder:
         self.source.assert_valid(full=full)
         self.names_source.assert_valid(full=full)
 
-    def file_stat(self, volume, directory):
+    @staticmethod
+    def file_stat(volume, directory):
         volume.assert_valid()
         try:
             with volume.directory(directory) as fd:

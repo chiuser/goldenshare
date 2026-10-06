@@ -1,0 +1,265 @@
+{
+  "date": "2026-10-06",
+  "milestone": "DC3",
+  "status": "backend implemented and scoped acceptance passed; uncommitted",
+  "branch": "dev-interface",
+  "DC2_commit": "a1b47713",
+  "base_head_at_evidence": "0bd4de4ff8a118521dc950f6327f6a4a97a5a164",
+  "scope": "local date preview and persistent download control backend; DC4/DC5 pending",
+  "tests": [
+    {
+      "count": 468,
+      "seconds": 64.27,
+      "result": "passed",
+      "scope": "combined archive/catalog/web/foundation registry/resolver/architecture gates before final atomic preview change"
+    },
+    {
+      "count": 58,
+      "seconds": 33.55,
+      "result": "passed",
+      "scope": "Web contracts after default values reference original DownloadOptions"
+    },
+    {
+      "count": 82,
+      "seconds": 41.83,
+      "result": "passed",
+      "scope": "Catalog/Web after atomic preview creation"
+    },
+    {
+      "count": 88,
+      "seconds": 46.67,
+      "result": "passed",
+      "scope": "Catalog/Web/boundaries including remote-check-required qualification"
+    },
+    {
+      "count": 2,
+      "seconds": 1.81,
+      "result": "passed",
+      "scope": "403/captcha recheck required; fresh blocking invalidates earlier passed check"
+    },
+    {
+      "count": 205,
+      "seconds": 33.0,
+      "result": "passed",
+      "scope": "shared ledger/runtime/CLI/DC3 after new remote block invalidates passed checks"
+    },
+    {
+      "count": 4,
+      "seconds": 2.35,
+      "result": "passed",
+      "scope": "indexed unresolved-failure count/precise retry with 110000 temporary result rows"
+    },
+    {
+      "count": 45,
+      "seconds": 25.8,
+      "result": "passed",
+      "scope": "all DC3 cases after failure-query optimization"
+    },
+    {
+      "count": 206,
+      "seconds": 32.65,
+      "result": "passed",
+      "scope": "final Ledger/runtime/CLI/all 45 DC3 cases after indexed failures and CLI output preservation"
+    }
+  ],
+  "capacity": {
+    "input_records": 8000000,
+    "formal_writes": 0,
+    "formal_ledger_opened": false,
+    "pdf_requests": 0,
+    "schema_note": "reuse only isolated physical records/index load; final fresh schema and migration separately tested",
+    "samples": [
+      {
+        "case": "default30",
+        "seconds": 10.513247750001028,
+        "counts": {
+          "recordCount": 1500000,
+          "artifactCount": 34188,
+          "missingUrlCount": 0,
+          "reusableEstimate": 0,
+          "downloadEstimate": 34188,
+          "reason": null
+        },
+        "checkpoints": 3091,
+        "stat_count": 0
+      },
+      {
+        "case": "history",
+        "seconds": 41.40684412489645,
+        "counts": {
+          "recordCount": 8000000,
+          "artifactCount": 34188,
+          "missingUrlCount": 0,
+          "reusableEstimate": 0,
+          "downloadEstimate": 34188,
+          "reason": null
+        },
+        "checkpoints": 16481,
+        "stat_count": 0
+      }
+    ],
+    "peak_rss_bytes": 132923392,
+    "catalog_bytes": 8186400768,
+    "limitations": [
+      "existing isolated catalog; excludes cold build",
+      "synthetic SQL projection uses 34188 shared artifact keys, not 8000000 unique canonical artifacts",
+      "no succeeded ledger, so existence stat count is zero; DC2 separately measured 34188/50000 safe stats",
+      "50000 unique canonical artifact identities separately tested through actual temporary Parquet/API",
+      "point-in-time samples, not P95"
+    ]
+  },
+  "codegraph": {
+    "tools": [
+      "explore",
+      "impact",
+      "CLI query",
+      "CLI impact",
+      "sync",
+      "status"
+    ],
+    "scope": [
+      "Ledger",
+      "Files",
+      "Volume",
+      "ExecutionLock",
+      "executor CLI consumers",
+      "CatalogBuilder",
+      "ArchiveSupervisor",
+      "WebControl",
+      "ArchiveExecutionPort",
+      "App/Biz/DAO actual dynamic wiring"
+    ],
+    "limitations": "generic same-name hits excluded after reading code; Protocol dynamic consumers checked with source and actual routes"
+  },
+  "guards": {
+    "formal_raw_writes": 0,
+    "formal_ledger_open_or_migration": 0,
+    "formal_catalog_initialization": 0,
+    "source_pdf_requests": 0,
+    "prod_or_dg_writes": 0,
+    "frontend_changes": 0,
+    "installation": 0,
+    "push": false,
+    "temporary_http_fixture_only": true
+  },
+  "unperformed": [
+    "actual application startup/deployment",
+    "DC4 Figma 24 states and real-browser API integration",
+    "DC5 explicitly authorized isolated real-source stop/continue/retry/hash verification",
+    "formal archive migration/index/download",
+    "DG continuing daily-update acceptance"
+  ],
+  "files": [
+    {
+      "path": "src/app/runtime/announcement_archive_lifespan.py",
+      "sha256": "7e4abcde7b62c8d03753971966234b4a1a9e9ae2a2e5fafecb0f75c86963a3e0"
+    },
+    {
+      "path": "src/biz/api/wealth/data_center/downloads.py",
+      "sha256": "7a70d1ed69e6ad561c733265789ce235451fc10541550a27fd4076c55ae1643d"
+    },
+    {
+      "path": "src/biz/queries/wealth/data_center/run_query.py",
+      "sha256": "0a680944e8d8324d54b5f3d321e5148c1dd96752ea0fbe1ca9c16ad832a7cef6"
+    },
+    {
+      "path": "src/biz/schemas/wealth/data_center/downloads.py",
+      "sha256": "1d18a5178c955e87ad9e82bfc1e818f466018002b208709516f61febd6c471c1"
+    },
+    {
+      "path": "src/biz/services/wealth/data_center/download_service.py",
+      "sha256": "027099f37754b67c9a3e06b490ecb34ce51d955245810831c080da08e5806473"
+    },
+    {
+      "path": "src/biz/services/wealth/data_center/errors.py",
+      "sha256": "11fe1924e3c69b3c731c4870bdc4358a2c5dabcf4f36f5b04022d6f1104e4566"
+    },
+    {
+      "path": "src/foundation/clients/announcement_archive/binding.py",
+      "sha256": "30c34b6b89db120a0a565b6b788d1e2010a09bcdc89da7318bb2a381bcfa4607"
+    },
+    {
+      "path": "src/foundation/clients/announcement_archive/files.py",
+      "sha256": "dc42c2de74c45238277bb123855f3ceda51b241b936593e2a2355eac73771c2f"
+    },
+    {
+      "path": "src/foundation/clients/announcement_archive/http.py",
+      "sha256": "774ddd26d5ab739eb4f2e3e49530177f12fb3f4f8d2a0e7aacc5c0bc12e32999"
+    },
+    {
+      "path": "src/foundation/dao/announcement_archive/catalog.py",
+      "sha256": "021ce925d364d42af59486d0af44023463fdcd3a98105fb04508c87bc0fe8fcf"
+    },
+    {
+      "path": "src/foundation/dao/announcement_archive/execution.py",
+      "sha256": "ee2c52e5a88b43f00fbb2569d57aad90e353ffe7c502f2ad602023969137c2b9"
+    },
+    {
+      "path": "src/foundation/dao/announcement_archive/ledger.py",
+      "sha256": "cf0a2f58002bf3f39786d8bb14b269ea0d13a0986671a70176e44a1c66144249"
+    },
+    {
+      "path": "src/foundation/kernel/contracts/announcement_execution.py",
+      "sha256": "23921aac7696b67b8552819bfb6085ae327e2d9ca015aac0f74419360f1681bb"
+    },
+    {
+      "path": "src/ops/runtime/announcement_archive/catalog_builder.py",
+      "sha256": "c221c19e0c96a60f898f93e23656bb0736a2858d69ae49c26fae3a99d93592a3"
+    },
+    {
+      "path": "src/ops/runtime/announcement_archive/control.py",
+      "sha256": "b3a189b7065a0087116d7f2f646c8d790e92898cfcc8ea41e88926fffe4bbbd2"
+    },
+    {
+      "path": "src/ops/runtime/announcement_archive/executor.py",
+      "sha256": "7cc6063825b04e60bf30647d9dd96bdb7c15769caf46e60f1c440a44c647ace9"
+    },
+    {
+      "path": "src/ops/runtime/announcement_archive/preview.py",
+      "sha256": "634d417576c3531a16d10a1b9c3f4a88385ab1fe640bad69bdb8092838777c8a"
+    },
+    {
+      "path": "src/ops/runtime/announcement_archive/supervisor.py",
+      "sha256": "03152245fa17db3f506e3371b09b865d6b21a568a5c00725c66f09c3656fe9e0"
+    },
+    {
+      "path": "tests/fixtures/announcement_web_process_runner.py",
+      "sha256": "afa55654f1fdacf575040970c47ee87168b2b88aad35050260646cdd6db94eb9"
+    },
+    {
+      "path": "tests/web/test_wealth_data_center_api.py",
+      "sha256": "1dfbc279b125ef30290b66e138f3282273be34689282de9d79caad319b351f72"
+    },
+    {
+      "path": "tests/web/test_wealth_data_center_downloads.py",
+      "sha256": "6890d283504231aff2d46abcf5e811b0895f56ea3ece1ceb6803c6761b8cdd87"
+    }
+  ],
+  "new_dc3_tests": 45,
+  "failure_query_capacity": {
+    "rows": 110000,
+    "original_failures": 50000,
+    "resolved_in_related_batch": 10000,
+    "unrelated_successes": 50000,
+    "unresolved": 40000,
+    "seconds": 0.05321045801974833,
+    "plan": [
+      "SEARCH r USING COVERING INDEX run_pending (run_id=? AND outcome=?)",
+      "CORRELATED SCALAR SUBQUERY 2",
+      "SEARCH fixed USING COVERING INDEX run_pending (run_id=? AND outcome=? AND artifact_key=?)",
+      "LIST SUBQUERY 1",
+      "SCAN runs",
+      "CREATE BLOOM FILTER"
+    ],
+    "formal_writes": 0,
+    "limitations": "algorithm microbenchmark in-memory minimal tables; actual schema3 ArchiveStore test independently runs the same 110000 rows/count inside shared SQL4s budget"
+  },
+  "checks": {
+    "compileall": "passed",
+    "ingestion_lint_definitions": "passed",
+    "docs_integrity": "passed",
+    "codegraph_sync_status": "up to date",
+    "relative_links": "passed 146 link targets",
+    "diff_check": "passed"
+  }
+}

@@ -64,7 +64,7 @@ class Downloader:
             read=policy.read_timeout, write=policy.write_timeout, pool=policy.pool_timeout),
             transport=PublicHTTPTransport(control), follow_redirects=False, trust_env=False)
 
-    def _request(self, url: str, task: dict) -> str | None:
+    def _request(self, url: str, task: dict, *, probe=False) -> str | None:
         valid_url(url)
         self.limiter.before()
         delay, reason = 0, 'interval'
@@ -86,6 +86,11 @@ class Downloader:
                     if not location:
                         raise FileFailed('redirect_missing_location')
                     return urljoin(str(response.url), location)
+                if probe and 200 <= status < 300:
+                    prefix=next(response.iter_bytes(1024),b'').lower()
+                    self.control.check()
+                    if b'captcha' in prefix or '验证码'.encode() in prefix:raise Blocked('challenge_page')
+                    return None
                 if status != 200:
                     raise FileFailed(f'http_{status}')
                 if 'html' in response.headers.get('content-type', '').lower():
@@ -133,6 +138,19 @@ class Downloader:
             self.limiter.defer(wait, str(error))
             if attempt + 1 == self.policy.attempts:
                 raise FileFailed(str(error)) from None
+
+    def probe(self, task):
+        """One limited session, sharing validated transport, redirects and persistent limiter."""
+        url,seen=task['url'],set()
+        for hop in range(self.policy.redirects+1):
+            self.control.check()
+            if url in seen:raise FileFailed('redirect_loop')
+            seen.add(url)
+            next_url=self._request(url,task,probe=True)
+            if next_url is None:return
+            if hop==self.policy.redirects:raise FileFailed('redirect_limit')
+            if urlsplit(url).scheme=='https' and urlsplit(next_url).scheme!='https':raise FileFailed('https_downgrade_forbidden')
+            valid_url(next_url);url=next_url
 
     def close(self):
         self.client.close()

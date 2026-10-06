@@ -10,97 +10,93 @@ from src.foundation.clients.announcement_archive.volume import Volume
 from src.foundation.dao.announcement_archive.ledger import Ledger
 
 
-def execute(options, policy, control, volume, ledger, source, scope, client=None, clock=None) -> int:
-    """Dependency injection lets isolated tests exercise the same production run loop."""
-    run = ledger.begin_run(options, scope, policy)
-    downloader = None
-    active_key = None
+def enumerate_run(run, options, policy, control, volume, ledger, source, scope, validate_day=None):
+    control.update(phase='enumerating', start_date=str(options.start_date), end_date=str(options.end_date),
+                   interval_seconds=options.interval_seconds, source_kind='dg_raw_parquet', source_scope=scope,
+                   records=0, total=None, percent=None)
+    control.check();volume.assert_valid(full=True)
+    for day in source.iter_days():
+        ledger.begin_day(run, day.day)
+        control.update(**ledger.stats(run), footer_count=None, records_committed=0)
+        with day:
+            if validate_day:validate_day(day)
+            ledger.describe_day(run, day.day, day.facts)
+            committed=0
+            for rows in day:
+                control.check();volume.assert_valid(full=True)
+                ledger.ingest(run,scope,day.day,rows,policy.batch_size)
+                committed+=len(rows)
+                control.update(**ledger.stats(run),records_committed=committed)
+                del rows;control.check()
+            facts=day.verify()
+            if validate_day:validate_day(day)
+            control.check();volume.assert_valid(full=True)
+            ledger.complete_day(run,day.day,facts)
+            control.update(**ledger.stats(run))
+    control.check();ledger.seal(run)
+
+
+def execute_run(run, options, policy, control, volume, ledger, source, scope, client=None, clock=None,
+                *, enumerate_source=True, validate_day=None, web=False):
+    """One physical file loop for CLI, date runs, continue and exact failed-key retries."""
+    downloader=None;active_key=None
     try:
-        control.update(phase='enumerating', start_date=str(options.start_date), end_date=str(options.end_date),
-                       interval_seconds=options.interval_seconds, source_kind='dg_raw_parquet', source_scope=scope,
-                       records=0, total=None, percent=None)
-        control.check()
-        volume.assert_valid(full=True)
-        for day in source.iter_days():
-            ledger.begin_day(run, day.day)
-            control.update(**ledger.stats(run), footer_count=None, records_committed=0)
-            with day:
-                ledger.describe_day(run, day.day, day.facts)
-                control.update(footer_count=day.facts['footer_count'], records_committed=0)
-                committed = 0
-                for rows in day:
-                    control.check()
-                    volume.assert_valid(full=True)
-                    ledger.ingest(run, scope, day.day, rows, policy.batch_size)
-                    committed += len(rows)
-                    control.update(**ledger.stats(run), records_committed=committed)
-                    del rows
-                    control.check()
-                facts = day.verify()
-                control.check()
-                volume.assert_valid(full=True)
-                ledger.complete_day(run, day.day, facts)
-                control.update(**ledger.stats(run))
-        control.check()
-        ledger.seal(run)
-        files = Files(volume, ledger, policy, control)
-        kwargs = {'clock': clock} if clock else {}
-        downloader = Downloader(ledger, files, volume, options, policy, control, client=client, **kwargs)
-        control.update(phase='downloading', source_stage=None, **ledger.stats(run))
+        if enumerate_source:
+            enumerate_run(run,options,policy,control,volume,ledger,source,scope,validate_day)
+        files=Files(volume,ledger,policy,control)
+        kwargs={'clock':clock} if clock else {}
+        downloader=Downloader(ledger,files,volume,options,policy,control,client=client,**kwargs)
+        control.update(phase='downloading',source_stage=None,**ledger.stats(run))
         while True:
             control.check()
-            task = ledger.next_task(run)
-            if task is None:
-                break
-            volume.assert_valid(full=True)
-            source.assert_valid(full=True)
-            active_key = task['artifact_key']
-            control.update(ts_code=task['ts_code'], title=task['title'], ann_date=task['ann_date'], error=None)
+            task=ledger.next_task(run)
+            if task is None:break
+            volume.assert_valid(full=True);source.assert_valid(full=True)
+            active_key=task['artifact_key']
+            control.update(ts_code=task['ts_code'],title=task['title'],ann_date=task['ann_date'],error=None)
             try:
-                task = files.allocate(task)
-                outcome = files.recover(task)
+                task=files.allocate(task);outcome=files.recover(task)
                 if outcome is None:
-                    task = ledger.artifact(task['artifact_key'])
-                    downloader.download(run, task)
-                    outcome = 'succeeded'
-                ledger.result(run, task['artifact_key'], outcome)
+                    task=ledger.artifact(task['artifact_key'])
+                    downloader.download(run,task);outcome='succeeded'
+                elif web and outcome=='skipped' and ledger.conn.execute("SELECT 1 FROM attempt_log WHERE run_id=? AND artifact_key=? AND outcome='succeeded' AND ended_at IS NOT NULL LIMIT 1",(run,task['artifact_key'])).fetchone():
+                    # The PDF committed before this run's result write failed.
+                    outcome='succeeded'
+                ledger.result(run,task['artifact_key'],outcome)
             except FileFailed as exc:
-                ledger.state(task['artifact_key'], 'failed', str(exc))
-                ledger.result(run, task['artifact_key'], 'failed')
-                control.update(error=str(exc))
-            control.update(**ledger.stats(run))
-            active_key = None
-        failed = ledger.stats(run)['failed']
-        terminal = 'partial_failed' if failed else 'completed'
-        ledger.phase(run, terminal)
-        control.update(phase=terminal, **ledger.stats(run))
+                ledger.file_failure(run,task['artifact_key'],str(exc))
+                ledger.state(task['artifact_key'],'failed',str(exc))
+                ledger.result(run,task['artifact_key'],'failed');control.update(error=str(exc))
+            control.update(**ledger.stats(run));active_key=None
+        failed=ledger.stats(run)['failed'];terminal='partial_failed' if failed else 'completed'
+        ledger.phase(run,terminal);control.update(phase=terminal,**ledger.stats(run))
         return 1 if failed else 0
     except Cancelled:
+        phase='cancelled'
+        if web:
+            info=ledger.conn.execute('SELECT enumeration_sealed,stop_requested_at FROM runs WHERE run_id=?',(run,)).fetchone()
+            phase=('stopped' if info['enumeration_sealed'] else 'cancelled') if info['stop_requested_at'] else 'interrupted'
+        try:ledger.phase(run,phase,'user_cancelled' if phase!='interrupted' else 'process_exit')
+        except sqlite3.Error:pass
+        try:stats=ledger.stats(run)
+        except sqlite3.Error:stats={}
+        control.update(phase=phase,**stats);return 130
+    except (Blocked,OSError,sqlite3.Error) as exc:
+        reason=str(exc) if isinstance(exc,Blocked) else ('archive_ledger_failed' if isinstance(exc,sqlite3.Error) else 'archive_io_failed') if web else type(exc).__name__
         try:
-            ledger.phase(run, 'cancelled', 'user_cancelled')
-        except sqlite3.Error:
-            pass
-        try:
-            stats = ledger.stats(run)
-        except sqlite3.Error:
-            stats = {}
-        control.update(phase='cancelled', **stats)
-        return 130
-    except (Blocked, OSError, sqlite3.Error) as exc:
-        reason = str(exc) if isinstance(exc, Blocked) else type(exc).__name__
-        # Best effort observation must not delete already committed PDFs.
-        try:
-            if active_key and ledger.artifact(active_key)['state'] not in ('prepared', 'succeeded'):
-                ledger.state(active_key, 'blocked', reason)
-            ledger.phase(run, 'blocked', reason)
-        except sqlite3.Error:
-            pass
-        control.update(phase='blocked', error=reason)
-        return 3
+            if active_key and ledger.artifact(active_key)['state'] not in ('prepared','succeeded'):
+                ledger.state(active_key,'blocked',reason)
+            ledger.phase(run,'blocked',reason)
+        except sqlite3.Error:pass
+        control.update(phase='blocked',error=reason);return 3
     finally:
-        if downloader:
-            downloader.close()
+        if downloader:downloader.close()
         source.close()
+
+
+def execute(options,policy,control,volume,ledger,source,scope,client=None,clock=None):
+    run=ledger.begin_run(options,scope,policy)
+    return execute_run(run,options,policy,control,volume,ledger,source,scope,client,clock)
 
 
 def run_cli(options) -> int:
