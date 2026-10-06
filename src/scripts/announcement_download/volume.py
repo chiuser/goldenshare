@@ -82,9 +82,7 @@ class Volume:
         if Path(info['MountPoint']) != mount:
             raise Blocked('mount_identity_mismatch')
         self.relative_root = self.output.relative_to(mount).as_posix()
-        forbidden = ('data_lake', 'data_lake_staging', 'goldenshare-tushare-lake')
-        if self.relative_root.split('/')[0].casefold() in forbidden:
-            raise Blocked('lake_path_forbidden')
+        self.assert_archive_path()
         self.device_id = info.get('DeviceIdentifier')
         self.mount_fd = os.open(mount, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         self.device = os.fstat(self.mount_fd).st_dev
@@ -113,6 +111,11 @@ class Volume:
             except BlockingIOError:
                 raise Blocked('archive_already_running') from None
         return self
+
+    def assert_archive_path(self):
+        forbidden = ('data_lake', 'data_lake_staging', 'goldenshare-tushare-lake')
+        if self.relative_root.split('/')[0].casefold() in forbidden:
+            raise Blocked('lake_path_forbidden')
 
     def assert_valid(self, full=False):
         no_symlinks(self.output)

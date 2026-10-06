@@ -60,13 +60,23 @@ SCHEMA = (
 
 
 class Ledger:
-    def __init__(self, path: Path, volume_uuid: str, relative_root: str):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(path, timeout=5)
+    def __init__(self, path: Path, volume_uuid: str, relative_root: str, *, read_only=False):
+        path = Path(path).absolute()
+        if read_only:
+            if not path.is_file():
+                raise Blocked('archive_ledger_missing')
+            self.conn = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=5)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.conn = sqlite3.connect(path, timeout=5)
         self.conn.row_factory = sqlite3.Row
         try:
+            if read_only:
+                self.conn.execute('PRAGMA query_only=ON')
             tables = {r[0] for r in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             if not tables:
+                if read_only:
+                    raise Blocked('archive_schema_invalid')
                 self.conn.execute('PRAGMA journal_mode=DELETE')
                 self.conn.execute('PRAGMA synchronous=FULL')
                 self.conn.execute('BEGIN IMMEDIATE')
@@ -84,7 +94,8 @@ class Ledger:
                 if 'archive' not in tables:
                     raise Blocked('archive_schema_invalid')
                 existing = self.conn.execute('SELECT * FROM archive LIMIT 2').fetchmany(2)
-                if len(existing) != 1:
+                if (len(existing) != 1 or not {'schema_version','volume_uuid','root_relative_path'}
+                        <= set(existing[0].keys())):
                     raise Blocked('archive_schema_invalid')
                 existing = existing[0]
                 if (existing['volume_uuid'] != volume_uuid or existing['root_relative_path'] != relative_root):
@@ -93,6 +104,8 @@ class Ledger:
                 if version not in (1, 2):
                     raise Blocked('archive_schema_version_unsupported')
                 self._validate_schema(version)
+                if read_only:
+                    return
                 self.conn.execute('PRAGMA journal_mode=DELETE')
                 self.conn.execute('PRAGMA synchronous=FULL')
                 if version == 1:

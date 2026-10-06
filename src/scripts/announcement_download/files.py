@@ -73,11 +73,14 @@ class Files:
 
     def fingerprint(self, fd: int, name: str):
         try:
-            handle = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd)
+            handle = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
         except FileNotFoundError:
             return None
         with os.fdopen(handle, 'rb') as stream:
-            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            file_stat = os.fstat(stream.fileno())
+            if file_stat.st_dev != self.volume.device:
+                raise Blocked('archive_file_device_changed')
+            if not stat.S_ISREG(file_stat.st_mode):
                 raise Blocked('non_regular_archive_file')
             if os.fstat(stream.fileno()).st_nlink != 1:
                 raise Blocked('multiple_hardlinks_forbidden')
