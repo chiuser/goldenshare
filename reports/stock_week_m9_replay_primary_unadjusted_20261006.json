@@ -1,0 +1,239 @@
+{
+  "as_of": "2026-10-06T01:15:43.622016+08:00",
+  "kind": "formal_readonly_post_audit",
+  "source": "primary_unadjusted",
+  "week": "2026-10-02",
+  "formal_writes": 0,
+  "run_id": "bf98de39-0616-4dd1-83e0-e350c07df7e7",
+  "run_status": "SUCCESS",
+  "events": [
+    {
+      "type": "ASSET_MATERIALIZATION_PLANNED",
+      "step": "raw_tushare_stk_period_bar_week",
+      "error": null
+    },
+    {
+      "type": "ASSET_CHECK_EVALUATION_PLANNED",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "error": null
+    },
+    {
+      "type": "ASSET_CHECK_EVALUATION_PLANNED",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_file_contract_check",
+      "error": null
+    },
+    {
+      "type": "ASSET_CHECK_EVALUATION_PLANNED",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_key_partition_check",
+      "error": null
+    },
+    {
+      "type": "PIPELINE_START",
+      "step": null,
+      "error": null
+    },
+    {
+      "type": "ENGINE_EVENT",
+      "step": null,
+      "error": null
+    },
+    {
+      "type": "RESOURCE_INIT_STARTED",
+      "step": null,
+      "error": null
+    },
+    {
+      "type": "RESOURCE_INIT_SUCCESS",
+      "step": null,
+      "error": null
+    },
+    {
+      "type": "LOGS_CAPTURED",
+      "step": null,
+      "error": null
+    },
+    {
+      "type": "STEP_START",
+      "step": "raw_tushare_stk_period_bar_week",
+      "error": null
+    },
+    {
+      "type": "STEP_OUTPUT",
+      "step": "raw_tushare_stk_period_bar_week",
+      "error": null
+    },
+    {
+      "type": "ASSET_MATERIALIZATION",
+      "step": "raw_tushare_stk_period_bar_week",
+      "error": null
+    },
+    {
+      "type": "STEP_SUCCESS",
+      "step": "raw_tushare_stk_period_bar_week",
+      "error": null
+    },
+    {
+      "type": "STEP_START",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "error": null
+    },
+    {
+      "type": "STEP_OUTPUT",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "error": null
+    },
+    {
+      "type": "ASSET_CHECK_EVALUATION",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "error": null
+    },
+    {
+      "type": "STEP_SUCCESS",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "error": null
+    },
+    {
+      "type": "STEP_START",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_file_contract_check",
+      "error": null
+    },
+    {
+      "type": "STEP_OUTPUT",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_file_contract_check",
+      "error": null
+    },
+    {
+      "type": "ASSET_CHECK_EVALUATION",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_file_contract_check",
+      "error": null
+    },
+    {
+      "type": "STEP_SUCCESS",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_file_contract_check",
+      "error": null
+    },
+    {
+      "type": "STEP_START",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_key_partition_check",
+      "error": null
+    },
+    {
+      "type": "STEP_OUTPUT",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_key_partition_check",
+      "error": null
+    },
+    {
+      "type": "ASSET_CHECK_EVALUATION",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_key_partition_check",
+      "error": null
+    },
+    {
+      "type": "STEP_SUCCESS",
+      "step": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_key_partition_check",
+      "error": null
+    },
+    {
+      "type": "ENGINE_EVENT",
+      "step": null,
+      "error": null
+    },
+    {
+      "type": "PIPELINE_SUCCESS",
+      "step": null,
+      "error": null
+    },
+    {
+      "type": "RESOURCE_INIT_STARTED",
+      "step": null,
+      "error": null
+    },
+    {
+      "type": "RESOURCE_INIT_SUCCESS",
+      "step": null,
+      "error": null
+    }
+  ],
+  "event_counts": {
+    "ASSET_MATERIALIZATION_PLANNED": 1,
+    "ASSET_CHECK_EVALUATION_PLANNED": 3,
+    "PIPELINE_START": 1,
+    "ENGINE_EVENT": 2,
+    "RESOURCE_INIT_STARTED": 2,
+    "RESOURCE_INIT_SUCCESS": 2,
+    "LOGS_CAPTURED": 1,
+    "STEP_START": 4,
+    "STEP_OUTPUT": 4,
+    "ASSET_MATERIALIZATION": 1,
+    "STEP_SUCCESS": 4,
+    "ASSET_CHECK_EVALUATION": 3,
+    "PIPELINE_SUCCESS": 1
+  },
+  "target_status": "ready",
+  "materialization_run_id": "bf98de39-0616-4dd1-83e0-e350c07df7e7",
+  "materialization_storage_id": 7427443,
+  "blocking_checks_bound_and_ready": true,
+  "sensor_states": [],
+  "other_source_status": {
+    "primary_unadjusted": "ready",
+    "primary_adjusted": "ready"
+  },
+  "target": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_week/week_end=2026-10-02/part-000.parquet",
+  "target_exists": true,
+  "target_sha256": "9d350abe3af8cad5e508168df17d733b13b24a9219a554b607eaa5c0061d4e19",
+  "schema_match": true,
+  "rows": 5565,
+  "canonical_hashes": {
+    "2026-10-02": {
+      "rows": 5565,
+      "logical_hash": "51114ec1db570e5e23012cd0f736a159728f6fa050279079540bb03367db4d0d"
+    }
+  },
+  "source_full_field_match": true,
+  "delivery": {
+    "audit_hash": "ee6314a1df2b851a13fb1db01fe3feaef8a85110dab3eaf15a5b0cc2e1fae619",
+    "audit_path": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/d7bcf4a91755d6a0c4823ceb8ff186b82e7f3f208dbcec34c19b7ae63ade927c/assemblies/update-8a03f75e28a2111bcdf7701fb17f91e51645d4ac01bf010e92cd046bdfbc90b3/audit.json",
+    "delivery_method": "tushare_week_point",
+    "path": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_week/week_end=2026-10-02/part-000.parquet",
+    "requests": 1,
+    "rows": 5565,
+    "source": "primary_unadjusted",
+    "source_rows": 5565,
+    "week": "2026-10-02"
+  },
+  "assembly": "/Volumes/datasource/data_lake_staging/stock_weekly_raw/d7bcf4a91755d6a0c4823ceb8ff186b82e7f3f208dbcec34c19b7ae63ade927c/assemblies/update-8a03f75e28a2111bcdf7701fb17f91e51645d4ac01bf010e92cd046bdfbc90b3",
+  "request_ledger": {
+    "calls": 1,
+    "cap": 12,
+    "ended_at": 1791218594.0439239,
+    "page_attempts": {
+      "0": 1
+    },
+    "params": {
+      "freq": "week",
+      "limit": 6000,
+      "offset": 0,
+      "trade_date": "20261002"
+    },
+    "stage": "requesting",
+    "started_at": 1791218592.271849
+  },
+  "old_ledger_unchanged": true,
+  "historical_baselines_unchanged": true,
+  "upstream_unchanged": true,
+  "new_run": true,
+  "assembly_files_unchanged": false,
+  "target_unchanged": true,
+  "request_ledger_unchanged": true,
+  "changed_assembly_files": [
+    "checkpoints/2026-10-02.json"
+  ],
+  "sealed_evidence_unchanged": true,
+  "checkpoint_valid": true,
+  "checkpoint": {
+    "audit_hash": "ee6314a1df2b851a13fb1db01fe3feaef8a85110dab3eaf15a5b0cc2e1fae619",
+    "sha256": "9d350abe3af8cad5e508168df17d733b13b24a9219a554b607eaa5c0061d4e19",
+    "status": "verified",
+    "updated_at": "2026-10-05T17:13:43.031991+00:00"
+  },
+  "passed": true
+}
