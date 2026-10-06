@@ -11,6 +11,7 @@
 | 历史bootstrap及事件补录 | M10.E已完成；2010-01至2026-09两源402资产分区，沿原全量与事件验收 | 不重复全量bootstrap或补录事件 |
 | 身份误阻断 | 已修复并通过真实只读门禁；[修复验收](../../../reports/stock_month_m10f_identity_fix_20261005.md) | 保留身份与Raw历史，不专项处理T代码 |
 | 2026-09真实更新及幂等重放 | 已通过；两源各5571行，四run/4物化/12检查，源共2次且重放增量0；[合并验收](../../../reports/stock_month_m10f_combined_execution_20261006.md)、[最终对账](../../../reports/stock_month_m10f_combined_final_audit_20261006.json) | 本地预检不额外下载，job内全字段同值校验；有异值则revision_required停止，原文件不覆盖 |
+| 正式运行入口只读复核 | 18:41–18:43已通过，[在线复核](../../../reports/stock_period_update_runtime_acceptance_20261006.md)：orchestrator/__repository__、DefaultRunLauncher、daemon及完整job/3checks可用，sensor停止 | 关闭08:39页面不可达待办；新月/正式取消未验收，执行前刷新在线状态 |
 | 新月份创建及主动取消/续跑 | 正式尚未完成；[入口审计/隔离准备已完成](../../../reports/stock_period_update_acceptance_readiness_20261006.md) | 执行卡见本文末节；10月结束且源/上游就绪后刷新范围批准执行；取消选真实未完成意图，沿同一意图恢复 |
 | 每日19:30自动更新 | 未启用；24项周/月sensor隔离检查通过 | 其余验收收口后独立启用并验证真实tick/交付，不使用自动备用源 |
 
@@ -359,7 +360,7 @@ freeze_month_references的全表检查保留非空/唯一/预算/整文件hash�
 
 新增普通SIGINT和Dagster执行中断清理SDK子进程的2例通过；结合现有周/月封存页取消/退出恢复等共8项通过，两个sensor门禁24项通过。当前两源九月更新和重放已验收，不重复拉取；这些证据不替代新月实际创建或正式launcher取消。
 
-现有CLI run没有GRPC_INFO_TAG，后续改用正式页面Launchpad启动和Terminate；这只是选择已存在的运行入口，没有修改job/executor/API。两个月线job仍使用in_process_executor，由正式launcher另起run进程。3000端点当前拒绝连接，PG可读且无周/月pending；在线location/repository、加载版本、launcher和daemon健康待运营恢复既有服务后刷新，不推断已上线。
+现有CLI run没有GRPC_INFO_TAG，后续改用正式页面Launchpad启动和Terminate；这只是选择已存在的运行入口，没有修改job/executor/API。两个月线job仍使用in_process_executor，由正式launcher另起run进程。08:39页面不可达保留为历史；18:41–18:43[在线复核通过](../../../reports/stock_period_update_runtime_acceptance_20261006.md)，已确认orchestrator/__repository__、DefaultRunLauncher、健康daemon和完整job/3checks，两个sensor仍停止，没有据此宣称自动上线。本轮没有启动服务或执行正式任务。
 
 ### 月线范围、配置与成本
 

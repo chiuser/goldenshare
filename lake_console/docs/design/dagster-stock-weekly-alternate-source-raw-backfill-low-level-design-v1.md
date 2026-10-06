@@ -11,6 +11,7 @@
 | 历史bootstrap及事件补录 | M5–M8已完成，沿原验收记录 | 保留已查无源、身份未决及复权未核验的逐键台账 |
 | 2026-10-02两主源新增周更新 | 已通过；各5565行、共2物化/6检查，[正常交付](../../../reports/stock_week_m9_recovery_execution_20261006.md) | 不重复下载或改写已交付文件 |
 | 同意图幂等重放 | 已通过；零新增源请求，共2物化/6检查，[重放验收](../../../reports/stock_week_m9_replay_execution_20261006.md) | 正式数据、audit/receipt不变；提升checkpoint可按现行代码刷新verified时间 |
+| 正式运行入口只读复核 | 18:41–18:43已通过，[在线复核](../../../reports/stock_period_update_runtime_acceptance_20261006.md)：orchestrator/__repository__、DefaultRunLauncher、daemon健康、完整job/3checks已加载，sensor停止 | 关闭08:39页面不可达待办；真实启动/取消仍需新周期验收，执行前刷新在线状态 |
 | 主动取消与同意图续跑 | 正式尚未执行；[入口审计/隔离准备已完成](../../../reports/stock_period_update_acceptance_readiness_20261006.md) | 执行卡见本文末节；2026-10-09真实完成周、源与上游就绪后刷新范围批准执行，不删除已完成意图造场景 |
 | 每日19:30自动更新 | 未启用；24项周/月sensor隔离检查通过 | 取消/恢复等验收收口后独立启用并验证真实tick/交付；两主源串行，备用仅按明确手动任务执行 |
 
@@ -1104,14 +1105,14 @@ exception note固定格式为 `source_diagnostic=<category>`。复制helper只�
 
 ### 已完成与不能提前验收的边界
 
-真实SIGINT/DagsterExecutionInterruptedError中断时SDK子进程退出的新增2例通过；结合原有周/月页封存取消与退出恢复等共8项通过，两个sensor隔离门禁24项通过。正式代码、共享contract、配置及源参数不变。原来的CLI run缺GRPC_INFO_TAG，因此后续从正式页面Launchpad启动和Terminate；不能只写CANCELING即算取消成功。当前3000端点拒绝连接、PG可读、无周/月pending任务；在线location/repository/launcher仍须运营恢复既有服务后只读确认，本轮没有启动服务。
+真实SIGINT/DagsterExecutionInterruptedError中断时SDK子进程退出的新增2例通过；结合原有周/月页封存取消与退出恢复等共8项通过，两个sensor隔离门禁24项通过。正式代码、共享contract、配置及源参数不变。原来的CLI run缺GRPC_INFO_TAG，因此后续从正式页面Launchpad启动和Terminate；不能只写CANCELING即算取消成功。08:39页面拒绝连接保留为历史；18:41–18:43[在线复核已通过](../../../reports/stock_period_update_runtime_acceptance_20261006.md)，页面/launcher/daemon及完整job可用，sensor仍停止；本轮没有启动服务或执行正式任务。
 
 ### 周线范围、配置与成本
 
 | 项目 | 后续刷新/执行口径 |
 | --- | --- |
 | 候选周期 | 2026-10-09，最早收盘之后；还须Tushare发布及实际开市日线/checks就绪。10月8/9日开市来自前轮日历证据，执行前重新核实；源未就绪就延期，不改周期/日期造数据。 |
-| 入口 | 在线正式location/repository的Launchpad；实际名称、版本、launcher与daemon健康须刷新，不能把默认模块名当在线名称。 |
+| 入口 | 已确认orchestrator/__repository__的正式Launchpad、DefaultRunLauncher及健康daemon；版本/队列/健康状态执行前刷新，不把这次只读通过当成真实取消验收。 |
 | 未复权 | raw_stk_period_bar_week_update_job / raw_tushare_stk_period_bar_week |
 | 复权 | raw_stk_period_bar_adj_week_update_job / raw_tushare_stk_period_bar_adj_week |
 | 目标 | /Volumes/datasource/data_lake/raw/tushare/stk_period_bar_week/week_end=2026-10-09/part-000.parquet 与 stk_period_bar_adj_week 同结构；路径按现行paths.py核验。 |

@@ -377,3 +377,11 @@ M10.E事件入口/验收已提交ee325688、未推送。本轮M10.F只读核验�
 后续分阶段：周线候选2026-10-09收盘后且源/日线/checks就绪；月线候选2026-10结束、2026-11-01起且源/完整上游就绪。逐源冻结实际日期D、目标/分区/请求余额和启动取消范围，批准后取消真实未完成单元、原配置续跑、独立读回；月线将新月创建和取消/恢复合并以减少重复取源。若错过取消窗口，保留未覆盖项，不删证据、不伪造日期或调预算。对应频度收口后独立批准每日19:30启用，周线不等月线；备用仍仅显式手动。
 
 具体操作、预算、通过/失败标准、剩余证据及责任见[本轮准备报告](../../../reports/stock_period_update_acceptance_readiness_20261006.md)、[周线LLD执行卡](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#后续真实验收执行卡2026-10-06准备完成)和[月线LLD执行卡](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#后续真实验收执行卡2026-10-06准备完成)。当前准备已完成，正式取消/续跑和自动上线尚未执行，M9/M10.F继续保持未完成。本轮准备记录随本次提交；未推送。
+
+## 正式运行入口只读复核通过（2026-10-06 18:41–18:43，最新状态）
+
+前轮准备及隔离回归已提交30bd1944，未推送。按管理员继续推进，完成后续第1步：实际页面在线，location=orchestrator/LOADED、repository=__repository__，在线DefaultRunLauncher及7类daemon健康；四主源完整job、本源asset、各3个blocking checks和automatic_intent_date配置均已加载并核对通过。全实例pending计数0，两个sensor实际/默认均STOPPED、cursor/tick空。08:39页面拒绝连接保留为历史，现在不再作为阻断；本轮没有恢复/重启服务。
+
+2026-10-09尚未完成，真实日历仍为10月8/9日开市，两个日线文件缺失、上游未ready、两主源该周目标均不存在；这是未来周期条件未满足，不判历史缺口，不查询未来周期源行情或执行任务。下一步仍等该周完成且源/上游就绪，逐源正式取消/同意图恢复验收，然后独立19:30启用；月线新月与取消/恢复仍待10月结束后，周线不等月线。
+
+[本轮报告](../../../reports/stock_period_update_runtime_acceptance_20261006.md)、[运行/周期快照](../../../reports/stock_period_update_live_recheck_20261006.json)及[已加载job合同](../../../reports/stock_period_update_loaded_jobs_20261006.json)记录精确入口、加载版本、状态和预算；两份LLD/前轮任务清单同步。正式只读完成不代替真实启动取消或自动运行验收，M9/M10.F未整体完成。本轮仅文档与证据变化，无业务代码/配置/依赖变动，无正式写入或sensor评价/启用；管理员随后要求提交，记录随本次提交；未推送。

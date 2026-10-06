@@ -1,0 +1,531 @@
+{
+  "as_of": "2026-10-06T18:43:21.754737+08:00",
+  "read_only": true,
+  "location": "orchestrator",
+  "repository": "__repository__",
+  "location_version": "267c98bd-bce5-44c9-a8a9-2b710b21b8bb",
+  "query": "query LoadedPeriodJobs { job0:pipelineOrError(params:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",pipelineName:\"raw_stk_period_bar_week_update_job\"}) { __typename ... on Pipeline { name pipelineSnapshotId solids { name definition { __typename ... on SolidDefinition { configField { configType { __typename ... on CompositeConfigType { fields { name } } } } } } } } } asset0:assetNodeOrError(assetKey:{path:[\"raw_tushare_stk_period_bar_week\"]}) { __typename ... on AssetNode { assetKey {path} assetChecksOrError(limit:4,pipeline:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",pipelineName:\"raw_stk_period_bar_week_update_job\"}) { __typename ... on AssetChecks { checks { name blocking jobNames assetKey {path} } } } } } job1:pipelineOrError(params:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",pipelineName:\"raw_stk_period_bar_adj_week_update_job\"}) { __typename ... on Pipeline { name pipelineSnapshotId solids { name definition { __typename ... on SolidDefinition { configField { configType { __typename ... on CompositeConfigType { fields { name } } } } } } } } } asset1:assetNodeOrError(assetKey:{path:[\"raw_tushare_stk_period_bar_adj_week\"]}) { __typename ... on AssetNode { assetKey {path} assetChecksOrError(limit:4,pipeline:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",pipelineName:\"raw_stk_period_bar_adj_week_update_job\"}) { __typename ... on AssetChecks { checks { name blocking jobNames assetKey {path} } } } } } job2:pipelineOrError(params:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",pipelineName:\"raw_stk_period_bar_month_update_job\"}) { __typename ... on Pipeline { name pipelineSnapshotId solids { name definition { __typename ... on SolidDefinition { configField { configType { __typename ... on CompositeConfigType { fields { name } } } } } } } } } asset2:assetNodeOrError(assetKey:{path:[\"raw_tushare_stk_period_bar_month\"]}) { __typename ... on AssetNode { assetKey {path} assetChecksOrError(limit:4,pipeline:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",pipelineName:\"raw_stk_period_bar_month_update_job\"}) { __typename ... on AssetChecks { checks { name blocking jobNames assetKey {path} } } } } } job3:pipelineOrError(params:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",pipelineName:\"raw_stk_period_bar_adj_month_update_job\"}) { __typename ... on Pipeline { name pipelineSnapshotId solids { name definition { __typename ... on SolidDefinition { configField { configType { __typename ... on CompositeConfigType { fields { name } } } } } } } } } asset3:assetNodeOrError(assetKey:{path:[\"raw_tushare_stk_period_bar_adj_month\"]}) { __typename ... on AssetNode { assetKey {path} assetChecksOrError(limit:4,pipeline:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",pipelineName:\"raw_stk_period_bar_adj_month_update_job\"}) { __typename ... on AssetChecks { checks { name blocking jobNames assetKey {path} } } } } } }",
+  "payload": {
+    "data": {
+      "job0": {
+        "__typename": "Pipeline",
+        "name": "raw_stk_period_bar_week_update_job",
+        "pipelineSnapshotId": "3a66e9893015b834e57fcd41c13b016a0db8d5fe",
+        "solids": [
+          {
+            "name": "raw_tushare_stk_period_bar_week",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "CompositeConfigType",
+                  "fields": [
+                    {
+                      "name": "automatic_intent_date"
+                    },
+                    {
+                      "name": "code_list_path"
+                    },
+                    {
+                      "name": "write_mode"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_file_contract_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_key_partition_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "asset0": {
+        "__typename": "AssetNode",
+        "assetKey": {
+          "path": [
+            "raw_tushare_stk_period_bar_week"
+          ]
+        },
+        "assetChecksOrError": {
+          "__typename": "AssetChecks",
+          "checks": [
+            {
+              "name": "raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_week_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_week"
+                ]
+              }
+            },
+            {
+              "name": "raw_tushare_stk_period_bar_week_file_contract_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_week_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_week"
+                ]
+              }
+            },
+            {
+              "name": "raw_tushare_stk_period_bar_week_key_partition_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_week_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_week"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "job1": {
+        "__typename": "Pipeline",
+        "name": "raw_stk_period_bar_adj_week_update_job",
+        "pipelineSnapshotId": "b9d564203580c0ea4a8f0a1074f9243e89044757",
+        "solids": [
+          {
+            "name": "raw_tushare_stk_period_bar_adj_week",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "CompositeConfigType",
+                  "fields": [
+                    {
+                      "name": "automatic_intent_date"
+                    },
+                    {
+                      "name": "code_list_path"
+                    },
+                    {
+                      "name": "write_mode"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_file_contract_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_key_partition_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "asset1": {
+        "__typename": "AssetNode",
+        "assetKey": {
+          "path": [
+            "raw_tushare_stk_period_bar_adj_week"
+          ]
+        },
+        "assetChecksOrError": {
+          "__typename": "AssetChecks",
+          "checks": [
+            {
+              "name": "raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_adj_week_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_adj_week"
+                ]
+              }
+            },
+            {
+              "name": "raw_tushare_stk_period_bar_adj_week_file_contract_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_adj_week_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_adj_week"
+                ]
+              }
+            },
+            {
+              "name": "raw_tushare_stk_period_bar_adj_week_key_partition_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_adj_week_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_adj_week"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "job2": {
+        "__typename": "Pipeline",
+        "name": "raw_stk_period_bar_month_update_job",
+        "pipelineSnapshotId": "40fa4c54b1543ed15cb8dca4b60379316bcbf6c4",
+        "solids": [
+          {
+            "name": "raw_tushare_stk_period_bar_month",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "CompositeConfigType",
+                  "fields": [
+                    {
+                      "name": "automatic_intent_date"
+                    },
+                    {
+                      "name": "write_mode"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_month_raw_tushare_stk_period_bar_month_delivery_reconciliation_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_month_raw_tushare_stk_period_bar_month_file_contract_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_month_raw_tushare_stk_period_bar_month_key_partition_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "asset2": {
+        "__typename": "AssetNode",
+        "assetKey": {
+          "path": [
+            "raw_tushare_stk_period_bar_month"
+          ]
+        },
+        "assetChecksOrError": {
+          "__typename": "AssetChecks",
+          "checks": [
+            {
+              "name": "raw_tushare_stk_period_bar_month_delivery_reconciliation_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_month_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_month"
+                ]
+              }
+            },
+            {
+              "name": "raw_tushare_stk_period_bar_month_file_contract_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_month_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_month"
+                ]
+              }
+            },
+            {
+              "name": "raw_tushare_stk_period_bar_month_key_partition_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_month_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_month"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "job3": {
+        "__typename": "Pipeline",
+        "name": "raw_stk_period_bar_adj_month_update_job",
+        "pipelineSnapshotId": "47bf9f1510f52b25824d2053834ea2633f16a6c5",
+        "solids": [
+          {
+            "name": "raw_tushare_stk_period_bar_adj_month",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "CompositeConfigType",
+                  "fields": [
+                    {
+                      "name": "automatic_intent_date"
+                    },
+                    {
+                      "name": "write_mode"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_delivery_reconciliation_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_file_contract_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          },
+          {
+            "name": "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_key_partition_check",
+            "definition": {
+              "__typename": "SolidDefinition",
+              "configField": {
+                "configType": {
+                  "__typename": "RegularConfigType"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "asset3": {
+        "__typename": "AssetNode",
+        "assetKey": {
+          "path": [
+            "raw_tushare_stk_period_bar_adj_month"
+          ]
+        },
+        "assetChecksOrError": {
+          "__typename": "AssetChecks",
+          "checks": [
+            {
+              "name": "raw_tushare_stk_period_bar_adj_month_delivery_reconciliation_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_adj_month_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_adj_month"
+                ]
+              }
+            },
+            {
+              "name": "raw_tushare_stk_period_bar_adj_month_file_contract_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_adj_month_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_adj_month"
+                ]
+              }
+            },
+            {
+              "name": "raw_tushare_stk_period_bar_adj_month_key_partition_check",
+              "blocking": true,
+              "jobNames": [
+                "__ASSET_JOB",
+                "raw_stk_period_bar_adj_month_update_job"
+              ],
+              "assetKey": {
+                "path": [
+                  "raw_tushare_stk_period_bar_adj_month"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "findings": [
+    {
+      "job": "raw_stk_period_bar_week_update_job",
+      "asset": "raw_tushare_stk_period_bar_week",
+      "check_count": 3,
+      "op_names": [
+        "raw_tushare_stk_period_bar_week",
+        "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+        "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_file_contract_check",
+        "raw_tushare_stk_period_bar_week_raw_tushare_stk_period_bar_week_key_partition_check"
+      ],
+      "asset_config_fields": [
+        "automatic_intent_date",
+        "code_list_path",
+        "write_mode"
+      ],
+      "passed": true
+    },
+    {
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "asset": "raw_tushare_stk_period_bar_adj_week",
+      "check_count": 3,
+      "op_names": [
+        "raw_tushare_stk_period_bar_adj_week",
+        "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check",
+        "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_file_contract_check",
+        "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_key_partition_check"
+      ],
+      "asset_config_fields": [
+        "automatic_intent_date",
+        "code_list_path",
+        "write_mode"
+      ],
+      "passed": true
+    },
+    {
+      "job": "raw_stk_period_bar_month_update_job",
+      "asset": "raw_tushare_stk_period_bar_month",
+      "check_count": 3,
+      "op_names": [
+        "raw_tushare_stk_period_bar_month",
+        "raw_tushare_stk_period_bar_month_raw_tushare_stk_period_bar_month_delivery_reconciliation_check",
+        "raw_tushare_stk_period_bar_month_raw_tushare_stk_period_bar_month_file_contract_check",
+        "raw_tushare_stk_period_bar_month_raw_tushare_stk_period_bar_month_key_partition_check"
+      ],
+      "asset_config_fields": [
+        "automatic_intent_date",
+        "write_mode"
+      ],
+      "passed": true
+    },
+    {
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "asset": "raw_tushare_stk_period_bar_adj_month",
+      "check_count": 3,
+      "op_names": [
+        "raw_tushare_stk_period_bar_adj_month",
+        "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_delivery_reconciliation_check",
+        "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_file_contract_check",
+        "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_key_partition_check"
+      ],
+      "asset_config_fields": [
+        "automatic_intent_date",
+        "write_mode"
+      ],
+      "passed": true
+    }
+  ],
+  "passed": true
+}
