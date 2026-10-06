@@ -333,3 +333,9 @@ App include_data_center/lifespan → Biz downloads API/DownloadService/RunQuery 
 预览固定逐日版本，按500读取去重/检查；Catalog schema2仅新增preview_artifacts，已知schema1原子升级，未知schema阻断。既存台账schema3保存receipt、slot/session、精确run集合、停止/字节观察，继续只处理pending，retry保存关联失败子集合。最近验证的ArchiveBinding定位离线本机历史，不能当作来源或物理文件事实。启动恢复取得本机执行锁后只记中断，不自动HTTP。
 
 开发前CodeGraph explore/impact覆盖Ledger/Files/Volume/ExecutionLock/ArchiveExecutor及旧消费者；开发后query/impact复核ArchiveSupervisor/WebControl/execute_run/ArchiveExecutionPort，sync/status确认索引最新。同名execute_run工具结果包含无关日期审计任务，纯Protocol的动态注入不能由impact单独证明，因此补读App/Biz/Ops/DAO、真实路由与架构门禁；未修改其它任务或依赖方向。[DC3验收](../../reports/wealth_data_center_dc3_acceptance_20261006.md)记录468项、五个进程退出窗口、临时HTTP和容量样本。正式资源和前端未执行，仍待DC4/DC5。
+
+## 2026-10-07局部复核：数据中心页面DC4
+
+DC3已提交`83ffb83f`。新增调用链：WealthRouter→DataCenterPage/AnnouncementsPage→features/data-center API→既有Biz data_center路由→Catalog/RunQuery/DownloadService。页面复用TopMarketBar、PageBreadcrumb和现有行情context/ticker hook；该hook核验只读取共同市场上下文，不读取财势探查业务数据。
+
+开发前CodeGraph explore/impact分析路由与顶栏解析器；逐代码核对市场总览、股票/指数详情、自选、交易助手和财势探查六类导航消费者。开发后sync/status/query/impact复核AnnouncementsPage、useDownloads及resolveTopMarketNavPath。回调与Protocol动态装配的图边不完整，已补核真实引用/合同和浏览器请求链；不将图中“零调用者”视为无影响。依赖矩阵未改；仍待人工执行的边界只有DC5正式本机资源与实际源站验收，见[DC4验收](../../reports/wealth_data_center_dc4_acceptance_20261007.md)。

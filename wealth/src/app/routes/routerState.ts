@@ -156,6 +156,7 @@ export function resolveTopMarketNavPath(target: TopMarketNavKey): string | null 
   if (target === "market") return DEFAULT_WEALTH_PATH;
   if (target === "exploration") return WEALTH_EXPLORATION_PATH;
   if (target === "assistant") return "/wealth/market/trading-assistant";
+  if (target === "data") return "/wealth/data-center";
   return null;
 }
 
@@ -187,7 +188,9 @@ function readWealthNavigationState(state: unknown): WealthNavigationState | null
 function isWealthRoute(pathname: string): boolean {
   return resolveWealthExplorationRoute(pathname).kind !== "not-exploration"
     || pathname === DEFAULT_WEALTH_PATH
-    || pathname.startsWith("/wealth/market/");
+    || pathname.startsWith("/wealth/market/")
+    || pathname === "/wealth/data-center"
+    || pathname === "/wealth/data-center/announcements";
 }
 
 function appendSearch(path: string, search: RouteSearch): string {

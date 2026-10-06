@@ -140,3 +140,13 @@ describe("returnToWealthOverview", () => {
     expect(window.location.pathname).toBe(DEFAULT_WEALTH_PATH);
   });
 });
+
+it("data-center navigation participates in common route history and login redirects", () => {
+  expect(resolveTopMarketNavPath("data")).toBe("/wealth/data-center");
+  const path = "/wealth/data-center/announcements?tab=downloads&runId=123";
+  expect(readRedirectPath("?redirect=" + encodeURIComponent(path))).toBe(path);
+  window.history.replaceState({}, "", "/wealth/data-center");
+  navigateWealth(path);
+  const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+  returnToWealthOverview(); expect(back).toHaveBeenCalledOnce();
+});

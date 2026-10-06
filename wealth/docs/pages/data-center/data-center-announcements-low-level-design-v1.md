@@ -1,6 +1,6 @@
 # 数据中心与上市公司公告 LLD v1
 
-日期：2026-10-06。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2提交a1b47713；DC3后端完成、尚未提交，DC4—DC5待推进。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
+日期：2026-10-07。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2提交a1b47713，DC3提交83ffb83f；DC4页面已实现，交付见§19；DC5正式归档验收待推进。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
 
 ## 1. 硬口径、实现点与验收索引
 
@@ -155,7 +155,7 @@ schema1/2识别、写入口原子迁移到3；只读CLI仍可读取已支持的�
 | 归档/来源根 |固定GUI默认根、固定正式Lake；唯一core/source工厂 | Volume/Source/DAO；禁止Lake输出 | 启动；GUI不可编辑/不可API透传；CLI既有output-root保留 |
 | 台账/索引路径 | UUID+相对根及sourceScope自动派生，见§3/4 |DAO/锁/reader；不提供用户文件选择 |启动；不同卷隔离、schema检测、文件0600/目录0700策略 |
 | 基础DownloadPolicy（既有） |batch500、DuckDB256MiB/1线程/无spill、query15秒、chunk64KiB、max512MiB、reserve1GiB、connect10/read15/write15/pool5秒、transfer600秒、attempts3、redirects5、backoff30秒、filename200字节、progress5秒、waitSlice0.5秒 |Source/HTTP/Files；runs保存policy版本摘要 |每run；继承原PDF LLD §2，不再各处写默认常量 |
-| `DataCenterPolicy`（新增集中内部策略） |page50/history20/result50、候选limit20/keyword64、title200、SQL截止4秒、API读截止5秒、poll2秒、heartbeat5秒、失联提示15秒、preview/queryTTL900秒、catalog校验周期30秒、日期任务控制poll0.5秒、索引unit软预算60秒 |Biz/Ops共享明确子配置投影；不得env/page各放一份 |启动/创建；前端context读取展示默认/预算；超预算prepare或error，不截范围 |
+| `DataCenterPolicy`（新增集中内部策略） |page50/history20/result50、候选limit20/keyword64、title200、SQL截止4秒、API读截止5秒、poll2秒、heartbeat5秒、失联提示15秒、preview/queryTTL900秒、catalog校验周期30秒、日期任务控制poll0.5秒、索引unit软预算60秒 |Biz/Ops共享明确子配置投影；不得env/page各放一份 |启动/创建；前端context读取日期/间隔/分页/轮询；固定观察合同集中clientPolicy、跨端测试核对，超预算prepare或error，不截范围 |
 | 首字母词表（新增） |版本化`config/wealth/announcement-name-initials.json`，仅名称→确定覆盖读音/首字母 |索引生成；源cnspell优先，词表只补历史/缺失 |后台准备重新读取词表，版本改变后重建所请求日期及名称索引；运营文件、无用户控件；同名跨公司可用tsCode限定 |
 
 依赖：现有stdlib/httpx/DuckDB/React足够执行和页面；历史简称中文首字母需要新增本地可选依赖 `pypinyin`。其[官方说明](https://github.com/mozillazg/python-pinyin)提供FIRST_LETTER、单读音转换和词组支持，声明MIT及Python3.13支持；这些是选型依据，不能替代本机验证。仅在local-lake可选组声明并锁定获准版本，部署Prod不加载；2026-10-06用户已授权依赖准入及安装；版本固定pypinyin==0.55.0（[PyPI发布记录](https://pypi.org/project/pypinyin/0.55.0/)），只在根现有.venv安装该包，不同步其它依赖。根Python3.13.5已安装并验证平安银行/PAYH、招商银行/ZSYH、深发展A/SFZA、重庆银行/CQYH、ST平安银行/STPAYH五样本；只新增这一包，中文名称转换消费者和覆盖词表在DC2实现，禁止隐式pip/uv同步。转换函数统一对名称做NFC、中文取单读音首字母、英数保留、标点移除、输出upper；不穷举多音字组合。覆盖平安银行/PAYH、招商银行/ZSYH、深发展A/SFZA、重庆银行/CQYH及ST标记；源cnspell不被转换结果覆盖。词表版本变化产生新的名称索引版本，不修改Raw。
@@ -546,3 +546,25 @@ DC2已提交a1b47713；用户授权后完成DC3下载管理后端，代码尚未
 完整组合回归468项通过（64.27秒），涵盖公告七个专项/Web、定义/resolver/runtime registry和三个架构护栏；最终Catalog/Web原子创建复核82项（41.83秒）、检查资格和分层复核88项（46.67秒）通过，最终共享台账/CLI及全部45项DC3复核206项（32.65秒）通过。ingestion lint、compileall、文档完整性/链接、diff检查及CodeGraph同步均通过。800万隔离索引预览默认30日150万记录约10.5秒、全160日约41.4秒、峰值127MiB；这是已有索引上的点时统计，不含首次构建，也不代表800万唯一文件stat。该SQL容量样本有34188个合成共享文件key；真实五万唯一文件的日期/身份/批次语义由独立Parquet API测试证明。
 
 [DC3验收报告](../../../../reports/wealth_data_center_dc3_acceptance_20261006.md)及[机器证据](../../../../reports/wealth_data_center_dc3_acceptance_20261006.json)记录逐项落点、容量和未执行项。预览/私有快照同事务创建与回滚已有负例；403和验证码的检查门禁两类负例均已通过。当前停在DC3；R01—R19的页面显示/交互、24个Figma状态、真实浏览器和正式归档运行仍待DC4/DC5，不能提前宣称整个数据中心上线。
+
+## 18. DC4开工约束（2026-10-07）
+
+用户授权“提交DC3，然后推进DC4”；DC3已提交 `83ffb83f`。本阶段只实现 §9 页面与真实 API 消费，不执行正式台账迁移、索引初始化或源站下载，DC5另行验收。
+
+代码范围：`features/data-center/{api,model,ui}` 和 `pages/data-center`；路由装配新增两条已批准路径，统一导航解析器启用 data 入口。复用现有 TopMarketBar、PageBreadcrumb、市场上下文请求和 token，不修改其它模块数据合同。CodeGraph explore/impact 已覆盖路由、认证、请求 client、六类页面导航消费者；静态引用核验补齐索引没有解析的回调消费者。
+
+R01—R07 对应首页 capability、候选选择、草稿/应用条件、查询快照和六列分页；R08—R10 对应日期创建/预览、幂等命令与单任务观察；R11—R18 对应后端进度 DTO、停止确认、继续、精确失败重试、检查和分页历史；R19 对应接口隔离、请求取消/超时与无新增依赖。测试必须包含未选择公司、未知状态、逆日期、0秒、查询不带入下载、100%含失败、源站检查资格、响应丢失原 key、切页不停止和分页边界反例。浏览器使用隔离的真实路由/服务及临时 Parquet/SQLite，正式资源不作为写目标；极端态展示样本须与真实 API 联调证据分别标注。
+
+DC4列表每页50条仍由后端分页，页面表区上限494px并独立滚动（30px表头+8×58px行高），分页操作留在区块底部。表头随表区滚动固定；历史及文件结果复用同一滚动容器。24状态的罕见阻断/中断/停止中另以临时台账合成事实做视觉验收，证据与真实执行主流程严格分列，不能据此声称源站或正式磁盘已验收。
+
+## 19. DC4当前交付与对账（2026-10-07）
+
+页面实现位于`wealth/src/pages/data-center`，feature依次拆为`api`合同/调用、`model`查询和下载意图/串行观察、`ui`六列查询/日期预览/进度/停止弹窗/文件与历史。现有WealthRouter增加两条受登录壳保护的路径，routerState统一增加data顶栏与返回/前进识别；所有现有顶栏调用方保留原行为。Backend、CLI、DG和依赖矩阵不变。
+
+观察器每次GET完成才安排下一次；超时/5xx保持最后事实并5秒后重读，明确4xx停止自动读取、等人工刷新。继续同一已停止run成功后显式重启观察，修复真实联调中后台已推进但页面仍停旧值的问题。命令结果未知保留同一UUID和payload，只允许人工使用原操作重试；新建/继续/失败重试不自动重发。历史最近按钮重取第一页后选当前最新run，不能选第二页缓存。
+
+配置消费者对账：日期/间隔/轮询来自context；固定前端协议预算、字符串上限和history/result请求上限集中在`api/clientPolicy.ts`，非env/用户设置，不新增后端配置或合同字段。`clientPolicy.test.ts`核对Foundation DataCenterPolicy的API5秒、stale15秒、poll2秒、keyword64/title200、history20/result50；300ms候选防抖与5秒失败观察重读是本文§9的固定交互值。改合同必须同时更新两端和此测试，不允许各页面独立改变。
+
+R01—R19实际代码、正负例、24画板及截图对应见[DC4验收记录](../../../../reports/wealth_data_center_dc4_acceptance_20261007.md)和[机器证据](../../../../reports/wealth_data_center_dc4_acceptance_20261007.json)。真实浏览器以实际API/Query/DAO/运行器执行：67条公告→64个文件+2无URL，原2失败经单项和剩余全部失败重试恢复，原failed=2保留、unresolved=0；原创建POST仅1次。查询公司/标题不进入日期下载payload，已下载筛选返回65条关联公告；拔盘状态NULL、来源503不是空结果；Prod首页无卡。返回/前进保留草稿，未知tab纠正，未知run明确不可获取。极端7状态是临时台账合成视觉样本，不当成执行故障验收。
+
+Wealth全量、专项、typecheck/build、62项实际后端Web回归及4项分层检查均通过；完整数量、时长、控制台/网络、图片和哈希由验收记录给出。共享顶栏/面包屑优先于Figma示例的尺寸差异明确留档；未更改共享CSS。正式外盘、台账schema迁移、来源索引初始化和源站最小下载—停止—恢复—物理对账仍待DC5；本阶段未启用正式开关、未部署或下载真实PDF。
