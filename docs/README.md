@@ -137,6 +137,7 @@ docs/
 - [板块日线字段与存储说明（合并 DC 主键与 THS 估值方案；区分 Raw 视图与双层写入）](/Users/congming/github/goldenshare/docs/datasets/board-daily-fields-and-storage.md)
 - [股票周/月线维护说明（已并入日期指南 §4，含接口来源与执行入口）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)
 - [资金流多源融合与对账说明（现行发布、CLI/Seed 副作用与未实现质量建议分列）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
+- [Dagster 七个 Tushare 资金流向数据集接入技术方案 v1（范围已确认，技术设计待评审；Prod Raw 历史初始化、DG 直采日更）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md)
 
 说明：资金流 6 数据集的拍板结论已并入各自正式开发文档（不再维护独立拍板清单）。
 
