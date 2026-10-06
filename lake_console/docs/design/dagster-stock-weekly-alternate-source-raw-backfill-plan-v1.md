@@ -1,8 +1,16 @@
 # DG 股票周线：Prod 存量保留与备用源 Raw 补齐方案 v1
 
-日期：2026-10-03，Asia/Shanghai；最新核验：2026-10-06。状态：M0—M4已完成开发及隔离验收，M5两主源物理bootstrap、M6五只备用源补齐、M7退市推广与confirmed身份分支已完成物理验收；M8事件补录及写后验收已于2026-10-04完成；M9开发及静态/隔离验收通过，10月5日两源2026-10-02完整字段、SDK分页及正式上游只读预检通过，10月5日未复权源请求失败已保留；10月6日诊断修订后两主源正式新增周更新及独立读回均通过，旧错误未复现；同意图两主源正式幂等重放通过，主动取消/续跑未验收，调度未启用；M10.A—E月线开发、全量文件bootstrap及事件补录验收完成，M10.F身份误阻断修复及9月真实更新/重放验收通过，新增月创建/取消恢复/启用待推进。[代码级 LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)及本方案均已同步实际执行口径。账户配额由管理员确认足够，不再作为待核实门禁。
+日期：2026-10-03，Asia/Shanghai；阶段收尾：2026-10-06。**已批准范围的开发与当前数据交付完成，本需求暂时结束，后续日期及条件满足后再恢复真实验收。** 周线M0–M8与月线M10.A–E已交付；M9/M10.F开发、现有周期真实更新及幂等重放通过，正式取消/续跑、新月创建及19:30启用仍待验收，不能判为自动运行已上线。账户配额已由管理员确认足够。当前状态与后续条件见[阶段收尾记录](../../../reports/stock_period_raw_closeout_20261006.md)，具体合同见[周线LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)和[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。
 
 LLD 已细化主源两张资产的逐字段类型／精度及列白名单、局部配置审计、模块接口与消费者影响面、manifest/checkpoint、错误／续跑与测试。2026-10-03 Prod 只读系统目录核验表明仅有代码前缀主键索引，所以历史导出进一步明确为代码批次×年窗口；三张主源技术采集列不进入行情 Parquet，详见 LLD §4。真实分页和代表样本 Decimal/耗时/压缩大小已于 M0 核验；全体退市及confirmed身份分支已完成有界调查和M7物理验收；身份未决和复权未核验按逐键台账保留。M1 详情见 [开发验收记录](../../../reports/stock_week_m1_assessment_20261003.md)。
+
+## 当前收尾状态（2026-10-06）
+
+开发与已交付数据按[收尾记录](../../../reports/stock_period_raw_closeout_20261006.md)结束本轮工作。9月月线已在DG Raw，两源各5571行；本轮20:03[独立只读复核](../../../reports/stock_period_raw_september_closeout_20261006.json)再次确认文件与各3项检查ready。两sensor截至18:41–18:43在线复核仍STOPPED。
+
+后续只保留周线2026-10-09真实完成周的取消/恢复验收、月线2026-10新月创建及取消/恢复验收，以及分别批准后的19:30启用与自动交付。周线须收盘且源/上游就绪；月线最早2026-11-01且源/上游就绪。具体步骤与预算继续引用两份LLD执行卡，不重复全量bootstrap或已完成周期下载。
+
+正文保留早期设计及分阶段事实；后文“尚未开发/未提交/执行中/当前失败”描述各记录当时情况，不能覆盖本节与两份LLD的当前状态。Silver建议未获本次实施批准；数据合同、原日期/单位、预算、安全和历史缺口台账继续有效。
 
 ## 1. 决策与完成边界
 
@@ -63,16 +71,16 @@ Prod 数据快照截至 2026-10-02 22:40；不是 10 月 3 日重新全库统计
 
 ## 3. Raw 存储与资产事实卡
 
-以下名称、路径及分区模型均为拟新增，不是当前正式资产。M1 已新增三源路径和纯合同；当前 `LAKE_ASSET_CATALOG` 尚未登记股票周线，活跃资产将在 M4 同步接入。资产长期按来源命名，不使用 temporary/history/bootstrap 作为资产职责。
+以下三源均已在当前 `LAKE_ASSET_CATALOG` 登记，并于M4接入asset/check/job定义；M5–M8正式文件及事件交付已经验收。目录与分区以当前 `defs/paths.py`、`defs/catalog/lake_assets.py` 及LLD为准。资产长期按来源命名，不使用temporary/history/bootstrap作为资产职责。
 
 | 项目 | 主源未复权 | 主源复权 | 备用源 |
 |---|---|---|---|
-| 拟定 asset key | `raw_tushare_stk_period_bar_week` | `raw_tushare_stk_period_bar_adj_week` | `raw_tushare_weekly` |
+| 正式 asset key | `raw_tushare_stk_period_bar_week` | `raw_tushare_stk_period_bar_adj_week` | `raw_tushare_weekly` |
 | 中文名 | 股票周线原始行情 | 股票周线原始复权行情 | 股票周线备用源原始行情 |
 | 来源 | Prod `raw_tushare.stk_period_bar`，`freq='week'`；新增用 `stk_weekly_monthly` | Prod `raw_tushare.stk_period_bar_adj`，`freq='week'`；新增用 `stk_week_month_adj` | Tushare `weekly` |
 | 数据角色 | 主源镜像 | 主源镜像 | 独立备用源镜像 |
 | 源业务 key | `ts_code,trade_date,freq` | `ts_code,trade_date,freq` | `ts_code,trade_date` |
-| 拟定正式相对路径 | `raw/tushare/stk_period_bar_week/week_end={key}/part-000.parquet` | `raw/tushare/stk_period_bar_adj_week/week_end={key}/part-000.parquet` | `raw/tushare/weekly/week_end={key}/part-000.parquet` |
+| 正式相对路径 | `raw/tushare/stk_period_bar_week/week_end={key}/part-000.parquet` | `raw/tushare/stk_period_bar_adj_week/week_end={key}/part-000.parquet` | `raw/tushare/weekly/week_end={key}/part-000.parquet` |
 | 分区坐标 | 源日期所属 ISO 自然周的星期五，`YYYY-MM-DD` | 同左 | 同左 |
 | 文件内部日期 | 保留源字符串，不改写异常历史日期 | 同左 | 保留源实际交易日期，不改为星期五 |
 | 依赖 | Prod 只读资源／Tushare 资源、Lake 路径资源 | 同左 | Tushare 资源、Lake 路径资源 |
@@ -192,6 +200,10 @@ Raw 补齐本身不要求发布 Silver；但以后要提供一份可消费周线
 依据：[新增数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)、[Schema Contract](dagster-asset-schema-contract-design.md)及根／lake_console／orchestrator AGENTS。Dagster 资产、分区与资源使用现行架构；官方参考：[资产定义](https://docs.dagster.io/guides/build/assets/defining-assets)、[分区示例](https://docs.dagster.io/examples/full-pipelines/etl-pipeline/partition-asset)、[外部资源](https://docs.dagster.io/guides/build/external-resources)。资产页面已通过官方搜索摘要核验，页面直读因工具重定向不可用；本轮未加载正式 definitions、运行 dg job 或访问正式 instance。
 
 
+## 历史分阶段记录（保留当时状态）
+
+以下按原时点保存设计调整、开发、执行和失败记录；当前状态以文首收尾与两份LLD状态表为准。
+
 ### M3开发进展（2026-10-03）
 
 M2已提交30b118ff，未推送。M3按照LLD年度合并/完整校验/单文件原子提升与恢复实现，详见[M3验收](../../../reports/stock_week_m3_assessment_20261003.md)。两主源各15346行及备用51行仅在私有临时目录构建和读回；NULL、非周五及existing-only保留，冲突/证据变化阻断，真实进程退出可续跑。M3已提交1638d42b，未推送；正式Lake/instance、bootstrap及更新启用均未执行。下一阶段M4接入definitions，历史完整性与源不可补台账仍按后续阶段验收。
@@ -219,7 +231,7 @@ M4已提交eb1a3aab，未推送。两主源同一只读快照的实时库存已�
 
 下一阶段以LLD§15为准：M7退市推广与身份核验，M8独立事件补录，M9更新机制；本轮不扩展211/251对象、不写instance/events或启用调度。修改未提交/未推送。
 
-## M7 推广执行中（2026-10-03）
+## M7 推广执行中（2026-10-03历史过程）
 
 阶段编号按LLD§15/§31：M7退市推广与身份核验，M8事件补录，M9更新机制。上文M5历史进展所写“M7事件补录”是旧编号，不作为当前执行依据。
 
@@ -327,7 +339,7 @@ M10.E事件入口/验收已提交ee325688、未推送。本轮M10.F只读核验�
 源尚未发布的延期记录保留为历史；当前已具备进入正式交付审批的只读条件，不等于M9完成。下一步仅2026-10-02两个主源现行job串行交付，最多2文件/11130行及2物化+6checks；完整命令、路径、预算、失败处理和审批边界见[本轮报告及执行清单](../../../reports/stock_week_m9_preflight_20261005.md)及[只读证据](../../../reports/stock_week_m9_preflight_20261005.json)。正式交付、主动取消/恢复验收及19:30启用仍分阶段批准。本轮没有正式Lake/instance写入，没有源码或合同变动；月线新分区验收继续等待完整新月份，本次文档与证据尚未提交。
 
 
-## M9正式交付尝试失败（2026-10-05，当前状态）
+## M9正式交付尝试失败（2026-10-05历史状态）
 
 管理员批准按10月5日预检清单执行。已注册2026-10-02一个动态周键，第一源raw_stk_period_bar_week_update_job的run 3c41d79a-1f36-4bd8-8bd4-47e64462ad99在第一页源请求失败；请求账本3次、receipt 0、正式文件/实际物化/check evaluation均0。按前项失败即停止，复权job未执行；没有主动取消/杀进程或启用19:30 sensor。后置只读复核两源目标missing、两个历史基线及上游指纹不变。
 
