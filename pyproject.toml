@@ -49,6 +49,9 @@ exclude = ["tests", "tests.*", "scripts", "scripts.*", "wealth", "wealth.*", "fr
 [tool.setuptools.package-dir]
 "" = "."
 
+[tool.setuptools.package-data]
+"src.foundation.dao.announcement_archive" = ["pg_migrations/*.sql", "pg_migrations/*.json"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests", "scripts/research/index_market/tests"]

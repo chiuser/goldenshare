@@ -384,3 +384,5 @@ R1 优先把下载操作、进度和失败定位画清楚。历史别名的实�
 3. 下载任务、台账和必要的控制事实统一使用现有本地PG，公告元数据继续由DG管理；已有台账迁移核对后才清理本功能SQLite文件，既有共享SQLite软件库保留。
 
 完整取舍和当前代码差异见[技术方案§16](../../wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)，具体合同见[LLD§22](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。随后完成本地只读核实，用户确认继续补齐LLD：固定复用本地PG的独立归档schema、保留跨归档状态隔离、迁移后旧预览需重新预览，既有产品范围/Figma不变。连接、数据迁移及查询/CLI字段变更仅落在技术合同，本轮未改业务代码、Figma或正式数据。
+
+2026-10-07用户授权推进Q1，完成PG基础和显式迁移工具的开发及临时资源验收，见[报告](../../reports/wealth_data_center_q1_acceptance_20261007.md)。产品规则/Figma不变；正式台账和页面仍保持当前运行链路。直接查询、共享搜索复用及后续正式切换/清理由Q2—Q4承接，Q1不代表页面查询已提速。

@@ -2,7 +2,7 @@
 
 日期：2026-10-07。状态：**DC1已提交9ad6654c；DC2已提交a1b47713；DC3已提交83ffb83f；DC4已提交b5534947；DC5本机归档验收完成，记录见§14；DG日常稳定性另行验收。** 产品规则及 Figma R1 已确认，不再重复请求产品拍板。2026-10-06用户确认按本LLD进入DC1，并授权在根现有.venv安装本地可选pypinyin。当时的DC1授权不包含正式资源操作；2026-10-07用户进入DC5后已授权并完成正式台账升级、请求范围索引和独立小范围真实下载。
 
-**查询与存储修订：** 2026-10-07用户确认继续补齐LLD；本地只读审计已完成，修订设计及分期合同见§16和LLD §22，尚未修改代码或迁移数据。§2—9保留DC1—DC5的设计基线，其中SQLite目录投影、台账存储及独立公司搜索的取舍被§16替代，不得继续据此扩建SQLite；其余已确认产品规则继续有效。
+**查询与存储修订：** 2026-10-07完成本地只读审计及修订设计；按用户授权完成Q1 PG基础与迁移工具的开发/隔离验收，见LLD §23及[报告](../../../../reports/wealth_data_center_q1_acceptance_20261007.md)。正式数据和运行链路未切换，Q2—Q4待实施。§2—9保留DC1—DC5的设计基线，其中SQLite目录投影、台账存储及独立公司搜索的取舍被§16替代，不得继续据此扩建SQLite；其余已确认产品规则继续有效。
 
 ## 1. 目标、依据与范围
 
@@ -264,11 +264,11 @@ DC3交付见[验收报告](../../../../reports/wealth_data_center_dc3_acceptance
 
 按以下顺序实施，每步独立验收：
 
-1. Q1实现PG基础及显式迁移工具，在临时资源验证schema2/3、分批checkpoint、归档隔离和原CLI序号；不运行正式APPLY。
+1. Q1 PG基础及显式迁移工具已完成，在临时资源验证schema2/3、分批checkpoint、归档隔离和原CLI序号；未运行正式APPLY，见LLD §23。
 2. Q2替换catalog列表/公司/下载预览/范围复核，复用搜索控制器，同轮迁移sourceVersion等DTO，验证一致性/GC/性能。
 3. Q3统一执行器、Web及CLI的PG存储，保持文件/HTTP及原封存恢复合同；清零SQLite业务消费者，完成停止—退出—续跑隔离验收。
 4. Q4用户授权后正式plan/apply/读回并统一启用；另行授权清理这5份SQLite及伴随文件。保留共享库、DG Raw和PDF，不自动全量下载。
 
-现有 `PreviewRuntime` 与 `ArchiveSupervisor._validate_range` 依赖catalog，不能只换主列表后就删除它。正式切换不保留长期双轨存储；本轮不删除文件、不迁移数据库、不修改配置、不提交代码。
+现有 `PreviewRuntime` 与 `ArchiveSupervisor._validate_range` 依赖catalog，不能只换主列表后就删除它。正式切换不保留长期双轨存储；正式数据迁移、env写入及文件清理待Q4，Q1仅在临时实例验证。
 
 分层不变：Foundation提供来源与存储能力，Biz负责查询语义，Ops负责执行，App注入依赖。CodeGraph explore/impact及当前SQL已覆盖搜索、查询、预览和台账消费者。PG使用新schema的显式SQL版本，不接主应用Alembic；各表加入archive_id隔离，迁移保留原rowid的row_seq以支持CLI游标。删除indexAvailability/lastIndexedAt/catalogRevision的投影语义，替换为ledgerAvailability/sourceVersion；CLI原ledger_path改为真实storage标识。完整配置、列映射、事务/锁、版本协议及编码门禁见LLD §22.5—22.11。

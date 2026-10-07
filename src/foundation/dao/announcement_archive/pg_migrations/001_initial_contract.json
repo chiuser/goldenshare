@@ -1,0 +1,315 @@
+{
+  "schema_info": {
+    "primary_key": ["singleton"],
+    "columns": {
+      "singleton": {"type": "SMALLINT", "nullable": false, "default": null, "identity": false},
+      "version": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "ddl_sha256": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "installed_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false}
+    }
+  },
+  "archives": {
+    "primary_key": ["archive_id"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "volume_uuid": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "root_relative_path": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "created_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_schema_version": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "import_state": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "import_completed_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "runs": {
+    "primary_key": ["archive_id", "run_id"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "row_seq": {"type": "BIGINT", "nullable": false, "default": null, "identity": true},
+      "run_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "start_date": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "end_date": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "interval_seconds": {"type": "DOUBLE PRECISION", "nullable": true, "default": null, "identity": false},
+      "source_scope": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "legacy_upper_id": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "legacy_after_id": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "phase": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "records_read": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "reason": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "updated_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "missing_url_count": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "artifacts_total": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "completed_count": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "succeeded_count": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "skipped_count": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "failed_count": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "source_kind": {"type": "TEXT", "nullable": false, "default": "'dg_raw_parquet'", "identity": false},
+      "source_contract_version": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "source_policy": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "days_total": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "days_completed": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "current_day": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "enumeration_sealed": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "batch_kind": {"type": "TEXT", "nullable": false, "default": "'date'", "identity": false},
+      "parent_run_id": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "retry_of_run_id": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "preview_id": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "created_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "started_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "finished_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "actor_id": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "owner_token": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "heartbeat_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "business_updated_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "stop_requested_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "resume_count": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "current_artifact_key": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "attempt_number": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "bytes_received": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "bytes_total": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "wait_kind": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "next_request_at": {"type": "DOUBLE PRECISION", "nullable": true, "default": null, "identity": false},
+      "revision": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "check_state": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "check_kind": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "check_code": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "check_updated_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "artifacts": {
+    "primary_key": ["archive_id", "artifact_key"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "artifact_key": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "ann_date": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "ts_code": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "title": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "url": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "relative_path": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "path_fold": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "state": {"type": "TEXT", "nullable": false, "default": "'pending'", "identity": false},
+      "error": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "attempts": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "size": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "sha256": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "updated_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "created_run_id": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "representative_record_key": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "source_records": {
+    "primary_key": ["archive_id", "source_scope", "record_key"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "row_seq": {"type": "BIGINT", "nullable": false, "default": null, "identity": true},
+      "source_scope": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "record_key": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "legacy_raw_id": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "metadata": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "artifact_key": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "first_seen_run": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "last_seen_run": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "run_artifacts": {
+    "primary_key": ["archive_id", "run_id", "artifact_key"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "run_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "artifact_key": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "outcome": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "attempts": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "representative_record_key": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "claimed_owner": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "claimed_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "run_source_days": {
+    "primary_key": ["archive_id", "run_id", "ann_date"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "run_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "ann_date": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "state": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "opened_dev": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "opened_ino": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "size": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "sha256": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "footer_count": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "records_committed": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "reason": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "updated_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "cooldown": {
+    "primary_key": ["archive_id"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "last_request_finished_at": {"type": "DOUBLE PRECISION", "nullable": true, "default": "0", "identity": false},
+      "next_request_not_before": {"type": "DOUBLE PRECISION", "nullable": true, "default": "0", "identity": false},
+      "request_in_flight": {"type": "BIGINT", "nullable": true, "default": "0", "identity": false},
+      "reason": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "archive_execution": {
+    "primary_key": ["archive_id"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "active_run_id": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "owner_token": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "heartbeat": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "revision": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false}
+    }
+  },
+  "attempt_log": {
+    "primary_key": ["archive_id", "run_id", "artifact_key", "attempt_seq"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "run_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "artifact_key": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "attempt_seq": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "session_seq": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "started_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "ended_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "outcome": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "reason": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "http_status": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "bytes": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false}
+    }
+  },
+  "run_sessions": {
+    "primary_key": ["archive_id", "run_id", "session_seq"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "run_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "session_seq": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "started_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "ended_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "owner_token": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "reason": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "command_receipts": {
+    "primary_key": ["archive_id", "key"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "key": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "kind": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "payload_hash": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "result_run_id": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "state": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "created_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false}
+    }
+  },
+  "query_snapshots": {
+    "primary_key": ["archive_id", "query_id"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "query_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_scope": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "conditions": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "state": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_version": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "total": {"type": "BIGINT", "nullable": true, "default": null, "identity": false},
+      "status_available": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "created_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "updated_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "checked_at": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "expires_at": {"type": "DOUBLE PRECISION", "nullable": true, "default": null, "identity": false},
+      "reason": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "preparation_stage": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "dates_total": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "dates_scanned": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "records_scanned": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "artifacts_checked": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "owner_token": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "query_files": {
+    "primary_key": ["archive_id", "query_id", "source_kind", "partition"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "query_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_kind": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "partition": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "relative_path": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "opened_dev": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "opened_ino": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "size": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "mtime_ns": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "footer_count": {"type": "BIGINT", "nullable": false, "default": null, "identity": false}
+    }
+  },
+  "query_day_counts": {
+    "primary_key": ["archive_id", "query_id", "ann_date"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "query_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "ann_date": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "match_count": {"type": "BIGINT", "nullable": false, "default": null, "identity": false}
+    }
+  },
+  "query_presence": {
+    "primary_key": ["archive_id", "query_id", "artifact_key"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "query_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "artifact_key": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "checked_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false}
+    }
+  },
+  "previews": {
+    "primary_key": ["archive_id", "preview_id"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "preview_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "start_date": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "end_date": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "interval_seconds": {"type": "DOUBLE PRECISION", "nullable": false, "default": null, "identity": false},
+      "source_scope": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_version": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "state": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "statistics": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "created_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "updated_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "expires_at": {"type": "DOUBLE PRECISION", "nullable": true, "default": null, "identity": false},
+      "reason": {"type": "TEXT", "nullable": true, "default": null, "identity": false},
+      "dates_total": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "dates_scanned": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "records_scanned": {"type": "BIGINT", "nullable": false, "default": "0", "identity": false},
+      "owner_token": {"type": "TEXT", "nullable": true, "default": null, "identity": false}
+    }
+  },
+  "preview_days": {
+    "primary_key": ["archive_id", "preview_id", "ann_date"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "preview_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "ann_date": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_facts": {"type": "TEXT", "nullable": false, "default": null, "identity": false}
+    }
+  },
+  "preview_artifacts": {
+    "primary_key": ["archive_id", "preview_id", "artifact_key"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "preview_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "artifact_key": {"type": "TEXT", "nullable": false, "default": null, "identity": false}
+    }
+  },
+  "migration_checkpoints": {
+    "primary_key": ["archive_id", "source_table"],
+    "columns": {
+      "archive_id": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_table": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_path": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_sha256": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "source_schema_version": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "last_rowid": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "rows_committed": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "rows_total": {"type": "BIGINT", "nullable": false, "default": null, "identity": false},
+      "rows_digest": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "state": {"type": "TEXT", "nullable": false, "default": null, "identity": false},
+      "updated_at": {"type": "TEXT", "nullable": false, "default": null, "identity": false}
+    }
+  }
+}

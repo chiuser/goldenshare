@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     wealth_local_announcements_enabled: bool = Field(
         default=False, alias="WEALTH_LOCAL_ANNOUNCEMENTS_ENABLED",
     )
+    announcement_archive_database_url: str = Field(
+        default="", alias="ANNOUNCEMENT_ARCHIVE_DATABASE_URL", repr=False,
+    )
     wealth_local_lake_minute_api_enabled: bool = Field(
         default=False,
         alias="WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED",

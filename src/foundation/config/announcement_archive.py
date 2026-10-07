@@ -3,6 +3,19 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class ArchiveDatabasePolicy:
+    database: str = 'goldenshare_lake_meta'
+    port: int = 5432
+    schema: str = 'announcement_archive'
+    connect_seconds: int = 3
+    pool_seconds: float = 1
+    pool_size: int = 4
+    lock_milliseconds: int = 500
+    statement_milliseconds: int = 4000
+    migration_batch_size: int = 500
+
+
+@dataclass(frozen=True)
 class DataCenterPolicy:
     query_days: int = 30
     page_size: int = 50

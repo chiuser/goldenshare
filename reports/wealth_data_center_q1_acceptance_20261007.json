@@ -1,0 +1,114 @@
+{
+  "phase": "Q1_isolated_accepted",
+  "captured_at": "2026-10-07T04:48:23.363559+00:00",
+  "prior_commit": "66263bb3",
+  "q1_changes_committed": false,
+  "branch": "dev-interface",
+  "tests": {
+    "q1": 43,
+    "announcement_joint_regression": 334,
+    "foundation_contracts": 170,
+    "architecture_guardrails": 16,
+    "ingestion_lint": "passed",
+    "docs_integrity": "passed",
+    "python_compile": "passed"
+  },
+  "scope": {
+    "formal_pg_writes": false,
+    "formal_sqlite_migration": false,
+    "formal_cleanup": false,
+    "formal_pdf_raw_writes": false,
+    "env_changes": false,
+    "installs_uninstalls": false,
+    "runtime_switched": false
+  },
+  "isolation": {
+    "postgres": "existing PG18 binaries in disposable /private/tmp cluster",
+    "local_formal_database": "not connected",
+    "old_public_table_tests": "same-named fixture tables unchanged"
+  },
+  "performance": {
+    "rows": 102026,
+    "batches": 231,
+    "seconds": 18.5,
+    "max_sql_seconds": 1.356,
+    "sql_calls": 1082,
+    "source_http_requests": 0,
+    "rss_peak_mib": 227.16,
+    "process_fd_peak": 23
+  },
+  "files": [
+    {
+      "path": "pyproject.toml",
+      "sha256": "a9a712db6b4fc479860866d24e6b491ba10e3fec39d03e054edd58846f07e8d0"
+    },
+    {
+      "path": "src/foundation/config/settings.py",
+      "sha256": "7bffa5d827d1e0f96e3178537689ea32aeacf400bb4acd9d356adf0bd4eeefb7"
+    },
+    {
+      "path": "src/foundation/config/announcement_archive.py",
+      "sha256": "848e4aaa8f3e459cd4013fbd8b77233d3f089284fe4f815ee16df6a70d8e0e96"
+    },
+    {
+      "path": "src/foundation/dao/announcement_archive/pg_database.py",
+      "sha256": "207eb9e96c6bcfda48f11f9b525f9764715d65b13d57c142269a041d6c2f49b7"
+    },
+    {
+      "path": "src/foundation/dao/announcement_archive/pg_schema.py",
+      "sha256": "ced7b16a0719f929ff0b8ff65e7f7fdd58abcd9c59cdd0a636a2a732b5435b61"
+    },
+    {
+      "path": "src/foundation/dao/announcement_archive/pg_archive.py",
+      "sha256": "725dd9857b0dc7a7936e52f86091e42fe7bd9a13f30a47e16167c7e615f69434"
+    },
+    {
+      "path": "src/foundation/dao/announcement_archive/pg_migrations/001_initial.sql",
+      "sha256": "77e69e4f66920c227ce6b32187088de89e698baab3cac2f43348d6d9f3311356"
+    },
+    {
+      "path": "src/foundation/dao/announcement_archive/pg_migrations/001_initial_contract.json",
+      "sha256": "7ff60e69d068e4fe49eb33d33cfa05a7d6ebfedef5f26be932e3c3c93b47f446"
+    },
+    {
+      "path": "src/foundation/clients/announcement_archive/migration_source.py",
+      "sha256": "ecf88bf85b7f37f3a9b0a233fd1fbc10eaf75ae8e50a831ac0bb9534a568479b"
+    },
+    {
+      "path": "src/ops/runtime/announcement_archive/migration.py",
+      "sha256": "8f44e5cc1c4dbc91bef9a1b5d4d10411a267bf968f61f51094319dd8f6cb7721"
+    },
+    {
+      "path": "src/scripts/migrate_announcement_archive.py",
+      "sha256": "cabf1cc69c781f36c5cbf40315b51685a7738c730626d214304957b7e648d3b7"
+    },
+    {
+      "path": "tests/test_announcement_pg_migration.py",
+      "sha256": "7fb64f74aa534892e3a0907fdad1282cb43bcc7dac52fdacbcfd65c8842b9e85"
+    },
+    {
+      "path": "tests/fixtures/announcement_pg_migration_runner.py",
+      "sha256": "90afc87ba125a871aff73df10c16b6467febb85b9a9a125c2f0f59bd8528a9f4"
+    }
+  ],
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact Settings",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "scope": [
+      "archive Ledger/schema",
+      "App factories",
+      "Catalog",
+      "maintenance cursors",
+      "Settings consumers"
+    ],
+    "pending_integration": [
+      "Q2 API/source/search",
+      "Q3 runtime/CLI",
+      "Q4 formal apply/cleanup"
+    ]
+  }
+}
