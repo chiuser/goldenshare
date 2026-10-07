@@ -353,3 +353,10 @@ CodeGraph explore/impact覆盖Catalog及API/App/预览/搜索消费者，sync/st
 App announcement_archive_lifespan在既有本地开关下共享一个Foundation ArchiveDatabase池，组合Biz来源查询、Ops ArchiveSupervisor/WebControl及Foundation ArchiveStore/Ledger。CLI download_announcements/announcement_ledger → Ops executor/maintenance → Foundation原生PG DAO及Files/HTTP；不回落主DATABASE_URL，没有SQLite运行后端。迁移专用LegacyLedgerSchema只允许显式只读来源校验。磁盘和本机执行锁保留；PG archive_execution行锁负责持久领取，短事务不跨HTTP/文件哈希。
 
 CodeGraph query/impact覆盖Ledger、ArchiveStore和ArchiveSupervisor，开发后sync/status为up to date；动态Protocol装配和SQL额外按当前App/Biz/Ops/DAO源码、实际路由、隔离PG和浏览器验收。依赖矩阵、DG/Prod数据集合同及前端API不变；CLI storage JSON按批准的Q3合同更新。详细证据见[Q3报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。Q4正式迁移、源目标读回和环境切换尚未执行，当前代码不能独立启用；原SQLite和正式PDF未操作。
+
+
+### 数据中心公告Q4正式启用（2026-10-07，旧文件清理未执行）
+
+Q3提交b4c590fd后已执行既存本机PG的正式PLAN/APPLY、全业务列幂等重放和4归档读回；.env.web.local仅写入既有独立DSN字段，Web8000及下载/维护CLI现已使用PG。新增显式Ops ArchiveCleanup及迁移CLI互斥--cleanup-plan/--cleanup，严格检查迁移receipt、旧源指纹、关闭连接与精确文件身份；App/正常执行器不import旧源，不自动清理。旧5个SQLite及2个伴随文件待单独授权，PDF/Raw/共享库保留。
+
+CodeGraph query/impact覆盖ArchiveMigration、CLI、ArchiveCleanup和测试，sync/status当前；依赖矩阵、DG/Prod合同不变。真实有限API+物理读回、370项回归及清理待批准清单见[Q4报告](../../reports/wealth_data_center_q4_acceptance_20261007.md)。当前Raw最新10-06，包含10-07的默认查询已验证缺日终态；没有自动改日期/补齐DG或宣称全历史性能。

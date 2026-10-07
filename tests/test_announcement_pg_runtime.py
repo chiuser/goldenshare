@@ -155,13 +155,15 @@ def test_runtime_import_graph_excludes_sqlite_and_legacy_readers():
     import ast
     from pathlib import Path
     roots=[Path('src/ops/runtime/announcement_archive'),Path('src/biz/queries/wealth/data_center')]
-    paths=[p for root in roots for p in root.glob('*.py') if p.name!='migration.py']
+    paths=[p for root in roots for p in root.glob('*.py') if p.name not in {'migration.py','cleanup.py'}]
+    paths.append(Path('src/app/runtime/announcement_archive_lifespan.py'))
     paths += [Path('src/foundation/dao/announcement_archive')/name for name in ('ledger.py','execution.py','maintenance.py')]
     for path in paths:
         imports=[n for n in ast.walk(ast.parse(path.read_text())) if isinstance(n,(ast.Import,ast.ImportFrom))]
         for node in imports:
             names=[a.name for a in node.names] if isinstance(node,ast.Import) else [node.module or '']
-            assert not any('sqlite' in name or 'migration_source' in name or 'legacy_schema' in name for name in names),path
+            assert not any('sqlite' in name or 'migration_source' in name or 'legacy_schema' in name
+                           or name.endswith('.cleanup') for name in names),path
 
 
 def test_real_pg_read_only_blocks_http_gate(archive):
@@ -189,7 +191,7 @@ def test_real_pg_read_only_blocks_http_gate(archive):
         database.engine.dispose()
 
 
-def test_failure_family_at_scale_and_batch_timing(archive):
+def test_failure_family_at_scale_and_batch_timing(archive,tmp_path):
     from sqlalchemy import event
     import os,resource
     from pathlib import Path
@@ -217,6 +219,6 @@ def test_failure_family_at_scale_and_batch_timing(archive):
         started=time.monotonic();ledger.ingest(rid,'scope','2026-09-30',[row(i) for i in range(500)]);batch_seconds=time.monotonic()-started
         assert ledger.run(rid)['records_read']==500 and batch_seconds<4
         report=dict(kind='isolated PG native runtime',sourceRows=500,sourceFiles=1,sourceRowGroups=0,sourceBytes=0,sourceKind='controlled six-field fixture, not Lake performance',pgBatchRows=500,ingestSeconds=batch_seconds,failureFamilyRows=110000,unresolved=40000,unresolvedSeconds=seconds,sqlMaxSeconds=max(sql_times),sqlCalls=len(sql_times),fdCount=len(os.listdir('/dev/fd')),rssMiB=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/(1024*1024),sourceHttpRequests=0,formalWrites=0)
-        Path('reports/wealth_data_center_q3_profile_20261007.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+        (tmp_path/'q3-profile.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
     finally:
         event.remove(database.engine,'before_cursor_execute',before);event.remove(database.engine,'after_cursor_execute',after)

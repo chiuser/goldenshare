@@ -1,0 +1,10 @@
+{
+  "kind": "formal migration replay",
+  "exitCode": 0,
+  "elapsedSeconds": 20.494500959059224,
+  "sqlMaxSeconds": 0.09214062499813735,
+  "sqlCalls": 1439,
+  "fdPeak": 29,
+  "rssPeakMiB": 174.796875,
+  "sourceHttpRequests": 0
+}

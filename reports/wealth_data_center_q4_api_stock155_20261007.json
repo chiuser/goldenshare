@@ -1,0 +1,179 @@
+{
+  "kind": "stock155",
+  "source": "formal Raw plus migrated local PG; independent auth fixture",
+  "context": {
+    "moduleEnabled": true,
+    "archiveAvailability": "ready",
+    "sourceAvailability": "ready",
+    "ledgerAvailability": "ready",
+    "archiveLocation": "/Volumes/datasource/announcements",
+    "currentRunId": null,
+    "queryDefaults": {
+      "startDate": "2026-09-08",
+      "endDate": "2026-10-07",
+      "downloadStatus": "all"
+    },
+    "downloadDefaults": {
+      "startDate": null,
+      "endDate": null,
+      "intervalSeconds": 5
+    },
+    "policy": {
+      "pageSize": 50,
+      "companyLimit": 20,
+      "pollSeconds": 2
+    },
+    "observedAnnDate": "2026-10-06",
+    "sourceUpdateSucceededAt": null
+  },
+  "condition": {
+    "startDate": "2026-05-04",
+    "endDate": "2026-10-05",
+    "tsCode": "002245.SZ",
+    "titleKeyword": "",
+    "downloadStatus": "all"
+  },
+  "total": 36,
+  "sampleItems": [
+    {
+      "recordKey": "827e39e7d7bd0372e8078d8840e42387797484feac47b01b445ca434cabb9537",
+      "annDate": "2026-09-04",
+      "tsCode": "002245.SZ",
+      "companyName": "蔚蓝锂芯",
+      "companyNameSource": "master",
+      "title": "公司章程（2026年9月）",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-09-04/1225546139.PDF",
+      "downloadStatus": "undownloaded",
+      "statusCheckedAt": "2026-10-07T15:29:31.063457+00:00"
+    },
+    {
+      "recordKey": "856e2235981372adeec29d0e73cda66a542f8cfe6470d3a8d62b82204f42b65f",
+      "annDate": "2026-09-04",
+      "tsCode": "002245.SZ",
+      "companyName": "蔚蓝锂芯",
+      "companyNameSource": "master",
+      "title": "2026年第三次临时股东会决议公告",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-09-04/1225546137.PDF",
+      "downloadStatus": "undownloaded",
+      "statusCheckedAt": "2026-10-07T15:29:31.063457+00:00"
+    },
+    {
+      "recordKey": "8e795c073f8911e45ec1e52d32188f154a80faf3f3701db6a3202d2326fd2429",
+      "annDate": "2026-09-04",
+      "tsCode": "002245.SZ",
+      "companyName": "蔚蓝锂芯",
+      "companyNameSource": "master",
+      "title": "2026年第三次临时股东会的法律意见书",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-09-04/1225546138.PDF",
+      "downloadStatus": "downloaded",
+      "statusCheckedAt": "2026-10-07T15:29:31.063457+00:00"
+    }
+  ],
+  "preparationSeconds": 3.1929772079456598,
+  "progress": [
+    {
+      "time": 0.00918229203671217,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.2703268330078572,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.5352146669756621,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.7948210418689996,
+      "stage": "counting",
+      "artifactsChecked": 0,
+      "datesScanned": 32,
+      "datesTotal": 155,
+      "recordsScanned": 45925
+    },
+    {
+      "time": 1.0521652919705957,
+      "stage": "counting",
+      "artifactsChecked": 0,
+      "datesScanned": 155,
+      "datesTotal": 155,
+      "recordsScanned": 210602
+    },
+    {
+      "time": 1.3103035830426961,
+      "stage": "counting",
+      "artifactsChecked": 0,
+      "datesScanned": 155,
+      "datesTotal": 155,
+      "recordsScanned": 210602
+    }
+  ],
+  "getsSeconds": [
+    1.3610253750812262,
+    1.2895233749877661,
+    1.3108500000089407,
+    1.303573708049953,
+    1.2637875829823315,
+    1.2265133750624955
+  ],
+  "p95UpperBoundSeconds": 1.3610253750812262,
+  "sourceFiles": 155,
+  "sourceRows": 210602,
+  "sourceBytes": 5738480,
+  "sourceRowGroups": 149,
+  "announcementFdPeak": 32,
+  "pgSqlMaxSeconds": 0.09407858387567103,
+  "duckdbSqlMaxSeconds": 0.1574163339100778,
+  "sqlMaxSeconds": 0.1574163339100778,
+  "sqlCalls": 1144,
+  "fdPeak": 49,
+  "rssPeakMiB": 443.9375,
+  "runHistory": {
+    "currentRunId": null,
+    "items": [
+      {
+        "runId": "0e9bdd89040b44e39fa05b6104d74057",
+        "startDate": "2026-09-01",
+        "endDate": "2026-09-30",
+        "phase": "blocked",
+        "createdAt": "2026-10-03T14:22:12.326938+00:00",
+        "total": 34183,
+        "succeeded": 358,
+        "reused": 0,
+        "failed": 0,
+        "rootRunId": "0e9bdd89040b44e39fa05b6104d74057",
+        "retryOfRunId": null
+      },
+      {
+        "runId": "ec621d88e4bd40048066eed252600fd0",
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "phase": "completed",
+        "createdAt": "2026-10-03T13:18:44.217491+00:00",
+        "total": 5,
+        "succeeded": 5,
+        "reused": 0,
+        "failed": 0,
+        "rootRunId": "ec621d88e4bd40048066eed252600fd0",
+        "retryOfRunId": null
+      }
+    ],
+    "nextCursor": null
+  },
+  "sourceHttpRequests": 0,
+  "pdfWrites": 0,
+  "rawWrites": 0,
+  "osCacheFlushed": false
+}

@@ -392,3 +392,6 @@ R1 优先把下载操作、进度和失败定位画清楚。历史别名的实�
 
 
 2026-10-07 Q3：下载执行、Web控制与台账维护CLI统一PG，文件/HTTP/停止/续跑/精确失败重试规则保持；浏览器验收与隔离故障测试见[Q3报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。产品与Figma未变，正式数据和运行版本未切换；Q4迁移、核对并启用完成后再部署。
+
+
+2026-10-07 Q4进度：Q3已提交b4c590fd；正式PG迁移、读回、统一启用和本机Web恢复已执行。默认363份成功PDF保留且size/hash匹配，独立5文件日期验收全部复用；没有自动全量下载。旧SQLite清理待单独批准，详情见[LLD §26](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)与[Q4报告](../../reports/wealth_data_center_q4_acceptance_20261007.md)。产品/Figma不变，DG日常稳定性另行验收。

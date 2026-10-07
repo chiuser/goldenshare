@@ -1,0 +1,251 @@
+{
+  "kind": "undownloaded",
+  "source": "formal Raw plus migrated local PG; independent auth fixture",
+  "context": {
+    "moduleEnabled": true,
+    "archiveAvailability": "ready",
+    "sourceAvailability": "ready",
+    "ledgerAvailability": "ready",
+    "archiveLocation": "/Volumes/datasource/announcements",
+    "currentRunId": null,
+    "queryDefaults": {
+      "startDate": "2026-09-08",
+      "endDate": "2026-10-07",
+      "downloadStatus": "all"
+    },
+    "downloadDefaults": {
+      "startDate": null,
+      "endDate": null,
+      "intervalSeconds": 5
+    },
+    "policy": {
+      "pageSize": 50,
+      "companyLimit": 20,
+      "pollSeconds": 2
+    },
+    "observedAnnDate": "2026-10-06",
+    "sourceUpdateSucceededAt": null
+  },
+  "condition": {
+    "startDate": "2026-05-04",
+    "endDate": "2026-10-05",
+    "tsCode": null,
+    "titleKeyword": "",
+    "downloadStatus": "undownloaded"
+  },
+  "total": 210239,
+  "sampleItems": [
+    {
+      "recordKey": "21d5465f1764a17f56a7e34aed7eb675aa2198af0f503ed43df99efc78fb593a",
+      "annDate": "2026-10-01",
+      "tsCode": "001246.SZ",
+      "companyName": "N力勤资源",
+      "companyNameSource": "master",
+      "title": "H股公告（翌日披露表）",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-10-01/1225589809.PDF",
+      "downloadStatus": "undownloaded",
+      "statusCheckedAt": "2026-10-07T15:35:19.446610+00:00"
+    },
+    {
+      "recordKey": "677f37e5106bb03af7198652962d3085979ba04cac33480dedf0fb287849a7a1",
+      "annDate": "2026-10-01",
+      "tsCode": "001246.SZ",
+      "companyName": "N力勤资源",
+      "companyNameSource": "master",
+      "title": "H股公告（董事会薪酬委员会工作细则）",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-10-01/1225589854.PDF",
+      "downloadStatus": "undownloaded",
+      "statusCheckedAt": "2026-10-07T15:35:19.446610+00:00"
+    },
+    {
+      "recordKey": "725b3d79bb79702b29b5631cffedde6888378783f66bfa66b71fa990bc5ee009",
+      "annDate": "2026-10-01",
+      "tsCode": "001246.SZ",
+      "companyName": "N力勤资源",
+      "companyNameSource": "master",
+      "title": "H股公告（董事名单与其角色和职能）",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-10-01/1225589807.PDF",
+      "downloadStatus": "undownloaded",
+      "statusCheckedAt": "2026-10-07T15:35:19.446610+00:00"
+    }
+  ],
+  "preparationSeconds": 5.794901333982125,
+  "progress": [
+    {
+      "time": 0.009357500122860074,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.27003333414904773,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.5294678341597319,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.9195801671594381,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 1.1821307921782136,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 16,
+      "datesTotal": 155,
+      "recordsScanned": 22474
+    },
+    {
+      "time": 1.4415342090651393,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 33,
+      "datesTotal": 155,
+      "recordsScanned": 47477
+    },
+    {
+      "time": 1.7046101251617074,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 51,
+      "datesTotal": 155,
+      "recordsScanned": 68185
+    },
+    {
+      "time": 1.9577712090685964,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 69,
+      "datesTotal": 155,
+      "recordsScanned": 91416
+    },
+    {
+      "time": 2.2165250000543892,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 87,
+      "datesTotal": 155,
+      "recordsScanned": 108593
+    },
+    {
+      "time": 2.477688000071794,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 107,
+      "datesTotal": 155,
+      "recordsScanned": 129496
+    },
+    {
+      "time": 2.7325145001523197,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 117,
+      "datesTotal": 155,
+      "recordsScanned": 167267
+    },
+    {
+      "time": 2.9861634590197355,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 131,
+      "datesTotal": 155,
+      "recordsScanned": 188935
+    },
+    {
+      "time": 3.2497358340770006,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 148,
+      "datesTotal": 155,
+      "recordsScanned": 205819
+    },
+    {
+      "time": 3.5145214591175318,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 155,
+      "datesTotal": 155,
+      "recordsScanned": 210602
+    },
+    {
+      "time": 3.770185667090118,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 155,
+      "datesTotal": 155,
+      "recordsScanned": 210602
+    }
+  ],
+  "getsSeconds": [
+    1.1003768329974264,
+    0.9675083749461919,
+    0.9506565839983523,
+    1.011238541919738,
+    0.9509546670597047,
+    0.9138784171082079
+  ],
+  "p95UpperBoundSeconds": 1.1003768329974264,
+  "sourceFiles": 155,
+  "sourceRows": 210602,
+  "sourceBytes": 5738480,
+  "sourceRowGroups": 149,
+  "announcementFdPeak": 32,
+  "pgSqlMaxSeconds": 0.046810542000457644,
+  "duckdbSqlMaxSeconds": 0.16666179220192134,
+  "sqlMaxSeconds": 0.16666179220192134,
+  "sqlCalls": 3173,
+  "fdPeak": 50,
+  "rssPeakMiB": 358.6875,
+  "runHistory": {
+    "currentRunId": null,
+    "items": [
+      {
+        "runId": "0e9bdd89040b44e39fa05b6104d74057",
+        "startDate": "2026-09-01",
+        "endDate": "2026-09-30",
+        "phase": "blocked",
+        "createdAt": "2026-10-03T14:22:12.326938+00:00",
+        "total": 34183,
+        "succeeded": 358,
+        "reused": 0,
+        "failed": 0,
+        "rootRunId": "0e9bdd89040b44e39fa05b6104d74057",
+        "retryOfRunId": null
+      },
+      {
+        "runId": "ec621d88e4bd40048066eed252600fd0",
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "phase": "completed",
+        "createdAt": "2026-10-03T13:18:44.217491+00:00",
+        "total": 5,
+        "succeeded": 5,
+        "reused": 0,
+        "failed": 0,
+        "rootRunId": "ec621d88e4bd40048066eed252600fd0",
+        "retryOfRunId": null
+      }
+    ],
+    "nextCursor": null
+  },
+  "sourceHttpRequests": 0,
+  "pdfWrites": 0,
+  "rawWrites": 0,
+  "osCacheFlushed": false
+}

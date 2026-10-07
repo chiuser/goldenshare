@@ -1,0 +1,243 @@
+{
+  "kind": "downloaded",
+  "source": "formal Raw plus migrated local PG; independent auth fixture",
+  "context": {
+    "moduleEnabled": true,
+    "archiveAvailability": "ready",
+    "sourceAvailability": "ready",
+    "ledgerAvailability": "ready",
+    "archiveLocation": "/Volumes/datasource/announcements",
+    "currentRunId": null,
+    "queryDefaults": {
+      "startDate": "2026-09-08",
+      "endDate": "2026-10-07",
+      "downloadStatus": "all"
+    },
+    "downloadDefaults": {
+      "startDate": null,
+      "endDate": null,
+      "intervalSeconds": 5
+    },
+    "policy": {
+      "pageSize": 50,
+      "companyLimit": 20,
+      "pollSeconds": 2
+    },
+    "observedAnnDate": "2026-10-06",
+    "sourceUpdateSucceededAt": null
+  },
+  "condition": {
+    "startDate": "2026-05-04",
+    "endDate": "2026-10-05",
+    "tsCode": null,
+    "titleKeyword": "",
+    "downloadStatus": "downloaded"
+  },
+  "total": 363,
+  "sampleItems": [
+    {
+      "recordKey": "4ca1378c0c9c9ee733f56b755adef5d98e07bab8125ce0ffa7ea2b455bccf834",
+      "annDate": "2026-09-30",
+      "tsCode": "000707.SZ",
+      "companyName": "双环科技",
+      "companyNameSource": "master",
+      "title": "独立董事候选人声明与承诺（王华军）",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-09-30/1225588981.PDF",
+      "downloadStatus": "downloaded",
+      "statusCheckedAt": "2026-10-07T15:35:02.278423+00:00"
+    },
+    {
+      "recordKey": "db830b1e7b2696b358e674edaebcd2ae74c5147bf06518b6988a87abb4fc3662",
+      "annDate": "2026-09-30",
+      "tsCode": "001228.SZ",
+      "companyName": "永泰运",
+      "companyNameSource": "master",
+      "title": "简式权益变动报告书（王巧玲）",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-09-30/1225587662.PDF",
+      "downloadStatus": "downloaded",
+      "statusCheckedAt": "2026-10-07T15:35:02.278423+00:00"
+    },
+    {
+      "recordKey": "15dafec40c4bab05d1f6d191e1633109f34e75456bded031625c5167b229d380",
+      "annDate": "2026-09-30",
+      "tsCode": "001270.SZ",
+      "companyName": "铖昌科技",
+      "companyNameSource": "master",
+      "title": "浙江铖昌科技股份有限公司关于控股股东拟非公开发行科技创新可交换公司债券的公告",
+      "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-09-30/1225588636.PDF",
+      "downloadStatus": "downloaded",
+      "statusCheckedAt": "2026-10-07T15:35:02.278423+00:00"
+    }
+  ],
+  "preparationSeconds": 5.26126516610384,
+  "progress": [
+    {
+      "time": 0.008701374987140298,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.26761974999681115,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.5313321249559522,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 0.8797802499029785,
+      "stage": "readingSource",
+      "artifactsChecked": 0,
+      "datesScanned": 0,
+      "datesTotal": 155,
+      "recordsScanned": 0
+    },
+    {
+      "time": 1.1396244580391794,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 17,
+      "datesTotal": 155,
+      "recordsScanned": 25023
+    },
+    {
+      "time": 1.3962234160862863,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 33,
+      "datesTotal": 155,
+      "recordsScanned": 47477
+    },
+    {
+      "time": 1.6580178330186754,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 51,
+      "datesTotal": 155,
+      "recordsScanned": 68185
+    },
+    {
+      "time": 1.9192562908865511,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 69,
+      "datesTotal": 155,
+      "recordsScanned": 91416
+    },
+    {
+      "time": 2.1735399160534143,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 89,
+      "datesTotal": 155,
+      "recordsScanned": 111239
+    },
+    {
+      "time": 2.4354731249623,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 108,
+      "datesTotal": 155,
+      "recordsScanned": 130896
+    },
+    {
+      "time": 2.691352332942188,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 124,
+      "datesTotal": 155,
+      "recordsScanned": 180983
+    },
+    {
+      "time": 2.950489040929824,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 141,
+      "datesTotal": 155,
+      "recordsScanned": 199193
+    },
+    {
+      "time": 3.205967958085239,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 155,
+      "datesTotal": 155,
+      "recordsScanned": 210602
+    },
+    {
+      "time": 3.463239457923919,
+      "stage": "counting",
+      "artifactsChecked": 363,
+      "datesScanned": 155,
+      "datesTotal": 155,
+      "recordsScanned": 210602
+    }
+  ],
+  "getsSeconds": [
+    1.059103624895215,
+    1.042582750087604,
+    1.1081355419009924,
+    1.1722513339482248,
+    1.6060634169261903,
+    2.188525249948725
+  ],
+  "p95UpperBoundSeconds": 2.188525249948725,
+  "sourceFiles": 155,
+  "sourceRows": 210602,
+  "sourceBytes": 5738480,
+  "sourceRowGroups": 149,
+  "announcementFdPeak": 32,
+  "pgSqlMaxSeconds": 0.08208395796827972,
+  "duckdbSqlMaxSeconds": 0.1626394169870764,
+  "sqlMaxSeconds": 0.1626394169870764,
+  "sqlCalls": 3481,
+  "fdPeak": 19,
+  "rssPeakMiB": 509.8125,
+  "runHistory": {
+    "currentRunId": null,
+    "items": [
+      {
+        "runId": "0e9bdd89040b44e39fa05b6104d74057",
+        "startDate": "2026-09-01",
+        "endDate": "2026-09-30",
+        "phase": "blocked",
+        "createdAt": "2026-10-03T14:22:12.326938+00:00",
+        "total": 34183,
+        "succeeded": 358,
+        "reused": 0,
+        "failed": 0,
+        "rootRunId": "0e9bdd89040b44e39fa05b6104d74057",
+        "retryOfRunId": null
+      },
+      {
+        "runId": "ec621d88e4bd40048066eed252600fd0",
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "phase": "completed",
+        "createdAt": "2026-10-03T13:18:44.217491+00:00",
+        "total": 5,
+        "succeeded": 5,
+        "reused": 0,
+        "failed": 0,
+        "rootRunId": "ec621d88e4bd40048066eed252600fd0",
+        "retryOfRunId": null
+      }
+    ],
+    "nextCursor": null
+  },
+  "sourceHttpRequests": 0,
+  "pdfWrites": 0,
+  "rawWrites": 0,
+  "osCacheFlushed": false
+}

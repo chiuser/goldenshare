@@ -193,3 +193,6 @@ P1 回归包含缺 URL 不请求、游标提交/回滚、被替代来源不请�
 4. 文件提交、业务结果与进度观测分别提交。停止/owner最多每0.5秒检查；进度和心跳默认5秒，失败也按此频率节流，不为每个64KiB块查询PG。每次HTTP（含跳转和来源探测）前必须成功提交 `request_in_flight`；PG不可写时不发新请求，不自动恢复HTTP。
 5. 原CLI参数和退出码保持。JSON的 `ledger_path` 和顶层 `schema_version` 移除，改为真实 `storage`：`kind/database/schema/archiveId/schemaVersion`。分页参数 `before-rowid/after-rowid` 仍为正整数，实际按PG `row_seq`读取。
 6. SQLite只在显式迁移的只读旧源校验中保留，运行时消费者清零。Q3未迁移/删除正式SQLite、PDF或Raw，未改本机env、未安装/卸载软件。正式迁移和统一启用见Q4；DG日常稳定性验收仍独立。
+
+
+Q4正式启用记录（2026-10-07）：Q3提交b4c590fd后，已迁移4份旧台账并逐批完整值重放/读回，启用本地PG及恢复Web8000。旧SQLite文件保留，清理必须经独立批准的--cleanup-plan/--cleanup运营流程；不再是运行期后端。[Q4报告](../../reports/wealth_data_center_q4_acceptance_20261007.md)记录378份PDF物理核验、默认363份查询和独立5文件复用，网页LLD§26保存实际配置与未完成边界。

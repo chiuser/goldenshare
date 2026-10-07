@@ -1,0 +1,61 @@
+{
+  "context": {
+    "moduleEnabled": true,
+    "archiveAvailability": "ready",
+    "sourceAvailability": "ready",
+    "ledgerAvailability": "ready",
+    "archiveLocation": "/Volumes/datasource/announcements",
+    "currentRunId": null,
+    "queryDefaults": {
+      "startDate": "2026-09-08",
+      "endDate": "2026-10-07",
+      "downloadStatus": "all"
+    },
+    "downloadDefaults": {
+      "startDate": null,
+      "endDate": null,
+      "intervalSeconds": 5
+    },
+    "policy": {
+      "pageSize": 50,
+      "companyLimit": 20,
+      "pollSeconds": 2
+    },
+    "observedAnnDate": "2026-10-06",
+    "sourceUpdateSucceededAt": null
+  },
+  "condition": {
+    "startDate": "2026-09-08",
+    "endDate": "2026-10-07",
+    "tsCode": null,
+    "titleKeyword": "",
+    "downloadStatus": "all"
+  },
+  "terminalResponse": {
+    "queryId": "e04b7c92bfa1082f-f9bcabbd31cd4fbd89177b70f4fa04b7",
+    "pageState": {
+      "status": "error",
+      "code": "DC_SOURCE_UNAVAILABLE",
+      "message": "本地尚未同步 2026-10-07 的公告数据，请调整查询日期或等待同步后刷新列表",
+      "asOfTime": "2026-10-07T15:39:07.838499+00:00"
+    },
+    "sourceVersion": null,
+    "conditions": {
+      "startDate": "2026-09-08",
+      "endDate": "2026-10-07",
+      "tsCode": null,
+      "titleKeyword": "",
+      "downloadStatus": "all"
+    },
+    "items": [],
+    "total": null,
+    "page": 1,
+    "pageSize": 50,
+    "hasPrevious": false,
+    "hasNext": false,
+    "downloadStatusAvailable": false,
+    "preparation": null
+  },
+  "preparationSeconds": 0.8009157089982182,
+  "sourceHttpRequests": 0
+}
