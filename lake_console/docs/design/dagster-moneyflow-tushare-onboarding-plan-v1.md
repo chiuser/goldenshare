@@ -1,6 +1,6 @@
 # Dagster 七个 Tushare 资金流向数据集接入技术方案 v1
 
-> 状态：范围与技术方案已批准提交，基线提交 `bf7df7ff`。P0收尾已提交 `f5c06dd3`，P1四个小数据集候选能力已完成并提交，P2三个个股候选能力开发及隔离验收已收尾；普通/DC个股已提交，THS及本次收尾由本次提交归档。管理员已授权进入P3，本轮历史规划/受限导出SQL能力完成隔离验收（§22），由本次提交归档。正式历史bootstrap、DG资产/事件及自动化尚未执行。
+> 状态：范围与技术方案已批准提交，基线提交 `bf7df7ff`。P0收尾已提交 `f5c06dd3`，P1/P2候选能力开发及隔离验收已收尾。THS/P2收尾与P3首轮历史规划已提交402c8452。本轮P3有界CSV导出/复核/checkpoint开发与隔离验收（§23）由本次提交归档。正式历史bootstrap、DG资产/事件及自动化尚未执行。
 >
 > 日期：2026-10-06。目标：将 Prod 已有七个 Tushare 资金流向数据集接入正式 DG；历史从 Prod Raw 初始化，新增由 DG 直接请求 Tushare。
 >
@@ -442,3 +442,11 @@ moneyflow_ths候选能力完成，独立13字段与trade_date/ts_code主键，na
 P0公开逐日计数全范围规划与原基线一致：21,160,938行、7,804数据集日期、347读unit、423写窗口、15,608预计正式两层文件；两遍读取694事务、加计划统计至多708连接和2790条SQL。新进程计数规划/首unit SQL生成0.057秒、峰值76.3MiB，不含导出/转换/提升，不作为历史执行耗时预测。未重新查询Prod或核验全量来源内容hash。逐表计划摘要见[结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json)。
 
 新增66项规划/负向测试，联合既有候选/策略共635项通过；受保护治理12项+474子测试、静态113项、Ruff及文档检查通过。配置审计、硬口径→代码/测试和CodeGraph影响面回填实施细则§17；无依赖矩阵变化。下一轮推进流式导出与checkpoint，然后分桶/候选、原子提升及故障/取消/续跑/幂等隔离验收。整个P3未完成，正式样本仍须精确命令/日期/来源/读写范围/冲突处理获批，P4/P5尚未执行。
+
+## 23. P3来源CSV导出、复核与恢复进度（2026-10-07）
+
+THS、P2收尾和P3首轮规划已提交402c8452。管理员要求继续下一步，本轮新增moneyflow_history_export/csv/source三个helper：单unit两遍只读COPY、64KiB流写、严格日期/键/精度的列式校验、逐文件持久化、独立exported/verified状态、取消及跨进程恢复。固定现行连接文件和七表投影，不暴露任意SQL/DSN。来源变化则blocked并保留两份CSV；完成文件恢复须重审hash和实际边界，普通下一unit从已验证CSV的last_key继续。partial与异常现场保留。
+
+新增58项通过，含实际进程退出/新进程续跑、rename与checkpoint之间退出、修改边界不能跳行、同键同行数值变动、源子进程组取消、残缺CSV及NULL标记负例；联合plan/候选/策略693项通过。受保护治理12项+474子测试、静态113项、Ruff通过。10万行真实数值压力样本两份CSV各13,427,932字节，处理2.924秒、峰值278.5MiB；源/导出/复核一致、reject0，幂等恢复不新增COPY。样本使用公开fixture适配Prod CSV口径，不是真实Prod导出，耗时不含远端数据库。硬口径、配置审计、性能和CodeGraph影响面回填实施细则§18，[结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_export_evidence_20261007.json)留档。
+
+本轮来源CSV修改由本次提交归档，未执行正式导出、写湖或DG状态变更。下一轮是窗口spool、分日Raw/Silver候选和历史校验；全量入口还须统一七表来源刷新、SQL/连接及整体时间/空间预算和唯一writer，随后独立批准正式样本/提升。整个P3未完成，P4/P5未执行。

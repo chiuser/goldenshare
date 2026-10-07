@@ -111,6 +111,9 @@ INTEGRATION_SOURCE_FILES = (
 CONSUMER_SOURCE_FILES = (
     # Moneyflow candidate modules: exact read-only discovery/import closure.
     "defs/bootstrap/moneyflow_history_plan.py",
+    "defs/bootstrap/moneyflow_history_csv.py",
+    "defs/bootstrap/moneyflow_history_source.py",
+    "defs/bootstrap/moneyflow_history_export.py",
     "defs/io/moneyflow_candidates.py",
     "defs/checks/moneyflow_daily.py",
     "defs/run_contracts/moneyflow_daily.py",
