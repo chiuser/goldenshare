@@ -1,0 +1,55 @@
+{
+  "missingDate": "2026-10-07",
+  "missingDayQueryReads": 1,
+  "noFurtherQueryReadsAfterMs": 8000,
+  "disabledAttributeChanges": [],
+  "manualFreshQueryIds": 2,
+  "realRows": 67,
+  "zeroRowCompleteDay": "empty",
+  "consoleErrors": [],
+  "errors": [],
+  "formalWrites": 0,
+  "sourceRequests": 0,
+  "network": [
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/market/context?market=CN_A",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/data-center/announcements/context",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/market/major-indices?market=CN_A&tradeDate=2026-10-07",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/data-center/announcements/queries",
+      "status": 202
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-6f37aa1c0c884ad99eb83b5b17295bfd?page=1",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/data-center/announcements/queries",
+      "status": 202
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-48440f7caaad483f81520a13dc15f926?page=1",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-48440f7caaad483f81520a13dc15f926?page=2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/data-center/announcements/queries",
+      "status": 202
+    },
+    {
+      "url": "http://127.0.0.1:58255/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-42e86b14c96046ad82e919e23ecf7585?page=1",
+      "status": 200
+    }
+  ]
+}

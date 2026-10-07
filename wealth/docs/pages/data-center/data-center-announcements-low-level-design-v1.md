@@ -2,6 +2,8 @@
 
 日期：2026-10-07。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2提交a1b47713，DC3提交83ffb83f，DC4提交b5534947；DC5本机正式归档验收完成，见§20；DG日常稳定性另行验收。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
 
+**修订状态：** 用户确认继续补齐LLD，§22已明确本地PG落点、表结构映射、迁移/续跑、直接查询一致性、API及共享搜索合同；这是下一阶段的设计依据，尚未编码或执行迁移。此前§3—8、§10—11中的SQLite实现、投影字段和相应测试属于既有实现基线，被§22替代；§13—21保留历史交付及review修正证据。R01—R24产品硬口径继续有效。正式写入、切换和清理仍按分期取得执行授权，设计完成不表示实现或性能验收完成。
+
 ## 1. 硬口径、实现点与验收索引
 
 测试编号是后续必须实现的用例，不表示本轮已通过。
@@ -186,7 +188,7 @@ schema1/2识别、写入口原子迁移到3；只读CLI仍可读取已支持的�
 | POST `/announcements/runs/{id}/retries` |scope=allFailed或singleFailed、single时artifactKey；Idempotency-Key |202关联retry run；key必须原run失败且尚未解决，非任意URL/公告输入 |
 | POST `/announcements/runs/{id}/recheck` |kind=volume/localSource/remoteSource |202检查；结果包含passed/blocked/unknown；通过不自动continue |
 
-冲突409（活动run、preview过期/改变、query版本改变、不可恢复）；非法422；源/盘/DB不可用503；query preparing202是合法状态，不返回假成功空列表。不存在PDF内容/文件下载API或DG启动API。
+冲突409（活动run、preview过期/改变、query版本改变、不可恢复）；非法422；服务或读取依赖不可用503；query preparing202是合法状态，已封存的查询失败以HTTP200、pageState=error返回（见§21），不返回假成功空列表。不存在PDF内容/文件下载API或DG启动API。
 
 ### 6.2 核心 DTO（后端拥有业务事实）
 
@@ -588,3 +590,256 @@ Wealth全量、专项、typecheck/build、62项实际后端Web回归及4项分�
 最小真实下载只替换归档身份端口以选择独立验收根；生产网页仍固定announcements。真实API仅隔离登录身份，不访问认证数据库；本轮未重跑浏览器，DC4视觉/交互记录仍有效。原成果、其他台账和验收PDF保留；无备份、删表、全量下载或DG/Prod写入。
 
 DG最新日期和连续稳定性仍独立验收。10/5—07未落地前默认30日范围会正确显示来源未就绪；本阶段不自行补湖或弱化日期完整性。所有验收线程已关闭，本机开关在用`.env.web.local`启动Web后生效。
+
+## 21. 查询失败与按钮状态修正（2026-10-07，用户已授权）
+
+本次仅修正缺日提示与查询观察，不改默认日期、来源完整性、下载及DG行为。
+
+- CatalogBuilder核验公告日文件缺失时，保存`source_day_missing:YYYY-MM-DD`，日期来自实际被核验的分区；名称快照等其它来源缺失保留通用错误，不推算公告日期。错误适配复用`DC_SOURCE_UNAVAILABLE`，文案说明缺失日期及调整范围/等待同步后刷新。
+- 已持久化的query_snapshot.state=error通过现有QueryResult DTO返回HTTP200，pageState.status=error并带原公共code/message；items为空、total=NULL、状态不可核验，不能冒充empty/ready。GET取得查询失败事实与HTTP读取失败分开；临时服务不可用仍503，未知query404、版本过期409不变。前端观察仅对preparing继续轮询，终态error停止自动重读。人工重新读取创建新queryId；不重启旧失败查询。
+- useAnnouncementQuery区分主动提交busy、列表首次读取/翻页loading及后台观察loading。查询/重置/刷新仅在主动提交期间置灰，准备和网络重读不反复改变按钮；分页保持读取锁，不能连续翻页。准备进度保留，错误态保留筛选与明确重新读取入口。
+- 正负例必须覆盖缺日（首日及中间日）、名称来源缺失不误报日期、合法零行empty、来源合同不符/超预算终态error、读取超时/5xx保留事实继续重读、终态error无后续GET、手动新查询恢复、按钮后台读取期间稳定、翻页互斥。实际路由及浏览器验证使用隔离资源，不写正式DG/Raw/Prod或下载PDF。
+
+该调整沿用现有字段与异常码，HTTP查询失败语义和全部服务/测试/前端消费者同步迁移，既有历史验收中的503仅记录当时行为。
+
+### 21.1 实现与验收对账
+
+| 约束 | 代码与自动测试 | 验收 |
+| --- | --- | --- |
+| 实际缺日日期；名称缺失不推算日期；零行不等于缺日 | CatalogBuilder.file_stat、mapped_error；test_announcement_catalog.py及真实路由test_wealth_data_center_api.py | 首日、中间日、末日与完整零行日期均覆盖；非法日期/私有路径不进入公共文案 |
+| 失败查询终态、人工新查询恢复；真实读取故障仍重读 | AnnouncementQueryService.read、既有useObserver；QueryPanel.test.tsx、useObserver.test.tsx及真实路由测试 | 终态读取HTTP200、total=NULL；补齐后原查询不重跑，新queryId成功；临时503及网络错误仍有限间隔观察 |
+| 主动提交才置灰；分页读取互斥 | useAnnouncementQuery、QueryPanel；QueryPanel.test.tsx | POST期间按钮置灰，后台GET期间查询/重置/刷新可用；翻页期间分页按钮禁用 |
+
+后端首次回归93项通过；补充中间日反例后真实路由20项通过。前端157文件1130项通过，typecheck/build、分层4项、文档完整性及diff检查通过。真实浏览器使用实际API/Biz/DAO、临时Parquet/SQLite；GET仅延迟传输以验证观察中按钮稳定。缺2026-10-07明确提示，终态后8秒无后续GET、按钮disabled属性变化0次；手动新查询恢复67条、每页最多50，末页17条，完整零行显示empty。1366/1460宽无面板溢出，无console/page/API错误。所有临时服务关闭，正式数据和源站请求均为0。证据见[查询review修正验收](../../../../reports/wealth_data_center_query_review_fix_20261007.md)。
+
+CodeGraph explore/impact覆盖QueryService、CatalogBuilder及API/测试/前端消费者，sync/status无滞后。共用错误适配的下载预览消费者同步回归，下载控制与通用观察器实现未改；依赖矩阵、配置项、表结构均不变。正式DG缺日仍须由既有同步完成，不能把提示修正当作数据补齐。
+
+## 22. 直接查询、PG与搜索复用的实施合同（2026-10-07，设计补齐，尚未编码）
+
+本节对应[技术方案](data-center-announcements-implementation-design-v1.md) §16及[本地只读审计](../../../../reports/wealth_data_center_local_storage_audit_20261007.md)。用户在核实结果后要求补齐LLD，以下将PG落点、配置、SQL、DTO及迁移规则作为唯一修订目标；不再保留SQLite目录投影的新开发路径。
+
+### 22.1 当前链路与拟替换范围
+
+| 当前实现/消费者 | 修订边界与必须保留的语义 |
+| --- | --- |
+| `CatalogBuilder` → SQLite `catalog_records/catalog_days/company_sources` → `AnnouncementQuery/CompanyQuery` | 改为正式Parquet直接查询；六字段原值、NULL/空串、缺日/零行、名称优先级及全部候选范围保持；不落全市场记录副本 |
+| `useStockSearchController` → `fetchStockSearch` → market stock-search API | 控制器接纳可注入的候选加载器；默认行为保持首页/交易助手原语义；公告适配器保留名称来源、别名、显式选择和原范围 |
+| `CompanySearch` 当前独立防抖/请求/键盘状态 | 改为复用控制器的薄展示层，保留公告Figma布局；不能将首页“Enter提交首项”直接覆盖公告显式选择要求 |
+| `PreviewRuntime`、`ArchiveSupervisor._validate_range` 与执行前source day复核 | 改用直接来源枚举及持久化预览/来源清单；范围数量、缺日拒绝、源变化过期、封存后才允许HTTP保持 |
+| `Ledger`、`ArchiveStore`、CLI、maintenance、执行器及观察API | 统一迁至本地PG；保留命令幂等、关联run、原失败历史、封存文件集合、prepared物理窗口、冷却及状态观察失败域 |
+| context/query DTO、前端contracts/adapters、观察器及页面 | 清零SQLite投影语义，迁移全部实现和消费者；不以伪造字段维持旧合同 |
+
+既有行情后端只过滤symbol/ts_code/cnspell前缀，且只含当前上市A股；本次不扩大其范围，也不把它接成公告唯一来源。公告的中文名称、历史简称、主表缺失代码及退市候选继续由本地DG来源提供。共享控制器改造须回归首页、TradingAssistantStockPicker及CompanySearch，不能只验证新入口。
+
+### 22.2 直接查询的硬口径
+
+1. 按自然日起止日期定位 `/Volumes/datasource/data_lake/raw/tushare/anns_d/ann_date=YYYY-MM-DD/part-000.parquet`；`hive_partitioning=false`，源列日期与目录日期分开核验。来源路径不由浏览器传入。
+2. 代码/标题/日期条件、计数和分页由DuckDB执行；只投影必要列，限制连接内存/线程及读回批量，不将全范围读入Python。Raw不新增索引列，不复制至PG业务表。
+3. 原六字段record_key和文件artifact_key算法保持；SQL排序与页边界必须和已有稳定顺序一致，不能换用DuckDB默认hash或按标题合并。具体SQL及身份金样本见§22.7。
+4. `downloadStatus=all`只对页内相关文件检查；状态过滤先建立整个匹配范围的真实presence，再计数分页。必要的presence/来源清单须有容量、有效期及物理清理策略，不永久保存所有公告。
+5. 同一查询的总数、页和来源版本一致，固定FD、范围版本复核及过期规则见§22.7。快照保存条件和来源清单，不保存全市场行副本。
+6. 保留缺日明确提示及终态停止轮询；普通列表读取不再显示全市场建目录进度。大范围状态检查/下载预览仍可202并展示真实业务进展；不通过截短范围或丢行满足时间预算。
+
+### 22.3 PG迁移与合同门禁
+
+PG仅保存文件归档与运行所需的关系事实。封存任务为退出续跑保留URL、命名代表记录等必要数据；“不复制全市场公告”不等于删除恢复必需的来源记录。
+
+目标落点和配置见§22.5；表及迁移版本规则见§22.6；迁移checkpoint、事务和失败恢复见§22.10。不得借用Dagster instance库或主应用远程engine。无新增配置或依赖在本轮生效。
+
+迁移对账包括正式及3份独立验收台账：run身份、source_records、artifacts、关联表、按日源事实、命令回执、attempt/进度、控制owner和cooldown，按实际schema逐项映射；不只复制成功文件。查询catalog中的预览、预览日期/文件及仍有效的控制事实需迁移或按明确合同过期，不遗漏预览消费者。读回通过后统一切换全部CLI/Web/maintenance消费者，不保留长期双写或旧实现兜底。
+
+当前 `indexAvailability`、`lastIndexedAt`、`catalogRevision` 属于投影语义，直接查询后不能用文件mtime冒充“已索引”。唯一替代合同见§22.8，同轮迁移后端schema、Biz/查询服务、前端contracts和全部测试，不保留双轨口径。CLI输出迁移见§22.10，原PDF技术方案/LLD已增加本节引用。
+
+清理对象为已审计的1份catalog、1份正式台账、3份验收台账及存在的SQLite伴随文件，先列实际路径并关闭所有旧连接，再验证无引用后执行。不得删除PDF、DG Raw或系统/Conda/Homebrew共享SQLite库；本轮不执行清理或数据库写入。
+
+### 22.4 修订验收矩阵与下一步
+
+| 修订目标 | 最小验证与反例 |
+| --- | --- |
+| 搜索复用且范围不缩减 | 中文/代码/首字母、历史别名、退市、主表缺失代码；取消/失焦/竞态及Enter显式选择；首页/交易助手行为回归 |
+| 不复制全市场元数据 | 普通代码查询与公司候选均无catalog写入；PG无全市场anns_d镜像；查询刷新不访问DG/Tushare/PDF源站 |
+| 直接查询性能 | 002245.SZ、2026-05-04—10-05与相同六字段只读来源逐项对账；分别测冷/暖、全市场、长日期及状态过滤完整API的P50/P95、RSS、文件数和读回行数 |
+| 查询正确性与一致性 | NULL/空串、同文件多行、字面%/_、缺日/零行、源替换/换卷/翻页/过期及删除PDF后状态计数；不能先50条再筛状态 |
+| 台账迁移与续跑 | 迁移前后字段/计数/摘要读回，故障中断/重放，停止—退出—继续、精确失败重试、冷却不丢及单执行锁；临时测试库不得指向正式库 |
+| 安全清理 | CLI/API/预览/执行器无SQLite消费者；迁移验收后才删除本功能旧文件，共享库和Raw/PDF保持 |
+
+既有读接口4秒SQL/5秒客户端预算继续作为目标，完整API需单独验收；只读点测0.3116秒不能替代该验证。若不达预算，先定位文件读取、名称检索或presence检查，再评估有界缓存；不默认回到全市场复制。
+
+PG落点只读审计已完成，下文补齐实施合同。下一步按§22.11的分期进入代码开发和隔离验收；本轮不执行新代码测试、迁移、删除、安装、部署或提交。
+
+### 22.5 本地PG落点、连接和配置审计
+
+固定使用现有localhost:5432实例中的 `goldenshare_lake_meta.announcement_archive`，不新建数据库服务或业务库，不修改该库public下的4张旧表。此schema属于Foundation归档DAO，不注册DG resource，不连接 `goldenshare_dagster` 或历史验收库。主应用 `DATABASE_URL`、认证、行情API和主仓库Alembic保持原用途。
+
+| 配置 | 默认值与来源/持久化 | 消费者、生效及验证 |
+| --- | --- | --- |
+| `announcement_archive_database_url` / `ANNOUNCEMENT_ARCHIVE_DATABASE_URL` | 新增Foundation Settings字段，默认空；沿用get_settings的env-file优先级。本机部署写入ignored `.env.web.local`；CLI使用现有 `GOLDENSHARE_ENV_FILE` 选择同文件，不增加DSN命令行参数 | App归档工厂、下载/维护CLI、迁移工具；重启生效。模块关闭不创建engine；启用而缺失时公告模块返回安全依赖错误，其他页面继续可用。不得回退DATABASE_URL |
+| 本机连接值 | `postgresql+psycopg://congming@localhost:5432/goldenshare_lake_meta`；密码若需要仅由运营配置，不进文档/命令输出 | 只接受postgresql+psycopg、loopback、5432及固定库；拒绝URL query中host/service等覆盖。localhost规范为127.0.0.1，连接后核对peer为loopback/current_database正确 |
+| engine连接预算 | 在Foundation `ArchiveDatabasePolicy` 集中定义：connect3秒、pool等待1秒、pool_size=4/max_overflow=0、lock_timeout=500毫秒、读statement_timeout=4秒 | Web/App注入、CLI同工厂；并发超时为公告依赖错误，不生成另一份连接池、不阻塞主应用事务。迁移同样每批≤4秒SQL |
+| 来源/回收预算 | DataCenterPolicy新增file_batch_size=32、gc_seconds=60、gc_batch_size=500；原catalog_check_seconds更名source_check_seconds=30，catalog_unit_seconds退出 | 直接读取与元数据回收runtime；仅内部集中策略，不加env/页面控件。每次实际查询/翻页仍核验范围版本，不能等待周期刷新 |
+| 既有查询/网络策略 | page50、候选20、keyword64、title200、TTL900秒、poll2秒、control poll0.5秒；Source batch500、DuckDB256MiB/1线程/禁止spill和扩展安装 | 继续唯一DataCenterPolicy/DownloadPolicy；HTTP间隔/退避/冷却及文件协议不变，不在新DAO再定义常量 |
+
+这些是拟新增/修改配置的完整来源，不表示已写入本机env。迁移使用当前本机角色，应用仅需新schema的SELECT/INSERT/UPDATE/DELETE权限；不创建新角色、不改DG权限。schema所有SQL完全限定表名，schema名字不是用户参数。诊断只输出host/port/database/schema及错误码，禁止输出连接密码。
+
+权限/配置负例：DSN空、远程host、URL覆盖host、错误库、缺schema、未知版本、无权限、PG离线、池耗尽；均不能调用主应用engine、初始化表或启动PDF请求。新的内部策略由跨端/工厂测试证明唯一来源，不要求安装额外包。
+
+固定库/schema/端口的允许值与连接预算统一由ArchiveDatabasePolicy持有。隔离集成测试通过显式fixture工厂注入临时库/端口策略，仍限定loopback；该覆盖只存在测试构造，不提供env/CLI“关闭守卫”开关。不得为测试连接正式metadata库写探测行，临时库/实例创建按阶段授权，不隐式安装PG。
+
+### 22.6 PG表结构、键与版本管理
+
+PG归档schema独立版本从1开始，由 `schema_info(singleton SMALLINT PRIMARY KEY CHECK(singleton=1),version BIGINT NOT NULL,ddl_sha256 TEXT NOT NULL,installed_at TEXT NOT NULL)` 管理。使用Foundation DAO下 `pg_migrations/001_initial.sql` 的显式静态DDL及迁移工具；不新增主仓库Alembic revision，不执行主应用完整迁移链。已核实主仓库head为20261002_000183，它不是该本地schema的down_revision。
+
+DDL只由显式迁移命令执行；运行时constructor/read/context均只核验schema/version，未知或不完整对象拒绝使用。初次DDL在一笔短事务中提交；重跑版本和DDL摘要一致则跳过，不以 `CREATE IF NOT EXISTS` 掩盖结构冲突。
+
+归档身份为 `identity([volume_uuid,root_relative_path])`，原算法不变。根路径使用卷内相对值，不能按mountpoint字符串或source_scope替代。archives以archive_id为主键，其余归档/控制表必须有 `archive_id TEXT NOT NULL REFERENCES archives(archive_id)`；所有SQL包含archive_id，文件/来源/命令键均按归档隔离。HTTP不接受archive_id，Web由固定binding解析；CLI由已有output-root及卷验证解析。只读入口不创建归档；已核验卷身份的首次下载可在短事务中初始化空archives/cooldown/execution行（ready、source_schema_version=0表示原生PG），不执行DDL。
+
+| 表 | 主键/唯一键 | 保留列与新增列 |
+| --- | --- | --- |
+| `archives` | PK archive_id；UNIQUE(volume_uuid,root_relative_path) | volume_uuid、root_relative_path、created_at保留；新增source_schema_version BIGINT、import_state TEXT（importing/ready）、import_completed_at TEXT；旧singleton/schema_version转为本schema版本和源版本，不混用 |
+| `runs` | PK(archive_id,run_id)；UNIQUE(archive_id,row_seq) | 原schema3 SCHEMA.runs、RUN_ADDITIONS、RUN_FIELDS的全部列原名保留；新增row_seq BIGINT GENERATED BY DEFAULT AS IDENTITY |
+| `artifacts` | PK(archive_id,artifact_key)；UNIQUE(archive_id,path_fold) | 原SCHEMA.artifacts及ADDITIONS.artifacts全部列保留 |
+| `source_records` | PK(archive_id,source_scope,record_key)；UNIQUE(archive_id,row_seq) | source_scope、record_key、legacy_raw_id、metadata、artifact_key、first_seen_run、last_seen_run；新增row_seq identity |
+| `run_artifacts` | PK(archive_id,run_id,artifact_key) | run_id、artifact_key、outcome、attempts、representative_record_key、claimed_owner、claimed_at |
+| `run_source_days` | PK(archive_id,run_id,ann_date) | DAY_SCHEMA全部列：state、opened_dev/ino、size、sha256、footer_count、records_committed、reason、updated_at等 |
+| `cooldown` | PK archive_id | last_request_finished_at、next_request_not_before、request_in_flight、reason；原singleton=1移入归档作用域 |
+| `archive_execution` | PK archive_id | active_run_id、owner_token、heartbeat、revision；原singleton=1移入归档作用域 |
+| `attempt_log` | PK(archive_id,run_id,artifact_key,attempt_seq) | TABLES.attempt_log全部原列 |
+| `run_sessions` | PK(archive_id,run_id,session_seq) | TABLES.run_sessions全部原列 |
+| `command_receipts` | PK(archive_id,key) | kind、payload_hash、result_run_id、state、created_at |
+
+保留列的DDL基线为当前 [ledger.py](../../../../src/foundation/dao/announcement_archive/ledger.py) 的SCHEMA/DAY_SCHEMA/RUN_ADDITIONS和 [schema.py](../../../../src/foundation/dao/announcement_archive/schema.py) 的RUN_FIELDS/ADDITIONS/TABLES，不能只按REQUIRED最小集合建表。明确类型映射：TEXT仍TEXT（JSON及原UTC字符串不改字节格式）；INTEGER→BIGINT；REAL→DOUBLE PRECISION；原NULL和default保持，不擅自改成bool/JSONB/DATE。目标显式SQL的列集合/默认值须与这份映射做合同测试；运行时不解析SQLite schema生成PG表。
+
+索引只服务实际台账场景：runs(archive_id,row_seq DESC)、artifacts(archive_id,ann_date,ts_code,artifact_key)、artifacts(archive_id,artifact_key) WHERE state='succeeded'、source_records(archive_id,artifact_key,row_seq)、run_artifacts(archive_id,run_id,outcome,artifact_key)、run_source_days(archive_id,run_id,state,ann_date)；attempt/session的原open部分索引加archive_id。不在PG建公告标题/公司名搜索索引。所有复合关联按同archive_id JOIN，不能仅按run_id或artifact_key JOIN。旧可空关联值原样保留，不通过加约束丢弃历史行。
+
+短期控制表均包含archive_id、query_id或preview_id，使用同样作用域；字段的时间为UTC TEXT、数量/序号为BIGINT、期限/间隔为DOUBLE PRECISION、状态和标识为TEXT：
+
+| 表/键 | 完整业务列（均不保存全市场公告行） |
+| --- | --- |
+| `query_snapshots` PK(archive_id,query_id) | source_scope、conditions TEXT、state、source_version（可空）、total（可空）、status_available BIGINT、created_at、updated_at、checked_at（可空）、expires_at（可空）、reason（可空）、preparation_stage、dates_total、dates_scanned、records_scanned、artifacts_checked、owner_token（可空） |
+| `query_files` PK(archive_id,query_id,source_kind,partition) | relative_path、opened_dev、opened_ino、size、mtime_ns、footer_count；source_kind为anns_d/stock_basic/namechange，partition为ISO日或full |
+| `query_day_counts` PK(archive_id,query_id,ann_date) | match_count；ready前必须覆盖完整日期范围，包括零行日 |
+| `query_presence` PK(archive_id,query_id,artifact_key) | checked_at；仅成功且安全普通文件存在的key |
+| `previews` PK(archive_id,preview_id) | start_date、end_date、interval_seconds、source_scope、source_version（可空）、state、statistics TEXT（可空）、created_at、updated_at、expires_at（可空）、reason（可空）、dates_total、dates_scanned、records_scanned、owner_token（可空） |
+| `preview_days` PK(archive_id,preview_id,ann_date) | source_facts TEXT；含relative_path、dev/ino/size/mtime_ns、sha256、footer_count；沿用下载Source内容校验 |
+| `preview_artifacts` PK(archive_id,preview_id,artifact_key) | 不复制公告metadata，只用于范围预览唯一文件数/存在性统计 |
+| `migration_checkpoints` PK(archive_id,source_table) | source_path TEXT、source_sha256 TEXT、source_schema_version BIGINT、last_rowid BIGINT、rows_committed BIGINT、rows_total BIGINT、rows_digest TEXT、state TEXT、updated_at TEXT |
+
+所有新字段未标可空者NOT NULL；进度计数默认0，owner/version/checked/expiry在准备中允许NULL；state/conditions/source_scope等由创建事务必填。控制表另建(archive_id,state,created_at)与expires_at索引，明细表的复合PK承担读取。DDL不对临时父记录加无界ON DELETE CASCADE，清理按§22.10分批。
+
+### 22.7 DuckDB直接查询与来源一致性
+
+普通请求不持有PG事务读取Parquet。POST查询先以短事务保存条件，返回202；客户端立即首次GET，尚准备中才每2秒观察。GET只读准备状态或现成页，不领取下载任务。后台每次认领一个query/preview，先在专用连接取得按(archive_id,对象kind,id)确定的PG session advisory lock，再短事务CAS写owner；锁随连接退出释放，不能仅按心跳接管。崩溃后只有取得该锁的新owner才清理未封存临时明细并重建；封存记录不重算。全过程不保持长事务，连接丢失立即停止该准备unit，绝不恢复HTTP下载。
+
+App为直接查询、候选、预览和元数据GC组合一个本地来源读取runtime，不再同时运行独立catalog/preview两套扫描循环；每进程最多一个DuckDB来源读取连接，名称临时关系算入其256MiB预算。读页和后台unit共享这项资源，按4秒截止中断SQL并让出，不堆积多个全范围扫描。GC只处理PG小批数据。该runtime归Ops并由App注入，Biz不启动线程或import Ops；不是新的通用任务框架。
+
+每次最多打开32个公告文件，另加最多2份名称snapshot。按所请求自然日逐批生成路径，用 `O_RDONLY|O_NOFOLLOW` 打开并fstat验证普通文件、来源设备和六列类型；DuckDB读取 `/dev/fd/N`，`hive_partitioning=false`，不能在校验后改读可被替换的普通路径。路径发现、批次编排及少量最终DTO在Python；过滤、计数、排序、唯一键及joins在SQL。
+
+查询版本为来源scope、合同版本、确定首字母词表版本及按(source_kind,partition)排序的(dev,ino,size,mtime_ns)清单的SHA256；按小批流式计算，不能随单页改变。PG只存清单和逐日匹配数。这里的stat版本基于正式DG不可变候选+os.replace发布协议，不将其称为内容哈希或DG成功证据；外部同inode原位修改导致fstat改变也拒绝。下载预览/封存继续用原DayReader前后内容SHA256，而不是用stat降级其校验。
+
+准备与翻页协议：
+
+1. 名称snapshot固定FD读取，记录其清单及词表版本；公告按32文件unit读取，fstat开/关前后相同，将逐日匹配数与小型清单在一笔PG事务中提交，业务进度真实更新。
+2. 全部unit完成后重新stat整个清单（每批32）并核验来源卷；缺日是具体日期错误，合法零行必须有六列footer合同且记count=0。任何变化终态error/`DC_QUERY_CONTEXT_CHANGED`，不封存混合版本，不自动循环重试。
+3. 满足完整日覆盖才原子更新query为ready、total=sum(day counts)、source_version和TTL；准备中total/version可空，读取不伪造数量。
+4. 读页前逐批复核全清单；按day counts找到页涉及的日期及日内offset，固定FD与原清单匹配后查询，再复核FD及全清单。任一日/名称/卷/词表变化，丢弃本次返回并409提示刷新。分页不能把新文件行与旧total拼接。
+5. 正式DG原子替换可能发生在响应之后，页面保证本次检查时间点的一致性，不能承诺用户看到后文件永不变化。禁止为保证旧版本而复制Parquet或长期持有全范围FD。
+
+日内SQL表达式（参数绑定，列来自固定FD；day与file列表均由后端确定）：
+
+```sql
+WITH projected AS (
+  SELECT ann_date,ts_code,name,title,url,rec_time,
+    sha256(to_json(list_value('dg-anns-d-v1',ann_date,ts_code,name,title,url,rec_time))) AS record_key,
+    CASE WHEN length(trim(coalesce(url,''),?))=0 THEN NULL ELSE
+      sha256(to_json(list_value(?,ts_code,trim(url,?)))) END AS artifact_key
+  FROM read_parquet(?,hive_partitioning=false)
+  WHERE (? IS NULL OR ts_code=?)
+    AND (?='' OR contains(coalesce(title,''),?))
+)
+SELECT * FROM projected
+ORDER BY ann_date DESC,ts_code ASC NULLS LAST,record_key ASC
+LIMIT ? OFFSET ?;
+```
+
+day参数为ISO日期；源ann_date仍YYYYMMDD，SQL核验它与路径day一致后才转为DTO日期。trim的第二参数使用集中身份函数定义的Python str.isspace字符集合（当前29字符），与原url.strip()一致，不能用DuckDB默认trim替代：已用tab/换行/NBSP/全角空格等读回证明默认trim有差异。count用同一WHERE；状态筛选另加presence semi/anti join，不能只套本例LIMIT后过滤。NULL URL/空URL无artifact_key但公告行保留，URL展示按已有安全外链规则。Raw不去重、不规范化名称/标题；只有下载文件身份对URL strip。
+
+显式SHA256(JSON数组)必须与Python identity逐字节一致。已读回36条真实样本相等；编码测试另覆盖中文、引号/反斜线/控制字符、NULL/空串/空白、URL空白、跨字段同标题及非BMP字符；任一不一致不得上线，也不得改成DuckDB默认hash。计数/排序的完整API验收不能用只读点测代替。
+
+状态过滤：从PG按archive_id、日期及可选代码keyset分批读取成功文件（不按代表标题过滤），每500项检查安全路径存在/大小；将真实存在key写query_presence，然后逐unit在DuckDB临时关系中semi/anti join同一匹配条件。只传相关存在key，内存随受控批次和DuckDB预算；匹配代码/title仍SQL下推。all只对当前页成功关联检查。状态变动或页存在性与冻结集合不符返回409，卷不可读时all返回未知状态，状态过滤返回明确错误。查询不会修改artifacts.state、hash或历史run。
+
+### 22.8 唯一API合同与前端迁移
+
+路径、查询条件、日期下载参数、六列表项、Task/Files/History合同和登录/Prod边界保留。以下字段变更在同一交付中替换所有后端/前端消费者，旧字段移除，不返回两套版本或兼容空值：
+
+| 当前字段/行为 | 新合同 |
+| --- | --- |
+| Context.indexAvailability、lastIndexedAt | 删除；新增 `ledgerAvailability: 'ready'|'unavailable'`，表示PG归档存储可读；原sourceAvailability继续表示本地来源可用 |
+| QueryResult.catalogRevision | 删除；新增 `sourceVersion: string|null`，准备/终态失败可空，ready为64位hex版本 |
+| QueryPreparation | 保留datesScanned/datesTotal/recordsScanned；新增 `stage: 'readingSource'|'checkingStatus'|'counting'`、`artifactsChecked: number`，按真实unit描述进度，不显示建索引文案 |
+| Companies准备合同 | 保留Company、hasMore、pageState、preparation、queryId；候选计算使用同源版本及准备队列，不写company_sources；首次候选若需范围读取仍202可观察，后续按键不触发全市场目录复制 |
+| observedAnnDate | 后台有界目录清单最大物理日期，不再来自catalog_days；不表示DG检查通过 |
+| sourceUpdateSucceededAt | 没有正式成功证据继续NULL；不能拿mtime、sourceVersion或checkedAt填充 |
+
+Context.moduleEnabled只取部署配置，PG不可读或外盘离线不隐藏本地卡；Prod不创建PG归档engine、DuckDB或加载pypinyin。缺省30自然日和缺日提示不变。读准备返回202，已确定失败查询返回HTTP200/pageState=error并停止轮询；版本/TTL变化409要求人工刷新；真实传输503重读规则保留。PG/config/schema/pool错误统一既有DC_LEDGER_FAILED(503)，缺日沿用DC_SOURCE_UNAVAILABLE，版本变化沿用DC_QUERY_CONTEXT_CHANGED，预览变化沿用DC_PREVIEW_STALE，非法条件沿用DC_REQUEST_INVALID。目录已退出，因此DC_INDEX_FAILED替换为DC_QUERY_FAILED（同503/终态pageState规则）；同轮迁移错误adapter、注册表及测试，不输出DSN/SQL异常。
+
+消费者必须同步迁移：Biz DTO/schema、query/context/company service、API响应校验、前端contracts/api adapter/fixtures、useAnnouncementQuery/CompanySearch/QueryPanel、数据可用性提示及真实路由/浏览器测试。路由不让前端自行拼sourceVersion或推断ledger readiness。
+
+### 22.9 共享搜索复用合同
+
+改造既有 `useStockSearchController` 接纳可选候选加载器和交互策略，默认仍调用fetchStockSearch；不新建通用搜索框架或另一套状态机。加载器接收 `{keyword,signal}`，返回StockSearchOption的类型扩展数组；公告适配器保留Company字段。原首页/交易助手onSelect(tsCode)方式保留，新增互斥的onSelectOption(option)供公告接收完整候选；一次commit只调用其中一种。泛型默认StockSearchOption，控制器内部统一commit，不留双份键盘/竞态实现。
+
+策略统一定义：默认仍debounce500ms、timeout2000ms、maxKeyword32、Enter可提交首项；公告debounce300ms、timeout5000ms、maxKeyword64、Enter只提交显式选中项，初始activeIndex=-1，ArrowDown选首项。原点击/Esc/失焦/中断规则保留；公告换日期或文本变化清空未匹配的选中项。来源准备202由公告加载器使用现有observer观察，终态停止；signal取消后不得覆盖新输入或触发选择。Announcement CompanySearch只承载Figma薄展示层和候选字段适配。
+
+名称和候选SQL保留§4.1优先级/排序。master不限制list_status；历史namechange及请求范围公告补别名，未知代码不被JOIN排除。两份小名称snapshot可形成进程内DuckDB临时关系，按源清单/词表版本失效，不持久化或新建独立字典。名称转换仍使用NameInitials，不能逐按键重算全历史首字母。范围公告别名在DuckDB归并后才读回少量候选；最多20+1条用于hasMore。一次请求及缓存受256MiB/4秒预算，超预算明确准备/错误，不少返回退市/未知对象来提速。
+
+暂不引入新的搜索结果缓存配置；已有query准备可复用同条件/同版本短期清单。正负测试覆盖三个消费者默认行为不漂移、中文/历史/退市/44类主表缺失代码、Enter未选择不提交、blur abort、输入/日期竞态、名称snapshot替换及后端失败后人工恢复。
+
+### 22.10 迁移、事务、续跑与清理
+
+新增运营工具入口 `python -m src.scripts.migrate_announcement_archive`，默认只读plan；`--apply`迁移、`--cleanup`清理为分开的显式操作，不在启动Web/下载命令时自动执行。目标DSN只取§22.5配置；源码SQL版本由工具明确调用，不能代理主仓库Alembic。plan列精确源文件、归档身份、版本、表数/行数、目标冲突、预计批次及磁盘需求，不以计划检查偷偷建schema。
+
+精确源清单如下；现场plan再次核对schema/卷/摘要，不接受模糊glob覆盖其他SQLite。默认迁移全部4份下载台账；不能只复制363个成功文件或省略旧schema2。
+
+```text
+/Users/congming/Library/Application Support/Goldenshare/announcement-catalog/e04b7c92bfa1082f05a370b0504bdfcb29f66fb352fbe82a904a71df1db7b79a/catalog.sqlite
+/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite
+/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/downloads.sqlite
+/Users/congming/Library/Application Support/Goldenshare/announcement-download/bb28fc7eca37cbf2a513cc48295d82efad9a55fe023853902181bfeabb24bf9f/downloads.sqlite
+/Users/congming/Library/Application Support/Goldenshare/announcement-download/fe6ce589e8fe2f1d6ad0d572e7e194204edef2daa99bc7a555efec1d7f950013/downloads.sqlite
+```
+
+现有4份台账约10.27万表行（同一文件在关联表中的行分别计入），约240个500行数据批；不是迁移全市场公告。现场plan按逐表实际行数给出精确批数。预计分钟级，正式执行前必须用隔离批次/读回样本测算总耗时；若预估超过5分钟，先查锁/写法/摘要开销，不自动增加批量或长事务。每批进度输出归档、当前表、rowsCommitted/rowsTotal、lastRowid、更新时间和checkpoint；SIGINT返回130并保留已提交批，plan/APPLY成功0、冲突/依赖失败3。
+
+APPLY协议：
+
+1. 先停止本机公告Web/CLI写者，DG继续运行；取得旧本机execution锁和每个归档外盘锁，校验源SQLite普通文件/schema/卷身份及有无未结束事务。保持源只读，不升级SQLite、不复制PDF或创建备份。迁移工具不能强杀其他进程来抢锁。
+2. 记录源schema、每表row count及按原rowid排序的逐行规范摘要；source_sha256是主SQLite及存在的WAL内容SHA256清单的确定摘要，不能遗漏未checkpoint的WAL，也不能为迁移主动checkpoint/重写源。热journal或持续变化阻断。每批最多500行，从last_rowid向后读，目标短事务原子写入该批及checkpoint。每批前后检查取消，SQL≤4秒、锁等待≤500毫秒，超时回滚当前批，已提交批保留。
+3. 源schema3所有列原值导入；schema2只补原schema3新增列的明确默认值/NULL。原runs/source_records rowid映射row_seq；源中的遗留id、source_policy、JSON原字符串、失败、未完成、size/hash、冷却和尝试均保留。存在活动slot/非终态run或正在checking时plan阻断并要求正常停止；终态历史owner字段原样保留，不因它曾记录owner而阻断。当前读回四份均无活动run。遇未审计schema1或未知schema明确阻断，不升级或丢弃。
+4. 每批重放按复合业务键对比全部列，一致则跳过，不一致立即失败，不ON CONFLICT UPDATE覆盖已有业务事实。归档importing期间runtime拒绝读写该归档，不显示部分迁移为ready。暂停/进程退出后持相同锁验证源SHA仍相同，再从checkpoint续跑；源变更拒绝续接，不删目标重来。
+5. 每个归档读回全部表的列集合、行数、规范摘要、关联键、冷却及路径事实；成功后短事务更新archives.import_state=ready。所有4份完成后设置两条row_seq identity序列下一个值大于已导入最大值，保留CLI旧整数游标。迁移控制表的failed状态不回滚已提交业务批。
+6. catalog的旧查询/预览ID、条件/统计/创建时间保留为明确已过期控制结果；query变error/DC_QUERY_CONTEXT_CHANGED、preview变error/DC_PREVIEW_STALE，source_version=NULL，无明细，迁移完成后保留900秒供错误读取；被run引用的preview保留小型历史。原catalog无created_at的预览用迁移记录时间明确补齐，不伪造原创建时间。不迁移旧catalog_records/company_sources/query_presence/day counts，不冒充新版本ready；新查询/预览重新直接读Raw。已封存run的preview_id关联历史记录保留，不重枚举或扩大原run。
+
+短事务/并发：领取run时 `SELECT ... FOR UPDATE` 锁同archive_execution行，单活动slot在提交中写owner；文件双锁仍保留，不能只靠PG心跳接管。stop短事务CAS写原stop意图，执行器0.5秒检查；PG不可写时停止领取新文件/发新请求，保留已完成普通文件，恢复后按原prepared/文件事实协议对账，不自动发HTTP。文件成果提交与节流观察进度分开事务；观察更新失败不回滚已提交成果。文件fsync/os.replace窗口、HTTP limiter/cooldown和原封存集合不变。
+
+CLI保留日期/间隔/output-root和查询筛选/退出码，before-rowid/after-rowid仍为正整数，对应PG row_seq而非隐藏SQLite rowid。summary及所有维护JSON移除ledger_path，新增 `storage:{kind:'postgresql',database:'goldenshare_lake_meta',schema:'announcement_archive',archiveId:string,schemaVersion:1}`；旧schema_version移至storage，不伪造文件路径。CLI help/原PDF文档、样本及全部维护消费者同轮更新；移除运行期sqlite3异常/PRAGMA/路径依赖，不做兼容SQL连接壳。ArchiveBinding的web-archive.json和本机execution锁文件保留，仅保存卷/root身份，不是第二套关系数据库。
+
+临时数据物理回收：query/preview ready后的TTL900秒，error/cancelled也从终态写入时设置900秒期限，准备中不耗结果TTL；每60秒处理已到期记录，先标过期，子表每批最多500行短事务删除，全部子表清空才删父表。每轮最多用4秒，再交还控制循环；不可一笔cascade删除无界presence。被run引用的preview仅保留小型条件/统计历史，不保留文件列表；下载runs/source_records/attempt/cooldown不自动GC。进程退出后下一轮继续回收，不只设置expires_at而不删除。
+
+清理旧SQLite前需完成PG业务读回及所有消费者切换；再次plan显示这5份数据库及实际存在的-wal/-shm/-journal伴随文件，确认旧连接已关闭、源摘要与迁移一致、无未完成checkpoint。cleanup只unlink这份白名单，不删App Support锁/binding，不卸载共享SQLite，不删PDF/Raw/DG库或4张遗留表。无自动备份/Kopia，不在测试中清空正式表。若cleanup失败，PG继续是唯一运行存储，剩余旧文件只供明确清理，不作运行期兜底。
+
+### 22.11 分期实现与编码验收门禁
+
+每轮只交付一个阶段，阶段验收后再推进下一阶段；正式资源APPLY和cleanup独立授权：
+
+| 阶段 | 交付/范围 | 必须验证 |
+| --- | --- | --- |
+| Q1 PG基础与迁移工具 | 配置/独立engine、显式DDL、归档DAO/事务、plan/apply/checkpoint；临时PG+SQLite | 4归档同5文件键互不串状态；schema2/3完整映射，重复/冲突/中断/取消/续跑；row_seq旧游标；DSN远程/错误库负例；根Alembic及DG旧表零调用 |
+| Q2 直接查询与API/搜索迁移 | 所有catalog列表/公司/预览/范围复核替换，源版本协议，DTO和三搜索消费者同轮迁移 | R03—R09、缺日/零行、原子替换/原位修改/换卷、稳定页与status全范围计数、终态停轮询、GC实际删行；首页/交易助手行为；原catalog消费者清零 |
+| Q3 执行/CLI切换与隔离验收 | Web/CLI/maintenance统一PG，保留文件/HTTP和原封存恢复；更新旧PDF文档 | 运行—停止—退出—续跑、精确重试、单执行、403/429冷却、prepared崩溃窗口、观察失败不回滚、PG离线时零新HTTP、完整GUI/CLI回归 |
+| Q4 正式迁移/独立验收/清理 | 用户授权后plan→apply→读回→统一启用→独立小范围验收→另行cleanup | 当前363成功文件仍可查，4份台账计数/摘要一致、重放零请求、5旧SQLite清理白名单、Raw/PDF/共享库不变；不自动全量下载 |
+
+Q1—Q3开发期间不启用正式新存储，不在用户实际Web保留双后端开关或长期兼容实现；临时工厂只用于隔离测试。版本切换一次完成，新代码上线前完成正式迁移，模块尚未就绪时明确不可用，不回退SQLite。若阶段代码尚未可用则不部署该半成品。
+
+性能验收固定记录：日期/文件/行组/源字节、PG批次与返回行数、FD峰值、RSS、每次SQL与完整API时间、控制进度和源站请求数。代表范围为默认30日、155日/002245.SZ、同范围全公司、全部历史清单及已/未下载筛选；冷进程首次和暖请求分别测，不声称已清OS缓存。完整GET读目标P95≤5秒、单SQL≤4秒、RSS≤512MiB、同时公告FD≤32；准备长于一次读取预算时202展示真实阶段，每≤5秒更新业务进度，ETA未知保持NULL。若不达标必须定位瓶颈并重新评审，不加SQLite全市场副本、无界缓存或截短范围。
+
+编码完成按R01—R24和本节逐条对账代码/正反测试/真实有限只读证据。源端同步、DG日常稳定性和全历史元数据质量仍是独立验收项，不能由界面或本次迁移测试代替。本轮仅补齐文档，不代表上述测试或正式迁移已经执行。

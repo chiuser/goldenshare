@@ -38,6 +38,6 @@ export function useAnnouncementQuery(context: Context) {
   function reset() { setDraft(defaults()); setSelected(null); setCompanyText(""); void execute(defaults()); }
   return { draft, setDraft, companyText, selected, setCompanyText: (text: string) => { setCompanyText(text); setSelected(null); },
     chooseCompany: (c: Company) => { setSelected(c); setCompanyText(`${c.name} · ${c.tsCode}`); },
-    applied, result, readError: observed.error, error: error ?? observed.error, busy: busy || observed.loading,
+    applied, result, readError: observed.error, error: error ?? observed.error, busy, loading: busy || observed.loading,
     submit, reset, refresh: () => void execute(applied), page: (p: number) => { setPage(p); } };
 }

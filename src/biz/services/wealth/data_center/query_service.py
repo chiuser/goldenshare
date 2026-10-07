@@ -96,7 +96,11 @@ class AnnouncementQueryService:
             self.wake()
             return self.preparing(snapshot),202
         if snapshot['state']=='error':
-            raise mapped_error(snapshot['reason'])
+            error=mapped_error(snapshot['reason'])
+            result=self.preparing(snapshot)
+            result.update(pageState=dict(status='error',code=error.code,message=error.message,asOfTime=snapshot['updated_at']),
+                          page=page,preparation=None)
+            return result,200
         conditions=json.loads(snapshot['conditions'])
         try:
             if (snapshot['revision']!=self.catalog.meta()['revision'] or

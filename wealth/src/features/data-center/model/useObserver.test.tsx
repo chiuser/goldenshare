@@ -31,3 +31,13 @@ it("refresh retains existing data while read is pending", async () => {
   const { result } = renderHook(() => useObserver<number>(read)); await waitFor(() => expect(result.current.value).toBe(7));
   act(() => result.current.refresh()); expect(result.current.value).toBe(7);
 });
+it("a temporary HTTP 503 still retries and stops once a terminal value is read", async () => {
+  vi.useFakeTimers();
+  const read = vi.fn().mockRejectedValueOnce(new DataCenterApiError(503, "DC_SOURCE_UNAVAILABLE", "读取暂不可用")).mockResolvedValue({ status: "error" });
+  const { result } = renderHook(() => useObserver<{ status: string }>(read, r => r.status === "preparing"));
+  await act(async () => {});
+  expect(result.current.error).toBe("读取暂不可用");
+  await act(async () => { await vi.advanceTimersByTimeAsync(4999); }); expect(read).toHaveBeenCalledTimes(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); }); expect(result.current.value?.status).toBe("error");
+  await act(async () => { await vi.advanceTimersByTimeAsync(20000); }); expect(read).toHaveBeenCalledTimes(2);
+});

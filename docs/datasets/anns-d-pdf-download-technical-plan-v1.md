@@ -1,6 +1,6 @@
 # 上市公司公告 PDF 本地归档技术方案 v1
 
-更新时间：2026-10-06。当前状态：**DC1共享核心、schema3及CLI消费者迁移完成，隔离验收通过，未提交；网页查询/API/页面待开发。** 最新实现见§13与网页LLD§14；正式台账未迁移。
+更新时间：2026-10-07。状态：本文DC1及更早章节保留阶段历史；后续DC5正式schema3/归档验收见[数据中心LLD§20](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。用户确认补齐的PG台账/CLI迁移目标见[修订LLD§22](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)，尚未编码或执行；本文件原SQLite存储说明不再作为下一阶段新增开发目标。
 
 §1—§12保留此前DG读者、五URL真实归档、台账维护及网页设计阶段的记录；M0—M3为Prod版本历史。原方案提交777d6901、下载器提交9f8faacf，独立旧验收台账曾升级到2；这些历史证据不证明此次schema3或网页已在正式环境执行。
 

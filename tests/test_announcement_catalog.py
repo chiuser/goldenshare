@@ -68,6 +68,17 @@ def execute(service,**kw):
     return service.read(pending['queryId'])[0]
 
 
+def assert_failed_query(service,query_id,code):
+    from src.biz.schemas.wealth.data_center.announcements import QueryResultDto
+    result,status=service.read(query_id)
+    QueryResultDto.model_validate(result)
+    assert status==200 and result['pageState']['status']=='error'
+    assert result['pageState']['code']==code
+    assert result['total'] is None and result['items']==[]
+    assert not result['downloadStatusAvailable'] and result['preparation'] is None
+    return result
+
+
 def test_six_fields_records_nulls_and_one_file(query_archive):
     service,archive,_=query_archive
     original=row();changed=dict(original,name='历史公告名',rec_time=None)
@@ -148,8 +159,7 @@ def test_literal_title_stable_order_unknown_status(query_archive,monkeypatch):
     assert not unavailable['downloadStatusAvailable']
     assert all(r['downloadStatus'] is None for r in unavailable['items'])
     pending,_=service.create(request(downloadStatus='undownloaded'));service.prepare_next()
-    with pytest.raises(DataCenterError,match='DC_STATUS_UNAVAILABLE'):
-        service.read(pending['queryId'])
+    assert_failed_query(service,pending['queryId'],'DC_STATUS_UNAVAILABLE')
 
 
 def test_atomic_publish_failures_duplicate_and_source_change(query_archive,monkeypatch,tmp_path):
@@ -160,7 +170,7 @@ def test_atomic_publish_failures_duplicate_and_source_change(query_archive,monke
     replacement=write_day(tmp_path/'replacement','2026-09-30',[row(3),row(3)])
     os.replace(replacement,path)
     pending,_=service.create(request());service.prepare_next()
-    with pytest.raises(DataCenterError,match='DC_SOURCE_CONTRACT_MISMATCH'):service.read(pending['queryId'])
+    assert_failed_query(service,pending['queryId'],'DC_SOURCE_CONTRACT_MISMATCH')
     assert service.catalog.day('2026-09-30')['active_generation']==old['active_generation']
     with pytest.raises(DataCenterError,match='DC_QUERY_CONTEXT_CHANGED'):service.read(first['queryId'])
     replacement=write_day(tmp_path/'replacement2','2026-09-30',[row(4)])
@@ -172,9 +182,13 @@ def test_atomic_publish_failures_duplicate_and_source_change(query_archive,monke
 def test_missing_day_not_empty_but_complete_zero_day_is(query_archive):
     service,archive,_=query_archive
     pending,_=service.create(request());service.prepare_next()
-    with pytest.raises(DataCenterError,match='DC_SOURCE_UNAVAILABLE'):service.read(pending['queryId'])
+    failed=assert_failed_query(service,pending['queryId'],'DC_SOURCE_UNAVAILABLE')
+    assert '2026-09-30' in failed['pageState']['message']
     write_day(raw_root(archive),'2026-09-30',[])
-    assert execute(service)['pageState']['status']=='empty'
+    assert not service.prepare_next()
+    assert service.read(pending['queryId'])[0]==failed
+    fresh=execute(service)
+    assert fresh['queryId']!=pending['queryId'] and fresh['pageState']['status']=='empty'
 
 
 def test_dictionary_version_rebuild_and_query_ttl(query_archive,tmp_path):
@@ -216,7 +230,7 @@ def test_inplace_change_stop_and_restart_unpublished_generation(query_archive,tm
     # Touching the same inode is forbidden, rather than treating it as a DG atomic publication.
     os.utime(path,ns=(path.stat().st_atime_ns,path.stat().st_mtime_ns+1_000_000))
     pending,_=service.create(request());service.prepare_next()
-    with pytest.raises(DataCenterError,match='DC_SOURCE_CONTRACT_MISMATCH'):service.read(pending['queryId'])
+    assert_failed_query(service,pending['queryId'],'DC_SOURCE_CONTRACT_MISMATCH')
     assert service.catalog.day('2026-09-30')['active_generation']==old['active_generation']
     replacement=write_day(tmp_path/'new','2026-09-30',[row(i) for i in range(1,1101)])
     os.replace(replacement,path)
@@ -265,8 +279,17 @@ def test_missing_names_do_not_fallback_and_volume_errors_are_unknown(query_archi
     namepath=raw_root(archive).parent/'namechange/full/part-000.parquet'
     namepath.unlink()
     pending,_=service.create(request());service.prepare_next()
-    with pytest.raises(DataCenterError,match='DC_SOURCE_UNAVAILABLE'):service.read(pending['queryId'])
+    failed=assert_failed_query(service,pending['queryId'],'DC_SOURCE_UNAVAILABLE')
+    assert failed['pageState']['message']=='所需本地公告数据尚不可读取'
     assert service.catalog.meta()['name_generation'] is None
+
+
+@pytest.mark.parametrize('suffix',['20260930','2026-02-30','/private/tmp/secret','2026-09-30:secret'])
+def test_missing_day_message_does_not_expose_invalid_private_reason(suffix):
+    from src.biz.services.wealth.data_center.errors import mapped_error
+    error=mapped_error('source_day_missing:'+suffix)
+    assert error.code=='DC_SOURCE_UNAVAILABLE'
+    assert error.message=='所需本地公告数据尚不可读取'
 
 
 def test_catalog_writer_contention_is_pending(query_archive):
@@ -288,7 +311,7 @@ def test_day_soft_budget_and_sql_deadline_are_errors_not_truncated(query_archive
     write_day(raw_root(archive),'2026-09-30',[row(i) for i in range(1,1101)])
     service.builder.policy=replace(service.builder.policy,catalog_unit_seconds=0)
     pending,_=service.create(request());service.prepare_next()
-    with pytest.raises(DataCenterError,match='DC_INDEX_FAILED'):service.read(pending['queryId'])
+    assert_failed_query(service,pending['queryId'],'DC_INDEX_FAILED')
     assert service.catalog.day('2026-09-30') is None
     service.builder.policy=DataCenterPolicy()
     assert execute(service)['total']==1100
@@ -336,7 +359,7 @@ def test_name_snapshot_mutation_rejected_and_dictionary_file_hot_change(query_ar
     path=raw_root(archive).parent/'stock_basic/full/part-000.parquet'
     os.utime(path,ns=(path.stat().st_atime_ns,path.stat().st_mtime_ns+1_000_000))
     pending,_=service.create(request());service.prepare_next()
-    with pytest.raises(DataCenterError,match='DC_SOURCE_CONTRACT_MISMATCH'):service.read(pending['queryId'])
+    assert_failed_query(service,pending['queryId'],'DC_SOURCE_CONTRACT_MISMATCH')
 
 
 def test_large_day_true_source_projection_bounded_batches(query_archive,monkeypatch):

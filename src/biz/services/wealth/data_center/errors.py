@@ -1,4 +1,6 @@
 """One public error adapter, preserving private safe reason codes underneath."""
+from datetime import date
+
 class DataCenterError(Exception):
     def __init__(self,code,message,status=503):
         self.code,self.message,self.status=code,message,status
@@ -6,6 +8,13 @@ class DataCenterError(Exception):
 
 
 def mapped_error(reason):
+    if reason.startswith('source_day_missing:'):
+        missing=reason.removeprefix('source_day_missing:')
+        try:
+            if date.fromisoformat(missing).isoformat()==missing:
+                return DataCenterError('DC_SOURCE_UNAVAILABLE',f'本地尚未同步 {missing} 的公告数据，请调整查询日期或等待同步后刷新列表')
+        except ValueError:
+            pass
     if reason=='insufficient_disk_space':
         return DataCenterError('DC_SPACE_INSUFFICIENT','本地磁盘空间不足，请处理后重新查询')
     if reason=='query_context_changed':

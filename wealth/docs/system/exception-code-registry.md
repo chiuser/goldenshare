@@ -369,7 +369,7 @@
 | `DC_STATE_CONFLICT` | announcements | warn | false | false | 当前状态不支持本次命令 | 未封存继续、非失败key重试、幂等key复用不同payload；409 | 重读对象资格，不扩大范围或自动重发 | biz | DC-design | active |
 | `DC_PREVIEW_STALE` | announcements | warn | false | false | 预览依据已失效 | 参数/来源日版本/身份变化或过期；409 | 保留输入、重新预览；零HTTP | biz | DC-design | active |
 | `DC_QUERY_CONTEXT_CHANGED` | announcements | warn | false | false | 查询页版本或存在性快照已变化 | 索引revision、卷身份、页内物理状态与queryId不一致或过期；409 | 原筛选重新查第一页，不拼接旧页 | biz | DC-design | active |
-| `DC_SOURCE_UNAVAILABLE` | announcements | error | false | false | 所需本地元数据尚不可读取 | 缺自然日文件、来源卷掉线/权限；503或任务blocked | 来源不可用而非无公告；恢复后刷新/手动继续 | biz | DC-design | active |
+| `DC_SOURCE_UNAVAILABLE` | announcements | error | false | false | 所需本地元数据尚不可读取 | 缺自然日文件、来源卷掉线/权限；已封存查询失败以HTTP200的pageState=error返回，服务读取不可用仍503，下载任务blocked | 缺公告日显示实际日期，查询终态停止轮询；恢复后刷新/手动继续，不当无公告 | biz | DC-design | active |
 | `DC_SOURCE_CONTRACT_MISMATCH` | announcements | error | false | false | 本地来源不满足固定合同 | schema/日期/行数/指纹/源重复不符 | 阻断该范围，不降级到旧湖/Prod或过滤掉坏行 | biz | DC-design | active |
 | `DC_INDEX_FAILED` | announcements | error | false | false | 本地查询准备失败 | 投影构建超预算、SQLite写失败或校验失败 | 显示准备错误，不发布半日版本/伪造零结果 | biz | DC-design | active |
 | `DC_VOLUME_UNAVAILABLE` | announcements | error | false | false | 归档磁盘不可安全使用 | 未挂载、UUID/device变化、链接/只读/权限门禁失败 | 保留卡/历史，阻断下载，允许重新检查 | biz | DC-design | active |
@@ -377,6 +377,8 @@
 | `DC_STATUS_UNAVAILABLE` | announcements | warn | false | false | 当前文件下载状态无法核验 | 存在性检查IO/权限失败；不含确认不存在 | 状态留空加提示，禁用状态筛选，不当未下载 | biz | DC-design | active |
 | `DC_ARCHIVE_BUSY` | announcements | warn | false | false | 同归档已有写执行 | Web/CLI/维修/迁移争锁或active slot冲突；409 | 显示现有任务/占用，不排队、不新建并行执行 | biz | DC-design | active |
 | `DC_LEDGER_FAILED` | announcements | error | false | false | 台账/持久控制不可用 | 未知schema、迁移/读写失败或持久完成观察失败 | 保留PDF证据，停止领取；不清空/重建台账 | biz | DC-design | active |
+
+2026-10-07修订目标（尚未编码）：[数据中心LLD§22](../pages/data-center/data-center-announcements-low-level-design-v1.md)取消SQLite目录投影后，`DC_INDEX_FAILED`统一迁为`DC_QUERY_FAILED`，含义为直接来源查询准备失败/超预算，沿用503及已封存查询HTTP200/pageState=error规则。现有`DC_QUERY_CONTEXT_CHANGED`改由来源版本/卷/存在性变化触发；本地PG连接、配置、schema及池失败统一`DC_LEDGER_FAILED`。上表仍描述当前代码；Q2须同步实现方/消费者/测试并移除旧代码，不提前宣称新异常已生效。
 | `DC_REMOTE_BLOCKED` | announcements | error | false | false | 源站拒绝或要求验证 | HTTP403、验证码/挑战页 | 全局阻断、有限检查并遵守冷却；不无限重试 | biz | DC-design | active |
 | `DC_FILE_FAILED` | announcements | warn | false | false | 原范围单文件处理失败 | 非全局HTTP错误、非法URL/标题/代码、PDF校验或有限自动尝试耗尽 | 失败列表安全原因，可精确重试；其他文件继续 | biz | DC-design | active |
 | `DC_QUERY_FAILED` | announcements | error | false | false | 读取/观察未完成 | SQL/响应构建/接口超时或未分类读失败 | 当前模块读取错误；观察失败不改run终态 | biz | DC-design | active |

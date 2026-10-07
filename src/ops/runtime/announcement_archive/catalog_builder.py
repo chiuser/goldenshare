@@ -37,7 +37,10 @@ class CatalogBuilder:
             with volume.directory(directory) as fd:
                 return os.stat('part-000.parquet', dir_fd=fd, follow_symlinks=False)
         except FileNotFoundError:
-            raise Blocked('source_day_missing') from None
+            reason='source_day_missing'
+            if directory.startswith('ann_date='):
+                reason+=':'+directory.removeprefix('ann_date=')
+            raise Blocked(reason) from None
         except OSError:
             raise Blocked('source_read_failed') from None
 

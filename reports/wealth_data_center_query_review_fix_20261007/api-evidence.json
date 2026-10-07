@@ -1,0 +1,82 @@
+{
+  "kind": "real-routes-services-temporary-storage",
+  "requests": [
+    {
+      "path": "/api/v1/wealth/data-center/announcements/context",
+      "query": "",
+      "method": "GET",
+      "status": 200,
+      "body": null
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "method": "POST",
+      "status": 202,
+      "body": {
+        "startDate": "2026-09-08",
+        "endDate": "2026-10-07",
+        "downloadStatus": "all",
+        "tsCode": null,
+        "titleKeyword": ""
+      }
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-6f37aa1c0c884ad99eb83b5b17295bfd",
+      "query": "page=1",
+      "method": "GET",
+      "status": 200,
+      "body": null
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "method": "POST",
+      "status": 202,
+      "body": {
+        "startDate": "2026-09-08",
+        "endDate": "2026-10-07",
+        "tsCode": null,
+        "titleKeyword": "",
+        "downloadStatus": "all"
+      }
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-48440f7caaad483f81520a13dc15f926",
+      "query": "page=1",
+      "method": "GET",
+      "status": 200,
+      "body": null
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-48440f7caaad483f81520a13dc15f926",
+      "query": "page=2",
+      "method": "GET",
+      "status": 200,
+      "body": null
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "method": "POST",
+      "status": 202,
+      "body": {
+        "startDate": "2026-10-06",
+        "endDate": "2026-10-06",
+        "downloadStatus": "all",
+        "tsCode": null,
+        "titleKeyword": ""
+      }
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-42e86b14c96046ad82e919e23ecf7585",
+      "query": "page=1",
+      "method": "GET",
+      "status": 200,
+      "body": null
+    }
+  ],
+  "pdfTransportCalls": {},
+  "formalWrites": 0,
+  "sourceSiteRequests": 0
+}

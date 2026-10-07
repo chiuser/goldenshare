@@ -64,6 +64,36 @@ def test_home_registered_routes_and_real_query(dc_client):
     assert client.post(PREFIX+'/announcements/runs',json={}).status_code in {422,503} # Download storage not supplied by this query-only fixture.
 
 
+@pytest.mark.parametrize('missing,start,end',[
+    ('2026-10-01','2026-09-30','2026-10-01'),
+    ('2026-10-01','2026-09-30','2026-10-02'),
+    ('2026-09-29','2026-09-29','2026-09-30')])
+def test_failed_query_is_terminal_with_actual_missing_date_and_manual_requery(dc_client,query_archive,missing,start,end):
+    client,service,_,_=dc_client
+    _,archive,_=query_archive
+    if end not in {missing,'2026-09-30'}:
+        write_day(raw_root(archive),end,[])
+    body={**request().model_dump(mode='json'),'startDate':start,'endDate':end}
+    created=client.post(PREFIX+'/announcements/queries',json=body)
+    assert created.status_code==202
+    query_id=created.json()['queryId']
+    failed=poll(client,query_id)
+    assert failed.status_code==200
+    result=failed.json()
+    assert result['pageState']['status']=='error' and result['pageState']['code']=='DC_SOURCE_UNAVAILABLE'
+    assert missing in result['pageState']['message']
+    assert result['total'] is None and result['items']==[] and result['preparation'] is None
+    assert not result['downloadStatusAvailable']
+    assert str(raw_root(archive)) not in failed.text
+    write_day(raw_root(archive),missing,[])
+    assert client.get(PREFIX+'/announcements/queries/'+query_id).json()==result
+    fresh=client.post(PREFIX+'/announcements/queries',json=body)
+    assert fresh.json()['queryId']!=query_id
+    ready=poll(client,fresh.json()['queryId'])
+    assert ready.status_code==200 and ready.json()['pageState']['status']=='ready'
+    assert ready.json()['total']==1
+
+
 def test_login_first_then_capability_and_prod(dc_client):
     client,_,settings,app=dc_client
     def unauthorized():raise WebAppError(status_code=401,code='unauthorized',message='请先登录')

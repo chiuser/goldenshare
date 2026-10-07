@@ -1,6 +1,6 @@
 # 上市公司公告 PDF 本地归档 LLD v1
 
-更新时间：2026-10-06。当前状态：**DC1共享核心、schema3及CLI消费者迁移完成，隔离验收通过，未提交；网页查询/API/页面待开发。** 最新实现与门禁见§18及网页LLD§14；正式归档台账未升级。
+更新时间：2026-10-07。状态：本文DC1及更早章节保留阶段历史；后续DC5正式schema3/归档验收见[数据中心LLD§20](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。PG台账、旧整数分页游标、summary存储标识及CLI消费者的唯一迁移目标见[修订LLD§22.5—22.11](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)，尚未编码或执行。原SQLite合同仅描述现行实现，不作为新存储目标；原文件/HTTP/身份协议继续有效。
 
 §1—§16保留2026-10-05及更早阶段当时的实现和验收记录：DG schema2读者/五URL归档/台账维护，以及Prod M0—M3历史。独立旧验收台账曾升级到2，不代表此次已迁移到3。§17为网页技术目标引用。[技术方案](anns-d-pdf-download-technical-plan-v1.md)说明后续范围。
 
