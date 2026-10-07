@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-日期：2026-10-06；最近更新：2026-10-07。当前历史设计已按管理员决定改为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18为旧路线开发记录，402c8452/ada58b50中的历史代码待迁移，不是新路线已实现证据。正式历史执行、P4/P5未执行。
+日期：2026-10-06；最近更新：2026-10-07。当前历史设计已按管理员决定改为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18为旧路线开发记录，旧历史代码已按日期路线迁移；当前代码和隔离验收见§20，§17～18不作为新路线证明。正式历史执行、P4/P5未执行。
 
 ## 1. 硬口径和影响面
 
@@ -686,7 +686,7 @@ unit阶段为planned、reading、candidates_complete、verifying、verified、pr
 
 ### 19.5 预算配置审计与代码影响面
 
-本轮仅批准设计，不修改运行常量。实际配置迁移集中在`defs/run_contracts/moneyflow.py`，只由日期读取adapter、bootstrap writer/planner和保护测试消费，代码发布生效，无新增env/Settings/数据库/页面输入。既有日更常量和消费者不变；下一轮实现前按此表审计全部引用并同步清零旧项。
+配置迁移已按本节批准边界实施，集中在`defs/run_contracts/moneyflow.py`，只由日期读取adapter、bootstrap writer/planner和保护测试消费，代码发布生效，无新增env/Settings/数据库/页面输入。既有日更常量和消费者不变；引用审计及旧项清零结果见§20；七表全量累计预算仍待操作入口实现。
 
 | 配置/口径 | 新路线用途与迁移要求 | 测试/运维证据 |
 | --- | --- | --- |
@@ -696,7 +696,7 @@ unit阶段为planned、reading、candidates_complete、verifying、verified、pr
 | 启动空闲64GiB、新增总占用32GiB | 保留七表合计边界，包含已有失败现场/候选/正式新增输出；恢复按剩余工作检查 | 计量实际文件/空间；不足拒绝，不清理现场、不自动扩大 |
 | 截止日、日期集合、operation ID、新plan版本/hash | 显式人工输入/冻结控制证据，不能从cursor或代码键推断 | 旧plan/checkpoint、日期越界、跨dataset、任意SQL/路径拒绝 |
 
-本轮用codegraph_explore核验build_moneyflow_history_plan→history_schema/daily_schema、history_export→plan校验和source→SQL builder链；图未识别全部测试边，以当前test_moneyflow_history_plan/export及七表候选回归直接核验为准。影响范围为历史plan/source/export/csv模块、相应测试和保护runner；复用既有schema、候选路径、严格数值及物理check。没有Web/API/Prod DatasetDefinition消费者迁移，不改变子系统依赖矩阵或其他数据集配置。未来实际删除/迁移旧helper前还须完成全引用审计，源码改动尚未发生。
+本轮用codegraph_explore核验build_moneyflow_history_plan→history_schema/daily_schema、history_export→plan校验和source→SQL builder链；图未识别全部测试边，以当前test_moneyflow_history_plan/export及七表候选回归直接核验为准。影响范围为历史plan/source/export/csv模块、相应测试和保护runner；复用既有schema、候选路径、严格数值及物理check。没有Web/API/Prod DatasetDefinition消费者迁移，不改变子系统依赖矩阵或其他数据集配置。旧helper迁移前已完成引用审计，当前实现/消费者迁移及CodeGraph补查见§20。
 
 ### 19.6 新P3步骤和验收清单
 
@@ -711,4 +711,49 @@ unit阶段为planned、reading、candidates_complete、verifying、verified、pr
 | 退出/取消/幂等/冲突安全 | unit checkpoint、逐文件提升、独占writer | 真实子进程退出后新进程恢复；生成/复核/rename边界；状态写失败不回滚；不同st_dev/正式hash冲突拒绝 |
 | 正式文件/事件/日更分开 | 精确样本命令、批次CLI、后续P4/P5 | Lake样本/全量、DG事件、日更分别获批并读回；未执行不得预填通过 |
 
-普通moneyflow的日期查询计划、实际索引与吞吐需刷新核验；旧代码块COPY22.673秒和CSV隔离693项测试不证明新方案性能/恢复通过。如果日期路线超预算，应记录证据并修订日期批次或单独提出索引方案，禁止自行回退代码导出、自行改Prod索引或以安装依赖解决。当前只有设计修订完成，P3尚未收尾，正式数据、事件和自动化状态未改变。
+普通moneyflow的日期查询计划、实际索引与吞吐需刷新核验；旧代码块COPY22.673秒和CSV隔离693项测试不证明新方案性能/恢复通过。如果日期路线超预算，应记录证据并修订日期批次或单独提出索引方案，禁止自行回退代码导出、自行改Prod索引或以安装依赖解决。当前已完成日期代码迁移和候选隔离验收（§20）；P3尚未收尾，正式数据、事件和自动化状态未改变。
+
+
+## 20. 日期历史代码迁移、约束对账和隔离证据（2026-10-07）
+
+### 20.1 目标、改动与边界
+
+依据原方案§24、本LLD§19及接入综合模板§7A/§18，移除旧代码keyset和业务CSV持久化，迁移到固定日期批次直接产出。原设计文档已先提交`44904bb0`；本节记录随后代码迁移，不覆盖§17～18历史记录。
+
+| 文件 | 当前职责及实际变化 |
+| --- | --- |
+| `defs/bootstrap/moneyflow_history_plan.py` | 七表统一`MoneyflowHistoryUnit(dates,row_count)`，新revision/hash；删除source_units/windows双轨与after/through参数；固定日期IN查询，LIMIT100001 |
+| `defs/bootstrap/moneyflow_history_source.py` | 请求只含plan/unit/受控SQL路径，沿用原psql白名单入口、64KiB接收块、stderr排空和子进程组取消 |
+| `defs/bootstrap/moneyflow_history_receive.py` | public read_csv(BytesIO)词法接收，严格日期/键/数值/NULL验证、列式CAST、历史文件检查及独立来源差异；不持久化CSV |
+| `defs/bootstrap/moneyflow_history_candidates.py` | 单unit内存接收→每日Raw→对应Silver→独立来源复核；逐日hash/checkpoint、真实文件恢复、独占锁和持久化时间预扣 |
+| `defs/run_contracts/moneyflow.py` | MAX_CSV_BYTES改为MAX_BUFFER_BYTES=32MiB，MAX_SOURCE_BYTES退出、MAX_DISK_BYTES=32GiB；无旧名兼容，日更常量不变 |
+| 测试与保护runner | 删除旧export测试，改为history_candidates测试；plan测试改日期语义，保护精确源码清单替换旧csv/export路径 |
+
+旧`moneyflow_history_csv.py`、`moneyflow_history_export.py`已删除；当前源码中旧参数名仅用于拒绝旧checkpoint和负向测试。所有历史调用方已迁移，没有Web/API/Prod DatasetDefinition消费者；没有新正式asset、job、sensor、partition、事件、CLI入口或配置来源。没有Lake正式写入、数据库写入或依赖矩阵变更。
+
+CodeGraph使用`codegraph_explore`、`codegraph_impact`分析旧plan→schema、export→plan/source、source→SQL及消费者；用全量rg补齐图未覆盖的测试和保护清单。迁移后执行根索引`codegraph sync/status`，四个现行历史模块可在根索引files查询中检出；无需子项目重建索引。仍须真实核验的是Prod日期查询执行计划和全量操作入口，不是未迁移的Web消费者。
+
+### 20.2 硬口径落点与验收
+
+| 约束 | 代码及测试证据 |
+| --- | --- |
+| 七表独立，日期明确、年内20日/100000行，缺日和早期低覆盖不补造 | planner的日期事实、统一unit、schema/count/plan hash；P0基线、年界/21日/行数/缺口/篡改测试 |
+| 不按代码读取，无业务CSV/spool，无第二份复核数据 | date IN +源DATE/同日键ORDER BY；BytesIO→DuckDB SQL COPY每日文件；旧参数TypeError/旧目录拒绝和产物清单断言 |
+| NULL/负值/十进制/整数及身份保真 | 关闭自动推断/坏行忽略，na_values与allow_quoted_nulls=False；复用strict numeric SQL并明确CAST；负值/可空身份外字段/带引号NULL文本/溢出与精度负例 |
+| 历史分类不套未来要求，源变化不能verified | receive记录unit实际分类；历史物理schema/日期/键检查与Raw/Silver相等，独立来源与Raw双向EXCEPT；早期行业独有、排序变化、同键同量金额变化测试 |
+| 恢复按真实候选，取消后不领取新unit | 固定路径、逐日hash/rows复审；完整候选恢复重读来源、不重写文件；接收退出/完整候选退出的新进程恢复，后续unit须前序verified且文件实际通过 |
+| 原生计算能取消，预算不放宽 | 100ms watcher+DuckDB interrupt，进程组终止；32MiB/64KiB、120秒/12小时预扣、768MiB/512MB/0spill和空间拒绝测试；单日100000行通过，100001行拒绝 |
+
+实际字段/分类集合并未凭空放入P0只含逐日总数的CSV：日期plan冻结日期/行数/键数，unit初采source_proof记录并持久化真实分类；恢复依据候选与新来源逐字段一致。正式全量来源刷新入口仍需把外部历史分类证据一起冻结，当前helper不是这一入口。
+
+单个操作目录使用fcntl锁，JSON/进度更新在同一锁内串行，独立临时控制文件fsync后os.replace；候选COPY到.parquet.partial，fsync/replace后逐日记hash。候选累计占用以新增文件stat计量，不在每个文件完成后重扫所有此前批次；进入/恢复及异常现场只做受控目录元数据对账。SQL控制文件计入占用；业务数据文件只有每日Raw/Silver。progress持久化阶段、明确日期、当前日期、完成/总unit、接收字节、COPY/连接/SQL数和时间，ETA明确“暂无法估算”。完整unit重放会新增一次来源复核，因此重放不是零COPY；不会改写既有候选。
+
+### 20.3 实测及尚未完成项
+
+本地使用现有DuckDB1.5.2，没有安装依赖。内存read_csv能保持未引号\N为NULL、引号同名文本为字符串，并保持DECIMAL精度；连接关闭后接收对象释放。六个既有公开MCP样本（普通5572、DC6024、THS5215、DC板块1031、THS行业90、THS概念387）在日期路线源/Raw/Silver行数及逐字段相等；大盘1行合约构造样本通过。上述不是本轮真实Prod导出，也不是七表源站重新审计。
+
+10万行压力样本使用普通moneyflow真实数值循环，生成20个日期/每日5000个唯一键；初采与独立复核两次读取，共40个每日文件。最终新进程处理4.381秒、重放2.187秒、峰值398.05MiB；内存接收13420214字节，候选及控制文件19638243字节。隔离测试仅把启动空闲空间探测设为128GiB，没有放宽行数、内存、时间、缓冲或运行空间预算；不作为正式磁盘准入证明。源/Raw/Silver均100000、reject0、差异0，无CSV或spill；重放仅新增一次复核且候选hash不变。最终耗时、峰值RSS、字节、样本hash和当前源码hash见[结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_date_candidates_evidence_20261007.json)。耗时不含远端查询、网络、正式提升或事件，不能外推为整个历史完成时间。
+
+最终联合回归691项通过，其中新日期历史专项122项、既有七表/策略569项。受保护治理12项/474子测试及静态合同113项通过，Ruff默认改动检查/全src与tests致命规则及文档完整性检查通过。治理/静态由原保护启动器执行，工具提权仅用于当前环境不支持嵌套sandbox-exec，不扩大正式资源测试权限。真实进程退出分别返回37/38并由新进程成功续跑；接收中退出保留120秒预扣，正常完成初采后退出保留已记录实际耗时，不把它误当未完成步骤的预扣。
+
+本轮仅单dataset单日期unit候选能力。其12小时/32GiB限制作用于该dataset/cutoff操作目录，不可冒充七表合计边界已闭合；全量runner仍须统一累计SQL/连接/重试/时间/空间及日更互斥。正式提升promoting/complete、同文件系统/正式冲突/提升中取消恢复、外部分类冻结和真实Prod日期查询吞吐也尚未实现/验证。本轮不提供APPLY入口，不生成正式Lake或Dagster成功事实。下一步先补真实日期查询准入证据，再按§19/原方案§24逐项实现全量控制和批准范围内的正式样本；整个P3尚未完成。代码修改尚未提交。

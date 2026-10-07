@@ -1,0 +1,327 @@
+{
+  "phase": "P3 date route code migration and isolated candidate acceptance; not full P3 closeout",
+  "authority": "plan section 24 and LLD section 19; docs committed 44904bb0 before code changes",
+  "revision": "moneyflow_history_dates_v2",
+  "counts_scope": "existing P0 20261006 CSV; no fresh Prod count/hash audit",
+  "counts_sha256": "97a41694680dc13340785af03a902acb39d33afbfda33480bf9e5d34710c90e8",
+  "datasets": {
+    "moneyflow": {
+      "rows": 14089300,
+      "dates": 4067,
+      "units": 217,
+      "max_unit_rows": 99839,
+      "max_unit_dates": 20,
+      "files": 8134,
+      "plan_hash": "19eef23dd64d72f93d44a88880ef0cf0547b9f58807b36ce39023989173fd210",
+      "schema_hash": "e5a184e5ec5307c08c0e4f192587751577ef538f5f3597889cc15e424811f597",
+      "source_counts_hash": "0807f75aafc386b5c0ff3fb4442b896f6c3c66874209bb5354bba220c8753ff6"
+    },
+    "moneyflow_cnt_ths": {
+      "rows": 192009,
+      "dates": 495,
+      "units": 26,
+      "max_unit_rows": 7890,
+      "max_unit_dates": 20,
+      "files": 990,
+      "plan_hash": "bd90af0e0bbf59c50d2d54640da76aef473ea6ead0c00c723569d879dc3aa04d",
+      "schema_hash": "6cbb6763e47b408602f2def3686a6583365e0ee4df9d2fc72e415f52a955da4b",
+      "source_counts_hash": "b7cfc1105338a2c3bf79ab6d84052b49ae12336086f4196d0317b85dae81a018"
+    },
+    "moneyflow_dc": {
+      "rows": 4278673,
+      "dates": 739,
+      "units": 46,
+      "max_unit_rows": 99888,
+      "max_unit_dates": 18,
+      "files": 1478,
+      "plan_hash": "15d2dde79379675c7669e2523d3e984628cc4554d41a047e1112cb4b4aaa018a",
+      "schema_hash": "e1566d70d130d5de119ae8860516be025cb808c79c95b3a185d0ef8b40dc1e9d",
+      "source_counts_hash": "d3115ed431df047588b9ebac5f88afb99ce569364a1ecffafc577b44f1ca66cf"
+    },
+    "moneyflow_ind_dc": {
+      "rows": 364012,
+      "dates": 739,
+      "units": 40,
+      "max_unit_rows": 20620,
+      "max_unit_dates": 20,
+      "files": 1478,
+      "plan_hash": "cb4ab7d4e95b17621cbbb2e370b75d920714ed03853331626e02c9297fc48c23",
+      "schema_hash": "7ba03f6d823280b50a65e1b729e9385950f69bb38060fdef9b7cafbe7aac3efc",
+      "source_counts_hash": "d11fc0ea407f5c43b7bf96eccce3c8da76b110e18128ebfe348b4f5072d975ce"
+    },
+    "moneyflow_ind_ths": {
+      "rows": 44460,
+      "dates": 494,
+      "units": 26,
+      "max_unit_rows": 1800,
+      "max_unit_dates": 20,
+      "files": 988,
+      "plan_hash": "a82137b08eefc752e5ed0362684affb832c996dc7627574cfd2bcb3cf83dc1ee",
+      "schema_hash": "760afb477d231acc2c2d6bc70f7c4c182ab651384eca41fbf1817e279a818612",
+      "source_counts_hash": "ddddc8d273716ad11c2c3a3db06376bce624e71dc14d60ad1ae3ea2139134e7e"
+    },
+    "moneyflow_mkt_dc": {
+      "rows": 839,
+      "dates": 839,
+      "units": 44,
+      "max_unit_rows": 20,
+      "max_unit_dates": 20,
+      "files": 1678,
+      "plan_hash": "2930c76cd2ba44f2d3f1ed941851d706a3e181fd4a9cad59d7af0eb7a546f982",
+      "schema_hash": "81fb694c1254b913a686855f1f68a9cf794b8713078f3d1dba807cdbc18590db",
+      "source_counts_hash": "a123299edd3d112a2c9b4f0c8e23c2ebe5baa5a51c97e504cf15760259c9b8eb"
+    },
+    "moneyflow_ths": {
+      "rows": 2191645,
+      "dates": 431,
+      "units": 24,
+      "max_unit_rows": 99070,
+      "max_unit_dates": 19,
+      "files": 862,
+      "plan_hash": "34be5a9ab573fd01a1854587b77e63572a0f4a170a194115c4bc79c2351e36a1",
+      "schema_hash": "e9f8fa878a185d57a30275dd368767fe6f62eac6ad78b6b4940d06f46c8d69d0",
+      "source_counts_hash": "44c0358142e8b22b7a153617f7cc645ac4c58871dad7eb4ab00415a7c29c3ceb"
+    }
+  },
+  "aggregate": {
+    "rows": 21160938,
+    "dates": 7804,
+    "units": 423,
+    "expected_two_layer_files": 15608,
+    "initial_copy_transactions": 846,
+    "with_14_planning_connections": 860,
+    "with_4_statements_per_connection": 3440,
+    "status": "cost baseline only; no cohort runner or live source reads"
+  },
+  "samples": {
+    "moneyflow": {
+      "rows": 5572,
+      "fixture_sha256": "b1b6cf194f13b8c520154e39b90076982e84e2255f1dcb3ccfd2cc939b7f69b1",
+      "scope": "previous public MCP fixture, date converted to Prod COPY lexical representation; no live source query",
+      "source_raw_silver_equal": true,
+      "rejects": 0
+    },
+    "moneyflow_cnt_ths": {
+      "rows": 387,
+      "fixture_sha256": "d1629345def4d86f7ffa540bdab9c40b59efc999da18d08842da9e1fdf2162a3",
+      "scope": "previous public MCP fixture, date converted to Prod COPY lexical representation; no live source query",
+      "source_raw_silver_equal": true,
+      "rejects": 0
+    },
+    "moneyflow_dc": {
+      "rows": 6024,
+      "fixture_sha256": "79640ab62960cfd1e6b86f79c2ca090d1d982eab05a11e467af39b92d56d3821",
+      "scope": "previous public MCP fixture, date converted to Prod COPY lexical representation; no live source query",
+      "source_raw_silver_equal": true,
+      "rejects": 0
+    },
+    "moneyflow_ind_dc": {
+      "rows": 1031,
+      "fixture_sha256": "c466c32483011299c6c640ef5190bd00ea6b0be431e2f030cfb5cb9102f7c6ff",
+      "scope": "previous public MCP fixture, date converted to Prod COPY lexical representation; no live source query",
+      "source_raw_silver_equal": true,
+      "rejects": 0
+    },
+    "moneyflow_ind_ths": {
+      "rows": 90,
+      "fixture_sha256": "56df871a53ad38e52f7968c333f14d039efda714153d4ec8451916b7752a4277",
+      "scope": "previous public MCP fixture, date converted to Prod COPY lexical representation; no live source query",
+      "source_raw_silver_equal": true,
+      "rejects": 0
+    },
+    "moneyflow_ths": {
+      "rows": 5215,
+      "fixture_sha256": "276f5ba3ddb2da463ffd1e3a2b9a30e5b494a1a6fabd2e77545e93cb709f2b6a",
+      "scope": "previous public MCP fixture, date converted to Prod COPY lexical representation; no live source query",
+      "source_raw_silver_equal": true,
+      "rejects": 0
+    }
+  },
+  "market_sample": "one-row constructed contract fixture; not live Prod sample",
+  "pressure": {
+    "buffer_bytes": 13420214,
+    "candidate_and_control_bytes": 19638243,
+    "csv_files": 0,
+    "dates": 20,
+    "difference_count": 0,
+    "elapsed_seconds": 4.381184833822772,
+    "fixture": "tests/fixtures/moneyflow_20260930.json",
+    "fixture_sha256": "b1b6cf194f13b8c520154e39b90076982e84e2255f1dcb3ccfd2cc939b7f69b1",
+    "parquet_files": 40,
+    "raw_rows": 100000,
+    "rejects": 0,
+    "replay_file_hashes_unchanged": true,
+    "replay_seconds": 2.187029124936089,
+    "rows": 100000,
+    "rss_mib": 398.046875,
+    "scope": "isolated public numeric values; generated dates and identities; no remote database throughput",
+    "silver_rows": 100000,
+    "source_reads_initial": 2,
+    "source_reads_total": 3,
+    "spill_files": 0,
+    "admission_fixture": "isolated free-space admission reports 128GiB; no runtime row/memory/time/buffer limits relaxed; not a formal disk-space admission"
+  },
+  "protected_checks": {
+    "governance": {
+      "passed": true,
+      "batches": [
+        {
+          "batch": "G-regression:test_asset_governance_contracts.py:1",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-qm7ieyre/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_asset_governance_contracts.py:2",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-apf7hhsl/allowed/resource-result.json"
+        },
+        {
+          "regression_suite_passed": "test_asset_governance_contracts.py",
+          "S1_complete": false,
+          "writer_executed": false,
+          "identity_profile": "synthetic",
+          "formal_writer_executed": false,
+          "S2_executed": false
+        }
+      ]
+    },
+    "static": {
+      "passed": true,
+      "batches": [
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:1",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-7phel4f1/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:2",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-7m8ht__h/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:3",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-zi1207i9/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:4",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-f58dly55/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:5",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-28hzvv55/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:6",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-xwtf_j16/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:7",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-sonw0nfr/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:8",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-nnutiiio/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:9",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-23ti_979/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:10",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-_4okzze8/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:11",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-z1pxl5dc/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:12",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-jdfiwl_8/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:13",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-7zmvfqic/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:14",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-s8rn1mml/allowed/resource-result.json"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:15",
+          "passed": true,
+          "report": "/private/tmp/stock-suspend-isolated-3amiqizi/allowed/resource-result.json"
+        },
+        {
+          "regression_suite_passed": "test_run_contract_static_gates.py",
+          "S1_complete": false,
+          "writer_executed": false,
+          "identity_profile": "synthetic",
+          "formal_writer_executed": false,
+          "S2_executed": false
+        }
+      ]
+    }
+  },
+  "focused_tests": {
+    "passed": true,
+    "count": 122,
+    "log_tail": "122 passed in 10.42s"
+  },
+  "source_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_plan.py": "3f0bde4787472329b725178eabcf212800dc2538af1941d79fdaf972f9bf3d3e",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_source.py": "96c629d96dc4884e7d4881eb790edb53236f49a616c0c1ad68510940800db45f",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_receive.py": "9c6cfac8826a00842cb44246857ec46f8c12105a4a1d7faef420e4ba129de372",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_candidates.py": "ff557ab4babc9209935234e16aae961871b5e1067936d0557aa5a9165d5b0420",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "61d3e1692fb514cc07ff70669a68459a5d0d1fbd0ba565cc673032c95d5720f0",
+    "lake_console/orchestrator/tests/test_moneyflow_history_plan.py": "69f240ed5c0f00eb677e790818ff05bbe85f013e567d6e00d6b191f174d11915",
+    "lake_console/orchestrator/tests/test_moneyflow_history_candidates.py": "63cf718678665cad95458fe355889fb070dcdee717532fddfa1827481ec1d784",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "cb13a84385aed1d8006c4e265c82aef94bbcf428d6e66f69daa3fe27da72eba6"
+  },
+  "new_dependency_install": false,
+  "prod_read_executed": false,
+  "prod_write_executed": false,
+  "formal_lake_write_executed": false,
+  "dagster_state_write_executed": false,
+  "code_committed": false,
+  "residual_gates": [
+    "fresh Prod indexes/counts/history classification and date query EXPLAIN/throughput",
+    "shared cohort cumulative SQL/connections/retries/12h/32GiB budgets",
+    "formal candidate promotion and conflicts/interrupt/recovery",
+    "historical versus daily writer exclusion",
+    "precisely approved formal sample and physical readback",
+    "P4 asset/event integration and P5 Tushare daily acceptance"
+  ],
+  "joint_regression": {
+    "passed": true,
+    "count": 691,
+    "log_tail": "691 passed in 58.10s"
+  },
+  "lint_checks": {
+    "changed_files_default": true,
+    "all_src_tests_E9_F63_F7_F82": true
+  },
+  "docs_integrity": true,
+  "codegraph": {
+    "root": "/Users/congming/github/goldenshare",
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact",
+      "codegraph sync",
+      "codegraph_status",
+      "codegraph files"
+    ],
+    "scope": "historical plan/source/receive/candidates, schema/numeric/path/check dependencies, tests and protected inventory; rg supplements consumers absent from graph"
+  }
+}

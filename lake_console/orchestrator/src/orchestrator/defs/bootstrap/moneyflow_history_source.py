@@ -24,16 +24,9 @@ class MoneyflowHistoryCopyRequest:
     plan: MoneyflowHistoryPlan
     unit_id: int
     sql_path: Path
-    after_key: tuple[str, str] | None = None
-    through_key: tuple[str, str] | None = None
 
     def sql(self) -> str:
-        return moneyflow_history_export_sql(
-            self.plan,
-            self.unit_id,
-            after_key=self.after_key,
-            through_key=self.through_key,
-        )
+        return moneyflow_history_export_sql(self.plan, self.unit_id)
 
 
 class PsqlMoneyflowHistorySource:

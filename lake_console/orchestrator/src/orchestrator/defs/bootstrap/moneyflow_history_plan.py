@@ -1,4 +1,4 @@
-"""Bounded Prod moneyflow history planning; no database or filesystem execution."""
+"""Frozen date-unit Prod history planning; no database or filesystem execution."""
 
 import hashlib
 import json
@@ -31,18 +31,10 @@ class MoneyflowHistoryDateCount:
 
 
 @dataclass(frozen=True)
-class MoneyflowHistoryWindow:
-    window_id: int
-    dates: tuple[str, ...]
-    row_count: int
-
-
-@dataclass(frozen=True)
-class MoneyflowHistorySourceUnit:
+class MoneyflowHistoryUnit:
     unit_id: int
-    row_count: int
     dates: tuple[str, ...]
-    # Empty dates mean keyset over the entire frozen range, not an empty export.
+    row_count: int
 
 
 @dataclass(frozen=True)
@@ -50,8 +42,8 @@ class MoneyflowHistoryPlan:
     dataset: str
     cutoff: str
     date_counts: tuple[MoneyflowHistoryDateCount, ...]
-    windows: tuple[MoneyflowHistoryWindow, ...]
-    source_units: tuple[MoneyflowHistorySourceUnit, ...]
+    units: tuple[MoneyflowHistoryUnit, ...]
+    revision: str
     schema_hash: str
     source_counts_hash: str
     plan_hash: str
@@ -83,10 +75,8 @@ def history_schema(dataset: str, *, silver=False):
     return daily_schema(dataset, silver=silver)
 
 
-def history_source_key_fields(dataset: str) -> tuple[str, ...]:
+def history_business_key_fields(dataset: str) -> tuple[str, ...]:
     history_schema(dataset)
-    if dataset == "moneyflow":
-        return ("ts_code", "trade_date")
     if dataset == "moneyflow_mkt_dc":
         return ("trade_date",)
     return daily_key_fields(dataset)
@@ -98,7 +88,7 @@ def build_moneyflow_history_plan(
     *,
     cutoff: str,
 ) -> MoneyflowHistoryPlan:
-    """Freeze count-based scope, never invent keyset boundaries or fill source gaps."""
+    """Freeze explicit dates, preserving source gaps without code traversal."""
     raw = history_schema(dataset)
     silver = history_schema(dataset, silver=True)
     market_moneyflow_day(cutoff)
@@ -124,7 +114,7 @@ def build_moneyflow_history_plan(
     facts.sort(key=lambda fact: fact.trade_date)
     if not facts or len({fact.trade_date for fact in facts}) != len(facts):
         raise MoneyflowContractError("history_dates_empty_or_duplicate")
-    windows = []
+    units = []
     dates = []
     rows = 0
     for fact in facts:
@@ -133,31 +123,16 @@ def build_moneyflow_history_plan(
             or rows + fact.row_count > MONEYFLOW_HISTORY_MAX_ROWS_PER_UNIT
             or dates[0][:4] != fact.trade_date[:4]
         ):
-            windows.append(MoneyflowHistoryWindow(len(windows), tuple(dates), rows))
+            units.append(MoneyflowHistoryUnit(len(units), tuple(dates), rows))
             dates, rows = [], 0
         dates.append(fact.trade_date)
         rows += fact.row_count
-    windows.append(MoneyflowHistoryWindow(len(windows), tuple(dates), rows))
-    total = sum(fact.row_count for fact in facts)
-    if dataset == "moneyflow":
-        units = tuple(
-            MoneyflowHistorySourceUnit(
-                index, min(MONEYFLOW_HISTORY_MAX_ROWS_PER_UNIT, total - start), ()
-            )
-            for index, start in enumerate(
-                range(0, total, MONEYFLOW_HISTORY_MAX_ROWS_PER_UNIT)
-            )
-        )
-    else:
-        units = tuple(
-            MoneyflowHistorySourceUnit(w.window_id, w.row_count, w.dates)
-            for w in windows
-        )
+    units.append(MoneyflowHistoryUnit(len(units), tuple(dates), rows))
     schema_hash = _hash(
         {
             "raw": [(c.name, c.type) for c in raw],
             "silver": [(c.name, c.type) for c in silver],
-            "source_keys": history_source_key_fields(dataset),
+            "source_keys": history_business_key_fields(dataset),
         }
     )
     source_counts_hash = _hash([asdict(fact) for fact in facts])
@@ -165,15 +140,15 @@ def build_moneyflow_history_plan(
         "dataset": dataset,
         "cutoff": cutoff,
         "date_counts": tuple(facts),
-        "windows": tuple(windows),
-        "source_units": units,
+        "units": tuple(units),
+        "revision": "moneyflow_history_dates_v2",
         "schema_hash": schema_hash,
         "source_counts_hash": source_counts_hash,
     }
     draft = MoneyflowHistoryPlan(**payload, plan_hash="")
     plan_hash = _hash(
         {
-            "contract": "prod_moneyflow_history_plan_v1",
+            "contract": "moneyflow_history_dates_v2",
             "plan": asdict(draft),
             "budget": {
                 "rows": MONEYFLOW_HISTORY_MAX_ROWS_PER_UNIT,
@@ -196,85 +171,28 @@ def validate_moneyflow_history_plan(plan: MoneyflowHistoryPlan) -> None:
         raise MoneyflowContractError("history_plan_changed")
 
 
-def _key(plan: MoneyflowHistoryPlan, value) -> tuple[str, str]:
-    if not isinstance(value, tuple) or len(value) != 2:
-        raise MoneyflowContractError("history_keyset_boundary")
-    code, day = value
-    if (
-        not isinstance(code, str)
-        or not code
-        or len(code) > 64
-        or any(ord(char) < 32 for char in code)
-    ):
-        raise MoneyflowContractError("history_keyset_boundary")
-    market_moneyflow_day(day)
-    if not plan.date_counts[0].trade_date <= day <= plan.date_counts[-1].trade_date:
-        raise MoneyflowContractError("history_keyset_date")
-    return code, day
-
-
-def _literal(value: str) -> str:
-    return "E'" + value.replace("\\", "\\\\").replace("'", "''") + "'"
-
-
-def moneyflow_history_export_sql(
-    plan: MoneyflowHistoryPlan,
-    unit_id: int,
-    *,
-    after_key: tuple[str, str] | None = None,
-    through_key: tuple[str, str] | None = None,
-) -> str:
-    """Generate one read-only COPY. Boundaries must later be proven by CSV/checkpoint.
-
-    through_key closes a completed keyset unit for independent source verification.
-    This builder neither runs SQL nor asserts that a plan is approved for APPLY.
-    """
+def moneyflow_history_export_sql(plan: MoneyflowHistoryPlan, unit_id: int) -> str:
+    """One fixed date-unit COPY, with an extra row to detect silent truncation."""
     validate_moneyflow_history_plan(plan)
-    if type(unit_id) is not int or not 0 <= unit_id < len(plan.source_units):
-        raise MoneyflowContractError("history_source_unit")
-    unit = plan.source_units[unit_id]
-    if plan.dataset != "moneyflow" and (
-        after_key is not None or through_key is not None
-    ):
-        raise MoneyflowContractError("history_unexpected_keyset")
-    if plan.dataset == "moneyflow" and (unit_id == 0) != (after_key is None):
-        raise MoneyflowContractError("history_keyset_continuation")
-    predicates = []
-    if unit.dates:
-        predicates.append(
-            'source."trade_date" IN ('
-            + ",".join(f"DATE '{day}'" for day in unit.dates)
-            + ")"
-        )
-    else:
-        predicates.append(
-            f"source.\"trade_date\" BETWEEN DATE '{plan.date_counts[0].trade_date}' AND DATE '{plan.date_counts[-1].trade_date}'"
-        )
-        after = _key(plan, after_key) if after_key is not None else None
-        through = _key(plan, through_key) if through_key is not None else None
-        if after and through and through <= after:
-            raise MoneyflowContractError("history_keyset_order")
-        for operator, boundary in ((">", after), ("<=", through)):
-            if boundary:
-                predicates.append(
-                    f'(source."ts_code", source."trade_date") {operator} ({_literal(boundary[0])}, DATE \'{boundary[1]}\')'
-                )
-    # Explicit DATE formatting makes CSV independent of the server DateStyle.
+    if type(unit_id) is not int or not 0 <= unit_id < len(plan.units):
+        raise MoneyflowContractError("history_date_unit")
+    unit = plan.units[unit_id]
+    dates = ",".join(f"DATE '{day}'" for day in unit.dates)
     projection = ", ".join(
         'to_char(source."trade_date", \'YYYY-MM-DD\') AS "trade_date"'
-        if c.name == "trade_date"
-        else f'source."{c.name}"'
-        for c in history_schema(plan.dataset)
+        if column.name == "trade_date"
+        else f'source."{column.name}"'
+        for column in history_schema(plan.dataset)
     )
     order = ", ".join(
-        f'source."{name}"' for name in history_source_key_fields(plan.dataset)
+        f'source."{name}"' for name in history_business_key_fields(plan.dataset)
     )
     return (
         "BEGIN READ ONLY;\n"
         f"SET LOCAL statement_timeout = '{MONEYFLOW_HISTORY_SQL_TIMEOUT_SECONDS}s';\n"
         f"COPY (SELECT {projection} FROM raw_tushare.{plan.dataset} AS source "
-        f"WHERE {' AND '.join(predicates)} ORDER BY {order} "
-        f"LIMIT {MONEYFLOW_HISTORY_MAX_ROWS_PER_UNIT}) "
+        f'WHERE source."trade_date" IN ({dates}) ORDER BY {order} '
+        f"LIMIT {MONEYFLOW_HISTORY_MAX_ROWS_PER_UNIT + 1}) "
         "TO STDOUT WITH (FORMAT CSV, HEADER TRUE, NULL E'\\\\N', ENCODING 'UTF8');\n"
         "ROLLBACK;\n"
     )

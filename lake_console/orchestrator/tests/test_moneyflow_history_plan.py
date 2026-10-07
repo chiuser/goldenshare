@@ -14,8 +14,8 @@ from orchestrator.defs.bootstrap.moneyflow_history_plan import (
     build_moneyflow_history_plan as build,
 )
 from orchestrator.defs.bootstrap.moneyflow_history_plan import (
+    history_business_key_fields,
     history_schema,
-    history_source_key_fields,
 )
 from orchestrator.defs.bootstrap.moneyflow_history_plan import (
     moneyflow_history_export_sql as sql,
@@ -27,13 +27,13 @@ from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
 
 # Independent frozen P0 baseline, not generated from the planner under test.
 BASELINE = {
-    "moneyflow": (14089300, 4067, 141, 217, 99839),
-    "moneyflow_cnt_ths": (192009, 495, 26, 26, 7890),
-    "moneyflow_dc": (4278673, 739, 46, 46, 99888),
-    "moneyflow_ind_dc": (364012, 739, 40, 40, 20620),
-    "moneyflow_ind_ths": (44460, 494, 26, 26, 1800),
-    "moneyflow_mkt_dc": (839, 839, 44, 44, 20),
-    "moneyflow_ths": (2191645, 431, 24, 24, 99070),
+    "moneyflow": (14089300, 4067, 217, 99839),
+    "moneyflow_cnt_ths": (192009, 495, 26, 7890),
+    "moneyflow_dc": (4278673, 739, 46, 99888),
+    "moneyflow_ind_dc": (364012, 739, 40, 20620),
+    "moneyflow_ind_ths": (44460, 494, 26, 1800),
+    "moneyflow_mkt_dc": (839, 839, 44, 20),
+    "moneyflow_ths": (2191645, 431, 24, 99070),
 }
 
 
@@ -62,35 +62,27 @@ def small(dataset="moneyflow_dc", rows=1):
 def test_p0_whole_scope_matches_independent_baseline(dataset):
     facts = p0_counts(dataset)
     plan = build(dataset, facts, cutoff="2026-09-30")
-    rows, dates, units, windows, max_rows = BASELINE[dataset]
+    rows, dates, units, max_rows = BASELINE[dataset]
     assert (
         plan.row_count,
         len(plan.date_counts),
-        len(plan.source_units),
-        len(plan.windows),
-    ) == (rows, dates, units, windows)
-    assert max(w.row_count for w in plan.windows) == max_rows
+        len(plan.units),
+    ) == (rows, dates, units)
+    assert max(w.row_count for w in plan.units) == max_rows
     assert plan.formal_file_count == 2 * dates
-    assert sum(u.row_count for u in plan.source_units) == rows
-    assert tuple(day for w in plan.windows for day in w.dates) == tuple(
+    assert sum(u.row_count for u in plan.units) == rows
+    assert tuple(day for w in plan.units for day in w.dates) == tuple(
         f.trade_date for f in facts
     )
     assert all(
         len(w.dates) <= 20
         and w.row_count <= 100000
         and len({d[:4] for d in w.dates}) == 1
-        for w in plan.windows
+        for w in plan.units
     )
     assert build(dataset, reversed(facts), cutoff="2026-09-30") == plan
     validate(plan)
-    if dataset != "moneyflow":
-        assert all(
-            u.dates == w.dates and u.row_count == w.row_count
-            for u, w in zip(plan.source_units, plan.windows, strict=True)
-        )
-    else:
-        assert not any(u.dates for u in plan.source_units)
-        assert plan.source_units[-1].row_count == 89300
+    assert plan.revision == "moneyflow_history_dates_v2"
 
 
 def test_year_date_and_row_boundaries_are_separate():
@@ -101,16 +93,16 @@ def test_year_date_and_row_boundaries_are_separate():
         Count("2026-01-06", 1, 1),
     )
     plan = build("moneyflow_dc", facts, cutoff="2026-09-30")
-    assert [w.row_count for w in plan.windows] == [1, 100000, 1]
-    assert len(plan.source_units) == 3
-    # Read keyset units cross years; write windows still split at year boundaries.
+    assert [w.row_count for w in plan.units] == [1, 100000, 1]
+    assert len(plan.units) == 3
+    # All seven datasets use the same date and calendar-year boundaries.
     ordinary = build("moneyflow", facts, cutoff="2026-09-30")
-    assert len(ordinary.source_units) == 2
-    assert ordinary.windows == plan.windows
+    assert len(ordinary.units) == 3
+    assert ordinary.units == plan.units
     twenty_one = tuple(Count(f"2026-01-{day:02d}", 1, 1) for day in range(1, 22))
     assert [
         len(w.dates)
-        for w in build("moneyflow_dc", twenty_one, cutoff="2026-09-30").windows
+        for w in build("moneyflow_dc", twenty_one, cutoff="2026-09-30").units
     ] == [20, 1]
 
 
@@ -196,13 +188,13 @@ def test_explicit_valid_cutoff_required(cutoff):
 def test_market_one_row_and_independent_schema_keys():
     with pytest.raises(MoneyflowContractError, match="history_market_count"):
         small("moneyflow_mkt_dc", 2)
-    assert history_source_key_fields("moneyflow_ind_dc") == (
+    assert history_business_key_fields("moneyflow_ind_dc") == (
         "trade_date",
         "content_type",
         "name",
     )
-    assert history_source_key_fields("moneyflow") == ("ts_code", "trade_date")
-    assert history_source_key_fields("moneyflow_mkt_dc") == ("trade_date",)
+    assert history_business_key_fields("moneyflow") == ("trade_date", "ts_code")
+    assert history_business_key_fields("moneyflow_mkt_dc") == ("trade_date",)
     assert len({small(dataset).schema_hash for dataset in BASELINE}) == 7
     assert (
         next(
@@ -220,8 +212,8 @@ def test_market_one_row_and_independent_schema_keys():
         ("schema_hash", "0" * 64),
         ("source_counts_hash", "0" * 64),
         ("plan_hash", "0" * 64),
-        ("windows", ()),
-        ("source_units", ()),
+        ("units", ()),
+        ("revision", "moneyflow_history_v1"),
         ("cutoff", "2026-10-08"),
         ("dataset", "moneyflow_ths"),
         ("date_counts", (Count("2026-09-30", 2, 2),)),
@@ -246,10 +238,10 @@ def test_sql_readonly_fixed_projection_and_no_alias_sort(dataset):
         "TO STDOUT WITH (FORMAT CSV, HEADER TRUE, NULL E'\\\\N', ENCODING 'UTF8')"
         in statement
     )
-    assert "LIMIT 100000" in statement
+    assert "LIMIT 100001" in statement
     assert (
         "ORDER BY "
-        + ", ".join(f'source."{key}"' for key in history_source_key_fields(dataset))
+        + ", ".join(f'source."{key}"' for key in history_business_key_fields(dataset))
         in statement
     )
     assert "to_char(source.\"trade_date\", 'YYYY-MM-DD')" in statement
@@ -271,53 +263,18 @@ def test_sql_readonly_fixed_projection_and_no_alias_sort(dataset):
         assert forbidden not in statement
 
 
-def test_keyset_first_continuation_and_closed_verification():
+def test_each_date_unit_has_exact_scope_and_no_code_boundary():
     plan = build(
         "moneyflow",
         (Count("2026-09-29", 60000, 60000), Count("2026-09-30", 50000, 50000)),
         cutoff="2026-09-30",
     )
-    after, through = ("000001.SZ", "2026-09-29"), ("000002.SZ", "2026-09-30")
-    assert "BETWEEN DATE '2026-09-29' AND DATE '2026-09-30'" in sql(plan, 0)
-    assert "> (E'000001.SZ', DATE '2026-09-29')" in sql(plan, 1, after_key=after)
-    assert "<= (E'000002.SZ', DATE '2026-09-30')" in sql(
-        plan, 1, after_key=after, through_key=through
-    )
-    assert " <= " in sql(plan, 0, through_key=through)
-    for unit, kwargs in (
-        (1, {}),
-        (0, {"after_key": after}),
-        (1, {"after_key": through, "through_key": after}),
-    ):
-        with pytest.raises(MoneyflowContractError):
-            sql(plan, unit, **kwargs)
-
-
-@pytest.mark.parametrize(
-    "key",
-    (
-        (),
-        ("", "2026-09-30"),
-        (None, "2026-09-30"),
-        ("0" * 65, "2026-09-30"),
-        ("A\x00", "2026-09-30"),
-        ("A", "20260930"),
-        ("A", "2026-10-01"),
-        ["A", "2026-09-30"],
-    ),
-)
-def test_invalid_keyset_boundary(key):
-    with pytest.raises(MoneyflowContractError):
-        sql(small("moneyflow"), 0, through_key=key)
-
-
-def test_boundary_text_is_quoted_without_assuming_current_security_pool():
-    statement = sql(
-        small("moneyflow"), 0, through_key=("old\\code'; SELECT 1;--", "2026-09-30")
-    )
-    assert "E'old\\\\code''; SELECT 1;--'" in statement
-    with pytest.raises(MoneyflowContractError, match="history_unexpected_keyset"):
-        sql(small(), 0, through_key=("000001.SZ", "2026-09-30"))
+    assert "IN (DATE '2026-09-29')" in sql(plan, 0)
+    assert "IN (DATE '2026-09-30')" in sql(plan, 1)
+    for old_argument in ("after_key", "through_key"):
+        with pytest.raises(TypeError):
+            sql(plan, 0, **{old_argument: ("000001.SZ", "2026-09-30")})
+    assert not hasattr(plan, "source_units") and not hasattr(plan, "windows")
 
 
 @pytest.mark.parametrize("unit_id", (-1, 1, True, 0.0, "0"))
