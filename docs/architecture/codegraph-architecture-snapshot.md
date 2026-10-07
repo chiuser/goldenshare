@@ -360,3 +360,8 @@ CodeGraph query/impact覆盖Ledger、ArchiveStore和ArchiveSupervisor，开发�
 Q3提交b4c590fd后已执行既存本机PG的正式PLAN/APPLY、全业务列幂等重放和4归档读回；.env.web.local仅写入既有独立DSN字段，Web8000及下载/维护CLI现已使用PG。新增显式Ops ArchiveCleanup及迁移CLI互斥--cleanup-plan/--cleanup，严格检查迁移receipt、旧源指纹、关闭连接与精确文件身份；App/正常执行器不import旧源，不自动清理。旧5个SQLite及2个伴随文件待单独授权，PDF/Raw/共享库保留。
 
 CodeGraph query/impact覆盖ArchiveMigration、CLI、ArchiveCleanup和测试，sync/status当前；依赖矩阵、DG/Prod合同不变。真实有限API+物理读回、370项回归及清理待批准清单见[Q4报告](../../reports/wealth_data_center_q4_acceptance_20261007.md)。当前Raw最新10-06，包含10-07的默认查询已验证缺日终态；没有自动改日期/补齐DG或宣称全历史性能。
+
+
+### 数据中心公告Q4旧文件获准清理（2026-10-08）
+
+Q4代码fa08d45d提交后按用户明确授权清理7个旧SQLite/伴随文件，共约328.03MiB。运行期存储继续由既有本机PG承载，App/CLI不引用旧源；378份PDF、正式Raw、锁、绑定和共享SQLite保留，Web8000继续运行。CodeGraph本轮sync/status确认索引当前，边界/依赖矩阵及DG/Prod数据集合同未变。[收尾报告](../../reports/wealth_data_center_q4_cleanup_acceptance_20261008.md)为最新实际状态；上节保留前日未授权清理的历史记录。

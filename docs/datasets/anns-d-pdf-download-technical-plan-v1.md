@@ -1,6 +1,6 @@
 # 上市公司公告 PDF 本地归档技术方案 v1
 
-更新时间：2026-10-07。状态：Q3 已实现，隔离验收见[数据中心 LLD §25](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)及[报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。当前开发版执行口径见本文 §14；§1—§13 为此前 DG/SQLite/DC 阶段的历史记录，原 SQLite 存储、运行时升级及“不依赖 PG”的说明已被 Q3 替代。文件、来源、限流和恢复协议继续有效。正式迁移与切换属于 Q4，尚未执行，当前代码不可提前部署。
+更新时间：2026-10-08。状态：Q1—Q4已完成，本机PG迁移、统一启用和获准旧文件清理见网页LLD §26及[收尾报告](../../reports/wealth_data_center_q4_cleanup_acceptance_20261008.md)。Q3隔离验收见[数据中心 LLD §25](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)及[报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。当前开发版执行口径见本文 §14；§1—§13 为此前 DG/SQLite/DC 阶段的历史记录，原 SQLite 存储、运行时升级及“不依赖 PG”的说明已被 Q3 替代。文件、来源、限流和恢复协议继续有效。本机已启用Q4版本；DG日常稳定性及全历史数据质量继续独立验收。
 
 §1—§12保留此前DG读者、五URL真实归档、台账维护及网页设计阶段的记录；M0—M3为Prod版本历史。原方案提交777d6901、下载器提交9f8faacf，独立旧验收台账曾升级到2；这些历史证据不证明此次schema3或网页已在正式环境执行。
 
@@ -196,3 +196,5 @@ P1 回归包含缺 URL 不请求、游标提交/回滚、被替代来源不请�
 
 
 Q4正式启用记录（2026-10-07）：Q3提交b4c590fd后，已迁移4份旧台账并逐批完整值重放/读回，启用本地PG及恢复Web8000。旧SQLite文件保留，清理必须经独立批准的--cleanup-plan/--cleanup运营流程；不再是运行期后端。[Q4报告](../../reports/wealth_data_center_q4_acceptance_20261007.md)记录378份PDF物理核验、默认363份查询和独立5文件复用，网页LLD§26保存实际配置与未完成边界。
+
+2026-10-08 Q4完成：按用户明确授权提交代码fa08d45d并执行7文件精确清理；PG台账独立可查、378份PDF物理摘要匹配，正式Raw及共享库保留。旧源不再存在，正常启动不迁移、不回退SQLite；[收尾报告](../../reports/wealth_data_center_q4_cleanup_acceptance_20261008.md)和网页LLD§26.4为最新状态。

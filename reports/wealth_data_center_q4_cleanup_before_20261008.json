@@ -1,0 +1,218 @@
+{
+  "archives": [
+    {
+      "archive_id": "6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3",
+      "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+      "root_relative_path": "announcements",
+      "created_at": "2026-10-03T13:18:19.296620+00:00",
+      "source_schema_version": 3,
+      "import_state": "ready",
+      "import_completed_at": "2026-10-07T15:12:14.481628+00:00"
+    },
+    {
+      "archive_id": "ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c",
+      "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+      "root_relative_path": "announcements/dg-source-acceptance-20261005",
+      "created_at": "2026-10-05T15:21:52.719132+00:00",
+      "source_schema_version": 2,
+      "import_state": "ready",
+      "import_completed_at": "2026-10-07T15:12:14.999965+00:00"
+    },
+    {
+      "archive_id": "bb28fc7eca37cbf2a513cc48295d82efad9a55fe023853902181bfeabb24bf9f",
+      "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+      "root_relative_path": "announcements/m3-interrupt-acceptance-20261003",
+      "created_at": "2026-10-03T13:20:31.804573+00:00",
+      "source_schema_version": 2,
+      "import_state": "ready",
+      "import_completed_at": "2026-10-07T15:12:15.527931+00:00"
+    },
+    {
+      "archive_id": "fe6ce589e8fe2f1d6ad0d572e7e194204edef2daa99bc7a555efec1d7f950013",
+      "volume_uuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+      "root_relative_path": "announcements/dc5-acceptance-20261007",
+      "created_at": "2026-10-06T23:53:20.350771+00:00",
+      "source_schema_version": 3,
+      "import_state": "ready",
+      "import_completed_at": "2026-10-07T15:12:16.228987+00:00"
+    }
+  ],
+  "businessCounts": {
+    "6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3": {
+      "runs": 2,
+      "artifacts": 34188,
+      "source_records": 34188,
+      "run_artifacts": 34188,
+      "run_source_days": 0,
+      "cooldown": 1,
+      "archive_execution": 1,
+      "attempt_log": 0,
+      "run_sessions": 0,
+      "command_receipts": 0
+    },
+    "ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c": {
+      "runs": 3,
+      "artifacts": 5,
+      "source_records": 5,
+      "run_artifacts": 15,
+      "run_source_days": 3,
+      "cooldown": 1,
+      "archive_execution": 1,
+      "attempt_log": 0,
+      "run_sessions": 0,
+      "command_receipts": 0
+    },
+    "bb28fc7eca37cbf2a513cc48295d82efad9a55fe023853902181bfeabb24bf9f": {
+      "runs": 5,
+      "artifacts": 5,
+      "source_records": 10,
+      "run_artifacts": 25,
+      "run_source_days": 2,
+      "cooldown": 1,
+      "archive_execution": 1,
+      "attempt_log": 0,
+      "run_sessions": 0,
+      "command_receipts": 0
+    },
+    "fe6ce589e8fe2f1d6ad0d572e7e194204edef2daa99bc7a555efec1d7f950013": {
+      "runs": 4,
+      "artifacts": 5,
+      "source_records": 5,
+      "run_artifacts": 16,
+      "run_source_days": 3,
+      "cooldown": 1,
+      "archive_execution": 1,
+      "attempt_log": 6,
+      "run_sessions": 5,
+      "command_receipts": 4
+    }
+  },
+  "succeededCounts": {
+    "6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3": 363,
+    "ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c": 5,
+    "bb28fc7eca37cbf2a513cc48295d82efad9a55fe023853902181bfeabb24bf9f": 5,
+    "fe6ce589e8fe2f1d6ad0d572e7e194204edef2daa99bc7a555efec1d7f950013": 5
+  },
+  "completedCheckpoints": 48,
+  "retainedFiles": [
+    {
+      "path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/execution.lock",
+      "device": 16777232,
+      "inode": 114085840,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/ad609a131cad03f5d8de8e09cab84ded264842358993a512f2b289476bfc6c4c/execution.lock",
+      "device": 16777232,
+      "inode": 115069753,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/bb28fc7eca37cbf2a513cc48295d82efad9a55fe023853902181bfeabb24bf9f/execution.lock",
+      "device": 16777232,
+      "inode": 115069755,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/fe6ce589e8fe2f1d6ad0d572e7e194204edef2daa99bc7a555efec1d7f950013/execution.lock",
+      "device": 16777232,
+      "inode": 114086809,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/web-archive.json",
+      "device": 16777232,
+      "inode": 114103537,
+      "size": 161,
+      "sha256": "1208d3b7170d74ab55a45995fb9271f54f64b592b6ae4f7aa1333f4642ffe530"
+    },
+    {
+      "path": "/Users/congming/Library/Application Support/Goldenshare/announcement-catalog/e04b7c92bfa1082f05a370b0504bdfcb29f66fb352fbe82a904a71df1db7b79a/catalog-writer.lock",
+      "device": 16777232,
+      "inode": 114085927,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Volumes/datasource/announcements/.state/archive.lock",
+      "device": 16777244,
+      "inode": 19951318,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Volumes/datasource/announcements/dg-source-acceptance-20261005/.state/archive.lock",
+      "device": 16777244,
+      "inode": 20054461,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Volumes/datasource/announcements/m3-interrupt-acceptance-20261003/.state/archive.lock",
+      "device": 16777244,
+      "inode": 19951340,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Volumes/datasource/announcements/dc5-acceptance-20261007/.state/archive.lock",
+      "device": 16777244,
+      "inode": 20060469,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "sharedSQLite": [
+    {
+      "path": "/Users/congming/miniconda3/lib/python3.13/sqlite3/__init__.py",
+      "device": 16777232,
+      "inode": 28493981,
+      "size": 2501
+    },
+    {
+      "path": "/Users/congming/miniconda3/lib/python3.13/lib-dynload/_sqlite3.cpython-313-darwin.so",
+      "device": 16777232,
+      "inode": 28499297,
+      "size": 162880
+    },
+    {
+      "path": "/Users/congming/github/goldenshare/.codegraph/codegraph.db",
+      "device": 16777232,
+      "inode": 67757524,
+      "size": 214392832
+    }
+  ],
+  "rawInventoryCount": 2471,
+  "rawInventoryDigest": "b74a51db42885e0353e672da14f670bc693ca907999f0bfedb6adb66efce307c",
+  "rawSamples": [
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/anns_d/ann_date=2026-05-04/part-000.parquet",
+      "device": 16777244,
+      "inode": 20021922,
+      "size": 1609,
+      "sha256": "26ddae7b006203d4ee8ee0576e4844dbe3e0ff29f78439410f16819861afae14"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/anns_d/ann_date=2026-07-26/part-000.parquet",
+      "device": 16777244,
+      "inode": 20022260,
+      "size": 1807,
+      "sha256": "83562daeb1e87b11dd70ab4dd3985df818ce7c411ff1fbf67bb3a86788330104"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/anns_d/ann_date=2026-10-06/part-000.parquet",
+      "device": 16777244,
+      "inode": 20060715,
+      "size": 192,
+      "sha256": "52137768f19f95a5fee33a2f9d3d6fdf836614416aa5cd7b8a542df88d4881cc"
+    }
+  ],
+  "sourceHttpRequests": 0,
+  "pgWrites": 0,
+  "rawWrites": 0,
+  "pdfWrites": 0
+}

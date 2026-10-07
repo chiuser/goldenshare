@@ -1,0 +1,7 @@
+{
+  "httpStatus": 200,
+  "finalUrl": "http://127.0.0.1:8000/wealth/data-center/announcements",
+  "listener": "COMMAND     PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\npython3.1 90795 congming   12u  IPv4 0x99e4fa1d0813e89e      0t0  TCP 127.0.0.1:8000 (LISTEN)\n",
+  "authentication": "SPA shell GET only; no authenticated GUI acceptance; real authentication configuration unchanged",
+  "sourceHttpRequests": 0
+}

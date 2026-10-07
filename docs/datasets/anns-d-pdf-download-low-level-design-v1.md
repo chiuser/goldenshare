@@ -1,6 +1,6 @@
 # 上市公司公告 PDF 本地归档 LLD v1
 
-更新时间：2026-10-07。状态：Q3 PG执行/CLI切换已实现并进行隔离验收；当前合同与命令见本文 §19，[详细报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。§1—§18 保留此前 SQLite/DC 阶段历史，其中台账路径、schema1/2/3运行时升级和不依赖PG等说明已被§19替代，不再作为当前命令操作指南。正式迁移和统一启用属于 Q4，尚未执行，不能提前部署开发版。
+更新时间：2026-10-08。状态：Q1—Q4已完成，本机PG迁移、统一启用及获准清理见§19.4及[收尾报告](../../reports/wealth_data_center_q4_cleanup_acceptance_20261008.md)；当前合同与命令见本文 §19，[详细报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。§1—§18 保留此前 SQLite/DC 阶段历史，其中台账路径、schema1/2/3运行时升级和不依赖PG等说明已被§19替代，不再作为当前命令操作指南。本机已启用Q4版本；DG日常稳定性及全历史数据质量另行验收。
 
 §1—§16保留2026-10-05及更早阶段当时的实现和验收记录：DG schema2读者/五URL归档/台账维护，以及Prod M0—M3历史。独立旧验收台账曾升级到2，不代表此次已迁移到3。§17为网页技术目标引用。[技术方案](anns-d-pdf-download-technical-plan-v1.md)说明后续范围。
 
@@ -467,7 +467,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.announcement
 {"storage":{"kind":"postgresql","database":"goldenshare_lake_meta","schema":"announcement_archive","archiveId":"归档身份哈希","schemaVersion":1}}
 ```
 
-没有`ledger_path`或顶层`schema_version`。runs/show的`next_before_rowid/next_after_rowid`仍是整数，回传到同名旧CLI参数；导入旧rowid时保留row_seq。原参数错误/启动阻断/文件失败/取消退出码不变，详细测试与实测见Q3报告。正式库、环境与原SQLite尚未操作；下一阶段Q4先PLAN、显式APPLY、读回再切换，文件清理单独批准。
+没有`ledger_path`或顶层`schema_version`。runs/show的`next_before_rowid/next_after_rowid`仍是整数，回传到同名旧CLI参数；导入旧rowid时保留row_seq。原参数错误/启动阻断/文件失败/取消退出码不变，详细测试与实测见Q3报告。Q4已完成正式PLAN、显式APPLY、读回和切换；2026-10-08按用户明确授权清理旧SQLite，见§19.4收尾。
 
 
 ### 19.4 Q4 正式启用记录（2026-10-07）
@@ -475,3 +475,5 @@ GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.announcement
 Q3已提交b4c590fd。Q4已按网页LLD§26执行4份旧台账迁移、完整值重放/读回和统一PG启用；默认363个成功文件及三验收根各5个文件的size/hash全部匹配。只在既有.env.web.local写入独立本地DSN，Web8000已恢复；下载/维护CLI须按§19.3指定同一GOLDENSHARE_ENV_FILE。独立日期验收5条/5文件全部复用，源站请求0；未自动全量下载、未清理旧文件。
 
 迁移工具增加互斥--cleanup-plan（只读清单）和--cleanup（独立获准后删除精确旧文件）。不在下载/查询命令启动时迁移或清理，不卸载共享SQLite。实际清单及下一步批准边界见[Q4报告](../../reports/wealth_data_center_q4_acceptance_20261007.md)。
+
+2026-10-08收尾：用户明确授权清理，Q4代码fa08d45d已提交；重核清单后显式删除7个旧SQLite/伴随文件，共约328.03MiB。PG默认363成功文件可查，4归档378份PDF全部size/hash匹配；Raw、锁、绑定和共享SQLite保留。本机Q4完成，证据见[收尾报告](../../reports/wealth_data_center_q4_cleanup_acceptance_20261008.md)。旧源已删除，迁移/清理命令不再用于日常重复执行；正常CLI使用§19.3同一既有环境文件。
