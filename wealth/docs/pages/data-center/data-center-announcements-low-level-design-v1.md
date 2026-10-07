@@ -1,6 +1,6 @@
 # 数据中心与上市公司公告 LLD v1
 
-日期：2026-10-07。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2提交a1b47713，DC3提交83ffb83f；DC4页面已实现，交付见§19；DC5正式归档验收待推进。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
+日期：2026-10-07。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2提交a1b47713，DC3提交83ffb83f，DC4提交b5534947；DC5本机正式归档验收完成，见§20；DG日常稳定性另行验收。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
 
 ## 1. 硬口径、实现点与验收索引
 
@@ -129,7 +129,7 @@ LIMIT 50 OFFSET :dayOffset;
 
 台账继续DELETE journal、FULL；短read/write事务与query timeout；不因为查询索引采用WAL就更改台账journal。新DAO分别声明每个schema的准确允许列/索引，不能简单跳过原严格校验。
 
-schema1/2识别、写入口原子迁移到3；只读CLI仍可读取已支持的旧schema，不创建/升级/改变文件。迁移不清空/备份/改路径，不重新拉PDF；所有旧结果/来源/冷却保留。老run没有完整冻结/控制证据时`canContinue=false/canRetry=false`，原因“历史任务不支持精确恢复，可新建日期下载”；不可猜旧集合。schema2枚举已封存并具备完整run_artifacts者可经过校验接管；旧active仅在取得锁、证实无执行owner后记中断，不能触发HTTP。迁移必须在归档独占锁内，失败事务回滚，未知schema阻断。正式迁移另行授权。
+schema1/2识别、写入口原子迁移到3；只读CLI仍可读取已支持的旧schema，不创建/升级/改变文件。迁移不清空/备份/改路径，不重新拉PDF；所有旧结果/来源/冷却保留。老run没有完整冻结/控制证据时`canContinue=false/canRetry=false`，原因“历史任务不支持精确恢复，可新建日期下载”；不可猜旧集合。未保存source_policy的历史任务同时`canRecheck=false`，与执行器的检查接纳前提一致；有策略的当前阻断任务继续提供检查。schema2枚举已封存并具备完整run_artifacts者可经过校验接管；旧active仅在取得锁、证实无执行owner后记中断，不能触发HTTP。迁移必须在归档独占锁内，失败事务回滚，未知schema阻断。正式迁移另行授权。
 
 | 事务unit | 原子事实 | 禁止夹带 |
 | --- | --- | --- |
@@ -568,3 +568,23 @@ DC4列表每页50条仍由后端分页，页面表区上限494px并独立滚动�
 R01—R19实际代码、正负例、24画板及截图对应见[DC4验收记录](../../../../reports/wealth_data_center_dc4_acceptance_20261007.md)和[机器证据](../../../../reports/wealth_data_center_dc4_acceptance_20261007.json)。真实浏览器以实际API/Query/DAO/运行器执行：67条公告→64个文件+2无URL，原2失败经单项和剩余全部失败重试恢复，原failed=2保留、unresolved=0；原创建POST仅1次。查询公司/标题不进入日期下载payload，已下载筛选返回65条关联公告；拔盘状态NULL、来源503不是空结果；Prod首页无卡。返回/前进保留草稿，未知tab纠正，未知run明确不可获取。极端7状态是临时台账合成视觉样本，不当成执行故障验收。
 
 Wealth全量、专项、typecheck/build、62项实际后端Web回归及4项分层检查均通过；完整数量、时长、控制台/网络、图片和哈希由验收记录给出。共享顶栏/面包屑优先于Figma示例的尺寸差异明确留档；未更改共享CSS。正式外盘、台账schema迁移、来源索引初始化和源站最小下载—停止—恢复—物理对账仍待DC5；本阶段未启用正式开关、未部署或下载真实PDF。
+
+
+## 20. DC5正式资源与独立下载验收（2026-10-07）
+
+用户“提交修改，然后进入DC5”，DC4已提交`b5534947`。本阶段执行§6旧台账迁移、§4请求范围索引和§12最小真实运行，证据见[DC5记录](../../../../reports/wealth_data_center_dc5_acceptance_20261007.md)及[机器证据](../../../../reports/wealth_data_center_dc5_acceptance_20261007.json)。
+
+| 硬口径 | 实际落点与验收 |
+| --- | --- |
+| R01/R19本地部署、配置和边界 | `.env.web.local`启用§5既有开关；实际公告lifespan/API消费正式资源，未登录401；Prod强制关闭；不增加用户参数或修改CLI/DG合同 |
+| R03/R05—R07来源、查询、状态 | 30个完整日29619条，另7/26的5条；名称/代码/PAYH、标题98条、已下载306与未下载29313、50条分页及第587页；缺10/5—07返回503而非空态 |
+| R10/R11独占、迁移、持久化 | Volume双锁内正式schema1→3；原五张事实表全部原字段逐行摘要一致，integrity_check=ok；34188记录不等于34188已下载文件；仅迁移默认归档，旧历史保留 |
+| R08/R12预览、日期范围、限速 | 独立目录7/26全部5条/5文件；无公司/标题限制；预览HTTP0，实际5个源站GET全部200，最短结束→开始5.153秒 |
+| R13—R15停止、继续、精确重试 | 原run处理2/5后停止，继续剩余3；测试进程注入一次请求前文件失败，关联重试只有1key；原失败1保留，unresolved降至0；零请求重放复用5 |
+| R16—R18物理成果、检查、历史 | 实际5个PDF size/hash全部matched，Raw指纹不变；正式旧历史API/文件分页可读；无source_policy的旧blocked任务关闭canRecheck，与Supervisor接纳前提一致 |
+
+查询资格修正只改RunQuery的一个前提，真实路由测试覆盖schema1/2升级后的禁止项，既有当前阻断任务检查正例继续通过；后端103项、分层4项通过。CodeGraph explore/impact和实际消费者核验覆盖RunQuery、Supervisor、App装配与DownloadPanel；sync/status无滞后，依赖矩阵不变。
+
+最小真实下载只替换归档身份端口以选择独立验收根；生产网页仍固定announcements。真实API仅隔离登录身份，不访问认证数据库；本轮未重跑浏览器，DC4视觉/交互记录仍有效。原成果、其他台账和验收PDF保留；无备份、删表、全量下载或DG/Prod写入。
+
+DG最新日期和连续稳定性仍独立验收。10/5—07未落地前默认30日范围会正确显示来源未就绪；本阶段不自行补湖或弱化日期完整性。所有验收线程已关闭，本机开关在用`.env.web.local`启动Web后生效。

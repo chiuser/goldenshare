@@ -1,0 +1,887 @@
+{
+  "date": "2026-10-07",
+  "scope": "DC5 local acceptance; DG freshness acceptance remains independent",
+  "baseCommit": "b5534947",
+  "formalMigration": {
+    "schemaBefore": 1,
+    "schemaAfter": 3,
+    "ledgerPath": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/6ae38d3a5436526b8e6a941086bda5ce366397699eea6d8d59fd598817d7f4f3/downloads.sqlite",
+    "volumeUuid": "8C5A534D-EAE1-42A2-A7D5-D24DEB820E29",
+    "relativeRoot": "announcements",
+    "preserved": {
+      "runs": {
+        "count": 2,
+        "sha256": "f8ca8be4623da4f2a2fd7f5d9c418b7ff6d1b796754ea8f2e8ace4e609e37e7f"
+      },
+      "artifacts": {
+        "count": 34188,
+        "sha256": "98311e46abc2cdd62552775439d4d7e21b1e6e07fc6e90fa477179af648be7e9"
+      },
+      "source_records": {
+        "count": 34188,
+        "sha256": "58e48708ddc1e42bc86b376f0311a8b4a68e731154e586d7474dc65e48489ec2"
+      },
+      "run_artifacts": {
+        "count": 34188,
+        "sha256": "25604614925e187733d591fe628e9f34fa4d85a73e96c86264e41b6882ad568e"
+      },
+      "cooldown": {
+        "count": 1,
+        "sha256": "1c92946b23e39d2f35163bada640f184a7ca7c3661e1381eaa1b1cbebfba4170"
+      }
+    },
+    "integrity": "ok",
+    "migrationSeconds": 0.46456837514415383,
+    "artifactStates": {
+      "pending": 33825,
+      "succeeded": 363
+    }
+  },
+  "realAcceptance": {
+    "stages": {
+      "complete30": {
+        "httpStatus": 200,
+        "total": 29619,
+        "pageItems": 50,
+        "statusAvailable": true,
+        "seconds": 34.513595290947706,
+        "firstRows": [
+          {
+            "recordKey": "21d5465f1764a17f56a7e34aed7eb675aa2198af0f503ed43df99efc78fb593a",
+            "annDate": "2026-10-01",
+            "tsCode": "001246.SZ",
+            "companyName": "N力勤资源",
+            "companyNameSource": "master",
+            "title": "H股公告（翌日披露表）",
+            "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-10-01/1225589809.PDF",
+            "downloadStatus": "undownloaded",
+            "statusCheckedAt": "2026-10-06T23:53:14.056723+00:00"
+          },
+          {
+            "recordKey": "677f37e5106bb03af7198652962d3085979ba04cac33480dedf0fb287849a7a1",
+            "annDate": "2026-10-01",
+            "tsCode": "001246.SZ",
+            "companyName": "N力勤资源",
+            "companyNameSource": "master",
+            "title": "H股公告（董事会薪酬委员会工作细则）",
+            "sourceUrl": "http://static.cninfo.com.cn/finalpage/2026-10-01/1225589854.PDF",
+            "downloadStatus": "undownloaded",
+            "statusCheckedAt": "2026-10-06T23:53:14.056723+00:00"
+          }
+        ]
+      },
+      "default": {
+        "code": "DC_SOURCE_UNAVAILABLE",
+        "status": 503,
+        "seconds": 0.2875572079792619
+      },
+      "company-000001": {
+        "httpStatus": 200,
+        "items": [
+          {
+            "tsCode": "000001.SZ",
+            "name": "平安银行",
+            "initials": "PAYH",
+            "matchedAlias": null,
+            "nameSource": "master",
+            "matchKind": "exactCode"
+          }
+        ]
+      },
+      "company-平安银行": {
+        "httpStatus": 200,
+        "items": [
+          {
+            "tsCode": "000001.SZ",
+            "name": "平安银行",
+            "initials": "PAYH",
+            "matchedAlias": null,
+            "nameSource": "master",
+            "matchKind": "name"
+          }
+        ]
+      },
+      "company-PAYH": {
+        "httpStatus": 200,
+        "items": [
+          {
+            "tsCode": "000001.SZ",
+            "name": "平安银行",
+            "initials": "PAYH",
+            "matchedAlias": null,
+            "nameSource": "master",
+            "matchKind": "initials"
+          }
+        ]
+      },
+      "catalog": {
+        "path": "/Users/congming/Library/Application Support/Goldenshare/announcement-catalog/e04b7c92bfa1082f05a370b0504bdfcb29f66fb352fbe82a904a71df1db7b79a/catalog.sqlite",
+        "bytes": 44974080,
+        "meta": {
+          "singleton": 1,
+          "schema_version": 2,
+          "source_scope": "dg-anns-d:29d836f27d7addddd6da9d7b14557170515b074dc3d136b903f3ca8ea1571bb3",
+          "revision": 31,
+          "name_generation": "6bec09b459814a4d9d9def35693106fe",
+          "name_version": "603a91ccfc8aff0d88a58b5e7d3cb02a62f46d83ca6d573b631a8b997547cd44",
+          "dictionary_version": "829598ca54c23840e91052cdbfdf72d83dbf74a3a57e3052d37694414a0514ee",
+          "published_at": "2026-10-06T23:53:13.894472+00:00",
+          "name_facts": "{\"namechange\": {\"footer_count\": 14229, \"mtime_ns\": 1790759146605295429, \"opened_dev\": 16777244, \"opened_ino\": 19806029, \"sha256\": \"b66e9925e3134cf82033e36ab3b9c1a084ec2bfb4cea4f62d42657b9f5feab6c\", \"size\": 323183}, \"stock_basic\": {\"footer_count\": 5911, \"mtime_ns\": 1790759721879562519, \"opened_dev\": 16777244, \"opened_ino\": 19806081, \"sha256\": \"01fb859e27899f496560df7fb1155637f3be3b44e1bbf509a13dc5d5468f4a58\", \"size\": 454129}}"
+        }
+      },
+      "prodClosed": {
+        "flagTrue": false
+      },
+      "preview": {
+        "previewId": "b0e205ddfa6d4887b4ce8eab546d2fb2",
+        "state": "ready",
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "intervalSeconds": 5.0,
+        "recordCount": 5,
+        "artifactCount": 5,
+        "missingUrlCount": 0,
+        "reusableEstimate": 0,
+        "downloadEstimate": 5,
+        "canStart": true,
+        "expiresAt": "2026-10-07T00:08:19.611975+00:00",
+        "preparation": {
+          "datesScanned": 1,
+          "datesTotal": 1,
+          "recordsScanned": 5
+        },
+        "error": null
+      },
+      "stopped": {
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "rootRunId": "c1a7160f40e544b88b0b044c7e79462e",
+        "retryOfRunId": null,
+        "batchKind": "date",
+        "phase": "stopped",
+        "revision": 10,
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "intervalSeconds": 5.0,
+        "archiveLocation": "/Volumes/datasource/announcements/dc5-acceptance-20261007",
+        "createdAt": "2026-10-06T23:53:20.356316+00:00",
+        "startedAt": "2026-10-06T23:53:20.356316+00:00",
+        "finishedAt": "2026-10-06T23:53:22.843687+00:00",
+        "recordCount": 5,
+        "missingUrlCount": 0,
+        "total": 5,
+        "processed": 2,
+        "succeeded": 1,
+        "reused": 0,
+        "failed": 1,
+        "remaining": 3,
+        "percent": 40.0,
+        "unresolvedFailureCount": 1,
+        "preparation": {
+          "datesScanned": 1,
+          "datesTotal": 1,
+          "currentDate": "2026-07-26"
+        },
+        "current": null,
+        "wait": null,
+        "businessUpdatedAt": "2026-10-06T23:53:22.571378+00:00",
+        "heartbeatAt": "2026-10-06T23:53:20.864242+00:00",
+        "etaSeconds": null,
+        "blockedReason": null,
+        "actions": {
+          "canStop": false,
+          "canContinue": true,
+          "canRetryFailed": true,
+          "canCreateNew": true,
+          "canRecheck": false,
+          "reason": null
+        },
+        "check": null
+      },
+      "continued": {
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "rootRunId": "c1a7160f40e544b88b0b044c7e79462e",
+        "retryOfRunId": null,
+        "batchKind": "date",
+        "phase": "partial_failed",
+        "revision": 27,
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "intervalSeconds": 5.0,
+        "archiveLocation": "/Volumes/datasource/announcements/dc5-acceptance-20261007",
+        "createdAt": "2026-10-06T23:53:20.356316+00:00",
+        "startedAt": "2026-10-06T23:53:20.356316+00:00",
+        "finishedAt": "2026-10-06T23:53:38.863091+00:00",
+        "recordCount": 5,
+        "missingUrlCount": 0,
+        "total": 5,
+        "processed": 5,
+        "succeeded": 4,
+        "reused": 0,
+        "failed": 1,
+        "remaining": 0,
+        "percent": 100.0,
+        "unresolvedFailureCount": 1,
+        "preparation": {
+          "datesScanned": 1,
+          "datesTotal": 1,
+          "currentDate": "2026-07-26"
+        },
+        "current": null,
+        "wait": null,
+        "businessUpdatedAt": "2026-10-06T23:53:38.862375+00:00",
+        "heartbeatAt": "2026-10-06T23:53:34.523536+00:00",
+        "etaSeconds": null,
+        "blockedReason": null,
+        "actions": {
+          "canStop": false,
+          "canContinue": false,
+          "canRetryFailed": true,
+          "canCreateNew": true,
+          "canRecheck": false,
+          "reason": null
+        },
+        "check": null
+      },
+      "retried": {
+        "runId": "394fce6348e64303ad22fc1640d26ddb",
+        "rootRunId": "c1a7160f40e544b88b0b044c7e79462e",
+        "retryOfRunId": "c1a7160f40e544b88b0b044c7e79462e",
+        "batchKind": "retry",
+        "phase": "completed",
+        "revision": 8,
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "intervalSeconds": 5.0,
+        "archiveLocation": "/Volumes/datasource/announcements/dc5-acceptance-20261007",
+        "createdAt": "2026-10-06T23:53:39.841962+00:00",
+        "startedAt": "2026-10-06T23:53:39.841962+00:00",
+        "finishedAt": "2026-10-06T23:53:44.215643+00:00",
+        "recordCount": 5,
+        "missingUrlCount": 0,
+        "total": 1,
+        "processed": 1,
+        "succeeded": 1,
+        "reused": 0,
+        "failed": 0,
+        "remaining": 0,
+        "percent": 100.0,
+        "unresolvedFailureCount": 0,
+        "preparation": {
+          "datesScanned": 0,
+          "datesTotal": 0,
+          "currentDate": null
+        },
+        "current": null,
+        "wait": null,
+        "businessUpdatedAt": "2026-10-06T23:53:44.215155+00:00",
+        "heartbeatAt": "2026-10-06T23:53:40.348207+00:00",
+        "etaSeconds": null,
+        "blockedReason": null,
+        "actions": {
+          "canStop": false,
+          "canContinue": false,
+          "canRetryFailed": false,
+          "canCreateNew": true,
+          "canRecheck": false,
+          "reason": null
+        },
+        "check": null
+      },
+      "originalAfterRetry": {
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "rootRunId": "c1a7160f40e544b88b0b044c7e79462e",
+        "retryOfRunId": null,
+        "batchKind": "date",
+        "phase": "partial_failed",
+        "revision": 27,
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "intervalSeconds": 5.0,
+        "archiveLocation": "/Volumes/datasource/announcements/dc5-acceptance-20261007",
+        "createdAt": "2026-10-06T23:53:20.356316+00:00",
+        "startedAt": "2026-10-06T23:53:20.356316+00:00",
+        "finishedAt": "2026-10-06T23:53:38.863091+00:00",
+        "recordCount": 5,
+        "missingUrlCount": 0,
+        "total": 5,
+        "processed": 5,
+        "succeeded": 4,
+        "reused": 0,
+        "failed": 1,
+        "remaining": 0,
+        "percent": 100.0,
+        "unresolvedFailureCount": 0,
+        "preparation": {
+          "datesScanned": 1,
+          "datesTotal": 1,
+          "currentDate": "2026-07-26"
+        },
+        "current": null,
+        "wait": null,
+        "businessUpdatedAt": "2026-10-06T23:53:38.862375+00:00",
+        "heartbeatAt": "2026-10-06T23:53:34.523536+00:00",
+        "etaSeconds": null,
+        "blockedReason": null,
+        "actions": {
+          "canStop": false,
+          "canContinue": false,
+          "canRetryFailed": false,
+          "canCreateNew": true,
+          "canRecheck": false,
+          "reason": null
+        },
+        "check": null
+      },
+      "replayPreview": {
+        "previewId": "ebe1280e35ab453980899624194df8be",
+        "state": "ready",
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "intervalSeconds": 5.0,
+        "recordCount": 5,
+        "artifactCount": 5,
+        "missingUrlCount": 0,
+        "reusableEstimate": 5,
+        "downloadEstimate": 0,
+        "canStart": true,
+        "expiresAt": "2026-10-07T00:08:46.253251+00:00",
+        "preparation": {
+          "datesScanned": 1,
+          "datesTotal": 1,
+          "recordsScanned": 5
+        },
+        "error": null
+      },
+      "replay": {
+        "runId": "e796922f687e48d59811698bb2e4d28f",
+        "rootRunId": "e796922f687e48d59811698bb2e4d28f",
+        "retryOfRunId": null,
+        "batchKind": "date",
+        "phase": "completed",
+        "revision": 9,
+        "startDate": "2026-07-26",
+        "endDate": "2026-07-26",
+        "intervalSeconds": 5.0,
+        "archiveLocation": "/Volumes/datasource/announcements/dc5-acceptance-20261007",
+        "createdAt": "2026-10-06T23:53:47.027863+00:00",
+        "startedAt": "2026-10-06T23:53:47.027863+00:00",
+        "finishedAt": "2026-10-06T23:53:49.270400+00:00",
+        "recordCount": 5,
+        "missingUrlCount": 0,
+        "total": 5,
+        "processed": 5,
+        "succeeded": 0,
+        "reused": 5,
+        "failed": 0,
+        "remaining": 0,
+        "percent": 100.0,
+        "unresolvedFailureCount": 0,
+        "preparation": {
+          "datesScanned": 1,
+          "datesTotal": 1,
+          "currentDate": "2026-07-26"
+        },
+        "current": null,
+        "wait": null,
+        "businessUpdatedAt": "2026-10-06T23:53:49.268895+00:00",
+        "heartbeatAt": "2026-10-06T23:53:47.535030+00:00",
+        "etaSeconds": null,
+        "blockedReason": null,
+        "actions": {
+          "canStop": false,
+          "canContinue": false,
+          "canRetryFailed": false,
+          "canCreateNew": true,
+          "canRecheck": false,
+          "reason": null
+        },
+        "check": null
+      },
+      "physical": [
+        {
+          "artifact_key": "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/301215.SZ/301215中汽股份投资者关系管理信息20260726.pdf",
+          "expected_size": 109946,
+          "expected_sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0",
+          "final": {
+            "status": "matched",
+            "size": 109946,
+            "sha256": "9b2e2376fec9afc31a716ba73a58f12629ddf0c4eb369b5ab3eae2461f982ac0"
+          },
+          "part": null
+        },
+        {
+          "artifact_key": "5690d089b11a6f938b57af81289b467c1a6d159ad4cc3a1ea038f58b720df1c2",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/002252.SZ/2026年7月24日投资者关系活动记录表.pdf",
+          "expected_size": 346832,
+          "expected_sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c",
+          "final": {
+            "status": "matched",
+            "size": 346832,
+            "sha256": "7fe50b8a503a3b6002be722e0434dcf2a0704ebc294d1a38f2a4295c60f7a65c"
+          },
+          "part": null
+        },
+        {
+          "artifact_key": "8ad7e6b63fe03d1dc31f56fb88f4eb5440fd465b164f12ce6a28959126b3ba34",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/000883.SZ/000883湖北能源投资者关系管理信息20260726.pdf",
+          "expected_size": 142453,
+          "expected_sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894",
+          "final": {
+            "status": "matched",
+            "size": 142453,
+            "sha256": "a5ab110004768e46c6bea8278a8ecc13b01b78af23c5f5f586d21c098f85d894"
+          },
+          "part": null
+        },
+        {
+          "artifact_key": "af6b47418faca23a4c152937fd322544b1618c5f0406ac13d2d551899b2d47e2",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/300750.SZ/2026年7月24日投资者关系活动记录表.pdf",
+          "expected_size": 203070,
+          "expected_sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437",
+          "final": {
+            "status": "matched",
+            "size": 203070,
+            "sha256": "e3e0d885ef439c1ed49f3c0d91c7d3ce34a7124232432b89d5d6dcea226e5437"
+          },
+          "part": null
+        },
+        {
+          "artifact_key": "f35c7fba020f46a68728cff4768a3a23d070d06866ceff537d150901c230ccf0",
+          "ledger_state": "succeeded",
+          "relative_path": "2026-07-26/300241.SZ/瑞丰光电投资者关系活动记录表.pdf",
+          "expected_size": 123298,
+          "expected_sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c",
+          "final": {
+            "status": "matched",
+            "size": 123298,
+            "sha256": "757d00de265382837c0b936d1c7654d3c381f331f4215963b6f2ca5addb8cc9c"
+          },
+          "part": null
+        }
+      ],
+      "sourceUnchanged": {
+        "day": "2026-07-26",
+        "sha256": "83562daeb1e87b11dd70ab4dd3985df818ce7c411ff1fbf67bb3a86788330104"
+      },
+      "network": {
+        "requests": 5,
+        "minimumEndToStartSeconds": 5.15341591835022,
+        "replayRequests": 0,
+        "previewRequests": 0
+      },
+      "archive": {
+        "output": "/Volumes/datasource/announcements/dc5-acceptance-20261007",
+        "ledger": "/Users/congming/Library/Application Support/Goldenshare/announcement-download/fe6ce589e8fe2f1d6ad0d572e7e194204edef2daa99bc7a555efec1d7f950013/downloads.sqlite",
+        "peakRssBytes": 340951040
+      }
+    },
+    "http": [
+      {
+        "method": "GET",
+        "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442095.PDF",
+        "startedAt": 1791330802.222856,
+        "status": 200,
+        "finishedAt": 1791330802.569702
+      },
+      {
+        "method": "GET",
+        "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442156.PDF",
+        "startedAt": 1791330807.73616,
+        "status": 200,
+        "finishedAt": 1791330807.9755561
+      },
+      {
+        "method": "GET",
+        "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442224.PDF",
+        "startedAt": 1791330813.14495,
+        "status": 200,
+        "finishedAt": 1791330813.472297
+      },
+      {
+        "method": "GET",
+        "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442225.PDF",
+        "startedAt": 1791330818.6257129,
+        "status": 200,
+        "finishedAt": 1791330818.860627
+      },
+      {
+        "method": "GET",
+        "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442223.PDF",
+        "startedAt": 1791330824.018927,
+        "status": 200,
+        "finishedAt": 1791330824.21387
+      }
+    ],
+    "progress": [
+      {
+        "at": 1791330800.3657868,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "preparing",
+        "processed": 0,
+        "total": null,
+        "revision": 0,
+        "businessUpdatedAt": "2026-10-06T23:53:20.356316+00:00"
+      },
+      {
+        "at": 1791330800.522593,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "preparing",
+        "processed": 0,
+        "total": null,
+        "revision": 0,
+        "businessUpdatedAt": "2026-10-06T23:53:20.356316+00:00"
+      },
+      {
+        "at": 1791330800.678001,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "preparing",
+        "processed": 0,
+        "total": null,
+        "revision": 0,
+        "businessUpdatedAt": "2026-10-06T23:53:20.356316+00:00"
+      },
+      {
+        "at": 1791330800.8307369,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "preparing",
+        "processed": 0,
+        "total": null,
+        "revision": 0,
+        "businessUpdatedAt": "2026-10-06T23:53:20.356316+00:00"
+      },
+      {
+        "at": 1791330800.987884,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "preparing",
+        "processed": 0,
+        "total": null,
+        "revision": 1,
+        "businessUpdatedAt": "2026-10-06T23:53:20.885211+00:00"
+      },
+      {
+        "at": 1791330801.144827,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "preparing",
+        "processed": 0,
+        "total": null,
+        "revision": 1,
+        "businessUpdatedAt": "2026-10-06T23:53:20.885211+00:00"
+      },
+      {
+        "at": 1791330801.297835,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "preparing",
+        "processed": 0,
+        "total": null,
+        "revision": 1,
+        "businessUpdatedAt": "2026-10-06T23:53:20.885211+00:00"
+      },
+      {
+        "at": 1791330801.455241,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "preparing",
+        "processed": 0,
+        "total": null,
+        "revision": 1,
+        "businessUpdatedAt": "2026-10-06T23:53:20.885211+00:00"
+      },
+      {
+        "at": 1791330801.611379,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "downloading",
+        "processed": 0,
+        "total": 5,
+        "revision": 3,
+        "businessUpdatedAt": "2026-10-06T23:53:21.530234+00:00"
+      },
+      {
+        "at": 1791330801.764238,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "downloading",
+        "processed": 0,
+        "total": 5,
+        "revision": 3,
+        "businessUpdatedAt": "2026-10-06T23:53:21.530234+00:00"
+      },
+      {
+        "at": 1791330801.920863,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "downloading",
+        "processed": 1,
+        "total": 5,
+        "revision": 4,
+        "businessUpdatedAt": "2026-10-06T23:53:21.815906+00:00"
+      },
+      {
+        "at": 1791330802.07842,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "downloading",
+        "processed": 1,
+        "total": 5,
+        "revision": 4,
+        "businessUpdatedAt": "2026-10-06T23:53:21.815906+00:00"
+      },
+      {
+        "at": 1791330802.235112,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "downloading",
+        "processed": 1,
+        "total": 5,
+        "revision": 5,
+        "businessUpdatedAt": "2026-10-06T23:53:22.222399+00:00"
+      },
+      {
+        "at": 1791330802.391875,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "downloading",
+        "processed": 1,
+        "total": 5,
+        "revision": 6,
+        "businessUpdatedAt": "2026-10-06T23:53:22.324888+00:00"
+      },
+      {
+        "at": 1791330802.5472121,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "downloading",
+        "processed": 1,
+        "total": 5,
+        "revision": 7,
+        "businessUpdatedAt": "2026-10-06T23:53:22.399572+00:00"
+      },
+      {
+        "at": 1791330802.704577,
+        "runId": "c1a7160f40e544b88b0b044c7e79462e",
+        "phase": "downloading",
+        "processed": 2,
+        "total": 5,
+        "revision": 8,
+        "businessUpdatedAt": "2026-10-06T23:53:22.571378+00:00"
+      }
+    ],
+    "injectedFailure": {
+      "artifactKey": "129c437ecd371960b1d74e1fbcaf0791d77726e817eae9fba4181810609f48ec",
+      "url": "http://static.cninfo.com.cn/finalpage/2026-07-26/1225442223.PDF",
+      "kind": "test-only pre-network FileFailed",
+      "sourceRowUnchanged": true
+    }
+  },
+  "formalApi": [
+    {
+      "label": "unauthenticated",
+      "status": 401
+    },
+    {
+      "label": "modules",
+      "status": 200,
+      "seconds": null,
+      "modules": [
+        {
+          "moduleKey": "announcements",
+          "title": "上市公司公告",
+          "description": "查询公告与管理本地归档",
+          "path": "/wealth/data-center/announcements",
+          "badge": "本地"
+        }
+      ]
+    },
+    {
+      "label": "context",
+      "status": 200,
+      "seconds": null,
+      "moduleEnabled": true,
+      "archiveAvailability": "ready",
+      "sourceAvailability": "ready",
+      "indexAvailability": "ready",
+      "archiveLocation": "/Volumes/datasource/announcements",
+      "currentRunId": null,
+      "queryDefaults": {
+        "startDate": "2026-09-08",
+        "endDate": "2026-10-07",
+        "downloadStatus": "all"
+      },
+      "downloadDefaults": {
+        "startDate": null,
+        "endDate": null,
+        "intervalSeconds": 5
+      },
+      "policy": {
+        "pageSize": 50,
+        "companyLimit": 20,
+        "pollSeconds": 2
+      },
+      "observedAnnDate": "2026-10-04",
+      "lastIndexedAt": "2026-10-06T23:53:19.345417+00:00",
+      "sourceUpdateSucceededAt": null
+    },
+    {
+      "label": "legacy-history",
+      "status": 200,
+      "seconds": null,
+      "items": [
+        {
+          "runId": "0e9bdd89040b44e39fa05b6104d74057",
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-30",
+          "phase": "blocked",
+          "createdAt": "2026-10-03T14:22:12.326938+00:00",
+          "total": 34183,
+          "succeeded": 358,
+          "reused": 0,
+          "failed": 0,
+          "rootRunId": "0e9bdd89040b44e39fa05b6104d74057",
+          "retryOfRunId": null
+        },
+        {
+          "runId": "ec621d88e4bd40048066eed252600fd0",
+          "startDate": "2026-07-26",
+          "endDate": "2026-07-26",
+          "phase": "completed",
+          "createdAt": "2026-10-03T13:18:44.217491+00:00",
+          "total": 5,
+          "succeeded": 5,
+          "reused": 0,
+          "failed": 0,
+          "rootRunId": "ec621d88e4bd40048066eed252600fd0",
+          "retryOfRunId": null
+        }
+      ]
+    },
+    {
+      "label": "legacy-task",
+      "status": 200,
+      "seconds": null,
+      "actions": {
+        "canStop": false,
+        "canContinue": false,
+        "canRetryFailed": false,
+        "canCreateNew": true,
+        "canRecheck": false,
+        "reason": "历史任务不支持精确恢复，可新建日期下载"
+      }
+    },
+    {
+      "label": "legacy-files",
+      "status": 200,
+      "seconds": null,
+      "count": 50
+    },
+    {
+      "label": "legacy-task",
+      "status": 200,
+      "seconds": null,
+      "actions": {
+        "canStop": false,
+        "canContinue": false,
+        "canRetryFailed": false,
+        "canCreateNew": true,
+        "canRecheck": false,
+        "reason": "历史任务不支持精确恢复，可新建日期下载"
+      }
+    },
+    {
+      "label": "legacy-files",
+      "status": 200,
+      "seconds": null,
+      "count": 5
+    },
+    {
+      "label": "title",
+      "status": 200,
+      "seconds": 0.9045567498542368,
+      "total": 98,
+      "pageItems": 50,
+      "downloadStatusAvailable": true
+    },
+    {
+      "label": "title-lastPage",
+      "status": 200,
+      "seconds": 0.10835741716437042,
+      "total": 98,
+      "page": 2,
+      "pageItems": 48
+    },
+    {
+      "label": "downloaded",
+      "status": 200,
+      "seconds": 1.897494292119518,
+      "total": 306,
+      "pageItems": 50,
+      "downloadStatusAvailable": true
+    },
+    {
+      "label": "downloaded-lastPage",
+      "status": 200,
+      "seconds": 0.09426216688007116,
+      "total": 306,
+      "page": 7,
+      "pageItems": 6
+    },
+    {
+      "label": "undownloaded",
+      "status": 200,
+      "seconds": 1.8986324169673026,
+      "total": 29313,
+      "pageItems": 50,
+      "downloadStatusAvailable": true
+    },
+    {
+      "label": "undownloaded-lastPage",
+      "status": 200,
+      "seconds": 0.09427645802497864,
+      "total": 29313,
+      "page": 587,
+      "pageItems": 13
+    },
+    {
+      "label": "local-config",
+      "appEnv": "local",
+      "enabled": true
+    }
+  ],
+  "validation": {
+    "backendTests": 103,
+    "architectureTests": 4,
+    "productionWrites": false,
+    "dgWrites": false,
+    "fullDownload": false
+  },
+  "limitations": [
+    "Raw partitions 2026-10-05 through 2026-10-07 absent; default query returns DC_SOURCE_UNAVAILABLE",
+    "Formal API login principal isolated; real authentication database not accessed",
+    "One pre-network failure injected in temporary acceptance process; five successful transfers all production transport and source URLs",
+    "No new browser run; visual and browser acceptance in DC4 report",
+    "Local .env.web.local flag enabled; no persistent backend service started"
+  ],
+  "sourceFiles": [
+    {
+      "path": "src/biz/queries/wealth/data_center/run_query.py",
+      "sha256": "c3098a25be27dfaa12f8a245c4a540ad762fae71b142cb2151800f519ecd16ce"
+    },
+    {
+      "path": "tests/web/test_wealth_data_center_downloads.py",
+      "sha256": "2fc894a8525132f439fc854bc07aadfc4c4f426317ab2973dd8735ad9fe57a5f"
+    }
+  ],
+  "acceptanceHarnesses": [
+    {
+      "path": "/private/tmp/dc5_formal.py",
+      "sha256": "fd26de2587ef0bf7285d827f756c9a6c1c9e4309e565252ed2163eb41513bead",
+      "location": "local temporary acceptance script, not product entrypoint"
+    },
+    {
+      "path": "/private/tmp/dc5_accept.py",
+      "sha256": "d6861ecbcb999107ea9e7bc4fb40e8ede2127c9081818e2b93161beb92379d49",
+      "location": "local temporary acceptance script, not product entrypoint"
+    },
+    {
+      "path": "/private/tmp/dc5_api.py",
+      "sha256": "b6c74a0fefc1a7d8e318e9c5ae16b5ccbe128af2c7f2c3fe6af2b117438d5d5a",
+      "location": "local temporary acceptance script, not product entrypoint"
+    }
+  ]
+}

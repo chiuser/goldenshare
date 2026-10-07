@@ -445,6 +445,31 @@ def test_history_and_files_are_bounded_and_old_schema_not_migrated(downloads):
     finally:d.binding.ledger_path=previous
 
 
+@pytest.mark.parametrize('version',[1,2])
+def test_upgraded_legacy_blocked_run_has_no_recheck_action(downloads,version):
+    from test_announcement_download_dg import seed_v1
+    from test_announcement_archive_runtime import seed_v2
+    d=downloads;path=d.binding.path.parent/'upgraded-legacy.sqlite'
+    (seed_v1 if version==1 else seed_v2)(path,d.archive)
+    run=uuid.uuid4().hex
+    with sqlite3.connect(path) as db:
+        db.execute("UPDATE runs SET run_id=?,phase='blocked'",(run,))
+        db.execute('UPDATE run_artifacts SET run_id=?',(run,))
+        db.execute('UPDATE source_records SET first_seen_run=?,last_seen_run=?',(run,run))
+    Ledger(path,d.archive[0].volume_uuid,d.archive[0].relative_root).close()
+    previous=d.binding.ledger_path;d.binding.ledger_path=lambda value=None:path
+    before=path.read_bytes()
+    try:
+        response=d.client.get(P+'/runs/'+run)
+        assert response.status_code==200,response.text
+        actions=response.json()['actions']
+        assert not actions['canContinue'] and not actions['canRetryFailed']
+        assert not actions['canRecheck']
+        assert actions['reason']=='历史任务不支持精确恢复，可新建日期下载'
+        assert path.read_bytes()==before and not d.calls
+    finally:d.binding.ledger_path=previous
+
+
 def test_binding_invalid_does_not_create_ledger(downloads):
     d=downloads;d.binding.path.write_text(json.dumps({'version':1,'archiveLocation':'/tmp'}))
     response=d.client.get(P+'/runs')
