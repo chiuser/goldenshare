@@ -358,7 +358,7 @@ P0已核清历史差异、每日完成与异常设计、截止接续和资源边
 
 ## 14. 交付与本版完成状态
 
-当前状态（2026-10-07）：P1四个小数据集moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths、moneyflow_ind_dc的候选能力与独立隔离验收已完成，DC及P1收尾提交5dc15c94，退出要求对账见实施细则§12。本轮已进入P2，普通moneyflow候选能力及隔离验收完成，见实施细则§13和本文§19；普通moneyflow修改本次提交归档。P2其余两个个股数据集及P3/P4/P5尚未执行，七数据集整体尚未完成正式接入。下列P0/P1首轮记录保留历史状态。
+当前状态（2026-10-07）：P1四个小数据集moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths、moneyflow_ind_dc的候选能力与独立隔离验收已完成，DC及P1收尾提交5dc15c94，退出要求对账见实施细则§12。P2普通moneyflow已提交973d580d；本轮moneyflow_dc候选能力及隔离验收完成，见实施细则§14和本文§20，moneyflow_dc修改本次提交归档。P2剩moneyflow_ths，P3/P4/P5尚未执行，七数据集整体尚未完成正式接入。下列P0/P1首轮记录保留历史状态。
 
 本版完成：七数据集/来源范围、审计基线、字段投影、原单位与身份、两层拓扑、路径/命名、来源切换边界、历史导出与恢复、日更闭合要求、拟定性能/配置预算、实现影响面和验收阶段。
 
@@ -415,4 +415,12 @@ DC修改与P1收尾记录已提交5dc15c94。P1四个小数据集候选能力与
 
 MCP真实20260930为5572行，含348行.BJ，Raw/Silver各5572行、reject=0、全字段差异=0。默认20字段与显式查询一致，额外trade_count存在但继续排除在批准投影之外。真实数值循环的20000行压力样本22请求/20页文件，峰值419.7MiB；真实日样本峰值201.0MiB。性能不含真实网络及60秒等待，不能视为正式日更验收。
 
-普通个股127项与P1/请求策略225项合计352项通过；治理12项+474子测试、静态合同113项、Ruff通过。[本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json)留档。P2普通moneyflow修改本次提交归档；下一轮moneyflow_dc，再moneyflow_ths。P2尚未整体收尾，P3/P4/P5仍未执行。
+普通个股127项与P1/请求策略225项合计352项通过；治理12项+474子测试、静态合同113项、Ruff通过。[本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json)留档。P2普通moneyflow已提交973d580d；当时下一轮moneyflow_dc，最新进度见§20。P2尚未整体收尾，P3/P4/P5仍未执行。
+
+## 20. P2 DC个股资金流进度（2026-10-07）
+
+moneyflow_dc候选能力完成，独立15字段与trade_date/ts_code主键，name可空且不入键，金额万元/最新价元/比例%原值保留。复用moneyflow_daily分页/两轮稳定/严格数值校验/逐页持久化及物理检查，仅新增DC个股固定schema与候选白名单，不改通用算法、共享资源、Prod入口或依赖矩阵。原“尚未接入DC个股”的未知dataset负例同步迁为moneyflow_ths，既有跨dataset拒绝保留。
+
+MCP20260930返回6024行，SZ3154/SH2522/BJ348，独立键均唯一；默认、显式15字段、关键身份/金额字段一致。源/Raw/Silver6024行，reject0，全字段差异0。本地文档6000条与MCP8000条/实际6024条差异已校准备注，仍沿用P0已实测的2000/2000/2000/24分页，两轮8请求。20,000行真实数值压力样本22请求，峰值379.2MiB；真实样本峰值246.2MiB，保持原768MiB/512MB/0spill门禁。
+
+新增DC个股113项与既有352项共465项通过；治理12项+474子测试、静态合同113项、Ruff通过。开发硬口径/配置审计/CodeGraph影响面和实测边界见实施细则§14，[结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json)留档。性能不含真实网络和等待，不等于P5新交易日验收。本轮moneyflow_dc修改本次提交归档；P2剩moneyflow_ths，历史bootstrap/正式提升与DG编排仍属于P3/P4/P5。

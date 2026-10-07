@@ -1,4 +1,4 @@
-"""Ordinary stock moneyflow: fixed Prod projection and isolated daily candidates."""
+"""Independent DC stock units, identity, pagination and bounded candidate acceptance."""
 
 import json
 import os
@@ -26,31 +26,41 @@ from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
 from orchestrator.defs.source_readiness.moneyflow_daily import collect_daily_moneyflow
 
 DAY = "2026-09-30"
-DATASET = "moneyflow"
+DATASET = "moneyflow_dc"
+# Independent approved Prod projection; do not derive expected fields from the implementation.
 FIELDS = (
-    "ts_code",
     "trade_date",
-    "buy_sm_vol",
-    "buy_sm_amount",
-    "sell_sm_vol",
-    "sell_sm_amount",
-    "buy_md_vol",
-    "buy_md_amount",
-    "sell_md_vol",
-    "sell_md_amount",
-    "buy_lg_vol",
-    "buy_lg_amount",
-    "sell_lg_vol",
-    "sell_lg_amount",
-    "buy_elg_vol",
+    "ts_code",
+    "name",
+    "pct_change",
+    "close",
+    "net_amount",
+    "net_amount_rate",
     "buy_elg_amount",
-    "sell_elg_vol",
-    "sell_elg_amount",
-    "net_mf_vol",
-    "net_mf_amount",
+    "buy_elg_amount_rate",
+    "buy_lg_amount",
+    "buy_lg_amount_rate",
+    "buy_md_amount",
+    "buy_md_amount_rate",
+    "buy_sm_amount",
+    "buy_sm_amount_rate",
 )
-VOLUMES = tuple(f for f in FIELDS if f.endswith("_vol"))
-AMOUNTS = tuple(f for f in FIELDS if f.endswith("_amount"))
+NUMERICS = FIELDS[3:]
+AMOUNTS = (
+    "net_amount",
+    "buy_elg_amount",
+    "buy_lg_amount",
+    "buy_md_amount",
+    "buy_sm_amount",
+)
+RATES = (
+    "pct_change",
+    "net_amount_rate",
+    "buy_elg_amount_rate",
+    "buy_lg_amount_rate",
+    "buy_md_amount_rate",
+    "buy_sm_amount_rate",
+)
 
 
 class Clock:
@@ -80,14 +90,13 @@ class Source:
         )
 
 
-def row(code="000001.SZ"):
+def row(code="000001.SZ", name="样本"):
     return {
-        "ts_code": code,
         "trade_date": "20260930",
-        **{f: 23 for f in VOLUMES},
-        **{f: "5.1234" for f in AMOUNTS},
-        "net_mf_vol": -77,
-        "net_mf_amount": "-91.4321",
+        "ts_code": code,
+        "name": name,
+        **{f: "5.1234" for f in NUMERICS},
+        "net_amount": "-91.4321",
     }
 
 
@@ -121,7 +130,6 @@ def silver(raw):
 
 
 def fresh_process(test_name):
-    # Each Dagster worker has its own native allocation high-water mark.
     if os.environ.get("MONEYFLOW_FIXTURE_CHILD") == "1":
         return False
     result = subprocess.run(
@@ -149,8 +157,24 @@ def fresh_process(test_name):
     return True
 
 
-def test_independent_schema_market_and_source_units(tmp_path):
-    rows = [row("920344.BJ"), row("退市代码.SZ"), row("600000.SH")]
+def fixture_rows():
+    return json.loads(
+        (Path(__file__).parent / "fixtures/moneyflow_dc_20260930.json").read_text()
+    )
+
+
+def numeric_type(field):
+    return (
+        "DECIMAL(24,4)"
+        if field in AMOUNTS
+        else "DECIMAL(18,4)"
+        if field == "close"
+        else "DECIMAL(10,4)"
+    )
+
+
+def test_independent_schema_stock_keys_nullable_name_and_wan_units(tmp_path):
+    rows = [row("920202.BJ", None), row("退市样本.SZ"), row("600000.SH")]
     raw, source, clock = build(tmp_path, rows)
     target = silver(raw)
     with moneyflow_candidate_connection(raw.parent) as c:
@@ -161,13 +185,11 @@ def test_independent_schema_market_and_source_units(tmp_path):
             assert [(r[0], r[1]) for r in actual] == [
                 (
                     f,
-                    "VARCHAR"
-                    if f == "ts_code"
-                    else date_type
+                    date_type
                     if f == "trade_date"
-                    else "BIGINT"
-                    if f in VOLUMES
-                    else "DECIMAL(20,4)",
+                    else "VARCHAR"
+                    if f in ("ts_code", "name")
+                    else numeric_type(f),
                 )
                 for f in FIELDS
             ]
@@ -177,11 +199,14 @@ def test_independent_schema_market_and_source_units(tmp_path):
         )
         assert (
             c.execute(
-                "SELECT buy_sm_vol,buy_sm_amount,net_mf_vol,net_mf_amount FROM read_parquet(?)",
+                "SELECT net_amount,buy_elg_amount,buy_lg_amount FROM read_parquet(?)",
                 [str(target)],
             ).fetchall()
-            == [(23, Decimal("5.1234"), -77, Decimal("-91.4321"))] * 3
+            == [(Decimal("-91.4321"), Decimal("5.1234"), Decimal("5.1234"))] * 3
         )
+        assert c.execute(
+            "SELECT name FROM read_parquet(?) WHERE ts_code='920202.BJ'", [str(target)]
+        ).fetchone() == (None,)
     assert clock.now >= 60
     assert (
         source.calls
@@ -190,16 +215,14 @@ def test_independent_schema_market_and_source_units(tmp_path):
     )
 
 
-def test_real_public_5572_rows_readback(tmp_path):
-    if fresh_process("test_real_public_5572_rows_readback"):
+def test_real_public_6024_rows_full_field_readback(tmp_path):
+    if fresh_process("test_real_public_6024_rows_full_field_readback"):
         return
-    rows = json.loads(
-        (Path(__file__).parent / "fixtures/moneyflow_20260930.json").read_text()
-    )
-    assert len(rows) == 5572
+    rows = fixture_rows()
+    assert len(rows) == 6024
     raw, source, _ = build(tmp_path, rows)
     target = silver(raw)
-    assert [r[1]["offset"] for r in source.calls] == [0, 2000, 4000] * 2
+    assert [r[1]["offset"] for r in source.calls] == [0, 2000, 4000, 6000] * 2
     assert all(
         r[0] == DATASET
         and r[2] == FIELDS
@@ -209,111 +232,102 @@ def test_real_public_5572_rows_readback(tmp_path):
     with moneyflow_candidate_connection(raw.parent) as c:
         assert (
             audit_daily_moneyflow_standardization(c, raw, target, DAY, dataset=DATASET)
-            == 5572
+            == 6024
         )
-        assert (
+        assert dict(
             c.execute(
-                "SELECT count(*) FROM read_parquet(?) WHERE ends_with(ts_code,'.BJ')",
+                "SELECT split_part(ts_code,'.',2),count(*) FROM read_parquet(?) GROUP BY 1",
                 [str(target)],
-            ).fetchone()[0]
-            == 348
-        )
+            ).fetchall()
+        ) == {"SZ": 3154, "SH": 2522, "BJ": 348}
         assert c.execute(
-            "SELECT buy_sm_vol,buy_sm_amount,net_mf_vol,net_mf_amount FROM read_parquet(?) WHERE ts_code='000001.SZ'",
+            "SELECT name,net_amount,buy_elg_amount,buy_lg_amount FROM read_parquet(?) WHERE ts_code='000001.SZ'",
             [str(target)],
-        ).fetchone() == (205754, Decimal("23685.55"), 301546, Decimal("34829.27"))
-        # Source JSON -> typed Raw equality covers every value, not only row counts.
-        fixture = Path(__file__).parent / "fixtures/moneyflow_20260930.json"
+        ).fetchone() == (
+            "平安银行",
+            Decimal("12506.12"),
+            Decimal("-2657.3"),
+            Decimal("15163.42"),
+        )
+        source_json = Path(__file__).parent / "fixtures/moneyflow_dc_20260930.json"
         projection = ",".join(
-            f"{f}::{'VARCHAR' if f in ('ts_code', 'trade_date') else 'BIGINT' if f in VOLUMES else 'DECIMAL(20,4)'} AS {f}"
+            f"{f}::{'VARCHAR' if f in FIELDS[:3] else numeric_type(f)} AS {f}"
             for f in FIELDS
         )
         assert (
             c.execute(
-                f"SELECT count(*) FROM (SELECT {projection} FROM read_json_auto($fixture) EXCEPT SELECT * FROM read_parquet($raw))",
-                {"fixture": str(fixture), "raw": str(raw)},
+                f"SELECT count(*) FROM ((SELECT {projection} FROM read_json_auto($source) EXCEPT SELECT * FROM read_parquet($raw)) UNION ALL "
+                f"(SELECT * FROM read_parquet($raw) EXCEPT SELECT {projection} FROM read_json_auto($source)))",
+                {"source": str(source_json), "raw": str(raw)},
             ).fetchone()[0]
             == 0
         )
     receipt = json.loads((raw.parent / "receipt.json").read_text())
-    assert receipt["row_count"] == receipt["scope_row_counts"]["all"] == 5572
-    assert receipt["request_count"] == 6 and receipt["retry_count"] == 0
-    assert receipt["peak_rss_bytes"] <= 768 * 1024**2
+    assert receipt["row_count"] == receipt["scope_row_counts"]["all"] == 6024
+    assert receipt["request_count"] == 8 and receipt["retry_count"] == 0
 
 
-@pytest.mark.parametrize("field", VOLUMES)
-@pytest.mark.parametrize("value", [-(2**63), 2**63 - 1, "1000e-3", None])
-def test_bigint_exact_limits_all_nine_columns(tmp_path, field, value):
-    r = {**row(), field: value}
-    raw, _, _ = build(tmp_path, [r])
-    target = silver(raw)
-    with moneyflow_candidate_connection(raw.parent) as c:
-        expected = None if value is None else int(Decimal(str(value)))
-        assert (
-            c.execute(f"SELECT {field} FROM read_parquet(?)", [str(target)]).fetchone()[
-                0
-            ]
-            == expected
-        )
-
-
-@pytest.mark.parametrize("field", VOLUMES)
-@pytest.mark.parametrize("value", [2**63, -(2**63) - 1, "1.1"])
-def test_bigint_overflow_and_rounding_rejected_all_nine_columns(tmp_path, field, value):
-    with pytest.raises(MoneyflowContractError, match="source_numeric_contract"):
-        build(tmp_path, [{**row(), field: value}])
-    assert not list(tmp_path.rglob("raw.parquet"))
-
-
-@pytest.mark.parametrize("field", AMOUNTS)
-@pytest.mark.parametrize("value", ["0.00001", "10000000000000000"])
-def test_amount_precision_and_range_all_nine_columns(tmp_path, field, value):
-    with pytest.raises(MoneyflowContractError, match="source_numeric_contract"):
-        build(tmp_path, [{**row(), field: value}])
-
-
-@pytest.mark.parametrize(
-    "value",
-    ["9999999999999999.9999", "-9999999999999999.9999", "1.23000", Decimal("0.1234")],
-)
-def test_decimal_exact_limits(tmp_path, value):
-    raw, _, _ = build(tmp_path, [{**row(), "net_mf_amount": value}])
+def test_zero_flows_and_all_nulls_are_source_facts(tmp_path):
+    raw, _, _ = build(
+        tmp_path,
+        [
+            {**row("000001.SZ", None), **{f: None for f in NUMERICS}},
+            {**row("000002.SZ"), **{f: 0 for f in NUMERICS}},
+        ],
+    )
     with moneyflow_candidate_connection(raw.parent) as c:
         assert c.execute(
-            "SELECT net_mf_amount FROM read_parquet(?)", [str(silver(raw))]
-        ).fetchone()[0] == Decimal(str(value))
+            "SELECT * EXCLUDE(trade_date,ts_code,name) FROM read_parquet(?) ORDER BY ts_code",
+            [str(silver(raw))],
+        ).fetchall() == [(None,) * 12, (Decimal(0),) * 12]
 
 
-def test_all_numeric_nulls_preserved(tmp_path):
-    raw, _, _ = build(tmp_path, [{**row(), **{f: None for f in (*VOLUMES, *AMOUNTS)}}])
+@pytest.mark.parametrize("field", NUMERICS)
+@pytest.mark.parametrize("sign", ["", "-"])
+def test_exact_numeric_bounds_all_fields(tmp_path, field, sign):
+    digits = 20 if field in AMOUNTS else 14 if field == "close" else 6
+    value = sign + "9" * digits + ".9999"
+    raw, _, _ = build(tmp_path, [{**row(), field: value}])
     with moneyflow_candidate_connection(raw.parent) as c:
-        assert (
-            c.execute(
-                "SELECT * EXCLUDE(ts_code,trade_date) FROM read_parquet(?)",
-                [str(silver(raw))],
-            ).fetchone()
-            == (None,) * 18
-        )
+        assert c.execute(
+            f"SELECT {field} FROM read_parquet(?)", [str(silver(raw))]
+        ).fetchone()[0] == Decimal(value)
+
+
+@pytest.mark.parametrize("field", NUMERICS)
+@pytest.mark.parametrize("invalid", ["scale", "overflow", "bool", "nonfinite"])
+def test_precision_range_and_types_reject_all_fields(tmp_path, field, invalid):
+    digits = 20 if field in AMOUNTS else 14 if field == "close" else 6
+    value = {
+        "scale": "0.00001",
+        "overflow": "1" + "0" * digits,
+        "bool": True,
+        "nonfinite": "Infinity",
+    }[invalid]
+    with pytest.raises(
+        MoneyflowContractError, match="source_numeric_contract"
+    ) as error:
+        build(tmp_path, [{**row(), field: value}])
+    assert field in str(error.value) and "000001.SZ" in str(error.value)
+    assert not list(tmp_path.rglob("raw.parquet"))
 
 
 @pytest.mark.parametrize(
     "key,value",
     [
-        ("ts_code", None),
-        ("ts_code", " "),
-        ("ts_code", 123),
         ("trade_date", "20260929"),
         ("trade_date", 20260930),
-        ("buy_sm_vol", True),
-        ("buy_sm_vol", float(2**53)),
-        ("net_mf_amount", True),
-        ("net_mf_amount", "NaN"),
-        ("net_mf_amount", "Infinity"),
-        ("net_mf_amount", "1e-999999999999"),
-        ("net_mf_amount", float(2**53)),
+        ("ts_code", None),
+        ("ts_code", " "),
+        ("ts_code", 1),
+        ("name", True),
+        ("name", 1),
+        ("net_amount", "NaN"),
+        ("net_amount", float(2**53)),
+        ("net_amount", "1e-999999999999"),
     ],
 )
-def test_invalid_source_scalar(tmp_path, key, value):
+def test_invalid_identity_name_and_unsafe_numeric(tmp_path, key, value):
     with pytest.raises(MoneyflowContractError):
         build(tmp_path, [{**row(), key: value}])
 
@@ -322,12 +336,12 @@ def test_invalid_source_scalar(tmp_path, key, value):
     "rows",
     [
         [],
-        [row(), row()],
-        [{**row(), "trade_count": 1}],
-        [{k: v for k, v in row().items() if k != "net_mf_vol"}],
+        [row(), row(name="换名称")],
+        [{**row(), "content_type": "行业"}],
+        [{k: v for k, v in row().items() if k != "name"}],
     ],
 )
-def test_empty_duplicates_and_schema_unready(tmp_path, rows):
+def test_empty_duplicate_key_and_foreign_schema_unready(tmp_path, rows):
     with pytest.raises(MoneyflowContractError):
         build(tmp_path, rows)
     assert (
@@ -338,16 +352,21 @@ def test_empty_duplicates_and_schema_unready(tmp_path, rows):
 
 @pytest.mark.parametrize(
     "second",
-    [[{**row(), "buy_md_vol": 99}], [row("600000.SH")], [row(), row("600000.SH")]],
+    [
+        [{**row(), "net_amount": "99"}],
+        [row(name="源名称修订")],
+        [row("600000.SH")],
+        [row(), row("600000.SH")],
+    ],
 )
-def test_second_round_any_field_key_or_count_changed(tmp_path, second):
+def test_any_numeric_name_key_or_count_revision_blocks(tmp_path, second):
     with pytest.raises(MoneyflowContractError, match="source_unstable"):
         build(tmp_path, second=second)
     with pytest.raises(MoneyflowContractError, match="raw_source_proof"):
         silver(next(tmp_path.rglob("raw.parquet")))
 
 
-def test_cross_page_duplicate_and_full_page_termination(tmp_path):
+def test_cross_page_duplicate_and_exact_page_termination(tmp_path):
     rows = [row(f"{i:06d}.SZ") for i in range(2000)]
     with pytest.raises(MoneyflowContractError, match="source_duplicate_key"):
         build(tmp_path / "bad", pages=[rows, [rows[0]]])
@@ -356,15 +375,12 @@ def test_cross_page_duplicate_and_full_page_termination(tmp_path):
     assert len(list(raw.parent.rglob("page-*.json"))) == 2
 
 
-def test_exact_20000_row_pressure_and_total_rejection(tmp_path):
-    if fresh_process("test_exact_20000_row_pressure_and_total_rejection"):
+def test_exact_20000_rows_and_total_budget_rejection(tmp_path):
+    if fresh_process("test_exact_20000_rows_and_total_budget_rejection"):
         return
-    observed = json.loads(
-        (Path(__file__).parent / "fixtures/moneyflow_20260930.json").read_text()
-    )
+    observed = fixture_rows()
     rows = [
-        {**observed[i % len(observed)], "ts_code": f"{i:06d}.SZ"}
-        for i in range(20000)
+        {**observed[i % len(observed)], "ts_code": f"{i:06d}.SZ"} for i in range(20000)
     ]
     raw, source, _ = build(tmp_path / "good", rows)
     assert len(source.calls) == 22 and len(list(raw.parent.rglob("page-*.json"))) == 20
@@ -384,13 +400,13 @@ def test_exact_20000_row_pressure_and_total_rejection(tmp_path):
     assert len(list((tmp_path / "bad").rglob("page-*.json"))) == 10
 
 
-def test_page_oversized_and_empty_columns_fail(tmp_path):
+def test_oversized_page_and_missing_columns_rejected(tmp_path):
     for i, page in enumerate(([row()] * 2001, SimpleNamespace(columns=(), rows=[]))):
         with pytest.raises(MoneyflowContractError, match="page_request_failed"):
             build(tmp_path / str(i), pages=[page])
 
 
-def test_retry_shared_request_budget(monkeypatch, tmp_path):
+def test_retry_and_shared_request_budget(monkeypatch, tmp_path):
     from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
     raw, source, _ = build(
@@ -410,7 +426,7 @@ def test_retry_shared_request_budget(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("during_wait", [False, True])
-def test_cancel_preserves_page_or_unready_round(tmp_path, during_wait):
+def test_cancel_after_page_or_during_wait(tmp_path, during_wait):
     clock, source = (
         Clock(),
         Source([[row()] if during_wait else [row(f"{i:06d}.SZ") for i in range(2000)]]),
@@ -460,14 +476,14 @@ def test_elapsed_budget_includes_conversion_and_wait():
 @pytest.mark.parametrize(
     "change",
     [
-        {"dataset": "moneyflow_dc"},
+        {"dataset": "moneyflow_ind_dc"},
         {"source": "prod"},
         {"row_count": 2},
         {"scope_row_counts": {"all": 2}},
         {"elapsed_ms": 300000},
     ],
 )
-def test_silver_proof_tampered_or_budget_rejected(tmp_path, change):
+def test_silver_proof_and_cumulative_budget_revalidated(tmp_path, change):
     raw, _, _ = build(tmp_path)
     p = raw.parent / "receipt.json"
     p.write_text(json.dumps({**json.loads(p.read_text()), **change}))
@@ -475,12 +491,14 @@ def test_silver_proof_tampered_or_budget_rejected(tmp_path, change):
         silver(raw)
 
 
-def test_no_overwrite_and_file_hash_tamper(tmp_path):
+def test_conflicts_and_hash_tamper(tmp_path):
     raw, _, _ = build(tmp_path)
     with pytest.raises(MoneyflowContractError, match="operation_conflict"):
         build(tmp_path)
     silver(raw)
-    with pytest.raises(MoneyflowContractError, match="operation_conflict|raw_source_proof"):
+    with pytest.raises(
+        MoneyflowContractError, match="operation_conflict|raw_source_proof"
+    ):
         silver(raw)
     (raw.parent / "verification.parquet").write_bytes(b"tampered")
     with pytest.raises(MoneyflowContractError, match="raw_source_proof"):
@@ -491,12 +509,12 @@ def test_no_overwrite_and_file_hash_tamper(tmp_path):
     "projection",
     [
         "* REPLACE('20260929' AS trade_date)",
-        "* EXCLUDE(buy_sm_vol)",
-        "* REPLACE(1::INTEGER AS buy_sm_vol)",
+        "* EXCLUDE(name)",
+        "* REPLACE(1::INTEGER AS net_amount)",
         "* REPLACE('' AS ts_code)",
     ],
 )
-def test_physical_date_key_and_schema_fail(tmp_path, projection):
+def test_physical_schema_date_and_key_fail(tmp_path, projection):
     raw, _, _ = build(tmp_path)
     bad = raw.parent / "bad.parquet"
     with moneyflow_candidate_connection(raw.parent) as c:
@@ -508,10 +526,9 @@ def test_physical_date_key_and_schema_fail(tmp_path, projection):
             audit_daily_moneyflow_file(c, bad, DAY, dataset=DATASET)
 
 
-def test_physical_duplicate_and_value_difference_fail(tmp_path):
+def test_physical_duplicate_and_business_difference(tmp_path):
     raw, _, _ = build(tmp_path)
-    bad = raw.parent / "bad.parquet"
-    changed = raw.parent / "changed.parquet"
+    bad, changed = raw.parent / "bad.parquet", raw.parent / "changed.parquet"
     with moneyflow_candidate_connection(raw.parent) as c:
         c.execute(
             "COPY (SELECT * FROM read_parquet($raw) UNION ALL SELECT * FROM read_parquet($raw)) TO $bad (FORMAT PARQUET)",
@@ -520,14 +537,14 @@ def test_physical_duplicate_and_value_difference_fail(tmp_path):
         with pytest.raises(MoneyflowContractError, match="file_count_date_or_key"):
             audit_daily_moneyflow_file(c, bad, DAY, dataset=DATASET)
         c.execute(
-            "COPY (SELECT * REPLACE(99::BIGINT AS net_mf_vol) FROM read_parquet($raw)) TO $bad (FORMAT PARQUET)",
+            "COPY (SELECT * REPLACE('改名称' AS name) FROM read_parquet($raw)) TO $bad (FORMAT PARQUET)",
             {"raw": str(raw), "bad": str(changed)},
         )
         with pytest.raises(MoneyflowContractError, match="source_unstable"):
             audit_daily_moneyflow_equality(c, raw, changed, dataset=DATASET)
 
 
-def test_memory_budget_before_source_call(monkeypatch, tmp_path):
+def test_memory_limit_before_source_call(monkeypatch, tmp_path):
     import orchestrator.defs.run_contracts.moneyflow as contract
 
     monkeypatch.setattr(
@@ -545,7 +562,7 @@ def test_memory_budget_before_source_call(monkeypatch, tmp_path):
     assert source.calls == []
 
 
-def test_foreign_formal_retired_and_unknown_dataset_paths_fail_before_io(tmp_path):
+def test_paths_unknown_dataset_and_cross_dataset_files_fail(tmp_path):
     for dataset, base, reason in (
         (DATASET, Path("/Volumes/datasource/data_lake"), "formal_lake_is_not_staging"),
         (
@@ -558,6 +575,11 @@ def test_foreign_formal_retired_and_unknown_dataset_paths_fail_before_io(tmp_pat
         raw = base / "moneyflow/test" / dataset / DAY / "raw.parquet"
         with pytest.raises(MoneyflowContractError, match=reason):
             silver(raw)
+    raw, _, _ = build(tmp_path)
+    with moneyflow_candidate_connection(raw.parent) as c, pytest.raises(
+        MoneyflowContractError, match="file_schema"
+    ):
+        audit_daily_moneyflow_file(c, raw, DAY, dataset="moneyflow_ind_dc")
     source = Source([])
     with pytest.raises(MoneyflowContractError, match="daily_dataset"):
         build_daily_moneyflow_raw_candidate(

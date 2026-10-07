@@ -325,7 +325,7 @@ def test_formal_cross_dataset_and_unknown_dataset_rejected_before_io(tmp_path):
     with pytest.raises(MoneyflowContractError, match="raw_candidate_path"):
         build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with pytest.raises(MoneyflowContractError, match="candidate_dataset"):
-        moneyflow_candidate_directory(tmp_path, "test", DAY, dataset="moneyflow_dc")
+        moneyflow_candidate_directory(tmp_path, "test", DAY, dataset="moneyflow_ths")
 
 
 def test_no_schema_is_not_empty_success(tmp_path):

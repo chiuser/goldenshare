@@ -2,10 +2,12 @@
 
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA,
+    RAW_TUSHARE_MONEYFLOW_DC_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_IND_DC_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_SCHEMA,
     SILVER_MONEYFLOW_CNT_THS_SCHEMA,
+    SILVER_MONEYFLOW_DC_SCHEMA,
     SILVER_MONEYFLOW_IND_DC_SCHEMA,
     SILVER_MONEYFLOW_IND_THS_SCHEMA,
     SILVER_MONEYFLOW_SCHEMA,
@@ -17,6 +19,8 @@ def daily_schema(dataset: str, *, silver=False):
     """Select a fixed source contract; never infer identity from page contents."""
     if dataset == "moneyflow":
         return SILVER_MONEYFLOW_SCHEMA if silver else RAW_TUSHARE_MONEYFLOW_SCHEMA
+    if dataset == "moneyflow_dc":
+        return SILVER_MONEYFLOW_DC_SCHEMA if silver else RAW_TUSHARE_MONEYFLOW_DC_SCHEMA
     if dataset == "moneyflow_ind_ths":
         return (
             SILVER_MONEYFLOW_IND_THS_SCHEMA
