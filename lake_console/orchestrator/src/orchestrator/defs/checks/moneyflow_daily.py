@@ -1,4 +1,4 @@
-"""Physical independent board contracts for candidates and future blocking checks."""
+"""Physical independent daily moneyflow contracts for candidates and future blocking checks."""
 
 from datetime import date
 from pathlib import Path
@@ -8,15 +8,15 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MoneyflowContractError,
     market_moneyflow_day,
 )
-from orchestrator.defs.run_contracts.moneyflow_board import (
-    board_key_fields,
-    board_request_scopes,
-    board_schema,
+from orchestrator.defs.run_contracts.moneyflow_daily import (
+    daily_key_fields,
+    daily_request_scopes,
+    daily_schema,
 )
 
 
-def board_file_scope_counts(connection, path: Path, *, dataset: str):
-    scopes = board_request_scopes(dataset)
+def daily_file_scope_counts(connection, path: Path, *, dataset: str):
+    scopes = daily_request_scopes(dataset)
     if scopes == (None,):
         return {
             "all": connection.execute(
@@ -35,11 +35,11 @@ def board_file_scope_counts(connection, path: Path, *, dataset: str):
     return counts
 
 
-def audit_board_moneyflow_file(
+def audit_daily_moneyflow_file(
     connection, path: Path, trade_date: str, *, dataset: str, silver=False
 ) -> int:
     day = market_moneyflow_day(trade_date)
-    schema = board_schema(dataset, silver=silver)
+    schema = daily_schema(dataset, silver=silver)
     if not path.is_file():
         raise MoneyflowContractError("file_missing")
     try:
@@ -49,7 +49,7 @@ def audit_board_moneyflow_file(
         ).fetchall()
         if [(r[0], r[1]) for r in actual] != [(c.name, c.type) for c in schema]:
             raise MoneyflowContractError("file_schema")
-        key_fields = board_key_fields(dataset)
+        key_fields = daily_key_fields(dataset)
         key_sql = ",".join(key_fields)
         invalid_key = " OR ".join(
             f"{f} IS NULL OR trim({f})=''" for f in key_fields if f != "trade_date"
@@ -62,7 +62,7 @@ def audit_board_moneyflow_file(
         ).fetchone()
         if not 0 < count <= MONEYFLOW_MAX_ROWS_PER_ROUND or invalid or keys != count:
             raise MoneyflowContractError("file_count_date_or_key")
-        board_file_scope_counts(connection, path, dataset=dataset)
+        daily_file_scope_counts(connection, path, dataset=dataset)
         return count
     except MoneyflowContractError:
         raise
@@ -70,11 +70,11 @@ def audit_board_moneyflow_file(
         raise MoneyflowContractError("file_unreadable") from error
 
 
-def audit_board_moneyflow_equality(
+def audit_daily_moneyflow_equality(
     connection, first: Path, second: Path, *, dataset: str, second_silver=False
 ) -> None:
     for path, silver in ((first, False), (second, second_silver)):
-        schema = board_schema(dataset, silver=silver)
+        schema = daily_schema(dataset, silver=silver)
         actual = connection.execute(
             "DESCRIBE SELECT * FROM read_parquet(?,hive_partitioning=false)",
             [str(path)],
@@ -99,18 +99,18 @@ def audit_board_moneyflow_equality(
         )
 
 
-def audit_board_moneyflow_standardization(
+def audit_daily_moneyflow_standardization(
     connection, raw: Path, silver: Path, trade_date: str, *, dataset: str
 ) -> int:
-    count = audit_board_moneyflow_file(connection, raw, trade_date, dataset=dataset)
+    count = audit_daily_moneyflow_file(connection, raw, trade_date, dataset=dataset)
     if (
-        audit_board_moneyflow_file(
+        audit_daily_moneyflow_file(
             connection, silver, trade_date, silver=True, dataset=dataset
         )
         != count
     ):
         raise MoneyflowContractError("standardization_count")
-    audit_board_moneyflow_equality(
+    audit_daily_moneyflow_equality(
         connection, raw, silver, second_silver=True, dataset=dataset
     )
     return count

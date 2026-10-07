@@ -1,0 +1,114 @@
+{
+  "audited_on": "2026-10-07",
+  "phase": "P2",
+  "dataset": "moneyflow",
+  "status": "candidate_capability_verified_not_formally_integrated",
+  "p1_closeout_commit": "5dc15c94",
+  "authorization": "提交修改。将P1步骤收尾，然后进入P2",
+  "projection": [
+    "ts_code",
+    "trade_date",
+    "buy_sm_vol",
+    "buy_sm_amount",
+    "sell_sm_vol",
+    "sell_sm_amount",
+    "buy_md_vol",
+    "buy_md_amount",
+    "sell_md_vol",
+    "sell_md_amount",
+    "buy_lg_vol",
+    "buy_lg_amount",
+    "sell_lg_vol",
+    "sell_lg_amount",
+    "buy_elg_vol",
+    "buy_elg_amount",
+    "sell_elg_vol",
+    "sell_elg_amount",
+    "net_mf_vol",
+    "net_mf_amount"
+  ],
+  "source_verification": {
+    "tool": "tushareMcp.moneyflow",
+    "trade_date": "20260930",
+    "explicit_field_rows": 5572,
+    "bj_rows": 348,
+    "key_fields": [
+      "trade_date",
+      "ts_code"
+    ],
+    "default_probe": {
+      "ts_code": "000001.SZ",
+      "fields_match_projection": true,
+      "values_match_full_market": true
+    },
+    "extra_probe": {
+      "ts_code": "000001.SZ",
+      "field": "trade_count",
+      "observed_value": 78542,
+      "in_approved_projection": false
+    },
+    "pagination_evidence": "P0 SDK explicit limit=2000 offsets=0/2000/4000 rows=2000/2000/1572; MCP does not expose limit/offset; this round fixture validates collector parameters and full typed readback"
+  },
+  "sample": {
+    "source_rows": 5572,
+    "raw_rows": 5572,
+    "silver_rows": 5572,
+    "reject_count": 0,
+    "all_projected_fields_difference_count": 0,
+    "request_count": 6,
+    "page_files": 6,
+    "stability_gap_seconds": 60,
+    "wall_seconds_excluding_network_and_wait": 0.713195291813463,
+    "peak_rss_bytes": 210780160,
+    "raw_bytes": 541201,
+    "silver_bytes": 541177,
+    "total_candidate_bytes": 6908211
+  },
+  "pressure": {
+    "rows": 20000,
+    "construction": "Repeat real 5572-row business values and assign unique source keys; no performance guard bypass",
+    "raw_rows": 20000,
+    "silver_rows": 20000,
+    "reject_count": 0,
+    "request_count": 22,
+    "page_files": 20,
+    "wall_seconds_excluding_network_and_wait": 2.110380790894851,
+    "peak_rss_bytes": 440107008,
+    "raw_bytes": 1756537,
+    "silver_bytes": 1756513,
+    "total_candidate_bytes": 24262085
+  },
+  "limits": {
+    "rows_per_round": 20000,
+    "requests_total_including_retries": 64,
+    "elapsed_total_seconds": 300,
+    "peak_rss_bytes": 805306368,
+    "duckdb_memory_limit": "512MB",
+    "duckdb_threads": 1,
+    "spill_bytes": 0
+  },
+  "tests": {
+    "dataset_tests": 127,
+    "p1_and_request_policy_regression": 225,
+    "total": 352,
+    "governance_tests": 12,
+    "governance_subtests": 474,
+    "static_contract_tests": 113,
+    "ruff": "passed",
+    "source_module_migration": "all consumers migrated; no old module aliases"
+  },
+  "execution_boundary": {
+    "candidate_tests": "isolated temporary directories and fake paging; real public source fixture",
+    "formal_lake_write": false,
+    "prod_write": false,
+    "dagster_instance_write": false,
+    "source_network_wait_in_performance_measurement": false,
+    "bootstrap_and_atomic_promotion": "P3",
+    "formal_assets_and_partitions": "P4",
+    "new_trading_day_runs": "P5"
+  },
+  "remaining_p2": [
+    "moneyflow_dc",
+    "moneyflow_ths"
+  ]
+}

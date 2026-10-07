@@ -358,7 +358,7 @@ P0已核清历史差异、每日完成与异常设计、截止接续和资源边
 
 ## 14. 交付与本版完成状态
 
-当前状态（2026-10-07）：P1四个小数据集moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths、moneyflow_ind_dc的候选能力与独立隔离验收已完成。DC与P1收尾记录本次提交归档，退出要求对账见实施细则§12。管理员已要求进入P2，本轮先推进普通moneyflow。下列P0/P1首轮记录为历史进度；P3/P4/P5尚未执行，七数据集整体尚未完成正式接入。
+当前状态（2026-10-07）：P1四个小数据集moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths、moneyflow_ind_dc的候选能力与独立隔离验收已完成，DC及P1收尾提交5dc15c94，退出要求对账见实施细则§12。本轮已进入P2，普通moneyflow候选能力及隔离验收完成，见实施细则§13和本文§19；普通moneyflow修改本次提交归档。P2其余两个个股数据集及P3/P4/P5尚未执行，七数据集整体尚未完成正式接入。下列P0/P1首轮记录保留历史状态。
 
 本版完成：七数据集/来源范围、审计基线、字段投影、原单位与身份、两层拓扑、路径/命名、来源切换边界、历史导出与恢复、日更闭合要求、拟定性能/配置预算、实现影响面和验收阶段。
 
@@ -407,4 +407,12 @@ P1行业代码及隔离验收记录已提交141edd3a；整个P1仍未完成。�
 
 源端20260930实测1031行，默认与三类显式字段结果一致；归一化/Raw/Silver均1031，reject0、业务字段差异0。DC新增66项，全部候选/策略225项测试通过，治理12项及474子测试、合同静态113项通过。20000行最坏26请求和最多28候选文件两个边界通过，峰值327/302MiB，未提高预算。硬口径、CodeGraph影响面、配置消费者及来源/性能证据见[实施细则§11](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md)。
 
-DC修改与P1收尾记录本次提交归档。P1四个小数据集候选能力与独立隔离验收已齐，阶段退出对账见实施细则§12。按管理员本次指令进入P2，先普通moneyflow，再moneyflow_dc/moneyflow_ths，每轮一个数据集。未写正式Lake、Prod或DG状态；P3/P4/P5历史文件、正式编排/事件和真实新交易日日更仍未执行。
+DC修改与P1收尾记录已提交5dc15c94。P1四个小数据集候选能力与独立隔离验收已齐，阶段退出对账见实施细则§12。按管理员本次指令进入P2，先普通moneyflow，再moneyflow_dc/moneyflow_ths，每轮一个数据集。未写正式Lake、Prod或DG状态；P3/P4/P5历史文件、正式编排/事件和真实新交易日日更仍未执行。
+
+## 19. P2普通个股资金流进度（2026-10-07）
+
+普通moneyflow候选能力完成：单日全市场分页、独立20字段和date/code主键，金额万元/量手，所有数值NULL与源净值保留，Silver只转换日期。新增BIGINT严格精度和溢出验证；共用5个板块候选模块整体迁移为moneyflow_daily，固定dataset合同仍独立，现有消费者全部同步迁移，无旧入口别名。大盘模块、共享资源、Prod入口及主体依赖方向不变。实现约束、配置来源与CodeGraph影响面在实施细则§13记录。
+
+MCP真实20260930为5572行，含348行.BJ，Raw/Silver各5572行、reject=0、全字段差异=0。默认20字段与显式查询一致，额外trade_count存在但继续排除在批准投影之外。真实数值循环的20000行压力样本22请求/20页文件，峰值419.7MiB；真实日样本峰值201.0MiB。性能不含真实网络及60秒等待，不能视为正式日更验收。
+
+普通个股127项与P1/请求策略225项合计352项通过；治理12项+474子测试、静态合同113项、Ruff通过。[本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json)留档。P2普通moneyflow修改本次提交归档；下一轮moneyflow_dc，再moneyflow_ths。P2尚未整体收尾，P3/P4/P5仍未执行。

@@ -1,18 +1,22 @@
-"""Independent board source columns and exact SQL numeric validation."""
+"""Independent daily moneyflow source columns and exact SQL numeric validation."""
 
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_IND_DC_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
+    RAW_TUSHARE_MONEYFLOW_SCHEMA,
     SILVER_MONEYFLOW_CNT_THS_SCHEMA,
     SILVER_MONEYFLOW_IND_DC_SCHEMA,
     SILVER_MONEYFLOW_IND_THS_SCHEMA,
+    SILVER_MONEYFLOW_SCHEMA,
 )
 from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
 
 
-def board_schema(dataset: str, *, silver=False):
+def daily_schema(dataset: str, *, silver=False):
     """Select a fixed source contract; never infer identity from page contents."""
+    if dataset == "moneyflow":
+        return SILVER_MONEYFLOW_SCHEMA if silver else RAW_TUSHARE_MONEYFLOW_SCHEMA
     if dataset == "moneyflow_ind_ths":
         return (
             SILVER_MONEYFLOW_IND_THS_SCHEMA
@@ -31,15 +35,15 @@ def board_schema(dataset: str, *, silver=False):
             if silver
             else RAW_TUSHARE_MONEYFLOW_IND_DC_SCHEMA
         )
-    raise MoneyflowContractError("board_dataset")
+    raise MoneyflowContractError("daily_dataset")
 
 
-def board_fields(dataset: str):
-    return tuple(c.name for c in board_schema(dataset))
+def daily_fields(dataset: str):
+    return tuple(c.name for c in daily_schema(dataset))
 
 
-def board_key_fields(dataset: str):
-    board_schema(dataset)
+def daily_key_fields(dataset: str):
+    daily_schema(dataset)
     return (
         ("trade_date", "content_type", "name")
         if dataset == "moneyflow_ind_dc"
@@ -47,16 +51,20 @@ def board_key_fields(dataset: str):
     )
 
 
-def board_request_scopes(dataset: str):
-    board_schema(dataset)
+def daily_request_scopes(dataset: str):
+    daily_schema(dataset)
     return ("行业", "概念", "地域") if dataset == "moneyflow_ind_dc" else (None,)
 
 
-def board_numeric_rejection_sql(name: str, target_type: str) -> str:
+def daily_numeric_rejection_sql(name: str, target_type: str) -> str:
     """Validate lexical scale before CAST, which otherwise silently rounds."""
     value = f'"{name}"'
     kind = f'"{name}_json_type"'
-    scale = 0 if target_type == "INTEGER" else int(target_type.split(",")[1][:-1])
+    scale = (
+        0
+        if target_type in ("INTEGER", "BIGINT")
+        else int(target_type.split(",")[1][:-1])
+    )
     # Integer trailing zeros also cancel a negative scientific exponent.
     mantissa = f"regexp_extract({value}, '^[-+]?([0-9]+(?:\\.[0-9]+)?)', 1)"
     digits = f"replace({mantissa}, '.', '')"

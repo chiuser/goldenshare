@@ -1,14 +1,14 @@
-"""Date-only independent board Silver conversion from proven stable Raw candidates."""
+"""Date-only independent daily moneyflow Silver conversion from proven stable Raw candidates."""
 
 import json
 from pathlib import Path
 from time import perf_counter
 
-from orchestrator.defs.checks.moneyflow_board import (
-    audit_board_moneyflow_equality,
-    audit_board_moneyflow_file,
-    audit_board_moneyflow_standardization,
-    board_file_scope_counts,
+from orchestrator.defs.checks.moneyflow_daily import (
+    audit_daily_moneyflow_equality,
+    audit_daily_moneyflow_file,
+    audit_daily_moneyflow_standardization,
+    daily_file_scope_counts,
 )
 from orchestrator.defs.io.moneyflow_candidates import (
     candidate_file_hash,
@@ -24,16 +24,16 @@ from orchestrator.defs.run_contracts.moneyflow import (
     market_moneyflow_day,
     moneyflow_peak_rss_bytes,
 )
-from orchestrator.defs.run_contracts.moneyflow_board import (
-    board_key_fields,
-    board_schema,
+from orchestrator.defs.run_contracts.moneyflow_daily import (
+    daily_key_fields,
+    daily_schema,
 )
 
 
-def build_board_moneyflow_silver_candidate(
+def build_daily_moneyflow_silver_candidate(
     raw: Path, trade_date: str, *, dataset: str
 ) -> Path:
-    board_schema(dataset)
+    daily_schema(dataset)
     started = perf_counter()
     assert_moneyflow_memory_budget()
     market_moneyflow_day(trade_date)
@@ -67,27 +67,27 @@ def build_board_moneyflow_silver_candidate(
     if elapsed_ms() >= MONEYFLOW_MAX_ELAPSED_SECONDS * 1000:
         raise MoneyflowContractError("request_budget_exceeded")
     with moneyflow_candidate_connection(directory) as connection:
-        count = audit_board_moneyflow_file(connection, raw, trade_date, dataset=dataset)
+        count = audit_daily_moneyflow_file(connection, raw, trade_date, dataset=dataset)
         if (
             count != receipt.get("row_count")
-            or audit_board_moneyflow_file(
+            or audit_daily_moneyflow_file(
                 connection, verification, trade_date, dataset=dataset
             )
             != count
         ):
             raise MoneyflowContractError("raw_source_count")
-        if receipt.get("scope_row_counts") != board_file_scope_counts(
+        if receipt.get("scope_row_counts") != daily_file_scope_counts(
             connection, raw, dataset=dataset
         ):
             raise MoneyflowContractError("raw_source_scope_count")
-        audit_board_moneyflow_equality(connection, raw, verification, dataset=dataset)
-        key_sql = ",".join(board_key_fields(dataset))
+        audit_daily_moneyflow_equality(connection, raw, verification, dataset=dataset)
+        key_sql = ",".join(daily_key_fields(dataset))
         connection.execute(
             "COPY (SELECT * REPLACE(strptime(trade_date,'%Y%m%d')::DATE AS trade_date) "
             f"FROM read_parquet($source,hive_partitioning=false) ORDER BY {key_sql}) TO $target (FORMAT PARQUET)",
             {"source": str(raw), "target": str(silver)},
         )
-        if audit_board_moneyflow_standardization(
+        if audit_daily_moneyflow_standardization(
             connection, raw, silver, trade_date, dataset=dataset
         ) != receipt.get("row_count"):
             raise MoneyflowContractError("raw_source_count")

@@ -10,29 +10,29 @@ from types import SimpleNamespace
 
 import pytest
 
-from orchestrator.defs.checks.moneyflow_board import (
-    audit_board_moneyflow_file,
-    audit_board_moneyflow_standardization,
-)
-from orchestrator.defs.io.moneyflow_board_raw_writer import (
-    build_board_moneyflow_raw_candidate,
-)
-from orchestrator.defs.io.moneyflow_board_silver_writer import (
-    build_board_moneyflow_silver_candidate,
+from orchestrator.defs.checks.moneyflow_daily import (
+    audit_daily_moneyflow_file,
+    audit_daily_moneyflow_standardization,
 )
 from orchestrator.defs.io.moneyflow_candidates import (
     moneyflow_candidate_connection,
     moneyflow_candidate_directory,
 )
+from orchestrator.defs.io.moneyflow_daily_raw_writer import (
+    build_daily_moneyflow_raw_candidate,
+)
+from orchestrator.defs.io.moneyflow_daily_silver_writer import (
+    build_daily_moneyflow_silver_candidate,
+)
 from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
-from orchestrator.defs.run_contracts.moneyflow_board import board_fields
-from orchestrator.defs.source_readiness.moneyflow_board import (
-    collect_board_moneyflow,
+from orchestrator.defs.run_contracts.moneyflow_daily import daily_fields
+from orchestrator.defs.source_readiness.moneyflow_daily import (
+    collect_daily_moneyflow,
 )
 
 DAY = "2026-09-30"
 DATASET = "moneyflow_ind_ths"
-MONEYFLOW_IND_THS_FIELDS = board_fields(DATASET)
+MONEYFLOW_IND_THS_FIELDS = daily_fields(DATASET)
 
 
 class Clock:
@@ -81,7 +81,7 @@ def row(code="881142.TI"):
 
 def build(tmp_path, pages, **kwargs):
     clock, source = Clock(), Source(pages)
-    raw = build_board_moneyflow_raw_candidate(
+    raw = build_daily_moneyflow_raw_candidate(
         tushare=source,
         staging_root=tmp_path,
         operation_id="test",
@@ -98,10 +98,10 @@ def test_stable_order_independent_preserves_units_nulls_and_negative(tmp_path):
     raw, source, clock = build(
         tmp_path, [[row(), row("881175.TI")], [row("881175.TI"), row()]]
     )
-    silver = build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    silver = build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with moneyflow_candidate_connection(raw.parent) as c:
         assert (
-            audit_board_moneyflow_standardization(c, raw, silver, DAY, dataset=DATASET)
+            audit_daily_moneyflow_standardization(c, raw, silver, DAY, dataset=DATASET)
             == 2
         )
         assert (
@@ -131,10 +131,10 @@ def test_real_public_ninety_row_readback(tmp_path):
     )
     assert len(rows) == 90
     raw, _, _ = build(tmp_path, [rows, rows[::-1]])
-    silver = build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    silver = build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with moneyflow_candidate_connection(raw.parent) as c:
         assert (
-            audit_board_moneyflow_standardization(c, raw, silver, DAY, dataset=DATASET)
+            audit_daily_moneyflow_standardization(c, raw, silver, DAY, dataset=DATASET)
             == 90
         )
         assert c.execute(
@@ -149,7 +149,7 @@ def test_full_page_requires_termination(tmp_path):
     assert [c[1]["offset"] for c in source.calls] == [0, 2000, 0, 2000]
     assert (raw.parent / "round-1/scope-1/page-0.json").is_file()
     with moneyflow_candidate_connection(raw.parent) as c:
-        assert audit_board_moneyflow_file(c, raw, DAY, dataset=DATASET) == 2000
+        assert audit_daily_moneyflow_file(c, raw, DAY, dataset=DATASET) == 2000
 
 
 @pytest.mark.parametrize(
@@ -230,7 +230,7 @@ def test_changed_second_round_preserves_unready_raw(tmp_path, second):
         json.loads((raw.parent / "receipt.json").read_text())["stage"] == "collecting"
     )
     with pytest.raises(MoneyflowContractError, match="raw_source_proof"):
-        build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+        build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
 
 
 def run_large_fixture_in_fresh_process(test_name):
@@ -280,7 +280,7 @@ def test_shared_budget(monkeypatch, tmp_path):
     from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
     monkeypatch.setattr(
-        "orchestrator.defs.source_readiness.moneyflow_board.market_moneyflow_policy",
+        "orchestrator.defs.source_readiness.moneyflow_daily.market_moneyflow_policy",
         lambda: TushareRequestPolicy(max_requests=1),
     )
     with pytest.raises(MoneyflowContractError, match="max_requests_exceeded"):
@@ -307,7 +307,7 @@ def test_no_overwrite_or_tampered_proof(tmp_path):
         build(tmp_path, [[row()], [row()]])
     (raw.parent / "verification.parquet").write_bytes(b"tampered")
     with pytest.raises(MoneyflowContractError, match="raw_source_proof"):
-        build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+        build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
 
 
 def test_formal_cross_dataset_and_unknown_dataset_rejected_before_io(tmp_path):
@@ -317,13 +317,13 @@ def test_formal_cross_dataset_and_unknown_dataset_rejected_before_io(tmp_path):
         / "raw.parquet"
     )
     with pytest.raises(MoneyflowContractError, match="formal_lake_is_not_staging"):
-        build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+        build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     raw = (
         moneyflow_candidate_directory(tmp_path, "test", DAY, dataset="moneyflow_mkt_dc")
         / "raw.parquet"
     )
     with pytest.raises(MoneyflowContractError, match="raw_candidate_path"):
-        build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+        build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with pytest.raises(MoneyflowContractError, match="candidate_dataset"):
         moneyflow_candidate_directory(tmp_path, "test", DAY, dataset="moneyflow_dc")
 
@@ -343,7 +343,7 @@ def test_numeric_nulls_preserved(tmp_path):
         },
     }
     raw, _, _ = build(tmp_path, [[r], [r]])
-    silver = build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    silver = build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with moneyflow_candidate_connection(raw.parent) as c:
         assert c.execute(
             "SELECT company_num,net_amount FROM read_parquet(?)", [str(silver)]
@@ -357,7 +357,7 @@ def test_elapsed_budget():
         clock.now = 280
 
     with pytest.raises(MoneyflowContractError, match="request_budget_exceeded"):
-        collect_board_moneyflow(
+        collect_daily_moneyflow(
             tushare=source,
             trade_date=DAY,
             consume_page=lambda *_: None,
@@ -378,12 +378,12 @@ def test_exact_row_limit_succeeds_with_both_terminators(tmp_path):
         [row(f"{page * 2000 + i:06d}.TI") for i in range(2000)] for page in range(10)
     ]
     raw, source, _ = build(tmp_path, [*pages, [], *pages, []])
-    silver = build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    silver = build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     assert len(source.calls) == 22
     assert len(list(raw.parent.rglob("page-*.json"))) == 20
     with moneyflow_candidate_connection(raw.parent) as c:
         assert (
-            audit_board_moneyflow_standardization(c, raw, silver, DAY, dataset=DATASET)
+            audit_daily_moneyflow_standardization(c, raw, silver, DAY, dataset=DATASET)
             == 20000
         )
 
@@ -396,7 +396,7 @@ def test_cancel_during_stability_wait_preserves_first_round(tmp_path):
             raise RuntimeError("cancelled")
 
     with pytest.raises(RuntimeError, match="cancelled"):
-        build_board_moneyflow_raw_candidate(
+        build_daily_moneyflow_raw_candidate(
             tushare=source,
             staging_root=tmp_path,
             operation_id="test",
@@ -433,12 +433,12 @@ def test_physical_file_date_and_schema_block(tmp_path, projection):
             {"source": str(raw), "target": str(bad)},
         )
         with pytest.raises(MoneyflowContractError):
-            audit_board_moneyflow_file(c, bad, DAY, dataset=DATASET)
+            audit_daily_moneyflow_file(c, bad, DAY, dataset=DATASET)
 
 
 def test_physical_duplicate_and_business_change_block(tmp_path):
-    from orchestrator.defs.checks.moneyflow_board import (
-        audit_board_moneyflow_equality,
+    from orchestrator.defs.checks.moneyflow_daily import (
+        audit_daily_moneyflow_equality,
     )
 
     raw, _, _ = build(tmp_path, [[row()], [row()]])
@@ -450,13 +450,13 @@ def test_physical_duplicate_and_business_change_block(tmp_path):
             {"source": str(raw), "target": str(bad)},
         )
         with pytest.raises(MoneyflowContractError, match="file_count_date_or_key"):
-            audit_board_moneyflow_file(c, bad, DAY, dataset=DATASET)
+            audit_daily_moneyflow_file(c, bad, DAY, dataset=DATASET)
         c.execute(
             "COPY (SELECT * REPLACE(99::DECIMAL(24,4) AS net_amount) FROM read_parquet($source)) TO $target (FORMAT PARQUET)",
             {"source": str(raw), "target": str(changed)},
         )
         with pytest.raises(MoneyflowContractError, match="source_unstable"):
-            audit_board_moneyflow_equality(c, raw, changed, dataset=DATASET)
+            audit_daily_moneyflow_equality(c, raw, changed, dataset=DATASET)
 
 
 def test_memory_limit_rejects_before_source_call(monkeypatch, tmp_path):
@@ -467,7 +467,7 @@ def test_memory_limit_rejects_before_source_call(monkeypatch, tmp_path):
     )
     source, clock = Source([[row()]]), Clock()
     with pytest.raises(MoneyflowContractError, match="memory_budget_exceeded"):
-        build_board_moneyflow_raw_candidate(
+        build_daily_moneyflow_raw_candidate(
             tushare=source,
             staging_root=tmp_path,
             operation_id="test",
@@ -481,16 +481,16 @@ def test_memory_limit_rejects_before_source_call(monkeypatch, tmp_path):
 
 def test_silver_conflict_and_corrupt_raw_block(tmp_path):
     raw, _, _ = build(tmp_path, [[row()], [row()]])
-    build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with pytest.raises(
         MoneyflowContractError, match="raw_source_proof|operation_conflict"
     ):
-        build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+        build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with moneyflow_candidate_connection(raw.parent) as c:
         corrupt = raw.parent / "corrupt.parquet"
         corrupt.write_bytes(b"bad")
         with pytest.raises(MoneyflowContractError, match="file_unreadable"):
-            audit_board_moneyflow_file(c, corrupt, DAY, dataset=DATASET)
+            audit_daily_moneyflow_file(c, corrupt, DAY, dataset=DATASET)
 
 
 def test_numeric_reject_identifies_field_key_and_sample(tmp_path):
@@ -510,5 +510,5 @@ def test_silver_respects_cumulative_elapsed_budget(tmp_path):
     receipt["elapsed_ms"] = 300000
     path.write_text(json.dumps(receipt))
     with pytest.raises(MoneyflowContractError, match="request_budget_exceeded"):
-        build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+        build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     assert not (raw.parent / "silver.parquet").exists()

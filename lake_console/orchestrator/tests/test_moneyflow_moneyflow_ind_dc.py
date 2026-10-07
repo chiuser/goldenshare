@@ -10,19 +10,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from orchestrator.defs.checks.moneyflow_board import (
-    audit_board_moneyflow_file,
-    audit_board_moneyflow_standardization,
-)
-from orchestrator.defs.io.moneyflow_board_raw_writer import (
-    build_board_moneyflow_raw_candidate,
-)
-from orchestrator.defs.io.moneyflow_board_silver_writer import (
-    build_board_moneyflow_silver_candidate,
+from orchestrator.defs.checks.moneyflow_daily import (
+    audit_daily_moneyflow_file,
+    audit_daily_moneyflow_standardization,
 )
 from orchestrator.defs.io.moneyflow_candidates import moneyflow_candidate_connection
+from orchestrator.defs.io.moneyflow_daily_raw_writer import (
+    build_daily_moneyflow_raw_candidate,
+)
+from orchestrator.defs.io.moneyflow_daily_silver_writer import (
+    build_daily_moneyflow_silver_candidate,
+)
 from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
-from orchestrator.defs.source_readiness.moneyflow_board import collect_board_moneyflow
+from orchestrator.defs.source_readiness.moneyflow_daily import collect_daily_moneyflow
 
 DAY = "2026-09-30"
 DATASET = "moneyflow_ind_dc"
@@ -115,7 +115,7 @@ def pages_for_round(rows):
 
 def build_pages(tmp_path, pages, **kwargs):
     source, clock = Source(pages), Clock()
-    raw = build_board_moneyflow_raw_candidate(
+    raw = build_daily_moneyflow_raw_candidate(
         tushare=source,
         dataset=DATASET,
         staging_root=tmp_path,
@@ -137,7 +137,7 @@ def build(tmp_path, rows=None, second=None, **kwargs):
 
 
 def silver(raw):
-    return build_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    return build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
 
 
 def test_three_scopes_preserve_source_units_nulls_and_triple_key(tmp_path):
@@ -169,7 +169,7 @@ def test_three_scopes_preserve_source_units_nulls_and_triple_key(tmp_path):
     assert receipt["scope_row_counts"] == {"行业": 3, "概念": 1, "地域": 1}
     with moneyflow_candidate_connection(raw.parent) as c:
         assert (
-            audit_board_moneyflow_standardization(c, raw, result, DAY, dataset=DATASET)
+            audit_daily_moneyflow_standardization(c, raw, result, DAY, dataset=DATASET)
             == 5
         )
         assert (
@@ -200,7 +200,7 @@ def test_real_public_1031_row_readback(tmp_path):
     assert receipt["scope_row_counts"] == {"行业": 496, "概念": 504, "地域": 31}
     with moneyflow_candidate_connection(raw.parent) as c:
         assert (
-            audit_board_moneyflow_standardization(c, raw, result, DAY, dataset=DATASET)
+            audit_daily_moneyflow_standardization(c, raw, result, DAY, dataset=DATASET)
             == 1031
         )
         assert c.execute(
@@ -336,7 +336,7 @@ def test_shared_request_budget_across_scopes_and_rounds(monkeypatch, tmp_path):
     from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
     monkeypatch.setattr(
-        "orchestrator.defs.source_readiness.moneyflow_board.market_moneyflow_policy",
+        "orchestrator.defs.source_readiness.moneyflow_daily.market_moneyflow_policy",
         lambda: TushareRequestPolicy(max_requests=4),
     )
     with pytest.raises(MoneyflowContractError, match="max_requests_exceeded"):
@@ -362,7 +362,7 @@ def test_cancellation_between_scopes_does_not_fetch_next_category(tmp_path):
             raise RuntimeError("cancelled")
 
     with pytest.raises(RuntimeError, match="cancelled"):
-        build_board_moneyflow_raw_candidate(
+        build_daily_moneyflow_raw_candidate(
             tushare=source,
             dataset=DATASET,
             staging_root=tmp_path,
@@ -387,7 +387,7 @@ def test_cancellation_during_stability_wait_preserves_first_round(tmp_path):
             raise RuntimeError("cancelled")
 
     with pytest.raises(RuntimeError, match="cancelled"):
-        build_board_moneyflow_raw_candidate(
+        build_daily_moneyflow_raw_candidate(
             tushare=source,
             dataset=DATASET,
             staging_root=tmp_path,
@@ -408,7 +408,7 @@ def test_elapsed_budget_does_not_reset_at_scope_or_round():
         clock.now = 275
 
     with pytest.raises(MoneyflowContractError, match="request_budget_exceeded"):
-        collect_board_moneyflow(
+        collect_daily_moneyflow(
             tushare=source,
             dataset=DATASET,
             trade_date=DAY,
@@ -462,7 +462,7 @@ def test_exact_20000_rows_with_26_requests_across_all_scopes(tmp_path):
     assert len(list(raw.parent.rglob("page-*.json"))) == 20
     with moneyflow_candidate_connection(raw.parent) as c:
         assert (
-            audit_board_moneyflow_standardization(c, raw, result, DAY, dataset=DATASET)
+            audit_daily_moneyflow_standardization(c, raw, result, DAY, dataset=DATASET)
             == 20000
         )
 
@@ -494,7 +494,7 @@ def test_physical_key_schema_and_date_rejected(tmp_path, projection):
             {"source": str(raw), "target": str(bad)},
         )
         with pytest.raises(MoneyflowContractError):
-            audit_board_moneyflow_file(c, bad, DAY, dataset=DATASET)
+            audit_daily_moneyflow_file(c, bad, DAY, dataset=DATASET)
 
 
 def test_physical_missing_category_and_duplicate_block(tmp_path):
@@ -518,7 +518,7 @@ def test_physical_missing_category_and_duplicate_block(tmp_path):
                 {"source": str(raw), "target": str(bad)},
             )
             with pytest.raises(MoneyflowContractError, match=reason):
-                audit_board_moneyflow_file(c, bad, DAY, dataset=DATASET)
+                audit_daily_moneyflow_file(c, bad, DAY, dataset=DATASET)
 
 
 def test_physical_schema_is_independent_18_field_contract(tmp_path):
@@ -597,7 +597,7 @@ def test_formal_and_cross_dataset_paths_and_no_overwrite(tmp_path):
         silver(formal)
     raw, _, _ = build(tmp_path)
     with pytest.raises(MoneyflowContractError, match="raw_candidate_path"):
-        build_board_moneyflow_silver_candidate(raw, DAY, dataset="moneyflow_ind_ths")
+        build_daily_moneyflow_silver_candidate(raw, DAY, dataset="moneyflow_ind_ths")
     with pytest.raises(MoneyflowContractError, match="operation_conflict"):
         build(tmp_path)
     silver(raw)
@@ -615,7 +615,7 @@ def test_memory_refusal_happens_before_source(monkeypatch, tmp_path):
     )
     source, clock = Source([[row()]]), Clock()
     with pytest.raises(MoneyflowContractError, match="memory_budget_exceeded"):
-        build_board_moneyflow_raw_candidate(
+        build_daily_moneyflow_raw_candidate(
             tushare=source,
             dataset=DATASET,
             staging_root=tmp_path,
@@ -666,7 +666,7 @@ def test_exact_20000_rows_with_28_candidate_files(tmp_path):
     assert len([p for p in raw.parent.rglob("*") if p.is_file()]) == 28
     with moneyflow_candidate_connection(raw.parent) as c:
         assert (
-            audit_board_moneyflow_standardization(c, raw, result, DAY, dataset=DATASET)
+            audit_daily_moneyflow_standardization(c, raw, result, DAY, dataset=DATASET)
             == 20000
         )
 
@@ -680,4 +680,4 @@ def test_physical_unknown_category_rejected_even_with_three_distinct_types(tmp_p
             {"source": str(raw), "target": str(bad)},
         )
         with pytest.raises(MoneyflowContractError, match="file_scope_coverage"):
-            audit_board_moneyflow_file(c, bad, DAY, dataset=DATASET)
+            audit_daily_moneyflow_file(c, bad, DAY, dataset=DATASET)

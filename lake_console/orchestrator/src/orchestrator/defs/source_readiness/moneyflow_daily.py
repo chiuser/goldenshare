@@ -1,4 +1,4 @@
-"""Stream two independent board rounds through one bounded Tushare request session."""
+"""Stream two independent daily moneyflow rounds through one bounded Tushare request session."""
 
 from dataclasses import dataclass
 from time import perf_counter, sleep
@@ -15,15 +15,15 @@ from orchestrator.defs.run_contracts.moneyflow import (
     market_moneyflow_policy,
     moneyflow_peak_rss_bytes,
 )
-from orchestrator.defs.run_contracts.moneyflow_board import (
-    board_fields,
-    board_request_scopes,
+from orchestrator.defs.run_contracts.moneyflow_daily import (
+    daily_fields,
+    daily_request_scopes,
 )
 from orchestrator.defs.tushare_request_policy import BoundedCodePageRequestSession
 
 
 @dataclass(frozen=True)
-class BoardMoneyflowCollection:
+class DailyMoneyflowCollection:
     row_count: int
     request_count: int
     retry_count: int
@@ -33,7 +33,7 @@ class BoardMoneyflowCollection:
     scope_row_counts: tuple[int, ...]
 
 
-def collect_board_moneyflow(
+def collect_daily_moneyflow(
     *,
     tushare,
     dataset: str,
@@ -44,8 +44,8 @@ def collect_board_moneyflow(
     sleep_fn=sleep,
     check_cancel=lambda: None,
 ):
-    fields = board_fields(dataset)
-    scopes = board_request_scopes(dataset)
+    fields = daily_fields(dataset)
+    scopes = daily_request_scopes(dataset)
     market_moneyflow_day(trade_date)
     session = BoundedCodePageRequestSession(
         policy=market_moneyflow_policy(), clock=clock, sleep_fn=sleep_fn
@@ -139,7 +139,7 @@ def collect_board_moneyflow(
             first_scope_counts = tuple(scope_counts)
         elif round_count[0] != first_count:
             raise MoneyflowContractError("source_unstable")
-    return BoardMoneyflowCollection(
+    return DailyMoneyflowCollection(
         first_count,
         session.request_count,
         session.retry_count,

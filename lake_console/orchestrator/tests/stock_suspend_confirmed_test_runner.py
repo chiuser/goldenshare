@@ -111,11 +111,11 @@ INTEGRATION_SOURCE_FILES = (
 CONSUMER_SOURCE_FILES = (
     # Moneyflow candidate modules: exact read-only discovery/import closure.
     "defs/io/moneyflow_candidates.py",
-    "defs/checks/moneyflow_board.py",
-    "defs/run_contracts/moneyflow_board.py",
-    "defs/source_readiness/moneyflow_board.py",
-    "defs/io/moneyflow_board_raw_writer.py",
-    "defs/io/moneyflow_board_silver_writer.py",
+    "defs/checks/moneyflow_daily.py",
+    "defs/run_contracts/moneyflow_daily.py",
+    "defs/source_readiness/moneyflow_daily.py",
+    "defs/io/moneyflow_daily_raw_writer.py",
+    "defs/io/moneyflow_daily_silver_writer.py",
     "defs/checks/moneyflow.py",
     "defs/run_contracts/moneyflow.py",
     "defs/source_readiness/moneyflow.py",

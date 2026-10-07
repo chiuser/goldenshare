@@ -1004,6 +1004,36 @@ RAW_STK_PERIOD_BAR_MONTH_SCHEMA = _monthly_schema(StockMonthlySource.PRIMARY_UNA
 RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA = _monthly_schema(StockMonthlySource.PRIMARY_ADJUSTED)
 
 
+RAW_TUSHARE_MONEYFLOW_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "源股票代码，不过滤市场或上市状态，与交易日组成唯一键"),
+    ColumnContract("trade_date", "VARCHAR", "源交易日YYYYMMDD，不得为空"),
+    ColumnContract("buy_sm_vol", "BIGINT", "小单买入量（手），允许NULL，保留源值"),
+    ColumnContract("buy_sm_amount", "DECIMAL(20,4)", "小单买入金额（万元），允许NULL，保留源值"),
+    ColumnContract("sell_sm_vol", "BIGINT", "小单卖出量（手），允许NULL，保留源值"),
+    ColumnContract("sell_sm_amount", "DECIMAL(20,4)", "小单卖出金额（万元），允许NULL，保留源值"),
+    ColumnContract("buy_md_vol", "BIGINT", "中单买入量（手），允许NULL，保留源值"),
+    ColumnContract("buy_md_amount", "DECIMAL(20,4)", "中单买入金额（万元），允许NULL，保留源值"),
+    ColumnContract("sell_md_vol", "BIGINT", "中单卖出量（手），允许NULL，保留源值"),
+    ColumnContract("sell_md_amount", "DECIMAL(20,4)", "中单卖出金额（万元），允许NULL，保留源值"),
+    ColumnContract("buy_lg_vol", "BIGINT", "大单买入量（手），允许NULL，保留源值"),
+    ColumnContract("buy_lg_amount", "DECIMAL(20,4)", "大单买入金额（万元），允许NULL，保留源值"),
+    ColumnContract("sell_lg_vol", "BIGINT", "大单卖出量（手），允许NULL，保留源值"),
+    ColumnContract("sell_lg_amount", "DECIMAL(20,4)", "大单卖出金额（万元），允许NULL，保留源值"),
+    ColumnContract("buy_elg_vol", "BIGINT", "特大单买入量（手），允许NULL，保留源值"),
+    ColumnContract("buy_elg_amount", "DECIMAL(20,4)", "特大单买入金额（万元），允许NULL，保留源值"),
+    ColumnContract("sell_elg_vol", "BIGINT", "特大单卖出量（手），允许NULL，保留源值"),
+    ColumnContract("sell_elg_amount", "DECIMAL(20,4)", "特大单卖出金额（万元），允许NULL，保留源值"),
+    ColumnContract("net_mf_vol", "BIGINT", "源净流入量（手），允许NULL和负值，不重算"),
+    ColumnContract("net_mf_amount", "DECIMAL(20,4)", "源净流入额（万元），允许NULL和负值，不重算"),
+)
+
+SILVER_MONEYFLOW_SCHEMA = tuple(
+    ColumnContract(column.name, "DATE", "标准化交易日，不得为空")
+    if column.name == "trade_date" else column
+    for column in RAW_TUSHARE_MONEYFLOW_SCHEMA
+)
+
+
 RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA = (
     ColumnContract("trade_date", "VARCHAR", "原始交易日YYYYMMDD，不得为空"),
     ColumnContract("close_sh", "DECIMAL(18,4)", "上证收盘指数（点），允许NULL"),

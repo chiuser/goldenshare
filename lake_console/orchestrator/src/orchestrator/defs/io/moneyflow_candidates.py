@@ -23,6 +23,7 @@ def moneyflow_candidate_directory(
 ) -> Path:
     market_moneyflow_day(trade_date)
     if dataset not in {
+        "moneyflow",
         "moneyflow_mkt_dc",
         "moneyflow_ind_ths",
         "moneyflow_cnt_ths",
