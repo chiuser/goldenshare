@@ -19,7 +19,7 @@
 
 CodeGraph explore覆盖列表/API/App装配、预览和三搜索消费者；impact(Catalog)识别 query、preview、supervisor、迁移只读源及测试。迁移只读源保留历史 schema 读取，运行期目录消费者须清零。子系统依赖方向保持 Foundation←Ops/Biz←App。
 
-状态：直接查询、API、共享搜索和预览迁移已实现并有限验收；旧源码清退受自动审批阻断，Q2尚未完整完成，不能独立部署。
+状态：Q2主体已提交6dbb27e4；用户明确授权后完成旧源码清退和收尾回归，Q2本阶段已完成。正式存储未切换，Q3—Q4完成前不能部署。
 
 ## 交付文件与边界
 
@@ -54,17 +54,34 @@ Foundation←Ops/Biz←App依赖方向不变；未修改DatasetDefinition、DG�
 
 155日期2026-05-04—10-05：210602行、5738480字节、149 row groups；002245.SZ完整36行与原身份一致。已下载363行、未下载210239行，总数对齐。公告FD峰值32、单SQL最大约0.163秒、单unit小于1秒、RSS最高459.88MiB。全历史清单2471文件/12064773行/200734170字节/2383 row groups，用时0.739秒；仅footer与清单，不宣称全历史筛选GET或DG成功证据。
 
-## 源码清退审批与剩余项
+## 源码清退审批历史（后续授权已解除）
 
-CodeGraph explore/impact/sync/status加当前import审计覆盖原Catalog59关联消费者、新query/API/App、preview/supervisor、显式LegacyCatalog读取及测试。迁移只读源仍需静态schema校验；新运行链未import五个旧模块。自动审批仍两次拒绝删除catalog_builder.py、preview.py、announcement_query.py、company_query.py、announcement_catalog.py并缩减catalog.py，理由是图中仍存在旧符号关联。删除命令未执行，没有绕过审批。已向用户请求精确源码授权；此项未落地，不能声称原catalog消费者已彻底清零。
+CodeGraph explore/impact/sync/status加当前import审计覆盖原Catalog59关联消费者、新query/API/App、preview/supervisor、显式LegacyCatalog读取及测试。迁移只读源仍需静态schema校验；新运行链未import五个旧模块。自动审批仍两次拒绝删除catalog_builder.py、preview.py、announcement_query.py、company_query.py、announcement_catalog.py并缩减catalog.py，理由是图中仍存在旧符号关联。删除命令未执行，没有绕过审批。当时已向用户请求精确源码授权，该时点清退未落地；随后授权和完成事实见末节。
 
-下一步只处理清退授权和最小回归，完成Q2门禁后再由用户决定Q3。Q4才执行正式迁移/配置切换及精确SQLite文件清理；本轮未删任何正式SQLite、PDF或Raw，也未安装/卸载共享SQLite库。
+清退已按末节授权完成；下一步由用户决定进入Q3。Q4才执行正式迁移/配置切换及精确SQLite文件清理；本轮未删任何正式SQLite、PDF或Raw，也未安装/卸载共享SQLite库。
 
 
 ## 收尾检查与证据范围
 
-类型检查、生产构建、docs integrity、git diff --check及ingestion-lint通过（0 issues）。构建保留既有主包超过500KiB提示，没有安装依赖。CodeGraph sync/status显示索引当前；Q1提交d6cc3971可读回，其他任务提交未改写，本任务未提交Q2或推送。
+类型检查、生产构建、docs integrity、git diff --check及ingestion-lint通过（0 issues）。构建保留既有主包超过500KiB提示，没有安装依赖。CodeGraph sync/status显示索引当前；Q1提交d6cc3971可读回，其他任务提交未改写，Q2主体已提交6dbb27e4，未推送。
 
 1920×1080完整截图为query-1920.jpg；1440×900为query-1440.jpg。1440实际body宽1460，来自现有design-tokens.css的--cs-layout-content-min-width:1460px，会有横向滚动；Q2没有修改布局样式，不据此宣称1440无滚动。首轮恢复截图restored-query.jpg受当时窄视口滚动影响，保留作功能历史；正式桌面展示请看query-1920.jpg。console.json和console-desktop.json均无error/warn。第二轮桌面夹具覆盖了api-evidence.json，该文件仅记录第二轮请求，不当成首轮缺日/恢复完整网络日志。首轮交互结论来自当次Cua DOM和API计数工具输出，本文显式保留这一证据限制。
 
-Q2剩余源码清退未获执行；停止在该门禁，未推进Q3、未切正式存储。本报告不是上线或正式迁移验收。
+此前Q2停在源码清退门禁；现该项按末节授权完成，未推进Q3、未切正式存储。本报告不是上线或正式迁移验收。
+
+
+## 用户明确授权后的Q2收尾
+
+用户明确“提交，然后授权。完成Q2”。先在dev-interface按公告白名单提交主体6dbb27e4，保留其他任务脏文件；再执行原请求的精确源码清退：
+
+- 删除src/ops/runtime/announcement_archive/catalog_builder.py、preview.py。
+- 删除src/biz/queries/wealth/data_center/announcement_query.py、company_query.py。
+- 删除src/foundation/kernel/contracts/announcement_catalog.py。
+- src/foundation/dao/announcement_archive/catalog.py缩为静态旧schema和LegacyCatalogSchema只读校验，不再打开文件、建表、升级、提供运行期读写API或catalog_path。
+- src/foundation/clients/announcement_archive/migration_source.py同步调用LegacyCatalogSchema，Q1显式旧数据迁移能力保留；无SQLite兼容执行器或失败回退。
+
+CodeGraph CLI query/impact对原四类符号及迁移、App/API、预览、测试关联作补核，完整src/tests AST审计五个删除模块import引用为0；sync/status/query复核新类和索引。运行边界和依赖矩阵未改变。
+
+清退后联合334项通过（117.91秒，迁移/直接查询/来源合同/实际API/下载回归/数据合同/依赖护栏）；随后新增有效schema、缺失索引、错误scope三个只读正负样本，catalog合同9项通过（0.72秒），源文件SHA256前后完全相同。ingestion-lint 0 issues、docs integrity和diff check通过。前端、查询算法及正式来源未改，沿用前述真实只读性能和浏览器有限证据，不重复全量测试或改动产品/Figma。
+
+本阶段Q2完成。没有执行正式PG迁移、env切换、SQLite文件/PDF/Lake删除、安装卸载、用户Web/DG重启或进入Q3。后续顺序仍为Q3执行存储统一、Q4正式迁移切换。

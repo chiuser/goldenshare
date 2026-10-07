@@ -1,15 +1,10 @@
-"""Rebuildable local catalog SQL; no source reads or business ranking here."""
-from contextlib import contextmanager
-import json
-import os
-import sqlite3
-import time
-from pathlib import Path
+"""Static legacy catalog schema validation for explicit read-only migration only.
 
-from src.foundation.clients.announcement_archive.core import Blocked, timestamp
-from src.foundation.clients.announcement_archive.volume import no_symlinks
-from src.foundation.config.announcement_archive import DataCenterPolicy
-from src.foundation.clients.announcement_archive.budget import remaining
+No file opener, runtime query, initialization, schema upgrade or write API.
+"""
+import sqlite3
+
+from src.foundation.clients.announcement_archive.core import Blocked
 
 SCHEMA = (
 '''CREATE TABLE catalog_meta(singleton INTEGER PRIMARY KEY CHECK(singleton=1), schema_version INTEGER NOT NULL,
@@ -51,81 +46,21 @@ SCHEMA = (
 )
 
 SCHEMA_V1 = SCHEMA
+
 PREVIEW_ARTIFACTS = "CREATE TABLE preview_artifacts(preview_id TEXT NOT NULL,artifact_key TEXT NOT NULL,PRIMARY KEY(preview_id,artifact_key))"
-SCHEMA = (*SCHEMA,PREVIEW_ARTIFACTS)
+
+SCHEMA = (*SCHEMA, PREVIEW_ARTIFACTS)
 
 
-def catalog_path(scope):
-    from src.foundation.clients.announcement_archive.core import identity
-    return Path.home() / 'Library/Application Support/Goldenshare/announcement-catalog' / identity([scope]) / 'catalog.sqlite'
+class LegacyCatalogSchema:
+    def __init__(self, scope):
+        self.scope = scope
 
-
-class Catalog:
-    def __init__(self, path, scope, policy=DataCenterPolicy()):
-        self.path, self.scope, self.policy = Path(path).absolute(), scope, policy
-
-    @contextmanager
-    def connection(self, *, write=False, initialize=False):
-        no_symlinks(self.path)
-        if initialize:
-            self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            if not self.path.exists():
-                fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
-                os.close(fd)
-        if not self.path.is_file():
-            raise Blocked('catalog_unavailable')
-        conn = sqlite3.connect(self.path.as_uri() + ('?mode=rw' if write else '?mode=ro'),
-                               uri=True, timeout=remaining(self.policy.sql_seconds))
-        conn.row_factory = sqlite3.Row
-        deadline = time.monotonic() + remaining(self.policy.sql_seconds)
-        conn.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
-        try:
-            if write:
-                conn.execute('PRAGMA synchronous=FULL')
-            else:
-                conn.execute('PRAGMA query_only=ON')
-            if initialize:
-                tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-                if not tables:
-                    conn.execute('PRAGMA journal_mode=WAL')
-                    conn.execute('BEGIN IMMEDIATE')
-                    for sql in SCHEMA:
-                        conn.execute(sql)
-                    conn.execute('INSERT INTO catalog_meta(singleton,schema_version,source_scope) VALUES(1,2,?)', (self.scope,))
-                    conn.commit()
-                version=conn.execute('SELECT schema_version FROM catalog_meta WHERE singleton=1').fetchone()[0]
-                if version==1:
-                    self.validate(conn,version=1)
-                    conn.execute('BEGIN IMMEDIATE')
-                    try:
-                        conn.execute(PREVIEW_ARTIFACTS)
-                        conn.execute('UPDATE catalog_meta SET schema_version=2 WHERE singleton=1')
-                        self.validate(conn)
-                        conn.commit()
-                    except BaseException:
-                        conn.rollback();raise
-                self.validate(conn)
-            else:
-                meta = conn.execute('SELECT schema_version,source_scope FROM catalog_meta WHERE singleton=1').fetchone()
-                if meta is None or tuple(meta) != (2, self.scope):
-                    raise Blocked('catalog_schema_invalid')
-            conn.execute('BEGIN IMMEDIATE' if write else 'BEGIN')
-            yield conn
-            if write:
-                conn.commit()
-        except sqlite3.Error as error:
-            conn.rollback()
-            if getattr(error,'sqlite_errorcode',None)==sqlite3.SQLITE_FULL:
-                raise Blocked('insufficient_disk_space') from None
-            raise Blocked('catalog_sql_timeout' if time.monotonic() >= deadline else 'catalog_sql_failed') from None
-        finally:
-            conn.close()
-
-    def validate(self, conn,version=2):
+    def validate(self, conn, version=2):
         # Compare to the declared schema, including PKs and indexes; no silent auto-rebuild.
         reference = sqlite3.connect(':memory:')
         try:
-            for sql in (SCHEMA_V1 if version==1 else SCHEMA):
+            for sql in (SCHEMA_V1 if version == 1 else SCHEMA):
                 reference.execute(sql)
             tables = {r[0] for r in reference.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             if tables != {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
@@ -144,162 +79,3 @@ class Catalog:
                 raise Blocked('catalog_schema_invalid')
         finally:
             reference.close()
-
-    def meta(self):
-        with self.connection() as conn:
-            return dict(conn.execute('SELECT * FROM catalog_meta WHERE singleton=1').fetchone())
-
-    def day(self, day):
-        with self.connection() as conn:
-            row = conn.execute('SELECT * FROM catalog_days WHERE ann_date=?', (day,)).fetchone()
-            return dict(row) if row else None
-
-    def add_records(self, day, generation, rows, names):
-        with self.connection(write=True) as conn:
-            try:
-                conn.executemany('INSERT INTO catalog_records VALUES(?,?,?,?,?,?,?,?,?,?,?)', rows)
-            except sqlite3.IntegrityError:
-                raise Blocked('source_duplicate_record') from None
-            conn.executemany('''INSERT INTO company_sources VALUES(?,?,?,?,?,?,?,?,?)
-                ON CONFLICT(source_kind,ts_code,name,ann_date,generation) DO UPDATE
-                SET record_key=MIN(record_key,excluded.record_key)''', names)
-
-    def add_names(self, rows):
-        with self.connection(write=True) as conn:
-            conn.executemany('INSERT OR IGNORE INTO company_sources VALUES(?,?,?,?,?,?,?,?,?)', rows)
-
-    def publish_day(self, day, generation, facts, mtime, dictionary_version):
-        with self.connection(write=True) as conn:
-            actual = conn.execute('SELECT COUNT(*) FROM catalog_records WHERE ann_date=? AND generation=?', (day,generation)).fetchone()[0]
-            if actual != facts['footer_count']:
-                raise Blocked('source_row_count_mismatch')
-            conn.execute('INSERT OR REPLACE INTO catalog_days VALUES(?,?,?,?,?,?,?,?,?,?)',
-                         (day,generation,facts['opened_dev'],facts['opened_ino'],facts['size'],mtime,
-                          facts['sha256'],facts['footer_count'],timestamp(),dictionary_version))
-            conn.execute('UPDATE catalog_meta SET revision=revision+1,published_at=? WHERE singleton=1', (timestamp(),))
-
-    def publish_names(self, generation, version, dictionary_version,facts):
-        with self.connection(write=True) as conn:
-            conn.execute('''UPDATE catalog_meta SET revision=revision+1,name_generation=?,name_version=?,
-              dictionary_version=?,published_at=?,name_facts=? WHERE singleton=1''', (generation,version,dictionary_version,timestamp(),json.dumps(facts,sort_keys=True)))
-
-    def days_after(self,start,end,after=''):
-        with self.connection() as conn:
-            return [dict(row) for row in conn.execute('SELECT * FROM catalog_days WHERE ann_date BETWEEN ? AND ? AND ann_date>? ORDER BY ann_date LIMIT 500',
-                                                     (start,end,after)).fetchmany(500)]
-
-    def query_counts(self,query_id,rows):
-        with self.connection(write=True) as conn:
-            conn.executemany('INSERT OR REPLACE INTO query_day_counts VALUES(?,?,?,?)',
-                             ((query_id,day,generation,count) for day,generation,count in rows))
-            conn.execute('UPDATE query_snapshots SET dates_counted=(SELECT COUNT(*) FROM query_day_counts WHERE query_id=?),updated_at=? WHERE query_id=?',
-                         (query_id,timestamp(),query_id))
-
-    def create_query(self, query_id, conditions):
-        with self.connection(write=True) as conn:
-            self._insert_query(conn,query_id,conditions,'preparing')
-
-    @staticmethod
-    def _insert_query(conn,query_id,conditions,state):
-        from datetime import date
-        days = (date.fromisoformat(conditions['endDate']) - date.fromisoformat(conditions['startDate'])).days + 1
-        conn.execute('''INSERT INTO query_snapshots(query_id,conditions,state,expires_at,dates_total,created_at,updated_at)
-            VALUES(?,?,?,?,?,?,?)''',
-                     (query_id,json.dumps(conditions,ensure_ascii=False),state,None,days,timestamp(),timestamp()))
-
-    def query(self, query_id):
-        with self.connection() as conn:
-            row = conn.execute('SELECT * FROM query_snapshots WHERE query_id=?', (query_id,)).fetchone()
-            return dict(row) if row else None
-
-    def update_query(self, query_id, **fields):
-        allowed = {'state','revision','archive_identity','checked_at','reason','dates_scanned','records_scanned','status_available','preparation_stage'}
-        if not fields or not set(fields) <= allowed:
-            raise ValueError('invalid_query_observation')
-        fields['updated_at']=timestamp()
-        if fields.get('state') in {'ready','error'}:
-            fields['expires_at']=time.time()+self.policy.ttl_seconds
-        with self.connection(write=True) as conn:
-            conn.execute('UPDATE query_snapshots SET '+','.join(k+'=?' for k in fields)+' WHERE query_id=?', (*fields.values(),query_id))
-
-    def reset_presence(self,query_id,check=lambda:None):
-        while True:
-            check()
-            with self.connection(write=True) as conn:
-                removed=conn.execute('DELETE FROM query_presence WHERE rowid IN (SELECT rowid FROM query_presence WHERE query_id=? LIMIT 500)',(query_id,)).rowcount
-                if removed<500:
-                    conn.execute("UPDATE query_snapshots SET artifacts_checked=0,preparation_stage='checkingStatus',updated_at=? WHERE query_id=?",(timestamp(),query_id))
-                    return
-
-    def presence(self, query_id, keys,checked_count=None):
-        with self.connection(write=True) as conn:
-            conn.executemany('INSERT OR IGNORE INTO query_presence VALUES(?,?)', ((query_id,k) for k in keys))
-            if checked_count is not None:
-                conn.execute('UPDATE query_snapshots SET artifacts_checked=artifacts_checked+?,updated_at=? WHERE query_id=?',
-                             (checked_count,timestamp(),query_id))
-
-    def build_progress(self, build_id, start, end, state, current=None, days=0, records=0, reason=None):
-        with self.connection(write=True) as conn:
-            conn.execute('''INSERT INTO catalog_builds VALUES(?,?,?,?,?,?,?,?,?)
-                ON CONFLICT(build_id) DO UPDATE SET state=excluded.state,current_day=excluded.current_day,
-                days_scanned=excluded.days_scanned,records_scanned=excluded.records_scanned,
-                reason=excluded.reason,updated_at=excluded.updated_at''',
-                         (build_id,start,end,state,current,days,records,reason,timestamp()))
-
-    def create_preview(self,preview_id,start,end,interval,archive_identity):
-        conditions=dict(startDate=start,endDate=end,tsCode=None,titleKeyword='',downloadStatus='all')
-        stats=dict(recordCount=None,artifactCount=None,missingUrlCount=None,reusableEstimate=None,downloadEstimate=None,reason=None,updatedAt=timestamp())
-        with self.connection(write=True) as conn:
-            self._insert_query(conn,preview_id,conditions,'preview')
-            conn.execute('INSERT INTO previews VALUES(?,?,?,?,?,?,?,?,?)',(preview_id,start,end,interval,self.scope,archive_identity,'preparing',json.dumps(stats),None))
-
-    def preview(self,preview_id):
-        with self.connection() as conn:
-            row=conn.execute('SELECT * FROM previews WHERE preview_id=?',(preview_id,)).fetchone()
-            return dict(row) if row else None
-
-    def preview_pending(self):
-        with self.connection() as conn:
-            row=conn.execute("SELECT preview_id FROM previews WHERE state='preparing' ORDER BY rowid LIMIT 1").fetchone()
-            return row[0] if row else None
-
-    def update_preview(self,preview_id,*,state=None,statistics=None,ready=False):
-        with self.connection(write=True) as conn:
-            current=conn.execute('SELECT state FROM previews WHERE preview_id=?',(preview_id,)).fetchone()
-            if not current or current[0]=='cancelled':return
-            fields={}
-            if state:fields['state']=state
-            if statistics is not None:
-                fields['statistics']=json.dumps(dict(statistics,updatedAt=timestamp()),ensure_ascii=False)
-            if ready:fields['expires_at']=time.time()+self.policy.ttl_seconds
-            if fields:
-                conn.execute('UPDATE previews SET '+','.join(k+'=?' for k in fields)+' WHERE preview_id=?',(*fields.values(),preview_id))
-
-    def cancel_preview(self,preview_id):
-        with self.connection(write=True) as conn:
-            row=conn.execute('SELECT state FROM previews WHERE preview_id=?',(preview_id,)).fetchone()
-            if row is None:raise Blocked('preview_not_found')
-            if row[0]=='preparing':conn.execute("UPDATE previews SET state='cancelled' WHERE preview_id=?",(preview_id,))
-
-    def put_preview_day(self,preview_id,day):
-        facts={k:day[k] for k in ('opened_dev','opened_ino','size','mtime_ns','sha256','footer_count')}
-        with self.connection(write=True) as conn:
-            conn.execute('INSERT OR REPLACE INTO preview_days VALUES(?,?,?,?)',(preview_id,day['ann_date'],day['active_generation'],json.dumps(facts,sort_keys=True)))
-
-    def preview_day(self,preview_id,day):
-        with self.connection() as conn:
-            row=conn.execute('SELECT * FROM preview_days WHERE preview_id=? AND ann_date=?',(preview_id,day)).fetchone()
-            return dict(row) if row else None
-
-
-    def reset_preview_keys(self,preview_id,check):
-        while True:
-            check()
-            with self.connection(write=True) as conn:
-                removed=conn.execute('DELETE FROM preview_artifacts WHERE rowid IN (SELECT rowid FROM preview_artifacts WHERE preview_id=? LIMIT 500)',(preview_id,)).rowcount
-            if removed<500:return
-
-    def add_preview_keys(self,preview_id,keys):
-        if len(keys)>500:raise ValueError('preview_batch_limit')
-        with self.connection(write=True) as conn:
-            return [key for key in keys if conn.execute('INSERT OR IGNORE INTO preview_artifacts VALUES(?,?)',(preview_id,key)).rowcount]

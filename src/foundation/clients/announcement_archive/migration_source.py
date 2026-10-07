@@ -213,13 +213,13 @@ class LegacyCatalog(SQLiteSource):
     def open(self):
         try:
             super().open()
-            from src.foundation.dao.announcement_archive.catalog import Catalog
+            from src.foundation.dao.announcement_archive.catalog import LegacyCatalogSchema
             meta = self.query('SELECT * FROM catalog_meta WHERE singleton=1')
             if len(meta) != 1 or meta[0]['schema_version'] != 2:
                 raise Blocked('catalog_schema_invalid')
             self.scope = meta[0]['source_scope']
             self.version = 2
-            Catalog(self.path, self.scope).validate(self.conn)
+            LegacyCatalogSchema(self.scope).validate(self.conn)
             self.assert_unchanged()
             return self
         except BaseException:

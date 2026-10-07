@@ -343,6 +343,6 @@ DC3已提交`83ffb83f`。新增调用链：WealthRouter→DataCenterPage/Announc
 
 ### 数据中心公告Q2装配（2026-10-07，未正式切换）
 
-`announcement_archive_lifespan`在本地部署开关下组合独立PG归档engine、Foundation DirectSource/CompanySource/QueryPresence、Biz Query/DownloadService和Ops AnnouncementSourceRuntime。查询/API直接读取固定FD Raw与小PG控制事实；列表、公司候选、预览和GC共享单来源运行器。Biz不import Ops；Prod不初始化DuckDB/PG/pinyin。Wealth CompanySearch复用useStockSearchController，默认首页/交易助手行为不变。执行器/CLI迁PG属于Q3，正式迁移Q4；当前Q2尚缺获准旧源码清退，不作可部署结论。
+`announcement_archive_lifespan`在本地部署开关下组合独立PG归档engine、Foundation DirectSource/CompanySource/QueryPresence、Biz Query/DownloadService和Ops AnnouncementSourceRuntime。查询/API直接读取固定FD Raw与小PG控制事实；列表、公司候选、预览和GC共享单来源运行器。Biz不import Ops；Prod不初始化DuckDB/PG/pinyin。Wealth CompanySearch复用useStockSearchController，默认首页/交易助手行为不变。执行器/CLI迁PG属于Q3，正式迁移Q4；Q2已按用户明确授权完成旧源码清退；正式迁移前不可部署。
 
-CodeGraph explore/impact覆盖Catalog及API/App/预览/搜索消费者，sync/status复核索引；旧模块关联经源码import补核，删除仍被自动审批拒绝，待用户授权。详细实现与验证见[Q2报告](/Users/congming/github/goldenshare/reports/wealth_data_center_q2_acceptance_20261007.md)和[LLD §24](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。没有修改DG、DatasetDefinition、Prod合同或依赖矩阵。
+CodeGraph explore/impact覆盖Catalog及API/App/预览/搜索消费者，sync/status复核索引；此前删除被自动审批拒绝；用户明确授权后已清退五个旧模块，catalog.py缩为迁移专用LegacyCatalogSchema只读校验。当前AST import引用为0，sync/status/query复核索引和迁移消费者。详细实现与验证见[Q2报告](/Users/congming/github/goldenshare/reports/wealth_data_center_q2_acceptance_20261007.md)和[LLD §24](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。没有修改DG、DatasetDefinition、Prod合同或依赖矩阵。

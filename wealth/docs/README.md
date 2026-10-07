@@ -81,8 +81,8 @@ docs/
 ## 页面级文档
 
 - [数据中心与上市公司公告产品方案 v1（产品/Figma R1已确认）](../../docs/product/wealth-data-center-announcements-product-plan-v1.md)
-- [数据中心与上市公司公告技术方案 v1（Q1已提交；Q2直接查询/搜索已验证、清退待授权；正式迁移待后续阶段）](./pages/data-center/data-center-announcements-implementation-design-v1.md)
-- [数据中心与上市公司公告 LLD v1（Q1已提交，Q2实施与剩余项见§24，Q3—Q4待实施）](./pages/data-center/data-center-announcements-low-level-design-v1.md)
+- [数据中心与上市公司公告技术方案 v1（Q1已提交；Q2直接查询/搜索及源码清退完成；正式迁移待后续阶段）](./pages/data-center/data-center-announcements-implementation-design-v1.md)
+- [数据中心与上市公司公告 LLD v1（Q1已提交，Q2完成与验收见§24，Q3—Q4待实施）](./pages/data-center/data-center-announcements-low-level-design-v1.md)
 - [财势天下登录页视觉改版与鉴权接入技术方案 v1（开发完成，待用户部署验收）](./pages/login/login-page-auth-design-v1.md)
 - [财势天下登录页视觉改版低层设计 v1（修订 v1.2，含登录校验脱敏与开发对账）](./pages/login/login-page-auth-low-level-design-v1.md)
 - [财势乾坤交易助手标杆需求 v1（v1.51；机器人配置失败即结束，下次重新保存）](./pages/trading-assistant/trading-assistant-benchmark-requirement-v1.md)

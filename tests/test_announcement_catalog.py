@@ -82,3 +82,24 @@ def test_name_snapshot_fixed_contract_from_current_dg_paths():
         fn=next(n for n in parsed.body if isinstance(n,ast.FunctionDef) and n.name==symbol)
         call=fn.body[0].value
         assert [ast.literal_eval(v) for v in call.args[2:]]==['tushare',kind,'full','part-000.parquet']
+
+
+@pytest.mark.parametrize('damage',[None,'index','scope'])
+def test_migration_catalog_schema_check_preserves_read_only_source(tmp_path,damage):
+    import hashlib
+    import sqlite3
+    from src.foundation.clients.announcement_archive.core import Blocked
+    from src.foundation.dao.announcement_archive.catalog import SCHEMA,LegacyCatalogSchema
+    path=tmp_path/'legacy.sqlite'
+    with sqlite3.connect(path) as conn:
+        for sql in SCHEMA:conn.execute(sql)
+        conn.execute("INSERT INTO catalog_meta(singleton,schema_version,source_scope) VALUES(1,2,'scope')")
+        if damage=='index':conn.execute('DROP INDEX query_pending')
+        if damage=='scope':conn.execute("UPDATE catalog_meta SET source_scope='other'")
+    before=hashlib.sha256(path.read_bytes()).hexdigest()
+    with sqlite3.connect(path.as_uri()+'?mode=ro',uri=True) as conn:
+        conn.execute('PRAGMA query_only=ON')
+        if damage:
+            with pytest.raises(Blocked,match='catalog_schema_invalid'):LegacyCatalogSchema('scope').validate(conn)
+        else:LegacyCatalogSchema('scope').validate(conn)
+    assert hashlib.sha256(path.read_bytes()).hexdigest()==before
