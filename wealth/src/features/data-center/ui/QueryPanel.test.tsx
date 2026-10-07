@@ -9,7 +9,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 const conditions: Conditions = { ...contextFixture.queryDefaults, tsCode: null, titleKeyword: "" };
 const ready = (id = "q1", page = 1): QueryResult => ({ queryId: id, conditions,
   pageState: { status: "ready", code: null, message: null, asOfTime: "2026-10-06T00:00:00Z" },
-  catalogRevision: 1, items: [], total: 100, page, pageSize: 50,
+  sourceVersion: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", items: [], total: 100, page, pageSize: 50,
   hasPrevious: page > 1, hasNext: page === 1, downloadStatusAvailable: true, preparation: null });
 const buttons = () => ["查询", "重置", "刷新列表"].map(name => screen.getByRole("button", { name }));
 
@@ -22,7 +22,7 @@ it("buttons stay enabled during observation; terminal failure stops GETs and man
   buttons().forEach(b => expect(b).toBeDisabled());
   const preparing: QueryResult = { ...ready(), total: null, hasNext: false, downloadStatusAvailable: false,
     pageState: { status: "preparing", code: null, message: null, asOfTime: "2026-10-07T00:00:00Z" },
-    preparation: { datesScanned: 29, datesTotal: 30, recordsScanned: 100 } };
+    preparation: { stage: "counting", artifactsChecked: 0, datesScanned: 29, datesTotal: 30, recordsScanned: 100 } };
   await act(async () => { resolveCreate(preparing); });
   expect(read).toHaveBeenCalledTimes(1);
   buttons().forEach(b => expect(b).toBeEnabled());

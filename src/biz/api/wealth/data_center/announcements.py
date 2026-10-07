@@ -15,10 +15,11 @@ router=APIRouter(prefix='/wealth/data-center/announcements',tags=['wealth-announ
 def query_service(request:Request):
     if not announcements_enabled(get_settings()):
         raise DataCenterError('DC_MODULE_UNAVAILABLE','当前部署不提供上市公司公告模块',404)
-    runtime=getattr(request.app.state,'announcement_catalog',None)
+    runtime=getattr(request.app.state,'announcement_source',None)
     if runtime is None:
         raise DataCenterError('DC_SOURCE_UNAVAILABLE','本地公告查询正在准备或来源不可用')
-    return runtime.service()
+    try:return runtime.service()
+    except Blocked as error:raise mapped_error(str(error)) from None
 
 
 def parameters_only(request,allowed):

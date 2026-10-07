@@ -59,6 +59,8 @@ class QueryConditionsDto(ContractDto):
 
 
 class QueryPreparationDto(ContractDto):
+    stage: Literal['readingSource','checkingStatus','counting']
+    artifactsChecked: int
     datesScanned: int
     datesTotal: int
     recordsScanned: int
@@ -67,7 +69,7 @@ class QueryPreparationDto(ContractDto):
 class QueryResultDto(ContractDto):
     queryId: str
     pageState: PageStateDto
-    catalogRevision: int|None
+    sourceVersion: str|None = Field(pattern=r'^[0-9a-f]{64}$')
     conditions: QueryConditionsDto
     items: list[AnnouncementRowDto]=Field(max_length=50)
     total: int|None

@@ -11,7 +11,9 @@ from src.foundation.clients.announcement_archive.core import DownloadPolicy
 from src.foundation.clients.announcement_archive.volume import Volume,SourceVolume
 from src.foundation.clients.announcement_archive.source import Source
 from src.foundation.clients.announcement_archive.files import Files
-from src.foundation.dao.announcement_archive.catalog import Catalog
+from src.foundation.dao.announcement_archive.query_controls import QueryControls
+from src.foundation.dao.announcement_archive.pg_database import ArchiveDatabase
+from src.foundation.config.announcement_archive import ArchiveDatabasePolicy
 from src.foundation.dao.announcement_archive.ledger import Ledger
 from src.ops.runtime.announcement_archive.supervisor import ArchiveSupervisor
 
@@ -56,7 +58,9 @@ def main():
         original=Ledger.begin_run
         def begin(self,*args,**kwargs):original(self,*args,**kwargs);os._exit(73)
         Ledger.begin_run=begin
-    supervisor=ArchiveSupervisor(binding,factory,lambda:Catalog(Path(config['catalog']),config['scope']),policy=policy,client_factory=lambda:httpx.Client(transport=httpx.MockTransport(handle)))
+    database=ArchiveDatabase(config['pg_url'],replace(ArchiveDatabasePolicy(),**config['pg_policy']))
+    controls=QueryControls(database,config['archive_id'],config['scope'])
+    supervisor=ArchiveSupervisor(binding,factory,lambda:controls,policy=policy,client_factory=lambda:httpx.Client(transport=httpx.MockTransport(handle)))
     if mode=='recover':supervisor.recover();return 0
     if mode=='lock':
         try:Volume(output,policy,lambda _:info).open()

@@ -5,7 +5,7 @@ import type { Company, Conditions, QueryResult } from "../api/contracts";
 import { contextFixture } from "./fixtures";
 import { useAnnouncementQuery } from "./useAnnouncementQuery";
 afterEach(() => vi.restoreAllMocks());
-const sample = (c: Conditions, id = "q1", page = 1) => ({ queryId: id, pageState: { status: "ready", code: null, message: null, asOfTime: "2026-10-06T00:00:00Z" }, catalogRevision: 1, conditions: c, items: [], total: 100, page, pageSize: 50, hasPrevious: page > 1, hasNext: page === 1, downloadStatusAvailable: true, preparation: null } as QueryResult);
+const sample = (c: Conditions, id = "q1", page = 1) => ({ queryId: id, pageState: { status: "ready", code: null, message: null, asOfTime: "2026-10-06T00:00:00Z" }, sourceVersion: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", conditions: c, items: [], total: 100, page, pageSize: 50, hasPrevious: page > 1, hasNext: page === 1, downloadStatusAvailable: true, preparation: null } as QueryResult);
 it("unselected typed company blocks application; selected full code with literal title is applied", async () => {
   const create = vi.spyOn(dataCenterApi, "createQuery").mockImplementation(async c => sample(c)); vi.spyOn(dataCenterApi, "query").mockResolvedValue(sample({ ...contextFixture.queryDefaults, tsCode: null, titleKeyword: "" }));
   const { result } = renderHook(() => useAnnouncementQuery(contextFixture)); await waitFor(() => expect(create).toHaveBeenCalledTimes(1));

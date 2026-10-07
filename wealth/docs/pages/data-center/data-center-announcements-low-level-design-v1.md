@@ -2,7 +2,7 @@
 
 日期：2026-10-07。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2提交a1b47713，DC3提交83ffb83f，DC4提交b5534947；DC5本机正式归档验收完成，见§20；DG日常稳定性另行验收。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
 
-**修订状态：** §22明确本地PG落点、表结构映射、迁移/续跑、直接查询一致性、API及共享搜索合同。2026-10-07按用户授权完成Q1开发和隔离验收，见§23；正式存储仍未切换，Q2—Q4未实施。此前§3—8、§10—11中的SQLite实现、投影字段和相应测试属于既有实现基线，被§22替代；§13—21保留历史交付及review修正证据。R01—R24产品硬口径继续有效。正式写入、切换和清理仍按分期取得执行授权。
+**修订状态：** §22明确本地PG落点、表结构映射、迁移/续跑、直接查询一致性、API及共享搜索合同。Q1已提交d6cc3971，见§23；Q2直接查询/API/搜索已实现并完成隔离及真实来源只读验证，但旧源码清退受自动审批阻断，尚未完整交付，见§24。正式存储仍未切换，Q3—Q4未实施。此前§3—8、§10—11中的SQLite实现、投影字段和相应测试属于既有实现基线，被§22替代；§13—21保留历史交付及review修正证据。R01—R24产品硬口径继续有效。正式写入、切换和清理仍按分期取得执行授权。
 
 ## 1. 硬口径、实现点与验收索引
 
@@ -614,7 +614,7 @@ DG最新日期和连续稳定性仍独立验收。10/5—07未落地前默认30�
 
 CodeGraph explore/impact覆盖QueryService、CatalogBuilder及API/测试/前端消费者，sync/status无滞后。共用错误适配的下载预览消费者同步回归，下载控制与通用观察器实现未改；依赖矩阵、配置项、表结构均不变。正式DG缺日仍须由既有同步完成，不能把提示修正当作数据补齐。
 
-## 22. 直接查询、PG与搜索复用的实施合同（2026-10-07，Q1已完成，Q2—Q4待实施）
+## 22. 直接查询、PG与搜索复用的实施合同（2026-10-07，Q1已提交，Q2实施与剩余项见§24）
 
 本节对应[技术方案](data-center-announcements-implementation-design-v1.md) §16及[本地只读审计](../../../../reports/wealth_data_center_local_storage_audit_20261007.md)。用户在核实结果后要求补齐LLD，以下将PG落点、配置、SQL、DTO及迁移规则作为唯一修订目标；不再保留SQLite目录投影的新开发路径。
 
@@ -846,7 +846,7 @@ Q1—Q3开发期间不启用正式新存储，不在用户实际Web保留双后�
 
 ## 23. Q1 PG基础与迁移工具交付（2026-10-07）
 
-用户“提交修改，然后开始推进Q1”。此前公告review修正、只读审计和修订LLD已提交`66263bb3`；Q1完成开发与临时PG/SQLite验收，新增代码尚未提交。完整文件、硬口径、测试及性能证据见[Q1验收报告](../../../../reports/wealth_data_center_q1_acceptance_20261007.md)。没有写入本机正式metadata库、修改env、迁移原SQLite或改动PDF/Raw，也没有安装/卸载软件。
+用户“提交修改，然后开始推进Q1”。此前公告review修正、只读审计和修订LLD已提交`66263bb3`；随后用户“提交，然后继续进行下一个阶段Q2”，Q1提交`d6cc3971`。完整文件、硬口径、测试及性能证据见[Q1验收报告](../../../../reports/wealth_data_center_q1_acceptance_20261007.md)。没有写入本机正式metadata库、修改env、迁移原SQLite或改动PDF/Raw，也没有安装/卸载软件。
 
 落地文件：Foundation Settings和ArchiveDatabasePolicy、`pg_database.py`独立连接/预算、`pg_migrations/001_initial.sql`及静态列合同、`pg_schema.py`完整结构验证、`pg_archive.py`按archive_id隔离的DAO；只读旧源适配在`clients/announcement_archive/migration_source.py`；运营分批迁移在`ops/runtime/announcement_archive/migration.py`；CLI薄入口为`src.scripts.migrate_announcement_archive`。静态SQL/合同作为package data发布，不从运行期SQLite动态生成DDL。
 
@@ -861,3 +861,16 @@ Q1—Q3开发期间不启用正式新存储，不在用户实际Web保留双后�
 验收：Q1完整套件43项通过，公告联合回归334项通过；Foundation数据合同门禁170项、依赖/legacy护栏16项及ingestion-lint通过。临时PG真实进程退出/SIGINT—续跑、事务中断、WAL、四归档同5键、schema2/3完整字段、旧整数游标和失败拒绝均已读回。
 
 代表样本102,026关联表行、231数据批；全新临时库首次PLAN+APPLY约18.50秒，最慢SQL1.36秒，Q1测试进程RSS峰值227.16MiB/FD峰值23，源站请求0。该测量是本机隔离迁移，没有清OS缓存，不是页面API/P95或正式迁移验收。下一阶段为Q2直接读取Raw、查询/API/共享搜索迁移。
+
+
+## 24. Q2直接查询实施与有限验收（2026-10-07，清退未完成）
+
+本阶段依据§22.6—22.11，产品/Figma不变。详细硬口径、文件与测试映射见[Q2报告](../../../../reports/wealth_data_center_q2_acceptance_20261007.md)，[真实来源性能证据](../../../../reports/wealth_data_center_q2_profile_20261007.json)和[浏览器截图](../../../../reports/wealth_data_center_q2_browser_20261007/restored-query.jpg)。
+
+1. Foundation `DirectSource`固定FD直接查询Raw，单DuckDB/256MiB/32公告文件、4秒SQL中断；`CompanySource`复用NameInitials和小名称snapshot，范围别名只在DuckDB临时关系归并。不存在PG公告元数据副本。
+2. `QueryControls`以archive_id隔离小型来源清单、逐日匹配数、短期presence/preview；短事务和session advisory lock领取，进程退出后未封存结果清理重建。`SourcePreparation`统一查询/预览准备、终态封存、内容SHA及取消；runtime统一来源检查和500行物理GC。固定FD与完整清单在准备终点及读页前后复核。
+3. Biz/App/Wealth同轮迁移sourceVersion、ledgerAvailability、真实准备阶段和错误合同。公告公司搜索复用既有控制器，默认首页/交易助手行为保留，公告必须明确选择；候选202观察、取消和终态停止有独立测试。App不接旧SQLite；下载执行/CLI的PG装配留给Q3。因此本阶段代码不可独立部署，Q1—Q3完成、Q4正式迁移后才切换。
+4. 联合回归425项通过；随后新增SQL实际超时、未封存名称变化、未登记PDF、真实os._exit(87)释放查询锁负例，直接查询套件32项通过。前端相关回归368项及新增搜索4项通过；浏览器使用真实构建、实际路由和临时PG验证65行分页、首字母候选、Enter显式选择、标题单行、缺日终态停止和人工刷新恢复。没有下载源站PDF。
+5. 真实来源只读验收：155日期210602条记录，002245.SZ返回36条；五个API场景冷GET约1.15—1.58秒，准备约1.09—3.27秒，公告FD峰值32、SQL最大约0.163秒、RSS峰值459.88MiB。每场景独立进程，1次冷GET+5次暖GET，P95按六次最大值保守记录；未清OS缓存。全历史2471文件/12064773行只核验清单和footer，未做全历史完整GET，不能据此宣称全历史API性能或DG成功。
+
+**剩余清退门禁：** 自动审批两次拒绝删除旧catalog_builder.py、preview.py、announcement_query.py、company_query.py、announcement_catalog.py及缩减catalog.py为迁移专用schema读取。理由为CodeGraph仍显示旧符号关联；当前源码外部import审计未发现新运行链依赖五个旧模块，但不得绕过拒绝。已向用户请求精确源码清退授权，未执行删除。LegacyCatalog显式迁移读取仍须保留schema校验，不能删除SQLite数据文件或丢失历史迁移能力。Q2因该项未完成，不进入Q3或宣布正式可部署。

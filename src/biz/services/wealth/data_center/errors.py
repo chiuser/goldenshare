@@ -8,6 +8,8 @@ class DataCenterError(Exception):
 
 
 def mapped_error(reason):
+    if reason.startswith(('archive_database','archive_schema','archive_import','archive_not_found')):
+        return DataCenterError('DC_LEDGER_FAILED','本地公告台账暂不可读取')
     if reason.startswith('source_day_missing:'):
         missing=reason.removeprefix('source_day_missing:')
         try:
@@ -27,7 +29,7 @@ def mapped_error(reason):
         return DataCenterError('DC_SOURCE_UNAVAILABLE','所需本地公告数据尚不可读取')
     if reason.startswith(('archive_','unsafe_','non_regular','symlink_')):
         return DataCenterError('DC_STATUS_UNAVAILABLE','文件下载状态暂无法核验')
-    return DataCenterError('DC_INDEX_FAILED','本地公告查询准备失败，请重新查询')
+    return DataCenterError('DC_QUERY_FAILED','本地公告查询准备失败，请重新查询')
 
 
 def mapped_download_error(reason):

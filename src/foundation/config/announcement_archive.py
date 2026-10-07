@@ -30,9 +30,11 @@ class DataCenterPolicy:
     heartbeat_seconds: float = 5
     stale_seconds: float = 15
     ttl_seconds: float = 900
-    catalog_check_seconds: float = 30
+    source_check_seconds: float = 30
+    file_batch_size: int = 32
+    gc_seconds: float = 60
+    gc_batch_size: int = 500
     control_poll_seconds: float = .5
-    catalog_unit_seconds: float = 60
 
 
 def announcements_enabled(settings):

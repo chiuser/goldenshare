@@ -3,22 +3,22 @@ export interface ModuleCard { moduleKey: string; title: string; description: str
 export type DownloadStatus = "all" | "downloaded" | "undownloaded";
 export interface Conditions { startDate: string; endDate: string; tsCode: string | null; titleKeyword: string; downloadStatus: DownloadStatus }
 export interface Context {
-  moduleEnabled: boolean; archiveAvailability: string; sourceAvailability: string; indexAvailability: string;
+  moduleEnabled: boolean; archiveAvailability: string; sourceAvailability: string; ledgerAvailability: string;
   archiveLocation: string; currentRunId: string | null;
   queryDefaults: Pick<Conditions, "startDate" | "endDate" | "downloadStatus">;
   downloadDefaults: { startDate: null; endDate: null; intervalSeconds: number };
   policy: { pageSize: 50; companyLimit: number; pollSeconds: number };
-  observedAnnDate: string | null; lastIndexedAt: string | null; sourceUpdateSucceededAt: string | null;
+  observedAnnDate: string | null; sourceUpdateSucceededAt: string | null;
 }
 export interface PageState { status: "preparing" | "ready" | "empty" | "error"; code: string | null; message: string | null; asOfTime: string }
-export interface Preparation { datesScanned: number; datesTotal: number; recordsScanned: number }
+export interface Preparation { stage: "readingSource" | "checkingStatus" | "counting"; artifactsChecked: number; datesScanned: number; datesTotal: number; recordsScanned: number }
 export interface AnnouncementRow {
   recordKey: string; annDate: string; tsCode: string | null; companyName: string;
   companyNameSource: "master" | "announcement" | "code"; title: string | null; sourceUrl: string | null;
   downloadStatus: Exclude<DownloadStatus, "all"> | null; statusCheckedAt: string | null;
 }
 export interface QueryResult {
-  queryId: string; pageState: PageState; catalogRevision: number | null; conditions: Conditions;
+  queryId: string; pageState: PageState; sourceVersion: string | null; conditions: Conditions;
   items: AnnouncementRow[]; total: number | null; page: number; pageSize: 50;
   hasPrevious: boolean; hasNext: boolean; downloadStatusAvailable: boolean; preparation: Preparation | null;
 }
@@ -33,7 +33,7 @@ export interface Preview extends PreviewRequest {
   previewId: string; state: "preparing" | "ready" | "empty" | "error" | "cancelled";
   recordCount: number | null; artifactCount: number | null; missingUrlCount: number | null;
   reusableEstimate: number | null; downloadEstimate: number | null; canStart: boolean;
-  expiresAt: string | null; preparation: Preparation; error: PublicError | null;
+  expiresAt: string | null; preparation: Pick<Preparation, "datesScanned" | "datesTotal" | "recordsScanned">; error: PublicError | null;
 }
 export type Phase = "preparing" | "downloading" | "stopping" | "completed" | "partial_failed" | "cancelled" | "blocked" | "stopped" | "interrupted";
 export interface Task {

@@ -12,7 +12,7 @@ def remaining(seconds):
     if deadline is not None:
         seconds=min(seconds,deadline-time.monotonic())
     if seconds<=0:
-        raise Blocked('catalog_sql_timeout')
+        raise Blocked('query_sql_timeout')
     return seconds
 
 

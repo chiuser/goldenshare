@@ -45,6 +45,12 @@ class EmptyRequest(ContractDto):pass
 class PublicError(ContractDto):code:str;message:str
 
 
+class PreviewPreparation(ContractDto):
+    datesScanned:int
+    datesTotal:int
+    recordsScanned:int
+
+
 class PreviewDto(ContractDto):
     previewId:str
     state:Literal['preparing','ready','empty','error','cancelled']
@@ -58,7 +64,7 @@ class PreviewDto(ContractDto):
     downloadEstimate:int|None
     canStart:bool
     expiresAt:str|None
-    preparation:QueryPreparationDto
+    preparation:PreviewPreparation
     error:PublicError|None
 
 

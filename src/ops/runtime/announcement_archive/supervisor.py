@@ -20,9 +20,9 @@ def recoverable(info):
 
 
 class ArchiveSupervisor:
-    def __init__(self,binding,resource_factory,catalog_provider,*,policy=DownloadPolicy(),data_policy=DataCenterPolicy(),client_factory=None,bootstrap=None):
+    def __init__(self,binding,resource_factory,controls_provider,*,policy=DownloadPolicy(),data_policy=DataCenterPolicy(),client_factory=None,bootstrap=None):
         self.binding,self.store=binding,ArchiveStore(binding)
-        self.resource_factory,self.catalog_provider=resource_factory,catalog_provider
+        self.resource_factory,self.controls_provider=resource_factory,controls_provider
         self.policy,self.data_policy=policy,data_policy
         self.client_factory,self.bootstrap=client_factory,bootstrap
         self.admission=threading.Lock();self.thread=None;self.control=None;self.closed=False
@@ -67,29 +67,50 @@ class ArchiveSupervisor:
         if 'error' in answer:raise Blocked(answer['error'])
         return answer['run']
 
-    def _preview(self,catalog,preview_id,source,volume):
-        value=catalog.preview(preview_id)
+    def _preview(self,controls,preview_id,source,volume):
+        value=controls.preview(preview_id)
         if not value:raise Blocked('preview_not_found')
         if (value['state']!='ready' or not value['expires_at'] or value['expires_at']<=time.time()
-                or value['source_scope']!=source.scope or value['archive_identity']!=identity([volume.volume_uuid,volume.relative_root])):
+                or value['source_scope']!=source.scope or value['archive_id']!=identity([volume.volume_uuid,volume.relative_root])):
             raise Blocked('preview_stale')
         if not json.loads(value['statistics'])['artifactCount']:raise Blocked('preview_empty')
         return value
 
-    def _validate_range(self,catalog,preview,source):
-        # Bounded per-day facts, never an unbounded list or full candidate JSON.
-        from .catalog_builder import CatalogBuilder,signature
+    def _validate_range(self,controls,preview,source):
+        from src.foundation.clients.announcement_archive.direct_source import signature,source_version
         after='';count=0
-        while days:=catalog.days_after(preview['start_date'],preview['end_date'],after):
-            for day in days:
-                source.control.check();saved=catalog.preview_day(preview['preview_id'],day['ann_date'])
-                if not saved or saved['generation']!=day['active_generation']:raise Blocked('preview_stale')
-                facts=json.loads(saved['source_facts'])
-                if signature(CatalogBuilder.file_stat(source.volume,'ann_date='+day['ann_date']))!=tuple(facts[k] for k in ('opened_dev','opened_ino','size','mtime_ns')):
-                    raise Blocked('preview_stale')
+        while rows:=controls.rows('preview_days','AND preview_id=:id AND ann_date>:after',
+                dict(id=preview['preview_id'],after=after),order='ann_date'):
+            for row in rows:
+                source.control.check();facts=json.loads(row['source_facts']);day=row['ann_date']
+                with source.volume.directory('ann_date='+day) as fd:
+                    import os
+                    info=os.stat('part-000.parquet',dir_fd=fd,follow_symlinks=False)
+                if signature(info)!=tuple(facts[k] for k in ('opened_dev','opened_ino','size','mtime_ns')):raise Blocked('preview_stale')
                 count+=1
-            after=days[-1]['ann_date']
+            after=rows[-1]['ann_date']
         if count!=(date.fromisoformat(preview['end_date'])-date.fromisoformat(preview['start_date'])).days+1:raise Blocked('preview_stale')
+        # The preview version also pins names and the initials dictionary, without
+        # introducing another DuckDB connection during download admission.
+        from src.foundation.clients.announcement_archive.volume import SourceVolume
+        from src.foundation.clients.announcement_archive.names import NameInitials
+        names=SourceVolume(source.volume.output.parent,source.policy,source.volume.inspector).open()
+        try:
+            if names.volume_uuid!=source.volume.volume_uuid:raise Blocked('preview_stale')
+            name_facts=[]
+            import os,stat
+            for kind in ('namechange','stock_basic'):
+                with names.directory(kind+'/full') as fd:info=os.stat('part-000.parquet',dir_fd=fd,follow_symlinks=False)
+                if not stat.S_ISREG(info.st_mode) or info.st_dev!=names.device:raise Blocked('preview_stale')
+                name_facts.append(dict(source_kind=kind,partition='full',opened_dev=info.st_dev,opened_ino=info.st_ino,size=info.st_size,mtime_ns=info.st_mtime_ns))
+            def manifests():
+                after=''
+                while rows:=controls.rows('preview_days','AND preview_id=:id AND ann_date>:after',dict(id=preview['preview_id'],after=after),order='ann_date'):
+                    yield [json.loads(row['source_facts']) for row in rows];after=rows[-1]['ann_date']
+                yield name_facts
+            if source_version(source.scope,NameInitials().version,manifests())!=preview['source_version']:raise Blocked('preview_stale')
+        finally:names.close()
+
 
     def _worker(self,kind,payload,key,actor,ready,abandon,answer):
         ledger=volume=source=control=client=None;run=None;accepted=False
@@ -97,7 +118,7 @@ class ArchiveSupervisor:
             execution_policy=self.policy
             preliminary=Control(execution_policy,emit=lambda _:None)
             if kind=='create':
-                catalog=self.catalog_provider();preview=catalog.preview(payload['previewId'])
+                controls=self.controls_provider();preview=controls.preview(payload['previewId'])
                 if not preview:raise Blocked('preview_not_found')
                 options=DownloadOptions(date.fromisoformat(preview['start_date']),date.fromisoformat(preview['end_date']),preview['interval_seconds'],self.binding.output)
             else:
@@ -126,8 +147,8 @@ class ArchiveSupervisor:
             state.recover_abandoned()
             if abandon.is_set() or self.closed:raise Blocked('command_acceptance_timeout')
             if kind=='create':
-                preview=self._preview(catalog,payload['previewId'],source,volume)
-                self._validate_range(catalog,preview,source)
+                preview=self._preview(controls,payload['previewId'],source,volume)
+                self._validate_range(controls,preview,source)
                 if abandon.is_set():raise Blocked('command_acceptance_timeout')
                 run=ledger.begin_run(options,source.scope,execution_policy,command=(key,kind,payload_hash(kind,payload)),details=dict(preview_id=payload['previewId'],actor_id=actor))
             else:
@@ -164,11 +185,14 @@ class ArchiveSupervisor:
                 self._recheck(payload['kind'],run,ledger,volume,source,control,options,client)
             else:
                 def validate_day(day):
-                    saved=catalog.preview_day(preview['preview_id'],day.day);facts=json.loads(saved['source_facts']) if saved else {}
+                    saved=controls.preview_day(preview['preview_id'],day.day);facts=json.loads(saved['source_facts']) if saved else {}
                     if any(day.facts[k]!=facts.get(k) for k in ('opened_dev','opened_ino','size','sha256','footer_count')):
                         raise Blocked('preview_stale')
-                    from .catalog_builder import CatalogBuilder,signature
-                    if signature(CatalogBuilder.file_stat(source.volume,'ann_date='+day.day))!=tuple(facts[k] for k in ('opened_dev','opened_ino','size','mtime_ns')):raise Blocked('preview_stale')
+                    from src.foundation.clients.announcement_archive.direct_source import signature
+                    import os
+                    with source.volume.directory('ann_date='+day.day) as fd:
+                        info=os.stat('part-000.parquet',dir_fd=fd,follow_symlinks=False)
+                    if signature(info)!=tuple(facts[k] for k in ('opened_dev','opened_ino','size','mtime_ns')):raise Blocked('preview_stale')
                 execute_run(run,options,execution_policy,control,volume,ledger,source,source.scope,client,
                     enumerate_source=kind=='create',validate_day=validate_day if kind=='create' else None,web=True)
         except BaseException as error:

@@ -4,11 +4,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
 
-from test_announcement_catalog import query_archive,archive,request,row
+from test_announcement_catalog import query_archive,archive,request,row,pg,pg_cluster
 from test_announcement_download_dg import write_day,raw_root
 from src.app.auth.dependencies import get_current_user
 from src.app.exceptions import WebAppError,install_exception_handlers
-from src.app.runtime.announcement_archive_lifespan import include_data_center,install_data_center,AnnouncementCatalogRuntime
+from src.app.runtime.announcement_archive_lifespan import include_data_center,install_data_center
+from src.ops.runtime.announcement_archive.source_runtime import AnnouncementSourceRuntime
 from src.foundation.config.settings import Settings,get_settings
 from src.foundation.config.announcement_archive import announcements_enabled
 
@@ -28,9 +29,9 @@ def dc_client(query_archive,monkeypatch):
     router=APIRouter(prefix='/api/v1');include_data_center(router);app.include_router(router)
     # Existing login dependency is replaced; business query/service/DAO are real.
     app.dependency_overrides[get_current_user]=lambda:object()
-    runtime=AnnouncementCatalogRuntime(factory=lambda wake,control:service)
+    runtime=AnnouncementSourceRuntime(lambda wake:(service,service.fixture_preparation),service.policy)
     service.wake=runtime.wake.set
-    app.state.announcement_catalog=runtime.start()
+    app.state.announcement_source=runtime.start()
     with TestClient(app) as client:
         yield client,service,settings,app
     runtime.close()

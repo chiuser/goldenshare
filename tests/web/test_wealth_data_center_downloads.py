@@ -13,19 +13,18 @@ import pytest
 from fastapi import FastAPI,APIRouter
 from fastapi.testclient import TestClient
 
-from test_announcement_catalog import query_archive,archive,row
+from test_announcement_catalog import query_archive,archive,row,pg,pg_cluster
 from test_announcement_download_cli import PDF
 from test_announcement_download_dg import raw_root,write_day
 from src.foundation.clients.announcement_archive.binding import ArchiveBinding
-from src.foundation.clients.announcement_archive.core import Blocked,Control
+from src.foundation.clients.announcement_archive.core import Blocked,Control,DownloadPolicy
 from src.foundation.clients.announcement_archive.source import Source
 from src.foundation.clients.announcement_archive.volume import Volume,SourceVolume
 from src.foundation.clients.announcement_archive.names import NameInitials
 from src.foundation.clients.announcement_archive.presence import ArchivePresence
 from src.foundation.config.settings import Settings
 from src.foundation.dao.announcement_archive.ledger import Ledger
-from src.ops.runtime.announcement_archive.catalog_builder import CatalogBuilder
-from src.ops.runtime.announcement_archive.preview import PreviewRuntime
+from src.ops.runtime.announcement_archive.source_runtime import AnnouncementSourceRuntime
 from src.ops.runtime.announcement_archive.supervisor import ArchiveSupervisor
 from src.biz.services.wealth.data_center.download_service import AnnouncementDownloadService
 from src.app.runtime.announcement_archive_lifespan import include_data_center,install_data_center
@@ -43,17 +42,10 @@ def downloads(query_archive,tmp_path,monkeypatch):
     binding=ArchiveBinding(tmp_path/'binding/web-archive.json',options.output_root)
     monkeypatch.setattr(binding,'ledger_path',lambda value=None:tmp_path/'local-state/downloads.sqlite')
     binding.remember(oldvolume);oldledger.close();oldvolume.close()
-    query.presence.volume=SourceVolume(options.output_root,policy,oldvolume.inspector).open()
+    query.presence.volume.close()
+    query.presence.volume=SourceVolume(oldvolume.mount,policy,oldvolume.inspector).open()
     def source_factory(opts,control,root):
         return Source(opts,policy,control,SourceVolume(root,policy,oldvolume.inspector)).open()
-    def preview_factory(control):
-        control.policy=policy
-        s=source_factory(options,control,raw_root(a))
-        n=source_factory(options,control,raw_root(a).parent)
-        presence=ArchivePresence(query.presence.volume,binding.ledger_path(),oldvolume.relative_root)
-        # Preview's presence.close must close its own anchor, not the query's.
-        presence.volume=SourceVolume(options.output_root,policy,oldvolume.inspector).open()
-        return CatalogBuilder(query.catalog,s,n,NameInitials()),presence
     def resources(opts,control,*,source_required=True):
         v=Volume(opts.output_root,policy,oldvolume.inspector);s=l=None
         try:
@@ -67,9 +59,9 @@ def downloads(query_archive,tmp_path,monkeypatch):
             v.close();raise
     calls=[];behavior={'handler':lambda r:httpx.Response(200,content=PDF)}
     def handle(req):calls.append(str(req.url));return behavior['handler'](req)
-    supervisor=ArchiveSupervisor(binding,resources,lambda:query.catalog,policy=policy,client_factory=lambda:httpx.Client(transport=httpx.MockTransport(handle)))
-    previews=PreviewRuntime(preview_factory,lambda:query.catalog).start()
-    service=AnnouncementDownloadService(supervisor,supervisor.store,lambda:query.catalog,lambda:query.presence.identity,previews.wake.set)
+    supervisor=ArchiveSupervisor(binding,resources,lambda:query.controls,policy=policy,client_factory=lambda:httpx.Client(transport=httpx.MockTransport(handle)))
+    previews=AnnouncementSourceRuntime(lambda wake:(query,query.fixture_preparation),query.policy).start()
+    service=AnnouncementDownloadService(supervisor,supervisor.store,lambda:query.controls,lambda:query.presence.identity,previews.wake.set)
     settings=Settings(WEALTH_LOCAL_ANNOUNCEMENTS_ENABLED=True,APP_ENV='local')
     for module in ('home','announcements','downloads'):
         monkeypatch.setattr('src.biz.api.wealth.data_center.'+module+'.get_settings',lambda:settings)
@@ -78,7 +70,7 @@ def downloads(query_archive,tmp_path,monkeypatch):
     app.dependency_overrides[get_current_user]=lambda:SimpleNamespace(id=42)
     app.state.announcement_download=service
     with TestClient(app) as client:
-        yield SimpleNamespace(client=client,service=service,supervisor=supervisor,previews=previews,catalog=query.catalog,archive=a,binding=binding,calls=calls,behavior=behavior,settings=settings,app=app)
+        yield SimpleNamespace(client=client,service=service,supervisor=supervisor,previews=previews,catalog=query.controls,archive=a,binding=binding,calls=calls,behavior=behavior,settings=settings,app=app)
     supervisor.close();previews.close();query.presence.close()
 
 
@@ -95,6 +87,13 @@ def poll(d,url):
 
 
 def preview(d,rows):
+    with d.service.store.open() as old:
+        records=[dict(r) for r in old.conn.execute("SELECT * FROM artifacts WHERE state='succeeded'").fetchmany(500)]
+    if records:
+        with d.catalog.transaction() as conn:
+            for record in records:
+                key=record['artifact_key']
+                if not d.catalog.artifact_rows([key]):d.catalog.insert(conn,'artifacts',[record])
     write_day(raw_root(d.archive),'2026-09-30',rows)
     response=d.client.post(P+'/previews',json=dict(startDate='2026-09-30',endDate='2026-09-30',intervalSeconds=0))
     assert response.status_code==202,response.text
@@ -136,7 +135,7 @@ def test_preview_changed_and_expired_no_http_or_run(downloads):
     assert response.status_code==409 and response.json()['code']=='DC_PREVIEW_STALE'
     assert not d.calls and d.client.get(P+'/runs').json()['items']==[]
     fresh=preview(d,[row()])
-    with d.catalog.connection(write=True) as db:db.execute('UPDATE previews SET expires_at=0 WHERE preview_id=?',(fresh['previewId'],))
+    with d.catalog.transaction() as db:d.catalog.update(db,'preview',fresh['previewId'],dict(expires_at=0.))
     assert d.client.post(P+'/runs',json={'previewId':fresh['previewId']},headers={'Idempotency-Key':str(uuid.uuid4())}).status_code==409
 
 
@@ -278,24 +277,25 @@ def test_busy_cli_lock_and_history_remain_available_offline(downloads):
     assert not d.supervisor.store.receipt(str(uuid.uuid4()),'create',{'previewId':p['previewId']})
 
 
-def test_cancel_preview_during_indexing_keeps_partial_index_no_http(downloads,monkeypatch):
-    d=downloads;entered=threading.Event();release=threading.Event();original=d.catalog.add_records
-    def add(*args):original(*args);entered.set();release.wait(3)
-    monkeypatch.setattr(d.catalog,'add_records',add)
+def test_cancel_preview_during_source_preparation_no_http(downloads,monkeypatch):
+    d=downloads;entered=threading.Event();release=threading.Event();source=d.previews.service().source
+    original=source.preview_keys
+    def keys(*args):
+        values=original(*args);entered.set();release.wait(3);return values
+    monkeypatch.setattr(source,'preview_keys',keys)
     write_day(raw_root(d.archive),'2026-09-30',[row(n) for n in range(1,1100)])
     response=d.client.post(P+'/previews',json=dict(startDate='2026-09-30',endDate='2026-09-30',intervalSeconds=0))
     assert entered.wait(3)
     stopped=d.client.post(P+'/previews/'+response.json()['previewId']+'/stop',json={})
     assert stopped.status_code==200 and stopped.json()['state']=='cancelled'
     release.set();time.sleep(.05)
-    assert not d.calls
-    assert d.catalog.day('2026-09-30') is None
+    assert not d.calls and d.catalog.preview_day(response.json()['previewId'],'2026-09-30') is None
 
 
 def subprocess_run(d,mode,preview_id=None,run_id=None,key=None):
     import subprocess,sys,os
     path=d.binding.path.parent/'subprocess-config.json';calls=d.binding.path.parent/'process-calls.txt'
-    config=dict(mount=str(d.archive[0].mount.resolve()),binding=str(d.binding.path),ledger=str(d.binding.ledger_path()),raw=str(raw_root(d.archive)),catalog=str(d.catalog.path),scope=d.catalog.scope,calls=str(calls),preview=preview_id,run=run_id,key=key or str(uuid.uuid4()))
+    config=dict(mount=str(d.archive[0].mount.resolve()),binding=str(d.binding.path),ledger=str(d.binding.ledger_path()),raw=str(raw_root(d.archive)),pg_url=d.catalog.database.engine.url.render_as_string(hide_password=False),pg_policy=dict(database=d.catalog.database.policy.database,port=d.catalog.database.policy.port),archive_id=d.catalog.archive_id,scope=d.catalog.scope,calls=str(calls),preview=preview_id,run=run_id,key=key or str(uuid.uuid4()))
     path.write_text(json.dumps(config))
     result=subprocess.run([sys.executable,'-B','tests/fixtures/announcement_web_process_runner.py',str(path),mode],env=dict(os.environ,PYTHONPATH=str(Path.cwd())),capture_output=True,text=True,timeout=30)
     return result,calls,config
@@ -328,27 +328,15 @@ def test_process_exit_recovery_and_exact_continue(downloads,mode):
         assert len(d.calls)==(1 if mode=='downloading' else 0)
 
 
-def test_snapshot_and_catalog_migration_is_additive_and_atomic(tmp_path,monkeypatch):
-    from src.foundation.dao.announcement_archive.catalog import Catalog,SCHEMA_V1
+def test_legacy_catalog_schema_is_not_upgraded_by_runtime(tmp_path):
+    from src.foundation.dao.announcement_archive.catalog import SCHEMA_V1
+    from src.foundation.clients.announcement_archive.migration_source import LegacyCatalog
     path=tmp_path/'v1.sqlite'
     with sqlite3.connect(path) as db:
         for sql in SCHEMA_V1:db.execute(sql)
         db.execute("INSERT INTO catalog_meta(singleton,schema_version,source_scope,revision) VALUES(1,1,'scope',8)")
-        db.execute("INSERT INTO previews(preview_id,state,statistics) VALUES('old','cancelled','{}')")
-    c=Catalog(path,'scope');original=c.validate
-    def fail(conn,version=2):
-        original(conn,version)
-        if version==2:raise Blocked('injected_migration_failure')
-    monkeypatch.setattr(c,'validate',fail)
-    with pytest.raises(Blocked):
-        with c.connection(write=True,initialize=True):pass
-    with sqlite3.connect(path) as db:
-        assert db.execute('SELECT schema_version,revision FROM catalog_meta').fetchone()==(1,8)
-        assert not db.execute("SELECT 1 FROM sqlite_master WHERE name='preview_artifacts'").fetchone()
-    monkeypatch.setattr(c,'validate',original)
-    with c.connection(write=True,initialize=True):pass
-    assert c.meta()['schema_version']==2 and c.meta()['revision']==8
-    assert c.preview('old')['state']=='cancelled'
+    with pytest.raises(Blocked,match='catalog_schema_invalid'):LegacyCatalog(path,Control(DownloadPolicy(),emit=lambda _:None)).open()
+    with sqlite3.connect(path) as db:assert db.execute('SELECT schema_version FROM catalog_meta').fetchone()[0]==1
 
 
 def test_original_failed_keys_ten_are_the_retry_denominator(downloads):
@@ -547,19 +535,16 @@ def test_preview_large_day_fifty_thousand_unique_files(downloads):
     assert value['preparation']['recordsScanned']==50000 and not d.calls
 
 
-def test_preview_and_private_progress_snapshot_are_created_atomically(downloads,monkeypatch):
-    from src.foundation.dao.announcement_archive.catalog import Catalog
-    d=downloads;pid=uuid.uuid4().hex;original=Catalog._insert_query
-    def fail(conn,*args):
-        original(conn,*args);raise sqlite3.OperationalError('injected after snapshot insert')
-    monkeypatch.setattr(Catalog,'_insert_query',staticmethod(fail))
-    with pytest.raises(Blocked):d.catalog.create_preview(pid,'2026-09-30','2026-09-30',0,'test-identity')
+def test_preview_intent_is_one_atomic_pg_control_row(downloads,monkeypatch):
+    d=downloads;pid=uuid.uuid4().hex;original=d.catalog.insert
+    def fail(conn,*args,**kwargs):
+        original(conn,*args,**kwargs);raise Blocked('fixture_after_insert')
+    monkeypatch.setattr(d.catalog,'insert',fail)
+    with pytest.raises(Blocked):d.catalog.create_preview(pid,'2026-09-30','2026-09-30',0,d.catalog.archive_id)
     assert d.catalog.query(pid) is None and d.catalog.preview(pid) is None
-    monkeypatch.setattr(Catalog,'_insert_query',staticmethod(original))
-    d.catalog.create_preview(pid,'2026-09-30','2026-09-30',0,'test-identity')
-    assert d.catalog.query(pid)['state']=='preview'
-    with d.catalog.connection() as db:
-        assert db.execute("SELECT 1 FROM query_snapshots WHERE state='preparing' LIMIT 1").fetchone() is None
+    monkeypatch.setattr(d.catalog,'insert',original)
+    d.catalog.create_preview(pid,'2026-09-30','2026-09-30',0,d.catalog.archive_id)
+    assert d.catalog.preview(pid)['state']=='preparing' and d.catalog.query(pid) is None
     d.catalog.cancel_preview(pid)
 
 

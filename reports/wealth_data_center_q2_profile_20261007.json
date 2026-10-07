@@ -1,0 +1,2195 @@
+[
+  {
+    "kind": "default30",
+    "identityVerifiedRows": 0,
+    "files": 30,
+    "records": 28566,
+    "bytes": 847905,
+    "rowGroups": 24,
+    "resultRows": 50,
+    "total": 28566,
+    "preparationSeconds": 1.0904744160361588,
+    "coldGetSeconds": 1.1530066248960793,
+    "warmGetSeconds": [
+      1.0793268750421703,
+      1.0421183330472559,
+      0.95284887496382,
+      1.0649681671056896,
+      1.142711624968797
+    ],
+    "getP95Seconds": 1.1530066248960793,
+    "unitMaxSeconds": 0.6125059581827372,
+    "progress": [
+      {
+        "stage": "readingSource",
+        "dates": 0,
+        "records": 0,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 30,
+        "records": 28566,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 30,
+        "records": 28566,
+        "artifacts": 0
+      }
+    ],
+    "pid": 99677,
+    "sqlMaxSeconds": 0.16339154192246497,
+    "pgSqlCalls": 483,
+    "duckSqlCalls": 45,
+    "announcementFdPeak": 30,
+    "processFdCount": 12,
+    "rssMiB": 359.796875,
+    "sourceHttpRequests": 0,
+    "formalPgWrites": 0,
+    "formalLakeWrites": 0,
+    "formalPdfWrites": 0,
+    "osCacheFlushed": false
+  },
+  {
+    "kind": "stock155",
+    "identityVerifiedRows": 36,
+    "files": 155,
+    "records": 210602,
+    "bytes": 5738480,
+    "rowGroups": 149,
+    "resultRows": 36,
+    "total": 36,
+    "preparationSeconds": 1.3026917499955744,
+    "coldGetSeconds": 1.5831855409778655,
+    "warmGetSeconds": [
+      1.1629785830155015,
+      1.2473408340010792,
+      1.2633017499465495,
+      1.2327195000834763,
+      1.2557206670753658
+    ],
+    "getP95Seconds": 1.5831855409778655,
+    "unitMaxSeconds": 0.6612170829903334,
+    "progress": [
+      {
+        "stage": "readingSource",
+        "dates": 0,
+        "records": 0,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 32,
+        "records": 45925,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 64,
+        "records": 85080,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 96,
+        "records": 118318,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 128,
+        "records": 184321,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 155,
+        "records": 210602,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 155,
+        "records": 210602,
+        "artifacts": 0
+      }
+    ],
+    "pid": 158,
+    "sqlMaxSeconds": 0.14787241606973112,
+    "pgSqlCalls": 858,
+    "duckSqlCalls": 316,
+    "announcementFdPeak": 32,
+    "processFdCount": 12,
+    "rssMiB": 454.796875,
+    "sourceHttpRequests": 0,
+    "formalPgWrites": 0,
+    "formalLakeWrites": 0,
+    "formalPdfWrites": 0,
+    "osCacheFlushed": false
+  },
+  {
+    "kind": "all155",
+    "identityVerifiedRows": 0,
+    "files": 155,
+    "records": 210602,
+    "bytes": 5738480,
+    "rowGroups": 149,
+    "resultRows": 50,
+    "total": 210602,
+    "preparationSeconds": 1.408482583006844,
+    "coldGetSeconds": 1.5260513329412788,
+    "warmGetSeconds": [
+      1.1155400001443923,
+      1.1332005830481648,
+      1.1540755000896752,
+      1.0060845001135021,
+      1.1087517919950187
+    ],
+    "getP95Seconds": 1.5260513329412788,
+    "unitMaxSeconds": 0.7283435831777751,
+    "progress": [
+      {
+        "stage": "readingSource",
+        "dates": 0,
+        "records": 0,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 32,
+        "records": 45925,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 64,
+        "records": 85080,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 96,
+        "records": 118318,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 128,
+        "records": 184321,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 155,
+        "records": 210602,
+        "artifacts": 0
+      },
+      {
+        "stage": "counting",
+        "dates": 155,
+        "records": 210602,
+        "artifacts": 0
+      }
+    ],
+    "pid": 366,
+    "sqlMaxSeconds": 0.1603227499872446,
+    "pgSqlCalls": 546,
+    "duckSqlCalls": 85,
+    "announcementFdPeak": 32,
+    "processFdCount": 12,
+    "rssMiB": 391.59375,
+    "sourceHttpRequests": 0,
+    "formalPgWrites": 0,
+    "formalLakeWrites": 0,
+    "formalPdfWrites": 0,
+    "osCacheFlushed": false
+  },
+  {
+    "kind": "downloaded",
+    "identityVerifiedRows": 0,
+    "files": 155,
+    "records": 210602,
+    "bytes": 5738480,
+    "rowGroups": 149,
+    "resultRows": 50,
+    "total": 363,
+    "preparationSeconds": 3.1008499590680003,
+    "coldGetSeconds": 1.5794445830397308,
+    "warmGetSeconds": [
+      1.1211571670137346,
+      1.1789127502124757,
+      1.1676239159423858,
+      1.292148791020736,
+      1.1647914168424904
+    ],
+    "getP95Seconds": 1.5794445830397308,
+    "unitMaxSeconds": 0.7088003752287477,
+    "progress": [
+      {
+        "stage": "readingSource",
+        "dates": 0,
+        "records": 0,
+        "artifacts": 0
+      },
+      {
+        "stage": "checkingStatus",
+        "dates": 0,
+        "records": 0,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 1,
+        "records": 2,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 2,
+        "records": 10,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 3,
+        "records": 819,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 4,
+        "records": 2671,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 5,
+        "records": 4906,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 6,
+        "records": 6663,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 7,
+        "records": 6676,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 8,
+        "records": 7617,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 9,
+        "records": 9918,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 10,
+        "records": 12323,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 11,
+        "records": 14372,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 12,
+        "records": 16820,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 13,
+        "records": 18811,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 14,
+        "records": 18824,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 15,
+        "records": 19739,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 16,
+        "records": 22474,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 17,
+        "records": 25023,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 18,
+        "records": 27427,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 19,
+        "records": 29578,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 20,
+        "records": 31354,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 21,
+        "records": 31365,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 22,
+        "records": 31932,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 23,
+        "records": 33550,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 24,
+        "records": 35183,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 25,
+        "records": 36745,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 26,
+        "records": 38609,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 27,
+        "records": 40309,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 28,
+        "records": 40315,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 29,
+        "records": 40926,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 30,
+        "records": 42781,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 31,
+        "records": 44567,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 32,
+        "records": 45925,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 33,
+        "records": 47477,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 34,
+        "records": 49089,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 35,
+        "records": 49093,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 36,
+        "records": 49599,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 37,
+        "records": 51697,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 38,
+        "records": 53393,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 39,
+        "records": 55241,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 40,
+        "records": 56777,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 41,
+        "records": 59159,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 42,
+        "records": 59165,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 43,
+        "records": 59813,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 44,
+        "records": 61527,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 45,
+        "records": 63065,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 46,
+        "records": 64736,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 47,
+        "records": 65657,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 48,
+        "records": 65657,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 49,
+        "records": 65658,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 50,
+        "records": 66499,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 51,
+        "records": 68185,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 52,
+        "records": 69772,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 53,
+        "records": 71151,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 54,
+        "records": 72835,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 55,
+        "records": 74799,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 56,
+        "records": 74806,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 57,
+        "records": 75543,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 58,
+        "records": 78239,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 59,
+        "records": 80488,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 60,
+        "records": 82153,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 61,
+        "records": 83472,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 62,
+        "records": 84591,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 63,
+        "records": 84598,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 64,
+        "records": 85080,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 65,
+        "records": 86272,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 66,
+        "records": 87425,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 67,
+        "records": 88748,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 68,
+        "records": 90047,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 69,
+        "records": 91416,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 70,
+        "records": 91420,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 71,
+        "records": 91828,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 72,
+        "records": 93468,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 73,
+        "records": 95733,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 74,
+        "records": 97053,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 75,
+        "records": 98312,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 76,
+        "records": 99344,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 77,
+        "records": 99345,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 78,
+        "records": 99865,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 79,
+        "records": 101257,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 80,
+        "records": 102497,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 81,
+        "records": 103640,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 82,
+        "records": 104785,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 83,
+        "records": 105783,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 84,
+        "records": 105788,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 85,
+        "records": 106188,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 86,
+        "records": 107442,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 87,
+        "records": 108593,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 88,
+        "records": 109725,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 89,
+        "records": 111239,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 90,
+        "records": 112710,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 91,
+        "records": 112712,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 92,
+        "records": 113200,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 93,
+        "records": 114751,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 94,
+        "records": 115896,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 95,
+        "records": 117108,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 96,
+        "records": 118318,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 97,
+        "records": 119650,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 98,
+        "records": 119652,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 99,
+        "records": 120183,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 100,
+        "records": 121688,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 101,
+        "records": 122871,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 102,
+        "records": 123921,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 103,
+        "records": 125227,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 104,
+        "records": 127014,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 105,
+        "records": 127017,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 106,
+        "records": 127475,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 107,
+        "records": 129496,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 108,
+        "records": 130896,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 109,
+        "records": 133414,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 110,
+        "records": 136610,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 111,
+        "records": 139991,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 112,
+        "records": 140002,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 113,
+        "records": 141513,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 114,
+        "records": 147512,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 115,
+        "records": 153941,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 116,
+        "records": 160633,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 117,
+        "records": 167267,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 118,
+        "records": 174060,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 119,
+        "records": 174079,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 120,
+        "records": 175695,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 121,
+        "records": 177114,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 122,
+        "records": 178486,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 123,
+        "records": 179807,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 124,
+        "records": 180983,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 125,
+        "records": 182034,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 126,
+        "records": 182036,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 127,
+        "records": 182608,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 128,
+        "records": 184321,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 129,
+        "records": 185739,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 130,
+        "records": 187152,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 131,
+        "records": 188935,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 132,
+        "records": 190562,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 133,
+        "records": 190566,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 134,
+        "records": 191178,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 135,
+        "records": 193386,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 136,
+        "records": 195075,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 137,
+        "records": 196366,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 138,
+        "records": 197613,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 139,
+        "records": 198654,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 140,
+        "records": 198667,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 141,
+        "records": 199193,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 142,
+        "records": 200827,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 143,
+        "records": 202400,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 144,
+        "records": 204254,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 145,
+        "records": 205060,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 146,
+        "records": 205060,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 147,
+        "records": 205061,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 148,
+        "records": 205819,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 149,
+        "records": 207621,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 150,
+        "records": 209878,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 151,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 152,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 153,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 154,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 155,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 155,
+        "records": 210602,
+        "artifacts": 363
+      }
+    ],
+    "pid": 782,
+    "sqlMaxSeconds": 0.14704758301377296,
+    "pgSqlCalls": 4358,
+    "duckSqlCalls": 968,
+    "announcementFdPeak": 32,
+    "processFdCount": 12,
+    "rssMiB": 459.875,
+    "sourceHttpRequests": 0,
+    "formalPgWrites": 0,
+    "formalLakeWrites": 0,
+    "formalPdfWrites": 0,
+    "osCacheFlushed": false
+  },
+  {
+    "kind": "undownloaded",
+    "identityVerifiedRows": 0,
+    "files": 155,
+    "records": 210602,
+    "bytes": 5738480,
+    "rowGroups": 149,
+    "resultRows": 50,
+    "total": 210239,
+    "preparationSeconds": 3.267040125094354,
+    "coldGetSeconds": 1.5454259999096394,
+    "warmGetSeconds": [
+      1.2312859171070158,
+      1.0570767079479992,
+      1.0275630420073867,
+      1.1381610829848796,
+      1.0280567919835448
+    ],
+    "getP95Seconds": 1.5454259999096394,
+    "unitMaxSeconds": 0.7003877910319716,
+    "progress": [
+      {
+        "stage": "readingSource",
+        "dates": 0,
+        "records": 0,
+        "artifacts": 0
+      },
+      {
+        "stage": "checkingStatus",
+        "dates": 0,
+        "records": 0,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 1,
+        "records": 2,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 2,
+        "records": 10,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 3,
+        "records": 819,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 4,
+        "records": 2671,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 5,
+        "records": 4906,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 6,
+        "records": 6663,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 7,
+        "records": 6676,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 8,
+        "records": 7617,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 9,
+        "records": 9918,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 10,
+        "records": 12323,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 11,
+        "records": 14372,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 12,
+        "records": 16820,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 13,
+        "records": 18811,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 14,
+        "records": 18824,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 15,
+        "records": 19739,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 16,
+        "records": 22474,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 17,
+        "records": 25023,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 18,
+        "records": 27427,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 19,
+        "records": 29578,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 20,
+        "records": 31354,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 21,
+        "records": 31365,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 22,
+        "records": 31932,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 23,
+        "records": 33550,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 24,
+        "records": 35183,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 25,
+        "records": 36745,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 26,
+        "records": 38609,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 27,
+        "records": 40309,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 28,
+        "records": 40315,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 29,
+        "records": 40926,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 30,
+        "records": 42781,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 31,
+        "records": 44567,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 32,
+        "records": 45925,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 33,
+        "records": 47477,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 34,
+        "records": 49089,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 35,
+        "records": 49093,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 36,
+        "records": 49599,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 37,
+        "records": 51697,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 38,
+        "records": 53393,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 39,
+        "records": 55241,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 40,
+        "records": 56777,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 41,
+        "records": 59159,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 42,
+        "records": 59165,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 43,
+        "records": 59813,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 44,
+        "records": 61527,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 45,
+        "records": 63065,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 46,
+        "records": 64736,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 47,
+        "records": 65657,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 48,
+        "records": 65657,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 49,
+        "records": 65658,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 50,
+        "records": 66499,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 51,
+        "records": 68185,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 52,
+        "records": 69772,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 53,
+        "records": 71151,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 54,
+        "records": 72835,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 55,
+        "records": 74799,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 56,
+        "records": 74806,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 57,
+        "records": 75543,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 58,
+        "records": 78239,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 59,
+        "records": 80488,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 60,
+        "records": 82153,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 61,
+        "records": 83472,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 62,
+        "records": 84591,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 63,
+        "records": 84598,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 64,
+        "records": 85080,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 65,
+        "records": 86272,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 66,
+        "records": 87425,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 67,
+        "records": 88748,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 68,
+        "records": 90047,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 69,
+        "records": 91416,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 70,
+        "records": 91420,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 71,
+        "records": 91828,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 72,
+        "records": 93468,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 73,
+        "records": 95733,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 74,
+        "records": 97053,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 75,
+        "records": 98312,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 76,
+        "records": 99344,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 77,
+        "records": 99345,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 78,
+        "records": 99865,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 79,
+        "records": 101257,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 80,
+        "records": 102497,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 81,
+        "records": 103640,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 82,
+        "records": 104785,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 83,
+        "records": 105783,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 84,
+        "records": 105788,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 85,
+        "records": 106188,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 86,
+        "records": 107442,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 87,
+        "records": 108593,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 88,
+        "records": 109725,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 89,
+        "records": 111239,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 90,
+        "records": 112710,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 91,
+        "records": 112712,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 92,
+        "records": 113200,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 93,
+        "records": 114751,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 94,
+        "records": 115896,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 95,
+        "records": 117108,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 96,
+        "records": 118318,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 97,
+        "records": 119650,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 98,
+        "records": 119652,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 99,
+        "records": 120183,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 100,
+        "records": 121688,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 101,
+        "records": 122871,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 102,
+        "records": 123921,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 103,
+        "records": 125227,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 104,
+        "records": 127014,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 105,
+        "records": 127017,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 106,
+        "records": 127475,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 107,
+        "records": 129496,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 108,
+        "records": 130896,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 109,
+        "records": 133414,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 110,
+        "records": 136610,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 111,
+        "records": 139991,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 112,
+        "records": 140002,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 113,
+        "records": 141513,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 114,
+        "records": 147512,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 115,
+        "records": 153941,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 116,
+        "records": 160633,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 117,
+        "records": 167267,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 118,
+        "records": 174060,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 119,
+        "records": 174079,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 120,
+        "records": 175695,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 121,
+        "records": 177114,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 122,
+        "records": 178486,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 123,
+        "records": 179807,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 124,
+        "records": 180983,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 125,
+        "records": 182034,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 126,
+        "records": 182036,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 127,
+        "records": 182608,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 128,
+        "records": 184321,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 129,
+        "records": 185739,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 130,
+        "records": 187152,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 131,
+        "records": 188935,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 132,
+        "records": 190562,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 133,
+        "records": 190566,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 134,
+        "records": 191178,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 135,
+        "records": 193386,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 136,
+        "records": 195075,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 137,
+        "records": 196366,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 138,
+        "records": 197613,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 139,
+        "records": 198654,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 140,
+        "records": 198667,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 141,
+        "records": 199193,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 142,
+        "records": 200827,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 143,
+        "records": 202400,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 144,
+        "records": 204254,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 145,
+        "records": 205060,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 146,
+        "records": 205060,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 147,
+        "records": 205061,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 148,
+        "records": 205819,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 149,
+        "records": 207621,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 150,
+        "records": 209878,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 151,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 152,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 153,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 154,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 155,
+        "records": 210602,
+        "artifacts": 363
+      },
+      {
+        "stage": "counting",
+        "dates": 155,
+        "records": 210602,
+        "artifacts": 363
+      }
+    ],
+    "pid": 1111,
+    "sqlMaxSeconds": 0.1473623749334365,
+    "pgSqlCalls": 4118,
+    "duckSqlCalls": 872,
+    "announcementFdPeak": 32,
+    "processFdCount": 12,
+    "rssMiB": 424.609375,
+    "sourceHttpRequests": 0,
+    "formalPgWrites": 0,
+    "formalLakeWrites": 0,
+    "formalPdfWrites": 0,
+    "osCacheFlushed": false
+  },
+  {
+    "kind": "historyManifest",
+    "files": 2471,
+    "records": 12064773,
+    "bytes": 200734170,
+    "rowGroups": 2383,
+    "seconds": 0.739168707979843,
+    "pid": 1361,
+    "sqlMaxSeconds": 0.007270207861438394,
+    "pgSqlCalls": 10,
+    "duckSqlCalls": 234,
+    "announcementFdPeak": 32,
+    "processFdCount": 11,
+    "rssMiB": 280.359375,
+    "sourceHttpRequests": 0,
+    "formalPgWrites": 0,
+    "formalLakeWrites": 0,
+    "formalPdfWrites": 0,
+    "osCacheFlushed": false
+  }
+]

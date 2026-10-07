@@ -20,7 +20,7 @@ export function QueryPanel({ context, refreshContext }: { context: Context; refr
     </div>{q.error && <Notice>{q.error}</Notice>}</section>
     <Panel title="公告列表" description={r?.total != null ? `共 ${numberText(r.total)} 条公告${q.applied.tsCode ? ` · ${q.applied.tsCode}` : ""}` : "暂无法确认公告数量及更新状态"}>
       {q.loading && !r && <Empty title="正在读取公告列表…" />}
-      {r?.pageState.status === "preparing" && !q.readError && <Empty title="正在准备公告列表">已扫描 {r.preparation?.datesScanned} / {r.preparation?.datesTotal} 个公告日期 · {numberText(r.preparation?.recordsScanned ?? null)} 条公告记录</Empty>}
+      {r?.pageState.status === "preparing" && !q.readError && <Empty title="正在准备公告列表">{r.preparation?.stage === "checkingStatus" ? `已检查 ${numberText(r.preparation.artifactsChecked)} 个文件 · ` : ""}已读取 {r.preparation?.datesScanned} / {r.preparation?.datesTotal} 个公告日期 · {numberText(r.preparation?.recordsScanned ?? null)} 条公告记录</Empty>}
       {r?.pageState.status === "error" && <Notice>{r.pageState.message ?? "本地公告来源暂不可用"}</Notice>}
       {((!r && !q.loading && q.error) || r?.pageState.status === "error" || (q.readError && r?.pageState.status === "preparing")) && <><Empty title="列表暂不可获取">已保留筛选条件；当前公告数量及下载状态无法确认。</Empty><Button tone="primary" disabled={q.busy} onClick={q.refresh}>重新读取</Button></>}
       {r?.pageState.status === "empty" && <><Empty title="没有符合条件的公告">尝试调整日期、公司或标题关键词。</Empty><Button onClick={q.reset}>清除筛选</Button></>}

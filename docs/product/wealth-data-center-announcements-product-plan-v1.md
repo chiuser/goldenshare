@@ -386,3 +386,6 @@ R1 优先把下载操作、进度和失败定位画清楚。历史别名的实�
 完整取舍和当前代码差异见[技术方案§16](../../wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)，具体合同见[LLD§22](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。随后完成本地只读核实，用户确认继续补齐LLD：固定复用本地PG的独立归档schema、保留跨归档状态隔离、迁移后旧预览需重新预览，既有产品范围/Figma不变。连接、数据迁移及查询/CLI字段变更仅落在技术合同，本轮未改业务代码、Figma或正式数据。
 
 2026-10-07用户授权推进Q1，完成PG基础和显式迁移工具的开发及临时资源验收，见[报告](../../reports/wealth_data_center_q1_acceptance_20261007.md)。产品规则/Figma不变；正式台账和页面仍保持当前运行链路。直接查询、共享搜索复用及后续正式切换/清理由Q2—Q4承接，Q1不代表页面查询已提速。
+
+
+2026-10-07用户授权提交Q1并推进Q2，Q1提交d6cc3971。Q2公告直接读取DG、查询DTO与共享搜索复用已实现，实际浏览器和真实来源只读性能通过；旧源码清退仍受自动审批阻断，详细范围与剩余项见[Q2报告](../../reports/wealth_data_center_q2_acceptance_20261007.md)。产品规则/Figma不变，正式台账、env和页面运行版本尚未切换；Q3下载/CLI PG接线及Q4正式迁移完成前不可部署本阶段代码。

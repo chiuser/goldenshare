@@ -1,43 +1,32 @@
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Company, Conditions } from "../api/contracts";
-import { dataCenterApi, errorMessage } from "../api/dataCenterApi";
+import { ANNOUNCEMENT_SEARCH_INTERACTION, companyCandidates } from "../api/companyCandidates";
 import { clientPolicy } from "../api/clientPolicy";
+import { useStockSearchController } from "../../stock-search/model/useStockSearchController";
 export function CompanySearch({ text, selected, dates, onText, onSelect }: {
   text: string; selected: Company | null; dates: Pick<Conditions, "startDate" | "endDate">; onText: (v: string) => void; onSelect: (c: Company) => void;
 }) {
-  const id = useId(); const [open, setOpen] = useState(false); const [items, setItems] = useState<Company[]>([]);
-  const [index, setIndex] = useState(-1); const [message, setMessage] = useState("");
-  useEffect(() => {
-    setItems([]); setIndex(-1);
-    if (!open || selected || !text.trim()) { setMessage(""); return; }
-    const controller = new AbortController(); let poll: number | undefined;
-    const search = async () => {
-      setMessage("搜索中…");
-      try {
-        const r = await dataCenterApi.companies(text.trim(), dates, controller.signal);
-        if (controller.signal.aborted) return;
-        setItems(r.items); setIndex(-1);
-        setMessage(r.pageState?.status === "preparing" ? "正在准备公司候选…" : r.pageState?.status === "error" ? r.pageState.message ?? "候选暂不可获取" : r.hasMore ? "有更多匹配，请输入更完整的代码或名称" : r.items.length ? "选中完整代码后，点击查询应用。" : "未找到匹配公司");
-        if (r.pageState?.status === "preparing") poll = window.setTimeout(search, clientPolicy.defaultPollSeconds * 1000);
-      } catch (e) { if (!controller.signal.aborted) setMessage(errorMessage(e)); }
-    };
-    const timer = window.setTimeout(search, clientPolicy.companyDebounceMs);
-    return () => { controller.abort(); window.clearTimeout(timer); window.clearTimeout(poll); };
-  }, [text, selected, open, dates.startDate, dates.endDate]);
-  const choose = (c: Company) => { onSelect(c); setOpen(false); };
-  return <div className="dc-company"><input aria-label="公司名称 / 代码 / 首字母" role="combobox" autoComplete="off" maxLength={clientPolicy.companyKeywordLimit} value={text}
-    placeholder="例如：平安银行 / 000001 / PAYH" aria-expanded={open && !selected && !!text.trim()} aria-controls={id}
-    aria-autocomplete="list" aria-activedescendant={index >= 0 ? `${id}-${index}` : undefined}
-    onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onChange={e => { onText(e.target.value); setOpen(true); }}
-    onKeyDown={e => {
-      if (e.key === "Escape") { setOpen(false); return; }
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setOpen(true); setIndex(i => items.length ? (i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length : -1); }
-      if (e.key === "Enter" && open && index >= 0 && items[index]) { e.preventDefault(); choose(items[index]); }
-    }} />
-    {open && !selected && text.trim() && <div className="dc-company-menu"><p>按名称、代码及首字母匹配</p><div role="listbox" id={id} aria-label="公司搜索候选">
-      {items.map((c, i) => <button type="button" role="option" aria-selected={i === index} id={`${id}-${i}`} key={c.tsCode}
-        onMouseDown={e => e.preventDefault()} onClick={() => choose(c)}><span>{c.name} <span className="num">{c.tsCode}</span></span>
-        <small>{c.matchedAlias ? `历史简称：${c.matchedAlias}` : c.nameSource === "master" ? "当前简称" : c.nameSource === "announcement" ? "公告名称" : "暂无名称"}{c.initials ? ` · 首字母 ${c.initials}` : ""}</small></button>)}
+  const [hasMore, setHasMore] = useState(false);
+  const loadCandidates = useMemo(() => companyCandidates(dates, setHasMore), [dates.startDate, dates.endDate]);
+  const select = useCallback((company: Company) => onSelect({ tsCode: company.tsCode, name: company.name, initials: company.initials, matchedAlias: company.matchedAlias, nameSource: company.nameSource, matchKind: company.matchKind }), [onSelect]);
+  const c = useStockSearchController({ onSelectOption: select, loadCandidates, interaction: ANNOUNCEMENT_SEARCH_INTERACTION });
+  useEffect(() => { c.resetInput(text); }, [dates.startDate, dates.endDate]);
+  useEffect(() => { if (text !== c.inputValue) c.resetInput(text); }, [text, selected]);
+  const options = c.state.kind === "ready" ? c.state.options : [];
+  const message = c.state.kind === "error" ? c.state.message : c.state.kind === "empty" ? "未找到匹配公司"
+    : c.state.kind === "loading" ? "正在读取公司候选…" : hasMore ? "有更多匹配，请输入更完整的代码或名称" : "选中完整代码后，点击查询应用。";
+  return <div className="dc-company"><input ref={c.inputRef} aria-label="公司名称 / 代码 / 首字母" role="combobox" autoComplete="off" maxLength={clientPolicy.companyKeywordLimit} value={text}
+    placeholder="例如：平安银行 / 000001 / PAYH" aria-expanded={c.menuOpen && !selected} aria-controls={c.listboxId}
+    aria-autocomplete="list" aria-activedescendant={c.activeOptionId}
+    onFocus={() => { c.handleFocus(); if (!selected && text.trim()) c.handleInputChange(text); }} onBlur={c.handleBlur}
+    onChange={e => { c.handleInputChange(e.target.value); onText(e.target.value); }}
+    onKeyDown={e => { if (c.handleKeyDown(e.key)) e.preventDefault(); }} />
+    {c.menuOpen && !selected && text.trim() && <div className="dc-company-menu"><p>按名称、代码及首字母匹配</p><div role="listbox" id={c.listboxId} aria-label="公司搜索候选">
+      {options.map((company, i) => <button type="button" role="option" aria-selected={c.state.kind === "ready" && i === c.state.activeIndex} id={`${c.listboxId}-option-${i}`} key={company.tsCode}
+        ref={el => c.setOptionElement(i, el)} onMouseDown={e => e.preventDefault()} onMouseEnter={() => c.setActiveIndex(i)} onClick={() => c.selectIndex(i)}>
+        <span>{company.name} <span className="num">{company.tsCode}</span></span>
+        <small>{company.matchedAlias ? `历史简称：${company.matchedAlias}` : company.nameSource === "master" ? "当前简称" : company.nameSource === "announcement" ? "公告名称" : "暂无名称"}{company.initials ? ` · 首字母 ${company.initials}` : ""}</small>
+      </button>)}
     </div><p role="status">{message}</p></div>}
   </div>;
 }

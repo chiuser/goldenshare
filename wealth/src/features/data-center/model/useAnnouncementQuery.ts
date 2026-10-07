@@ -36,7 +36,11 @@ export function useAnnouncementQuery(context: Context) {
     void execute({ ...draft, tsCode: selected?.tsCode ?? null, titleKeyword: draft.titleKeyword.trim() });
   }
   function reset() { setDraft(defaults()); setSelected(null); setCompanyText(""); void execute(defaults()); }
-  return { draft, setDraft, companyText, selected, setCompanyText: (text: string) => { setCompanyText(text); setSelected(null); },
+  function changeDraft(next: Conditions) {
+    if (next.startDate !== draft.startDate || next.endDate !== draft.endDate) { setSelected(null); setCompanyText(""); }
+    setDraft(next);
+  }
+  return { draft, setDraft: changeDraft, companyText, selected, setCompanyText: (text: string) => { setCompanyText(text); setSelected(null); },
     chooseCompany: (c: Company) => { setSelected(c); setCompanyText(`${c.name} · ${c.tsCode}`); },
     applied, result, readError: observed.error, error: error ?? observed.error, busy, loading: busy || observed.loading,
     submit, reset, refresh: () => void execute(applied), page: (p: number) => { setPage(p); } };

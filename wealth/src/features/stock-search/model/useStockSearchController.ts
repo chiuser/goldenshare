@@ -12,7 +12,7 @@ import {
 export const STOCK_SEARCH_DEBOUNCE_MS = 500;
 export const STOCK_SEARCH_TIMEOUT_MS = 2000;
 
-export type StockSearchState =
+export type StockSearchState<Option extends StockSearchOption = StockSearchOption> =
   | { kind: "idle" }
   | { kind: "closed"; keyword: string }
   | { kind: "debouncing"; keyword: string }
@@ -20,28 +20,40 @@ export type StockSearchState =
   | {
       kind: "ready";
       keyword: string;
-      options: StockSearchOption[];
+      options: Option[];
       activeIndex: number;
     }
   | { kind: "empty"; keyword: string }
   | { kind: "error"; keyword: string; message: string };
 
-interface UseStockSearchControllerOptions {
-  onSelect: (tsCode: string) => void;
+export interface SearchInteraction {
+  debounceMs: number; timeoutMs: number; maxKeyword: number; enterFirst: boolean;
 }
+export const DEFAULT_SEARCH_INTERACTION: SearchInteraction = {
+  debounceMs: STOCK_SEARCH_DEBOUNCE_MS, timeoutMs: STOCK_SEARCH_TIMEOUT_MS, maxKeyword: 32, enterFirst: true,
+};
+export type CandidateLoader<Option extends StockSearchOption> = (input: { keyword: string; signal: AbortSignal }) => Promise<Option[]>;
+type Selection<Option> = { onSelect: (tsCode: string) => void; onSelectOption?: never }
+  | { onSelectOption: (option: Option) => void; onSelect?: never };
+type UseStockSearchControllerOptions<Option extends StockSearchOption> = Selection<Option> & {
+  loadCandidates?: CandidateLoader<Option>; interaction?: SearchInteraction;
+};
+const defaultLoader: CandidateLoader<StockSearchOption> = async ({ keyword, signal }) =>
+  buildStockSearchOptions(await fetchStockSearch(keyword, { signal }));
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-export function useStockSearchController({
-  onSelect,
-}: UseStockSearchControllerOptions) {
+export function useStockSearchController<Option extends StockSearchOption = StockSearchOption>({
+  onSelect, onSelectOption, loadCandidates, interaction = DEFAULT_SEARCH_INTERACTION,
+}: UseStockSearchControllerOptions<Option>) {
+  const loader = loadCandidates ?? (defaultLoader as CandidateLoader<Option>);
   const [inputValue, setInputValue] = useState("");
-  const [state, setState] = useState<StockSearchState>({ kind: "idle" });
+  const [state, setState] = useState<StockSearchState<Option>>({ kind: "idle" });
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const stateRef = useRef<StockSearchState>(state);
+  const stateRef = useRef<StockSearchState<Option>>(state);
   const inputValueRef = useRef(inputValue);
   const debounceTimerRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -51,7 +63,7 @@ export function useStockSearchController({
   const reactId = useId().replaceAll(":", "");
   const listboxId = `stock-search-listbox-${reactId}`;
 
-  const updateState = useCallback((nextState: StockSearchState) => {
+  const updateState = useCallback((nextState: StockSearchState<Option>) => {
     stateRef.current = nextState;
     setState(nextState);
   }, []);
@@ -70,16 +82,16 @@ export function useStockSearchController({
   }, []);
 
   const commitOption = useCallback(
-    (option: StockSearchOption) => {
+    (option: Option) => {
       clearDebounce();
       invalidateRequest();
       pendingCommitRef.current = false;
       inputValueRef.current = option.tsCode;
       setInputValue(option.tsCode);
       updateState({ kind: "closed", keyword: option.tsCode });
-      onSelect(option.tsCode);
+      if (onSelectOption) onSelectOption(option); else onSelect(option.tsCode);
     },
-    [clearDebounce, invalidateRequest, onSelect, updateState],
+    [clearDebounce, invalidateRequest, onSelect, onSelectOption, updateState],
   );
 
   const runSearch = useCallback(
@@ -96,12 +108,11 @@ export function useStockSearchController({
       const timeoutId = window.setTimeout(() => {
         timedOut = true;
         abortController.abort();
-      }, STOCK_SEARCH_TIMEOUT_MS);
+      }, interaction.timeoutMs);
 
-      fetchStockSearch(keyword, { signal: abortController.signal })
-        .then((payload) => {
+      loader({ keyword, signal: abortController.signal })
+        .then((searchOptions) => {
           if (currentRequestId !== requestIdRef.current) return;
-          const searchOptions = buildStockSearchOptions(payload);
           if (searchOptions.length === 0) {
             pendingCommitRef.current = false;
             updateState({ kind: "empty", keyword });
@@ -115,7 +126,7 @@ export function useStockSearchController({
             kind: "ready",
             keyword,
             options: searchOptions,
-            activeIndex: 0,
+            activeIndex: interaction.enterFirst ? 0 : -1,
           });
         })
         .catch((error: unknown) => {
@@ -136,12 +147,12 @@ export function useStockSearchController({
           }
         });
     },
-    [clearDebounce, commitOption, invalidateRequest, updateState],
+    [clearDebounce, commitOption, invalidateRequest, updateState, loader, interaction],
   );
 
   const handleInputChange = useCallback(
     (rawValue: string) => {
-      const keyword = rawValue.trim().toUpperCase();
+      const keyword = rawValue.trim().toUpperCase().slice(0, interaction.maxKeyword);
       inputValueRef.current = keyword;
       setInputValue(keyword);
       clearDebounce();
@@ -156,9 +167,9 @@ export function useStockSearchController({
       debounceTimerRef.current = window.setTimeout(() => {
         debounceTimerRef.current = null;
         runSearch(keyword);
-      }, STOCK_SEARCH_DEBOUNCE_MS);
+      }, interaction.debounceMs);
     },
-    [clearDebounce, invalidateRequest, runSearch, updateState],
+    [clearDebounce, invalidateRequest, runSearch, updateState, interaction],
   );
 
   const closeMenu = useCallback(() => {
@@ -184,18 +195,20 @@ export function useStockSearchController({
           return false;
         }
         const offset = key === "ArrowDown" ? 1 : -1;
-        const activeIndex =
-          (currentState.activeIndex + offset + currentState.options.length)
-          % currentState.options.length;
+        const activeIndex = currentState.activeIndex < 0
+          ? (key === "ArrowDown" ? 0 : currentState.options.length - 1)
+          : (currentState.activeIndex + offset + currentState.options.length) % currentState.options.length;
         updateState({ ...currentState, activeIndex });
         return true;
       }
       if (key !== "Enter") return false;
       if (currentState.kind === "idle") return false;
       if (currentState.kind === "ready") {
+        if (currentState.activeIndex < 0) return false;
         commitOption(currentState.options[currentState.activeIndex]);
         return true;
       }
+      if (!interaction.enterFirst) return false;
       if (currentState.kind === "loading") {
         pendingCommitRef.current = true;
         return true;
@@ -203,7 +216,7 @@ export function useStockSearchController({
       runSearch(inputValueRef.current, { commitFirst: true });
       return true;
     },
-    [closeMenu, commitOption, runSearch, updateState],
+    [closeMenu, commitOption, runSearch, updateState, interaction],
   );
 
   const setActiveIndex = useCallback(
@@ -251,12 +264,19 @@ export function useStockSearchController({
 
   const menuOpen = ["loading", "ready", "empty", "error"].includes(state.kind);
   const activeOptionId =
-    state.kind === "ready"
+    state.kind === "ready" && state.activeIndex >= 0
       ? `${listboxId}-option-${state.activeIndex}`
       : undefined;
 
+  const resetInput = useCallback((value: string) => {
+    clearDebounce(); invalidateRequest(); pendingCommitRef.current = false;
+    inputValueRef.current = value; setInputValue(value);
+    updateState(value ? { kind: "closed", keyword: value } : { kind: "idle" });
+  }, [clearDebounce, invalidateRequest, updateState]);
+
   return {
     inputValue,
+    resetInput,
     state,
     isFocused,
     menuOpen,
