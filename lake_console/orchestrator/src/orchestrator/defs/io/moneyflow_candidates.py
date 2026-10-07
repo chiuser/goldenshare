@@ -22,7 +22,12 @@ def moneyflow_candidate_directory(
     staging_root: Path, operation_id: str, trade_date: str, *, dataset: str
 ) -> Path:
     market_moneyflow_day(trade_date)
-    if dataset not in {"moneyflow_mkt_dc", "moneyflow_ind_ths", "moneyflow_cnt_ths"}:
+    if dataset not in {
+        "moneyflow_mkt_dc",
+        "moneyflow_ind_ths",
+        "moneyflow_cnt_ths",
+        "moneyflow_ind_dc",
+    }:
         raise MoneyflowContractError("candidate_dataset")
     if not staging_root.is_absolute() or ".." in staging_root.parts:
         raise MoneyflowContractError("staging_root")

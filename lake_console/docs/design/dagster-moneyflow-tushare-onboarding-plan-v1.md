@@ -358,6 +358,8 @@ P0已核清历史差异、每日完成与异常设计、截止接续和资源边
 
 ## 14. 交付与本版完成状态
 
+当前状态（2026-10-07）：P1四个小数据集moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths、moneyflow_ind_dc的候选能力与独立隔离验收已完成。DC与P1收尾记录本次提交归档，退出要求对账见实施细则§12。管理员已要求进入P2，本轮先推进普通moneyflow。下列P0/P1首轮记录为历史进度；P3/P4/P5尚未执行，七数据集整体尚未完成正式接入。
+
 本版完成：七数据集/来源范围、审计基线、字段投影、原单位与身份、两层拓扑、路径/命名、来源切换边界、历史导出与恢复、日更闭合要求、拟定性能/配置预算、实现影响面和验收阶段。
 
 P0 第一轮已完成：七接口规定参数和字段样本、2,000行真实分页及两轮比较、Prod真实列精度、冻结范围逐日计数/业务键唯一性、缺口探测、同日18,320行业务字段对账、100,000行导出/临时转换实验。结果见[ P0 核验与实施合同](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-moneyflow-tushare-p0-contract-audit-v1.md)。
@@ -395,4 +397,14 @@ P1行业代码及隔离验收记录已提交141edd3a；整个P1仍未完成。�
 
 源端20260930公开387行，默认与显式字段一致；归一化/Raw/Silver均387，reject0、业务差异0。概念64项及行业/大盘/策略回归共159项通过，治理12项及474子测试、静态合同113项通过。逐字段JSON重复提取曾触发内存拒绝线，改为多路径批量提取并释放页表；20000行上限连续3个新进程通过，峰值309–343MiB，无预算放宽。设计、配置消费者、CodeGraph影响面、测试及性能证据见[实施细则§10](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md)。
 
-本轮完成候选能力，本次提交归档；未写正式Lake、Prod或DG状态。整个P1尚未完成，下一轮moneyflow_ind_dc；历史bootstrap/原子提升与恢复、正式编排/事件、新交易日日更实跑仍留在P3/P4/P5。
+本轮候选能力已提交c9fcf389；未写正式Lake、Prod或DG状态。当时整个P1尚未完成，下一轮moneyflow_ind_dc，最新进度见§18；历史bootstrap/原子提升与恢复、正式编排/事件、新交易日日更实跑仍留在P3/P4/P5。
+
+## 18. P1 DC板块资金流进度（2026-10-07）
+
+按管理员指令完成moneyflow_ind_dc候选能力，独立18字段、trade_date/content_type/name主键、可空ts_code和源单位元。行业/概念/地域三类显式分页，每轮三类都非空，合计20000行，跨分类/轮共享64次/300秒预算。Raw先持久化来源页，两轮完整集合稳定后才能ready；Silver只改日期，分类物理覆盖、逐字段一致与来源hash/实际scope行数再次对账。
+
+原THS处理模块整体迁移为moneyflow_board共用实现，所有调用要求固定dataset；THS维持date/code键与单scope，DC采用三字段键与三scope。消费者、测试和保护runner同步迁移，旧引用清零；数据集身份、字段、路径和receipt仍分别保存，不改变七个独立数据集口径或正式入口。
+
+源端20260930实测1031行，默认与三类显式字段结果一致；归一化/Raw/Silver均1031，reject0、业务字段差异0。DC新增66项，全部候选/策略225项测试通过，治理12项及474子测试、合同静态113项通过。20000行最坏26请求和最多28候选文件两个边界通过，峰值327/302MiB，未提高预算。硬口径、CodeGraph影响面、配置消费者及来源/性能证据见[实施细则§11](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md)。
+
+DC修改与P1收尾记录本次提交归档。P1四个小数据集候选能力与独立隔离验收已齐，阶段退出对账见实施细则§12。按管理员本次指令进入P2，先普通moneyflow，再moneyflow_dc/moneyflow_ths，每轮一个数据集。未写正式Lake、Prod或DG状态；P3/P4/P5历史文件、正式编排/事件和真实新交易日日更仍未执行。

@@ -1,15 +1,17 @@
-"""Independent THS board source columns and exact SQL numeric validation."""
+"""Independent board source columns and exact SQL numeric validation."""
 
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA,
+    RAW_TUSHARE_MONEYFLOW_IND_DC_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
     SILVER_MONEYFLOW_CNT_THS_SCHEMA,
+    SILVER_MONEYFLOW_IND_DC_SCHEMA,
     SILVER_MONEYFLOW_IND_THS_SCHEMA,
 )
 from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
 
 
-def ths_board_schema(dataset: str, *, silver=False):
+def board_schema(dataset: str, *, silver=False):
     """Select a fixed source contract; never infer identity from page contents."""
     if dataset == "moneyflow_ind_ths":
         return (
@@ -23,14 +25,34 @@ def ths_board_schema(dataset: str, *, silver=False):
             if silver
             else RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA
         )
-    raise MoneyflowContractError("ths_board_dataset")
+    if dataset == "moneyflow_ind_dc":
+        return (
+            SILVER_MONEYFLOW_IND_DC_SCHEMA
+            if silver
+            else RAW_TUSHARE_MONEYFLOW_IND_DC_SCHEMA
+        )
+    raise MoneyflowContractError("board_dataset")
 
 
-def ths_board_fields(dataset: str):
-    return tuple(c.name for c in ths_board_schema(dataset))
+def board_fields(dataset: str):
+    return tuple(c.name for c in board_schema(dataset))
 
 
-def ths_board_numeric_rejection_sql(name: str, target_type: str) -> str:
+def board_key_fields(dataset: str):
+    board_schema(dataset)
+    return (
+        ("trade_date", "content_type", "name")
+        if dataset == "moneyflow_ind_dc"
+        else ("trade_date", "ts_code")
+    )
+
+
+def board_request_scopes(dataset: str):
+    board_schema(dataset)
+    return ("行业", "概念", "地域") if dataset == "moneyflow_ind_dc" else (None,)
+
+
+def board_numeric_rejection_sql(name: str, target_type: str) -> str:
     """Validate lexical scale before CAST, which otherwise silently rounds."""
     value = f'"{name}"'
     kind = f'"{name}_json_type"'
