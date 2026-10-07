@@ -2,7 +2,7 @@
 
 日期：2026-10-07。状态：**编码级设计已获确认；DC1提交9ad6654c，DC2提交a1b47713，DC3提交83ffb83f，DC4提交b5534947；DC5本机正式归档验收完成，见§20；DG日常稳定性另行验收。** 依据[技术方案](data-center-announcements-implementation-design-v1.md)、[产品方案](../../../../docs/product/wealth-data-center-announcements-product-plan-v1.md) §5/§8.4 和 Figma R1。字段、SQL、状态、配置与测试以本文为网页目标合同；当前 CLI 行为仍以原 PDF LLD 为准。
 
-**修订状态：** §22明确本地PG落点、表结构映射、迁移/续跑、直接查询一致性、API及共享搜索合同。Q1已提交d6cc3971，见§23；Q2主体已提交6dbb27e4；用户明确授权旧源码清退后已完成本阶段开发、清退及验收，见§24。正式存储仍未切换，Q3—Q4未实施。此前§3—8、§10—11中的SQLite实现、投影字段和相应测试属于既有实现基线，被§22替代；§13—21保留历史交付及review修正证据。R01—R24产品硬口径继续有效。正式写入、切换和清理仍按分期取得执行授权。
+**修订状态：** §22明确本地PG落点、表结构映射、迁移/续跑、直接查询一致性、API及共享搜索合同。Q1已提交d6cc3971，见§23；Q2主体已提交6dbb27e4；用户明确授权旧源码清退后已完成本阶段开发、清退及验收，见§24。Q3已完成隔离开发与验收，见§25；正式存储仍未切换，Q4未实施。此前§3—8、§10—11中的SQLite实现、投影字段和相应测试属于既有实现基线，被§22替代；§13—21保留历史交付及review修正证据。R01—R24产品硬口径继续有效。正式写入、切换和清理仍按分期取得执行授权。
 
 ## 1. 硬口径、实现点与验收索引
 
@@ -878,3 +878,31 @@ Q1—Q3开发期间不启用正式新存储，不在用户实际Web保留双后�
 收尾CodeGraph query/impact覆盖Catalog、CatalogBuilder、PreviewRuntime、CatalogPreparationPort及迁移/API/App/预览测试，实际源码AST核验五个旧模块import引用为0，sync/status显示索引当前。收尾联合回归334项通过；新增只读校验有效schema/丢失索引/错误scope三例通过，catalog来源合同套件9项通过。Q1迁移、Q2查询/预览、真实路由和依赖护栏均验证；ingestion-lint、docs integrity、diff check通过。静态schema校验在只读连接执行，读前读后文件SHA256一致；迁移历史事实和原字段不丢失。
 
 Q2本阶段已完成；没有推进Q3、启用正式PG或执行正式迁移。下一阶段Q3负责执行器/Web/CLI统一PG存储，之后Q4负责正式迁移与切换；当前阶段代码仍不能独立部署。性能/浏览器记录沿用本节有限范围，源码清退未改查询算法、前端或来源数据，不重复声称新增全历史验收。
+
+
+## 25. Q3 执行器、Web 与 CLI 统一 PG（2026-10-07）
+
+**状态：已完成开发与隔离验收，尚未正式迁移或启用。** 本阶段依据§22.5、22.6、22.10、22.11实施；Q2提交6dbb27e4、60099811。公告列表继续直接查询DG Raw，PG只保存归档业务与小型查询控制事实，不新增全量公告目录副本。
+
+### 25.1 实现合同对账
+
+| 要求 | 当前实现 | 验收 |
+| --- | --- | --- |
+| 唯一PG运行存储，无SQLite SQL转译或回退 | Foundation Ledger/ExecutionLedger/LedgerQuery原生命名绑定SQL；所有读写按archive_id隔离 | 不自动DDL、缺失schema/归档阻断、两归档同文件键隔离、运行import护栏 |
+| 本地专用DSN和共享有限池 | App lifespan组合一个归档pool，查询/下载共用；CLI沿用ANNOUNCEMENT_ARCHIVE_DATABASE_URL，不回落主DATABASE_URL | CLI独立DSN测试、真实Web路由和浏览器；本地开关/Prod合同不变 |
+| 锁、接管、续跑和幂等 | 保留Volume和本机execution.lock；archive_execution行锁领取；取得本机锁后显式记中断，启动不发HTTP | PG并发唯一领取；枚举、下载、prepared、rename、结果提交的进程退出与恢复 |
+| 停止、冻结集合、精确失败重试 | 每个业务检查点读取持久停止；继续只取pending；按原任务家族失败集合建立关联批次 | 停止/枚举取消、源追加不扩大继续/重试、原失败历史保留；110000关联行只认本家族成功 |
+| 文件协议与风控间隔 | Files/Downloader共用；prepared校验和原子提升、HTTP前独立提交request_started；cooldown归档隔离 | 403/429/重定向/超时、跨进程cooldown、真实PG只读时零HTTP、已提交PDF保留 |
+| 观测失败不阻断文件业务 | 进度/心跳5秒节流，心跳写失败退为只读owner/stop观察；业务读写失败仍阻断 | 单独注入observe失败仍完成PDF与结果提交；PG离线前后失败注入 |
+| 台账查询和维护 | 有界分页、四秒SQL观察预算、Ctrl+C驱动cancel；哈希/修复不持有PG事务；修复仍取得磁盘和本地锁 | JSON概况/文件/历史、整数游标往返、取消/超时和零HTTP修复 |
+| CLI输出迁移 | storage包含kind/database/schema/archiveId/schemaVersion；删除ledger_path和顶层schema_version；原rowid参数仍是整数，对应row_seq | 两CLI输出与历史游标回归；原PDF技术方案§14、LLD§19同步 |
+
+运行时旧SQLite初始化/升级与未引用Presence实现已清退。旧schema静态校验移到legacy_schema，仅显式迁移源读取器使用；既存SQLite文件不修改、不删除，迁移43例仍保留历史事实校验。没有引入新配置、依赖、数据库安装或业务数据表清理。
+
+### 25.2 隔离验收与正式边界
+
+[Q3报告](../../../../reports/wealth_data_center_q3_acceptance_20261007.md)记录后端/架构352项、前端1134项、浏览器1项通过，typecheck/build、ingestion-lint、compileall、docs integrity和diff check通过；包含CodeGraph、临时PG容量与浏览器证据。浏览器使用真实公告路由、PG台账、临时Parquet和模拟PDF站点：6个日期匹配文件显示业务进度与请求等待；一份404后仅该失败文件重试；刷新列表后6条显示已下载。临时站点共7次PDF请求，其余文件没有重复请求。
+
+[容量样本](../../../../reports/wealth_data_center_q3_profile_20261007.json)只证明500行事务、110000任务文件家族下的有界失败查询，不能外推全历史Lake/线上源站性能。DG更新、正式归档、主数据库与服务均未操作。前端未改动；当前代码必须完成Q4正式迁移、读回对账和环境切换后再部署启用。SQLite文件清理另按Q4批准范围执行，不将Q3开发授权当作数据删除授权。
+
+开发前后CodeGraph query/impact覆盖Ledger、ArchiveStore、ArchiveSupervisor及执行链；sync/status确认索引当前。Protocol动态注入和SQL不能单靠图证明，已补读App→Ops执行器及Biz→Foundation查询消费者并用实际路由验收。依赖矩阵不变；仍需人工确认的边界是Q4正式数据数量/指纹、外盘身份和正式切换结果。

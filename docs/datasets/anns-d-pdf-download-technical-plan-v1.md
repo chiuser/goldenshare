@@ -1,6 +1,6 @@
 # 上市公司公告 PDF 本地归档技术方案 v1
 
-更新时间：2026-10-07。状态：本文DC1及更早章节保留阶段历史；后续DC5正式schema3/归档验收见[数据中心LLD§20](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。用户确认补齐的PG台账/CLI迁移目标见[修订LLD§22](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)，尚未编码或执行；本文件原SQLite存储说明不再作为下一阶段新增开发目标。
+更新时间：2026-10-07。状态：Q3 已实现，隔离验收见[数据中心 LLD §25](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)及[报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。当前开发版执行口径见本文 §14；§1—§13 为此前 DG/SQLite/DC 阶段的历史记录，原 SQLite 存储、运行时升级及“不依赖 PG”的说明已被 Q3 替代。文件、来源、限流和恢复协议继续有效。正式迁移与切换属于 Q4，尚未执行，当前代码不可提前部署。
 
 §1—§12保留此前DG读者、五URL真实归档、台账维护及网页设计阶段的记录；M0—M3为Prod版本历史。原方案提交777d6901、下载器提交9f8faacf，独立旧验收台账曾升级到2；这些历史证据不证明此次schema3或网页已在正式环境执行。
 
@@ -181,3 +181,15 @@ P1 回归包含缺 URL 不请求、游标提交/回滚、被替代来源不请�
 用户已确认DC1与本地pypinyin依赖。共享核心现位于Foundation clients/announcement_archive，台账/查询在DAO，执行与单文件修复归Ops；两个原CLI为薄入口。写入口单事务升级schema1/2→3，只读不升级；旧身份/路径/来源/结果/冷却保留。旧主实现包及import清零。§1—§12保留此前阶段口径，当前实现以网页LLD§14和[验收报告](../../reports/wealth_data_center_dc1_acceptance_20261006.md)为准。
 
 完整387项通过，职责收敛后受影响217项复测通过；正式Raw五条只读指纹对账通过。正式台账未迁移，没有远程PDF/DG/Prod/Lake写入。schema3基础不代表预览/继续/精确重试/API/页面已完成；下一步DC2查询后端另按阶段推进。
+
+
+## 14. Q3 统一 PG 的执行口径（2026-10-07）
+
+下载 CLI、台账维护 CLI 和 Web 共用 `announcement_archive` PG 存储，业务公告仍直接读取 DG Raw。PG 仅保存实际下载来源映射、文件事实、任务、冷却和必要查询控制，不另建全市场公告元数据副本。完整合同以[数据中心 LLD §22](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)为准。
+
+1. 配置只读取 `ANNOUNCEMENT_ARCHIVE_DATABASE_URL`，默认空，支持既有 `GOLDENSHARE_ENV_FILE`；不使用主 `DATABASE_URL`，不新增 DSN 命令行参数。正式连接固定本机5432、`goldenshare_lake_meta`，独立连接池最多4连接；Web 查询和下载共享这一池。
+2. 输出卷与 DG 来源验证通过后才访问 PG。运行时只能校验已显式安装的 schema；没有自动建表或 SQLite 升级。首次下载可初始化已验证输出卷对应的新 archive，所有读写按卷 UUID+卷内相对目录派生的 `archive_id` 隔离。
+3. 日期闭区间、请求间隔、目录、标题命名、跳过有效成功文件、缺失/损坏重下、HTTP限速与prepared恢复规则不变。枚举每批最多500，读写采用短事务；封存前不下载，Web继续/失败重试只处理原冻结集合。
+4. 文件提交、业务结果与进度观测分别提交。停止/owner最多每0.5秒检查；进度和心跳默认5秒，失败也按此频率节流，不为每个64KiB块查询PG。每次HTTP（含跳转和来源探测）前必须成功提交 `request_in_flight`；PG不可写时不发新请求，不自动恢复HTTP。
+5. 原CLI参数和退出码保持。JSON的 `ledger_path` 和顶层 `schema_version` 移除，改为真实 `storage`：`kind/database/schema/archiveId/schemaVersion`。分页参数 `before-rowid/after-rowid` 仍为正整数，实际按PG `row_seq`读取。
+6. SQLite只在显式迁移的只读旧源校验中保留，运行时消费者清零。Q3未迁移/删除正式SQLite、PDF或Raw，未改本机env、未安装/卸载软件。正式迁移和统一启用见Q4；DG日常稳定性验收仍独立。

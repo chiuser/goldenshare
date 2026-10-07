@@ -1,10 +1,11 @@
 """Local ledger maintenance contract tests. No formal archive, Lake or PDF service."""
 from __future__ import annotations
+from fixtures.announcement_pg_runtime import pg_execute, pg_many
+from test_announcement_pg_migration import pg, pg_cluster
 
 import hashlib
 import json
 import os
-import sqlite3
 import threading
 import time
 from dataclasses import replace
@@ -23,7 +24,6 @@ from src.foundation.clients.announcement_archive.files import verify_one
 from src.ops.runtime.announcement_archive.maintenance import repair_one
 from src.foundation.clients.announcement_archive.volume import SourceVolume, Volume
 from test_announcement_download_cli import archive, row, run, stage_rows, PDF
-from test_announcement_download_dg import seed_v1, OLD_KEY
 
 
 def populate(archive, rows):
@@ -35,28 +35,29 @@ def populate(archive, rows):
 
 
 def reader(archive, path=None, policy=LedgerQueryPolicy()):
-    path = path or Path(archive[1].conn.execute('PRAGMA database_list').fetchone()[2])
-    db = Ledger(path,archive[0].volume_uuid,archive[0].relative_root,read_only=True)
-    return db, LedgerQuery(db,archive[5],policy)
+    db=Ledger(archive[1].database,archive[0].volume_uuid,archive[0].relative_root,read_only=True)
+    return db,LedgerQuery(db,archive[5],policy)
 
 
 def tasks(archive):
-    return [dict(r) for r in archive[1].conn.execute('SELECT * FROM artifacts ORDER BY artifact_key')]
+    return [dict(r) for r in pg_execute(archive[1],'SELECT * FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a  ORDER BY artifact_key')]
 
 
 def protected(ledger):
-    return {table:[tuple(r) for r in ledger.conn.execute(f'SELECT * FROM {table} ORDER BY rowid')]
+    from src.foundation.dao.announcement_archive.pg_schema import TABLES
+    return {table:[dict(r) for r in ledger.rows(f'SELECT * FROM announcement_archive.{table} WHERE archive_id=:a ORDER BY '+','.join(TABLES[table]['primary_key']))]
             for table in ('runs','run_artifacts','source_records','cooldown')}
 
 
 def patch_main(archive, monkeypatch):
     vol=archive[0]
-    path=Path(archive[1].conn.execute('PRAGMA database_list').fetchone()[2])
-    monkeypatch.setattr(Volume,'ledger_path',lambda self:path)
+    monkeypatch.setattr(runtime,'ArchiveDatabase',lambda _value:archive[1].database)
+    monkeypatch.setattr(runtime,'get_settings',lambda:type('Settings',(),{'announcement_archive_database_url':'injected-local-pg'})())
     monkeypatch.setattr(runtime,'SourceVolume',lambda output,policy:SourceVolume(output,archive[3],vol.inspector))
     monkeypatch.setattr(runtime,'Volume',lambda output,policy:Volume(output,archive[3],vol.inspector))
     monkeypatch.setattr(httpx.Client,'send',lambda *_a,**_k:pytest.fail('maintenance must never send HTTP'))
-    return path
+    return archive[1]
+
 
 
 @pytest.mark.parametrize('args',[
@@ -72,39 +73,8 @@ def test_bad_input_precedes_all_io(args,monkeypatch):
     assert error.value.code==2
 
 
-@pytest.mark.parametrize('version',[1,3])
-def test_read_only_schema_and_bytes_unchanged(archive,tmp_path,version):
-    if version==1:
-        path=tmp_path/'old.sqlite';seed_v1(path,archive)
-    else:
-        populate(archive,[row()]);path=Path(archive[1].conn.execute('PRAGMA database_list').fetchone()[2])
-    before=path.read_bytes();tree={p.relative_to(tmp_path) for p in tmp_path.rglob('*')}
-    db,q=reader(archive,path)
-    try:
-        assert q.archive['schema_version']==version
-        assert q.summary()['dates']['file_tasks']==(5 if version==1 else 1)
-        assert q.summary()['physical_status']=='not_checked'
-        assert q.runs(20)['items'][0]['source_kind']==('prod_postgres' if version==1 else 'dg_raw_parquet')
-        with pytest.raises(sqlite3.OperationalError):db.conn.execute('UPDATE artifacts SET state="failed"')
-    finally:db.close()
-    assert before==path.read_bytes() and tree=={p.relative_to(tmp_path) for p in tmp_path.rglob('*')}
 
 
-def test_missing_empty_unknown_and_wrong_identity_do_not_create_or_upgrade(archive,tmp_path):
-    missing=tmp_path/'missing/downloads.sqlite'
-    with pytest.raises(Blocked,match='archive_ledger_missing'):
-        Ledger(missing,'volume','archive',read_only=True)
-    assert not missing.parent.exists()
-    path=tmp_path/'old.sqlite';seed_v1(path,archive);before=path.read_bytes()
-    with pytest.raises(Blocked,match='identity_mismatch'):Ledger(path,'wrong','announcements',read_only=True)
-    assert path.read_bytes()==before
-    empty=tmp_path/'empty.sqlite';sqlite3.connect(empty).close()
-    with pytest.raises(Blocked,match='schema_invalid'):Ledger(empty,'volume','archive',read_only=True)
-    with sqlite3.connect(path) as db:db.execute('UPDATE archive SET schema_version=99')
-    before=path.read_bytes()
-    with pytest.raises(Blocked,match='version_unsupported'):
-        Ledger(path,archive[0].volume_uuid,archive[0].relative_root,read_only=True)
-    assert path.read_bytes()==before
 
 
 def test_files_keyset_filters_and_source_metadata_nulls(archive):
@@ -142,12 +112,12 @@ LONG_SQL='WITH RECURSIVE x(n) AS (SELECT 0 UNION ALL SELECT n+1 FROM x WHERE n<1
 
 
 def test_sql_timeout_and_handler_removed(archive):
-    db,q=reader(archive,policy=replace(LedgerQueryPolicy(),query_timeout_seconds=.01,sql_progress_steps=1))
+    db,q=reader(archive,policy=replace(LedgerQueryPolicy(),query_timeout_seconds=.01))
     try:
         started=time.monotonic()
         with pytest.raises(Blocked,match='query_timeout'):q.query(LONG_SQL)
         assert time.monotonic()-started<1
-        assert db.conn.execute('SELECT 42').fetchone()[0]==42
+        assert pg_execute(db,'SELECT 42').fetchone()[0]==42
     finally:db.close()
 
 
@@ -234,11 +204,11 @@ def test_repair_cancel_and_promote_state_failure_keep_evidence(archive,monkeypat
     assert part.read_bytes()==PDF and not path.exists();archive[5].stop.clear()
     original=ledger.state
     def fail(key,state,error=None):
-        if state=='succeeded':raise sqlite3.OperationalError('injected ledger failure')
+        if state=='succeeded':raise Blocked('injected ledger failure')
         return original(key,state,error)
     with monkeypatch.context() as patch:
         patch.setattr(ledger,'state',fail)
-        with pytest.raises(sqlite3.OperationalError):repair_one(task['artifact_key'],archive[0],ledger,archive[3],archive[5])
+        with pytest.raises(Blocked):repair_one(task['artifact_key'],archive[0],ledger,archive[3],archive[5])
     assert path.read_bytes()==PDF and ledger.artifact(task['artifact_key'])['state']=='prepared'
     assert repair_one(task['artifact_key'],archive[0],ledger,archive[3],archive[5])['outcome']=='recovered'
     assert protected(ledger)==before
@@ -246,29 +216,29 @@ def test_repair_cancel_and_promote_state_failure_keep_evidence(archive,monkeypat
 
 def test_real_main_queries_missing_key_and_lock_conflict(archive,monkeypatch,capsys):
     assert run(archive,[row()])[0]==0
-    path=patch_main(archive,monkeypatch);before=path.read_bytes();root=['--output-root',str(archive[2].output_root)]
+    path=patch_main(archive,monkeypatch);before=protected(path);root=['--output-root',str(archive[2].output_root)]
     assert cli.main(root+['summary'])==0
     summary=json.loads(capsys.readouterr().out);assert summary['result']['dates']['file_tasks']==1
-    assert path.read_bytes()==before
+    assert protected(path)==before
     assert cli.main(root+['repair','--artifact-key','0'*64])==3
     assert json.loads(capsys.readouterr().out)['error']=='artifact_not_found'
-    assert path.read_bytes()==before
+    assert protected(path)==before
     key=tasks(archive)[0]['artifact_key']
     assert cli.main(root+['repair','--artifact-key',key])==3
     assert json.loads(capsys.readouterr().out)['error']=='archive_already_running'
-    assert path.read_bytes()==before
+    assert protected(path)==before
     archive[0].close()
     assert cli.main(root+['repair','--artifact-key',key])==0
     assert json.loads(capsys.readouterr().out)['result']['outcome']=='already_valid'
-    assert path.read_bytes()==before
+    assert protected(path)==before
 
 
 def test_real_main_verify_missing_returns_one_and_no_write(archive,monkeypatch,capsys):
     assert run(archive,[row()])[0]==0
     path=patch_main(archive,monkeypatch);task=tasks(archive)[0];(archive[2].output_root/task['relative_path']).unlink()
-    before=path.read_bytes()
+    before=protected(path)
     assert cli.main(['--output-root',str(archive[2].output_root),'verify','--artifact-key',task['artifact_key']])==1
-    assert json.loads(capsys.readouterr().out)['result']['final']['status']=='missing' and path.read_bytes()==before
+    assert json.loads(capsys.readouterr().out)['result']['final']['status']=='missing' and protected(path)==before
 
 
 def test_query_paths_do_not_initialize_archive_or_read_lake(archive,monkeypatch,capsys):
@@ -276,31 +246,12 @@ def test_query_paths_do_not_initialize_archive_or_read_lake(archive,monkeypatch,
     assert cli.main(['--output-root',str(archive[2].output_root/'absent'),'summary'])==3
     assert not (archive[2].output_root/'absent').exists()
     lake=archive[0].mount/'data_lake';lake.mkdir()
-    before=path.read_bytes()
+    before=protected(path)
     assert cli.main(['--output-root',str(lake),'summary'])==3
     assert json.loads(capsys.readouterr().out.splitlines()[-1])['error']=='lake_path_forbidden'
-    assert path.read_bytes()==before
+    assert protected(path)==before
 
 
-def test_real_main_v1_repair_upgrades_only_selected_known_archive(archive,tmp_path,monkeypatch,capsys):
-    old=tmp_path/'v1.sqlite';seed_v1(old,archive)
-    patch_main(archive,monkeypatch)
-    monkeypatch.setattr(Volume,'ledger_path',lambda self:old)
-    root=['--output-root',str(archive[2].output_root)]
-    before=old.read_bytes()
-    assert cli.main(root+['show','--artifact-key',OLD_KEY])==0
-    assert json.loads(capsys.readouterr().out)['schema_version']==1 and old.read_bytes()==before
-    with sqlite3.connect(old) as db:
-        history={t:list(db.execute('SELECT * FROM '+t+' ORDER BY rowid')) for t in ('run_artifacts','cooldown')}
-    assert cli.main(root+['repair','--artifact-key','0'*64])==3
-    capsys.readouterr();assert old.read_bytes()==before
-    archive[0].close()
-    assert cli.main(root+['repair','--artifact-key',OLD_KEY])==0
-    assert json.loads(capsys.readouterr().out)['schema_version']==3
-    with sqlite3.connect(old) as db:
-        assert db.execute('SELECT schema_version FROM archive').fetchone()[0]==3
-        assert {t:[tuple(row[:len(history[t][0])]) for row in db.execute('SELECT * FROM '+t+' ORDER BY rowid')] for t in history}==history
-        assert db.execute('SELECT COUNT(*) FROM source_records').fetchone()[0]==5
 
 
 @pytest.mark.parametrize('state',['failed','blocked','downloading'])
@@ -319,40 +270,18 @@ def test_query_budget_is_for_whole_snapshot_and_limit_is_checked(archive):
         with pytest.raises(ValueError):q.files(101)
         time.sleep(.015)
         with pytest.raises(Blocked,match='query_timeout'):q.summary()
-        assert db.conn.execute('SELECT 1').fetchone()[0]==1
+        assert pg_execute(db,'SELECT 1').fetchone()[0]==1
     finally:db.close()
 
 
-def test_cli_real_sigint_interrupts_long_sql_without_writes(archive,tmp_path):
-    import signal
-    import subprocess
-    import sys
-    populate(archive,[row()])
-    path=Path(archive[1].conn.execute('PRAGMA database_list').fetchone()[2]);before=path.read_bytes()
-    script=tmp_path/'cancel_query.py'
-    script.write_text('''import sys,json\nfrom pathlib import Path\nfrom src.scripts import announcement_ledger as cli\nfrom src.ops.runtime.announcement_archive import maintenance as runtime\nfrom src.foundation.clients.announcement_archive.volume import SourceVolume,Volume\nfrom src.foundation.dao.announcement_archive.maintenance import LedgerQuery\nfrom src.foundation.clients.announcement_archive import volume as mod\nmount=Path(sys.argv[1]);root=Path(sys.argv[2]);db=Path(sys.argv[3])\nmod.sys.platform='darwin'\nmod.os.path.ismount=lambda value:Path(value)==mount\ninfo=dict(MountPoint=str(mount),VolumeUUID='test-external-volume',DeviceIdentifier='disk7s1',Internal=False,VirtualOrPhysical='Physical')\nruntime.SourceVolume=lambda output,policy:SourceVolume(output,policy,lambda value:info)\nVolume.ledger_path=lambda self:db\ndef summary(self):\n print('sql_started',flush=True)\n return self.query("WITH RECURSIVE x(n) AS (SELECT 0 UNION ALL SELECT n+1 FROM x WHERE n<100000000) SELECT SUM(n) FROM x")\nLedgerQuery.summary=summary\nraise SystemExit(cli.main(['--output-root',str(root),'summary']))\n''')
-    env=dict(os.environ,PYTHONPATH=str(Path.cwd()))
-    p=subprocess.Popen([sys.executable,'-B',str(script),str(archive[0].mount),str(archive[2].output_root),str(path)],
-                       env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
-    try:
-        import select
-        assert select.select([p.stdout],[],[],5)[0], 'no live query marker'
-        assert p.stdout.readline().strip()=='sql_started'
-        time.sleep(.02);p.send_signal(signal.SIGINT)
-        out,err=p.communicate(timeout=5)
-        assert p.returncode==130 and json.loads(out)['error']=='user_cancelled' and not err
-        assert path.read_bytes()==before
-    finally:
-        if p.poll() is None:p.kill();p.wait()
 
 
 @pytest.mark.parametrize('change',[{'page_default':0},{'page_max':101},{'query_timeout_seconds':0},
-                                  {'query_timeout_seconds':float('inf')},{'query_timeout_seconds':float('nan')},
-                                  {'sql_progress_steps':0}])
+                                  {'query_timeout_seconds':float('inf')},{'query_timeout_seconds':float('nan')}])
 def test_invalid_policy_fails_without_starting_snapshot(archive,change):
     with pytest.raises(ValueError,match='policy_invalid'):
         LedgerQuery(archive[1],archive[5],replace(LedgerQueryPolicy(),**change))
-    assert not archive[1].conn.in_transaction
+    assert archive[1].database.engine.pool.checkedout()==0
 
 
 def test_cross_device_fingerprint_is_rejected(archive):
@@ -381,41 +310,3 @@ def test_cancel_after_prepared_part_verification_preserves_then_recovers(archive
     archive[5].stop.clear()
     assert repair_one(task['artifact_key'],archive[0],ledger,archive[3],archive[5])['outcome']=='recovered'
     assert protected(ledger)==before
-
-
-def test_main_ledger_symlink_and_wrong_volume_are_readonly_failures(archive,tmp_path,monkeypatch,capsys):
-    populate(archive,[row()]);path=patch_main(archive,monkeypatch);before=path.read_bytes()
-    link=tmp_path/'alias.sqlite';link.symlink_to(path)
-    monkeypatch.setattr(Volume,'ledger_path',lambda self:link)
-    root=['--output-root',str(archive[2].output_root)]
-    assert cli.main(root+['summary'])==3
-    assert json.loads(capsys.readouterr().out)['error']=='symlink_path_forbidden'
-    monkeypatch.setattr(Volume,'ledger_path',lambda self:path)
-    archive[6]['VolumeUUID']='wrong-volume'
-    assert cli.main(root+['repair','--artifact-key',tasks(archive)[0]['artifact_key']])==3
-    assert json.loads(capsys.readouterr().out)['error']=='archive_identity_mismatch'
-    archive[6]['VolumeUUID']=archive[0].volume_uuid
-    assert path.read_bytes()==before
-
-
-def test_cancel_at_write_gate_does_not_upgrade_old_ledger(archive,tmp_path,monkeypatch,capsys):
-    old=tmp_path/'v1.sqlite';seed_v1(old,archive);before=old.read_bytes()
-    patch_main(archive,monkeypatch);monkeypatch.setattr(Volume,'ledger_path',lambda self:old)
-    control=archive[5];monkeypatch.setattr(runtime,'Control',lambda policy:control)
-    original=Volume.open
-    def cancel_after_open(self):
-        result=original(self);control.stop.set();return result
-    monkeypatch.setattr(Volume,'open',cancel_after_open);archive[0].close()
-    assert cli.main(['--output-root',str(archive[2].output_root),'repair','--artifact-key',OLD_KEY])==130
-    assert json.loads(capsys.readouterr().out)['error']=='user_cancelled'
-    assert old.read_bytes()==before
-
-
-@pytest.mark.parametrize('read_only',[True,False])
-def test_malformed_archive_header_is_structured_failure_without_changes(archive,tmp_path,read_only):
-    path=tmp_path/'old.sqlite';seed_v1(path,archive)
-    with sqlite3.connect(path) as db:db.execute('ALTER TABLE archive RENAME COLUMN volume_uuid TO malformed')
-    before=path.read_bytes()
-    with pytest.raises(Blocked,match='archive_schema_invalid'):
-        Ledger(path,archive[0].volume_uuid,archive[0].relative_root,read_only=read_only)
-    assert path.read_bytes()==before

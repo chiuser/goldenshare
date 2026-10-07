@@ -1,0 +1,19 @@
+{
+  "kind": "isolated PG native runtime",
+  "sourceRows": 500,
+  "sourceFiles": 1,
+  "sourceRowGroups": 0,
+  "sourceBytes": 0,
+  "sourceKind": "controlled six-field fixture, not Lake performance",
+  "pgBatchRows": 500,
+  "ingestSeconds": 0.2572267500218004,
+  "failureFamilyRows": 110000,
+  "unresolved": 40000,
+  "unresolvedSeconds": 0.1951559588778764,
+  "sqlMaxSeconds": 0.6829585419036448,
+  "sqlCalls": 2537,
+  "fdCount": 17,
+  "rssMiB": 256.65625,
+  "sourceHttpRequests": 0,
+  "formalWrites": 0
+}

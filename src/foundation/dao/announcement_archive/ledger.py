@@ -1,462 +1,265 @@
-from __future__ import annotations
-
-import json
-import os
-import sqlite3
-import unicodedata
-import uuid
+"""PG archive business facts; each public operation owns a short transaction."""
+from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import date, timedelta
-from pathlib import Path
+import json
+import unicodedata
+import uuid
+
+from sqlalchemy import text
 
 from src.foundation.clients.announcement_archive.core import (
-    SOURCE_CONTRACT_VERSION, Blocked, DownloadOptions, DownloadPolicy, source_projection, timestamp,
+    SOURCE_CONTRACT_VERSION, Blocked, DownloadPolicy, identity, source_projection, timestamp,
 )
-
-from src.foundation.clients.announcement_archive.volume import no_symlinks
-from .schema import ADDITIONS, REQUIRED, PRIMARY_KEYS, INDEXES, extend_schema
-
-
-DAY_SCHEMA = """CREATE TABLE run_source_days (
- run_id TEXT NOT NULL, ann_date TEXT NOT NULL, state TEXT NOT NULL,
- opened_dev INTEGER, opened_ino INTEGER, size INTEGER, sha256 TEXT,
- footer_count INTEGER, records_committed INTEGER NOT NULL DEFAULT 0,
- reason TEXT, updated_at TEXT, PRIMARY KEY(run_id,ann_date))"""
-
-RUN_ADDITIONS = (
- ('source_kind', "TEXT NOT NULL DEFAULT 'dg_raw_parquet'"),
- ('source_contract_version', 'INTEGER'), ('source_policy', 'TEXT'),
- ('days_total', 'INTEGER'), ('days_completed', 'INTEGER NOT NULL DEFAULT 0'),
- ('current_day', 'TEXT'), ('enumeration_sealed', 'INTEGER NOT NULL DEFAULT 0'),
-)
-
-SCHEMA = (
- """CREATE TABLE archive (
- singleton INTEGER PRIMARY KEY CHECK(singleton=1), schema_version INTEGER NOT NULL,
- volume_uuid TEXT NOT NULL, root_relative_path TEXT NOT NULL, created_at TEXT NOT NULL)""",
- """CREATE TABLE runs (
- run_id TEXT PRIMARY KEY, start_date TEXT, end_date TEXT, interval_seconds REAL,
- source_scope TEXT, legacy_upper_id INTEGER DEFAULT 0, legacy_after_id INTEGER DEFAULT 0,
- phase TEXT NOT NULL, records_read INTEGER DEFAULT 0, reason TEXT, updated_at TEXT,
- missing_url_count INTEGER DEFAULT 0,
- artifacts_total INTEGER DEFAULT 0, completed_count INTEGER DEFAULT 0,
- succeeded_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0,
- source_kind TEXT NOT NULL DEFAULT 'dg_raw_parquet', source_contract_version INTEGER, source_policy TEXT,
- days_total INTEGER, days_completed INTEGER NOT NULL DEFAULT 0, current_day TEXT,
- enumeration_sealed INTEGER NOT NULL DEFAULT 0)""",
- """CREATE TABLE artifacts (
- artifact_key TEXT PRIMARY KEY, ann_date TEXT, ts_code TEXT, title TEXT, url TEXT,
- relative_path TEXT, path_fold TEXT UNIQUE, state TEXT NOT NULL DEFAULT 'pending',
- error TEXT, attempts INTEGER NOT NULL DEFAULT 0, size INTEGER, sha256 TEXT, updated_at TEXT)""",
- """CREATE TABLE source_records (
- source_scope TEXT, record_key TEXT, legacy_raw_id INTEGER, metadata TEXT, artifact_key TEXT,
- first_seen_run TEXT, last_seen_run TEXT, PRIMARY KEY(source_scope,record_key))""",
- """CREATE TABLE run_artifacts (
- run_id TEXT, artifact_key TEXT, outcome TEXT, attempts INTEGER DEFAULT 0,
- PRIMARY KEY(run_id,artifact_key))""",
- """CREATE TABLE cooldown (
- singleton INTEGER PRIMARY KEY CHECK(singleton=1), last_request_finished_at REAL DEFAULT 0,
- next_request_not_before REAL DEFAULT 0, request_in_flight INTEGER DEFAULT 0, reason TEXT)""",
- 'CREATE INDEX run_pending ON run_artifacts(run_id,outcome,artifact_key)',
- DAY_SCHEMA,
- 'CREATE INDEX source_day_state ON run_source_days(run_id,state,ann_date)',
-)
+from src.foundation.clients.announcement_archive.budget import remaining
+from .pg_archive import ArchiveDAO, register_archive
+from .pg_schema import VERSION, DDL_SHA256, validate_schema
 
 
 class Ledger:
-    def __init__(self, path: Path, volume_uuid: str, relative_root: str, *, read_only=False, read_timeout_seconds=5):
-        path = Path(path).absolute()
-        no_symlinks(path)
-        if read_only:
-            if not path.is_file():
-                raise Blocked('archive_ledger_missing')
-            self.conn = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=read_timeout_seconds)
-        else:
-            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            if not path.exists():
-                handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
-                os.close(handle)
-            self.conn = sqlite3.connect(path, timeout=5)
-        self.conn.row_factory = sqlite3.Row
-        self.owner_token = uuid.uuid4().hex
-        try:
-            if read_only:
-                self.conn.execute('PRAGMA query_only=ON')
-            tables = {r[0] for r in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if not tables:
-                if read_only:
-                    raise Blocked('archive_schema_invalid')
-                self.conn.execute('PRAGMA journal_mode=DELETE')
-                self.conn.execute('PRAGMA synchronous=FULL')
-                self.conn.execute('BEGIN IMMEDIATE')
-                try:
-                    for sql in SCHEMA:
-                        self.conn.execute(sql)
-                    self.conn.execute('INSERT INTO archive VALUES(1,2,?,?,?)',
-                                      (volume_uuid, relative_root, timestamp()))
-                    self.conn.execute('INSERT INTO cooldown(singleton) VALUES(1)')
-                    extend_schema(self.conn)
-                    self._validate_schema(3)
-                    self.conn.commit()
-                except BaseException:
-                    self.conn.rollback()
-                    raise
-            else:
-                if 'archive' not in tables:
-                    raise Blocked('archive_schema_invalid')
-                existing = self.conn.execute('SELECT * FROM archive LIMIT 2').fetchmany(2)
-                if (len(existing) != 1 or not {'schema_version','volume_uuid','root_relative_path'}
-                        <= set(existing[0].keys())):
-                    raise Blocked('archive_schema_invalid')
-                existing = existing[0]
-                if (existing['volume_uuid'] != volume_uuid or existing['root_relative_path'] != relative_root):
-                    raise Blocked('archive_identity_mismatch')
-                version = existing['schema_version']
-                if version not in (1, 2, 3):
-                    raise Blocked('archive_schema_version_unsupported')
-                self._validate_schema(version)
-                if read_only:
-                    return
-                self.conn.execute('PRAGMA journal_mode=DELETE')
-                self.conn.execute('PRAGMA synchronous=FULL')
-                if version < 3:
-                    self._upgrade(version)
-        except BaseException:
-            self.conn.close()
-            raise
+    def __init__(self, database, volume_uuid, relative_root, *, read_only=False, initialize=False):
+        self.database, self.archive_id = database, identity([volume_uuid, relative_root])
+        self.read_only, self.owner_token = read_only, uuid.uuid4().hex
+        with database.transaction(read_only=not initialize) as conn:
+            self.sql_budget(conn)
+            validate_schema(conn)
+            dao=ArchiveDAO(conn,self.archive_id,require_ready=False)
+            if initialize and dao.get('archives',{}) is None:
+                register_archive(conn,volume_uuid,relative_root)
+            self.archive=dao.get('archives',{})
+            if not self.archive:raise Blocked('archive_not_found')
+            if (self.archive['volume_uuid'],self.archive['root_relative_path'])!=(volume_uuid,relative_root):
+                raise Blocked('archive_identity_mismatch')
+            if self.archive['import_state']!='ready':raise Blocked('archive_import_incomplete')
 
-    def _validate_schema(self, version):
-        required = dict(
-            archive={'singleton','schema_version','volume_uuid','root_relative_path','created_at'},
-            runs={'run_id','start_date','end_date','interval_seconds','source_scope','phase','records_read',
-                  'reason','updated_at','missing_url_count','artifacts_total','completed_count',
-                  'succeeded_count','skipped_count','failed_count'},
-            artifacts={'artifact_key','ann_date','ts_code','title','url','relative_path','path_fold',
-                       'state','error','attempts','size','sha256','updated_at'},
-            source_records={'source_scope','metadata','artifact_key','first_seen_run','last_seen_run'},
-            run_artifacts={'run_id','artifact_key','outcome','attempts'},
-            cooldown={'singleton','last_request_finished_at','next_request_not_before','request_in_flight','reason'},
-        )
-        if version == 1:
-            required['runs'] |= {'upper_id','after_id'}
-            required['source_records'] |= {'row_key_hash','raw_id'}
-        else:
-            required['runs'] |= {'legacy_upper_id','legacy_after_id', *(n for n,_ in RUN_ADDITIONS)}
-            required['source_records'] |= {'record_key','legacy_raw_id'}
-            required['run_source_days'] = {'run_id','ann_date','state','opened_dev','opened_ino','size','sha256',
-                                          'footer_count','records_committed','reason','updated_at'}
-        if version == 3:
-            for table, fields in ADDITIONS.items():
-                required[table] |= {name for name, _ in fields}
-            required.update(REQUIRED)
-        actual_tables = {r[0] for r in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if actual_tables != set(required):
-            raise Blocked('archive_schema_invalid')
-        for table, expected in required.items():
-            actual = {r[1] for r in self.conn.execute(f'PRAGMA table_info({table})')}
-            if version == 1 and table == 'runs' and 'missing_url_count' not in actual:
-                expected = expected - {'missing_url_count'}
-            if actual != expected:
-                raise Blocked('archive_schema_invalid')
-        indexes = {'run_pending':['run_id','outcome','artifact_key']}
-        if version >= 2:
-            indexes['source_day_state'] = ['run_id','state','ann_date']
-        if version == 3:
-            indexes.update({name:definition[1] for name,definition in INDEXES.items()})
-        for index, columns in indexes.items():
-            if [r[2] for r in self.conn.execute(f'PRAGMA index_info({index})')] != columns:
-                raise Blocked('archive_schema_invalid')
-        key = 'row_key_hash' if version == 1 else 'record_key'
-        primary_keys = dict(archive=['singleton'], runs=['run_id'], artifacts=['artifact_key'],
-                            source_records=['source_scope',key], run_artifacts=['run_id','artifact_key'],
-                            cooldown=['singleton'])
-        if version >= 2:
-            primary_keys['run_source_days'] = ['run_id','ann_date']
-        if version == 3:
-            primary_keys.update(PRIMARY_KEYS)
-        for table, columns in primary_keys.items():
-            pk = sorted((r[5],r[1]) for r in self.conn.execute(f'PRAGMA table_info({table})') if r[5])
-            if [column for _,column in pk] != columns:
-                raise Blocked('archive_schema_invalid')
-        path_unique = False
-        for index in self.conn.execute('PRAGMA index_list(artifacts)'):
-            quoted = index[1].replace('"','""')
-            columns = [r[2] for r in self.conn.execute(f'PRAGMA index_info("{quoted}")')]
-            if index[2] and not index[4] and columns == ['path_fold']:
-                path_unique = True
-        if not path_unique:
-            raise Blocked('archive_schema_invalid')
-        if self.conn.execute('SELECT count(*) FROM cooldown WHERE singleton=1').fetchone()[0] != 1:
-            raise Blocked('archive_schema_invalid')
-        if version == 3 and self.conn.execute('SELECT count(*) FROM archive_execution WHERE singleton=1').fetchone()[0] != 1:
-            raise Blocked('archive_schema_invalid')
+    @property
+    def storage(self):
+        return dict(kind='postgresql',database=self.database.policy.database,schema='announcement_archive',
+                    archiveId=self.archive_id,schemaVersion=VERSION)
 
-    def _upgrade(self, version):
-        self.conn.execute('BEGIN IMMEDIATE')
-        try:
-            if version == 1:
-                if 'missing_url_count' not in {r[1] for r in self.conn.execute('PRAGMA table_info(runs)')}:
-                    self.conn.execute('ALTER TABLE runs ADD COLUMN missing_url_count INTEGER NOT NULL DEFAULT 0')
-                self.conn.execute('ALTER TABLE runs RENAME COLUMN upper_id TO legacy_upper_id')
-                self.conn.execute('ALTER TABLE runs RENAME COLUMN after_id TO legacy_after_id')
-                self.conn.execute('ALTER TABLE source_records RENAME COLUMN row_key_hash TO record_key')
-                self.conn.execute('ALTER TABLE source_records RENAME COLUMN raw_id TO legacy_raw_id')
-                for name, declaration in RUN_ADDITIONS:
-                    self.conn.execute(f'ALTER TABLE runs ADD COLUMN {name} {declaration}')
-                self.conn.execute("UPDATE runs SET source_kind='prod_postgres'")
-                self.conn.execute(DAY_SCHEMA)
-                self.conn.execute('CREATE INDEX source_day_state ON run_source_days(run_id,state,ann_date)')
-                self.conn.execute('UPDATE archive SET schema_version=2 WHERE singleton=1')
-                self._validate_schema(2)
-            extend_schema(self.conn)
-            self._validate_schema(3)
-            self.conn.commit()
-        except BaseException:
-            self.conn.rollback()
-            raise
+    @contextmanager
+    def transaction(self, *, read_only=False):
+        if self.read_only and not read_only:raise Blocked('archive_read_only')
+        with self.database.transaction(read_only=read_only) as conn:
+            self.sql_budget(conn)
+            info=conn.execute(text('SELECT a.import_state,s.version,s.ddl_sha256 FROM announcement_archive.archives a '
+                'CROSS JOIN announcement_archive.schema_info s WHERE a.archive_id=:a AND s.singleton=1'),{'a':self.archive_id}).first()
+            if not info or tuple(info)!=('ready',VERSION,DDL_SHA256):raise Blocked('archive_schema_invalid')
+            yield conn
 
-    def begin_run(self, options: DownloadOptions, scope: str, policy: DownloadPolicy | None = None, *, command=None, details=None) -> str:
-        run = uuid.uuid4().hex
-        with self.conn:
-            active = self.conn.execute('SELECT active_run_id,owner_token FROM archive_execution WHERE singleton=1').fetchone()
-            if active['active_run_id'] and active['owner_token'] == self.owner_token:
-                raise Blocked('archive_already_running')
-            now = timestamp()
-            self.conn.execute("UPDATE attempt_log SET ended_at=?,outcome='interrupted',reason='process_exit_recovered' WHERE ended_at IS NULL", (now,))
-            self.conn.execute("UPDATE run_sessions SET ended_at=?,reason='process_exit_recovered' WHERE ended_at IS NULL", (now,))
-            self.conn.execute("UPDATE runs SET finished_at=?,owner_token=NULL WHERE phase IN ('enumerating','downloading')", (now,))
-            self.conn.execute("UPDATE run_source_days SET state='cancelled',reason='process_exit_recovered',updated_at=? "
-                              "WHERE state='reading'", (timestamp(),))
-            self.conn.execute("UPDATE runs SET phase='interrupted',reason='process_exit_recovered',updated_at=? "
-                              "WHERE phase IN ('enumerating','downloading')", (timestamp(),))
-            self.conn.execute('INSERT INTO runs(run_id,start_date,end_date,interval_seconds,source_scope,phase,updated_at,'
-                              'source_contract_version,source_policy,days_total,legacy_upper_id,legacy_after_id) '
-                              'VALUES(?,?,?,?,?,?,?,?,?,?,NULL,NULL)',
-                              (run, options.start_date.isoformat(), options.end_date.isoformat(), options.interval_seconds,
-                               scope, 'enumerating', timestamp(), SOURCE_CONTRACT_VERSION,
-                               json.dumps(asdict(policy or DownloadPolicy()), sort_keys=True),
-                               (options.end_date-options.start_date).days+1))
-            self.conn.execute('UPDATE runs SET created_at=?,started_at=?,owner_token=?,heartbeat_at=?,business_updated_at=? WHERE run_id=?',
-                              (now,now,self.owner_token,now,now,run))
-            self.conn.execute('INSERT INTO run_sessions(run_id,session_seq,started_at,owner_token) VALUES(?,1,?,?)', (run,now,self.owner_token))
-            self.conn.execute('UPDATE archive_execution SET active_run_id=?,owner_token=?,heartbeat=?,revision=revision+1 WHERE singleton=1',
-                              (run,self.owner_token,now))
+    def sql_budget(self,conn):
+        seconds=remaining(self.database.policy.statement_milliseconds/1000)
+        conn.execute(text("SELECT set_config('statement_timeout',:ms,true)"),dict(ms=str(max(1,int(seconds*1000)))))
+
+    def rows(self, sql, params=None, *, conn=None):
+        """Native PG queries only. SQL at every call site includes its archive predicate."""
+        remaining(self.database.policy.statement_milliseconds/1000)
+        values=dict(params or {},a=self.archive_id)
+        if conn is not None:return [dict(r) for r in conn.execute(text(sql),values).mappings()]
+        with self.transaction(read_only=True) as connection:
+            return self.rows(sql,params,conn=connection)
+
+    def write(self, conn, sql, params=None):
+        remaining(self.database.policy.statement_milliseconds/1000)
+        return conn.execute(text(sql),dict(params or {},a=self.archive_id))
+
+    def run(self, run, *, conn=None, lock=False):
+        rows=self.rows('SELECT * FROM announcement_archive.runs WHERE archive_id=:a AND run_id=:run'
+                       +(' FOR UPDATE' if lock else ''),dict(run=run),conn=conn)
+        if not rows:raise Blocked('run_not_found')
+        return rows[0]
+
+    def active(self):
+        return self.rows('SELECT active_run_id FROM announcement_archive.archive_execution WHERE archive_id=:a')[0]['active_run_id']
+
+    def pending(self, run):
+        return bool(self.rows('SELECT 1 FROM announcement_archive.run_artifacts WHERE archive_id=:a AND run_id=:run AND outcome IS NULL LIMIT 1',dict(run=run)))
+
+    def begin_run(self, options, scope, policy=None, *, command=None, details=None):
+        from .execution import ExecutionLedger
+        run=uuid.uuid4().hex;now=timestamp()
+        with self.transaction() as conn:
+            slot=ArchiveDAO(conn,self.archive_id,require_ready=False).get('archive_execution',{},lock=True)
+            if slot['active_run_id']:raise Blocked('archive_already_running')
+            self.write(conn,'INSERT INTO announcement_archive.runs (archive_id,run_id,start_date,end_date,interval_seconds,source_scope,phase,updated_at,source_contract_version,source_policy,days_total,legacy_upper_id,legacy_after_id,created_at,started_at,owner_token,heartbeat_at,business_updated_at) '
+                "VALUES(:a,:run,:start,:end,:interval,:scope,'enumerating',:now,:version,:policy,:days,NULL,NULL,:now,:now,:owner,:now,:now)",
+                dict(run=run,start=options.start_date.isoformat(),end=options.end_date.isoformat(),interval=options.interval_seconds,scope=scope,now=now,version=SOURCE_CONTRACT_VERSION,policy=json.dumps(asdict(policy or DownloadPolicy()),sort_keys=True),days=(options.end_date-options.start_date).days+1,owner=self.owner_token))
+            self.write(conn,'INSERT INTO announcement_archive.run_sessions(archive_id,run_id,session_seq,started_at,owner_token) VALUES(:a,:run,1,:now,:owner)',dict(run=run,now=now,owner=self.owner_token))
+            self.write(conn,'UPDATE announcement_archive.archive_execution SET active_run_id=:run,owner_token=:owner,heartbeat=:now,revision=revision+1 WHERE archive_id=:a',dict(run=run,owner=self.owner_token,now=now))
             if details:
-                if not set(details) <= {'batch_kind','parent_run_id','retry_of_run_id','preview_id','actor_id','records_read','missing_url_count','days_total'}:
-                    raise ValueError('invalid_run_details')
-                self.conn.execute('UPDATE runs SET '+','.join(k+'=?' for k in details)+' WHERE run_id=?', (*details.values(),run))
+                if not set(details)<={'batch_kind','parent_run_id','retry_of_run_id','preview_id','actor_id','records_read','missing_url_count','days_total'}:raise ValueError('invalid_run_details')
+                self.write(conn,'UPDATE announcement_archive.runs SET '+','.join(k+'=:'+k for k in details)+' WHERE archive_id=:a AND run_id=:run',dict(details,run=run))
             if command:
                 key,kind,digest=command
-                self.conn.execute('INSERT INTO command_receipts VALUES(?,?,?,?,?,?)', (key,kind,digest,run,'accepted',now))
+                ExecutionLedger(self).record_receipt(key,kind,digest,run,conn=conn,hashed=True)
         return run
 
-    def begin_day(self, run: str, day: str):
-        with self.conn:
-            current = self.conn.execute('SELECT * FROM runs WHERE run_id=?', (run,)).fetchone()
-            if (not current or current['phase'] != 'enumerating' or current['enumeration_sealed']
-                    or current['days_completed'] >= current['days_total']
-                    or (date.fromisoformat(current['start_date']) + timedelta(days=current['days_completed'])).isoformat() != day):
-                raise Blocked('source_day_outside_enumeration')
-            self.conn.execute("INSERT INTO run_source_days(run_id,ann_date,state,updated_at) VALUES(?,?,'reading',?)",
-                              (run, day, timestamp()))
-            self.conn.execute('UPDATE runs SET current_day=?,updated_at=? WHERE run_id=?', (day,timestamp(),run))
+    def begin_day(self, run, day):
+        with self.transaction() as conn:
+            current=self.run(run,conn=conn,lock=True)
+            if (current['phase']!='enumerating' or current['enumeration_sealed'] or current['days_completed']>=current['days_total'] or (date.fromisoformat(current['start_date'])+timedelta(days=current['days_completed'])).isoformat()!=day):raise Blocked('source_day_outside_enumeration')
+            self.write(conn,"INSERT INTO announcement_archive.run_source_days(archive_id,run_id,ann_date,state,updated_at) VALUES(:a,:run,:day,'reading',:now)",dict(run=run,day=day,now=timestamp()))
+            self.write(conn,'UPDATE announcement_archive.runs SET current_day=:day,updated_at=:now WHERE archive_id=:a AND run_id=:run',dict(run=run,day=day,now=timestamp()))
 
-    def describe_day(self, run: str, day: str, facts: dict):
-        with self.conn:
-            self.conn.execute('UPDATE run_source_days SET opened_dev=?,opened_ino=?,size=?,sha256=?,footer_count=?,'
-                              "updated_at=? WHERE run_id=? AND ann_date=? AND state='reading'",
-                              (*[facts[k] for k in ('opened_dev','opened_ino','size','sha256','footer_count')],timestamp(),run,day))
+    def describe_day(self, run, day, facts):
+        with self.transaction() as conn:
+            self.write(conn,"UPDATE announcement_archive.run_source_days SET opened_dev=:opened_dev,opened_ino=:opened_ino,size=:size,sha256=:sha256,footer_count=:footer_count,updated_at=:now WHERE archive_id=:a AND run_id=:run AND ann_date=:day AND state='reading'",dict(facts,run=run,day=day,now=timestamp()))
 
-    def ingest(self, run: str, scope: str, day: str, rows: list[dict], batch_size=500):
-        if len(rows) > min(batch_size,500):
-            raise Blocked('source_batch_limit')
-        with self.conn:
-            current = self.conn.execute('SELECT phase,source_scope,enumeration_sealed FROM runs WHERE run_id=?',
-                                        (run,)).fetchone()
-            unit = self.conn.execute('SELECT * FROM run_source_days WHERE run_id=? AND ann_date=?', (run,day)).fetchone()
-            if (not current or current['phase'] != 'enumerating' or current['enumeration_sealed']
-                    or current['source_scope'] != scope or not unit or unit['state'] != 'reading'):
-                raise Blocked('source_batch_outside_enumeration')
-            added = missing = 0
+    def ingest(self, run, scope, day, rows, batch_size=500):
+        if len(rows)>min(batch_size,500):raise Blocked('source_batch_limit')
+        with self.transaction() as conn:
+            current=self.run(run,conn=conn,lock=True)
+            units=self.rows('SELECT * FROM announcement_archive.run_source_days WHERE archive_id=:a AND run_id=:run AND ann_date=:day',dict(run=run,day=day),conn=conn)
+            if current['phase']!='enumerating' or current['enumeration_sealed'] or current['source_scope']!=scope or not units or units[0]['state']!='reading':raise Blocked('source_batch_outside_enumeration')
+            added=missing=0
             for row in rows:
-                record_key, iso_day, key = source_projection(row, day)
-                previous = self.conn.execute('SELECT last_seen_run FROM source_records WHERE source_scope=? AND record_key=?',
-                                             (scope,record_key)).fetchone()
-                if previous and previous['last_seen_run'] == run:
-                    raise Blocked('source_duplicate_record')
+                record_key,iso_day,key=source_projection(row,day)
+                params=dict(run=run,scope=scope,record=record_key,key=key,day=iso_day,code=row['ts_code'],title=row['title'],url=(row['url'] or '').strip(),now=timestamp(),metadata=json.dumps(row,ensure_ascii=False,separators=(',',':')))
+                previous=self.rows('SELECT last_seen_run FROM announcement_archive.source_records WHERE archive_id=:a AND source_scope=:scope AND record_key=:record',params,conn=conn)
+                if previous and previous[0]['last_seen_run']==run:raise Blocked('source_duplicate_record')
                 if key:
-                    self.conn.execute('INSERT OR IGNORE INTO artifacts(artifact_key,ann_date,ts_code,title,url,updated_at,created_run_id,representative_record_key) '
-                                      'VALUES(?,?,?,?,?,?,?,?)', (key,iso_day,row['ts_code'],row['title'],row['url'].strip(),timestamp(),run,record_key))
-                    self._representative(run, key, record_key, row['title'])
-                self.conn.execute('INSERT INTO source_records(source_scope,record_key,legacy_raw_id,metadata,artifact_key,'
-                                  'first_seen_run,last_seen_run) VALUES(?,?,NULL,?,?,?,?) '
-                                  'ON CONFLICT(source_scope,record_key) DO UPDATE SET last_seen_run=excluded.last_seen_run',
-                                  (scope,record_key,json.dumps(row,ensure_ascii=False,separators=(',',':')),key,run,run))
+                    self.write(conn,'INSERT INTO announcement_archive.artifacts(archive_id,artifact_key,ann_date,ts_code,title,url,updated_at,created_run_id,representative_record_key) VALUES(:a,:key,:day,:code,:title,:url,:now,:run,:record) ON CONFLICT(archive_id,artifact_key) DO NOTHING',params)
+                    self._representative(conn,run,key,record_key,row['title'])
+                self.write(conn,'INSERT INTO announcement_archive.source_records(archive_id,source_scope,record_key,legacy_raw_id,metadata,artifact_key,first_seen_run,last_seen_run) VALUES(:a,:scope,:record,NULL,:metadata,:key,:run,:run) ON CONFLICT(archive_id,source_scope,record_key) DO UPDATE SET last_seen_run=excluded.last_seen_run',params)
                 if key:
-                    added += self.conn.execute('INSERT OR IGNORE INTO run_artifacts(run_id,artifact_key) VALUES(?,?)',
-                                               (run,key)).rowcount
-                    self.conn.execute('UPDATE run_artifacts SET representative_record_key=(SELECT representative_record_key FROM artifacts WHERE artifact_key=?) WHERE run_id=? AND artifact_key=?', (key,run,key))
-                else:
-                    missing += 1
-            self.conn.execute('UPDATE runs SET records_read=records_read+?,artifacts_total=artifacts_total+?,'
-                              'missing_url_count=missing_url_count+?,updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?',
-                              (len(rows),added,missing,timestamp(),timestamp(),run))
-            self.conn.execute('UPDATE run_source_days SET records_committed=records_committed+?,updated_at=? '
-                              'WHERE run_id=? AND ann_date=?', (len(rows),timestamp(),run,day))
+                    added+=self.write(conn,'INSERT INTO announcement_archive.run_artifacts(archive_id,run_id,artifact_key,representative_record_key) SELECT :a,:run,artifact_key,representative_record_key FROM announcement_archive.artifacts WHERE archive_id=:a AND artifact_key=:key ON CONFLICT DO NOTHING',params).rowcount
+                else:missing+=1
+            params=dict(run=run,day=day,count=len(rows),added=added,missing=missing,now=timestamp())
+            self.write(conn,'UPDATE announcement_archive.runs SET records_read=records_read+:count,artifacts_total=artifacts_total+:added,missing_url_count=missing_url_count+:missing,updated_at=:now,business_updated_at=:now,revision=revision+1 WHERE archive_id=:a AND run_id=:run',params)
+            self.write(conn,'UPDATE announcement_archive.run_source_days SET records_committed=records_committed+:count,updated_at=:now WHERE archive_id=:a AND run_id=:run AND ann_date=:day',params)
 
-    def _representative(self, run, key, record_key, title):
-        current = self.artifact(key)
-        if current['created_run_id'] != run or current['relative_path'] is not None:
-            return
-        def rank(value, record):
-            from src.foundation.clients.announcement_archive.files import title_name
-            from src.foundation.clients.announcement_archive.core import FileFailed
-            try:
-                title_name(value, '', DownloadPolicy.filename_bytes)
-                return (0, record)
-            except FileFailed:
-                return (1, record)
-        if rank(title, record_key) < rank(current['title'], current['representative_record_key']):
-            self.conn.execute('UPDATE artifacts SET title=?,representative_record_key=? WHERE artifact_key=?',
-                              (title,record_key,key))
+    def _representative(self, conn, run, key, record, title):
+        from src.foundation.clients.announcement_archive.files import title_name
+        from src.foundation.clients.announcement_archive.core import FileFailed
+        current=self.artifact(key,conn=conn)
+        if current['created_run_id']!=run or current['relative_path'] is not None:return
+        def rank(value,record):
+            try:title_name(value,'',DownloadPolicy.filename_bytes);return (0,record)
+            except FileFailed:return (1,record)
+        if rank(title,record)<rank(current['title'],current['representative_record_key']):
+            self.write(conn,'UPDATE announcement_archive.artifacts SET title=:title,representative_record_key=:record WHERE archive_id=:a AND artifact_key=:key',dict(title=title,record=record,key=key))
+            self.write(conn,'UPDATE announcement_archive.run_artifacts SET representative_record_key=:record WHERE archive_id=:a AND run_id=:run AND artifact_key=:key',dict(record=record,run=run,key=key))
 
-    def complete_day(self, run: str, day: str, facts: dict):
-        with self.conn:
-            current = self.conn.execute('SELECT * FROM run_source_days WHERE run_id=? AND ann_date=?', (run,day)).fetchone()
-            if (not current or current['state'] != 'reading' or current['records_committed'] != facts['footer_count']
-                    or any(current[k] != facts[k] for k in ('opened_dev','opened_ino','size','sha256','footer_count'))):
-                raise Blocked('source_day_reconciliation')
-            self.conn.execute("UPDATE run_source_days SET state='completed',updated_at=? WHERE run_id=? AND ann_date=?",
-                              (timestamp(),run,day))
-            self.conn.execute('UPDATE runs SET days_completed=days_completed+1,updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?', (timestamp(),timestamp(),run))
+    def complete_day(self, run, day, facts):
+        with self.transaction() as conn:
+            rows=self.rows('SELECT * FROM announcement_archive.run_source_days WHERE archive_id=:a AND run_id=:run AND ann_date=:day FOR UPDATE',dict(run=run,day=day),conn=conn)
+            if not rows or rows[0]['state']!='reading' or rows[0]['records_committed']!=facts['footer_count'] or any(rows[0][k]!=facts[k] for k in ('opened_dev','opened_ino','size','sha256','footer_count')):raise Blocked('source_day_reconciliation')
+            params=dict(run=run,day=day,now=timestamp())
+            self.write(conn,"UPDATE announcement_archive.run_source_days SET state='completed',updated_at=:now WHERE archive_id=:a AND run_id=:run AND ann_date=:day",params)
+            self.write(conn,'UPDATE announcement_archive.runs SET days_completed=days_completed+1,updated_at=:now,business_updated_at=:now,revision=revision+1 WHERE archive_id=:a AND run_id=:run',params)
 
-    def seal(self, run: str):
-        with self.conn:
-            info = self.conn.execute('SELECT * FROM runs WHERE run_id=?', (run,)).fetchone()
-            invalid = self.conn.execute("SELECT 1 FROM run_source_days WHERE run_id=? AND "
-                                        "(state<>'completed' OR footer_count IS NULL OR records_committed<>footer_count) LIMIT 1",
-                                        (run,)).fetchone()
-            if (not info or info['phase'] != 'enumerating' or info['days_completed'] != info['days_total'] or invalid):
-                raise Blocked('source_enumeration_incomplete')
-            self.conn.execute("UPDATE runs SET enumeration_sealed=1,phase='downloading',updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?",
-                              (timestamp(),timestamp(),run))
+    def seal(self, run):
+        with self.transaction() as conn:
+            info=self.run(run,conn=conn,lock=True)
+            invalid=self.rows("SELECT 1 FROM announcement_archive.run_source_days WHERE archive_id=:a AND run_id=:run AND (state<>'completed' OR footer_count IS NULL OR records_committed<>footer_count) LIMIT 1",dict(run=run),conn=conn)
+            if info['phase']!='enumerating' or info['days_completed']!=info['days_total'] or invalid:raise Blocked('source_enumeration_incomplete')
+            self.write(conn,"UPDATE announcement_archive.runs SET enumeration_sealed=1,phase='downloading',updated_at=:now,business_updated_at=:now,revision=revision+1 WHERE archive_id=:a AND run_id=:run",dict(run=run,now=timestamp()))
 
-    def phase(self, run: str, phase: str, reason=None):
-        with self.conn:
+    def phase(self, run, phase, reason=None):
+        from .execution import TERMINAL
+        with self.transaction() as conn:
+            p=dict(run=run,phase=phase,reason=reason,now=timestamp())
             if phase in ('cancelled','blocked'):
-                self.conn.execute("UPDATE run_source_days SET state=?,reason=?,updated_at=? WHERE run_id=? AND state='reading'",
-                                  (phase,reason,timestamp(),run))
-            self.conn.execute('UPDATE runs SET phase=?,reason=?,updated_at=? WHERE run_id=?', (phase,reason,timestamp(),run))
+                self.write(conn,"UPDATE announcement_archive.run_source_days SET state=:phase,reason=:reason,updated_at=:now WHERE archive_id=:a AND run_id=:run AND state='reading'",p)
+            self.write(conn,'UPDATE announcement_archive.runs SET phase=:phase,reason=:reason,updated_at=:now WHERE archive_id=:a AND run_id=:run',p)
             if phase=='blocked' and reason in {'http_403','challenge_page'}:
-                self.conn.execute('UPDATE runs SET check_state=NULL,check_kind=NULL,check_code=NULL,check_updated_at=NULL WHERE run_id=?',(run,))
-            if phase in ('completed','partial_failed','cancelled','blocked','stopped','interrupted'):
-                now = timestamp()
-                self.conn.execute("UPDATE runs SET finished_at=?,current_artifact_key=CASE WHEN phase='blocked' THEN current_artifact_key ELSE NULL END,wait_kind=NULL,next_request_at=NULL,revision=revision+1 WHERE run_id=?", (now,run))
-                self.conn.execute('UPDATE attempt_log SET ended_at=?,outcome=?,reason=? WHERE run_id=? AND ended_at IS NULL', (now,phase,reason,run))
-                self.conn.execute('UPDATE run_sessions SET ended_at=?,reason=? WHERE run_id=? AND ended_at IS NULL', (now,reason or phase,run))
-                self.conn.execute('UPDATE archive_execution SET active_run_id=NULL,owner_token=NULL,heartbeat=?,revision=revision+1 WHERE singleton=1 AND active_run_id=?', (now,run))
-                self.conn.execute('UPDATE run_artifacts SET claimed_owner=NULL,claimed_at=NULL WHERE run_id=? AND outcome IS NULL', (run,))
+                self.write(conn,'UPDATE announcement_archive.runs SET check_state=NULL,check_kind=NULL,check_code=NULL,check_updated_at=NULL WHERE archive_id=:a AND run_id=:run',p)
+            if phase in TERMINAL:
+                self.write(conn,"UPDATE announcement_archive.runs SET finished_at=:now,current_artifact_key=CASE WHEN phase='blocked' THEN current_artifact_key ELSE NULL END,wait_kind=NULL,next_request_at=NULL,revision=revision+1 WHERE archive_id=:a AND run_id=:run",p)
+                self.write(conn,'UPDATE announcement_archive.attempt_log SET ended_at=:now,outcome=:phase,reason=:reason WHERE archive_id=:a AND run_id=:run AND ended_at IS NULL',p)
+                self.write(conn,'UPDATE announcement_archive.run_sessions SET ended_at=:now,reason=:reason WHERE archive_id=:a AND run_id=:run AND ended_at IS NULL',dict(p,reason=reason or phase))
+                self.write(conn,'UPDATE announcement_archive.archive_execution SET active_run_id=NULL,owner_token=NULL,heartbeat=:now,revision=revision+1 WHERE archive_id=:a AND active_run_id=:run',p)
+                self.write(conn,'UPDATE announcement_archive.run_artifacts SET claimed_owner=NULL,claimed_at=NULL WHERE archive_id=:a AND run_id=:run AND outcome IS NULL',p)
 
-    def next_task(self, run: str) -> dict | None:
-        info = self.conn.execute('SELECT enumeration_sealed,phase FROM runs WHERE run_id=?', (run,)).fetchone()
-        if not info or not info['enumeration_sealed'] or info['phase'] != 'downloading':
-            raise Blocked('source_enumeration_not_sealed')
-        row = self.conn.execute('SELECT a.* FROM artifacts a JOIN run_artifacts r USING(artifact_key) '
-                                'WHERE r.run_id=? AND r.outcome IS NULL ORDER BY r.artifact_key LIMIT 1', (run,)).fetchone()
-        if row:
-            with self.conn:
-                self.conn.execute('UPDATE run_artifacts SET claimed_owner=?,claimed_at=? WHERE run_id=? AND artifact_key=? AND outcome IS NULL',
-                                  (self.owner_token,timestamp(),run,row['artifact_key']))
-                self.conn.execute('UPDATE runs SET current_artifact_key=?,attempt_number=0,bytes_received=0,bytes_total=NULL,wait_kind=NULL,next_request_at=NULL WHERE run_id=?', (row['artifact_key'],run))
-        return dict(row) if row else None
+    def next_task(self, run):
+        with self.transaction() as conn:
+            info=self.run(run,conn=conn,lock=True)
+            if not info['enumeration_sealed'] or info['phase']!='downloading':raise Blocked('source_enumeration_not_sealed')
+            rows=self.rows('SELECT a.* FROM announcement_archive.artifacts a JOIN announcement_archive.run_artifacts r USING(archive_id,artifact_key) WHERE r.archive_id=:a AND r.run_id=:run AND r.outcome IS NULL ORDER BY r.artifact_key LIMIT 1',dict(run=run),conn=conn)
+            if not rows:return None
+            task=rows[0];p=dict(run=run,key=task['artifact_key'],owner=self.owner_token,now=timestamp())
+            self.write(conn,'UPDATE announcement_archive.run_artifacts SET claimed_owner=:owner,claimed_at=:now WHERE archive_id=:a AND run_id=:run AND artifact_key=:key AND outcome IS NULL',p)
+            self.write(conn,'UPDATE announcement_archive.runs SET current_artifact_key=:key,attempt_number=0,bytes_received=0,bytes_total=NULL,wait_kind=NULL,next_request_at=NULL WHERE archive_id=:a AND run_id=:run',p)
+            return task
 
-    def artifact(self, key: str) -> dict:
-        return dict(self.conn.execute('SELECT * FROM artifacts WHERE artifact_key=?', (key,)).fetchone())
+    def artifact(self, key, *, conn=None):
+        rows=self.rows('SELECT * FROM announcement_archive.artifacts WHERE archive_id=:a AND artifact_key=:key',dict(key=key),conn=conn)
+        if not rows:raise Blocked('artifact_not_found')
+        return rows[0]
 
-    def assign_path(self, key: str, relative: str | None):
-        with self.conn:
-            self.conn.execute('UPDATE artifacts SET relative_path=?,path_fold=?,updated_at=? WHERE artifact_key=?',
-                              (relative, unicodedata.normalize('NFC', relative).casefold() if relative else None, timestamp(), key))
+    def assign_path(self, key, relative):
+        with self.transaction() as conn:
+            self.write(conn,'UPDATE announcement_archive.artifacts SET relative_path=:relative,path_fold=:fold,updated_at=:now WHERE archive_id=:a AND artifact_key=:key',dict(relative=relative,fold=unicodedata.normalize('NFC',relative).casefold() if relative else None,now=timestamp(),key=key))
 
-    def path_taken(self, relative: str) -> bool:
-        return self.conn.execute('SELECT 1 FROM artifacts WHERE path_fold=?',
-                                 (unicodedata.normalize('NFC', relative).casefold(),)).fetchone() is not None
+    def path_taken(self, relative):
+        return bool(self.rows('SELECT 1 FROM announcement_archive.artifacts WHERE archive_id=:a AND path_fold=:fold',dict(fold=unicodedata.normalize('NFC',relative).casefold())))
 
-    def state(self, key: str, state: str, error=None):
-        with self.conn:
-            self.conn.execute('UPDATE artifacts SET state=?,error=?,updated_at=? WHERE artifact_key=?',
-                              (state, error, timestamp(), key))
+    def state(self, key, state, error=None):
+        with self.transaction() as conn:
+            self.write(conn,'UPDATE announcement_archive.artifacts SET state=:state,error=:error,updated_at=:now WHERE archive_id=:a AND artifact_key=:key',dict(key=key,state=state,error=error,now=timestamp()))
 
-    def attempt(self, run: str, key: str):
-        with self.conn:
-            self.conn.execute('UPDATE artifacts SET attempts=attempts+1,updated_at=? WHERE artifact_key=?', (timestamp(), key))
-            self.conn.execute('UPDATE run_artifacts SET attempts=attempts+1 WHERE run_id=? AND artifact_key=?', (run, key))
-            sequence = self.conn.execute('SELECT COALESCE(MAX(attempt_seq),0)+1 FROM attempt_log WHERE run_id=? AND artifact_key=?', (run,key)).fetchone()[0]
-            session = self.conn.execute('SELECT MAX(session_seq) FROM run_sessions WHERE run_id=?', (run,)).fetchone()[0]
-            self.conn.execute('INSERT INTO attempt_log(run_id,artifact_key,attempt_seq,session_seq,started_at) VALUES(?,?,?,?,?)',
-                              (run,key,sequence,session,timestamp()))
-            self.conn.execute('UPDATE runs SET attempt_number=? WHERE run_id=?', (self.conn.execute('SELECT COUNT(*) FROM attempt_log WHERE run_id=? AND artifact_key=? AND session_seq=?',(run,key,session)).fetchone()[0],run))
+    def attempt(self, run, key):
+        with self.transaction() as conn:
+            self.run(run,conn=conn,lock=True)
+            p=dict(run=run,key=key,now=timestamp())
+            self.write(conn,'UPDATE announcement_archive.artifacts SET attempts=attempts+1,updated_at=:now WHERE archive_id=:a AND artifact_key=:key',p)
+            self.write(conn,'UPDATE announcement_archive.run_artifacts SET attempts=attempts+1 WHERE archive_id=:a AND run_id=:run AND artifact_key=:key',p)
+            seq=self.rows('SELECT COALESCE(MAX(attempt_seq),0)+1 AS seq FROM announcement_archive.attempt_log WHERE archive_id=:a AND run_id=:run AND artifact_key=:key',p,conn=conn)[0]['seq']
+            session=self.rows('SELECT MAX(session_seq) AS seq FROM announcement_archive.run_sessions WHERE archive_id=:a AND run_id=:run',p,conn=conn)[0]['seq']
+            self.write(conn,'INSERT INTO announcement_archive.attempt_log(archive_id,run_id,artifact_key,attempt_seq,session_seq,started_at) VALUES(:a,:run,:key,:seq,:session,:now)',dict(p,seq=seq,session=session))
+            self.write(conn,'UPDATE announcement_archive.runs SET attempt_number=(SELECT COUNT(*) FROM announcement_archive.attempt_log WHERE archive_id=:a AND run_id=:run AND artifact_key=:key AND session_seq=:session) WHERE archive_id=:a AND run_id=:run',dict(p,session=session))
 
     def finish_attempt(self, run, key, outcome, reason=None, http_status=None, received=0):
-        with self.conn:
-            self.conn.execute('UPDATE attempt_log SET ended_at=?,outcome=?,reason=?,http_status=?,bytes=? WHERE run_id=? AND artifact_key=? AND ended_at IS NULL',
-                              (timestamp(),outcome,reason,http_status,received,run,key))
+        with self.transaction() as conn:
+            self.write(conn,'UPDATE announcement_archive.attempt_log SET ended_at=:now,outcome=:outcome,reason=:reason,http_status=:status,bytes=:bytes WHERE archive_id=:a AND run_id=:run AND artifact_key=:key AND ended_at IS NULL',dict(run=run,key=key,outcome=outcome,reason=reason,status=http_status,bytes=received,now=timestamp()))
 
+    def attempted_success(self, run, key):
+        return bool(self.rows("SELECT 1 FROM announcement_archive.attempt_log WHERE archive_id=:a AND run_id=:run AND artifact_key=:key AND outcome='succeeded' AND ended_at IS NOT NULL LIMIT 1",dict(run=run,key=key)))
 
-    def prepared(self, key: str, size: int, digest: str):
-        with self.conn:
-            self.conn.execute("UPDATE artifacts SET state='prepared',size=?,sha256=?,error=NULL,updated_at=? WHERE artifact_key=?",
-                              (size, digest, timestamp(), key))
+    def prepared(self, key, size, digest):
+        with self.transaction() as conn:
+            self.write(conn,"UPDATE announcement_archive.artifacts SET state='prepared',size=:size,sha256=:digest,error=NULL,updated_at=:now WHERE archive_id=:a AND artifact_key=:key",dict(key=key,size=size,digest=digest,now=timestamp()))
 
-    def result(self, run: str, key: str, outcome: str):
-        columns = {'succeeded': 'succeeded_count', 'skipped': 'skipped_count', 'failed': 'failed_count'}
-        column = columns[outcome]
-        with self.conn:
-            previous = self.conn.execute('SELECT outcome FROM run_artifacts WHERE run_id=? AND artifact_key=?',
-                                         (run, key)).fetchone()[0]
-            if previous == outcome:
-                return
-            if previous:
-                raise Blocked('run_result_already_final')
-            self.conn.execute('UPDATE run_artifacts SET outcome=?,claimed_owner=NULL,claimed_at=NULL WHERE run_id=? AND artifact_key=?', (outcome, run, key))
-            self.conn.execute(f'UPDATE runs SET {column}={column}+1,completed_count=completed_count+?,updated_at=?,business_updated_at=?,revision=revision+1 WHERE run_id=?',
-                              (0 if previous else 1, timestamp(), timestamp(), run))
+    def result(self, run, key, outcome):
+        column={'succeeded':'succeeded_count','skipped':'skipped_count','failed':'failed_count'}[outcome]
+        with self.transaction() as conn:
+            self.run(run,conn=conn,lock=True)
+            p=dict(run=run,key=key,outcome=outcome,now=timestamp())
+            previous=self.rows('SELECT outcome FROM announcement_archive.run_artifacts WHERE archive_id=:a AND run_id=:run AND artifact_key=:key FOR UPDATE',p,conn=conn)[0]['outcome']
+            if previous==outcome:return
+            if previous:raise Blocked('run_result_already_final')
+            self.write(conn,'UPDATE announcement_archive.run_artifacts SET outcome=:outcome,claimed_owner=NULL,claimed_at=NULL WHERE archive_id=:a AND run_id=:run AND artifact_key=:key',p)
+            self.write(conn,f'UPDATE announcement_archive.runs SET {column}={column}+1,completed_count=completed_count+1,updated_at=:now,business_updated_at=:now,revision=revision+1 WHERE archive_id=:a AND run_id=:run',p)
 
-    def file_failure(self,run,key,reason):
-        """Preserve validation errors in the original run even after an artifact is retried."""
-        with self.conn:
-            session=self.conn.execute('SELECT MAX(session_seq) FROM run_sessions WHERE run_id=?',(run,)).fetchone()[0]
-            if not self.conn.execute('SELECT 1 FROM attempt_log WHERE run_id=? AND artifact_key=? AND session_seq=? AND reason=?',(run,key,session,reason)).fetchone():
-                sequence=self.conn.execute('SELECT COALESCE(MAX(attempt_seq),0)+1 FROM attempt_log WHERE run_id=? AND artifact_key=?',(run,key)).fetchone()[0]
-                now=timestamp()
-                self.conn.execute("INSERT INTO attempt_log VALUES(?,?,?,?,?,?,'failed',?,NULL,0)",(run,key,sequence,session,now,now,reason))
+    def file_failure(self, run, key, reason):
+        with self.transaction() as conn:
+            self.run(run,conn=conn,lock=True)
+            p=dict(run=run,key=key,reason=reason,now=timestamp())
+            session=self.rows('SELECT MAX(session_seq) AS seq FROM announcement_archive.run_sessions WHERE archive_id=:a AND run_id=:run',p,conn=conn)[0]['seq'];p['session']=session
+            if not self.rows('SELECT 1 FROM announcement_archive.attempt_log WHERE archive_id=:a AND run_id=:run AND artifact_key=:key AND session_seq=:session AND reason=:reason',p,conn=conn):
+                seq=self.rows('SELECT COALESCE(MAX(attempt_seq),0)+1 AS seq FROM announcement_archive.attempt_log WHERE archive_id=:a AND run_id=:run AND artifact_key=:key',p,conn=conn)[0]['seq']
+                self.write(conn,"INSERT INTO announcement_archive.attempt_log(archive_id,run_id,artifact_key,attempt_seq,session_seq,started_at,ended_at,outcome,reason,bytes) VALUES(:a,:run,:key,:seq,:session,:now,:now,'failed',:reason,0)",dict(p,seq=seq))
 
-    def stats(self, run: str) -> dict:
-        counters = self.conn.execute('SELECT * FROM runs WHERE run_id=?', (run,)).fetchone()
-        total, done = counters['artifacts_total'], counters['completed_count']
-        return dict(records=counters['records_read'], total=total, completed=done, succeeded=counters['succeeded_count'],
-                    skipped=counters['skipped_count'], failed=counters['failed_count'],
-                    percent=(round(100 * done / total, 2) if total else 100) if counters['enumeration_sealed'] else None,
-                    skipped_missing_url=counters['missing_url_count'], current_day=counters['current_day'],
-                    days_total=counters['days_total'], days_completed=counters['days_completed'])
+    def stats(self, run):
+        c=self.run(run);total,done=c['artifacts_total'],c['completed_count']
+        return dict(records=c['records_read'],total=total,completed=done,succeeded=c['succeeded_count'],skipped=c['skipped_count'],failed=c['failed_count'],percent=(round(100*done/total,2) if total else 100) if c['enumeration_sealed'] else None,skipped_missing_url=c['missing_url_count'],current_day=c['current_day'],days_total=c['days_total'],days_completed=c['days_completed'])
 
-    def cooldown(self) -> dict:
-        return dict(self.conn.execute('SELECT * FROM cooldown WHERE singleton=1').fetchone())
+    def cooldown(self):
+        return self.rows('SELECT * FROM announcement_archive.cooldown WHERE archive_id=:a')[0]
 
     def request_started(self):
-        with self.conn:
-            self.conn.execute('UPDATE cooldown SET request_in_flight=1 WHERE singleton=1')
+        # This committed write is the gate before every HTTP request (including redirects/probes).
+        with self.transaction() as conn:
+            self.write(conn,'UPDATE announcement_archive.cooldown SET request_in_flight=1 WHERE archive_id=:a')
 
-    def request_finished(self, now: float, until: float, reason: str):
-        with self.conn:
-            self.conn.execute('UPDATE cooldown SET last_request_finished_at=?,next_request_not_before='
-                              'max(next_request_not_before,?),request_in_flight=0,reason=? WHERE singleton=1',
-                              (now, until, reason))
+    def request_finished(self, now, until, reason):
+        with self.transaction() as conn:
+            self.write(conn,'UPDATE announcement_archive.cooldown SET last_request_finished_at=:now,next_request_not_before=greatest(next_request_not_before,:until),request_in_flight=0,reason=:reason WHERE archive_id=:a',dict(now=now,until=until,reason=reason))
 
-    def defer(self, until: float, reason: str):
-        with self.conn:
-            self.conn.execute('UPDATE cooldown SET next_request_not_before=max(next_request_not_before,?),reason=? WHERE singleton=1',
-                              (until, reason))
+    def defer(self, until, reason):
+        with self.transaction() as conn:
+            self.write(conn,'UPDATE announcement_archive.cooldown SET next_request_not_before=greatest(next_request_not_before,:until),reason=:reason WHERE archive_id=:a',dict(until=until,reason=reason))
 
     def close(self):
-        self.conn.close()
+        # Connections belong to each completed transaction, the composition root owns the pool.
+        pass

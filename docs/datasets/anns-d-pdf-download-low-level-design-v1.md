@@ -1,6 +1,6 @@
 # 上市公司公告 PDF 本地归档 LLD v1
 
-更新时间：2026-10-07。状态：本文DC1及更早章节保留阶段历史；后续DC5正式schema3/归档验收见[数据中心LLD§20](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。PG台账、旧整数分页游标、summary存储标识及CLI消费者的唯一迁移目标见[修订LLD§22.5—22.11](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)，尚未编码或执行。原SQLite合同仅描述现行实现，不作为新存储目标；原文件/HTTP/身份协议继续有效。
+更新时间：2026-10-07。状态：Q3 PG执行/CLI切换已实现并进行隔离验收；当前合同与命令见本文 §19，[详细报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。§1—§18 保留此前 SQLite/DC 阶段历史，其中台账路径、schema1/2/3运行时升级和不依赖PG等说明已被§19替代，不再作为当前命令操作指南。正式迁移和统一启用属于 Q4，尚未执行，不能提前部署开发版。
 
 §1—§16保留2026-10-05及更早阶段当时的实现和验收记录：DG schema2读者/五URL归档/台账维护，以及Prod M0—M3历史。独立旧验收台账曾升级到2，不代表此次已迁移到3。§17为网页技术目标引用。[技术方案](anns-d-pdf-download-technical-plan-v1.md)说明后续范围。
 
@@ -414,7 +414,7 @@ repair 不请求 PDF，返回前后状态和 redownload 日期/输出根参数�
 
 新增配置、schema、端口/API、状态机、SQL、迁移回归、业务/观察事务隔离和真实验收由网页LLD统一定义，本文件不复制第二套字段合同。本轮没有执行迁移/下载/索引写入；依赖矩阵不改，后续实施按网页DC阶段授权。
 
-## 18. DC1实施后的当前入口（2026-10-06）
+## 18. DC1实施后的历史入口（2026-10-06）
 
 当前链路 `download_announcements.main → Ops executor.run_cli/execute → Foundation Source/Volume/Files/Downloader/DAO Ledger(schema3)`；台账入口 `announcement_ledger.main → Ops maintenance.run_cli → DAO LedgerQuery / Files.verify_one / Ops repair_one`。旧src/scripts/announcement_download主实现包已删除，旧路径只存在于历史叙述/报告中。CLI参数/退出行为保持，输出中的schema_version反映实际1/2/3。
 
@@ -423,3 +423,48 @@ repair 不请求 PDF，返回前后状态和 redownload 日期/输出根参数�
 身份/Raw reader逐字节不变；代表标题只在新artifact封存前确定，不重命名旧文件。新增控制slot/session/attempt/receipt及进度字段，已完成run结果不可覆盖；进程退出/观察写失败保留PDF和尝试证据，显式新日期命令可以复用文件。网页原run继续和关联失败批次仍属于DC3，不由CLI日期重放冒充。
 
 [DC1验收报告](../../reports/wealth_data_center_dc1_acceptance_20261006.md)及[机器证据](../../reports/wealth_data_center_dc1_acceptance_20261006.json)：完整387项、最终受影响217项通过，ingestion lint/compileall/CLI help通过；正式Raw五条只读指纹一致，无台账打开/来源写入/PDF请求。依赖矩阵不改，CodeGraph sync/status为up to date；新增pypinyin0.55.0为获准本地可选依赖，名称索引消费者在DC2实现。源站多域名真实归档、实际拔盘、容量预算、网页和正式迁移继续按后续阶段验证。
+
+
+## 19. Q3 PG 运行存储、CLI 与维护合同（2026-10-07）
+
+### 19.1 配置、结构与生命周期
+
+使用原[数据中心 LLD §22.5—22.6](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)的配置和DDL，不增加新配置。`ANNOUNCEMENT_ARCHIVE_DATABASE_URL` 默认空，只接受 `postgresql+psycopg`、loopback、5432和`goldenshare_lake_meta`，固定schema `announcement_archive`；没有主库回退、SQL兼容壳或双存储开关。Web独立archive连接池由App持有，查询和执行共用；CLI创建自己的同策略池，退出时释放。未配置或PG/schema不可用时明确阻断。
+
+`Ledger(database, volume_uuid, relative_root)`读取并校验PG结构和archive；`initialize=True`仅在已通过写卷门禁的下载资源工厂使用，允许登记native archive/cooldown/execution，不执行DDL。只读查询、summary、history和context不初始化archive。PG schema版本1与迁移来源SQLite版本2/3是不同概念，迁移原版本保存在`source_schema_version`，不会影响JSON的PG schemaVersion。
+
+`ArchiveStore`只建立短期DAO，读写不跨文件hash或HTTP持有数据库事务。`archive_execution`行锁协调领取，保留本机`execution.lock`与外盘`.state/archive.lock`；`begin_run/claim`在一个短事务内创建/领取任务、会话和receipt。恢复弃置状态仅在已取得本机执行锁的显式执行/恢复入口进行，打开Ledger不会自动续跑HTTP，也不按心跳超时抢占。
+
+### 19.2 文件、HTTP 与观测隔离
+
+既有 `Files` 与 `Downloader` 的提交顺序保留：接收块→fsync part→PG prepared提交→os.replace→目录fsync→PG succeeded→单文件run结果。任何窗口退出都保留已提交事实/文件，sealed run的继续仅取outcome为空的文件；failed重试建立原失败key集合的关联run，原run结果与原因不改写。
+
+所有表和子查询显式带archive_id，JOIN按archive_id+artifact_key。单批最多500，日记录/计数同事务；完整日期/footer/指纹核对后seal。重复result不重复计数，cooldown使用PG `greatest`，跨进程不可缩短。恢复prepared或完整PDF不再次发HTTP；已删除成功文件仍可重新下载。
+
+WebControl在每个业务检查点读取持久停止/owner，后台停止观察间隔0.5秒，进度/心跳默认5秒；观测失败不回滚/阻断文件业务提交，每次观测失败也节流。PG业务写失败阻断执行，`request_started`必须在每个HTTP前独立成功提交，PG只读或离线时零新请求。PG恢复后仍需用户显式继续，不自动发HTTP。
+
+LedgerQuery使用PG原生参数化SQL和4秒整体预算，按剩余时间设置statement_timeout；Ctrl+C取消当前驱动查询，随后事务回滚/连接归还，不保留读事务跨文件核验。文本标题用strpos按原文字面匹配，百分号/下划线不作通配符。列表最多100，分页仍传正整数旧参数，SQL使用row_seq。
+
+### 19.3 命令与JSON（Q4迁移/启用完成后使用）
+
+```bash
+GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.download_announcements \
+  --start-date 2026-09-30 --end-date 2026-09-30 --interval-seconds 5
+
+GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.announcement_ledger summary
+GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.announcement_ledger runs --limit 20 --before-rowid 123
+GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.announcement_ledger files --ts-code 002245.SZ --title 公告
+GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.announcement_ledger show --artifact-key KEY --after-rowid 123
+GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.announcement_ledger verify --artifact-key KEY
+GOLDENSHARE_ENV_FILE=.env.web.local .venv/bin/python -m src.scripts.announcement_ledger repair --artifact-key KEY
+```
+
+默认output-root仍为`/Volumes/datasource/announcements`；需要指定时位于台账子命令前。日期命令重放重新枚举该日期范围，有效文件复用；Web continue保留原sealed集合，retry仅原失败集合，不混淆两者。verify只核验本地文件；repair整理或恢复prepared，不联网、不删除已存在文件、不自动升级结构。维护命令不依赖DG/CH，但依赖已初始化的PG及已验证输出卷。
+
+正常JSON包含：
+
+```json
+{"storage":{"kind":"postgresql","database":"goldenshare_lake_meta","schema":"announcement_archive","archiveId":"归档身份哈希","schemaVersion":1}}
+```
+
+没有`ledger_path`或顶层`schema_version`。runs/show的`next_before_rowid/next_after_rowid`仍是整数，回传到同名旧CLI参数；导入旧rowid时保留row_seq。原参数错误/启动阻断/文件失败/取消退出码不变，详细测试与实测见Q3报告。正式库、环境与原SQLite尚未操作；下一阶段Q4先PLAN、显式APPLY、读回再切换，文件清理单独批准。

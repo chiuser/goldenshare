@@ -1,9 +1,10 @@
 from __future__ import annotations
+from fixtures.announcement_pg_runtime import pg_execute, pg_many
+from test_announcement_pg_migration import pg, pg_cluster
 
 import json
 import os
 import select
-import sqlite3
 import subprocess
 import sys
 import threading
@@ -105,7 +106,7 @@ def stage_rows(ledger, run, scope, rows, day='2026-09-30', seal=False):
 
 
 @pytest.fixture
-def archive(tmp_path, monkeypatch):
+def archive(tmp_path, monkeypatch, pg):
     mount = tmp_path / 'disk'
     mount.mkdir()
     output = mount / 'announcements'
@@ -117,10 +118,12 @@ def archive(tmp_path, monkeypatch):
         return physical if target == 'disk6s2' else info
     monkeypatch.setattr('src.foundation.clients.announcement_archive.volume.sys.platform', 'darwin')
     monkeypatch.setattr('src.foundation.clients.announcement_archive.volume.os.path.ismount', lambda p: Path(p) == mount)
-    monkeypatch.setattr(Volume, 'ledger_path', lambda self: tmp_path / 'local-state/downloads.sqlite')
+    monkeypatch.setattr(Volume,'execution_lock_path',lambda self:tmp_path/'local-state/execution.lock')
     policy = replace(DownloadPolicy(), max_file_size=1024, reserve_bytes=0, batch_size=2)
     volume = Volume(output, policy, inspect).open()
-    ledger = Ledger(tmp_path / 'local-state/downloads.sqlite', volume.volume_uuid, volume.relative_root)
+    from src.foundation.dao.announcement_archive.pg_schema import install_schema
+    with pg.transaction() as conn:install_schema(conn)
+    ledger=Ledger(pg,volume.volume_uuid,volume.relative_root,initialize=True)
     options = DownloadOptions(date(2026, 9, 30), date(2026, 9, 30), 5, output)
     clock = Clock()
     output_log = []
@@ -141,7 +144,7 @@ def run(archive, rows, handler=None):
 
 
 def latest_run(ledger):
-    return ledger.conn.execute('SELECT * FROM runs ORDER BY rowid DESC LIMIT 1').fetchone()
+    return pg_execute(ledger,'SELECT * FROM announcement_archive.runs WHERE runs.archive_id=:a  ORDER BY row_seq DESC LIMIT 1').fetchone()
 
 
 @pytest.mark.parametrize('value', ['-1', 'nan', 'inf', '-inf'])
@@ -198,7 +201,7 @@ def test_resume_deduplicates_url_and_discovers_new_records(archive):
     rows = [row(1), row(2, url='https://ann.example/1.pdf', title='同文件的新标题')]
     assert run(archive, rows, handler)[0] == 0
     assert len(requests) == 1
-    assert archive[1].conn.execute('SELECT count(*) FROM source_records').fetchone()[0] == 2
+    assert pg_execute(archive[1],'SELECT count(*) FROM announcement_archive.source_records WHERE source_records.archive_id=:a ').fetchone()[0] == 2
     assert run(archive, rows + [row(3)], handler)[0] == 0
     assert len(requests) == 2
     stats = archive[1].stats(latest_run(archive[1])['run_id'])
@@ -223,13 +226,13 @@ def test_collision_and_unknown_existing_file_preserved(archive):
 def test_corrupt_success_is_preserved_and_redownloaded(archive):
     assert run(archive, [row()])[0] == 0
     ledger = archive[1]
-    old = ledger.conn.execute('SELECT relative_path FROM artifacts').fetchone()[0]
+    old = pg_execute(ledger,'SELECT relative_path FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()[0]
     path = archive[2].output_root / old
     path.write_bytes(b'corrupt')
     requests = []
     assert run(archive, [row()], lambda req: requests.append(req) or httpx.Response(200, content=PDF))[0] == 0
     assert len(requests) == 1 and path.read_bytes() == b'corrupt'
-    new = ledger.conn.execute('SELECT relative_path FROM artifacts').fetchone()[0]
+    new = pg_execute(ledger,'SELECT relative_path FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()[0]
     assert new != old and (archive[2].output_root / new).read_bytes() == PDF
 
 
@@ -238,12 +241,12 @@ def test_rename_before_success_ledger_failure_recovers_without_request(archive, 
     original = ledger.state
     def fail(key, state, error=None):
         if state == 'succeeded':
-            raise sqlite3.OperationalError('injected local disk failure')
+            raise Blocked('injected local disk failure')
         return original(key, state, error)
     with monkeypatch.context() as patch:
         patch.setattr(ledger, 'state', fail)
         assert run(archive, [row()])[0] == 3
-    artifact = ledger.conn.execute('SELECT * FROM artifacts').fetchone()
+    artifact = pg_execute(ledger,'SELECT * FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()
     assert artifact['state'] == 'prepared'
     assert (archive[2].output_root / artifact['relative_path']).read_bytes() == PDF
     assert run(archive, [row()], lambda req: pytest.fail('recovered final should not request HTTP'))[0] == 0
@@ -262,11 +265,11 @@ def test_prepared_part_promotes_without_request(archive):
     (path.parent / files.part_name(task)).write_bytes(PDF)
     ledger.prepared(task['artifact_key'], len(PDF), hashlib.sha256(PDF).hexdigest())
     ledger.close()
-    ledger = Ledger(archive[0].ledger_path(), archive[0].volume_uuid, archive[0].relative_root)
+    ledger = Ledger(archive[1].database, archive[0].volume_uuid, archive[0].relative_root)
     archive = (archive[0], ledger, *archive[2:])
     assert run(archive, [row()], lambda req: pytest.fail('prepared part should not request HTTP'))[0] == 0
     assert path.read_bytes() == PDF
-    assert ledger.conn.execute('SELECT phase,reason FROM runs WHERE run_id=?', (run_id,)).fetchone()['reason'] == 'process_exit_recovered'
+    assert pg_execute(ledger,'SELECT phase,reason FROM announcement_archive.runs WHERE runs.archive_id=:a AND run_id=:p0',(run_id,)).fetchone()['reason'] == 'process_exit_recovered'
     ledger.close()
 
 
@@ -300,9 +303,9 @@ def test_batch_rows_and_counts_rollback_together(archive):
     bad=row(2);bad.pop('name')
     with pytest.raises(Blocked,match='source_record_schema'):
         ledger.ingest(run_id,'dg','2026-09-30',[row(),bad])
-    assert ledger.conn.execute('SELECT records_read FROM runs').fetchone()[0]==0
-    assert ledger.conn.execute('SELECT records_committed FROM run_source_days').fetchone()[0]==0
-    assert ledger.conn.execute('SELECT count(*) FROM artifacts').fetchone()[0]==0
+    assert pg_execute(ledger,'SELECT records_read FROM announcement_archive.runs WHERE runs.archive_id=:a ').fetchone()[0]==0
+    assert pg_execute(ledger,'SELECT records_committed FROM announcement_archive.run_source_days WHERE run_source_days.archive_id=:a ').fetchone()[0]==0
+    assert pg_execute(ledger,'SELECT count(*) FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()[0]==0
 
 
 def test_redirect_and_retry_all_obey_intervals(archive):
@@ -343,7 +346,7 @@ def test_http_failures_and_403_stops_remaining(archive, status):
     assert code == (3 if status == 403 else 1)
     assert len(calls) == (1 if status == 403 else 2)
     if status == 403:
-        assert archive[1].conn.execute("SELECT count(*) FROM artifacts WHERE state='blocked'").fetchone()[0] == 1
+        assert pg_execute(archive[1],"SELECT count(*) FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a AND state='blocked'").fetchone()[0] == 1
 
 
 @pytest.mark.parametrize('body,headers,error', [
@@ -355,7 +358,7 @@ def test_http_failures_and_403_stops_remaining(archive, status):
 def test_invalid_pdf_never_committed(archive, body, headers, error):
     code, _ = run(archive, [row()], lambda _: httpx.Response(200, stream=httpx.ByteStream(body), headers=headers))
     assert code == 1
-    assert archive[1].conn.execute('SELECT error FROM artifacts').fetchone()[0] == error
+    assert pg_execute(archive[1],'SELECT error FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()[0] == error
     assert not list(archive[2].output_root.rglob('*.pdf'))
 
 
@@ -446,7 +449,7 @@ def test_bad_redirects_do_not_issue_second_request(archive, location, error):
     code, _ = run(archive, [row()], lambda req: requests.append(req) or
                   httpx.Response(302, headers={'Location': location}))
     assert code == 1 and len(requests) == 1
-    assert archive[1].conn.execute('SELECT error FROM artifacts').fetchone()[0] == error
+    assert pg_execute(archive[1],'SELECT error FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()[0] == error
 
 
 def test_enumeration_crash_keeps_batch_and_next_run_refreshes(archive):
@@ -458,8 +461,8 @@ def test_enumeration_crash_keeps_batch_and_next_run_refreshes(archive):
     client.close()
     assert latest_run(ledger)['records_read'] == 2
     assert latest_run(ledger)['enumeration_sealed'] == 0
-    assert ledger.conn.execute('SELECT state FROM run_source_days').fetchone()[0] == 'blocked'
-    assert ledger.conn.execute('SELECT count(*) FROM source_records').fetchone()[0] == 2
+    assert pg_execute(ledger,'SELECT state FROM announcement_archive.run_source_days WHERE run_source_days.archive_id=:a ').fetchone()[0] == 'blocked'
+    assert pg_execute(ledger,'SELECT count(*) FROM announcement_archive.source_records WHERE source_records.archive_id=:a ').fetchone()[0] == 2
     requests = []
     assert run(archive, [row(1), row(2), row(3), row(4)], lambda req: requests.append(req) or httpx.Response(200, content=PDF))[0] == 0
     assert len(requests) == 4 and latest_run(ledger)['records_read'] == 4
@@ -471,7 +474,7 @@ def test_idempotent_results_and_progress_monotonic(archive):
     percentages = [v['percent'] for v in log if v['phase'] == 'downloading']
     assert percentages == sorted(percentages)
     run_id = latest_run(ledger)['run_id']
-    key = ledger.conn.execute('SELECT artifact_key FROM run_artifacts WHERE run_id=? LIMIT 1', (run_id,)).fetchone()[0]
+    key = pg_execute(ledger,'SELECT artifact_key FROM announcement_archive.run_artifacts WHERE run_artifacts.archive_id=:a AND run_id=:p0 LIMIT 1',(run_id,)).fetchone()[0]
     before = ledger.stats(run_id)
     ledger.result(run_id, key, 'succeeded')
     assert ledger.stats(run_id) == before
@@ -528,8 +531,8 @@ def test_missing_url_preserves_mapping_and_cursor_without_http(archive):
     result, source = run(archive,[missing],lambda request: calls.append(request) or httpx.Response(200,content=PDF))
     assert result==0 and not calls
     ledger=archive[1]
-    saved=ledger.conn.execute('SELECT * FROM source_records').fetchone()
-    counters=ledger.conn.execute('SELECT * FROM runs ORDER BY updated_at DESC LIMIT 1').fetchone()
+    saved=pg_execute(ledger,'SELECT * FROM announcement_archive.source_records WHERE source_records.archive_id=:a ').fetchone()
+    counters=pg_execute(ledger,'SELECT * FROM announcement_archive.runs WHERE runs.archive_id=:a  ORDER BY updated_at DESC LIMIT 1').fetchone()
     assert saved['artifact_key'] is None and saved['legacy_raw_id'] is None
     assert counters['records_read']==1 and counters['missing_url_count']==1 and counters['artifacts_total']==0
 
@@ -563,13 +566,13 @@ def test_invalid_raw_projection_is_file_failure_without_http(archive, field, val
     source = FakeSource([item], options)
     client = httpx.Client(transport=httpx.MockTransport(lambda _: pytest.fail('invalid metadata must not request')))
     assert executor.execute(options, policy, control, volume, ledger, source, 'test', client, clock) == 1
-    assert ledger.conn.execute('SELECT error FROM artifacts').fetchone()[0] == reason
+    assert pg_execute(ledger,'SELECT error FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()[0] == reason
     assert latest_run(ledger)['phase'] == 'partial_failed'
 
 
 def test_completed_file_hardlink_is_blocked_and_preserved(archive, tmp_path):
     assert run(archive, [row()])[0] == 0
-    task = dict(archive[1].conn.execute('SELECT * FROM artifacts').fetchone())
+    task = dict(pg_execute(archive[1],'SELECT * FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone())
     path = archive[2].output_root / task['relative_path']
     linked = tmp_path / 'other-owner.pdf'
     os.link(path, linked)
@@ -592,7 +595,7 @@ def test_transfer_deadline_checks_chunk_and_eof(archive, monkeypatch, finish_aft
                 monotonic[0] += archive[3].transfer_deadline + 1
 
     assert run(archive, [row()], lambda _: httpx.Response(200, stream=SlowStream()))[0] == 1
-    assert archive[1].conn.execute('SELECT error FROM artifacts').fetchone()[0] == 'transfer_deadline_exceeded'
+    assert pg_execute(archive[1],'SELECT error FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()[0] == 'transfer_deadline_exceeded'
     assert not list(archive[2].output_root.rglob('*.pdf'))
 
 
@@ -647,7 +650,7 @@ def test_real_http_redirect_retry_interval_and_replay(archive):
         assert [c['path'] for c in calls] == ['/1.pdf', '/final.pdf', '/1.pdf', '/final.pdf']
         assert all(c['encoding'] == 'identity' for c in calls)
         assert all(b['started'] - a['finished'] >= .045 for a, b in zip(calls, calls[1:]))
-        task = dict(ledger.conn.execute('SELECT * FROM artifacts').fetchone())
+        task = dict(pg_execute(ledger,'SELECT * FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone())
         assert (options.output_root / task['relative_path']).read_bytes() == PDF
         assert executor.execute(options, policy, control, volume, ledger,
                            FakeSource(rows, options), 'local-http',
@@ -677,38 +680,37 @@ def test_real_http_truncated_response_is_retried_and_never_promoted(archive):
     ('prepared', 'resume_one', 0),
     ('renamed', 'resume_one', 0),
 ])
-def test_real_process_exit_preserves_commits_and_resumes(tmp_path, crash_mode, resume_mode, requests):
+def test_real_process_exit_preserves_commits_and_resumes(tmp_path, crash_mode, resume_mode, requests, pg):
     helper = Path(__file__).parent / 'fixtures/announcement_download_process_runner.py'
     entry = 'import runpy,sys;sys.argv=sys.argv[1:];runpy.run_path(sys.argv[0],run_name="__main__")'
 
+    from src.foundation.dao.announcement_archive.pg_schema import install_schema
+    with pg.transaction() as conn:install_schema(conn)
+    config=json.dumps(dict(url=pg.engine.url.render_as_string(hide_password=False),policy=dict(database=pg.policy.database,port=pg.policy.port)))
     def launch(mode):
-        return subprocess.run([sys.executable, '-c', entry, str(helper), str(tmp_path), mode],
-                              cwd=Path(__file__).parents[1], capture_output=True, text=True, timeout=15)
-
-    crashed = launch(crash_mode)
-    assert crashed.returncode == 73, crashed.stderr
-    path = tmp_path / 'local-state/downloads.sqlite'
-    with sqlite3.connect(path) as db:
-        assert db.execute('SELECT phase FROM runs').fetchone()[0] == ('enumerating' if crash_mode == 'enumerating' else 'downloading')
-        if crash_mode == 'enumerating':
-            assert db.execute('SELECT records_read,enumeration_sealed FROM runs').fetchone() == (1,0)
-            assert db.execute('SELECT records_committed FROM run_source_days').fetchone()[0] == 1
-        elif crash_mode == 'downloading':
-            assert db.execute("SELECT count(*) FROM artifacts WHERE state='succeeded'").fetchone()[0] == 1
-        else:
-            assert db.execute('SELECT state FROM artifacts').fetchone()[0] == 'prepared'
-    assert len(list((tmp_path / 'disk').rglob('*.pdf'))) == (0 if crash_mode in ('prepared','enumerating') else 1)
-    resumed = launch(resume_mode)
-    assert resumed.returncode == 0, resumed.stderr
-    assert json.loads(resumed.stdout)['requests'] == requests
-    with sqlite3.connect(path) as db:
-        assert db.execute('SELECT phase,reason FROM runs ORDER BY rowid LIMIT 1').fetchone() == (
-            'interrupted', 'process_exit_recovered')
-        assert db.execute("SELECT count(*) FROM artifacts WHERE state<>'succeeded'").fetchone()[0] == 0
-        assert db.execute('SELECT phase FROM runs ORDER BY rowid DESC LIMIT 1').fetchone()[0] == 'completed'
-    files = list((tmp_path / 'disk').rglob('*.pdf'))
-    assert len(files) == (2 if crash_mode in ('downloading','enumerating') else 1)
-    assert all(p.read_bytes() == PDF for p in files)
+        return subprocess.run([sys.executable,'-c',entry,str(helper),str(tmp_path),mode,config],cwd=Path(__file__).parents[1],capture_output=True,text=True,timeout=20)
+    crashed=launch(crash_mode)
+    assert crashed.returncode==73,crashed.stderr
+    ledger=Ledger(pg,'process-fixture','announcements')
+    original=ledger.rows('SELECT * FROM announcement_archive.runs WHERE archive_id=:a')[0]
+    assert original['phase']==('enumerating' if crash_mode=='enumerating' else 'downloading')
+    artifacts=ledger.rows('SELECT * FROM announcement_archive.artifacts WHERE archive_id=:a')
+    if crash_mode=='enumerating':
+        assert (original['records_read'],original['enumeration_sealed'])==(1,0)
+        assert ledger.rows('SELECT records_committed FROM announcement_archive.run_source_days WHERE archive_id=:a')[0]['records_committed']==1
+    elif crash_mode=='downloading':assert sum(r['state']=='succeeded' for r in artifacts)==1
+    else:assert artifacts[0]['state']=='prepared'
+    assert len(list((tmp_path/'disk').rglob('*.pdf')))==(0 if crash_mode in ('prepared','enumerating') else 1)
+    resumed=launch(resume_mode)
+    assert resumed.returncode==0,resumed.stderr
+    assert json.loads(resumed.stdout)['requests']==requests
+    original=ledger.run(original['run_id'])
+    assert (original['phase'],original['reason'])==('interrupted','process_exit_recovered')
+    assert not ledger.rows("SELECT 1 FROM announcement_archive.artifacts WHERE archive_id=:a AND state<>'succeeded'")
+    assert ledger.rows('SELECT phase FROM announcement_archive.runs WHERE archive_id=:a ORDER BY row_seq DESC LIMIT 1')[0]['phase']=='completed'
+    files=list((tmp_path/'disk').rglob('*.pdf'))
+    assert len(files)==(2 if crash_mode in ('downloading','enumerating') else 1)
+    assert all(p.read_bytes()==PDF for p in files)
 
 
 @pytest.mark.parametrize('root', ['data_lake', 'data_lake_staging', 'goldenshare-tushare-lake'])
@@ -727,7 +729,7 @@ def test_unicode_and_casefold_collisions_keep_distinct_files(archive):
     rows = [row(1, title='é公告'), row(2, title='e\u0301公告'),
             row(3, title='Report'), row(4, title='report')]
     assert run(archive, rows)[0] == 0
-    tasks = list(archive[1].conn.execute('SELECT relative_path FROM artifacts'))
+    tasks = list(pg_execute(archive[1],'SELECT relative_path FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a '))
     import unicodedata
     assert len({unicodedata.normalize('NFC', t[0]).casefold() for t in tasks}) == 4
     assert len(list(archive[2].output_root.rglob('*.pdf'))) == 4
@@ -741,7 +743,7 @@ def test_streaming_uses_policy_blocks_before_preparing(archive):
     class BlockStream(httpx.SyncByteStream):
         def __iter__(self):
             for number in range(8):
-                assert ledger.conn.execute('SELECT state FROM artifacts').fetchone()[0] == 'downloading'
+                assert pg_execute(ledger,'SELECT state FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()[0] == 'downloading'
                 chunk = ((b'%PDF-1.7\n' if number == 0 else b'') + b'x' * policy.chunk_size)[:policy.chunk_size]
                 sizes.append(len(chunk))
                 yield chunk
@@ -750,7 +752,7 @@ def test_streaming_uses_policy_blocks_before_preparing(archive):
     client = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200, stream=BlockStream())))
     assert executor.execute(options, policy, control, volume, ledger,
                        FakeSource([row()], options), 'stream-fixture', client, clock) == 0
-    task = ledger.conn.execute('SELECT state,size FROM artifacts').fetchone()
+    task = pg_execute(ledger,'SELECT state,size FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone()
     assert task['state'] == 'succeeded' and task['size'] == 8*policy.chunk_size + len(b'\n%%EOF\n')
     assert sizes == [64*1024]*8
 
@@ -761,12 +763,12 @@ def test_retry_scope_does_not_pick_old_range_pending_artifacts(archive):
     old_run = ledger.begin_run(old_options, 'dg/test/anns_d')
     stage_rows(ledger,old_run,'dg/test/anns_d',[row(9,day=old_options.start_date)],day=old_options.start_date.isoformat())
     ledger.close()
-    ledger = Ledger(archive[0].ledger_path(), archive[0].volume_uuid, archive[0].relative_root)
+    ledger = Ledger(archive[1].database, archive[0].volume_uuid, archive[0].relative_root)
     archive = (archive[0], ledger, *archive[2:])
     calls = []
     assert run(archive, [row()], lambda req: calls.append(req.url.path) or httpx.Response(200, content=PDF))[0] == 0
     assert calls == ['/1.pdf']
-    assert ledger.conn.execute("SELECT state FROM artifacts WHERE url LIKE '%/9.pdf'").fetchone()[0] == 'pending'
+    assert pg_execute(ledger,"SELECT state FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a AND url LIKE '%/9.pdf'").fetchone()[0] == 'pending'
     ledger.close()
 
 
@@ -787,10 +789,13 @@ def test_default_progress_is_visible_before_process_exit_through_pipe():
     assert proc.returncode == 0
 
 
-def test_sigint_during_source_query_cancels_run_and_day_in_subprocess(tmp_path):
+def test_sigint_during_source_query_cancels_run_and_day_in_subprocess(tmp_path, pg):
     helper=Path(__file__).parent/'fixtures/announcement_download_process_runner.py'
     entry='import runpy,sys;sys.argv=sys.argv[1:];runpy.run_path(sys.argv[0],run_name="__main__")'
-    proc=subprocess.Popen([sys.executable,'-B','-c',entry,str(helper),str(tmp_path),'query_cancel'],
+    from src.foundation.dao.announcement_archive.pg_schema import install_schema
+    with pg.transaction() as conn:install_schema(conn)
+    config=json.dumps(dict(url=pg.engine.url.render_as_string(hide_password=False),policy=dict(database=pg.policy.database,port=pg.policy.port)))
+    proc=subprocess.Popen([sys.executable,'-B','-c',entry,str(helper),str(tmp_path),'query_cancel',config],
                           cwd=Path(__file__).parents[1],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     try:
         assert select.select([proc.stdout],[],[],5)[0]
@@ -803,7 +808,9 @@ def test_sigint_during_source_query_cancels_run_and_day_in_subprocess(tmp_path):
     finally:
         if proc.poll() is None:
             proc.kill();proc.communicate()
-    with sqlite3.connect(tmp_path/'local-state/downloads.sqlite') as conn:
-        assert conn.execute('SELECT phase,reason FROM runs').fetchone()==('cancelled','user_cancelled')
-        assert conn.execute('SELECT state,records_committed FROM run_source_days').fetchone()==('cancelled',0)
+    ledger=Ledger(pg,'process-fixture','announcements')
+    info=ledger.rows('SELECT phase,reason FROM announcement_archive.runs WHERE archive_id=:a')[0]
+    assert (info['phase'],info['reason'])==('cancelled','user_cancelled')
+    day=ledger.rows('SELECT state,records_committed FROM announcement_archive.run_source_days WHERE archive_id=:a')[0]
+    assert (day['state'],day['records_committed'])==('cancelled',0)
     assert not list((tmp_path/'disk').rglob('*.pdf'))

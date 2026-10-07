@@ -49,6 +49,6 @@ class ArchiveBinding:
         finally:
             if temp.exists(): temp.unlink()
 
-    def ledger_path(self, value=None):
+    def execution_lock_path(self, value=None):
         value = value or self.read()
-        return self.path.parent / identity([value['volumeUuid'],value['rootRelativePath']]) / 'downloads.sqlite'
+        return self.path.parent / identity([value['volumeUuid'],value['rootRelativePath']]) / 'execution.lock'

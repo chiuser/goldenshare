@@ -1,6 +1,6 @@
 # CodeGraph 架构快照
 
-初始生成：2026-08-22；局部复核：2026-09-16（交易助手 M7 通知发送装配）；M3 局部复核为 2026-09-13，QTF 为 2026-09-10。2026-10-02 局部复核：anns_d P2 执行合同与 Ops 恢复/进度。2026-10-07 局部复核：数据中心Q2来源读取及共享搜索。索引根：`/Users/congming/github/goldenshare`。
+初始生成：2026-08-22；局部复核：2026-09-16（交易助手 M7 通知发送装配）；M3 局部复核为 2026-09-13，QTF 为 2026-09-10。2026-10-02 局部复核：anns_d P2 执行合同与 Ops 恢复/进度。2026-10-07 局部复核：数据中心Q2来源读取/共享搜索与Q3原生PG执行装配。索引根：`/Users/congming/github/goldenshare`。
 
 这是代码入口快照，不是规范或全仓合规证明。未逐项重验的历史链路不能据此认定今日生产状态；下方既往工具记录保留原阶段含义。目录与依赖规则统一见[子系统架构基线](./subsystem-boundary-plan.md)，工具流程见根 AGENTS；不在此维护易过期的索引规模。
 
@@ -346,3 +346,10 @@ DC3已提交`83ffb83f`。新增调用链：WealthRouter→DataCenterPage/Announc
 `announcement_archive_lifespan`在本地部署开关下组合独立PG归档engine、Foundation DirectSource/CompanySource/QueryPresence、Biz Query/DownloadService和Ops AnnouncementSourceRuntime。查询/API直接读取固定FD Raw与小PG控制事实；列表、公司候选、预览和GC共享单来源运行器。Biz不import Ops；Prod不初始化DuckDB/PG/pinyin。Wealth CompanySearch复用useStockSearchController，默认首页/交易助手行为不变。执行器/CLI迁PG属于Q3，正式迁移Q4；Q2已按用户明确授权完成旧源码清退；正式迁移前不可部署。
 
 CodeGraph explore/impact覆盖Catalog及API/App/预览/搜索消费者，sync/status复核索引；此前删除被自动审批拒绝；用户明确授权后已清退五个旧模块，catalog.py缩为迁移专用LegacyCatalogSchema只读校验。当前AST import引用为0，sync/status/query复核索引和迁移消费者。详细实现与验证见[Q2报告](/Users/congming/github/goldenshare/reports/wealth_data_center_q2_acceptance_20261007.md)和[LLD §24](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)。没有修改DG、DatasetDefinition、Prod合同或依赖矩阵。
+
+
+### 数据中心公告Q3执行与CLI装配（2026-10-07，未正式切换）
+
+App announcement_archive_lifespan在既有本地开关下共享一个Foundation ArchiveDatabase池，组合Biz来源查询、Ops ArchiveSupervisor/WebControl及Foundation ArchiveStore/Ledger。CLI download_announcements/announcement_ledger → Ops executor/maintenance → Foundation原生PG DAO及Files/HTTP；不回落主DATABASE_URL，没有SQLite运行后端。迁移专用LegacyLedgerSchema只允许显式只读来源校验。磁盘和本机执行锁保留；PG archive_execution行锁负责持久领取，短事务不跨HTTP/文件哈希。
+
+CodeGraph query/impact覆盖Ledger、ArchiveStore和ArchiveSupervisor，开发后sync/status为up to date；动态Protocol装配和SQL额外按当前App/Biz/Ops/DAO源码、实际路由、隔离PG和浏览器验收。依赖矩阵、DG/Prod数据集合同及前端API不变；CLI storage JSON按批准的Q3合同更新。详细证据见[Q3报告](../../reports/wealth_data_center_q3_acceptance_20261007.md)。Q4正式迁移、源目标读回和环境切换尚未执行，当前代码不能独立启用；原SQLite和正式PDF未操作。

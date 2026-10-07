@@ -1,6 +1,7 @@
-"""DC3 actual routes, Parquet/SQLite/files and injected external transport; no formal writes."""
+from fixtures.announcement_pg_runtime import pg_execute, pg_many
+from test_announcement_pg_migration import pg, pg_cluster
+"""DC3 actual routes, Parquet/PG/files and injected external transport; no formal writes."""
 import json
-import sqlite3
 import threading
 import time
 import uuid
@@ -21,7 +22,6 @@ from src.foundation.clients.announcement_archive.core import Blocked,Control,Dow
 from src.foundation.clients.announcement_archive.source import Source
 from src.foundation.clients.announcement_archive.volume import Volume,SourceVolume
 from src.foundation.clients.announcement_archive.names import NameInitials
-from src.foundation.clients.announcement_archive.presence import ArchivePresence
 from src.foundation.config.settings import Settings
 from src.foundation.dao.announcement_archive.ledger import Ledger
 from src.ops.runtime.announcement_archive.source_runtime import AnnouncementSourceRuntime
@@ -40,7 +40,7 @@ def downloads(query_archive,tmp_path,monkeypatch):
     oldvolume,oldledger,options,policy,*_=a
     policy=replace(policy,batch_size=500,backoff_seconds=0)
     binding=ArchiveBinding(tmp_path/'binding/web-archive.json',options.output_root)
-    monkeypatch.setattr(binding,'ledger_path',lambda value=None:tmp_path/'local-state/downloads.sqlite')
+    monkeypatch.setattr(binding,'execution_lock_path',lambda value=None:tmp_path/'local-state/execution.lock')
     binding.remember(oldvolume);oldledger.close();oldvolume.close()
     query.presence.volume.close()
     query.presence.volume=SourceVolume(oldvolume.mount,policy,oldvolume.inspector).open()
@@ -51,7 +51,7 @@ def downloads(query_archive,tmp_path,monkeypatch):
         try:
             v.open()
             if source_required:s=source_factory(opts,control,raw_root(a))
-            l=Ledger(binding.ledger_path(),v.volume_uuid,v.relative_root)
+            l=Ledger(query.controls.database,v.volume_uuid,v.relative_root)
             return v,l,s
         except BaseException:
             if s:s.close()
@@ -59,7 +59,7 @@ def downloads(query_archive,tmp_path,monkeypatch):
             v.close();raise
     calls=[];behavior={'handler':lambda r:httpx.Response(200,content=PDF)}
     def handle(req):calls.append(str(req.url));return behavior['handler'](req)
-    supervisor=ArchiveSupervisor(binding,resources,lambda:query.controls,policy=policy,client_factory=lambda:httpx.Client(transport=httpx.MockTransport(handle)))
+    supervisor=ArchiveSupervisor(binding,resources,lambda:query.controls,query.controls.database,policy=policy,client_factory=lambda:httpx.Client(transport=httpx.MockTransport(handle)))
     previews=AnnouncementSourceRuntime(lambda wake:(query,query.fixture_preparation),query.policy).start()
     service=AnnouncementDownloadService(supervisor,supervisor.store,lambda:query.controls,lambda:query.presence.identity,previews.wake.set)
     settings=Settings(WEALTH_LOCAL_ANNOUNCEMENTS_ENABLED=True,APP_ENV='local')
@@ -88,7 +88,7 @@ def poll(d,url):
 
 def preview(d,rows):
     with d.service.store.open() as old:
-        records=[dict(r) for r in old.conn.execute("SELECT * FROM artifacts WHERE state='succeeded'").fetchmany(500)]
+        records=[dict(r) for r in pg_execute(old,"SELECT * FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a AND state='succeeded'").fetchmany(500)]
     if records:
         with d.catalog.transaction() as conn:
             for record in records:
@@ -122,7 +122,7 @@ def test_preview_and_date_execution_records_vs_files(downloads):
     assert len(files)==1 and files[0]['result']=='succeeded' and files[0]['attempts']==1
     assert len(d.calls)==1
     with d.service.store.open() as db:
-        assert db.conn.execute('SELECT actor_id FROM runs WHERE run_id=?',(run['runId'],)).fetchone()[0]=='42'
+        assert pg_execute(db,'SELECT actor_id FROM announcement_archive.runs WHERE runs.archive_id=:a AND run_id=:p0',(run['runId'],)).fetchone()[0]=='42'
     p2=preview(d,[first,duplicate,dict(row(2),url=None)])
     assert p2['reusableEstimate']==1 and p2['downloadEstimate']==0
     second=create(d,p2);done=poll(d,P+'/runs/'+second['runId'])
@@ -185,7 +185,7 @@ def test_stop_continue_only_pending_and_no_automatic_resume(downloads):
     first=create(d,p);run=first['runId'];assert entered.wait(3)
     response=command(d,run,'stop');assert response.status_code==202 and response.json()['phase']=='stopping'
     release.set();done=poll(d,P+'/runs/'+run)
-    assert done['phase']=='stopped' and done['processed']==0 and done['remaining']==3
+    assert done['phase']=='stopped' and done['processed']==0 and done['remaining']==3, done
     assert done['actions']['canContinue'] and len(d.calls)==1
     write_day(raw_root(d.archive),'2026-09-30',[row(n) for n in range(1,5)])
     d.behavior['handler']=lambda r:httpx.Response(200,content=PDF)
@@ -232,7 +232,7 @@ def test_auth_prod_and_unknown_objects(downloads):
 
 def test_deleted_success_new_date_run_restores_it(downloads):
     d=downloads;p=preview(d,[row()]);run=create(d,p)['runId'];poll(d,P+'/runs/'+run)
-    with d.service.store.open() as db:task=dict(db.conn.execute('SELECT * FROM artifacts').fetchone())
+    with d.service.store.open() as db:task=dict(pg_execute(db,'SELECT * FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone())
     (d.binding.output/task['relative_path']).unlink()
     p=preview(d,[row()]);assert p['reusableEstimate']==0
     new=create(d,p)['runId'];done=poll(d,P+'/runs/'+new)
@@ -257,7 +257,7 @@ def test_single_failure_retry_and_per_batch_attempts(downloads):
 def test_validation_failure_reason_survives_later_artifact_changes(downloads):
     d=downloads;p=preview(d,[row(title='')]);run=create(d,p)['runId'];done=poll(d,P+'/runs/'+run)
     assert done['failed']==1 and not d.calls
-    with d.service.store.open(write=True) as db:db.conn.execute("UPDATE artifacts SET error=NULL,state='succeeded'")
+    with d.service.store.open(write=True) as db:pg_execute(db,"UPDATE announcement_archive.artifacts SET error=NULL,state='succeeded' WHERE archive_id=:a")
     item=d.client.get(P+'/runs/'+run+'/files').json()['items'][0]
     assert item['lastError']['code']=='DC_FILE_FAILED' and item['attempts']==0
 
@@ -265,7 +265,7 @@ def test_validation_failure_reason_survives_later_artifact_changes(downloads):
 def test_busy_cli_lock_and_history_remain_available_offline(downloads):
     from src.foundation.clients.announcement_archive.locking import ExecutionLock
     d=downloads;p=preview(d,[row()])
-    held=ExecutionLock(d.binding.ledger_path().parent/'execution.lock').open()
+    held=ExecutionLock(d.binding.execution_lock_path()).open()
     try:
         response=d.client.post(P+'/runs',json={'previewId':p['previewId']},headers={'Idempotency-Key':str(uuid.uuid4())})
         assert response.status_code==409 and response.json()['code']=='DC_ARCHIVE_BUSY'
@@ -295,7 +295,7 @@ def test_cancel_preview_during_source_preparation_no_http(downloads,monkeypatch)
 def subprocess_run(d,mode,preview_id=None,run_id=None,key=None):
     import subprocess,sys,os
     path=d.binding.path.parent/'subprocess-config.json';calls=d.binding.path.parent/'process-calls.txt'
-    config=dict(mount=str(d.archive[0].mount.resolve()),binding=str(d.binding.path),ledger=str(d.binding.ledger_path()),raw=str(raw_root(d.archive)),pg_url=d.catalog.database.engine.url.render_as_string(hide_password=False),pg_policy=dict(database=d.catalog.database.policy.database,port=d.catalog.database.policy.port),archive_id=d.catalog.archive_id,scope=d.catalog.scope,calls=str(calls),preview=preview_id,run=run_id,key=key or str(uuid.uuid4()))
+    config=dict(mount=str(d.archive[0].mount.resolve()),binding=str(d.binding.path),lock=str(d.binding.execution_lock_path()),raw=str(raw_root(d.archive)),pg_url=d.catalog.database.engine.url.render_as_string(hide_password=False),pg_policy=dict(database=d.catalog.database.policy.database,port=d.catalog.database.policy.port),archive_id=d.catalog.archive_id,scope=d.catalog.scope,calls=str(calls),preview=preview_id,run=run_id,key=key or str(uuid.uuid4()))
     path.write_text(json.dumps(config))
     result=subprocess.run([sys.executable,'-B','tests/fixtures/announcement_web_process_runner.py',str(path),mode],env=dict(os.environ,PYTHONPATH=str(Path.cwd())),capture_output=True,text=True,timeout=30)
     return result,calls,config
@@ -306,15 +306,15 @@ def test_process_exit_recovery_and_exact_continue(downloads,mode):
     d=downloads;p=preview(d,[row(),row(2)] if mode in {'preparing','downloading','receipt'} else [row()])
     key=str(uuid.uuid4());result,calls,_=subprocess_run(d,mode,p['previewId'],key=key)
     assert result.returncode==73,(result.stdout,result.stderr)
-    with d.service.store.open() as db:original=dict(db.conn.execute('SELECT * FROM runs ORDER BY rowid DESC LIMIT 1').fetchone())
+    with d.service.store.open() as db:original=dict(pg_execute(db,'SELECT * FROM announcement_archive.runs WHERE runs.archive_id=:a  ORDER BY row_seq DESC LIMIT 1').fetchone())
     before=len(calls.read_text().splitlines()) if calls.exists() else 0
     result,_,_=subprocess_run(d,'recover');assert result.returncode==0,result.stderr
     task=d.client.get(P+'/runs/'+original['run_id']).json()
     assert task['phase']=='interrupted'
     assert (len(calls.read_text().splitlines()) if calls.exists() else 0)==before
     with d.service.store.open() as db:
-        assert db.conn.execute('SELECT active_run_id FROM archive_execution').fetchone()[0] is None
-        assert not db.conn.execute('SELECT 1 FROM attempt_log WHERE ended_at IS NULL').fetchone()
+        assert pg_execute(db,'SELECT active_run_id FROM announcement_archive.archive_execution WHERE archive_execution.archive_id=:a ').fetchone()[0] is None
+        assert not pg_execute(db,'SELECT 1 FROM announcement_archive.attempt_log WHERE attempt_log.archive_id=:a AND ended_at IS NULL').fetchone()
     if mode in {'preparing','receipt'}:
         assert not task['actions']['canContinue'] and before==0
         replay=create(d,p,key);assert replay['runId']==original['run_id'] and not d.calls
@@ -329,6 +329,7 @@ def test_process_exit_recovery_and_exact_continue(downloads,mode):
 
 
 def test_legacy_catalog_schema_is_not_upgraded_by_runtime(tmp_path):
+    import sqlite3
     from src.foundation.dao.announcement_archive.catalog import SCHEMA_V1
     from src.foundation.clients.announcement_archive.migration_source import LegacyCatalog
     path=tmp_path/'v1.sqlite'
@@ -355,12 +356,12 @@ def test_original_failed_keys_ten_are_the_retry_denominator(downloads):
 
 def test_promoted_pdf_survives_result_write_failure_and_recovers_without_http(downloads,monkeypatch):
     d=downloads;p=preview(d,[row()]);original=Ledger.result
-    def fail(self,*_):raise sqlite3.OperationalError('injected observer failure')
+    def fail(self,*_):raise Blocked('injected observer failure')
     monkeypatch.setattr(Ledger,'result',fail)
     run=create(d,p)['runId'];done=poll(d,P+'/runs/'+run)
     assert done['phase']=='blocked' and done['processed']==0 and len(d.calls)==1
     with d.service.store.open() as db:
-        task=dict(db.conn.execute('SELECT * FROM artifacts').fetchone())
+        task=dict(pg_execute(db,'SELECT * FROM announcement_archive.artifacts WHERE artifacts.archive_id=:a ').fetchone())
         assert task['state']=='succeeded' and (d.binding.output/task['relative_path']).read_bytes()==PDF
     monkeypatch.setattr(Ledger,'result',original)
     response=command(d,run,'continue');assert response.status_code==202,response.text
@@ -420,42 +421,8 @@ def test_byte_progress_unknown_length_and_business_time(downloads):
     assert done['phase']=='completed' and done['processed']==1
 
 
-def test_history_and_files_are_bounded_and_old_schema_not_migrated(downloads):
-    from test_announcement_download_dg import seed_v1
-    d=downloads;path=d.binding.path.parent/'old.sqlite';seed_v1(path,d.archive)
-    previous=d.binding.ledger_path;d.binding.ledger_path=lambda value=None:path
-    before=path.read_bytes()
-    try:
-        assert d.client.get(P+'/runs').status_code==200
-        with sqlite3.connect(path) as db:run=db.execute('SELECT run_id FROM runs').fetchone()[0]
-        # Old sample IDs need not be UUIDs; observed listing remains available and recovery is not exposed.
-        assert path.read_bytes()==before
-    finally:d.binding.ledger_path=previous
 
 
-@pytest.mark.parametrize('version',[1,2])
-def test_upgraded_legacy_blocked_run_has_no_recheck_action(downloads,version):
-    from test_announcement_download_dg import seed_v1
-    from test_announcement_archive_runtime import seed_v2
-    d=downloads;path=d.binding.path.parent/'upgraded-legacy.sqlite'
-    (seed_v1 if version==1 else seed_v2)(path,d.archive)
-    run=uuid.uuid4().hex
-    with sqlite3.connect(path) as db:
-        db.execute("UPDATE runs SET run_id=?,phase='blocked'",(run,))
-        db.execute('UPDATE run_artifacts SET run_id=?',(run,))
-        db.execute('UPDATE source_records SET first_seen_run=?,last_seen_run=?',(run,run))
-    Ledger(path,d.archive[0].volume_uuid,d.archive[0].relative_root).close()
-    previous=d.binding.ledger_path;d.binding.ledger_path=lambda value=None:path
-    before=path.read_bytes()
-    try:
-        response=d.client.get(P+'/runs/'+run)
-        assert response.status_code==200,response.text
-        actions=response.json()['actions']
-        assert not actions['canContinue'] and not actions['canRetryFailed']
-        assert not actions['canRecheck']
-        assert actions['reason']=='历史任务不支持精确恢复，可新建日期下载'
-        assert path.read_bytes()==before and not d.calls
-    finally:d.binding.ledger_path=previous
 
 
 def test_binding_invalid_does_not_create_ledger(downloads):
@@ -474,7 +441,7 @@ def test_stop_during_enumeration_keeps_committed_rows_but_never_downloads(downlo
     run=create(d,p)['runId'];assert entered.wait(3)
     assert command(d,run,'stop').status_code==202
     release.set();done=poll(d,P+'/runs/'+run)
-    assert done['phase']=='cancelled' and done['recordCount']==500 and done['total'] is None
+    assert done['phase']=='cancelled' and done['recordCount']==500 and done['total'] is None, done
     assert not done['actions']['canContinue'] and not d.calls
     assert command(d,run,'continue').status_code==409
 
@@ -579,22 +546,3 @@ def test_remote_block_requires_passed_remote_check_before_continue(downloads,ini
     assert command(d,run,'continue').status_code==202
     done=poll(d,P+'/runs/'+run)
     assert done['phase']=='completed' and done['succeeded']==1 and len(d.calls)==6
-
-
-def test_failure_resolution_uses_indexed_family_keys_at_scale(downloads):
-    from src.foundation.dao.announcement_archive.execution import unresolved_sql
-    from src.foundation.clients.announcement_archive.budget import read_budget
-    d=downloads;root=uuid.uuid4().hex;child=uuid.uuid4().hex;other=uuid.uuid4().hex
-    with d.service.store.open(write=True) as ledger:
-        # All capacity facts are local test rows; no PDF/Raw or formal dataset writes.
-        for run,parent in [(root,None),(child,root),(other,None)]:
-            ledger.conn.execute("INSERT INTO runs(run_id,parent_run_id,phase,updated_at,source_scope) VALUES(?,?,'completed','test','test')",(run,parent))
-        ledger.conn.executemany('INSERT INTO run_artifacts(run_id,artifact_key,outcome) VALUES(?,?,?)',((root,f'{n:064x}','failed') for n in range(50000)))
-        ledger.conn.executemany('INSERT INTO run_artifacts(run_id,artifact_key,outcome) VALUES(?,?,?)',((child,f'{n:064x}','succeeded') for n in range(10000)))
-        ledger.conn.executemany('INSERT INTO run_artifacts(run_id,artifact_key,outcome) VALUES(?,?,?)',((other,f'{n:064x}','succeeded') for n in range(50000)))
-    query='SELECT COUNT(*) FROM run_artifacts r WHERE r.run_id=:run AND '+unresolved_sql()
-    with read_budget(4),d.service.store.open() as ledger:
-        plan=[row[3] for row in ledger.conn.execute('EXPLAIN QUERY PLAN '+query,dict(run=root,root=root))]
-        assert not any('SCAN fixed' in detail for detail in plan)
-        assert ledger.conn.execute(query,dict(run=root,root=root)).fetchone()[0]==40000
-    assert not d.calls

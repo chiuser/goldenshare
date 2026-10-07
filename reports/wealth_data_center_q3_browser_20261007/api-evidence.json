@@ -1,0 +1,265 @@
+{
+  "api": [
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "query": "",
+      "status": 200,
+      "seconds": 0.0006865409668534994
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/market/context",
+      "query": "market=CN_A",
+      "status": 404,
+      "seconds": 0.000820874935016036
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/context",
+      "query": "",
+      "status": 200,
+      "seconds": 0.006149458000436425
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202,
+      "seconds": 0.005113374907523394
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-c442497e190c41048116b26d3f1e11b4",
+      "query": "page=1",
+      "status": 202,
+      "seconds": 0.0023440420627593994
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-c442497e190c41048116b26d3f1e11b4",
+      "query": "page=1",
+      "status": 200,
+      "seconds": 0.04027545894496143
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs",
+      "query": "limit=20",
+      "status": 200,
+      "seconds": 0.017655874835327268
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/wealth/data-center/announcements/previews",
+      "query": "",
+      "status": 202,
+      "seconds": 0.008876832900568843
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/previews/0e572dbfb6524b6993084649d671ecff",
+      "query": "",
+      "status": 202,
+      "seconds": 0.008634500205516815
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/previews/0e572dbfb6524b6993084649d671ecff",
+      "query": "",
+      "status": 200,
+      "seconds": 0.002535250037908554
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/wealth/data-center/announcements/runs",
+      "query": "",
+      "status": 202,
+      "seconds": 0.06927183293737471
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/context",
+      "query": "",
+      "status": 200,
+      "seconds": 0.013470125151798129
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs",
+      "query": "limit=20",
+      "status": 200,
+      "seconds": 0.018036375055089593
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.01872904086485505
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.017250249860808253
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.022803708910942078
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.014401166932657361
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.01634641597047448
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.01501229195855558
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.013864042004570365
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.018136499915271997
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a",
+      "query": "",
+      "status": 200,
+      "seconds": 0.011723832925781608
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a/related",
+      "query": "limit=20",
+      "status": 200,
+      "seconds": 0.012930999975651503
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a/related",
+      "query": "limit=20",
+      "status": 200,
+      "seconds": 0.015112292021512985
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a/files",
+      "query": "result=failed&limit=50",
+      "status": 200,
+      "seconds": 0.016518957912921906
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a/files",
+      "query": "result=failed&limit=50",
+      "status": 200,
+      "seconds": 0.019032625015825033
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/wealth/data-center/announcements/runs/d97cf8830b974f998fcc31c07a4e374a/retries",
+      "query": "",
+      "status": 202,
+      "seconds": 0.06988787511363626
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/context",
+      "query": "",
+      "status": 200,
+      "seconds": 0.01004258287139237
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs",
+      "query": "limit=20",
+      "status": 200,
+      "seconds": 0.017778707901015878
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/7dbba932874146c1b923ad70a4e02fd5",
+      "query": "",
+      "status": 200,
+      "seconds": 0.02093287487514317
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs/7dbba932874146c1b923ad70a4e02fd5",
+      "query": "",
+      "status": 200,
+      "seconds": 0.01339908386580646
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/runs",
+      "query": "limit=20",
+      "status": 200,
+      "seconds": 0.009922167053446174
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202,
+      "seconds": 0.004968666937202215
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/context",
+      "query": "",
+      "status": 200,
+      "seconds": 0.004704917082563043
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-ec3eac8ce956471c8672538f6f95fd0c",
+      "query": "page=1",
+      "status": 202,
+      "seconds": 0.0019797079730778933
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-ec3eac8ce956471c8672538f6f95fd0c",
+      "query": "page=1",
+      "status": 200,
+      "seconds": 0.022916459012776613
+    }
+  ],
+  "pdfRequests": [
+    "https://ann.example/1.pdf",
+    "https://ann.example/3.pdf",
+    "https://ann.example/6.pdf",
+    "https://ann.example/5.pdf",
+    "https://ann.example/2.pdf",
+    "https://ann.example/4.pdf",
+    "https://ann.example/2.pdf"
+  ]
+}

@@ -1,4 +1,4 @@
-"""M2 subprocess fixture: temporary simulated volume, no DB or network access."""
+"""M2 subprocess fixture: temporary simulated volume, isolated PG and injected HTTP only."""
 from __future__ import annotations
 
 import json
@@ -15,6 +15,8 @@ from src.ops.runtime.announcement_archive.executor import execute
 from src.foundation.clients.announcement_archive.core import Control, DownloadOptions, DownloadPolicy
 from src.foundation.clients.announcement_archive.files import Files
 from src.foundation.dao.announcement_archive.ledger import Ledger
+from src.foundation.dao.announcement_archive.pg_database import ArchiveDatabase
+from src.foundation.config.announcement_archive import ArchiveDatabasePolicy
 from src.foundation.clients.announcement_archive.volume import Volume
 from src.foundation.clients.announcement_archive import volume as volume_module
 
@@ -91,12 +93,14 @@ def main():
             return original_state(self, key, value, error)
         Ledger.state = state
 
-    Volume.ledger_path = lambda self: root / 'local-state/downloads.sqlite'
+    Volume.execution_lock_path=lambda self:root/'local-state/execution.lock'
+    config=json.loads(sys.argv[3])
+    database=ArchiveDatabase(config['url'],replace(ArchiveDatabasePolicy(),**config['policy']))
     volume = Volume(options.output_root, policy, lambda _: info)
     ledger = None
     try:
         volume.open()
-        ledger = Ledger(root / 'local-state/downloads.sqlite', volume.volume_uuid, volume.relative_root)
+        ledger=Ledger(database,volume.volume_uuid,volume.relative_root,initialize=True)
         client = httpx.Client(transport=httpx.MockTransport(handler))
         result = execute(options, policy, control, volume, ledger, Source(), 'process-fixture', client)
         print(json.dumps({'exit_code': result, 'requests': len(requests)}))
@@ -105,6 +109,7 @@ def main():
         if ledger:
             ledger.close()
         volume.close()
+        database.close()
 
 
 if __name__ == '__main__':

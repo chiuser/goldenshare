@@ -23,7 +23,7 @@ from src.foundation.clients.announcement_archive.core import Blocked, Cancelled,
 from src.foundation.clients.announcement_archive.migration_source import LegacyLedger, fingerprint, opened
 from src.foundation.config.announcement_archive import ArchiveDatabasePolicy
 from src.foundation.config.settings import Settings, get_settings
-from src.foundation.dao.announcement_archive.ledger import SCHEMA
+from src.foundation.dao.announcement_archive.legacy_schema import SCHEMA
 from src.foundation.dao.announcement_archive.schema import ADDITIONS, extend_schema
 from src.foundation.dao.announcement_archive.pg_archive import ArchiveDAO, register_archive
 from src.foundation.dao.announcement_archive.pg_database import ArchiveDatabase, guarded_url, configured_archive_database

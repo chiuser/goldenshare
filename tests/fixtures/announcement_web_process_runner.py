@@ -29,12 +29,12 @@ def main():
     info=dict(MountPoint=str(mount),VolumeUUID='test-external-volume',DeviceIdentifier='disk7s1',WritableVolume=True,Internal=False,VirtualOrPhysical='Physical')
     policy=replace(DownloadPolicy(),reserve_bytes=0,max_file_size=1024,batch_size=500,backoff_seconds=0)
     binding=ArchiveBinding(Path(config['binding']),output)
-    binding.ledger_path=lambda value=None:Path(config['ledger'])
-    Volume.ledger_path=lambda self:Path(config['ledger'])
+    binding.execution_lock_path=lambda value=None:Path(config['lock'])
+    Volume.execution_lock_path=lambda self:Path(config['lock'])
     def factory(options,control,*,source_required=True):
         volume=Volume(output,control.policy,lambda _:info).open()
         source=Source(options,control.policy,control,SourceVolume(Path(config['raw']),control.policy,lambda _:info)).open() if source_required else None
-        ledger=Ledger(binding.ledger_path(),volume.volume_uuid,volume.relative_root)
+        ledger=Ledger(database,volume.volume_uuid,volume.relative_root)
         return volume,ledger,source
     calls=Path(config['calls'])
     class ExitStream(httpx.SyncByteStream):
@@ -60,7 +60,7 @@ def main():
         Ledger.begin_run=begin
     database=ArchiveDatabase(config['pg_url'],replace(ArchiveDatabasePolicy(),**config['pg_policy']))
     controls=QueryControls(database,config['archive_id'],config['scope'])
-    supervisor=ArchiveSupervisor(binding,factory,lambda:controls,policy=policy,client_factory=lambda:httpx.Client(transport=httpx.MockTransport(handle)))
+    supervisor=ArchiveSupervisor(binding,factory,lambda:controls,database,policy=policy,client_factory=lambda:httpx.Client(transport=httpx.MockTransport(handle)))
     if mode=='recover':supervisor.recover();return 0
     if mode=='lock':
         try:Volume(output,policy,lambda _:info).open()

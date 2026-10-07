@@ -1,7 +1,7 @@
 """Name/source contract checks and shared isolated fixture for registered Web routes.
 
 Former SQLite catalog-generation tests are replaced by test_announcement_direct_query.
-The legacy execution fixture remains for Q3 regression; query/preview controls are PG.
+The execution and query/preview controls use the same isolated PG fixture.
 """
 import json
 from pathlib import Path

@@ -32,7 +32,7 @@ def parse_options(argv=None):
     parser.add_argument('--output-root', type=Path, default=DownloadOptions.output_root,
                         help='已有外盘归档根；默认 /Volumes/datasource/announcements；置于子命令前')
     commands = parser.add_subparsers(dest='command', required=True)
-    commands.add_parser('summary', help='归档概况及实际台账路径（只读）')
+    commands.add_parser('summary', help='归档概况及 PG 存储标识（只读）')
     runs = commands.add_parser('runs', help='最近创建的运行/历史原因（只读）')
     runs.add_argument('--limit', type=limit, default=policy.page_default)
     runs.add_argument('--before-rowid', type=positive)

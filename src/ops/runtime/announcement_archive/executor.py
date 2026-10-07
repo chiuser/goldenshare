@@ -1,13 +1,15 @@
 """Local archive execution, shared by command-line and later Web control."""
 from __future__ import annotations
 import signal
-import sqlite3
 from src.foundation.clients.announcement_archive.core import Blocked, Cancelled, Control, DownloadPolicy, FileFailed
 from src.foundation.clients.announcement_archive.files import Files
 from src.foundation.clients.announcement_archive.http import Downloader
 from src.foundation.clients.announcement_archive.source import Source
 from src.foundation.clients.announcement_archive.volume import Volume
 from src.foundation.dao.announcement_archive.ledger import Ledger
+from src.foundation.dao.announcement_archive.execution import ExecutionLedger
+from src.foundation.dao.announcement_archive.pg_database import ArchiveDatabase
+from src.foundation.config.settings import get_settings
 
 
 def enumerate_run(run, options, policy, control, volume, ledger, source, scope, validate_day=None):
@@ -59,7 +61,7 @@ def execute_run(run, options, policy, control, volume, ledger, source, scope, cl
                 if outcome is None:
                     task=ledger.artifact(task['artifact_key'])
                     downloader.download(run,task);outcome='succeeded'
-                elif web and outcome=='skipped' and ledger.conn.execute("SELECT 1 FROM attempt_log WHERE run_id=? AND artifact_key=? AND outcome='succeeded' AND ended_at IS NOT NULL LIMIT 1",(run,task['artifact_key'])).fetchone():
+                elif web and outcome=='skipped' and ledger.attempted_success(run,task['artifact_key']):
                     # The PDF committed before this run's result write failed.
                     outcome='succeeded'
                 ledger.result(run,task['artifact_key'],outcome)
@@ -74,20 +76,20 @@ def execute_run(run, options, policy, control, volume, ledger, source, scope, cl
     except Cancelled:
         phase='cancelled'
         if web:
-            info=ledger.conn.execute('SELECT enumeration_sealed,stop_requested_at FROM runs WHERE run_id=?',(run,)).fetchone()
+            info=ledger.run(run)
             phase=('stopped' if info['enumeration_sealed'] else 'cancelled') if info['stop_requested_at'] else 'interrupted'
         try:ledger.phase(run,phase,'user_cancelled' if phase!='interrupted' else 'process_exit')
-        except sqlite3.Error:pass
+        except Blocked:pass
         try:stats=ledger.stats(run)
-        except sqlite3.Error:stats={}
+        except Blocked:stats={}
         control.update(phase=phase,**stats);return 130
-    except (Blocked,OSError,sqlite3.Error) as exc:
-        reason=str(exc) if isinstance(exc,Blocked) else ('archive_ledger_failed' if isinstance(exc,sqlite3.Error) else 'archive_io_failed') if web else type(exc).__name__
+    except (Blocked,OSError) as exc:
+        reason=str(exc) if isinstance(exc,Blocked) else 'archive_io_failed' if web else type(exc).__name__
         try:
             if active_key and ledger.artifact(active_key)['state'] not in ('prepared','succeeded'):
                 ledger.state(active_key,'blocked',reason)
             ledger.phase(run,'blocked',reason)
-        except sqlite3.Error:pass
+        except Blocked:pass
         control.update(phase='blocked',error=reason);return 3
     finally:
         if downloader:downloader.close()
@@ -95,6 +97,7 @@ def execute_run(run, options, policy, control, volume, ledger, source, scope, cl
 
 
 def execute(options,policy,control,volume,ledger,source,scope,client=None,clock=None):
+    ExecutionLedger(ledger).recover_abandoned()
     run=ledger.begin_run(options,scope,policy)
     return execute_run(run,options,policy,control,volume,ledger,source,scope,client,clock)
 
@@ -103,7 +106,7 @@ def run_cli(options) -> int:
     policy = DownloadPolicy()
     control = Control(policy)
     volume = Volume(options.output_root, policy)
-    ledger = source = None
+    ledger = source = database = None
     old_handler = signal.getsignal(signal.SIGINT)
     signal.signal(signal.SIGINT, lambda *_: control.stop.set())
     control.start()
@@ -112,12 +115,14 @@ def run_cli(options) -> int:
         volume.open()
         control.check()
         source = Source(options, policy, control).open()
-        ledger = Ledger(volume.ledger_path(), volume.volume_uuid, volume.relative_root)
+        database=ArchiveDatabase(get_settings().announcement_archive_database_url)
+        ledger=Ledger(database,volume.volume_uuid,volume.relative_root,initialize=True)
+        control.update(storage=ledger.storage)
         return execute(options, policy, control, volume, ledger, source, source.scope)
     except Cancelled:
         control.update(phase='cancelled')
         return 130
-    except (Blocked, OSError, sqlite3.Error, ValueError) as exc:
+    except (Blocked, OSError, ValueError) as exc:
         reason = str(exc) if isinstance(exc, Blocked) else type(exc).__name__
         control.update(phase='startup_failed', error=reason)
         return 2
@@ -126,6 +131,7 @@ def run_cli(options) -> int:
             source.close()
         if ledger:
             ledger.close()
+        if database:database.close()
         volume.close()
         control.close()
         signal.signal(signal.SIGINT, old_handler)

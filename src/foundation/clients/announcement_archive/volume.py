@@ -88,7 +88,7 @@ class Volume:
         self.device_id = info.get('DeviceIdentifier')
         self.mount_fd = os.open(mount, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         self.device = os.fstat(self.mount_fd).st_dev
-        self.execution_lock = ExecutionLock(self.ledger_path().parent / 'execution.lock').open()
+        self.execution_lock = ExecutionLock(self.execution_lock_path()).open()
         self.assert_valid(full=True)
         self.check_space(policy_file=True, fd=self.mount_fd)
         # Probe only after the mounted physical volume has been verified.
@@ -185,9 +185,9 @@ class Volume:
         except FileNotFoundError:
             return False
 
-    def ledger_path(self) -> Path:
+    def execution_lock_path(self) -> Path:
         archive_id = identity([self.volume_uuid, self.relative_root])
-        return Path.home() / 'Library/Application Support/Goldenshare/announcement-download' / archive_id / 'downloads.sqlite'
+        return Path.home() / 'Library/Application Support/Goldenshare/announcement-download' / archive_id / 'execution.lock'
 
     def close(self):
         for name in ('lock_fd', 'root_fd', 'mount_fd'):

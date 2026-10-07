@@ -13,9 +13,10 @@ from .errors import DataCenterError,mapped_error
 
 
 class AnnouncementQueryService:
-    def __init__(self,controls,source,presence,policy=DataCenterPolicy(),wake=lambda:None):
+    def __init__(self,controls,source,presence,policy=DataCenterPolicy(),wake=lambda:None,*,owns_database=True):
         self.controls,self.source,self.presence,self.policy,self.wake=controls,source,presence,policy,wake
         self.company=CompanySource(source)
+        self.owns_database=owns_database
 
     def conditions(self,request,now=None):
         today=(now or datetime.now(ZoneInfo('Asia/Shanghai'))).astimezone(ZoneInfo('Asia/Shanghai')).date()
@@ -155,4 +156,6 @@ class AnnouncementQueryService:
             downloadDefaults=dict(startDate=None,endDate=None,intervalSeconds=DownloadOptions(today,today).interval_seconds),
             policy=dict(pageSize=self.policy.page_size,companyLimit=self.policy.company_limit,pollSeconds=self.policy.poll_seconds),observedAnnDate=observed,sourceUpdateSucceededAt=None)
 
-    def close(self):self.source.close();self.presence.close();self.controls.database.close()
+    def close(self):
+        self.source.close();self.presence.close()
+        if self.owns_database:self.controls.database.close()

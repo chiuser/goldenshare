@@ -20,8 +20,8 @@ def recoverable(info):
 
 
 class ArchiveSupervisor:
-    def __init__(self,binding,resource_factory,controls_provider,*,policy=DownloadPolicy(),data_policy=DataCenterPolicy(),client_factory=None,bootstrap=None):
-        self.binding,self.store=binding,ArchiveStore(binding)
+    def __init__(self,binding,resource_factory,controls_provider,database,*,policy=DownloadPolicy(),data_policy=DataCenterPolicy(),client_factory=None,bootstrap=None):
+        self.binding,self.store=binding,ArchiveStore(binding,database)
         self.resource_factory,self.controls_provider=resource_factory,controls_provider
         self.policy,self.data_policy=policy,data_policy
         self.client_factory,self.bootstrap=client_factory,bootstrap
@@ -39,13 +39,11 @@ class ArchiveSupervisor:
         self.recovery_thread.start();return self
 
     def recover(self):
-        value=self.binding.read();path=self.binding.ledger_path(value)
-        if not path.exists():return
-        lock=ExecutionLock(path.parent/'execution.lock').open()
+        value=self.binding.read()
+        lock=ExecutionLock(self.binding.execution_lock_path(value)).open()
         try:
-            with self.store.open() as ledger:
-                if ledger.conn.execute('SELECT schema_version FROM archive').fetchone()[0]!=3:return
-            with self.store.open(write=True) as ledger:ExecutionLedger(ledger).recover_abandoned()
+            with self.store.open(write=True,missing_ok=True) as ledger:
+                if ledger:ExecutionLedger(ledger).recover_abandoned()
         finally:lock.close()
 
     def submit(self,kind,payload,key=None,actor=None):
@@ -55,7 +53,7 @@ class ArchiveSupervisor:
                 existing=self.store.receipt(key,kind,payload)
                 if existing:return existing
             except Blocked as error:
-                if str(error) not in {'archive_binding_missing','archive_ledger_missing'}:raise
+                if str(error) not in {'archive_binding_missing','archive_not_found'}:raise
         if not self.admission.acquire(blocking=False):raise Blocked('archive_already_running')
         ready=threading.Event();abandon=threading.Event();answer={}
         self.thread=threading.Thread(target=self._worker,args=(kind,payload,key,actor,ready,abandon,answer),name='announcement-download',daemon=True)
@@ -124,8 +122,6 @@ class ArchiveSupervisor:
             else:
                 with self.store.open() as existing:
                     info=ExecutionLedger(existing).run(payload['runId'])
-                    version=existing.conn.execute('SELECT schema_version FROM archive').fetchone()[0]
-                if version!=3:raise Blocked('run_not_recoverable')
                 if kind in {'continue','retry'} and not recoverable(info):raise Blocked('run_not_recoverable')
                 if kind=='continue' and info['phase'] not in {'stopped','blocked','interrupted'}:raise Blocked('run_not_recoverable')
                 if kind=='continue' and not remote_recheck_satisfied(info):raise Blocked('run_not_recoverable')
@@ -155,7 +151,7 @@ class ArchiveSupervisor:
                 info=state.run(payload['runId'])
                 if source is not None and info['source_scope']!=source.scope:raise Blocked('source_scope_changed')
                 if kind=='continue':
-                    if not recoverable(info) or not remote_recheck_satisfied(info) or info['phase'] not in {'stopped','blocked','interrupted'} or not ledger.conn.execute('SELECT 1 FROM run_artifacts WHERE run_id=? AND outcome IS NULL LIMIT 1',(info['run_id'],)).fetchone():
+                    if not recoverable(info) or not remote_recheck_satisfied(info) or info['phase'] not in {'stopped','blocked','interrupted'} or not ledger.pending(info['run_id']):
                         raise Blocked('run_not_recoverable')
                     run=info['run_id'];state.claim(run,resume=True,command=(key,kind,payload))
                 elif kind=='retry':
@@ -167,9 +163,7 @@ class ArchiveSupervisor:
                     if info['phase']!='blocked':raise Blocked('run_not_recoverable')
                     if payload['kind']=='remoteSource' and info['reason'] not in {'http_403','challenge_page'}:raise Blocked('recheck_scope_invalid')
                     run=info['run_id']
-                    with ledger.conn:
-                        ledger.conn.execute("UPDATE runs SET check_state='checking',check_kind=?,check_code=NULL,check_updated_at=?,owner_token=?,stop_requested_at=NULL WHERE run_id=?",(payload['kind'],timestamp(),ledger.owner_token,run))
-                        ledger.conn.execute('UPDATE archive_execution SET active_run_id=?,owner_token=?,heartbeat=?,revision=revision+1 WHERE singleton=1',(run,ledger.owner_token,timestamp()))
+                    state.begin_check(run,payload['kind'])
                 else:raise Blocked('command_invalid')
             accepted=True;answer['run']=run
             control=self.control=WebControl(execution_policy,self.store,ledger,run)
@@ -233,9 +227,7 @@ class ArchiveSupervisor:
         finally:
             if downloader:downloader.close()
             elif client:client.close()
-            with ledger.conn:
-                ledger.conn.execute('UPDATE runs SET check_state=?,check_code=?,check_updated_at=?,owner_token=NULL,wait_kind=NULL,next_request_at=NULL WHERE run_id=?',(outcome,reason,timestamp(),run))
-                ledger.conn.execute('UPDATE archive_execution SET active_run_id=NULL,owner_token=NULL,revision=revision+1 WHERE active_run_id=? AND owner_token=?',(run,ledger.owner_token))
+            ExecutionLedger(ledger).finish_check(run,outcome,reason)
 
     def close(self):
         self.closed=True

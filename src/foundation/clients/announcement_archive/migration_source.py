@@ -11,7 +11,7 @@ import time
 
 from .core import Blocked, identity
 from .volume import no_symlinks
-from src.foundation.dao.announcement_archive.ledger import Ledger
+from src.foundation.dao.announcement_archive.legacy_schema import LegacyLedgerSchema
 from src.foundation.dao.announcement_archive.pg_schema import LEDGER_TABLES, TABLES
 from src.foundation.config.announcement_archive import ArchiveDatabasePolicy, DataCenterPolicy
 
@@ -137,7 +137,7 @@ class LegacyLedger(SQLiteSource):
             if self.version not in (2, 3):
                 raise Blocked('archive_schema_version_unsupported')
             # Reuse exact legacy validation, not its writer constructor or upgrade path.
-            reader = object.__new__(Ledger)
+            reader = object.__new__(LegacyLedgerSchema)
             reader.conn = self.conn
             reader._validate_schema(self.version)
             root = PurePosixPath(self.archive['root_relative_path'])

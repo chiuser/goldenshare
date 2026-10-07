@@ -1,5 +1,4 @@
 """Persistent stop/heartbeat with throttled observations outside file commit transactions."""
-import sqlite3
 import threading
 import time
 from src.foundation.clients.announcement_archive.core import Blocked,Control
@@ -11,7 +10,7 @@ class WebControl(Control):
         super().__init__(policy,emit=lambda _:None)
         self.store,self.ledger,self.run=store,ledger,run
         self.owner=ledger.owner_token;self.fault=None;self.finished=threading.Event()
-        self.last_observed=0;self.last_transfer_state=None
+        self.last_observed=0;self.last_transfer_state=None;self.observation_error=None
 
     def start(self):
         def monitor():
@@ -22,16 +21,22 @@ class WebControl(Control):
                     if self.store.heartbeat(self.run,self.owner,refresh=refresh):self.stop.set()
                     if refresh:last_heartbeat=time.monotonic()
                 except Blocked:
-                    self.fault='archive_control_failed';self.stop.set();return
+                    # A heartbeat write is observation, separate from durable stop/owner facts.
+                    try:
+                        if self.store.heartbeat(self.run,self.owner,refresh=False):self.stop.set()
+                        self.observation_error='archive_observation_failed'
+                        if refresh:last_heartbeat=time.monotonic()
+                    except Blocked:
+                        self.fault='archive_control_failed';self.stop.set();return
         self.thread=threading.Thread(target=monitor,name='archive-stop-heartbeat',daemon=True);self.thread.start()
 
     def check(self):
         if self.fault:raise Blocked(self.fault)
         try:
-            row=self.ledger.conn.execute('SELECT stop_requested_at,owner_token FROM runs WHERE run_id=?',(self.run,)).fetchone()
-            if not row or row['owner_token']!=self.owner:raise Blocked('archive_owner_changed')
+            row=self.ledger.run(self.run)
+            if row['owner_token']!=self.owner:raise Blocked('archive_owner_changed')
             if row['stop_requested_at']:self.stop.set()
-        except sqlite3.Error:raise Blocked('archive_control_failed') from None
+        except Blocked:raise Blocked('archive_control_failed') from None
         super().check()
 
     def transfer(self,received,total,state):
@@ -43,10 +48,10 @@ class WebControl(Control):
     def _observe(self,fields):
         try:
             ExecutionLedger(self.ledger).observe(self.run,fields)
-            self.last_observed=time.monotonic()
-        except (sqlite3.Error,Blocked):
-            self.fault='archive_control_failed'
-            # Do not roll back a file already fsynced/promoted; check() stops the next unit.
+        except Blocked:
+            self.observation_error='archive_observation_failed'
+            # Business writes and the request_started gate independently verify PG availability.
+        finally:self.last_observed=time.monotonic()
 
     def update(self,**values):
         self.view.update(values)
