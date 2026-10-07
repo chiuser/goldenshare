@@ -25,6 +25,7 @@ def moneyflow_candidate_directory(
     if dataset not in {
         "moneyflow",
         "moneyflow_dc",
+        "moneyflow_ths",
         "moneyflow_mkt_dc",
         "moneyflow_ind_ths",
         "moneyflow_cnt_ths",

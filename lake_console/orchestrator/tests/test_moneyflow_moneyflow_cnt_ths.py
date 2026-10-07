@@ -325,7 +325,7 @@ def test_formal_cross_dataset_and_unknown_dataset_rejected_before_io(tmp_path):
     with pytest.raises(MoneyflowContractError, match="raw_candidate_path"):
         build_daily_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with pytest.raises(MoneyflowContractError, match="candidate_dataset"):
-        moneyflow_candidate_directory(tmp_path, "test", DAY, dataset="moneyflow_ths")
+        moneyflow_candidate_directory(tmp_path, "test", DAY, dataset="unknown_moneyflow")
 
 
 def test_no_schema_is_not_empty_success(tmp_path):
@@ -515,7 +515,7 @@ def test_silver_respects_cumulative_elapsed_budget(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "wrong_dataset", ["moneyflow_mkt_dc", "moneyflow_ths", "", "../moneyflow_cnt_ths"]
+    "wrong_dataset", ["moneyflow_mkt_dc", "unknown_moneyflow", "", "../moneyflow_cnt_ths"]
 )
 def test_engine_rejects_other_sources_before_creating_candidate(
     tmp_path, wrong_dataset

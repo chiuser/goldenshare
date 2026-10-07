@@ -1,6 +1,6 @@
 # Dagster 七个 Tushare 资金流向数据集接入技术方案 v1
 
-> 状态：范围与技术方案已批准提交，基线提交 `bf7df7ff`；P0 已完成只读核验与实施设计收尾，具备进入首个P1开发切片的设计条件。P0收尾已提交 `f5c06dd3`；管理员已授权进入P1，moneyflow_mkt_dc候选切片已提交0bd4de4f，moneyflow_ind_ths候选切片也已开发并完成隔离验收。尚未bootstrap、注册正式资产或启用自动化。
+> 状态：范围与技术方案已批准提交，基线提交 `bf7df7ff`。P0收尾已提交 `f5c06dd3`，P1四个小数据集候选能力已完成并提交，P2三个个股候选能力开发及隔离验收已收尾；普通/DC个股已提交，THS及本次收尾由本次提交归档。管理员已授权进入P3，本轮历史规划/受限导出SQL能力完成隔离验收（§22），由本次提交归档。正式历史bootstrap、DG资产/事件及自动化尚未执行。
 >
 > 日期：2026-10-06。目标：将 Prod 已有七个 Tushare 资金流向数据集接入正式 DG；历史从 Prod Raw 初始化，新增由 DG 直接请求 Tushare。
 >
@@ -358,7 +358,7 @@ P0已核清历史差异、每日完成与异常设计、截止接续和资源边
 
 ## 14. 交付与本版完成状态
 
-当前状态（2026-10-07）：P1四个小数据集moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths、moneyflow_ind_dc的候选能力与独立隔离验收已完成，DC及P1收尾提交5dc15c94，退出要求对账见实施细则§12。P2普通moneyflow已提交973d580d；本轮moneyflow_dc候选能力及隔离验收完成，见实施细则§14和本文§20，moneyflow_dc修改本次提交归档。P2剩moneyflow_ths，P3/P4/P5尚未执行，七数据集整体尚未完成正式接入。下列P0/P1首轮记录保留历史状态。
+当前状态（2026-10-07）：P1四个小数据集moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths、moneyflow_ind_dc的候选能力与独立隔离验收已完成，DC及P1收尾提交5dc15c94，退出要求对账见实施细则§12。P2普通moneyflow已提交973d580d，DC个股已提交79514a11；本轮THS个股候选能力和隔离验收完成，见实施细则§15和本文§21，新增修改尚未提交。三个个股候选能力已齐，阶段对账见实施细则§16，具备P2收尾条件。P3/P4/P5尚未执行，七数据集整体尚未完成正式接入。下列P0/P1首轮记录保留历史状态。
 
 本版完成：七数据集/来源范围、审计基线、字段投影、原单位与身份、两层拓扑、路径/命名、来源切换边界、历史导出与恢复、日更闭合要求、拟定性能/配置预算、实现影响面和验收阶段。
 
@@ -423,4 +423,22 @@ moneyflow_dc候选能力完成，独立15字段与trade_date/ts_code主键，nam
 
 MCP20260930返回6024行，SZ3154/SH2522/BJ348，独立键均唯一；默认、显式15字段、关键身份/金额字段一致。源/Raw/Silver6024行，reject0，全字段差异0。本地文档6000条与MCP8000条/实际6024条差异已校准备注，仍沿用P0已实测的2000/2000/2000/24分页，两轮8请求。20,000行真实数值压力样本22请求，峰值379.2MiB；真实样本峰值246.2MiB，保持原768MiB/512MB/0spill门禁。
 
-新增DC个股113项与既有352项共465项通过；治理12项+474子测试、静态合同113项、Ruff通过。开发硬口径/配置审计/CodeGraph影响面和实测边界见实施细则§14，[结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json)留档。性能不含真实网络和等待，不等于P5新交易日验收。本轮moneyflow_dc修改本次提交归档；P2剩moneyflow_ths，历史bootstrap/正式提升与DG编排仍属于P3/P4/P5。
+新增DC个股113项与既有352项共465项通过；治理12项+474子测试、静态合同113项、Ruff通过。开发硬口径/配置审计/CodeGraph影响面和实测边界见实施细则§14，[结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json)留档。性能不含真实网络和等待，不等于P5新交易日验收。moneyflow_dc已提交79514a11；当时P2剩moneyflow_ths，当前进度见§21。历史bootstrap/正式提升与DG编排仍属于P3/P4/P5。
+
+## 21. P2 THS个股资金流进度（2026-10-07）
+
+moneyflow_ths候选能力完成，独立13字段与trade_date/ts_code主键，name可空、不入键。金额万元/latest元/比例%保留原值，latest不改为close，net_d5_amount保留源5日主力净额，不从日值重算或依赖前四日分区。新增THS固定schema和候选白名单，通用daily算法、集中预算及正式依赖方向不变；未知dataset负例迁为unknown_moneyflow，跨dataset保护仍保留。
+
+本轮MCP20260930显式/默认/关键字段一致，5215行、SZ2899/SH2316，键均唯一；Raw/Silver各5215，reject0，13字段差异0。实际不含BJ，按本接口源事实保留，不用其他来源补证券；构造BJ身份也不误删。20000行真实数值压力样本22请求、峰值330.9MiB，真实样本峰值270.2MiB，保持768MiB/512MB/1线程/0spill。性能不含网络及真实等待，不能当成新日更验收。
+
+新增THS104项，七数据集及策略联合569项通过；受保护治理12项+474子测试、静态合同113项、Ruff通过。完整约束、配置审计、CodeGraph影响面和实测见实施细则§15，[结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_ths_evidence_20261007.json)留档。历史状态：当时P2具备收尾条件；THS修改由本次提交归档。最新收尾/P3开发见§22。P3正式写湖、P4 DG事件/编排、P5新日更须按原方案独立验收，尚未执行。
+
+## 22. P2收尾及P3历史规划进度（2026-10-07）
+
+管理员要求P2收尾并进入P3。普通/DC/THS个股独立候选、股票范围/全字段精度、分页压力及共享消费者回归四项退出条件均有代码/正反测试/真实样本证据，P2开发与隔离验收收尾（实施细则§16）。不改变七表独立身份或Prod合同/入口。THS、收尾与P3首轮规划修改由本次提交归档。
+
+本轮P3实现`defs/bootstrap/moneyflow_history_plan.py`：纯计数计划和受限只读COPY SQL builder；普通按(ts_code,trade_date) keyset，其余六表按日期窗，写窗口年内≤20日且≤100000行。七表按固定schema分别规划，截止日显式冻结，缺日/历史低覆盖保留；schema/count/plan hash变化拒绝。普通下一unit实际边界必须从导出CSV/checkpoint获得，计划不编造证券位置，也不作为APPLY批准。SQL每unit四条语句、120秒，排序使用源索引字段；只允许七张raw_tushare表及批准字段，未添加数据库/Lake/instance执行或CLI入口。
+
+P0公开逐日计数全范围规划与原基线一致：21,160,938行、7,804数据集日期、347读unit、423写窗口、15,608预计正式两层文件；两遍读取694事务、加计划统计至多708连接和2790条SQL。新进程计数规划/首unit SQL生成0.057秒、峰值76.3MiB，不含导出/转换/提升，不作为历史执行耗时预测。未重新查询Prod或核验全量来源内容hash。逐表计划摘要见[结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json)。
+
+新增66项规划/负向测试，联合既有候选/策略共635项通过；受保护治理12项+474子测试、静态113项、Ruff及文档检查通过。配置审计、硬口径→代码/测试和CodeGraph影响面回填实施细则§17；无依赖矩阵变化。下一轮推进流式导出与checkpoint，然后分桶/候选、原子提升及故障/取消/续跑/幂等隔离验收。整个P3未完成，正式样本仍须精确命令/日期/来源/读写范围/冲突处理获批，P4/P5尚未执行。

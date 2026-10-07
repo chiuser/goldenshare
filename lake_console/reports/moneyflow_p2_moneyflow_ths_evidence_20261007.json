@@ -1,0 +1,132 @@
+{
+  "audited_on": "2026-10-07",
+  "phase": "P2",
+  "dataset": "moneyflow_ths",
+  "previous_dataset_commit": "79514a11",
+  "status": "candidate_capability_verified_not_formally_integrated",
+  "projection": [
+    "trade_date",
+    "ts_code",
+    "name",
+    "pct_change",
+    "latest",
+    "net_amount",
+    "net_d5_amount",
+    "buy_lg_amount",
+    "buy_lg_amount_rate",
+    "buy_md_amount",
+    "buy_md_amount_rate",
+    "buy_sm_amount",
+    "buy_sm_amount_rate"
+  ],
+  "source_verification": {
+    "tool": "tushareMcp.moneyflow_ths",
+    "trade_date": "20260930",
+    "row_count": 5215,
+    "unique_business_keys": 5215,
+    "market_row_counts": {
+      "SZ": 2899,
+      "SH": 2316
+    },
+    "default_probe": {
+      "ts_code": "000001.SZ",
+      "fields_and_values_match_full_market": true
+    },
+    "critical_fields_probe": {
+      "fields": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "latest",
+        "net_amount",
+        "net_d5_amount"
+      ],
+      "ts_code": "000001.SZ",
+      "name": "平安银行",
+      "latest": 11.57,
+      "net_amount": 34828.35,
+      "net_d5_amount": 19297.21,
+      "values_match_full_market": true
+    },
+    "pagination_evidence": "P0 SDK 2000/2000/1215; MCP has no limit/offset; this round fixture verifies exact collector requests"
+  },
+  "contract": {
+    "key_fields": [
+      "trade_date",
+      "ts_code"
+    ],
+    "raw_date": "VARCHAR YYYYMMDD",
+    "silver_date": "DATE",
+    "nullable_name": true,
+    "name_in_key": false,
+    "amount_unit": "万元",
+    "latest_unit": "元",
+    "rate_unit": "%",
+    "rename_latest_to_close": false,
+    "recompute_net_amount": false,
+    "recompute_net_d5_amount": false,
+    "previous_four_partition_dependency": false,
+    "fill_other_market_from_other_source": false
+  },
+  "sample": {
+    "source_rows": 5215,
+    "raw_rows": 5215,
+    "silver_rows": 5215,
+    "reject_count": 0,
+    "full_field_difference_count": 0,
+    "request_count": 6,
+    "page_files": 6,
+    "raw_bytes": 336371,
+    "silver_bytes": 336347,
+    "total_candidate_bytes": 4498646,
+    "peak_rss_bytes": 283328512,
+    "wall_seconds_excluding_network_and_stability_wait": 0.6020550418179482,
+    "stability_gap_seconds": 60
+  },
+  "pressure": {
+    "source_rows": 20000,
+    "raw_rows": 20000,
+    "silver_rows": 20000,
+    "reject_count": 0,
+    "request_count": 22,
+    "page_files": 20,
+    "raw_bytes": 1142325,
+    "silver_bytes": 1142300,
+    "total_candidate_bytes": 16802274,
+    "peak_rss_bytes": 346947584,
+    "wall_seconds_excluding_network_and_stability_wait": 1.4573630839586258,
+    "construction": "Repeat observed source values and names with unique source keys; keep all guards"
+  },
+  "validation": {
+    "new_dataset_tests": 104,
+    "previous_tests": 465,
+    "total_seven_dataset_and_policy_tests": 569,
+    "governance_tests": 12,
+    "governance_subtests": 474,
+    "static_contract_tests": 113,
+    "ruff": "passed",
+    "unknown_dataset_test_value": "unknown_moneyflow"
+  },
+  "limits": {
+    "rows_per_round": 20000,
+    "requests_including_retries": 64,
+    "elapsed_total_seconds": 300,
+    "peak_rss_bytes": 805306368,
+    "duckdb_memory_limit": "512MB",
+    "duckdb_threads": 1,
+    "spill_bytes": 0
+  },
+  "execution_boundary": {
+    "formal_lake_write": false,
+    "prod_write": false,
+    "dagster_state_write": false,
+    "performance_real_network_or_wait_included": false,
+    "formal_integration_and_daily_acceptance_complete": false
+  },
+  "p2_candidate_datasets_verified": [
+    "moneyflow",
+    "moneyflow_dc",
+    "moneyflow_ths"
+  ],
+  "next": "P2 stage closeout before P3 history tools and separately approved formal sample"
+}

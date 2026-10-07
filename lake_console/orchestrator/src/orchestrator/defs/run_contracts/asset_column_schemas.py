@@ -1105,6 +1105,29 @@ SILVER_MONEYFLOW_CNT_THS_SCHEMA = tuple(
 
 
 
+RAW_TUSHARE_MONEYFLOW_THS_SCHEMA = (
+    ColumnContract("trade_date", "VARCHAR", "源交易日YYYYMMDD，不得为空"),
+    ColumnContract("ts_code", "VARCHAR", "源股票代码，不得为空，与交易日组成唯一键，不裁剪证券范围"),
+    ColumnContract("name", "VARCHAR", "源股票名称，允许NULL，不作为唯一键"),
+    ColumnContract("pct_change", "DECIMAL(10,4)", "涨跌幅（%），允许NULL，保留源值"),
+    ColumnContract("latest", "DECIMAL(18,4)", "源最新价（元），允许NULL，保留字段名和源值"),
+    ColumnContract("net_amount", "DECIMAL(24,4)", "源资金净流入（万元），允许NULL和负值，不重算"),
+    ColumnContract("net_d5_amount", "DECIMAL(24,4)", "源5日主力净额（万元），允许NULL和负值，不用日净额重算"),
+    ColumnContract("buy_lg_amount", "DECIMAL(24,4)", "源今日大单净流入额（万元），允许NULL和负值"),
+    ColumnContract("buy_lg_amount_rate", "DECIMAL(10,4)", "大单净流入占比（%），允许NULL"),
+    ColumnContract("buy_md_amount", "DECIMAL(24,4)", "源今日中单净流入额（万元），允许NULL和负值"),
+    ColumnContract("buy_md_amount_rate", "DECIMAL(10,4)", "中单净流入占比（%），允许NULL"),
+    ColumnContract("buy_sm_amount", "DECIMAL(24,4)", "源今日小单净流入额（万元），允许NULL和负值"),
+    ColumnContract("buy_sm_amount_rate", "DECIMAL(10,4)", "小单净流入占比（%），允许NULL"),
+)
+
+SILVER_MONEYFLOW_THS_SCHEMA = tuple(
+    ColumnContract(column.name, "DATE", "标准化交易日，不得为空")
+    if column.name == "trade_date" else column
+    for column in RAW_TUSHARE_MONEYFLOW_THS_SCHEMA
+)
+
+
 RAW_TUSHARE_MONEYFLOW_DC_SCHEMA = (
     ColumnContract("trade_date", "VARCHAR", "源交易日YYYYMMDD，不得为空"),
     ColumnContract("ts_code", "VARCHAR", "源股票代码，不得为空，与交易日组成唯一键，不裁剪证券范围"),

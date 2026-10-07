@@ -562,7 +562,7 @@ def test_foreign_formal_retired_and_unknown_dataset_paths_fail_before_io(tmp_pat
     with pytest.raises(MoneyflowContractError, match="daily_dataset"):
         build_daily_moneyflow_raw_candidate(
             tushare=source,
-            dataset="moneyflow_ths",
+            dataset="unknown_moneyflow",
             staging_root=tmp_path,
             operation_id="unknown",
             trade_date=DAY,
