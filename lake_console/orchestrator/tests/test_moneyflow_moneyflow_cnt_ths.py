@@ -1,4 +1,4 @@
-"""Industry fixtures exercise isolated candidate generation without live resources."""
+"""Concept fixtures exercise isolated candidate generation without live resources."""
 
 import json
 import os
@@ -31,8 +31,8 @@ from orchestrator.defs.source_readiness.moneyflow_ths_board import (
 )
 
 DAY = "2026-09-30"
-DATASET = "moneyflow_ind_ths"
-MONEYFLOW_IND_THS_FIELDS = ths_board_fields(DATASET)
+DATASET = "moneyflow_cnt_ths"
+MONEYFLOW_CNT_THS_FIELDS = ths_board_fields(DATASET)
 
 
 class Clock:
@@ -58,21 +58,21 @@ class Source:
         return (
             page
             if isinstance(page, SimpleNamespace)
-            else SimpleNamespace(columns=MONEYFLOW_IND_THS_FIELDS, rows=page)
+            else SimpleNamespace(columns=MONEYFLOW_CNT_THS_FIELDS, rows=page)
         )
 
 
-def row(code="881142.TI"):
+def row(code="885955.TI"):
     return {
         "trade_date": "20260930",
         "ts_code": code,
-        "industry": "生物制品",
+        "name": "重组蛋白",
         "lead_stock": None,
-        "close": "6727.88",
-        "pct_change": "4.63",
-        "company_num": 56,
+        "close_price": "30.67",
+        "pct_change": "3.78",
+        "industry_index": "851.77",
+        "company_num": 128,
         "pct_change_stock": None,
-        "close_price": "102.64",
         "net_buy_amount": "80.0",
         "net_sell_amount": None,
         "net_amount": "-14.1234",
@@ -96,7 +96,7 @@ def build(tmp_path, pages, **kwargs):
 
 def test_stable_order_independent_preserves_units_nulls_and_negative(tmp_path):
     raw, source, clock = build(
-        tmp_path, [[row(), row("881175.TI")], [row("881175.TI"), row()]]
+        tmp_path, [[row(), row("885769.TI")], [row("885769.TI"), row()]]
     )
     silver = build_ths_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with moneyflow_candidate_connection(raw.parent) as c:
@@ -118,20 +118,20 @@ def test_stable_order_independent_preserves_units_nulls_and_negative(tmp_path):
         source.calls
         == [
             (
-                "moneyflow_ind_ths",
+                "moneyflow_cnt_ths",
                 {"trade_date": "20260930", "limit": 2000, "offset": 0},
-                MONEYFLOW_IND_THS_FIELDS,
+                MONEYFLOW_CNT_THS_FIELDS,
             )
         ]
         * 2
     )
 
 
-def test_real_public_ninety_row_readback(tmp_path):
+def test_real_public_387_row_readback(tmp_path):
     rows = json.loads(
-        (Path(__file__).parent / "fixtures/moneyflow_ind_ths_20260930.json").read_text()
+        (Path(__file__).parent / "fixtures/moneyflow_cnt_ths_20260930.json").read_text()
     )
-    assert len(rows) == 90
+    assert len(rows) == 387
     raw, _, _ = build(tmp_path, [rows, rows[::-1]])
     silver = build_ths_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     with moneyflow_candidate_connection(raw.parent) as c:
@@ -139,12 +139,12 @@ def test_real_public_ninety_row_readback(tmp_path):
             audit_ths_board_moneyflow_standardization(
                 c, raw, silver, DAY, dataset=DATASET
             )
-            == 90
+            == 387
         )
         assert c.execute(
-            "SELECT net_buy_amount,net_sell_amount,net_amount FROM read_parquet(?) WHERE ts_code='881273.TI'",
+            "SELECT net_buy_amount,net_sell_amount,net_amount FROM read_parquet(?) WHERE ts_code='885955.TI'",
             [str(silver)],
-        ).fetchone() == (Decimal(50), Decimal(34), Decimal(15))
+        ).fetchone() == (Decimal(95), Decimal(75), Decimal(19))
 
 
 def test_full_page_requires_termination(tmp_path):
@@ -163,14 +163,14 @@ def test_full_page_requires_termination(tmp_path):
         ("ts_code", None),
         ("ts_code", ""),
         ("ts_code", 123),
-        ("industry", True),
+        ("name", True),
         ("lead_stock", 12),
-        ("close", True),
-        ("close", "NaN"),
-        ("close", "Infinity"),
-        ("close", "0.00001"),
-        ("close", "1e-20"),
-        ("close", "1e-999999999999"),
+        ("industry_index", True),
+        ("industry_index", "NaN"),
+        ("industry_index", "Infinity"),
+        ("industry_index", "0.00001"),
+        ("industry_index", "1e-20"),
+        ("industry_index", "1e-999999999999"),
         ("pct_change", "1000000"),
         ("company_num", "1.1"),
         ("company_num", 2147483648),
@@ -201,7 +201,7 @@ def test_exact_decimal_not_rounded(tmp_path, value):
     "rows",
     [
         [],
-        [{k: v for k, v in row().items() if k != "industry"}],
+        [{k: v for k, v in row().items() if k != "name"}],
         [{**row(), "extra": 1}],
         [row(), row()],
     ],
@@ -224,7 +224,7 @@ def test_cross_page_duplicate(tmp_path):
 
 @pytest.mark.parametrize(
     "second",
-    [[{**row(), "net_amount": "99"}], [row("881175.TI")], [row(), row("881175.TI")]],
+    [[{**row(), "net_amount": "99"}], [row("885769.TI")], [row(), row("885769.TI")]],
 )
 def test_changed_second_round_preserves_unready_raw(tmp_path, second):
     with pytest.raises(MoneyflowContractError, match="source_unstable"):
@@ -316,7 +316,7 @@ def test_no_overwrite_or_tampered_proof(tmp_path):
 
 def test_formal_cross_dataset_and_unknown_dataset_rejected_before_io(tmp_path):
     raw = (
-        Path("/Volumes/datasource/data_lake/moneyflow/test/moneyflow_ind_ths")
+        Path("/Volumes/datasource/data_lake/moneyflow/test/moneyflow_cnt_ths")
         / DAY
         / "raw.parquet"
     )
@@ -342,8 +342,8 @@ def test_numeric_nulls_preserved(tmp_path):
         **row(),
         **{
             f: None
-            for f in MONEYFLOW_IND_THS_FIELDS
-            if f not in ("trade_date", "ts_code", "industry", "lead_stock")
+            for f in MONEYFLOW_CNT_THS_FIELDS
+            if f not in ("trade_date", "ts_code", "name", "lead_stock")
         },
     }
     raw, _, _ = build(tmp_path, [[r], [r]])
@@ -428,7 +428,7 @@ def test_transient_retry_shares_attempt_accounting(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "projection", ["* REPLACE('20260929' AS trade_date)", "* EXCLUDE(industry)"]
+    "projection", ["* REPLACE('20260929' AS trade_date)", "* EXCLUDE(name)"]
 )
 def test_physical_file_date_and_schema_block(tmp_path, projection):
     raw, _, _ = build(tmp_path, [[row()], [row()]])
@@ -505,7 +505,7 @@ def test_numeric_reject_identifies_field_key_and_sample(tmp_path):
     ) as error:
         build(tmp_path, [[{**row(), "net_amount": "1.23456"}]])
     assert "net_amount" in str(error.value)
-    assert "881142.TI" in str(error.value)
+    assert "885955.TI" in str(error.value)
     assert "1.23456" in str(error.value)
 
 
@@ -518,3 +518,136 @@ def test_silver_respects_cumulative_elapsed_budget(tmp_path):
     with pytest.raises(MoneyflowContractError, match="request_budget_exceeded"):
         build_ths_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
     assert not (raw.parent / "silver.parquet").exists()
+
+
+@pytest.mark.parametrize(
+    "wrong_dataset", ["moneyflow_mkt_dc", "moneyflow_dc", "", "../moneyflow_cnt_ths"]
+)
+def test_engine_rejects_other_sources_before_creating_candidate(
+    tmp_path, wrong_dataset
+):
+    source, clock = Source([[row()]]), Clock()
+    with pytest.raises(MoneyflowContractError, match="ths_board_dataset"):
+        build_ths_board_moneyflow_raw_candidate(
+            tushare=source,
+            dataset=wrong_dataset,
+            staging_root=tmp_path,
+            operation_id="test",
+            trade_date=DAY,
+            clock=clock,
+            sleep_fn=clock.sleep,
+        )
+    assert source.calls == []
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_concept_index_has_24_digit_contract_and_nullable_name(tmp_path):
+    r = {**row(), "industry_index": "123456789012345.1234", "name": None}
+    raw, _, _ = build(tmp_path, [[r], [r]])
+    silver = build_ths_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    with moneyflow_candidate_connection(raw.parent) as c:
+        assert c.execute(
+            "SELECT name,industry_index FROM read_parquet(?)", [str(silver)]
+        ).fetchone() == (None, Decimal("123456789012345.1234"))
+
+
+@pytest.mark.parametrize(
+    "industry_fields", [{"industry": "生物制品"}, {"close": "851.77"}]
+)
+def test_concept_rejects_industry_source_columns(tmp_path, industry_fields):
+    with pytest.raises(MoneyflowContractError, match="source_row_schema"):
+        build(tmp_path, [[{**row(), **industry_fields}]])
+    assert not list(tmp_path.rglob("raw.parquet"))
+
+
+def test_industry_and_concept_are_independent_with_same_operation(tmp_path):
+
+    from orchestrator.defs.checks.moneyflow_ths_board import (
+        audit_ths_board_moneyflow_equality,
+    )
+
+    raw, _, _ = build(tmp_path, [[row()], [row()]])
+    industry_rows = json.loads(
+        (Path(__file__).parent / "fixtures/moneyflow_ind_ths_20260930.json").read_text()
+    )[:1]
+    page = SimpleNamespace(
+        columns=ths_board_fields("moneyflow_ind_ths"), rows=industry_rows
+    )
+    industry_source, clock = Source([page, page]), Clock()
+    industry = build_ths_board_moneyflow_raw_candidate(
+        tushare=industry_source,
+        dataset="moneyflow_ind_ths",
+        staging_root=tmp_path,
+        operation_id="test",
+        trade_date=DAY,
+        clock=clock,
+        sleep_fn=clock.sleep,
+    )
+    assert raw.parent != industry.parent
+    assert industry_source.calls[0][0] == "moneyflow_ind_ths"
+    assert json.loads((raw.parent / "receipt.json").read_text())["dataset"] == DATASET
+    assert (
+        json.loads((industry.parent / "receipt.json").read_text())["dataset"]
+        == "moneyflow_ind_ths"
+    )
+    with pytest.raises(MoneyflowContractError, match="raw_candidate_path"):
+        build_ths_board_moneyflow_silver_candidate(industry, DAY, dataset=DATASET)
+    with pytest.raises(MoneyflowContractError, match="raw_candidate_path"):
+        build_ths_board_moneyflow_silver_candidate(
+            raw, DAY, dataset="moneyflow_ind_ths"
+        )
+    with moneyflow_candidate_connection(raw.parent) as c:
+        with pytest.raises(MoneyflowContractError, match="file_schema"):
+            audit_ths_board_moneyflow_file(c, raw, DAY, dataset="moneyflow_ind_ths")
+        with pytest.raises(MoneyflowContractError, match="file_schema"):
+            audit_ths_board_moneyflow_equality(c, industry, industry, dataset=DATASET)
+    build_ths_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    build_ths_board_moneyflow_silver_candidate(
+        industry, DAY, dataset="moneyflow_ind_ths"
+    )
+
+
+def test_cross_dataset_receipt_cannot_be_reused(tmp_path):
+    raw, _, _ = build(tmp_path, [[row()], [row()]])
+    path = raw.parent / "receipt.json"
+    receipt = json.loads(path.read_text())
+    receipt["dataset"] = "moneyflow_ind_ths"
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(MoneyflowContractError, match="raw_source_proof"):
+        build_ths_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    assert not (raw.parent / "silver.parquet").exists()
+
+
+def test_industry_response_columns_rejected_before_page_persistence(tmp_path):
+    page = SimpleNamespace(columns=ths_board_fields("moneyflow_ind_ths"), rows=[row()])
+    with pytest.raises(MoneyflowContractError, match="source_schema"):
+        build(tmp_path, [page])
+    assert not list(tmp_path.rglob("page-*.json"))
+
+
+def test_physical_concept_schema_matches_independent_contract(tmp_path):
+    raw, _, _ = build(tmp_path, [[row()], [row()]])
+    silver = build_ths_board_moneyflow_silver_candidate(raw, DAY, dataset=DATASET)
+    expected = [
+        ("trade_date", "VARCHAR"),
+        ("ts_code", "VARCHAR"),
+        ("name", "VARCHAR"),
+        ("lead_stock", "VARCHAR"),
+        ("close_price", "DECIMAL(18,4)"),
+        ("pct_change", "DECIMAL(10,4)"),
+        ("industry_index", "DECIMAL(24,4)"),
+        ("company_num", "INTEGER"),
+        ("pct_change_stock", "DECIMAL(10,4)"),
+        ("net_buy_amount", "DECIMAL(24,4)"),
+        ("net_sell_amount", "DECIMAL(24,4)"),
+        ("net_amount", "DECIMAL(24,4)"),
+    ]
+    with moneyflow_candidate_connection(raw.parent) as c:
+        for path, date_type in ((raw, "VARCHAR"), (silver, "DATE")):
+            actual = c.execute(
+                "DESCRIBE SELECT * FROM read_parquet(?)", [str(path)]
+            ).fetchall()
+            assert [(r[0], r[1]) for r in actual] == [
+                ("trade_date", date_type),
+                *expected[1:],
+            ]

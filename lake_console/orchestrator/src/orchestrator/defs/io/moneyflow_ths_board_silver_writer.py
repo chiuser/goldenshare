@@ -1,13 +1,13 @@
-"""Date-only industry Silver conversion from proven stable Raw candidates."""
+"""Date-only independent THS board Silver conversion from proven stable Raw candidates."""
 
 import json
 from pathlib import Path
 from time import perf_counter
 
-from orchestrator.defs.checks.moneyflow_ind_ths import (
-    audit_industry_moneyflow_equality,
-    audit_industry_moneyflow_file,
-    audit_industry_moneyflow_standardization,
+from orchestrator.defs.checks.moneyflow_ths_board import (
+    audit_ths_board_moneyflow_equality,
+    audit_ths_board_moneyflow_file,
+    audit_ths_board_moneyflow_standardization,
 )
 from orchestrator.defs.io.moneyflow_candidates import (
     candidate_file_hash,
@@ -23,16 +23,20 @@ from orchestrator.defs.run_contracts.moneyflow import (
     market_moneyflow_day,
     moneyflow_peak_rss_bytes,
 )
+from orchestrator.defs.run_contracts.moneyflow_ths_board import ths_board_schema
 
 
-def build_industry_moneyflow_silver_candidate(raw: Path, trade_date: str) -> Path:
+def build_ths_board_moneyflow_silver_candidate(
+    raw: Path, trade_date: str, *, dataset: str
+) -> Path:
+    ths_board_schema(dataset)
     started = perf_counter()
     assert_moneyflow_memory_budget()
     market_moneyflow_day(trade_date)
     if not raw.is_absolute() or raw.name != "raw.parquet" or len(raw.parents) < 5:
         raise MoneyflowContractError("raw_candidate_path")
     expected = moneyflow_candidate_directory(
-        raw.parents[4], raw.parents[2].name, trade_date, dataset="moneyflow_ind_ths"
+        raw.parents[4], raw.parents[2].name, trade_date, dataset=dataset
     )
     if raw.parent != expected:
         raise MoneyflowContractError("raw_candidate_path")
@@ -41,7 +45,7 @@ def build_industry_moneyflow_silver_candidate(raw: Path, trade_date: str) -> Pat
     verification = directory / "verification.parquet"
     if (
         receipt.get("stage") != "raw_candidate_ready"
-        or receipt.get("dataset") != "moneyflow_ind_ths"
+        or receipt.get("dataset") != dataset
         or receipt.get("trade_date") != trade_date
         or receipt.get("source") != "tushare"
         or receipt.get("stability_gap_seconds", 0) < MONEYFLOW_STABILITY_SECONDS
@@ -59,21 +63,27 @@ def build_industry_moneyflow_silver_candidate(raw: Path, trade_date: str) -> Pat
     if elapsed_ms() >= MONEYFLOW_MAX_ELAPSED_SECONDS * 1000:
         raise MoneyflowContractError("request_budget_exceeded")
     with moneyflow_candidate_connection(directory) as connection:
-        count = audit_industry_moneyflow_file(connection, raw, trade_date)
+        count = audit_ths_board_moneyflow_file(
+            connection, raw, trade_date, dataset=dataset
+        )
         if (
             count != receipt.get("row_count")
-            or audit_industry_moneyflow_file(connection, verification, trade_date)
+            or audit_ths_board_moneyflow_file(
+                connection, verification, trade_date, dataset=dataset
+            )
             != count
         ):
             raise MoneyflowContractError("raw_source_count")
-        audit_industry_moneyflow_equality(connection, raw, verification)
+        audit_ths_board_moneyflow_equality(
+            connection, raw, verification, dataset=dataset
+        )
         connection.execute(
             "COPY (SELECT * REPLACE(strptime(trade_date,'%Y%m%d')::DATE AS trade_date) "
             "FROM read_parquet($source,hive_partitioning=false) ORDER BY trade_date,ts_code) TO $target (FORMAT PARQUET)",
             {"source": str(raw), "target": str(silver)},
         )
-        if audit_industry_moneyflow_standardization(
-            connection, raw, silver, trade_date
+        if audit_ths_board_moneyflow_standardization(
+            connection, raw, silver, trade_date, dataset=dataset
         ) != receipt.get("row_count"):
             raise MoneyflowContractError("raw_source_count")
     assert_moneyflow_memory_budget()

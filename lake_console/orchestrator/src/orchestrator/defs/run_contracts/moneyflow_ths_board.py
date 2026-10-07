@@ -1,13 +1,36 @@
-"""THS industry source columns and exact SQL numeric validation."""
+"""Independent THS board source columns and exact SQL numeric validation."""
 
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
+    SILVER_MONEYFLOW_CNT_THS_SCHEMA,
+    SILVER_MONEYFLOW_IND_THS_SCHEMA,
 )
+from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
 
-MONEYFLOW_IND_THS_FIELDS = tuple(c.name for c in RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA)
+
+def ths_board_schema(dataset: str, *, silver=False):
+    """Select a fixed source contract; never infer identity from page contents."""
+    if dataset == "moneyflow_ind_ths":
+        return (
+            SILVER_MONEYFLOW_IND_THS_SCHEMA
+            if silver
+            else RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA
+        )
+    if dataset == "moneyflow_cnt_ths":
+        return (
+            SILVER_MONEYFLOW_CNT_THS_SCHEMA
+            if silver
+            else RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA
+        )
+    raise MoneyflowContractError("ths_board_dataset")
 
 
-def industry_numeric_rejection_sql(name: str, target_type: str) -> str:
+def ths_board_fields(dataset: str):
+    return tuple(c.name for c in ths_board_schema(dataset))
+
+
+def ths_board_numeric_rejection_sql(name: str, target_type: str) -> str:
     """Validate lexical scale before CAST, which otherwise silently rounds."""
     value = f'"{name}"'
     kind = f'"{name}_json_type"'

@@ -1,4 +1,4 @@
-"""Stream two industry rounds through one bounded Tushare request session."""
+"""Stream two independent THS board rounds through one bounded Tushare request session."""
 
 from dataclasses import dataclass
 from time import perf_counter, sleep
@@ -15,12 +15,12 @@ from orchestrator.defs.run_contracts.moneyflow import (
     market_moneyflow_policy,
     moneyflow_peak_rss_bytes,
 )
-from orchestrator.defs.run_contracts.moneyflow_ind_ths import MONEYFLOW_IND_THS_FIELDS
+from orchestrator.defs.run_contracts.moneyflow_ths_board import ths_board_fields
 from orchestrator.defs.tushare_request_policy import BoundedCodePageRequestSession
 
 
 @dataclass(frozen=True)
-class IndustryMoneyflowCollection:
+class ThsBoardMoneyflowCollection:
     row_count: int
     request_count: int
     retry_count: int
@@ -29,9 +29,10 @@ class IndustryMoneyflowCollection:
     peak_rss_bytes: int
 
 
-def collect_industry_moneyflow(
+def collect_ths_board_moneyflow(
     *,
     tushare,
+    dataset: str,
     trade_date: str,
     consume_page,
     complete_round,
@@ -39,6 +40,7 @@ def collect_industry_moneyflow(
     sleep_fn=sleep,
     check_cancel=lambda: None,
 ):
+    fields = ths_board_fields(dataset)
     market_moneyflow_day(trade_date)
     session = BoundedCodePageRequestSession(
         policy=market_moneyflow_policy(), clock=clock, sleep_fn=sleep_fn
@@ -54,16 +56,16 @@ def collect_industry_moneyflow(
     def request(offset):
         guard(before_request=True)
         response = tushare.call(
-            "moneyflow_ind_ths",
+            dataset,
             {
                 "trade_date": trade_date.replace("-", ""),
                 "limit": MONEYFLOW_PAGE_SIZE,
                 "offset": offset,
             },
-            MONEYFLOW_IND_THS_FIELDS,
+            fields,
         )
         guard()
-        if tuple(response.columns) != MONEYFLOW_IND_THS_FIELDS:
+        if tuple(response.columns) != fields:
             raise MoneyflowContractError("source_schema")
         if len(response.rows) > MONEYFLOW_PAGE_SIZE:
             raise MoneyflowContractError("source_page_size")
@@ -94,7 +96,7 @@ def collect_industry_moneyflow(
             request_page=request,
             extract_rows=lambda r: r.rows,
             page_size=MONEYFLOW_PAGE_SIZE,
-            scope=f"moneyflow_ind_ths:{round_number}",
+            scope=f"{dataset}:{round_number}",
             consume_page=consume,
             retain_rows=False,
         )
@@ -113,7 +115,7 @@ def collect_industry_moneyflow(
             first_count = round_count[0]
         elif round_count[0] != first_count:
             raise MoneyflowContractError("source_unstable")
-    return IndustryMoneyflowCollection(
+    return ThsBoardMoneyflowCollection(
         first_count,
         session.request_count,
         session.retry_count,

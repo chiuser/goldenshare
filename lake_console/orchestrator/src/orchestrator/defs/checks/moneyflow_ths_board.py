@@ -1,28 +1,21 @@
-"""Physical industry contracts for candidates and future blocking checks."""
+"""Physical independent THS board contracts for candidates and future blocking checks."""
 
 from datetime import date
 from pathlib import Path
 
-from orchestrator.defs.run_contracts.asset_column_schemas import (
-    RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
-    SILVER_MONEYFLOW_IND_THS_SCHEMA,
-)
 from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_MAX_ROWS_PER_ROUND,
     MoneyflowContractError,
     market_moneyflow_day,
 )
+from orchestrator.defs.run_contracts.moneyflow_ths_board import ths_board_schema
 
 
-def audit_industry_moneyflow_file(
-    connection, path: Path, trade_date: str, *, silver=False
+def audit_ths_board_moneyflow_file(
+    connection, path: Path, trade_date: str, *, dataset: str, silver=False
 ) -> int:
     day = market_moneyflow_day(trade_date)
-    schema = (
-        SILVER_MONEYFLOW_IND_THS_SCHEMA
-        if silver
-        else RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA
-    )
+    schema = ths_board_schema(dataset, silver=silver)
     if not path.is_file():
         raise MoneyflowContractError("file_missing")
     try:
@@ -47,9 +40,17 @@ def audit_industry_moneyflow_file(
         raise MoneyflowContractError("file_unreadable") from error
 
 
-def audit_industry_moneyflow_equality(
-    connection, first: Path, second: Path, *, second_silver=False
+def audit_ths_board_moneyflow_equality(
+    connection, first: Path, second: Path, *, dataset: str, second_silver=False
 ) -> None:
+    for path, silver in ((first, False), (second, second_silver)):
+        schema = ths_board_schema(dataset, silver=silver)
+        actual = connection.execute(
+            "DESCRIBE SELECT * FROM read_parquet(?,hive_partitioning=false)",
+            [str(path)],
+        ).fetchall()
+        if [(r[0], r[1]) for r in actual] != [(c.name, c.type) for c in schema]:
+            raise MoneyflowContractError("file_schema")
     second_projection = (
         "* REPLACE(strftime(trade_date,'%Y%m%d') AS trade_date)"
         if second_silver
@@ -68,14 +69,18 @@ def audit_industry_moneyflow_equality(
         )
 
 
-def audit_industry_moneyflow_standardization(
-    connection, raw: Path, silver: Path, trade_date: str
+def audit_ths_board_moneyflow_standardization(
+    connection, raw: Path, silver: Path, trade_date: str, *, dataset: str
 ) -> int:
-    count = audit_industry_moneyflow_file(connection, raw, trade_date)
+    count = audit_ths_board_moneyflow_file(connection, raw, trade_date, dataset=dataset)
     if (
-        audit_industry_moneyflow_file(connection, silver, trade_date, silver=True)
+        audit_ths_board_moneyflow_file(
+            connection, silver, trade_date, silver=True, dataset=dataset
+        )
         != count
     ):
         raise MoneyflowContractError("standardization_count")
-    audit_industry_moneyflow_equality(connection, raw, silver, second_silver=True)
+    audit_ths_board_moneyflow_equality(
+        connection, raw, silver, second_silver=True, dataset=dataset
+    )
     return count
