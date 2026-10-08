@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-日期：2026-10-06；最近更新：2026-10-07。当前历史设计已按管理员决定改为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18为旧路线开发记录，旧历史代码已按日期路线迁移；当前代码和隔离验收见§20，§17～18不作为新路线证明。正式历史执行、P4/P5未执行。
+日期：2026-10-06；最近更新：2026-10-08。当前历史设计已按管理员决定改为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18为旧路线开发记录，旧历史代码已按日期路线迁移；当前代码和隔离验收见§20，真实Prod日期查询核验见§21，管理员确认后的Prod索引及复测完成证据见§22，§17～18不作为新路线证明。正式历史执行、P4/P5未执行。
 
 ## 1. 硬口径和影响面
 
@@ -756,4 +756,110 @@ CodeGraph使用`codegraph_explore`、`codegraph_impact`分析旧plan→schema、
 
 最终联合回归691项通过，其中新日期历史专项122项、既有七表/策略569项。受保护治理12项/474子测试及静态合同113项通过，Ruff默认改动检查/全src与tests致命规则及文档完整性检查通过。治理/静态由原保护启动器执行，工具提权仅用于当前环境不支持嵌套sandbox-exec，不扩大正式资源测试权限。真实进程退出分别返回37/38并由新进程成功续跑；接收中退出保留120秒预扣，正常完成初采后退出保留已记录实际耗时，不把它误当未完成步骤的预扣。
 
-本轮仅单dataset单日期unit候选能力。其12小时/32GiB限制作用于该dataset/cutoff操作目录，不可冒充七表合计边界已闭合；全量runner仍须统一累计SQL/连接/重试/时间/空间及日更互斥。正式提升promoting/complete、同文件系统/正式冲突/提升中取消恢复、外部分类冻结和真实Prod日期查询吞吐也尚未实现/验证。本轮不提供APPLY入口，不生成正式Lake或Dagster成功事实。下一步先补真实日期查询准入证据，再按§19/原方案§24逐项实现全量控制和批准范围内的正式样本；整个P3尚未完成。代码修改尚未提交。
+本轮仅单dataset单日期unit候选能力。其12小时/32GiB限制作用于该dataset/cutoff操作目录，不可冒充七表合计边界已闭合；全量runner仍须统一累计SQL/连接/重试/时间/空间及日更互斥。正式提升promoting/complete、同文件系统/正式冲突/提升中取消恢复、外部分类冻结和真实Prod日期查询吞吐也尚未实现/验证。本轮不提供APPLY入口，不生成正式Lake或Dagster成功事实。下一步先补真实日期查询准入证据，再按§19/原方案§24逐项实现全量控制和批准范围内的正式样本；整个P3尚未完成。本节代码随后已提交6f7c4ea9，当前只读核验及下一步见§21。
+
+
+## 21. Prod日期查询与内存接收实测（2026-10-08）
+
+### 21.1 范围、执行依据与边界
+
+管理员要求“提交修改，然后继续推进”。上一轮日期helper、测试和文档已提交`6f7c4ea9`；本轮只推进§19.6所列日期查询/接收准入，不执行正式写湖、索引DDL、DG登记或事件。沿用开发、数据湖接入、Dagster及Prod只读导出skills；CodeGraph explore读取history_export_sql/source/receive链，直接核验实现和消费者。没有业务代码、配置、合同或子系统依赖变化。
+
+连接固定为`bash scripts/psql-remote.sh --env-file <repo>/.env.web.local -f <受控SQL> -- -q -X -v ON_ERROR_STOP=1`；所有事务BEGIN READ ONLY/ROLLBACK，SQL超时120秒。七表共105个字段投影按当前schema白名单，精确日期集合从既有P0逐日计数选择，单日/近期批次/最大行数批次再加两个早期日期；单批年内≤20日/≤100000行，COPY保留LIMIT100001溢出探测。没有重新统计全历史，更未把目录reltuples估值当精确计数。
+
+先用小目录查询核验PostgreSQL16.13、七对象relkind=r、18个索引及批准字段类型，做23个EXPLAIN；日期集合相同的DC板块近期日/近期批次在实际读取时去重，得到22个样本。七个最大行数批次各多读一次，共29次COPY/116条COPY事务语句、806567行；目录/EXPLAIN、一次普通最大批次EXPLAIN ANALYZE及索引大小查询另占3个事务，总计32个。EXPLAIN ANALYZE只针对已冻结的18日/99839行样本，不为摸清规模扫描全表。
+
+### 21.2 实测、数据口径及证据
+
+采用现行PsqlMoneyflowHistorySource、history_candidate_connection和receive_history_rows；临时驱动只建立受限sink，64KiB接收/32MiB上限/512MB DuckDB/1线程/0spill/RSS768MiB。COPY在BytesIO完整接收后做严格词法、日期、主键、字段数值与归一化校验，释放内存，不调用候选writer。本轮不声称已实测每日文件生成、正式磁盘空间或提升。
+
+| 最大行数代表批次 | 日期数 | 源/归一化行数 | 单次接收MiB | 两次COPY秒 |
+| --- | --- | --- | --- | --- |
+| `moneyflow` | 18 | 99,839 | 15.02 | 12.109 / 14.766 |
+| `moneyflow_cnt_ths` | 20 | 7,890 | 0.82 | 0.837 / 1.111 |
+| `moneyflow_dc` | 17 | 99,888 | 12.83 | 7.621 / 6.882 |
+| `moneyflow_ind_dc` | 20 | 20,620 | 3.70 | 1.869 / 2.067 |
+| `moneyflow_ind_ths` | 20 | 1,800 | 0.18 | 0.706 / 0.556 |
+| `moneyflow_mkt_dc` | 20 | 20 | 0.00 | 0.430 / 0.428 |
+| `moneyflow_ths` | 19 | 99,070 | 11.42 | 6.674 / 6.816 |
+
+每次源=归一化行数，29次reject均0。七个双读批次source_sha256、逐日行数、历史分类均相同，仅证明各批两次观测稳定，不是全历史一致快照。近期单日2026-09-30分别为普通5572、DC个股6024、THS个股5215、DC板块1031、THS行业90、THS概念387、大盘1行，均与选定日期计数一致。THS 2024-12-19仍2行；DC板块2023-09-12为86行、scope只有行业；不能以当前三分类要求判旧历史缺失。
+
+22样本/29次完整读取与校验合计95.793秒，最大缓冲15753317字节（15.02MiB），进程峰值402.55MiB。全部通过硬预算；业务CSV、候选、正式文件、DuckDB spill为0。一次source侧EXPLAIN ANALYZE的PostgreSQL排序产生约18.6MiB临时读写，这是Prod数据库的排序空间，与DG DuckDB禁止spill是两件事。
+
+[本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_date_query_profile_20261008.json)集中保存完整registry、23个查询计划、真实目录、29次证明及耗时、一次ANALYZE、SQL及源码hash。临时控制文件在`/private/tmp/moneyflow-date-profiling-20261008`，无业务落盘；归属本P3任务，报告冻结并本地验真后删除一次性prepare/profile/freeze驱动，保留受控SQL和只读证明供下一轮复测。未新增常驻脚本或第二套执行入口。
+
+### 21.3 普通moneyflow的读取放大与准入判断
+
+其他六表都有valid/ready的trade_date前导索引，代表计划使用索引/位图读取。普通moneyflow仅有valid/ready的`pk_moneyflow(ts_code, trade_date)`；当前RawMoneyflow模型也只有该主键，没有日期前导Index。普通单日虽可使用主键第二列条件，但不能据此判定日期批次高效。
+
+最大批次日期为2026-08-19..09-11中的18个冻结交易日、99839行：并行Seq Scan→Sort→Gather Merge→Limit，数据库执行11.469109秒；Shared Read Blocks=399690、block_size=8192，共3274260480字节，等于目录记录的当前整张堆表约3.05GiB。三路扫描每路平均Rows Removed by Filter=4663154，表明绝大部分行被过滤；该平均值不能用来冒充精确全表行数。
+
+以既有P0普通217批、首次初采/独立复核434次为条件估算：若均重复同样整表计划，表扫描量约1.292TiB、仅数据库执行约82.96分钟；实际COPY代表批次为12.109/14.766秒。缓存命中、其他日期范围、网络和候选/提升开销均会改变总耗时；表扫描量不等于必然物理磁盘读取量。当前没有触及120秒/12小时拒绝线，问题是Prod反复扫表的负载，而非内存接收失败。
+
+因此：日期读取/内存接收代表样本通过；六表具备后续实现依据；普通moneyflow全量负载先决定索引优化或明确接受当前扫描成本。不能自行回退代码路线、缩成大量单日请求掩盖放大、改变索引或宣称全P3通过。七表计数/真实历史分类再冻结、统一12小时/32GiB/SQL/连接/重试预算、唯一writer、原子提升/冲突/取消恢复和完整链性能仍待开发/验收。
+
+### 21.4 日期前导索引原提案（历史记录；后续获准实施见§22）
+
+建议只给`raw_tushare.moneyflow`新增非唯一B-tree，保持现有主键和所有业务字段语义：
+
+```sql
+CREATE INDEX CONCURRENTLY idx_raw_tushare_moneyflow_trade_date_ts_code
+ON raw_tushare.moneyflow (trade_date, ts_code);
+```
+
+trade_date放首列用于日期筛选，ts_code对应同日稳定排序；不加入宽金额列，不重建表、不改主键、不增加DG配置。实施范围应为RawMoneyflow的Index声明与接真实Alembic head的新迁移，先审计所有实际消费者和迁移执行入口，不凭日期/文件名猜head。迁移开发获确认后进行，Prod执行仍需精确操作和单独授权，不能借本轮“继续推进”直接执行DDL。
+
+PostgreSQL并发建索引避免普通写入被建索引锁阻塞，但需要两遍扫描，会增加CPU/IO并等待相关事务；不能置于普通事务块内，失败可能遗留invalid索引。[PostgreSQL16官方CREATE INDEX文档](https://www.postgresql.org/docs/16/sql-createindex.html)。执行前必须核验真实可用空间、长事务、已有同名索引及当前负载，并确认迁移入口支持事务外并发语句。现有同字段主键468402176字节（446.70MiB）仅作新索引量级参考，不是新增索引/构建临时空间承诺；不能照此数字断言磁盘足够。
+
+建后先只读核验valid/ready/definition，再对本报告相同最大/近期批次重做EXPLAIN和有界COPY，比较扫描块、耗时、行数及两次业务证明；索引存在本身不算性能验收。优化效果现在尚无实证。若取消、失败或invalid，停止并保存现场，不自动DROP/REINDEX/重试。若决定暂不加索引，应在原方案明确接受普通434次整表读取的条件成本，再推进累计执行预算；两个选择都保持批准的日期路线。
+
+本轮只读验收记录及原文档更新尚未提交。源码/测试八项hash与6f7c4ea9的691项隔离验收证据一致；本轮没有源码改动，因此未重复跑该套件。文档/JSON核验结果以本轮最终交付为准。P3全量和正式样本、P4/P5均未完成。
+
+## 22. 获准的普通moneyflow日期索引实施（2026-10-08）
+
+### 22.1 授权、影响面及执行前准入
+
+管理员对§21.4补索引方案回复“确认。做吧”，本轮据此开发并执行该单项索引，不扩大到正式Lake、DG状态或业务同步。目标为`raw_tushare.moneyflow`新增非唯一`(trade_date, ts_code)`索引；现有`(ts_code, trade_date)`主键、字段类型、单位、时间模型、请求及发布路径不变。仅物理访问路径调整，不新增数据集、不修改DatasetDefinition/DatasetExecutionPlan；不引入BIYING处理或跨系统依赖。
+
+CodeGraph explore覆盖RawMoneyflow/历史SQL/source和消费者，但存在同名符号噪声；直接核验模型注册、DAOFactory→GenericDAO→BaseDAO.bulk_upsert、DatasetWriter的raw_std_publish_moneyflow分支和MoneyflowReconcileService日期查询。DAO冲突键从原主键取值，索引不参与幂等；前端/API消费serving字段而非此索引，不需迁移合同。八个DG历史源码/测试hash与前轮验收版本不变；本轮正式执行只使用现行psql入口，不改部署脚本/通用Alembic env。
+
+本地`alembic heads`与Prod `public.alembic_version`均为20261002_000183；新迁移`20261008_000184_add_moneyflow_date_index.py`的down_revision接该真实head。Prod PostgreSQL16.13，堆表3274260480字节、原主键468402176字节；`pg_lsclusters`只读确认16/main路径`/var/lib/postgresql/16/main`，同文件系统空闲53761024KiB（约51.27GiB）。预检没有>60秒事务、prepared transaction、目标表锁等待或并发建索引。初次读data_directory被数据库角色权限拒绝，事务退出后删去该受限参数并改用SSH只读目录/磁盘核验；未改权限、连接地址或配置。
+
+| 本轮范围/资源 | 约束及拒绝条件 |
+| --- | --- |
+| 对象/写入 | 1张表、1个新索引、1条CREATE INDEX；仅完成后更新本次Alembic版本，不改业务行/主键、不执行旧迁移或安装部署 |
+| 规模/空间 | 现有P0约1400万行仅作量级参考，不新增全表COUNT；并发索引约两遍表扫描，已有索引约447MiB作参考，实际构建空间另测；一次操作磁盘准入≥8GiB，不承诺最终索引固定大小 |
+| 时间/锁 | CREATE所在会话statement_timeout=15min、lock_timeout=15s；非DDL核验120秒；源码固定迁移会话SET/RESET，无env/Settings/数据库持久配置或运营输入 |
+| 事务/恢复 | Alembic autocommit_block让CREATE在事务外执行；成功索引独立持久化，版本最后提交，不声称二者原子。前后检查完整定义、valid/ready/live、非唯一/非主键；只接受已完整且完全一致的索引续跑 |
+| 失败/取消 | 任何失败/超时/invalid/定义不符停止，保留真实索引状态和报告；不自动DROP/REINDEX/重试、不标迁移完成。客户端中断后只读核验实际状态，再决定是否可安全续跑 |
+| 执行入口 | 本地只生成真实单revision离线SQL，经原psql-remote.sh一次执行；首尾保护检查实际版本，不能stamp或应用无关迁移；不执行部署、pull或服务重启 |
+| 进度 | 自有psql应用名标记；长建索引每≤30秒只读pg_stat_progress_create_index，最多90次，展示真实phase/blocks/tuples及耗时；未有准确分母时不虚构百分比/ETA |
+| 复测 | 同一最大/近期批次和2026-09-30单日，分别最多100000行/20日；双读source hash/日期计数/严格字段校验；同批EXPLAIN ANALYZE对比扫描量；不写CSV、候选或正式Lake |
+
+模型增加Index声明；迁移采用并发CREATE IF NOT EXISTS前后严格核验，拒绝错误/未完成同名索引，不能只凭IF NOT EXISTS判完成。自动downgrade拒绝删除本次获准索引，后续移除需独立审查。采用[Alembic事务外区段](https://alembic.sqlalchemy.org/en/latest/api/runtime.html#alembic.runtime.migration.MigrationContext.autocommit_block)；本轮只执行单revision，不改全库事务制度。
+
+执行前35项最小回归通过：3项新测试验证并发SQL事务边界/严格校验、原DAO真实ON CONFLICT键保持和禁止自动删除，另32项覆盖现有迁移/锁等待、归一化、reconcile和writer。Ruff通过，单revision离线SQL仅一个索引CREATE和对应版本UPDATE。Prod实施及建后性能结果待下节真实回填，不预填通过。
+
+
+### 22.2 Prod实施、物理读回及相同批次复测
+
+通过现行psql入口一次执行本地Alembic生成的精确183→184离线SQL，首尾版本保护检查防止错版本或无关迁移；并发CREATE在事务外，valid/ready/完整定义通过后才提交对应版本UPDATE 1。2026-10-08 10:29:52.940至10:30:16.309（上海时区），整个受控执行23.370秒，exit0、stderr为空，没有重试、DROP、REINDEX、stamp、部署或服务重启。首个进度查询时构建已结束，未以空进度记录冒充阶段百分比。
+
+独立只读读回：`public.alembic_version=20261008_000184`；新索引valid=true/ready=true、nonunique，定义与迁移完全一致，444432384字节（423.84MiB）；原主键仍为(ts_code, trade_date)，大小468402176字节不变。源盘剩余53289316KiB（约50.82GiB），未触发8GiB准入线。目录/索引DDL只改变访问结构，业务行不更新；迁移版本表的对应版本更新不混称业务数据写入。
+
+三组SQL/日期/字段/行数与§21完全相同，每组独立读两遍：最大18日99839行、近期12日66697行、2026-09-30单日5572行，6次COPY/344216行。源=归一化行数、reject0，六次source_sha256和逐日计数均与建索引前相等，两遍各自稳定。历史截止日仍2026-09-30，不导入未来日期、不产生CSV或候选；数据接收/严格校验共33.815秒，峰值392.55MiB，预算未放宽。
+
+| 相同普通moneyflow样本 | 单次行数 | 建前COPY秒 | 建后两次COPY秒 |
+| --- | --- | --- | --- |
+| `max_batch` | 99,839 | 12.109 / 14.766 | 7.638 / 7.716 |
+| `recent_batch` | 66,697 | 6.794 | 5.082 / 5.030 |
+| `recent_day` | 5,572 | 2.288 | 0.669 / 0.703 |
+
+三组EXPLAIN均为Limit→新日期索引Index Scan，不再走整表扫描/排序。最大批次实际99839行，数据库执行从11469.109ms降至129.153ms；Shared Read Blocks从399690降至2871（8KiB块），Shared Hit Blocks从92变为71620，source排序临时读写从2375/2381块变为0/0。新索引扫描会多次命中已有缓冲块，不把读块×8KiB或缓存命中总量冒充唯一数据量/真实磁盘IO。两个测量时刻的缓存和网络并未控制，不能保证全历史也有同样倍数提速；完整COPY仍包含字段文本序列化、连接及传输，本次最大批次实测约7.7秒，应据此而非0.129秒估计实际读取阶段。
+
+普通moneyflow代表查询的访问结构和接收准入已通过，原§21.3缺索引问题关闭，不再需要管理员接受434次整表扫读。§21旧1.29TiB/83分钟条件估算只作为优化前证据，不能用于新全量预测。七表P3-A来源计数/真实分类整批冻结、累计SQL/连接/重试/12小时/32GiB/唯一writer、候选/提升全链P3-D性能和正式样本仍未完成；这次索引验收不提前关闭P3。
+
+[本轮索引及复测结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json)保存权限错误及修正、预检/磁盘、实际执行SQL/log/hash、迁移版本/有效索引、三组计划、6次来源证明和代码hash，不含凭据或业务行。三个源码/迁移/测试文件与原方案/本LLD、前轮只读报告和新报告待提交；Prod已应用184，下一次源码发布必须包含该迁移，不能以stamp或无关升级掩盖源码未发布状态。此操作不需重启现有API/DG服务，未把模型源码发布冒称完成。最小回归35项、Ruff、CodeGraph sync/status均通过；全历史691项未重复执行，历史helper没有变化。
+
+临时retest/freeze驱动在证据冻结后删除；受控SQL、目录/执行/复测证明保留在本任务`/private/tmp/moneyflow-date-index-20261008`，无常驻入口、业务CSV、Lake或DG状态写入。

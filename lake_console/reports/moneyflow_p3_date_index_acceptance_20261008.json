@@ -1,0 +1,1178 @@
+{
+  "phase": "Approved Prod moneyflow date-leading index implementation and same-date acceptance; not P3 closeout",
+  "date": "2026-10-08",
+  "authority": "User confirmed the index recommendation with 确认。做吧。; original LLD 21.4 and execution contract 22.1",
+  "target": "goldenshare.raw_tushare.moneyflow",
+  "index": {
+    "kind": "index",
+    "name": "idx_raw_tushare_moneyflow_trade_date_ts_code",
+    "definition": "CREATE INDEX idx_raw_tushare_moneyflow_trade_date_ts_code ON raw_tushare.moneyflow USING btree (trade_date, ts_code)",
+    "valid": true,
+    "ready": true,
+    "bytes": 444432384,
+    "unique": false,
+    "primary": false
+  },
+  "migration_before": "20261002_000183",
+  "migration_after": "20261008_000184",
+  "source_sha256": {
+    "src/foundation/models/raw/raw_moneyflow.py": "0bcfd1664ae8849fd832501db92a8614068d0e8cb3919c2917fb94a9f84d5737",
+    "alembic/versions/20261008_000184_add_moneyflow_date_index.py": "1b0f5a4e454d38aebfaf1c5c26a55ee65b60bfeacbbe95d889057e084d494712",
+    "tests/test_moneyflow_date_index_migration.py": "a6811b7275540aead95d070fcede2a3086bba0da2821633df9c989c9d300d235"
+  },
+  "baseline_report": {
+    "path": "lake_console/reports/moneyflow_p3_date_query_profile_20261008.json",
+    "sha256": "71e63247688f11dfb32210bd406c6a955996993b61ce4c52bd5a23b7f8d20d1b"
+  },
+  "database_schema_write": true,
+  "alembic_version_write": true,
+  "business_db_write": false,
+  "formal_lake_write": false,
+  "dagster_runtime_access": false,
+  "dependency_install": false,
+  "deployment_or_restart": false,
+  "git_commit_or_push_this_index_stage": false,
+  "preapply": [
+    {
+      "kind": "identity",
+      "database": "goldenshare",
+      "readonly": "on",
+      "version": "16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)",
+      "block_size": "8192"
+    },
+    {
+      "kind": "migration",
+      "version": "20261002_000183"
+    },
+    {
+      "kind": "relation",
+      "schema": "raw_tushare",
+      "table": "moneyflow",
+      "heap_bytes": 3274260480,
+      "total_bytes": 3743498240,
+      "tablespace": "0",
+      "tablespace_location": ""
+    },
+    {
+      "kind": "index",
+      "name": "pk_moneyflow",
+      "definition": "CREATE UNIQUE INDEX pk_moneyflow ON raw_tushare.moneyflow USING btree (ts_code, trade_date)",
+      "valid": true,
+      "ready": true,
+      "bytes": 468402176,
+      "unique": true,
+      "primary": true
+    },
+    {
+      "kind": "transactions",
+      "open_over_60s": 0,
+      "oldest_seconds": 0,
+      "active": 0,
+      "idle_in_transaction": 0
+    },
+    {
+      "kind": "prepared_transactions",
+      "count": 0
+    },
+    {
+      "kind": "temp_tablespaces",
+      "value": ""
+    },
+    {
+      "kind": "ownership",
+      "can_manage_table": true
+    }
+  ],
+  "postapply": [
+    {
+      "kind": "identity",
+      "database": "goldenshare",
+      "readonly": "on",
+      "version": "16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)",
+      "block_size": "8192"
+    },
+    {
+      "kind": "migration",
+      "version": "20261008_000184"
+    },
+    {
+      "kind": "relation",
+      "schema": "raw_tushare",
+      "table": "moneyflow",
+      "heap_bytes": 3274260480,
+      "total_bytes": 4187930624,
+      "tablespace": "0",
+      "tablespace_location": ""
+    },
+    {
+      "kind": "index",
+      "name": "idx_raw_tushare_moneyflow_trade_date_ts_code",
+      "definition": "CREATE INDEX idx_raw_tushare_moneyflow_trade_date_ts_code ON raw_tushare.moneyflow USING btree (trade_date, ts_code)",
+      "valid": true,
+      "ready": true,
+      "bytes": 444432384,
+      "unique": false,
+      "primary": false
+    },
+    {
+      "kind": "index",
+      "name": "pk_moneyflow",
+      "definition": "CREATE UNIQUE INDEX pk_moneyflow ON raw_tushare.moneyflow USING btree (ts_code, trade_date)",
+      "valid": true,
+      "ready": true,
+      "bytes": 468402176,
+      "unique": true,
+      "primary": true
+    },
+    {
+      "kind": "transactions",
+      "open_over_60s": 0,
+      "oldest_seconds": 0,
+      "active": 0,
+      "idle_in_transaction": 0
+    },
+    {
+      "kind": "prepared_transactions",
+      "count": 0
+    },
+    {
+      "kind": "temp_tablespaces",
+      "value": ""
+    },
+    {
+      "kind": "ownership",
+      "can_manage_table": true
+    }
+  ],
+  "permission_boundary": {
+    "first_preflight": "permission denied to examine data_directory; failed readonly transaction exited",
+    "resolution": "Removed restricted server setting query; used approved SSH pg_lsclusters and df readonly commands. No role, endpoint or persistent configuration change."
+  },
+  "source_disk_before": "16 main 5432 online postgres /var/lib/postgresql/16/main /var/log/postgresql/postgresql-16-main.log\nFilesystem     1024-blocks      Used Available Capacity Mounted on\n/dev/vda2        278545336 213339296  53761024      80% /\n",
+  "source_disk_after": "Filesystem     1024-blocks      Used Available Capacity Mounted on\n/dev/vda2        278545336 213811004  53289316      81% /\n",
+  "budgets": {
+    "source_free_admission_bytes": 8589934592,
+    "create_timeout_seconds": 900,
+    "lock_timeout_seconds": 15,
+    "readonly_timeout_seconds": 120,
+    "auto_ddl_retries": 0,
+    "business_buffer_bytes": 33554432,
+    "duckdb_memory_limit": "512MB",
+    "duckdb_threads": 1,
+    "duckdb_spill_bytes": 0,
+    "rss_limit_mib": 768
+  },
+  "apply": {
+    "attempts": 1,
+    "exit_code": 0,
+    "seconds": 23.369652,
+    "log": "SET\nSET\nSET\nBEGIN\nDO\nROLLBACK\n{\"kind\" : \"apply_started\", \"pid\" : 3378552, \"at\" : \"2026-10-08T10:29:52.939788+08:00\"}\nBEGIN\nCOMMIT\nSET\nSET\nDO\nCREATE INDEX\nDO\nRESET\nRESET\nBEGIN\nSET\nSET\nDO\nUPDATE 1\nDO\nCOMMIT\n{\"kind\" : \"apply_complete\", \"at\" : \"2026-10-08T10:30:16.30944+08:00\"}\n",
+    "error_log": "",
+    "concurrent_ddl_count": 1,
+    "version_rows_updated": 1,
+    "progress_observations": [],
+    "progress_note": "The <30-second index build completed before the first progress query; no active builder remained.",
+    "no_automatic_drop_reindex_retry": true,
+    "revision_update_after_valid_index": true
+  },
+  "controlled_sql": {
+    "preflight-settings-denied.sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nSELECT json_build_object('kind','identity','database',current_database(),'readonly',current_setting('transaction_read_only'),'version',current_setting('server_version'),'data_directory',current_setting('data_directory'),'block_size',current_setting('block_size'))::text;\nSELECT json_build_object('kind','migration','version',version_num)::text FROM public.alembic_version ORDER BY version_num LIMIT 5;\nSELECT json_build_object('kind','relation','schema',n.nspname,'table',c.relname,'heap_bytes',pg_relation_size(c.oid),'total_bytes',pg_total_relation_size(c.oid),'tablespace',c.reltablespace,'tablespace_location',CASE WHEN c.reltablespace=0 THEN '' ELSE pg_tablespace_location(c.reltablespace) END)::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow';\nSELECT json_build_object('kind','index','name',i.relname,'definition',pg_get_indexdef(i.oid),'valid',x.indisvalid,'ready',x.indisready,'bytes',pg_relation_size(i.oid),'unique',x.indisunique,'primary',x.indisprimary)::text FROM pg_index x JOIN pg_class c ON c.oid=x.indrelid JOIN pg_class i ON i.oid=x.indexrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow' ORDER BY i.relname;\nSELECT json_build_object('kind','transactions','open_over_60s',count(*) FILTER(WHERE xact_start<clock_timestamp()-interval '60 seconds'),'oldest_seconds',coalesce(max(extract(epoch FROM clock_timestamp()-xact_start)),0),'active',count(*) FILTER(WHERE state='active'),'idle_in_transaction',count(*) FILTER(WHERE state LIKE 'idle in transaction%'))::text FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND xact_start IS NOT NULL;\nSELECT json_build_object('kind','prepared_transactions','count',count(*))::text FROM pg_prepared_xacts WHERE database=current_database();\nSELECT json_build_object('kind','table_locks','mode',mode,'granted',granted,'count',count(*))::text FROM pg_locks WHERE relation='raw_tushare.moneyflow'::regclass GROUP BY mode,granted ORDER BY mode,granted;\nSELECT json_build_object('kind','concurrent_builds','pid',pid,'table',relid::regclass::text,'phase',phase,'blocks_done',blocks_done,'blocks_total',blocks_total)::text FROM pg_stat_progress_create_index WHERE datname=current_database() LIMIT 10;\nSELECT json_build_object('kind','temp_tablespaces','value',current_setting('temp_tablespaces'))::text;\nROLLBACK;\n",
+    "preflight.sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nSELECT json_build_object('kind','identity','database',current_database(),'readonly',current_setting('transaction_read_only'),'version',current_setting('server_version'),'block_size',current_setting('block_size'))::text;\nSELECT json_build_object('kind','migration','version',version_num)::text FROM public.alembic_version ORDER BY version_num LIMIT 5;\nSELECT json_build_object('kind','relation','schema',n.nspname,'table',c.relname,'heap_bytes',pg_relation_size(c.oid),'total_bytes',pg_total_relation_size(c.oid),'tablespace',c.reltablespace,'tablespace_location',CASE WHEN c.reltablespace=0 THEN '' ELSE pg_tablespace_location(c.reltablespace) END)::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow';\nSELECT json_build_object('kind','index','name',i.relname,'definition',pg_get_indexdef(i.oid),'valid',x.indisvalid,'ready',x.indisready,'bytes',pg_relation_size(i.oid),'unique',x.indisunique,'primary',x.indisprimary)::text FROM pg_index x JOIN pg_class c ON c.oid=x.indrelid JOIN pg_class i ON i.oid=x.indexrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow' ORDER BY i.relname;\nSELECT json_build_object('kind','transactions','open_over_60s',count(*) FILTER(WHERE xact_start<clock_timestamp()-interval '60 seconds'),'oldest_seconds',coalesce(max(extract(epoch FROM clock_timestamp()-xact_start)),0),'active',count(*) FILTER(WHERE state='active'),'idle_in_transaction',count(*) FILTER(WHERE state LIKE 'idle in transaction%'))::text FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND xact_start IS NOT NULL;\nSELECT json_build_object('kind','prepared_transactions','count',count(*))::text FROM pg_prepared_xacts WHERE database=current_database();\nSELECT json_build_object('kind','table_locks','mode',mode,'granted',granted,'count',count(*))::text FROM pg_locks WHERE relation='raw_tushare.moneyflow'::regclass GROUP BY mode,granted ORDER BY mode,granted;\nSELECT json_build_object('kind','concurrent_builds','pid',pid,'table',relid::regclass::text,'phase',phase,'blocks_done',blocks_done,'blocks_total',blocks_total)::text FROM pg_stat_progress_create_index WHERE datname=current_database() LIMIT 10;\nSELECT json_build_object('kind','temp_tablespaces','value',current_setting('temp_tablespaces'))::text;\nROLLBACK;\n",
+    "preapply.sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nSELECT json_build_object('kind','identity','database',current_database(),'readonly',current_setting('transaction_read_only'),'version',current_setting('server_version'),'block_size',current_setting('block_size'))::text;\nSELECT json_build_object('kind','migration','version',version_num)::text FROM public.alembic_version ORDER BY version_num LIMIT 5;\nSELECT json_build_object('kind','relation','schema',n.nspname,'table',c.relname,'heap_bytes',pg_relation_size(c.oid),'total_bytes',pg_total_relation_size(c.oid),'tablespace',c.reltablespace,'tablespace_location',CASE WHEN c.reltablespace=0 THEN '' ELSE pg_tablespace_location(c.reltablespace) END)::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow';\nSELECT json_build_object('kind','index','name',i.relname,'definition',pg_get_indexdef(i.oid),'valid',x.indisvalid,'ready',x.indisready,'bytes',pg_relation_size(i.oid),'unique',x.indisunique,'primary',x.indisprimary)::text FROM pg_index x JOIN pg_class c ON c.oid=x.indrelid JOIN pg_class i ON i.oid=x.indexrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow' ORDER BY i.relname;\nSELECT json_build_object('kind','transactions','open_over_60s',count(*) FILTER(WHERE xact_start<clock_timestamp()-interval '60 seconds'),'oldest_seconds',coalesce(max(extract(epoch FROM clock_timestamp()-xact_start)),0),'active',count(*) FILTER(WHERE state='active'),'idle_in_transaction',count(*) FILTER(WHERE state LIKE 'idle in transaction%'))::text FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND xact_start IS NOT NULL;\nSELECT json_build_object('kind','prepared_transactions','count',count(*))::text FROM pg_prepared_xacts WHERE database=current_database();\nSELECT json_build_object('kind','table_locks','mode',mode,'granted',granted,'count',count(*))::text FROM pg_locks WHERE relation='raw_tushare.moneyflow'::regclass GROUP BY mode,granted ORDER BY mode,granted;\nSELECT json_build_object('kind','concurrent_builds','pid',pid,'table',relid::regclass::text,'phase',phase,'blocks_done',blocks_done,'blocks_total',blocks_total)::text FROM pg_stat_progress_create_index WHERE datname=current_database() LIMIT 10;\nSELECT json_build_object('kind','temp_tablespaces','value',current_setting('temp_tablespaces'))::text;\nSELECT json_build_object('kind','ownership','can_manage_table',pg_has_role(c.relowner,'USAGE'))::text FROM pg_class c WHERE c.oid='raw_tushare.moneyflow'::regclass;\nROLLBACK;\n",
+    "migration.sql": "BEGIN;\n\n-- Running upgrade 20261002_000183 -> 20261008_000184\n\nCOMMIT;\n\nSET lock_timeout = '15s';\n\nSET statement_timeout = '15min';\n\nDO $$ BEGIN\n            IF to_regclass('raw_tushare.idx_raw_tushare_moneyflow_trade_date_ts_code') IS NULL THEN\n                RETURN;\n            END IF;\n            IF NOT EXISTS (\n                SELECT 1 FROM pg_index i\n                WHERE i.indexrelid = to_regclass('raw_tushare.idx_raw_tushare_moneyflow_trade_date_ts_code')\n                  AND i.indrelid = 'raw_tushare.moneyflow'::regclass\n                  AND i.indisvalid AND i.indisready AND i.indislive\n                  AND NOT i.indisunique AND NOT i.indisprimary\n                  AND pg_get_indexdef(i.indexrelid) = 'CREATE INDEX idx_raw_tushare_moneyflow_trade_date_ts_code ON raw_tushare.moneyflow USING btree (trade_date, ts_code)'\n            ) THEN\n                RAISE EXCEPTION 'moneyflow date index invalid or mismatched; stop for inspection';\n            END IF;\n        END $$;\n\nCREATE INDEX CONCURRENTLY IF NOT EXISTS idx_raw_tushare_moneyflow_trade_date_ts_code ON raw_tushare.moneyflow (trade_date, ts_code);\n\nDO $$ BEGIN\n            IF to_regclass('raw_tushare.idx_raw_tushare_moneyflow_trade_date_ts_code') IS NULL THEN\n                RAISE EXCEPTION 'moneyflow date index missing';\n            END IF;\n            IF NOT EXISTS (\n                SELECT 1 FROM pg_index i\n                WHERE i.indexrelid = to_regclass('raw_tushare.idx_raw_tushare_moneyflow_trade_date_ts_code')\n                  AND i.indrelid = 'raw_tushare.moneyflow'::regclass\n                  AND i.indisvalid AND i.indisready AND i.indislive\n                  AND NOT i.indisunique AND NOT i.indisprimary\n                  AND pg_get_indexdef(i.indexrelid) = 'CREATE INDEX idx_raw_tushare_moneyflow_trade_date_ts_code ON raw_tushare.moneyflow USING btree (trade_date, ts_code)'\n            ) THEN\n                RAISE EXCEPTION 'moneyflow date index invalid or mismatched; stop for inspection';\n            END IF;\n        END $$;\n\nRESET statement_timeout;\n\nRESET lock_timeout;\n\nBEGIN;\n\nUPDATE alembic_version SET version_num='20261008_000184' WHERE alembic_version.version_num = '20261002_000183';\n\nCOMMIT;\n\n",
+    "apply.sql": "SET application_name = 'moneyflow-date-index-20261008';\nSET search_path = public;\nSET statement_timeout = '120s';\nBEGIN READ ONLY;\nDO $$ BEGIN\n IF (SELECT count(*) FROM public.alembic_version) <> 1\n    OR (SELECT min(version_num) FROM public.alembic_version) <> '20261002_000183' THEN\n  RAISE EXCEPTION 'moneyflow index apply expects exactly revision 20261002_000183';\n END IF;\nEND $$;\nROLLBACK;\nSELECT json_build_object('kind','apply_started','pid',pg_backend_pid(),'at',clock_timestamp())::text;\nBEGIN;\n\n-- Running upgrade 20261002_000183 -> 20261008_000184\n\nCOMMIT;\n\nSET lock_timeout = '15s';\n\nSET statement_timeout = '15min';\n\nDO $$ BEGIN\n            IF to_regclass('raw_tushare.idx_raw_tushare_moneyflow_trade_date_ts_code') IS NULL THEN\n                RETURN;\n            END IF;\n            IF NOT EXISTS (\n                SELECT 1 FROM pg_index i\n                WHERE i.indexrelid = to_regclass('raw_tushare.idx_raw_tushare_moneyflow_trade_date_ts_code')\n                  AND i.indrelid = 'raw_tushare.moneyflow'::regclass\n                  AND i.indisvalid AND i.indisready AND i.indislive\n                  AND NOT i.indisunique AND NOT i.indisprimary\n                  AND pg_get_indexdef(i.indexrelid) = 'CREATE INDEX idx_raw_tushare_moneyflow_trade_date_ts_code ON raw_tushare.moneyflow USING btree (trade_date, ts_code)'\n            ) THEN\n                RAISE EXCEPTION 'moneyflow date index invalid or mismatched; stop for inspection';\n            END IF;\n        END $$;\n\nCREATE INDEX CONCURRENTLY IF NOT EXISTS idx_raw_tushare_moneyflow_trade_date_ts_code ON raw_tushare.moneyflow (trade_date, ts_code);\n\nDO $$ BEGIN\n            IF to_regclass('raw_tushare.idx_raw_tushare_moneyflow_trade_date_ts_code') IS NULL THEN\n                RAISE EXCEPTION 'moneyflow date index missing';\n            END IF;\n            IF NOT EXISTS (\n                SELECT 1 FROM pg_index i\n                WHERE i.indexrelid = to_regclass('raw_tushare.idx_raw_tushare_moneyflow_trade_date_ts_code')\n                  AND i.indrelid = 'raw_tushare.moneyflow'::regclass\n                  AND i.indisvalid AND i.indisready AND i.indislive\n                  AND NOT i.indisunique AND NOT i.indisprimary\n                  AND pg_get_indexdef(i.indexrelid) = 'CREATE INDEX idx_raw_tushare_moneyflow_trade_date_ts_code ON raw_tushare.moneyflow USING btree (trade_date, ts_code)'\n            ) THEN\n                RAISE EXCEPTION 'moneyflow date index invalid or mismatched; stop for inspection';\n            END IF;\n        END $$;\n\nRESET statement_timeout;\n\nRESET lock_timeout;\n\nBEGIN;\nSET LOCAL lock_timeout = '15s';\nSET LOCAL statement_timeout = '120s';\nDO $$ BEGIN\n IF (SELECT count(*) FROM public.alembic_version) <> 1\n    OR (SELECT min(version_num) FROM public.alembic_version) <> '20261002_000183' THEN\n  RAISE EXCEPTION 'moneyflow index apply expects exactly revision 20261002_000183';\n END IF;\nEND $$;\n\nUPDATE alembic_version SET version_num='20261008_000184' WHERE alembic_version.version_num = '20261002_000183';\nDO $$ BEGIN\n IF (SELECT count(*) FROM public.alembic_version) <> 1\n    OR (SELECT min(version_num) FROM public.alembic_version) <> '20261008_000184' THEN\n  RAISE EXCEPTION 'moneyflow index version update did not complete';\n END IF;\nEND $$;\n\nCOMMIT;\n\nSELECT json_build_object('kind','apply_complete','at',clock_timestamp())::text;\n",
+    "progress.sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '10s';\nSELECT json_build_object('kind','progress','at',clock_timestamp(),'phase',p.phase,'blocks_done',p.blocks_done,'blocks_total',p.blocks_total,'tuples_done',p.tuples_done,'tuples_total',p.tuples_total,'elapsed_seconds',extract(epoch from clock_timestamp()-a.query_start),'wait_event_type',a.wait_event_type,'wait_event',a.wait_event)::text FROM pg_stat_progress_create_index p JOIN pg_stat_activity a USING(pid) WHERE a.application_name='moneyflow-date-index-20261008' AND p.relid='raw_tushare.moneyflow'::regclass;\nROLLBACK;\n",
+    "retest-explain.sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nSELECT json_build_object('kind','explain_header','key','moneyflow_max_batch')::text;\nEXPLAIN (FORMAT JSON) SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-08-19',DATE '2026-08-20',DATE '2026-08-21',DATE '2026-08-24',DATE '2026-08-25',DATE '2026-08-26',DATE '2026-08-27',DATE '2026-08-28',DATE '2026-08-31',DATE '2026-09-01',DATE '2026-09-02',DATE '2026-09-03',DATE '2026-09-04',DATE '2026-09-07',DATE '2026-09-08',DATE '2026-09-09',DATE '2026-09-10',DATE '2026-09-11') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001;\nSELECT json_build_object('kind','explain_header','key','moneyflow_recent_batch')::text;\nEXPLAIN (FORMAT JSON) SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-09-14',DATE '2026-09-15',DATE '2026-09-16',DATE '2026-09-17',DATE '2026-09-18',DATE '2026-09-21',DATE '2026-09-22',DATE '2026-09-23',DATE '2026-09-24',DATE '2026-09-28',DATE '2026-09-29',DATE '2026-09-30') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001;\nSELECT json_build_object('kind','explain_header','key','moneyflow_recent_day')::text;\nEXPLAIN (FORMAT JSON) SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-09-30') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001;\nSELECT json_build_object('kind','analyze_header','key','moneyflow_max_batch')::text;\nEXPLAIN (ANALYZE, BUFFERS, FORMAT JSON, TIMING FALSE) SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-08-19',DATE '2026-08-20',DATE '2026-08-21',DATE '2026-08-24',DATE '2026-08-25',DATE '2026-08-26',DATE '2026-08-27',DATE '2026-08-28',DATE '2026-08-31',DATE '2026-09-01',DATE '2026-09-02',DATE '2026-09-03',DATE '2026-09-04',DATE '2026-09-07',DATE '2026-09-08',DATE '2026-09-09',DATE '2026-09-10',DATE '2026-09-11') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001;\nROLLBACK;\n"
+  },
+  "controlled_sql_sha256": {
+    "preflight-settings-denied.sql": "1dac7ff88fd1ef216bd55116672930204bc40e7b07c179a8be750d1ff9cb1fb7",
+    "preflight.sql": "101e0c670b019d8e77572a03879a53fcbd9557eecf77ab77215a6a620bdeaa2c",
+    "preapply.sql": "cb7fe261e9090ce064f61218a7da400d70ff5a509b64b8498b0dc14d3338f4b1",
+    "migration.sql": "e3b6555d9fa8e6986e4d61aa8205fff8324109a23e3dd1e09a2a40854b169713",
+    "apply.sql": "59517e6d3a0559d9180df9e0ce6b9f38085844e7d87b6b24e088ee645ed6c055",
+    "progress.sql": "2aa930797fee0f3ad05aeee3c7d725c5bbf9b95aea433880220816215abbc34e",
+    "retest-explain.sql": "8ab375c9bc75584990efd59c5d25bf9b94cd2a302888004e6e06ae7a46d2a85d"
+  },
+  "retest_registry": [
+    {
+      "key": "moneyflow_max_batch",
+      "dataset": "moneyflow",
+      "role": "max_batch",
+      "dates": [
+        "2026-08-19",
+        "2026-08-20",
+        "2026-08-21",
+        "2026-08-24",
+        "2026-08-25",
+        "2026-08-26",
+        "2026-08-27",
+        "2026-08-28",
+        "2026-08-31",
+        "2026-09-01",
+        "2026-09-02",
+        "2026-09-03",
+        "2026-09-04",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-09",
+        "2026-09-10",
+        "2026-09-11"
+      ],
+      "expected_rows": 99839,
+      "date_counts": [
+        {
+          "trade_date": "2026-08-19",
+          "row_count": 5541,
+          "distinct_business_keys": 5541
+        },
+        {
+          "trade_date": "2026-08-20",
+          "row_count": 5541,
+          "distinct_business_keys": 5541
+        },
+        {
+          "trade_date": "2026-08-21",
+          "row_count": 5543,
+          "distinct_business_keys": 5543
+        },
+        {
+          "trade_date": "2026-08-24",
+          "row_count": 5545,
+          "distinct_business_keys": 5545
+        },
+        {
+          "trade_date": "2026-08-25",
+          "row_count": 5546,
+          "distinct_business_keys": 5546
+        },
+        {
+          "trade_date": "2026-08-26",
+          "row_count": 5547,
+          "distinct_business_keys": 5547
+        },
+        {
+          "trade_date": "2026-08-27",
+          "row_count": 5547,
+          "distinct_business_keys": 5547
+        },
+        {
+          "trade_date": "2026-08-28",
+          "row_count": 5547,
+          "distinct_business_keys": 5547
+        },
+        {
+          "trade_date": "2026-08-31",
+          "row_count": 5545,
+          "distinct_business_keys": 5545
+        },
+        {
+          "trade_date": "2026-09-01",
+          "row_count": 5546,
+          "distinct_business_keys": 5546
+        },
+        {
+          "trade_date": "2026-09-02",
+          "row_count": 5547,
+          "distinct_business_keys": 5547
+        },
+        {
+          "trade_date": "2026-09-03",
+          "row_count": 5549,
+          "distinct_business_keys": 5549
+        },
+        {
+          "trade_date": "2026-09-04",
+          "row_count": 5548,
+          "distinct_business_keys": 5548
+        },
+        {
+          "trade_date": "2026-09-07",
+          "row_count": 5549,
+          "distinct_business_keys": 5549
+        },
+        {
+          "trade_date": "2026-09-08",
+          "row_count": 5549,
+          "distinct_business_keys": 5549
+        },
+        {
+          "trade_date": "2026-09-09",
+          "row_count": 5550,
+          "distinct_business_keys": 5550
+        },
+        {
+          "trade_date": "2026-09-10",
+          "row_count": 5549,
+          "distinct_business_keys": 5549
+        },
+        {
+          "trade_date": "2026-09-11",
+          "row_count": 5550,
+          "distinct_business_keys": 5550
+        }
+      ],
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "buy_sm_vol",
+        "buy_sm_amount",
+        "sell_sm_vol",
+        "sell_sm_amount",
+        "buy_md_vol",
+        "buy_md_amount",
+        "sell_md_vol",
+        "sell_md_amount",
+        "buy_lg_vol",
+        "buy_lg_amount",
+        "sell_lg_vol",
+        "sell_lg_amount",
+        "buy_elg_vol",
+        "buy_elg_amount",
+        "sell_elg_vol",
+        "sell_elg_amount",
+        "net_mf_vol",
+        "net_mf_amount"
+      ],
+      "query": "SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-08-19',DATE '2026-08-20',DATE '2026-08-21',DATE '2026-08-24',DATE '2026-08-25',DATE '2026-08-26',DATE '2026-08-27',DATE '2026-08-28',DATE '2026-08-31',DATE '2026-09-01',DATE '2026-09-02',DATE '2026-09-03',DATE '2026-09-04',DATE '2026-09-07',DATE '2026-09-08',DATE '2026-09-09',DATE '2026-09-10',DATE '2026-09-11') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001",
+      "copy_sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-08-19',DATE '2026-08-20',DATE '2026-08-21',DATE '2026-08-24',DATE '2026-08-25',DATE '2026-08-26',DATE '2026-08-27',DATE '2026-08-28',DATE '2026-08-31',DATE '2026-09-01',DATE '2026-09-02',DATE '2026-09-03',DATE '2026-09-04',DATE '2026-09-07',DATE '2026-09-08',DATE '2026-09-09',DATE '2026-09-10',DATE '2026-09-11') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001) TO STDOUT WITH (FORMAT CSV, HEADER TRUE, NULL E'\\\\N', ENCODING 'UTF8');\nROLLBACK;\n"
+    },
+    {
+      "key": "moneyflow_recent_batch",
+      "dataset": "moneyflow",
+      "role": "recent_batch",
+      "dates": [
+        "2026-09-14",
+        "2026-09-15",
+        "2026-09-16",
+        "2026-09-17",
+        "2026-09-18",
+        "2026-09-21",
+        "2026-09-22",
+        "2026-09-23",
+        "2026-09-24",
+        "2026-09-28",
+        "2026-09-29",
+        "2026-09-30"
+      ],
+      "expected_rows": 66697,
+      "date_counts": [
+        {
+          "trade_date": "2026-09-14",
+          "row_count": 5550,
+          "distinct_business_keys": 5550
+        },
+        {
+          "trade_date": "2026-09-15",
+          "row_count": 5548,
+          "distinct_business_keys": 5548
+        },
+        {
+          "trade_date": "2026-09-16",
+          "row_count": 5550,
+          "distinct_business_keys": 5550
+        },
+        {
+          "trade_date": "2026-09-17",
+          "row_count": 5553,
+          "distinct_business_keys": 5553
+        },
+        {
+          "trade_date": "2026-09-18",
+          "row_count": 5553,
+          "distinct_business_keys": 5553
+        },
+        {
+          "trade_date": "2026-09-21",
+          "row_count": 5553,
+          "distinct_business_keys": 5553
+        },
+        {
+          "trade_date": "2026-09-22",
+          "row_count": 5554,
+          "distinct_business_keys": 5554
+        },
+        {
+          "trade_date": "2026-09-23",
+          "row_count": 5555,
+          "distinct_business_keys": 5555
+        },
+        {
+          "trade_date": "2026-09-24",
+          "row_count": 5569,
+          "distinct_business_keys": 5569
+        },
+        {
+          "trade_date": "2026-09-28",
+          "row_count": 5569,
+          "distinct_business_keys": 5569
+        },
+        {
+          "trade_date": "2026-09-29",
+          "row_count": 5571,
+          "distinct_business_keys": 5571
+        },
+        {
+          "trade_date": "2026-09-30",
+          "row_count": 5572,
+          "distinct_business_keys": 5572
+        }
+      ],
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "buy_sm_vol",
+        "buy_sm_amount",
+        "sell_sm_vol",
+        "sell_sm_amount",
+        "buy_md_vol",
+        "buy_md_amount",
+        "sell_md_vol",
+        "sell_md_amount",
+        "buy_lg_vol",
+        "buy_lg_amount",
+        "sell_lg_vol",
+        "sell_lg_amount",
+        "buy_elg_vol",
+        "buy_elg_amount",
+        "sell_elg_vol",
+        "sell_elg_amount",
+        "net_mf_vol",
+        "net_mf_amount"
+      ],
+      "query": "SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-09-14',DATE '2026-09-15',DATE '2026-09-16',DATE '2026-09-17',DATE '2026-09-18',DATE '2026-09-21',DATE '2026-09-22',DATE '2026-09-23',DATE '2026-09-24',DATE '2026-09-28',DATE '2026-09-29',DATE '2026-09-30') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001",
+      "copy_sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-09-14',DATE '2026-09-15',DATE '2026-09-16',DATE '2026-09-17',DATE '2026-09-18',DATE '2026-09-21',DATE '2026-09-22',DATE '2026-09-23',DATE '2026-09-24',DATE '2026-09-28',DATE '2026-09-29',DATE '2026-09-30') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001) TO STDOUT WITH (FORMAT CSV, HEADER TRUE, NULL E'\\\\N', ENCODING 'UTF8');\nROLLBACK;\n"
+    },
+    {
+      "key": "moneyflow_recent_day",
+      "dataset": "moneyflow",
+      "role": "recent_day",
+      "dates": [
+        "2026-09-30"
+      ],
+      "expected_rows": 5572,
+      "date_counts": [
+        {
+          "trade_date": "2026-09-30",
+          "row_count": 5572,
+          "distinct_business_keys": 5572
+        }
+      ],
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "buy_sm_vol",
+        "buy_sm_amount",
+        "sell_sm_vol",
+        "sell_sm_amount",
+        "buy_md_vol",
+        "buy_md_amount",
+        "sell_md_vol",
+        "sell_md_amount",
+        "buy_lg_vol",
+        "buy_lg_amount",
+        "sell_lg_vol",
+        "sell_lg_amount",
+        "buy_elg_vol",
+        "buy_elg_amount",
+        "sell_elg_vol",
+        "sell_elg_amount",
+        "net_mf_vol",
+        "net_mf_amount"
+      ],
+      "query": "SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-09-30') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001",
+      "copy_sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (SELECT source.\"ts_code\", to_char(source.\"trade_date\", 'YYYY-MM-DD') AS \"trade_date\", source.\"buy_sm_vol\", source.\"buy_sm_amount\", source.\"sell_sm_vol\", source.\"sell_sm_amount\", source.\"buy_md_vol\", source.\"buy_md_amount\", source.\"sell_md_vol\", source.\"sell_md_amount\", source.\"buy_lg_vol\", source.\"buy_lg_amount\", source.\"sell_lg_vol\", source.\"sell_lg_amount\", source.\"buy_elg_vol\", source.\"buy_elg_amount\", source.\"sell_elg_vol\", source.\"sell_elg_amount\", source.\"net_mf_vol\", source.\"net_mf_amount\" FROM raw_tushare.moneyflow AS source WHERE source.\"trade_date\" IN (DATE '2026-09-30') ORDER BY source.\"trade_date\", source.\"ts_code\" LIMIT 100001) TO STDOUT WITH (FORMAT CSV, HEADER TRUE, NULL E'\\\\N', ENCODING 'UTF8');\nROLLBACK;\n"
+    }
+  ],
+  "retest_plans": [
+    {
+      "kind": "explain_header",
+      "key": "moneyflow_max_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Limit",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 0.56,
+            "Total Cost": 142133.86,
+            "Plan Rows": 61391,
+            "Plan Width": 177,
+            "Plans": [
+              {
+                "Node Type": "Index Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Scan Direction": "Forward",
+                "Index Name": "idx_raw_tushare_moneyflow_trade_date_ts_code",
+                "Relation Name": "moneyflow",
+                "Alias": "source",
+                "Startup Cost": 0.56,
+                "Total Cost": 142133.86,
+                "Plan Rows": 61391,
+                "Plan Width": 177,
+                "Index Cond": "(trade_date = ANY ('{2026-08-19,2026-08-20,2026-08-21,2026-08-24,2026-08-25,2026-08-26,2026-08-27,2026-08-28,2026-08-31,2026-09-01,2026-09-02,2026-09-03,2026-09-04,2026-09-07,2026-09-08,2026-09-09,2026-09-10,2026-09-11}'::date[]))"
+              }
+            ]
+          },
+          "JIT": {
+            "Functions": 5,
+            "Options": {
+              "Inlining": false,
+              "Optimization": false,
+              "Expressions": true,
+              "Deforming": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "explain_header",
+      "key": "moneyflow_recent_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Limit",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 0.56,
+            "Total Cost": 97013.42,
+            "Plan Rows": 40927,
+            "Plan Width": 177,
+            "Plans": [
+              {
+                "Node Type": "Index Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Scan Direction": "Forward",
+                "Index Name": "idx_raw_tushare_moneyflow_trade_date_ts_code",
+                "Relation Name": "moneyflow",
+                "Alias": "source",
+                "Startup Cost": 0.56,
+                "Total Cost": 97013.42,
+                "Plan Rows": 40927,
+                "Plan Width": 177,
+                "Index Cond": "(trade_date = ANY ('{2026-09-14,2026-09-15,2026-09-16,2026-09-17,2026-09-18,2026-09-21,2026-09-22,2026-09-23,2026-09-24,2026-09-28,2026-09-29,2026-09-30}'::date[]))"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "explain_header",
+      "key": "moneyflow_recent_day",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Limit",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 0.56,
+            "Total Cost": 8457.54,
+            "Plan Rows": 3411,
+            "Plan Width": 177,
+            "Plans": [
+              {
+                "Node Type": "Index Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Scan Direction": "Forward",
+                "Index Name": "idx_raw_tushare_moneyflow_trade_date_ts_code",
+                "Relation Name": "moneyflow",
+                "Alias": "source",
+                "Startup Cost": 0.56,
+                "Total Cost": 8457.54,
+                "Plan Rows": 3411,
+                "Plan Width": 177,
+                "Index Cond": "(trade_date = '2026-09-30'::date)"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "analyze_header",
+      "key": "moneyflow_max_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Limit",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 0.56,
+            "Total Cost": 142133.86,
+            "Plan Rows": 61391,
+            "Plan Width": 177,
+            "Actual Rows": 99839,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 71620,
+            "Shared Read Blocks": 2871,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 4,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Index Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Scan Direction": "Forward",
+                "Index Name": "idx_raw_tushare_moneyflow_trade_date_ts_code",
+                "Relation Name": "moneyflow",
+                "Alias": "source",
+                "Startup Cost": 0.56,
+                "Total Cost": 142133.86,
+                "Plan Rows": 61391,
+                "Plan Width": 177,
+                "Actual Rows": 99839,
+                "Actual Loops": 1,
+                "Index Cond": "(trade_date = ANY ('{2026-08-19,2026-08-20,2026-08-21,2026-08-24,2026-08-25,2026-08-26,2026-08-27,2026-08-28,2026-08-31,2026-09-01,2026-09-02,2026-09-03,2026-09-04,2026-09-07,2026-09-08,2026-09-09,2026-09-10,2026-09-11}'::date[]))",
+                "Rows Removed by Index Recheck": 0,
+                "Shared Hit Blocks": 71620,
+                "Shared Read Blocks": 2871,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 4,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0
+              }
+            ]
+          },
+          "Planning": {
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0
+          },
+          "Planning Time": 0.125,
+          "Triggers": [],
+          "JIT": {
+            "Functions": 5,
+            "Options": {
+              "Inlining": false,
+              "Optimization": false,
+              "Expressions": true,
+              "Deforming": true
+            }
+          },
+          "Execution Time": 129.153
+        }
+      ]
+    }
+  ],
+  "retest_receive": {
+    "complete": true,
+    "revision": "20261008_000184",
+    "results": [
+      {
+        "key": "moneyflow_max_batch",
+        "dates": [
+          "2026-08-19",
+          "2026-08-20",
+          "2026-08-21",
+          "2026-08-24",
+          "2026-08-25",
+          "2026-08-26",
+          "2026-08-27",
+          "2026-08-28",
+          "2026-08-31",
+          "2026-09-01",
+          "2026-09-02",
+          "2026-09-03",
+          "2026-09-04",
+          "2026-09-07",
+          "2026-09-08",
+          "2026-09-09",
+          "2026-09-10",
+          "2026-09-11"
+        ],
+        "expected_rows": 99839,
+        "reads": [
+          {
+            "rows": 99839,
+            "bytes": 15753317,
+            "source_sha256": "11d71e7cb5b460a4c6af28d70082cb4fdecfd4936c9d16be53eae9f08b414b2f",
+            "date_counts": [
+              [
+                "2026-08-19",
+                5541
+              ],
+              [
+                "2026-08-20",
+                5541
+              ],
+              [
+                "2026-08-21",
+                5543
+              ],
+              [
+                "2026-08-24",
+                5545
+              ],
+              [
+                "2026-08-25",
+                5546
+              ],
+              [
+                "2026-08-26",
+                5547
+              ],
+              [
+                "2026-08-27",
+                5547
+              ],
+              [
+                "2026-08-28",
+                5547
+              ],
+              [
+                "2026-08-31",
+                5545
+              ],
+              [
+                "2026-09-01",
+                5546
+              ],
+              [
+                "2026-09-02",
+                5547
+              ],
+              [
+                "2026-09-03",
+                5549
+              ],
+              [
+                "2026-09-04",
+                5548
+              ],
+              [
+                "2026-09-07",
+                5549
+              ],
+              [
+                "2026-09-08",
+                5549
+              ],
+              [
+                "2026-09-09",
+                5550
+              ],
+              [
+                "2026-09-10",
+                5549
+              ],
+              [
+                "2026-09-11",
+                5550
+              ]
+            ],
+            "scope_counts": [],
+            "normalized_rows": 99839,
+            "rejects": 0,
+            "copy_seconds": 7.637544041033834,
+            "receive_validate_seconds": 2.127558333100751,
+            "phase_seconds": 9.802749542053789,
+            "rss_mib": 278.03125,
+            "same_as_before_index": true,
+            "sql_sha256": "dcb70826c37ef0efb226b0d6fa72460f74c372b8c167a477cf804e44cf9d9ed6"
+          },
+          {
+            "rows": 99839,
+            "bytes": 15753317,
+            "source_sha256": "11d71e7cb5b460a4c6af28d70082cb4fdecfd4936c9d16be53eae9f08b414b2f",
+            "date_counts": [
+              [
+                "2026-08-19",
+                5541
+              ],
+              [
+                "2026-08-20",
+                5541
+              ],
+              [
+                "2026-08-21",
+                5543
+              ],
+              [
+                "2026-08-24",
+                5545
+              ],
+              [
+                "2026-08-25",
+                5546
+              ],
+              [
+                "2026-08-26",
+                5547
+              ],
+              [
+                "2026-08-27",
+                5547
+              ],
+              [
+                "2026-08-28",
+                5547
+              ],
+              [
+                "2026-08-31",
+                5545
+              ],
+              [
+                "2026-09-01",
+                5546
+              ],
+              [
+                "2026-09-02",
+                5547
+              ],
+              [
+                "2026-09-03",
+                5549
+              ],
+              [
+                "2026-09-04",
+                5548
+              ],
+              [
+                "2026-09-07",
+                5549
+              ],
+              [
+                "2026-09-08",
+                5549
+              ],
+              [
+                "2026-09-09",
+                5550
+              ],
+              [
+                "2026-09-10",
+                5549
+              ],
+              [
+                "2026-09-11",
+                5550
+              ]
+            ],
+            "scope_counts": [],
+            "normalized_rows": 99839,
+            "rejects": 0,
+            "copy_seconds": 7.716196250170469,
+            "receive_validate_seconds": 1.845320750027895,
+            "phase_seconds": 9.603280000155792,
+            "rss_mib": 365.046875,
+            "same_as_before_index": true,
+            "sql_sha256": "dcb70826c37ef0efb226b0d6fa72460f74c372b8c167a477cf804e44cf9d9ed6"
+          }
+        ],
+        "two_read_equal": true,
+        "complete": true
+      },
+      {
+        "key": "moneyflow_recent_batch",
+        "dates": [
+          "2026-09-14",
+          "2026-09-15",
+          "2026-09-16",
+          "2026-09-17",
+          "2026-09-18",
+          "2026-09-21",
+          "2026-09-22",
+          "2026-09-23",
+          "2026-09-24",
+          "2026-09-28",
+          "2026-09-29",
+          "2026-09-30"
+        ],
+        "expected_rows": 66697,
+        "reads": [
+          {
+            "rows": 66697,
+            "bytes": 10443836,
+            "source_sha256": "d40fd9ac69b6dc276b3626250842e4de357a1906dd40b7ea2562e0be8b01d77d",
+            "date_counts": [
+              [
+                "2026-09-14",
+                5550
+              ],
+              [
+                "2026-09-15",
+                5548
+              ],
+              [
+                "2026-09-16",
+                5550
+              ],
+              [
+                "2026-09-17",
+                5553
+              ],
+              [
+                "2026-09-18",
+                5553
+              ],
+              [
+                "2026-09-21",
+                5553
+              ],
+              [
+                "2026-09-22",
+                5554
+              ],
+              [
+                "2026-09-23",
+                5555
+              ],
+              [
+                "2026-09-24",
+                5569
+              ],
+              [
+                "2026-09-28",
+                5569
+              ],
+              [
+                "2026-09-29",
+                5571
+              ],
+              [
+                "2026-09-30",
+                5572
+              ]
+            ],
+            "scope_counts": [],
+            "normalized_rows": 66697,
+            "rejects": 0,
+            "copy_seconds": 5.081538415979594,
+            "receive_validate_seconds": 1.2449603339191526,
+            "phase_seconds": 6.366126792039722,
+            "rss_mib": 374.28125,
+            "same_as_before_index": true,
+            "sql_sha256": "bcfde26e1ba2bafd8982475f3b5240159376bc9fe10f0ecd2e35ce5f5cc1de5f"
+          },
+          {
+            "rows": 66697,
+            "bytes": 10443836,
+            "source_sha256": "d40fd9ac69b6dc276b3626250842e4de357a1906dd40b7ea2562e0be8b01d77d",
+            "date_counts": [
+              [
+                "2026-09-14",
+                5550
+              ],
+              [
+                "2026-09-15",
+                5548
+              ],
+              [
+                "2026-09-16",
+                5550
+              ],
+              [
+                "2026-09-17",
+                5553
+              ],
+              [
+                "2026-09-18",
+                5553
+              ],
+              [
+                "2026-09-21",
+                5553
+              ],
+              [
+                "2026-09-22",
+                5554
+              ],
+              [
+                "2026-09-23",
+                5555
+              ],
+              [
+                "2026-09-24",
+                5569
+              ],
+              [
+                "2026-09-28",
+                5569
+              ],
+              [
+                "2026-09-29",
+                5571
+              ],
+              [
+                "2026-09-30",
+                5572
+              ]
+            ],
+            "scope_counts": [],
+            "normalized_rows": 66697,
+            "rejects": 0,
+            "copy_seconds": 5.030028499895707,
+            "receive_validate_seconds": 1.2407144999597222,
+            "phase_seconds": 6.311917250044644,
+            "rss_mib": 381.6875,
+            "same_as_before_index": true,
+            "sql_sha256": "bcfde26e1ba2bafd8982475f3b5240159376bc9fe10f0ecd2e35ce5f5cc1de5f"
+          }
+        ],
+        "two_read_equal": true,
+        "complete": true
+      },
+      {
+        "key": "moneyflow_recent_day",
+        "dates": [
+          "2026-09-30"
+        ],
+        "expected_rows": 5572,
+        "reads": [
+          {
+            "rows": 5572,
+            "bytes": 867252,
+            "source_sha256": "478fbcf14c2532dc526ec0d66b648e9a42090636bee4c7a44cce572af32fcf51",
+            "date_counts": [
+              [
+                "2026-09-30",
+                5572
+              ]
+            ],
+            "scope_counts": [],
+            "normalized_rows": 5572,
+            "rejects": 0,
+            "copy_seconds": 0.6685625419486314,
+            "receive_validate_seconds": 0.13760454091243446,
+            "phase_seconds": 0.8472498329356313,
+            "rss_mib": 389.0,
+            "same_as_before_index": true,
+            "sql_sha256": "bc9aca1dce0a34a6fe23ea8106d9643dd5650bef6136384244d9f2b41cfadc05"
+          },
+          {
+            "rows": 5572,
+            "bytes": 867252,
+            "source_sha256": "478fbcf14c2532dc526ec0d66b648e9a42090636bee4c7a44cce572af32fcf51",
+            "date_counts": [
+              [
+                "2026-09-30",
+                5572
+              ]
+            ],
+            "scope_counts": [],
+            "normalized_rows": 5572,
+            "rejects": 0,
+            "copy_seconds": 0.702786959009245,
+            "receive_validate_seconds": 0.13624745910055935,
+            "phase_seconds": 0.8791442501824349,
+            "rss_mib": 392.546875,
+            "same_as_before_index": true,
+            "sql_sha256": "bc9aca1dce0a34a6fe23ea8106d9643dd5650bef6136384244d9f2b41cfadc05"
+          }
+        ],
+        "two_read_equal": true,
+        "complete": true
+      }
+    ],
+    "copy_transactions": 6,
+    "elapsed_seconds": 33.8154142908752,
+    "peak_rss_mib": 392.546875,
+    "business_csv_files": 0,
+    "candidate_files": 0,
+    "formal_lake_write": false,
+    "dagster_runtime_access": false,
+    "business_db_write": false,
+    "duckdb_spill_bytes": 0
+  },
+  "copy_comparison": [
+    {
+      "key": "moneyflow_max_batch",
+      "rows": 99839,
+      "before_copy_seconds": [
+        12.109176417114213,
+        14.765733750071377
+      ],
+      "after_copy_seconds": [
+        7.637544041033834,
+        7.716196250170469
+      ]
+    },
+    {
+      "key": "moneyflow_recent_batch",
+      "rows": 66697,
+      "before_copy_seconds": [
+        6.794081290950999
+      ],
+      "after_copy_seconds": [
+        5.081538415979594,
+        5.030028499895707
+      ]
+    },
+    {
+      "key": "moneyflow_recent_day",
+      "rows": 5572,
+      "before_copy_seconds": [
+        2.2882396660279483
+      ],
+      "after_copy_seconds": [
+        0.6685625419486314,
+        0.702786959009245
+      ]
+    }
+  ],
+  "query_comparison": {
+    "before_nodes": "Parallel Seq Scan -> Sort -> Gather Merge -> Limit",
+    "after_nodes": "Index Scan on new date-leading index -> Limit",
+    "before_execution_ms": 11469.109,
+    "after_execution_ms": 129.153,
+    "before_shared_read_blocks": 399690,
+    "after_shared_read_blocks": 2871,
+    "before_shared_hit_blocks": 92,
+    "after_shared_hit_blocks": 71620,
+    "after_temp_read_blocks": 0,
+    "after_temp_write_blocks": 0,
+    "caveat": "Same query/date/rows, uncontrolled cache/network/host load; one observed comparison, not a guaranteed all-history speedup or cold-cache benchmark. Shared read blocks are buffer reads, not guaranteed physical disk IO."
+  },
+  "validation": {
+    "pytest_passed": 35,
+    "new_tests": 3,
+    "ruff": "passed",
+    "offline_exact_one_revision": "passed",
+    "prod_valid_ready_definition": "passed",
+    "source_and_normalized_rows": 344216,
+    "rejects": 0,
+    "before_after_hashes": "all equal",
+    "peak_rss_mib": 392.546875,
+    "receive_elapsed_seconds": 33.8154142908752,
+    "business_csv_files": 0,
+    "candidate_files": 0,
+    "codegraph": "Two explore calls supplemented by direct consumer reads; root sync/status up to date",
+    "report_arithmetic_and_hashes": "passed",
+    "lake_doc_absolute_links": "passed",
+    "root_docs_integrity": "passed",
+    "scoped_diff_whitespace": "passed"
+  },
+  "remaining": [
+    "seven-dataset counts and actual historic scope freeze",
+    "whole-cohort SQL/connections/retries/time/space and exclusive writer",
+    "formal promotion and approved sample",
+    "P4/P5"
+  ],
+  "operational_followup": "New model/migration/tests/docs are saved but not committed or deployed. The next source release must include revision 20261008_000184; do not stamp or apply unrelated revisions to conceal this.",
+  "temporary_owner": "This moneyflow P3 task; retest/freeze drivers removed after report freeze, controlled SQL and scalar proofs retained under /private/tmp; no business files."
+}
