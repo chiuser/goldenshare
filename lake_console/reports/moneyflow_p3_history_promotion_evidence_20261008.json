@@ -1,0 +1,1112 @@
+{
+  "as_of": "2026-10-08",
+  "previous_commit": "a55645ee",
+  "scope": "P3 isolated per-file Raw/Silver promotion; formal Lake/DG/Prod writes not executed",
+  "implementation_hashes": {
+    "src/orchestrator/defs/bootstrap/moneyflow_history_promote.py": "3e76f5600a6ff00e9784e807c87fea3213b25ee32c8037925a9f46117077327b",
+    "src/orchestrator/defs/bootstrap/moneyflow_history_cohort.py": "ee453c43d17ba409154cf79fb8db065eb28881d0ba5d64c8b21d90f2bc3719fd",
+    "src/orchestrator/defs/bootstrap/moneyflow_history_candidates.py": "ffe87da2cbe70fe4e6fd14a52a9f0473bd66982c2e69edcc5d5750cd24478e35",
+    "src/orchestrator/defs/paths.py": "3caea8b83e90e312d1147c5bd5678ddc36a0fce2436107f4e115a63b8b2b5184",
+    "tests/test_moneyflow_history_promote.py": "b85fb418322d57f7bd11c56acce16e4c93503cb7ff4dad969bfa55f21d9e626d",
+    "tests/stock_suspend_confirmed_test_runner.py": "272a53d78df81fd20e0b13bb7c580eb0cb8d1afb6c5bd459d026b809fe4c9aa2"
+  },
+  "isolation": [
+    "all files under /private/tmp or system temp roots",
+    "no network source requests",
+    "existing venv; no installation",
+    "seven independent schemas; same shared Store/Control/writer",
+    "no events/assets/CLI/daily activation"
+  ],
+  "samples": [
+    {
+      "mode": "fixtures",
+      "kind": "isolated fixtures; no actual source network or formal Lake",
+      "fixture_sources": {
+        "moneyflow": {
+          "path": "tests/fixtures/moneyflow_20260930.json",
+          "sha256": "b1b6cf194f13b8c520154e39b90076982e84e2255f1dcb3ccfd2cc939b7f69b1",
+          "rows": 5572
+        },
+        "moneyflow_cnt_ths": {
+          "path": "tests/fixtures/moneyflow_cnt_ths_20260930.json",
+          "sha256": "d1629345def4d86f7ffa540bdab9c40b59efc999da18d08842da9e1fdf2162a3",
+          "rows": 387
+        },
+        "moneyflow_dc": {
+          "path": "tests/fixtures/moneyflow_dc_20260930.json",
+          "sha256": "79640ab62960cfd1e6b86f79c2ca090d1d982eab05a11e467af39b92d56d3821",
+          "rows": 6024
+        },
+        "moneyflow_ind_dc": {
+          "path": "tests/fixtures/moneyflow_ind_dc_20260930.json",
+          "sha256": "c466c32483011299c6c640ef5190bd00ea6b0be431e2f030cfb5cb9102f7c6ff",
+          "rows": 1031
+        },
+        "moneyflow_ind_ths": {
+          "path": "tests/fixtures/moneyflow_ind_ths_20260930.json",
+          "sha256": "56df871a53ad38e52f7968c333f14d039efda714153d4ec8451916b7752a4277",
+          "rows": 90
+        },
+        "moneyflow_mkt_dc": {
+          "kind": "synthetic_negative_and_null",
+          "rows": 1
+        },
+        "moneyflow_ths": {
+          "path": "tests/fixtures/moneyflow_ths_20260930.json",
+          "sha256": "276f5ba3ddb2da463ffd1e3a2b9a30e5b494a1a6fabd2e77545e93cb709f2b6a",
+          "rows": 5215
+        }
+      },
+      "plans": {
+        "moneyflow": {
+          "dates": 1,
+          "plan_hash": "0d6b07ae735d4bf643ec28e163b14f250215e2c99fdfedcbc80aae88efb75fad",
+          "rows": 5572,
+          "units": 1
+        },
+        "moneyflow_cnt_ths": {
+          "dates": 1,
+          "plan_hash": "0767fcde32fd27a3bc8cd369d03156a81331ae1dba5671d7a262c9e269480be2",
+          "rows": 387,
+          "units": 1
+        },
+        "moneyflow_dc": {
+          "dates": 1,
+          "plan_hash": "ab217e87832d043db44bef1947db0f88963f28d1fab74a43c2e0f35583a6c0f6",
+          "rows": 6024,
+          "units": 1
+        },
+        "moneyflow_ind_dc": {
+          "dates": 1,
+          "plan_hash": "027ea20c3d07c90ddc968270229f21573ea614264d7327ea6cd38450932acabf",
+          "rows": 1031,
+          "units": 1
+        },
+        "moneyflow_ind_ths": {
+          "dates": 1,
+          "plan_hash": "4e769f6b1a3d5943593ae8509a619ade06acf669da03e4c748d1ecb4a081b625",
+          "rows": 90,
+          "units": 1
+        },
+        "moneyflow_mkt_dc": {
+          "dates": 1,
+          "plan_hash": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+          "rows": 1,
+          "units": 1
+        },
+        "moneyflow_ths": {
+          "dates": 1,
+          "plan_hash": "0e9ccad0ea5687e8320498081f99c9bcad25cf280c231bda1357a80fd65dce9f",
+          "rows": 5215,
+          "units": 1
+        }
+      },
+      "total_rows": 18320,
+      "total_dates": 7,
+      "total_units": 7,
+      "total_files": 14,
+      "source_requests_fake": 28,
+      "promotion_source_requests": 0,
+      "seconds": {
+        "candidates": 1.2716214158572257,
+        "preflight": 0.017996500013396144,
+        "apply": 0.15418108296580613,
+        "replay": 0.022374500054866076
+      },
+      "peak_rss_mib": 314.234375,
+      "formal_parquet_bytes": 2828944,
+      "staging_bytes": 42084,
+      "shared_retained_bytes": 2871030,
+      "row_differences": 0,
+      "rejects": 0,
+      "sha256_files": {
+        "raw/tushare/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet": "b4ef9debedd6ae38f6dc06749684e30d9034fa849c94fb533078bb3163e0d98e",
+        "silver/moneyflow/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet": "68636c2fda7e308027832d25900591d4c760257f237ae98ca22528487d4068d4",
+        "raw/tushare/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet": "c54ba5d826a3216ce51bd6ea87ab9641bc9e244a13575eeac47fb79e127d68d0",
+        "silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet": "fa60503a1846cc3d56b1e90e80d1761034261bc39b98eb92143696b8b4f00734",
+        "raw/tushare/moneyflow_ths/trade_date=2026-09-30/part-000.parquet": "d68f42062195bf7a7f74bc794f74a56c0f6814c9f4a8700a4f8fe7fe9db32775",
+        "silver/moneyflow/moneyflow_ths/trade_date=2026-09-30/part-000.parquet": "b40f28495e8217140aac53ef97894d1be948609260fc347bab7c3a685bf8a0b3",
+        "raw/tushare/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet": "7387b327e4b3bc9cc42885cb9fc2eb2e962620e9544296b7dd62c3071c1effaa",
+        "silver/moneyflow/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet": "a96fb0ba83ce0d893a9eae800b5c003ac736739eb3a3132d816d158ce39fd5ec",
+        "raw/tushare/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet": "ce040b9e96d632e82f0ba6c200a30677e8c540f031c87a5265413e4acd9fc06f",
+        "silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet": "b7316158b5bb86f71b64b8c5bcce3facaa42dd35d191cc4b29d27aae5b1ce39f",
+        "raw/tushare/moneyflow_dc/trade_date=2026-09-30/part-000.parquet": "70fda8fd7a63552c3b5d5ea99e48cf1583ed5fc207f9a21f85e68da7f72afad4",
+        "silver/moneyflow/moneyflow_dc/trade_date=2026-09-30/part-000.parquet": "ac089a2ddd393bce9429e38d0ca5daab80a03d022418c66fd5e77515f91714f2",
+        "raw/tushare/moneyflow/trade_date=2026-09-30/part-000.parquet": "437475c51e9eab1dc6c06811fcbc5019b7ae99e7311852cfd61293863ff0c4df",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-30/part-000.parquet": "19488efce628dce733c915cd6b063239eb6178fad23ff97728bb79b2bf87abc3"
+      },
+      "candidate_checkpoints_sha256": {
+        "moneyflow_ind_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "8fc508a27c75bdd8e6747d216b790a11d98ca54001a78d93096487f9f45e4af5",
+        "moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "d8bc05363edf607bef138fcf05c49438563a0cda17d3c510e74c90cd675da4f6",
+        "moneyflow_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "3a85f1c53b6e428e37f64a6c578e37f131569a8a7245417d535b0c068a8975d6",
+        "moneyflow_ind_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "fe182a60f6d18392f6e9f2119202da359368427ba5706df59888b63b50152119",
+        "moneyflow_mkt_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "0b876ca917b736d9d14fd4a0039c1ac58c432977423f2e794f0b8669239cf752",
+        "moneyflow_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "2b27943e2a296356b05c7d59bba37039c944f4a971da791714c9fa5339a5a4f9",
+        "moneyflow/2026-09-30/history_candidates/unit-000000/checkpoint.json": "4570781830e350eb4e75a57263e8e724cb7fd41912d73e31b1ce10b6c432dd89"
+      },
+      "apply_progress": {
+        "bytes": 0,
+        "charged_seconds": 1.3714040017221123,
+        "closed_units": [
+          {
+            "checkpoint_sha256": "4570781830e350eb4e75a57263e8e724cb7fd41912d73e31b1ce10b6c432dd89",
+            "dataset": "moneyflow",
+            "date_counts": [
+              [
+                "2026-09-30",
+                5572
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "d8bc05363edf607bef138fcf05c49438563a0cda17d3c510e74c90cd675da4f6",
+            "dataset": "moneyflow_cnt_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                387
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "2b27943e2a296356b05c7d59bba37039c944f4a971da791714c9fa5339a5a4f9",
+            "dataset": "moneyflow_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                6024
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "fe182a60f6d18392f6e9f2119202da359368427ba5706df59888b63b50152119",
+            "dataset": "moneyflow_ind_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                1031
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "8fc508a27c75bdd8e6747d216b790a11d98ca54001a78d93096487f9f45e4af5",
+            "dataset": "moneyflow_ind_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                90
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "0b876ca917b736d9d14fd4a0039c1ac58c432977423f2e794f0b8669239cf752",
+            "dataset": "moneyflow_mkt_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                1
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "3a85f1c53b6e428e37f64a6c578e37f131569a8a7245417d535b0c068a8975d6",
+            "dataset": "moneyflow_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                5215
+              ]
+            ],
+            "unit_id": 0
+          }
+        ],
+        "cohort_hash": "443bf809e85e4f65f9052ce2e716d5c24851523e5ee50436c5f4726ce008f5a8",
+        "completed_units": 7,
+        "connections": 28,
+        "copy_transactions": 28,
+        "current_date": "2026-09-30",
+        "current_unit": 0,
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ths",
+        "dataset_contracts": {
+          "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+          "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+          "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+          "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+          "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+          "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+          "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+        },
+        "dates": [
+          "2026-09-30"
+        ],
+        "eta": "暂无法估算",
+        "expected_rows": 5215,
+        "extra_requests": 14,
+        "generated_dates": 1,
+        "global_unit": 6,
+        "last_updated": 1791436400.630971,
+        "limits": {
+          "buffer_bytes": 33554432,
+          "disk_bytes": 34359738368,
+          "duckdb_memory": "512MB",
+          "duckdb_threads": 1,
+          "elapsed_seconds": 43200,
+          "minimum_free_bytes": 68719476736,
+          "rss_bytes": 805306368,
+          "spill_bytes": 0,
+          "stream_bytes": 65536,
+          "unit_seconds": 120
+        },
+        "max_requests": 42,
+        "percentage": 100.0,
+        "promoted_dates": 7,
+        "promoted_files": 14,
+        "promoted_rows": 18320,
+        "promoted_units": 7,
+        "promotion_contract_hash": "1152f84e3ae41dd1e309836de9fda09526ff49491504984576df83e5218360e4",
+        "promotion_started": true,
+        "reservation_seconds": 0,
+        "retained_bytes": 2871037,
+        "revision": "moneyflow_history_cohort_dates_v1",
+        "sql_statements": 112,
+        "stage": "files_complete",
+        "total_files": 14,
+        "total_units": 7,
+        "unit_id": 0,
+        "current_file": "2026-09-30/silver",
+        "apply": true
+      },
+      "replay_progress": {
+        "bytes": 0,
+        "charged_seconds": 1.3792579567525536,
+        "closed_units": [
+          {
+            "checkpoint_sha256": "4570781830e350eb4e75a57263e8e724cb7fd41912d73e31b1ce10b6c432dd89",
+            "dataset": "moneyflow",
+            "date_counts": [
+              [
+                "2026-09-30",
+                5572
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "d8bc05363edf607bef138fcf05c49438563a0cda17d3c510e74c90cd675da4f6",
+            "dataset": "moneyflow_cnt_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                387
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "2b27943e2a296356b05c7d59bba37039c944f4a971da791714c9fa5339a5a4f9",
+            "dataset": "moneyflow_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                6024
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "fe182a60f6d18392f6e9f2119202da359368427ba5706df59888b63b50152119",
+            "dataset": "moneyflow_ind_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                1031
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "8fc508a27c75bdd8e6747d216b790a11d98ca54001a78d93096487f9f45e4af5",
+            "dataset": "moneyflow_ind_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                90
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "0b876ca917b736d9d14fd4a0039c1ac58c432977423f2e794f0b8669239cf752",
+            "dataset": "moneyflow_mkt_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                1
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "3a85f1c53b6e428e37f64a6c578e37f131569a8a7245417d535b0c068a8975d6",
+            "dataset": "moneyflow_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                5215
+              ]
+            ],
+            "unit_id": 0
+          }
+        ],
+        "cohort_hash": "443bf809e85e4f65f9052ce2e716d5c24851523e5ee50436c5f4726ce008f5a8",
+        "completed_units": 7,
+        "connections": 28,
+        "copy_transactions": 28,
+        "current_date": "2026-09-30",
+        "current_file": "2026-09-30/silver",
+        "current_unit": 0,
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ths",
+        "dataset_contracts": {
+          "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+          "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+          "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+          "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+          "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+          "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+          "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+        },
+        "dates": [
+          "2026-09-30"
+        ],
+        "eta": "暂无法估算",
+        "expected_rows": 5215,
+        "extra_requests": 14,
+        "generated_dates": 1,
+        "global_unit": 6,
+        "last_updated": 1791436400.6583931,
+        "limits": {
+          "buffer_bytes": 33554432,
+          "disk_bytes": 34359738368,
+          "duckdb_memory": "512MB",
+          "duckdb_threads": 1,
+          "elapsed_seconds": 43200,
+          "minimum_free_bytes": 68719476736,
+          "rss_bytes": 805306368,
+          "spill_bytes": 0,
+          "stream_bytes": 65536,
+          "unit_seconds": 120
+        },
+        "max_requests": 42,
+        "percentage": 100.0,
+        "promoted_dates": 7,
+        "promoted_files": 14,
+        "promoted_rows": 18320,
+        "promoted_units": 7,
+        "promotion_contract_hash": "1152f84e3ae41dd1e309836de9fda09526ff49491504984576df83e5218360e4",
+        "promotion_started": true,
+        "reservation_seconds": 0,
+        "retained_bytes": 2871030,
+        "revision": "moneyflow_history_cohort_dates_v1",
+        "sql_statements": 112,
+        "stage": "files_complete",
+        "total_files": 14,
+        "total_units": 7,
+        "unit_id": 0,
+        "apply": true
+      }
+    },
+    {
+      "mode": "max_batch",
+      "kind": "isolated fixtures; no actual source network or formal Lake",
+      "fixture_sources": {
+        "moneyflow": {
+          "path": "tests/fixtures/moneyflow_20260930.json",
+          "sha256": "b1b6cf194f13b8c520154e39b90076982e84e2255f1dcb3ccfd2cc939b7f69b1",
+          "rows": 5572,
+          "expansion": "5000 distinct existing fixture codes across 20 synthetic dates; 100000 rows"
+        },
+        "moneyflow_cnt_ths": {
+          "path": "tests/fixtures/moneyflow_cnt_ths_20260930.json",
+          "sha256": "d1629345def4d86f7ffa540bdab9c40b59efc999da18d08842da9e1fdf2162a3",
+          "rows": 387
+        },
+        "moneyflow_dc": {
+          "path": "tests/fixtures/moneyflow_dc_20260930.json",
+          "sha256": "79640ab62960cfd1e6b86f79c2ca090d1d982eab05a11e467af39b92d56d3821",
+          "rows": 6024
+        },
+        "moneyflow_ind_dc": {
+          "path": "tests/fixtures/moneyflow_ind_dc_20260930.json",
+          "sha256": "c466c32483011299c6c640ef5190bd00ea6b0be431e2f030cfb5cb9102f7c6ff",
+          "rows": 1031
+        },
+        "moneyflow_ind_ths": {
+          "path": "tests/fixtures/moneyflow_ind_ths_20260930.json",
+          "sha256": "56df871a53ad38e52f7968c333f14d039efda714153d4ec8451916b7752a4277",
+          "rows": 90
+        },
+        "moneyflow_mkt_dc": {
+          "kind": "synthetic_negative_and_null",
+          "rows": 1
+        },
+        "moneyflow_ths": {
+          "path": "tests/fixtures/moneyflow_ths_20260930.json",
+          "sha256": "276f5ba3ddb2da463ffd1e3a2b9a30e5b494a1a6fabd2e77545e93cb709f2b6a",
+          "rows": 5215
+        }
+      },
+      "plans": {
+        "moneyflow": {
+          "dates": 20,
+          "plan_hash": "dc430d9e0d220a800c6837f24fa8fd257d71b14e071d54362c70ac9bd075f43e",
+          "rows": 100000,
+          "units": 1
+        },
+        "moneyflow_cnt_ths": {
+          "dates": 1,
+          "plan_hash": "0767fcde32fd27a3bc8cd369d03156a81331ae1dba5671d7a262c9e269480be2",
+          "rows": 387,
+          "units": 1
+        },
+        "moneyflow_dc": {
+          "dates": 1,
+          "plan_hash": "ab217e87832d043db44bef1947db0f88963f28d1fab74a43c2e0f35583a6c0f6",
+          "rows": 6024,
+          "units": 1
+        },
+        "moneyflow_ind_dc": {
+          "dates": 1,
+          "plan_hash": "027ea20c3d07c90ddc968270229f21573ea614264d7327ea6cd38450932acabf",
+          "rows": 1031,
+          "units": 1
+        },
+        "moneyflow_ind_ths": {
+          "dates": 1,
+          "plan_hash": "4e769f6b1a3d5943593ae8509a619ade06acf669da03e4c748d1ecb4a081b625",
+          "rows": 90,
+          "units": 1
+        },
+        "moneyflow_mkt_dc": {
+          "dates": 1,
+          "plan_hash": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+          "rows": 1,
+          "units": 1
+        },
+        "moneyflow_ths": {
+          "dates": 1,
+          "plan_hash": "0e9ccad0ea5687e8320498081f99c9bcad25cf280c231bda1357a80fd65dce9f",
+          "rows": 5215,
+          "units": 1
+        }
+      },
+      "total_rows": 112748,
+      "total_dates": 26,
+      "total_units": 7,
+      "total_files": 52,
+      "source_requests_fake": 28,
+      "promotion_source_requests": 0,
+      "seconds": {
+        "candidates": 5.520987832918763,
+        "preflight": 0.04261937504634261,
+        "apply": 0.4585295000579208,
+        "replay": 0.04587824991904199
+      },
+      "peak_rss_mib": 466.09375,
+      "formal_parquet_bytes": 21328166,
+      "staging_bytes": 52989,
+      "shared_retained_bytes": 21381157,
+      "row_differences": 0,
+      "rejects": 0,
+      "sha256_files": {
+        "raw/tushare/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet": "b4ef9debedd6ae38f6dc06749684e30d9034fa849c94fb533078bb3163e0d98e",
+        "silver/moneyflow/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet": "68636c2fda7e308027832d25900591d4c760257f237ae98ca22528487d4068d4",
+        "raw/tushare/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet": "c54ba5d826a3216ce51bd6ea87ab9641bc9e244a13575eeac47fb79e127d68d0",
+        "silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet": "fa60503a1846cc3d56b1e90e80d1761034261bc39b98eb92143696b8b4f00734",
+        "raw/tushare/moneyflow_ths/trade_date=2026-09-30/part-000.parquet": "d68f42062195bf7a7f74bc794f74a56c0f6814c9f4a8700a4f8fe7fe9db32775",
+        "silver/moneyflow/moneyflow_ths/trade_date=2026-09-30/part-000.parquet": "b40f28495e8217140aac53ef97894d1be948609260fc347bab7c3a685bf8a0b3",
+        "raw/tushare/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet": "7387b327e4b3bc9cc42885cb9fc2eb2e962620e9544296b7dd62c3071c1effaa",
+        "silver/moneyflow/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet": "a96fb0ba83ce0d893a9eae800b5c003ac736739eb3a3132d816d158ce39fd5ec",
+        "raw/tushare/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet": "ce040b9e96d632e82f0ba6c200a30677e8c540f031c87a5265413e4acd9fc06f",
+        "silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet": "b7316158b5bb86f71b64b8c5bcce3facaa42dd35d191cc4b29d27aae5b1ce39f",
+        "raw/tushare/moneyflow_dc/trade_date=2026-09-30/part-000.parquet": "70fda8fd7a63552c3b5d5ea99e48cf1583ed5fc207f9a21f85e68da7f72afad4",
+        "silver/moneyflow/moneyflow_dc/trade_date=2026-09-30/part-000.parquet": "ac089a2ddd393bce9429e38d0ca5daab80a03d022418c66fd5e77515f91714f2",
+        "raw/tushare/moneyflow/trade_date=2026-09-01/part-000.parquet": "d3407b061e0a9d7266350bc007ce3d4ab1c155129f60d92196a7636ef5cc22bd",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-01/part-000.parquet": "0f38832a9a12d5afc2348570e21864f5be7e557efbf5243485a762a8d8d5bd9c",
+        "raw/tushare/moneyflow/trade_date=2026-09-02/part-000.parquet": "d077777005f1bdb3384a98fff267a85c4fa84f0e36cbd128811d6faf48d160e5",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-02/part-000.parquet": "da5a2b44a3f4a319dd26c6d74ac82df13d04f47bf30fafdd35b7565b7f996d1a",
+        "raw/tushare/moneyflow/trade_date=2026-09-03/part-000.parquet": "99fc88488b2e6aa302ff4860ce77106c60dac50a9b0f6b4bffed3e7d53ad729d",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-03/part-000.parquet": "7414bbabe79660d2062ea05b180d37a3c4e923a1c4773d1d0cc4dd6af27d8271",
+        "raw/tushare/moneyflow/trade_date=2026-09-04/part-000.parquet": "841871265ee15ff000eec81a77ae764bc3af23123cb884009e86311b6ed909d1",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-04/part-000.parquet": "8af9f1647561f133d46cf49a75653c83e65453dca69fb5238d95ecb0520e26ee",
+        "raw/tushare/moneyflow/trade_date=2026-09-05/part-000.parquet": "027bfaeb5943d007f59504ee6b3d88d634a74753bab691659cdffae037395def",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-05/part-000.parquet": "d26df728f8aa683024902ef9b9cf293bdccffcffd27ee27cbc02dc525a8ce226",
+        "raw/tushare/moneyflow/trade_date=2026-09-06/part-000.parquet": "1dad2e9cb10f82ff2680bc40217c14a03731f5fc02b957a464a9527e179e4452",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-06/part-000.parquet": "8168d3830706ed65078708e36a263b1548e20cddbfe31518320e66036279fdb0",
+        "raw/tushare/moneyflow/trade_date=2026-09-07/part-000.parquet": "5d60ac1775f57bfe2a3924add751992b18955fedf2202060062db14c4f7ded74",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-07/part-000.parquet": "4e8e1d6d1798984b19ea061ed5b8d4082bb7a12e07911645931e1564cae982d3",
+        "raw/tushare/moneyflow/trade_date=2026-09-08/part-000.parquet": "88986da3d54dde6ca259bb024ac95fba15e90d11a60afddd4aabe2cb784edc35",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-08/part-000.parquet": "f1d4142c36578004396deaa1b7ba6ed961f779fb4d1814e5a221955dd8fec36f",
+        "raw/tushare/moneyflow/trade_date=2026-09-09/part-000.parquet": "d93cc0b188c7f0f2bb742d775f599907b5019b2f674536685f990c8c3e01a506",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-09/part-000.parquet": "5a58fcaab30f8b33f64948bc5784586759cd42a24e5f618669aeb07808294cde",
+        "raw/tushare/moneyflow/trade_date=2026-09-10/part-000.parquet": "9a7c910301235bf422659ad946f966d31240655f2d68db2e5e414af4af614f13",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-10/part-000.parquet": "f78d46d26a8e4b82a11f0e749dc4ee6757b228328cbd294b5f0e163882a7091c",
+        "raw/tushare/moneyflow/trade_date=2026-09-11/part-000.parquet": "7955a5c6a150dba920e0a11ec9813a4867bbb06f2a72859fcf1a3fdbb4ea5f3c",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-11/part-000.parquet": "472f183a59b3e10d6a85edf27e4a0c715f4b4d0ac51f09a23d71b15a44591e7e",
+        "raw/tushare/moneyflow/trade_date=2026-09-12/part-000.parquet": "2cbc4cc1d2b565950fe3ff879692f7e14cf61e9e13706c1ff3f4a42ccab8edad",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-12/part-000.parquet": "a6d8aad894608ad27b744e451a2bf275e747091d7f88876a835399508ef661ed",
+        "raw/tushare/moneyflow/trade_date=2026-09-13/part-000.parquet": "03b78b9727b2013e49e49cacd6da38e3136adeb4eb0138e4a6f8e1c72b1df668",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-13/part-000.parquet": "3bd6c02859e1bf2417b9dc6d4aec3143412efebde049b166051c5de1980bc1df",
+        "raw/tushare/moneyflow/trade_date=2026-09-14/part-000.parquet": "04e8008ba8f4aa910b929c80fc09dabf511f02c9f38385eae61df6ef4d7f3964",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-14/part-000.parquet": "3619ab944911e0cfa32d0cce075f6ae60d2ff5e84df2e669290826fc4cf4db48",
+        "raw/tushare/moneyflow/trade_date=2026-09-15/part-000.parquet": "9d9f344a4557b2111ccfd444525bd396497a206476c29e0623f921ee8d941c05",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-15/part-000.parquet": "a9ad9357fa90c4e3db236a88e68b948363e6c4c0ab042dac54b0aa706a4187c0",
+        "raw/tushare/moneyflow/trade_date=2026-09-16/part-000.parquet": "5344d9e3e4899a31f85d990466f03fe9276b6f6d5148b237c6f8c6759287ddc8",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-16/part-000.parquet": "d4db186cb953847ea674a470cad2d56daccabb279251131e202ea6d86dfd7a25",
+        "raw/tushare/moneyflow/trade_date=2026-09-17/part-000.parquet": "04a15b60f3d5e43f3d0081a39df635aff9639e42217922344d349f427b4befe9",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-17/part-000.parquet": "2250f312b3efab710913ea00793ceaca3c5433f99c448a78539d57759ada5efd",
+        "raw/tushare/moneyflow/trade_date=2026-09-18/part-000.parquet": "4f909a4ae4de2f8280d4655bab0a65123210ceab9c1b71ad70fee7be5042d8c2",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-18/part-000.parquet": "3d49dc7db037b36c2a7ff55f45e6754176ba4f8217dd657b9120368bf70a201a",
+        "raw/tushare/moneyflow/trade_date=2026-09-19/part-000.parquet": "536b5070d8678a256db22c271edd03f599fe84f82e67e1b81498bbb315b9c3b0",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-19/part-000.parquet": "fe655bb0f5c50a6b0d4bcc8ee5abc6ced7d91bbe4dd70f721d05364ae150291a",
+        "raw/tushare/moneyflow/trade_date=2026-09-20/part-000.parquet": "2956ac31cf7eedcc6b30ef1c8099846e7fe223c9a141d140b4e5a7d41ccc081e",
+        "silver/moneyflow/moneyflow/trade_date=2026-09-20/part-000.parquet": "67de6790404de43fdcb27284724a942fdbda3ff37e508e834052cc94731931cb"
+      },
+      "candidate_checkpoints_sha256": {
+        "moneyflow_ind_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "320252011f8395445e48797b33b7bb70a6cb650823d6c8069156b18751d2f502",
+        "moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "4ba46d3395dc5fa2f6bac09e964f4c2bcf278fc57a5e56ae098d93465cd1bc5d",
+        "moneyflow_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "9f3579d12d8f137ee24cd1d68fec3735e0e0ca10e2f6dd0b18e8c5437aff4fee",
+        "moneyflow_ind_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "1f813dcf58831ebe2e3bbbbcc41b6a8ae4271acf161f8d651a27f146347e162c",
+        "moneyflow_mkt_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "bcc93daa87d641f19631c655ce91875e44f8e83a5bc2c9eedd621802439766eb",
+        "moneyflow_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "3da52aaeba98ff391e96b6b6ee447576741606d958f010be24cf1df0f70a707b",
+        "moneyflow/2026-09-30/history_candidates/unit-000000/checkpoint.json": "14daa278976aee828d7ddc9d24a461187a9f874f68196f0358210eb684d78baa"
+      },
+      "apply_progress": {
+        "bytes": 0,
+        "charged_seconds": 5.93579354067333,
+        "closed_units": [
+          {
+            "checkpoint_sha256": "14daa278976aee828d7ddc9d24a461187a9f874f68196f0358210eb684d78baa",
+            "dataset": "moneyflow",
+            "date_counts": [
+              [
+                "2026-09-01",
+                5000
+              ],
+              [
+                "2026-09-02",
+                5000
+              ],
+              [
+                "2026-09-03",
+                5000
+              ],
+              [
+                "2026-09-04",
+                5000
+              ],
+              [
+                "2026-09-05",
+                5000
+              ],
+              [
+                "2026-09-06",
+                5000
+              ],
+              [
+                "2026-09-07",
+                5000
+              ],
+              [
+                "2026-09-08",
+                5000
+              ],
+              [
+                "2026-09-09",
+                5000
+              ],
+              [
+                "2026-09-10",
+                5000
+              ],
+              [
+                "2026-09-11",
+                5000
+              ],
+              [
+                "2026-09-12",
+                5000
+              ],
+              [
+                "2026-09-13",
+                5000
+              ],
+              [
+                "2026-09-14",
+                5000
+              ],
+              [
+                "2026-09-15",
+                5000
+              ],
+              [
+                "2026-09-16",
+                5000
+              ],
+              [
+                "2026-09-17",
+                5000
+              ],
+              [
+                "2026-09-18",
+                5000
+              ],
+              [
+                "2026-09-19",
+                5000
+              ],
+              [
+                "2026-09-20",
+                5000
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "4ba46d3395dc5fa2f6bac09e964f4c2bcf278fc57a5e56ae098d93465cd1bc5d",
+            "dataset": "moneyflow_cnt_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                387
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "3da52aaeba98ff391e96b6b6ee447576741606d958f010be24cf1df0f70a707b",
+            "dataset": "moneyflow_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                6024
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "1f813dcf58831ebe2e3bbbbcc41b6a8ae4271acf161f8d651a27f146347e162c",
+            "dataset": "moneyflow_ind_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                1031
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "320252011f8395445e48797b33b7bb70a6cb650823d6c8069156b18751d2f502",
+            "dataset": "moneyflow_ind_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                90
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "bcc93daa87d641f19631c655ce91875e44f8e83a5bc2c9eedd621802439766eb",
+            "dataset": "moneyflow_mkt_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                1
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "9f3579d12d8f137ee24cd1d68fec3735e0e0ca10e2f6dd0b18e8c5437aff4fee",
+            "dataset": "moneyflow_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                5215
+              ]
+            ],
+            "unit_id": 0
+          }
+        ],
+        "cohort_hash": "ea6b3e336b454477cec5af115b240b8c8f9ff7035fefe31427169218b3d38911",
+        "completed_units": 7,
+        "connections": 28,
+        "copy_transactions": 28,
+        "current_date": "2026-09-30",
+        "current_unit": 0,
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ths",
+        "dataset_contracts": {
+          "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+          "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+          "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+          "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+          "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+          "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+          "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+        },
+        "dates": [
+          "2026-09-30"
+        ],
+        "eta": "暂无法估算",
+        "expected_rows": 5215,
+        "extra_requests": 14,
+        "generated_dates": 1,
+        "global_unit": 6,
+        "last_updated": 1791436406.484145,
+        "limits": {
+          "buffer_bytes": 33554432,
+          "disk_bytes": 34359738368,
+          "duckdb_memory": "512MB",
+          "duckdb_threads": 1,
+          "elapsed_seconds": 43200,
+          "minimum_free_bytes": 68719476736,
+          "rss_bytes": 805306368,
+          "spill_bytes": 0,
+          "stream_bytes": 65536,
+          "unit_seconds": 120
+        },
+        "max_requests": 42,
+        "percentage": 100.0,
+        "promoted_dates": 26,
+        "promoted_files": 52,
+        "promoted_rows": 112748,
+        "promoted_units": 7,
+        "promotion_contract_hash": "dfd161a62a4097e4b161fb502e8949fa6ab9c219fa7ae7825ace847128c28380",
+        "promotion_started": true,
+        "reservation_seconds": 0,
+        "retained_bytes": 21381163,
+        "revision": "moneyflow_history_cohort_dates_v1",
+        "sql_statements": 112,
+        "stage": "files_complete",
+        "total_files": 52,
+        "total_units": 7,
+        "unit_id": 0,
+        "current_file": "2026-09-30/silver",
+        "apply": true
+      },
+      "replay_progress": {
+        "bytes": 0,
+        "charged_seconds": 5.96185758151114,
+        "closed_units": [
+          {
+            "checkpoint_sha256": "14daa278976aee828d7ddc9d24a461187a9f874f68196f0358210eb684d78baa",
+            "dataset": "moneyflow",
+            "date_counts": [
+              [
+                "2026-09-01",
+                5000
+              ],
+              [
+                "2026-09-02",
+                5000
+              ],
+              [
+                "2026-09-03",
+                5000
+              ],
+              [
+                "2026-09-04",
+                5000
+              ],
+              [
+                "2026-09-05",
+                5000
+              ],
+              [
+                "2026-09-06",
+                5000
+              ],
+              [
+                "2026-09-07",
+                5000
+              ],
+              [
+                "2026-09-08",
+                5000
+              ],
+              [
+                "2026-09-09",
+                5000
+              ],
+              [
+                "2026-09-10",
+                5000
+              ],
+              [
+                "2026-09-11",
+                5000
+              ],
+              [
+                "2026-09-12",
+                5000
+              ],
+              [
+                "2026-09-13",
+                5000
+              ],
+              [
+                "2026-09-14",
+                5000
+              ],
+              [
+                "2026-09-15",
+                5000
+              ],
+              [
+                "2026-09-16",
+                5000
+              ],
+              [
+                "2026-09-17",
+                5000
+              ],
+              [
+                "2026-09-18",
+                5000
+              ],
+              [
+                "2026-09-19",
+                5000
+              ],
+              [
+                "2026-09-20",
+                5000
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "4ba46d3395dc5fa2f6bac09e964f4c2bcf278fc57a5e56ae098d93465cd1bc5d",
+            "dataset": "moneyflow_cnt_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                387
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "3da52aaeba98ff391e96b6b6ee447576741606d958f010be24cf1df0f70a707b",
+            "dataset": "moneyflow_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                6024
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "1f813dcf58831ebe2e3bbbbcc41b6a8ae4271acf161f8d651a27f146347e162c",
+            "dataset": "moneyflow_ind_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                1031
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "320252011f8395445e48797b33b7bb70a6cb650823d6c8069156b18751d2f502",
+            "dataset": "moneyflow_ind_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                90
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "bcc93daa87d641f19631c655ce91875e44f8e83a5bc2c9eedd621802439766eb",
+            "dataset": "moneyflow_mkt_dc",
+            "date_counts": [
+              [
+                "2026-09-30",
+                1
+              ]
+            ],
+            "unit_id": 0
+          },
+          {
+            "checkpoint_sha256": "9f3579d12d8f137ee24cd1d68fec3735e0e0ca10e2f6dd0b18e8c5437aff4fee",
+            "dataset": "moneyflow_ths",
+            "date_counts": [
+              [
+                "2026-09-30",
+                5215
+              ]
+            ],
+            "unit_id": 0
+          }
+        ],
+        "cohort_hash": "ea6b3e336b454477cec5af115b240b8c8f9ff7035fefe31427169218b3d38911",
+        "completed_units": 7,
+        "connections": 28,
+        "copy_transactions": 28,
+        "current_date": "2026-09-30",
+        "current_file": "2026-09-30/silver",
+        "current_unit": 0,
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ths",
+        "dataset_contracts": {
+          "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+          "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+          "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+          "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+          "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+          "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+          "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+        },
+        "dates": [
+          "2026-09-30"
+        ],
+        "eta": "暂无法估算",
+        "expected_rows": 5215,
+        "extra_requests": 14,
+        "generated_dates": 1,
+        "global_unit": 6,
+        "last_updated": 1791436406.5465448,
+        "limits": {
+          "buffer_bytes": 33554432,
+          "disk_bytes": 34359738368,
+          "duckdb_memory": "512MB",
+          "duckdb_threads": 1,
+          "elapsed_seconds": 43200,
+          "minimum_free_bytes": 68719476736,
+          "rss_bytes": 805306368,
+          "spill_bytes": 0,
+          "stream_bytes": 65536,
+          "unit_seconds": 120
+        },
+        "max_requests": 42,
+        "percentage": 100.0,
+        "promoted_dates": 26,
+        "promoted_files": 52,
+        "promoted_rows": 112748,
+        "promoted_units": 7,
+        "promotion_contract_hash": "dfd161a62a4097e4b161fb502e8949fa6ab9c219fa7ae7825ace847128c28380",
+        "promotion_started": true,
+        "reservation_seconds": 0,
+        "retained_bytes": 21381157,
+        "revision": "moneyflow_history_cohort_dates_v1",
+        "sql_statements": 112,
+        "stage": "files_complete",
+        "total_files": 52,
+        "total_units": 7,
+        "unit_id": 0,
+        "apply": true
+      }
+    }
+  ],
+  "tests": {
+    "joint": {
+      "passed": 765,
+      "seconds": 75.5,
+      "promotion": 36,
+      "existing_history": 160,
+      "daily_and_policy": 569
+    },
+    "governance": {
+      "passed": 12,
+      "subtests": 474,
+      "original_protected_runner": true
+    },
+    "static": {
+      "passed": 113,
+      "original_protected_runner": true
+    },
+    "ruff_changed": "passed",
+    "ruff_src_tests_fatal": "passed",
+    "real_process_exit": [
+      "after os.replace before receipt",
+      "after complete file receipt before root counter"
+    ],
+    "cancel": [
+      "before operation",
+      "after Raw move before Silver",
+      "after file completion receipt"
+    ],
+    "failure_injection": [
+      "state write fails after move; actual file retained",
+      "scope conflict blocks all file moves",
+      "receipt/hash consistent invalid Parquet rejected by physical audit",
+      "same Store disk limit includes moved formal bytes"
+    ],
+    "logs": {
+      "regression-final": {
+        "path": "/private/tmp/moneyflow-promotion-regression-final-20261008.log",
+        "sha256": "0a4b41c9b037eb6cc1f1db4dabde94bb55c939ec866e62ac7e5a391bb30bc119"
+      },
+      "governance": {
+        "path": "/private/tmp/moneyflow-promotion-governance-20261008.log",
+        "sha256": "be31b30718d581d46d94c513fdc25f5519c6ba17c1330342839d383f6842b836"
+      },
+      "static": {
+        "path": "/private/tmp/moneyflow-promotion-static-20261008.log",
+        "sha256": "d2ab8bad4bc01d8ebcf8956fdad3bb8ea31af174e85c12af441c4fadfd3f0f3a"
+      }
+    },
+    "docs_integrity": "passed",
+    "new_doc_links_and_report_hashes": "passed"
+  },
+  "formal_write_count": 0,
+  "promotion_source_request_count": 0,
+  "event_count": 0,
+  "plan_reconciliation": {
+    "immutable_source_checkpoint": "candidate checkpoint bytes unchanged and closed prefix hash validated",
+    "whole_scope_preflight": "hash/conflict/layout/device before first formal move",
+    "current_unit_physical_audit": "original bounded columnar schema/date/key/Raw-Silver audit reused",
+    "atomic_file_commit": "fsync source -> os.replace -> fsync directories -> formal hash -> intent completion receipt",
+    "same_hash_idempotency": "same content reused, different content stops",
+    "recovery": "mixed staging/formal file locations follow linked intent receipt; completed unit hashes checked without deep decode",
+    "budgets": "same operation request/time/disk ledger; moved actual bytes included; crash time reservation retained",
+    "progress": "promoted files/dates/rows; dates only complete after both layers",
+    "writer": "same namespace lock; source entry blocked before accounting writes after promotion marker"
+  },
+  "remaining": [
+    "bounded real-source sample execution entry and exact reviewable dates/commands",
+    "formal same-filesystem sample and physical readback under scoped approval",
+    "full history operation plus file/event registration phases not executed",
+    "P4 daily same writer integration and 22:00 registration not activated",
+    "no full-history throughput/SLA claim from temporary fixture timings"
+  ],
+  "codegraph": {
+    "project_root": "/Users/congming/github/goldenshare",
+    "tools": [
+      "codegraph_explore",
+      "codegraph impact _audit_files",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "status": "up to date",
+    "limitations": "same-named graph symbols and incomplete test edges supplemented by direct code reads",
+    "impact_log_sha256": "52a91e19ab3d96c9e1e350edc7e7d8c3812de678444465087d22a49764ede90e"
+  },
+  "measurement_driver": {
+    "sha256": "29b871355b58412c4514b4a8bb3d33fee54f1a40db36a27f00a1816c594c1e35",
+    "source": "import datetime, hashlib, json, resource, runpy, sys, time\nfrom decimal import Decimal\nfrom pathlib import Path\nfrom types import SimpleNamespace\n\nproject = Path.cwd()\ntest = runpy.run_path(str(project / 'tests/test_moneyflow_history_promote.py'))\nengine, promote, Source = test['engine'], test['promote'], test['Source']\nengine.shutil.disk_usage = lambda _: SimpleNamespace(free=128 * 1024**3)\nmode = sys.argv[1]\nroot = Path('/private/tmp/moneyflow-promotion-20261008') / (mode + '-validated-v3')\nroot.mkdir(exist_ok=True)\nrows, fixtures = {}, {}\nfor ds in test['DATASETS']:\n    path = project / 'tests/fixtures' / (ds + '_20260930.json')\n    if path.exists():\n        items = json.loads(path.read_text(), parse_float=Decimal)\n        fixtures[ds] = {'path': str(path.relative_to(project)), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'rows': len(items)}\n        fields = [c.name for c in test['history_schema'](ds)]\n        rows[ds] = [{**{f: item.get(f) for f in fields}, 'trade_date': '2026-09-30'} for item in items]\n    else:\n        item = Source.row(ds)\n        item['net_amount'] = '-123456.7890'\n        rows[ds] = [item]\n        fixtures[ds] = {'kind': 'synthetic_negative_and_null', 'rows': 1}\nif mode == 'max_batch':\n    original = rows['moneyflow'][:5000]\n    rows['moneyflow'] = [{**row, 'trade_date': (datetime.date(2026,9,1)+datetime.timedelta(days=offset)).isoformat()} for offset in range(20) for row in original]\n    fixtures['moneyflow']['expansion'] = '5000 distinct existing fixture codes across 20 synthetic dates; 100000 rows'\nstart = time.monotonic()\nstaging, lake, source = test['setup'](root, rows)\nbuilt = time.monotonic()-start\noperation = test['operation'](staging)\nexpected = {}\ncheckpoints = {}\nfor checkpoint in operation.rglob('checkpoint.json'):\n    receipt = json.loads(checkpoint.read_text())\n    checkpoints[str(checkpoint.relative_to(operation))] = hashlib.sha256(checkpoint.read_bytes()).hexdigest()\n    for fact in receipt['files']:\n        for layer in ('raw','silver'):\n            target = (promote.raw_moneyflow_path if layer == 'raw' else promote.silver_moneyflow_path)(lake, checkpoint.relative_to(operation).parts[0], fact['trade_date'])\n            expected[str(target.relative_to(lake))] = fact[layer+'_sha256']\nstart=time.monotonic(); preflight=test['run'](staging,lake); planned=time.monotonic()-start\nassert not test['hashes'](lake)\nstart=time.monotonic(); applied=test['run'](staging,lake,apply=True); applying=time.monotonic()-start\nassert test['hashes'](lake)==expected\nassert all(hashlib.sha256((operation / p).read_bytes()).hexdigest()==digest for p,digest in checkpoints.items())\nassert applied['promoted_rows']==sum(len(r) for r in rows.values())\nassert not list(operation.rglob('*.parquet'))\nstart=time.monotonic(); replay=test['run'](staging,lake,apply=True); replaying=time.monotonic()-start\nassert test['hashes'](lake)==expected\nassert source.calls==applied['copy_transactions']==replay['copy_transactions']==28\nmanifest=json.loads((operation/'cohort.json').read_text())\nresult={'mode':mode,'kind':'isolated fixtures; no actual source network or formal Lake', 'fixture_sources':fixtures,'plans':manifest['plans'],'total_rows':manifest['total_rows'],'total_dates':manifest['total_dates'],'total_units':manifest['total_units'],'total_files':len(expected),'source_requests_fake':source.calls,'promotion_source_requests':0,'seconds':{'candidates':built,'preflight':planned,'apply':applying,'replay':replaying},'peak_rss_mib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/(1024**2),'formal_parquet_bytes':sum(p.stat().st_size for p in lake.rglob('*.parquet')),'staging_bytes':sum(p.stat().st_size for p in operation.rglob('*') if p.is_file()),'shared_retained_bytes':replay['retained_bytes'],'row_differences':0,'rejects':0,'sha256_files':expected,'candidate_checkpoints_sha256':checkpoints,'apply_progress':applied,'replay_progress':replay}\n(root/'evidence.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))\nprint(json.dumps({k:result[k] for k in ('mode','total_rows','total_dates','total_units','total_files','seconds','peak_rss_mib','formal_parquet_bytes','shared_retained_bytes')}))\n",
+    "scope": "isolated /private/tmp fixture measurements only; not formal source execution"
+  }
+}

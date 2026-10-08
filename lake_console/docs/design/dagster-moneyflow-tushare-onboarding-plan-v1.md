@@ -561,3 +561,15 @@ COPY字节只进有界内存，再用现行严格接收/归一化代码校验；
 [来源冻结、恢复、候选与代码证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json)保存批准SQL/hash、冻结类型/日期/分类、21次聚合证明、共享预算与样本checkpoint，不含凭据或业务明细。控制实测和候选测试仅在/private/tmp，未使用正式移动盘；临时驱动在冻结报告后移除，SQL/控制证据保留。
 
 当前关闭P3-A的来源事实冻结、P3-B七表共享候选入口及P3-C候选侧隔离恢复；不关闭整个P3或P3-D。下一步开发逐文件checkpoint、校验后同文件系统os.replace的Raw/Silver正式提升，再按原范围做获准的代表性正式样本与全链性能验收；不能只凭candidates_verified发完成事件。完整历史执行、CLI/资产/事件、P4日更与P5验收继续后置。本轮新增源码、测试、报告和两份文档尚未提交。
+
+## 29. 逐文件提升与隔离恢复完成（2026-10-08，当前进度）
+
+§28来源冻结、七表共享候选与证据已提交 `a55645ee`，未推送。按§24日期路线，本轮新增逐文件提升 helper、集中 Raw/Silver 路径和提升 checkpoint；七表仍是独立数据集。完整候选先全范围核验 hash、冲突、目录和同设备，再对当前 unit 做原完整物理对账；Raw/Silver 逐文件 fsync、原子移入、读回 hash 后登记 checkpoint，无复制/转换/spool，无新增来源请求。同内容幂等复用，不同内容停止。取消、真实进程退出或状态写失败保留已提升文件，恢复从实际目标接回，不重导、不回滚。
+
+提升共用原12小时/32GiB账本和 writer。已移入正式位置的字节仍计入同一空间预算，包括 rename 后尚未闭合的 intent；日期完成量只有 Raw/Silver 都完成后才增加。候选 checkpoint/来源证明保持不变，进入提升后原候选入口拒绝再生成。默认 `apply=False` 只做预检；本轮仅在系统临时目录使用 APPLY，不写正式 Lake、Prod 或 DG，不发布事件或启用日更。硬口径、配置/消费者审计与代码/测试对账见 LLD§24。
+
+两组隔离测量：七表18320行/14文件，提升0.154秒、重跑0.022秒、峰值314.23MiB；普通 moneyflow 100000行/20个合成日期加其余六表，合计112748行/52文件，提升0.459秒、重跑0.046秒、峰值466.09MiB。源/归一化/Raw/Silver行数一致、reject0、业务差异0，原候选/正式/重跑每文件 hash一致，候选 checkpoint 字节不变；每组候选28次 fake请求，提升额外来源请求0。六表金额来自公开fixture，大盘使用负值/NULL合成样本；测试日期不是源历史补齐。耗时包含当前批校验/提升，未包含真实网络或正式盘，不能外推全历史 SLA。
+
+新增36项，联合原历史160项与七表/策略569项，共765项通过；保护治理12项/474子测试、静态113项、Ruff、diff/文档门禁通过，CodeGraph explore/impact/sync/status已核验。[提升与恢复证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json)记录实际文件/receipt hash、字节、进度、代码及测试日志 hash。影响仅 bootstrap/内部路径与控制恢复，没有业务 API/CLI、DatasetDefinition、Dagster definition 或依赖矩阵变更。本轮新代码、测试、报告与两份文档尚未提交。
+
+当前关闭逐文件提升开发与提升侧隔离恢复，P3-D本机测量已补齐；正式磁盘样本及P3整体验收仍未完成。现有提升要求完整 cohort，下一步先补有界真实来源样本入口与明确日期/行数/同设备目标/冲突清单、准确命令和恢复方式，完成隔离验证后提交正式写湖批准。不能裁剪已冻结全历史 manifest、伪造证明或用全量运行替代样本。正式样本还要核对维护窗口与日更 writer；P4日更接入、22:00分区登记、CLI/资产/事件和P5真实日更继续后置。

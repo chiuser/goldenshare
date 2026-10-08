@@ -79,10 +79,18 @@ def _read_json(path):
 
 
 class _Store:
-    def __init__(self, directory, check=lambda: None, *, json_limit=None):
+    def __init__(
+        self,
+        directory,
+        check=lambda: None,
+        *,
+        json_limit=None,
+        external_bytes=lambda check: 0,
+    ):
         self.directory = directory
         self.check = check
         self.json_limit = json_limit
+        self.external_bytes = external_bytes
         self.lock = threading.RLock()
         self.recount()
 
@@ -102,6 +110,11 @@ class _Store:
             for name in files:
                 self.used += (Path(root) / name).stat().st_size
                 self.reserve(0)
+        extra = self.external_bytes(self.check)
+        if type(extra) is not int or extra < 0:
+            raise MoneyflowContractError("history_disk_bytes_budget")
+        self.reserve(extra)
+        self.used += extra
 
     def add_file(self, path):
         with self.lock:
@@ -187,6 +200,13 @@ class _Control:
         ):
             raise MoneyflowContractError("history_checkpoint_progress")
         self.budget["total_units"] = total_units
+        if self.budget.get("promotion_started") and (
+            self.budget["promotion_started"] is not True
+            or type(self.budget.get("promoted_files")) is not int
+            or type(self.budget.get("total_files")) is not int
+            or not 0 <= self.budget["promoted_files"] <= self.budget["total_files"]
+        ):
+            raise MoneyflowContractError("history_checkpoint_progress")
         self.started = None
         self.bytes = 0
         self.max_requests = max_requests
@@ -228,9 +248,11 @@ class _Control:
         with self.lock:
             self.budget.update(fields)
             total = self.budget["total_units"]
-            self.budget["percentage"] = (
-                100 * self.budget["completed_units"] / total if total else None
-            )
+            completed = self.budget["completed_units"]
+            if self.budget.get("promotion_started"):
+                total = self.budget["total_files"]
+                completed = self.budget["promoted_files"]
+            self.budget["percentage"] = 100 * completed / total if total else None
             self.budget["last_updated"] = time.time()
             self.store.json(self.path, self.budget)
 
@@ -444,7 +466,7 @@ def _create_days(db, plan, unit_id, attempt, receipt, checkpoint, control, store
         control.check()
 
 
-def _audit_files(unit_directory, receipt, plan, unit_id, control):
+def _audit_files(unit_directory, receipt, plan, unit_id, control, *, file_paths=None):
     unit = plan.units[unit_id]
     files = receipt.get("files")
     expected = {
@@ -468,6 +490,8 @@ def _audit_files(unit_directory, receipt, plan, unit_id, control):
                 raise MoneyflowContractError("history_checkpoint_files")
             directory = attempt / day
             raw, silver = directory / "raw.parquet", directory / "silver.parquet"
+            if file_paths is not None:
+                raw, silver = file_paths(day)
             if directory.is_symlink() or any(
                 path.is_symlink() or not path.is_file() for path in (raw, silver)
             ):

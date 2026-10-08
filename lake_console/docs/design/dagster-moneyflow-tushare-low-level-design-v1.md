@@ -905,3 +905,58 @@ Prod事实及逐表行数/日期/批次表见原方案§28：14次只读聚合77
 新专项最终38项，原日期历史122项，最终历史160项；此前联合七表/请求策略727项通过，其中36项新cohort测试，最后两项大账本与计数不一致测试通过并重跑全部160历史项。保护runner仅新增两个精确bootstrap源码清单条目，没有扩大隔离权限；治理12项/474子测试、静态合同113项均通过。默认Ruff改动检查、全src/tests致命规则、文档完整性/新链接及diff检查通过。CodeGraph explore覆盖原候选核心→source/receive/schema，query确认新cohort入口，sync/status当前；直接代码核验补齐测试、路径及保护runner。不存在Prod DatasetDefinition/API/前端合同变更，也没有foundation反向依赖或需要人工迁移的消费者边界。
 
 [本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json)保留完整批准聚合SQL、真实类型/日期/分类、21次hash与计数、候选共享账本/checkpoint、最终代码hash与测试结果。Prod恢复实测后只补全进度百分比、账本JSON写入上限与两项账本测试，最后160项覆盖最终代码；源SQL与真实执行文件逐字一致。测试/private/tmp操作不能搬作正式完成证明；本轮不写正式Lake/DG，不发事件。下一轮仍需逐文件原子提升/幂等恢复，以及明确授权的正式样本与全链性能；P3不提前关闭。
+
+## 24. 逐文件历史提升（2026-10-08，当前开发依据）
+
+七表来源冻结、共享候选与测试/证据已提交a55645ee。管理员要求继续下一步；依据§19.4与原方案§24/§28，本轮只开发默认preflight的提升helper、隔离样本/恢复与性能验收。无新增CLI、资产/catalog、事件或日更入口；正式写湖仍须P3-E精确样本范围批准。本轮不操作移动盘、Prod或正式DG。
+
+### 24.1 硬口径、影响面与预算
+
+1. 只接受当前七表cohort、固定截止日、完整verified候选前缀和原checkpoint真实hash；逐项重建manifest/plan并核验来源两轮证明、日期计数和冻结DC分类。提升使用已独立复核的来源证明，不重新读取Prod；来源再次读取仍属于候选阶段，不在提升中发起业务或元数据请求。
+2. 路径集中新增paths.py的raw_moneyflow_path/silver_moneyflow_path，固定批准布局raw/tushare/{dataset}/trade_date={day}/part-000.parquet、silver/moneyflow/{dataset}/trade_date={day}/part-000.parquet。正式根仅paths.py的DEFAULT_LAKE_ROOT，正式staging仅DEFAULT_LAKE_STAGING_ROOT；隔离测试允许可信系统临时目录下互不包含的lake/staging。拒绝相对路径、符号链接、任意移动盘/旧根、层/日期/数据集越界；正式根需已挂载且存在，不由helper创建。
+3. 默认apply=False，仅核验并记录staging控制证据；apply=True才逐文件提升。整个cohort先做hash/目标冲突/邻居Parquet/同st_dev/目录准入；当前unit再复用audit_history_day做有界schema/日期/键/精度/Raw-Silver全业务字段对账，一批≤20日/40文件。不能把单文件存在或JSON绿色代替物理核验，不对全部历史逐日期解码；已验收完成前缀恢复仅检查真实文件hash和checkpoint链接。
+4. 同hash正式目标幂等复用；不同hash或布局停止，无覆盖/备份/删行/重导/自动重试。Raw先于对应Silver；单文件fsync后同文件系统os.replace，随后同步源/目标目录并hash读回，再原子checkpoint。Raw成功Silver失败时日期未完成，不发事件。取消、进程退出、状态写失败不回滚实际文件；rename已发生而checkpoint未闭合时从正式hash接回。
+5. 原verified候选checkpoint和closed_units hash保持不可变；每unit另有promotion.json，链接cohort/promotion合同及candidate checkpoint，保存promoting/complete与逐文件intent/complete。根promotion-contract.json绑定明确lake根/原计划，目标根不能在恢复时换。进入提升后原候选入口拒绝再生成，防止重建已移走候选；操作级writer锁与同一Control/Store继续复用。
+6. 操作目录盘点加上由逐文件意图与实际正式目标确认的已提升字节，32GiB不能因rename释放额度或恢复而重置；现存相同正式文件不冒充新增写入。文件intent先落盘，未完成intent的实际目标也纳入空间。完成文件/行数/日期按实际读回汇总，候选完成数与提升完成数分别记录；阶段百分比基于当前提升文件量，不在提升途中仍显示候选100%。
+
+本轮无新env/Settings/DB/页面配置或预算常量。apply是本次动作意图，默认false；lake_root/staging_root沿现行固定路径合同，仅临时测试根是隔离入口；新promotion版本/拒绝冲突策略是版本化恢复合同，变更会阻断旧提升状态。原12h/32GiB/120秒步骤、64GiB首次准入、32MiB/64KiB、768MiB RSS、512MB/1线程/0spill与874最大来源请求均不放宽；提升不消耗来源请求，但预检/hash/当前unit校验/逐文件提升计入同一持久时间账本。消费点为bootstrap提升helper、cohort/候选恢复与测试；随代码发布生效，progress保存拒绝原因和真实完成量。
+
+| 规模/性能项 | 冻结量级与本轮拒绝/验收 |
+| --- | --- |
+| 范围 | 7独立dataset，423unit、7804数据集日期、15608最终文件、21160938行；单unit≤20日/100000行/40文件，提升批次不超过原100日门禁 |
+| 来源/SQL | 提升阶段0 Prod/Tushare请求；当前unitDuckDB复用原完整校验，只扫该unit实际Raw/Silver，已完成前缀不重复深解码；所有调用有取消/120秒保护 |
+| IO/临时目录 | 全操作一次有界文件hash/冲突预检，最多候选+相同已有目标各一遍；当前unit再hash/物理校验/读回，后续resume已闭合前缀hash复核。无Parquet复制/转换/spool、没有新增spill；rename不新增业务字节，控制JSON逐文件增量 |
+| 提交/恢复成本 | 单文件os.replace和checkpoint，不能宣称多文件事务；重跑最多当前未闭合unit完整校验，其余hash接回。source与target不同st_dev、hash/路径/布局不符即停止 |
+| 空间/耗时 | 原两层约3523MiB仅参考，本轮隔离真实fixture和接近10万行样本测hash/校验/提升/恢复耗时、实际字节/RSS；全历史网络与正式盘吞吐未测，不外推SLA |
+
+CodeGraph explore覆盖cohort→closed_prefix/Control→候选audit、原索引/周线提升例；直接核验paths、现行Raw/Silver校验、运行账本及测试补齐图遗漏。新增moneyflow_history_promote.py和集中路径，候选/共享控制仅迁移移动后恢复、实际空间与进度消费者；保护runner增加精确源码清单，不扩权限。七表字段/类型、Prod/API/前端合同、日更语义与主体依赖矩阵不变。
+
+验收包含七表正例、同hash复用、不同目标/邻居冲突及全范围先拒绝、跨设备/符号链接/错误根/旧状态、未verified来源、候选篡改、取消/真实进程退出/rename与checkpoint之间退出、状态写失败保留正式文件、恢复不重导且预算/字节不重置、Raw完成Silver未完成不算成功、大账本和空间拒绝。原历史160项和七表/策略569项回归，治理/静态/Ruff/文档门禁按本轮影响复核。正式样本仅形成可审阅的命令/日期/目标/冲突清单，不提前执行。
+
+### 24.2 实现、隔离验收与剩余条件
+
+入口为 `bootstrap/moneyflow_history_promote.py` 的 `promote_moneyflow_history_cohort`，默认 `apply=False`。它只接受完整、已独立来源复核的七表候选操作，不请求 Prod/Tushare；路径来自 `paths.raw_moneyflow_path/silver_moneyflow_path`。`promotion-contract.json` 固定来源 cohort、闭合候选 hash、目标根及冲突策略，各 unit 的 `promotion.json` 保存逐文件意图和完成事实。原候选 checkpoint/closed_units 不变，控制 ledger 继续使用同一个 Store/Control。开始提升后，原冻结/候选入口在唯一 writer 锁内、创建 Store 和改进度前拒绝，避免重新导出被移走的文件或漏算已提升空间。
+
+| §24.1硬口径 | 实现落点 | 验收 |
+| --- | --- | --- |
+| 七表已验证来源、原计划和闭合证明 | `_frozen/_promotion_contract/_closed_prefix` 重建身份并核验 checkpoint/source proof/实际文件 hash | 未 verified、修改来源 scope、checkpoint/文件被改均停止；七表正例及原历史160项 |
+| 全范围先检查，当前批完整物理对账 | `_preflight/_file_location/_target`；候选 `_audit_files` 通过可解析的混合路径复用原 `audit_history_day` | 后面一表有冲突或邻居文件时，一个文件也不提升；即使篡改文件与 receipt/hash 同时一致，非 Parquet 仍被 `history_columnar_error` 拒绝 |
+| 原子提升、相同内容幂等、不同内容拒绝 | `_promote_file` 先写 intent，fsync、同设备 `os.replace`、目录同步/hash 读回，再落逐文件 complete | 七表实际临时目录提升；相同目标全部复用，禁止复制/重写；不同内容/跨设备/符号链接/错误根拒绝 |
+| 取消、退出和状态失败保留已完成文件 | `_promotion_state` 与 `_file_location` 从 staging/正式目标解析实际位置；部分 unit 重审，闭合 unit 仅 hash 复核 | 三处取消；两个真实子进程在 rename 后、receipt 后 `os._exit(23)`，新进程恢复成功；状态写失败后实际文件仍在，续跑接回 |
+| 同一空间/时间/来源请求账本 | Store 的外部字节盘点复用原32GiB准入；`_moved_bytes` 包含 intent 后实际已移入的正式文件；Control 继续120秒步骤预扣 | 恢复保留崩溃120秒预扣与累计计数；只统计 staging 尚未超限时，补入已移入正式区的字节仍触发同一个磁盘门禁；提升新增来源请求0 |
+| 完成量来自文件事实 | 根 progress 分别保存 promoted_files/dates/rows/units，日期和行数仅在 Raw/Silver 都闭合后累加；恢复先重算 | Raw 提升后取消，日期/行数完成量仍0；完整七表才到100%，不会把候选100%误作提升完成 |
+
+性能测量只写 `/private/tmp/moneyflow-promotion-20261008`，真实正式根、DG instance 和 Prod 写入均为0。六表使用已发布的20260930公开 fixture，大盘使用负值/NULL合成样本；不是本轮重新读取生产数据。最大批次将普通 moneyflow fixture 的5000个独立证券扩展到20个合成日期，构成100000行单 unit；其余六表仍使用单日样本。日期扩展仅用于隔离压力测量，不是历史日期补齐。
+
+| 隔离样本 | 行数/数据集日期/文件 | 候选构建 | 提升前预检 | APPLY | 同内容重跑 | 进程峰值RSS |
+| --- | --- | --- | --- | --- | --- | --- |
+| 七表单日 | 18320 / 7 / 14 | 1.272秒 | 0.018秒 | 0.154秒 | 0.022秒 | 314.23MiB |
+| 普通10万行/20日加其余六表 | 112748 / 26 / 52 | 5.521秒 | 0.043秒 | 0.459秒 | 0.046秒 | 466.09MiB |
+
+两组实际 Raw/Silver 文件字节分别2,828,944和21,328,166；恢复账本含控制与已移入目标字节，分别2,871,030和21,381,157，不能因 staging 的 Parquet 清空而归零。源/归一化/Raw/Silver行数一致、reject0、业务差异0；提升前后与重跑每个文件 hash 都与原验证 receipt 一致，原候选 checkpoint 字节不变。首次候选28次 fake 来源请求/112 SQL，提升和重跑不新增来源请求。这些耗时包含当前批物理校验、fsync/rename/hash/checkpoint，不包含真实数据库/网络、正式盘吞吐或事件；并行执行两个隔离样本时测得，不是全历史 SLA。512MB/1线程/0spill、768MiB RSS等预算不变。
+
+新增提升36项，联合原历史160项及七表/策略569项，共765项通过（75.50秒）。受保护治理原 runner 12项/474子测试、静态合同113项通过，精确清单只增加提升 helper，不扩隔离权限。改动默认 Ruff、全 src/tests 致命规则、diff 和文档门禁通过。CodeGraph explore/impact/sync/status核验共享 audit 与恢复、路径消费者；图中不完整的测试边由当前源码核验补齐。没有新增业务 API/CLI、Dagster definition/resource 或跨子系统依赖，无需迁移 Prod/前端消费者。
+
+[本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json)保留两组文件/receipt hash、完整进度/实际字节、代码 hash、测试日志 hash及硬口径对账，不含凭据。两组最终测量均从新隔离目录完整构建，未放宽生产合同。
+
+本轮关闭逐文件提升开发与提升侧隔离恢复验证，补齐 P3-D 的本机候选/检查/提升测量；不关闭 P3-D 正式盘性能、P3-E 或整个P3。当前 helper 只接受完整 cohort，尚不能把全历史操作裁成任意正式日期样本。下一步须先补同一执行链的有界真实来源样本入口：明确日期白名单、逐表预期行数、真实冻结/复核证明、同设备路径/冲突清单和准确命令，完成隔离验证后才提交正式写湖批准；不得删除 manifest 日期、伪造 Prod 证明或直接执行全量来代替最小样本。正式样本还需确认维护窗口/当前日更 writer 状态；历史 writer 已共享锁，P4日更接锁仍未激活。CLI、资产/分区事件、全历史和P4/P5继续后置；`files_complete` 只代表文件阶段完成，不能当作正式资产/事件验收。

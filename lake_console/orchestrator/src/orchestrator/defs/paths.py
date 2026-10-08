@@ -32,6 +32,10 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
 from orchestrator.defs.run_contracts.major_index_nineturn import (
     normalize_major_index_nineturn_minute_freq,
 )
+from orchestrator.defs.run_contracts.moneyflow import (
+    MONEYFLOW_HISTORY_DATASETS,
+    market_moneyflow_day,
+)
 from orchestrator.defs.run_contracts.qfq_nineturn import (
     normalize_qfq_nineturn_minute_freq,
 )
@@ -92,6 +96,20 @@ def lake_path(root: Path, layer: str, *parts: str) -> Path:
 
 def lake_path_template(path: Path) -> str:
     return path.as_posix()
+
+
+def raw_moneyflow_path(root: Path, dataset: str, partition_key: str) -> Path:
+    if dataset not in MONEYFLOW_HISTORY_DATASETS:
+        raise ValueError("moneyflow_dataset")
+    day = partition_key if partition_key == PATH_TEMPLATE_PARTITION_KEY else market_moneyflow_day(partition_key)
+    return lake_path(root, RAW, "tushare", dataset, f"trade_date={day}", "part-000.parquet")
+
+
+def silver_moneyflow_path(root: Path, dataset: str, partition_key: str) -> Path:
+    if dataset not in MONEYFLOW_HISTORY_DATASETS:
+        raise ValueError("moneyflow_dataset")
+    day = partition_key if partition_key == PATH_TEMPLATE_PARTITION_KEY else market_moneyflow_day(partition_key)
+    return lake_path(root, SILVER, "moneyflow", dataset, f"trade_date={day}", "part-000.parquet")
 
 
 def raw_trade_calendar_path(root: Path) -> Path:

@@ -86,7 +86,16 @@ def _write_large(store, path, value):
 
 
 @contextmanager
-def _operation(staging_root, operation_id, cutoff, cancel, clock):
+def _operation(
+    staging_root,
+    operation_id,
+    cutoff,
+    cancel,
+    clock,
+    *,
+    external_bytes=lambda root, check: 0,
+    promotion=False,
+):
     base = moneyflow_candidate_directory(
         staging_root, operation_id, cutoff, dataset=MONEYFLOW_HISTORY_DATASETS[0]
     )
@@ -105,6 +114,8 @@ def _operation(staging_root, operation_id, cutoff, cancel, clock):
         raise InterruptedError("history_cancelled")
     namespace.mkdir(parents=True, exist_ok=True)
     with _writer_lock(namespace):
+        if not promotion and (root / "promotion-contract.json").exists():
+            raise MoneyflowContractError("history_promotion_started")
         identity = _cohort_identity(cutoff)
         if marker.exists():
             if _read_json(marker) != identity:
@@ -122,7 +133,10 @@ def _operation(staging_root, operation_id, cutoff, cancel, clock):
                 raise MoneyflowContractError("history_unit_timeout")
 
         store = _Store(
-            root, inventory_check, json_limit=MONEYFLOW_HISTORY_MAX_BUFFER_BYTES
+            root,
+            inventory_check,
+            json_limit=MONEYFLOW_HISTORY_MAX_BUFFER_BYTES,
+            external_bytes=lambda check: external_bytes(root, check),
         )
         # Inventory checks apply only to this initial metadata walk; subsequent
         # failure recounts use the current operation cancellation guard.
@@ -347,7 +361,7 @@ def _hash_file(path, check):
     return digest.hexdigest()
 
 
-def _closed_prefix(root, control, plans, snapshots):
+def _closed_prefix(root, control, plans, snapshots, *, file_path=None):
     closed = control.budget.get("closed_units", [])
     units = _units(plans)
     if (
@@ -419,9 +433,12 @@ def _closed_prefix(root, control, plans, snapshots):
                 ):
                     raise MoneyflowContractError("history_checkpoint_files")
                 for layer in ("raw", "silver"):
-                    if _hash_file(
-                        attempt / day / (layer + ".parquet"), control.check
-                    ) != item.get(layer + "_sha256"):
+                    actual = attempt / day / (layer + ".parquet")
+                    if file_path is not None:
+                        actual = file_path(
+                            plan, unit_id, day, layer, actual, control.check
+                        )
+                    if _hash_file(actual, control.check) != item.get(layer + "_sha256"):
                         raise MoneyflowContractError("history_candidate_changed")
         finally:
             control.finish()
