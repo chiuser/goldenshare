@@ -7,7 +7,7 @@ import { QueryPanel } from "./QueryPanel";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 const conditions: Conditions = { ...contextFixture.queryDefaults, tsCode: null, titleKeyword: "" };
-const ready = (id = "q1", page = 1): QueryResult => ({ queryId: id, conditions,
+const ready = (id = "q1", page = 1): QueryResult => ({ queryId: id, conditions, effectiveEndDate: conditions.endDate,
   pageState: { status: "ready", code: null, message: null, asOfTime: "2026-10-06T00:00:00Z" },
   sourceVersion: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", items: [], total: 100, page, pageSize: 50,
   hasPrevious: page > 1, hasNext: page === 1, downloadStatusAvailable: true, preparation: null });
@@ -57,4 +57,33 @@ it("page navigation remains locked during a GET while query actions remain enabl
   buttons().forEach(b => expect(b).toBeEnabled());
   await act(async () => { resolvePage(ready("q1", 2)); });
   expect(screen.getByRole("button", { name: "上一页" })).toBeEnabled();
+});
+
+
+it("shows adjusted coverage as information, keeps the requested end date and refreshes the original range", async () => {
+  const message = "本地公告已更新至 2026-09-30，已展示此前公告";
+  const adjusted = { ...ready(), effectiveEndDate: "2026-09-30", pageState: { ...ready().pageState, message } };
+  const create = vi.spyOn(dataCenterApi, "createQuery").mockResolvedValue(adjusted);
+  vi.spyOn(dataCenterApi, "query").mockResolvedValue(adjusted);
+  render(<QueryPanel context={contextFixture} refreshContext={() => {}} />);
+  await act(async () => {});
+  expect(screen.getByText(message)).toHaveClass("info");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText("列表暂不可获取")).toBeNull();
+  expect(screen.getByLabelText("公告结束日期")).toHaveValue(conditions.endDate);
+  fireEvent.click(screen.getByRole("button", { name: "刷新列表" }));
+  expect(create.mock.calls.at(-1)?.[0]).toEqual(conditions);
+});
+
+it("shows the coverage information with an empty future range", async () => {
+  const message = "本地公告已更新至 2026-09-30，所选区间暂无已同步公告";
+  const result: QueryResult = { ...ready(), total: 0, hasNext: false, effectiveEndDate: "2026-09-30",
+    pageState: { ...ready().pageState, status: "empty", message } };
+  vi.spyOn(dataCenterApi, "createQuery").mockResolvedValue(result);
+  vi.spyOn(dataCenterApi, "query").mockResolvedValue(result);
+  render(<QueryPanel context={contextFixture} refreshContext={() => {}} />);
+  await act(async () => {});
+  expect(screen.getByText(message)).toHaveClass("info");
+  expect(screen.getByText("没有符合条件的公告")).toBeVisible();
+  expect(screen.queryByRole("alert")).toBeNull();
 });

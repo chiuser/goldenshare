@@ -1,0 +1,118 @@
+{
+  "lowercaseCandidates": true,
+  "selectionSurvivesDateChange": true,
+  "historicalRows": 2,
+  "tailAdjusted": true,
+  "requestedEndDatePreserved": true,
+  "leadingGapStillErrors": true,
+  "keyboardSelection": true,
+  "errors": [],
+  "consoleErrors": [],
+  "network": [
+    {
+      "path": "/api/v1/wealth/market/context",
+      "query": "?market=CN_A",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/context",
+      "query": "",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/market/major-indices",
+      "query": "?market=CN_A&tradeDate=2026-10-08",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-3e4c436157ec4ad6a9b1d6255e7d536e",
+      "query": "?page=1",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-3e4c436157ec4ad6a9b1d6255e7d536e",
+      "query": "?page=1",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/companies",
+      "query": "?keyword=PAYH&startDate=2026-09-30&endDate=2026-10-08",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-0dc0dbe3042b4f68837f6312a5c7dc5d",
+      "query": "?page=1",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-0dc0dbe3042b4f68837f6312a5c7dc5d",
+      "query": "?page=1",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/companies",
+      "query": "?keyword=PAYH&startDate=2026-09-30&endDate=2026-09-30",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-52b83553d3024d6f86e3c5a3ab0dd91e",
+      "query": "?page=1",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-52b83553d3024d6f86e3c5a3ab0dd91e",
+      "query": "?page=1",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/context",
+      "query": "",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-4671827a4dd1416a877870eb0b9857a8",
+      "query": "?page=1",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-4671827a4dd1416a877870eb0b9857a8",
+      "query": "?page=1",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-6283608fa826412c8d45c90b95eb42c0",
+      "query": "?page=1",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-6283608fa826412c8d45c90b95eb42c0",
+      "query": "?page=1",
+      "status": 200
+    }
+  ]
+}

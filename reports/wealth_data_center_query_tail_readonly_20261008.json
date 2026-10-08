@@ -1,0 +1,102 @@
+{
+  "kind": "formal Raw read-only company service and DuckDB counts; no formal control writes",
+  "keyword": "jlkj",
+  "requestedEndDate": "2026-10-08",
+  "effectiveEndDate": "2026-10-07",
+  "latestLocalDate": "2026-10-07",
+  "candidates": {
+    "keyword": "jlkj",
+    "hasMore": false,
+    "items": [
+      {
+        "tsCode": "000711.SZ",
+        "name": "京蓝科技",
+        "initials": "JLKJ",
+        "matchedAlias": null,
+        "nameSource": "master",
+        "matchKind": "initials"
+      },
+      {
+        "tsCode": "300763.SZ",
+        "name": "锦浪科技",
+        "initials": "JLKJ",
+        "matchedAlias": null,
+        "nameSource": "master",
+        "matchKind": "initials"
+      },
+      {
+        "tsCode": "301193.SZ",
+        "name": "家联科技",
+        "initials": "JLKJ",
+        "matchedAlias": null,
+        "nameSource": "master",
+        "matchKind": "initials"
+      },
+      {
+        "tsCode": "688609.SH",
+        "name": "九联科技",
+        "initials": "JLKJ",
+        "matchedAlias": null,
+        "nameSource": "master",
+        "matchKind": "initials"
+      },
+      {
+        "tsCode": "920138.BJ",
+        "name": "杰理科技",
+        "initials": "JLKJ",
+        "matchedAlias": null,
+        "nameSource": "master",
+        "matchKind": "initials"
+      },
+      {
+        "tsCode": "920505.BJ",
+        "name": "九菱科技",
+        "initials": "JLKJ",
+        "matchedAlias": null,
+        "nameSource": "master",
+        "matchKind": "initials"
+      },
+      {
+        "tsCode": "002464.SZ",
+        "name": "众应退(退)",
+        "initials": "ZYT",
+        "matchedAlias": "金利科技",
+        "nameSource": "master",
+        "matchKind": "alias"
+      },
+      {
+        "tsCode": "300475.SZ",
+        "name": "香农芯创",
+        "initials": "XNXC",
+        "matchedAlias": "聚隆科技",
+        "nameSource": "master",
+        "matchKind": "alias"
+      },
+      {
+        "tsCode": "600762.SH",
+        "name": "S*ST金荔(退)",
+        "initials": "SSTJL",
+        "matchedAlias": "金荔科技",
+        "nameSource": "master",
+        "matchKind": "alias"
+      }
+    ]
+  },
+  "missingCurrentDay": "source_day_missing:2026-10-08",
+  "historicalRange": {
+    "startDate": "2026-09-09",
+    "endDate": "2026-10-07",
+    "tsCode": "300763.SZ",
+    "titleKeyword": "",
+    "downloadStatus": "all"
+  },
+  "dateFiles": 29,
+  "total": 6,
+  "elapsedSeconds": 1.8491040410008281,
+  "fdPeak": 29,
+  "sqlMaxSeconds": 0.16224033292382956,
+  "sourceHttpRequests": 0,
+  "pgWrites": 0,
+  "rawWrites": 0,
+  "pdfWrites": 0
+}

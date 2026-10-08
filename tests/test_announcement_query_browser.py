@@ -17,7 +17,7 @@ from test_announcement_download_dg import raw_root, write_day
 
 
 @pytest.mark.skipif(os.environ.get('ANNOUNCEMENT_QUERY_BROWSER') != '1', reason='explicit browser regression only')
-def test_lowercase_candidates_and_missing_date_isolation(downloads, monkeypatch):
+def test_lowercase_candidates_and_tail_adjustment(downloads, monkeypatch):
     from src.app.runtime.announcement_archive_lifespan import include_data_center, install_data_center
     from src.app.exceptions import install_exception_handlers
     playwright = Path('/opt/homebrew/lib/node_modules/openclaw/dist/extensions/browser/node_modules/playwright-core/index.mjs')
@@ -66,7 +66,7 @@ def test_lowercase_candidates_and_missing_date_isolation(downloads, monkeypatch)
         sock.bind(('127.0.0.1', 0)); port = sock.getsockname()[1]
     server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, log_level='error'))
     thread = threading.Thread(target=server.run, daemon=True); thread.start()
-    output = Path('reports/wealth_data_center_query_fix_browser_20261008'); output.mkdir(exist_ok=True)
+    output = Path('reports/wealth_data_center_query_tail_browser_20261008'); output.mkdir(exist_ok=True)
     try:
         for _ in range(100):
             if server.started: break

@@ -70,7 +70,9 @@ def test_missing_latest_date_does_not_block_master_candidates_or_historical_quer
     write_day(raw_root(query_archive[1]),'2026-09-30',[row(code='000001.SZ')])
     missing_body={**request().model_dump(mode='json'),'endDate':'2026-10-08'}
     failed=client.post(PREFIX+'/announcements/queries',json=missing_body)
-    assert poll(client,failed.json()['queryId']).json()['pageState']['status']=='error'
+    adjusted=poll(client,failed.json()['queryId']).json()
+    assert adjusted['pageState']['status']=='ready'
+    assert adjusted['effectiveEndDate']=='2026-09-30' and adjusted['conditions']['endDate']=='2026-10-08'
     candidates=client.get(PREFIX+'/announcements/companies',params=dict(keyword='payh',startDate='2026-09-30',endDate='2026-10-08'))
     assert candidates.status_code==200
     assert candidates.json()['items'][0]['tsCode']=='000001.SZ'
@@ -80,7 +82,7 @@ def test_missing_latest_date_does_not_block_master_candidates_or_historical_quer
     result=poll(client,historic.json()['queryId']).json()
     assert result['pageState']['status']=='ready' and result['total']==1
     assert result['items'][0]['tsCode']=='000001.SZ'
-    assert client.get(PREFIX+'/announcements/queries/'+failed.json()['queryId']).json()['pageState']['status']=='error'
+    assert client.get(PREFIX+'/announcements/queries/'+failed.json()['queryId']).json()['pageState']['status']=='ready'
 
 
 def test_announcement_only_company_still_prepares_the_requested_range(dc_client,query_archive):
@@ -94,13 +96,15 @@ def test_announcement_only_company_still_prepares_the_requested_range(dc_client,
     assert result['items'][0]['tsCode']=='155162.SH' and result['items'][0]['nameSource']=='announcement'
     missing=client.get(PREFIX+'/announcements/companies',params={**params,'endDate':'2026-10-08'})
     assert missing.status_code==202
-    assert poll(client,missing.json()['queryId']).json()['pageState']['status']=='error'
+    assert poll(client,missing.json()['queryId']).json()['pageState']['status']=='ready'
     result=client.get(PREFIX+'/announcements/companies',params={**params,'endDate':'2026-10-08'}).json()
-    assert result['items']==[] and result['pageState']['code']=='DC_SOURCE_UNAVAILABLE'
+    assert result['items'][0]['tsCode']=='155162.SH' and result['queryId'] is None
+    with service.controls.transaction(read_only=True) as conn:
+        from sqlalchemy import text
+        assert conn.scalar(text('SELECT count(*) FROM announcement_archive.query_snapshots'))==2
 
 
 @pytest.mark.parametrize('missing,start,end',[
-    ('2026-10-01','2026-09-30','2026-10-01'),
     ('2026-10-01','2026-09-30','2026-10-02'),
     ('2026-09-29','2026-09-29','2026-09-30')])
 def test_failed_query_is_terminal_with_actual_missing_date_and_manual_requery(dc_client,query_archive,missing,start,end):
@@ -146,7 +150,7 @@ def test_login_first_then_capability_and_prod(dc_client):
     assert not announcements_enabled(Settings(APP_ENV='prod',WEALTH_LOCAL_ANNOUNCEMENTS_ENABLED=True))
 
 
-@pytest.mark.parametrize('extra',[{'url':'https://x'},{'outputRoot':'/tmp'},{'intervalSeconds':0},{'companyName':'平安'}])
+@pytest.mark.parametrize('extra',[{'url':'https://x'},{'outputRoot':'/tmp'},{'intervalSeconds':0},{'companyName':'平安'},{'effectiveEndDate':'2026-09-30'}])
 def test_query_extra_forbidden(dc_client,extra):
     client,_,_,_=dc_client
     assert client.post(PREFIX+'/announcements/queries',json={**request().model_dump(mode='json'),**extra}).status_code==422

@@ -5,10 +5,11 @@ Execution/HTTP is separate. Claims use PG session locks, not heartbeat leases.
 import json
 import threading
 import time
+from datetime import date
 
 from src.foundation.clients.announcement_archive.budget import read_budget
 from src.foundation.clients.announcement_archive.core import Blocked,Cancelled,timestamp
-from src.foundation.clients.announcement_archive.direct_source import batches,days,source_version
+from src.foundation.clients.announcement_archive.direct_source import batches,days,source_version,effective_conditions
 
 
 class SourcePreparation:
@@ -49,8 +50,16 @@ class SourcePreparation:
         source,controls=self.source,self.controls
         object_id=row['query_id'];conditions=json.loads(row['conditions']);checked=0
         check()
-        with source.session(),read_budget(self.policy.sql_seconds):names=source.prepare_names()
-        controls.save_unit('query',object_id,owner,{'query_files':[dict(query_id=object_id,**r) for r in names]},dict(preparation_stage='readingSource'))
+        with source.session(),read_budget(self.policy.sql_seconds):
+            latest=source.latest_date(conditions['endDate'])
+            if latest is None:raise Blocked('source_day_missing:'+conditions['startDate'])
+            conditions['effectiveEndDate']=min(conditions['endDate'],latest)
+            names=source.prepare_names()
+        serialized=json.dumps(conditions,ensure_ascii=False)
+        conditions=effective_conditions(conditions)
+        date_count=max(0,(date.fromisoformat(conditions['endDate'])-date.fromisoformat(conditions['startDate'])).days+1)
+        controls.save_unit('query',object_id,owner,{'query_files':[dict(query_id=object_id,**r) for r in names]},
+            dict(preparation_stage='readingSource',conditions=serialized,dates_total=date_count))
         yield
         if conditions['downloadStatus']!='all':
             after=''

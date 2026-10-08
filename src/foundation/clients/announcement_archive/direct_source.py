@@ -22,6 +22,14 @@ URL_WHITESPACE=''.join(chr(n) for n in (*range(9,14),*range(28,33),133,160,5760,
 FACT_FIELDS=('opened_dev','opened_ino','size','mtime_ns')
 
 
+def requested_conditions(conditions):
+    return {key:value for key,value in conditions.items() if key!='effectiveEndDate'}
+
+
+def effective_conditions(conditions):
+    return dict(requested_conditions(conditions),endDate=conditions.get('effectiveEndDate') or conditions['endDate'])
+
+
 def days(start,end):
     value=date.fromisoformat(start);last=date.fromisoformat(end)
     while value<=last:
@@ -247,6 +255,13 @@ class DirectSource:
         with self.pinned('anns_d',[day],{day:facts}) as (paths,_):
             sql,args=self.projection(paths,[day],conditions)
             return [r[0] for r in self.sql(sql+' SELECT DISTINCT artifact_key FROM projected WHERE artifact_key>? ORDER BY artifact_key LIMIT 500',args+[after])]
+
+    def latest_date(self,end):
+        """Latest physical partition, including valid zero-row days; never skip damage."""
+        latest=self.observed_date()
+        if latest is not None and latest<=end:
+            with self.pinned('anns_d',[latest]):pass
+        return latest
 
     def observed_date(self):
         self.volume.assert_valid()

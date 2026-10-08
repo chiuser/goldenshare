@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from src.foundation.clients.announcement_archive.core import Blocked,timestamp,DownloadOptions,identity
 from src.foundation.clients.announcement_archive.company_source import CompanySource
+from src.foundation.clients.announcement_archive.direct_source import requested_conditions,effective_conditions
 from src.foundation.config.announcement_archive import DataCenterPolicy
 from .errors import DataCenterError,mapped_error
 
@@ -31,8 +32,9 @@ class AnnouncementQueryService:
 
     def preparing(self,row):
         messages={'readingSource':'正在读取本地公告来源','checkingStatus':'正在检查文件下载状态','counting':'正在统计匹配公告'}
+        stored=json.loads(row['conditions'])
         return dict(queryId=row['query_id'],pageState=dict(status='preparing',code=None,message=messages[row['preparation_stage']],asOfTime=row['updated_at']),
-            sourceVersion=row['source_version'],conditions=json.loads(row['conditions']),items=[],total=None,page=1,pageSize=self.policy.page_size,
+            sourceVersion=row['source_version'],conditions=requested_conditions(stored),effectiveEndDate=stored.get('effectiveEndDate'),items=[],total=None,page=1,pageSize=self.policy.page_size,
             hasPrevious=False,hasNext=False,downloadStatusAvailable=False,preparation=dict(stage=row['preparation_stage'],
                 datesScanned=row['dates_scanned'],datesTotal=row['dates_total'],recordsScanned=row['records_scanned'],artifactsChecked=row['artifacts_checked']))
 
@@ -96,7 +98,7 @@ class AnnouncementQueryService:
             error=mapped_error(row['reason']);result=self.preparing(row)
             result.update(pageState=dict(status='error',code=error.code,message=error.message,asOfTime=row['updated_at']),page=page,preparation=None)
             return result,200
-        conditions=json.loads(row['conditions']);available=True;checked=timestamp()
+        stored=json.loads(row['conditions']);conditions=effective_conditions(stored);available=True;checked=timestamp()
         try:
             if conditions['downloadStatus']!='all':self.check_filtered_presence(row,conditions)
             with self.source.session():
@@ -115,8 +117,12 @@ class AnnouncementQueryService:
             companyNameSource=r['name_source'] or 'code',title=r['title'],sourceUrl=r['url'].strip() if r['url'] else None,
             downloadStatus=('downloaded' if r['artifact_key'] in present else 'undownloaded') if available else None,statusCheckedAt=checked if available else None) for r in rows]
         total=row['total']
-        return dict(queryId=query_id,pageState=dict(status='ready' if total else 'empty',code=None,message=None,asOfTime=row['checked_at']),
-            sourceVersion=row['source_version'],conditions=conditions,items=items,total=total,page=page,pageSize=self.policy.page_size,
+        message=None;effective_end=stored.get('effectiveEndDate')
+        if effective_end and effective_end<stored['endDate']:
+            suffix='已展示此前公告' if total else '所选区间暂无已同步公告' if effective_end<stored['startDate'] else '已查询此前公告'
+            message=f'本地公告已更新至 {effective_end}，{suffix}'
+        return dict(queryId=query_id,pageState=dict(status='ready' if total else 'empty',code=None,message=message,asOfTime=row['checked_at']),
+            sourceVersion=row['source_version'],conditions=requested_conditions(stored),effectiveEndDate=effective_end,items=items,total=total,page=page,pageSize=self.policy.page_size,
             hasPrevious=page>1,hasNext=page*self.policy.page_size<total,downloadStatusAvailable=available,preparation=None),200
 
     def companies(self,keyword,request):
@@ -132,7 +138,7 @@ class AnnouncementQueryService:
             if result['items']:return result,200
         except Blocked as error:raise mapped_error(str(error)) from None
         serialized=json.dumps(conditions,ensure_ascii=False)
-        rows=self.controls.rows('query_snapshots','AND conditions=:conditions AND source_scope=:scope AND (expires_at IS NULL OR expires_at>:now) '
+        rows=self.controls.rows('query_snapshots',"AND (conditions::jsonb - 'effectiveEndDate')=CAST(:conditions AS jsonb) AND source_scope=:scope AND (expires_at IS NULL OR expires_at>:now) "
             'AND state IN (\'preparing\',\'ready\',\'error\')',dict(conditions=serialized,scope=self.controls.scope,now=time.time()),order='created_at DESC',limit=1)
         if not rows:
             result,status=self.create(request)
@@ -143,7 +149,7 @@ class AnnouncementQueryService:
             return dict(keyword=keyword,items=[],hasMore=None,pageState=result['pageState'],preparation=result['preparation'],queryId=row['query_id']),status
         try:
             with self.source.session():
-                self.check_version(row);self.company.prepare(self.controls,row['query_id'],conditions,row['source_version'])
+                self.check_version(row);self.company.prepare(self.controls,row['query_id'],effective_conditions(json.loads(row['conditions'])),row['source_version'])
                 result=self.company.search(keyword,self.policy.company_limit);self.check_version(row)
             return result,200
         except Blocked as error:raise mapped_error(str(error)) from None

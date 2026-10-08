@@ -958,3 +958,25 @@ Q1—Q4本机改造完成，产品/Figma/API及依赖矩阵不变。正式旧源
 验收门禁：新增测试先在旧代码复现；共享搜索/数据中心前端测试、typecheck/build、真实路由+一次性PG+Parquet回归、实际浏览器小写输入和缺日后历史查询；记录网络/console及关闭测试服务的证据。产品/Figma无新增功能，API字段和错误码不变。
 
 修复验收完成：受控小写输入/保留选择回归通过，后端67项、浏览器1项、前端全量1136项及typecheck/build通过；正式Raw只读wllx找到002245.SZ，155日匹配36条，10-08缺失不阻碍该范围。本次验证启动的服务已自动关闭，修复纳入本次提交，尚未部署。完整证据见[修复报告](../../../../reports/wealth_data_center_query_fix_acceptance_20261008.md)。
+
+
+## 28. 查询尾部自动调整编码门禁（2026-10-08）
+
+用户明确批准结束日超过本地最新日期时自动查到最新日期。本节取代§21/§27“尾部缺日仍报错”的口径，中间缺日和坏文件仍失败。目标仅改善公告查询，不改下载行为。
+
+| 约束 | 实现落点 | 验证 |
+| --- | --- | --- |
+| 后端确定最新日期，零行也是已同步；不能取某只股票最近公告日 | DirectSource.latest_date(end)，沿用observed_date目录清单；最新日不晚于请求结束日时pinned验证schema/footer，范围外坏文件不阻断历史；无目录返回明确missing | Raw样本：最新日零行、无分区、损坏最新文件 |
+| 原请求和实际范围分开；不扩大开始日期 | Foundation requested_conditions/effective_conditions，SourcePreparation.query先固定effectiveEndDate写入现有JSON并更新dates_total | 尾部缩短/历史完整/未来区间0日/中间缺日反例 |
+| 字段必须贯通全部消费者，不添加旧字段别名 | Biz QueryResultDto/AnnouncementQueryService、TS QueryResult、QueryPanel及测试样本；新增effectiveEndDate必填可null | 真实路由校验，typecheck，前端显示匹配 |
+| 分页、计数、文件状态、名称补足使用同一实际范围 | SourcePreparation及Biz read/companies；companies按去掉内部截止日的原始JSON意图找query | 分页稳定、下载状态筛选、公告独有候选、刷新后数据扩展 |
+| 正常列表给信息提示，用户日期原样保留 | pageState.message由Biz统一生成；QueryPanel只在ready/empty展示info Notice | 浏览器真实API，日期仍10-08、历史行可见、无红色缺日错误，网络/console检查 |
+| 来源变化仍需刷新，下载仍验证明确范围 | 查询版本清单保持；preview/execute无改动 | 已有版本变化和预览缺日回归 |
+
+准备冻结：SourcePreparation.query在第一unit的短事务同时写入JSON内部effectiveEndDate、实际dates_total与名称文件清单。重启claim清理未封存unit后重新确定截止日；封存后不调整。effective_conditions仅替换执行endDate，不让内部字段流入公开conditions。无新增持久化schema和配置。JSONB意图比较忽略内部effectiveEndDate，保证公告独有候选不会反复新建查询。
+
+普通提示：有效区间有记录时“本地公告已更新至 YYYY-MM-DD，已展示此前公告”；没有已同步日期交集时“本地公告已更新至 YYYY-MM-DD，所选区间暂无已同步公告”；有交集但筛选为空时“本地公告已更新至 YYYY-MM-DD，已查询此前公告”。无缩短则不显示提示。最新来源不是DG成功时间，不宣称已完成最新同步。
+
+通用清单继续适用现有内嵌矩阵：本轮核心事实后端归一、四态和行为过程可执行验证、真实API与浏览器、沿用token/组件/分页/超时、无mock生产回退。新配置/行情方向/图表/策略为不适用，不新增例外。CodeGraph已分析QueryResultDto、AnnouncementQueryService、SourcePreparation调用面，动态API装配和TS消费者以当前代码补核。边界和依赖矩阵不变。
+
+尾部调整开发及隔离验收完成：前端全量1138项、真实查询/API最终61项及此前含下载回归114项、浏览器1项通过；正式Raw只读锦浪科技9-09—10-07匹配6条。文档/代码/测试范围对账见[验收报告](../../../../reports/wealth_data_center_query_tail_acceptance_20261008.md)。测试启动的服务已关闭，修复按用户指令纳入本次提交，尚未部署。

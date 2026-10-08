@@ -67,7 +67,7 @@ def direct(pg,tmp_path,monkeypatch):
     preparation.close();source.close();presence.close()
 
 
-def request(**kw):return AnnouncementQueryRequest(startDate='2026-09-30',endDate='2026-09-30',**kw)
+def request(**kw):return AnnouncementQueryRequest(**{'startDate':'2026-09-30','endDate':'2026-09-30',**kw})
 
 
 def prepare(service,preparation,body=None):
@@ -136,6 +136,72 @@ def test_missing_and_empty_are_distinct_terminal(direct):
     write_day(raw,'2026-09-30',[])
     empty=prepare(service,prep)
     assert empty['pageState']['status']=='empty' and empty['total']==0
+
+
+@pytest.mark.parametrize('status',['all','downloaded','undownloaded'])
+def test_tail_adjustment_zero_day_and_requested_conditions(direct,status):
+    service,prep,_,raw,*_=direct
+    write_day(raw,'2026-10-01',[])
+    result=prepare(service,prep,request(endDate=date(2026,10,8),downloadStatus=status))
+    assert result['effectiveEndDate']=='2026-10-01'
+    assert result['conditions']['endDate']=='2026-10-08'
+    assert result['total']==(0 if status=='downloaded' else 1)
+    assert result['pageState']['status']==('empty' if status=='downloaded' else 'ready')
+    assert '2026-10-01' in result['pageState']['message']
+    saved=service.controls.query(result['queryId'])
+    assert saved['dates_total']==saved['dates_scanned']==2
+    future=prepare(service,prep,request(startDate=date(2026,10,2),endDate=date(2026,10,8),downloadStatus=status))
+    assert future['pageState']['status']=='empty' and future['total']==0
+    assert future['effectiveEndDate']=='2026-10-01' and future['items']==[]
+    assert '所选区间暂无已同步公告' in future['pageState']['message']
+    assert service.controls.query(future['queryId'])['dates_total']==0
+
+
+def test_tail_query_pagination_frozen_and_refresh_reads_new_day(direct):
+    service,prep,_,raw,*_=direct
+    write_day(raw,'2026-09-30',[dict(row(f'公告{i:03}'),url=f'https://ann.example/{i}.pdf') for i in range(51)])
+    body=request(endDate=date(2026,10,2))
+    first=prepare(service,prep,body)
+    assert first['total']==51 and first['effectiveEndDate']=='2026-09-30'
+    write_day(raw,'2026-10-01',[])
+    write_day(raw,'2026-10-02',[dict(row('新公告'),ann_date='20261002')])
+    second,_=service.read(first['queryId'],2)
+    assert len(second['items'])==1 and second['total']==51
+    assert second['effectiveEndDate']==first['effectiveEndDate'] and second['conditions']==first['conditions']
+    fresh=prepare(service,prep,body)
+    assert fresh['total']==52 and fresh['effectiveEndDate']=='2026-10-02'
+    assert fresh['pageState']['message'] is None
+
+
+def test_adjustment_never_skips_middle_gap_or_damaged_latest_partition(direct):
+    service,prep,_,raw,*_=direct
+    path=write_day(raw,'2026-10-02',[])
+    result=prepare(service,prep,request(endDate=date(2026,10,8)))
+    assert result['pageState']['status']=='error' and '2026-10-01' in result['pageState']['message']
+    path.write_bytes(b'broken parquet')
+    result=prepare(service,prep,request(endDate=date(2026,10,8)))
+    assert result['pageState']['status']=='error' and result['total'] is None
+
+
+def test_damage_after_requested_range_does_not_block_history(direct):
+    service,prep,_,raw,*_=direct
+    path=write_day(raw,'2026-10-02',[])
+    path.write_bytes(b'broken parquet')
+    result=prepare(service,prep)
+    assert result['pageState']['status']=='ready' and result['total']==1
+    assert result['effectiveEndDate']=='2026-09-30' and result['pageState']['message'] is None
+
+
+def test_download_preview_does_not_shorten_requested_tail(direct):
+    service,prep,downloads,raw,*_=direct
+    result=prepare(service,prep,request(endDate='2026-10-01'))
+    assert result['pageState']['status']=='ready' and result['effectiveEndDate']=='2026-09-30'
+    preview,_=downloads.create_preview(PreviewRequest(startDate='2026-09-30',endDate='2026-10-01'))
+    object_id=preview['previewId']
+    while service.controls.preview(object_id)['state']=='preparing':assert prep.next_unit()
+    result,_=downloads.preview(object_id)
+    assert result['state']=='error' and result['endDate']=='2026-10-01'
+    assert not result['canStart'] and result['error']['code']=='DC_SOURCE_UNAVAILABLE'
 
 
 @pytest.mark.parametrize('mutation',['replace','inplace','names','dictionary','volume'])

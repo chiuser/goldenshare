@@ -19,6 +19,7 @@ export interface AnnouncementRow {
 }
 export interface QueryResult {
   queryId: string; pageState: PageState; sourceVersion: string | null; conditions: Conditions;
+  effectiveEndDate: string | null;
   items: AnnouncementRow[]; total: number | null; page: number; pageSize: 50;
   hasPrevious: boolean; hasNext: boolean; downloadStatusAvailable: boolean; preparation: Preparation | null;
 }

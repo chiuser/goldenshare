@@ -71,6 +71,7 @@ class QueryResultDto(ContractDto):
     pageState: PageStateDto
     sourceVersion: str|None = Field(pattern=r'^[0-9a-f]{64}$')
     conditions: QueryConditionsDto
+    effectiveEndDate: str|None
     items: list[AnnouncementRowDto]=Field(max_length=50)
     total: int|None
     page: int
