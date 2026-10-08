@@ -1,0 +1,35 @@
+{
+  "kind": "formal Raw read-only company service and DuckDB counts; no formal control writes",
+  "keyword": "wllx",
+  "candidates": {
+    "keyword": "wllx",
+    "hasMore": false,
+    "items": [
+      {
+        "tsCode": "002245.SZ",
+        "name": "蔚蓝锂芯",
+        "initials": "WLLX",
+        "matchedAlias": null,
+        "nameSource": "master",
+        "matchKind": "initials"
+      }
+    ]
+  },
+  "missingCurrentDay": "source_day_missing:2026-10-08",
+  "historicalRange": {
+    "startDate": "2026-05-04",
+    "endDate": "2026-10-05",
+    "tsCode": "002245.SZ",
+    "titleKeyword": "",
+    "downloadStatus": "all"
+  },
+  "dateFiles": 155,
+  "total": 36,
+  "elapsedSeconds": 1.7905043750070035,
+  "fdPeak": 32,
+  "sqlMaxSeconds": 0.15807529212906957,
+  "sourceHttpRequests": 0,
+  "pgWrites": 0,
+  "rawWrites": 0,
+  "pdfWrites": 0
+}

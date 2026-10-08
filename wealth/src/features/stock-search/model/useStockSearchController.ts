@@ -161,13 +161,14 @@ export function useStockSearchController<Option extends StockSearchOption = Stoc
       optionElementsRef.current = [];
       if (!keyword) {
         updateState({ kind: "idle" });
-        return;
+        return keyword;
       }
       updateState({ kind: "debouncing", keyword });
       debounceTimerRef.current = window.setTimeout(() => {
         debounceTimerRef.current = null;
         runSearch(keyword);
       }, interaction.debounceMs);
+      return keyword;
     },
     [clearDebounce, invalidateRequest, runSearch, updateState, interaction],
   );

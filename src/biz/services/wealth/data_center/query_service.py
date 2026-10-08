@@ -122,6 +122,15 @@ class AnnouncementQueryService:
     def companies(self,keyword,request):
         conditions=self.conditions(request)
         if not keyword.strip():return dict(keyword=keyword,items=[],hasMore=False),200
+        # Choosing a known company does not require today's announcements to exist.
+        # Only announcement-specific names need the range preparation below.
+        try:
+            with self.source.session():
+                names=self.source.prepare_names()
+                result=self.company.search(keyword,self.policy.company_limit,include_announcements=False)
+                self.source.validate_manifest([names])
+            if result['items']:return result,200
+        except Blocked as error:raise mapped_error(str(error)) from None
         serialized=json.dumps(conditions,ensure_ascii=False)
         rows=self.controls.rows('query_snapshots','AND conditions=:conditions AND source_scope=:scope AND (expires_at IS NULL OR expires_at>:now) '
             'AND state IN (\'preparing\',\'ready\',\'error\')',dict(conditions=serialized,scope=self.controls.scope,now=time.time()),order='created_at DESC',limit=1)

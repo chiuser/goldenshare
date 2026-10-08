@@ -23,12 +23,12 @@ class CompanySource:
         source.range_version=version
 
     @staticmethod
-    def cte():
+    def cte(include_announcements=True):
+        announcements = 'UNION ALL SELECT ts_code,name,initials,\'announcement\',ann_date,record_key FROM announcement_names' if include_announcements else ''
         return '''WITH aliases AS (
           SELECT ts_code,coalesce(name,'') AS name,initials,'master' AS kind,'' AS ann_date,'' AS record_key FROM stock_basic_names
           UNION ALL SELECT ts_code,coalesce(name,''),initials,'history','','' FROM namechange_names
-          UNION ALL SELECT ts_code,name,initials,'announcement',ann_date,record_key FROM announcement_names
-        ), ranked AS (
+        ''' + announcements + '''), ranked AS (
           SELECT *,row_number() OVER(PARTITION BY ts_code ORDER BY
             CASE WHEN kind='master' AND length(trim(name))>0 THEN 0 WHEN kind='announcement' AND length(trim(name))>0 THEN 1 ELSE 2 END,
             ann_date DESC,record_key,name) pos FROM aliases WHERE kind<>'history'
@@ -38,9 +38,9 @@ class CompanySource:
           FROM (SELECT DISTINCT ts_code FROM aliases WHERE ts_code IS NOT NULL) codes LEFT JOIN ranked n ON n.ts_code=codes.ts_code AND n.pos=1
         )'''
 
-    def search(self,keyword,limit):
+    def search(self,keyword,limit,*,include_announcements=True):
         key=normalized_name(keyword);upper=key.upper()
-        sql=self.cte()+''', matches AS (
+        sql=self.cte(include_announcements)+''', matches AS (
           SELECT c.*,CASE WHEN upper(c.ts_code)=? THEN 0 WHEN substr(c.ts_code,1,6)=? THEN 1
             WHEN starts_with(upper(c.ts_code),?) THEN 2 WHEN normalized_name(display_name)=? THEN 3
             WHEN contains(normalized_name(display_name),?) THEN 4 WHEN starts_with(initials,?) THEN 5

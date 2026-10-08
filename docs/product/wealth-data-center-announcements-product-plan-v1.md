@@ -397,3 +397,5 @@ R1 优先把下载操作、进度和失败定位画清楚。历史别名的实�
 2026-10-07 Q4进度：Q3已提交b4c590fd；正式PG迁移、读回、统一启用和本机Web恢复已执行。默认363份成功PDF保留且size/hash匹配，独立5文件日期验收全部复用；没有自动全量下载。旧SQLite清理待单独批准，详情见[LLD §26](../../wealth/docs/pages/data-center/data-center-announcements-low-level-design-v1.md)与[Q4报告](../../reports/wealth_data_center_q4_acceptance_20261007.md)。产品/Figma不变，DG日常稳定性另行验收。
 
 2026-10-08 Q4完成：代码fa08d45d已提交；用户明确授权后清理7个旧SQLite/伴随文件，统一PG台账保持363个默认已下载状态，4归档378份PDF全部核验匹配。产品、Figma和已确认下载范围/进度/重试规则不变；本机服务继续运行。[收尾报告](../../reports/wealth_data_center_q4_cleanup_acceptance_20261008.md)记录完整证据。下一步由用户review实际页面；DG日常稳定性及日期覆盖独立验收。
+
+2026-10-08交互修复：首字母小写输入自动出候选；已有名称数据中的公司不受当天公告未同步影响。改查询日期保留已明确选择的完整代码，编辑公司文本或重置才清除选择。列表仍只验证实际请求区间并如实提示缺日；产品/Figma范围、默认日期、日期下载规则未变。[修复验收](../../reports/wealth_data_center_query_fix_acceptance_20261008.md)记录真实路由/页面和正式Raw只读证据，修复纳入本次提交，尚未部署。

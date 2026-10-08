@@ -19,7 +19,7 @@ export function CompanySearch({ text, selected, dates, onText, onSelect }: {
     placeholder="例如：平安银行 / 000001 / PAYH" aria-expanded={c.menuOpen && !selected} aria-controls={c.listboxId}
     aria-autocomplete="list" aria-activedescendant={c.activeOptionId}
     onFocus={() => { c.handleFocus(); if (!selected && text.trim()) c.handleInputChange(text); }} onBlur={c.handleBlur}
-    onChange={e => { c.handleInputChange(e.target.value); onText(e.target.value); }}
+    onChange={e => onText(c.handleInputChange(e.target.value))}
     onKeyDown={e => { if (c.handleKeyDown(e.key)) e.preventDefault(); }} />
     {c.menuOpen && !selected && text.trim() && <div className="dc-company-menu"><p>按名称、代码及首字母匹配</p><div role="listbox" id={c.listboxId} aria-label="公司搜索候选">
       {options.map((company, i) => <button type="button" role="option" aria-selected={c.state.kind === "ready" && i === c.state.activeIndex} id={`${c.listboxId}-option-${i}`} key={company.tsCode}

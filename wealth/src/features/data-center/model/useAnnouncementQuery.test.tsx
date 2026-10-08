@@ -5,6 +5,18 @@ import type { Company, Conditions, QueryResult } from "../api/contracts";
 import { contextFixture } from "./fixtures";
 import { useAnnouncementQuery } from "./useAnnouncementQuery";
 afterEach(() => vi.restoreAllMocks());
+
+it("keeps an explicitly selected code when dates change after a missing latest-day query", async () => {
+  const create = vi.spyOn(dataCenterApi, "createQuery").mockImplementation(async c => sample(c));
+  vi.spyOn(dataCenterApi, "query").mockResolvedValue({ ...sample({ ...contextFixture.queryDefaults, tsCode: null, titleKeyword: "" }), pageState: { status: "error", code: "DC_SOURCE_UNAVAILABLE", message: "最新日期未同步", asOfTime: "2026-10-08T00:00:00Z" } });
+  const { result } = renderHook(() => useAnnouncementQuery(contextFixture));
+  await waitFor(() => expect(result.current.result?.pageState.status).toBe("error"));
+  act(() => result.current.chooseCompany({ tsCode: "000001.SZ", name: "平安银行" } as Company));
+  act(() => result.current.setDraft({ ...result.current.draft, startDate: "2026-09-01", endDate: "2026-09-30" }));
+  expect(result.current.selected?.tsCode).toBe("000001.SZ");
+  await act(async () => result.current.submit());
+  expect(create.mock.calls.at(-1)?.[0]).toMatchObject({ startDate: "2026-09-01", endDate: "2026-09-30", tsCode: "000001.SZ" });
+});
 const sample = (c: Conditions, id = "q1", page = 1) => ({ queryId: id, pageState: { status: "ready", code: null, message: null, asOfTime: "2026-10-06T00:00:00Z" }, sourceVersion: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", conditions: c, items: [], total: 100, page, pageSize: 50, hasPrevious: page > 1, hasNext: page === 1, downloadStatusAvailable: true, preparation: null } as QueryResult);
 it("unselected typed company blocks application; selected full code with literal title is applied", async () => {
   const create = vi.spyOn(dataCenterApi, "createQuery").mockImplementation(async c => sample(c)); vi.spyOn(dataCenterApi, "query").mockResolvedValue(sample({ ...contextFixture.queryDefaults, tsCode: null, titleKeyword: "" }));

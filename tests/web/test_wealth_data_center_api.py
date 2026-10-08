@@ -65,6 +65,40 @@ def test_home_registered_routes_and_real_query(dc_client):
     assert client.post(PREFIX+'/announcements/runs',json={}).status_code in {422,503} # Download storage not supplied by this query-only fixture.
 
 
+def test_missing_latest_date_does_not_block_master_candidates_or_historical_queries(dc_client,query_archive):
+    client,service,_,_=dc_client
+    write_day(raw_root(query_archive[1]),'2026-09-30',[row(code='000001.SZ')])
+    missing_body={**request().model_dump(mode='json'),'endDate':'2026-10-08'}
+    failed=client.post(PREFIX+'/announcements/queries',json=missing_body)
+    assert poll(client,failed.json()['queryId']).json()['pageState']['status']=='error'
+    candidates=client.get(PREFIX+'/announcements/companies',params=dict(keyword='payh',startDate='2026-09-30',endDate='2026-10-08'))
+    assert candidates.status_code==200
+    assert candidates.json()['items'][0]['tsCode']=='000001.SZ'
+    assert candidates.json()['pageState'] is None
+    body={**request().model_dump(mode='json'),'tsCode':'000001.SZ'}
+    historic=client.post(PREFIX+'/announcements/queries',json=body)
+    result=poll(client,historic.json()['queryId']).json()
+    assert result['pageState']['status']=='ready' and result['total']==1
+    assert result['items'][0]['tsCode']=='000001.SZ'
+    assert client.get(PREFIX+'/announcements/queries/'+failed.json()['queryId']).json()['pageState']['status']=='error'
+
+
+def test_announcement_only_company_still_prepares_the_requested_range(dc_client,query_archive):
+    client,service,_,_=dc_client
+    write_day(raw_root(query_archive[1]),'2026-09-30',[row(code='155162.SH',title='样本债券公告')])
+    params=dict(keyword='155162',startDate='2026-09-30',endDate='2026-09-30')
+    first=client.get(PREFIX+'/announcements/companies',params=params)
+    assert first.status_code==202 and first.json()['items']==[]
+    assert poll(client,first.json()['queryId']).json()['pageState']['status']=='ready'
+    result=client.get(PREFIX+'/announcements/companies',params=params).json()
+    assert result['items'][0]['tsCode']=='155162.SH' and result['items'][0]['nameSource']=='announcement'
+    missing=client.get(PREFIX+'/announcements/companies',params={**params,'endDate':'2026-10-08'})
+    assert missing.status_code==202
+    assert poll(client,missing.json()['queryId']).json()['pageState']['status']=='error'
+    result=client.get(PREFIX+'/announcements/companies',params={**params,'endDate':'2026-10-08'}).json()
+    assert result['items']==[] and result['pageState']['code']=='DC_SOURCE_UNAVAILABLE'
+
+
 @pytest.mark.parametrize('missing,start,end',[
     ('2026-10-01','2026-09-30','2026-10-01'),
     ('2026-10-01','2026-09-30','2026-10-02'),

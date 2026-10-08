@@ -946,3 +946,15 @@ CodeGraph query/impact覆盖ArchiveMigration、CLI、ArchiveCleanup与测试消�
 清理前后4归档ready、48个完整checkpoint及每归档台账关联表计数一致；正常维护CLI从PG返回默认363成功/33825待下载。清理后378份成功PDF全部size/hash匹配且与前次物理清单一致；2471个公告Raw文件路径/大小/mtime清单摘要和3代表文件SHA一致，10个锁/绑定文件保持原物理身份及内容。Web8000原进程继续运行；SPA壳200不代替真实登录GUI验收。完整证据见[收尾报告](../../../../reports/wealth_data_center_q4_cleanup_acceptance_20261008.md)。
 
 Q1—Q4本机改造完成，产品/Figma/API及依赖矩阵不变。正式旧源已清理，迁移/清理工具不是日常启动步骤；正常Web和CLI仅用PG台账及DG Raw。用户实际页面review、DG日常稳定性、最新日期覆盖及全历史数据质量仍按独立边界推进，不自动触发同步或全量PDF下载。
+
+
+## 27. 小写输入与历史查询隔离修复门禁（2026-10-08）
+
+- `useStockSearchController.handleInputChange`返回本次已规范化的keyword；CompanySearch将该结果回传onText，防止外部props把请求取消。不改变共享默认防抖/Enter/超时；首页与交易助手继续原使用方式。必须用真实父状态逐键输入payh证明300ms后请求PAYH且打开选框，不能只测已填大写值后focus。
+- `useAnnouncementQuery`改变日期仅更新draft，保留显式选择的完整代码；文本编辑/重置仍清空选择。CompanySearch日期变化仍取消旧日期候选观察，未选输入需重新搜索。测试默认查询error后选代码、改历史日期、提交真实带代码条件。
+- `CompanySource.search`允许只查询已加载stock_basic/namechange，复用同一排名/字段/最多20项；Biz companies先prepare_names并复核名称来源，命中就返回200。master/history候选不读取anns_d、不创建公告查询控制记录。未命中才走既有完整区间查询与公告名称补足，仍202观察和明确缺日。该快速结果hasMore只针对实际检索的名称snapshot候选，不宣称全部公告历史名称已准备。
+- 默认今日缺日查询可以保持error；独立历史区间的新query只读取自身日期，返回准确总数及六字段，不复用失败默认query。不得偷偷截短默认区间或把缺日当空；下载预览与源版本合同保持。
+
+验收门禁：新增测试先在旧代码复现；共享搜索/数据中心前端测试、typecheck/build、真实路由+一次性PG+Parquet回归、实际浏览器小写输入和缺日后历史查询；记录网络/console及关闭测试服务的证据。产品/Figma无新增功能，API字段和错误码不变。
+
+修复验收完成：受控小写输入/保留选择回归通过，后端67项、浏览器1项、前端全量1136项及typecheck/build通过；正式Raw只读wllx找到002245.SZ，155日匹配36条，10-08缺失不阻碍该范围。本次验证启动的服务已自动关闭，修复纳入本次提交，尚未部署。完整证据见[修复报告](../../../../reports/wealth_data_center_query_fix_acceptance_20261008.md)。

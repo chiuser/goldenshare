@@ -1,0 +1,81 @@
+{
+  "lowercaseCandidates": true,
+  "selectionSurvivesDateChange": true,
+  "historicalRows": 2,
+  "missingRangeStillErrors": true,
+  "keyboardSelection": true,
+  "errors": [],
+  "consoleErrors": [],
+  "network": [
+    {
+      "path": "/api/v1/wealth/market/context",
+      "query": "?market=CN_A",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/context",
+      "query": "",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/market/major-indices",
+      "query": "?market=CN_A&tradeDate=2026-10-08",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-e077c6775bb040f4b40a878ce06d9dee",
+      "query": "?page=1",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-e077c6775bb040f4b40a878ce06d9dee",
+      "query": "?page=1",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/companies",
+      "query": "?keyword=PAYH&startDate=2026-09-30&endDate=2026-10-08",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-cd6d3bf393bc470fbd626699e15c1554",
+      "query": "?page=1",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-cd6d3bf393bc470fbd626699e15c1554",
+      "query": "?page=1",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/companies",
+      "query": "?keyword=PAYH&startDate=2026-09-30&endDate=2026-09-30",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries",
+      "query": "",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-8f5f4989116148759f68c2b0ee83e294",
+      "query": "?page=1",
+      "status": 202
+    },
+    {
+      "path": "/api/v1/wealth/data-center/announcements/queries/104879b4dd7505c4-8f5f4989116148759f68c2b0ee83e294",
+      "query": "?page=1",
+      "status": 200
+    }
+  ]
+}

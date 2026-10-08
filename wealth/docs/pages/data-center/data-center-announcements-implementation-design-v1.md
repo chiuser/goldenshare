@@ -272,3 +272,14 @@ DC3交付见[验收报告](../../../../reports/wealth_data_center_dc3_acceptance
 修订前 `PreviewRuntime` 与 `ArchiveSupervisor._validate_range` 依赖catalog，不能只换主列表后就删除它。Q2已替换预览和范围复核运行链并按用户明确授权删除五个旧模块；catalog仅保留显式迁移只读schema校验，不承载运行期查询或写入。正式切换不保留长期双轨存储；Q1仅在临时实例验证；正式数据迁移、env写入及获准文件清理由Q4完成，见LLD §26。
 
 分层不变：Foundation提供来源与存储能力，Biz负责查询语义，Ops负责执行，App注入依赖。CodeGraph explore/impact及当前SQL已覆盖搜索、查询、预览和台账消费者。PG使用新schema的显式SQL版本，不接主应用Alembic；各表加入archive_id隔离，迁移保留原rowid的row_seq以支持CLI游标。删除indexAvailability/lastIndexedAt/catalogRevision的投影语义，替换为ledgerAvailability/sourceVersion；CLI原ledger_path改为真实storage标识。完整配置、列映射、事务/锁、版本协议及编码门禁见LLD §22.5—22.11。
+
+
+## 17. 首字母输入与缺日隔离修复（2026-10-08）
+
+用户报告小写首字母不出候选、最新缺日妨碍历史查询。根因一是共享控制器规范化为大写，公告组件把原始小写输入回传父组件，props同步又reset取消防抖；根因二是常用公司候选依赖完整公告区间准备，且修改日期会清空已选完整代码。
+
+按既有§16常用候选先读取名称snapshot的设计修正：stock_basic/namechange可匹配的名称、代码、首字母先直接返回，不依赖当天公告分区或失败列表。只有名称snapshot没有匹配时，继续原范围准备以检索公告独有代码/名称；该路径不将缺日当零行。候选不是公告数量或区间完整性证明。输入父/子状态统一复用控制器规范化结果；日期变化取消旧候选请求，但保留明确已选代码。列表查询只验证请求区间，缺日仍终态报错；过去失败默认查询不能阻止新建历史查询。
+
+范围仅为共享输入回传、公告选择状态、CompanySource名称查询与Biz候选入口及对应测试；不改DTO、默认日期、配置、依赖矩阵、下载、DG或正式数据。验证覆盖受控逐键小写输入、错误默认查询→候选→修改历史日期→带代码查询，以及公告独有候选的原202/缺日/别名路径；真实API/浏览器使用一次性PG/临时Parquet，结束关闭服务。
+
+修复验收完成：受控小写输入/保留选择回归通过，后端67项、浏览器1项、前端全量1136项及typecheck/build通过；正式Raw只读wllx找到002245.SZ，155日匹配36条，10-08缺失不阻碍该范围。本次验证启动的服务已自动关闭，修复纳入本次提交，尚未部署。完整证据见[修复报告](../../../../reports/wealth_data_center_query_fix_acceptance_20261008.md)。
