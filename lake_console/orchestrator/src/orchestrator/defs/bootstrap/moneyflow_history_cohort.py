@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+import re
 import shutil
 import time
 from contextlib import contextmanager
@@ -26,6 +27,7 @@ from orchestrator.defs.bootstrap.moneyflow_history_metadata import (
     expected_history_scopes,
     parse_moneyflow_history_metadata,
     validate_moneyflow_history_metadata,
+    validate_moneyflow_history_selected_dates,
 )
 from orchestrator.defs.bootstrap.moneyflow_history_plan import (
     MoneyflowHistoryDateCount,
@@ -37,6 +39,7 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_HISTORY_DATASETS,
     MONEYFLOW_HISTORY_EXTRA_REQUESTS,
     MONEYFLOW_HISTORY_MAX_BUFFER_BYTES,
+    MONEYFLOW_HISTORY_MAX_ROWS_PER_UNIT,
     MONEYFLOW_HISTORY_MIN_FREE_BYTES,
     MONEYFLOW_HISTORY_SQL_TIMEOUT_SECONDS,
     MoneyflowContractError,
@@ -44,20 +47,28 @@ from orchestrator.defs.run_contracts.moneyflow import (
 )
 
 
-def _cohort_identity(cutoff):
+def _cohort_identity(cutoff, selected_dates=None):
+    selected_dates = validate_moneyflow_history_selected_dates(cutoff, selected_dates)
     templates = [
         build_moneyflow_history_plan(
             ds, (MoneyflowHistoryDateCount(cutoff, 1, 1),), cutoff=cutoff
         )
         for ds in MONEYFLOW_HISTORY_DATASETS
     ]
-    return {
+    identity = {
         "revision": "moneyflow_history_cohort_dates_v1",
         "cutoff": cutoff,
         "dataset_contracts": {p.dataset: p.plan_hash for p in templates},
         "limits": _identity(templates[0])["limits"],
         "extra_requests": MONEYFLOW_HISTORY_EXTRA_REQUESTS,
     }
+    if selected_dates is not None:
+        identity.update(
+            revision="moneyflow_history_selected_dates_v1",
+            selected_dates=list(selected_dates),
+            sample_rows_per_dataset=MONEYFLOW_HISTORY_MAX_ROWS_PER_UNIT,
+        )
+    return identity
 
 
 def _large_json(path):
@@ -95,7 +106,9 @@ def _operation(
     *,
     external_bytes=lambda root, check: 0,
     promotion=False,
+    selected_dates=None,
 ):
+    identity = _cohort_identity(cutoff, selected_dates)
     base = moneyflow_candidate_directory(
         staging_root, operation_id, cutoff, dataset=MONEYFLOW_HISTORY_DATASETS[0]
     )
@@ -116,7 +129,6 @@ def _operation(
     with _writer_lock(namespace):
         if not promotion and (root / "promotion-contract.json").exists():
             raise MoneyflowContractError("history_promotion_started")
-        identity = _cohort_identity(cutoff)
         if marker.exists():
             if _read_json(marker) != identity:
                 raise MoneyflowContractError("history_execution_contract_changed")
@@ -184,11 +196,13 @@ def _operation(
             raise
 
 
-def _metadata(root, store, control, source, dataset, cutoff):
+def _metadata(root, store, control, source, dataset, cutoff, selected_dates=None):
     control.progress(dataset=dataset, current_unit=None, stage="source_metadata")
     directory = root / "metadata" / dataset / uuid4().hex
     directory.mkdir(parents=True)
-    request = MoneyflowHistoryMetadataRequest(dataset, cutoff, directory / "source.sql")
+    request = MoneyflowHistoryMetadataRequest(
+        dataset, cutoff, directory / "source.sql", selected_dates
+    )
     control.start("source_metadata")
     try:
         store.reserve(MONEYFLOW_HISTORY_MAX_BUFFER_BYTES)
@@ -198,7 +212,9 @@ def _metadata(root, store, control, source, dataset, cutoff):
             if request.sql_path.is_file():
                 store.add_file(request.sql_path)
             wire = buffer.getvalue()
-            snapshot = parse_moneyflow_history_metadata(wire, dataset, cutoff)
+            snapshot = parse_moneyflow_history_metadata(
+                wire, dataset, cutoff, selected_dates=selected_dates
+            )
             proof = {
                 "dataset": dataset,
                 "cutoff": cutoff,
@@ -218,8 +234,13 @@ def _metadata(root, store, control, source, dataset, cutoff):
 def _manifest(identity, snapshots):
     if list(snapshots) != list(MONEYFLOW_HISTORY_DATASETS):
         raise MoneyflowContractError("history_cohort_datasets")
+    selected_dates = (
+        tuple(identity["selected_dates"]) if "selected_dates" in identity else None
+    )
     plans = [
-        validate_moneyflow_history_metadata(snapshots[ds], ds, identity["cutoff"])
+        validate_moneyflow_history_metadata(
+            snapshots[ds], ds, identity["cutoff"], selected_dates=selected_dates
+        )
         for ds in MONEYFLOW_HISTORY_DATASETS
     ]
     value = {
@@ -243,11 +264,21 @@ def _manifest(identity, snapshots):
         + 2 * value["total_units"]
         + MONEYFLOW_HISTORY_EXTRA_REQUESTS
     )
+    if selected_dates is not None:
+        value["missing_dates"] = {
+            p.dataset: sorted(
+                set(selected_dates) - {f.trade_date for f in p.date_counts}
+            )
+            for p in plans
+        }
     value["cohort_hash"] = _hash(value)
     return value, plans
 
 
 def _freeze(root, store, control, identity, source):
+    selected_dates = (
+        tuple(identity["selected_dates"]) if "selected_dates" in identity else None
+    )
     path = root / "cohort.json"
     if path.exists():
         saved = _large_json(path)
@@ -263,7 +294,13 @@ def _freeze(root, store, control, identity, source):
         control.max_requests = expected["max_requests"]
         for dataset in MONEYFLOW_HISTORY_DATASETS:
             current, _ = _metadata(
-                root, store, control, source, dataset, identity["cutoff"]
+                root,
+                store,
+                control,
+                source,
+                dataset,
+                identity["cutoff"],
+                selected_dates,
             )
             if current != snapshots[dataset]:
                 raise MoneyflowContractError("history_source_metadata_changed")
@@ -284,7 +321,7 @@ def _freeze(root, store, control, identity, source):
                     raise MoneyflowContractError("history_cohort_invalid")
                 snapshot = saved["snapshot"]
                 validate_moneyflow_history_metadata(
-                    snapshot, dataset, identity["cutoff"]
+                    snapshot, dataset, identity["cutoff"], selected_dates=selected_dates
                 )
                 if any(
                     p.get("snapshot_hash") != _hash(snapshot) for p in saved["proofs"]
@@ -292,16 +329,34 @@ def _freeze(root, store, control, identity, source):
                     raise MoneyflowContractError("history_cohort_changed")
                 # Partial freeze recovery still checks today's source once.
                 current, _ = _metadata(
-                    root, store, control, source, dataset, identity["cutoff"]
+                    root,
+                    store,
+                    control,
+                    source,
+                    dataset,
+                    identity["cutoff"],
+                    selected_dates,
                 )
                 if current != snapshot:
                     raise MoneyflowContractError("history_source_metadata_changed")
             else:
                 snapshot, first = _metadata(
-                    root, store, control, source, dataset, identity["cutoff"]
+                    root,
+                    store,
+                    control,
+                    source,
+                    dataset,
+                    identity["cutoff"],
+                    selected_dates,
                 )
                 second_snapshot, second = _metadata(
-                    root, store, control, source, dataset, identity["cutoff"]
+                    root,
+                    store,
+                    control,
+                    source,
+                    dataset,
+                    identity["cutoff"],
+                    selected_dates,
                 )
                 if snapshot != second_snapshot:
                     raise MoneyflowContractError("history_source_metadata_changed")
@@ -329,11 +384,14 @@ def freeze_moneyflow_history_cohort(
     operation_id: str,
     cutoff: str,
     source,
+    selected_dates: tuple[str, ...] | None = None,
     cancel=lambda: False,
     clock=time.monotonic,
 ) -> dict:
     """Read-only source metadata; no business COPY, candidates or DG writes."""
-    with _operation(staging_root, operation_id, cutoff, cancel, clock) as (
+    with _operation(
+        staging_root, operation_id, cutoff, cancel, clock, selected_dates=selected_dates
+    ) as (
         root,
         store,
         control,
@@ -451,17 +509,38 @@ def build_moneyflow_history_cohort_candidates(
     operation_id: str,
     cutoff: str,
     source,
+    selected_dates: tuple[str, ...] | None = None,
+    expected_cohort_hash: str | None = None,
     cancel=lambda: False,
     clock=time.monotonic,
 ) -> dict:
     """Freeze/revalidate sources and build seven plans under one durable budget."""
-    with _operation(staging_root, operation_id, cutoff, cancel, clock) as (
+
+    def reviewed_hash(value):
+        if value is not None and (
+            not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None
+        ):
+            raise MoneyflowContractError("history_reviewed_hash")
+        return value
+
+    reviewed_hash(expected_cohort_hash)
+    with _operation(
+        staging_root, operation_id, cutoff, cancel, clock, selected_dates=selected_dates
+    ) as (
         root,
         store,
         control,
         identity,
     ):
+        reviewed = reviewed_hash(control.budget.get("reviewed_cohort_hash"))
+        if reviewed is not None and expected_cohort_hash not in (None, reviewed):
+            raise MoneyflowContractError("history_reviewed_cohort_changed")
+        reviewed = expected_cohort_hash if reviewed is None else reviewed
+        if reviewed is not None:
+            control.progress(reviewed_cohort_hash=reviewed)
         manifest, plans = _freeze(root, store, control, identity, source)
+        if reviewed is not None and manifest["cohort_hash"] != reviewed:
+            raise MoneyflowContractError("history_reviewed_cohort_changed")
         units, closed = _closed_prefix(root, control, plans, manifest["snapshots"])
         for index in range(len(closed), len(units)):
             plan, unit_id = units[index]

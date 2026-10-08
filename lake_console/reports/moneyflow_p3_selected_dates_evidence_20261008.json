@@ -1,0 +1,3109 @@
+{
+  "as_of": "2026-10-08 Asia/Shanghai",
+  "scope": "P3 selected-date entry complete; formal sample requires separate approval; not full history or P4/P5 acceptance",
+  "preceding_commit": "e3ccb04c",
+  "cutoff": "2026-09-30",
+  "selected_dates": [
+    "2024-12-19",
+    "2026-09-30"
+  ],
+  "datasets": [
+    "moneyflow",
+    "moneyflow_cnt_ths",
+    "moneyflow_dc",
+    "moneyflow_ind_dc",
+    "moneyflow_ind_ths",
+    "moneyflow_mkt_dc",
+    "moneyflow_ths"
+  ],
+  "source_rows_by_date": {
+    "moneyflow": {
+      "2024-12-19": 5106,
+      "2026-09-30": 5572
+    },
+    "moneyflow_cnt_ths": {
+      "2024-12-19": 388,
+      "2026-09-30": 387
+    },
+    "moneyflow_dc": {
+      "2024-12-19": 5790,
+      "2026-09-30": 6024
+    },
+    "moneyflow_ind_dc": {
+      "2024-12-19": 86,
+      "2026-09-30": 1031
+    },
+    "moneyflow_ind_ths": {
+      "2024-12-19": 90,
+      "2026-09-30": 90
+    },
+    "moneyflow_mkt_dc": {
+      "2024-12-19": 1,
+      "2026-09-30": 1
+    },
+    "moneyflow_ths": {
+      "2024-12-19": 2,
+      "2026-09-30": 5215
+    }
+  },
+  "real_prod_readonly": {
+    "scope": "actual Prod read-only aggregate; no business rows or Lake/DG/Prod writes",
+    "elapsed_seconds": 4.02857800014317,
+    "peak_rss_bytes": 91242496,
+    "manifest": {
+      "revision": "moneyflow_history_selected_dates_v1",
+      "cutoff": "2026-09-30",
+      "dataset_contracts": {
+        "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+        "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+        "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+        "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+        "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+        "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+        "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+      },
+      "limits": {
+        "buffer_bytes": 33554432,
+        "disk_bytes": 34359738368,
+        "elapsed_seconds": 43200,
+        "unit_seconds": 120,
+        "minimum_free_bytes": 68719476736,
+        "stream_bytes": 65536,
+        "rss_bytes": 805306368,
+        "duckdb_memory": "512MB",
+        "duckdb_threads": 1,
+        "spill_bytes": 0
+      },
+      "extra_requests": 14,
+      "selected_dates": [
+        "2024-12-19",
+        "2026-09-30"
+      ],
+      "sample_rows_per_dataset": 100000,
+      "snapshots": {
+        "moneyflow": {
+          "dataset": "moneyflow",
+          "cutoff": "2026-09-30",
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ],
+          "columns": [
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "buy_sm_vol",
+              "bigint"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "sell_sm_vol",
+              "bigint"
+            ],
+            [
+              "sell_sm_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "buy_md_vol",
+              "bigint"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "sell_md_vol",
+              "bigint"
+            ],
+            [
+              "sell_md_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "buy_lg_vol",
+              "bigint"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "sell_lg_vol",
+              "bigint"
+            ],
+            [
+              "sell_lg_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "buy_elg_vol",
+              "bigint"
+            ],
+            [
+              "buy_elg_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "sell_elg_vol",
+              "bigint"
+            ],
+            [
+              "sell_elg_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "net_mf_vol",
+              "bigint"
+            ],
+            [
+              "net_mf_amount",
+              "numeric(20,4)"
+            ]
+          ],
+          "facts": [
+            {
+              "trade_date": "2024-12-19",
+              "scope": "",
+              "rows": 5106,
+              "keys": 5106,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "",
+              "rows": 5572,
+              "keys": 5572,
+              "invalid_keys": 0
+            }
+          ]
+        },
+        "moneyflow_cnt_ths": {
+          "dataset": "moneyflow_cnt_ths",
+          "cutoff": "2026-09-30",
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ],
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "name",
+              "character varying(128)"
+            ],
+            [
+              "lead_stock",
+              "character varying(128)"
+            ],
+            [
+              "close_price",
+              "numeric(18,4)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "industry_index",
+              "numeric(24,4)"
+            ],
+            [
+              "company_num",
+              "integer"
+            ],
+            [
+              "pct_change_stock",
+              "numeric(10,4)"
+            ],
+            [
+              "net_buy_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_sell_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ]
+          ],
+          "facts": [
+            {
+              "trade_date": "2024-12-19",
+              "scope": "",
+              "rows": 388,
+              "keys": 388,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "",
+              "rows": 387,
+              "keys": 387,
+              "invalid_keys": 0
+            }
+          ]
+        },
+        "moneyflow_dc": {
+          "dataset": "moneyflow_dc",
+          "cutoff": "2026-09-30",
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ],
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "name",
+              "character varying(64)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "close",
+              "numeric(18,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_elg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_elg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_md_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_sm_amount_rate",
+              "numeric(10,4)"
+            ]
+          ],
+          "facts": [
+            {
+              "trade_date": "2024-12-19",
+              "scope": "",
+              "rows": 5790,
+              "keys": 5790,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "",
+              "rows": 6024,
+              "keys": 6024,
+              "invalid_keys": 0
+            }
+          ]
+        },
+        "moneyflow_ind_dc": {
+          "dataset": "moneyflow_ind_dc",
+          "cutoff": "2026-09-30",
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ],
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "content_type",
+              "character varying(16)"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "name",
+              "character varying(128)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "close",
+              "numeric(18,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_elg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_elg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_md_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_sm_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount_stock",
+              "character varying(128)"
+            ],
+            [
+              "rank",
+              "integer"
+            ]
+          ],
+          "facts": [
+            {
+              "trade_date": "2024-12-19",
+              "scope": "行业",
+              "rows": 86,
+              "keys": 86,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "地域",
+              "rows": 31,
+              "keys": 31,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "概念",
+              "rows": 504,
+              "keys": 504,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "行业",
+              "rows": 496,
+              "keys": 496,
+              "invalid_keys": 0
+            }
+          ]
+        },
+        "moneyflow_ind_ths": {
+          "dataset": "moneyflow_ind_ths",
+          "cutoff": "2026-09-30",
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ],
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "industry",
+              "character varying(128)"
+            ],
+            [
+              "lead_stock",
+              "character varying(128)"
+            ],
+            [
+              "close",
+              "numeric(18,4)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "company_num",
+              "integer"
+            ],
+            [
+              "pct_change_stock",
+              "numeric(10,4)"
+            ],
+            [
+              "close_price",
+              "numeric(18,4)"
+            ],
+            [
+              "net_buy_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_sell_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ]
+          ],
+          "facts": [
+            {
+              "trade_date": "2024-12-19",
+              "scope": "",
+              "rows": 90,
+              "keys": 90,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "",
+              "rows": 90,
+              "keys": 90,
+              "invalid_keys": 0
+            }
+          ]
+        },
+        "moneyflow_mkt_dc": {
+          "dataset": "moneyflow_mkt_dc",
+          "cutoff": "2026-09-30",
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ],
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "close_sh",
+              "numeric(18,4)"
+            ],
+            [
+              "pct_change_sh",
+              "numeric(10,4)"
+            ],
+            [
+              "close_sz",
+              "numeric(18,4)"
+            ],
+            [
+              "pct_change_sz",
+              "numeric(10,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_elg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_elg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_md_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_sm_amount_rate",
+              "numeric(10,4)"
+            ]
+          ],
+          "facts": [
+            {
+              "trade_date": "2024-12-19",
+              "scope": "",
+              "rows": 1,
+              "keys": 1,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "",
+              "rows": 1,
+              "keys": 1,
+              "invalid_keys": 0
+            }
+          ]
+        },
+        "moneyflow_ths": {
+          "dataset": "moneyflow_ths",
+          "cutoff": "2026-09-30",
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ],
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "name",
+              "character varying(64)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "latest",
+              "numeric(18,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_d5_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_md_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_sm_amount_rate",
+              "numeric(10,4)"
+            ]
+          ],
+          "facts": [
+            {
+              "trade_date": "2024-12-19",
+              "scope": "",
+              "rows": 2,
+              "keys": 2,
+              "invalid_keys": 0
+            },
+            {
+              "trade_date": "2026-09-30",
+              "scope": "",
+              "rows": 5215,
+              "keys": 5215,
+              "invalid_keys": 0
+            }
+          ]
+        }
+      },
+      "plans": {
+        "moneyflow": {
+          "plan_hash": "1507a99a2ad688e3577cfb95ee0d5b06a1344d5a73c412abd6b2a22f84558501",
+          "rows": 10678,
+          "dates": 2,
+          "units": 2
+        },
+        "moneyflow_cnt_ths": {
+          "plan_hash": "2f94804686da1c91e65a19b56c5981271feb672a2ce46ecca4f9a4856f6f60bb",
+          "rows": 775,
+          "dates": 2,
+          "units": 2
+        },
+        "moneyflow_dc": {
+          "plan_hash": "83654a0248b9b286ff562cce1e89c8077f32080d83edb95a74dab3dd85662f2d",
+          "rows": 11814,
+          "dates": 2,
+          "units": 2
+        },
+        "moneyflow_ind_dc": {
+          "plan_hash": "837a682a55b1241ce00087ef45cf98d7d4dbd0dda57ff6ed45bcc09cf61d55b8",
+          "rows": 1117,
+          "dates": 2,
+          "units": 2
+        },
+        "moneyflow_ind_ths": {
+          "plan_hash": "4bc86384f24bd7faed5d76f04a184b87a7be2d6f31876fd4646138f4eac580d8",
+          "rows": 180,
+          "dates": 2,
+          "units": 2
+        },
+        "moneyflow_mkt_dc": {
+          "plan_hash": "97d48ac741b37ebfbec21ae5d0ce7f21cc135e64794ea797cce873dd6b6f5a3e",
+          "rows": 2,
+          "dates": 2,
+          "units": 2
+        },
+        "moneyflow_ths": {
+          "plan_hash": "8c13b58eb5d80e2f99bd484450d64d9ee6de2b9f44fe581c569853584f8a0207",
+          "rows": 5217,
+          "dates": 2,
+          "units": 2
+        }
+      },
+      "total_units": 14,
+      "total_rows": 29783,
+      "total_dates": 14,
+      "max_requests": 56,
+      "missing_dates": {
+        "moneyflow": [],
+        "moneyflow_cnt_ths": [],
+        "moneyflow_dc": [],
+        "moneyflow_ind_dc": [],
+        "moneyflow_ind_ths": [],
+        "moneyflow_mkt_dc": [],
+        "moneyflow_ths": []
+      },
+      "cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98"
+    },
+    "progress": {
+      "bytes": 1535,
+      "charged_seconds": 3.977785001276061,
+      "cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+      "completed_units": 0,
+      "connections": 14,
+      "copy_transactions": 14,
+      "current_unit": null,
+      "cutoff": "2026-09-30",
+      "dataset": "moneyflow_ths",
+      "dataset_contracts": {
+        "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+        "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+        "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+        "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+        "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+        "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+        "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+      },
+      "eta": "暂无法估算",
+      "extra_requests": 14,
+      "last_updated": 1791469479.804656,
+      "limits": {
+        "buffer_bytes": 33554432,
+        "disk_bytes": 34359738368,
+        "duckdb_memory": "512MB",
+        "duckdb_threads": 1,
+        "elapsed_seconds": 43200,
+        "minimum_free_bytes": 68719476736,
+        "rss_bytes": 805306368,
+        "spill_bytes": 0,
+        "stream_bytes": 65536,
+        "unit_seconds": 120
+      },
+      "max_requests": 56,
+      "percentage": 0.0,
+      "reservation_seconds": 0,
+      "revision": "moneyflow_history_selected_dates_v1",
+      "sample_rows_per_dataset": 100000,
+      "selected_dates": [
+        "2024-12-19",
+        "2026-09-30"
+      ],
+      "sql_statements": 56,
+      "stage": "source_frozen",
+      "total_units": 14,
+      "unit_id": 0
+    },
+    "metadata_proofs": {
+      "metadata/moneyflow_ind_ths/63bc34811ba74c00ba007daed8c83018/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ind_ths",
+        "elapsed_seconds": 0.24753900012001395,
+        "snapshot_hash": "38a07e486d8bb484db0c62771e23c698ad64eab05983ab4da9701540f1060aa1",
+        "sql_sha256": "9db3131e5608e9ff4dec713c81f873cdca0006e392f2353cb425ceed5f088b02",
+        "wire_bytes": 1449,
+        "wire_sha256": "57073857f88baf2f6e170d38586f5d4efb3db53f259f90f890f8884b08bdc8ff"
+      },
+      "metadata/moneyflow_ind_ths/77d0ba5785374a66ae1e0d55cc8b253d/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ind_ths",
+        "elapsed_seconds": 0.1537998749408871,
+        "snapshot_hash": "38a07e486d8bb484db0c62771e23c698ad64eab05983ab4da9701540f1060aa1",
+        "sql_sha256": "9db3131e5608e9ff4dec713c81f873cdca0006e392f2353cb425ceed5f088b02",
+        "wire_bytes": 1449,
+        "wire_sha256": "57073857f88baf2f6e170d38586f5d4efb3db53f259f90f890f8884b08bdc8ff"
+      },
+      "metadata/moneyflow_cnt_ths/d9f7398c6e0e4a69873d4c36215a5e1d/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_cnt_ths",
+        "elapsed_seconds": 0.2502844170667231,
+        "snapshot_hash": "deb1217d9f13ce03a117d91027ad114d6862e24dd0088957473c0db9e41ab093",
+        "sql_sha256": "28bc2a0bf1fdfcb4cbcea8b63eaeac8a3d30d0c29bb7131101cf6c9ee07e8463",
+        "wire_bytes": 1467,
+        "wire_sha256": "6807c37deda956fd5378edac2f9ae5f03c6efe3c6cd007fd6b94f66aea90ca3f"
+      },
+      "metadata/moneyflow_cnt_ths/f5a6029adc9547cebc638a18276fe906/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_cnt_ths",
+        "elapsed_seconds": 0.1893936248961836,
+        "snapshot_hash": "deb1217d9f13ce03a117d91027ad114d6862e24dd0088957473c0db9e41ab093",
+        "sql_sha256": "28bc2a0bf1fdfcb4cbcea8b63eaeac8a3d30d0c29bb7131101cf6c9ee07e8463",
+        "wire_bytes": 1467,
+        "wire_sha256": "6807c37deda956fd5378edac2f9ae5f03c6efe3c6cd007fd6b94f66aea90ca3f"
+      },
+      "metadata/moneyflow_ths/4312a74612e745db92bef1ca367d521e/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ths",
+        "elapsed_seconds": 0.19401550013571978,
+        "snapshot_hash": "ccfd0fb5483c17540e7aee1521f90baa1c12069d81b49c4279aaf639bf67340b",
+        "sql_sha256": "ded28647f49bf77b1e3da3e0bc9e6c660cb4fc39f6266245f87812d4d138ad33",
+        "wire_bytes": 1535,
+        "wire_sha256": "553156f61eed5dbb4284d644aa2447b27e382e65d9dd58b2eb1e1712b93d7232"
+      },
+      "metadata/moneyflow_ths/ad0873c46cb54aa48541598192fd7f0e/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ths",
+        "elapsed_seconds": 0.28950974997133017,
+        "snapshot_hash": "ccfd0fb5483c17540e7aee1521f90baa1c12069d81b49c4279aaf639bf67340b",
+        "sql_sha256": "ded28647f49bf77b1e3da3e0bc9e6c660cb4fc39f6266245f87812d4d138ad33",
+        "wire_bytes": 1535,
+        "wire_sha256": "553156f61eed5dbb4284d644aa2447b27e382e65d9dd58b2eb1e1712b93d7232"
+      },
+      "metadata/moneyflow_ind_dc/c047fd96619249fbbc5ca4e6ddc3b16b/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ind_dc",
+        "elapsed_seconds": 0.2565282080322504,
+        "snapshot_hash": "a29c7465e730575ae128e69093fb14bca79da5ef3022c606e5b64470762378f8",
+        "sql_sha256": "b1faee4f4cbbe695ae9b864fb0fc4d627ba284bc22f1f68bb91fc707a6570564",
+        "wire_bytes": 2293,
+        "wire_sha256": "0e1c529196e80c2fa8fe1eaeeed842446e05dd75d31cf97b6ced0672d6550c9a"
+      },
+      "metadata/moneyflow_ind_dc/8ca28f35f5c84e3da0d5a5a53f139c5e/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_ind_dc",
+        "elapsed_seconds": 0.18263979209586978,
+        "snapshot_hash": "a29c7465e730575ae128e69093fb14bca79da5ef3022c606e5b64470762378f8",
+        "sql_sha256": "b1faee4f4cbbe695ae9b864fb0fc4d627ba284bc22f1f68bb91fc707a6570564",
+        "wire_bytes": 2293,
+        "wire_sha256": "0e1c529196e80c2fa8fe1eaeeed842446e05dd75d31cf97b6ced0672d6550c9a"
+      },
+      "metadata/moneyflow_mkt_dc/4f09ffb808d2497ea980b144b44924d3/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_mkt_dc",
+        "elapsed_seconds": 0.15257895807735622,
+        "snapshot_hash": "e0e9788b6f34603afe895f62963cffb9737b17a37702de63bc49811ce3b044f7",
+        "sql_sha256": "950b8ecf773abd1a1d263a40dfc5eb2e8c09dee379f8aa6d2426231fcd2ee03a",
+        "wire_bytes": 1689,
+        "wire_sha256": "9fca46345bb48aaa4879601040e5f6c9f83b8452f89ee2dcd887906cccfe5e5b"
+      },
+      "metadata/moneyflow_mkt_dc/c96f7512d0644cf5b43d75701fc8eb75/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_mkt_dc",
+        "elapsed_seconds": 0.15802704193629324,
+        "snapshot_hash": "e0e9788b6f34603afe895f62963cffb9737b17a37702de63bc49811ce3b044f7",
+        "sql_sha256": "950b8ecf773abd1a1d263a40dfc5eb2e8c09dee379f8aa6d2426231fcd2ee03a",
+        "wire_bytes": 1689,
+        "wire_sha256": "9fca46345bb48aaa4879601040e5f6c9f83b8452f89ee2dcd887906cccfe5e5b"
+      },
+      "metadata/moneyflow_dc/5dce87a382a34c839d5eb412b9782507/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_dc",
+        "elapsed_seconds": 0.2983874590136111,
+        "snapshot_hash": "a64c4b5afc8f90ab2fc543484c6e558cd61cd650067d132977e1e835c6df947d",
+        "sql_sha256": "192c20bf69a836688fc501bd38260135dae072328eab595603869e83ba2eafa7",
+        "wire_bytes": 1705,
+        "wire_sha256": "10d2c3c17817436be9565afe44edd0d646662c69129d8528382b66e9f7c81d56"
+      },
+      "metadata/moneyflow_dc/3d3fa9bd47de40e5922c42c43a8e3ba2/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow_dc",
+        "elapsed_seconds": 0.3587864157743752,
+        "snapshot_hash": "a64c4b5afc8f90ab2fc543484c6e558cd61cd650067d132977e1e835c6df947d",
+        "sql_sha256": "192c20bf69a836688fc501bd38260135dae072328eab595603869e83ba2eafa7",
+        "wire_bytes": 1705,
+        "wire_sha256": "10d2c3c17817436be9565afe44edd0d646662c69129d8528382b66e9f7c81d56"
+      },
+      "metadata/moneyflow/4d5416f8318a48b29f78d151e9508a6c/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow",
+        "elapsed_seconds": 0.4605393339879811,
+        "snapshot_hash": "8762c1ff2212100ff85dbd6c1f6b128ccb8a88f64e5e34eaf8f3a10d102d324c",
+        "sql_sha256": "aa25415ecfd9013390236c013cf999716a7915bb4b8b381bfe834f68bd688c87",
+        "wire_bytes": 1885,
+        "wire_sha256": "aa808d237823c650978bb48df3dba07af7a6fa0282e9ea432c96fd9e888c946f"
+      },
+      "metadata/moneyflow/7f9920f9d8b5436f8d2bd1b6e22582ea/proof.json": {
+        "cutoff": "2026-09-30",
+        "dataset": "moneyflow",
+        "elapsed_seconds": 0.7571067919488996,
+        "snapshot_hash": "8762c1ff2212100ff85dbd6c1f6b128ccb8a88f64e5e34eaf8f3a10d102d324c",
+        "sql_sha256": "aa25415ecfd9013390236c013cf999716a7915bb4b8b381bfe834f68bd688c87",
+        "wire_bytes": 1885,
+        "wire_sha256": "aa808d237823c650978bb48df3dba07af7a6fa0282e9ea432c96fd9e888c946f"
+      }
+    },
+    "executed_sql": {
+      "metadata/moneyflow_ind_ths/63bc34811ba74c00ba007daed8c83018/source.sql": {
+        "sha256": "9db3131e5608e9ff4dec713c81f873cdca0006e392f2353cb425ceed5f088b02",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow_ind_ths WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','ts_code','industry','lead_stock','close','pct_change','company_num','pct_change_stock','close_price','net_buy_amount','net_sell_amount','net_amount'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ind_ths' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','ts_code','industry','lead_stock','close','pct_change','company_num','pct_change_stock','close_price','net_buy_amount','net_sell_amount','net_amount')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_ind_ths','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ind_ths'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_ind_ths/77d0ba5785374a66ae1e0d55cc8b253d/source.sql": {
+        "sha256": "9db3131e5608e9ff4dec713c81f873cdca0006e392f2353cb425ceed5f088b02",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow_ind_ths WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','ts_code','industry','lead_stock','close','pct_change','company_num','pct_change_stock','close_price','net_buy_amount','net_sell_amount','net_amount'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ind_ths' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','ts_code','industry','lead_stock','close','pct_change','company_num','pct_change_stock','close_price','net_buy_amount','net_sell_amount','net_amount')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_ind_ths','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ind_ths'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_cnt_ths/d9f7398c6e0e4a69873d4c36215a5e1d/source.sql": {
+        "sha256": "28bc2a0bf1fdfcb4cbcea8b63eaeac8a3d30d0c29bb7131101cf6c9ee07e8463",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow_cnt_ths WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','ts_code','name','lead_stock','close_price','pct_change','industry_index','company_num','pct_change_stock','net_buy_amount','net_sell_amount','net_amount'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_cnt_ths' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','ts_code','name','lead_stock','close_price','pct_change','industry_index','company_num','pct_change_stock','net_buy_amount','net_sell_amount','net_amount')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_cnt_ths','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_cnt_ths'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_cnt_ths/f5a6029adc9547cebc638a18276fe906/source.sql": {
+        "sha256": "28bc2a0bf1fdfcb4cbcea8b63eaeac8a3d30d0c29bb7131101cf6c9ee07e8463",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow_cnt_ths WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','ts_code','name','lead_stock','close_price','pct_change','industry_index','company_num','pct_change_stock','net_buy_amount','net_sell_amount','net_amount'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_cnt_ths' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','ts_code','name','lead_stock','close_price','pct_change','industry_index','company_num','pct_change_stock','net_buy_amount','net_sell_amount','net_amount')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_cnt_ths','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_cnt_ths'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_ths/4312a74612e745db92bef1ca367d521e/source.sql": {
+        "sha256": "ded28647f49bf77b1e3da3e0bc9e6c660cb4fc39f6266245f87812d4d138ad33",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow_ths WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','ts_code','name','pct_change','latest','net_amount','net_d5_amount','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ths' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','ts_code','name','pct_change','latest','net_amount','net_d5_amount','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_ths','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ths'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_ths/ad0873c46cb54aa48541598192fd7f0e/source.sql": {
+        "sha256": "ded28647f49bf77b1e3da3e0bc9e6c660cb4fc39f6266245f87812d4d138ad33",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow_ths WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','ts_code','name','pct_change','latest','net_amount','net_d5_amount','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ths' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','ts_code','name','pct_change','latest','net_amount','net_d5_amount','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_ths','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ths'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_ind_dc/c047fd96619249fbbc5ca4e6ddc3b16b/source.sql": {
+        "sha256": "b1faee4f4cbbe695ae9b864fb0fc4d627ba284bc22f1f68bb91fc707a6570564",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,\"content_type\" AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"content_type\",\"name\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"content_type\" IS NULL OR btrim(\"content_type\")='') OR (\"name\" IS NULL OR btrim(\"name\")='')) AS invalid_keys FROM raw_tushare.moneyflow_ind_dc WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\",\"content_type\" ORDER BY \"trade_date\",\"content_type\" COLLATE \"C\" LIMIT 7),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','content_type','ts_code','name','pct_change','close','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate','buy_sm_amount_stock','rank'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ind_dc' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','content_type','ts_code','name','pct_change','close','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate','buy_sm_amount_stock','rank')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_ind_dc','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ind_dc'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_ind_dc/8ca28f35f5c84e3da0d5a5a53f139c5e/source.sql": {
+        "sha256": "b1faee4f4cbbe695ae9b864fb0fc4d627ba284bc22f1f68bb91fc707a6570564",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,\"content_type\" AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"content_type\",\"name\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"content_type\" IS NULL OR btrim(\"content_type\")='') OR (\"name\" IS NULL OR btrim(\"name\")='')) AS invalid_keys FROM raw_tushare.moneyflow_ind_dc WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\",\"content_type\" ORDER BY \"trade_date\",\"content_type\" COLLATE \"C\" LIMIT 7),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','content_type','ts_code','name','pct_change','close','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate','buy_sm_amount_stock','rank'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ind_dc' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','content_type','ts_code','name','pct_change','close','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate','buy_sm_amount_stock','rank')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_ind_dc','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_ind_dc'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_mkt_dc/4f09ffb808d2497ea980b144b44924d3/source.sql": {
+        "sha256": "950b8ecf773abd1a1d263a40dfc5eb2e8c09dee379f8aa6d2426231fcd2ee03a",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL) AS invalid_keys FROM raw_tushare.moneyflow_mkt_dc WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','close_sh','pct_change_sh','close_sz','pct_change_sz','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_mkt_dc' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','close_sh','pct_change_sh','close_sz','pct_change_sz','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_mkt_dc','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_mkt_dc'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_mkt_dc/c96f7512d0644cf5b43d75701fc8eb75/source.sql": {
+        "sha256": "950b8ecf773abd1a1d263a40dfc5eb2e8c09dee379f8aa6d2426231fcd2ee03a",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL) AS invalid_keys FROM raw_tushare.moneyflow_mkt_dc WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','close_sh','pct_change_sh','close_sz','pct_change_sz','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_mkt_dc' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','close_sh','pct_change_sh','close_sz','pct_change_sz','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_mkt_dc','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_mkt_dc'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_dc/5dce87a382a34c839d5eb412b9782507/source.sql": {
+        "sha256": "192c20bf69a836688fc501bd38260135dae072328eab595603869e83ba2eafa7",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow_dc WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','ts_code','name','pct_change','close','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_dc' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','ts_code','name','pct_change','close','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_dc','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_dc'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow_dc/3d3fa9bd47de40e5922c42c43a8e3ba2/source.sql": {
+        "sha256": "192c20bf69a836688fc501bd38260135dae072328eab595603869e83ba2eafa7",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow_dc WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['trade_date','ts_code','name','pct_change','close','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_dc' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('trade_date','ts_code','name','pct_change','close','net_amount','net_amount_rate','buy_elg_amount','buy_elg_amount_rate','buy_lg_amount','buy_lg_amount_rate','buy_md_amount','buy_md_amount_rate','buy_sm_amount','buy_sm_amount_rate')) SELECT encode(convert_to(json_build_object('dataset','moneyflow_dc','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow_dc'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow/4d5416f8318a48b29f78d151e9508a6c/source.sql": {
+        "sha256": "aa25415ecfd9013390236c013cf999716a7915bb4b8b381bfe834f68bd688c87",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['ts_code','trade_date','buy_sm_vol','buy_sm_amount','sell_sm_vol','sell_sm_amount','buy_md_vol','buy_md_amount','sell_md_vol','sell_md_amount','buy_lg_vol','buy_lg_amount','sell_lg_vol','sell_lg_amount','buy_elg_vol','buy_elg_amount','sell_elg_vol','sell_elg_amount','net_mf_vol','net_mf_amount'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('ts_code','trade_date','buy_sm_vol','buy_sm_amount','sell_sm_vol','sell_sm_amount','buy_md_vol','buy_md_amount','sell_md_vol','sell_md_amount','buy_lg_vol','buy_lg_amount','sell_lg_vol','sell_lg_amount','buy_elg_vol','buy_elg_amount','sell_elg_vol','sell_elg_amount','net_mf_vol','net_mf_amount')) SELECT encode(convert_to(json_build_object('dataset','moneyflow','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      },
+      "metadata/moneyflow/7f9920f9d8b5436f8d2bd1b6e22582ea/source.sql": {
+        "sha256": "aa25415ecfd9013390236c013cf999716a7915bb4b8b381bfe834f68bd688c87",
+        "sql": "BEGIN READ ONLY;\nSET LOCAL statement_timeout = '120s';\nCOPY (WITH facts AS (SELECT to_char(\"trade_date\",'YYYY-MM-DD') AS trade_date,''::text AS scope,count(*) AS rows,count(DISTINCT (\"trade_date\",\"ts_code\")) AS keys,count(*) FILTER (WHERE \"trade_date\" IS NULL OR (\"ts_code\" IS NULL OR btrim(\"ts_code\")='')) AS invalid_keys FROM raw_tushare.moneyflow WHERE (\"trade_date\" IN (DATE '2024-12-19',DATE '2026-09-30') OR \"trade_date\" IS NULL) GROUP BY \"trade_date\" ORDER BY \"trade_date\",''::text COLLATE \"C\" LIMIT 3),cols AS (SELECT a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,array_position(ARRAY['ts_code','trade_date','buy_sm_vol','buy_sm_amount','sell_sm_vol','sell_sm_amount','buy_md_vol','buy_md_amount','sell_md_vol','sell_md_amount','buy_lg_vol','buy_lg_amount','sell_lg_vol','sell_lg_amount','buy_elg_vol','buy_elg_amount','sell_elg_vol','sell_elg_amount','net_mf_vol','net_mf_amount'],a.attname::text) AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow' AND a.attnum>0 AND NOT a.attisdropped AND a.attname IN ('ts_code','trade_date','buy_sm_vol','buy_sm_amount','sell_sm_vol','sell_sm_amount','buy_md_vol','buy_md_amount','sell_md_vol','sell_md_amount','buy_lg_vol','buy_lg_amount','sell_lg_vol','sell_lg_amount','buy_elg_vol','buy_elg_amount','sell_elg_vol','sell_elg_amount','net_mf_vol','net_mf_amount')) SELECT encode(convert_to(json_build_object('dataset','moneyflow','cutoff','2026-09-30','relation_kind',(SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='raw_tushare' AND c.relname='moneyflow'),'selected_dates',json_build_array('2024-12-19','2026-09-30'),'columns',coalesce((SELECT json_agg(json_build_array(name,type) ORDER BY position) FROM cols),'[]'::json),'facts',coalesce((SELECT json_agg(row_to_json(facts) ORDER BY trade_date,scope COLLATE \"C\") FROM facts),'[]'::json))::text,'UTF8'),'hex')) TO STDOUT WITH (FORMAT TEXT);\nROLLBACK;\n"
+      }
+    }
+  },
+  "executed_sql_matches_final_code": true,
+  "default_full_sql_hashes": {
+    "moneyflow": "7f59fe4c38123efa5f660bfad17d952e9d9e1e589adba6b2ba9aff1c6df579ad",
+    "moneyflow_cnt_ths": "bc55408ab36f2eb4c9c1a8e5a6dbd14eb062bfdbf075b14a7e2aad20f87f4ffa",
+    "moneyflow_dc": "ff4d247fc67e1c10879e76d5cd0963ee3c885274d53ace79425058cef06e2014",
+    "moneyflow_ind_dc": "6c7f6634677d1ca238083758fb511fb79256a27968ebdfa6e66ad6ff0314003a",
+    "moneyflow_ind_ths": "6896aa9f968e18da4c825cfbeb7227ed5a247afebec8d4f78875b4b5d335a1a0",
+    "moneyflow_mkt_dc": "eead485449f4b547ce5c0ce4ecae6e327ecba4b604cbbdc3fbe6bef32686a2b2",
+    "moneyflow_ths": "66d3a2d779138ec7c59f5b1f56b6920f5e61a330b89590159bb89c776fe5fc76"
+  },
+  "isolated_representative": {
+    "kind": "isolated public fixture numeric values; early day values synthesized; actual Prod count/type/scope metadata matched; not real source business proof",
+    "fixture_sources": {
+      "moneyflow": {
+        "path": "tests/fixtures/moneyflow_20260930.json",
+        "sha256": "b1b6cf194f13b8c520154e39b90076982e84e2255f1dcb3ccfd2cc939b7f69b1",
+        "kind": "20260930 public fixture values; early dates/counts synthetic"
+      },
+      "moneyflow_cnt_ths": {
+        "path": "tests/fixtures/moneyflow_cnt_ths_20260930.json",
+        "sha256": "d1629345def4d86f7ffa540bdab9c40b59efc999da18d08842da9e1fdf2162a3",
+        "kind": "20260930 public fixture values; early dates/counts synthetic"
+      },
+      "moneyflow_dc": {
+        "path": "tests/fixtures/moneyflow_dc_20260930.json",
+        "sha256": "79640ab62960cfd1e6b86f79c2ca090d1d982eab05a11e467af39b92d56d3821",
+        "kind": "20260930 public fixture values; early dates/counts synthetic"
+      },
+      "moneyflow_ind_dc": {
+        "path": "tests/fixtures/moneyflow_ind_dc_20260930.json",
+        "sha256": "c466c32483011299c6c640ef5190bd00ea6b0be431e2f030cfb5cb9102f7c6ff",
+        "kind": "20260930 public fixture values; early dates/counts synthetic"
+      },
+      "moneyflow_ind_ths": {
+        "path": "tests/fixtures/moneyflow_ind_ths_20260930.json",
+        "sha256": "56df871a53ad38e52f7968c333f14d039efda714153d4ec8451916b7752a4277",
+        "kind": "20260930 public fixture values; early dates/counts synthetic"
+      },
+      "moneyflow_mkt_dc": {
+        "kind": "synthetic market negative/null values"
+      },
+      "moneyflow_ths": {
+        "path": "tests/fixtures/moneyflow_ths_20260930.json",
+        "sha256": "276f5ba3ddb2da463ffd1e3a2b9a30e5b494a1a6fabd2e77545e93cb709f2b6a",
+        "kind": "20260930 public fixture values; early dates/counts synthetic"
+      }
+    },
+    "manifest": {
+      "cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+      "cutoff": "2026-09-30",
+      "dataset_contracts": {
+        "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+        "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+        "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+        "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+        "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+        "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+        "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+      },
+      "extra_requests": 14,
+      "limits": {
+        "buffer_bytes": 33554432,
+        "disk_bytes": 34359738368,
+        "duckdb_memory": "512MB",
+        "duckdb_threads": 1,
+        "elapsed_seconds": 43200,
+        "minimum_free_bytes": 68719476736,
+        "rss_bytes": 805306368,
+        "spill_bytes": 0,
+        "stream_bytes": 65536,
+        "unit_seconds": 120
+      },
+      "max_requests": 56,
+      "missing_dates": {
+        "moneyflow": [],
+        "moneyflow_cnt_ths": [],
+        "moneyflow_dc": [],
+        "moneyflow_ind_dc": [],
+        "moneyflow_ind_ths": [],
+        "moneyflow_mkt_dc": [],
+        "moneyflow_ths": []
+      },
+      "plans": {
+        "moneyflow": {
+          "dates": 2,
+          "plan_hash": "1507a99a2ad688e3577cfb95ee0d5b06a1344d5a73c412abd6b2a22f84558501",
+          "rows": 10678,
+          "units": 2
+        },
+        "moneyflow_cnt_ths": {
+          "dates": 2,
+          "plan_hash": "2f94804686da1c91e65a19b56c5981271feb672a2ce46ecca4f9a4856f6f60bb",
+          "rows": 775,
+          "units": 2
+        },
+        "moneyflow_dc": {
+          "dates": 2,
+          "plan_hash": "83654a0248b9b286ff562cce1e89c8077f32080d83edb95a74dab3dd85662f2d",
+          "rows": 11814,
+          "units": 2
+        },
+        "moneyflow_ind_dc": {
+          "dates": 2,
+          "plan_hash": "837a682a55b1241ce00087ef45cf98d7d4dbd0dda57ff6ed45bcc09cf61d55b8",
+          "rows": 1117,
+          "units": 2
+        },
+        "moneyflow_ind_ths": {
+          "dates": 2,
+          "plan_hash": "4bc86384f24bd7faed5d76f04a184b87a7be2d6f31876fd4646138f4eac580d8",
+          "rows": 180,
+          "units": 2
+        },
+        "moneyflow_mkt_dc": {
+          "dates": 2,
+          "plan_hash": "97d48ac741b37ebfbec21ae5d0ce7f21cc135e64794ea797cce873dd6b6f5a3e",
+          "rows": 2,
+          "units": 2
+        },
+        "moneyflow_ths": {
+          "dates": 2,
+          "plan_hash": "8c13b58eb5d80e2f99bd484450d64d9ee6de2b9f44fe581c569853584f8a0207",
+          "rows": 5217,
+          "units": 2
+        }
+      },
+      "revision": "moneyflow_history_selected_dates_v1",
+      "sample_rows_per_dataset": 100000,
+      "selected_dates": [
+        "2024-12-19",
+        "2026-09-30"
+      ],
+      "snapshots": {
+        "moneyflow": {
+          "columns": [
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "buy_sm_vol",
+              "bigint"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "sell_sm_vol",
+              "bigint"
+            ],
+            [
+              "sell_sm_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "buy_md_vol",
+              "bigint"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "sell_md_vol",
+              "bigint"
+            ],
+            [
+              "sell_md_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "buy_lg_vol",
+              "bigint"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "sell_lg_vol",
+              "bigint"
+            ],
+            [
+              "sell_lg_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "buy_elg_vol",
+              "bigint"
+            ],
+            [
+              "buy_elg_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "sell_elg_vol",
+              "bigint"
+            ],
+            [
+              "sell_elg_amount",
+              "numeric(20,4)"
+            ],
+            [
+              "net_mf_vol",
+              "bigint"
+            ],
+            [
+              "net_mf_amount",
+              "numeric(20,4)"
+            ]
+          ],
+          "cutoff": "2026-09-30",
+          "dataset": "moneyflow",
+          "facts": [
+            {
+              "invalid_keys": 0,
+              "keys": 5106,
+              "rows": 5106,
+              "scope": "",
+              "trade_date": "2024-12-19"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 5572,
+              "rows": 5572,
+              "scope": "",
+              "trade_date": "2026-09-30"
+            }
+          ],
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ]
+        },
+        "moneyflow_cnt_ths": {
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "name",
+              "character varying(128)"
+            ],
+            [
+              "lead_stock",
+              "character varying(128)"
+            ],
+            [
+              "close_price",
+              "numeric(18,4)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "industry_index",
+              "numeric(24,4)"
+            ],
+            [
+              "company_num",
+              "integer"
+            ],
+            [
+              "pct_change_stock",
+              "numeric(10,4)"
+            ],
+            [
+              "net_buy_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_sell_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ]
+          ],
+          "cutoff": "2026-09-30",
+          "dataset": "moneyflow_cnt_ths",
+          "facts": [
+            {
+              "invalid_keys": 0,
+              "keys": 388,
+              "rows": 388,
+              "scope": "",
+              "trade_date": "2024-12-19"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 387,
+              "rows": 387,
+              "scope": "",
+              "trade_date": "2026-09-30"
+            }
+          ],
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ]
+        },
+        "moneyflow_dc": {
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "name",
+              "character varying(64)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "close",
+              "numeric(18,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_elg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_elg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_md_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_sm_amount_rate",
+              "numeric(10,4)"
+            ]
+          ],
+          "cutoff": "2026-09-30",
+          "dataset": "moneyflow_dc",
+          "facts": [
+            {
+              "invalid_keys": 0,
+              "keys": 5790,
+              "rows": 5790,
+              "scope": "",
+              "trade_date": "2024-12-19"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 6024,
+              "rows": 6024,
+              "scope": "",
+              "trade_date": "2026-09-30"
+            }
+          ],
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ]
+        },
+        "moneyflow_ind_dc": {
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "content_type",
+              "character varying(16)"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "name",
+              "character varying(128)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "close",
+              "numeric(18,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_elg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_elg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_md_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_sm_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount_stock",
+              "character varying(128)"
+            ],
+            [
+              "rank",
+              "integer"
+            ]
+          ],
+          "cutoff": "2026-09-30",
+          "dataset": "moneyflow_ind_dc",
+          "facts": [
+            {
+              "invalid_keys": 0,
+              "keys": 86,
+              "rows": 86,
+              "scope": "行业",
+              "trade_date": "2024-12-19"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 31,
+              "rows": 31,
+              "scope": "地域",
+              "trade_date": "2026-09-30"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 504,
+              "rows": 504,
+              "scope": "概念",
+              "trade_date": "2026-09-30"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 496,
+              "rows": 496,
+              "scope": "行业",
+              "trade_date": "2026-09-30"
+            }
+          ],
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ]
+        },
+        "moneyflow_ind_ths": {
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "industry",
+              "character varying(128)"
+            ],
+            [
+              "lead_stock",
+              "character varying(128)"
+            ],
+            [
+              "close",
+              "numeric(18,4)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "company_num",
+              "integer"
+            ],
+            [
+              "pct_change_stock",
+              "numeric(10,4)"
+            ],
+            [
+              "close_price",
+              "numeric(18,4)"
+            ],
+            [
+              "net_buy_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_sell_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ]
+          ],
+          "cutoff": "2026-09-30",
+          "dataset": "moneyflow_ind_ths",
+          "facts": [
+            {
+              "invalid_keys": 0,
+              "keys": 90,
+              "rows": 90,
+              "scope": "",
+              "trade_date": "2024-12-19"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 90,
+              "rows": 90,
+              "scope": "",
+              "trade_date": "2026-09-30"
+            }
+          ],
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ]
+        },
+        "moneyflow_mkt_dc": {
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "close_sh",
+              "numeric(18,4)"
+            ],
+            [
+              "pct_change_sh",
+              "numeric(10,4)"
+            ],
+            [
+              "close_sz",
+              "numeric(18,4)"
+            ],
+            [
+              "pct_change_sz",
+              "numeric(10,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_elg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_elg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_md_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_sm_amount_rate",
+              "numeric(10,4)"
+            ]
+          ],
+          "cutoff": "2026-09-30",
+          "dataset": "moneyflow_mkt_dc",
+          "facts": [
+            {
+              "invalid_keys": 0,
+              "keys": 1,
+              "rows": 1,
+              "scope": "",
+              "trade_date": "2024-12-19"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 1,
+              "rows": 1,
+              "scope": "",
+              "trade_date": "2026-09-30"
+            }
+          ],
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ]
+        },
+        "moneyflow_ths": {
+          "columns": [
+            [
+              "trade_date",
+              "date"
+            ],
+            [
+              "ts_code",
+              "character varying(16)"
+            ],
+            [
+              "name",
+              "character varying(64)"
+            ],
+            [
+              "pct_change",
+              "numeric(10,4)"
+            ],
+            [
+              "latest",
+              "numeric(18,4)"
+            ],
+            [
+              "net_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "net_d5_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_lg_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_md_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_md_amount_rate",
+              "numeric(10,4)"
+            ],
+            [
+              "buy_sm_amount",
+              "numeric(24,4)"
+            ],
+            [
+              "buy_sm_amount_rate",
+              "numeric(10,4)"
+            ]
+          ],
+          "cutoff": "2026-09-30",
+          "dataset": "moneyflow_ths",
+          "facts": [
+            {
+              "invalid_keys": 0,
+              "keys": 2,
+              "rows": 2,
+              "scope": "",
+              "trade_date": "2024-12-19"
+            },
+            {
+              "invalid_keys": 0,
+              "keys": 5215,
+              "rows": 5215,
+              "scope": "",
+              "trade_date": "2026-09-30"
+            }
+          ],
+          "relation_kind": "r",
+          "selected_dates": [
+            "2024-12-19",
+            "2026-09-30"
+          ]
+        }
+      },
+      "total_dates": 14,
+      "total_rows": 29783,
+      "total_units": 14
+    },
+    "seconds": {
+      "candidates": 2.2392489581834525,
+      "preflight": 0.03469529189169407,
+      "apply": 0.3306548339314759,
+      "replay": 0.04275850020349026
+    },
+    "peak_rss_bytes": 375963648,
+    "total_rows": 29783,
+    "files": 28,
+    "formal_parquet_bytes": 4712754,
+    "candidate_checkpoint_hashes": {
+      "moneyflow_ind_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "d1facc49e60779b8f5ab1e470560f631fae8eca33fa11f55aa38b1f608f435cc",
+      "moneyflow_ind_ths/2026-09-30/history_candidates/unit-000001/checkpoint.json": "bf5ee2247839fa9311fc5eee0d4ebeee3f946eb89e88fffd8af4e0edec659c04",
+      "moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "1bc5926f8bdff5f6e807b0a595ec96f367111f45308641069279335eb10abbb7",
+      "moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000001/checkpoint.json": "f4fdf0ada370861e665ba0526d8a532853ecec8cb0802fb3fab76c2eacb32a91",
+      "moneyflow_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "34bf8788b5d98c67ed6a9274bd0e1b4e62fdeba57b0cf9ca5365e32204a04a41",
+      "moneyflow_ths/2026-09-30/history_candidates/unit-000001/checkpoint.json": "eb96a698e8bd23e27b9cdddc8212bfb3ad52ce00edec35b0ba2b62315b6634d3",
+      "moneyflow_ind_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "6c3b330f06c9ca9d7ba5619c933ee4d4c2a4f9afe76cb9020211d9732a303acc",
+      "moneyflow_ind_dc/2026-09-30/history_candidates/unit-000001/checkpoint.json": "70a0889e8bb57085c7ed300959e9e10c09b24a36cadf264bb42bb022e1852071",
+      "moneyflow_mkt_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "1391d599196e4a22829584869b4507e93b0afac734413b02c27832a209c3413f",
+      "moneyflow_mkt_dc/2026-09-30/history_candidates/unit-000001/checkpoint.json": "3ee614d9fe7aa1416bf3d1a1b59c6546a860d5e277d7013ee902c3eaffadb01e",
+      "moneyflow_dc/2026-09-30/history_candidates/unit-000000/checkpoint.json": "4472e24a6a6e2a715d5eb946c54851cc3a18d11db25c5a6a06c3aa9a31838d91",
+      "moneyflow_dc/2026-09-30/history_candidates/unit-000001/checkpoint.json": "bdff01c5e6b13c54911d7bdf82ea4bfd74d2c04bfdd72ef777f059cceee4f3c0",
+      "moneyflow/2026-09-30/history_candidates/unit-000000/checkpoint.json": "b89d84021c6d1ac1a0ad6a5d54ce877bd06359ea0d97acd74cbb9856739dca77",
+      "moneyflow/2026-09-30/history_candidates/unit-000001/checkpoint.json": "b2b5a3297fcf122a789635b75505f58af89c20bbbeac8af7193c1580cb622782"
+    },
+    "formal_file_hashes": {
+      "raw/tushare/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet": "b4ef9debedd6ae38f6dc06749684e30d9034fa849c94fb533078bb3163e0d98e",
+      "raw/tushare/moneyflow_ind_ths/trade_date=2024-12-19/part-000.parquet": "18bcd89642e3640f070678dca61a2b3e0bcdb41224a39282f47f634cd1a4bb22",
+      "raw/tushare/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet": "c54ba5d826a3216ce51bd6ea87ab9641bc9e244a13575eeac47fb79e127d68d0",
+      "raw/tushare/moneyflow_cnt_ths/trade_date=2024-12-19/part-000.parquet": "d2eef30c99a45aac7a7d7a96816504ce51fde7d5a0b4e9ac3a8e708638f6f11d",
+      "raw/tushare/moneyflow_ths/trade_date=2026-09-30/part-000.parquet": "d68f42062195bf7a7f74bc794f74a56c0f6814c9f4a8700a4f8fe7fe9db32775",
+      "raw/tushare/moneyflow_ths/trade_date=2024-12-19/part-000.parquet": "2c3ed1ed91ee2aa33dc1237af319f7a3f3c95a58b2572cf85d89196c1dc4c969",
+      "raw/tushare/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet": "7387b327e4b3bc9cc42885cb9fc2eb2e962620e9544296b7dd62c3071c1effaa",
+      "raw/tushare/moneyflow_ind_dc/trade_date=2024-12-19/part-000.parquet": "a893af0ae719cb7a9830e9f0c8d0d40813e3125df914865b16f9ed2624c11952",
+      "raw/tushare/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet": "ce040b9e96d632e82f0ba6c200a30677e8c540f031c87a5265413e4acd9fc06f",
+      "raw/tushare/moneyflow_mkt_dc/trade_date=2024-12-19/part-000.parquet": "7aebba969ff42313eacec8a13e81a3130bae000afea8e6fa1ca402bc485a1f25",
+      "raw/tushare/moneyflow_dc/trade_date=2026-09-30/part-000.parquet": "70fda8fd7a63552c3b5d5ea99e48cf1583ed5fc207f9a21f85e68da7f72afad4",
+      "raw/tushare/moneyflow_dc/trade_date=2024-12-19/part-000.parquet": "ad934466779032b80531ee4e2cca61491be5633257e26ca0ec383c5162374107",
+      "raw/tushare/moneyflow/trade_date=2026-09-30/part-000.parquet": "437475c51e9eab1dc6c06811fcbc5019b7ae99e7311852cfd61293863ff0c4df",
+      "raw/tushare/moneyflow/trade_date=2024-12-19/part-000.parquet": "cf3ccbeb71ce95662053cffea05ea5694b1063fffd7f06d8e9e7b181ae595881",
+      "silver/moneyflow/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet": "68636c2fda7e308027832d25900591d4c760257f237ae98ca22528487d4068d4",
+      "silver/moneyflow/moneyflow_ind_ths/trade_date=2024-12-19/part-000.parquet": "4bcbc731c574eb83d04ed4d087a1afb2ee237a06d8fb8179d349f906d1d4adce",
+      "silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet": "fa60503a1846cc3d56b1e90e80d1761034261bc39b98eb92143696b8b4f00734",
+      "silver/moneyflow/moneyflow_cnt_ths/trade_date=2024-12-19/part-000.parquet": "21f2d3ea856341042ae189fb3c83e173df3b00bfd0943656869f5830e09b4be0",
+      "silver/moneyflow/moneyflow_ths/trade_date=2026-09-30/part-000.parquet": "b40f28495e8217140aac53ef97894d1be948609260fc347bab7c3a685bf8a0b3",
+      "silver/moneyflow/moneyflow_ths/trade_date=2024-12-19/part-000.parquet": "f643448e5537251b7db5f791e7207f0d3eeeaf79c40d231f2eb346b5407a27e4",
+      "silver/moneyflow/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet": "a96fb0ba83ce0d893a9eae800b5c003ac736739eb3a3132d816d158ce39fd5ec",
+      "silver/moneyflow/moneyflow_ind_dc/trade_date=2024-12-19/part-000.parquet": "c03c371f4ca9aa5cc331d417664919a11101cede5b2ecfd8c3959feb335fbd83",
+      "silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet": "b7316158b5bb86f71b64b8c5bcce3facaa42dd35d191cc4b29d27aae5b1ce39f",
+      "silver/moneyflow/moneyflow_mkt_dc/trade_date=2024-12-19/part-000.parquet": "3e36d2a21f86aae71fa8c2c303b33e4c629809eaf88c904abfc5b6fe44865415",
+      "silver/moneyflow/moneyflow_dc/trade_date=2026-09-30/part-000.parquet": "ac089a2ddd393bce9429e38d0ca5daab80a03d022418c66fd5e77515f91714f2",
+      "silver/moneyflow/moneyflow_dc/trade_date=2024-12-19/part-000.parquet": "11ff682971258ba1cb2cca45ecb523e7b93c85867fe375d9de5be35bee041d58",
+      "silver/moneyflow/moneyflow/trade_date=2026-09-30/part-000.parquet": "19488efce628dce733c915cd6b063239eb6178fad23ff97728bb79b2bf87abc3",
+      "silver/moneyflow/moneyflow/trade_date=2024-12-19/part-000.parquet": "221c0398ba036f9dd09ef0088e023db1fc4e2406af8286576442ee6ce0f718a4"
+    },
+    "build_progress": {
+      "cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+      "revision": "moneyflow_history_selected_dates_v1",
+      "cutoff": "2026-09-30",
+      "dataset_contracts": {
+        "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+        "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+        "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+        "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+        "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+        "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+        "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+      },
+      "limits": {
+        "buffer_bytes": 33554432,
+        "disk_bytes": 34359738368,
+        "elapsed_seconds": 43200,
+        "unit_seconds": 120,
+        "minimum_free_bytes": 68719476736,
+        "stream_bytes": 65536,
+        "rss_bytes": 805306368,
+        "duckdb_memory": "512MB",
+        "duckdb_threads": 1,
+        "spill_bytes": 0
+      },
+      "extra_requests": 14,
+      "selected_dates": [
+        "2024-12-19",
+        "2026-09-30"
+      ],
+      "sample_rows_per_dataset": 100000,
+      "charged_seconds": 2.171051165321842,
+      "unit_id": 0,
+      "completed_units": 14,
+      "copy_transactions": 42,
+      "connections": 42,
+      "sql_statements": 168,
+      "total_units": 14,
+      "eta": "暂无法估算",
+      "max_requests": 56,
+      "percentage": 100.0,
+      "last_updated": 1791470664.49689,
+      "reviewed_cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+      "dataset": "moneyflow_ths",
+      "current_unit": 1,
+      "stage": "candidates_verified",
+      "bytes": 517168,
+      "reservation_seconds": 0,
+      "global_unit": 13,
+      "dates": [
+        "2026-09-30"
+      ],
+      "expected_rows": 5215,
+      "current_date": "2026-09-30",
+      "generated_dates": 1,
+      "closed_units": [
+        {
+          "dataset": "moneyflow",
+          "unit_id": 0,
+          "checkpoint_sha256": "b89d84021c6d1ac1a0ad6a5d54ce877bd06359ea0d97acd74cbb9856739dca77",
+          "date_counts": [
+            [
+              "2024-12-19",
+              5106
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow",
+          "unit_id": 1,
+          "checkpoint_sha256": "b2b5a3297fcf122a789635b75505f58af89c20bbbeac8af7193c1580cb622782",
+          "date_counts": [
+            [
+              "2026-09-30",
+              5572
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_cnt_ths",
+          "unit_id": 0,
+          "checkpoint_sha256": "1bc5926f8bdff5f6e807b0a595ec96f367111f45308641069279335eb10abbb7",
+          "date_counts": [
+            [
+              "2024-12-19",
+              388
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_cnt_ths",
+          "unit_id": 1,
+          "checkpoint_sha256": "f4fdf0ada370861e665ba0526d8a532853ecec8cb0802fb3fab76c2eacb32a91",
+          "date_counts": [
+            [
+              "2026-09-30",
+              387
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_dc",
+          "unit_id": 0,
+          "checkpoint_sha256": "4472e24a6a6e2a715d5eb946c54851cc3a18d11db25c5a6a06c3aa9a31838d91",
+          "date_counts": [
+            [
+              "2024-12-19",
+              5790
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_dc",
+          "unit_id": 1,
+          "checkpoint_sha256": "bdff01c5e6b13c54911d7bdf82ea4bfd74d2c04bfdd72ef777f059cceee4f3c0",
+          "date_counts": [
+            [
+              "2026-09-30",
+              6024
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_ind_dc",
+          "unit_id": 0,
+          "checkpoint_sha256": "6c3b330f06c9ca9d7ba5619c933ee4d4c2a4f9afe76cb9020211d9732a303acc",
+          "date_counts": [
+            [
+              "2024-12-19",
+              86
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_ind_dc",
+          "unit_id": 1,
+          "checkpoint_sha256": "70a0889e8bb57085c7ed300959e9e10c09b24a36cadf264bb42bb022e1852071",
+          "date_counts": [
+            [
+              "2026-09-30",
+              1031
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_ind_ths",
+          "unit_id": 0,
+          "checkpoint_sha256": "d1facc49e60779b8f5ab1e470560f631fae8eca33fa11f55aa38b1f608f435cc",
+          "date_counts": [
+            [
+              "2024-12-19",
+              90
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_ind_ths",
+          "unit_id": 1,
+          "checkpoint_sha256": "bf5ee2247839fa9311fc5eee0d4ebeee3f946eb89e88fffd8af4e0edec659c04",
+          "date_counts": [
+            [
+              "2026-09-30",
+              90
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_mkt_dc",
+          "unit_id": 0,
+          "checkpoint_sha256": "1391d599196e4a22829584869b4507e93b0afac734413b02c27832a209c3413f",
+          "date_counts": [
+            [
+              "2024-12-19",
+              1
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_mkt_dc",
+          "unit_id": 1,
+          "checkpoint_sha256": "3ee614d9fe7aa1416bf3d1a1b59c6546a860d5e277d7013ee902c3eaffadb01e",
+          "date_counts": [
+            [
+              "2026-09-30",
+              1
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_ths",
+          "unit_id": 0,
+          "checkpoint_sha256": "34bf8788b5d98c67ed6a9274bd0e1b4e62fdeba57b0cf9ca5365e32204a04a41",
+          "date_counts": [
+            [
+              "2024-12-19",
+              2
+            ]
+          ]
+        },
+        {
+          "dataset": "moneyflow_ths",
+          "unit_id": 1,
+          "checkpoint_sha256": "eb96a698e8bd23e27b9cdddc8212bfb3ad52ce00edec35b0ba2b62315b6634d3",
+          "date_counts": [
+            [
+              "2026-09-30",
+              5215
+            ]
+          ]
+        }
+      ],
+      "retained_bytes": 4764129
+    },
+    "apply_progress": {
+      "bytes": 0,
+      "charged_seconds": 2.4684622508939356,
+      "closed_units": [
+        {
+          "checkpoint_sha256": "b89d84021c6d1ac1a0ad6a5d54ce877bd06359ea0d97acd74cbb9856739dca77",
+          "dataset": "moneyflow",
+          "date_counts": [
+            [
+              "2024-12-19",
+              5106
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "b2b5a3297fcf122a789635b75505f58af89c20bbbeac8af7193c1580cb622782",
+          "dataset": "moneyflow",
+          "date_counts": [
+            [
+              "2026-09-30",
+              5572
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "1bc5926f8bdff5f6e807b0a595ec96f367111f45308641069279335eb10abbb7",
+          "dataset": "moneyflow_cnt_ths",
+          "date_counts": [
+            [
+              "2024-12-19",
+              388
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "f4fdf0ada370861e665ba0526d8a532853ecec8cb0802fb3fab76c2eacb32a91",
+          "dataset": "moneyflow_cnt_ths",
+          "date_counts": [
+            [
+              "2026-09-30",
+              387
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "4472e24a6a6e2a715d5eb946c54851cc3a18d11db25c5a6a06c3aa9a31838d91",
+          "dataset": "moneyflow_dc",
+          "date_counts": [
+            [
+              "2024-12-19",
+              5790
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "bdff01c5e6b13c54911d7bdf82ea4bfd74d2c04bfdd72ef777f059cceee4f3c0",
+          "dataset": "moneyflow_dc",
+          "date_counts": [
+            [
+              "2026-09-30",
+              6024
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "6c3b330f06c9ca9d7ba5619c933ee4d4c2a4f9afe76cb9020211d9732a303acc",
+          "dataset": "moneyflow_ind_dc",
+          "date_counts": [
+            [
+              "2024-12-19",
+              86
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "70a0889e8bb57085c7ed300959e9e10c09b24a36cadf264bb42bb022e1852071",
+          "dataset": "moneyflow_ind_dc",
+          "date_counts": [
+            [
+              "2026-09-30",
+              1031
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "d1facc49e60779b8f5ab1e470560f631fae8eca33fa11f55aa38b1f608f435cc",
+          "dataset": "moneyflow_ind_ths",
+          "date_counts": [
+            [
+              "2024-12-19",
+              90
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "bf5ee2247839fa9311fc5eee0d4ebeee3f946eb89e88fffd8af4e0edec659c04",
+          "dataset": "moneyflow_ind_ths",
+          "date_counts": [
+            [
+              "2026-09-30",
+              90
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "1391d599196e4a22829584869b4507e93b0afac734413b02c27832a209c3413f",
+          "dataset": "moneyflow_mkt_dc",
+          "date_counts": [
+            [
+              "2024-12-19",
+              1
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "3ee614d9fe7aa1416bf3d1a1b59c6546a860d5e277d7013ee902c3eaffadb01e",
+          "dataset": "moneyflow_mkt_dc",
+          "date_counts": [
+            [
+              "2026-09-30",
+              1
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "34bf8788b5d98c67ed6a9274bd0e1b4e62fdeba57b0cf9ca5365e32204a04a41",
+          "dataset": "moneyflow_ths",
+          "date_counts": [
+            [
+              "2024-12-19",
+              2
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "eb96a698e8bd23e27b9cdddc8212bfb3ad52ce00edec35b0ba2b62315b6634d3",
+          "dataset": "moneyflow_ths",
+          "date_counts": [
+            [
+              "2026-09-30",
+              5215
+            ]
+          ],
+          "unit_id": 1
+        }
+      ],
+      "cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+      "completed_units": 14,
+      "connections": 42,
+      "copy_transactions": 42,
+      "current_date": "2026-09-30",
+      "current_unit": 1,
+      "cutoff": "2026-09-30",
+      "dataset": "moneyflow_ths",
+      "dataset_contracts": {
+        "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+        "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+        "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+        "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+        "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+        "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+        "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+      },
+      "dates": [
+        "2026-09-30"
+      ],
+      "eta": "暂无法估算",
+      "expected_rows": 5215,
+      "extra_requests": 14,
+      "generated_dates": 1,
+      "global_unit": 13,
+      "last_updated": 1791470664.865497,
+      "limits": {
+        "buffer_bytes": 33554432,
+        "disk_bytes": 34359738368,
+        "duckdb_memory": "512MB",
+        "duckdb_threads": 1,
+        "elapsed_seconds": 43200,
+        "minimum_free_bytes": 68719476736,
+        "rss_bytes": 805306368,
+        "spill_bytes": 0,
+        "stream_bytes": 65536,
+        "unit_seconds": 120
+      },
+      "max_requests": 56,
+      "percentage": 100.0,
+      "promoted_dates": 14,
+      "promoted_files": 28,
+      "promoted_rows": 29783,
+      "promoted_units": 14,
+      "promotion_contract_hash": "a606d2c42370527f427f9805aa801ea7447e3cd033b2adef6b5307db1c27a5eb",
+      "promotion_started": true,
+      "reservation_seconds": 0,
+      "retained_bytes": 4770860,
+      "reviewed_cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+      "revision": "moneyflow_history_selected_dates_v1",
+      "sample_rows_per_dataset": 100000,
+      "selected_dates": [
+        "2024-12-19",
+        "2026-09-30"
+      ],
+      "sql_statements": 168,
+      "stage": "files_complete",
+      "total_files": 28,
+      "total_units": 14,
+      "unit_id": 0,
+      "current_file": "2026-09-30/silver",
+      "apply": true
+    },
+    "replay_progress": {
+      "bytes": 0,
+      "charged_seconds": 2.483934166841209,
+      "closed_units": [
+        {
+          "checkpoint_sha256": "b89d84021c6d1ac1a0ad6a5d54ce877bd06359ea0d97acd74cbb9856739dca77",
+          "dataset": "moneyflow",
+          "date_counts": [
+            [
+              "2024-12-19",
+              5106
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "b2b5a3297fcf122a789635b75505f58af89c20bbbeac8af7193c1580cb622782",
+          "dataset": "moneyflow",
+          "date_counts": [
+            [
+              "2026-09-30",
+              5572
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "1bc5926f8bdff5f6e807b0a595ec96f367111f45308641069279335eb10abbb7",
+          "dataset": "moneyflow_cnt_ths",
+          "date_counts": [
+            [
+              "2024-12-19",
+              388
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "f4fdf0ada370861e665ba0526d8a532853ecec8cb0802fb3fab76c2eacb32a91",
+          "dataset": "moneyflow_cnt_ths",
+          "date_counts": [
+            [
+              "2026-09-30",
+              387
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "4472e24a6a6e2a715d5eb946c54851cc3a18d11db25c5a6a06c3aa9a31838d91",
+          "dataset": "moneyflow_dc",
+          "date_counts": [
+            [
+              "2024-12-19",
+              5790
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "bdff01c5e6b13c54911d7bdf82ea4bfd74d2c04bfdd72ef777f059cceee4f3c0",
+          "dataset": "moneyflow_dc",
+          "date_counts": [
+            [
+              "2026-09-30",
+              6024
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "6c3b330f06c9ca9d7ba5619c933ee4d4c2a4f9afe76cb9020211d9732a303acc",
+          "dataset": "moneyflow_ind_dc",
+          "date_counts": [
+            [
+              "2024-12-19",
+              86
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "70a0889e8bb57085c7ed300959e9e10c09b24a36cadf264bb42bb022e1852071",
+          "dataset": "moneyflow_ind_dc",
+          "date_counts": [
+            [
+              "2026-09-30",
+              1031
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "d1facc49e60779b8f5ab1e470560f631fae8eca33fa11f55aa38b1f608f435cc",
+          "dataset": "moneyflow_ind_ths",
+          "date_counts": [
+            [
+              "2024-12-19",
+              90
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "bf5ee2247839fa9311fc5eee0d4ebeee3f946eb89e88fffd8af4e0edec659c04",
+          "dataset": "moneyflow_ind_ths",
+          "date_counts": [
+            [
+              "2026-09-30",
+              90
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "1391d599196e4a22829584869b4507e93b0afac734413b02c27832a209c3413f",
+          "dataset": "moneyflow_mkt_dc",
+          "date_counts": [
+            [
+              "2024-12-19",
+              1
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "3ee614d9fe7aa1416bf3d1a1b59c6546a860d5e277d7013ee902c3eaffadb01e",
+          "dataset": "moneyflow_mkt_dc",
+          "date_counts": [
+            [
+              "2026-09-30",
+              1
+            ]
+          ],
+          "unit_id": 1
+        },
+        {
+          "checkpoint_sha256": "34bf8788b5d98c67ed6a9274bd0e1b4e62fdeba57b0cf9ca5365e32204a04a41",
+          "dataset": "moneyflow_ths",
+          "date_counts": [
+            [
+              "2024-12-19",
+              2
+            ]
+          ],
+          "unit_id": 0
+        },
+        {
+          "checkpoint_sha256": "eb96a698e8bd23e27b9cdddc8212bfb3ad52ce00edec35b0ba2b62315b6634d3",
+          "dataset": "moneyflow_ths",
+          "date_counts": [
+            [
+              "2026-09-30",
+              5215
+            ]
+          ],
+          "unit_id": 1
+        }
+      ],
+      "cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+      "completed_units": 14,
+      "connections": 42,
+      "copy_transactions": 42,
+      "current_date": "2026-09-30",
+      "current_file": "2026-09-30/silver",
+      "current_unit": 1,
+      "cutoff": "2026-09-30",
+      "dataset": "moneyflow_ths",
+      "dataset_contracts": {
+        "moneyflow": "39db630ef4fb539028bde4145cd56a1b50731c33c5746d7a62198e35d722cd9e",
+        "moneyflow_cnt_ths": "f32602fab61933155b95c2b25c6593c41ca963f3cfe0e52dc03b36d79e0a28cc",
+        "moneyflow_dc": "68828e16f60a88b5a2f5d04c2afcd9508e202be3dbd2276e02d374e4e1f2943b",
+        "moneyflow_ind_dc": "a3d8bd2f1a330faf7e07ea9ca91196174a589ef82427f60f889801a79e4ba5df",
+        "moneyflow_ind_ths": "90a9732015cf2bad458147fb020822b0e43acb3d7cc28b84e7ee09ea71e8eb70",
+        "moneyflow_mkt_dc": "68da7ebaf457615d6683140823dc78728d30924200fce7e42db6352fbb7afe82",
+        "moneyflow_ths": "0ccbea213605696b9a58b317a86391f0d2c03a5d976174c6f17415d527156d32"
+      },
+      "dates": [
+        "2026-09-30"
+      ],
+      "eta": "暂无法估算",
+      "expected_rows": 5215,
+      "extra_requests": 14,
+      "generated_dates": 1,
+      "global_unit": 13,
+      "last_updated": 1791470664.912679,
+      "limits": {
+        "buffer_bytes": 33554432,
+        "disk_bytes": 34359738368,
+        "duckdb_memory": "512MB",
+        "duckdb_threads": 1,
+        "elapsed_seconds": 43200,
+        "minimum_free_bytes": 68719476736,
+        "rss_bytes": 805306368,
+        "spill_bytes": 0,
+        "stream_bytes": 65536,
+        "unit_seconds": 120
+      },
+      "max_requests": 56,
+      "percentage": 100.0,
+      "promoted_dates": 14,
+      "promoted_files": 28,
+      "promoted_rows": 29783,
+      "promoted_units": 14,
+      "promotion_contract_hash": "a606d2c42370527f427f9805aa801ea7447e3cd033b2adef6b5307db1c27a5eb",
+      "promotion_started": true,
+      "reservation_seconds": 0,
+      "retained_bytes": 4770852,
+      "reviewed_cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+      "revision": "moneyflow_history_selected_dates_v1",
+      "sample_rows_per_dataset": 100000,
+      "selected_dates": [
+        "2024-12-19",
+        "2026-09-30"
+      ],
+      "sql_statements": 168,
+      "stage": "files_complete",
+      "total_files": 28,
+      "total_units": 14,
+      "unit_id": 0,
+      "apply": true
+    },
+    "fake_source_requests": 42,
+    "promotion_source_requests": 0,
+    "rejects": 0,
+    "business_differences": 0
+  },
+  "formal_path_readonly": {
+    "kind": "existing formal paths read-only stat/glob; no mkdir/file write on external volume",
+    "lake": "/Volumes/datasource/data_lake",
+    "staging": "/Volumes/datasource/data_lake_staging",
+    "mounted": true,
+    "lake_exists": true,
+    "staging_exists": true,
+    "lake_device": 16777244,
+    "staging_device": 16777244,
+    "free_bytes": 2933369720832,
+    "targets": [
+      {
+        "dataset": "moneyflow",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_cnt_ths",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_cnt_ths",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_cnt_ths",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_cnt_ths",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_dc",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_dc",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_dc",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_dc",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_dc",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_dc",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_dc",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_dc",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_ths",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_ths",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_ths",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_ths",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ths",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ths",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ths",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ths",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      }
+    ],
+    "existing_targets": 0,
+    "neighbor_conflicts": 0
+  },
+  "formal_writer_inventory": {
+    "active_moneyflow_asset_job_sensor_catalog_matches": 0,
+    "scope": "current source search; no formal instance execution",
+    "writer_lock_observed": false,
+    "operation_directory_observed": false,
+    "point_in_time_only": true
+  },
+  "formal_sample_proposal": {
+    "status": "not executed; awaiting scoped approval",
+    "operation_id": "history-sample-20261008",
+    "expected_cohort_hash": "19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98",
+    "workdir": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+    "dagster_home": "not consumed; no Dagster instance/event/partition operations",
+    "staging_operation": "/Volumes/datasource/data_lake_staging/moneyflow/history-sample-20261008",
+    "lake_root": "/Volumes/datasource/data_lake",
+    "targets": [
+      {
+        "dataset": "moneyflow",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_cnt_ths",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_cnt_ths",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_cnt_ths",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_cnt_ths",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_dc",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_dc",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_dc",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_dc",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_dc",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_dc",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_dc",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_dc",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_ths",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_ths",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_ths",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ind_ths",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ths",
+        "day": "2024-12-19",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ths",
+        "day": "2024-12-19",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2024-12-19/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ths",
+        "day": "2026-09-30",
+        "layer": "raw",
+        "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      },
+      {
+        "dataset": "moneyflow_ths",
+        "day": "2026-09-30",
+        "layer": "silver",
+        "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-09-30/part-000.parquet",
+        "exists": false,
+        "symlink": false,
+        "neighbor_parquet": []
+      }
+    ],
+    "expected_rows": 29783,
+    "expected_dataset_dates": 14,
+    "expected_units": 14,
+    "expected_files": 28,
+    "normal_connections": 42,
+    "normal_sql_statements": 168,
+    "maximum_connections": 56,
+    "maximum_sql_statements": 224,
+    "business_copy_passes": 2,
+    "expected_business_rows_read": 59566,
+    "promotion_source_requests": 0,
+    "source_hash_drift": "stop before business COPY",
+    "same_content": "reuse",
+    "different_content": "stop; no overwrite or deletion",
+    "resume": "same operation/dates/cutoff/review hash and original cumulative budget/checkpoints",
+    "writer_window": "shared namespace writer lock plus operator exclusive window; external writers not covered by this lock",
+    "formal_write_count_this_slice": 0
+  },
+  "validation": {
+    "selected_date_cases": 39,
+    "joint_cases": 804,
+    "protected_governance_cases": 12,
+    "governance_subtests": 474,
+    "protected_static_cases": 113,
+    "logs": {
+      "joint": {
+        "path": "/private/tmp/moneyflow-selected-joint-final-20261008.log",
+        "sha256": "845cb2e7732dea56d77e9697784cddfdfeb4240745b9af0df3ca8ee219ca42ed",
+        "last_line": "804 passed in 79.70s (0:01:19)"
+      },
+      "governance": {
+        "path": "/private/tmp/moneyflow-selected-governance-final-20261008.log",
+        "sha256": "3bec9f8852fae292df7b268dcea77097cede626c0bc738a8611467540161882e",
+        "last_line": "{\"regression_suite_passed\": \"test_asset_governance_contracts.py\", \"S1_complete\": false, \"writer_executed\": false, \"identity_profile\": \"synthetic\", \"formal_writer_executed\": false, \"S2_executed\": false}"
+      },
+      "static": {
+        "path": "/private/tmp/moneyflow-selected-static-final-20261008.log",
+        "sha256": "b45575474ac7a50418fd99701e6ae8454a0ad6c74f74098de9686eca4708a22e",
+        "last_line": "{\"regression_suite_passed\": \"test_run_contract_static_gates.py\", \"S1_complete\": false, \"writer_executed\": false, \"identity_profile\": \"synthetic\", \"formal_writer_executed\": false, \"S2_executed\": false}"
+      },
+      "ruff": {
+        "path": "/private/tmp/moneyflow-selected-ruff-final-20261008.log",
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+        "last_line": "All checks passed!"
+      }
+    },
+    "fatal_ruff": "E9,F63,F7,F82 src tests passed",
+    "codegraph": [
+      "codegraph_explore",
+      "codegraph impact validate_moneyflow_history_metadata",
+      "codegraph impact build_moneyflow_history_cohort_candidates",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "graph_limit": "symbol impact has incomplete test edges; all callers/parser/unit/promotion tests inspected directly",
+    "codegraph_status": "up to date; 3887 files 73095 nodes 182108 edges",
+    "documentation": {
+      "full_checker": {
+        "path": "/private/tmp/moneyflow-selected-docs-final-20261008.log",
+        "sha256": "4a54bdf009e4ed2f2cb57b8210c15fbb9f7f1f3aa8ece2d9b513e022a47a7e00",
+        "output": "[PASS] dead-absolute-links\n[PASS] ds-store-noise\n[PASS] tushare-index-consistency\n\nDocs integrity check passed.\n"
+      },
+      "targeted_check": "PASS: final code/report hashes, 28 isolated physical file hashes/bytes, three proposed command syntax/signatures, both original design links; formal commands not executed",
+      "git_diff_check": "passed"
+    }
+  },
+  "source_code_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_metadata.py": "40fe40bb7c27cc25a0283984c82c79808851abc7e3bbf8c0bcd279dd73f92bb4",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_cohort.py": "703a7ca5fc91d5156de189e7a2612750cfacbcc06e08827cf93f02d3e00afbde",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_promote.py": "4e34b99f641f20361b0aee4f847678caf670c146757cbef1ca145b2b30971ab5",
+    "lake_console/orchestrator/tests/test_moneyflow_history_selected_dates.py": "a749eb8424d58f493ecfe63f118a836bf7c18737cc70a869cd6fb10d80aeff98"
+  },
+  "temporary_driver_evidence": {
+    "freeze.py": {
+      "sha256": "b7f403669fa2f6228218f6bb0f69cf2260999291fbbc2d90a73b388eedeceb39",
+      "source": "import hashlib,json,resource,time\nfrom pathlib import Path\nfrom orchestrator.defs.bootstrap.moneyflow_history_cohort import freeze_moneyflow_history_cohort\nfrom orchestrator.defs.bootstrap.moneyflow_history_source import PsqlMoneyflowHistorySource\nroot=Path('/private/tmp/moneyflow-selected-20261008/prod-readonly')\nstarted=time.monotonic()\nmanifest=freeze_moneyflow_history_cohort(staging_root=root,operation_id='selected-dates-audit',cutoff='2026-09-30',selected_dates=('2024-12-19','2026-09-30'),source=PsqlMoneyflowHistorySource())\noperation=root/'moneyflow/selected-dates-audit'\nprogress=json.loads((operation/'progress.json').read_text())\nproofs={str(p.relative_to(operation)):json.loads(p.read_text()) for p in operation.rglob('proof.json')}\nsql={str(p.relative_to(operation)):{'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'sql':p.read_text()} for p in operation.rglob('source.sql')}\nassert len(proofs)==len(sql)==14\nassert all(v['sql'].startswith('BEGIN READ ONLY;') and v['sql'].endswith('ROLLBACK;\\n') and 'IN (DATE' in v['sql'] for v in sql.values())\nassert not list(operation.rglob('*.parquet'))\nresult={'scope':'actual Prod read-only aggregate; no business rows or Lake/DG/Prod writes','elapsed_seconds':time.monotonic()-started,'peak_rss_bytes':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,'manifest':manifest,'progress':progress,'metadata_proofs':proofs,'executed_sql':sql}\n(root/'evidence.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\\n')\nprint(json.dumps({'total_rows':manifest['total_rows'],'total_dates':manifest['total_dates'],'total_units':manifest['total_units'],'source_requests':progress['copy_transactions'],'sql_statements':progress['sql_statements'],'elapsed_seconds':result['elapsed_seconds'],'peak_rss_mib':result['peak_rss_bytes']/1024**2,'rows':{ds:f['rows'] for ds,f in manifest['plans'].items()},'missing_dates':manifest['missing_dates']},ensure_ascii=False))\n"
+    },
+    "measure-reviewed.py": {
+      "sha256": "86130be162e4d226a8cecd5afa01192df536d436127987a9f858fa1a2eca4371",
+      "source": "import hashlib,json,resource,runpy,time\nfrom decimal import Decimal\nfrom pathlib import Path\nfrom types import SimpleNamespace\nm=runpy.run_path('tests/test_moneyflow_history_selected_dates.py')\nm['engine'].shutil.disk_usage=lambda _:SimpleNamespace(free=128*1024**3)\nreal=json.loads(Path('/private/tmp/moneyflow-selected-20261008/prod-readonly/evidence.json').read_text())\nrows={}; fixtures={}\nfor ds in m['DATASETS']:\n    schema=[c.name for c in m['history_schema'](ds)]\n    path=Path('tests/fixtures')/(ds+'_20260930.json')\n    if path.exists():\n        fixture=json.loads(path.read_text(),parse_float=Decimal)\n        fixtures[ds]={'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'kind':'20260930 public fixture values; early dates/counts synthetic'}\n    else:\n        fixture=[m['Source'].row(ds)];fixture[0]['net_amount']='-123456.7890'\n        fixtures[ds]={'kind':'synthetic market negative/null values'}\n    rows[ds]=[]\n    for day in m['DATES']:\n        n=sum(f['rows'] for f in real['manifest']['snapshots'][ds]['facts'] if f['trade_date']==day)\n        eligible=[r for r in fixture if ds!='moneyflow_ind_dc' or day==m['CUTOFF'] or r['content_type']=='行业']\n        for i in range(n):\n            item={f:eligible[i%len(eligible)].get(f) for f in schema};item['trade_date']=day\n            if i>=len(eligible):\n                if 'ts_code' in item:item['ts_code']='888888.TI'\n                if 'name' in item:item['name']='隔离额外名称'\n            if ds=='moneyflow_ind_dc' and day==m['DATES'][0]:item['ts_code']=None\n            rows[ds].append(item)\nsource=m['Source'](rows)\nsource.mutate=lambda value:{**value,'columns':real['manifest']['snapshots'][value['dataset']]['columns']}\nroot=Path('/private/tmp/moneyflow-selected-20261008/isolated-reviewed')\nroot.mkdir();staging=root/'staging';lake=root/'lake';lake.mkdir()\nstart=time.monotonic(); built=m['build'](staging,source,expected_cohort_hash=real['manifest']['cohort_hash']); build_seconds=time.monotonic()-start\nmanifest=m['read'](staging,'cohort.json')\nassert manifest['snapshots']==real['manifest']['snapshots']\nassert manifest['cohort_hash']==real['manifest']['cohort_hash']\ncheckpoint_hashes={str(p.relative_to(m['root'](staging))):hashlib.sha256(p.read_bytes()).hexdigest() for p in m['root'](staging).rglob('checkpoint.json')}\nargs={'staging_root':staging,'lake_root':lake,'operation_id':'sample','cutoff':m['CUTOFF'],'selected_dates':m['DATES']}\nstart=time.monotonic(); planned=m['promote'].promote_moneyflow_history_cohort(**args); preflight_seconds=time.monotonic()-start\nassert not m['hashes'](lake)\nstart=time.monotonic(); applied=m['promote'].promote_moneyflow_history_cohort(**args,apply=True); apply_seconds=time.monotonic()-start\nobserved=m['hashes'](lake)\nassert len(observed)==28 and applied['promoted_rows']==29783\nstart=time.monotonic(); replay=m['promote'].promote_moneyflow_history_cohort(**args,apply=True); replay_seconds=time.monotonic()-start\nassert m['hashes'](lake)==observed\nassert not list(m['root'](staging).rglob('*.parquet'))\nassert all(hashlib.sha256((m['root'](staging)/p).read_bytes()).hexdigest()==h for p,h in checkpoint_hashes.items())\nassert len(source.requests)==applied['copy_transactions']==replay['copy_transactions']==42\nresult={'kind':'isolated public fixture numeric values; early day values synthesized; actual Prod count/type/scope metadata matched; not real source business proof','fixture_sources':fixtures,'manifest':manifest,'seconds':{'candidates':build_seconds,'preflight':preflight_seconds,'apply':apply_seconds,'replay':replay_seconds},'peak_rss_bytes':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,'total_rows':29783,'files':28,'formal_parquet_bytes':sum(p.stat().st_size for p in lake.rglob('*.parquet')),'candidate_checkpoint_hashes':checkpoint_hashes,'formal_file_hashes':observed,'build_progress':built,'apply_progress':applied,'replay_progress':replay,'fake_source_requests':len(source.requests),'promotion_source_requests':0,'rejects':0,'business_differences':0}\n(root/'evidence.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\\n')\nprint(json.dumps({k:result[k] for k in ('total_rows','files','seconds','peak_rss_bytes','formal_parquet_bytes','fake_source_requests')},ensure_ascii=False))\n"
+    }
+  },
+  "limitations": [
+    "Real Prod verification contains only column/date/count/key/scope metadata; no business values exported in this slice.",
+    "Representative business values are public fixtures with synthetic early-date/market values; not real Prod source proof.",
+    "Timings of isolated temporary storage do not prove formal disk or full-history SLA.",
+    "No formal Lake/staging/Prod/DG writes, API/CLI change, dataset definitions, active assets, schedule or dependency-matrix change."
+  ],
+  "documentation_sha256": {
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md": "e54d5ab494f91c0801878a08607de4384325b20e5ade968c98e93aae062ee0db",
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md": "9df616116a1c9370fd4d82871482adee64bdf050baee3910bd735d73f45d1ea6"
+  }
+}

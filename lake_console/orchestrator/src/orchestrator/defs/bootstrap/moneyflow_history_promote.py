@@ -91,11 +91,14 @@ def _same_device(source, target_parent):
     return source.stat().st_dev == target_parent.stat().st_dev
 
 
-def _frozen(root, cutoff):
+def _frozen(root, cutoff, selected_dates=None):
     saved = _large_json(root / "cohort.json")
+    identity = _cohort_identity(cutoff, selected_dates)
+    if any(saved.get(key) != value for key, value in identity.items()):
+        raise MoneyflowContractError("history_cohort_changed")
     if not isinstance(saved.get("snapshots"), dict):
         raise MoneyflowContractError("history_cohort_invalid")
-    expected, plans = _manifest(_cohort_identity(cutoff), saved["snapshots"])
+    expected, plans = _manifest(identity, saved["snapshots"])
     if saved != expected:
         raise MoneyflowContractError("history_cohort_changed")
     progress = _large_json(root / "progress.json")
@@ -351,6 +354,7 @@ def promote_moneyflow_history_cohort(
     staging_root: Path,
     operation_id: str,
     cutoff: str,
+    selected_dates: tuple[str, ...] | None = None,
     lake_root: Path = Path(DEFAULT_LAKE_ROOT),
     apply: bool = False,
     cancel=lambda: False,
@@ -363,7 +367,7 @@ def promote_moneyflow_history_cohort(
     root = moneyflow_candidate_directory(
         staging_root, operation_id, cutoff, dataset="moneyflow"
     ).parents[1]
-    manifest, units, closed, plans = _frozen(root, cutoff)
+    manifest, units, closed, plans = _frozen(root, cutoff, selected_dates)
     contract = _promotion_contract(manifest, closed, lake_root)
     contract_path = root / "promotion-contract.json"
     if contract_path.exists() and _read_json(contract_path) != contract:
@@ -378,9 +382,10 @@ def promote_moneyflow_history_cohort(
             current, units, closed, contract, lake_root, check
         ),
         promotion=True,
+        selected_dates=selected_dates,
     ) as (current, store, control, _identity):
         # Re-read frozen control facts under the same namespace writer lock.
-        fresh, fresh_units, fresh_closed, _ = _frozen(current, cutoff)
+        fresh, fresh_units, fresh_closed, _ = _frozen(current, cutoff, selected_dates)
         if fresh != manifest or fresh_units != units or fresh_closed != closed:
             raise MoneyflowContractError("history_cohort_changed")
         if contract_path.exists() and _read_json(contract_path) != contract:

@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-日期：2026-10-06；最近更新：2026-10-08。当前历史设计已按管理员决定改为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18为旧路线开发记录，旧历史代码已按日期路线迁移；当前代码和隔离验收见§20，真实Prod日期查询核验见§21，管理员确认后的Prod索引及复测完成证据见§22，§17～18不作为新路线证明。正式历史执行、P4/P5未执行。
+日期：2026-10-06；最近更新：2026-10-08。当前历史设计已按管理员决定改为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18为旧路线开发记录，旧历史代码已按日期路线迁移；日期代码和隔离验收见§20，真实Prod日期查询核验见§21，管理员确认后的Prod索引及复测完成证据见§22。七表共享控制与逐文件提升已开发完成，显式日期样本入口、最新只读/隔离结果和待批准的正式命令见§25；§17～18不作为新路线证明。正式历史执行、P4/P5未执行。
 
 ## 1. 硬口径和影响面
 
@@ -960,3 +960,135 @@ CodeGraph explore覆盖cohort→closed_prefix/Control→候选audit、原索引/
 [本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json)保留两组文件/receipt hash、完整进度/实际字节、代码 hash、测试日志 hash及硬口径对账，不含凭据。两组最终测量均从新隔离目录完整构建，未放宽生产合同。
 
 本轮关闭逐文件提升开发与提升侧隔离恢复验证，补齐 P3-D 的本机候选/检查/提升测量；不关闭 P3-D 正式盘性能、P3-E 或整个P3。当前 helper 只接受完整 cohort，尚不能把全历史操作裁成任意正式日期样本。下一步须先补同一执行链的有界真实来源样本入口：明确日期白名单、逐表预期行数、真实冻结/复核证明、同设备路径/冲突清单和准确命令，完成隔离验证后才提交正式写湖批准；不得删除 manifest 日期、伪造 Prod 证明或直接执行全量来代替最小样本。正式样本还需确认维护窗口/当前日更 writer 状态；历史 writer 已共享锁，P4日更接锁仍未激活。CLI、资产/分区事件、全历史和P4/P5继续后置；`files_complete` 只代表文件阶段完成，不能当作正式资产/事件验收。
+
+## 25. 显式日期样本入口（2026-10-08，当前开发依据）
+
+管理员要求提交并继续§24下一步。上一轮九个资金流文件已独立提交 `e3ccb04c`，逐项内容与§24验收一致，未推送。本轮只补同一 bootstrap 链的有界日期样本输入及正式样本命令，不新增CLI/asset/check/resource/event，也不执行正式文件提升。
+
+### 25.1 硬口径、配置审计与性能门禁
+
+1. 现有 freeze/build/promote helper 增加关键字参数 `selected_dates=None`，None仍表示原截止日以前的完整来源范围。显式样本必须是已排序、无重复的ISO日期tuple，非空且≤既有20日窗口上限、全部≤cutoff；不接收字符串/list/任意SQL，不提供对象过滤。样本每表总行数≤既有100000行unit上限，元数据发现超限就在业务COPY前停止。使用相同七表名单，不增加“七源合成数据集”。
+2. 日期名单直接进入 metadata SQL 的 `trade_date IN (DATE ... )`，保留NULL日期身份拒绝检查，不先聚合全历史再筛选。元数据结果回显 selected_dates；parser/validator核验完全一致，并拒绝名单外事实。逐日/键/实际历史DC分类由同一次真实来源聚合取得；默认全历史SQL/结果合同保持不变。
+3. 样本身份使用独立版本，包含明确日期名单与每表样本行数上限；原cohort manifest包含真实snapshot与对应plan，不能从完整manifest删日期。相同operation ID改变日期、变成全历史、改变截止日或预算均拒绝；promotion同样要求显式传入原日期意图，并重新核验身份与proof。缺某一天保留真实缺口并在样本manifest列出missing_dates；一个表在整个名单内都没有数据则停止，不制造空Parquet/完成事实。
+4. 原日期业务COPY只使用冻结plan中实际日期，所有approved字段、精度、历史NULL/分类保持不变；两次元数据冻结、两次来源业务复核、候选完整验证、逐文件提升与恢复全复用原能力。同一namespace writer与Store/Control，32GiB/12h/RSS768MiB/512MB/0spill不放宽，不创建另一个样本状态实体或test-mode。恢复来源计数改变即停止，不自动刷新。
+5. 本轮真实验证仅freeze样本控制事实，控制/SQL/proof放本任务/private/tmp，走原 `PsqlMoneyflowHistorySource` → `bash scripts/psql-remote.sh`。仅批准七表目录字段类型及选中日期的行/键/NULL/分类聚合，READ ONLY、120秒/事务、LIMIT额外一行；不读取金额/证券明细、不写候选/正式Lake/DG/Prod。业务候选与提升仍只用隔离fixture。本轮末列准确正式命令、工作目录、operation ID、两根路径、日期/行数/目标/冲突与恢复条件，正式写湖另行批准。
+6. 正式样本候选调用显式传入 `expected_cohort_hash`，与本轮真实只读冻结的完整日期/类型/计数/分类合同一致才允许业务COPY。该参数默认None，已有全历史调用不变；一旦传入，批准意图保存在原progress，续跑省略参数仍执行原hash核验，换hash停止。比较在同一次14请求来源冻结后完成，不额外先freeze再build，避免平白多读7次元数据并耗掉恢复余量。
+
+配置审计：selected_dates和expected_cohort_hash是单次bootstrap动作意图，不是env/Settings/数据库/页面配置；默认None由当前helper显式定义，样本日期名单持久化于原cohort-control/cohort/source-freeze/progress及promotion合同，批准hash保存在同一progress的reviewed_cohort_hash。唯一新固定值是样本身份版本；日期/行数拒绝线复用run_contracts/moneyflow.py的20日/100000行常量，无新预算。消费点为metadata request/SQL/parser、cohort身份/manifest/冻结/业务plan和候选准入、promotion frozen校验和测试，随代码调用生效；progress/manifest对运营显示选中和实际日期、缺失日期/行数、批准hash、请求/时间预算及阶段。
+
+| 项 | 本轮设计预算与待实测 |
+| --- | --- |
+| 代表范围 | 2024-12-19与2026-09-30，来自§23真实冻结的共同日期；早日DC行业-only、近期日三类；七表预计29783行/14数据集日期/14跨年unit/28两层文件，须本轮只读刷新 |
+| 请求与事务 | freeze两轮14连接/56 SQL；完整候选另28连接/112 SQL，正常合计42/168，原14次人工恢复余量后上限56/224；每COPY有界、事务结束ROLLBACK。提升0源请求；恢复freeze另7连接/28 SQL也消耗余量 |
+| 最大输入 | ≤20显式日期×7表，每表合计≤100000行，总≤700000行/140数据集日期/280文件/最多140跨年unit；超出停止，不自动拆成新的样本或全历史 |
+| 计算与IO | 原≤32MiB内存接收、64KiB流块，DuckDB按真实冻结unit生成每日Raw/Silver，当前unit完整校验；原checkpoint与原子提升，不写CSV/spool/spill/备份。正式文件不重编码 |
+| 耗时/空间 | 两日来源聚合按已有日期索引预计主要是14次连接开销，初估10～30秒，实际回填；隔离两日转换/提升预计秒级，不能外推正式盘。仍以120秒步骤/12h累计/32GiB/RSS768MiB拒绝，首次64GiB准入 |
+| 验收 | SQL名单与业务COPY范围正反例、日期/类型/数量/名单外结果、缺口/全空、跨年/超总行数、相同operation换范围拒绝、默认全历史回归、取消/进程退出/幂等与预算延续；Prod仅两轮有界真实聚合，正式文件写入另批 |
+
+CodeGraph explore覆盖metadata→source固定入口→cohort/plan→promotion及调用方，直接源码审计补齐所有validator/parser与单unit/测试消费者；没有Prod DatasetDefinition、Web/前端、日更或active Dagster定义消费者。按模板§7A/§18，历史文件入口的时间输入、执行unit、缺口/完成审计分开：名单是请求意图，unit只含源实际日期，缺失日期不自动判错或补数据；整个表全空不能进入本次七表样本。既有API/CLI行为与依赖矩阵不变。
+
+### 25.2 实现与真实只读、隔离验收结果
+
+本轮已经完成显式日期入口。上一轮九文件逐文件提升已独立提交 `e3ccb04c`，未推送；本节代码、测试、报告与原方案/LLD回填尚未提交。`freeze_moneyflow_history_cohort`、`build_moneyflow_history_cohort_candidates` 和 `promote_moneyflow_history_cohort` 接受同一 `selected_dates`；不传时保留原全历史入口，七表默认SQL与§23实际执行版本的SHA256逐项相同。样本是另外一个完整操作，不裁剪原全历史manifest；同一个operation不能切换日期、截止日、预算或全历史/样本身份。
+
+真实Prod只读通过原 `PsqlMoneyflowHistorySource` / `scripts/psql-remote.sh`，仅查询七表批准字段类型和这两天的数量、键、NULL与分类聚合。每表两次，共14个短READ ONLY连接、56条SQL；4.029秒、峰值87.02MiB，两轮一致。SQL在聚合前使用准确日期名单，保留NULL日期哨兵；最终代码生成的SQL与这14次实际执行文本/hash相同。没有导出金额/证券业务明细，没有写Prod、正式Lake/staging或DG。与全历史冻结范围相比，只核验了本次明确的两个日期：
+
+| 独立数据集 | 2024-12-19行数 | 2026-09-30行数 | 合计 |
+| --- | --- | --- | --- |
+| moneyflow | 5106 | 5572 | 10678 |
+| moneyflow_cnt_ths | 388 | 387 | 775 |
+| moneyflow_dc | 5790 | 6024 | 11814 |
+| moneyflow_ind_dc | 86 | 1031 | 1117 |
+| moneyflow_ind_ths | 90 | 90 | 180 |
+| moneyflow_mkt_dc | 1 | 1 | 2 |
+| moneyflow_ths | 2 | 5215 | 5217 |
+| 合计 | 11463 | 18320 | 29783 |
+
+七表两天均实际存在，无缺失日期。早日DC板块只有行业86行且ts_code允许NULL；近期日包含行业/概念/地域，沿用冻结的真实分类口径。两天跨年，因此形成14个日期unit、14个数据集日期、28个Raw/Silver文件。只读来源合同hash为 `19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98`。正式执行重新读取元数据后必须等于它；类型/行数/日期/分类漂移时先停，不能靠更换hash或扩大日期继续。
+
+代表性业务链只在 `/private/tmp/moneyflow-selected-20261008/isolated-reviewed` 测量：六表近期日使用公开fixture，早日按真实数量/分类构造测试行，大盘使用负值/NULL合成值。不是实际Prod金额或早日证券数据，不能用来宣称源业务值已验收。元数据严格匹配本轮真实冻结，候选实际启用上述批准hash核验；源替身/归一化/Raw/Silver共29783行一致，reject0、业务差异0，28文件总4,712,754字节。构建2.239秒、预检0.035秒、提升0.331秒、幂等重跑0.043秒，峰值358.55MiB；提升后/重跑hash与原receipt一致，原checkpoint不变。候选42次fake请求，提升及重跑新增来源请求0。它证明入口与恢复链可用，不是正式磁盘或真实传输SLA。
+
+| §25.1硬口径 | 当前代码点 | 正向与拒绝验收 |
+| --- | --- | --- |
+| 精确日期意图及默认行为 | metadata的`validate_moneyflow_history_selected_dates/sql/parser`；cohort的`_cohort_identity/_metadata/_freeze` | 七表SQL前置IN；默认SQL原hash；非法/注入/重复/无序/超过20日/晚于cutoff拒绝且不创建操作、不请求来源 |
+| 实际日期与缺口分开 | metadata validator、原`build_moneyflow_history_plan`、cohort `_manifest` | 跨年实际日期进入原unit；一表缺一天只记missing_dates、不生成空文件；整表全空、名单外事实、类型/键错误拒绝 |
+| 不变的操作与预算 | 原 `_operation/Store/Control`，sample identity | 相同operation切换日期或全历史拒绝；每表总行数超过100000在业务COPY前停止；仍共用原时间/空间/连接账本 |
+| 经审查的来源才能导出业务 | 候选builder的`expected_cohort_hash`，progress `reviewed_cohort_hash` | 正确hash仍为42请求；错误hash只有14元数据请求、0业务COPY；续跑省略hash仍拒绝，换hash/非法持久hash拒绝 |
+| 原完整校验与逐文件恢复 | 原候选/列式audit、promotion `_frozen/_preflight`，同一日期意图 | 28文件完成；省略日期提升拒绝；同内容重跑不改文件；真实子进程完成首unit后退出，新进程49请求续跑且闭合文件hash不变 |
+| 取消与提升失败安全 | 沿用原候选Control/逐文件intent/complete链 | 联合原候选与提升用例覆盖中途取消、rename后退出、状态写失败、预算延续和部分正式文件接回；本次新日期用例覆盖真实退出/续跑 |
+
+新日期入口39项通过；联合原历史/提升及七表日更/请求策略共804项通过（79.70秒）。受保护原runner治理12项/474子测试、静态合同113项通过，改动默认Ruff、全src/tests致命规则通过。CodeGraph explore、metadata/builder impact、sync/status已核验；builder符号图只有自身/file边，测试与promotion/parser/unit消费者补查实际源码，没有依赖模糊项被默认放行。没有修改Prod DatasetDefinition、业务API/CLI、Dagster definitions或子系统依赖矩阵。
+
+正式路径只做stat/glob：两根目录已挂载且同为设备16777244，当时空闲约2.73TiB，28目标不存在且无邻居Parquet/符号链接；拟用operation和共享writer.lock不存在。当前assets/jobs/sensors/catalog源码没有七表日更writer，P4仍未激活。这是当时的只读事实，不能保证未来没有其他进程；正式执行需重新核对并占用人工维护窗口，不自动启停服务。实际源SQL、类型/计数/分类、逐请求证明、隔离文件/hash/字节、28准确目标、代码及测试日志hash保存在[本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_selected_dates_evidence_20261008.json)。
+
+### 25.3 待批准的正式两日样本执行清单
+
+本节是可审查的下一步，不是本轮已执行记录。批准范围仅七表×2024-12-19和2026-09-30：从真实Prod读取批准投影，直接构建每日候选，再提升到正式Raw/Silver；不执行全历史、DG资产/分区事件、sensor、日更或P4/P5。工作目录固定 `/Users/congming/github/goldenshare/lake_console/orchestrator`；使用现有 `.venv/bin/python3`，不安装或同步依赖。helper不读写Dagster instance，因此不使用任何 `DAGSTER_HOME`。
+
+候选与控制目录为 `/Volumes/datasource/data_lake_staging/moneyflow/history-sample-20261008`。正式目标由 `paths.py` 给出，每个表/日期各一个：`/Volumes/datasource/data_lake/raw/tushare/{dataset}/trade_date={date}/part-000.parquet` 和 `/Volumes/datasource/data_lake/silver/moneyflow/{dataset}/trade_date={date}/part-000.parquet`；28个完整路径见上面报告的formal_sample_proposal.targets。没有Gold或其他目标。
+
+执行前确认维护窗口无其他七表writer、移动盘挂载/权限/空间、目标无冲突。共享namespace锁只约束复用该锁的历史helper，不能声称覆盖任意外部进程。第一步在同一次候选构建中读取两轮真实元数据并核对已审计hash；随后按14个日期unit各读两次业务COPY，共59566源行，两遍不是重复写入行数。正常42连接/168SQL，上限56/224，包括失败与恢复；无自动重试或额度重置。以下为准确命令，在上述工作目录分别执行：
+
+```bash
+.venv/bin/python3 -B - <<'PY'
+import json
+import os
+import shutil
+from pathlib import Path
+from orchestrator.defs.bootstrap.moneyflow_history_cohort import build_moneyflow_history_cohort_candidates
+from orchestrator.defs.bootstrap.moneyflow_history_source import PsqlMoneyflowHistorySource
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
+lake, staging = Path(DEFAULT_LAKE_ROOT), Path(DEFAULT_LAKE_STAGING_ROOT)
+assert lake.parent.is_mount() and lake.is_dir() and staging.is_dir()
+assert lake.stat().st_dev == staging.stat().st_dev
+assert all(os.access(p, os.R_OK | os.W_OK | os.X_OK) for p in (lake, staging))
+assert shutil.disk_usage(staging).free >= 64 * 1024**3
+result = build_moneyflow_history_cohort_candidates(
+    staging_root=staging, operation_id='history-sample-20261008', cutoff='2026-09-30',
+    selected_dates=('2024-12-19', '2026-09-30'),
+    expected_cohort_hash='19358e2bc422173cc42e6119386124a629a25f943989e52bd01a6b927ccbdc98',
+    source=PsqlMoneyflowHistorySource(),
+)
+print(json.dumps(result, ensure_ascii=False))
+PY
+```
+
+第二步预检28个候选/实际目标的完整hash、目录、同设备和冲突，再复用原当前unit物理校验。下面 `apply=False` 不提升文件，但会在正式staging保存预检和promotion合同，所以也包含在本次待批准正式动作范围内：
+
+```bash
+.venv/bin/python3 -B - <<'PY'
+import json
+from pathlib import Path
+from orchestrator.defs.bootstrap.moneyflow_history_promote import promote_moneyflow_history_cohort
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
+result = promote_moneyflow_history_cohort(
+    staging_root=Path(DEFAULT_LAKE_STAGING_ROOT), lake_root=Path(DEFAULT_LAKE_ROOT),
+    operation_id='history-sample-20261008', cutoff='2026-09-30',
+    selected_dates=('2024-12-19', '2026-09-30'), apply=False,
+)
+print(json.dumps(result, ensure_ascii=False))
+PY
+```
+
+只有预检通过才执行第三步。它逐文件fsync/同文件系统`os.replace`，读回实际hash后登记完成；不同内容/跨设备/错误布局停止，不覆盖、复制、重编码、删除或备份文件。提升源请求为0：
+
+```bash
+.venv/bin/python3 -B - <<'PY'
+import json
+from pathlib import Path
+from orchestrator.defs.bootstrap.moneyflow_history_promote import promote_moneyflow_history_cohort
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
+result = promote_moneyflow_history_cohort(
+    staging_root=Path(DEFAULT_LAKE_STAGING_ROOT), lake_root=Path(DEFAULT_LAKE_ROOT),
+    operation_id='history-sample-20261008', cutoff='2026-09-30',
+    selected_dates=('2024-12-19', '2026-09-30'), apply=True,
+)
+print(json.dumps(result, ensure_ascii=False))
+PY
+```
+
+完成验收须读回原cohort/progress、候选checkpoint与逐文件promotion receipt，核对实际Raw/Silver日期/schema/主键/逐字段摘要和源两轮证明：源/归一化/两层均29783行、拒绝0，14数据集日期/28文件全部完成，正式每文件hash与已校验候选一致；将实际网络/磁盘耗时、RSS/字节、冲突及恢复情况回填本节。隔离4.71MB仅是测试值，真实字节以receipt为准；不因此新增预算或宣称整个P3完成。
+
+中断保留已闭合unit和已移入文件，阶段进度及预算来自原staging账本，不删目录/重导全量/改manifest。候选未完成时只用相同第一条命令续跑（冻结复核额外7请求消耗原余量）；进入提升后只能重复第二/三条命令接回实际文件，不再调用候选builder。进程退出保留原120秒步骤预扣；连接、12小时、32GiB、768MiB RSS等原限额耗尽时停止，不能换operation绕过。来源或正式文件发生变化先解释差异并复核，不能自动改批准hash。重跑同内容以原checkpoint核验，不重新读取业务COPY。维护窗口、权限和实际目标须执行前再次确认；本轮没有启动、停止或写入正式服务。
+
+本轮关闭显式日期样本入口及只读/隔离准备，正式28文件样本待阶段批准。按 `lake_console/orchestrator/AGENTS.md` 的正式环境门禁第3条，正式staging和Lake变更仍需精确批准；本轮授权的开发、隔离测试及Prod只读已完成，不能用只读通过替代正式文件验收。P3-D正式盘测量/P3-E和整个P3继续未关闭；全历史及P4/P5后置。
