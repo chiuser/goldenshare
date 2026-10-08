@@ -114,6 +114,8 @@ CONSUMER_SOURCE_FILES = (
     "defs/bootstrap/moneyflow_history_receive.py",
     "defs/bootstrap/moneyflow_history_source.py",
     "defs/bootstrap/moneyflow_history_candidates.py",
+    "defs/bootstrap/moneyflow_history_metadata.py",
+    "defs/bootstrap/moneyflow_history_cohort.py",
     "defs/io/moneyflow_candidates.py",
     "defs/checks/moneyflow_daily.py",
     "defs/run_contracts/moneyflow_daily.py",

@@ -79,8 +79,10 @@ def _read_json(path):
 
 
 class _Store:
-    def __init__(self, directory):
+    def __init__(self, directory, check=lambda: None, *, json_limit=None):
         self.directory = directory
+        self.check = check
+        self.json_limit = json_limit
         self.lock = threading.RLock()
         self.recount()
 
@@ -91,7 +93,9 @@ class _Store:
     def _recount(self):
         self.used = 0
         for root, directories, files in os.walk(self.directory):
+            self.check()
             for name in (*directories, *files):
+                self.check()
                 path = Path(root) / name
                 if path.is_symlink():
                     raise MoneyflowContractError("history_checkpoint_symlink")
@@ -115,6 +119,8 @@ class _Store:
 
     def _json(self, path, value):
         data = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+        if self.json_limit is not None and len(data) > self.json_limit:
+            raise MoneyflowContractError("history_cohort_bytes")
         self.reserve(len(data))
         if path.is_symlink():
             raise MoneyflowContractError("history_checkpoint_symlink")
@@ -136,12 +142,23 @@ class _Store:
 
 
 class _Control:
-    def __init__(self, store, identity, unit_id, total_units, clock, cancel):
+    def __init__(
+        self,
+        store,
+        identity,
+        unit_id,
+        total_units,
+        clock,
+        cancel,
+        *,
+        max_requests=None,
+        read_progress=_read_json,
+    ):
         self.store, self.clock, self.cancel = store, clock, cancel
         self.lock = store.lock
         self.path = store.directory / "progress.json"
         self.budget = (
-            _read_json(self.path)
+            read_progress(self.path)
             if self.path.exists()
             else {**identity, "charged_seconds": 0}
         )
@@ -156,19 +173,52 @@ class _Control:
         self.budget["unit_id"] = unit_id
         self.budget.setdefault("completed_units", 0)
         self.budget.setdefault("copy_transactions", 0)
+        self.budget.setdefault("connections", self.budget["copy_transactions"])
+        self.budget.setdefault("sql_statements", 4 * self.budget["copy_transactions"])
         if (
             type(self.budget["completed_units"]) is not int
             or not 0 <= self.budget["completed_units"] <= total_units
             or type(self.budget["copy_transactions"]) is not int
             or self.budget["copy_transactions"] < 0
+            or type(self.budget["connections"]) is not int
+            or self.budget["connections"] != self.budget["copy_transactions"]
+            or type(self.budget["sql_statements"]) is not int
+            or self.budget["sql_statements"] != 4 * self.budget["copy_transactions"]
         ):
             raise MoneyflowContractError("history_checkpoint_progress")
         self.budget["total_units"] = total_units
         self.started = None
         self.bytes = 0
+        self.max_requests = max_requests
+        self.expected_scopes = None
+        if max_requests is not None and self.budget["copy_transactions"] > max_requests:
+            raise MoneyflowContractError("history_request_budget")
+
+    def validate_source_proof(self, proof):
+        if self.expected_scopes is not None and (
+            not isinstance(proof, dict)
+            or proof.get("scope_counts") != self.expected_scopes
+        ):
+            raise MoneyflowContractError("history_source_scopes_changed")
+
+    def complete_unit(self, unit_id, total_units):
+        # A cohort closes its checkpoint and global prefix in one ledger write.
+        # The single-unit API retains its existing local completion semantics.
+        if self.max_requests is None:
+            self.progress(
+                stage="verified",
+                completed_units=max(self.budget["completed_units"], unit_id + 1),
+                total_units=total_units,
+            )
 
     def record_source_copy(self):
         with self.lock:
+            self.check()
+            if (
+                self.max_requests is not None
+                and self.budget["copy_transactions"] >= self.max_requests
+            ):
+                raise MoneyflowContractError("history_request_budget")
             self.budget["copy_transactions"] += 1
             self.budget["sql_statements"] = 4 * self.budget["copy_transactions"]
             self.budget["connections"] = self.budget["copy_transactions"]
@@ -177,6 +227,10 @@ class _Control:
     def progress(self, **fields):
         with self.lock:
             self.budget.update(fields)
+            total = self.budget["total_units"]
+            self.budget["percentage"] = (
+                100 * self.budget["completed_units"] / total if total else None
+            )
             self.budget["last_updated"] = time.time()
             self.store.json(self.path, self.budget)
 
@@ -446,7 +500,7 @@ def build_moneyflow_history_unit_candidates(
     """Build/verify one date unit. No formal promotion, CLI, jobs or event writes.
 
     Complete candidates are re-audited and independently source-verified on resume;
-    replay never rewrites them. Full cohort budget/activation remains a runner gate.
+    replay never rewrites them. The cohort entry owns the seven-plan shared budget.
     """
     validate_moneyflow_history_plan(plan)
     if type(unit_id) is not int or not 0 <= unit_id < len(plan.units):
@@ -471,13 +525,20 @@ def build_moneyflow_history_unit_candidates(
         raise MoneyflowContractError("history_free_space")
     if cancel():
         raise InterruptedError("history_cancelled")
-    directory.mkdir(parents=True, exist_ok=True)
-    with _writer_lock(directory):
+    namespace = base.parents[2]
+    namespace.mkdir(parents=True, exist_ok=True)
+    with _writer_lock(namespace):
+        if (base.parents[1] / "cohort-control.json").exists():
+            raise MoneyflowContractError("history_cohort_operation")
+        directory.mkdir(parents=True, exist_ok=True)
         return _build_unit(directory, plan, unit_id, source, cancel, clock)
 
 
-def _build_unit(directory, plan, unit_id, source, cancel, clock):
-    store = _Store(directory)
+def _build_unit(
+    directory, plan, unit_id, source, cancel, clock, *, store=None, control=None
+):
+    shared = control is not None
+    store = store if store is not None else _Store(directory)
     identity = _identity(plan)
     manifest = {
         **identity,
@@ -491,13 +552,17 @@ def _build_unit(directory, plan, unit_id, source, cancel, clock):
             raise MoneyflowContractError("history_plan_changed")
     else:
         store.json(manifest_path, manifest)
-    control = _Control(store, identity, unit_id, len(plan.units), clock, cancel)
+    control = (
+        control
+        if control is not None
+        else _Control(store, identity, unit_id, len(plan.units), clock, cancel)
+    )
     control.progress(
         dates=list(plan.units[unit_id].dates),
         expected_rows=plan.units[unit_id].row_count,
         eta="暂无法估算",
     )
-    if unit_id:
+    if unit_id and not shared:
         previous_directory = directory / f"unit-{unit_id - 1:06d}"
         previous = _read_json(previous_directory / "checkpoint.json")
         _validate_receipt(previous, _receipt_scope(plan, unit_id - 1, identity))
@@ -528,6 +593,7 @@ def _build_unit(directory, plan, unit_id, source, cancel, clock):
             receipt["files"]
         ) == len(plan.units[unit_id].dates)
         if complete:
+            control.validate_source_proof(receipt.get("source_proof", {}))
             control.start("candidates_audit")
             try:
                 _audit_files(unit_directory, receipt, plan, unit_id, control)
@@ -560,6 +626,7 @@ def _build_unit(directory, plan, unit_id, source, cancel, clock):
                         receipt["source_proof"] = receive_history_rows(
                             db, buffer, plan, unit_id, control.check
                         )
+                        control.validate_source_proof(receipt["source_proof"])
                         # Release Python's wire buffer before writing the daily files.
                         buffer.seek(0)
                         buffer.truncate(0)
@@ -596,6 +663,7 @@ def _build_unit(directory, plan, unit_id, source, cancel, clock):
                     proof = receive_history_rows(
                         db, buffer, plan, unit_id, control.check
                     )
+                    control.validate_source_proof(proof)
                     buffer.seek(0)
                     buffer.truncate(0)
                     attempt = _attempt_path(unit_directory, receipt["attempt"])
@@ -617,13 +685,7 @@ def _build_unit(directory, plan, unit_id, source, cancel, clock):
             control.finish()
         receipt.update(stage="verified", last_updated=time.time())
         store.json(checkpoint, receipt)
-        control.budget.update(
-            stage="verified",
-            completed_units=max(control.budget.get("completed_units", 0), unit_id + 1),
-            total_units=len(plan.units),
-            last_updated=time.time(),
-        )
-        store.json(control.path, control.budget)
+        control.complete_unit(unit_id, len(plan.units))
         control.check()
         return receipt
     except (InterruptedError, MoneyflowContractError) as error:

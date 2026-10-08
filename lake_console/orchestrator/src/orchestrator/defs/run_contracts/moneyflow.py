@@ -32,6 +32,16 @@ MONEYFLOW_HISTORY_MAX_DISK_BYTES = 32 * 1024 * 1024 * 1024
 MONEYFLOW_HISTORY_MAX_ELAPSED_SECONDS = 12 * 60 * 60
 MONEYFLOW_HISTORY_MIN_FREE_BYTES = 64 * 1024 * 1024 * 1024
 MONEYFLOW_HISTORY_STREAM_BYTES = 64 * 1024
+MONEYFLOW_HISTORY_DATASETS = (
+    "moneyflow",
+    "moneyflow_cnt_ths",
+    "moneyflow_dc",
+    "moneyflow_ind_dc",
+    "moneyflow_ind_ths",
+    "moneyflow_mkt_dc",
+    "moneyflow_ths",
+)
+MONEYFLOW_HISTORY_EXTRA_REQUESTS = 14
 
 
 class MoneyflowContractError(ValueError):

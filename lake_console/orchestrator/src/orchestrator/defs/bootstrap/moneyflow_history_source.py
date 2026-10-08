@@ -8,6 +8,9 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from orchestrator.defs.bootstrap.moneyflow_history_metadata import (
+    MoneyflowHistoryMetadataRequest,
+)
 from orchestrator.defs.bootstrap.moneyflow_history_plan import (
     MoneyflowHistoryPlan,
     moneyflow_history_export_sql,
@@ -33,12 +36,18 @@ class PsqlMoneyflowHistorySource:
     """No arbitrary SQL, environment file, DSN, or target table arguments."""
 
     def copy(self, request: MoneyflowHistoryCopyRequest, sink, check) -> None:
+        self._execute(request, request.plan.dataset, request.plan.cutoff, sink, check)
+
+    def metadata(self, request: MoneyflowHistoryMetadataRequest, sink, check) -> None:
+        self._execute(request, request.dataset, request.cutoff, sink, check)
+
+    def _execute(self, request, dataset, cutoff, sink, check):
         statement = request.sql()
         sql_path = request.sql_path
         if sql_path.name != "source.sql" or sql_path.is_symlink():
             raise MoneyflowContractError("history_sql_path")
         moneyflow_candidate_directory(
-            sql_path.parent, "source", request.plan.cutoff, dataset=request.plan.dataset
+            sql_path.parent, "source", cutoff, dataset=dataset
         )
         check()
         with sql_path.open("x", encoding="utf8") as handle:

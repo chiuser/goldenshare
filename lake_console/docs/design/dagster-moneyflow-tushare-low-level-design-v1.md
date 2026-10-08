@@ -863,3 +863,45 @@ CodeGraph explore覆盖RawMoneyflow/历史SQL/source和消费者，但存在同�
 [本轮索引及复测结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json)保存权限错误及修正、预检/磁盘、实际执行SQL/log/hash、迁移版本/有效索引、三组计划、6次来源证明和代码hash，不含凭据或业务行。三个源码/迁移/测试文件与原方案/本LLD、前轮只读报告和新报告待提交；Prod已应用184，下一次源码发布必须包含该迁移，不能以stamp或无关升级掩盖源码未发布状态。此操作不需重启现有API/DG服务，未把模型源码发布冒称完成。最小回归35项、Ruff、CodeGraph sync/status均通过；全历史691项未重复执行，历史helper没有变化。
 
 临时retest/freeze驱动在证据冻结后删除；受控SQL、目录/执行/复测证明保留在本任务`/private/tmp/moneyflow-date-index-20261008`，无常驻入口、业务CSV、Lake或DG状态写入。
+
+## 23. 七表统一历史控制入口（2026-10-08，开发依据）
+
+上一轮模型/迁移、两份来源及索引报告、方案/LLD和测试已提交6e25d6e0。依据§19/原方案§24，本轮只开发来源冻结与七表共享的候选执行入口，不开发正式提升、CLI、资产或事件。七表仍各自保存plan/checkpoint/每日Raw/Silver；操作级控制文件不是第八个数据集，也不合并七源字段。
+
+### 23.1 硬口径、配置审计与验收设计
+
+1. 日期和字段从现行合同取得；固定显式截止日。通过原psql入口对每表做两次有界聚合，冻结批准列的真实类型、逐日行数/键数及DC实际历史分类。不读取业务金额/证券行或系统字段，不按代码游标、当前证券池或三分类日更规则裁剪。聚合行数最多20000日期、DC最多60000分类行，额外一行用于发现超限；小控制JSON在≤32MiB内存内接收，持久化为JSON，不生成业务CSV。
+2. 两次聚合必须完全相同；单日计数/键/无效身份/字段类型不符则阻断。单表完整冻结证据逐表持久化，七表齐全才原子冻结cohort manifest。恢复完整manifest时每表再做一次只读聚合，与冻结类型/日期/分类逐项一致，不能只信缓存计划；变化则停止，不自动刷新计划或覆盖旧候选。
+3. 共用既有Store/Control及日期候选核心；不是在七个单表预算外再套摘要。七表共用一个12小时/32GiB账本，步骤120秒预扣，COPY/连接/SQL在启动前持久化计数，崩溃保留预扣。新增唯一请求上限为14+2×实际unit数+14；最后14次仅用于人工恢复/失败尝试，无自动重试。既有P0参考423批时正常860连接/3440 SQL，上限874连接/3496 SQL，实际冻结后重算。
+4. 唯一writer锁位于staging的moneyflow命名空间，单unit与cohort入口都必须取得；同一或不同operation ID不能并发运行历史writer。单unit入口拒绝加入已有cohort操作，旧单表操作目录不自动接管。未来正式日更的锁接入仍属于P4，当前不能冒称已有日更互斥生效。
+5. 已完成unit保存checkpoint真实hash及日期/行数摘要。恢复只对闭合前缀检查实际文件hash/路径与已验收checkpoint，不重复对全部历史文件逐日解码或重抓已完成来源；当前未闭合unit仍使用原候选复核恢复链。完成标记/JSON不一致、文件缺失或被改即阻断。最终完整候选复核只标candidates_verified，不代表正式提升/事件完成。
+6. Store从操作根统计七表候选、控制及失败现场，首次/恢复只做一次受控元数据盘点，每个新文件按stat增量记账；不在每日结束重扫全历史。启动64GiB/最大32GiB、RSS768MiB、DuckDB512MB/1线程/0spill、32MiB接收/64KiB块不放宽。
+
+配置审计：仅新增run_contracts/moneyflow.py的固定七表名单和MONEYFLOW_HISTORY_EXTRA_REQUESTS=14；前者为来源白名单，后者为全操作人工恢复余量。均为版本化代码合同，无env/Settings/数据库/页面输入，来源metadata builder、cohort planner/Control及测试消费；变更即operation identity变化，随源码发布生效。其余集中预算值保持不变，新的cohort manifest/progress记录实际上限、使用数、阶段、dataset/local及global unit、完成/总量/百分比、最后更新时间和ETA“暂无法估算”。
+
+CodeGraph explore覆盖日期候选核心→Store/Control→source/receive→schema；直接源码核验补齐测试、保护runner及路径消费者。影响范围仅bootstrap元数据/统一控制、原候选核心/transport、集中历史名单/恢复余量及测试。日期业务SQL、七表字段/精度、正式路径、Prod/Web合同和依赖矩阵不变；没有新增Dagster definition或resource。
+
+验收：用七表真实公开fixture做源/Raw/Silver行数与逐字段候选检查；反例覆盖缺表、错类型、日期/分类变化、键重复、旧目录接管、全操作预算不能因换dataset重置、请求上限预扣、跨operation锁、闭合文件篡改、取消及真实进程退出后续跑。实际Prod只读验收仅调用来源冻结，预计14短事务/56 SQL，依据已有21160938行量级做受限聚合，不读取业务明细或执行候选writer；冻结控制证据放本任务/private/tmp并汇总到reports。候选性能先在隔离临时目录验证，正式样本另行批准；本轮不写移动盘或正式DG。
+
+### 23.2 实现、计划对账与真实验收
+
+入口为bootstrap/moneyflow_history_cohort.py的freeze_moneyflow_history_cohort和build_moneyflow_history_cohort_candidates；前者只冻结控制事实，后者使用同一上下文生成候选。新增moneyflow_history_metadata.py固定SQL/有界解析；原PsqlMoneyflowHistorySource只增加metadata方法，仍走固定psql脚本和连接文件。控制JSON经COPY TEXT的UTF8十六进制传输，避免CSV长字段上限和反斜杠转义歧义；32MiB限制作用于传输字节，解码后≤16MiB。不持久化业务CSV，不新增运行配置或任意SQL输入。
+
+| §23.1硬口径 | 真实代码落点 | 验收证据 |
+| --- | --- | --- |
+| 独立七表、明确日期/类型/键/历史分类 | metadata固定白名单SQL/validate；cohort._manifest重建七份现行日期plan，hash含合同与集中预算 | 七表SQL正例及非法日期/表名、缺表/错类型/NULL日期/重复键/分类/超限负例；Prod两次冻结完全相同，历史早期允许只有行业 |
+| 来源两轮冻结与恢复拒绝漂移 | _metadata逐请求proof、source-freeze逐表证据、_freeze完整cohort原子落盘；恢复每表再读一次 | 首轮14请求与恢复7请求；完整/半途冻结后改变日期计数或类型被拒绝，来源不会自动刷新 |
+| 七表真正共享12h/32GiB/请求余量 | _operation仅创建一个Store/Control；_build_unit接受共享实例；source请求前计数/连接/SQL持久化；_manifest上限2×7+2N+14 | 12小时/全操作磁盘/请求上限负例、换dataset不中断账本、计数不一致拒绝、真实os._exit后120秒预扣与17次请求保留，恢复累计36次且第一表不重抓 |
+| 唯一writer与旧目录拒绝 | <staging>/moneyflow/writer.lock，单unit/cohort两入口共用；cohort-control identity标记 | 不同operation互斥；单unit不能加入cohort；旧单表目录拒绝接管 |
+| 已闭合前缀与当前unit的不同恢复路径 | closed_units保存checkpoint hash/日期计数；_closed_prefix仅hash复核已验收字节；未闭合仍走原物理/来源双检查 | 已闭合Raw/receipt/全局完成计数篡改阻断；取消/真实进程退出后新进程续跑；七表样本恢复无业务COPY、全部文件hash不变 |
+| 内存、磁盘与步骤准入 | 原32MiB流接收/768MiB RSS/512MB单线程0spill；Store单次启动元数据盘点有取消/RSS/120秒保护，文件stat增量；异常保留现场再盘点 | 真实冻结96.25MiB/恢复103.02MiB；候选290MiB；32GiB稀疏文件反例，32MiB全cohort JSON与原256KiB单unit receipt分开读，账本>256KiB可恢复而单unit上限未放宽 |
+
+全cohort JSON/账本上限32MiB，普通单unit receipt仍256KiB。初始/恢复目录盘点为准入检查，限120秒且可取消；已进入执行的来源/候选/hash复核步骤预扣120秒并持久化，异常退出保留预扣，正常完成按实耗冲回。全局progress包含阶段、dataset/local/global unit、完成/总量、百分比、请求/连接/SQL、最后更新时间及无法可靠估算的ETA；冻结前总unit尚未知时百分比为NULL，不伪造全历史进度。元数据聚合、候选与闭合前缀恢复都消耗同一时间/请求账本，不为每表创建新账本。初始盘点和小控制文件的载入/计划重建属于有界准入，不将其计入已开始步骤的持久执行秒数。
+
+Prod事实及逐表行数/日期/批次表见原方案§28：14次只读聚合77.891秒，7次恢复聚合35.978秒，累计21连接/84 SQL，21,160,938行/7,804日期/423批，与P0一致；源类型、日期、计数和分类均不变。来源聚合允许受限扫描既有已知规模的日期/身份索引，不是为发现未知规模新增全表COUNT；每事务120秒、READ ONLY、批准投影、LIMIT额外一行和聚合计数检查共同约束，不读取金额/证券明细。
+
+候选测量为六表公开fixture与大盘既有负值/NULL合成样本（修正§23.1“七表真实公开fixture”的笼统说法）：5572/387/6024/1031/90/1/5215行，共18,320行，源=归一化=Raw=Silver、reject0、差异0。新进程完整cohort构建1.285秒、恢复0.019秒、峰值290MiB，共14文件；第一次28连接/112 SQL（fake metadata与业务COPY），恢复仅7个fake metadata读取，累计35/140，候选hash全部不变。最大10万行批次和正式提升耗时仍待P3-D，不能用此单日样本代替。
+
+新专项最终38项，原日期历史122项，最终历史160项；此前联合七表/请求策略727项通过，其中36项新cohort测试，最后两项大账本与计数不一致测试通过并重跑全部160历史项。保护runner仅新增两个精确bootstrap源码清单条目，没有扩大隔离权限；治理12项/474子测试、静态合同113项均通过。默认Ruff改动检查、全src/tests致命规则、文档完整性/新链接及diff检查通过。CodeGraph explore覆盖原候选核心→source/receive/schema，query确认新cohort入口，sync/status当前；直接代码核验补齐测试、路径及保护runner。不存在Prod DatasetDefinition/API/前端合同变更，也没有foundation反向依赖或需要人工迁移的消费者边界。
+
+[本轮结构化证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json)保留完整批准聚合SQL、真实类型/日期/分类、21次hash与计数、候选共享账本/checkpoint、最终代码hash与测试结果。Prod恢复实测后只补全进度百分比、账本JSON写入上限与两项账本测试，最后160项覆盖最终代码；源SQL与真实执行文件逐字一致。测试/private/tmp操作不能搬作正式完成证明；本轮不写正式Lake/DG，不发事件。下一轮仍需逐文件原子提升/幂等恢复，以及明确授权的正式样本与全链性能；P3不提前关闭。
