@@ -1,7 +1,7 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期及既有专项保留为历史记录；2026-10-02 stk_mins P0 的 1～6 月 12 个对象物理迁移与即时验收完成，四项服务已恢复；分钟线 schedule #25 恢复及下一次自然运行观察待完成，7～8 月尚未迁移
-更新时间：2026-10-02（仅同步 stk_mins P0 实际执行证据，不重验其它历史专项）。
+状态：一期及既有专项保留为历史记录；stk_mins P0 的 1～6 月 12 个对象迁移已于 2026-10-09 根据管理员确认正常更新、验收通过而结案；7～8 月及未来滚动治理不在本次结案范围
+更新时间：2026-10-09（仅同步 stk_mins P0 运行验收与结案，不重验生产容量及其它历史专项）。
 
 本文保留旧迁移、容量与 stk_mins 原专项记录，不再新增批次。新一轮 raw 直出一期的 12 项已按 [v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)及[一期 LLD](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)的带日期记录结案。stk_mins 原备份 No-Go 口径已按管理员接受剩余风险的决定修正，并经独立授权实际完成 P0 物理迁移，最新证据见 §2.4；本文不授权重跑任何已完成 DDL。
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层与重复物理存储治理。
@@ -110,8 +110,14 @@ P0 单独完成后，根盘理论可用空间将由约 5.5 GiB 提升到约 33.7
 4. 20:17 SSD 可用 61,966,233,600 B（57.71 GiB）、使用率 78%；HDD 可用 244,534,538,240 B（227.74 GiB）、使用率 40%。相对第一条 DDL 前同口径监测基线，SSD 净增加约 28.13 GiB；不能把文件系统差值当作精确关系字节。对象窗口内实例 WAL LSN 增量合计约 28.53 GiB，但 WAL 目录驻留峰值仅观测到 1 GiB；两种量不同。
 5. 2 月单股单日 view 查询 241 行、主键 Index Scan、2.736 ms；9 月热日成交额聚合读取 1,353,292 个匹配行，12.345 秒，只落仍在 SSD 的 9 月分区。缓存及参数基线不完全同口径，不声称改善或退化，也不顺带改 SQL/索引。
 6. tablespace comment 已由 owner postgres 更新并通过共享 catalog 正确读回；四项原本运行的服务依次恢复为 active，Web/数据库健康，无指定 kernel I/O 错误。恢复 scheduler 后常规 scheduled 任务开始入队，是维护后的正常恢复。
-7. 未完成项：运营经正式 Ops 页面恢复分钟线 schedule #25，再复验仅重建 1 条有效 probe rule，并观察下一次自然 TaskRun。物理迁移验收通过不代表该恢复/观测项已经完成；本轮未额外创建业务 TaskRun、请求 Tushare 或删除/重建源事实。
+7. 当时未完成项：运营经正式 Ops 页面恢复分钟线 schedule #25，再复验仅重建 1 条有效 probe rule，并观察下一次自然 TaskRun。该恢复/观测待办已按下述 §2.5 的管理员运行验收确认关闭；2026-10-02 未额外创建业务 TaskRun、请求 Tushare 或删除/重建源事实。
 8. 7～8 月仍是后续独立授权候选，预计另释放约 10.99 GiB；不自动执行，也不把它混入 v2 raw 直出已结案专项。
+
+### 2.5 2026-10-09 stk_mins P0 验收结案
+
+管理员确认分钟线可以正常更新、验收通过，并明确要求结案。结合 2026-10-02 的物理迁移与即时验收，P0 的 1～6 月 12 个对象迁移及恢复/运行观察已闭环，无该范围内的未完成项；详细记录见[原方案 §2.9](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md#29-2026-10-09-p0-运行验收与结案)。
+
+本轮依据为管理员运行验收确认，仅修改文档，未重查生产 schedule/probe/TaskRun 或磁盘容量，不将旧快照改写为新的实测证据。7～8 月及未来滚动治理仍属独立范围，不自动迁移、不推定已完成；备份风险接受口径保持不变。
 
 ## 3. 一期历史审计事实
 
