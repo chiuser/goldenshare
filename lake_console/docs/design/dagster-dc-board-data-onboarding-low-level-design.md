@@ -1,6 +1,6 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 低层设计（LLD）
 
-> 2026-10-09 当前实施口径：[DC 板块暂未形成行情的处理 LLD v1](./dagster-dc-board-quote-availability-low-level-design-v1.md)。条件覆盖判定、三类源冻结/复核、Raw/Silver 核心 check metadata 与 staging 原子提升已在工作区落地，354项隔离回归通过，正式 Lake 历史存在性只读容量验证通过。生产源双快照预检、正式写入和上线验收未执行；下文历史集合门禁及阶段记录保留，当前代码对账以补充 LLD §8.1 为准。
+> 2026-10-09 当前实施口径：[DC 板块暂未形成行情的处理 LLD v1](./dagster-dc-board-quote-availability-low-level-design-v1.md)。条件覆盖判定、三类源冻结/复核、Raw/Silver 核心 check metadata 与 staging 原子提升已在工作区落地，354项隔离回归通过，正式 Lake 历史存在性只读容量验证通过。23:25两日真实源双快照只读预检已通过；正式code location仍为旧代码，正式写入和上线验收未执行；下文历史集合门禁及阶段记录保留，当前代码对账以补充 LLD §8.1 为准。
 
 > 2026-10-09 开发前补齐：补充 LLD §4.2.1 已记录只读容量测量及64文件批次、512MiB/2线程、SQL1秒/总5秒等资源拒绝合同；§4.4 明确三类Raw统一冻结配置、独立下游观察、writer重验与既有bootstrap内的确认协议。该条记录开发前两项缺口补齐时的状态；后续代码实施见补充 LLD §8.1，仍未执行生产任务；证明不得从历史事件或旧报告推定。
 

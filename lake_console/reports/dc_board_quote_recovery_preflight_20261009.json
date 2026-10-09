@@ -1,0 +1,470 @@
+{
+  "audit_date": "2026-10-09",
+  "implementation_commit": "6c58a145",
+  "scope": "DC board family, 2026-10-08 through 2026-10-09",
+  "conclusion": "real_source_gates_ready_loaded_runtime_old_production_execution_pending",
+  "formal_writes": false,
+  "formal_dagster_mutations": false,
+  "source_preflight": {
+    "generated_at": "2026-10-09T15:19:59.192666+00:00",
+    "mode": "read_only_real_source_preflight",
+    "formal_writes": false,
+    "dagster_instance_mutations": false,
+    "dates": {
+      "2026-10-08": {
+        "first": {
+          "prod_observed_at": "2026-10-09T15:19:59.805359+00:00",
+          "source_observed_at": "2026-10-09T15:20:00.577135+00:00",
+          "prod": {
+            "trade_date": "2026-10-08",
+            "ready": true,
+            "reason_code": "ready",
+            "query_count": 3,
+            "elapsed_ms": 612.138,
+            "invalid_key_count": 0,
+            "duplicate_key_count": 0,
+            "completion_fingerprint": "2f4434ac08c8e337c5df563c2d843126a27d7f47f560555c41ee9f7a045d29a7",
+            "index_row_count": 1032,
+            "daily_row_count": 1031,
+            "member_row_count": 94294,
+            "member_code_count": 1032
+          },
+          "source": {
+            "trade_date": "2026-10-08",
+            "ready": true,
+            "reason_code": "ready",
+            "request_count": 4,
+            "page_count": 4,
+            "retry_count": 0,
+            "elapsed_ms": 771.58,
+            "index_row_count": 1032,
+            "daily_row_count": 1031,
+            "index_missing_count": 0,
+            "index_extra_count": 0,
+            "daily_missing_count": 0,
+            "daily_extra_count": 0,
+            "placeholder_row_count": 0,
+            "source_fingerprint": "693ff1c541b9540764cbd852f888c6a7de6334d6fb916049199af2da5ea2c574"
+          },
+          "coverage": {
+            "policy_version": "dc_board_quote_coverage_v1",
+            "partition_key": "2026-10-08",
+            "missing_quote_count": 1,
+            "index_code_count": 1032,
+            "daily_code_count": 1031,
+            "awaiting_count": 1,
+            "previously_observed_missing_count": 0,
+            "unverifiable_count": 0,
+            "missing_quote_details": [
+              {
+                "ts_code": "BK1754.DC",
+                "state": "awaiting_first_observed_quote",
+                "evidence_start": "2024-01-02",
+                "evidence_end": "2026-09-30",
+                "history_complete": true,
+                "observed_quote_date": null
+              }
+            ],
+            "quote_coverage_samples": [
+              {
+                "ts_code": "BK1754.DC",
+                "state": "awaiting_first_observed_quote",
+                "evidence_start": "2024-01-02",
+                "evidence_end": "2026-09-30",
+                "history_complete": true,
+                "observed_quote_date": null,
+                "name": null,
+                "category": null
+              }
+            ],
+            "history_start": "2024-01-02",
+            "history_end": "2026-09-30",
+            "history_complete": true,
+            "history_file_count": 666,
+            "source_confirmation": "not_evaluated",
+            "reason_code": "awaiting_first_observed_quote",
+            "evidence_digest": "5a2c1dd670083a6bc19402f563e01f0fd8f457d03962ce83191b75ce76f01bb1",
+            "metadata_truncated": false,
+            "retained_quote_detail_count": 1
+          }
+        },
+        "status": "ready",
+        "second": {
+          "prod_observed_at": "2026-10-09T15:25:02.145464+00:00",
+          "source_observed_at": "2026-10-09T15:25:02.722716+00:00",
+          "prod": {
+            "trade_date": "2026-10-08",
+            "ready": true,
+            "reason_code": "ready",
+            "query_count": 3,
+            "elapsed_ms": 553.007,
+            "invalid_key_count": 0,
+            "duplicate_key_count": 0,
+            "completion_fingerprint": "2f4434ac08c8e337c5df563c2d843126a27d7f47f560555c41ee9f7a045d29a7",
+            "index_row_count": 1032,
+            "daily_row_count": 1031,
+            "member_row_count": 94294,
+            "member_code_count": 1032
+          },
+          "source": {
+            "trade_date": "2026-10-08",
+            "ready": true,
+            "reason_code": "ready",
+            "request_count": 4,
+            "page_count": 4,
+            "retry_count": 0,
+            "elapsed_ms": 577.01,
+            "index_row_count": 1032,
+            "daily_row_count": 1031,
+            "index_missing_count": 0,
+            "index_extra_count": 0,
+            "daily_missing_count": 0,
+            "daily_extra_count": 0,
+            "placeholder_row_count": 0,
+            "source_fingerprint": "693ff1c541b9540764cbd852f888c6a7de6334d6fb916049199af2da5ea2c574"
+          },
+          "coverage": {
+            "policy_version": "dc_board_quote_coverage_v1",
+            "partition_key": "2026-10-08",
+            "missing_quote_count": 1,
+            "index_code_count": 1032,
+            "daily_code_count": 1031,
+            "awaiting_count": 1,
+            "previously_observed_missing_count": 0,
+            "unverifiable_count": 0,
+            "missing_quote_details": [
+              {
+                "ts_code": "BK1754.DC",
+                "state": "awaiting_first_observed_quote",
+                "evidence_start": "2024-01-02",
+                "evidence_end": "2026-09-30",
+                "history_complete": true,
+                "observed_quote_date": null
+              }
+            ],
+            "quote_coverage_samples": [
+              {
+                "ts_code": "BK1754.DC",
+                "state": "awaiting_first_observed_quote",
+                "evidence_start": "2024-01-02",
+                "evidence_end": "2026-09-30",
+                "history_complete": true,
+                "observed_quote_date": null,
+                "name": null,
+                "category": null
+              }
+            ],
+            "history_start": "2024-01-02",
+            "history_end": "2026-09-30",
+            "history_complete": true,
+            "history_file_count": 666,
+            "source_confirmation": "not_evaluated",
+            "reason_code": "awaiting_first_observed_quote",
+            "evidence_digest": "5a2c1dd670083a6bc19402f563e01f0fd8f457d03962ce83191b75ce76f01bb1",
+            "metadata_truncated": false,
+            "retained_quote_detail_count": 1
+          }
+        },
+        "proof": {
+          "policy_version": "dc_board_quote_coverage_v1",
+          "trade_date": "2026-10-08",
+          "target_asset": "raw_tushare_dc_index",
+          "prod_observed_at_first": null,
+          "prod_fingerprint_first": null,
+          "prod_observed_at_second": "2026-10-09T15:25:02.145464+00:00",
+          "prod_fingerprint_second": "2f4434ac08c8e337c5df563c2d843126a27d7f47f560555c41ee9f7a045d29a7",
+          "source_observed_at_first": "2026-10-09T15:20:00.577135+00:00",
+          "source_fingerprint_first": "693ff1c541b9540764cbd852f888c6a7de6334d6fb916049199af2da5ea2c574",
+          "source_observed_at_second": "2026-10-09T15:25:02.722716+00:00",
+          "source_fingerprint_second": "693ff1c541b9540764cbd852f888c6a7de6334d6fb916049199af2da5ea2c574",
+          "history_start": "2024-01-02",
+          "history_end": "2026-09-30",
+          "history_file_count": 666,
+          "history_evidence_digest": "5a2c1dd670083a6bc19402f563e01f0fd8f457d03962ce83191b75ce76f01bb1",
+          "coverage_gap_count": 1
+        },
+        "source_interval_seconds": 302.145581,
+        "prod_interval_seconds": 302.340105
+      },
+      "2026-10-09": {
+        "first": {
+          "prod_observed_at": "2026-10-09T15:20:01.286798+00:00",
+          "source_observed_at": "2026-10-09T15:20:01.871358+00:00",
+          "prod": {
+            "trade_date": "2026-10-09",
+            "ready": true,
+            "reason_code": "ready",
+            "query_count": 3,
+            "elapsed_ms": 441.526,
+            "invalid_key_count": 0,
+            "duplicate_key_count": 0,
+            "completion_fingerprint": "b3d4c47d5d326fac34acfda369a4f9cf1084e6a574b39e74c64c0e1704e30929",
+            "index_row_count": 1032,
+            "daily_row_count": 1032,
+            "member_row_count": 94563,
+            "member_code_count": 1032
+          },
+          "source": {
+            "trade_date": "2026-10-09",
+            "ready": true,
+            "reason_code": "ready",
+            "request_count": 4,
+            "page_count": 4,
+            "retry_count": 0,
+            "elapsed_ms": 584.407,
+            "index_row_count": 1032,
+            "daily_row_count": 1032,
+            "index_missing_count": 0,
+            "index_extra_count": 0,
+            "daily_missing_count": 0,
+            "daily_extra_count": 0,
+            "placeholder_row_count": 0,
+            "source_fingerprint": "39f69d1ab00bc7c43f0e7bc4b7f66af09a50048d821246cd3c584f40bba7452c"
+          },
+          "coverage": {
+            "policy_version": "dc_board_quote_coverage_v1",
+            "partition_key": "2026-10-09",
+            "missing_quote_count": 0,
+            "index_code_count": 1032,
+            "daily_code_count": 1032,
+            "awaiting_count": 0,
+            "previously_observed_missing_count": 0,
+            "unverifiable_count": 0,
+            "missing_quote_details": [],
+            "quote_coverage_samples": [],
+            "history_start": "2024-01-02",
+            "history_end": null,
+            "history_complete": true,
+            "history_file_count": 0,
+            "source_confirmation": "not_evaluated",
+            "reason_code": "no_missing_quote",
+            "evidence_digest": "7d7612ae6a4e2f5f0c19b593d5eb6290dcce8e0a195278f0cecfab14c8b0f42e",
+            "metadata_truncated": false,
+            "retained_quote_detail_count": 0
+          }
+        },
+        "status": "ready",
+        "second": {
+          "prod_observed_at": "2026-10-09T15:25:03.510015+00:00",
+          "source_observed_at": "2026-10-09T15:25:04.037619+00:00",
+          "prod": {
+            "trade_date": "2026-10-09",
+            "ready": true,
+            "reason_code": "ready",
+            "query_count": 3,
+            "elapsed_ms": 513.86,
+            "invalid_key_count": 0,
+            "duplicate_key_count": 0,
+            "completion_fingerprint": "b3d4c47d5d326fac34acfda369a4f9cf1084e6a574b39e74c64c0e1704e30929",
+            "index_row_count": 1032,
+            "daily_row_count": 1032,
+            "member_row_count": 94563,
+            "member_code_count": 1032
+          },
+          "source": {
+            "trade_date": "2026-10-09",
+            "ready": true,
+            "reason_code": "ready",
+            "request_count": 4,
+            "page_count": 4,
+            "retry_count": 0,
+            "elapsed_ms": 527.494,
+            "index_row_count": 1032,
+            "daily_row_count": 1032,
+            "index_missing_count": 0,
+            "index_extra_count": 0,
+            "daily_missing_count": 0,
+            "daily_extra_count": 0,
+            "placeholder_row_count": 0,
+            "source_fingerprint": "39f69d1ab00bc7c43f0e7bc4b7f66af09a50048d821246cd3c584f40bba7452c"
+          },
+          "coverage": {
+            "policy_version": "dc_board_quote_coverage_v1",
+            "partition_key": "2026-10-09",
+            "missing_quote_count": 0,
+            "index_code_count": 1032,
+            "daily_code_count": 1032,
+            "awaiting_count": 0,
+            "previously_observed_missing_count": 0,
+            "unverifiable_count": 0,
+            "missing_quote_details": [],
+            "quote_coverage_samples": [],
+            "history_start": "2024-01-02",
+            "history_end": null,
+            "history_complete": true,
+            "history_file_count": 0,
+            "source_confirmation": "not_evaluated",
+            "reason_code": "no_missing_quote",
+            "evidence_digest": "7d7612ae6a4e2f5f0c19b593d5eb6290dcce8e0a195278f0cecfab14c8b0f42e",
+            "metadata_truncated": false,
+            "retained_quote_detail_count": 0
+          }
+        },
+        "proof": {
+          "policy_version": "dc_board_quote_coverage_v1",
+          "trade_date": "2026-10-09",
+          "target_asset": "raw_tushare_dc_index",
+          "prod_observed_at_first": "2026-10-09T15:20:01.286798+00:00",
+          "prod_fingerprint_first": "b3d4c47d5d326fac34acfda369a4f9cf1084e6a574b39e74c64c0e1704e30929",
+          "prod_observed_at_second": "2026-10-09T15:25:03.510015+00:00",
+          "prod_fingerprint_second": "b3d4c47d5d326fac34acfda369a4f9cf1084e6a574b39e74c64c0e1704e30929",
+          "source_observed_at_first": null,
+          "source_fingerprint_first": null,
+          "source_observed_at_second": "2026-10-09T15:25:04.037619+00:00",
+          "source_fingerprint_second": "39f69d1ab00bc7c43f0e7bc4b7f66af09a50048d821246cd3c584f40bba7452c",
+          "history_start": "2024-01-02",
+          "history_end": null,
+          "history_file_count": 0,
+          "history_evidence_digest": "7d7612ae6a4e2f5f0c19b593d5eb6290dcce8e0a195278f0cecfab14c8b0f42e",
+          "coverage_gap_count": 0
+        },
+        "source_interval_seconds": 302.166261,
+        "prod_interval_seconds": 302.223217
+      }
+    },
+    "completed_at": "2026-10-09T15:25:04.039206+00:00"
+  },
+  "physical_audit": {
+    "2026-10-08": {
+      "generated_at": "2026-10-09T15:20:16.802562+00:00",
+      "catalog_classification_complete": true,
+      "missing_lake_assets": [
+        "gold_dc_daily_technical",
+        "raw_tushare_dc_daily",
+        "raw_tushare_dc_index",
+        "raw_tushare_dc_member",
+        "silver_dc_daily",
+        "silver_dc_index",
+        "silver_dc_member"
+      ],
+      "missing_serving_assets": [
+        "ch_dc_daily_technical",
+        "prod_ch_dc_daily_technical"
+      ],
+      "unverified_serving_assets": []
+    },
+    "2026-10-09": {
+      "generated_at": "2026-10-09T15:20:23.327466+00:00",
+      "catalog_classification_complete": true,
+      "missing_lake_assets": [
+        "gold_dc_daily_technical",
+        "raw_tushare_dc_daily",
+        "raw_tushare_dc_index",
+        "raw_tushare_dc_member",
+        "silver_dc_daily",
+        "silver_dc_index",
+        "silver_dc_member"
+      ],
+      "missing_serving_assets": [
+        "ch_dc_daily_technical",
+        "prod_ch_dc_daily_technical"
+      ],
+      "unverified_serving_assets": []
+    }
+  },
+  "workspace": {
+    "__typename": "Workspace",
+    "locationEntries": [
+      {
+        "name": "orchestrator",
+        "updatedTimestamp": 1791468404.842537,
+        "loadStatus": "LOADED"
+      }
+    ]
+  },
+  "loaded_dc_index_config_fields": [
+    [
+      {
+        "name": "prod_completion_fingerprint",
+        "isRequired": true
+      },
+      {
+        "name": "prod_completion_observed_at",
+        "isRequired": true
+      },
+      {
+        "name": "trade_date",
+        "isRequired": true
+      },
+      {
+        "name": "tushare_source_fingerprint",
+        "isRequired": true
+      },
+      {
+        "name": "tushare_source_observed_at",
+        "isRequired": true
+      }
+    ]
+  ],
+  "active_runs": {
+    "__typename": "Runs",
+    "results": []
+  },
+  "matching_update_run_count": 0,
+  "registered_target_dates": {
+    "a0": {
+      "partition_definition": {
+        "type": "DYNAMIC",
+        "name": "cn_a_dc_index_trade_days"
+      },
+      "dates": {
+        "2026-10-08": true,
+        "2026-10-09": true
+      }
+    },
+    "a1": {
+      "partition_definition": {
+        "type": "DYNAMIC",
+        "name": "cn_a_dc_daily_trade_days"
+      },
+      "dates": {
+        "2026-10-08": true,
+        "2026-10-09": true
+      }
+    },
+    "a2": {
+      "partition_definition": {
+        "type": "DYNAMIC",
+        "name": "cn_a_dc_member_trade_days"
+      },
+      "dates": {
+        "2026-10-08": true,
+        "2026-10-09": true
+      }
+    }
+  },
+  "paths": {
+    "lake_exists": true,
+    "staging_exists": true,
+    "staging_is_direct_path": true,
+    "same_filesystem": true,
+    "disk_free_bytes": 2929031639040,
+    "expected_dagster_home": true
+  },
+  "bk1754_source_behavior": {
+    "2026-10-08": "MCP explicit fields returned []",
+    "2026-10-09": {
+      "trade_date": "20261009",
+      "close": 999.91,
+      "open": 999.88,
+      "high": 1004.0,
+      "low": 970.31,
+      "vol": 139579.0,
+      "amount": 566209341.0,
+      "category": "概念板块"
+    }
+  },
+  "release_constraints": [
+    "Formal loaded schema remains old; code location reload is required before natural recovery",
+    "Working tree includes unrelated uncommitted orchestrator changes; do not reload them without an agreed release scope",
+    "Explicit formal execution approval is still required; limit initial recovery to DC family on these two dates",
+    "No need to add dates, reset cursor, clear run keys, modify Prod core data, or rewrite all history"
+  ],
+  "proposed_order": [
+    "Settle release scope for existing unrelated dirty Dagster files",
+    "Approve loading the new code into formal orchestrator location; verify new schema and existing sensor state",
+    "Recover 2026-10-08 DC Raw then Silver then Gold and local/Prod ClickHouse, with core checks",
+    "Recover 2026-10-09 in date order; verify BK1754 first actual quote and Gold warmup",
+    "Read back physical counts and existing check metadata; stop on source/history drift"
+  ]
+}
