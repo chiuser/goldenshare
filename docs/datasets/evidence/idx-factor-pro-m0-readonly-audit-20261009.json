@@ -1,0 +1,494 @@
+{
+  "dataset_key": "idx_factor_pro",
+  "source_key": "tushare",
+  "observed_at": "2026-10-09T09:19:49+08:00",
+  "code_commit": "deba723adc63b863405d3b90fbb5c332e57f9a4c",
+  "stage": "M0_readonly_audit_not_implementation_acceptance",
+  "production_access": {
+    "environment": "prod",
+    "entrypoint": "scripts/psql-remote.sh",
+    "transaction": "BEGIN READ ONLY; ROLLBACK",
+    "statement_timeout_seconds": 10,
+    "lock_timeout_seconds": 2,
+    "date_scope": [
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-08",
+      "2026-10-09"
+    ],
+    "limits": {
+      "schedule": 20,
+      "rule": 20,
+      "tasks": 100,
+      "probe_logs": 100,
+      "codes_20261008": 16001
+    },
+    "sql_sha256": "c9accfef4e2a0aee7cecb090794413a21fc9bd4eeaf6da5a7fbda8e358ac29f8"
+  },
+  "production": {
+    "counts": [
+      {
+        "layer": "serving",
+        "trade_date": "2026-09-28",
+        "row_count": 3388,
+        "code_count": 3388
+      },
+      {
+        "layer": "serving",
+        "trade_date": "2026-09-29",
+        "row_count": 3388,
+        "code_count": 3388
+      },
+      {
+        "layer": "serving",
+        "trade_date": "2026-09-30",
+        "row_count": 3388,
+        "code_count": 3388
+      },
+      {
+        "layer": "serving",
+        "trade_date": "2026-10-08",
+        "row_count": 3388,
+        "code_count": 3388
+      },
+      {
+        "layer": "raw",
+        "trade_date": "2026-09-28",
+        "row_count": 3388,
+        "code_count": 3388
+      },
+      {
+        "layer": "raw",
+        "trade_date": "2026-09-29",
+        "row_count": 3388,
+        "code_count": 3388
+      },
+      {
+        "layer": "raw",
+        "trade_date": "2026-09-30",
+        "row_count": 3388,
+        "code_count": 3388
+      },
+      {
+        "layer": "raw",
+        "trade_date": "2026-10-08",
+        "row_count": 3388,
+        "code_count": 3388
+      }
+    ],
+    "schedule": [
+      {
+        "id": 32,
+        "target_key": "idx_factor_pro.maintain",
+        "status": "active",
+        "trigger_mode": "schedule_probe_fallback",
+        "timezone": "Asia/Shanghai",
+        "calendar_policy": null,
+        "cron_expr": "50 19 * * 1,2,3,4,5",
+        "probe_config_json": {
+          "source_key": "tushare",
+          "window_start": "15:30",
+          "window_end": "19:45",
+          "probe_interval_seconds": 300,
+          "max_triggers_per_day": 1,
+          "condition_kind": "remote_idx_factor_pro_ready",
+          "workflow_dataset_keys": []
+        },
+        "last_triggered_at": "2026-10-07T19:50:01.767414+08:00"
+      }
+    ],
+    "rule": [
+      {
+        "id": 11,
+        "schedule_id": 32,
+        "dataset_key": "idx_factor_pro",
+        "source_key": "tushare",
+        "status": "active",
+        "window_start": "15:30",
+        "window_end": "19:45",
+        "probe_interval_seconds": 300,
+        "max_triggers_per_day": 1,
+        "timezone_name": "Asia/Shanghai",
+        "probe_condition_json": {
+          "type": "remote_idx_factor_pro_ready"
+        },
+        "rule_version": 1,
+        "last_probed_at": "2026-10-08T16:35:20.162723+08:00"
+      }
+    ],
+    "tasks": [
+      {
+        "id": 15094,
+        "schedule_id": null,
+        "trigger_source": "manual",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point",
+          "trade_date": "2026-10-08"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 3388,
+        "rows_saved": 3388,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-10-09T07:51:42.385049+08:00",
+        "started_at": "2026-10-09T07:51:46.783625+08:00",
+        "ended_at": "2026-10-09T07:51:57.884479+08:00"
+      },
+      {
+        "id": 15010,
+        "schedule_id": 32,
+        "trigger_source": "probe",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point",
+          "trade_date": "2026-10-08"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 155,
+        "rows_saved": 155,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-10-08T16:35:20.277969+08:00",
+        "started_at": "2026-10-08T16:35:23.924144+08:00",
+        "ended_at": "2026-10-08T16:35:24.531975+08:00"
+      },
+      {
+        "id": 14910,
+        "schedule_id": 32,
+        "trigger_source": "scheduled",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 3388,
+        "rows_saved": 3388,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-10-07T19:50:01.772567+08:00",
+        "started_at": "2026-10-07T19:50:05.833154+08:00",
+        "ended_at": "2026-10-07T19:50:16.772314+08:00"
+      },
+      {
+        "id": 14795,
+        "schedule_id": 32,
+        "trigger_source": "scheduled",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 3388,
+        "rows_saved": 3388,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-10-06T19:50:02.242499+08:00",
+        "started_at": "2026-10-06T19:50:04.721296+08:00",
+        "ended_at": "2026-10-06T19:50:15.595917+08:00"
+      },
+      {
+        "id": 14680,
+        "schedule_id": 32,
+        "trigger_source": "scheduled",
+        "status": "failed",
+        "status_reason_code": "ingestion_failed",
+        "time_input_json": {
+          "mode": "point"
+        },
+        "unit_total": 1,
+        "unit_done": 0,
+        "unit_failed": 1,
+        "rows_fetched": 0,
+        "rows_saved": 0,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-10-05T19:50:02.690087+08:00",
+        "started_at": "2026-10-05T19:50:04.177485+08:00",
+        "ended_at": "2026-10-05T19:53:20.210791+08:00"
+      },
+      {
+        "id": 14202,
+        "schedule_id": 32,
+        "trigger_source": "scheduled",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 3388,
+        "rows_saved": 3388,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-10-02T19:50:25.317676+08:00",
+        "started_at": "2026-10-02T19:50:25.695037+08:00",
+        "ended_at": "2026-10-02T19:50:36.489245+08:00"
+      },
+      {
+        "id": 14094,
+        "schedule_id": 32,
+        "trigger_source": "scheduled",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 3388,
+        "rows_saved": 3388,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-10-01T19:50:11.771885+08:00",
+        "started_at": "2026-10-02T03:46:23.023291+08:00",
+        "ended_at": "2026-10-02T03:46:33.924881+08:00"
+      },
+      {
+        "id": 14068,
+        "schedule_id": null,
+        "trigger_source": "manual",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "range",
+          "start_date": "2026-09-29",
+          "end_date": "2026-09-30"
+        },
+        "unit_total": 2,
+        "unit_done": 2,
+        "unit_failed": 0,
+        "rows_fetched": 6776,
+        "rows_saved": 6776,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-10-01T14:56:51.563418+08:00",
+        "started_at": "2026-10-01T14:56:54.171139+08:00",
+        "ended_at": "2026-10-01T14:57:15.451385+08:00"
+      },
+      {
+        "id": 13949,
+        "schedule_id": 32,
+        "trigger_source": "probe",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point",
+          "trade_date": "2026-09-30"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 3,
+        "rows_saved": 3,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-09-30T16:30:49.833744+08:00",
+        "started_at": "2026-09-30T16:30:51.356231+08:00",
+        "ended_at": "2026-09-30T16:30:51.730254+08:00"
+      },
+      {
+        "id": 13867,
+        "schedule_id": null,
+        "trigger_source": "manual",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "range",
+          "start_date": "2026-09-28",
+          "end_date": "2026-09-29"
+        },
+        "unit_total": 2,
+        "unit_done": 2,
+        "unit_failed": 0,
+        "rows_fetched": 6776,
+        "rows_saved": 6776,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-09-29T22:44:27.130642+08:00",
+        "started_at": "2026-09-29T22:44:31.211642+08:00",
+        "ended_at": "2026-09-29T22:44:58.256957+08:00"
+      },
+      {
+        "id": 13819,
+        "schedule_id": 32,
+        "trigger_source": "probe",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point",
+          "trade_date": "2026-09-29"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 155,
+        "rows_saved": 155,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-09-29T16:35:31.796866+08:00",
+        "started_at": "2026-09-29T16:35:31.840415+08:00",
+        "ended_at": "2026-09-29T16:35:32.487277+08:00"
+      },
+      {
+        "id": 13725,
+        "schedule_id": null,
+        "trigger_source": "manual",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "range",
+          "start_date": "2026-09-24",
+          "end_date": "2026-09-28"
+        },
+        "unit_total": 2,
+        "unit_done": 2,
+        "unit_failed": 0,
+        "rows_fetched": 5846,
+        "rows_saved": 5846,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-09-28T20:43:55.958234+08:00",
+        "started_at": "2026-09-28T21:02:23.243827+08:00",
+        "ended_at": "2026-09-28T21:02:43.782084+08:00"
+      },
+      {
+        "id": 13689,
+        "schedule_id": 32,
+        "trigger_source": "probe",
+        "status": "success",
+        "status_reason_code": null,
+        "time_input_json": {
+          "mode": "point",
+          "trade_date": "2026-09-28"
+        },
+        "unit_total": 1,
+        "unit_done": 1,
+        "unit_failed": 0,
+        "rows_fetched": 13,
+        "rows_saved": 13,
+        "rows_rejected": 0,
+        "rows_deduplicated": 0,
+        "requested_at": "2026-09-28T16:30:28.965188+08:00",
+        "started_at": "2026-09-28T16:30:55.343354+08:00",
+        "ended_at": "2026-09-28T16:30:55.674626+08:00"
+      }
+    ],
+    "probe_log_sample": {
+      "limit": 100,
+      "returned": 100,
+      "latest_hit": {
+        "id": 8065,
+        "probe_rule_id": 11,
+        "schedule_id": 32,
+        "status": "success",
+        "condition_matched": true,
+        "probed_at": "2026-10-08T16:35:20.162723+08:00",
+        "triggered_task_run_id": 15010,
+        "duration_ms": 120,
+        "rule_version": 1,
+        "result_code": "hit",
+        "result_reason": "condition_hit",
+        "target_date": null
+      }
+    }
+  },
+  "code_set_comparison": {
+    "production_count": 3388,
+    "baseline_count": 3388,
+    "missing_count": 0,
+    "extra_count": 0,
+    "sha256": "a97cb74f3fb09854158c99507f983eb4cadae524fde73248a69a925b10107295"
+  },
+  "source_validation": {
+    "source_rows": 3388,
+    "source_codes": 3388,
+    "normalized_rows": 3388,
+    "normalized_codes": 3388,
+    "rejected": 0,
+    "reasons": {},
+    "deduplicated": 0,
+    "wrong_dates": 0,
+    "missing_source_columns": [],
+    "null_numeric_values": 9750,
+    "baseline_missing": 0,
+    "baseline_extra": 0,
+    "source_normalized_sets_equal": true,
+    "json_bytes": 6350627,
+    "python_tracemalloc_peak_bytes": 63736773,
+    "load_and_normalize_seconds": 0.753,
+    "scope": "read-only MCP decoded JSON + current normalizer; no DB writes; not HTTP wire or whole-process RSS"
+  },
+  "source_field_cases": {
+    "default_fields": {
+      "rows": 3388,
+      "field_count": 89
+    },
+    "explicit_89_fields": {
+      "rows": 3388,
+      "field_count": 89,
+      "same_code_set": true,
+      "values_equal_when_keyed_by_code": true,
+      "row_order_equal": false
+    },
+    "business_fields": {
+      "ts_code": "000001.SH",
+      "trade_date": "20261008",
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "close",
+        "vol",
+        "macd_bfq",
+        "macd_dif_bfq",
+        "macd_dea_bfq"
+      ],
+      "rows": 1
+    }
+  },
+  "validation": {
+    "pytest_command": ".venv/bin/pytest -q tests/test_dataset_writer_idx_factor_pro.py tests/test_dataset_normalizer.py tests/test_dataset_action_resolver.py -k idx_factor_pro",
+    "passed": 8,
+    "deselected": 149,
+    "migration_head_observed": "20261008_000184"
+  },
+  "unverified": [
+    "source limit/offset real requests: MCP tool schema does not expose them",
+    "continuous intraday publication observations",
+    "whole-process memory hard cap and end-to-end execution deadline",
+    "final API/config consumer migration audit",
+    "independent M0 acceptance",
+    "production migrations/import/schedule migration/backfill"
+  ],
+  "synthetic_budget_validation": {
+    "classification": "synthetic_local_memory_benchmark_not_source_or_prod_data",
+    "rows": 8000,
+    "json_bytes": 14982492,
+    "load_normalize_peak_tracemalloc_bytes": 150475829,
+    "seconds": 1.759,
+    "rejected": 0,
+    "exceeds_proposed_128MiB": true,
+    "measurement_exclusions": [
+      "payload allocated before tracemalloc",
+      "whole-process RSS",
+      "HTTP child",
+      "DB write"
+    ]
+  }
+}

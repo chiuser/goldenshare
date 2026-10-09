@@ -370,4 +370,114 @@ Probe、手动和兜底调用同一Foundation有界扫描能力；两次稳定�
 
 每个切片验收后才进入下一切片；M0不意味着批准M1–M4。历史基准只能识别已知覆盖缺口，不保证尚未观察到的新增指数都已出现；继续保留窗口内复核。源端仅改因子数值、日后出现窗口之外新增代码及跨日自动补漏仍不在本次修改范围。
 
-本修改计划已核对CodeGraph search、impact、callers，以及当前probe、raw-only writer、基础模型schema、有界调用、capability/binding、schedule/probe schema和前端消费点。全量Definition消费者、生产事实、细化DDL和新API字段尚未核完，M0必须补齐；不能把上述文件表称为已经完成的开发验收。
+本修改计划已核对CodeGraph search、impact、callers，以及当前probe、raw-only writer、基础模型schema、有界调用、capability/binding、schedule/probe schema和前端消费点。M0后续只读结果及细化设计见§7.11；尚未完成的门禁在§7.11.6逐项列出，不把文件表或现有测试通过称为新功能已经完成。
+
+### 7.11 M0只读对账与编码前设计细化（2026-10-09）
+
+状态：方案及V1证据已提交 `deba723a`；本节是其后开展的M0设计和审计记录，未进入M1，未修改代码、数据库或排程。依据当前源码、CodeGraph `explore/search/impact/callers`、Tushare MCP实际返回和生产只读查询；宽泛图匹配仍以实际相关代码为准，前端/API以及动态装配不能仅靠图判定。
+
+#### 7.11.1 生产事实与源端最小验证
+
+完整摘要：[M0只读审计证据](/Users/congming/github/goldenshare/docs/datasets/evidence/idx-factor-pro-m0-readonly-audit-20261009.json)。审计截止2026-10-09 09:19（Asia/Shanghai），生产查询复用 `scripts/psql-remote.sh`，使用只读事务、单语句10秒和锁等待2秒限制。先通过系统目录确认索引，再读指定5个日期；未扫描全历史。最多读取20个排程、20个规则、100条TaskRun、100条probe日志和16,001个10月8日代码。实际读取1个排程、1个规则、13条TaskRun、100条probe日志、3,388个代码。
+
+| 证据 | 实际结果 | 结论 |
+| --- | --- | --- |
+| 10月8日自动TaskRun `15010` | 16:35 probe触发；fetched/saved均155，reject/dedupe均0；终态success | 不是已观察到的reject导致少写；小批次被当作成功 |
+| 10月9日手动TaskRun `15094` | 07:51维护10月8日；fetched/saved均3,388，reject/dedupe均0 | 当前目标数已由后来的手动维护补齐，不能把当前3,388追认为昨日自动更新成功 |
+| 其他自动任务 | 9月28日 `13689` 写13；9月29日 `13819` 写155；9月30日 `13949` 写3；全部success | 同类问题在多个日期出现 |
+| Raw/view代表日期 | 9月28、29、30日和10月8日，各层均3,388行、3,388个代码；10月9日无行 | 数量按查询时点记录；10月9日尚未收盘，无行不能认定为缺口 |
+| 10月8日Prod Raw集合对V1 | 缺失0、新增0、指纹完全相同 | 源端样本、固化证据、Prod集合相互印证；不认证尚未知晓的指数全集 |
+| 排程 `32` / probe规则 `11` | active；`schedule_probe_fallback`；15:30–19:45、每300秒、每日1次；兜底cron `50 19 * * 1,2,3,4,5`；rule_version=1，calendar_policy为空 | 迁移对象已唯一定位；上限和窗口不能靠页面默认值推断 |
+
+当前专用probe按 `limit=1` 判断命中；runtime按matched日志限次，schedule兜底会因当天probe任务success跳过。这些代码与上述TaskRun事实一起解释“早期少量数据被视为成功，后续不再补齐”。本次没有读全部原始响应，不能仅据TaskRun计数证明所有历史请求的分页正确。
+
+源端真实最小核验使用MCP：10月8日不传fields返回3,388行、89字段；显式请求当前Definition的89字段仍返回3,388行；逐代码比较值相同，返回顺序不同，指纹必须排序后计算。另对 `000001.SH` 显式请求身份、close/vol/MACD关键字段返回1行，身份和日期正确。默认全日数据经当前normalizer处理后仍3,388行/代码，reject=0、dedupe=0、错日期=0、缺字段=0，与V1集合相同。共有9,750个空数值：允许已返回字段的null，不能把全部87个因子字段设为非空必填。
+
+本地保存MCP解码后的全字段JSON约6.06 MiB；载入加归一化耗时0.753秒，`tracemalloc`峰值63,736,773 bytes（约60.8 MiB）。该测量不包含真实HTTP wire、完整进程RSS、数据库写入或有界子进程开销，不能据此宣布128 MiB硬门禁已经满足。Prod完整单日任务约11秒只是历史观测，不是20秒调用或60秒执行上界证明。
+
+随后以真实样本值构造8,000个不同测试身份，在本地只做载入和归一化：JSON为14,982,492 bytes，`tracemalloc`峰值150,475,829 bytes（约143.5 MiB），耗时1.759秒、reject=0。**这是假设规模的隔离性能证据，不是源端实际返回8,000条或生产同步。** 即使尚未计入提前分配的JSON字符串、HTTP子进程、完整RSS与数据库写入，已经超过128 MiB；不能宣称现有buffer_all在拟定范围满足预算。
+
+待评审修订建议：保留一日16,000行、累计响应16 MiB、3次请求的拒绝上界，将单unit工作内存预算改为512 MiB，并对当前3,388、8,000及16,000行完整路径测量和强制限额设计另做验收。512 MiB目前是待验证的设计候选，尚非资源保证；若实际进程余量不足、不能安全强制限制或仍超预算，回到批次/存储设计评审，不能靠扩大常量绕过。本项与窗口、历史版本行为一同列为M0修订，未确认前原128 MiB要求仍然有效，禁止进入实现。
+
+MCP当前工具schema没有limit/offset；本轮未完成分页参数实测。官网当前正文列最大8,000，但未列分页参数，本地源文档列limit/offset；差异保持显式待核验。MCP说明提到20:30更新，但本地和当前[官网doc 358](https://tushare.pro/document/2?doc_id=358)正文均未说明更新时间，不能把20:30升级成源端稳定发布承诺。
+
+原§7.10.3要求不改变既有窗口/频率。生产事实表明19:45截止窗口是否覆盖完整发布尚无证据，因此本方案目前只能保证拒写已知缺口，不能保证当天一定完成。**待评审建议**：仅对排程32及规则11，将window_end从19:45延长到21:30、兜底从19:50移到21:35；保留15:30起点、300秒间隔、Asia/Shanghai、启停状态及原cron星期范围。晚间时间只是待观察校准的运营配置，不是判断完整的依据，数据仍必须通过集合与两次稳定确认。未经确认不改变§7.10.3的现有迁移约束，也不执行生产修改。扩大窗口后预计约73轮身份扫描（原约52轮，含端点）；每轮1–3请求，约73–219次/日，需结合实际polling和共享账户配额重新验收。
+
+#### 7.11.2 三张表的字段与约束草案
+
+复用现有Foundation schema和JSON映射，时间戳统一带时区；运行逻辑只读取数据库。下面是待M0验收的DDL合同，不是已创建表。2026-10-09本地 `alembic heads` 为 `20261008_000184`；创建迁移时必须再次查询head。
+
+| 表 | 字段与类型 | 约束和读取规则 |
+| --- | --- | --- |
+| baseline | `dataset_key varchar(64) / source_key varchar(32) / version integer`；`effective_from date / sample_trade_date date / parent_version integer nullable`；`codes_json JSON / code_count integer / code_set_sha256 varchar(64)`；`origin varchar(32) / evidence_json JSON / created_at timestamptz` | 三元主键；version/count>0；代码严格唯一排序、非空、count及hash由同一集合计算后校验；父版本复合FK指向同表；适用查询索引dataset/source/effective_from/version；按不晚于目标日的effective_from、version倒序选择。无适用版本阻塞，不拿今天基准套历史 |
+| scan | `scan_id UUID`；dataset/source、`target_date date / observed_at timestamptz`；`baseline_version integer nullable / policy_digest varchar(64)`；`status varchar(32) / reason_code varchar(64) nullable`；`codes_json JSON / code_set_sha256 varchar(64) nullable / source_row_count integer / code_count integer / missing_count integer nullable / added_count integer nullable`；`request_count integer / response_bytes bigint nullable / duration_ms integer / terminal_offset integer nullable / diagnostics_json JSON` | scan_id主键；dataset/source/date/time/scan_id查询索引；基准复合FK可空；失败/未齐备也是扫描事实，不能进入有效确认链；只对完整身份扫描生成集合指纹；指标非负；记录policy_digest，不同预算/规则口径不拼成稳定确认 |
+| validation | `validation_id UUID`；dataset/source、`target_date date / revision integer / baseline_version integer`；`first_scan_id UUID / second_scan_id UUID`；`codes_json JSON / code_set_sha256 varchar(64) / source_row_count integer / normalized_row_count integer / raw_row_count integer / view_row_count integer / rejected_count integer`；`committed_at timestamptz / evidence_json JSON` | UUID主键；dataset/source/date/revision唯一；上述scope/revision倒序读取索引；基准和两scan复合/普通FK；revision>0且rejected=0，四个数量相等并逐集合核对；该行与业务Raw在同一事务提交，不先落“成功”再写Raw |
+
+baseline不加Ops用户/TaskRun外键；人工确认依据作为标量及JSON记录，避免Foundation反向依赖Ops/App。scan中的失败细节不记录token、原始凭据或全量因子值。业务提交证据只引用Foundation事实，Ops日志可以引用scan/validation ID作为观测。
+
+基准不可覆盖修改。V1导入是单独批准的幂等操作，不放Alembic；版本相同指纹不同拒绝。稳定superset通过正式写入对账后，与新baseline、validation一同提交。扩容、同日revision分配及并发发布在Foundation短事务中锁定当前基准行并重新校验；若期间已变版本，退出重新确认。取得锁前完成所有源请求，锁不跨网络。目标当日有源集合以外的代码则拒绝，不删除业务行。
+
+相同dataset/source/date/基准版本/集合指纹的已提交验证重放为幂等读回，不凭TaskRun success推断成功。validation是提交时证据；外部维护之后若修改目标集合，应重新对账，不能把旧validation当永久真实性保证。scan/validation保留策略未批准，禁止加入自动删除任务。
+
+#### 7.11.3 配置与执行合同细化
+
+覆盖门禁只针对本Definition声明，不对所有raw-only数据集启用。拟在 `DatasetQualityPolicy` 新增可选覆盖策略对象，内容冻结进 `PlanQuality`；Definition builder、resolver、plan序列化、模板和全部使用方须同步迁移。复用现有 `planning.page_limit=8000 / max_source_rows_per_unit=16000 / fetch_concurrency=1`，不在新策略重复保存这些值。
+
+| 拟新增策略字段 | 拟值与来源 | 消费者、生效和验收 |
+| --- | --- | --- |
+| `source_coverage_policy.kind` | `historical_code_set_v1`，Definition代码配置 | Foundation覆盖服务、resolver/PlanQuality、probe/executor/validator；规则升级后policy_digest变化，旧确认无效；其他Definition默认None |
+| `stable_scan_count / stable_interval_seconds` | 2 / 300，Definition质量策略 | 仅连续完整同集合的扫描；不足间隔、失败插入、基准或policy改变均重新确认 |
+| `max_scan_requests / scan_deadline_seconds / call_deadline_seconds` | 3 / 60 / 20，Definition覆盖策略 | shared有界source transport及覆盖服务；deadline从等待本地限流前开始计时，每页用剩余时间；无隐式HTTP重试、无65秒sleep；超限本轮终止 |
+| `max_response_bytes / max_working_memory_bytes` | 16,777,216 / 134,217,728，Definition覆盖策略 | 身份和正式扫描分别核算累计传输与处理内存；具体硬限制方法和整进程测量仍待验收，不能只限制JSON字符串长度 |
+| 证据可用时长 | 由当前ProbeRule间隔的2倍推导 | Foundation判定接收调用方的确认间隔，probe/runtime及正式执行须一致；执行时重核最近扫描时间、规则和基准，不新增TTL配置 |
+
+以上不新增env/Settings、数据库开关或前端常量。Definition随发布生效，新计划冻结新策略；原已排队计划缺少门禁快照时应拒绝执行并要求重新规划，不静默按旧语义写入。具体重规划提示与全部恢复消费者在M0合同审计中验证。基准版本持久化位置及适用范围见§7.11.2；现有Ops `max_triggers_per_day` 的固定3次仍由capability提供，经schedule/binding持久化，在runtime和fallback统一消费。窗口/间隔/cron仍是Ops现有持久化配置，window_end修订待单独确认。
+
+**按模板0.3.5补充执行设计：** point是一个开市日unit；range规模随日期增长，按长任务设计，不以单日约11秒免除门禁。完整89字段取数和归一化最多一日16,000行留存，Raw upsert可按现有DAO批次发送，但提交边界仍为完整日期，不能让已验一页成为业务部分发布。扫描事实每次独立提交，业务Raw/扩容基准/validation只在单日短事务提交；失败rollback当前日，前日已提交保留。
+
+幂等键为Raw `(ts_code,trade_date)`，业务验证为dataset/source/date/基准版本/集合指纹。取消检查在unit和页前后、网络等待循环、归一化/写入批次前后及提交前；单调用可终止，取消不领下一unit。重启/续跑从对应validation和Raw/view当日读回确认已提交unit，只有范围、策略和数据证据一致才跳过；没有证据的旧100条不跳过，不新增checkpoint表或第二套TaskRun状态机。覆盖扫描事实可恢复稳定观察，规则版本变更则重新确认。
+
+进度复用TaskRun/unit节点：阶段、当前日期/页、已提交unit数、总unit数、百分比、业务行数及最后更新时间；处理超过10秒应发布阶段进度，不得30秒无可见更新。完成量只随业务提交增长，心跳不冒充完成量，ETA缺证据显示“暂无法估算”。沿用当前worker和lane，单日串行，不新增服务。TaskRun与活动节点失败/取消/成功同终态；业务提交后独立写Ops观测，观测失败不回滚业务。
+
+隔离验收必须包含运行—中途取消—重启续跑—幂等重放—业务读回、进度单调和Ops写失败；源调用、内存上界及数据库批次的实际边界尚未实现和验证，故此处设计不视为0.3.5已关闭。
+
+#### 7.11.4 覆盖摘要API草案与展示
+
+在现有Ops API新增后端定义的 `source_coverage` 可空对象（其他数据集为null），不新增维护输入或TaskRun状态：
+
+| 字段 | 类型及语义 |
+| --- | --- |
+| `status` | `unknown / baseline_missing / source_incomplete / confirming / ready / validated / blocked`；validated仅来自业务validation，不来自probe命中或TaskRun success |
+| `target_date / baseline_version / baseline_count` | date或null、正整数或null；总数来自适用基准代码集合，绝不固定3,388 |
+| `source_count / missing_count / added_count` | 非负整数或null；失败或未完整分页时未知项为null，不能填0 |
+| `stable_scan_count / required_stable_scan_count` | 非负整数 / 2；由Foundation确认链生成，前端不自行计算 |
+| `scan_id / validation_id / observed_at / validated_at` | UUID或null、带时区时间或null；不同日期证据不得拼接 |
+| `reason_code / summary` | 可空codebook原因与中文说明；包括超预算、过期、目标额外代码等；不在列表返回完整代码集合 |
+
+Foundation返回覆盖事实；Ops查询在freshness/card/probe日志/TaskRun诊断中投影同一schema。原日期字段保持日期语义，另显示“历史覆盖已验证/未验证”；日期fresh不能把覆盖未知显示为全量完成。`ProbeRunLog.payload_json.source_coverage` 和TaskRun现有diagnostics承载同形摘要，查询层按schema验证；旧日志缺摘要显示unknown，不补造历史验证。
+
+当前freshness优先读snapshot，card又消费freshness。因此M3必须对snapshot路径与live路径统一附加当前Foundation覆盖摘要，并在附加后重算展示摘要；不能只改live。不为覆盖事实新建Ops事实表。日期审计保留 `date_bucket` 和既有日期缺口计数，明确它不认证代码覆盖；本次不增加全历史覆盖审计任务，不把未知历史日期追认为完整。前端共享API类型、自动任务页、数据集卡片/详情及日期审计说明均迁移，不能依赖页面硬编码或普通TaskRun success标绿。
+
+#### 7.11.5 硬口径与当前消费者对账
+
+下表记录真实读取点及拟验收，**尚未实施的新行为全部为计划**。完整合同审计须继续追新策略序列化和恢复路径，不把该表当作已通过实现验收。
+
+| 硬口径 | 真实实现/消费者与影响 | 正反例验收计划 |
+| --- | --- | --- |
+| 日期输入与源参数分别负责 | `manual_action_query_service`读取input/date/capability；`catalog_query_service`读取动作和automation能力；manual页读取后端time_form；resolver→validator→unit_planner→`_idx_factor_pro_params` | point/range仍展开开市日、filters为空；隐藏ts_code和自动固定日期被拒绝；早于V1且无历史版本明确阻塞 |
+| 不依赖指数池，数量从集合推导 | Definition no_pool、planner generic、Foundation baseline/scan；`action_catalog`既有workflow不增加idx-factor步骤 | 未激活的基准代码仍是预期；同数量换码拒绝；稳定superset动态增加count；不加入workflow |
+| 两轮稳定、同一有界取数能力 | `source_client`/`TushareHttpClient.call_bounded`及专用probe；当前transport有anns_d错误语义，需要注入并保留公告回归 | 132条稳定不放行；满页尾页、限流/字节/取消/超时拒绝；其他源条件不受改变 |
+| 正式取数仍须严格校验 | Definition当前reject记录、unit_date_field=None、duplicate_key_policy=allow；normalizer→writer raw-only分支→executor | 填unit_date_field并拒绝重复身份；89字段缺键拒绝、值null允许；Probe后变100条/reject时零业务提交 |
+| 业务事实和观测分离 | Foundation三表；executor业务commit；Ops task runtime及snapshot写入 | 状态写失败仍可读回业务验证；并发扩容单版本；取消/重启不丢已提交unit |
+| 日志匹配不计作正式成功 | capability固定1、binding持久化、probe runtime按matched日志限次、fallback按probe成功去重，均需迁移 | 预算合并计算实际自动入队，失败可在3次内再触发，取消不自动重启；同指纹不下载，稳定新增可再次发布 |
+| 日期与覆盖分别展示 | `dataset_definition_projection`、`dataset_observation_registry`、freshness live/snapshot、`dataset_status_projection`、card及前端详情；CLI snapshot rebuild调用相同服务 | 日期有100条仍可观测为有日期，但覆盖未验不能全量标绿；无基准/无validation显示unknown或blocked；旧snapshot不绕过 |
+| 日期审计不变成指数池矩阵 | `date_completeness_audit_service`读取date_model及completeness.scope=date_bucket，相关schema/API/page | 日期缺口计数保持；没有验证证据的历史桶不能贴“全量已验”；不新增跨日自动补写 |
+
+已跑现有隔离测试：`.venv/bin/pytest -q tests/test_dataset_writer_idx_factor_pro.py tests/test_dataset_normalizer.py tests/test_dataset_action_resolver.py -k idx_factor_pro`，8 passed、149 deselected。它们使用stub/mock，证明当前raw-only路径、日期输入和基础归一化；不证明新覆盖门禁、取消恢复、页面或生产部署。设计后的测试矩阵继续以§7.9和模板追溯门禁为准。
+
+#### 7.11.6 M0待关闭项与停止点
+
+1. 确认§7.11.1的窗口修订，或提供连续日内证据证明原窗口够用；不能一边承诺不改窗口，一边承诺任意晚发布都能自动补齐。
+2. 确认统一门禁会让早于2026-10-08、无适用基准的历史维护阻塞；现有point/range支持历史，不能默认为这是无影响变更。历史版本须另做源样本和生效日确认，不默认将V1追溯到所有历史日期。
+3. 确认128 MiB与8,000行实测冲突的预算修订方向；512 MiB候选仍需整进程及实际部署资源验收。补真实limit/offset分页、有界调用、共享账户配额验证；60秒扫描也是拟预算，尚非已验证合同。补新策略的builder/lint/序列化/恢复、完整API投影审计，并按原模板完成实施追溯账本；未关闭前不编码。
+4. M0独立验收后才进入M1。生产Raw/view当前已由手动补齐，本轮不补写、不迁移、不启用任何排程，不将只读查询或8个当前测试通过视为M1–M4完成。
