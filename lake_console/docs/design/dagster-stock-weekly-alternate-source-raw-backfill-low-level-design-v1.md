@@ -1,5 +1,210 @@
 # DG 股票周线备用源 Raw 补齐：代码级 LLD v1
 
+<a id="adjusted-weekly-prod-refresh-lld"></a>
+
+## 2026-10-10 新阶段 LLD：复权周线接收 Prod 新增及历史修正
+
+状态：设计完成，待 P0/D0 技术评审及验证，未开发、未迁移、未切换正式供数。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
+
+依据：[新增阶段方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#adjusted-weekly-prod-refresh)、[Prod LLD](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)、[DG数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)。本节按模板覆盖数据卡、Run Contract、来源/字段、asset/check/job/sensor、初始化/恢复、性能和分阶段验收。
+
+### A1. 数据卡、层级和三层时间语义
+
+| 项 | 合同 |
+| --- | --- |
+| dataset/asset/job | 保留 stk_period_bar_adj_week / raw_tushare_stk_period_bar_adj_week / raw_stk_period_bar_adj_week_update_job |
+| 源事实/传输来源 | Tushare stk_week_month_adj(freq=week) / Prod Raw首次导出、后续Prod闭合批增量；DG不直拉该接口 |
+| 层级/列 | Raw；原21列和Decimal精度不变，来源传输信息只在执行metadata，不加到Parquet |
+| 数据域/正式登记 | 原quote_data域、DG中文名“股票周线原始复权行情”；catalog/name_mapping.py和catalog/lake_assets.py沿原entry校准新description/source合同，不新增entry |
+| 下游 | 既有三项Raw checks和维护审计；本阶段不新建Silver/Gold或页面读取消费者，后续接入财势乾坤另行设计 |
+| 主键 | ts_code、trade_date、freq；周分区按既有自然周映射，trade_date原值保留 |
+| 分区 | cn_a_stock_week_ends；raw/tushare/stk_period_bar_adj_week/week_end={YYYY-MM-DD}/part-000.parquet |
+| 起点 | 本次Prod实际MIN(trade_date)，历史2010-01-01只是旧证据，不做硬编码或在市过滤 |
+| 时间输入 | 原维护入口按周意图；新增内部交接批选择不等于新增源参数或日行情要求 |
+| 执行unit | Prod unit / DG年度候选阶段 / 单个周文件提交；一次job可交付多历史周 |
+| freshness/audit | 周数据覆盖仍按既有交易周；交付revision只表示消费进度，不替代覆盖和准确绑定检查 |
+| 范围外 | 未复权周线、备用源、月线、Silver/Gold、自行复权、Wealth API/UI、远程Prod按钮 |
+
+资产事实源、schema注册及模板UI说明保持正式入口。source_system仍表达Tushare供应商；description明确“从Prod接收；本批含新周及历史修正”。不得把“已登记事件”写成“价格基准已验证”，不得把旧源无数据行称作已刷新。
+
+### A2. 当前代码差异和消费者迁移
+
+当前 assets/stock_weekly.py 的复权分支调用 StockWeeklyPointWorker，直接使用Tushare token；StockWeeklyRawConfig限制create_or_identical；io/stock_weekly_raw.py把既有与输入合并后检查同键冲突；sensor按两主源同周ready推进共同进度。以上均不足以接收合法历史修正。
+
+以下路径均相对 lake_console/orchestrator/src/orchestrator/defs；拟新增文件明确标注，不借目录命名推断已有能力。
+
+| 代码点 | 开发级变更 | 主要消费者/验证 |
+| --- | --- | --- |
+| run_contracts/stock_weekly.py、configs.py | 新增具名StockWeeklyAdjProdConfig和WeeklyAdjProdDeliveryBudget；原shared config只给未复权/备用使用 | asset、sensor、手动配置、bootstrap CLI、静态门禁全部迁移 |
+| prod_db/stock_weekly.py；拟新增prod_db/stock_weekly_adj_delivery.py | 行情导出仍bootstrap专用；新增受限的闭合头/冻结unit payload读取 | sensor只查头，job流式捕获；SQL白名单和参数反例 |
+| 拟新增stock_weekly_adj_delivery.py | 年度组装、逐文件提升、恢复和事件计划的具名helper | 复权asset调用；不注册第二套资产或数据库 |
+| io/stock_weekly_raw.py | 只为PRIMARY_ADJUSTED增加明确的replace_input_keys关系构造器 | 初次重bootstrap、增量候选；其他两源仍拒绝异值同键 |
+| bootstrap/stock_weekly_candidates.py、stock_weekly_promote.py | 复用经核验的候选/原子提交；扩展当前意图的交接标识及覆盖审计 | 同文件系统、已有锁/基线、防竞态、退出恢复 |
+| assets/stock_weekly.py、checks/stock_weekly_checks.py | 复权asset调用Prod driver；check共用只读单文件核验 | 原schema/check名保留；历史分区及anchor准确绑定 |
+| jobs/stock_weekly.py | 仍只选复权asset及其checks；生产循环不放入job文件 | repository定义、UI、静态selection门禁 |
+| sensors/raw_stock_weekly_update_job_sensor.py、stock_weekly_update*.py | 复权分支消费独立revision；未复权保持既有新周逻辑 | cursor、运行键、pending去重、取消/失败、旧cursor迁移 |
+| bootstrap/stock_weekly_history*.py、stock_weekly_events*.py | 新bootstrap策略必须显式是本资产、B0和replace_input_keys；事件阶段另执行 | 旧参数与新合同不能同时生效；无reports运行依赖 |
+
+完整引用审计在D0补到测试及实际手动run_config消费者，D1同步迁移，不保留复权“Prod/direct Tushare”双轨。CodeGraph已用于本轮Prod/DG入口、调用关系和影响分析；关键helper语义另读当前代码核对。未完成的展示/自动化全消费者审计不能写成通过。
+
+### A3. Run Contract、配置来源和幂等身份
+
+拟新增StockWeeklyAdjProdConfig：contract_version=1；delivery_batch_id及closure_revision必须成对，由sensor或后端维护入口从已闭合批选择；bootstrap另有固定B0。不要允许传SQL、表名、任意staging根、Tushare参数或“强制忽略合同”。不再接受该资产的code_list_path、automatic_intent_date和create_or_identical。切换前同步迁移消费者及文档，不能静默忽略旧字段。
+
+anchor_partition为本批输入实际trade_date映射出的最大周分区；常规新周即cutoff_week。纯历史手动批亦按实际输入决定，不凭当前日期造分区。没有输入行的合法闭合批只记录已消费的空结果，不生成虚假文件、物化或green check；sensor核实闭合头确实无行情后推进revision。全市场源未完整不能形成这样的成功头。
+
+intent_id = hash(合同版本、batch_id、closure_revision、固定目标资产)。意图不包含Dagster run_id；失败/取消重新执行同批仍复用其已完成文件。staging位于 /Volumes/datasource/data_lake_staging/stock_weekly_adj_delivery/{intent_id}/，只用于本次未完成意图；完成后可清理，未来批次不能依赖其存在。正式Lake仅 /Volumes/datasource/data_lake。
+
+| 配置 | 默认/来源、持久化 | 消费者/生效与可见性/测试 |
+| --- | --- | --- |
+| source mode、字段及合同版本 | 代码注册唯一Prod模式、v1；冻结到意图 | asset/reader/check；切换部署同步，UI说明；旧模式/未知版本拒绝 |
+| delivery_batch_id/closure_revision | 无任意默认；闭合头选择，run_config及本次checkpoint | driver/sensor；显示实际批和变更范围；篡改/未闭合反例 |
+| batch单位/字节上限 | 1000 unit、每unit12,000行/8MiB；总payload256MiB | reader先查闭合摘要再导出；超量不提升 |
+| PG只读资源 | 既有scripts/psql-remote.sh及现有资源配置；连接1、SQL30秒、单导出45秒 | 不新增env/token；进程取消≤2秒；白名单/凭证隐藏测试 |
+| 代码批次 | bootstrap 300；单Prod读取≤30,000行、CSV≤64MiB | 沿现有局部WeeklyBudget，不改全局；计数/COPY一致反例 |
+| DuckDB预算 | 局部512MiB、2线程、spill2GiB | 构造器注入；不临时修改全局设置，内存/空间样本 |
+| 年度/运行预算 | 单阶段500,000行、54目标文件、源+候选文件≤128；运行≤1000目标文件、4GiB staging | 执行前预估、每阶段实计；超过即停，不能接着逐股票绕过 |
+| 日常触发窗 | 既有weekly sensor的19:30、Asia/Shanghai，来源不变 | 仅调整复权分支；不新建第二sensor/高频cron |
+| 交付水位 | 既有sensor cursor，字段adjusted_delivery_revision/pending_adjusted | 仅成功批推进；原未复权进度独立保留；迁移/回退反例 |
+
+新增预算进入一个具名局部policy及Run Contract，不散落在script、asset和sensor常量。并发使用现有weekly运行去重及promoter的源/周锁、目标基线复核；D0核查全部写者。并发限制需要实例变更时单列具体配置审计和启用阶段，不在本轮顺手改全局pool。
+
+### A4. Prod读取合同与有界捕获
+
+唯一交接字段见 [Prod合同§5.4](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#delivery-contract)。拟新增接口：
+
+```python
+next_closed_batch(after_revision: int) -> DeliveryHeader | None
+read_closed_units(header: DeliveryHeader) -> Iterator[CapturedUnit]
+validate_delivery_header(header: DeliveryHeader, budget) -> None
+```
+
+next_closed_batch按revision升序取一条闭合头，不用MAX跳过中间批。只投影合同版本、批ID、cutoff、unit数、行情行数、字节预算、摘要及anchor所需边界；SQL限定table/record_kind、使用绑定参数和LIMIT。sensor不取payload。
+
+job逐unit在短的REPEATABLE READ READ ONLY事务中读count及COPY显式列，校验闭合头列出的unit集合、scope和摘要。日期/Decimal/NULL严格按既有Parquet列合同，不经float往返；拒绝未知字段、越界周期、freq非week、同unit异值同键。使用源保存的标准化增量，不把当前可变Raw冒充旧批值。每unit捕获落staging及checkpoint后再领下一个，不积累全集在Python list。
+
+闭合头unit摘要只证明本次传输完整，不是固定历史行情hash。读取新增交接表的权限必须显式增加到只读包装及DG白名单，不能允许任意schema、SELECT *、远程写回水位或DG ack表。表尚未实施，D0/P0联合评审后再开发。
+
+### A5. 21列映射、按键覆盖与年度候选
+
+源→Prod→DG字段及精度统一引用 [Prod LLD §0.3.3](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#source-field-contract)和本文件原§4。日期、代码、成交量/额单位不变；技术采集列、交付字段不进入Raw行情。无需身份表全量格式检查，输入原始代码按Raw既有合同处理；备用任务的身份审计不复用到本链。
+
+新增明确接口assemble_adjusted_delivery_relation(con, existing, incoming, *, scope, budget)。全批输入有同键重复时，同unit必须同值；不同unit只有point_week与stock_history合法重叠时允许，按已提交unit revision选较新值，不能以文件遍历顺序last-wins。其他重叠/来源冲突拒绝。
+
+```sql
+-- 输入先完成scope/合同校验；显式投影21列，禁止SELECT *。
+incoming_unique := ROW_NUMBER() OVER (
+  PARTITION BY ts_code, trade_date, freq ORDER BY unit_revision DESC
+) = 1;
+candidate := existing ANTI JOIN incoming_unique USING (ts_code, trade_date, freq)
+             UNION ALL incoming_unique;
+```
+
+表中SQL是关系设计，不是可直接运行语句。实现用列白名单并移除unit_revision技术列；hive_partitioning=false。保留未选键及其全部值，输入替换完整源行；不只改qfq列、填0或删除旧记录。旧数据合法NULL、原始异常日期按既有Raw保留合同；越界输入不得通过“保留历史”绕过校验。
+
+执行一次发现本批真实受影响周，然后按年份处理该年全部输入代码；禁止按股票反复读取同一年的所有文件。每年输入捕获→existing关系→candidate→本次输入键EXCEPT ALL值对账及未选旧键保留对账→逐周Parquet。只读本年受影响文件，非涉及历史不重验。候选逻辑值相同可跳过replace，但仍核实本批键和值；目标变化时须产生新的物化/check，不能复用旧绑定。
+
+候选提升前完成当前年度全部候选审计；复用promoter须核对其54文件限制、路径、安全和已有锁语义。不能直接调用仍要求旧create_or_identical的组装函数，然后用catch绕过冲突。
+
+### A6. 文件提交、取消与恢复
+
+每年有界manifest只描述本意图：捕获revision、输入范围/摘要、目标原值指纹、候选值/行数、prepared/promoting/verified状态及事件待办。摘要用于本次并发检测与续跑，完成后无永久约束。候选和目标同文件系统，os.replace后读回本文件；不备份、不快照、不使用Kopia。
+
+文件前后检查取消；一个文件不可分步骤超过30秒需D0拆分验证。已提交文件永远保留，取消后不领新文件。崩溃在replace后checkpoint前：读回目标与本次候选，吻合则补verified；若目标与原基线/候选均不同，报并发修改，停止本意图，不能覆盖第三方修正。
+
+文件已提交但事件失败：不回滚文件。重放同批先核验已提交目标，再补缺失准确事件；不重新下载已捕获unit，不重复无变化替换。超过本次空间/行数预算保留未完成staging，并显示需缩小范围或重新评审预算，不偷偷放宽。
+
+### A7. Asset、正常运行事件及三项检查
+
+复权asset仍为分区asset，改成调用Prod driver的生成器；job只选择它和checks。一次job的anchor为A3规定的周；其他受影响历史分区逐个登记同asset key的AssetMaterialization，metadata含标准路径/行数和本批ID、revision、变更键数，不能新增summary asset替代真实资产。
+
+原三check名完整保留：raw_tushare_stk_period_bar_adj_week_file_contract_check、raw_tushare_stk_period_bar_adj_week_key_partition_check、raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check。职责仍是文件/列合同、唯一键与所属周、路径/行数及准确物化绑定。源payload到候选的值对账在本次driver中完成，不变成永久全历史production check。
+
+历史分区顺序：候选通过→文件提交读回→生成器yield该分区物化→读取该run新记录获得storage_id/run_id/timestamp→复用同一单文件检查函数→context.log_event(AssetCheckEvaluation)，显式partition及target_materialization_data。任何失败必须使driver失败，不能只记failed event再返回成功。anchor最后yield MaterializeResult，正常asset_check节点核验anchor；因此job成功才代表整个批全部文件及事件完成。
+
+当前本地Dagster源码的AssetExecutionContext.log_event委托OpExecutionContext，后者明确接受AssetCheckEvaluation；构造器支持partition和三字段目标物化指针。但log_event有事件缓冲，不能在yield之前假设storage_id已可读。D0必须用隔离实例验证生成器flush顺序、多个历史分区、anchor、失败及准确绑定；未验证不得落生产实现。不在日常job里调用report_runless_asset_event或伪造run ID。
+
+事件读取按run增量cursor分页、按年度批量配对，禁止每分区反复查询全历史。每个实际修改分区最多1物化+3check，1000文件上限对应4000事件；同意图恢复只补缺项。checkpoint里的“事件完成”只能在读回存储记录后落下，不能凭已调用log_event。后续sensor只需本run结果及最终批摘要，无需重查859个历史分区。
+
+bootstrap事件登记仍走已批准的独立登记入口，先全量文件验收再另获事件阶段授权。历史runless初始化能力不作为日常修正入口。
+
+definition/materialization/check三层metadata分别通过build_asset_definition_metadata、build_materialization_metadata、build_check_metadata构建；RunRequest及cursor沿正式build_run_request/build_sensor_cursor消费者校准，不手拼顶层path/row_count等旧字段。新增批信息放注册的extra metadata，不改行情列或伪造freshness。
+
+UI九项设计：asset说明写内容/周分区/原始对象及来源；job说明“接收一个已闭合Prod批，更新输入键，失败可同批恢复”；sensor说明19:30、源闭合及串行条件、代码默认STOPPED与实例状态分开；cursor展示目标批/原因/下一步；run config scaffold明确填写已闭合批ID及revision，不填写源参数；物化显示批、路径、行数、替换/保留数量；checks显示核验范围、失败原因及≤10个样本；skip/fail显示等待Prod、合同不符、预算超限或手动重试；最终summary明确全部文件/事件是否完成，不只显示anchor成功。D2用真实UI验证30秒内能定位失败层及动作。
+
+### A8. Weekly sensor决策、cursor迁移和19:30
+
+保留raw_stock_weekly_update_job_sensor及未复权分支，不另建sensor。复权分支顺序：
+
+1. 既有19:30窗口判断；查询两主源queued/running guard，已有写者则返回。
+2. 处理pending_adjusted：成功且本run最终摘要合同、batch/revision及完整交付计数吻合，才推进adjusted_delivery_revision；失败/取消保留原批，明确手动重试；不得用新run_key无限重复失败批。
+3. 头查询只取下一闭合批；合法零行结果无需生成虚假物化，按A3处理；未闭合或未知合同返回明确原因。
+4. 构造一个RunRequest，run_key固定资产+闭合revision，partition为anchor，run_config由唯一builder生成，tags含原意图和批。同tick最多一个请求；积压复权批按顺序优先，未复权分支保持原源就绪规则及现有串行边界。
+
+新cursor只存复权已消费revision、pending批/run标识，及既有未复权周期坐标；不放unit清单、行情键和捕获路径。旧cursor已验收周不能推导B0 revision。D3文件/事件完成后受控迁移：保留未复权进度，以真实B0初始化复权；缺B0停止该分支并提示，不能默认为0重新吃全部历史或拿旧周号假装同步完成。
+
+复权feed分支每tick预算：最多一条Prod头查询，最多2条头/控制记录、4KiB；Dagster任务/批结果查询≤6次；零Parquet读取、零Tushare请求。未复权分支的既有calendar/readiness读取另外遵守旧预算，不夸称整个mixed sensor零读取。出现异常不吞成“暂无更新”；原因、批ID和下一步在UI可见。
+
+Prod源晚到不形成closure，DG不创建无用下载任务。Prod次日19:30恢复原业务批；DG失败从UI重试同批，不自动切备用、不随机换日意图。取消/续跑、手动任务和配置入口必须接受同一新合同。
+
+### A9. 首次重新bootstrap及源捕获稳定性
+
+Prod完整刷新后形成bootstrap_closed边界B0，初次unit仅完成摘要；DG首次读取Raw历史，不能把缺少全历史payload当交接坏批。
+
+冻结导出前确认无未闭合发布者及最新业务revision。建议在该资产导出期间暂缓Prod发布，范围只复权周线，不阻断其他数据集；暂停/恢复属执行阶段须明确批准。若不能暂停，则每导出前后以及全捕获结束校验表中所有业务记录revision均未变；任何plan/unit变化亦作废捕获，不能只比较最新closure。不要持一个全历史长TX或单靠updated_at拼快照。
+
+代码对象来自Prod实际freq=week键集合，包括退市及合法历史代码；300代码×年短只读count/COPY，沿既有导出上限。全部捕获在同B0下完成后，可解除发布暂停；后续闭合批从B0之后接收，不能略过捕获期间的修正。
+
+组装采用A5按键替换，源键集合是完整Prod集合，非空旧DG独有键保留并单列。完整对账定义为“源所有键和值一致 + 未选旧DG键值保留”，不是先删DG独有数据来制造两边行数相同。空、未刷新、DG独有保留项解释清楚；完整一次验收通过后结束，不建立例行历史扫描。
+
+文件阶段、事件补录阶段、B0水位迁移按D3逐项执行；每阶段另获批准。只留简明结果及管理员要求的最终未解决项，完成的JSON/CSV捕获/清单可以删除。正式checks/sensor和后续新批不读取这些材料。
+
+### A10. 成本、预算及实测门禁
+
+历史基线截至2026-10-09：859文件、2,902,386行、158,233,993字节。单股000001.SZ从2010区间有851行；20只股票变化约17,020历史行加5559新周行。DG文件成本与涉及周数相关，不能把行量当文件IO量。
+
+一批按年份17个阶段，常见每年≤53周；相同文件在本批年度合并时只组装一次，不按变化股票反复组装。source payload捕获与候选可分阶段持久化，Python常驻内存只保留当前unit及小摘要；DuckDB扫描/排序/比较用SQL，禁止Python逐行写Parquet。局部预算见A3，spill和源/候选均位于正式staging根。
+
+日常预计读取受影响正式文件至多约2.9百万行、158MB压缩量，再写相应候选；存在新键/多批时需重新计量。bootstrap按300代码×年、每unit≤30,000行，一连接串行；不做全市场×年无索引大扫描。增量按不变unit payload读，不再按变化代码向可变Raw查询。源SQL、导出次数、字节数、DuckDB和文件阶段时间、RSS分别记进度，每5秒有活动更新；ETA无依据显示“暂无法估算”。
+
+D0真实只读样本核实当前库存/索引、交接计划大小、unit JSONB体积及实际source合同。D2获准小样本含“单股从2010到当前的全部历史文件”候选/提升，不以一周的快样本替代历史IO成本。初始设计预算不是实测，未测吞吐不承诺完成分钟数。任何超预算在提升前拒绝并回到范围/设计评审；不添加cache/备份系统、放宽全局或自行调整正式布局。
+
+### A11. 硬口径测试及验收
+
+以下为拟实现的测试目标，尚未运行；新测试文件名在D1/D2确定并落到当前测试目录，正式执行前检查已有环境，不自动安装依赖。
+
+| 需求 | 正例 | 必须反例/真实样本 |
+| --- | --- | --- |
+| 唯一Prod来源 | 闭合头→payload→候选 | 复权Tushare调用次数0；其他周/月asset行为回归 |
+| Raw源字段 | 21列Decimal/NULL/原始日期单位 | 技术列、float往返、freq=month、越界拒绝 |
+| 合法修正 | 输入同键新值替换、未选旧值保留 | 旧hash不阻断；同unit冲突、非合法重叠拒绝 |
+| 全市场新周+单股历史 | 同批跨年/跨百周覆盖 | 不逐股票重复扫描；不只交付anchor |
+| 文件恢复 | 中途取消、退出、replace后checkpoint前、幂等 | 并发第三方改值不覆盖；已提交不回滚 |
+| 正式事件 | 历史每分区三check准确绑定；anchor正常节点 | buffer未flush、错storage_id、缺check、事件失败不推进 |
+| 交付cursor | 顺序消费B0之后批，失败同批恢复 | MAX跳跃、未闭合、旧cursor无B0、未知版本不ready |
+| 一次bootstrap | 全部源键/值及旧键保留对账 | 混版本捕获作废；清理reports后日常仍可运行 |
+| 性能门禁 | 年度批量、局部预算、bounded sensor | 超预算不提升；每tick不扫描历史、不取payload |
+
+最小真实联合验收：一个普通新周、至少一只已确认因子变化股票的旧历史周、无变化对照股，以及源晚到/空源分类；另做正式运行—取消—同意图续跑—读回。核对Prod收到/归一化/写入、交接行数、DG incoming/替换/保留/最终键数、拒绝原因和样本；不得把保留旧值当作刷新成功或把正常完成替代取消验收。
+
+### A12. 模板对账、发布顺序及待验证清单
+
+| DG模板章节 | 本阶段落点 |
+| --- | --- |
+| §3数据卡、§4层级、§5命名、§6路径、§8字段 | A1、A5及原字段表，21列不变 |
+| §4A Run Contract、§7源、§7A预算 | A3/A4/A10；源从直拉改只读交接，Prod源实测另见其LLD |
+| §9 asset、§10/10A UI和可读治理 | A1/A2/A7/A8；每分区物化、中文原因、实际进度 |
+| §11 checks、§12 jobs、§13 sensor | A7/A8；原注册check与job，独立revision |
+| §14历史初始化、§15恢复 | A6/A9；候选、逐文件checkpoint、事件分阶段 |
+| §16切片、§17执行边界、§18验收 | A11及P0/D0→D1→D2→D3→J1；预算不冒充实测 |
+| §19反模式 | 不直写正式文件、不Kopia、不reports依赖、不每日全历史复核、不新增summary asset |
+
+发布先完成P0/D0联合合同、容量、当前connector及隔离Dagster多分区事件验证；再实施Prod P1/P2及DG D1/D2。切换前停旧复权自动分支并处理已有running任务，批准Prod历史刷新，批准DG文件bootstrap，批准事件登记和B0迁移；最后批准19:30串联启用。未复权/月线sensor不借机停用。
+
+回退首先停新复权自动分支，保留已提交业务数据和文件，诊断本批交接；不得自动回到DG直拉双轨或恢复旧证明门禁。若需代码回滚，对发布范围和正在运行意图逐项确认，不回滚行情、不清空表、不删除历史。
+
+尚未验证：新表合同/容量及真实迁移head、当前connector分页、完整消费者清单、逐日factor覆盖、历史源基准、DG事件flush/绑定、全历史单股IO与RSS、正式取消恢复、联合19:30及源晚到。业务范围已确认，以上是开发前及分阶段验收门禁，不把本轮文档完成写成运行通过。
+
 ## 2026-10-09 结案口径（当前状态）
 
 管理员已确认：本需求按“开发与当前数据交付完成”结案，不标为全部真实验收通过。历史 bootstrap、备用源尽力补齐及运行依赖纠偏已完成；周线两主源交付至2026-10-09，月线两主源交付至2026-09。正式实例的两个更新 sensor 均为 RUNNING，每日上海时间19:30开始检查；源码默认 STOPPED 与实例启用状态分开，不需要再次启用。
