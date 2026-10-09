@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-日期：2026-10-06；最近更新：2026-10-09。当前历史设计已按管理员决定改为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18为旧路线开发记录，旧历史代码已按日期路线迁移；日期代码和隔离验收见§20，真实Prod日期查询核验见§21，管理员确认后的Prod索引及复测完成证据见§22。七表共享控制、逐文件提升和显式日期入口已开发完成，§25保留样本设计/批准清单，管理员批准后的正式两日样本已完成，当前结果见§26；§17～18不作为新路线证明。正式全历史、P4/P5未执行。
+日期：2026-10-06；最近更新：2026-10-09。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4已进入首个数据集moneyflow_mkt_dc的资产/check/job/catalog接入与隔离验收，见§29；sensor、历史分区/event及正式DG执行尚未完成，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～29为准。
 
 ## 1. 硬口径和影响面
 
@@ -8,7 +8,7 @@
 
 当前调用链为资源→有界分页→writer→文件check→asset/job→sensor/catalog。CodeGraph explore命中了分页会话及BSE调用，但结果混入同名符号；已直接核验 resources.py、tushare_request_policy.py、duckdb_connection.py、cn_a_trade_day_sensor.py、dc_board_partition_sensor.py。现有无时钟门禁的calendar-only helper不能直接满足22:00；使用有same_day_register_start参数的注册helper，限定本次七个注册器，不改变既有注册器。
 
-改动落点沿用原方案§12；当前无七数据集定义。生产DatasetDefinition/request builder、Web/API、其他资产消费者均不改变。无子系统边界或依赖矩阵变更。
+改动落点沿用原方案§12，并按数据集拆分模块。当前仅moneyflow_mkt_dc的两个资产定义已接入；其他六数据集及sensor/历史event仍待后续验收。生产DatasetDefinition/request builder、Web/API、其他资产消费者均不改变。无子系统边界或依赖矩阵变更。
 
 ## 2. 日更完成、异常与修订
 
@@ -1117,3 +1117,221 @@ PY
 正式执行前39项日期入口测试再次通过（6.86秒）、改动Ruff通过；代码/文档/804项联合与受保护测试日志hash均与上轮验收一致，提交后没有改代码，不重复整套测试冒充正式验收。CodeGraph sync/status保持根索引最新，本轮无API/CLI、配置、DatasetDefinition、Dagster definitions或依赖矩阵变更。实际来源SQL/证明、14原checkpoint、28候选/正式hash与大小、逐文件promotion事实、三条批准命令及重跑结果、权限/writer核验和真实计时均在[正式样本证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json)。报告不含凭据或业务明细值；临时审计驱动在归档源码/hash后移除，正式控制/receipt/SQL与文件均保留。
 
 P3-E精确正式样本退出条件已通过，P3-D早期低覆盖/近期完整日的真实磁盘链路测量已补齐。本次不关闭整个P3：原方案§24.2的P3-D整体成本汇总与P3-F分批全历史仍待推进。下一步以已有真实查询/大批次接收、隔离10万行转换和本次正式提升证据形成全历史请求/时间/空间成本、完整目标冲突清单及精确执行计划，再获批推进。21160938行/7804数据集日期/15608文件仍是未执行的全历史参考，不能把28文件样本计作全量；现有两个日期届时只允许同hash幂等复用，不删样本或覆盖差异。P4资产/catalog/job/sensor/事件和P5真实日更仍后置，files_complete不代表DG资产或分区ready。
+
+## 27. 全历史成本汇总与 P3-F 准确执行清单（2026-10-09，当前进度）
+
+### 27.1 本轮只读结果及执行硬口径
+
+本轮按§26下一步完成准备，未执行正式全历史。七表截至2026-09-30的来源聚合重新读取两轮，14连接/56 SQL、69.65秒、95.58MiB，字段类型/日期/行数/键/DC分类均与原全历史合同一致。来源合同hash为`05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618`。各表范围与成本表见[原方案§32](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md:603)。完整来源SQL/证明、423个准确unit和15,608个目标、28既有文件hash、估算输入/公式、代码hash及下列全部命令保存在[本轮证据报告](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json)。
+
+| 硬口径 | 代码点及当前验证 |
+| --- | --- |
+| 七表独立；源实际日期保留缺口 | metadata validator→`build_moneyflow_history_plan`→cohort `_manifest`；重新生成全部plan/hash与原冻结相同，423批次全部符合20日/100000行/不跨年 |
+| 经审查合同才能读取业务 | builder `expected_cohort_hash`及持久`reviewed_cohort_hash`；39项入口验收包含错误hash和续跑绕过拒绝，本轮确认代码hash未变、14真实源SQL与当前builder逐项一致 |
+| 每批两次源读＋全字段完整校验 | `_build_unit/receive_history_rows/source_difference`；既有真实日期最大批次及正式样本验收复用，拒绝与两轮差异不得非零 |
+| 全部候选完成后才能提升 | promoter `_frozen`必须423个closed unit；尚无“构建一批立即提升”的执行能力，清单不假设有 |
+| 全局冲突检查、逐文件原子提升/复用 | `_preflight/_closed_prefix/_promote_file`；28样本真实hash本轮一致，候选hash仍须执行时对比；不同内容拒绝，不覆盖 |
+| 同操作预算与续跑 | `_operation/_Store/_Control`＋原逐文件intent/complete；既有804项联合覆盖取消/退出/续跑/幂等/状态写失败；本轮代码不变，不声称做过新的正式故障注入 |
+| 聚合收尾，不能用events代表文件 | 每批物理校验＋最终全部文件hash/源proof/按年日期行数汇总；收尾聚合函数在28既有正式样本只读通过，错日期/错行数/漏文件反例被拒绝，正式全量仍待执行 |
+
+CodeGraph explore已覆盖metadata/source/plan/cohort/receive/io/promote及测试；同名`_freeze`混入其他模块的边由实际moneyflow源码补查，不据此推断QTF依赖。根索引status最新。本轮只改原方案/本LLD及报告，没有代码、配置、依赖、API/CLI、DatasetDefinition或active asset/job/sensor改动。
+
+### 27.2 执行量、资源和风险
+
+全量21,160,938行、7,804数据集日期、423unit、15,608个两层文件；七表每层各自保存实际日期。28个样本来自两个已验收日期，每表4文件；当前全部hash/大小一致，目标清单外Parquet/符号链接/冲突0。预计新增21,131,155行/7,790数据集日期/15,580文件；复用28的条件是新候选hash仍与原正式文件一致，不能承诺在源金额修订后依然复用。
+
+正常14元数据＋846业务COPY＝860 READ ONLY连接/3440 SQL，业务两次输入42,321,876行。每批独立短事务、ROLLBACK后结束，不使用全历史事务。每批的两次来源一致性不等于七表共同时间点快照；尾部计数刷新也不能证明同键资金值之后未修订。
+
+参考总耗时2.46小时，计划范围2.5～7.5小时；两层Parquet约3.77GiB，工作空间约8.53GiB。原方案§32给出分项公式和实测出处，隔离fixture/合成值与真实Prod/正式SSD测量分开。120秒是单步骤门禁，9.29分钟预检估算是两次预检中多个步骤的总时间，不允许把一轮全范围布局循环放宽至分钟级；该布局循环完整候选规模的实耗尚未测得，触限即停。
+
+固定874连接/3496 SQL、每步骤120秒、helper累计计费12h、32GiB总执行字节、首次64GiB空闲、RSS768MiB、接收32MiB/块64KiB、DuckDB512MB/1线程/0spill不变。首次源冻结仍在原候选build内完成；不要先单独freeze一次再build，浪费7次恢复余量。失败与恢复连接计入874；续跑的七表元数据复核另外7连接，原14余量最多容纳两轮完整复核且还要扣失败COPY，不能称无限重试。
+
+正式两根挂载/权限已只读核对，同设备16777244，当时空闲约2.73TiB；拟操作目录不存在。执行前重新核对移动盘、目标文件、原writer及维护窗口。历史helper共用namespace writer锁，P4尚无七表active writer，但该锁不能保证任意外部进程不写同目录。没有自动停启服务或改调度。
+
+### 27.3 待批准的准确命令与读写范围
+
+工作目录固定`/Users/congming/github/goldenshare/lake_console/orchestrator`，使用现有`.venv/bin/python3 -B`，不安装/升级或同步依赖。helper不读写Dagster instance，无目标`DAGSTER_HOME`。operation为`history-full-20261009`，cutoff固定2026-09-30，默认全历史，不传`selected_dates`。写入仅该操作的正式staging及报告列出的Raw/Silver文件：
+
+- 控制/候选：`/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009`；共享锁为其父目录`writer.lock`。
+- Raw：`/Volumes/datasource/data_lake/raw/tushare/{dataset}/trade_date={date}/part-000.parquet`。
+- Silver：`/Volumes/datasource/data_lake/silver/moneyflow/{dataset}/trade_date={date}/part-000.parquet`。
+- 审计与进程计时证据：仅`/private/tmp`，归档报告不含业务明细值或凭据。
+
+第一步：mount/权限/空间准入，通过原来源入口读取两轮元数据并比对已审计hash；一致后依次构建423批候选。每个unit独立持久化，内存与单批相关，不在进程内保留全历史业务数据。这里只保留有界CSV内存流，没有CSV落地、spool或按代码导出后再重分区：
+
+```bash
+.venv/bin/python3 -B - <<'PY'
+import json
+import os
+import shutil
+from pathlib import Path
+from orchestrator.defs.bootstrap.moneyflow_history_cohort import build_moneyflow_history_cohort_candidates
+from orchestrator.defs.bootstrap.moneyflow_history_source import PsqlMoneyflowHistorySource
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
+lake, staging = Path(DEFAULT_LAKE_ROOT), Path(DEFAULT_LAKE_STAGING_ROOT)
+assert lake.parent.is_mount() and lake.is_dir() and staging.is_dir()
+assert lake.stat().st_dev == staging.stat().st_dev
+assert all(os.access(p, os.R_OK | os.W_OK | os.X_OK) for p in (lake, staging))
+assert shutil.disk_usage(staging).free >= 64 * 1024**3
+result = build_moneyflow_history_cohort_candidates(
+    staging_root=staging, operation_id='history-full-20261009', cutoff='2026-09-30',
+    expected_cohort_hash='05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618',
+    source=PsqlMoneyflowHistorySource(),
+)
+print(json.dumps(result, ensure_ascii=False))
+PY
+```
+
+第二步：全部423个unit候选verified后，统一核验原checkpoint/候选hash和全部实际目标，确认新增15,580、同内容28、冲突0。`apply=False`会在正式staging写promotion合同和progress，因此它属于待批准正式步骤；源请求0：
+
+```bash
+.venv/bin/python3 -B - <<'PY'
+import json
+from pathlib import Path
+from orchestrator.defs.bootstrap.moneyflow_history_promote import promote_moneyflow_history_cohort
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
+result = promote_moneyflow_history_cohort(
+    staging_root=Path(DEFAULT_LAKE_STAGING_ROOT), lake_root=Path(DEFAULT_LAKE_ROOT),
+    operation_id='history-full-20261009', cutoff='2026-09-30',
+    apply=False,
+)
+print(json.dumps(result, ensure_ascii=False))
+PY
+```
+
+第三步：第二步无差异、精确范围不变才APPLY。APPLY仍先做完整预检，再以原当前unit物理校验和逐文件intent/同设备`os.replace`/读回hash/complete推进。不同内容停止，不覆盖、重编码、删除、备份或调用Kopia；源请求0：
+
+```bash
+.venv/bin/python3 -B - <<'PY'
+import json
+from pathlib import Path
+from orchestrator.defs.bootstrap.moneyflow_history_promote import promote_moneyflow_history_cohort
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
+result = promote_moneyflow_history_cohort(
+    staging_root=Path(DEFAULT_LAKE_STAGING_ROOT), lake_root=Path(DEFAULT_LAKE_ROOT),
+    operation_id='history-full-20261009', cutoff='2026-09-30',
+    apply=True,
+)
+print(json.dumps(result, ensure_ascii=False))
+PY
+```
+
+运行时按unit/逐文件读取原`progress.json`，记录stage、dataset、current_unit/file、completed/promoted/total、percentage、last_updated、连接和计费/字节；helper有步骤内更新时间，ETA仍“暂无法估算”。工具进程计时分别留存`/usr/bin/time -l`输出，不能把估算冒充实耗；shell包装仅将上述原命令的stdout/stderr写到/private/tmp，不改变helper参数、预算或范围。无需安装服务、增加自动化或初始化instance。
+
+### 27.4 只读收尾、续跑和退出条件
+
+第四步只读核验精确文件集、423个原checkpoint、两轮来源date/scope/row证明及逐文件promotion receipt；实际正式hash必须等于已通过schema、日期、主键和逐字段一致性的候选hash。接着按38个“数据集＋年份”及Raw/Silver共76组执行日期/行数汇总，严格区分Raw的YYYYMMDD与Silver的DATE，按实际filename与expected date/count对齐。只扫日期/数量，schema/key/金额一致性依据此前当前unit完整校验加实际hash未变，不重新逐日扫描全部字段。
+
+准确只读Python命令完整正文及SHA256已归档报告`execution.commands.final_readonly_audit`，运行入口仍上述工作目录/`.venv/bin/python3 -B`，临时DuckDB仅/private/tmp、512MB/1线程/0spill；每unit hash检查与每年度聚合分别≤120秒、RSS≤768MiB。结果写`/private/tmp/moneyflow-full-20261009-final-audit.json`，不修改原控制文件。该命令正文目前只做AST核验；其中实际aggregate函数/SQL已在既有28正式文件进行正向及三项反例只读核验，整个全量命令未执行。
+
+退出要求：每层21,160,938行，7,804数据集日期/423units/15,608文件全部完成，新增15,580/复用28；来源/归一化/两层数量一致、reject和两轮逐字段差异0；checkpoint不变、无计划外文件/.partial；连接/时间/空间/RSS实耗在原门禁内。`reuse`保留28个同hash候选在staging是当前代码行为，不能要求staging零Parquet或自动删掉；`move`的候选必须已移走。新的全量实际receipt/计时/聚合证据通过后才关闭P3-F和整个P3；P4/P5单独推进。
+
+候选阶段中断，只重复第一条原命令，复核元数据及已闭合前缀，再从未完成unit继续；相同operation/cutoff/hash/日期意图/预算不得换。进程退出保留步骤120秒预扣；失败请求也计数。开始promotion后，只重复第二/三条命令，接回已移入文件与intent，禁止调用builder重建移走的候选。来源/目标变化或预算耗尽停止后先核清原因，不改hash、reset账本、清目录或创建新操作绕过。最终只读审计失败只重跑审计，保留已完成正式文件；审计输出已存在时使用独立临时证据文件名，不覆盖原证据或业务文件。
+
+本轮只读准备完成，P3-D关闭，P3-F待精确范围批准。依据[orchestrator AGENTS正式执行门禁第3条](/Users/congming/github/goldenshare/lake_console/orchestrator/AGENTS.md:68)“已有批准只覆盖当时的精确范围”，§25.3两日批准不包含本节全量正式staging/15,580新增文件及28复用动作；批准后按上述清单执行，不扩展到DG分区、event、资产登记、sensor/job或日更。
+
+## 28. P3-F 全历史实际执行与验收（2026-10-09，当前进度）
+
+### 28.1 批准范围与执行链
+
+管理员明确回复“继续推进，批准”，批准§27全量清单。原四条命令从准备报告逐字提取并保存SHA256，执行顺序为候选构建→独立全局预检→APPLY内部再次全局预检及逐文件提升→最终只读验收；四条原命令均成功退出。当前分支`dev-interface`及十个历史模块hash在各阶段核对不变。本节更新§27的待执行状态，不替换原命令、拒绝与恢复合同。
+
+执行前15,608个目标与28个原样本指纹重核通过，未知文件/冲突/符号链接0、历史writer进程匹配0；正式Lake/staging挂载、可读写遍历及同设备16777244核验通过，空闲2,933,086,965,760字节。只读预查持原writer共享锁，实际helper持独占锁；不启停服务，也不声称锁能约束任意外部writer。
+
+操作始终为`history-full-20261009`，cutoff2026-09-30，完整合同hash`05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618`。实际14次来源元数据证明与批准manifest完全一致；随后423个原日期unit各做两轮业务COPY，接收、归一化、候选schema/key/日期/逐字段及两轮证明完整校验，全部verified后才提升。来源SQL逐条按当前白名单builder重生成一致；860个连接均READ ONLY，3,440 SQL且ROLLBACK，无Prod写入。没有重试或拒绝；两轮业务字段差异0。
+
+### 28.2 逐表实际结果
+
+| 独立数据集 | 源/归一化/每层行数 | 实际日期 | unit | 正式文件 | 新增 | 同hash复用 |
+| --- | --- | --- | --- | --- | --- | --- |
+| moneyflow | 14,089,300 | 4,067 | 217 | 8,134 | 8,130 | 4 |
+| moneyflow_cnt_ths | 192,009 | 495 | 26 | 990 | 986 | 4 |
+| moneyflow_dc | 4,278,673 | 739 | 46 | 1,478 | 1,474 | 4 |
+| moneyflow_ind_dc | 364,012 | 739 | 40 | 1,478 | 1,474 | 4 |
+| moneyflow_ind_ths | 44,460 | 494 | 26 | 988 | 984 | 4 |
+| moneyflow_mkt_dc | 839 | 839 | 44 | 1,678 | 1,674 | 4 |
+| moneyflow_ths | 2,191,645 | 431 | 24 | 862 | 858 | 4 |
+| 合计 | 21,160,938 | 7,804 | 423 | 15,608 | 15,580 | 28 |
+
+每个数据集仍独立保存来源、计划、checkpoint及Raw/Silver；仅writer和预算共用。日期数是数据集日期之和，七表末日均2026-09-30；源缺口及历史DC分类保留，没有BIYING、证券池过滤、融合或计算补齐。两轮业务输入42,321,876行；最终每层21,160,938行，不把两轮行数相加作为业务数量。
+
+全部候选完成后全范围预检无冲突；15,580文件经同文件系统原子移动及读回hash完成，28个已有文件因新候选hash完全相同而复用。423个原checkpoint字节hash及28个原正式样本hash前后不变。正式两层Parquet3,724,770,049字节（3.469GiB）；28个reuse候选仍留原staging，其他候选Parquet/.partial/计划外文件0。正式文件没有覆盖、删除、备份或重新编码，不调用Kopia；保留原控制与候选证据用于恢复/审计。
+
+### 28.3 最终只读物理闭合
+
+最终命令持共享只读writer锁，确认完整目标集、每个实际文件SHA256/大小、423个原checkpoint、两轮来源date/scope/row证明、promotion合同/逐文件complete receipt和原progress一致。按38组数据集年份、两层合计76组查询实际文件名/日期/行数；Raw严格解析YYYYMMDD、Silver使用DATE，并设置`hive_partitioning=false`，全部日期计数与批准范围相符。审计期间原cohort、progress、promotion合同及checkpoint不变。
+
+汇总只投影日期和数量，字段一致性沿用每批完整校验及正式文件hash连续性；没有7,804次重复深扫，没有新增来源查询、正式文件/控制写入或Dagster访问。全量原四条命令本次已经实际执行，不再只引用AST或两日样本。验收结果写原`/private/tmp/moneyflow-full-20261009-final-audit.json`并归档执行报告。来源逐批两轮一致不等于所有日期处于同一数据库快照，也不证明源端未来不修订。
+
+### 28.4 实耗与原预算
+
+| 原命令阶段 | 完整进程秒数 | 峰值RSS MiB |
+| --- | --- | --- |
+| 构建 | 4,240.39 | 697.16 |
+| 独立预检 | 11.62 | 137.59 |
+| APPLY | 122.21 | 428.55 |
+| 最终只读审计 | 16.86 | 503.81 |
+
+以上`/usr/bin/time -l`包含启动/import/输出，合计4,391.08秒（73.18分钟），不含命令间的核对与等待。helper原账本计费4,356.21秒；实际保留执行字节3,731,024,757。连接860/874、SQL3,440/3,496、账本计费≤12小时、执行空间≤32GiB、首次空闲≥64GiB和RSS≤768MiB全部通过；32MiB接收/64KiB流块、DuckDB512MB/单线程/0 spill和单步骤120秒合同未改变。APPLY完整进程122.21秒覆盖多个步骤，不是单步骤超限；实际峰值697.16MiB高于隔离466.09MiB代理，仍在原门禁内。§27保守估算保留为执行前依据，不拿本次实耗承诺未来SLA。
+
+### 28.5 收尾、证据与后置工作
+
+执行意图、四条原命令/hash、实际SQL、全部原checkpoint与两轮证明、15,608文件hash、76组汇总、持续进度及完整计时归档[本轮执行报告](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json)，原方案§33同步。临时审计driver归档源码/hash后清理，不删除批准命令、日志、报告或正式staging业务/恢复证据。report按精确路径到数据集的批准清单分组，不用共享Silver目录中的`moneyflow`字符串推断身份。
+
+当前原代码hash与39/804项已验收测试一致，本轮未重跑这些测试。没有正式故障注入或全量APPLY重放；取消、真实退出、续跑与幂等证据仍分别来自此前隔离及两日正式样本，不能冒充本次全量故障验收。CodeGraph explore与直接源码补核验覆盖历史来源/候选/提升链；无代码、配置、API/CLI、DatasetDefinition、active Dagster定义或依赖矩阵变更，文档/证据校验另记报告。
+
+**P3-F及P3历史物理文件阶段关闭，P4/P5尚未执行。** 本轮Prod/Gold写入及DG instance/分区/event/job/sensor操作0，没有登记runless历史事件或启动自动化。下一步按原P4接入七个独立资产、catalog、job、sensor及历史事件；P5验证DG直连Tushare日更和22:00分区登记。修改未提交、未推送，本次批准只覆盖原四条全量命令与物理收尾。
+
+## 29. P4 首个接入：大盘资金流资产与分区检查（2026-10-09）
+
+管理员要求“推进P4”。沿用§6逐数据集实施卡、原方案§13的独立阶段验收及orchestrator逐个迁移规则，本轮先接入`moneyflow_mkt_dc`的资产/check/job/catalog；sensor及历史注册/事件下一步推进，整个P4不提前关闭。下列为编码前对账口径，不是正式资源执行结果。
+
+### 29.1 本轮硬口径与落点
+
+| 硬口径 | 实现点 | 正反验收 |
+| --- | --- | --- |
+| 独立Raw/Silver及专属分区，不混入另六源 | assets/moneyflow_mkt_dc.py、partitions.py、catalog/lake_assets.py、name_mapping.py | 精确2资产/2check/2job/1分区；无共享全局分区、额外源或其他资产selection |
+| 15字段、金额/NULL保真，Silver只改日期 | 复用§6 schema及checks/moneyflow.py；新增checks/moneyflow_mkt_dc.py | 源/Raw/Silver均1行，负值/NULL保留；错日、类型、重复、金额差异拒绝 |
+| 两轮完整来源稳定后才提升Raw | 原source_readiness/moneyflow.py及io/moneyflow_raw_writer.py→io/moneyflow_mkt_dc_update.py | 复用显式fields/date/分页/60秒/64次/300秒；空、不稳定、失败不写正式文件，不产生成功materialization |
+| Silver只读同日已绿Raw，不重新拉源 | assets/moneyflow_mkt_dc.py、io/moneyflow_mkt_dc_update.py | 缺materialization/check、错误分区、失败check、实际Raw hash与materialization不符均拒绝；同日已绿正常转换 |
+| 日更同值复用，源修订完整校验后逐文件更新 | io/moneyflow_mkt_dc_update.py | 数据相同不重写；变更仅本层文件原子替换；已有文件非法、目标在intent后变化、不同设备、symlink阻断；替换后退出可按原intent读回续跑 |
+| 历史与日更共用原writer身份 | 将原私有锁实现抽至io/moneyflow_candidates.py，迁移全部历史调用与两项测试；锁文件仍moneyflow/writer.lock | 互斥和退出释放回归；不引入第二把锁、状态表、宽松配置或旧函数别名 |
+| blocking check事件属于实际日期 | checks/moneyflow_mkt_dc.py显式asset和partitions_def | 隔离asset job产生的evaluation.partition及storage execution.partition均为请求日；注入错日/金额错误后仍执行原check，必须失败且归属正确日期 |
+| job只选择本层资产和check | jobs/moneyflow_mkt_dc.py | Raw job只写Raw；Silver job只写Silver，不顺手更新Raw/calendar/basic；job没有源/SQL/writer业务逻辑 |
+| definition与运行metadata分工，catalog只登记/对账 | 稳定schema/path/命名合同、统一metadata/tag builder及catalog | definition完整schema/path/source；运行URI/行数/实际hash/来源请求与receipt；业务资产/check/job不得依赖catalog生成或运行规划；治理测试反查registry全对账 |
+
+最终名称沿用§6：`raw_tushare_moneyflow_mkt_dc`、`silver_moneyflow_mkt_dc`；check分别为`raw_tushare_moneyflow_mkt_dc_file_contract_check`、`silver_moneyflow_mkt_dc_standardization_check`；job分别为`raw_tushare_moneyflow_mkt_dc_update_job`、`silver_moneyflow_mkt_dc_update_job`；分区为`cn_a_moneyflow_mkt_dc_trade_days`。资产group=`moneyflow`、data_domain=`quote_data`，仅复用现有枚举。数据合同分别为`tushare_moneyflow_mkt_dc_raw_by_trade_date`、`standardized_moneyflow_mkt_dc_by_trade_date`，catalog声明历史只读Prod及runless能力，不表示正式事件已写。
+
+### 29.2 安全、性能及配置审计
+
+日更unit=1数据集×1日期×1层；Raw正常2次请求、每轮1行，沿用原64请求/300秒共享预算及至少60秒间隔。日期、fields、limit/offset均由原collector产生，不新增运营参数或修改TushareResource。没有对象池、分类展开或Prod日更查询。Raw候选最多source JSON/Raw/receipt，额外提升checkpoint；Silver只读本日Raw，独立run目录生成1候选与checkpoint。两层各1正式文件，现有单日公开样本约2.6KiB/层，含稳定间隔预计约1～5分钟，失败上限保持300秒；这不是网络SLA。DuckDB512MB/1线程/0spill、RSS768MiB沿用原合同；Python只编排与小量receipt/hash，大体计算使用原列式SQL。
+
+正式路径仍为§6/paths.py，所有候选和控制文件在原正式staging的run目录。复用原namespace writer锁覆盖源采集、候选校验、目标重核及逐文件提升；锁竞争立即失败，不重新领取源请求。首写检查两根、挂载/权限/空闲及同设备；已有合法文件与候选业务字段相等时保留文件，否则保存旧hash及新hash intent，再核对旧hash、同设备os.replace、fsync和实际hash后登记complete。替换后complete写失败保留intent及正式文件，续跑只接受新hash；任何第三方变化拒绝，不覆盖非法旧文件、不清现场、不引入备份/Kopia。Raw更新和Silver更新独立原子，Silver不匹配当前Raw时check失败，不能声称两层一起原子。
+
+Silver运行从本日Raw最近materialization及关联blocking check确认ready，另核对metadata中的实际文件hash和完整文件合同；日常只针对选中一天，不能用于全历史逐分区扫描。Silver标准化check重新校验Raw/Silver全字段一致，结果关联同分区Silver materialization。隔离检查最多2个文件/15列/各1行；暂不实现sensor热路径或全量event深扫。
+
+无新增env、Settings、数据库或运营配置；路径由paths.py、运行预算由moneyflow.py、fields/schema由asset_column_schemas.py提供。新资产身份/分区/名称是definition合同，不是可调开关；全部消费者为本轮资产/check/job/catalog及既有治理测试，代码加载后生效。本轮所有运行仅临时Lake/staging、fake source/clock及隔离instance；正式Lake/Prod/DG读写为0，不reload正式code location、不启用sensor、不注册分区或补事件。
+
+CodeGraph explore/impact覆盖候选writer、readiness、catalog及原writer锁调用方，并直接核验同名歧义边界；历史锁真实消费者只有单表candidate、cohort（promotion间接复用）及两项测试，本轮全量迁移，不保留旧私有别名。既有资源/Prod/API/CLI/DatasetDefinition与依赖矩阵不变。隔离job验收及defs静态验证使用现有.venv，不安装依赖；治理回归使用现有受保护启动器，精确增加新source发现清单，不放宽正式资源/网络保护。验证结果完成后回填本节。
+
+### 29.3 实现与隔离验收结果
+
+资产、check、job四个独立模块已实现并由现行defs loader发现；catalog新增两个事实卡/两个物理分区model，name mapping新增中文名，partitions新增一个专属分区定义。资产直接引用稳定schema/path/命名合同及统一metadata/tag builder；catalog只登记和治理对账，不生成资产或决定运行计划。两个check名字集中在原moneyflow合同，资产readiness、check decorator和catalog共用，未改变既有请求、字段和预算合同。历史私有锁已提取至io/moneyflow_candidates.py，全部真实消费者迁移，锁文件及行为不变；无旧别名、第二把锁、备份或恢复旧主链。
+
+| 验证 | 实际结果及限制 |
+| --- | --- |
+| 资金流及历史最小回归 | 230项通过：候选/cohort/提升/显式日期及原大盘合同205项，加新资产25项；新资产最终再跑25项通过 |
+| 分区job/check真实存储验收 | 临时SQLite instance及临时Lake/staging执行原Raw、Silver两个job。2026-09-30两项evaluation.partition与storage execution.partition均等于请求日且SUCCEEDED；错日/金额差异的原check均FAILED，并验证失败记录的存储partition仍为请求日 |
+| 来源/归一化/写入 | fake source两轮各1行/各1请求，Raw=1、Silver=1，成功样本reject=0；15字段、Raw日期字符串/Silver DATE、NULL及负金额-123.4567保真。实际文件2562/2537字节；两个job含框架开销约1.00秒，60秒稳定等待使用虚拟时钟，不是实网吞吐或盘后SLA |
+| 安全及恢复 | 同值保留mtime、源修订分层替换、非法旧文件/外部目标变化/文件symlink阻断；原writer互斥；intent后取消留下候选及checkpoint、按原操作续跑不请求源；Raw/Silver替换后退出、complete未写时读回续跑不重新采集/编码 |
+| catalog治理 | 受保护runner两批共12项/480 subtests通过，身份、字段schema、来源文档、path、tags、blocking check规格一致；每批原生隔离自检及7个负例通过 |
+| 完整definitions | 现有Dagster1.13.18环境执行dg check defs --use-active-venv --no-check-yaml成功；使用/private/tmp隔离DAGSTER_HOME并关闭telemetry，UV离线/禁止同步，不reload正式code location |
+| 全局静态门禁 | 原受保护runner首批7通过/1失败后停止，后续未执行。失败为test_dc_board_m3_writers_keep_raw_only_bounded_boundary：当前另一项东财板块改动的assets/dc_board.py不满足“包含execute_bounded_pages字面量”的原断言（test_run_contract_static_gates.py:567）。未修改东财业务代码、跳过失败或放宽门禁，不能声称全局绿 |
+
+损坏文件检查的隔离注入使用同asset key、同partition definition的测试asset stub保留坏文件，再执行原blocking check；不替代原Raw/Silver正常job验收，不在正式代码增加checks-only兜底。当前SDK仅选择check的job不能按这套分区方式执行，本轮没有提供该生产入口。分区check在当前SDK属于preview能力，未来升级须重新验证evaluation和storage partition，不能只看passed。
+
+受保护runner精确补四个新资金流模块，以及当前工作区东财定义已import的dc_board_quote_coverage.py/dc_board_source_freeze.py只读源码依赖；原正式资源/网络保护未放宽。首次隔离instance的telemetry默认写用户目录失败，已改测试instance为telemetry=false；最终验收全部使用临时目录。既有P3报告仍保留原接受时的代码hash，本轮锁提取后的回归不冒充重新验收15,608个正式文件。Ruff、文档完整性及git diff --check通过；CodeGraph同步后状态为up to date。无子系统边界/依赖矩阵变更，没有修改架构快照。
+
+命令、日志/hash、最终代码hash、请求参数、source receipt、实际check存储归属、临时文件hash及尺寸已归档[首个P4接入证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json)。本轮未调用Tushare实网或Prod，正式Lake/DG访问和写入均0；未提交、未推送。
+
+本轮交付仅为首个数据集的资产/check/job/catalog代码及隔离验收，**整个P4保持未完成**。下一步先完成本表默认STOPPED的22:00分区注册及Raw/Silver更新sensor、有界cursor/readiness、历史event dry-run；正式definitions准入、分区/event写入仍须清单、独立批准与读回验收，不能在全局门禁未闭合时直接发布。随后按同样流程逐个接入其余六表，P5再做真实新增日期的Tushare采集和观察。

@@ -354,7 +354,7 @@ def test_closed_prefix_tampering_rejected(tmp_path, kind):
 
 def test_namespace_writer_and_single_operation_boundary(tmp_path):
     (tmp_path / "moneyflow").mkdir()
-    with engine._writer_lock(tmp_path / "moneyflow"):
+    with engine.moneyflow_writer_lock(tmp_path / "moneyflow"):
         with pytest.raises(MoneyflowContractError, match="history_writer_active"):
             run(tmp_path)
         with pytest.raises(MoneyflowContractError, match="history_writer_active"):

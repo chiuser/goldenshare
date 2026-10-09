@@ -14,6 +14,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
 MONEYFLOW_MKT_DC_FIELDS = tuple(c.name for c in RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA)
+MONEYFLOW_MKT_DC_RAW_CHECK = "raw_tushare_moneyflow_mkt_dc_file_contract_check"
+MONEYFLOW_MKT_DC_SILVER_CHECK = "silver_moneyflow_mkt_dc_standardization_check"
 MONEYFLOW_PAGE_SIZE = 2000
 MONEYFLOW_MAX_ROWS_PER_ROUND = 20000
 MONEYFLOW_STABILITY_SECONDS = 60

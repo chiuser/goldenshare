@@ -1,6 +1,5 @@
 """Single date-unit Raw/Silver candidates and independent source verification."""
 
-import fcntl
 import io
 import json
 import os
@@ -8,7 +7,6 @@ import re
 import shutil
 import threading
 import time
-from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -29,6 +27,7 @@ from orchestrator.defs.bootstrap.moneyflow_history_source import (
 from orchestrator.defs.io.moneyflow_candidates import (
     candidate_file_hash,
     moneyflow_candidate_directory,
+    moneyflow_writer_lock,
 )
 from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_DUCKDB_MEMORY_LIMIT,
@@ -325,21 +324,6 @@ class _MemorySink:
         self.control.check()
 
 
-@contextmanager
-def _writer_lock(directory):
-    descriptor = os.open(
-        directory / "writer.lock", os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600
-    )
-    try:
-        try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as error:
-            raise MoneyflowContractError("history_writer_active") from error
-        yield
-    finally:
-        os.close(descriptor)
-
-
 def _attempt_path(unit_directory, attempt):
     if not isinstance(attempt, str) or not re.fullmatch(r"[0-9a-f]{32}", attempt):
         raise MoneyflowContractError("history_checkpoint_attempt")
@@ -551,7 +535,7 @@ def build_moneyflow_history_unit_candidates(
         raise InterruptedError("history_cancelled")
     namespace = base.parents[2]
     namespace.mkdir(parents=True, exist_ok=True)
-    with _writer_lock(namespace):
+    with moneyflow_writer_lock(namespace):
         if (base.parents[1] / "cohort-control.json").exists():
             raise MoneyflowContractError("history_cohort_operation")
         directory.mkdir(parents=True, exist_ok=True)

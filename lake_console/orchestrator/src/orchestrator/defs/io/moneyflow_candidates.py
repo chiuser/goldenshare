@@ -1,8 +1,10 @@
 """Shared moneyflow candidate paths, isolated connections and receipts."""
 
+import fcntl
 import hashlib
 import json
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
 from orchestrator.defs.duckdb_connection import (
@@ -78,3 +80,19 @@ def write_moneyflow_receipt(directory: Path, receipt: dict) -> None:
     candidate = directory / "receipt.json.tmp"
     candidate.write_text(json.dumps(receipt, sort_keys=True))
     os.replace(candidate, directory / "receipt.json")
+
+
+@contextmanager
+def moneyflow_writer_lock(directory: Path):
+    """Use the same namespace writer for history and daily file updates."""
+    descriptor = os.open(
+        directory / "writer.lock", os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600
+    )
+    try:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise MoneyflowContractError("history_writer_active") from error
+        yield
+    finally:
+        os.close(descriptor)

@@ -414,9 +414,9 @@ def test_timeout_retry_and_before_start_cancel(tmp_path):
 def test_writer_lock_rejects_second_owner(tmp_path):
     tmp_path.mkdir(exist_ok=True)
     with (
-        engine._writer_lock(tmp_path),
+        engine.moneyflow_writer_lock(tmp_path),
         pytest.raises(MoneyflowContractError, match="history_writer_active"),
-        engine._writer_lock(tmp_path),
+        engine.moneyflow_writer_lock(tmp_path),
     ):
         pass
 

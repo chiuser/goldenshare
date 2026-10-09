@@ -57,6 +57,10 @@ cn_a_dc_daily_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_a_dc_daily_trade_days"
 )
 
+cn_a_moneyflow_mkt_dc_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_a_moneyflow_mkt_dc_trade_days"
+)
+
 # International index data uses natural-day partitions.  It must not reuse an
 # SSE trading-day partition set because source publication follows multiple
 # overseas markets and may legitimately produce an empty file.

@@ -20,7 +20,6 @@ from orchestrator.defs.bootstrap.moneyflow_history_candidates import (
     _receipt_scope,
     _Store,
     _validate_receipt,
-    _writer_lock,
 )
 from orchestrator.defs.bootstrap.moneyflow_history_metadata import (
     MoneyflowHistoryMetadataRequest,
@@ -34,7 +33,10 @@ from orchestrator.defs.bootstrap.moneyflow_history_plan import (
     _hash,
     build_moneyflow_history_plan,
 )
-from orchestrator.defs.io.moneyflow_candidates import moneyflow_candidate_directory
+from orchestrator.defs.io.moneyflow_candidates import (
+    moneyflow_candidate_directory,
+    moneyflow_writer_lock,
+)
 from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_HISTORY_DATASETS,
     MONEYFLOW_HISTORY_EXTRA_REQUESTS,
@@ -126,7 +128,7 @@ def _operation(
     if cancel():
         raise InterruptedError("history_cancelled")
     namespace.mkdir(parents=True, exist_ok=True)
-    with _writer_lock(namespace):
+    with moneyflow_writer_lock(namespace):
         if not promotion and (root / "promotion-contract.json").exists():
             raise MoneyflowContractError("history_promotion_started")
         if marker.exists():

@@ -1,0 +1,341 @@
+{
+  "generated_at": "2026-10-09T22:37:43.788724+08:00",
+  "phase": "P4_first_dataset_asset_check_job_catalog",
+  "dataset": "moneyflow_mkt_dc",
+  "status": "isolated_acceptance_complete_global_static_gate_blocked_p4_open",
+  "basis": [
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md#34",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md#29",
+    "lake_console/docs/templates/dagster-dataset-onboarding-template.html#source-contract-budget"
+  ],
+  "definitions": {
+    "assets": [
+      "raw_tushare_moneyflow_mkt_dc",
+      "silver_moneyflow_mkt_dc"
+    ],
+    "checks": [
+      "raw_tushare_moneyflow_mkt_dc_file_contract_check",
+      "silver_moneyflow_mkt_dc_standardization_check"
+    ],
+    "jobs": [
+      "raw_tushare_moneyflow_mkt_dc_update_job",
+      "silver_moneyflow_mkt_dc_update_job"
+    ],
+    "partition_definition": "cn_a_moneyflow_mkt_dc_trade_days",
+    "column_count_per_layer": 15,
+    "source": "tushare",
+    "catalog_role": "registry_and_governance_only_not_runtime_planner"
+  },
+  "isolated_partition_job_evidence": {
+    "scope": "isolated_fake_source_and_clock",
+    "partition": "2026-09-30",
+    "events": [
+      {
+        "run_id": "faf761b8-72b4-4340-9cf1-fe81b008f92a",
+        "asset_key": "raw_tushare_moneyflow_mkt_dc",
+        "check_name": "raw_tushare_moneyflow_mkt_dc_file_contract_check",
+        "evaluation_partition": "2026-09-30",
+        "storage_partition": "2026-09-30",
+        "storage_status": "SUCCEEDED",
+        "passed": true
+      },
+      {
+        "run_id": "cb6a71b6-3c7a-46b9-956e-2b5d72b0896f",
+        "asset_key": "silver_moneyflow_mkt_dc",
+        "check_name": "silver_moneyflow_mkt_dc_standardization_check",
+        "evaluation_partition": "2026-09-30",
+        "storage_partition": "2026-09-30",
+        "storage_status": "SUCCEEDED",
+        "passed": true
+      }
+    ],
+    "requests": [
+      [
+        "moneyflow_mkt_dc",
+        {
+          "trade_date": "20260930",
+          "limit": 2000,
+          "offset": 0
+        },
+        [
+          "trade_date",
+          "close_sh",
+          "pct_change_sh",
+          "close_sz",
+          "pct_change_sz",
+          "net_amount",
+          "net_amount_rate",
+          "buy_elg_amount",
+          "buy_elg_amount_rate",
+          "buy_lg_amount",
+          "buy_lg_amount_rate",
+          "buy_md_amount",
+          "buy_md_amount_rate",
+          "buy_sm_amount",
+          "buy_sm_amount_rate"
+        ]
+      ],
+      [
+        "moneyflow_mkt_dc",
+        {
+          "trade_date": "20260930",
+          "limit": 2000,
+          "offset": 0
+        },
+        [
+          "trade_date",
+          "close_sh",
+          "pct_change_sh",
+          "close_sz",
+          "pct_change_sz",
+          "net_amount",
+          "net_amount_rate",
+          "buy_elg_amount",
+          "buy_elg_amount_rate",
+          "buy_lg_amount",
+          "buy_lg_amount_rate",
+          "buy_md_amount",
+          "buy_md_amount_rate",
+          "buy_sm_amount",
+          "buy_sm_amount_rate"
+        ]
+      ]
+    ],
+    "row_counts": {
+      "source_per_round": 1,
+      "raw": 1,
+      "silver": 1
+    },
+    "silver_sample": {
+      "trade_date": "2026-09-30",
+      "close_sh": null,
+      "net_amount": "-123.4567"
+    },
+    "files": [
+      {
+        "path": "/private/tmp/moneyflow-p4-partition-proof-caai8qzz/test_real_partitioned_jobs_che0/lake/raw/tushare/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet",
+        "sha256": "5444d9fac9d7eee27dae7de1e42d68f06830ca6f410af740c306b8524624ccfc",
+        "bytes": 2562
+      },
+      {
+        "path": "/private/tmp/moneyflow-p4-partition-proof-caai8qzz/test_real_partitioned_jobs_che0/lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-09-30/part-000.parquet",
+        "sha256": "c8e0c67b3c8a8fbcc9012007e5b112723a7a371bbaea6d31680b4b1c5ea0e90d",
+        "bytes": 2537
+      }
+    ],
+    "elapsed_seconds_including_jobs_but_virtual_stability_wait": 1.0019970829598606
+  },
+  "source_receipt": {
+    "elapsed_ms": 60000,
+    "raw_sha256": "5444d9fac9d7eee27dae7de1e42d68f06830ca6f410af740c306b8524624ccfc",
+    "request_count": 2,
+    "retry_count": 0,
+    "row_count": 1,
+    "row_hash": "4f75896c927d83019cd358346f4cac01f8c5d90015f10b83037d874cf1110401",
+    "source": "tushare",
+    "stability_gap_seconds": 60,
+    "stage": "raw_candidate_ready",
+    "trade_date": "2026-09-30"
+  },
+  "validation": {
+    "regression": {
+      "passed": 230,
+      "datasets_and_history_tests": 205,
+      "new_dataset_cases": 25,
+      "command": ".venv/bin/python3 -B -m pytest -q tests/test_moneyflow_history_candidates.py tests/test_moneyflow_history_cohort.py tests/test_moneyflow_history_promote.py tests/test_moneyflow_history_selected_dates.py tests/test_moneyflow_moneyflow_mkt_dc.py tests/test_moneyflow_mkt_dc_definitions.py"
+    },
+    "governance": {
+      "passed": 12,
+      "subtests_passed": 480,
+      "runner": "tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_asset_governance_contracts.py",
+      "resource_isolation_preserved": true
+    },
+    "definitions": {
+      "passed": true,
+      "command": "dg check defs --use-active-venv --no-check-yaml",
+      "instance": "/private/tmp/moneyflow-p4-dg-cli-home",
+      "uv_offline": true,
+      "uv_no_sync": true,
+      "telemetry": false
+    },
+    "global_static_gates": {
+      "passed": false,
+      "passed_before_first_failure": 7,
+      "failed": 1,
+      "remaining_not_executed": true,
+      "test": "RunContractStaticGateTests.test_dc_board_m3_writers_keep_raw_only_bounded_boundary",
+      "assertion": "execute_bounded_pages must be literal in defs/assets/dc_board.py; current unrelated worktree changes do not satisfy this assertion",
+      "source_test_line": 567,
+      "no_skip_or_gate_relaxation": true,
+      "note": "DC-board implementation and its existing static assertion must be reconciled before a global green claim; no DC business-code change in this task"
+    },
+    "docs_integrity": {
+      "passed": true,
+      "semantics_verified_separately": true
+    },
+    "new_dataset_latest_run": {
+      "passed": 25,
+      "command": ".venv/bin/python3 -B -m pytest -q tests/test_moneyflow_mkt_dc_definitions.py",
+      "failed_checks_storage_partition_assertions": true
+    },
+    "ruff": {
+      "passed": true,
+      "file_count": 16
+    },
+    "codegraph_up_to_date": true
+  },
+  "runtime_versions": {
+    "dagster": "1.13.18",
+    "duckdb": "1.5.2",
+    "tushare": "1.4.29"
+  },
+  "performance": {
+    "requests_normal": 2,
+    "pages_per_round": 1,
+    "rows_per_round": 1,
+    "virtual_stability_gap_seconds": 60,
+    "request_limit": 64,
+    "source_elapsed_limit_seconds": 300,
+    "duckdb_memory_limit": "512MB",
+    "duckdb_threads": 1,
+    "spill_bytes": 0,
+    "rss_rejection_bytes": 805306368,
+    "sample_file_bytes": [
+      2562,
+      2537
+    ],
+    "isolated_job_elapsed_seconds": 1.0019970829598606,
+    "real_source_network_elapsed_measured": false,
+    "note": "Real source contract samples remain prior P0 evidence; this turn uses fake source and virtual clock and does not assert network SLA."
+  },
+  "safety": {
+    "writer_lock": "staging_root/moneyflow/writer.lock",
+    "old_private_writer_lock_alias_retained": false,
+    "atomic_unit": "one file; Raw and Silver independent",
+    "same_value_policy": "reuse valid existing bytes",
+    "revision_policy": "full candidate validation, intent checkpoint, prior hash compare, same-filesystem os.replace, fsync, actual hash readback",
+    "failure_tests": [
+      "empty_or_unstable_or_duplicate_or_wrong_date_source",
+      "wrong_partition_or_failed_raw_check",
+      "physical_raw_hash_changed",
+      "invalid_existing_file",
+      "target_changed_after_intent",
+      "formal_file_symlink",
+      "overlap_or_device_or_space_or_symlink_roots",
+      "writer_contention",
+      "cancel_after_intent_resume_without_source",
+      "raw_or_silver_exit_after_replace_resume"
+    ]
+  },
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "impact": [
+      "shared original writer lock consumers: historical candidates, cohort, indirect promotion and tests",
+      "single-day Raw materialization/check readiness",
+      "asset catalog/schema/path/job consumers and governance tests"
+    ],
+    "direct_source_verification": "same-name ambiguous graph results and indirect promotion users verified via rg/current code",
+    "boundary_or_dependency_matrix_changed": false,
+    "manual_boundary": "formal instance/event/sensor/readiness acceptance still pending"
+  },
+  "protected_runner_readonly_dependency_additions": [
+    "defs/assets/moneyflow_mkt_dc.py",
+    "defs/checks/moneyflow_mkt_dc.py",
+    "defs/jobs/moneyflow_mkt_dc.py",
+    "defs/io/moneyflow_mkt_dc_update.py",
+    "defs/asset_guards/dc_board_quote_coverage.py",
+    "defs/asset_guards/dc_board_source_freeze.py"
+  ],
+  "formal_actions_this_turn": {
+    "prod_queries": 0,
+    "prod_writes": 0,
+    "formal_lake_reads": 0,
+    "formal_lake_writes": 0,
+    "formal_dagster_instance_access": 0,
+    "formal_partition_registration": 0,
+    "formal_events": 0,
+    "formal_jobs": 0,
+    "formal_reload": 0,
+    "sensor_enable": 0,
+    "installation": 0,
+    "commit": 0,
+    "push": 0
+  },
+  "remaining": [
+    "moneyflow_mkt_dc STOPPED partition/update sensors and bounded cursor/readiness",
+    "moneyflow_mkt_dc historical event dry-run and independently approved formal definition/partition/event steps",
+    "other six independent datasets P4 acceptance",
+    "global static DC-board assertion mismatch",
+    "P5 real new-date source collection and observation"
+  ],
+  "source_hashes": {
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_mkt_dc.py": "0e68f1e5d3ab2bfa5c784a9464e161db7762a34d99a48c0da1a703e9738a04a9",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_mkt_dc.py": "d69422c7f93c8b73cb95099611aa54ff1eab3b12b358ff1caae45ed2247a3371",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "7218488d3072c7f303d62fab4e4ee3a52c5201d19f70c2d831f84dc6bbe70f33",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_mkt_dc.py": "f4414a6fdf9b1a8c5fad7697146e9d2b15440d6d322909836d66272304e0c9cd",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_candidates.py": "10cbc79bead6eeb54962918bf98a431a0a26075dbfb69966401da8ebbfe10f57",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_candidates.py": "3c65af19773d6ac92e337504af52de036a139bdfb077f2ab6c5bdbcee564c068",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_cohort.py": "68790adfedc833985427445521cc373662f7a6e5aeca75d3a695e4b06b5783c0",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py": "da0683baaed32d3418d558bbbedcbea82dd071f9b822787a3357fb74b9163876",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py": "b7e7f31838cd849013321676b9e22b827631c001f6cff5cf39111b3bd2e0dab4",
+    "lake_console/orchestrator/src/orchestrator/defs/partitions.py": "1319b9c161b09166537c53cd8ff790528c6bf4122515e14cfe5587ed40165233",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "9ea02b2c8b3bd44f7a496360b2bef6f1685145c39784dbe9875fe7145b0aa3a8",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py": "8eaa5f9d485b0b525851a817dab4ff13cb3e02bfcaf1570956acc64115a025dc",
+    "lake_console/orchestrator/tests/test_moneyflow_history_candidates.py": "bdd04a34fca0e5fae9cd3d7ce44440a395cc92db6506a6cc694ce29334b1ff16",
+    "lake_console/orchestrator/tests/test_moneyflow_history_cohort.py": "d80a794351b5656cc5e488689d3c9cd3b765dba8b4cad4e0e19ac0d0fde47db4",
+    "lake_console/orchestrator/tests/test_asset_governance_contracts.py": "b41fcd3488916a33b67c13daaa6b3f380b5239403c6005301b9c77b638b438dd",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "dc94846cd18da42a743689c52df23ab32fb98e715cd6b4bd7e1c674fdaec1f08"
+  },
+  "logs": {
+    "regression": {
+      "path": "/private/tmp/moneyflow-p4-regression.log",
+      "sha256": "dc3dd46641603e2dc3f8c68ef90ce5f27df2cf081335317c747251a5479f8eae"
+    },
+    "new_dataset_tests": {
+      "path": "/private/tmp/moneyflow-p4-mkt-dc-tests.log",
+      "sha256": "ab8fd7f71ec9019764232cfc147459660821b1e32847ee63b652ccaf9edb5572"
+    },
+    "governance": {
+      "path": "/private/tmp/moneyflow-p4-mkt-dc-governance.log",
+      "sha256": "d0a627255c7e2d74c0b98e28a0acf301a80a199fdfa670deca46123a7666dd8f"
+    },
+    "static_gates": {
+      "path": "/private/tmp/moneyflow-p4-static-gates.log",
+      "sha256": "25b4e6c03b719775c09c5d9d7bbe894cbecbbae93011bb47e3366de57c395454"
+    },
+    "definitions": {
+      "path": "/private/tmp/moneyflow-p4-dg-check-defs.log",
+      "sha256": "5f669c08ebd39efd649fc46a47dc56b252d88d305949cfadc889c2d20a95aaac"
+    },
+    "partition_proof": {
+      "path": "/private/tmp/moneyflow-p4-partition-proof.log",
+      "sha256": "7f1cb8c1846092f6d2d48817bbf904e60aeff12f86e6222c8df1ffd1a77dcb8a"
+    },
+    "docs": {
+      "path": "/private/tmp/moneyflow-p4-doc-integrity.log",
+      "sha256": "4a54bdf009e4ed2f2cb57b8210c15fbb9f7f1f3aa8ece2d9b513e022a47a7e00"
+    },
+    "codegraph_sync": {
+      "path": "/private/tmp/moneyflow-p4-codegraph-sync.log",
+      "sha256": "69c6c756694ac92dfaab254273abc039b44155055e354c31da3bedaaf6082bb7"
+    },
+    "codegraph_status": {
+      "path": "/private/tmp/moneyflow-p4-codegraph-status.log",
+      "sha256": "5ea99e2fe38118d12a51e9eab91440b41b0371e2734a49f521848f1dec230b87"
+    },
+    "ruff": {
+      "path": "/private/tmp/moneyflow-p4-ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  },
+  "p3_history_evidence": "Preserved unchanged as historical acceptance; lock extraction changes current source hash, and this turn does not re-audit formal P3 files.",
+  "document_hashes": {
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md": "1a62bc17fbff24276f190fa1276d2520c7911cb0309bd0d2b1fbf21ccac16517",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md": "a64e1a77b9cd748855dcbd1f4791025a2c3108932d50ddc3750c0e86048ebfba"
+  }
+}
