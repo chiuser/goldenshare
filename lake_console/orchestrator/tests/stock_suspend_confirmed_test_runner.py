@@ -135,6 +135,8 @@ CONSUMER_SOURCE_FILES = (
     "defs/sensors/moneyflow_mkt_dc_sensor.py",
     "defs/asset_guards/moneyflow_mkt_dc_readiness.py",
     "defs/bootstrap/moneyflow_mkt_dc_event_preview.py",
+    "defs/bootstrap/moneyflow_mkt_dc_event_plan.py",
+    "defs/bootstrap/moneyflow_mkt_dc_events.py",
     # Current DC definitions are imported by the full shared definitions audit.
     "defs/io/dc_board_candidate.py",
     "defs/asset_guards/dc_board_quote_coverage.py",

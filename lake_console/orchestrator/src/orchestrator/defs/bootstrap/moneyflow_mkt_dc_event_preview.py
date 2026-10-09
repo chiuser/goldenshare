@@ -48,16 +48,17 @@ from orchestrator.defs.run_contracts.moneyflow import (
 )
 
 
-def preview_market_moneyflow_history(
+def market_moneyflow_history_proof(
     *,
-    instance,
     staging_root: Path,
     lake_root: Path,
     operation_id: str,
     cutoff: str,
     expected_cohort_hash: str,
+    check=lambda: None,
 ):
-    """No instance construction, locks, event publication or control-file updates."""
+    """Original frozen history semantics, reusable by preview and event publication."""
+    check()
     _validate_roots(lake_root, staging_root)
     scoped = moneyflow_candidate_directory(
         staging_root, operation_id, cutoff, dataset="moneyflow_mkt_dc"
@@ -76,6 +77,7 @@ def preview_market_moneyflow_history(
     if not dates or len(dates) > MONEYFLOW_HISTORY_MAX_DATE_FACTS:
         raise MoneyflowContractError("history_event_dates")
     facts = {}
+    checkpoints = {}
     hashed_bytes = unit_count = 0
     for (unit_plan, unit_id), entry in zip(units, closed, strict=True):
         if unit_plan.dataset != "moneyflow_mkt_dc":
@@ -98,12 +100,14 @@ def preview_market_moneyflow_history(
         if receipt["stage"] != "verified":
             raise MoneyflowContractError("history_event_unit_not_verified")
         for day, layer, _, digest in files:
+            check()
             path = _target(lake_root, plan, day, layer)
             size = path.stat().st_size if path.is_file() else 0
             item = state["files"][f"{day}/{layer}"]
             if size != item["size"] or candidate_file_hash(path) != digest:
                 raise MoneyflowContractError("history_formal_changed")
             facts[(day, layer)] = digest
+            checkpoints[day] = {"path": str(checkpoint), "sha256": controls[checkpoint]}
             hashed_bytes += size
             if monotonic() - started > MONEYFLOW_HISTORY_SQL_TIMEOUT_SECONDS:
                 raise MoneyflowContractError("history_event_unit_timeout")
@@ -119,6 +123,7 @@ def preview_market_moneyflow_history(
         temp_policy="existing_no_spill",
     ) as connection:
         for day in recent:
+            check()
             started = monotonic()
             audit_market_moneyflow_standardization(
                 connection,
@@ -129,10 +134,50 @@ def preview_market_moneyflow_history(
             if monotonic() - started > MONEYFLOW_HISTORY_SQL_TIMEOUT_SECONDS:
                 raise MoneyflowContractError("history_event_unit_timeout")
             assert_moneyflow_memory_budget()
+    for path, digest in controls.items():
+        check()
+        if candidate_file_hash(path) != digest:
+            raise MoneyflowContractError("history_event_controls_changed")
+    return {
+        "dataset": "moneyflow_mkt_dc",
+        "cohort_hash": manifest["cohort_hash"],
+        "cutoff": cutoff,
+        "history_dates": len(dates),
+        "history_rows": plan.row_count,
+        "verified_units": unit_count,
+        "verified_files": len(facts),
+        "hashed_bytes": hashed_bytes,
+        "recent_check_dates": list(recent),
+        "control_files_unchanged": len(controls),
+        "controls": {str(p): digest for p, digest in controls.items()},
+        "entries": [
+            {
+                "day": day,
+                "raw_sha256": facts[(day, "raw")],
+                "silver_sha256": facts[(day, "silver")],
+                "checkpoint": checkpoints[day],
+            }
+            for day in dates
+        ],
+    }
+
+
+def read_market_moneyflow_event_state(
+    instance, entries, recent_dates, *, before_read=lambda: None
+):
+    """Bounded native identity queries; neither checkpoints nor file existence are readiness."""
+    dates = tuple(e["day"] for e in entries)
+    facts = {
+        (e["day"], layer): e[layer + "_sha256"]
+        for e in entries
+        for layer in ("raw", "silver")
+    }
+    recent = tuple(d for d in recent_dates if d in dates)
+    before_read()
     registered = instance.get_dynamic_partitions(cn_a_moneyflow_mkt_dc_trade_days.name)
     if len(registered) > MONEYFLOW_HISTORY_MAX_DATE_FACTS:
         raise MoneyflowContractError("partition_limit")
-    counts = {}
+    mats, green_checks = {}, {}
     metadata_queries = 1
     for layer, check_name in (
         ("raw", MONEYFLOW_MKT_DC_RAW_CHECK),
@@ -146,6 +191,7 @@ def preview_market_moneyflow_history(
         latest = {}
         for offset in range(0, len(dates), MONEYFLOW_EVENT_DATE_BATCH):
             batch = dates[offset : offset + MONEYFLOW_EVENT_DATE_BATCH]
+            before_read()
             records = instance.fetch_materializations(
                 dg.AssetRecordsFilter(asset_key=key, asset_partitions=list(batch)),
                 limit=MONEYFLOW_EVENT_RECORD_LIMIT,
@@ -174,6 +220,10 @@ def preview_market_moneyflow_history(
                     raise MoneyflowContractError(
                         "history_event_existing_upstream_revision"
                     )
+            mats[(day, layer)] = record
+        if not recent:
+            continue
+        before_read()
         checks = instance.event_log_storage.get_asset_check_execution_history(
             dg.AssetCheckKey(key, check_name), limit=MONEYFLOW_EVENT_RECORD_LIMIT
         )
@@ -183,7 +233,6 @@ def preview_market_moneyflow_history(
             latest_checks
         ):
             raise MoneyflowContractError("history_event_record_limit")
-        reused_checks = 0
         for day, record in latest_checks.items():
             mat = latest.get(day)
             event = record.event.dagster_event if record.event else None
@@ -199,30 +248,55 @@ def preview_market_moneyflow_history(
                 and getattr(target, "timestamp", None) == mat.timestamp
             ):
                 raise MoneyflowContractError("history_event_check_failed_or_stale")
-            reused_checks += 1
-        counts[layer] = {
-            "materializations_to_add": len(dates) - len(latest),
-            "materializations_reusable": len(latest),
-            "recent_checks_to_add": len(recent) - reused_checks,
-            "recent_checks_reusable": reused_checks,
-        }
-    for path, digest in controls.items():
-        if candidate_file_hash(path) != digest:
+            green_checks[(day, layer)] = record
+    return {
+        "registered": set(registered),
+        "mats": mats,
+        "checks": green_checks,
+        "metadata_queries": metadata_queries,
+    }
+
+
+def preview_market_moneyflow_history(
+    *,
+    instance,
+    staging_root: Path,
+    lake_root: Path,
+    operation_id: str,
+    cutoff: str,
+    expected_cohort_hash: str,
+):
+    """Existing read-only result contract; no state/lock/directory creation."""
+    proof = market_moneyflow_history_proof(
+        staging_root=staging_root,
+        lake_root=lake_root,
+        operation_id=operation_id,
+        cutoff=cutoff,
+        expected_cohort_hash=expected_cohort_hash,
+    )
+    state = read_market_moneyflow_event_state(
+        instance, proof["entries"], proof["recent_check_dates"]
+    )
+    for path, digest in proof["controls"].items():
+        if candidate_file_hash(Path(path)) != digest:
             raise MoneyflowContractError("history_event_controls_changed")
+    dates = {e["day"] for e in proof["entries"]}
+    counts = {
+        layer: {
+            "materializations_to_add": len(dates)
+            - sum(l == layer for _, l in state["mats"]),
+            "materializations_reusable": sum(l == layer for _, l in state["mats"]),
+            "recent_checks_to_add": len(proof["recent_check_dates"])
+            - sum(l == layer for _, l in state["checks"]),
+            "recent_checks_reusable": sum(l == layer for _, l in state["checks"]),
+        }
+        for layer in ("raw", "silver")
+    }
     return {
         "stage": "read_only_preview",
-        "dataset": "moneyflow_mkt_dc",
-        "cohort_hash": manifest["cohort_hash"],
-        "cutoff": cutoff,
-        "history_dates": len(dates),
-        "history_rows": plan.row_count,
-        "verified_units": unit_count,
-        "verified_files": len(facts),
-        "hashed_bytes": hashed_bytes,
-        "recent_check_dates": list(recent),
-        "partitions_to_add": len(set(dates) - set(registered)),
+        **{k: v for k, v in proof.items() if k not in {"entries", "controls"}},
+        "partitions_to_add": len(dates - state["registered"]),
         "layers": counts,
-        "metadata_queries": metadata_queries,
-        "control_files_unchanged": len(controls),
+        "metadata_queries": state["metadata_queries"],
         "formal_writes": 0,
     }

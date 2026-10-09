@@ -1,5 +1,6 @@
 """Real partitioned jobs and isolated storage; sensors never contact the source."""
 
+import logging
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -26,7 +27,20 @@ from .test_moneyflow_mkt_dc_definitions import row, run
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
-    yield from support.env.__wrapped__(tmp_path, monkeypatch)
+    factory = logging.getLogRecordFactory()
+
+    def dated_record(*args, **kwargs):
+        record = factory(*args, **kwargs)
+        # Native job events use logging.Record.created; match the sensor clock.
+        record.created = NOW.timestamp()
+        record.msecs = 0
+        return record
+
+    logging.setLogRecordFactory(dated_record)
+    try:
+        yield from support.env.__wrapped__(tmp_path, monkeypatch)
+    finally:
+        logging.setLogRecordFactory(factory)
 
 
 DAY = "2026-10-09"
@@ -145,6 +159,13 @@ def test_real_delivery_current_check_file_and_safe_upstream_revision(env):
 def test_raw_ready_today_no_repeat_and_active_job_blocks(env):
     ctx = context(env)
     publish(env, silver=False)
+    record = batch_market_moneyflow_readiness(env.instance, env.lake, [DAY])["raw"][
+        DAY
+    ].record
+    assert (
+        datetime.fromtimestamp(record.timestamp, CN_A_SENSOR_TIMEZONE).date()
+        == NOW.date()
+    )
     assert decision(sensors.evaluate_market_moneyflow(ctx, NOW)) == "all_ready"
     env.instance.create_run_for_job(
         env.defs.resolve_job_def(sensors.SILVER_JOB), tags={"dagster/partition": DAY}
