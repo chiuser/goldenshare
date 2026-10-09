@@ -1,0 +1,227 @@
+{
+  "as_of_utc": "2026-10-09T15:23:41.423228+00:00",
+  "stage": "P4 market sensors and history read-only event preview complete; formal registration pending",
+  "previous_commit": "4e5f2f47",
+  "branch": "dev-interface",
+  "scope": {
+    "dataset": "moneyflow_mkt_dc",
+    "other_six_datasets_advanced": false,
+    "formal_writes": 0,
+    "sensor_enablements": 0,
+    "formal_jobs": 0,
+    "prod_requests": 0,
+    "tushare_network_requests": 0,
+    "p4_closed": false
+  },
+  "formal_read_only_preview": {
+    "stage": "read_only_preview",
+    "dataset": "moneyflow_mkt_dc",
+    "cohort_hash": "05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618",
+    "cutoff": "2026-09-30",
+    "history_dates": 839,
+    "history_rows": 839,
+    "verified_units": 44,
+    "verified_files": 1678,
+    "hashed_bytes": 4362800,
+    "recent_check_dates": [
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04",
+      "2026-09-07",
+      "2026-09-08",
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
+      "2026-09-21",
+      "2026-09-22",
+      "2026-09-23",
+      "2026-09-24",
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30"
+    ],
+    "partitions_to_add": 839,
+    "layers": {
+      "raw": {
+        "materializations_to_add": 839,
+        "materializations_reusable": 0,
+        "recent_checks_to_add": 20,
+        "recent_checks_reusable": 0
+      },
+      "silver": {
+        "materializations_to_add": 839,
+        "materializations_reusable": 0,
+        "recent_checks_to_add": 20,
+        "recent_checks_reusable": 0
+      }
+    },
+    "metadata_queries": 21,
+    "control_files_unchanged": 90,
+    "formal_writes": 0,
+    "elapsed_seconds": 0.9294010838493705
+  },
+  "read_only_instance": {
+    "adapter": "defs/bootstrap/daily_basic_event_instance.py",
+    "default_transaction_read_only": true,
+    "statement_timeout_ms": 10000,
+    "should_autocreate_tables": false,
+    "telemetry": false
+  },
+  "isolated_sensor_readiness": {
+    "partition": "2026-10-09",
+    "counts": {
+      "materializations": 2,
+      "checks": 2,
+      "hashes": 2
+    },
+    "elapsed_seconds": 0.006246125092729926,
+    "check_status": "SUCCEEDED",
+    "source_calls_during_sensors": 0,
+    "cursor_bytes": 590
+  },
+  "validation": {
+    "all_moneyflow_before_final_five_reuse_cases": {
+      "passed": 837,
+      "elapsed_seconds": 104.09
+    },
+    "new_sensor_and_preview_initial": {
+      "passed": 23,
+      "elapsed_seconds": 9.16
+    },
+    "final_event_preview_including_five_additional_reuse_cases": {
+      "passed": 11,
+      "additional_cases": 6,
+      "includes_unit_symlink_pre_read_rejection": true,
+      "elapsed_seconds": 8.14
+    },
+    "protected_gates": {
+      "sensor-governance": {
+        "passed": 12,
+        "batches": 2,
+        "all_batches_passed": true
+      },
+      "sensor-static-gates": {
+        "passed": 113,
+        "batches": 15,
+        "all_batches_passed": true
+      }
+    },
+    "definitions_loaded": true,
+    "fake_source_clock": true,
+    "source_contract_unchanged": true
+  },
+  "gate_changes": {
+    "sensor_identity_additions": 3,
+    "read_only_runs_filter_file_allowance": "sensors/moneyflow_mkt_dc_sensor.py",
+    "run_request_tag_write_gate_relaxed": false,
+    "runner_exact_source_additions": [
+      "defs/sensors/moneyflow_mkt_dc_sensor.py",
+      "defs/asset_guards/moneyflow_mkt_dc_readiness.py",
+      "defs/bootstrap/moneyflow_mkt_dc_event_preview.py",
+      "defs/io/dc_board_candidate.py",
+      "defs/asset_guards/dc_board_quote_coverage.py",
+      "defs/asset_guards/dc_board_source_freeze.py"
+    ],
+    "runner_formal_resource_or_network_policy_relaxed": false
+  },
+  "source_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_mkt_dc.py": "c96074361eac37a05b132ad4123275b8c0815ea87f16024e52af6b9f9a74d808",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "79c1d14d58efe8cdea463323e8bb69382f5d335cd1b414b8477cf0b17b1a95d0",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow.py": "7910ece96c7d667bf66c4fcaddeb785af833154d4bb5a51dba8da2e48f33a596",
+    "lake_console/orchestrator/src/orchestrator/defs/asset_guards/moneyflow_mkt_dc_readiness.py": "f4285c54efac14fc1e1ec04de69cd9a6cb66aac08fcfa7dc97b51a1baa65af4a",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_mkt_dc_sensor.py": "cb3389938f2bfed68b61f11457115166974a93c2f9f7a0e38246c7487b814fed",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_mkt_dc_event_preview.py": "465e42b8b0e01e5790309ae4ae2002fbde8342b3cc07533a5a406069570ee67b",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/daily_basic_event_instance.py": "444e315a20449b9d14555a2898696225f613b0676828b514775dccabf6946753",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py": "cca724badfcf027d591779dfa4d5d75fb9836d50b6cb5e4a22842230aa916c9c",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_event_preview.py": "806fa3b320efb1dc267e7b73c9d381b291f2753cd999b2bafc7a72b76ebf702e",
+    "lake_console/orchestrator/tests/test_run_contract_static_gates.py": "89e63293a33d34cb2501d8c5343d58fea333f1331fea950d38fe6531db2b449e",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "af3350560782c4023550e7362e90b0bc1b9b7d1ee6d08bd8d330850c8b097288",
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md": "8a0ae656263fed20ad6330d0e83be4e2c5b7c91c0e9c3879d1f8a0f6b2d62b11",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md": "fcb213286d1e7be9f3e4e24869244ae65e74cd77a5c5d167cbc6d9b2541595a7"
+  },
+  "logs": {
+    "all-moneyflow-tests": {
+      "path": "/private/tmp/moneyflow-p4-all-moneyflow-tests.log",
+      "sha256": "385542b2c7a602842adce8d32635e3163b45e5616f6c4df31f1d4714176f28d0"
+    },
+    "new-final-tests": {
+      "path": "/private/tmp/moneyflow-p4-new-final-tests.log",
+      "sha256": "cc87598d6cdf94ffdb6f1d7d4838b13c4bbff1ce40ff5ea9443dc161917cf19b"
+    },
+    "preview-reuse-tests": {
+      "path": "/private/tmp/moneyflow-p4-preview-reuse-tests.log",
+      "sha256": "864b228b10d18ff1f462b9fc39533dc80d008ab18b75a57b22ca8c37411cee74"
+    },
+    "sensor-governance": {
+      "path": "/private/tmp/moneyflow-p4-sensor-governance.log",
+      "sha256": "ddf2e8a75048362eb88d369eeb42662a932f3e05ad38021d358f82e0e53555a6"
+    },
+    "sensor-static-gates": {
+      "path": "/private/tmp/moneyflow-p4-sensor-static-gates.log",
+      "sha256": "86cfda21d54764df78a26cd440045c43ef3138f09658676aba6b00d6da7acbee"
+    },
+    "sensor-dg-check": {
+      "path": "/private/tmp/moneyflow-p4-sensor-dg-check.log",
+      "sha256": "5f669c08ebd39efd649fc46a47dc56b252d88d305949cfadc889c2d20a95aaac"
+    },
+    "formal-preview": {
+      "path": "/private/tmp/moneyflow-p4-formal-preview.log",
+      "sha256": "f5449b13319bd3cb167509e876d146f38915d86d1f59453d2ebf12e2e0eb8b61"
+    },
+    "codegraph-sync": {
+      "path": "/private/tmp/moneyflow-p4-codegraph-sync.log",
+      "sha256": "a3b40d092e6a6e5011a9ade802c3b8267a1d90c47f631b2e9b98ce86b21b6997"
+    },
+    "codegraph-status": {
+      "path": "/private/tmp/moneyflow-p4-codegraph-status.log",
+      "sha256": "a492cdad7b928c850f33f089e1f0285a7d9f5d12703fd4f7bee0b18e183e5c5c"
+    },
+    "docs-integrity": {
+      "path": "/private/tmp/moneyflow-p4-docs-integrity.log",
+      "sha256": "4a54bdf009e4ed2f2cb57b8210c15fbb9f7f1f3aa8ece2d9b513e022a47a7e00"
+    }
+  },
+  "prior_reports": {
+    "lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json": {
+      "sha256": "02534cda4abbddbbc6f152cd6041fcad5fd01f96a0d0a17da4bf25d5c695cac3",
+      "unchanged_since_commit": true
+    },
+    "lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json": {
+      "sha256": "f88edab78bafd2168812c4d7f66690d115d0018b7ddeaef6b812fb5f4a2e996a",
+      "unchanged_since_commit": true
+    },
+    "lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json": {
+      "sha256": "752e87b7e325755c9845f35db5039ed8210a9bf77fc06cd11cb3b335e751fa97",
+      "unchanged_since_commit": true
+    },
+    "lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json": {
+      "sha256": "5c1f28164a68758aa89cb2070ab2bd9af444e8abc13302210f68ef667d9802a5",
+      "unchanged_since_commit": true
+    }
+  },
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "impact": "registration/calendar/cursor/run-key/readiness chain and MoneyflowContractError consumers; supplement incomplete graph with direct AST constructor audit",
+    "subsystem_boundary_changed": false
+  },
+  "next_step": "Implement this dataset history partition/event writer with isolated cancel/resume/idempotent tests, then prepare exact formal write approval list; no writer included in this slice.",
+  "commands": {
+    "all_moneyflow_regression": ".venv/bin/python3 -B -m pytest tests/test_moneyflow*.py -q --basetemp=/private/tmp/moneyflow-p4-all-moneyflow-proof",
+    "new_sensor_and_preview": ".venv/bin/python3 -B -m pytest tests/test_moneyflow_mkt_dc_sensors.py tests/test_moneyflow_mkt_dc_event_preview.py -q --basetemp=/private/tmp/moneyflow-p4-new-final-proof",
+    "final_preview": ".venv/bin/python3 -B -m pytest tests/test_moneyflow_mkt_dc_event_preview.py -q --basetemp=/private/tmp/moneyflow-p4-preview-reuse-final-proof-2",
+    "governance": ".venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_asset_governance_contracts.py",
+    "static_gates": ".venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_run_contract_static_gates.py",
+    "defs": "DAGSTER_HOME=/private/tmp/moneyflow-p4-dg-cli-home VIRTUAL_ENV=/Users/congming/github/goldenshare/lake_console/orchestrator/.venv UV_OFFLINE=1 UV_NO_SYNC=1 UV_PYTHON_DOWNLOADS=never .venv/bin/dg check defs --use-active-venv --no-check-yaml",
+    "formal_preview_script": "import json\nfrom pathlib import Path\nfrom time import perf_counter\nfrom orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance\nfrom orchestrator.defs.bootstrap.moneyflow_mkt_dc_event_preview import preview_market_moneyflow_history\nfrom orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT\nstarted=perf_counter()\nwith daily_basic_event_instance() as instance:\n    result=preview_market_moneyflow_history(instance=instance, staging_root=Path(DEFAULT_LAKE_STAGING_ROOT), lake_root=Path(DEFAULT_LAKE_ROOT), operation_id=\"history-full-20261009\", cutoff=\"2026-09-30\", expected_cohort_hash=\"05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618\")\nresult[\"elapsed_seconds\"]=perf_counter()-started\nPath(\"/private/tmp/moneyflow-p4-formal-preview.json\").write_text(json.dumps(result,ensure_ascii=False,indent=2)+\"\\n\")\nprint(json.dumps(result,ensure_ascii=False))\n"
+  }
+}

@@ -132,6 +132,13 @@ CONSUMER_SOURCE_FILES = (
     "defs/assets/moneyflow_mkt_dc.py",
     "defs/checks/moneyflow_mkt_dc.py",
     "defs/jobs/moneyflow_mkt_dc.py",
+    "defs/sensors/moneyflow_mkt_dc_sensor.py",
+    "defs/asset_guards/moneyflow_mkt_dc_readiness.py",
+    "defs/bootstrap/moneyflow_mkt_dc_event_preview.py",
+    # Current DC definitions are imported by the full shared definitions audit.
+    "defs/io/dc_board_candidate.py",
+    "defs/asset_guards/dc_board_quote_coverage.py",
+    "defs/asset_guards/dc_board_source_freeze.py",
     # Current unrelated announcement sources: read-only AST inventory, no execution grant.
     "defs/anns_d_checkpoint.py",
     "defs/anns_d_contract.py",

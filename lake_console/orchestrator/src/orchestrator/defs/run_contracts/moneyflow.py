@@ -5,7 +5,7 @@ import json
 import re
 import resource
 import sys
-from datetime import date
+from datetime import date, time
 from decimal import Decimal, InvalidOperation, localcontext
 
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -16,6 +16,17 @@ from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 MONEYFLOW_MKT_DC_FIELDS = tuple(c.name for c in RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA)
 MONEYFLOW_MKT_DC_RAW_CHECK = "raw_tushare_moneyflow_mkt_dc_file_contract_check"
 MONEYFLOW_MKT_DC_SILVER_CHECK = "silver_moneyflow_mkt_dc_standardization_check"
+MONEYFLOW_REGISTER_START = time(22, 0)
+MONEYFLOW_SENSOR_INTERVAL = 600
+MONEYFLOW_SENSOR_WINDOW = 10
+MONEYFLOW_AUTO_ATTEMPTS = 6
+MONEYFLOW_EVENT_RECORD_LIMIT = 100
+MONEYFLOW_SENSOR_START = "2026-10-01"
+MONEYFLOW_MKT_HISTORY_START = "2023-04-17"
+MONEYFLOW_RECENT_CHECK_DAYS = 20
+MONEYFLOW_EVENT_DATE_BATCH = 100
+MONEYFLOW_WRITER_POOL = "moneyflow_tushare_writer"
+MONEYFLOW_READINESS_FILE_MAX_BYTES = 64 * 1024
 MONEYFLOW_PAGE_SIZE = 2000
 MONEYFLOW_MAX_ROWS_PER_ROUND = 20000
 MONEYFLOW_STABILITY_SECONDS = 60
@@ -48,6 +59,10 @@ MONEYFLOW_HISTORY_EXTRA_REQUESTS = 14
 
 class MoneyflowContractError(ValueError):
     """A source or candidate failed a blocking moneyflow contract."""
+
+    def __init__(self, reason: str, *, retryable: bool = False):
+        super().__init__(reason)
+        self.retryable = retryable
 
 
 def moneyflow_peak_rss_bytes() -> int:

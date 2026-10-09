@@ -93,16 +93,19 @@ def collect_market_moneyflow(
         guard()
         if not result.completed:
             raise MoneyflowContractError(
-                result.blocked_reason or "source_request_failed"
+                result.blocked_reason or "source_request_failed",
+                retryable=bool(result.failed_pages)
+                and not result.budget_exceeded
+                and all(f.retryable for f in result.failed_pages),
             )
         if len(collected) != 1:
-            raise MoneyflowContractError("source_pending")
+            raise MoneyflowContractError("source_pending", retryable=True)
         if round_number == 1:
             first = collected[0]
             first_end = clock()
             on_first_round(first)
         elif collected[0] != first:
-            raise MoneyflowContractError("source_unstable")
+            raise MoneyflowContractError("source_unstable", retryable=True)
     return StableMarketMoneyflow(
         first,
         market_moneyflow_row_hash(first),

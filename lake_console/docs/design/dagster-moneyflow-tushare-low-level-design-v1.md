@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-日期：2026-10-06；最近更新：2026-10-09。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4已进入首个数据集moneyflow_mkt_dc的资产/check/job/catalog接入与隔离验收，见§29；sensor、历史分区/event及正式DG执行尚未完成，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～29为准。
+日期：2026-10-06；最近更新：2026-10-09。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4已进入首个数据集moneyflow_mkt_dc的资产/check/job/catalog接入与隔离验收，见§29；本表sensor与历史事件只读预演已完成，见§30；正式分区/event写入、sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～30为准。
 
 ## 1. 硬口径和影响面
 
@@ -1335,3 +1335,46 @@ CodeGraph explore/impact覆盖候选writer、readiness、catalog及原writer锁�
 命令、日志/hash、最终代码hash、请求参数、source receipt、实际check存储归属、临时文件hash及尺寸已归档[首个P4接入证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json)。本轮未调用Tushare实网或Prod，正式Lake/DG访问和写入均0；未提交、未推送。
 
 本轮交付仅为首个数据集的资产/check/job/catalog代码及隔离验收，**整个P4保持未完成**。下一步先完成本表默认STOPPED的22:00分区注册及Raw/Silver更新sensor、有界cursor/readiness、历史event dry-run；正式definitions准入、分区/event写入仍须清单、独立批准与读回验收，不能在全局门禁未闭合时直接发布。随后按同样流程逐个接入其余六表，P5再做真实新增日期的Tushare采集和观察。
+
+## 30. P4 大盘sensor与历史event预演设计（2026-10-09，编码前）
+
+管理员要求提交并继续下一步。上一轮资产/check/job/catalog及P3报告已提交4e5f2f47。本轮落实原§2/§4：仅本表三个STOPPED sensor、窗口readiness和只读历史event预演，不启动自动化、不执行正式job/分区/event写入、不切换其他六表。原源参数、15字段、日期及文件合同不变。编码前已明确性能表和正反测试要求，最终按该清单验收。
+
+### 30.1 硬口径与实现映射
+
+| 硬口径 | 实现点 | 验收 |
+| --- | --- | --- |
+| 上海22:00登记当日，日历权威，登记不拉源/提交job | sensors/moneyflow_mkt_dc_sensor.py注册器复用有same_day_register_start的现行helper；当天优先，另一位置补最早遗漏 | 21:59/22:00、SSE节假日、漏日与当日同时存在、登记结果不含run，三个sensor默认STOPPED |
+| 最近10个expected日、每tick最多1run、不越过未注册/非法文件与check问题 | 同模块更新器及asset_guards/moneyflow_mkt_dc_readiness.py | 当日优先、缺partition、错日旧check/新mat、目标实际hash改变、100条记录截断均fail closed；10日之外明确离线处理 |
+| 历史C_d边界不漂移、不自动回抓Prod历史缺口 | 更新器自动日期下限固定2026-10-01，来自已批准C_d=2026-09-30；注册器仍从本表2023-04-17开始 | 历史缺事件不能触发Tushare回抓；P5需先核对(C_d,切换日]差集，超过10日不得由热窗口吞掉 |
+| Raw有限重试与每日复核，schema/精度/预算错误不能盲试 | 原exception补retryable字段（默认false）；mkt collector用现有failed_pages.retryable分类；Raw asset写结构化STEP_FAILURE metadata；sensor只读取字段 | 空源/不稳定/已识别临时网络可重试，认证/schema/预算/文件问题停止；每业务日每观察自然日最多6attempt；完整采集仍只在job，sensor不请求源 |
+| Silver只消费当前已绿Raw修订，不拉源 | readiness同时核对Raw/Silver；Silver run key使用Raw实际file hash，不使用storage id | Raw hash改变且自身已绿、Silver旧check仍绿且旧file hash未变时可标准化新Raw；失败check/文件变化不自动修复；同hash不重复 |
+| 幂等、互斥及小游标 | 复用run key/RunRequest/cursor/tag builders；两层共用原writer及既定moneyflow_tushare_writer池名 | active run阻断；新run key含日期/自然日/attempt或Raw hash，禁止event storage id；cursor最多10日的小attempt/verified_on状态，目标2KiB、硬8KiB |
+| 事件预演仅认可P3已校验并提升的文件，不制造ready | bootstrap/moneyflow_mkt_dc_event_preview.py只读原cohort/checkpoint/promotion及实际文件；最近20日完整check，分批100日期 | hash/行数/日期/来源证明/提升状态变动即拒绝；统计缺注册、materialization差集和最近40个check，无report_runless_asset_event/分区写入/APPLY入口 |
+
+readiness不逐日查事件：每资产一次partition-filtered materialization（最多100条），一次精确check key执行历史（最多100条；当前SDK仅支持单partition filter，批量路径以check key过滤并严格匹配记录partition及最近mat identity）。每层仅1个blocking check，最多两层/4次读取；记录不足以证明最近identity时阻断，不扩大扫描。实际文件hash与该mat hash相等才继承完整check语义；Silver还必须记录并匹配本日Raw hash。不新增另一份ready事实源或状态manifest。
+
+### 30.2 配置与性能审计
+
+所有值集中在现有run_contracts/moneyflow.py，持久化为源码，无env/Settings/数据库开关，代码加载生效，sensor定义/诊断cursor可见：REGISTER_START=time(22,0)、SENSOR_INTERVAL=600、SENSOR_WINDOW=10、AUTO_ATTEMPTS=6、EVENT_RECORD_LIMIT=100、SENSOR_START=2026-10-01、MKT_HISTORY_START=2023-04-17、RECENT_CHECK_DAYS=20、EVENT_DATE_BATCH=100、WRITER_POOL=moneyflow_tushare_writer、READINESS_FILE_MAX_BYTES=65536。新增文件hash门禁在读文件前检查stat，超过64KiB只阻断自动判断，不重写文件；两层10日最多hash 1.25MiB。这些落实原设计，不修改原source/历史预算；池容量1仅是启用前正式instance配置检查，本轮不配置池或启用。全部消费者：本表三个sensor、readiness、事件预演、两层资产及测试；无可编辑宽松开关。
+
+| 路径 | 读写及预算 | 验收/拒绝 |
+| --- | --- | --- |
+| 注册tick | 原helper最多3次日历SQL、1个SSE日历文件，读取专属注册集合；本表自起点最多20000日期；仅返回≤2个注册请求 | 22:00以后当日优先，超过日期/游标预算拒绝，不拉源，不实际写instance |
+| 更新tick | 22:00前直接返回，不做事件/Parquet重读；窗口≤10日；本表1次SSE日期SQL（DESC LIMIT 10，避免通用helper先全量fetchall）；≤2次active查询、1次注册集合、最多4次readiness读取及1次run读取/1条失败event | 每次返回≤1run，最多20个约2.6KiB文件hash、0数据SQL/0spill；最多100 mat/check/run记录每查询，饱和且尚未覆盖所需最新日期，或证据不足时停止。临时样本验证查询次数、文件数和耗时，不把fake时钟当网络SLA |
+| 历史预演 | 仅本表839日期/1678正式文件；原44个date unit证明；逐文件hash，最近20日/40文件完整字段check；其他日期沿用P3 hash连续性。metadata按≤100日期批读取，原check key各≤100记录，无逐日期event查询 | 不读Prod/Tushare，不改控制/文件，不写事件；读前后control hash一致，缺失/变动/截断停止。预估文件仅约4.2MiB，局部DuckDB512MB/1线程/0spill、RSS768MiB、步骤120秒；实际另测，历史总event差集只是计划数量 |
+
+重试以同业务日、观察日的六个标准RunKey和持久化运行记录为准，游标不负责累计上限；未创建的请求重复返回同一key，不消耗下一次尝试。Dagster为失败资产自动留下未执行check记录时，不将它冒充实际check失败；只有无mat、无check evaluation、无正式文件才可进入源错误重试判断。
+
+CodeGraph explore覆盖注册helper、cursor/run key、calendar及readiness调用链；impact对exception的边少于真实消费者，已补AST全量调用审计，现有构造均只有一个reason参数。新增retryable默认false保持既有str/异常类型/参数语义，只有mkt来源路径显式标记可重试；不修改其他六源。新sensor文件遵守*_sensor.py命名。按本表运行记录的只读partition tag过滤，新增此文件到现有RunsFilter(tags=...)的精确读取许可；RunRequest/run_tags写入规则不放宽。新sensor身份须加入原static gate精确登记清单和受保护runner的精确源码清单，不跳过失败；既有东财门禁问题保留独立处理。正式只读预演若需要访问本机DG服务，使用规定权限与只读持续授权，不借此初始化instance、reload或写schema。隔离测试先完成。
+
+
+### 30.3 实际实现、验证和未执行项
+
+三项sensor、批量readiness和只读事件预演已落地；schema、源参数及其他六表合同未修改。Raw资产将原MoneyflowContractError的明确retryable属性保存为Failure metadata，不通过错误文字猜测；该属性默认false，其他消费者保持原异常字符串/类型语义。游标不能放大重试次数，未创建的请求重放同key，持久化六次RunKey耗尽后停止。原最新绿色check仍须目标identity/hash一致；失败资产导致的未执行check不会冒充真实FAILED evaluation。
+
+新增测试test_moneyflow_mkt_dc_sensors.py和test_moneyflow_mkt_dc_event_preview.py：真实隔离partitioned job/check存储、时间/假日/当日优先、六次持久化尝试及cursor丢失、源错误分类、文件hash预算、旧check/新mat、历史proof变更与native runless事件复用/错误target等正反样本。首次23项和全资金流837项通过，追加五种已有事件样本及unit symlink读取前拒绝后，事件模块最终11项通过；治理12项/480 subtests和完整静态门禁113项通过，未跳过此前东财失败。实际shared defs CLI加载及CodeGraph同步完成。
+
+正式只读预演覆盖原cohort hash 05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618，本表839日期/839行、44 unit、1678文件，hash总4,362,800字节；最近20日执行100条字段/日期/标准化SQL，40文件通过，90个控制文件前后不变，21次metadata查询，约1秒完成。正式差集839分区、1678 mat、最近40 check，当前正式写入0。实际结果与最终源码/日志hash归档[本轮证据](/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_sensor_event_preview_evidence_20261009.json)。最近20日按本表实际来源日期取，不制造历史空日。
+
+CodeGraph explore用于注册/calendar/cursor/run-key/readiness入口和调用链，impact用于MoneyflowContractError；后者索引边不完整，补AST构造审计并实测全资金流。无需人工确认新的主体边界；正式池容量、definitions准入和事件写入的业务授权仍是执行前条件。下一步事件执行器的取消/退出/续跑/幂等及正式精确清单尚未实现；没有新增隐式APPLY、job或sensor启用入口。

@@ -36,7 +36,11 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-from orchestrator.defs.run_contracts.moneyflow import MONEYFLOW_MKT_DC_RAW_CHECK
+from orchestrator.defs.run_contracts.moneyflow import (
+    MONEYFLOW_MKT_DC_RAW_CHECK,
+    MONEYFLOW_WRITER_POOL,
+    MoneyflowContractError,
+)
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     asset_readiness_status,
@@ -67,6 +71,7 @@ def _check_cancel(context: dg.AssetExecutionContext) -> None:
 
 @dg.asset(
     name="raw_tushare_moneyflow_mkt_dc",
+    pool=MONEYFLOW_WRITER_POOL,
     partitions_def=cn_a_moneyflow_mkt_dc_trade_days,
     group_name="moneyflow",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
@@ -96,19 +101,29 @@ def raw_tushare_moneyflow_mkt_dc(
     tushare: TushareResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
-    result = update_market_moneyflow_raw(
-        tushare=tushare,
-        lake_root=lake_root.root(),
-        staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
-        operation_id=context.run.run_id,
-        trade_date=context.partition_key,
-        check_cancel=lambda: _check_cancel(context),
-    )
+    try:
+        result = update_market_moneyflow_raw(
+            tushare=tushare,
+            lake_root=lake_root.root(),
+            staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
+            operation_id=context.run.run_id,
+            trade_date=context.partition_key,
+            check_cancel=lambda: _check_cancel(context),
+        )
+    except MoneyflowContractError as error:
+        raise dg.Failure(
+            "大盘资金流采集或发布未完成。",
+            metadata={
+                "goldenshare/reason_code": str(error),
+                "goldenshare/retryable": error.retryable,
+            },
+        ) from error
     return _result(result, RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA)
 
 
 @dg.asset(
     name="silver_moneyflow_mkt_dc",
+    pool=MONEYFLOW_WRITER_POOL,
     deps=[raw_tushare_moneyflow_mkt_dc],
     partitions_def=cn_a_moneyflow_mkt_dc_trade_days,
     group_name="moneyflow",

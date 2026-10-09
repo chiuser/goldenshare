@@ -97,6 +97,9 @@ SENSOR_DEFINITION_CALL_NAMES = {
 # Freeze stable identities so additions, removals, and duplicates are diagnosable by name.
 EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
     {
+        "sensors/moneyflow_mkt_dc_sensor.py:cn_a_moneyflow_mkt_dc_trade_day_sensor",
+        "sensors/moneyflow_mkt_dc_sensor.py:raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+        "sensors/moneyflow_mkt_dc_sensor.py:silver_moneyflow_mkt_dc_update_job_sensor",
         "sensors/raw_stock_monthly_update_job_sensor.py:raw_stock_monthly_update_job_sensor",
         "sensors/daily_basic_sensor.py:raw_tushare_daily_basic_update_job_sensor",
         "sensors/raw_stock_weekly_update_job_sensor.py:raw_stock_weekly_update_job_sensor",
@@ -3096,6 +3099,7 @@ def use_nested_resource(context):
                                 call_name == "RunsFilter"
                                 and path.name
                                 in {
+                                    "moneyflow_mkt_dc_sensor.py",
                                     "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
                                     "gold_wealth_market_turnover_sensor.py",
                                     "major_index_mins_sensor.py",
