@@ -12,28 +12,33 @@ import json
 import math
 import os
 import re
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from dataclasses import field as dataclass_field
 from datetime import date, datetime
 from numbers import Real
 from pathlib import Path
 from time import perf_counter
-from uuid import uuid4
 
+from orchestrator.defs.asset_guards.dc_board_quote_coverage import (
+    batch_board_quote_coverage,
+)
+from orchestrator.defs.asset_guards.dc_board_source_freeze import (
+    revalidate_dc_board_source,
+)
 from orchestrator.defs.asset_guards.dc_board_source_probe import (
     DcBoardSourceValidationError,
-    audit_dc_daily_rows_against_prod_completion,
     build_dc_board_request_policy,
     load_prod_dc_member_pairs,
-    load_tushare_dc_index_daily_source_snapshot,
-    require_closed_prod_dc_board_completion,
-    validate_tushare_dc_daily_rows,
 )
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
     read_parquet,
+)
+from orchestrator.defs.io.dc_board_candidate import (
+    assert_dc_board_candidate_can_promote,
+    dc_board_candidate_path,
 )
 from orchestrator.defs.paths import (
     raw_dc_daily_path,
@@ -52,13 +57,11 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_MEMBER_SCHEMA,
 )
 from orchestrator.defs.run_contracts.configs import (
-    DcBoardIndexSourceSnapshotConfig,
-    validate_dc_board_index_source_snapshot_config,
+    DcBoardSourceFreezeConfig,
 )
 from orchestrator.defs.run_contracts.dc_board import (
-    DC_DAILY_CATEGORIES,
+    DC_BOARD_SOURCE_OBSERVATION_MAX_REQUESTS,
     DC_DAILY_FIELDS,
-    DC_DAILY_PAGE_LIMIT,
     DC_INDEX_FIELDS,
     DC_INDEX_PLACEHOLDER_SQL,
     DC_INDEX_TYPES,
@@ -68,7 +71,6 @@ from orchestrator.defs.run_contracts.dc_board import (
 from orchestrator.defs.tushare_request_policy import (
     BoundedCodePageRequestSession,
     BoundedCodeRequestResult,
-    execute_bounded_pages,
 )
 
 DC_REQUEST_POLICY = build_dc_board_request_policy()
@@ -313,11 +315,13 @@ def _promote_table(
     dataset: str,
     partition_key: str,
     target_path: Path,
+    lake_root_path: Path,
     source_method: str,
     request_count: int,
     page_count: int,
     retry_count: int,
     started_at: float,
+    promotion_guard: Callable[[], Mapping[str, int] | None] | None = None,
     failed_codes: Sequence[str] = (),
     empty_codes: Sequence[str] = (),
     chunk_count: int = 0,
@@ -350,7 +354,7 @@ def _promote_table(
         )
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    staging_path = target_path.with_name(f"{target_path.name}.m3-{uuid4().hex}.tmp")
+    staging_path = dc_board_candidate_path(lake_root=lake_root_path, target=target_path)
     try:
         select_sql = (
             "SELECT "
@@ -385,6 +389,12 @@ def _promote_table(
                 f"staging row reconciliation failed: source={source_row_count}, "
                 f"written={observed_count}."
             )
+        if promotion_guard is not None:
+            counts = promotion_guard() or {}
+            request_count += int(counts.get("request_count", 0))
+            page_count += int(counts.get("page_count", 0))
+            retry_count += int(counts.get("retry_count", 0))
+        assert_dc_board_candidate_can_promote(staging_path, target_path)
         os.replace(staging_path, target_path)
     except Exception:
         if staging_path.exists():
@@ -425,53 +435,19 @@ def _tushare_extract_rows(
 
 
 def _validate_dc_daily_covers_same_day_index(
-    connection,
-    *,
-    index_path: Path,
+    connection, *, index_path: Path, lake_root: Path,
+    partition_key: str, duckdb_resource: DuckDBResource, expected_coverage_digest: str,
 ) -> None:
-    """Reject a partial ``dc_daily`` response before it can replace the target file."""
-
-    if not index_path.exists():
-        raise DcBoardRawValidationError(
-            f"dc_daily source closure requires same-day raw dc_index: {index_path}"
-        )
-
-    row = connection.execute(
-        f"""
-        WITH daily_codes AS (
-            SELECT DISTINCT trim(CAST(ts_code AS VARCHAR)) AS ts_code
-            FROM dc_board_rows
-            WHERE ts_code IS NOT NULL AND trim(CAST(ts_code AS VARCHAR)) <> ''
-        ), index_codes AS (
-            SELECT DISTINCT trim(CAST(ts_code AS VARCHAR)) AS ts_code
-            FROM {read_parquet(index_path)}
-            WHERE ts_code IS NOT NULL AND trim(CAST(ts_code AS VARCHAR)) <> ''
-              AND NOT ({DC_INDEX_PLACEHOLDER_SQL})
-        ), missing_codes AS (
-            SELECT ts_code FROM index_codes
-            EXCEPT
-            SELECT ts_code FROM daily_codes
-        )
-        SELECT
-            (SELECT count(*) FROM daily_codes),
-            (SELECT count(*) FROM index_codes),
-            (SELECT count(*) FROM missing_codes),
-            (SELECT list(ts_code ORDER BY ts_code) FROM (SELECT ts_code FROM missing_codes LIMIT 5))
-        """
-    ).fetchone()
-    daily_count, index_count, missing_count, missing_sample = row
-    if int(index_count or 0) <= 0:
-        raise DcBoardRawValidationError(
-            f"dc_daily source closure found no board codes in same-day raw dc_index: {index_path}"
-        )
-    if int(missing_count or 0):
-        raise DcBoardRawValidationError(
-            "dc_daily same-day board code coverage is incomplete before target promotion: "
-            f"daily_code_count={int(daily_count or 0)}, "
-            f"index_code_count={int(index_count or 0)}, "
-            f"missing_index_code_count={int(missing_count or 0)}, "
-            f"missing_index_code_sample={list(missing_sample or ())}."
-        )
+    if not index_path.is_file():
+        raise DcBoardRawValidationError(f"same-day raw index missing: {index_path}")
+    gaps = tuple(row[0] for row in connection.execute(
+        f"SELECT DISTINCT ts_code FROM {read_parquet(index_path, hive_partitioning=False)} "
+        f"WHERE NOT ({DC_INDEX_PLACEHOLDER_SQL}) EXCEPT SELECT DISTINCT ts_code FROM dc_board_rows"
+    ).fetchall())
+    coverage = batch_board_quote_coverage(lake_root=lake_root, duckdb_resource=duckdb_resource,
+                                         gaps_by_date={partition_key: gaps})[partition_key]
+    if not coverage.ready or coverage.evidence_digest != expected_coverage_digest:
+        raise DcBoardRawValidationError(f"same-day quote coverage blocked or changed after freeze: {coverage.metadata()}")
 
 
 def _load_prod_dc_member_pairs_for_diagnostics(
@@ -708,52 +684,20 @@ def write_dc_index_partition(
     tushare: TushareResource,
     prod_postgres: ProdPostgresResource,
     partition_key: str,
-    source_snapshot_config: DcBoardIndexSourceSnapshotConfig,
+    source_snapshot_config: DcBoardSourceFreezeConfig,
     policy=DC_REQUEST_POLICY,
 ) -> DcBoardRawWriteResult:
     """Fetch and atomically write one ``dc_index`` trade-date partition."""
 
     started_at = perf_counter()
-    validated_config = validate_dc_board_index_source_snapshot_config(
-        source_snapshot_config,
-        partition_key=partition_key,
+    observation = revalidate_dc_board_source(
+        proof=source_snapshot_config, asset_name="raw_tushare_dc_index", partition_key=partition_key,
+        lake_root=lake_root_path, duckdb_resource=duckdb_resource,
+        tushare=tushare, prod_postgres=prod_postgres, policy=policy,
     )
-    try:
-        fresh_completion = require_closed_prod_dc_board_completion(
-            prod_postgres=prod_postgres,
-            trade_date=partition_key,
-        )
-    except DcBoardSourceValidationError as exc:
-        raise DcBoardRawValidationError(str(exc)) from exc
-    if (
-        fresh_completion.completion_fingerprint
-        != validated_config.prod_completion_fingerprint
-    ):
-        raise DcBoardRawValidationError(
-            "dc_index prod completion changed after sensor freeze; target promotion is blocked: "
-            f"sensor_fingerprint={validated_config.prod_completion_fingerprint}, "
-            f"writer_fingerprint={fresh_completion.completion_fingerprint}."
-        )
-    source_result = load_tushare_dc_index_daily_source_snapshot(
-        tushare=tushare,
-        trade_date=partition_key,
-        prod_completion=fresh_completion,
-        policy=policy,
-    )
-    if not source_result.ready or source_result.snapshot is None:
-        raise DcBoardRawValidationError(
-            "dc_index Tushare source snapshot is not ready: "
-            f"{source_result.to_summary()}"
-        )
-    if (
-        source_result.snapshot.source_fingerprint
-        != validated_config.tushare_source_fingerprint
-    ):
-        raise DcBoardRawValidationError(
-            "dc_index Tushare source changed after sensor confirmation; target promotion is blocked: "
-            f"sensor_fingerprint={validated_config.tushare_source_fingerprint}, "
-            f"writer_fingerprint={source_result.snapshot.source_fingerprint}."
-        )
+    validated_config = source_snapshot_config
+    fresh_completion = observation.prod.snapshot
+    source_result = observation.source
     with duckdb_resource.connect() as connection:
         _create_table(connection, "dc_index")
         for idx_type in DC_INDEX_TYPES:
@@ -766,6 +710,7 @@ def write_dc_index_partition(
             )
         return _promote_table(
             connection,
+            lake_root_path=lake_root_path,
             dataset="dc_index",
             partition_key=partition_key,
             target_path=raw_dc_index_path(lake_root_path, partition_key),
@@ -775,9 +720,9 @@ def write_dc_index_partition(
             retry_count=source_result.retry_count,
             started_at=started_at,
             prod_completion_fingerprint=fresh_completion.completion_fingerprint,
-            prod_completion_observed_at=validated_config.prod_completion_observed_at,
+            prod_completion_observed_at=validated_config.prod_observed_at_second,
             tushare_source_fingerprint=source_result.snapshot.source_fingerprint,
-            tushare_source_observed_at=validated_config.tushare_source_observed_at,
+            tushare_source_observed_at=validated_config.source_observed_at_second,
             source_closure_diagnostics={
                 "prod_index_missing_identity_count": source_result.index_missing_count,
                 "prod_index_extra_identity_count": source_result.index_extra_count,
@@ -789,89 +734,40 @@ def write_dc_index_partition(
 
 
 def write_dc_daily_partition(
-    *,
-    lake_root_path: Path,
-    duckdb_resource: DuckDBResource,
-    tushare: TushareResource,
-    prod_postgres: ProdPostgresResource,
-    partition_key: str,
+    *, lake_root_path: Path, duckdb_resource: DuckDBResource,
+    tushare: TushareResource, prod_postgres: ProdPostgresResource,
+    partition_key: str, source_snapshot_config: DcBoardSourceFreezeConfig,
     policy=DC_REQUEST_POLICY,
 ) -> DcBoardRawWriteResult:
-    """Fetch and atomically write one ``dc_daily`` trade-date partition."""
-
+    """Write the freshly validated complete source snapshot without refetching daily."""
     started_at = perf_counter()
-    try:
-        fresh_completion = require_closed_prod_dc_board_completion(
-            prod_postgres=prod_postgres,
-            trade_date=partition_key,
-        )
-    except DcBoardSourceValidationError as exc:
-        raise DcBoardRawValidationError(str(exc)) from exc
+    observation = revalidate_dc_board_source(
+        proof=source_snapshot_config, asset_name="raw_tushare_dc_daily", partition_key=partition_key,
+        lake_root=lake_root_path, duckdb_resource=duckdb_resource,
+        tushare=tushare, prod_postgres=prod_postgres, policy=policy,
+    )
+    source = observation.source
     with duckdb_resource.connect() as connection:
         _create_table(connection, "dc_daily")
-        page_result = execute_bounded_pages(
-            request_page=lambda offset: tushare.call(
-                "dc_daily",
-                {
-                    "trade_date": partition_key.replace("-", ""),
-                    "limit": 2_000,
-                    "offset": offset,
-                },
-                DC_DAILY_FIELDS,
-            ),
-            extract_rows=lambda result: _tushare_extract_rows(result, DC_DAILY_FIELDS),
-            page_size=DC_DAILY_PAGE_LIMIT,
-            policy=policy,
-            scope=f"dc_daily:{partition_key}",
-            row_key=lambda row: (
-                row.get("ts_code"),
-                row.get("trade_date"),
-                row.get("category"),
-            ),
-        )
-        if not page_result.ready:
-            raise DcBoardRawValidationError(
-                f"dc_daily request failed: {page_result.to_details()}"
-            )
-        try:
-            validate_tushare_dc_daily_rows(
-                rows=page_result.rows,
-                trade_date=partition_key,
-            )
-            prod_diagnostics = audit_dc_daily_rows_against_prod_completion(
-                rows=page_result.rows,
-                trade_date=partition_key,
-                prod_completion=fresh_completion,
-            )
-        except DcBoardSourceValidationError as exc:
-            raise DcBoardRawValidationError(str(exc)) from exc
-        _insert_rows(connection, fields=DC_DAILY_FIELDS, rows=page_result.rows)
-        category_count = int(
-            connection.execute(
-                "SELECT count(DISTINCT category) FROM dc_board_rows"
-            ).fetchone()[0]
-        )
-        if category_count < len(DC_DAILY_CATEGORIES):
-            raise DcBoardRawValidationError(
-                "dc_daily category coverage is incomplete: "
-                f"observed={category_count}, expected={len(DC_DAILY_CATEGORIES)}."
-            )
+        _insert_rows(connection, fields=DC_DAILY_FIELDS, rows=source.daily_rows)
         _validate_dc_daily_covers_same_day_index(
-            connection,
-            index_path=raw_dc_index_path(lake_root_path, partition_key),
+            connection, index_path=raw_dc_index_path(lake_root_path, partition_key),
+            lake_root=lake_root_path, partition_key=partition_key, duckdb_resource=duckdb_resource,
+            expected_coverage_digest=source_snapshot_config.history_evidence_digest,
         )
         return _promote_table(
-            connection,
-            dataset="dc_daily",
-            partition_key=partition_key,
+            connection, lake_root_path=lake_root_path, dataset="dc_daily", partition_key=partition_key,
             target_path=raw_dc_daily_path(lake_root_path, partition_key),
-            source_method="tushare_api",
-            request_count=page_result.request_count,
-            page_count=page_result.page_count,
-            retry_count=page_result.retry_count,
-            started_at=started_at,
-            prod_completion_fingerprint=fresh_completion.completion_fingerprint,
-            source_closure_diagnostics=prod_diagnostics,
+            source_method="tushare_api", request_count=source.request_count,
+            page_count=source.page_count, retry_count=source.retry_count, started_at=started_at,
+            prod_completion_fingerprint=observation.prod.snapshot.completion_fingerprint,
+            prod_completion_observed_at=source_snapshot_config.prod_observed_at_second,
+            tushare_source_fingerprint=source.snapshot.source_fingerprint,
+            tushare_source_observed_at=source_snapshot_config.source_observed_at_second,
+            source_closure_diagnostics={
+                "prod_daily_missing_identity_count": source.daily_missing_count,
+                "prod_daily_extra_identity_count": source.daily_extra_count,
+            },
         )
 
 
@@ -883,6 +779,7 @@ def write_dc_member_partition(
     prod_postgres: ProdPostgresResource,
     partition_key: str,
     candidate_codes: Sequence[str],
+    source_snapshot_config: DcBoardSourceFreezeConfig,
     policy=DC_REQUEST_POLICY,
 ) -> DcBoardRawWriteResult:
     """Fetch one member request per candidate board code and atomically write it."""
@@ -899,16 +796,20 @@ def write_dc_member_partition(
             f"{invalid_candidates[:20]}"
         )
     started_at = perf_counter()
-    try:
-        fresh_completion = require_closed_prod_dc_board_completion(
-            prod_postgres=prod_postgres,
-            trade_date=partition_key,
-        )
-    except DcBoardSourceValidationError as exc:
-        raise DcBoardRawValidationError(str(exc)) from exc
+    observation = revalidate_dc_board_source(
+        proof=source_snapshot_config, asset_name="raw_tushare_dc_member", partition_key=partition_key,
+        lake_root=lake_root_path, duckdb_resource=duckdb_resource,
+        tushare=tushare, prod_postgres=prod_postgres, policy=policy,
+    )
+    fresh_completion = observation.prod.snapshot
+    remaining_requests = policy.max_requests - observation.source.request_count - DC_BOARD_SOURCE_OBSERVATION_MAX_REQUESTS
+    remaining_seconds = policy.max_elapsed_seconds - (perf_counter() - started_at)
+    if remaining_requests < len(normalized_codes) or remaining_seconds <= 0:
+        raise DcBoardRawValidationError("member request budget cannot cover candidates and final source validation")
+    member_policy = replace(policy, max_requests=remaining_requests, max_elapsed_seconds=remaining_seconds)
     with duckdb_resource.connect() as connection:
         _create_table(connection, "dc_member")
-        request_session = BoundedCodePageRequestSession(policy=policy)
+        request_session = BoundedCodePageRequestSession(policy=member_policy)
         initial_result = request_session.execute(
             codes=normalized_codes,
             request_page=lambda code, offset: tushare.call(
@@ -1016,17 +917,34 @@ def write_dc_member_partition(
         confirmation_retry_count = (
             confirmation_result.retry_count if confirmation_result is not None else 0
         )
+        def final_source_guard():
+            remaining_seconds = policy.max_elapsed_seconds - (perf_counter() - started_at)
+            if remaining_seconds <= 0:
+                raise DcBoardRawValidationError("member elapsed budget exceeded before final source validation")
+            terminal = revalidate_dc_board_source(
+                proof=source_snapshot_config, asset_name="raw_tushare_dc_member", partition_key=partition_key,
+                lake_root=lake_root_path, duckdb_resource=duckdb_resource,
+                tushare=tushare, prod_postgres=prod_postgres,
+                policy=replace(policy, max_requests=DC_BOARD_SOURCE_OBSERVATION_MAX_REQUESTS,
+                               max_elapsed_seconds=remaining_seconds),
+            )
+            if perf_counter() - started_at >= policy.max_elapsed_seconds:
+                raise DcBoardRawValidationError("member elapsed budget exceeded; promotion blocked")
+            return {"request_count": terminal.source.request_count,
+                    "page_count": terminal.source.page_count, "retry_count": terminal.source.retry_count}
         return _promote_table(
             connection,
+            lake_root_path=lake_root_path,
             dataset="dc_member",
             partition_key=partition_key,
             target_path=raw_dc_member_path(lake_root_path, partition_key),
             source_method="tushare_api_by_ts_code",
-            request_count=request_session.request_count,
-            page_count=sum(initial_result.page_counts.values())
+            request_count=request_session.request_count + observation.source.request_count,
+            page_count=observation.source.page_count + sum(initial_result.page_counts.values())
             + confirmation_page_count,
-            retry_count=request_session.retry_count,
+            retry_count=request_session.retry_count + observation.source.retry_count,
             started_at=started_at,
+            promotion_guard=final_source_guard,
             empty_codes=initial_result.empty_codes,
             prod_completion_fingerprint=fresh_completion.completion_fingerprint,
             tushare_source_fingerprint=stable_source_fingerprint,
@@ -1052,6 +970,7 @@ def write_dc_member_rows_streaming(
     partition_key: str,
     chunks: Iterable[Sequence[Mapping[str, object]]],
     source_method: str = "prod_db_readonly_export",
+    pre_promote: Callable[[], object],
     chunk_count: int = 0,
 ) -> DcBoardRawWriteResult:
     """Write member rows from a bounded stream without collecting a full day."""
@@ -1067,6 +986,7 @@ def write_dc_member_rows_streaming(
             observed_chunks += 1
         return _promote_table(
             connection,
+            lake_root_path=lake_root_path,
             dataset="dc_member",
             partition_key=partition_key,
             target_path=raw_dc_member_path(lake_root_path, partition_key),
@@ -1075,6 +995,7 @@ def write_dc_member_rows_streaming(
             page_count=observed_chunks,
             retry_count=0,
             started_at=started_at,
+            promotion_guard=pre_promote,
             chunk_count=chunk_count or observed_chunks,
         )
 

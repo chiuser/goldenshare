@@ -8,10 +8,10 @@ It never writes parquet files, calls a source API, or executes a Dagster job.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
-import json
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,9 @@ from orchestrator.defs.asset_guards.dc_board_lake_readiness import (
     batch_raw_dc_daily_lake_readiness,
     batch_raw_dc_index_lake_readiness,
     batch_raw_dc_member_lake_readiness,
+)
+from orchestrator.defs.asset_guards.dc_board_quote_coverage import (
+    quote_coverage_metadata,
 )
 from orchestrator.defs.asset_guards.dc_board_silver_lake_readiness import (
     batch_silver_dc_daily_lake_readiness,
@@ -69,7 +72,6 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     asset_readiness_status,
 )
-
 
 DC_BOARD_EVENT_WINDOW_SIZE = 20
 DC_BOARD_EVENT_ASSET_COUNT = 6
@@ -593,6 +595,7 @@ def _report_check_event(
                 failed_row_count=0,
                 file_path=path,
                 extra_metadata={
+                    **quote_coverage_metadata(status.summary),
                     "source_method": asset_plan.spec.source_method,
                     "bootstrap_event_backfill": True,
                     "event_backfill_scope": "recent_20_trade_days",

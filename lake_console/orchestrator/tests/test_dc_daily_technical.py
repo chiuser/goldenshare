@@ -6,7 +6,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
-import orchestrator.defs.assets.dc_daily_technical as dc_daily_technical
+from orchestrator.defs.assets import dc_daily_technical
 from orchestrator.defs.assets.dc_daily_technical import (
     DcDailyTechnicalValidationError,
     write_gold_dc_daily_technical_partition,
@@ -16,7 +16,6 @@ from orchestrator.defs.paths import (
     silver_dc_daily_path,
     silver_trade_calendar_path,
 )
-from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_DC_DAILY_TECHNICAL_SCHEMA,
 )
@@ -129,7 +128,7 @@ def _row(root: Path, trade_date: str) -> dict[str, object]:
     path = gold_dc_daily_technical_path(root, trade_date)
     with duckdb.connect(":memory:") as connection:
         row = connection.execute(
-            f"SELECT * FROM read_parquet(?)", [str(path)]
+            "SELECT * FROM read_parquet(?)", [str(path)]
         ).fetchone()
         columns = [item[0] for item in connection.description]
     return dict(zip(columns, row))
@@ -316,3 +315,20 @@ def test_writer_loads_source_in_bounded_file_batches(tmp_path, monkeypatch):
     assert observed_batch_sizes == [3, 3, 1]
     assert result.source_file_count == 7
     assert result.source_row_count == 7
+
+
+def test_new_board_first_quote_has_one_observation_without_directory_fill(tmp_path):
+    dates = _write_fixture(tmp_path, 5)
+    target = silver_dc_daily_path(tmp_path, dates[-1])
+    with duckdb.connect(":memory:") as connection:
+        connection.execute("CREATE TABLE source AS SELECT * FROM read_parquet(?)", [str(target)])
+        connection.execute("INSERT INTO source SELECT 'BK1754.DC', trade_date, close, open, high, low, change, pct_change, vol, amount, swing, turnover_rate, '概念板块' FROM source LIMIT 1")
+        connection.execute("COPY source TO ? (FORMAT PARQUET)", [str(target)])
+    result = write_gold_dc_daily_technical_partition(lake_root_path=tmp_path,
+        duckdb_resource=_MemoryDuckDB(), partition_key=dates[-1])
+    with duckdb.connect(":memory:") as connection:
+        first = connection.execute("SELECT observation_count, ma_5, ma_10, close FROM read_parquet(?) WHERE ts_code='BK1754.DC'",
+                                   [str(result.target_path)]).fetchone()
+        assert first == (1, None, None, 5.0)
+        keys = connection.execute("SELECT ts_code FROM read_parquet(?) ORDER BY ts_code", [str(result.target_path)]).fetchall()
+        assert keys == [("BK0001.DC",), ("BK1754.DC",)]

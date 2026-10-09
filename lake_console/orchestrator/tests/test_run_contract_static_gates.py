@@ -557,7 +557,7 @@ class RunContractStaticGateTests(unittest.TestCase):
         resource_source = resource_path.read_text()
 
         for required in (
-            "execute_bounded_pages",
+            "revalidate_dc_board_source",
             "BoundedCodePageRequestSession",
             "copy_query_to_parquet",
             "os.replace",
@@ -661,11 +661,10 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         for fragment in (
             "batch_raw_dc_index_lake_readiness",
-            "load_prod_dc_board_completion_snapshot",
-            "load_tushare_dc_index_daily_source_snapshot",
+            "observe_dc_board_source",
+            "confirm_dc_board_source",
             "DC_BOARD_CURRENT_DAY_REFERENCE_NOT_BEFORE",
-            "DC_BOARD_REFERENCE_STABILITY_SECONDS",
-            "build_raw_dc_index_update_job_run_config",
+            "build_raw_dc_board_update_job_run_config",
             "build_asset_update_run_key",
             "DC_BOARD_SENSOR_WINDOW_LIMIT",
         ):

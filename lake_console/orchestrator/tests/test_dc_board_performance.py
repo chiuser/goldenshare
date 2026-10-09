@@ -6,13 +6,19 @@ from unittest.mock import patch
 
 import duckdb
 
+from orchestrator.defs.asset_guards.dc_board_source_probe import (
+    DcBoardTushareSourceResult,
+)
 from orchestrator.defs.assets.dc_board import write_dc_member_partition
 from orchestrator.defs.resources import TushareResult
 from orchestrator.defs.run_contracts.dc_board import (
     DC_BOARD_MAX_ELAPSED_MS,
     build_dc_board_prod_completion_snapshot,
+    build_dc_board_tushare_source_snapshot,
 )
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
+from tests.dc_board_quote_test_support import prod_result, source_proof
+from tests.test_dc_board_raw_io import _daily_row, _index_row
 
 
 class _MemoryDuckDB:
@@ -30,6 +36,21 @@ class _MemoryDuckDB:
         return _Context()
 
 
+def _market_source(codes):
+    types = ("行业板块", "概念板块", "地域板块")
+    index = tuple(_index_row(types[i % 3], code) for i, code in enumerate(codes))
+    daily = tuple(_daily_row(types[i % 3], code) for i, code in enumerate(codes))
+    return DcBoardTushareSourceResult("2026-07-14", True, "ready", 4, 4, 0, 1.0,
+        build_dc_board_tushare_source_snapshot(trade_date="2026-07-14", index_rows=index, daily_rows=daily),
+        {t: tuple(row for row in index if row["idx_type"] == t) for t in types}, daily)
+
+
+def _market_response(api_name, params, fields):
+    source = _market_source(tuple(f"BK{i:04d}.DC" for i in range(1, 1023)))
+    rows = source.index_rows_by_type[params["idx_type"]] if api_name == "dc_index" else source.daily_rows
+    return TushareResult(rows=list(rows), columns=tuple(fields), metadata={})
+
+
 class _FakeTushare:
     def __init__(self):
         self.request_count = 0
@@ -37,6 +58,8 @@ class _FakeTushare:
     def call(self, api_name, params, fields):
         self.request_count += 1
         self.assert_api = api_name
+        if api_name in ("dc_index", "dc_daily"):
+            return _market_response(api_name, params, fields)
         code = params["ts_code"]
         return TushareResult(
             rows=[
@@ -74,8 +97,8 @@ class DcBoardPerformanceTests(unittest.TestCase):
             pairs = tuple((code, "000001.SZ") for code in codes)
             with (
                 patch(
-                    "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                    return_value=completion,
+                    "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                    return_value=prod_result(completion),
                 ),
                 patch(
                     "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -83,6 +106,7 @@ class DcBoardPerformanceTests(unittest.TestCase):
                 ),
             ):
                 result = write_dc_member_partition(
+                    source_snapshot_config=source_proof(completion, _market_source(codes), "raw_tushare_dc_member"),
                     lake_root_path=Path(temp_dir),
                     duckdb_resource=_MemoryDuckDB(),
                     tushare=source,
@@ -103,8 +127,8 @@ class DcBoardPerformanceTests(unittest.TestCase):
                 "policy": policy.to_details(),
             }
 
-        self.assertEqual(source.request_count, len(codes))
-        self.assertEqual(result.request_count, len(codes))
+        self.assertEqual(source.request_count, len(codes) + 8)
+        self.assertEqual(result.request_count, len(codes) + 8)
         self.assertEqual(result.source_row_count, len(codes))
         self.assertEqual(result.written_row_count, len(codes))
         self.assertLess(result.request_count, policy.max_requests)
@@ -130,6 +154,8 @@ class DcBoardPerformanceTests(unittest.TestCase):
         class _RepairingTushare:
             def call(self, api_name, params, fields):
                 self.assert_api = api_name
+                if api_name in ("dc_index", "dc_daily"):
+                    return _market_response(api_name, params, fields)
                 code = params["ts_code"]
                 call_counts[code] = call_counts.get(code, 0) + 1
                 rows = [
@@ -161,8 +187,8 @@ class DcBoardPerformanceTests(unittest.TestCase):
             pairs = tuple((code, "000001.SZ") for code in codes)
             with (
                 patch(
-                    "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                    return_value=completion,
+                    "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                    return_value=prod_result(completion),
                 ),
                 patch(
                     "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -170,6 +196,7 @@ class DcBoardPerformanceTests(unittest.TestCase):
                 ),
             ):
                 result = write_dc_member_partition(
+                    source_snapshot_config=source_proof(completion, _market_source(codes), "raw_tushare_dc_member"),
                     lake_root_path=Path(temp_dir),
                     duckdb_resource=_MemoryDuckDB(),
                     tushare=_RepairingTushare(),
@@ -181,7 +208,7 @@ class DcBoardPerformanceTests(unittest.TestCase):
 
         self.assertEqual(sum(call_counts.values()), len(codes) + 1)
         self.assertEqual(call_counts["BK1022.DC"], 2)
-        self.assertEqual(result.request_count, len(codes) + 1)
+        self.assertEqual(result.request_count, len(codes) + 9)
         self.assertEqual(
             result.source_closure_diagnostics["member_source_stability_code_count"],
             1,

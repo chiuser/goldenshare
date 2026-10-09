@@ -2,9 +2,10 @@
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from datetime import time as datetime_time
 from typing import ClassVar, Literal
+from zoneinfo import ZoneInfo
 
 import dagster as dg
 from pydantic import Field
@@ -12,6 +13,12 @@ from pydantic import Field
 from orchestrator.defs.daily_basic_contract import (
     DAILY_BASIC_ASSET,
     daily_basic_trade_date,
+)
+from orchestrator.defs.run_contracts.dc_board import (
+    DC_BOARD_CURRENT_DAY_REFERENCE_NOT_BEFORE,
+    DC_BOARD_REFERENCE_STABILITY_SECONDS,
+    DC_DAILY_HISTORY_START_DATE,
+    DC_QUOTE_COVERAGE_POLICY_VERSION,
 )
 from orchestrator.defs.run_contracts.stk_mins import ProdStkMinsCompletionReference
 
@@ -33,22 +40,23 @@ class IndexDailyRawConfig(dg.Config):
     )
 
 
-class DcBoardIndexSourceSnapshotConfig(dg.Config):
-    trade_date: str = Field(
-        description="本次 DC Tushare 源快照对应的交易日，格式 YYYY-MM-DD。",
-    )
-    prod_completion_observed_at: str = Field(
-        description="第二次稳定 prod 完成快照的带时区 ISO-8601 观测时间。",
-    )
-    prod_completion_fingerprint: str = Field(
-        description="稳定 prod 完成快照的 lowercase SHA-256。",
-    )
-    tushare_source_observed_at: str = Field(
-        description="本次已确认 Tushare 业务源快照的带时区 ISO-8601 观测时间。",
-    )
-    tushare_source_fingerprint: str = Field(
-        description="完整 Tushare index/daily 业务行的 lowercase SHA-256。",
-    )
+class DcBoardSourceFreezeConfig(dg.Config):
+    policy_version: str
+    trade_date: str
+    target_asset: Literal["raw_tushare_dc_index", "raw_tushare_dc_daily", "raw_tushare_dc_member"]
+    prod_observed_at_first: str | None = None
+    prod_fingerprint_first: str | None = None
+    prod_observed_at_second: str
+    prod_fingerprint_second: str
+    source_observed_at_first: str | None = None
+    source_fingerprint_first: str | None = None
+    source_observed_at_second: str
+    source_fingerprint_second: str
+    history_start: str
+    history_end: str | None = None
+    history_file_count: int
+    history_evidence_digest: str
+    coverage_gap_count: int
 
 
 class DcIndustryHierarchyConfig(dg.Config):
@@ -377,68 +385,71 @@ def build_silver_dc_industry_hierarchy_update_job_run_config(
     }
 
 
-def build_raw_dc_index_update_job_run_config(
+def validate_dc_board_source_freeze_config(
+    config: DcBoardSourceFreezeConfig,
     *,
     partition_key: str,
-    trade_date: str,
-    prod_completion_observed_at: str,
-    prod_completion_fingerprint: str,
-    tushare_source_observed_at: str,
-    tushare_source_fingerprint: str,
-) -> dict[str, object]:
-    normalized_partition_key = normalize_iso_trade_date(
-        partition_key,
-        field_name="partition_key",
-    )
-    normalized_trade_date = normalize_iso_trade_date(
-        trade_date,
-        field_name="trade_date",
-    )
-    if normalized_trade_date != normalized_partition_key:
-        raise ValueError("trade_date must equal partition_key.")
-    normalized_prod_completion_observed_at = _normalize_reference_observed_at(
-        prod_completion_observed_at,
-    )
-    normalized_prod_completion_fingerprint = _normalize_sha256_hex(
-        prod_completion_fingerprint,
-        field_name="prod_completion_fingerprint",
-    )
-    normalized_tushare_source_observed_at = _normalize_reference_observed_at(
-        tushare_source_observed_at,
-    )
-    normalized_tushare_source_fingerprint = _normalize_sha256_hex(
-        tushare_source_fingerprint,
-        field_name="tushare_source_fingerprint",
-    )
-    return {
-        "ops": {
-            "raw_tushare_dc_index": {
-                "config": {
-                    "trade_date": normalized_trade_date,
-                    "prod_completion_observed_at": normalized_prod_completion_observed_at,
-                    "prod_completion_fingerprint": normalized_prod_completion_fingerprint,
-                    "tushare_source_observed_at": normalized_tushare_source_observed_at,
-                    "tushare_source_fingerprint": normalized_tushare_source_fingerprint,
-                }
-            }
-        }
-    }
-
-
-def validate_dc_board_index_source_snapshot_config(
-    config: DcBoardIndexSourceSnapshotConfig,
-    *,
-    partition_key: str,
-) -> DcBoardIndexSourceSnapshotConfig:
-    build_raw_dc_index_update_job_run_config(
-        partition_key=partition_key,
-        trade_date=config.trade_date,
-        prod_completion_observed_at=config.prod_completion_observed_at,
-        prod_completion_fingerprint=config.prod_completion_fingerprint,
-        tushare_source_observed_at=config.tushare_source_observed_at,
-        tushare_source_fingerprint=config.tushare_source_fingerprint,
-    )
+    asset_name: str,
+    now: datetime | None = None,
+) -> DcBoardSourceFreezeConfig:
+    """Validate the shared proof; source/history re-reading belongs to the writer."""
+    moment = now or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        raise ValueError("now must include timezone")
+    if asset_name not in ("raw_tushare_dc_index", "raw_tushare_dc_daily", "raw_tushare_dc_member"):
+        raise ValueError("unsupported DC source proof target asset")
+    day = normalize_iso_trade_date(partition_key, field_name="partition_key")
+    if config.trade_date != day or config.target_asset != asset_name:
+        raise ValueError("source proof must match partition and target asset")
+    if config.policy_version != DC_QUOTE_COVERAGE_POLICY_VERSION:
+        raise ValueError("source proof policy version mismatch")
+    if config.history_start != DC_DAILY_HISTORY_START_DATE:
+        raise ValueError("source proof history start mismatch")
+    if config.history_end is not None:
+        end = normalize_iso_trade_date(config.history_end, field_name="history_end")
+        if not config.history_start <= end < day:
+            raise ValueError("history_end must precede target date")
+    if config.coverage_gap_count < 0 or config.history_file_count < 0:
+        raise ValueError("source proof counts must be nonnegative")
+    _normalize_sha256_hex(config.history_evidence_digest, field_name="history_evidence_digest")
+    pairs = {}
+    for role in ("prod", "source"):
+        parsed = []
+        for position in ("first", "second"):
+            timestamp = getattr(config, f"{role}_observed_at_{position}")
+            fingerprint = getattr(config, f"{role}_fingerprint_{position}")
+            if (timestamp is None) != (fingerprint is None):
+                raise ValueError(f"{role} observation timestamp/fingerprint must be paired")
+            if timestamp is None:
+                parsed.append(None)
+                continue
+            parsed_time = datetime.fromisoformat(_normalize_reference_observed_at(timestamp))
+            if parsed_time.utcoffset().total_seconds() != 0 or parsed_time > moment:
+                raise ValueError("observations must be completed UTC times, never future")
+            _normalize_sha256_hex(fingerprint, field_name=f"{role}_fingerprint_{position}")
+            parsed.append(parsed_time)
+        first, second = parsed
+        if first is not None and (second - first).total_seconds() < DC_BOARD_REFERENCE_STABILITY_SECONDS:
+            raise ValueError(f"{role} stable observations require 300 seconds")
+        if first is not None and getattr(config, f"{role}_fingerprint_first") != getattr(config, f"{role}_fingerprint_second"):
+            raise ValueError(f"{role} observations are unstable")
+        pairs[role] = first is not None
+    if config.coverage_gap_count and not pairs["source"]:
+        raise ValueError("quote gap requires two stable source observations")
+    local = moment.astimezone(ZoneInfo("Asia/Shanghai"))
+    if day > local.date().isoformat():
+        raise ValueError("target date cannot be future")
+    if (asset_name == "raw_tushare_dc_index" and day == local.date().isoformat()
+            and (local.time() < DC_BOARD_CURRENT_DAY_REFERENCE_NOT_BEFORE or not pairs["prod"])):
+        raise ValueError("current-day index requires 21:15 and stable Prod observations")
     return config
+
+
+def build_raw_dc_board_update_job_run_config(
+    *, asset_name: str, partition_key: str, proof: DcBoardSourceFreezeConfig,
+) -> dict[str, object]:
+    validate_dc_board_source_freeze_config(proof, partition_key=partition_key, asset_name=asset_name)
+    return {"ops": {asset_name: {"config": proof.model_dump()}}}
 
 
 def build_stock_daily_raw_repair_run_config(

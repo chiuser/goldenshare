@@ -4,6 +4,8 @@
 >
 > 本文建立在 [`dagster-dc-daily-technical-indicators-plan.md`](dagster-dc-daily-technical-indicators-plan.md) 的冻结口径上。若实现前发现代码事实冲突，必须先更新方案和本 LLD，不能在代码里留下隐式兼容分支。
 
+> 2026-10-09 路径硬约束校准：本链 Gold 日更及限定 repair 候选统一放在现有 `/Volumes/datasource/data_lake_staging` 的 run-scoped DC 目录；正式 Gold 分区旁不再创建 `.tmp`。复用 DC candidate helper 做同文件系统检查，不改指标公式、实际行范围、repair 协议或入口参数。详见 [行情可用性 LLD](./dagster-dc-board-quote-availability-low-level-design-v1.md#5-写入与恢复)。
+
 ## 1. 设计输入与硬约束
 
 本 LLD 受以下硬约束控制：

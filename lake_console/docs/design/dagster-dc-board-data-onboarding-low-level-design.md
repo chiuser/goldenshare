@@ -1,5 +1,11 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 低层设计（LLD）
 
+> 2026-10-09 当前实施口径：[DC 板块暂未形成行情的处理 LLD v1](./dagster-dc-board-quote-availability-low-level-design-v1.md)。条件覆盖判定、三类源冻结/复核、Raw/Silver 核心 check metadata 与 staging 原子提升已在工作区落地，354项隔离回归通过，正式 Lake 历史存在性只读容量验证通过。生产源双快照预检、正式写入和上线验收未执行；下文历史集合门禁及阶段记录保留，当前代码对账以补充 LLD §8.1 为准。
+
+> 2026-10-09 开发前补齐：补充 LLD §4.2.1 已记录只读容量测量及64文件批次、512MiB/2线程、SQL1秒/总5秒等资源拒绝合同；§4.4 明确三类Raw统一冻结配置、独立下游观察、writer重验与既有bootstrap内的确认协议。该条记录开发前两项缺口补齐时的状态；后续代码实施见补充 LLD §8.1，仍未执行生产任务；证明不得从历史事件或旧报告推定。
+
+> 补充设计对下文“check 只读当前分区/不读历史文件”的限定调整：仅当目标日有 index-only 代码时，允许共用有界、列裁剪的历史存在性举证；不允许历史完整 core check、数值宽表或全历史深度质量扫描。具体规则以补充 LLD §4.2 为准，历史阶段记录保持原样。
+
 > 本文基于 [`dagster-dc-board-data-onboarding-plan.md`](./dagster-dc-board-data-onboarding-plan.md)。
 > 方案文档冻结业务口径；本文冻结文件、函数、SQL、事务、测试和推进顺序。
 >
@@ -361,7 +367,7 @@ fetch_all_pages(
 
 `write_dc_raw_partition(...)` 只负责一个日期：
 
-1. 写 `part-000.parquet.tmp`。
+1. 在 `/Volumes/datasource/data_lake_staging` 的 run-scoped DC 候选目录写文件；不得在正式 Raw/Silver 分区旁创建临时文件。2026-10-09 的路径校准与末次复核见 [行情可用性 LLD](./dagster-dc-board-quote-availability-low-level-design-v1.md#5-写入与恢复)。
 2. 完成 DuckDB schema/key/domain/page checks。
 3. `os.replace` 覆盖正式文件。
 4. 返回 `DcPartitionWriteResult`。

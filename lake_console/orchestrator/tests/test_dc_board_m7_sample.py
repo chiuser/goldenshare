@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -29,12 +28,12 @@ from orchestrator.defs.paths import (
     silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import TushareResult
-from orchestrator.defs.run_contracts.configs import DcBoardIndexSourceSnapshotConfig
 from orchestrator.defs.run_contracts.dc_board import (
     DC_INDEX_TYPES,
     build_dc_board_prod_completion_snapshot,
 )
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
+from tests.dc_board_quote_test_support import prod_result, source_proof
 
 
 class _MemoryDuckDB:
@@ -150,8 +149,8 @@ def test_m7_sample_raw_to_silver_three_dates_uses_atomic_temp_lake(tmp_path):
     duckdb_resource = _MemoryDuckDB()
 
     with patch(
-        "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-        side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
+        "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+        side_effect=lambda *, trade_date, **_kwargs: prod_result(_completion(trade_date)),
     ):
         for trade_date in dates:
             compact_date = trade_date.replace("-", "")
@@ -163,25 +162,17 @@ def test_m7_sample_raw_to_silver_three_dates_uses_atomic_temp_lake(tmp_path):
                 policy=_policy(),
             )
             assert source_result.snapshot is not None
-            observed_at = datetime.now(UTC).isoformat()
             write_dc_index_partition(
                 lake_root_path=root,
                 duckdb_resource=duckdb_resource,
                 tushare=tushare,
                 prod_postgres=object(),
                 partition_key=trade_date,
-                source_snapshot_config=DcBoardIndexSourceSnapshotConfig(
-                    trade_date=trade_date,
-                    prod_completion_observed_at=observed_at,
-                    prod_completion_fingerprint=completion.completion_fingerprint,
-                    tushare_source_observed_at=observed_at,
-                    tushare_source_fingerprint=(
-                        source_result.snapshot.source_fingerprint
-                    ),
-                ),
+                source_snapshot_config=source_proof(completion, source_result),
                 policy=_policy(),
             )
             write_dc_daily_partition(
+                source_snapshot_config=source_proof(completion, source_result, "raw_tushare_dc_daily"),
                 lake_root_path=root,
                 duckdb_resource=duckdb_resource,
                 tushare=tushare,
@@ -190,6 +181,7 @@ def test_m7_sample_raw_to_silver_three_dates_uses_atomic_temp_lake(tmp_path):
                 policy=_policy(),
             )
             write_dc_member_rows_streaming(
+                pre_promote=lambda: None,
                 lake_root_path=root,
                 duckdb_resource=duckdb_resource,
                 partition_key=trade_date,

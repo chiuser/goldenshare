@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 
 from orchestrator.defs.asset_guards.dc_board_source_probe import (
-    load_prod_dc_board_completion_snapshot,
+    load_prod_dc_board_reference_snapshot,
     load_tushare_dc_index_daily_source_snapshot,
 )
 from orchestrator.defs.resources import TushareResult
@@ -202,7 +202,7 @@ class _FailingProd(_FakeProd):
 
 
 def test_prod_completion_requires_three_closed_identity_queries():
-    result = load_prod_dc_board_completion_snapshot(
+    result = load_prod_dc_board_reference_snapshot(
         prod_postgres=_FakeProd(),
         trade_date=_TRADE_DATE,
     )
@@ -217,7 +217,7 @@ def test_prod_completion_requires_three_closed_identity_queries():
 
 
 def test_prod_completion_fails_closed_on_member_key_problem():
-    result = load_prod_dc_board_completion_snapshot(
+    result = load_prod_dc_board_reference_snapshot(
         prod_postgres=_FakeProd(invalid_member_keys=1),
         trade_date=_TRADE_DATE,
     )
@@ -228,7 +228,7 @@ def test_prod_completion_fails_closed_on_member_key_problem():
 
 
 def test_prod_completion_accepts_member_subset_index_subset_daily():
-    result = load_prod_dc_board_completion_snapshot(
+    result = load_prod_dc_board_reference_snapshot(
         prod_postgres=_FakeProd(
             daily_identity=(*_INDEX_IDENTITY, ("行业板块", "BK0004.DC")),
             member_codes=("BK0001.DC", "BK0002.DC"),
@@ -245,7 +245,7 @@ def test_prod_completion_accepts_member_subset_index_subset_daily():
 
 
 def test_prod_completion_rejects_index_code_missing_from_daily():
-    result = load_prod_dc_board_completion_snapshot(
+    result = load_prod_dc_board_reference_snapshot(
         prod_postgres=_FakeProd(daily_identity=_INDEX_IDENTITY[:-1]),
         trade_date=_TRADE_DATE,
     )
@@ -256,7 +256,7 @@ def test_prod_completion_rejects_index_code_missing_from_daily():
 
 
 def test_prod_completion_rejects_member_code_outside_index():
-    result = load_prod_dc_board_completion_snapshot(
+    result = load_prod_dc_board_reference_snapshot(
         prod_postgres=_FakeProd(member_codes=("BK0001.DC", "BK0002.DC", "BK9999.DC")),
         trade_date=_TRADE_DATE,
     )
@@ -267,7 +267,7 @@ def test_prod_completion_rejects_member_code_outside_index():
 
 
 def test_prod_completion_keeps_completed_query_count_when_query_fails():
-    result = load_prod_dc_board_completion_snapshot(
+    result = load_prod_dc_board_reference_snapshot(
         prod_postgres=_FailingProd(fail_on_query=2),
         trade_date=_TRADE_DATE,
     )

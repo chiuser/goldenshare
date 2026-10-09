@@ -1,0 +1,210 @@
+{
+  "validation_date": "2026-10-09",
+  "status": "implemented_isolated_validation_complete_production_acceptance_pending",
+  "branch": "dev-interface",
+  "formal_writes": false,
+  "formal_dagster_mutations": false,
+  "source_preflight_this_development_run": false,
+  "tests": {
+    "passed": 354,
+    "warnings": 121,
+    "isolated_lake_and_fake_source": true,
+    "final_metadata_regression": {
+      "passed": 23,
+      "warnings": 45,
+      "files": [
+        "test_dc_board_quote_coverage.py",
+        "test_dc_board_quote_integration.py",
+        "test_dc_board_events.py"
+      ]
+    }
+  },
+  "static_checks": {
+    "fatal_ruff": "passed",
+    "default_ruff_existing_head_findings": {
+      "run_contracts/configs.py": 11,
+      "bootstrap/dc_board_events.py": 2
+    },
+    "new_findings": 0,
+    "docs_integrity": "passed",
+    "git_diff_check": "passed",
+    "old_dc_index_contract_references_in_source_and_tests": 0,
+    "codegraph_sync": "up_to_date"
+  },
+  "history_presence_case": {
+    "case": {
+      "2026-10-08": [
+        "BK1754.DC"
+      ]
+    },
+    "elapsed_ms": 482.566,
+    "sql_count": 34,
+    "longest_sql_ms": 212.828,
+    "process_peak_rss_bytes": 232144896,
+    "results": {
+      "2026-10-08": {
+        "policy_version": "dc_board_quote_coverage_v1",
+        "partition_key": "2026-10-08",
+        "missing_quote_count": 1,
+        "index_code_count": null,
+        "daily_code_count": null,
+        "awaiting_count": 1,
+        "previously_observed_missing_count": 0,
+        "unverifiable_count": 0,
+        "missing_quote_details": [
+          {
+            "ts_code": "BK1754.DC",
+            "state": "awaiting_first_observed_quote",
+            "evidence_start": "2024-01-02",
+            "evidence_end": "2026-09-30",
+            "history_complete": true,
+            "observed_quote_date": null
+          }
+        ],
+        "quote_coverage_samples": [
+          {
+            "ts_code": "BK1754.DC",
+            "state": "awaiting_first_observed_quote",
+            "evidence_start": "2024-01-02",
+            "evidence_end": "2026-09-30",
+            "history_complete": true,
+            "observed_quote_date": null,
+            "name": null,
+            "category": null
+          }
+        ],
+        "history_start": "2024-01-02",
+        "history_end": "2026-09-30",
+        "history_complete": true,
+        "history_file_count": 666,
+        "source_confirmation": "not_evaluated",
+        "evidence_digest": "5a2c1dd670083a6bc19402f563e01f0fd8f457d03962ce83191b75ce76f01bb1",
+        "metadata_truncated": false,
+        "retained_quote_detail_count": 1
+      }
+    }
+  },
+  "capacity_case": {
+    "scope": "implemented_history_helper_formal_lake_readonly",
+    "source_network_calls": 0,
+    "formal_writes": false,
+    "targets": [
+      "2026-10-08",
+      "2026-09-30",
+      "2026-09-29",
+      "2026-09-28",
+      "2026-09-24",
+      "2026-09-23",
+      "2026-09-22",
+      "2026-09-21",
+      "2026-09-18",
+      "2026-09-17"
+    ],
+    "target_count": 10,
+    "candidate_code_count": 1200,
+    "real_code_count": 1031,
+    "connections": 1,
+    "sql_count": 34,
+    "elapsed_ms": 735.399,
+    "max_sql_ms": 19.927,
+    "peak_rss_bytes": 242909184,
+    "results": {
+      "2026-10-08": {
+        "history_file_count": 666,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "d620886e1642a3a76fe41482644331d36ba28c15a3dc8a1ebfd77f929355bdff"
+      },
+      "2026-09-30": {
+        "history_file_count": 665,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "b8ba71bff91a4e34f4684d4e360e40177d8b34cad4d924e3642f86c8c4e35ac1"
+      },
+      "2026-09-29": {
+        "history_file_count": 664,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "ca5d4bb1a568dd04ef53856203f897042d326c49da360baafe701e47061a3984"
+      },
+      "2026-09-28": {
+        "history_file_count": 663,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "374527099258080e948e1d7fa66c199022b6e10d79d954fae7ab7685a4e51948"
+      },
+      "2026-09-24": {
+        "history_file_count": 662,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "ad4e1ffe8134c5d6288c893cd63b1d68912bd92e6b33ac8c6ada24c396b5c586"
+      },
+      "2026-09-23": {
+        "history_file_count": 661,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "21fb9c928e207d23fb4f2b3a729d0638f36a2ea14d99f1bbf4ae31c5c1373cd3"
+      },
+      "2026-09-22": {
+        "history_file_count": 660,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "bebaf52a046cad9c29338ad8de328db1ba3adf5a6f33439c9f4d36f5dbd78c32"
+      },
+      "2026-09-21": {
+        "history_file_count": 659,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "5748eb147c094467d35cbb6448bbf017b6be7eb9fe4aebd1d0c00eab0bf772d9"
+      },
+      "2026-09-18": {
+        "history_file_count": 658,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "28042333ff3c2fcbf4331522242ef1ca915b1fb1ecfa2f7b1028ad68e5648ba0"
+      },
+      "2026-09-17": {
+        "history_file_count": 657,
+        "history_complete": true,
+        "awaiting_count": 169,
+        "mature_missing_count": 1031,
+        "unverifiable_count": 0,
+        "error": null,
+        "evidence_digest": "62ce9f0a7b9cb9d9bfbe6effdc31dd2e74abe7d25cfa4a3f3dc66985201bd68c"
+      }
+    }
+  },
+  "capacity_note": "All 1200 codes were hypothetical gaps; 168 codes are synthetic. Classification counts do not represent real current missing quotes.",
+  "production_pending": [
+    "real source stable double snapshots",
+    "formal asset check persistence and downstream behavior",
+    "bounded Raw/Silver/Gold/ClickHouse physical acceptance"
+  ]
+}

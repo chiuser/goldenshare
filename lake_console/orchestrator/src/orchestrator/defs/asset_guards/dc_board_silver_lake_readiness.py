@@ -11,11 +11,14 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityBatchReadiness,
     ContinuityDateReadiness,
 )
+from orchestrator.defs.asset_guards.dc_board_relations import (
+    audit_silver_board_relation,
+    batch_board_relation_coverage,
+)
 from orchestrator.defs.asset_guards.dc_board_silver_quality import (
     SILVER_DC_QUALITY_SPECS,
     SilverQualitySpec,
 )
-from orchestrator.defs.asset_guards.dc_board_relations import audit_silver_board_relation
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import silver_dc_index_path
 
@@ -274,6 +277,7 @@ def batch_silver_dc_board_lake_readiness(
     expected_trade_dates: Sequence[str],
     registered_trade_days: Sequence[str],
     dataset: str,
+    duckdb_resource=None,
 ) -> ContinuityBatchReadiness:
     """Scan one Silver dataset over a bounded date window."""
 
@@ -303,16 +307,25 @@ def batch_silver_dc_board_lake_readiness(
                 "dc_daily": "index_subset_daily",
             }.get(dataset)
             if relation_mode is not None:
+                coverage_by_date = batch_board_relation_coverage(
+                    connection, lake_root=lake_root, duckdb_resource=duckdb_resource,
+                    paths_by_date={day: (path, silver_dc_index_path(lake_root, day))
+                                   for day, path in existing.items() if statuses[day].ready},
+                ) if dataset == "dc_daily" else {}
                 for trade_date, source_path in existing.items():
                     status = statuses[trade_date]
                     if not status.ready:
                         continue
-                    relation_failed_count, relation_samples = audit_silver_board_relation(
+                    relation_result = audit_silver_board_relation(
                         connection,
                         source_path=source_path,
                         index_path=silver_dc_index_path(lake_root, trade_date),
                         mode=relation_mode,
+                        coverage=coverage_by_date.get(trade_date),
                     )
+                    relation_failed_count, relation_samples = relation_result
+                    status = replace(status, summary={**status.summary, **relation_result.metadata()})
+                    statuses[trade_date] = status
                     if relation_failed_count:
                         statuses[trade_date] = replace(
                             status,
@@ -333,7 +346,7 @@ def batch_silver_dc_board_lake_readiness(
                                 "relation_failure_samples": list(relation_samples),
                             },
                         )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - physical readiness fails closed.
             for trade_date, path in existing.items():
                 statuses[trade_date] = ContinuityDateReadiness(
                     trade_date=trade_date,

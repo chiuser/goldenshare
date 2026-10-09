@@ -1,34 +1,37 @@
 """Single, partition-attributable core checks for board Silver assets."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.assets.dc_board_silver import (
-    silver_dc_daily,
-    silver_dc_index,
-    silver_dc_member,
+from orchestrator.defs.asset_guards.dc_board_relations import (
+    audit_silver_board_relation,
+    batch_board_relation_coverage,
+)
+from orchestrator.defs.asset_guards.dc_board_silver_quality import (
+    SILVER_DC_DAILY_QUALITY,
+    SILVER_DC_INDEX_QUALITY,
+    SILVER_DC_MEMBER_QUALITY,
 )
 from orchestrator.defs.assets.dc_board_raw import (
     raw_tushare_dc_daily,
     raw_tushare_dc_index,
     raw_tushare_dc_member,
 )
-from orchestrator.defs.asset_guards.dc_board_relations import audit_silver_board_relation
-from orchestrator.defs.asset_guards.dc_board_silver_quality import (
-    SILVER_DC_DAILY_QUALITY,
-    SILVER_DC_INDEX_QUALITY,
-    SILVER_DC_MEMBER_QUALITY,
+from orchestrator.defs.assets.dc_board_silver import (
+    silver_dc_daily,
+    silver_dc_index,
+    silver_dc_member,
 )
 from orchestrator.defs.duckdb_sql import describe_parquet_query, read_parquet
-from orchestrator.defs.paths import silver_dc_index_path
 from orchestrator.defs.partitions import (
     cn_a_dc_daily_trade_days,
     cn_a_dc_index_trade_days,
     cn_a_dc_member_trade_days,
 )
+from orchestrator.defs.paths import silver_dc_index_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
@@ -49,6 +52,7 @@ def _result(
     failed_rules: Sequence[str],
     reason_code: str,
     failure_samples: Sequence[dict[str, Any]] = (),
+    quote_metadata: Mapping[str, object] | None = None,
 ) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=passed,
@@ -58,6 +62,7 @@ def _result(
             failed_row_count=failed_row_count,
             file_path=file_path,
             extra_metadata={
+                **(quote_metadata or {}),
                 "partition_key": partition_key,
                 "failed_rules": list(failed_rules),
                 "reason_code": reason_code,
@@ -120,6 +125,7 @@ def _core_check(
 
     expected_columns = tuple(column.name for column in schema)
     expected_types = {column.name: str(column.type).upper() for column in schema}
+    quote_metadata: dict[str, object] = {}
     failed_rules: list[str] = []
     failed_row_count = 0
     samples: list[dict[str, Any]] = []
@@ -214,12 +220,19 @@ def _core_check(
             failed_row_count += numeric_failed_count
             samples.extend(_sample_rows(connection, relation, expected_columns[:5], numeric_condition))
         if relation_mode is not None:
-            relation_failed_count, relation_samples = audit_silver_board_relation(
+            coverage_by_date = batch_board_relation_coverage(
+                connection, lake_root=lake_root.root(), duckdb_resource=duckdb_resource,
+                paths_by_date={partition_key: (path, silver_dc_index_path(lake_root.root(), partition_key))},
+            ) if relation_mode == "index_subset_daily" else {}
+            relation_result = audit_silver_board_relation(
                 connection,
                 source_path=path,
                 index_path=silver_dc_index_path(lake_root.root(), partition_key),
                 mode=relation_mode,
+                coverage=coverage_by_date.get(partition_key),
             )
+            relation_failed_count, relation_samples = relation_result
+            quote_metadata = relation_result.metadata()
             if relation_failed_count:
                 failed_rules.append("same_day_board_relation_integrity")
                 failed_row_count += relation_failed_count
@@ -235,6 +248,7 @@ def _core_check(
         failed_rules=failed_rules,
         reason_code="ready" if not failed_rules else "silver_core_check_failed",
         failure_samples=samples,
+        quote_metadata=quote_metadata,
     )
 
 

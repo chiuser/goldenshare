@@ -135,6 +135,7 @@ docs/
 - [指数行情分层、对象池与周期线维护说明（已合并分层方案；周/月线差异、来源统计与历史验收分列）](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
 - [指数基础信息维护说明（当前输入、日期存储与权重回退；market 来源口径差异单列）](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)
 - [板块日线字段与存储说明（合并 DC 主键与 THS 估值方案；区分 Raw 视图与双层写入）](/Users/congming/github/goldenshare/docs/datasets/board-daily-fields-and-storage.md)
+- [DG DC 板块暂未形成行情处理 LLD v1（代码与隔离回归完成，生产验收待执行；复用核心 check 保存覆盖明细）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-dc-board-quote-availability-low-level-design-v1.md)
 - [股票周/月线维护说明（已并入日期指南 §4，含接口来源与执行入口）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)
 - [资金流多源融合与对账说明（现行发布、CLI/Seed 副作用与未实现质量建议分列）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
 - [Dagster 七个 Tushare 资金流向数据集接入技术方案 v1（基线已提交，P0核验中；Prod Raw 历史初始化、DG 直采日更）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md)

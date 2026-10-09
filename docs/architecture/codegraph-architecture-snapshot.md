@@ -172,6 +172,8 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 
 `orchestrator/defs/**` 包含 stock_basic、stock_daily、stk_mins、adj_factor、index_daily、market_breadth、ClickHouse serving 等资产、检查、任务、传感器和 run contract。
 
+DC 板块三类 Raw 入口共用 `DcBoardSourceFreezeConfig`、`dc_board_source_freeze.py` 的完整源观察/稳定确认/提升前复核；`dc_board_quote_coverage.py` 提供有界历史存在性证据，Raw/Silver daily 核心 check 和物理 readiness 共用分类并记录覆盖 metadata。物理检查不调用源接口，正式 writer 负责源确认；候选通过 `io/dc_board_candidate.py` 放入独立 staging 并同文件系统原子提升。核心 check 注册、业务/API 与指标公式不变；详见[行情可用性 LLD](../../lake_console/docs/design/dagster-dc-board-quote-availability-low-level-design-v1.md)。
+
 停牌日更由 `assets/suspend_d.py::write_silver_stock_suspend_daily_partition` 读取 Raw 与固定 Silver 确认事实，在独立 staging 校验并原子提升；当前不读取旧 CSV。固定确认事实与日更资产的发布/检查边界见[停牌专项 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-low-level-design-v1.md)。S0–S5、实际日期/行数、临时产物清理和事故核验只保留在该 LLD 的最终对账与历史章节，避免本快照维护第二份运行日志。
 
 ### 分钟历史 CLI（2026-09-05 M2A / M2B / M3）

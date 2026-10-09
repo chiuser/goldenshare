@@ -27,9 +27,8 @@ from orchestrator.defs.asset_guards.dc_board_silver_lake_readiness import (
     batch_silver_dc_index_lake_readiness,
     batch_silver_dc_member_lake_readiness,
 )
-from orchestrator.defs.asset_guards.dc_board_source_probe import (
-    load_tushare_dc_index_daily_source_snapshot,
-    require_closed_prod_dc_board_completion,
+from orchestrator.defs.asset_guards.dc_board_source_freeze import (
+    observe_and_confirm_dc_board_source,
 )
 from orchestrator.defs.assets.dc_board import (
     DcBoardRawWriteResult,
@@ -64,7 +63,6 @@ from orchestrator.defs.resources import (
     ProdPostgresResource,
     TushareResource,
 )
-from orchestrator.defs.run_contracts.configs import DcBoardIndexSourceSnapshotConfig
 
 DATASETS = ("dc_index", "dc_member", "dc_daily")
 _RAW_READINESS = {
@@ -354,50 +352,22 @@ def _raw_write(
     dataset: str,
     trade_date: str,
 ) -> DcBoardRawWriteResult:
+    if dataset not in ("dc_index", "dc_daily", "dc_member"):
+        raise DcBoardBootstrapApplyError(f"unsupported Raw dataset: {dataset}")
+    asset_name = f"raw_tushare_{dataset}"
+    proof = observe_and_confirm_dc_board_source(
+        asset_name=asset_name, lake_root=lake_root, duckdb_resource=duckdb_resource,
+        tushare=tushare, prod_postgres=prod_postgres, trade_date=trade_date,
+    )
+    common = {"lake_root_path": lake_root, "duckdb_resource": duckdb_resource,
+              "tushare": tushare, "prod_postgres": prod_postgres,
+              "partition_key": trade_date, "source_snapshot_config": proof}
     if dataset == "dc_index":
-        completion = require_closed_prod_dc_board_completion(
-            prod_postgres=prod_postgres,
-            trade_date=trade_date,
-        )
-        source_result = load_tushare_dc_index_daily_source_snapshot(
-            tushare=tushare,
-            trade_date=trade_date,
-            prod_completion=completion,
-        )
-        if not source_result.ready or source_result.snapshot is None:
-            raise DcBoardBootstrapApplyError(
-                f"Tushare source is not ready for {trade_date}: {source_result.to_summary()}"
-            )
-        observed_at = datetime.now(timezone.utc).isoformat()
-        return write_dc_index_partition(
-            lake_root_path=lake_root,
-            duckdb_resource=duckdb_resource,
-            tushare=tushare,
-            prod_postgres=prod_postgres,
-            partition_key=trade_date,
-            source_snapshot_config=DcBoardIndexSourceSnapshotConfig(
-                trade_date=trade_date,
-                prod_completion_observed_at=observed_at,
-                prod_completion_fingerprint=completion.completion_fingerprint,
-                tushare_source_observed_at=observed_at,
-                tushare_source_fingerprint=source_result.snapshot.source_fingerprint,
-            ),
-        )
+        return write_dc_index_partition(**common)
     if dataset == "dc_daily":
-        return write_dc_daily_partition(
-            lake_root_path=lake_root,
-            duckdb_resource=duckdb_resource,
-            tushare=tushare,
-            prod_postgres=prod_postgres,
-            partition_key=trade_date,
-        )
+        return write_dc_daily_partition(**common)
     if dataset == "dc_member":
-        return export_dc_member_partition_from_prod_db(
-            lake_root_path=lake_root,
-            duckdb_resource=duckdb_resource,
-            prod_postgres=prod_postgres,
-            partition_key=trade_date,
-        )
+        return export_dc_member_partition_from_prod_db(**common)
     raise DcBoardBootstrapApplyError(f"unsupported Raw dataset: {dataset}")
 
 
@@ -530,21 +500,21 @@ def run_raw_bootstrap(
                         )
                     entries.append(entry)
                     batch_entries.append(entry)
-                batch_path = (
-                    report_dir
-                    / f"dc_board_m7_raw_batch_{plan.dataset}_{batch_number:04d}.json"
-                )
-                _write_json(
-                    {
-                        "schema_version": 1,
-                        "phase": "raw",
-                        "dataset": plan.dataset,
-                        "batch_number": batch_number,
-                        "trade_dates": list(batch_dates),
-                        "entries": [dict(entry) for entry in batch_entries],
-                    },
-                    batch_path,
-                )
+                    batch_path = (
+                        report_dir
+                        / f"dc_board_m7_raw_batch_{plan.dataset}_{batch_number:04d}.json"
+                    )
+                    _write_json(
+                        {
+                            "schema_version": 1,
+                            "phase": "raw",
+                            "dataset": plan.dataset,
+                            "batch_number": batch_number,
+                            "trade_dates": list(batch_dates),
+                            "entries": [dict(entry) for entry in batch_entries],
+                        },
+                        batch_path,
+                    )
                 batch_reports.append(str(batch_path))
         report = _phase_report(
             phase="raw",

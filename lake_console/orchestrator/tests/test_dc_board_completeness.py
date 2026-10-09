@@ -2,7 +2,11 @@ from pathlib import Path
 
 import duckdb
 
-from orchestrator.defs.asset_guards.dc_board_relations import audit_raw_board_relation
+from orchestrator.defs.asset_guards.dc_board_relations import (
+    audit_raw_board_relation,
+    batch_board_relation_coverage,
+)
+from tests.test_dc_board_quote_coverage import IsolatedDuckDB
 
 
 def _write_codes(path: Path, codes: tuple[str, ...]) -> None:
@@ -60,6 +64,8 @@ def test_daily_relation_allows_source_codes_beyond_same_day_index(tmp_path):
             source_path=source,
             index_path=index,
             mode="index_subset_daily",
+            coverage=batch_board_relation_coverage(connection, lake_root=root,
+                paths_by_date={"2026-07-14": (source, index)}, duckdb_resource=IsolatedDuckDB())["2026-07-14"],
         )
     assert count == 0
     assert samples == ()
@@ -78,10 +84,12 @@ def test_daily_relation_reports_index_code_missing_from_daily(tmp_path):
             source_path=source,
             index_path=index,
             mode="index_subset_daily",
+            coverage=batch_board_relation_coverage(connection, lake_root=root,
+                paths_by_date={"2026-07-14": (source, index)}, duckdb_resource=IsolatedDuckDB())["2026-07-14"],
         )
     assert count == 1
     assert samples == (
-        {"ts_code": "BK0003.DC", "reason_code": "index_code_missing_from_daily"},
+        {"ts_code": "BK0003.DC", "reason_code": "quote_history_unverifiable", "observed_quote_date": None},
     )
 
 
@@ -96,10 +104,10 @@ def test_daily_relation_ignores_exact_index_placeholder(tmp_path):
             f"""
             COPY (
                 SELECT * FROM (VALUES
-                    ('BK0001.DC', '板块一', '股票一', '000001.SZ', 1.0, 2.0, 3.0, 4.0, 5, 6),
-                    ('BK1675.DC', '历史新高', '-', NULL, 0.0, 0.0, 0.0, 0.0, NULL, NULL)
+                    ('BK0001.DC', '板块一', '股票一', '000001.SZ', 1.0, 2.0, 3.0, 4.0, 5, 6, '行业板块'),
+                    ('BK1675.DC', '历史新高', '-', NULL, 0.0, 0.0, 0.0, 0.0, NULL, NULL, '概念板块')
                 ) AS t(ts_code, name, "leading", leading_code, pct_change,
-                       leading_pct, total_mv, turnover_rate, up_num, down_num)
+                       leading_pct, total_mv, turnover_rate, up_num, down_num, idx_type)
             ) TO '{index}' (FORMAT PARQUET)
             """
         )
@@ -110,6 +118,8 @@ def test_daily_relation_ignores_exact_index_placeholder(tmp_path):
             source_path=source,
             index_path=index,
             mode="index_subset_daily",
+            coverage=batch_board_relation_coverage(connection, lake_root=root,
+                paths_by_date={"2026-07-14": (source, index)}, duckdb_resource=IsolatedDuckDB())["2026-07-14"],
         )
     assert count == 0
     assert samples == ()

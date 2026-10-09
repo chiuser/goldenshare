@@ -178,205 +178,77 @@ def _source_result(*, ready=True, matches_prod=True, source_suffix="a"):
     )
 
 
-def _prepare_index(monkeypatch, *, completion, source_result=None):
-    monkeypatch.setattr(
-        dc_board_sensor, "_load_window", lambda *_args, **_kwargs: _window_and_gap()
-    )
-    monkeypatch.setattr(
-        dc_board_sensor,
-        "batch_raw_dc_index_lake_readiness",
-        lambda **_kwargs: _not_ready_batch(),
-    )
-    monkeypatch.setattr(
-        dc_board_sensor,
-        "load_prod_dc_board_completion_snapshot",
-        lambda **_kwargs: _completion_status(completion),
-    )
-    if source_result is not None:
-        monkeypatch.setattr(
-            dc_board_sensor,
-            "load_tushare_dc_index_daily_source_snapshot",
-            lambda **_kwargs: source_result,
-        )
+def _prepare_index(monkeypatch, *, observe):
+    monkeypatch.setattr(dc_board_sensor, "_load_window", lambda *_args, **_kwargs: _window_and_gap())
+    monkeypatch.setattr(dc_board_sensor, "batch_raw_dc_index_lake_readiness", lambda **_kwargs: _not_ready_batch())
+    monkeypatch.setattr(dc_board_sensor, "observe_dc_board_source", observe)
 
 
-def test_index_sensor_skips_before_2115_without_prod_or_tushare_calls(monkeypatch):
-    reference_calls = []
-    _prepare_index(monkeypatch, completion=_completion())
-    monkeypatch.setattr(
-        dc_board_sensor,
-        "load_prod_dc_board_completion_snapshot",
-        lambda **_kwargs: reference_calls.append(True),
-    )
-    evaluated_at = dc_board_sensor.datetime(
-        2026, 7, 14, 21, 14, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE
-    )
-
-    result = dc_board_sensor._evaluate_index_sensor(
-        _context(), evaluated_at=evaluated_at
-    )
-
-    assert not result.run_requests
-    assert "before_prod_completion_window" in result.cursor
-    assert not reference_calls
+def test_index_sensor_skips_before_2115_without_source_calls(monkeypatch):
+    calls = []
+    _prepare_index(monkeypatch, observe=lambda **_: calls.append(True))
+    moment = dc_board_sensor.datetime(2026, 7, 14, 21, 14, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE)
+    result = dc_board_sensor._evaluate_index_sensor(_context(), evaluated_at=moment)
+    assert not result.run_requests and "current_day_reference_not_before" in result.cursor
+    assert not calls
 
 
-def test_index_sensor_requires_two_stable_prod_snapshots_then_submits_one_run(
-    monkeypatch,
-):
-    completion = _completion()
-    source_result = _source_result()
-    assert source_result.snapshot is not None
-    _prepare_index(monkeypatch, completion=completion, source_result=source_result)
-    first_at = dc_board_sensor.datetime(
-        2026, 7, 14, 21, 16, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE
-    )
+def test_index_sensor_freezes_one_run_after_stable_completed_observations(monkeypatch):
+    from tests.test_dc_board_source_freeze import START, observation
+    moments = iter((START, START + timedelta(seconds=299), START + timedelta(seconds=300)))
+    _prepare_index(monkeypatch, observe=lambda **_: observation(next(moments)))
     context = _context()
-
-    first = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=first_at)
-    assert not first.run_requests
-    assert "prod_completion_pending_confirmation" in first.cursor
-    runtime = json.loads(first.cursor)["details"]["runtime_state"]
-    assert (
-        runtime["dc_board_prod_completion"]["fingerprint"]
-        == completion.completion_fingerprint
-    )
-    assert "index_identity" not in first.cursor
-
+    first = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=START.astimezone(dc_board_sensor.CN_A_SENSOR_TIMEZONE))
+    assert not first.run_requests and "source_confirmation_pending" in first.cursor
     context.cursor = first.cursor
-    second = dc_board_sensor._evaluate_index_sensor(
-        context,
-        evaluated_at=first_at + timedelta(seconds=301),
-    )
-    assert len(second.run_requests) == 1
-    request = second.run_requests[0]
-    assert request.partition_key == _TRADE_DATE
-    assert request.run_config["ops"]["raw_tushare_dc_index"]["config"] == {
-        "trade_date": _TRADE_DATE,
-        "prod_completion_observed_at": (first_at + timedelta(seconds=301)).isoformat(),
-        "prod_completion_fingerprint": completion.completion_fingerprint,
-        "tushare_source_observed_at": (first_at + timedelta(seconds=301)).isoformat(),
-        "tushare_source_fingerprint": source_result.snapshot.source_fingerprint,
-    }
-    assert len(second.cursor.encode("utf-8")) < 3072
-
-
-def test_index_sensor_restarts_confirmation_when_second_prod_snapshot_changes(
-    monkeypatch,
-):
-    first_completion = _completion("a")
-    second_completion = _completion("b")
-    calls = iter(
-        (_completion_status(first_completion), _completion_status(second_completion))
-    )
-    _prepare_index(
-        monkeypatch, completion=first_completion, source_result=_source_result()
-    )
-    monkeypatch.setattr(
-        dc_board_sensor,
-        "load_prod_dc_board_completion_snapshot",
-        lambda **_kwargs: next(calls),
-    )
-    first_at = dc_board_sensor.datetime(
-        2026, 7, 14, 21, 16, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE
-    )
-    context = _context()
-    first = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=first_at)
-    context.cursor = first.cursor
-
-    second = dc_board_sensor._evaluate_index_sensor(
-        context,
-        evaluated_at=first_at + timedelta(seconds=301),
-    )
-
+    second = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=(START + timedelta(seconds=299)).astimezone(dc_board_sensor.CN_A_SENSOR_TIMEZONE))
     assert not second.run_requests
-    assert "prod_completion_changed" in second.cursor
-    runtime = json.loads(second.cursor)["details"]["runtime_state"]
-    assert (
-        runtime["dc_board_prod_completion"]["fingerprint"]
-        == second_completion.completion_fingerprint
-    )
+    context.cursor = second.cursor
+    third = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=(START + timedelta(seconds=300)).astimezone(dc_board_sensor.CN_A_SENSOR_TIMEZONE))
+    assert len(third.run_requests) == 1
+    proof = third.run_requests[0].run_config["ops"]["raw_tushare_dc_index"]["config"]
+    assert proof["prod_observed_at_first"] == START.isoformat()
+    assert proof["target_asset"] == "raw_tushare_dc_index"
+    assert "index_identity" not in third.cursor and len(third.cursor.encode()) < 4096
 
 
-def test_index_sensor_confirms_stable_tushare_source_when_prod_differs(monkeypatch):
-    completion = _completion()
-    source_result = _source_result(matches_prod=False)
-    _prepare_index(monkeypatch, completion=completion, source_result=source_result)
-    evaluated_at = dc_board_sensor.datetime(
-        2026, 7, 15, 8, 0, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE
-    )
+def test_index_sensor_restarts_when_source_changes(monkeypatch):
+    from dataclasses import replace
+
+    from tests.test_dc_board_raw_io import _source_result
+    from tests.test_dc_board_source_freeze import START, observation
+    observations = iter((observation(gap=True), replace(observation(START + timedelta(seconds=600), gap=True), source=_source_result(close=11))))
+    _prepare_index(monkeypatch, observe=lambda **_: next(observations))
     context = _context()
-
-    first = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=evaluated_at)
-    assert not first.run_requests
-    assert "tushare_source_pending_confirmation" in first.cursor
-
+    first = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=START.astimezone(dc_board_sensor.CN_A_SENSOR_TIMEZONE))
     context.cursor = first.cursor
-    second = dc_board_sensor._evaluate_index_sensor(
-        context,
-        evaluated_at=evaluated_at + timedelta(seconds=600),
-    )
-    assert len(second.run_requests) == 1
-    assert "tushare_reference_mismatch" not in second.cursor
-
-
-def test_index_sensor_restarts_when_tushare_source_changes(monkeypatch):
-    completion = _completion()
-    source_results = iter(
-        (
-            _source_result(matches_prod=False, source_suffix="first"),
-            _source_result(matches_prod=False, source_suffix="second"),
-        )
-    )
-    _prepare_index(monkeypatch, completion=completion)
-    monkeypatch.setattr(
-        dc_board_sensor,
-        "load_tushare_dc_index_daily_source_snapshot",
-        lambda **_kwargs: next(source_results),
-    )
-    evaluated_at = dc_board_sensor.datetime(
-        2026, 7, 15, 8, 0, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE
-    )
-    context = _context()
-    first = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=evaluated_at)
-    context.cursor = first.cursor
-
-    second = dc_board_sensor._evaluate_index_sensor(
-        context,
-        evaluated_at=evaluated_at + timedelta(seconds=600),
-    )
-
+    second = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=(START + timedelta(seconds=600)).astimezone(dc_board_sensor.CN_A_SENSOR_TIMEZONE))
     assert not second.run_requests
-    assert "tushare_source_changed" in second.cursor
+    state = json.loads(second.cursor)["details"]["runtime_state"]["dc_board_source_freeze"]
+    assert state["source_observed_at"] == (START + timedelta(seconds=600)).isoformat()
 
 
-def test_dependent_sensor_waits_only_for_same_day_index_not_source_probe(monkeypatch):
-    monkeypatch.setattr(
-        dc_board_sensor, "_load_window", lambda *_args, **_kwargs: _window_and_gap()
-    )
-    monkeypatch.setattr(
-        dc_board_sensor,
-        "batch_raw_dc_daily_lake_readiness",
-        lambda **_kwargs: _not_ready_batch(),
-    )
-    monkeypatch.setattr(
-        dc_board_sensor,
-        "batch_raw_dc_index_lake_readiness",
-        lambda **_kwargs: _ready_batch(),
-    )
+def test_dependent_sensor_requires_own_gap_pair_after_same_day_index_ready(monkeypatch):
+    from tests.test_dc_board_source_freeze import START, observation
+    observations = iter((observation(gap=True), observation(START + timedelta(seconds=300), gap=True)))
+    _prepare_index(monkeypatch, observe=lambda **_: next(observations))
+    monkeypatch.setattr(dc_board_sensor, "batch_raw_dc_index_lake_readiness", lambda **_: _ready_batch())
+    context = _context()
+    kwargs = {"sensor_name": "raw_tushare_dc_daily_update_job_sensor", "job_name": "raw_tushare_dc_daily_update_job",
+        "min_trade_date": "2024-01-02", "batch_reader": lambda **_: _not_ready_batch(), "partition_set": "cn_a_dc_daily_trade_days"}
+    first = dc_board_sensor._evaluate_dependent_sensor(context, evaluated_at=START, **kwargs)
+    assert not first.run_requests
+    context.cursor = first.cursor
+    second = dc_board_sensor._evaluate_dependent_sensor(context, evaluated_at=START + timedelta(seconds=300), **kwargs)
+    assert len(second.run_requests) == 1
+    proof = second.run_requests[0].run_config["ops"]["raw_tushare_dc_daily"]["config"]
+    assert proof["prod_observed_at_first"] is None and proof["source_observed_at_first"]
 
-    result = dc_board_sensor._evaluate_dependent_sensor(
-        _context(),
-        evaluated_at=dc_board_sensor.datetime(
-            2026, 7, 15, 8, 0, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE
-        ),
-        sensor_name="raw_tushare_dc_daily_update_job_sensor",
-        job_name="raw_tushare_dc_daily_update_job",
-        min_trade_date="2024-01-02",
-        batch_reader=dc_board_sensor.batch_raw_dc_daily_lake_readiness,
-        partition_set="cn_a_dc_daily_trade_days",
-    )
 
-    assert len(result.run_requests) == 1
-    assert result.run_requests[0].partition_key == _TRADE_DATE
-    assert "source_probe" not in result.cursor
+def test_source_exception_never_submits_or_retains_a_stale_proof(monkeypatch):
+    def observe(**_):
+        raise ValueError("source unavailable")
+    _prepare_index(monkeypatch, observe=observe)
+    result = dc_board_sensor._evaluate_index_sensor(_context(cursor="{}"), evaluated_at=dc_board_sensor.datetime(2026, 7, 15, 8, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE))
+    assert not result.run_requests and "source unavailable" in str(result.skip_reason)
+    assert "dc_board_source_freeze" not in json.loads(result.cursor)["details"].get("runtime_state", {})

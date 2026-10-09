@@ -3,24 +3,34 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
+from orchestrator.defs.asset_guards.dc_board_source_freeze import (
+    revalidate_dc_board_source,
+)
 from orchestrator.defs.assets.dc_board import (
+    DC_REQUEST_POLICY,
     DcBoardRawWriteResult,
     write_dc_daily_partition,
     write_dc_index_partition,
     write_dc_member_rows_streaming,
 )
-from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    ProdPostgresResource,
+    TushareResource,
+)
+from orchestrator.defs.run_contracts.configs import DcBoardSourceFreezeConfig
 from orchestrator.defs.run_contracts.dc_board import (
     DC_DAILY_HISTORY_START_DATE,
     DC_INDEX_HISTORY_START_DATE,
     DC_MEMBER_HISTORY_START_DATE,
 )
-
 
 DC_MEMBER_BOOTSTRAP_SELECT_SQL = """
 SELECT
@@ -96,6 +106,8 @@ def export_dc_member_partition_from_prod_db(
     duckdb_resource: DuckDBResource,
     prod_postgres: ProdPostgresResource,
     partition_key: str,
+    tushare: TushareResource,
+    source_snapshot_config: DcBoardSourceFreezeConfig,
     chunk_size: int = 5_000,
     cursor_itersize: int = 5_000,
 ) -> DcBoardRawWriteResult:
@@ -108,6 +120,27 @@ def export_dc_member_partition_from_prod_db(
     if chunk_size <= 0 or cursor_itersize <= 0:
         raise ValueError("chunk_size and cursor_itersize must be positive.")
 
+    started = perf_counter()
+    source_requests = 0
+    def validate_source():
+        nonlocal source_requests
+        remaining = DC_REQUEST_POLICY.max_elapsed_seconds - (perf_counter() - started)
+        if remaining <= 0 or source_requests >= DC_REQUEST_POLICY.max_requests:
+            raise ValueError("member bootstrap validation budget exhausted")
+        observation = revalidate_dc_board_source(
+            proof=source_snapshot_config, asset_name="raw_tushare_dc_member", partition_key=partition_key,
+            lake_root=lake_root_path, duckdb_resource=duckdb_resource,
+            prod_postgres=prod_postgres, tushare=tushare,
+            policy=replace(DC_REQUEST_POLICY, max_requests=DC_REQUEST_POLICY.max_requests - source_requests,
+                           max_elapsed_seconds=remaining),
+        )
+        source_requests += observation.source.request_count
+        if perf_counter() - started >= DC_REQUEST_POLICY.max_elapsed_seconds:
+            raise ValueError("member bootstrap validation deadline exceeded")
+        return {"request_count": observation.source.request_count,
+                "page_count": observation.source.page_count, "retry_count": observation.source.retry_count}
+
+    first_counts = validate_source()
     with prod_postgres.connect_readonly_transaction() as connection:
         cursor = connection.cursor(name=f"dc_member_bootstrap_{uuid4().hex}")
         cursor.itersize = cursor_itersize
@@ -119,10 +152,13 @@ def export_dc_member_partition_from_prod_db(
                 partition_key=partition_key,
                 chunks=_cursor_chunks(cursor, chunk_size=chunk_size),
                 source_method="prod_db_readonly_export",
+                pre_promote=validate_source,
             )
         finally:
             cursor.close()
-        return result
+        return replace(result, request_count=result.request_count + first_counts["request_count"],
+                       page_count=result.page_count + first_counts["page_count"],
+                       retry_count=result.retry_count + first_counts["retry_count"])
 
 
 def bootstrap_dc_index_partition_from_tushare(**kwargs: Any) -> DcBoardRawWriteResult:
@@ -140,8 +176,8 @@ def bootstrap_dc_daily_partition_from_tushare(**kwargs: Any) -> DcBoardRawWriteR
 __all__ = [
     "DC_DAILY_HISTORY_START_DATE",
     "DC_INDEX_HISTORY_START_DATE",
-    "DC_MEMBER_BOOTSTRAP_SELECT_SQL",
     "DC_MEMBER_BOOTSTRAP_AUDIT_SQL",
+    "DC_MEMBER_BOOTSTRAP_SELECT_SQL",
     "DC_MEMBER_HISTORY_START_DATE",
     "bootstrap_dc_daily_partition_from_tushare",
     "bootstrap_dc_index_partition_from_tushare",

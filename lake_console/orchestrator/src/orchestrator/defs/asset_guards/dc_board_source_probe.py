@@ -265,7 +265,7 @@ def _validate_identity_rows(
         )
 
 
-def load_prod_dc_board_completion_snapshot(
+def load_prod_dc_board_reference_snapshot(
     *,
     prod_postgres: ProdPostgresResource,
     trade_date: str,
@@ -388,14 +388,12 @@ def load_prod_dc_board_completion_snapshot(
         or len(normalized_member_codes) != len(set(normalized_member_codes))
     )
     index_code_set = {ts_code for _, ts_code in index_identity}
-    daily_code_set = {ts_code for _, ts_code in daily_identity}
     member_code_set = set(normalized_member_codes)
     closed = (
         not invalid_identity
         and not duplicate_identity
         and invalid_key_count == 0
         and duplicate_key_count == 0
-        and index_code_set.issubset(daily_code_set)
         and member_code_set.issubset(index_code_set)
     )
     if not closed:
@@ -426,12 +424,12 @@ def load_prod_dc_board_completion_snapshot(
     )
 
 
-def require_closed_prod_dc_board_completion(
+def require_prod_dc_board_reference(
     *,
     prod_postgres: ProdPostgresResource,
     trade_date: str,
 ) -> DcBoardProdCompletionSnapshot:
-    result = load_prod_dc_board_completion_snapshot(
+    result = load_prod_dc_board_reference_snapshot(
         prod_postgres=prod_postgres,
         trade_date=trade_date,
     )
@@ -608,12 +606,6 @@ def load_tushare_dc_index_daily_source_snapshot(
         ):
             raise DcBoardSourceValidationError(
                 "dc_daily Tushare category coverage is incomplete."
-            )
-        index_code_set = {ts_code for _, ts_code in observed_index_identity}
-        daily_code_set = {ts_code for _, ts_code in observed_daily_identity}
-        if not index_code_set.issubset(daily_code_set):
-            raise DcBoardSourceValidationError(
-                "Tushare dc_daily does not cover all same-day dc_index board codes."
             )
         snapshot = build_dc_board_tushare_source_snapshot(
             trade_date=trade_date,
@@ -793,10 +785,10 @@ __all__ = [
     "audit_dc_daily_rows_against_prod_completion",
     "build_dc_board_request_policy",
     "canonical_raw_trade_date",
-    "load_prod_dc_board_completion_snapshot",
+    "load_prod_dc_board_reference_snapshot",
     "load_prod_dc_member_pairs",
     "load_tushare_dc_index_daily_source_snapshot",
     "normalize_tushare_rows",
-    "require_closed_prod_dc_board_completion",
+    "require_prod_dc_board_reference",
     "validate_tushare_dc_daily_rows",
 ]

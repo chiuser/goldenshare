@@ -8,18 +8,16 @@ module remains Dagster-free; the repair op owns event attribution.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import os
 from time import perf_counter
-from uuid import uuid4
 
 from orchestrator.defs.asset_guards.dc_daily_silver_repair_producer import (
     source_revision_for_silver_paths,
 )
 from orchestrator.defs.assets.dc_daily_technical import (
-    DcDailyTechnicalValidationError,
     DcDailyTechnicalWriteResult,
     _indicator_sql,
     _peak_memory_bytes,
@@ -30,6 +28,10 @@ from orchestrator.defs.assets.dc_daily_technical import (
     _validate_source,
 )
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
+from orchestrator.defs.io.dc_board_candidate import (
+    assert_dc_board_candidate_can_promote,
+    dc_board_candidate_path,
+)
 from orchestrator.defs.paths import gold_dc_daily_technical_path, silver_dc_daily_path
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -40,7 +42,6 @@ from orchestrator.defs.run_contracts.silver_repair import (
     SilverRepairBatch,
     validate_silver_repair_batch,
 )
-
 
 MAX_GOLD_REPAIR_DATES = 60
 
@@ -203,7 +204,7 @@ def write_gold_dc_daily_technical_repair_batch(
                     ).fetchone()[0]
                     or 0
                 )
-                target_metrics = _validate_output_against_source(
+                _validate_output_against_source(
                     connection,
                     relation,
                     target_trade_date=date_key,
@@ -211,9 +212,7 @@ def write_gold_dc_daily_technical_repair_batch(
                 )
 
                 target_path.parent.mkdir(parents=True, exist_ok=True)
-                staging_path = target_path.with_name(
-                    f"{target_path.name}.p7-repair-{uuid4().hex}.tmp"
-                )
+                staging_path = dc_board_candidate_path(lake_root=lake_root_path, target=target_path)
                 staging_paths.append(staging_path)
                 write_started_at = perf_counter()
                 connection.execute(
@@ -261,6 +260,7 @@ def write_gold_dc_daily_technical_repair_batch(
 
         promote_started_at = perf_counter()
         for staging_path, date_key in zip(staging_paths, target_dates):
+            assert_dc_board_candidate_can_promote(staging_path, target_paths[date_key])
             os.replace(staging_path, target_paths[date_key])
         promote_elapsed_ms = (perf_counter() - promote_started_at) * 1000
     except Exception:

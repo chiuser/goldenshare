@@ -50,8 +50,8 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.configs import (
-    DcBoardIndexSourceSnapshotConfig,
-    validate_dc_board_index_source_snapshot_config,
+    DcBoardSourceFreezeConfig,
+    validate_dc_board_source_freeze_config,
 )
 from orchestrator.defs.run_contracts.dc_board import (
     DC_BOARD_MAX_REQUESTS_PER_PARTITION,
@@ -184,13 +184,14 @@ def raw_tushare_dc_index(
     duckdb: DuckDBResource,
     tushare: TushareResource,
     prod_postgres: ProdPostgresResource,
-    config: DcBoardIndexSourceSnapshotConfig,
+    config: DcBoardSourceFreezeConfig,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = _normalize_partition_key(context.partition_key)
-    validated_config = validate_dc_board_index_source_snapshot_config(
+    validated_config = validate_dc_board_source_freeze_config(
         config,
         partition_key=partition_key,
+        asset_name="raw_tushare_dc_index",
     )
     result = write_dc_index_partition(
         lake_root_path=lake_root.root(),
@@ -231,6 +232,7 @@ def raw_tushare_dc_member(
     duckdb: DuckDBResource,
     tushare: TushareResource,
     prod_postgres: ProdPostgresResource,
+    config: DcBoardSourceFreezeConfig,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = _normalize_partition_key(context.partition_key)
@@ -244,6 +246,7 @@ def raw_tushare_dc_member(
         duckdb_resource=duckdb,
         tushare=tushare,
         prod_postgres=prod_postgres,
+        source_snapshot_config=config,
         partition_key=partition_key,
         candidate_codes=candidate_codes,
     )
@@ -277,6 +280,7 @@ def raw_tushare_dc_daily(
     duckdb: DuckDBResource,
     tushare: TushareResource,
     prod_postgres: ProdPostgresResource,
+    config: DcBoardSourceFreezeConfig,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = _normalize_partition_key(context.partition_key)
@@ -285,6 +289,7 @@ def raw_tushare_dc_daily(
         duckdb_resource=duckdb,
         tushare=tushare,
         prod_postgres=prod_postgres,
+        source_snapshot_config=config,
         partition_key=partition_key,
     )
     return _materialize_result(result, schema=RAW_TUSHARE_DC_DAILY_SCHEMA)

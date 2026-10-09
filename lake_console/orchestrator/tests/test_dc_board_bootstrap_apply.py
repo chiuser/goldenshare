@@ -23,6 +23,7 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_INDEX_TYPES,
     build_dc_board_prod_completion_snapshot,
 )
+from tests.dc_board_quote_test_support import prod_result
 
 
 class _FakeTushare:
@@ -148,12 +149,8 @@ def test_raw_apply_and_reconciliation_are_resumable(tmp_path):
 
     with (
         patch(
-            "orchestrator.defs.bootstrap.dc_board_bootstrap_apply.require_closed_prod_dc_board_completion",
-            side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
-        ),
-        patch(
-            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-            side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
+            "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+            side_effect=lambda *, trade_date, **_kwargs: prod_result(_completion(trade_date)),
         ),
     ):
         report = run_raw_bootstrap(
@@ -190,12 +187,8 @@ def test_raw_apply_and_reconciliation_are_resumable(tmp_path):
 
     with (
         patch(
-            "orchestrator.defs.bootstrap.dc_board_bootstrap_apply.require_closed_prod_dc_board_completion",
-            side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
-        ),
-        patch(
-            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-            side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
+            "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+            side_effect=lambda *, trade_date, **_kwargs: prod_result(_completion(trade_date)),
         ),
     ):
         resumed = run_raw_bootstrap(
@@ -257,3 +250,39 @@ def test_invalid_existing_target_stops_before_writer(tmp_path):
             report_dir=tmp_path / "reports",
             datasets=("dc_index",),
         )
+
+
+def test_raw_bootstrap_interrupt_preserves_completed_date_inside_batch(tmp_path):
+    from orchestrator.defs.bootstrap import dc_board_bootstrap_apply as apply
+
+    dates = ("2024-12-20", "2024-12-23")
+    _calendar(tmp_path, dates)
+    baseline = tmp_path / "baseline.json"
+    _baseline(tmp_path, dates, baseline)
+    reports = tmp_path / "reports"
+    original_write = apply._raw_write
+    kwargs = {
+        "lake_root": tmp_path, "duckdb_resource": DuckDBResource(),
+        "tushare": _FakeTushare(), "prod_postgres": _NoProd(),
+        "baseline_report": baseline, "report_dir": reports,
+        "datasets": ("dc_index",), "batch_size": 20,
+    }
+
+    def interrupt_second(**write_kwargs):
+        if write_kwargs["trade_date"] == dates[1]:
+            raise KeyboardInterrupt
+        return original_write(**write_kwargs)
+
+    with patch(
+        "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+        side_effect=lambda *, trade_date, **_kwargs: prod_result(_completion(trade_date)),
+    ):
+        with patch.object(apply, "_raw_write", side_effect=interrupt_second), pytest.raises(KeyboardInterrupt):
+            run_raw_bootstrap(**kwargs)
+        checkpoint = json.loads(next(reports.glob("*raw_batch*.json")).read_text())
+        assert len(checkpoint["entries"]) == 1
+        assert checkpoint["entries"][0]["trade_date"] == dates[0]
+        assert Path(checkpoint["entries"][0]["target_path"]).is_file()
+        resumed = run_raw_bootstrap(**kwargs)
+    assert resumed.totals["skipped_count"] == 1
+    assert resumed.totals["written_count"] == 1

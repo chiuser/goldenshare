@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from datetime import UTC, datetime
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,12 +17,12 @@ from orchestrator.defs.assets.dc_board import (
 )
 from orchestrator.defs.paths import raw_dc_index_path, raw_dc_member_path
 from orchestrator.defs.resources import TushareResult
-from orchestrator.defs.run_contracts.configs import DcBoardIndexSourceSnapshotConfig
 from orchestrator.defs.run_contracts.dc_board import (
     build_dc_board_prod_completion_snapshot,
     build_dc_board_tushare_source_snapshot,
 )
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
+from tests.dc_board_quote_test_support import prod_result, source_proof
 
 _TRADE_DATE = "2026-07-14"
 _RAW_TRADE_DATE = _TRADE_DATE.replace("-", "")
@@ -147,24 +147,15 @@ def _source_result(*, close: float = 10.0, daily_missing_count: int = 0):
     )
 
 
-def _config(completion, source_result=None):
-    source_result = source_result or _source_result()
-    assert source_result.snapshot is not None
-    observed_at = datetime.now(UTC).isoformat()
-    return DcBoardIndexSourceSnapshotConfig(
-        trade_date=_TRADE_DATE,
-        prod_completion_observed_at=observed_at,
-        prod_completion_fingerprint=completion.completion_fingerprint,
-        tushare_source_observed_at=observed_at,
-        tushare_source_fingerprint=source_result.snapshot.source_fingerprint,
-    )
+def _config(completion, source_result=None, asset_name="raw_tushare_dc_index"):
+    return source_proof(completion, source_result or _source_result(), asset_name)
 
 
 def _test_policy():
     return TushareRequestPolicy(
         minimum_interval_seconds=0.0,
         max_retries=0,
-        max_requests=20,
+        max_requests=100,
         max_elapsed_seconds=30.0,
     )
 
@@ -196,6 +187,11 @@ def _full_response(api_name, params, _fields):
 
 
 class DcBoardRawIoTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch("orchestrator.defs.asset_guards.dc_board_source_freeze.load_tushare_dc_index_daily_source_snapshot", return_value=_source_result())
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_index_requires_completion_and_source_fingerprints_to_match(self):
         completion = _completion()
         source_result = _source_result()
@@ -203,11 +199,11 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
-                "orchestrator.defs.assets.dc_board.load_tushare_dc_index_daily_source_snapshot",
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_tushare_dc_index_daily_source_snapshot",
                 return_value=source_result,
             ),
         ):
@@ -236,12 +232,12 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=fresh_completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(fresh_completion),
             ),
         ):
             with self.assertRaisesRegex(
-                DcBoardRawValidationError, "completion changed"
+                ValueError, "changed after freeze"
             ):
                 write_dc_index_partition(
                     lake_root_path=Path(temp_dir),
@@ -261,16 +257,16 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
-                "orchestrator.defs.assets.dc_board.load_tushare_dc_index_daily_source_snapshot",
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_tushare_dc_index_daily_source_snapshot",
                 return_value=changed_source,
             ),
         ):
             with self.assertRaisesRegex(
-                DcBoardRawValidationError, "Tushare source changed"
+                ValueError, "changed after freeze"
             ):
                 write_dc_index_partition(
                     lake_root_path=Path(temp_dir),
@@ -288,8 +284,8 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
         ):
             root = Path(temp_dir)
@@ -297,9 +293,10 @@ class DcBoardRawIoTests(unittest.TestCase):
                 root, ("BK0001.DC", "BK0002.DC", "BK0003.DC", "BK0004.DC")
             )
             with self.assertRaisesRegex(
-                DcBoardRawValidationError, "same-day board code coverage"
+                DcBoardRawValidationError, "same-day quote coverage"
             ):
                 write_dc_daily_partition(
+                    source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_daily"),
                     lake_root_path=root,
                     duckdb_resource=_MemoryDuckDB(),
                     tushare=_FakeTushare(_full_response),
@@ -331,11 +328,17 @@ class DcBoardRawIoTests(unittest.TestCase):
                 _daily_row(category, code) for category, code in source_daily_identity
             ]
 
+        snapshot = _source_result()
+        rows = tuple(_daily_row(category, code) for category, code in source_daily_identity)
+        snapshot = replace(snapshot, daily_rows=rows, daily_extra_count=1,
+            snapshot=build_dc_board_tushare_source_snapshot(trade_date=_TRADE_DATE,
+                index_rows=tuple(row for rows in snapshot.index_rows_by_type.values() for row in rows), daily_rows=rows))
         with (
+            patch("orchestrator.defs.asset_guards.dc_board_source_freeze.load_tushare_dc_index_daily_source_snapshot", return_value=snapshot),
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
         ):
             root = Path(temp_dir)
@@ -344,6 +347,7 @@ class DcBoardRawIoTests(unittest.TestCase):
                 ("BK0001.DC", "BK0002.DC", "BK0003.DC"),
             )
             result = write_dc_daily_partition(
+                    source_snapshot_config=_config(completion, snapshot, asset_name="raw_tushare_dc_daily"),
                 lake_root_path=root,
                 duckdb_resource=_MemoryDuckDB(),
                 tushare=_FakeTushare(response),
@@ -372,8 +376,8 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
                 "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -381,6 +385,7 @@ class DcBoardRawIoTests(unittest.TestCase):
             ),
         ):
             result = write_dc_member_partition(
+                    source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_member"),
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
                 tushare=_FakeTushare(response),
@@ -424,8 +429,8 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
                 "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -434,6 +439,7 @@ class DcBoardRawIoTests(unittest.TestCase):
             self.assertRaisesRegex(DcBoardRawValidationError, "rows changed"),
         ):
             write_dc_member_partition(
+                    source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_member"),
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
                 tushare=_FakeTushare(response),
@@ -467,8 +473,8 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
                 "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -476,6 +482,7 @@ class DcBoardRawIoTests(unittest.TestCase):
             ),
         ):
             result = write_dc_member_partition(
+                    source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_member"),
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
                 tushare=_FakeTushare(response),
@@ -489,7 +496,7 @@ class DcBoardRawIoTests(unittest.TestCase):
             calls,
             ["BK0002.DC", "BK0001.DC", "BK0001.DC", "BK0002.DC"],
         )
-        self.assertEqual(result.request_count, 4)
+        self.assertEqual(result.request_count, 12)
         self.assertEqual(result.written_row_count, 4)
 
     def test_member_extra_pairs_trigger_only_affected_code_confirmation(self):
@@ -510,8 +517,8 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
                 "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -522,6 +529,7 @@ class DcBoardRawIoTests(unittest.TestCase):
             ),
         ):
             result = write_dc_member_partition(
+                    source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_member"),
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
                 tushare=_FakeTushare(response),
@@ -551,8 +559,8 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
                 "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -568,6 +576,7 @@ class DcBoardRawIoTests(unittest.TestCase):
             target_path.parent.mkdir(parents=True)
             target_path.write_bytes(b"existing target")
             result = write_dc_member_partition(
+                    source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_member"),
                 lake_root_path=root,
                 duckdb_resource=_MemoryDuckDB(),
                 tushare=_FakeTushare(response),
@@ -605,8 +614,8 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
                 "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -623,9 +632,10 @@ class DcBoardRawIoTests(unittest.TestCase):
             target_path.write_bytes(b"existing target")
             with self.assertRaisesRegex(
                 DcBoardRawValidationError,
-                "code_scope_exceeds_remaining_request_budget",
+                "budget cannot cover",
             ):
                 write_dc_member_partition(
+                    source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_member"),
                     lake_root_path=root,
                     duckdb_resource=_MemoryDuckDB(),
                     tushare=_FakeTushare(response),
@@ -636,7 +646,7 @@ class DcBoardRawIoTests(unittest.TestCase):
                 )
             self.assertEqual(target_path.read_bytes(), b"existing target")
 
-        self.assertEqual(calls, ["BK0001.DC", "BK0002.DC"])
+        self.assertEqual(calls, [])
 
     def test_member_pair_match_promotes_atomically(self):
         completion = _completion(("BK0001.DC", "BK0002.DC"))
@@ -651,8 +661,8 @@ class DcBoardRawIoTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             patch(
-                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
-                return_value=completion,
+                "orchestrator.defs.asset_guards.dc_board_source_freeze.load_prod_dc_board_reference_snapshot",
+                return_value=prod_result(completion),
             ),
             patch(
                 "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
@@ -660,6 +670,7 @@ class DcBoardRawIoTests(unittest.TestCase):
             ),
         ):
             result = write_dc_member_partition(
+                    source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_member"),
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
                 tushare=_FakeTushare(response),

@@ -1,13 +1,15 @@
 """Single, partition-attributable core checks for board Raw assets."""
 
 from collections.abc import Sequence
-from pathlib import Path
 from typing import Any
 
 import dagster as dg
 
 from orchestrator.defs.asset_guards.dc_board_raw_quality import RAW_DC_QUALITY_SPECS
-from orchestrator.defs.asset_guards.dc_board_relations import audit_raw_board_relation
+from orchestrator.defs.asset_guards.dc_board_relations import (
+    audit_raw_board_relation,
+    batch_board_relation_coverage,
+)
 from orchestrator.defs.assets.dc_board_raw import (
     raw_tushare_dc_daily,
     raw_tushare_dc_index,
@@ -66,18 +68,6 @@ def _core_check(
 ) -> dg.AssetCheckResult:
     partition_keys = _single_partition(context)
     if len(partition_keys) != 1:
-        metadata = build_check_metadata(
-            check_scope=CheckScope.PARTITION_ALIGNMENT,
-            extra_metadata={
-                "failed_rules": ["single_partition_execution"],
-                "reason_code": "multiple_partition_execution",
-                "partition_key": None,
-                "file_path": None,
-                "checked_row_count": 0,
-                "failed_row_count": 0,
-                "failure_samples": [],
-            },
-        )
         return dg.AssetCheckResult(
             passed=False,
             metadata=build_check_metadata(
@@ -98,6 +88,7 @@ def _core_check(
     path = path_builder(lake_root.root(), partition_key)
     expected_columns = tuple(column.name for column in schema)
     expected_types = {column.name: column.type.upper() for column in schema}
+    quote_metadata: dict[str, object] = {}
     failed_rules: list[str] = []
     samples: list[dict[str, Any]] = []
     checked_row_count = 0
@@ -216,17 +207,24 @@ def _core_check(
                 )
                 samples = _sample_rows(connection, sample_query, identity_columns)
             if relation_mode is not None:
-                relation_failed_count, relation_samples = audit_raw_board_relation(
+                coverage_by_date = batch_board_relation_coverage(
+                    connection, lake_root=lake_root.root(), duckdb_resource=duckdb_resource,
+                    paths_by_date={partition_key: (path, raw_dc_index_path(lake_root.root(), partition_key))},
+                ) if relation_mode == "index_subset_daily" else {}
+                relation_result = audit_raw_board_relation(
                     connection,
                     source_path=path,
                     index_path=raw_dc_index_path(lake_root.root(), partition_key),
                     mode=relation_mode,
+                    coverage=coverage_by_date.get(partition_key),
                 )
+                relation_failed_count, relation_samples = relation_result
+                quote_metadata = relation_result.metadata()
                 if relation_failed_count:
                     failed_rules.append("same_day_board_relation_integrity")
                     failed_row_count += relation_failed_count
                     samples.extend(relation_samples)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - report unavailable physical evidence as a failed check.
             failed_rules.append("duckdb_scan")
             return dg.AssetCheckResult(
                 passed=False,
@@ -252,6 +250,7 @@ def _core_check(
             checked_row_count=checked_row_count,
             failed_row_count=failed_row_count,
             extra_metadata={
+                **quote_metadata,
                 "failed_rules": failed_rules,
                 "reason_code": "core_check_failed" if failed_rules else "ready",
                 "partition_key": partition_key,

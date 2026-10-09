@@ -10,7 +10,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from uuid import uuid4
 
 import dagster as dg
 
@@ -24,6 +23,10 @@ from orchestrator.defs.duckdb_sql import (
     describe_parquet_query,
     duckdb_string,
     read_parquet,
+)
+from orchestrator.defs.io.dc_board_candidate import (
+    assert_dc_board_candidate_can_promote,
+    dc_board_candidate_path,
 )
 from orchestrator.defs.partitions import (
     cn_a_dc_daily_trade_days,
@@ -444,9 +447,7 @@ def _stage_silver_partition(
         f"ORDER BY {', '.join(spec.key_columns)}"
     )
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    staging_path = target_path.with_name(
-        f"{target_path.name}.{staging_tag}-{uuid4().hex}.tmp"
-    )
+    staging_path = dc_board_candidate_path(lake_root=lake_root_path, target=target_path)
     try:
         connection.execute(copy_query_to_parquet(output_sql, staging_path))
         target_schema = _schema_mismatches(connection, staging_path, spec.silver_schema)
@@ -502,6 +503,7 @@ def _write_silver_partition(
             staging_tag="m5",
         )
         try:
+            assert_dc_board_candidate_can_promote(staged.staging_path, staged.result.target_file_path)
             os.replace(staged.staging_path, staged.result.target_file_path)
         except Exception:
             if staged.staging_path.exists():
@@ -657,8 +659,8 @@ def silver_dc_daily(context: dg.AssetExecutionContext, lake_root: LakeRootResour
 
 
 __all__ = [
-    "DcBoardSilverValidationError",
     "DcBoardSilverStagingResult",
+    "DcBoardSilverValidationError",
     "DcBoardSilverWriteResult",
     "silver_dc_daily",
     "silver_dc_index",

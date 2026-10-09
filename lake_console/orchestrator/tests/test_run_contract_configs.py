@@ -1,8 +1,9 @@
 import unittest
 
 from orchestrator.defs.run_contracts.configs import (
+    DcBoardSourceFreezeConfig,
     build_gold_stock_daily_qfq_factor_repair_run_config,
-    build_raw_dc_index_update_job_run_config,
+    build_raw_dc_board_update_job_run_config,
     build_raw_index_daily_update_job_run_config,
     build_silver_dc_industry_hierarchy_update_job_run_config,
     build_stock_daily_raw_repair_run_config,
@@ -34,64 +35,22 @@ class RunContractConfigTests(unittest.TestCase):
                 reference_trade_date="20260731"
             )
 
-    def test_raw_dc_index_run_config_keeps_only_completion_and_source_summary(
-        self,
-    ) -> None:
-        config = build_raw_dc_index_update_job_run_config(
-            partition_key="2026-07-14",
-            trade_date="2026-07-14",
-            prod_completion_observed_at="2026-07-14T21:25:00+08:00",
-            prod_completion_fingerprint="a" * 64,
-            tushare_source_observed_at="2026-07-14T21:35:00+08:00",
-            tushare_source_fingerprint="b" * 64,
-        )
-        self.assertEqual(
-            config,
-            {
-                "ops": {
-                    "raw_tushare_dc_index": {
-                        "config": {
-                            "trade_date": "2026-07-14",
-                            "prod_completion_observed_at": "2026-07-14T21:25:00+08:00",
-                            "prod_completion_fingerprint": "a" * 64,
-                            "tushare_source_observed_at": "2026-07-14T21:35:00+08:00",
-                            "tushare_source_fingerprint": "b" * 64,
-                        }
-                    }
-                }
-            },
-        )
-
-    def test_raw_dc_index_run_config_rejects_incomplete_or_misaligned_snapshot(
-        self,
-    ) -> None:
-        with self.assertRaisesRegex(ValueError, "must equal partition_key"):
-            build_raw_dc_index_update_job_run_config(
-                partition_key="2026-07-14",
-                trade_date="2026-07-15",
-                prod_completion_observed_at="2026-07-14T21:25:00+08:00",
-                prod_completion_fingerprint="a" * 64,
-                tushare_source_observed_at="2026-07-14T21:35:00+08:00",
-                tushare_source_fingerprint="b" * 64,
-            )
-        with self.assertRaisesRegex(ValueError, "timezone"):
-            build_raw_dc_index_update_job_run_config(
-                partition_key="2026-07-14",
-                trade_date="2026-07-14",
-                prod_completion_observed_at="2026-07-14T21:25:00",
-                prod_completion_fingerprint="a" * 64,
-                tushare_source_observed_at="2026-07-14T21:35:00+08:00",
-                tushare_source_fingerprint="b" * 64,
-            )
-
-    def test_raw_dc_index_run_config_rejects_retired_reference_arguments(self) -> None:
+    def test_dc_source_proof_builder_requires_matching_asset_and_partition(self):
+        proof = DcBoardSourceFreezeConfig(
+            policy_version="dc_board_quote_coverage_v1", trade_date="2026-07-14",
+            target_asset="raw_tushare_dc_index", prod_observed_at_second="2026-07-14T13:25:00+00:00",
+            prod_fingerprint_second="a" * 64, source_observed_at_second="2026-07-14T13:35:00+00:00",
+            source_fingerprint_second="b" * 64, history_start="2024-01-02",
+            history_file_count=0, history_evidence_digest="c" * 64, coverage_gap_count=0)
+        config = build_raw_dc_board_update_job_run_config(asset_name=proof.target_asset,
+            partition_key=proof.trade_date, proof=proof)
+        self.assertEqual(config["ops"][proof.target_asset]["config"], proof.model_dump())
+        for asset, day in (("raw_tushare_dc_daily", proof.trade_date), (proof.target_asset, "2026-07-15")):
+            with self.assertRaises(ValueError):
+                build_raw_dc_board_update_job_run_config(asset_name=asset, partition_key=day, proof=proof)
         with self.assertRaises(TypeError):
-            build_raw_dc_index_update_job_run_config(
-                partition_key="2026-07-14",
-                reference_trade_date="2026-07-14",  # type: ignore[call-arg]
-                reference_observed_at="2026-07-14T21:25:00+08:00",  # type: ignore[call-arg]
-                reference_fingerprint="a" * 64,  # type: ignore[call-arg]
-            )
+            build_raw_dc_board_update_job_run_config(partition_key=proof.trade_date,
+                prod_completion_fingerprint="a" * 64)
 
     def test_raw_index_daily_update_job_run_config_uses_partition_schema(self) -> None:
         self.assertEqual(

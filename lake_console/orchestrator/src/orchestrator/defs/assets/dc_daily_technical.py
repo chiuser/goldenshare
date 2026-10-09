@@ -7,16 +7,19 @@ are added only in later phases.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date
 import os
-from pathlib import Path
 import resource
 import sys
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
 from time import perf_counter
-from uuid import uuid4
 
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
+from orchestrator.defs.io.dc_board_candidate import (
+    assert_dc_board_candidate_can_promote,
+    dc_board_candidate_path,
+)
 from orchestrator.defs.paths import (
     gold_dc_daily_technical_path,
     silver_dc_daily_path,
@@ -33,8 +36,8 @@ from orchestrator.defs.run_contracts.dc_daily_technical import (
     DC_DAILY_TECHNICAL_HISTORY_START_DATE,
     DC_DAILY_TECHNICAL_INDICATOR_VERSION,
     DC_DAILY_TECHNICAL_KDJ,
-    DC_DAILY_TECHNICAL_MACD,
     DC_DAILY_TECHNICAL_MA_PERIODS,
+    DC_DAILY_TECHNICAL_MACD,
     DC_DAILY_TECHNICAL_PARAMS_KEY,
     DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE,
 )
@@ -708,7 +711,7 @@ def write_gold_dc_daily_technical_partition(
         )
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        staging_path = target_path.with_name(f"{target_path.name}.p3-{uuid4().hex}.tmp")
+        staging_path = dc_board_candidate_path(lake_root=lake_root_path, target=target_path)
         parquet_started_at = perf_counter()
         try:
             connection.execute(
@@ -736,6 +739,7 @@ def write_gold_dc_daily_technical_partition(
                 raise FileExistsError(
                     f"Gold technical target appeared during publish; refusing overwrite: {target_path}"
                 )
+            assert_dc_board_candidate_can_promote(staging_path, target_path)
             os.replace(staging_path, target_path)
         except Exception:
             staging_path.unlink(missing_ok=True)

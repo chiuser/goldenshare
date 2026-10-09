@@ -1,5 +1,11 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
+> 2026-10-09 当前实施口径：[DC 板块暂未形成行情的处理 LLD v1](./dagster-dc-board-quote-availability-low-level-design-v1.md)。条件覆盖判定、三类源冻结/复核、Raw/Silver 核心 check metadata 与 staging 原子提升已在工作区落地，354项隔离回归通过，正式 Lake 历史存在性只读容量验证通过。生产源双快照预检、正式写入和上线验收未执行；下文历史集合门禁及阶段记录保留，当前代码对账以补充 LLD §8.1 为准。
+
+> 2026-10-09 开发前补齐：补充 LLD §4.2.1 已记录只读容量测量及64文件批次、512MiB/2线程、SQL1秒/总5秒等资源拒绝合同；§4.4 明确三类Raw统一冻结配置、独立下游观察、writer重验与既有bootstrap内的确认协议。该条记录开发前两项缺口补齐时的状态；后续代码实施见补充 LLD §8.1，仍未执行生产任务；证明不得从历史事件或旧报告推定。
+
+> 历史读取边界的限定调整：目标日存在 index-only 代码时，允许按补充 LLD §4.2 查询必要的历史身份/日期证据；下文禁止全历史深扫与重复质量检查的约束继续保持，不据此增加全历史检查任务。
+
 > 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”与 M10.1“`dc_member` 成功但不完整响应的单轮定向重试”均已完成代码与本地验证。2026-07-26 已完成 2026-07-24 的正式历史恢复；2026-07-27 已完成历史 member check 状态纠偏，并启用当前 code location 的 raw index sensor。该传感器已按稳定 prod 基线门禁自然完成 `2026-07-27` 的 Raw index/daily/member 更新；没有写 prod。2026-08-12 已补齐 `2026-05-20/21` 的 `dc_member` Tushare 确认缺口，并根据 36 个 2026 年日期的当前源端实测，将错误的 daily/index 集合相等约束修正为 `dc_index code set ⊆ dc_daily code set`。2026-08-19 已完成 M10.2“源事实权威纠偏”的代码与本地验证：Tushare 成为日常 Raw 唯一内容权威，prod 只保留完成时机和差异诊断职责；尚未执行 `dg check defs`、正式只读演练、sensor 启停或实际生产 run。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、

@@ -1,14 +1,16 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import duckdb
 
+from orchestrator.defs.assets.dc_board import DcBoardRawValidationError
 from orchestrator.defs.bootstrap.dc_board_bootstrap import (
     DC_MEMBER_BOOTSTRAP_SELECT_SQL,
     export_dc_member_partition_from_prod_db,
 )
-from orchestrator.defs.assets.dc_board import DcBoardRawValidationError
 
 
 class _MemoryDuckDB:
@@ -81,6 +83,11 @@ class _FakeProdResource:
 
 
 class DcBoardBootstrapTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch("orchestrator.defs.bootstrap.dc_board_bootstrap.revalidate_dc_board_source", return_value=SimpleNamespace(source=SimpleNamespace(request_count=4, page_count=4, retry_count=0)))
+        self.source_revalidation = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_prod_bootstrap_projects_four_fields_and_streams_fetchmany(self):
         cursor = _FakeCursor(
             [
@@ -92,6 +99,7 @@ class DcBoardBootstrapTests(unittest.TestCase):
         prod = _FakeProdResource(_FakeConnection(cursor))
         with tempfile.TemporaryDirectory() as temp_dir:
             result = export_dc_member_partition_from_prod_db(
+                    tushare=object(), source_snapshot_config=object(),
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
                 prod_postgres=prod,
@@ -100,6 +108,7 @@ class DcBoardBootstrapTests(unittest.TestCase):
                 cursor_itersize=2,
             )
 
+        self.assertEqual(self.source_revalidation.call_count, 2)
         sql, params = cursor.executed
         self.assertEqual(params[0].isoformat(), "2026-07-14")
         self.assertNotIn("*", sql)
@@ -123,6 +132,7 @@ class DcBoardBootstrapTests(unittest.TestCase):
             target.write_bytes(b"existing-target")
             with self.assertRaises(DcBoardRawValidationError):
                 export_dc_member_partition_from_prod_db(
+                    tushare=object(), source_snapshot_config=object(),
                     lake_root_path=root,
                     duckdb_resource=_MemoryDuckDB(),
                     prod_postgres=prod,
