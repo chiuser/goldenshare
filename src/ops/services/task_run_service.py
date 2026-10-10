@@ -43,6 +43,7 @@ MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY = "latest_completed_calendar_quarter"
+LATEST_COMPLETED_CALENDAR_WEEK_POLICY = "latest_completed_calendar_week"
 SINCE_LAST_SUCCESS_DAY_RANGE_POLICY = "since_last_success_day_range"
 
 
@@ -238,7 +239,7 @@ class TaskRunCommandService:
             if prepared_request_payload is not None
             else self.prepare_task_run_payload(session, context=context, task_frozen_at=now)
         )
-        request_payload = self._freeze_announcement_payload(session, context, request_payload)
+        request_payload = self._freeze_dataset_execution_payload(session, context, request_payload)
         if self._is_news_stock_linking_payload(request_payload):
             NewsStockLinkingWindowResolver().validate_frozen_payload(request_payload)
         self._ensure_news_stock_linking_not_running(session, request_payload)
@@ -285,6 +286,43 @@ class TaskRunCommandService:
             request_payload=payload,
             task_frozen_at=task_frozen_at,
         )
+
+    def _freeze_dataset_execution_payload(self, session, context, payload):
+        if context.task_type == 'dataset_action' and context.action == 'maintain':
+            definition = get_dataset_definition(context.resource_key)
+            if definition.planning.weekly_adj_policy is not None:
+                return self._freeze_weekly_payload(session, context, payload)
+        return self._freeze_announcement_payload(session, context, payload)
+
+    @staticmethod
+    def _freeze_weekly_payload(session, context, payload):
+        from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
+        previous = payload.get('execution_context')
+        resume_id = context.resume_from_task_run_id
+        if resume_id is not None:
+            if type(resume_id) is not int or resume_id < 1:
+                raise WebAppError(status_code=422, code='validation_error', message='恢复任务ID必须为正整数')
+            if context.trigger_source != 'manual' or context.requested_by_user_id is None:
+                raise WebAppError(status_code=422, code='validation_error', message='周线恢复需运营显式提交')
+            source = session.get(TaskRun, resume_id)
+            if (source is None or source.task_type != 'dataset_action'
+                    or source.resource_key != context.resource_key or source.action != 'maintain'
+                    or source.status not in {'success','failed','partial_success','canceled'}):
+                raise WebAppError(status_code=409, code='conflict', message='恢复来源必须是已停止的同数据集维护任务')
+            previous = (source.request_payload_json or {}).get('execution_context')
+            if not isinstance(previous, dict):
+                raise WebAppError(status_code=422, code='validation_error', message='来源任务没有周线冻结合同')
+        time_input = dict(context.time_input)
+        request = DatasetActionRequest(dataset_key=context.resource_key, action=context.action,
+            time_input=DatasetTimeInput(**{k:TaskRunCommandService._optional_date(v)
+                if k in {'trade_date','ann_date','start_date','end_date'} else v for k,v in time_input.items()}),
+            filters=dict(context.filters), trigger_source=context.trigger_source, execution_context=previous)
+        try:
+            plan = DatasetActionResolver(session).build_plan(request)
+        except (IngestionError, WeeklyAdjContractError) as exc:
+            code = exc.structured_error.error_code if isinstance(exc, IngestionError) else exc.code
+            raise WebAppError(status_code=422, code=code, message=str(exc)) from exc
+        return {**payload, 'execution_context': plan.execution_context, 'resume_from_task_run_id': resume_id}
 
     @staticmethod
     def _freeze_announcement_payload(session, context, payload):
@@ -572,6 +610,7 @@ class TaskRunCommandService:
             TRIGGER_DAY_SINGLE_RANGE_POLICY,
             TRIGGER_DAY_POINT_POLICY,
             LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
+            LATEST_COMPLETED_CALENDAR_WEEK_POLICY,
             SINCE_LAST_SUCCESS_DAY_RANGE_POLICY,
         }:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
@@ -653,6 +692,14 @@ class TaskRunCommandService:
             if generated_field != "trade_date":
                 generated_time_input["date_field"] = generated_field
             return generated_time_input
+        if normalized_policy == LATEST_COMPLETED_CALENDAR_WEEK_POLICY:
+            from src.foundation.datasets.stock_weekly_adj_contracts import latest_completed_calendar_week
+            if self._has_declared_time_input(params_json, definition=definition):
+                raise WebAppError(status_code=422, code='validation_error', message='最近已完成周策略不能与固定日期混用')
+            if scheduled_at is None or scheduled_at.tzinfo is None:
+                raise WebAppError(status_code=422, code='validation_error', message='最近已完成周策略缺少含时区的计划触发时间')
+            period = latest_completed_calendar_week(scheduled_at)
+            return {**dict(time_input or {}), 'mode': 'point', 'trade_date': period.isoformat()}
         if normalized_policy == LATEST_COMPLETED_CALENDAR_QUARTER_POLICY:
             if self._has_declared_time_input(params_json, definition=definition):
                 raise WebAppError(status_code=422, code="validation_error", message="最近已完成季度策略不能与固定报告期混用")

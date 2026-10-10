@@ -7,6 +7,7 @@ import threading
 import requests
 from requests.adapters import HTTPAdapter
 from src.foundation.schemas import TushareEnvelope
+from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError, validate_weekly_response
 
 
 class BoundedTushareError(RuntimeError):
@@ -15,7 +16,8 @@ class BoundedTushareError(RuntimeError):
         super().__init__(message)
 
 
-def _attempt(send, base_url, payload, maximum, timeout):
+def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
+    prefix = 'weekly_adj' if response_contract == 'stock_weekly_adj/v1' else 'anns_d'
     try:
         with requests.Session() as session:
             # Exactly one real attempt: neither adapter retries nor redirects are permitted.
@@ -27,18 +29,31 @@ def _attempt(send, base_url, payload, maximum, timeout):
                 if 300 <= response.status_code < 400:
                     raise BoundedTushareError('source_http_error', '源请求重定向不允许绕过预算')
                 if response.headers.get('Content-Encoding', 'identity').lower() not in ('identity', ''):
-                    raise BoundedTushareError('anns_d.response_size_exceeded', '源响应压缩编码不符合有界读取合同')
+                    raise BoundedTushareError(f'{prefix}.response_size_exceeded', '源响应压缩编码不符合有界读取合同')
                 data = bytearray()
                 for block in response.iter_content(chunk_size=65536):
                     if len(data) + len(block) > maximum:
-                        raise BoundedTushareError('anns_d.response_size_exceeded', '公告源响应超过字节预算')
+                        raise BoundedTushareError(f'{prefix}.response_size_exceeded', '源响应超过字节预算')
                     data.extend(block)
-                envelope = TushareEnvelope.model_validate(json.loads(data))
+                try:
+                    original = json.loads(data)
+                    envelope = TushareEnvelope.model_validate(original)
+                except (ValueError, TypeError):
+                    if response_contract == 'stock_weekly_adj/v1':
+                        raise BoundedTushareError('weekly_adj.source_payload_invalid', '周线响应JSON或数据结构无效') from None
+                    raise
                 if envelope.code != 0:
                     message = str(envelope.msg or '')
                     limited = '频率超限' in message or '次/分钟' in message
                     send.send(('rate_limit' if limited else 'api_error', envelope.code, message))
                 else:
+                    if response_contract == 'stock_weekly_adj/v1':
+                        try:
+                            rows = validate_weekly_response(original)
+                        except WeeklyAdjContractError as exc:
+                            raise BoundedTushareError(exc.code, str(exc)) from None
+                        send.send(('rows', rows))
+                        return
                     rows = []
                     if envelope.data is not None:
                         fields = envelope.data.fields
@@ -55,10 +70,13 @@ def _attempt(send, base_url, payload, maximum, timeout):
         send.close()
 
 
-def call_bounded(*, base_url, payload, maximum, timeout, check, tick):
+def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_contract=None):
+    if response_contract not in (None, 'stock_weekly_adj/v1'):
+        raise BoundedTushareError('weekly_adj.delivery_contract_mismatch', '未知有界响应合同')
+    prefix = 'weekly_adj' if response_contract == 'stock_weekly_adj/v1' else 'anns_d'
     ctx = multiprocessing.get_context('spawn')
     receive, send = ctx.Pipe(duplex=False)
-    worker = ctx.Process(target=_attempt, args=(send,base_url,payload,maximum,timeout), daemon=True)
+    worker = ctx.Process(target=_attempt, args=(send,base_url,payload,maximum,timeout,response_contract), daemon=True)
     deadline = time.monotonic() + timeout
     check()
     results = queue.Queue(maxsize=1)
@@ -79,7 +97,7 @@ def call_bounded(*, base_url, payload, maximum, timeout, check, tick):
             check()
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise BoundedTushareError('anns_d.source_deadline_exceeded', '公告源调用超过总期限')
+                raise BoundedTushareError(f'{prefix}.source_deadline_exceeded', '源调用超过总期限')
             try:
                 result = results.get(timeout=min(remaining,0.2))
             except queue.Empty:
@@ -87,7 +105,7 @@ def call_bounded(*, base_url, payload, maximum, timeout, check, tick):
                 continue
             else:
                 if time.monotonic() > deadline:
-                    raise BoundedTushareError('anns_d.source_deadline_exceeded', '公告响应解码超过总期限')
+                    raise BoundedTushareError(f'{prefix}.source_deadline_exceeded', '源响应解码超过总期限')
                 check()
                 return result
     finally:

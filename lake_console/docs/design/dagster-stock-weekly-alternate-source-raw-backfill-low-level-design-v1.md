@@ -4,7 +4,7 @@
 
 ## 2026-10-10 新阶段 LLD：复权周线接收 Prod 新增及历史修正
 
-状态：设计完成，待 P0/D0 技术评审及验证，未开发、未迁移、未切换正式供数。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
+状态：P0/D0核验完成，Prod P1支持合同/ORM/DAO及迁移源码已实现，待Prod P2及DG D1实施；未正式迁移或切换供数。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
 
 依据：[新增阶段方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#adjusted-weekly-prod-refresh)、[Prod LLD](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)、[DG数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)。本节按模板覆盖数据卡、Run Contract、来源/字段、asset/check/job/sensor、初始化/恢复、性能和分阶段验收。
 
@@ -45,7 +45,7 @@
 | sensors/raw_stock_weekly_update_job_sensor.py、stock_weekly_update*.py | 复权分支消费独立revision；未复权保持既有新周逻辑 | cursor、运行键、pending去重、取消/失败、旧cursor迁移 |
 | bootstrap/stock_weekly_history*.py、stock_weekly_events*.py | 新bootstrap策略必须显式是本资产、B0和replace_input_keys；事件阶段另执行 | 旧参数与新合同不能同时生效；无reports运行依赖 |
 
-完整引用审计在D0补到测试及实际手动run_config消费者，D1同步迁移，不保留复权“Prod/direct Tushare”双轨。CodeGraph已用于本轮Prod/DG入口、调用关系和影响分析；关键helper语义另读当前代码核对。未完成的展示/自动化全消费者审计不能写成通过。
+D0已核验来源、手动run_config、bootstrap及sensor消费者与现有测试入口，实施清单见A13及Prod §11.3；D1同步迁移，不保留复权“Prod/direct Tushare”双轨。CodeGraph已用于本轮Prod/DG入口、调用关系和影响分析；关键helper语义另读当前代码核对。静态引用核验不代替D1合同测试和D2真实UI/自动化验收。
 
 ### A3. Run Contract、配置来源和幂等身份
 
@@ -62,7 +62,7 @@ intent_id = hash(合同版本、batch_id、closure_revision、固定目标资产
 | batch单位/字节上限 | 1000 unit、每unit12,000行/8MiB；总payload256MiB | reader先查闭合摘要再导出；超量不提升 |
 | PG只读资源 | 既有scripts/psql-remote.sh及现有资源配置；连接1、SQL30秒、单导出45秒 | 不新增env/token；进程取消≤2秒；白名单/凭证隐藏测试 |
 | 代码批次 | bootstrap 300；单Prod读取≤30,000行、CSV≤64MiB | 沿现有局部WeeklyBudget，不改全局；计数/COPY一致反例 |
-| DuckDB预算 | 局部512MiB、2线程、spill2GiB | 构造器注入；不临时修改全局设置，内存/空间样本 |
+| DuckDB/进程预算 | 局部512MiB、2线程、spill2GiB；进程RSS上限1GiB | 具名局部policy注入并冻结，driver在年度阶段前后监测；每年独立连接关闭。D0峰值647.8MiB，不把引擎预算等同RSS，D2含正式步骤再验 |
 | 年度/运行预算 | 单阶段500,000行、54目标文件、源+候选文件≤128；运行≤1000目标文件、4GiB staging | 执行前预估、每阶段实计；超过即停，不能接着逐股票绕过 |
 | 日常触发窗 | 既有weekly sensor的19:30、Asia/Shanghai，来源不变 | 仅调整复权分支；不新建第二sensor/高频cron |
 | 交付水位 | 既有sensor cursor，字段adjusted_delivery_revision/pending_adjusted | 仅成功批推进；原未复权进度独立保留；迁移/回退反例 |
@@ -102,7 +102,7 @@ candidate := existing ANTI JOIN incoming_unique USING (ts_code, trade_date, freq
 
 表中SQL是关系设计，不是可直接运行语句。实现用列白名单并移除unit_revision技术列；hive_partitioning=false。保留未选键及其全部值，输入替换完整源行；不只改qfq列、填0或删除旧记录。旧数据合法NULL、原始异常日期按既有Raw保留合同；越界输入不得通过“保留历史”绕过校验。
 
-执行一次发现本批真实受影响周，然后按年份处理该年全部输入代码；禁止按股票反复读取同一年的所有文件。每年输入捕获→existing关系→candidate→本次输入键EXCEPT ALL值对账及未选旧键保留对账→逐周Parquet。只读本年受影响文件，非涉及历史不重验。候选逻辑值相同可跳过replace，但仍核实本批键和值；目标变化时须产生新的物化/check，不能复用旧绑定。
+执行一次发现本批真实受影响周，然后按年份处理该年全部输入代码；禁止按股票反复读取同一年的所有文件。每年新建独立DuckDB连接，输入捕获→existing关系→candidate→本次输入键EXCEPT ALL值对账及未选旧键保留对账→逐周Parquet；在finally关闭当年连接后处理下一年，不让连接缓存累计17年中间结果。只读本年受影响文件，非涉及历史不重验。候选逻辑值相同可跳过replace，但仍核实本批键和值；目标变化时须产生新的物化/check，不能复用旧绑定。
 
 候选提升前完成当前年度全部候选审计；复用promoter须核对其54文件限制、路径、安全和已有锁语义。不能直接调用仍要求旧create_or_identical的组装函数，然后用catch绕过冲突。
 
@@ -122,7 +122,7 @@ candidate := existing ANTI JOIN incoming_unique USING (ts_code, trade_date, freq
 
 历史分区顺序：候选通过→文件提交读回→生成器yield该分区物化→读取该run新记录获得storage_id/run_id/timestamp→复用同一单文件检查函数→context.log_event(AssetCheckEvaluation)，显式partition及target_materialization_data。任何失败必须使driver失败，不能只记failed event再返回成功。anchor最后yield MaterializeResult，正常asset_check节点核验anchor；因此job成功才代表整个批全部文件及事件完成。
 
-当前本地Dagster源码的AssetExecutionContext.log_event委托OpExecutionContext，后者明确接受AssetCheckEvaluation；构造器支持partition和三字段目标物化指针。但log_event有事件缓冲，不能在yield之前假设storage_id已可读。D0必须用隔离实例验证生成器flush顺序、多个历史分区、anchor、失败及准确绑定；未验证不得落生产实现。不在日常job里调用report_runless_asset_event或伪造run ID。
+当前本地Dagster源码的AssetExecutionContext.log_event委托OpExecutionContext，后者明确接受AssetCheckEvaluation；构造器支持partition和三字段目标物化指针。但log_event有事件缓冲，不能在yield之前假设storage_id已可读。D0已用临时ephemeral实例验证：2历史分区+1anchor成功产生3物化/9检查且准确绑定；yield后可读storage_id。故意历史失败导致run失败且无anchor，已发历史物化保留。详见A13；正式资产及事件恢复仍需D2验证。不在日常job里调用report_runless_asset_event或伪造run ID。
 
 事件读取按run增量cursor分页、按年度批量配对，禁止每分区反复查询全历史。每个实际修改分区最多1物化+3check，1000文件上限对应4000事件；同意图恢复只补缺项。checkpoint里的“事件完成”只能在读回存储记录后落下，不能凭已调用log_event。后续sensor只需本run结果及最终批摘要，无需重查859个历史分区。
 
@@ -167,7 +167,7 @@ Prod完整刷新后形成bootstrap_closed边界B0，初次unit仅完成摘要；
 
 日常预计读取受影响正式文件至多约2.9百万行、158MB压缩量，再写相应候选；存在新键/多批时需重新计量。bootstrap按300代码×年、每unit≤30,000行，一连接串行；不做全市场×年无索引大扫描。增量按不变unit payload读，不再按变化代码向可变Raw查询。源SQL、导出次数、字节数、DuckDB和文件阶段时间、RSS分别记进度，每5秒有活动更新；ETA无依据显示“暂无法估算”。
 
-D0真实只读样本核实当前库存/索引、交接计划大小、unit JSONB体积及实际source合同。D2获准小样本含“单股从2010到当前的全部历史文件”候选/提升，不以一周的快样本替代历史IO成本。初始设计预算不是实测，未测吞吐不承诺完成分钟数。任何超预算在提升前拒绝并回到范围/设计评审；不添加cache/备份系统、放宽全局或自行调整正式布局。
+D0已完成库存/索引、unit JSONB体积和实际source合同只读核验，容量及尚未实施的plan/payload门禁见Prod §11；当前没有新表实存或冻结计划对象，不声称已测索引/TOAST或实际计划空间。D2获准小样本含“单股从2010到当前的全部历史文件”候选/提升，不以一周的快样本替代历史IO成本。D0按年度独立连接的单股历史IO样本5.961秒、峰值RSS647.8MiB，详见A13；未测正式提升/事件/传输，不承诺联合完成分钟数。任何超预算在提升前拒绝并回到范围/设计评审；不添加cache/备份系统、放宽全局或自行调整正式布局。
 
 ### A11. 硬口径测试及验收
 
@@ -203,7 +203,28 @@ D0真实只读样本核实当前库存/索引、交接计划大小、unit JSONB�
 
 回退首先停新复权自动分支，保留已提交业务数据和文件，诊断本批交接；不得自动回到DG直拉双轨或恢复旧证明门禁。若需代码回滚，对发布范围和正在运行意图逐项确认，不回滚行情、不清空表、不删除历史。
 
-尚未验证：新表合同/容量及真实迁移head、当前connector分页、完整消费者清单、逐日factor覆盖、历史源基准、DG事件flush/绑定、全历史单股IO与RSS、正式取消恢复、联合19:30及源晚到。业务范围已确认，以上是开发前及分阶段验收门禁，不把本轮文档完成写成运行通过。
+P0/D0已完成：当前connector分页、Prod库存/索引/head、静态消费者、逐日factor覆盖、历史close基准、交接容量技术评审、DG隔离事件flush/绑定与全历史单股IO/RSS。尚未验证：新表/索引实际迁移和实存空间、新实现合同及金样本、正式资产/事件恢复、正式取消续跑、联合19:30及源晚到；plan/payload上限仍需D1/P1正反测试。业务范围已确认，不把隔离样本写成生产运行通过。
+
+<a id="adjusted-weekly-p0-d0-review"></a>
+
+### A13. P0/D0结果与设计落实（2026-10-10）
+
+上轮五份设计文档已提交5e903556，未推送。P0/D0技术审计和只读/隔离实验完成；Prod实测、消费者与实施缺口的唯一明细见[Prod LLD §11](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p0-d0-review)。本节保存DG结论，日常运行不读取临时审计文件或reports。
+
+| 门禁 | 样本及结果 | 适用边界 |
+| --- | --- | --- |
+| 正常run多分区事件 | Dagster1.13.18，临时实例；历史2分区+anchor1分区=3物化/9checks，均准确绑定；yield后查询目标记录成功 | 证明生成器/log_event机制，未触及正式instance，未证明新driver已实现 |
+| 失败顺序 | 故意历史check失败使run失败、anchor未发布、已发历史物化保留 | 正式恢复补事件/终态去重仍留D2 |
+| 只读库存 | 859文件/2,902,386行/158,233,993字节；与Prod差5565行来自2026-10-02 | bootstrap保留DG独有键，分类一次对账，不删数据凑行数 |
+| 单股全历史IO | DuckDB1.5.2；改单股一个qfq字段的合成候选涉及851文件/2,888,911行/157,493,398字节；5.961秒，年度最多272,685行/53文件 | 仅private/tmp候选+读回、随后清理；不是价格正确性验收，不含正式提升、事件或远程传输 |
+| 连接生命周期 | 同连接跨年累计峰值898.7MiB；每年新连接并关闭峰值647.8MiB，约降28% | 采用A5年度连接，不减字段、不换正式分区、不改全局配置；RSS局部上限1GiB，正式运行再验 |
+| 正式文件保护 | 成功实验前后源文件大小/mtime一致、候选已删除 | 初次实验COPY参数错序被沙箱阻止，随后固定private/tmp目标重跑；无扩大写权限或正式写入 |
+
+现有测试/消费者清单：test_stock_weekly_contract.py、test_stock_weekly_prod_source.py、test_stock_weekly_candidates.py、test_stock_weekly_history.py及history_cli、test_stock_weekly_events.py及event_files、test_stock_weekly_definitions.py、test_raw_stock_weekly_update_job_sensor.py、test_run_contract_static_gates.py。D1按A2迁移真实入口及测试；update/source、month/period_checks作为范围外回归。本轮没有运行未实现合同的测试，也没有把机制实验冒充正式asset通过。
+
+需要落实的设计：年度连接生命周期和独立RSS预算；Prod unit采用同事务Raw读回的canonical21列；读闭合批的值而非可变Raw；新B0及sensor独立revision，不从旧周cursor猜测；初次完整对账一次即结束，之后只核本批输入。没有新增DG资产/状态表、备用自动路径、历史证明门禁、Silver或UI需求。
+
+当前P0/D0和Prod P1支持代码完成，P1详细合同/测试/未验边界见[Prod LLD §12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p1-implementation)。注册Definition仍为旧绑定；P2执行器完成后一次性绑定，不给现有任务接入半成品路径。DG D1来源/覆盖代码、正式文件提升、事件补录、B0迁移和19:30切换尚未执行；后者仍按D2/D3/J1批准的具体阶段执行。
 
 ## 2026-10-09 结案口径（当前状态）
 

@@ -101,6 +101,8 @@ CodeGraph 确认 `TaskRunDispatcher._dispatch_dataset_action` 会从 TaskRun 构
 
 公告专项路径由 `announcement_scope.freeze_execution` 冻结 execution_token、范围和策略摘要，Ops 保存意图并由 resolver 校验显式恢复。`announcement_stream.run_announcements` 按自然日流式抓取、500 行短事务保存，末批与业务凭证同事务；请求预算独立预占，TaskRun 观察不成为恢复依据。Tushare `call_bounded` 复用现有认证/限速，调用进程可被取消/期限终止。Foundation 不引用 Ops，其他数据集通用路径不变；本地验收及 Prod 未部署边界见[公告同步 LLD](../datasets/anns-d-sync-low-level-design-v1.md#12-p2-实现消费者与验收对账2026-10-02)。CodeGraph query/impact 与当前源码补核覆盖 executor、resolver、source、dispatcher/worker、API/手动表单；sync/status 已复核。
 
+2026-10-10复权周线P1增加 `ingestion.execution_scope` 作为具名冻结合同分派入口：resolver先冻结，再生成带稳定批次身份的unit；TaskRun受理/恢复保存原意图，dispatcher按合同提取独立观测timeout。周线合同、交接ORM/DAO、迁移源码和严格有界响应支持已存在；注册Definition仍为None/旧write path，执行器及原子交接发布留P2，不改变正式任务行为。公告快照不纳入周线默认字段，既有合同及消费者保持。CodeGraph explore/query/impact覆盖共享模型、resolver/planner、TaskRun、排程及call_bounded调用链，动态注册/SQL/前端消费者另外读源码；实现与未验边界见[周线LLD §12](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p1-implementation)。依赖矩阵不变。
+
 ### 公告一次性身份迁移入口（2026-10-02）
 
 2026-10-02 公告保存规则改为完整源记录相等才忽略重复。旧身份迁移维护动作及执行器、离线脚本清退；日常同步通过既有 DatasetExecutionPlan -> announcement_stream -> DatasetWriter -> AnnsDDAO 批量 INSERT ON CONFLICT DO NOTHING。App 不再注册迁移执行器，Foundation 依赖方向不变。CodeGraph query/impact 覆盖 transform、DAO、旧迁移调用方，源码补核 writer、stream、worker、catalog 与下载器，详见[公告LLD当前口径](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。

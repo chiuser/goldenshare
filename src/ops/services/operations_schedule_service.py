@@ -63,6 +63,7 @@ MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY = "latest_completed_calendar_quarter"
+LATEST_COMPLETED_CALENDAR_WEEK_POLICY = "latest_completed_calendar_week"
 SINCE_LAST_SUCCESS_DAY_RANGE_POLICY = "since_last_success_day_range"
 MIN_INTRADAY_INTERVAL_MINUTES = 3
 SUPPORTED_CALENDAR_POLICIES = {
@@ -72,6 +73,7 @@ SUPPORTED_CALENDAR_POLICIES = {
     TRIGGER_DAY_SINGLE_RANGE_POLICY,
     TRIGGER_DAY_POINT_POLICY,
     LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
+    LATEST_COMPLETED_CALENDAR_WEEK_POLICY,
     SINCE_LAST_SUCCESS_DAY_RANGE_POLICY,
 }
 FALLBACK_PROBE_EFFECTIVE_TASK_STATUSES = ("queued", "running", "canceling", "success", "partial_success")
@@ -1553,6 +1555,7 @@ class OperationsScheduleService:
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日策略未由该数据集 Definition 声明",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度策略未由该数据集 Definition 声明",
+                LATEST_COMPLETED_CALENDAR_WEEK_POLICY: "最近已完成周策略未由该数据集 Definition 声明",
                 SINCE_LAST_SUCCESS_DAY_RANGE_POLICY: "成功游标日区间策略未由该数据集 Definition 声明",
             }
             raise WebAppError(
@@ -1568,6 +1571,7 @@ class OperationsScheduleService:
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度",
+                LATEST_COMPLETED_CALENDAR_WEEK_POLICY: "最近已完成周",
                 SINCE_LAST_SUCCESS_DAY_RANGE_POLICY: "成功游标日区间",
             }
             raise WebAppError(
@@ -1595,6 +1599,7 @@ class OperationsScheduleService:
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略不能与固定维护日期或窗口混用",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日策略不能与固定维护日期或窗口混用",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度策略不能与固定报告期混用",
+                LATEST_COMPLETED_CALENDAR_WEEK_POLICY: "最近已完成周策略不能与固定维护日期混用",
                 SINCE_LAST_SUCCESS_DAY_RANGE_POLICY: "成功游标日区间策略不能与固定维护日期或窗口混用",
             }
             raise WebAppError(status_code=422, code="validation_error", message=conflict_messages[calendar_policy])

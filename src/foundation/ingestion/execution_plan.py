@@ -94,6 +94,8 @@ class PlanWriting:
     stage_dao_name: str | None = None
     stage_table: str | None = None
     replacement_scope_fields: tuple[str, ...] = ()
+    delivery_dao_name: str | None = None
+    delivery_table: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,4 +149,5 @@ class DatasetExecutionPlan:
     transaction: PlanTransactionPolicy
     observability: PlanObservability
     units: tuple[PlanUnitSnapshot, ...]
+    trigger_source: str = "manual"
     execution_context: dict[str, Any] | None = None

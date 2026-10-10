@@ -6,6 +6,7 @@ from typing import Any
 
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.freshness_policies import get_freshness_policy
+from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjExecutionPolicy, weekly_definition_issues
 from src.foundation.datasets.models import (
     AnnouncementExecutionPolicy,
     DatasetActionCapability,
@@ -106,6 +107,8 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
     storage = DatasetStorageDefinition(**storage_row)
     if planning_row.get("announcement_policy") is not None:
         planning_row["announcement_policy"] = AnnouncementExecutionPolicy(**planning_row["announcement_policy"])
+    if planning_row.get("weekly_adj_policy") is not None:
+        planning_row["weekly_adj_policy"] = WeeklyAdjExecutionPolicy(**planning_row["weekly_adj_policy"])
     planning = DatasetPlanningDefinition(**planning_row)
     _validate_source_fetch_safety(
         dataset_key=identity.dataset_key,
@@ -129,7 +132,7 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         planning=planning,
         quality=quality,
     )
-    return DatasetDefinition(
+    definition = DatasetDefinition(
         identity=identity,
         domain=DatasetDomain(**row["domain"]),
         source=DatasetSourceDefinition(**source_row),
@@ -152,6 +155,10 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         transaction=DatasetTransactionDefinition(**transaction_row),
         completeness=completeness,
     )
+    issues = weekly_definition_issues(definition)
+    if issues:
+        raise ValueError(f"数据集定义 {identity.dataset_key}：{issues[0][1]}")
+    return definition
 
 
 def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
@@ -174,6 +181,7 @@ def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
             "trigger_day_single_range",
             "trigger_day_point",
             "latest_completed_calendar_quarter",
+            "latest_completed_calendar_week",
             "since_last_success_day_range",
         }:
             raise ValueError(f"未知 schedule time policy：{policy.policy}")

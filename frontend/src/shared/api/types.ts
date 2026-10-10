@@ -547,6 +547,7 @@ export interface OpsAutomationCapability {
       | "trigger_day_single_range"
       | "trigger_day_point"
       | "latest_completed_calendar_quarter"
+      | "latest_completed_calendar_week"
       | "since_last_success_day_range";
     schedule_types: Array<"cron" | "once">;
     cron_repeat_modes: Array<"daily" | "weekly" | "monthly" | "intraday_interval">;

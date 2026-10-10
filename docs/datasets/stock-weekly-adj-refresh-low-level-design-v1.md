@@ -1,8 +1,8 @@
 # Prod 股票复权周线刷新代码级 LLD v1
 
-起草：2026-10-09；设计收尾：2026-10-10。状态：设计稿完成，待 P0 专项评审及验证；未开发、未迁移、未部署、未同步。本文件按 [Prod 数据集开发模板](../templates/dataset-development-template.md) 的0—10节复制结构并填写；模板提示文字不作为项目内容重复保留。
+起草：2026-10-09；更新：2026-10-10。状态：P0/D0核验完成，P1合同/ORM/DAO及迁移源码已实现；未正式迁移、部署、同步或切换。本文件按 [Prod 数据集开发模板](../templates/dataset-development-template.md) 的0—10节复制结构并填写；模板提示文字不作为项目内容重复保留。
 
-业务范围和阶段以 [方案](stock-weekly-adj-refresh-plan-v1.md) 为准。DG实现仅引用本文交接合同，其余见 [DG LLD新增阶段](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-prod-refresh-lld)。本文件出现的新增类、表、配置、错误码均为拟实现，不代表当前支持。
+业务范围和阶段以 [方案](stock-weekly-adj-refresh-plan-v1.md) 为准。DG实现仅引用本文交接合同，其余见 [DG LLD新增阶段](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-prod-refresh-lld)。实现状态以§12为准：支持合同已存在，当前注册Definition未绑定，表及索引尚未在正式库创建；其余执行与DG交付仍待开发。
 
 ## 0. 架构基线与禁止项
 
@@ -27,9 +27,9 @@ stk_period_bar_adj_week.maintain → Ops TaskRun → DatasetActionRequest → Da
 | 时间点及显式文档fields | 本轮000001.SZ、trade_date=20260925；1行，返回end_date=20261009 | trade_date是行情周期；输出end_date不是请求截止日期 |
 | 区间及关键fields | 本轮000001.SZ、20100101—20261009；851行，21列，freq均week，end_date均20261009 | 证明单股票历史区间可取；不推断其他股票完整性 |
 | 全市场时间点 | 原M0 20260918复权主源5557行，后页空；前轮本会话20261009样本5559行 | 上线前复核本次已结束周期望代码，不能把旧行数写死 |
-| 复权因子 | 本轮000001.SZ、20260610—20260925，76行；相邻样本证明20260612和20260924变化 | 本轮区间响应最晚20260924，未据此认定20260925完整；P0逐日点查并与Prod因子覆盖对账 |
+| 复权因子 | 本轮000001.SZ、20260610—20260925，76行；相邻样本证明20260612和20260924变化 | P0查日历确认20260925不开市；20260924至20261009的6个开市日日线代码均有因子，详见§11 |
 | 默认/显式/业务关键列 | 本轮默认对象、显式点、显式区间均含ts_code/trade_date/end_date/freq/qfq/hfq/vol/amount等21列 | 三类核验已做；未知字段/NULL/精度风险仍由本次unit校验 |
-| 分页、后页、短页、集合和值 | 原M0三接口6页合计52行、键/值一致，主源6000后页空；MCP工具不暴露limit/offset | 原SDK证据不是当前项目connector实测。P0用实际connector、单股票短历史limit=10验证基准、多页、终空页；编码前完成，不以mock代替 |
+| 分页、后页、短页、集合和值 | 原M0三接口6页合计52行、键/值一致，主源6000后页空；MCP工具不暴露limit/offset | P0已用当前HTTP connector验证13行基准=10+3分页键/值；另验证10+0终止；正常空页保留21列响应字段，详见§11 |
 
 原始MCP响应本轮只保存在会话/临时审计材料中，不作为交付运行依赖。并行调用耗时约5.4—10.9秒含服务端排队，不作为串行生产请求承诺。
 
@@ -43,29 +43,29 @@ stk_period_bar_adj_week.maintain → Ops TaskRun → DatasetActionRequest → Da
 
 #### 0.3.2 DatasetDefinition消费者审计表
 
-本轮核对Definition、resolver、planner、builder、executor、writer、DAO、TaskRun及DG来源消费者。下表区分已读关键实现与开发前需完整追到的展示/自动化消费者；未做浏览器验收。P0不能仅靠文档把最后一列改成通过。
+P0已核对Definition、resolver、planner、builder、executor、writer、DAO、TaskRun、展示/自动化及DG来源消费者。下表最后一列保留实施阶段回归要求；静态完整消费者清单与发现的问题见§11，未做真实浏览器验收。
 
 | 消费者 | 当前入口 | 需要处理 | 验收阶段 |
 | --- | --- | --- | --- |
-| manual actions/catalog | src/ops/queries/manual_action_query_service.py、src/ops/services/manual_action_service.py、src/ops/catalog/dataset_catalog_views.py | 身份、point/range、单值ts_code保持；新增内部策略不暴露为表单源参数 | P0完整审计、P1合同/API回归 |
-| workflow | src/ops/action_catalog.py及维护工作流消费者 | 扫描该action引用；range语义改为高效区间时同步计划预览 | P0引用清单、P1测试 |
+| manual actions/catalog | src/ops/queries/manual_action_query_service.py、src/ops/services/manual_action_service.py、src/ops/catalog/dataset_catalog_views.py | 身份、point/range、单值ts_code保持；新增内部策略不暴露为表单源参数 | P0静态已核；P1合同/API回归 |
+| workflow | src/ops/action_catalog.py及维护工作流消费者 | 扫描该action引用；range语义改为高效区间时同步计划预览 | P0引用已核；P1测试 |
 | resolver/planner | ingestion/resolver.py、unit_planner.py、execution_plan.py、plan_helpers.py | 具名unit builder、冻结意图及恢复上下文；不复用公告专用freeze函数 | 已读主链；P1 |
-| request builder/source | ingestion/request_builders.py、source_client.py | 显式历史区间、统一21列、取消/硬截止、分页计数 | 已读主链；P0 connector实测、P2 |
+| request builder/source | ingestion/request_builders.py、source_client.py | 显式历史区间、统一21列、取消/硬截止、分页计数 | P0当前connector实测通过；P2新监督链 |
 | writer/DAO | ingestion/writer.py、dao/base_dao.py、stk_period_bar_adj_dao.py | 新具名write path；按三列主键更新；业务交接同事务 | 已读主链；P1/P2 |
-| freshness/cards/snapshot | datasets/freshness_policies.py、ops/queries/freshness_query_service.py、dataset_card_query_service.py、services/operations_dataset_status_snapshot_service.py | trade_date、表映射及频度过滤不变；交付进度不是业务freshness | P0全消费者审计、P1回归 |
-| 日期完整性 | ops/services/date_completeness_audit_service.py、dataset_observation_registry.py | 保留freq=week和无交易周规则；不把修正次数当日期覆盖 | P0逐项核验、P1回归 |
-| 自动时间策略/排程/probe | ops/services/dataset_schedule_time_policy_resolver.py、schedule_service.py、schedule_planner.py及运行时排程链 | 新“最后已结束自然周”意图策略；19:30排程仅本数据集；现有month分支保持 | 已核对策略及schedule模型；P0 runtime全链、P2 |
+| freshness/cards/snapshot | datasets/freshness_policies.py、ops/queries/freshness_query_service.py、dataset_card_query_service.py、services/operations_dataset_status_snapshot_service.py | trade_date、表映射及频度过滤不变；交付进度不是业务freshness | P0静态已核；P1回归 |
+| 日期完整性 | ops/services/date_completeness_audit_service.py、dataset_observation_registry.py | 保留freq=week和无交易周规则；不把修正次数当日期覆盖 | P0静态已核；P1回归 |
+| 自动时间策略/排程/probe | ops/services/dataset_schedule_time_policy_resolver.py、schedule_service.py、schedule_planner.py及运行时排程链 | 新“最后已结束自然周”意图策略；19:30排程仅本数据集；现有month分支保持 | P0策略/排程运行链静态已核；P2真实运行 |
 | TaskRun/详情 | ops/runtime/task_run_dispatcher.py、ingestion/progress.py、models/ops/task_run及node | 当前计划预览截断20units，不作续跑依据；独立进度/终态写入 | 已读执行及模型；P2浏览器 |
-| 前端时间控件 | Manual Action合同消费者、自动任务时间策略类型及任务详情组件 | 不写dataset_key日期转换；按API合同派生 | P0找到真实组件和类型、P1/P2浏览器 |
+| 前端时间控件 | Manual Action合同消费者、自动任务时间策略类型及任务详情组件 | 不写dataset_key日期转换；按API合同派生 | P0组件/类型已定位核验；P1/P2浏览器 |
 | DG | assets/stock_weekly.py、jobs/stock_weekly.py、raw_stock_weekly_update_job_sensor.py、bootstrap/prod_db/io/checks | 复权来源及覆盖合同迁移，其他来源保持 | 已读主链；D1/D2 |
 
-不修改date_model/input_shape/observed_field；增加planning/storage策略仍需上述消费者和shared model默认值回归。完整未覆盖入口在P0填实际文件/测试，不冒称已做全量消费者验收。
+不修改date_model/input_shape/observed_field；增加planning/storage策略仍需上述消费者和shared model默认值回归。P0静态消费者已列到§11；P1/P2合同/API/浏览器回归仍待实施，不以静态审计代替运行验收。
 
 <a id="source-field-contract"></a>
 
 #### 0.3.3 源字段端到端对账表
 
-共同证据：本地doc_id=365、本轮三类MCP响应；当前Definition请求21列；Raw/Serving ORM已核验；DG weekly_column_specs已核验。生产实表/迁移一致性以原M0为历史依据，P0重新查只读系统目录。表中“迁移/实表”均为待P0复核，不预填当前真实表通过。
+共同证据：本地doc_id=365、本轮三类MCP响应；当前Definition请求21列；Raw/Serving ORM已核验；DG weekly_column_specs已核验。P0已只读核验两张实表的字段、类型、主键及索引，21列映射与下表一致；change在Serving名为change_amount。新交接表尚不存在，迁移实施另验。
 
 | 源字段 | 源/实测/fields | Prod Raw → Serving | DG类型/列 | 必填与转换 |
 | --- | --- | --- | --- | --- |
@@ -162,6 +162,8 @@ stk_period_bar_adj_week.maintain → Ops TaskRun → DatasetActionRequest → Da
 
 ## 4. DatasetDefinition事实设计
 
+以下是切换后的目标Definition。P1已支持对应模型和校验，当前注册定义仍保留旧绑定；P2执行器完成后才整体切换，状态明细见§12。
+
 ### 4.1 identity
 
 dataset_key/display_name/aliases沿现有定义；description补充“因子变化后刷新对应股票已有历史”；logical_key/logical_priority沿当前构建默认值，不新建逻辑身份。
@@ -180,11 +182,11 @@ natural_day/week_friday/point_or_range/trade_date_or_start_end，observed_field=
 
 ### 4.4.1 时间意图归一化设计
 
-Ops保留point/range时间意图，自动策略只生成“更新最后已结束周”。resolver归一化周界、历史截止和因子扫描窗；planner生成显式unit时间。历史unit用自己的start/end，不能继续使用新周anchor。builder只格式化YYYYMMDD。
+Ops保留point/range时间意图，自动策略只生成“更新最后已结束周”。上海时间周五19:30前候选是上周五，此后及周末是本周五，周一至周四是最近周五；这只是意图边界，源完整性仍须另验。resolver归一化周界、历史截止和因子扫描窗；planner生成显式unit时间。历史unit用自己的start/end，不能继续使用新周anchor。builder只格式化YYYYMMDD。
 
 首次all-market range逐周规划。指定ts_code range为单股票区间。自动point先恢复未闭合批次，再选择最早未完成已结束周；不跳过欠账。手动历史point/range形成修订批次，不推进自动周frontier。
 
-区分意图使用现有DatasetActionRequest.trigger_source及time_input/filters；不加供运营选择的模式参数。具名freeze函数将scheduled_week、historical_refresh或manual_revision及原trigger_source冻结到plan/execution_context；重试恢复冻结意图，不能因为重试由人工点击就变成manual_revision。ValidatedDatasetActionRequest已有trigger_source，但当前DatasetExecutionPlan无独立该字段，P1须显式完成该信息的合法投影及所有重试消费者迁移，不能在builder中猜触发来源。scheduled_week才能推进自动周/factor frontier；人工范围修订只交付其明确范围。
+区分意图使用现有DatasetActionRequest.trigger_source及time_input/filters；不加供运营选择的模式参数。具名freeze函数将scheduled_week、historical_refresh或manual_revision及原trigger_source冻结到plan/execution_context；重试恢复冻结意图，不能因为重试由人工点击就变成manual_revision。P1已将ValidatedDatasetActionRequest.trigger_source显式投影到DatasetExecutionPlan，并让恢复消费者保留execution_context中的原意图，不能在builder中猜触发来源。scheduled_week才能推进自动周/factor frontier；人工范围修订只交付其明确范围。
 
 ### 4.5 input_model
 
@@ -230,7 +232,7 @@ commit_policy=unit，idempotent_write_required=True；write_volume_assessment写
 
 Raw/Serving复用现有ORM：models/raw/raw_stk_period_bar_adj.py、models/core_serving/stk_period_bar_adj.py；键及精度见0.3.3。Raw保留api_name/fetched_at/raw_payload；Serving系统时间沿当前契约。没有STD/Silver/Serving Light新增。
 
-现有两表按源码为普通表，原M0只确认三列主键索引；本次不重建/分区存量表。按代码历史修正走主键范围；全市场单周读回需P0 EXPLAIN决定是否加仅week的trade_date索引。新增索引不凭文件名猜既有结构，性能样本证明必要性后落迁移。
+P0实查：Raw只有(ts_code,trade_date,freq)主键；Serving另有trade_date和(freq,trade_date)索引。单代码历史走Raw主键，850行执行约0.630ms；Raw全市场单周走并行全表扫描，5559行约246.669ms、约97,870个读缓冲页。P1拟仅给Raw增加部分索引(trade_date,ts_code) WHERE freq='week'，避免首次约876个unit反复全表扫描；不重复给Serving建索引，不重建/分区行情表。建索引方式、锁和额外空间列入迁移实施审查，索引后收益待真实EXPLAIN验证。
 
 ### 5.2 工程硬约束
 
@@ -244,7 +246,7 @@ Raw/Serving复用现有ORM：models/raw/raw_stk_period_bar_adj.py、models/core_
 
 ### 5.4 唯一业务交接合同：stock_weekly_adj_delivery/v1
 
-**必要性评审。** 单unit数据在Prod与DG两个进程中交付；Raw会被后续更新覆盖，TaskRun摘要截断且观测允许失败。仅metadata/cursor/fetched_at不能同时证明完成范围、恢复和稳定版本。因此提出一个专用Foundation表，不新增DG状态实体。P0须审核这一必要性及容量，未完成评审不得建表或将它推广为通用框架。
+**必要性评审。** 单unit数据在Prod与DG两个进程中交付；Raw会被后续更新覆盖，TaskRun摘要截断且观测允许失败。仅metadata/cursor/fetched_at不能同时证明完成范围、恢复和稳定版本。因此提出一个专用Foundation表，不新增DG状态实体。P0技术评审保留这一专用设计，容量样本及取舍见§11；不推广为通用框架。技术评审完成不等于正式建表/迁移执行授权。
 
 拟新增core.stock_weekly_adj_delivery，一行代表不可变的业务交接记录：
 
@@ -264,6 +266,8 @@ Raw/Serving复用现有ORM：models/raw/raw_stk_period_bar_adj.py、models/core_
 | reason_summary | JSONB，≤20样本 | 保留/未刷新原因及计数；不含token/SQL凭证 |
 | published_at | TIMESTAMPTZ | 业务提交记录时间，不用它代替revision水位 |
 
+plan仅保存共享的字段/预算/意图一次，unit清单保存unit_id、kind、code、point或range边界及factor_target；不把完整Definition、重复policy、源行或全部request_params逐unit塞入plan。P0按此合同构造1000个stock_history unit的容量示例为224643字节，小于1MiB；这是拟定序列化形状的估算，不是已实现planner测试，P1还须对真实冻结对象校验上限并测试超量拒绝。
+
 固定dataset/freq由表合同及CHECK约束表达；不让调用方透传表名/freq。索引：(record_kind,revision)、(batch_id,record_kind,unit_id)；payload限制8MiB/每unit12,000行情行，plan≤1MiB/1,000unit。日常整批payload总量上限256MiB，与DG一致；闭合头记录总行数/总字节、最大输入周anchor、零行原因和unit集合摘要，最多1000个unit ID且头控制投影≤4KiB，不传整份清单给sensor。
 
 规划根据历史窗口周数、当前对象规模及标准化字段长度上界预估总量；超过unit/字节预算先拒绝，不开始源请求。当前批写入时累加实际payload字节，再次超限不提交当前unit/不闭合。需另获批准分范围处理或调整经过实测的局部预算，不设计自动分组状态机。未闭合的已提交unit仍可读回、恢复，不能在新意图下跳过。factor frontier只有整个原扫描范围完成后才推进，不用某一手动子任务冒充全周完成。
@@ -282,7 +286,7 @@ Raw/Serving复用现有ORM：models/raw/raw_stk_period_bar_adj.py、models/core_
 
 **读取合同。** DG用唯一远程包装脚本的只读事务，头查询只投影revision/batch_id/cutoff/合同版本/数量/摘要；payload仅在运行job内按unit流式读。既有原bootstrap白名单只含行情表，必须新增交接表显式白名单，不能SELECT *或任意schema扩权。DG不写交接表，不存回执到Prod；交接记录不进入行情Parquet。
 
-**保留与退出。** 交接payload是可重放业务增量，不是搬运证明；日常只读未交付批次。本轮851行样本将数值转字符串后，JSON约333,440字节，约392字节/行。外推新周5559行加20股票各851行约8.85MB/周；固定四位精度、JSONB和索引另计，P0测真实存储，不使用源矩阵146字节/行低估对象payload。不设计自动DELETE、归档服务、永久全历史复核或reports依赖；清理需确认DG水位、保留窗及另获明确清理授权。停机超过可读取范围时走受控bootstrap，不假装cursor可以重建丢失payload。
+**保留与退出。** 交接payload是可重放业务增量，不是搬运证明；日常只读未交付批次。本轮851行样本将数值转字符串后，JSON约333,816字节，约392字节/行。外推新周5559行加20股票各851行约8.86MB/周；P0另测850行标准化JSONB表达式平均476.56字节，外推约10.76MB/周、559.5MB/年，尚未计新表索引、控制记录及实际TOAST压缩，不使用源矩阵146字节/行低估对象payload。不设计自动DELETE、归档服务、永久全历史复核或reports依赖；清理需确认DG水位、保留窗及另获明确清理授权。停机超过可读取范围时走受控bootstrap，不假装cursor可以重建丢失payload。
 
 ## 6. Ingestion实现设计
 
@@ -292,7 +296,7 @@ _stk_period_bar_adj_week_params按unit自身归一化时间格式化：point只t
 
 ### 6.2 Unit规划
 
-拟新增ingestion/stock_weekly_adj_scope.py，提供freeze_weekly_adj_execution、resolve_weekly_adj_units、load_changed_codes、validate_weekly_adj_source_basis。注册unit builder，不直接复用_stk_factor_pro私有函数或公告freeze函数。
+拟新增ingestion/stock_weekly_adj_scope.py，提供freeze_weekly_adj_execution、resolve_weekly_adj_units、load_changed_codes、validate_weekly_adj_source_basis。注册unit builder，不直接复用_stk_factor_pro私有函数或公告freeze函数。freeze_weekly_adj_execution只生成纯计划/冻结上下文；manual preflight、预览和resolver.build_plan禁止DML。TaskRun受理后，执行器取得发布锁才持久化业务plan。
 
 自动扫描范围：(上次闭合factor_scan_end，本次已结束周最后开市日]，每个d与前一开市日比较，取并集；先校验每日期覆盖及相邻值。范围最长一个待处理周，遇长停机按最早周恢复；raw最早日期按变化代码一次GROUP BY，不逐代码SQL。新股无前日行分类为首次出现；有历史却缺相邻因子列pending。
 
@@ -304,7 +308,7 @@ unit_id=hash(contract_version,batch_id,unit_kind,ts_code,规范时间窗,scope_d
 
 评估复用source_client分页迭代，增加受具名策略控制的调用监督/取消/预算；不能把公告的专用policy对象当周线policy。源请求在可终止子进程，硬截止20秒，正常页前后检查取消，≤2秒查询独立取消；本地隔离替身证明超时/终止及不泄漏token。
 
-一个unit最多3页/12,000行，源响应和normalizer结果都计入256MiB RSS目标；首次全部876周不常驻内存。满页继续拉，超量整unit不提交。每页持同fields/筛选；若同一股票历史出现不能解释的多个basis factor，停止重取该unit而非接受混合基准。connector实测见0.3.0/P0。
+一个unit最多3页/12,000行，源响应和normalizer结果都计入256MiB RSS目标；首次全部876周不常驻内存。满页继续拉，超量整unit不提交。每页持同fields/筛选；若同一股票历史出现不能解释的多个basis factor，停止重取该unit而非接受混合基准。connector实测见0.3.0及§11。具名周线响应策略在监督进程内保留并校验envelope：code=0、data对象、完整且不重复的21字段、每行长度一致，才允许rows空。data缺失、字段缺失/重复或结构错误必须报weekly_adj.source_payload_invalid，不能写成source_empty_preserved；全市场完整性另验，正常空页也不自动等于可闭合空批。当前通用call/call_bounded尚未满足此约束，P1迁移具名响应策略及全部调用方，公告既有策略保持。
 
 ### 6.4 Normalizer
 
@@ -312,13 +316,13 @@ unit_id=hash(contract_version,batch_id,unit_kind,ts_code,规范时间窗,scope_d
 
 ### 6.5 Writer
 
-拟新增ingestion/stock_weekly_adj_delivery.py，具名路径内完成范围验证、分层upsert、payload标准化和交接append；通用writer注册分派，保留其他路径行为。核心接口publish_unit(session,definition,unit,batch)->CommittedUnitDelivery；publish_closed_batch只在冻结unit闭合后调用。
+拟新增ingestion/stock_weekly_adj_delivery.py，具名路径内完成范围验证、分层upsert、payload标准化和交接append；通用writer注册分派，保留其他路径行为。核心接口publish_unit(session,definition,unit,batch)->CommittedUnitDelivery；publish_closed_batch只在冻结unit闭合后调用。Raw/Serving upsert后，在同一短事务中按本unit实际输入键读回Raw显式21列，校准Serving映射并生成canonical payload，之后append交接；禁止用未经数据库精度校准的源float生成交付事实。读回不扫描未选历史。
 
 cancel-before-commit回滚该unit，commit-after-cancel仍按实际完成记录恢复，不能宣称没提交；每个unit之后检查取消，不领新unit。独立Observer调用不能把已提交unit再次记为失败；当前_process_fetched_unit/report_progress交互需正反回归，不仅补异常catch。
 
 ### 6.6 结构化错误与codebook
 
-拟新增weekly_adj.scope_mismatch、source_key_conflict、source_not_ready、basis_not_updated、factor_coverage_missing、row_budget_exceeded、delivery_contract_mismatch、writer_busy、source_empty_preserved、partial_source_preserved。每码在codebook登记中文含义、阶段、可重试性、样本和动作。超时/网络/认证/限流沿现有分类；“未刷新”不是网络失败的别名。
+拟新增weekly_adj.scope_mismatch、source_key_conflict、source_payload_invalid、source_not_ready、basis_not_updated、factor_coverage_missing、row_budget_exceeded、delivery_contract_mismatch、writer_busy、source_empty_preserved、partial_source_preserved。每码在codebook登记中文含义、阶段、可重试性、样本和动作。超时/网络/认证/限流沿现有分类；“未刷新”不是网络失败的别名。
 
 基准验收至少选择旧历史周close，用该周最后交易日因子和源basis_date因子独立核对至源价格精度；周中除权的OHLC不能用整根周K同一个因子替代日内复权聚合。没有独立基准时保持basis待验，不靠输出证明输出。
 
@@ -329,12 +333,14 @@ cancel-before-commit回滚该unit，commit-after-cancel仍按实际完成记录�
 | weekly_adj_policy | Definition planning中的具名策略；冻结到本批plan | resolver/planner/executor/linter；代码部署后新意图生效，恢复要求合同一致；计划详情及合同测试 |
 | page_limit / max_source_rows / max_pages | 6000/12000/3，Definition及具名policy | source/executor；页序列可见；满页/超量反例 |
 | source_timeout / cancel_poll / progress_interval | 20秒/2秒/5秒，policy | 监督进程/observer；日志显示阶段和超时；取消与30秒可见测试 |
+| observation_timeout_seconds | 2秒，policy，冻结到execution_context | TaskRunDispatcher经execution_scope显式提取；独立取消/观测连接使用，不进入业务事务；None/公告/未知合同测试 |
 | db_statement_timeout / lock_timeout | 20秒/2秒，policy，SET LOCAL | writer事务；超时分码；lock/rollback/重跑测试 |
 | max_units / max_payload_bytes / max_plan_bytes / max_batch_payload_bytes | 1000/8MiB/1MiB/256MiB，policy及PG CHECK/批闭合校验 | planner/DAO/导出；超量不执行；容量反例，与DG总量一致 |
 | fetch_concurrency / memory_target | 1/256MiB，policy和Definition | 单unit缓冲；压力样本RSS，超过预算停手重设 |
 | 19:30、Asia/Shanghai | ops.schedule的cron_expr=30 19 * * *及timezone | 现有scheduler生成意图；运营排程页可见；不在migration seed，启用另批 |
 | delivery source/table/contract | Definition storage及Foundation交接合同v1 | writer/DG只读白名单；部署同时迁移；跨表/freq/未知版本拒绝 |
 | 日期起点/截止 | 运行读取Prod库存/权威日历，冻结plan | planner；不新增env硬编码2010；首周/跨年/长假测试 |
+| 索引DDL lock_timeout / statement_timeout | 15秒/15分钟，仅迁移186的独立autocommit连接 | concurrent索引创建前后查valid/ready/live和准确定义；无env/Settings/页面配置，迁移结束RESET；正式执行及EXPLAIN另验 |
 
 现有全局Settings、Tushare token、PG连接来源不改。不新增.env配置或页面常量。DG资源和预算在DG LLD维护，避免两侧常量不同。
 
@@ -348,9 +354,9 @@ cancel-before-commit回滚该unit，commit-after-cancel仍按实际完成记录�
 
 ### 7.2 自动任务
 
-以ops.schedule现有dataset_action机制持久化19:30排程，初始化inactive，既有受理/并发去重/worker路径复用。新增时间策略只生成“最后已结束周”意图，resolver才决定source参数；当已有未闭合批时先恢复，同周闭合后不重复下载。源未完整当晚任务失败/待重试，下一日19:30恢复；不附加高频cron或后台等待。
+复用P0查到的ops.schedule id=14（stk_period_bar_adj_week.maintain），当前active、每周五22:04；不新建重复排程。切换时单独获准暂缓此排程，校准为30 19 * * *、Asia/Shanghai和新时间策略后再启用，既有受理/并发去重/worker路径复用。新增时间策略只生成“最后已结束周”意图，resolver才决定source参数；当已有未闭合批时先恢复，同周闭合后不重复下载。源未完整当晚任务失败/待重试，下一日19:30恢复；不附加高频cron或后台等待。
 
-P0审计既有同dataset排程，切换时防重复写者。因子、日历、日线的正式写者保持，不顺手把它们塞进周线workflow。Prod依赖已完整业务数据，Ops观测仅辅助诊断；不能因快照状态写失败阻断已有事实读取。
+P0已核验同dataset排程；id=13未复权周线排程保持原样，切换前重新检查是否新增写者。因子、日历、日线的正式写者保持，不顺手把它们塞进周线workflow。Prod依赖已完整业务数据，Ops观测仅辅助诊断；不能因快照状态写失败阻断已有事实读取。
 
 ### 7.3 TaskRun观测
 
@@ -394,8 +400,8 @@ git diff --check
 
 ### 8.3 验收勾选
 
-- [ ] P0：当前connector多页和基准、逐日factor覆盖、Prod库存/索引及全部消费者、专用交接必要性/容量评审。
-- [ ] P1：Definition/Plan/linter/模板、ORM/迁移/DAO、默认None消费者、三列键及freq回归。
+- [x] P0：当前connector多页和基准、逐日factor覆盖、Prod库存/索引及静态全消费者、专用交接必要性/容量技术评审（2026-10-10，§11）。
+- [x] P1：Definition模型/Plan/builder/linter/模板、ORM/迁移源码/DAO、默认None消费者、三列键及freq回归；当前Definition绑定留P2，正式DDL待执行。
 - [ ] P2：完整小样本行数链、取消/退出/续跑/幂等、观测失败、浏览器进度及source basis。
 - [ ] P3：源刷新一次全量键/值对账，保留未刷新/失败分清，无删除。
 - [ ] D2/D3/J1：DG实际接收、正确覆盖、正式事件/check、一次bootstrap对账及19:30端到端验收。
@@ -404,8 +410,10 @@ git diff --check
 
 | 阶段 | 本轮结果 | 未完成/下步 |
 | --- | --- | --- |
-| 设计编制 | 业务决定已确认；本轮文档、关键代码审计和MCP参数/字段样本已完成 | P0其余实测/消费者与结构评审待执行，不宣称P0验收完成 |
-| P1—J1 | 未开始 | 代码、迁移、部署、写入、自动切换均未执行 |
+| 设计编制 | 业务决定、方案及LLD已完成并提交5e903556 | 原设计提交，不代表新机制已实施 |
+| P0/D0 | 当前connector、Prod只读、静态消费者、交接技术评审及隔离DG事件/IO样本通过 | P1需落实§11列出的契约、恢复与索引；正式迁移/端到端写入未验 |
+| P1 | 支持合同、持久化对象和迁移源码已实现，具体证据见§12 | 正式DDL、同事务行情金样本及执行路径绑定待P2；有一项既有月线测试失配 |
+| P2—J1 | 未开始 | 因子/欠账执行、部署、写入、DG交付及自动切换未执行 |
 
 ## 9. 发布与回滚
 
@@ -418,6 +426,100 @@ git diff --check
 
 ## 10. 本次交付快照
 
-当前支持仍为旧的Prod维护及DG直拉新周；本方案的历史因子刷新、业务交接和DG统一来源尚未实现。本轮仅完成设计文档和只读样本。下一步P0完成编码前证据及最小持久化技术评审，随后P1开发；全量运行和启用按各阶段另获明确授权。
+当前正式任务仍为旧的Prod维护及DG直拉新周；P1支持合同已实现，历史因子刷新、业务交接执行及DG统一来源尚未实现。下一步P2完成发布执行链和绑定，真实小样本、全量运行和启用按各阶段另获明确授权。
 
-2026-10-10文档收尾：Prod方案/LLD、DG原方案/LLD的新阶段及docs/README已同步；文档完整性、20个新增设计链接/锚点及diff空白检查通过。不改变子系统依赖矩阵；未运行代码测试、迁移、正式同步或sensor切换。本节结果不能用于替代P0—J1验收。
+2026-10-10设计阶段历史记录：五份文档同步、完整性及20个设计链接/锚点检查通过；当时未运行代码测试或迁移。P1开发后的当前结果见§12，不用历史文档检查替代运行验收。
+
+
+<a id="p0-d0-review"></a>
+
+## 11. P0/D0只读核验及技术评审（2026-10-10）
+
+### 11.1 范围与结论
+
+本阶段按P0/D0完成静态消费者审计、真实源读取、Prod只读SQL以及临时DG实验。未改业务代码，未迁移、部署或写Prod；未启动正式DG任务、登记事件、改变sensor/排程或提升Lake文件。源请求共9次，生产SQL均READ ONLY、显式列与限定范围、statement_timeout≤30秒；隔离实例和候选全部位于/private/tmp，不接正式实例。
+
+技术评审结论：保留一个专用业务交接表；首次不复制全历史payload，日常只保存本批变更值，DG不新增状态表或summary asset。只读样本支持当前行数、文件数和payload预算；P1需要补齐下列当前实现缺口。P0通过不代表新表实存、正式取消恢复或联合19:30已验收。
+
+### 11.2 实测事实
+
+| 项目 | 2026-10-10证据与结论 |
+| --- | --- |
+| Prod实际库存 | Raw freq=week为2,896,821行、858个trade_date，2010-01-01至2026-10-09；不是DG的2,902,386行。Raw缺2026-10-02，000001.SZ源历史有该周，首次刷新按实际源补齐；本轮未补写。 |
+| schema/索引/head | 两行情表21列及映射一致；Raw只有主键，Serving已有日期索引；core.stock_weekly_adj_delivery不存在。DB与本地迁移单head均20261008_000184，P1生成迁移前再次核查。 |
+| 当前connector分页 | 使用DatasetSourceClient→TushareSourceConnector→TushareHttpClient，无writer。000001.SZ、20260701—20260925：6000行上限基准13行，limit=10得到10+3，键/值精确相等；20260701—20260904得到10+0并终止。终空页HTTP200/code=0/data存在、21字段齐全/items=[]。 |
+| 源字段/范围 | 显式21字段；000001.SZ、20100101—20261009为851行，所有end_date=20261009，单请求约0.306秒。20261009全市场5559行、约0.477秒，与该周实际日线代码并集相等、无少码/多码。延迟只为单次读取，不是写入或全量SLA。 |
+| 归一化最小样本 | 取捕获的20260605一行，received=normalized=1、rejected=0；日期转date、数值转Decimal、change映射change_amount正常。未执行新writer，完整源—归一化—两层—交接链留P2。 |
+| 日历及factor | 20260925休市，源factor至24日合理。24/28/29/30及1008/1009六个开市日日线股票因子缺失均0。1008变化6只、1009变化8只，去重并集14只；1009有1只无前值，不计因子变化。 |
+| 独立价格基准 | 000001.SZ、20260605 bfq close=10.98，旧因子134.5794、当前142.0699，round(10.98×134.5794/142.0699,2)=10.40，与新源qfq一致；hfq=1477.68亦一致。Prod旧Raw/Serving的qfq仍10.98、end_date=20260521，证明该样本需刷新，不推论所有历史行都错。 |
+| 交接容量 | 851行源值转字符串的JSON约333,816字节；850行数据库标准化21列JSONB表达式平均476.56字节。20股各851行+新周5559行约22,579行，外推10.76MB/周、559.5MB/年。表达式字节不等于新表含索引/TOAST的实际空间，P2需实存样本；不做全量payload副本。 |
+| 既有排程 | id=14已active，每周五22:04，目标stk_period_bar_adj_week.maintain，时区Shanghai；日后复用并改为每日19:30，不另建。id=13未复权排程不动；本轮均未修改。 |
+| DG隔离事件 | 安装版本Dagster 1.13.18；临时ephemeral实例，2历史分区+1anchor：成功run产生3物化、9检查，历史yield后可读目标storage_id，三项检查准确绑定。故意历史失败的run失败、无anchor，已发历史物化保留。仅验证正常run机制，未写正式事件。 |
+| DG隔离IO | 正式文件只读：859文件、2,902,386行、158,233,993字节；临时候选改单股一个字段用于IO压力，涉及851文件、2,888,911行、157,493,398字节，约5.961秒、峰值RSS647.8MiB。每年最多272,685行/53文件。无正式replace、事件或远程传输，不能当联合交付耗时。 |
+
+DG与Prod库存差5565行，正是DG已存在的2026-10-02周文件；重新bootstrap保留DG独有键并分类对账，不为行数相同删除旧键。此次没有全历史逐值审计，完整一次对账留P3/D3。
+
+### 11.3 静态消费者与P1必须落实的接口
+
+以下记录P0时的实现缺口；P1已落实的支持代码及仍留P2的接线见§12，不把本表的旧现状当作当前实现。
+
+本轮CodeGraph使用explore核对resolver/执行链和来源链、search定位OpsSchedule；前轮impact覆盖request builder。动态注册、SQL及以下消费者均直接读当前源码。影响为Foundation ingestion、Ops意图/调度/观测及独立DG供数域；不新增子系统反向依赖，未接入Wealth消费者。图关系没有代替代码和真实数据审计。
+
+| 消费者 | 当前代码及实施约束 |
+| --- | --- |
+| manual/catalog/workflow | ops/api/manual_actions.py、queries/manual_action_query_service.py、services/manual_action_service.py、action_catalog.py、catalog/dataset_catalog_views.py；preflight调用resolver时禁止持久化plan。原point/range/单值代码表单不加源参数。 |
+| resolver/plan/source/write | foundation/ingestion/resolver.py、execution_plan.py、unit_planner.py、request_builders.py、source_client.py、executor.py、writer.py及DAO；新具名builder/write path必须注册并被linter识别，未知策略不得落通用fallback。 |
+| 冻结/恢复 | ops/services/task_run_service.py::_freeze_announcement_payload当前拒绝其他数据集resume；必须增加周线具名受理/恢复策略，不挪用公告合同。retry保留原冻结意图，不能因人工点重试改变scheduled_week为manual_revision。 |
+| 取消/观测timeout | ops/runtime/task_run_dispatcher.py当前把任何execution_context按公告storage.insert_lock_timeout_seconds取值；TaskRunIngestionContext随后拼成PG timeout。P1须按具名执行合同显式提取周线取消/观测预算，测试None/错误合同及公告回归；不能靠catch补丁或复制公告嵌套字段骗过调用方。 |
+| 响应结构 | clients/tushare_client.py通用call会把data=None转[]；bounded_tushare_call.py亦如此。P1严格周线策略在监督边界校验原响应后才出rows。源码调用链为bounded helper→HTTP client→connector→source_client；测试含test_bounded_tushare_call.py、test_anns_d_stream.py、test_anns_d_exact_records.py及新周线正反例，迁移全部消费者而不改变公告现行语义。 |
+| freshness/cards/snapshot/audit | queries/freshness_query_service.py、dataset_card_query_service.py、services/operations_dataset_status_snapshot_service.py、date_completeness_audit_service.py、dataset_observation_registry.py；继续按trade_date/freq=week判断覆盖，交接revision不进入行情freshness。 |
+| 新排程策略合同 | foundation模型、ops/services/dataset_schedule_time_policy_resolver.py、schedule_automation_capability_resolver.py、operations_schedule_service.py、schedule_planner.py、schemas/catalog.py；同步新增latest_completed_calendar_week类型/校验/执行，既有month分支回归。 |
+| 前端消费者 | frontend/src/shared/api/types.ts及pages/ops-v21-task-auto-tab.tsx同步排程类型与展示；ops-v21-task-manual-tab.tsx沿合同派生周日期控件；ops-task-detail-page.tsx和ops-task-detail-eta.ts需P2验证实际进度和ETA，不用页面常量自行换日期。 |
+| DG真实入口/测试 | asset/check/job、mixed weekly sensor、run config、Prod白名单及bootstrap均见DG A2。D1覆盖test_stock_weekly_contract/prod_source/candidates/history/events/definitions、test_raw_stock_weekly_update_job_sensor与static gates；现有update/source/monthly/period_checks作为不受影响回归，不把P0实验当这些实现已通过。 |
+
+P1验收必须新增：preflight零DML、执行受理后持久化；正常空响应与data缺失反例；无缺列/重复列/短行混入；周线恢复合同及原公告不变；独立观测timeout合法且状态失败不阻断业务；同事务Raw读回payload精度金样本。源监督硬截止、取消及业务提交恢复仍在P2真实样本中验，不由本轮快速connector请求替代。
+
+### 11.4 实验边界与后续
+
+DG每年独立连接并关闭后再处理下一年，峰值RSS从同连接累计年度中间结果的898.7MiB降至647.8MiB；DuckDB512MiB是引擎内存预算，不是整个Python进程上限。DG LLD将进程RSS设计上限明确为1GiB，正式运行仍需监测。所有临时候选已清理，正式源文件大小和mtime未变。
+
+首次IO实验参数顺序错误使COPY误指向正式路径，沙箱阻止写入；已核对无误写文件，改为固定/private/tmp目标且只绑定读取路径后重跑通过。没有扩大权限或执行正式提升。临时SQL/JSON/脚本只是本轮证据，不进入reports、代码或日常运行依赖；关键结果已落在本节。
+
+P0完成时的下一阶段为P1；该切片当前结果见§12。建表、建索引、加载正式代码、全量下载/bootstrap、B0迁移及19:30切换继续按阶段授权。
+
+<a id="p1-implementation"></a>
+
+## 12. P1实现与计划对账（2026-10-10）
+
+P1已完成支持合同和持久化对象的代码切片。`market_equity.py`当前注册的复权周线仍为原write path、`weekly_adj_policy=None`，正式排程不变。P2完成因子/欠账规划、有界抓取及发布器后，再一次性绑定新Definition，避免现有任务调用尚未实现的writer；这不是运行开关或旧新双轨。P1未执行正式建表/索引、部署、行情写入、DG事件或sensor切换。
+
+### 12.1 硬口径、实现和验证
+
+| 硬口径 | 当前代码 | 测试/阶段边界 |
+| --- | --- | --- |
+| 仅复权week、固定21列、三列键；其他数据集默认None | datasets/models.py、stock_weekly_adj_contracts.py、definitions/_builder.py、ingestion/linter.py；PlanWriting投影delivery字段 | 新P1测试的绑定、month/并发/孤立字段反例、builder转换；注册库回归及ingestion-lint通过；live绑定待P2 |
+| 不去T、不填NULL、不经float改写源值 | canonical_source_rows保存date/Decimal字符串，按键排序、同值去重、异值报错 | 精度、NULL、T600018.SH、溢出/非有限/float/异值反例；同事务Raw/Serving读回金样本待P2 |
+| preflight零业务DML；恢复原意图 | execution_scope → stock_weekly_adj_scope；resolver先冻结再规划；TaskRun受理仅保存execution_context | session execute/add/commit均无调用；变更范围/预算/intent/token拒绝；显式resume同dataset已停止任务；计划业务记录仅P2执行器获得发布锁后追加 |
+| 冻结源/规划/存储/归一化/质量/事务和预算 | policy_snapshot含具名policy，planning不重复放policy；contract_digest、scope_hash、intent_digest绑定UUID及原触发意图 | JSON往返与稳定unit_id、单字段篡改反例；Plan.trigger_source保留当前调用来源，execution_context.trigger_source保留原来源 |
+| 全市场range逐周，单股range一次区间请求 | stock_weekly_adj_refresh具名unit builder复用已实测参数builder；unit_id含版本/batch/scope/kind/实际参数 | 原point不能误传history；1000unit上限及合同字节超量在请求前拒绝；自动因子名单、欠账优先和紧凑业务plan留P2 |
+| 不挪用公告合同 | execution_scope按具名策略分派；公告快照只含公告字段，排除新增周线默认字段 | 公告冻结/恢复、stream/exact records/API回归；两合同观测timeout分别显式提取，普通None不启用独立timeout |
+| 交接只追加、幂等冲突不覆盖、DAO不commit | StockWeeklyAdjDelivery ORM、独立DAO、DAOFactory；唯一(batch,kind,unit)，PG防UPDATE/DELETE trigger | SQLite隔离追加/同值重放/异值拒绝/rollback/读回；PG迁移离线SQL验证。正式PG约束执行及Raw+Serving+receipt原子事务留P2 |
+| 首次不存全历史副本，日常保存本批值 | plan/unit/closure类别、源行payload和bootstrap摘要合同；DAO限制行数/字节、闭合清单1000/控制头4KiB/整批256MiB | 日常精度/行数/摘要一致性与超量反例；bootstrap摘要、源保留键分类和实际批累计由P2 publisher补齐 |
+| sensor只读闭合头；job才流式取unit | DAO.next_closed_header投影payload.header，按revision LIMIT 1；iter_units限1000、yield_per=1 | 顺序、小投影及非法范围测试；读闭合批一致性、只读白名单和DG消费者留D1 |
+| 正常空页必须结构完整 | bounded_tushare_call监督进程内通过response_contract=stock_weekly_adj/v1校验原envelope；HTTP client只允许对应API/freq/fields | loopback真实子进程：完整空页通过，缺data/缺列/重复列/短行拒绝；month/其他API零请求拒绝；公告传输保持原合同。周线source_client/executor接线留P2 |
+| 19:30只生成周意图，不证明源已发布 | Foundation候选周helper；Ops策略resolver/planner/service、catalog API类型；前端仅类型/中文摘要 | Fri19:29/19:30、周末、UTC/naive反例；固定日期和未声明month拒绝；前端单测及浏览器回归。新周期完整性/正式排程切换留P2/J1 |
+| 仅新增专用表和必要Raw部分索引 | 迁移185新增表/trigger，186独立concurrent索引；Raw ORM同步；不增加Serving索引 | 开发前单head184，源码链184→185→186；离线SQL无清空/删除/重建行情。失效或同名异定义索引停止，不自动DROP；正式DDL、空间和EXPLAIN留后续 |
+
+新增源码集中在Foundation合同、scope、DAO和ORM，现有resolver、planner、dispatcher、TaskRun受理及排程类型同步消费；不改变子系统依赖矩阵，Foundation没有Ops/Biz/App反向依赖。CodeGraph explore/query/impact覆盖Definition/Plan、resolver/planner、TaskRun、排程、call_bounded→connector→source_client→公告stream及测试；动态注册与前端/API消费者另外读代码核验。同步索引后再查状态；图不能证明实际数据库提交。
+
+### 12.2 验证及限制
+
+后端相关回归457项通过、23项跳过；1项失败是既有`test_planner_compresses_trade_dates_to_month_end`仍调用已删除的`_compress_to_month_end`，开发前HEAD也无该方法，本轮未恢复旧实现。跳过项需要隔离PostgreSQL配置，不能算通过。最后补强持久化预算和合同校验后，P1/注册库/架构专项101项通过；此前有界传输/P1/公告相关回归95项通过、23项跳过；最终有界HTTP子进程14项通过，cards/freshness/日期审计及能力消费者53项通过。这些测试组有重叠，不相加作唯一测试数。
+
+前端151项单测通过；typecheck、check:rules、build通过；自动任务页3项既有Playwright冒烟/视觉用例通过，全部API mock。构建保留既有大chunk提示；未改bundle设计。Definition lint通过；新增合同/迁移/DAO文件ruff检查通过。文档完整性、本轮11个新增链接/锚点及git diff --check通过；CodeGraph sync/status确认索引最新。这些检查不作为正式业务验收。
+
+SQLite和离线PG DDL只证明代码形状，尚不能证明正式trigger、并发锁、实际索引收益、TOAST空间或三表提交。P1默认支持不会自动创建正式对象或开始刷新；当前调度和DG仍沿既有逻辑运行。
+
+### 12.3 下一步P2
+
+实现自动欠账及逐日因子变化规划、单发布锁、紧凑plan持久化、原批续跑、源完整性/复权基准、监督抓取接线、Raw/Serving/交接同事务publisher、批闭合及独立观测；最后绑定注册Definition，清零该数据集旧写入口。先隔离取消/退出/恢复/幂等测试，再列出可审查的正式迁移和最小运行清单，按阶段授权执行。DG D1读取合同以§5.4为唯一来源；全量刷新/bootstrap和19:30启用仍不属于本轮执行范围。

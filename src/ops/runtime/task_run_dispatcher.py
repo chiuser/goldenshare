@@ -13,6 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
+from src.foundation.ingestion.execution_scope import execution_observation_timeout
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
@@ -927,7 +928,7 @@ class TaskRunDispatcher:
             session,
             dataset_key=plan.dataset_key,
             run_context=TaskRunIngestionContext(session, independent_cancel=plan.execution_context is not None,
-                timeout_seconds=plan.execution_context['policy_snapshot']['storage']['insert_lock_timeout_seconds'] if plan.execution_context else None),
+                timeout_seconds=execution_observation_timeout(plan.execution_context)),
             run_recorder=NullRunRecorder(),
             result_store=NullIngestionResultStore(),
         )

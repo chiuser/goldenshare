@@ -27,6 +27,7 @@ from src.foundation.dao.row_key_hash_dao import RowKeyHashDAO
 from src.foundation.dao.anns_d_dao import AnnsDDAO
 from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.dao.stk_period_bar_adj_dao import StkPeriodBarAdjDAO
+from src.foundation.dao.stock_weekly_adj_delivery_dao import StockWeeklyAdjDeliveryDAO
 from src.foundation.dao.stk_period_bar_dao import StkPeriodBarDAO
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
@@ -219,6 +220,7 @@ class DAOFactory:
         self.mkt_idx_bmk_observation = ObservedSnapshotDAO(session, MktIdxBmkObservation)
         self.stk_period_bar = StkPeriodBarDAO(session)
         self.stk_period_bar_adj = StkPeriodBarAdjDAO(session)
+        self.stock_weekly_adj_delivery = StockWeeklyAdjDeliveryDAO(session)
         self.index_basic = IndexBasicDAO(session)
         self.index_daily_serving = GenericDAO(session, IndexDailyServing)
         self.index_weekly_bar = IndexWeeklyBarDAO(session)

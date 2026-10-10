@@ -84,6 +84,7 @@ type CalendarPolicy =
   | "trigger_day_single_range"
   | "trigger_day_point"
   | "latest_completed_calendar_quarter"
+  | "latest_completed_calendar_week"
   | "since_last_success_day_range";
 type ParsedCronExpression = {
   repeatMode: RepeatMode;
@@ -349,6 +350,14 @@ export function formatScheduleRule(
           ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
           : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
     return `${base}，维护触发日`;
+  }
+  if (calendarPolicy === "latest_completed_calendar_week") {
+    const base = parsed.repeatMode === "daily"
+      ? `每天 ${parsed.repeatTime}`
+      : parsed.repeatMode === "weekly"
+        ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
+        : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
+    return `${base}，维护最近已完成周`;
   }
   if (calendarPolicy === "latest_completed_calendar_quarter") {
     const base = parsed.repeatMode === "weekly"
@@ -1235,7 +1244,9 @@ export function OpsAutomationPage() {
           ? "，维护触发日"
           : effectiveCalendarPolicy === "latest_completed_calendar_quarter"
             ? "，维护最近已完成季度"
-          : "";
+            : effectiveCalendarPolicy === "latest_completed_calendar_week"
+              ? "，维护最近已完成周"
+              : "";
       const detail =
         form.repeat_mode === "intraday_interval"
           ? selectedRepeatPolicy

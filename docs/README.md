@@ -71,7 +71,7 @@ docs/
 - [ETF Basic 治理 LLD（含旧池退场账本；保留当时 SZ/实时待验证据）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 - [ETF 历史分钟维护说明（已合并 LLD；Basic 资格、只读 Preview 与 2026-08-29 指定区间验收）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
 - [ETF 日线与复权因子 DG 数据湖接入技术方案 v1（已结案，历史与日常链验收及治理门禁已闭环）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-etf-daily-data-onboarding-plan-v1.md)
-- [Prod 股票复权周线刷新与 DG 交付方案 v1（新增设计，待P0评审及开发）](/Users/congming/github/goldenshare/docs/datasets/stock-weekly-adj-refresh-plan-v1.md)
+- [Prod 股票复权周线刷新与 DG 交付方案 v1（P1支持合同已实现，待P2执行器；未正式迁移/切换）](/Users/congming/github/goldenshare/docs/datasets/stock-weekly-adj-refresh-plan-v1.md)
 - [Prod 股票复权周线代码级 LLD v1（按因子刷新、业务交接、取消恢复和性能预算）](/Users/congming/github/goldenshare/docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)
 - [DG 股票周线方案 v1（原交付结案；新增复权周线接收Prod阶段待开发）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)
 - [DG 股票周线代码级 LLD v1（新增Prod交付合同、历史覆盖、分区事件与独立水位）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)

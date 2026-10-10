@@ -23,6 +23,13 @@ import {
 } from "./ops-v21-task-auto-tab";
 
 describe("自动任务日期策略", () => {
+  it("shows the declared completed-week policy without calculating business dates", () => {
+    expect(formatScheduleRule("cron", "30 19 * * *", null, "latest_completed_calendar_week"))
+      .toBe("每天 19:30，维护最近已完成周");
+    expect(parseCronExpression("30 19 * * *", "latest_completed_calendar_week"))
+      .toMatchObject({ repeatMode: "daily", repeatTime: "19:30" });
+  });
+
   const capability = (policy: string, cronRepeatModes: string[]) => ({
     calendar_policy_rules: [
       {

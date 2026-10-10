@@ -117,13 +117,21 @@ class TushareHttpClient:
         session.mount("http://", adapter)
         return session
 
-    def call_bounded(self, *, api_name, params, fields, maximum, timeout, check, tick, before_request):
+    def call_bounded(self, *, api_name, params, fields, maximum, timeout, check, tick, before_request,
+                     response_contract=None):
         from src.foundation.clients.bounded_tushare_call import call_bounded, BoundedTushareError
+        if response_contract is not None:
+            from src.foundation.datasets.stock_weekly_adj_contracts import SOURCE_FIELDS
+            fields = tuple(fields)
+            if (response_contract != 'stock_weekly_adj/v1' or api_name != 'stk_week_month_adj'
+                    or params.get('freq') != 'week' or tuple(fields) != SOURCE_FIELDS):
+                raise BoundedTushareError('weekly_adj.delivery_contract_mismatch', '周线响应合同只能绑定对应接口、频率和21列')
         _get_rate_limiter(api_name).acquire(check=check, tick=tick)
         check()
         before_request()
         result = call_bounded(base_url=self.base_url, payload={"api_name": api_name, "token": self.token,
-            "params": params, "fields": ",".join(fields)}, maximum=maximum, timeout=timeout, check=check, tick=tick)
+            "params": params, "fields": ",".join(fields)}, maximum=maximum, timeout=timeout, check=check, tick=tick,
+            response_contract=response_contract)
         if result[0] == 'rows':
             return result[1]
         if result[0] in {'rate_limit', 'api_error'}:

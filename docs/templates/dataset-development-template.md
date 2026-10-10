@@ -470,6 +470,8 @@
     "observation_table": None,
     "stage_dao_name": None,
     "stage_table": None,
+    "delivery_dao_name": None,
+    "delivery_table": None,
     "raw_conflict_columns": None,
     "conflict_columns": None,
     "write_path": "raw_core_upsert",
@@ -487,6 +489,7 @@
 - `core_dao_name`：
 - `observation_dao_name` / `observation_table`：需要从独立观测表发布 current serving 时填写，否则显式为 `None`。
 - `stage_dao_name` / `stage_table`：只有当前 write path 明确支持 staged stream 时填写，否则显式为 `None`。
+- `delivery_dao_name` / `delivery_table`：专用业务交接合同才声明，其他数据集默认None。复权周线P1已支持模型/Plan投影及绑定校验；`raw_core_upsert_with_delivery`的运行发布器仍待P2，不是当前已注册可执行路径，禁止提前绑定。
 - `raw_conflict_columns`：
 - `conflict_columns`：
 - `write_path`：
@@ -534,6 +537,8 @@
     "unit_builder_key": "generic",
     "fetch_concurrency": 1,
     "page_processing_mode": "buffer_all",
+    "announcement_policy": None,
+    "weekly_adj_policy": None,
 }
 ```
 
@@ -548,6 +553,7 @@
 - `chunk_size`：
 - `max_units_per_execution`：
 - `unit_builder_key`：如需自定义，必须在 `src/foundation/ingestion/unit_planner.py` 有清晰实现和测试。
+- `weekly_adj_policy`：仅复权周线使用`WeeklyAdjExecutionPolicy`，builder将dict转换为具名类型。须与三列主键、freq=week、单并发、分页/行数/计划预算、unit提交及拒绝策略整体校验；不得挪用公告合同。当前注册定义尚未绑定，实施状态见[周线LLD §12](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p1-implementation)。
 - `fetch_concurrency`：当前允许范围以 linter 为准；必须评估配额、连接数、worker 占用和稳定排序。
 - `page_processing_mode`：当前只允许 `buffer_all` / `staged_stream` / `announcement_stream`。公告具名策略使用 `announcement_stream + raw_only_reconcile + commit_policy=batch`，必须冻结独立业务完成凭证与请求预算、单并发、有界分页和批提交；不作为其他数据集通用默认。长分页任务优先评估 `staged_stream`；选用时必须同时满足对应 write path、stage 表、单并发与 `commit_policy=unit` 的 linter 合同。
 
@@ -832,6 +838,7 @@
 - 是否允许 `schedule_enabled=True`：
 - 自动任务是否只选择数据集动作，不暴露底层执行路径：
 - 如果有 `calendar_policy`，它生成的是哪种调度意图：
+- 若声明`latest_completed_calendar_week`：上海时间周五19:30前为上周五，此后及周末为本周五，周一至周四为最近周五。Definition必须显式声明允许的schedule类型/频率，拒绝混用固定日期；该策略不证明源就绪，也不展开因子/欠账或源参数。
 - 是否确认自动任务没有提前展开日期模型或生成源接口参数：
 - 如源端是晚发布 / 不确定发布：是否有独立 source readiness probe；目标日期如何由交易日历求出：
 - 即使与已有数据集发布时间相同，若 API、fields、样本或完整性条件不同，是否保持独立 probe service / condition，而只复用通用 TaskRun、日期目标和日志能力：
@@ -844,6 +851,8 @@
 - 如另接入 Dagster sensor：是否已按 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 设计 cursor 的 `reason_code`、`blocked_component`、短中文 `summary`、`next_action`、长度预算和禁止字段：
 
 ### 7.3 TaskRun 观测
+
+若数据集有具名执行合同，说明`DatasetExecutionPlan.trigger_source`（当前触发）和`execution_context`（原冻结意图/预算/token）的区别，不能用人工重试覆盖原自动意图。resolver/preflight只读，不持久化业务plan；受理只保存意图，执行器获取发布锁后才追加业务完成事实。具名合同由`ingestion.execution_scope`分派；普通None、公告合同和周线合同各自提取合法观测timeout，不按公告字段猜测其他合同。
 
 参考：[Ops TaskRun 执行观测模型重设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
 

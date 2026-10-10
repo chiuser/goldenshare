@@ -22,6 +22,14 @@ def server():
                 if self.path=='/slow':
                     for _ in range(100):self.wfile.write(b' ');self.wfile.flush();time.sleep(.05)
                 elif self.path=='/large':self.wfile.write(b'x'*200000)
+                elif self.path.startswith('/weekly-'):
+                    from src.foundation.datasets.stock_weekly_adj_contracts import SOURCE_FIELDS
+                    data={'fields':list(SOURCE_FIELDS),'items':[]}
+                    if self.path=='/weekly-missing':data=None
+                    if self.path=='/weekly-short-fields':data['fields']=list(SOURCE_FIELDS[:-1])
+                    if self.path=='/weekly-duplicate-fields':data['fields']=[SOURCE_FIELDS[0]]*21
+                    if self.path=='/weekly-short-row':data['items']=[['000001.SZ']]
+                    self.wfile.write(json.dumps({'code':0,'msg':'','data':data}).encode())
                 elif self.path in ('/extra-values','/missing-values','/duplicate-fields'):
                     fields = ['title','title'] if self.path=='/duplicate-fields' else ['title']
                     items = [['a','b']] if self.path!='/missing-values' else [[]]
@@ -97,3 +105,27 @@ def test_near_cap_decode_is_bounded_and_measured(server):
 def test_source_fields_cannot_silently_drop_values(server,path):
     url,_=server
     assert invoke(url+'/'+path)[0:2]==('bounded_error','anns_d.source_payload_invalid')
+
+
+@pytest.mark.parametrize('path', ['empty','missing','short-fields','duplicate-fields','short-row'])
+def test_weekly_response_contract_in_real_worker(server,path):
+    url,_=server
+    result=invoke(url+'/weekly-'+path,response_contract='stock_weekly_adj/v1')
+    if path=='empty':
+        assert result==('rows',[])
+    else:
+        assert result[:2]==('bounded_error','weekly_adj.source_payload_invalid')
+
+
+def test_weekly_contract_cannot_be_bound_to_month_or_unknown_source(mocker):
+    from src.foundation.clients.tushare_client import TushareHttpClient
+    from src.foundation.datasets.stock_weekly_adj_contracts import SOURCE_FIELDS
+    client=TushareHttpClient(token='test-placeholder',base_url='http://invalid.local')
+    worker=mocker.patch('src.foundation.clients.bounded_tushare_call.call_bounded')
+    for api,freq in [('stk_week_month_adj','month'),('anns_d','week')]:
+        with pytest.raises(BoundedTushareError,match='只能绑定'):
+            client.call_bounded(api_name=api,params={'freq':freq},fields=SOURCE_FIELDS,
+                maximum=65536,timeout=3,check=lambda:None,tick=lambda:None,
+                before_request=lambda:None,response_contract='stock_weekly_adj/v1')
+    worker.assert_not_called()
+    client.session.close()

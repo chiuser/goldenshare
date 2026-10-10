@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from src.foundation.datasets.stock_weekly_adj_contracts import weekly_definition_issues
+
 from dataclasses import dataclass
 
 from src.foundation.datasets.registry import list_dataset_definitions
@@ -34,6 +36,8 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
     definition_keys: set[str] = set()
     for definition in list_dataset_definitions():
         dataset_key = definition.dataset_key
+        for code, message in weekly_definition_issues(definition):
+            issues.append(IngestionLintIssue(dataset_key, code, message))
         definition_keys.add(dataset_key)
         if not definition.identity.display_name.strip():
             issues.append(IngestionLintIssue(dataset_key, "missing_display_name", "display_name 不能为空"))

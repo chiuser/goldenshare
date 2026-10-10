@@ -68,6 +68,7 @@ class CalendarPolicyCapabilityResponse(BaseModel):
         "trigger_day_single_range",
         "trigger_day_point",
         "latest_completed_calendar_quarter",
+    "latest_completed_calendar_week",
         "since_last_success_day_range",
     ]
     schedule_types: list[Literal["cron", "once"]]

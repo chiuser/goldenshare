@@ -24,6 +24,20 @@ INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-30.v2"
 INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-30T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry("weekly_adj.response_size_exceeded", "周线源响应超过字节预算", "source", "核验本单元响应大小，未经评审不得放宽预算"),
+    IngestionCodebookEntry("weekly_adj.source_deadline_exceeded", "周线源调用超过总期限", "source", "核验源站状态并恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.delivery_contract_mismatch", "交接合同不一致", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.scope_mismatch", "周线范围不一致", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.source_payload_invalid", "周线响应结构不完整", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.source_key_conflict", "周线同键源值冲突", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.source_not_ready", "周线源尚未完整", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.basis_not_updated", "历史复权基准未刷新", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.factor_coverage_missing", "复权因子覆盖不完整", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.row_budget_exceeded", "周线行数或载荷超预算", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.writer_busy", "已有周线发布者", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.source_empty_preserved", "源正常无数据，旧值保留未刷新", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.partial_source_preserved", "源仅返回部分历史，缺键保留", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("unknown_unit_builder", "未知执行单元策略", "planner", "检查具名策略注册"),
     IngestionCodebookEntry("anns_d.resume_contract_mismatch", "公告恢复合同不一致", "source/executor", "核验公告预算、恢复范围或源行为"),
     IngestionCodebookEntry("anns_d.request_budget_exceeded", "公告执行请求预算已用完", "source/executor", "核验公告预算、恢复范围或源行为"),
     IngestionCodebookEntry("anns_d.page_budget_exceeded", "公告日窗口页数超过预算", "source/executor", "核验公告预算、恢复范围或源行为"),

@@ -20,6 +20,10 @@ def freeze_execution(definition, *, scope, filters, previous=None):
     snapshot = {'planning': asdict(definition.planning), 'storage': asdict(definition.storage),
                 'normalization': asdict(definition.normalization), 'source': asdict(definition.source),
                 'date_model': asdict(definition.date_model), 'identity_contract': 'exact_source_record_v1'}
+    # Weekly-only defaults do not change the announcement contract's identity.
+    snapshot['planning'].pop('weekly_adj_policy', None)
+    snapshot['storage'].pop('delivery_dao_name', None)
+    snapshot['storage'].pop('delivery_table', None)
     snapshot = json.loads(json.dumps(snapshot))
     contract_digest = digest(snapshot)
     scope_hash = digest({'dataset_key': definition.dataset_key, 'scope': scope, 'filters': filters})

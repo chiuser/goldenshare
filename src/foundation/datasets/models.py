@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjExecutionPolicy
+
 
 @dataclass(frozen=True, slots=True)
 class DatasetDateModel:
@@ -164,6 +166,8 @@ class DatasetStorageDefinition:
     serving_conflict_resolution_policy: str = "none"
     row_identity_filters: dict[str, str | int | bool] = field(default_factory=dict)
     replacement_scope_fields: tuple[str, ...] = ()
+    delivery_dao_name: str | None = None
+    delivery_table: str | None = None
     insert_batch_rows: int | None = None
     insert_statement_timeout_seconds: int | None = None
     insert_lock_timeout_seconds: int | None = None
@@ -207,6 +211,7 @@ class DatasetPlanningDefinition:
     fetch_concurrency: int = 1
     page_processing_mode: str = "buffer_all"
     announcement_policy: AnnouncementExecutionPolicy | None = None
+    weekly_adj_policy: WeeklyAdjExecutionPolicy | None = None
 
 
 @dataclass(frozen=True, slots=True)

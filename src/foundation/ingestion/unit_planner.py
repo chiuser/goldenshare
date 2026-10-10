@@ -55,6 +55,9 @@ class DatasetUnitPlanner:
         builder_key = definition.planning.unit_builder_key or "generic"
         builder = _CUSTOM_UNIT_BUILDERS.get(builder_key)
         if builder is None:
+            if builder_key != 'generic':
+                raise IngestionPlanningError(StructuredError(error_code='unknown_unit_builder',
+                    error_type='planning', phase='planner', message='未注册具名执行单元策略', retryable=False))
             units = self._build_generic_units(request, definition)
         else:
             units = builder(self, request, definition)
@@ -2055,7 +2058,18 @@ def _build_biying_units(
     return units
 
 
+def _build_stock_weekly_adj_units(planner, request, definition):
+    from src.foundation.ingestion.stock_weekly_adj_scope import build_weekly_adj_requested_units
+    from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
+    try:
+        return build_weekly_adj_requested_units(request, definition)
+    except WeeklyAdjContractError as exc:
+        raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
+            phase='planner', message=str(exc), retryable=False)) from exc
+
+
 _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetActionRequest, DatasetDefinition], list[PlanUnitSnapshot]]] = {
+    "stock_weekly_adj_refresh": _build_stock_weekly_adj_units,
     "build_announcement_units": _build_announcement_units,
     "build_biying_equity_daily_units": _build_biying_equity_daily_units,
     "build_biying_moneyflow_units": _build_biying_moneyflow_units,
