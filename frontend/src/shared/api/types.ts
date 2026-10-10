@@ -1,4 +1,5 @@
 import type { AnnouncementProgress } from "./announcement-types";
+import type { WeeklyAdjProgress } from "./weekly-adj-types";
 export interface LoginResponse {
   token: string;
   refresh_token: string | null;
@@ -464,6 +465,7 @@ export interface TaskRunViewResponse {
     period_source_summary: TaskRunPeriodSourceSummary | null;
     paged_unit_progress: TaskRunPagedUnitProgress | null;
     announcement_progress?: AnnouncementProgress | null;
+    weekly_adj_progress?: WeeklyAdjProgress | null;
   };
   primary_issue: {
     id: number;

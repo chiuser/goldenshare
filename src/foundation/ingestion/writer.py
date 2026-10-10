@@ -93,7 +93,21 @@ class DatasetWriter:
         batch: NormalizedBatch,
         plan_unit: PlanUnitSnapshot | None = None,
         run_profile: str | None = None,
+        delivery_context: dict | None = None,
+        cancel_check=None,
     ) -> WriteResult:
+        if definition.storage.write_path == "raw_core_upsert_with_delivery":
+            from src.foundation.ingestion.stock_weekly_adj_delivery import publish_unit
+            if delivery_context is None or plan_unit is None or cancel_check is None:
+                raise ValueError("周线交接写入必须由具名发布执行器提供冻结计划和取消检查")
+            receipt = publish_unit(self, definition=definition, unit=plan_unit, batch=batch,
+                context=delivery_context, check=cancel_check)
+            return WriteResult(unit_id=batch.unit_id, rows_written=receipt.rows_written,
+                rows_upserted=receipt.rows_written, rows_skipped=0, target_table=definition.storage.target_table,
+                conflict_strategy="upsert_with_delivery", persistence_diagnostics={"weekly_adj": {
+                    "rows_preserved": receipt.rows_preserved, "outcome": receipt.outcome,
+                    "payload_bytes": len(json.dumps(receipt.payload, separators=(',', ':'), ensure_ascii=False).encode()),
+                }})
         if should_guard_dataset_rows(definition.dataset_key):
             for index, row in enumerate(batch.rows_normalized):
                 sentinel = find_forbidden_business_sentinel_in_row_context(row, path=f"rows_normalized[{index}]")

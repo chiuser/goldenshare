@@ -143,6 +143,23 @@ def test_last_completed_week_at_shanghai_window(day, hour, minute, expected):
 
 
 def test_binding_closed_and_range_units_use_their_own_params(mocker):
+    from src.foundation.ingestion.stock_weekly_adj_scope import (
+        build_weekly_adj_requested_units,
+    )
+
+    mocker.patch(
+        "src.foundation.ingestion.stock_weekly_adj_planning.resolve_weekly_adj_units",
+        side_effect=lambda session, request, definition: (
+            request,
+            tuple(build_weekly_adj_requested_units(request, definition)),
+        ),
+    )
+    mocker.patch(
+        "src.foundation.ingestion.unit_planner.DatasetUnitPlanner.plan",
+        side_effect=lambda request, definition: tuple(
+            build_weekly_adj_requested_units(request, definition)
+        ),
+    )
     definition = weekly_definition()
     assert weekly_definition_issues(definition) == []
     mocker.patch(
@@ -210,7 +227,7 @@ def test_binding_rejects_orphans_and_month_and_concurrent():
     )
     assert (
         get_dataset_definition("stk_period_bar_adj_week").planning.weekly_adj_policy
-        is None
+        is not None
     )
     assert (
         get_dataset_definition("stk_period_bar_adj_month").storage.delivery_table
@@ -563,6 +580,23 @@ def test_announcement_snapshot_does_not_include_weekly_defaults():
 
 
 def test_weekly_taskrun_freeze_and_explicit_resume_use_no_business_dml(mocker):
+    from src.foundation.ingestion.stock_weekly_adj_scope import (
+        build_weekly_adj_requested_units,
+    )
+
+    mocker.patch(
+        "src.foundation.ingestion.stock_weekly_adj_planning.resolve_weekly_adj_units",
+        side_effect=lambda session, request, definition: (
+            request,
+            tuple(build_weekly_adj_requested_units(request, definition)),
+        ),
+    )
+    mocker.patch(
+        "src.foundation.ingestion.unit_planner.DatasetUnitPlanner.plan",
+        side_effect=lambda request, definition: tuple(
+            build_weekly_adj_requested_units(request, definition)
+        ),
+    )
     from src.ops.services.task_run_service import (
         TaskRunCommandService,
         TaskRunCreateContext,

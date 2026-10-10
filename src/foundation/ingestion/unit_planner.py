@@ -2059,10 +2059,13 @@ def _build_biying_units(
 
 
 def _build_stock_weekly_adj_units(planner, request, definition):
-    from src.foundation.ingestion.stock_weekly_adj_scope import build_weekly_adj_requested_units
+    from src.foundation.ingestion.stock_weekly_adj_planning import restore_units
     from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
     try:
-        return build_weekly_adj_requested_units(request, definition)
+        context = request.execution_context or {}
+        if 'business_plan' not in context:
+            raise WeeklyAdjContractError('周线单元必须使用 resolver 已解析的冻结业务计划')
+        return list(restore_units(context['business_plan'], definition))
     except WeeklyAdjContractError as exc:
         raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
             phase='planner', message=str(exc), retryable=False)) from exc

@@ -4,7 +4,7 @@
 
 ## 2026-10-10 新阶段 LLD：复权周线接收 Prod 新增及历史修正
 
-状态：P0/D0核验完成，Prod P1支持合同/ORM/DAO及迁移源码已实现，待Prod P2及DG D1实施；未正式迁移或切换供数。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
+状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实PG验收、DG D1及后续阶段未执行，未正式迁移或切换供数。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
 
 依据：[新增阶段方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#adjusted-weekly-prod-refresh)、[Prod LLD](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)、[DG数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)。本节按模板覆盖数据卡、Run Contract、来源/字段、asset/check/job/sensor、初始化/恢复、性能和分阶段验收。
 
@@ -83,7 +83,7 @@ next_closed_batch按revision升序取一条闭合头，不用MAX跳过中间批�
 
 job逐unit在短的REPEATABLE READ READ ONLY事务中读count及COPY显式列，校验闭合头列出的unit集合、scope和摘要。日期/Decimal/NULL严格按既有Parquet列合同，不经float往返；拒绝未知字段、越界周期、freq非week、同unit异值同键。使用源保存的标准化增量，不把当前可变Raw冒充旧批值。每unit捕获落staging及checkpoint后再领下一个，不积累全集在Python list。
 
-闭合头unit摘要只证明本次传输完整，不是固定历史行情hash。读取新增交接表的权限必须显式增加到只读包装及DG白名单，不能允许任意schema、SELECT *、远程写回水位或DG ack表。表尚未实施，D0/P0联合评审后再开发。
+闭合头unit摘要只证明本次传输完整，不是固定历史行情hash。读取新增交接表的权限必须显式增加到只读包装及DG白名单，不能允许任意schema、SELECT *、远程写回水位或DG ack表。Prod ORM/DAO及publisher源码已实现，正式表未迁移；DG reader仍待D1，不能将源码存在当作正式表可读。
 
 ### A5. 21列映射、按键覆盖与年度候选
 
@@ -149,7 +149,7 @@ Prod源晚到不形成closure，DG不创建无用下载任务。Prod次日19:30�
 
 ### A9. 首次重新bootstrap及源捕获稳定性
 
-Prod完整刷新后形成bootstrap_closed边界B0，初次unit仅完成摘要；DG首次读取Raw历史，不能把缺少全历史payload当交接坏批。
+Prod完整刷新、捕获期因子补刷及一次全量对账后形成bootstrap_closed边界B0，初次unit仅完成摘要；P2执行器只生成batch_closed，B0收尾入口留P3。DG首次读取Raw历史，不能把缺少全历史payload当交接坏批。判定首次摘要必须读取intent.bootstrap=true；不能仅凭mode=historical_refresh推断，bootstrap后的手动历史修正同样必须保存本批rows。
 
 冻结导出前确认无未闭合发布者及最新业务revision。建议在该资产导出期间暂缓Prod发布，范围只复权周线，不阻断其他数据集；暂停/恢复属执行阶段须明确批准。若不能暂停，则每导出前后以及全捕获结束校验表中所有业务记录revision均未变；任何plan/unit变化亦作废捕获，不能只比较最新closure。不要持一个全历史长TX或单靠updated_at拼快照。
 

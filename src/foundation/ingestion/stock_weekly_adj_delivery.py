@@ -1,0 +1,421 @@
+"""Weekly unit publication. All business effects belong to the caller's transaction."""
+
+from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
+
+from sqlalchemy import func, select, tuple_
+
+from src.foundation.dao.stock_weekly_adj_delivery_dao import StockWeeklyAdjDeliveryDAO
+from src.foundation.datasets.stock_weekly_adj_contracts import (
+    SOURCE_FIELDS,
+    WeeklyAdjContractError,
+    canonical_json,
+    canonical_source_rows,
+    digest,
+    weekly_definition_issues,
+)
+from src.foundation.ingestion.normalizer import NormalizedBatch
+from src.foundation.ingestion.stock_weekly_adj_planning import (
+    load_daily_codes,
+    load_week_open_days,
+    parse_day,
+)
+from src.foundation.models.core_serving.equity_adj_factor import (
+    EquityAdjFactor as Factor,
+)
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar as Daily
+from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj as Raw
+from src.foundation.models.core_serving.stk_period_bar_adj import (
+    StkPeriodBarAdj as Serving,
+)
+
+
+def fail(message, code="weekly_adj.scope_mismatch"):
+    raise WeeklyAdjContractError(message, code)
+
+
+def unit_scope(unit, model):
+    filters = [model.freq == "week"]
+    if unit.trade_date:
+        filters.append(model.trade_date == unit.trade_date)
+    else:
+        filters.extend(
+            (
+                model.trade_date >= parse_day(unit.request_params["start_date"]),
+                model.trade_date <= parse_day(unit.request_params["end_date"]),
+            )
+        )
+    if unit.request_params.get("ts_code"):
+        filters.append(model.ts_code == unit.request_params["ts_code"])
+    return filters
+
+
+def validate_source_scope(unit, rows):
+    for row in rows:
+        day = parse_day(row["trade_date"])
+        if row["end_date"] is not None and parse_day(row["end_date"]) < day:
+            fail("源计算截至日期早于行情周", "weekly_adj.basis_not_updated")
+        if day.weekday() != 4 or row["freq"] != "week":
+            fail("返回行不是周五 week 行情")
+        if (
+            unit.request_params.get("ts_code")
+            and row["ts_code"] != unit.request_params["ts_code"]
+        ):
+            fail("源返回了请求范围之外的股票")
+        if unit.trade_date:
+            if day != unit.trade_date:
+                fail("源返回了请求周之外的行情")
+        elif (
+            not parse_day(unit.request_params["start_date"])
+            <= day
+            <= parse_day(unit.request_params["end_date"])
+        ):
+            fail("源历史行情越界")
+
+
+def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
+    """Independent close sample; no single-factor approximation for intraweek OHLC."""
+    if not rows:
+        return None, {"checked": 0, "optional_null_rows": 0}
+    by_code = {}
+    for row in rows:
+        by_code.setdefault(row["ts_code"], []).append(row)
+    for code, group in by_code.items():
+        if len({r["end_date"] for r in group}) != 1:
+            fail(f"{code} 的历史页混用了计算截至日期", "weekly_adj.basis_not_updated")
+    nulls = sum(any(r[n] is None for n in SOURCE_FIELDS[4:]) for r in rows)
+    # A point market unit has one old week per code; bounded independent samples
+    # avoid N stock queries. A single-stock history always checks that stock.
+    candidates = [g[0] for _, g in sorted(by_code.items())][:20]
+    sampled = None
+    for row in candidates:
+        basis = parse_day(row["end_date"]) if row["end_date"] else None
+        if basis is None or row["close"] is None or row["close_qfq"] is None:
+            continue
+        week = parse_day(row["trade_date"])
+        last = session.scalar(
+            select(func.max(Daily.trade_date)).where(
+                Daily.ts_code == row["ts_code"],
+                Daily.source == "tushare",
+                Daily.trade_date >= week - timedelta(days=4),
+                Daily.trade_date <= week,
+            )
+        )
+        if last is None:
+            continue
+        values = dict(
+            session.execute(
+                select(Factor.trade_date, Factor.adj_factor).where(
+                    Factor.ts_code == row["ts_code"],
+                    Factor.trade_date.in_({last, basis}),
+                )
+            ).all()
+        )
+        if last not in values or basis not in values or min(values.values()) <= 0:
+            continue
+        # Delisted source rows may retain their last historical basis in bootstrap.
+        # A selected sample must independently cover the requested refresh basis.
+        if floor and basis < floor:
+            continue
+        expected = (Decimal(row["close"]) * values[last] / values[basis]).quantize(
+            Decimal(".01"), rounding=ROUND_HALF_UP
+        )
+        if Decimal(row["close_qfq"]) != expected:
+            fail(
+                f"{row['ts_code']}/{row['trade_date']} 截至日期已更新，但前复权 close 与独立因子不一致",
+                "weekly_adj.basis_not_updated",
+            )
+        target = unit.progress_context.get("factor_target")
+        if target and basis == floor and values[basis] != Decimal(target):
+            fail(
+                "源计算基准因子与冻结目标不一致，需重新审计原批",
+                "weekly_adj.basis_not_updated",
+            )
+        sampled = (basis, row["ts_code"], row["trade_date"])
+        break
+    if sampled is None:
+        fail(
+            "没有可独立验证的旧周 close/因子基准，本单元保持未完成",
+            "weekly_adj.basis_not_updated",
+        )
+    if not bootstrap and any(
+        r[n] is None
+        for r in rows
+        for n in ("open_qfq", "high_qfq", "low_qfq", "close_qfq", "end_date")
+    ):
+        fail("本次刷新缺少复权核心值或计算截至日期", "weekly_adj.source_not_ready")
+    return sampled[0], {
+        "checked": 1,
+        "code": sampled[1],
+        "trade_date": sampled[2],
+        "optional_null_rows": nulls,
+    }
+
+
+def delivery_record(*, context, kind, unit_id, payload, unit=None, **counts):
+    meta = context["business_plan"]["metadata"]
+    intent = {
+        "mode": context["intent"],
+        "trigger_source": context["trigger_source"],
+        "bootstrap": meta["bootstrap"],
+        "intent_digest": context["intent_digest"],
+    }
+    return dict(
+        contract_version=1,
+        batch_id=context["execution_token"],
+        unit_id=unit_id,
+        record_kind=kind,
+        intent=intent,
+        unit_kind=unit.progress_context["unit_kind"] if unit else None,
+        cutoff_week=parse_day(meta["cutoff_week"]),
+        start_date=parse_day(unit.request_params["start_date"])
+        if unit and unit.request_params.get("start_date")
+        else None,
+        end_date=parse_day(unit.request_params["end_date"])
+        if unit and unit.request_params.get("end_date")
+        else None,
+        ts_code=unit.request_params.get("ts_code") if unit else None,
+        factor_scan_start=parse_day(meta["factor_scan_start"])
+        if meta["factor_scan_start"]
+        else None,
+        factor_scan_end=parse_day(meta["factor_scan_end"])
+        if meta["factor_scan_end"]
+        else None,
+        factor_target=Decimal(unit.progress_context["factor_target"])
+        if unit and unit.progress_context.get("factor_target")
+        else None,
+        outcome=counts.pop("outcome", "published"),
+        payload=payload,
+        rows_received=counts.pop("rows_received", 0),
+        rows_unique=counts.pop("rows_unique", 0),
+        rows_written=counts.pop("rows_written", 0),
+        rows_preserved=counts.pop("rows_preserved", 0),
+        basis_date=counts.pop("basis_date", None),
+        payload_digest=digest(payload),
+        scope_digest=context["scope_hash"],
+        reason_summary=counts.pop("reason_summary", {}),
+        **counts,
+    )
+
+
+def publish_unit(writer, *, definition, unit, batch, context, check):
+    """Raw + Serving + readback + receipt, without commit or Ops calls."""
+    policy = definition.planning.weekly_adj_policy
+    if policy is None or weekly_definition_issues(definition) or batch.rows_rejected:
+        fail("复权周线合同无效或存在拒绝行", "weekly_adj.delivery_contract_mismatch")
+    check()
+    incoming = canonical_source_rows(
+        [{n: row[n] for n in SOURCE_FIELDS} for row in batch.rows_normalized], policy
+    )
+    validate_source_scope(unit, incoming)
+    session = writer.session
+    metadata = context["business_plan"]["metadata"]
+    existing = set(
+        session.execute(
+            select(Raw.ts_code, Raw.trade_date)
+            .where(*unit_scope(unit, Raw))
+            .limit(policy.max_rows_per_unit + 1)
+        ).all()
+    )
+    if len(existing) > policy.max_rows_per_unit:
+        fail("原库存单元超过预算", "weekly_adj.row_budget_exceeded")
+    keys = {(r["ts_code"], parse_day(r["trade_date"])) for r in incoming}
+    missing = existing - keys
+    no_trading = False
+    if unit.trade_date:
+        days = load_week_open_days(session, unit.trade_date)
+        no_trading = not days
+        strict = unit.progress_context["require_complete_source"]
+        daily = load_daily_codes(session, days, policy) if strict else {}
+        expected = set.union(*daily.values()) if daily else set()
+        if unit.request_params.get("ts_code"):
+            expected &= {unit.request_params["ts_code"]}
+        actual = {r["ts_code"] for r in incoming}
+        frozen = unit.progress_context.get("expected_codes_digest")
+        if frozen and digest(sorted(expected)) != frozen:
+            fail("冻结后上游日线代码集合发生变化", "weekly_adj.source_not_ready")
+        if (strict and actual != expected) or (no_trading and incoming):
+            fail(
+                f"本周源代码不完整：缺 {sorted(expected - actual)[:20]}；额外 {sorted(actual - expected)[:20]}",
+                "weekly_adj.source_not_ready",
+            )
+    if unit.trade_date and strict and incoming:
+        if any(
+            r[n] is None
+            for r in incoming
+            for n in ("open_qfq", "high_qfq", "low_qfq", "close_qfq", "end_date")
+        ):
+            fail(
+                "本周源行缺少前复权核心值或计算截至日期", "weekly_adj.source_not_ready"
+            )
+        minimum_basis = days[-1] if days else None
+        if minimum_basis and any(
+            r["end_date"] is None or parse_day(r["end_date"]) < minimum_basis
+            for r in incoming
+        ):
+            fail("本周源行存在未更新的计算基准", "weekly_adj.basis_not_updated")
+    floor = (
+        parse_day(metadata["factor_scan_end"]) if metadata["factor_scan_end"] else None
+    )
+    basis, audit = validate_weekly_adj_source_basis(
+        session, unit, incoming, floor=floor, bootstrap=metadata["bootstrap"]
+    )
+    # Normalization is the one owner of date/Decimal/change_amount conversion.
+    to_write = NormalizedBatch(
+        unit_id=batch.unit_id,
+        rows_normalized=batch.rows_normalized,
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+    check()
+    if incoming:
+        writer._write_raw_and_core(
+            batch=to_write,
+            raw_dao=writer.dao.raw_stk_period_bar_adj,
+            core_dao=writer.dao.stk_period_bar_adj,
+            raw_conflict_columns=definition.storage.raw_conflict_columns,
+            conflict_columns=definition.storage.conflict_columns,
+        )
+        identity = tuple_(Raw.ts_code, Raw.trade_date)
+        raw_read = [
+            dict(r)
+            for r in session.execute(
+                select(*(getattr(Raw, n) for n in SOURCE_FIELDS)).where(
+                    Raw.freq == "week", identity.in_(keys)
+                )
+            ).mappings()
+        ]
+        serving_read = [
+            dict(r)
+            for r in session.execute(
+                select(
+                    *(
+                        getattr(Serving, "change_amount" if n == "change" else n).label(
+                            n
+                        )
+                        for n in SOURCE_FIELDS
+                    )
+                ).where(
+                    Serving.freq == "week",
+                    tuple_(Serving.ts_code, Serving.trade_date).in_(keys),
+                )
+            ).mappings()
+        ]
+        if (
+            canonical_source_rows(raw_read, policy) != incoming
+            or canonical_source_rows(serving_read, policy) != incoming
+        ):
+            fail(
+                "Raw/Serving 同事务读回键和值不一致",
+                "weekly_adj.delivery_contract_mismatch",
+            )
+        committed_rows = canonical_source_rows(raw_read, policy)
+    else:
+        committed_rows = []
+    outcome = (
+        "no_trading_week"
+        if no_trading
+        else "source_empty_preserved"
+        if not incoming
+        else "partial_source_preserved"
+        if missing
+        else "published"
+    )
+    payload = (
+        {
+            "summary": {
+                "rows": len(committed_rows),
+                "rows_digest": digest(committed_rows),
+                "basis": audit,
+            }
+        }
+        if metadata["bootstrap"]
+        else {"rows": committed_rows}
+    )
+    reason = {
+        "counts": {outcome: len(missing)},
+        "samples": [
+            {
+                "ts_code": c,
+                "trade_date": d.strftime("%Y%m%d"),
+                "reason": "weekly_adj.partial_source_preserved"
+                if incoming
+                else "weekly_adj.source_empty_preserved",
+            }
+            for c, d in sorted(missing)[:20]
+        ],
+    }
+    reason["preserved_keys"] = [
+        {"ts_code": c, "trade_date": d.strftime("%Y%m%d")} for c, d in sorted(missing)
+    ]
+    reason["basis_audit"] = audit
+    check()
+    return StockWeeklyAdjDeliveryDAO(session).append(
+        delivery_record(
+            context=context,
+            kind="unit",
+            unit_id=unit.unit_id,
+            payload=payload,
+            unit=unit,
+            rows_received=len(batch.rows_normalized) + batch.rows_deduplicated,
+            rows_unique=len(committed_rows),
+            rows_written=len(committed_rows),
+            rows_preserved=len(missing),
+            basis_date=basis,
+            outcome=outcome,
+            reason_summary=reason,
+        ),
+        policy,
+    )
+
+
+def publish_closed_batch(session, *, definition, units, context, check):
+    dao = StockWeeklyAdjDeliveryDAO(session)
+    policy = definition.planning.weekly_adj_policy
+    unit_ids = [u.unit_id for u in units]
+    summaries, received, written, preserved, total_bytes = [], 0, 0, 0, 0
+    # Load at most one unit payload at a time, retaining only compact digests.
+    for unit in units:
+        check()
+        receipt = dao.get_record(
+            batch_id=context["execution_token"],
+            record_kind="unit",
+            unit_id=unit.unit_id,
+        )
+        if receipt is None or receipt.scope_digest != context["scope_hash"]:
+            fail(
+                "冻结单元缺少已提交的业务结果", "weekly_adj.delivery_contract_mismatch"
+            )
+        if receipt.payload_digest != digest(receipt.payload):
+            fail("单元载荷摘要不一致", "weekly_adj.delivery_contract_mismatch")
+        summaries.append({"unit_id": unit.unit_id, "digest": receipt.payload_digest})
+        received += receipt.rows_received
+        written += receipt.rows_written
+        preserved += receipt.rows_preserved
+        total_bytes += len(canonical_json(receipt.payload).encode())
+        session.expunge(receipt)
+    if total_bytes > policy.max_batch_payload_bytes:
+        fail("整批载荷超过预算", "weekly_adj.row_budget_exceeded")
+    header = {
+        "unit_count": len(unit_ids),
+        "total_payload_bytes": total_bytes,
+        "units_digest": digest(summaries),
+        "bootstrap": context["business_plan"]["metadata"]["bootstrap"],
+        "contract_digest": context["contract_digest"],
+        "max_input_week": context["business_plan"]["metadata"]["cutoff_week"],
+    }
+    payload = {"header": header, "unit_ids": unit_ids}
+    check()
+    return dao.append(
+        delivery_record(
+            context=context,
+            kind="batch_closed",
+            unit_id="batch_closed",
+            payload=payload,
+            rows_received=received,
+            rows_unique=written,
+            rows_written=written,
+            rows_preserved=preserved,
+        ),
+        policy,
+    )

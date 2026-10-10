@@ -110,6 +110,10 @@ class IngestionExecutor:
         cancel_checker=None,  # type: ignore[no-untyped-def]
         progress_reporter=None,  # type: ignore[no-untyped-def]
     ) -> IngestionRunSummary:
+        if definition.planning.weekly_adj_policy is not None:
+            from src.foundation.ingestion.stock_weekly_adj_execution import run_weekly_adj
+            return run_weekly_adj(self, request=request, definition=definition, units=units,
+                cancel_checker=cancel_checker, progress_reporter=progress_reporter)
         if definition.planning.page_processing_mode == "announcement_stream":
             from src.foundation.ingestion.announcement_stream import run_announcements
             return run_announcements(self, request=request, definition=definition, units=units,

@@ -120,7 +120,7 @@ class StockWeeklyAdjDeliveryDAO:
             raise WeeklyAdjContractError("冻结单元清单不完整或超量")
         if (
             values["record_kind"] == "unit"
-            and values["intent"].get("mode") != "historical_refresh"
+            and not values["intent"].get("bootstrap", False)
         ):
             rows = payload.get("rows")
             if (

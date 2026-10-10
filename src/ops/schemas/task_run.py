@@ -214,6 +214,20 @@ class TaskRunAnnouncementProgress(BaseModel):
     quality_counts: dict[str, int] = Field(default_factory=dict)
 
 
+class TaskRunWeeklyAdjProgress(BaseModel):
+    stage: str
+    updated_at: str
+    ts_code: str | None = None
+    trade_date: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    unit_done: int = Field(ge=0)
+    unit_total: int = Field(ge=0)
+    page_number: int = Field(default=0, ge=0)
+    rows_preserved: int = Field(default=0, ge=0)
+    eta: Literal['unavailable'] = 'unavailable'
+
+
 class TaskRunProgress(BaseModel):
     unit_total: int
     unit_done: int
@@ -230,6 +244,7 @@ class TaskRunProgress(BaseModel):
     period_source_summary: TaskRunPeriodSourceSummary | None = None
     paged_unit_progress: TaskRunPagedUnitProgress | None = None
     announcement_progress: TaskRunAnnouncementProgress | None = None
+    weekly_adj_progress: TaskRunWeeklyAdjProgress | None = None
 
 
 class TaskRunIssueSummary(BaseModel):

@@ -29,6 +29,8 @@ def server():
                     if self.path=='/weekly-short-fields':data['fields']=list(SOURCE_FIELDS[:-1])
                     if self.path=='/weekly-duplicate-fields':data['fields']=[SOURCE_FIELDS[0]]*21
                     if self.path=='/weekly-short-row':data['items']=[['000001.SZ']]
+                    if self.path=='/weekly-decimal':
+                        data['items']=[['000001.SZ','20260605','20261009','week',*([1.234567]*17)]]
                     self.wfile.write(json.dumps({'code':0,'msg':'','data':data}).encode())
                 elif self.path in ('/extra-values','/missing-values','/duplicate-fields'):
                     fields = ['title','title'] if self.path=='/duplicate-fields' else ['title']
@@ -129,3 +131,14 @@ def test_weekly_contract_cannot_be_bound_to_month_or_unknown_source(mocker):
                 before_request=lambda:None,response_contract='stock_weekly_adj/v1')
     worker.assert_not_called()
     client.session.close()
+
+
+def test_weekly_wire_decimals_keep_source_precision_before_normalization(server):
+    from decimal import Decimal
+    from src.foundation.datasets.stock_weekly_adj_contracts import canonical_source_rows, WeeklyAdjExecutionPolicy, WeeklyAdjContractError
+    url,_=server
+    result=invoke(url+'/weekly-decimal',response_contract='stock_weekly_adj/v1')
+    assert result[0]=='rows' and result[1][0]['open']==Decimal('1.234567')
+    assert isinstance(result[1][0]['open'],Decimal)
+    with pytest.raises(WeeklyAdjContractError,match='数据库精度'):
+        canonical_source_rows(result[1],WeeklyAdjExecutionPolicy())

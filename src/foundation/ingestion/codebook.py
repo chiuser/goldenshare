@@ -24,6 +24,7 @@ INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-30.v2"
 INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-30T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry("weekly_adj.business_deadline_exceeded", "周线单元业务事务超过期限", "writer", "核对本单元规模/数据库状态后恢复原批"),
     IngestionCodebookEntry("weekly_adj.response_size_exceeded", "周线源响应超过字节预算", "source", "核验本单元响应大小，未经评审不得放宽预算"),
     IngestionCodebookEntry("weekly_adj.source_deadline_exceeded", "周线源调用超过总期限", "source", "核验源站状态并恢复原意图"),
     IngestionCodebookEntry("weekly_adj.delivery_contract_mismatch", "交接合同不一致", "planner/source/writer", "核对本次范围和合同后恢复原意图"),

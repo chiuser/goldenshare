@@ -42,6 +42,16 @@ class DatasetActionResolver:
         if action is None:
             raise ValueError(f"{definition.display_name} 不支持该操作：{request.action}")
 
+        if definition.planning.weekly_adj_policy is not None and request.trigger_source == 'schedule':
+            from src.foundation.ingestion.stock_weekly_adj_planning import restore_scheduled_request
+            from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
+            from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
+            try:
+                request = restore_scheduled_request(self.session, request)
+            except WeeklyAdjContractError as exc:
+                raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
+                    phase='resolver', message=str(exc), retryable=False)) from exc
+
         normalized_time = self._normalize_time_input(request.time_input, definition.date_model.input_shape)
         run_profile = self._resolve_run_profile(normalized_time)
         normalized_request = replace(request, time_input=normalized_time)
@@ -57,7 +67,23 @@ class DatasetActionResolver:
             filters=self._jsonable(validated.params), previous=request.execution_context,
             trigger_source=validated.trigger_source)
         validated = replace(validated, execution_context=frozen_execution)
-        units = self.unit_planner.plan(validated, definition)
+        if definition.planning.weekly_adj_policy is not None:
+            from src.foundation.ingestion.stock_weekly_adj_planning import resolve_weekly_adj_units
+            from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
+            from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
+            try:
+                validated, _ = resolve_weekly_adj_units(self.session, validated, definition)
+                units = self.unit_planner.plan(validated, definition)
+            except WeeklyAdjContractError as exc:
+                raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
+                    phase='resolver', message=str(exc), retryable=exc.code in {'weekly_adj.source_not_ready', 'weekly_adj.factor_coverage_missing'})) from exc
+            frozen_execution = validated.execution_context
+            normalized_time = DatasetTimeInput(
+                mode='point' if validated.run_profile == 'point_incremental' else 'range',
+                trade_date=validated.trade_date, start_date=validated.start_date, end_date=validated.end_date)
+            run_profile = validated.run_profile
+        else:
+            units = self.unit_planner.plan(validated, definition)
 
         plan_id = self._plan_id(
             dataset_key=request.dataset_key,
@@ -124,7 +150,7 @@ class DatasetActionResolver:
                 observed_field=definition.date_model.observed_field,
                 audit_applicable=definition.date_model.audit_applicable,
             ),
-            units=units,
+            units=tuple(units),
             trigger_source=validated.trigger_source,
             execution_context=frozen_execution,
         )

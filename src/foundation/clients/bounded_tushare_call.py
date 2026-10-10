@@ -2,6 +2,7 @@
 import multiprocessing
 import time
 import json
+from decimal import Decimal
 import queue
 import threading
 import requests
@@ -36,7 +37,8 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
                         raise BoundedTushareError(f'{prefix}.response_size_exceeded', '源响应超过字节预算')
                     data.extend(block)
                 try:
-                    original = json.loads(data)
+                    # Weekly prices must reach normalization without a binary float round trip.
+                    original = json.loads(data, parse_float=Decimal) if response_contract == 'stock_weekly_adj/v1' else json.loads(data)
                     envelope = TushareEnvelope.model_validate(original)
                 except (ValueError, TypeError):
                     if response_contract == 'stock_weekly_adj/v1':

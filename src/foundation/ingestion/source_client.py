@@ -60,6 +60,58 @@ class DatasetSourceClient:
         self.error_mapper = error_mapper or IngestionErrorMapper()
         self.logger = logging.getLogger(self.__class__.__name__)
 
+    def iter_weekly_adj_pages(self, *, definition, unit, control):
+        """One bounded attempt per page. Failure remains pending for the original batch."""
+        from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+        from src.foundation.datasets.stock_weekly_adj_contracts import weekly_definition_issues
+
+        if weekly_definition_issues(definition) or definition.planning.weekly_adj_policy is None:
+            raise ValueError("复权周线分页必须使用完整具名合同")
+        policy = definition.planning.weekly_adj_policy
+        connector = create_source_connector(unit.source_key)
+        observed = offset = 0
+        for page_number in range(1, policy.max_pages + 1):
+            control.check()
+            control.fetching(page_number, offset)
+            params = {**definition.source.base_params, **unit.request_params,
+                      "limit": unit.page_limit, "offset": offset}
+            started = perf_counter()
+            try:
+                rows = connector.call_bounded(
+                    api_name=definition.source.api_name, params=params,
+                    fields=definition.source.source_fields, maximum=policy.max_payload_bytes,
+                    timeout=policy.source_timeout_seconds, check=control.poll,
+                    tick=control.tick, before_request=control.check,
+                    response_contract="stock_weekly_adj/v1",
+                )
+            except BoundedTushareError as exc:
+                raise IngestionSourceError(StructuredError(
+                    error_code=exc.code, error_type="source", phase="source_client",
+                    message=str(exc), retryable=exc.code in {"source_connection_failed", "weekly_adj.source_deadline_exceeded"},
+                    unit_id=unit.unit_id)) from exc
+            except Exception as exc:
+                from src.foundation.ingestion.run_errors import IngestionCanceledError
+                if isinstance(exc, IngestionCanceledError):
+                    raise
+                raise IngestionSourceError(self.error_mapper.map_exception(
+                    exc=exc, phase="source_client", unit_id=unit.unit_id)) from exc
+            control.check()
+            if len(rows) > unit.page_limit or observed + len(rows) > policy.max_rows_per_unit:
+                raise IngestionSourceError(StructuredError(
+                    error_code="weekly_adj.row_budget_exceeded", error_type="source", phase="source_client",
+                    message="周线单元源行数超过预算，当前单元未入库", retryable=False, unit_id=unit.unit_id))
+            observed += len(rows)
+            short = len(rows) < unit.page_limit
+            yield SourcePageResult(unit_id=unit.unit_id, page_number=page_number, offset=offset,
+                rows_raw=rows, retry_count=0, latency_ms=int((perf_counter()-started)*1000), is_short_page=short)
+            control.check()
+            if short:
+                return
+            offset += unit.page_limit
+        raise IngestionSourceError(StructuredError(
+            error_code="weekly_adj.row_budget_exceeded", error_type="source", phase="source_client",
+            message="周线单元没有在页数预算内看到末页，当前单元未入库", retryable=False, unit_id=unit.unit_id))
+
     def fetch(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot) -> SourceFetchResult:
         started_at = perf_counter()
         rows_raw: list[dict] = []

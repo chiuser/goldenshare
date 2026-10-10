@@ -219,7 +219,7 @@ def validate_weekly_response(
 
 
 def weekly_definition_issues(definition) -> list[tuple[str, str]]:
-    """Validate a proposed binding; P1 does not activate the live Definition."""
+    """Validate the complete named binding; other datasets keep the None default."""
     policy = definition.planning.weekly_adj_policy
     storage = definition.storage
     if policy is None:

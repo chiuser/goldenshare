@@ -489,7 +489,7 @@
 - `core_dao_name`：
 - `observation_dao_name` / `observation_table`：需要从独立观测表发布 current serving 时填写，否则显式为 `None`。
 - `stage_dao_name` / `stage_table`：只有当前 write path 明确支持 staged stream 时填写，否则显式为 `None`。
-- `delivery_dao_name` / `delivery_table`：专用业务交接合同才声明，其他数据集默认None。复权周线P1已支持模型/Plan投影及绑定校验；`raw_core_upsert_with_delivery`的运行发布器仍待P2，不是当前已注册可执行路径，禁止提前绑定。
+- `delivery_dao_name` / `delivery_table`：专用业务交接合同才声明，其他数据集默认None。复权周线P2已实现并注册`raw_core_upsert_with_delivery`发布器，要求具名weekly_adj_policy；Raw/Serving及交接同单元事务，其他路径不启用。正式使用前须完成专用表/索引迁移和真实PG验收。
 - `raw_conflict_columns`：
 - `conflict_columns`：
 - `write_path`：
@@ -553,7 +553,7 @@
 - `chunk_size`：
 - `max_units_per_execution`：
 - `unit_builder_key`：如需自定义，必须在 `src/foundation/ingestion/unit_planner.py` 有清晰实现和测试。
-- `weekly_adj_policy`：仅复权周线使用`WeeklyAdjExecutionPolicy`，builder将dict转换为具名类型。须与三列主键、freq=week、单并发、分页/行数/计划预算、unit提交及拒绝策略整体校验；不得挪用公告合同。当前注册定义尚未绑定，实施状态见[周线LLD §12](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p1-implementation)。
+- `weekly_adj_policy`：仅复权周线使用`WeeklyAdjExecutionPolicy`，builder将dict转换为具名类型。须与三列主键、freq=week、单并发、分页/行数/计划预算、unit提交及拒绝策略整体校验；不得挪用公告合同。当前源码注册定义已绑定，实施与未验边界见[周线LLD §13](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p2-implementation)。
 - `fetch_concurrency`：当前允许范围以 linter 为准；必须评估配额、连接数、worker 占用和稳定排序。
 - `page_processing_mode`：当前只允许 `buffer_all` / `staged_stream` / `announcement_stream`。公告具名策略使用 `announcement_stream + raw_only_reconcile + commit_policy=batch`，必须冻结独立业务完成凭证与请求预算、单并发、有界分页和批提交；不作为其他数据集通用默认。长分页任务优先评估 `staged_stream`；选用时必须同时满足对应 write path、stage 表、单并发与 `commit_policy=unit` 的 linter 合同。
 

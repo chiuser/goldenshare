@@ -32,6 +32,7 @@ import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 import { OpsAnnouncementProgress } from "./ops-announcement-progress";
+import { OpsWeeklyAdjProgress } from "./ops-weekly-adj-progress";
 import { OpsTaskPagedUnitProgress } from "./ops-task-paged-unit-progress";
 import {
   calculateEtaEstimate,
@@ -368,7 +369,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
         if (view?.run.status === "canceling") {
           return <Text size="sm">停止中</Text>;
         }
-        if (view?.progress.announcement_progress) {
+        if (view?.progress.announcement_progress || view?.progress.weekly_adj_progress) {
           return <Text size="sm">暂无法估算</Text>;
         }
         if (etaEstimate.status === "ready" && etaContextMatches) {
@@ -541,6 +542,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                     </MetricPanel>
                   </SimpleGrid>
                   {view.progress.announcement_progress ? <OpsAnnouncementProgress progress={view.progress.announcement_progress} /> : null}
+                  {view.progress.weekly_adj_progress ? <OpsWeeklyAdjProgress progress={view.progress.weekly_adj_progress} /> : null}
                   {pagedUnitProgress ? <OpsTaskPagedUnitProgress progress={pagedUnitProgress} /> : null}
                   {!pagedUnitProgress && paginationDiagnostic(view.progress.ingestion_diagnostics) ? (
                     <AlertBar tone="info" title="源端分页">
