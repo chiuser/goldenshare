@@ -1,0 +1,477 @@
+{
+  "date": "2026-10-10",
+  "dataset": "moneyflow_ind_ths",
+  "status": "P4_independent_assets_checks_jobs_catalog_isolated_acceptance_passed",
+  "preceding_commit": "059ec20b",
+  "branch": "dev-interface",
+  "pushed": false,
+  "authority": [
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md#39",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md#34",
+    "lake_console/docs/templates/dagster-dataset-onboarding-template.html#source-contract-budget"
+  ],
+  "scope": {
+    "assets": [
+      "raw_tushare_moneyflow_ind_ths",
+      "silver_moneyflow_ind_ths"
+    ],
+    "jobs": [
+      "raw_tushare_moneyflow_ind_ths_update_job",
+      "silver_moneyflow_ind_ths_update_job"
+    ],
+    "checks": [
+      "raw_tushare_moneyflow_ind_ths_file_contract_check",
+      "silver_moneyflow_ind_ths_standardization_check"
+    ],
+    "partition": "cn_a_moneyflow_ind_ths_trade_days",
+    "catalog_name": "同花顺行业资金流向",
+    "new_sensor": false,
+    "new_event_executor": false,
+    "shared_publication": "single implementation moved from mkt_dc; all callers and test injection points migrated; original market public entry/revision preserved"
+  },
+  "source_evidence": {
+    "basis": "archived actual P0/P1 source evidence read this turn; no request/fields contract change",
+    "p0_report": "lake_console/reports/moneyflow_p0_evidence_20261006.json",
+    "p0_sha256": "9fa7c9582e3eab8ffa1681cde59fcaa12fa073a742fce59889a19af039bf97c3",
+    "fixture": "lake_console/orchestrator/tests/fixtures/moneyflow_ind_ths_20260930.json",
+    "fixture_sha256": "56df871a53ad38e52f7968c333f14d039efda714153d4ec8451916b7752a4277",
+    "rows": 90,
+    "fields": 12,
+    "current_mcp_probes": "two requests did not complete; waiting terminated without results; no fresh source behavior asserted",
+    "official_online_docs": "connection failed; current installed SDK and isolated native job/check proof used; no online validation claimed",
+    "P5_new_date_real_source_acceptance": "still_required"
+  },
+  "isolated_real_fixture_job": {
+    "scope": "isolated_job_with_archived_real_fixture_and_virtual_clock",
+    "jobs_elapsed_ms": 531.434,
+    "source_rows_per_round": 90,
+    "raw_rows": 90,
+    "silver_rows": 90,
+    "rejects": 0,
+    "requests": [
+      [
+        "moneyflow_ind_ths",
+        {
+          "trade_date": "20260930",
+          "limit": 2000,
+          "offset": 0
+        },
+        [
+          "trade_date",
+          "ts_code",
+          "industry",
+          "lead_stock",
+          "close",
+          "pct_change",
+          "company_num",
+          "pct_change_stock",
+          "close_price",
+          "net_buy_amount",
+          "net_sell_amount",
+          "net_amount"
+        ]
+      ],
+      [
+        "moneyflow_ind_ths",
+        {
+          "trade_date": "20260930",
+          "limit": 2000,
+          "offset": 0
+        },
+        [
+          "trade_date",
+          "ts_code",
+          "industry",
+          "lead_stock",
+          "close",
+          "pct_change",
+          "company_num",
+          "pct_change_stock",
+          "close_price",
+          "net_buy_amount",
+          "net_sell_amount",
+          "net_amount"
+        ]
+      ]
+    ],
+    "native": [
+      {
+        "asset": "raw_tushare_moneyflow_ind_ths",
+        "partition": "2026-09-30",
+        "status": "SUCCEEDED",
+        "target_storage_id": 4,
+        "materialization_storage_id": 4
+      },
+      {
+        "asset": "silver_moneyflow_ind_ths",
+        "partition": "2026-09-30",
+        "status": "SUCCEEDED",
+        "target_storage_id": 10,
+        "materialization_storage_id": 10
+      }
+    ],
+    "files": [
+      {
+        "path": "/private/tmp/moneyflow-p4-ind-ths-definitions-final-20261010/test_archived_real_ninety_indu0/lake/raw/tushare/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet",
+        "bytes": 8110,
+        "sha256": "b4ef9debedd6ae38f6dc06749684e30d9034fa849c94fb533078bb3163e0d98e"
+      },
+      {
+        "path": "/private/tmp/moneyflow-p4-ind-ths-definitions-final-20261010/test_archived_real_ninety_indu0/lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2026-09-30/part-000.parquet",
+        "bytes": 8086,
+        "sha256": "68636c2fda7e308027832d25900591d4c760257f237ae98ca22528487d4068d4"
+      }
+    ]
+  },
+  "validation": {
+    "definitions_and_publication": {
+      "industry_cases": 30,
+      "market_regression_cases": 25,
+      "total_passed": 55,
+      "elapsed_seconds": 23.32,
+      "root": "/private/tmp/moneyflow-p4-ind-ths-definitions-final-20261010",
+      "fake_source": true,
+      "virtual_clock": true,
+      "isolated_sqlite_instance": true
+    },
+    "candidate_contracts": {
+      "passed": 80,
+      "elapsed_seconds": 5.35
+    },
+    "catalog": {
+      "tests": 12,
+      "subtests": 486,
+      "passed": true,
+      "batches": [
+        {
+          "batch": "G-regression:test_asset_governance_contracts.py:1",
+          "resource_report": "/private/tmp/stock-suspend-isolated-xuty_nyz/allowed/resource-result.json",
+          "sha256": "7e37d57951c9ee80f090490c639b1eb535a2a9ff37d04b96542d3982bce91e6b",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_asset_governance_contracts.py:2",
+          "resource_report": "/private/tmp/stock-suspend-isolated-gcnp4x05/allowed/resource-result.json",
+          "sha256": "e7a5311b679aa98a896b65267f05ba56eaec3bf7832c3f46a540167f5b151c74",
+          "passed": true
+        }
+      ],
+      "log": "/private/tmp/moneyflow-p4-ind-ths-catalog-20261010.log",
+      "log_sha256": "cd638975452ffd84d6692d34caf3b6e139de8c925764c14e0fabd10a8db0d958",
+      "runner": "tests/stock_suspend_confirmed_test_runner.py",
+      "permissions_relaxed": false
+    },
+    "static": {
+      "tests": 113,
+      "passed": true,
+      "batches": [
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:1",
+          "resource_report": "/private/tmp/stock-suspend-isolated-pf2uds5p/allowed/resource-result.json",
+          "sha256": "2e3ceb0bb9be4329a88287c98dab6c2c710045127bbd38b202e7614947f75117",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:2",
+          "resource_report": "/private/tmp/stock-suspend-isolated-8iizglqt/allowed/resource-result.json",
+          "sha256": "d6f79180aac2c2f62681eca3b429b958aed211fa55a50fec10926874dbe73f35",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:3",
+          "resource_report": "/private/tmp/stock-suspend-isolated-9cxn1pho/allowed/resource-result.json",
+          "sha256": "9c01b309ac5463ab13de20292031b3843d770ac75734478c1d7d92122e85edf9",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:4",
+          "resource_report": "/private/tmp/stock-suspend-isolated-afxvriji/allowed/resource-result.json",
+          "sha256": "cde19ad54beb107f43f0de9776636f36d7134ede2c6e9f851bf9af9e2c9fb6fd",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:5",
+          "resource_report": "/private/tmp/stock-suspend-isolated-x71yd7a4/allowed/resource-result.json",
+          "sha256": "a7261fcbed7fd4cb6a794646e3404a051db43bee8bc26ac78022c9b903cc1245",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:6",
+          "resource_report": "/private/tmp/stock-suspend-isolated-iwjmy_3o/allowed/resource-result.json",
+          "sha256": "45e33b3c348a8db3edcadf80a6530bde77676e45eb0144f813843c64ef7400b6",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:7",
+          "resource_report": "/private/tmp/stock-suspend-isolated-llqypugh/allowed/resource-result.json",
+          "sha256": "d4ef960e569f1ba816ba210f0466be227ee695d7b09471efb81651266b83dab4",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:8",
+          "resource_report": "/private/tmp/stock-suspend-isolated-u20opudd/allowed/resource-result.json",
+          "sha256": "6bbd1b576fbbfa5502db541b9518ca3fe3e3019900995b48e9800cae62599e62",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:9",
+          "resource_report": "/private/tmp/stock-suspend-isolated-ihnty_2i/allowed/resource-result.json",
+          "sha256": "161aa420ec6f57f75d0e60944c1075c085ee07ccb9614267146e09bfd0450f21",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:10",
+          "resource_report": "/private/tmp/stock-suspend-isolated-a7obhjwe/allowed/resource-result.json",
+          "sha256": "0584c4b05fd66c07bd3550099ffa07b3cde21f3db5b867839583a2f19497a103",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:11",
+          "resource_report": "/private/tmp/stock-suspend-isolated-zpx0pk_7/allowed/resource-result.json",
+          "sha256": "aad076a8760f5f8225c303d11cd909fe35f7be2f87c2fafe9ec9d71bb0e18bcb",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:12",
+          "resource_report": "/private/tmp/stock-suspend-isolated-bneb1rgk/allowed/resource-result.json",
+          "sha256": "8ced2ff61b411c5e3ac1e94a347c560bc4a70528140b3e2df3ff0ab1c133fe79",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:13",
+          "resource_report": "/private/tmp/stock-suspend-isolated-7rvecpcq/allowed/resource-result.json",
+          "sha256": "959e9dd218df9a046263c19c7cdddc67a75eb56623873dad68af2614ccad74a4",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:14",
+          "resource_report": "/private/tmp/stock-suspend-isolated-ax83g2gu/allowed/resource-result.json",
+          "sha256": "423e4ff7ca156110ea77764b026a0cca97610ec77b068b59617e095a6f6dc9c3",
+          "passed": true
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:15",
+          "resource_report": "/private/tmp/stock-suspend-isolated-w24aogo0/allowed/resource-result.json",
+          "sha256": "bb3e5bd7e60aa2e82713a0c3989244372e720e6c1b59af52023a1027494ee414",
+          "passed": true
+        }
+      ],
+      "log": "/private/tmp/moneyflow-p4-ind-ths-static-20261010.log",
+      "log_sha256": "9cd4cf8669eed90d5addbaf3169b409d3e51938d288f6ca007c5ac2dd19152e9",
+      "runner": "tests/stock_suspend_confirmed_test_runner.py",
+      "permissions_relaxed": false
+    },
+    "defs_cli": {
+      "passed": true,
+      "command": ".venv/bin/dg check defs --use-active-venv --no-check-yaml",
+      "instance": "/private/tmp/moneyflow-p4-ind-ths-defs-home-20261010",
+      "telemetry": false,
+      "uv_offline": true,
+      "uv_no_sync": true,
+      "no_formal_credentials": true
+    },
+    "ruff_changed_files": true,
+    "ruff_global_fatal": true,
+    "docs_integrity": true,
+    "git_diff_check": true,
+    "logs": {
+      "definitions-final": {
+        "path": "/private/tmp/moneyflow-p4-ind-ths-definitions-final-20261010.log",
+        "sha256": "070f2ce0cb2815e322084b01a5dc5bde5dbb6bf1bcd99cdf0c35c238e23112ee",
+        "result_lines": [
+          "55 passed, 14 warnings in 23.32s"
+        ]
+      },
+      "candidates": {
+        "path": "/private/tmp/moneyflow-p4-ind-ths-candidates-20261010.log",
+        "sha256": "b483daa07f6bea88d11d7a9773cb4001d8b22c8f436880bb2f4d6fce8f5bd757",
+        "result_lines": [
+          "80 passed in 5.35s"
+        ]
+      },
+      "defs": {
+        "path": "/private/tmp/moneyflow-p4-ind-ths-defs-20261010.log",
+        "sha256": "5f669c08ebd39efd649fc46a47dc56b252d88d305949cfadc889c2d20a95aaac",
+        "result_lines": [
+          "All definitions loaded successfully."
+        ]
+      },
+      "docs": {
+        "path": "/private/tmp/moneyflow-p4-ind-ths-docs-20261010.log",
+        "sha256": "4a54bdf009e4ed2f2cb57b8210c15fbb9f7f1f3aa8ece2d9b513e022a47a7e00",
+        "result_lines": [
+          "Docs integrity check passed."
+        ]
+      }
+    },
+    "initial_failures_fixed": [
+      {
+        "gate": "protected runner launch",
+        "reason": "sandbox-exec sandbox_apply Operation not permitted before tests",
+        "resolution": "same protected runner escalated; no gate or isolation relaxation"
+      },
+      {
+        "gate": "catalog",
+        "reason": "Raw asset source_doc incorrectly pointed to DC",
+        "resolution": "correct THS 0343 doc; entire suite rerun and passed"
+      }
+    ]
+  },
+  "runtime_write_boundary": {
+    "formal_lake_writes": 0,
+    "formal_prod_access": 0,
+    "formal_dagster_pg_access": 0,
+    "formal_partitions_registered": 0,
+    "formal_events_registered": 0,
+    "formal_jobs_submitted": 0,
+    "sensors_enabled": 0,
+    "pool_changes": 0,
+    "reload": 0,
+    "history_parquet_rebuilt": 0,
+    "isolation_files_only": "/private/tmp"
+  },
+  "config_and_architecture": {
+    "new_operator_config": false,
+    "subsystem_dependency_matrix_changed": false,
+    "production_DatasetDefinition_or_API_changed": false,
+    "codegraph": [
+      "explore",
+      "impact(update_market_moneyflow_raw)",
+      "CLI sync",
+      "CLI status"
+    ],
+    "manual_verification": "private monkeypatch/test consumers audited directly because not complete in indexed impact; no unresolved current-slice consumer"
+  },
+  "preserved_historical_reports": {
+    "baseline_commit": "059ec20b",
+    "count": 26,
+    "byte_identical": true,
+    "files": [
+      {
+        "path": "lake_console/reports/moneyflow_derivation_feasibility_20261006.json",
+        "sha256": "0944c6879316d8e16255f5bfa9c304e9a3a34772eec3148a3d40bdbdf3c8b396"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p0_closeout_20261006.json",
+        "sha256": "6194d04cf925722ec5c8c00e8402b70af695efbb646358382afbb546aea6a413"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p0_evidence_20261006.json",
+        "sha256": "9fa7c9582e3eab8ffa1681cde59fcaa12fa073a742fce59889a19af039bf97c3"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p0_partial_day_followup_20261006.json",
+        "sha256": "98d406d04595502d8b1f07b56a29bbf92ce6fd78c18bc00ce538143fa02f2806"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p0_prod_date_counts_20261006.csv",
+        "sha256": "97a41694680dc13340785af03a902acb39d33afbfda33480bf9e5d34710c90e8"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json",
+        "sha256": "8b620d66300c01c49489b82e3df7989b2f8e434982b6e21ba7373ec9a9d8fb9a"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json",
+        "sha256": "e603b851fc60538d5e6612f182be8f79af13d4f1ff18fd92f4be12d3d56bc020"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p2_moneyflow_ths_evidence_20261007.json",
+        "sha256": "71d2fa3803981ee85acca2ed9e35bd8b7913bc2393ee2700c53a6994df3c01c7"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json",
+        "sha256": "c23ec90476acb4f787247747b233a5dce7f60f1e82d1b35a3709a31220817d92"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_date_candidates_evidence_20261007.json",
+        "sha256": "049fd1170665217230493fc49b270aaa65a42af37d924885f2a985f5c233aebe"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json",
+        "sha256": "1a52dcbb8ba5aea2a2790b9f3bed8354fd81b605208060b6184dc0930850af7a"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_date_query_profile_20261008.json",
+        "sha256": "71e63247688f11dfb32210bd406c6a955996993b61ce4c52bd5a23b7f8d20d1b"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json",
+        "sha256": "f88edab78bafd2168812c4d7f66690d115d0018b7ddeaef6b812fb5f4a2e996a"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json",
+        "sha256": "752e87b7e325755c9845f35db5039ed8210a9bf77fc06cd11cb3b335e751fa97"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json",
+        "sha256": "02534cda4abbddbbc6f152cd6041fcad5fd01f96a0d0a17da4bf25d5c695cac3"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_history_export_evidence_20261007.json",
+        "sha256": "e012f42c585964b112f37f41915abca071f6475829498cfabd3349afec58c9a4"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json",
+        "sha256": "aa0b1012eec596957ce49f3989db4cd9a1e8500afd1b7e538d84bb6d07d3d38a"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json",
+        "sha256": "a7fb1e68c7c457c2e35a08b006f45b404f146305e3f697f79a2cc86de4d58018"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p3_selected_dates_evidence_20261008.json",
+        "sha256": "43ae51b534d7d66f1c9e5fe41e5b95c0312bb108fea956f8f5cb19e3ef679a88"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_evidence_20261010.json",
+        "sha256": "98da97a6f1c0726ada605b0c4fff84b4478ef921c32fa35a8029d643e6c77ed9"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_full_evidence_20261010.json",
+        "sha256": "04a4b1ff9c89553cf62422ddc2c21f2a1b81be11733e72e73d6e0ca00314423f"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_sample_evidence_20261010.json",
+        "sha256": "3a65b91362b961fec4f5573429830c6f8460ade54cde790e95219423789a8324"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_full_plan_20261010.json",
+        "sha256": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_sample_plan_20261010.json",
+        "sha256": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json",
+        "sha256": "5c1f28164a68758aa89cb2070ab2bd9af444e8abc13302210f68ef667d9802a5"
+      },
+      {
+        "path": "lake_console/reports/moneyflow_p4_mkt_dc_sensor_event_preview_evidence_20261009.json",
+        "sha256": "8a6f805cef9e39b802709d494489a1d3fb76f7aac7b8e488ad0fc3fa90a7491d"
+      }
+    ]
+  },
+  "source_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_ind_ths.py": "cbafb1bfc8fdd488aebe19d0acc0a8c0b82a9d9ead9fcebb363596b09bd80301",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_ind_ths.py": "9f0ee23cde47f457c48e9aa1da1a086e2b46a2d550d9491c36745e16060a03f2",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ind_ths.py": "d335509401ab118c8c89b0eb5abada7f4daffbbd0d4105d792ed517cd5a41b27",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_ind_ths_update.py": "28d126738186c44b06bc7fac424965353353b206e7a9ada0a3711c1a8b7c7e90",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_update_publication.py": "aea2571f58261a00a1b7ee6ff47cb41bc7808fb19039cc9076a87daf0fef1537",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "5afe5fb4c81ae8498f91d84e7c23e214e92c6fbb3ed674d0577e65b098b39e5b",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py": "8b802c42fd3df795d1976d04943b7fcc678dc27e0665ed9e2b5f25d446a45ded",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py": "d50086daa5100b9f452afd25155a8271162d8f007bf0f35dab86cfc0485c5e08",
+    "lake_console/orchestrator/src/orchestrator/defs/partitions.py": "b38c1adbb72972dbd9b222ffa4fd01a7d29a6fa289fe7a90ab41bc304a257dd9",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "32786337109940b297912532aea3e05ccd27a7036e8fa18c99d3503455d85686",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py": "4d2a0a9a64e9cc76ea3cb041ce54bd376712978aeacc4183edc0ae1f8f2b2ea3",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py": "3a46ae94c940d0ca21b2153164465a84d259cebe1130498b42160992f41e1465",
+    "lake_console/orchestrator/tests/test_asset_governance_contracts.py": "9742369767c7bd3397bbe35297d050198c8092a3fffc65ed0e699c16691df2da",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "8fcf01ab8740ce23d81321ba0be9099c9604b0e4ecc7b30c687564765b3fdc82",
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md": "aee483e7fddd457e7c30dd6d74fd0d7e9b70151a893d2d80aaf9edacde3ab869",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md": "a1c95a8dece825ade8eca40db03ca1abe3429e30b08e5d506527ee3b066b28a7"
+  },
+  "next_slice": "moneyflow_ind_ths 22:00 registration/update sensors and bounded historical event preview; exact formal registration/enablement requires phase approval",
+  "overall_P4_closed": false,
+  "P5_started": false
+}

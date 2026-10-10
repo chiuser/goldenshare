@@ -134,6 +134,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_FUND_DAILY_SCHEMA,
     RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
+    RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
     RAW_TUSHARE_STK_NINETURN_SCHEMA,
@@ -157,6 +158,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_GLOBAL_SCHEMA,
     SILVER_INDEX_MINS_SCHEMA,
     SILVER_MAJOR_INDEX_MINS_SCHEMA,
+    SILVER_MONEYFLOW_IND_THS_SCHEMA,
     SILVER_MONEYFLOW_MKT_DC_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
@@ -231,6 +233,8 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
 )
 from orchestrator.defs.run_contracts.metadata import SourceSystem
 from orchestrator.defs.run_contracts.moneyflow import (
+    MONEYFLOW_IND_THS_RAW_CHECK,
+    MONEYFLOW_IND_THS_SILVER_CHECK,
     MONEYFLOW_MKT_DC_RAW_CHECK,
     MONEYFLOW_MKT_DC_SILVER_CHECK,
 )
@@ -282,6 +286,8 @@ class PartitionPhysicalLayout(str, Enum):
 
 
 class PartitionModel(str, Enum):
+    TRADE_DATE_PARTITION_RAW_MONEYFLOW_IND_THS = "trade_date_partition_raw_moneyflow_ind_ths"
+    TRADE_DATE_PARTITION_SILVER_MONEYFLOW_IND_THS = "trade_date_partition_silver_moneyflow_ind_ths"
     TRADE_DATE_PARTITION_RAW_MONEYFLOW_MKT_DC = "trade_date_partition_raw_moneyflow_mkt_dc"
     TRADE_DATE_PARTITION_SILVER_MONEYFLOW_MKT_DC = "trade_date_partition_silver_moneyflow_mkt_dc"
     MONTH_PARTITION_RAW_STK_PERIOD_BAR_MONTH = "month_partition_raw_stk_period_bar_month"
@@ -726,6 +732,16 @@ def _model(
 
 
 PARTITION_MODEL_DEFINITIONS = (
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_MONEYFLOW_IND_THS,
+        PartitionModelFamily.TRADE_DATE_PARTITION, AssetLayer.RAW, "moneyflow_ind_ths",
+        "trade_date", PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_MONEYFLOW_IND_THS,
+        PartitionModelFamily.TRADE_DATE_PARTITION, AssetLayer.SILVER, "moneyflow_ind_ths",
+        "trade_date", PartitionPhysicalLayout.PARTITION_FILE,
+    ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_MONEYFLOW_MKT_DC,
         PartitionModelFamily.TRADE_DATE_PARTITION, AssetLayer.RAW, "moneyflow_mkt_dc",
@@ -1502,6 +1518,40 @@ def _derived_entry(
 
 
 LAKE_ASSET_CATALOG = (
+    _entry(
+        asset_key="raw_tushare_moneyflow_ind_ths", dataset_id="moneyflow_ind_ths",
+        layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA, group_name="moneyflow",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="tushare_moneyflow_ind_ths_raw_by_trade_date",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
+        path_template=lake_path_template(raw_moneyflow_path(PATH_TEMPLATE_LAKE_ROOT, "moneyflow_ind_ths", PATH_TEMPLATE_PARTITION_KEY)),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_MONEYFLOW_IND_THS,
+        source_api="moneyflow_ind_ths",
+        source_doc="docs/sources/tushare/股票数据/资金流向数据/0343_同花顺行业资金流向（THS）.md",
+        ingestion_sources=(IngestionSource.TUSHARE_API,),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        blocking_check_names=(MONEYFLOW_IND_THS_RAW_CHECK,),
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(batch_grain="trade_date", compute_engine=ComputeEngine.TUSHARE_RESOURCE,
+                                   source_request_policy="moneyflow_two_round_bounded_pages",
+                                   notes="One complete industry date, <=20000 rows per round; two stable rounds, 60-second gap; 64 requests/300 seconds; original namespace writer."),
+    ),
+    _derived_entry(
+        asset_key="silver_moneyflow_ind_ths", dataset_id="moneyflow_ind_ths",
+        layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA, group_name="moneyflow",
+        data_contract="standardized_moneyflow_ind_ths_by_trade_date",
+        column_schema=SILVER_MONEYFLOW_IND_THS_SCHEMA,
+        path_template=lake_path_template(silver_moneyflow_path(PATH_TEMPLATE_LAKE_ROOT, "moneyflow_ind_ths", PATH_TEMPLATE_PARTITION_KEY)),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_MONEYFLOW_IND_THS,
+        blocking_check_names=(MONEYFLOW_IND_THS_SILVER_CHECK,),
+        batch_grain="trade_date", write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="Same-day green Raw with matching physical hash; only normalize trade_date to DATE; no source requests.",
+    ),
     _entry(
         asset_key="raw_tushare_moneyflow_mkt_dc", dataset_id="moneyflow_mkt_dc",
         layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA, group_name="moneyflow",

@@ -67,3 +67,7 @@ cn_a_moneyflow_mkt_dc_trade_days = dg.DynamicPartitionsDefinition(
 cn_global_index_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_global_index_trade_days"
 )
+
+cn_a_moneyflow_ind_ths_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_a_moneyflow_ind_ths_trade_days"
+)

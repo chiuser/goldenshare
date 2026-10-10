@@ -11,6 +11,7 @@ import pytest
 
 import orchestrator.defs.assets.moneyflow_mkt_dc as assets
 import orchestrator.defs.io.moneyflow_mkt_dc_update as update
+import orchestrator.defs.io.moneyflow_update_publication as publication
 from orchestrator.defs.catalog import get_lake_asset_catalog_entry
 from orchestrator.defs.checks.moneyflow_mkt_dc import (
     raw_tushare_moneyflow_mkt_dc_file_contract_check,
@@ -92,7 +93,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(assets, "DEFAULT_LAKE_STAGING_ROOT", str(staging))
     # Real free-space guard is tested separately; tiny CI temp disks need not be 64GiB.
     monkeypatch.setattr(
-        update.shutil, "disk_usage", lambda _: SimpleNamespace(free=128 * 1024**3)
+        publication.shutil, "disk_usage", lambda _: SimpleNamespace(free=128 * 1024**3)
     )
     original = update.build_market_moneyflow_raw_candidate
 
@@ -322,14 +323,14 @@ def test_writer_lock_stops_before_source_request(env):
 def test_complete_checkpoint_failure_resumes_moved_file_without_source(
     env, monkeypatch
 ):
-    original = update._checkpoint
+    original = publication._checkpoint
 
     def interrupted(path, state):
         if state["stage"] == "complete":
             raise RuntimeError("exit after replace")
         original(path, state)
 
-    monkeypatch.setattr(update, "_checkpoint", interrupted)
+    monkeypatch.setattr(publication, "_checkpoint", interrupted)
     with pytest.raises(RuntimeError, match="exit after replace"):
         update.update_market_moneyflow_raw(
             tushare=env.source,
@@ -343,7 +344,7 @@ def test_complete_checkpoint_failure_resumes_moved_file_without_source(
     assert not (
         env.staging / "moneyflow/resume/moneyflow_mkt_dc" / DAY / "raw.parquet"
     ).exists()
-    monkeypatch.setattr(update, "_checkpoint", original)
+    monkeypatch.setattr(publication, "_checkpoint", original)
     result = update.update_market_moneyflow_raw(
         tushare=env.source,
         lake_root=env.lake,
@@ -386,7 +387,7 @@ def test_root_rejections_precede_source_or_candidates(env, monkeypatch, kind):
         lake.symlink_to(env.lake, target_is_directory=True)
     elif kind == "space":
         monkeypatch.setattr(
-            update.shutil, "disk_usage", lambda _: SimpleNamespace(free=1)
+            publication.shutil, "disk_usage", lambda _: SimpleNamespace(free=1)
         )
     else:
         original = Path.stat
@@ -516,14 +517,14 @@ def test_target_change_after_intent_is_not_overwritten(env, monkeypatch):
     assert run(env, "raw_tushare_moneyflow_mkt_dc_update_job").success
     raw = raw_moneyflow_path(env.lake, "moneyflow_mkt_dc", DAY)
     env.source.responses = iter([[row("2.0000")], [row("2.0000")]])
-    original = update._checkpoint
+    original = publication._checkpoint
 
     def alter(path, state):
         original(path, state)
         if state["stage"] == "intent":
             raw.write_bytes(b"external writer changed target")
 
-    monkeypatch.setattr(update, "_checkpoint", alter)
+    monkeypatch.setattr(publication, "_checkpoint", alter)
     with pytest.raises(MoneyflowContractError, match="update_target_changed"):
         update.update_market_moneyflow_raw(
             tushare=env.source,
@@ -538,7 +539,7 @@ def test_target_change_after_intent_is_not_overwritten(env, monkeypatch):
 def test_cancel_after_intent_preserves_candidate_and_resumes_without_source(
     env, monkeypatch
 ):
-    original = update._checkpoint
+    original = publication._checkpoint
     cancel = {"requested": False}
 
     def checkpoint(path, state):
@@ -550,7 +551,7 @@ def test_cancel_after_intent_preserves_candidate_and_resumes_without_source(
         if cancel["requested"]:
             raise MoneyflowContractError("user_cancel")
 
-    monkeypatch.setattr(update, "_checkpoint", checkpoint)
+    monkeypatch.setattr(publication, "_checkpoint", checkpoint)
     kwargs = {
         "tushare": env.source,
         "lake_root": env.lake,
@@ -568,7 +569,7 @@ def test_cancel_after_intent_preserves_candidate_and_resumes_without_source(
     assert (
         json.loads((directory / "promotion-raw.json").read_text())["stage"] == "intent"
     )
-    monkeypatch.setattr(update, "_checkpoint", original)
+    monkeypatch.setattr(publication, "_checkpoint", original)
     result = update.update_market_moneyflow_raw(**kwargs)
     assert len(env.source.calls) == 2 and result["file_sha256"] == candidate_file_hash(
         target
@@ -595,14 +596,14 @@ def test_formal_file_symlink_never_overwrites_external_file(env):
 def test_silver_replace_exit_resumes_without_rebuilding_candidate(env, monkeypatch):
     assert run(env, "raw_tushare_moneyflow_mkt_dc_update_job").success
     raw = raw_moneyflow_path(env.lake, "moneyflow_mkt_dc", DAY)
-    original = update._checkpoint
+    original = publication._checkpoint
 
     def interrupted(path, state):
         if state["stage"] == "complete":
             raise RuntimeError("silver exit after replace")
         original(path, state)
 
-    monkeypatch.setattr(update, "_checkpoint", interrupted)
+    monkeypatch.setattr(publication, "_checkpoint", interrupted)
     kwargs = {
         "lake_root": env.lake,
         "staging_root": env.staging,
@@ -614,6 +615,6 @@ def test_silver_replace_exit_resumes_without_rebuilding_candidate(env, monkeypat
         update.update_market_moneyflow_silver(**kwargs)
     silver = silver_moneyflow_path(env.lake, "moneyflow_mkt_dc", DAY)
     before = candidate_file_hash(silver)
-    monkeypatch.setattr(update, "_checkpoint", original)
+    monkeypatch.setattr(publication, "_checkpoint", original)
     result = update.update_market_moneyflow_silver(**kwargs)
     assert result["file_sha256"] == before and len(env.source.calls) == 2
