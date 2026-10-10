@@ -1,0 +1,437 @@
+{
+  "as_of_utc": "2026-10-09T20:11:12.712974+00:00",
+  "as_of_timezone": "Asia/Shanghai",
+  "stage": "P4 moneyflow_mkt_dc two-day formal native registration complete; full registration not executed",
+  "implementation_commit": "02fa9045",
+  "branch": "dev-interface",
+  "authorization": "User: 提交修改，然后批准推进下一步; two-day sample explicitly proposed in preceding response",
+  "basis": {
+    "plan_section": 37,
+    "lld_section": 32,
+    "sample_plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+    "approved_dates": [
+      "2026-09-29",
+      "2026-09-30"
+    ]
+  },
+  "scope": {
+    "dataset": "moneyflow_mkt_dc",
+    "formal_dynamic_partition_keys_added": 2,
+    "formal_materializations_written": 4,
+    "formal_blocking_checks_written": 4,
+    "staging_writes": "one frozen plan and per-event atomic checkpoint under sample plan hash; namespace writer lock",
+    "parquet_writes": 0,
+    "reloads": 0,
+    "sensor_changes": 0,
+    "pool_changes": 0,
+    "jobs": 0,
+    "prod_requests": 0,
+    "tushare_requests": 0,
+    "full_registration_executed": false,
+    "other_six_datasets_advanced": false,
+    "p4_closed": false,
+    "p5_entered": false
+  },
+  "performance": {
+    "apply_seconds": 1.7757797080557793,
+    "helper_metadata_reads": 53,
+    "work_items": 10,
+    "native_events": 8,
+    "progress_records": 60,
+    "staging_free_bytes": 2929029918720,
+    "max_seconds": 600,
+    "batch_seconds": 120,
+    "max_metadata_reads": 256,
+    "rejection_strategy_fired": false,
+    "read_count_note": "maintenance sensor status and pre/postflight queries, plus native write API internal SQL, are separate"
+  },
+  "preflight": {
+    "as_of_utc": "2026-10-09T20:06:50.256514+00:00",
+    "mode": "read_only_preflight",
+    "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+    "instance_home": "/Users/congming/.goldenshare/dagster_home",
+    "staging_free_bytes": 2929029935104,
+    "lake_device": 16777244,
+    "staging_device": 16777244,
+    "authorization": "User: 提交修改，然后批准推进下一步; two-day sample explicitly proposed in preceding response",
+    "sensor_preflight": {
+      "metadata_query": "native all_instigator_state SENSOR",
+      "sensor_records_scanned": 106,
+      "matching_states": [],
+      "absent_names": [
+        "cn_a_moneyflow_mkt_dc_trade_day_sensor",
+        "raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+        "silver_moneyflow_mkt_dc_update_job_sensor"
+      ],
+      "code_default_status": "STOPPED (all three definitions)",
+      "mutations": 0
+    },
+    "preflight": {
+      "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+      "stage": "read_only_preview",
+      "current_date": null,
+      "layer": null,
+      "completed": 0,
+      "total": 10,
+      "percent": 0.0,
+      "updated_at": "2026-10-09T20:06:51.144042+00:00",
+      "elapsed_seconds": 0.8169044170062989,
+      "metadata_reads": 7,
+      "written_events_this_attempt": 0,
+      "registered_keys_this_attempt": 0,
+      "missing_partition_keys": 2,
+      "missing_materializations": 4,
+      "missing_checks": 4,
+      "formal_writes": 0
+    },
+    "before_events": {
+      "registered_keys_in_scope": 0,
+      "all_registered_keys": [],
+      "materializations": [],
+      "checks": []
+    },
+    "formal_writes": {
+      "partition_keys": 0,
+      "materializations": 0,
+      "checks": 0
+    },
+    "unexecuted": [
+      "full registration",
+      "reload",
+      "sensor start/stop",
+      "pool configuration",
+      "jobs",
+      "Parquet writes",
+      "Prod/Tushare requests"
+    ],
+    "finished_at_utc": "2026-10-09T20:06:51.212047+00:00"
+  },
+  "formal_result": {
+    "as_of_utc": "2026-10-09T20:07:35.256470+00:00",
+    "mode": "approved_sample_apply",
+    "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+    "instance_home": "/Users/congming/.goldenshare/dagster_home",
+    "staging_free_bytes": 2929029918720,
+    "lake_device": 16777244,
+    "staging_device": 16777244,
+    "authorization": "User: 提交修改，然后批准推进下一步; two-day sample explicitly proposed in preceding response",
+    "sensor_preflight": {
+      "metadata_query": "native all_instigator_state SENSOR",
+      "sensor_records_scanned": 106,
+      "matching_states": [],
+      "absent_names": [
+        "cn_a_moneyflow_mkt_dc_trade_day_sensor",
+        "raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+        "silver_moneyflow_mkt_dc_update_job_sensor"
+      ],
+      "code_default_status": "STOPPED (all three definitions)",
+      "mutations": 0
+    },
+    "preflight": {
+      "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+      "stage": "read_only_preview",
+      "current_date": null,
+      "layer": null,
+      "completed": 0,
+      "total": 10,
+      "percent": 0.0,
+      "updated_at": "2026-10-09T20:07:36.092363+00:00",
+      "elapsed_seconds": 0.7712839168962091,
+      "metadata_reads": 7,
+      "written_events_this_attempt": 0,
+      "registered_keys_this_attempt": 0,
+      "missing_partition_keys": 2,
+      "missing_materializations": 4,
+      "missing_checks": 4,
+      "formal_writes": 0
+    },
+    "before_events": {
+      "registered_keys_in_scope": 0,
+      "all_registered_keys": [],
+      "materializations": [],
+      "checks": []
+    },
+    "sensor_before_apply": {
+      "metadata_query": "native all_instigator_state SENSOR",
+      "sensor_records_scanned": 106,
+      "matching_states": [],
+      "absent_names": [
+        "cn_a_moneyflow_mkt_dc_trade_day_sensor",
+        "raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+        "silver_moneyflow_mkt_dc_update_job_sensor"
+      ],
+      "code_default_status": "STOPPED (all three definitions)",
+      "mutations": 0
+    },
+    "apply": {
+      "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+      "stage": "complete",
+      "current_date": null,
+      "layer": null,
+      "completed": 10,
+      "total": 10,
+      "percent": 100.0,
+      "updated_at": "2026-10-09T20:07:37.935251+00:00",
+      "elapsed_seconds": 1.7757797080557793,
+      "metadata_reads": 53,
+      "written_events_this_attempt": 8,
+      "registered_keys_this_attempt": 2
+    },
+    "progress_records": 60,
+    "postflight": {
+      "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+      "stage": "read_only_preview",
+      "current_date": null,
+      "layer": null,
+      "completed": 10,
+      "total": 10,
+      "percent": 100.0,
+      "updated_at": "2026-10-09T20:07:38.331610+00:00",
+      "elapsed_seconds": 0.39479033392854035,
+      "metadata_reads": 7,
+      "written_events_this_attempt": 0,
+      "registered_keys_this_attempt": 0,
+      "missing_partition_keys": 0,
+      "missing_materializations": 0,
+      "missing_checks": 0,
+      "formal_writes": 0
+    },
+    "full_remaining": {
+      "plan_hash": "e699ce04e04ed8e792a95ff72140251945aa282cda0b18ed25972517357ce92d",
+      "stage": "read_only_preview",
+      "current_date": null,
+      "layer": null,
+      "completed": 10,
+      "total": 2557,
+      "percent": 0.39,
+      "updated_at": "2026-10-09T20:07:38.822700+00:00",
+      "elapsed_seconds": 0.4910637498833239,
+      "metadata_reads": 23,
+      "written_events_this_attempt": 0,
+      "registered_keys_this_attempt": 0,
+      "missing_partition_keys": 837,
+      "missing_materializations": 1674,
+      "missing_checks": 36,
+      "formal_writes": 0
+    },
+    "after_events": {
+      "registered_keys_in_scope": 2,
+      "all_registered_keys": [
+        "2026-09-29",
+        "2026-09-30"
+      ],
+      "materializations": [
+        {
+          "date": "2026-09-29",
+          "layer": "raw",
+          "storage_id": 7438584,
+          "timestamp": 1791576457.104528,
+          "run_id": "",
+          "file_sha256": "f51a2a8fa8cb8ec1eadd0c7c941184c54076d7ebe3eae0f5b8341aa56f7e5fde"
+        },
+        {
+          "date": "2026-09-29",
+          "layer": "silver",
+          "storage_id": 7438585,
+          "timestamp": 1791576457.137676,
+          "run_id": "",
+          "file_sha256": "92df06c4c1db297ffcd3ca47ec39dad53ea79f75acadad319804e570e8957d49"
+        },
+        {
+          "date": "2026-09-30",
+          "layer": "raw",
+          "storage_id": 7438586,
+          "timestamp": 1791576457.162078,
+          "run_id": "",
+          "file_sha256": "a83202a52871d81c8a756c0aaeebe890dd1d11cc04979c414d30327484539ef4"
+        },
+        {
+          "date": "2026-09-30",
+          "layer": "silver",
+          "storage_id": 7438587,
+          "timestamp": 1791576457.183711,
+          "run_id": "",
+          "file_sha256": "011f4b9d09f9fc92549ab2803d047a8ea4e1f103686799cca553e4fa7b4d65e6"
+        }
+      ],
+      "checks": [
+        {
+          "date": "2026-09-29",
+          "layer": "raw",
+          "status": "SUCCEEDED",
+          "partition": "2026-09-29",
+          "target_storage_id": 7438584,
+          "passed": true,
+          "blocking": true
+        },
+        {
+          "date": "2026-09-29",
+          "layer": "silver",
+          "status": "SUCCEEDED",
+          "partition": "2026-09-29",
+          "target_storage_id": 7438585,
+          "passed": true,
+          "blocking": true
+        },
+        {
+          "date": "2026-09-30",
+          "layer": "raw",
+          "status": "SUCCEEDED",
+          "partition": "2026-09-30",
+          "target_storage_id": 7438586,
+          "passed": true,
+          "blocking": true
+        },
+        {
+          "date": "2026-09-30",
+          "layer": "silver",
+          "status": "SUCCEEDED",
+          "partition": "2026-09-30",
+          "target_storage_id": 7438587,
+          "passed": true,
+          "blocking": true
+        }
+      ]
+    },
+    "readiness": {
+      "raw": {
+        "2026-09-29": {
+          "ready": true,
+          "reason": "ready"
+        },
+        "2026-09-30": {
+          "ready": true,
+          "reason": "ready"
+        }
+      },
+      "silver": {
+        "2026-09-29": {
+          "ready": true,
+          "reason": "ready"
+        },
+        "2026-09-30": {
+          "ready": true,
+          "reason": "ready"
+        }
+      }
+    },
+    "sensor_postflight": {
+      "metadata_query": "native all_instigator_state SENSOR",
+      "sensor_records_scanned": 106,
+      "matching_states": [],
+      "absent_names": [
+        "cn_a_moneyflow_mkt_dc_trade_day_sensor",
+        "raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+        "silver_moneyflow_mkt_dc_update_job_sensor"
+      ],
+      "code_default_status": "STOPPED (all three definitions)",
+      "mutations": 0
+    },
+    "checkpoint": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/events/90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319/checkpoint.json",
+    "checkpoint_state": {
+      "completed": 10,
+      "current_date": null,
+      "elapsed_seconds": 1.7750291659031063,
+      "layer": null,
+      "metadata_reads": 53,
+      "percent": 100.0,
+      "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+      "registered_keys_this_attempt": 2,
+      "stage": "complete",
+      "total": 10,
+      "updated_at": "2026-10-09T20:07:37.934499+00:00",
+      "written_events_this_attempt": 8
+    },
+    "controls_unchanged": true,
+    "formal_writes": {
+      "partition_keys": 2,
+      "materializations": 4,
+      "checks": 4
+    },
+    "unexecuted": [
+      "full registration",
+      "reload",
+      "sensor start/stop",
+      "pool configuration",
+      "jobs",
+      "Parquet writes",
+      "Prod/Tushare requests"
+    ],
+    "finished_at_utc": "2026-10-09T20:07:38.911958+00:00"
+  },
+  "physical_proof": {
+    "market_dates": 839,
+    "parquet_files": 1678,
+    "source_control_hashes": 90,
+    "all_match_frozen_p3_proof": true,
+    "cohort_hash": "05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618"
+  },
+  "next_scope": {
+    "manifest": "moneyflow_p4_mkt_dc_event_registration_full_plan_20261010.json",
+    "plan_hash": "e699ce04e04ed8e792a95ff72140251945aa282cda0b18ed25972517357ce92d",
+    "total_work_items": 2557,
+    "already_complete": 10,
+    "remaining_work_items": 2547,
+    "partitions_to_add": 837,
+    "materializations_to_add": 1674,
+    "checks_to_add": 36,
+    "native_events_to_add": 1710,
+    "requires_independent_approval": true,
+    "full_duration_not_guaranteed_by_two_day_sample": true,
+    "rough_linear_remaining_seconds": 452.291091641807
+  },
+  "source_hashes": {
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_mkt_dc_event_preview.py": "d05019f22e8d8f75638e44657994cb1de539cf156ce877c3b1a634da043f57bd",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_mkt_dc_event_plan.py": "57831a2fb996b58d383d8c78c66d6f4cd4df9ab21bf23cd7b41f3eb452e59cc9",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_mkt_dc_events.py": "50d606de5f10156229c37c0daf3e5b8c58b3f5b73b441f4663ce0887e3cd499d",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "36e01c264581670af5c73119d6a964a2f1bdb786b5761c1fb2f0043b52d794a1",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_events.py": "d8ee74301e6e1c72c835e37cf481a594f34fc953bc88817e8243e7f4e1198175",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py": "256090acf30b0e69fb961a316ac754ead82f38f2334979b11540aed1c4320923",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0380eeea8c6c4571441742998fdc05fa4d24b752ac4e095faa8414edefa12b51"
+  },
+  "documents": {
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md": "b29786255ccba35d4c48c86685e301a6908a19726bf4e5bdc40521a0fc0c2bb9",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md": "0bf9104a8a6ce670bbd3e31504f663963a4972e8fb5a7167211d06991f4531ae"
+  },
+  "artifacts": {
+    "/private/tmp/moneyflow-p4-mkt-dc-formal-sample-20261010.py": "9a2adfeb0ff6ab238bac5ba4691f8ebfd746d0f7e1ac8abe05ae2fda89c569ae",
+    "/private/tmp/moneyflow-p4-mkt-dc-formal-sample-preflight-20261010.log": "1f244d6e137aadd1485f0abbf2af38532f5ad73edeca105e0d35d49e41540318",
+    "/private/tmp/moneyflow-p4-mkt-dc-formal-sample-apply-20261010.log": "0d99900ef65430003b891b758766d534caed2c0edb77d838e4499a4ee6cc1777"
+  },
+  "preserved_historical_reports_and_manifests": {
+    "lake_console/reports/moneyflow_derivation_feasibility_20261006.json": "0944c6879316d8e16255f5bfa9c304e9a3a34772eec3148a3d40bdbdf3c8b396",
+    "lake_console/reports/moneyflow_p0_closeout_20261006.json": "6194d04cf925722ec5c8c00e8402b70af695efbb646358382afbb546aea6a413",
+    "lake_console/reports/moneyflow_p0_evidence_20261006.json": "9fa7c9582e3eab8ffa1681cde59fcaa12fa073a742fce59889a19af039bf97c3",
+    "lake_console/reports/moneyflow_p0_partial_day_followup_20261006.json": "98d406d04595502d8b1f07b56a29bbf92ce6fd78c18bc00ce538143fa02f2806",
+    "lake_console/reports/moneyflow_p0_prod_date_counts_20261006.csv": "97a41694680dc13340785af03a902acb39d33afbfda33480bf9e5d34710c90e8",
+    "lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json": "8b620d66300c01c49489b82e3df7989b2f8e434982b6e21ba7373ec9a9d8fb9a",
+    "lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json": "e603b851fc60538d5e6612f182be8f79af13d4f1ff18fd92f4be12d3d56bc020",
+    "lake_console/reports/moneyflow_p2_moneyflow_ths_evidence_20261007.json": "71d2fa3803981ee85acca2ed9e35bd8b7913bc2393ee2700c53a6994df3c01c7",
+    "lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json": "c23ec90476acb4f787247747b233a5dce7f60f1e82d1b35a3709a31220817d92",
+    "lake_console/reports/moneyflow_p3_date_candidates_evidence_20261007.json": "049fd1170665217230493fc49b270aaa65a42af37d924885f2a985f5c233aebe",
+    "lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json": "1a52dcbb8ba5aea2a2790b9f3bed8354fd81b605208060b6184dc0930850af7a",
+    "lake_console/reports/moneyflow_p3_date_query_profile_20261008.json": "71e63247688f11dfb32210bd406c6a955996993b61ce4c52bd5a23b7f8d20d1b",
+    "lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json": "f88edab78bafd2168812c4d7f66690d115d0018b7ddeaef6b812fb5f4a2e996a",
+    "lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json": "752e87b7e325755c9845f35db5039ed8210a9bf77fc06cd11cb3b335e751fa97",
+    "lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json": "02534cda4abbddbbc6f152cd6041fcad5fd01f96a0d0a17da4bf25d5c695cac3",
+    "lake_console/reports/moneyflow_p3_history_export_evidence_20261007.json": "e012f42c585964b112f37f41915abca071f6475829498cfabd3349afec58c9a4",
+    "lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json": "aa0b1012eec596957ce49f3989db4cd9a1e8500afd1b7e538d84bb6d07d3d38a",
+    "lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json": "a7fb1e68c7c457c2e35a08b006f45b404f146305e3f697f79a2cc86de4d58018",
+    "lake_console/reports/moneyflow_p3_selected_dates_evidence_20261008.json": "43ae51b534d7d66f1c9e5fe41e5b95c0312bb108fea956f8f5cb19e3ef679a88",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_evidence_20261010.json": "98da97a6f1c0726ada605b0c4fff84b4478ef921c32fa35a8029d643e6c77ed9",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_full_plan_20261010.json": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_sample_plan_20261010.json": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6",
+    "lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json": "5c1f28164a68758aa89cb2070ab2bd9af444e8abc13302210f68ef667d9802a5",
+    "lake_console/reports/moneyflow_p4_mkt_dc_sensor_event_preview_evidence_20261009.json": "8a6f805cef9e39b802709d494489a1d3fb76f7aac7b8e488ad0fc3fa90a7491d"
+  },
+  "verification": {
+    "native_mat_check_partition_and_target": "all four match storage_id, run_id and timestamp",
+    "raw_silver_readiness": "all four ready",
+    "sample_difference": "0 partitions / 0 materializations / 0 checks",
+    "checkpoint": "complete / 10 of 10 / 100%",
+    "controls_and_parquet": "unchanged and match original frozen proofs",
+    "code_changes_after_commit": 0,
+    "boundaries_changed": false,
+    "codegraph": "explore confirmed event writer / native readback / read-only adapter; no code or contract edits"
+  }
+}
