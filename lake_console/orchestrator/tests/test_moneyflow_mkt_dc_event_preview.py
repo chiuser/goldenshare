@@ -182,7 +182,7 @@ def test_existing_native_events_reused_only_with_exact_file_and_target(tmp_path,
 
 
 def test_unit_symlink_rejected_before_checkpoint_reader(tmp_path, monkeypatch):
-    import orchestrator.defs.bootstrap.moneyflow_mkt_dc_event_preview as module
+    import orchestrator.defs.bootstrap.moneyflow_history_event_preview as module
 
     staging, lake, _ = prepare(tmp_path)
     unit = next((operation(staging) / "moneyflow_mkt_dc").rglob("unit-000000"))

@@ -207,9 +207,16 @@ def build_daily_moneyflow_raw_candidate(
             if round_number == 1:
                 connection.execute("DROP TABLE daily_round_1")
             else:
-                audit_daily_moneyflow_equality(
-                    connection, raw, verification, dataset=dataset
-                )
+                try:
+                    audit_daily_moneyflow_equality(
+                        connection, raw, verification, dataset=dataset
+                    )
+                except MoneyflowContractError as error:
+                    if str(error) == "source_unstable":
+                        raise MoneyflowContractError(
+                            "source_unstable", retryable=True
+                        ) from error
+                    raise
 
         collected = collect_daily_moneyflow(
             tushare=tushare,

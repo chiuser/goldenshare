@@ -9,6 +9,7 @@ import pytest
 from dagster._core.storage.tags import RUN_KEY_TAG
 
 import orchestrator.defs.sensors.moneyflow_mkt_dc_sensor as sensors
+import orchestrator.defs.sensors.moneyflow_update_selection as selection
 from orchestrator.defs.asset_guards.moneyflow_mkt_dc_readiness import (
     batch_market_moneyflow_readiness,
 )
@@ -179,12 +180,12 @@ def test_real_transient_failure_metadata_allows_retry_but_fatal_does_not(env):
     failed = run(env, sensors.RAW_JOB, day=DAY, raise_on_error=False)
     assert not failed.success
     failure_run = env.instance.get_run_by_id(failed.run_id)
-    assert sensors._failure_retryable(env.instance, failure_run)
+    assert selection.moneyflow_failure_retryable(env.instance, failure_run)
     assert decision(sensors.evaluate_market_moneyflow(ctx, NOW)) == "request_run"
     env.source.responses = iter([[row(amount="0.123456789", day=DAY)]])
     failed = run(env, sensors.RAW_JOB, day=DAY, raise_on_error=False)
     assert not failed.success
-    assert not sensors._failure_retryable(
+    assert not selection.moneyflow_failure_retryable(
         env.instance, env.instance.get_run_by_id(failed.run_id)
     )
     assert (
@@ -194,7 +195,7 @@ def test_real_transient_failure_metadata_allows_retry_but_fatal_does_not(env):
 
 def test_six_persistent_keys_limit_survives_cursor_loss(env, monkeypatch):
     ctx = context(env)
-    monkeypatch.setattr(sensors, "_failure_retryable", lambda *_: True)
+    monkeypatch.setattr(selection, "moneyflow_failure_retryable", lambda *_: True)
     for attempt in range(1, 7):
         result = sensors.evaluate_market_moneyflow(ctx, NOW)
         request = result.run_requests[0]
@@ -310,7 +311,7 @@ def test_bounded_hash_size_and_query_count_real_evidence(env, monkeypatch):
     import json
     from time import perf_counter
 
-    import orchestrator.defs.asset_guards.moneyflow_mkt_dc_readiness as guard
+    import orchestrator.defs.asset_guards.moneyflow_delivery_readiness as guard
 
     ctx = context(env)
     publish(env)
@@ -339,7 +340,7 @@ def test_bounded_hash_size_and_query_count_real_evidence(env, monkeypatch):
     )
     monkeypatch.setattr(guard, "candidate_file_hash", hash_file)
     started = perf_counter()
-    ready = guard.batch_market_moneyflow_readiness(env.instance, env.lake, [DAY])
+    ready = batch_market_moneyflow_readiness(env.instance, env.lake, [DAY])
     assert ready["raw"][DAY].ready and ready["silver"][DAY].ready
     elapsed = perf_counter() - started
     assert counts == {"materializations": 2, "checks": 2, "hashes": 2}
@@ -360,7 +361,7 @@ def test_bounded_hash_size_and_query_count_real_evidence(env, monkeypatch):
     path.write_bytes(b"x" * (64 * 1024 + 1))
     previous = counts["hashes"]
     assert (
-        guard.batch_market_moneyflow_readiness(
+        batch_market_moneyflow_readiness(
             env.instance, env.lake, [DAY], layers=("raw",)
         )["raw"][DAY].reason
         == "file_hash_budget"

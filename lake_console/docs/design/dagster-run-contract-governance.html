@@ -605,6 +605,19 @@
       run。cursor 只保留最早缺口、阻断组件、有界 readiness/发布摘要、查询次数和耗时；
       不保存完整窗口报告，不写自定义 run tags 或 run config。
     </p>
+
+    <div class="note">
+      <strong>2026-10-10 同花顺行业资金流调度：</strong>
+      <code>cn_a_moneyflow_ind_ths_trade_day_sensor</code> 分类为
+      <code>quote_data / partition / partition_registration</code>，上海22:00后优先登记当天再补最早漏日，最多2键。
+      <code>raw_tushare_moneyflow_ind_ths_update_job_sensor</code> 与
+      <code>silver_moneyflow_ind_ths_update_job_sensor</code> 分类分别为
+      <code>quote_data / raw / asset_update</code>、<code>quote_data / silver / asset_update</code>。
+      三者使用统一tag builder且默认STOPPED；更新仅看最近10个截止日后的SSE交易日，一次一个本表job，不请求Tushare或写Parquet。
+      已有坏check/hash需要人工处理；原方案规定的空源、两轮不稳定及暂时网络错误最多六次自动attempt。
+      历史登记只做本表只读预演，正式启用/登记须独立批准。完整阶段与预算见
+      <a href="dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ind-ths-automation">资金流LLD §35</a>。
+    </div>
   </section>
 
   <section>

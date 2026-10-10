@@ -126,10 +126,15 @@ def collect_daily_moneyflow(
             if not result.completed:
                 raise MoneyflowContractError(
                     f"{result.blocked_reason or 'source_request_failed'}:"
-                    f"{result.failed_pages[0].message if result.failed_pages else 'budget'}"
+                    f"{result.failed_pages[0].message if result.failed_pages else 'budget'}",
+                    retryable=bool(result.failed_pages)
+                    and not result.budget_exceeded
+                    and all(f.retryable for f in result.failed_pages),
                 )
             if scope_count[0] == 0:
-                raise MoneyflowContractError(f"source_pending:{content_type or 'all'}")
+                raise MoneyflowContractError(
+                    f"source_pending:{content_type or 'all'}", retryable=True
+                )
             scope_counts.append(scope_count[0])
         complete_round(round_number, round_count[0])
         guard()
@@ -138,7 +143,7 @@ def collect_daily_moneyflow(
             first_count = round_count[0]
             first_scope_counts = tuple(scope_counts)
         elif round_count[0] != first_count:
-            raise MoneyflowContractError("source_unstable")
+            raise MoneyflowContractError("source_unstable", retryable=True)
     return DailyMoneyflowCollection(
         first_count,
         session.request_count,
