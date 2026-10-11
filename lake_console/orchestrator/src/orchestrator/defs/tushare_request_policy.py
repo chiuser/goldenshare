@@ -5,11 +5,18 @@ from dataclasses import dataclass
 from time import perf_counter, sleep
 from typing import Any, Generic, TypeVar
 
+from requests import exceptions as request_errors
+
+from orchestrator.defs.tushare_errors import TushareResponseError
+
 TushareResponse = TypeVar("TushareResponse")
 
+TUSHARE_FAILURE_RESPONSE_UNCLASSIFIED = "source_response_unclassified"
 TUSHARE_FAILURE_RATE_LIMIT = "rate_limit"
 TUSHARE_FAILURE_TRANSIENT = "transient"
 TUSHARE_FAILURE_NON_RETRYABLE = "non_retryable"
+TUSHARE_FAILURE_PERMISSION_OR_PARAMETER = "source_permission_or_parameter"
+TUSHARE_FAILURE_CONTRACT = "source_or_data_contract"
 TUSHARE_FAILURE_RETRY_BUDGET = "retry_budget_exhausted"
 
 
@@ -197,7 +204,29 @@ class BoundedPageRequestResult(Generic[TushareResponse]):
 def classify_tushare_error(error: BaseException) -> tuple[str, bool]:
     """Classify source errors without retrying deterministic contract failures."""
 
+    if isinstance(error, TushareResponseError):
+        return TUSHARE_FAILURE_RESPONSE_UNCLASSIFIED, True
+    # Deterministic errors must not be promoted by incidental words/digits.
+    if isinstance(error, (PermissionError, FileNotFoundError, IsADirectoryError)):
+        return TUSHARE_FAILURE_NON_RETRYABLE, False
+    if isinstance(error, (ValueError, TypeError)):
+        return TUSHARE_FAILURE_CONTRACT, False
+    if isinstance(error, OSError) and not isinstance(
+        error, (ConnectionError, TimeoutError, request_errors.RequestException)
+    ):
+        return TUSHARE_FAILURE_NON_RETRYABLE, False
+    status = getattr(getattr(error, "response", None), "status_code", None)
+    if type(status) is int:
+        if status in (400, 401, 403):
+            return TUSHARE_FAILURE_PERMISSION_OR_PARAMETER, False
+        if status == 429:
+            return TUSHARE_FAILURE_RATE_LIMIT, True
+        if 500 <= status < 600:
+            return TUSHARE_FAILURE_TRANSIENT, True
     message = f"{type(error).__name__}: {error}".lower()
+    if any(marker in message for marker in ("没有权限", "无权限", "权限不足", "permission denied",
+                                            "unauthorized", "forbidden", "invalid parameter", "参数错误", "积分不足", "接口不支持")):
+        return TUSHARE_FAILURE_PERMISSION_OR_PARAMETER, False
     rate_limit_markers = (
         "频率超限",
         "请求频率",
@@ -221,7 +250,7 @@ def classify_tushare_error(error: BaseException) -> tuple[str, bool]:
     )
     if any(marker in message for marker in rate_limit_markers):
         return TUSHARE_FAILURE_RATE_LIMIT, True
-    if isinstance(error, (ConnectionError, TimeoutError, OSError)) or any(
+    if isinstance(error, (ConnectionError, TimeoutError, request_errors.ConnectionError, request_errors.Timeout)) or any(
         marker in message for marker in transient_markers
     ):
         return TUSHARE_FAILURE_TRANSIENT, True

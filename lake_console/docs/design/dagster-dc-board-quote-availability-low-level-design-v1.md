@@ -1,6 +1,6 @@
 # DC 板块暂未形成行情的处理 LLD v1
 
-> 状态：2026-10-09 已按管理员开发授权完成代码实施、隔离回归和正式 Lake 历史存在性只读验证；实施对账见 §8.1。23:25 完成10月8、9日真实源双快照只读预检，两日均通过；正式 code location 仍为旧模型。正式写入与上线验收尚未执行，不能据此宣称 10 月 8 日数据已经恢复。
+> 状态：2026-10-11。原条件覆盖模型已实施（§8.1）；10 月 8、9 日数据恢复后的物理审计及 10 月 9 日 member 正式恢复见 §10.5。自动恢复次数、冷却与分类设计已按管理员指令写入 §10；§10.8 历史审计发现的身份载体冲突已按管理员确认在 §10.9 解决，§10.10 保留开发前复审，§10.11 记录已完成的隔离开发、逐项对账与验证；尚未部署或执行正式恢复。§8.1、§8.2 保留各自日期的历史记录，不代表当前发布阻断或新增机制验收。
 > 本文是 [板块接入方案](./dagster-dc-board-data-onboarding-plan.md) 和 [原 LLD](./dagster-dc-board-data-onboarding-low-level-design.md) 的实施补充；本文条件覆盖口径已进入当前工作区代码，原文档中的旧集合门禁仅保留为历史阶段记录。
 
 ## 1. 结论与范围
@@ -154,7 +154,7 @@ daily 历史起点固定为现行 `2024-01-02`；index 起点为 `2024-12-20`。
 
 #### 4.4.1 模型与构造方
 
-新模型统一为 `DcBoardSourceFreezeConfig`，放在 `defs/run_contracts/configs.py`；替代 `DcBoardIndexSourceSnapshotConfig`，全部构造方和消费者同时迁移，不留旧模型兼容入口。index、daily、member 都绑定该类型。集中构造函数为 `build_raw_dc_board_update_job_run_config(asset_name, partition_key, proof)`；asset_name 仅接受当前三个 Raw asset，返回对应 op config，不增加 job、CLI 参数或调度开关。bootstrap 用同一 proof 构造/校验函数调用 writer，不自行填写 observed_at。
+新模型统一为 `DcBoardSourceFreezeConfig`，放在 `defs/run_contracts/configs.py`；替代 `DcBoardIndexSourceSnapshotConfig`，全部构造方和消费者同时迁移，不留旧模型兼容入口。index、daily、member 都绑定该类型。源证明阶段的集中构造函数为 `build_raw_dc_board_update_job_run_config(asset_name, partition_key, proof)`；后续自动恢复执行config的外层模型与新增identity入参以§10.9为准。asset_name 仅接受当前三个 Raw asset，返回对应 op config，不增加 job、CLI 参数或调度开关。bootstrap 用同一 proof 构造/校验函数调用 writer，不自行填写 observed_at。
 
 | 字段 | 类型及约束 | 实际生成方 |
 | --- | --- | --- |
@@ -376,6 +376,254 @@ Tushare MCP另以完整显式daily字段核对BK1754：10月8日为空，10月9�
 
 ## 9. 推进边界
 
-本轮开发授权已落实为代码及隔离测试，完整生产验收仍分阶段执行。限定10月8、9日的真实源双快照只读预检已通过（§8.2）；下一步先明确其他未提交DG改动的发布边界并完成独立实施审计，再获明确生产授权，才能加载新代码并恢复正式链路。不能把隔离测试、历史存在性只读结果当作完整源确认或正式恢复结果。
+原条件覆盖模型的开发与限定恢复已推进；§8.1、§8.2 是历史阶段证据，2026-10-11 恢复后的物理事实见 §10.5。当前下一步仅是审查新增自动恢复设计及补齐 §10.6 的开发前门禁；管理员本次只授权修订文档，没有授权开发、部署或正式执行新机制。原质量和写入安全门禁继续有效，不能把真实人工恢复结果当作新增自动恢复的验收。
 
 不改变业务子系统依赖矩阵；实现仅在 DG orchestrator 域内。主要风险是历史证据不完整导致误判、源端短暂缺失被过早放行、多个门禁迁移不一致，以及观察记录容量/保留期限。本文分别以存在性证据不可验证时失败关闭、稳定重复快照、共用判定与消费者测试、显式截断及现有保留策略处理；没有依据时继续等待，不把猜测写成行情事实。
+
+## 10. 自动恢复修订（2026-10-11，隔离开发完成，正式上线待验收）
+
+本节先按管理员“按建议修订原 LLD、先不要开发”的指令确定实施口径，随后获准开发；开发前审计历史保留在 §10.8/§10.10，当前实施与验证见 §10.11。只补齐 DC 日更的请求重试和失败分区恢复，不开启全局 run retries，不新增失败 sensor、状态表、事件台账或运营开关，不扩大历史质量扫描。§8.1 的已通过测试不能作为本节验收结果。
+
+### 10.1 当前问题与修复范围
+
+开发前 `resources.TushareResource.call` 对零列 DataFrame 抛出 `TushareResponseError`，这是正确的空数据保护；`tushare_request_policy.classify_tushare_error` 未识别该类型，落入 `non_retryable`。本机 SDK 的 `DataApi.query` 将 HTTP 400/401/403/429/5xx 等不成功响应转换成零列 DataFrame，丢失 HTTP 状态，因此不能把无字段响应描述为“已确认的网络临时错误”。现有 `test_tushare_resource_response.py` 已覆盖这些 HTTP 状态，但未证明请求策略对该异常会恢复。
+
+开发前 DC Raw sensor 取得证明后总是提交 `job_subject:trade_date`；Dagster 对已使用 key 去重，包括失败任务。重新观察、重置 cursor 或再次返回相同请求都不会释放 key。该行为符合 [Dagster sensor 去重规则](https://dagster.io/docs/guides/automate/sensors#preventing-duplicate-runs)。
+
+实施范围为三个 DC Raw 日更 job（index/member/daily）的统一恢复规则，以及 DC Silver 日更的活动任务和失败状态识别。Silver 不因本节自动重跑校验失败。Gold、serving、资金流及其他数据集不迁移；不得修改通用 `build_asset_update_run_key` 来改变所有调用方行为。共用错误分类器的所有调用方须回归，尤其完整分页、按代码分页、source probe 和既有周线异常分类消费者；不改变它们各自的自动调度次数。
+
+### 10.2 两层次数与冷却时间
+
+| 层级 | 确认值 | 如何计数 |
+| --- | --- | --- |
+| 单次请求重试 | 最多重试 3 次，即首次请求加 3 次重试，共最多 4 次调用 | 沿用既有策略；退避 1、2、4 秒，退避上限仍为 8 秒；每次调用、分页和重试计入本次 writer 请求预算 |
+| 分区自动执行 | 同一 Raw job、同一交易日最多 3 次，包含首次执行，即最多 2 次自动恢复 | 首次为第 1 次，恢复为第 2、3 次；跨自然日、重启、reload 和 cursor 丢失均不重置 |
+| 第 2 次执行冷却 | 首次失败结束后至少 600 秒（10 分钟） | 用失败 run 的持久化结束时间计算，不能用 sensor 发现失败的时间代替 |
+| 第 3 次执行冷却 | 第 2 次失败结束后至少 1,800 秒（30 分钟） | 同上；缺结束时间或运行记录不完整则停止自动恢复 |
+
+600 秒是现有 sensor 最小评价间隔，不是执行承诺；冷却满足后仍须等待实际 tick、源证明及排队。自动额度耗尽后不在次日重新获得额度。人工执行不消耗自动编号，但其活动、取消、失败和成功事实必须参与当前状态裁决；不得用人工执行重置既有自动额度。
+
+每次 writer 保持既有 1,200 请求、600 秒预算，源复核、成员分页和请求重试继续从同一预算扣除。三个自动执行的 writer 请求上限为 3,600；sensor 的完整源观察另计，每次仍最多 16 请求。现有时间预算是阶段检查，不等于能够强制中断一个正在执行的 SDK 调用；验收必须记录实际总耗时和超限拒绝行为，不能宣称精确的 600 秒硬中止。
+
+本节不持久化已成功板块的中间请求结果；分区恢复重新执行完整 writer。跨运行只补失败板块需要另行设计源一致性与 checkpoint，不能把不同时间的内存结果拼成正式文件。
+
+### 10.3 失败原因与自动恢复资格
+
+以下为拟实现的统一 reason code；当前旧事件不具有这些字段。请求重试资格和分区恢复资格必须分开保存，不能从异常类名字或一段 message 推导全部决策。
+
+| reason code | 判定依据 | 单次请求重试 | 分区自动恢复 |
+| --- | --- | --- | --- |
+| `source_transient` | 已识别的连接中断、超时等临时源错误 | 有限重试 | 请求重试耗尽后可进入冷却 |
+| `source_rate_limit` | 明确的限流证据 | 有限退避重试 | 请求重试耗尽后可进入冷却 |
+| `source_response_unclassified` | SDK 未声明响应字段，HTTP 原因已丢失 | 有限重试 | 重试仍失败后允许有限恢复；不宣称已确认临时故障 |
+| `source_permission_or_parameter` | 明确权限、积分、认证、参数或接口不支持证据 | 否 | 否，人工处理 |
+| `source_or_data_contract` | 返回身份/日期/字段/主键错误、确定性行校验失败 | 否 | 否，人工处理 |
+| `source_confirmation_pending` | 尚不满足已有源稳定证明 | 不新增分区运行 | 下一 tick 继续观察，不消耗执行次数 |
+| `source_changed_after_freeze` | writer 复核发现源或历史证据漂移 | 不沿旧证明重放 | 否；阻断并人工复核，本轮不引入自动漂移修复 |
+| `request_or_resource_budget_exhausted` | 请求、时间、分页、内存或既有资源门禁耗尽 | 否 | 否，不以新 run 获得新预算来绕过容量限制 |
+| `blocking_check_failed` | 已物化文件的核心 blocking check 失败 | 不适用 | 否，不自动覆盖文件 |
+| `manual_canceled` | 任一当前相关任务明确取消 | 否 | 否，尊重停止意图 |
+| `unknown_or_infrastructure` | 无结构化证据、进程异常退出、依赖/挂载错误等 | 否 | 否，本轮不自动恢复未知或基础设施失败 |
+
+有字段且零行的响应保留合法空返回语义；是否允许整日空数据仍由各数据集 writer 合同判定。不得把无字段异常改为零行成功，也不得将所有 schema 错误、`ValueError` 或未知异常纳入可恢复范围。SDK 丢失的 HTTP 401/403 可能与其他状态一并进入 `source_response_unclassified`，这是保留 SDK 的已知限制；最多有限重复，不保证这些状态立即停止。明确可见的权限错误仍立即停止。HTTP 传输重写不在本轮范围，不通过全局 monkeypatch 截获请求。
+
+writer 必须在请求结果仍保有全部失败信息时计算恢复资格：只有全部失败均属于前三类、没有未尝试代码、没有总预算耗尽、没有结构校验失败，才可标记分区可恢复。不得只看最多 20 条展示样本；混合失败只要有一项不可恢复，整日即不可恢复。三类 Raw writer 和 source probe 的错误传播须保留类型化原因，不解析当前拼接字典的异常字符串。
+
+使用 Dagster 既有 STEP_FAILURE 事件的结构化 failure metadata 保存：`failure_policy_version`、`reason_code`、`request_retryable`、`partition_retryable`、`failed_count`、`unattempted_count`、`request_count`、`retry_count`、`budget_exceeded`、`budget_reason` 和有界代码样本。恢复策略版本、自动尝试编号和来源失败 run id保存于§10.9的typed run_config；不写项目自定义run tags。失败资格只由STEP_FAILURE确定，config不承载retryable开关；事件id不进入run key。metadata 不能记录 token、原始 HTTP body 或无界源错误文字。状态记录不能替代文件事实，也不能回滚已经提升的业务文件；metadata 缺失时自动恢复停止，不能猜测放行。
+
+### 10.4 sensor 决策、身份与观测
+
+使用现有 sensor，依次执行以下流程：
+
+1. 保持已有有界日期窗口和 readiness 判定。分区已就绪则停止；检查失败、坏文件或成功 run 与文件事实矛盾时返回人工复核，不以新编号覆盖。
+2. 先查同一 job 的活动任务，再查目标日期的最近运行记录。活动查询覆盖人工、sensor 和 reexecution 任务，不仅匹配原固定 key；QUEUED、NOT_STARTED、STARTING、STARTED、CANCELING 等非终态均等待。未知状态停止自动判断。此检查在昂贵源观察之前执行。
+3. 从持久化 run 记录读取最后状态、结束时间、失败资格、已消费自动 key 和人工停止意图。人工失败或未知失败不能被更早的可恢复失败遮盖。记录达到查询上限、事件不完整、编号重复或身份冲突时停止。
+4. 无原始执行时使用现有首次 key；有可恢复失败时检查剩余次数与冷却。未满足则返回明确 skip。查询与源观察未创建 run，不消耗尝试次数。
+5. 满足后重新走既有源观察与稳定确认，生成新证明；证明不完整则等待。源观察后、返回 RunRequest 前再次核对活动任务和尝试身份，避免观察期间已有人工任务启动。正式维护不得与自动运行并行；本节不承诺跨任意人工提交入口的原子互斥锁。
+6. 首次 key 仍为 `job_subject:trade_date`。第 2、3 次调用既有 `build_repair_attempt_run_key(subject=job_subject, repair_scope_id=trade_date, attempt=2或3)`，不传按自然日变化的 scope，不用 UUID、时间或源指纹制造无限 key。恢复记录保留来源失败 run id，但不虚构 Dagster parent/root reexecution 关系；这是 sensor 新提交的恢复运行。
+7. 同一待消费请求再次评价时复用相同编号与 key。已有 NOT_STARTED 或队列任务则等待 Dagster 原提交链，不另领编号。cursor 可丢失而不重置额度；持久化 run 存在才算消耗对应执行次数。
+8. 成功后由物理 readiness 和已有核心 check 闭环，Silver 沿现有 sensor 继续推进。Silver 有失败记录时显示失败原因并停止，不另开自动恢复额度。
+
+source 观察的旧 checkpoint 只按现有兼容性规则用于稳定时间举证；新恢复 run 必须取得当前完整证明，并由 writer 前后重新核验。不得直接复制旧失败 run_config 跳过观察。
+
+cursor/skip 展示至少包含目标日期、`active_run` / `retry_cooldown` / `retry_exhausted` / `non_retryable_failure` / `legacy_failure_requires_review` 等决策、最后 run id、已执行次数、剩余次数、下一次最早允许时间及阻断原因。这些是现有观测载体的扩展，不新增行情事实或通知服务。
+
+### 10.5 历史失败记录与上线迁移
+
+不删除、改写旧 run，不清空 run key，不补造失败 metadata，不批量重跑历史。
+
+| 历史情况 | 处理方式 |
+| --- | --- |
+| 旧首次 key 已存在，当前文件与检查已就绪 | 保留旧记录，停止；历史失败不触发恢复 |
+| 旧首次 run 失败，文件缺失，缺本节结构化失败证据 | 记为 `legacy_failure_requires_review`，不能从旧异常文字或新一次源成功推断旧失败可恢复 |
+| 旧 run 尚非终态 | 等待，不生成第 2 次 key |
+| 旧取消、成功但文件缺失、编号/运行归属无法核清 | 停止并展示对应矛盾，人工处理 |
+| 新策略运行失败且有完整失败证据 | 按本节分类、累计次数和冷却处理 |
+
+旧首次固定 key 计为第 1 次自动执行；已带本策略身份的恢复运行计入第 2、3 次。历史人工 reexecution 不冒充自动编号，不重置自动次数；缺少身份信息且无法区分时停止自动恢复。管理员可按精确日期授权人工恢复，取得新证明并走原正式 job；这项授权不等于重新开放该分区的自动额度。
+
+2026-10-09 原 member 失败 run `5cf410ae-7a9e-4218-9dde-673c9cc5a0f1` 属于旧记录，保留。2026-10-11 已人工恢复 Raw（`e95b31f2-1c4f-46da-92b2-f7ce133ca8c0`），Silver 随后由正常 sensor 完成（`88d24519-5d13-437d-806e-a1a7206d333c`）。两层各 94,563 行、1,032 板块，核心检查通过，BK1615 各 17 行；该日期已就绪，部署新策略时不得因旧失败再次执行。恢复后的按日物理审计在排除四个开发中资金流资产后，10 月 8、9 日均为 145/145 有实际数据；这不是全部数据集质量验收，也不是本节自动恢复已实现的证据。
+
+上线前只核对当前有界窗口内相关失败、活动任务和已使用 key，不扫描全部历史。旧记录的只读清单与人工决策保留为发布证据，不新增运行状态事实表。Dagster run/event 的保留期限须能覆盖仍可能恢复的日期；记录被清理或关键身份不可验证时停止，不能把“查不到记录”当成新的首次执行。2026-10-11 当前配置与记录保留已核实（§10.8），额度可靠性限于记录未被外部清理的边界，不承诺永久保留或检测所有整段删除。
+
+### 10.6 配置与实施点审计
+
+下表是已确认设计值及拟实施位置，尚未存在于当前代码；不使用 env、数据库或页面常量分散维护。
+
+| 配置 | 默认值与位置 | 消费者、依赖与生效 | 运维可见与门禁 |
+| --- | --- | --- | --- |
+| 请求重试与 writer 预算 | 既有 `DC_MEMBER_MAX_RETRIES=3`、退避 1/2/4 秒、1,200 请求／600 秒；既有 DC contract 与共享请求策略 | writer/source probe，受总请求和时间预算约束；不新增设置 | failure metadata 和既有请求统计；重试/分页/预算边界测试 |
+| `DC_BOARD_AUTO_MAX_ATTEMPTS`（拟新增） | 3，集中 `run_contracts/dc_board.py` | 三个 Raw sensor；依赖持久化 run 身份，不按日重置；definitions reload 后生效 | cursor 计数与 exhausted；初次/两次恢复/第四次禁止 |
+| `DC_BOARD_AUTO_RETRY_COOLDOWN_SECONDS`（拟新增） | `(600, 1800)`，同一 contract | Raw sensor；依赖上一失败结束时间；reload 后生效 | next eligible time；599/600、1799/1800 秒边界 |
+| `DC_BOARD_RECOVERY_POLICY_VERSION`（拟新增） | `dc_board_recovery_v1`，同一 contract | Raw asset failure metadata、sensor、typed run_config身份；不替代原行情覆盖 policy version | 版本不匹配/缺字段停止；旧记录迁移反例 |
+| `DC_BOARD_RECOVERY_RUN_RECORD_LIMIT`（拟新增） | 20 条目标 job/date 记录；读取最多 21 条以判断溢出 | Raw/Silver 状态判断；命中第 21 条则停止，不无界补查；活动查询仅需取得一个匹配任务 | cursor `run_record_limit`；截断、历史人工运行密集样本 |
+
+新增配置仅存于版本化源码；尝试身份存于typed run_config，不写自定义run tags；失败事实存于 STEP_FAILURE，cursor 保存观测投影。任何测试常量须从正式 contract 读取。改变次数、冷却或分类属于策略变更，必须同步本 LLD，不能由运营页面暗中调整。
+
+拟改动：共享请求策略的类型化异常识别；DC Raw writer/asset 的结构化失败传播；三个 Raw sensor 的有界运行历史选择与恢复请求；Silver sensor 的活动/失败阻断；run contract、metadata/config builder 和相关测试；请求builder不新增自定义tags支持。必要公共异常类型放在 orchestrator 内独立小模块，避免让请求策略反向依赖装配资源；不引入 foundation/ops/biz/app 依赖。
+
+开发前还必须同步 [run key 治理方案](./dagster-run-key-governance-optimization-plan.md) 和 [run key 治理 LLD](./dagster-run-key-governance-low-level-design.md) 的 DC 恢复消费者口径，按编码规范完成全部构造方/消费方与静态门禁审计。2026-10-11 已按后续授权同步两份治理文档，保留核验和开工结论见 §10.8；随后管理员已确认typed config载体，消费者口径与最终开工结论见§10.9/§10.10，§10.8只保留当时审计结论。需核验 Dagster 记录保留、运行查询限制及新旧策略上线的无活动任务窗口；不在文档阶段改变配置或正式状态。
+
+### 10.7 验收清单与推进顺序
+
+隔离测试必须覆盖以下相互独立的行为：
+
+1. 单次无字段响应后成功、连续四次失败；有字段的合法空返回不被误判；显式权限错误不重试；已识别超时/限流有限重试。用安装 SDK 的 HTTP 替身证明 401/429/5xx 信息丢失边界，不能声称能够区分它们。
+2. 一个或多个临时失败可恢复；混合确定性失败禁止恢复；超过 20 条失败样本仍用完整结果计算资格；预算耗尽、未尝试代码、错误日期/身份和源漂移禁止分区恢复。
+3. 首次 key、两个稳定恢复 key；第四次禁止；跨日、重启、cursor 丢失和重复 tick 不重置、不重复领号；未消费请求不提前扣额度。
+4. 所有非终态及人工活动任务等待；源观察前后活动核对；600/1,800 秒边界；结束时间缺失、记录溢出、事件缺失或版本不匹配停止。
+5. 人工取消和未知失败停止；成功 run 与物理事实矛盾停止；旧失败无 metadata 不自动恢复；本文已恢复的 10 月 9 日不会因旧失败重跑。
+6. writer 未通过校验不提升、既有文件不被失败覆盖；恢复成功后核心 check 与 Silver 推进闭环；观测状态缺失不能回滚已提交文件。
+
+先补齐 §10.6 的治理文档和配置/消费者对账，再开发、运行隔离测试和 definitions 静态校验。正式验收另获精确执行授权，只选一个代表性日期，用可控方式验证失败—冷却—恢复—文件读回，不把正式资源当测试故障注入对象；不得为验收扫描或重写全历史。此次真实恢复只证明现有 job 可执行，不能替代新自动机制的隔离验收。
+
+### 10.8 开发前补齐与审计（历史结论；2026-10-11，保留配置核验于 16:27）
+
+本节保留typed config方向确认前的审计记录，载体阻断已在§10.9/§10.10解除；保留核验事实仍适用。本次按管理员要求只同步 run key 治理文档、核实记录保留并审计开工条件。没有开发、测试故障注入、加载定义、运行 job、修改 sensor/cursor、改配置或删除记录。完整有界结果归档为 [开发前审计证据](../../reports/dc_recovery_development_readiness_20261011.json)。时间是本次保留配置核验时点，不代表未来服务状态。
+
+**治理同步已完成。** [run key 治理方案 §13](./dagster-run-key-governance-optimization-plan.md#13-dc-日更有限恢复增量2026-10-11仅设计同步) 与 [治理 LLD §17](./dagster-run-key-governance-low-level-design.md#17-dc-raw-有限恢复身份2026-10-11尚未开发) 已同步三个 Raw subject、首次固定 key、恢复编号 2/3、无自然日 scope、三次总额度、人工运行边界及旧记录处理。通用 builder 不改签名，不改变其他数据集 key，原 M1-M9 完成状态不包含新增 DC 恢复。
+
+**保留范围已做只读核实。** 正式目标为 `/Users/congming/.goldenshare/dagster_home`，现有项目环境 Dagster 为 1.13.18，`dagster.yaml` 使用 PostgreSQL storage，未配置 `retention` 或 `run_retries`。默认值和清理代码以安装版本为准；[官方 instance 配置文档](https://dagster.io/docs/deployment/oss/dagster-yaml)用于核对配置语义，不能用最新线上版本替代本机代码。
+
+| 记录类别 | 当前核验结果 | 对恢复设计的意义 |
+| --- | --- | --- |
+| run、原生 run_key/partition tags、创建/结束时间 | 当前配置没有自动过期期限；六个 DC Raw/Silver job 均仍有 2026-08-31 样本 | 当前持久化范围覆盖本次恢复窗口；不是全历史完整性或永久保留保证 |
+| member 原失败事件 | 旧失败 run及 STEP_FAILURE/RunFailure事件可读；limit=100，hasMore=false | 原始失败事实未因 tick清理丢失；旧事件仍缺新策略结构化失败资格，不能自动追认 |
+| 10 月 9 日六个 DC job | 每 job读取最多21条，实际为1/2/1/1/1/1；member为原失败加人工成功恢复，未触及截断上限 | 当前有界查询能同时读到相关身份与时间，无需全历史遍历 |
+| sensor tick | 本机默认只清理超过7天的 SKIPPED；其他sensor tick状态默认-1；schedule tick默认均-1 | tick与cursor不作为自动次数事实，SKIPPED清理不应重置额度 |
+| 既有手工事件清理工具 | 股票分钟线、非分钟资产两类sample-delete均需显式确认，资产白名单不含DC；DELETE只针对check/materialization相关事件，未删runs/run tags/STEP_FAILURE | 当前源码工具不清理本方案所需DC恢复身份与失败证据；本次只读代码，未执行工具 |
+| 已检查本机入口 | `Library/LaunchAgents`、`.goldenshare`下plist/sh/py/toml/yaml未发现匹配Dagster retention/delete的脚本 | 仅为已检查路径结果，不声称排除所有外部DBA、crontab或手工操作 |
+
+保留约束为：只要 DC 日期仍能进入自动恢复窗口，就必须保留其首次/恢复 run、身份信息、终态时间及用于资格裁决的 STEP_FAILURE。不能把tick、stdout/compute logs清理等同于这些记录清理。当前无需新增TTL或状态表；未来清理、迁移或保留配置变更须先检查该依赖，不能把记录删空后让sensor重新当作第1次。
+
+运行记录完全被外部删除且没有独立记录时，现有run历史本身不能证明“以前运行过”；文档不宣称系统能可靠检测所有整段删除。部分身份、事件缺失及截断要失败关闭；完全删除风险通过现行无自动清理事实与上述运维保留边界约束，重新部署前复核。若未来确需自动清理DC运行历史，先重新设计并获确认，不用本次方案兜底。
+
+**开工审计结论：仍有一项设计冲突，暂不满足开始开发条件。**
+
+| 开发门禁 | 结果 | 依据或剩余工作 |
+| --- | --- | --- |
+| 目标、范围、次数、冷却、分类、预算、历史处理 | 已明确 | §10.1–§10.7；不扩大数据集或全历史扫描 |
+| run key治理同步与通用builder适配 | 已补齐 | 两份治理文档增量；CodeGraph确认沿用已有两个builder，不修改其他消费者输出 |
+| 运行记录保留范围和真实有界样本 | 已核实 | 本节及归档证据；部署前复核属于上线门禁，不要求现在改正式配置 |
+| 配置集中位置、读取上限、验收场景 | 已明确 | §10.6；新增常量尚未编码；限流、冷却、身份/事件缺失、旧记录、取消与截断均有测试要求 |
+| 恢复身份持久化载体与静态门禁一致 | **当时阻断，已在§10.9解除** | 当时版本§10.3/§10.6的自定义run tags与现行禁令冲突；后续已确认typed config，不放开通用门禁 |
+| 隔离实现/测试、definitions验证与正式上线验收 | 尚未执行 | 这是确认设计后的开发/发布阶段任务，不拿历史354/23测试或人工恢复结果替代 |
+
+剩余冲突的代码证据为 `run_contracts/requests.py:build_run_request`（不接项目tags），治理LLD §1.2（禁止sensor写run tags），`test_run_contract_static_gates.py`（检查run_tags/tags写入）。开发影响面已经覆盖：三类Raw asset/config builder/source proof/writer、Raw sensor、Silver阻断、bootstrap与人工config构造、failure事件读写、共用错误分类器、run key与请求builder以及static gates；不改Prod/Wealth/业务分层依赖。
+
+建议采用治理LLD §17.1的显式typed run_config替代自定义tags：保存`policy_version`、`automatic_attempt`、`source_failure_run_id`，原生Dagster key只与builder预期身份比对，不反解析执行参数；失败资格仍来自STEP_FAILURE。这会调整DC配置契约，尚待管理员确认。确认后须一次性修改本LLD §10.3/§10.6和治理文档的载体表述，补齐三asset、builder/validator、sensor、bootstrap/人工入口的消费者迁移与负向测试映射，清零自定义tags方案，不保留双轨；之后再做开工审计。此次未修改Python或现行契约，也不将该建议写成已批准。
+
+### 10.9 已确认的 typed run_config 与全消费者口径（2026-10-11）
+
+管理员已明确同意：typed run_config 保存恢复身份，STEP_FAILURE metadata 保存失败事实。本节取代 §10.8 历史审计的载体阻断结论；自定义 run tags 方案退出，不放宽禁止 sensor 写项目 tags 的门禁。以下模型和字段为已确认契约；当前 Python 实现与测试对账见 §10.11，正式执行尚未验收。
+
+#### 10.9.1 配置模型与校验责任
+
+集中于 `run_contracts/configs.py`，源证明与执行意图分开：
+
+| 模型/字段 | 类型与默认值 | 来源、责任与拒绝条件 |
+| --- | --- | --- |
+| `DcBoardSourceFreezeConfig` | 保持现有 source proof 模型 | 只保存实际源/Prod/历史证明；原 `policy_version` 仍是行情覆盖版本，不放恢复编号或失败资格 |
+| `DcBoardRecoveryIdentityConfig.policy_version` | 必填字符串，固定 `dc_board_recovery_v1` | 集中 recovery contract；不匹配拒绝，不默认补版本 |
+| `automatic_attempt` | 必填整数，只允许 1、2、3；拒绝 bool/string/coercion | sensor 从持久化运行记录计算，不从 key解析，不供运营自由选次数 |
+| `source_failure_run_id` | `str | None`；首次必须为空，2/3必须为非空真实run id | 指向同job、同partition、最近终态失败；来源失败资格、结束时间、冷却与次数须在实例记录中核验；不是event storage id |
+| `DcBoardRawRunConfig.source_proof` | 必填 `DcBoardSourceFreezeConfig` | 三类Raw asset的执行config外层；日期/asset/覆盖policy一致性沿用原validator |
+| `DcBoardRawRunConfig.recovery_identity` | `DcBoardRecoveryIdentityConfig | None = None` | 自动首次/恢复必须显式设置；人工正式执行无自动身份；None不是旧配置兼容入口，不授予自动恢复资格 |
+
+对应 `ops.<asset_name>.config` 的唯一新形状为 `{source_proof: {...}, recovery_identity: {...或null}}`。不把恢复字段混入proof，不接受旧flat proof作为asset执行config，不同时支持tags和config两种身份。运行历史读取允许识别旧flat config为legacy记录，但不能将其转换成新自动执行授权。
+
+统一 builder `build_raw_dc_board_update_job_run_config` 保留 asset/partition/proof 入参，新增可选 typed `recovery_identity=None`，序列化外层模型；三类asset签名同时迁移为`DcBoardRawRunConfig`。新增纯配置validator负责字段组合，原proof validator继续只校验源证明；关联run与运行来源核验使用单独有界运行记录reader，不能在纯config validator隐式连接instance。
+
+自动身份还须与当前运行的原生sensor_name、job、partition及builder生成的预期run_key一致；第1次比对原fixed key，第2/3次比对repair key。这只是验证已有原生tags，不写新的tags，也不从key解析执行参数。人工reexecution的parent/root关系不能被当作自动编号；人工入口重建当前证明，并显式置恢复身份为空。手工复制旧自动config而伪称自动运行须拒绝，不改变已有run或补造来源关系。
+
+sensor在生成请求前使用最多21条同job/partition记录核验额度、来源失败与时间；asset对带自动身份的运行在访问源/写文件之前再核验运行归属和来源身份。查询失败、截断、缺失败事件、来源不匹配、编号跳跃/重复、版本错误全部停止；不会因为config声明retryable而放行，config不包含可供调用方设置的retryable开关。运行历史查询成本有界，不全历史遍历；部署维护与自动运行仍不能并行，不声称能原子锁住任意人工入口。
+
+#### 10.9.2 STEP_FAILURE 的唯一失败事实口径
+
+由Raw asset边界把writer/probe的类型化失败转成Dagster `Failure`，在既有STEP_FAILURE保存§10.3的全部结构化字段；writer与probe不直接调用instance写事件。字段名固定为 `failure_policy_version`、`reason_code`、`request_retryable`、`partition_retryable`、`failed_count`、`unattempted_count`、`request_count`、`retry_count`、`budget_exceeded`、`budget_reason`、`failure_samples`。版本固定`dc_board_recovery_v1`，代码样本最多20条，裁决必须根据完整失败集合而非样本。失败计数/预算等使用可验证的实际统计；未知值保持不可恢复，不能伪造零值或true。
+
+若底层异常没有完整类型化证据，保留原异常链并记录不可恢复reason，禁止从拼接dict/message恢复事实。sensor读取`step_failure_data.user_failure_data.metadata`，校验版本、类型、完整性与来源step；有多个失败step时只要存在无法核清或不可恢复失败，整run不自动恢复。核心check失败及已有文件异常不得被更早的writer可恢复失败遮盖。执行失败metadata不进入source proof、config、业务Parquet或额外台账；状态写入失败不能回滚已提交文件。
+
+共用`TushareResponseError`及其判定须由orchestrator内纯异常契约承载，避免request policy反向import装配resources；全量迁移resource、共享分类器、周线异常消费者及相关测试，不保留旧分类双轨。已知HTTP信息丢失仍按§10.3有限处理，不把响应未分类升级为已知HTTP状态，不修改源参数/fields/pagination契约。
+
+#### 10.9.3 构造方、消费方与验证映射
+
+以下为已确认入口与同批迁移范围，实施结果见 §10.11；“保持”表示已核对语义后继续保留，不是遗留兼容层。
+
+| 当前文件/入口 | 新口径与影响 | 必须覆盖的测试/验证 |
+| --- | --- | --- |
+| `run_contracts/configs.py`：模型、builder、validator | 新外层与typed身份；统一序列化；source proof原validator保持；禁止flat asset config | `test_run_contract_configs.py`：三asset、manual None、1/2/3组合、4/bool/string/空来源/错误版本/旧flat反例 |
+| `sensors/dc_board_sensor.py`：`_source_freeze_result`及三个sensor | 从持久化run config计算累计编号、读取failure metadata、冷却，取得新proof后builder传入身份；不写项目tags | `test_dc_board_sensors.py`：初次/恢复/耗尽、时间边界、重复tick、cursor丢失、人工活动/取消、source观察前后核验、历史缺字段与21条溢出 |
+| `assets/dc_board_raw.py`：三个Raw asset | 新外层config；自动身份/来源有界核验；只把source_proof传writer；asset边界形成STEP_FAILURE | `test_dc_board_raw_definitions.py`、新增隔离run/failure集成：自动归属/来源不符拒绝、手工无自动身份、失败事件完整且有界 |
+| `assets/dc_board.py`：三个writer、member请求结果转换 | 仍收typed proof，不消费或决定automatic_attempt；保留全量失败类型/统计，供asset裁决；继续前后复核/原子提升 | `test_dc_board_raw_io.py`、`test_dc_board_performance.py`、集成：重试恢复、混合失败/样本截断、预算/未尝试/源漂移不提升 |
+| `asset_guards/dc_board_source_freeze.py`：confirm/revalidate/offline confirmation | 只构造/校验纯proof；不从cursor/配置补自动身份；重验不被恢复意图绕过 | `test_dc_board_source_freeze.py`：proof字段不含恢复信息；300秒及漂移门禁保持 |
+| `asset_guards/dc_board_source_probe.py`与共享`tushare_request_policy.py`、`resources.py` | 类型化失败与共同分类器；完整分页/按代码分页的请求重试受同预算 | `test_tushare_request_policy.py`、`test_tushare_resource_response.py`、`test_dc_board_source_probe.py`及共用probe消费者：合法空/零列/权限/限流、完整聚合失败资格 |
+| `bootstrap/dc_board_bootstrap_apply.py:_raw_write`、`dc_board_bootstrap.py:export_dc_member_partition_from_prod_db`及CLI | 直接调用writer仍只传proof；不经过Raw job、不创建自动run config或消耗次数；保持逐日期checkpoint/流式导出和原CLI参数 | `test_dc_board_bootstrap.py`、`test_dc_board_bootstrap_apply.py`：证明复核保持、无自动身份、源预算计入、续跑不暗中领号 |
+| DG Launchpad/既有GraphQL正式人工提交 | 使用统一builder生成新外层config与当前proof；recovery_identity=None；不恢复旧flat执行形状，不增加CLI或运营开关 | 配置schema隔离验证；人工运行参与活动/最新状态但不消耗或重置自动编号；旧run重放须重建config，不能照抄 |
+| `sensors/dc_board_silver_sensor.py`、Silver asset/check/readiness | 不增加config或自动编号；有界活动/失败识别；物理就绪优先、校验失败阻断 | `test_dc_board_silver_sensors.py`与Silver/readiness回归：Raw恢复后正常推进、历史失败不复活、活动任务等待 |
+| Raw/Silver checks、runless事件、catalog、物理日期audit、Gold/serving | 不消费恢复意图或failure资格；名称/schema/输出范围保持；config shape只影响Raw执行 | definition/catalog/static gates及既有相关回归；不要求正式补事件或重算全历史 |
+| `run_contracts/requests.py`、`run_keys.py`及static gates | builder仍不写项目tags；通用key签名/输出不变；DC运行记录reader只读取原生tags/显式config | `test_run_contract_run_keys.py`、`test_run_contract_static_gates.py`：正向builder路径，负向自定义tags、手写/反解析key、旧flat执行口径；读取白名单仅按用途调整 |
+| `stock_weekly_source.py`及异常测试支持 | 同批切到纯公共异常类型，周线原reason semantics和自动次数不变；不得为DC新增周线自动恢复 | 周线源异常分类的现有隔离测试及fake worker支持：schema异常归属保持，无新的HTTP外泄/重试次数 |
+
+已按设计新增`defs/asset_guards/dc_board_run_recovery.py`及隔离`test_dc_board_run_recovery.py`，承载有界reader、纯选择与运行身份校验；纯共享异常契约集中`defs/tushare_errors.py`。恢复记录reader位于orchestrator内部的asset guard/纯选择模块，作为sensor与asset共同消费者；不会依赖Prod Ops/TaskRun或业务API。全消费者核对采用CodeGraph explore和当前源码搜索，已覆盖动态asset签名、序列化builder、bootstrap直接writer和测试构造；未发现业务/前端消费DC恢复config，不增加跨子系统依赖。
+
+### 10.10 本次复审结论与阶段边界（2026-10-11）
+
+以下保留开发前的历史复审；管理员后续已授权开发，最新结果见 §10.11。
+
+**结论：文档与设计层面已满足开始开发的条件；尚未开始开发，尚未证明新机制可上线。** 管理员确认的typed config方向已同步本LLD及两份run key治理文档，§10.8的自定义tags阻断已解除，不保留tags/config双轨。设计约束、配置位置/默认、持久化载体、消费者迁移、性能预算、旧记录及正反验收场景均有明确映射，无待拍板设计项。
+
+记录保留继续采用§10.8本次只读证据（16:27核验），本轮没有重复全历史检查或改变retention配置。当前无自动DC运行记录清理、关键失败事件可读的边界支持开发；部署前重验目标instance、关键记录及无活动任务窗口仍是上线门禁。
+
+开发启动仍需要管理员后续明确指令。开发时在当前`dev-interface`工作区按上述范围推进，保留无关脏文件；不自行提交、建分支、安装或正式运行。先落配置/异常/记录读取契约与隔离测试，再迁移三个Raw sensor/asset和其他消费者，最后逐条对账、definitions与静态门禁验证。所有新增配置、旧flat执行口径和自定义tags方案须在同批清零。
+
+本轮只做文档修改和静态代码消费者审计；文档完整性、相对链接与diff检查不证明Python实现或DG生产执行正确。原报告保留“当时阻断”的历史结论，本次另归档 [typed config确认后复审证据](../../reports/dc_recovery_development_readiness_typed_config_20261011.json)，不改写历史报告。正式失败—冷却—恢复验收和有限日期写入另获授权，不执行全历史重验/重写。
+
+### 10.11 开发完成与逐项对账（2026-10-11，隔离验证）
+
+**开发与隔离验证已完成；正式上线和数据恢复没有执行。** 本轮在当前 `dev-interface` 工作区实现 §10.9 的唯一配置形状，没有提交、安装、reload、正式 sensor evaluation、job/backfill、分区或事件补录，也没有重写正式 Lake。此前的就绪审计报告保留不变，本次另存 [实现对账证据](../../reports/dc_recovery_implementation_reconciliation_20261011.json)。
+
+| 已确认硬口径 | 当前实现 | 验证与反例 |
+| --- | --- | --- |
+| 三类 Raw job 共用 typed 外层；自动身份 1/2/3，人工 None，旧 flat 仅作历史 | `configs.py` 的两种新模型与统一 builder；`dc_board_raw.py` 三个签名 | 三 asset 的配置正例；缺 proof、旧 flat、错误版本、bool/string/越界编号、错误来源均拒绝；真实 Raw asset 临时执行 |
+| 源证明仍独立，bootstrap 不领自动编号 | 三个 writer 仅收到 `source_proof`；原 proof/确认与 bootstrap 直接调用保持 | 原源稳定、漂移、bootstrap apply/续跑回归；proof 无恢复字段 |
+| key 只作幂等比较，无项目 tags、专用 key builder 或反解析 | 两个现有通用 builder；新 reader 内直接生成预期 key 比对，不输出专用 key 函数；`requests.py`/`run_keys.py` 未改 | 重复 tick 同 key、来源字段独立、key/归属伪造拒绝；run key 单测及受保护静态门禁 |
+| 单请求最多初次加三次重试，退避 1/2/4 秒，不另开预算 | 共用 classifier 识别纯 `TushareResponseError`；继续走同一个 bounded runner/session | 无字段四次调用及退避精确计数；合法有字段空结果；权限/参数、契约与本机文件错误不重试；共享消费者回归 |
+| 失败原因分类与资格来自全部失败，不来自展示样本 | `dc_board_failures.py` 聚合完整 result；request policy 区分权限/参数、契约、未分类响应及已知临时错误；freeze 漂移保留明确 reason | 第 21 个失败为确定性错误时整日拒绝；预算/未尝试拒绝；样本最多 20，不包含原始消息；member 源观察与请求统计相加 |
+| 失败事实只写 STEP_FAILURE；未知统计不能伪造零值 | Raw 边界 `Failure(..., allow_retries=False)`，保留 cause；probe/writer 不写 instance；无完整事实的字段为 null 且不可恢复 | 真实临时 Dagster run 写入/读回全部 11 个字段；逐字段缺失/类型错误、其他失败 step、事件截断均拒绝 |
+| 日期窗口 10；运行记录正常上限 20，读第 21 条立即停止 | `dc_board_run_recovery.py`：同 job 活动查询 limit 2，目标日期 limit 21，不分页；每次失败事件同样 limit 21 | fake-client 核验过滤条件与调用次数；21 条运行/事件、has_more、查询失败停止；不扫描全历史 |
+| 所有非终态（包括人工和其它日期）阻断昂贵源观察 | 同 job 的 QUEUED/NOT_STARTED/MANAGED/STARTING/STARTED/CANCELING 查询；物理 readiness 优先 | 全部非终态参数化反例；源观察前零调用、观察中人工任务启动后不提交；已就绪文件不复活旧失败 |
+| 总共三次，冷却从失败结束时间计算，不因 cursor/跨日重置 | 纯选择从持久化身份累计；第二次 600 秒、第三次 1800 秒；原 key 只计历史首次 | 599/600、1799/1800 边界；重复 tick/cursor 丢失/跨日、缺结束时间、重复/跳跃编号；真实临时 instance 三次失败链与额度耗尽 |
+| 来源为同 job/partition 最近失败，执行前再核验 | bounded reader 被 sensor 与 Raw 边界共用；核对原生 sensor/job/partition/key、remote origin 和 parent/root；source 观察后重查 | key/sensor/job/partition/origin/parent/来源编号伪造；中间人工失败和 legacy 来源链拒绝；三 asset 访问源前拒绝复制的自动 config |
+| 历史缺证据、人工失败/取消、成功与缺文件矛盾需人工处理 | `legacy_requires_review`、manual/canceled、success/file missing、身份异常等明确 skip；旧事实不修改 | 历史缺 metadata、未知/确定性失败、最新人工终态不能被旧可恢复失败掩盖；没有删除/补造历史资格 |
+| Silver 不增恢复次数；失败等待人工，Raw 就绪后自然推进 | 原 Silver key/配置保留，只加同 job 活动与目标日期历史保护 | Silver 自身失败/取消/活动/成功缺文件均阻断；就绪文件优先；原 Raw frontier/readiness 回归 |
+| 没有新状态台账、资产、check、sensor 或全局 retry 开关 | 只在现有运行的 config/STEP_FAILURE 保存事实；未改 catalog/schema/paths/instance 配置 | 完整 `Definitions.validate_loadable`；受保护 catalog/static gates；正式状态操作未执行 |
+| 公共异常与全部消费者同批迁移，边界不反向依赖 resource 装配 | resource、policy、周线和测试改读 `tushare_errors.py`；受保护测试导入白名单只加三个精确文件 | 周线原 reason/重试语义保持；共享 ETF/指数/分钟/资金流/BSE 请求策略回归；新增模块不依赖 Prod Ops/Web |
+
+验证总计 **1088 项不同测试通过**：DC 与共享请求策略 917（完整组 916 加补充 transport 类型边界 1）、周线源 32、受保护静态门禁 113、受保护 BSE 消费者 26；另在最后 key 比对整理后重跑 125 项关键测试，均通过，不重复计入总数。35 个子测试另记，不冒充新增测试。资金流部分仅为共享分类器的隔离消费者回归，没有审计或恢复开发中的资金流数据集。
+
+全项目 fatal Ruff（E9/F63/F7/F82）通过，新增模块及本轮新测试 Ruff 通过。三个已存在文件的完整 Ruff 仍有 13 项旧问题（configs 的 11 项、Silver sensor/test 各 1 项）；与 HEAD 基线比较没有新增 lint 问题，未为本轮改动扩大到其它合同的异常类型或时区改造。文档完整性与 diff 检查结果见实现报告。
+
+CodeGraph 使用 explore、impact，并完成 sync/status；核验范围包括配置构造/消费、Raw/Silver sensor/asset、writer/probe、bootstrap、共享 classifier、周线以及测试启动器。图谱没有完整给出所有间接分类器消费者，已用当前导入与调用代码补核，不以图谱缺边推断无影响。不改变子系统依赖矩阵、Lake 路径、业务字段、CLI、通用 key/request builder、Gold/serving 语义。
+
+下一阶段仍是单独的提交/发布与正式验收：复核目标 instance、记录保留和无活动任务窗口；人工 Launchpad/reexecution 使用新外层与当前 proof、身份为 None，不能复制旧 flat/自动身份。旧失败不补造恢复资格。没有通过本轮隔离测试证明真实源会恢复，也不声称跨人工入口原子互斥或永久保留全部历史。

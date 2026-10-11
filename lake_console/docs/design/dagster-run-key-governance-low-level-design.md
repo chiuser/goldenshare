@@ -11,7 +11,7 @@
 > `build_raw_index_daily_update_job_run_config(...)` 构造。指数当前实现以
 > `dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md` 为准。
 
-更新时间：2026-09-02
+更新时间：2026-10-11（DC 恢复设计增量；原 M1-M9 状态不变）
 
 上层方案：`lake_console/docs/design/dagster-run-key-governance-optimization-plan.md`
 
@@ -905,3 +905,33 @@ M1-M9 已完成实现时必须逐项说明；后续维护按本清单确认现�
 16. 是否确认没有解析 `run_key` 反推 `run_config`。
 17. 是否确认没有正式路径写旧 storage id 字段。
 18. 是否确认所有正式 run key 都经统一 builder。
+
+## 17. DC Raw 有限恢复身份（2026-10-11，尚未开发）
+
+专项依据和次数/冷却/错误分类事实源为 [DC LLD §10](./dagster-dc-board-quote-availability-low-level-design-v1.md#10-自动恢复修订2026-10-11已确认设计尚未开发)。本节不改变 M1-M9 的已实施范围，不改变通用 builder 签名，不授权正式提交任务。
+
+| 场景 | 构造与输出 | 实施边界 |
+| --- | --- | --- |
+| 三个 DC Raw 首次 | `build_asset_update_run_key(subject=job_name.removesuffix("_job"), unit_id=trade_date)` → `{subject}:{trade_date}` | 保留当前已使用 key，计为累计第 1 次 |
+| DC Raw 第 2、3 次 | `build_repair_attempt_run_key(subject=subject, repair_scope_id=trade_date, attempt=2或3)` → `{subject}:{trade_date}:2或3` | 无自然日 scope；已有持久化可恢复失败、冷却、活动任务和剩余额度门禁 |
+| DC Silver | 保留当前 asset update builder 与首次 key | 活动任务等待；失败/校验异常显示人工处理，不新增恢复编号 |
+
+subject 固定为 `raw_tushare_dc_index_update`、`raw_tushare_dc_member_update`、`raw_tushare_dc_daily_update`。scope 是 partition 交易日，不是 sensor 评价日期。同一待消费请求重复出现使用同一编号；run 建立后算已消费，非终态等待；第四次、随机 key、随时间变化 key、从 key 反解析 config 均禁止。
+
+已有三类 builder 足够表达此增量，无需 `dc_member_retry_run_key` 等专用 builder。sensor 仍经 `build_run_request` 返回请求。不得伪造 parent/root reexecution 关系，不加入 event storage id。人工运行参与活动和最后状态判定，但不冒充自动编号或重置额度。
+
+### 17.1 已确认的运行身份载体（2026-10-11）
+
+管理员已同意typed run_config保存恢复身份、STEP_FAILURE metadata保存失败事实。自定义run tags方案退出；`build_run_request`仍不写项目tags，现有禁止sensor写run_tags的门禁保持。读取原生partition/run_key/sensor_name用于事实查询和身份比对，不等于写自定义tags。
+
+模型与全消费者事实源见 [DC LLD §10.9](./dagster-dc-board-quote-availability-low-level-design-v1.md#109-已确认的-typed-run_config-与全消费者口径2026-10-11)：新Raw外层`DcBoardRawRunConfig`必填`source_proof`，可选`recovery_identity`；身份模型固定`policy_version`、`automatic_attempt`、`source_failure_run_id`。自动首次编号1且来源为空，恢复2/3且来源指向同job、同partition真实最近失败；手工执行身份为空。源proof仍独立校验，config不能声明失败资格或跳过源证明。
+
+原生key只与builder预期key精确比较，执行身份从持久化typed config读取，不反解析key。source failure资格从同版本STEP_FAILURE metadata读取；关联记录不完整、截断、编号重复/跳跃、归属不符均停止。人工reexecution不得冒充自动运行；旧flat config只作legacy运行历史，不保留其asset执行兼容路径。
+
+三个Raw asset、config builder/validator、Raw sensor与记录reader同批迁移；writer/source确认/bootstrap直接调用链继续消费纯proof，人工正式入口用builder生成新外层config、身份为空。Silver不新增config；checks/catalog/Gold/serving不消费恢复意图。清零tags方案，不保留双轨；确切实现点与正反测试见DC LLD消费者表。
+
+### 17.2 回归与上线门禁
+
+本增量已完成隔离开发与验证，逐项代码/测试对账见 DC LLD §10.11；尚未发布或执行正式恢复。已通过DC身份正反例、3次总上限、冷却、重复tick、cursor丢失、跨日、旧失败/人工取消、记录截断和同日人工活动任务测试；复用既有builder单测与static gates，仅按用途审查原生tags读取，禁止放开项目tags写入。
+
+保留核验见DC LLD §10.8，确认后的开工审计见§10.10：设计层面满足开发条件，原身份载体阻断已解除；这不等于代码、生产发布或正式执行验收通过。部署前仍复核instance、关键记录保留及无活动任务窗口，不删旧key、不补造失败原因、不迁移全历史。

@@ -2,7 +2,7 @@
 
 状态：M1-M9 已按本文核心口径落地并完成最终专项验收，legacy bridge 已退出。本文保留为 run key 治理长期方案与后续回归依据。
 
-更新时间：2026-09-02
+更新时间：2026-10-11（DC 恢复设计增量；原 M1-M9 状态不变）
 
 ## 0. 实施状态
 
@@ -519,3 +519,17 @@ silver_adj_factor_update
 11. legacy bridge 已删除；后续不得恢复旧 completion metadata 读取防重复逻辑。
 12. 必须用第 6 节全量清单逐项迁移所有现有 run key；不得只迁移示例或局部 sensor。
 13. 正式切换前必须完成经审批的 Dagster run history 只读审计。
+
+## 13. DC 日更有限恢复增量（2026-10-11，隔离开发与验证同步）
+
+本节同步 [DC 条件覆盖 LLD §10](./dagster-dc-board-quote-availability-low-level-design-v1.md)。原 M1-M9 完成结论不包含该增量，DC 恢复已完成隔离开发和验证（§10.11），正式发布和恢复尚未验收。通用 builder 的签名和既有消费者输出保持不变。
+
+三个 DC Raw job 的 `subject` 分别是 `raw_tushare_dc_index_update`、`raw_tushare_dc_member_update`、`raw_tushare_dc_daily_update`。首次仍使用 `build_asset_update_run_key(subject=subject, unit_id=trade_date)`；只有持久化失败证据明确允许恢复、没有活动任务、满足冷却且额度未耗尽时，后续使用 `build_repair_attempt_run_key(subject=subject, repair_scope_id=trade_date, attempt=2或3)`，不传 `attempt_scope`。
+
+以 member 为例：首次 key 为 `raw_tushare_dc_member_update:2026-10-09`，两次恢复 key 为 `raw_tushare_dc_member_update:2026-10-09:2`、`raw_tushare_dc_member_update:2026-10-09:3`。attempt 表示累计自动执行编号，包含首次，不是首次失败后的第几次修复。三次总上限和 10/30 分钟冷却仅由 DC contract 定义，本治理文档引用它，不为其他数据集改次数。DC Silver 保持首次 key，不增加自动恢复额度。
+
+key 不含评价日期、时间戳、UUID、源指纹或事件 id；跨日、重启、cursor 丢失不重置；不得解析 key 生成执行参数。运行记录是已消费身份的事实，cursor 是观测投影。保留旧 key 与失败事件，不用删除历史释放 key；旧失败缺结构化证据时转人工复核。
+
+管理员已确认typed run_config保存恢复身份、STEP_FAILURE metadata保存失败事实，自定义run tags方案退出，不放宽现有门禁。Raw job config使用typed外层`source_proof`与可选`recovery_identity`；后者只保存`policy_version`、`automatic_attempt`、`source_failure_run_id`，不能声明retryable或跳过proof。自动首次1、恢复2/3；人工执行不填自动身份。原生key只与builder预期key比较，不反解析执行参数。
+
+模型与全部构造/消费方迁移集中见[DC LLD §10.9](./dagster-dc-board-quote-availability-low-level-design-v1.md#109-已确认的-typed-run_config-与全消费者口径2026-10-11)。三asset/builder/sensor迁移外层config，writer/source确认/bootstrap直接调用保持纯proof；旧flat config只作legacy历史记录，不保留旧执行兼容。记录保留核验见§10.8，确认后的开工审计见§10.10：设计层面满足开发条件，隔离实现与测试对账见§10.11；正式发布/运行待单独安排，本轮不授权生产执行。

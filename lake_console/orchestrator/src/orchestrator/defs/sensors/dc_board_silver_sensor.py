@@ -19,6 +19,7 @@ from orchestrator.defs.asset_guards.dc_board_lake_readiness import (
     batch_raw_dc_index_lake_readiness,
     batch_raw_dc_member_lake_readiness,
 )
+from orchestrator.defs.asset_guards.dc_board_run_recovery import dc_recovery_decision
 from orchestrator.defs.asset_guards.dc_board_silver_lake_readiness import (
     batch_silver_dc_daily_lake_readiness,
     batch_silver_dc_index_lake_readiness,
@@ -36,7 +37,10 @@ from orchestrator.defs.run_contracts.cursor_payloads import (
     compact_continuity_frontier,
     compact_date_readiness,
 )
-from orchestrator.defs.run_contracts.cursors import SensorCursorDecision, build_sensor_cursor
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
+)
 from orchestrator.defs.run_contracts.dc_board import (
     DC_BOARD_SENSOR_WINDOW_LIMIT,
     DC_DAILY_HISTORY_START_DATE,
@@ -326,6 +330,17 @@ def _evaluate_silver_sensor(
                 partition_set=partition_set,
             ),
         )
+
+    recovery = dc_recovery_decision(context.instance, job_name=job_name,
+                                   trade_date=silver_target, now=evaluated_at, allow_recovery=False)
+    if not recovery.allowed:
+        return dg.SensorResult(skip_reason="Silver 自动提交已阻断：" + recovery.reason_code,
+            cursor=_cursor(sensor_name=sensor_name, job_name=job_name, evaluated_at=evaluated_at,
+                expected_window=expected_window, gap_status=gap_status, raw_batch=raw_batch,
+                silver_batch=silver_batch, raw_status=raw_status, silver_status=silver_status,
+                selected_trade_date=None, target_date=silver_target, reason_code=recovery.reason_code,
+                blocked_component="run_recovery", summary="Silver 运行证据要求等待或人工核验。",
+                next_action="先核验当前运行或历史失败。", partition_set=partition_set))
 
     return dg.SensorResult(
         run_requests=[

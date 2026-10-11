@@ -132,7 +132,7 @@ class SourceFailureWorker:
         from requests import exceptions as request_errors
 
         from orchestrator.defs.bootstrap.stock_weekly_capture import WeeklyCaptureError
-        from orchestrator.defs.resources import TushareResponseError
+        from orchestrator.defs.tushare_errors import TushareResponseError
 
         secret = "synthetic-secret-token https://user:password@example.invalid/"
         if self.mode == "exit":

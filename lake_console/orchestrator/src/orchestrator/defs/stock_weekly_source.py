@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import multiprocessing
-import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -29,6 +28,7 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     normalize_weekly_code,
     stable_weekly_hash,
 )
+from orchestrator.defs.tushare_errors import TushareResponseError
 
 _SOURCE_DIAGNOSTIC_PREFIX = "source_diagnostic="
 _SOURCE_DIAGNOSTICS = frozenset(
@@ -68,11 +68,7 @@ def _source_exception_category(error: Exception) -> str:
     ):
         if isinstance(error, error_type):
             return category
-    # The worker loads resources itself. Diagnostics must not repeat a failed import.
-    response_error = getattr(
-        sys.modules.get("orchestrator.defs.resources"), "TushareResponseError", ()
-    )
-    if isinstance(error, response_error):
+    if isinstance(error, TushareResponseError):
         return "response_schema"
     return "unknown"
 

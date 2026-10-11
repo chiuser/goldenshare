@@ -8,14 +8,16 @@ from typing import ClassVar, Literal
 from zoneinfo import ZoneInfo
 
 import dagster as dg
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 
 from orchestrator.defs.daily_basic_contract import (
     DAILY_BASIC_ASSET,
     daily_basic_trade_date,
 )
 from orchestrator.defs.run_contracts.dc_board import (
+    DC_BOARD_AUTO_MAX_ATTEMPTS,
     DC_BOARD_CURRENT_DAY_REFERENCE_NOT_BEFORE,
+    DC_BOARD_RECOVERY_POLICY_VERSION,
     DC_BOARD_REFERENCE_STABILITY_SECONDS,
     DC_DAILY_HISTORY_START_DATE,
     DC_QUOTE_COVERAGE_POLICY_VERSION,
@@ -57,6 +59,43 @@ class DcBoardSourceFreezeConfig(dg.Config):
     history_file_count: int
     history_evidence_digest: str
     coverage_gap_count: int
+
+
+class DcBoardRecoveryIdentityConfig(dg.Config):
+    policy_version: str
+    automatic_attempt: int
+    source_failure_run_id: str | None = None
+
+    @field_validator("policy_version", "source_failure_run_id", mode="before")
+    @classmethod
+    def strict_string(cls, value):
+        if value is not None and type(value) is not str:
+            raise ValueError("recovery identity strings must not be coerced")
+        return value
+
+    @field_validator("automatic_attempt", mode="before")
+    @classmethod
+    def strict_attempt(cls, value):
+        if type(value) is not int or not 1 <= value <= DC_BOARD_AUTO_MAX_ATTEMPTS:
+            raise ValueError("automatic_attempt must be a strict integer in 1..3")
+        return value
+
+    @model_validator(mode="after")
+    def valid_identity(self):
+        if self.policy_version != DC_BOARD_RECOVERY_POLICY_VERSION:
+            raise ValueError("recovery policy version mismatch")
+        source = self.source_failure_run_id
+        if self.automatic_attempt == 1:
+            if source is not None:
+                raise ValueError("first attempt cannot reference a failure")
+        elif not source or not source.strip() or source != source.strip():
+            raise ValueError("recovery must reference a nonempty failure run id")
+        return self
+
+
+class DcBoardRawRunConfig(dg.Config):
+    source_proof: DcBoardSourceFreezeConfig
+    recovery_identity: DcBoardRecoveryIdentityConfig | None = None
 
 
 class DcIndustryHierarchyConfig(dg.Config):
@@ -447,9 +486,14 @@ def validate_dc_board_source_freeze_config(
 
 def build_raw_dc_board_update_job_run_config(
     *, asset_name: str, partition_key: str, proof: DcBoardSourceFreezeConfig,
+    recovery_identity: DcBoardRecoveryIdentityConfig | None = None,
 ) -> dict[str, object]:
     validate_dc_board_source_freeze_config(proof, partition_key=partition_key, asset_name=asset_name)
-    return {"ops": {asset_name: {"config": proof.model_dump()}}}
+    config = DcBoardRawRunConfig.model_validate({
+        "source_proof": proof.model_dump(),
+        "recovery_identity": recovery_identity.model_dump() if recovery_identity is not None else None,
+    })
+    return {"ops": {asset_name: {"config": config.model_dump()}}}
 
 
 def build_stock_daily_raw_repair_run_config(

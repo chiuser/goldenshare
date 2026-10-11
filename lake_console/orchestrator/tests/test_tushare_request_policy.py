@@ -1,7 +1,7 @@
 import unittest
 
 from orchestrator.defs.tushare_request_policy import (
-    TUSHARE_FAILURE_NON_RETRYABLE,
+    TUSHARE_FAILURE_PERMISSION_OR_PARAMETER,
     TUSHARE_FAILURE_RATE_LIMIT,
     TUSHARE_FAILURE_TRANSIENT,
     BoundedCodePageRequestSession,
@@ -38,7 +38,7 @@ class TushareRequestPolicyTests(unittest.TestCase):
         )
         self.assertEqual(
             classify_tushare_error(RuntimeError("权限不足，积分不足")),
-            (TUSHARE_FAILURE_NON_RETRYABLE, False),
+            (TUSHARE_FAILURE_PERMISSION_OR_PARAMETER, False),
         )
 
     def test_rate_limit_and_transient_failures_use_bounded_exponential_backoff(self) -> None:

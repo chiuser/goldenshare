@@ -34,6 +34,7 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_DAILY_HISTORY_START_DATE,
     DC_QUOTE_COVERAGE_POLICY_VERSION,
 )
+from orchestrator.defs.run_contracts.dc_board_failures import DcBoardRequestFailure
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +73,8 @@ def observe_dc_board_source(
         tushare=tushare, trade_date=trade_date, prod_completion=prod.snapshot, policy=bounded)
     source_at = now().astimezone(timezone.utc).isoformat()
     if not source.ready or source.snapshot is None:
+        if source.failure_facts is not None:
+            raise DcBoardRequestFailure(source.failure_facts)
         raise DcBoardSourceValidationError(f"Source snapshot unavailable: {source.to_summary()}")
     index_codes = {str(row["ts_code"]) for rows in source.index_rows_by_type.values() for row in rows}
     daily_codes = {str(row["ts_code"]) for row in source.daily_rows}
@@ -147,7 +150,7 @@ def revalidate_dc_board_source(
             or observation.coverage.gap_count != proof.coverage_gap_count
             or observation.coverage.history_end != proof.history_end
             or len(observation.coverage.file_signatures) != proof.history_file_count):
-        raise DcBoardSourceValidationError("source/history changed after freeze; promotion blocked")
+        raise DcBoardSourceValidationError("source/history changed after freeze; promotion blocked", reason_code="source_changed_after_freeze")
     if asset_name == "raw_tushare_dc_index" and not observation.source.content_matches_prod and proof.source_observed_at_first is None:
         raise DcBoardSourceValidationError("source/Prod difference requires stable source pair")
     return observation

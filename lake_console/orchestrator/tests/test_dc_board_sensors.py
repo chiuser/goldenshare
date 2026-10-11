@@ -3,6 +3,9 @@ from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
+import dagster as dg
+import pytest
+
 from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityBatchReadiness,
     ContinuityDateReadiness,
@@ -28,6 +31,10 @@ class _FakeInstance:
 
     def get_dynamic_partitions(self, _name):
         return list(self.registered)
+
+    def get_run_records(self, *, filters, limit):
+        assert limit in (2, 21)
+        return []
 
     def get_event_records(self, *_args, **_kwargs):
         raise AssertionError("DC board sensor must not read Dagster event history")
@@ -206,7 +213,7 @@ def test_index_sensor_freezes_one_run_after_stable_completed_observations(monkey
     context.cursor = second.cursor
     third = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=(START + timedelta(seconds=300)).astimezone(dc_board_sensor.CN_A_SENSOR_TIMEZONE))
     assert len(third.run_requests) == 1
-    proof = third.run_requests[0].run_config["ops"]["raw_tushare_dc_index"]["config"]
+    proof = third.run_requests[0].run_config["ops"]["raw_tushare_dc_index"]["config"]["source_proof"]
     assert proof["prod_observed_at_first"] == START.isoformat()
     assert proof["target_asset"] == "raw_tushare_dc_index"
     assert "index_identity" not in third.cursor and len(third.cursor.encode()) < 4096
@@ -241,7 +248,7 @@ def test_dependent_sensor_requires_own_gap_pair_after_same_day_index_ready(monke
     context.cursor = first.cursor
     second = dc_board_sensor._evaluate_dependent_sensor(context, evaluated_at=START + timedelta(seconds=300), **kwargs)
     assert len(second.run_requests) == 1
-    proof = second.run_requests[0].run_config["ops"]["raw_tushare_dc_daily"]["config"]
+    proof = second.run_requests[0].run_config["ops"]["raw_tushare_dc_daily"]["config"]["source_proof"]
     assert proof["prod_observed_at_first"] is None and proof["source_observed_at_first"]
 
 
@@ -252,3 +259,71 @@ def test_source_exception_never_submits_or_retains_a_stale_proof(monkeypatch):
     result = dc_board_sensor._evaluate_index_sensor(_context(cursor="{}"), evaluated_at=dc_board_sensor.datetime(2026, 7, 15, 8, tzinfo=dc_board_sensor.CN_A_SENSOR_TIMEZONE))
     assert not result.run_requests and "source unavailable" in str(result.skip_reason)
     assert "dc_board_source_freeze" not in json.loads(result.cursor)["details"].get("runtime_state", {})
+
+
+@pytest.mark.parametrize("asset", ["index", "daily", "member"])
+def test_recovery_request_uses_fresh_proof_typed_identity_and_same_key_on_replay(monkeypatch, asset):
+    from tests.test_dc_board_run_recovery import NOW, Instance, event, record
+    from tests.test_dc_board_source_freeze import observation
+
+    context = _context(cursor=None)
+    job = f"raw_tushare_dc_{asset}_update_job"
+    context.instance = Instance([record(job=job)], events=[event(step="raw_tushare_dc_" + asset)])
+    _prepare_index(monkeypatch, observe=lambda **_: observation(NOW))
+    kwargs = {"evaluated_at": NOW, "sensor_name": job + "_sensor", "job_name": job,
+        "partition_set": f"cn_a_dc_{asset}_trade_days", "expected_window": _window_and_gap()[0],
+        "gap_status": _window_and_gap()[2], "batch_status": _not_ready_batch(), "selected_trade_date": _TRADE_DATE}
+    first = dc_board_sensor._source_freeze_result(context, **kwargs)
+    second = dc_board_sensor._source_freeze_result(context, **kwargs)
+    assert len(first.run_requests) == len(second.run_requests) == 1
+    request = first.run_requests[0]
+    assert request.run_key == second.run_requests[0].run_key
+    assert request.run_key.endswith(":2")
+    config = request.run_config["ops"]["raw_tushare_dc_" + asset]["config"]
+    assert config["recovery_identity"]["automatic_attempt"] == 2
+    assert config["recovery_identity"]["source_failure_run_id"] == "run-1"
+    assert config["source_proof"]["source_observed_at_second"] == NOW.isoformat()
+    assert request.tags == {}
+
+
+def test_active_before_observation_short_circuits_source_and_active_after_observation_blocks(monkeypatch):
+    from tests.test_dc_board_run_recovery import NOW, Instance, record
+    from tests.test_dc_board_source_freeze import observation
+
+    job = "raw_tushare_dc_daily_update_job"
+    active = record(manual=True, job=job, status=dg.DagsterRunStatus.CANCELING)
+    context = _context()
+    context.instance = Instance(active=[active])
+    observed = []
+    def observe(**_):
+        observed.append(True)
+        context.instance.active = [active]
+        return observation(NOW)
+    _prepare_index(monkeypatch, observe=observe)
+    kwargs = {"evaluated_at": NOW, "sensor_name": job + "_sensor", "job_name": job,
+        "partition_set": "cn_a_dc_daily_trade_days", "expected_window": _window_and_gap()[0], "gap_status": _window_and_gap()[2],
+        "batch_status": _not_ready_batch(), "selected_trade_date": _TRADE_DATE}
+    result = dc_board_sensor._source_freeze_result(context, **kwargs)
+    assert not result.run_requests and not observed and "active_run" in result.cursor
+    context.instance.active = []
+    result = dc_board_sensor._source_freeze_result(context, **kwargs)
+    assert not result.run_requests and observed == [True] and "active_run" in result.cursor
+
+
+def test_recovery_history_blocks_before_source_and_ready_file_never_revives_failure(monkeypatch):
+    from tests.test_dc_board_run_recovery import NOW, Instance, record
+    context = _context()
+    job = "raw_tushare_dc_daily_update_job"
+    context.instance = Instance([record(job=job, legacy=True)])
+    _prepare_index(monkeypatch, observe=lambda **_: pytest.fail("blocked history must not observe source"))
+    result = dc_board_sensor._source_freeze_result(context, evaluated_at=NOW,
+        sensor_name=job + "_sensor", job_name=job, partition_set="cn_a_dc_daily_trade_days",
+        expected_window=_window_and_gap()[0], gap_status=_window_and_gap()[2], batch_status=_not_ready_batch(),
+        selected_trade_date=_TRADE_DATE)
+    assert not result.run_requests and "legacy_requires_review" in result.cursor
+    monkeypatch.setattr(dc_board_sensor, "batch_raw_dc_index_lake_readiness", lambda **_: _ready_batch())
+    # Existing file readiness takes priority over any historical failure.
+    context = _context()
+    context.instance.get_run_records = lambda **_: pytest.fail("ready file must not inspect failure history")
+    result = dc_board_sensor._evaluate_index_sensor(context, evaluated_at=NOW)
+    assert not result.run_requests and "all_ready" in result.cursor

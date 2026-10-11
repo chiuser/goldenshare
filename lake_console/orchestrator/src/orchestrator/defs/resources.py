@@ -14,6 +14,7 @@ from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.health.lake_root import assert_lake_root_available_for_run
 from orchestrator.defs.notifications.feishu import FeishuWebhookResource
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, GOLD, RAW, SILVER, lake_path
+from orchestrator.defs.tushare_errors import TushareResponseError
 
 
 class LakeRootResource(dg.ConfigurableResource):
@@ -47,10 +48,6 @@ class TushareResult:
     rows: list[dict[str, Any]]
     columns: tuple[str, ...]
     metadata: dict[str, Any]
-
-
-class TushareResponseError(RuntimeError):
-    """The SDK did not return a declared response schema; absence is unproven."""
 
 
 class TushareResource(dg.ConfigurableResource):

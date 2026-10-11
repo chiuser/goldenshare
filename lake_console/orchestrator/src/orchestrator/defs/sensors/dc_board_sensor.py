@@ -21,6 +21,7 @@ from orchestrator.defs.asset_guards.dc_board_lake_readiness import (
     batch_raw_dc_index_lake_readiness,
     batch_raw_dc_member_lake_readiness,
 )
+from orchestrator.defs.asset_guards.dc_board_run_recovery import dc_recovery_decision
 from orchestrator.defs.asset_guards.dc_board_source_freeze import (
     confirm_dc_board_source,
     observe_dc_board_source,
@@ -58,7 +59,10 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_MEMBER_HISTORY_START_DATE,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
-from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
+from orchestrator.defs.run_contracts.run_keys import (
+    build_asset_update_run_key,
+    build_repair_attempt_run_key,
+)
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -308,6 +312,18 @@ def _source_freeze_result(
     context, *, evaluated_at, sensor_name, job_name, partition_set,
     expected_window, gap_status, batch_status, selected_trade_date,
 ):
+    def blocked(reason):
+        return dg.SensorResult(skip_reason="DC 自动提交已阻断：" + reason, cursor=_cursor(
+            sensor_name=sensor_name, job_name=job_name, evaluated_at=evaluated_at,
+            expected_window=expected_window, gap_status=gap_status, batch_status=batch_status,
+            selected_trade_date=None, target_date=selected_trade_date, reason_code=reason,
+            blocked_component="run_recovery", summary="运行证据不允许自动提交。",
+            next_action="活动或冷却等待下一轮；其他原因需人工核验。", partition_set=partition_set))
+
+    recovery = dc_recovery_decision(context.instance, job_name=job_name,
+                                   trade_date=selected_trade_date, now=evaluated_at)
+    if not recovery.allowed:
+        return blocked(recovery.reason_code)
     asset_name = job_name.removesuffix("_update_job")
     observation = observe_dc_board_source(
         lake_root=context.resources.lake_root.root(), duckdb_resource=context.resources.duckdb,
@@ -329,7 +345,7 @@ def _source_freeze_result(
         sensor_name=sensor_name, job_name=job_name, evaluated_at=evaluated_at,
         expected_window=expected_window, gap_status=gap_status, batch_status=batch_status,
         selected_trade_date=selected_trade_date if proof else None,
-        reason_code="request_run" if proof else "source_confirmation_pending",
+        reason_code=recovery.reason_code if proof else "source_confirmation_pending",
         blocked_component="none" if proof else "source_confirmation",
         summary="完整源快照与覆盖证据已冻结。" if proof else "等待两次完整稳定观察满足间隔。",
         next_action="运行选定日期。" if proof else "下一 tick 重新观察，不改写源数据。",
@@ -340,12 +356,23 @@ def _source_freeze_result(
     )
     if proof is None:
         return dg.SensorResult(skip_reason="等待源快照稳定确认。", cursor=cursor)
-    return dg.SensorResult(run_requests=[build_run_request(
-        run_key=build_asset_update_run_key(subject=job_name.removesuffix("_job"), unit_id=selected_trade_date),
-        partition_key=selected_trade_date,
-        run_config=build_raw_dc_board_update_job_run_config(
-            asset_name=asset_name, partition_key=selected_trade_date, proof=proof),
-    )], cursor=cursor)
+    checked = dc_recovery_decision(context.instance, job_name=job_name,
+                                  trade_date=selected_trade_date, now=evaluated_at)
+    if not checked.allowed or checked.identity != recovery.identity:
+        return blocked(checked.reason_code if not checked.allowed else "run_evidence_changed")
+    run_config = build_raw_dc_board_update_job_run_config(
+        asset_name=asset_name, partition_key=selected_trade_date, proof=proof,
+        recovery_identity=checked.identity)
+    if checked.identity.automatic_attempt == 1:
+        request = build_run_request(
+            run_key=build_asset_update_run_key(subject=job_name.removesuffix("_job"), unit_id=selected_trade_date),
+            partition_key=selected_trade_date, run_config=run_config)
+    else:
+        request = build_run_request(
+            run_key=build_repair_attempt_run_key(subject=job_name.removesuffix("_job"),
+                repair_scope_id=selected_trade_date, attempt=checked.identity.automatic_attempt),
+            partition_key=selected_trade_date, run_config=run_config)
+    return dg.SensorResult(run_requests=[request], cursor=cursor)
 
 
 def _evaluate_index_sensor(context: dg.SensorEvaluationContext, *, evaluated_at: datetime) -> dg.SensorResult:

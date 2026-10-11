@@ -1,0 +1,426 @@
+{
+  "audit_kind": "dc_recovery_development_readiness_readonly",
+  "generated_at": "2026-10-11T08:30:30.987896+00:00",
+  "config_observation": {
+    "generated_at": "2026-10-11T08:27:50.164918+00:00",
+    "dagster_version": "1.13.18",
+    "dagster_home": "/Users/congming/.goldenshare/dagster_home",
+    "config_path": "/Users/congming/.goldenshare/dagster_home/dagster.yaml",
+    "config_keys": [
+      "compute_logs",
+      "concurrency",
+      "local_artifact_storage",
+      "run_coordinator",
+      "run_monitoring",
+      "storage",
+      "telemetry"
+    ],
+    "configured_retention": null,
+    "configured_run_retries": null,
+    "storage_backend": [
+      "postgres"
+    ],
+    "effective_tick_retention": {
+      "SENSOR": {
+        "STARTED": -1,
+        "SKIPPED": 7,
+        "SUCCESS": -1,
+        "FAILURE": -1
+      },
+      "SCHEDULE": {
+        "STARTED": -1,
+        "SKIPPED": -1,
+        "SUCCESS": -1,
+        "FAILURE": -1
+      }
+    }
+  },
+  "run_samples": {
+    "j0": {
+      "results": [
+        {
+          "runId": "ad5830e9-32f4-4028-aca3-2bcd346b6f27",
+          "status": "SUCCESS",
+          "creationTime": 1791561857.728793,
+          "startTime": 1791561865.389056,
+          "endTime": 1791561871.376235,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-09"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_tushare_dc_index_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_tushare_dc_index_update:2026-10-09"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_tushare_dc_index_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2259146"
+            }
+          ]
+        }
+      ]
+    },
+    "h0": {
+      "results": [
+        {
+          "runId": "ac567294-7c70-40aa-8503-e9500ae8feed",
+          "status": "SUCCESS",
+          "creationTime": 1788182812.748611
+        }
+      ]
+    },
+    "j1": {
+      "results": [
+        {
+          "runId": "e95b31f2-1c4f-46da-92b2-f7ce133ca8c0",
+          "status": "SUCCESS",
+          "creationTime": 1791704721.666963,
+          "startTime": 1791704729.125964,
+          "endTime": 1791704898.515059,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-09"
+            },
+            {
+              "key": "goldenshare/repair_reason",
+              "value": "member_source_response_recovery_20261011"
+            }
+          ]
+        },
+        {
+          "runId": "5cf410ae-7a9e-4218-9dde-673c9cc5a0f1",
+          "status": "FAILURE",
+          "creationTime": 1791562026.571194,
+          "startTime": 1791562049.890404,
+          "endTime": 1791562213.928168,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/failure_reason",
+              "value": "STEP_FAILURE"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-09"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_tushare_dc_member_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_tushare_dc_member_update:2026-10-09"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_tushare_dc_member_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2259258"
+            }
+          ]
+        }
+      ]
+    },
+    "h1": {
+      "results": [
+        {
+          "runId": "61cfc38c-e519-4e8b-96b1-4df165d7fbc1",
+          "status": "SUCCESS",
+          "creationTime": 1788183422.891878
+        }
+      ]
+    },
+    "j2": {
+      "results": [
+        {
+          "runId": "bb63c026-5752-4450-b949-920a906fb3b4",
+          "status": "SUCCESS",
+          "creationTime": 1791562016.309252,
+          "startTime": 1791562039.250742,
+          "endTime": 1791562045.207905,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-09"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_tushare_dc_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_tushare_dc_daily_update:2026-10-09"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_tushare_dc_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2259237"
+            }
+          ]
+        }
+      ]
+    },
+    "h2": {
+      "results": [
+        {
+          "runId": "3fb97e2b-b4ca-4b0a-a328-31c261a30dbf",
+          "status": "SUCCESS",
+          "creationTime": 1788183408.52563
+        }
+      ]
+    },
+    "j3": {
+      "results": [
+        {
+          "runId": "23bdbbcf-227c-4785-b17d-4a1201c0568f",
+          "status": "SUCCESS",
+          "creationTime": 1791562042.75156,
+          "startTime": 1791562219.061359,
+          "endTime": 1791562224.020645,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-09"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_dc_index_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_dc_index_update:2026-10-09"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_dc_index_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2259273"
+            }
+          ]
+        }
+      ]
+    },
+    "h3": {
+      "results": [
+        {
+          "runId": "b399c003-6adf-4438-8743-6f072581f2e9",
+          "status": "SUCCESS",
+          "creationTime": 1788183419.879141
+        }
+      ]
+    },
+    "j4": {
+      "results": [
+        {
+          "runId": "88d24519-5d13-437d-806e-a1a7206d333c",
+          "status": "SUCCESS",
+          "creationTime": 1791704943.583194,
+          "startTime": 1791704948.676747,
+          "endTime": 1791704953.476683,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-09"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_dc_member_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_dc_member_update:2026-10-09"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_dc_member_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2332039"
+            }
+          ]
+        }
+      ]
+    },
+    "h4": {
+      "results": [
+        {
+          "runId": "a4f02f89-d6c9-4294-842e-3f2446aa407c",
+          "status": "SUCCESS",
+          "creationTime": 1788183997.601645
+        }
+      ]
+    },
+    "j5": {
+      "results": [
+        {
+          "runId": "5fcc729f-36e0-48ea-8081-07c1c805e138",
+          "status": "SUCCESS",
+          "creationTime": 1791562613.187034,
+          "startTime": 1791562619.489828,
+          "endTime": 1791562624.174259,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-09"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_dc_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_dc_daily_update:2026-10-09"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_dc_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2259533"
+            }
+          ]
+        }
+      ]
+    },
+    "h5": {
+      "results": [
+        {
+          "runId": "5252cc13-16ff-42fc-aa0e-55ea1aeff68d",
+          "status": "SUCCESS",
+          "creationTime": 1788183421.883994
+        }
+      ]
+    },
+    "failed": {
+      "runId": "5cf410ae-7a9e-4218-9dde-673c9cc5a0f1",
+      "status": "FAILURE",
+      "creationTime": 1791562026.571194,
+      "endTime": 1791562213.928168,
+      "eventConnection": {
+        "hasMore": false,
+        "events": [
+          {
+            "__typename": "AssetMaterializationPlannedEvent"
+          },
+          {
+            "__typename": "AssetCheckEvaluationPlannedEvent"
+          },
+          {
+            "__typename": "RunEnqueuedEvent"
+          },
+          {
+            "__typename": "RunStartingEvent"
+          },
+          {
+            "__typename": "EngineEvent"
+          },
+          {
+            "__typename": "RunStartEvent"
+          },
+          {
+            "__typename": "EngineEvent"
+          },
+          {
+            "__typename": "StepWorkerStartingEvent"
+          },
+          {
+            "__typename": "StepWorkerStartedEvent"
+          },
+          {
+            "__typename": "ResourceInitStartedEvent"
+          },
+          {
+            "__typename": "ResourceInitSuccessEvent"
+          },
+          {
+            "__typename": "LogsCapturedEvent"
+          },
+          {
+            "__typename": "ExecutionStepStartEvent"
+          },
+          {
+            "__typename": "ExecutionStepFailureEvent"
+          },
+          {
+            "__typename": "LogMessageEvent"
+          },
+          {
+            "__typename": "EngineEvent"
+          },
+          {
+            "__typename": "RunFailureEvent"
+          },
+          {
+            "__typename": "EngineEvent"
+          }
+        ]
+      }
+    }
+  },
+  "query_bounds": {
+    "jobs": 6,
+    "target_partition": "2026-10-09",
+    "records_per_job_limit": 21,
+    "older_sample_before_utc": "2026-09-01T00:00:00+00:00",
+    "older_sample_limit_per_job": 1,
+    "failed_run_event_limit": 100
+  },
+  "retention_findings": {
+    "dc_run_event_ttl_configured": false,
+    "skipped_sensor_tick_days": 7,
+    "six_job_20260831_samples_present": true,
+    "failed_member_step_failure_present": true,
+    "retention_delete_tools": "two whitelist-only asset check/materialization sample-delete tools; no DC assets or STEP_FAILURE deletion",
+    "external_scope": "Library/LaunchAgents and .goldenshare plist/sh/py/toml/yaml search, no matching retention/delete scripts found",
+    "limits": "No full history completeness guarantee; no audit of every possible external DBA/manual operation; all-record deletion cannot be reliably detected using run history alone"
+  },
+  "development_readiness": "blocked",
+  "blocking_finding": "DC LLD custom run tags identity conflicts with existing governance prohibition and request builder; typed config alternative requires confirmation",
+  "mutations": "only three design documents and this report; no formal runtime mutation"
+}

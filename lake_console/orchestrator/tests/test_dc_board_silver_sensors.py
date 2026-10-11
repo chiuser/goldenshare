@@ -2,6 +2,9 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import dagster as dg
+import pytest
+
 from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityBatchReadiness,
     ContinuityDateReadiness,
@@ -17,6 +20,10 @@ class _FakeInstance:
 
     def get_dynamic_partitions(self, _name):
         return list(self.registered)
+
+    def get_run_records(self, *, filters, limit):
+        assert limit in (2, 21)
+        return []
 
     def get_event_records(self, *_args, **_kwargs):
         raise AssertionError("Silver board sensors must not read Dagster event history")
@@ -240,3 +247,30 @@ def test_silver_sensor_skips_registered_gap_without_batch_scan(monkeypatch) -> N
     )
     assert not result.run_requests
     assert calls == []
+
+
+@pytest.mark.parametrize("status", [dg.DagsterRunStatus.FAILURE, dg.DagsterRunStatus.CANCELED,
+    dg.DagsterRunStatus.SUCCESS, dg.DagsterRunStatus.QUEUED, dg.DagsterRunStatus.CANCELING])
+def test_silver_stops_on_own_failure_cancel_contradiction_or_manual_active(monkeypatch, status):
+    from tests.test_dc_board_run_recovery import Instance, record
+    context = _context(("2026-07-14", "2026-07-15"))
+    stored = record(manual=True, job="silver_dc_index_update_job", status=status)
+    instance = Instance(records=[] if status in (dg.DagsterRunStatus.QUEUED, dg.DagsterRunStatus.CANCELING) else [stored],
+        active=[stored] if status in (dg.DagsterRunStatus.QUEUED, dg.DagsterRunStatus.CANCELING) else [])
+    instance.get_records_for_run = lambda *_args, **_kwargs: pytest.fail("Silver must not request retry failure facts")
+    context.instance = instance
+    monkeypatch.setattr(dc_board_silver_sensor, "_load_window", lambda *args, **kwargs: _window_and_gap(("2026-07-14", "2026-07-15")))
+    raw = _batch({"2026-07-14": _ready("2026-07-14"), "2026-07-15": _ready("2026-07-15")})
+    silver = _batch({"2026-07-14": _missing("2026-07-14", "silver_dc_index_core_check"), "2026-07-15": _ready("2026-07-15")})
+    result = _evaluate(context, raw, silver)
+    assert not result.run_requests
+    assert any(reason in result.cursor for reason in ("failed_requires_review", "canceled_requires_review", "success_file_missing", "active_run"))
+
+
+def test_silver_ready_files_take_priority_over_old_failure(monkeypatch):
+    context = _context(("2026-07-14", "2026-07-15"))
+    context.instance.get_run_records = lambda **_: pytest.fail("ready Silver must not query runs")
+    monkeypatch.setattr(dc_board_silver_sensor, "_load_window", lambda *args, **kwargs: _window_and_gap(("2026-07-14", "2026-07-15")))
+    ready = _batch({"2026-07-14": _ready("2026-07-14"), "2026-07-15": _ready("2026-07-15")})
+    result = _evaluate(context, ready, ready)
+    assert not result.run_requests and "all_ready" in result.cursor

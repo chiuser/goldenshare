@@ -50,7 +50,7 @@ STARTUP_PROBES = (
 RESOURCE_SOURCE_FILES = (
     "defs/daily_basic_contract.py",
     "__init__.py", "defs/__init__.py", "defs/resources.py",
-    "defs/duckdb_connection.py", "defs/paths.py", "defs/tushare_request_policy.py",
+    "defs/duckdb_connection.py", "defs/paths.py", "defs/tushare_request_policy.py", "defs/tushare_errors.py",
     "defs/health/__init__.py", "defs/health/lake_root.py",
     "defs/notifications/__init__.py", "defs/notifications/feishu.py",
     "defs/run_contracts/__init__.py", "defs/run_contracts/etf_basic.py",
@@ -109,6 +109,10 @@ INTEGRATION_SOURCE_FILES = (
 )
 # Frozen exact source inventory for full consumer/governance discovery.
 CONSUMER_SOURCE_FILES = (
+    # Exact approved DC recovery imports; no broader filesystem capability.
+    "defs/tushare_errors.py",
+    "defs/run_contracts/dc_board_failures.py",
+    "defs/asset_guards/dc_board_run_recovery.py",
     # Moneyflow candidate modules: exact read-only discovery/import closure.
     "defs/bootstrap/moneyflow_history_plan.py",
     "defs/bootstrap/moneyflow_history_receive.py",

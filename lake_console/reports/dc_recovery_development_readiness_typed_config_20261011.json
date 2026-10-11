@@ -1,0 +1,40 @@
+{
+  "audit_kind": "dc_recovery_typed_config_confirmed_development_readiness",
+  "generated_at": "2026-10-11T08:47:19.259767+00:00",
+  "prior_audit": "dc_recovery_development_readiness_20261011.json",
+  "retention_evidence_generated_at": "2026-10-11T08:27:50.164918+00:00",
+  "retention_rechecked_this_turn": false,
+  "user_decision": "typed run_config recovery identity; STEP_FAILURE failure facts; no development",
+  "design_readiness": "ready_for_development_instruction",
+  "blocking_design_items": [],
+  "implementation_status": "not_started",
+  "production_release_readiness": "not_evaluated",
+  "scope": "three DC Raw jobs; Silver activity/failure blocking; shared exception/request policy consumer regression",
+  "config_design": {
+    "run_model": "DcBoardRawRunConfig",
+    "source_proof": "required DcBoardSourceFreezeConfig",
+    "recovery_identity": "optional DcBoardRecoveryIdentityConfig; absent for manual",
+    "identity_fields": [
+      "policy_version",
+      "automatic_attempt",
+      "source_failure_run_id"
+    ],
+    "custom_run_tags": false,
+    "legacy_flat_execution": false
+  },
+  "audit_tools": [
+    "CodeGraph explore",
+    "current source cross-reference and targeted reads",
+    "document integrity check",
+    "relative link and diff checks"
+  ],
+  "consumer_contract_source": "dagster-dc-board-quote-availability-low-level-design-v1.md section 10.9",
+  "remaining_gates": [
+    "user development instruction",
+    "implementation and isolated tests",
+    "definitions/static gates",
+    "separate production release and execution authorization"
+  ],
+  "formal_state_mutated": false,
+  "python_modified": false
+}

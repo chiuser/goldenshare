@@ -21,6 +21,7 @@ from orchestrator.defs.run_contracts.dc_board import (
     build_dc_board_prod_completion_snapshot,
     build_dc_board_tushare_source_snapshot,
 )
+from orchestrator.defs.run_contracts.dc_board_failures import DcBoardRequestFailure
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 from tests.dc_board_quote_test_support import prod_result, source_proof
 
@@ -631,9 +632,9 @@ class DcBoardRawIoTests(unittest.TestCase):
             target_path.parent.mkdir(parents=True)
             target_path.write_bytes(b"existing target")
             with self.assertRaisesRegex(
-                DcBoardRawValidationError,
-                "budget cannot cover",
-            ):
+                DcBoardRequestFailure,
+                "request_or_resource_budget_exhausted",
+            ) as failure:
                 write_dc_member_partition(
                     source_snapshot_config=_config(completion, asset_name="raw_tushare_dc_member"),
                     lake_root_path=root,
@@ -645,6 +646,9 @@ class DcBoardRawIoTests(unittest.TestCase):
                     policy=exhausted_policy,
                 )
             self.assertEqual(target_path.read_bytes(), b"existing target")
+            self.assertFalse(failure.exception.facts.partition_retryable)
+            self.assertTrue(failure.exception.facts.budget_exceeded)
+            self.assertEqual(failure.exception.facts.unattempted_count, 2)
 
         self.assertEqual(calls, [])
 

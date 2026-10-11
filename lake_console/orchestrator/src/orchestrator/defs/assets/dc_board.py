@@ -68,6 +68,11 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_MEMBER_FIELDS,
     DC_MEMBER_PAGE_LIMIT,
 )
+from orchestrator.defs.run_contracts.dc_board_failures import (
+    DcBoardFailureFacts,
+    DcBoardRequestFailure,
+    request_failure_facts,
+)
 from orchestrator.defs.tushare_request_policy import (
     BoundedCodePageRequestSession,
     BoundedCodeRequestResult,
@@ -618,10 +623,7 @@ def _dc_member_rows_from_request_result(
     """Return validated member rows from one bounded request batch."""
 
     if not result.ready:
-        details = result.to_details()
-        details["empty_codes"] = list(result.empty_codes[:20])
-        details["empty_code_list_truncated"] = len(result.empty_codes) > 20
-        raise DcBoardRawValidationError(f"dc_member {phase} request failed: {details}")
+        raise DcBoardRequestFailure(request_failure_facts(result))
     mismatched_codes = [
         row
         for code in result.successful_codes
@@ -805,7 +807,10 @@ def write_dc_member_partition(
     remaining_requests = policy.max_requests - observation.source.request_count - DC_BOARD_SOURCE_OBSERVATION_MAX_REQUESTS
     remaining_seconds = policy.max_elapsed_seconds - (perf_counter() - started_at)
     if remaining_requests < len(normalized_codes) or remaining_seconds <= 0:
-        raise DcBoardRawValidationError("member request budget cannot cover candidates and final source validation")
+        raise DcBoardRequestFailure(DcBoardFailureFacts(
+            reason_code="request_or_resource_budget_exhausted", failed_count=0, unattempted_count=len(normalized_codes),
+            request_count=observation.source.request_count, retry_count=observation.source.retry_count,
+            budget_exceeded=True, budget_reason="member_candidates_and_final_proof_budget"))
     member_policy = replace(policy, max_requests=remaining_requests, max_elapsed_seconds=remaining_seconds)
     with duckdb_resource.connect() as connection:
         _create_table(connection, "dc_member")
@@ -832,10 +837,11 @@ def write_dc_member_partition(
                 row.get("con_code"),
             ),
         )
-        initial_rows = _dc_member_rows_from_request_result(
-            initial_result,
-            phase="initial",
-        )
+        try:
+            initial_rows = _dc_member_rows_from_request_result(initial_result, phase="initial")
+        except DcBoardRequestFailure as exc:
+            raise DcBoardRequestFailure(exc.facts.with_prior_requests(
+                observation.source.request_count, observation.source.retry_count)) from exc
         if not initial_rows:
             raise DcBoardRawValidationError(
                 f"dc_member returned no rows for any candidate code on {partition_key}."
@@ -886,10 +892,13 @@ def write_dc_member_partition(
                     row.get("con_code"),
                 ),
             )
-            confirmation_rows = _dc_member_rows_from_request_result(
-                confirmation_result,
-                phase="source_stability_confirmation",
-            )
+            try:
+                confirmation_rows = _dc_member_rows_from_request_result(
+                    confirmation_result, phase="source_stability_confirmation")
+            except DcBoardRequestFailure as exc:
+                raise DcBoardRequestFailure(exc.facts.with_prior_requests(
+                    observation.source.request_count + initial_result.request_count,
+                    observation.source.retry_count + initial_result.retry_count)) from exc
             _assert_dc_member_source_rows_stable(
                 affected_codes=initial_pair_diff.affected_codes,
                 initial_result=initial_result,
@@ -920,14 +929,23 @@ def write_dc_member_partition(
         def final_source_guard():
             remaining_seconds = policy.max_elapsed_seconds - (perf_counter() - started_at)
             if remaining_seconds <= 0:
-                raise DcBoardRawValidationError("member elapsed budget exceeded before final source validation")
-            terminal = revalidate_dc_board_source(
-                proof=source_snapshot_config, asset_name="raw_tushare_dc_member", partition_key=partition_key,
-                lake_root=lake_root_path, duckdb_resource=duckdb_resource,
-                tushare=tushare, prod_postgres=prod_postgres,
-                policy=replace(policy, max_requests=DC_BOARD_SOURCE_OBSERVATION_MAX_REQUESTS,
-                               max_elapsed_seconds=remaining_seconds),
-            )
+                raise DcBoardRequestFailure(DcBoardFailureFacts(
+                    reason_code="request_or_resource_budget_exhausted", failed_count=0, unattempted_count=1,
+                    request_count=observation.source.request_count + request_session.request_count,
+                    retry_count=observation.source.retry_count + request_session.retry_count,
+                    budget_exceeded=True, budget_reason="member_final_proof_elapsed_budget"))
+            try:
+                terminal = revalidate_dc_board_source(
+                    proof=source_snapshot_config, asset_name="raw_tushare_dc_member", partition_key=partition_key,
+                    lake_root=lake_root_path, duckdb_resource=duckdb_resource,
+                    tushare=tushare, prod_postgres=prod_postgres,
+                    policy=replace(policy, max_requests=DC_BOARD_SOURCE_OBSERVATION_MAX_REQUESTS,
+                                   max_elapsed_seconds=remaining_seconds),
+                )
+            except DcBoardRequestFailure as exc:
+                raise DcBoardRequestFailure(exc.facts.with_prior_requests(
+                    observation.source.request_count + request_session.request_count,
+                    observation.source.retry_count + request_session.retry_count)) from exc
             if perf_counter() - started_at >= policy.max_elapsed_seconds:
                 raise DcBoardRawValidationError("member elapsed budget exceeded; promotion blocked")
             return {"request_count": terminal.source.request_count,

@@ -44,7 +44,7 @@ class RunContractConfigTests(unittest.TestCase):
             history_file_count=0, history_evidence_digest="c" * 64, coverage_gap_count=0)
         config = build_raw_dc_board_update_job_run_config(asset_name=proof.target_asset,
             partition_key=proof.trade_date, proof=proof)
-        self.assertEqual(config["ops"][proof.target_asset]["config"], proof.model_dump())
+        self.assertEqual(config["ops"][proof.target_asset]["config"], {"source_proof": proof.model_dump(), "recovery_identity": None})
         for asset, day in (("raw_tushare_dc_daily", proof.trade_date), (proof.target_asset, "2026-07-15")):
             with self.assertRaises(ValueError):
                 build_raw_dc_board_update_job_run_config(asset_name=asset, partition_key=day, proof=proof)

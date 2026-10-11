@@ -8,11 +8,18 @@ bounded M3 writers.
 
 import re
 from collections.abc import Sequence
-from datetime import date
+from contextlib import contextmanager
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.dc_board_run_recovery import (
+    validate_dc_running_identity,
+)
+from orchestrator.defs.asset_guards.dc_board_source_probe import (
+    DcBoardSourceValidationError,
+)
 from orchestrator.defs.assets.dc_board import (
     DcBoardRawValidationError,
     write_dc_daily_partition,
@@ -50,17 +57,43 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.configs import (
-    DcBoardSourceFreezeConfig,
+    DcBoardRawRunConfig,
     validate_dc_board_source_freeze_config,
 )
 from orchestrator.defs.run_contracts.dc_board import (
     DC_BOARD_MAX_REQUESTS_PER_PARTITION,
+)
+from orchestrator.defs.run_contracts.dc_board_failures import (
+    DcBoardFailureFacts,
+    DcBoardRequestFailure,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+
+
+@contextmanager
+def _raw_execution_boundary(context, config: DcBoardRawRunConfig, *, asset_name: str):
+    try:
+        validate_dc_running_identity(context, config.recovery_identity, asset_name=asset_name,
+                                     now=datetime.now(UTC))
+        validate_dc_board_source_freeze_config(config.source_proof,
+            partition_key=context.partition_key, asset_name=asset_name)
+        yield config.source_proof
+    except Exception as exc:
+        if isinstance(exc, DcBoardRequestFailure):
+            facts = exc.facts
+        elif isinstance(exc, DcBoardSourceValidationError):
+            facts = DcBoardFailureFacts(reason_code=exc.reason_code)
+        elif isinstance(exc, DcBoardRawValidationError):
+            facts = DcBoardFailureFacts(reason_code="source_or_data_contract")
+        else:
+            facts = DcBoardFailureFacts(reason_code="unknown_or_infrastructure")
+        raise dg.Failure(description="DC Raw execution failed: " + facts.reason_code,
+                         metadata=facts.metadata(), allow_retries=False) from exc
+
 
 _BOARD_CODE_RE = re.compile(r"^BK\d{4}\.DC$")
 
@@ -184,24 +217,20 @@ def raw_tushare_dc_index(
     duckdb: DuckDBResource,
     tushare: TushareResource,
     prod_postgres: ProdPostgresResource,
-    config: DcBoardSourceFreezeConfig,
+    config: DcBoardRawRunConfig,
 ) -> dg.MaterializeResult:
-    lake_root.ensure_available_for_run()
-    partition_key = _normalize_partition_key(context.partition_key)
-    validated_config = validate_dc_board_source_freeze_config(
-        config,
-        partition_key=partition_key,
-        asset_name="raw_tushare_dc_index",
-    )
-    result = write_dc_index_partition(
-        lake_root_path=lake_root.root(),
-        duckdb_resource=duckdb,
-        tushare=tushare,
-        prod_postgres=prod_postgres,
-        partition_key=partition_key,
-        source_snapshot_config=validated_config,
-    )
-    return _materialize_result(result, schema=RAW_TUSHARE_DC_INDEX_SCHEMA)
+    with _raw_execution_boundary(context, config, asset_name="raw_tushare_dc_index") as proof:
+        lake_root.ensure_available_for_run()
+        partition_key = _normalize_partition_key(context.partition_key)
+        result = write_dc_index_partition(
+            lake_root_path=lake_root.root(),
+            duckdb_resource=duckdb,
+            tushare=tushare,
+            prod_postgres=prod_postgres,
+            partition_key=partition_key,
+            source_snapshot_config=proof,
+        )
+        return _materialize_result(result, schema=RAW_TUSHARE_DC_INDEX_SCHEMA)
 
 
 @dg.asset(
@@ -232,25 +261,26 @@ def raw_tushare_dc_member(
     duckdb: DuckDBResource,
     tushare: TushareResource,
     prod_postgres: ProdPostgresResource,
-    config: DcBoardSourceFreezeConfig,
+    config: DcBoardRawRunConfig,
 ) -> dg.MaterializeResult:
-    lake_root.ensure_available_for_run()
-    partition_key = _normalize_partition_key(context.partition_key)
-    candidate_codes = plan_dc_member_candidate_codes(
-        lake_root_path=lake_root.root(),
-        duckdb_resource=duckdb,
-        partition_key=partition_key,
-    )
-    result = write_dc_member_partition(
-        lake_root_path=lake_root.root(),
-        duckdb_resource=duckdb,
-        tushare=tushare,
-        prod_postgres=prod_postgres,
-        source_snapshot_config=config,
-        partition_key=partition_key,
-        candidate_codes=candidate_codes,
-    )
-    return _materialize_result(result, schema=RAW_TUSHARE_DC_MEMBER_SCHEMA)
+    with _raw_execution_boundary(context, config, asset_name="raw_tushare_dc_member") as proof:
+        lake_root.ensure_available_for_run()
+        partition_key = _normalize_partition_key(context.partition_key)
+        candidate_codes = plan_dc_member_candidate_codes(
+            lake_root_path=lake_root.root(),
+            duckdb_resource=duckdb,
+            partition_key=partition_key,
+        )
+        result = write_dc_member_partition(
+            lake_root_path=lake_root.root(),
+            duckdb_resource=duckdb,
+            tushare=tushare,
+            prod_postgres=prod_postgres,
+            source_snapshot_config=proof,
+            partition_key=partition_key,
+            candidate_codes=candidate_codes,
+        )
+        return _materialize_result(result, schema=RAW_TUSHARE_DC_MEMBER_SCHEMA)
 
 
 @dg.asset(
@@ -280,19 +310,20 @@ def raw_tushare_dc_daily(
     duckdb: DuckDBResource,
     tushare: TushareResource,
     prod_postgres: ProdPostgresResource,
-    config: DcBoardSourceFreezeConfig,
+    config: DcBoardRawRunConfig,
 ) -> dg.MaterializeResult:
-    lake_root.ensure_available_for_run()
-    partition_key = _normalize_partition_key(context.partition_key)
-    result = write_dc_daily_partition(
-        lake_root_path=lake_root.root(),
-        duckdb_resource=duckdb,
-        tushare=tushare,
-        prod_postgres=prod_postgres,
-        source_snapshot_config=config,
-        partition_key=partition_key,
-    )
-    return _materialize_result(result, schema=RAW_TUSHARE_DC_DAILY_SCHEMA)
+    with _raw_execution_boundary(context, config, asset_name="raw_tushare_dc_daily") as proof:
+        lake_root.ensure_available_for_run()
+        partition_key = _normalize_partition_key(context.partition_key)
+        result = write_dc_daily_partition(
+            lake_root_path=lake_root.root(),
+            duckdb_resource=duckdb,
+            tushare=tushare,
+            prod_postgres=prod_postgres,
+            source_snapshot_config=proof,
+            partition_key=partition_key,
+        )
+        return _materialize_result(result, schema=RAW_TUSHARE_DC_DAILY_SCHEMA)
 
 
 __all__ = [

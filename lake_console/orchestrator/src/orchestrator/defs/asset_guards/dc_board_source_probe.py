@@ -35,6 +35,10 @@ from orchestrator.defs.run_contracts.dc_board import (
     build_dc_board_tushare_source_snapshot,
     is_dc_index_placeholder,
 )
+from orchestrator.defs.run_contracts.dc_board_failures import (
+    DcBoardFailureFacts,
+    request_failure_facts,
+)
 from orchestrator.defs.tushare_request_policy import (
     TushareRequestPolicy,
     execute_bounded_code_pages,
@@ -48,6 +52,10 @@ _STOCK_CODE_RE = re.compile(r"^\d{6}\.(SZ|SH|BJ)$")
 
 class DcBoardSourceValidationError(ValueError):
     """Raised when prod completion or a Tushare source snapshot is invalid."""
+
+    def __init__(self, message: str, *, reason_code: str = "source_or_data_contract"):
+        self.reason_code = reason_code
+        super().__init__(message)
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +105,7 @@ class DcBoardTushareSourceResult:
     daily_extra_count: int = 0
     placeholder_row_count: int = 0
     error: str | None = None
+    failure_facts: DcBoardFailureFacts | None = None
 
     @property
     def content_matches_prod(self) -> bool:
@@ -499,6 +508,7 @@ def load_tushare_dc_index_daily_source_snapshot(
                 index_rows_by_type={},
                 daily_rows=(),
                 error=str(index_result.to_details(max_failure_samples=3)),
+                failure_facts=request_failure_facts(index_result),
             )
         index_rows_by_type = {
             idx_type: tuple(index_result.rows_by_code.get(idx_type, ()))
@@ -537,6 +547,10 @@ def load_tushare_dc_index_daily_source_snapshot(
                 daily_rows=(),
                 placeholder_row_count=placeholder_row_count,
                 error="dc_index exhausted the shared dc_index/dc_daily request budget.",
+                failure_facts=DcBoardFailureFacts(
+                    reason_code="request_or_resource_budget_exhausted", failed_count=0, unattempted_count=1,
+                    request_count=index_result.request_count, retry_count=index_result.retry_count,
+                    budget_exceeded=True, budget_reason="source_observation_budget_exhausted"),
             )
         daily_policy = replace(
             effective_policy,
@@ -587,6 +601,7 @@ def load_tushare_dc_index_daily_source_snapshot(
                 daily_rows=(),
                 placeholder_row_count=placeholder_row_count,
                 error=str(daily_result.to_details(max_failure_samples=3)),
+                failure_facts=request_failure_facts(daily_result).with_prior_requests(index_result.request_count, index_result.retry_count),
             )
         daily_rows = tuple(daily_result.rows)
         _validate_identity_rows(rows=daily_rows, trade_date=trade_date, kind="dc_daily")

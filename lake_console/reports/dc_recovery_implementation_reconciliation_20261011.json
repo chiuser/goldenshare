@@ -1,0 +1,358 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-10-11",
+  "branch": "dev-interface",
+  "stage": "implementation_and_isolated_validation_complete",
+  "basis": "lake_console/docs/design/dagster-dc-board-quote-availability-low-level-design-v1.md#10.9-10.11",
+  "formal_release_verified": false,
+  "formal_recovery_executed_by_this_task": false,
+  "commit_created": false,
+  "new_config": {
+    "automatic_attempts": 3,
+    "cooldown_seconds": [
+      600,
+      1800
+    ],
+    "policy_version": "dc_board_recovery_v1",
+    "run_record_normal_limit": 20,
+    "run_record_fetch_limit": 21,
+    "failure_event_fetch_limit": 21,
+    "failure_sample_limit": 20,
+    "config_source": "run_contracts constants; no env/DB/CLI setting"
+  },
+  "reconciliation": [
+    {
+      "id": "typed_raw_config",
+      "requirement": "Strict recovery identity, outer proof, no flat execution; all three Raw assets",
+      "implementation": "run_contracts/configs.py, assets/dc_board_raw.py",
+      "verification": "test_outer_config_only_and_manual_has_no_identity; identity coercion/reference tests; actual raw ephemeral integration",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "pure_source_proof",
+      "requirement": "Writers and direct bootstrap continue to consume source proof only",
+      "implementation": "assets/dc_board.py; asset_guards/dc_board_source_freeze.py; bootstrap/dc_board_bootstrap_apply.py",
+      "verification": "Source freeze, bootstrap/apply and quote integration regressions",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "native_run_key",
+      "requirement": "Existing builders, no project tags or specialized production key helper; compare only",
+      "implementation": "sensors/dc_board_sensor.py; asset_guards/dc_board_run_recovery.py",
+      "verification": "Repeated requests, provenance rejection, run key tests and protected static gates",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "request_budget",
+      "requirement": "First plus three retries; 1,2,4 backoff; existing 1200/600s partition and source 16 limits",
+      "implementation": "tushare_request_policy.py; asset_guards/dc_board_source_probe.py; assets/dc_board.py",
+      "verification": "Exact four calls/backoff; budget no-promotion; performance and shared consumer regressions",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "failure_classification",
+      "requirement": "Explicit reason codes; unclassified response remains fail closed; known deterministic/unknown do not retry",
+      "implementation": "tushare_errors.py; tushare_request_policy.py; run_contracts/dc_board_failures.py",
+      "verification": "No-fields vs legal declared-field empty, permissions/contract/filesystem, full aggregation tests",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "complete_failure_set",
+      "requirement": "Aggregate every failure before truncating samples to 20; budgets/unattempted block",
+      "implementation": "run_contracts/dc_board_failures.py",
+      "verification": "21st deterministic failure negative; incomplete/budget negative; no raw messages",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "step_failure_only",
+      "requirement": "11 metadata fields, actual statistics or null; preserve cause and do not write source metadata into config/files",
+      "implementation": "assets/dc_board_raw.py; dc_board_failures.py",
+      "verification": "Actual Raw asset failure event roundtrip; each missing/malformed field; multi-step/has_more/21 events",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "bounded_history",
+      "requirement": "Active limit 2, partition records limit 21 (20 normal), no history paging; STEP_FAILURE max21",
+      "implementation": "asset_guards/dc_board_run_recovery.py",
+      "verification": "Fake query filter/limit assertions and truncation/unavailable evidence tests",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "active_before_source",
+      "requirement": "All six nonterminal states, same job including manual/other dates; recheck after observation",
+      "implementation": "sensors/dc_board_sensor.py; dc_board_run_recovery.py",
+      "verification": "All active states; before source zero calls; during observation active change blocks",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "three_attempts",
+      "requirement": "Exactly max3 automatic executions; persisted identities and historical initial key; cursor/cross-day cannot reset",
+      "implementation": "run_contracts/dc_board.py; dc_board_run_recovery.py",
+      "verification": "First,2,3 boundaries/exhaustion; repeated decision/cross-day; real stored-run automatic chain",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "cooldown",
+      "requirement": "Second after600s, third after1800s from prior failure end; unavailable/future/nonfinite end stops",
+      "implementation": "dc_board_run_recovery.py",
+      "verification": "599/600,1799/1800; missing/invalid end; real ephemeral stored failure timestamps",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "running_provenance",
+      "requirement": "Current native origin/sensor/job/partition/key; no manual parent/root; prior failure nearest same scope; recheck before source",
+      "implementation": "dc_board_run_recovery.py; assets/dc_board_raw.py",
+      "verification": "Key/sensor/origin/parent/job/date/source/attempt negatives; three boundaries reject copied automatic config",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "historical_stop",
+      "requirement": "Legacy, incomplete evidence, latest manual failure/cancel and success-file contradiction require review; no repair of historical facts",
+      "implementation": "dc_board_run_recovery.py",
+      "verification": "Legacy no authorization; manual failure/cancel not hidden; duplicate/gap/source-chain stops",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "physical_priority",
+      "requirement": "Existing 10-date readiness window first; ready files do not resurrect failures; bad files/checks stop",
+      "implementation": "sensors/dc_board_sensor.py; sensors/dc_board_silver_sensor.py",
+      "verification": "Ready Raw/Silver no history query, existing readiness/core check regressions",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "silver_no_retry",
+      "requirement": "No new identity/config/key quota for Silver; active/failure guard only",
+      "implementation": "sensors/dc_board_silver_sensor.py",
+      "verification": "Own failure/cancel/active/success-missing; normal Raw frontier then Silver gap request",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "consumer_migration",
+      "requirement": "Resource/classifier/weekly use pure exception, exact protected test imports; no reverse import of resource from request policy",
+      "implementation": "resources.py; stock_weekly_source.py; tushare_request_policy.py; tests/stock_suspend_confirmed_test_runner.py",
+      "verification": "Weekly source32; ETF/index/minute/moneyflow fake consumers; protected BSE26/static113",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "unchanged_boundaries",
+      "requirement": "No new assets/checks/sensors/state tables/globalretry/paths/schema/CLI/keybuilder outputs; no foundation/ops/web imports",
+      "implementation": "Run contracts and existing DC orchestration only",
+      "verification": "Definitions.validate_loadable; catalog/static gates; current dependency/import inspection",
+      "status": "passed_isolated"
+    },
+    {
+      "id": "no_formal_recovery",
+      "requirement": "Development and local isolated tests only, no submit/reload/sensor evaluation/formal events or writes",
+      "implementation": "Task execution boundary",
+      "verification": "Ephemeral instance and tmp fixtures; no formal recovery commands issued",
+      "status": "passed_isolated"
+    }
+  ],
+  "verification": {
+    "different_test_cases_passed": 1088,
+    "subtests_additional": 35,
+    "groups": [
+      {
+        "name": "DC and shared request policy consumers",
+        "passed": 916,
+        "seconds": 61.27,
+        "log": "/private/tmp/dc_recovery_tests.log",
+        "included_in_unique_total": true
+      },
+      {
+        "name": "additional requests transport boundary (not in the earlier broad collection)",
+        "passed": 1,
+        "seconds": 0.23,
+        "log": "/private/tmp/dc_recovery_transport.log",
+        "included_in_unique_total": true
+      },
+      {
+        "name": "weekly source",
+        "passed": 32,
+        "seconds": 10.26,
+        "log": "/private/tmp/dc_recovery_weekly.log",
+        "included_in_unique_total": true
+      },
+      {
+        "name": "protected static gates",
+        "passed": 113,
+        "log": "/private/tmp/dc_recovery_protected_static.log",
+        "included_in_unique_total": true
+      },
+      {
+        "name": "protected BSE consumer",
+        "passed": 26,
+        "log": "/private/tmp/dc_recovery_protected_bse.log",
+        "included_in_unique_total": true
+      },
+      {
+        "name": "final key comparison targeted regression (overlap; not added to total)",
+        "passed": 125,
+        "log": "/private/tmp/dc_recovery_final_targeted.log",
+        "included_in_unique_total": false
+      }
+    ],
+    "definitions_validate_loadable": "passed",
+    "fatal_ruff": "passed E9,F63,F7,F82 for src/orchestrator/defs and tests",
+    "new_code_ruff": "passed",
+    "existing_lint_debt": {
+      "current": 13,
+      "head_baseline": 17,
+      "new_diagnostics": 0,
+      "codes": {
+        "TRY004": 7,
+        "DTZ007": 4,
+        "BLE001": 1,
+        "DTZ005": 1
+      },
+      "scope": [
+        "run_contracts/configs.py",
+        "sensors/dc_board_silver_sensor.py",
+        "tests/test_dc_board_silver_sensors.py"
+      ]
+    },
+    "docs_integrity": "passed",
+    "git_diff_check": "passed"
+  },
+  "isolation": {
+    "instance": "DagsterInstance.ephemeral only; discovery blocked by local broad-test launcher",
+    "sources": "fakes only; network sockets blocked in local launcher, protected suites enforce native deny network",
+    "duckdb_temp": "/private/tmp/dc-recovery-tests-*; temporary settings only",
+    "protected_launcher": "Existing stock_suspend_confirmed_test_runner; import allowlist adds exact new modules only",
+    "install_or_dependency_sync": false
+  },
+  "audit_corrections": [
+    "Expanded regression first identified budget exception test still asserting old message/type; migrated to typed facts assertions.",
+    "Temporary broad-test launcher originally lacked multiprocessing main guard; stopped its own process, fixed guard, reran successfully.",
+    "Protected consumer source list initially missed new pure imports; synced exact files, no broader permission.",
+    "Removed a production DC-specific expected key helper; native comparison calls existing generic builders inline.",
+    "Narrowed generic OSError: local/unknown I/O never becomes network transient; known requests transport types remain retryable."
+  ],
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "scope": "Config/asset/sensor/probe/writer/bootstrap/shared request classifier/weekly/test launcher",
+    "limitations": "Indirect generic classifier consumers not fully resolved by graph; current imports/calls verified directly."
+  },
+  "changed_python_files": [
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/asset_guards/dc_board_run_recovery.py",
+      "sha256": "1082928c64589af6a86a6d4814398fa968438f84d4803415a8eed49b79580773"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/asset_guards/dc_board_source_freeze.py",
+      "sha256": "c3325b36878f2aef4162ea90d17f638a95b7a9ffc1e2cf46c207c32a91ac73ca"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/asset_guards/dc_board_source_probe.py",
+      "sha256": "4b4a4abb7ea39055ad1b8aae9936aa5a445473853e88f012f99cc78bf925f329"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/assets/dc_board.py",
+      "sha256": "2f8278ffee186a1448aab04bd215b69b7d68fc124c075dca7c4dd0a4e889f011"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/assets/dc_board_raw.py",
+      "sha256": "00dc054b4ee739de4a8e66573988adfd62ad2e0f38f91b14811c093e1774bcd9"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/resources.py",
+      "sha256": "30311abe87116c3dae5413ac5c99912c203d4eddd6a630a01a49b56be6281a6e"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/run_contracts/configs.py",
+      "sha256": "e4539ddf3631bfe5a703a1f1d1915f64428f26066227287af4b0bda6c2120031"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/run_contracts/dc_board.py",
+      "sha256": "c4f5d3361f83b9425b9f8b477e6be0335618fcd4a0632ab099885ecc8153aa0e"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/run_contracts/dc_board_failures.py",
+      "sha256": "5302c265e0766dcda89a68dcb9df5dcccd91ecd26d35fe5e6002912e82518b1f"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/sensors/dc_board_sensor.py",
+      "sha256": "33543638b886f6730e9330c0ec1021c496ff4a41ece546de964d0a806211fc73"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/sensors/dc_board_silver_sensor.py",
+      "sha256": "33d0fca4effe6e6daac7329bb74add5bc4bbdd55f9d3a8d04155f4819530ff76"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/stock_weekly_source.py",
+      "sha256": "676c61ce5ba0256ae24059cfca26daf678fb27c2dbe0a67ef10849a761b15de5"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/tushare_errors.py",
+      "sha256": "2cd256681ac1f3b5d20ec32d797c5894899dc3cc8d2e9996879e6e9e177d9292"
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/tushare_request_policy.py",
+      "sha256": "a623e25cee26382f26f74176fe77f2552ec3538dfcaa7676df29e3852dde5658"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py",
+      "sha256": "e76e4aa0cdfd13134d085b697e724ad2fed95107b6cb125ac0709b2c934ac98f"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/stock_weekly_capture_test_support.py",
+      "sha256": "75296871b56639d703cd83d4b45492a41c57bd5b10aa829d70b63935b47c440d"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_dc_board_raw_io.py",
+      "sha256": "f4729d0c4d3882c1bbb32c11ff440fd0ea58ce839340cea7b60f6faa394aff87"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_dc_board_run_recovery.py",
+      "sha256": "e75d8a70f06363c338357f31bef42435dd7f2905454ac2e145a76251133d4b0b"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_dc_board_sensors.py",
+      "sha256": "c907b0e8a94f42c7f24a6f141447ab20d3731dc0833cb116f5aeb7ff265bd917"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_dc_board_silver_sensors.py",
+      "sha256": "46c52e6967be31e7afaf260d68ceb7b225ff688532bccb6e179e1e4fd5f2be16"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_run_contract_configs.py",
+      "sha256": "5d4212dcc4ecd8c65a6c506a766eb2cd2d946d101f48fe7579ba9bb637812433"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_tushare_request_policy.py",
+      "sha256": "ebefc0417f0efa1bb5436496680c73337756ecc45d4adc676b8cc0bd56999f39"
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_tushare_resource_response.py",
+      "sha256": "f3494663f6a720b049797ae903672c9214f6b887a036af8ac9e535de8e86eb6c"
+    }
+  ],
+  "pending": [
+    "Review/commit/release separately; not performed this turn.",
+    "Before release verify target instance, retained run and STEP_FAILURE records, and no conflicting active jobs.",
+    "Formal failure-cooldown-recovery acceptance and any finite-date physical recovery require separate authorization.",
+    "Manual Launchpad/reexecution must rebuild current proof via unified outer config with recovery_identity=None; legacy failures are not granted artificial retry facts."
+  ],
+  "limitations": [
+    "Tests prove bounded decisions and propagation, not successful live Tushare recovery.",
+    "No atomic mutex across arbitrary manual submission; do not overlap maintenance and automatic runs.",
+    "No guarantee against externally deleted run history; retention evidence remains the development preflight snapshot."
+  ],
+  "api_evidence": {
+    "dagster_version": "1.13.18",
+    "verified_installed_signatures": [
+      "DagsterInstance.get_run_records",
+      "DagsterInstance.get_records_for_run",
+      "RunsFilter",
+      "Config.model_validate",
+      "RemoteJobOrigin",
+      "execution.api.execute_run"
+    ],
+    "documentation": "Dagster expert basic sensor/asset metadata/CLI check reference; existing official sensor deduplication link in LLD"
+  }
+}

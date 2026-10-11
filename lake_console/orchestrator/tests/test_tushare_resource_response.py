@@ -5,7 +5,8 @@ import json
 import pytest
 import requests
 
-from orchestrator.defs.resources import TushareResource, TushareResponseError
+from orchestrator.defs.resources import TushareResource
+from orchestrator.defs.tushare_errors import TushareResponseError
 
 
 @pytest.fixture
