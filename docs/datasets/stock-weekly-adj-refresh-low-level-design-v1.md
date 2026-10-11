@@ -1,6 +1,6 @@
 # Prod 股票复权周线刷新代码级 LLD v1
 
-起草：2026-10-09；更新：2026-10-10。状态：P0/D0完成，P1已提交7d32163d，P2执行链与隔离验证已实现；真实PG运行验收待执行，未正式迁移、部署、同步或切换。本文件按 [Prod 数据集开发模板](../templates/dataset-development-template.md) 的0—10节复制结构并填写；模板提示文字不作为项目内容重复保留。
+起草：2026-10-09；更新：2026-10-11。状态：P0/D0完成，P1已提交7d32163d，P2已提交018168fc；日期误判已修正，真实隔离PG及两历史周全市场源对账通过，本轮修改尚未提交。单周内存超过256MiB预算，P2性能门禁及正式环境/页面验收待完成，见§13.6。未正式迁移、部署、同步或切换。本文件按 [Prod 数据集开发模板](../templates/dataset-development-template.md) 的0—10节复制结构并填写；模板提示文字不作为项目内容重复保留。
 
 业务范围和阶段以 [方案](stock-weekly-adj-refresh-plan-v1.md) 为准。DG实现仅引用本文交接合同，其余见 [DG LLD新增阶段](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-prod-refresh-lld)。当前实现以§13为准：源码注册Definition已绑定新规划/发布路径，表及索引尚未在正式库创建；正式运行验收、首次全量收尾和DG接收链尚未执行。§12保留P1提交时的历史状态。
 
@@ -106,7 +106,7 @@ P0已核对Definition、resolver、planner、builder、executor、writer、DAO�
 | W05 | 21字段全链；source/normalizer/DAO | 默认/显式/关键字段一致 | freq缺失/冲突键/超精度阻断 | 源/标准化/Raw/Serving，P2 |
 | W06 | 业务完成/交付独立于Ops；§5.4 | commit后可恢复和被DG读取 | 进度/终态写失败不回滚行情 | 注入观测失败，P2/J1 |
 | W07 | 长任务有界与取消；executor | unit提交后递增、恢复幂等 | 半页/退出不判完成；取消不领新unit | 运行—取消—恢复—读回，P2 |
-| W08 | 因子基准已刷新；validator | end_date覆盖因子且价格样本吻合 | 时间戳新但价格旧/混基准仍pending | 独立close样本校验，P0/P2 |
+| W08 | 因子值与价格一致；validator | 旧日期但目标因子相同、价格正确也通过 | 新日期但价格旧、目标因子不同/混基准仍pending | 独立close样本校验，P0/P2；修正见§13.6 |
 | W09 | 同一冻结意图先续跑；plan/receipt | 跳过已提交unit | 改范围/预算/fields不能伪装恢复 | 部分失败到成功，P2 |
 | W10 | 19:30与完整周；schedule/time policy | 19:30提交已结束周 | 19:29不请求、长假空周不造数据 | 自动真实首批，J1 |
 | W11 | bootstrap完整一次，日常只本次范围 | 一次键和值对账 | 无reports/旧hash仍可运行 | 删除临时材料后隔离运行，D2/J1 |
@@ -324,7 +324,9 @@ cancel-before-commit回滚该unit，commit-after-cancel仍按实际完成记录�
 
 拟新增weekly_adj.scope_mismatch、source_key_conflict、source_payload_invalid、source_not_ready、basis_not_updated、factor_coverage_missing、row_budget_exceeded、delivery_contract_mismatch、writer_busy、source_empty_preserved、partial_source_preserved、business_deadline_exceeded。每码在codebook登记中文含义、阶段、可重试性、样本和动作。超时/网络/认证/限流沿现有分类；“未刷新”不是网络失败的别名。
 
-基准验收至少选择旧历史周close，用该周最后交易日因子和源basis_date因子独立核对至源价格精度；周中除权的OHLC不能用整根周K同一个因子替代日内复权聚合。没有独立基准时保持basis待验，不靠输出证明输出。
+基准验收使用股票当周实际最后交易日，而不是周五标签作为实际成交日。旧历史周close用该交易日因子和源basis_date因子独立核对至源价格精度；周中除权的OHLC不能用整根周K同一个因子替代日内复权聚合。不得因basis_date早于行情周或刷新截止日直接拒绝。因子变化单股必须将源基准因子与冻结factor_target比较，不以日期相等作为比较前提；日期较早的其他股票，比较本批截止范围内实际最后交易日的因子，bootstrap中的退市股不要求存在当前市场日期的日线/因子。已知价格或目标因子不符仍拒绝；缺少独立依据时，bootstrap源值保留并记录未验证，日常必要核验保持factor_coverage_missing，不误称价格错误。
+
+实现先选既有最多20个常规股票样本，并额外选本unit日期较早的全部股票与因子变化单股。每只选一条旧周close，单股历史不逐周重新读Daily。Daily只读这些代码：当周最后成交日，以及需要目标因子时截至本批范围的最后成交日；利用现有代码/日期主键ORDER BY DESC LIMIT 1。每128只组成一次SQL、Factor所需主键也按有界批次读取，避免每股票独立网络往返；没有新配置项。候选、返回和内存均受原12000行unit预算约束，数据库仍使用原20秒单元总截止和取消检查，不提高预算。只核验本次范围，不增加全历史永久对账、stock_basic依赖或退市白名单。
 
 ### 6.7 配置审计与性能预算
 
@@ -533,7 +535,7 @@ SQLite和离线PG DDL只证明代码形状，尚不能证明正式trigger、并�
 
 ### 13.1 当前状态与调用链
 
-P1已提交7d32163d。P2工作区源码已完成因子/欠账规划、有界源抓取、单元原子发布、批闭合、取消续跑及任务详情展示。注册Definition一次性绑定新策略；仅复权week，月线及未复权入口保持原行为。没有执行正式迁移185/186、加载正式代码、写Prod、DG任务/事件或排程变更。
+P1已提交7d32163d，P2已提交018168fc。P2源码已完成因子/欠账规划、有界源抓取、单元原子发布、批闭合、取消续跑及任务详情展示。注册Definition一次性绑定新策略；仅复权week，月线及未复权入口保持原行为。没有执行正式迁移185/186、加载正式代码、写Prod、DG任务/事件或排程变更。
 
 当前链路：DatasetActionResolver纯冻结＋业务只读规划 → DatasetUnitPlanner消费冻结business_plan → IngestionExecutor具名策略分派 → stock_weekly_adj_execution单发布锁/源捕获 → DatasetWriter具名路径 → Raw与Serving upsert＋输入键21列读回＋unit receipt同事务提交 → 全部unit完成后batch_closed。Ops只消费ProgressSnapshot，经TaskRunQueryService的typed weekly_adj_progress投影，由现有任务详情页渲染；页面不自行推导数据事实。
 
@@ -546,7 +548,7 @@ P1已提交7d32163d。P2工作区源码已完成因子/欠账规划、有界源�
 | W01/W04：仅week，1新周＋K单股全历史 | market_equity、unit_planner、stock_weekly_adj_planning及原request builder；各unit使用自身日期参数 | P1合同及P2规划/越界反例；month键原样保留；无股票×周展开 |
 | W03：按日因子并集，停牌不漏，新股不误判 | load_changed_codes扫描前日＋本周全部Factor代码；同周变回旧值也计变化 | 两次变化、新上市、停牌有Factor无Daily、缺一天Factor测试；只对缺相邻Factor的疑似首次代码查询旧Daily，不查全市场日线历史；变化代码Raw起点一次GROUP BY |
 | W02/W05/W08：源21列、Decimal、范围及基准 | bounded_tushare_call周线专用Decimal解析；capture_unit全列/精度/冲突；publish_unit范围和独立close因子样本 | 同值/异值重复、越界、超精度、缺字段、HTTP失败、基准新但价格旧反例；NULL历史按源保留，本周qfq核心NULL拒绝；独立样本不足则不提交 |
-| W06/W07：单元事务及状态独立 | stock_weekly_adj_execution、writer、stock_weekly_adj_delivery、DAO；业务事务累计20秒，锁等待2秒 | SQLite物理Raw/Serving/receipt读回；Serving故障全部rollback；提交前取消rollback，提交后取消保留；观察写失败继续业务；真实PG锁/事务deadline待验 |
+| W06/W07：单元事务及状态独立 | stock_weekly_adj_execution、writer、stock_weekly_adj_delivery、DAO；业务事务累计20秒，锁等待2秒 | SQLite物理Raw/Serving/receipt读回；Serving故障全部rollback；提交前取消rollback，提交后取消保留；观察写失败继续业务；真实隔离PG锁/事务deadline已通过，正式环境待验，见§13.5 |
 | W09：先恢复原批，再最早周欠账 | resolver恢复原requested_scope/run_profile；只读查oldest_unclosed_plan；执行器锁后append plan；稳定unit_id及receipt | SQL监听确认preflight零DML；手动range被自动恢复仍保留原意图；进程退出后跳过已提交单元/零重复请求；第一条可见进度恢复已提交计数，未从0倒退 |
 | W07：页/行/内存有界及取消 | source_client独立周线分页，监督子进程20秒硬截止/取消查询2秒/活动5秒；单unit6000×最多3页、最多12000行 | 真HTTP loopback子进程结构/取消/硬截止/精度测试；整批256MiB/计划1MiB超预算源请求前拒绝；业务单元累计deadline过期回滚已flush但未commit的Raw；实际发布累计字节再验。RSS256MiB仍需真实大单元运行实测 |
 | W10：完整周及长假 | latest_completed_calendar_week策略；每日意图由resolver选择最早欠账；无交易周不请求源、不造行 | 19:29/19:30、未来周、无交易周零源请求与合法零行闭合；正式cron/id=14尚未修改 |
@@ -580,11 +582,11 @@ P1已提交7d32163d。P2工作区源码已完成因子/欠账规划、有界源�
 | 605337.SH | 2021-02-12 | 289 |
 | 688676.SH | 2021-03-12 | 285 |
 
-### 13.4 验证结果与不可替代的真实验收
+### 13.4 P2提交时的验证结果与正式验收安排
 
 P2/P1专项、注册库/架构/规划消费者、Ops API、传输监督和前端检查分别执行，组间有重叠，不累计为唯一测试数。最终P1/P2＋注册库及三项架构专项136项通过，其中P1/P2专项65项；这些组有重叠。真实HTTP子进程15项通过；Ops/API/公告回归48项通过、10项需要隔离PG而跳过；前端152项单测、typecheck、check:rules、build通过，Playwright周线详情1项通过（API mock）。Definition lint、Prod改动源码及新专项ruff、文档完整性、新增P2相对引用/锚点和git diff --check通过；CodeGraph sync/status为最新。既有构建大chunk提示保留。广泛unit planner回归仍有P1记录的既有月末压缩测试失配，未恢复已删除的旧私有函数。
 
-本机没有配置隔离PG验收连接；SQLite测试明确替换发布锁，仅证明隔离物理事务、故障和续跑逻辑，正式发布器拒绝SQLite，不引入生产fallback。不能据此勾选P2正式验收或开始P3全量。
+P2提交时尚未配置隔离PG验收连接；当时SQLite测试明确替换发布锁，仅证明隔离物理事务、故障和续跑逻辑，正式发布器拒绝SQLite，不引入生产fallback。之后完成的隔离真实PG验收见§13.5；正式Prod验收和P3全量仍未执行。
 
 剩余步骤按顺序：
 
@@ -592,3 +594,62 @@ P2/P1专项、注册库/架构/规划消费者、Ops API、传输监督和前端
 2. 加载新代码后，冻结代表性范围：两历史周＋两只本周变化股票；以真实源完成源行数→标准化→Raw/Serving→receipt读回，检查月线/未复权不变。验证PG单发布锁、事务截止、主动取消/进程退出/同意图续跑、Observer故障以及TaskRun/当前node一致终态；大单元测RSS及30秒内真实页面进度。实际代码/周、命令和恢复身份在执行前核定，不能用mock数据作正式证据。
 3. P2真实验收通过后继续D1/D2开发及P3执行工具收尾。P3必须补齐首次捕获范围一次完整对账、捕获期间新增因子变化的单股补刷与bootstrap_closed生成入口；当前executor只写batch_closed，不自动封B0。完整历史下载完成不是B0完成，不提前开放自动更新。
 4. 获准执行P3全量及D3文件/事件后初始化DG消费B0；最后J1联调新周＋历史修正，复权源入口清零、每日19:30排程和DG接收分阶段启用。
+
+### 13.5 P2真实隔离PG与源样本验收（2026-10-10）
+
+P2开发已提交018168fc。本轮先使用本机既有PostgreSQL18，在/private/tmp创建仅Unix socket/当前用户可访问的测试集群，复用ANNS_P1_TEST_DATABASE_URL的测试专属连接门禁；不安装依赖、不迁移/部署正式Prod、不改DG或排程。只对新测试库运行185/186迁移、PG锁/timeout、原子提交、取消/真正进程退出后续跑及Ops终态测试，再用真实源及有限Prod只读上游样本在隔离库核验源→标准化→Raw/Serving/receipt。
+
+真实PG反例复现了worker._finalize_task_run只对公告保留业务进度并同步节点终态的问题：周线失败/取消会清掉已提交计数，节点仍显示running。按W06/W07修正现有收尾链，只对dataset_action/复权week/maintain且contract_kind=stock_weekly_adj/v1生效；成功使用最终结果，失败/取消保留业务进度，并同步当前节点。公告行为不变；月线、其他合同、没有周线合同的反例仍走原行为。没有新增状态机、接口或配置。
+
+CodeGraph explore、impact覆盖OperationsWorker._finalize_task_run、_run_started_task_run、run_next/run_task_run；实际源码核验TaskRunIngestionContext、活动节点及现有API消费者。Foundation没有新增Ops依赖，边界矩阵不变。
+
+本轮联合回归151项全部通过，含周线12项真实PG测试、P1/P2、公告真实PG、Ops API、任务协调及三项架构测试。真实PG覆盖185/186迁移与有效部分索引、append-only trigger、两个发布者竞争、实际os._exit进程退出后的锁释放和续跑、提交后取消、重复执行零请求、观察失败不回滚、Raw/Serving原子回滚、statement/lock timeout及终态一致。既有3条依赖弃用警告保留，没有安装或升级依赖。
+
+真实输入取自Prod的READ ONLY事务，经规定远程包装脚本导出：3只股票，Raw/Serving各1712行，Calendar50行、Daily96行、Factor99行；均为显式字段、有限日期和行数上限，statement_timeout=20秒。只向新建测试库载入，不作为正式bootstrap数据或日常运行依赖。
+
+| 真实源请求 | 返回/标准化/每张行情表写入 | 本次结果 |
+| --- | ---: | --- |
+| 000001.SZ，2026-06-05，week point | 1/1/1 | 提交后取消，TaskRun和node均canceled且保留1行；原批续跑仅闭合，重放也不再次请求源 |
+| 000001.SZ，2026-06-12，week point | 1/1/1 | 成功；源与两张表、receipt逐字段一致 |
+| 000422.SZ，2010-01-01—2026-10-09 | 853/853/853 | 成功；原库存852行，本次源多1行；没有保留缺键 |
+| 000680.SZ，2010-01-01—2026-10-09 | 859/859/859 | 成功；原库存858行，本次源多1行；没有保留缺键 |
+
+四次实际connector调用均limit=6000、offset=0，看到短页即结束；固定week及Definition21列，通过监督子进程Decimal传输。1714个本次输入键在Raw/Serving/receipt的全部21字段相等，包含未复权、qfq/hfq、成交量和成交额；没有reject或preserved键。单次源延迟1.211—2.481秒，执行及读回合计8.755秒，独立PG进度最大间隔2.533秒。没有用这组单股样本冒充当前全市场代码集合验收，也没有用API mock冒充正式任务页面验收。
+
+资源实测：父进程峰值231.38MiB，源子进程峰值183.77MiB。二者是各自累计峰值，不能相加当作同一时刻值，也不能据父进程低于256MiB声称整个进程树通过RSS门禁。全市场大单元和进程树同时占用，以及正式页面30秒内可见进度，仍需验收；不提高既定预算。测试结束已停止临时PG集群，临时输入/审计日志仅在/private/tmp，不新增reports运行依赖。
+
+**2026-10-10首次全市场验收被日期门禁阻断（历史记录；已由§13.6纠正）。** 请求2026-06-05全市场返回5514行，其中1行688287.SH的trade_date=20260605、end_date=20260521、close=close_qfq=0.35。其余5496行基准为20261009，17行有其他历史基准但未早于行情周。当前validate_source_scope对任何end_date早于trade_date的行都报weekly_adj.basis_not_updated，故整周未提交，未产生unit或batch_closed。MCP独立复核该股票5月22日、29日、6月5日、12日均保留同一旧基准；stock_basic显式list_status/delist_date显示“退市观典”、D、退市日期20260610。不能将这个源行为误称为网络故障，也不能未经确认过滤该代码或修改价格。
+
+当时LLD §4.10与无条件日期门禁的冲突尚待确认，未修改校验。2026-10-11补查实际交易和因子后，不再将该样本称为价格异常；管理员批准按新判断修改，当前执行口径及结果见§13.6。其余正常样本及PG行为验收结果有效。
+
+当时下一步：确认后修订原方案/LLD并重新验证全市场历史单元；后续实际完成情况以§13.6为准，正式小样本及页面验收仍未执行。正式迁移185/186、暂停旧id=14排程及代码加载仍须按授权阶段执行；D1/D2开发、P3全量、DG文件/事件与19:30启用均未执行。
+
+<a id="weekly-basis-correction"></a>
+
+### 13.6 日期校验纠偏（2026-10-11，代码与隔离验收完成，性能门禁未通过）
+
+管理员确认按新判断修改。上交所公告和stock_basic均确认688287.SH于2026-06-10摘牌，最后交易日为6月8日。6月5日周线由6月1—5日五天形成，6月12日周线仅由6月8日一天形成；周五是周期标签。重新请求Tushare Daily、adj_factor及显式21列周线后，两周未复权OHLC/vol/amount按源周线精度与日线汇总一致；5月21日至最后交易日因子始终1.5915，前复权OHLC也吻合。计算日期较早不能证明复权价格未更新。
+
+硬口径：去掉validate_source_scope的basis<week、publish_unit的basis<市场最后开市日，以及validate_weekly_adj_source_basis的basis<floor日期门禁，统一按本节及§6.6的因子值/价格核验；保留频率/范围/字段/重复键/预算/当前代码集合、原子发布、取消续跑和读回。异常验证写入现有basis_audit，保留源end_date及全部21列。测试必须覆盖退市当周标签、旧日期但因子相同通过、旧日期但因子变化拒绝、新日期却旧价格拒绝、缺因子分阶段处理、样本之外的日期较早股票不能绕过核验、SQL批次数受候选批次约束。真实验收重跑两历史周全市场及单股退市样本，不改正式数据或排程；本轮暂不进行部署、P3全量或DG切换。
+
+落地代码为stock_weekly_adj_delivery的范围校验、发布校验及独立因子校验。源基准对应因子必须与实际目标因子相同；单股刷新还核对实际目标与冻结factor_target，即使源end_date更晚也不能跳过。周内最后交易日由Daily按代码/日期索引取得，不要求退市后继续有日线或因子。20个常规样本之外，所有日期较早的代码都加入核验；每128代码一组，只读必要日期和因子键。缺少依据的bootstrap继续保留源值，并在现有receipt记录未验证数量和样本原因，不伪造basis_date。日常必验代码缺依据仍报factor_coverage_missing，实质价格/目标因子不符仍报basis_not_updated；只调整后者的中文说明，没有新增reason code、配置或运营输入。
+
+最终联合回归329项通过，其中本轮日期纠偏13项、真实PG13项；还覆盖P1/P2、Definition/运行注册库、resolver、Ops任务API、公告真实PG、任务协调及三项架构检查。新增正反例包括退市当周源标签保留、旧日期因子相同通过、因子变化/价格错误拒绝、冻结目标漂移拒绝、缺依据时bootstrap真实写入并记录未验证而日常阻断、257代码只发6条SQL。3条既有依赖弃用警告保留。Definition lint、改动Python的ruff、文档完整性及CodeGraph sync/status通过。未改变依赖矩阵、DatasetDefinition/DatasetExecutionPlan字段、源请求/21字段合同、Wealth API/UI；原模板无需新增字段。CodeGraph explore/impact覆盖三个校验点及publish_unit→writer→executor链，动态分派和SQL另读当前实现。
+
+真实验收使用任务专属临时PG和新测试库，执行185/186；源端为真实监督connector，不以mock替代。有限Prod只读输入沿用§13.5，加688287.SH实际Daily和因子：
+
+| 真实源请求 | 返回/标准化/每张行情表写入 | 验收 |
+| --- | ---: | --- |
+| 全市场2026-06-05 | 5514/5514/5514 | 688287.SH正常保留；提交后主动取消 |
+| 全市场2026-06-12 | 5519/5519/5519 | 同一冻结批次续跑，只请求第二周；再次重放零源请求 |
+| 688287.SH，2026-06-12 | 1/1/1 | 退市当周按周五标签发布，保留2026-05-21源end_date |
+| 000422.SZ，2010-01-01—2026-10-09 | 853/853/853 | 正常历史刷新、源21字段读回一致 |
+| 000680.SZ，同区间 | 859/859/859 | 同上 |
+
+两全市场周合计11033输入行；五个receipt合计12746输入行，其中存在跨请求重叠，不能称为12746个最终唯一键。Raw、Serving和receipt对本次输入逐行21字段一致，含未复权/qfq/hfq、成交量和成交额；reject及preserved均0。每个全市场周独立价格实际验证000001.SZ和688287.SH两只；其余19个常规样本缺依据，是隔离库仅载入有限上游样本所致，receipt如实记录，不能据此认定Prod缺因子或宣称5514/5519只价格全部独立验证。两周只有688287.SH属于日期较早的必验代码，均已验证。全市场范围是历史源请求，不替代当前周全市场集合及正式页面验收。
+
+五次实际源请求均limit=6000、offset=0，短页结束，单请求0.684—1.029秒。执行及全部读回21.187秒，独立PG业务进度最大间隔3.366秒。取消后保留5514行、1/2单元；续跑累计11033行、2/2单元；重放无重复下载。TaskRun与当前node终态一致，观察故障/进程退出/锁竞争等由同轮真实PG测试覆盖。本轮未迁移或写正式Prod，没有DG文件、事件或sensor操作。临时脚本、源证据和结果只在/private/tmp，不增加reports运行依赖；临时PG测试后停止。
+
+**性能门禁未通过，不能进入全量执行。** 联合运行父进程峰值356.14MiB、源子进程峰值148.84MiB；另用新进程只执行首个5514行单元，在额外验收读回之前父进程峰值已达348.31MiB，子进程149.56MiB。父进程单独已超过256MiB目标，因此不能以测试读取历史结果为理由忽略，也无需相加两个累计峰值才能判断超预算。隔离发布成功只证明功能正确，不证明RSS门禁通过。保留原预算，不调整全局配置；内存分配根因尚待剖析。
+
+下一步先单独处理单元执行的内存占用，审计源传输、标准化、写入/读回及receipt构造各阶段，减少同一单元的重复驻留；按同规模实际源单元复验父子进程同时占用及20秒单元截止。通过后再安排正式迁移、代表性运行—取消—续跑—读回和页面验收，之后推进D1/D2及P3。此处不批准正式执行，也不将日期纠偏完成写成P2整体完成。

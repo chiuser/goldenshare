@@ -4,7 +4,7 @@
 
 ## 2026-10-10 新阶段 LLD：复权周线接收 Prod 新增及历史修正
 
-状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实PG验收、DG D1及后续阶段未执行，未正式迁移或切换供数。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
+状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；单周RSS超过预算，Prod性能门禁待完成，见[Prod LLD §13.6](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-basis-correction)。正式Prod验收、DG D1及后续阶段未执行，未正式迁移或切换供数。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
 
 依据：[新增阶段方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#adjusted-weekly-prod-refresh)、[Prod LLD](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)、[DG数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)。本节按模板覆盖数据卡、Run Contract、来源/字段、asset/check/job/sensor、初始化/恢复、性能和分阶段验收。
 

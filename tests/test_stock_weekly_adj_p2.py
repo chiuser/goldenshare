@@ -75,6 +75,13 @@ def db(tmp_path):
 
     for model in (Delivery, Calendar, Factor, Daily, Raw, Serving):
         model.__table__.create(engine)
+    seed_weekly_data(engine)
+    yield engine
+    engine.dispose()
+
+
+def seed_weekly_data(engine):
+    """Shared literal fixture for SQLite and isolated PostgreSQL publication tests."""
     with Session(engine) as s:
         # Historical sample and one pending complete week, including prior open day.
         for start, end in ((OLD - timedelta(days=4), OLD), (date(2026, 9, 21), WEEK)):
@@ -112,8 +119,6 @@ def db(tmp_path):
         )
         s.add(Raw(**{**row(), "freq": "month"}))
         s.commit()
-    yield engine
-    engine.dispose()
 
 
 @contextmanager

@@ -184,7 +184,15 @@ class OperationsWorker:
         task_run.status_reason_code = outcome.status_reason_code
         task_run.ended_at = now
         announcement = task_run.task_type == 'dataset_action' and task_run.resource_key == 'anns_d' and task_run.action == 'maintain' and (task_run.request_payload_json or {}).get('execution_context') is not None
-        preserve_business_progress = announcement
+        execution_context = (task_run.request_payload_json or {}).get('execution_context')
+        weekly_adj = (
+            task_run.task_type == 'dataset_action'
+            and task_run.resource_key == 'stk_period_bar_adj_week'
+            and task_run.action == 'maintain'
+            and isinstance(execution_context, dict)
+            and execution_context.get('contract_kind') == 'stock_weekly_adj/v1'
+        )
+        preserve_business_progress = announcement or weekly_adj
         if not preserve_business_progress or final_status == 'success':
             task_run.rows_fetched = int(outcome.rows_fetched)
             task_run.rows_saved = int(outcome.rows_saved)

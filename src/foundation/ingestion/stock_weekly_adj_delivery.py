@@ -3,7 +3,7 @@
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
-from sqlalchemy import func, select, tuple_
+from sqlalchemy import literal, select, tuple_, union_all
 
 from src.foundation.dao.stock_weekly_adj_delivery_dao import StockWeeklyAdjDeliveryDAO
 from src.foundation.datasets.stock_weekly_adj_contracts import (
@@ -53,8 +53,6 @@ def unit_scope(unit, model):
 def validate_source_scope(unit, rows):
     for row in rows:
         day = parse_day(row["trade_date"])
-        if row["end_date"] is not None and parse_day(row["end_date"]) < day:
-            fail("源计算截至日期早于行情周", "weekly_adj.basis_not_updated")
         if day.weekday() != 4 or row["freq"] != "week":
             fail("返回行不是周五 week 行情")
         if (
@@ -73,6 +71,57 @@ def validate_source_scope(unit, rows):
             fail("源历史行情越界")
 
 
+def _load_basis_inputs(session, candidates, required_targets, target_day):
+    """Indexed last-date lookups in bounded SQL batches, never full history rows."""
+    dates, factors = {}, {}
+    for start in range(0, len(candidates), 128):
+        chunk = candidates[start : start + 128]
+        lookups = []
+        for row in chunk:
+            code, week = row["ts_code"], parse_day(row["trade_date"])
+            scopes = [("week", week - timedelta(days=4), week)]
+            if code in required_targets:
+                scopes.append(("target", None, target_day))
+            for role, begin, end in scopes:
+                query = select(Daily.trade_date).where(
+                    Daily.ts_code == code,
+                    Daily.source == "tushare",
+                    Daily.trade_date <= end,
+                )
+                if begin:
+                    query = query.where(Daily.trade_date >= begin)
+                last = query.order_by(Daily.trade_date.desc()).limit(1)
+                lookups.append(
+                    select(
+                        literal(code).label("code"),
+                        literal(role).label("role"),
+                        last.scalar_subquery().label("trade_date"),
+                    )
+                )
+        for code, role, day in session.execute(union_all(*lookups)):
+            dates[(code, role)] = day
+        keys = set()
+        for row in chunk:
+            code = row["ts_code"]
+            for day in (
+                dates.get((code, "week")),
+                dates.get((code, "target")),
+                parse_day(row["end_date"]) if row["end_date"] else None,
+            ):
+                if day:
+                    keys.add((code, day))
+        if keys:
+            factors.update(
+                ((code, day), value)
+                for code, day, value in session.execute(
+                    select(Factor.ts_code, Factor.trade_date, Factor.adj_factor).where(
+                        tuple_(Factor.ts_code, Factor.trade_date).in_(sorted(keys))
+                    )
+                )
+            )
+    return dates, factors
+
+
 def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
     """Independent close sample; no single-factor approximation for intraweek OHLC."""
     if not rows:
@@ -84,59 +133,85 @@ def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
         if len({r["end_date"] for r in group}) != 1:
             fail(f"{code} 的历史页混用了计算截至日期", "weekly_adj.basis_not_updated")
     nulls = sum(any(r[n] is None for n in SOURCE_FIELDS[4:]) for r in rows)
-    # A point market unit has one old week per code; bounded independent samples
-    # avoid N stock queries. A single-stock history always checks that stock.
-    candidates = [g[0] for _, g in sorted(by_code.items())][:20]
-    sampled = None
+    reference_day = floor or (
+        unit.trade_date
+        if unit.progress_context.get("require_complete_source")
+        else None
+    )
+    lagged = {
+        code
+        for code, group in by_code.items()
+        if group[0]["end_date"]
+        and (
+            any(parse_day(r["end_date"]) < parse_day(r["trade_date"]) for r in group)
+            or (reference_day and parse_day(group[0]["end_date"]) < reference_day)
+        )
+    }
+    selected = set(sorted(by_code)[:20]) | lagged
+    target = unit.progress_context.get("factor_target")
+    required_targets = set(lagged)
+    if target:
+        required_targets.update(by_code)
+        selected.update(by_code)
+    candidates = [by_code[code][0] for code in sorted(selected)]
+    target_day = floor or unit.trade_date or parse_day(unit.request_params["end_date"])
+    dates, factors = _load_basis_inputs(
+        session, candidates, required_targets, target_day
+    )
+    sampled, checked, lagged_verified, unverified = None, 0, 0, []
     for row in candidates:
+        code = row["ts_code"]
         basis = parse_day(row["end_date"]) if row["end_date"] else None
-        if basis is None or row["close"] is None or row["close_qfq"] is None:
-            continue
-        week = parse_day(row["trade_date"])
-        last = session.scalar(
-            select(func.max(Daily.trade_date)).where(
-                Daily.ts_code == row["ts_code"],
-                Daily.source == "tushare",
-                Daily.trade_date >= week - timedelta(days=4),
-                Daily.trade_date <= week,
+        last = dates.get((code, "week"))
+        needed = [last, basis]
+        if code in required_targets:
+            needed.append(dates.get((code, "target")))
+        if (
+            row["close"] is None
+            or row["close_qfq"] is None
+            or any(
+                day is None
+                or factors.get((code, day)) is None
+                or factors[(code, day)] <= 0
+                for day in needed
             )
-        )
-        if last is None:
-            continue
-        values = dict(
-            session.execute(
-                select(Factor.trade_date, Factor.adj_factor).where(
-                    Factor.ts_code == row["ts_code"],
-                    Factor.trade_date.in_({last, basis}),
+        ):
+            unverified.append(code)
+            if code in required_targets and not bootstrap:
+                fail(
+                    f"{code} 缺少独立日线/因子依据，无法验证本次复权价格",
+                    "weekly_adj.factor_coverage_missing",
                 )
-            ).all()
-        )
-        if last not in values or basis not in values or min(values.values()) <= 0:
             continue
-        # Delisted source rows may retain their last historical basis in bootstrap.
-        # A selected sample must independently cover the requested refresh basis.
-        if floor and basis < floor:
-            continue
-        expected = (Decimal(row["close"]) * values[last] / values[basis]).quantize(
-            Decimal(".01"), rounding=ROUND_HALF_UP
-        )
+        basis_factor = factors[(code, basis)]
+        if code in required_targets:
+            target_factor = factors[(code, dates[(code, "target")])]
+            if target and target_factor != Decimal(target):
+                fail(
+                    f"{code} 实际目标因子与冻结计划不同，需重新审计原批",
+                    "weekly_adj.basis_not_updated",
+                )
+            if basis_factor != target_factor:
+                fail(
+                    f"{code} 源基准因子与本次目标因子不同，复权价格尚未覆盖本次变化",
+                    "weekly_adj.basis_not_updated",
+                )
+        expected = (
+            Decimal(row["close"]) * factors[(code, last)] / basis_factor
+        ).quantize(Decimal(".01"), rounding=ROUND_HALF_UP)
         if Decimal(row["close_qfq"]) != expected:
             fail(
-                f"{row['ts_code']}/{row['trade_date']} 截至日期已更新，但前复权 close 与独立因子不一致",
+                f"{code}/{row['trade_date']} 前复权 close 与独立因子不一致",
                 "weekly_adj.basis_not_updated",
             )
-        target = unit.progress_context.get("factor_target")
-        if target and basis == floor and values[basis] != Decimal(target):
-            fail(
-                "源计算基准因子与冻结目标不一致，需重新审计原批",
-                "weekly_adj.basis_not_updated",
-            )
-        sampled = (basis, row["ts_code"], row["trade_date"])
-        break
-    if sampled is None:
+        checked += 1
+        lagged_verified += code in lagged
+        if sampled is None:
+            sampled = (basis, code, row["trade_date"])
+    if sampled is None and not bootstrap:
         fail(
             "没有可独立验证的旧周 close/因子基准，本单元保持未完成",
-            "weekly_adj.basis_not_updated",
+            "weekly_adj.factor_coverage_missing",
         )
     if not bootstrap and any(
         r[n] is None
@@ -144,11 +219,18 @@ def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
         for n in ("open_qfq", "high_qfq", "low_qfq", "close_qfq", "end_date")
     ):
         fail("本次刷新缺少复权核心值或计算截至日期", "weekly_adj.source_not_ready")
-    return sampled[0], {
-        "checked": 1,
-        "code": sampled[1],
-        "trade_date": sampled[2],
+    return sampled[0] if sampled else None, {
+        "checked": checked,
+        "code": sampled[1] if sampled else None,
+        "trade_date": sampled[2] if sampled else None,
         "optional_null_rows": nulls,
+        "earlier_basis_codes": len(lagged),
+        "earlier_basis_verified": lagged_verified,
+        "unverified_codes": len(unverified),
+        "unverified_samples": [
+            {"ts_code": code, "reason": "weekly_adj.factor_coverage_missing"}
+            for code in unverified[:20]
+        ],
     }
 
 
@@ -248,12 +330,6 @@ def publish_unit(writer, *, definition, unit, batch, context, check):
             fail(
                 "本周源行缺少前复权核心值或计算截至日期", "weekly_adj.source_not_ready"
             )
-        minimum_basis = days[-1] if days else None
-        if minimum_basis and any(
-            r["end_date"] is None or parse_day(r["end_date"]) < minimum_basis
-            for r in incoming
-        ):
-            fail("本周源行存在未更新的计算基准", "weekly_adj.basis_not_updated")
     floor = (
         parse_day(metadata["factor_scan_end"]) if metadata["factor_scan_end"] else None
     )

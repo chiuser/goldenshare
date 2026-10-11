@@ -32,7 +32,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("weekly_adj.source_payload_invalid", "周线响应结构不完整", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
     IngestionCodebookEntry("weekly_adj.source_key_conflict", "周线同键源值冲突", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
     IngestionCodebookEntry("weekly_adj.source_not_ready", "周线源尚未完整", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
-    IngestionCodebookEntry("weekly_adj.basis_not_updated", "历史复权基准未刷新", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
+    IngestionCodebookEntry("weekly_adj.basis_not_updated", "复权价格或目标因子不一致", "planner/source/writer", "核对本次目标因子和独立价格后恢复原意图"),
     IngestionCodebookEntry("weekly_adj.factor_coverage_missing", "复权因子覆盖不完整", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
     IngestionCodebookEntry("weekly_adj.row_budget_exceeded", "周线行数或载荷超预算", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
     IngestionCodebookEntry("weekly_adj.writer_busy", "已有周线发布者", "planner/source/writer", "核对本次范围和合同后恢复原意图"),
