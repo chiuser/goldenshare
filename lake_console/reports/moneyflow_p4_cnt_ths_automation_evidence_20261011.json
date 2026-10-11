@@ -1,0 +1,557 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-11T15:30:16.972078+00:00",
+  "dataset": "moneyflow_cnt_ths",
+  "stage": "P4 independent STOPPED sensors and bounded read-only history preview",
+  "status": "concept_stopped_sensors_and_readonly_history_preview_acceptance_passed",
+  "preceding_slice_commit": "96475a31",
+  "head": "96475a31ec255c5cae9c3f6781bfa2c26ba17baf",
+  "scope": "Three independent STOPPED sensors, fixed concept automation/readiness and frozen-proof preview; no concept APPLY adapter or frozen execution plan in this slice.",
+  "hard_contracts": {
+    "registration": "Shanghai22:00; dedicated concept partition; current day plus <=1 historical missing key; SSE and history start2024-09-10; registration is not materialization success.",
+    "updates": "2026-10-01 onwards latest10 SSE dates; at most one run; source calls inside Raw job only; active/invalid/saturated evidence blocked; max six persistent attempts per day and stable replay key.",
+    "identity": "Independent dataset/job/check/partition/cursor; cross dataset and layer cursors rejected; concept revision concept_moneyflow_ths_history_events_v1; old market/industry revisions retained.",
+    "readiness": "Latest successful blocking check targets exact storage_id/run_id/timestamp and actual current file hash; Silver requires green Raw and matching upstream hash; <=100 records/query, <=64KiB/file.",
+    "history": "Original frozen concept495 actual source dates only; all990 file hashes +54 controls; deep SQL only latest20 source dates; readonly native event diff with 100-date batched reads.",
+    "config": "No env/Settings/database/run-config/operational budget added; fixed identities only; original600s/10days/6attempts/100records/20recent/120s-unit/512MB/one thread/zero spill/768MiB RSS unchanged."
+  },
+  "tests": {
+    "catalog": {
+      "full_suite_passed": true,
+      "completed": 12,
+      "subtests": 492,
+      "batch_count": 2,
+      "native_negative_cases_per_batch": 7,
+      "source_hashes_match_current": true,
+      "batches": [
+        {
+          "batch": "G-regression:test_asset_governance_contracts.py:1",
+          "completed": 8,
+          "subtests": 315,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1819,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-n7xd2n6l/allowed/resource-result.json",
+            "sha256": "d70242bed2f23648edec0b17625e0239eb699b04cf94ce6cf4ba5aef30c9a220"
+          },
+          "policy_sha256": "5450ad8f95b7fa969db9f25b5ddeefaf7e97ac9337a488f3d03f29ccfbf3b7c4"
+        },
+        {
+          "batch": "G-regression:test_asset_governance_contracts.py:2",
+          "completed": 4,
+          "subtests": 177,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1966,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-3_3i38qm/allowed/resource-result.json",
+            "sha256": "c0f1ede764e81d02110254f4470da74865aa1c1f5a039c936bbcef7869c86a9b"
+          },
+          "policy_sha256": "d99b034128bd46e765daeb8c8a83bc7eca749296aed5fb81ee95d5e61b086717"
+        }
+      ]
+    },
+    "static": {
+      "full_suite_passed": true,
+      "completed": 113,
+      "subtests": 0,
+      "batch_count": 15,
+      "native_negative_cases_per_batch": 7,
+      "source_hashes_match_current": true,
+      "batches": [
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:1",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 2230,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-fslqrw5v/allowed/resource-result.json",
+            "sha256": "b32412eac6aa5639b02da69f440a93bbfdeee5c5cf36f185c4858187a742c57e"
+          },
+          "policy_sha256": "cecf307deb395fa9072196f336ca3640ab526866c96119e070fadcf640211526"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:2",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1061,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-9xdrf3gd/allowed/resource-result.json",
+            "sha256": "9df593bea98f6fbd9252eb9fa87d32dcba3ee72e0187a3e63d2c48343be6d440"
+          },
+          "policy_sha256": "b3a4e994333e9eef6a2e016c2cd508ca57ade81dd7d55c9b11ccd59eabb23972"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:3",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1122,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-qqkv9l6l/allowed/resource-result.json",
+            "sha256": "50b23b072cb87f454727e656fa9c34a3356e082da19b24dbe94844fd926c9cec"
+          },
+          "policy_sha256": "e0c3c4b3d9686925c641c0d8bb147d8244855ec43c6272b4e9ce0bf439eb9341"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:4",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1173,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-pzx36hhe/allowed/resource-result.json",
+            "sha256": "cf0f14d4aaeb7f1223a376f0ecff65e00720edd42949a15f7f4cfcfd7d68ccb8"
+          },
+          "policy_sha256": "f80e406e3bb65381a7dd02ddcd42bf6bfc405775506ad3e8f4198ee7ecbb1bd8"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:5",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1103,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-ko2kzj7c/allowed/resource-result.json",
+            "sha256": "5c9678c791c7e8fc6ef5c4928a686afa443b9955c7a5f3b7429068a19e2d2e88"
+          },
+          "policy_sha256": "5ad99fc99e1889e08f3853d2eac627e791ec3e7b560dbe6a8df205fdac8a0733"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:6",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1128,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-_yws5n61/allowed/resource-result.json",
+            "sha256": "9b35ea1fba3874c7384ec90a9fd73ee8a2b40284b847a6560ee5ceecfbe68cf4"
+          },
+          "policy_sha256": "3a73b47af9260bef2881feae63e4fc0eef4142efeef22edfe8b8ce271dbc319a"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:7",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 3402,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-tlz1ta15/allowed/resource-result.json",
+            "sha256": "97ba8bca838368e1fbee28a91686589c661a8960c7d40cc04d42dfe454f3bec9"
+          },
+          "policy_sha256": "06210b16869ea3580ef32076a014aa88526a149fd55deeb9fe117f5df4d911f6"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:8",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1078,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-b_wwyv5f/allowed/resource-result.json",
+            "sha256": "ba54f7ce24a813383d3b2a6719723c119e8b5c0dc58f387616632ad2981ceb62"
+          },
+          "policy_sha256": "12212fbb4909eb9673c63d0d06b8a91f2a765ece569e9d21036024375596bf4f"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:9",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1117,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-f5ki1cey/allowed/resource-result.json",
+            "sha256": "cf3bceaca9929a50a72adaf76fad1cc5b4830d98b5fc836a4183f4e611fba416"
+          },
+          "policy_sha256": "2fbbbdd23193ae38a15222d2328444b7e43594ef19ede6d73fcdb9ccdaba95ce"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:10",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1223,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-sf123zkh/allowed/resource-result.json",
+            "sha256": "906329fc070d0c3ebf5ac9b322b1966ac7396231179389c30ce207f812a2831d"
+          },
+          "policy_sha256": "7a0e49bf99f86e3c8fc91e6194a9902a8396d9e9cb9e45dca4b1995e43530538"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:11",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1145,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-909p9v9w/allowed/resource-result.json",
+            "sha256": "77ebf814bef49b3b503097aefea243c9bc02a614fa3543d7e051d931af68d20d"
+          },
+          "policy_sha256": "99690352f8274370bc847ea146908273db8038af075b7f34e750f807b1ee279a"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:12",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1205,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-3tkgakgt/allowed/resource-result.json",
+            "sha256": "d0ed1215b2dd7c41502b2412eda3beb97058c58241078c94937d4f95e3f18bed"
+          },
+          "policy_sha256": "633c1679741a570a899ac3ee30d028871786b0b150c4038a94cc5c18a0dc3cad"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:13",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1033,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-4exxc3q_/allowed/resource-result.json",
+            "sha256": "d1a5e2f5d105dc1d2cc644d9a01ee0030a3a34d7116141a54ddc3e32836caae1"
+          },
+          "policy_sha256": "2d29082332db475c03cf596a23d4c3e39834c0a329826f05abeed4e16c14eafb"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:14",
+          "completed": 8,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1108,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-2jn_1z36/allowed/resource-result.json",
+            "sha256": "3e86fb558268d6323f88ea82d751c98789ab69aaa615b6756c5ebbbcf7a767a2"
+          },
+          "policy_sha256": "9bcad9550f0f50de8919ad5d8ea63e1b7bd49d2f38fb351d9edf283aef13eb62"
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:15",
+          "completed": 1,
+          "subtests": 0,
+          "failures": 0,
+          "connections": 0,
+          "elapsed_ms": 1032,
+          "denied_sentinel_unchanged": true,
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-nr_ube6x/allowed/resource-result.json",
+            "sha256": "9dce3aeb420ebf2d44cb8ca2f7f8166c629ff6c38aa303f40eb5bf93f2f4a93f"
+          },
+          "policy_sha256": "6e6b697c0535b1f8a783d3b2527759f820b2bdc494f73ccfdc5aa21f8557912f"
+        }
+      ]
+    },
+    "definitions": {
+      "exit_code": 0,
+      "complete_definitions_loaded": true,
+      "isolated_home": "/private/tmp/moneyflow-cnt-ths-automation-20261011/defs-home",
+      "source_before_after_match": true,
+      "source_current_match": true,
+      "source_audit": {
+        "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/defs-final-source-audit.json",
+        "sha256": "f03c572f06d53a32f0f999d70d9f16b1d82799c8df15ac65094f70090d21d872"
+      },
+      "formal_credentials": false,
+      "uv_offline_no_sync_no_downloads": true,
+      "telemetry": false
+    },
+    "concept_sensors": {
+      "passed": 30,
+      "evidence": "All 30 sensor cases passed in the first combined run; failures limited to three preview fixture check identity constants. Sensor test source unchanged subsequently."
+    },
+    "concept_preview": {
+      "passed": 15,
+      "retest_elapsed_seconds": 10.74,
+      "initial_failures": [
+        "tests/test_moneyflow_cnt_ths_event_preview.py::test_existing_native_events_reused_only_with_exact_file_and_target[valid]",
+        "tests/test_moneyflow_cnt_ths_event_preview.py::test_existing_native_events_reused_only_with_exact_file_and_target[failed_check]",
+        "tests/test_moneyflow_cnt_ths_event_preview.py::test_existing_native_events_reused_only_with_exact_file_and_target[stale_check]"
+      ],
+      "cause": "Test adapter accidentally used industry check-name constants when writing concept native check events. Updated to concept constants; no product predicate weakened.",
+      "final": "all 15 preview cases passed after test fixture correction"
+    },
+    "regression": {
+      "passed": 147,
+      "elapsed_seconds": 135.82,
+      "scope": "Market and industry sensors, read-only previews, recoverable event plan/APPLY tests and sensor-tags; isolated resources/fake source only."
+    }
+  },
+  "hotpath": {
+    "scope": "isolated actual native jobs with archived real 387-row fixture and synthetic future dates",
+    "dates": [
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12",
+      "2026-10-13",
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16",
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21"
+    ],
+    "counts": {
+      "materializations": 2,
+      "checks": 2,
+      "hashes": 20,
+      "hash_bytes": 490440,
+      "runs": 2,
+      "partitions": 1,
+      "calendar_sql": 1
+    },
+    "elapsed_seconds": 0.022913666907697916,
+    "cursor_bytes": 595,
+    "source_calls_during_tick": 0
+  },
+  "formal_readonly_preview": {
+    "stage": "read_only_preview",
+    "dataset": "moneyflow_cnt_ths",
+    "cohort_hash": "05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618",
+    "cutoff": "2026-09-30",
+    "history_dates": 495,
+    "history_rows": 192009,
+    "verified_units": 26,
+    "verified_files": 990,
+    "hashed_bytes": 24402584,
+    "recent_check_dates": [
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04",
+      "2026-09-07",
+      "2026-09-08",
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
+      "2026-09-21",
+      "2026-09-22",
+      "2026-09-23",
+      "2026-09-24",
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30"
+    ],
+    "control_files_unchanged": 54,
+    "partitions_to_add": 495,
+    "layers": {
+      "raw": {
+        "materializations_to_add": 495,
+        "materializations_reusable": 0,
+        "recent_checks_to_add": 20,
+        "recent_checks_reusable": 0
+      },
+      "silver": {
+        "materializations_to_add": 495,
+        "materializations_reusable": 0,
+        "recent_checks_to_add": 20,
+        "recent_checks_reusable": 0
+      }
+    },
+    "metadata_queries": 13,
+    "formal_writes": 0,
+    "observed_native_queries": {
+      "partitions": 1,
+      "materializations": 10,
+      "checks": 2
+    },
+    "elapsed_seconds": 0.8408695417456329
+  },
+  "event_registration_difference": {
+    "partitions": 495,
+    "materializations": 990,
+    "recent_checks": 40,
+    "total_work_items": 1525,
+    "total_events": 1030,
+    "executed": false
+  },
+  "validation": {
+    "ruff_authored_nine_python_files": "passed",
+    "fatal_ruff_src_tests": "passed",
+    "docs_integrity": "passed",
+    "diff_check": "passed",
+    "relative_report_links": "passed",
+    "codegraph_sync_status": "up_to_date",
+    "final_current_source_hash_matches": "passed"
+  },
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "impact": "Automation identities -> update selection, delivery readiness, market/industry proof/state and shared event plan/APPLY; fixed concept adapter added; all source consumers audited directly.",
+    "limitation": "Explore mixed other domains named preview; direct reference audit confirms all actual contract consumers. No Prod DatasetDefinition/API/CLI/frontend dependency changed.",
+    "runtime_boundary": "Formal service not reloaded or proven to expose new concept sensors; formal PG/Lake reads only, no activation claim."
+  },
+  "source_hashes": {
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow_automation.py": "fc4656d8edb973661c212a44923b70e3e002b47d98093db3133d6ca9cb8b6ad7",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_event_preview.py": "9b6bc6047a308050c313a98f65f9ec5783815ae649b6104835a17700daa2a3cc",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_cnt_ths_sensor.py": "6e722627d49985c3f15357645b920cb11cc6ff8c167cfb8bc44111f1232ffcc1",
+    "lake_console/orchestrator/src/orchestrator/defs/asset_guards/moneyflow_cnt_ths_readiness.py": "3626715435cf2857c6b2d2e8083b0a90ba93955c3fad54e12a8e1e8a3ce6aecf",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_cnt_ths_event_preview.py": "a51a09b2f06d22e9eaad95d975e4fd898206708fb6feed3c000592c5332a4b55",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py": "dea67b5d7e35327431a4cc46ec5ccea7dca0bfa896338ebafbaf62226f7b3dc8",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_event_preview.py": "830032c9a28b656f32fd2ae15814ab81403147ee0d678dd33499894f28292a9b",
+    "lake_console/orchestrator/tests/test_run_contract_static_gates.py": "b77fa86b5a175c53fb1c80830d4d33fe3b0eb831f08acb547bd4f0e943f6f3cd",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0a214ec4fbafa43e2917acd6994157155decc4584af90605ff894973a898b30b"
+  },
+  "preserved_historical_reports_count": 36,
+  "preserved_historical_report_hashes": {
+    "lake_console/reports/moneyflow_derivation_feasibility_20261006.json": "0944c6879316d8e16255f5bfa9c304e9a3a34772eec3148a3d40bdbdf3c8b396",
+    "lake_console/reports/moneyflow_p0_closeout_20261006.json": "6194d04cf925722ec5c8c00e8402b70af695efbb646358382afbb546aea6a413",
+    "lake_console/reports/moneyflow_p0_evidence_20261006.json": "9fa7c9582e3eab8ffa1681cde59fcaa12fa073a742fce59889a19af039bf97c3",
+    "lake_console/reports/moneyflow_p0_partial_day_followup_20261006.json": "98d406d04595502d8b1f07b56a29bbf92ce6fd78c18bc00ce538143fa02f2806",
+    "lake_console/reports/moneyflow_p0_prod_date_counts_20261006.csv": "97a41694680dc13340785af03a902acb39d33afbfda33480bf9e5d34710c90e8",
+    "lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json": "8b620d66300c01c49489b82e3df7989b2f8e434982b6e21ba7373ec9a9d8fb9a",
+    "lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json": "e603b851fc60538d5e6612f182be8f79af13d4f1ff18fd92f4be12d3d56bc020",
+    "lake_console/reports/moneyflow_p2_moneyflow_ths_evidence_20261007.json": "71d2fa3803981ee85acca2ed9e35bd8b7913bc2393ee2700c53a6994df3c01c7",
+    "lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json": "c23ec90476acb4f787247747b233a5dce7f60f1e82d1b35a3709a31220817d92",
+    "lake_console/reports/moneyflow_p3_date_candidates_evidence_20261007.json": "049fd1170665217230493fc49b270aaa65a42af37d924885f2a985f5c233aebe",
+    "lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json": "1a52dcbb8ba5aea2a2790b9f3bed8354fd81b605208060b6184dc0930850af7a",
+    "lake_console/reports/moneyflow_p3_date_query_profile_20261008.json": "71e63247688f11dfb32210bd406c6a955996993b61ce4c52bd5a23b7f8d20d1b",
+    "lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json": "f88edab78bafd2168812c4d7f66690d115d0018b7ddeaef6b812fb5f4a2e996a",
+    "lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json": "752e87b7e325755c9845f35db5039ed8210a9bf77fc06cd11cb3b335e751fa97",
+    "lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json": "02534cda4abbddbbc6f152cd6041fcad5fd01f96a0d0a17da4bf25d5c695cac3",
+    "lake_console/reports/moneyflow_p3_history_export_evidence_20261007.json": "e012f42c585964b112f37f41915abca071f6475829498cfabd3349afec58c9a4",
+    "lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json": "aa0b1012eec596957ce49f3989db4cd9a1e8500afd1b7e538d84bb6d07d3d38a",
+    "lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json": "a7fb1e68c7c457c2e35a08b006f45b404f146305e3f697f79a2cc86de4d58018",
+    "lake_console/reports/moneyflow_p3_selected_dates_evidence_20261008.json": "43ae51b534d7d66f1c9e5fe41e5b95c0312bb108fea956f8f5cb19e3ef679a88",
+    "lake_console/reports/moneyflow_p4_cnt_ths_acceptance_evidence_20261011.json": "999f4b291d6897b0434a36c51b68a33005684fe0972c33e4d393395cc4db2bea",
+    "lake_console/reports/moneyflow_p4_cnt_ths_asset_closeout_evidence_20261011.json": "e6bb38ceee7c7cf639958dfd163f51cd13003bac1050bcec9dbc80282ba045ef",
+    "lake_console/reports/moneyflow_p4_cnt_ths_evidence_20261011.json": "b346344b14c1a30516e04c9e0f7d17f780228994873fc1434defbff5ac12e88a",
+    "lake_console/reports/moneyflow_p4_ind_ths_automation_evidence_20261010.json": "292fd0bb792388287558760381cd6ae06ad0c2cec0e614125d1e6fafb6fcf8b7",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_evidence_20261010.json": "7baff678a06e23632f3691d32f5c72d077af7e47613a34467573df67681ea70b",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_formal_full_evidence_20261011.json": "1e44ebd9a85af062e80caf9724a91cf6d652c3239862e82eb7fe58eb6c3cf72e",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_formal_sample_evidence_20261011.json": "2fc45fab06021254776a0967d5afbbdbc9cbdc5201533c59ef709cfe33fa6ef1",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_full_plan_20261010.json": "82743d5a337f5579f53b8c73b2a12ae9762ed18a584749e49c57e14cae322eaa",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_sample_plan_20261010.json": "72fca742cfaf060ab2ace0f5533cb6dee459e84fc034903d1a813d95baa8d75a",
+    "lake_console/reports/moneyflow_p4_ind_ths_evidence_20261010.json": "73f3870ac235cdd3b591f36b278c13bb05f25f6979b368759e98e168e634db9c",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_evidence_20261010.json": "98da97a6f1c0726ada605b0c4fff84b4478ef921c32fa35a8029d643e6c77ed9",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_full_evidence_20261010.json": "04a4b1ff9c89553cf62422ddc2c21f2a1b81be11733e72e73d6e0ca00314423f",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_sample_evidence_20261010.json": "3a65b91362b961fec4f5573429830c6f8460ade54cde790e95219423789a8324",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_full_plan_20261010.json": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_sample_plan_20261010.json": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6",
+    "lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json": "5c1f28164a68758aa89cb2070ab2bd9af444e8abc13302210f68ef667d9802a5",
+    "lake_console/reports/moneyflow_p4_mkt_dc_sensor_event_preview_evidence_20261009.json": "8a6f805cef9e39b802709d494489a1d3fb76f7aac7b8e488ad0fc3fa90a7491d"
+  },
+  "formal_actions": {
+    "existing_instance_reads_only": true,
+    "automatic_DDL": false,
+    "prod_tushare_requests": 0,
+    "lake_parquet_or_formal_staging_writes": 0,
+    "dynamic_partition_or_event_writes": 0,
+    "job_or_sensor_evaluation": 0,
+    "sensor_status_cursor_pool_reload_changes": 0,
+    "dependency_installations": 0
+  },
+  "authored_paths": [
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow_automation.py",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_event_preview.py",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_cnt_ths_sensor.py",
+    "lake_console/orchestrator/src/orchestrator/defs/asset_guards/moneyflow_cnt_ths_readiness.py",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_cnt_ths_event_preview.py",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_event_preview.py",
+    "lake_console/orchestrator/tests/test_run_contract_static_gates.py",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md",
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md",
+    "lake_console/reports/moneyflow_p4_cnt_ths_automation_evidence_20261011.json"
+  ],
+  "artifacts": {
+    "targeted-tests.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/targeted-tests.log",
+      "sha256": "47d4f7acb144627afc2df023900f04cc803f4272e2a7fee975c5d3cf4a161da5"
+    },
+    "preview-retest.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/preview-retest.log",
+      "sha256": "52fe6abb199a49118c88a9cd199ff2bfc716e69a3ba048fe75189c1582228ecc"
+    },
+    "regression-tests.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/regression-tests.log",
+      "sha256": "7986146bfc268b61f66bd99559ee05cc23fd961586f9d7dd8ec25d29517e3b99"
+    },
+    "catalog.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/catalog.log",
+      "sha256": "bda8190eaa703e0c5dffe0193524920505e7ee119bfaba2d3d93e94c13a56c12"
+    },
+    "static.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/static.log",
+      "sha256": "552286bff9a9054bf53ea8dce2b8213fad985b0fc40506f9ddbde44f0d7da2db"
+    },
+    "defs-final.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/defs-final.log",
+      "sha256": "5f669c08ebd39efd649fc46a47dc56b252d88d305949cfadc889c2d20a95aaac"
+    },
+    "defs-final-source-audit.json": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/defs-final-source-audit.json",
+      "sha256": "f03c572f06d53a32f0f999d70d9f16b1d82799c8df15ac65094f70090d21d872"
+    },
+    "formal-preview.py": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/formal-preview.py",
+      "sha256": "80a3453e9361137d873569cca9c666a7969712d2dc4142d58b09de0b7a31a357"
+    },
+    "formal-preview.json": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/formal-preview.json",
+      "sha256": "c47f74dc3f8dd62f81bd560ef396ce4b69db18c5ab7e2d81ece89cc1306635a2"
+    },
+    "formal-preview.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/formal-preview.log",
+      "sha256": "a211e671a3ee2fef9c8daebf1c7186cb6de883c0008ed5d550e2f73bc3cddc43"
+    },
+    "codegraph-sync.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/codegraph-sync.log",
+      "sha256": "04e1f57b083aba50589ff373e2775b38f1cc18da0f96db4271c52b9bb2216e50"
+    },
+    "codegraph-status.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/codegraph-status.log",
+      "sha256": "09c4f2263bcbfc892bbb5d6f706f05ab7e829eac6c044ad56b69e89d4cdde784"
+    }
+  },
+  "hotpath_artifact": {
+    "path": "/private/tmp/moneyflow-cnt-ths-automation-20261011/targeted-tests/test_ten_date_window_uses_batc0/staging/ten-date-sensor-evidence.json",
+    "sha256": "383c183f7e44821f42c0ea746d2291bb285d6f03d430c434b3eec7d6f7270af8"
+  },
+  "next_slice": "Concept recoverable history event adapter and frozen two-day/full plans. Formal sample/full APPLY each requires exact-list approval. P4 open/P5 not started.",
+  "document_hashes": {
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md": "30177ebca6cd223c6b5797442dd79dfd973fec586959bfe8760b613cda753247",
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md": "1f606498a3ca4df97a39ca8d220674dd80b98598dc0f27167adae47353ab4ead"
+  }
+}

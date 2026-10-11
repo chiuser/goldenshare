@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 
 from orchestrator.defs.run_contracts.moneyflow import (
+    MONEYFLOW_CNT_THS_RAW_CHECK,
+    MONEYFLOW_CNT_THS_SILVER_CHECK,
     MONEYFLOW_IND_THS_RAW_CHECK,
     MONEYFLOW_IND_THS_SILVER_CHECK,
     MONEYFLOW_MKT_DC_RAW_CHECK,
@@ -39,11 +41,12 @@ class MoneyflowAutomationContract:
 
     @property
     def event_revision(self):
-        return (
-            "market_moneyflow_history_events_v1"
-            if self.dataset == "moneyflow_mkt_dc"
-            else "industry_moneyflow_ths_history_events_v1"
-        )
+        require_moneyflow_automation_contract(self)
+        return {
+            "moneyflow_mkt_dc": "market_moneyflow_history_events_v1",
+            "moneyflow_ind_ths": "industry_moneyflow_ths_history_events_v1",
+            "moneyflow_cnt_ths": "concept_moneyflow_ths_history_events_v1",
+        }[self.dataset]
 
 
 MARKET_MONEYFLOW_AUTOMATION = MoneyflowAutomationContract(
@@ -62,8 +65,20 @@ INDUSTRY_THS_MONEYFLOW_AUTOMATION = MoneyflowAutomationContract(
     "2024-09-10",
     "同花顺行业资金流向",
 )
+CONCEPT_THS_MONEYFLOW_AUTOMATION = MoneyflowAutomationContract(
+    "moneyflow_cnt_ths",
+    MONEYFLOW_CNT_THS_RAW_CHECK,
+    MONEYFLOW_CNT_THS_SILVER_CHECK,
+    "cn_a_moneyflow_cnt_ths_trade_days",
+    "2024-09-10",
+    "同花顺概念资金流向",
+)
 
 
 def require_moneyflow_automation_contract(contract):
-    if contract not in (MARKET_MONEYFLOW_AUTOMATION, INDUSTRY_THS_MONEYFLOW_AUTOMATION):
+    if contract not in (
+        MARKET_MONEYFLOW_AUTOMATION,
+        INDUSTRY_THS_MONEYFLOW_AUTOMATION,
+        CONCEPT_THS_MONEYFLOW_AUTOMATION,
+    ):
         raise MoneyflowContractError("automation_dataset")

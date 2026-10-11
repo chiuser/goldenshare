@@ -174,7 +174,7 @@ def moneyflow_history_proof(
                 "checkpoint": checkpoints[day],
                 **(
                     {"row_count": row_counts[day]}
-                    if contract.dataset == "moneyflow_ind_ths"
+                    if contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths"}
                     else {}
                 ),
             }
