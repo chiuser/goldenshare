@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "dataset": "moneyflow_cnt_ths",
+  "stage": "P4 concept asset slice step1 full acceptance rerun",
+  "recorded_at_utc": "2026-10-11T14:50:06.694064+00:00",
+  "status": "full_isolated_definitions_passed_protected_catalog_and_static_gates_blocked",
+  "asset_commit": "b2793920",
+  "execution_head": "b49d9cdc7b89f77cb2c0b5a9b9ff4585cafc5ad8",
+  "current_head": "b49d9cdc7b89f77cb2c0b5a9b9ff4585cafc5ad8",
+  "scope": "Only rerun three pre-existing gates and record outcome. No additional slices.",
+  "results": {
+    "catalog": {
+      "command": ".venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_asset_governance_contracts.py",
+      "runner_exit_code": 1,
+      "batch": "G-regression:test_asset_governance_contracts.py:1",
+      "batch_expected_count": 8,
+      "child_exit_code": 4,
+      "pytest": {
+        "slice": "G-regression:test_asset_governance_contracts.py:1",
+        "completed": 0,
+        "failures": 0,
+        "subtests_completed": 0,
+        "connection_count": 0,
+        "passed": false
+      },
+      "elapsed_ms": 2006,
+      "native_self_check_passed": true,
+      "isolation_negative_cases_completed": 7,
+      "formal_resource_sentinel_unchanged": true,
+      "log": {
+        "path": "/private/tmp/moneyflow-cnt-ths-step1-20261011/catalog.log",
+        "sha256": "9940d035c34c4f03afb868e17a102cc4b5acfb023cf84a45d67f7bb4c20b1c99"
+      },
+      "resource_result": {
+        "path": "/private/tmp/stock-suspend-isolated-8d5v602c/allowed/resource-result.json",
+        "sha256": "6c1d4b14a527eb8d4175232d88d1c5bba8cb424244cc7b30886d13cdc37712ce"
+      },
+      "capability_policy_sha256": "c60204e24f786164128797bb994ea435ae63ff0c20aeb7c9092c59a1b839e9d6",
+      "subsequent_batches_executed": false,
+      "failure": "Collection failed through assets/stock_weekly.py:46 importing stock_weekly_adj_run; submitted file omitted from protected CONSUMER_SOURCE_FILES."
+    },
+    "static": {
+      "command": ".venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_run_contract_static_gates.py",
+      "runner_exit_code": 1,
+      "batch": "G-regression:test_run_contract_static_gates.py:1",
+      "batch_expected_count": 8,
+      "child_exit_code": 1,
+      "pytest": {
+        "slice": "G-regression:test_run_contract_static_gates.py:1",
+        "completed": 0,
+        "failures": 1,
+        "subtests_completed": 0,
+        "connection_count": 0,
+        "passed": false
+      },
+      "elapsed_ms": 2021,
+      "native_self_check_passed": true,
+      "isolation_negative_cases_completed": 7,
+      "formal_resource_sentinel_unchanged": true,
+      "log": {
+        "path": "/private/tmp/moneyflow-cnt-ths-step1-20261011/static.log",
+        "sha256": "ed377d3b2832ebe33b6e9223377192940d235360423ccb440f9e9ed2eda2b007"
+      },
+      "resource_result": {
+        "path": "/private/tmp/stock-suspend-isolated-59jsh96_/allowed/resource-result.json",
+        "sha256": "5026474fa31a0d083d5ca3d3f9bd874b6869f482d60ca36e6bfe6b2126313912"
+      },
+      "capability_policy_sha256": "a8ef7af9abfdfa6cd733e28aaff89b35ea7f7ed97f00d4269e7f94ced77a8f97",
+      "subsequent_batches_executed": false,
+      "failure": "First static test cannot read submitted prod_db/stock_weekly_adj_delivery.py omitted from protected CONSUMER_SOURCE_FILES."
+    },
+    "defs": {
+      "command": ".venv/bin/dg check defs --use-active-venv --no-check-yaml",
+      "exit_code": 0,
+      "result": "All definitions loaded successfully.",
+      "dagster_home": "/private/tmp/moneyflow-cnt-ths-step1-20261011/defs-home",
+      "environment": "Explicit isolated HOME/DAGSTER_HOME; no formal credentials; telemetry off; UV offline/no-sync/no-env-file/no-config/no-downloads.",
+      "log": {
+        "path": "/private/tmp/moneyflow-cnt-ths-step1-20261011/defs.log",
+        "sha256": "5f669c08ebd39efd649fc46a47dc56b252d88d305949cfadc889c2d20a95aaac"
+      },
+      "driver": {
+        "path": "/private/tmp/moneyflow-cnt-ths-step1-20261011/defs.py",
+        "sha256": "f22c56728a3b7b227566d9b69dfd0cebb982f7fe544b8bf055e1942296666184"
+      }
+    }
+  },
+  "source_hashes_before_and_after_match": true,
+  "source_hashes": {
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_cnt_ths.py": "195a96c5be2b65d8093c0d8144aa4b098ccc89189d686e56fbf0ef362b460218",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_ind_ths.py": "27dbe47c0cf637cf700f4c3d3068e7f2341e2368a2fcf39640bd6aa953807f45",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_cnt_ths.py": "54ced03f0a15798c36e60ff1b65d6a6fb963f98d461686a3d861dddd8b90479b",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_cnt_ths.py": "32a7e9012629773d85055b5f0b739decae58b0cc8e008460ada123527096e34f",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "443eea43d6d81d2c38d7d3266f2674bc73bd76377c5292dc06f00dfacef317b5",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py": "a645378a6e657950108b7e03a62ad8feed570772611078ef5e0dc56d46e9e78c",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py": "ad347dbc1dd332463228011d5b2e167f0f85f93299ccd4c112370988c4b7af88",
+    "lake_console/orchestrator/src/orchestrator/defs/partitions.py": "4ee811849e84a69a86ba315b7db01baf8c534a85673776937f20ab9f010df9e1",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "050c94c73db92eebb875a6f0fa5c50f9560f703c9aa8b6fba85465c122d61bd0",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py": "df8b24b3021956db44feb9a0d5958d0b816a4d1a258010add640b4f3f064cfda",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py": "5ff9d4d6e4448696838d0485e81c41999f837fe2a29da6b65fbda8ce3455455a",
+    "lake_console/orchestrator/tests/test_asset_governance_contracts.py": "b387296f2cf038557dbea5dc0e5c5663c7ecee6e67e4127abddbef036400e934",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "bc1da06528e775c41a55181d8105be1b443b97cae810ef52e6935ee7395de280"
+  },
+  "prior_targeted_validation": {
+    "evidence": "lake_console/reports/moneyflow_p4_cnt_ths_evidence_20261011.json",
+    "definition_tests_passed": 64,
+    "related_regression_tests_passed": 211,
+    "rerun_this_step": false,
+    "source_hash_match": true
+  },
+  "preserved_report_count": 34,
+  "preserved_report_hashes": {
+    "lake_console/reports/moneyflow_derivation_feasibility_20261006.json": "0944c6879316d8e16255f5bfa9c304e9a3a34772eec3148a3d40bdbdf3c8b396",
+    "lake_console/reports/moneyflow_p0_closeout_20261006.json": "6194d04cf925722ec5c8c00e8402b70af695efbb646358382afbb546aea6a413",
+    "lake_console/reports/moneyflow_p0_evidence_20261006.json": "9fa7c9582e3eab8ffa1681cde59fcaa12fa073a742fce59889a19af039bf97c3",
+    "lake_console/reports/moneyflow_p0_partial_day_followup_20261006.json": "98d406d04595502d8b1f07b56a29bbf92ce6fd78c18bc00ce538143fa02f2806",
+    "lake_console/reports/moneyflow_p0_prod_date_counts_20261006.csv": "97a41694680dc13340785af03a902acb39d33afbfda33480bf9e5d34710c90e8",
+    "lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json": "8b620d66300c01c49489b82e3df7989b2f8e434982b6e21ba7373ec9a9d8fb9a",
+    "lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json": "e603b851fc60538d5e6612f182be8f79af13d4f1ff18fd92f4be12d3d56bc020",
+    "lake_console/reports/moneyflow_p2_moneyflow_ths_evidence_20261007.json": "71d2fa3803981ee85acca2ed9e35bd8b7913bc2393ee2700c53a6994df3c01c7",
+    "lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json": "c23ec90476acb4f787247747b233a5dce7f60f1e82d1b35a3709a31220817d92",
+    "lake_console/reports/moneyflow_p3_date_candidates_evidence_20261007.json": "049fd1170665217230493fc49b270aaa65a42af37d924885f2a985f5c233aebe",
+    "lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json": "1a52dcbb8ba5aea2a2790b9f3bed8354fd81b605208060b6184dc0930850af7a",
+    "lake_console/reports/moneyflow_p3_date_query_profile_20261008.json": "71e63247688f11dfb32210bd406c6a955996993b61ce4c52bd5a23b7f8d20d1b",
+    "lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json": "f88edab78bafd2168812c4d7f66690d115d0018b7ddeaef6b812fb5f4a2e996a",
+    "lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json": "752e87b7e325755c9845f35db5039ed8210a9bf77fc06cd11cb3b335e751fa97",
+    "lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json": "02534cda4abbddbbc6f152cd6041fcad5fd01f96a0d0a17da4bf25d5c695cac3",
+    "lake_console/reports/moneyflow_p3_history_export_evidence_20261007.json": "e012f42c585964b112f37f41915abca071f6475829498cfabd3349afec58c9a4",
+    "lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json": "aa0b1012eec596957ce49f3989db4cd9a1e8500afd1b7e538d84bb6d07d3d38a",
+    "lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json": "a7fb1e68c7c457c2e35a08b006f45b404f146305e3f697f79a2cc86de4d58018",
+    "lake_console/reports/moneyflow_p3_selected_dates_evidence_20261008.json": "43ae51b534d7d66f1c9e5fe41e5b95c0312bb108fea956f8f5cb19e3ef679a88",
+    "lake_console/reports/moneyflow_p4_cnt_ths_evidence_20261011.json": "b346344b14c1a30516e04c9e0f7d17f780228994873fc1434defbff5ac12e88a",
+    "lake_console/reports/moneyflow_p4_ind_ths_automation_evidence_20261010.json": "292fd0bb792388287558760381cd6ae06ad0c2cec0e614125d1e6fafb6fcf8b7",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_evidence_20261010.json": "7baff678a06e23632f3691d32f5c72d077af7e47613a34467573df67681ea70b",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_formal_full_evidence_20261011.json": "1e44ebd9a85af062e80caf9724a91cf6d652c3239862e82eb7fe58eb6c3cf72e",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_formal_sample_evidence_20261011.json": "2fc45fab06021254776a0967d5afbbdbc9cbdc5201533c59ef709cfe33fa6ef1",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_full_plan_20261010.json": "82743d5a337f5579f53b8c73b2a12ae9762ed18a584749e49c57e14cae322eaa",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_sample_plan_20261010.json": "72fca742cfaf060ab2ace0f5533cb6dee459e84fc034903d1a813d95baa8d75a",
+    "lake_console/reports/moneyflow_p4_ind_ths_evidence_20261010.json": "73f3870ac235cdd3b591f36b278c13bb05f25f6979b368759e98e168e634db9c",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_evidence_20261010.json": "98da97a6f1c0726ada605b0c4fff84b4478ef921c32fa35a8029d643e6c77ed9",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_full_evidence_20261010.json": "04a4b1ff9c89553cf62422ddc2c21f2a1b81be11733e72e73d6e0ca00314423f",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_sample_evidence_20261010.json": "3a65b91362b961fec4f5573429830c6f8460ade54cde790e95219423789a8324",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_full_plan_20261010.json": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_sample_plan_20261010.json": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6",
+    "lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json": "5c1f28164a68758aa89cb2070ab2bd9af444e8abc13302210f68ef667d9802a5",
+    "lake_console/reports/moneyflow_p4_mkt_dc_sensor_event_preview_evidence_20261009.json": "8a6f805cef9e39b802709d494489a1d3fb76f7aac7b8e488ad0fc3fa90a7491d"
+  },
+  "blocker": {
+    "root_cause": "Stock weekly b49d9cdc added source modules but did not update protected runner consumer source inventory. Both failures happen before full shared suite acceptance. Prior psutil dependency blocker resolved.",
+    "classification": "Protected test capability inventory drift, not automatic approval review rejection.",
+    "current_code_evidence": [
+      "src/orchestrator/defs/assets/stock_weekly.py:46",
+      "tests/stock_suspend_confirmed_test_runner.py:111",
+      "tests/stock_suspend_confirmed_test_runner.py:968",
+      "tests/test_run_contract_static_gates.py:403"
+    ],
+    "rule": "LLD39.2 requires all full gates passed before closeout. Approved scope is identical gate rerun and evidence, excluding weekly protected capability inventory migration. Weekly files now committed; prior root hard29 dirty-work conflict no longer applies.",
+    "required_followup": "Stock weekly work must audit full added import closure and update exact protected source inventory, then rerun complete catalog/static suites. Rerun complete defs if source changes."
+  },
+  "writes": {
+    "python_or_test_policy_changes": 0,
+    "dependency_or_configuration_changes": 0,
+    "formal_lake_or_staging": 0,
+    "formal_instance_or_database": 0,
+    "prod_or_tushare_requests": 0,
+    "formal_jobs_sensors_partitions_events_pool_reload": 0,
+    "workspace_artifacts": "Two existing design documents and this new report; isolated outputs only under /private/tmp."
+  },
+  "boundaries_changed": false,
+  "next_scope": "Current slice not closed. P4 open; P5 not started. No concept sensors/history preview/registration in this step.",
+  "verification": {
+    "docs_integrity": "passed",
+    "git_diff_check": "passed"
+  }
+}
