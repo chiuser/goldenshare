@@ -26,7 +26,10 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.configs import StockWeeklyRawConfig
+from orchestrator.defs.run_contracts.configs import (
+    StockWeeklyAdjProdConfig,
+    StockWeeklyRawConfig,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -40,12 +43,29 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     weekly_source_api,
     weekly_source_doc,
 )
+from orchestrator.defs.stock_weekly_adj_run import deliver_closed_adjusted_batch
 from orchestrator.defs.stock_weekly_point import (
     StockWeeklyPointWorker,
     deliver_stock_weekly_point,
 )
 from orchestrator.defs.stock_weekly_update_execution import WeeklyUpdateExecution
 from orchestrator.defs.stock_weekly_update_state import weekly_upstream_events_ready
+
+
+def _cancel_probe(context):
+    checked_at, canceled = 0.0, False
+
+    def cancel():
+        nonlocal checked_at, canceled
+        if monotonic() - checked_at >= 2:
+            checked_at = monotonic()
+            run = context.instance.get_run_by_id(context.run.run_id)
+            canceled = run is not None and run.status in (
+                dg.DagsterRunStatus.CANCELING, dg.DagsterRunStatus.CANCELED,
+            )
+        return canceled
+
+    return cancel
 
 
 def _deliver(context, config, lake_root, tushare, source):
@@ -66,19 +86,6 @@ def _deliver(context, config, lake_root, tushare, source):
             ),
         )
     lake_root.ensure_available_for_run()
-    checked_at, canceled = 0.0, False
-
-    def cancel():
-        nonlocal checked_at, canceled
-        if monotonic() - checked_at >= 2:
-            checked_at = monotonic()
-            run = context.instance.get_run_by_id(context.run_id)
-            canceled = run is not None and run.status in (
-                dg.DagsterRunStatus.CANCELING,
-                dg.DagsterRunStatus.CANCELED,
-            )
-        return canceled
-
     result = deliver_stock_weekly_point(
         source,
         context.partition_key,
@@ -87,7 +94,7 @@ def _deliver(context, config, lake_root, tushare, source):
         worker=StockWeeklyPointWorker(tushare.token, source),
         code_list_path=config.code_list_path,
         progress=lambda p: context.log.info(str(p)),
-        cancel=cancel,
+        cancel=_cancel_probe(context),
         update=update,
     )
     return dg.MaterializeResult(
@@ -150,12 +157,15 @@ def raw_tushare_stk_period_bar_week(
 )
 def raw_tushare_stk_period_bar_adj_week(
     context: dg.AssetExecutionContext,
-    config: StockWeeklyRawConfig,
+    config: StockWeeklyAdjProdConfig,
     lake_root: LakeRootResource,
-    tushare: TushareResource,
-) -> dg.MaterializeResult:
-    return _deliver(
-        context, config, lake_root, tushare, StockWeeklySource.PRIMARY_ADJUSTED
+):
+    """从Prod接收已闭合复权周线批；同键覆盖全部源字段，保留未返回的历史行。"""
+    lake_root.ensure_available_for_run()
+    yield from deliver_closed_adjusted_batch(
+        context, config, target_root=lake_root.root(),
+        staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
+        cancel=_cancel_probe(context), progress=lambda p: context.log.info(str(p)),
     )
 
 

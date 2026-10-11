@@ -333,6 +333,61 @@ def test_raw_serving_receipt_same_commit_precision_and_replay(db, monkeypatch):
     assert seen == [units[0].unit_id] and result2.rows_committed == 1
 
 
+@pytest.mark.parametrize("actual_day", [OLD, WEEK])
+def test_closed_header_uses_actual_input_week_not_requested_cutoff(
+    db, monkeypatch, actual_day
+):
+    definition, req, units = planned(db)
+    incoming = row(actual_day, close="20", qfq="20") if actual_day == WEEK else row()
+    execute(db, monkeypatch, definition, req, units, fake_pages(lambda _: [incoming]))
+    with Session(db) as session:
+        closure = StockWeeklyAdjDeliveryDAO(session).get_record(
+            batch_id=req.execution_context["execution_token"],
+            record_kind="batch_closed",
+            unit_id="batch_closed",
+        )
+        assert closure.cutoff_week == WEEK
+        assert closure.payload["header"]["max_input_week"] == actual_day.isoformat()
+
+
+def test_empty_closed_header_has_no_input_week_and_preserves_existing(db, monkeypatch):
+    definition, req, units = planned(db)
+    execute(db, monkeypatch, definition, req, units, fake_pages(lambda _: []))
+    with Session(db) as session:
+        closure = StockWeeklyAdjDeliveryDAO(session).get_record(
+            batch_id=req.execution_context["execution_token"],
+            record_kind="batch_closed",
+            unit_id="batch_closed",
+        )
+        assert closure.cutoff_week == WEEK and closure.rows_written == 0
+        assert closure.payload["header"]["max_input_week"] is None
+        assert session.get(Raw, (CODE, OLD, "week")).close_qfq == Decimal("10")
+
+
+def test_bootstrap_summary_and_closure_use_actual_committed_week(db, monkeypatch):
+    with Session(db) as session:
+        day = OLD + timedelta(days=1)
+        while day < date(2026, 9, 21):
+            session.add(Calendar(exchange="SSE", trade_date=day, is_open=day.weekday() < 5))
+            day += timedelta(days=1)
+        session.commit()
+    definition, req, units = planned(db, requested(code=None))
+    assert req.execution_context["business_plan"]["metadata"]["bootstrap"]
+    execute(db, monkeypatch, definition, req, units, fake_pages(
+        lambda unit: [row()] if unit.trade_date == OLD else
+        [row(WEEK, close="20", qfq="20")] if unit.trade_date == WEEK else []
+    ))
+    with Session(db) as session:
+        dao = StockWeeklyAdjDeliveryDAO(session)
+        unit = dao.get_record(batch_id=req.execution_context["execution_token"],
+                              record_kind="unit", unit_id=units[0].unit_id)
+        closure = dao.get_record(batch_id=req.execution_context["execution_token"],
+                                 record_kind="batch_closed", unit_id="batch_closed")
+        assert "rows" not in unit.payload
+        assert unit.payload["summary"]["max_input_week"] == OLD.isoformat()
+        assert closure.payload["header"]["max_input_week"] == WEEK.isoformat()
+
+
 def test_cancel_before_commit_rolls_back_all_and_resume_uses_receipt(db, monkeypatch):
     definition, req, units = planned(db)
     canceled = [False]

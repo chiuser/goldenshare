@@ -268,7 +268,7 @@ P0实查：Raw只有(ts_code,trade_date,freq)主键；Serving另有trade_date和
 
 plan只保存共享合同/预算/原意图一次；unit清单保存稳定ID、进度上下文及已由request builder生成的少量实际参数（freq、日期、可选单代码）。不逐unit重复Definition、policy、fields或源行；恢复使用冻结参数，不能以当前请求重新推断历史unit。P0按此合同构造1000个stock_history unit的容量示例为224643字节，小于1MiB；这是拟定序列化形状的估算，不是已实现planner测试，P1还须对真实冻结对象校验上限并测试超量拒绝。
 
-固定dataset/freq由表合同及CHECK约束表达；不让调用方透传表名/freq。索引：(record_kind,revision)、(batch_id,record_kind,unit_id)；payload限制8MiB/每unit12,000行情行，plan≤1MiB/1,000unit。日常整批payload总量上限256MiB，与DG一致；闭合头记录总行数/总字节、最大输入周anchor、零行原因和unit集合摘要，最多1000个unit ID且头控制投影≤4KiB，不传整份清单给sensor。
+固定dataset/freq由表合同及CHECK约束表达；不让调用方透传表名/freq。索引：(record_kind,revision)、(batch_id,record_kind,unit_id)；payload限制8MiB/每unit12,000行情行，plan≤1MiB/1,000unit。日常整批payload总量上限256MiB，与DG一致；闭合头记录总行数/总字节、本批实际输入的最大周max_input_week（空行批为null）、零行原因和unit集合摘要，最多1000个unit ID且头控制投影≤4KiB，不传整份清单给sensor。
 
 规划根据历史窗口周数、当前对象规模及标准化字段长度上界预估总量；超过unit/字节预算先拒绝，不开始源请求。当前批写入时累加实际payload字节，再次超限不提交当前unit/不闭合。需另获批准分范围处理或调整经过实测的局部预算，不设计自动分组状态机。未闭合的已提交unit仍可读回、恢复，不能在新意图下跳过。factor frontier只有整个原扫描范围完成后才推进，不用某一手动子任务冒充全周完成。
 
@@ -832,3 +832,12 @@ A/B/C正常运行及数据验收全部通过。本节完成时曾将完整全市
 P2开发、正常小样本及内存工作收口；正式取消续跑、同批零请求重放及页面进度仍未完成。下一步可推进DG D1/D2接收链开发；上述正式验收在P3全量执行前用一次代表性运行协调完成，不再重复正常单股任务。全量执行仍需阶段授权；id=14保持暂停，DG供数及19:30自动切换尚未执行。
 
 本轮只更新Prod与DG原方案/LLD的状态及验收安排，不修改代码、配置或数据，不新增验收机制。
+
+
+<a id="weekly-delivery-anchor-correction"></a>
+
+### 13.13 DG接收前的日期合同校正（2026-10-11，管理员已确认）
+
+修正前，publish_closed_batch把任务cutoff_week填入max_input_week；任务截止周可能晚于实际返回数据，不能用于DG选择真实分区。管理员确认：max_input_week改为本批已提交输入的最大trade_date；没有输入行时为null。日常从已有unit payload.rows汇总；bootstrap unit仅摘要，发布时保存该unit实际最大输入周，再由闭合阶段汇总。cutoff_week仍表示任务范围，两者不混用。21行情列、意图/请求参数、事务、预算、原批记录均不变；不改写已闭合批。DG捕获时核验闭合头与实际输入范围一致，错误摘要不能创建虚假分区。
+
+源码已修正；`test_stock_weekly_adj_p2.py`新增四项隔离验收，覆盖任务到10月9日但实际只到6月5日、实际返回10月9日、空批不造日期及首次bootstrap摘要/闭合最大周汇总。P1/P2共69项通过。修改尚未提交或部署，已闭合批未改写；正式验收不能把本地测试当作Prod已加载新逻辑。DG接收实现和真实只读传输核验见[DG LLD A14](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-d1-d2-implementation)。

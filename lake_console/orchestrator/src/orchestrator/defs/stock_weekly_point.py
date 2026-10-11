@@ -77,6 +77,8 @@ class StockWeeklyPointWorker:
     source: StockWeeklySource
 
     def __call__(self, params, fields, max_rows):
+        if self.source is StockWeeklySource.PRIMARY_ADJUSTED:
+            raise WeeklyCaptureError("adjusted_weekly_requires_prod_closed_batch")
         from orchestrator.defs.resources import TushareResource
 
         result = TushareResource(token=self.token).call(
@@ -136,6 +138,8 @@ def deliver_stock_weekly_point(
     fetch=fetch_weekly_request_supervised,
     update=None,
 ):
+    if source is StockWeeklySource.PRIMARY_ADJUSTED:
+        raise WeeklyCaptureError("adjusted_weekly_requires_prod_closed_batch")
     normalize_week_key(week)
     if source is not StockWeeklySource.ALTERNATE_WEEKLY and code_list_path is not None:
         raise WeeklyCaptureError("primary_code_list_forbidden")

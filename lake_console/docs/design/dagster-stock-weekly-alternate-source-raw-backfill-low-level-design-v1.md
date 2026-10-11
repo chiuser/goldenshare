@@ -4,7 +4,7 @@
 
 ## 2026-10-10 新阶段 LLD：复权周线接收 Prod 新增及历史修正
 
-状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，管理员确认内存工作收口，不再追加专门复测或优化，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。管理员已部署Prod cc7c528e，正式迁移186和表/trigger/索引只读核验通过，正式双周15368及两只单股历史15375/15378的21字段对账通过，15378时序观察父/源进程均低于256MiB，见[Prod LLD §13.11](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-prod-run15378)；取消续跑、同批零请求重放及页面验收留到P3全量执行前合并完成；可推进DG D1/D2开发，DG实现及后续阶段待完成，供数尚未切换，见[Prod LLD §13.12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-closeout)。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
+状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，管理员确认内存工作收口，不再追加专门复测或优化，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。管理员已部署Prod cc7c528e，正式迁移186和表/trigger/索引只读核验通过，正式双周15368及两只单股历史15375/15378的21字段对账通过，15378时序观察父/源进程均低于256MiB，见[Prod LLD §13.11](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-prod-run15378)；取消续跑、同批零请求重放及页面验收留到P3全量执行前合并完成；DG D1及D2源码已实现，隔离/只读结果和未验项见[A14](#adjusted-weekly-d1-d2-implementation)；正式供数及B0水位尚未切换，见[Prod LLD §13.12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-closeout)。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
 
 依据：[新增阶段方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#adjusted-weekly-prod-refresh)、[Prod LLD](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)、[DG数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)。本节按模板覆盖数据卡、Run Contract、来源/字段、asset/check/job/sensor、初始化/恢复、性能和分阶段验收。
 
@@ -29,15 +29,15 @@
 
 ### A2. 当前代码差异和消费者迁移
 
-当前 assets/stock_weekly.py 的复权分支调用 StockWeeklyPointWorker，直接使用Tushare token；StockWeeklyRawConfig限制create_or_identical；io/stock_weekly_raw.py把既有与输入合并后检查同键冲突；sensor按两主源同周ready推进共同进度。以上均不足以接收合法历史修正。
+D0审计时，assets/stock_weekly.py 的复权分支调用 StockWeeklyPointWorker，直接使用Tushare token；StockWeeklyRawConfig限制create_or_identical；io/stock_weekly_raw.py把既有与输入合并后检查同键冲突；sensor按两主源同周ready推进共同进度。以上均不足以接收合法历史修正。
 
-以下路径均相对 lake_console/orchestrator/src/orchestrator/defs；拟新增文件明确标注，不借目录命名推断已有能力。
+以下路径均相对 lake_console/orchestrator/src/orchestrator/defs；本轮D1/D2落点及待D3部分见A14，不借目录命名推断已有能力。
 
 | 代码点 | 开发级变更 | 主要消费者/验证 |
 | --- | --- | --- |
-| run_contracts/stock_weekly.py、configs.py | 新增具名StockWeeklyAdjProdConfig和WeeklyAdjProdDeliveryBudget；原shared config只给未复权/备用使用 | asset、sensor、手动配置、bootstrap CLI、静态门禁全部迁移 |
-| prod_db/stock_weekly.py；拟新增prod_db/stock_weekly_adj_delivery.py | 行情导出仍bootstrap专用；新增受限的闭合头/冻结unit payload读取 | sensor只查头，job流式捕获；SQL白名单和参数反例 |
-| 拟新增stock_weekly_adj_delivery.py | 年度组装、逐文件提升、恢复和事件计划的具名helper | 复权asset调用；不注册第二套资产或数据库 |
+| run_contracts/stock_weekly_adj_delivery.py、configs.py | 新增具名StockWeeklyAdjProdConfig和WeeklyAdjProdDeliveryBudget；原shared config只给未复权/备用使用 | asset、sensor、手动配置、bootstrap CLI、静态门禁全部迁移 |
+| prod_db/stock_weekly.py；prod_db/stock_weekly_adj_delivery.py | 行情导出仍bootstrap专用；新增受限的闭合头/冻结unit payload读取 | sensor只查头，job流式捕获；SQL白名单和参数反例 |
+| stock_weekly_adj_delivery.py、stock_weekly_adj_run.py、stock_weekly_adj_feed.py | 捕获/年度组装、逐文件提升、正常run事件/恢复及有界交接决策 | 复权asset调用；不注册第二套资产或数据库 |
 | io/stock_weekly_raw.py | 只为PRIMARY_ADJUSTED增加明确的replace_input_keys关系构造器 | 初次重bootstrap、增量候选；其他两源仍拒绝异值同键 |
 | bootstrap/stock_weekly_candidates.py、stock_weekly_promote.py | 复用经核验的候选/原子提交；扩展当前意图的交接标识及覆盖审计 | 同文件系统、已有锁/基线、防竞态、退出恢复 |
 | assets/stock_weekly.py、checks/stock_weekly_checks.py | 复权asset调用Prod driver；check共用只读单文件核验 | 原schema/check名保留；历史分区及anchor准确绑定 |
@@ -49,9 +49,9 @@ D0已核验来源、手动run_config、bootstrap及sensor消费者与现有测�
 
 ### A3. Run Contract、配置来源和幂等身份
 
-拟新增StockWeeklyAdjProdConfig：contract_version=1；delivery_batch_id及closure_revision必须成对，由sensor或后端维护入口从已闭合批选择；bootstrap另有固定B0。不要允许传SQL、表名、任意staging根、Tushare参数或“强制忽略合同”。不再接受该资产的code_list_path、automatic_intent_date和create_or_identical。切换前同步迁移消费者及文档，不能静默忽略旧字段。
+StockWeeklyAdjProdConfig：contract_version=1；delivery_batch_id及closure_revision必须成对，由sensor或后端维护入口从已闭合批选择；bootstrap另有固定B0。不要允许传SQL、表名、任意staging根、Tushare参数或“强制忽略合同”。不再接受该资产的code_list_path、automatic_intent_date和create_or_identical。切换前同步迁移消费者及文档，不能静默忽略旧字段。
 
-anchor_partition为本批输入实际trade_date映射出的最大周分区；常规新周即cutoff_week。纯历史手动批亦按实际输入决定，不凭当前日期造分区。没有输入行的合法闭合批只记录已消费的空结果，不生成虚假文件、物化或green check；sensor核实闭合头确实无行情后推进revision。全市场源未完整不能形成这样的成功头。
+管理员于2026-10-11确认先修正Prod max_input_week：取本批已提交输入的实际最大周，空行批为null，保留原cutoff_week任务范围；bootstrap unit摘要保存实际最大输入周，不改写旧批。DG捕获再次按实际输入核验，详见[Prod LLD §13.13](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-delivery-anchor-correction)。anchor_partition为本批输入实际trade_date映射出的最大周分区；常规新周即cutoff_week。纯历史手动批亦按实际输入决定，不凭当前日期造分区。没有输入行的合法闭合批只记录已消费的空结果，不生成虚假文件、物化或green check；sensor核实闭合头确实无行情后推进revision。全市场源未完整不能形成这样的成功头。
 
 intent_id = hash(合同版本、batch_id、closure_revision、固定目标资产)。意图不包含Dagster run_id；失败/取消重新执行同批仍复用其已完成文件。staging位于 /Volumes/datasource/data_lake_staging/stock_weekly_adj_delivery/{intent_id}/，只用于本次未完成意图；完成后可清理，未来批次不能依赖其存在。正式Lake仅 /Volumes/datasource/data_lake。
 
@@ -83,13 +83,15 @@ next_closed_batch按revision升序取一条闭合头，不用MAX跳过中间批�
 
 job逐unit在短的REPEATABLE READ READ ONLY事务中读count及COPY显式列，校验闭合头列出的unit集合、scope和摘要。日期/Decimal/NULL严格按既有Parquet列合同，不经float往返；拒绝未知字段、越界周期、freq非week、同unit异值同键。使用源保存的标准化增量，不把当前可变Raw冒充旧批值。每unit捕获落staging及checkpoint后再领下一个，不积累全集在Python list。
 
-闭合头unit摘要只证明本次传输完整，不是固定历史行情hash。读取新增交接表的权限必须显式增加到只读包装及DG白名单，不能允许任意schema、SELECT *、远程写回水位或DG ack表。Prod ORM/DAO及publisher源码已实现，正式表未迁移；DG reader仍待D1，不能将源码存在当作正式表可读。
+嵌套payload只在当前unit内转换：SQL提取`payload.rows`，用`json_transform_strict`按21列类型一次转换为列表，再`unnest`并投影各列；禁止把完整文档带入`json_each`相关连接。2026-10-11真实5514行样本揭示后一写法生成DELIM_JOIN/HASH_JOIN并耗尽512MiB，已在原预算内移除该放大。对照[DuckDB JSON](https://duckdb.org/docs/current/data/json/json_functions)和[unnest语义](https://duckdb.org/docs/current/sql/query_syntax/unnest)核验，实际结果见A14；预算、传输合同和Raw21列不改。
+
+闭合头unit摘要只证明本次传输完整，不是固定历史行情hash。读取新增交接表的权限必须显式增加到只读包装及DG白名单，不能允许任意schema、SELECT *、远程写回水位或DG ack表。正式表/trigger/索引已按186迁移完成并只读核验，DG reader实现及真实只读传输见A14；只读通过不代表已写入正式DG。
 
 ### A5. 21列映射、按键覆盖与年度候选
 
 源→Prod→DG字段及精度统一引用 [Prod LLD §0.3.3](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#source-field-contract)和本文件原§4。日期、代码、成交量/额单位不变；技术采集列、交付字段不进入Raw行情。无需身份表全量格式检查，输入原始代码按Raw既有合同处理；备用任务的身份审计不复用到本链。
 
-新增明确接口assemble_adjusted_delivery_relation(con, existing, incoming, *, scope, budget)。全批输入有同键重复时，同unit必须同值；不同unit只有point_week与stock_history合法重叠时允许，按已提交unit revision选较新值，不能以文件遍历顺序last-wins。其他重叠/来源冲突拒绝。
+明确接口assemble_adjusted_delivery_relation(con, *, year, budget)，只消费该连接的weekly_input及weekly_existing关系；scope在捕获阶段按冻结plan逐unit核验。全批输入有同键重复时，同unit必须同值；不同unit只有point_week与stock_history合法重叠时允许，按已提交unit revision选较新值，不能以文件遍历顺序last-wins。其他重叠/来源冲突拒绝。
 
 ```sql
 -- 输入先完成scope/合同校验；显式投影21列，禁止SELECT *。
@@ -226,7 +228,37 @@ P0/D0已完成：当前connector分页、Prod库存/索引/head、静态消费�
 
 当前P0/D0和Prod P1支持代码完成，P1详细合同/测试/未验边界见[Prod LLD §12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p1-implementation)。注册Definition仍为旧绑定；P2执行器完成后一次性绑定，不给现有任务接入半成品路径。DG D1来源/覆盖代码、正式文件提升、事件补录、B0迁移和19:30切换尚未执行；后者仍按D2/D3/J1批准的具体阶段执行。
 
-## 2026-10-09 结案口径（当前状态）
+<a id="adjusted-weekly-d1-d2-implementation"></a>
+
+### A14. D1/D2源码、隔离验证与真实只读传输（2026-10-11）
+
+上轮四份文档已提交`3095e62c`。本轮D1来源/覆盖及D2 job、事件、sensor代码已实现，尚未提交或在正式环境执行；D2正式小样本与UI验收仍未完成，不宣布D2阶段通过。Prod实际最大输入周的修复已获管理员明确同意，源码/69项隔离验证见Prod §13.13，尚未部署。
+
+| 硬口径 | 代码及消费者 | 验证 |
+| --- | --- | --- |
+| 仅接收Prod闭合批，拒绝源参数/旧模式 | 新run_contracts/stock_weekly_adj_delivery.py、StockWeeklyAdjProdConfig；复权asset不再注入Tushare；catalog仅登记Prod只读；旧point worker、日期intent/builder拒绝复权 | 未知版本、旧字段、直接下载、SQL身份注入及未闭合反例 |
+| 每次只读下一闭合头，不跳批 | prod_db/stock_weekly_adj_delivery.py；升序LIMIT1；头≤4KiB，不读取行情 | 真实头694字节；sensor前置19:30及两job pending guard；无B0不查询Prod，不默认revision=0 |
+| 短只读count/COPY及unit持久化 | 唯一psql-remote.sh入口；冻结plan/unit显式列；当前unit落JSON及有界年度Parquet chunk后续领 | 真实一个plan及一个unit，COUNT=1；CSV quote展开单独计上限，业务payload仍≤8MiB/12000行，总量≤256MiB |
+| Raw21列、Decimal/NULL/原代码 | stock_weekly_adj_delivery.validate_closed_unit；typed JSON结构→unnest→DuckDB列式COPY；技术字段仅在候选捕获中使用，不入正式Parquet | 真实5514行全部21列双向EXCEPT ALL差异0；精度/float/未知列/越界/重复反例；T前缀原样保留 |
+| 同键整行更新，未返回旧键保留 | io.stock_weekly_raw.assemble_adjusted_delivery_relation；按实际unit revision选择合法point/history重叠 | 实际临时Parquet验证21列覆盖及未选行保留；两个history重叠拒绝；未复权/备用仍拒绝异值同键 |
+| 年度连接与既定预算 | 每年独立DuckDB，512MiB/2线程/2GiB spill；54目标/128文件、500000行；全批先准备再提升，1000目标/4GiB staging；阶段检查进程峰值≤1GiB | 12000行最大unit捕获回归；超单位行/字节及篡改拒绝；正式全历史端到端RSS仍留D2，不提高预算 |
+| 原子提升/取消/恢复 | 原promoter的源/周锁、baseline、同卷replace及文件checkpoint；冻结捕获/年度prepared指针，未完成attempt不冒充完成 | replace后退出可恢复；取消保留已提交文件；第三方修改、chunk/manifest篡改阻断，不回滚已提交文件 |
+| 同asset正常run历史事件及anchor检查 | stock_weekly_adj_run；共享stock_weekly_file_checks；原三个check名及job selection保留；run事件按cursor有界读取 | 两年度2物化/6check准确绑定；事件已入库而checkpoint失败时重试复用历史物化并补3check；无源重复读取或历史重复登记 |
+| 独立revision及无自动备用 | stock_weekly_adj_feed+原weekly sensor；待交付批保持，成功run+完整摘要+anchor三检查才推进；合法空批另查有界控制，不造文件或green事件 | 旧cursor/0水位、实际历史anchor、空批、失败手动续跑及未复权独立推进；复权feed零Parquet/Tushare读取 |
+
+当前unit COPY保存一个显式投影的不可变交接记录JSON，保持嵌套行情和冻结意图完整；不是导出当前可变Raw。COUNT控制和COPY处于同一短REPEATABLE READ READ ONLY事务，最后ROLLBACK。CSV转义产生的传输上限为两倍单记录上限加4KiB控制，解析后仍按原canonical payload、schema、scope、摘要和行数预算核验，业务预算未提高。完成后不保留任何reports依赖，也不以这些摘要固定历史行情；staging仅用于同一意图的恢复和重试，完成后可清理，后续批次不依赖其存在。
+
+真实只读来源为`core.stock_weekly_adj_delivery`批`077d12a5-3215-475d-8100-f742372b6749`、闭合revision4：计划2unit，整批11033行、实际最大周2026-06-12。只读抽取其中revision2的2026-06-05 unit，源/接收/临时Parquet均5514行，reject=0，21业务列双向差异0；COPY文件3023972字节、canonical payload2328381字节。仅在/private/tmp生成候选并自动清理，无正式Lake或Dagster事件写入。
+
+该真实样本首次揭示JSON相关连接的放大：EXPLAIN含DELIM_JOIN/HASH_JOIN，5514行在512MiB内OOM；改为一次typed JSON转换后unnest，原预算下完成捕获及完整21列对账，捕获+独立对账约0.139秒、进程峰值411.06MiB。此值只覆盖单unit临时转换/对账，不包含远程传输、859历史文件提升或事件，不能冒充端到端耗时。
+
+验证结果：Prod P1/P2为69项通过；DG周/月线、Run Contract与catalog等定向回归479项通过、492个subtest通过。仅排除一项无关的停牌confirmed治理测试：其独立测试辅助模块在本轮执行入口下无法导入，未改该模块或绕过它的隔离启动要求，不把该项算作通过。DG全src/tests致命Ruff基线通过，本轮其余改动文件默认Ruff通过；公共configs.py默认Ruff仍有11条既存问题，与HEAD基线逐条一致，本轮未新增。文档完整性检查和git diff --check通过。
+
+跨源系统依赖矩阵不变，仅改变orchestrator内复权周线供数入口。CodeGraph explore/impact/status及源码引用审计覆盖asset→driver→reader/年度SQL→promoter→checks/job/sensor、配置builder和catalog；动态注册及SQL关系另查源码。索引sync后status确认最新，架构快照同步此链。
+
+未验与下一步：提交并加载Prod日期修复；D2获准单股2010至当前完整历史的小样本正式job/UI及取消恢复。P3全量前合并完成Prod取消续跑/同批零请求重放/页面门禁。D3的B0专用重新bootstrap、事件阶段和cursor迁移仍待实现/执行，不能把旧create_or_identical入口当成新历史刷新工具；19:30串联启用留J1。未执行任何正式job、cursor、sensor或动态分区写入，不从旧周号猜新B0。
+
+## 2026-10-09 结案口径（旧阶段状态）
 
 管理员已确认：本需求按“开发与当前数据交付完成”结案，不标为全部真实验收通过。历史 bootstrap、备用源尽力补齐及运行依赖纠偏已完成；周线两主源交付至2026-10-09，月线两主源交付至2026-09。正式实例的两个更新 sensor 均为 RUNNING，每日上海时间19:30开始检查；源码默认 STOPPED 与实例启用状态分开，不需要再次启用。
 

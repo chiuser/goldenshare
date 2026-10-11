@@ -65,9 +65,20 @@ def read_audit(path):
     validate_root(root, staging=True)
     validate_root(target_root, staging=False)
     assembly = Path(audit["assembly"])
-    if assembly != path.parent or not assembly.is_relative_to(
-        root / "stock_weekly_raw" / audit["plan_hash"] / "assemblies"
-    ):
+    if audit.get("write_policy") == "replace_input_keys":
+        from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
+            DeliveryHeader,
+        )
+
+        header = DeliveryHeader(**audit["delivery"])
+        if source is not StockWeeklySource.PRIMARY_ADJUSTED or header.intent_id != audit["plan_hash"]:
+            raise WeeklyCaptureError("adjusted_delivery_audit_identity_mismatch")
+        assembly_parent = root / "stock_weekly_adj_delivery" / header.intent_id / "assemblies"
+    elif "write_policy" in audit:
+        raise WeeklyCaptureError("weekly_write_policy_invalid")
+    else:
+        assembly_parent = root / "stock_weekly_raw" / audit["plan_hash"] / "assemblies"
+    if assembly != path.parent or not assembly.is_relative_to(assembly_parent):
         raise WeeklyCaptureError("assembly_path_mismatch")
     if audit["schema_hash"] != weekly_schema_hash(source):
         raise WeeklyCaptureError("audit_schema_mismatch")

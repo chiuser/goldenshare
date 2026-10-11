@@ -23,7 +23,7 @@ from orchestrator.defs.stock_weekly_point import deliver_stock_weekly_point
 
 from .stock_weekly_capture_test_support import alternate_frame, prod_frame
 
-SOURCES = tuple(StockWeeklySource)
+SOURCES = (StockWeeklySource.PRIMARY_UNADJUSTED, StockWeeklySource.ALTERNATE_WEEKLY)
 
 
 def frame_for(source):

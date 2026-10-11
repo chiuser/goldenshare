@@ -6,6 +6,7 @@ from pathlib import Path
 
 from orchestrator.defs.bootstrap.stock_weekly_capture import WeeklyCaptureError
 from orchestrator.defs.run_contracts.stock_weekly import (
+    StockWeeklySource,
     weekly_column_specs,
     weekly_key_columns,
     weekly_required_columns,
@@ -45,7 +46,12 @@ def load_relation(connection, name, paths, source):
 
 def validate_relation(connection, name, source, budget, *, unique):
     required = " OR ".join(f'"{n}" IS NULL' for n in weekly_required_columns(source))
-    invalid = f"{required} OR NOT regexp_full_match(ts_code, '[0-9]{{6}}\\.(SH|SZ|BJ)') OR NOT regexp_full_match(trade_date, '[0-9]{{8}}') OR try_strptime(trade_date, '%Y%m%d') IS NULL"
+    code_invalid = (
+        "length(trim(ts_code))=0 OR length(ts_code)>16"
+        if source is StockWeeklySource.PRIMARY_ADJUSTED
+        else "NOT regexp_full_match(ts_code, '[0-9]{6}\\.(SH|SZ|BJ)')"
+    )
+    invalid = f"{required} OR {code_invalid} OR NOT regexp_full_match(trade_date, '[0-9]{{8}}') OR try_strptime(trade_date, '%Y%m%d') IS NULL"
     if any(n == "freq" for n, _, _ in weekly_column_specs(source)):
         invalid += " OR freq <> 'week'"
     finite = [n for n, t, _ in weekly_column_specs(source) if t == "DOUBLE"]
@@ -164,6 +170,93 @@ def assemble_relation(connection, source, year, budget, excluded):
         "new_keys": total - existing_rows,
         "candidate_rows": total,
         "non_friday_rows": non_friday,
+    }
+
+
+def assemble_adjusted_delivery_relation(connection, *, year, budget):
+    """Replace whole input rows; preserve every unselected old key and value.
+
+    weekly_input carries the 21 columns plus immutable unit id/revision/kind.
+    Scope validation happens when each closed unit is captured. This relation
+    only permits the planned point/history overlap, ordered by publication.
+    """
+    source = StockWeeklySource.PRIMARY_ADJUSTED
+    cols = columns(source)
+    keys = ", ".join(weekly_key_columns(source))
+    incoming = validate_relation(connection, "weekly_input", source, budget, unique=False)
+    existing = validate_relation(connection, "weekly_existing", source, budget, unique=True)
+    if incoming + existing > budget.max_phase_rows:
+        raise WeeklyCaptureError("raw_row_budget_exceeded")
+    for relation in ("weekly_input", "weekly_existing"):
+        if connection.execute(
+            f"SELECT count(*) FROM {relation} WHERE substr({WEEK_SQL},1,4)<>?", [str(year)]
+        ).fetchone()[0]:
+            raise WeeklyCaptureError("target_year_mismatch")
+    if connection.execute(
+        "SELECT count(*) FROM weekly_input WHERE _unit_kind NOT IN ('point_week','stock_history') "
+        "OR _unit_kind IS NULL OR _unit_id IS NULL OR _unit_revision IS NULL OR _unit_revision<1"
+    ).fetchone()[0]:
+        raise WeeklyCaptureError("adjusted_delivery_unit_metadata_invalid")
+    if connection.execute(
+        "SELECT count(*) FROM (SELECT _unit_id FROM weekly_input GROUP BY _unit_id "
+        "HAVING count(DISTINCT _unit_revision)<>1 OR count(DISTINCT _unit_kind)<>1)"
+    ).fetchone()[0]:
+        raise WeeklyCaptureError("adjusted_delivery_unit_metadata_conflict")
+    connection.execute(
+        f"CREATE OR REPLACE TEMP TABLE weekly_unit_unique AS SELECT DISTINCT {cols},"
+        "_unit_id,_unit_revision,_unit_kind FROM weekly_input"
+    )
+    if connection.execute(
+        f"SELECT count(*) FROM (SELECT {keys},_unit_id FROM weekly_unit_unique "
+        f"GROUP BY {keys},_unit_id HAVING count(*)>1)"
+    ).fetchone()[0]:
+        raise WeeklyCaptureError("adjusted_delivery_same_unit_key_conflict")
+    if connection.execute(
+        f"SELECT count(*) FROM (SELECT {keys} FROM weekly_unit_unique GROUP BY {keys} "
+        "HAVING count(*)>1 AND (count(*)<>2 OR count(DISTINCT _unit_revision)<>2 "
+        "OR count(*) FILTER (WHERE _unit_kind='point_week')<>1 "
+        "OR count(*) FILTER (WHERE _unit_kind='stock_history')<>1))"
+    ).fetchone()[0]:
+        raise WeeklyCaptureError("adjusted_delivery_unplanned_overlap")
+    connection.execute(
+        f"CREATE OR REPLACE TEMP TABLE weekly_unique AS SELECT {cols} FROM weekly_unit_unique "
+        f"QUALIFY row_number() OVER (PARTITION BY {keys} ORDER BY _unit_revision DESC)=1"
+    )
+    unique = validate_relation(connection, "weekly_unique", source, budget, unique=True)
+    connection.execute(
+        f"CREATE OR REPLACE TEMP TABLE weekly_preserved AS SELECT {cols} FROM weekly_existing "
+        f"ANTI JOIN weekly_unique USING ({keys})"
+    )
+    connection.execute(
+        f"CREATE OR REPLACE TEMP TABLE weekly_combined AS SELECT {cols} FROM weekly_preserved "
+        f"UNION ALL SELECT {cols} FROM weekly_unique"
+    )
+    total = validate_relation(connection, "weekly_combined", source, budget, unique=True)
+    # EXCEPT ALL compares every typed value, preserving SQL NULL semantics.
+    selected_difference = connection.execute(
+        f"SELECT count(*) FROM ((SELECT {cols} FROM weekly_unique EXCEPT ALL "
+        f"SELECT {cols} FROM weekly_combined SEMI JOIN weekly_unique USING ({keys})) "
+        f"UNION ALL (SELECT {cols} FROM weekly_combined SEMI JOIN weekly_unique USING ({keys}) "
+        f"EXCEPT ALL SELECT {cols} FROM weekly_unique))"
+    ).fetchone()[0]
+    preserved_difference = connection.execute(
+        f"SELECT count(*) FROM ((SELECT {cols} FROM weekly_preserved EXCEPT ALL "
+        f"SELECT {cols} FROM weekly_combined ANTI JOIN weekly_unique USING ({keys})) "
+        f"UNION ALL (SELECT {cols} FROM weekly_combined ANTI JOIN weekly_unique USING ({keys}) "
+        f"EXCEPT ALL SELECT {cols} FROM weekly_preserved))"
+    ).fetchone()[0]
+    if selected_difference or preserved_difference:
+        raise WeeklyCaptureError("adjusted_delivery_value_reconciliation_failed")
+    replaced = connection.execute(
+        f"SELECT count(*) FROM weekly_existing SEMI JOIN weekly_unique USING ({keys})"
+    ).fetchone()[0]
+    return {
+        "source_rows": incoming, "unique_source_rows": unique,
+        "duplicate_rows": incoming - unique, "existing_rows": existing,
+        "replaced_keys": replaced, "new_keys": unique - replaced,
+        "preserved_keys": existing - replaced, "candidate_rows": total,
+        "value_difference_rows": selected_difference,
+        "preserved_difference_rows": preserved_difference,
     }
 
 

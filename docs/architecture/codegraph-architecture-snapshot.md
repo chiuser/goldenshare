@@ -50,6 +50,8 @@ Run 启动意图 -> App QtfTaskRunIntentStager -> Ops TaskRun
 2. `orchestrator/defs/paths.py` 决定正式 Lake 三层与独立 staging 根，不使用旧 config.local.toml 或 Kopia。
 3. reports 和两项 ClickHouse bin 工具保留；本机 ignored 环境不作为可用的旧产品入口。
 
+2026-10-11复权周线接收入口已在源码迁移：`raw_tushare_stk_period_bar_adj_week` → `stock_weekly_adj_run` → `prod_db.stock_weekly_adj_delivery`（唯一psql只读入口）/`stock_weekly_adj_delivery`（有界捕获、年度SQL）→既有promoter。历史分区在正常run内物化并准确绑定三检查，anchor最后交由原check节点；单文件检查抽到`stock_weekly_file_checks`共用。原weekly sensor通过`stock_weekly_adj_feed`消费独立revision，未复权仍沿原日期路径；config、catalog及旧复权point下载消费者同步迁移，不形成双轨。CodeGraph explore/impact和实际引用审计覆盖这些入口、配置builder、checks/job selection与catalog；仍需D2正式样本/UI及D3 B0 bootstrap/cursor迁移，未启用正式新链。业务子系统依赖矩阵不变，未增加Foundation→Ops等反向依赖。详见[DG LLD A14](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-d1-d2-implementation)。
+
 ## 关键调用链
 
 ### 生产 Web/API 装配链

@@ -38,11 +38,13 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     build_sensor_tags,
 )
 from orchestrator.defs.run_contracts.stock_weekly import (
+    StockWeeklySource,
     WeeklyBudget,
     weekly_asset_key,
     weekly_job_name,
 )
 from orchestrator.defs.source_readiness.stock_weekly import load_weekly_calendar
+from orchestrator.defs.stock_weekly_adj_feed import evaluate_adjusted_feed
 from orchestrator.defs.stock_weekly_update import (
     AUTOMATIC_WEEKLY_SOURCES,
     WEEKLY_UPDATE_POLICY,
@@ -68,7 +70,7 @@ PENDING_WEEKLY_STATUSES = [
 ]
 
 
-def evaluate_stock_weekly_update(context, now):
+def evaluate_stock_weekly_update(context, now, *, delivery_reader=None):
     policy = WEEKLY_UPDATE_POLICY
     now = local_weekly_time(now)
     runtime = cursor_runtime_state(
@@ -76,6 +78,7 @@ def evaluate_stock_weekly_update(context, now):
     )
     frontier = runtime.get("verified_through", policy.history_verified_through)
     examined = runtime.get("examined_through", frontier)
+    adjusted = None
 
     def result(
         reason, summary, *, week=None, source=None, request=None, register=False
@@ -85,6 +88,8 @@ def evaluate_stock_weekly_update(context, now):
             if source
             else "查看周期交付和blocking checks；保留欠账，下一窗口继续。"
         )
+        if adjusted is not None:
+            action = f"{action} 复权交接：{adjusted.summary}"
         details = build_cursor_details(
             sensor_name="raw_stock_weekly_update_job_sensor",
             job_name=weekly_job_name(source) if source else None,
@@ -95,6 +100,7 @@ def evaluate_stock_weekly_update(context, now):
             summary=summary,
             next_action=action,
             runtime_state={
+                **runtime,
                 "verified_through": frontier,
                 "examined_through": examined,
                 "policy_version": policy.version,
@@ -147,11 +153,18 @@ def evaluate_stock_weekly_update(context, now):
                     "已有主源周线任务排队或运行；两主源保持串行。",
                     source=source,
                 )
+        adjusted = evaluate_adjusted_feed(context, runtime, reader=delivery_reader)
+        if adjusted.priority:
+            return result(adjusted.reason, adjusted.summary, week=adjusted.week,
+                          source=StockWeeklySource.PRIMARY_ADJUSTED,
+                          request=adjusted.request, register=adjusted.register)
         root = context.resources.lake_root.root()
         # Bootstrap was reconciled once. Only the next uncompleted period is checked.
         week = next_weekly_period(examined)
         if not completed_week(now, week):
-            return result("already_verified", "已结束周均已交付，等待下一个完成周期。")
+            if adjusted.reason not in ("adjusted_waiting_prod",):
+                return result(adjusted.reason, adjusted.summary, source=StockWeeklySource.PRIMARY_ADJUSTED)
+            return result("already_verified", "未复权已结束周均已交付，复权等待Prod下一闭合批。")
         budget = WeeklyBudget()
         settings = DuckDBConnectionSettings(
             temp_directory=Path(tempfile.gettempdir()).resolve(),
@@ -174,7 +187,7 @@ def evaluate_stock_weekly_update(context, now):
             examined = week
             return result("no_trading_week", f"{week}整周休市，无需请求源。", week=week)
         deferred = []
-        for source in AUTOMATIC_WEEKLY_SOURCES:
+        for source in (StockWeeklySource.PRIMARY_UNADJUSTED,):
             status = weekly_period_status(context.instance, root, source, week)
             if status == "ready":
                 continue
@@ -227,7 +240,7 @@ def evaluate_stock_weekly_update(context, now):
         frontier = examined = week
         return result(
             "period_verified",
-            f"{week}两主源文件与checks均已验证；下次tick推进下个周。",
+            f"{week}未复权文件与checks已验证；复权按独立交接revision推进。",
             week=week,
         )
     except (WeeklyCaptureError, ValueError, OSError):

@@ -407,6 +407,10 @@ def publish_unit(writer, *, definition, unit, batch, context, check):
             "summary": {
                 "rows": len(committed_rows),
                 "rows_digest": digest(committed_rows),
+                "max_input_week": max(
+                    (parse_day(row["trade_date"]).isoformat() for row in committed_rows),
+                    default=None,
+                ),
                 "basis": audit,
             }
         }
@@ -455,6 +459,7 @@ def publish_closed_batch(session, *, definition, units, context, check):
     policy = definition.planning.weekly_adj_policy
     unit_ids = [u.unit_id for u in units]
     summaries, received, written, preserved, total_bytes = [], 0, 0, 0, 0
+    max_input_week = None
     # Load at most one unit payload at a time, retaining only compact digests.
     for unit in units:
         check()
@@ -469,6 +474,21 @@ def publish_closed_batch(session, *, definition, units, context, check):
             )
         if receipt.payload_digest != digest(receipt.payload):
             fail("单元载荷摘要不一致", "weekly_adj.delivery_contract_mismatch")
+        if receipt.intent["bootstrap"]:
+            summary = receipt.payload.get("summary", {})
+            if (
+                "max_input_week" not in summary
+                or (summary["max_input_week"] is None) != (receipt.rows_written == 0)
+            ):
+                fail("首次刷新摘要缺少实际输入周", "weekly_adj.delivery_contract_mismatch")
+            unit_max = summary["max_input_week"]
+        else:
+            unit_max = max(
+                (parse_day(row["trade_date"]).isoformat() for row in receipt.payload["rows"]),
+                default=None,
+            )
+        if unit_max is not None:
+            max_input_week = max(max_input_week or unit_max, unit_max)
         summaries.append({"unit_id": unit.unit_id, "digest": receipt.payload_digest})
         received += receipt.rows_received
         written += receipt.rows_written
@@ -483,7 +503,7 @@ def publish_closed_batch(session, *, definition, units, context, check):
         "units_digest": digest(summaries),
         "bootstrap": context["business_plan"]["metadata"]["bootstrap"],
         "contract_digest": context["contract_digest"],
-        "max_input_week": context["business_plan"]["metadata"]["cutoff_week"],
+        "max_input_week": max_input_week,
     }
     payload = {"header": header, "unit_ids": unit_ids}
     check()

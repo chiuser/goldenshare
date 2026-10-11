@@ -72,6 +72,8 @@ def weekly_update_intent(source, week, intent_date, policy=WEEKLY_UPDATE_POLICY)
     source = StockWeeklySource(source)
     if source not in AUTOMATIC_WEEKLY_SOURCES:
         raise ValueError("alternate_automatic_forbidden")
+    if source is StockWeeklySource.PRIMARY_ADJUSTED:
+        raise ValueError("adjusted_weekly_requires_prod_closed_batch")
     normalize_week_key(week)
     parsed = date.fromisoformat(intent_date)
     if parsed.isoformat() != intent_date or parsed < date.fromisoformat(week):
@@ -88,4 +90,4 @@ def weekly_update_intent(source, week, intent_date, policy=WEEKLY_UPDATE_POLICY)
 def weekly_manual_next_action(source):
     if source is StockWeeklySource.PRIMARY_UNADJUSTED:
         return "查看主源证据；必要时明确代码和周范围手动运行备用weekly，仅写独立Raw；当前未执行备用。"
-    return "查看复权主源证据；weekly不提供复权，不能替代此资产。"
+    return "查看Prod闭合批与本run摘要；失败按同批ID及revision重试，备用weekly不能替代复权资产。"

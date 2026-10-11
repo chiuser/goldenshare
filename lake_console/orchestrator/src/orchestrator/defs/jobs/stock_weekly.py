@@ -16,6 +16,7 @@ raw_stk_period_bar_week_update_job = dg.define_asset_job(
 )
 raw_stk_period_bar_adj_week_update_job = dg.define_asset_job(
     "raw_stk_period_bar_adj_week_update_job",
+    description="接收一个已闭合Prod复权周线批，更新本批输入键；失败可按同批ID和revision恢复。",
     selection=dg.AssetSelection.assets(raw_tushare_stk_period_bar_adj_week)
     | dg.AssetSelection.checks_for_assets(raw_tushare_stk_period_bar_adj_week),
     executor_def=dg.in_process_executor,

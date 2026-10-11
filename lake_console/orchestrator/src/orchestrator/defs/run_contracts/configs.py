@@ -893,6 +893,42 @@ class StockWeeklyRawConfig(dg.Config):
     automatic_intent_date: str | None = None
 
 
+class StockWeeklyAdjProdConfig(dg.Config):
+    """A closed Prod batch, never a direct-source request or an overwrite switch."""
+
+    model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
+    contract_version: int = Field(default=1, strict=True)
+    delivery_batch_id: str
+    closure_revision: int = Field(strict=True, gt=0)
+
+    @field_validator("contract_version")
+    @classmethod
+    def validate_contract_version(cls, value):
+        if value != 1:
+            raise ValueError("unknown_adjusted_delivery_version")
+        return value
+
+    @field_validator("delivery_batch_id")
+    @classmethod
+    def validate_batch_id(cls, value):
+        from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
+            delivery_batch_id,
+        )
+
+        return delivery_batch_id(value)
+
+
+def build_stock_weekly_adj_prod_run_config(batch_id, closure_revision):
+    config = StockWeeklyAdjProdConfig(
+        delivery_batch_id=batch_id, closure_revision=closure_revision
+    )
+    from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
+        ADJUSTED_DELIVERY_ASSET,
+    )
+
+    return {"ops": {ADJUSTED_DELIVERY_ASSET: {"config": config.model_dump()}}}
+
+
 def build_stock_weekly_update_job_run_config(source, intent_date):
     from datetime import date
 
@@ -904,6 +940,8 @@ def build_stock_weekly_update_job_run_config(source, intent_date):
     source = StockWeeklySource(source)
     if source is StockWeeklySource.ALTERNATE_WEEKLY:
         raise ValueError("alternate_automatic_forbidden")
+    if source is StockWeeklySource.PRIMARY_ADJUSTED:
+        raise ValueError("adjusted_weekly_requires_prod_closed_batch")
     if date.fromisoformat(intent_date).isoformat() != intent_date:
         raise ValueError("invalid_weekly_intent_date")
     return {

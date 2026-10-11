@@ -57,6 +57,8 @@
 
 LLD 提出一个 Foundation 侧专用交接表 core.stock_weekly_adj_delivery，保存冻结意图、已提交 unit 和闭合批次。日常 unit 保存本次交付的标准化行情值，DG 读取后不会被后续 Prod 更新改变。首次历史刷新只存 unit 范围与完成摘要，DG 从 Prod Raw 做一次 bootstrap，避免复制一整份历史进交接表。
 
+2026-10-11管理员确认：交接头的“最后一周”取本批实际写入的最大行情周，空批为null；任务截止周单独保留。源码修正及69项P1/P2隔离验证已完成，尚未部署，不改写旧闭合批。详见[LLD §13.13](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-delivery-anchor-correction)。
+
 P0技术评审已保留这一专用交接设计：可变Raw不能稳定重放旧批，日常增量容量在当前预算内；不复制全历史payload。评审结果和实施缺口见[LLD §11](stock-weekly-adj-refresh-low-level-design-v1.md#p0-d0-review)。尚未执行建表或迁移。它不承载第二套 TaskRun 状态机、不生成 DG summary asset、不存入 Raw 行情列、不保存永久 bootstrap 证明。完整字段、事务及读写白名单唯一维护在 [Prod LLD §5.4](stock-weekly-adj-refresh-low-level-design-v1.md#delivery-contract)。
 
 Ops 状态写入使用独立观测边界。观测失败不回滚或阻断已提交行情；交接表保存的是本次必须送到 DG 的业务数据，与行情同时提交，不能由 Ops 事后补一条“成功”代替。

@@ -182,7 +182,7 @@ def delivery(tmp_path, source, fetch, **kwargs):
 
 
 @pytest.mark.parametrize(
-    "source", (StockWeeklySource.PRIMARY_UNADJUSTED, StockWeeklySource.PRIMARY_ADJUSTED)
+    "source", (StockWeeklySource.PRIMARY_UNADJUSTED,)
 )
 def test_automatic_delivery_actual_receipts_checks_and_no_refetch(tmp_path, source):
     write_upstream(tmp_path)
@@ -404,7 +404,7 @@ delivery(root,StockWeeklySource.PRIMARY_UNADJUSTED,lambda *args:frame_for(StockW
 
 
 @pytest.mark.parametrize(
-    "source", (StockWeeklySource.PRIMARY_UNADJUSTED, StockWeeklySource.PRIMARY_ADJUSTED)
+    "source", (StockWeeklySource.PRIMARY_UNADJUSTED,)
 )
 def test_automatic_real_asset_job_partitioned_checks(tmp_path, monkeypatch, source):
     import dagster as dg
