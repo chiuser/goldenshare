@@ -52,6 +52,7 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "dc_industry_hierarchy": "东方财富行业层级",
         "dc_member": "东方财富板块成分",
         "dc_daily": "东方财富板块行情",
+        "moneyflow_cnt_ths": "同花顺概念板块资金流向",
         "moneyflow_ind_ths": "同花顺行业资金流向",
         "moneyflow_mkt_dc": "东方财富大盘资金流向",
         "dc_daily_technical": "板块日线技术指标",

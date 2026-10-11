@@ -10,7 +10,7 @@ import dagster as dg
 import pytest
 
 import orchestrator.defs.assets.moneyflow_ind_ths as assets
-import orchestrator.defs.io.moneyflow_ind_ths_update as update
+import orchestrator.defs.io.moneyflow_daily_update as update
 import orchestrator.defs.io.moneyflow_update_publication as publication
 from orchestrator.defs.catalog import get_lake_asset_catalog_entry
 from orchestrator.defs.checks.moneyflow_ind_ths import (
@@ -339,7 +339,8 @@ def test_complete_checkpoint_failure_resumes_moved_file_without_source(
 
     monkeypatch.setattr(publication, "_checkpoint", interrupted)
     with pytest.raises(RuntimeError, match="exit after replace"):
-        update.update_industry_moneyflow_ths_raw(
+        update.update_daily_moneyflow_raw(
+            dataset="moneyflow_ind_ths",
             tushare=env.source,
             lake_root=env.lake,
             staging_root=env.staging,
@@ -352,7 +353,8 @@ def test_complete_checkpoint_failure_resumes_moved_file_without_source(
         env.staging / "moneyflow/resume/moneyflow_ind_ths" / DAY / "raw.parquet"
     ).exists()
     monkeypatch.setattr(publication, "_checkpoint", original)
-    result = update.update_industry_moneyflow_ths_raw(
+    result = update.update_daily_moneyflow_raw(
+        dataset="moneyflow_ind_ths",
         tushare=env.source,
         lake_root=env.lake,
         staging_root=env.staging,
@@ -372,7 +374,8 @@ def test_cancellation_preserves_old_target_and_can_resume_candidate(env):
         raise RuntimeError("cancelled")
 
     with pytest.raises(RuntimeError, match="cancelled"):
-        update.update_industry_moneyflow_ths_raw(
+        update.update_daily_moneyflow_raw(
+            dataset="moneyflow_ind_ths",
             tushare=env.source,
             lake_root=env.lake,
             staging_root=env.staging,
@@ -409,7 +412,8 @@ def test_root_rejections_precede_source_or_candidates(env, monkeypatch, kind):
 
         monkeypatch.setattr(Path, "stat", stat)
     with pytest.raises(MoneyflowContractError):
-        update.update_industry_moneyflow_ths_raw(
+        update.update_daily_moneyflow_raw(
+            dataset="moneyflow_ind_ths",
             tushare=env.source,
             lake_root=lake,
             staging_root=env.staging,
@@ -535,7 +539,8 @@ def test_target_change_after_intent_is_not_overwritten(env, monkeypatch):
 
     monkeypatch.setattr(publication, "_checkpoint", alter)
     with pytest.raises(MoneyflowContractError, match="update_target_changed"):
-        update.update_industry_moneyflow_ths_raw(
+        update.update_daily_moneyflow_raw(
+            dataset="moneyflow_ind_ths",
             tushare=env.source,
             lake_root=env.lake,
             staging_root=env.staging,
@@ -569,7 +574,9 @@ def test_cancel_after_intent_preserves_candidate_and_resumes_without_source(
         "trade_date": DAY,
     }
     with pytest.raises(MoneyflowContractError, match="user_cancel"):
-        update.update_industry_moneyflow_ths_raw(**kwargs, check_cancel=check_cancel)
+        update.update_daily_moneyflow_raw(
+            dataset="moneyflow_ind_ths", **kwargs, check_cancel=check_cancel
+        )
     target = raw_moneyflow_path(env.lake, "moneyflow_ind_ths", DAY)
     directory = (
         env.staging / "moneyflow" / kwargs["operation_id"] / "moneyflow_ind_ths" / DAY
@@ -579,7 +586,7 @@ def test_cancel_after_intent_preserves_candidate_and_resumes_without_source(
         json.loads((directory / "promotion-raw.json").read_text())["stage"] == "intent"
     )
     monkeypatch.setattr(publication, "_checkpoint", original)
-    result = update.update_industry_moneyflow_ths_raw(**kwargs)
+    result = update.update_daily_moneyflow_raw(dataset="moneyflow_ind_ths", **kwargs)
     assert len(env.source.calls) == 2 and result["file_sha256"] == candidate_file_hash(
         target
     )
@@ -592,7 +599,8 @@ def test_formal_file_symlink_never_overwrites_external_file(env):
     target.parent.mkdir(parents=True)
     target.symlink_to(external)
     with pytest.raises(MoneyflowContractError, match="update_path"):
-        update.update_industry_moneyflow_ths_raw(
+        update.update_daily_moneyflow_raw(
+            dataset="moneyflow_ind_ths",
             tushare=env.source,
             lake_root=env.lake,
             staging_root=env.staging,
@@ -621,11 +629,11 @@ def test_silver_replace_exit_resumes_without_rebuilding_candidate(env, monkeypat
         "expected_raw_hash": candidate_file_hash(raw),
     }
     with pytest.raises(RuntimeError, match="silver exit after replace"):
-        update.update_industry_moneyflow_ths_silver(**kwargs)
+        update.update_daily_moneyflow_silver(dataset="moneyflow_ind_ths", **kwargs)
     silver = silver_moneyflow_path(env.lake, "moneyflow_ind_ths", DAY)
     before = candidate_file_hash(silver)
     monkeypatch.setattr(publication, "_checkpoint", original)
-    result = update.update_industry_moneyflow_ths_silver(**kwargs)
+    result = update.update_daily_moneyflow_silver(dataset="moneyflow_ind_ths", **kwargs)
     assert result["file_sha256"] == before and len(env.source.calls) == 2
 
 

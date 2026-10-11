@@ -134,6 +134,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_FUND_DAILY_SCHEMA,
     RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
+    RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_MKT_DC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
@@ -158,6 +159,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_GLOBAL_SCHEMA,
     SILVER_INDEX_MINS_SCHEMA,
     SILVER_MAJOR_INDEX_MINS_SCHEMA,
+    SILVER_MONEYFLOW_CNT_THS_SCHEMA,
     SILVER_MONEYFLOW_IND_THS_SCHEMA,
     SILVER_MONEYFLOW_MKT_DC_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
@@ -233,6 +235,8 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
 )
 from orchestrator.defs.run_contracts.metadata import SourceSystem
 from orchestrator.defs.run_contracts.moneyflow import (
+    MONEYFLOW_CNT_THS_RAW_CHECK,
+    MONEYFLOW_CNT_THS_SILVER_CHECK,
     MONEYFLOW_IND_THS_RAW_CHECK,
     MONEYFLOW_IND_THS_SILVER_CHECK,
     MONEYFLOW_MKT_DC_RAW_CHECK,
@@ -286,6 +290,8 @@ class PartitionPhysicalLayout(str, Enum):
 
 
 class PartitionModel(str, Enum):
+    TRADE_DATE_PARTITION_RAW_MONEYFLOW_CNT_THS = "trade_date_partition_raw_moneyflow_cnt_ths"
+    TRADE_DATE_PARTITION_SILVER_MONEYFLOW_CNT_THS = "trade_date_partition_silver_moneyflow_cnt_ths"
     TRADE_DATE_PARTITION_RAW_MONEYFLOW_IND_THS = "trade_date_partition_raw_moneyflow_ind_ths"
     TRADE_DATE_PARTITION_SILVER_MONEYFLOW_IND_THS = "trade_date_partition_silver_moneyflow_ind_ths"
     TRADE_DATE_PARTITION_RAW_MONEYFLOW_MKT_DC = "trade_date_partition_raw_moneyflow_mkt_dc"
@@ -732,6 +738,16 @@ def _model(
 
 
 PARTITION_MODEL_DEFINITIONS = (
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_MONEYFLOW_CNT_THS,
+        PartitionModelFamily.TRADE_DATE_PARTITION, AssetLayer.RAW, "moneyflow_cnt_ths",
+        "trade_date", PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_MONEYFLOW_CNT_THS,
+        PartitionModelFamily.TRADE_DATE_PARTITION, AssetLayer.SILVER, "moneyflow_cnt_ths",
+        "trade_date", PartitionPhysicalLayout.PARTITION_FILE,
+    ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_MONEYFLOW_IND_THS,
         PartitionModelFamily.TRADE_DATE_PARTITION, AssetLayer.RAW, "moneyflow_ind_ths",
@@ -1518,6 +1534,40 @@ def _derived_entry(
 
 
 LAKE_ASSET_CATALOG = (
+    _entry(
+        asset_key="raw_tushare_moneyflow_cnt_ths", dataset_id="moneyflow_cnt_ths",
+        layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA, group_name="moneyflow",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="tushare_moneyflow_cnt_ths_raw_by_trade_date",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA,
+        path_template=lake_path_template(raw_moneyflow_path(PATH_TEMPLATE_LAKE_ROOT, "moneyflow_cnt_ths", PATH_TEMPLATE_PARTITION_KEY)),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_MONEYFLOW_CNT_THS,
+        source_api="moneyflow_cnt_ths",
+        source_doc="docs/sources/tushare/股票数据/资金流向数据/0371_同花顺概念板块资金流向（THS）.md",
+        ingestion_sources=(IngestionSource.TUSHARE_API,),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        blocking_check_names=(MONEYFLOW_CNT_THS_RAW_CHECK,),
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(batch_grain="trade_date", compute_engine=ComputeEngine.TUSHARE_RESOURCE,
+                                   source_request_policy="moneyflow_two_round_bounded_pages",
+                                   notes="One complete concept date, <=20000 rows per round; two stable rounds, 60-second gap; 64 requests/300 seconds; original namespace writer."),
+    ),
+    _derived_entry(
+        asset_key="silver_moneyflow_cnt_ths", dataset_id="moneyflow_cnt_ths",
+        layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA, group_name="moneyflow",
+        data_contract="standardized_moneyflow_cnt_ths_by_trade_date",
+        column_schema=SILVER_MONEYFLOW_CNT_THS_SCHEMA,
+        path_template=lake_path_template(silver_moneyflow_path(PATH_TEMPLATE_LAKE_ROOT, "moneyflow_cnt_ths", PATH_TEMPLATE_PARTITION_KEY)),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_MONEYFLOW_CNT_THS,
+        blocking_check_names=(MONEYFLOW_CNT_THS_SILVER_CHECK,),
+        batch_grain="trade_date", write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="Same-day green Raw with matching physical hash; only normalize trade_date to DATE; no source requests.",
+    ),
     _entry(
         asset_key="raw_tushare_moneyflow_ind_ths", dataset_id="moneyflow_ind_ths",
         layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA, group_name="moneyflow",
@@ -3584,9 +3634,13 @@ LAKE_ASSET_CATALOG += tuple(
         source_doc=weekly_source_doc(source),
         ingestion_sources=(IngestionSource.TUSHARE_API,)
         if source is StockWeeklySource.ALTERNATE_WEEKLY
+        else (IngestionSource.PROD_DB_READONLY,)
+        if source is StockWeeklySource.PRIMARY_ADJUSTED
         else (IngestionSource.PROD_DB_READONLY, IngestionSource.TUSHARE_API),
         default_daily_ingestion_source=None
         if source is StockWeeklySource.ALTERNATE_WEEKLY
+        else IngestionSource.PROD_DB_READONLY
+        if source is StockWeeklySource.PRIMARY_ADJUSTED
         else IngestionSource.TUSHARE_API,
         bootstrap_sources=(IngestionSource.TUSHARE_API,)
         if source is StockWeeklySource.ALTERNATE_WEEKLY
@@ -3595,10 +3649,10 @@ LAKE_ASSET_CATALOG += tuple(
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(
-            batch_grain="source/week_end",
+            batch_grain="closed_batch/year" if source is StockWeeklySource.PRIMARY_ADJUSTED else "source/week_end",
             compute_engine=ComputeEngine.DUCKDB_SQL,
-            source_request_policy="bounded_single_week_explicit_fields",
-            notes=("备用weekly仅手动；禁止自动诊断、fallback或修复。" if source is StockWeeklySource.ALTERNATE_WEEKLY else "年度bootstrap；每日19:30更新已结束周，两主源串行；6000/页、4页、每页最多3次调用；完整周日线覆盖门禁与持久化receipt续跑，禁止历史逐周源扫描。"),
+            source_request_policy="immutable_prod_closed_batch_explicit_columns" if source is StockWeeklySource.PRIMARY_ADJUSTED else "bounded_single_week_explicit_fields",
+            notes=("备用weekly仅手动；禁止自动诊断、fallback或修复。" if source is StockWeeklySource.ALTERNATE_WEEKLY else "仅从Prod闭合批接收新增及历史修正；每unit12000行/8MiB、整批256MiB；年度最多54目标/128文件，DuckDB512MiB、2线程；同键21列覆盖，未返回旧键保留。" if source is StockWeeklySource.PRIMARY_ADJUSTED else "年度bootstrap；每日19:30更新已结束周，两主源串行；6000/页、4页、每页最多3次调用；完整周日线覆盖门禁与持久化receipt续跑，禁止历史逐周源扫描。"),
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS

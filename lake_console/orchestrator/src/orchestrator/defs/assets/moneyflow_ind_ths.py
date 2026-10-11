@@ -4,9 +4,9 @@ from pathlib import Path
 
 import dagster as dg
 
-from orchestrator.defs.io.moneyflow_ind_ths_update import (
-    update_industry_moneyflow_ths_raw,
-    update_industry_moneyflow_ths_silver,
+from orchestrator.defs.io.moneyflow_daily_update import (
+    update_daily_moneyflow_raw,
+    update_daily_moneyflow_silver,
 )
 from orchestrator.defs.partitions import cn_a_moneyflow_ind_ths_trade_days
 from orchestrator.defs.paths import (
@@ -82,7 +82,9 @@ def _check_cancel(context: dg.AssetExecutionContext) -> None:
         column_schema=RAW_TUSHARE_MONEYFLOW_IND_THS_SCHEMA,
         path_template=lake_path_template(
             raw_moneyflow_path(
-                PATH_TEMPLATE_LAKE_ROOT, "moneyflow_ind_ths", PATH_TEMPLATE_PARTITION_KEY
+                PATH_TEMPLATE_LAKE_ROOT,
+                "moneyflow_ind_ths",
+                PATH_TEMPLATE_PARTITION_KEY,
             )
         ),
         source_api="moneyflow_ind_ths",
@@ -102,7 +104,8 @@ def raw_tushare_moneyflow_ind_ths(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     try:
-        result = update_industry_moneyflow_ths_raw(
+        result = update_daily_moneyflow_raw(
+            dataset="moneyflow_ind_ths",
             tushare=tushare,
             lake_root=lake_root.root(),
             staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
@@ -135,7 +138,9 @@ def raw_tushare_moneyflow_ind_ths(
         column_schema=SILVER_MONEYFLOW_IND_THS_SCHEMA,
         path_template=lake_path_template(
             silver_moneyflow_path(
-                PATH_TEMPLATE_LAKE_ROOT, "moneyflow_ind_ths", PATH_TEMPLATE_PARTITION_KEY
+                PATH_TEMPLATE_LAKE_ROOT,
+                "moneyflow_ind_ths",
+                PATH_TEMPLATE_PARTITION_KEY,
             )
         ),
         extra_metadata={
@@ -172,7 +177,8 @@ def silver_moneyflow_ind_ths(
     expected_hash = hash_metadata.value if hash_metadata is not None else None
     if not isinstance(expected_hash, str) or len(expected_hash) != 64:
         raise dg.Failure("moneyflow_raw_hash_missing")
-    result = update_industry_moneyflow_ths_silver(
+    result = update_daily_moneyflow_silver(
+        dataset="moneyflow_ind_ths",
         lake_root=lake_root.root(),
         staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
         operation_id=context.run.run_id,

@@ -1,4 +1,4 @@
-"""Industry moneyflow daily publication from proven candidates, one file at a time."""
+"""Daily moneyflow publication from proven candidates, one file at a time."""
 
 from functools import partial
 from pathlib import Path
@@ -39,13 +39,16 @@ from orchestrator.defs.run_contracts.moneyflow import (
 )
 from orchestrator.defs.run_contracts.moneyflow_daily import daily_key_fields
 
-DATASET = "moneyflow_ind_ths"
-audit_file = partial(audit_daily_moneyflow_file, dataset=DATASET)
-audit_standardization = partial(audit_daily_moneyflow_standardization, dataset=DATASET)
+
+def _assert_daily_update_dataset(dataset: str) -> None:
+    # Only explicitly onboarded daily sources may publish through this helper.
+    if dataset not in {"moneyflow_ind_ths", "moneyflow_cnt_ths"}:
+        raise MoneyflowContractError("daily_update_dataset")
 
 
-def update_industry_moneyflow_ths_raw(
+def update_daily_moneyflow_raw(
     *,
+    dataset: str,
     tushare,
     lake_root: Path,
     staging_root: Path,
@@ -54,8 +57,10 @@ def update_industry_moneyflow_ths_raw(
     check_cancel=lambda: None,
     **collection_options,
 ) -> dict:
+    _assert_daily_update_dataset(dataset)
+    audit_file = partial(audit_daily_moneyflow_file, dataset=dataset)
     directory = moneyflow_candidate_directory(
-        staging_root, operation_id, trade_date, dataset=DATASET
+        staging_root, operation_id, trade_date, dataset=dataset
     )
     assert_moneyflow_update_roots(lake_root, staging_root)
     namespace = staging_root / "moneyflow"
@@ -67,7 +72,7 @@ def update_industry_moneyflow_ths_raw(
         if not receipt_path.exists():
             build_daily_moneyflow_raw_candidate(
                 tushare=tushare,
-                dataset=DATASET,
+                dataset=dataset,
                 staging_root=staging_root,
                 operation_id=operation_id,
                 trade_date=trade_date,
@@ -79,7 +84,7 @@ def update_industry_moneyflow_ths_raw(
             receipt.get("stage") != "raw_candidate_ready"
             or receipt.get("source") != "tushare"
             or receipt.get("trade_date") != trade_date
-            or receipt.get("dataset") != DATASET
+            or receipt.get("dataset") != dataset
             or type(receipt.get("row_count")) is not int
             or not 0 < receipt["row_count"] <= MONEYFLOW_MAX_ROWS_PER_ROUND
             or not 2 <= receipt.get("request_count", 0) <= MONEYFLOW_MAX_REQUESTS
@@ -90,7 +95,7 @@ def update_industry_moneyflow_ths_raw(
         ):
             raise MoneyflowContractError("raw_source_proof")
         raw = directory / "raw.parquet"
-        target = raw_moneyflow_path(lake_root, DATASET, trade_date)
+        target = raw_moneyflow_path(lake_root, dataset, trade_date)
         assert_moneyflow_update_path(target)
         proof_file = raw if raw.exists() else target
         checkpoint = directory / "promotion-raw.json"
@@ -112,11 +117,11 @@ def update_industry_moneyflow_ths_raw(
             ):
                 raise MoneyflowContractError("raw_source_count")
             if receipt.get("scope_row_counts") != daily_file_scope_counts(
-                connection, proof_file, dataset=DATASET
+                connection, proof_file, dataset=dataset
             ):
                 raise MoneyflowContractError("raw_source_scope_count")
             audit_daily_moneyflow_equality(
-                connection, proof_file, verification, dataset=DATASET
+                connection, proof_file, verification, dataset=dataset
             )
             assert_moneyflow_memory_budget()
             if (perf_counter() - started) >= MONEYFLOW_MAX_ELAPSED_SECONDS:
@@ -125,7 +130,7 @@ def update_industry_moneyflow_ths_raw(
                 connection,
                 raw,
                 target,
-                dataset=DATASET,
+                dataset=dataset,
                 audit_file=audit_file,
                 day=trade_date,
                 layer="raw",
@@ -141,8 +146,9 @@ def update_industry_moneyflow_ths_raw(
         }
 
 
-def update_industry_moneyflow_ths_silver(
+def update_daily_moneyflow_silver(
     *,
+    dataset: str,
     lake_root: Path,
     staging_root: Path,
     operation_id: str,
@@ -150,25 +156,30 @@ def update_industry_moneyflow_ths_silver(
     expected_raw_hash: str,
     check_cancel=lambda: None,
 ) -> dict:
+    _assert_daily_update_dataset(dataset)
+    audit_file = partial(audit_daily_moneyflow_file, dataset=dataset)
     directory = moneyflow_candidate_directory(
-        staging_root, operation_id, trade_date, dataset=DATASET
+        staging_root, operation_id, trade_date, dataset=dataset
     )
     assert_moneyflow_update_roots(lake_root, staging_root)
     namespace = staging_root / "moneyflow"
     namespace.mkdir(exist_ok=True)
     with moneyflow_writer_lock(namespace):
         check_cancel()
-        raw = raw_moneyflow_path(lake_root, DATASET, trade_date)
+        raw = raw_moneyflow_path(lake_root, dataset, trade_date)
         assert_moneyflow_update_path(raw)
         if not raw.is_file() or candidate_file_hash(raw) != expected_raw_hash:
             raise MoneyflowContractError("raw_materialization_file_changed")
         directory.mkdir(parents=True, exist_ok=True)
         candidate = directory / "silver.parquet"
-        target = silver_moneyflow_path(lake_root, DATASET, trade_date)
+        target = silver_moneyflow_path(lake_root, dataset, trade_date)
         assert_moneyflow_update_path(candidate)
         assert_moneyflow_update_path(target)
         checkpoint = directory / "promotion-silver.json"
         with moneyflow_candidate_connection(directory) as connection:
+            audit_standardization = partial(
+                audit_daily_moneyflow_standardization, dataset=dataset
+            )
             count = audit_file(connection, raw, trade_date)
             if not checkpoint.exists():
                 if candidate.exists():
@@ -176,7 +187,7 @@ def update_industry_moneyflow_ths_silver(
                 else:
                     connection.execute(
                         "COPY (SELECT * REPLACE(strptime(trade_date,'%Y%m%d')::DATE AS trade_date) "
-                        f"FROM read_parquet($source,hive_partitioning=false) ORDER BY {','.join(daily_key_fields(DATASET))}) TO $target (FORMAT PARQUET)",
+                        f"FROM read_parquet($source,hive_partitioning=false) ORDER BY {','.join(daily_key_fields(dataset))}) TO $target (FORMAT PARQUET)",
                         {"source": str(raw), "target": str(candidate)},
                     )
                 audit_standardization(connection, raw, candidate, trade_date)
@@ -187,7 +198,7 @@ def update_industry_moneyflow_ths_silver(
                 connection,
                 candidate,
                 target,
-                dataset=DATASET,
+                dataset=dataset,
                 audit_file=audit_file,
                 day=trade_date,
                 layer="silver",
