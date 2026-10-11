@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-日期：2026-10-06；最近更新：2026-10-11。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式登记待对应清单批准。sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～36为准。
+日期：2026-10-06；最近更新：2026-10-11。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37，全量登记待对应清单批准。sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～37为准。
 
 ## 1. 硬口径和影响面
 
@@ -8,7 +8,7 @@
 
 当前调用链为资源→有界分页→writer→文件check→asset/job→sensor/catalog。CodeGraph explore命中了分页会话及BSE调用，但结果混入同名符号；已直接核验 resources.py、tushare_request_policy.py、duckdb_connection.py、cn_a_trade_day_sensor.py、dc_board_partition_sensor.py。现有无时钟门禁的calendar-only helper不能直接满足22:00；使用有same_day_register_start参数的注册helper，限定本次七个注册器，不改变既有注册器。
 
-改动落点沿用原方案§12，并按数据集拆分模块。moneyflow_mkt_dc已完成资产、sensor及历史event执行器代码和隔离验收，两日样本及全量正式历史事件登记已通过；moneyflow_ind_ths已完成资产/check/job/catalog、三个STOPPED sensor、只读历史预演、可恢复事件执行器和冻结清单，正式登记待对应清单批准；其他五表P4尚待推进。生产DatasetDefinition/request builder、Web/API、其他资产消费者均不改变。无子系统边界或依赖矩阵变更。
+改动落点沿用原方案§12，并按数据集拆分模块。moneyflow_mkt_dc已完成资产、sensor及历史event执行器代码和隔离验收，两日样本及全量正式历史事件登记已通过；moneyflow_ind_ths已完成资产/check/job/catalog、三个STOPPED sensor、只读历史预演、可恢复事件执行器和冻结清单，正式两日样本已通过，全量登记待对应清单批准；其他五表P4尚待推进。生产DatasetDefinition/request builder、Web/API、其他资产消费者均不改变。无子系统边界或依赖矩阵变更。
 
 ## 2. 日更完成、异常与修订
 
@@ -1765,3 +1765,41 @@ PY
 全量独立批准后，命令仅将清单文件换为moneyflow_p4_ind_ths_event_registration_full_plan_20261010.json，并将assert hash换为7dbc2c4f08774552f6f0fafa8f423338980d53fb262a300ce09506e4a1cbdc1c；同样先默认只读预检，再APPLY及后验。默认只读差集应归零；样本两日四项readiness及全量最近20日40项readiness应全绿，全部988文件和54原控制hash不变。旧日期只登记物化，不伪造check或补源缺口。
 
 取消可用KeyboardInterrupt，已提交原生事件保留；用原冻结清单续跑。checkpoint位于`/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/events/<plan_hash>/checkpoint.json`，它只记录进度，不能编辑后作为完成依据。触发预算、active run、锁、实例、hash或既有行数冲突时停止并报告，不改源证明或放宽门禁。本开发切片完成，P4保持开放，P5未进入。
+
+## 37. P4 行业历史事件两日正式样本通过（2026-10-11）
+
+管理员要求“提交修改吧。然后推进下一步，执行吧”，对应上轮明确提出的§36.4两日正式样本。执行器、隔离验收和精确清单已在当前dev-interface提交为6039fd37，未推送。本轮只执行moneyflow_ind_ths的2026-09-29、09-30，plan hash仍为72cab9be9af8b53cf47463acce087598dfe31c402161bf9c792149d2bb4a7e3b，不扩展为全量登记、启用sensor或执行job。
+
+### 37.1 实际范围、维护状态和原生读回
+
+上海2026-10-11 15:04～15:05，先纯只读预检，再通过原daily_basic_event_instance(writable=True)及行业固定适配器完成登记，目标DAGSTER_HOME为`/Users/congming/.goldenshare/dagster_home`，数据库为既有本机goldenshare_dagster PG，自动建表关闭。正式命令在lake_console/orchestrator目录使用既有.venv：
+
+```bash
+# 只读预检；无正式写入。
+.venv/bin/python3 -B /private/tmp/moneyflow-p4-ind-ths-formal-sample-20261011.py
+# 已获准的精确两日APPLY及默认只读后验；不选择全量。
+.venv/bin/python3 -B /private/tmp/moneyflow-p4-ind-ths-formal-sample-20261011.py --apply
+```
+
+该临时审计驱动只复用§36.4现行入口，增加同库只读sensor维护检查、原生身份/数量读回、readiness与全量剩余差集，不新增仓库CLI或Definitions入口。脚本/日志hash和具体结果归档[正式样本证据](../../reports/moneyflow_p4_ind_ths_event_registration_formal_sample_evidence_20261011.json)。恢复仍用原两日清单及同一执行器，不编辑checkpoint、不删除原生事件、不重新生成历史文件。
+
+| 检查与实际操作 | 结果 |
+| --- | --- |
+| 写前维护核验 | 本表两job无active run；原生查询扫描106个sensor状态，三个行业sensor没有持久化启用记录；当前进程实际导入的三个定义默认STOPPED；写前再次读取，写后结果相同，状态变更0 |
+| 执行源码身份 | 新Python进程直接导入当前提交的适配器/共享执行器，11个已验收Python文件hash不变，实际加载的项目源码逐项匹配6039fd37；不依赖code location执行job，未reload；不宣称驻留服务所有源码hash已核对 |
+| 正式新增 | 专属cn_a_moneyflow_ind_ths_trade_days增加2键，Raw/Silver各2条物化及2条blocking检查；总10工作项/8原生事件 |
+| 行数与检查归属 | 两日每层均90行、source_row_count=90、checked_row_count=90；四条check均SUCCEEDED/passed/blocking，partition及target storage_id/run_id/timestamp与本层实际物化全部一致 |
+| 原生身份 | 物化storage id为7441784～7441787，仅诊断记录，不进入计划身份；Silver同时绑定同日Raw hash |
+| 后验 | 默认只读样本缺分区/物化/检查均0；两日两层readiness四项均ready；checkpoint为complete、10/10、100%，完成量单调 |
+| 执行成本 | APPLY 1.538秒、53次helper metadata读取、60条进度记录；维护状态及外部前后验另计，53不是底层SQL总数。未触发或放宽600秒/批120秒/256读取门禁 |
+| 物理证明 | 前后完整proof重构校验原494日/44460行/988文件8004292B和54控制hash，最近20来源日两层40文件SQL对账；额外控制hash复核一致，Parquet改写0 |
+
+正式写入仅上述分区、runless物化/check及staging内冻结plan/checkpoint/互斥锁。没有Prod/Tushare请求、job执行、sensor evaluation或启停、pool配置、reload、Parquet写入、全量APPLY或其他五表接入。原31份资金流报告/清单逐字匹配6039fd37；本轮代码、源字段/参数、API/CLI、配置、路径及依赖矩阵均未改。
+
+### 37.2 后续全量范围和边界
+
+正式只读已再次验证原494日全量清单，hash仍为7dbc2c4f08774552f6f0fafa8f423338980d53fb262a300ce09506e4a1cbdc1c，现已完成10/1522项。全量将复用本次四条物化身份，实际剩余1512工作项：492分区键、984物化、36检查，共1020原生事件。其纯只读预检15次native读取、约0.419秒；该数字与两日APPLY成本均不能代替正式全量预算验收。
+
+下一步按§36.4独立批准原全量清单，然后在同一维护/源码/独占writer条件下执行与读回；仍保持600秒、批120秒、256次读取、每批100日期等硬门禁，触限保留已提交事实并停止。全量后验要求494键、988物化和最近20来源日40检查差集0，物理证明不变，近期readiness按有界批次核验。更早日期只保留物理证明/物化，不伪造绿check，不补源缺口。
+
+本轮两日正式样本阶段完成，全量行业登记未执行，P4仍开放、P5未进入。全量批准不自动覆盖pool容量1、sensor启用、代码reload或真实日更；这些仍按各自精确清单推进。
