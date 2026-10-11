@@ -4,7 +4,7 @@
 
 ## 2026-10-10 新阶段 LLD：复权周线接收 Prod 新增及历史修正
 
-状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，正式性能验收待完成，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。正式Prod验收、DG D1及后续阶段未执行，未正式迁移或切换供数。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
+状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，管理员确认内存工作收口，不再追加专门复测或优化，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。管理员已部署Prod cc7c528e，正式迁移186和表/trigger/索引只读核验通过，正式双周15368及两只单股历史15375/15378的21字段对账通过，15378时序观察父/源进程均低于256MiB，见[Prod LLD §13.11](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-prod-run15378)；取消续跑、同批零请求重放及页面验收留到P3全量执行前合并完成；可推进DG D1/D2开发，DG实现及后续阶段待完成，供数尚未切换，见[Prod LLD §13.12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-closeout)。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
 
 依据：[新增阶段方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#adjusted-weekly-prod-refresh)、[Prod LLD](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)、[DG数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)。本节按模板覆盖数据卡、Run Contract、来源/字段、asset/check/job/sensor、初始化/恢复、性能和分阶段验收。
 

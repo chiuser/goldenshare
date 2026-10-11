@@ -4,7 +4,7 @@
 
 ## 2026-10-10 新增阶段：复权周线统一接收 Prod（待开发）
 
-本节承接管理员确认的新需求：先刷新 Prod 的复权周线，再以 Prod 做 DG bootstrap；后续由 Prod 根据逐日复权因子变化刷新相关股票的历史周线，DG 接收新周及这些历史修正。方案及LLD已提交5e903556；P0/D0核验完成，Prod P1已提交7d32163d，P2规划/原子交接/续跑及源码Definition绑定已实现，P2已提交018168fc，真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，正式性能验收待完成，正式Prod验收未完成，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。未执行正式DDL。DG代码、文件、事件和sensor均未切换，正式复权周线仍沿旧机制直拉Tushare。此前需求的结案仍有效；下文“当前状态”是2026-10-09旧交付基线。
+本节承接管理员确认的新需求：先刷新 Prod 的复权周线，再以 Prod 做 DG bootstrap；后续由 Prod 根据逐日复权因子变化刷新相关股票的历史周线，DG 接收新周及这些历史修正。方案及LLD已提交5e903556；P0/D0核验完成，Prod P1已提交7d32163d，P2规划/原子交接/续跑及源码Definition绑定已实现，P2已提交018168fc，真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，管理员确认内存工作收口，不再追加专门复测或优化；正式恢复及页面验收尚未完成，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。管理员已部署Prod cc7c528e，正式迁移186和表/trigger/索引只读核验通过；正式双周15368及两只单股历史15375/15378的21字段对账通过，15378时序观察父/源进程均低于256MiB；取消续跑、同批零请求重放及页面验收留到P3全量执行前合并完成，不阻断DG D1/D2开发，见[Prod LLD §13.12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-closeout)。DG代码、文件、事件和sensor均未切换，正式复权周线仍沿旧机制直拉Tushare。此前需求的结案仍有效；下文“当前状态”是2026-10-09旧交付基线。
 
 ### 范围与交付口径
 
@@ -18,7 +18,7 @@
 
 只接收“新周”会漏掉 Prod 修正的历史。仅按更新时间查询可变 Raw，亦不能保证一次断点恢复读取同一批值。Prod LLD 提出一个专用、有限合同的业务交接表：记录冻结范围、同事务提交的行情增量及闭合批次；DG 按顺序读取闭合批次。它保存可重放的交付数据，不是第二套 TaskRun 状态机，也不是历史一致性证明。
 
-P0技术评审已保留这一专用交接设计，容量在当前日常批预算内；尚未执行建表或迁移。字段和事务唯一维护在 [Prod LLD §5.4](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#delivery-contract)，DG 不另设数据库、回执表或 summary asset。
+P0技术评审已保留这一专用交接设计，容量在当前日常批预算内；管理员部署后正式交接表及索引已创建并只读核验，实际交付验收待完成。字段和事务唯一维护在 [Prod LLD §5.4](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#delivery-contract)，DG 不另设数据库、回执表或 summary asset。
 
 ### 首次刷新及重新 bootstrap
 
