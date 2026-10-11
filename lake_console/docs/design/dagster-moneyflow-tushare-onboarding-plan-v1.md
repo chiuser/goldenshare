@@ -1,6 +1,6 @@
 # Dagster 七个 Tushare 资金流向数据集接入技术方案 v1
 
-> 状态：2026-10-11 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37，全量登记待对应清单批准。sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。
+> 状态：2026-10-11 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。
 >
 > 日期：2026-10-06。目标：将 Prod 已有七个 Tushare 资金流向数据集接入正式 DG；历史从 Prod Raw 初始化，新增由 DG 直接请求 Tushare。
 >
@@ -838,3 +838,15 @@ P3-D成本汇总关闭，P3-F准备完成、正式执行待范围批准，整个
 后验样本三类差集均0，四项Raw/Silver readiness全部ready。两日每层90行，物化source_row_count及check checked_row_count都为90；四条SUCCEEDED检查绑定本层准确partition和物化storage_id/run_id/timestamp。原494日/988文件及54控制证明保持不变，最近20来源日两层40文件正式SQL对账通过，没有Parquet改写、Prod/Tushare请求、pool/sensor变化或job执行。原31份历史报告与清单保留原字节；本轮只回填两份文档和新增[正式证据](../../reports/moneyflow_p4_ind_ths_event_registration_formal_sample_evidence_20261011.json)，没有代码、源合同、API/CLI或依赖矩阵变化。完整命令、恢复边界及读回见LLD§37。
 
 原全量清单hash仍为7dbc2c4f08774552f6f0fafa8f423338980d53fb262a300ce09506e4a1cbdc1c，实际剩余492分区、984物化、36检查，共1512工作项/1020事件。下一步独立批准[原494日全量清单](../../reports/moneyflow_p4_ind_ths_event_registration_full_plan_20261010.json)，复用样本已写物化身份补齐剩余，并按原600秒/批120秒/256读取等门禁执行；两日速度不是全量SLA。全量尚未执行，P4保持开放、P5未进入，pool/sensor启用及真实日更仍后置。
+
+## 43. P4 行业全量历史事件正式登记完成（2026-10-11）
+
+管理员回复“提交吧。然后继续推进”，对应§42明确的原494日全量清单。样本收尾文档和证据已在dev-interface提交5e705f45，未推送；原执行器源码及全量清单hash 7dbc2c4f08774552f6f0fafa8f423338980d53fb262a300ce09506e4a1cbdc1c保持不变。本轮上海15:19完成新增492分区、984物化及36条blocking检查，共1512工作项/1020事件；原两日样本四条物化storage id复用，没有重写历史文件或补源缺口。
+
+最终494分区、988物化和最近20个实际来源日40检查齐全，三类差集均0，checkpoint complete/1522项/100%，进度单调。每日期的物化/源计数匹配原P3清单，40检查全部SUCCEEDED并绑定准确partition和mat identity，最近20日两层40项readiness均ready。APPLY实耗17.301秒、141次helper状态读取；原600秒/批120秒/256读取和100日期批门禁未触发或放宽，维护/外部前后验和写API内部SQL另计。
+
+原54控制hash及988行业文件8004292B前后一致，最新20来源日复用正式SQL做两层完整标准化对账；更早日期保留物化和物理证明，不伪造check。原32份历史报告/清单保留原字节；本轮只回填两份设计文档和新增[全量正式证据](../../reports/moneyflow_p4_ind_ths_event_registration_formal_full_evidence_20261011.json)，没有代码、源合同、API/CLI或依赖矩阵变化。Prod/Tushare请求、Parquet改写、job/sensor/pool操作和reload均0；准确命令、原生身份及后续准入见LLD§38。
+
+后续准入只读发现正式workspace为LOADED，但现有清单未包含行业两个job和三个sensor；源码及隔离defs已通过，日更前仍需另行批准加载当前代码并核验。共享请求池尚无持久化容量，slot/pending为0，后续按原合同设容量1；本轮未修改。正式SSE日历接续窗口只有10-08、10-09，两日行业partition/Raw/Silver均缺，尚未证明源可用性。
+
+本表历史事件登记阶段关闭，整个P4保持开放、P5未进入。下一开发切片沿原实施卡接入moneyflow_cnt_ths独立资产/check/job/catalog，再逐步接入sensor和事件，不批量启用；正式代码加载、池配置、sensor启用和真实日更另按精确清单推进。
