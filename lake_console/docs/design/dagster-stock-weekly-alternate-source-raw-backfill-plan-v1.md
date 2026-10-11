@@ -4,7 +4,7 @@
 
 ## 2026-10-10 新增阶段：复权周线统一接收 Prod（待开发）
 
-本节承接管理员确认的新需求：先刷新 Prod 的复权周线，再以 Prod 做 DG bootstrap；后续由 Prod 根据逐日复权因子变化刷新相关股票的历史周线，DG 接收新周及这些历史修正。方案及LLD已提交5e903556；P0/D0核验完成，Prod P1已提交7d32163d，P2规划/原子交接/续跑及源码Definition绑定已实现，P2已提交018168fc，真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；单周RSS超过预算，Prod性能门禁待完成，正式Prod验收未完成，见[Prod LLD §13.6](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-basis-correction)。未执行正式DDL。DG代码、文件、事件和sensor均未切换，正式复权周线仍沿旧机制直拉Tushare。此前需求的结案仍有效；下文“当前状态”是2026-10-09旧交付基线。
+本节承接管理员确认的新需求：先刷新 Prod 的复权周线，再以 Prod 做 DG bootstrap；后续由 Prod 根据逐日复权因子变化刷新相关股票的历史周线，DG 接收新周及这些历史修正。方案及LLD已提交5e903556；P0/D0核验完成，Prod P1已提交7d32163d，P2规划/原子交接/续跑及源码Definition绑定已实现，P2已提交018168fc，真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，正式性能验收待完成，正式Prod验收未完成，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。未执行正式DDL。DG代码、文件、事件和sensor均未切换，正式复权周线仍沿旧机制直拉Tushare。此前需求的结案仍有效；下文“当前状态”是2026-10-09旧交付基线。
 
 ### 范围与交付口径
 

@@ -9,7 +9,6 @@ from typing import Any
 import requests
 from requests import Session
 from requests.adapters import HTTPAdapter
-import tushare as ts
 from urllib3.util.retry import Retry
 
 from src.foundation.config.settings import get_settings
@@ -220,9 +219,13 @@ class TushareHttpClient:
 
 class TushareSdkClient:
     def __init__(self, token: str | None = None) -> None:
+        # HTTP clients and spawned HTTP attempts do not need the SDK/pandas stack.
+        import tushare
+
         settings = get_settings()
         self.token = token or settings.tushare_token
-        ts.set_token(self.token)
+        self._sdk = tushare
+        self._sdk.set_token(self.token)
 
     def pro_bar(
         self,
@@ -234,7 +237,7 @@ class TushareSdkClient:
         freq: str = "D",
     ) -> list[dict[str, Any]]:
         _get_rate_limiter("pro_bar").acquire()
-        df = ts.pro_bar(ts_code=ts_code, asset=asset, start_date=start_date, end_date=end_date, adj=adj, freq=freq)
+        df = self._sdk.pro_bar(ts_code=ts_code, asset=asset, start_date=start_date, end_date=end_date, adj=adj, freq=freq)
         if df is None:
             return []
         return df.to_dict(orient="records")

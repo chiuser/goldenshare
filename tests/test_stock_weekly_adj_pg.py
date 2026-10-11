@@ -422,3 +422,95 @@ def test_pg_bootstrap_preserves_unverified_source_with_nullable_audit_basis(pg):
         assert record.basis_date is None
         assert record.reason_summary["basis_audit"]["checked"] == 0
         assert record.reason_summary["basis_audit"]["unverified_codes"] == 2
+
+
+def test_pg_delivery_checks_payload_in_jsonb_and_preserves_json_isolation(pg):
+    from copy import deepcopy
+    import re
+    from src.foundation.dao.stock_weekly_adj_delivery_dao import (
+        StockWeeklyAdjDeliveryDAO,
+    )
+    from src.foundation.datasets.stock_weekly_adj_contracts import (
+        WeeklyAdjExecutionPolicy,
+        digest,
+    )
+    from test_stock_weekly_adj_p1_contracts import record
+
+    values = record(uuid4())
+    statements = []
+
+    def track(conn, cursor, statement, parameters, context, executemany):
+        if "FROM core.stock_weekly_adj_delivery" in statement:
+            statements.append(statement)
+
+    event.listen(pg, "before_cursor_execute", track)
+    try:
+        with Session(pg) as session:
+            dao = StockWeeklyAdjDeliveryDAO(session)
+            receipt = dao.append(values, WeeklyAdjExecutionPolicy())
+            revision = receipt.revision
+            session.commit()
+            assert not re.search(
+                r"\.payload(?:\s|,)", statements[0].partition("\nFROM")[0]
+            )
+            assert ".payload = " in statements[0]
+            receipt.payload["rows"][0]["close_qfq"] = "999.0000"
+            assert values["payload"]["rows"][0]["close_qfq"] == "1.2500"
+            session.expire_all()
+            assert (
+                session.get(Delivery, revision).payload["rows"][0]["close_qfq"]
+                == "1.2500"
+            )
+            changed = deepcopy(values)
+            changed["payload"]["rows"][0]["close_qfq"] = "2.2500"
+            changed["payload_digest"] = digest(changed["payload"])
+            with pytest.raises(WeeklyAdjContractError, match="不同交付值"):
+                dao.append(changed, WeeklyAdjExecutionPolicy())
+            session.rollback()
+            changed = deepcopy(values)
+            changed["rows_preserved"] = 1
+            with pytest.raises(WeeklyAdjContractError, match="不同交付值"):
+                dao.append(changed, WeeklyAdjExecutionPolicy())
+            session.rollback()
+    finally:
+        event.remove(pg, "before_cursor_execute", track)
+
+
+@pytest.mark.parametrize("problem", ["fail", "cancel"])
+def test_pg_later_write_block_rolls_back_prior_blocks(pg, monkeypatch, problem):
+    from src.foundation.ingestion.writer import DatasetWriter
+    from test_stock_weekly_adj_memory import large_rows, point_plan
+
+    definition, request, units = point_plan(pg)
+    source = large_rows()
+    original = DatasetWriter._write_raw_and_core
+    state = {"calls": 0, "cancel": False}
+
+    def write(**kwargs):
+        state["calls"] += 1
+        if problem == "fail" and state["calls"] == 2:
+            raise RuntimeError("later write failed")
+        result = original(**kwargs)
+        if state["calls"] == 2:
+            state["cancel"] = True
+        return result
+
+    monkeypatch.setattr(DatasetWriter, "_write_raw_and_core", staticmethod(write))
+    expected = RuntimeError if problem == "fail" else IngestionCanceledError
+    with pytest.raises(expected):
+        run(
+            pg,
+            definition,
+            request,
+            units,
+            fake_pages(lambda _: source),
+            cancel_checker=lambda _: state["cancel"],
+        )
+    with Session(pg) as session:
+        assert session.get(Raw, (CODE, OLD, "week")).close_qfq == Decimal("10")
+        assert session.get(Serving, (CODE, OLD, "week")).close_qfq == Decimal("10")
+        assert session.get(Raw, (source[1]["ts_code"], OLD, "week")) is None
+        assert (
+            session.scalar(select(Delivery).where(Delivery.record_kind == "unit"))
+            is None
+        )

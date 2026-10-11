@@ -16,6 +16,8 @@ DELIVERY_DAO = "stock_weekly_adj_delivery"
 WRITE_PATH = "raw_core_upsert_with_delivery"
 UNIT_BUILDER = "stock_weekly_adj_refresh"
 CONTRACT_VERSION = 1
+# Internal working set, independent of source pages and the durable unit boundary.
+SOURCE_ROW_BLOCK_SIZE = 128
 SOURCE_FIELDS = (
     "ts_code",
     "trade_date",
@@ -90,7 +92,21 @@ def canonical_json(value: Any) -> str:
 
 
 def digest(value: Any) -> str:
-    return hashlib.sha256(canonical_json(value).encode()).hexdigest()
+    result = hashlib.sha256()
+    for chunk in _canonical_chunks(value):
+        result.update(chunk.encode())
+    return result.hexdigest()
+
+
+def _canonical_chunks(value: Any):
+    return json.JSONEncoder(
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).iterencode(value)
+
+
+def canonical_json_size(value: Any) -> int:
+    """Count the exact canonical UTF-8 bytes without a complete string/bytes pair."""
+    return sum(len(chunk.encode()) for chunk in _canonical_chunks(value))
 
 
 def latest_completed_calendar_week(scheduled_at: datetime) -> date:
@@ -175,7 +191,7 @@ def canonical_source_rows(
             )
         unique[key] = row
     result = [unique[key] for key in sorted(unique)]
-    if len(canonical_json({"rows": result}).encode()) > policy.max_payload_bytes:
+    if canonical_json_size({"rows": result}) > policy.max_payload_bytes:
         raise WeeklyAdjContractError(
             "本单元载荷超过预算", "weekly_adj.row_budget_exceeded"
         )

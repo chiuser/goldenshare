@@ -8,8 +8,9 @@ from sqlalchemy import literal, select, tuple_, union_all
 from src.foundation.dao.stock_weekly_adj_delivery_dao import StockWeeklyAdjDeliveryDAO
 from src.foundation.datasets.stock_weekly_adj_contracts import (
     SOURCE_FIELDS,
+    SOURCE_ROW_BLOCK_SIZE,
     WeeklyAdjContractError,
-    canonical_json,
+    canonical_json_size,
     canonical_source_rows,
     digest,
     weekly_definition_issues,
@@ -337,55 +338,59 @@ def publish_unit(writer, *, definition, unit, batch, context, check):
         session, unit, incoming, floor=floor, bootstrap=metadata["bootstrap"]
     )
     # Normalization is the one owner of date/Decimal/change_amount conversion.
-    to_write = NormalizedBatch(
-        unit_id=batch.unit_id,
-        rows_normalized=batch.rows_normalized,
-        rows_rejected=0,
-        rejected_reasons={},
-    )
     check()
     if incoming:
-        writer._write_raw_and_core(
-            batch=to_write,
-            raw_dao=writer.dao.raw_stk_period_bar_adj,
-            core_dao=writer.dao.stk_period_bar_adj,
-            raw_conflict_columns=definition.storage.raw_conflict_columns,
-            conflict_columns=definition.storage.conflict_columns,
-        )
-        identity = tuple_(Raw.ts_code, Raw.trade_date)
-        raw_read = [
-            dict(r)
-            for r in session.execute(
-                select(*(getattr(Raw, n) for n in SOURCE_FIELDS)).where(
-                    Raw.freq == "week", identity.in_(keys)
-                )
-            ).mappings()
-        ]
-        serving_read = [
-            dict(r)
-            for r in session.execute(
-                select(
+        # Keep SQL compilation/coercion and readback proportional to a small block.
+        # All blocks stay in the caller's one unit transaction; none commits here.
+        for start in range(0, len(batch.rows_normalized), SOURCE_ROW_BLOCK_SIZE):
+            check()
+            writer._write_raw_and_core(
+                batch=NormalizedBatch(
+                    unit_id=batch.unit_id,
+                    rows_normalized=batch.rows_normalized[
+                        start : start + SOURCE_ROW_BLOCK_SIZE
+                    ],
+                    rows_rejected=0,
+                    rejected_reasons={},
+                ),
+                raw_dao=writer.dao.raw_stk_period_bar_adj,
+                core_dao=writer.dao.stk_period_bar_adj,
+                raw_conflict_columns=definition.storage.raw_conflict_columns,
+                conflict_columns=definition.storage.conflict_columns,
+            )
+            check()
+        # Read only after every write, so identical duplicate keys across blocks
+        # have the same final-value semantics as the previous unit-wide upsert.
+        for start in range(0, len(incoming), SOURCE_ROW_BLOCK_SIZE):
+            expected_rows = incoming[start : start + SOURCE_ROW_BLOCK_SIZE]
+            block_keys = [
+                (r["ts_code"], parse_day(r["trade_date"])) for r in expected_rows
+            ]
+            for model in (Raw, Serving):
+                check()
+                statement = select(
                     *(
-                        getattr(Serving, "change_amount" if n == "change" else n).label(
-                            n
-                        )
+                        getattr(
+                            model,
+                            "change_amount"
+                            if model is Serving and n == "change"
+                            else n,
+                        ).label(n)
                         for n in SOURCE_FIELDS
                     )
                 ).where(
-                    Serving.freq == "week",
-                    tuple_(Serving.ts_code, Serving.trade_date).in_(keys),
+                    model.freq == "week",
+                    tuple_(model.ts_code, model.trade_date).in_(block_keys),
                 )
-            ).mappings()
-        ]
-        if (
-            canonical_source_rows(raw_read, policy) != incoming
-            or canonical_source_rows(serving_read, policy) != incoming
-        ):
-            fail(
-                "Raw/Serving 同事务读回键和值不一致",
-                "weekly_adj.delivery_contract_mismatch",
-            )
-        committed_rows = canonical_source_rows(raw_read, policy)
+                readback = [dict(r) for r in session.execute(statement).mappings()]
+                if canonical_source_rows(readback, policy) != expected_rows:
+                    fail(
+                        "Raw/Serving 同事务读回键和值不一致",
+                        "weekly_adj.delivery_contract_mismatch",
+                    )
+                del readback
+                check()
+        committed_rows = incoming
     else:
         committed_rows = []
     outcome = (
@@ -468,7 +473,7 @@ def publish_closed_batch(session, *, definition, units, context, check):
         received += receipt.rows_received
         written += receipt.rows_written
         preserved += receipt.rows_preserved
-        total_bytes += len(canonical_json(receipt.payload).encode())
+        total_bytes += canonical_json_size(receipt.payload)
         session.expunge(receipt)
     if total_bytes > policy.max_batch_payload_bytes:
         fail("整批载荷超过预算", "weekly_adj.row_budget_exceeded")

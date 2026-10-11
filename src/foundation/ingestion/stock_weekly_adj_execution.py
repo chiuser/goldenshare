@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from src.foundation.dao.stock_weekly_adj_delivery_dao import StockWeeklyAdjDeliveryDAO
 from src.foundation.datasets.stock_weekly_adj_contracts import (
     WeeklyAdjContractError,
-    canonical_json,
+    canonical_json_size,
     canonical_source_rows,
     digest,
     weekly_definition_issues,
@@ -124,6 +124,7 @@ class WeeklyControl:
 def capture_unit(executor, definition, unit, control):
     policy = definition.planning.weekly_adj_policy
     raw_rows, count = [], 0
+    page = None
     for page in executor.source_client.iter_weekly_adj_pages(
         definition=definition, unit=unit, control=control
     ):
@@ -134,6 +135,9 @@ def capture_unit(executor, definition, unit, control):
         canonical_source_rows(raw_rows, policy)
         control.check()
     canonical = canonical_source_rows(raw_rows, policy)
+    # Decimal pages are no longer needed once canonical source validation succeeds.
+    raw_rows.clear()
+    page = None
     # Normalize canonical source values only; annotation/system fields never define keys.
     fetch = SourceFetchResult(
         unit_id=unit.unit_id,
@@ -316,7 +320,7 @@ def run_weekly_adj(
                             written=record.rows_written,
                             preserved=record.rows_preserved,
                             deduplicated=record.rows_received - record.rows_unique,
-                            payload_bytes=len(canonical_json(record.payload).encode()),
+                            payload_bytes=canonical_json_size(record.payload),
                         )
                         business.expunge(record)
                 business.rollback()

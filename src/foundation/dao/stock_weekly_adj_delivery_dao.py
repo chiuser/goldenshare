@@ -5,14 +5,18 @@ from datetime import date
 import re
 from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import Text, cast, literal, select
+from sqlalchemy.dialects.postgresql import JSONB, insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.orm import defer
+from sqlalchemy.orm.attributes import set_committed_value
 
 from src.foundation.datasets.stock_weekly_adj_contracts import (
     WeeklyAdjContractError,
+    SOURCE_ROW_BLOCK_SIZE,
     WeeklyAdjExecutionPolicy,
     canonical_json,
+    canonical_json_size,
     canonical_source_rows,
     digest,
 )
@@ -42,7 +46,8 @@ class StockWeeklyAdjDeliveryDAO:
         }
         if set(record) != allowed:
             raise WeeklyAdjContractError("交接记录字段不完整或包含技术主键")
-        values = deepcopy(record)
+        # Validation and SQL serialization never mutate nested input values.
+        values = dict(record)
         try:
             values["batch_id"] = UUID(str(values["batch_id"]))
         except (ValueError, TypeError, AttributeError):
@@ -109,7 +114,7 @@ class StockWeeklyAdjDeliveryDAO:
             if values["record_kind"] == "plan"
             else policy.max_payload_bytes
         )
-        if len(canonical_json(payload).encode()) > limit:
+        if canonical_json_size(payload) > limit:
             raise WeeklyAdjContractError(
                 "交接载荷超预算", "weekly_adj.row_budget_exceeded"
             )
@@ -123,11 +128,17 @@ class StockWeeklyAdjDeliveryDAO:
             and not values["intent"].get("bootstrap", False)
         ):
             rows = payload.get("rows")
-            if (
-                not isinstance(rows, list)
-                or canonical_source_rows(rows, policy) != rows
-            ):
+            if not isinstance(rows, list):
                 raise WeeklyAdjContractError("日常交接必须保存标准化去重的源值")
+            previous = None
+            for start in range(0, len(rows), SOURCE_ROW_BLOCK_SIZE):
+                block = rows[start : start + SOURCE_ROW_BLOCK_SIZE]
+                if canonical_source_rows(block, policy) != block:
+                    raise WeeklyAdjContractError("日常交接必须保存标准化去重的源值")
+                first = (block[0]["ts_code"], block[0]["trade_date"])
+                if previous is not None and previous >= first:
+                    raise WeeklyAdjContractError("日常交接源键必须全局排序且不重复")
+                previous = (block[-1]["ts_code"], block[-1]["trade_date"])
             if (
                 len(rows) != values["rows_unique"]
                 or values["rows_unique"] != values["rows_written"]
@@ -169,22 +180,47 @@ class StockWeeklyAdjDeliveryDAO:
         )
         if insert is None:
             raise WeeklyAdjContractError("交接DAO仅支持PostgreSQL及隔离SQLite测试")
+        payload_value = (
+            cast(literal(canonical_json(payload), type_=Text), JSONB)
+            if dialect == "postgresql"
+            else payload
+        )
         self.session.execute(
             insert(table)
-            .values(**values)
+            .values(**{**values, "payload": payload_value})
             .on_conflict_do_nothing(
                 index_elements=["batch_id", "record_kind", "unit_id"]
             )
         )
-        existing = self.get_record(
-            batch_id=values["batch_id"],
-            record_kind=values["record_kind"],
-            unit_id=values["unit_id"],
-        )
+        if dialect == "postgresql":
+            model = StockWeeklyAdjDelivery
+            # JSONB verifies the complete payload on the server. Do not decode
+            # a second copy of all source strings merely to compare equal rows.
+            existing = self.session.scalar(
+                select(model)
+                .where(
+                    model.batch_id == values["batch_id"],
+                    model.record_kind == values["record_kind"],
+                    model.unit_id == values["unit_id"],
+                    model.payload == payload_value,
+                )
+                .options(defer(model.payload, raiseload=True))
+                .execution_options(populate_existing=True)
+            )
+            compare_keys = set(values) - {"payload"}
+        else:
+            existing = self.get_record(
+                batch_id=values["batch_id"],
+                record_kind=values["record_kind"],
+                unit_id=values["unit_id"],
+            )
+            compare_keys = set(values)
         if existing is None or any(
-            getattr(existing, key) != value for key, value in values.items()
+            getattr(existing, key) != values[key] for key in compare_keys
         ):
             raise WeeklyAdjContractError("同批同单元已存在不同交付值")
+        if dialect == "postgresql":
+            set_committed_value(existing, "payload", deepcopy(payload))
         return existing
 
     def next_closed_header(self, *, after_revision: int):

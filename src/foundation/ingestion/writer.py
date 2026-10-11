@@ -98,6 +98,7 @@ class DatasetWriter:
     ) -> WriteResult:
         if definition.storage.write_path == "raw_core_upsert_with_delivery":
             from src.foundation.ingestion.stock_weekly_adj_delivery import publish_unit
+            from src.foundation.datasets.stock_weekly_adj_contracts import canonical_json_size
             if delivery_context is None or plan_unit is None or cancel_check is None:
                 raise ValueError("周线交接写入必须由具名发布执行器提供冻结计划和取消检查")
             receipt = publish_unit(self, definition=definition, unit=plan_unit, batch=batch,
@@ -106,7 +107,7 @@ class DatasetWriter:
                 rows_upserted=receipt.rows_written, rows_skipped=0, target_table=definition.storage.target_table,
                 conflict_strategy="upsert_with_delivery", persistence_diagnostics={"weekly_adj": {
                     "rows_preserved": receipt.rows_preserved, "outcome": receipt.outcome,
-                    "payload_bytes": len(json.dumps(receipt.payload, separators=(',', ':'), ensure_ascii=False).encode()),
+                    "payload_bytes": canonical_json_size(receipt.payload),
                 }})
         if should_guard_dataset_rows(definition.dataset_key):
             for index, row in enumerate(batch.rows_normalized):
