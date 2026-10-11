@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-日期：2026-10-06；最近更新：2026-10-11。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37；全494日正式登记已读回通过，见§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths资产代码及定向隔离验收已落地；第1步复验的完整隔离defs通过，但受保护catalog/static gates仍被周线新增模块与测试源清单不一致阻断，见§39.4；sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～39为准。
+日期：2026-10-06；最近更新：2026-10-11。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37；全494日正式登记已读回通过，见§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§39.6；第1步此前的阻塞记录保留在§39.3～39.4；sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～39为准。
 
 ## 1. 硬口径和影响面
 
@@ -1909,3 +1909,35 @@ CodeGraph search/explore定位行业asset→update及相关sensor，impact updat
 两个受保护入口各自原生自检通过且完成7个隔离负例，正式资源哨兵hash前后不变；这些不是catalog或完整static suite通过。直接核对runner的CONSUMER_SOURCE_FILES及source_files_for_scope，确认失败属于周线新增模块与受保护测试能力清单未同步，不能解释为套件未安装、源码文件不存在或资金流业务断言失败。下一步需由周线开发收齐新增模块的真实导入闭包，并在原受保护入口审计、同步精确清单，再重跑两项完整门禁；不允许给整个源码目录开放读取权限或绕开runner。完整defs已通过，除非源码再变，无需因另外两项失败重复运行。
 
 本次只更新方案和[第1步复验证据](../../reports/moneyflow_p4_cnt_ths_acceptance_evidence_20261011.json)，未修改资金流或周线Python代码、测试策略、依赖和配置，也没有正式资源操作。周线现已提交，当前阻塞不再是§39.3所述的未提交工作区冲突；本轮批准范围是原样复验，未包含周线受保护能力清单迁移。依§39.2完整门禁验收条件停止后续切片，概念资产完整验收尚未关闭，P4仍开放，P5未进入。§39.3及旧失败日志保留，当前状态以本节为准。
+
+### 39.5 第1步受保护源清单校准（2026-10-11，执行前约束）
+
+管理员要求“提交，然后继续推进”，先将§39.4复验记录提交1a980036，再解除这两项门禁阻塞。本轮目标只关闭概念资产/check/job/catalog切片完整验收；不进入sensor、历史预演或正式操作。修改范围为受保护runner的CONSUMER_SOURCE_FILES及本节验收记录；资金流和周线业务实现、源参数、正式路径、配置、套件不变。
+
+CodeGraph explore定位周线闭合批接收链，impact(source_files_for_scope)定位policy_for和run_isolation_child；同名搜索混入其他域，实际Python AST补核导入闭包。周线b49d9cdc新增6个源码文件，传递闭包49个，缺失集合恰为这6个：defs/prod_db/stock_weekly_adj_delivery.py、defs/run_contracts/stock_weekly_adj_delivery.py、defs/stock_weekly_adj_delivery.py、defs/stock_weekly_adj_feed.py、defs/stock_weekly_adj_run.py、defs/stock_weekly_file_checks.py。顶层无正式资源执行；唯一带调用的赋值为DeliveryHeader字段名tuple。只把这6个现存普通文件加入consumer精确读取清单，不用目录subpath，不自动发现或开放其他路径。
+
+| 硬口径与代码点 | 正反验收及预算 |
+| --- | --- |
+| CONSUMER_SOURCE_FILES恰新增上述6项，其他scope和policy生成函数不变 | AST对比原清单与新清单，传递闭包无遗漏、无额外路径；比较其他scope清单及函数源码hash |
+| 使用原受保护runner，不修改测试断言、用例数、连接替身或隔离策略 | 完整catalog和static gates原入口执行；各批原生隔离自检及7个负例，拒绝资源哨兵不变，零正式连接 |
+| 仅本地源码和临时隔离产物，无正式Lake/PG/Prod/Tushare | 正式日期/对象/请求/分页/文件写入均0；临时产物/private/tmp，现有每批60秒/100MiB与隔离DuckDB预算不放宽 |
+| 完整门禁全部通过才关闭资产切片 | 源清单变化后重新隔离完整dg check defs；Ruff、文档、diff和原35份历史报告hash检查；任何失败如实保留，不计为全库通过 |
+
+测试清单是测试能力声明，不是新运营配置，不改变正式Definitions或主体依赖矩阵。验证可能暴露此前collection失败掩盖的其他断言问题，若出现需核对当前合同，不能改断言凑通过。最终结果待实际执行后回填，P4开放、P5未进入。
+
+### 39.6 第1步完整验收收尾（2026-10-11）
+
+按§39.5只补6个精确源文件路径，AST对比确认无删除项、无新增重复项，其他顶层语法树完全不变，policy_for、其他scope、测试选择与预算均未修改。顶层导入只形成定义，不执行周线闭合批接收。原缺失模块原因已修复，没有改测试业务断言或扩大正式资源权限。
+
+| 验收项 | 实际结果 |
+| --- | --- |
+| 受保护catalog治理 | 完整2批，12项测试及492个subtests全部通过，批次进程累计5320ms |
+| 受保护static gates | 完整15批，113项全部通过，批次进程累计23799ms；未跳过或xfail |
+| 隔离与资源 | 17批各自原生自检及7个负例通过；拒绝资源哨兵hash前后不变，connection_count合计0；仍使用原sandbox-exec和受控临时资源 |
+| 完整definitions | 临时DAGSTER_HOME、关闭telemetry、无正式凭据及UV离线/no-sync/no-download，完整dg check defs通过；另做最终源码hash前后核验 |
+| 代码与文档检查 | runner默认Ruff、src/tests致命检查、文档完整性、diff检查及新增报告链接检查通过；CodeGraph sync/status完成 |
+| 原证据与业务范围 | 原35份资金流报告和清单原字节保留；原概念资产12个其他代码/测试文件hash不变，runner变化仅上述6路径；没有新来源实测或正式操作 |
+
+其他周线任务在本轮期间修改io/stock_weekly_raw.py和stock_weekly_adj_delivery.py，这两项非本轮修改、不提交或回退。本轮逐批核对受保护suite记录的全部source hash与当前源码一致；传递导入闭包仍恰缺原6项，最终defs验证记录前后hash一致。复验不能证明这些周线业务改动的业务正确性，只证明本次共享门禁及完整Definitions在对应源码状态通过。
+
+至此moneyflow_cnt_ths独立资产/check/job/catalog切片完整验收关闭。§39.3～39.4的失败记录与旧日志保留，最新结果见[第1步收尾证据](../../reports/moneyflow_p4_cnt_ths_asset_closeout_evidence_20261011.json)。本轮仅测试清单、两份原设计文档及新证据变化，主体边界和依赖矩阵不变；P4整体仍开放、P5未进入。下一独立切片为概念三个STOPPED sensor及495日历史有界只读预演；尚未实现或执行，不登记分区/event、不加载代码、不配置pool、不启用sensor、不跑正式job。

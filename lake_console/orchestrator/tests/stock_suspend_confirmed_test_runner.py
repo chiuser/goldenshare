@@ -814,6 +814,13 @@ CONSUMER_SOURCE_FILES = (
     "defs/bootstrap/stock_weekly_candidates.py",
     "defs/bootstrap/stock_weekly_promote.py",
     "defs/io/stock_weekly_raw.py",
+    # Closed weekly delivery imports from b49d9cdc; exact source reads only.
+    "defs/prod_db/stock_weekly_adj_delivery.py",
+    "defs/run_contracts/stock_weekly_adj_delivery.py",
+    "defs/stock_weekly_adj_delivery.py",
+    "defs/stock_weekly_adj_feed.py",
+    "defs/stock_weekly_adj_run.py",
+    "defs/stock_weekly_file_checks.py",
 
 )
 
