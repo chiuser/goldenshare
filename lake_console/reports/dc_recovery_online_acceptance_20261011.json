@@ -1,0 +1,550 @@
+{
+  "audit_kind": "dc_online_release_readonly_acceptance",
+  "generated_at": "2026-10-11T19:13:39.147080+08:00",
+  "commit": "8ecea622",
+  "verdict": "deployed_normal_runtime_checks_passed; real_automatic_recovery_pending_natural_failure",
+  "workspace": {
+    "__typename": "Workspace",
+    "locationEntries": [
+      {
+        "name": "orchestrator",
+        "updatedTimestamp": 1791717066.583835,
+        "loadStatus": "LOADED"
+      }
+    ]
+  },
+  "online_raw_config_contracts": [
+    {
+      "job": "raw_tushare_dc_index_update_job",
+      "path": "ops.raw_tushare_dc_index.config",
+      "fields": [
+        {
+          "name": "recovery_identity",
+          "isRequired": false,
+          "configType": {
+            "key": "Noneable.Shape.907e113655b9e608b63016d7fdfe74cdf490525e"
+          }
+        },
+        {
+          "name": "source_proof",
+          "isRequired": true,
+          "configType": {
+            "key": "Shape.eb0ba46d55b24a941e8d7cb7179546b4b502fc76"
+          }
+        }
+      ],
+      "identity_fields": [
+        {
+          "name": "automatic_attempt",
+          "isRequired": true,
+          "configType": {
+            "key": "IntSourceType"
+          }
+        },
+        {
+          "name": "policy_version",
+          "isRequired": true,
+          "configType": {
+            "key": "StringSourceType"
+          }
+        },
+        {
+          "name": "source_failure_run_id",
+          "isRequired": false,
+          "configType": {
+            "key": "Noneable.StringSourceType"
+          }
+        }
+      ]
+    },
+    {
+      "job": "raw_tushare_dc_member_update_job",
+      "path": "ops.raw_tushare_dc_member.config",
+      "fields": [
+        {
+          "name": "recovery_identity",
+          "isRequired": false,
+          "configType": {
+            "key": "Noneable.Shape.907e113655b9e608b63016d7fdfe74cdf490525e"
+          }
+        },
+        {
+          "name": "source_proof",
+          "isRequired": true,
+          "configType": {
+            "key": "Shape.eb0ba46d55b24a941e8d7cb7179546b4b502fc76"
+          }
+        }
+      ],
+      "identity_fields": [
+        {
+          "name": "automatic_attempt",
+          "isRequired": true,
+          "configType": {
+            "key": "IntSourceType"
+          }
+        },
+        {
+          "name": "policy_version",
+          "isRequired": true,
+          "configType": {
+            "key": "StringSourceType"
+          }
+        },
+        {
+          "name": "source_failure_run_id",
+          "isRequired": false,
+          "configType": {
+            "key": "Noneable.StringSourceType"
+          }
+        }
+      ]
+    },
+    {
+      "job": "raw_tushare_dc_daily_update_job",
+      "path": "ops.raw_tushare_dc_daily.config",
+      "fields": [
+        {
+          "name": "recovery_identity",
+          "isRequired": false,
+          "configType": {
+            "key": "Noneable.Shape.907e113655b9e608b63016d7fdfe74cdf490525e"
+          }
+        },
+        {
+          "name": "source_proof",
+          "isRequired": true,
+          "configType": {
+            "key": "Shape.eb0ba46d55b24a941e8d7cb7179546b4b502fc76"
+          }
+        }
+      ],
+      "identity_fields": [
+        {
+          "name": "automatic_attempt",
+          "isRequired": true,
+          "configType": {
+            "key": "IntSourceType"
+          }
+        },
+        {
+          "name": "policy_version",
+          "isRequired": true,
+          "configType": {
+            "key": "StringSourceType"
+          }
+        },
+        {
+          "name": "source_failure_run_id",
+          "isRequired": false,
+          "configType": {
+            "key": "Noneable.StringSourceType"
+          }
+        }
+      ]
+    }
+  ],
+  "sensors": [
+    {
+      "name": "raw_tushare_dc_daily_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "115f087178a15c30f86d0b00bdd127305cf3319f",
+      "origin": "orchestrator",
+      "last_tick_timestamp": 1791717104.333864,
+      "latest_observed_tick_result": "SKIPPED",
+      "reason": "all_ready",
+      "error": null,
+      "run_requests": 0
+    },
+    {
+      "name": "raw_tushare_dc_index_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "f11f72c5f8f7c19933a3e6306554b4658f6ef3d8",
+      "origin": "orchestrator",
+      "last_tick_timestamp": 1791717111.213101,
+      "latest_observed_tick_result": "SKIPPED",
+      "reason": "all_ready",
+      "error": null,
+      "run_requests": 0
+    },
+    {
+      "name": "raw_tushare_dc_member_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "fd756cf41d1e5b9fdf08977789abbd4a82d17469",
+      "origin": "orchestrator",
+      "last_tick_timestamp": 1791717066.826591,
+      "latest_observed_tick_result": "SKIPPED",
+      "reason": "all_ready",
+      "error": null,
+      "run_requests": 0
+    },
+    {
+      "name": "silver_dc_daily_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "6d5ba558164094cabd14fc6397a4a08646eca21b",
+      "origin": "orchestrator",
+      "last_tick_timestamp": 1791717118.952962,
+      "latest_observed_tick_result": "SKIPPED",
+      "reason": "all_ready",
+      "error": null,
+      "run_requests": 0
+    },
+    {
+      "name": "silver_dc_index_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "bb0e3f8222ab15e3ef9c43bf2369b136db599465",
+      "origin": "orchestrator",
+      "last_tick_timestamp": 1791717074.877492,
+      "latest_observed_tick_result": "SKIPPED",
+      "reason": "all_ready",
+      "error": null,
+      "run_requests": 0
+    },
+    {
+      "name": "silver_dc_member_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "635c075ced0f7eca79d5a7cd882b036603fbb68c",
+      "origin": "orchestrator",
+      "last_tick_timestamp": 1791717073.97117,
+      "latest_observed_tick_result": "SKIPPED",
+      "reason": "all_ready",
+      "error": null,
+      "run_requests": 0
+    }
+  ],
+  "daemon_health": [
+    {
+      "daemonType": "SENSOR",
+      "healthy": true,
+      "lastHeartbeatTime": 1791717190.985083,
+      "lastHeartbeatErrors": []
+    },
+    {
+      "daemonType": "BACKFILL",
+      "healthy": true,
+      "lastHeartbeatTime": 1791717216.774548,
+      "lastHeartbeatErrors": []
+    },
+    {
+      "daemonType": "SCHEDULER",
+      "healthy": true,
+      "lastHeartbeatTime": 1791717180.012118,
+      "lastHeartbeatErrors": []
+    },
+    {
+      "daemonType": "QUEUED_RUN_COORDINATOR",
+      "healthy": true,
+      "lastHeartbeatTime": 1791717217.877464,
+      "lastHeartbeatErrors": []
+    },
+    {
+      "daemonType": "MONITORING",
+      "healthy": true,
+      "lastHeartbeatTime": 1791717217.921506,
+      "lastHeartbeatErrors": []
+    },
+    {
+      "daemonType": "ASSET",
+      "healthy": true,
+      "lastHeartbeatTime": 1791717216.831866,
+      "lastHeartbeatErrors": []
+    },
+    {
+      "daemonType": "FRESHNESS_DAEMON",
+      "healthy": true,
+      "lastHeartbeatTime": 1791717217.954297,
+      "lastHeartbeatErrors": []
+    }
+  ],
+  "active_runs": [],
+  "committed_python_hashes_match_test_evidence": true,
+  "retention_samples": {
+    "six_jobs_20260831_samples_still_readable": true
+  },
+  "data_state": {
+    "previous_independent_physical_audit": "2026-10-11T18:31:20.023244+08:00",
+    "prior_result": "60/60 DC partitions pass",
+    "current_six_sensor_physical_frontiers": "all_ready; ready_through 2026-10-09",
+    "fresh_full_physical_rescan_this_turn": false
+  },
+  "raw_evidence_files": [
+    "/private/tmp/dc_release_online_state_20261011.json",
+    "/private/tmp/dc_release_online_confirm_20261011.json",
+    "/private/tmp/dc_release_online_final_20261011.json",
+    "/private/tmp/dc_release_online_ticks_20261011.json"
+  ],
+  "limitations": [
+    "GraphQL repository-batched ticks(limit:2) returned empty arrays; latest persisted ticks independently verified by selector with SQL forced readonly",
+    "Live schema proves outer contract loaded; custom identity validation relies on current code and prior isolated tests",
+    "No new actual typed STEP_FAILURE/cooldown/retry chain proven in formal runtime",
+    "Source not requested; no guarantee future source responses recover"
+  ],
+  "safety": {
+    "graphql_queries_only": true,
+    "sql_forced_readonly": true,
+    "sensor_evaluation_triggered_by_agent": false,
+    "formal_recovery_launched": false,
+    "reload_or_restart_by_agent": false,
+    "formal_writes_by_agent": false,
+    "reports_tmp_only": true
+  },
+  "acceptance_status": {
+    "deployed": true,
+    "normal_runtime_checks": "passed",
+    "real_automatic_recovery_chain": "pending_natural_failure",
+    "natural_failure_sample_run_id": null,
+    "new_execution_this_document_update": false
+  },
+  "minimal_verification": {
+    "scope": "one naturally failing Raw job and one partition, first failure to second automatic run",
+    "trigger": "eligible natural failure with current typed identity and complete STEP_FAILURE; no forced fault",
+    "failure_evidence": "all bounded STEP_FAILURE records validated by current reader, not messages or samples alone",
+    "cooldown_basis": "persisted first failure run.end_time",
+    "second_request_and_run_creation_not_before_seconds": 600,
+    "second_identity": {
+      "policy_version": "dc_board_recovery_v1",
+      "automatic_attempt": 2,
+      "source_failure_run_id": "exact first failed run id"
+    },
+    "key": "existing build_repair_attempt_run_key output for same job/date attempt2",
+    "success_evidence": "second run SUCCESS plus target-date physical Raw/core checks and downstream Silver readiness",
+    "waiting": "actual tick/source proof/queue may delay beyond600s; inspect existing blocker only",
+    "no_natural_failure": "remain pending; no deadline or fabricated acceptance",
+    "second_failure": "record attempt2 chain observed, data recovery not successful; no manufactured attempt3",
+    "prohibited": [
+      "new isolated environment",
+      "simulated formal fault",
+      "extra validation jobs",
+      "sensor evaluation by auditor",
+      "formal data damage",
+      "fake failure events or legacy metadata",
+      "cursor/key reset",
+      "manual rerun of ready dates"
+    ]
+  },
+  "archived_latest_natural_ticks": {
+    "raw_tushare_dc_daily_update_job_sensor": {
+      "id": 2333843,
+      "status": "SKIPPED",
+      "timestamp": "2026-10-11 11:11:44.333864",
+      "tick": {
+        "__class__": "TickData",
+        "auto_materialize_evaluation_id": null,
+        "consecutive_failure_count": 0,
+        "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"dc_board\", \"blocked_component\": \"none\", \"evidence\": {\"expected_count\": 10, \"registered_count\": 10}, \"frontier\": {\"elapsed_ms\": 394, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}, \"job_name\": \"raw_tushare_dc_daily_update_job\", \"next_action\": \"等待下一个交易日。\", \"partition_set\": \"cn_a_dc_daily_trade_days\", \"performance_ms\": {\"duckdb_batch\": 394}, \"reason_code\": \"all_ready\", \"sensor_name\": \"raw_tushare_dc_daily_update_job_sensor\", \"summary\": \"板块 Raw 最近窗口已就绪。\"}, \"evaluated_at\": \"2026-10-11T19:11:44.465658+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+        "dynamic_partitions_request_results": [],
+        "end_timestamp": 1791717104.882221,
+        "error": null,
+        "failure_count": 0,
+        "job_name": "raw_tushare_dc_daily_update_job_sensor",
+        "job_origin_id": "e92208aa03ef8a620cecbe8301e68cb882d064c9",
+        "job_type": {
+          "__enum__": "InstigatorType.SENSOR"
+        },
+        "log_key": [
+          "__repository__",
+          "raw_tushare_dc_daily_update_job_sensor",
+          "2333843"
+        ],
+        "origin_run_ids": [],
+        "reserved_run_ids": [],
+        "run_ids": [],
+        "run_keys": [],
+        "run_requests": [],
+        "selector_id": "115f087178a15c30f86d0b00bdd127305cf3319f",
+        "skip_reason": "板块 Raw 窗口暂无可提交分区。",
+        "status": {
+          "__enum__": "TickStatus.SKIPPED"
+        },
+        "timestamp": 1791717104.333864,
+        "user_interrupted": false
+      }
+    },
+    "raw_tushare_dc_index_update_job_sensor": {
+      "id": 2333853,
+      "status": "SKIPPED",
+      "timestamp": "2026-10-11 11:11:51.213101",
+      "tick": {
+        "__class__": "TickData",
+        "auto_materialize_evaluation_id": null,
+        "consecutive_failure_count": 0,
+        "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"dc_board\", \"blocked_component\": \"none\", \"evidence\": {\"expected_count\": 10, \"registered_count\": 10}, \"frontier\": {\"elapsed_ms\": 13, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}, \"job_name\": \"raw_tushare_dc_index_update_job\", \"next_action\": \"等待下一个交易日。\", \"partition_set\": \"cn_a_dc_index_trade_days\", \"performance_ms\": {\"duckdb_batch\": 13}, \"reason_code\": \"all_ready\", \"sensor_name\": \"raw_tushare_dc_index_update_job_sensor\", \"summary\": \"板块 Raw 最近窗口已就绪。\"}, \"evaluated_at\": \"2026-10-11T19:11:51.613276+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+        "dynamic_partitions_request_results": [],
+        "end_timestamp": 1791717111.679641,
+        "error": null,
+        "failure_count": 0,
+        "job_name": "raw_tushare_dc_index_update_job_sensor",
+        "job_origin_id": "dca536f323e0c79b679fe91e35f9c9e5019f3617",
+        "job_type": {
+          "__enum__": "InstigatorType.SENSOR"
+        },
+        "log_key": [
+          "__repository__",
+          "raw_tushare_dc_index_update_job_sensor",
+          "2333853"
+        ],
+        "origin_run_ids": [],
+        "reserved_run_ids": [],
+        "run_ids": [],
+        "run_keys": [],
+        "run_requests": [],
+        "selector_id": "f11f72c5f8f7c19933a3e6306554b4658f6ef3d8",
+        "skip_reason": "板块 Raw 窗口暂无可提交分区。",
+        "status": {
+          "__enum__": "TickStatus.SKIPPED"
+        },
+        "timestamp": 1791717111.213101,
+        "user_interrupted": false
+      }
+    },
+    "raw_tushare_dc_member_update_job_sensor": {
+      "id": 2333793,
+      "status": "SKIPPED",
+      "timestamp": "2026-10-11 11:11:06.826591",
+      "tick": {
+        "__class__": "TickData",
+        "auto_materialize_evaluation_id": null,
+        "consecutive_failure_count": 0,
+        "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"dc_board\", \"blocked_component\": \"none\", \"evidence\": {\"expected_count\": 10, \"registered_count\": 10}, \"frontier\": {\"elapsed_ms\": 144, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}, \"job_name\": \"raw_tushare_dc_member_update_job\", \"next_action\": \"等待下一个交易日。\", \"partition_set\": \"cn_a_dc_member_trade_days\", \"performance_ms\": {\"duckdb_batch\": 144}, \"reason_code\": \"all_ready\", \"sensor_name\": \"raw_tushare_dc_member_update_job_sensor\", \"summary\": \"板块 Raw 最近窗口已就绪。\"}, \"evaluated_at\": \"2026-10-11T19:11:06.915747+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+        "dynamic_partitions_request_results": [],
+        "end_timestamp": 1791717067.157553,
+        "error": null,
+        "failure_count": 0,
+        "job_name": "raw_tushare_dc_member_update_job_sensor",
+        "job_origin_id": "8162ffacc0a83ddb6da47102fda5584a25eeceb6",
+        "job_type": {
+          "__enum__": "InstigatorType.SENSOR"
+        },
+        "log_key": [
+          "__repository__",
+          "raw_tushare_dc_member_update_job_sensor",
+          "2333793"
+        ],
+        "origin_run_ids": [],
+        "reserved_run_ids": [],
+        "run_ids": [],
+        "run_keys": [],
+        "run_requests": [],
+        "selector_id": "fd756cf41d1e5b9fdf08977789abbd4a82d17469",
+        "skip_reason": "板块 Raw 窗口暂无可提交分区。",
+        "status": {
+          "__enum__": "TickStatus.SKIPPED"
+        },
+        "timestamp": 1791717066.826591,
+        "user_interrupted": false
+      }
+    },
+    "silver_dc_daily_update_job_sensor": {
+      "id": 2333859,
+      "status": "SKIPPED",
+      "timestamp": "2026-10-11 11:11:58.952962",
+      "tick": {
+        "__class__": "TickData",
+        "auto_materialize_evaluation_id": null,
+        "consecutive_failure_count": 0,
+        "cursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"dc_board_silver\", \"blocked_component\": \"none\", \"evidence\": {\"expected_count\": 10, \"max_run_requests_per_tick\": 1, \"registered_count\": 10}, \"frontier\": {\"continuity\": {\"actionable_registered_count\": 10, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"internal_missing_registered_count\": 0, \"last_registered_expected_date\": \"2026-10-09\", \"registered_count\": 10, \"registration_gap_class\": \"none\", \"trailing_unregistered_count\": 0}, \"raw\": {\"elapsed_ms\": 263, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}, \"silver\": {\"elapsed_ms\": 172, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}}, \"job_name\": \"silver_dc_daily_update_job\", \"next_action\": \"wait for the next expected trade date\", \"partition_set\": \"cn_a_dc_daily_trade_days\", \"performance_ms\": {\"raw_batch\": 263, \"silver_batch\": 172}, \"reason_code\": \"all_ready\", \"sensor_name\": \"silver_dc_daily_update_job_sensor\", \"summary\": \"recent Silver partitions are ready\"}, \"evaluated_at\": \"2026-10-11T19:11:59.115869+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+        "dynamic_partitions_request_results": [],
+        "end_timestamp": 1791717119.594144,
+        "error": null,
+        "failure_count": 0,
+        "job_name": "silver_dc_daily_update_job_sensor",
+        "job_origin_id": "308b727dbdf65105131b9923168d76054b63dfeb",
+        "job_type": {
+          "__enum__": "InstigatorType.SENSOR"
+        },
+        "log_key": [
+          "__repository__",
+          "silver_dc_daily_update_job_sensor",
+          "2333859"
+        ],
+        "origin_run_ids": [],
+        "reserved_run_ids": [],
+        "run_ids": [],
+        "run_keys": [],
+        "run_requests": [],
+        "selector_id": "6d5ba558164094cabd14fc6397a4a08646eca21b",
+        "skip_reason": "最近 10 个 expected 日期的 Silver 分区都已 ready。",
+        "status": {
+          "__enum__": "TickStatus.SKIPPED"
+        },
+        "timestamp": 1791717118.952962,
+        "user_interrupted": false
+      }
+    },
+    "silver_dc_index_update_job_sensor": {
+      "id": 2333805,
+      "status": "SKIPPED",
+      "timestamp": "2026-10-11 11:11:14.877492",
+      "tick": {
+        "__class__": "TickData",
+        "auto_materialize_evaluation_id": null,
+        "consecutive_failure_count": 0,
+        "cursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"dc_board_silver\", \"blocked_component\": \"none\", \"evidence\": {\"expected_count\": 10, \"max_run_requests_per_tick\": 1, \"registered_count\": 10}, \"frontier\": {\"continuity\": {\"actionable_registered_count\": 10, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"internal_missing_registered_count\": 0, \"last_registered_expected_date\": \"2026-10-09\", \"registered_count\": 10, \"registration_gap_class\": \"none\", \"trailing_unregistered_count\": 0}, \"raw\": {\"elapsed_ms\": 9, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}, \"silver\": {\"elapsed_ms\": 6, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}}, \"job_name\": \"silver_dc_index_update_job\", \"next_action\": \"wait for the next expected trade date\", \"partition_set\": \"cn_a_dc_index_trade_days\", \"performance_ms\": {\"raw_batch\": 9, \"silver_batch\": 6}, \"reason_code\": \"all_ready\", \"sensor_name\": \"silver_dc_index_update_job_sensor\", \"summary\": \"recent Silver partitions are ready\"}, \"evaluated_at\": \"2026-10-11T19:11:15.045256+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+        "dynamic_partitions_request_results": [],
+        "end_timestamp": 1791717075.0780191,
+        "error": null,
+        "failure_count": 0,
+        "job_name": "silver_dc_index_update_job_sensor",
+        "job_origin_id": "5ad7fa5a769b522ebe45c9191478dc2b6b129cf3",
+        "job_type": {
+          "__enum__": "InstigatorType.SENSOR"
+        },
+        "log_key": [
+          "__repository__",
+          "silver_dc_index_update_job_sensor",
+          "2333805"
+        ],
+        "origin_run_ids": [],
+        "reserved_run_ids": [],
+        "run_ids": [],
+        "run_keys": [],
+        "run_requests": [],
+        "selector_id": "bb0e3f8222ab15e3ef9c43bf2369b136db599465",
+        "skip_reason": "最近 10 个 expected 日期的 Silver 分区都已 ready。",
+        "status": {
+          "__enum__": "TickStatus.SKIPPED"
+        },
+        "timestamp": 1791717074.877492,
+        "user_interrupted": false
+      }
+    },
+    "silver_dc_member_update_job_sensor": {
+      "id": 2333803,
+      "status": "SKIPPED",
+      "timestamp": "2026-10-11 11:11:13.971170",
+      "tick": {
+        "__class__": "TickData",
+        "auto_materialize_evaluation_id": null,
+        "consecutive_failure_count": 0,
+        "cursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"dc_board_silver\", \"blocked_component\": \"none\", \"evidence\": {\"expected_count\": 10, \"max_run_requests_per_tick\": 1, \"registered_count\": 10}, \"frontier\": {\"continuity\": {\"actionable_registered_count\": 10, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"internal_missing_registered_count\": 0, \"last_registered_expected_date\": \"2026-10-09\", \"registered_count\": 10, \"registration_gap_class\": \"none\", \"trailing_unregistered_count\": 0}, \"raw\": {\"elapsed_ms\": 133, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}, \"silver\": {\"elapsed_ms\": 103, \"expected_count\": 10, \"expected_end_date\": \"2026-10-09\", \"expected_start_date\": \"2026-09-18\", \"ready_through_date\": \"2026-10-09\", \"scanned_file_count\": 10}}, \"job_name\": \"silver_dc_member_update_job\", \"next_action\": \"wait for the next expected trade date\", \"partition_set\": \"cn_a_dc_member_trade_days\", \"performance_ms\": {\"raw_batch\": 133, \"silver_batch\": 103}, \"reason_code\": \"all_ready\", \"sensor_name\": \"silver_dc_member_update_job_sensor\", \"summary\": \"recent Silver partitions are ready\"}, \"evaluated_at\": \"2026-10-11T19:11:14.112964+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+        "dynamic_partitions_request_results": [],
+        "end_timestamp": 1791717074.37475,
+        "error": null,
+        "failure_count": 0,
+        "job_name": "silver_dc_member_update_job_sensor",
+        "job_origin_id": "738b91e5108a507e1a63d28c76c956ea36729231",
+        "job_type": {
+          "__enum__": "InstigatorType.SENSOR"
+        },
+        "log_key": [
+          "__repository__",
+          "silver_dc_member_update_job_sensor",
+          "2333803"
+        ],
+        "origin_run_ids": [],
+        "reserved_run_ids": [],
+        "run_ids": [],
+        "run_keys": [],
+        "run_requests": [],
+        "selector_id": "635c075ced0f7eca79d5a7cd882b036603fbb68c",
+        "skip_reason": "最近 10 个 expected 日期的 Silver 分区都已 ready。",
+        "status": {
+          "__enum__": "TickStatus.SKIPPED"
+        },
+        "timestamp": 1791717073.97117,
+        "user_interrupted": false
+      }
+    }
+  },
+  "documentation_update_basis": "administrator approved minimal passive natural-failure verification; documentation and existing evidence only"
+}
