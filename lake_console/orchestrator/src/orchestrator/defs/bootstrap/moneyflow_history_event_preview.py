@@ -90,6 +90,7 @@ def moneyflow_history_proof(
     dates = tuple(f.trade_date for f in plan.date_counts)
     if not dates or len(dates) > MONEYFLOW_HISTORY_MAX_DATE_FACTS:
         raise MoneyflowContractError("history_event_dates")
+    row_counts = {f.trade_date: f.row_count for f in plan.date_counts}
     facts = {}
     checkpoints = {}
     hashed_bytes = unit_count = 0
@@ -171,6 +172,11 @@ def moneyflow_history_proof(
                 "raw_sha256": facts[(day, "raw")],
                 "silver_sha256": facts[(day, "silver")],
                 "checkpoint": checkpoints[day],
+                **(
+                    {"row_count": row_counts[day]}
+                    if contract.dataset == "moneyflow_ind_ths"
+                    else {}
+                ),
             }
             for day in dates
         ],

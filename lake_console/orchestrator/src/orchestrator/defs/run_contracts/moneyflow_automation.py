@@ -37,6 +37,14 @@ class MoneyflowAutomationContract:
     def silver_job(self):
         return self.silver_asset + "_update_job"
 
+    @property
+    def event_revision(self):
+        return (
+            "market_moneyflow_history_events_v1"
+            if self.dataset == "moneyflow_mkt_dc"
+            else "industry_moneyflow_ths_history_events_v1"
+        )
+
 
 MARKET_MONEYFLOW_AUTOMATION = MoneyflowAutomationContract(
     "moneyflow_mkt_dc",

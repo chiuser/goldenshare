@@ -1,0 +1,680 @@
+{
+  "date": "2026-10-11",
+  "plan_freeze_date": "2026-10-10",
+  "verified_at_utc": "2026-10-10T16:06:10.987638+00:00",
+  "dataset": "moneyflow_ind_ths",
+  "branch": "dev-interface",
+  "preceding_commit": "bf6fa7bf",
+  "pushed": false,
+  "status": "P4_industry_recoverable_event_executor_and_frozen_plans_acceptance_passed_no_formal_apply",
+  "authority": [
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md#41",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md#36",
+    "lake_console/docs/templates/dagster-dataset-onboarding-template.html#source-contract-budget"
+  ],
+  "scope": {
+    "shared_plan": "moneyflow_event_plan.py",
+    "shared_executor": "moneyflow_history_events.py",
+    "fixed_industry_adapters": [
+      "moneyflow_ind_ths_event_plan.py",
+      "moneyflow_ind_ths_events.py"
+    ],
+    "industry_revision": "industry_moneyflow_ths_history_events_v1",
+    "market_revision_and_public_signatures_unchanged": true,
+    "industry_daily_row_count_source": "P3 frozen plan.date_counts, reconstructed from physical proof",
+    "existing_industry_materialization_and_check_metadata_row_counts_validated": true,
+    "default_apply": false,
+    "new_CLI_or_definition_factory": false,
+    "API_frontend_Prod_DatasetDefinition_dependency_matrix_changes": false
+  },
+  "hard_constraint_reconciliation": {
+    "identity_and_counts": "fixed contract, proof entries, exact plan reconstruction, metadata/target readback; 89/90 rows and seven rehashed invalid counts rejected",
+    "no_source_gap_fabrication": "selected dates subset of P3 actual source dates; no derived money values, no parquet rebuild",
+    "checks_recent_twenty_only": "shared executor and full 494-date capacity test; older dates receive materializations only",
+    "read_only": "default entry, write traps and formal existing PG read-only session; no auto-DDL",
+    "recovery": "native commit per event; checkpoint fsync+atomic replace; cancellation and actual os._exit before checkpoint, resume, idempotency, observer/storage failure tests",
+    "budgets": "inherited constants and active/lock/identity/file/timeout/read/work/memory negative tests; no limit increase",
+    "remaining": [
+      "formal PG sample/full apply and readiness/native identity readback",
+      "sensor maintenance and runtime code identity before apply",
+      "pool and sensor activation approval",
+      "P5 actual new-date Tushare acceptance"
+    ]
+  },
+  "performance_limits": {
+    "work_items": 4096,
+    "apply_seconds": 600,
+    "batch_seconds": 120,
+    "metadata_reads": 256,
+    "dates_per_batch": 100,
+    "records_per_query": 100,
+    "recent_source_dates_checked": 20,
+    "duckdb_memory_bytes": 536870912,
+    "duckdb_threads": 1,
+    "spill": false,
+    "rss_bytes": 805306368,
+    "plan_bytes": 33554432,
+    "checkpoint_bytes": 262144,
+    "source_requests_and_pagination": 0,
+    "full_history_database_transaction": false,
+    "formal_PG_write_cost_measured": false
+  },
+  "tests": {
+    "executor_and_previews": {
+      "cases": 103,
+      "seconds": 119.02,
+      "passed": true,
+      "suites": [
+        "test_moneyflow_ind_ths_events.py",
+        "test_moneyflow_mkt_dc_events.py",
+        "test_moneyflow_ind_ths_event_preview.py",
+        "test_moneyflow_mkt_dc_event_preview.py"
+      ]
+    },
+    "static": {
+      "cases": 113,
+      "subtests": 0,
+      "batches": 15,
+      "log_path": "/private/tmp/moneyflow-ind-ths-events-static-final-20261010.log",
+      "log_sha256": "321843e1c8da6ec19eb1676c74a469f7683528ecce22f8559825ce4e43300207",
+      "batch_evidence": [
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:1",
+          "expected_count": 8,
+          "policy_sha256": "e07f840934cd5d5ea27efa1d6013fd64801a4dac4709cc1093541de19d8643f2",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:1",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 2234
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:2",
+          "expected_count": 8,
+          "policy_sha256": "880a76fb4c48c26a9eceb3d56d158ac859e7b1d42fb89954fe606499906087c9",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:2",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1370
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:3",
+          "expected_count": 8,
+          "policy_sha256": "53e6948faf1dca71f25528dd64823bb2a5d8fde33050922a14e6f5770c1145ce",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:3",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1058
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:4",
+          "expected_count": 8,
+          "policy_sha256": "7952d032dee0ebe589740efc61342e85a050b5081b60f85d9465c574d6ac4173",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:4",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1132
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:5",
+          "expected_count": 8,
+          "policy_sha256": "9ba5411b6121c403682f6c61335079fb50d771f583badba48bd9bc5240f818cc",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:5",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1099
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:6",
+          "expected_count": 8,
+          "policy_sha256": "64619effb41ec0a7cd7d864525bbe43eaaee10d75375e4376cca59500cb10d67",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:6",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1152
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:7",
+          "expected_count": 8,
+          "policy_sha256": "c4b6350595a8a3e36f91e511e4b14d4e0d5f4c613853d73b64ec105168ae6eb5",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:7",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 3330
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:8",
+          "expected_count": 8,
+          "policy_sha256": "d24d67ff5649b081ce7d7ca18c895607224fba40bf72836b3488dd74e3ea8ec5",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:8",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1010
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:9",
+          "expected_count": 8,
+          "policy_sha256": "d383433da6d460cc47a63bf74d1021c3e67dcd28294ade2c5eb524c8c9cc2f3e",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:9",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1048
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:10",
+          "expected_count": 8,
+          "policy_sha256": "2dcdc4e26c089786741fc17c1bab3f01f6bd65bc2657b909039507f0eb4043b7",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:10",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1123
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:11",
+          "expected_count": 8,
+          "policy_sha256": "61f5205009fbee36881b1bd50545eee3873956c08343d55c2793568fe09a1fa8",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:11",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1111
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:12",
+          "expected_count": 8,
+          "policy_sha256": "c390e1999bc247cf411acc819cf32199bf4c40433ea6819250fb2f3e61213f2c",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:12",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 1179
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:13",
+          "expected_count": 8,
+          "policy_sha256": "7e0b0b5b0a46c988a8b5f9c442a9188a5ccfd88608e8b2679ffcf8b9a7f67d3a",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:13",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 973
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:14",
+          "expected_count": 8,
+          "policy_sha256": "5a2c34efea138da2423b4c74f8972f4ad3c76a2d5d956812bea322fee67052a6",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:14",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 995
+        },
+        {
+          "implemented_slice": "G-regression:test_run_contract_static_gates.py:15",
+          "expected_count": 1,
+          "policy_sha256": "2f2a066e807302b6dee41870cc67a37a5dafe8669dab6e75c087c61e9f49ce29",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_run_contract_static_gates.py:15",
+            "completed": 1,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 988
+        }
+      ]
+    },
+    "catalog": {
+      "cases": 12,
+      "subtests": 486,
+      "batches": 2,
+      "log_path": "/private/tmp/moneyflow-ind-ths-events-catalog-final-20261010.log",
+      "log_sha256": "80d93b6f7d6d66a540e8766fdf8fefd966d235c9cce36ee2ca1cc39febc5f623",
+      "batch_evidence": [
+        {
+          "implemented_slice": "G-regression:test_asset_governance_contracts.py:1",
+          "expected_count": 8,
+          "policy_sha256": "1dec5bd4f09301d5a3c447d3acccce19b71ff13227b0ff63018bb7ed6362456c",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_asset_governance_contracts.py:1",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 311,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 2109
+        },
+        {
+          "implemented_slice": "G-regression:test_asset_governance_contracts.py:2",
+          "expected_count": 4,
+          "policy_sha256": "c7586c9b3cfbc83e16b8cf8a07ecabe2d9682d37e09e891f71f21868e1884629",
+          "passed": true,
+          "resource_gate_passed": true,
+          "denied_unchanged": true,
+          "exit_code": 0,
+          "pytest": {
+            "slice": "G-regression:test_asset_governance_contracts.py:2",
+            "completed": 4,
+            "failures": 0,
+            "subtests_completed": 175,
+            "connection_count": 0,
+            "passed": true
+          },
+          "elapsed_ms": 2345
+        }
+      ]
+    },
+    "full_definitions": "isolated instance, no formal credentials, UV offline/no-sync; passed"
+  },
+  "isolated_full_capacity": {
+    "scope": "isolated SQLite with archived 90-row fixture on synthetic 494 dates",
+    "dates": 494,
+    "rows": 44460,
+    "result": {
+      "plan_hash": "d1d36c9bbd82a19fe506aaeb02694d7ea4dc58597ec5a0997987159bd4463985",
+      "stage": "complete",
+      "current_date": null,
+      "layer": null,
+      "completed": 1522,
+      "total": 1522,
+      "percent": 100.0,
+      "updated_at": "2026-10-10T15:57:02.989667+00:00",
+      "elapsed_seconds": 5.29550641681999,
+      "metadata_reads": 141,
+      "written_events_this_attempt": 1028,
+      "registered_keys_this_attempt": 494
+    },
+    "read_batch_sizes": [
+      1,
+      20,
+      94,
+      100
+    ],
+    "atomic_control_saves": 1047,
+    "atomic_control_save_seconds": 0.38586504594422877,
+    "max_atomic_control_save_seconds": 0.003328292164951563,
+    "process_peak_rss_bytes": 445579264
+  },
+  "formal_read_only_plans": {
+    "formal_writes": 0,
+    "instance_automatic_DDL": false,
+    "market_original_plans_unchanged": {
+      "sample": {
+        "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+        "file_sha256": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6",
+        "reconstructed_equal": true
+      },
+      "full": {
+        "plan_hash": "e699ce04e04ed8e792a95ff72140251945aa282cda0b18ed25972517357ce92d",
+        "file_sha256": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14",
+        "reconstructed_equal": true
+      }
+    },
+    "industry_plans": {
+      "sample": {
+        "path": "lake_console/reports/moneyflow_p4_ind_ths_event_registration_sample_plan_20261010.json",
+        "file_sha256": "72fca742cfaf060ab2ace0f5533cb6dee459e84fc034903d1a813d95baa8d75a",
+        "plan_hash": "72cab9be9af8b53cf47463acce087598dfe31c402161bf9c792149d2bb4a7e3b",
+        "bytes": 13760,
+        "dates": 2,
+        "first_date": "2026-09-29",
+        "last_date": "2026-09-30",
+        "rows": 180,
+        "controls": 54,
+        "recent_check_dates": [
+          "2026-09-29",
+          "2026-09-30"
+        ],
+        "total_work_items": 10,
+        "build_seconds": 0.3700906669255346,
+        "preview_seconds": 0.3768619999755174,
+        "preview": {
+          "plan_hash": "72cab9be9af8b53cf47463acce087598dfe31c402161bf9c792149d2bb4a7e3b",
+          "stage": "read_only_preview",
+          "current_date": null,
+          "layer": null,
+          "completed": 0,
+          "total": 10,
+          "percent": 0.0,
+          "updated_at": "2026-10-10T15:57:17.372834+00:00",
+          "elapsed_seconds": 0.3765535419806838,
+          "metadata_reads": 7,
+          "written_events_this_attempt": 0,
+          "registered_keys_this_attempt": 0,
+          "missing_partition_keys": 2,
+          "missing_materializations": 4,
+          "missing_checks": 4,
+          "formal_writes": 0
+        }
+      },
+      "full": {
+        "path": "lake_console/reports/moneyflow_p4_ind_ths_event_registration_full_plan_20261010.json",
+        "file_sha256": "82743d5a337f5579f53b8c73b2a12ae9762ed18a584749e49c57e14cae322eaa",
+        "plan_hash": "7dbc2c4f08774552f6f0fafa8f423338980d53fb262a300ce09506e4a1cbdc1c",
+        "bytes": 270910,
+        "dates": 494,
+        "first_date": "2024-09-10",
+        "last_date": "2026-09-30",
+        "rows": 44460,
+        "controls": 54,
+        "recent_check_dates": [
+          "2026-09-02",
+          "2026-09-03",
+          "2026-09-04",
+          "2026-09-07",
+          "2026-09-08",
+          "2026-09-09",
+          "2026-09-10",
+          "2026-09-11",
+          "2026-09-14",
+          "2026-09-15",
+          "2026-09-16",
+          "2026-09-17",
+          "2026-09-18",
+          "2026-09-21",
+          "2026-09-22",
+          "2026-09-23",
+          "2026-09-24",
+          "2026-09-28",
+          "2026-09-29",
+          "2026-09-30"
+        ],
+        "total_work_items": 1522,
+        "build_seconds": 0.3071886671241373,
+        "preview_seconds": 0.4091256249230355,
+        "preview": {
+          "plan_hash": "7dbc2c4f08774552f6f0fafa8f423338980d53fb262a300ce09506e4a1cbdc1c",
+          "stage": "read_only_preview",
+          "current_date": null,
+          "layer": null,
+          "completed": 0,
+          "total": 1522,
+          "percent": 0.0,
+          "updated_at": "2026-10-10T15:57:18.088250+00:00",
+          "elapsed_seconds": 0.40790066681802273,
+          "metadata_reads": 15,
+          "written_events_this_attempt": 0,
+          "registered_keys_this_attempt": 0,
+          "missing_partition_keys": 494,
+          "missing_materializations": 988,
+          "missing_checks": 40,
+          "formal_writes": 0
+        }
+      }
+    },
+    "elapsed_seconds": 2.582454000134021
+  },
+  "physical_proof": {
+    "operation_id": "history-full-20261009",
+    "cutoff": "2026-09-30",
+    "source_dates": 494,
+    "rows": 44460,
+    "files_hashed": 988,
+    "hashed_bytes": 8004292,
+    "controls": 54,
+    "recent_SQL_audit_dates": 20,
+    "recent_SQL_audit_files": 40,
+    "full_494_date_SQL_deep_audit": false
+  },
+  "source_evidence_boundary": {
+    "fixture": "lake_console/orchestrator/tests/fixtures/moneyflow_ind_ths_20260930.json",
+    "fixture_sha256": "56df871a53ad38e52f7968c333f14d039efda714153d4ec8451916b7752a4277",
+    "real_source_rows": 90,
+    "fields": 12,
+    "isolated_capacity_dates_synthetic": true,
+    "fresh_Prod_or_Tushare_requests": 0,
+    "P5_verified": false,
+    "installed_dagster_version": "1.13.18"
+  },
+  "configuration_audit": {
+    "new_env_Settings_database_resource_budget_or_switch": false,
+    "stable_event_revision_source": "defs/run_contracts/moneyflow_automation.py fixed contract property",
+    "consumers": [
+      "shared plan builder/validator",
+      "shared recoverable executor"
+    ],
+    "effective_on": "definition/code load",
+    "operator_visible_in": [
+      "frozen plan",
+      "progress/checkpoint metadata"
+    ]
+  },
+  "codegraph": {
+    "preflight_tools": [
+      "codegraph_explore",
+      "codegraph_impact"
+    ],
+    "symbols": [
+      "build_market_moneyflow_event_plan",
+      "validate_market_moneyflow_event_plan",
+      "report_market_moneyflow_history_events"
+    ],
+    "direct_code_supplement": "ambiguous token results; audited current private test monkeypatch and subprocess consumers",
+    "postflight": [
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "index": "up to date",
+    "remaining_runtime_boundary": "loaded process source hash and sensor/active-run maintenance before formal approved apply"
+  },
+  "checks": {
+    "scoped_python_paths": 11,
+    "ruff": "passed",
+    "whole_src_tests_fatal_ruff": "passed",
+    "docs_integrity": "passed",
+    "scoped_diff_check": "passed",
+    "protected_runner_changes": "four explicit source read paths only"
+  },
+  "formal_actions": {
+    "postgres_read_only": true,
+    "formal_APPLY": false,
+    "parquet_writes": 0,
+    "dynamic_partition_writes": 0,
+    "event_writes": 0,
+    "sensor_evaluation_or_state_writes": 0,
+    "pool_changes": 0,
+    "jobs_submitted": 0,
+    "reload": 0,
+    "Prod_or_Tushare_requests": 0,
+    "formal_staging_writes": 0,
+    "instance_initialization_or_DDL": 0
+  },
+  "next_step": {
+    "two_day_formal_sample": "requires exact frozen sample approval and maintenance preflight",
+    "full_formal_registration": "separate approval after sample readback; reuse four sample materialization identities",
+    "remaining_after_sample": {
+      "keys": 492,
+      "materializations": 984,
+      "checks": 36,
+      "work_items": 1512,
+      "events": 1020
+    },
+    "P4_closed": false,
+    "P5_started": false
+  },
+  "current_python_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_event_preview.py": "5d681f407a25e0f48aa0fa85e288f1099720db43663d78adfd779afbd5c0d5b1",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_mkt_dc_event_plan.py": "36b595b274953ed6a95a99162afffc96a392858fb161b7df44c7f67a965bc34a",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_mkt_dc_events.py": "b9e049078ec9c1e1cabf7829328b2903806f2fbded8f7572831d802d513ae91c",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow_automation.py": "8dedef7f8c275ead600dc471a6413b905f92f6ec84873a81d3bc221b511acf9c",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_events.py": "6b3190a1aa9ca7d04a7220b6058135757e6d0eca48b7728d387acf31d38a4505",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "6235a4124c76482aae18ead70b353794c5f1b5583408330abd1c2e92902d96c5",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_event_plan.py": "b9066fa26e1581820986e774a478bb648e8275900c99214691423ee9053d80a3",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_events.py": "8a642b6a9b70c43cec17e20a6e79c5e9775cffbddc17007a3af8213442abf10e",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_ind_ths_event_plan.py": "680f493b636eacf6e82e68d04ecbac84a6252f7da0d693ddf43c71e33e5f8078",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_ind_ths_events.py": "6caa58b010f1ac41977bb02f100a1d0b46f9edd24abb636b3bb966ba660c4c6d",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_events.py": "c79433b03bedd60321742acc3e4c2ff04d1390fe8d81bd95b61a00cecc940cda"
+  },
+  "original_reports_unchanged": {
+    "lake_console/reports/moneyflow_derivation_feasibility_20261006.json": "0944c6879316d8e16255f5bfa9c304e9a3a34772eec3148a3d40bdbdf3c8b396",
+    "lake_console/reports/moneyflow_p0_closeout_20261006.json": "6194d04cf925722ec5c8c00e8402b70af695efbb646358382afbb546aea6a413",
+    "lake_console/reports/moneyflow_p0_evidence_20261006.json": "9fa7c9582e3eab8ffa1681cde59fcaa12fa073a742fce59889a19af039bf97c3",
+    "lake_console/reports/moneyflow_p0_partial_day_followup_20261006.json": "98d406d04595502d8b1f07b56a29bbf92ce6fd78c18bc00ce538143fa02f2806",
+    "lake_console/reports/moneyflow_p0_prod_date_counts_20261006.csv": "97a41694680dc13340785af03a902acb39d33afbfda33480bf9e5d34710c90e8",
+    "lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json": "8b620d66300c01c49489b82e3df7989b2f8e434982b6e21ba7373ec9a9d8fb9a",
+    "lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json": "e603b851fc60538d5e6612f182be8f79af13d4f1ff18fd92f4be12d3d56bc020",
+    "lake_console/reports/moneyflow_p2_moneyflow_ths_evidence_20261007.json": "71d2fa3803981ee85acca2ed9e35bd8b7913bc2393ee2700c53a6994df3c01c7",
+    "lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json": "c23ec90476acb4f787247747b233a5dce7f60f1e82d1b35a3709a31220817d92",
+    "lake_console/reports/moneyflow_p3_date_candidates_evidence_20261007.json": "049fd1170665217230493fc49b270aaa65a42af37d924885f2a985f5c233aebe",
+    "lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json": "1a52dcbb8ba5aea2a2790b9f3bed8354fd81b605208060b6184dc0930850af7a",
+    "lake_console/reports/moneyflow_p3_date_query_profile_20261008.json": "71e63247688f11dfb32210bd406c6a955996993b61ce4c52bd5a23b7f8d20d1b",
+    "lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json": "f88edab78bafd2168812c4d7f66690d115d0018b7ddeaef6b812fb5f4a2e996a",
+    "lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json": "752e87b7e325755c9845f35db5039ed8210a9bf77fc06cd11cb3b335e751fa97",
+    "lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json": "02534cda4abbddbbc6f152cd6041fcad5fd01f96a0d0a17da4bf25d5c695cac3",
+    "lake_console/reports/moneyflow_p3_history_export_evidence_20261007.json": "e012f42c585964b112f37f41915abca071f6475829498cfabd3349afec58c9a4",
+    "lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json": "aa0b1012eec596957ce49f3989db4cd9a1e8500afd1b7e538d84bb6d07d3d38a",
+    "lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json": "a7fb1e68c7c457c2e35a08b006f45b404f146305e3f697f79a2cc86de4d58018",
+    "lake_console/reports/moneyflow_p3_selected_dates_evidence_20261008.json": "43ae51b534d7d66f1c9e5fe41e5b95c0312bb108fea956f8f5cb19e3ef679a88",
+    "lake_console/reports/moneyflow_p4_ind_ths_automation_evidence_20261010.json": "292fd0bb792388287558760381cd6ae06ad0c2cec0e614125d1e6fafb6fcf8b7",
+    "lake_console/reports/moneyflow_p4_ind_ths_evidence_20261010.json": "73f3870ac235cdd3b591f36b278c13bb05f25f6979b368759e98e168e634db9c",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_evidence_20261010.json": "98da97a6f1c0726ada605b0c4fff84b4478ef921c32fa35a8029d643e6c77ed9",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_full_evidence_20261010.json": "04a4b1ff9c89553cf62422ddc2c21f2a1b81be11733e72e73d6e0ca00314423f",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_sample_evidence_20261010.json": "3a65b91362b961fec4f5573429830c6f8460ade54cde790e95219423789a8324",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_full_plan_20261010.json": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_sample_plan_20261010.json": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6",
+    "lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json": "5c1f28164a68758aa89cb2070ab2bd9af444e8abc13302210f68ef667d9802a5",
+    "lake_console/reports/moneyflow_p4_mkt_dc_sensor_event_preview_evidence_20261009.json": "8a6f805cef9e39b802709d494489a1d3fb76f7aac7b8e488ad0fc3fa90a7491d"
+  },
+  "log_sha256": {
+    "/private/tmp/moneyflow-ind-ths-events-final-20261010.log": "a3876338f3b52a31ba1dadf9e98ae928d1e333fd6d18e46daa9979e007bd6ac9",
+    "/private/tmp/moneyflow-ind-ths-events-formal-plans-20261010.json": "fe674a0ad7efae9b208c5e839461c130c143dfe2b43a29d5ee979705b060f641",
+    "/private/tmp/moneyflow-ind-ths-events-final-20261010/test_date_batches_and_only_las0/industry-event-capacity.json": "8f27baac995fd95fc0388901fe2f0d2d2b16c6e3649622e42d7718b6566c0e58",
+    "/private/tmp/moneyflow-ind-ths-events-static-final-20261010.log": "321843e1c8da6ec19eb1676c74a469f7683528ecce22f8559825ce4e43300207",
+    "/private/tmp/moneyflow-ind-ths-events-catalog-final-20261010.log": "80d93b6f7d6d66a540e8766fdf8fefd966d235c9cce36ee2ca1cc39febc5f623",
+    "/private/tmp/moneyflow-ind-ths-events-defs-20261010.log": "5f669c08ebd39efd649fc46a47dc56b252d88d305949cfadc889c2d20a95aaac",
+    "/private/tmp/moneyflow-ind-ths-events-docs-20261011.log": "4a54bdf009e4ed2f2cb57b8210c15fbb9f7f1f3aa8ece2d9b513e022a47a7e00",
+    "/private/tmp/moneyflow-ind-ths-events-codegraph-sync-20261011.log": "04e1f57b083aba50589ff373e2775b38f1cc18da0f96db4271c52b9bb2216e50",
+    "/private/tmp/moneyflow-ind-ths-events-codegraph-status-20261011.log": "9fc5b57472146c8d914b6903f3a7e06cd0c75f56048de21d6ef8effdcf5bff80"
+  }
+}

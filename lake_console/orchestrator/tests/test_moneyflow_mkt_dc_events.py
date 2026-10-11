@@ -15,14 +15,17 @@ import pytest
 from orchestrator.defs.asset_guards.moneyflow_mkt_dc_readiness import (
     batch_market_moneyflow_readiness,
 )
-from orchestrator.defs.bootstrap import moneyflow_mkt_dc_event_plan as planner
-from orchestrator.defs.bootstrap import moneyflow_mkt_dc_events as writer
+from orchestrator.defs.bootstrap import moneyflow_event_plan as planner
+from orchestrator.defs.bootstrap import moneyflow_history_events as writer
 from orchestrator.defs.bootstrap.moneyflow_history_cohort import _large_json
 from orchestrator.defs.bootstrap.moneyflow_mkt_dc_event_plan import (
     build_market_moneyflow_event_plan,
 )
 from orchestrator.defs.bootstrap.moneyflow_mkt_dc_event_preview import (
     read_market_moneyflow_event_state,
+)
+from orchestrator.defs.bootstrap.moneyflow_mkt_dc_events import (
+    report_market_moneyflow_history_events,
 )
 from orchestrator.defs.io.moneyflow_candidates import moneyflow_writer_lock
 from orchestrator.defs.partitions import cn_a_moneyflow_mkt_dc_trade_days
@@ -31,6 +34,9 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_MAX_RSS_BYTES,
     MoneyflowContractError,
     moneyflow_peak_rss_bytes,
+)
+from orchestrator.defs.run_contracts.moneyflow_automation import (
+    MARKET_MONEYFLOW_AUTOMATION as CONTRACT,
 )
 
 from .test_moneyflow_history_promote import (
@@ -92,7 +98,7 @@ def state(instance, plan):
 
 
 def execute(instance, plan, **kwargs):
-    return writer.report_market_moneyflow_history_events(
+    return report_market_moneyflow_history_events(
         instance=instance, plan=plan, **kwargs
     )
 
@@ -154,8 +160,8 @@ def test_native_registration_readiness_and_idempotent_replay(environment):
         )
         == 1
         for key, check in (
-            ("raw_tushare_moneyflow_mkt_dc", writer.MONEYFLOW_MKT_DC_RAW_CHECK),
-            ("silver_moneyflow_mkt_dc", writer.MONEYFLOW_MKT_DC_SILVER_CHECK),
+            ("raw_tushare_moneyflow_mkt_dc", CONTRACT.raw_check),
+            ("silver_moneyflow_mkt_dc", CONTRACT.silver_check),
         )
     )
     assert before == (physical(plan), source.calls)
@@ -245,7 +251,12 @@ def test_conflicting_native_evidence_cannot_be_overwritten(environment, kind):
     record = instance.fetch_materializations(event.asset_key, limit=1).records[0]
     if kind in {"failed_check", "stale_check"}:
         check = writer._evaluation(
-            plan, entry, layer, writer._path(plan, entry, layer), record
+            plan,
+            entry,
+            layer,
+            writer._path(plan, entry, layer),
+            record,
+            contract=CONTRACT,
         )
         target = check.target_materialization_data
         check = writer.AssetCheckEvaluation(
@@ -323,7 +334,8 @@ def test_actual_process_exit_before_checkpoint_does_not_duplicate_event(
     script.write_text("""import json, os, sys
 from pathlib import Path
 import dagster as dg
-from orchestrator.defs.bootstrap import moneyflow_mkt_dc_events as writer
+from orchestrator.defs.bootstrap import moneyflow_history_events as writer
+from orchestrator.defs.bootstrap.moneyflow_mkt_dc_events import report_market_moneyflow_history_events
 plan = json.loads(Path(sys.argv[1]).read_text())
 original = writer._atomic_json
 def save(path, payload, **kwargs):
@@ -332,7 +344,7 @@ def save(path, payload, **kwargs):
     original(path, payload, **kwargs)
 writer._atomic_json = save
 with dg.DagsterInstance.get() as instance:
-    writer.report_market_moneyflow_history_events(instance=instance, plan=plan, apply=True)
+    report_market_moneyflow_history_events(instance=instance, plan=plan, apply=True)
 """)
     env = {
         **os.environ,
