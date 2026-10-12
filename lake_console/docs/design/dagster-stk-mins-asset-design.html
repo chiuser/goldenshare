@@ -264,6 +264,7 @@
 <body>
 <main>
   <header>
+    <div class="note"><strong>分钟 Gold 选源口径校准（2026-10-12）：</strong>保留当前正式生成逻辑，统一以 <a href="dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md#24-七频率首根合同">标准 K 线 LLD §2.4—§2.5</a>为准。Gold 1/5/15/30/60/90/120 分钟分别读取 Silver 1/1/5/5/30/30/60 分钟，加复权因子后按现有窗口生成；90/120 不读取 Gold 30/60。本文只纠正文档，历史阶段数量保留当时含义，不代表本次执行或最新库存。</div>
     <div class="pill-row">
       <span class="pill ok">核心口径已拍板</span>
       <span class="pill neutral">设计文档</span>
@@ -547,14 +548,17 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
     <h3>5.4 Gold qfq assets</h3>
     <table>
       <tr><th>Asset key</th><th>分区</th><th>输入</th><th>物理路径</th></tr>
-      <tr><td><code>gold_stk_mins_qfq_1m</code></td><td rowspan="7"><code>cn_a_stock_mins_silver_trade_days</code></td><td rowspan="5">native qfq：对应 silver + <code>silver_adj_factor</code>；Dagster 仍按交易日分区，物理文件按股票和年份组织</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
-      <tr><td><code>gold_stk_mins_qfq_5m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
-      <tr><td><code>gold_stk_mins_qfq_15m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
-      <tr><td><code>gold_stk_mins_qfq_30m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
-      <tr><td><code>gold_stk_mins_qfq_60m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_1m</code></td><td rowspan="7"><code>cn_a_stock_mins_silver_trade_days</code></td><td><code>silver_stk_mins_1m</code> + <code>silver_adj_factor</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_5m</code></td><td><code>silver_stk_mins_1m</code> + <code>silver_adj_factor</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_15m</code></td><td><code>silver_stk_mins_5m</code> + <code>silver_adj_factor</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_30m</code></td><td><code>silver_stk_mins_5m</code> + <code>silver_adj_factor</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_60m</code></td><td><code>silver_stk_mins_30m</code> + <code>silver_adj_factor</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
       <tr><td><code>gold_stk_mins_qfq_90m</code></td><td>derived qfq：从同日 <code>silver_stk_mins_30m</code> 与 <code>silver_adj_factor</code> 直接生成，不新增 raw/silver/Tushare/prod DB 源频度</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
       <tr><td><code>gold_stk_mins_qfq_120m</code></td><td>derived qfq：从同日 <code>silver_stk_mins_60m</code> 与 <code>silver_adj_factor</code> 直接生成，不新增 raw/silver/Tushare/prod DB 源频度</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
     </table>
+    <p>
+      七频均使用 <code>gold_stk_mins_qfq_source_freq</code> 选源和 <code>build_canonical_gold_stk_mins_qfq_select_sql</code> 计算，日常、历史重建和 factor repair 沿用同一窗口合同。Silver 保留独立 09:30 竞价行，Gold 1m 保留该行，其他频率只把竞价价格与量额贡献并入首根；15:00 后源行不进入 Gold。指标读取同频 Gold，不直接读取 Silver。
+    </p>
     <p>
       这里的 <code>partition_key</code> 不进入 gold 物理目录名。<code>gold_stk_mins_qfq_5m[2026-05-29]</code> 的含义是：
       2026-05-29 当日 5m qfq 已写入相关股票的 <code>year=2026</code> 文件，而不是生成 <code>trade_date=2026-05-29</code> 文件。
@@ -1233,7 +1237,7 @@ ops:
     <ul>
       <li><code>row_trade_date</code> 是被计算分钟线所在交易日；日常 qfq 中它等于本次 Dagster partition key，repair 中它可以是需要回刷的历史交易日。</li>
       <li><code>as_of_trade_date</code> 是本次 qfq/repair 明确选择的复权基准交易日，不是运行当天的自然日期。周末或节假日手工运行时，它仍取 run config 或 partition 指定的目标交易日。</li>
-      <li>日常 qfq 的 <code>as_of_trade_date = target_trade_date</code>，分子和分母都来自 <code>silver_adj_factor[target_trade_date]</code>；因此目标交易日 qfq OHLC 在理论上应与 silver OHLC 一致。</li>
+      <li>日常 qfq 的 <code>as_of_trade_date = target_trade_date</code>，分子和分母都来自 <code>silver_adj_factor[target_trade_date]</code>，价格调整系数为 1。Gold 仍按 §5.4 选源和标准 K 线窗口聚合；除 1m 有效时间行外，不能要求 Gold OHLC 与同频 Silver 原行逐条相等。</li>
       <li>factor repair 的 <code>as_of_trade_date = trade_date</code>，用 <code>silver_adj_factor[trade_date]</code> 作为历史回刷分母，并用历史行自己的 <code>silver_adj_factor[row_trade_date]</code> 作为分子。</li>
       <li>不新增 <code>silver_adj_factor_latest</code>、<code>silver_adj_factor_basis_snapshot</code> 或其它长期基准资产；基准选择属于 qfq run 的显式输入语义，不是 <code>adj_factor</code> 的第二套事实源。</li>
       <li>gold qfq 不记录历史版本；它表达指定 <code>as_of_trade_date</code> 复权口径下的分钟线结果。</li>
@@ -1245,7 +1249,7 @@ ops:
       <tr>
         <td>资产</td>
         <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m</code></td>
-        <td>native 五频度与 raw/silver 对齐；90/120 是 qfq 资产族内的 derived 频度，只从 30/60 qfq 聚合生成。</td>
+        <td>Raw/Silver 保留五个源频率；Gold 七频按 §5.4 读取规定的 Silver 输入并加因子生成。5/15/30/60 不是全部读取同频 Silver，90/120 不读取 Gold 30/60。</td>
       </tr>
       <tr>
         <td>分区</td>
@@ -1259,7 +1263,7 @@ ops:
       </tr>
       <tr>
         <td>字段</td>
-        <td>默认沿用 silver 主字段：<code>ts_code, freq, trade_date, trade_time, open, high, low, close, vol, amount, exchange</code>；其中 OHLC 是 qfq 后价格，<code>vol/amount/exchange</code> 保持 silver 事实。</td>
+        <td>字段为 <code>ts_code, freq, trade_date, trade_time, open, high, low, close, vol, amount, exchange</code>；OHLC 是源价格复权后按窗口生成的结果，freq/time 为目标频率及窗口时间；vol/amount 不复权，按现行窗口汇总并计入首根竞价贡献，exchange 按窗口唯一性约束保留。</td>
         <td>gold 是 qfq 价格结果，不再复制未复权价格列；需要原始未复权价格时回查 silver，避免 gold 文件体积翻倍。</td>
       </tr>
       <tr>
@@ -1382,13 +1386,13 @@ ops:
       </tr>
       <tr>
         <td>M9E 批量修正</td>
-        <td>repair 执行模型已改为：先用 DuckDB 一次性生成 changed-code plan；再按 <code>freq/year</code> 批量读取对应年份 silver、历史行对应的 adj factor、显式 <code>silver_adj_factor[trade_date]</code> as-of 因子和 changed code 集合；同一批次内用 DuckDB 计算所有受影响股票的 qfq replacement rows；最后按目标 <code>ts_code/year</code> 文件分组写回。</td>
+        <td>repair 执行模型已改为：先用 DuckDB 一次性生成 changed-code plan；再按目标 <code>freq/year</code> 批量读取 §5.4 映射的 Silver 源频率、历史行对应的 adj factor、显式 <code>silver_adj_factor[trade_date]</code> as-of 因子和 changed code 集合；同一批次内用 canonical QFQ SQL 计算所有受影响股票的 replacement rows；最后按目标 <code>ts_code/year</code> 文件分组写回。</td>
         <td>这样每个 <code>freq/year</code> 批次只准备一次输入、只复用一次 as-of factor 输入、只做一轮 DuckDB 计算，避免 <code>changed_code_count * freq_count * year_count</code> 级别的重复查询。Python 只允许做路径规划、批次调度和汇总，不得承载明细计算；repair 不得通过扫描所有 <code>silver_adj_factor</code> 分区现场推导隐式最新分母。</td>
       </tr>
       <tr>
         <td>M11 derived 同步重建</td>
-        <td>native 30/60 repair 写回后，repair helper 必须按 <code>target_freq/year</code> 批量重建受影响股票历史 90/120；repair check event 覆盖七个 qfq assets。</td>
-        <td>避免 30/60 已因复权因子变化修正、90/120 仍保留旧聚合结果。derived 重建只读 qfq 30/60，不读取 raw/silver/Tushare/prod DB。</td>
+        <td>repair helper 按 <code>target_freq/year</code> 批量重建受影响股票历史 90/120，从 Silver 30/60、历史日因子及本次 as-of 因子调用 canonical QFQ SQL；repair check event 覆盖七个 qfq assets。</td>
+        <td>现行函数执行顺序仍在五频回刷后处理 90/120，但读取关系不依赖已写回的 Gold 30/60。90/120 不读取 Raw/Tushare/prod DB；从 Silver 保留的竞价源行生成，避免丢失或重复计入竞价贡献。</td>
       </tr>
       <tr>
         <td>完成记录</td>
@@ -1652,7 +1656,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><strong>M8A</strong></td>
         <td>Gold qfq assets</td>
-        <td>已接入五个 native <code>gold_stk_mins_qfq_*</code> assets，使用 <code>cn_a_stock_mins_silver_trade_days</code>，只读依赖对应 silver 与 <code>silver_adj_factor</code>。</td>
+        <td>M8A 历史接入了五个 <code>gold_stk_mins_qfq_*</code> assets，使用 <code>cn_a_stock_mins_silver_trade_days</code>。当前选源在 2026-08-13 标准 K 线专项中已更新，五频 Silver 输入按 §5.4 映射，不能继续理解为全部读取同频 Silver。</td>
         <td>不新增 sensor；不做历史生成；asset definition metadata 已包含 schema 和由真实路径函数派生的 <code>freq + ts_code + year</code> path template。</td>
       </tr>
       <tr>
