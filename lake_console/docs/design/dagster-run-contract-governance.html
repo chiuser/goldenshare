@@ -1740,6 +1740,17 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       sensor不请求源，Silver绑定同日最新绿Raw及对应hash；历史只按431实际来源日预演，不补源缺口或写event。
       <a href="dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ths-automation">资金流LLD §55</a>记载4MiB本表文件预算及完整只读边界。
     </div>
+    <div class="note">
+      <strong>2026-10-12 个股资金流调度：</strong>
+      <code>cn_a_moneyflow_trade_day_sensor</code> 使用
+      <code>quote_data / partition / partition_registration</code>；
+      <code>raw_tushare_moneyflow_update_job_sensor</code> 与
+      <code>silver_moneyflow_update_job_sensor</code> 分别使用
+      <code>quote_data / raw / asset_update</code>、<code>quote_data / silver / asset_update</code>。
+      三个定义默认STOPPED；上海22:00后优先登记当天，最多补一漏日；更新最近10交易日每tick最多一job。
+      sensor不请求源，Silver绑定同日最新绿Raw/hash。历史只读预演4067来源日，不登记event或改写文件。
+      <a href="dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-automation">资金流LLD §60</a>记录本表4MiB文件预算、85次批量native读取及正式只读边界。
+    </div>
 </main>
 </body>
 </html>

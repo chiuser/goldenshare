@@ -175,7 +175,7 @@ def moneyflow_history_proof(
                 day,
             )
             if (
-                contract.dataset in {"moneyflow_dc", "moneyflow_ths"}
+                contract.dataset in {"moneyflow_dc", "moneyflow_ths", "moneyflow"}
                 and count != row_counts[day]
             ):
                 raise MoneyflowContractError("history_event_rows_changed")
@@ -221,6 +221,7 @@ def moneyflow_history_proof(
                         "moneyflow_ind_dc",
                         "moneyflow_dc",
                         "moneyflow_ths",
+                        "moneyflow",
                     }
                     else {}
                 ),

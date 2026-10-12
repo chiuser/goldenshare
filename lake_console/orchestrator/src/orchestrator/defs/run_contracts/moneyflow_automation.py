@@ -14,6 +14,8 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_MKT_DC_RAW_CHECK,
     MONEYFLOW_MKT_DC_SILVER_CHECK,
     MONEYFLOW_MKT_HISTORY_START,
+    MONEYFLOW_RAW_CHECK,
+    MONEYFLOW_SILVER_CHECK,
     MONEYFLOW_THS_RAW_CHECK,
     MONEYFLOW_THS_SILVER_CHECK,
     MoneyflowContractError,
@@ -55,6 +57,7 @@ class MoneyflowAutomationContract:
             "moneyflow_ind_dc": "board_moneyflow_dc_history_events_v1",
             "moneyflow_dc": "stock_moneyflow_dc_history_events_v1",
             "moneyflow_ths": "stock_moneyflow_ths_history_events_v1",
+            "moneyflow": "stock_moneyflow_history_events_v1",
         }[self.dataset]
 
 
@@ -114,6 +117,16 @@ STOCK_THS_MONEYFLOW_AUTOMATION = MoneyflowAutomationContract(
 )
 
 
+STOCK_MONEYFLOW_AUTOMATION = MoneyflowAutomationContract(
+    "moneyflow",
+    MONEYFLOW_RAW_CHECK,
+    MONEYFLOW_SILVER_CHECK,
+    "cn_a_moneyflow_trade_days",
+    "2010-01-04",
+    "个股资金流向",
+)
+
+
 def require_moneyflow_automation_contract(contract):
     if contract not in (
         MARKET_MONEYFLOW_AUTOMATION,
@@ -121,6 +134,7 @@ def require_moneyflow_automation_contract(contract):
         CONCEPT_THS_MONEYFLOW_AUTOMATION,
         BOARD_DC_MONEYFLOW_AUTOMATION,
         STOCK_THS_MONEYFLOW_AUTOMATION,
+        STOCK_MONEYFLOW_AUTOMATION,
         STOCK_DC_MONEYFLOW_AUTOMATION,
     ):
         raise MoneyflowContractError("automation_dataset")

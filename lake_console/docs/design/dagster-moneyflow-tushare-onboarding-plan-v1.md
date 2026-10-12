@@ -1,6 +1,6 @@
 # Dagster 七个 Tushare 资金流向数据集接入技术方案 v1
 
-> 状态：2026-10-12 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§44及LLD§39.6；三个STOPPED sensor和历史只读预演已通过，见§45及LLD§40，可恢复历史登记执行器及两日/495日冻结清单已完成，见§46及LLD§41，完整当前门禁已通过并收尾，见LLD§41.6，两日正式样本已读回通过，见§47及LLD§42；495日全量历史登记及收尾完成，见§48及LLD§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§49及LLD§44.3，三个STOPPED sensor、历史预演、执行器和两日样本已完成，见§50～52；739日全量登记及本表P4历史接入已关闭，见§53及LLD§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog及完整隔离验收已完成，见§54及LLD§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§55及LLD§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§56及LLD§51；两日正式登记及读回已通过，见§57及LLD§52；739日全量登记及本表P4历史接入已关闭，见§58及LLD§53；739分区/1478物化/最近20来源日40检查齐全；moneyflow_ths独立资产/check/job/catalog及完整隔离验收已完成，见§59及LLD§54；三个STOPPED sensor/readiness和431历史来源日只读预演已通过，见§60及LLD§55；可恢复执行器、隔离两日样本与431日冻结清单已通过，见§61及LLD§56；两日正式登记及读回已通过，见§62及LLD§57；431日全量登记及本表P4历史接入已关闭，见§63及LLD§58；431分区/862物化/最近20来源日40检查齐全；sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。 moneyflow独立资产/check/job/catalog及完整隔离验收已通过，见§64及LLD§59；三个STOPPED sensor/readiness与4067历史日只读预演待下一片。
+> 状态：2026-10-12 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§44及LLD§39.6；三个STOPPED sensor和历史只读预演已通过，见§45及LLD§40，可恢复历史登记执行器及两日/495日冻结清单已完成，见§46及LLD§41，完整当前门禁已通过并收尾，见LLD§41.6，两日正式样本已读回通过，见§47及LLD§42；495日全量历史登记及收尾完成，见§48及LLD§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§49及LLD§44.3，三个STOPPED sensor、历史预演、执行器和两日样本已完成，见§50～52；739日全量登记及本表P4历史接入已关闭，见§53及LLD§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog及完整隔离验收已完成，见§54及LLD§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§55及LLD§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§56及LLD§51；两日正式登记及读回已通过，见§57及LLD§52；739日全量登记及本表P4历史接入已关闭，见§58及LLD§53；739分区/1478物化/最近20来源日40检查齐全；moneyflow_ths独立资产/check/job/catalog及完整隔离验收已完成，见§59及LLD§54；三个STOPPED sensor/readiness和431历史来源日只读预演已通过，见§60及LLD§55；可恢复执行器、隔离两日样本与431日冻结清单已通过，见§61及LLD§56；两日正式登记及读回已通过，见§62及LLD§57；431日全量登记及本表P4历史接入已关闭，见§63及LLD§58；431分区/862物化/最近20来源日40检查齐全；sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。 moneyflow独立资产/check/job/catalog及完整隔离验收已通过，见§64及LLD§59；三个STOPPED sensor/readiness与4067历史日只读预演已通过，见§65及LLD§60；本表正式登记执行器及两日/全量清单留下一片。
 >
 > 日期：2026-10-06。目标：将 Prod 已有七个 Tushare 资金流向数据集接入正式 DG；历史从 Prod Raw 初始化，新增由 DG 直接请求 Tushare。
 >
@@ -1201,3 +1201,21 @@ moneyflow独立两层资产、两条分区blocking checks、两个job、专属�
 正式既有09-30两文件只读schema/主键/全字段/hash核验通过，P3每层5572行、Raw541201B/Silver541177B不变；0.3382秒/RSS167.4MiB。1174份源码/测试在最终门禁期间保持，63份旧JSON报告保留；没有主体边界、Prod/API/前端或配置改变。结果见[本轮报告](../../reports/moneyflow_p4_moneyflow_evidence_20261012.json)与[LLD§59.3](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-p4-definitions)。正式Lake/staging/PG/分区/events写入、正式job/check、源请求、reload、sensor evaluation/enable、pool和安装均0，不能把隔离成功说成正式日更或历史登记完成。
 
 本定义切片关闭；本表历史登记、P4整体及P5仍待后续。此前THS收尾03019748已提交未推送，本轮18文件尚未提交。下一独立片为三个默认STOPPED sensor、专属readiness和4067来源日只读预演，之后才进入可恢复历史执行器、冻结清单和分阶段正式执行。
+
+
+## 65. P4传统个股sensor/readiness及4067历史日只读预演（2026-10-12）
+
+上一moneyflow定义切片18文件已提交d93cd771，未推送。按管理员明确指令，接三个默认STOPPED sensor、专属就绪判断及4067实际来源日只读预演。硬口径、最终名字/tags、消费者、4MiB本表配置审计、10日热路径及历史85次native读取预算见[LLD§60](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-automation)，本节先于代码落档。
+
+沿上海22:00优先登记当天/最多补一漏日，更新最近10交易日每tick最多一job，sensor不请求源。最新同日绿Raw/hash才可生成Silver，原六表预算/revision保持。历史4067日每层14089300行，217unit/8134文件及436控制证明，最近20来源日完整校验20字段/主键及冻结行数；批量查询原生事件，不把文件存在当event ready，不导出或重写历史。隔离native验证和完整门禁后，正式PG/file/control仅只读预演两遍及最近10日not-ready事实。可恢复执行器、两日/全量冻结清单和正式登记留后续，本轮不reload、启用或正式运行；P4整体开放、P5未进入。
+
+
+### 65.1 三个sensor、就绪判断和4067日只读预演验收通过
+
+三个独立sensor默认STOPPED，上海22:00登记、最近10交易日/每tick最多一run、精确同日绿check/文件hash、Silver绑定Raw修订和每日6次持久重试均通过。55项新增及593项原六表sensor/预演/执行器与本表定义回归通过；完整受保护catalog12项/516子断言、static113项、隔离全Definitions和Ruff通过。十日热路径顺序hash20文件/10823780B，0.0259秒、cursor555B、tick源请求0；是存档5572行及隔离时钟验收，不是正式网络日更已运行。
+
+正式4067日只读预演两遍一致：每层14089300行、217unit、8134文件/2750606591B及436控制hash保持并匹配P3原物理事实，最近20来源日20字段/date+ts_code/冻结每日行数通过SQL核验。每遍85次原生helper读取，5.7461/5.0194秒。最近十日两层仍为file_without_materialization，没有误放绿。待登记4067分区、8134物化和40检查，共12241项工作。
+
+硬口径、代码与正反测试落点、预算和实测限制见[LLD §60](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-automation)及[证据](../../reports/moneyflow_p4_moneyflow_sensor_event_preview_evidence_20261012.json)。1179源码/测试及64份旧报告hash保持，根CodeGraph已同步；不改变主体依赖矩阵、Prod契约/API/CLI/前端。正式file/control/partition/event写入、源请求、job/sensor evaluation、reload/enable/pool/安装均0。上一片d93cd771已提交未推送，本轮尚未提交。
+
+此切片关闭，P4整体开放，P5未进入。下一独立片开发moneyflow可恢复历史登记执行器、隔离两日样本与4067日冻结清单，并接入本表row_count写入/读回门禁；正式APPLY和sensor启用仍按精确阶段批准。
