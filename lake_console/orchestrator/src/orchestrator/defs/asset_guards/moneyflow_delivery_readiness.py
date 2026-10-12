@@ -9,6 +9,7 @@ from orchestrator.defs.io.moneyflow_candidates import candidate_file_hash
 from orchestrator.defs.paths import raw_moneyflow_path, silver_moneyflow_path
 from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_EVENT_RECORD_LIMIT,
+    MONEYFLOW_IND_DC_READINESS_FILE_MAX_BYTES,
     MONEYFLOW_READINESS_FILE_MAX_BYTES,
     MONEYFLOW_SENSOR_WINDOW,
     MoneyflowContractError,
@@ -64,6 +65,11 @@ def batch_moneyflow_readiness(
         market_moneyflow_day(day)
     if layers not in (("raw",), ("raw", "silver")):
         raise MoneyflowContractError("readiness_layers")
+    file_budget = (
+        MONEYFLOW_IND_DC_READINESS_FILE_MAX_BYTES
+        if contract.dataset == "moneyflow_ind_dc"
+        else MONEYFLOW_READINESS_FILE_MAX_BYTES
+    )
     results = {}
     for layer in layers:
         key = dg.AssetKey(
@@ -133,7 +139,7 @@ def batch_moneyflow_readiness(
                     p.is_symlink() for p in (path, *path.parents)
                 ):
                     reason = "file_missing_or_symlink"
-                elif path.stat().st_size > MONEYFLOW_READINESS_FILE_MAX_BYTES:
+                elif path.stat().st_size > file_budget:
                     reason = "file_hash_budget"
                 elif candidate_file_hash(path) != expected:
                     reason = "file_changed"

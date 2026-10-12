@@ -20,6 +20,7 @@ from orchestrator.defs.bootstrap.moneyflow_event_plan import (
 from orchestrator.defs.bootstrap.moneyflow_history_candidates import _read_json
 from orchestrator.defs.bootstrap.moneyflow_history_cohort import _large_json
 from orchestrator.defs.bootstrap.moneyflow_history_event_preview import (
+    assert_board_moneyflow_history_counts,
     audit_moneyflow_automation_standardization,
     read_moneyflow_event_state,
 )
@@ -114,6 +115,8 @@ def _materialization(plan, entry, layer, path):
         "source_row_count": _row_count(plan, entry),
         "rejected_row_count": 0,
     }
+    if plan["dataset"] == "moneyflow_ind_dc":
+        extra["scope_row_counts"] = entry["scope_row_counts"]
     if layer == "silver":
         extra["raw_sha256"] = entry["raw_sha256"]
     return dg.AssetMaterialization(
@@ -155,6 +158,10 @@ def _evaluation(plan, entry, layer, path, mat, *, contract):
                 "file_sha256": entry[layer + "_sha256"],
                 "event_plan_hash": plan["plan_hash"],
                 "partition_key": entry["day"],
+                **(
+                    {"scope_row_counts": entry["scope_row_counts"]}
+                    if plan["dataset"] == "moneyflow_ind_dc" else {}
+                ),
             },
         ),
     )
@@ -247,7 +254,7 @@ def report_moneyflow_history_events(
             before_read=before_read,
             contract=contract,
         )
-        if contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths"}:
+        if contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc"}:
             counts = {e["day"]: e["row_count"] for e in entries}
             for (day, _), record in result["mats"].items():
                 metadata = record.asset_materialization.metadata
@@ -265,6 +272,19 @@ def report_moneyflow_history_events(
                     != counts[day]
                 ):
                     raise MoneyflowContractError("history_event_existing_row_count")
+        if contract.dataset == "moneyflow_ind_dc":
+            scopes = {e["day"]: e["scope_row_counts"] for e in entries}
+            records = [
+                (day, record.asset_materialization.metadata)
+                for (day, _), record in result["mats"].items()
+            ] + [
+                (day, record.event.dagster_event.event_specific_data.metadata)
+                for (day, _), record in result["checks"].items()
+            ]
+            for day, metadata in records:
+                actual = getattr(metadata.get("goldenshare/scope_row_counts"), "value", None)
+                if actual != scopes[day] or any(type(n) is not int for n in actual.values()):
+                    raise MoneyflowContractError("history_event_existing_scope_counts")
         guard()
         return result
 
@@ -394,11 +414,16 @@ def report_moneyflow_history_events(
                                         entry["day"],
                                     )
                                     if (
-                                        contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths"}
+                                        contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc"}
                                         and count != _row_count(plan, entry)
                                     ):
                                         raise MoneyflowContractError(
                                             "history_event_row_count"
+                                        )
+                                    if contract.dataset == "moneyflow_ind_dc":
+                                        assert_board_moneyflow_history_counts(
+                                            connection, _path(plan, entry, "raw"), count,
+                                            entry["row_count"], entry["scope_row_counts"],
                                         )
                             for layer in ("raw", "silver"):
                                 current_layer = layer

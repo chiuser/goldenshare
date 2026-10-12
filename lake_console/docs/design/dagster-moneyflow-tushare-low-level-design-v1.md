@@ -2232,3 +2232,196 @@ P1归档2026-09-30真实样本1031行经本轮假源、虚拟时钟进入隔离j
 首次fixture结果读取误用了SDK事件函数，改成event_specific_data.materialization；首次catalog门禁因测试资产清单漏两项而报144/142，补齐消费者后重跑通过；Ruff的导入顺序与dict字面量问题已修正。完整证据及源码/日志/native身份见[东财板块P4资产验收](../../reports/moneyflow_p4_ind_dc_evidence_20261012.json)。计划对账：独立身份由catalog/job/partition测试证明；日期+类别+名称与字段保真由三类正反样本及1031行全字段对账证明；发布/取消/退出由原协议真实临时文件重放证明；Silver绿Raw门禁由native状态及hash反例证明；检查归属由临时instance精确target读回证明；性能上限由旧DC分页预算与本轮整页反例证明，未放宽上限。
 
 **moneyflow_ind_dc的P4资产/check/job/catalog切片关闭。** 本轮新增或修改assets/checks/jobs、partition/check身份、共享发布白名单、catalog/name_mapping及相关测试，回填原方案/LLD并增加证据。没有生产DatasetDefinition/API/CLI/配置或主体依赖矩阵变更；正式PG/Lake/source/job/sensor/reload/pool/事件写入均0。下一切片接三个默认STOPPED sensor及739来源日历史只读预演，仍按P3冻结364012行/层和1478文件；历史缺类按冻结实际范围，不套未来日更三类非空规则。历史执行器、两日/全量清单及正式登记继续各自验收与批准，整个P4仍开放、P5未进入。
+
+
+<a id="moneyflow-ind-dc-automation"></a>
+
+## 45. moneyflow_ind_dc三个STOPPED sensor与739日历史只读预演（2026-10-12）
+
+### 45.1 编码前范围、命名与影响面
+
+管理员批准本切片；上一资产切片已提交872bc135，未推送。复用现行单表自动编排与P3冻结证明，新增固定BOARD_DC_MONEYFLOW_AUTOMATION和三个独立sensor，不做正式sensor evaluation、reload、启用、pool修改、job运行、分区或event写入。历史执行器、两日样本、全量执行清单留在下一切片。
+
+| 硬口径 | 代码落点及正反验收 |
+| --- | --- |
+| 默认STOPPED且不在sensor请求来源 | sensors/moneyflow_ind_dc_sensor.py；cn_a_moneyflow_ind_dc_trade_day_sensor、raw_tushare_moneyflow_ind_dc_update_job_sensor、silver_moneyflow_ind_dc_update_job_sensor；min interval600秒，resources只有lake_root/duckdb，定义及无来源调用反例 |
+| 上海22:00登记当天，最多另补一个历史漏登记日 | register_moneyflow_trade_days复用固定cn_a_moneyflow_ind_dc_trade_days，历史起点2023-09-12；交易日/假日/22点前/起点前反例；输出仅SensorResult |
+| 每tick最近10交易日最多一个单日job | evaluate_moneyflow_update复用2026-10-01日更新起点、SSE日历DESC LIMIT10；每层mat/check各1次limit100，active job各1次limit1，分区1次；不扫描739日事件或SQL |
+| 跨表/跨层cursor拒绝，丢cursor不重置重试 | 固定合同身份、8192B cursor上限、原生run key最多6次；无消费request重复同key，临时错误可重试，权限/字段/精度/身份错人工处理 |
+| 最新真实green check+mat+文件才ready | asset_guards/moneyflow_ind_dc_readiness.py封装共用readiness；精确target三字段、hash、无symlink，Silver核对Raw hash；原三表64KiB保留，DC单独预算及超预算拒绝 |
+| 历史分类按P3实际事实，日更新仍必须三类非空 | bootstrap/moneyflow_ind_dc_event_preview.py封装共享历史proof；历史分支复用audit_history_day，按manifest snapshots的日期/类别/行数核对最近20日；仅行业的早期历史合法，日更缺概念/地域仍拒绝，不生成缺口 |
+| 历史739日/364012行每层/1478文件，原证明不改 | 同history-full-20261009、cutoff2026-09-30、cohort05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618；验证全部本表文件hash与原控制文件，proof entries包含每日row_count及scope_row_counts；控制/文件变化、跨cohort/跨表事件拒绝 |
+| 正式只读采用真实PG但没有写路径 | daily_basic_event_instance默认readonly、default_transaction_read_only=on、statement_timeout10秒、should_autocreate_tables=False；包装只暴露分区/mat/check读取，临时脚本及报告只写/private/tmp |
+| 原门禁覆盖全部新定义而不放宽隔离 | protected runner仅增sensor/readiness/preview三个精确源码路径；static gate增三个期待身份；两个sensor标签HTML同步；全量受保护catalog/static及隔离defs，旧3表回归 |
+
+CodeGraph explore/impact已审计固定automation合同、注册/selector、readiness、历史proof及event plan/engine消费者；当前代码复核确认历史audit_daily_moneyflow_standardization会要求三类，不能直接复用到早期DC历史。仅共享历史入口增加DC专用history audit分支，日更checks/collector不改。无Prod DatasetDefinition/API/CLI、主系统依赖矩阵变更；固定历史执行adapter未接入，不能把preview通过当成正式登记已可执行。后续执行器须审计共享engine的每日计数验证消费者。
+
+### 45.2 性能与配置审计
+
+| 项目 | 固定上限、拒绝策略与证据 |
+| --- | --- |
+| 新预算常量 | MONEYFLOW_IND_DC_READINESS_FILE_MAX_BYTES=4*1024*1024，在run_contracts/moneyflow.py唯一声明，持久化为源码，无env/Settings/数据库/运营覆盖项；唯一生产消费者共用readiness的固定DC分支，随definitions加载生效；超限返回file_hash_budget且不hash |
+| 新预算依据 | 实际1031行Raw95073B/Silver95049B已超过原64KiB；现行每轮20000行按样本体积约1.84MB/文件，DC4MiB提供有界余量，不能保证任意字符串都通过；最长tick20文件最多80MiB顺序hash，实际10日fixture约1.9MB；旧三个数据集仍用64KiB，未知合同拒绝 |
+| 日更sensor成本 | 两层最多2mat+2check+2active run+1partition+1日历SQL；最多20文件hash，无来源请求，cursor实际<2048B、10日隔离tick<2秒；不放宽源端64call/300秒、512MB DuckDB/1线程/no-spill、RSS768MiB、writer/pool预算 |
+| 历史proof成本 | 仅本表40个已完成P3 unit、1478文件hash、82控制文件；最近20日期做20次Raw/Silver历史标准化及各1次分类group by（8 SQL/日期），不对739日逐日深扫；按冻结分类行数和日期总行数核对，不将fixture固定分类数量当成每日要求 |
+| 历史native读取 | 分区1次、每层ceil(739/100)=8次mat、每层1次最近check，共19次helper查询；limit100，分区/date facts最多4096；截断或已有事件身份/hash/target不符拒绝 |
+| 事务与取消 | 无正式事务写入、无锁/目录创建、无计划/checkpoint变更。现有proof每文件取消检查、每unit120秒与RSS限制；正式预演驱动另设120秒进程上限，只读中断可从同冻结事实重跑 |
+| 正式验证命令 | 工作目录lake_console/orchestrator，现有.venv/bin/python3 -B执行/private/tmp下DC只读驱动；固定Lake/staging根及既有/Users/congming/.goldenshare/dagster_home/dagster.yaml readonly native adapter，查询上述两asset/check及专属partition set；无Tushare/Prod请求，不执行sensor，输出临时JSON后归档 |
+
+官方依据：[Dagster sensors](https://docs.dagster.io/guides/automate/sensors)说明default_status与run_key去重，[partitions](https://docs.dagster.io/guides/build/partitions-and-backfills)说明分区模型；实际语义仍以当前源码、临时native instance正反验收和正式只读读回为准。本节为编码前约束，结果另据实填写。
+
+
+### 45.3 实际验收与正式只读结果
+
+三个独立sensor已按§45.1身份及标准tags接入，default_status均STOPPED、min interval600秒，依赖只有lake_root/duckdb。sensor不调用Tushare，不合并三个数据集的历史或cursor，不新增运营参数。共用固定合同仅增加BOARD_DC身份；共用readiness只为DC使用4MiB文件预算，原市场/行业/概念三表64KiB保持原样，超预算在hash前拒绝。历史proof入口复用audit_history_day，按冻结每日行数及分类核对；早期仅行业的历史正例通过，同文件日更三类检查拒绝；分类总数相同但分布不同、总行数偏差都有反例。
+
+资金流专项及旧市场/THS sensor、历史proof/提升回归共303项通过，其中新DC sensor/preview50项；两个新测试文件仅整理import后，50项再跑通过。受保护catalog12项/498子断言、static113项及完整隔离dg check defs通过，所有原生拒绝反例按原policy执行，没有改断言、删反例或跳过完整套件。项目cwd下改动文件Ruff和DG src/tests致命检查通过。完整回归/门禁期间1143份源码及测试hash一致；随后只有两份新测试import排序修正，当前1143份hash与修正后快照一致，所有产品源码保持原hash，最终50项与正式预演据此复验。先前44份资金流报告/清单逐字保留，共享工作区其他任务脏文件不改。CodeGraph sync/status根索引up to date，无主体边界/依赖矩阵变更。
+
+隔离10日期sensor使用归档1031行fixture，经临时native Raw/Silver job产生20个文件后实际tick：2mat+2check+2active run+1partition+1日历SQL，20次hash共1901220字节，0.0253秒、cursor590字节，tick来源调用0。没有把假源/虚拟时钟重放称作新Tushare实测；这些结果证明sensor有界读取，不代表日更网络SLA。
+
+2026-10-12使用既有readonly PG adapter执行本表正式只读预演，并同事实重复执行：739来源日、每层364012行、40个P3 unit、1478个正式文件共70542522字节，82控制文件hash均未变。最近20来源日Raw/Silver schema、日期、三元主键、全部字段一致性、每日行数与实际分类核对通过；20次深核共160 SQL，其余日期依赖已冻结P3证明及当前文件hash。helper native查询实测19次（1partition+16mat+2check），首次1.1672秒、重跑0.6305秒，两次结果完全一致；1724次hash调用包含同一控制文件多次复核，不将它写成1724个文件。
+
+| 目前原生缺项 | 实际只读预演结果 |
+| --- | --- |
+| 专属动态分区 | 待登记739个，当前可复用0个来源日 |
+| Raw/Silver物化 | 各739条待登记，共1478条；现有可复用0条 |
+| 最近20来源日blocking检查 | 各20条待登记，共40条；现有可复用0条 |
+| 后续正式写入量 | 739分区键+1518事件=2257项；此处只是预演计数，没有执行或冻结APPLY清单 |
+
+真实readonly连接配置default_transaction_read_only=on、statement_timeout10秒、should_autocreate_tables=False；包装仅开放三类原生读取。没有初始化正式instance、job/sensor evaluation、reload、启用sensor、pool调整、分区/event/正式Lake或staging控制文件写入、Prod/Tushare请求、安装。定义STOPPED已从当前源码直接读回，不把它称作已reload进当前workspace或已审计全部持久化sensor状态。
+
+计划对账：独立命名/标签/STOPPED由专属测试和完整静态门禁证明；22点/假日/起点与有限重试由临时native正反例证明；readiness身份、hash、最新check与上游修订由真实临时job和反例证明；历史分类边界由冻事实scope/row proof与日更反例证明；739日期/1478文件/82控制hash由正式只读读回证明；无正式写入由readonly adapter与只读包装的入口审计保证。首次测试辅助函数名错误和首条广域命令的不存在测试文件已纠正，最终正确路径全部通过；证据区分初始失败与最终验收。
+
+本轮源码、日志hash、原生门禁报告及全部正式文件/control hash见[DC sensor与739日只读预演证据](../../reports/moneyflow_p4_ind_dc_sensor_event_preview_evidence_20261012.json)。本切片关闭，P4整体仍开放，P5未进入。下一步开发固定DC历史登记执行器，校准共享engine的每日计数/分类消费者，完成隔离恢复/幂等/预算门禁及两日样本、冻结全量清单；正式分区/event写入仍需对应精确清单批准。
+
+
+<a id="moneyflow-ind-dc-event-registration"></a>
+
+## 46. moneyflow_ind_dc历史登记执行器、两日样本与冻结全量清单（2026-10-12）
+
+### 46.1 编码前范围与硬口径
+
+管理员要求继续推进§45.3下一切片。上一sensor/preview修改保留，当前dev-interface开发，不创建分支/worktree，不处理其他任务脏文件。本轮只接固定DC事件PLAN/执行adapter和对应共享验证，做临时native SQLite恢复/容量验收，生成正式只读两日样本和739日全量冻结清单；本轮不提交、推送或执行正式APPLY。正式分区、event、Lake/staging控制写入、sensor evaluation/reload/启用、pool修改、来源请求均不包含。
+
+| 硬口径 | 实现与正反门禁 |
+| --- | --- |
+| 固定DC身份、默认只读 | bootstrap/moneyflow_ind_dc_event_plan.py、moneyflow_ind_dc_events.py仅绑定BOARD_DC_MONEYFLOW_AUTOMATION，共用原moneyflow_event_plan/history_events；拒绝其他三表清单、篡改身份、日期与bool以外apply |
+| 原P3事实与精确范围不可改 | 同operation/cutoff/cohort、739日364012行每层1478文件；每entry冻结row_count及scope_row_counts；validate重建同原证明，错行数、同总数错分类及改hash拒绝，不计算补缺口 |
+| metadata必须与每日事实一致 | DC物化row_count/source_row_count、18个observed_columns及scope_row_counts；最近20日检查checked_row_count与同分类事实，target.storage_id/run_id/timestamp精确绑定；已有事件错行数/分类拒绝且不覆盖 |
+| 历史分类与未来日更分开 | 共享历史proof与engine复用同一DC冻结分类SQL helper；早期719合成单行业日期不补check，后20日完整三类真实归档fixture；实际正式最近20日照旧深核，不放宽未来collector/check三类规则 |
+| 每unit可恢复、原生事实续跑 | 原事件逐条提交、分区每100日一批；原writer锁及plan/checkpoint原子保存复用，无长历史事务；取消/进程退出保留已提交event，原生读回胜过cursor/checkpoint，缺失checkpoint、观测写失败、幂等重放有正反例 |
+| 性能与共享消费者保持边界 | 只扩DC到共用两处row_count守卫和专属分类metadata守卫，原market/THS事件metadata与六份旧冻结清单不变；CodeGraph explore/impact核对固定adapter、plan/proof、engine/readiness和测试，主系统契约与依赖矩阵不变 |
+| 完整隔离门禁 | 新DC events suite及原三表events回归，DC sensor/preview回归；受保护runner仅新增两个bootstrap精确源码路径，原拒绝policy与断言不改；完整catalog/static/isolated defs、Ruff、文档/链接、稳定源码和旧45份报告hash |
+
+### 46.2 性能、配置与正式只读计划
+
+| 项目 | 预算/执行方式 |
+| --- | --- |
+| 全量范围 | 739来源日，364012行/层，1478个已存在Parquet约70.5MB；无源请求、分页或Parquet生成；739分区+1478物化+40最近check=2257工作项/1518事件，检查只最近20日 |
+| 两日样本 | 2026-09-29、2026-09-30；行数及分类从P3逐日事实读回，不假定两天相同；2分区+4物化+4check=10工作项/8事件，只生成清单与只读预检 |
+| 文件/SQL成本 | proof复核1478文件与82控制hash，最近20日同源历史标准化与分类深核160 SQL；APPLY后续多次重建proof并深核，仅20日检查阶段再核，不对739日反复SQL；512MB/1线程/no-spill，RSS768MiB |
+| 原生预算 |100日/批，limit100；计划不读取event ID作身份，绑定既有PG/临时SQLite实际storage；full默认预检预计21次helper读含2active，隔离full APPLY预计207次读，低于256；上限4096项/600秒总/120秒unit不变 |
+| 控制写入成本 | 临时739日APPLY预计1546次原子保存=1518事件+8分区批+17批读回+plan/初始/最终3次；逐事件checkpoint最多256KiB、plan32MiB，保存失败保留已提交事件；全量与样本正式APPLY成本待批准后实测，不外推SQLite/只读耗时 |
+| 内存/持久化 | Python仅日期、文件hash、3类聚合和事件编排，单事件独立持久化；不将364012行明细放内存；formal执行本轮0，计划JSON只在仓库reports，temp scripts/临时SQLite在/private/tmp |
+| 配置审计 | 无新增env/Settings/数据库/run config；固定revision/partition/check沿§45合同，既有budget、路径、锁、pool不改；新增metadata仅DC日期分类事实，消费者共享writer native readback和专属测试 |
+| 真实只读验证 | 现有daily_basic_event_instance(writable=False)，已有本机goldenshare_dagster PG，强制readonly、10秒statement_timeout、should_autocreate_tables=False；包装暴露原生只读storage identity/分区/mat/check/active run查询，无写方法；原生只读PLAN与report(...apply=False) |
+| 拒绝与恢复 | 当前source/hash/identity漂移、active job、错误event/check、writer冲突、取消/预算立即拒绝；不删事件、不改原清单/checkpoint、不初始化正式instance；正式异常后续同plan_hash按原生事实续跑 |
+
+正式驱动命令从lake_console/orchestrator用现有.venv/bin/python3 -B调用/private/tmp/moneyflow-ind-dc-events-20261012/formal_plans.py，固定Lake=/Volumes/datasource/data_lake、staging=/Volumes/datasource/data_lake_staging、operation=history-full-20261009、cutoff=2026-09-30、cohort=05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618，只读既有/Users/congming/.goldenshare/dagster_home/dagster.yaml native adapter；只写仓库reports与/private/tmp日志，不写正式staging/events。两份JSON读回后重新构造相等、原45报告逐字保留。维护核验、正式样本APPLY、全量APPLY各自等待精确批准。
+
+官方[report_runless_asset_event](https://dagster.io/docs/api/dagster/internals#dagster.DagsterInstance.report_runless_asset_event)定义资产事件不归属run；本次沿已批准直写补录模式，不称Dagster backfill。当前安装SDK与临时native读回决定实际partition/target/metadata语义。本节为编码前约束，完成后按真实结果对账，不预填通过。
+
+
+### 46.3 执行器、恢复与容量验收完成
+
+固定DC入口moneyflow_ind_dc_event_plan.py与moneyflow_ind_dc_events.py已接入，共用plan/proof/history_events协议，不复制锁、checkpoint或事件写入机制。DC每日期row_count及实际scope_row_counts进入冻结entry；Raw/Silver物化保留source_row_count、18个observed_columns和分类行数，最近20日检查记录checked_row_count和同分类事实。已存在事件计数/分类不符拒绝，不覆盖；plan自行重算hash不能伪造事实。共用行数守卫新增DC，分类SQL从前一proof抽成同一helper供proof和检查阶段复用；原三表metadata与清单结构不改。
+
+| 验收项 | 实际结果 |
+| --- | --- |
+| DC专项 | 57项通过，67.21秒；默认只读、取消、真实子进程退出47、缺失/伪造/错误checkpoint、保存失败、进度观察失败、续跑与幂等 |
+| 日期/分类/行数 | 两日1030/1031隔离fixture计数及18字段/分类metadata读回正确；七类假行数、五类假scope、原生错/缺scope与行数、SQL错计数、check阶段scope失败、跨原三表清单均拒绝 |
+| 原链回归 | 175项通过，171.14秒；原三表events、DC sensor/preview均覆盖；正式旧三表六份样本/全量冻结清单重新验证相等且文件/hash不变 |
+| 739日期容量 | 719个合成单行业日期各1行+最近20个三类1031行归档fixture日期，共21339行；临时SQLite完成739分区+1478物化+40检查=2257项，旧日期不生成check，重放不重复、来源/Parquet不改 |
+| 容量成本 | 8.2396秒，207次helper native读，批次≤100；RSS458752000B（437.5MiB）；1546次原子控制保存共0.6204秒，最慢11.044ms；此为临时SQLite测试，不能代替正式PG APPLY耗时 |
+| 完整门禁 | 受保护catalog12项/498子断言、static113项/15批、完整隔离dg check defs通过；合计17批每批7个原生拒绝反例通过；改动文件Ruff及DG src/tests致命检查通过，未放宽policy/断言 |
+
+首次DC测试55通过/2失败，是新反例构造错误地用AssetCheckEvaluation._replace；按当前SDK及旧测试的显式构造方法修正，57项全部重跑通过，产品实现没有因测试失败放宽。最终1146份DG源码及测试在完整门禁、只读PLAN前后hash相等，原45份资金流报告/清单逐字保留；其他任务修改保留，不宣称它们业务功能已验收。CodeGraph explore/impact和sync/status覆盖fixed adapter、shared plan/proof/writer/readiness/native metadata消费者，根索引up to date；无主体边界、依赖矩阵、DatasetDefinition、API/CLI、配置、来源请求或日更合同修改。
+
+### 46.4 正式只读样本与全量清单
+
+上海2026-10-12 12:10左右在既有goldenshare_dagster PG强制readonly/禁自动DDL adapter下生成；目标仍为P3冻结history-full-20261009/cutoff2026-09-30/cohort05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618。逐份JSON读回和重新构造完全相等；所有entry逐日行数等于scope合计，范围为2023-09-12～2026-09-30的739个实际来源日、364012行/层，每日86～1031行。文件/control hash核验复用全部1478正式文件和82个P3控制证明；正式events目录库存前后相等。
+
+| 清单 | 精确范围与当前缺项 | plan_hash |
+| --- | --- | --- |
+| [两日样本](../../reports/moneyflow_p4_ind_dc_event_registration_sample_plan_20261012.json) | 2026-09-29、09-30各1031行，共2062行；每天行业496/概念504/地域31；待2分区+4物化+4check=10项/8事件 | 86e1014ec5fbfee902d2ff0269c379882513243502e108012b58e12bb2be4ab1 |
+| [全量](../../reports/moneyflow_p4_ind_dc_event_registration_full_plan_20261012.json) | 739日/364012行，待739分区+1478物化+最近20日40check=2257项/1518事件 | c47968312063d88aa523f5e46e7e36e3d0444eb5254d7bd02e42af58d1acd417 |
+
+样本20059B、默认预检0.4772秒/7次native读取含2active；生成、读回及重构全过程2.1182秒。全量465398B、默认预检0.6333秒/21读含2active；对应全过程1.8419秒。加上原六份清单验证，本轮正式只读驱动6.1781秒。没有请求Prod/Tushare、写任何正式分区/event/Parquet/staging control、运行sensor/job、reload、启用sensor、改pool或安装；新增两JSON只保存仓库reports。本轮没有提交或推送。
+
+样本以后完成时，完整全量清单保持原hash，根据native事实差分预计剩737分区+1474物化+36检查=2247工作项/1510事件；不重写全量计划或删除样本证据。正式样本APPLY尚未批准/执行，正式check/readiness结果未取得，不能把只读/临时SQLite结果称作正式登记完成。
+
+默认只读样本预检命令（从lake_console/orchestrator，现有.venv，禁止同步/下载）：
+
+```python
+import json
+from pathlib import Path
+from orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance
+from orchestrator.defs.bootstrap.moneyflow_ind_dc_events import report_board_moneyflow_dc_history_events
+plan = json.loads(Path('../reports/moneyflow_p4_ind_dc_event_registration_sample_plan_20261012.json').read_text())
+assert plan['plan_hash'] == '86e1014ec5fbfee902d2ff0269c379882513243502e108012b58e12bb2be4ab1'
+with daily_basic_event_instance() as instance:
+    print(report_board_moneyflow_dc_history_events(instance=instance, plan=plan))
+```
+
+### 46.5 计划对账与下一阶段准入
+
+§46.1独立身份/默认只读由固定adapter、PLAN hash/instance重建和跨表负例证明；每日计数/分类由冻结proof、复用SQL、metadata和原生读回反例证明；100日批/20日check由739日期容量证明；取消/退出/观测错误与幂等由真实临时native持久化和子进程验收证明；739正式来源日与文件事实由实际PG只读清单读回与P3 hash证明；读取/内存/时间上限由预算反例、207读和RSS实测证明。源码与源文件不是checkpoint可随意替代的事实；无正式写入由readonly连接、apply=False和无写API的包装入口保证。
+
+本轮完整源码/日志/native门禁、容量、正式只读及两份计划hash见[DC历史登记执行器证据](../../reports/moneyflow_p4_ind_dc_event_registration_evidence_20261012.json)。两份文档/本轮链接/报告结构作辅助门禁，不能代替上述实际验收。
+
+**DC历史登记执行器与清单开发切片关闭。** 下一步先按两日清单取得正式样本阶段批准，写前核验本表三个sensor持久化状态未启用、两job无active run、维护窗口、writer互斥、当前源码及同一storage/hash、staging空闲大于32MiB；隔离Definitions不证明正式workspace已加载新定义。本表正式样本批准不包含reload、pool、sensor启用、日更job或全量APPLY；样本读回四check partition/target、来源/checked计数、分类、四readiness及幂等后，再独立准入冻结全量清单。P4整体仍开放，P5未进入。
+
+
+<a id="moneyflow-ind-dc-formal-sample"></a>
+
+## 47. P4东财板块历史事件两日正式样本（2026-10-12）
+
+### 47.1 本轮授权、执行范围与恢复方式
+
+管理员在上轮已明确展示两日样本清单及其10项/8事件后要求“继续推进吧。”，本轮据此执行该正式样本，739日全量仍需独立批准。沿用§46验收的固定DC adapter和共享writer，不修改产品代码或新增CLI/配置。当前dev-interface HEAD为9d8d25d1（其他任务提交），本任务执行源码以§46报告的1146份源码/测试hash为验收依据，不能把它说成已提交或已reload。工作区无关修改保留。
+
+固定输入是[两日清单](../../reports/moneyflow_p4_ind_dc_event_registration_sample_plan_20261012.json)：2026-09-29、09-30，每日每层1031行，行业496/概念504/地域31；只登记cn_a_moneyflow_ind_dc_trade_days的2键、raw_tushare_moneyflow_ind_dc与silver_moneyflow_ind_dc的4物化，以及对应4条blocking check。plan_hash=86e1014ec5fbfee902d2ff0269c379882513243502e108012b58e12bb2be4ab1，文件SHA256=d0b320a760d64599bf279556da706d6fbe9d6917665aa3150540bb733437278e。operation=history-full-20261009、cutoff=2026-09-30、cohort=05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618均不变。
+
+工作目录/Users/congming/github/goldenshare/lake_console/orchestrator，使用既有.venv/bin/python3 -B。只读预检命令为`.venv/bin/python3 -B /private/tmp/moneyflow-ind-dc-formal-sample-20261012/run.py`，批准的样本登记命令加`--apply`；临时驱动复用固定helper，不进入正式Definitions。目标是/Users/congming/.goldenshare/dagster_home对应的既有本机goldenshare_dagster PG，默认read-only，只有样本APPLY及同清单幂等重放显式writable=True，禁止自动DDL。读取现有sensor状态、两个job的active状态、原生事件、全部1478个冻结Lake文件及82份来源控制；只写该样本动态分区/事件、既有staging中的events/<plan_hash>/plan.json及逐项checkpoint、namespace writer锁，以及/tmp日志/仓库报告。正式Lake只读，不请求Prod/Tushare，不reload、启用/evaluate sensor、调整pool或执行job。
+
+维护门禁：三个本表sensor的native持久化状态均未启用，实际导入默认STOPPED；两个job无active run，writer锁独占；当前源码和所有已冻结文件/control hash一致，Lake=/Volumes/datasource/data_lake、staging=/Volumes/datasource/data_lake_staging根已存在、无根symlink、同设备，staging空闲超过32MiB。原生查询单SQL10秒、100日一批、600秒总预算、256次helper native读/768MiB RSS门禁沿用，驱动进程限120秒，进度逐项写/tmp并flush/fsync。
+
+失败或取消时保留已经提交的native事实及checkpoint；继续使用同一清单和固定helper幂等续跑，不编辑checkpoint、不删除事件、不重建历史文件。写后逐条读回partition、row/source/checked计数、分类、18个observed_columns、check的storage_id/run_id/timestamp精确target，四个readiness须通过；同清单真实APPLY重放须0新增事件/分区且原生ID不变，再只读计算冻结全量剩余差集。以下验收结果在执行后追加，不预填通过。
+
+
+### 47.2 正式样本、读回与幂等重放通过
+
+本轮完成的是历史数据的DG登记：两日Raw/Silver文件早已在P3落湖，本轮把它们对应的分区、物化和检查写入DG，未重新采集或生成Parquet。只读预检实际缺2键/4物化/4检查，耗时0.6930秒/7次helper native读；全量预检仍缺739键/1478物化/40检查，0.5781秒/21读。
+
+原生sensor查询扫描106条状态，本表三项均没有持久化记录，实际导入默认STOPPED；写前、写后及重放后状态和全库存name/status hash一致。两个job的active guard各批通过，writer锁独占成功。当前60份资金流/正式adapter源码及83份实际加载项目源码与上一轮验收相符；全部1146份DG源码/测试hash前后不变，故沿用§46隔离门禁，本轮没有重新运行产品测试或reload，亦没有把正式code-location进程的源码版本称作已核验。
+
+| 正式验收 | 实际结果 |
+|---|---|
+| 首次APPLY | 10/10项，2分区键、4物化、4blocking checks；1.9173秒，53次helper native读 |
+| 行数/分类 | 两日每层各1031行，source_row_count/checked_row_count一致；行业496、概念504、地域31，每个物化18个observed_columns |
+| 原生物化身份 | 09-29 Raw/Silver storage_id=7450761/7450762；09-30 Raw/Silver=7450763/7450764，均为runless记录 |
+| 检查target及就绪 | 四检查partition正确、SUCCEEDED/passed/blocking，storage_id/run_id/timestamp精确指向对应物化；两日两层四个readiness全部ready |
+| 写后差集 | 样本缺分区/物化/检查均0 |
+| 同清单真实重放 | 1.7966秒/53次helper native读；新增键和事件均0，物化ID/timestamp和检查target、分类及计数前后相等 |
+| checkpoint及进度 | complete/10 of 10/100%；首次APPLY60条进度记录，完成量单调，逐项持久化；重放checkpoint同样complete |
+| 空间/内存 | 执行前staging空闲2928877031424字节，Lake/staging同设备；驱动峰值RSS380256256字节，约362.6MiB，未触发拒绝预算 |
+
+只读/hash/SQL、native写内部SQL、sensor维护查询和额外读回的计数边界分开：53只统计helper native读，不声称整个驱动只执行53条PG SQL。来源证明保持739日/364012行每层/1478文件/70542522字节及82控制hash；最近20实际来源日深核语义，未对全部739日重新跑深核SQL。驱动额外保留原其他三表冻结证明，总计5408份Lake/来源控制文件hash前后相同，48份既有报告和清单逐字保留。正式staging只新增本样本plan/checkpoint并使用既有namespace锁；无正式Parquet写入。
+
+完整记录和临时驱动/日志hash见[两日正式样本证据](../../reports/moneyflow_p4_ind_dc_event_registration_formal_sample_evidence_20261012.json)。计划硬口径对应：独立DC身份与精确范围由固定adapter/冻结清单校验；维护与互斥由native sensor查询、各批active guard和writer锁；文件/历史分类由P3 proof及现行SQL复核；原生正确性由逐条target/metadata读回与batch readiness；恢复幂等由同清单真实APPLY重放。没有修改产品代码、API/CLI/配置或主体依赖矩阵，其他工作区修改保留，本轮未提交或推送。
+
+### 47.3 下一步全量准入
+
+**两日正式样本阶段完成，DC全量历史登记尚未执行。** [739日冻结全量清单](../../reports/moneyflow_p4_ind_dc_event_registration_full_plan_20261012.json)保持原plan_hash=c47968312063d88aa523f5e46e7e36e3d0444eb5254d7bd02e42af58d1acd417及原文件SHA256；正式只读差分已确认10项完成，剩737分区+1474物化+36检查=2247项/1510事件，0.5921秒/21读。全量须保留本样本原生物化身份、target和文件，不重新生成清单或覆盖样本证据。
+
+全量需独立批准该冻结清单；批准后重新核验维护状态、active job、源码/storage/来源及物理hash、空间和writer互斥，按原逐项checkpoint执行并读回。样本PG实测不能作为全量SLA；全量仍受§46既定预算约束。全量批准不包含reload、pool配置、sensor启用或真实日更。P4整体仍开放，P5未进入。

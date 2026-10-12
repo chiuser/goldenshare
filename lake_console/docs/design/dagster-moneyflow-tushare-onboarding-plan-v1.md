@@ -947,3 +947,57 @@ APPLY使用现有concept固定adapter与共享可恢复引擎，维护范围是s
 完整受保护catalog12项/498子断言、static113项及每批7个原生拒绝反例通过，完整隔离定义加载、Ruff、全DG致命检查和文档检查通过；1138份DG源码/测试在验收前后hash稳定，旧43份资金流报告/清单不变。范围、成本、首次失败修复和计划逐条对账见LLD§44.3及[东财板块资产验收证据](../../reports/moneyflow_p4_ind_dc_evidence_20261012.json)。本轮没有正式PG/Lake/源请求、job/sensor/reload/pool/事件动作，没有主体系contract或依赖矩阵变更，其他任务修改保留。
 
 下一切片开发三个默认STOPPED sensor，并对P3冻结739来源日/364012行每层/1478文件做历史只读预演。历史只认冻结实际分类，不以未来日更三类非空规则拒绝早期文件。历史执行器、冻结样本/全量清单和正式登记后续独立验收与批准；moneyflow_ind_dc尚未完成整个P4，整个P4开放、P5未进入。
+
+
+## 50. P4东财板块STOPPED sensor与历史只读预演切片（2026-10-12）
+
+上一资产切片已提交872bc135，管理员批准继续三个默认STOPPED sensor及739来源日只读预演。编码前硬口径、CodeGraph消费者审计、配置/性能测算、完整命名、正反验收和正式只读范围见[LLD §45](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ind-dc-automation)。复用固定单表合同、22:00分区注册与最近10交易日单日Raw/Silver selector，不新增来源协议或全历史sensor扫描。
+
+历史P3冻结739日/364012行每层/1478文件和实际分类不改；早期行业历史与未来三类日更新要求分开。最近20来源日深核实际分类和每日行数，其余日期通过已冻结P3文件/control hash核对；native读取分批100日期，预算19次helper查询。根据已归档95073/95049字节真实单日文件，DC readiness单独4MiB/文件，最长tick80MiB，旧三个数据集64KiB不改；超过预算拒绝hash，其他来源/内存/SQL/pool预算不改。
+
+实施只涉及固定automation合同、三个sensor/readiness/preview及共享对应分支、专项测试、精确保护源码清单、static定义清单和两HTML标签文档。完整隔离门禁后才执行真实正式只读预演；不reload、不启用sensor、不写分区/event/Parquet、不请求源、不安装。历史执行器、两日样本/冻结全量清单另作下一切片；P4整体开放，P5未进入。本节不预填实际验收。
+
+
+### 50.1 三个sensor及739日正式只读预演通过
+
+独立三个sensor默认STOPPED并使用标准分类tags，22:00分区注册/最近10日每tick一个Raw或Silver job、有限retry、精确green check/文件hash和Silver上游修订门禁全部复用；DC单文件4MiB上限、原三表64KiB保留。历史按P3实际分类及每日row_count核验，早期单行业正例合法而同文件未来日更缺类拒绝，未计算填补已接受缺口。
+
+303项资金流隔离回归通过，新DC50项在测试import整理后复验通过；完整受保护catalog12项/498子断言、static113项、完整隔离Definitions、项目cwd Ruff及致命检查通过，1143源码/测试快照据实区分两份新测试import整理前后，所有产品源码保持hash，旧44份报告不改。10日期实际sensor tick仅20文件/1901220B hash、7次native读取和1日历SQL、0.0253秒/cursor590B，来源调用0。
+
+739日正式只读预演与重跑一致：364012行/层、1478文件/70542522字节、40个已关闭unit、82控制hash；最近20日实际分类与标准化160 SQL通过，原生查询19次，首次1.1672秒、重跑0.6305秒。待登记739分区键、1478物化、40最近检查，总2257项/1518事件；本轮正式写入0，未reload、启用sensor、改pool或请求源。当前源码STOPPED不等于已加载/持久化sensor状态核验。
+
+完整硬口径对账与限制见[LLD §45.3](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ind-dc-automation)，[原生与文件证据](../../reports/moneyflow_p4_ind_dc_sensor_event_preview_evidence_20261012.json)归档。本切片关闭；下一步仅固定DC历史登记执行器及其隔离门禁、两日样本和冻结全量清单，精确写入清单仍另获批准。P4整体开放、P5未进入，其他任务修改保留。
+
+
+## 51. P4东财板块历史登记执行器与清单切片（2026-10-12）
+
+按管理员“继续推进”和LLD §45.3，接固定DC历史登记执行器，校准每日row_count/scope_row_counts消费者，进行临时native instance取消/退出/幂等/计数与739日容量验收，再生成2026-09-29、09-30样本及739来源日全量冻结清单并正式只读预检。硬口径、CodeGraph影响面、配置/性能与逐文件证明范围见[LLD §46](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ind-dc-event-registration)。
+
+复用原plan/proof/history_events协议，20日检查、100日批、4096项/600秒/256次native读取和512MB单线程不spill预算保持；全量2257项/1518事件，隔离APPLY预计207读/1546次原子控制保存。计划不读取event ID作为身份，不另建通用来源协议。仅扩DC固定adapter与分类事实核验，不改原三表metadata/清单或主体依赖矩阵。本轮不提交、推送、正式APPLY、reload/启用sensor、pool/source/Lake/staging控制写入；P4整体开放，P5未进入。正式清单是后续审批依据，不能以“继续推进”自动执行全量登记。
+
+
+### 51.1 执行器及冻结清单完成
+
+固定DC事件PLAN/执行入口已接，共享writer新增本表每日行数、分类metadata核验，proof与检查阶段复用相同冻结分类SQL；原三表metadata、六份旧冻结清单和未来日更三类合同不改。DC57项、原链与DC sensor/preview175项全部通过；739合成日期临时SQLite完成2257项/1518事件、207次读取、1546次原子控制保存，8.2396秒、RSS437.5MiB，不外推正式PG APPLY成本。
+
+完整受保护catalog12项/498子断言、static113项、隔离Definitions、Ruff/致命检查通过，最终1146份DG源码/测试hash稳定、原45份报告不改；CodeGraph消费者审计和根索引同步完成，其他任务修改保留，无主体依赖矩阵变更。
+
+正式只读生成并重构[两日样本清单](../../reports/moneyflow_p4_ind_dc_event_registration_sample_plan_20261012.json)和[全量清单](../../reports/moneyflow_p4_ind_dc_event_registration_full_plan_20261012.json)：样本09-29/09-30各1031行，共2062行、10项/8事件，plan_hash=86e1014ec5fbfee902d2ff0269c379882513243502e108012b58e12bb2be4ab1，预检0.4772秒/7读；全量739来源日364012行/层、2257项/1518事件，plan_hash=c47968312063d88aa523f5e46e7e36e3d0444eb5254d7bd02e42af58d1acd417，预检0.6333秒/21读。包括旧六清单验证的驱动共6.1781秒，正式events库存、文件/control hash及旧报告保持不变。
+
+完整硬口径对账、恢复/配置/预算和审批范围见[LLD §46](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ind-dc-event-registration)，[实际证据](../../reports/moneyflow_p4_ind_dc_event_registration_evidence_20261012.json)已归档。本切片关闭；下一步仅按两日精确清单另获正式样本批准并做维护/source/identity检查，然后登记及native读回，完整全量仍独立批准。当前没有正式APPLY、reload/启用sensor、pool/source/Lake/staging control写入、提交或推送；P4整体开放，P5未进入。
+
+
+## 52. P4东财板块两日正式样本登记（2026-10-12）
+
+管理员在两日精确清单展示后要求“继续推进吧。”，本轮授权对应2026-09-29、09-30的2分区/4物化/4检查；完整全量仍独立批准。执行前完成本表三个sensor、两个job、源码/storage/物理hash及磁盘/独占writer门禁，使用§51冻结样本和原固定执行器，写后原生事件与四readiness读回，再真实幂等重放和全量只读差分。当前任务源码以原1146份验收快照为准，不修改产品代码或依赖边界。
+
+精确命令、读写目标、预算、恢复方式与验收映射见[LLD §47.1](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ind-dc-formal-sample)。正式Lake/Prod/Tushare不写或请求，不reload/启用sensor/调整pool/执行job；P4整体保持开放，P5未进入。实际结果在执行后追加，本节不预填完成。
+
+
+### 52.1 两日正式样本通过、全量待独立批准
+
+2分区键、4物化和4条blocking checks已按冻结样本正式登记，10/10项完成，首次APPLY1.9173秒/53次helper native读。两日每层1031行，行业496/概念504/地域31，source/checked计数及18列metadata正确；四检查精确指向对应物化，四个readiness全部ready。同清单真实APPLY重放1.7966秒，新分区/event均0，原物化身份和检查target保持；checkpoint complete/100%。
+
+三个sensor原生状态未启用、当前定义默认STOPPED，两个job无active run；60份相关源码、83份实际加载源码和1146份原验收快照均相符，5408份冻结Lake/控制文件及48份历史报告逐字保留。正式Lake未写，未请求Prod/Tushare、reload/启用sensor/调整pool/执行job，无产品代码或依赖边界变更；本轮未提交或推送。证据及预算/恢复/验收映射见[LLD §47](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ind-dc-formal-sample)和[正式样本报告](../../reports/moneyflow_p4_ind_dc_event_registration_formal_sample_evidence_20261012.json)。
+
+下一步可独立批准原739日冻结全量清单；只读确认已完成10项，剩737分区/1474物化/36检查，总2247项/1510事件，保持原plan_hash及样本原生身份。正式全量尚未执行，P4整体开放、P5未进入。

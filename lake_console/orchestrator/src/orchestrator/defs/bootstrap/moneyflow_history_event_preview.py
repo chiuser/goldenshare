@@ -13,6 +13,9 @@ from orchestrator.defs.bootstrap.moneyflow_history_candidates import (
     _receipt_scope,
     _validate_receipt,
 )
+from orchestrator.defs.bootstrap.moneyflow_history_metadata import (
+    expected_history_scopes,
+)
 from orchestrator.defs.bootstrap.moneyflow_history_promote import (
     _check_path,
     _frozen,
@@ -23,6 +26,7 @@ from orchestrator.defs.bootstrap.moneyflow_history_promote import (
     _unit_paths,
     _validate_roots,
 )
+from orchestrator.defs.bootstrap.moneyflow_history_receive import audit_history_day
 from orchestrator.defs.checks.moneyflow import audit_market_moneyflow_standardization
 from orchestrator.defs.checks.moneyflow_daily import (
     audit_daily_moneyflow_standardization,
@@ -55,9 +59,24 @@ def audit_moneyflow_automation_standardization(contract, connection, raw, silver
     require_moneyflow_automation_contract(contract)
     if contract.dataset == "moneyflow_mkt_dc":
         return audit_market_moneyflow_standardization(connection, raw, silver, day)
+    if contract.dataset == "moneyflow_ind_dc":
+        return audit_history_day(connection, raw, silver, day, dataset=contract.dataset)
     return audit_daily_moneyflow_standardization(
         connection, raw, silver, day, dataset=contract.dataset
     )
+
+
+def assert_board_moneyflow_history_counts(connection, raw, count, row_count, scope_counts):
+    """Use the same frozen historical scope proof before planning and green events."""
+    actual = dict(
+        connection.execute(
+            "SELECT content_type, count(*) FROM read_parquet(?,hive_partitioning=false) "
+            "GROUP BY content_type",
+            [str(raw)],
+        ).fetchall()
+    )
+    if count != row_count or actual != scope_counts:
+        raise MoneyflowContractError("history_event_scope_or_rows_changed")
 
 
 def moneyflow_history_proof(
@@ -91,6 +110,12 @@ def moneyflow_history_proof(
     if not dates or len(dates) > MONEYFLOW_HISTORY_MAX_DATE_FACTS:
         raise MoneyflowContractError("history_event_dates")
     row_counts = {f.trade_date: f.row_count for f in plan.date_counts}
+    scope_counts = {}
+    if contract.dataset == "moneyflow_ind_dc":
+        for day, scope, count in expected_history_scopes(
+            manifest["snapshots"][contract.dataset], dates
+        ):
+            scope_counts.setdefault(day, {})[scope] = count
     facts = {}
     checkpoints = {}
     hashed_bytes = unit_count = 0
@@ -140,13 +165,18 @@ def moneyflow_history_proof(
         for day in recent:
             check()
             started = monotonic()
-            audit_moneyflow_automation_standardization(
+            count = audit_moneyflow_automation_standardization(
                 contract,
                 connection,
                 _target(lake_root, plan, day, "raw"),
                 _target(lake_root, plan, day, "silver"),
                 day,
             )
+            if contract.dataset == "moneyflow_ind_dc":
+                assert_board_moneyflow_history_counts(
+                    connection, _target(lake_root, plan, day, "raw"), count,
+                    row_counts[day], scope_counts[day],
+                )
             if monotonic() - started > MONEYFLOW_HISTORY_SQL_TIMEOUT_SECONDS:
                 raise MoneyflowContractError("history_event_unit_timeout")
             assert_moneyflow_memory_budget()
@@ -174,7 +204,12 @@ def moneyflow_history_proof(
                 "checkpoint": checkpoints[day],
                 **(
                     {"row_count": row_counts[day]}
-                    if contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths"}
+                    if contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc"}
+                    else {}
+                ),
+                **(
+                    {"scope_row_counts": scope_counts[day]}
+                    if contract.dataset == "moneyflow_ind_dc"
                     else {}
                 ),
             }
