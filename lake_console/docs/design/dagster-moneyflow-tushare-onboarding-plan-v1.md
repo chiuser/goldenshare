@@ -1,6 +1,6 @@
 # Dagster 七个 Tushare 资金流向数据集接入技术方案 v1
 
-> 状态：2026-10-12 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§44及LLD§39.6；三个STOPPED sensor和历史只读预演已通过，见§45及LLD§40，可恢复历史登记执行器及两日/495日冻结清单已完成，见§46及LLD§41，完整当前门禁已通过并收尾，见LLD§41.6，两日正式样本已读回通过，见§47及LLD§42；495日全量历史登记及收尾完成，见§48及LLD§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§49及LLD§44.3，三个STOPPED sensor、历史预演、执行器和两日样本已完成，见§50～52；739日全量登记及本表P4历史接入已关闭，见§53及LLD§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog及完整隔离验收已完成，见§54及LLD§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§55及LLD§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§56及LLD§51；两日正式登记及读回已通过，见§57及LLD§52；739日全量登记及本表P4历史接入已关闭，见§58及LLD§53；739分区/1478物化/最近20来源日40检查齐全；moneyflow_ths独立资产/check/job/catalog及完整隔离验收已完成，见§59及LLD§54；三个STOPPED sensor/readiness和431历史来源日只读预演已通过，见§60及LLD§55；可恢复执行器、隔离两日样本与431日冻结清单已通过，见§61及LLD§56；两日正式登记及读回已通过，见§62及LLD§57；431日全量登记及本表P4历史接入已关闭，见§63及LLD§58；431分区/862物化/最近20来源日40检查齐全；sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。 moneyflow独立资产/check/job/catalog及完整隔离验收已通过，见§64及LLD§59；三个STOPPED sensor/readiness与4067历史日只读预演已通过，见§65及LLD§60；本表正式登记执行器及两日/全量清单留下一片。
+> 状态：2026-10-12 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§44及LLD§39.6；三个STOPPED sensor和历史只读预演已通过，见§45及LLD§40，可恢复历史登记执行器及两日/495日冻结清单已完成，见§46及LLD§41，完整当前门禁已通过并收尾，见LLD§41.6，两日正式样本已读回通过，见§47及LLD§42；495日全量历史登记及收尾完成，见§48及LLD§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§49及LLD§44.3，三个STOPPED sensor、历史预演、执行器和两日样本已完成，见§50～52；739日全量登记及本表P4历史接入已关闭，见§53及LLD§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog及完整隔离验收已完成，见§54及LLD§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§55及LLD§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§56及LLD§51；两日正式登记及读回已通过，见§57及LLD§52；739日全量登记及本表P4历史接入已关闭，见§58及LLD§53；739分区/1478物化/最近20来源日40检查齐全；moneyflow_ths独立资产/check/job/catalog及完整隔离验收已完成，见§59及LLD§54；三个STOPPED sensor/readiness和431历史来源日只读预演已通过，见§60及LLD§55；可恢复执行器、隔离两日样本与431日冻结清单已通过，见§61及LLD§56；两日正式登记及读回已通过，见§62及LLD§57；431日全量登记及本表P4历史接入已关闭，见§63及LLD§58；431分区/862物化/最近20来源日40检查齐全；sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。 moneyflow独立资产/check/job/catalog及完整隔离验收已通过，见§64及LLD§59；三个STOPPED sensor/readiness与4067历史日只读预演已通过，见§65及LLD§60；本表可恢复历史登记执行器、隔离两日样本和4067日五单元冻结清单已验收，见§66及LLD§61；正式两日和全量APPLY尚未执行。
 >
 > 日期：2026-10-06。目标：将 Prod 已有七个 Tushare 资金流向数据集接入正式 DG；历史从 Prod Raw 初始化，新增由 DG 直接请求 Tushare。
 >
@@ -1219,3 +1219,23 @@ moneyflow独立两层资产、两条分区blocking checks、两个job、专属�
 硬口径、代码与正反测试落点、预算和实测限制见[LLD §60](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-automation)及[证据](../../reports/moneyflow_p4_moneyflow_sensor_event_preview_evidence_20261012.json)。1179源码/测试及64份旧报告hash保持，根CodeGraph已同步；不改变主体依赖矩阵、Prod契约/API/CLI/前端。正式file/control/partition/event写入、源请求、job/sensor evaluation、reload/enable/pool/安装均0。上一片d93cd771已提交未推送，本轮尚未提交。
 
 此切片关闭，P4整体开放，P5未进入。下一独立片开发moneyflow可恢复历史登记执行器、隔离两日样本与4067日冻结清单，并接入本表row_count写入/读回门禁；正式APPLY和sensor启用仍按精确阶段批准。
+
+
+## 66. P4传统个股可恢复历史登记、两日样本与4067日冻结全量清单（2026-10-12）
+
+上一片16文件提交e22a68e3未推送。管理员批准本表执行器和冻结清单开发；代码前硬口径、真实实现/消费者、配置和性能审计见[LLD §61](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-stock-history-events)。固定moneyflow_stock_event_plan/moneyflow_events复用现有shared protocol；两日样本隔离读回、取消/实际退出/续跑/幂等和row_count校验，原六表回归及完整受保护门禁后才冻结正式清单。
+
+4067日期/12241工作项超过现行单APPLY4096项/256读取预算，按现有预算冻结五个有序来源日期单元1000/1000/1000/1000/67；不提高旧限额或改变原六表行为。单元内仍按100日期批，只有尾单元覆盖最近20来源日检查；全量合计4067分区、8134物化、40检查/8174event，每层14089300行，最终按全范围native对账。两日sample和五单元full都不执行正式APPLY。本轮正式只读重验已有物理/控制事实，报告只写仓库，不创建正式控制目录。P4整体开放、P5未进入，执行结果验收后回填。
+
+
+### 66.1 可恢复执行器、两日样本和4067日五单元清单验收通过
+
+本表固定planner/validator、一次proof的五单元builder与默认只读publisher已接入，20字段、来源单位和NULL/负值保持；共享engine补齐冻结计数的写入/原生读回拒绝门禁。57项本表测试和384项原六表events/本表定义sensor预演回归通过，取消/真实退出/续跑/幂等和跨六表拒绝已验收。完整受保护catalog12/516、static113/15批、隔离Definitions、Ruff及1182源码hash保持通过；原六表12清单和65份旧JSON保持。
+
+隔离两日5571/5572行、20字段、4mat/4check精确target及0新增重放通过。1000日最坏单元3040项/251读通过；4067合成日期五plan容量12241项/8174event/953读，每个单元保持4096项/256读/600秒，8313次原子checkpoint保存及最近20日40checks读回通过。该容量包含单行旧日与存档5572行样本，不能当成正式PG全量耗时或业务覆盖证明。
+
+正式只读冻结真实2010-01-04..2026-09-30的4067来源日，每层14089300行；两日实际计数5571/5572。8134文件/2750606591B及436来源control当前hash保持；sample和五子plan完整重建两次相同，完整门禁通过后再次等值重建且全部冻结hash保持；分别7及23/23/23/23/7 native预检读取，completed0/formal_writes0。两日清单、五子清单、总清单内外hash、真实成本与执行边界见[LLD §61.3～61.4](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-stock-history-events)及[验收报告](../../reports/moneyflow_p4_moneyflow_event_registration_executor_evidence_20261012.json)。
+
+[两日清单](../../reports/moneyflow_p4_moneyflow_event_registration_sample_plan_20261012.json)plan_hash=45aadf69d0f719f5cecf525932c6ce65a2b40b33915d201602b694d12ae63444；[4067日全量总清单](../../reports/moneyflow_p4_moneyflow_event_registration_full_plan_20261012.json)manifest_hash=578f70c1119a5cd901726c2103fd0703ac309b348c6cc4d3b3d70cc26245ea55，文件sha256=c1fcd6a100533b1a7556f832e4e52590d960884ea022a6bab484256980fd0f90。全量是同一moneyflow数据集的1000/1000/1000/1000/67来源日独立执行单元，不能把总清单当旧格式plan直接APPLY或放宽单元预算。
+
+本开发片关闭，正式两日/全量登记尚未执行，P4整体开放、P5未进入。上一片e22a68e3已提交未推送，本轮16文件尚未提交。下一独立阶段先按冻结两日清单获批执行并读回，复核持久sensor状态、active jobs、维护/互斥/hash/空间门禁；样本真实PG成本通过后，再独立批准五单元全量。正式Lake/staging control/partition/event写入、源请求、job/sensor evaluation、reload/enable/pool/安装均0；主体依赖矩阵/Prod/API/CLI/前端不变，其他工作区修改保留。
