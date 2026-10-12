@@ -66,7 +66,9 @@ def audit_moneyflow_automation_standardization(contract, connection, raw, silver
     )
 
 
-def assert_board_moneyflow_history_counts(connection, raw, count, row_count, scope_counts):
+def assert_board_moneyflow_history_counts(
+    connection, raw, count, row_count, scope_counts
+):
     """Use the same frozen historical scope proof before planning and green events."""
     actual = dict(
         connection.execute(
@@ -172,10 +174,15 @@ def moneyflow_history_proof(
                 _target(lake_root, plan, day, "silver"),
                 day,
             )
+            if contract.dataset == "moneyflow_dc" and count != row_counts[day]:
+                raise MoneyflowContractError("history_event_rows_changed")
             if contract.dataset == "moneyflow_ind_dc":
                 assert_board_moneyflow_history_counts(
-                    connection, _target(lake_root, plan, day, "raw"), count,
-                    row_counts[day], scope_counts[day],
+                    connection,
+                    _target(lake_root, plan, day, "raw"),
+                    count,
+                    row_counts[day],
+                    scope_counts[day],
                 )
             if monotonic() - started > MONEYFLOW_HISTORY_SQL_TIMEOUT_SECONDS:
                 raise MoneyflowContractError("history_event_unit_timeout")
@@ -204,7 +211,13 @@ def moneyflow_history_proof(
                 "checkpoint": checkpoints[day],
                 **(
                     {"row_count": row_counts[day]}
-                    if contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc"}
+                    if contract.dataset
+                    in {
+                        "moneyflow_ind_ths",
+                        "moneyflow_cnt_ths",
+                        "moneyflow_ind_dc",
+                        "moneyflow_dc",
+                    }
                     else {}
                 ),
                 **(

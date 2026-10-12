@@ -8,6 +8,7 @@ import dagster as dg
 from orchestrator.defs.io.moneyflow_candidates import candidate_file_hash
 from orchestrator.defs.paths import raw_moneyflow_path, silver_moneyflow_path
 from orchestrator.defs.run_contracts.moneyflow import (
+    MONEYFLOW_DC_READINESS_FILE_MAX_BYTES,
     MONEYFLOW_EVENT_RECORD_LIMIT,
     MONEYFLOW_IND_DC_READINESS_FILE_MAX_BYTES,
     MONEYFLOW_READINESS_FILE_MAX_BYTES,
@@ -68,6 +69,8 @@ def batch_moneyflow_readiness(
     file_budget = (
         MONEYFLOW_IND_DC_READINESS_FILE_MAX_BYTES
         if contract.dataset == "moneyflow_ind_dc"
+        else MONEYFLOW_DC_READINESS_FILE_MAX_BYTES
+        if contract.dataset == "moneyflow_dc"
         else MONEYFLOW_READINESS_FILE_MAX_BYTES
     )
     results = {}
