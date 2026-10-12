@@ -96,6 +96,10 @@ from orchestrator.defs.assets.moneyflow_mkt_dc import (
     raw_tushare_moneyflow_mkt_dc,
     silver_moneyflow_mkt_dc,
 )
+from orchestrator.defs.assets.moneyflow_ths import (
+    raw_tushare_moneyflow_ths,
+    silver_moneyflow_ths,
+)
 from orchestrator.defs.assets.namechange import (
     NAMECHANGE_RAW_COLUMN_TYPES,
     NAMECHANGE_SILVER_COLUMN_TYPES,
@@ -290,6 +294,8 @@ DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_moneyflow_cnt_ths,
     silver_moneyflow_cnt_ths,
+    raw_tushare_moneyflow_ths,
+    silver_moneyflow_ths,
     raw_tushare_moneyflow_dc,
     silver_moneyflow_dc,
     raw_tushare_moneyflow_ind_dc,

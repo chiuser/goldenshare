@@ -676,7 +676,6 @@ def test_same_operation_never_reuses_other_dataset_receipt(env):
     (
         "moneyflow",
         "unknown_moneyflow",
-        "moneyflow_ths",
         "moneyflow_mkt_dc",
         "../moneyflow_ind_dc",
     ),

@@ -42,7 +42,7 @@ from orchestrator.defs.run_contracts.moneyflow_daily import daily_key_fields
 
 def _assert_daily_update_dataset(dataset: str) -> None:
     # Only explicitly onboarded daily sources may publish through this helper.
-    if dataset not in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc", "moneyflow_dc"}:
+    if dataset not in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc", "moneyflow_dc", "moneyflow_ths"}:
         raise MoneyflowContractError("daily_update_dataset")
 
 
