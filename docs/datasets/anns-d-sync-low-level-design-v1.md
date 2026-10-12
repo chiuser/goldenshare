@@ -1,5 +1,19 @@
 # 上市公司公告同步完善 LLD v1
 
+<a id="bounded-source-diagnostics-consumer"></a>
+
+## 共用源异常诊断消费（2026-10-12，已确认，待开发）
+
+本节只规定anns_d消费共用诊断的要求；字段白名单、大小限制、IPC格式、文案、代码位置和上线步骤统一引用[周线LLD §13.16](stock-weekly-adj-refresh-low-level-design-v1.md#bounded-tushare-source-diagnostics)，不在公告另定义一套合同。该修改不改变下文自动日期窗口、工作流移出及Raw全量保留方案。
+
+`bounded_tushare_call`及`TushareHttpClient.call_bounded`改为传递安全details后，`source_client.py::iter_bounded_pages`的公告分支捕获BoundedTushareError时必须将details传入StructuredError，补充api_name=anns_d、真实dataset_key、该页实际start_date/end_date/ts_code/limit/offset、page_number和attempt_number；不读取任务总范围伪装成本页请求。通过当前stream/executor → Ops issue → 详情API/前端JSON透传，不改表结构或另设观测存储。
+
+请求与持久化约束保持：单页2000、写批500、原响应上限64MiB和25秒总期限、连接/读取各min(5,total)秒；最多3次重试（共4次真实尝试），每次仍先reserve请求预算，退避仍0.5/1/2秒；只按当前retryable代码决定重试，不新增隐藏adapter重试。取消不转换成源连接失败，失败保留此前已提交批，当前日完成凭证仍必须等末短页及提交成功，恢复日期和execution_token不变。普通TushareHttpClient.call()、公告下载、查询及DG不参与本修复。
+
+公告专项隔离测试补入`tests/test_anns_d_stream.py`：具名有界错误和未知传输异常均能透传details；wrapped ReadTimeout/HTTP错误/无结果不再丢类型；首次到第四次的attempt_number、reserve与实际请求数一致，最终失败不报完成；不可重试错误不多请求，取消仍进入原取消路径，已提交批/凭证和幂等恢复保持。共用测试验证安全字段限制及日志脱敏，`tests/web/test_ops_runtime.py`验证issue持久化后API读回诊断；codebook回归确认连接失败建议不再混入公告专属预算。
+
+先完成共用实现、两处wrapper迁移及隔离测试，再提交部署。无需为此重新跑公告全历史或制造Prod失败；如公告后续自然失败，只核验新issue是否携带真实诊断，不回填旧issue、不把一次成功观察当作历史失败已定位。没有新增配置项或子系统依赖；状态写入/诊断日志失败不得改变Raw提交结果。当前只完成方案和LLD补充，代码与验收待执行。
+
 <a id="automatic-announcement-window"></a>
 
 ## 自动同步调整 LLD（2026-10-12，日期策略已部署，工作流移出已实现待部署）

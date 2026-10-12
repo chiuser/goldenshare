@@ -1,5 +1,7 @@
 # Prod 股票复权周线刷新代码级 LLD v1
 
+当前执行状态（2026-10-12）：P3/D3修改已提交`a3c2c750`，只读确认Prod部署HEAD `57b459f2`包含该提交，Web/worker/scheduler均active。全量首批TaskRun `15447`源调用失败后原批恢复为`15450`，主动取消验收通过后由`15451`续跑，于12:12再次源调用失败，已提交492/876周、1,172,725行，首批未闭合；范围2010-01-01—2026-10-09、全市场，冻结876周；第二补刷批、B0和DG全量覆盖尚未执行。取消/续跑及完整对账结果以[Prod LLD §13.15.4](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-formal-20261012)为准。下文较早的未执行描述保留为历史状态。
+
 起草：2026-10-09；更新：2026-10-12。状态：P0/D0完成，P1已提交7d32163d，P2已提交018168fc，日期纠偏及PG/Ops验收已提交12f5ddde。内存优化已提交cc7c528e，依据现有验证及管理员决定收口，不再追加专门复测或优化：业务执行的单进程峰值达到原256MiB目标，同时进程树总量另列，见§13.7。管理员已部署cc7c528e；正式迁移到186及表/trigger/索引只读核验通过，正式双周15368及两只单股历史15375/15378的21字段对账通过；15378采样观察到父/源进程均低于256MiB，取消续跑、同批零请求重放及页面验收留到全量执行前合并完成，不阻断DG D1/D2开发，见§13.9—13.12；未执行全量刷新或DG切换。本文件按 [Prod 数据集开发模板](../templates/dataset-development-template.md) 的0—10节复制结构并填写；模板提示文字不作为项目内容重复保留。
 
 业务范围和阶段以 [方案](stock-weekly-adj-refresh-plan-v1.md) 为准。DG实现仅引用本文交接合同，其余见 [DG LLD新增阶段](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-prod-refresh-lld)。当前实现以§13为准：源码注册Definition已绑定新规划/发布路径，管理员部署后正式表及索引已创建并只读核验；首个两历史周正式任务已对账通过；其他正式验收、首次全量收尾和DG接收链待完成。§12保留P1提交时的历史状态。
@@ -895,6 +897,103 @@ stock_weekly_adj_planning.py受理两阶段并冻结第二批代码/目标因子
 #### 13.15.3 正式执行清单（未执行）
 
 1. 先提交并部署本轮Prod代码；部署后只读核对源码版本、有效Definition及无另一个未完成周线批。既有真实小样本源/21字段验收不重复，本次正式运行需补取消—原意图续跑—读回及TaskRun/node终态验收。
-2. 运营后台数据集“股票周线行情（复权）”（stk_period_bar_adj_week），maintain、范围2010-01-01—2026-10-09、ts_code留空；若执行日期已跨新完整周，先重新核验截止。当前范围876周；无交易周不请求源，其他周每页6000、单unit最多12,000、源调用45秒、业务事务20秒、单进程目标256MiB及批载荷256MiB不变。不清空原表。首批自然未完成时取消并从原详情恢复，完整对账通过后只生成batch_closed。
+2. 运营后台数据集“股票周线行情（复权）”（stk_period_bar_adj_week），maintain、范围2010-01-01—2026-10-09、ts_code留空；若执行日期已跨新完整周，先重新核验截止。当前范围876周；无交易周不请求源，其他周每页6000、单unit最多12,000、源调用总期限20秒（HTTP连接和读取各min(5,total)秒）、业务事务20秒、单进程目标256MiB及批载荷256MiB不变。不清空原表。首批自然未完成时取消并从原详情恢复，完整对账通过后只生成batch_closed。
 3. 再提交覆盖第一批完整范围的同数据集maintain，冻结关联第一批的独立补刷计划；展示实际新周/变化股票数。此时才知道补刷清单，不能预先填写刷新前的3,767代码。第二批对账通过并核对目标摘要，产生真实B0；未完成则恢复第二批，不另建新意图跳过。
 4. B0及一次Prod对账完成后进入DG稳定捕获与年度覆盖，文件、事件、水位按DG LLD A17分阶段执行。现在没有真实B0，不能拿revision10的单股闭合批冒充全量边界。正式Lake、事件和sensor cursor均未改动。
+
+<a id="weekly-bootstrap-formal-20261012"></a>
+
+#### 13.15.4 正式执行已启动（2026-10-12）
+
+管理员部署后，只读SSH以goldenshare用户确认HEAD `57b459f2`包含`a3c2c750`，三个正式服务active。psql-remote.sh、READ ONLY、20秒statement_timeout核对：执行前无运行中的复权周线任务，交接最新revision10、无bootstrap_closed，Raw week为2,896,823行，2010-01-01—2026-10-09。
+
+管理员从运营后台提交全市场首批TaskRun `15447`，10:56:16受理、10:56:20开始；业务批`850840bf-94c1-4081-ba44-f0d5385474ab`，plan revision11，bootstrap=true，冻结876周，factor_scan_end=2026-10-09。已观察到源单元完成记录持续提交，暂未发现失败或reject；这不等于首批已完成或对账通过。浏览器控制连续两次超时，因此运营点击由管理员代操作，代理通过已有正式只读入口核验；未直接写Ops表或绕过任务提交链。
+
+按原执行清单，先取消一次真实未完成首批，核对TaskRun/node终态及已提交单元不变，再从原详情重试沿用原冻结业务批。完整对账和首批batch_closed通过后，才提交独立补刷批。截止本记录，取消/续跑尚待完成，首批完整对账、第二批和B0均未完成。只读预检及单元身份摘要仅在/private/tmp留临时材料，不新增reports或运行依赖，不重复内存专项验收。
+
+首批异常及原批恢复（2026-10-12 11:06—11:11）：TaskRun15447及node23798于11:06:43同时FAILED，已完成86/876单元、150,069行、reject=0，取消请求为空。失败单元为2011-08-26，unit_id=c5a73ea69892f1dbd29bd552504b4a1142a3309c5612a7ee04162292df4c1680，source_connection_failed、retryable=true；没有该单元receipt，没有batch_closed/B0。Raw与Serving限定2010-01-01—2011-08-19分别读回150,069行。
+
+当前bounded_tushare_call._attempt把未知异常仅以transport_error及异常类名传给父进程，TushareHttpClient.call_bounded随后丢弃类名并写死“公告源单次传输失败”。因此周线任务出现公告文案，不代表调用公告接口；已核对实际接口合同是stk_week_month_adj/freq=week。现有issue details为空，失败时段journal没有可用底层异常，无法回溯精确的超时/断连/HTTP状态。不得把这次故障写成缺数据、价格校验失败或已定位具体网络根因；本轮未改源调用、自动重试、超时或错误合同。
+
+管理员在15447详情使用“重新提交”，生成TaskRun15450（11:10:28受理、11:10:32开始、trigger_source=retry），仍使用批850840bf-94c1-4081-ba44-f0d5385474ab及唯一plan revision11。2011-08-26在revision98成功提交2,022行，进度已超过86；预先抽取的32个完成单元身份/行数/payload_digest恢复前后全部一致。已证明故障中断和原批恢复，未把它冒充主动取消验收；后续按清单对15450完成一次停止处理—取消终态—同详情重新提交。第一批完整对账、第二批、B0及DG全量覆盖仍未完成。
+
+主动取消/原批续跑已核验（2026-10-12 11:13—11:15）：管理员对15450点击停止处理，cancel_requested_at=11:13:31.431686、canceled_at=11:13:31.536170，TaskRun和node23801同时CANCELED；停止时110/876、195,409行、reject=0。随后从同详情重新提交15451，trigger_source=retry，batch_id仍850840bf-94c1-4081-ba44-f0d5385474ab；新任务从110继续增长至122、220,833行，没有重新冻结原计划。该阶段只验证已提交事实保留、取消终态和同意图恢复，不冒充整批一次对账。主动取消步骤已收口，不再重复；首批全量、完整对账及第二批/B0继续等待真实结果。
+
+恢复后读回（2026-10-12 11:48）：15451与node23802均RUNNING，358/876单元、753,057行、reject=0、无issue。原批仍只有plan revision11；358份unit记录对应358个唯一unit_id，rows_written合计753,057，与任务和节点计数一致。此时尚无audit单元或batch_closed，不能算作全量完整对账通过；继续执行原批，无需再次取消。DG仍等待首批及独立补刷批闭合后的真实B0。
+
+再次源调用失败审计（2026-10-12 12:12—12:19）：15451与node23802同时FAILED；第493单元为2019-06-07、page1/offset0，unit_id=cb9e9040b19a264df7ea5d69243e1301acaa28e5a2a85f0d556e73f701fc7fa1。原批唯一plan及492个唯一完成unit仍保留，累计1,172,725行、reject=0；失败单元无receipt，尚无batch_closed或B0。错误与15447相同为source_connection_failed，但不是同一个日期单元。
+
+Tushare MCP显式请求21字段，失败周当前返回3,548行；Prod部署57b459f2使用同一接口、参数trade_date=20190607/freq=week/limit=6000/offset=0、21字段及原8MiB限制，直接源读取两次均HTTP200、3,548行，耗时0.413和0.579秒。只读探针保留原(5,5)秒HTTP超时，未启用测试中的超时对比分支，没有落库或重新提交任务。说明当前源数据可取，但不能还原12:12那一次的底层异常。worker失败窗口14条日志仅有其他news请求，没有周线异常类型；不能断言历史失败一定是ReadTimeout。
+
+已确认诊断缺陷：_attempt只传异常类名，TushareHttpClient.call_bounded却丢弃类名并写死公告文案；source_client包装时也未提供诊断details。因此需先保留不含凭证的异常类型、HTTP状态与请求阶段/耗时，修正文案，再依据真实原因决定是否调整超时。另发现本节执行清单写源调用45秒，但Prod实际Definition的WeeklyAdjExecutionPolicy.source_timeout_seconds=20，底层HTTP连接/读取均min(5,total)。本次只记录差异，不修改预算、配置、自动重试或源调用合同；后续实现前按根AGENTS计划冲突规则确认并校准方案。
+
+<a id="bounded-tushare-source-diagnostics"></a>
+
+### 13.16 共用源异常诊断修复（2026-10-12，已确认，待开发）
+
+#### 13.16.1 目标与批准边界
+
+管理员已确认按诊断修复建议先更新方案和LLD。本节是该修复的当前口径；§13.15.4保留失败发生时的事实。§13.15.3的45秒已校正为真实Definition的20秒，仅修正文档，不改变源超时配置。历史issue缺失的异常类型不能靠后续成功请求倒推，也不回写旧issue。
+
+本次解决“失败原因没有传到任务详情、周线显示公告文案”，不承诺消除全部源网络故障。实施只涉及下表四个主实现文件及其测试，不改DatasetDefinition、请求builder、业务表、冻结policy snapshot、contract_digest或DG代码。沿用当前主链，无兼容层、第二套错误码或新运行依赖。
+
+| 代码位置 | 当前缺陷 | 待实现内容 |
+| --- | --- | --- |
+| foundation/clients/bounded_tushare_call.py | 未知异常只传类名；EOF/总期限路径缺诊断；BoundedTushareError无details | 在异常对象及IPC中保留安全有界诊断；父进程自有失败补充实际可见事实 |
+| foundation/clients/tushare_client.py::call_bounded | 丢弃transport_error类名，兜底文案写死公告 | 读取新异常包、生成准确的Tushare文案、输出一次安全诊断摘要；普通call()不改 |
+| foundation/ingestion/source_client.py | weekly和anns_d两个捕获分支均不传details | 原样承接底层诊断，补充白名单请求上下文，写入既有StructuredError |
+| foundation/ingestion/codebook.py | source_connection_failed建议文案含公告预算 | 改为通用Tushare连接诊断建议；错误码、分类和重试判定不变 |
+
+CodeGraph explore核验共用客户端及源执行入口，前序impact核验BoundedTushareError调用影响；动态消费另外阅读weekly/anns_d包装、执行器、StructuredError、Ops dispatcher/issue持久化、详情查询/schema及前端JSON展示。Ops已有technical_payload.details可透传，无需数据库迁移、API新增字段或前端自行拼诊断；foundation继续不依赖ops。后续需用测试确认异常包与两处消费者同步迁移，以及原冻结批可恢复；静态调用图不替代这些验收。
+
+#### 13.16.2 异常包和安全字段
+
+共用异常对象增加details字典。子进程的bounded_error统一传(code,message,details)，transport_error传安全details；生产者与父进程消费者同时迁移，不保留旧包解析分支。rows、rate_limit、api_error的返回及既有业务异常语义保持不变，周线Decimal解析和21字段校验不变。已具名的预算/响应合同错误保留原code和message，诊断仅补充说明，不改成连接失败。
+
+details仅允许下列信息，未知值省略或为null，禁止用猜测填满：
+
+| 字段 | 事实来源与含义 |
+| --- | --- |
+| exception_type、cause_types | 实际异常类名及有限的cause/context类名链；requests可能将ReadTimeout包装成ConnectionError，保留链便于区分 |
+| failure_stage | 当前代码实际进入的阶段：request、response_body、decode、validate；父进程只能记录ipc_wait或ipc_receive，不能声称知道被终止子进程的最后HTTP阶段 |
+| http_status | 已收到响应时的HTTP状态；未收到响应为null |
+| elapsed_ms | 单次调用当前可测耗时，使用monotonic；不是整个任务耗时 |
+| connect_timeout_seconds、read_timeout_seconds、total_timeout_seconds | 本次真实生效的期限，不读取另一个普通客户端的默认值 |
+| worker_exit_code | 无结果时如已观察到子进程自然退出，记录退出码；未知为null，不把父进程清理产生的终止信号当成原故障或OOM证明 |
+| api_name、dataset_key、request_params | 源包装层补充接口/数据集和业务参数；参数仅trade_date、ann_date、start_date、end_date、ts_code、freq、limit、offset |
+| page_number、offset、attempt_number | 本次真实页、偏移和从1开始的实际尝试次数；周线为1，公告按原重试序列累计 |
+
+诊断在进入IPC或日志前投影到白名单，只传短字符串、数值、null和有限列表/字典。类名/参数字符串最多96字符，cause_types最多4项且防循环，整个details最多8KiB；这是固定安全边界，不新增运营配置。超限裁剪诊断但保留错误码，不影响业务异常处理。禁止序列化异常对象、原始str(exc)、HTTP响应正文、请求完整payload、token、认证头、凭证URL或traceback局部变量。
+
+EOF/OSError由父进程构造source_connection_failed诊断，记录IPC阶段及实际异常类型；总期限仍使用原weekly_adj/anns_d.source_deadline_exceeded，并记录父进程实测耗时和预算。不为定位故障额外请求源、不增加进度消息通道，也不让诊断/log写入失败替换原异常或阻塞业务提交。取消仍由原check路径传播，不能被转换成连接失败。
+
+#### 13.16.3 文案、持久化与预算
+
+文案从实际异常类型/链和阶段生成：连接超时显示“Tushare连接超时”；等待响应的ReadTimeout显示“等待Tushare响应超时”；响应体读取超时显示“读取Tushare响应超时”；HTTPError有状态时显示“Tushare返回HTTP 503”等实际状态；EOF显示“源调用进程未返回结果”；其余显示“源调用异常（TypeError）”等真实类名。类名不足以判明原因时显示通用源传输失败，不称已定位断网。不能因http_status=401等诊断自行改变现有retryable规则。
+
+完整安全诊断沿原链BoundedTushareError → IngestionSourceError/StructuredError → TaskRun issue的technical_payload.details → 详情API → 前端JSON展示；技术错误文本使用修正后的文案。客户端在异常出口记录一次同样白名单化的日志摘要，不使用logger.exception或原始异常repr；日志失败不掩盖原业务结果。不另建诊断表、源副本或reports证明材料。
+
+| 约束 | 保持的实际口径 |
+| --- | --- |
+| 周线请求 | 每页一次真实请求；adapter重试0、禁止redirect；总期限20秒，连接/读取各5秒；6000行/页、原8MiB响应上限 |
+| 公告请求 | 首次加最多3次重试；每次仍先reserve并计请求预算；保留0.5/1/2秒退避及原retryable范围；总期限25秒，连接/读取各5秒 |
+| 持久化与恢复 | 不改unit、短事务、已提交receipt、取消检查点、TaskRun/活动节点终态；观测失败不回滚业务数据 |
+| 内存与耗时 | 保持既有预算；仅错误路径增加≤8KiB诊断，不做额外源请求、全历史读取或新一轮内存专项 |
+
+#### 13.16.4 实施及验收步骤
+
+1. **实现IPC及客户端。** 修改前再次核对共用调用入口；同时迁移发送、接收和BoundedTushareError，覆盖具名异常、transport_error、EOF及父进程总期限。成功结果、源API错误、取消语义均保持。
+2. **迁移两个源包装和建议文案。** weekly/anns_d都承接details并补真实请求上下文；不得只修周线而让公告丢诊断，不修改两者请求次数、日期或预算。
+3. **隔离验收。** 使用已有依赖和本机测试HTTP服务触发连接/读取失败、HTTP错误、非法响应、子进程无结果、总期限及取消；证明安全诊断可到达既有TaskRun issue并由API读回。无需在Prod制造故障。
+4. **提交、部署后原批恢复。** 测试通过后提交诊断修复，由管理员部署，再核对版本和无冲突任务。从15451详情“重新提交”，沿用batch 850840bf-94c1-4081-ba44-f0d5385474ab、plan revision11及876周；492个完成单元保留、不重冻结。若再次真实失败，读取新的diagnostics；成功读源本身不能算故障诊断验收。
+5. **继续既有收尾。** 首批全部源unit及一次完整对账通过才batch_closed；再冻结独立因子补刷批并闭合B0，随后按DG原LLD执行稳定捕获、年度覆盖、文件提升、事件和水位迁移。不得借诊断修复提前闭合或改日常历史门禁。
+
+| 必须验收的口径 | 测试落点及反例 |
+| --- | --- |
+| 异常类/因果链、阶段、状态和期限不丢 | tests/test_bounded_tushare_call.py、test_tushare_client.py；覆盖ConnectionError包装读取超时、HTTP状态及未知异常，禁止全部降为同一文案 |
+| IPC有界、安全、无额外请求 | 同上；带token/凭证URL/巨大异常文本和循环cause的反例；核对真实请求次数、异常包体积、无secret日志 |
+| 两处wrapper透传及重试不变 | tests/test_stock_weekly_adj_p2.py、test_anns_d_stream.py；周线一次、公告最多四次且每次reserve，取消不误报失败 |
+| 持久化和API消费不丢字段 | tests/web/test_ops_runtime.py；实际issue写入后读回details及technical_message，状态观测失败不回滚已提交业务unit |
+| 原业务与恢复合同不变 | 既有周线P2/P3及公告stream回归；21字段/Decimal、失败页无部分unit提交、完成receipt保留、原冻结plan续跑；codebook guardrails回归 |
+
+**本节状态：方案和LLD已更新，代码、隔离测试、提交及部署均待执行。** 15447/15451没有可回溯的精确底层原因；本节不把历史缺失证据标为已补齐，也不重复已经通过的主动取消验收。
