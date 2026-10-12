@@ -76,6 +76,10 @@ from orchestrator.defs.assets.market_major_indices import (
     MARKET_MAJOR_INDICES_DAILY_COLUMNS,
     gold_market_major_indices_daily,
 )
+from orchestrator.defs.assets.moneyflow import (
+    raw_tushare_moneyflow,
+    silver_moneyflow,
+)
 from orchestrator.defs.assets.moneyflow_cnt_ths import (
     raw_tushare_moneyflow_cnt_ths,
     silver_moneyflow_cnt_ths,
@@ -294,6 +298,8 @@ DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_moneyflow_cnt_ths,
     silver_moneyflow_cnt_ths,
+    raw_tushare_moneyflow,
+    silver_moneyflow,
     raw_tushare_moneyflow_ths,
     silver_moneyflow_ths,
     raw_tushare_moneyflow_dc,

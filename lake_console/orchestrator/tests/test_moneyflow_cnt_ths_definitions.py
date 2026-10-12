@@ -674,7 +674,6 @@ def test_corrupt_source_proof_never_publishes(env, monkeypatch, corruption):
 @pytest.mark.parametrize(
     "dataset",
     [
-        "moneyflow",
         "unknown_moneyflow",
         "moneyflow_mkt_dc",
         "../moneyflow_cnt_ths",
