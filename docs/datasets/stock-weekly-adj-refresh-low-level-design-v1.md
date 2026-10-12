@@ -840,4 +840,14 @@ P2开发、正常小样本及内存工作收口；正式取消续跑、同批零
 
 修正前，publish_closed_batch把任务cutoff_week填入max_input_week；任务截止周可能晚于实际返回数据，不能用于DG选择真实分区。管理员确认：max_input_week改为本批已提交输入的最大trade_date；没有输入行时为null。日常从已有unit payload.rows汇总；bootstrap unit仅摘要，发布时保存该unit实际最大输入周，再由闭合阶段汇总。cutoff_week仍表示任务范围，两者不混用。21行情列、意图/请求参数、事务、预算、原批记录均不变；不改写已闭合批。DG捕获时核验闭合头与实际输入范围一致，错误摘要不能创建虚假分区。
 
-源码已修正；`test_stock_weekly_adj_p2.py`新增四项隔离验收，覆盖任务到10月9日但实际只到6月5日、实际返回10月9日、空批不造日期及首次bootstrap摘要/闭合最大周汇总。P1/P2共69项通过。修改尚未提交或部署，已闭合批未改写；正式验收不能把本地测试当作Prod已加载新逻辑。DG接收实现和真实只读传输核验见[DG LLD A14](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-d1-d2-implementation)。
+源码已修正；`test_stock_weekly_adj_p2.py`新增四项隔离验收，覆盖任务到10月9日但实际只到6月5日、实际返回10月9日、空批不造日期及首次bootstrap摘要/闭合最大周汇总。P1/P2共69项通过。修改已提交`b49d9cdc`、尚未部署，已闭合批未改写；正式验收不能把本地测试当作Prod已加载新逻辑。DG接收实现和真实只读传输核验见[DG LLD A14](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-d1-d2-implementation)。
+
+<a id="weekly-bootstrap-capture-progress"></a>
+
+### 13.14 DG稳定捕获推进及Prod收尾边界（2026-10-12）
+
+DG D2已完成获准单股实际交付、取消续跑和事件检查；本轮继续D3的稳定捕获代码，不追加Prod内存优化。落实既有合同：以真实bootstrap_closed作为B0，固定库存和读取范围，任何plan/unit/closure提交导致捕获停止；首次捕获核对Raw week总行数，防止库存清单遗漏代码或年份。具体代码、预算、测试及下一切片统一见[DG LLD A16](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-capture)，不在Prod重建另一套DG字段合同。
+
+本轮通过唯一psql-remote.sh入口、READ ONLY事务、20秒statement_timeout验证一行控制信息：交接表最新revision=10，无bootstrap_closed；Raw week总行数2,896,823。对现有普通闭合批revision10执行新B0核验SQL，boundary返回null，正确拒绝将单股样本当首次边界。没有导出源行、部署、提交TaskRun、生成B0或写入DG。
+
+Prod P3仍须开发完整一次对账、捕获期间因子定向补刷及bootstrap_closed收尾，合并完成正式取消/恢复/同批零请求重放及页面门禁后，另获全量执行授权。当前只有batch_closed执行链，不能以DG捕获代码完成宣称Prod全量刷新或B0已经完成。DG年度replace_input_keys、正式事件和独立水位迁移尚未完成，本轮不调用旧create_or_identical来推进。

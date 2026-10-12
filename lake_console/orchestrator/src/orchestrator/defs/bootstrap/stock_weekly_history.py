@@ -11,6 +11,7 @@ from orchestrator.defs.bootstrap.stock_weekly_capture import (
     CancelProbe,
     WeeklyCaptureError,
     WeeklyCaptureStore,
+    capture_file_hash,
     check_capture_path,
     check_weekly_cancel,
     verify_weekly_plan_evidence,
@@ -22,6 +23,7 @@ from orchestrator.defs.duckdb_connection import (
 from orchestrator.defs.prod_db.stock_weekly import load_prod_weekly_csv
 from orchestrator.defs.run_contracts.stock_weekly import (
     ProdWeeklyUnit,
+    StockWeeklySource,
     WeeklyPlanManifest,
 )
 from orchestrator.defs.stock_weekly_source import (
@@ -88,9 +90,19 @@ def capture_weekly_history(
     cancel: CancelProbe = lambda: False,
     progress: Callable[[dict], None] | None = None,
     connection_factory=connect_configured_duckdb,
+    bootstrap_guard=None,
 ) -> dict:
     """Validated receipts are the sole completion facts; partial captures remain."""
     verify_weekly_plan_evidence(manifest)
+    adjusted = manifest.source is StockWeeklySource.PRIMARY_ADJUSTED
+    if adjusted != (bootstrap_guard is not None):
+        raise WeeklyCaptureError(
+            "adjusted_bootstrap_boundary_required"
+            if adjusted
+            else "bootstrap_boundary_source_invalid"
+        )
+    if bootstrap_guard is not None:
+        bootstrap_guard.validate_manifest(manifest)
     store = WeeklyCaptureStore(capture_root, manifest)
     budget = manifest.budget
     completed = 0
@@ -98,6 +110,7 @@ def capture_weekly_history(
     logger = DgStdoutLogger("stock_weekly_capture")
     units_by_id = {unit.unit_id: unit for unit in manifest.units}
     last_update = 0.0
+    receipts = []
 
     def emit(unit_id: str, chunk_rows: int = 0, *, force: bool = False) -> None:
         nonlocal last_update
@@ -129,6 +142,13 @@ def capture_weekly_history(
             last_update = now
 
     with store.locked():
+        if bootstrap_guard is not None:
+            emit(manifest.units[0].unit_id, force=True)
+            bootstrap_guard.check(
+                cancel=cancel,
+                progress=lambda value: emit(manifest.units[0].unit_id, value),
+                expected_raw_rows=manifest.planned_key_count,
+            )
         spill = store.root / "spill"
         check_capture_path(spill)
         spill.mkdir(exist_ok=True)
@@ -144,6 +164,13 @@ def capture_weekly_history(
             for unit in manifest.units:
                 check_weekly_cancel(cancel)
                 emit(unit.unit_id, force=True)
+                if bootstrap_guard is not None:
+                    bootstrap_guard.check(
+                        cancel=cancel,
+                        progress=lambda value, unit_id=unit.unit_id: emit(
+                            unit_id, value
+                        ),
+                    )
                 receipt = store.resume(connection, unit)
                 if receipt is None:
                     if isinstance(unit, ProdWeeklyUnit):
@@ -171,12 +198,33 @@ def capture_weekly_history(
                             cancel=cancel,
                             progress=lambda unit_id=unit.unit_id: emit(unit_id),
                         )
+                if bootstrap_guard is not None:
+                    bootstrap_guard.check(
+                        cancel=cancel,
+                        progress=lambda value, unit_id=unit.unit_id: emit(
+                            unit_id, value
+                        ),
+                    )
+                    path = store.unit_directory(unit) / "receipt.json"
+                    receipts.append(
+                        {
+                            "unit_id": unit.unit_id,
+                            "sha256": capture_file_hash(path),
+                            "source_rows": receipt["source_rows"],
+                        }
+                    )
                 completed += 1
                 source_rows += receipt["source_rows"]
                 if source_rows > budget.max_phase_rows:
                     raise WeeklyCaptureError("phase_row_budget_exceeded")
                 emit(unit.unit_id, force=True)
                 check_weekly_cancel(cancel)
+            if bootstrap_guard is not None:
+                bootstrap_guard.check(
+                    cancel=cancel,
+                    progress=lambda value: emit(manifest.units[-1].unit_id, value),
+                )
+                bootstrap_guard.seal(store, receipts, source_rows, cancel=cancel)
     return {
         "plan_hash": manifest.plan_hash,
         "completed_units": completed,

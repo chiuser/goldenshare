@@ -11,6 +11,11 @@ from dataclasses import asdict
 from pathlib import Path
 from threading import Event
 
+from orchestrator.defs.bootstrap.stock_weekly_adj_bootstrap import (
+    AdjustedWeeklyBootstrapGuard,
+    bootstrap_header_for_manifest,
+    validate_bootstrap_inventory,
+)
 from orchestrator.defs.bootstrap.stock_weekly_candidates import (
     build_weekly_partition_candidates,
     validate_root,
@@ -132,6 +137,7 @@ def load_inventory(path: Path):
     source = StockWeeklySource(payload["source"])
     if source is StockWeeklySource.ALTERNATE_WEEKLY:
         raise WeeklyCaptureError("alternate_has_no_prod_bootstrap")
+    validate_bootstrap_inventory(payload)
     manifest = freeze_prod_weekly_plan(
         ProdWeeklyScope(
             source,
@@ -164,6 +170,9 @@ def main(argv=None):
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args(argv)
     manifest = load_inventory(args.inventory)
+    boundary = bootstrap_header_for_manifest(manifest)
+    if boundary is not None and args.mode in ("build", "promote"):
+        raise WeeklyCaptureError("adjusted_bootstrap_replacement_stage_required")
     if args.mode != "dry-run" and args.plan is None:
         parser.error("mutating/preflight stages require explicit frozen --plan")
     if args.plan is not None:
@@ -225,6 +234,9 @@ def main(argv=None):
                 prod_exporter=None if alternate else PsqlWeeklyExporter(),
                 worker=WeeklySdkWorker(token) if alternate else None,
                 cancel=canceled.is_set,
+                bootstrap_guard=AdjustedWeeklyBootstrapGuard(manifest)
+                if boundary is not None
+                else None,
             )
         elif args.mode == "build":
             result = build_weekly_partition_candidates(

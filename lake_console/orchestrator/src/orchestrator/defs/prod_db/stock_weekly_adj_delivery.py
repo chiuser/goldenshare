@@ -93,6 +93,38 @@ def build_closed_batch_header_sql(batch_id, revision, budget):
     )
 
 
+def build_bootstrap_boundary_sql(header, budget, *, include_inventory=False):
+    """Latest committed business record, including plans and units, plus pinned B0."""
+    if (
+        header.record_kind != "bootstrap_closed"
+        or header.header["bootstrap"] is not True
+    ):
+        raise ValueError("adjusted_bootstrap_boundary_invalid")
+    batch_id = delivery_batch_id(header.batch_id)
+    revision = delivery_revision(header.revision)
+    projection = ",".join(
+        "payload->'header' AS header" if n == "header" else f'"{n}"'
+        for n in HEADER_COLUMNS
+    )
+    inventory = (
+        ", (SELECT count(*) FROM raw_tushare.stk_period_bar_adj WHERE freq='week') AS inventory_rows"
+        if include_inventory
+        else ""
+    )
+    return (
+        "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\n"
+        f"SET LOCAL statement_timeout = '{budget.prod_statement_timeout_ms}ms';\n"
+        "SELECT row_to_json(control) FROM (SELECT "
+        f"(SELECT revision FROM {ADJUSTED_DELIVERY_TABLE} ORDER BY revision DESC LIMIT 1) "
+        "AS latest_revision, "
+        f"(SELECT row_to_json(boundary) FROM (SELECT {projection} "
+        f"FROM {ADJUSTED_DELIVERY_TABLE} WHERE revision={revision} "
+        f"AND batch_id='{batch_id}'::uuid AND record_kind='bootstrap_closed' "
+        "AND unit_id='bootstrap_closed' AND intent->'bootstrap'='true'::jsonb "
+        f"LIMIT 1) AS boundary) AS boundary{inventory}) AS control;\nROLLBACK;\n"
+    )
+
+
 def build_delivery_record_sql(batch_id, kind, identity, budget):
     batch_id = delivery_batch_id(batch_id)
     if kind == "unit":
@@ -226,6 +258,48 @@ class PsqlWeeklyAdjDeliveryReader:
         except (TypeError, ValueError):
             raise WeeklyCaptureError("adjusted_delivery_header_invalid") from None
         return header
+
+    def assert_bootstrap_current(
+        self,
+        header,
+        *,
+        cancel=lambda: False,
+        progress=lambda _: None,
+        expected_raw_rows=None,
+    ):
+        header.validate_budget(self.budget)
+        if expected_raw_rows is not None and (
+            type(expected_raw_rows) is not int or expected_raw_rows < 0
+        ):
+            raise WeeklyCaptureError("adjusted_bootstrap_inventory_invalid")
+        value = self._query(
+            build_bootstrap_boundary_sql(
+                header, self.budget, include_inventory=expected_raw_rows is not None
+            ),
+            self.budget.max_control_bytes,
+            cancel=cancel,
+            progress=progress,
+        )
+        expected_keys = {"latest_revision", "boundary"}
+        if expected_raw_rows is not None:
+            expected_keys.add("inventory_rows")
+        try:
+            valid = (
+                isinstance(value, dict)
+                and set(value) == expected_keys
+                and type(value["latest_revision"]) is int
+                and value["latest_revision"] == header.revision
+                and DeliveryHeader(**value["boundary"]) == header
+            )
+        except (TypeError, ValueError):
+            valid = False
+        if not valid:
+            raise WeeklyCaptureError("adjusted_bootstrap_source_changed")
+        if expected_raw_rows is not None and (
+            type(value["inventory_rows"]) is not int
+            or value["inventory_rows"] != expected_raw_rows
+        ):
+            raise WeeklyCaptureError("adjusted_bootstrap_inventory_count_mismatch")
 
     def read_record(
         self, header, kind, identity, *, cancel=lambda: False, progress=lambda _: None

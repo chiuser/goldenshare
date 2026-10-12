@@ -2,9 +2,11 @@
 
 <a id="adjusted-weekly-prod-refresh"></a>
 
-## 2026-10-10 新增阶段：复权周线统一接收 Prod（待开发）
+## 2026-10-10 新增阶段：复权周线统一接收 Prod（开发推进中）
 
-本节承接管理员确认的新需求：先刷新 Prod 的复权周线，再以 Prod 做 DG bootstrap；后续由 Prod 根据逐日复权因子变化刷新相关股票的历史周线，DG 接收新周及这些历史修正。方案及LLD已提交5e903556；P0/D0核验完成，Prod P1已提交7d32163d，P2规划/原子交接/续跑及源码Definition绑定已实现，P2已提交018168fc，真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，管理员确认内存工作收口，不再追加专门复测或优化；正式恢复及页面验收尚未完成，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。管理员已部署Prod cc7c528e，正式迁移186和表/trigger/索引只读核验通过；正式双周15368及两只单股历史15375/15378的21字段对账通过，15378时序观察父/源进程均低于256MiB；取消续跑、同批零请求重放及页面验收留到P3全量执行前合并完成，不阻断DG D1/D2开发，见[Prod LLD §13.12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-closeout)。DG D1/D2源码已实现，正式文件、事件和cursor尚未切换；本轮未执行正式重加载或启用。真实只读传输及临时21列对账见[LLD A14](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-d1-d2-implementation)。此前需求的结案仍有效；下文“当前状态”是2026-10-09旧交付基线。
+本节承接管理员确认的新需求：先刷新 Prod 的复权周线，再以 Prod 做 DG bootstrap；后续由 Prod 根据逐日复权因子变化刷新相关股票的历史周线，DG 接收新周及这些历史修正。方案及LLD已提交5e903556；P0/D0核验完成，Prod P1已提交7d32163d，P2规划/原子交接/续跑及源码Definition绑定已实现，P2已提交018168fc，真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，管理员确认内存工作收口，不再追加专门复测或优化；正式恢复及页面验收尚未完成，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。管理员已部署Prod cc7c528e，正式迁移186和表/trigger/索引只读核验通过；正式双周15368及两只单股历史15375/15378的21字段对账通过，15378时序观察父/源进程均低于256MiB；取消续跑、同批零请求重放及页面验收留到P3全量执行前合并完成，不阻断DG D1/D2开发，见[Prod LLD §13.12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-closeout)。DG D1/D2源码已提交`b49d9cdc`并加载；首次单股样本的候选内存阻断已按批准保持512MiB DuckDB和1GiB进程预算优化SQL，完整17年临时候选峰值601.25MiB，正式单股取消/同批恢复、859文件/2577检查及21列验收通过。仅获准样本已交付，B0/cursor和全量供数未切换。设计及实际结果见[LLD A15](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-d2-sql-memory)。真实只读传输及临时21列对账见[LLD A14](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-d1-d2-implementation)。此前需求的结案仍有效；下文“当前状态”是2026-10-09旧交付基线。
+
+2026-10-12推进D3稳定捕获开发：复权bootstrap库存显式绑定B0；捕获前后检查全部业务revision，首次控制查询核对Raw周线总行数；取消/续跑、清单漏项及源变化拒绝已做隔离验证。复权旧build/promote不能接收新库存，年度替换及事件/B0迁移继续开发，详见[LLD A16](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-capture)。真实只读最新revision仍10、无bootstrap_closed，尚未执行Prod全量刷新或DG全量bootstrap。
 
 ### 范围与交付口径
 
@@ -50,7 +52,7 @@ Prod 每日19:30处理最早待完成周，比较该周每个交易日与前一�
 | P1 | 已提交Prod支持合同、交接对象和迁移源码7d32163d；提交时Definition未绑定 | 测试/基线失配/未验项见Prod LLD §12；正式DDL未执行 |
 | P2 | Prod执行代码、隔离验证及Definition一次性绑定已完成 | 真实PG小样本验收未执行，见Prod LLD §13；不先清空 |
 | D1 | DG来源合同、只读适配、按键覆盖、配置及消费者迁移源码已完成 | 旧直拉入口已拒绝，其他三个主资产行为不变；真实5514行只读传输及临时21列对账通过，见LLD A14 |
-| D2 | job、多分区事件/check、sensor独立revision源码及隔离验证已完成 | 正式小样本/UI及取消恢复未执行，不宣布阶段通过；无历史reports依赖 |
+| D2 | job、多分区事件/check、sensor独立revision源码及获准单股验收已完成 | 首次候选内存阻断已解决；单股17年正式交付/取消恢复/UI及事件绑定通过，见LLD A15；全量B0及联合自动供数留D3/J1；无历史reports依赖 |
 | P3/D3 | Prod全量刷新；DG重新bootstrap及事件补录 | 各阶段另获执行批准，完整一次对账后结束 |
 | J1 | 19:30串联运行、源晚到及真实取消恢复 | 开启前无双写者；新周及历史修正均传到DG |
 

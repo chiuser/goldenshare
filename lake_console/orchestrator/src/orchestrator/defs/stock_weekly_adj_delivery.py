@@ -31,7 +31,7 @@ from orchestrator.defs.io.stock_weekly_raw import (
     assemble_adjusted_delivery_relation,
     columns,
     load_relation,
-    write_and_audit_candidates,
+    write_and_audit_adjusted_delivery_candidates,
 )
 from orchestrator.defs.prod_db.stock_weekly_adj_delivery import header_record_matches
 from orchestrator.defs.run_contracts.stock_weekly import (
@@ -538,7 +538,9 @@ def prepare_adjusted_delivery_year(
                 existing.append(path)
         if len(inputs) + len(existing) + len(weeks) > budget.max_phase_files:
             raise WeeklyCaptureError("adjusted_delivery_phase_file_budget_exceeded")
-        load_relation(con, "weekly_existing", existing, ADJUSTED_SOURCE)
+        load_relation(
+            con, "weekly_existing", existing, ADJUSTED_SOURCE, materialize=False
+        )
         for path in existing:
             if con.execute(
                 f"SELECT count(*) FROM read_parquet(?,hive_partitioning=false) WHERE {WEEK_SQL}<>?",
@@ -557,11 +559,12 @@ def prepare_adjusted_delivery_year(
         stats = assemble_adjusted_delivery_relation(
             con, year=year, budget=budget.weekly_budget()
         )
-        expected, paths = write_and_audit_candidates(
+        expected, paths = write_and_audit_adjusted_delivery_candidates(
             con,
-            ADJUSTED_SOURCE,
             budget.weekly_budget(),
             assembly / "candidate",
+            cancel=cancel,
+            progress=progress,
         )
         files = []
         for path in paths:

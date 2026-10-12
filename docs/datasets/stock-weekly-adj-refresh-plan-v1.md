@@ -57,7 +57,7 @@
 
 LLD 提出一个 Foundation 侧专用交接表 core.stock_weekly_adj_delivery，保存冻结意图、已提交 unit 和闭合批次。日常 unit 保存本次交付的标准化行情值，DG 读取后不会被后续 Prod 更新改变。首次历史刷新只存 unit 范围与完成摘要，DG 从 Prod Raw 做一次 bootstrap，避免复制一整份历史进交接表。
 
-2026-10-11管理员确认：交接头的“最后一周”取本批实际写入的最大行情周，空批为null；任务截止周单独保留。源码修正及69项P1/P2隔离验证已完成，尚未部署，不改写旧闭合批。详见[LLD §13.13](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-delivery-anchor-correction)。
+2026-10-11管理员确认：交接头的“最后一周”取本批实际写入的最大行情周，空批为null；任务截止周单独保留。源码修正及69项P1/P2隔离验证已完成并提交`b49d9cdc`，尚未部署，不改写旧闭合批。详见[LLD §13.13](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-delivery-anchor-correction)。
 
 P0技术评审已保留这一专用交接设计：可变Raw不能稳定重放旧批，日常增量容量在当前预算内；不复制全历史payload。评审结果和实施缺口见[LLD §11](stock-weekly-adj-refresh-low-level-design-v1.md#p0-d0-review)。尚未执行建表或迁移。它不承载第二套 TaskRun 状态机、不生成 DG summary asset、不存入 Raw 行情列、不保存永久 bootstrap 证明。完整字段、事务及读写白名单唯一维护在 [Prod LLD §5.4](stock-weekly-adj-refresh-low-level-design-v1.md#delivery-contract)。
 
@@ -87,7 +87,7 @@ Ops 状态写入使用独立观测边界。观测失败不回滚或阻断已提�
 | P2 | 已提交018168fc；Prod因子/欠账规划、有界抓取、原子发布、批闭合、取消续跑及页面进度已实现；源码Definition已绑定 | 真实隔离PG及两历史周全市场源对账通过；日期纠偏已提交12f5ddde；内存优化已提交cc7c528e，隔离执行达到单进程256MiB目标；进程树同时占用另列，正式版本和迁移只读核验通过；正式双周15368及两只单股15375/15378的21字段对账通过；单股时序观察父/源均低于256MiB；管理员确认内存工作收口；取消续跑、同批零请求重放及页面留到P3全量执行前合并验收，可推进DG D1/D2开发，见LLD §13.9—13.12 |
 | D1/D2 | DG 复权来源切换、历史覆盖、事件/check、sensor | 本批数据对账、未选键保留、取消/恢复、零Tushare请求及热路径预算通过 |
 | P3 | Prod 全量刷新 | 正常小样本已通过；正式取消续跑、同批零请求重放和页面进度验收通过并另获全量执行授权；刷新键/保留键/失败键清晰 |
-| D3 | DG 全量 bootstrap及事件补录 | 捕获版本稳定、完整一次对账；文件和事件分阶段执行 |
+| D3 | DG 全量 bootstrap及事件补录；稳定捕获切片已开发，年度覆盖及事件/B0迁移继续推进 | 绑定真实B0、捕获版本稳定、完整一次对账；文件和事件分阶段执行，见[DG LLD A16](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-capture) |
 | J1 | 两边新增周+因子变化联调，自动切换 | 新旧来源写入口清零，首批端到端交付及失败恢复通过；再批准启用 |
 
 P/D是本次新增阶段，既有DG的M0—M10结案记录保留，不重新标为未完成。先完成设计与小样本代码，再执行全量，不把“写好方案”当作执行批准。

@@ -676,3 +676,122 @@ def test_maximum_unit_is_captured_with_existing_duckdb_budget(tmp_path):
     assert manifest["units"][0]["rows"] == 12_000
     assert sum(c["rows"] for c in manifest["units"][0]["chunks"]) == 12_000
     assert root.exists()
+
+
+def test_annual_adjusted_sql_uses_views_and_checks_each_week(tmp_path, monkeypatch):
+    from orchestrator.defs import stock_weekly_adj_delivery as delivery
+
+    header, records = delivery_fixture()
+    root, manifest = capture_closed_adjusted_batch(
+        OfflineDeliveryReader(records), header, staging_root=tmp_path / "stage"
+    )
+    lake = tmp_path / "lake"
+    lake.mkdir()
+    write_rows(lake, "2020-02-28", [source_row(day="20200228")])
+    original = delivery.write_and_audit_adjusted_delivery_candidates
+    observations = []
+
+    def write(connection, *args, **kwargs):
+        views = {
+            r[0]
+            for r in connection.execute(
+                "SELECT view_name FROM duckdb_views()"
+            ).fetchall()
+        }
+        tables = {
+            r[0]
+            for r in connection.execute(
+                "SELECT table_name FROM duckdb_tables()"
+            ).fetchall()
+        }
+        assert {"weekly_existing", "weekly_preserved", "weekly_combined"} <= views
+        assert not {"weekly_existing", "weekly_preserved", "weekly_combined"} & tables
+        result = original(connection, *args, **kwargs)
+        assert "weekly_candidate" in {
+            r[0]
+            for r in connection.execute(
+                "SELECT view_name FROM duckdb_views()"
+            ).fetchall()
+        }
+        return result
+
+    monkeypatch.setattr(delivery, "write_and_audit_adjusted_delivery_candidates", write)
+    audit = prepare_adjusted_delivery_year(
+        root, manifest, target_root=lake, year=2020, progress=observations.append
+    )
+    assert json.loads(audit.read_text())["stats"]["preserved_difference_rows"] == 0
+    verified = [p for p in observations if p["stage"] == "candidate_verified"]
+    assert verified == [
+        {
+            "stage": "candidate_verified",
+            "week": "2020-02-28",
+            "completed_files": 1,
+            "total_files": 1,
+        }
+    ]
+
+
+def test_candidate_tampered_unselected_value_is_rejected(tmp_path, monkeypatch):
+    from orchestrator.defs.io import stock_weekly_raw as raw
+
+    header, records = delivery_fixture()
+    root, manifest = capture_closed_adjusted_batch(
+        OfflineDeliveryReader(records), header, staging_root=tmp_path / "stage"
+    )
+    lake = tmp_path / "lake"
+    lake.mkdir()
+    write_rows(
+        lake,
+        "2020-02-28",
+        [source_row(day="20200228"), source_row(day="20200228", code="000002.SZ")],
+    )
+    original = raw.load_relation
+
+    def load(connection, name, paths, source, **kwargs):
+        if name == "weekly_candidate":
+            path = paths[0]
+            tampered = path.with_suffix(".tampered")
+            connection.execute(
+                "COPY (SELECT * REPLACE (CAST(CASE WHEN ts_code='000002.SZ' "
+                "THEN close_qfq+1 ELSE close_qfq END AS DECIMAL(18,4)) AS close_qfq) "
+                "FROM read_parquet(?,hive_partitioning=false)) TO ? (FORMAT PARQUET)",
+                [str(tampered), str(path)],
+            )
+            tampered.replace(path)
+        return original(connection, name, paths, source, **kwargs)
+
+    monkeypatch.setattr(raw, "load_relation", load)
+    with pytest.raises(WeeklyCaptureError, match="candidate_readback_mismatch"):
+        prepare_adjusted_delivery_year(root, manifest, target_root=lake, year=2020)
+    assert not (root / "assemblies" / "2020" / "prepared.json").exists()
+
+
+def test_cancel_after_candidate_keeps_annual_attempt_unprepared(tmp_path):
+    header, records = delivery_fixture()
+    root, manifest = capture_closed_adjusted_batch(
+        OfflineDeliveryReader(records), header, staging_root=tmp_path / "stage"
+    )
+    lake = tmp_path / "lake"
+    lake.mkdir()
+    target = write_rows(lake, "2020-02-28", [source_row(day="20200228")])
+    baseline = target.read_bytes()
+    cancelled = False
+
+    def progress(payload):
+        nonlocal cancelled
+        if payload["stage"] == "candidate_verified":
+            cancelled = True
+
+    with pytest.raises(WeeklyCaptureError, match="cancel"):
+        prepare_adjusted_delivery_year(
+            root,
+            manifest,
+            target_root=lake,
+            year=2020,
+            cancel=lambda: cancelled,
+            progress=progress,
+        )
+    assert target.read_bytes() == baseline
+    assert not (root / "assemblies" / "2020" / "prepared.json").exists()
+    audit = prepare_adjusted_delivery_year(root, manifest, target_root=lake, year=2020)
+    assert json.loads(audit.read_text())["stats"]["value_difference_rows"] == 0

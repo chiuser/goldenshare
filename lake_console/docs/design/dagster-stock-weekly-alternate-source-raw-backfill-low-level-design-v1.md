@@ -4,7 +4,7 @@
 
 ## 2026-10-10 新阶段 LLD：复权周线接收 Prod 新增及历史修正
 
-状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，管理员确认内存工作收口，不再追加专门复测或优化，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。管理员已部署Prod cc7c528e，正式迁移186和表/trigger/索引只读核验通过，正式双周15368及两只单股历史15375/15378的21字段对账通过，15378时序观察父/源进程均低于256MiB，见[Prod LLD §13.11](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-prod-run15378)；取消续跑、同批零请求重放及页面验收留到P3全量执行前合并完成；DG D1及D2源码已实现，隔离/只读结果和未验项见[A14](#adjusted-weekly-d1-d2-implementation)；正式供数及B0水位尚未切换，见[Prod LLD §13.12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-closeout)。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
+状态：P0/D0完成，Prod P1已提交7d32163d，P2执行代码/隔离验证及源码Definition绑定已完成；真实隔离PG及正常源样本通过；2026-10-11日期误判已纠正、两历史周全市场隔离对账通过；Prod日期纠偏已提交12f5ddde；内存优化隔离执行已达到单进程256MiB目标，整棵进程树总量另列，管理员确认内存工作收口，不再追加专门复测或优化，见[Prod LLD §13.7](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-optimization)。管理员已部署Prod cc7c528e，正式迁移186和表/trigger/索引只读核验通过，正式双周15368及两只单股历史15375/15378的21字段对账通过，15378时序观察父/源进程均低于256MiB，见[Prod LLD §13.11](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-prod-run15378)；取消续跑、同批零请求重放及页面验收留到P3全量执行前合并完成；DG D1/D2源码已提交`b49d9cdc`，随后获准SQL优化和正式单股取消/续跑验收通过，实际结果及范围见[A15](#adjusted-weekly-d2-sql-memory)；正式供数及B0水位尚未切换，见[Prod LLD §13.12](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-memory-closeout)。本节更新原LLD，不另建一套DG方案。旧阶段2026-10-09交付结案保持；下文历史执行记录不是本阶段验收证据。
 
 依据：[新增阶段方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#adjusted-weekly-prod-refresh)、[Prod LLD](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)、[DG数据集模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理](dagster-data-pipeline-performance-governance.md)。本节按模板覆盖数据卡、Run Contract、来源/字段、asset/check/job/sensor、初始化/恢复、性能和分阶段验收。
 
@@ -153,6 +153,8 @@ Prod源晚到不形成closure，DG不创建无用下载任务。Prod次日19:30�
 
 Prod完整刷新、捕获期因子补刷及一次全量对账后形成bootstrap_closed边界B0，初次unit仅完成摘要；P2执行器只生成batch_closed，B0收尾入口留P3。DG首次读取Raw历史，不能把缺少全历史payload当交接坏批。判定首次摘要必须读取intent.bootstrap=true；不能仅凭mode=historical_refresh推断，bootstrap后的手动历史修正同样必须保存本批rows。
 
+稳定捕获的代码级落点及本轮范围见[A16](#adjusted-weekly-bootstrap-capture)。原导出工具不能直接承担新的复权 bootstrap：须显式绑定 B0；后续年度覆盖、事件与水位迁移分别完成，不能使用旧的同键异值拒绝策略来接收刷新后的历史。
+
 冻结导出前确认无未闭合发布者及最新业务revision。建议在该资产导出期间暂缓Prod发布，范围只复权周线，不阻断其他数据集；暂停/恢复属执行阶段须明确批准。若不能暂停，则每导出前后以及全捕获结束校验表中所有业务记录revision均未变；任何plan/unit变化亦作废捕获，不能只比较最新closure。不要持一个全历史长TX或单靠updated_at拼快照。
 
 代码对象来自Prod实际freq=week键集合，包括退市及合法历史代码；300代码×年短只读count/COPY，沿既有导出上限。全部捕获在同B0下完成后，可解除发布暂停；后续闭合批从B0之后接收，不能略过捕获期间的修正。
@@ -232,7 +234,7 @@ P0/D0已完成：当前connector分页、Prod库存/索引/head、静态消费�
 
 ### A14. D1/D2源码、隔离验证与真实只读传输（2026-10-11）
 
-上轮四份文档已提交`3095e62c`。本轮D1来源/覆盖及D2 job、事件、sensor代码已实现，尚未提交或在正式环境执行；D2正式小样本与UI验收仍未完成，不宣布D2阶段通过。Prod实际最大输入周的修复已获管理员明确同意，源码/69项隔离验证见Prod §13.13，尚未部署。
+上轮四份文档已提交`3095e62c`。D1来源/覆盖及D2 job、事件、sensor代码已提交`b49d9cdc`并加载到正式DG；首次获准正式小样本在候选阶段触发内存门禁，详见[A15](#adjusted-weekly-d2-sql-memory)。该历史阻断已按A15在原预算内解决；D2正式单股、取消续跑及UI验收通过，仍不替代D3全量重新bootstrap。Prod实际最大输入周的修复已获管理员明确同意，源码/69项隔离验证见Prod §13.13，尚未部署。
 
 | 硬口径 | 代码及消费者 | 验证 |
 | --- | --- | --- |
@@ -256,7 +258,53 @@ P0/D0已完成：当前connector分页、Prod库存/索引/head、静态消费�
 
 跨源系统依赖矩阵不变，仅改变orchestrator内复权周线供数入口。CodeGraph explore/impact/status及源码引用审计覆盖asset→driver→reader/年度SQL→promoter→checks/job/sensor、配置builder和catalog；动态注册及SQL关系另查源码。索引sync后status确认最新，架构快照同步此链。
 
-未验与下一步：提交并加载Prod日期修复；D2获准单股2010至当前完整历史的小样本正式job/UI及取消恢复。P3全量前合并完成Prod取消续跑/同批零请求重放/页面门禁。D3的B0专用重新bootstrap、事件阶段和cursor迁移仍待实现/执行，不能把旧create_or_identical入口当成新历史刷新工具；19:30串联启用留J1。未执行任何正式job、cursor、sensor或动态分区写入，不从旧周号猜新B0。
+未验与下一步：Prod日期修复已提交`b49d9cdc`、待管理员部署；D2获准单股2010至当前完整历史的正式job/UI及取消恢复已通过，见A15。P3全量前合并完成Prod取消续跑/同批零请求重放/页面门禁。D3的B0专用重新bootstrap、事件阶段和cursor迁移仍待实现/执行，不能把旧create_or_identical入口当成新历史刷新工具；19:30串联启用留J1。A14源码/只读阶段没有正式job、cursor、sensor或动态分区写入；后续获准正式job的实际写入单列A15，不从旧周号猜新B0。
+
+<a id="adjusted-weekly-d2-sql-memory"></a>
+
+### A15. D2正式样本阻断及SQL优化（2026-10-11）
+
+正式DG已加载`b49d9cdc`，Dagster实际版本1.13.18。按管理员批准执行单股`000680.SZ`的闭合批`50ea35d4-a18e-41e9-84b3-32e0487cfb3a`、revision10，859条输入，实际范围2010-01-01至2026-10-09。受影响859个现有周文件、2,902,386条原数据、压缩文件158,233,993字节，分17个年度阶段；分区均已登记，不需要注册新键。
+
+首次正式run为`66002200-de3f-44d1-b3c5-4dc41f7390f4`，在2010至2015年候选准备后，以`adjusted_delivery_process_rss_budget_exceeded`失败。已准备阶段的输入及保留行差异均0，staging约35,442,110字节；没有执行正式文件replace，也没有物化或check事件。859个正式文件逐一SHA与运行前相同。运行日志、失败状态属于实际观测写入，不能称作instance完全没有写入。取消观察未到达首个物化，因此没有发出取消操作；取消续跑尚未验收。
+
+诊断以同一冻结输入在`/private/tmp`生成候选，自动清理，不写正式Lake：年度连接关闭后，RSS从2010年的546.89MiB增长到2016年的1,107.36MiB，进程峰值1,117.16MiB；Python GC没有使RSS下降。代码同时物化年度旧数据、保留行、合并行及候选读回，并对整年21列反复执行集合比较。确认存在重复全市场复制及大范围SQL工作集；尚未证明原生分配器的具体保留机制，不能笼统称为Python泄漏。
+
+管理员明确批准“保持预算优化SQL”。开发口径如下，先更新本LLD，再改实现：
+
+1. DuckDB仍512MiB、2线程、2GiB spill；进程峰值仍1GiB。沿既有年度连接生命周期，不增加配置，不把峰值门禁改成当前RSS，也不提高预算。
+2. 复权交接的年度旧数据、保留行、合并行及候选读回使用临时视图，避免整表重复复制；只保留有界输入去重结果。每个文件的物理schema仍先严格校验，路径来自冻结意图；年度前后源及目标指纹仍核验。
+3. 年度计划仍一次覆盖全部输入代码和受影响文件；SQL的写出和读回对账按周文件串行处理。每个文件全部21列、双向EXCEPT ALL、Decimal/NULL、唯一键、分区及逻辑hash都必须核验，不能用hash替代全字段比较，也不能跳过未选行保留检查。年度汇总只持有最多54个文件的小摘要。这样缩小SQL工作集，不缩小验收范围。
+4. 通用`load_relation` helper增加内部是否物化的选择，仅新复权交接选择视图；交接使用具名`write_and_audit_adjusted_delivery_candidates`逐周写出/读回，原`write_and_audit_candidates`不变；原bootstrap、未复权、备用、单文件check/提升消费者保持默认行为。CodeGraph impact及源码引用审计覆盖这些消费者；不新增对外参数或来源双轨。
+5. 候选写出/读回对账在每个周文件前后检查取消并报告进度。未完成年度attempt不写prepared；已完成指针及原子提升checkpoint规则保持。失败staging保留，不删除旧意图或正式文件。
+6. 隔离回归覆盖视图物理类型、完整21列与保留行、合法重叠/冲突、候选值被修改及取消；真实只读候选必须完整处理17年并满足原预算，之后才能同批重试正式job，完成取消/恢复、事件绑定及UI验收。未通过不宣布D2完成。
+
+实际优化代码的真实只读候选已完整处理2010至2026的17年、859文件，进程峰值601.25MiB，年度阶段耗时合计约87.67秒（同时存在其他临时只读诊断和隔离测试，不作为独占吞吐承诺）；所有阶段输入/保留行及候选21列差异0。候选仅位于private/tmp并自动清理。新增隔离回归验证关系确为视图、逐文件可见进度、未选行被篡改时拒绝及候选后取消不冻结prepared；本模块33项全部通过。全src/tests致命Ruff和本轮修改文件默认Ruff通过。
+
+正式重试及恢复已完成，时间均为上海时间2026-10-11：
+
+| 项目 | 实际结果 |
+| --- | --- |
+| 正式加载 | 通过本机GraphQL `reloadRepositoryLocation`重载orchestrator，返回LOADED；不重启服务、不改instance配置 |
+| 执行入口 | 原`build_adjusted_delivery_run_request`生成合同v1、批50ea35d4…、revision10和anchor2026-10-09；通过`launchRun`进入正式队列；实例home、config指纹和artifact root与预检一致 |
+| 取消 | run `1ca0f4d5-c4e8-42e7-a4ce-f4dd17690d5c`，首个2010-01-01物化后一次SAFE_TERMINATE，最终CANCELED、约55秒；52文件及52 verified checkpoint保留，3物化/6checks，anchor未生成 |
+| 同批恢复 | run `03bb0894-22eb-4e69-9376-234c3bb95271`最终SUCCESS、156.649秒；复用17年prepared候选和捕获unit；取消前52个文件的字节SHA未再变化，unit文件及chunk指纹均未变化 |
+| 全部文件 | 859 verified checkpoint；858文件字节变化，另1文件原数据与输入已一致；正式总行数2,902,386不变，21列一致；压缩文件158,101,782字节 |
+| 本批值核验 | 17年独立SQL对859输入键全部21列双向EXCEPT ALL差异0；未选2,901,527行的数量、全字段sum/hash与bit_xor/hash均与执行前一致；候选SQL另有完整21列双向比较，hash不代替该值对账 |
+| 正常run事件 | 两run合计859物化/2577 passed blocking checks；858历史分区及1anchor，重复或缺失0；每个check的partition/storage_id/run_id/timestamp与目标物化逐个相等 |
+| 完成摘要 | anchor metadata complete=true、files_verified=files_expected=859、input_rows=859、replaced_keys=859、preserved_keys=2901527；历史2574 checks及anchor3 checks全部存在 |
+| 内存 | 完整17年只读候选峰值601.25MiB；正式取消run的12次采样最大RSS776.89MiB，恢复run的40次采样最大543.67MiB；后两项不是完整进程峰值，正式阶段峰值门禁始终1GiB且未再触发 |
+| 自动供数边界 | 最终只读sensor状态仍RUNNING，原未复权verified/examined至2026-10-09；复权分支为adjusted_bootstrap_required，无新B0/revision/pending，未因手动样本跳过初始化 |
+| 页面 | 正式UI可见取消run Canceled、恢复run Success/4 steps succeeded、3检查成功及batch_complete；tag/config中的批/revision/intent/anchor与合同一致 |
+| 隔离与静态 | 本模块33项及19个相邻文件485项，共518项通过、35 subtest通过；无关停牌测试按原独立门禁边界排除；Ruff致命基线/本轮默认规则、文档完整性和diff检查通过 |
+
+运行中曾提前读取2025年文件，当时该年度尚未提升，因此临时对账失败；没有据此修改代码或数据。最终复核增加成功终态前置，并在run SUCCESS后完成17年独立对账，不把运行中的混合状态当作数据异常。临时SQL原型还因COPY参数绑定顺序错误，在工程目录产生52个0行、687字节的未跟踪文件；自动审批拒绝通配删除后，逐文件确认创建时间、SHA、Git未跟踪和0行，仅按精确清单再次核验后清理完成。该错误未触及正式Lake，正式实现COPY只有一个目标参数，隔离测试覆盖完整读回。
+
+本轮只改`io/stock_weekly_raw.py`、`stock_weekly_adj_delivery.py`及交接测试，更新原DG方案/LLD；`load_relation`旧调用保留默认物化，旧candidate writer不变，跨子系统依赖、asset/check名称、schema、Lake路径和来源预算均不变。CodeGraph impact覆盖load_relation/write_and_audit_candidates及prepare/assembler消费者，后续sync/status确认索引最新。静态、只读、隔离和正式执行证据分别列明。SQL优化及本次记录尚未提交；先前D1/D2及Prod日期修复已提交b49d9cdc、未推送。
+
+D2本次单股历史交付、取消恢复、准确事件及UI验收通过。这里只证明获准批次，并非首次全市场bootstrap或日常新周端到端自动供数；D3的B0专用重新bootstrap、事件及cursor迁移，P3的全量Prod刷新前取消/恢复门禁，以及J1的19:30联合启用继续按原阶段推进。无新增reports运行依赖；完成后原有意图staging可按已批准维护流程清理，未来批次不依赖本轮临时审计文件。
+
+本次正式执行仅限上述批次及859文件；没有执行全量bootstrap、推进B0/cursor、启用新的自动复权供数或调用备用源。Prod实际最大周修复`b49d9cdc`尚未部署；本样本旧闭合头的实际最大周恰为2026-10-09，已核验一致，无需改写旧批。
 
 ## 2026-10-09 结案口径（旧阶段状态）
 
@@ -1446,3 +1494,37 @@ CodeGraph已使用 explore、impact，并在变更后执行 sync/status；影响
 删除1493个中间数据文件，其中377个Git已跟踪，共432513175字节；两份最终缺口CSV仅供人工查看，去掉旧证明指针。明细见[清理记录](../../../reports/stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。没有把旧报告搬到另一个永久目录或新建证据系统。
 
 管理员已要求提交，本轮纠偏修改随本次提交入库，未推送；正式code location尚未重新加载。正式服务需重新加载后再执行检查；本轮没有reload/启用授权，不自行操作。后续真实新周/新月取消续跑及19:30启用仍按既有执行卡保留，条件未到不标完成。
+
+<a id="adjusted-weekly-bootstrap-capture"></a>
+
+### A16. D3 稳定捕获开发切片（2026-10-11）
+
+目标与依据：落实A9已确认的“绑定真实B0、检测所有业务记录版本、混版本捕获作废”方案，先完成捕获入口。Prod B0收尾、DG年度覆盖、事件和水位迁移仍分别推进；本节不将它们标成完成。
+
+当前代码审计：Prod publisher只发布batch_closed，尚无bootstrap_closed收尾；旧bootstrap CLI的库存冻结没有B0，短事务导出各自一致不代表全批一致。CodeGraph explore/impact覆盖capture_weekly_history、PsqlWeeklyExporter、PsqlWeeklyAdjDeliveryReader及CLI、月线共享进程监督、增量job/sensor与相关测试；逐项核对当前源码后，保留共享导出器及月线行为，版本核验只放复权bootstrap离线路径。
+
+| 硬口径 | 本轮代码落点 | 正反验收 |
+| --- | --- | --- |
+| 唯一B0，不能用普通batch_closed或最大周猜测 | bootstrap/stock_weekly_adj_bootstrap.py：从冻结库存JSON的bootstrap_boundary读取现有DeliveryHeader；必须bootstrap_closed且header.bootstrap=true；B0内容纳入库存文件hash，进而纳入plan_hash | 普通批/错误合同/无B0拒绝；其他两源禁止携带B0 |
+| 捕获前后检查所有记录版本 | prod_db/stock_weekly_adj_delivery.py：assert_bootstrap_current；revision主键倒序LIMIT 1，不限record_kind；同时逐字段核对该B0及intent.bootstrap | 没有新增closure但出现plan/unit也停止；B0不存在或字段改变停止；输出≤现有4KiB控制预算 |
+| 包含续跑与最终收尾 | stock_weekly_history.py：锁内开头、每unit读取或复用前后、整批末尾核验；取消前后检查；完整后原子写bootstrap-capture.json | 中途/最后版本变更不封存；重启先核验B0，不能绕过；同B0复用receipt且不重导出 |
+| 本次捕获事实有界，不增加历史运行依赖 | 封存文件仅含version/plan_hash/B0/每unit receipt hash与源行数、总行数；它属于本次staging，后续候选构造必须验证 | 源receipt篡改拒绝；日常job/sensor不读取封存或库存文件；bootstrap通过后可清理 |
+| 不提前进入旧覆盖语义 | stock_weekly_history_cli.py：复权库存要求B0；dry-run零源访问；capture使用稳定核验；复权build/promote待年度替换切片实现，明确拒绝调用旧build/promote | 旧复权无B0拒绝；新B0不能落入旧同键异值拒绝路径；未复权及备用源原入口回归 |
+
+读取与预算：每unit仍最多300代码×一年、30,000行、64MiB CSV、一个连接串行；每unit前后各一次轻量版本查询，整批开头和末尾各一次，共2U+2次控制查询和U次既有计数/COPY短事务。开头在同一个只读快照中额外核对Prod Raw的week库存总行数等于冻结计划行数，防止人工库存遗漏整个代码或年份却仍封存；其后单元查询只读交接表的最大已提交revision和指定B0，不读取行情payload或全历史。这个总行数聚合只用于本次bootstrap，20秒超时拒绝，不进入日常检查。沿用WeeklyBudget（导出30秒statement/45秒unit）与WeeklyAdjProdDeliveryBudget（控制20秒statement/30秒监督/4KiB），DuckDB512MiB、2线程、2GiB spill不变，无新增配置项、数据库对象、资产或schema。总耗时需在真实B0准备后测量，不将离线假源耗时当网络性能证据。
+
+失败与恢复：任何版本变化都停止本批并不产生全量捕获封存，已捕获文件仅留在staging供审计，不可用于正式提升。再次使用同B0仅当Prod最新业务revision仍等于该B0才可续跑；变化后须重新核定B0并冻结新库存，不能删除错误标记后强行接着搬。完整封存后后续Prod批次可正常更新，DG以已封存输入构造候选，并在最终迁移B0后接收revision>B0的交付，不反复核验Prod历史。此处“检测版本”依赖所有复权周线写者已收敛到正式publisher，不能证明越权直改Raw的一致性。
+
+后续年度覆盖切片必须同时迁移build/promote/audit消费者：限定复权+B0+replace_input_keys；复用D2年度连接及逐周21列对账，保留DG独有键和值，按文件checkpoint恢复；不再接受旧复权create_or_identical。全部文件一次对账后再执行事件阶段，最后核验绑定检查及指定B0，迁移独立复权cursor。正式执行仍需真实B0和阶段授权，不能拿单股revision10替代首次边界。
+
+本轮开发完成记录（2026-10-12）：新增bootstrap/stock_weekly_adj_bootstrap.py并接入原capture coordinator/CLI；新控制SQL由既有PsqlWeeklyAdjDeliveryReader执行，不修改共享导出器、月线调用或日常sensor/job。库存文件和冻结unit列表逐项重建对照，捕获前核对完整Raw总行数；封存必须完整unit集合及行数一致。数据仅写本次staging，原21列和源请求不变，src子系统边界/依赖矩阵无变化；源码未提交、未加载正式DG。
+
+真实只读验证：唯一psql-remote.sh入口，READ ONLY/20秒超时，新SQL返回latest_revision=10、boundary=null；带首次库存聚合的同快照查询返回inventory_rows=2,896,823，约0.34秒为整条包装脚本调用观测，不冒充纯SQL耗时或正式导出吞吐。普通单股闭合批不能通过B0核验；实际bootstrap_closed尚不存在，因此真实B0的正向捕获/内存/吞吐及全量文件验收留到P3/D3获准正式执行。没有修改实例、Lake、cursor/sensor、动态分区或Prod数据。
+
+配置对账：bootstrap_boundary是本次固定源边界而非运营配置开关，其字段全部复用DeliveryHeader；库存文件hash进入原plan_hash，显式--plan仍要求逐项相等。导出、控制、行数、文件、DuckDB、取消/进度预算均沿用现有具名合同，未新增env/Settings/数据库配置或放宽阈值。
+
+验证收口：新稳定捕获测试30项通过；相邻周线捕获/CLI/源导出/年度候选/增量交付/sensor/events回归140项通过；月线bootstrap/history/events及受保护静态门禁210项通过，合计380个不同用例（未把重复回归计入数量）。已覆盖普通批伪B0、同closure新增plan/unit、前/中/末版本变化、清单遗漏/行数类型错误、预取消、中途取消续跑零重新导出、receipt篡改、冻结unit变化、dry-run无源访问及旧复权覆盖路径拒绝。全src/tests Ruff致命错误基线、本次5个Python文件默认Ruff、CLI帮助及git diff --check通过；CodeGraph sync/status无滞后。
+
+本轮4份文档133个本地链接/锚点检查通过。全仓check_docs_integrity.py未全部通过：另一项未提交研究文档docs/product/xxm-macd-structure-research-v1.md有3个代码行号被当成文件路径的错误链接；保持该任务改动，不为本需求修改。这个问题不影响周线源码/测试通过，也不将全仓检查写成通过。
+
+下一步：先补Prod P3一次对账/因子补刷/B0收尾，以及DG年度replace_input_keys与完整捕获封存消费；库存生成必须来自B0下的实际Raw代码与年份，不能把任意人工子集称作全量。随后完成一次文件对账、分阶段事件与B0迁移。尚无正式B0，故本轮只证明隔离捕获和真实只读反例，不证明新全量bootstrap已经执行。

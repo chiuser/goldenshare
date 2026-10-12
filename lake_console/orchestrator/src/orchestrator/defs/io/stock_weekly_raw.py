@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from pathlib import Path
 
 from orchestrator.defs.bootstrap.stock_weekly_capture import WeeklyCaptureError
@@ -21,7 +22,7 @@ def columns(source):
     return ", ".join(f'"{name}"' for name, _, _ in weekly_column_specs(source))
 
 
-def load_relation(connection, name, paths, source):
+def load_relation(connection, name, paths, source, *, materialize=True):
     """Each file must have the exact physical schema, before unioning."""
     expected = [(n, t) for n, t, _ in weekly_column_specs(source)]
     for path in paths:
@@ -34,7 +35,11 @@ def load_relation(connection, name, paths, source):
         ]
         if observed != expected:
             raise WeeklyCaptureError("raw_schema_mismatch")
-    if paths:
+    if paths and not materialize:
+        connection.from_parquet(
+            [str(p) for p in paths], hive_partitioning=False, union_by_name=False
+        ).create_view(name, replace=True)
+    elif paths:
         connection.execute(
             f"CREATE OR REPLACE TEMP TABLE {name} AS SELECT * FROM read_parquet(?, hive_partitioning=false, union_by_name=false)",
             [[str(p) for p in paths]],
@@ -183,13 +188,18 @@ def assemble_adjusted_delivery_relation(connection, *, year, budget):
     source = StockWeeklySource.PRIMARY_ADJUSTED
     cols = columns(source)
     keys = ", ".join(weekly_key_columns(source))
-    incoming = validate_relation(connection, "weekly_input", source, budget, unique=False)
-    existing = validate_relation(connection, "weekly_existing", source, budget, unique=True)
+    incoming = validate_relation(
+        connection, "weekly_input", source, budget, unique=False
+    )
+    existing = validate_relation(
+        connection, "weekly_existing", source, budget, unique=True
+    )
     if incoming + existing > budget.max_phase_rows:
         raise WeeklyCaptureError("raw_row_budget_exceeded")
     for relation in ("weekly_input", "weekly_existing"):
         if connection.execute(
-            f"SELECT count(*) FROM {relation} WHERE substr({WEEK_SQL},1,4)<>?", [str(year)]
+            f"SELECT count(*) FROM {relation} WHERE substr({WEEK_SQL},1,4)<>?",
+            [str(year)],
         ).fetchone()[0]:
             raise WeeklyCaptureError("target_year_mismatch")
     if connection.execute(
@@ -224,14 +234,16 @@ def assemble_adjusted_delivery_relation(connection, *, year, budget):
     )
     unique = validate_relation(connection, "weekly_unique", source, budget, unique=True)
     connection.execute(
-        f"CREATE OR REPLACE TEMP TABLE weekly_preserved AS SELECT {cols} FROM weekly_existing "
+        f"CREATE OR REPLACE TEMP VIEW weekly_preserved AS SELECT {cols} FROM weekly_existing "
         f"ANTI JOIN weekly_unique USING ({keys})"
     )
     connection.execute(
-        f"CREATE OR REPLACE TEMP TABLE weekly_combined AS SELECT {cols} FROM weekly_preserved "
+        f"CREATE OR REPLACE TEMP VIEW weekly_combined AS SELECT {cols} FROM weekly_preserved "
         f"UNION ALL SELECT {cols} FROM weekly_unique"
     )
-    total = validate_relation(connection, "weekly_combined", source, budget, unique=True)
+    total = validate_relation(
+        connection, "weekly_combined", source, budget, unique=True
+    )
     # EXCEPT ALL compares every typed value, preserving SQL NULL semantics.
     selected_difference = connection.execute(
         f"SELECT count(*) FROM ((SELECT {cols} FROM weekly_unique EXCEPT ALL "
@@ -239,22 +251,32 @@ def assemble_adjusted_delivery_relation(connection, *, year, budget):
         f"UNION ALL (SELECT {cols} FROM weekly_combined SEMI JOIN weekly_unique USING ({keys}) "
         f"EXCEPT ALL SELECT {cols} FROM weekly_unique))"
     ).fetchone()[0]
-    preserved_difference = connection.execute(
-        f"SELECT count(*) FROM ((SELECT {cols} FROM weekly_preserved EXCEPT ALL "
-        f"SELECT {cols} FROM weekly_combined ANTI JOIN weekly_unique USING ({keys})) "
-        f"UNION ALL (SELECT {cols} FROM weekly_combined ANTI JOIN weekly_unique USING ({keys}) "
-        f"EXCEPT ALL SELECT {cols} FROM weekly_preserved))"
-    ).fetchone()[0]
+    preserved_difference = 0
+    weeks = connection.execute(
+        f"SELECT DISTINCT {WEEK_SQL} FROM weekly_input ORDER BY 1"
+    ).fetchall()
+    for (week,) in weeks:
+        predicate = _week_date_predicate(week)
+        preserved_difference += connection.execute(
+            f"SELECT count(*) FROM ((SELECT {cols} FROM weekly_preserved WHERE {predicate} "
+            f"EXCEPT ALL SELECT {cols} FROM weekly_combined ANTI JOIN weekly_unique USING ({keys}) WHERE {predicate}) "
+            f"UNION ALL (SELECT {cols} FROM weekly_combined ANTI JOIN weekly_unique USING ({keys}) WHERE {predicate} "
+            f"EXCEPT ALL SELECT {cols} FROM weekly_preserved WHERE {predicate}))"
+        ).fetchone()[0]
     if selected_difference or preserved_difference:
         raise WeeklyCaptureError("adjusted_delivery_value_reconciliation_failed")
     replaced = connection.execute(
         f"SELECT count(*) FROM weekly_existing SEMI JOIN weekly_unique USING ({keys})"
     ).fetchone()[0]
     return {
-        "source_rows": incoming, "unique_source_rows": unique,
-        "duplicate_rows": incoming - unique, "existing_rows": existing,
-        "replaced_keys": replaced, "new_keys": unique - replaced,
-        "preserved_keys": existing - replaced, "candidate_rows": total,
+        "source_rows": incoming,
+        "unique_source_rows": unique,
+        "duplicate_rows": incoming - unique,
+        "existing_rows": existing,
+        "replaced_keys": replaced,
+        "new_keys": unique - replaced,
+        "preserved_keys": existing - replaced,
+        "candidate_rows": total,
         "value_difference_rows": selected_difference,
         "preserved_difference_rows": preserved_difference,
     }
@@ -287,4 +309,76 @@ def write_and_audit_candidates(connection, source, budget, directory: Path):
             [str(path), week],
         ).fetchone()[0]:
             raise WeeklyCaptureError("candidate_partition_mismatch")
+    return expected, paths
+
+
+def _week_date_predicate(week):
+    # Validated ISO partition -> source dates, allowing Parquet range pruning.
+    friday = date.fromisoformat(week)
+    if friday.weekday() != 4:
+        raise WeeklyCaptureError("candidate_partition_mismatch")
+    monday = (friday - timedelta(days=4)).strftime("%Y%m%d")
+    sunday = (friday + timedelta(days=2)).strftime("%Y%m%d")
+    return f"trade_date BETWEEN '{monday}' AND '{sunday}'"
+
+
+def write_and_audit_adjusted_delivery_candidates(
+    connection,
+    budget,
+    directory: Path,
+    *,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
+    """Keep annual planning; write/compare one affected week at a time."""
+    from orchestrator.defs.bootstrap.stock_weekly_capture import check_weekly_cancel
+
+    source = StockWeeklySource.PRIMARY_ADJUSTED
+    cols = columns(source)
+    keys = ", ".join(weekly_key_columns(source))
+    weeks = connection.execute(
+        f"SELECT DISTINCT {WEEK_SQL} FROM weekly_combined ORDER BY 1"
+    ).fetchall()
+    if len(weeks) > 54:
+        raise WeeklyCaptureError("raw_partition_budget_exceeded")
+    expected, paths = {}, []
+    for index, (week,) in enumerate(weeks):
+        check_weekly_cancel(cancel)
+        connection.execute(
+            f"CREATE OR REPLACE TEMP VIEW weekly_expected AS SELECT {cols} "
+            f"FROM weekly_combined WHERE {_week_date_predicate(week)}"
+        )
+        hashes = relation_hashes(connection, "weekly_expected", source, budget)
+        if set(hashes) != {week}:
+            raise WeeklyCaptureError("candidate_partition_mismatch")
+        path = directory / f"week_end={week}" / "part-0.parquet"
+        path.parent.mkdir(parents=True)
+        connection.execute(
+            f"COPY (SELECT {cols} FROM weekly_expected ORDER BY {keys}) TO ? "
+            "(FORMAT PARQUET, COMPRESSION ZSTD)",
+            [str(path)],
+        )
+        load_relation(connection, "weekly_candidate", [path], source, materialize=False)
+        validate_relation(connection, "weekly_candidate", source, budget, unique=True)
+        difference = connection.execute(
+            f"SELECT count(*) FROM ((SELECT {cols} FROM weekly_expected EXCEPT ALL "
+            f"SELECT {cols} FROM weekly_candidate) UNION ALL (SELECT {cols} FROM weekly_candidate "
+            f"EXCEPT ALL SELECT {cols} FROM weekly_expected))"
+        ).fetchone()[0]
+        if (
+            difference
+            or relation_hashes(connection, "weekly_candidate", source, budget) != hashes
+        ):
+            raise WeeklyCaptureError("candidate_readback_mismatch")
+        expected.update(hashes)
+        paths.append(path)
+        progress(
+            {
+                "stage": "candidate_verified",
+                "week": week,
+                "completed_files": index + 1,
+                "total_files": len(weeks),
+            }
+        )
+        check_weekly_cancel(cancel)
     return expected, paths
