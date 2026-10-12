@@ -129,9 +129,16 @@ def _load_basis_inputs(session, candidates, required_targets, target_day):
 
 
 def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
-    """Independent close sample; no single-factor approximation for intraweek OHLC."""
+    """Enforce the factor basis; compare sampled close prices for diagnostics only."""
+    price_audit = {
+        "price_compared": 0,
+        "price_difference_count": 0,
+        "price_max_absolute_difference": "0",
+        "price_max_relative_difference": None,
+        "price_difference_samples": [],
+    }
     if not rows:
-        return None, {"checked": 0, "optional_null_rows": 0}
+        return None, {"checked": 0, "optional_null_rows": 0, **price_audit}
     by_code = {}
     for row in rows:
         by_code.setdefault(row["ts_code"], []).append(row)
@@ -165,6 +172,7 @@ def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
         session, candidates, required_targets, target_day
     )
     sampled, checked, lagged_verified, unverified = None, 0, 0, []
+    max_absolute, max_relative = Decimal(0), None
     for row in candidates:
         code = row["ts_code"]
         basis = parse_day(row["end_date"]) if row["end_date"] else None
@@ -205,11 +213,35 @@ def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
         expected = (
             Decimal(row["close"]) * factors[(code, last)] / basis_factor
         ).quantize(Decimal(".01"), rounding=ROUND_HALF_UP)
-        if Decimal(row["close_qfq"]) != expected:
-            fail(
-                f"{code}/{row['trade_date']} 前复权 close 与独立因子不一致",
-                "weekly_adj.basis_not_updated",
+        source_price = Decimal(row["close_qfq"])
+        difference = source_price - expected
+        absolute = abs(difference)
+        relative = absolute / abs(source_price) if source_price else None
+        max_absolute = max(max_absolute, absolute)
+        if relative is not None:
+            max_relative = (
+                relative if max_relative is None else max(max_relative, relative)
             )
+        if difference:
+            price_audit["price_difference_count"] += 1
+            if len(price_audit["price_difference_samples"]) < 20:
+                price_audit["price_difference_samples"].append(
+                    {
+                        "ts_code": code,
+                        "trade_date": row["trade_date"],
+                        "actual_trade_date": last.isoformat(),
+                        "source_basis_date": basis.isoformat(),
+                        "trade_factor": str(factors[(code, last)]),
+                        "basis_factor": str(basis_factor),
+                        "source_close_qfq": str(source_price),
+                        "calculated_close_qfq": str(expected),
+                        "difference": str(difference),
+                        "absolute_difference": str(absolute),
+                        "relative_difference": str(relative)
+                        if relative is not None
+                        else None,
+                    }
+                )
         checked += 1
         lagged_verified += code in lagged
         if sampled is None:
@@ -225,6 +257,13 @@ def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
         for n in ("open_qfq", "high_qfq", "low_qfq", "close_qfq", "end_date")
     ):
         fail("本次刷新缺少复权核心值或计算截至日期", "weekly_adj.source_not_ready")
+    price_audit.update(
+        price_compared=checked,
+        price_max_absolute_difference=str(max_absolute),
+        price_max_relative_difference=str(max_relative)
+        if max_relative is not None
+        else None,
+    )
     return sampled[0] if sampled else None, {
         "checked": checked,
         "code": sampled[1] if sampled else None,
@@ -237,6 +276,7 @@ def validate_weekly_adj_source_basis(session, unit, rows, *, floor, bootstrap):
             {"ts_code": code, "reason": "weekly_adj.factor_coverage_missing"}
             for code in unverified[:20]
         ],
+        **price_audit,
     }
 
 

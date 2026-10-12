@@ -4,6 +4,8 @@
 
 > 2026-10-12 文档纠偏已确认：保留当前分钟线生成逻辑，七频全部沿用标准 K 线 SQL 和选源关系。本方案、LLD 和基础文档的旧描述已统一纠正。R0 只读盘点和样本性能结果见 §9 及 LLD §15；本轮仅完成文档，不冻结可执行计划、不进入 R1、不写正式数据。
 
+2026-10-12 步骤 1 已完成实施设计收尾：[LLD §16](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#history-repair-execution-design) 记录正式客户端分页/终空页实测、顺序子进程 unit 和单文件恢复记录。512 MiB DuckDB、1 GiB RSS 合计预算不变；DG 候选工具及全链性能仍待 R1—R3，不将设计完成当作正式执行放行。步骤 2 的 Prod 诊断纠偏代码与隔离回归已完成，见 [Prod LLD §13.17.5](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-factor-precision-policy-20261012)；未部署或写正式数据。
+
 代码级设计见[修复 LLD](dagster-stock-adj-factor-history-repair-low-level-design-v1.md)。Prod 周线接收纠偏见[Prod LLD §13.17](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-factor-precision-policy-20261012)；DG 周线接收见[原 LLD A19](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#weekly-factor-repair-alignment-20261012)。
 
 ## 1. 决定与原 side 方案的纠偏

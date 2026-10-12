@@ -476,13 +476,12 @@ def func_count():
 @pytest.mark.parametrize(
     "bad",
     [
-        row(qfq="10"),
         {**row(), "freq": "month"},
         row(code="600018.SH"),
         {**row(), "close": Decimal("1.12345")},
     ],
 )
-def test_bad_basis_scope_precision_never_publishes(db, monkeypatch, bad):
+def test_bad_scope_precision_never_publishes(db, monkeypatch, bad):
     definition, req, units = planned(db)
     with pytest.raises(IngestionWriteError):
         execute(db, monkeypatch, definition, req, units, fake_pages(lambda _: [bad]))

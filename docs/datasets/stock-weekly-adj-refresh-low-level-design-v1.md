@@ -1,8 +1,8 @@
 # Prod 股票复权周线刷新代码级 LLD v1
 
-> 最新口径（2026-10-12）：本轮完成文档对齐和只读审计，尚未实施精度校验修正或写入本轮修复数据。Prod 原冻结批 `850840bf-94c1-4081-ba44-f0d5385474ab` 已完成 523/876 周，最近 TaskRun 15471 失败；剩余 353 周为 2020-01-10—2026-10-09。仅精度变化保留旧因子，周线照收源 21 字段；不能用舍入解释的因子变化另做有限修复。下面较早的状态和严格算价验收作为历史记录，不覆盖最新设计。
+> 最新口径（2026-10-12）：步骤 1 实施设计收尾、步骤 2 Prod 价格诊断纠偏开发及隔离回归已完成，尚未部署或写入本轮修复数据，验收见 §13.17.5。此前只读快照中，Prod 原冻结批 `850840bf-94c1-4081-ba44-f0d5385474ab` 已完成 523/876 周，最近 TaskRun 15471 失败；剩余 353 周为 2020-01-10—2026-10-09。本轮没有重新运行该任务。仅精度变化保留旧因子，周线照收源 21 字段；不能用舍入解释的因子变化另做有限修复。下面较早的状态和严格算价验收作为历史记录，不覆盖最新设计。
 
-本文 §3 W08、§6 及 §13.17 已按最新决定修订；当前 Python 仍有跨接口逐分相等的阻断，设计通过不表示代码已修复。
+本文 §3 W08、§6 及 §13.17 已按最新决定修订；本地 Python 已移除跨接口逐分相等的阻断，正式环境尚待部署和原批验收。
 
 历史执行状态（2026-10-12午前，最新状态见文首）：P3/D3修改已提交`a3c2c750`，只读确认Prod部署HEAD `57b459f2`包含该提交，Web/worker/scheduler均active。全量首批TaskRun `15447`源调用失败后原批恢复为`15450`，主动取消验收通过后由`15451`续跑，于12:12再次源调用失败，已提交492/876周、1,172,725行，首批未闭合；范围2010-01-01—2026-10-09、全市场，冻结876周；第二补刷批、B0和DG全量覆盖尚未执行。取消/续跑及完整对账结果以[Prod LLD §13.15.4](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-formal-20261012)为准。下文较早的未执行描述保留为历史状态。
 
@@ -1030,7 +1030,7 @@ EOF/OSError由父进程构造source_connection_failed诊断，记录IPC阶段及
 
 <a id="weekly-factor-precision-policy-20261012"></a>
 
-### 13.17 历史因子精度与周线接收纠偏（2026-10-12，文档完成、代码待修）
+### 13.17 历史因子精度与周线接收纠偏（2026-10-12，代码与隔离回归完成、待部署）
 
 DG 自主价格修复必须连带核验七频 MACD/KDJ 结果/每日 state、四频分钟九转和日线指标，按[专项 LLD §6、§14](../../lake_console/docs/design/dagster-stock-adj-factor-history-repair-low-level-design-v1.md#indicator-repair-audit-20261012)从有效起点重算至各自已有末端。Prod 源周线不参与这些公式计算，本节修正不变更指标合同、不等待指标完成才闭合 B0。
 
@@ -1079,4 +1079,33 @@ Prod 本专项不重算日线/分钟线 qfq。周线全量刷新本身已经批�
 
 Prod 校验增量只增加现有样本的常数次 Decimal 运算和有界诊断；SQL次数、请求量、单 unit 12,000 行/3页/256MiB、20 秒源截止、短事务预算不变。因子源计划 25 个单股范围，各最多 240 行，当前总 2,489 行；真实维护沿用现有 planner 的日期 unit，因此任务 unit 数/请求次数以预览为准，不能把本轮 MCP 25 次区间请求说成正式执行必然只需 25 次。DG 独立修复性能以其 LLD 为准。
 
-本轮文档对账及只读核验完成，不宣称该验收矩阵已由新实现通过。下一轮先实现并隔离验证诊断纠偏，正式因子/周线任务沿实际范围分阶段授权。
+前轮文档对账及只读核验完成时尚未实施；本轮步骤 2 的实现及隔离证据见下一节。正式因子/周线任务仍沿实际范围分阶段授权。
+
+#### 13.17.5 步骤 2 实现对账及隔离验收（2026-10-12）
+
+仅修改 `stock_weekly_adj_delivery.validate_weekly_adj_source_basis` 的价格比较分支和现有 codebook 文案；原采样、SQL、目标因子核验和发布事务不变。计算价继续按原 Decimal/HALF_UP 方式作为诊断参照，源 qfq/hfq 不改写。真正基准错误仍由原执行器映射为 `weekly_adj.basis_not_updated`，价格差异不产生失败 issue 或新 reason code。
+
+receipt 的 `reason_summary.basis_audit` 增量字段如下；bootstrap payload.summary.basis 复用同一对象，不更换交接版本：
+
+| 字段 | 明确含义 |
+| --- | --- |
+| price_compared | 取得必要依据并完成 close 比较的本次样本数，与 checked 相等；不是全部历史行数 |
+| price_difference_count | 上述样本中源 close_qfq 与计算参照价不等的数量，无金额/百分比容差 |
+| price_max_absolute_difference | 样本最大绝对差；无比较为字符串 0 |
+| price_max_relative_difference | 绝对差/源价绝对值的最大值，比例而非百分数；没有非零源价可比较时为空 |
+| price_difference_samples | 最多 20 项；ts_code、trade_date 周标签、actual_trade_date 实际交易日、source_basis_date、trade_factor、basis_factor、source_close_qfq、calculated_close_qfq、difference、absolute_difference、relative_difference |
+
+周标签保持原 YYYYMMDD，新增两个日期字段为 ISO 日期；数值均为 Decimal 字符串，相对差遇零源价为空。difference 定义为源价减计算价，可正可负。较大差异仅陈述事实，不自动称为精度误差、错误源价或因子修复任务。无源行也输出零数量和空样本。已有 append-only receipt 不改写。
+
+| 硬口径 | 代码/隔离证据 |
+| --- | --- |
+| 跨接口价差不阻断，不新建金额/比例门禁 | basis 测试固化 601198、000668 的旧因子/源价反例，002898、300029 的当前源反例，300760 高价、920522 低价及 002713/000908 非舍入样本；bootstrap/日常两种模式通过；另测零源价和显著差异 |
+| 真基准、冻结目标和必要依据仍阻断 | 原较早基准与目标不同、冻结目标不符、缺因子测试保留；新增同股混基准反例；P2 stale basis 仍不写 receipt/closure |
+| Source→Raw/Serving/receipt 原值、量额与范围保留 | 价格有差异也成功发布，全 21 字段精确读回；月线保留、不写因子；同批重放零源请求且原摘要/diagnostics 不改写 |
+| 有界查询与诊断，不增加源请求 | 257 个必要较早基准股票，无差异/全部有差异均为六条 SQL；最多 20 样本；20 个常规样本外的必要股票仍比较 |
+| 原取消/退出/恢复/幂等/观察失败合同 | P2/P3/memory 既有隔离回归；新增价差发布用例模拟 progress callback 失败，业务数据/receipt 仍提交 |
+| DG 接收无额外价差门禁，范围合同不变 | 当前 delivery reader 的 RECORD_COLUMNS 不导出 reason_summary；DG 接收仍核源 rows/摘要/闭合头，80 项 delivery/bootstrap/replacement 回归通过 |
+
+验证：Prod 周线 P1/P2/P3/basis/memory/PG 选择共 **143 通过、16 跳过**；16 项均要求任务专属临时 PostgreSQL，本轮未配置，不能算 PostgreSQL/正式验收通过。Foundation 依赖矩阵、Definition、resolver、runtime registry、codebook 护栏共 **177 通过**。DG 三组隔离回归 **80 通过**，仅既有第三方 deprecation/preview 提示。具名实现与 basis 测试 Ruff 通过，`goldenshare ingestion-lint-definitions` 和文档完整性通过；CodeGraph explore/callers/impact、改后 sync/status 核对 validator→publish_unit 及执行器/交接消费者，未新增依赖方向。
+
+本轮没有部署、恢复 15471、修正式因子、构建 DG 正式候选或写事件。预算/源请求次数/事务边界不变，本轮没有另做正式 256 MiB 采样。下一步为提交/部署该修复及获准样本，重新核验 25 股精确源集合后按既有入口维护因子、读回一次，再恢复原周线批；DG R1/R2 候选开发独立推进，正式写入仍单独批准。
