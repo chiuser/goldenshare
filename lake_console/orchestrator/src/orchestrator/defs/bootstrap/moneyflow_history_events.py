@@ -260,6 +260,7 @@ def report_moneyflow_history_events(
             "moneyflow_cnt_ths",
             "moneyflow_ind_dc",
             "moneyflow_dc",
+            "moneyflow_ths",
         }:
             counts = {e["day"]: e["row_count"] for e in entries}
             for (day, _), record in result["mats"].items():
@@ -428,6 +429,7 @@ def report_moneyflow_history_events(
                                         "moneyflow_cnt_ths",
                                         "moneyflow_ind_dc",
                                         "moneyflow_dc",
+                                        "moneyflow_ths",
                                     } and count != _row_count(plan, entry):
                                         raise MoneyflowContractError(
                                             "history_event_row_count"

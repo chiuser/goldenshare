@@ -1129,3 +1129,21 @@ moneyflow_ths独立两层资产、两条blocking checks、两job、专属动态�
 逐项硬口径、代码/正反测试落点、预算、验证限制见[LLD §55](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ths-automation)和[本轮报告](../../reports/moneyflow_p4_ths_sensor_event_preview_evidence_20261012.json)。原57报告及最终1167源码/测试hash保持，CodeGraph根索引同步。正式写入、源请求、job/sensor evaluation、reload/enable/pool修改均0，无Prod契约/API/主体依赖矩阵变化；上一片f4095071已提交未推送，本轮尚未提交。
 
 本切片关闭，P4整体开放、P5未进入。下一独立片开发moneyflow_ths可恢复历史登记执行器、隔离两日样本与431日冻结全量清单；THS正式row_count写入/读回门禁随执行器接入，不提前视为完成。正式APPLY与sensor启用按精确阶段单独批准。
+
+
+## 61. P4同花顺个股历史登记执行器、两日样本及431日冻结清单（2026-10-12）
+
+上一轮16文件已提交2c23180d，未推送。本轮按管理员要求开发THS独立可恢复历史登记入口，验收隔离两日样本及431日容量，并从正式只读事实构造冻结样本和全量PLAN。设计约束、真实实现/消费者、两处row_count守卫、逐事件checkpoint、性能预算和只读边界见[LLD §56](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ths-history-events)。
+
+正式样本2026-09-29/09-30来源5214/5215行，共10429行/层、10项/8事件；全量431实际来源日、2191645行/层，431分区+862物化+最近20日两层40检查=1333项/902事件。保留latest与源net_d5_amount、万元/NULL/负值，接受2026-07-06和07-09缺口。固定薄入口复用原planner/engine；不扩check到更早日期、不做全历史逐日readiness。取消、进程退出、观测失败、幂等重放和431日有界读取在隔离环境验收；正式只读生成两PLAN并核验既有十份旧清单。正式APPLY、reload、启用和正式job不在本轮范围，结果验收后回填。P4整体开放、P5未进入。
+
+
+### 61.1 执行器及两份冻结清单验收收尾
+
+THS固定planner/validator与可恢复登记入口已接入；共享engine只补两处本表行数守卫，原五表合同、metadata和预算不变。50项新增及284项原链回归、完整受保护catalog12项/510子断言和static113项、隔离Definitions与Ruff通过。取消、真实进程退出、观测失败与checkpoint失败后按native事实续跑，幂等和跨源/错误计数阻断通过。
+
+隔离两日5214/5215行，10项/8event，13字段及精确target通过，0.2756秒、重放0新增；隔离431日容量1333项/902event，4.9175秒、141读、921次原子保存、RSS580.9MiB。正式只读冻结样本和全量PLAN，预检分别7/15读，原五表十份冻结PLAN及20份event控制保持，862物理文件与50源controls hash不变；本轮不执行正式登记。
+
+[两日清单](../../reports/moneyflow_p4_ths_event_registration_sample_plan_20261012.json)：09-29/09-30来源10429行/层、10工作项，plan_hash=c62919f2df2ecb6f925d9c121a521888b622899ae4938563d77a559af4b37147。[全量清单](../../reports/moneyflow_p4_ths_event_registration_full_plan_20261012.json)：431实际来源日/2191645行每层、1333项/902event，plan_hash=eb867fc0e4c58e8816cff0888079b3f2fc06b24230612b34b5e2eac3552d35ea。外部文件hash、全部硬口径/测试落点和成本见[LLD §56](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ths-history-events)及[验收报告](../../reports/moneyflow_p4_ths_event_registration_executor_evidence_20261012.json)。最终1170源码/测试和原58报告保持；无Prod/API/CLI/主体依赖变更。
+
+本开发切片关闭，P4整体开放、P5未进入。下一步按精确两日清单批准正式登记及读回/幂等重放；样本验收后再单独批准431日全量，保持原plan hash及两处接受缺口。正式写入、reload、启用和job仍未执行。上一片2c23180d已提交未推送，本轮尚未提交。
