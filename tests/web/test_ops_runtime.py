@@ -1489,6 +1489,62 @@ def test_task_run_dispatcher_preserves_full_source_response_json_on_execution_fa
     assert detail.technical_payload["structured_error"]["details"]["source_response_json"] == raw_response_json
 
 
+@pytest.mark.parametrize('dataset_key', ['stk_period_bar_adj_week', 'anns_d'])
+def test_bounded_source_diagnostics_reach_persisted_issue_and_detail_api(
+    db_session, task_run_factory, monkeypatch, mocker, app_client, auth_token, dataset_key,
+):
+    from src.foundation.clients.tushare_client import TushareHttpClient
+    from src.foundation.datasets.registry import get_dataset_definition
+    from src.foundation.ingestion.source_client import DatasetSourceClient
+    definition = get_dataset_definition(dataset_key)
+    weekly = dataset_key == 'stk_period_bar_adj_week'
+    params = {'trade_date': '20190607', 'freq': 'week'} if weekly else {
+        'start_date': '20190607', 'end_date': '20190607'}
+    unit = SimpleNamespace(unit_id='diagnostic-unit', source_key='tushare', request_params=params,
+        page_limit=6000 if weekly else 2000, max_source_rows_per_unit=12000)
+    child_details = {'exception_type': 'ConnectionError', 'cause_types': ['ReadTimeoutError'],
+        'failure_stage': 'response_body', 'elapsed_ms': 5001, 'http_status': 200,
+        'connect_timeout_seconds': 5, 'read_timeout_seconds': 5,
+        'total_timeout_seconds': 20 if weekly else 25}
+    mocker.patch('src.foundation.clients.bounded_tushare_call.call_bounded',
+        return_value=('transport_error', child_details))
+    mocker.patch('src.foundation.clients.tushare_client._get_rate_limiter')
+    client = TushareHttpClient(token='private-diagnostic-token')
+    monkeypatch.setattr('src.foundation.ingestion.source_client.create_source_connector',
+        lambda _: SimpleNamespace(call_bounded=client.call_bounded))
+    def fake_build_plan(self, request):
+        return SimpleNamespace(plan_id='diagnostic-plan', execution_context=None,
+            dataset_key=request.dataset_key, run_profile='range_rebuild',
+            planning=SimpleNamespace(unit_count=1), units=())
+    control = mocker.Mock()
+    def fail_source(self, session, task_run, action_request, plan):
+        source = DatasetSourceClient()
+        iterator = source.iter_weekly_adj_pages if weekly else source.iter_bounded_pages
+        list(iterator(definition=definition, unit=unit, control=control))
+    monkeypatch.setattr('src.ops.runtime.task_run_dispatcher.DatasetActionResolver.build_plan', fake_build_plan)
+    monkeypatch.setattr(TaskRunDispatcher, '_run_dataset_action_plan', fail_source)
+    task = task_run_factory(status='queued', resource_key=dataset_key, action='maintain',
+        time_input_json={'mode': 'range', 'start_date': '2019-06-07', 'end_date': '2019-06-07'},
+        filters_json={})
+    result = OperationsWorker(dispatcher=TaskRunDispatcher()).run_next(db_session)
+    assert result is not None and result.status == 'failed' and result.primary_issue_id is not None
+    issue = db_session.get(TaskRunIssue, result.primary_issue_id)
+    expected = {**child_details, 'api_name': definition.source.api_name, 'dataset_key': dataset_key,
+        'request_params': {**definition.source.base_params, **params, 'limit': unit.page_limit, 'offset': 0},
+        'page_number': 1, 'offset': 0, 'attempt_number': 1 if weekly else 4}
+    assert issue.technical_payload_json['structured_error']['details'] == expected
+    assert issue.technical_message == '读取Tushare响应超时'
+    assert issue.code == 'ingestion_failed' and task.status == 'failed'
+    assert issue.technical_payload_json['structured_error']['error_code'] == 'source_connection_failed'
+    response = app_client.get(f'/api/v1/ops/task-runs/{task.id}/issues/{issue.id}',
+        headers={'Authorization': f'Bearer {auth_token}'})
+    assert response.status_code == 200
+    assert response.json()['technical_payload']['structured_error']['details'] == expected
+    assert response.json()['technical_message'] == '读取Tushare响应超时'
+    assert 'private-diagnostic-token' not in response.text
+    client.session.close()
+
+
 def test_worker_does_not_refresh_snapshot_after_workflow_success(db_session, task_run_factory, mocker) -> None:
     refresh = mocker.patch(
         "src.ops.services.operations_dataset_status_snapshot_service.DatasetStatusSnapshotService.refresh_for_target",

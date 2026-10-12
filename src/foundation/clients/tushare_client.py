@@ -118,7 +118,9 @@ class TushareHttpClient:
 
     def call_bounded(self, *, api_name, params, fields, maximum, timeout, check, tick, before_request,
                      response_contract=None):
-        from src.foundation.clients.bounded_tushare_call import call_bounded, BoundedTushareError
+        from src.foundation.clients.bounded_tushare_call import (
+            call_bounded, BoundedTushareError, request_diagnostics, source_failure_message,
+        )
         if response_contract is not None:
             from src.foundation.datasets.stock_weekly_adj_contracts import SOURCE_FIELDS
             fields = tuple(fields)
@@ -128,17 +130,27 @@ class TushareHttpClient:
         _get_rate_limiter(api_name).acquire(check=check, tick=tick)
         check()
         before_request()
-        result = call_bounded(base_url=self.base_url, payload={"api_name": api_name, "token": self.token,
-            "params": params, "fields": ",".join(fields)}, maximum=maximum, timeout=timeout, check=check, tick=tick,
-            response_contract=response_contract)
-        if result[0] == 'rows':
-            return result[1]
-        if result[0] in {'rate_limit', 'api_error'}:
-            error = TushareRateLimitError if result[0] == 'rate_limit' else TushareApiError
-            raise error(api_name=api_name, code=result[1], message=result[2])
-        if result[0] == 'bounded_error':
-            raise BoundedTushareError(result[1], result[2])
-        raise BoundedTushareError('source_connection_failed', '公告源单次传输失败')
+        try:
+            result = call_bounded(base_url=self.base_url, payload={"api_name": api_name, "token": self.token,
+                "params": params, "fields": ",".join(fields)}, maximum=maximum, timeout=timeout, check=check, tick=tick,
+                response_contract=response_contract)
+            if result[0] == 'rows':
+                return result[1]
+            if result[0] in {'rate_limit', 'api_error'}:
+                error = TushareRateLimitError if result[0] == 'rate_limit' else TushareApiError
+                raise error(api_name=api_name, code=result[1], message=result[2])
+            if result[0] == 'bounded_error':
+                raise BoundedTushareError(result[1], result[2], result[3])
+            if result[0] == 'transport_error':
+                raise BoundedTushareError('source_connection_failed', source_failure_message(result[1]), result[1])
+            raise ValueError('未知有界源结果类型')
+        except BoundedTushareError as exc:
+            exc.details = request_diagnostics(exc.details, api_name=api_name, params=params)
+            try:
+                self.logger.warning('Tushare bounded source failure code=%s details=%s', exc.code, exc.details)
+            except Exception:
+                pass  # Diagnostic logging cannot replace the original source failure.
+            raise
 
     def _summarize_params(self, params: dict[str, Any] | None) -> dict[str, Any]:
         if not params:

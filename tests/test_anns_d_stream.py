@@ -275,6 +275,50 @@ def test_retry_wait_cancellation_does_not_issue_next_request(monkeypatch):
     assert control.reserve.call_count==1
 
 
+@pytest.mark.parametrize('code, attempts', [
+    ('source_connection_failed', 4), ('anns_d.source_deadline_exceeded', 1),
+    ('anns_d.source_payload_invalid', 1), ('source_http_error', 1),
+])
+def test_announcement_diagnostics_and_actual_attempt_budget(monkeypatch, code, attempts):
+    from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+    definition = get_dataset_definition('anns_d')
+    unit = DatasetActionResolver(Mock()).build_plan(action()).units[0]
+    control, calls = Mock(), []
+    details = {'exception_type': 'ConnectionError', 'cause_types': ['ReadTimeoutError'],
+        'failure_stage': 'response_body', 'http_status': 200, 'read_timeout_seconds': 5,
+        'total_timeout_seconds': 25}
+    class Connector:
+        def call_bounded(self, **kwargs):
+            kwargs['before_request']()
+            calls.append(kwargs)
+            raise BoundedTushareError(code, '读取Tushare响应超时', details)
+    monkeypatch.setattr('src.foundation.ingestion.source_client.create_source_connector', lambda _: Connector())
+    with pytest.raises(IngestionError) as error:
+        list(DatasetSourceClient().iter_bounded_pages(definition=definition, unit=unit, control=control))
+    structured = error.value.structured_error
+    assert structured.error_code == code and structured.retryable is (attempts == 4)
+    assert len(calls) == control.reserve.call_count == attempts
+    assert [call.args[0] for call in control.wait.call_args_list] == ([0.5, 1.0, 2.0] if attempts == 4 else [])
+    assert structured.details == {**details, 'api_name': 'anns_d', 'dataset_key': 'anns_d',
+        'request_params': calls[-1]['params'], 'page_number': 1, 'offset': 0, 'attempt_number': attempts}
+    assert all(call['timeout'] == 25 and call['maximum'] == 67108864 for call in calls)
+
+
+def test_announcement_cancel_during_call_does_not_become_source_failure(monkeypatch):
+    control = Mock()
+    class Connector:
+        def call_bounded(self, **kwargs):
+            kwargs['before_request']()
+            raise IngestionCanceledError('stop')
+    control.check.side_effect = [None, None, IngestionCanceledError('stop')]
+    monkeypatch.setattr('src.foundation.ingestion.source_client.create_source_connector', lambda _: Connector())
+    unit = DatasetActionResolver(Mock()).build_plan(action()).units[0]
+    with pytest.raises(IngestionCanceledError):
+        list(DatasetSourceClient().iter_bounded_pages(definition=get_dataset_definition('anns_d'),
+            unit=unit, control=control))
+    assert control.reserve.call_count == 1 and control.wait.call_count == 0
+
+
 def test_multiple_pages_bound_memory_transactions_and_readback(engine,monkeypatch):
     import resource,time
     from sqlalchemy import event

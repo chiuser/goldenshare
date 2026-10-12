@@ -1,12 +1,12 @@
 # Prod 股票复权周线刷新与 DG 交付方案 v1
 
-## 源异常诊断修复（2026-10-12，已确认，待开发）
+## 源异常诊断修复（2026-10-12，已实现并通过隔离验收，待部署）
 
 管理员已确认先修复异常信息记录和文案，再恢复全量首批。目标是下次失败时能知道实际异常类型、HTTP状态、发生阶段和请求上下文；本次没有证据确定15447或15451的历史失败一定是超时，不能补造旧诊断。
 
 改动限定于共用有界Tushare调用的异常传递、周线与公告两处包装，以及错误码建议文案。保留现有错误码与retryable语义；周线每页一次实际请求，公告最多三次重试；不调整超时、请求/内存预算、业务事务、冻结计划或DG交付合同。周线调用总期限以当前Definition的20秒为准，HTTP连接和读取各为min(5,total)秒，原执行清单的45秒是文档错误。本次不新增配置、表、前端字段或reports依赖。
 
-代码落点、安全字段、测试和恢复顺序统一见[LLD §13.16](stock-weekly-adj-refresh-low-level-design-v1.md#bounded-tushare-source-diagnostics)；公告消费者同步要求见[公告LLD](anns-d-sync-low-level-design-v1.md#bounded-source-diagnostics-consumer)。实施顺序：诊断传递与文案 → 两处包装和隔离验收 → 提交、部署 → 从15451原详情恢复原冻结批 → 首批一次完整对账 → 独立因子补刷批及B0 → DG年度覆盖、事件和水位迁移。本轮仅更新方案与LLD，尚未修改或部署代码，也未恢复Prod任务。
+代码落点、安全字段、测试和恢复顺序统一见[LLD §13.16](stock-weekly-adj-refresh-low-level-design-v1.md#bounded-tushare-source-diagnostics)；公告消费者同步要求见[公告LLD](anns-d-sync-low-level-design-v1.md#bounded-source-diagnostics-consumer)。实施顺序：诊断传递与文案 → 两处包装和隔离验收 → 提交、部署 → 从15451原详情恢复原冻结批 → 首批一次完整对账 → 独立因子补刷批及B0 → DG年度覆盖、事件和水位迁移。方案与LLD已先提交c49a81cc，诊断代码及隔离验收随后完成，见LLD §13.16.5；修复代码待部署，尚未恢复Prod任务。
 
 当前执行状态（2026-10-12）：P3/D3修改已提交`a3c2c750`，只读确认Prod部署HEAD `57b459f2`包含该提交，Web/worker/scheduler均active。全量首批TaskRun `15447`源调用失败后原批恢复为`15450`，主动取消验收通过后由`15451`续跑，于12:12再次源调用失败，已提交492/876周、1,172,725行，首批未闭合；范围2010-01-01—2026-10-09、全市场，冻结876周；第二补刷批、B0和DG全量覆盖尚未执行。取消/续跑及完整对账结果以[Prod LLD §13.15.4](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-formal-20261012)为准。下文较早的未执行描述保留为历史状态。
 

@@ -62,7 +62,7 @@ class DatasetSourceClient:
 
     def iter_weekly_adj_pages(self, *, definition, unit, control):
         """One bounded attempt per page. Failure remains pending for the original batch."""
-        from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+        from src.foundation.clients.bounded_tushare_call import BoundedTushareError, request_diagnostics
         from src.foundation.datasets.stock_weekly_adj_contracts import weekly_definition_issues
 
         if weekly_definition_issues(definition) or definition.planning.weekly_adj_policy is None:
@@ -88,7 +88,9 @@ class DatasetSourceClient:
                 raise IngestionSourceError(StructuredError(
                     error_code=exc.code, error_type="source", phase="source_client",
                     message=str(exc), retryable=exc.code in {"source_connection_failed", "weekly_adj.source_deadline_exceeded"},
-                    unit_id=unit.unit_id)) from exc
+                    unit_id=unit.unit_id, details=request_diagnostics(exc.details,
+                        api_name=definition.source.api_name, params=params, dataset_key=definition.dataset_key,
+                        page_number=page_number, offset=offset, attempt_number=1))) from exc
             except Exception as exc:
                 from src.foundation.ingestion.run_errors import IngestionCanceledError
                 if isinstance(exc, IngestionCanceledError):
@@ -224,7 +226,7 @@ class DatasetSourceClient:
         )
 
     def iter_bounded_pages(self, *, definition, unit, control):
-        from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+        from src.foundation.clients.bounded_tushare_call import BoundedTushareError, request_diagnostics
         from src.foundation.datasets.anns_d_contracts import AnnouncementPersistenceError
         policy = definition.planning.announcement_policy
         connector = create_source_connector(unit.source_key)
@@ -254,7 +256,10 @@ class DatasetSourceClient:
                 except Exception as exc:
                     control.check()
                     if isinstance(exc, BoundedTushareError):
-                        error = StructuredError(error_code=exc.code, error_type="source", phase="source_client", message=str(exc), retryable=exc.code == "source_connection_failed", unit_id=unit.unit_id)
+                        error = StructuredError(error_code=exc.code, error_type="source", phase="source_client", message=str(exc), retryable=exc.code == "source_connection_failed", unit_id=unit.unit_id,
+                            details=request_diagnostics(exc.details, api_name=definition.source.api_name,
+                                params=params, dataset_key=definition.dataset_key, page_number=page_number,
+                                offset=offset, attempt_number=retries + 1))
                     else:
                         error = self.error_mapper.map_exception(exc=exc, phase="source_client", unit_id=unit.unit_id)
                     if not error.retryable or retries >= 3:

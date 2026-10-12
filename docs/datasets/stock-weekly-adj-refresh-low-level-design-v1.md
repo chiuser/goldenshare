@@ -929,7 +929,7 @@ Tushare MCP显式请求21字段，失败周当前返回3,548行；Prod部署57b4
 
 <a id="bounded-tushare-source-diagnostics"></a>
 
-### 13.16 共用源异常诊断修复（2026-10-12，已确认，待开发）
+### 13.16 共用源异常诊断修复（2026-10-12，已实现并通过隔离验收，待部署）
 
 #### 13.16.1 目标与批准边界
 
@@ -937,7 +937,7 @@ Tushare MCP显式请求21字段，失败周当前返回3,548行；Prod部署57b4
 
 本次解决“失败原因没有传到任务详情、周线显示公告文案”，不承诺消除全部源网络故障。实施只涉及下表四个主实现文件及其测试，不改DatasetDefinition、请求builder、业务表、冻结policy snapshot、contract_digest或DG代码。沿用当前主链，无兼容层、第二套错误码或新运行依赖。
 
-| 代码位置 | 当前缺陷 | 待实现内容 |
+| 代码位置 | 修复前缺陷 | 实现内容 |
 | --- | --- | --- |
 | foundation/clients/bounded_tushare_call.py | 未知异常只传类名；EOF/总期限路径缺诊断；BoundedTushareError无details | 在异常对象及IPC中保留安全有界诊断；父进程自有失败补充实际可见事实 |
 | foundation/clients/tushare_client.py::call_bounded | 丢弃transport_error类名，兜底文案写死公告 | 读取新异常包、生成准确的Tushare文案、输出一次安全诊断摘要；普通call()不改 |
@@ -996,4 +996,30 @@ EOF/OSError由父进程构造source_connection_failed诊断，记录IPC阶段及
 | 持久化和API消费不丢字段 | tests/web/test_ops_runtime.py；实际issue写入后读回details及technical_message，状态观测失败不回滚已提交业务unit |
 | 原业务与恢复合同不变 | 既有周线P2/P3及公告stream回归；21字段/Decimal、失败页无部分unit提交、完成receipt保留、原冻结plan续跑；codebook guardrails回归 |
 
-**本节状态：方案和LLD已更新，代码、隔离测试、提交及部署均待执行。** 15447/15451没有可回溯的精确底层原因；本节不把历史缺失证据标为已补齐，也不重复已经通过的主动取消验收。
+**本节状态：方案和LLD已先提交c49a81cc，代码及隔离测试已完成，修复部署待执行。** 15447/15451没有可回溯的精确底层原因；本节不把历史缺失证据标为已补齐，也不重复已经通过的主动取消验收。
+
+#### 13.16.5 实现对账与隔离验收（2026-10-12）
+
+四个主实现文件按§13.16.1落地：BoundedTushareError.details及IPC异常包传递类型/有限因果链、HTTP状态、阶段、耗时和实际期限；EOF及父进程总期限只记录IPC可见事实。客户端消费新包，区分连接/响应超时、HTTP错误及未知类型，输出一次安全日志摘要；weekly和anns_d包装补入实际页、偏移和尝试次数。codebook连接失败建议改为通用Tushare诊断。生产者/消费者同步迁移，没有旧包兼容分支。
+
+诊断固定投影到白名单：参数值也限制为日期、代码、频率和整数格式；不会对异常、任意对象或HTTP正文调用str。类型/字符串96字符、因果链4项防循环、details不超过8KiB，拒绝NaN/无限值和过大数字。已有错误码与retryable、周线20秒/一次请求、公告25秒/最多四次请求均未改变；日志处理失败保留原源异常。普通call()、Definition、执行计划合同、业务表和DG均未修改。
+
+| 已确认硬口径 | 实现和验收证据 |
+| --- | --- |
+| HTTP异常类型、阶段、状态不丢，无隐藏重试 | test_bounded_tushare_call真实127.0.0.1服务：401/503均一次请求；等待响应超时、响应体ConnectionError包装ReadTimeoutError、断连和JSON解码可区分；21字段/Decimal及字节预算原回归通过 |
+| 父进程诊断不猜测子进程阶段，取消无残留 | 同文件真实子进程自然退出17/EOF、总期限和取消；退出码仅接受已观察值或null，清理后无遗留子进程；parent deadline使用ipc_wait |
+| 安全有界及日志失败不影响源错误 | test_bounded_tushare_call/test_tushare_client：带凭证URL、token、巨大异常文本、循环/超长因果链、任意对象、NaN和巨大整数反例；安全日志不含凭证，logger失败仍抛原有错误码 |
+| 周线一次、公告四次且每次reserve，失败不报成功 | test_stock_weekly_adj_p2/test_anns_d_stream验证retryable正反例、真实参数、页号/offset/attempt、公告0.5/1/2秒退避、不可重试只一次及取消不转为源失败 |
+| 原冻结批续跑，完成事实及业务值不丢 | 新周线诊断失败用例：第一unit已提交，第二unit失败无receipt/closure、旧值保留；原batch和unit身份恢复一致，仅重取失败unit，第一unit摘要不变，随后成功闭合。既有P2/P3及公告隔离PG的退出、取消、幂等、观测失败不回滚回归通过 |
+| 任务详情可读回，不新增API/schema | test_ops_runtime分别经过真实客户端错误消费、两个wrapper、dispatcher/worker、SQLite issue持久化与已认证详情HTTP API读回；技术文案和details一致。保持现有顶层issue.code=ingestion_failed，源code仍在structured_error.error_code，不改Ops分类 |
+
+最终验证分组：
+
+- `.venv/bin/python3 -m pytest -q tests/test_bounded_tushare_call.py`：26通过。
+- `tests/test_tushare_client.py test_stock_weekly_adj_p2.py test_stock_weekly_adj_basis.py test_stock_weekly_adj_p1_contracts.py test_stock_weekly_adj_p3_bootstrap.py test_dataset_source_client.py`及foundation规定的依赖矩阵、Definition/resolver、runtime registry、codebook门禁：313通过。
+- `tests/web/test_ops_runtime.py`：65通过；新增两种数据集的端到端诊断API用例包括在内。
+- `tests/test_anns_d_stream.py tests/test_anns_d_exact_records.py`：任务专属UTF8 PostgreSQL18中76通过、1跳过；跳过为既有真实双样本用例未提供其指定fresh sample，不涉及新诊断验收。所有源均为测试服务/样本，没有请求Tushare或Prod。
+
+合计480通过、1项既有样本测试跳过。最初隔离PG使用locale=C默认SQL_ASCII，导致驱动返回bytes而非str、尚未进入业务测试；关闭后以UTF8新建任务专属实例，以上为重跑成功结果，不修改仓库/正式数据库编码。两次临时实例均自动关闭，未安装依赖或启动持续消费worker。
+
+`goldenshare ingestion-lint-definitions`通过，CodeGraph完成explore/impact及改后sync/status；影响面仅共用有界客户端、周线/公告包装和已有Ops诊断透传，依赖方向不变。完整文档/链接与diff检查作为交付门禁执行。当前没有部署或Prod原批恢复证据；部署后仍按§13.16.4第4—5步推进，不将本次隔离故障模拟当成两次历史失败已查明。

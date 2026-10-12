@@ -235,3 +235,80 @@ def test_ingestion_error_mapper_preserves_full_tushare_source_response_json() ->
         "source_code": 50101,
         "source_response_json": raw_response_json,
     }
+
+
+@pytest.mark.parametrize('details, message', [
+    ({'exception_type': 'ReadTimeout', 'failure_stage': 'request'}, '等待Tushare响应超时'),
+    ({'exception_type': 'ConnectionError', 'cause_types': ['ReadTimeoutError'],
+      'failure_stage': 'response_body'}, '读取Tushare响应超时'),
+    ({'exception_type': 'ConnectTimeout'}, 'Tushare连接超时'),
+    ({'exception_type': 'HTTPError', 'http_status': 503}, 'Tushare返回HTTP 503'),
+    ({'exception_type': 'HTTPError', 'http_status': 401}, 'Tushare返回HTTP 401'),
+    ({'exception_type': 'TypeError'}, '源调用异常（TypeError）'),
+])
+def test_bounded_client_preserves_transport_diagnostics_and_safe_log(mocker, details, message):
+    from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+    mocker.patch('src.foundation.clients.tushare_client._get_rate_limiter')
+    worker = mocker.patch('src.foundation.clients.bounded_tushare_call.call_bounded',
+        return_value=('transport_error', details))
+    client = TushareHttpClient(token='secret-token', base_url='https://secret:credential@example.invalid')
+    logger = mocker.patch.object(client, 'logger')
+    before = mocker.Mock()
+    params = {'start_date': '20260101', 'end_date': '20260101', 'limit': 2000, 'offset': 0,
+        'token': 'secret-token'}
+    with pytest.raises(BoundedTushareError) as error:
+        client.call_bounded(api_name='anns_d', params=params, fields=('ann_date',), maximum=65536,
+            timeout=25, check=lambda: None, tick=lambda: None, before_request=before)
+    assert error.value.code == 'source_connection_failed' and str(error.value) == message
+    assert error.value.details == {**details, 'api_name': 'anns_d',
+        'request_params': {k: v for k, v in params.items() if k != 'token'}}
+    before.assert_called_once()
+    worker.assert_called_once()
+    logger.warning.assert_called_once()
+    assert 'secret' not in str(logger.warning.call_args) and 'credential' not in str(logger.warning.call_args)
+    client.session.close()
+
+
+@pytest.mark.parametrize('from_parent', [False, True])
+def test_bounded_client_keeps_named_errors_when_diagnostic_logging_fails(mocker, from_parent):
+    from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+    details = {'exception_type': 'TimeoutError', 'failure_stage': 'ipc_wait', 'total_timeout_seconds': 20}
+    code, message = 'weekly_adj.source_deadline_exceeded', '源调用超过总期限'
+    mocker.patch('src.foundation.clients.tushare_client._get_rate_limiter')
+    worker = mocker.patch('src.foundation.clients.bounded_tushare_call.call_bounded')
+    if from_parent:
+        worker.side_effect = BoundedTushareError(code, message, details)
+    else:
+        worker.return_value = ('bounded_error', code, message, details)
+    from src.foundation.datasets.stock_weekly_adj_contracts import SOURCE_FIELDS
+    client = TushareHttpClient(token='secret-token')
+    mocker.patch.object(client.logger, 'warning', side_effect=RuntimeError('log offline'))
+    with pytest.raises(BoundedTushareError) as error:
+        client.call_bounded(api_name='stk_week_month_adj', params={'freq': 'week', 'trade_date': '20190607'},
+            fields=SOURCE_FIELDS, maximum=8388608, timeout=20, check=lambda: None,
+            tick=lambda: None, before_request=lambda: None, response_contract='stock_weekly_adj/v1')
+    assert error.value.code == code and str(error.value) == message
+    assert error.value.details['failure_stage'] == 'ipc_wait'
+    assert error.value.details['api_name'] == 'stk_week_month_adj'
+    worker.assert_called_once()
+    client.session.close()
+
+
+@pytest.mark.parametrize('packet, expected', [
+    (('rows', [{'ann_date': '20260101'}]), [{'ann_date': '20260101'}]),
+    (('rate_limit', -2002, '频率超限'), TushareRateLimitError),
+    (('api_error', 50101, '查询数据失败'), TushareApiError),
+])
+def test_bounded_success_and_api_errors_keep_existing_semantics(mocker, packet, expected):
+    mocker.patch('src.foundation.clients.tushare_client._get_rate_limiter')
+    mocker.patch('src.foundation.clients.bounded_tushare_call.call_bounded', return_value=packet)
+    client = TushareHttpClient(token='test-placeholder')
+    call = dict(api_name='anns_d', params={}, fields=('ann_date',), maximum=65536, timeout=25,
+        check=lambda: None, tick=lambda: None, before_request=lambda: None)
+    if isinstance(expected, list):
+        assert client.call_bounded(**call) == expected
+    else:
+        with pytest.raises(expected) as error:
+            client.call_bounded(**call)
+        assert error.value.code == packet[1]
+    client.session.close()

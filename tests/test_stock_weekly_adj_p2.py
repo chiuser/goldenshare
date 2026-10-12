@@ -538,6 +538,52 @@ def test_source_failure_is_not_empty_business_success(db, monkeypatch):
         )
 
 
+def test_diagnosed_failure_keeps_committed_unit_and_resumes_frozen_batch(db, monkeypatch):
+    from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+    seed_frontier(db)
+    definition, req, units = planned(db, requested(mode='point', trigger='schedule', code=None))
+    calls, failing = [], [True]
+    def call(**kwargs):
+        kwargs['check']()
+        kwargs['before_request']()
+        params = kwargs['params']
+        calls.append(dict(params))
+        if 'trade_date' not in params and failing[0]:
+            raise BoundedTushareError('source_connection_failed', '读取Tushare响应超时', {
+                'exception_type': 'ConnectionError', 'cause_types': ['ReadTimeoutError'],
+                'failure_stage': 'response_body', 'total_timeout_seconds': 20})
+        return [row(WEEK, close='20', qfq='20')] if 'trade_date' in params else [row()]
+    monkeypatch.setattr('src.foundation.ingestion.source_client.create_source_connector',
+        lambda _: SimpleNamespace(call_bounded=call))
+    pages = DatasetSourceClient().iter_weekly_adj_pages
+    with pytest.raises(IngestionSourceError) as error:
+        execute(db, monkeypatch, definition, req, units, pages)
+    assert error.value.structured_error.details['request_params']['ts_code'] == CODE
+    batch = req.execution_context['execution_token']
+    with Session(db) as session:
+        dao = StockWeeklyAdjDeliveryDAO(session)
+        completed = dao.get_record(batch_id=batch, record_kind='unit', unit_id=units[0].unit_id)
+        assert completed is not None
+        completed_digest = completed.payload_digest
+        assert dao.get_record(batch_id=batch, record_kind='unit', unit_id=units[1].unit_id) is None
+        assert dao.get_record(batch_id=batch, record_kind='batch_closed', unit_id='batch_closed') is None
+        assert session.get(Raw, (CODE, OLD, 'week')).close_qfq == Decimal('10')
+        assert session.get(Serving, (CODE, OLD, 'week')).close_qfq == Decimal('10')
+        restored, restored_units = resolve_weekly_adj_units(session,
+            requested(mode='point', trigger='schedule', code=None), definition, now=NOW)
+    assert restored.execution_context['execution_token'] == batch
+    assert [unit.unit_id for unit in restored_units] == [unit.unit_id for unit in units]
+    failing[0] = False
+    result = execute(db, monkeypatch, definition, restored, restored_units, pages)
+    assert result.unit_done == 2 and len(calls) == 3
+    assert sum('trade_date' in params for params in calls) == 1
+    with Session(db) as session:
+        dao = StockWeeklyAdjDeliveryDAO(session)
+        assert dao.get_record(batch_id=batch, record_kind='unit', unit_id=units[0].unit_id).payload_digest == completed_digest
+        assert dao.get_record(batch_id=batch, record_kind='batch_closed', unit_id='batch_closed') is not None
+        assert session.get(Raw, (CODE, OLD, 'week')).close_qfq == Decimal('5')
+
+
 def test_production_lock_never_uses_sqlite(db):
     with pytest.raises(WeeklyAdjContractError, match="PostgreSQL"):
         with publisher_lock(db, weekly_definition().planning.weekly_adj_policy):
@@ -630,6 +676,50 @@ def test_bounded_pages_full_then_empty_and_page_budget(monkeypatch):
                 definition=definition, unit=unit, control=control
             )
         )
+
+
+@pytest.mark.parametrize('code, retryable', [
+    ('source_connection_failed', True), ('weekly_adj.source_deadline_exceeded', True),
+    ('weekly_adj.source_payload_invalid', False), ('source_http_error', False),
+])
+def test_weekly_source_diagnostics_retain_context_and_one_attempt(monkeypatch, code, retryable):
+    from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+    from src.foundation.ingestion.stock_weekly_adj_scope import build_weekly_adj_requested_units
+    definition = weekly_definition()
+    unit = build_weekly_adj_requested_units(requested(), definition)[0]
+    seen = []
+    details = {'exception_type': 'ConnectionError', 'cause_types': ['ReadTimeoutError'],
+        'failure_stage': 'response_body', 'http_status': 200, 'elapsed_ms': 5001,
+        'read_timeout_seconds': 5, 'total_timeout_seconds': 20}
+    def call(**kwargs):
+        kwargs['before_request']()
+        seen.append(kwargs)
+        raise BoundedTushareError(code, '读取Tushare响应超时', details)
+    monkeypatch.setattr('src.foundation.ingestion.source_client.create_source_connector',
+        lambda _: SimpleNamespace(call_bounded=call))
+    control = SimpleNamespace(check=lambda: None, poll=lambda: None, fetching=lambda *_: None, tick=lambda: None)
+    with pytest.raises(IngestionSourceError) as error:
+        list(DatasetSourceClient().iter_weekly_adj_pages(definition=definition, unit=unit, control=control))
+    structured = error.value.structured_error
+    assert len(seen) == 1 and structured.retryable is retryable and structured.error_code == code
+    assert structured.unit_id == unit.unit_id
+    assert structured.details == {**details, 'api_name': 'stk_week_month_adj',
+        'dataset_key': definition.dataset_key, 'request_params': seen[0]['params'],
+        'page_number': 1, 'offset': 0, 'attempt_number': 1}
+    assert seen[0]['timeout'] == 20 and seen[0]['maximum'] == 8388608
+
+
+def test_weekly_source_cancellation_is_not_reclassified(monkeypatch):
+    from src.foundation.ingestion.stock_weekly_adj_scope import build_weekly_adj_requested_units
+    def canceled(**kwargs):
+        raise IngestionCanceledError('stop')
+    monkeypatch.setattr('src.foundation.ingestion.source_client.create_source_connector',
+        lambda _: SimpleNamespace(call_bounded=canceled))
+    definition = weekly_definition()
+    unit = build_weekly_adj_requested_units(requested(), definition)[0]
+    control = SimpleNamespace(check=lambda: None, poll=lambda: None, fetching=lambda *_: None, tick=lambda: None)
+    with pytest.raises(IngestionCanceledError):
+        list(DatasetSourceClient().iter_weekly_adj_pages(definition=definition, unit=unit, control=control))
 
 
 def test_factor_changes_during_suspension_are_not_lost(db):

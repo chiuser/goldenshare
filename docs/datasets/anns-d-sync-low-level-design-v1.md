@@ -2,7 +2,7 @@
 
 <a id="bounded-source-diagnostics-consumer"></a>
 
-## 共用源异常诊断消费（2026-10-12，已确认，待开发）
+## 共用源异常诊断消费（2026-10-12，已实现并通过隔离验收，待部署）
 
 本节只规定anns_d消费共用诊断的要求；字段白名单、大小限制、IPC格式、文案、代码位置和上线步骤统一引用[周线LLD §13.16](stock-weekly-adj-refresh-low-level-design-v1.md#bounded-tushare-source-diagnostics)，不在公告另定义一套合同。该修改不改变下文自动日期窗口、工作流移出及Raw全量保留方案。
 
@@ -12,7 +12,9 @@
 
 公告专项隔离测试补入`tests/test_anns_d_stream.py`：具名有界错误和未知传输异常均能透传details；wrapped ReadTimeout/HTTP错误/无结果不再丢类型；首次到第四次的attempt_number、reserve与实际请求数一致，最终失败不报完成；不可重试错误不多请求，取消仍进入原取消路径，已提交批/凭证和幂等恢复保持。共用测试验证安全字段限制及日志脱敏，`tests/web/test_ops_runtime.py`验证issue持久化后API读回诊断；codebook回归确认连接失败建议不再混入公告专属预算。
 
-先完成共用实现、两处wrapper迁移及隔离测试，再提交部署。无需为此重新跑公告全历史或制造Prod失败；如公告后续自然失败，只核验新issue是否携带真实诊断，不回填旧issue、不把一次成功观察当作历史失败已定位。没有新增配置项或子系统依赖；状态写入/诊断日志失败不得改变Raw提交结果。当前只完成方案和LLD补充，代码与验收待执行。
+先完成共用实现、两处wrapper迁移及隔离测试，再提交部署。无需为此重新跑公告全历史或制造Prod失败；如公告后续自然失败，只核验新issue是否携带真实诊断，不回填旧issue、不把一次成功观察当作历史失败已定位。没有新增配置项或子系统依赖；状态写入/诊断日志失败不得改变Raw提交结果。文档已先提交c49a81cc，代码与隔离验收随后完成，修复部署待执行。
+
+验收结果：公告stream/exact_records在任务专属UTF8 PostgreSQL18中76通过、1项既有真实双样本测试因缺指定样本跳过，临时实例已关闭；新诊断测试核对实际四次reserve/请求、退避、最终attempt_number、不可重试只一次及取消。Ops运行时65项通过，公告专属用例从客户端/wrapper/worker直到issue保存和详情HTTP API读回，类型/阶段/参数及中文技术文案一致。共用真实HTTP故障、凭证脱敏、因果链上限、日志失败、周线冻结批恢复及其余门禁见[周线LLD §13.16.5](stock-weekly-adj-refresh-low-level-design-v1.md#bounded-tushare-source-diagnostics)。没有请求正式源、修改Raw或触发Prod公告任务。
 
 <a id="automatic-announcement-window"></a>
 

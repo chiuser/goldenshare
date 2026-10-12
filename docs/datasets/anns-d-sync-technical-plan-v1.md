@@ -1,10 +1,10 @@
 # 上市公司公告同步完善技术方案 v1
 
-## 共用源异常诊断修复（2026-10-12，已确认，待开发）
+## 共用源异常诊断修复（2026-10-12，已实现并通过隔离验收，待部署）
 
 股票复权周线全量任务暴露了共用Tushare有界调用的诊断丢失：异常类型未传到任务详情，通用源失败却显示公告文案。管理员已确认修复诊断；公告是同一共用调用的消费者，必须同时承接安全诊断，避免只修周线。
 
-安全字段及IPC合同以[周线LLD §13.16](stock-weekly-adj-refresh-low-level-design-v1.md#bounded-tushare-source-diagnostics)为唯一说明；公告执行要求见[本LLD补充](anns-d-sync-low-level-design-v1.md#bounded-source-diagnostics-consumer)。保留公告既有错误码/retryable、25秒调用期限、最多三次重试及每次请求预算预留，不修改Raw保存、自动日期窗口、独立调度或工作流设计。不新增表、配置、前端字段或reports依赖。本轮仅更新文档，诊断代码及验收待开发，不代表此前或今后的网络故障已经消除。
+安全字段及IPC合同以[周线LLD §13.16](stock-weekly-adj-refresh-low-level-design-v1.md#bounded-tushare-source-diagnostics)为唯一说明；公告执行要求见[本LLD补充](anns-d-sync-low-level-design-v1.md#bounded-source-diagnostics-consumer)。保留公告既有错误码/retryable、25秒调用期限、最多三次重试及每次请求预算预留，不修改Raw保存、自动日期窗口、独立调度或工作流设计。不新增表、配置、前端字段或reports依赖。文档已先提交c49a81cc，代码和隔离验收已完成，待部署；不代表此前或今后的网络故障已经消除。
 
 ## 已确认的自动同步调整（2026-10-12，日期策略已部署，工作流移出已实现待部署）
 
