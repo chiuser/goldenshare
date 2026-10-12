@@ -237,3 +237,95 @@ def capture_then_exit(root):
         prod_exporter=FakePsqlExporter(prod_frame("000001.SZ")),
         progress=progress,
     )
+
+
+def adjusted_captured(tmp_path, frames, *, bootstrap_header=None):
+    """Complete offline B0 inventory and real sealed receipts, including empty years."""
+    import json
+    from dataclasses import asdict, replace
+
+    import duckdb
+
+    from orchestrator.defs.bootstrap.stock_weekly_adj_bootstrap import (
+        AdjustedWeeklyBootstrapGuard,
+    )
+    from orchestrator.defs.bootstrap.stock_weekly_capture import (
+        WeeklyCaptureStore,
+        capture_file_hash,
+    )
+
+    from .stock_weekly_adj_delivery_test_support import delivery_fixture
+
+    frame = pd.concat(frames, ignore_index=True)
+    first, last = min(frame.trade_date).strip()[:4], max(frame.trade_date).strip()[:4]
+    source = StockWeeklySource.PRIMARY_ADJUSTED
+    inventories = []
+    root = tmp_path / "capture"
+    root.mkdir(exist_ok=True)
+    proof = root / "inventory.csv"
+    csv = "source,year,ts_code,source_rows\n"
+    for year in range(int(first) - 1, int(last) + 2):
+        subset = frame[frame.trade_date.str.startswith(str(year))]
+        codes = tuple(sorted(set(subset.ts_code)))
+        inventories.append(ProdYearInventory(year, codes, len(subset)))
+        for code in codes:
+            csv += (
+                f"{source.value},{year},{code},{len(subset[subset.ts_code == code])}\n"
+            )
+    proof.write_text(csv)
+    original, _ = delivery_fixture()
+    header = replace(
+        original,
+        record_kind="bootstrap_closed",
+        header={**original.header, "bootstrap": True},
+    )
+    if bootstrap_header is not None:
+        header = bootstrap_header
+    path = root / "inventory.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "kind": "prod_weekly_inventory",
+                "source": source.value,
+                "bootstrap_boundary": asdict(header),
+                "inventories": [asdict(i) for i in inventories],
+                "snapshot": [{"readonly": "on", "isolation": "repeatable read"}],
+                "empty_years": [i.year for i in inventories if not i.source_rows],
+                "date_window": [
+                    f"{inventories[0].year}-01-01",
+                    f"{inventories[-1].year + 1}-01-01",
+                ],
+                "input_inventory": {
+                    "path": str(proof),
+                    "sha256": capture_file_hash(proof),
+                },
+            }
+        )
+    )
+    plan = freeze_prod_weekly_plan(
+        ProdWeeklyScope(source, tuple(inventories), str(path), capture_file_hash(path))
+    )
+    store = WeeklyCaptureStore(root, plan)
+    receipts = []
+    with store.locked(), duckdb.connect() as con:
+        for unit in plan.units:
+            subset = frame[
+                frame.ts_code.isin(unit.sorted_codes)
+                & frame.trade_date.str.startswith(str(unit.source_date_start.year))
+            ]
+            attempt = store.begin_attempt(unit)
+            chunk = store.write_chunk(con, subset, unit, attempt, 0)
+            receipt = store.seal(con, unit, [chunk], len(subset), {})
+            receipt_path = store.unit_directory(unit) / "receipt.json"
+            receipts.append(
+                {
+                    "unit_id": unit.unit_id,
+                    "sha256": capture_file_hash(receipt_path),
+                    "source_rows": receipt["source_rows"],
+                }
+            )
+        # No remote reader is constructed or called in this isolated fixture.
+        guard = AdjustedWeeklyBootstrapGuard(plan, reader=object())
+        guard.seal(store, receipts, len(frame), cancel=lambda: False)
+    return plan, root

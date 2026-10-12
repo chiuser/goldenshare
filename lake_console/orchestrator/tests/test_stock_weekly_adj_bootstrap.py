@@ -260,7 +260,9 @@ def test_guard_missing_or_foreign_stops_before_creating_capture(tmp_path):
 @pytest.mark.parametrize("mode", ["build", "promote"])
 def test_cli_cannot_fall_into_old_adjusted_write_policy(tmp_path, mode):
     path, _ = inventory(tmp_path)
-    with pytest.raises(WeeklyCaptureError, match="replacement_stage_required"):
+    # New stages require the explicit frozen plan; they cannot silently use old
+    # create_or_identical behavior or create a target before preflight.
+    with pytest.raises(SystemExit):
         cli.main(
             [
                 "--inventory",

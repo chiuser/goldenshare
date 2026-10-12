@@ -53,7 +53,7 @@ Prod 每日19:30处理最早待完成周，比较该周每个交易日与前一�
 | P2 | Prod执行代码、隔离验证及Definition一次性绑定已完成 | 真实PG小样本验收未执行，见Prod LLD §13；不先清空 |
 | D1 | DG来源合同、只读适配、按键覆盖、配置及消费者迁移源码已完成 | 旧直拉入口已拒绝，其他三个主资产行为不变；真实5514行只读传输及临时21列对账通过，见LLD A14 |
 | D2 | job、多分区事件/check、sensor独立revision源码及获准单股验收已完成 | 首次候选内存阻断已解决；单股17年正式交付/取消恢复/UI及事件绑定通过，见LLD A15；全量B0及联合自动供数留D3/J1；无历史reports依赖 |
-| P3/D3 | Prod全量刷新；DG重新bootstrap及事件补录 | 各阶段另获执行批准，完整一次对账后结束 |
+| P3/D3 | Prod全量刷新及独立冻结补刷后生成B0；DG按年度覆盖并保留独有键；随后补事件、迁移水位 | 2026-10-12两阶段收尾/年度覆盖源码与隔离验收完成，正式执行未做；管理员确认年度组装临时100万行，其余预算不变；见LLD A17及Prod LLD §13.15 |
 | J1 | 19:30串联运行、源晚到及真实取消恢复 | 开启前无双写者；新周及历史修正均传到DG |
 
 详细代码接口、合并SQL、事件顺序、checkpoint、配置审计及模板对应见 [DG 新阶段 LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-prod-refresh-lld)。Prod设计见 [方案](../../../docs/datasets/stock-weekly-adj-refresh-plan-v1.md)和[LLD](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md)。以下保留原阶段设计和执行记录，冲突的未来行为以本节及新LLD为准，不把计划当已上线事实。

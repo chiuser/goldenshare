@@ -70,13 +70,62 @@ def read_audit(path):
             DeliveryHeader,
         )
 
-        header = DeliveryHeader(**audit["delivery"])
-        if source is not StockWeeklySource.PRIMARY_ADJUSTED or header.intent_id != audit["plan_hash"]:
+        if source is not StockWeeklySource.PRIMARY_ADJUSTED:
             raise WeeklyCaptureError("adjusted_delivery_audit_identity_mismatch")
-        assembly_parent = root / "stock_weekly_adj_delivery" / header.intent_id / "assemblies"
+        if "bootstrap_boundary" in audit:
+            from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
+                ADJUSTED_BOOTSTRAP_MAX_PHASE_ROWS,
+                WeeklyAdjProdDeliveryBudget,
+            )
+
+            try:
+                header = DeliveryHeader(**audit["bootstrap_boundary"])
+                header.validate_budget(WeeklyAdjProdDeliveryBudget())
+                plan_root = root / "stock_weekly_raw" / audit["plan_hash"]
+                completion = plan_root / "bootstrap-capture.json"
+                plan_path = plan_root / "plan.json"
+                for proof in (completion, plan_path):
+                    check_capture_path(proof)
+                    if proof.stat().st_size > 1024 * 1024:
+                        raise ValueError
+                captured = json.loads(completion.read_text())
+                if (
+                    "delivery" in audit
+                    or header.record_kind != "bootstrap_closed"
+                    or header.header["bootstrap"] is not True
+                    or captured["plan_hash"] != audit["plan_hash"]
+                    or DeliveryHeader(**captured["bootstrap_boundary"]) != header
+                    or json.loads(plan_path.read_text())
+                    != {
+                        "plan_hash": audit["plan_hash"],
+                        "manifest_hash": audit["manifest_hash"],
+                    }
+                    or {"path": str(completion), "sha256": fingerprint(completion)}
+                    not in audit["source_evidence"]
+                    or {"path": str(plan_path), "sha256": fingerprint(plan_path)}
+                    not in audit["source_evidence"]
+                    or audit["budget"]["max_phase_rows"]
+                    > ADJUSTED_BOOTSTRAP_MAX_PHASE_ROWS
+                    or audit["budget"]["max_phase_files"] > 128
+                ):
+                    raise ValueError
+            except (ValueError, TypeError, KeyError, OSError):
+                raise WeeklyCaptureError(
+                    "adjusted_bootstrap_audit_identity_mismatch"
+                ) from None
+            assembly_parent = plan_root / "assemblies"
+        else:
+            header = DeliveryHeader(**audit["delivery"])
+            if header.intent_id != audit["plan_hash"]:
+                raise WeeklyCaptureError("adjusted_delivery_audit_identity_mismatch")
+            assembly_parent = (
+                root / "stock_weekly_adj_delivery" / header.intent_id / "assemblies"
+            )
     elif "write_policy" in audit:
         raise WeeklyCaptureError("weekly_write_policy_invalid")
     else:
+        if source is StockWeeklySource.PRIMARY_ADJUSTED:
+            raise WeeklyCaptureError("adjusted_bootstrap_boundary_required")
         assembly_parent = root / "stock_weekly_raw" / audit["plan_hash"] / "assemblies"
     if assembly != path.parent or not assembly.is_relative_to(assembly_parent):
         raise WeeklyCaptureError("assembly_path_mismatch")
@@ -175,6 +224,16 @@ def promote_weekly_candidates(
     """
     audit = read_audit(audit_path)
     preflight(audit)
+    bootstrap = "bootstrap_boundary" in audit
+    if bootstrap:
+        from orchestrator.defs.bootstrap.stock_weekly_adj_bootstrap import (
+            check_bootstrap_process_budget,
+            check_bootstrap_staging_budget,
+        )
+
+        check_bootstrap_staging_budget(
+            Path(audit["capture_root"]) / "stock_weekly_raw" / audit["plan_hash"]
+        )
     if not apply:
         return {
             "status": "preflight",
@@ -213,6 +272,8 @@ def promote_weekly_candidates(
             connection.execute("SET autoload_known_extensions=false")
             for index, item in enumerate(audit["files"]):
                 check_weekly_cancel(cancel)
+                if bootstrap:
+                    check_bootstrap_process_budget()
                 target = Path(item["target"])
                 if not recovered[item["week"]]:
                     candidate = Path(item["candidate"])
@@ -242,6 +303,8 @@ def promote_weekly_candidates(
                     _sync_directory(candidate.parent)
                     fault_probe("after_replace", item["week"])
                 readback(connection, audit, item)
+                if bootstrap:
+                    check_bootstrap_process_budget()
                 _atomic_json(
                     checkpoint_path(audit, item),
                     {

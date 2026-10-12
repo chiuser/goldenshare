@@ -1,7 +1,7 @@
 """Weekly unit publication. All business effects belong to the caller's transaction."""
 
 from datetime import timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import literal, select, tuple_, union_all
 
@@ -21,14 +21,19 @@ from src.foundation.ingestion.stock_weekly_adj_planning import (
     load_week_open_days,
     parse_day,
 )
+from src.foundation.ingestion.stock_weekly_adj_reconciliation import (
+    key,
+    preservation_summary,
+    reconcile_scope,
+)
 from src.foundation.models.core_serving.equity_adj_factor import (
     EquityAdjFactor as Factor,
 )
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar as Daily
-from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj as Raw
 from src.foundation.models.core_serving.stk_period_bar_adj import (
     StkPeriodBarAdj as Serving,
 )
+from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj as Raw
 
 
 def fail(message, code="weekly_adj.scope_mismatch"):
@@ -322,21 +327,29 @@ def publish_unit(writer, *, definition, unit, batch, context, check):
                 f"本周源代码不完整：缺 {sorted(expected - actual)[:20]}；额外 {sorted(actual - expected)[:20]}",
                 "weekly_adj.source_not_ready",
             )
-    if unit.trade_date and strict and incoming:
-        if any(
+    if (
+        unit.trade_date
+        and strict
+        and incoming
+        and any(
             r[n] is None
             for r in incoming
             for n in ("open_qfq", "high_qfq", "low_qfq", "close_qfq", "end_date")
-        ):
-            fail(
-                "本周源行缺少前复权核心值或计算截至日期", "weekly_adj.source_not_ready"
-            )
+        )
+    ):
+        fail("本周源行缺少前复权核心值或计算截至日期", "weekly_adj.source_not_ready")
     floor = (
         parse_day(metadata["factor_scan_end"]) if metadata["factor_scan_end"] else None
     )
     basis, audit = validate_weekly_adj_source_basis(
         session, unit, incoming, floor=floor, bootstrap=metadata["bootstrap"]
     )
+    preserved_values = None
+    filters_by_model = {model: unit_scope(unit, model) for model in (Raw, Serving)}
+    if metadata["bootstrap"]:
+        preserved_values = preservation_summary(
+            session, filters_by_model, {key(r) for r in incoming}, policy, check
+        )
     # Normalization is the one owner of date/Decimal/change_amount conversion.
     check()
     if incoming:
@@ -408,10 +421,14 @@ def publish_unit(writer, *, definition, unit, batch, context, check):
                 "rows": len(committed_rows),
                 "rows_digest": digest(committed_rows),
                 "max_input_week": max(
-                    (parse_day(row["trade_date"]).isoformat() for row in committed_rows),
+                    (
+                        parse_day(row["trade_date"]).isoformat()
+                        for row in committed_rows
+                    ),
                     default=None,
                 ),
                 "basis": audit,
+                "preserved_values": preserved_values,
             }
         }
         if metadata["bootstrap"]
@@ -434,6 +451,8 @@ def publish_unit(writer, *, definition, unit, batch, context, check):
         {"ts_code": c, "trade_date": d.strftime("%Y%m%d")} for c, d in sorted(missing)
     ]
     reason["basis_audit"] = audit
+    if metadata["bootstrap"]:
+        reconcile_scope(session, filters_by_model, payload["summary"], policy, check)
     check()
     return StockWeeklyAdjDeliveryDAO(session).append(
         delivery_record(
@@ -475,16 +494,38 @@ def publish_closed_batch(session, *, definition, units, context, check):
         if receipt.payload_digest != digest(receipt.payload):
             fail("单元载荷摘要不一致", "weekly_adj.delivery_contract_mismatch")
         if receipt.intent["bootstrap"]:
-            summary = receipt.payload.get("summary", {})
+            audited = dao.get_record(
+                batch_id=context["execution_token"],
+                record_kind="unit",
+                unit_id="audit:" + unit.unit_id,
+            )
             if (
-                "max_input_week" not in summary
-                or (summary["max_input_week"] is None) != (receipt.rows_written == 0)
+                audited is None
+                or audited.payload_digest != digest(audited.payload)
+                or audited.scope_digest != context["scope_hash"]
+                or audited.payload["summary"].get("source_digest")
+                != receipt.payload_digest
             ):
-                fail("首次刷新摘要缺少实际输入周", "weekly_adj.delivery_contract_mismatch")
+                fail(
+                    "首次单元尚未完成持久化对账",
+                    "weekly_adj.delivery_contract_mismatch",
+                )
+            session.expunge(audited)
+            summary = receipt.payload.get("summary", {})
+            if "max_input_week" not in summary or (
+                summary["max_input_week"] is None
+            ) != (receipt.rows_written == 0):
+                fail(
+                    "首次刷新摘要缺少实际输入周",
+                    "weekly_adj.delivery_contract_mismatch",
+                )
             unit_max = summary["max_input_week"]
         else:
             unit_max = max(
-                (parse_day(row["trade_date"]).isoformat() for row in receipt.payload["rows"]),
+                (
+                    parse_day(row["trade_date"]).isoformat()
+                    for row in receipt.payload["rows"]
+                ),
                 default=None,
             )
         if unit_max is not None:
@@ -506,6 +547,14 @@ def publish_closed_batch(session, *, definition, units, context, check):
         "max_input_week": max_input_week,
     }
     payload = {"header": header, "unit_ids": unit_ids}
+    metadata = context["business_plan"]["metadata"]
+    if metadata["bootstrap"]:
+        payload["bootstrap_reconciled"] = True
+        if metadata.get("bootstrap_parent_batch"):
+            payload["bootstrap_parent"] = {
+                "batch_id": metadata["bootstrap_parent_batch"],
+                "revision": metadata["bootstrap_parent_revision"],
+            }
     check()
     return dao.append(
         delivery_record(

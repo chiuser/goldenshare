@@ -86,6 +86,16 @@ def audit_weekly_event_files(references, *, metrics=None):
         if fingerprint(path) != reference["sha256"]:
             raise WeeklyCaptureError("event_audit_changed")
         audit = read_audit(path)
+        adjusted_bootstrap = "bootstrap_boundary" in audit
+        physical_budget = (
+            WeeklyBudget(**audit["budget"]) if adjusted_bootstrap else budget
+        )
+        if adjusted_bootstrap:
+            from orchestrator.defs.bootstrap.stock_weekly_adj_bootstrap import (
+                check_bootstrap_process_budget,
+            )
+
+            check_bootstrap_process_budget()
         source = StockWeeklySource(audit["source"])
         root = Path(audit["target_root"])
         year_key = (source.value, audit["year"])
@@ -111,8 +121,8 @@ def audit_weekly_event_files(references, *, metrics=None):
             metrics["duckdb_connections"] += 1
             con = _CountedConnection(con, metrics)
             load_relation(con, "event_files", paths, source)
-            validate_relation(con, "event_files", source, budget, unique=True)
-            hashes = relation_hashes(con, "event_files", source, budget)
+            validate_relation(con, "event_files", source, physical_budget, unique=True)
+            hashes = relation_hashes(con, "event_files", source, physical_budget)
             # Verify physical placement, not merely the pooled set of weekly rows.
             placement = con.execute(
                 f"SELECT filename,min({WEEK_SQL}),max({WEEK_SQL}) FROM "
@@ -128,6 +138,8 @@ def audit_weekly_event_files(references, *, metrics=None):
                 for f in files
             }:
                 raise WeeklyCaptureError("delivery_hash_mismatch")
+        if adjusted_bootstrap:
+            check_bootstrap_process_budget()
         for item in files:
             entries.append(
                 {

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import resource
+import sys
 from dataclasses import asdict
 from pathlib import Path
 
@@ -12,6 +14,7 @@ from orchestrator.defs.bootstrap.stock_weekly_capture import (
     capture_file_hash,
     check_capture_path,
     check_weekly_cancel,
+    weekly_unit_identity,
 )
 from orchestrator.defs.prod_db.stock_weekly_adj_delivery import (
     PsqlWeeklyAdjDeliveryReader,
@@ -149,3 +152,83 @@ class AdjustedWeeklyBootstrapGuard:
                 raise WeeklyCaptureError("adjusted_bootstrap_capture_changed")
         else:
             _atomic_json(path, value)
+
+
+def read_complete_bootstrap_capture(store, *, cancel=lambda: False):
+    """Validate this capture's completion locally; never query mutable Prod."""
+    store._require_lock()
+    check_weekly_cancel(cancel)
+    header = bootstrap_header_for_manifest(store.manifest)
+    if header is None or not store.manifest.units:
+        raise WeeklyCaptureError("adjusted_bootstrap_boundary_required")
+    path = store.root / "bootstrap-capture.json"
+    check_capture_path(path)
+    if not path.is_file():
+        raise WeeklyCaptureError("adjusted_bootstrap_capture_required")
+    if path.stat().st_size > WeeklyAdjProdDeliveryBudget().max_plan_bytes:
+        raise WeeklyCaptureError("adjusted_bootstrap_capture_budget_exceeded")
+    try:
+        value = json.loads(path.read_text())
+        receipts = value["receipts"]
+        if (
+            set(value)
+            != {"version", "plan_hash", "bootstrap_boundary", "source_rows", "receipts"}
+            or type(value["version"]) is not int
+            or value["version"] != 1
+            or value["plan_hash"] != store.manifest.plan_hash
+            or DeliveryHeader(**value["bootstrap_boundary"]) != header
+            or type(value["source_rows"]) is not int
+            or value["source_rows"] != store.manifest.planned_key_count
+            or not isinstance(receipts, list)
+            or len(receipts) != len(store.manifest.units)
+        ):
+            raise ValueError
+        total = 0
+        for unit, item in zip(store.manifest.units, receipts, strict=True):
+            check_weekly_cancel(cancel)
+            receipt_path = store.unit_directory(unit) / "receipt.json"
+            check_capture_path(receipt_path)
+            if (
+                set(item) != {"unit_id", "sha256", "source_rows"}
+                or item["unit_id"] != unit.unit_id
+                or type(item["source_rows"]) is not int
+                or item["source_rows"] < 0
+                or receipt_path.stat().st_size > 1024 * 1024
+                or capture_file_hash(receipt_path) != item["sha256"]
+            ):
+                raise ValueError
+            receipt = json.loads(receipt_path.read_text())
+            if (
+                receipt["plan_hash"] != store.manifest.plan_hash
+                or receipt["unit_hash"] != weekly_unit_identity(unit)
+                or receipt["schema_hash"] != unit.schema_hash
+                or receipt["status"] not in ("captured", "success_empty")
+                or type(receipt["source_rows"]) is not int
+                or receipt["source_rows"] != item["source_rows"]
+            ):
+                raise ValueError
+            total += item["source_rows"]
+        if total != value["source_rows"]:
+            raise ValueError
+    except (KeyError, TypeError, ValueError, OSError):
+        raise WeeklyCaptureError("adjusted_bootstrap_capture_invalid") from None
+    check_weekly_cancel(cancel)
+    return header, {"path": str(path), "sha256": capture_file_hash(path)}
+
+
+def check_bootstrap_process_budget():
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    peak_bytes = peak if sys.platform == "darwin" else peak * 1024
+    if peak_bytes > WeeklyAdjProdDeliveryBudget().max_process_rss_bytes:
+        raise WeeklyCaptureError("adjusted_bootstrap_process_rss_budget_exceeded")
+
+
+def check_bootstrap_staging_budget(root):
+    check_bootstrap_process_budget()
+    total = 0
+    for path in root.rglob("*"):
+        check_capture_path(path)
+        if path.is_file():
+            total += path.stat().st_size
+            if total > WeeklyAdjProdDeliveryBudget().max_staging_bytes:
+                raise WeeklyCaptureError("adjusted_bootstrap_staging_budget_exceeded")

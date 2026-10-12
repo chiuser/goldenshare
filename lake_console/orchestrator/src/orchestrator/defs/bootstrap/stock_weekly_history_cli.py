@@ -171,8 +171,6 @@ def main(argv=None):
     args = parser.parse_args(argv)
     manifest = load_inventory(args.inventory)
     boundary = bootstrap_header_for_manifest(manifest)
-    if boundary is not None and args.mode in ("build", "promote"):
-        raise WeeklyCaptureError("adjusted_bootstrap_replacement_stage_required")
     if args.mode != "dry-run" and args.plan is None:
         parser.error("mutating/preflight stages require explicit frozen --plan")
     if args.plan is not None:

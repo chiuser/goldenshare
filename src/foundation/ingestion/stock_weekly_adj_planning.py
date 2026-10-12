@@ -4,10 +4,10 @@ No Ops status or stock pool is a source fact. Plans carry compact scopes, never 
 """
 
 from dataclasses import replace
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import case, exists, func, select
 from sqlalchemy.orm import aliased
 
 from src.foundation.datasets.stock_weekly_adj_contracts import (
@@ -201,7 +201,16 @@ def oldest_unclosed_plan(session):
             ~exists(
                 select(closed.revision).where(
                     closed.batch_id == Delivery.batch_id,
-                    closed.record_kind == "batch_closed",
+                    closed.record_kind
+                    == case(
+                        (
+                            Delivery.payload["metadata"]["bootstrap_parent_batch"]
+                            .as_string()
+                            .is_not(None),
+                            "bootstrap_closed",
+                        ),
+                        else_="batch_closed",
+                    ),
                 )
             ),
         )
@@ -284,7 +293,7 @@ def resolve_weekly_adj_units(session, request, definition, *, now=None):
             old.payload, definition
         )
 
-    cutoff_limit = latest_completed_calendar_week(now or datetime.now(timezone.utc))
+    cutoff_limit = latest_completed_calendar_week(now or datetime.now(UTC))
     if not requested_units:
         fail("所选范围没有完整周", "weekly_adj.scope_mismatch")
     max_anchor = max(
@@ -358,6 +367,28 @@ def resolve_weekly_adj_units(session, request, definition, *, now=None):
         metadata["bootstrap"] = (
             request.start_date <= minimum and max_anchor == cutoff_limit
         )
+        if metadata["bootstrap"]:
+            from src.foundation.ingestion.stock_weekly_adj_bootstrap import (
+                bootstrap_parent,
+                plan_bootstrap_catchup,
+            )
+
+            parent = bootstrap_parent(session)
+            if parent is not None:
+                units, scan_end, audit = plan_bootstrap_catchup(
+                    session,
+                    request,
+                    definition,
+                    parent,
+                    max_anchor,
+                    today=(now or datetime.now(UTC)).date(),
+                )
+                metadata.update(
+                    bootstrap_parent_batch=str(parent.batch_id),
+                    bootstrap_parent_revision=parent.revision,
+                    factor_scan_end=scan_end.isoformat(),
+                    bootstrap_basis_audit=audit,
+                )
 
     # Whole-range preview stays bounded: one grouped inventory query, not one
     # daily/history query for each of ~876 weeks. Exact weekly upstream checks
@@ -366,6 +397,7 @@ def resolve_weekly_adj_units(session, request, definition, *, now=None):
         request.run_profile == "range_rebuild"
         and not request.params.get("ts_code")
         and context["intent"] != "scheduled_week"
+        and not metadata.get("bootstrap_parent_batch")
     )
     inventory_counts = (
         dict(
@@ -391,7 +423,9 @@ def resolve_weekly_adj_units(session, request, definition, *, now=None):
     estimated_bytes = 0
     for i, unit in enumerate(units):
         strict_point = bool(unit.trade_date) and (
-            context["intent"] == "scheduled_week" or unit.trade_date == cutoff_limit
+            context["intent"] == "scheduled_week"
+            or unit.trade_date == cutoff_limit
+            or bool(metadata.get("bootstrap_parent_batch"))
         )
         if unit.trade_date and historical_market:
             expected_count = market_bound
@@ -449,7 +483,7 @@ def resolve_weekly_adj_units(session, request, definition, *, now=None):
     ):
         fail("预计整批单元或载荷超过预算", "weekly_adj.row_budget_exceeded")
     metadata["estimated_payload_bytes"] = estimated_bytes
-    if metadata["bootstrap"]:
+    if metadata["bootstrap"] and not metadata.get("bootstrap_parent_batch"):
         basis_days = load_week_open_days(session, cutoff_limit)
         metadata["factor_scan_end"] = basis_days[-1].isoformat() if basis_days else None
     original = {

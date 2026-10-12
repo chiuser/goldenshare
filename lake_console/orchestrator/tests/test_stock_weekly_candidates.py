@@ -18,25 +18,19 @@ from orchestrator.defs.bootstrap.stock_weekly_promote import promote_weekly_cand
 from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
     weekly_column_specs,
-    weekly_schema_hash,
 )
 
 from .stock_weekly_capture_test_support import bind_plan_evidence, prod_frame, prod_plan
 
 
 def captured(tmp_path, frames=None, source=StockWeeklySource.PRIMARY_UNADJUSTED):
+    if source is StockWeeklySource.PRIMARY_ADJUSTED:
+        from .stock_weekly_capture_test_support import adjusted_captured
+
+        return adjusted_captured(tmp_path, frames)
     root = tmp_path / "capture"
     root.mkdir()
     plan = prod_plan()
-    if source == StockWeeklySource.PRIMARY_ADJUSTED:
-        plan = replace(
-            plan,
-            source=source,
-            units=tuple(
-                replace(u, source=source, schema_hash=weekly_schema_hash(source))
-                for u in plan.units
-            ),
-        )
     plan = bind_plan_evidence(plan, root)
     frames = frames or [prod_frame()]
     store = WeeklyCaptureStore(root, plan)

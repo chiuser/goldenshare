@@ -16,6 +16,8 @@ from orchestrator.defs.run_contracts.stock_weekly import (
 ADJUSTED_DELIVERY_TABLE = "core.stock_weekly_adj_delivery"
 ADJUSTED_DELIVERY_ASSET = "raw_tushare_stk_period_bar_adj_week"
 ADJUSTED_DELIVERY_VERSION = 1
+# Approved one-time B0 annual replacement exception; daily delivery stays 500k.
+ADJUSTED_BOOTSTRAP_MAX_PHASE_ROWS = 1_000_000
 ADJUSTED_DELIVERY_BATCH_RUN_TAG = "goldenshare/weekly_adjusted_batch_id"
 ADJUSTED_DELIVERY_REVISION_RUN_TAG = "goldenshare/weekly_adjusted_closure_revision"
 ADJUSTED_DELIVERY_INTENT_RUN_TAG = "goldenshare/weekly_adjusted_intent_id"

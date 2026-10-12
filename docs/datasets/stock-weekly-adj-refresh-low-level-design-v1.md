@@ -1,6 +1,6 @@
 # Prod 股票复权周线刷新代码级 LLD v1
 
-起草：2026-10-09；更新：2026-10-11。状态：P0/D0完成，P1已提交7d32163d，P2已提交018168fc，日期纠偏及PG/Ops验收已提交12f5ddde。内存优化已提交cc7c528e，依据现有验证及管理员决定收口，不再追加专门复测或优化：业务执行的单进程峰值达到原256MiB目标，同时进程树总量另列，见§13.7。管理员已部署cc7c528e；正式迁移到186及表/trigger/索引只读核验通过，正式双周15368及两只单股历史15375/15378的21字段对账通过；15378采样观察到父/源进程均低于256MiB，取消续跑、同批零请求重放及页面验收留到全量执行前合并完成，不阻断DG D1/D2开发，见§13.9—13.12；未执行全量刷新或DG切换。本文件按 [Prod 数据集开发模板](../templates/dataset-development-template.md) 的0—10节复制结构并填写；模板提示文字不作为项目内容重复保留。
+起草：2026-10-09；更新：2026-10-12。状态：P0/D0完成，P1已提交7d32163d，P2已提交018168fc，日期纠偏及PG/Ops验收已提交12f5ddde。内存优化已提交cc7c528e，依据现有验证及管理员决定收口，不再追加专门复测或优化：业务执行的单进程峰值达到原256MiB目标，同时进程树总量另列，见§13.7。管理员已部署cc7c528e；正式迁移到186及表/trigger/索引只读核验通过，正式双周15368及两只单股历史15375/15378的21字段对账通过；15378采样观察到父/源进程均低于256MiB，取消续跑、同批零请求重放及页面验收留到全量执行前合并完成，不阻断DG D1/D2开发，见§13.9—13.12；未执行全量刷新或DG切换。本文件按 [Prod 数据集开发模板](../templates/dataset-development-template.md) 的0—10节复制结构并填写；模板提示文字不作为项目内容重复保留。
 
 业务范围和阶段以 [方案](stock-weekly-adj-refresh-plan-v1.md) 为准。DG实现仅引用本文交接合同，其余见 [DG LLD新增阶段](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-prod-refresh-lld)。当前实现以§13为准：源码注册Definition已绑定新规划/发布路径，管理员部署后正式表及索引已创建并只读核验；首个两历史周正式任务已对账通过；其他正式验收、首次全量收尾和DG接收链待完成。§12保留P1提交时的历史状态。
 
@@ -38,7 +38,7 @@ stk_period_bar_adj_week.maintain → Ops TaskRun → DatasetActionRequest → Da
 | 层 | 本次答案 | 核验与设计边界 |
 | --- | --- | --- |
 | 时间输入 | 沿用point周五或range日期范围；ts_code单值可选 | 现有Definition/API不新增源端可选参数；自动只传“更新已结束周”的调度意图 |
-| 执行unit | 首次全市场range按周；指定代码range保留一个区间；自动point生成新周及变化代码历史区间 | §4.4.1、§6.2；range不是清空；历史unit与输入周日期不同须显式保存 |
+| 执行unit | 首次全市场range按周；收尾再次提交全范围range冻结独立补刷批，含新完整周/变化代码历史，允许0-unit；指定代码range保留一个区间；自动point生成新周及变化代码历史区间 | §4.4.1、§6.2、§13.15；range不是清空；两批不合并原计划 |
 | freshness/audit | natural_day/week_friday、iso_week有交易才要求周桶；observed_field=trade_date | 历史刷新不改周桶日期，不把end_date当行情日期；没有交易的周不要求非空 |
 
 #### 0.3.2 DatasetDefinition消费者审计表
@@ -280,7 +280,7 @@ plan只保存共享合同/预算/原意图一次；unit清单保存稳定ID、�
 4. 拉取、校验、归一化后，一个短事务upsert Raw、Serving并append unit业务记录；提交失败三个均不可见。业务交接是交付数据本身，不是Ops观测。
 5. 提交后独立写进度/node/Issue；写失败只记录观测问题，不能回滚、停止领取本批其余已获准业务unit或误报单位未提交。源/业务错误才决定本批停止。
 6. 所有冻结unit有对应终结业务结果、范围和值读回通过后append batch_closed。失败/取消/未就绪不产生closure，续跑原batch；partial_source_preserved需记录缺键集合并确认返回部分的价格基准有效，不能把当前全市场缺码列为正常闭合。
-7. 首次历史刷新完整对账及捕获期因子补刷完成后append bootstrap_closed，记录当前库存边界及bootstrap revision B0；本次初始unit只有完成摘要，不要求永久源缓存。
+7. 首次历史批对账结果以audit:{source_unit_id}的bootstrap unit摘要逐条持久化，闭合头bootstrap_reconciled=true；不计入源unit_ids/行情数量。运营再次提交覆盖原范围的maintain，冻结独立补刷plan，关联原闭合批。第二批对账及基准核验通过后append bootstrap_closed，记录实际库存边界、父闭合身份和B0；0-unit批也持久化plan/closure/B0。B0前中断的第二批仍算未完成计划，不允许新意图跳过。详细算法见§13.15；原源unit只有摘要及保留键摘要，不存永久历史副本。
 
 **payload精度及版本。** 日常payload保存提交后的标准化21列，日期YYYYMMDD，decimal以字符串保存，NULL保留，固定键排序；摘要基于canonical row encoding。交接payload与Raw/Serving在同事务验证一致；不直接把未经归一化的原始JSON当正式数值。闭合头列出有界unit ID集合/数量及摘要，DG只能读取属于该闭合批的unit；不得用当前Raw替换旧批payload。
 
@@ -302,7 +302,7 @@ _stk_period_bar_adj_week_params按unit自身归一化时间格式化：point只t
 
 unit_id=hash(contract_version,batch_id,unit_kind,ts_code,规范时间窗,scope_digest)，同冻结批恢复稳定。progress_context保存中文阶段、当前代码/周、窗口、unit序号；不可全量放进cursor或TaskRun摘要。
 
-首次按周约876unit，上限1000；自动1+K，上限1000及整批payload256MiB。超限在计划冻结前明确报预算错误，显示完整待处理范围，等待获准调整范围或局部预算；不自行拆自动批次、不推进factor frontier。首次期间若因子变更，先补单股全历史后生成bootstrap_closed。
+首次按周约876unit，上限1000；自动1+K，上限1000及整批payload256MiB。超限在计划冻结前明确报预算错误，显示完整待处理范围，等待获准调整范围或局部预算；不自行拆自动批次、不推进factor frontier。首次期间的因子补刷另冻结独立批，原批单元不增加；详情见§13.15。
 
 ### 6.3 Source Client与分页
 
@@ -851,3 +851,50 @@ DG D2已完成获准单股实际交付、取消续跑和事件检查；本轮继
 本轮通过唯一psql-remote.sh入口、READ ONLY事务、20秒statement_timeout验证一行控制信息：交接表最新revision=10，无bootstrap_closed；Raw week总行数2,896,823。对现有普通闭合批revision10执行新B0核验SQL，boundary返回null，正确拒绝将单股样本当首次边界。没有导出源行、部署、提交TaskRun、生成B0或写入DG。
 
 Prod P3仍须开发完整一次对账、捕获期间因子定向补刷及bootstrap_closed收尾，合并完成正式取消/恢复/同批零请求重放及页面门禁后，另获全量执行授权。当前只有batch_closed执行链，不能以DG捕获代码完成宣称Prod全量刷新或B0已经完成。DG年度replace_input_keys、正式事件和独立水位迁移尚未完成，本轮不调用旧create_or_identical来推进。
+
+<a id="weekly-bootstrap-closeout-execution"></a>
+
+### 13.15 P3收尾执行分阶段（2026-10-12）
+
+源码核验：resolve_weekly_adj_units在开始前冻结unit_total和units；run_weekly_adj只恢复这些unit，完成后发布batch_closed；首次unit仅保存源行数及21列rows_digest。捕获结束时才知道的因子变化股票，不在原unit列表中。因此不能直接追加新unit或修改原plan/hash，也不能直接把普通batch_closed升级为B0。CodeGraph已覆盖run_weekly_adj、publish_closed_batch和DG候选/审计/事件消费者；不修改Foundation到Ops的依赖方向。
+
+管理员已同意收尾分两个冻结阶段：
+
+1. 原全市场批保持原意图、周单元及幂等身份。全部完成后，按周短事务核对已刷新21列与源摘要，明确排除有记录的保留键，另核对未选原键和值；完整对账只在首次收尾做一次。结果须持久化到该次业务收尾记录以支持退出续跑，不保存永久源副本，不依赖reports。
+2. 审计捕获期间因子变化，冻结新的定向历史补刷批，明确关联原全量批。单代码历史仍使用现有request builder、source监督、writer、预算和短事务；原批完成量不变，补刷阶段显示独立冻结总数。超1000单元或256MiB载荷先拒绝，不自动拆批或增加预算。取消后恢复原补刷意图，不重新选股票。
+3. 补刷完成后重新检查因子扫描覆盖和目标基准；期间又发生变化不能直接生成B0，需明确记录待处理范围并停止收尾。不存在变化时不发无用源请求。首次原批与补刷结果都闭合、一次对账通过，才append bootstrap_closed，记录实际库存边界和factor_scan_end；DG从该真实revision开始捕获。
+
+收尾不是让每次日常更新重新校验全历史。日常保持只验证本批新增/修正；历史合法修订不受首次源摘要永久约束。不能在交接DAO塞业务编排、另建Ops状态机、创建后台常驻进程或用人工伪造B0。现有kind/幂等身份、一次对账范围、补刷受理和进度已落到§5.4/§6/§13.15.1；本文件按数据集开发模板更新0.3三层语义及消费者口径。源码验收见§13.15.2，正式执行另见§13.15.3。
+
+两阶段源码和隔离验收已完成，尚未部署本轮Prod代码，没有运行正式全量任务、补刷或B0写入。DG管理员已选择临时放宽bootstrap行数预算、仍按整年计算，具体局部上限和消费者审计见[DG LLD A17](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-replacement)。日常预算与内存预算不变。
+
+#### 13.15.1 已确认两阶段的代码级落点
+
+不新增运营参数、CLI或常驻进程。首次完整范围maintain仍冻结全部周单元；首次批全部源unit完成后，在同一发布锁下按unit做一次Raw/Serving读回对账，再闭合batch_closed。运营随后再次提交完整历史范围maintain：resolver识别已对账、尚无B0的首次批，只冻结必要的新完整周和因子基准尚未覆盖的股票历史，作为独立TaskRun/业务batch；新范围须覆盖原首次范围。任何子范围不进入首次收尾。已有B0时，完整范围maintain恢复正常手动历史刷新，保存rows，不再跑首次历史对账。
+
+具名模块ingestion/stock_weekly_adj_bootstrap.py只负责首次收尾；planner通过局部import调用其只读规划，避免将业务编排放DAO。已有contract_version=1及四个record_kind保持：首次一次对账的unit记录使用audit:{source_unit_id}幂等键、rows_written=0、summary仅行数/摘要；不加入源closure.unit_ids或源unit计数。源unit仍仅摘要，额外记录未刷新Raw/Serving键的有界摘要和必要键清单，before/after核验只针对本unit。对账每unit一个20秒短事务并持久化audit receipt，退出后从这些业务结果续跑；batch_closed.payload增加bootstrap_reconciled=true。没有永久源副本、reports证明或第二套TaskRun状态机。
+
+第二阶段plan.metadata记录bootstrap_parent_batch及bootstrap_parent_revision、源覆盖窗、因子扫描截至日；每个unit仍使用原21列、point_week/stock_history和request builder。原始意图独立冻结，不改第一阶段plan或单元数量。因子规划以实际Daily日期为候选截至日，必须位于权威开市日历且逐日线代码验证Factor覆盖；按Raw实际代码/基准日期与各代码截至该日的最后日线因子比较，读回仅变化代码及起点，不向Python拉全历史因子/行情。未知独立依据保留并记录，不把退市股票的缺当前日期因子当作价格错误。源请求、单元和整批上限不变，超量不冻结，不自动拆组。
+
+第二阶段的普通batch_closed不能提前宣布B0；其unit完成和一次本批读回通过后，在同一发布锁下核对截至日仍稳定、已知基准差异已消除，然后append bootstrap_closed。B0属于第二阶段batch，沿用该批标准六字段header和unit_ids；无变化且无新周允许0-unit的plan/batch_closed/B0（header.max_input_week=null、写入数0）。实际Raw库存的行数/最早和最晚日期放B0.payload.inventory，parent闭合身份放payload.bootstrap_parent；DG bootstrap从Raw库存冻结范围，不用空补刷批的max_input_week推测历史范围。B0水位为该不可变记录的真实revision，factor_scan_end来自本次已验证上游窗口。
+
+恢复与门禁：第二阶段已有持久化plan则只恢复原冻结代码/目标因子；中途取消不关闭B0。B0前因子截至日或必要基准再次变化，停止收尾并保留原批，不能改原计划、推进水位或隐藏源不就绪。日常publisher和DG reader均显式拒绝首次summary作为普通rows交付；B0捕获只核对header和Raw库存，不读取首次audit receipts。正反测试必须覆盖首次/后续完整范围、子范围不能冒充收尾、零变化0请求闭合、独立补刷计划恢复、原键保留、对账篡改拒绝、取消在audit及B0前、闭合后重放零源请求、月线/日常旧路径不变。
+
+#### 13.15.2 代码对账及当前验收
+
+stock_weekly_adj_planning.py受理两阶段并冻结第二批代码/目标因子；stock_weekly_adj_execution.py持久化0-unit计划、执行逐单元对账和B0，B0前取消仍保留未完成计划；stock_weekly_adj_delivery.py保存本unit未刷新键摘要，闭合前核验逐unit对账记录；stock_weekly_adj_reconciliation.py核对两层21列及未选原值；stock_weekly_adj_bootstrap.py负责首次补刷选择、对账及边界。DatasetDefinition的字段、输入及日期合同不变，没有新增运营配置、表或迁移。
+
+第二批冻结第一批已有历史代码的目标日期/因子摘要；新增周中新上市的代码由该周源单元核验，不混入原历史目标摘要；B0前同时核对截至日及该摘要，防止同一天的因子修订被漏掉。对账阶段显示当前周/股票、已完成对账量、总量、百分比和更新时间，源单元完成量保持单调。源空/部分的剩余旧基准必须完全落在本次已记录的未返回键中，才可按source_unavailable保留并记入B0原因；不能用该口径放过本次实际返回且价格错误的行。
+
+收尾SQL先对实际Raw的(code,end_date)去重并形成查询内CTE，再逐键使用Factor主键索引；每代码最后日线使用Daily主键反向点查。只向Python返回≤12,001条代码库存，超12,000或变化代码超过1000拒绝。CTE只是本次只读SQL中的计算，不创建表、不保存永久对账数据，也不用于日常历史门禁。
+
+2026-10-12只读验收全部使用psql-remote.sh、READ ONLY、20秒statement_timeout，无导出全量行情或正式写入。控制结果：revision=10，bootstrap_closed=0；Raw week=2,896,823行，2010-01-01—2026-10-09；Daily和Factor均至2026-10-09。补刷库存SQL聚合返回一行：实际代码5,624，刷新前已知基准变化代码3,767，部分依据未知代码25；EXPLAIN确认因子主键点查及日线主键反向点查。3,767不是正式第二批清单，必须在第一批全量刷新后重新规划；当前不得因此申请放宽Prod1000单元预算。
+
+专项：P1/P2/basis/P3/memory共110项通过。新增tests/test_stock_weekly_adj_p3_bootstrap.py的12项覆盖两阶段、0请求B0及重放、因子补刷、源空保留、新增周独立冻结/完整源要求、新股不会误触发历史目标变动、源值及保留值篡改、对账中和B0前取消恢复、同日因子修订、子范围拒绝及日常无历史门禁。原体系架构/registry/resolver/planner分组194项通过、1项既有失败：test_planner_compresses_trade_dates_to_month_end调用已经不存在的DatasetUnitPlanner._compress_to_month_end；HEAD同样没有该方法，本轮不改月线或恢复旧兼容方法。Definition lint、文档完整性及diff空白检查通过。CodeGraph使用explore/impact分析规划、执行、DAO与DG消费，修改后sync/status有效；动态Definition注册和SQL消费者另外阅读当前实现。没有改动子系统依赖边界。
+
+#### 13.15.3 正式执行清单（未执行）
+
+1. 先提交并部署本轮Prod代码；部署后只读核对源码版本、有效Definition及无另一个未完成周线批。既有真实小样本源/21字段验收不重复，本次正式运行需补取消—原意图续跑—读回及TaskRun/node终态验收。
+2. 运营后台数据集“股票周线行情（复权）”（stk_period_bar_adj_week），maintain、范围2010-01-01—2026-10-09、ts_code留空；若执行日期已跨新完整周，先重新核验截止。当前范围876周；无交易周不请求源，其他周每页6000、单unit最多12,000、源调用45秒、业务事务20秒、单进程目标256MiB及批载荷256MiB不变。不清空原表。首批自然未完成时取消并从原详情恢复，完整对账通过后只生成batch_closed。
+3. 再提交覆盖第一批完整范围的同数据集maintain，冻结关联第一批的独立补刷计划；展示实际新周/变化股票数。此时才知道补刷清单，不能预先填写刷新前的3,767代码。第二批对账通过并核对目标摘要，产生真实B0；未完成则恢复第二批，不另建新意图跳过。
+4. B0及一次Prod对账完成后进入DG稳定捕获与年度覆盖，文件、事件、水位按DG LLD A17分阶段执行。现在没有真实B0，不能拿revision10的单股闭合批冒充全量边界。正式Lake、事件和sensor cursor均未改动。

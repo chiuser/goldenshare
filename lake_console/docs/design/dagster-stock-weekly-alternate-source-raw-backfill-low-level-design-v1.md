@@ -1528,3 +1528,38 @@ CodeGraph已使用 explore、impact，并在变更后执行 sync/status；影响
 本轮4份文档133个本地链接/锚点检查通过。全仓check_docs_integrity.py未全部通过：另一项未提交研究文档docs/product/xxm-macd-structure-research-v1.md有3个代码行号被当成文件路径的错误链接；保持该任务改动，不为本需求修改。这个问题不影响周线源码/测试通过，也不将全仓检查写成通过。
 
 下一步：先补Prod P3一次对账/因子补刷/B0收尾，以及DG年度replace_input_keys与完整捕获封存消费；库存生成必须来自B0下的实际Raw代码与年份，不能把任意人工子集称作全量。随后完成一次文件对账、分阶段事件与B0迁移。尚无正式B0，故本轮只证明隔离捕获和真实只读反例，不证明新全量bootstrap已经执行。
+
+<a id="adjusted-weekly-bootstrap-replacement"></a>
+
+### A17. 全量覆盖的执行约束及预算冲突（2026-10-12）
+
+上一轮SQL优化和稳定捕获已提交`d1522a51`，未代替P3/D3全量执行。本轮依据A5/A9，补齐完整捕获封存的消费、候选审计和提升消费者；只改复权bootstrap，不修改21列、正式路径、asset/check/job/sensor、月线或未复权入口。
+
+已确认口径的代码级约束：
+
+| 硬口径 | 实现及消费者 | 正反验收 |
+| --- | --- | --- |
+| 全捕获完成才允许组装 | stock_weekly_adj_bootstrap.py读取bootstrap-capture.json，核对真实B0、冻结plan、精确unit顺序、每份receipt的SHA与行数及总行数 | 缺封存、遗漏unit、伪普通批、篡改receipt均拒绝；只读校验不构造远程reader |
+| 按键替换且保留DG独有数据 | stock_weekly_candidates.py在复权+B0路径调用具名SQL构造器；输入键和值覆盖，未选旧键21列保留；复用逐周写出及双向EXCEPT ALL | 新值/NULL/Decimal覆盖，未选值篡改拒绝；其他来源仍同键异值拒绝 |
+| 新旧年度边界完整 | 冻结库存的空年份证明、相邻日历年receipt按原year_window纳入，源总行数与归属于当前分区年的行数分别记录 | 跨年周、非周五原始日期及空年反例；不把相邻年源行重复算最终键数 |
+| 提升和事件必须理解B0身份 | stock_weekly_promote.read_audit区别bootstrap_boundary与日常delivery；bootstrap仍使用stock_weekly_raw/plan_hash/assemblies及已有逐文件锁/checkpoint | 伪B0、错误plan、错namespace、旧复权create_or_identical拒绝；原日常delivery不变 |
+| 不恢复永久历史依赖 | 封存和receipt仅本次bootstrap候选/事件准备消费；后续job/sensor不读这些材料 | 文件通过后再单独登记事件，最后迁移水位；日常入口引用审计 |
+
+性能口径保持DuckDB512MiB、2线程、2GiB spill、进程1GiB、staging4GiB及128文件/54目标。日常阶段仍50万行；本次B0年度组装采用下述已批准100万行例外。候选只在staging，源和旧文件使用视图，逐周写出/读回；每年度独立连接，阶段前后检查取消及进程峰值，读写次数为所选receipt/chunk及周文件数的线性函数。事件物理审计消费冻结audit.budget并核对进程峰值，不退回旧bootstrap的1200万行组装上限。没有新增env/运营开关或安装操作。
+
+真实只读库存：psql-remote.sh、READ ONLY、20秒statement_timeout，仅Raw freq=week按trade_date年份聚合，返回17行；2024年259,544行、2025年272,685行。仅同规模旧数据加新输入已分别达519,088和545,370行，尚未计DG独有键及相邻年输入；实际目标计数仍须正式只读预检。因此A3“年度阶段50万行”与全量范围存在冲突，不能宣布全量年度预算验收通过。
+
+管理员已确认：不按半年拆分，临时放宽50万行限制，继续整年计算。本次复权bootstrap年度组装上限设为100万行，留出相邻日历年捕获和DG独有键空间；这是B0迁移的局部例外，日常WeeklyAdjProdDeliveryBudget仍50万行，不接受运营传入更大值。512MiB DuckDB、1GiB进程和4GiB staging不变。计算前后核对实际行数，超过100万仍停止，不能无限制处理。
+
+配置审计：ADJUSTED_BOOTSTRAP_MAX_PHASE_ROWS=1,000,000，定义在现有run_contracts/stock_weekly_adj_delivery.py，代码部署生效，无env/Settings/数据库配置或UI开关；只供B0年度候选/审计/提升消费，冻结到年度audit.budget。既有捕获inventory的全范围行数预算仍是WeeklyBudget，不把它拿来放宽组装或日常增量。测试须证明普通daily budget仍50万、未知B0不能使用例外、例外以上行数拒绝。
+
+文件成本按两个串行阶段约束，避免同时打开大量捕获分块和年度旧文件：先将选中的日历年及必要相邻年捕获（源文件加1个年度输入文件≤128）按目标week_end年份投影为一个bootstrap-input.parquet，并核对21列、主键/行数；再以该输入文件加年度旧文件/逐周候选组装（总数≤128），每个正式目标只合并一次。不是提高128文件预算，增加一次年度源投影的受控IO，年度结束关闭连接。所有输入receipt/count仍参与一次bootstrap对账，捕获源总行数与目标年度owned_source_rows分开。
+
+源码和隔离验收已完成：复权覆盖/捕获/事件及原日常feed分组139项通过；邻近历史/未复权/月线/静态合同分组352项通过。新增test_stock_weekly_adj_bootstrap_replacement.py有17项，覆盖DG独有键原值、21列覆盖及NULL、完全捕获封存、跨年、真正0-unit B0与非空Raw库存、身份篡改、重复及预算拒绝、文件提升前后中断和取消续跑。Ruff致命基线及所有本轮DG文件默认规则通过；仅隔离临时目录及内存instance，无正式事件/Lake写入。性能的全量正向验收仍需B0及正式数据，不能拿这些测试宣称全量1GiB已达标。
+
+正式执行顺序：
+
+1. Prod两冻结批及真实B0完成；按其实际Raw code/year库存冻结inventory和plan，覆盖2010—2026及跨年所需空年证明，绑定真实bootstrap_boundary。捕获只经psql-remote.sh，候选/执行材料仅在/Volumes/datasource/data_lake_staging。捕获中有业务revision变化则停止，不混版本。
+2. 现有stock_weekly_history_cli的--mode capture完成封存；再逐年--mode build --year YYYY --apply构造全年度候选，--mode promote先只读preflight，获准后加--apply原子提升至/Volumes/datasource/data_lake。完整命令还须带冻结--inventory、--plan、--capture-root、--target-root及该年度--audit；不凭目录扫描扩大范围。任何文件失败按原audit/checkpoint续跑，不删已完成文件。
+3. 全部年度文件一次对账通过后，stock_weekly_events_cli --mode dry-run冻结本次事件计划；按既有--mode register/materializations/checks --apply及--start/--count≤100分批执行，使用同计划和checkpoint。--mode audit核对正式文件、事件及检查绑定。阶段审批时列明真实计划路径、实际文件/事件数量、命令、DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home和恢复方式；现在不编造执行ID。
+4. 全量文件及事件全部通过，最后单独迁移raw_stock_weekly_update_job_sensor cursor的adjusted_delivery_revision至实际B0，清除旧adjusted待处理意图，其他分支和已有19:30设置按现行合同保留。该实例写入另列真实旧/新cursor及审批范围；只读检查不能代替迁移批准。日常job/sensor继续读取新闭合批payload，不再读取本次捕获/audit/reports。正式B0目前为0条，以上文件、事件及cursor迁移全部未执行。

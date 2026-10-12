@@ -178,6 +178,54 @@ def assemble_relation(connection, source, year, budget, excluded):
     }
 
 
+def assemble_adjusted_bootstrap_relation(connection, *, year, budget):
+    """Complete captured Prod keys replace values; DG-only keys remain intact."""
+    source = StockWeeklySource.PRIMARY_ADJUSTED
+    cols = columns(source)
+    keys = ", ".join(weekly_key_columns(source))
+    incoming = validate_relation(
+        connection, "weekly_input", source, budget, unique=True
+    )
+    existing = validate_relation(
+        connection, "weekly_existing", source, budget, unique=True
+    )
+    if incoming + existing > budget.max_phase_rows:
+        raise WeeklyCaptureError("raw_row_budget_exceeded")
+    for relation in ("weekly_input", "weekly_existing"):
+        if connection.execute(
+            f"SELECT count(*) FROM {relation} WHERE substr({WEEK_SQL},1,4)<>?",
+            [str(year)],
+        ).fetchone()[0]:
+            raise WeeklyCaptureError("target_year_mismatch")
+    connection.execute(
+        f"CREATE OR REPLACE TEMP VIEW weekly_unique AS SELECT {cols} FROM weekly_input"
+    )
+    connection.execute(
+        f"CREATE OR REPLACE TEMP VIEW weekly_preserved AS SELECT {cols} FROM weekly_existing "
+        f"ANTI JOIN weekly_unique USING ({keys})"
+    )
+    connection.execute(
+        f"CREATE OR REPLACE TEMP VIEW weekly_combined AS SELECT {cols} FROM weekly_preserved "
+        f"UNION ALL SELECT {cols} FROM weekly_unique"
+    )
+    replaced = connection.execute(
+        f"SELECT count(*) FROM weekly_existing SEMI JOIN weekly_unique USING ({keys})"
+    ).fetchone()[0]
+    return {
+        "source_rows": incoming,
+        "owned_source_rows": incoming,
+        "unique_source_rows": incoming,
+        "duplicate_rows": 0,
+        "existing_rows": existing,
+        "replaced_keys": replaced,
+        "new_keys": incoming - replaced,
+        "preserved_keys": existing - replaced,
+        "candidate_rows": existing + incoming - replaced,
+        "value_difference_rows": 0,
+        "preserved_difference_rows": 0,
+    }
+
+
 def assemble_adjusted_delivery_relation(connection, *, year, budget):
     """Replace whole input rows; preserve every unselected old key and value.
 

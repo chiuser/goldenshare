@@ -1,10 +1,10 @@
 """Serial weekly publishing, bounded units and observation-independent recovery."""
 
-from collections import Counter
-from contextlib import contextmanager
-from datetime import datetime, timezone
 import logging
 import time
+from collections import Counter
+from contextlib import contextmanager
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import event, text
@@ -178,6 +178,7 @@ def run_weekly_adj(
                 retryable=False,
             )
         )
+    closeout = bool(payload["metadata"].get("bootstrap_parent_batch"))
     engine = executor.session.get_bind()
     totals, done, last_emit, current = Counter(), 0, 0.0, {}
     diagnostic = {}
@@ -206,7 +207,7 @@ def run_weekly_adj(
         ):
             return
         last_emit = time.monotonic()
-        current.update(stage=stage, updated_at=datetime.now(timezone.utc).isoformat())
+        current.update(stage=stage, updated_at=datetime.now(UTC).isoformat())
         if control:
             current.update(page_number=control.page_number, offset=control.offset)
         runtime = {
@@ -284,8 +285,22 @@ def run_weekly_adj(
                             "冻结后业务周水位发生变化，请重新规划",
                             "weekly_adj.source_not_ready",
                         )
+                    if payload["metadata"]["bootstrap"]:
+                        from src.foundation.ingestion.stock_weekly_adj_bootstrap import (
+                            bootstrap_parent,
+                        )
+
+                        parent = bootstrap_parent(business)
+                        expected_parent = payload["metadata"].get(
+                            "bootstrap_parent_revision"
+                        )
+                        if (parent.revision if parent else None) != expected_parent:
+                            raise WeeklyAdjContractError(
+                                "冻结后首次收尾阶段发生变化，请重新规划",
+                                "weekly_adj.source_not_ready",
+                            )
                 business.rollback()
-                if units and old is None:
+                if (units or closeout) and old is None:
                     with bounded_unit_transaction(
                         business, policy, lambda: check(True)
                     ) as ensure:
@@ -388,7 +403,7 @@ def run_weekly_adj(
                     emit("单元已提交")
                     del batch, result
                     check(True)
-                if units:
+                if units or closeout:
                     check(True)
                     emit("闭合交付批次")
                     closed = dao.get_record(
@@ -398,6 +413,32 @@ def run_weekly_adj(
                     )
                     business.rollback()
                     if closed is None:
+                        if payload["metadata"]["bootstrap"]:
+                            from src.foundation.ingestion.stock_weekly_adj_bootstrap import (
+                                audit_bootstrap_units,
+                            )
+
+                            def audit_progress(stage, ordinal, total, unit):
+                                nonlocal current
+                                current = {
+                                    **unit.progress_context,
+                                    "audit_done": ordinal,
+                                    "audit_total": total,
+                                    "audit_percent": ordinal * 100 / total,
+                                }
+                                emit(
+                                    f"{stage} {ordinal}/{total}（{ordinal * 100 / total:.1f}%）"
+                                )
+
+                            audit_bootstrap_units(
+                                business,
+                                definition=definition,
+                                context=context,
+                                units=units,
+                                transaction=bounded_unit_transaction,
+                                check=lambda: check(True),
+                                progress=audit_progress,
+                            )
                         with bounded_unit_transaction(
                             business, policy, lambda: check(True)
                         ) as ensure:
@@ -410,6 +451,30 @@ def run_weekly_adj(
                             )
                             ensure()
                             business.commit()
+                    if closeout:
+                        boundary = dao.get_record(
+                            batch_id=context["execution_token"],
+                            record_kind="bootstrap_closed",
+                            unit_id="bootstrap_closed",
+                        )
+                        business.rollback()
+                        if boundary is None:
+                            from src.foundation.ingestion.stock_weekly_adj_bootstrap import (
+                                publish_bootstrap_boundary,
+                            )
+
+                            emit("核验补刷基准并生成B0")
+                            with bounded_unit_transaction(
+                                business, policy, lambda: check(True)
+                            ) as ensure:
+                                publish_bootstrap_boundary(
+                                    business,
+                                    definition=definition,
+                                    context=context,
+                                    check=lambda: check(True),
+                                )
+                                ensure()
+                                business.commit()
                 emit("本批已完成" if units else "已完成周没有新增欠账")
     except BaseException as exc:
         emit("已取消" if isinstance(exc, IngestionCanceledError) else "本批未闭合")

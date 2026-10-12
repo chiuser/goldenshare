@@ -12,6 +12,11 @@ from pathlib import Path
 
 from duckdb import Error as DuckDBError
 
+from orchestrator.defs.bootstrap.stock_weekly_adj_bootstrap import (
+    bootstrap_header_for_manifest,
+    check_bootstrap_staging_budget,
+    read_complete_bootstrap_capture,
+)
 from orchestrator.defs.bootstrap.stock_weekly_capture import (
     WeeklyCaptureError,
     WeeklyCaptureStore,
@@ -28,8 +33,12 @@ from orchestrator.defs.duckdb_connection import (
 )
 from orchestrator.defs.io.stock_weekly_raw import (
     WEEK_SQL,
+    assemble_adjusted_bootstrap_relation,
     assemble_relation,
+    columns,
     load_relation,
+    validate_relation,
+    write_and_audit_adjusted_delivery_candidates,
     write_and_audit_candidates,
 )
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
@@ -37,10 +46,15 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     ProdWeeklyScope,
     ProdWeeklyUnit,
     ProdYearInventory,
+    StockWeeklySource,
     normalize_week_key,
     stable_weekly_hash,
     weekly_dataset_id,
     weekly_schema_hash,
+)
+from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
+    ADJUSTED_BOOTSTRAP_MAX_PHASE_ROWS,
+    WeeklyAdjProdDeliveryBudget,
 )
 from orchestrator.defs.stock_weekly_planner import freeze_prod_weekly_plan
 
@@ -255,6 +269,8 @@ def build_weekly_partition_candidates(
     if partial_scope and target_root == Path(DEFAULT_LAKE_ROOT):
         raise WeeklyCaptureError("partial_scope_formal_forbidden")
     verify_weekly_plan_evidence(manifest)
+    adjusted = manifest.source is StockWeeklySource.PRIMARY_ADJUSTED
+    boundary = bootstrap_header_for_manifest(manifest) if adjusted else None
     start, end = year_window(year)
     units = [
         u
@@ -282,6 +298,18 @@ def build_weekly_partition_candidates(
     if any(w[:4] != str(year) for w in exclusions):
         raise WeeklyCaptureError("exclusion_year_mismatch")
     budget = manifest.budget
+    if adjusted:
+        delivery_budget = WeeklyAdjProdDeliveryBudget()
+        budget = replace(
+            budget,
+            max_phase_rows=min(
+                budget.max_phase_rows, ADJUSTED_BOOTSTRAP_MAX_PHASE_ROWS
+            ),
+            max_phase_files=min(
+                budget.max_phase_files, delivery_budget.max_phase_files
+            ),
+            progress_interval_seconds=delivery_budget.progress_interval_seconds,
+        )
     store = WeeklyCaptureStore(capture_root, manifest)
     assembly = store.root / "assemblies" / f"{year}-{uuid.uuid4().hex}"
     check_capture_path(assembly)
@@ -300,6 +328,14 @@ def build_weekly_partition_candidates(
         if not proof.is_absolute():
             proof = repo / proof
         evidence = [{"path": str(proof), "sha256": manifest.evidence_hash}]
+        if adjusted:
+            check_bootstrap_staging_budget(store.root)
+            captured_boundary, completion = read_complete_bootstrap_capture(
+                store, cancel=cancel
+            )
+            if captured_boundary != boundary:
+                raise WeeklyCaptureError("adjusted_bootstrap_capture_invalid")
+            evidence.append(completion)
         if isinstance(units[0], ProdWeeklyUnit) and proof.suffix == ".json":
             payload = json.loads(proof.read_text())
             if (
@@ -335,7 +371,7 @@ def build_weekly_partition_candidates(
                 path = directory / chunk["path"]
                 inputs.append(path)
                 evidence.append({"path": str(path), "sha256": chunk["sha256"]})
-        if len(inputs) > budget.max_phase_files:
+        if len(inputs) + (1 if adjusted else 0) > budget.max_phase_files:
             raise WeeklyCaptureError("assembly_file_budget_exceeded")
         source_count = (
             connection.execute(
@@ -347,7 +383,46 @@ def build_weekly_partition_candidates(
         )
         if source_count > budget.max_phase_rows:
             raise WeeklyCaptureError("raw_row_budget_exceeded")
-        load_relation(connection, "weekly_input", inputs, manifest.source)
+        if adjusted:
+            # Pack immutable capture once, keeping assembly's open-file set bounded.
+            load_relation(
+                connection,
+                "weekly_captured",
+                inputs,
+                manifest.source,
+                materialize=False,
+            )
+            cols = columns(manifest.source)
+            connection.execute(
+                f"CREATE OR REPLACE TEMP VIEW weekly_owned_input AS SELECT {cols} "
+                f"FROM weekly_captured WHERE substr({WEEK_SQL},1,4)='{year}'"
+            )
+            validate_relation(
+                connection, "weekly_owned_input", manifest.source, budget, unique=True
+            )
+            packed = assembly / "bootstrap-input.parquet"
+            connection.execute(
+                f"COPY (SELECT {cols} FROM weekly_owned_input ORDER BY ts_code,trade_date,freq) "
+                "TO ? (FORMAT PARQUET, COMPRESSION ZSTD)",
+                [str(packed)],
+            )
+            with packed.open("rb") as stream:
+                os.fsync(stream.fileno())
+            load_relation(
+                connection, "weekly_input", [packed], manifest.source, materialize=False
+            )
+            difference = connection.execute(
+                f"SELECT count(*) FROM ((SELECT {cols} FROM weekly_owned_input EXCEPT ALL SELECT {cols} FROM weekly_input) "
+                f"UNION ALL (SELECT {cols} FROM weekly_input EXCEPT ALL SELECT {cols} FROM weekly_owned_input))"
+            ).fetchone()[0]
+            if difference:
+                raise WeeklyCaptureError("candidate_readback_mismatch")
+            evidence.append({"path": str(packed), "sha256": capture_file_hash(packed)})
+            inputs = [packed]
+            progress({"stage": "annual_input_verified", "year": year})
+            check_weekly_cancel(cancel)
+        else:
+            load_relation(connection, "weekly_input", inputs, manifest.source)
         parent = target_root / "raw" / "tushare" / weekly_dataset_id(manifest.source)
         check_capture_path(parent)
         existing = sorted(parent.glob(f"week_end={year}-*/*.parquet"))
@@ -373,9 +448,22 @@ def build_weekly_partition_candidates(
             if existing
             else 0
         )
-        if source_count + existing_count > budget.max_phase_rows:
+        owned_count = connection.execute(
+            "SELECT count(*) FROM weekly_input"
+        ).fetchone()[0]
+        if (
+            owned_count if adjusted else source_count
+        ) + existing_count > budget.max_phase_rows:
             raise WeeklyCaptureError("raw_row_budget_exceeded")
-        load_relation(connection, "weekly_existing", existing, manifest.source)
+        if adjusted and len(inputs) + len(existing) * 2 > budget.max_phase_files:
+            raise WeeklyCaptureError("assembly_file_budget_exceeded")
+        load_relation(
+            connection,
+            "weekly_existing",
+            existing,
+            manifest.source,
+            materialize=not adjusted,
+        )
         progress(
             {
                 "stage": "merge",
@@ -385,15 +473,40 @@ def build_weekly_partition_candidates(
             }
         )
         check_weekly_cancel(cancel)
-        stats = assemble_relation(connection, manifest.source, year, budget, exclusions)
+        stats = (
+            assemble_adjusted_bootstrap_relation(connection, year=year, budget=budget)
+            if adjusted
+            else assemble_relation(
+                connection, manifest.source, year, budget, exclusions
+            )
+        )
+        if adjusted:
+            stats["source_rows"] = source_count
         key_outcomes = (
             audit_expected_source_keys(connection, manifest, units, assembly, year)
             if manifest.source.value == "weekly"
             else None
         )
-        expected, paths = write_and_audit_candidates(
-            connection, manifest.source, budget, assembly / "candidate"
+        expected, paths = (
+            write_and_audit_adjusted_delivery_candidates(
+                connection,
+                budget,
+                assembly / "candidate",
+                cancel=cancel,
+                progress=progress,
+            )
+            if adjusted
+            else write_and_audit_candidates(
+                connection, manifest.source, budget, assembly / "candidate"
+            )
         )
+        if (
+            adjusted
+            and len(inputs) + len(existing) + len(paths) > budget.max_phase_files
+        ):
+            raise WeeklyCaptureError("assembly_file_budget_exceeded")
+        if adjusted:
+            check_bootstrap_staging_budget(store.root)
         files = []
         for path in paths:
             check_weekly_cancel(cancel)
@@ -439,6 +552,9 @@ def build_weekly_partition_candidates(
             "source_key_outcomes": key_outcomes,
         }
         payload["manifest_hash"] = stable_weekly_hash(asdict(manifest))
+        if adjusted:
+            payload["write_policy"] = "replace_input_keys"
+            payload["bootstrap_boundary"] = asdict(boundary)
         payload["candidate_manifest_hash"] = stable_weekly_hash(files)
         payload["target_baseline_hash"] = stable_weekly_hash(
             [(f["target"], f["baseline"]) for f in files]
