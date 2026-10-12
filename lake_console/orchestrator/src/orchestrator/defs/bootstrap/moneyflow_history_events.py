@@ -247,7 +247,7 @@ def report_moneyflow_history_events(
             before_read=before_read,
             contract=contract,
         )
-        if contract.dataset == "moneyflow_ind_ths":
+        if contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths"}:
             counts = {e["day"]: e["row_count"] for e in entries}
             for (day, _), record in result["mats"].items():
                 metadata = record.asset_materialization.metadata
@@ -394,7 +394,7 @@ def report_moneyflow_history_events(
                                         entry["day"],
                                     )
                                     if (
-                                        contract.dataset == "moneyflow_ind_ths"
+                                        contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths"}
                                         and count != _row_count(plan, entry)
                                     ):
                                         raise MoneyflowContractError(

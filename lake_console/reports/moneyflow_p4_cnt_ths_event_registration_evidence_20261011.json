@@ -1,0 +1,816 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-11T16:01:56.713470+00:00",
+  "dataset": "moneyflow_cnt_ths",
+  "stage": "P4 recoverable history registration executor and frozen exact plans",
+  "status": "concept_code_and_frozen_plans_complete_current_full_gates_pending_workspace_stability",
+  "preceding_slice_commit": "76d61613",
+  "head": "76d616131b821f6f75f6c34f7ace660c5dbd69fc",
+  "scope": "Fixed concept adapters, two row-count guards, isolated native recovery/capacity and formal READ ONLY two-day/full plans. No formal APPLY. Full integration closeout remains pending concurrent weekly source stability.",
+  "hard_contracts": {
+    "identity": "Independent concept dataset/partition/check/jobs and fixed concept_moneyflow_ths_history_events_v1; market/industry crossed plans rejected",
+    "history": "OnlyP3 actual495source dates,192009rows,990file hashes+54controls; deep SQL only latest20source dates; no source gap fabrication",
+    "row_count": "Frozen per-date379..395; native metadata and SQL mismatch rejected; check target exact storage_id/run_id/timestamp;12fields",
+    "recovery": "Native events are truth, observation checkpoint only; default apply=False; unit cancellation, actual child exit, checkpoint failure/false/missing and idempotent replay",
+    "budget": "100dates/batch,4096items,600seconds,120seconds/unit,256reads;100records/query;512MB/1thread/no-spill,768MiB RSS; no added config",
+    "writes": "One native event committed independently; partitions batch<=100; progress atomic fsync/os.replace; no all-history transaction or source/Lake writes"
+  },
+  "tests": {
+    "concept": {
+      "passed": 46,
+      "elapsed_seconds": 66.45,
+      "initial_passed": 45,
+      "initial_failed": 1,
+      "failure": "Capacity expected atomic saves1050 but actual1049. Corrected test model, reran46; product predicate unchanged.",
+      "save_model": "1030events+5partition batches+11batch readbacks+plan/initial/final3=1049",
+      "scope": "isolatedLake/staging/nativeSQLite, archived387-row fixture and fake source, actual child process exit"
+    },
+    "regression": {
+      "passed": 79,
+      "elapsed_seconds": 114.07,
+      "scope": "market/industry isolated plan/APPLY suites"
+    },
+    "catalog": {
+      "full_suite_passed_at_recorded_source_snapshot": true,
+      "current_source_acceptance_complete": false,
+      "completed": 12,
+      "subtests": 492,
+      "batch_count": 2,
+      "native_negative_cases_per_batch": 7,
+      "batches": [
+        {
+          "batch": "G-regression:test_asset_governance_contracts.py:1",
+          "result": {
+            "slice": "G-regression:test_asset_governance_contracts.py:1",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 315,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "7578ad82d39e98383c1eda57b9b761a2c4b78725261e369cb325d2f4633bf619",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-iob3ded5/allowed/resource-result.json",
+            "sha256": "23abfe538238f96a1be3cb8dae89d60fc81e7b7bda4f966d72848d3fd39d388a"
+          }
+        },
+        {
+          "batch": "G-regression:test_asset_governance_contracts.py:2",
+          "result": {
+            "slice": "G-regression:test_asset_governance_contracts.py:2",
+            "completed": 4,
+            "failures": 0,
+            "subtests_completed": 177,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "48cec6e302aed536ebac3343da4920e149908f2e0ebf314a2d2ed9bfa2c3cd72",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-ibaigths/allowed/resource-result.json",
+            "sha256": "3c1209985775d30286ba53c2ddd5a9a8e727605a95321862d95986dab73437a2"
+          }
+        }
+      ]
+    },
+    "static": {
+      "full_suite_passed_at_recorded_source_snapshot": true,
+      "current_source_acceptance_complete": false,
+      "completed": 113,
+      "subtests": 0,
+      "batch_count": 15,
+      "native_negative_cases_per_batch": 7,
+      "batches": [
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:1",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:1",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "99f6a1598a501f8fc0d0eb7faf1bfa0c39c72abb8f577f39c060d2de3ee776a7",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-warcqk38/allowed/resource-result.json",
+            "sha256": "f5f841b7b9248b82dd133c22ae5d84c99e885358a3b66ac7a52ed58262ccebc6"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:2",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:2",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "d4c635bca967eb64c833517f0583e2c178ebe0d2ea6d3d8e0ace223d31ded435",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-xylrnsd7/allowed/resource-result.json",
+            "sha256": "f2a15e555223673848277a787c29ca5a3050550025d48c4093127ff7d955e50c"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:3",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:3",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "e57d819059d4660f33c5568cefee628403b0ce7dd5ba97f9abb9c44277458fbc",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-1go2d3lf/allowed/resource-result.json",
+            "sha256": "d245b04e6176be529ec44ba6148d700b47b15625e347a3e263deb6e9f29b7084"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:4",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:4",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "93642730d743c03ff0dda3e3f980b61a67d253b28b946e313842c249ce8b7558",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-p6p1gc02/allowed/resource-result.json",
+            "sha256": "58e891e7cd79aeb0d4c593b5c432183f834fec7e048164ae2dd06c3b783de589"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:5",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:5",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "6f7404208d3f29821571eeb9fa81c2358f99df0a461a4d37219c9a74a2581c48",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-y_fp25fw/allowed/resource-result.json",
+            "sha256": "a4abf9fa5b8c1e72418bfdbf65d56a5e585cf5502eb43f5b3624a7889596031c"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:6",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:6",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "b66022793aa593d233796f2bf5a44bcaa52cc8f9a08cdff491300e440f71ee50",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-fp2ewhg7/allowed/resource-result.json",
+            "sha256": "bab38656ae0795f562484c0c0ccb7bb13cf397dedad7dd5af160f531c0e03352"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:7",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:7",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "42195a272e32d1a50bf6392e8a163c8bae5c6cd88834c87824eb6122874223da",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-piijb7_a/allowed/resource-result.json",
+            "sha256": "bbfabeccb4426831227d06abfc1a1461540b44ce43a949a0add46c3996da4c14"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:8",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:8",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "76ad8890c0cf1f27185d1df73d79cf4d81df6891c7226e57429c718550ff80c1",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-poj60msn/allowed/resource-result.json",
+            "sha256": "7d30620581c3a2681c06cc046b6b5643ed1aabb0b70637e1b1cc5f7bbe2560c6"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:9",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:9",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "977cbd0f8f85891ba0f82a97c834ddeb0e396846898e3a6751891ff619e782c3",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-5cwcsq20/allowed/resource-result.json",
+            "sha256": "fb9cde3bfa0ae53642bf4f5b8b347209d53d4a1d395062c4c02efce88c69a20c"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:10",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:10",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "679e55aa2a484cf80d8559c4d1cf11ea5fbfdf617f0410957549d1c1c6571093",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-8cykuse9/allowed/resource-result.json",
+            "sha256": "8e388c77e7883107603f5798bf9a4e07926f6241675a5a2e55f25e2656cfc0cd"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:11",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:11",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "636c6302332b2081166eac2db5b26d179d0297401f8a7436a7b463901c822b59",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-9gie10i4/allowed/resource-result.json",
+            "sha256": "cad3d751fa165bc8f6fcbc43a100a7d637d1b027e87116a83d1c48f393de6f73"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:12",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:12",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "468e27ef5cd24c50134aa2ceb16a93176320a87614c8fbbcefaad0707971cd5a",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-3d88a578/allowed/resource-result.json",
+            "sha256": "a73f755817ba8e69bbadbf0937ff4280b227a3ddd5bdb0dce3f54ed7bfb481ce"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:13",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:13",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "b4be6ce54b9af50ccbd054e8b42cd3aca8b315de07e23286fd38ed9da3fe296a",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-rfe6umxk/allowed/resource-result.json",
+            "sha256": "c1d1f2c755e2332fb2412f9e9113a8a0815514164d1aee6129328e39e5195f2a"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:14",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:14",
+            "completed": 8,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "2a3433c94846aceb9574e38cb8bfeb4d3a3cf21d325734aa0c15b7c437b0cb8f",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-oufoqz1h/allowed/resource-result.json",
+            "sha256": "d5422f1836e3498ddd15289f70d195ba546aa650d239aeb416b3f67976065269"
+          }
+        },
+        {
+          "batch": "G-regression:test_run_contract_static_gates.py:15",
+          "result": {
+            "slice": "G-regression:test_run_contract_static_gates.py:15",
+            "completed": 1,
+            "failures": 0,
+            "subtests_completed": 0,
+            "connection_count": 0,
+            "passed": true
+          },
+          "source_hashes_match_current": false,
+          "changed_since_acceptance": [
+            "defs/bootstrap/stock_weekly_history.py",
+            "defs/bootstrap/stock_weekly_history_cli.py",
+            "defs/prod_db/stock_weekly_adj_delivery.py"
+          ],
+          "denied_sentinel_unchanged": true,
+          "policy_sha256": "1b016fec5cf23aad55e1d2f1f31e97c9fa3ce60db6fb2e650d65456d5e984bbd",
+          "resource_result": {
+            "path": "/private/tmp/stock-suspend-isolated-t_10x8u0/allowed/resource-result.json",
+            "sha256": "a70d39b2aec4d195d6dae6e85da8e84ac8d23d52995b0068346cba4849b72109"
+          }
+        }
+      ]
+    },
+    "definitions": {
+      "exit_code": 0,
+      "complete_definitions_loaded_at_snapshot": true,
+      "isolated_home": "/private/tmp/moneyflow-cnt-ths-events-20261011/defs-home",
+      "source_before_after_match": true,
+      "source_current_match": false,
+      "changed_since_validation": [
+        "defs/bootstrap/stock_weekly_history.py",
+        "defs/bootstrap/stock_weekly_history_cli.py",
+        "defs/prod_db/stock_weekly_adj_delivery.py"
+      ],
+      "formal_credentials": false,
+      "telemetry": false,
+      "uv_offline_no_sync_no_downloads": true,
+      "source_audit": {
+        "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/defs-refresh-source-audit.json",
+        "sha256": "3eb9e6cf5ab57d0cbf429df62573b21bb09d48f437e988225532556cd8d2ef00"
+      }
+    }
+  },
+  "isolated_capacity": {
+    "scope": "isolated SQLite with archived 387-row fixture on synthetic 495 dates",
+    "dates": 495,
+    "rows": 191565,
+    "result": {
+      "plan_hash": "640b8a7f5b4515f57821fde59576fe4b75ffb1f05e1bfad8635166126283f7a2",
+      "stage": "complete",
+      "current_date": null,
+      "layer": null,
+      "completed": 1525,
+      "total": 1525,
+      "percent": 100.0,
+      "updated_at": "2026-10-11T15:53:12.613182+00:00",
+      "elapsed_seconds": 7.805332791991532,
+      "metadata_reads": 141,
+      "written_events_this_attempt": 1030,
+      "registered_keys_this_attempt": 495
+    },
+    "read_batch_sizes": [
+      1,
+      20,
+      95,
+      100
+    ],
+    "atomic_control_saves": 1049,
+    "atomic_control_save_seconds": 0.569873271510005,
+    "max_atomic_control_save_seconds": 0.010752416681498289,
+    "process_peak_rss_bytes": 558841856
+  },
+  "formal_readonly_plans": {
+    "formal_writes": 0,
+    "instance_automatic_DDL": false,
+    "previous_plans": {
+      "mkt_dc:sample": {
+        "file_sha256": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6",
+        "plan_hash": "90639d04bd102597671856d0d3d9584ca80cf5799d4d77b35190e5cd0c92e319",
+        "reconstructed_equal": true
+      },
+      "mkt_dc:full": {
+        "file_sha256": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14",
+        "plan_hash": "e699ce04e04ed8e792a95ff72140251945aa282cda0b18ed25972517357ce92d",
+        "reconstructed_equal": true
+      },
+      "ind_ths:sample": {
+        "file_sha256": "72fca742cfaf060ab2ace0f5533cb6dee459e84fc034903d1a813d95baa8d75a",
+        "plan_hash": "72cab9be9af8b53cf47463acce087598dfe31c402161bf9c792149d2bb4a7e3b",
+        "reconstructed_equal": true
+      },
+      "ind_ths:full": {
+        "file_sha256": "82743d5a337f5579f53b8c73b2a12ae9762ed18a584749e49c57e14cae322eaa",
+        "plan_hash": "7dbc2c4f08774552f6f0fafa8f423338980d53fb262a300ce09506e4a1cbdc1c",
+        "reconstructed_equal": true
+      }
+    },
+    "concept_plans": {
+      "sample": {
+        "path": "lake_console/reports/moneyflow_p4_cnt_ths_event_registration_sample_plan_20261011.json",
+        "file_sha256": "2102e4c37257e86735a08d73838d8e0f797e2b36e668c437118a029752318064",
+        "plan_hash": "728f979259727100dab6bf7598a491f64a7fd8254e3255ddfa85e93de6426d5b",
+        "bytes": 13761,
+        "dates": 2,
+        "first_date": "2026-09-29",
+        "last_date": "2026-09-30",
+        "rows": 774,
+        "controls": 54,
+        "recent_check_dates": [
+          "2026-09-29",
+          "2026-09-30"
+        ],
+        "total_work_items": 10,
+        "build_seconds": 0.4960576673038304,
+        "preview_seconds": 0.39215570921078324,
+        "preview": {
+          "plan_hash": "728f979259727100dab6bf7598a491f64a7fd8254e3255ddfa85e93de6426d5b",
+          "stage": "read_only_preview",
+          "current_date": null,
+          "layer": null,
+          "completed": 0,
+          "total": 10,
+          "percent": 0.0,
+          "updated_at": "2026-10-11T15:51:49.799837+00:00",
+          "elapsed_seconds": 0.3921415829099715,
+          "metadata_reads": 7,
+          "written_events_this_attempt": 0,
+          "registered_keys_this_attempt": 0,
+          "missing_partition_keys": 2,
+          "missing_materializations": 4,
+          "missing_checks": 4,
+          "formal_writes": 0
+        },
+        "readback_reconstructed_equal": true
+      },
+      "full": {
+        "path": "lake_console/reports/moneyflow_p4_cnt_ths_event_registration_full_plan_20261011.json",
+        "file_sha256": "37860dae065606ccf28ca901cf512c2e4ad4887f2aaecb21b5226ef3640fa400",
+        "plan_hash": "ff4a6fd4ab4dc4f98eb1ee479c9938a6d3076d0d95949455211f51b2c1329c77",
+        "bytes": 271926,
+        "dates": 495,
+        "first_date": "2024-09-10",
+        "last_date": "2026-09-30",
+        "rows": 192009,
+        "controls": 54,
+        "recent_check_dates": [
+          "2026-09-02",
+          "2026-09-03",
+          "2026-09-04",
+          "2026-09-07",
+          "2026-09-08",
+          "2026-09-09",
+          "2026-09-10",
+          "2026-09-11",
+          "2026-09-14",
+          "2026-09-15",
+          "2026-09-16",
+          "2026-09-17",
+          "2026-09-18",
+          "2026-09-21",
+          "2026-09-22",
+          "2026-09-23",
+          "2026-09-24",
+          "2026-09-28",
+          "2026-09-29",
+          "2026-09-30"
+        ],
+        "total_work_items": 1525,
+        "build_seconds": 0.29334224993363023,
+        "preview_seconds": 0.44894670881330967,
+        "preview": {
+          "plan_hash": "ff4a6fd4ab4dc4f98eb1ee479c9938a6d3076d0d95949455211f51b2c1329c77",
+          "stage": "read_only_preview",
+          "current_date": null,
+          "layer": null,
+          "completed": 0,
+          "total": 1525,
+          "percent": 0.0,
+          "updated_at": "2026-10-11T15:51:50.822218+00:00",
+          "elapsed_seconds": 0.44892279198393226,
+          "metadata_reads": 15,
+          "written_events_this_attempt": 0,
+          "registered_keys_this_attempt": 0,
+          "missing_partition_keys": 495,
+          "missing_materializations": 990,
+          "missing_checks": 40,
+          "formal_writes": 0
+        },
+        "readback_reconstructed_equal": true
+      }
+    },
+    "formal_events_control_inventory_unchanged": true,
+    "elapsed_seconds": 4.032520790584385
+  },
+  "formal_physical_proof": {
+    "dates": 495,
+    "rows": 192009,
+    "files": 990,
+    "file_bytes": 24402584,
+    "controls": 54,
+    "per_day_rows_min": 379,
+    "per_day_rows_max": 395,
+    "all_frozen_hashes_verified": true,
+    "deep_sql_recent_days": 20,
+    "writes": 0
+  },
+  "workspace_drift": {
+    "other_task_sources_changed_after_refreshed_full_gates": [
+      "defs/bootstrap/stock_weekly_history.py",
+      "defs/bootstrap/stock_weekly_history_cli.py",
+      "defs/prod_db/stock_weekly_adj_delivery.py"
+    ],
+    "concept_product_sources_unchanged": true,
+    "other_task_files_untouched": true,
+    "resolution": "Root AGENTS29: stop next-stage progression; wait for stable current workspace, then rerun complete catalog/static/defs. No separate branch/worktree, no stale acceptance claim."
+  },
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "impact": "Fixed adapters -> shared plan/proof/writer -> native metadata/readiness and tests; two concept row-count guards. Original market/industry plans reconstruct unchanged.",
+    "limitation": "Token search mixed unrelated report/plan symbols; impact omitted adapters. Direct consumer, private monkeypatch and child-script audit completed.",
+    "boundaries": "No Prod DatasetDefinition/request builder/API/CLI/frontend or subsystem dependency change. Formal reload/sensor load/activation not tested."
+  },
+  "source_hashes": {
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_cnt_ths_event_plan.py": "d17dc4e6d842117ef0a6a2cf4e77f54c1a4ddafe314dd608477dce24d2f5f789",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_cnt_ths_events.py": "8ed24c285ac6f2a3bba1ca60b076d3cf5484059e5f332f110bf80e4607f8298d",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_events.py": "eb1086cac64877d3fa195884bcaaeefb690c96dcfc6e2ddadb4245a39b6d65eb",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_events.py": "ff5cecce3d8050c53d66374b04b7945e56802cd250dd5e0bea86fa1091ffec7b",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "6cf18d4db38c166de0c522c5834167c71056ea6e3138bed3630c0aa5896b5d06"
+  },
+  "document_hashes": {
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md": "7acf4f6235b64b44a2e058871eb654e1875b0c540859608b915152e8581a7ef7",
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md": "b0dd6291d299dd8a5bcbc0f9f15baf96b4d988af4aa286b5ecff31131acf007d"
+  },
+  "preserved_historical_reports_count": 37,
+  "preserved_historical_report_hashes": {
+    "lake_console/reports/moneyflow_derivation_feasibility_20261006.json": "0944c6879316d8e16255f5bfa9c304e9a3a34772eec3148a3d40bdbdf3c8b396",
+    "lake_console/reports/moneyflow_p0_closeout_20261006.json": "6194d04cf925722ec5c8c00e8402b70af695efbb646358382afbb546aea6a413",
+    "lake_console/reports/moneyflow_p0_evidence_20261006.json": "9fa7c9582e3eab8ffa1681cde59fcaa12fa073a742fce59889a19af039bf97c3",
+    "lake_console/reports/moneyflow_p0_partial_day_followup_20261006.json": "98d406d04595502d8b1f07b56a29bbf92ce6fd78c18bc00ce538143fa02f2806",
+    "lake_console/reports/moneyflow_p0_prod_date_counts_20261006.csv": "97a41694680dc13340785af03a902acb39d33afbfda33480bf9e5d34710c90e8",
+    "lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json": "8b620d66300c01c49489b82e3df7989b2f8e434982b6e21ba7373ec9a9d8fb9a",
+    "lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json": "e603b851fc60538d5e6612f182be8f79af13d4f1ff18fd92f4be12d3d56bc020",
+    "lake_console/reports/moneyflow_p2_moneyflow_ths_evidence_20261007.json": "71d2fa3803981ee85acca2ed9e35bd8b7913bc2393ee2700c53a6994df3c01c7",
+    "lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json": "c23ec90476acb4f787247747b233a5dce7f60f1e82d1b35a3709a31220817d92",
+    "lake_console/reports/moneyflow_p3_date_candidates_evidence_20261007.json": "049fd1170665217230493fc49b270aaa65a42af37d924885f2a985f5c233aebe",
+    "lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json": "1a52dcbb8ba5aea2a2790b9f3bed8354fd81b605208060b6184dc0930850af7a",
+    "lake_console/reports/moneyflow_p3_date_query_profile_20261008.json": "71e63247688f11dfb32210bd406c6a955996993b61ce4c52bd5a23b7f8d20d1b",
+    "lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json": "f88edab78bafd2168812c4d7f66690d115d0018b7ddeaef6b812fb5f4a2e996a",
+    "lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json": "752e87b7e325755c9845f35db5039ed8210a9bf77fc06cd11cb3b335e751fa97",
+    "lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json": "02534cda4abbddbbc6f152cd6041fcad5fd01f96a0d0a17da4bf25d5c695cac3",
+    "lake_console/reports/moneyflow_p3_history_export_evidence_20261007.json": "e012f42c585964b112f37f41915abca071f6475829498cfabd3349afec58c9a4",
+    "lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json": "aa0b1012eec596957ce49f3989db4cd9a1e8500afd1b7e538d84bb6d07d3d38a",
+    "lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json": "a7fb1e68c7c457c2e35a08b006f45b404f146305e3f697f79a2cc86de4d58018",
+    "lake_console/reports/moneyflow_p3_selected_dates_evidence_20261008.json": "43ae51b534d7d66f1c9e5fe41e5b95c0312bb108fea956f8f5cb19e3ef679a88",
+    "lake_console/reports/moneyflow_p4_cnt_ths_acceptance_evidence_20261011.json": "999f4b291d6897b0434a36c51b68a33005684fe0972c33e4d393395cc4db2bea",
+    "lake_console/reports/moneyflow_p4_cnt_ths_asset_closeout_evidence_20261011.json": "e6bb38ceee7c7cf639958dfd163f51cd13003bac1050bcec9dbc80282ba045ef",
+    "lake_console/reports/moneyflow_p4_cnt_ths_automation_evidence_20261011.json": "3359444d863d5d618aaaca8d568410fc162a3025aab26d0cd6728c3a0730cc62",
+    "lake_console/reports/moneyflow_p4_cnt_ths_evidence_20261011.json": "b346344b14c1a30516e04c9e0f7d17f780228994873fc1434defbff5ac12e88a",
+    "lake_console/reports/moneyflow_p4_ind_ths_automation_evidence_20261010.json": "292fd0bb792388287558760381cd6ae06ad0c2cec0e614125d1e6fafb6fcf8b7",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_evidence_20261010.json": "7baff678a06e23632f3691d32f5c72d077af7e47613a34467573df67681ea70b",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_formal_full_evidence_20261011.json": "1e44ebd9a85af062e80caf9724a91cf6d652c3239862e82eb7fe58eb6c3cf72e",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_formal_sample_evidence_20261011.json": "2fc45fab06021254776a0967d5afbbdbc9cbdc5201533c59ef709cfe33fa6ef1",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_full_plan_20261010.json": "82743d5a337f5579f53b8c73b2a12ae9762ed18a584749e49c57e14cae322eaa",
+    "lake_console/reports/moneyflow_p4_ind_ths_event_registration_sample_plan_20261010.json": "72fca742cfaf060ab2ace0f5533cb6dee459e84fc034903d1a813d95baa8d75a",
+    "lake_console/reports/moneyflow_p4_ind_ths_evidence_20261010.json": "73f3870ac235cdd3b591f36b278c13bb05f25f6979b368759e98e168e634db9c",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_evidence_20261010.json": "98da97a6f1c0726ada605b0c4fff84b4478ef921c32fa35a8029d643e6c77ed9",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_full_evidence_20261010.json": "04a4b1ff9c89553cf62422ddc2c21f2a1b81be11733e72e73d6e0ca00314423f",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_sample_evidence_20261010.json": "3a65b91362b961fec4f5573429830c6f8460ade54cde790e95219423789a8324",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_full_plan_20261010.json": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14",
+    "lake_console/reports/moneyflow_p4_mkt_dc_event_registration_sample_plan_20261010.json": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6",
+    "lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json": "5c1f28164a68758aa89cb2070ab2bd9af444e8abc13302210f68ef667d9802a5",
+    "lake_console/reports/moneyflow_p4_mkt_dc_sensor_event_preview_evidence_20261009.json": "8a6f805cef9e39b802709d494489a1d3fb76f7aac7b8e488ad0fc3fa90a7491d"
+  },
+  "authored_paths": [
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_cnt_ths_event_plan.py",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_cnt_ths_events.py",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_events.py",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_events.py",
+    "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py",
+    "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md",
+    "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md",
+    "lake_console/reports/moneyflow_p4_cnt_ths_event_registration_sample_plan_20261011.json",
+    "lake_console/reports/moneyflow_p4_cnt_ths_event_registration_full_plan_20261011.json",
+    "lake_console/reports/moneyflow_p4_cnt_ths_event_registration_evidence_20261011.json"
+  ],
+  "artifacts": {
+    "concept-tests.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/concept-tests.log",
+      "sha256": "ff70dc31df0919357e48442569fc048937dd441cb4384aafcdfdf004e71a9a77"
+    },
+    "concept-retest.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/concept-retest.log",
+      "sha256": "cbd74acec3cd5470edc2af5e004570ea571e032113852bb5b8bf9b33103a7cf9"
+    },
+    "regression-tests.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/regression-tests.log",
+      "sha256": "1bf2548c831aaf286a2379590a76108df03a93a0c6005813f3c16f41c5d062c6"
+    },
+    "catalog.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/catalog.log",
+      "sha256": "e152424512f17176e4d20d044a3ec485b588396359f086709adf851855983f3b"
+    },
+    "static.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/static.log",
+      "sha256": "8849e6603fc5c9f5f13bc6b2fdf2a2388f6afb772cde85693870e133eac46a62"
+    },
+    "catalog-refresh.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/catalog-refresh.log",
+      "sha256": "34d1f8c6a4f0f479b8a0179dc636b28758895727a91d95cfe83b8b4941bc4458"
+    },
+    "static-refresh.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/static-refresh.log",
+      "sha256": "8e023ccdbb786ced040c9ba2b20080aa4217ca9573fe0290b1314d2f0f34462d"
+    },
+    "defs-final.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/defs-final.log",
+      "sha256": "5f669c08ebd39efd649fc46a47dc56b252d88d305949cfadc889c2d20a95aaac"
+    },
+    "defs-final-source-audit.json": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/defs-final-source-audit.json",
+      "sha256": "230e23e7115e4846d54595112571900cf3c58cc239994befe993c2705113407e"
+    },
+    "defs-refresh.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/defs-refresh.log",
+      "sha256": "5f669c08ebd39efd649fc46a47dc56b252d88d305949cfadc889c2d20a95aaac"
+    },
+    "defs-refresh-source-audit.json": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/defs-refresh-source-audit.json",
+      "sha256": "3eb9e6cf5ab57d0cbf429df62573b21bb09d48f437e988225532556cd8d2ef00"
+    },
+    "formal-plans.py": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/formal-plans.py",
+      "sha256": "bd219e334c09b2d8a04312461b713316c915fddee979e5c150a2996433099151"
+    },
+    "formal-plans.json": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/formal-plans.json",
+      "sha256": "ac479f632672ec656e83c3232e778e0de620f8ecb09611222bf116216c54a683"
+    },
+    "formal-plans.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/formal-plans.log",
+      "sha256": "f0cf80e1bd940f6fbc1881528acc693bce504ffe7639277ac0eaf5ede2ae7022"
+    },
+    "codegraph-sync.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/codegraph-sync.log",
+      "sha256": "04e1f57b083aba50589ff373e2775b38f1cc18da0f96db4271c52b9bb2216e50"
+    },
+    "codegraph-status.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/codegraph-status.log",
+      "sha256": "5e0c992a6ee10511be69d9c903ae8876f6f971eaa136cb5fb408b995256bc9d7"
+    },
+    "baseline.json": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/baseline.json",
+      "sha256": "a70c8c69ae7abd7affecff8dac385dc722bb97bbbfb4a97fd5d1e73f72a37230"
+    },
+    "docs-integrity.log": {
+      "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/docs-integrity.log",
+      "sha256": "b25ab7e54628dd56a32fa610cd925aacaf6c98b9d862182936050cd8f39d3242"
+    }
+  },
+  "capacity_artifact": {
+    "path": "/private/tmp/moneyflow-cnt-ths-events-20261011/concept-retest/test_date_batches_and_only_las0/concept-event-capacity.json",
+    "sha256": "d2f7977639b2e707c6f527428c10150981ead2225d7a2e7d76227539903aedcd"
+  },
+  "formal_actions": {
+    "instance_reads_only": true,
+    "automatic_DDL": false,
+    "source_requests": 0,
+    "lake_parquet_writes": 0,
+    "formal_staging_writes": 0,
+    "native_partition_or_event_writes": 0,
+    "job_sensor_execution": 0,
+    "sensor_pool_reload_changes": 0,
+    "dependency_installations": 0
+  },
+  "validation": {
+    "ruff_authored_five_python_files": "passed_again_at_closeout",
+    "fatal_ruff_src_tests": "passed",
+    "codegraph_sync_status": "up_to_date_at_recorded_snapshot",
+    "docs_integrity": "failed_unrelated_untracked_research_document_three_dead_absolute_links",
+    "diff_check": "passed",
+    "relative_report_links": "passed",
+    "frozen_plan_canonical_and_file_hashes": "passed",
+    "preserved37reports": "passed",
+    "docs_integrity_failures": [
+      "docs/product/xxm-macd-structure-research-v1.md: cn_a_derived_minute_bars.py:99",
+      "docs/product/xxm-macd-structure-research-v1.md: major_index_mins_technical.py:20",
+      "docs/product/xxm-macd-structure-research-v1.md: major_index_mins_technical_writer.py:466"
+    ]
+  },
+  "next_slice": "Stable current workspace first; complete catalog/static/defs revalidation and full-repo docs gate. Then exact two-day formal sample separately approved, maintenance/current-source audit, check target/readiness/physical readback; full-list approval next. P4 open/P5 not started."
+}

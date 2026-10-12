@@ -1,0 +1,110 @@
+{
+  "cohort_hash": "05dacb35cebe7deb9a581329621fc775dd86311e80b8a7810e9b47abb9b2a618",
+  "controls": {
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/cohort.json": "fb6a8ba8cc94033439255bdd632b08e32014f67474c49b9c8ec70c93305ec9fa",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000000/checkpoint.json": "cfcf480c9fa7aacd2ea31c9814c21233a434629c16299051aac0c87c67a72728",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000000/promotion.json": "1b4639c3e76ebddf60c6e747f1ec4edff8e57d4450f010e25aae37f2d8218af9",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000001/checkpoint.json": "5ba26bf0b418e5ace72bb8ab3ff9799b0ee096d96aa27640cfe7af318cf889c1",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000001/promotion.json": "3bad12e527515a4d3cdca7a75be101fa0124c49e977fb33a9d780d4be6a4e544",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000002/checkpoint.json": "57dbedc416a3644d877c73b59bb4681b285b4f0d13a52556c7522c006cd505b7",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000002/promotion.json": "60f696e53f6327bd67cefd4dc8f8e26db51327f6c5d713db855e294efa8bb542",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000003/checkpoint.json": "0c44325220e414aec101ceb4155cf107efcf7ff49ac312688ee5778c8ba2b760",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000003/promotion.json": "7897c1fa1bc438eedd0caca27aac4702e99596b42d9ec9c803ebef30c6720679",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000004/checkpoint.json": "8e0d5d9f9c0475b0faf40b1e325423412b8d46fd7eb6f37c7455f1aeeb81a270",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000004/promotion.json": "f11e3e82fb43ab83aaae7d9f633fea5ef967eb662e309bdf268ce86aeed0b77a",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000005/checkpoint.json": "ec9920731ebe85765b967e196b2d47abd494415d09b0c6a4f0dd013646a33947",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000005/promotion.json": "28e0326e8ae5522011c22b9e6d87423a401b3992651c8d10afde55b7a66de7a0",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000006/checkpoint.json": "3c370ac9adb49bdbe66fb51c7a100b0d6e1229bbe4e540f5340d878822ca9706",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000006/promotion.json": "0d29547aa07ecbedd36efc0a9d912df561b0acc194929f2e59f5fcaa2248e4c2",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000007/checkpoint.json": "1dae7ac1257d2b80c594a6f1c9fd5dc714af9ff7edc7c698839ead7745c8ebb3",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000007/promotion.json": "9385fd68450dbd4e25afcd1d9471a5c66b5aa803385fae33078adb3d48400e28",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000008/checkpoint.json": "06fe316b3983ac11fce51f57e7302317db0b241283d08fe4f9202b3233742e19",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000008/promotion.json": "c9eae318de7213d48aee9e688a80ad0ab0a353c58ee180cf4739313d50bf510c",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000009/checkpoint.json": "df91207a7b152917ef6eeb6f49e1ac9d8472fd881954abcd4a8bbe3dc4a173fd",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000009/promotion.json": "18d70310b0f9976c05f29a023724627451d5ad46b298c03b61611fd798d15e1b",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000010/checkpoint.json": "13d0329cec8afe824a75e3694cc7bcf4e1d69be0bf650fa393146a1bd73190de",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000010/promotion.json": "6de5a2c9601a022fe84d2675bb1d6c4e33b55c05e9abc51cfb4136c3343f0f4f",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000011/checkpoint.json": "9df5c6121f3dd828e8155112bf6c4b95dd17db1a107e6ad40e4c9cd91eb18e2f",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000011/promotion.json": "faafb163ac70817d225467e4af49d94ec0511bb544fd92e547e62a4ab0b07951",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000012/checkpoint.json": "c3f5e563f2d5689a8a0d0ccc33e03f1895993a1640564aea8f2cdc2f47f1b8d1",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000012/promotion.json": "d77643a50e05ead20e96e3be2758a5cfb83c7a6aa3ff3e26b56767976d3b9423",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000013/checkpoint.json": "28e9e9f051c458b9d4b1b4da207c0f913609a05e5748a3accef336d27d9b8cdb",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000013/promotion.json": "c4f487cdd88f19b2c261a769665114f52268efec79d6820572de404b10c57e09",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000014/checkpoint.json": "8c1e51023584157c11166411bc97cb879e33c74ecc87672ddd4a3a911b8b0610",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000014/promotion.json": "fe431c72f49a4e2fd11a44f1652e27a7874782f6bc6d10ad1caa2f3a82b73baa",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000015/checkpoint.json": "e15881e74c54488dd5772bcb0d12ecd2990baf7ce8dea1a610c1c125c721fa87",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000015/promotion.json": "090c894af240d453eef65715d0ca8af8bad4d6ff57f398718085ca073b0c9df6",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000016/checkpoint.json": "73d1b1c15c8f26edecd0fa94e15866b26cbf16e7350c0b4923409c2f32c8e415",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000016/promotion.json": "c79eace033a769aa01b03eb4577b3f129b133f93778927c9130329a1ae4c6cd0",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000017/checkpoint.json": "f700fb859bd24e1759b4b0999657fc3e5204acaa7a143dd9d19ea229d1c19967",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000017/promotion.json": "16527251b570414635cde98db171180156c8521f7d6c6770831c05200f87cf3c",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000018/checkpoint.json": "e126b63f849fa6ade5f05f5850edbd65d4a81e235c5bb2a7fbfe350124446a81",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000018/promotion.json": "4b1dffed31777993e4f5e9a752d345c466e094cc5efe65e01ef52abb4e999a92",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000019/checkpoint.json": "22df51b8b6b29b37cecb33d85977dc6d1f451424d50504dfcb89cc9846185ad2",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000019/promotion.json": "262dd183ed69ec514f697d9fb69b8566074994b93956a518f324a98e7e7834b4",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000020/checkpoint.json": "bdb7d68b6bc7b69835ac4271eb2ab05b244836e5019b201379fae8ba055b94e9",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000020/promotion.json": "2163f7df14c370aa779935ad95c8ec3bf57db5d538f23d09e30a505750dfecfe",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000021/checkpoint.json": "effd8ca947e52dbf335884e737c975762a042b8499551e48d13a124c9488e497",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000021/promotion.json": "bb7dd34440194f37434ce15e891288e6aede593e94f6ecaaa3b8cdb71348aa08",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000022/checkpoint.json": "8e0cdf69c7624453bf1f8327625e7d3360284e967609a2f05d73e616e5649b54",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000022/promotion.json": "c32af3a71e2cccfe27ebd30ae5cae24d15213e5672573e75d2e49f7b889dd0b8",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000023/checkpoint.json": "ab1beca614428cd4e2ff92b8d244ae2d59deb7eb44452ae843cab8506507b0f3",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000023/promotion.json": "43103b7947d7af49a638ea01cdf0c2efcaeb55098fc6e30a013e29cd9a99fae2",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000024/checkpoint.json": "5c863f800eae6c4c74aaaa51ab673246ed820f7fdcc859552e0192c9d9d83879",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000024/promotion.json": "fdafece20f9819690e76e270844cc91e92c7e336491dd22f5856d1fee02ff631",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000025/checkpoint.json": "5760035caada1bd27f00e4bc89828d56ab050ccaed84d7d904307f3c9c83a141",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000025/promotion.json": "eb0e13fbce71535bc761d87710b8482d20c84970100953deb0a40a8d9cc6b4b3",
+    "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/progress.json": "f079163ba48236acaece6da680a876c6799fb563b81b5653cd97102255d1832f"
+  },
+  "cutoff": "2026-09-30",
+  "dataset": "moneyflow_cnt_ths",
+  "entries": [
+    {
+      "checkpoint": {
+        "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000025/checkpoint.json",
+        "sha256": "5760035caada1bd27f00e4bc89828d56ab050ccaed84d7d904307f3c9c83a141"
+      },
+      "day": "2026-09-29",
+      "raw_sha256": "819a4f0316555fd18b2bd64db1925c6743bfeff3a22ab734c1219e05313362d8",
+      "row_count": 387,
+      "silver_sha256": "9d2c3e1b50746280e82aa9535bb9d76cdef49e78ac7b421b83b9a052aa04f9b7"
+    },
+    {
+      "checkpoint": {
+        "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000025/checkpoint.json",
+        "sha256": "5760035caada1bd27f00e4bc89828d56ab050ccaed84d7d904307f3c9c83a141"
+      },
+      "day": "2026-09-30",
+      "raw_sha256": "c54ba5d826a3216ce51bd6ea87ab9641bc9e244a13575eeac47fb79e127d68d0",
+      "row_count": 387,
+      "silver_sha256": "fa60503a1846cc3d56b1e90e80d1761034261bc39b98eb92143696b8b4f00734"
+    }
+  ],
+  "instance_identity": {
+    "backend": "postgres",
+    "storage": {
+      "database": "goldenshare_dagster",
+      "driver": "postgresql",
+      "host": "localhost",
+      "port": 5432,
+      "user": "congming"
+    }
+  },
+  "lake_root": "/Volumes/datasource/data_lake",
+  "limits": {
+    "date_batch": 100,
+    "max_work_items": 4096,
+    "metadata_reads": 256,
+    "seconds": 600,
+    "unit_seconds": 120
+  },
+  "operation_id": "history-full-20261009",
+  "plan_hash": "728f979259727100dab6bf7598a491f64a7fd8254e3255ddfa85e93de6426d5b",
+  "recent_check_dates": [
+    "2026-09-29",
+    "2026-09-30"
+  ],
+  "revision": "concept_moneyflow_ths_history_events_v1",
+  "staging_root": "/Volumes/datasource/data_lake_staging",
+  "total_work_items": 10
+}
