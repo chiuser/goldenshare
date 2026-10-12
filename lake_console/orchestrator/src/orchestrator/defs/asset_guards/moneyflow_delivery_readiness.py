@@ -13,6 +13,7 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_IND_DC_READINESS_FILE_MAX_BYTES,
     MONEYFLOW_READINESS_FILE_MAX_BYTES,
     MONEYFLOW_SENSOR_WINDOW,
+    MONEYFLOW_THS_READINESS_FILE_MAX_BYTES,
     MoneyflowContractError,
     market_moneyflow_day,
 )
@@ -71,6 +72,8 @@ def batch_moneyflow_readiness(
         if contract.dataset == "moneyflow_ind_dc"
         else MONEYFLOW_DC_READINESS_FILE_MAX_BYTES
         if contract.dataset == "moneyflow_dc"
+        else MONEYFLOW_THS_READINESS_FILE_MAX_BYTES
+        if contract.dataset == "moneyflow_ths"
         else MONEYFLOW_READINESS_FILE_MAX_BYTES
     )
     results = {}

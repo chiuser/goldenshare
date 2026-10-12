@@ -1111,3 +1111,21 @@ moneyflow_ths独立两层资产、两条blocking checks、两job、专属动态�
 正式既有2026-09-30两文件只读抽验各5215行及唯一键，13字段一致，hash/bytes与P3证明相符，0.2425秒、RSS155.6MiB；本轮没有写正式文件、控制、event/分区或调用正式instance。存档fixture两job的0.8763秒是fake clock/临时SQLite实测，不代表真实网络耗时。1162份源码/测试在完整验收期间保持，56份旧报告保留；CodeGraph消费者审计、同步及状态确认完成，无主体依赖矩阵、Prod契约/API/前端或配置变更。文档完整性检查与本片相对链接/锚点另行核验，不能用文档检查替代上述语义验收。
 
 依据与完整对账见[LLD§54](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ths-p4-definitions)，[验收报告](../../reports/moneyflow_p4_ths_evidence_20261012.json)已归档。本定义片关闭；本轮修改尚未提交，前轮fea34b23未推送。下一片为本表三个默认STOPPED sensor、readiness和431日有界只读预演；之后执行器/冻结清单和正式登记逐阶段推进，两处历史缺口保留。未reload、启用sensor、改pool、请求源、安装或执行正式job；本表历史登记未进入，整个P4仍开放、P5未进入。
+
+
+## 60. P4同花顺个股sensor/readiness和历史只读预演（2026-10-12）
+
+上一切片17个文件已提交f4095071，未推送；本轮按管理员明确要求，接三个默认STOPPED sensor、独立就绪判断和431实际历史来源日只读预演。硬口径、命名/tags、CodeGraph及真实consumer审计、4MiB本表预算配置审计、10日热路径与历史13次native读模型见[LLD §55](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ths-automation)。
+
+沿22:00上海登记当天、最多另补一个漏日、更新最近10交易日/单tick单run；sensor不请求Tushare，Silver只消费同日最新绿Raw。历史431日每层2191645行，2026-07-06/07-09缺口保留，862文件/24unit/最近20日全字段与冻结行数核验；不把存在文件等同event ready。原五表预算/revision/清单保留，治理/拓扑HTML同步，完整受保护门禁与隔离native验证；正式PG/file/control只读。执行器、两日样本/全量冻结清单与正式APPLY留到后续，本轮不reload、启用或正式运行；P4整体开放、P5未进入。
+
+
+### 60.1 三个sensor、就绪判断和431日只读预演验收通过
+
+三个独立sensor默认STOPPED，上海22:00登记、最近10交易日/每次一个run、精确同日绿check及物理hash、Silver绑定Raw修订和6次持久化重试均通过。53项新增及483项原链回归通过；完整受保护catalog12项/510子断言、static113项、隔离Definitions与Ruff通过。十日热路径hash20文件/6727180B，0.0253秒、cursor575B，tick不请求源；这是存档样本和隔离环境验收，不等于正式日更已经运行。
+
+431来源日正式只读预演两遍一致，Raw/Silver每层2191645行，862文件/281281240B及50控制hash不变，并匹配P3原物理审计；最新20来源日13字段、date+ts_code和冻结行数通过SQL核验。每遍13次原生helper读取，1.3089/0.6583秒。正式最近10来源日仍为file_without_materialization，没有误放绿。待登记431分区、862物化和40检查，共1333项；两处接受的源缺口不造空分区或计算补齐。
+
+逐项硬口径、代码/正反测试落点、预算、验证限制见[LLD §55](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ths-automation)和[本轮报告](../../reports/moneyflow_p4_ths_sensor_event_preview_evidence_20261012.json)。原57报告及最终1167源码/测试hash保持，CodeGraph根索引同步。正式写入、源请求、job/sensor evaluation、reload/enable/pool修改均0，无Prod契约/API/主体依赖矩阵变化；上一片f4095071已提交未推送，本轮尚未提交。
+
+本切片关闭，P4整体开放、P5未进入。下一独立片开发moneyflow_ths可恢复历史登记执行器、隔离两日样本与431日冻结全量清单；THS正式row_count写入/读回门禁随执行器接入，不提前视为完成。正式APPLY与sensor启用按精确阶段单独批准。

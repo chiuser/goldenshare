@@ -174,7 +174,10 @@ def moneyflow_history_proof(
                 _target(lake_root, plan, day, "silver"),
                 day,
             )
-            if contract.dataset == "moneyflow_dc" and count != row_counts[day]:
+            if (
+                contract.dataset in {"moneyflow_dc", "moneyflow_ths"}
+                and count != row_counts[day]
+            ):
                 raise MoneyflowContractError("history_event_rows_changed")
             if contract.dataset == "moneyflow_ind_dc":
                 assert_board_moneyflow_history_counts(
@@ -217,6 +220,7 @@ def moneyflow_history_proof(
                         "moneyflow_cnt_ths",
                         "moneyflow_ind_dc",
                         "moneyflow_dc",
+                        "moneyflow_ths",
                     }
                     else {}
                 ),
