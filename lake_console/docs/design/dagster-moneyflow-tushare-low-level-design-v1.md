@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-日期：2026-10-06；最近更新：2026-10-12。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37；全494日正式登记已读回通过，见§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§39.6；三个STOPPED sensor和历史只读预演已通过，见§40，可恢复历史登记执行器与两日/495日冻结清单已完成，见§41，完整当前门禁已复验并收尾，见§41.6，两日正式样本登记已读回通过，见§42；495日全量历史登记与收尾已完成，见§43，495分区/990物化/最近20来源日40检查齐全；此前阻塞记录保留；sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～43为准。
+日期：2026-10-06；最近更新：2026-10-12。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37；全494日正式登记已读回通过，见§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§39.6；三个STOPPED sensor和历史只读预演已通过，见§40，可恢复历史登记执行器与两日/495日冻结清单已完成，见§41，完整当前门禁已复验并收尾，见§41.6，两日正式样本登记已读回通过，见§42；495日全量历史登记与收尾已完成，见§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§44.3，sensor和历史登记仍待后续；此前阻塞记录保留；sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～44为准。
 
 ## 1. 硬口径和影响面
 
@@ -8,7 +8,7 @@
 
 当前调用链为资源→有界分页→writer→文件check→asset/job→sensor/catalog。CodeGraph explore命中了分页会话及BSE调用，但结果混入同名符号；已直接核验 resources.py、tushare_request_policy.py、duckdb_connection.py、cn_a_trade_day_sensor.py、dc_board_partition_sensor.py。现有无时钟门禁的calendar-only helper不能直接满足22:00；使用有same_day_register_start参数的注册helper，限定本次七个注册器，不改变既有注册器。
 
-改动落点沿用原方案§12，并按数据集拆分模块。moneyflow_mkt_dc已完成资产、sensor及历史event执行器代码和隔离验收，两日样本及全量正式历史事件登记已通过；moneyflow_ind_ths已完成资产/check/job/catalog、三个STOPPED sensor、只读历史预演、可恢复事件执行器和冻结清单，两日及全量正式历史登记均已通过；其他五表P4尚待推进。生产DatasetDefinition/request builder、Web/API、其他资产消费者均不改变。无子系统边界或依赖矩阵变更。
+改动落点沿用原方案§12，并按数据集拆分模块。moneyflow_mkt_dc已完成资产、sensor及历史event执行器代码和隔离验收，两日样本及全量正式历史事件登记已通过；moneyflow_ind_ths已完成资产/check/job/catalog、三个STOPPED sensor、只读历史预演、可恢复事件执行器和冻结清单，两日及全量正式历史登记均已通过；moneyflow_cnt_ths全量历史登记也已关闭，moneyflow_ind_dc独立资产/check/job/catalog及隔离验收已通过，sensor和历史登记待后续，其他三表P4尚待逐表接入。生产DatasetDefinition/request builder、Web/API、其他资产消费者均不改变。无子系统边界或依赖矩阵变更。
 
 ## 2. 日更完成、异常与修订
 
@@ -2182,3 +2182,53 @@ APPLY实测18.4033秒、141次helper native读取、1166次进度回调，完成
 本轮完整证据见[全量正式历史登记与收尾证据](../../reports/moneyflow_p4_cnt_ths_event_registration_formal_full_evidence_20261012.json)。计划对账：原计划不改由文件/hash与同cohort重构验证；全部日期/事件集合和行数由native读回对账；40条check正确性由精确target和最近20日标准化/readiness证明；可重复执行由真实全量重放0新增证明；文件事实由全部物理/control hash证明；停止自动触发由native状态及直接导入边界证明。原46项概念执行器与79项市场/行业回归沿用hash一致验收，未重复跑未变化产品测试；旧全仓门禁仅是当时源码快照，本轮不声称当前周线并行代码完整验收。文档/diff/链接与报告hash辅助检查不能替代上述正式结果。
 
 **moneyflow_cnt_ths的P4全量历史登记切片关闭。** 已关闭的是历史物理文件与DG事件识别，sensor启用和真实日更未执行。资金流API/CLI/配置/契约、主体依赖矩阵及Lake路径不变；没有新增产品源码或Definitions，job/sensor evaluation、reload、pool修改、来源请求、安装均0。当前P4已有moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths三表历史登记关闭，其余四表P4仍待逐表开发和验收，P4整体开放、P5未进入。
+
+
+## 44. moneyflow_ind_dc的P4独立资产/check/job/catalog切片（2026-10-12）
+
+### 44.1 编码前范围及硬口径
+
+管理员要求“提交修改，然后继续推进moneyflow_ind_dc的P4”；§43概念全量收尾的3文件已提交8335cf3c。本轮按§6东财板块7A和§10/P4，接入独立Raw/Silver、专属动态分区、两个blocking check、两个独立job及catalog/name_mapping；sensor/历史预演/登记另分切片，正式PG/Lake/Prod/Tushare请求或写入均0，reload/pool/sensor/job不执行。沿用P0/P1真实接口与1031行归档fixture、P3冻结739来源日/364012行/1478文件，不重导或补造历史。
+
+CodeGraph explore核对concept assets→daily_update→原collector/candidate/check/publication；impact(_assert_daily_update_dataset)定位两个THS资产及Raw/Silver路径，直接核验该显式发布白名单和测试消费者。白名单只加入已获准moneyflow_ind_dc，其他未接入数据集继续拒绝；本轮不扩展MoneyflowAutomationContract或history事件协议。现有src.foundation/API/前端不消费这些DG新资产，主体依赖矩阵不改。遵守接入模板7A、asset schema contract与性能治理规范；核对本地0344源文档、Dagster官方assets/partitions/checks文档及已安装SDK，不凭接口名猜口径。
+
+| 硬口径 | 实际代码点与正反验收 |
+| --- | --- |
+| 独立一源一数据集，不合并7源 | 新assets/checks/jobs/moneyflow_ind_dc.py，专属cn_a_moneyflow_ind_dc_trade_days，catalog/name_mapping；各job只选本层asset/check，Silver只依赖本Raw，拒绝跨表/跨日receipt |
+| 三类完整、固定18字段，唯一键日期+类别+名称 | 复用daily_fields/key_fields/request_scopes和既有collector/candidate/check；明确行业/概念/地域每轮分别分页、每类非空，两轮稳定；NULL ts_code、同代码不同名称允许，重复三元键/缺类/串类/错日拒绝 |
+| 源金额元、NULL/负值/精度保真，不自行计算 | Silver仅日期转DATE；真实归档1031行全字段字面expected对账，source/Raw/Silver计数一致且reject0，禁止缩放或用大小单合计覆盖net_amount |
+| 发布与恢复协议只有一份 | shared daily_update显式白名单加入DC，receipt/count/scope/hash/gap验真；原namespace writer锁与候选校验/单文件replace/checkpoint，不复制协议；验证取消、replace退出与幂等续跑 |
+| Silver必须同日已绿Raw且最新身份/hash未变 | 当前asset_readiness_status、最新mat identity及物理hash；缺/失败/过期check或改文件阻断，Silver请求源0 |
+| 正式checks归属与事实源 | blocking+显式partitions_def，复用物理schema/日期/三元键/三类和标准化SQL；隔离真实job/native event check partition/target三字段读回，错误文件产生FAILED |
+| 定义事实与运行事实分开 | schema/path/source_doc由既有固定合同进入definition metadata及catalog；runtime仅row_count/hash/observed columns；无新Gold、运营输入、配置或平台contract |
+
+### 44.2 成本、配置与验收
+
+| 项 | 本轮口径/门禁 |
+| --- | --- |
+| 日期/对象/类别 | 每次1日，3类别，不展开板块成员；历史既有739日仅复用旧证据；真实09-30 fixture1031行=496行业+504概念+31地域，不把这组数量硬编码为每日生产要求 |
+| 请求与分页 | trade_date+content_type+limit2000+offset，显式18fields，两轮最少6请求，单轮最多13页含结束页/两轮26页；重试共享64次/300秒，30秒请求预留和60秒轮间隔不改；三类任一空/超预算拒绝 |
+| 文件与SQL | 每日Raw/verification各一候选、Silver一候选，每层正式一文件；实际文件大小与隔离job成本据实归档；单次Raw物理check3 SQL，标准化9 SQL，完整字段集合对账，不全历史深扫 |
+| 内存与空间 | 原DuckDB512MB/1线程/no-spill、RSS768MiB、同设备与首次空闲64GiB，不放宽预算；隔离测试虚拟时钟不代表真实网络SLA |
+| 事务/恢复 | 每层每文件独立intent/replace/complete，namespace独占，取消/退出保留已提升文件及候选；按原operation/date和物理事实续跑，不备份/Kopia，不声称两层整体原子性 |
+| 配置审计 | 无新env/Settings/run config/数据库配置；仅新增两check固定身份常量，在moneyflow.py定义，消费者本表assets/checks/catalog及测试，随definitions加载生效，运营从metadata/catalog/check可见；既有路径、pool、预算和源字段不改 |
+| 验收范围 | 新DC隔离job/反例+原DC候选+THS资产及未批准数据集负例回归；原受保护catalog/static gates、完整隔离dg check defs、Ruff/致命检查、文档/链接/源码hash；共享工作区有其他任务修改，若门禁或源码稳定性失败如实保留，不放宽断言或完整通过口径 |
+
+受保护runner仅新增三个精确只读源码路径assets/checks/jobs/moneyflow_ind_dc.py，其他scope、policy、网络/正式资源拒绝区、预算不改。当前白名单原概念负例中DC项在新增接入后已失去“未批准”前提，应从该负例集合移除，并在新增DC真实正向与跨表/非法dataset反例证明范围；不是允许其他数据集发布。本轮先落约束，不预填验收完成。
+
+完整catalog验收还需同步test_asset_governance_contracts.py的显式ACTIVE_ASSET_DEFINITIONS清单，加入本表两层资产，让原有metadata/tag/schema/check全量断言覆盖新资产；不修改断言或排除新资产。首次门禁发现144项catalog与142项测试清单不一致，按此消费者登记修正，完成后重跑。
+
+
+### 44.3 独立资产切片及完整隔离门禁通过
+
+已接入Raw/Silver两个独立asset、cn_a_moneyflow_ind_dc_trade_days、两个分区blocking check、两个单层job与catalog/name_mapping。共享daily_update只增加已批准DC数据集，固定18字段、三元键、三分类、源金额元和NULL/负值/精度保留；没有复制来源采集、候选或提升协议，没有扩展sensor/历史事件合同。受保护runner只增加三条精确源码读取路径，catalog测试显式资产清单新增两项，原断言不改；概念负例仅移除已失去“未批准”前提的DC项，其他禁止数据集仍有反例。
+
+新DC专项42项及包含其在内的资金流回归339项全部通过。覆盖三类每轮非空、分别分页及2000行整页结束请求、缺字段/错日/串类/重复键/两轮变化拒绝；代码可空、同代码不同名称允许；Silver缺同日绿Raw、其他日期、过期或失败check、物理hash变化均阻断且不请求源。候选receipt/分类/verification hash错误、跨表receipt、取消后保留候选、Raw/Silver replace后退出续跑、同内容不重写及来源修订均有验收。旧DC候选和THS/市场链回归通过，不把原来源/API合同改成新口径。
+
+P1归档2026-09-30真实样本1031行经本轮假源、虚拟时钟进入隔离job，行业496/概念504/地域31。两轮共6次假源调用，显式18fields、trade_date/content_type/limit2000/offset0；Silver追加调用0。输入每轮、Raw、Silver及两层checked_row_count均1031，reject0，18字段逐值完全一致。Raw95073字节、Silver95049字节；两job实测0.6735秒，但轮间60秒由虚拟时钟模拟，不能当作真实网络耗时或日更SLA。额外读回临时instance的两条native check，均SUCCEEDED/passed、partition=2026-09-30，target.storage_id/run_id/timestamp逐项等于对应当前物化；Raw的scope_row_counts另核合计1031。未把归档fixture重放称作新的Tushare实测，也不把输入计数伪写为不存在的运行metadata字段。
+
+完整受保护catalog门禁12项/498子断言、static门禁113项均通过，共17批，每批7个原生网络/正式资源拒绝反例通过；没有改隔离策略。完整隔离dg check defs --use-active-venv --no-check-yaml加载成功，使用临时HOME/DAGSTER_HOME与现有虚拟环境，未安装或同步依赖。改动文件Ruff、全DG src/tests致命检查、文档完整性通过；全部1138份DG源码及测试在回归和完整门禁前后hash一致，先前43份资金流报告/清单逐字不改。CodeGraph sync/status完成，根索引up to date；其他任务已提交或未提交修改均保留，本次验收只对应记录的1138文件快照，不能代替其他任务的功能验收。
+
+首次fixture结果读取误用了SDK事件函数，改成event_specific_data.materialization；首次catalog门禁因测试资产清单漏两项而报144/142，补齐消费者后重跑通过；Ruff的导入顺序与dict字面量问题已修正。完整证据及源码/日志/native身份见[东财板块P4资产验收](../../reports/moneyflow_p4_ind_dc_evidence_20261012.json)。计划对账：独立身份由catalog/job/partition测试证明；日期+类别+名称与字段保真由三类正反样本及1031行全字段对账证明；发布/取消/退出由原协议真实临时文件重放证明；Silver绿Raw门禁由native状态及hash反例证明；检查归属由临时instance精确target读回证明；性能上限由旧DC分页预算与本轮整页反例证明，未放宽上限。
+
+**moneyflow_ind_dc的P4资产/check/job/catalog切片关闭。** 本轮新增或修改assets/checks/jobs、partition/check身份、共享发布白名单、catalog/name_mapping及相关测试，回填原方案/LLD并增加证据。没有生产DatasetDefinition/API/CLI/配置或主体依赖矩阵变更；正式PG/Lake/source/job/sensor/reload/pool/事件写入均0。下一切片接三个默认STOPPED sensor及739来源日历史只读预演，仍按P3冻结364012行/层和1478文件；历史缺类按冻结实际范围，不套未来日更三类非空规则。历史执行器、两日/全量清单及正式登记继续各自验收与批准，整个P4仍开放、P5未进入。

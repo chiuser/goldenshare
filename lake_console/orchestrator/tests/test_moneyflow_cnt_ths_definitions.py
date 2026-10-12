@@ -677,7 +677,6 @@ def test_corrupt_source_proof_never_publishes(env, monkeypatch, corruption):
         "moneyflow",
         "moneyflow_dc",
         "moneyflow_ths",
-        "moneyflow_ind_dc",
         "moneyflow_mkt_dc",
         "../moneyflow_cnt_ths",
     ],
