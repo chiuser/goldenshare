@@ -1,6 +1,6 @@
 # Dagster 七个 Tushare 资金流向数据集接入技术方案 v1
 
-> 状态：2026-10-12 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§44及LLD§39.6；三个STOPPED sensor和历史只读预演已通过，见§45及LLD§40，可恢复历史登记执行器及两日/495日冻结清单已完成，见§46及LLD§41，完整当前门禁已通过并收尾，见LLD§41.6，两日正式样本已读回通过，见§47及LLD§42；495日全量历史登记及收尾完成，见§48及LLD§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§49及LLD§44.3，三个STOPPED sensor、历史预演、执行器和两日样本已完成，见§50～52；739日全量登记及本表P4历史接入已关闭，见§53及LLD§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog及完整隔离验收已完成，见§54及LLD§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§55及LLD§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§56及LLD§51；正式登记待后续；sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。
+> 状态：2026-10-12 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§44及LLD§39.6；三个STOPPED sensor和历史只读预演已通过，见§45及LLD§40，可恢复历史登记执行器及两日/495日冻结清单已完成，见§46及LLD§41，完整当前门禁已通过并收尾，见LLD§41.6，两日正式样本已读回通过，见§47及LLD§42；495日全量历史登记及收尾完成，见§48及LLD§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§49及LLD§44.3，三个STOPPED sensor、历史预演、执行器和两日样本已完成，见§50～52；739日全量登记及本表P4历史接入已关闭，见§53及LLD§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog及完整隔离验收已完成，见§54及LLD§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§55及LLD§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§56及LLD§51；两日正式登记及读回已通过，见§57及LLD§52；739日全量登记待后续；sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。
 >
 > 日期：2026-10-06。目标：将 Prod 已有七个 Tushare 资金流向数据集接入正式 DG；历史从 Prod Raw 初始化，新增由 DG 直接请求 Tushare。
 >
@@ -1069,3 +1069,15 @@ moneyflow_dc两层资产、两条blocking checks、两job、独立分区和catal
 完整受保护catalog12项/504子断言、static113项、隔离Definitions和Ruff通过，最终1158源码/测试与旧51份报告hash稳定，CodeGraph核查/同步完成；无主系统边界、API/CLI或配置变更。详细硬口径对账、两个plan_hash、正式只读证据及限制见[LLD §51.3～51.5](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-dc-history-events)与[验收报告](../../reports/moneyflow_p4_dc_event_registration_evidence_20261012.json)。上一切片已提交06a68313未推送，本轮新修改尚未提交。
 
 正式分区/event/file/control写入、源请求、job/sensor evaluation、reload/enable/pool修改为0。本开发切片关闭，P4整体开放、P5未进入；下一步按冻结两日清单获批后做正式样本登记及metadata/target/readiness/幂等验收，再独立推进739日全量APPLY。
+
+
+## 57. moneyflow_dc冻结两日正式样本（2026-10-12，已验收）
+
+管理员批准两日清单执行；前一开发切片10个文件已提交9f61abea，未推送。执行约束见[LLD §52](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-dc-formal-sample)。本轮只登记2026-09-29/30的2分区、4物化、4检查，并验收4个就绪结果和同清单幂等重放；两日每层6023/6024行，冻结plan_hash=5624f20348a7bb103cd620a92fce765f638c2763f74fa5a46109d06aa9c0ebbb。先查正式维护、文件、源码、storage身份和空间门禁再写入，结果另行追加。739日全量仅只读差分，不执行全量、reload、sensor启用、pool或日更job；整个P4仍开放，P5未进入。
+
+
+### 57.1 正式样本验收与后续范围
+
+两日正式新增2分区、4物化、4检查，10/10完成。09-29/30每层6023/6024行、15字段、source/checked计数及文件/cohort/upstream/plan证明一致；四个blocking check均成功，partition和storage_id/run_id/timestamp精确target读回相符，四readiness均ready。首次APPLY2.7752秒/53次helper native读，重放2.4057秒/53读且0新增键/事件、原生身份保持；checkpoint为complete/100%。55份既有报告、1158份源码、6978份冻结物理/控制文件、旧16份历史事件控制及旧四表原生事实均保持。详见[正式验收证据](../../reports/moneyflow_p4_dc_event_registration_formal_sample_evidence_20261012.json)和LLD §52.2。
+
+本样本阶段关闭。全量仅只读预演，原739日冻结清单/hash不变，已完成10项，剩737分区+1474物化+36检查=2247项/1510事件；下一步独立批准原全量清单后再执行，保留两日样本身份/target。尚未执行全量、reload、sensor启用、pool或正式job，整个P4仍开放，P5未进入。本轮无产品代码/API/配置/依赖边界变更；本轮收尾只更新这两份文档及新增验收报告，尚未提交。
