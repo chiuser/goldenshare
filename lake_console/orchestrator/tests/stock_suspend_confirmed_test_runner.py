@@ -160,6 +160,8 @@ CONSUMER_SOURCE_FILES = (
     "defs/sensors/moneyflow_dc_sensor.py",
     "defs/asset_guards/moneyflow_dc_readiness.py",
     "defs/bootstrap/moneyflow_dc_event_preview.py",
+    "defs/bootstrap/moneyflow_dc_event_plan.py",
+    "defs/bootstrap/moneyflow_dc_events.py",
     "defs/sensors/moneyflow_ind_dc_sensor.py",
     "defs/asset_guards/moneyflow_ind_dc_readiness.py",
     "defs/bootstrap/moneyflow_ind_dc_event_preview.py",

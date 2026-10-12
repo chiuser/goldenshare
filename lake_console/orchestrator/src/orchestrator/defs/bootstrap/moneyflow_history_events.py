@@ -160,7 +160,8 @@ def _evaluation(plan, entry, layer, path, mat, *, contract):
                 "partition_key": entry["day"],
                 **(
                     {"scope_row_counts": entry["scope_row_counts"]}
-                    if plan["dataset"] == "moneyflow_ind_dc" else {}
+                    if plan["dataset"] == "moneyflow_ind_dc"
+                    else {}
                 ),
             },
         ),
@@ -254,7 +255,12 @@ def report_moneyflow_history_events(
             before_read=before_read,
             contract=contract,
         )
-        if contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc"}:
+        if contract.dataset in {
+            "moneyflow_ind_ths",
+            "moneyflow_cnt_ths",
+            "moneyflow_ind_dc",
+            "moneyflow_dc",
+        }:
             counts = {e["day"]: e["row_count"] for e in entries}
             for (day, _), record in result["mats"].items():
                 metadata = record.asset_materialization.metadata
@@ -282,8 +288,12 @@ def report_moneyflow_history_events(
                 for (day, _), record in result["checks"].items()
             ]
             for day, metadata in records:
-                actual = getattr(metadata.get("goldenshare/scope_row_counts"), "value", None)
-                if actual != scopes[day] or any(type(n) is not int for n in actual.values()):
+                actual = getattr(
+                    metadata.get("goldenshare/scope_row_counts"), "value", None
+                )
+                if actual != scopes[day] or any(
+                    type(n) is not int for n in actual.values()
+                ):
                     raise MoneyflowContractError("history_event_existing_scope_counts")
         guard()
         return result
@@ -413,17 +423,22 @@ def report_moneyflow_history_events(
                                         _path(plan, entry, "silver"),
                                         entry["day"],
                                     )
-                                    if (
-                                        contract.dataset in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc"}
-                                        and count != _row_count(plan, entry)
-                                    ):
+                                    if contract.dataset in {
+                                        "moneyflow_ind_ths",
+                                        "moneyflow_cnt_ths",
+                                        "moneyflow_ind_dc",
+                                        "moneyflow_dc",
+                                    } and count != _row_count(plan, entry):
                                         raise MoneyflowContractError(
                                             "history_event_row_count"
                                         )
                                     if contract.dataset == "moneyflow_ind_dc":
                                         assert_board_moneyflow_history_counts(
-                                            connection, _path(plan, entry, "raw"), count,
-                                            entry["row_count"], entry["scope_row_counts"],
+                                            connection,
+                                            _path(plan, entry, "raw"),
+                                            count,
+                                            entry["row_count"],
+                                            entry["scope_row_counts"],
                                         )
                             for layer in ("raw", "silver"):
                                 current_layer = layer
