@@ -23,16 +23,16 @@ archive = _archive_fixture
 @pytest.mark.parametrize(
     "tick,first,last",
     [
-        ("2026-01-03", "2025-12-27", "2026-01-02"),
-        ("2026-03-03", "2026-02-24", "2026-03-02"),
+        ("2026-01-03", "2025-12-27", "2026-01-04"),
+        ("2026-03-03", "2026-02-24", "2026-03-04"),
     ],
 )
-def test_refresh_closed_natural_days(tick, first, last):
+def test_refresh_seven_past_days_today_and_tomorrow(tick, first, last):
     days = announcement_refresh_dates(
         datetime.fromisoformat(tick).replace(tzinfo=ZoneInfo("Asia/Shanghai"))
     )
-    assert len(days) == 7 and days[0] == first and days[-1] == last
-    assert len(set(days)) == 7
+    assert len(days) == 9 and days[0] == first and days[-1] == last
+    assert len(set(days)) == 9
 
 
 def test_bridge_no_gap_or_future():
@@ -212,3 +212,166 @@ def test_window_cancelled_terminal_and_no_source(archive):
         (archive.staging / "anns_d/windows/cancelled/admission.json").read_text()
     )
     assert state["phase"] == "cancelled" and not state["completed"]
+
+
+def test_automatic_window_timezone_and_future_boundary(monkeypatch):
+    from datetime import timezone
+
+    from orchestrator.defs.anns_d_window import announcement_window_dates
+
+    scheduled = datetime(2026, 10, 11, 16, tzinfo=timezone.utc)
+    monkeypatch.setattr(time, "time", lambda: scheduled.timestamp())
+    days = announcement_refresh_dates(scheduled)
+    assert days == (
+        "2026-10-05",
+        "2026-10-06",
+        "2026-10-07",
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-10",
+        "2026-10-11",
+        "2026-10-12",
+        "2026-10-13",
+    )
+    tags = announcement_window_tags(
+        "auto", days[0], days[-1], scheduled.timestamp(), automatic=True
+    )
+    assert tags["anns_d/automatic"] == "true"
+    assert (
+        announcement_window_dates(
+            days[0], days[-1], scheduled.timestamp(), automatic=True
+        )
+        == days
+    )
+    for start, end in [(days[0], "2026-10-14"), (days[1], days[-1])]:
+        with pytest.raises(AnnouncementError, match="automatic_window_range"):
+            announcement_window_tags(
+                "auto", start, end, scheduled.timestamp(), automatic=True
+            )
+    with pytest.raises(AnnouncementError, match="range_not_closed"):
+        announcement_window_tags("manual", days[0], days[-1], scheduled.timestamp())
+    with pytest.raises(AnnouncementError, match="timezone"):
+        announcement_refresh_dates(scheduled.replace(tzinfo=None))
+
+
+def test_new_tick_refetches_overlap_after_empty_tomorrow_and_keeps_versions(
+    archive, monkeypatch
+):
+    from orchestrator.defs.anns_d_io import AnnouncementStore
+    from orchestrator.defs.anns_d_window import announcement_day_run_id
+    from tests.anns_d_test_support import source_row
+
+    calls = []
+    scheduled = datetime(2026, 10, 12, 8, tzinfo=ZoneInfo("Asia/Shanghai"))
+    monkeypatch.setattr(time, "time", lambda: scheduled.timestamp())
+
+    def run_window(window_id, tick, extra):
+        dates = announcement_refresh_dates(tick)
+        tags = announcement_window_tags(
+            window_id, dates[0], dates[-1], tick.timestamp(), automatic=True
+        )
+        for day in dates:
+            store = AnnouncementStore(
+                archive.root,
+                archive.staging,
+                announcement_day_run_id(window_id, day),
+                archive.policy,
+                archive.control,
+            )
+
+            def call(params, control):
+                calls.append((window_id, params["ann_date"]))
+                rows = []
+                if params["ann_date"] == "20261012":
+                    rows = [source_row(ann_date="20261012", title="original")]
+                    if extra:
+                        rows += [source_row(ann_date="20261012", title="late"), rows[0]]
+                if extra and params["ann_date"] == "20261013":
+                    rows = [
+                        source_row(
+                            ann_date="20261013", title="tomorrow published later"
+                        )
+                    ]
+                return rows, ANNOUNCEMENT_FIELDS
+
+            execute_announcement_window_day(day, call, store, archive.control, tags)
+        return dates
+
+    run_window("first", scheduled, False)
+    assert (
+        archive.audit_file(archive.target("2026-10-13"), "2026-10-13")["written_rows"]
+        == 0
+    )
+    run_window("first", scheduled, False)
+    assert len(calls) == 9  # Same frozen execution reuses complete capture/delivery.
+    scheduled = datetime(2026, 10, 13, 8, tzinfo=ZoneInfo("Asia/Shanghai"))
+    run_window("second", scheduled, True)
+    assert len(calls) == 18
+    assert ("second", "20261012") in calls and ("second", "20261013") in calls
+    assert (
+        archive.audit_file(archive.target("2026-10-12"), "2026-10-12")["written_rows"]
+        == 2
+    )
+    assert (
+        archive.audit_file(archive.target("2026-10-13"), "2026-10-13")["written_rows"]
+        == 1
+    )
+    # A further observation with exact duplicates does not grow the business set.
+    scheduled = datetime(2026, 10, 14, 8, tzinfo=ZoneInfo("Asia/Shanghai"))
+    run_window("third", scheduled, True)
+    assert len(calls) == 27
+    assert (
+        archive.audit_file(archive.target("2026-10-12"), "2026-10-12")["written_rows"]
+        == 2
+    )
+
+
+def test_automatic_cancel_resume_across_midnight_keeps_window_and_budget(
+    archive, monkeypatch
+):
+    from orchestrator.defs.anns_d_contract import AnnouncementCancelled
+    from orchestrator.defs.anns_d_io import AnnouncementStore
+    from orchestrator.defs.anns_d_window import announcement_day_run_id
+
+    tick = datetime(2026, 10, 12, 23, 55, tzinfo=ZoneInfo("Asia/Shanghai"))
+    clock = [tick.timestamp()]
+    monkeypatch.setattr(time, "time", lambda: clock[0])
+    days = announcement_refresh_dates(tick)
+    tags = announcement_window_tags(
+        "midnight", days[0], days[-1], clock[0], automatic=True
+    )
+    calls = []
+
+    def execute(day):
+        store = AnnouncementStore(
+            archive.root,
+            archive.staging,
+            announcement_day_run_id("midnight", day),
+            archive.policy,
+            archive.control,
+        )
+
+        def call(params, control):
+            calls.append(params["ann_date"])
+            return [], ANNOUNCEMENT_FIELDS
+
+        return execute_announcement_window_day(day, call, store, archive.control, tags)
+
+    execute(days[0])
+    budget_path = archive.staging / "anns_d/windows/midnight/budget.json"
+    before = json.loads(budget_path.read_text())
+    archive.control.cancelled = lambda: True
+    with pytest.raises(AnnouncementCancelled):
+        execute(days[1])
+    archive.control.cancelled = lambda: False
+    clock[0] += 600  # 00:05, within the original one-hour deadline.
+    for day in days:
+        execute(day)
+    after = json.loads(budget_path.read_text())
+    assert calls == [day.replace("-", "") for day in days]
+    assert after["deadline"] == before["deadline"]
+    state = json.loads(
+        (archive.staging / "anns_d/windows/midnight/admission.json").read_text()
+    )
+    assert state["phase"] == "completed" and state["completed"] == list(days)
+    assert state["identity"]["days"] == list(days)

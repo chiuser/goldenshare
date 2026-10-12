@@ -82,6 +82,7 @@ type CalendarPolicy =
   | "monthly_last_trading_day"
   | "monthly_window_current_month"
   | "trigger_day_single_range"
+  | "trigger_day_forward_range"
   | "trigger_day_point"
   | "latest_completed_calendar_quarter"
   | "latest_completed_calendar_week"
@@ -342,14 +343,16 @@ export function formatScheduleRule(
   if (repeatPolicy && parsed.repeatMode === "intraday_interval") {
     return `每 ${parsed.intradayIntervalMinutes} 分钟，按成功游标处理到本次实际触发时间`;
   }
-  if (calendarPolicy === "trigger_day_single_range") {
+  if (calendarPolicy === "trigger_day_single_range" || calendarPolicy === "trigger_day_forward_range") {
     const base =
       parsed.repeatMode === "daily"
         ? `每天 ${parsed.repeatTime}`
         : parsed.repeatMode === "weekly"
           ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
           : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
-    return `${base}，维护触发日`;
+    return calendarPolicy === "trigger_day_forward_range"
+      ? `${base}，维护触发当天至次日`
+      : `${base}，维护触发日`;
   }
   if (calendarPolicy === "latest_completed_calendar_week") {
     const base = parsed.repeatMode === "daily"
@@ -1240,7 +1243,9 @@ export function OpsAutomationPage() {
         selectedRepeatPolicy,
       );
       const policySuffix =
-        effectiveCalendarPolicy === "trigger_day_single_range" || effectiveCalendarPolicy === "trigger_day_point"
+        effectiveCalendarPolicy === "trigger_day_forward_range"
+          ? "，维护触发当天至次日"
+          : effectiveCalendarPolicy === "trigger_day_single_range" || effectiveCalendarPolicy === "trigger_day_point"
           ? "，维护触发日"
           : effectiveCalendarPolicy === "latest_completed_calendar_quarter"
             ? "，维护最近已完成季度"

@@ -1,5 +1,13 @@
 # 上市公司公告（`anns_d`）维护说明
 
+## 自动日期策略变更（2026-10-12，源码实现、未部署）
+
+Definition新增`anns_d.maintain`的`trigger_day_forward_range`声明。独立每日cron以计划触发时刻在Asia/Shanghai对应的自然日D生成闭区间D..D+1，按两个自然日unit分别分页；新任务重新观察重叠日期，同冻结执行才复用完成凭证。手工point/range、一次性固定日期及工作流明确日期保持原行为。日期输入仍为natural_day/ann_date_or_start_end，freshness/audit仍为not_applicable/event_run_trace；不要求当天或次日必有数据。
+
+配置审计：策略固定定义在Definition，选择值持久化于既有OpsSchedule.calendar_policy，无新增env、Settings、表或可调offset。消费者为_builder声明校验、Ops日期策略resolver、schedule planner、调度校验/能力审计、TaskRun意图生成、catalog schema及前端API类型/自动任务表单。既有cron/时区存储保持不变，业务日期固定Asia/Shanghai；更改策略需修改明确的公告任务配置并在后续触发生效，既有冻结TaskRun不变。前端展示“维护触发当天至次日”，不填日期值；不能混入固定日期，缺带时区计划时刻拒绝。预算仍2000行/页、500行/批及原期限/请求上限。上线须核验独立任务与工作流入口，不能把代码部署当作自动迁移完成。
+
+测试及开发模板对账见[LLD自动同步调整](anns-d-sync-low-level-design-v1.md#automatic-announcement-window)。本次没有部署或正式数据库写入，隔离PG已停止；不同原始载荷全保留、仅完整重复忽略的现行Raw合同不变。下文旧阶段事实继续保留。
+
 2026-10-03 最新生产状态：Prod已部署11025423及迁移183。任务14432、14435、14456已完成2020-01-01至2026-09-30同步，2465个自然日完成凭证齐全，读取12,089,584条、物理保存12,064,049条、完全相同重复25,535条、拒绝0；逐日存量对账差异0。缺rec_time正式记录4,039,070条、缺URL15条均保留。详见[生产只读审计](/Users/congming/github/goldenshare/reports/anns_d_prod_sync_audit_20261003.md)；本次仅审计，未重放全历史或写Prod，不能证明源端自身全量覆盖。以下此前阶段记录保留为历史事实。
 
 ## 当前执行口径：Raw 保存全部源记录（2026-10-02）

@@ -11,6 +11,7 @@ CalendarPolicy = Literal[
     "monthly_last_trading_day",
     "monthly_window_current_month",
     "trigger_day_single_range",
+    "trigger_day_forward_range",
     "trigger_day_point",
     "latest_completed_calendar_quarter",
     "latest_completed_calendar_week",

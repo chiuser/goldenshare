@@ -21,6 +21,39 @@ from src.ops.services.schedule_probe_binding_service import ScheduleProbeBinding
 NEWS_STOCK_LINKING_ACTION_KEY = "maintenance.materialize_news_stock_links"
 
 
+def test_announcement_daily_policy_api_and_frozen_task_intent(app_client, user_factory, db_session):
+    from src.ops.services.task_run_service import TaskRunCommandService
+
+    admin = user_factory(username="anns_admin", password="secret", is_admin=True)
+    token = app_client.post("/api/v1/auth/login", json={"username": "anns_admin", "password": "secret"}).json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    body = {
+        "target_type": "dataset_action", "target_key": "anns_d.maintain",
+        "display_name": "公告自动同步", "schedule_type": "cron", "trigger_mode": "schedule",
+        "cron_expr": "0 8 * * *", "timezone": "Asia/Shanghai",
+        "calendar_policy": "trigger_day_forward_range", "params_json": {
+            "dataset_key": "anns_d", "action": "maintain", "time_input": {"mode": "range"}, "filters": {},
+        },
+    }
+    response = app_client.post("/api/v1/ops/schedules", headers=headers, json=body)
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["calendar_policy"] == "trigger_day_forward_range" and payload["params_json"] == body["params_json"]
+    task = TaskRunCommandService().create_from_schedule_target(
+        db_session, target_type="dataset_action", target_key="anns_d.maintain", params_json=payload["params_json"],
+        trigger_source="scheduled", requested_by_user_id=admin.id, schedule_id=payload["id"],
+        calendar_policy="trigger_day_forward_range",
+        scheduled_at=datetime(2026, 10, 11, 16, tzinfo=ZoneInfo("UTC")), timezone_name="UTC",
+    )
+    assert task.time_input_json == {"mode": "range", "start_date": "2026-10-12", "end_date": "2026-10-13"}
+    assert app_client.post("/api/v1/ops/schedules", headers=headers, json={**body, "calendar_policy": None}).status_code == 422
+    assert app_client.post("/api/v1/ops/schedules", headers=headers, json={**body, "params_json": {"trade_date": "2026-10-12"}}).status_code == 422
+    once = {**body, "schedule_type": "once", "cron_expr": None, "calendar_policy": None,
+            "next_run_at": "2027-01-01T08:00:00+08:00", "params_json": {"trade_date": "2026-10-12"}}
+    response = app_client.post("/api/v1/ops/schedules", headers=headers, json=once)
+    assert response.status_code == 200, response.text
+
+
 def _seed_news_linking_baseline(db_session, *, cursor_end: str = "2026-08-23T10:00:00+00:00") -> TaskRun:
     task_run = TaskRun(
         task_type="maintenance_action",

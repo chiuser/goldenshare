@@ -74,7 +74,7 @@ def test_catalog_definition_schema_names_and_scope():
     )
 
 
-def test_schedule_seven_requests_zero_io_same_tick_dedup():
+def test_schedule_nine_requests_zero_io_same_tick_dedup():
     defs = dg.Definitions(
         assets=[raw_tushare_anns_d],
         asset_checks=[
@@ -104,17 +104,22 @@ def test_schedule_seven_requests_zero_io_same_tick_dedup():
         "2025-12-31",
         "2026-01-01",
         "2026-01-02",
+        "2026-01-03",
+        "2026-01-04",
     ]
     assert [r.run_key for r in first] == [r.run_key for r in second]
     assert len({r.tags["anns_d/window_id"] for r in first}) == 1
     assert first[0].run_key == "anns_d:2026-01-03:2025-12-27"
+    assert [r.tags["dagster/priority"] for r in first] == [str(i) for i in range(9, 0, -1)]
+    assert all(r.tags["anns_d/automatic"] == "true" for r in first)
 
 
+@pytest.mark.parametrize("future_partition", [False, True])
 @pytest.mark.parametrize(
     "rows", [[], [source_row(), source_row(url="https://example.test/a.pdf")]]
 )
 def test_isolated_asset_and_check_events_have_same_partition(
-    archive, monkeypatch, rows
+    archive, monkeypatch, rows, future_partition
 ):
     store = archive
     import orchestrator.defs.assets.anns_d as asset_module
@@ -131,6 +136,39 @@ def test_isolated_asset_and_check_events_have_same_partition(
         ),
     )
     monkeypatch.setattr(LakeRootResource, "ensure_available_for_run", lambda self: None)
+    day, tags = "2023-06-09", {}
+    if future_partition:
+        from orchestrator.defs.anns_d_io import AnnouncementStore
+        from orchestrator.defs.anns_d_window import (
+            announcement_day_run_id,
+            announcement_refresh_dates,
+            announcement_window_tags,
+            execute_announcement_window_day,
+        )
+
+        scheduled = datetime.now(ZoneInfo("Asia/Shanghai"))
+        days = announcement_refresh_dates(scheduled)
+        day = days[-1]
+        tags = announcement_window_tags(
+            "future-events", days[0], day, scheduled.timestamp(), automatic=True
+        )
+        # Admit tomorrow through the actual ordered window, using temporary files only.
+        for prior in days[:-1]:
+            prior_store = AnnouncementStore(
+                store.root,
+                store.staging,
+                announcement_day_run_id("future-events", prior),
+                store.policy,
+                store.control,
+            )
+            execute_announcement_window_day(
+                prior,
+                lambda *args: ([], ANNOUNCEMENT_FIELDS),
+                prior_store,
+                store.control,
+                tags,
+            )
+        rows = [{**row, "ann_date": day.replace("-", "")} for row in rows]
     monkeypatch.setattr(
         asset_module,
         "AnnouncementProcessCall",
@@ -143,7 +181,8 @@ def test_isolated_asset_and_check_events_have_same_partition(
                 raw_tushare_anns_d_file_contract_check,
                 raw_tushare_anns_d_delivery_reconciliation_check,
             ],
-            partition_key="2023-06-09",
+            partition_key=day,
+            tags=tags,
             resources={
                 "lake_root": LakeRootResource(root_path=str(store.root)),
                 "tushare": TushareResource(token="unused"),
@@ -156,7 +195,7 @@ def test_isolated_asset_and_check_events_have_same_partition(
         assert result.success
         events = result.get_asset_check_evaluations()
         assert len(events) == 2 and all(
-            event.passed and event.partition == "2023-06-09" for event in events
+            event.passed and event.partition == day for event in events
         )
         records = instance.all_logs(result.run_id)
         checks = [
@@ -164,10 +203,10 @@ def test_isolated_asset_and_check_events_have_same_partition(
             for r in records
             if r.asset_check_evaluation is not None
         ]
-        assert len(checks) == 2 and all(r.partition == "2023-06-09" for r in checks)
+        assert len(checks) == 2 and all(r.partition == day for r in checks)
         assert (
             result.get_asset_materialization_events()[0].materialization.partition
-            == "2023-06-09"
+            == day
         )
 
 
@@ -285,3 +324,11 @@ def test_asset_rejects_resource_root_override_before_any_access(monkeypatch):
             LakeRootResource(root_path="/private/tmp/unapproved-lake"),
             TushareResource(token="unused"),
         )
+
+
+def test_partition_availability_includes_today_and_tomorrow_only():
+    keys = anns_d_natural_days.get_partition_keys(
+        current_time=datetime(2026, 10, 12, 8, tzinfo=ZoneInfo("Asia/Shanghai"))
+    )
+    assert keys[-3:] == ["2026-10-11", "2026-10-12", "2026-10-13"]
+    assert "2026-10-14" not in keys

@@ -22,8 +22,11 @@ from orchestrator.defs.anns_d_contract import (
 )
 
 
-def announcement_request(day, offset, policy):
-    announcement_dates(day, day)
+def announcement_request(day, offset, policy, *, window_dates=None):
+    if window_dates is None:
+        announcement_dates(day, day)
+    elif day not in window_dates:
+        raise AnnouncementError("announcement_day_outside_window")
     parsed = announcement_date(day)
     if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
         raise AnnouncementError("announcement_invalid_offset")
@@ -138,7 +141,9 @@ class AnnouncementCapturedDay:
     requests: int
 
 
-def capture_announcement_day(day, call, store, checkpoint, control, budget, policy):
+def capture_announcement_day(
+    day, call, store, checkpoint, control, budget, policy, *, window_dates=None
+):
     """Incomplete captures restart in a new attempt; complete evidence is reused."""
     control.check()
     document = checkpoint.document
@@ -172,7 +177,7 @@ def capture_announcement_day(day, call, store, checkpoint, control, budget, poli
     control.wait(policy.interval_seconds)
     while True:
         control.check()
-        params = announcement_request(day, offset, policy)
+        params = announcement_request(day, offset, policy, window_dates=window_dates)
         for retry in range(policy.max_attempts):
             if requests >= policy.max_day_requests:
                 raise AnnouncementError("announcement_day_budget")

@@ -5,7 +5,7 @@ import json
 import math
 import time
 from dataclasses import asdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.anns_d_checkpoint import (
@@ -17,6 +17,7 @@ from orchestrator.defs.anns_d_checkpoint import (
 from orchestrator.defs.anns_d_contract import (
     AnnouncementCancelled,
     AnnouncementError,
+    announcement_date_range,
     announcement_dates,
 )
 from orchestrator.defs.anns_d_execution import update_announcement_day
@@ -25,6 +26,7 @@ ANNOUNCEMENT_WINDOW_TAG = "anns_d/window_id"
 ANNOUNCEMENT_START_TAG = "anns_d/start_date"
 ANNOUNCEMENT_END_TAG = "anns_d/end_date"
 ANNOUNCEMENT_STARTED_TAG = "anns_d/started_at"
+ANNOUNCEMENT_AUTOMATIC_TAG = "anns_d/automatic"
 from orchestrator.defs.run_contracts.anns_d import (
     ANNOUNCEMENT_REFRESH_DAYS,
     ANNOUNCEMENT_TIMEZONE,
@@ -35,9 +37,9 @@ def announcement_refresh_dates(scheduled):
     if scheduled.tzinfo is None:
         raise AnnouncementError("announcement_schedule_timezone")
     today = scheduled.astimezone(ZoneInfo(ANNOUNCEMENT_TIMEZONE)).date()
-    return tuple(
-        (today - timedelta(days=offset)).isoformat()
-        for offset in range(ANNOUNCEMENT_REFRESH_DAYS, 0, -1)
+    return announcement_date_range(
+        (today - timedelta(days=ANNOUNCEMENT_REFRESH_DAYS)).isoformat(),
+        (today + timedelta(days=1)).isoformat(),
     )
 
 
@@ -52,18 +54,31 @@ def announcement_bridge_dates(enabled):
     )
 
 
-def announcement_window_tags(window_id, start, end, started_at=None):
+def announcement_window_dates(start, end, started_at, *, automatic=False):
+    scheduled = datetime.fromtimestamp(started_at, ZoneInfo(ANNOUNCEMENT_TIMEZONE))
+    if automatic:
+        expected = announcement_refresh_dates(scheduled)
+        if (start, end) != (expected[0], expected[-1]):
+            raise AnnouncementError("announcement_automatic_window_range")
+        return expected
+    return announcement_dates(start, end, today=scheduled.date())
+
+
+def announcement_window_tags(
+    window_id, start, end, started_at=None, *, automatic=False
+):
     if not window_id or not window_id.replace("-", "").replace("_", "").isalnum():
         raise AnnouncementError("announcement_window_identity")
-    announcement_dates(start, end)
     timestamp = time.time() if started_at is None else float(started_at)
     if not math.isfinite(timestamp) or timestamp <= 0 or timestamp > time.time() + 1:
         raise AnnouncementError("announcement_window_start_time")
+    announcement_window_dates(start, end, timestamp, automatic=automatic)
     return {
         ANNOUNCEMENT_WINDOW_TAG: window_id,
         ANNOUNCEMENT_START_TAG: start,
         ANNOUNCEMENT_END_TAG: end,
         ANNOUNCEMENT_STARTED_TAG: str(timestamp),
+        **({ANNOUNCEMENT_AUTOMATIC_TAG: "true"} if automatic else {}),
     }
 
 
@@ -80,13 +95,23 @@ def announcement_day_checkpoint(store, window_id, day):
 
 def execute_announcement_window_day(day, call, store, control, tags):
     window_id = tags[ANNOUNCEMENT_WINDOW_TAG]
+    automatic_tag = tags.get(ANNOUNCEMENT_AUTOMATIC_TAG)
+    if automatic_tag not in (None, "true"):
+        raise AnnouncementError("announcement_window_intent")
+    automatic = automatic_tag == "true"
     announcement_window_tags(
         window_id,
         tags[ANNOUNCEMENT_START_TAG],
         tags[ANNOUNCEMENT_END_TAG],
         tags[ANNOUNCEMENT_STARTED_TAG],
+        automatic=automatic,
     )
-    days = announcement_dates(tags[ANNOUNCEMENT_START_TAG], tags[ANNOUNCEMENT_END_TAG])
+    days = announcement_window_dates(
+        tags[ANNOUNCEMENT_START_TAG],
+        tags[ANNOUNCEMENT_END_TAG],
+        float(tags[ANNOUNCEMENT_STARTED_TAG]),
+        automatic=automatic,
+    )
     if day not in days:
         raise AnnouncementError("announcement_day_outside_window")
     directory = store.staging / "anns_d" / "windows" / window_id
@@ -131,7 +156,14 @@ def execute_announcement_window_day(day, call, store, control, tags):
         )
         try:
             delivery = update_announcement_day(
-                day, call, store, checkpoint, control, budget, policy
+                day,
+                call,
+                store,
+                checkpoint,
+                control,
+                budget,
+                policy,
+                window_dates=days,
             )
         except BaseException as error:
             state.update(

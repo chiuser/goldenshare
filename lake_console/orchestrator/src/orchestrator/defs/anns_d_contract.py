@@ -35,14 +35,22 @@ def announcement_date(value):
     return parsed
 
 
-def announcement_dates(start, end, *, today=None):
+def announcement_date_range(start, end):
+    """Enumerate a validated closed range; the calling intent sets its time boundary."""
     first, last = announcement_date(start), announcement_date(end)
-    today = today or datetime.now(ZoneInfo("Asia/Shanghai")).date()
-    if first > last or last >= today:
+    if first > last:
         raise AnnouncementError("announcement_range_not_closed")
     return tuple(
         (first + timedelta(days=i)).isoformat() for i in range((last - first).days + 1)
     )
+
+
+def announcement_dates(start, end, *, today=None):
+    """Historical/manual intent continues to require ended natural days."""
+    today = today or datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    if announcement_date(end) >= today:
+        raise AnnouncementError("announcement_range_not_closed")
+    return announcement_date_range(start, end)
 
 
 def normalize_announcement_rows(

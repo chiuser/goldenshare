@@ -37,7 +37,7 @@ describe("自动任务日期策略", () => {
         schedule_types: ["cron"],
         cron_repeat_modes: cronRepeatModes,
         explicit_time_input: "forbidden",
-        generated_time_mode: policy === "trigger_day_single_range" ? "range" : "point",
+        generated_time_mode: ["trigger_day_single_range", "trigger_day_forward_range"].includes(policy) ? "range" : "point",
       },
     ],
   });
@@ -70,6 +70,22 @@ describe("自动任务日期策略", () => {
     ],
   };
   const noCalendarPolicyCapability = { calendar_policy_rules: [] };
+
+  it("uses the declared announcement two-day policy only for daily automatic runs", () => {
+    const announcements = capability("trigger_day_forward_range", ["daily"]);
+    expect(getAllowedCronRepeatModes(announcements as never)).toEqual(["daily"]);
+    expect(resolveEffectiveCalendarPolicy({
+      scheduleType: "cron", repeatMode: "daily", automationCapability: announcements as never,
+    })).toBe("trigger_day_forward_range");
+    expect(resolveEffectiveCalendarPolicy({
+      scheduleType: "once", repeatMode: "daily", automationCapability: announcements as never,
+    })).toBe("");
+    expect(capabilitySupportsCalendarPolicy(
+      announcements as never, "trigger_day_forward_range", "cron", "weekly",
+    )).toBe(false);
+    expect(formatScheduleRule("cron", "0 8 * * *", null, "trigger_day_forward_range"))
+      .toBe("每天 08:00，维护触发当天至次日");
+  });
 
   it("recommends monthly calendar policies from dataset date selection rules", () => {
     expect(

@@ -1,4 +1,4 @@
-"""Stopped by default; evaluation produces seven immutable window requests."""
+"""Stopped by default; refresh seven past days plus today and tomorrow."""
 
 import hashlib
 from zoneinfo import ZoneInfo
@@ -31,7 +31,9 @@ def raw_anns_d_update_schedule(context: dg.ScheduleEvaluationContext):
     days = announcement_refresh_dates(scheduled)
     tick = scheduled.astimezone(ZoneInfo(ANNOUNCEMENT_TIMEZONE)).date().isoformat()
     window_id = hashlib.sha256(f"anns_d:{tick}".encode()).hexdigest()[:32]
-    tags = announcement_window_tags(window_id, days[0], days[-1], scheduled.timestamp())
+    tags = announcement_window_tags(
+        window_id, days[0], days[-1], scheduled.timestamp(), automatic=True
+    )
     for index, day in enumerate(days):
         yield dg.RunRequest(
             run_key=build_asset_update_run_key(
@@ -47,5 +49,5 @@ def raw_anns_d_update_schedule(context: dg.ScheduleEvaluationContext):
                     }
                 }
             },
-            tags={**tags, "dagster/priority": str(7 - index)},
+            tags={**tags, "dagster/priority": str(len(days) - index)},
         )

@@ -228,17 +228,17 @@ CodeGraph query/impact与当前实现核对覆盖入口、TushareResource、Prod
 
 <a id="automatic-announcement-window"></a>
 
-### 11.1 九日自动窗口补充设计（2026-10-12，已确认、待实现）
+### 11.1 九日自动窗口补充设计（2026-10-12，源码实现、未正式验收）
 
 自动范围为闭区间D-7..D+1，共9天，D只从计划触发时刻在Asia/Shanghai推导。例如2026-10-12触发，预期字面列表为10月5、6、7、8、9、10、11、12、13日。Prod两天窗口独立实现，不能共用其自动范围或Ops代码。
 
-**日期校验与消费者迁移。** 当前announcement_dates禁止last>=today，announcement_request、window tags/admission、手工CLI、history plan、bridge和event-files均消费该校验。实施须拆清“历史已结束范围”与“自动观察范围”，迁移全部消费者：自动窗口由冻结计划时刻限定至D+1，源请求只接受该窗口内的日unit；D+2及窗口外请求拒绝。bootstrap固定范围、手工入口、衔接和历史事件计划继续原边界，不能全局删除未来日期检查造成所有入口放宽，也不恢复旧接口的双轨兼容。
+**日期校验与消费者迁移。** announcement_dates仍禁止last>=today，仅作为历史已结束范围验证；新纯函数announcement_date_range只校验/枚举日期。自动窗口由announcement_window_dates根据冻结计划时刻核验恰好D-7..D+1，再把已验证日期传给execution/capture/request builder；builder只接受窗口内的日unit，D+2及窗口外请求拒绝。历史CLI、history plan、bridge和event-files继续消费原announcement_dates；bootstrap固定范围与衔接边界不变，没有全局取消未来日期检查。
 
 **冻结与恢复。** schedule现有started_at标签来自scheduled_execution_time，窗口范围/身份/policy在首次执行冻结；恢复使用同一标签和checkpoint，不用datetime.now重算。当前window_id和run_key含tick日期，日目录由window_id/day生成，可沿用：新tick使用新窗口证据并从源重新capture，已物化分区不能成为跳过源的理由；同窗口完整capture可续build/promote，已提交日可复用，未完成capture重新拉取。若重载期间旧七日窗口尚在执行，先核验并完成或取消旧窗口，新九日tick不复用其身份和admission；不删除旧文件或checkpoint。
 
 **文件与完成口径。** 保持六字段镜像、已有UNION新页全字段DISTINCT、读回集合差、基线指纹和逐文件原子替换。合法零行照常形成文件/交付证据；它只表示请求时观察完整，下一tick仍请求该日，不将当天/次日标为永久封闭。asset与两项check共用扩展后的专属分区，文件、事件、readiness消费者不得把预取当作连续日期必有数据。
 
-| 待修改点 | 所有消费者、持久化及验收要求 |
+| 实现落点 | 所有消费者、持久化及验收要求 |
 | --- | --- |
 | run_contracts/anns_d.py、anns_d_window.py、schedules/anns_d.py | 回刷常量7不改含义；增加当天/次日，长度9及优先级动态生成；窗口tags/admission和预算保存冻结范围；schedule求值只产生9个请求，不读写Lake/instance或扫描数据 |
 | anns_d_partitions.py、assets/anns_d.py、checks/anns_d_checks.py、definitions/catalog | 分区实际可包含D和D+1，检查定义和事件分区一致；更远未来不能借分区开放绕过源窗口校验；元数据schema及正式路径不变 |
@@ -249,9 +249,25 @@ CodeGraph query/impact与当前实现核对覆盖入口、TushareResource、Prod
 
 **验收。** 修订test_anns_d_contract/source/window/definitions/execution/io等测试，独立固定字面预期覆盖9日、跨月年/周末、UTC到北京时间跨日、未来分区与事件一致、D+2/窗口外拒绝及历史入口反例。通过两个不同tick，模拟首轮次日空页、下一轮新增公告和重叠日迟到记录，证明真正请求并补入、完全重复零新增、缺URL/rec_time与源版本保留；同窗口跨午夜取消/进程退出/续跑范围与deadline不变，乱序不请求源、共享预算耗尽失败、状态失败不回滚文件。隔离definitions检查与最小真实九日运行分别记录参数、页数、计数、集合差、RSS、最长进度间隔及耗时；正式运行、文件/事件写入和实例配置调整仍需明确执行授权。
 
-已使用CodeGraph explore分析窗口、源请求及Prod日期策略，并核对当前分区/asset接线、已有合并和恢复实现。上述是待开发映射；后续须完成所有日期校验、readiness/事件消费者和现存实例配置的全量审计。本轮没有调整08:00 cron、实例启停、任何预算或数据库/Lake数据，未将历史P0–P4验收升级为九日验收。
+已使用CodeGraph explore分析窗口、源请求及Prod日期策略，并补查日期校验调用方、分区/asset/check接线、已有合并/恢复和readiness/事件消费者，完成后sync/status。没有增加跨工程依赖或业务状态实体；readiness/事件继续消费物理交付与对应分区。本轮没有调整08:00 cron、正式实例启停、任何预算或正式数据库/Lake数据，未将历史P0–P4验收升级为正式九日验收。
 
-> 以下P0–P4章节保留2026-10-04至05的历史实现、测试和授权记录；其中七日/已结束日期及启停状态只对应原时点。九日目标以§1–11及§11.1为准，尚未实现。
+**配置补充审计。** `anns_d/automatic`为内部运行意图标签，schedule为九日窗口固定生成字符串`true`，缺省不设置表示手工历史意图，不接受其他值；与既有window_id/start_date/end_date/started_at一起持久化于Dagster run tags。消费者只有窗口tags校验与execution admission，窗口日期进一步传入日capture/request；不进入Raw、env、Settings或用户表单，不是可调未来偏移。已有`ANNOUNCEMENT_REFRESH_DAYS=7`含义和预算不变。专属分区`end_offset=2`为代码固定边界，修改后随code location重载生效，不扩大手工未来同步；相关[Dagster官方分区API](https://docs.dagster.io/api/dagster/partitions)及固定current_time回归共同核验其实际末分区为D+1。
+
+### 11.2 源码与隔离验收记录（2026-10-12）
+
+| 硬口径 | 代码/消费者 | 验收 |
+| --- | --- | --- |
+| 九日窗口、自然日和冻结时刻 | window、schedule；已有常量7保持 | window/definitions：10月12日字面5..13、UTC跨日、月年/周末、无时区拒绝；九个run_key同tick不变，优先级9..1 |
+| 今天/明天合法，更远及历史入口反例 | date_range/历史dates分开；window_dates核验；execution/capture/request传递窗口 | source/window/contract/history/events回归：D+2及篡改端点拒绝，手工/历史未来仍拒绝 |
+| 未来分区物化与check一致 | 专属partitions end_offset=2；asset及两项check共用 | 固定current_time末分区13且无14；临时Lake按真实九日admission完成前8日，再物化次日，非空/空页均形成同partition的物化及两条通过check事件 |
+| 新tick重新capture并补入；同tick恢复 | window_id/day证据、既有merge/原子替换 | 相邻tick实际18次日请求，重叠日补晚发版本，首轮次日空页下轮补入；第三tick累计27次请求，完全重复不增加目标；缺URL/rec_time保留 |
+| 午夜取消续跑、期限及预算不漂移 | frozen tags/admission/budget/checkpoint | 23:55取消后00:05恢复，原九日列表及deadline不变，已完成日不再次请求；既有真实进程退出、乱序拒绝、预算失败及事件失败隔离回归通过 |
+
+公告全套及run_contract静态门禁271项通过（现有5条Dagster/Pydantic警告）；scoped Ruff及现有venv、UV_OFFLINE/UV_NO_SYNC下的`dg check defs --use-active-venv`通过。definitions检查使用`/private/tmp/anns-auto-defs-*`的隔离DAGSTER_HOME；没有触发正式job/sensor、正式事件或Lake写入。全部fixture文件位于pytest临时目录，测试源调用为fake，未安装依赖。
+
+本轮补充的Tushare只读小样本：20261012..13显式六字段limit2返回两条12日公告，ann_date=20261013为空；沿用文档既有提前发布样本证明业务日期语义。它们不是SDK九日全量capture或正式性能验收。源码已完成，正式剩余事项为：确认旧七日窗口均已结束/取消、按批准流程重载code location、保留原08:00和既有实例启用状态，再进行限定九日验收，记录真实页数/请求、源/目标计数与集合差、预算占用、RSS和进度间隔；超350请求或3600秒仍明确失败，不自动提预算。
+
+> 以下P0–P4章节保留2026-10-04至05的历史实现、测试和授权记录；其中七日/已结束日期及启停状态只对应原时点。九日口径及源码验收以§1–11及§11.1–11.2为准，正式九日运行尚未验收。
 
 ## 12. P0 验收结论与 P1 入口
 

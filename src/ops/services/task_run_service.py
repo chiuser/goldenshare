@@ -41,6 +41,7 @@ MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
 MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
+TRIGGER_DAY_FORWARD_RANGE_POLICY = "trigger_day_forward_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY = "latest_completed_calendar_quarter"
 LATEST_COMPLETED_CALENDAR_WEEK_POLICY = "latest_completed_calendar_week"
@@ -608,6 +609,7 @@ class TaskRunCommandService:
             MONTHLY_LAST_TRADING_DAY_POLICY,
             MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
             TRIGGER_DAY_SINGLE_RANGE_POLICY,
+            TRIGGER_DAY_FORWARD_RANGE_POLICY,
             TRIGGER_DAY_POINT_POLICY,
             LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
             LATEST_COMPLETED_CALENDAR_WEEK_POLICY,
@@ -652,6 +654,27 @@ class TaskRunCommandService:
                 **dict(time_input or {}),
                 "mode": "point",
                 "trade_date": trade_date.isoformat(),
+            }
+        if normalized_policy == TRIGGER_DAY_FORWARD_RANGE_POLICY:
+            if self._has_declared_time_input(params_json, definition=definition):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="触发当天至次日策略不能与固定维护日期或窗口混用",
+                )
+            if scheduled_at is None or scheduled_at.tzinfo is None:
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="触发当天至次日策略缺少含时区的计划触发时间",
+                )
+            trigger_date = self._natural_day_for_schedule(
+                scheduled_at=scheduled_at, timezone_name="Asia/Shanghai",
+            )
+            return {
+                "mode": "range",
+                "start_date": trigger_date.isoformat(),
+                "end_date": (trigger_date + timedelta(days=1)).isoformat(),
             }
         if normalized_policy == TRIGGER_DAY_SINGLE_RANGE_POLICY:
             if self._has_declared_time_input(params_json, definition=definition):

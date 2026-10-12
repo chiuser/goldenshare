@@ -61,6 +61,7 @@ MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
 MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
+TRIGGER_DAY_FORWARD_RANGE_POLICY = "trigger_day_forward_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY = "latest_completed_calendar_quarter"
 LATEST_COMPLETED_CALENDAR_WEEK_POLICY = "latest_completed_calendar_week"
@@ -71,6 +72,7 @@ SUPPORTED_CALENDAR_POLICIES = {
     MONTHLY_LAST_TRADING_DAY_POLICY,
     MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
     TRIGGER_DAY_SINGLE_RANGE_POLICY,
+    TRIGGER_DAY_FORWARD_RANGE_POLICY,
     TRIGGER_DAY_POINT_POLICY,
     LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
     LATEST_COMPLETED_CALENDAR_WEEK_POLICY,
@@ -1524,7 +1526,13 @@ class OperationsScheduleService:
         resolver = DatasetScheduleTimePolicyResolver()
         action_capability = definition.capabilities.get_action(action)
         declared_policy = action_capability.schedule_time_policy if action_capability is not None else None
-        if declared_policy is not None and schedule_type not in declared_policy.schedule_types:
+        fixed_once = (
+            declared_policy is not None
+            and declared_policy.policy == TRIGGER_DAY_FORWARD_RANGE_POLICY
+            and schedule_type == "once"
+            and calendar_policy is None
+        )
+        if declared_policy is not None and schedule_type not in declared_policy.schedule_types and not fixed_once:
             raise WebAppError(
                 status_code=422,
                 code="validation_error",
@@ -1553,6 +1561,7 @@ class OperationsScheduleService:
                 MONTHLY_LAST_TRADING_DAY_POLICY: "每月最后交易日策略只支持交易日月末数据集",
                 MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口策略只支持月窗口数据集",
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
+                TRIGGER_DAY_FORWARD_RANGE_POLICY: "触发当天至次日策略未由该数据集 Definition 声明",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日策略未由该数据集 Definition 声明",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度策略未由该数据集 Definition 声明",
                 LATEST_COMPLETED_CALENDAR_WEEK_POLICY: "最近已完成周策略未由该数据集 Definition 声明",
@@ -1569,6 +1578,7 @@ class OperationsScheduleService:
                 MONTHLY_LAST_TRADING_DAY_POLICY: "每月最后交易日",
                 MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口",
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间",
+                TRIGGER_DAY_FORWARD_RANGE_POLICY: "触发当天至次日",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度",
                 LATEST_COMPLETED_CALENDAR_WEEK_POLICY: "最近已完成周",
@@ -1597,6 +1607,7 @@ class OperationsScheduleService:
                 MONTHLY_LAST_TRADING_DAY_POLICY: "每月最后交易日策略不能与固定维护日期混用",
                 MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口策略不能与固定维护日期或窗口混用",
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略不能与固定维护日期或窗口混用",
+                TRIGGER_DAY_FORWARD_RANGE_POLICY: "触发当天至次日策略不能与固定维护日期或窗口混用",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日策略不能与固定维护日期或窗口混用",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度策略不能与固定报告期混用",
                 LATEST_COMPLETED_CALENDAR_WEEK_POLICY: "最近已完成周策略不能与固定维护日期混用",

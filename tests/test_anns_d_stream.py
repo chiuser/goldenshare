@@ -127,6 +127,57 @@ def test_observation_failure_does_not_rollback_or_block(engine,monkeypatch):
     assert result.rows_committed==1 and counts(engine)==(1,1)
 
 
+@pytest.mark.parametrize('initial_future_empty', [False, True])
+def test_automatic_overlap_refetches_late_rows_and_empty_tomorrow(engine, monkeypatch, initial_future_empty):
+    """A new scheduled observation reopens dates; only its own replay skips them."""
+    first_day, tomorrow = date(2026, 10, 12), date(2026, 10, 13)
+    rows_by_day = {
+        '20261012': [{**raw(1), 'ann_date': '20261012'}],
+        '20261013': [] if initial_future_empty else [{**raw(3), 'ann_date': '20261013'}],
+    }
+    calls = []
+
+    class Connector:
+        def call_bounded(self, **kwargs):
+            kwargs['check']()
+            kwargs['before_request']()
+            params = kwargs['params']
+            calls.append(dict(params))
+            rows = rows_by_day.get(params['start_date'], [])
+            return rows[params['offset']:params['offset'] + params['limit']]
+
+    monkeypatch.setattr('src.foundation.ingestion.source_client.create_source_connector', lambda _: Connector())
+    resolver = DatasetActionResolver(Mock())
+
+    def execute(plan):
+        with Session(engine) as session:
+            request = DatasetMaintainService._validated_request_from_plan(
+                request=action(plan.execution_context, start=plan.units[0].trade_date, end=plan.units[-1].trade_date),
+                plan=plan,
+            )
+            return IngestionExecutor(session).run(
+                request=request, definition=get_dataset_definition('anns_d'), units=plan.units,
+            )
+
+    first = resolver.build_plan(action(start=first_day, end=tomorrow))
+    execute(first)
+    assert counts(engine) == (1 if initial_future_empty else 2, 2)
+    execute(first)
+    assert len(calls) == 2
+    rows_by_day['20261013'] = [
+        {**raw(3), 'ann_date': '20261013'},
+        {**raw(3), 'ann_date': '20261013', 'url': None},
+        {**raw(3), 'ann_date': '20261013'},
+    ]
+    # The next daily tick reopens its overlapping date, including a prior empty observation.
+    second = resolver.build_plan(action(start=tomorrow, end=date(2026, 10, 14)))
+    execute(second)
+    assert len(calls) == 4 and counts(engine) == (3, 4)
+    assert [call['start_date'] for call in calls] == ['20261012', '20261013', '20261013', '20261014']
+    execute(second)
+    assert len(calls) == 4 and counts(engine) == (3, 4)
+
+
 def test_process_exit_after_commit_preserves_batch_without_receipt(engine,monkeypatch):
     fake_source(monkeypatch,[raw(i) for i in range(2001)])
     plan=DatasetActionResolver(Mock()).build_plan(action())

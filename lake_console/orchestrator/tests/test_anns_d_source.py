@@ -332,3 +332,14 @@ def test_transport_na_is_serializable_and_stored_null(archive):
         archive.policy,
     )
     assert archive.build_day("2023-06-09", result.pages)["missing_url"] == 1
+
+
+def test_future_source_request_requires_validated_window(archive):
+    days = ("2026-10-12", "2026-10-13")
+    assert announcement_request("2026-10-13", 0, archive.policy, window_dates=days) == {
+        "ann_date": "20261013",
+        "limit": 2000,
+        "offset": 0,
+    }
+    with pytest.raises(AnnouncementError, match="outside_window"):
+        announcement_request("2026-10-14", 0, archive.policy, window_dates=days)

@@ -2,9 +2,9 @@
 
 <a id="automatic-announcement-window"></a>
 
-## 自动同步调整 LLD（2026-10-12，已确认、待实现）
+## 自动同步调整 LLD（2026-10-12，源码实现、未部署）
 
-本节补充自动任务合同，不替代下文 Raw 全量保留规则。只修改文档；当前代码未实现此策略，既有 Prod 自动任务配置和部署版本本轮未实查。DG采用 D-7..D+1 的九天窗口，见 [DG LLD](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md#automatic-announcement-window)，不得改成 Prod 的两天窗口。
+本节补充自动任务合同，不替代下文 Raw 全量保留规则。文档720ce5a9提交后已完成源码与隔离验证；既有Prod自动任务配置和部署版本本轮未实查或变更。DG采用 D-7..D+1 的九天窗口，见 [DG LLD](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md#automatic-announcement-window)，不得改成 Prod 的两天窗口。
 
 ### 时间、执行与完成语义
 
@@ -16,15 +16,15 @@
 
 ### 实现与消费者对账
 
-| 位置 | 待实现内容及边界 |
+| 位置 | 实现内容及边界 |
 | --- | --- |
-| foundation/datasets/definitions/news.py、models.py、definitions/_builder.py | 为anns_d maintain声明固定的自动两天区间策略（拟名trigger_day_forward_range）；仅日常cron使用，不改变date_model/input_shape/observed_field，不扩展其它数据集策略 |
+| foundation/datasets/definitions/news.py、definitions/_builder.py | 为anns_d maintain声明trigger_day_forward_range；仅daily cron使用，复用models.py既有声明结构，不改变date_model/input_shape/observed_field，不扩展其它数据集策略 |
 | ops/services/dataset_schedule_time_policy_resolver.py、operations_schedule_service.py、task_run_service.py | 声明、校验、生成范围保持同一策略；禁止同时保存固定日期和该动态策略；缺计划触发时刻必须拒绝，不能退回机器当前日期 |
 | Ops API/schema、catalog/manual actions/workflow及frontend/src的自动任务表单、共享API类型 | 同步策略枚举和能力消费，页面显示“触发当天至次日”；日期由后端生成，前端不拼事实；核对既有任务及固定日期/一次性入口，不扩大手工能力 |
 | foundation/ingestion/resolver.py、unit_planner.py、request_builders.py、announcement_scope.py、announcement_stream.py及AnnsDSyncDAO | 复用按日规划、范围冻结、批次提交、凭证恢复；验证新任务再观察与原任务续跑的区别，不用全局日完成标记跳过源请求 |
 | freshness/cards/snapshot rebuild/date completeness audit及相关时间控件 | 继续按公告原日期合同读取；不得把预取次日计作永久完整，不新增连续自然日有数据要求 |
 
-已使用CodeGraph explore核验日期策略resolver、公告builder、DG窗口及源请求，并补读当前按日planner、范围冻结和完成凭证。当前anns_d支持point/range但未声明本节自动策略；实施前仍须完成枚举、全部API/schema及现存任务配置的全消费者审计，并同步数据集开发说明。此表是开发映射，不是已完成清单。
+已使用CodeGraph explore核验Definition、日期策略resolver、Ops校验/任务生成及能力API消费者；源码补查按日planner、范围冻结、凭证及前端，完成后sync/status。策略枚举同步到_builder、Ops resolver/planner/catalog schema及frontend共享类型；未增加跨子系统依赖。manual actions、工作流、freshness、cards、snapshot、日期审计和下载/查询继续原日期合同，数据集开发说明已同步。现存Prod配置仍是上线前必须实查的边界。
 
 ### 配置、持久化与性能
 
@@ -44,6 +44,26 @@
 3. 恢复与观测：跨午夜取消/退出/续跑保持冻结范围；已提交批不丢、原任务完成日可跳过，新任务不跳过；进度单调、状态失败不回滚、父任务与活动节点终态一致。
 4. 先完成隔离回归、Definition/能力/API/前端和开发模板对账，再核验现有Prod公告自动任务清单、时区、日期参数与策略；部署及限定任务配置更新分别执行，不自动改其它任务、钟点或停启状态。
 5. 最小真实运行另获授权，记录两日源/归一化/插入/完全重复/拒绝计数、请求参数、事务与进度证据；只更新文档不能标记已上线或源端完整。
+
+### 源码与隔离验收记录（2026-10-12）
+
+本次实现限定于独立`anns_d.maintain`的每日cron策略；既有`daily_market_close_maintenance`工作流仍把其明确日期传给公告step，不隐式扩展整个工作流。上线审计必须区分这两类入口：要执行两天公告观察，需给独立公告任务配置新策略；若目前只有工作流中的公告step，部署代码本身不会自动创建或迁移调度。
+
+| 硬口径 | 代码落点 | 测试与读回证据 |
+| --- | --- | --- |
+| 北京时间计划触发日D..D+1、无当前时刻兜底 | TaskRunCommandService日期策略；Definition声明；Ops校验 | test_anns_d_automatic_window：UTC跨日、月年边界、周末、缺/无时区时刻与固定日期冲突反例 |
+| 新任务重拉重叠日期、同任务续跑冻结 | DatasetActionResolver、既有scope/stream/AnnsDSyncDAO，无执行器改写 | test_anns_d_stream新隔离PG用例：12..13与13..14实际请求12/13/13/14；首轮13日有数据和空页两类，次轮均补入；缺URL版本保留，完全重复忽略；最终3行业务数据、4个日凭证，同token重放无源调用 |
+| 一次性日期不变、前端只提交意图 | OperationsScheduleService、capability resolver、catalog schema及自动任务表单 | 新API用例创建daily策略并持久化range意图；固定once仍可创建；浏览器用例验证once日期可见、daily日期隐藏及提交无日期值 |
+| 取消/退出、预算、事务、进度、终态边界不变 | 复用公告stream及Ops runtime | stream/exact_records隔离PG回归覆盖取消、真实进程退出、预算、观察失败与幂等；TaskRun API回归核验恢复与终态 |
+
+验证均使用现有依赖，无安装。PG仅在`/private/tmp/anns-auto-pg-*`启动任务专属实例，unix socket为`/private/tmp/anns-p1-pg-socket-*`，测试后停止；浏览器全部API mock，临时预览结束自动停止，没有启动正式后端。测试命令及结果：
+
+- `.venv/bin/python3 -m pytest -q tests/test_anns_d_automatic_window.py tests/web/test_ops_schedule_api.py tests/web/test_schedule_automation_capability_audit_service.py tests/web/test_ops_schedule_stream_transaction_boundary.py tests/web/test_ops_catalog_api.py`：初轮159通过；新增公告API用例随后单独通过。
+- `tests/test_dataset_definition_registry.py test_dataset_action_resolver.py test_dataset_source_client.py test_dataset_normalizer.py tests/architecture/test_virtual_split_boundaries.py tests/web/test_ops_task_run_api.py`：251通过；ingestion linter及两项Definition架构门禁15通过。
+- 隔离PG的`test_anns_d_stream.py / test_anns_d_exact_records.py`：71通过、1跳过。跳过项是旧历史真实双样本插库测试，本轮未提供它要求的特定fresh sample；不是新自动窗口验证跳过。
+- 前端自动任务18项单测、typecheck/build及`anns-d-automatic-window.spec.ts`浏览器验证通过；控制台与API错误为0。现有bundle体积及依赖弃用警告不影响通过。
+
+本轮源只读补证：显式六字段、limit=2/offset=0的20261012..13区间取得两条ann_date=20261012记录；ann_date=20261013合法空结果。空结果只对应请求时刻，不能将次日标为永久完成。本轮未执行正式两日全量拉取，因此真实两天请求量/耗时及现存调度配置仍待部署阶段审计和限定验收。
 
 2026-10-03 最新生产状态：Prod已部署11025423及迁移183。任务14432、14435、14456已完成2020-01-01至2026-09-30同步，2465个自然日完成凭证齐全，读取12,089,584条、物理保存12,064,049条、完全相同重复25,535条、拒绝0；逐日存量对账差异0。缺rec_time正式记录4,039,070条、缺URL15条均保留。详见[生产只读审计](/Users/congming/github/goldenshare/reports/anns_d_prod_sync_audit_20261003.md)；本次仅审计，未重放全历史或写Prod，不能证明源端自身全量覆盖。以下此前阶段记录保留为历史事实。
 

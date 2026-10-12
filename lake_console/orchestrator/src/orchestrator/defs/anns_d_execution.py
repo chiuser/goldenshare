@@ -8,7 +8,9 @@ from orchestrator.defs.anns_d_contract import AnnouncementCancelled, Announcemen
 from orchestrator.defs.anns_d_source import capture_announcement_day
 
 
-def update_announcement_day(day, call, store, checkpoint, control, budget, policy):
+def update_announcement_day(
+    day, call, store, checkpoint, control, budget, policy, *, window_dates=None
+):
     """Return verified delivery; the future asset separately records its event."""
     try:
         with announcement_file_lock(
@@ -29,7 +31,14 @@ def update_announcement_day(day, call, store, checkpoint, control, budget, polic
                 )
                 return delivery
             captured = capture_announcement_day(
-                day, call, store, checkpoint, control, budget, policy
+                day,
+                call,
+                store,
+                checkpoint,
+                control,
+                budget,
+                policy,
+                window_dates=window_dates,
             )
         control.check()
         delivery = store.build_day(day, captured.pages)

@@ -362,7 +362,10 @@ class ScheduleAutomationCapabilityResolver:
     @staticmethod
     def _validate_schedule_policy_contract(*, schedule: OpsSchedule, capability: AutomationCapability) -> None:
         configured_policy = str(schedule.calendar_policy or "").strip() or None
-        declared_rules = tuple(rule for rule in capability.calendar_policy_rules if rule.declared_by_action)
+        declared_rules = tuple(
+            rule for rule in capability.calendar_policy_rules
+            if rule.declared_by_action and schedule.schedule_type in rule.schedule_types
+        )
         if declared_rules and configured_policy is None:
             raise WebAppError(
                 status_code=422,
@@ -572,6 +575,9 @@ class ScheduleAutomationCapabilityResolver:
             )
         )
         allowed_schedule_types = declared_schedule_types or DEFAULT_SCHEDULE_TYPES
+        if any(rule.policy == "trigger_day_forward_range" for rule in calendar_policy_rules):
+            # The daily policy does not remove the existing fixed-date once entry.
+            allowed_schedule_types = DEFAULT_SCHEDULE_TYPES
         time_input_contract = self._time_input_contract(definition=definition, action=action)
 
         remote_condition = self._remote_condition_for_action(target_key)
