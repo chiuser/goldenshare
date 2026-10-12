@@ -79,3 +79,8 @@ cn_a_moneyflow_cnt_ths_trade_days = dg.DynamicPartitionsDefinition(
 cn_a_moneyflow_ind_dc_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_a_moneyflow_ind_dc_trade_days"
 )
+
+
+cn_a_moneyflow_dc_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_a_moneyflow_dc_trade_days"
+)

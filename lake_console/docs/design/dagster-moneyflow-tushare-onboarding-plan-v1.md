@@ -1,6 +1,6 @@
 # Dagster 七个 Tushare 资金流向数据集接入技术方案 v1
 
-> 状态：2026-10-12 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§44及LLD§39.6；三个STOPPED sensor和历史只读预演已通过，见§45及LLD§40，可恢复历史登记执行器及两日/495日冻结清单已完成，见§46及LLD§41，完整当前门禁已通过并收尾，见LLD§41.6，两日正式样本已读回通过，见§47及LLD§42；495日全量历史登记及收尾完成，见§48及LLD§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§49及LLD§44.3，三个STOPPED sensor、历史预演、执行器和两日样本已完成，见§50～52；739日全量登记及本表P4历史接入已关闭，见§53及LLD§48，739分区/1478物化/最近20来源日40检查齐全；sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。
+> 状态：2026-10-12 P3-F及P3历史物理文件阶段已关闭，每层21,160,938行，共15,608文件，历史源缺口保留，实际结果见§33及LLD§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演及历史事件执行器已完成，见§34～36；两日样本和全量历史登记均已获批执行并读回通过，见§37～38及LLD§32～33；本表839分区/1678物化/最近20日40检查已齐，源历史缺口保留。moneyflow_ind_ths的资产/check/job/catalog切片和隔离验收完成，见§39及LLD§34；三个STOPPED sensor及历史只读预演完成，见§40和LLD§35；可恢复事件执行器和两日/全量冻结清单完成，见§41和LLD§36，正式两日样本读回通过，见§42和LLD§37；全494日正式登记已读回通过，见§43及LLD§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§44及LLD§39.6；三个STOPPED sensor和历史只读预演已通过，见§45及LLD§40，可恢复历史登记执行器及两日/495日冻结清单已完成，见§46及LLD§41，完整当前门禁已通过并收尾，见LLD§41.6，两日正式样本已读回通过，见§47及LLD§42；495日全量历史登记及收尾完成，见§48及LLD§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§49及LLD§44.3，三个STOPPED sensor、历史预演、执行器和两日样本已完成，见§50～52；739日全量登记及本表P4历史接入已关闭，见§53及LLD§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog及完整隔离验收已完成，见§54及LLD§49；sensor/readiness和历史预演待下一切片；sensor启用及正式job仍待后续，整个P4未关闭，P5真实日更未执行。七表历史按日期批次直接生成每日候选，取消代码keyset导出和spool，当前方案及新P3步骤见§6、§10、§24。P0/P1/P2既有验收保留；§22～23保留旧实现记录，§31为正式两日样本、§32为全量执行前的范围与成本准备记录。
 >
 > 日期：2026-10-06。目标：将 Prod 已有七个 Tushare 资金流向数据集接入正式 DG；历史从 Prod Raw 初始化，新增由 DG 直接请求 Tushare。
 >
@@ -1017,3 +1017,19 @@ moneyflow_ind_dc的739日历史登记已完成：复用样本10项，新增737�
 首轮1723条逐项进度、checkpoint complete/2257/100%，驱动峰值RSS约413.8MiB/总39.1292秒；600秒/256读/768MiB门禁未触发。三个sensor未启用、两job无active run；60份相关源码、83份实际加载源码和1146份原验收快照一致，5408份Lake/control和49份旧报告逐字保留，其他三表原生事实摘要不变。未写Parquet或请求源，未reload、启用sensor、改pool或执行job；无产品代码/依赖边界变更。原24个任务文件已提交5883ae7a，新增收尾文档及报告未提交，未推送。
 
 完整依据/限制和实际证据见[LLD §48](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-ind-dc-formal-full)及[全量报告](../../reports/moneyflow_p4_ind_dc_event_registration_formal_full_evidence_20261012.json)。本表P4历史接入阶段关闭，历史缺口保留、checks仅覆盖最近20来源日；整个P4开放，P5未进入。下一开发切片为moneyflow_dc的独立资产/check/job/catalog，正式写入或启用仍按精确阶段清单批准。
+
+
+## 54. P4东财个股定义接入（2026-10-12）
+
+上轮板块全量收尾已提交4486b08f，未推送。本轮按管理员要求推进moneyflow_dc的独立Raw/Silver、两条blocking check、两job、专属动态分区和catalog；先核验7A卡、P2真实源、P3逐日历史、共享管线语义和CodeGraph消费者，再编码。完整硬口径、代码/测试映射、配置审计及性能预算见[LLD §49](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-dc-p4-definitions)。
+
+复用15字段date+ts_code口径，金额万元，NULL/负值/北交所及全部源证券保留，源净流入不重算；单日2000分页两轮稳定。Silver只读同日最新绿Raw及匹配物理hash。不得套用板块三分类、可空代码或元单位。执行隔离原生job/check与6024行存档样本全字段验收，回归原链及完整受保护门禁；正式资源只读。传感器/readiness/历史预演后续分片，正式登记或日更执行按其阶段审批；本轮P4整体开放、P5未进入，不提前写完成。
+
+
+### 54.1 独立定义与完整验收通过
+
+moneyflow_dc两层资产、两条blocking checks、两job、独立分区和catalog已接入。39项原生隔离测试及683项原四表P4/七表P2回归通过，完整受保护catalog12项/504子断言、static113项、隔离Definitions加载与Ruff通过。15字段和日期+股票代码主键沿P2合同，万元/源net_amount/NULL/负值保留；存档实测6024行完整读回，SZ3154/SH2522/BJ348，8分页请求，两轮行序不同仍逐字段一致，reject0，Silver不请求源。
+
+正式Lake仅只读复核2026-09-30两文件，各6024行/唯一键、15字段保真，文件hash与P3原证明一致，写前后不变，0.2482秒。存档样本job的1.0224秒来自fake clock和隔离SQLite，不外推盘后网络耗时。原49份资金流报告和1150份最终源码/测试快照保留；CodeGraph同步完成，Prod合同、API/前端、主体依赖矩阵不变。上轮收尾已提交4486b08f，本轮代码/文档/报告尚未提交，未推送。
+
+详细硬口径对账及恢复/限制见[LLD §49.3](dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-dc-p4-definitions)，[实际报告](../../reports/moneyflow_p4_dc_evidence_20261012.json)已归档。本轮正式instance/event/分区/Lake/staging control写入及源请求均0，未reload、启用sensor、改pool或运行正式job。本切片关闭；下一步是三个STOPPED sensor、专属readiness和739来源日有界只读预演，后续登记执行器/冻结清单及正式登记各按阶段推进。整个P4开放，P5未进入。
