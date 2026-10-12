@@ -77,6 +77,12 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "end_date",
     ]
     assert "sources" not in payload
+    assert "anns_d.maintain" in actions
+    assert all(
+        step["dataset_key"] != "anns_d" and step["action_key"] != "anns_d.maintain"
+        for workflow in payload["workflows"]
+        for step in workflow["steps"]
+    )
 
     daily = actions["daily.maintain"]
     assert daily["action_type"] == "dataset_action"
@@ -550,6 +556,20 @@ def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, 
         updated_by_user_id=admin.id,
     )
 
+    for hour in (8, 20):
+        ops_schedule_factory(
+            target_type="dataset_action",
+            target_key="anns_d.maintain",
+            display_name=f"公告每日{hour}点更新",
+            status="active",
+            schedule_type="cron",
+            cron_expr=f"0 {hour} * * *",
+            calendar_policy="trigger_day_forward_range",
+            params_json={"time_input": {"mode": "range"}, "filters": {}},
+            created_by_user_id=admin.id,
+            updated_by_user_id=admin.id,
+        )
+
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
@@ -563,3 +583,5 @@ def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, 
     assert actions["stock_basic.maintain"]["active_schedule_count"] == 1
     assert workflows["daily_market_close_maintenance"]["schedule_binding_count"] == 1
     assert workflows["daily_market_close_maintenance"]["active_schedule_count"] == 1
+    assert actions["anns_d.maintain"]["schedule_binding_count"] == 2
+    assert actions["anns_d.maintain"]["active_schedule_count"] == 2

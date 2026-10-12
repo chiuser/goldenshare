@@ -2,9 +2,9 @@
 
 <a id="automatic-announcement-window"></a>
 
-## 自动同步调整 LLD（2026-10-12，源码实现、未部署）
+## 自动同步调整 LLD（2026-10-12，日期策略已部署，工作流移出已实现待部署）
 
-本节补充自动任务合同，不替代下文 Raw 全量保留规则。文档720ce5a9提交后已完成源码与隔离验证；既有Prod自动任务配置和部署版本本轮未实查或变更。DG采用 D-7..D+1 的九天窗口，见 [DG LLD](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md#automatic-announcement-window)，不得改成 Prod 的两天窗口。
+本节补充自动任务合同，不替代下文 Raw 全量保留规则。日期策略57b459f2已部署；2026-10-12管理员进一步确认从收盘工作流移出公告，使用独立每日调度。DG采用 D-7..D+1 的九天窗口，见 [DG LLD](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md#automatic-announcement-window)，本次不修改DG。
 
 ### 时间、执行与完成语义
 
@@ -31,7 +31,7 @@
 | 项目 | 值、来源及消费者 | 生效和验收 |
 | --- | --- | --- |
 | 自动日期策略 | Definition声明固定D..D+1；Ops schedule的既有calendar_policy存储策略选择，不新增offset/env/Settings开关 | 能力API、调度校验、TaskRun生成、前端统一迁移；只对新触发生效 |
-| 时区、执行钟点 | 日期固定Asia/Shanghai；钟点继续使用既有schedule配置，22:00未确认 | 核验现存时区；不隐式改钟点，修改任务配置须另行授权 |
+| 时区、执行钟点 | 日期固定Asia/Shanghai；用户创建的公告独立任务每天08:00、20:00，存储于既有OpsSchedule的cron_expr/timezone/status；消费者为既有scheduler、日期策略及TaskRun创建链 | 只读核验记录，不修改钟点、频率、启停或新增任务；两个任务分别触发生效，前端及运行摘要可见；测试同日两次冻结范围相同、token不同 |
 | 执行范围与恢复 | TaskRun时间意图和冻结execution_context；完成凭证以execution_token/contract_digest/scope_hash及日期限定 | 跨午夜恢复范围不漂移；新任务token不同、重叠日实际请求 |
 | 页、批、事务及配额 | Definition保持2000行/页、500行/批、25秒调用及累计批期限、5秒锁限时、每日500页、每执行15000请求、64MiB响应 | 请求间隔沿用现行源限流；超限失败保留已提交批，不增大预算、不截断报成功 |
 
@@ -47,7 +47,17 @@
 
 ### 源码与隔离验收记录（2026-10-12）
 
-本次实现限定于独立`anns_d.maintain`的每日cron策略；既有`daily_market_close_maintenance`工作流仍把其明确日期传给公告step，不隐式扩展整个工作流。上线审计必须区分这两类入口：要执行两天公告观察，需给独立公告任务配置新策略；若目前只有工作流中的公告step，部署代码本身不会自动创建或迁移调度。
+日期策略实现限定于独立`anns_d.maintain`的每日cron策略。2026-10-12新决定取代此前保留工作流公告步骤的边界：从`daily_market_close_maintenance.steps`移除唯一的anns_d步骤，不修改dispatcher或其他步骤的日期规则，不为工作流新增公告合同。独立手工维护与恢复继续使用原入口；手工执行收盘工作流也不再包含公告。
+
+目录API、状态投影和执行器均读取同一WorkflowDefinition，随步骤移除更新，不在前端或查询层新增过滤。工作流新执行为28个步骤；既有历史TaskRun/node/凭证不删除、不重写。重试工作流仍按当前Definition执行，因此旧工作流重试也不再包含公告，需要补公告时使用独立维护/续跑入口。上线前确认没有执行中的旧收盘工作流，随后由管理员部署Web/Worker/Scheduler同版，不由本轮自动重启服务。
+
+硬口径验收：目录及所有工作流不含anns_d；独立maintain保留manual/schedule/retry能力；手工、scheduled和retry三种收盘执行均不创建公告节点，剩余步骤顺序、日期和终态不变；两个独立daily cron当天范围一致但execution_token不同，实际源请求及完成凭证仍分别形成。移出不修改DatasetDefinition、源builder、业务表或DG。
+
+2026-10-12 11:31生产只读核验：用户创建schedule43“每日更新公告”（0 20 * * *，下一次10月12日20:00）与schedule44“每日更新公告2”（0 8 * * *，下一次10月13日08:00），均active、Asia/Shanghai、target=anns_d.maintain、calendar_policy=trigger_day_forward_range；time_input只含mode=range，无固定日期、filters为空，last_triggered_at均NULL。配置符合已确认口径，尚无新任务正式执行证据。本轮未修改生产配置或触发同步。
+
+工作流移出实现与验收：只删除action_catalog中的公告步骤；没有修改dispatcher、DatasetDefinition、业务表、API字段、前端或DG。CodeGraph explore/impact覆盖工作流定义、执行器、目录/API、状态投影与消费者；源码补查确认同一Definition驱动展示与执行，sync/status通过，依赖矩阵不变。`tests/test_ops_action_catalog.py`、`tests/test_anns_d_automatic_window.py`、`tests/web/test_ops_catalog_api.py`及`tests/web/test_ops_runtime.py`合计92项通过，覆盖全部工作流排除公告、独立维护能力保留、manual/scheduled/retry均无公告节点、其余28步顺序/日期/终态不变、两条独立任务绑定及工作日/周末早晚观察token独立。仅有既有Starlette/httpx弃用警告，没有安装依赖或启动正式后端。
+
+真实配置最小验证：以上两条只读配置在隔离resolver中生成10月12..13和10月13..14的冻结范围，执行token各自不同；没有数据库或源调用，也未保存正式TaskRun。状态投影读取同一Definition，收盘目标已排除公告，独立公告目标仍返回anns_d。有限配置及隔离回放证据位于`/private/tmp/anns-independent-schedules-20261012.jsonl`和`/private/tmp/anns-independent-schedule-replay-20261012.json`。文档完整性及diff空白检查通过。本轮源码移出尚未部署，两条正式自动任务首跑与完成凭证读回仍待自然触发后验收，不能将隔离回放标为正式同步成功。
 
 | 硬口径 | 代码落点 | 测试与读回证据 |
 | --- | --- | --- |

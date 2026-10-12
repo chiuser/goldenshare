@@ -153,6 +153,25 @@ def test_daily_cron_occurrence_unchanged():
     ) == datetime(2026, 10, 12, 0, tzinfo=timezone.utc)
 
 
+@pytest.mark.parametrize("day", ["2026-10-12", "2026-10-11"])
+def test_morning_evening_observations_keep_two_day_window_and_distinct_tokens(day):
+    resolver = DatasetActionResolver(Mock())
+    plans = []
+    for hour in (8, 20):
+        scheduled = datetime.fromisoformat(f"{day}T{hour:02}:00:00+08:00")
+        window = resolve(scheduled)
+        plans.append(resolver.build_plan(DatasetActionRequest(
+            dataset_key="anns_d", action="maintain",
+            time_input=DatasetTimeInput(
+                mode=window["mode"], start_date=date.fromisoformat(window["start_date"]),
+                end_date=date.fromisoformat(window["end_date"]),
+            ),
+        )))
+    assert [u.request_params for u in plans[0].units] == [u.request_params for u in plans[1].units]
+    assert len(plans[0].units) == len(plans[1].units) == 2
+    assert plans[0].execution_context["execution_token"] != plans[1].execution_context["execution_token"]
+
+
 def test_two_independent_daily_source_units_and_frozen_midnight_resume():
     resolver = DatasetActionResolver(Mock())
     request = DatasetActionRequest(

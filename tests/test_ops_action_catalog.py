@@ -217,7 +217,6 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "limit_step",
         "limit_cpt_list",
         "kpl_concept_cons",
-        "anns_d",
         "irm_qa_sh",
         "irm_qa_sz",
     ]
@@ -231,6 +230,18 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
 
     assert [param.key for param in index_kline.parameters] == ["start_date", "end_date"]
     assert index_kline.workflow_profile == "range_rebuild"
+
+
+def test_announcements_use_standalone_maintenance_instead_of_workflows() -> None:
+    assert all(
+        step.dataset_key != "anns_d" and step.action_key != "anns_d.maintain"
+        for workflow in WORKFLOW_DEFINITION_REGISTRY.values()
+        for step in workflow.steps
+    )
+    action = get_dataset_definition("anns_d").capabilities.get_action("maintain")
+    assert action is not None
+    assert action.manual_enabled and action.schedule_enabled and action.retry_enabled
+    assert action.supported_time_modes == ("point", "range")
 
 
 def test_workflow_catalog_does_not_use_legacy_execution_language() -> None:

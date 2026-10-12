@@ -1082,11 +1082,13 @@ def test_scheduler_defaults_reference_data_refresh_workflow_to_snapshot_mode(db_
     assert task_run.request_payload_json["time_input"] == {"mode": "none"}
 
 
+@pytest.mark.parametrize("trigger_source", ["manual", "scheduled", "retry"])
 def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_step(
     db_session,
     trade_calendar_factory,
     task_run_factory,
     monkeypatch,
+    trigger_source,
 ) -> None:
     dispatched_dataset_keys: list[str] = []
     resolved_trade_date = date(2026, 4, 24)
@@ -1107,6 +1109,7 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
         resource_key=None,
         title="每日收盘后维护",
         status="running",
+        trigger_source=trigger_source,
         time_input_json={"mode": "point"},
         request_payload_json={
             "target_type": "workflow",
@@ -1122,6 +1125,8 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
     ).all()
 
     assert outcome.status == "success"
+    assert "anns_d" not in dispatched_dataset_keys
+    assert all(node.resource_key != "anns_d" for node in nodes)
     assert "bak_basic" in dispatched_dataset_keys
     assert dispatched_dataset_keys[5] == "bak_basic"
     assert len(dispatched_dataset_keys) == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)

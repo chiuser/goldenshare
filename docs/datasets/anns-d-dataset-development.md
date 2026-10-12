@@ -1,8 +1,8 @@
 # 上市公司公告（`anns_d`）维护说明
 
-## 自动日期策略变更（2026-10-12，源码实现、未部署）
+## 自动日期策略变更（2026-10-12，日期策略已部署，工作流移出已实现待部署）
 
-Definition新增`anns_d.maintain`的`trigger_day_forward_range`声明。独立每日cron以计划触发时刻在Asia/Shanghai对应的自然日D生成闭区间D..D+1，按两个自然日unit分别分页；新任务重新观察重叠日期，同冻结执行才复用完成凭证。手工point/range、一次性固定日期及工作流明确日期保持原行为。日期输入仍为natural_day/ann_date_or_start_end，freshness/audit仍为not_applicable/event_run_trace；不要求当天或次日必有数据。
+Definition声明`anns_d.maintain`的`trigger_day_forward_range`策略已部署。独立每日cron以计划触发时刻在Asia/Shanghai对应的自然日D生成闭区间D..D+1，按两个自然日unit分别分页；新任务重新观察重叠日期，同冻结执行才复用完成凭证。用户确认从收盘工作流移出公告，并创建08:00、20:00两条独立每日任务，同日两次观察范围相同、执行token不同。独立手工point/range、一次性固定日期及续跑保持原行为；手工执行收盘工作流也不再包含公告。日期输入仍为natural_day/ann_date_or_start_end，freshness/audit仍为not_applicable/event_run_trace；不要求当天或次日必有数据。
 
 配置审计：策略固定定义在Definition，选择值持久化于既有OpsSchedule.calendar_policy，无新增env、Settings、表或可调offset。消费者为_builder声明校验、Ops日期策略resolver、schedule planner、调度校验/能力审计、TaskRun意图生成、catalog schema及前端API类型/自动任务表单。既有cron/时区存储保持不变，业务日期固定Asia/Shanghai；更改策略需修改明确的公告任务配置并在后续触发生效，既有冻结TaskRun不变。前端展示“维护触发当天至次日”，不填日期值；不能混入固定日期，缺带时区计划时刻拒绝。预算仍2000行/页、500行/批及原期限/请求上限。上线须核验独立任务与工作流入口，不能把代码部署当作自动迁移完成。
 
@@ -67,7 +67,7 @@ Definition新增`anns_d.maintain`的`trigger_day_forward_range`声明。独立�
 
 - 维护动作 `anns_d.maintain`；输入由 Definition 投影，TaskRun 展示执行结果与问题，不用源接口参数替代运营时间意图。
 - `observed_field=ann_date`；`bucket_rule=not_applicable / event_run_trace`，支持自然日输入但不要求每日有记录，日期完整性审计不启用。
-- 已纳入 `daily_market_close_maintenance`，工作流传当天日期，builder 按第 2 节生成源参数。工作流证据见 [action_catalog](/Users/congming/github/goldenshare/src/ops/action_catalog.py)。
+- 按2026-10-12决定从 `daily_market_close_maintenance` 移出，只通过独立公告维护入口执行；用户已创建两条每日调度，生产配置证据及待部署边界见[LLD](anns-d-sync-low-level-design-v1.md#automatic-announcement-window)。独立手工维护及续跑保留，历史任务记录不清理。
 
 ## 6. 验证入口与证据边界
 

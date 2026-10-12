@@ -430,7 +430,6 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
             _dataset_workflow_step("limit_step", "limit_step"),
             _dataset_workflow_step("limit_cpt_list", "limit_cpt_list"),
             _dataset_workflow_step("kpl_concept_cons", "kpl_concept_cons"),
-            _dataset_workflow_step("anns_d", "anns_d"),
             _dataset_workflow_step("irm_qa_sh", "irm_qa_sh"),
             _dataset_workflow_step("irm_qa_sz", "irm_qa_sz"),
         ),
