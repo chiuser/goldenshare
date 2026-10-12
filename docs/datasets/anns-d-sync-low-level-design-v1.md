@@ -1,5 +1,50 @@
 # 上市公司公告同步完善 LLD v1
 
+<a id="automatic-announcement-window"></a>
+
+## 自动同步调整 LLD（2026-10-12，已确认、待实现）
+
+本节补充自动任务合同，不替代下文 Raw 全量保留规则。只修改文档；当前代码未实现此策略，既有 Prod 自动任务配置和部署版本本轮未实查。DG采用 D-7..D+1 的九天窗口，见 [DG LLD](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md#automatic-announcement-window)，不得改成 Prod 的两天窗口。
+
+### 时间、执行与完成语义
+
+- D取计划触发时刻 `scheduled_at` 在 Asia/Shanghai 的自然日期；不是 worker 开始执行时间，不使用交易日历。生成 `mode=range, start_date=D, end_date=D+1`，闭区间恰好两天；例如2026-10-12触发生成2026-10-12..13。
+- Ops保存自动维护意图，DatasetActionResolver负责归一化及冻结范围；unit planner拆两个自然日，request builder逐日生成start_date=end_date及分页参数。显式请求ann_date、ts_code、name、title、url、rec_time。
+- 首次提交后日期范围和execution_context冻结；跨午夜重试/恢复不得重新套用当天日期。新调度任务创建新execution_token，不借用上次完成凭证跳过重叠日期；显式恢复原任务才复用原token，未完成日从offset=0重放。
+- 完成凭证仅表示本次观察收到末短页并提交，不表示该公告日期永久封闭。次日首次空页也可完成本次观察，后续新任务必须重新拉取。freshness/audit仍为not_applicable，不要求每天有公告，更不能要求次日已有全量数据。
+- 手工point/range、一次性固定日期维护、历史补录及下载/列表查询范围保持原合同；不按发布时间替代公告日期，不清空或重算现存业务数据。
+
+### 实现与消费者对账
+
+| 位置 | 待实现内容及边界 |
+| --- | --- |
+| foundation/datasets/definitions/news.py、models.py、definitions/_builder.py | 为anns_d maintain声明固定的自动两天区间策略（拟名trigger_day_forward_range）；仅日常cron使用，不改变date_model/input_shape/observed_field，不扩展其它数据集策略 |
+| ops/services/dataset_schedule_time_policy_resolver.py、operations_schedule_service.py、task_run_service.py | 声明、校验、生成范围保持同一策略；禁止同时保存固定日期和该动态策略；缺计划触发时刻必须拒绝，不能退回机器当前日期 |
+| Ops API/schema、catalog/manual actions/workflow及frontend/src的自动任务表单、共享API类型 | 同步策略枚举和能力消费，页面显示“触发当天至次日”；日期由后端生成，前端不拼事实；核对既有任务及固定日期/一次性入口，不扩大手工能力 |
+| foundation/ingestion/resolver.py、unit_planner.py、request_builders.py、announcement_scope.py、announcement_stream.py及AnnsDSyncDAO | 复用按日规划、范围冻结、批次提交、凭证恢复；验证新任务再观察与原任务续跑的区别，不用全局日完成标记跳过源请求 |
+| freshness/cards/snapshot rebuild/date completeness audit及相关时间控件 | 继续按公告原日期合同读取；不得把预取次日计作永久完整，不新增连续自然日有数据要求 |
+
+已使用CodeGraph explore核验日期策略resolver、公告builder、DG窗口及源请求，并补读当前按日planner、范围冻结和完成凭证。当前anns_d支持point/range但未声明本节自动策略；实施前仍须完成枚举、全部API/schema及现存任务配置的全消费者审计，并同步数据集开发说明。此表是开发映射，不是已完成清单。
+
+### 配置、持久化与性能
+
+| 项目 | 值、来源及消费者 | 生效和验收 |
+| --- | --- | --- |
+| 自动日期策略 | Definition声明固定D..D+1；Ops schedule的既有calendar_policy存储策略选择，不新增offset/env/Settings开关 | 能力API、调度校验、TaskRun生成、前端统一迁移；只对新触发生效 |
+| 时区、执行钟点 | 日期固定Asia/Shanghai；钟点继续使用既有schedule配置，22:00未确认 | 核验现存时区；不隐式改钟点，修改任务配置须另行授权 |
+| 执行范围与恢复 | TaskRun时间意图和冻结execution_context；完成凭证以execution_token/contract_digest/scope_hash及日期限定 | 跨午夜恢复范围不漂移；新任务token不同、重叠日实际请求 |
+| 页、批、事务及配额 | Definition保持2000行/页、500行/批、25秒调用及累计批期限、5秒锁限时、每日500页、每执行15000请求、64MiB响应 | 请求间隔沿用现行源限流；超限失败保留已提交批，不增大预算、不截断报成功 |
+
+正常请求数为两日sum(floor(N_day/2000)+1)，包含空日及满页后的结束页；重试也占预算。内存与单页/单批相关，不随两日总行数增长，事务不跨整日或窗口；状态更新失败不回滚业务提交，现有TaskRun/活动节点终态与取消检查保留。上线前用代表性两日源计数和请求/写库耗时测算，当前没有两日正式运行性能证据。
+
+### 验收与上线顺序
+
+1. 日期生成：固定字面预期验证10月12日生成12..13、跨月/年、周末、UTC到北京时间跨日；缺时刻、动态策略混入固定日期及其它数据集误用必须拒绝。
+2. 补入与幂等：上一任务已拉次日、下一任务仍实际请求该日；加入晚发布记录后仅新增不同源记录。次日初次为空、下一任务有数据也能补入；完全重复不新增，缺URL/rec_time及不同版本继续保留。
+3. 恢复与观测：跨午夜取消/退出/续跑保持冻结范围；已提交批不丢、原任务完成日可跳过，新任务不跳过；进度单调、状态失败不回滚、父任务与活动节点终态一致。
+4. 先完成隔离回归、Definition/能力/API/前端和开发模板对账，再核验现有Prod公告自动任务清单、时区、日期参数与策略；部署及限定任务配置更新分别执行，不自动改其它任务、钟点或停启状态。
+5. 最小真实运行另获授权，记录两日源/归一化/插入/完全重复/拒绝计数、请求参数、事务与进度证据；只更新文档不能标记已上线或源端完整。
+
 2026-10-03 最新生产状态：Prod已部署11025423及迁移183。任务14432、14435、14456已完成2020-01-01至2026-09-30同步，2465个自然日完成凭证齐全，读取12,089,584条、物理保存12,064,049条、完全相同重复25,535条、拒绝0；逐日存量对账差异0。缺rec_time正式记录4,039,070条、缺URL15条均保留。详见[生产只读审计](/Users/congming/github/goldenshare/reports/anns_d_prod_sync_audit_20261003.md)；本次仅审计，未重放全历史或写Prod，不能证明源端自身全量覆盖。以下此前阶段记录保留为历史事实。
 
 ## 当前执行口径：Raw 保存全部源记录（2026-10-02）
