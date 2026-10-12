@@ -6,6 +6,8 @@
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
+> 2026-10-12 联合范围修订专项：[历史复权因子修正与 DG 下游修复方案](./dagster-stock-adj-factor-history-repair-plan-v1.md)、[修复 LLD](./dagster-stock-adj-factor-history-repair-low-level-design-v1.md)。拟对联合方案限定的 25 只/2,489 个非舍入变化因子键进行受控候选合并及下游重放；纯精度历史值保留，取消原 601198.SH 的 451 日默认修复；本资产来源仍为 Tushare，schema、生命周期、普通 job/sensor 和不保存永久历史版本的口径不变。专项尚未开发或执行。
+
 相关下游设计：
 
 - `dagster-stk-mins-asset-design.html`：股票分钟线前复权、qfq factor repair、MACD/KDJ 下游修复口径。

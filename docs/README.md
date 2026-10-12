@@ -182,6 +182,8 @@ docs/
 - [神奇九转指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-prod-raw-db-lake-export-plan.md)
 - [Dagster 神奇九转数据集接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-plan.md)
 - [Dagster 神奇九转数据集接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-low-level-design.md)
+- [股票历史复权因子修正与 DG 下游修复方案 v1（Prod/DG 联合范围：25 股；保留纯精度变化，未执行）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-adj-factor-history-repair-plan-v1.md)
+- [股票历史复权因子修正与 DG 下游修复 LLD v1（候选、指标重放、逐文件续跑和一次对账）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-adj-factor-history-repair-low-level-design-v1.md)
 - [股票历史分钟维护说明（九列模型、整窗 unit 与 CLI 限制）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
 - [指数历史分钟维护说明（激活池、默认五频与存在性探测；后续生产验收未复核）](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
 - [主要指数历史分钟线数据集开发说明（Lake/Dagster，开发完成，待独立运维验收）](/Users/congming/github/goldenshare/docs/datasets/major-index-mins-dataset-development.md)

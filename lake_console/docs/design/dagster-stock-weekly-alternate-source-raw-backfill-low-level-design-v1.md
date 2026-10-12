@@ -1,5 +1,11 @@
 # DG 股票周线备用源 Raw 补齐：代码级 LLD v1
 
+> 最新口径（2026-10-12）：本轮完成文档对齐和只读审计，尚未实施精度校验修正或写入本轮修复数据。Prod 原冻结批 `850840bf-94c1-4081-ba44-f0d5385474ab` 已完成 523/876 周，最近 TaskRun 15471 失败；剩余 353 周为 2020-01-10—2026-10-09。仅精度变化保留旧因子，周线照收源 21 字段；不能用舍入解释的因子变化另做有限修复。下面较早的状态和严格算价验收作为历史记录，不覆盖最新设计。
+
+精度诊断与有限修复按 [Prod LLD §13.17](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-factor-precision-policy-20261012) 和 [历史因子修正方案](dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012) 执行。复权周线 Raw 的 Prod 接收与 DG 自主 QFQ 重算属于两条不同的链。
+
+历史执行状态（2026-10-12午前，最新状态见文首）：P3/D3源码及LLD已提交`a3c2c750`，Prod全市场首批15447源调用失败后恢复为15450，主动取消验收通过；15451原批续跑至492/876周后于12:12再次源调用失败，首批未闭合。DG年度覆盖前只读预检通过；尚无真实B0，未开始全量捕获、候选、正式提升、事件或cursor迁移。实际范围和结果见[DG LLD A18](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-formal-preflight-20261012)；下文较早的开发状态保留为历史记录。
+
 <a id="adjusted-weekly-prod-refresh-lld"></a>
 
 ## 2026-10-10 新阶段 LLD：复权周线接收 Prod 新增及历史修正
@@ -1563,3 +1569,32 @@ CodeGraph已使用 explore、impact，并在变更后执行 sync/status；影响
 2. 现有stock_weekly_history_cli的--mode capture完成封存；再逐年--mode build --year YYYY --apply构造全年度候选，--mode promote先只读preflight，获准后加--apply原子提升至/Volumes/datasource/data_lake。完整命令还须带冻结--inventory、--plan、--capture-root、--target-root及该年度--audit；不凭目录扫描扩大范围。任何文件失败按原audit/checkpoint续跑，不删已完成文件。
 3. 全部年度文件一次对账通过后，stock_weekly_events_cli --mode dry-run冻结本次事件计划；按既有--mode register/materializations/checks --apply及--start/--count≤100分批执行，使用同计划和checkpoint。--mode audit核对正式文件、事件及检查绑定。阶段审批时列明真实计划路径、实际文件/事件数量、命令、DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home和恢复方式；现在不编造执行ID。
 4. 全量文件及事件全部通过，最后单独迁移raw_stock_weekly_update_job_sensor cursor的adjusted_delivery_revision至实际B0，清除旧adjusted待处理意图，其他分支和已有19:30设置按现行合同保留。该实例写入另列真实旧/新cursor及审批范围；只读检查不能代替迁移批准。日常job/sensor继续读取新闭合批payload，不再读取本次捕获/audit/reports。正式B0目前为0条，以上文件、事件及cursor迁移全部未执行。
+
+<a id="adjusted-weekly-formal-preflight-20261012"></a>
+
+### A18. 年度覆盖前只读预检（2026-10-12）
+
+管理员批准继续Prod全量收尾和DG年度覆盖。Prod部署及首批15447的实际状态见[Prod LLD §13.15.4](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-formal-20261012)，尚无真实B0，本轮未冻结伪库存或拿revision10冒充B0。
+
+正式根/候选根为/Volumes/datasource/data_lake及/Volumes/datasource/data_lake_staging，均存在、可写且同文件系统，剩余约2.66TiB。现有复权Raw有859个周文件，2010—2026年度文件数最多53；按年度只读取Parquet元数据汇总2,902,386行、158,233,993字节，最大年度2025年272,685行。未扫描OHLC明细，也不以此宣称21列对账或候选已通过。预算继续按A17的100万年度行数局部例外，其他预算不变；实际新旧合并成本在B0库存冻结后再次核对。
+
+通过现有open_weekly_event_instance打开已存在正式PG存储，should_autocreate_tables=false、无launcher/coordinator，目标DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home。只读查询三项周线job，各limit10，当前无QUEUED/STARTING/STARTED/CANCELING；raw_stock_weekly_update_job_sensor为RUNNING，当前cursor表示尚未到19:30、已有周期验证截至2026-10-09，没有迁移B0水位。没有评价/启停sensor、写event或修改cursor。
+
+待首批及独立补刷批闭合，取得真实B0后，按A17冻结实际代码/年度库存与plan，再稳定捕获、逐年候选及只读提升预检、逐文件原子提升。文件一次完整对账通过后，事件及水位另按真实计划数量和旧/新值分阶段执行。当前正式Lake写入、事件和水位迁移均为0；临时预检汇总仅位于/private/tmp。本轮没有代码、配置或依赖边界变更，没有启动/停止DG服务或安装依赖。
+
+2026-10-12 12:19补充：Prod首批15451在2019-06-07源调用失败，已提交492/876周、1,172,725行；失败单元未提交，首批未闭合。MCP及Prod同路径只读复现均能获取该周3,548行，历史底层异常被共用客户端丢弃，尚不能确定超时或断连。具体诊断及45秒文档与20秒代码差异见[Prod正式执行审计](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-formal-20261012)。DG继续等待真实B0，未提前捕获、写湖、补录事件或迁移水位。
+
+<a id="weekly-factor-repair-alignment-20261012"></a>
+
+### A19. 与历史因子修正专项对齐（2026-10-12，文档设计）
+
+分钟指标的完整修复按[专项 LLD §6、§9.1、§14](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#indicator-repair-audit-20261012)：七频 MACD/KDJ 结果与每日 state、四频九转均读取候选价格，日首起算、精确上一 expected 日 seed、前序窗口、停牌 state 和独立末端一并验收；文件、事件和恢复日更分阶段核对，不把价格库存当指标总量。本 A19 的周线接收不额外等待这条指标修复链。
+
+
+1. `stock_weekly_adj_delivery`/`stock_weekly_adj_run`/`prod_db/stock_weekly_adj_delivery` 继续读取 Prod 闭合头和本次业务行。价格对比诊断只作说明，不决定 DG ready，不改 source rows、schema、交接版本、年度覆盖公式或既有 check 名称。Prod receipt 的附加 basis_audit 字段不得成为 parser 新必填项，旧合法闭合批仍按既有合同读取；这只是可选诊断扩展，不保留两套供数算法。
+2. 读取真实 B0、稳定捕获、年度候选、保留输入外旧键、逐文件 checkpoint、一次完整对账、事件和 cursor 顺序按 A16—A18。本轮读取的 Prod 当前 5,801 只和 DG 当前 5,624 只只是库存，完成后以 B0 实际键集合冻结股票/文件/行数，不能声称这些股票都存在价格变化。原 DuckDB 512MiB、进程 1GiB 和已批准年度 100 万行例外保持。
+3. DG Raw/Silver 因子及 Gold 日线/分钟线/指标/state 修复代码由[专项 LLD](dagster-stock-adj-factor-history-repair-low-level-design-v1.md)管理。该专项源仍为 Tushare，不能直接复制 Prod 因子并声称源站返回；共享源冻结值用于本次数值一致核对，双方传输入口不改变。周/月源行情不参与因子重算。
+4. 源周线 23 只分位价差、25 只历史因子修复、全市场周线 B0 接收是三种数量。当前 DG 自主日线七价格字段比较涉及 25 只/2,489 条实际差异，候选输入 2,495 条；分钟七频有 25 只/795,340 根目标 bar，60m 单日样本已确认 25 只都有差异。全部分钟实际差异、指标/state 变化和事件数量须由专项 R0/候选核验完成，不能写成已经全链修复。
+5. 回归需证明无任何因子算价二次拦截、附加诊断可有可无、原 21 列保真、DG 独有键保留、monthly/alternate/non-adjusted 不变、闭合批顺序与重放不变。日常只验本批范围，不消费本次审计 JSON/CSV。
+
+正式执行排序：Prod 校验纠偏与有限因子维护 → 周线原批及独立补刷/B0 → DG 周线年度文件及一次对账 → 事件/水位/获准调度。DG 因子与下游候选可与 Prod 周线续跑同时准备；正式提升 Raw/Silver 因子 → Gold 价格 → 指标/state → 一次对账 → 单独获准事件/可选 serving，独立于 B0。任何 shared writer 并发均在提升前排空核验，不用文档顺序声称多文件事务原子性。本轮正式操作为 0。

@@ -1,5 +1,7 @@
 # Dagster 股票日线前复权资产 Low-Level Design
 
+> 2026-10-12 历史因子修正专项提案：[修复方案](./dagster-stock-adj-factor-history-repair-plan-v1.md)、[专项 LLD](./dagster-stock-adj-factor-history-repair-low-level-design-v1.md)，最新范围已按管理员口径对齐、尚未实现。拟新增独立人工历史入口处理 25 只非舍入历史因子变化及其下游，保留纯精度历史值，不继续原 601198.SH 的 451 日修复；本文普通自动 repair 禁止人工股票池的合同保持不变。专项不重跑 P8，不删除历史文件/事件，不增加 ordinary 公式 check，也不添加日常历史对账或 reports 依赖。
+
 ## 1. Summary
 
 本 LLD 细化 `gold_stock_daily_qfq` 的代码级落地方案。目标是在 gold 层新增一个基于 `silver_stock_daily` 与 `silver_adj_factor` 生成的股票日线前复权行情资产，供后续 MA250、日线指标、研究报告和其它下游消费。

@@ -1,5 +1,14 @@
 # DG 股票周线：Prod 存量保留与备用源 Raw 补齐方案 v1
 
+> 最新口径（2026-10-12）：本轮完成文档对齐和只读审计，尚未实施精度校验修正或写入本轮修复数据。Prod 原冻结批 `850840bf-94c1-4081-ba44-f0d5385474ab` 已完成 523/876 周，最近 TaskRun 15471 失败；剩余 353 周为 2020-01-10—2026-10-09。仅精度变化保留旧因子，周线照收源 21 字段；不能用舍入解释的因子变化另做有限修复。下面较早的状态和严格算价验收作为历史记录，不覆盖最新设计。
+
+精度诊断与有限修复按 [Prod LLD §13.17](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-factor-precision-policy-20261012) 和 [历史因子修正方案](dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012) 执行。复权周线 Raw 的 Prod 接收与 DG 自主 QFQ 重算属于两条不同的链。
+
+DG 自主 QFQ 修复范围明确包括七频 MACD/KDJ 结果及每日 state、四频分钟九转和日线趋势/九转，详见[专项方案 §3.1](dagster-stock-adj-factor-history-repair-plan-v1.md)及[LLD §14 审计](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#indicator-repair-audit-20261012)。指标使用修正价格候选重算到各自既有末端；795,340 根价格库存不是指标计算量。该链与本文件的源周线 Raw 接收独立。
+
+
+历史执行状态（2026-10-12午前，最新状态见文首）：P3/D3源码及LLD已提交`a3c2c750`，Prod全市场首批15447源调用失败后恢复为15450，主动取消验收通过；15451原批续跑至492/876周后于12:12再次源调用失败，首批未闭合。DG年度覆盖前只读预检通过；尚无真实B0，未开始全量捕获、候选、正式提升、事件或cursor迁移。实际范围和结果见[DG LLD A18](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-formal-preflight-20261012)；下文较早的开发状态保留为历史记录。
+
 <a id="adjusted-weekly-prod-refresh"></a>
 
 ## 2026-10-10 新增阶段：复权周线统一接收 Prod（开发推进中）
@@ -486,3 +495,11 @@ M10.E事件入口/验收已提交ee325688、未推送。本轮M10.F只读核验�
 ## 2026-10-07纠偏完成
 
 已按管理员口径完成代码、全部消费者与测试纠偏：bootstrap完整对账一次后结束；日常只处理本次新增周期，正式检查/调度不读历史证明、不复查历史基线。删除1493个中间数据文件（含377个已跟踪文件），仅保留人工最终缺口记录和文字结论。494项定向及113项受保护静态门禁通过，清理后8个正式分区只读核验ready；无正式数据/事件/配置写入。具体映射及验证见两份LLD末节和[清理记录](../../../reports/stock_period_reports_cleanup_20261003.md#2026-10-07运行依赖纠偏及清理)。本轮修改随本次提交入库、未推送，正式服务尚未加载修复；后续真实取消/续跑和调度启用待条件及原阶段批准。
+
+## 2026-10-12 与历史因子修正专项对齐
+
+本阶段继续接收 Prod 原始 21 列复权周线，不拿 DG 或 Prod 日线因子改写周线，不将“用 Prod 因子计算并对比源价”不相等解释成 DG 行情接收失败。真实目标基准、source payload、键和值交付等门禁由 Prod 负责；DG 保留原交接头/payload/hash/范围及文件检查，不复制精度门禁。
+
+历史因子专项只修不能用精度解释的 25 只/2,489 因子键，日线和分钟线按现有公式局部重算，指标/state 按影响向后重放。两边确切范围和数据核验见[专项方案 §2](dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012)。取消原 side 文档对 601198.SH 的 451 日纯精度修复，不把 Prod 已做该股或 000668.SZ 维护作为 DG 必须同步的指令。
+
+Prod 原批完成、独立补刷并产生真实 B0 后才做本资产全量年度覆盖；当前 DG 库存 5,624 只/2,902,386 行，最终按 B0 的 Prod 输入全量接收，并保留 DG 独有键。DG 因子/QFQ 候选规划可以独立推进，不等待 B0；正式因子修复与周线覆盖各有独占写者核验，不能借一个专项授权写另一个。文件→一次完整对账→事件→水位顺序保持，不新增 reports 或日常历史对账依赖。详见 LLD A19。
