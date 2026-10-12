@@ -207,6 +207,7 @@ CONSUMER_SOURCE_FILES = (
     'defs/bootstrap/stock_weekly_events.py',
     'defs/bootstrap/stock_weekly_events_cli.py',
     'defs/bootstrap/stock_weekly_history.py',
+    'defs/bootstrap/stock_weekly_adj_bootstrap.py',
     'defs/bootstrap/stock_weekly_history_cli.py',
     'defs/prod_db/daily_basic.py',
     'defs/prod_db/stock_weekly.py',
