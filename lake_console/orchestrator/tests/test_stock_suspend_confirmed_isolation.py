@@ -24,6 +24,7 @@ import json
 import os
 import socket
 import stat
+import sys
 from contextlib import ExitStack, contextmanager, redirect_stdout
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -99,6 +100,10 @@ def test_runner_child_exit(variant):
         assert popen.call_args.kwargs["start_new_session"] is True
         assert killpg.call_count == (0 if variant in ("normal_eof", "nonzero_exit") else 1)
     report = json.loads((root / "allowed/resource-result.json").read_text())
+    runtime_root = report["runtime_environment"]["root"]
+    assert f'(subpath {json.dumps(runtime_root)})' in report["policy"]
+    assert f'(subpath {json.dumps(str(runner.PROJECT / "venv.bak"))})' not in report["policy"]
+    assert '(deny file-read* file-write* network*)' in report["policy"]
     assert report["passed"] is (variant == "normal_eof")
     if variant == "exit_timeout":
         assert calls[:2] == ["wait", "kill"]
@@ -114,6 +119,81 @@ def test_runner_child_exit(variant):
     elif variant in ("normal_eof", "nonzero_exit"):
         assert calls[0] == "wait"
         assert report["exit_code"] == (0 if variant == "normal_eof" else 2)
+
+
+@pytest.mark.parametrize("variant", (
+    "regular", "symlink", "missing", "file", "outside", "backup_symlink",
+    "missing_config", "wrong_config", "config_symlink", "changed_target",
+))
+def test_runner_environment_path(variant, monkeypatch):
+    runner_path = Path(__file__).with_name("stock_suspend_confirmed_test_runner.py")
+    spec = importlib.util.spec_from_file_location("confirmed_runner_runtime_test", runner_path)
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    project = ALLOWED / f"runtime-{variant}"
+    project.mkdir()
+    monkeypatch.setattr(runner, "PROJECT", project)
+    entry = project / ".venv"
+
+    def environment(path):
+        (path / "bin").mkdir(parents=True)
+        (path / "bin/python").symlink_to(sys.executable)
+        (path / "pyvenv.cfg").write_text(
+            "prompt = orchestrator\ninclude-system-site-packages = false\n"
+        )
+        return path
+
+    if variant == "missing":
+        with pytest.raises(RuntimeError, match="runtime_environment_missing"):
+            runner.runtime_environment_identity()
+        return
+    if variant == "file":
+        entry.write_text("not an environment")
+        with pytest.raises(RuntimeError, match="runtime_environment_not_directory"):
+            runner.runtime_environment_identity()
+        return
+    if variant == "regular":
+        actual = environment(entry)
+    elif variant == "outside":
+        actual = environment(project / "unmanaged")
+        entry.symlink_to(actual, target_is_directory=True)
+    elif variant == "backup_symlink":
+        backup = project / "unmanaged"
+        backup.mkdir()
+        (project / "venv.bak").symlink_to(backup, target_is_directory=True)
+        actual = environment(backup / "current")
+        entry.symlink_to(project / "venv.bak/current", target_is_directory=True)
+    else:
+        actual = environment(project / "venv.bak/current")
+        entry.symlink_to(actual, target_is_directory=True)
+    config = actual / "pyvenv.cfg"
+    if variant in ("outside", "backup_symlink"):
+        with pytest.raises(RuntimeError, match="runtime_environment_outside_managed_directory"):
+            runner.runtime_environment_identity()
+        return
+    if variant == "missing_config":
+        config.unlink()
+    elif variant == "wrong_config":
+        config.write_text("prompt = other\ninclude-system-site-packages = false\n")
+    elif variant == "config_symlink":
+        saved = actual / "config.txt"
+        config.rename(saved)
+        config.symlink_to(saved)
+    if variant in ("missing_config", "config_symlink", "wrong_config"):
+        reason = "wrong_identity" if variant == "wrong_config" else "invalid_config"
+        with pytest.raises(RuntimeError, match="runtime_environment_" + reason):
+            runner.runtime_environment_identity()
+        return
+    identity = runner.runtime_environment_identity()
+    assert identity["root"] == str(actual)
+    if variant == "changed_target":
+        replacement = environment(project / "venv.bak/replacement")
+        entry.unlink()
+        entry.symlink_to(replacement, target_is_directory=True)
+        with pytest.raises(RuntimeError, match="runtime_environment_changed"):
+            runner.verify_runtime_environment_identity(identity)
+    else:
+        runner.verify_runtime_environment_identity(identity)
 
 
 def test_i03_actual_resource_root():

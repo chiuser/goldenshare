@@ -60,6 +60,13 @@ RESOURCE_SOURCE_FILES = (
     "defs/run_contracts/major_index_mins_technical.py",
     "defs/run_contracts/major_index_nineturn.py", "defs/run_contracts/qfq_nineturn.py",
     "defs/run_contracts/stk_mins.py", "defs/run_contracts/stock_weekly.py",
+    # paths.py imports this contract and its exact schema dependencies.
+    "defs/run_contracts/moneyflow.py",
+    "defs/run_contracts/asset_column_schemas.py", "defs/run_contracts/column_schema.py",
+    "defs/run_contracts/stock_monthly.py",
+    "defs/anns_d_contract.py", "defs/run_contracts/dc_board.py",
+    "defs/run_contracts/requests.py", "defs/run_contracts/run_keys.py",
+    "defs/run_contracts/stock_weekly_adj_delivery.py",
     "defs/run_contracts/configs.py",
     "defs/run_contracts/cn_a_derived_minute_bars.py",
     "seeds/__init__.py", "seeds/market/__init__.py", "seeds/market/major_indices.py",
@@ -910,6 +917,7 @@ REGRESSION_SUITES = {
     **dict.fromkeys(CONSUMER_SUITES),
     "test_stock_suspend_confirmed_isolation.py": (
         ("G-runner-exit", 6, ("test_runner_child_exit",)),
+        ("G-runtime-path", 10, ("test_runner_environment_path",)),
     ),
     "root-guard": (("G-retirement", 13, (
         "test_retired_console_has_no_versioned_or_new_source_files",
@@ -1030,6 +1038,41 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def runtime_environment_identity() -> dict:
+    """Resolve only the current project environment, without trusting arbitrary links."""
+    entry = PROJECT / ".venv"
+    try:
+        actual = entry.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise RuntimeError("runtime_environment_missing") from error
+    if not actual.is_dir():
+        raise RuntimeError("runtime_environment_not_directory")
+    if entry.is_symlink():
+        managed = PROJECT / "venv.bak"
+        if managed.is_symlink() or actual.parent != managed:
+            raise RuntimeError("runtime_environment_outside_managed_directory")
+    elif actual != entry:
+        raise RuntimeError("runtime_environment_unexpected_resolution")
+    config = actual / "pyvenv.cfg"
+    if config.is_symlink() or not config.is_file() or config.stat().st_size > 65536:
+        raise RuntimeError("runtime_environment_invalid_config")
+    fields = dict(line.split("=", 1) for line in config.read_text().splitlines() if "=" in line)
+    fields = {key.strip(): value.strip() for key, value in fields.items()}
+    if fields.get("prompt") != "orchestrator" or fields.get("include-system-site-packages") != "false":
+        raise RuntimeError("runtime_environment_wrong_identity")
+    python = actual / "bin/python"
+    if not python.is_file() or python.resolve(strict=True) != Path(sys.executable).resolve(strict=True):
+        raise RuntimeError("runtime_environment_wrong_interpreter")
+    info = actual.stat()
+    return {"root": str(actual), "device": info.st_dev, "inode": info.st_ino,
+            "config_sha256": digest(config), "python": str(python.resolve(strict=True))}
+
+
+def verify_runtime_environment_identity(expected: dict) -> None:
+    if runtime_environment_identity() != expected:
+        raise RuntimeError("runtime_environment_changed")
+
+
 def policy_for(root: Path, *, scope: str = "isolation") -> str:
     """Allow exact source files and import directory objects, never repo subtrees."""
     package_init = PROJECT / "tests/__init__.py"
@@ -1095,7 +1138,16 @@ def policy_for(root: Path, *, scope: str = "isolation") -> str:
         metadata_only = "(allow file-read-metadata\n" + "\n".join(
             f"  (literal {json.dumps(str(path))})" for path in metadata_paths
         ) + ")\n"
-    # The first block preserves the approved I01/I02 runtime/device permissions.
+    runtime = runtime_environment_identity()
+    runtime_root = runtime["root"]
+    runtime_ancestors = (
+        set(PROJECT.parents) | set(Path(sys.executable).absolute().parents)
+        | set(Path(runtime["python"]).parents)
+    )
+    runtime_metadata = "\n".join(
+        f"  (literal {json.dumps(str(path))})" for path in sorted(runtime_ancestors)
+    )
+    # Preserve I01/I02 permissions; permit only the validated current environment.
     return f'''(version 1)
 (allow default)
 (deny file-read* file-write* network*)
@@ -1103,7 +1155,8 @@ def policy_for(root: Path, *, scope: str = "isolation") -> str:
   (subpath "/System/Library") (subpath "/usr/lib") (subpath "/usr/share")
   (subpath "/Users/congming/miniconda3/bin")
   (subpath "/Users/congming/miniconda3/lib")
-  (subpath "{PROJECT}/.venv")
+  (subpath {json.dumps(runtime_root)})
+  (literal {json.dumps(str(PROJECT / '.venv'))})
   (literal "/dev/null") (literal "/dev/urandom") (literal "/"))
 (allow file-write-data (literal "/dev/null"))
 (allow file-read* file-write* (subpath "{root}/allowed"))
@@ -1113,6 +1166,9 @@ def policy_for(root: Path, *, scope: str = "isolation") -> str:
 (allow file-read*
 {literals})
 (allow file-read-metadata (literal "{PROJECT}/__init__.py"))
+(allow file-read-metadata (literal {json.dumps(str(PROJECT / 'venv.bak'))}))
+(allow file-read-metadata
+{runtime_metadata})
 {metadata_only}
 '''
 
@@ -1195,6 +1251,7 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     network_targets = {kind: listener.getsockname() for kind, listener in listeners.items()}
     network_before = verify_parent_network_endpoints(listeners)
     (denied / "sentinel.txt").write_text("synthetic denied resource fixture\n")
+    runtime_identity = runtime_environment_identity()
     policy = allowed / "capability.sb"
     policy.write_text(policy_for(root, scope=scope))
     bootstrap = allowed / "bootstrap.py"
@@ -1231,7 +1288,8 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     argv = [
         "/opt/homebrew/bin/uv", "run", "--offline", "--no-sync", "--no-env-file",
         "--no-config", "--no-python-downloads", "--cache-dir", str(allowed / "uv-cache"),
-        "/usr/bin/sandbox-exec", "-f", str(selected_policy), str(PROJECT / ".venv/bin/python"),
+        "/usr/bin/sandbox-exec", "-f", str(selected_policy),
+        str(Path(runtime_identity["root"]) / "bin/python"),
         "-I", "-B", str(bootstrap),
     ]
     env = {"PATH": "/opt/homebrew/bin:/usr/bin:/bin", "LANG": "en_US.UTF-8",
@@ -1246,6 +1304,7 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
         "network_targets": network_targets, "network_before": network_before,
         "root": str(root), "cwd": str(PROJECT), "argv": argv, "env_keys": sorted(env),
         "policy_sha256": digest(policy), "policy": policy.read_text(),
+        "runtime_environment": runtime_identity,
         "selected_policy": str(selected_policy),
         "selected_policy_text": selected_policy.read_text() if selected_policy.exists() else None,
         "test_source_sha256": {str(p): digest(p) for p in (Path(__file__), SUPPORT, TEST, test_file)},
@@ -1256,6 +1315,7 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     report_path = allowed / "resource-result.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"starting": True, **report}), flush=True)
+    verify_runtime_environment_identity(runtime_identity)
     process = subprocess.Popen(argv, cwd=PROJECT, env=env, stdin=subprocess.DEVNULL,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                close_fds=True, start_new_session=True)
