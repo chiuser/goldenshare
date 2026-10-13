@@ -293,7 +293,8 @@
     "normal_runtime_checks": "passed",
     "real_automatic_recovery_chain": "pending_natural_failure",
     "natural_failure_sample_run_id": null,
-    "new_execution_this_document_update": false
+    "new_execution_this_document_update": false,
+    "normal_first_automatic_run_20261012": "passed"
   },
   "minimal_verification": {
     "scope": "one naturally failing Raw job and one partition, first failure to second automatic run",
@@ -546,5 +547,498 @@
       }
     }
   },
-  "documentation_update_basis": "administrator approved minimal passive natural-failure verification; documentation and existing evidence only"
+  "documentation_update_basis": "administrator approved minimal passive natural-failure verification; documentation and existing evidence only",
+  "normal_first_run_followups": [
+    {
+      "trade_date": "2026-10-12",
+      "observed_at": "2026-10-13T09:05:33.247121+08:00",
+      "normal_first_automatic_run": "passed",
+      "natural_failure_count": 0,
+      "automatic_partition_recovery_run_count": 0,
+      "request_retry_count": 0,
+      "cooldown_verification": "not_observed_no_failed_run",
+      "attempt2_identity_verification": "not_observed_no_second_run",
+      "real_automatic_recovery_chain": "pending_natural_failure",
+      "evidence": {
+        "audit_kind": "dc_natural_failure_minimal_readonly",
+        "trade_date": "2026-10-12",
+        "generated_at": "2026-10-13T09:05:33.247121+08:00",
+        "instance_home": "/Users/congming/.goldenshare/dagster_home",
+        "jobs": {
+          "raw_tushare_dc_index_update_job": {
+            "records": [
+              {
+                "run_id": "545548dd-a6f1-474d-b5a8-1a1661474983",
+                "status": "SUCCESS",
+                "create_timestamp_utc": "2026-10-12 13:33:38.510870",
+                "start_time": 1791812023.092571,
+                "end_time": 1791812029.832275,
+                "partition": "2026-10-12",
+                "sensor_name": "raw_tushare_dc_index_update_job_sensor",
+                "run_key": "raw_tushare_dc_index_update:2026-10-12",
+                "recovery_identity": {
+                  "automatic_attempt": 1,
+                  "policy_version": "dc_board_recovery_v1",
+                  "source_failure_run_id": null
+                },
+                "config_outer_source_proof_present": true,
+                "parent_run_id": null,
+                "root_run_id": null,
+                "remote_job_origin": "RemoteJobOrigin(repository_origin=RemoteRepositoryOrigin(code_location_origin=GrpcServerCodeLocationOrigin(host='localhost', port=None, socket='/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp536gmh_4', location_name='orchestrator', use_ssl=None, additional_metadata={'module_name': 'orchestrator.definitions', 'working_directory': '/Users/congming/github/goldenshare/lake_console/orchestrator/src'}), repository_name='__repository__'), job_name='raw_tushare_dc_index_update_job')",
+                "failure_events": [],
+                "native_key_matches_identity": true,
+                "observed_event_limit": 21,
+                "observed_events_truncated": false,
+                "step_failure_event_count": 0,
+                "materialization_metadata": [
+                  {
+                    "asset_key": "raw_tushare_dc_index",
+                    "metadata": {
+                      "dagster/uri": "/Volumes/datasource/data_lake/raw/board/dc_index/trade_date=2026-10-12/part-000.parquet",
+                      "dagster/row_count": 1033,
+                      "goldenshare/observed_columns": [
+                        "ts_code",
+                        "trade_date",
+                        "name",
+                        "leading",
+                        "leading_code",
+                        "pct_change",
+                        "leading_pct",
+                        "total_mv",
+                        "turnover_rate",
+                        "up_num",
+                        "down_num",
+                        "idx_type",
+                        "level"
+                      ],
+                      "goldenshare/partition_key": "2026-10-12",
+                      "goldenshare/source_method": "tushare_api",
+                      "goldenshare/source_closure_status": "validated_before_promote",
+                      "goldenshare/target_path": "/Volumes/datasource/data_lake/raw/board/dc_index/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/source_row_count": 1033,
+                      "goldenshare/written_row_count": 1033,
+                      "goldenshare/duplicate_key_count": 0,
+                      "goldenshare/invalid_code_count": 0,
+                      "goldenshare/out_of_partition_count": 0,
+                      "goldenshare/request_count": 4,
+                      "goldenshare/page_count": 4,
+                      "goldenshare/retry_count": 0,
+                      "goldenshare/elapsed_ms": 1176.005,
+                      "goldenshare/failed_code_count": 0,
+                      "goldenshare/empty_code_count": 0,
+                      "goldenshare/failed_codes": [],
+                      "goldenshare/empty_codes": [],
+                      "goldenshare/chunk_count": 0,
+                      "goldenshare/prod_completion_fingerprint": "d8c24c3b90882a26dda5af7331c3eaf0e97c103253b01b3568441d6b8400491a",
+                      "goldenshare/prod_completion_observed_at": "2026-10-12T13:33:37.701368+00:00",
+                      "goldenshare/tushare_source_fingerprint": "2f95045877b78b245b9966c56334cab45b0536908f3a1449d06df475fd0aaf96",
+                      "goldenshare/tushare_source_observed_at": "2026-10-12T13:33:38.248446+00:00",
+                      "goldenshare/prod_index_missing_identity_count": 0,
+                      "goldenshare/prod_index_extra_identity_count": 0,
+                      "goldenshare/prod_daily_missing_identity_count": 0,
+                      "goldenshare/prod_daily_extra_identity_count": 0,
+                      "goldenshare/dc_index_placeholder_row_count": 0
+                    }
+                  }
+                ],
+                "asset_checks": [
+                  {
+                    "asset_key": "raw_tushare_dc_index",
+                    "check_name": "raw_tushare_dc_index_core_check",
+                    "passed": true
+                  }
+                ]
+              }
+            ],
+            "truncated": false,
+            "read_limit": 21
+          },
+          "raw_tushare_dc_member_update_job": {
+            "records": [
+              {
+                "run_id": "0eeaa878-00c0-414b-900d-ac647b25c09e",
+                "status": "SUCCESS",
+                "create_timestamp_utc": "2026-10-12 13:35:30.298892",
+                "start_time": 1791812135.749765,
+                "end_time": 1791812315.043226,
+                "partition": "2026-10-12",
+                "sensor_name": "raw_tushare_dc_member_update_job_sensor",
+                "run_key": "raw_tushare_dc_member_update:2026-10-12",
+                "recovery_identity": {
+                  "automatic_attempt": 1,
+                  "policy_version": "dc_board_recovery_v1",
+                  "source_failure_run_id": null
+                },
+                "config_outer_source_proof_present": true,
+                "parent_run_id": null,
+                "root_run_id": null,
+                "remote_job_origin": "RemoteJobOrigin(repository_origin=RemoteRepositoryOrigin(code_location_origin=GrpcServerCodeLocationOrigin(host='localhost', port=None, socket='/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp536gmh_4', location_name='orchestrator', use_ssl=None, additional_metadata={'module_name': 'orchestrator.definitions', 'working_directory': '/Users/congming/github/goldenshare/lake_console/orchestrator/src'}), repository_name='__repository__'), job_name='raw_tushare_dc_member_update_job')",
+                "failure_events": [],
+                "native_key_matches_identity": true,
+                "observed_event_limit": 21,
+                "observed_events_truncated": false,
+                "step_failure_event_count": 0,
+                "materialization_metadata": [
+                  {
+                    "asset_key": "raw_tushare_dc_member",
+                    "metadata": {
+                      "dagster/uri": "/Volumes/datasource/data_lake/raw/board/dc_member/trade_date=2026-10-12/part-000.parquet",
+                      "dagster/row_count": 94944,
+                      "goldenshare/observed_columns": [
+                        "trade_date",
+                        "ts_code",
+                        "con_code",
+                        "name"
+                      ],
+                      "goldenshare/partition_key": "2026-10-12",
+                      "goldenshare/source_method": "tushare_api_by_ts_code",
+                      "goldenshare/source_closure_status": "validated_before_promote",
+                      "goldenshare/target_path": "/Volumes/datasource/data_lake/raw/board/dc_member/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/source_row_count": 94944,
+                      "goldenshare/written_row_count": 94944,
+                      "goldenshare/duplicate_key_count": 0,
+                      "goldenshare/invalid_code_count": 0,
+                      "goldenshare/out_of_partition_count": 0,
+                      "goldenshare/request_count": 1041,
+                      "goldenshare/page_count": 1041,
+                      "goldenshare/retry_count": 0,
+                      "goldenshare/elapsed_ms": 173950.041,
+                      "goldenshare/failed_code_count": 0,
+                      "goldenshare/empty_code_count": 0,
+                      "goldenshare/failed_codes": [],
+                      "goldenshare/empty_codes": [],
+                      "goldenshare/chunk_count": 0,
+                      "goldenshare/prod_completion_fingerprint": "d8c24c3b90882a26dda5af7331c3eaf0e97c103253b01b3568441d6b8400491a",
+                      "goldenshare/prod_completion_observed_at": null,
+                      "goldenshare/tushare_source_fingerprint": "752c254de453bba0cd4af902d63dea7b55c0c9423d40066115000d93ce81dc66",
+                      "goldenshare/tushare_source_observed_at": null,
+                      "goldenshare/member_prod_missing_pair_count": 0,
+                      "goldenshare/member_prod_extra_pair_count": 0,
+                      "goldenshare/member_source_stability_code_count": 0,
+                      "goldenshare/member_source_stability_request_count": 0,
+                      "goldenshare/member_source_stability_page_count": 0,
+                      "goldenshare/member_source_stability_retry_count": 0,
+                      "goldenshare/member_final_prod_missing_pair_count": 0,
+                      "goldenshare/member_final_prod_extra_pair_count": 0
+                    }
+                  }
+                ],
+                "asset_checks": [
+                  {
+                    "asset_key": "raw_tushare_dc_member",
+                    "check_name": "raw_tushare_dc_member_core_check",
+                    "passed": true
+                  }
+                ]
+              }
+            ],
+            "truncated": false,
+            "read_limit": 21
+          },
+          "raw_tushare_dc_daily_update_job": {
+            "records": [
+              {
+                "run_id": "892c6b12-7eef-4e32-8d0a-3c4016ffa205",
+                "status": "SUCCESS",
+                "create_timestamp_utc": "2026-10-12 13:35:20.146161",
+                "start_time": 1791812125.617466,
+                "end_time": 1791812131.728691,
+                "partition": "2026-10-12",
+                "sensor_name": "raw_tushare_dc_daily_update_job_sensor",
+                "run_key": "raw_tushare_dc_daily_update:2026-10-12",
+                "recovery_identity": {
+                  "automatic_attempt": 1,
+                  "policy_version": "dc_board_recovery_v1",
+                  "source_failure_run_id": null
+                },
+                "config_outer_source_proof_present": true,
+                "parent_run_id": null,
+                "root_run_id": null,
+                "remote_job_origin": "RemoteJobOrigin(repository_origin=RemoteRepositoryOrigin(code_location_origin=GrpcServerCodeLocationOrigin(host='localhost', port=None, socket='/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp536gmh_4', location_name='orchestrator', use_ssl=None, additional_metadata={'module_name': 'orchestrator.definitions', 'working_directory': '/Users/congming/github/goldenshare/lake_console/orchestrator/src'}), repository_name='__repository__'), job_name='raw_tushare_dc_daily_update_job')",
+                "failure_events": [],
+                "native_key_matches_identity": true,
+                "observed_event_limit": 21,
+                "observed_events_truncated": false,
+                "step_failure_event_count": 0,
+                "materialization_metadata": [
+                  {
+                    "asset_key": "raw_tushare_dc_daily",
+                    "metadata": {
+                      "dagster/uri": "/Volumes/datasource/data_lake/raw/board/dc_daily/trade_date=2026-10-12/part-000.parquet",
+                      "dagster/row_count": 1033,
+                      "goldenshare/observed_columns": [
+                        "ts_code",
+                        "trade_date",
+                        "close",
+                        "open",
+                        "high",
+                        "low",
+                        "change",
+                        "pct_change",
+                        "vol",
+                        "amount",
+                        "swing",
+                        "turnover_rate",
+                        "category"
+                      ],
+                      "goldenshare/partition_key": "2026-10-12",
+                      "goldenshare/source_method": "tushare_api",
+                      "goldenshare/source_closure_status": "validated_before_promote",
+                      "goldenshare/target_path": "/Volumes/datasource/data_lake/raw/board/dc_daily/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/source_row_count": 1033,
+                      "goldenshare/written_row_count": 1033,
+                      "goldenshare/duplicate_key_count": 0,
+                      "goldenshare/invalid_code_count": 0,
+                      "goldenshare/out_of_partition_count": 0,
+                      "goldenshare/request_count": 4,
+                      "goldenshare/page_count": 4,
+                      "goldenshare/retry_count": 0,
+                      "goldenshare/elapsed_ms": 1173.678,
+                      "goldenshare/failed_code_count": 0,
+                      "goldenshare/empty_code_count": 0,
+                      "goldenshare/failed_codes": [],
+                      "goldenshare/empty_codes": [],
+                      "goldenshare/chunk_count": 0,
+                      "goldenshare/prod_completion_fingerprint": "d8c24c3b90882a26dda5af7331c3eaf0e97c103253b01b3568441d6b8400491a",
+                      "goldenshare/prod_completion_observed_at": "2026-10-12T13:35:19.365427+00:00",
+                      "goldenshare/tushare_source_fingerprint": "2f95045877b78b245b9966c56334cab45b0536908f3a1449d06df475fd0aaf96",
+                      "goldenshare/tushare_source_observed_at": "2026-10-12T13:35:19.939677+00:00",
+                      "goldenshare/prod_daily_missing_identity_count": 0,
+                      "goldenshare/prod_daily_extra_identity_count": 0
+                    }
+                  }
+                ],
+                "asset_checks": [
+                  {
+                    "asset_key": "raw_tushare_dc_daily",
+                    "check_name": "raw_tushare_dc_daily_core_check",
+                    "passed": true
+                  }
+                ]
+              }
+            ],
+            "truncated": false,
+            "read_limit": 21
+          },
+          "silver_dc_index_update_job": {
+            "records": [
+              {
+                "run_id": "c9440326-61ec-42bc-adbb-ae0b122d568a",
+                "status": "SUCCESS",
+                "create_timestamp_utc": "2026-10-12 13:35:58.713182",
+                "start_time": 1791812320.49462,
+                "end_time": 1791812325.383692,
+                "partition": "2026-10-12",
+                "sensor_name": "silver_dc_index_update_job_sensor",
+                "run_key": "silver_dc_index_update:2026-10-12",
+                "recovery_identity": null,
+                "config_outer_source_proof_present": false,
+                "parent_run_id": null,
+                "root_run_id": null,
+                "remote_job_origin": "RemoteJobOrigin(repository_origin=RemoteRepositoryOrigin(code_location_origin=GrpcServerCodeLocationOrigin(host='localhost', port=None, socket='/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp536gmh_4', location_name='orchestrator', use_ssl=None, additional_metadata={'module_name': 'orchestrator.definitions', 'working_directory': '/Users/congming/github/goldenshare/lake_console/orchestrator/src'}), repository_name='__repository__'), job_name='silver_dc_index_update_job')",
+                "failure_events": [],
+                "observed_event_limit": 21,
+                "observed_events_truncated": false,
+                "step_failure_event_count": 0,
+                "materialization_metadata": [
+                  {
+                    "asset_key": "silver_dc_index",
+                    "metadata": {
+                      "dagster/uri": "/Volumes/datasource/data_lake/silver/board/dc_index/trade_date=2026-10-12/part-000.parquet",
+                      "dagster/row_count": 1033,
+                      "goldenshare/observed_columns": [
+                        "ts_code",
+                        "trade_date",
+                        "name",
+                        "leading",
+                        "leading_code",
+                        "pct_change",
+                        "leading_pct",
+                        "total_mv",
+                        "turnover_rate",
+                        "up_num",
+                        "down_num",
+                        "idx_type",
+                        "level"
+                      ],
+                      "goldenshare/dataset": "dc_index",
+                      "goldenshare/partition_key": "2026-10-12",
+                      "goldenshare/source_asset": "raw_tushare_dc_index",
+                      "goldenshare/source_file_path": "/Volumes/datasource/data_lake/raw/board/dc_index/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/target_file_path": "/Volumes/datasource/data_lake/silver/board/dc_index/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/source_row_count": 1033,
+                      "goldenshare/output_row_count": 1033,
+                      "goldenshare/duplicate_removed_count": 0,
+                      "goldenshare/conflict_key_count": 0,
+                      "goldenshare/rejected_row_count": 0,
+                      "goldenshare/reject_reason_counts": {},
+                      "goldenshare/elapsed_ms": 11.219,
+                      "goldenshare/filtered_placeholder_row_count": 0,
+                      "goldenshare/write_mode": "duckdb_set_based_atomic_replace"
+                    }
+                  }
+                ],
+                "asset_checks": [
+                  {
+                    "asset_key": "silver_dc_index",
+                    "check_name": "silver_dc_index_core_check",
+                    "passed": true
+                  }
+                ]
+              }
+            ],
+            "truncated": false,
+            "read_limit": 21
+          },
+          "silver_dc_member_update_job": {
+            "records": [
+              {
+                "run_id": "db558eb7-d141-4922-889f-ba9051cbbb13",
+                "status": "SUCCESS",
+                "create_timestamp_utc": "2026-10-12 13:45:24.334134",
+                "start_time": 1791812731.840413,
+                "end_time": 1791812736.814167,
+                "partition": "2026-10-12",
+                "sensor_name": "silver_dc_member_update_job_sensor",
+                "run_key": "silver_dc_member_update:2026-10-12",
+                "recovery_identity": null,
+                "config_outer_source_proof_present": false,
+                "parent_run_id": null,
+                "root_run_id": null,
+                "remote_job_origin": "RemoteJobOrigin(repository_origin=RemoteRepositoryOrigin(code_location_origin=GrpcServerCodeLocationOrigin(host='localhost', port=None, socket='/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp536gmh_4', location_name='orchestrator', use_ssl=None, additional_metadata={'module_name': 'orchestrator.definitions', 'working_directory': '/Users/congming/github/goldenshare/lake_console/orchestrator/src'}), repository_name='__repository__'), job_name='silver_dc_member_update_job')",
+                "failure_events": [],
+                "observed_event_limit": 21,
+                "observed_events_truncated": false,
+                "step_failure_event_count": 0,
+                "materialization_metadata": [
+                  {
+                    "asset_key": "silver_dc_member",
+                    "metadata": {
+                      "dagster/uri": "/Volumes/datasource/data_lake/silver/board/dc_member/trade_date=2026-10-12/part-000.parquet",
+                      "dagster/row_count": 94944,
+                      "goldenshare/observed_columns": [
+                        "trade_date",
+                        "ts_code",
+                        "con_code",
+                        "name"
+                      ],
+                      "goldenshare/dataset": "dc_member",
+                      "goldenshare/partition_key": "2026-10-12",
+                      "goldenshare/source_asset": "raw_tushare_dc_member",
+                      "goldenshare/source_file_path": "/Volumes/datasource/data_lake/raw/board/dc_member/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/target_file_path": "/Volumes/datasource/data_lake/silver/board/dc_member/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/source_row_count": 94944,
+                      "goldenshare/output_row_count": 94944,
+                      "goldenshare/duplicate_removed_count": 0,
+                      "goldenshare/conflict_key_count": 0,
+                      "goldenshare/rejected_row_count": 0,
+                      "goldenshare/reject_reason_counts": {},
+                      "goldenshare/elapsed_ms": 45.268,
+                      "goldenshare/filtered_placeholder_row_count": 0,
+                      "goldenshare/write_mode": "duckdb_set_based_atomic_replace"
+                    }
+                  }
+                ],
+                "asset_checks": [
+                  {
+                    "asset_key": "silver_dc_member",
+                    "check_name": "silver_dc_member_core_check",
+                    "passed": true
+                  }
+                ]
+              }
+            ],
+            "truncated": false,
+            "read_limit": 21
+          },
+          "silver_dc_daily_update_job": {
+            "records": [
+              {
+                "run_id": "c5b7d7c2-3ebf-4fce-bf5a-57e2e175ed65",
+                "status": "SUCCESS",
+                "create_timestamp_utc": "2026-10-12 13:44:26.069251",
+                "start_time": 1791812670.58292,
+                "end_time": 1791812675.289274,
+                "partition": "2026-10-12",
+                "sensor_name": "silver_dc_daily_update_job_sensor",
+                "run_key": "silver_dc_daily_update:2026-10-12",
+                "recovery_identity": null,
+                "config_outer_source_proof_present": false,
+                "parent_run_id": null,
+                "root_run_id": null,
+                "remote_job_origin": "RemoteJobOrigin(repository_origin=RemoteRepositoryOrigin(code_location_origin=GrpcServerCodeLocationOrigin(host='localhost', port=None, socket='/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp536gmh_4', location_name='orchestrator', use_ssl=None, additional_metadata={'module_name': 'orchestrator.definitions', 'working_directory': '/Users/congming/github/goldenshare/lake_console/orchestrator/src'}), repository_name='__repository__'), job_name='silver_dc_daily_update_job')",
+                "failure_events": [],
+                "observed_event_limit": 21,
+                "observed_events_truncated": false,
+                "step_failure_event_count": 0,
+                "materialization_metadata": [
+                  {
+                    "asset_key": "silver_dc_daily",
+                    "metadata": {
+                      "dagster/uri": "/Volumes/datasource/data_lake/silver/board/dc_daily/trade_date=2026-10-12/part-000.parquet",
+                      "dagster/row_count": 1033,
+                      "goldenshare/observed_columns": [
+                        "ts_code",
+                        "trade_date",
+                        "close",
+                        "open",
+                        "high",
+                        "low",
+                        "change",
+                        "pct_change",
+                        "vol",
+                        "amount",
+                        "swing",
+                        "turnover_rate",
+                        "category"
+                      ],
+                      "goldenshare/dataset": "dc_daily",
+                      "goldenshare/partition_key": "2026-10-12",
+                      "goldenshare/source_asset": "raw_tushare_dc_daily",
+                      "goldenshare/source_file_path": "/Volumes/datasource/data_lake/raw/board/dc_daily/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/target_file_path": "/Volumes/datasource/data_lake/silver/board/dc_daily/trade_date=2026-10-12/part-000.parquet",
+                      "goldenshare/source_row_count": 1033,
+                      "goldenshare/output_row_count": 1033,
+                      "goldenshare/duplicate_removed_count": 0,
+                      "goldenshare/conflict_key_count": 0,
+                      "goldenshare/rejected_row_count": 0,
+                      "goldenshare/reject_reason_counts": {},
+                      "goldenshare/elapsed_ms": 10.778,
+                      "goldenshare/filtered_placeholder_row_count": 0,
+                      "goldenshare/write_mode": "duckdb_set_based_atomic_replace"
+                    }
+                  }
+                ],
+                "asset_checks": [
+                  {
+                    "asset_key": "silver_dc_daily",
+                    "check_name": "silver_dc_daily_core_check",
+                    "passed": true
+                  }
+                ]
+              }
+            ],
+            "truncated": false,
+            "read_limit": 21
+          }
+        },
+        "dagster_version": "1.13.26",
+        "safety": {
+          "formal_writes": false,
+          "dagster_instance_constructed": false,
+          "recovery_or_sensor_evaluation_triggered": false,
+          "code_modified": false
+        },
+        "transaction_read_only": "on",
+        "summary": {
+          "raw_run_count": 3,
+          "raw_failure_count": 0,
+          "raw_automatic_recovery_run_count": 0,
+          "record_history_truncated": false
+        },
+        "verdict": "normal_first_automatic_runs_passed; no_natural_run_failure_or_partition_recovery; cooldown_and_attempt2_not_applicable_pending_natural_failure"
+      }
+    }
+  ],
+  "followup_documentation_basis": "Administrator requested archiving the existing Oct12 readonly result; no additional runtime queries, jobs or code changes performed."
 }
