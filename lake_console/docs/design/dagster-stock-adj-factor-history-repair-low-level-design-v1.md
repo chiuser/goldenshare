@@ -55,7 +55,7 @@ tests/bootstrap/test_stock_adj_factor_history_repair.py
 tests/bootstrap/test_stock_adj_factor_history_repair_candidates.py
 ```
 
-合同数据类和编排放第一个模块；候选适配、合并和本次审计放第二个；CLI 只解析输入与调用。不要新增通用修复框架、asset/job/sensor、业务表或永久checkpoint服务。§19.3另列唯一手动检查登记job的待确认例外；确认前保留本节原限制，不先实现。测试路径实施时按现行测试目录校准。
+合同数据类和编排放第一个模块；候选适配、合并和本次审计放第二个；CLI 只解析输入与调用。不要新增通用修复框架、asset/sensor、业务表或永久checkpoint服务。job仅允许§19.3管理员已确认的一个手动检查补录入口，不新增其他job或自动调度；该入口只登记已验收检查，不执行asset、不计算行情、不写Lake。测试路径实施时按现行测试目录校准。
 
 | 当前实现 | 复用方式和限制 |
 | --- | --- |
@@ -830,11 +830,11 @@ S4小样本：2009-01-05物化7473870/run `8475db4f-641a-4361-bb72-254bbbdf4caa`
 
 10月13日价格日更run `0990c73b-aa1f-42ca-beaf-505600b569ad`于19:40:11 +08成功，因子repair run `b90e787f-5930-4707-b238-782b1221077b`于19:48:03 +08成功。只读时run-status sensor cursor已经过前者SUCCESS storage id 7560542，尚未经过后者7579933，约有567条SUCCESS记录待过滤；sensor正常推进且无失败。当前storage的job-name过滤能力为false，本地Dagster 1.13.26默认每次fetch 25条、处理5条，全局无关SUCCESS也参与翻页。此前4,267个检查任务会拖慢该处理。该观察解释分钟指标末端落后，不授权跳cursor、加大全局环境参数、更换storage、升级依赖或手工重算新的13日覆盖。
 
-### 19.3 事件入口设计（边界变更待确认）
+### 19.3 事件入口设计（单一手动job例外已确认，待实现）
 
-**原限制与提案分开。** §2原来禁止新增job；现有`gold_stock_daily_qfq_check_refresh_job`和`gold_stk_mins_qfq_macd_kdj_check_refresh_job`只覆盖部分资产。`silver_adj_factor_rebuild_check_job`证明check-only subset可零asset执行，但逐日真实run的成本已测得约51分钟。使用分钟价格日更或MACD日更job的名字执行check-only subset，其SUCCESS仍会进入现有run-status消费者；即使暂停sensor，恢复后记录依然存在。因此不能借普通更新job的成功记录补录本次历史检查。
+**边界确认（2026-10-13）。** 管理员已同意增加一个手动检查补录任务，§2据此只开放这个例外。原来禁止新增job；现有`gold_stock_daily_qfq_check_refresh_job`和`gold_stk_mins_qfq_macd_kdj_check_refresh_job`只覆盖部分资产。`silver_adj_factor_rebuild_check_job`证明check-only subset可零asset执行，但逐日真实run的成本已测得约51分钟。使用分钟价格日更或MACD日更job的名字执行check-only subset，其SUCCESS仍会进入现有run-status消费者；即使暂停sensor，恢复后记录依然存在。因此不能借普通更新job的成功记录补录本次历史检查。
 
-当前提案是仅增加一个手动`stock_adj_factor_history_repair_check_events_job`，不增加asset、check身份、自动job、sensor或永久状态实体，不改变普通job/config。**管理员确认前本小节是设计提案，不是已批准的§2例外；若不批准，保留原限制，R5不执行未覆盖资产的检查补录。** 它沿用已实现的周线`report_stock_weekly_bootstrap_checks`/`apply_weekly_events`模式，在真实`OpExecutionContext`中登记同批多个分区检查；不得复用周线B0专用配置/身份或创建伪造run。
+已确认的设计仅增加一个手动`stock_adj_factor_history_repair_check_events_job`，每批登记多个已验收分区的检查并绑定本次物化；不执行asset、不计算行情、不写Lake、不自动调度。不增加asset、check身份、自动job、sensor或永久状态实体，不改变普通job/config。**本确认只解除§2的入口设计限制，不表示实现、隔离性能或正式事件执行已完成；本轮仍只改文档，R5继续按既定门禁验收并取得正式执行授权。** 它沿用已实现的周线`report_stock_weekly_bootstrap_checks`/`apply_weekly_events`模式，在真实`OpExecutionContext`中登记同批多个分区检查；不得复用周线B0专用配置/身份或创建伪造run。
 
 拟职责放在本专项现有bootstrap模块，新增job/ops/typed run config仅承载这个手动检查阶段，按现行目录装配；冻结计划是唯一范围来源，默认无schedule/sensor触发。CLI只顺序执行已批准批次，记录每批真实run ID和结果，未完成批次才续跑。逐分区数据检查先由共享纯校验核按资产/频率/月聚合完成，登记任务不重复计算行情或扫描整段历史。
 
@@ -887,4 +887,4 @@ S4小样本：2009-01-05物化7473870/run `8475db4f-641a-4361-bb72-254bbbdf4caa`
 
 CodeGraph explore用于周线真实检查补录调用链，结合当前源码核对因子check-only subset、七频价格/指标及日线/九转job、run-status消费者。发现并纠正：文首仍写Silver文件未迁移、基础实现全部不存在；统一10月12日末端；旧688689“不重写日指标”；扩展前文件/事件数量仍被当作当前预算；事件登记没有真实任务/消费者和资源验收设计。历史证据保留并标明适用日期，不把文档审计或只读通过称作正式修复完成。
 
-下一步先完成完整R0冻结与R1/R2各资产候选适配，再做R3隔离资源/恢复验收，完整候选通过后才执行获准R4。事件入口的§2例外须确认，隔离唯一性/绑定/性能通过后才能部署和申请R5；现有Silver规则、Prod、普通job/sensor合同、API、schema和子系统依赖矩阵均不变。技术设计只有必要的一次性手动入口，不增加全市场因子同步、退市补因子、新指标覆盖、自动历史扫描或永久审计表。
+下一步先完成完整R0冻结与R1/R2各资产候选适配，再做R3隔离资源/恢复验收，完整候选通过后才执行获准R4。事件入口的§2单一手动job例外已确认，后续仍须隔离唯一性/绑定/性能通过后才能部署和申请R5；现有Silver规则、Prod、普通job/sensor合同、API、schema和子系统依赖矩阵均不变。技术设计只有必要的一次性手动入口，不增加全市场因子同步、退市补因子、新指标覆盖、自动历史扫描或永久审计表。
