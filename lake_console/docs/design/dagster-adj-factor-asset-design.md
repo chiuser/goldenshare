@@ -1,12 +1,14 @@
 # Dagster Adj Factor 资产设计
 
-> M5 清退边界（2026-09-05）：§2 的迁移和事件数字、§12 的 A2/A5/A6 阶段只作历史记录；M4 已删除旧迁移适配器。现行 Raw/Silver schema、生命周期、日常 job/sensor/readiness 保留，不按旧 spec 再次初始化。
+> 2026-10-13 最新决定：本次只调整 DG 复权因子。Raw 保留源全集，包括退市股票及退市日后的源记录；Silver 只保留当前上市的 CNY 股票，已退市股票的历史因子也排除。Prod 保持现状。下文规范条款已按此决定更新，当前代码和正式文件尚未迁移；实施顺序、文件范围与验收见 §14 和[修复 LLD §18](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-current-listed-migration)。不能把文档更新当作代码或文件已经完成。
+
+> M5 清退边界（2026-09-05）：§2 的迁移和事件数字、§12 的 A2/A5/A6 阶段只作历史记录；M4 已删除旧迁移适配器。Raw/Silver schema及日常入口保留，不按旧spec再次初始化；因子Silver选股和相应readiness按最新§14迁移。
 
 状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C 历史 silver 文件生成已完成；M6D silver 事件补录已完成；A7 已通过人工 job 补齐 `2026-05-15` 之后缺口至 `2026-05-29`；A8 已将日常自动链路拆为 `raw_adj_factor_update_job` / `silver_adj_factor_update_job`，silver 触发前等待 raw adj_factor event/check ready 与 `stock_basic_ready_without_freshness`。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
-> 2026-10-12 联合范围修订专项：[历史复权因子修正与 DG 下游修复方案](./dagster-stock-adj-factor-history-repair-plan-v1.md)、[修复 LLD](./dagster-stock-adj-factor-history-repair-low-level-design-v1.md)。拟对联合方案限定的 25 只/2,489 个非舍入变化因子键进行受控候选合并及下游重放；纯精度历史值保留，取消原 601198.SH 的 451 日默认修复；本资产来源仍为 Tushare，schema、生命周期、普通 job/sensor 和不保存永久历史版本的口径不变。专项尚未开发或执行。
+> 2026-10-12 联合范围修订专项：[历史复权因子修正与 DG 下游修复方案](./dagster-stock-adj-factor-history-repair-plan-v1.md)、[修复 LLD](./dagster-stock-adj-factor-history-repair-low-level-design-v1.md)。拟对联合方案限定的25只/2,489个非舍入变化因子键进行受控候选合并及下游重放；纯精度历史值保留，取消原601198.SH的451日默认修复；来源、schema、普通入口和不保存永久历史版本的口径不变。基础候选代码已有部分实现，正式数据尚未修正；该独立任务在§14的Silver规则迁移后重新冻结输入。
 
 相关下游设计：
 
@@ -18,12 +20,12 @@
 把复权因子作为股票行情域的日频基础事实资产接入新 Dagster lake：
 
 - `raw_tushare_adj_factor`：Tushare `adj_factor` 源站镜像。历史初始化已经完成；日常按交易日从 Tushare 更新。
-- `silver_adj_factor`：从 raw 生成的标准层复权因子，只保留 CNY 股票生命周期内记录，并确保每个应覆盖交易日都有因子值。
+- `silver_adj_factor`：从 raw 生成的标准层复权因子，只保留当前 `list_status='L'` 的 CNY 股票，并保留这些股票上市期间的历史因子。
 
 核心原则：
 
 1. raw 层保存 Tushare 源字段契约，不把旧湖物理类型当成新湖 raw 契约。
-2. silver 层负责按 `list_date <= trade_date < delist_date` 生命周期过滤、标准化日期类型和做完整性门禁。
+2. silver 层先按当前 `list_status='L'` 和 CNY 股票身份筛选，再检查 `list_date <= trade_date < delist_date` 日期边界；退市日为空时无上界。已退市股票不进入任何历史日期的 Silver 或应覆盖集合。日期类型和基础完整性门禁保留。
 3. 分区模型按交易日，与 `raw_tushare_suspend_d` / `silver_stock_suspend_daily` 一致。
 4. bootstrap 只是历史迁移来源，不进入 asset 命名；正式 asset 仍以长期来源和业务语义命名。
 5. 不设计复权因子历史版本资产；新湖维护一套最新口径复权因子事实。
@@ -217,8 +219,8 @@ M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后
 
 silver 过滤规则：
 
-1. 只保留 `silver_stock_lifecycle` 中 `is_cny_stock=true` 的 A 股股票；B 股等非 CNY 股票不进入复权因子 expected universe。
-2. 只保留 `list_date <= trade_date < delist_date` 的记录；`delist_date` 是退市生效日，不是最后交易日，退市生效日当天不进入 silver。
+1. 只保留当前 `silver_stock_lifecycle` 中 `is_cny_stock=true AND list_status='L'` 的股票；D、P、其他状态、未知身份和非 CNY 股票不进入复权因子 Silver 或 expected universe。生命周期表自身仍保留全部股票，不修改它或其他数据集的生命周期规则。
+2. 对上述当前上市股票，保留 `list_date <= trade_date < delist_date` 的记录；退市日为空时无上界。此日期条件不能替代当前上市状态筛选。已经退市的股票，即使历史日期早于退市日，也不保留在 Silver。
 3. `adj_factor` 必须为正数。
 4. 同一 `ts_code + trade_date` 必须唯一。
 
@@ -227,11 +229,11 @@ silver 完整性规则：
 - 对目标分区 `trade_date=D`，expected universe 是：
 
 ```text
-silver_stock_lifecycle 中 is_cny_stock=true 且 list_date <= D < delist_date 的股票；delist_date 为空表示仍有效
+silver_stock_lifecycle 中 is_cny_stock=true AND list_status='L' 且 list_date <= D < delist_date 的股票；delist_date 为空时无上界
 ```
 
 - `silver_adj_factor[D]` 必须覆盖 expected universe 中每只股票一行。
-- 已在目标日失效的退市股票和非 CNY/B 股股票不进入 expected universe；退市日前的历史生命周期内数据仍按同一口径保留与检查。
+- 当前已退市股票在所有历史日期都不进入 expected universe；其 Silver 历史因子不存在不算缺口，不要求从 Raw 或源站补回。Raw 中的相应记录完整保留。
 
 ## 5. 数据流
 
@@ -291,8 +293,8 @@ write_mode = replace partition
 | partition date matches | 是 | `trade_date` 必须等于分区日期 |
 | unique key | 是 | `ts_code + trade_date` 唯一 |
 | positive factor | 是 | `adj_factor > 0` |
-| listed stock only | 是 | `ts_code + trade_date` 必须落在 `silver_stock_lifecycle` 的 `list_date <= trade_date < delist_date` 有效范围内，且为 CNY 股票 |
-| coverage complete | 是 | 覆盖 `silver_stock_lifecycle` 中 `list_date <= partition_date < delist_date` 的全部 CNY 股票 |
+| listed stock only | 是 | `ts_code` 属于当前上市 CNY 股票，且 `trade_date` 在该股合法上市日期范围内；退市前历史记录也不得保留 D 股票 |
+| coverage complete | 是 | 覆盖当前上市 CNY 股票中 `list_date <= partition_date < delist_date` 的股票；D 股票不进入历史缺口检查 |
 
 ## 9. Job / Sensor / Readiness 口径
 
@@ -374,7 +376,7 @@ Readiness：
 - 不新增 `silver_adj_factor_latest`。
 - 不设计 qfq 分钟线资产。
 - 不设计因子历史版本体系。
-- 不为目标日已失效的退市股票保留 silver 完整性；退市日前生命周期内记录仍按正式口径检查。
+- 不为当前已退市股票设计任何历史日期的Silver完整性，不补其退市前历史因子。
 - 不新增数据库表。
 - M6/M6B helper 开发阶段不运行 Dagster job、sensor、backfill、materialization、asset check 或 automation evaluation。
 - M6C 已完成正式 `silver_adj_factor` 历史文件写入。
@@ -385,7 +387,7 @@ Readiness：
 
 1. 历史初始化曾将旧输入的 `DATE` 或字符串归一为 Raw 的 `YYYYMMDD` 字符串；这是已结束的类型纠偏记录，不要求恢复已删除的 bootstrap SQL 或测试。
 2. 旧湖迁移已结束，后续历史重建须审计正式来源，不把此前行数当当前实时事实。
-3. `silver_adj_factor` 当前以 `silver_stock_lifecycle` 为完整生命周期事实源：`delist_date` 按退市生效日解释，有效范围不含当天；本资产不为目标日已失效或非 CNY 股票设计 silver 完整性和下游加工口径。
+3. `silver_adj_factor` 继续读取 `silver_stock_lifecycle`，但本数据集只选当前上市 CNY 股票。不能把生命周期事实源保留退市历史解释为因子 Silver 必须保留退市历史，也不能把本决定传播到其他 Silver 数据集。
 4. 分页必须复用现有 Tushare 通用拉取 helper，不新增 `adj_factor` 专用分页实现。
 5. `cn_a_stock_current_trade_days` 同日分区必须在早上 6:00 后才允许注册，同时支持最近 10 个 expected trade dates 内的停机补洞；两个 adj_factor update job sensor 必须晚于 Tushare 当日因子入库窗口，正式不早于 9:30。
 
@@ -472,6 +474,8 @@ Readiness：
 - 待完成：观察下一个股票开市日是否由 06:00 分区注册和 09:30 后 raw/silver update sensors 触发自然闭环。
 
 ## 13. 生命周期日内刷新后的依赖顺序与安全重建方案
+
+> 本节保留已开发的依赖竞态处理、run key、窗口和历史验收。§13.2 中按历史生命周期选股的实现描述属于规则迁移前代码事实；2026-10-13 的目标规则以 §4、§14 和修复 LLD §18 为准。实施时生成器、检查、physical readiness 与安全重建评估必须一起切换当前上市集合；不改通用生命周期 SQL，不扩大 sensor 的最近 10 日窗口，也不让 sensor 自动扫描或清理全历史。
 
 ### 13.1 要解决的问题
 
@@ -635,3 +639,23 @@ freshness 语义与实际 materialization 时间不一致，立即停止，不�
 
 本节当前状态：**代码与本地测试已完成；未执行 `dg check defs`，未操作正式 Dagster
 instance、Lake、prod 或动态分区。**
+
+<a id="adj-factor-current-listed-asset-policy"></a>
+
+## 14. 当前上市股票规则迁移（2026-10-13，待实施）
+
+本次范围仅为复权因子。Raw 保留全部已采集源记录；Silver 只保留当前上市 CNY 股票的合法历史记录；Prod Raw/Core、其他 Silver、Gold 行情、指标和 state 均不在本次改写范围。当前上市状态读取已通过检查的 `silver_stock_lifecycle.list_status`，不修改该生命周期表或共享历史生命周期选择函数。
+
+2026-10-13只读盘点：Raw 4,315文件/15,514,363行，末端10月13日；Silver 4,314文件/14,457,307行，末端10月12日。Raw含277只退市股票802,616行，其中64股20,099行在退市生效日及之后；Silver仍含14只退市股票45,997行，其中6条为退市生效日记录。按当前上市规则对Raw标准化后，与同日既有Silver双向逐字段集合比较：仅需移除45,997行，没有当前上市股票需新增或改值；差异涉及4,267文件、2009-01-05—2026-07-29。执行时重新冻结，不能把这些快照数字当作永久范围。
+
+当前代码仍按历史生命周期生成和校验，历史文件又混有更早的当前上市筛选结果；不能仅改文案或重跑旧 writer。实施必须依次完成：
+
+1. **S0：代码与契约统一。** 因子专属选股 SQL、writer/filter counts、四项聚合 checks、physical readiness、安全重建评估、metadata和相关测试统一使用当前上市集合。保留asset/check/job名称及schema，通用生命周期和其他数据集不改。
+2. **S1：只读冻结。** 对既有Silver分区按新规则从Raw生成预期集合，批量核对差异，冻结股票名单、输入指纹和确切目标文件。不把尚未生成的10月13日Silver当历史迁移缺口，不调用Tushare，不补退市数据。
+3. **S2：候选和隔离验收。** 使用与日常writer相同的选择SQL，在正式staging中逐文件生成候选；校验新规则、当前上市记录逐字段不变及Raw未变。差异文件才生成候选。
+4. **S3：正式文件提升。** 候选完整通过后，在因子writer维护窗口逐文件原子替换并记录续跑点；读回对账一次。不是全历史事务，不创建备份，不重建其他数据集。
+5. **S4：事件与收尾。** 保留旧事件，为实际变化分区登记本次物化，执行既有检查的真实运行并绑定新物化；事件失败可独立续跑，不回滚文件。事件消费者、运行量和耗时先预览，不触发下游重算，不清水位或cursor。
+
+今后股票状态变化时，日常新分区仍按当时最新上市集合生成。已经生成的历史分区不会因修改SQL自动变化；若须让全历史再次符合最新名单，使用同一受控重建流程。此次不增加自动全历史清理、历史扫描sensor或永久reports依赖。
+
+方案、实现映射、预算、测试和正式验收统一见[修复方案§10](dagster-stock-adj-factor-history-repair-plan-v1.md#adj-factor-current-listed-plan)与[修复LLD§18](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-current-listed-migration)。本轮只完成文档；代码、正式文件和Dagster事件迁移未执行。
