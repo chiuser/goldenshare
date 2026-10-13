@@ -2,7 +2,7 @@
 
 日期：2026-10-06；最近更新：2026-10-13。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37；全494日正式登记已读回通过，见§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§39.6；三个STOPPED sensor和历史只读预演已通过，见§40，可恢复历史登记执行器与两日/495日冻结清单已完成，见§41，完整当前门禁已复验并收尾，见§41.6，两日正式样本登记已读回通过，见§42；495日全量历史登记与收尾已完成，见§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§44.3，三个STOPPED sensor及历史预演、执行器和两日样本已完成，见§45～47；739日全量登记及本表P4历史接入已关闭，见§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog和完整隔离验收已完成，见§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§51；两日正式登记及读回已通过，见§52；739日全量登记及本表P4历史接入已关闭，见§53；739分区/1478物化/最近20来源日40检查齐全。moneyflow_ths独立资产/check/job/catalog及完整隔离验收已完成，见§54；三个STOPPED sensor/readiness与431历史日只读预演已通过，见§55；可恢复执行器、隔离两日样本和431日冻结清单已通过，见§56；两日正式登记及读回已通过，见§57；431日全量登记及本表P4历史接入已关闭，见§58；431分区/862物化/最近20来源日40检查齐全。此前阻塞记录保留；sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～63.3为准。moneyflow独立资产/check/job/catalog及完整隔离验收已通过，见§59；三个STOPPED sensor/readiness和4067历史日只读预演已通过，见§60；本表可恢复历史登记执行器、隔离两日样本和4067日五单元冻结清单已验收，见§61；正式两日登记、读回及零新增重放已通过，见§62.5；4067日五单元全量历史登记、读回和零新增重放已完成，见§63.3。
 
-最新状态（2026-10-13）：七表历史登记全部完成，moneyflow全量12241/12241项收尾见§63.3；P4调度审计保留于§64。七表日更登记起点和六表数量下降门禁已修正并完整复验，最新结果见§65.4。当前21个sensor均STOPPED，专属池容量尚未配置，正式日更接续未执行。下一步提交本开发片、刷新接续窗口并冻结正式配置/接续/启用清单；本轮未改正式数据，P4整体及P5未关闭。
+最新状态（2026-10-13）：七表历史登记全部完成，moneyflow全量12241/12241项收尾见§63.3；日更登记起点和六表数量门禁已验收并提交6386dbd4。容量1配置及成熟三日21单元/42job接续目标已冻结，见§66；21个sensor仍STOPPED，池未设置，正式接续未执行。共享code location有另一周线开发的在建job/ops，加载目前阻断；待其收尾、复核加载范围并重新冻结源码/窗口后，按阶段批准容量设置、代码加载和大盘首样本。P4整体及P5未关闭。
 
 ## 1. 硬口径和影响面
 
@@ -3594,3 +3594,60 @@ CodeGraph开发前使用explore/impact审计共享Raw helper、登记器和readi
 完整证据见[本开发片验收报告](../../reports/moneyflow_p4_daily_guard_evidence_20261013.json)。后续先提交本轮，再重新核对实际日期、hot window、分区与物理/原生差集、池和writer互斥，冻结准确正式配置与接续清单；按§64.5的阶段批准推进容量1、代码加载、逐表接续与sensor启用。当前仍不能关闭整个P4或开始宣称P5真实日更验收通过。
 
 最终报告sha256为486782be3790d3be0fd4cc91e77562044b8ab985ca47b3aaedf8cd8fb966c551，169,082B；报告内列清37个本轮文件（34份Python、2文档、1报告）、逐批日志与原权限报告摘要、三项版本化常量及资源预算，便于下一轮限定范围提交。其他工作区修改未纳入本轮。
+
+## 66. P4专属池与成熟接续清单冻结（2026-10-13）
+
+### 66.1 本轮授权、提交与实际差集
+
+上一开发片37文件已提交为`6386dbd4`，未推送。管理员本轮批准的是“刷新七表日更接续窗口，冻结专属池容量1的配置及正式接续执行清单，先不启用sensor”。本轮只读审计、保存清单和更新本文/方案§71；**没有设置池容量、重载代码、登记分区、提交job、评估/启用sensor或调用Tushare**。
+
+12:41:43上海时间的正式SSE日历确认：10-01～10-07、10-10～10-11休市；已成熟接续日为10-08、10-09、10-12。每表都缺这三个日期的注册、Raw和Silver交付，共21个数据集日期。10-13是交易日，但未到22:00，仅列后续候选，**不在本次正式接续范围中**；到22:00再独立刷新/冻结并批准后，才可增加当天七个日期单元。本次Raw/Silver任务最早按既定晚间窗口于今天22:00提交，容量配置/加载/已成熟日期登记的批准顺序另见下文。
+
+| 数据集 | 历史已登记日期 | 本次固定接续日期 | 计划文件 / job / mat / check |
+| --- | ---: | --- | ---: |
+| moneyflow_mkt_dc | 839 | 10-08、10-09、10-12 | 各6 |
+| moneyflow_ind_ths | 494 | 同上 | 各6 |
+| moneyflow_cnt_ths | 495 | 同上 | 各6 |
+| moneyflow_ind_dc | 739 | 同上 | 各6 |
+| moneyflow_dc | 739 | 同上 | 各6 |
+| moneyflow_ths | 431 | 同上 | 各6 |
+| moneyflow | 4067 | 同上 | 各6 |
+| 合计 | 7804 | 21个数据集日期，21个待登记key | 各42 |
+
+七表15,608历史物化身份、最近20来源日280项检查及280份物理交付就绪仍与已验收事实一致。11个历史来源缺口全部排除；不将其登记成日更空分区，不重新bootstrap。21个已加载sensor的默认和有效状态都STOPPED，持久化中没有这21条状态记录属于现行默认停用情形；没有写入cursor或停用状态来“制造”此结论。14个正式资产均声明同一个moneyflow_tushare_writer池，分区名、blocking check和Silver只依赖本表Raw已从当前服务读回。
+
+实例全局max_concurrent_runs仍1、pool粒度run；目标池无limit/slot记录，pending为0。当前唯一已配置的gold_stk_mins_qfq_writer容量1必须保持。七表及全实例均无active run，writer.lock只读互斥探测无占用；正式根与staging同设备、挂载正常，空闲2,927,652,409,344B，高于64GiB既有门槛。只做POSIX可写权限读取，没有写canary，不能把权限读取写成实际写入验收。
+
+### 66.2 两份冻结清单与配置口径
+
+[容量1配置清单](../../reports/moneyflow_p4_writer_pool_capacity1_plan_20261013.json)：sha256=80d8283d7c577e2662459e9637e3f1ef318b935f85a9de997c1062232a13233d，120,521B。配置唯一目标是native pool moneyflow_tushare_writer的显式limit=1；由现有setConcurrencyLimit调用set_concurrency_slots落入正式PG的concurrency_limits/concurrency_slots，不写自定义SQL、不新增env/Settings/表或限流服务。14个Raw/Silver资产共用，作用于后续run粒度队列准入；实例全局配置、其他池和writer互斥不变。运营通过原生pool页面及只读SQL观察。
+
+批准后执行的请求已冻结为`setConcurrencyLimit(concurrencyKey:"moneyflow_tushare_writer",limit:1)`，成功后必须读回显式limit1、一个有效未占用slot、pending0和其他池配置保持。若已经满足该状态，验证后跳过setter；若与冻结前提不同则停下，不清除claims/pending、不删除池、不自动改全局并发。冻结不是配置已应用，当前真实容量仍未设置。
+
+[成熟三日正式接续清单](../../reports/moneyflow_p4_daily_continuation_mature_plan_20261013.json)：sha256=7eef98524390c6f1b64dfe449e55c6a3be33f979fb9beeb043ac178c7631a772，307,900B。清单逐项列出21个日期单元的专属分区名、原Raw/Silver job、资产/check、正式目标路径、标准run key、native请求参数、依赖与读回条件。不是数据回填入口，不借runless event把文件登记成成功；使用原有完整job及blocking check，不选单独op或check绕过数据采集。
+
+Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2026-10-13和attempt1；现有最多六尝试规则不改变，本清单不授权额外尝试。Silver key依赖尚未生成的Raw SHA，冻结的是既有builder的严格绑定方式：只从本日当前已绿Raw的native metadata读取SHA，重新核对文件和check target，绑定后保存实际请求再提交。不得传占位符、人工改hash或另造完成身份。原生分区tag由现有PartitionedConfig生成，不新增项目自定义tag。
+
+重要限制：当前GraphQL launchRun没有run_id输入，也不会因同run_key自行去重。本清单要求独占运营执行、21个sensor保持STOPPED、提交前查询标准身份，每个动作只发一次POST；超时、错误或身份歧义必须先停下读回，不盲重发。active等待、成功且当前物理/native交付完整则跳过；失败/取消/不完整交付转人工处理。Native事实和原run-scoped候选/checkpoint负责续跑，临时进度文件不能充当成功依据，不删除已完成事实。
+
+### 66.3 顺序、加载阻断与有效期
+
+1. 获准后先设置/读回容量1；另行批准当前code location加载，确认实际使用已验收的moneyflow代码且全部21sensor继续STOPPED。
+2. 按获准的范围用native addDynamicPartition只登记清单中的成熟key；保持sensor不启用、不评估。若只批准首样本，只操作moneyflow_mkt_dc的10-08一个key与对应两个job；全范围登记21key不能借首样本批准执行。
+3. 先执行moneyflow_mkt_dc 10-08的Raw→准确绑定的blocking check→Silver→准确绑定的blocking check，读回schema/日期/键/字段/数量/源证明/file hash/Raw关联及两层readiness。**到此停止，取得独立样本验收**；清单中stop_after_first_market_sample不是可关闭开关。
+4. 后续获准后完成大盘另外两日，再按行业THS、概念THS、板块DC、个股DC、个股THS、普通moneyflow顺序逐表逐日推进。每次一个job、每个日期Raw通过后才可提交Silver；每表读回差集清零才能进入下一表。
+5. 最终核对本范围新增21key、42目标文件、42mat和42准确绑定的绿色blocking check，以及历史身份保持。21sensor继续STOPPED；长期日更启用和P5真实日更验收仍是后续阶段。
+
+**代码加载目前有额外阻断。** 冻结期间同工作区另一项周线开发新增了jobs/stock_weekly_event_backfill.py和ops/stock_weekly_bootstrap_checks.py，并修改共享configs及周线bootstrap模块；后续引用审计确认已有实际job/ops消费者，不能再当作“只有无运行影响的历史helper”。七表moneyflow代码仍与6386dbd4的1742项验收摘要一致，但shared code-location reload会一并加载这些在建定义。因此冻结清单显式标记source_reload_blocked，当前不能直接加载/提交正式接续job。保留他人修改，等待其收尾及加载范围确认；不通过临时分支/worktree或覆盖文件绕过。工作区稳定后须重新核对完整来源摘要、当前窗口/原生差集、准确加载范围，再冻结可执行版本；本轮不批准这项周线开发或其正式执行。
+
+本次观察日与Raw身份固定为10-13，有效期至10-14 00:00上海时间。跨日、源码/日历/配置/目标范围漂移、已有active/锁占用、身份无法确认、文件或check不一致均停止后续动作并重新冻结剩余差集；已在运行的job继续读回其真实终态，保留已提交事实。10-22为截止后第11个交易日，10-08会退出现行十日热窗口；不能通过本清单自动扩大sensor窗口或让过期计划继续运行。
+
+### 66.4 成本与本轮验证
+
+只读审计实测6.669秒、峰值338.656MiB，记录314个有界资产/run/helper读，加上sensor/池等辅助读取及3个只读GraphQL请求；400次helper/300秒/768MiB预算未触发。最近检查按十日分批，事件查询各limit100；基线六表各5日真实Raw核验，120条SQL，0源请求。预算不将SQL内部次数冒充一次外部数据采集。
+
+以09-30已观测分页量估算，成熟三日约96次Tushare请求，预计42文件/42job；这是估算，不是新源实测或数量保证。每Raw仍最多64请求/300秒、每轮20000行/RSS768MiB，最多5个基线文件、20条额外SQL；21个Raw的请求硬上限之和1344，活动预算之和105分钟，稳定等待累计下限21分钟。队列、初始化、Silver/check和源异常另计，整段墙钟ETA暂无法估算。清单将native job观察限定每10秒一次、最多120次/20分钟；超观察预算停止后续提交，不能把仍在运行的job标成成功。管理员已确认配额充足，不再审计账户额度。
+
+现有CLI的pool set、job launch、dg launch只执行--help，未连接正式instance执行。65份pool/reload/注册/job请求在当前安装的GraphQL schema中完成纯语法和输入类型校验；它不执行resolver、不构造正式instance，也不等同真实job成功或GraphQL写权限通过。此前Silver空交付应为raw_not_ready的判断已按当前readiness语义校准，未通过的组合草稿只保留在/private/tmp，完整校验后才发布最终三份冻结文件。Frozen全套仍apply_authorized=false。
+
+完整证据见[冻结与只读验收报告](../../reports/moneyflow_p4_continuation_freeze_evidence_20261013.json)，sha256=11396eb1cb8abcd47bc5ba7abaf307ae77cbc3922a8869c1779f2af397fbb318，254,786B。本轮只新增三JSON和修改两原文档，不改变API/CLI、主体依赖矩阵、数据集或sensor行为；CodeGraph explore覆盖登记器七个调用方、数量门禁与标准request/run-key builder，未索引完整的新周线定义部分已直接核验当前源码引用。P4/P5仍未关闭。
