@@ -331,7 +331,7 @@ def register_moneyflow_trade_days(context, *, contract, dynamic_partitions):
     result = build_trade_day_partition_registration_result(
         context,
         dynamic_partitions=dynamic_partitions,
-        min_trade_date=contract.history_start,
+        min_trade_date=MONEYFLOW_SENSOR_START,
         partition_set_label=contract.label,
         same_day_register_start=MONEYFLOW_REGISTER_START,
         sensor_name="cn_a_" + contract.dataset + "_trade_day_sensor",

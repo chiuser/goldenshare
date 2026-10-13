@@ -35,7 +35,7 @@ from orchestrator.defs.run_contracts.moneyflow import (
 )
 from orchestrator.defs.run_contracts.moneyflow_daily import daily_fields
 
-DAY = "2026-09-30"
+DAY = "2026-10-08"
 MONEYFLOW_IND_DC_FIELDS = daily_fields("moneyflow_ind_dc")
 RAW = assets.raw_tushare_moneyflow_ind_dc
 SILVER = assets.silver_moneyflow_ind_dc
@@ -162,6 +162,15 @@ def env(tmp_path, monkeypatch):
         instance.add_dynamic_partitions(
             cn_a_moneyflow_ind_dc_trade_days.name, [DAY, "2026-09-29"]
         )
+        from .moneyflow_baseline_support import seed_moneyflow_baseline
+
+        seed_moneyflow_baseline(
+            instance=instance,
+            lake=lake,
+            staging=staging,
+            dataset="moneyflow_ind_dc",
+            rows=sample(),
+        )
         yield SimpleNamespace(
             defs=defs, instance=instance, source=source, lake=lake, staging=staging
         )
@@ -265,7 +274,7 @@ def test_partitioned_jobs_preserve_three_scopes_null_code_and_yuan(env):
     for api, params, fields in env.source.calls:
         assert api == "moneyflow_ind_dc" and fields == MONEYFLOW_IND_DC_FIELDS
         assert params == {
-            "trade_date": "20260930",
+            "trade_date": DAY.replace("-", ""),
             "content_type": params["content_type"],
             "limit": 2000,
             "offset": 0,
@@ -278,7 +287,7 @@ def test_partitioned_jobs_preserve_three_scopes_null_code_and_yuan(env):
         ).fetchall()
     assert len(values) == 3 and {v[1] for v in values} == set(SCOPES)
     assert all(
-        v[0] == date(2026, 9, 30)
+        v[0] == date.fromisoformat(DAY)
         and v[2] is None
         and v[3] == Decimal("-5.1234")
         and v[4] is None
@@ -314,6 +323,8 @@ def test_archived_real_1031_rows_reconcile_all_fields_and_scope_counts(env):
         Path("tests/fixtures/moneyflow_ind_dc_20260930.json").read_text()
     )
     assert len(fixture) == 1031
+    # Preserve archived field values; project date to the isolated continuation run.
+    fixture = [dict(r, trade_date=DAY.replace("-", "")) for r in fixture]
     set_rows(env, fixture)
     started = perf_counter()
     first = run(env, "raw_tushare_moneyflow_ind_dc_update_job")
@@ -331,7 +342,7 @@ def test_archived_real_1031_rows_reconcile_all_fields_and_scope_counts(env):
     }
     expected = [
         tuple(
-            date(2026, 9, 30)
+            date.fromisoformat(DAY)
             if f == "trade_date"
             else Decimal(str(r[f]))
             if f in numeric and r[f] is not None
@@ -606,6 +617,7 @@ def test_exit_after_replace_resumes_without_source_or_rebuild(env, monkeypatch, 
     }
     if layer == "raw":
         kwargs["tushare"] = env.source
+        kwargs["instance"] = env.instance
     else:
         kwargs["expected_raw_hash"] = candidate_file_hash(
             raw_moneyflow_path(env.lake, "moneyflow_ind_dc", DAY)
@@ -644,13 +656,15 @@ def test_cancel_after_intent_resumes_verified_raw_candidate(env, monkeypatch):
         "trade_date": DAY,
     }
     with pytest.raises(MoneyflowContractError, match="user_cancel"):
-        update.update_daily_moneyflow_raw(**kwargs, check_cancel=check_cancel)
+        update.update_daily_moneyflow_raw(
+            instance=env.instance, **kwargs, check_cancel=check_cancel
+        )
     assert not raw_moneyflow_path(env.lake, "moneyflow_ind_dc", DAY).exists()
     assert (
         env.staging / "moneyflow/cancel/moneyflow_ind_dc" / DAY / "raw.parquet"
     ).is_file()
     monkeypatch.setattr(publication, "_checkpoint", original)
-    update.update_daily_moneyflow_raw(**kwargs)
+    update.update_daily_moneyflow_raw(instance=env.instance, **kwargs)
     assert len(env.source.calls) == 6
 
 
@@ -660,6 +674,7 @@ def test_same_operation_never_reuses_other_dataset_receipt(env):
     sentinel = other / "receipt.json"
     sentinel.write_bytes(b"preserve concept")
     result = update.update_daily_moneyflow_raw(
+        instance=env.instance,
         dataset="moneyflow_ind_dc",
         tushare=env.source,
         lake_root=env.lake,
@@ -690,6 +705,7 @@ def test_unapproved_sources_remain_rejected_before_io(env, dataset, layer):
     }
     if layer == "raw":
         kwargs["tushare"] = env.source
+        kwargs["instance"] = env.instance
     else:
         kwargs["expected_raw_hash"] = "0" * 64
     with pytest.raises(MoneyflowContractError, match="daily_update_dataset"):

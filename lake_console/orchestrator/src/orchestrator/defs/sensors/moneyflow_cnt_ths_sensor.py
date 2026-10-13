@@ -45,7 +45,7 @@ def evaluate_concept_moneyflow_ths(context, now, *, silver=False):
         target_layer=SensorTargetLayer.PARTITION,
         role=SensorRole.PARTITION_REGISTRATION,
     ),
-    description="上海22:00后优先登记同花顺概念资金流当日，最多补一个历史漏登记日，不提交job。",
+    description="上海22:00后优先登记同花顺概念资金流当日，最多补一个接续漏登记日，不提交job。",
 )
 def cn_a_moneyflow_cnt_ths_trade_day_sensor(
     context: dg.SensorEvaluationContext,

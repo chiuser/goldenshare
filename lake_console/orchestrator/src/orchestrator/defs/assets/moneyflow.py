@@ -105,6 +105,7 @@ def raw_tushare_moneyflow(
     lake_root.ensure_available_for_run()
     try:
         result = update_daily_moneyflow_raw(
+            instance=context.instance,
             dataset="moneyflow",
             tushare=tushare,
             lake_root=lake_root.root(),

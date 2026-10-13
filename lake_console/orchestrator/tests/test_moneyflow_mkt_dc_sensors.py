@@ -249,6 +249,7 @@ def test_registration_today_first_holiday_and_time_gate(env, monkeypatch):
         },
     )
     env.instance.delete_dynamic_partition(sensors.PARTITIONS, "2026-09-28")
+    env.instance.delete_dynamic_partition(sensors.PARTITIONS, "2026-10-08")
     env.instance.delete_dynamic_partition(sensors.PARTITIONS, DAY)
 
     class FixedDateTime(datetime):
@@ -258,7 +259,7 @@ def test_registration_today_first_holiday_and_time_gate(env, monkeypatch):
 
     monkeypatch.setattr(registration, "datetime", FixedDateTime)
     result = sensors.cn_a_moneyflow_mkt_dc_trade_day_sensor.evaluate_tick(ctx)
-    assert result.dynamic_partitions_requests[0].partition_keys == [DAY, "2026-09-28"]
+    assert result.dynamic_partitions_requests[0].partition_keys == [DAY, "2026-10-08"]
     assert not result.run_requests
     monkeypatch.setattr(
         registration,

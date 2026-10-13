@@ -45,7 +45,7 @@ def evaluate_market_moneyflow(context, now, *, silver=False):
         target_layer=SensorTargetLayer.PARTITION,
         role=SensorRole.PARTITION_REGISTRATION,
     ),
-    description="上海22:00后优先登记大盘资金流当日，最多补一个历史漏登记日，不提交job。",
+    description="上海22:00后优先登记大盘资金流当日，最多补一个接续漏登记日，不提交job。",
 )
 def cn_a_moneyflow_mkt_dc_trade_day_sensor(
     context: dg.SensorEvaluationContext,

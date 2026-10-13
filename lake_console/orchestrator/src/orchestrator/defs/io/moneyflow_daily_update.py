@@ -4,6 +4,10 @@ from functools import partial
 from pathlib import Path
 from time import perf_counter
 
+from orchestrator.defs.asset_guards.moneyflow_row_count import (
+    moneyflow_row_count_baseline,
+    moneyflow_row_count_decision,
+)
 from orchestrator.defs.checks.moneyflow_daily import (
     audit_daily_moneyflow_equality,
     audit_daily_moneyflow_file,
@@ -15,6 +19,7 @@ from orchestrator.defs.io.moneyflow_candidates import (
     moneyflow_candidate_connection,
     moneyflow_candidate_directory,
     moneyflow_writer_lock,
+    write_moneyflow_receipt,
 )
 from orchestrator.defs.io.moneyflow_daily_raw_writer import (
     build_daily_moneyflow_raw_candidate,
@@ -42,12 +47,20 @@ from orchestrator.defs.run_contracts.moneyflow_daily import daily_key_fields
 
 def _assert_daily_update_dataset(dataset: str) -> None:
     # Only explicitly onboarded daily sources may publish through this helper.
-    if dataset not in {"moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc", "moneyflow_dc", "moneyflow_ths", "moneyflow"}:
+    if dataset not in {
+        "moneyflow_ind_ths",
+        "moneyflow_cnt_ths",
+        "moneyflow_ind_dc",
+        "moneyflow_dc",
+        "moneyflow_ths",
+        "moneyflow",
+    }:
         raise MoneyflowContractError("daily_update_dataset")
 
 
 def update_daily_moneyflow_raw(
     *,
+    instance,
     dataset: str,
     tushare,
     lake_root: Path,
@@ -66,6 +79,13 @@ def update_daily_moneyflow_raw(
     namespace = staging_root / "moneyflow"
     namespace.mkdir(exist_ok=True)
     started = perf_counter()
+
+    def check_budget():
+        check_cancel()
+        assert_moneyflow_memory_budget()
+        if perf_counter() - started >= MONEYFLOW_MAX_ELAPSED_SECONDS:
+            raise MoneyflowContractError("request_budget_exceeded")
+
     with moneyflow_writer_lock(namespace):
         check_cancel()
         receipt_path = directory / "receipt.json"
@@ -123,6 +143,31 @@ def update_daily_moneyflow_raw(
             audit_daily_moneyflow_equality(
                 connection, proof_file, verification, dataset=dataset
             )
+            try:
+                baseline = moneyflow_row_count_baseline(
+                    instance=instance,
+                    connection=connection,
+                    lake_root=lake_root,
+                    dataset=dataset,
+                    trade_date=trade_date,
+                    check=check_budget,
+                )
+                decision = moneyflow_row_count_decision(
+                    baseline, receipt["scope_row_counts"]
+                )
+            except MoneyflowContractError as error:
+                receipt["row_count_guard"] = {
+                    "passed": False,
+                    "reason_code": str(error),
+                }
+                write_moneyflow_receipt(directory, receipt)
+                raise
+            receipt["row_count_guard"] = decision
+            write_moneyflow_receipt(directory, receipt)
+            if not decision["passed"]:
+                raise MoneyflowContractError(
+                    "row_count_drop:" + ",".join(decision["declined_scopes"])
+                )
             assert_moneyflow_memory_budget()
             if (perf_counter() - started) >= MONEYFLOW_MAX_ELAPSED_SECONDS:
                 raise MoneyflowContractError("request_budget_exceeded")

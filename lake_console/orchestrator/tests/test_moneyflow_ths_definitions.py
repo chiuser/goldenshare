@@ -34,7 +34,7 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MoneyflowContractError,
 )
 
-DAY = "2026-09-30"
+DAY = "2026-10-08"
 MONEYFLOW_THS_FIELDS = (
     "trade_date",
     "ts_code",
@@ -177,6 +177,15 @@ def env(tmp_path, monkeypatch):
         instance.add_dynamic_partitions(
             cn_a_moneyflow_ths_trade_days.name, [DAY, "2026-09-29"]
         )
+        from .moneyflow_baseline_support import seed_moneyflow_baseline
+
+        seed_moneyflow_baseline(
+            instance=instance,
+            lake=lake,
+            staging=staging,
+            dataset="moneyflow_ths",
+            rows=sample()[:1],
+        )
         yield SimpleNamespace(
             defs=defs, instance=instance, source=source, lake=lake, staging=staging
         )
@@ -273,7 +282,11 @@ def test_partitioned_jobs_preserve_latest_d5_nullable_values_and_wan(env):
     assert first.success and second.success and len(env.source.calls) == 2
     for api, params, fields in env.source.calls:
         assert api == "moneyflow_ths" and fields == MONEYFLOW_THS_FIELDS
-        assert params == {"trade_date": "20260930", "limit": 2000, "offset": 0}
+        assert params == {
+            "trade_date": DAY.replace("-", ""),
+            "limit": 2000,
+            "offset": 0,
+        }
     with moneyflow_candidate_connection(env.staging) as c:
         values = c.execute(
             "SELECT trade_date,ts_code,name,latest,net_amount,net_d5_amount,buy_md_amount FROM read_parquet(?,hive_partitioning=false) ORDER BY ts_code",
@@ -282,7 +295,7 @@ def test_partitioned_jobs_preserve_latest_d5_nullable_values_and_wan(env):
     assert len(values) == 3 and values[0][2] is None
     assert {v[1].split(".")[1] for v in values} == {"SH", "SZ", "BJ"}
     assert all(
-        v[0] == date(2026, 9, 30)
+        v[0] == date.fromisoformat(DAY)
         and v[3] == Decimal("30.6700")
         and v[4] == Decimal("-5.1234")
         and v[5] == Decimal("123.4567")
@@ -320,6 +333,8 @@ def test_partitioned_jobs_preserve_latest_d5_nullable_values_and_wan(env):
 def test_archived_real_5215_rows_reconcile_all_fields_and_markets(env):
     fixture = json.loads(Path("tests/fixtures/moneyflow_ths_20260930.json").read_text())
     assert len(fixture) == 5215
+    # Preserve archived field values; project date to the isolated continuation run.
+    fixture = [dict(r, trade_date=DAY.replace("-", "")) for r in fixture]
     set_rows(env, fixture, list(reversed(fixture)))
     started = perf_counter()
     first = run(env, "raw_tushare_moneyflow_ths_update_job")
@@ -329,14 +344,15 @@ def test_archived_real_5215_rows_reconcile_all_fields_and_markets(env):
     assert all(
         api == "moneyflow_ths"
         and fields == MONEYFLOW_THS_FIELDS
-        and p == {"trade_date": "20260930", "limit": 2000, "offset": p["offset"]}
+        and p
+        == {"trade_date": DAY.replace("-", ""), "limit": 2000, "offset": p["offset"]}
         for api, p, fields in env.source.calls
     )
     raw = raw_moneyflow_path(env.lake, "moneyflow_ths", DAY)
     silver = silver_moneyflow_path(env.lake, "moneyflow_ths", DAY)
     expected = [
         tuple(
-            date(2026, 9, 30)
+            date.fromisoformat(DAY)
             if f == "trade_date"
             else Decimal(str(r[f]))
             if f in MONEYFLOW_THS_FIELDS[3:] and r[f] is not None
@@ -629,6 +645,7 @@ def test_exit_after_replace_resumes_without_source_or_rebuild(env, monkeypatch, 
     }
     if layer == "raw":
         kwargs["tushare"] = env.source
+        kwargs["instance"] = env.instance
     else:
         kwargs["expected_raw_hash"] = candidate_file_hash(
             raw_moneyflow_path(env.lake, "moneyflow_ths", DAY)
@@ -667,13 +684,15 @@ def test_cancel_after_intent_resumes_verified_raw_candidate(env, monkeypatch):
         "trade_date": DAY,
     }
     with pytest.raises(MoneyflowContractError, match="user_cancel"):
-        update.update_daily_moneyflow_raw(**kwargs, check_cancel=check_cancel)
+        update.update_daily_moneyflow_raw(
+            instance=env.instance, **kwargs, check_cancel=check_cancel
+        )
     assert not raw_moneyflow_path(env.lake, "moneyflow_ths", DAY).exists()
     assert (
         env.staging / "moneyflow/cancel/moneyflow_ths" / DAY / "raw.parquet"
     ).is_file()
     monkeypatch.setattr(publication, "_checkpoint", original)
-    update.update_daily_moneyflow_raw(**kwargs)
+    update.update_daily_moneyflow_raw(instance=env.instance, **kwargs)
     assert len(env.source.calls) == 2
 
 
@@ -683,6 +702,7 @@ def test_same_operation_never_reuses_other_dataset_receipt(env):
     sentinel = other / "receipt.json"
     sentinel.write_bytes(b"preserve concept")
     result = update.update_daily_moneyflow_raw(
+        instance=env.instance,
         dataset="moneyflow_ths",
         tushare=env.source,
         lake_root=env.lake,
@@ -713,6 +733,7 @@ def test_unapproved_sources_remain_rejected_before_io(env, dataset, layer):
     }
     if layer == "raw":
         kwargs["tushare"] = env.source
+        kwargs["instance"] = env.instance
     else:
         kwargs["expected_raw_hash"] = "0" * 64
     with pytest.raises(MoneyflowContractError, match="daily_update_dataset"):

@@ -249,6 +249,7 @@ def test_registration_today_first_holiday_and_time_gate(env, monkeypatch):
         },
     )
     env.instance.delete_dynamic_partition(sensors.PARTITIONS, "2026-09-28")
+    env.instance.delete_dynamic_partition(sensors.PARTITIONS, "2026-10-08")
     env.instance.delete_dynamic_partition(sensors.PARTITIONS, DAY)
 
     class FixedDateTime(datetime):
@@ -258,7 +259,7 @@ def test_registration_today_first_holiday_and_time_gate(env, monkeypatch):
 
     monkeypatch.setattr(registration, "datetime", FixedDateTime)
     result = sensors.cn_a_moneyflow_dc_trade_day_sensor.evaluate_tick(ctx)
-    assert result.dynamic_partitions_requests[0].partition_keys == [DAY, "2026-09-28"]
+    assert result.dynamic_partitions_requests[0].partition_keys == [DAY, "2026-10-08"]
     assert not result.run_requests
     monkeypatch.setattr(
         registration,
@@ -417,7 +418,7 @@ def test_cursor_cannot_be_reused_between_dataset_or_layer(env):
         sensors.evaluate_stock_moneyflow_dc(ctx, NOW, silver=True)
 
 
-def test_registration_does_not_admit_dates_before_stock_start(env, monkeypatch):
+def test_registration_does_not_admit_dates_before_daily_start(env, monkeypatch):
     import orchestrator.defs.sensors.cn_a_trade_day_sensor as registration
 
     ctx = context(env, dates=("2023-09-10", "2023-09-11", DAY))
@@ -436,7 +437,7 @@ def test_registration_does_not_admit_dates_before_stock_start(env, monkeypatch):
         },
     )
     result = sensors.cn_a_moneyflow_dc_trade_day_sensor.evaluate_tick(native)
-    assert result.dynamic_partitions_requests[0].partition_keys == [DAY, "2023-09-11"]
+    assert result.dynamic_partitions_requests[0].partition_keys == [DAY]
     assert env.instance.get_dynamic_partitions("cn_a_moneyflow_mkt_dc_trade_days") == []
 
 

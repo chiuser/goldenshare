@@ -141,6 +141,7 @@ CONSUMER_SOURCE_FILES = (
     "defs/io/moneyflow_silver_writer.py",
     "defs/io/moneyflow_update_publication.py",
     "defs/io/moneyflow_daily_update.py",
+    "defs/asset_guards/moneyflow_row_count.py",
     "defs/assets/moneyflow.py",
     "defs/checks/moneyflow_stock.py",
     "defs/jobs/moneyflow.py",
