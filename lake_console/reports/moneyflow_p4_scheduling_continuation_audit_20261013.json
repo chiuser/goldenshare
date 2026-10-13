@@ -1,0 +1,4248 @@
+{
+  "format": "moneyflow_p4_scheduling_readonly_audit_v1",
+  "as_of_shanghai": "2026-10-13T09:09:17.095585+08:00",
+  "execution_commit": "7bcf268a",
+  "authorization": "Commit prior closeout then readonly audit seven continuation windows and sensor enable conditions; no activation, jobs, events, partitions, reload, lake/staging writes or source calls.",
+  "budgets": {
+    "native_read_operations_max": 400,
+    "elapsed_seconds_max": 300,
+    "peak_rss_mib_max": 768,
+    "business_rows_in_python": 0,
+    "readiness_dates_per_batch_max": 10,
+    "native_event_limit_per_query": 100
+  },
+  "formal_writes": 0,
+  "sensor_evaluations": 0,
+  "source_requests": 0,
+  "runtime": {
+    "graphql": {
+      "data": {
+        "version": "1.13.26",
+        "repositoriesOrError": {
+          "__typename": "RepositoryConnection",
+          "nodes": [
+            {
+              "name": "__repository__",
+              "location": {
+                "name": "orchestrator"
+              },
+              "jobs": [
+                {
+                  "name": "__ASSET_JOB"
+                },
+                {
+                  "name": "calendar_update_job"
+                },
+                {
+                  "name": "ch_dc_daily_technical_update_job"
+                },
+                {
+                  "name": "clickhouse_share_fact_market_breadth_update_job"
+                },
+                {
+                  "name": "daily_market_breadth_job"
+                },
+                {
+                  "name": "gold_dc_daily_technical_repair_job"
+                },
+                {
+                  "name": "gold_dc_daily_technical_update_job"
+                },
+                {
+                  "name": "gold_index_mins_update_job"
+                },
+                {
+                  "name": "gold_major_index_daily_nineturn_update_job"
+                },
+                {
+                  "name": "gold_major_index_mins_nineturn_update_job"
+                },
+                {
+                  "name": "gold_major_index_mins_technical_daily_update_job"
+                },
+                {
+                  "name": "gold_major_index_mins_update_job"
+                },
+                {
+                  "name": "gold_stk_mins_qfq_macd_kdj_check_refresh_job"
+                },
+                {
+                  "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job"
+                },
+                {
+                  "name": "gold_stk_mins_qfq_macd_kdj_repair_job"
+                },
+                {
+                  "name": "gold_stk_mins_qfq_nineturn_update_job"
+                },
+                {
+                  "name": "gold_stock_daily_qfq_check_refresh_job"
+                },
+                {
+                  "name": "gold_stock_daily_qfq_factor_repair_job"
+                },
+                {
+                  "name": "gold_stock_daily_qfq_nineturn_update_job"
+                },
+                {
+                  "name": "gold_stock_daily_qfq_update_job"
+                },
+                {
+                  "name": "gold_stock_daily_trend_channel_repair_job"
+                },
+                {
+                  "name": "gold_stock_daily_trend_channel_update_job"
+                },
+                {
+                  "name": "gold_wealth_market_turnover_update_job"
+                },
+                {
+                  "name": "index_basic_update_job"
+                },
+                {
+                  "name": "lake_root_health_check_job"
+                },
+                {
+                  "name": "market_major_indices_daily_update_job"
+                },
+                {
+                  "name": "prod_ch_dc_daily_technical_sync_job"
+                },
+                {
+                  "name": "prod_clickhouse_share_fact_market_breadth_check_refresh_job"
+                },
+                {
+                  "name": "prod_clickhouse_share_fact_market_breadth_sync_job"
+                },
+                {
+                  "name": "prod_core_index_daily_nineturn_sync_job"
+                },
+                {
+                  "name": "prod_core_stock_daily_qfq_nineturn_sync_job"
+                },
+                {
+                  "name": "raw_adj_factor_update_job"
+                },
+                {
+                  "name": "raw_anns_d_update_job"
+                },
+                {
+                  "name": "raw_etf_basic_update_job"
+                },
+                {
+                  "name": "raw_etf_mins_update_job"
+                },
+                {
+                  "name": "raw_fund_adj_update_job"
+                },
+                {
+                  "name": "raw_fund_daily_update_job"
+                },
+                {
+                  "name": "raw_index_daily_update_job"
+                },
+                {
+                  "name": "raw_index_global_update_job"
+                },
+                {
+                  "name": "raw_index_mins_update_job"
+                },
+                {
+                  "name": "raw_major_index_mins_update_job"
+                },
+                {
+                  "name": "raw_namechange_update_job"
+                },
+                {
+                  "name": "raw_stk_nineturn_update_job"
+                },
+                {
+                  "name": "raw_stk_period_bar_adj_month_update_job"
+                },
+                {
+                  "name": "raw_stk_period_bar_adj_week_update_job"
+                },
+                {
+                  "name": "raw_stk_period_bar_month_update_job"
+                },
+                {
+                  "name": "raw_stk_period_bar_week_update_job"
+                },
+                {
+                  "name": "raw_stock_basic_update_job"
+                },
+                {
+                  "name": "raw_stock_daily_update_job"
+                },
+                {
+                  "name": "raw_suspend_d_update_job"
+                },
+                {
+                  "name": "raw_tushare_daily_basic_update_job"
+                },
+                {
+                  "name": "raw_tushare_dc_daily_update_job"
+                },
+                {
+                  "name": "raw_tushare_dc_index_update_job"
+                },
+                {
+                  "name": "raw_tushare_dc_member_update_job"
+                },
+                {
+                  "name": "raw_tushare_idx_factor_pro_update_job"
+                },
+                {
+                  "name": "raw_tushare_moneyflow_cnt_ths_update_job"
+                },
+                {
+                  "name": "raw_tushare_moneyflow_dc_update_job"
+                },
+                {
+                  "name": "raw_tushare_moneyflow_ind_dc_update_job"
+                },
+                {
+                  "name": "raw_tushare_moneyflow_ind_ths_update_job"
+                },
+                {
+                  "name": "raw_tushare_moneyflow_mkt_dc_update_job"
+                },
+                {
+                  "name": "raw_tushare_moneyflow_ths_update_job"
+                },
+                {
+                  "name": "raw_tushare_moneyflow_update_job"
+                },
+                {
+                  "name": "raw_tushare_weekly_update_job"
+                },
+                {
+                  "name": "silver_adj_factor_update_job"
+                },
+                {
+                  "name": "silver_dc_daily_repair_job"
+                },
+                {
+                  "name": "silver_dc_daily_update_job"
+                },
+                {
+                  "name": "silver_dc_index_update_job"
+                },
+                {
+                  "name": "silver_dc_industry_hierarchy_update_job"
+                },
+                {
+                  "name": "silver_dc_member_update_job"
+                },
+                {
+                  "name": "silver_etf_adj_factor_update_job"
+                },
+                {
+                  "name": "silver_etf_basic_update_job"
+                },
+                {
+                  "name": "silver_etf_daily_update_job"
+                },
+                {
+                  "name": "silver_etf_mins_update_job"
+                },
+                {
+                  "name": "silver_index_daily_update_job"
+                },
+                {
+                  "name": "silver_index_factor_pro_update_job"
+                },
+                {
+                  "name": "silver_index_global_update_job"
+                },
+                {
+                  "name": "silver_index_mins_update_job"
+                },
+                {
+                  "name": "silver_major_index_mins_update_job"
+                },
+                {
+                  "name": "silver_moneyflow_cnt_ths_update_job"
+                },
+                {
+                  "name": "silver_moneyflow_dc_update_job"
+                },
+                {
+                  "name": "silver_moneyflow_ind_dc_update_job"
+                },
+                {
+                  "name": "silver_moneyflow_ind_ths_update_job"
+                },
+                {
+                  "name": "silver_moneyflow_mkt_dc_update_job"
+                },
+                {
+                  "name": "silver_moneyflow_ths_update_job"
+                },
+                {
+                  "name": "silver_moneyflow_update_job"
+                },
+                {
+                  "name": "silver_namechange_update_job"
+                },
+                {
+                  "name": "silver_stock_basic_update_job"
+                },
+                {
+                  "name": "silver_stock_daily_update_job"
+                },
+                {
+                  "name": "silver_stock_nineturn_daily_update_job"
+                },
+                {
+                  "name": "silver_suspend_d_update_job"
+                },
+                {
+                  "name": "stock_identity_map_update_job"
+                },
+                {
+                  "name": "stock_mins_qfq_daily_update_job"
+                },
+                {
+                  "name": "stock_mins_qfq_factor_repair_job"
+                },
+                {
+                  "name": "stock_mins_raw_update_from_prod_job"
+                },
+                {
+                  "name": "stock_mins_raw_update_job"
+                },
+                {
+                  "name": "stock_mins_silver_update_job"
+                },
+                {
+                  "name": "stock_return_distribution_daily_job"
+                }
+              ],
+              "sensors": [
+                {
+                  "name": "ch_dc_daily_technical_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "ch_dc_daily_technical_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "clickhouse_market_breadth_continuity_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "clickhouse_share_fact_market_breadth_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "cn_a_moneyflow_cnt_ths_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "cn_a_moneyflow_dc_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "cn_a_moneyflow_ind_dc_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "cn_a_moneyflow_ind_ths_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "cn_a_moneyflow_mkt_dc_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "cn_a_moneyflow_ths_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "cn_a_moneyflow_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "cn_a_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "daily_basic_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 900,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "dc_daily_trade_day_partition_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "dc_index_trade_day_partition_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "dc_member_trade_day_partition_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "etf_mins_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "feishu_run_failed_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "feishu_run_started_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "feishu_run_succeeded_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "global_index_trade_day_partition_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_dc_daily_technical_repair_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_dc_daily_technical_repair_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_dc_daily_technical_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_dc_daily_technical_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_index_mins_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_index_mins_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_major_index_daily_nineturn_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_major_index_daily_nineturn_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_major_index_mins_nineturn_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_major_index_mins_nineturn_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_major_index_mins_technical_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_major_index_mins_technical_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_major_index_mins_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_major_index_mins_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_stk_mins_qfq_macd_kdj_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_stk_mins_qfq_macd_kdj_repair_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_stk_mins_qfq_nineturn_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_stock_daily_qfq_factor_repair_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_stock_daily_qfq_factor_repair_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_stock_daily_qfq_nineturn_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_stock_daily_qfq_nineturn_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_stock_daily_qfq_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_stock_daily_qfq_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_stock_daily_trend_channel_repair_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_stock_daily_trend_channel_repair_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_stock_daily_trend_channel_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_stock_daily_trend_channel_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "gold_wealth_market_turnover_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "gold_wealth_market_turnover_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "idx_factor_pro_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "index_mins_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "index_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "major_index_mins_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "market_breadth_continuity_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "daily_market_breadth_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "market_major_indices_daily_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "market_major_indices_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "prod_ch_dc_daily_technical_continuity_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "prod_ch_dc_daily_technical_sync_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "prod_clickhouse_market_breadth_continuity_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "prod_clickhouse_share_fact_market_breadth_sync_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "prod_core_index_daily_nineturn_sync_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "prod_core_index_daily_nineturn_sync_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "prod_core_stock_daily_qfq_nineturn_sync_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "prod_core_stock_daily_qfq_nineturn_sync_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_adj_factor_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_adj_factor_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_etf_basic_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_etf_basic_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_etf_mins_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_etf_mins_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_fund_adj_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_fund_adj_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_fund_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_fund_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_index_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_index_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_index_global_late_empty_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_index_global_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_index_global_retry_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_index_global_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_index_global_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 60,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_index_global_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_index_mins_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_index_mins_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_major_index_mins_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_major_index_mins_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_namechange_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_namechange_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_stk_nineturn_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_stk_nineturn_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_stock_basic_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_stock_basic_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_stock_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_stock_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_stock_monthly_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 60,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_stk_period_bar_adj_month_update_job"
+                    },
+                    {
+                      "pipelineName": "raw_stk_period_bar_month_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_stock_weekly_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 60,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_stk_period_bar_adj_week_update_job"
+                    },
+                    {
+                      "pipelineName": "raw_stk_period_bar_week_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_suspend_d_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_suspend_d_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_tushare_daily_basic_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 900,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_daily_basic_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_tushare_dc_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_dc_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_tushare_dc_index_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_dc_index_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_tushare_dc_member_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_dc_member_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_tushare_idx_factor_pro_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_idx_factor_pro_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "raw_tushare_moneyflow_cnt_ths_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_moneyflow_cnt_ths_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "raw_tushare_moneyflow_dc_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_moneyflow_dc_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "raw_tushare_moneyflow_ind_dc_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_moneyflow_ind_dc_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "raw_tushare_moneyflow_ind_ths_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_moneyflow_ind_ths_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_moneyflow_mkt_dc_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "raw_tushare_moneyflow_ths_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_moneyflow_ths_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "raw_tushare_moneyflow_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "raw_tushare_moneyflow_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "silver_adj_factor_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_adj_factor_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_dc_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_dc_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_dc_index_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_dc_index_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_dc_member_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_dc_member_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_etf_adj_factor_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_etf_adj_factor_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_etf_basic_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_etf_basic_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_etf_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_etf_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_etf_mins_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_etf_mins_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_index_daily_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_index_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_index_factor_pro_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_index_factor_pro_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_index_global_retry_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_index_global_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_index_global_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 30,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_index_global_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_index_mins_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_index_mins_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_major_index_mins_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_major_index_mins_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_moneyflow_cnt_ths_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_moneyflow_cnt_ths_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "silver_moneyflow_dc_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_moneyflow_dc_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "silver_moneyflow_ind_dc_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_moneyflow_ind_dc_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "silver_moneyflow_ind_ths_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_moneyflow_ind_ths_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "silver_moneyflow_mkt_dc_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_moneyflow_mkt_dc_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "silver_moneyflow_ths_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_moneyflow_ths_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "silver_moneyflow_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_moneyflow_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "STOPPED"
+                  }
+                },
+                {
+                  "name": "silver_namechange_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_namechange_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_stock_basic_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_stock_basic_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_stock_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_stock_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_stock_nineturn_daily_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_stock_nineturn_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "silver_suspend_d_update_job_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "silver_suspend_d_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stk_nineturn_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_current_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_daily_trend_channel_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_identity_map_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "stock_identity_map_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_mins_qfq_daily_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "stock_mins_qfq_daily_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_mins_qfq_factor_repair_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "stock_mins_qfq_factor_repair_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_mins_raw_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 900,
+                  "targets": [
+                    {
+                      "pipelineName": "stock_mins_raw_update_from_prod_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_mins_silver_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "stock_mins_silver_update_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_mins_silver_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_mins_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_return_distribution_continuity_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [
+                    {
+                      "pipelineName": "stock_return_distribution_daily_job"
+                    }
+                  ],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                },
+                {
+                  "name": "stock_trade_day_sensor",
+                  "defaultStatus": "STOPPED",
+                  "minIntervalSeconds": 600,
+                  "targets": [],
+                  "sensorState": {
+                    "status": "RUNNING"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "instance": {
+          "daemonHealth": {
+            "allDaemonStatuses": [
+              {
+                "daemonType": "SENSOR",
+                "healthy": true
+              },
+              {
+                "daemonType": "BACKFILL",
+                "healthy": true
+              },
+              {
+                "daemonType": "SCHEDULER",
+                "healthy": true
+              },
+              {
+                "daemonType": "QUEUED_RUN_COORDINATOR",
+                "healthy": true
+              },
+              {
+                "daemonType": "MONITORING",
+                "healthy": true
+              },
+              {
+                "daemonType": "ASSET",
+                "healthy": true
+              },
+              {
+                "daemonType": "FRESHNESS_DAEMON",
+                "healthy": true
+              }
+            ]
+          }
+        }
+      }
+    },
+    "processes": [
+      {
+        "pid": 31262,
+        "ppid": 31239,
+        "role": "code_server",
+        "token_observed": true,
+        "token_nonempty": true,
+        "current_project": true,
+        "project_python": false,
+        "command_type": "orchestrator.definitions -d /Users/congming/github/goldenshare/lake_console/orchestrator/src"
+      },
+      {
+        "pid": 31264,
+        "ppid": 31262,
+        "role": "code_server",
+        "token_observed": true,
+        "token_nonempty": true,
+        "current_project": true,
+        "project_python": false,
+        "command_type": "orchestrator.definitions -d /Users/congming/github/goldenshare/lake_console/orchestrator/src"
+      },
+      {
+        "pid": 31524,
+        "ppid": 31239,
+        "role": "other",
+        "token_observed": true,
+        "token_nonempty": true,
+        "current_project": true,
+        "project_python": false,
+        "command_type": "dagster_webserver"
+      },
+      {
+        "pid": 31525,
+        "ppid": 31239,
+        "role": "other",
+        "token_observed": true,
+        "token_nonempty": true,
+        "current_project": true,
+        "project_python": false,
+        "command_type": "dagster._daemon run"
+      }
+    ]
+  },
+  "calendar": {
+    "path": "/Volumes/datasource/data_lake/silver/calendar/trade_calendar/full/part-000.parquet",
+    "sha256": "0055670758c0365f95f82f629144fe3e24143f6dbf012c728cb0020510107f5a",
+    "sse_unique_dates": 6209,
+    "october": [
+      {
+        "date": "2026-10-01",
+        "open": false
+      },
+      {
+        "date": "2026-10-02",
+        "open": false
+      },
+      {
+        "date": "2026-10-03",
+        "open": false
+      },
+      {
+        "date": "2026-10-04",
+        "open": false
+      },
+      {
+        "date": "2026-10-05",
+        "open": false
+      },
+      {
+        "date": "2026-10-06",
+        "open": false
+      },
+      {
+        "date": "2026-10-07",
+        "open": false
+      },
+      {
+        "date": "2026-10-08",
+        "open": true
+      },
+      {
+        "date": "2026-10-09",
+        "open": true
+      },
+      {
+        "date": "2026-10-10",
+        "open": false
+      },
+      {
+        "date": "2026-10-11",
+        "open": false
+      },
+      {
+        "date": "2026-10-12",
+        "open": true
+      },
+      {
+        "date": "2026-10-13",
+        "open": true
+      },
+      {
+        "date": "2026-10-14",
+        "open": true
+      },
+      {
+        "date": "2026-10-15",
+        "open": true
+      },
+      {
+        "date": "2026-10-16",
+        "open": true
+      },
+      {
+        "date": "2026-10-17",
+        "open": false
+      },
+      {
+        "date": "2026-10-18",
+        "open": false
+      },
+      {
+        "date": "2026-10-19",
+        "open": true
+      },
+      {
+        "date": "2026-10-20",
+        "open": true
+      },
+      {
+        "date": "2026-10-21",
+        "open": true
+      },
+      {
+        "date": "2026-10-22",
+        "open": true
+      },
+      {
+        "date": "2026-10-23",
+        "open": true
+      },
+      {
+        "date": "2026-10-24",
+        "open": false
+      },
+      {
+        "date": "2026-10-25",
+        "open": false
+      },
+      {
+        "date": "2026-10-26",
+        "open": true
+      },
+      {
+        "date": "2026-10-27",
+        "open": true
+      },
+      {
+        "date": "2026-10-28",
+        "open": true
+      },
+      {
+        "date": "2026-10-29",
+        "open": true
+      },
+      {
+        "date": "2026-10-30",
+        "open": true
+      },
+      {
+        "date": "2026-10-31",
+        "open": false
+      }
+    ],
+    "cutoff": "2026-09-30",
+    "start": "2026-10-01",
+    "as_of_eligible_dates": [
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12"
+    ],
+    "at_22_eligible_dates": [
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12",
+      "2026-10-13"
+    ],
+    "at_22_update_window": [
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12",
+      "2026-10-13"
+    ],
+    "outside_hot_window": [],
+    "eleventh_open_after_cutoff": "2026-10-22",
+    "max_calendar_date_in_audited_range": "2026-12-31",
+    "audited_sse_date_range": [
+      "2010-01-01",
+      "2026-12-31"
+    ]
+  },
+  "datasets": {
+    "moneyflow_mkt_dc": {
+      "cutoff": "2026-09-30",
+      "history_start": "2023-04-17",
+      "partition_set": "cn_a_moneyflow_mkt_dc_trade_days",
+      "history_source_dates": 839,
+      "registered_count": 839,
+      "native_materializations_in_frozen_scope": 1678,
+      "native_recent_green_checks": 40,
+      "historical_identity_matches_accepted": true,
+      "historical_identity_sha256": "335e41b2cdd35e90d7331666c2fde286f90ab4203784fe2e80217ea3b8360331",
+      "recent20_physical_readiness_green": 40,
+      "metadata_reads_full_history": 21,
+      "historical_source_hole_dates": [
+        "2026-07-09"
+      ],
+      "current_registrar_next_before22": [
+        "2026-07-09",
+        "2026-10-08"
+      ],
+      "current_registrar_next_after22": [
+        "2026-10-13",
+        "2026-07-09"
+      ],
+      "proposed_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "proposed_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "eligible_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12"
+      ],
+      "tonight_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12",
+        "2026-10-13"
+      ],
+      "update_first_missing_partition": "2026-10-08",
+      "hot_readiness": {
+        "raw": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          }
+        },
+        "silver": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          }
+        }
+      },
+      "hot_files": {
+        "2026-10-08": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-09": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-12": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-13": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          }
+        }
+      },
+      "active_runs": {
+        "raw_tushare_moneyflow_mkt_dc_update_job": [],
+        "silver_moneyflow_mkt_dc_update_job": []
+      },
+      "last100_job_runs": {
+        "raw_tushare_moneyflow_mkt_dc_update_job": [],
+        "silver_moneyflow_mkt_dc_update_job": []
+      },
+      "last_bootstrap_day": {
+        "day": "2026-09-30",
+        "raw_sha256": "a83202a52871d81c8a756c0aaeebe890dd1d11cc04979c414d30327484539ef4",
+        "silver_sha256": "011f4b9d09f9fc92549ab2803d047a8ea4e1f103686799cca553e4fa7b4d65e6",
+        "checkpoint": {
+          "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_mkt_dc/2026-09-30/history_candidates/unit-000043/checkpoint.json",
+          "sha256": "f4bb97afc0454e268ead72b7ed32172993afd7992f30a9306a172f75ec5cc8a4"
+        }
+      }
+    },
+    "moneyflow_ind_ths": {
+      "cutoff": "2026-09-30",
+      "history_start": "2024-09-10",
+      "partition_set": "cn_a_moneyflow_ind_ths_trade_days",
+      "history_source_dates": 494,
+      "registered_count": 494,
+      "native_materializations_in_frozen_scope": 988,
+      "native_recent_green_checks": 40,
+      "historical_identity_matches_accepted": true,
+      "historical_identity_sha256": "fcb1cb80c9a613648ab2d7d65ff3edb68429b318e57fd75db653dc4deee32ee4",
+      "recent20_physical_readiness_green": 40,
+      "metadata_reads_full_history": 13,
+      "historical_source_hole_dates": [
+        "2024-11-04",
+        "2025-01-20",
+        "2026-07-09",
+        "2026-08-05"
+      ],
+      "current_registrar_next_before22": [
+        "2024-11-04",
+        "2025-01-20"
+      ],
+      "current_registrar_next_after22": [
+        "2026-10-13",
+        "2024-11-04"
+      ],
+      "proposed_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "proposed_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "eligible_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12"
+      ],
+      "tonight_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12",
+        "2026-10-13"
+      ],
+      "update_first_missing_partition": "2026-10-08",
+      "hot_readiness": {
+        "raw": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          }
+        },
+        "silver": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          }
+        }
+      },
+      "hot_files": {
+        "2026-10-08": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-09": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-12": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-13": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          }
+        }
+      },
+      "active_runs": {
+        "raw_tushare_moneyflow_ind_ths_update_job": [],
+        "silver_moneyflow_ind_ths_update_job": []
+      },
+      "last100_job_runs": {
+        "raw_tushare_moneyflow_ind_ths_update_job": [],
+        "silver_moneyflow_ind_ths_update_job": []
+      },
+      "last_bootstrap_day": {
+        "checkpoint": {
+          "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_ind_ths/2026-09-30/history_candidates/unit-000025/checkpoint.json",
+          "sha256": "22d6c142b53e3aaa9a69a15016f0464206d974c00006959cbbf307d69db8cd75"
+        },
+        "day": "2026-09-30",
+        "raw_sha256": "b4ef9debedd6ae38f6dc06749684e30d9034fa849c94fb533078bb3163e0d98e",
+        "row_count": 90,
+        "silver_sha256": "68636c2fda7e308027832d25900591d4c760257f237ae98ca22528487d4068d4"
+      }
+    },
+    "moneyflow_cnt_ths": {
+      "cutoff": "2026-09-30",
+      "history_start": "2024-09-10",
+      "partition_set": "cn_a_moneyflow_cnt_ths_trade_days",
+      "history_source_dates": 495,
+      "registered_count": 495,
+      "native_materializations_in_frozen_scope": 990,
+      "native_recent_green_checks": 40,
+      "historical_identity_matches_accepted": true,
+      "historical_identity_sha256": "8b1e5aba3924fc87a62d74f4fc70a631f78364a43335f7b0bd8db59c16a6adbb",
+      "recent20_physical_readiness_green": 40,
+      "metadata_reads_full_history": 13,
+      "historical_source_hole_dates": [
+        "2024-11-04",
+        "2025-01-20",
+        "2026-07-09"
+      ],
+      "current_registrar_next_before22": [
+        "2024-11-04",
+        "2025-01-20"
+      ],
+      "current_registrar_next_after22": [
+        "2026-10-13",
+        "2024-11-04"
+      ],
+      "proposed_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "proposed_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "eligible_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12"
+      ],
+      "tonight_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12",
+        "2026-10-13"
+      ],
+      "update_first_missing_partition": "2026-10-08",
+      "hot_readiness": {
+        "raw": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          }
+        },
+        "silver": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          }
+        }
+      },
+      "hot_files": {
+        "2026-10-08": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-09": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-12": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-13": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          }
+        }
+      },
+      "active_runs": {
+        "raw_tushare_moneyflow_cnt_ths_update_job": [],
+        "silver_moneyflow_cnt_ths_update_job": []
+      },
+      "last100_job_runs": {
+        "raw_tushare_moneyflow_cnt_ths_update_job": [],
+        "silver_moneyflow_cnt_ths_update_job": []
+      },
+      "last_bootstrap_day": {
+        "checkpoint": {
+          "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_cnt_ths/2026-09-30/history_candidates/unit-000025/checkpoint.json",
+          "sha256": "5760035caada1bd27f00e4bc89828d56ab050ccaed84d7d904307f3c9c83a141"
+        },
+        "day": "2026-09-30",
+        "raw_sha256": "c54ba5d826a3216ce51bd6ea87ab9641bc9e244a13575eeac47fb79e127d68d0",
+        "row_count": 387,
+        "silver_sha256": "fa60503a1846cc3d56b1e90e80d1761034261bc39b98eb92143696b8b4f00734"
+      }
+    },
+    "moneyflow_ind_dc": {
+      "cutoff": "2026-09-30",
+      "history_start": "2023-09-12",
+      "partition_set": "cn_a_moneyflow_ind_dc_trade_days",
+      "history_source_dates": 739,
+      "registered_count": 739,
+      "native_materializations_in_frozen_scope": 1478,
+      "native_recent_green_checks": 40,
+      "historical_identity_matches_accepted": true,
+      "historical_identity_sha256": "c1fe4f389da265b5fcfb7d1990acc34ec642cee987a2882bfd70cfef5b37c6c9",
+      "recent20_physical_readiness_green": 40,
+      "metadata_reads_full_history": 19,
+      "historical_source_hole_dates": [],
+      "current_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "current_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "proposed_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "proposed_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "eligible_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12"
+      ],
+      "tonight_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12",
+        "2026-10-13"
+      ],
+      "update_first_missing_partition": "2026-10-08",
+      "hot_readiness": {
+        "raw": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          }
+        },
+        "silver": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          }
+        }
+      },
+      "hot_files": {
+        "2026-10-08": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-09": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-12": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-13": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          }
+        }
+      },
+      "active_runs": {
+        "raw_tushare_moneyflow_ind_dc_update_job": [],
+        "silver_moneyflow_ind_dc_update_job": []
+      },
+      "last100_job_runs": {
+        "raw_tushare_moneyflow_ind_dc_update_job": [],
+        "silver_moneyflow_ind_dc_update_job": []
+      },
+      "last_bootstrap_day": {
+        "checkpoint": {
+          "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_ind_dc/2026-09-30/history_candidates/unit-000039/checkpoint.json",
+          "sha256": "4bc97809136bddd25c26fd7a96ff95692b4a8802cd639c264303ce343bc602f4"
+        },
+        "day": "2026-09-30",
+        "raw_sha256": "7387b327e4b3bc9cc42885cb9fc2eb2e962620e9544296b7dd62c3071c1effaa",
+        "row_count": 1031,
+        "scope_row_counts": {
+          "地域": 31,
+          "概念": 504,
+          "行业": 496
+        },
+        "silver_sha256": "a96fb0ba83ce0d893a9eae800b5c003ac736739eb3a3132d816d158ce39fd5ec"
+      }
+    },
+    "moneyflow_dc": {
+      "cutoff": "2026-09-30",
+      "history_start": "2023-09-11",
+      "partition_set": "cn_a_moneyflow_dc_trade_days",
+      "history_source_dates": 739,
+      "registered_count": 739,
+      "native_materializations_in_frozen_scope": 1478,
+      "native_recent_green_checks": 40,
+      "historical_identity_matches_accepted": true,
+      "historical_identity_sha256": "4b196922c0d7a769017257340084231ed74806181a5b338fc80c8f1ae76f39d4",
+      "recent20_physical_readiness_green": 40,
+      "metadata_reads_full_history": 19,
+      "historical_source_hole_dates": [
+        "2023-11-22"
+      ],
+      "current_registrar_next_before22": [
+        "2023-11-22",
+        "2026-10-08"
+      ],
+      "current_registrar_next_after22": [
+        "2026-10-13",
+        "2023-11-22"
+      ],
+      "proposed_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "proposed_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "eligible_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12"
+      ],
+      "tonight_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12",
+        "2026-10-13"
+      ],
+      "update_first_missing_partition": "2026-10-08",
+      "hot_readiness": {
+        "raw": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          }
+        },
+        "silver": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          }
+        }
+      },
+      "hot_files": {
+        "2026-10-08": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-09": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-12": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-13": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          }
+        }
+      },
+      "active_runs": {
+        "raw_tushare_moneyflow_dc_update_job": [],
+        "silver_moneyflow_dc_update_job": []
+      },
+      "last100_job_runs": {
+        "raw_tushare_moneyflow_dc_update_job": [],
+        "silver_moneyflow_dc_update_job": []
+      },
+      "last_bootstrap_day": {
+        "checkpoint": {
+          "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_dc/2026-09-30/history_candidates/unit-000045/checkpoint.json",
+          "sha256": "4e93820ee69d0b7580a25c074d52f57b01acc62adf3d9fed204867b5c23e2f7e"
+        },
+        "day": "2026-09-30",
+        "raw_sha256": "70fda8fd7a63552c3b5d5ea99e48cf1583ed5fc207f9a21f85e68da7f72afad4",
+        "row_count": 6024,
+        "silver_sha256": "ac089a2ddd393bce9429e38d0ca5daab80a03d022418c66fd5e77515f91714f2"
+      }
+    },
+    "moneyflow_ths": {
+      "cutoff": "2026-09-30",
+      "history_start": "2024-12-19",
+      "partition_set": "cn_a_moneyflow_ths_trade_days",
+      "history_source_dates": 431,
+      "registered_count": 431,
+      "native_materializations_in_frozen_scope": 862,
+      "native_recent_green_checks": 40,
+      "historical_identity_matches_accepted": true,
+      "historical_identity_sha256": "4f72e913b0b373d0ee3356f02bed1203712b8f7cc45a349c31f37bdd39383129",
+      "recent20_physical_readiness_green": 40,
+      "metadata_reads_full_history": 13,
+      "historical_source_hole_dates": [
+        "2026-07-06",
+        "2026-07-09"
+      ],
+      "current_registrar_next_before22": [
+        "2026-07-06",
+        "2026-07-09"
+      ],
+      "current_registrar_next_after22": [
+        "2026-10-13",
+        "2026-07-06"
+      ],
+      "proposed_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "proposed_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "eligible_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12"
+      ],
+      "tonight_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12",
+        "2026-10-13"
+      ],
+      "update_first_missing_partition": "2026-10-08",
+      "hot_readiness": {
+        "raw": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          }
+        },
+        "silver": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          }
+        }
+      },
+      "hot_files": {
+        "2026-10-08": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-09": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-12": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-13": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          }
+        }
+      },
+      "active_runs": {
+        "raw_tushare_moneyflow_ths_update_job": [],
+        "silver_moneyflow_ths_update_job": []
+      },
+      "last100_job_runs": {
+        "raw_tushare_moneyflow_ths_update_job": [],
+        "silver_moneyflow_ths_update_job": []
+      },
+      "last_bootstrap_day": {
+        "checkpoint": {
+          "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow_ths/2026-09-30/history_candidates/unit-000023/checkpoint.json",
+          "sha256": "3e60d2ee9919d669f87f0777f438a1f6bd950046e1715eebf5c5ab8dc11a6852"
+        },
+        "day": "2026-09-30",
+        "raw_sha256": "d68f42062195bf7a7f74bc794f74a56c0f6814c9f4a8700a4f8fe7fe9db32775",
+        "row_count": 5215,
+        "silver_sha256": "b40f28495e8217140aac53ef97894d1be948609260fc347bab7c3a685bf8a0b3"
+      }
+    },
+    "moneyflow": {
+      "cutoff": "2026-09-30",
+      "history_start": "2010-01-04",
+      "partition_set": "cn_a_moneyflow_trade_days",
+      "history_source_dates": 4067,
+      "registered_count": 4067,
+      "native_materializations_in_frozen_scope": 8134,
+      "native_recent_green_checks": 40,
+      "historical_identity_matches_accepted": true,
+      "historical_identity_sha256": "ade323330c04c2245b8b70625da8398064399aa5eb4d1c72b930eadcd4549d5a",
+      "recent20_physical_readiness_green": 40,
+      "metadata_reads_full_history": 85,
+      "historical_source_hole_dates": [],
+      "current_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "current_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "proposed_registrar_next_before22": [
+        "2026-10-08",
+        "2026-10-09"
+      ],
+      "proposed_registrar_next_after22": [
+        "2026-10-13",
+        "2026-10-08"
+      ],
+      "eligible_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12"
+      ],
+      "tonight_missing_partitions": [
+        "2026-10-08",
+        "2026-10-09",
+        "2026-10-12",
+        "2026-10-13"
+      ],
+      "update_first_missing_partition": "2026-10-08",
+      "hot_readiness": {
+        "raw": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "missing_materialization"
+          }
+        },
+        "silver": {
+          "2026-10-08": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-09": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-12": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          },
+          "2026-10-13": {
+            "ready": false,
+            "materialized": false,
+            "reason": "raw_not_ready"
+          }
+        }
+      },
+      "hot_files": {
+        "2026-10-08": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2026-10-08/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-09": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2026-10-09/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-12": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2026-10-12/part-000.parquet",
+            "exists": false
+          }
+        },
+        "2026-10-13": {
+          "raw": {
+            "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          },
+          "silver": {
+            "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2026-10-13/part-000.parquet",
+            "exists": false
+          }
+        }
+      },
+      "active_runs": {
+        "raw_tushare_moneyflow_update_job": [],
+        "silver_moneyflow_update_job": []
+      },
+      "last100_job_runs": {
+        "raw_tushare_moneyflow_update_job": [],
+        "silver_moneyflow_update_job": []
+      },
+      "last_bootstrap_day": {
+        "checkpoint": {
+          "path": "/Volumes/datasource/data_lake_staging/moneyflow/history-full-20261009/moneyflow/2026-09-30/history_candidates/unit-000216/checkpoint.json",
+          "sha256": "d59c137ccd8de059792b33eaf7ae879a7e6fca9c953e61aa742b2e3bf0c7cb5b"
+        },
+        "day": "2026-09-30",
+        "raw_sha256": "437475c51e9eab1dc6c06811fcbc5019b7ae99e7311852cfd61293863ff0c4df",
+        "row_count": 5572,
+        "silver_sha256": "19488efce628dce733c915cd6b063239eb6178fad23ff97728bb79b2bf87abc3"
+      }
+    }
+  },
+  "source_preservation": {
+    "files": 1182,
+    "sha256": "93b3fa24957b2946718591244c523969b7c25c1b95a471a76a8b557022ee76b9"
+  },
+  "previous_reports_sha256": {
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_derivation_feasibility_20261006.json": "0944c6879316d8e16255f5bfa9c304e9a3a34772eec3148a3d40bdbdf3c8b396",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p0_closeout_20261006.json": "6194d04cf925722ec5c8c00e8402b70af695efbb646358382afbb546aea6a413",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p0_evidence_20261006.json": "9fa7c9582e3eab8ffa1681cde59fcaa12fa073a742fce59889a19af039bf97c3",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p0_partial_day_followup_20261006.json": "98d406d04595502d8b1f07b56a29bbf92ce6fd78c18bc00ce538143fa02f2806",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_dc_evidence_20261007.json": "8b620d66300c01c49489b82e3df7989b2f8e434982b6e21ba7373ec9a9d8fb9a",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_evidence_20261007.json": "e603b851fc60538d5e6612f182be8f79af13d4f1ff18fd92f4be12d3d56bc020",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p2_moneyflow_ths_evidence_20261007.json": "71d2fa3803981ee85acca2ed9e35bd8b7913bc2393ee2700c53a6994df3c01c7",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_cohort_evidence_20261008.json": "c23ec90476acb4f787247747b233a5dce7f60f1e82d1b35a3709a31220817d92",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_date_candidates_evidence_20261007.json": "049fd1170665217230493fc49b270aaa65a42af37d924885f2a985f5c233aebe",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_date_index_acceptance_20261008.json": "1a52dcbb8ba5aea2a2790b9f3bed8354fd81b605208060b6184dc0930850af7a",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_date_query_profile_20261008.json": "71e63247688f11dfb32210bd406c6a955996993b61ce4c52bd5a23b7f8d20d1b",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_formal_sample_evidence_20261009.json": "f88edab78bafd2168812c4d7f66690d115d0018b7ddeaef6b812fb5f4a2e996a",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_full_history_execution_evidence_20261009.json": "752e87b7e325755c9845f35db5039ed8210a9bf77fc06cd11cb3b335e751fa97",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_full_history_plan_evidence_20261009.json": "02534cda4abbddbbc6f152cd6041fcad5fd01f96a0d0a17da4bf25d5c695cac3",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_export_evidence_20261007.json": "e012f42c585964b112f37f41915abca071f6475829498cfabd3349afec58c9a4",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_plan_evidence_20261007.json": "aa0b1012eec596957ce49f3989db4cd9a1e8500afd1b7e538d84bb6d07d3d38a",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_history_promotion_evidence_20261008.json": "a7fb1e68c7c457c2e35a08b006f45b404f146305e3f697f79a2cc86de4d58018",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p3_selected_dates_evidence_20261008.json": "43ae51b534d7d66f1c9e5fe41e5b95c0312bb108fea956f8f5cb19e3ef679a88",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_acceptance_evidence_20261011.json": "999f4b291d6897b0434a36c51b68a33005684fe0972c33e4d393395cc4db2bea",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_asset_closeout_evidence_20261011.json": "e6bb38ceee7c7cf639958dfd163f51cd13003bac1050bcec9dbc80282ba045ef",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_automation_evidence_20261011.json": "3359444d863d5d618aaaca8d568410fc162a3025aab26d0cd6728c3a0730cc62",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_event_registration_closeout_evidence_20261012.json": "6e644510d6c9a5027f85629a9826eb684d12d1b1276193bc78b3757c51d7bf21",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_event_registration_evidence_20261011.json": "8a030ca3a4e80a6af832e1ec291079ab97d3a251ff6eaa1ff8cbca0dfbb1ca8c",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_event_registration_formal_full_evidence_20261012.json": "f54d69d0d32f7a4b60644d2f44b0075dd5b48d899bb1b9bade34f70d9f35a0f6",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_event_registration_formal_sample_evidence_20261012.json": "151cb2aad967db20d9e289ba22d4b2b719cba7a0f3dafc26a4926db8f31dc5b4",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_event_registration_full_plan_20261011.json": "37860dae065606ccf28ca901cf512c2e4ad4887f2aaecb21b5226ef3640fa400",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_event_registration_sample_plan_20261011.json": "2102e4c37257e86735a08d73838d8e0f797e2b36e668c437118a029752318064",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_cnt_ths_evidence_20261011.json": "b346344b14c1a30516e04c9e0f7d17f780228994873fc1434defbff5ac12e88a",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_dc_event_registration_evidence_20261012.json": "69e25279a8d55958361d5d9ba0a01c58a66d11571d9380086e03d2b42badfee2",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_dc_event_registration_formal_full_evidence_20261012.json": "1acf99e67e9a7312b4c675a94cd36c01027b0287f552aa713da262ca05b7c35c",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_dc_event_registration_formal_sample_evidence_20261012.json": "561489e8516a0cb6dffbf888c2bb7e4c362bd3dae3448c5d49dca284bce48201",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_dc_event_registration_full_plan_20261012.json": "5eb49184a8cb6089cdab5b0600405e7ad28bb3cbfe9ffd7cbbbfa362575d5987",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_dc_event_registration_sample_plan_20261012.json": "ed911805fbfbc5dfe6deb8ffc00c3d97aaf860357d0d8c900dd43c5685a142c8",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_dc_evidence_20261012.json": "37f521c0db4846b0785793d71b1d227632522e8a7787c67884a640a9a8778418",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_dc_sensor_event_preview_evidence_20261012.json": "3f8278c397591debb597e40ca44e7b5f81acfde0e34e41d4b6bcebc99e4bb99a",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_dc_event_registration_evidence_20261012.json": "4621807a0062957a67964be5b8184efb3bf55e6a87ba74a276328c2f548760a6",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_dc_event_registration_formal_full_evidence_20261012.json": "abb060b220903b88450fad04b3a19c6672bfd270c9dcb1abdd5576c718c68ac3",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_dc_event_registration_formal_sample_evidence_20261012.json": "75eea578e4095d2d25474cf80ea6e1c4f8e7fcbe86b657a84044827856fbfe54",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_dc_event_registration_full_plan_20261012.json": "e2c0ab5adbf3a3348d51636ec6a084b4219dd9acf869f3588d4fcc26512f8158",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_dc_event_registration_sample_plan_20261012.json": "d0b320a760d64599bf279556da706d6fbe9d6917665aa3150540bb733437278e",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_dc_evidence_20261012.json": "ae410071aed48513e093e1a4eec80e8697bad8aa16ec98e378b2dfd267e9a6d4",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_dc_sensor_event_preview_evidence_20261012.json": "c77e34258afc583021448ffe41b985cacb04c614681e1a55606544115c45eeec",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_ths_automation_evidence_20261010.json": "292fd0bb792388287558760381cd6ae06ad0c2cec0e614125d1e6fafb6fcf8b7",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_ths_event_registration_evidence_20261010.json": "7baff678a06e23632f3691d32f5c72d077af7e47613a34467573df67681ea70b",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_ths_event_registration_formal_full_evidence_20261011.json": "1e44ebd9a85af062e80caf9724a91cf6d652c3239862e82eb7fe58eb6c3cf72e",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_ths_event_registration_formal_sample_evidence_20261011.json": "2fc45fab06021254776a0967d5afbbdbc9cbdc5201533c59ef709cfe33fa6ef1",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_ths_event_registration_full_plan_20261010.json": "82743d5a337f5579f53b8c73b2a12ae9762ed18a584749e49c57e14cae322eaa",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_ths_event_registration_sample_plan_20261010.json": "72fca742cfaf060ab2ace0f5533cb6dee459e84fc034903d1a813d95baa8d75a",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ind_ths_evidence_20261010.json": "73f3870ac235cdd3b591f36b278c13bb05f25f6979b368759e98e168e634db9c",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_event_registration_evidence_20261010.json": "98da97a6f1c0726ada605b0c4fff84b4478ef921c32fa35a8029d643e6c77ed9",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_full_evidence_20261010.json": "04a4b1ff9c89553cf62422ddc2c21f2a1b81be11733e72e73d6e0ca00314423f",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_event_registration_formal_sample_evidence_20261010.json": "3a65b91362b961fec4f5573429830c6f8460ade54cde790e95219423789a8324",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_event_registration_full_plan_20261010.json": "9bdaeebdc0ebedde0351b105c1015f287ba18c16dd359df47f6be44f64eaee14",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_event_registration_sample_plan_20261010.json": "5eb23d036d335d41d80c9501a688b664e6fc664259ded18d68e127032de9f7b6",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_evidence_20261009.json": "5c1f28164a68758aa89cb2070ab2bd9af444e8abc13302210f68ef667d9802a5",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_mkt_dc_sensor_event_preview_evidence_20261009.json": "8a6f805cef9e39b802709d494489a1d3fb76f7aac7b8e488ad0fc3fa90a7491d",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_executor_evidence_20261012.json": "815d1b671ba8d53eed2a8f85d82a49ed87433e511efffb61d3a0a112b9d65466",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_formal_full_evidence_20261013.json": "fffa44ddcf6d8fd2566d704ba0ba9e823f6d6b462542762ee8a663a8e66990fb",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_formal_sample_evidence_20261013.json": "c284d7e98577cb053e1853df8fd3f4974d97e31ad850da9195670042f021ba57",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_full_plan_20261012.json": "c1fcd6a100533b1a7556f832e4e52590d960884ea022a6bab484256980fd0f90",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_full_unit_01_plan_20261012.json": "f1965bd2c5f8c601647207bad830e9d94871b77175fc68cd1abcc2b53c1404af",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_full_unit_02_plan_20261012.json": "23ab172f749fe68c516e006fcd5210b6ddb8f992197c302cdd53b07962223df5",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_full_unit_03_plan_20261012.json": "49746c56591a3d9bf6f5b77dc18d26fcc135489a1da7115ca462c5ed31f38cae",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_full_unit_04_plan_20261012.json": "64c4909ddb4bc35e75175979751f67d11faab4f201c7014125e25177664aa5bf",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_full_unit_05_plan_20261012.json": "81b0b68726d1d6cc8bc54e45717fa8ea1a3da692ab663f2911e4240bbddd2595",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_event_registration_sample_plan_20261012.json": "a4951d3a1ab8043666977f95b47839efad29e128416cda42029b35f1921309de",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_evidence_20261012.json": "e3555b7a8f749b23885debf0b302e2d7c43ebee2bced3db6b124a6765b3a8df6",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_moneyflow_sensor_event_preview_evidence_20261012.json": "d1e0fd62195424a128e02f989dbbcaa6969c7e96804b6d27b1b90e04e0512748",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ths_event_registration_executor_evidence_20261012.json": "508121623a0313bed4e35c21e82044365bb358de736cb95f90088c6ce3c3b3fc",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ths_event_registration_formal_full_evidence_20261012.json": "64c09aa7366a206cc9e18680c7e90e9ddab05e01a2cc28947ccd0e134c2bc2c4",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ths_event_registration_formal_sample_evidence_20261012.json": "70b591c39539b0c91b6f572ffacf387413fe32cc961a5685f433e0069324c8e9",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ths_event_registration_full_plan_20261012.json": "8f81291b7ddf181e4843a22ce4f398bc2abd8b70d6874d2513d2f463b9f9edd0",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ths_event_registration_sample_plan_20261012.json": "cf7624f3292f026b88d3a6582c80c573666a5815461c3326636edcc34ba4ffe7",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ths_evidence_20261012.json": "a40375fb9eafd0ba0a24edde88dad408b482a161973a2ee83a96e88d19dd5282",
+    "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_ths_sensor_event_preview_evidence_20261012.json": "d341b66f8a1069da19867eba1deff3576448a9e3c2720692895f95c64014723a"
+  },
+  "historical_full_evidence_sha256": "fffa44ddcf6d8fd2566d704ba0ba9e823f6d6b462542762ee8a663a8e66990fb",
+  "code_definitions": {
+    "moneyflow_mkt_dc": {
+      "cn_a_moneyflow_mkt_dc_trade_day_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "raw_tushare_moneyflow_mkt_dc_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "silver_moneyflow_mkt_dc_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      }
+    },
+    "moneyflow_ind_ths": {
+      "cn_a_moneyflow_ind_ths_trade_day_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "raw_tushare_moneyflow_ind_ths_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "silver_moneyflow_ind_ths_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      }
+    },
+    "moneyflow_cnt_ths": {
+      "cn_a_moneyflow_cnt_ths_trade_day_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "raw_tushare_moneyflow_cnt_ths_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "silver_moneyflow_cnt_ths_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      }
+    },
+    "moneyflow_ind_dc": {
+      "cn_a_moneyflow_ind_dc_trade_day_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "raw_tushare_moneyflow_ind_dc_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "silver_moneyflow_ind_dc_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      }
+    },
+    "moneyflow_dc": {
+      "cn_a_moneyflow_dc_trade_day_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "raw_tushare_moneyflow_dc_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "silver_moneyflow_dc_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      }
+    },
+    "moneyflow_ths": {
+      "cn_a_moneyflow_ths_trade_day_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "raw_tushare_moneyflow_ths_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "silver_moneyflow_ths_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      }
+    },
+    "moneyflow": {
+      "cn_a_moneyflow_trade_day_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "raw_tushare_moneyflow_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      },
+      "silver_moneyflow_update_job_sensor": {
+        "default_status": "STOPPED",
+        "minimum_interval_seconds": 600,
+        "required_resource_keys": [
+          "duckdb",
+          "lake_root"
+        ]
+      }
+    }
+  },
+  "loaded_moneyflow_sensors": {
+    "cn_a_moneyflow_cnt_ths_trade_day_sensor": {
+      "name": "cn_a_moneyflow_cnt_ths_trade_day_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "cn_a_moneyflow_dc_trade_day_sensor": {
+      "name": "cn_a_moneyflow_dc_trade_day_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "cn_a_moneyflow_ind_dc_trade_day_sensor": {
+      "name": "cn_a_moneyflow_ind_dc_trade_day_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "cn_a_moneyflow_ind_ths_trade_day_sensor": {
+      "name": "cn_a_moneyflow_ind_ths_trade_day_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "cn_a_moneyflow_mkt_dc_trade_day_sensor": {
+      "name": "cn_a_moneyflow_mkt_dc_trade_day_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "cn_a_moneyflow_ths_trade_day_sensor": {
+      "name": "cn_a_moneyflow_ths_trade_day_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "cn_a_moneyflow_trade_day_sensor": {
+      "name": "cn_a_moneyflow_trade_day_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "raw_tushare_moneyflow_cnt_ths_update_job_sensor": {
+      "name": "raw_tushare_moneyflow_cnt_ths_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "raw_tushare_moneyflow_cnt_ths_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "raw_tushare_moneyflow_dc_update_job_sensor": {
+      "name": "raw_tushare_moneyflow_dc_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "raw_tushare_moneyflow_dc_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "raw_tushare_moneyflow_ind_dc_update_job_sensor": {
+      "name": "raw_tushare_moneyflow_ind_dc_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "raw_tushare_moneyflow_ind_dc_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "raw_tushare_moneyflow_ind_ths_update_job_sensor": {
+      "name": "raw_tushare_moneyflow_ind_ths_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "raw_tushare_moneyflow_ind_ths_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "raw_tushare_moneyflow_mkt_dc_update_job_sensor": {
+      "name": "raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "raw_tushare_moneyflow_mkt_dc_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "raw_tushare_moneyflow_ths_update_job_sensor": {
+      "name": "raw_tushare_moneyflow_ths_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "raw_tushare_moneyflow_ths_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "raw_tushare_moneyflow_update_job_sensor": {
+      "name": "raw_tushare_moneyflow_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "raw_tushare_moneyflow_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "silver_moneyflow_cnt_ths_update_job_sensor": {
+      "name": "silver_moneyflow_cnt_ths_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "silver_moneyflow_cnt_ths_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "silver_moneyflow_dc_update_job_sensor": {
+      "name": "silver_moneyflow_dc_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "silver_moneyflow_dc_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "silver_moneyflow_ind_dc_update_job_sensor": {
+      "name": "silver_moneyflow_ind_dc_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "silver_moneyflow_ind_dc_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "silver_moneyflow_ind_ths_update_job_sensor": {
+      "name": "silver_moneyflow_ind_ths_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "silver_moneyflow_ind_ths_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "silver_moneyflow_mkt_dc_update_job_sensor": {
+      "name": "silver_moneyflow_mkt_dc_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "silver_moneyflow_mkt_dc_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "silver_moneyflow_ths_update_job_sensor": {
+      "name": "silver_moneyflow_ths_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "silver_moneyflow_ths_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    },
+    "silver_moneyflow_update_job_sensor": {
+      "name": "silver_moneyflow_update_job_sensor",
+      "defaultStatus": "STOPPED",
+      "minIntervalSeconds": 600,
+      "targets": [
+        {
+          "pipelineName": "silver_moneyflow_update_job"
+        }
+      ],
+      "sensorState": {
+        "status": "STOPPED"
+      }
+    }
+  },
+  "loaded_moneyflow_jobs": [
+    "raw_tushare_moneyflow_cnt_ths_update_job",
+    "raw_tushare_moneyflow_dc_update_job",
+    "raw_tushare_moneyflow_ind_dc_update_job",
+    "raw_tushare_moneyflow_ind_ths_update_job",
+    "raw_tushare_moneyflow_mkt_dc_update_job",
+    "raw_tushare_moneyflow_ths_update_job",
+    "raw_tushare_moneyflow_update_job",
+    "silver_moneyflow_cnt_ths_update_job",
+    "silver_moneyflow_dc_update_job",
+    "silver_moneyflow_ind_dc_update_job",
+    "silver_moneyflow_ind_ths_update_job",
+    "silver_moneyflow_mkt_dc_update_job",
+    "silver_moneyflow_ths_update_job",
+    "silver_moneyflow_update_job"
+  ],
+  "instance_concurrency_config": {
+    "runs": {
+      "max_concurrent_runs": 1
+    },
+    "pools": {
+      "granularity": "run"
+    }
+  },
+  "run_monitoring_config": {
+    "enabled": true,
+    "free_slots_after_run_end_seconds": 300
+  },
+  "sensors_before": {
+    "native_sensor_states_count": 106,
+    "moneyflow": {},
+    "absent_names": [
+      "cn_a_moneyflow_cnt_ths_trade_day_sensor",
+      "cn_a_moneyflow_dc_trade_day_sensor",
+      "cn_a_moneyflow_ind_dc_trade_day_sensor",
+      "cn_a_moneyflow_ind_ths_trade_day_sensor",
+      "cn_a_moneyflow_mkt_dc_trade_day_sensor",
+      "cn_a_moneyflow_ths_trade_day_sensor",
+      "cn_a_moneyflow_trade_day_sensor",
+      "raw_tushare_moneyflow_cnt_ths_update_job_sensor",
+      "raw_tushare_moneyflow_dc_update_job_sensor",
+      "raw_tushare_moneyflow_ind_dc_update_job_sensor",
+      "raw_tushare_moneyflow_ind_ths_update_job_sensor",
+      "raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+      "raw_tushare_moneyflow_ths_update_job_sensor",
+      "raw_tushare_moneyflow_update_job_sensor",
+      "silver_moneyflow_cnt_ths_update_job_sensor",
+      "silver_moneyflow_dc_update_job_sensor",
+      "silver_moneyflow_ind_dc_update_job_sensor",
+      "silver_moneyflow_ind_ths_update_job_sensor",
+      "silver_moneyflow_mkt_dc_update_job_sensor",
+      "silver_moneyflow_ths_update_job_sensor",
+      "silver_moneyflow_update_job_sensor"
+    ]
+  },
+  "pool_before": {
+    "key": "moneyflow_tushare_writer",
+    "limits": [],
+    "slot_counts": [],
+    "pending_count": 0,
+    "transaction_read_only": "on",
+    "native_reconciling_getters_called": false
+  },
+  "sensors_after": {
+    "native_sensor_states_count": 106,
+    "moneyflow": {},
+    "absent_names": [
+      "cn_a_moneyflow_cnt_ths_trade_day_sensor",
+      "cn_a_moneyflow_dc_trade_day_sensor",
+      "cn_a_moneyflow_ind_dc_trade_day_sensor",
+      "cn_a_moneyflow_ind_ths_trade_day_sensor",
+      "cn_a_moneyflow_mkt_dc_trade_day_sensor",
+      "cn_a_moneyflow_ths_trade_day_sensor",
+      "cn_a_moneyflow_trade_day_sensor",
+      "raw_tushare_moneyflow_cnt_ths_update_job_sensor",
+      "raw_tushare_moneyflow_dc_update_job_sensor",
+      "raw_tushare_moneyflow_ind_dc_update_job_sensor",
+      "raw_tushare_moneyflow_ind_ths_update_job_sensor",
+      "raw_tushare_moneyflow_mkt_dc_update_job_sensor",
+      "raw_tushare_moneyflow_ths_update_job_sensor",
+      "raw_tushare_moneyflow_update_job_sensor",
+      "silver_moneyflow_cnt_ths_update_job_sensor",
+      "silver_moneyflow_dc_update_job_sensor",
+      "silver_moneyflow_ind_dc_update_job_sensor",
+      "silver_moneyflow_ind_ths_update_job_sensor",
+      "silver_moneyflow_mkt_dc_update_job_sensor",
+      "silver_moneyflow_ths_update_job_sensor",
+      "silver_moneyflow_update_job_sensor"
+    ]
+  },
+  "pool_after": {
+    "key": "moneyflow_tushare_writer",
+    "limits": [],
+    "slot_counts": [],
+    "pending_count": 0,
+    "transaction_read_only": "on",
+    "native_reconciling_getters_called": false
+  },
+  "writer_lock": {
+    "path": "/Volumes/datasource/data_lake_staging/moneyflow/writer.lock",
+    "exists": true,
+    "read_only_descriptor": true,
+    "creation_or_truncation": false,
+    "held": false
+  },
+  "filesystem": {
+    "root": "/Volumes/datasource/data_lake",
+    "staging": "/Volumes/datasource/data_lake_staging",
+    "mount": true,
+    "same_device": true,
+    "free_bytes": 2928252596224,
+    "min_free_bytes": 68719476736,
+    "layers_exist": true,
+    "duckdb_tmp_exists": true,
+    "write_canary_executed": false,
+    "writability_proven_this_audit": false
+  },
+  "preservation": {
+    "source_hashes_before_after_equal": true,
+    "old_reports_before_after_equal": true,
+    "calendar_before_after_equal": true,
+    "all_seven_frozen_native_identity_equal": true,
+    "21_sensor_states_before_after_equal": true,
+    "pool_before_after_equal": true
+  },
+  "cost": {
+    "elapsed_seconds": 6.613,
+    "peak_rss_mib": 318.281,
+    "bounded_asset_run_metadata_reads": 295,
+    "additional_native_reads": {
+      "sensor_inventory": 2,
+      "pool_sql_selects": 6,
+      "transaction_read_only_checks": 2
+    },
+    "total_audit_native_reads_excluding_graphql": 305,
+    "readonly_graphql_requests": 2
+  },
+  "audit_completed": true,
+  "activation_ready": false,
+  "loaded_assets": [
+    {
+      "assetKey": {
+        "path": [
+          "raw_tushare_moneyflow"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "raw_tushare_moneyflow_file_contract_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "raw_tushare_moneyflow_cnt_ths"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_cnt_ths_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "raw_tushare_moneyflow_cnt_ths_file_contract_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "raw_tushare_moneyflow_dc"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_dc_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "raw_tushare_moneyflow_dc_file_contract_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "raw_tushare_moneyflow_ind_dc"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_ind_dc_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "raw_tushare_moneyflow_ind_dc_file_contract_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "raw_tushare_moneyflow_ind_ths"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_ind_ths_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "raw_tushare_moneyflow_ind_ths_file_contract_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "raw_tushare_moneyflow_mkt_dc"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_mkt_dc_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "raw_tushare_moneyflow_mkt_dc_file_contract_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "raw_tushare_moneyflow_ths"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_ths_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "raw_tushare_moneyflow_ths_file_contract_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "silver_moneyflow"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [
+        {
+          "path": [
+            "raw_tushare_moneyflow"
+          ]
+        }
+      ],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "silver_moneyflow_standardization_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "silver_moneyflow_cnt_ths"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [
+        {
+          "path": [
+            "raw_tushare_moneyflow_cnt_ths"
+          ]
+        }
+      ],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_cnt_ths_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "silver_moneyflow_cnt_ths_standardization_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "silver_moneyflow_dc"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [
+        {
+          "path": [
+            "raw_tushare_moneyflow_dc"
+          ]
+        }
+      ],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_dc_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "silver_moneyflow_dc_standardization_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "silver_moneyflow_ind_dc"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [
+        {
+          "path": [
+            "raw_tushare_moneyflow_ind_dc"
+          ]
+        }
+      ],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_ind_dc_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "silver_moneyflow_ind_dc_standardization_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "silver_moneyflow_ind_ths"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [
+        {
+          "path": [
+            "raw_tushare_moneyflow_ind_ths"
+          ]
+        }
+      ],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_ind_ths_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "silver_moneyflow_ind_ths_standardization_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "silver_moneyflow_mkt_dc"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [
+        {
+          "path": [
+            "raw_tushare_moneyflow_mkt_dc"
+          ]
+        }
+      ],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_mkt_dc_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "silver_moneyflow_mkt_dc_standardization_check",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "assetKey": {
+        "path": [
+          "silver_moneyflow_ths"
+        ]
+      },
+      "pools": [
+        "moneyflow_tushare_writer"
+      ],
+      "dependencyKeys": [
+        {
+          "path": [
+            "raw_tushare_moneyflow_ths"
+          ]
+        }
+      ],
+      "partitionDefinition": {
+        "type": "DYNAMIC",
+        "dimensionTypes": [
+          {
+            "dynamicPartitionsDefinitionName": "cn_a_moneyflow_ths_trade_days"
+          }
+        ]
+      },
+      "assetChecksOrError": {
+        "__typename": "AssetChecks",
+        "checks": [
+          {
+            "name": "silver_moneyflow_ths_standardization_check",
+            "blocking": true
+          }
+        ]
+      }
+    }
+  ],
+  "activation_findings": [
+    {
+      "id": "registration_cutoff",
+      "status": "BLOCKED_CODE",
+      "affected_datasets": [
+        "moneyflow_mkt_dc",
+        "moneyflow_ind_ths",
+        "moneyflow_cnt_ths",
+        "moneyflow_ind_dc",
+        "moneyflow_dc",
+        "moneyflow_ths",
+        "moneyflow"
+      ],
+      "source": "defs/sensors/moneyflow_update_selection.py:register_moneyflow_trade_days",
+      "current": "min_trade_date=contract.history_start",
+      "required": "Daily registrar must start at existing MONEYFLOW_SENSOR_START=2026-10-01; bootstrap history_start unchanged.",
+      "historical_hole_dataset_dates": 11,
+      "consequence": "The current registrar would register 11 retained historical source-hole partitions; daily updater starts 2026-10-01 and would not fill them. This is not an authorization to source-backfill historical holes."
+    },
+    {
+      "id": "writer_pool_capacity",
+      "status": "BLOCKED_NATIVE_CONFIGURATION",
+      "affected_assets": 14,
+      "pool": "moneyflow_tushare_writer",
+      "observed_limit": null,
+      "observed_slots": 0,
+      "current_global_max_concurrent_runs": 1,
+      "required": "Configure and read back explicit capacity 1 for this named pool, shared by all 14 Raw/Silver writers, without changing global concurrency or other pools.",
+      "consequence": "Current global serialization prevents parallel jobs; the named pool does not yet enforce its own limit. The file lock also covers manual/bootstrap writers."
+    },
+    {
+      "id": "row_count_drop",
+      "status": "BLOCKED_CODE",
+      "affected_datasets": [
+        "moneyflow_ind_ths",
+        "moneyflow_cnt_ths",
+        "moneyflow_ind_dc",
+        "moneyflow_dc",
+        "moneyflow_ths",
+        "moneyflow"
+      ],
+      "basis": "LLD section 2 item 5",
+      "current": "Nonempty, <=20000 rows, complete pagination, two stable rounds, schema/key checks. No prior-five median or 09-30 fallback count comparison.",
+      "required": "Before formal Raw promotion, compare against previous five accepted dates median, fallback to verified 2026-09-30 when fewer than five; >20 percent decrease requires review, per class for moneyflow_ind_dc. Retain candidate, do not promote or emit successful delivery."
+    }
+  ],
+  "continuation_summary": {
+    "eligible_dates": [
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12"
+    ],
+    "eligible_dataset_dates": 21,
+    "eligible_raw_jobs": 21,
+    "eligible_silver_jobs": 21,
+    "tonight_dates": [
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12",
+      "2026-10-13"
+    ],
+    "tonight_dataset_dates": 28,
+    "tonight_raw_jobs": 28,
+    "tonight_silver_jobs": 28,
+    "tonight_target_files": 56,
+    "registered_continuation_partitions": 0,
+    "existing_continuation_files": 0,
+    "last100_runs_per_14_job_all_empty": true,
+    "window_rolloff_first_date": "2026-10-22",
+    "night_cutoff_note": "2026-10-13 is ineligible before Shanghai 22:00. Freeze a fresh exact scope immediately before approved execution; dates/counts are not automatic future approval."
+  },
+  "continuation_cost_estimate": {
+    "basis": "Last bootstrap day 2026-09-30 rows and current 2000-row short-page termination; arithmetic estimate, no fresh source requests or runtime measurement.",
+    "last_day_scope_rows": {
+      "moneyflow_mkt_dc": {
+        "all": 1
+      },
+      "moneyflow_ind_ths": {
+        "all": 90
+      },
+      "moneyflow_cnt_ths": {
+        "all": 387
+      },
+      "moneyflow_ind_dc": {
+        "地域": 31,
+        "概念": 504,
+        "行业": 496
+      },
+      "moneyflow_dc": {
+        "all": 6024
+      },
+      "moneyflow_ths": {
+        "all": 5215
+      },
+      "moneyflow": {
+        "all": 5572
+      }
+    },
+    "estimated_two_round_requests_per_dataset_day": {
+      "moneyflow_mkt_dc": 2,
+      "moneyflow_ind_ths": 2,
+      "moneyflow_cnt_ths": 2,
+      "moneyflow_ind_dc": 6,
+      "moneyflow_dc": 8,
+      "moneyflow_ths": 6,
+      "moneyflow": 6
+    },
+    "estimated_all7_requests_per_date_no_retries": 32,
+    "estimated_current_3_dates_no_retries": 96,
+    "estimated_tonight_4_dates_no_retries": 128,
+    "raw_job_max_requests": 64,
+    "raw_job_max_seconds": 300,
+    "minimum_stability_gap_seconds_per_raw": 60,
+    "current_21_raw_stability_gaps_seconds": 1260,
+    "current_21_raw_elapsed_budget_sum_seconds": 6300,
+    "tonight_28_raw_stability_gaps_seconds": 1680,
+    "tonight_28_raw_elapsed_budget_sum_seconds": 8400,
+    "wall_clock_eta": "Unavailable; queue/tick alignment, other jobs, source response, retries and Silver/check execution are not measured. These sums are not whole-execution time bounds.",
+    "quota": "User confirmed sufficient; no quota review or new limiter."
+  },
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_search",
+      "codegraph_callers"
+    ],
+    "project_root": "/Users/congming/github/goldenshare",
+    "symbol": "register_moneyflow_trade_days",
+    "callers_returned": 5,
+    "verified_source_callers": 7,
+    "limitation": "CodeGraph callers omitted two existing wrappers; all seven current source modules and imported definitions plus loaded GraphQL inventory were directly verified. No code or contract changes this audit."
+  },
+  "readonly_limitations": [
+    "No Tushare call: token presence is proven; current source permission, evening publication, row counts and revisions are not newly proven.",
+    "No write canary: mount, directory, free-space and device facts were read; current writability must pass the existing run-time guard during separately approved execution.",
+    "Full frozen native identity was rechecked; physical hash readiness was rerun only for recent20 dates per dataset, split into <=10-date calls. The older physical inventory relies on preserved P3/full-closeout evidence.",
+    "No sensor evaluation, mutation, reload, pool setup, partition registration, job, runless event or physical promotion. Persisted sensor records absent is expected before initial activation: loaded default and effective states are STOPPED.",
+    "Temporary audit first failed on serializing SDK float create_timestamp as datetime. SDK definition was read and serializer corrected; the successful audit was rerun from the start, with no formal writes in either pass."
+  ],
+  "temporary_audit_drivers": {
+    "/private/tmp/moneyflow-p4-scheduling-audit-20261013/runtime.py": "002677102634bb4922950fa2adf98c686d5f447623c50c000b5da4684dfa3b85",
+    "/private/tmp/moneyflow-p4-scheduling-audit-20261013/audit.py": "c7fd1e94e434a675ed77cefbe3371c2dc8742ead3d0465c5f4b26fae587e1d3e",
+    "/private/tmp/moneyflow-p4-scheduling-audit-20261013/loaded_assets.py": "fbbd5b611f2fa821ffde93494406c4d03b7e0175833142cfc6b2c9247ca46cd3",
+    "/private/tmp/moneyflow-p4-scheduling-audit-20261013/validate.py": "fafbd0adb254ffd52c18eaf3e1fd53cda3a4217ae434d3c4f138fc202a326ce5"
+  },
+  "delivery": {
+    "files": [
+      "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md",
+      "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md",
+      "lake_console/reports/moneyflow_p4_scheduling_continuation_audit_20261013.json"
+    ],
+    "tests": "Report invariants, documentation integrity and whitespace passed; current 1182 source/test hashes equal accepted full-closeout baseline. No code changes or new production test claims.",
+    "cross_subsystem_boundary_changed": false,
+    "current_audit_files_committed": false,
+    "documentation_hashes": {
+      "lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md": "b5d369fce30b6570a2e6164278d075cc8c7d214ae6edb9ecc34e29e22d36efc0",
+      "lake_console/docs/design/dagster-moneyflow-tushare-low-level-design-v1.md": "2140f5db0b50a56cf4783d3caa648dcc61b95c658bf2a83c68b482a378b711cf"
+    },
+    "concurrent_unrelated_commit": {
+      "commit": "65553b64",
+      "committed_at_shanghai": "2026-10-13T09:11:47+08:00",
+      "scope": "Two DC board recovery documentation/report files; current branch remains dev-interface and 1182 orchestrator source/test hashes still match. Own audit files remain uncommitted."
+    }
+  },
+  "validation": {
+    "structured_report_invariants": "PASS",
+    "documentation_integrity": "PASS (dead absolute links, DS Store noise, Tushare index consistency)",
+    "git_diff_check": "PASS",
+    "source_files_unchanged": 1182,
+    "old_reports_unchanged": 75,
+    "production_tests": "Not rerun: audit/documentation only, no source or test changes; no claim of passing tests for the three proposed fixes."
+  }
+}
