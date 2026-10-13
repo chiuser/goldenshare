@@ -918,6 +918,26 @@ class StockWeeklyAdjProdConfig(dg.Config):
         return delivery_batch_id(value)
 
 
+class StockWeeklyBootstrapEventChecksConfig(dg.Config):
+    """An approved frozen B0 event slice; no external run ID or source parameters."""
+
+    model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
+    plan_path: str = Field(description="本次已验收 B0 的 version 2 事件计划绝对路径。")
+    expected_plan_hash: str = Field(description="冻结事件计划 SHA256，由 CLI 读回后传入。")
+    checkpoint_path: str = Field(description="本批 staging checkpoint 路径，不是行情目标。")
+    start: int = Field(default=0, strict=True, ge=0)
+    count: int = Field(default=33, strict=True, ge=1, le=33)
+
+    @field_validator("expected_plan_hash")
+    @classmethod
+    def validate_plan_hash(cls, value):
+        from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
+            delivery_digest,
+        )
+
+        return delivery_digest(value)
+
+
 def build_stock_weekly_adj_prod_run_config(batch_id, closure_revision):
     config = StockWeeklyAdjProdConfig(
         delivery_batch_id=batch_id, closure_revision=closure_revision

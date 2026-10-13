@@ -9,7 +9,7 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
 from dagster._core.event_api import EventRecordsFilter
-from dagster._core.events import DagsterEventType
+from dagster._core.events import DagsterEvent, DagsterEventType
 
 from orchestrator.defs.bootstrap.stock_weekly_candidates import fingerprint
 from orchestrator.defs.bootstrap.stock_weekly_capture import (
@@ -32,8 +32,16 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     weekly_check_names,
     weekly_column_specs,
 )
+from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
+    delivery_batch_id,
+    delivery_digest,
+    delivery_revision,
+)
 
 TOKEN = "goldenshare/weekly_event_plan"
+BOOTSTRAP_TOKEN = "goldenshare/weekly_adjusted_bootstrap"
+FILE_SHA256_TOKEN = "goldenshare/weekly_file_sha256"
+BOOTSTRAP_CHECKS_JOB_NAME = "raw_stk_period_bar_adj_week_event_backfill_job"
 
 
 def _value(metadata, key):
@@ -52,7 +60,58 @@ def _matching_mat(record, entry):
         materialization.partition == entry["week"]
         and _value(materialization.metadata, "dagster/uri") == entry["path"]
         and _value(materialization.metadata, "dagster/row_count") == entry["rows"]
+        and (
+            entry["bootstrap_identity"] is None
+            or (
+                _value(materialization.metadata, BOOTSTRAP_TOKEN)
+                == entry["bootstrap_identity"]
+                and _value(materialization.metadata, FILE_SHA256_TOKEN)
+                == entry["sha256"]
+            )
+        )
     )
+
+
+def _validate_bootstrap_event_identity(entry):
+    if "bootstrap_identity" not in entry:
+        raise WeeklyCaptureError("event_bootstrap_identity_invalid")
+    identity = entry["bootstrap_identity"]
+    if identity is None:
+        return
+    if (
+        entry["source"] != StockWeeklySource.PRIMARY_ADJUSTED.value
+        or type(identity) is not dict
+        or set(identity) != {"batch_id", "closure_revision", "plan_hash"}
+    ):
+        raise WeeklyCaptureError("event_bootstrap_identity_invalid")
+    try:
+        delivery_batch_id(identity["batch_id"])
+        delivery_revision(identity["closure_revision"])
+        delivery_digest(identity["plan_hash"])
+        delivery_digest(entry["sha256"])
+    except (ValueError, TypeError, KeyError):
+        raise WeeklyCaptureError("event_bootstrap_identity_invalid") from None
+
+
+def _can_replace_bootstrap_check(entry, record, mat, mat_matches):
+    """A verified new B0 supersedes old targets, never a failure on its own target."""
+    if entry["bootstrap_identity"] is None:
+        return False
+    if not mat_matches:
+        return True
+    if record is None:
+        return False
+    target = record.event_log_entry.dagster_event.event_specific_data.target_materialization_data
+    return target is not None and target.storage_id != mat.storage_id
+
+
+def _bootstrap_event_metadata(entry):
+    if entry["bootstrap_identity"] is None:
+        return {}
+    return {
+        BOOTSTRAP_TOKEN: entry["bootstrap_identity"],
+        FILE_SHA256_TOKEN: entry["sha256"],
+    }
 
 
 def _matching_check(record, name, mat, entry):
@@ -159,6 +218,8 @@ def freeze_weekly_event_plan(instance, entries, *, instance_identity):
     keys = [(e["source"], normalize_week_key(e["week"])) for e in entries]
     if len(set(keys)) != len(keys):
         raise WeeklyCaptureError("event_entry_duplicate")
+    for entry in entries:
+        _validate_bootstrap_event_identity(entry)
     state, returned = read_weekly_event_state(instance, entries)
     registered = set(instance.get_dynamic_partitions(STOCK_WEEKLY_PARTITIONS))
     pending, failed = [], 0
@@ -176,7 +237,9 @@ def freeze_weekly_event_plan(instance, entries, *, instance_identity):
                 failed += 1
             if not mat_matches or not _matching_check(record, name, mat, entry):
                 missing.append(name)
-                if checks[name][0] is not None:
+                if checks[name][0] is not None and not _can_replace_bootstrap_check(
+                    entry, record, mat, mat_matches
+                ):
                     blocked.append(name)
         pending.append(
             {
@@ -191,7 +254,7 @@ def freeze_weekly_event_plan(instance, entries, *, instance_identity):
             }
         )
     plan = {
-        "version": 1,
+        "version": 2,
         "kind": "weekly_event_plan",
         "instance_identity": instance_identity,
         "entries": pending,
@@ -214,7 +277,7 @@ def verify_weekly_event_plan(plan):
     body = {k: v for k, v in plan.items() if k != "plan_hash"}
     if (
         plan.get("kind") != "weekly_event_plan"
-        or plan.get("version") != 1
+        or plan.get("version") != 2
         or stable_weekly_hash(body) != plan.get("plan_hash")
     ):
         raise WeeklyCaptureError("event_plan_hash_mismatch")
@@ -224,6 +287,7 @@ def verify_weekly_event_plan(plan):
     if len({(e["source"], e["week"]) for e in entries}) != len(entries):
         raise WeeklyCaptureError("event_entry_duplicate")
     for entry in entries:
+        _validate_bootstrap_event_identity(entry)
         normalize_week_key(entry["week"])
         names = weekly_check_names(StockWeeklySource(entry["source"]))
         if set(entry["missing_checks"]) - set(names) or set(
@@ -277,7 +341,15 @@ def _verify_file(entry):
 
 
 def apply_weekly_events(
-    instance, plan, *, stage, checkpoint, cancel=None, start=0, count=100
+    instance,
+    plan,
+    *,
+    stage,
+    checkpoint,
+    cancel=None,
+    start=0,
+    count=100,
+    check_context=None,
 ):
     """One approved stage and at most 100 writes; persisted events govern replay."""
     verify_weekly_event_plan(plan)
@@ -298,12 +370,28 @@ def apply_weekly_events(
     ):
         raise WeeklyCaptureError("event_batch_scope_invalid")
     entries = plan["entries"][start : start + count]
+    if stage == "checks" and any(e["bootstrap_identity"] for e in entries):
+        if (
+            count > 33
+            or not isinstance(check_context, dg.OpExecutionContext)
+            or check_context.instance is not instance
+            or check_context.job_name != BOOTSTRAP_CHECKS_JOB_NAME
+        ):
+            raise WeeklyCaptureError("event_bootstrap_checks_require_real_run")
+        run = instance.get_run_by_id(check_context.run_id)
+        if (
+            run is None
+            or run.job_name != BOOTSTRAP_CHECKS_JOB_NAME
+            or run.status != dg.DagsterRunStatus.STARTED
+        ):
+            raise WeeklyCaptureError("event_bootstrap_checks_require_real_run")
     proof_entries = entries
     if stage == "register":
         selected_weeks = set(plan["missing_registrations"][start : start + count])
         proof_entries = [e for e in plan["entries"] if e["week"] in selected_weeks]
     # Revalidate immutable source proof once per annual audit, not once per check.
     from orchestrator.defs.bootstrap.stock_weekly_event_files import (
+        build_weekly_bootstrap_event_identity,
         verify_weekly_delivery_evidence,
     )
     from orchestrator.defs.bootstrap.stock_weekly_promote import read_audit
@@ -322,6 +410,8 @@ def apply_weekly_events(
         matches = [f for f in audit["files"] if f["week"] == entry["week"]]
         if (
             audit["source"] != entry["source"]
+            or build_weekly_bootstrap_event_identity(audit)
+            != entry["bootstrap_identity"]
             or len(matches) != 1
             or any(
                 matches[0].get(field) != entry[key]
@@ -403,6 +493,7 @@ def apply_weekly_events(
                         ],
                         extra_metadata={
                             TOKEN: plan["plan_hash"],
+                            **_bootstrap_event_metadata(entry),
                         },
                     ),
                 )
@@ -465,30 +556,41 @@ def apply_weekly_events(
                     if "key_partition" in name
                     else CheckScope.RECONCILIATION
                 )
-                instance.report_runless_asset_event(
-                    AssetCheckEvaluation(
-                        asset_key=asset,
-                        check_name=name,
-                        partition=entry["week"],
-                        passed=True,
-                        blocking=True,
-                        severity=dg.AssetCheckSeverity.ERROR,
-                        target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
-                            storage_id=mat.storage_id,
-                            run_id=mat.event_log_entry.run_id,
-                            timestamp=mat.event_log_entry.timestamp,
-                        ),
-                        metadata=build_check_metadata(
-                            check_scope=scope,
-                            checked_row_count=entry["rows"],
-                            extra_metadata={
-                                TOKEN: plan["plan_hash"],
-                                "goldenshare/week_end": entry["week"],
-                                "goldenshare/reason_code": "ok",
-                            },
-                        ),
-                    )
+                evaluation = AssetCheckEvaluation(
+                    asset_key=asset,
+                    check_name=name,
+                    partition=entry["week"],
+                    passed=True,
+                    blocking=True,
+                    severity=dg.AssetCheckSeverity.ERROR,
+                    target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
+                        storage_id=mat.storage_id,
+                        run_id=mat.event_log_entry.run_id,
+                        timestamp=mat.event_log_entry.timestamp,
+                    ),
+                    metadata=build_check_metadata(
+                        check_scope=scope,
+                        checked_row_count=entry["rows"],
+                        extra_metadata={
+                            TOKEN: plan["plan_hash"],
+                            **_bootstrap_event_metadata(entry),
+                            "goldenshare/week_end": entry["week"],
+                            "goldenshare/reason_code": "ok",
+                        },
+                    ),
                 )
+                if entry["bootstrap_identity"] is None:
+                    instance.report_runless_asset_event(evaluation)
+                else:
+                    instance.report_dagster_event(
+                        DagsterEvent(
+                            event_type_value=DagsterEventType.ASSET_CHECK_EVALUATION.value,
+                            event_specific_data=evaluation,
+                            job_name=check_context.job_name,
+                            step_key=check_context.op.name,
+                        ),
+                        run_id=check_context.run_id,
+                    )
                 after, _ = read_weekly_event_state(instance, [entry])
                 readback = after[(entry["source"], entry["week"])]
                 if (

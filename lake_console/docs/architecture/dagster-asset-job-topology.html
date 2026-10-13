@@ -1336,6 +1336,14 @@
       sensor不请求源，Silver绑定同日最新绿Raw/hash。历史只读预演4067来源日，不登记event或改写文件。
       <a href="../design/dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-automation">资金流LLD §60</a>记录本表4MiB文件预算、85次批量native读取及正式只读边界。
     </div>
+    <div class="note">
+      <strong>2026-10-13 复权周线历史检查补录：</strong>
+      <code>raw_stk_period_bar_adj_week_event_backfill_job</code> 仅手动运行
+      <code>report_stock_weekly_bootstrap_checks</code>，每批最多33周/99条检查。
+      输入为已验收B0的冻结事件计划，检查绑定新物化，使用真实运行ID并保留旧记录；
+      不生成行情，不关联自动sensor或schedule。日常接收仍使用原更新job及19:30策略。
+      <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013">周线LLD A21</a>记录范围、执行参数和恢复口径。
+    </div>
 </main>
 </body>
 </html>

@@ -5,9 +5,12 @@ import json
 import signal
 from pathlib import Path
 
+import dagster as dg
+
 from orchestrator.defs.bootstrap.stock_weekly_capture import (
     WeeklyCaptureError,
     _atomic_json,
+    check_weekly_cancel,
 )
 from orchestrator.defs.bootstrap.stock_weekly_event_files import (
     audit_weekly_event_files,
@@ -109,19 +112,76 @@ def main(argv=None):
             else:
                 if not args.apply:
                     parser.error("writes require explicit --apply")
-                with open_weekly_event_instance(identity=plan["instance_identity"]) as (
+                with open_weekly_event_instance(
+                    identity=plan["instance_identity"],
+                    for_execution=args.mode == "checks"
+                    and any(e["bootstrap_identity"] for e in plan["entries"]),
+                ) as (
                     instance,
                     _,
                 ):
-                    result = apply_weekly_events(
-                        instance,
-                        plan,
-                        stage=args.mode,
-                        checkpoint=args.report,
-                        cancel=lambda: cancelled,
-                        start=args.start,
-                        count=args.count,
-                    )
+                    check_weekly_cancel(lambda: cancelled)
+                    if args.mode == "checks" and any(
+                        e["bootstrap_identity"] for e in plan["entries"]
+                    ):
+                        from orchestrator.defs.jobs.stock_weekly_event_backfill import (
+                            raw_stk_period_bar_adj_week_event_backfill_job,
+                        )
+                        from orchestrator.defs.run_contracts.configs import (
+                            StockWeeklyBootstrapEventChecksConfig,
+                        )
+
+                        if not 1 <= args.count <= 33 or args.start < 0:
+                            raise WeeklyCaptureError("event_batch_scope_invalid")
+                        config = StockWeeklyBootstrapEventChecksConfig(
+                            plan_path=str(args.plan),
+                            expected_plan_hash=plan["plan_hash"],
+                            checkpoint_path=str(args.report),
+                            start=args.start,
+                            count=args.count,
+                        )
+                        execution = raw_stk_period_bar_adj_week_event_backfill_job.execute_in_process(
+                            instance=instance,
+                            raise_on_error=False,
+                            run_config={
+                                "ops": {
+                                    "report_stock_weekly_bootstrap_checks": {
+                                        "config": config.model_dump()
+                                    }
+                                }
+                            },
+                        )
+                        if not execution.success:
+                            run = instance.get_run_by_id(execution.run_id)
+                            print(
+                                json.dumps(
+                                    {
+                                        "status": run.status.value,
+                                        "run_id": execution.run_id,
+                                        "reason_code": "event_bootstrap_checks_run_failed",
+                                    },
+                                    sort_keys=True,
+                                )
+                            )
+                            return (
+                                130 if run.status == dg.DagsterRunStatus.CANCELED else 2
+                            )
+                        result = {
+                            **execution.output_for_node(
+                                "report_stock_weekly_bootstrap_checks"
+                            ),
+                            "run_id": execution.run_id,
+                        }
+                    else:
+                        result = apply_weekly_events(
+                            instance,
+                            plan,
+                            stage=args.mode,
+                            checkpoint=args.report,
+                            cancel=lambda: cancelled,
+                            start=args.start,
+                            count=args.count,
+                        )
                 print(json.dumps(result, sort_keys=True))
         return 0
     except WeeklyCaptureError as error:

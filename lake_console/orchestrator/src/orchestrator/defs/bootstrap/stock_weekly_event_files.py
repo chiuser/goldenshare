@@ -28,6 +28,18 @@ from orchestrator.defs.paths import DEFAULT_LAKE_STAGING_ROOT
 from orchestrator.defs.run_contracts.stock_weekly import StockWeeklySource, WeeklyBudget
 
 
+def build_weekly_bootstrap_event_identity(audit):
+    """Derive event identity only from a validated, sealed B0 annual audit."""
+    if "bootstrap_boundary" not in audit:
+        return None
+    boundary = audit["bootstrap_boundary"]
+    return {
+        "batch_id": boundary["batch_id"],
+        "closure_revision": boundary["revision"],
+        "plan_hash": audit["plan_hash"],
+    }
+
+
 def verify_weekly_delivery_evidence(audit, budget=None):
     """Verify the same sealed source receipts once per bounded annual audit."""
     budget = budget or WeeklyBudget()
@@ -152,6 +164,7 @@ def audit_weekly_event_files(references, *, metrics=None):
                     "audit_path": str(path),
                     "audit_hash": audit["audit_hash"],
                     "audit_sha256": reference["sha256"],
+                    "bootstrap_identity": build_weekly_bootstrap_event_identity(audit),
                 }
             )
         if len(entries) * 4 > budget.event_write_cap:

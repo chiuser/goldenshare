@@ -1,6 +1,6 @@
 # DG 股票周线：Prod 存量保留与备用源 Raw 补齐方案 v1
 
-> 最新口径（2026-10-12）：本轮完成文档对齐和只读审计，尚未实施精度校验修正或写入本轮修复数据。Prod 原冻结批 `850840bf-94c1-4081-ba44-f0d5385474ab` 已完成 523/876 周，最近 TaskRun 15471 失败；剩余 353 周为 2020-01-10—2026-10-09。仅精度变化保留旧因子，周线照收源 21 字段；不能用舍入解释的因子变化另做有限修复。下面较早的状态和严格算价验收作为历史记录，不覆盖最新设计。
+> 最新执行状态（2026-10-13）：Prod 全市场原批 **15565** 完成 876/876 周、3,028,907 行及一次完整对账；独立补刷 **15604** 完成 9 股/6,345 行，真实 **B0 revision 1785** 已生成。DG 2010—2026 年 **859 个正式复权周文件、3,028,907 行**已覆盖并通过文件验收。真实检查补录机制及相关隔离验收193项通过；859个新物化、2,577个准确绑定检查已登记，27个成功运行，最终缺项/blocked/最新失败均0。B0水位已初始化为1785，未复权2026-10-09进度与RUNNING状态保留；19:30后的下一批自动接收仍待实际交付验证。最新结果见 DG LLD A20—A21；较早状态保留为历史记录。
 
 精度诊断与有限修复按 [Prod LLD §13.17](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-factor-precision-policy-20261012) 和 [历史因子修正方案](dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012) 执行。复权周线 Raw 的 Prod 接收与 DG 自主 QFQ 重算属于两条不同的链。
 
@@ -503,3 +503,9 @@ M10.E事件入口/验收已提交ee325688、未推送。本轮M10.F只读核验�
 历史因子专项只修不能用精度解释的 25 只/2,489 因子键，日线和分钟线按现有公式局部重算，指标/state 按影响向后重放。两边确切范围和数据核验见[专项方案 §2](dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012)。取消原 side 文档对 601198.SH 的 451 日纯精度修复，不把 Prod 已做该股或 000668.SZ 维护作为 DG 必须同步的指令。
 
 Prod 原批完成、独立补刷并产生真实 B0 后才做本资产全量年度覆盖；当前 DG 库存 5,624 只/2,902,386 行，最终按 B0 的 Prod 输入全量接收，并保留 DG 独有键。DG 因子/QFQ 候选规划可以独立推进，不等待 B0；正式因子修复与周线覆盖各有独占写者核验，不能借一个专项授权写另一个。文件→一次完整对账→事件→水位顺序保持，不新增 reports 或日常历史对账依赖。详见 LLD A19。
+
+2026-10-13：真实 B0 revision 1785 已取得；DG 冻结 226 个单元、3,028,907 行的 Prod 库存，开始只读捕获至正式 staging。年度文件、事件及水位仍待分阶段完成，执行证据见 [LLD A20](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-execution-20261013)。
+
+2026-10-13 文件覆盖已完成：17 年/859 周/3,028,907 行，新增 126,521 键，字段差异为 0。旧 bootstrap 事件入口的行数匹配和旧检查阻断不能支撑本次历史替换，管理员已批准按 [LLD A21](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013) 修正，再补录新物化/绑定检查，最终迁移 B0=1785；不得复用 revision 10 的旧事件当作本次验收。
+
+2026-10-13 DG已完成本批859周文件、859新物化及2,577检查，27个成功真实检查run；最终缺项/blocked/最新失败均0，B0 cursor=1785已迁移。完整运行ID、耗时及边界见[DG LLD A21.4](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013)。后续新批19:30运行验收和DG自主因子/QFQ/指标专项仍单独安排。

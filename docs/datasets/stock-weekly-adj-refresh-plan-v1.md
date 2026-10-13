@@ -1,6 +1,6 @@
 # Prod 股票复权周线刷新与 DG 交付方案 v1
 
-> 最新执行状态（2026-10-12）：价格诊断修正 `4fb9f341` 已部署；因子任务 **15536—15557 全部成功**，25 股/2,489 键的源、Raw、Core 完整对账通过。周线已从 15471 原批恢复为 **15558**，批次、范围和日期不变，继续保留原完成单元；最新执行证据见 LLD §13.17.7，逐条任务 ID 见 §13.17.6。仅精度变化保留旧因子，周线接收源 21 字段；本次未改代码或扩大修复范围。下文较早的状态与严格算价验收保留为历史记录。
+> 最新执行状态（2026-10-13）：Prod 全市场原批 **15565** 完成 876/876 周、3,028,907 行及一次完整对账；独立补刷 **15604** 完成 9 股/6,345 行，真实 **B0 revision 1785** 已生成。DG 2010—2026 年 **859 个正式复权周文件、3,028,907 行**已覆盖并通过文件验收。真实检查补录机制及相关隔离验收193项通过；859个新物化、2,577个准确绑定检查已登记，27个成功运行，最终缺项/blocked/最新失败均0。B0水位已初始化为1785，未复权2026-10-09进度与RUNNING状态保留；19:30后的下一批自动接收仍待实际交付验证。最新结果见 DG LLD A20—A21；较早状态保留为历史记录。
 
 最新设计与范围见 [LLD §13.17](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-factor-precision-policy-20261012) 和 [两边修正范围](../../lake_console/docs/design/dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012)。
 
@@ -130,3 +130,9 @@ P1先交付支持合同，提交时注册Definition尚未绑定。P2已一次性
 DG 因子和自主 QFQ 修复是另一条链，可在 Prod 周线续跑期间完成只读规划与获准候选构建，不以 DG 下游修复完成作为 Prod 周线接收门禁。正式执行分别获准；不新增永久历史检查。代码、测试、诊断字段、恢复和预算见 LLD §13.17。
 
 2026-10-12 正式执行：通过现有后台服务创建 22 条因子任务（15536—15557），逐条记录 ID、相同参数查重，全部成功。源、Raw、Core 在批准的 25 股/2,489 键上完全一致，0 拒绝、0 缺行、0 重复提交。约 7 分 54 秒完成因子任务处理；随后用同一后台重试服务从 15471 原意图恢复为 15558，原批身份和范围不变，已核验完成单元继续增长。逐条任务映射见 [LLD §13.17.6](stock-weekly-adj-refresh-low-level-design-v1.md#factor-repair-manual-tasks-20261012)，验收和后续边界见 [LLD §13.17.7](stock-weekly-adj-refresh-low-level-design-v1.md#factor-repair-execution-20261012)。周线首批闭合/完整对账、独立补刷批、B0 和 DG 接收尚未完成。
+
+2026-10-13 收尾：15565 沿原批完成全市场 876 周/3,028,907 行及一次完整对账；15604 完成刷新期间因子变化的 9 股历史补刷/6,345 行及本批对账，B0 revision 1785 已生成。后续 DG 捕获、年度文件、事件及水位仍按分阶段验收；详见 [LLD §13.17.8](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-closeout-20261013)。
+
+2026-10-13 DG 的全量复权 Raw 周线文件已接收并完成一次文件验收；事件和 B0 水位另按已批准的 [DG LLD A21](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013) 收尾，Prod 本批不重新同步。
+
+2026-10-13 DG已完成本批859周文件、859新物化及2,577检查，27个成功真实检查run；最终缺项/blocked/最新失败均0，B0 cursor=1785已迁移。完整运行ID、耗时及边界见[DG LLD A21.4](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013)。后续新批19:30运行验收和DG自主因子/QFQ/指标专项仍单独安排。

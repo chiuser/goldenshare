@@ -1,6 +1,6 @@
 # DG 股票周线备用源 Raw 补齐：代码级 LLD v1
 
-> 最新口径（2026-10-12）：本轮完成文档对齐和只读审计，尚未实施精度校验修正或写入本轮修复数据。Prod 原冻结批 `850840bf-94c1-4081-ba44-f0d5385474ab` 已完成 523/876 周，最近 TaskRun 15471 失败；剩余 353 周为 2020-01-10—2026-10-09。仅精度变化保留旧因子，周线照收源 21 字段；不能用舍入解释的因子变化另做有限修复。下面较早的状态和严格算价验收作为历史记录，不覆盖最新设计。
+> 最新执行状态（2026-10-13）：Prod 全市场原批 **15565** 完成 876/876 周、3,028,907 行及一次完整对账；独立补刷 **15604** 完成 9 股/6,345 行，真实 **B0 revision 1785** 已生成。DG 2010—2026 年 **859 个正式复权周文件、3,028,907 行**已覆盖并通过文件验收。真实检查补录机制及相关隔离验收193项通过；859个新物化、2,577个准确绑定检查已登记，27个成功运行，最终缺项/blocked/最新失败均0。B0水位已初始化为1785，未复权2026-10-09进度与RUNNING状态保留；19:30后的下一批自动接收仍待实际交付验证。最新结果见 DG LLD A20—A21；较早状态保留为历史记录。
 
 精度诊断与有限修复按 [Prod LLD §13.17](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-factor-precision-policy-20261012) 和 [历史因子修正方案](dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012) 执行。复权周线 Raw 的 Prod 接收与 DG 自主 QFQ 重算属于两条不同的链。
 
@@ -1598,3 +1598,176 @@ CodeGraph已使用 explore、impact，并在变更后执行 sync/status；影响
 5. 回归需证明无任何因子算价二次拦截、附加诊断可有可无、原 21 列保真、DG 独有键保留、monthly/alternate/non-adjusted 不变、闭合批顺序与重放不变。日常只验本批范围，不消费本次审计 JSON/CSV。
 
 正式执行排序：Prod 校验纠偏与有限因子维护 → 周线原批及独立补刷/B0 → DG 周线年度文件及一次对账 → 事件/水位/获准调度。DG 因子与下游候选可与 Prod 周线续跑同时准备；正式提升 Raw/Silver 因子 → Gold 价格 → 指标/state → 一次对账 → 单独获准事件/可选 serving，独立于 B0。任何 shared writer 并发均在提升前排空核验，不用文档顺序声称多文件事务原子性。本轮正式操作为 0。
+
+<a id="adjusted-weekly-bootstrap-execution-20261013"></a>
+
+### A20. 真实 B0 库存冻结及捕获（2026-10-13）
+
+Prod 两阶段收尾已完成：首批 15565、补刷 15604，B0 revision 1785；具体数量和未核验依据见 [Prod LLD §13.17.8](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-closeout-20261013)。B0 关联的补刷批为 2b08eab5-6e69-4480-9d04-af2ee8c7742e，Raw 库存 5,872 个代码/3,028,907 行，范围 2010-01-01—2026-10-09。捕获期间任一业务 revision 变化仍停止，不混用版本。
+
+正式只读预检：859 个现有复权 Raw 周文件、2,902,386 行，按年度只读取 Parquet 元数据；无运行中的三项周线 job。正式 Lake/staging 可写且同文件系统，剩余约 2.66 TiB；sensor 仍 RUNNING、当日 before_daily_start，未迁移 cursor。instance 读取仍使用禁止自动建表的既有 adapter，没有启动服务、执行 job 或写入事件。
+
+通过 psql-remote.sh 在 repeatable read/read only 事务、20 秒 statement_timeout 下读取白名单 B0 header、快照控制及 Raw freq=week 的代码/年度行数摘要，返回 64,912 条摘要、17 个有数据年度，总行数与 B0 相等。日期窗口 2009-01-01—2028-01-01 包含相邻 2009/2027 空年度证明；没有导出采集/系统字段。inventory 和 plan 冻结于正式 staging 的 stock_weekly_bootstrap_20261013_b0_1785 目录，plan_hash 为 968ad388ecffb9ebd6c545fd6a9ce6977da4cc00f1a7a70973c1a00c0277051e，226 个按代码批/日历年的有界单元。
+
+本次文件阶段沿现有 stock_weekly_history_cli：dry-run 通过后，capture --apply 只读导出 21 源字段至 data_lake_staging；完整捕获封存后才逐年 build，并对 promote 做只读预检、逐文件原子提升。source/year 单元最多 300 股、30,000 行、45 秒，单连接；捕获使用既有 WeeklyBudget，年度组装使用 A17 的 100 万行局部例外。DuckDB 512 MiB/2 线程、进程 1 GiB、spill 2 GiB、staging 4 GiB 与文件数门禁不变。
+
+捕获 226/226 单元、3,028,907 行成功，约 400.6 秒。17 个年度候选和 859 个正式文件全部 verified：原有 2,902,386 键覆盖，新补 126,521 键，DG 独有键实计为 0；21 字段双向差异、重复键、保留行差异均为 0。构建合计 119.037 秒、只读预检及提升合计 48.776 秒，最大构建 RSS 784.5 MiB，最大提升 RSS 300.7 MiB；正式文件 164,195,048 字节，本批 staging 798,184,607 字节，未提高预算。
+
+事件 dry-run 完成一次正式文件总验收：17 个年度连接、859 文件、3,028,907 行，物理审计 7.776 秒，总命令 11.423 秒、峰值 RSS 686.6 MiB。旧事件计划显示 627 个物化缺项、1,881 个检查缺项且全部 blocked，另有 232 个周分区被旧路径/行数规则视为完成。正式样本 2010-01-01 和 2026-10-09 的旧物化实际属于 revision 10，不代表本次 B0=1785。旧事件没有失败记录，阻断源于初始化入口不支持已批准的历史替换，不是数据文件失败。修正及验收见 A21。
+
+事件/动态分区、水位仍未写入。材料只用于本次 bootstrap 执行/恢复，后续日常 job/sensor 不读取它们，不新增 reports 依赖。DG 自主因子、日线/分钟 QFQ、指标及 state 修复仍按专项推进，Raw 周线覆盖不代表下游重算完成。
+
+
+#### A20.1 年度正式文件结果
+
+| 年度 | 文件数 | 正式行数 | 新增键 | 构建峰值 MiB |
+| --- | ---: | ---: | ---: | ---: |
+| 2010 | 52 | 86,724 | 14 | 521.7 |
+| 2011 | 51 | 100,307 | 0 | 496.7 |
+| 2012 | 50 | 108,989 | 8 | 492.9 |
+| 2013 | 51 | 112,931 | 50 | 505.6 |
+| 2014 | 52 | 114,210 | 274 | 544.4 |
+| 2015 | 52 | 118,907 | 2,555 | 511.3 |
+| 2016 | 51 | 133,151 | 5,793 | 565.6 |
+| 2017 | 51 | 154,740 | 6,115 | 617.2 |
+| 2018 | 51 | 169,093 | 4,941 | 594.2 |
+| 2019 | 51 | 182,150 | 5,373 | 609.8 |
+| 2020 | 51 | 200,994 | 10,014 | 700.4 |
+| 2021 | 53 | 237,362 | 13,531 | 710.6 |
+| 2022 | 50 | 246,452 | 14,612 | 726.9 |
+| 2023 | 50 | 266,946 | 19,958 | 784.5 |
+| 2024 | 51 | 284,375 | 24,831 | 735.3 |
+| 2025 | 52 | 291,137 | 18,452 | 767.6 |
+| 2026 | 40 | 220,439 | 0 | 616.0 |
+
+实际文件命令在 `/Users/congming/github/goldenshare/lake_console/orchestrator` 使用现有 `.venv`；以下变量仅是命令路径缩写，不是新配置：
+
+```bash
+EXECUTION=/Volumes/datasource/data_lake_staging/stock_weekly_bootstrap_20261013_b0_1785
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory "$EXECUTION/inventory.json" --plan "$EXECUTION/plan.json" --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake --mode capture --apply
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory "$EXECUTION/inventory.json" --plan "$EXECUTION/plan.json" --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake --mode build --year 2010 --apply
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory "$EXECUTION/inventory.json" --plan "$EXECUTION/plan.json" --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake --mode promote --audit "$AUDIT"
+.venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_history_cli --inventory "$EXECUTION/inventory.json" --plan "$EXECUTION/plan.json" --capture-root /Volumes/datasource/data_lake_staging --target-root /Volumes/datasource/data_lake --mode promote --audit "$AUDIT" --apply
+```
+
+`AUDIT` 取本次 `annual_builds.json` 相应年度的绝对 audit 路径；2011—2026 逐年同样执行，不扫描目录扩范围。`annual_promotions.json` 保存 verified 文件数；逐文件 checkpoint 是恢复依据，不能以总日志代替已提交事实。本次未启动 Dagster job 或停止/启动服务。
+
+<a id="adjusted-weekly-bootstrap-event-replacement-20261013"></a>
+
+### A21. 复权 bootstrap 历史替换的事件修正（2026-10-13）
+
+管理员已确认：保留旧事件，为本次 B0=1785 的 859 个周分区追加新物化记录，各自三项检查准确绑定新物化；隔离验收通过后，按事件、审计、水位三个步骤执行。原来的行数相等不能证明检查覆盖本次价格刷新；有旧检查也不应阻止获准的历史替换。
+
+根因落点为 `stock_weekly_events._matching_mat`（只比路径/行数）、`freeze_weekly_event_plan`（旧检查一律 blocked）和 `apply_weekly_events`（拒绝 blocked）。已有封存年度 audit 与 B0 身份可信，但没有传入事件匹配。CodeGraph explore/impact 和当前 CLI/测试/registry/metadata 消费者审计确认：本次影响独立 bootstrap 事件入口及其验收；不修改日常 asset/job/sensor、原三项 check 名称、物理字段或 Lake 路径。现有 registry 已是 SUPPORTS_RUNLESS_EVENT_BACKFILL，无须新 asset 或注册表变更。
+
+| 硬口径 | 实现落点 | 正反验收 |
+| --- | --- | --- |
+| 事件必须代表此次 B0 和已通过验收的文件 | event_files 从已核验年度 audit 派生 bootstrap_identity；物化记录保存边界及本文件 sha256，matching 同时比较它们、路径、行数 | 路径/行数相同的 revision 10、错误 B0/内容摘要都不能复用；同批新物化可以复用 |
+| 旧记录保留，历史替换追加准确事件 | freeze 区别旧目标检查与本次目标；只有获核验的复权 B0 才允许替换旧检查 | 未复权初始化的旧失败检查仍阻断；本次新物化对应的失败/无效检查仍阻断 |
+| 幂等和恢复以正式事件为准 | 既有 previous_mat_id/previous_check_ids 并发检测及计划 token，checkpoint 仅进度 | 物化/check 写完而 checkpoint 失败、中途取消、重复执行只补缺项；外来新事件停止 |
+| 冻结身份不能伪造 | apply 重新对照被引用 audit 的 B0 身份，事件计划升级为 version 2 | 即使重算 plan_hash，伪造 B0、缺身份字段或旧 version 1 仍拒绝；重新 dry-run，不保留旧计划执行分支 |
+| 不扩大正式写入 | 现有 CLI，物化每批最多100、checks由具名手动job每批最多33周/99条执行 | 不写行情文件、不重拉源、不删旧事件；没有自动sensor/调度；缺/漂移事实停止 |
+| 本次完成后结束对账 | 正常三检查及 readiness 不读取 bootstrap 材料 | 删除本次 staging 证据后，已有正式文件/物化/检查 readiness 仍可用；无永久 reports/source hash 门禁 |
+
+`bootstrap_identity` 为 audit 中真实 `batch_id`、`closure_revision`、捕获 `plan_hash` 三字段；只在 audit 有已核验 bootstrap_boundary 时非空。事件 metadata 使用 `goldenshare/weekly_adjusted_bootstrap` 保存该身份，`goldenshare/weekly_file_sha256` 保存本次文件值；这些是本次传输/事件去重信息，不规定未来历史文件必须保持该摘要。非 B0 初始化使用显式空身份，原始准入规则不变。CLI、物理审计、freeze、apply、readiness 样本和相关隔离测试同步迁移；没有兼容 version 1 的执行分支或新运营配置。
+
+验收使用临时文件与 ephemeral Dagster instance，禁止正式资源当测试用例。官方依据为 [runtime metadata](https://docs.dagster.io/guides/build/assets/metadata-and-tags)、[asset checks](https://docs.dagster.io/guides/test/asset-checks)，具体 target_materialization_data 使用本机既有 Dagster API 并在隔离实例读回验证。预算仍为单阶段最多 100 写、全范围 4,000 事件、读取 20,000 记录；不逐分区重复深扫历史。
+
+#### A21.1 已批准的正式执行卡
+
+范围是 raw_tushare_stk_period_bar_adj_week 的 859 个已验收周分区，2010-01-01—2026-10-09；本次预计追加 859 物化 + 2,577 检查，动态分区实计无需新增。读写实例固定 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，工作目录和现有解释器同 A20。先修代码/隔离验收，再重新 dry-run 冻结 version 2 事件计划，严格核对实际数量及 blocked=0。若数量不符、遇到新失败或并发修改，停止而不放宽门禁。
+
+```bash
+EXECUTION=/Volumes/datasource/data_lake_staging/stock_weekly_bootstrap_20261013_b0_1785
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_events_cli --mode dry-run --audits "$EXECUTION/event-audits.json" --plan "$EXECUTION/event-plan-b0.json" --report "$EXECUTION/event-dry-run-b0.json"
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_events_cli --mode materializations --plan "$EXECUTION/event-plan-b0.json" --report "$EXECUTION/materializations-checkpoint.json" --start 0 --count 100 --apply
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_events_cli --mode checks --plan "$EXECUTION/event-plan-b0.json" --report "$EXECUTION/checks-checkpoint.json" --start 0 --count 33 --apply
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python -B -m orchestrator.defs.bootstrap.stock_weekly_events_cli --mode audit --plan "$EXECUTION/event-plan-b0.json" --report "$EXECUTION/event-audit-b0.json"
+```
+
+物化的 start 依次 0、100…800；checks 的 start 依次 0、33…858。同计划重放时读取正式已有事件跳过完成项，不删除或倒回历史。事件全部通过后才将现有 raw_stock_weekly_update_job_sensor cursor 的 adjusted_delivery_revision 初始化为 1785，并清理旧复权 pending；未复权 examined_through/verified_through、状态和 19:30 设置保留。实际旧/新 cursor、单次实例更新命令和读回在执行前另列；没有全部通过不得先推进水位。
+
+首次隔离阶段记录：文件阶段已完成；仅匹配/身份修正的隔离分组44项通过、10项因重复runless check唯一键冲突失败，当时未放行正式事件。随后采用已批准真实任务方案，最新执行状态见文首及A21后续验收。
+
+#### A21.2 隔离验收发现的 Dagster 存储限制（已确认调整）
+
+本机 Dagster `_store_runless_asset_check_evaluation` 直接插入 `asset_check_executions`，run_id 为空字符串；唯一索引包括 asset_key/check_name/run_id/partition。因此同一分区同一检查第二次使用 report_runless_asset_event 会报唯一键冲突。不是价格或候选文件错误，也不是只有 SQLite 测试环境如此：正式 PostgreSQL 在 READ ONLY、10 秒超时下核验有相同唯一索引，三项检查分别已有 857 条空 run_id 记录（2010-01-01—2026-09-25），共 2,571 条。
+
+当前仅修改匹配/blocked 规则不能完成重复补录，隔离验收因此阻止了错误方案进入正式实例。不得删旧检查、改 Dagster 表/索引、伪造 run_id 或升级依赖绕过。仓库其它旧工具手写事件 run_id 的做法不作为本次依据。
+
+管理员已再次确认使用真实任务补录：物化仍按冻结计划分批追加；检查阶段由原 CLI 调用一个真实的手动事件补录 job，每批最多 33 周/99 条检查，使用其真实运行上下文登记并绑定已读回的新物化。需要 27 个有真实运行记录的检查批次，总检查仍 2,577 条；不重跑行情 asset，不写文件，不增加自动 sensor 或调度。失败保留已登记事件，同计划重试只补缺项；运行记录也保留。先完成以下代码级设计和隔离验收，再正式补录，最后迁移水位。
+
+#### A21.3 真实检查补录任务的代码级设计和执行参数审计
+
+正式 job 名为 `raw_stk_period_bar_adj_week_event_backfill_job`，单个 op 为 `report_stock_weekly_bootstrap_checks`。放入 `defs/jobs/stock_weekly_event_backfill.py` 和 `defs/ops/stock_weekly_bootstrap_checks.py`，由现有 load_from_defs_folder 注册；仅手动使用，没有 schedule/sensor。原 CLI 的 mode=checks 对已核验的纯复权 B0 计划调用该 job.execute_in_process(instance=已打开的正式实例)，不生成临时 job，也不允许传 run_id。非 B0 初始化的准入规则保持现行口径。
+
+共用配置在 `run_contracts/configs.py::StockWeeklyBootstrapEventChecksConfig`：
+
+| 字段 | 默认值/来源 | 持久化、消费者和作用域 | 校验、生效及运营可见性 |
+| --- | --- | --- | --- |
+| plan_path | 必填；既有CLI --plan | Dagster run_config；新op读取本次冻结version 2计划 | 既有staging安全路径、<=8MiB；每次运行读回；UI Launchpad及run config可见 |
+| expected_plan_hash | 必填；CLI从已验证plan派生 | run_config；新op验证计划未被换掉 | 必须是合法SHA256且与plan相等；不作为长期行情约束 |
+| checkpoint_path | 必填；既有CLI --report | run_config；既有逐事件checkpoint | 本次staging安全路径，不能写正式Lake；不作为跳过正式事件的依据 |
+| start | 0；既有CLI --start | run_config；本批切片 | 严格整数>=0；范围越界拒绝 |
+| count | 33；既有CLI --count | run_config；本批上限 | 严格整数1—33，即三检查最多99写；不存在增大预算的运营开关 |
+
+没有新增env、Settings、数据库配置或固定路径常量。所有字段只描述手动事件意图，使用现有配置装配方式；无配置间隐含依赖，plan hash/实例身份和范围全部显式校验。
+
+op核验计划为纯PRIMARY_ADJUSTED+B0、目标实例artifact_root及三个storage的无密钥身份一致。apply在B0 checks阶段必须接收真实OpExecutionContext；context.instance、job_name、实际已持久化的STARTED run必须一致。新检查通过instance.report_dagster_event使用context.run_id登记，其target仍为前一物化阶段已读回的真实storage_id/run_id/timestamp；禁止拼装或接受外部run_id。即使UI直接启动，也受同一文件/B0/实例/预算门禁。
+
+中途退出或checkpoint失败保留已写事件，重试创建新的真实运行，只补本计划缺项；原成功检查保留。SIGINT/SIGTERM在本批检查点转为真实运行取消，之后不领取新事件；不以取消回滚已登记事件。隔离测试覆盖同路径同行数、旧runless检查、真实run绑定、checkpoint失败/取消后恢复、幂等、不匹配实例、非B0/混源计划、配置越界、伪造上下文和计划漂移。正式执行前再用样本确认PostgreSQL读回，之后按27批完成。
+
+成本：计划常驻<=8MiB，单批<=33周/99事件，单批源proof按所涉年度只核验一次，无源API请求、无Parquet改写或DuckDB重算；保留现有512MiB DuckDB/1GiB进程预算。运行日志仅表达检查补录，不声称生成了行情。正式聚合验收仍是859物化、2,577检查、缺项/blocked=0及少量readiness样本，之后迁移水位。官方依据补充[op jobs](https://docs.dagster.io/guides/build/jobs/op-jobs)和[execute_in_process](https://docs.dagster.io/api/dagster/execution)，本机API与唯一索引行为以隔离验收为准。
+
+A21 最新验收（2026-10-13）：周线事件/覆盖、sensor及运行合同静态分组192项通过；新job已在正式Definitions发现且无自动入口。新事件dry-run 12.184秒、峰值RSS606.4MiB，859物化/2,577检查、blocked和新增分区均0，plan_hash=7cf12d9821dd4098532a03223126b4bd9bd4258a708d787ddfa36a6ee7bb3906。先取start=0/count=1完成正式样本，再补余下物化；检查剩余start=1、34…826，每批33周，样本加26批仍共27个真实运行。已有configs.py的11项DTZ007/TRY004风格项经HEAD对比无新增；本轮其他Python默认Ruff及全项目致命基线通过。全资产治理中的停牌外部spec测试要求专项启动器，直接pytest缺support模块，未作为本轮周线失败；相关asset/check注册及静态分组另已通过。
+
+正式样本首次检查run b5ea6584-6681-45cd-b24c-4546bf7f8479 在op执行前失败，原连接器的InstanceRef没有运行协调器；只读读回确认没有追加检查，已登记的样本物化保留。实际运行壳修正限定为open_weekly_event_instance内部for_execution=False默认参数：只有CLI的纯B0 checks阶段传True，配置现有SyncInMemoryRunCoordinator和NoOpComputeLogManager；不配置/启动run launcher，不提交队列，不改实例yaml，三个store仍should_autocreate_tables=False。dry-run/audit/物化及其他读者默认行为保持。新增隔离persistent运行壳测试（SQLite Run/Schedule、与PG相同全局ID语义的内存EventLog；分片SQLite event store不能代表PG全局事件读取），避免只有ephemeral实例通过而正式持久实例失败。该修正属于已批准的真实手动job执行能力，无新运营配置。失败run永久保留，正式成功运行仍按27批安排，实际尝试数另列。
+
+A21 运行壳修正验收：193项周线事件/覆盖/sensor/静态测试通过。正式样本续跑7bb47fd6-7ecb-4ddf-9dac-e31ea7f1f3d2成功，写入3项检查且绑定本次新物化；样本物化1.132秒，成功检查2.276秒/RSS206.3MiB，失败尝试b5ea6584保留于实例及本次ledger。859物化已登记，剩余检查按原冻结plan串行执行。
+
+最终水位执行卡（已获阶段授权）：工作目录同A20，DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home；命令为`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python -B /private/tmp/weekly_b0_cursor_migrate_20261013.py --apply`。预演旧runtime为examined_through=verified_through=2026-10-09、policy_version=completed-week-v1，复权revision未设置；新runtime仅增加adjusted_delivery_revision=1785，本次无pending_adjusted。保持RUNNING、原19:30策略及所有未复权坐标。apply必须先确认正式event-audit与当前批量事件缺项/blocked/failed均0；再次读取cursor一致且无活动tick，使用既有update_instigator_state/with_data只替换cursor，读回并再观察自然tick保留水位。材料只服务本次迁移，日常sensor不读取cursor-preview/apply或event计划。
+
+
+#### A21.4 正式补录及 B0 水位迁移结果（2026-10-13）
+
+正式追加859物化、2,577检查，原事件全部保留；27个成功检查运行、1个运行壳失败尝试共28条真实运行记录，失败b5ea6584没有登记检查。每个成功批已读回真实run状态、B0/文件身份和三项target_materialization_data。没有新增分区或改写行情文件。
+
+物化命令合计61.005秒、检查命令合计710.403秒；包括驱动器开实例/读回在内的余批总耗时866.949秒。最大物化RSS224.1MiB，最大检查RSS228.2MiB；预算未提高。最终聚合验收读取7,732条记录，859文件/3,028,907行，物化缺项、检查缺项、blocked、最新失败、分区缺项均0；2010-01-01和2026-10-09两端readiness样本均ready。
+
+成功检查运行完整清单（start/count是本次冻结事件计划的切片，未按股票重复提交）：
+
+| start | 周数 | 检查数 | 真实 run ID |
+| ---: | ---: | ---: | --- |
+| 0 | 1 | 3 | 7bb47fd6-7ecb-4ddf-9dac-e31ea7f1f3d2 |
+| 1 | 33 | 99 | 1c89479e-0d24-47ae-b83d-0a1263baa023 |
+| 34 | 33 | 99 | e0315e3e-3b50-4609-b593-ba1f4f3d60bd |
+| 67 | 33 | 99 | e9d47efd-0ee7-4fc1-adb9-3dad94da5b3d |
+| 100 | 33 | 99 | 8b7bce05-abed-42ba-87b1-94f70c19d95e |
+| 133 | 33 | 99 | 0f61829c-1bda-4b7d-94e1-e9d3ca453fcd |
+| 166 | 33 | 99 | 26e8bdab-75d5-4c13-bffa-043d979c1dbf |
+| 199 | 33 | 99 | 5dc14a06-ac79-488e-873d-fe6a8d28246a |
+| 232 | 33 | 99 | 6a8fb8bb-8476-4bb2-9c68-3700eac925a7 |
+| 265 | 33 | 99 | 64ef5029-affd-4a71-8638-f455ed136d33 |
+| 298 | 33 | 99 | eedb3f6b-fd7b-41a6-9ba8-5b556adcfa06 |
+| 331 | 33 | 99 | 4550178f-1d7d-46f0-9677-43a7e0be0e9d |
+| 364 | 33 | 99 | 2bf2caf5-efe4-42d8-b224-5344651bbe52 |
+| 397 | 33 | 99 | 582f0d98-d32c-4e01-957d-676c4a1cd512 |
+| 430 | 33 | 99 | 469a9782-efb6-441f-a8dc-22e51e79664f |
+| 463 | 33 | 99 | 00ad09ce-244e-4641-9220-4ac889cbc14e |
+| 496 | 33 | 99 | 19669c12-6c10-4665-b182-37ade9b8d700 |
+| 529 | 33 | 99 | d29918e8-b54d-41dd-b3c5-a2160d7a4d7c |
+| 562 | 33 | 99 | 3b94f5b7-60bf-4952-9dda-7bf8a5f9834e |
+| 595 | 33 | 99 | 0bd3240e-d9ab-4c26-b0da-5e6babf9a469 |
+| 628 | 33 | 99 | de88d1e7-5a01-4011-8a31-02071e912059 |
+| 661 | 33 | 99 | 6c9a96cf-56cf-4cda-ac31-1548bec78510 |
+| 694 | 33 | 99 | 1e91cd97-a3d7-4549-a085-81efcec04f0a |
+| 727 | 33 | 99 | 3f8a21d2-c4ab-4aaa-b9ca-86adfd012928 |
+| 760 | 33 | 99 | 3a8ed876-3f9b-4d5b-b2d3-afa5403e034f |
+| 793 | 33 | 99 | bc11405e-02c6-4b56-8180-5aa9123697aa |
+| 826 | 33 | 99 | 4a64beb6-818f-4696-954d-8e7b11ec4887 |
+
+水位apply已读回：adjusted_delivery_revision由未设置改为1785，无旧复权pending；examined_through/verified_through仍2026-10-09，policy_version仍completed-week-v1，sensor仍RUNNING。通过现有API只修改cursor，未评价sensor、提交日常任务或启停服务；自然tick是否保留新水位另行只读观察。
+
+本批文件、事件和水位迁移已完成。19:30后的真实新闭合批成功接收、源晚到等运行验收仍需后续实际交付；不得把本次bootstrap当作新批自动链验证。DG的25股/2,489键因子以及自主日线/七频分钟QFQ、指标/state专项仍未开发或正式重建，继续按该专项LLD推进。完成后日常job/sensor和普通checks不依赖本次staging或reports，后续正规源修正按新批输入验收，不受本批历史摘要永久约束。
+
+自然tick只读复核通过：2026-10-13 13:19:32（上海时间）的sensor cursor继续保留adjusted_delivery_revision=1785及未复权2026-10-09坐标，仍RUNNING；不是手动sensor评价或日常新批验收。

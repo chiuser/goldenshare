@@ -9,7 +9,11 @@ import yaml
 from dagster._config import process_config
 from dagster._core.instance.ref import InstanceRef
 from dagster._core.instance.types import InstanceType
+from dagster._core.run_coordinator.sync_in_memory_run_coordinator import (
+    SyncInMemoryRunCoordinator,
+)
 from dagster._core.storage.config import pg_config
+from dagster._core.storage.noop_compute_log_manager import NoOpComputeLogManager
 from dagster._core.storage.root import LocalArtifactStorage
 from dagster._serdes import ConfigurableClassData
 from dagster_postgres import (
@@ -26,6 +30,33 @@ from orchestrator.defs.bootstrap.stock_weekly_capture import (
 )
 
 INSTANCE_HOME = Path("/Users/congming/.goldenshare/dagster_home")
+
+
+def assert_weekly_event_instance_matches(instance, identity):
+    """Match existing storage identities without opening stores or exposing secrets."""
+    if (
+        not isinstance(identity, dict)
+        or identity.get("artifact_root") != instance.root_directory
+        or "storage" not in identity
+    ):
+        raise WeeklyCaptureError("instance_identity_changed")
+    for store in (
+        instance.run_storage,
+        instance.event_log_storage,
+        instance.schedule_storage,
+    ):
+        url = getattr(store, "postgres_url", None)
+        observed = None
+        if url is not None:
+            parsed = make_url(url)
+            observed = {
+                "host": parsed.host,
+                "port": parsed.port or 5432,
+                "database": parsed.database,
+                "username": parsed.username,
+            }
+        if identity["storage"] != observed:
+            raise WeeklyCaptureError("instance_identity_changed")
 
 
 def _configuration(home):
@@ -94,7 +125,7 @@ def _configuration(home):
 
 
 @contextmanager
-def open_weekly_event_instance(*, identity=None):
+def open_weekly_event_instance(*, identity=None, for_execution=False):
     """No default discovery, initialization, DDL, launcher or config mutations."""
     url, root, actual = _configuration(INSTANCE_HOME)
     if identity is not None and identity != actual:
@@ -111,7 +142,13 @@ def open_weekly_event_instance(*, identity=None):
             "{}",
         ),
         scheduler_data=None,
-        run_coordinator_data=None,
+        run_coordinator_data=ConfigurableClassData(
+            "dagster._core.run_coordinator.sync_in_memory_run_coordinator",
+            "SyncInMemoryRunCoordinator",
+            "{}",
+        )
+        if for_execution
+        else None,
         run_launcher_data=None,
         settings={"telemetry": {"enabled": False}},
         run_storage_data=None,
@@ -134,8 +171,8 @@ def open_weekly_event_instance(*, identity=None):
             run_storage=stores[0],
             event_storage=stores[1],
             schedule_storage=stores[2],
-            compute_log_manager=None,
-            run_coordinator=None,
+            compute_log_manager=NoOpComputeLogManager() if for_execution else None,
+            run_coordinator=SyncInMemoryRunCoordinator() if for_execution else None,
             run_launcher=None,
             settings={"telemetry": {"enabled": False}},
             ref=ref,
