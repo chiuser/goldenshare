@@ -6,7 +6,7 @@
 >
 > 本文是实施方案，不是生产执行授权。后续 LLD、代码与执行结果必须回填本文；未完成的来源验证和验收不能预填通过。
 
-最新状态（2026-10-13）：七表历史登记已全部完成，合计7804个来源日分区、15608项物化和280项最近检查，见§68.1。登记起点和六表数量门禁已验收并提交6386dbd4；容量1配置及成熟三日21单元/42job接续目标已冻结，见§71及LLD§66。21个sensor均STOPPED，池未设置，正式接续未执行。共享code location有另一周线开发的在建job/ops，加载目前阻断；待其收尾并重新冻结加载范围/源码与窗口后，按阶段批准容量设置、代码加载和大盘首样本。P4整体及P5未关闭。
+最新状态（2026-10-13 13:34复核）：上一轮3报告/2文档已提交a5e18e44，未推送；共享周线改动随后提交5a25e578，orchestrator源码清洁且隔离Definitions加载通过，原加载阻断解除。七表成熟接续窗口已刷新，仍为10-08、10-09、10-12，共21日期单元/42job，容量1和正式接续清单已按5a25e578重新冻结，见LLD§67.1/方案§72.1。当前21个sensor仍STOPPED、池未设置、正式代码未重载、接续未执行；按阶段审批配置/加载及大盘首样本，10-13仍不在本次范围。P4整体及P5未关闭。
 
 ## 1. 已确认范围
 
@@ -1342,3 +1342,39 @@ moneyflow独立两层资产、两条分区blocking checks、两个job、专属�
 当前代码加载有独立阻断：共享工作区的周线任务正在新增job/ops和配置并修改bootstrap，被当前引用审计确认会进入共享code location加载范围。七表验收代码未变，本轮保留这些他人修改，不加载或通过别的工作区规避；待其收尾、明确加载范围并重新核验源码和窗口后，才能发布可正式执行的版本。当前是目标/请求冻结完成，不能宣称具备立即全量启动条件。
 
 只读审计6.669秒/338.656MiB，六表30个基线文件与120条SQL验证通过；65份请求在现有GraphQL schema中静态验证，无resolver执行。三日源请求估算96次，Raw活动预算之和105分钟、稳定等待下限21分钟，整段ETA暂无法估算；账户配额不再审计。报告见[冻结证据](../../reports/moneyflow_p4_continuation_freeze_evidence_20261013.json)，本轮3报告/2文档尚未提交，P4整体和P5保持开放。
+
+
+## 72. 共享工作区与加载阻断复核（2026-10-13）
+
+管理员本轮要求先提交，再检查共享工作区是否稳定和加载阻断是否解除，仅在具备条件后刷新七表接续窗口、重新冻结可执行清单，保持sensor停用。上一轮3报告/2文档限定提交已完成：`a5e18e44af7927378dfe34b6c2e578f742f68cf5`，未推送，其他修改保留。本轮只新增复核报告并更新两份原设计文档，不改正式代码、配置、API/CLI或依赖矩阵。
+
+13:31:29上海时间，746项源码/项目配置摘要与上一轮冻结完全相同，七表1742项验收对应的129项源码摘要没有漂移；本次审计前后源码和待加载清单也一致。**这只能证明短时间内没有改动，不能证明共享开发已验收收尾。** 5份tracked周线bootstrap/共享configs仍有未提交修改，jobs/stock_weekly_event_backfill.py和ops/stock_weekly_bootstrap_checks.py仍为untracked。当前definitions.py依旧通过load_from_defs_folder加载同一defs目录；新job导入新op，新op消费StockWeeklyBootstrapEventChecksConfig及周线bootstrap，周线/月线CLI也引用已改模块。因此上一轮加载阻断仍成立，不把“文件hash暂时没变”当作可以重载的依据，也不覆盖他人文件或切换临时工作区规避。
+
+正式服务两次只读读回一致：21个moneyflow sensor默认/有效均STOPPED，14个job仍在，新增周线raw_stk_period_bar_adj_week_event_backfill_job尚未加载。原生PG连接确认transaction_read_only=on；moneyflow_tushare_writer仍没有limit或slot、pending0，其他gold_stk_mins_qfq_writer显式容量1保持，全实例active runs为空。没有进行重载来验证未验收的周线代码，没有正式pool/分区/event/Lake写入、job提交、sensor评估/启用、Tushare请求或依赖安装。
+
+本轮条件检查不通过，**不进入日期窗口刷新及新可执行清单冻结**。原三份冻结文件SHA保持，仅作为12:41观察的历史目标/请求证据；不能将其旧日期、观察日run key或有效期自动延期。待共享周线改动收尾、明确加载范围后，重新核验完整源码摘要、日历/成熟窗口、原生/文件差集、pool/active/writer维护条件，再冻结剩余范围；容量配置、正式加载和首样本仍按阶段执行，不启用sensor。
+
+完整证据见[共享工作区与加载阻断复核报告](../../reports/moneyflow_p4_shared_workspace_recheck_20261013_133129.json)，sha256=934a1d0500c05d27037b3aa4b98f488a2bc288ba1a799d2ecfdc2275c7283994，124,975B。成功只读阶段实测0.542秒/RSS177MiB，2个只读GraphQL、4条SQL、1次有界active run读取；此前临时查询缺少闭合括号返回HTTP400，已定位并经本地schema校验后修正，合计3个只读请求，未执行任何mutation。CodeGraph explore用于共享job/op/config/加载入口分析，泛名索引未完整覆盖新周线符号，缺项以当前源码和import引用核验补足。阻断明确保留，不以文档或GraphQL静态校验替代正式加载验收。P4整体与P5仍开放。
+
+
+### 72.1 共享开发提交后的复验与可执行清单重新冻结
+
+本轮结束检查发现另一周线任务已提交`5a25e578cb4f45998fe58a8a5666da982b42f4da`，此前7项源码全部纳入该提交，orchestrator/src没有未提交文件；前节13:31的阻断记录保留为当时事实，已由本节后续复核取代。周线提交对应当前job/op/config源码及正式补录结果见周线原LLD A21，记录193项专项验收、真实样本及全量读回；本任务没有重新执行周线job或改变其自动化状态。共享根分支仍dev-interface，其他Web/研究修改不进入此code location的加载范围。
+
+重新核验当前definitions.py及新增周线job→op→config/bootstrap引用：defs按原load_from_defs_folder加载，新周线入口是手动job，不新增自动触发器。使用现有项目环境、隔离/private/tmp DAGSTER_HOME和无正式凭据的环境运行`dg check defs --use-active-venv --no-check-yaml`，exit0/All definitions loaded successfully，日志sha256=bd69366b36ad5660d01287093fbb54f56a4260e8584ae7213c233675486feb1a。本次实际加载解析包含新周线定义；不将其他任务文档或源码“已提交”单独当作加载验收。CodeGraph根索引已sync/status正常。七表1742项原验收对应129项源码/测试摘要仍完全相同，没有重跑已有功能测试或安装依赖。
+
+13:34:46上海时间正式只读刷新：七表都缺10-08、10-09、10-12的登记/Raw/Silver交付，共21key、42目标文件/原job/物化/准确绑定blocking check；10-13未到22点仍只列候选，排除当前执行范围。四日均在现有10日热窗口内；不扩大窗口或把11项来源缺口接入日更。7804历史key/15608物化身份和最近280check/物理就绪保持。21个已加载sensor默认/有效STOPPED、14资产/job/check合同仍准确，当前服务尚未重载新源码。全实例active0，writer锁未占用；目标池未配置/pending0，其他gold_stk_mins_qfq_writer显式容量1及全局run上限1/run粒度保持。正式根/staging同设备且空间门槛满足，没有写canary。
+
+新清单以当前已提交源码5a25e578及746项源码/项目配置摘要冻结，dependencies_dirty_at_freeze为空、source_reload_blocked=false、workspace_loading_condition_cleared=true；**原共享源码加载阻断已解除，可执行范围和请求已重新冻结，但尚未应用配置或启动任务。** 原三份目标清单和前节阻断报告均保持原SHA，不覆盖或延期它们。
+
+| 新冻结文件 | SHA256 | 字节 |
+| --- | --- | ---: |
+| [专属池容量1配置](../../reports/moneyflow_p4_writer_pool_capacity1_refrozen_plan_20261013.json) | bf14ac492260460c072224904562ec45b58323561c53d510403552a70cc316e1 | 119,956 |
+| [成熟三日正式接续](../../reports/moneyflow_p4_daily_continuation_mature_refrozen_plan_20261013.json) | 644066a66d5665b8e5f317371032b7eccb46eadce2732d845fa0280dc84af56b | 307,347 |
+| [重新冻结与只读证据](../../reports/moneyflow_p4_continuation_refreeze_evidence_20261013.json) | 1d72e8be8d48e72a7faf61e80d834c3cc88676c0394bb0288dc3ce9ae9a7f948 | 254,982 |
+
+顺序和恢复沿用§66/方案§71的已确认规则：按阶段批准设置容量1并读回、加载这一准确源码并确认七表21sensor仍STOPPED及手动周线入口正确；只登记获准的成熟key，先moneyflow_mkt_dc 10-08一个key/Raw→check→Silver→check首样本后停止独立验收，再批准剩余范围。原完整job、不选op/check、标准Raw身份、Silver只绑定当前已绿Raw SHA、GraphQL每动作单次提交及超时先读回、native差集续跑和既有预算保持。不能把清单标记可执行理解为本轮已批准正式写入；apply_authorized仍false，ready_for_formal_launch_now仍false，仅剩容量/加载/晚间窗口/首样本等既定阶段门禁。21个sensor全程保持STOPPED。
+
+清单观察日10-13，正式Raw/Silver最早22:00；有效期仍10-14 00:00上海时间。到22点并不会自动把10-13加入本次范围，若纳入须重新刷新/冻结并批准；跨日或源码/日历/配置/目标差集漂移停止下一动作，保持已完成事实。本轮没有reload、pool配置、分区/event/Lake写入、job或sensor评估/启用、Tushare请求或安装。
+
+本次完整只读刷新7.743秒/RSS352.656MiB、314个有界helper/asset/run读和3个只读GraphQL；原400读/300秒/768MiB门槛内，六表30基线文件共120SQL通过，81份既有moneyflow报告摘要保持。65份pool/reload/登记/job请求在安装版本GraphQL schema中纯语法/输入类型校验通过，没有resolver执行。成熟三日估算96源请求，Raw硬上限合计1344、活动预算合计105分钟、稳定等待下限21分钟，总墙钟ETA仍暂无法估算；不审计配额、不增加预算。P4整体与P5仍未关闭。
