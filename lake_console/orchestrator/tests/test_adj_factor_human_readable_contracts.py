@@ -8,7 +8,6 @@ from orchestrator.defs.assets.adj_factor import (
     silver_adj_factor,
 )
 
-
 ASSET_PATH = Path("src/orchestrator/defs/assets/adj_factor.py")
 
 
@@ -37,7 +36,7 @@ class AdjFactorHumanReadableContractTests(unittest.TestCase):
         self.assertIn("源镜像", raw_description)
         self.assertIn("qfq", raw_description)
         self.assertIn("标准事实", silver_description)
-        self.assertIn("生命周期", silver_description)
+        self.assertIn("当前上市", silver_description)
         self.assertNotIn("selection", raw_description)
         self.assertNotIn("selection", silver_description)
 

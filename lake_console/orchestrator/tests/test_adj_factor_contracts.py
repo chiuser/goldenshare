@@ -127,7 +127,7 @@ class AdjFactorContractTests(unittest.TestCase):
             "data_lake/silver/quote/adj_factor/trade_date=2026-05-29/part-000.parquet",
         )
 
-    def test_silver_select_keeps_lifecycle_valid_cny_rows(
+    def test_silver_select_keeps_only_current_listed_cny_history(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -151,7 +151,6 @@ class AdjFactorContractTests(unittest.TestCase):
             rows,
             [
                 ("000001.SZ", "2026-05-28", 1.1),
-                ("000002.SZ", "2026-05-28", 2.2),
             ],
         )
 

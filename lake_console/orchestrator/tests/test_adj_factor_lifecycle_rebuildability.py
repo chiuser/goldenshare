@@ -17,7 +17,6 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
 )
 
-
 TRADE_DATE = "2026-06-05"
 
 
@@ -61,9 +60,9 @@ def _write_fixture_files(*, lake_root: Path, raw_codes: tuple[str, ...]) -> None
             f"""
             COPY (
               SELECT * FROM (VALUES
-                ('000001.SZ', DATE '2020-01-01', NULL::DATE, true),
-                ('000002.SZ', DATE '2020-01-01', NULL::DATE, true)
-              ) AS lifecycle(ts_code, list_date, delist_date, is_cny_stock)
+                ('000001.SZ', DATE '2020-01-01', NULL::DATE, true, 'L'),
+                ('000002.SZ', DATE '2020-01-01', NULL::DATE, true, 'L')
+              ) AS lifecycle(ts_code, list_date, delist_date, is_cny_stock, list_status)
             ) TO {duckdb_string(lifecycle_path)} (FORMAT PARQUET)
             """
         )

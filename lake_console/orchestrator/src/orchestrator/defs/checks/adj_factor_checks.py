@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.adj_factor import (
     ADJ_FACTOR_RAW_COLUMN_TYPES,
     ADJ_FACTOR_SILVER_COLUMN_TYPES,
@@ -14,14 +13,15 @@ from orchestrator.defs.assets.adj_factor import (
     silver_adj_factor,
 )
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
+    adj_factor_current_listed_stock_select,
     count_parquet_query,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
-    silver_cny_stock_lifecycle_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.paths import (
@@ -32,9 +32,77 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
-
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
 ADJ_FACTOR_MIN_TRADE_DATE = "2009-01-05"
+ADJ_FACTOR_INVALID_VALUE_PREDICATE = "adj_factor IS NULL OR adj_factor <= 0"
+
+
+def adj_factor_duplicate_keys_sql(path: Path) -> str:
+    return f"""SELECT ts_code,trade_date,count(*) AS duplicate_count
+               FROM {read_parquet(path, hive_partitioning=False)}
+               GROUP BY ts_code,trade_date HAVING count(*)>1"""
+
+
+def adj_factor_invalid_lifecycle_sql(path: Path, lifecycle_path: Path) -> str:
+    lifecycle = adj_factor_current_listed_stock_select(lifecycle_path)
+    return f"""WITH stock_lifecycle AS ({lifecycle})
+      SELECT adj.ts_code,adj.trade_date,stock_lifecycle.list_date,
+             stock_lifecycle.delist_date,adj.adj_factor
+      FROM {read_parquet(path, hive_partitioning=False)} adj
+      LEFT JOIN stock_lifecycle ON adj.ts_code=stock_lifecycle.ts_code
+      WHERE stock_lifecycle.ts_code IS NULL OR adj.trade_date<stock_lifecycle.list_date
+         OR (stock_lifecycle.delist_date IS NOT NULL AND adj.trade_date>=stock_lifecycle.delist_date)
+    """
+
+
+def adj_factor_coverage_relations_sql(path: Path, lifecycle_path: Path, partition_key: str) -> str:
+    lifecycle = adj_factor_current_listed_stock_select(lifecycle_path)
+    partition_date = f"DATE {duckdb_string(partition_key)}"
+    return f"""WITH expected AS (
+      SELECT DISTINCT ts_code FROM ({lifecycle}) stock_lifecycle
+      WHERE list_date<={partition_date} AND (delist_date IS NULL OR delist_date>{partition_date})
+    ),actual AS (
+      SELECT DISTINCT ts_code FROM {read_parquet(path, hive_partitioning=False)}
+      WHERE trade_date={partition_date}
+    )"""
+
+
+def adj_factor_partition_mismatch_predicate(partition_key: str, *, raw: bool) -> str:
+    """One partition rule for formal checks and historical candidates."""
+    partition_date = f"DATE {duckdb_string(partition_key)}"
+    expression = (
+        "CAST(try_strptime(trim(CAST(trade_date AS VARCHAR)), '%Y%m%d') AS DATE)"
+        if raw else "trade_date"
+    )
+    return f"{expression} IS NULL OR {expression} != {partition_date}"
+
+
+def audit_adj_factor_candidate_rules(connection, path: Path, partition_key: str, *, raw: bool,
+                                     lifecycle_path: Path) -> dict[str, int]:
+    """Pure existing checks semantics; no resources, instance or formal writes."""
+    source = read_parquet(path, hive_partitioning=False)
+    expected_schema = ADJ_FACTOR_RAW_COLUMN_TYPES if raw else ADJ_FACTOR_SILVER_COLUMN_TYPES
+    if dict(_describe_columns(connection, path)) != expected_schema:
+        raise ValueError("adj_factor candidate schema does not match contract")
+    summary = connection.execute(f"""
+        SELECT count(*),count(*) FILTER(WHERE {adj_factor_partition_mismatch_predicate(partition_key, raw=raw)}),
+          count(*) FILTER(WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE}),
+          (SELECT count(*) FROM ({adj_factor_duplicate_keys_sql(path)}))
+        FROM {source}
+    """).fetchone()
+    result = dict(zip(("rows", "partition_mismatch", "nonpositive_factor", "duplicate_keys"),
+                      map(int, summary), strict=True))
+    if not raw:
+        coverage = adj_factor_coverage_relations_sql(path, lifecycle_path, partition_key)
+        summary = connection.execute(f"""
+            {coverage}
+            SELECT (SELECT count(*) FROM ({adj_factor_invalid_lifecycle_sql(path, lifecycle_path)})),
+              (SELECT count(*) FROM (SELECT ts_code FROM expected EXCEPT SELECT ts_code FROM actual)),
+              (SELECT count(*) FROM (SELECT ts_code FROM actual EXCEPT SELECT ts_code FROM expected))
+        """).fetchone()
+        result.update(zip(("lifecycle_invalid", "coverage_missing", "coverage_unexpected"),
+                          map(int, summary), strict=True))
+    return result
 
 
 def _describe_columns(connection, path: Path) -> list[tuple[str, str]]:
@@ -109,7 +177,7 @@ def _next_action_for_failed_adj_factor_rules(
     if any("positive_factor" in rule for rule in failed_rules):
         return "先排查 adj_factor 为空或小于等于 0 的源数据行，再重新生成该分区。"
     if any("listed_stock_only" in rule or "coverage_complete" in rule for rule in failed_rules):
-        return "先核对 silver_stock_lifecycle 与复权因子覆盖范围，修复生命周期或缺失股票后重跑。"
+        return "核对 silver_stock_lifecycle 中当前上市 CNY 股票的因子覆盖及日期范围，重建 Silver；退市股票不要求历史因子。"
     return "先查看 failed_rule_names 对应子规则 metadata，修复后等待下一次 sensor tick 或人工重跑。"
 
 
@@ -353,25 +421,20 @@ def raw_adj_factor_partition_date_matches(
     if not path.exists():
         return _missing_file_result(path)
 
-    partition_date = f"DATE {duckdb_string(partition_key)}"
-    trade_date_expression = (
-        "CAST(try_strptime(trim(CAST(trade_date AS VARCHAR)), '%Y%m%d') AS DATE)"
-    )
+    mismatch_predicate = adj_factor_partition_mismatch_predicate(partition_key, raw=True)
     with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE {trade_date_expression} IS NULL
-               OR {trade_date_expression} != {partition_date}
+            WHERE {mismatch_predicate}
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
             SELECT ts_code, trade_date, adj_factor
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE {trade_date_expression} IS NULL
-               OR {trade_date_expression} != {partition_date}
+            WHERE {mismatch_predicate}
             ORDER BY ts_code, trade_date
             LIMIT 10
             """
@@ -406,21 +469,12 @@ def raw_adj_factor_unique_ts_code_trade_date(
     with connect_configured_duckdb() as connection:
         duplicate_count = connection.execute(
             f"""
-            SELECT count(*) AS duplicate_key_count
-            FROM (
-              SELECT ts_code, trade_date
-              FROM {read_parquet(path, hive_partitioning=False)}
-              GROUP BY ts_code, trade_date
-              HAVING count(*) > 1
-            ) duplicate_keys
+            SELECT count(*) FROM ({adj_factor_duplicate_keys_sql(path)})
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
-            SELECT ts_code, trade_date, count(*) AS duplicate_count
-            FROM {read_parquet(path, hive_partitioning=False)}
-            GROUP BY ts_code, trade_date
-            HAVING count(*) > 1
+            SELECT * FROM ({adj_factor_duplicate_keys_sql(path)})
             ORDER BY ts_code, trade_date
             LIMIT 10
             """
@@ -457,14 +511,14 @@ def raw_adj_factor_positive_factor(
             f"""
             SELECT count(*) AS invalid_count
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE adj_factor IS NULL OR adj_factor <= 0
+            WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE}
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
             SELECT ts_code, trade_date, adj_factor
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE adj_factor IS NULL OR adj_factor <= 0
+            WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE}
             ORDER BY ts_code, trade_date
             LIMIT 10
             """
@@ -603,20 +657,20 @@ def silver_adj_factor_partition_date_matches(
     if not path.exists():
         return _missing_file_result(path)
 
-    partition_date = f"DATE {duckdb_string(partition_key)}"
+    mismatch_predicate = adj_factor_partition_mismatch_predicate(partition_key, raw=False)
     with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE trade_date IS NULL OR trade_date != {partition_date}
+            WHERE {mismatch_predicate}
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
             SELECT ts_code, trade_date, adj_factor
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE trade_date IS NULL OR trade_date != {partition_date}
+            WHERE {mismatch_predicate}
             ORDER BY ts_code, trade_date
             LIMIT 10
             """
@@ -651,21 +705,12 @@ def silver_adj_factor_unique_ts_code_trade_date(
     with connect_configured_duckdb() as connection:
         duplicate_count = connection.execute(
             f"""
-            SELECT count(*) AS duplicate_key_count
-            FROM (
-              SELECT ts_code, trade_date
-              FROM {read_parquet(path, hive_partitioning=False)}
-              GROUP BY ts_code, trade_date
-              HAVING count(*) > 1
-            ) duplicate_keys
+            SELECT count(*) FROM ({adj_factor_duplicate_keys_sql(path)})
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
-            SELECT ts_code, trade_date, count(*) AS duplicate_count
-            FROM {read_parquet(path, hive_partitioning=False)}
-            GROUP BY ts_code, trade_date
-            HAVING count(*) > 1
+            SELECT * FROM ({adj_factor_duplicate_keys_sql(path)})
             ORDER BY ts_code, trade_date
             LIMIT 10
             """
@@ -702,14 +747,14 @@ def silver_adj_factor_positive_factor(
             f"""
             SELECT count(*) AS invalid_count
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE adj_factor IS NULL OR adj_factor <= 0
+            WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE}
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
             SELECT ts_code, trade_date, adj_factor
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE adj_factor IS NULL OR adj_factor <= 0
+            WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE}
             ORDER BY ts_code, trade_date
             LIMIT 10
             """
@@ -744,46 +789,16 @@ def silver_adj_factor_listed_stock_only(
     if not lifecycle_path.exists():
         return _missing_input_file_result([lifecycle_path])
 
-    stock_lifecycle_sql = silver_cny_stock_lifecycle_select(lifecycle_path)
     with connect_configured_duckdb() as connection:
         invalid_count = connection.execute(
             f"""
-            WITH stock_lifecycle AS (
-              {stock_lifecycle_sql}
-            )
-            SELECT count(*) AS invalid_count
-            FROM {read_parquet(path, hive_partitioning=False)} adj
-            LEFT JOIN stock_lifecycle
-              ON adj.ts_code = stock_lifecycle.ts_code
-            WHERE stock_lifecycle.ts_code IS NULL
-               OR adj.trade_date < stock_lifecycle.list_date
-               OR (
-                 stock_lifecycle.delist_date IS NOT NULL
-                 AND adj.trade_date >= stock_lifecycle.delist_date
-               )
+            SELECT count(*) FROM ({adj_factor_invalid_lifecycle_sql(path, lifecycle_path)})
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
-            WITH stock_lifecycle AS (
-              {stock_lifecycle_sql}
-            )
-            SELECT
-              adj.ts_code,
-              adj.trade_date,
-              stock_lifecycle.list_date,
-              stock_lifecycle.delist_date,
-              adj.adj_factor
-            FROM {read_parquet(path, hive_partitioning=False)} adj
-            LEFT JOIN stock_lifecycle
-              ON adj.ts_code = stock_lifecycle.ts_code
-            WHERE stock_lifecycle.ts_code IS NULL
-               OR adj.trade_date < stock_lifecycle.list_date
-               OR (
-                 stock_lifecycle.delist_date IS NOT NULL
-                 AND adj.trade_date >= stock_lifecycle.delist_date
-               )
-            ORDER BY adj.ts_code, adj.trade_date
+            SELECT * FROM ({adj_factor_invalid_lifecycle_sql(path, lifecycle_path)})
+            ORDER BY ts_code, trade_date
             LIMIT 10
             """
         ).fetchall()
@@ -826,25 +841,11 @@ def silver_adj_factor_coverage_complete(
     if not lifecycle_path.exists():
         return _missing_input_file_result([lifecycle_path])
 
-    partition_date = f"DATE {duckdb_string(partition_key)}"
-    stock_lifecycle_sql = silver_cny_stock_lifecycle_select(lifecycle_path)
+    coverage_sql = adj_factor_coverage_relations_sql(path, lifecycle_path, partition_key)
     with connect_configured_duckdb() as connection:
         summary = connection.execute(
             f"""
-            WITH expected AS (
-              SELECT DISTINCT ts_code
-              FROM ({stock_lifecycle_sql}) stock_lifecycle
-              WHERE list_date <= {partition_date}
-                AND (
-                  delist_date IS NULL
-                  OR delist_date > {partition_date}
-                )
-            ),
-            actual AS (
-              SELECT DISTINCT ts_code
-              FROM {read_parquet(path, hive_partitioning=False)}
-              WHERE trade_date = {partition_date}
-            ),
+            {coverage_sql},
             missing AS (
               SELECT expected.ts_code
               FROM expected
@@ -866,20 +867,7 @@ def silver_adj_factor_coverage_complete(
         ).fetchone()
         missing_rows = connection.execute(
             f"""
-            WITH expected AS (
-              SELECT DISTINCT ts_code
-              FROM ({stock_lifecycle_sql}) stock_lifecycle
-              WHERE list_date <= {partition_date}
-                AND (
-                  delist_date IS NULL
-                  OR delist_date > {partition_date}
-                )
-            ),
-            actual AS (
-              SELECT DISTINCT ts_code
-              FROM {read_parquet(path, hive_partitioning=False)}
-              WHERE trade_date = {partition_date}
-            )
+            {coverage_sql}
             SELECT expected.ts_code
             FROM expected
             LEFT JOIN actual USING (ts_code)
@@ -890,20 +878,7 @@ def silver_adj_factor_coverage_complete(
         ).fetchall()
         unexpected_rows = connection.execute(
             f"""
-            WITH expected AS (
-              SELECT DISTINCT ts_code
-              FROM ({stock_lifecycle_sql}) stock_lifecycle
-              WHERE list_date <= {partition_date}
-                AND (
-                  delist_date IS NULL
-                  OR delist_date > {partition_date}
-                )
-            ),
-            actual AS (
-              SELECT DISTINCT ts_code
-              FROM {read_parquet(path, hive_partitioning=False)}
-              WHERE trade_date = {partition_date}
-            )
+            {coverage_sql}
             SELECT actual.ts_code
             FROM actual
             LEFT JOIN expected USING (ts_code)

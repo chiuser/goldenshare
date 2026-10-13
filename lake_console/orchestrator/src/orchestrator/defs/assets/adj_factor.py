@@ -5,16 +5,17 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
+    adj_factor_current_listed_stock_select,
     adj_factor_normalized_select,
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
-    silver_cny_stock_lifecycle_select,
     silver_adj_factor_select,
+    silver_cny_stock_lifecycle_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.paths import (
@@ -25,7 +26,11 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stock_lifecycle_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
@@ -42,7 +47,6 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 ADJ_FACTOR_COLUMNS = tuple(column.name for column in SILVER_ADJ_FACTOR_SCHEMA)
 
@@ -140,7 +144,7 @@ def _silver_filter_counts(
           {normalized_sql}
         ),
         stock_lifecycle AS (
-          {silver_cny_stock_lifecycle_select(stock_lifecycle_path)}
+          {adj_factor_current_listed_stock_select(stock_lifecycle_path)}
         ),
         selected AS (
           SELECT normalized.*
@@ -154,7 +158,7 @@ def _silver_filter_counts(
         )
         SELECT
           (SELECT count(*) FROM normalized) AS source_row_count,
-          (SELECT count(*) FROM stock_lifecycle) AS lifecycle_stock_count,
+          (SELECT count(*) FROM ({silver_cny_stock_lifecycle_select(stock_lifecycle_path)})) AS lifecycle_stock_count,
           (SELECT count(*) FROM selected) AS selected_row_count,
           (SELECT count(*) FROM normalized) - (SELECT count(*) FROM selected)
             AS rejected_row_count
@@ -309,8 +313,9 @@ def raw_tushare_adj_factor(
         ),
         extra_metadata={
             "filter_policy": (
-                "Keep lifecycle-valid CNY stocks where list_date <= trade_date < "
-                "delist_date when present; "
+                "Keep currently listed CNY stocks (list_status='L') where "
+                "list_date <= trade_date < delist_date when present; exclude "
+                "delisted stocks even from historical partitions; "
                 "raw remains the Tushare source mirror."
             ),
             "upstream_ready_policy": (
@@ -319,7 +324,7 @@ def raw_tushare_adj_factor(
             ),
         },
     ),
-    description="复权因子 silver 标准事实，按股票生命周期过滤后供 qfq 分钟线和相关指标计算使用。",
+    description="复权因子 silver 标准事实，仅保留当前上市 CNY 股票的合法历史因子，供 qfq 和指标计算使用。",
 )
 def silver_adj_factor(
     context: dg.AssetExecutionContext,

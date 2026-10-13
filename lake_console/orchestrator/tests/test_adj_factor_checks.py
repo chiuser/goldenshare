@@ -13,7 +13,6 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 
-
 TARGET_TRADE_DATE = "2026-05-29"
 
 
@@ -34,7 +33,7 @@ def _check_name(check_definition) -> str:
     return check_definition.node_def.name
 
 
-def _metadata_value(value):  # noqa: ANN001
+def _metadata_value(value):
     return getattr(value, "value", value)
 
 
@@ -275,7 +274,6 @@ class AdjFactorCheckTests(unittest.TestCase):
                 TARGET_TRADE_DATE,
                 (
                     ("000001.SZ", TARGET_TRADE_DATE, 1.1),
-                    ("000002.SZ", TARGET_TRADE_DATE, 2.2),
                 ),
             )
             context = _PartitionContext(TARGET_TRADE_DATE)

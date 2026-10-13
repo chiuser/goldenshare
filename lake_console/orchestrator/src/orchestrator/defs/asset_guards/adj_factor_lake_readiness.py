@@ -18,17 +18,16 @@ from orchestrator.defs.assets.adj_factor import (
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
+    adj_factor_current_listed_stock_select,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
-    silver_cny_stock_lifecycle_select,
 )
 from orchestrator.defs.paths import (
     raw_adj_factor_path,
     silver_adj_factor_path,
     silver_stock_lifecycle_path,
 )
-
 
 RAW_ADJ_FACTOR_FILE_EXISTS_CHECK = "raw_adj_factor_file_exists"
 RAW_ADJ_FACTOR_PARTITION_DATE_MATCHES_CHECK = "raw_adj_factor_partition_date_matches"
@@ -260,7 +259,7 @@ def _silver_metrics_by_trade_date(
         tuple((str(path_plan.silver_path), path_plan.trade_date) for path_plan in existing_plans)
     )
     paths = tuple(path_plan.silver_path for path_plan in existing_plans)
-    lifecycle_sql = silver_cny_stock_lifecycle_select(stock_lifecycle_path)
+    lifecycle_sql = adj_factor_current_listed_stock_select(stock_lifecycle_path)
     rows = connection.execute(
         f"""
         WITH path_plan AS (
@@ -479,7 +478,7 @@ def assess_silver_adj_factor_lifecycle_rebuildability(
             failed_check_names=failed_check_names,
         )
 
-    lifecycle_sql = silver_cny_stock_lifecycle_select(stock_lifecycle_path)
+    lifecycle_sql = adj_factor_current_listed_stock_select(stock_lifecycle_path)
     expected_codes_sql = f"""
         SELECT lifecycle.ts_code
         FROM ({lifecycle_sql}) lifecycle
@@ -769,7 +768,7 @@ def _batch_readiness(
     else:
         raise ValueError(f"Unsupported adj factor readiness layer: {layer!r}")
 
-    elapsed_ms = int(round((perf_counter() - started_at) * 1000))
+    elapsed_ms = round((perf_counter() - started_at) * 1000)
     return ContinuityBatchReadiness(
         expected_trade_dates=expected_trade_dates,
         statuses_by_trade_date=statuses_by_trade_date,

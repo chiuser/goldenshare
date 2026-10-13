@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-> 2026-10-13 最新决定：本次只调整 DG 复权因子。Raw 保留源全集，包括退市股票及退市日后的源记录；Silver 只保留当前上市的 CNY 股票，已退市股票的历史因子也排除。Prod 保持现状。下文规范条款已按此决定更新，当前代码和正式文件尚未迁移；实施顺序、文件范围与验收见 §14 和[修复 LLD §18](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-current-listed-migration)。不能把文档更新当作代码或文件已经完成。
+> 2026-10-13 最新决定：本次只调整 DG 复权因子。Raw 保留源全集，包括退市股票及退市日后的源记录；Silver 只保留当前上市的 CNY 股票，已退市股票的历史因子也排除。Prod 保持现状。代码、受控重建工具和隔离验证已完成，正式文件及事件尚未迁移；实施顺序、文件范围与验收见 §14 和[修复 LLD §18](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-current-listed-migration)。实际验证见LLD §18.8，不能把代码完成当作正式历史文件已更新。
 
 > M5 清退边界（2026-09-05）：§2 的迁移和事件数字、§12 的 A2/A5/A6 阶段只作历史记录；M4 已删除旧迁移适配器。Raw/Silver schema及日常入口保留，不按旧spec再次初始化；因子Silver选股和相应readiness按最新§14迁移。
 
@@ -642,13 +642,13 @@ instance、Lake、prod 或动态分区。**
 
 <a id="adj-factor-current-listed-asset-policy"></a>
 
-## 14. 当前上市股票规则迁移（2026-10-13，待实施）
+## 14. 当前上市股票规则迁移（2026-10-13，代码已验证，正式迁移待执行）
 
 本次范围仅为复权因子。Raw 保留全部已采集源记录；Silver 只保留当前上市 CNY 股票的合法历史记录；Prod Raw/Core、其他 Silver、Gold 行情、指标和 state 均不在本次改写范围。当前上市状态读取已通过检查的 `silver_stock_lifecycle.list_status`，不修改该生命周期表或共享历史生命周期选择函数。
 
 2026-10-13只读盘点：Raw 4,315文件/15,514,363行，末端10月13日；Silver 4,314文件/14,457,307行，末端10月12日。Raw含277只退市股票802,616行，其中64股20,099行在退市生效日及之后；Silver仍含14只退市股票45,997行，其中6条为退市生效日记录。按当前上市规则对Raw标准化后，与同日既有Silver双向逐字段集合比较：仅需移除45,997行，没有当前上市股票需新增或改值；差异涉及4,267文件、2009-01-05—2026-07-29。执行时重新冻结，不能把这些快照数字当作永久范围。
 
-当前代码仍按历史生命周期生成和校验，历史文件又混有更早的当前上市筛选结果；不能仅改文案或重跑旧 writer。实施必须依次完成：
+迁移前代码按历史生命周期生成和校验，历史文件又混有更早的当前上市筛选结果；不能仅改文案或重跑旧writer。S0代码已经统一当前上市集合，历史文件仍未重建。实施顺序为：
 
 1. **S0：代码与契约统一。** 因子专属选股 SQL、writer/filter counts、四项聚合 checks、physical readiness、安全重建评估、metadata和相关测试统一使用当前上市集合。保留asset/check/job名称及schema，通用生命周期和其他数据集不改。
 2. **S1：只读冻结。** 对既有Silver分区按新规则从Raw生成预期集合，批量核对差异，冻结股票名单、输入指纹和确切目标文件。不把尚未生成的10月13日Silver当历史迁移缺口，不调用Tushare，不补退市数据。
@@ -658,4 +658,4 @@ instance、Lake、prod 或动态分区。**
 
 今后股票状态变化时，日常新分区仍按当时最新上市集合生成。已经生成的历史分区不会因修改SQL自动变化；若须让全历史再次符合最新名单，使用同一受控重建流程。此次不增加自动全历史清理、历史扫描sensor或永久reports依赖。
 
-方案、实现映射、预算、测试和正式验收统一见[修复方案§10](dagster-stock-adj-factor-history-repair-plan-v1.md#adj-factor-current-listed-plan)与[修复LLD§18](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-current-listed-migration)。本轮只完成文档；代码、正式文件和Dagster事件迁移未执行。
+方案、实现映射、预算、测试和正式验收统一见[修复方案§10](dagster-stock-adj-factor-history-repair-plan-v1.md#adj-factor-current-listed-plan)与[修复LLD§18](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-current-listed-migration)。文档已提交为`a6a75cc6`，随后仅因子Silver代码及隔离验证完成；重建候选、文件提升和事件登记只在临时夹具及隔离instance中验证，尚未对正式Lake或instance执行。

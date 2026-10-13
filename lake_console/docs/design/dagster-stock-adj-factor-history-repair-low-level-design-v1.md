@@ -1,6 +1,6 @@
 # 股票历史复权因子修正与 DG 下游修复 LLD v1
 
-> 2026-10-13 当前优先任务仅为 DG 复权因子 Silver 的当前上市规则迁移，完整代码/文件/事件设计见[§18](#adj-factor-current-listed-migration)。Raw 和 Prod 保持现状，不执行原25股数值修正及行情/指标/state重算。§1—§17中的25股修复范围继续作为后续独立任务；其中旧 Silver 生命周期规则和待补退市历史判断已由本决定替代。本轮仅完成方案和 LLD 更新，规则代码及正式文件尚未变更。
+> 2026-10-13 当前优先任务仅为 DG 复权因子 Silver 的当前上市规则迁移，完整代码/文件/事件设计见[§18](#adj-factor-current-listed-migration)。Raw 和 Prod 保持现状，不执行原25股数值修正及行情/指标/state重算。§1—§17中的25股修复范围继续作为后续独立任务；其中旧 Silver 生命周期规则和待补退市历史判断已由本决定替代。方案和LLD已提交`a6a75cc6`，规则代码、重建工具及隔离验证已完成，详见§18.8；正式文件和事件尚未变更。
 
 > 最新范围（2026-10-13，管理员已确认）：因子仍25股/2,489键；额外统一688689.SH日线历史基准，1,299根OHLC差异位于2021-01-27—2026-06-11，日线指标/state需从2021-01-27重放至2026-10-12。§15短区间审计中“日线指标不重写”是此前范围的结果，不能覆盖本次更早历史。专项代码和正式文件尚未写入；详情及新增执行事实见§17。
 
@@ -650,13 +650,13 @@ MCP stock_basic分别请求L/D/P，显式取ts_code/name/list_status/list_date/d
 
 <a id="adj-factor-current-listed-migration"></a>
 
-## 18. DG复权因子Silver当前上市规则迁移LLD（2026-10-13，待实施）
+## 18. DG复权因子Silver当前上市规则迁移LLD（2026-10-13，代码已验证，正式迁移待执行）
 
 ### 18.1 硬边界、现状与完成定义
 
 本段只完成复权因子Silver选股规则及存量文件迁移。Raw源全集保持不变；Prod保持现状；原25股因子值修正、日线/分钟行情、技术指标及state不在本段执行。既有Raw中退市记录不得裁剪，因子值精度不得重新规范化，禁止Tushare或Prod请求。正式写目标只能是`/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=*/part-000.parquet`；staging只能在`/Volumes/datasource/data_lake_staging`。
 
-当前代码仍用历史生命周期集合，现有文件又混有旧当前上市规则的结果。2026-10-13已核验的八个Prod关键源码文件与本地相同，本段不触碰它们。实现完成须同时满足：生成SQL、生产checks、physical readiness、窄范围安全重建评估使用同一当前上市集合；正式Silver文件按新规则完成迁移；实际变化分区有对应新物化和真实检查结果。仅文档、代码或文件单项完成均不能称为整项完成。
+迁移前代码使用历史生命周期集合，现有文件又混有旧当前上市规则的结果。S0代码已统一当前上市集合，正式文件尚未重建。2026-10-13已核验的八个Prod关键源码文件与本地相同，本段不触碰它们。整项完成须同时满足：生成SQL、生产checks、physical readiness、窄范围安全重建评估使用同一当前上市集合；正式Silver文件按新规则完成迁移；实际变化分区有对应新物化和真实检查结果。仅文档、代码或文件单项完成均不能称为整项完成。
 
 ### 18.2 单一选股事实及SQL
 
@@ -740,7 +740,7 @@ S1以既有Silver日期集合为边界；Raw10月13日已存在、Silver尚未�
 
 新物化登记前核对对应正式文件仍等于已审计候选；metadata写真实日期、行数、移除数量及本次人工来源。检查沿用`silver_adj_factor_contract_check`、`silver_adj_factor_key_value_integrity_check`、`silver_adj_factor_lifecycle_coverage_check`、`silver_adj_factor_partition_allowed_check`四项身份，不能追加同名无运行检查或伪造run ID。
 
-拟解析既有`silver_adj_factor_update_job`，用`JobDefinition.get_subset(asset_selection=set(), asset_check_selection=<四项key>)`取得只执行检查的子集，逐日期创建真实运行，绑定刚登记的新物化。本机已安装API签名确认支持检查子集；仍须隔离验证分区上下文、原job身份、零asset执行和实际物化绑定，再按小样本/完整范围执行。无需新增注册job或sensor。若子集不能保持这些语义，停止事件阶段并说明，不回退同名无运行检查、不直接重跑资产。参考[Dagster检查子集官方文档](https://dagster.io/docs/guides/test/running-a-subset-of-asset-checks)。
+已实现解析既有`silver_adj_factor_update_job`，用`JobDefinition.get_subset(asset_selection=set(), asset_check_selection=<四项key>)`取得只执行检查的子集，逐日期创建真实运行，绑定刚登记的新物化。隔离instance已验证分区上下文、原job身份、零asset执行和实际物化绑定；正式阶段仍须先预览和小样本，再完整范围执行。无需新增注册job或sensor。若正式子集不能保持这些语义，停止事件阶段并说明，不回退同名无运行检查、不直接重跑资产。参考[Dagster检查子集官方文档](https://dagster.io/docs/guides/test/running-a-subset-of-asset-checks)。
 
 事件消费者须预览并隔离核验，避免下游自动响应历史因子物化而重算行情或指标；正式事件窗口使用运营维护流程控制相关触发者，CLI不擅自启停服务/sensor。事件失败保留文件及真实失败run，按文件/物化/检查记录续跑，不清旧run、事件、cursor或水位。因子代码部署后可用新生成器处理正常新日期，但本段历史文件和事件未验收前不称全历史迁移完成。
 
@@ -750,4 +750,16 @@ CodeGraph explore/impact已覆盖因子writer、check、physical readiness、安
 
 ### 18.7 本轮状态及后续顺序
 
-本轮已完成方案/LLD/基础资产文档对齐、当前代码与影响面审计，以及上述只读差异计数。未修改Python、配置、Prod文档或数据，未生成候选、提升正式文件、写Dagster事件或启停sensor。下一步按S0完成仅因子数据集的代码、metadata和隔离回归；再S1冻结、S2候选验收、S3文件重建、S4事件收尾。不能跳过代码和检查统一直接重跑旧历史writer。
+文档先提交`a6a75cc6`，随后S0规则、metadata、重建工具和隔离回归完成。正式S1冻结、S2候选、S3文件重建和S4事件收尾尚未执行；不能跳过阶段或把临时夹具当正式验收。下一步重新加载代码后重新冻结当前名单及实物范围，实际新增/改值或非预期范围仍须停止审计。
+
+### 18.8 实现和验证记录（2026-10-13）
+
+- 因子专属`adj_factor_current_listed_stock_select`已被生成器、filter counts、候选检查、physical readiness、安全重建评估共同使用；共享生命周期选择及日线SQL未改。已有`lifecycle_stock_count`仍表示源表CNY股票总数，不暗改成当前上市数量。catalog的schema/path/四check身份审核一致，不需要新增entry。
+- 原`adj_factor_silver_history.py`提供`plan_silver_adj_factor_rebuild`、`freeze/load_silver_adj_factor_rebuild`、`build_silver_adj_factor_rebuild_candidates`、`promote_silver_adj_factor_rebuild`、`verify_silver_adj_factor_rebuild`及事件preview/report入口。计划包含预算、名单、Raw/Silver和源码强指纹；最多64日比较，按日COPY。完整候选审计冻结每份候选记录指纹，提升前及逐文件核对，防止候选和记录同时被改后误提升。COPY及replace后fsync；replace后checkpoint失败按目标内容续跑，不回滚已完成文件。正式promote和events均默认拒绝，需明确维护窗口确认。
+- 100项针对性隔离回归及18个子测试通过，覆盖D股票退市前历史也排除、P/非CNY/未知身份/上市前排除、L真缺因子不放过、当前上市值不变、Raw和其他层不变、候选取消续跑、正式替换中取消、replace后记录失败恢复、幂等、输入漂移、候选损坏、候选记录篡改、预算和staging越界拒绝，以及run成功但检查绑定错误仍不得标记验收通过。未改或执行原25股因子值修正/行情/指标/state链。
+- 既有job的检查子集在隔离Dagster instance中登记2条新物化、创建2个真实check run并产生8条检查，全部绑定正确物化；零asset执行，幂等重放不追加物化或run。事件记录只有四项检查及绑定完整通过才标记`checks_verified`，不能仅凭run成功跳过未验证记录。
+- 通用性能文件依赖停牌专项启动器，直接收集曾失败，没有放宽或绕过保护；因子独立测试使用5,000只上市股、1只退市股的十日夹具，扫描20个因子文件，42条SQL（40条schema/列查询及2条聚合），满足既有10秒预算。资产治理改用已有受保护启动器，12项及其子测试通过，schema、分区、catalog、check身份均保持一致；原保护文件/白名单未改。
+- 三个正式日期仅只读核验：2020-02-28原3,588行→新规则3,577行，移除11；2026-06-03原5,525行→5,511行，移除14；2026-10-12原/新均5,573行。三个日期新增或改值均0，7个输入文件指纹读取前后不变。只读比较0.027秒、进程峰值RSS138.5MiB；不是正式候选生成或事件吞吐。
+- 本轮Python默认Ruff、全项目致命错误基线、文档完整性及差异检查通过。CodeGraph explore/impact及sync/status覆盖入口、调用方及共享生命周期影响面；未改变子系统依赖矩阵、Prod代码/文档、数据schema、job/check身份、sensor配置或API。
+
+本轮提交范围仅含S0因子Silver规则、受控重建工具及测试、三份原文档；原25股入口的本地待提交工具不混入本次提交，其scope选择在原25股任务恢复前按§18.3重新校准。当前正式执行记录：正式Lake、Prod、正式instance事件/分区/cursor零写入，没有部署、重新加载、启停服务或sensor。正式候选、文件覆盖、事件吞吐和自然日更仍待后续按S1—S4实测，当前旧Silver文件不能宣布已清理。

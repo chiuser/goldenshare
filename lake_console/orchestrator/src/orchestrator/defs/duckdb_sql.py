@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 from orchestrator.defs.corrections.suspend_timing import (
@@ -337,13 +338,35 @@ FROM {read_parquet(raw_path, hive_partitioning=False)}
 """
 
 
-def silver_adj_factor_select(raw_path: Path, stock_lifecycle_path: Path) -> str:
+def adj_factor_current_listed_stock_select(stock_lifecycle_path: Path) -> str:
+    """Factor-only current listing policy; other datasets retain lifecycle history."""
+    return f"""
+SELECT DISTINCT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(list_date AS DATE) AS list_date,
+  CAST(delist_date AS DATE) AS delist_date
+FROM {read_parquet(stock_lifecycle_path, hive_partitioning=False)}
+WHERE is_cny_stock
+  AND list_status = 'L'
+  AND ts_code IS NOT NULL
+  AND trim(CAST(ts_code AS VARCHAR)) != ''
+  AND list_date IS NOT NULL
+"""
+
+
+def silver_adj_factor_select(
+    raw_path: Path | Sequence[Path], stock_lifecycle_path: Path,
+) -> str:
+    raw_paths = (raw_path,) if isinstance(raw_path, Path) else tuple(raw_path)
+    if not raw_paths:
+        raise ValueError("At least one Raw factor partition is required")
+    normalized = "\nUNION ALL\n".join(adj_factor_normalized_select(path) for path in raw_paths)
     return f"""
 WITH normalized AS (
-  {adj_factor_normalized_select(raw_path)}
+  {normalized}
 ),
 stock_lifecycle AS (
-  {silver_cny_stock_lifecycle_select(stock_lifecycle_path)}
+  {adj_factor_current_listed_stock_select(stock_lifecycle_path)}
 )
 SELECT normalized.*
 FROM normalized
