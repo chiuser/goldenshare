@@ -659,3 +659,5 @@ instance、Lake、prod 或动态分区。**
 今后股票状态变化时，日常新分区仍按当时最新上市集合生成。已经生成的历史分区不会因修改SQL自动变化；若须让全历史再次符合最新名单，使用同一受控重建流程。此次不增加自动全历史清理、历史扫描sensor或永久reports依赖。
 
 方案、实现映射、预算、测试和正式验收统一见[修复方案§10](dagster-stock-adj-factor-history-repair-plan-v1.md#adj-factor-current-listed-plan)与[修复LLD§18](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-current-listed-migration)。文档已提交为`a6a75cc6`，随后仅因子Silver代码及隔离验证完成；重建候选、文件提升和事件登记只在临时夹具及隔离instance中验证，尚未对正式Lake或instance执行。
+
+2026-10-13正式预检发现规划SQL在连续多批查询中超出原RSS预算；已在同64日/512MiB/1GiB预算内改为每批临时结果只计算一次，完整只读规划19.18秒、峰值663.5MiB通过。当前Silver日更已生成10月13日，实际范围变为4,315文件、14,462,881行；仍仅4,267文件移除45,997行，新规则总计14,416,884行。详见修复LLD §18.9；正式候选和提升尚未执行。

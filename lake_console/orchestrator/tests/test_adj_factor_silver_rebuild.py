@@ -310,3 +310,42 @@ def test_successful_run_with_wrong_check_binding_is_not_treated_as_verified(rebu
         history.report_silver_adj_factor_rebuild_events(plan, run, instance=instance,
             definitions=definitions, maintenance_confirmed=True)
         assert instance.get_runs_count() == 3
+
+
+def test_full_market_multibatch_comparison_stays_within_process_budget(tmp_path):
+    import resource
+    import sys
+    from datetime import date, timedelta
+
+    from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+    from orchestrator.defs.duckdb_sql import duckdb_string
+
+    root = tmp_path / 'lake'
+    life = history.silver_stock_lifecycle_path(root)
+    life.parent.mkdir(parents=True)
+    temp = tmp_path / 'temp'
+    temp.mkdir()
+    days = [(date(2020, 1, 1) + timedelta(days=i)).isoformat() for i in range(256)]
+    with connect_configured_duckdb(history._rebuild_settings(temp), temp_policy='existing_no_spill') as connection:
+        connection.execute(f"""COPY (
+            SELECT printf('%06d.SZ',range) ts_code,true is_cny_stock,'L' list_status,
+                DATE '2010-01-01' list_date,NULL::DATE delist_date FROM range(1,5001)
+            UNION ALL SELECT '600000.SH',true,'D',DATE '2010-01-01',DATE '2026-01-01'
+        ) TO {duckdb_string(life)} (FORMAT PARQUET)""")
+        for day in days:
+            raw = history.raw_adj_factor_path(root, day)
+            silver = history.silver_adj_factor_path(root, day)
+            raw.parent.mkdir(parents=True)
+            silver.parent.mkdir(parents=True)
+            source = f"SELECT ts_code,DATE {duckdb_string(day)} trade_date,1.12345678::DOUBLE adj_factor FROM read_parquet({duckdb_string(life)})"
+            connection.execute(f'COPY ({source}) TO {duckdb_string(silver)} (FORMAT PARQUET)')
+            connection.execute(f"COPY (SELECT ts_code,strftime(trade_date,'%Y%m%d') trade_date,adj_factor FROM ({source})) TO {duckdb_string(raw)} (FORMAT PARQUET)")
+    for offset in range(0, len(days), 64):
+        batch = days[offset:offset+64]
+        with connect_configured_duckdb(history._rebuild_settings(temp), temp_policy='existing_no_spill') as connection:
+            observed = history._rebuild_batch_comparison(connection,
+                [history.raw_adj_factor_path(root,d) for d in batch],
+                [history.silver_adj_factor_path(root,d) for d in batch],life)
+        assert observed == {d: (5001,5000,1) for d in batch}
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        assert (peak if sys.platform == 'darwin' else peak * 1024) < history.REBUILD_MAX_RSS_BYTES

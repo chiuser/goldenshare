@@ -493,10 +493,11 @@ def _rebuild_batch_comparison(connection, raw_paths: Sequence[Path], silver_path
                 GROUP BY ts_code,trade_date HAVING count(*)>1))""").fetchone()
         if any(invalid):
             raise AdjFactorSilverRebuildError("rebuild_input_integrity_failed")
+    # Materialize one bounded batch once; repeated view expansion retains large query plans.
     source = " UNION ALL ".join(f"SELECT * FROM {read_parquet(path)}" for path in silver_paths)
-    connection.execute(f"CREATE OR REPLACE TEMP VIEW factor_rebuild_before AS {source}")
+    connection.execute(f"CREATE OR REPLACE TEMP TABLE factor_rebuild_before AS {source}")
     connection.execute(
-        "CREATE OR REPLACE TEMP VIEW factor_rebuild_expected AS "
+        "CREATE OR REPLACE TEMP TABLE factor_rebuild_expected AS "
         + silver_adj_factor_select(raw_paths, lifecycle_path)
     )
     retained_sql = adj_factor_current_listed_stock_select(lifecycle_path)
