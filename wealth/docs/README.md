@@ -157,6 +157,7 @@ docs/
 - [指数详情本地分钟 API / DTO 合同 v1（P10 1.1.0 已冻结，Gold-only）](./pages/index-detail/index-detail-minutes-api-contract-v1.md)
 - [上证徐小明研究指标 V0.1 页面展示基准（10 月 14 日 Figma 标记视觉已批准并同步四周期；本地技术验收通过，等用户复看）](./pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md)
 - [上证徐小明研究指标 V0.1 实施方案与 LLD（来源、算法、API／页面技术验收已完成；等用户验收，未部署）](./pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md)
+- [上证关键高低点条件预测第一步方案 V0.1（待确认；复用识别内核，四周期独立时间窗口与条件价；技术面底部文字，评分下一步；未实现）](./pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md)
 - [指数详情页 M0 生产因子审计 v1（2026-08-22 最终复验）](./pages/index-detail/index-detail-m0-production-audit-v1.md)
 - [指数详情页 M2 编码前门禁 v1（全部关闭）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)
 
